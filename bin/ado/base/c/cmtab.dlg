@@ -1,0 +1,207 @@
+/*
+	cmtab.dlg
+
+*!	VERSION 1.0.8  24apr2019
+
+*/
+
+VERSION 15.0
+
+INCLUDE _std_medium
+DEFINE _dlght 365
+INCLUDE header
+
+HELP hlp1, view("help cmtab")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource CMTAB_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program check_time
+	program main_tab_altvar
+END
+
+PROGRAM check_time
+BEGIN
+	call create STRING time
+	call time.setvalue char _dta[_cm_timevar]
+	if time.iseq("") {
+		call main.ck_time.disable
+	}
+	else {
+		call main.ck_time.enable
+	}
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	label(resource CMTAB_DLG_TITLE)
+BEGIN
+  DEFINE _x _xsetbu
+  DEFINE _y _top
+  INCLUDE _bu_cmset
+
+  TEXT tx_choice		_lft	_ss	_iwd	.,		///
+	label(resource LBL_CHOICE_DEP_VAR)
+  VARNAME vn_choice		@	_ss	_vnwd	.,		///
+	option(choice)							///
+	label(resource LBL_CHOICE_DEP_VAR)
+  GROUPBOX gb_options		_lft	_ls	_iwd	_ht22,		///
+	label(resource LBL_OPTIONS) 
+  CHECKBOX ck_tab_altvar	_ilft	_ss	_ibwd	.,		///
+	onclickon("program main_tab_altvar")				///
+	onclickoff("program main_tab_altvar")				///
+	label(resource LBL_TABULATE_ALTERNATIVES_BY)
+  VARNAME vn_tab_altvar		_iilft	_ss	_vnwd	.,		///
+	option(varname)							///
+	label(resource LBL_TABULATE_ALTERNATIVES_BY)
+  CHECKBOX ck_missing		_ilft	_ls	_ibwd	.,		///
+	option(missing)							///
+	label(resource LBL_INCLUDE_MISSING_VALS_IN_TABULATION)
+  CHECKBOX ck_trans		@	_ms	@	.,		///
+	option(transpose)						///
+	onclickon("program main_tab_altvar")				///
+	onclickoff("program main_tab_altvar")				///
+	label(resource LBL_TRANSPOSE_ROWS_AND_COLS)
+  CHECKBOX ck_time		@	_ms	@	.,		///
+	option(time)							///
+	onclickon("program main_tab_altvar")				///
+	onclickoff("program main_tab_altvar")				///
+	label(resource LBL_TABULATE_BY_TIME_VAR)
+  RADIO rb_time_default		@	_ls	@	., first	///
+	label(resource LBL_TABULATE_ALTERNATIVES_BY_TABULATION_VARS)
+  RADIO rb_timelast		@	_ss	@	., last		///
+	option(timelast)						///
+	label(resource LBL_TIME_VAR_THREE_WAY_TABULATION)
+  CHECKBOX ck_compact		@	_ms	@	.,		///
+	option(compact)							///
+	label(resource LBL_DISPLAY_THREE_WAY_TABULATION)
+  CHECKBOX ck_altwise		@	_ms	@	.,		///
+	option(altwise)							///
+	label(resource LBL_USE_ALTERNATIVEWISE_DELETION_INSTEAD_CASEWISE)	
+END
+
+PROGRAM main_tab_altvar
+BEGIN
+	if main.ck_tab_altvar {
+		call main.vn_tab_altvar.enable
+		call main.ck_missing.enable
+		call main.ck_trans.enable
+		call opt.ck_sort.disable
+	}
+	else {
+		call main.vn_tab_altvar.disable
+		call main.ck_missing.disable
+		call main.ck_trans.disable
+		call opt.ck_sort.enable
+	}
+
+	if main.ck_time & main.ck_tab_altvar {
+		call main.rb_time_default.enable
+		call main.rb_timelast.enable
+		call main.ck_compact.enable
+		call opt.ck_chi2.enable
+		call opt.ck_lrchi2.enable
+		call opt.ck_col.enable
+		call opt.ck_row.enable
+		call opt.ck_cell.enable
+		call opt.ck_rowsort.enable
+		call opt.ck_colsort.enable
+		call opt.ck_nokey.enable
+	}
+	else {
+		call main.rb_time_default.disable
+		call main.rb_timelast.disable
+		call main.ck_compact.disable
+
+		call opt.ck_chi2.disable
+		call opt.ck_lrchi2.disable
+		call opt.ck_col.disable
+		call opt.ck_row.disable
+		call opt.ck_cell.disable
+		call opt.ck_rowsort.disable
+		call opt.ck_colsort.disable
+		call opt.ck_nokey.disable
+	}
+END
+
+INCLUDE byifin
+INCLUDE weights_fi
+
+DIALOG opt, tabtitle(resource LBL_OPTIONS)
+BEGIN
+  CHECKBOX ck_sort		_lft	_top	_iwd	.,		///
+	option("sort")							///
+	label(resource LBL_DISPLAY_TABLE_IN_DESCENDING_ORDER_OF_FREQ)
+  GROUPBOX gb_tests		_lft	_ls	_iwd	_ht4h,		///
+	label(resource LBL_TEST_STATISTICS)
+  CHECKBOX ck_chi2		_indent	_ss	_inwd	.,		///
+	option("chi2")							///
+	label(resource LBL_PEARSONS_CHI_SQUARED) 
+  CHECKBOX ck_lrchi2 		@	_ms	@	.,		///
+	option("lrchi2")						///
+	label(resource _TAB2_CK_LRCHI2)
+  GROUPBOX gb_cell		_lft	_xls	_iwd	_ht7h,		///
+	label(resource _TAB2_GB_CELL)
+  CHECKBOX ck_col		_indent	_ss	_inwd	.,		///
+	option("column")						///
+	label(resource _TAB2_CK_COL)
+  CHECKBOX ck_row		@	_ms	@	.,		///
+	option("row")							///
+	label(resource _TAB2_CK_ROW)
+  CHECKBOX ck_cell		@	_ms	@	.,		///
+	option("cell")							///
+	label(resource LBL_WITHIN_CELL_RELATIVE_FREQ)
+  GROUPBOX gb_display		_lft	_xls	_iwd	_ht7h,		///
+	label(resource LBL_DISPLAY)
+  CHECKBOX ck_rowsort		_indent	_ss	_inwd	.,		///
+	option("rowsort")						///
+	label(resource _TAB2_CK_ROWSORT)
+  CHECKBOX ck_colsort		@	_ms	@	.,		///
+	option("colsort")						///
+	label(resource _TAB2_CK_COLSORT)
+  CHECKBOX ck_nokey		@	_ms	@	.,		///
+	option("nokey")							///
+	label(resource _TAB2_CK_NOKEY)
+END
+  
+PROGRAM opt_output
+BEGIN
+	option opt.ck_sort
+	option opt.ck_chi2
+	option opt.ck_lrchi2
+	option opt.ck_col
+	option opt.ck_row
+	option opt.ck_cell
+	option opt.ck_rowsort
+	option opt.ck_colsort
+	option opt.ck_nokey
+END
+
+PROGRAM command
+BEGIN
+	require main.vn_choice
+	put /program by_output
+	put "cmtab "
+	if main.ck_tab_altvar {
+		require main.vn_tab_altvar
+		put main.vn_tab_altvar
+	}
+	put " " /program ifin_output
+	put " " /program weights_output
+	
+	beginoptions
+		optionarg main.vn_choice
+		
+		option main.ck_altwise
+		option main.ck_missing
+		option main.ck_trans
+		option main.ck_time
+		option main.rb_timelast
+		option main.ck_compact
+		put " " /program opt_output
+	endoptions
+END

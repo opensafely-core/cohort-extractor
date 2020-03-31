@@ -1,0 +1,307 @@
+// twoway_sunflower_parse
+//
+// A parser for sunflower density plots.  Works with twoway.ado.
+//
+*! version 1.1.0  06jul2017
+
+version 8
+
+class {
+instance:
+
+	string yvar
+	string cvar	= "_freq"	// count-variable name
+	string xvar
+	string genopts
+	double binwidth	= 0		// diameter
+	double binar	= 0		// aspect ratio
+	double yc	= 0		// y-center
+	double yr	= 0		// y-range
+	double ymin	= 0		// y-minimum
+	double ymax	= 0		// y-maximum
+	double xc	= 0		// x-center
+	double xr	= 0		// x-range
+	double xmin	= 0		// x-minimum
+	double xmax	= 0		// x-maximum
+	double light	= 3		// min bin count for light flower
+	double dark	= 13		// min bin count for dark flower
+	double pw	= 0		// dark flower petal weight
+	double pl	= 100		// petal length (% of binwidth/2)
+	string singlepetal	= ""	// indicator to draw a single petal
+
+} , inherit(twoway_yxview_parse)
+
+// ---------------------------------------------------------------------------
+// Parse the sunflower view and fill-in the parsing information.
+// Leaves any unparsed options in .options.
+
+program parse
+	.must_create_serset = 1
+	.viewtype	= "sunflower"
+	.viewclass	= "sunflower_g"
+ 	.n = 1						// number of plots
+	.varcheck = 0					// side signals
+	.allow_anything	= 1
+
+	.Super.parse `0'
+
+	_clsarr2list mlablist : labvars			// allow marker labels
+	local vlist `.anything'
+	local vlist : list vlist - mlablist
+
+	local options `"`vlist' [`.wtype'`.wtexp'], `.options'"'
+	_parse expand loc glob : options
+	if `loc_n' != 1 {
+		error 198
+	}
+	local 0 `"`loc_1'"'
+
+	// options used by -twoway__sunflower_gen- (data generator)
+	_parse combop 0 : 0 , option(BINWidth)		rightmost
+	_parse combop 0 : 0 , option(BINAR)		rightmost
+	_parse combop 0 : 0 , option(XCENter)		rightmost
+	_parse combop 0 : 0 , option(YCENter)		rightmost
+	_parse combop 0 : 0 , option(LIght)		rightmost
+	_parse combop 0 : 0 , option(DArk)		rightmost
+	_parse combop 0 : 0 , option(PETALWeight)	rightmost
+	_parse combop 0 : 0 , option(PETALLength)	rightmost
+
+	// parse the generator's options
+	twoway__sunflower_gen `0'
+	local options	`"`r(options)'"'
+	.varlist	= "`r(varlist)'"
+	.wtype		= "`r(wtype)'"
+	.wtexp		= "`r(wtexp)'"
+	.binwidth	= r(binwidth)
+	.binar		= r(binar)
+	.yc		= r(yc)
+	.yr		= r(yr)
+	.ymin		= r(ymin)
+	.ymax		= r(ymax)
+	.xc		= r(xc)
+	.xr		= r(xr)
+	.xmin		= r(xmin)
+	.xmax		= r(xmax)
+	.light		= r(light)
+	.dark		= r(dark)
+	.pw		= r(pw)
+	.pl		= r(pl)
+	.singlepetal	= "`r(singlepetal)'"
+
+	tokenize `.varlist'
+	.yvar = "`1'"
+	.xvar = "`2'"
+
+	local genopts			///
+		binwidth(`.binwidth')	///
+		binar(`.binar')		///
+		ycenter(`.yc')		///
+		yrange(`.yr')		///
+		ymin(`.ymin')		///
+		ymax(`.ymax')		///
+		xcenter(`.xc')		///
+		xrange(`.xr')		///
+		xmin(`.xmin')		///
+		xmax(`.xmax')		///
+		light(`.light')		///
+		dark(`.dark')		///
+		pw(`.pw')		///
+		pl(`.pl')		///
+		`.singlepetal'		///
+		// blank
+	.genopts = `"`:list retok genopts'"'
+
+	// parse other style options
+	.sf_parse_opts , `options'
+end
+
+// ---------------------------------------------------------------------------
+
+program sf_parse_opts
+
+	local 0 `"`.sf_factor `0''"'
+	_parse factordot  0 : 0 , n(`.n')
+	_parse combine    0 : 0
+
+	syntax [ , P1(string asis) * ]
+	.plotstyles[1] = `"`.plotstyles[1]' `p1'"'
+
+	.options = `"`options'"'
+end
+
+program sf_factor, rclass
+
+						// lighthexbin style options
+
+	_parse combop 0 : 0 , option(LBSTyle) rightmost
+	_parse factor 0 : 0 , option(LBSTyle) to(lighthexbin(X))
+	_parse combop 0 : 0 , option(LBColor) rightmost
+	_parse factor 0 : 0 , option(LBColor)				///
+		to(lighthexbin(shadestyle(color(X)) linestyle(color(X))))
+	_parse combop 0 : 0 , option(LBFColor) rightmost
+	_parse factor 0 : 0 , option(LBFColor)				///
+		to(lighthexbin(shadestyle(color(X))))
+	_parse combop 0 : 0 , option(LBFIntensity) rightmost
+	_parse factor 0 : 0 , option(LBFIntensity)			///
+		to(lighthexbin(shadestyle(intensity(X))))
+	_parse combop 0 : 0 , option(LBLstyle) rightmost
+	_parse factor 0 : 0 , option(LBLstyle) to(lighthexbin(linestyle(X))) 
+	_parse combop 0 : 0 , option(LBLColor) rightmost
+	_parse factor 0 : 0 , option(LBLColor)				///
+		to(lighthexbin(linestyle(color(X)))) 
+	_parse combop 0 : 0 , option(LBLPattern) rightmost
+	_parse factor 0 : 0 , option(LBLPattern)  			///
+		to(lighthexbin(linestyle(pattern(X))))   
+	_parse combop 0 : 0 , option(LBLWidth) rightmost
+	_parse factor 0 : 0 , option(LBLWidth)				///
+		to(lighthexbin(linestyle(width(X))))   
+	_parse combop 0 : 0 , option(LBLAlign) rightmost
+	_parse factor 0 : 0 , option(LBLAlign)				///
+		to(lighthexbin(linestyle(align(X))))   
+
+						// lightflower line style
+
+	_parse combop 0 : 0 , option(LFLStyle) rightmost
+	_parse factor 0 : 0 , option(LFLStyle) to(lightflower(X))	
+	_parse combop 0 : 0 , option(LFLColor) rightmost
+	_parse factor 0 : 0 , option(LFLColor) to(lightflower(color(X))) 
+	_parse combop 0 : 0 , option(LFLWidth) rightmost
+	_parse factor 0 : 0 , option(LFLWidth) to(lightflower(width(X))) 
+	_parse combop 0 : 0 , option(LFLPattern) rightmost
+	_parse factor 0 : 0 , option(LFLPattern) to(lightflower(pattern(X))) 
+
+						// darkhexbin style options
+
+	_parse combop 0 : 0 , option(DBSTyle) rightmost
+	_parse factor 0 : 0 , option(DBSTyle) to(darkhexbin(X))		
+	_parse combop 0 : 0 , option(DBColor) rightmost
+	_parse factor 0 : 0 , option(DBColor)				///
+		to(darkhexbin(shadestyle(color(X)) linestyle(color(X))))
+	_parse combop 0 : 0 , option(DBFColor) rightmost
+	_parse factor 0 : 0 , option(DBFColor)				///
+		to(darkhexbin(shadestyle(color(X))))
+	_parse combop 0 : 0 , option(DBFIntensity) rightmost
+	_parse factor 0 : 0 , option(DBFIntensity)			///
+			      to(darkhexbin(shadestyle(intensity(X))))
+	_parse combop 0 : 0 , option(DBLstyle) rightmost
+	_parse factor 0 : 0 , option(DBLstyle) to(darkhexbin(linestyle(X))) 
+	_parse combop 0 : 0 , option(DBLColor) rightmost
+	_parse factor 0 : 0 , option(DBLColor)				///
+		to(darkhexbin(linestyle(color(X)))) 
+	_parse combop 0 : 0 , option(DBLPattern) rightmost
+	_parse factor 0 : 0 , option(DBLPattern)  			///
+		to(darkhexbin(linestyle(pattern(X))))   
+	_parse combop 0 : 0 , option(DBLWidth) rightmost
+	_parse factor 0 : 0 , option(DBLWidth)				///
+		to(darkhexbin(linestyle(width(X))))   
+	_parse combop 0 : 0 , option(DBLAlign) rightmost
+	_parse factor 0 : 0 , option(DBLAlign)				///
+		to(darkhexbin(linestyle(align(X))))   
+
+						// darkflower line style
+
+	_parse combop 0 : 0 , option(DFLStyle) rightmost
+	_parse factor 0 : 0 , option(DFLStyle) to(darkflower(X))	
+	_parse combop 0 : 0 , option(DFLColor) rightmost
+	_parse factor 0 : 0 , option(DFLColor) to(darkflower(color(X))) 
+	_parse combop 0 : 0 , option(DFLWidth) rightmost
+	_parse factor 0 : 0 , option(DFLWidth) to(darkflower(width(X))) 
+	_parse combop 0 : 0 , option(DFLPattern) rightmost
+	_parse factor 0 : 0 , option(DFLPattern) to(darkflower(pattern(X))) 
+
+	return local options `"`0'"'
+
+	class exit `"`0'"'
+end
+
+// ---------------------------------------------------------------------------
+
+program log_create_view
+
+	syntax ,			/// 
+		SERSET(string)		///
+		[			///
+		YVARiable(passthru)	///
+		XVARiable(passthru)	///
+		CVARiable(passthru)	///
+		*			///
+	]
+
+	tokenize `.varlist'
+	if `"`yvariable'"' == `""' {
+		local yvariable yvariable(\`.`serset'.seriesof `1'')
+	}
+	if `"`cvariable'"' == `""' {
+		local cvariable cvariable(\`.`serset'.seriesof `2'')
+	}
+	if `"`xvariable'"' == `""' {
+		local xvariable xvariable(\`.`serset'.seriesof `3'')
+	}
+
+	.Super.log_create_view,			///
+		serset(`serset')		///
+		`macval(yvariable)'		///
+		`macval(cvariable)'		///
+		`macval(xvariable)'		///
+		`macval(options)'		///
+		`.genopts'			///
+		// blank
+end
+
+// ---------------------------------------------------------------------------
+/*
+	Creates a new serset and the view and returns its reference.
+	Assumes that the data in memory is the same as when parse was called.
+
+	Allows a touse(varname) option that further restricts the sample, 
+	restricts beyond the held .if and .in
+
+	Additional options to the .serset.new command may be specified, but
+	this is unlikely to be necessary.
+
+	If must_create_serset == 1, then this command MUST be used, 
+	otherwise the serset may be created by other means.
+*/ 
+
+program log_create_serset
+
+	syntax , LOG(name) SERSETNAME(string) [ TOUSE(string) * ]
+
+	.log_touse , log(`log') touse(`touse')
+
+	tempvar touse2
+	mark `touse2' `.if' `.in'
+	qui replace `touse2' = 0 if !`touse'
+
+	local nolog  .`log'.Arrpush __NOLOG__
+
+	// generate the bin centers and their counts
+	`nolog' tempname y cnt x id
+	`nolog' twoway__sunflower_gen `.varlist'	///
+		[`.wtype'`.wtexp'] if \`touse1',	///
+		`.genopts'				///
+		generate(\`y' \`cnt' \`x')		///
+		// blank
+	`nolog' gen long \`id' = _n
+
+	.`log'.Arrpush				///
+		.`sersetname' = .serset.new	///
+			\`y' \`cnt' \`x' \`id'	///
+			if !missing(\`cnt'),	///
+			nocount			///
+			`.omitmethod'		///
+			`options'
+
+	`nolog' .`sersetname'.sort \`cnt' \`id'
+	`nolog' .`sersetname'.sers[1].name = "`.yvar'"
+	`nolog' .`sersetname'.sers[2].name = "`.cvar'"	
+	`nolog' .`sersetname'.sers[3].name = "`.xvar'"	
+	`nolog' .`sersetname'.sers[4].name = "_sort_id"
+	.varlist = "`.yvar' `.cvar' `.xvar'"
+
+	// remove weights, they are not needed
+	.wtype = ""
+	.wtexp = ""
+end
+
+exit

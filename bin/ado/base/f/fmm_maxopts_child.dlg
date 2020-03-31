@@ -1,0 +1,157 @@
+/*
+  fmm_maxopts_child.dlg
+
+*!  VERSION 1.0.4  30jan2020
+
+*/
+
+VERSION 15.0
+
+INCLUDE _std_xlarge
+DEFINE _dlght 260
+INCLUDE header
+
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource FMM_MAXOPTS_CHILD_DLG_HSCALE
+
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program parseMessage
+END
+
+PROGRAM parseMessage
+BEGIN
+	if __MESSAGE.contains("default") {
+		call main.sp_iter.setdefault c(maxiter)
+		call main.ed_tol.setdefault "1e-6"
+		call main.ed_ltol.setdefault "1e-7"
+		call main.sp_iter.setvalue c(maxiter)
+		call main.ed_tol.setvalue "1e-6"
+		call main.ed_ltol.setvalue "1e-7"
+	}
+	if __MESSAGE.contains("em") {
+		call main.sp_iter.setdefault 20
+		call main.ed_tol.setdefault "1e-4"
+		call main.ed_ltol.setdefault "1e-6"
+		call main.sp_iter.setvalue 20
+		call main.ed_tol.setvalue "1e-4"
+		call main.ed_ltol.setvalue "1e-6"
+	}
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  CHECKBOX ck_diff		_lft	_top	350		.,	///
+	option(difficult)						///
+	label(resource LBL_USE_DIFFERENT_STEP_ALGORITHM_NONCONCAVE_REGIONS)
+  COMBOBOX cb_tech		_lft	_ms	120		.,	///
+	dropdownlist option(technique) 					///
+	contents(main_technique_con) values(main_technique_val)
+
+  DEFINE holdy @y
+  TEXT     tx_tech		+125	@	140		.,	///
+	label(resource LBL_OPTIMIZATION_TECHNIQUE)
+  SPINNER  sp_iter		280	holdy	_spwd		.,	///
+	label(resource LBL_MAXIMUM_ITERATIONS) option(iterate)		///
+	min(0) max(16000) default(c(maxiter))
+  TEXT     tx_iter		_spsep	@	145		.,	///
+	label(resource LBL_MAXIMUM_ITERATIONS)
+
+  GROUPBOX gb_ilog		_lft	_ls	_cwd4_1		_ht4,	///
+	label(resource LBL_ITERATION_LOG)
+  DEFINE holdy @y
+
+  RADIO   rb_log		_indent	_ss	_inwd		.,	///
+	label(resource LBL_SHOW) first option(log)			///
+	onclickon(program main_logging_check)
+  RADIO   rb_nolog  		@	_ss	@		.,	///
+	label(resource LBL_SUPPRESS) last option(nolog)			///
+	onclickon(program main_logging_check)
+  GROUPBOX gb_log		_lft4_2	holdy	_comb4_1	 _ht4,	///
+	label(resource LBL_ELEMENTS_DISPLAY_ITER_LOG)
+  CHECKBOX ck_trace		_indent	_ss	_cwd4_2		.,	///
+	label(resource LBL_PARAMETER) option(trace)
+  DEFINE holdy @y
+  CHECKBOX ck_grad		@	_ss	@		.,	///
+	label(resource LBL_GRADIENT) option(gradient)
+  CHECKBOX ck_show		_ilft4_3 holdy	@		.,	///
+	label(resource LBL_STEPS) option(showstep)
+  CHECKBOX ck_hess		@	_ss	@		.,	///
+	label(resource LBL_MAX_ML_NEG_HESSIAN) option("hessian")
+  CHECKBOX ck_shownr            _ilft4_4  @         @         .,	///
+  	label(resource LBL_TOLERANCE) option(showtolerance)
+  GROUPBOX gb_tol		_lft	_xls	_iwd		_ht6,	///
+	label(resource LBL_CONVERGENCE_TOLERANCE)
+  EDIT     ed_tol		_ilft	_ss	_en7wd		.,	///
+	label(resource LBL_COEFFICIENT_VECTOR) option(tolerance) default(1e-6)
+  TEXT     tx_tol		_en7sep	@	_en7r2b		.,	///
+	label(resource LBL_COEFFICIENT_VECTOR)
+  EDIT     ed_nrtol		230	@	_en7wd		.,	///
+	label(resource LBL_HSG) option(nrtolerance) default(1e-5)
+  TEXT     tx_nrtol		_en7sep	@	185		.,	///
+	label(resource LBL_HSG)
+  EDIT     ed_ltol		_ilft	_ls	_en7wd		.,	///
+	label(resource LBL_LOG_LIKELIHOOD) option(ltolerance) default(1e-7)
+  TEXT     tx_ltol		_en7sep	@	_en7r2b		.,	///
+	label(resource LBL_LOG_LIKELIHOOD)
+END
+
+PROGRAM main_logging_check
+BEGIN
+	if (!H(main.rb_log) & main.rb_log) {
+		call main.ck_trace.enable
+		call main.ck_grad.enable
+		call main.ck_hess.enable
+		call main.ck_show.enable
+		call main.ck_shownr.enable
+		call main.gb_log.enable
+	}
+	if (!H(main.rb_log) & main.rb_nolog) {
+		call main.ck_trace.disable
+		call main.ck_grad.disable
+		call main.ck_hess.disable
+		call main.ck_show.disable
+		call main.ck_shownr.disable
+		call main.gb_log.disable
+	}
+END
+
+
+LIST main_technique_con
+BEGIN
+	resource LBL_DEFAULT
+	resource LBL_LIST_TECHNIQUE_NEWTON
+	resource LBL_LIST_TECHNIQUE_BHHH
+	resource LBL_LIST_TECHNIQUE_BFGS
+	resource LBL_LIST_TECHNIQUE_DFP
+END
+LIST main_technique_val
+BEGIN
+	""
+	"nr"
+	"bhhh"
+	"bfgs"
+	"dfp"
+END
+
+
+PROGRAM command
+BEGIN
+	option main.ck_diff
+	optionarg /hidedefault main.cb_tech
+	optionarg /hidedefault main.sp_iter
+	option main.rb_nolog
+	option main.ck_trace
+	option main.ck_grad
+	option main.ck_show
+	option main.ck_hess
+	option main.ck_shownr
+	optionarg /hidedefault main.ed_tol
+	optionarg /hidedefault main.ed_ltol
+	optionarg /hidedefault main.ed_nrtol
+END

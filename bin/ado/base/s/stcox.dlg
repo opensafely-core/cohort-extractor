@@ -1,0 +1,326 @@
+/*
+  stcox
+
+*!  VERSION 1.4.0  15dec2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 335
+INCLUDE header
+
+HELP hlp1, view("help stcox")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	program parseMessage
+	script se_createAsSvyInternalML
+	script se_setNoAdjust_on
+	create BOOLEAN stcox_robust
+	program svy_check_title
+	setscale_hadj resource STCOX_DLG_HSCALE
+END
+
+PROGRAM parseMessage
+BEGIN
+	if __MESSAGE.contains("__MI__") {
+		call script se_setMI_on
+		call main.bu_stset.hide
+	}
+	else {
+		call main.bu_mi_stset.hide
+	}
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program check_bytab
+	program se_setFinalInitState
+END
+
+PROGRAM check_bytab
+BEGIN
+	if ! __MESSAGE.contains("__MI__") {
+		call script sub_set_by_on
+	}
+END
+
+SCRIPT svy_is_on
+BEGIN
+	main.ck_est.disable
+	main.tx_shared.disable
+	main.vn_shared.disable
+	main.gb_tied.disable
+	main.rb_breslow.disable
+	main.rb_efron.disable
+	main.rb_exactm.disable
+	main.rb_exactp.disable
+	script max_setDefaultNoLog
+	tv.ck_tvc.disable
+	script tvc_off
+
+END
+SCRIPT svy_is_off
+BEGIN
+	main.ck_est.enable
+	main.tx_shared.enable
+	main.vn_shared.enable
+	main.gb_tied.enable
+	main.rb_breslow.enable
+	main.rb_efron.enable
+	main.rb_exactm.enable
+	main.rb_exactp.enable
+	script max_setDefaultLog
+	program check_tvc
+END
+PROGRAM check_tvc
+BEGIN
+	if (main.rb_exactm | main.rb_exactp) {
+		call tv.ck_tvc.disable
+		call program exact_on
+	}
+	else {
+		call tv.ck_tvc.enable
+		call script tvc_off
+		call program exact_off
+	}
+END
+PROGRAM svy_check_title
+BEGIN
+	if __MESSAGE.contains("-svy-") {
+		call settitle resource STCOX_DLG_SVY_TITLE
+	}
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)				///
+	title(resource STCOX_DLG_TITLE) // has svy title
+BEGIN
+  DEFINE _x _xsetbu
+  DEFINE _y _top
+  INCLUDE _bu_stset
+  BUTTON   bu_mi_stset _x        _y        _setbuwd  .,			/*
+		*/ onpush("view dialog mi_stset")			/*
+		*/ label(resource LBL_SURVIVAL_SETTINGS)		/*
+		*/ tooltip(resource LBL_DECLARE_DATA_TO_BE_SURVIVAL_TIME_DATA)
+
+  TEXT     tx_iv     _lft      _topph    _comb4_3  .,			/*
+		*/ label(resource LBL_INDDEPVAR)			/*
+		*/
+  VARLIST  vl_iv     _lft      _ss       _iwd      .,			/*
+		*/ label(resource LBL_INDDEPVAR) fv			/*
+		*/ numeric						/*
+		*/
+  CHECKBOX ck_est    @         _ls       @         .,			/*
+		*/ label(resource STCOX_MAIN_CK_EST)			/*
+		*/ option("estimate")					/*
+		*/ onclickon(main.vl_iv.disable)			/*
+		*/ onclickoff(main.vl_iv.enable)
+  GROUPBOX gb_output _lft      _ls       _cwd1      _ht15,		/*
+		*/ label(resource LBL_OPTIONS)				/*
+		*/
+DEFINE y @y
+  TEXT     tx_strata _ilft     _ss       _inwd     .,			/*
+		*/ label(resource STCOX_MAIN_TX_STRATA)			/*
+		*/
+  VARLIST  vn_strata @         _ss       @         .,			/*
+		*/ label(resource STCOX_MAIN_TX_STRATA)			/*
+		*/ option("strata")					/*
+		*/
+  TEXT     tx_shared @         _ls       _cwd3     .,			/*
+		*/ label(resource STCOX_MAIN_TX_SHARED)			/*
+		*/
+  VARNAME  vn_shared @         _ss       _vnwd     .,			/*
+		*/ label(resource STCOX_MAIN_TX_SHARED)			/*
+		*/ option("shared")					/*
+		*/
+  TEXT     tx_offset _ilft     _ls       _cwd3     .,			/*
+		*/ label(resource LBL_OFFSET_VARIABLE)			/*
+		*/
+  VARNAME  vn_offset @         _ss       _vnwd     .,			/*
+		*/ label(resource LBL_OFFSET_VARIABLE)			/*
+		*/ option("offset")					/*
+		*/
+
+  GROUPBOX gb_tied   _lft2     y         _cwd1     _ht15,		/*
+		*/ label(resource STCOX_MAIN_GB_TIED)			/*
+		*/
+  RADIO    rb_breslow _indent  _ls       _cwd3     .,			/*
+		*/ label(resource LBL_BRESLOW)				/*
+		*/ clickon("program exact_off")				/*
+		*/ first						/*
+		*/ option("NONE")					/*
+		*/
+  DEFINE y @y
+  RADIO    rb_efron  @         _ss       @         .,			/*
+		*/ label(resource LBL_EFRON)				/*
+		*/ clickon("program exact_off")				/*
+		*/ option("efron")					/*
+		*/
+  RADIO    rb_exactm @         _ss       @         .,			/*
+		*/ label(resource LBL_EXACT_MARGINAL_LIKELIHOOD)	/*
+		*/ clickon("program exact_on")				/*
+		*/ option("exactm")					/*
+		*/
+  RADIO    rb_exactp @         _ss       @         .,			/*
+		*/ label(resource STCOX_MAIN_RB_EXACTP)			/*
+		*/ clickon("program exact_on")				/*
+		*/ last							/*
+		*/ option("exactp")					/*
+		*/
+END
+
+PROGRAM exact_on
+BEGIN
+	if stcox_robust {
+		call script se_setClRobust_off
+		call stcox_robust.setfalse
+	}
+
+	call script exacton
+END
+
+SCRIPT exacton
+BEGIN
+	tv.ck_tvc.disable
+	script tvc_off
+END
+
+PROGRAM exact_off
+BEGIN
+	if !stcox_robust {
+		call script se_setClRobust_on
+		call stcox_robust.settrue
+	}
+
+	call script exactoff
+	if tv.ck_tvc {
+		call script tvc_on
+	}
+END
+
+SCRIPT exactoff
+BEGIN
+	tv.ck_tvc.enable
+END
+
+DIALOG tv, tabtitle(resource STCOX_TAB_TV)
+BEGIN
+  CHECKBOX ck_tvc    _lft      _top      _iwd      _ht8,		/*
+		*/ label(resource STCOX_TV_CK_TVC)			/*
+		*/ clickon("script tvc_on")				/*
+		*/ clickoff("script tvc_off")				/*
+		*/ groupbox						/*
+		*/
+  VARLIST  vl_tvc    _indent   _ms       _ibwd     .,			/*
+		*/ fv							/*
+		*/ label(resource STCOX_TV_CK_TVC)			/*
+		*/ option("tvc")					/*
+		*/
+  TEXT     tx_texp   @         _ls       @         .,			/*
+*/ label(resource LBL_MULTIPLIER_FOR_TIME_VARYING_COV_DEFAULT_T)	/*
+		*/
+  EDIT     ed_texp   @         _ss       @         .,			/*
+		*/ label(resource LBL_MULTIPLIER_FOR_TIME_VARYING_COV)	/*
+		*/ option("texp")					/*
+		*/ default(_t)						/*
+		*/
+END
+
+INCLUDE sub_by_ifin_over_subpop
+INCLUDE se
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+	program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2b
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  CHECKBOX ck_nohr   _lft      _ls      _cwd0     .,			/*
+		*/ label(resource STCOX_RPT_CK_NOHR)			/*
+		*/ option("nohr")					/*
+		*/
+  CHECKBOX ck_noshow @         _ms       @         .,			/*
+		*/ label(resource LBL_DO_NOT_SHOW_ST_SETTING_INFORMATION) /*
+		*/ option("noshow")					/*
+		*/
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+
+PROGRAM rpt_output
+BEGIN
+	optionarg /hidedefault rpt.sp_level
+	option rpt.ck_nohr
+	option rpt.ck_noshow
+	INCLUDE _report_columns_pr
+	put " " rpt_bu_facvarsResults
+	put " " rpt_bu_fmtcoefResults
+END
+
+SCRIPT tvc_on
+BEGIN
+	tv.vl_tvc.enable
+	tv.tx_texp.enable
+	tv.ed_texp.enable
+END
+
+SCRIPT tvc_off
+BEGIN
+	tv.vl_tvc.disable
+	tv.tx_texp.disable
+	tv.ed_texp.disable
+END
+
+INCLUDE max_internal
+
+PROGRAM command
+BEGIN
+	put /program by_output " "
+	put /program se_prefix_output " "
+	put "stcox "
+	varlist [main.vl_iv]
+	put " " /program ifin_output
+	beginoptions
+		optionarg main.vn_strata
+		if tv.ck_tvc {
+			require tv.vl_tvc
+			optionarg tv.vl_tvc
+			optionarg tv.ed_texp
+		}
+		put " " /program se_output
+		optionarg main.vn_shared
+		/* not doing frailty(gamma) because implied by shared() */
+
+		option radio(main rb_breslow rb_efron rb_exactm rb_exactp)
+		option main.ck_est
+		optionarg main.vn_offset
+		put " " /program rpt_output
+		put " " /program max_output
+	endoptions
+END

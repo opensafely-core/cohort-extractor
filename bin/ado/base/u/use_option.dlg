@@ -1,0 +1,96 @@
+/*
+	use
+
+*! VERSION 2.1.4  03mar2020
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+DEFINE	_dlght 170
+INCLUDE header
+HELP hlp1, view("help use")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource USE_OPTION_DLG_HSCALE
+END
+
+SCRIPT PREINIT_SCRIPT
+BEGIN
+	create ARRAY main_using_variables
+	create DOUBLE main_des_error
+	
+        main.fi_use.formatfilter "{0} (*.dta)|*.dta|{1} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_DTA_FILES" "resource ui_ex FILE_TYPE_ALL_FILES"
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN) label(resource USE_OPTION_DLG_TITLE)
+BEGIN
+  TEXT tx_use			_lft	_top	_iwd	.,		///
+	label(resource LBL_FILENAME)
+
+  FILE fi_use			@	_ss	@	.,		///
+	option(using)							///
+	error(resource LBL_FILENAME)					///
+	defext(dta)							///
+	label(resource LBL_BU_BROWSE)
+
+  TEXT tx_using			@	_ls	_iwd	.,		///
+	label(resource USE_OPTION_MAIN_TX_USING)
+  COMBOBOX cb_using		_lft	_ss	320	.,		///
+	append								///
+	dropdown							///
+	contents(main_using_variables)					///
+	label(resource USE_OPTION_MAIN_CB_USING)
+  BUTTON bu_pop			335	@	80	.,		///
+	tooltip(resource LBL_POPULATE_COMBOBOX_VARLIST_DATASET_ON_DISK)	///
+	onpush(program main_populate_using)				///
+	label(resource LBL_POPULATE)
+
+  CHECKBOX ck_clear		_lft	+35	_iwd	.,		///
+	option(clear)							///
+	nomem								///
+	label(resource LBL_REPLACE_DATA_IN_MEMORY)
+
+  CHECKBOX ck_nolabel		@	_ms	@	.,		///
+	label(resource LBL_OMIT_VALUE_LABELS_FROM_THE_SAVED_DATASET)	///
+	option(nolabel)
+END
+
+PROGRAM main_populate_using
+BEGIN
+	require main.fi_use
+	call main_des_error.setvalue 0
+	put "use_option_wrk_dlg using "
+	put `"""'
+	put main.fi_use
+	put `"""'
+	stata hidden immediate
+
+	if main_des_error {
+		stopbox stop resource LBL_MSGBOX_UNABLE_GET_VARIABLES_FROM_DTA_ON_DISK
+// Unable to get variables from dataset on disk.
+	}
+	call main.cb_using.repopulate
+END
+
+INCLUDE ifin
+
+PROGRAM command
+BEGIN
+	require main.fi_use
+	put "use "
+	put main.cb_using
+	put " " /program ifin_output
+	if ifin_has_output | main.cb_using {
+		put " using "
+	}
+	put `"""' main.fi_use `"""'
+	beginoptions
+		option main.ck_clear
+		option main.ck_nolabel
+	endoptions
+END

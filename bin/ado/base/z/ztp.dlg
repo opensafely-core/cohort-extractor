@@ -1,0 +1,196 @@
+/*
+  ztp
+
+*!  VERSION 1.1.12  29nov2018 (deprecated)
+
+  keyword:  eclass
+
+*/
+
+VERSION 12.0
+
+INCLUDE _std_xlarge
+INCLUDE header
+
+HELP hlp1, view("help ztp")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource ZTP_DLG_HSCALE
+
+	script se_createAsSvyJknifeBstrapML
+	program svy_check_title
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script sub_set_by_on
+	program se_setFinalInitState
+END
+
+SCRIPT svy_is_on
+BEGIN
+	script max_setDefaultNoLog
+END
+SCRIPT svy_is_off
+BEGIN
+	script max_setDefaultLog
+END
+PROGRAM svy_check_title
+BEGIN
+	if __MESSAGE.contains("-svy-") {
+		call settitle "svy: ztp - Zero-truncated Poisson regression for survey data"
+	}
+END
+
+DIALOG main, tabtitle("Model")						///
+	/// **** has svy title ****					///
+	title("ztp - Zero-truncated Poisson regression")
+BEGIN
+  TEXT tx_dv 		_lft	_top	_vnwd	.,			///
+	label("Dependent variable:")
+  VARNAME vn_dv		@ 	_ss	@	.,			///
+	ts								///
+	numeric								///
+	label("Dependent variable")
+
+  TEXT tx_iv		_vlx	_top	160	.,			///
+	label("Independent variables:")
+  VARLIST vl_iv		@	_ss	_vlwd	.,			///
+	ts fv								///
+	allowcat							///
+	numeric								///
+	label("Independent variables")
+
+  CHECKBOX ck_nocons   @           _ms       @           .,		///
+		label("Suppress constant term")				///
+		option("noconstant")
+
+  GROUPBOX gb_opt      _lft        _ls       _iwd        _ht10, 	///
+		label("Options")
+
+  RADIO    rb_expose   _ilft       _ms       _cwd3_2     .,		///
+		label("Exposure variable:")				///
+		first							///
+		onclickon(script expose)
+  RADIO    rb_offset   _lft3_2     @         @           .,		///
+		label("Offset variable:")				///
+		last							///
+		onclickon(script offset)
+
+  VARNAME  vn_expose   _ilft       _ss       @           .,		///
+		label("Exposure variable")				///
+		numeric							///
+		option(exposure)
+  VARNAME  vn_offset   _lft3_2     @         @           .,		///
+		label("Offset variable")				///
+		numeric							///
+		option(offset)
+
+  DEFINE _x _ilft
+  DEFINE _y _ls
+  DEFINE _cx _ilw80
+  DEFINE _bux _islw80
+  INCLUDE _constraints
+
+  DEFINE _x _ilft
+  DEFINE _xw _ibwd
+//  INCLUDE _ck_collinear
+END
+
+INCLUDE _constraints_sc 
+
+SCRIPT expose
+BEGIN
+  main.vn_expose.enable
+  main.vn_offset.disable
+END
+
+SCRIPT offset
+BEGIN
+  main.vn_expose.disable
+  main.vn_offset.enable
+END
+
+INCLUDE sub_by_ifin_over_subpop
+INCLUDE weights_fpi
+INCLUDE se
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+        program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle("Reporting")
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2b
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  RADIO    rb_default  _lft        _ls       _cwd1       .,		///
+  		label("Report coefficients (default)") first
+  RADIO    rb_irr      @           _ss       @           .,		///
+  		label("Report incidence-rate ratios")			///
+  		option(irr) last
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _nocnsreport
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+
+PROGRAM rpt_output
+BEGIN
+	optionarg /hidedefault rpt.sp_level
+	option rpt.rb_irr
+	INCLUDE _nocnsreport_pr
+	INCLUDE _report_columns_pr
+	put " " rpt_bu_facvarsResults
+	put " " rpt_bu_fmtcoefResults
+END
+
+INCLUDE max_ml
+
+PROGRAM command
+BEGIN
+	put /program by_output " "
+	put /program se_prefix_output " "
+	put "ztp "
+	varlist main.vn_dv [main.vl_iv]
+	if !main.vl_iv & main.ck_nocons {
+	  stopbox stop `""Suppress constant term" is selected without independent variables."'
+	}
+	put " " /program ifin_output
+	put " " /program weights_output
+	beginoptions
+		option main.ck_nocons
+		optionarg main.vn_expose
+		optionarg main.vn_offset
+		INCLUDE _constraints_main_pr
+//		option main.ck_collinear
+		put " " /program se_output
+		put " " /program rpt_output
+		put " " /program max_output
+	endoptions
+END

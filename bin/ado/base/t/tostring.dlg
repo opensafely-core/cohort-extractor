@@ -1,0 +1,121 @@
+/*
+  tostring
+
+*!  VERSION 1.3.0  16dec2014
+
+** This dialog box may be called internally by the Data Editor
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE _ht320
+INCLUDE header
+HELP hlp1, view("help destring")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create ARRAY  ARGS
+	create STRING VARS
+	setscale_hadj resource TOSTRING_DLG_HSCALE
+END
+
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	if __MESSAGE {
+		call __MESSAGE.tokenize ARGS
+		call VARS.setvalue class ARGS[1]
+		call main.vl_var.setvalue class VARS.value
+	}
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	label(resource TOSTRING_DLG_TITLE)
+	 
+BEGIN
+  TEXT tx_var			_lft	_top	_iwd	.,		///
+	label(resource TOSTRING_MAIN_TX_VAR)
+  VARLIST vl_var		@	_ss	_iwd	.,		///
+  	numeric								///
+	label(resource TOSTRING_MAIN_TX_VAR)
+
+  GROUPBOX gb_action		@	_ls	@	_ht7,
+  RADIO rb_gener		_indent	_ss	_inwd	., first	///
+	onclickon(main.ed_gener.enable)					///
+	label(resource TOSTRING_MAIN_RB_GENER)
+  RADIO rb_repl			@	+50	@	., last		///
+	option(replace) nomemory					///
+	onclickon(main.ed_gener.disable)				///
+	label(resource TOSTRING_MAIN_RB_REPL)
+  EDIT ed_gener			_indent2 -30	_inwd	.,		///
+	option(generate)						///
+	label(resource TOSTRING_MAIN_ED_GENER) 
+
+  GROUPBOX gb_opt		_lft	_xxxxls	_iwd	_ht10h, 	///
+	label(resource LBL_OPTIONS)
+  CHECKBOX ck_force		_ilft	_ms	_ibwd	.,		///
+	option(force)							///
+	label(resource TOSTRING_MAIN_CK_FORCE)
+
+  CHECKBOX ck_format		@	_ms	@	.,		///
+	onclickon(script main_format_on)				///
+	onclickoff(script main_format_off)				///
+	label(resource TOSTRING_MAIN_CK_FORMAT)
+  EDIT ed_format		+20	_ss	200	.,		///
+	option(format)							///
+	label(resource LBL_RB_FORMAT)
+  BUTTON bn_format		+205	@	80	.,		///
+	onpush(script main_GetFormat)					///
+	label(resource LBL_BU_CREATE)					///
+	tooltip(resource LBL_CREATE_DISPLAY_FORMAT)
+
+  CHECKBOX ck_dispfmt		_ilft	_ls	_ibwd	.,		///
+	option(usedisplayformat)  					///
+	onclickon(main.ck_format.disable)				///
+	onclickoff(main.ck_format.enable)				///
+	label(resource TOSTRING_MAIN_CK_DISPFMT)
+END
+
+SCRIPT main_GetFormat
+BEGIN
+	create STRING mainFormat
+	create CHILD format_chooser
+	format_chooser.setExitString mainFormat
+	format_chooser.setExitAction "main.ed_format.setvalue class mainFormat.value"
+END
+
+SCRIPT main_format_on
+BEGIN
+	main.ed_format.enable
+	main.bn_format.enable
+	main.ck_dispfmt.disable
+END
+
+SCRIPT main_format_off
+BEGIN
+	main.ed_format.disable
+	main.bn_format.disable
+	main.ck_dispfmt.enable
+END
+
+PROGRAM command
+BEGIN
+	put "tostring "
+	varlist main.vl_var
+	beginoptions
+		if main.rb_gener {
+			require main.ed_gener
+			optionarg main.ed_gener
+		}
+		option main.rb_repl
+		option main.ck_force
+		if main.ck_format {
+			require main.ed_format
+			optionarg main.ed_format
+		}
+		option main.ck_dispfmt
+	endoptions
+END

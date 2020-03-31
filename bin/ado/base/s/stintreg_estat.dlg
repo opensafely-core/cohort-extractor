@@ -1,0 +1,263 @@
+/*
+	stintreg_estat
+
+*!  VERSION 1.0.2  04dec2019
+
+*/
+
+VERSION 15.0
+
+INCLUDE _std_large
+DEFINE _dlght 430
+INCLUDE header
+
+HELP hlp1, view("help stintreg_postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING gofplot_graph_res
+	setscale_hadj resource STINTREG_ESTAT_DLG_HSCALE
+        main.fi_saving.formatfilter "{0} (*.dta)|*.dta|{1} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_DTA" "resource ui_ex FILE_TYPE_ALL_FILES"
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program check_gofplot_graph_res
+	program parseMessage
+END
+
+PROGRAM parseMessage
+BEGIN
+	if __MESSAGE.contains("-gofplot-") {
+		call main.lb_subcmd.setvalue "gofplot"
+	}
+	if __MESSAGE.contains("-ic-") {
+		call main.lb_subcmd.setvalue "ic"
+	}
+	if __MESSAGE.contains("-summarize-") {
+		call main.lb_subcmd.setvalue "summarize"
+	}
+	if __MESSAGE.contains("-vce-") {
+		call main.lb_subcmd.setvalue "vce"
+	}
+END
+
+
+
+DIALOG main, label(resource ESTAT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT tx_subcmd		_lft	_top	400	.,		///
+	label(resource LBL_REPORTS_STATISTICS_SUBCOMMAND)
+  LISTBOX lb_subcmd		@	_ss	@	75,		///
+	contents(main_subcommand_contents)				///
+	values(main_subcommand_values)					///
+	onselchangelist(main_subcommand_scripts)
+
+  DEFINE holdy 115
+
+  // gofplot
+  CHECKBOX ck_saving		_lft	holdy	_iwd	_ht5h,		///
+	groupbox							///
+	onclickon(script main_saving_on)				///
+	onclickoff(script main_saving_off)				///
+	label(resource LBL_SAVE_VAL_USED_TO_PLOT_CURVE)
+  TEXT tx_saving		_ilft	_ss	_inwd	.,		///
+	label(resource LBL_FILENAME)
+  FILE fi_saving		@	_ss	@	.,		///
+	defext(dta)							///
+	save								///
+	error(resource LBL_FILENAME)					///
+	label(resource LBL_SAVE_AS)
+  CHECKBOX ck_saving_replace	_ilft	_ss	-10	.,		///
+	option(replace)							///
+	label(resource LBL_OVERWRITE_EXISTING_FILE)
+  BUTTON bu_gofplot_graph	_lft	_xls	180	.,		///
+	onpush(program main_show_gofplot_graph_dlg)			///
+	label(resource LBL_GRAPH_OPTIONS)
+
+  // Information criteria
+  CHECKBOX ck_n			_lft	holdy	_iwd	.,		///
+	onclickon(main.sp_n.enable)					///
+	onclickoff(main.sp_n.disable)					///
+	label(resource LBL_NUMBER_OBSERVATIONS_CALCULATING_BIC)
+  SPINNER sp_n			_indent2 _ss	_spwd	.,		///
+	default(e(N)) min(1) max(e(N))					///
+	option(n)
+
+  INCLUDE estat_sum
+  INCLUDE estat_vce
+END
+
+INCLUDE estat_sum_pr
+INCLUDE estat_vce_pr
+
+LIST main_subcommand_contents
+BEGIN
+	resource LBL_GRAPH_GOODNESS_OF_FIT
+	resource LBL_INFORMATION_CRITERIA
+	resource LBL_SUMMARIZE_ESTIMATION_SAMPLE
+	resource LBL_COVARIANCE_MATRIX_ESTIMATES
+END
+
+LIST main_subcommand_values
+BEGIN
+	gofplot
+	ic
+	summarize
+	vce
+END
+
+LIST main_subcommand_scripts
+BEGIN
+	script sel_gofplot
+	script sel_ic
+	script sel_summarize
+	script sel_vce
+END
+
+SCRIPT sel_gofplot
+BEGIN
+	script main_hide_all
+	program gofplot_on
+END
+
+PROGRAM gofplot_on
+BEGIN
+	call main.ck_saving.show
+	call main.tx_saving.show
+	call main.fi_saving.show
+	call main.ck_saving_replace.show
+	call main.bu_gofplot_graph.show
+
+	if main.ck_saving {
+		call script main_saving_on
+	}
+	else {
+		call script main_saving_off
+	}
+END
+
+SCRIPT main_gofplot_off
+BEGIN
+	main.ck_saving.hide
+	main.tx_saving.hide
+	main.fi_saving.hide
+	main.ck_saving_replace.hide
+	main.bu_gofplot_graph.hide
+END
+
+SCRIPT main_saving_on
+BEGIN
+	main.fi_saving.enable
+	main.tx_saving.enable
+	main.ck_saving_replace.enable
+END
+
+SCRIPT main_saving_off
+BEGIN
+	main.fi_saving.disable
+	main.tx_saving.disable
+	main.ck_saving_replace.disable
+END
+
+PROGRAM main_show_gofplot_graph_dlg
+BEGIN
+	call create CHILD stintreg_estat_gofplot_opts AS graph_opt, allowsubmit
+	call graph_opt.setExitString gofplot_graph_res
+	call graph_opt.setExitAction "program check_gofplot_graph_res"
+	call graph_opt.setSubmitAction "program graph_gofplot_Submit"
+END
+
+PROGRAM check_gofplot_graph_res
+BEGIN
+	if gofplot_graph_res.iseq("") {
+		call main.bu_gofplot_graph.modified_off
+	}
+	else {
+		call main.bu_gofplot_graph.modified_on
+	}
+END
+
+PROGRAM graph_gofplot_Submit
+BEGIN
+	call program check_gofplot_graph_res
+	call Submit
+END
+
+PROGRAM saving_output
+BEGIN
+	put `"""' main.fi_saving `"""'
+	if main.ck_saving_replace {
+		put ", "
+		option main.ck_saving_replace
+	}
+END
+
+PROGRAM gofplot_output
+BEGIN
+	if main.lb_subcmd.iseq("gofplot") {
+		if main.ck_saving {
+			require main.fi_saving
+			put " outfile("
+			put /program saving_output
+			put ") "
+		}
+		if gofplot_graph_res {
+			put gofplot_graph_res
+		}
+	}
+END
+
+SCRIPT sel_ic
+BEGIN
+	script main_hide_all
+	main.ck_n.show
+	main.sp_n.show
+END
+
+SCRIPT sel_summarize
+BEGIN
+	script main_hide_all
+	program main_summ_on
+END
+
+SCRIPT sel_vce
+BEGIN
+	script main_hide_all
+	program vce_on
+END
+
+SCRIPT main_hide_all  // MUST BE IMPLEMENTED FOR BOOTSTRAP
+BEGIN
+	script main_gofplot_off
+	main.ck_n.hide
+	main.sp_n.hide
+	program vce_off
+	script main_summ_off
+END
+
+PROGRAM vl_output
+BEGIN
+	put main.vl_spec
+END
+
+PROGRAM vl_eq_output
+BEGIN
+	put main.vl_eq
+END
+
+PROGRAM command
+BEGIN
+	put "estat "
+	put main.lb_subcmd
+	put " " /program summarize_output
+	beginoptions
+		// ic options
+		optionarg main.sp_n
+		put " " /program summarize_opts_output
+		put " " /program vce_output
+		put " " /program gofplot_output
+	endoptions
+END

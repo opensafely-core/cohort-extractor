@@ -1,0 +1,581 @@
+/*
+  nl
+
+*!  VERSION 1.3.2  19may2015
+
+  keyword:  eclass
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_xlarge
+DEFINE _dlght 360
+INCLUDE header
+
+HELP hlp1, view("help nl")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create BOOLEAN main_isUserType
+	create BOOLEAN max_log_changed
+	create STRING max_log_default
+	max_log_default.setstring "log"
+	script se_createAsNL
+	program svy_check_title
+	setscale_hadj resource NL_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script sub_set_by_on
+	max_log_changed.setfalse
+	program se_setFinalInitState
+END
+
+PROGRAM _max_reset_log
+BEGIN
+	if ! max_log_changed {
+		if max_log_default.equals("log") {
+			call max.rb_log.seton
+		}
+		if max_log_default.equals("nolog") {
+			call max.rb_nolog.seton
+		}
+	}
+END
+
+PROGRAM _max_check_log
+BEGIN
+	if ( (max_log_default.equals("log") & ! max.rb_log)	///
+	 | (max_log_default.equals("nolog") & ! max.rb_nolog) ) {
+		call max_log_changed.settrue
+	}
+END
+
+SCRIPT max_setDefaultNoLog
+BEGIN
+	program _max_check_log
+	max_log_default.setstring "nolog"
+	program _max_reset_log
+END
+ 
+SCRIPT max_setDefaultLog
+BEGIN
+	program _max_check_log
+	max_log_default.setstring "log"
+	program _max_reset_log
+END
+ 
+SCRIPT svy_is_on
+BEGIN
+	rpt.gb_newvar.disable
+	rpt.ck_leave.disable
+	script max_setDefaultNoLog
+END
+SCRIPT svy_is_off
+BEGIN
+	rpt.gb_newvar.enable
+	rpt.ck_leave.enable
+	script max_setDefaultLog
+END
+PROGRAM svy_check_title
+BEGIN
+	if __MESSAGE.contains("-svy-") {
+		call settitle resource NL_SVY_DLG_TITLE
+	}
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)				///
+	title(resource NL_DLG_TITLE) // has svy title
+BEGIN
+
+  RADIO    rb_subexp	_lft	_top	_iwd	., first		///
+	onclickon(program subexp)					///
+	label(resource NL_MAIN_RB_SUBEXP)
+  RADIO    rb_preprog	@	_ss	@	.,			///
+	onclickon(program preprog)					///
+	label(resource LBL_USE_PREPROGRAMMED_SUBSTITUTABLE_EXPRESSION)
+  RADIO    rb_evaluator	@	_ss	@	., last			///
+	onclickon(program eval)						///
+	label(resource LBL_USE_FUNCTION_EVALUATOR_PROGRAM)
+
+  TEXT     tx_dv	_lft	+35	_vnwd	.,			///
+  	label(resource LBL_DEPVAR)
+  DEFINE holdy @y
+  VARNAME  vn_dv	@	_ss	@	.,			///
+  	numeric								///
+  	label(resource LBL_DEPVAR)
+
+  TEXT     tx_subexpr	_vlx	holdy	_vlwd	.,			///
+	label(resource LBL_SUBSTITUTABLE_EXPRESSION)
+  EXP      ex_subexpr	@	_ss	@	.,			///
+	label(resource LBL_BU_CREATE)					///
+	parameter							///	
+	error(resource LBL_SUBSTITUTABLE_EXPRESSION)
+  TEXT     tx_iv	_vlx	holdy	@	.,			///
+  	label(resource LBL_INDDEPVAR)
+  VARLIST  vl_iv	@	_ss	@	.,			///
+  	label(resource LBL_INDDEPVAR) allowcat numeric
+
+  TEXT     tx_oneiv	_vlx	holdy	@	.,			///
+	label(resource LBL_INDEPENDENT_VARIABLE)
+  VARNAME  vn_oneiv	@	_ss	@	.,			///
+  	numeric								///
+	label(resource LBL_INDEPENDENT_VARIABLE)
+
+
+  TEXT     tx_functions	_lft	_ls	_cwd1	.,			///
+  	label(resource LBL_FUNCTION)
+  LISTBOX  lb_functions	@	_ss	@	115,			///
+  	contents(main_functions_contents)				///
+  	values(main_functions_values)					///
+  	onselchangelist(main_functions_scripts)
+
+  TEXT     tx_funcprog	_lft	135	_cwd1	.,			///
+	label(resource NL_MAIN_TX_FUNCPROG)
+  EDIT     ed_funcprog	@	_ss	@	.,			///
+	label(resource NL_MAIN_TX_FUNCPROG)
+  TEXT     tx_fpopts    @	_ls	@	.,			///
+	label(resource NL_MAIN_TX_FPOPTS)
+  EDIT     ed_fpopts    @	_ss	@	.,			///
+	  label(resource NL_MAIN_TX_FPOPTS)
+
+  TEXT     tx_param	@	_ls	_cwd1	.,			///
+	label(resource LBL_PARAMETERS_COLON)
+  DEFINE holdy @y
+  EDIT     ed_param	@	_ss	@	.,			///
+	option(parameters) label(resource LBL_PARAMETERS_COLON)
+  TEXT     tx_paramnum	_lft2	holdy	@	.,			///
+	label(resource LBL_NUMBER_OF_PARAMETERS)
+  EDIT     ed_paramnum	@	_ss	_spwd	.,			///
+	option(nparameters)
+
+
+  TEXT     tx_variables	_lft	+145	_cwd1	.,			///
+  	label(resource LBL_VARIABLES_OPTIONAL)
+  DEFINE holdy @y
+  VARLIST  vl_variables	@	_ss	@	.,			///
+  	numeric								///
+  	option(variables) label(resource LBL_GB_VARIABLES)
+
+  TEXT     tx_initial	_lft2	holdy	_cwd1	.,			///
+	label(resource LBL_INITIAL_VALUES_OPTIONAL)
+  EDIT     ed_initial	@	_ss	@	.,			///
+	option(initial) label(resource LBL_INITIAL_VALUES)
+
+  GROUPBOX gb_usrprog	_lft2	150	_cwd1	_ht9,			///
+	label(resource NL_MAIN_GB_USRPROG)
+  TEXT     tx_user	_ilft2	_ss	_cwd3	.,			///
+	label(resource LBL_NAME)
+  EDIT     ed_user	@	_ss	_vnwd	.,			///
+	label(resource NL_MAIN_ED_USER)
+  TEXT     tx_useropts	@	_ls	_cwd3	.,			///
+	label(resource NL_MAIN_TX_USEROPTS)
+  EDIT     ed_useropts	@	_ss	@ 	.,			///
+	  label(resource NL_MAIN_TX_USEROPTS)
+END
+
+LIST main_functions_contents
+BEGIN
+	resource NL_EXPONENTIAL_EQ1
+	resource NL_EXPONENTIAL_EQ2
+	resource NL_EXPONENTIAL_EQ3
+	resource NL_LOGISTIC_EQ1
+	resource NL_LOGISTIC_EQ2
+	resource NL_GOMPERTZ_EQ1
+	resource NL_GOMPERTZ_EQ2
+	resource NL_USER_SUPPLIED_SUBSTIT_EXP_PROG
+END
+
+LIST main_functions_values
+BEGIN
+	exp3
+	exp2
+	exp2a
+	log4
+	log3
+	gom4
+	gom3
+	" "
+END
+
+LIST main_functions_scripts
+BEGIN
+	program useroff
+	program useroff
+	program useroff
+	program useroff
+	program useroff
+	program useroff
+	program useroff
+	program useron
+END
+
+DIALOG model2, tabtitle(resource LBL_TAB_MODEL2)
+BEGIN
+  CHECKBOX ck_lnlsq	_lft	_top	_iwd	.,			///
+	onclickon(model2.en_lnlsq.enable)				///
+	onclickoff(model2.en_lnlsq.disable)				///
+	label(resource NL_MODEL2_CK_LNLSQ)
+  EDIT     en_lnlsq   _indent2	_ss	_en7wd	.,	numonly		///
+	option(lnlsq) label(resource NL_MODEL2_CK_LNLSQ)
+  TEXT     tx_lnlsq   _en7sep	@	_rben7r	.,			///
+	label("#")
+
+  CHECKBOX ck_noconstant	_lft	_ls	_cwd1	.,		///
+	option(noconstant)						///
+	onclickon(program check_noconstant)				///
+	onclickoff(program check_noconstant)				///
+	label(resource NL_MODEL2_CK_NOCONSTANT)
+  CHECKBOX ck_hasconstant	@	_ms	115	.,		///
+	onclickon(program check_hasconstant)				///
+	onclickoff(program check_hasconstant)				///
+	label(resource NL_MODEL2_CK_HASCONSTANT)
+  EDIT     ed_hasstring		+120	@	155	.,		///
+	option(hasconstant) label(resource NL_MODEL2_ED_HASSTRING)
+END
+
+INCLUDE sub_by_ifin_over_subpop
+INCLUDE weights_fai
+INCLUDE se
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE   _x  _lft
+  DEFINE   _cx _spr
+  DEFINE   _y  _top
+  INCLUDE  _sp_level
+
+  GROUPBOX gb_newvar	_lft	+35	_iwd	_ht2,			///
+	label(resource LBL_GEN_NEW_VARIABLES)
+
+  CHECKBOX ck_leave	_ilft	_ss	_inwd	.,			///
+	option(leave)							///
+	label(resource NL_RPT_CK_LEAVE)
+
+  TEXT     tx_title	_lft	_xls	60	.,			///
+	label(resource LBL_TITLE)
+  DEFINE holdy @y
+  EDIT     ed_title	@	_ss	_cwd1	.,			///
+	option(title) label(resource LBL_ED_TITLE)
+  TEXT     tx_title2	@	_ls	60	.,			///
+	label(resource LBL_SUBTITLE)
+  DEFINE holdy @y
+  EDIT     ed_title2	@	_ss	_cwd1	.,			///
+	  option(title2) label(resource LBL_ED_SUBTITLE)
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+
+PROGRAM subexp
+BEGIN
+	call script subexp_on
+	call script eval_off
+END
+
+PROGRAM preprog
+BEGIN
+	call script preprog_on
+	call script eval_off
+END
+
+PROGRAM eval
+BEGIN
+	call script eval_on
+END
+
+
+SCRIPT subexp_on
+BEGIN
+	main.tx_variables.setposition . 135
+	main.vl_variables.setposition . 155
+	main.tx_initial.setposition 10 185
+	main.ed_initial.setposition 10 205
+	main.tx_subexpr.show
+	main.ex_subexpr.show
+	main.tx_iv.hide
+	main.vl_iv.hide
+	main.tx_oneiv.hide
+	main.vn_oneiv.hide
+	main.tx_functions.hide
+	main.lb_functions.hide
+	main.gb_usrprog.hide
+	main.tx_user.hide
+	main.ed_user.hide
+	main.tx_useropts.hide
+	main.ed_useropts.hide
+END
+
+SCRIPT preprog_on
+BEGIN
+	main.tx_variables.setposition . 285
+	main.vl_variables.setposition . 305
+	main.tx_initial.setposition 285 285
+	main.ed_initial.setposition 285 305
+	main.tx_iv.show
+	main.vl_iv.show
+	main.tx_oneiv.show
+	main.vn_oneiv.show
+	main.tx_functions.show
+	main.lb_functions.show
+	main.gb_usrprog.show
+	main.tx_user.show
+	main.ed_user.show
+	main.tx_useropts.show
+	main.ed_useropts.show
+	main.lb_functions.withvalue main.lb_functions.setvalue "@"
+	main.tx_subexpr.hide
+	main.ex_subexpr.hide
+END
+
+SCRIPT eval_on
+BEGIN
+	main.tx_variables.setposition . 285
+	main.vl_variables.setposition . 305
+	main.tx_initial.setposition 285 285
+	main.ed_initial.setposition 285 305
+	main.tx_subexpr.hide
+	main.ex_subexpr.hide
+	main.tx_funcprog.show
+	main.ed_funcprog.show
+	main.tx_fpopts.show
+	main.ed_fpopts.show
+	main.tx_param.show
+	main.ed_param.show
+	main.tx_paramnum.show
+	main.ed_paramnum.show
+	main.tx_iv.show
+	main.vl_iv.show
+	main.tx_oneiv.hide
+	main.vn_oneiv.hide
+	main.tx_functions.hide
+	main.lb_functions.hide
+	main.gb_usrprog.hide
+	main.tx_user.hide
+	main.ed_user.hide
+	main.tx_useropts.hide
+	main.ed_useropts.hide
+END
+
+SCRIPT eval_off
+BEGIN
+	main.tx_funcprog.hide
+	main.ed_funcprog.hide
+	main.tx_fpopts.hide
+	main.ed_fpopts.hide
+	main.tx_param.hide
+	main.ed_param.hide
+	main.tx_paramnum.hide
+	main.ed_paramnum.hide
+END
+
+PROGRAM useron
+BEGIN
+	call main_isUserType.settrue
+	if ! H(main.lb_functions) {
+		call main.gb_usrprog.show
+		call main.tx_user.show
+		call main.ed_user.show
+		call main.tx_useropts.show
+		call main.ed_useropts.show
+		call script manyvars
+	}
+END
+
+PROGRAM useroff
+BEGIN
+	call main_isUserType.setfalse
+	if ! H(main.lb_functions) {
+		call main.gb_usrprog.hide
+		call main.tx_user.hide
+		call main.ed_user.hide
+		call main.tx_useropts.hide
+		call main.ed_useropts.hide
+		call script onevar
+	}
+END
+
+SCRIPT manyvars
+BEGIN
+	main.tx_iv.show
+	main.vl_iv.show
+	main.tx_oneiv.hide
+	main.vn_oneiv.hide
+END
+
+SCRIPT onevar
+BEGIN
+	main.tx_iv.hide
+	main.vl_iv.hide
+	main.tx_oneiv.show
+	main.vn_oneiv.show
+END
+
+DIALOG max, tabtitle(resource LBL_TAB_OPTIMIZATION)
+BEGIN
+
+  SPINNER  sp_iterate		_lft	_top	_spwd	.,		///
+	option(iterate)							///
+	min(1) max(1000000) default(10000)				///
+	label(resource LBL_MAXIMUM_ITERATIONS)
+  TEXT     tx_iterate		_spsep	@	_ckspr	.,		///
+	label(resource LBL_MAXIMUM_ITERATIONS)
+
+  EDIT     en_eps		_lft	_ls	_en7wd	., 		///
+	option(eps) default(1e-5)					///
+	label(resource LBL_CONVERGENCE_CRITERION)
+  TEXT     tx_eps		_en7sep	@	_rbvnr	.,		///
+	label(resource LBL_CONVERGENCE_CRITERION_DEFAULT_1E5)
+
+  EDIT     en_delta		_lft	_ls	_en7wd	.,  		///
+	option(delta) default(4e-7)					///
+	label(resource LBL_DELTA_FOR_COMPUTING_DERIVATIVES)
+  TEXT     tx_delta		_en7sep	@	_rbvnr	.,		///
+	label(resource LBL_DELTA_FOR_COMPUTING_DERIVATIVES_DEFAULT_4E7)
+
+  GROUPBOX gb_log		_lft	_ls	_cwd1	_ht6,		///
+	label(resource LBL_ITERATION_LOG)
+  RADIO    rb_log		_ilft	_ss	_cwd3	., first	///
+	option(log) label(resource LBL_SHOW_LOG)
+  RADIO    rb_trace		@	_ss	@	., 		///
+	option(trace) label(resource LBL_DETAILED_LOG)
+  RADIO    rb_nolog		@	_ss	@	.,		///
+	option(nolog) label(resource LBL_SUPPRESS_LOG) last
+END
+
+PROGRAM check_noconstant
+BEGIN
+	if model2.ck_noconstant {
+		call model2.ck_hasconstant.disable
+	}
+	if ! model2.ck_noconstant {
+		call model2.ck_hasconstant.enable
+	}
+END
+
+PROGRAM check_hasconstant
+BEGIN
+	if model2.ck_hasconstant {
+		call model2.ck_noconstant.disable
+		call model2.ed_hasstring.enable
+	}
+	if ! model2.ck_hasconstant {
+		call model2.ck_noconstant.enable
+		call model2.ed_hasstring.disable
+	}
+END
+
+PROGRAM main_subexpr_output
+BEGIN
+	put main.vn_dv " " "= " main.ex_subexpr
+END
+
+PROGRAM command
+BEGIN
+	allowxi
+	put /program by_output " "
+	put /program se_prefix_output " "
+	put "nl "
+	if main.rb_subexp {
+		require main.vn_dv
+		require main.ex_subexpr
+		put "("
+		put /program main_subexpr_output
+		put ") "
+	}
+	if main.rb_preprog {
+		put main.lb_functions
+		if main_isUserType {
+			require main.ed_user
+			put main.ed_user
+		}
+		put " " ": "
+		if ! main_isUserType {
+			varlist main.vn_dv
+			varlist main.vn_oneiv
+		}
+		if main_isUserType {
+			varlist main.vn_dv [main.vl_iv]
+		}
+	}
+
+	if main.rb_evaluator {
+		require main.ed_funcprog
+		put main.ed_funcprog
+		put " " "@ "
+		varlist main.vn_dv [main.vl_iv]
+	}
+
+	put " " /program ifin_output
+	put " " /program weights_output
+	beginoptions
+		optionarg main.vl_variables
+		optionarg main.ed_initial
+		if main.rb_evaluator {
+			optionarg main.ed_param
+			optionarg main.ed_paramnum
+			if !main.ed_param & !main.ed_paramnum {
+				call create STRING _MSG_TMP
+	                        call _MSG_TMP.format 			///
+					"resource LBL_MSGBOX_EITHER_1_2_REQUIRED_FMT" ///
+					"resource LBL_TAB_MODEL" 	///
+					"resource LBL_PARAMETERS" 	///
+					"resource LBL_NUMBER_OF_PARAMETERS"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Model" tab,
+// either "Parameters" or "Number of parameters" must be filled in.
+			}
+		}
+		if main.ed_useropts {
+			put " " main.ed_useropts
+		}
+
+		put main.ed_fpopts
+
+		if model2.ck_lnlsq {
+			require model2.en_lnlsq
+			optionarg model2.en_lnlsq
+		}
+		option model2.ck_noconstant
+		if model2.ck_hasconstant {
+			require model2.ed_hasstring
+			if model2.ed_hasstring {
+				optionarg model2.ed_hasstring
+			}
+		}
+
+		put " " /program se_output
+
+		optionarg /hidedefault rpt.sp_level
+		option rpt.ck_leave
+		optionarg rpt.ed_title
+		optionarg rpt.ed_title2
+		put " " rpt_bu_fmtcoefResults
+
+		optionarg /hidedefault max.sp_iterate
+		optionarg /hidedefault max.en_eps
+		optionarg /hidedefault max.en_delta
+		call program _max_check_log
+		if max_log_changed {
+			if max.rb_log & max_log_default.equals("nolog") {
+				option max.rb_log
+			}
+			option max.rb_trace
+			if max.rb_nolog & max_log_default.equals("log") {
+				option max.rb_nolog
+			}
+		}
+	endoptions
+END

@@ -1,0 +1,329 @@
+/*				starview
+
+	class for the set of stars
+
+*/
+*! version 1.1.0  01jun2013
+
+version 8
+
+class {
+	style = .starstyle.new
+	array spokestyles
+
+	label_var	= 0
+
+	rows		= 0
+	cols		= 0 
+
+	select = ""
+
+	/* serset will be declared */
+
+} , inherit(view)
+
+
+/* -------------------------------------------------------------------------*/
+/*
+	In addition to standard settings, style() may contain any valid rvalue
+	for a starstyle instance.
+*/
+program new
+
+	syntax [ , Style(string) * ]
+
+	.xstretch.set free
+	.ystretch.set free
+
+	if "`style'" == "" {
+		.style.ref = .starstyle.new , style(scheme)
+	}
+
+	if `"`0'"' != `""' {
+		.set `0'
+	}
+end
+
+
+program set
+
+	syntax [ , Serset(string) STyle(string)				/*
+		*/ SELect(numlist integer >=1 <=`:serset N') 		/*
+		*/ Cols(integer 0) Rows(integer 0) Label(string) 	/*
+		*/ noCONnect FILLspace ZERO ]
+
+
+	.select = "`select'"
+	.rows   = `rows'
+	.cols   = `cols'
+
+	if "`serset'"  != "" { 
+		if "`.Local.serset.isa'" == "" {
+			.Declare serset = .`serset'.ref
+		}
+		else {
+			.serset.ref = .`serset'.ref 
+		}
+	}
+	if "`label'" != "" {
+		.label_var = 1
+		.serset.sers[1].set_labels
+	}
+	if "`connect'" != "" {
+		.style.connect.set_false
+	}
+	if "`zero'" != "" {
+		.style.base_zero.set_true
+	}
+	if "`fillspace'" != "" {
+		.style.fillspace.set_true
+	}
+
+
+	if `"`style'"' != `""' {
+		.style.setstyle , style(`style')
+	}
+
+end
+
+
+
+/* -------------------------------------------------------------------------*/
+/*
+	Assumes an appropriate scale has already been set.
+*/
+program draw
+
+	syntax [ , XSIZE(real -1) YSIZE(real -1) ]
+
+							/* use gu scaling */
+	local xsize = `xsize' * `gdi(xbeta)' / `gdi(gbeta)'
+	local ysize = `ysize' * `gdi(ybeta)' / `gdi(gbeta)'
+	gdi xbeta = `gdi(gbeta)'
+	gdi ybeta = `gdi(gbeta)'
+
+	.serset.set					/* current serset */
+
+	if "`.select'" == "" {				/* N stars */
+		local N 0`:serset N'
+	}
+	else	local N 0`:word count `.select''
+
+	if `N' == 0 {
+		exit
+	}
+
+	if 0`.rows' {					/* # rows and cols */
+		local rows `.rows'
+		local cols = int(.999 + `N' / `rows')
+	}	
+	else if 0`.cols' {
+		local cols `.cols'
+		local rows = int(.999 + `N' / `cols')
+	}
+	else {
+		local cols = `._optimum_cols `N' `xsize' `ysize''
+		local rows = int(.999 + `N' / `cols')
+	}
+
+	local sz = `._sz `xsize' `ysize' `rows' `cols''		/* size */
+
+	
+						/* draw stars and labels */
+	.style.linestyle.setgdifull
+	.style.label_style.setgdifull
+
+	local r = `sz' / 2
+	local gap   = 0`.style.label_gap.gmval'
+	local txtsz =  0`.style.label_style.size.gmval'
+
+	local xdelta = `sz' + `.style.margin.gmleft' + `.style.margin.gmright'
+	local ydelta = `sz' + `gap' + `txtsz' + `.style.margin.gmtop' +	/*
+		*/ `.style.margin.gmbottom'
+	if 0`.style.fillspace.istrue' {
+		local xdelta = `xdelta' + (`xsize'-`cols'*`xdelta') /	/*
+			*/ (`cols'-1)
+		local ydelta = `ydelta' + (`ysize'-`rows'*`ydelta') /	/*
+			*/ (`rows'-1)
+	}
+
+	local x = `.style.margin.gmleft' + `r'
+	local y = `ysize' - `r' - `.style.margin.gmtop'
+
+	if "`.style.label_position.stylename'" == "above" {
+		local toff = `r' + `gap'
+		local y = `y' - `gap' - `txtsz'
+	}
+	else {
+		local toff = -(`sz' / 2 + `gap' + `txtsz')
+	}
+
+	if "`.select'" != "" {
+		local list `.select'
+	}
+	else	local list 1/`:serset N'
+
+	local ct 0
+	foreach j of numlist `list' {
+		local ++ct
+ 		._draw_lab  `x' `=`y'+`toff'' `r' `j'
+		._draw_star `x' `y' `r' `j'
+
+		if mod(`ct', `cols') == 0 {
+			local x = `.style.margin.gmleft' + `sz' / 2
+			local y = `y' - `ydelta'
+		}
+		else	local x = `x' + `xdelta'
+	}
+
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*  Finds optimum # columns.  First solves:
+
+	N=cols*rows
+	Sx = xsz/cols - lx
+	Sy = ysz/rows - ly
+
+	Sx ~= Sy-ly
+
+	Then chooses the rounding of cols that minimizes the size of the
+	wasted rectangle.
+*/
+program _optimum_cols
+	args N xsz ysz
+
+	local lab = 0`.style.label_gap.gmval' + 0`.style.label_style.size.gmval'
+	local lx   = 0`.style.margin.gmleft' + 0`.style.margin.gmright'
+	local ly   = `lab' + 						/*
+		*/ 0`.style.margin.gmtop' + 0`.style.margin.gmbottom'
+
+	local b = `lx' - `ly'
+	local ct 0
+	local cols = .
+	while `cols' >= . & `++ct' < 100 {
+		local cols = `N' * (-`b' + 				/*
+			*/ sqrt(`b'^2 + 4 * `xsz' * `ysz' / `N')) /	/*
+			*/ (2 * `ysz')
+		local ly = `ly' / 2
+		local lx = `lx' / 2
+	}
+
+	if `cols' >= . {
+		local cols 1
+	}
+
+							/* optimum rounding */
+	local c1 = int(`cols')
+	if `c1' > 0 {
+		local rows = int(.999 + `N' / `c1')
+		local sz = min(`xsz'/`c1' , `ysz'/`rows' - `lab')
+		local waste1 = `xsz'*`ysz' - `c1'*`sz' * `rows'*(`sz'+`lab')
+	}
+
+	local c2 = int(`cols' + .999)
+	local rows = int(.999 + `N' / `c2')
+	local sz = min(`xsz'/`c2' , `ysz'/`rows' - `lab')
+	local waste2 = `xsz'*`ysz' - `c2'*`sz' * `rows'*(`sz'+`lab')
+
+	if 0`waste1' < `waste2' & `c1' > 0 {
+		class exit = `c1'
+	}
+	else {
+		class exit = `c2'
+	}
+end
+
+
+/* -------------------------------------------------------------------------*/
+program _sz 
+	args xsz ysz rows cols
+
+	local gap  = 0`.style.label_gap.gmval'
+	local sz = min(							     /*
+	    */ `xsz'/`cols' - `.style.margin.gmleft' - `.style.margin.gmright',  /*
+	    */ `ysz'/`rows' - `.style.margin.gmtop' - `.style.margin.gmbottom' - /*
+	    */    `.style.label_gap.gmval' - `.style.label_style.size.gmval' /*
+	*/ )
+
+	class exit = max(`sz', 1)
+end
+
+
+/* -------------------------------------------------------------------------*/
+program _draw_star
+	args x y r j
+
+	local start = cond(0`.label_var', 2, 1)		/* allow for lab var */
+
+	local dangle = cond(`:serset k'-`start'+1==2, 			/*
+		*/ _pi / 2, 						/*
+		*/ 2 * _pi / (`:serset k'-`start'+1))
+
+	local angle = 5 * _pi / 2
+	forvalues i = `start'/`:serset k' {
+		if 0`.style.base_zero.istrue' {
+		    local s = `r' * serset(`i',`j') / `:serset max `i''
+		}
+		else {
+		    local s = `r' * (serset(`i',`j') - `:serset min `i'') /  /*
+		      */ (`:serset max `i'' - `:serset min `i'')
+		    if `s' >= . {
+		    	local s = 0		// new behavior, uninformative
+		    }
+		}
+
+		local x1 = `x' + `s' * cos(`angle')
+		local y1 = `y' + `s' * sin(`angle')
+
+		gdi line `x' `y' `x1' `y1'
+
+		if 0`.style.connect.istrue' {
+			if `i' > `start' {
+				gdi line `x0' `y0' `x1' `y1'
+			}
+			local x0 = `x1'
+			local y0 = `y1'
+		}
+
+		local angle = `angle' - `dangle'
+	}
+
+	if 0`.style.connect.istrue' {
+		if 0`.style.base_zero.istrue' {
+		    local s = `r' * serset(`start',`j') / `:serset max `start''
+		}
+		else {
+		    local s = `r' * (serset(`start',`j') - 		/*
+		    	*/ `:serset min `start'') / 			/*
+			*/ (`:serset max `start'' - `:serset min `start'')
+		}
+		gdi line `x0' `y0' `x' `=`y'+`s''
+	}
+end
+
+/* -------------------------------------------------------------------------*/
+program _draw_lab
+	args x y r j
+
+	if "`.style.label_style.horizontal.stylename'" == "left" {
+		local x = `x' - `r'
+	}
+	else {
+		if "`.style.label_style.horizontal.stylename'" == "right" {
+			local x = `x' + `r'
+		}
+	}
+
+	if 0`.label_var' {
+		local code = serset(`.label_var' , `j')
+		local lab `.serset.sers[`.label_var'].value_label `code''
+		if `"`lab'"' == `""' {
+			local lab `code'
+		}
+	}
+	else	local lab `j'
+
+	gdi exttext `x' `y' `lab'
+end

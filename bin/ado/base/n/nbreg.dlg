@@ -1,0 +1,235 @@
+/*
+  nbreg
+
+*!  VERSION 1.3.3  29nov2018
+
+  keyword:  eclass
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 330
+INCLUDE header
+
+HELP hlp1, view("help nbreg")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	program parseMessage
+	script se_createAsSvyJknifeBstrapML
+	program svy_check_title
+	setscale_hadj resource NBREG_DLG_HSCALE
+END
+
+PROGRAM parseMessage
+BEGIN
+	if __MESSAGE.contains("__MI__") {
+		call script se_setMI_on
+	}
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program check_bytab
+	program se_setFinalInitState
+END
+
+PROGRAM check_bytab
+BEGIN
+	if ! __MESSAGE.contains("__MI__") {
+		call script sub_set_by_on
+	}
+END
+
+SCRIPT svy_is_on
+BEGIN
+	script max_setDefaultNoLog
+END
+SCRIPT svy_is_off
+BEGIN
+	script max_setDefaultLog
+END
+PROGRAM svy_check_title
+BEGIN
+	if __MESSAGE.contains("-svy-") {
+		call settitle resource NBREG_SVY_DLG_TITLE
+	}
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)				///
+	/// **** has svy title ****					///
+	title(resource NBREG_DLG_TITLE)
+BEGIN
+  TEXT tx_dv 		_lft	_top	_vnwd	.,			///
+	label(resource LBL_DEPVAR)
+  VARNAME vn_dv		@ 	_ss	@	.,			///
+	ts								///
+	numeric								///
+	label(resource LBL_DEPVAR)
+
+  TEXT tx_iv		_vlx	_top	160	.,			///
+	label(resource LBL_INDDEPVAR)
+  VARLIST vl_iv		@	_ss	_vlwd	.,			///
+	fv ts								///
+	allowcat							///
+	numeric								///
+	label(resource LBL_INDDEPVAR)
+  CHECKBOX ck_nocons @         _ms       @         .,			/*
+		*/ label(resource LBL_NOCONSTANT)			/*
+		*/ option("noconstant")					/*
+		*/
+  GROUPBOX gb_disper _lft      _ls       _iwd      _ht2,		/*
+		*/ label(resource LBL_PARAMETERIZATION_OF_DISPERSION)	/*
+		*/
+  RADIO    rb_mean   _ilft     _ss       _cwd2     .,			/*
+		*/ label(resource LBL_A_FUNCTION_OF_THE_EXPECTED_MEAN)	/*
+		*/ first						/*
+		*/ option("dispersion(mean)")				/*
+		*/
+  RADIO    rb_cons   _lft2     @         @         .,			/*
+		*/ label(resource LBL_A_CONSTANT)			/*
+		*/ last							/*
+		*/ option("dispersion(constant)")			/*
+		*/
+
+  GROUPBOX gb_opt    _lft      _xls      _iwd      _ht10,		/*
+		*/ label(resource LBL_OPTIONS)				/*
+		*/
+
+  RADIO    rb_expose _ilft     _ss       _cwd3_2   .,			/*
+		*/ label(resource LBL_EXPOSURE_VARIABLE)		/*
+		*/ first						/*
+		*/ clickon("script expose")				/*
+		*/
+  RADIO    rb_offset _lft3_2   @         @         .,			/*
+		*/ label(resource LBL_OFFSET_VARIABLE)			/*
+		*/ last							/*
+		*/ clickon("script offset")				/*
+		*/
+
+  VARNAME  vn_expose _ilft     _ss       @         .,			/*
+		*/ label(resource LBL_EXPOSURE_VARIABLE)		/*
+		*/ option("exposure") ts				/*
+		*/ numeric						/*
+		*/
+  VARNAME  vn_offset _lft3_2   @         @         .,			/*
+		*/ label(resource LBL_OFFSET_VARIABLE)			/*
+		*/ option("offset") ts					/*
+		*/ numeric						/*
+		*/
+
+  DEFINE _x _ilft
+  DEFINE _y _ls
+  DEFINE _cx _ilw80
+  DEFINE _bux _islw80
+  INCLUDE _constraints
+
+  DEFINE _x _ilft
+  DEFINE _xw _ibwd
+//  INCLUDE _ck_collinear
+END
+
+INCLUDE _constraints_sc 
+
+SCRIPT expose
+BEGIN
+	main.vn_expose.enable
+	main.vn_offset.disable
+END
+
+SCRIPT offset
+BEGIN
+	main.vn_expose.disable
+	main.vn_offset.enable
+END
+
+INCLUDE sub_by_ifin_over_subpop
+INCLUDE weights_fpi
+INCLUDE se
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+	program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2b
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  RADIO rb_default		_lft	_ls	_cwd1	., first	///
+	label(resource LBL_REPORT_COEFFICIENTS_DLFT)
+  RADIO rb_irr			@	_ss	@	., last		///
+	option(irr)							///
+	label(resource LBL_REPORT_INCIDENCE_RATE_RATIOS)
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _nocnsreport
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+
+PROGRAM rpt_output
+BEGIN
+	optionarg /hidedefault rpt.sp_level
+	option rpt.rb_irr
+	INCLUDE _nocnsreport_pr
+	INCLUDE _report_columns_pr
+	put " " rpt_bu_facvarsResults
+	put " " rpt_bu_fmtcoefResults
+END
+
+INCLUDE max_ml
+
+PROGRAM command
+BEGIN
+	put /program by_output " "
+	put /program se_prefix_output " "
+	put "nbreg "
+	varlist main.vn_dv [main.vl_iv]
+	if !main.vl_iv & main.ck_nocons {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format					///
+		"resource LBL_MSGBOX_IS_SELECTED_WITHOUT_INDVARS_FMT" ///
+		"resource LBL_NOCONSTANT"
+		stopbox stop "class _MSG_TMP.value"
+// "Suppress constant term" is selected without independent variables.
+	}
+	put " " /program ifin_output
+	put " " /program weights_output
+	beginoptions
+		option main.ck_nocons
+		option radio(main rb_mean rb_cons)
+		optionarg main.vn_expose
+		optionarg main.vn_offset
+		INCLUDE _constraints_main_pr
+//		option main.ck_collinear
+		put " " /program se_output
+		put " " /program rpt_output
+		put " " /program max_output
+	endoptions
+END

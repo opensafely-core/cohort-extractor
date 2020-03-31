@@ -1,0 +1,223 @@
+/*
+	dstdize
+
+*!  VERSION 1.3.2  14mar2015
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE _ht310
+INCLUDE header
+HELP hlp1, view("help dstdize")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource DSTDIZE_DLG_HSCALE
+	
+        main.fi_using.formatfilter "{0} (*.dta)|*.dta|{1} (*.*)|*.*" 	///
+                "resource ui_ex FILE_TYPE_DTA_FILES" 			///
+                "resource ui_ex FILE_TYPE_ALL_FILES"
+END
+
+
+DIALOG main, label(resource DSTDIZE_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_char   _lft      _top      _cwd1     .,		/*
+		*/ label(resource DSTDIZE_MAIN_TX_CHAR)
+
+  VARNAME  vn_char   @         _ss       _vnwd     .,		/*
+  		*/ numeric					/*
+		*/ label(resource DSTDIZE_MAIN_TX_CHAR)
+
+  TEXT     tx_pop    _lft2     _top      _cwd1     .,		/*
+		*/ label(resource LBL_POPULATION_VARIABLE)
+
+  VARNAME  vn_pop    @         _ss       _vnwd     .,		/*
+  		*/ numeric					/*
+		*/ label(resource LBL_POPULATION_VARIABLE)
+
+  TEXT     tx_strata _lft      _ls       _cwd1     .,		/*
+		*/ label(resource LBL_STRATA_VARIABLES)
+
+  DEFINE   holdy @y
+
+  VARLIST  vl_strata @         _ss       @         .,		/*
+		*/ label(resource LBL_STRATA_VARIABLES)
+
+  TEXT     tx_byvars _lft2     holdy     @         .,		/*
+		*/ label(resource LBL_GROUPING_VARIABLES)
+
+  VARLIST  vl_byvars @         _ss       @         .,		/*
+		*/ option(by)					/*
+		*/ label(resource LBL_GROUPING_VARIABLES)
+
+  RADIO    rb_def    _lft      _xls      _iwd      .,		/*
+		*/ first					/*
+		*/ clickon("script default_on")			/*
+		*/ label(resource DSTDIZE_MAIN_RB_DEF)
+
+  RADIO    rb_using  @         _ms       @         .,		/*
+		*/ clickon("script using_on")			/*
+		*/ label(resource LBL_USE_STANDARD_POPULATION_FROM_DATASET)
+
+  FILE     fi_using  _indent2  _ss       _ibwd     .,		/*
+		*/ option(using)				/*
+		*/ error(resource LBL_USE_STANDARD_POPULATION_FROM_DATASET)/*
+		*/ defext(dta)						/*
+		*/ label(resource LBL_BU_BROWSE)
+
+  RADIO    rb_base   _lft      _ls       _iwd      .,		/*
+		*/ last 					/*
+		*/ clickon("script base_on")			/*
+	*/ label(resource DSTDIZE_MAIN_RB_BASE)
+
+  TEXT     tx_base   _indent2  _ss       _ibwd     .,		/*
+		*/ label(resource LBL_VALUE)
+
+  DEFINE holdy @y
+
+  EDIT     ed_base   @         _ss       _vnwd     .,		/*
+		*/ option(base)					/*
+		*/ label(resource LBL_VALUE)
+
+  TEXT     tx_byvar  _lft2     holdy     _cwd2     .,		/*
+		*/ label(resource LBL_GROUPING_VARIABLE)
+
+  VARNAME  vn_byvar  @         _ss       _vnwd     .,		/*
+		*/ option(by)					/*
+		*/ label(resource LBL_GROUPING_VARIABLE)
+
+  DEFINE _x _lft
+  DEFINE _cx _spr
+  DEFINE _y _xls
+  INCLUDE _sp_level
+END
+
+SCRIPT base_on
+BEGIN
+main.fi_using.disable
+main.ed_base.enable
+main.vn_byvar.enable
+main.vl_byvars.disable
+END
+
+SCRIPT using_on
+BEGIN
+main.fi_using.enable
+main.ed_base.disable
+main.vn_byvar.disable
+main.vl_byvars.enable
+END
+
+SCRIPT default_on
+BEGIN
+main.fi_using.disable
+main.ed_base.disable
+main.vn_byvar.disable
+main.vl_byvars.enable
+END
+
+INCLUDE ifin
+
+SCRIPT opt_PREINIT
+BEGIN
+        opt.fi_saving.formatfilter "{0} (*.dta)|*.dta|{1} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_DTA" "resource ui_ex FILE_TYPE_ALL_FILES"
+END
+
+DIALOG opt, tabtitle(resource LBL_OPTIONS)
+BEGIN
+  TEXT     tx_saving _lft      _top      _iwd      .,		/*
+		*/ label(resource DSTDIZE_OPT_TX_SAVING)
+
+  FILE     fi_saving @         _ss       @         .,		/*
+		*/ option(saving)				/*
+		*/ label(resource LBL_SAVE_AS)			/*
+		*/ defext(dta)					/*
+		*/ save
+
+  CHECKBOX ck_format    @	_ls	@	.,		///
+	onclickon(script format_on)				///
+	onclickoff(script format_off)				///
+	label(resource LBL_OVERRIDE_DISPLAY_FORMAT_NUMBERS_FINAL_SUM_TAB)
+  EDIT     ed_format	+20	_ss	200	.,		///
+	option(format)						///
+	label(resource LBL_DISPLAY_FORMAT)
+  BUTTON   bu_format	+205	@	80	.,		///
+	label(resource LBL_BU_CREATE)				///
+	onpush(script showFormatDialog)				///
+	tooltip(resource LBL_CREATE_DISPLAY_FORMAT)
+
+  CHECKBOX ck_print  _lft      _ls       _iwd      .,		/*
+		*/ option(print)				/*
+		*/ label(resource LBL_INCLUDE_TABLE_SUMMARY_STANDARD_POPULATION)
+
+  GROUPBOX gb_adv    @         _xls      @         _ht3,	/*
+  		*/ label(resource LBL_ADVANCED)
+  CHECKBOX ck_nores  _ilft     _ms       _inwd     .,		/*
+		*/ option(nores)				/*
+		*/ label(resource DSTDIZE_OPT_CK_NORES)
+END
+
+SCRIPT showFormatDialog
+BEGIN
+	create STRING formatString
+	create CHILD format_chooser
+	format_chooser.setExitString formatString
+	format_chooser.setExitAction "opt.ed_format.setvalue class formatString.value"
+END
+
+SCRIPT format_on
+BEGIN
+  	opt.ed_format.enable
+  	opt.bu_format.enable
+END
+
+SCRIPT format_off
+BEGIN
+  	opt.ed_format.disable
+	opt.bu_format.disable
+END
+
+
+PROGRAM command
+BEGIN
+	put "dstdize "
+	varlist main.vn_char
+	varlist main.vn_pop
+	varlist main.vl_strata
+	INCLUDE _ifin_pr
+	beginoptions
+		if main.rb_def {
+			require main.vl_byvars
+			optionarg main.vl_byvars
+		}
+		if main.rb_using {
+			require main.vl_byvars
+			require main.fi_using
+			optionarg main.vl_byvars
+			optionarg /quoted main.fi_using
+		}
+		if main.rb_base {
+			require main.ed_base
+			require main.vn_byvar
+			optionarg main.ed_base
+			optionarg main.vn_byvar
+		}
+		if opt.fi_saving {
+			repfile opt.fi_saving
+			put " " "saving("
+			put `"""'
+			put opt.fi_saving
+			put `"""'
+			put ", replace)"
+		}
+		option opt.ck_print
+		optionarg opt.ed_format
+		INCLUDE _level_main_pr
+		option opt.ck_nores
+	endoptions
+END

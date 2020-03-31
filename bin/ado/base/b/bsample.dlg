@@ -1,0 +1,110 @@
+/*
+  bsample
+
+*!  VERSION 1.3.0  09sep2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE header
+HELP hlp1, view("help bsample")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource BSAMPLE_DLG_HSCALE
+END
+
+
+DIALOG main, label(resource BSAMPLE_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  CHECKBOX ck_size   _lft      _top      _ckwd     .,			/*
+		*/ label("")						/*
+		*/ clickon("gaction main.sp_size.enable")		/*
+		*/ clickoff("gaction main.sp_size.disable")		/*
+		*/
+  SPINNER  sp_size   _cksep    @         _spwd     .,			/*
+		*/ label(resource LBL_SAMPLE_SIZE)			/*
+		*/ min(1)						/*
+		*/ max(c(N))						/*
+		*/ default(c(N))					/*
+		*/ option("size")					/*
+		*/
+  TEXT     tx_size   _spsep    @         _spr      .,			/*
+		*/ label(resource BSAMPLE_MAIN_TX_SIZE)/*
+		*/
+
+  CHECKBOX ck_strata _lft      _ls       _iwd      _ht2h,		/*
+		*/ label(resource LBL_STRATA_VARIABLES)			/*
+		*/ clickon("gaction main.vl_strata.enable")		/*
+		*/ clickoff("gaction main.vl_strata.disable")		/*
+		*/ groupbox						/*
+		*/
+  VARLIST  vl_strata _indent   _ms       _ibwd     .,			/*
+		*/ label(resource LBL_STRATA_VARIABLES)			/*
+		*/ option("strata")					/*
+		*/
+
+  CHECKBOX ck_clust  _lft      _xls      _iwd      _ht7,		/*
+		*/ label(resource LBL_CLUSTER_VARIABLES)		/*
+		*/ clickon("script cl_on")				/*
+		*/ clickoff("script cl_off")				/*
+		*/ groupbox						/*
+		*/
+  VARLIST  vl_clust  _indent   _ms       _ibwd     .,			/*
+		*/ label(resource LBL_CLUSTER_VARIABLES)		/*
+		*/ option("cluster")					/*
+		*/
+  TEXT     tx_clid   @         _ms       @         .,			/*
+		*/ label(resource LBL_NEW_CLUSTER_ID_VARIABLE_OPTIONAL)	/*
+		*/
+  EDIT     ed_clid   @         _ss       _vnwd     .,			/*
+		*/ label(resource LBL_NEW_CLUSTER_ID_VARIABLE)		/*
+		*/ option("idcluster")					/*
+		*/
+
+  CHECKBOX ck_weight _lft      _xls      _iwd      _ht2h,		/*
+	*/ label(resource BSAMPLE_MAIN_CK_WEIGHT)			/*
+		*/ clickon("gaction main.vn_weight.enable")		/*
+		*/ clickoff("gaction main.vn_weight.disable")		/*
+		*/ groupbox						/*
+		*/
+  VARNAME  vn_weight _indent   _ms       _vnwd     .,			/*
+		*/ label(resource BSAMPLE_MAIN_CK_WEIGHT)		/*
+		*/ option("weight")					/*
+		*/ numeric						/*
+		*/
+END
+
+SCRIPT cl_on
+BEGIN
+  main.vl_clust.enable
+  main.tx_clid.enable
+  main.ed_clid.enable
+
+END
+
+SCRIPT cl_off
+BEGIN
+  main.vl_clust.disable
+  main.tx_clid.disable
+  main.ed_clid.disable
+
+END
+
+PROGRAM command
+BEGIN
+	put "bsample "
+	put main.sp_size
+	beginoptions
+		optionarg main.vl_strata
+		optionarg main.vl_clust
+		if main.ed_clid {
+			require main.vl_clust
+		}
+		optionarg main.ed_clid
+		optionarg main.vn_weight
+	endoptions
+END

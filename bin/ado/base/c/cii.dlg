@@ -1,0 +1,395 @@
+/*
+  cii
+
+*!  VERSION 1.1.4  12feb2019
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+DEFINE _dlght 415
+INCLUDE header
+HELP hlp1, view("help cii")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource CII_DLG_HSCALE
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	if __MESSAGE.iseq("-normal-") {
+		call main.rb_normal.seton
+	}
+	if __MESSAGE.iseq("-poisson-") {
+		call main.rb_poisson.seton
+	}
+	if __MESSAGE.iseq("-prop-") {
+		call main.rb_prop.seton
+	}
+	if __MESSAGE.iseq("-variance-") {
+		call main.rb_var.seton
+	}
+	if __MESSAGE.iseq("-sd-") {
+		call main.rb_sd.seton
+	}
+END
+
+DIALOG main, label(resource CII_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  GROUPBOX gb_prtest		_lft	_top	_iwd	_ht9h,		///
+	label(resource CII_MAIN_GB_PRTEST)
+  RADIO rb_normal		_indent	_ss	_inwd	., first	///
+	onclickon(program type_change)					///
+	label(resource CII_MAIN_RB_NORMAL)
+  RADIO rb_poisson		@	_ss	@	.,		///
+	onclickon(program type_change)					///
+	label(resource CII_MAIN_RB_POISSON)
+  RADIO rb_prop			@	_ss	@	.,		///
+	onclickon(program type_change)					///
+	label(resource LBL_PROPORTION)
+  RADIO rb_var			@	_ss	@	.,		///
+	onclickon(program type_change)					///
+	label(resource LBL_VARIANCE_NO_COLON)
+  RADIO rb_sd			@	_ss	@	., last		///
+	onclickon(program type_change)					///
+	label(resource LBL_STANDARD_DEVIATION)
+
+  GROUPBOX gb_ci_calc		_lft	_xls	_iwd	_ht23,		///
+	label(resource CII_MAIN_GB_CI_CALC)
+
+  /* Normal CI calculator */
+  SPINNER sp_normal_obs		_indent	_ms	_spwd	.,		///
+	min(1)								///
+	max(1000000000)							///
+	default(100)							///
+	label(resource LBL_SAMPLE_SIZE)
+  DEFINE holdy @y
+  TEXT tx_normal_obs		_en7sep	@	_cwd1	.,		///
+	label(resource LBL_SAMPLE_SIZE)
+  EDIT en_normal_mean		_ilft	_ls	_en7wd	.,		///
+	numonly								///
+	label(resource LBL_SAMPLE_MEAN)
+  TEXT tx_normal_mean		_en7sep	@	_cwd1	.,		///
+	label(resource LBL_SAMPLE_MEAN)
+  EDIT en_normal_sd		_ilft	_ls	_en7wd	.,		///
+	numonly								///
+	label(resource LBL_SAMPLE_STANDARD_DEVIATION)
+  TEXT tx_normal_sd		_en7sep	@	_cwd1	.,		///
+	label(resource LBL_SAMPLE_STANDARD_DEVIATION)
+
+  /* Poisson CI calculator */
+  EDIT en_poisson_exp		_ilft	holdy	_spwd	.,		///
+	numonly								///
+	label(resource CII_MAIN_EN_POISSON_EXP)
+
+  TEXT tx_poisson_exp		_spsep	@	_cwd2	.,		///
+	label(resource CII_MAIN_EN_POISSON_EXP)
+  EDIT ed_poisson_event		_ilft	_ls	_spwd	.,		///
+	numonly								///
+	label(resource CII_MAIN_ED_POISSON_EVENT)
+  TEXT tx_poisson_event		_spsep	@	_cwd2	.,		///
+	label(resource CII_MAIN_ED_POISSON_EVENT)
+
+  /* Proportion CI calculator*/
+  SPINNER sp_prop_obs		_ilft	holdy	_spwd	.,		///
+	min(1)								///
+	max(10000000)							///
+	default(100)							///
+	label(resource LBL_SAMPLE_SIZE)
+  TEXT tx_prop_obs		_spsep	@	_cwd2	.,		///
+	label(resource LBL_SAMPLE_SIZE)
+  SPINNER sp_prop_suc		_ilft	_ls	_spwd	.,		///
+	min(0) max(10000000) default(100)				///
+	label(resource LBL_SUCCESSES)
+  TEXT tx_prop_suc		_spsep	@	_cwd2	.,		///
+	label(resource LBL_SUCCESSES)
+
+  GROUPBOX gb_prop_opts		_ilft	_ls	_ibwd	_ht10,		///
+	label(resource LBL_CONFIDENCE_INTERVAL_TYPE)
+  RADIO rb_exac			_indent	_ss	_inwd	., first	///
+	option(exact)							///
+	label(resource LBL_EXACT_CLOPPER_PEARSON)
+  RADIO rb_wald			@	_ss	@	.,		///
+	option(wald)							///
+	label(resource LBL_WALD)
+  RADIO rb_wilson      		@	_ss	@	.,		///
+	option(wilson)							///
+	label(resource LBL_WILSON)
+  RADIO rb_agresti      	@	_ss	@	.,		///
+	option(agresti)							///
+	label(resource LBL_AGRESTI_COULL)
+  RADIO rb_jeffreys     	@	_ss	@	., last		///
+	option(jeffreys)						///
+	label(resource LBL_JEFFREYS)
+
+  /* Variance CI calculator*/
+  SPINNER sp_var_obs		_ilft	holdy	_spwd	.,		///
+	min(1)								///
+	max(1000000000)							///
+	default(100)							///
+	label(resource LBL_SAMPLE_SIZE)
+  TEXT tx_var_obs		_en7sep	@	_cwd1	.,		///
+	label(resource LBL_SAMPLE_SIZE)
+  EDIT ed_var_var		_ilft	_ls	_en7wd	.,		///
+	numonly	
+  TEXT tx_var_var		_en7sep	@	_cwd1	.,
+  EDIT ed_var_kurt		_ilft	_ls	_en7wd	.,		///
+	numonly								///
+	label(resource LBL_KURTOSIS)
+  TEXT tx_var_kurt		_en7sep	@	_cwd1	.,		///
+	label(resource LBL_KURTOSIS)
+
+  GROUPBOX gb_ci_type		_ilft	_ls	_ibwd	_ht4,		///
+	label(resource LBL_CONFIDENCE_INTERVAL_TYPE)
+  RADIO rb_normal_sd		_iilft	_ss	_inwd	., first	///
+	onclickon("program main_kurtosis_show")				///
+	label(resource LBL_NORMAL)
+  RADIO rb_bonett		@	_ss	@	., last		///
+	option(bonett)							///
+	onclickon("program main_kurtosis_show")				///
+	label(resource LBL_BONETT)
+
+
+  DEFINE _x _ilft
+  DEFINE _y _ls
+  DEFINE _cx _cwd2
+  INCLUDE _sp_level
+END
+
+PROGRAM type_change
+BEGIN
+	call script hide_all
+	if main.rb_normal {
+		call script main_normal_show
+	}
+	if main.rb_poisson {
+		call script main_poisson_show
+	}
+	if main.rb_prop {
+		call script main_prop_show
+	}
+	if main.rb_var {
+		call script main_var_show
+	}
+	if main.rb_sd {
+		call script main_sd_show
+	}
+END
+
+SCRIPT hide_all
+BEGIN
+
+	main.sp_normal_obs.hide
+	main.tx_normal_obs.hide
+	main.en_normal_mean.hide
+	main.tx_normal_mean.hide
+	main.en_normal_sd.hide
+	main.tx_normal_sd.hide
+
+	main.en_poisson_exp.hide
+	main.tx_poisson_exp.hide
+	main.ed_poisson_event.hide
+	main.tx_poisson_event.hide
+
+	main.sp_prop_obs.hide
+	main.tx_prop_obs.hide
+	main.sp_prop_suc.hide
+	main.tx_prop_suc.hide
+	main.gb_prop_opts.hide
+
+	main.rb_exac.hide
+	main.rb_wald.hide
+	main.rb_wilson.hide
+	main.rb_agresti.hide
+	main.rb_jeffreys.hide
+
+	main.sp_var_obs.hide
+	main.tx_var_obs.hide
+	main.ed_var_var.hide
+	main.tx_var_var.hide
+	main.ed_var_kurt.hide
+	main.tx_var_kurt.hide
+
+	main.gb_ci_type.hide
+	main.rb_normal_sd.hide
+	main.rb_bonett.hide
+END
+
+SCRIPT main_normal_show
+BEGIN
+	main.sp_normal_obs.show
+	main.tx_normal_obs.show
+	main.en_normal_mean.show
+	main.tx_normal_mean.show
+	main.en_normal_sd.show
+	main.tx_normal_sd.show
+	main.sp_level.show
+	main.tx_level.show
+	main.sp_level.setposition . 265
+	main.tx_level.setposition . 265
+	main.gb_ci_calc.setposition . . . 145
+END
+
+SCRIPT main_poisson_show
+BEGIN
+	main.en_poisson_exp.show
+	main.tx_poisson_exp.show
+	main.ed_poisson_event.show
+	main.tx_poisson_event.show
+	main.sp_level.show
+	main.tx_level.show
+	main.sp_level.setposition . 235
+	main.tx_level.setposition . 235
+	main.gb_ci_calc.setposition . . . 115
+END
+
+SCRIPT main_prop_show
+BEGIN
+	main.sp_prop_obs.show
+	main.tx_prop_obs.show
+	main.sp_prop_suc.show
+	main.tx_prop_suc.show
+	main.gb_prop_opts.show
+	main.rb_exac.show
+	main.rb_wald.show
+	main.rb_wilson.show
+	main.rb_agresti.show
+	main.rb_jeffreys.show
+	main.sp_level.show
+	main.tx_level.show
+	main.sp_level.setposition . 375
+	main.tx_level.setposition . 375
+	main.gb_ci_calc.setposition . . . 255
+END
+
+SCRIPT main_var_show
+BEGIN
+	main.sp_var_obs.show
+	main.tx_var_obs.show
+	main.ed_var_var.show
+	main.tx_var_var.show
+	main.ed_var_kurt.show
+	main.tx_var_kurt.show
+	main.gb_ci_type.show
+	main.rb_normal_sd.show
+	main.rb_bonett.show
+	main.sp_level.setposition . 345
+	main.tx_level.setposition . 345
+	main.gb_ci_calc.setposition . . . 225
+	main.tx_var_var.setlabel resource LBL_SAMPLE_VARIANCE
+	main.ed_var_var.setlabel resource LBL_SAMPLE_VARIANCE
+	program main_kurtosis_show
+END
+
+SCRIPT main_sd_show
+BEGIN
+	main.sp_var_obs.show
+	main.tx_var_obs.show
+	main.ed_var_var.show
+	main.tx_var_var.show
+	main.ed_var_kurt.show
+	main.tx_var_kurt.show
+	main.gb_ci_type.show
+	main.rb_normal_sd.show
+	main.rb_bonett.show
+	main.sp_level.setposition . 345
+	main.tx_level.setposition . 345
+	main.gb_ci_calc.setposition . . . 225
+	program main_kurtosis_show
+	main.tx_var_var.setlabel resource LBL_SAMPLE_STANDARD_DEVIATION
+	main.ed_var_var.setlabel resource LBL_SAMPLE_STANDARD_DEVIATION
+END
+
+PROGRAM main_kurtosis_show
+BEGIN
+	if main.rb_bonett {
+		call main.tx_var_kurt.enable
+		call main.ed_var_kurt.enable
+	}
+	else {
+		call main.tx_var_kurt.disable
+		call main.ed_var_kurt.disable
+	}
+END
+
+PROGRAM command
+BEGIN
+	put "cii "
+	if main.rb_normal {
+		put "means "
+		put main.sp_normal_obs
+		put " "
+		require main.en_normal_mean
+		put main.en_normal_mean
+		put " "
+		require main.en_normal_sd
+		put main.en_normal_sd
+	}
+	if main.rb_poisson {
+		put "means "
+		require main.en_poisson_exp
+		put main.en_poisson_exp
+		put " "
+		if main.ed_poisson_event.islt(0) {
+		call create STRING _MSG_TMP
+call _MSG_TMP.format "resource LBL_MSGBOX_GREATER_THAN_OR_EQUAL_ZERO_FMT" "resource LBL_TAB_MAIN" "resource CII_MAIN_ED_POISSON_EVENT"
+			stopbox stop "class _MSG_TMP.value"
+		}
+		put main.ed_poisson_event
+	}
+	if main.rb_prop {
+		put "proportions "
+		put main.sp_prop_obs
+		put " "
+		put main.sp_prop_suc
+		put " "
+	}
+	if main.rb_var {
+		put "variances "
+		put main.sp_var_obs
+		put " "
+		require main.ed_var_var
+		put main.ed_var_var
+		if main.rb_bonett {
+			put " "
+			require main.ed_var_kurt
+			put main.ed_var_kurt
+		}
+	}
+	if main.rb_sd {
+		put "variances "
+		put main.sp_var_obs
+		put " "
+		require main.ed_var_var
+		put main.ed_var_var
+		if main.rb_bonett {
+			put " "
+			require main.ed_var_kurt
+			put main.ed_var_kurt
+		}
+	}
+	beginoptions
+		if main.rb_poisson {
+			put " poisson "
+		}
+		if main.rb_prop {
+			option main.rb_exac
+			option main.rb_wald
+			option main.rb_wilson
+			option main.rb_agresti
+			option main.rb_jeffreys
+		}
+		if main.rb_var {
+			option main.rb_bonett
+		}
+		if main.rb_sd {
+			put " sd"
+			option main.rb_bonett
+		}
+		INCLUDE _level_main_pr
+	endoptions
+END
+

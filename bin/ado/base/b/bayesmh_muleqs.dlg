@@ -1,0 +1,1101 @@
+/*
+	bayesmh_muleqs
+
+*!  VERSION 1.1.6  05oct2017
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_xlarge
+DEFINE _dlght 520
+INCLUDE header
+
+HELP hlp1, view("help bayesmh")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource BAYESMH_MULEQS_DLG_HSCALE
+	create STRING distrstr
+	
+	create STRING main_build_tmp
+	create STRING main_build_tmp2
+	create STRING build_STMP
+	create STRING main_build_childdlg
+	create STRING main_build_child_result
+	create DOUBLE main_build_position
+	
+	create ARRAY main_mulmodel_list
+	create SVECTOR mainMulModelCommandDisplayList
+	create SVECTOR mainMulModelCommandList
+	create SVECTOR mainMulModelCommandValues
+	create SVECTOR mainMulModelStatusList
+	create SVECTOR mainMulModelChildDialogList
+	create DOUBLE main_mulmodel_count
+	create DOUBLE main_mulmodel_arraysize
+	create STRING main_mulmodel_output
+	
+	create DOUBLE distr_layout
+	
+	main.bu_mulmodel_edit.disable
+	main.bu_mulmodel_disable.disable
+	main.bu_mulmodel_enable.disable
+	distr_layout.setvalue 1
+END
+
+SCRIPT POSTINIT
+BEGIN
+	mainMulModelCommandDisplayList.copyToArray main_mulmodel_list
+	main.lb_mulmodelBuild.repopulate
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL) 				///
+	label(resource BAYESMH_MULEQS_TITLE)
+BEGIN
+  GROUPBOX    gb_outcome	_lft 	_top	_iwd	_ht5h,		///
+	label(resource BAYESMH_MULEQS_MAIN_GB_OUTCOME)
+  RADIO	   rb_single		_ilft	_ss	_ibwd	.,		///
+	first								///
+	onclickon(program main_outcome_change)				///
+	label(resource BAYESMH_MULEQS_MAIN_RB_SINGLE)
+  RADIO	   rb_mulvar		@	_ss	@	.,		///
+	onclickon(program main_outcome_change)				///
+	label(resource BAYESMH_MULEQS_MAIN_RB_MULVAR)
+  RADIO    rb_mulvarreg		@	_ss	@	.,		///
+	last								///
+	onclickon(program main_outcome_change)				///
+	label(resource BAYESMH_MULEQS_MAIN_RB_MULVARREG)
+  
+  /*			   univariate regression			 */
+  GROUPBOX gb_model		_lft	+40	_iwd	_ht12,		///
+	label(resource BAYESMH_MULEQS_MAIN_GB_MODEL)
+  TEXT 	   tx_eqname		_ilft	_ss	_ibwd	.,		///
+	label(resource LBL_EQUATION_NAME_OPTIONAL)
+  DEFINE holddv @y
+  EDIT	   ed_eqname		@	_ss	150	.,		///
+	label(resource LBL_EQUATION_NAME)
+  TEXT	   tx_unidv		_ilft	_ms	150	.,		///
+	label(resource LBL_DEPVAR)
+  DEFINE holdy @y
+  VARNAME  vn_unidv		@	_ss	@	.,		///
+	numeric								///
+	allowts								///
+	label(resource LBL_DEPVAR)
+  TEXT	tx_uniiv		180	holdy    _cwd2	.,		///
+	label(resource LBL_INDDEPVAR)
+  VARLIST vl_uniiv		@	_ss	350	.,		///
+	allowcat							///
+	numeric								///
+	allowts								///
+	fv								///
+	label(resource LBL_INDDEPVAR)
+  CHECKBOX ck_uninocons 	@         _ms       @         .,	///
+  	option("noconstant")						///
+  	label(resource BAYESMH_LBL_SUPPRESS_CONSTANT_TERMS)
+	
+  /*		     multivariate normal regression			 */
+  TEXT	   tx_muldv		_ilft	holddv	150	.,		///
+	label(resource LBL_DEPENDENT_VARIABLES)
+  DEFINE holddv3 @y
+  VARLIST  vl_muldv		@	_ss	@	.,		///
+	numeric								///
+	allowts								///
+	label(resource LBL_DEPENDENT_VARIABLES)
+  TEXT	tx_muliv		180	holddv3    _cwd2	.,	///
+	label(resource LBL_INDDEPVAR)
+  VARLIST vl_muliv		@	_ss	350	.,		///
+	allowcat							///
+	numeric								///
+	allowts								///
+	fv								///
+	label(resource LBL_INDDEPVAR)
+  CHECKBOX ck_mulnocons 	@         _ms       @         .,	///
+  	option("noconstant")						///
+  	label(resource BAYESMH_LBL_SUPPRESS_CONSTANT_TERMS)
+	
+  /*   multivariate normal regression with outcome-specific regressors	 */
+  LISTBOX lb_mulmodelBuild	_ilft	holddv	245	95,		///
+	contents(main_mulmodel_list)					///
+	ondblclick(program main_mulmodel_edit)				///
+	onselchange(program main_mulmodel_sel_changed)			///
+	nomemory
+  BUTTON bu_mulmodel_create	275	@	75	.,		///
+	onpush(program main_mulmodel_create)				///
+	label(resource LBL_BU_CREATE)
+  BUTTON bu_mulmodel_edit	@	_ms	@	.,		///
+	onpush(program main_mulmodel_edit)				///
+	label(resource LBL_BU_EDIT)
+  BUTTON bu_mulmodel_disable	@	_ms	@	.,		///
+	onpush(program main_mulmodel_disable)				///
+	label(resource LBL_BU_DISABLE)
+  BUTTON bu_mulmodel_enable	@	_ms	@	.,		///
+	onpush(program main_mulmodel_enable)				///
+	label(resource LBL_BU_ENABLE)
+  TEXTBOX tb_mulmodel_note	20	+25	370	20,		///
+	label(resource BAYES_LBL_PRESS_CREATE_TO_DEFINE_EQUATION)
+  CHECKBOX ck_mulmodelnocons 	@       _ss       @     .,		///
+  	option("noconstant")						///
+  	label(resource BAYESMH_LBL_SUPPRESS_CONSTANT_TERMS)
+	
+  INCLUDE bayesmh_distribution
+END
+
+INCLUDE bayesmh_distribution_pr
+
+PROGRAM main_uvar_show
+BEGIN
+	call main.tx_eqname.show 
+	call main.ed_eqname.show
+	call main.tx_unidv.show
+	call main.vn_unidv.show
+	call main.tx_uniiv.show
+	call main.vl_uniiv.show
+	call main.ck_uninocons.show
+END
+
+SCRIPT main_uvar_hide
+BEGIN
+	main.tx_eqname.hide 
+	main.ed_eqname.hide
+	main.tx_unidv.hide
+	main.vn_unidv.hide
+	main.tx_uniiv.hide
+	main.vl_uniiv.hide
+	main.ck_uninocons.hide
+END
+
+PROGRAM main_mvar_show
+BEGIN
+	call main.tx_muldv.show
+	call main.vl_muldv.show
+	call main.tx_muliv.show
+	call main.vl_muliv.show
+	call main.ck_mulnocons.show
+END
+
+SCRIPT main_mvar_hide
+BEGIN
+	main.tx_muldv.hide
+	main.vl_muldv.hide
+	main.tx_muliv.hide
+	main.vl_muliv.hide
+	main.ck_mulnocons.hide
+END
+
+PROGRAM main_mmodel_show
+BEGIN
+	call main.lb_mulmodelBuild.show
+	call main.bu_mulmodel_create.show
+	call main.bu_mulmodel_edit.show
+	call main.bu_mulmodel_disable.show
+	call main.bu_mulmodel_enable.show
+	call main.tb_mulmodel_note.show
+	call main.ck_mulmodelnocons.show
+END
+
+SCRIPT main_mmodel_hide
+BEGIN
+	main.lb_mulmodelBuild.hide
+	main.bu_mulmodel_create.hide
+	main.bu_mulmodel_edit.hide
+	main.bu_mulmodel_disable.hide
+	main.bu_mulmodel_enable.hide
+	main.tb_mulmodel_note.hide
+	main.ck_mulmodelnocons.hide
+END
+
+PROGRAM main_outcome_change
+BEGIN
+	if main.rb_single {
+		call program main_uvar_show
+		call script main_mvar_hide
+		call script main_mmodel_hide
+		call program main_distr_change
+	}
+	if main.rb_mulvar {
+		call script main_uvar_hide
+		call program main_mvar_show
+		call script main_mmodel_hide
+		call program main_distr_change
+	}
+	if main.rb_mulvarreg {
+		call script main_uvar_hide
+		call script main_mvar_hide
+		call program main_mmodel_show
+		call program main_distr_change
+	}
+	call program main_move_options
+END
+
+PROGRAM main_distr_change
+BEGIN
+	call program main_distr_hide
+	if main.rb_single {
+		call main.gb_distr.setlabel resource BAYES_LBL_LIKELIHOOD_MODEL
+		call main.lb_distr.show
+		call main.lb_distr_all.hide
+		call main.lb_distr_distr.hide
+		call main.tx_uniiv.enable
+		call main.vl_uniiv.enable
+		call main.ck_uninocons.enable
+		if main.lb_distr.equals("normal") {
+			call main.tx_normalvar.show
+			call main.ed_normalvar.show
+			call main.bu_normalvar.show
+			call main.tx_normalvar.setposition 315 275 220 .
+			call main.ed_normalvar.setposition 315 295 140 .
+			call main.bu_normalvar.setposition 455 295 75 .
+		}
+		if main.lb_distr.equals("t") {
+			call main.tx_tsigma2.show
+			call main.ed_tsigma2.show
+			call main.bu_tsigma2.show
+			call main.tx_tdf.show
+			call main.ed_tdf.show
+			call main.bu_tdf.show
+			call main.tx_tsigma2.setposition 315 275 220 .
+			call main.ed_tsigma2.setposition 315 295 140 .
+			call main.bu_tsigma2.setposition 455 295 75 .
+			call main.tx_tdf.setposition 315 320 220 .
+			call main.ed_tdf.setposition 315 340 140 .
+			call main.bu_tdf.setposition 455 340 75 .
+		}
+		if main.lb_distr.equals("lognormal") {
+			call main.tx_lnnormalvar.show
+			call main.ed_lnnormalvar.show
+			call main.bu_lnnormalvar.show
+			call main.tx_offset.show
+			call main.vn_offset.show
+			call main.tx_lnnormalvar.setposition 315 275 220 .
+			call main.ed_lnnormalvar.setposition 315 295 140 .
+			call main.bu_lnnormalvar.setposition 455 295 75 .
+			call main.tx_offset.setposition 315 320 220 .
+			call main.vn_offset.setposition 315 340 220 .
+		}
+		if main.lb_distr.equals("exponential") {
+			call main.tx_offset.show
+			call main.vn_offset.show
+			call main.tx_offset.setposition 315 275 220 .
+			call main.vn_offset.setposition 315 295 220 .
+		}
+		if main.lb_distr.equals("probit") {
+			call main.tx_offset.show
+			call main.vn_offset.show
+			call main.tx_offset.setposition 315 275 220 .
+			call main.vn_offset.setposition 315 295 220 .
+		}
+		if main.lb_distr.equals("logit") {
+			call main.tx_offset.show
+			call main.vn_offset.show
+			call main.tx_offset.setposition 315 275 220 .
+			call main.vn_offset.setposition 315 295 220 .
+		}
+		if main.lb_distr.equals("binomial") {
+			call main.tx_bintrials.show
+			call main.ed_bintrials.show
+			call main.bu_bintrials.show
+			call main.tx_offset.show
+			call main.vn_offset.show
+			call main.tx_bintrials.setposition 315 275 220 .
+			call main.ed_bintrials.setposition 315 295 140 .
+			call main.bu_bintrials.setposition 455 295 75 .
+			call main.tx_offset.setposition 315 320 220 .
+			call main.vn_offset.setposition 315 340 220 .
+		}
+		if main.lb_distr.equals("oprobit") {
+			call main.tx_offset.show
+			call main.vn_offset.show
+			call main.tx_offset.setposition 315 275 220 .
+			call main.vn_offset.setposition 315 295 220 .
+		}
+		if main.lb_distr.equals("ologit") {
+			call main.tx_offset.show
+			call main.vn_offset.show
+			call main.tx_offset.setposition 315 275 220 .
+			call main.vn_offset.setposition 315 295 220 .
+		}
+		if main.lb_distr.equals("poisson") {
+			call main.rb_exposure.show
+			call main.vn_exposure.show
+			call main.rb_offset.show
+			call main.vn_offset.show
+			call main.rb_exposure.setposition 315 275 220 .
+			call main.vn_exposure.setposition 315 295 220 .
+			call main.rb_offset.setposition 315 320 220 .
+			call main.vn_offset.setposition 315 340 220 .
+			call program distr_poisson_check
+		}
+		if main.lb_distr.equals("llf") {
+			call main.tx_llfsub.show
+			call main.ex_llfsub.show
+			call main.tx_llfsub.setposition 315 275 220 .
+			call main.ex_llfsub.setposition 315 295 220 .
+		}
+	}
+	if main.rb_mulvar {
+		call main.gb_distr.setlabel resource BAYES_LBL_LIKELIHOOD_MODEL
+		call main.lb_distr.hide
+		call main.lb_distr_all.show
+		call main.lb_distr_distr.hide
+		call main.tx_muliv.enable
+		call main.vl_muliv.enable
+		call main.ck_mulnocons.enable		
+		if main.lb_distr_all.equals("normal") {
+			call main.tx_normalvar.show
+			call main.ed_normalvar.show
+			call main.bu_normalvar.show
+			call main.tx_normalvar.setposition 315 230 220 .
+			call main.ed_normalvar.setposition 315 250 140 .
+			call main.bu_normalvar.setposition 455 250 75 .
+		}
+		if main.lb_distr_all.equals("t") {
+			call main.tx_tsigma2.show
+			call main.ed_tsigma2.show
+			call main.bu_tsigma2.show
+			call main.tx_tdf.show
+			call main.ed_tdf.show
+			call main.bu_tdf.show
+			call main.tx_tsigma2.setposition 315 230 220 .
+			call main.ed_tsigma2.setposition 315 250 140 .
+			call main.bu_tsigma2.setposition 455 250 75 .
+			call main.tx_tdf.setposition 315 275 220 .
+			call main.ed_tdf.setposition 315 295 140 .
+			call main.bu_tdf.setposition 455 295 75 .
+		}
+		if main.lb_distr_all.equals("lognormal") {
+			call main.tx_lnnormalvar.show
+			call main.ed_lnnormalvar.show
+			call main.bu_lnnormalvar.show
+			call main.tx_offset.show
+			call main.vn_offset.show
+			call main.tx_lnnormalvar.setposition 315 230 220 .
+			call main.ed_lnnormalvar.setposition 315 250 140 .
+			call main.bu_lnnormalvar.setposition 455 250 75 .
+			call main.tx_offset.setposition 315 275 220 .
+			call main.vn_offset.setposition 315 295 220 .
+		}
+		if main.lb_distr_all.equals("exponential") {
+			call main.tx_offset.show
+			call main.vn_offset.show
+			call main.tx_offset.setposition 315 230 220 .
+			call main.vn_offset.setposition 315 250 220 .
+		}
+		if main.lb_distr_all.equals("mvnormal") {
+			call main.tx_mulnormalvar2.show 
+			call main.ed_mulnormalvar.show
+			call main.bu_mulnormalvar.show	
+			call main.tx_mulnormalvar2.setposition 315 230
+			call main.ed_mulnormalvar.setposition 315 250 140 .
+			call main.bu_mulnormalvar.setposition 455 250 75 .
+			call main.ed_mulnormalvar.setlabel resource BAYES_LBL_COVARIANCE
+		}
+		if main.lb_distr_all.equals("probit") {
+			call main.tx_offset.show
+			call main.vn_offset.show
+			call main.tx_offset.setposition 315 230 220 .
+			call main.vn_offset.setposition 315 250 220 .
+		}
+		if main.lb_distr_all.equals("logit") {
+			call main.tx_offset.show
+			call main.vn_offset.show
+			call main.tx_offset.setposition 315 230 220 .
+			call main.vn_offset.setposition 315 250 220 .
+		}
+		if main.lb_distr_all.equals("binomial") {
+			call main.tx_bintrials.show
+			call main.ed_bintrials.show
+			call main.bu_bintrials.show
+			call main.tx_offset.show
+			call main.vn_offset.show
+			call main.tx_bintrials.setposition 315 230 220 .
+			call main.ed_bintrials.setposition 315 250 140 .
+			call main.bu_bintrials.setposition 455 250 75 .
+			call main.tx_offset.setposition 315 275 220 .
+			call main.vn_offset.setposition 315 295 220 .
+		}
+		if main.lb_distr_all.equals("oprobit") {
+			call main.tx_offset.show
+			call main.vn_offset.show
+			call main.tx_offset.setposition 315 230 220 .
+			call main.vn_offset.setposition 315 250 220 .
+		}
+		if main.lb_distr_all.equals("ologit") {
+			call main.tx_offset.show
+			call main.vn_offset.show
+			call main.tx_offset.setposition 315 230 220 .
+			call main.vn_offset.setposition 315 250 220 .
+		}
+		if main.lb_distr_all.equals("poisson") {
+			call main.rb_exposure.show
+			call main.vn_exposure.show
+			call main.rb_offset.show
+			call main.vn_offset.show
+			call main.rb_exposure.setposition 315 230 220 .
+			call main.vn_exposure.setposition 315 250 220 .
+			call main.rb_offset.setposition 315 275 220 .
+			call main.vn_offset.setposition 315 295 220 .
+			call program distr_poisson_check
+		}
+		if main.lb_distr_all.equals("llf") {
+			call main.tx_llfsub.show
+			call main.ex_llfsub.show
+			call main.tx_llfsub.setposition 315 230 220 .
+			call main.ex_llfsub.setposition 315 250 220 .
+		}
+	}
+	if main.rb_mulvarreg {
+		call main.gb_distr.setlabel resource BAYES_LBL_LIKELIHOOD_MODEL
+		call main.lb_distr.hide
+		call main.lb_distr_all.show
+		call main.lb_distr_distr.hide		
+		if main.lb_distr_all.equals("normal") {
+			call main.tx_normalvar.show
+			call main.ed_normalvar.show
+			call main.bu_normalvar.show
+			call main.tx_normalvar.setposition 315 305 220 .
+			call main.ed_normalvar.setposition 315 325 140 .
+			call main.bu_normalvar.setposition 455 325 75 .
+		}
+		if main.lb_distr_all.equals("t") {
+			call main.tx_tsigma2.show
+			call main.ed_tsigma2.show
+			call main.bu_tsigma2.show
+			call main.tx_tdf.show
+			call main.ed_tdf.show
+			call main.bu_tdf.show
+			call main.tx_tsigma2.setposition 315 305 220 .
+			call main.ed_tsigma2.setposition 315 325 140 .
+			call main.bu_tsigma2.setposition 455 325 75 .
+			call main.tx_tdf.setposition 315 350 220 .
+			call main.ed_tdf.setposition 315 370 140 .
+			call main.bu_tdf.setposition 455 370 75 .
+		}
+		if main.lb_distr_all.equals("lognormal") {
+			call main.tx_lnnormalvar.show
+			call main.ed_lnnormalvar.show
+			call main.bu_lnnormalvar.show
+			call main.tx_offset.show
+			call main.vn_offset.show
+			call main.tx_lnnormalvar.setposition 315 305 220 .
+			call main.ed_lnnormalvar.setposition 315 325 140 .
+			call main.bu_lnnormalvar.setposition 455 325 75 .
+			call main.tx_offset.setposition 315 350 220 .
+			call main.vn_offset.setposition 315 370 220 .
+		}
+		if main.lb_distr_all.equals("exponential") {
+			call main.tx_offset.show
+			call main.vn_offset.show
+			call main.tx_offset.setposition 315 305 220 .
+			call main.vn_offset.setposition 315 325 220 .
+		}
+		if main.lb_distr_all.equals("mvnormal") {
+			call main.tx_mulnormalvar2.show 
+			call main.ed_mulnormalvar.show
+			call main.bu_mulnormalvar.show	
+			call main.tx_mulnormalvar2.setposition 315 305
+			call main.ed_mulnormalvar.setposition 315 325 140 .
+			call main.bu_mulnormalvar.setposition 455 325 75 .
+			call main.ed_mulnormalvar.setlabel resource BAYES_LBL_COVARIANCE
+		}
+		if main.lb_distr_all.equals("probit") {
+			call main.tx_offset.show
+			call main.vn_offset.show
+			call main.tx_offset.setposition 315 305 220 .
+			call main.vn_offset.setposition 315 325 220 .
+		}
+		if main.lb_distr_all.equals("logit") {
+			call main.tx_offset.show
+			call main.vn_offset.show
+			call main.tx_offset.setposition 315 305 220 .
+			call main.vn_offset.setposition 315 325 220 .
+		}
+		if main.lb_distr_all.equals("binomial") {
+			call main.tx_bintrials.show
+			call main.ed_bintrials.show
+			call main.bu_bintrials.show
+			call main.tx_offset.show
+			call main.vn_offset.show
+			call main.tx_bintrials.setposition 315 305 220 .
+			call main.ed_bintrials.setposition 315 325 140 .
+			call main.bu_bintrials.setposition 455 325 75 .
+			call main.tx_offset.setposition 315 350 220 .
+			call main.vn_offset.setposition 315 370 220 .
+		}
+		if main.lb_distr_all.equals("oprobit") {
+			call main.tx_offset.show
+			call main.vn_offset.show
+			call main.tx_offset.setposition 315 305 220 .
+			call main.vn_offset.setposition 315 325 220 .
+		}
+		if main.lb_distr_all.equals("ologit") {
+			call main.tx_offset.show
+			call main.vn_offset.show
+			call main.tx_offset.setposition 315 305 220 .
+			call main.vn_offset.setposition 315 325 220 .
+		}
+		if main.lb_distr_all.equals("poisson") {
+			call main.rb_exposure.show
+			call main.vn_exposure.show
+			call main.rb_offset.show
+			call main.vn_offset.show
+			call main.rb_exposure.setposition 315 305 220 .
+			call main.vn_exposure.setposition 315 325 220 .
+			call main.rb_offset.setposition 315 350 220 .
+			call main.vn_offset.setposition 315 370 220 .
+			call program distr_poisson_check
+		}
+		if main.lb_distr_all.equals("llf") {
+			call main.tx_llfsub.show
+			call main.ex_llfsub.show
+			call main.tx_llfsub.setposition 315 305 220 .
+			call main.ex_llfsub.setposition 315 325 220 .
+		}
+	}
+END
+
+PROGRAM main_move_options
+BEGIN
+	if main.rb_single {
+		call main.gb_model.setposition . . . 135
+		call main.gb_distr.setposition . 260 . 215
+		call main.lb_distr.setposition . 280 290 185
+	}
+	if main.rb_mulvar {
+		call main.gb_model.setposition . . . 90
+		call main.gb_distr.setposition . 215 . 225
+		call main.lb_distr_all.setposition . 235 290 195
+	}
+	if main.rb_mulvarreg {
+		call main.gb_model.setposition . . . 165
+		call main.gb_distr.setposition . 290 . 225
+		call main.lb_distr_all.setposition . 310 290 195
+	}
+END
+
+PROGRAM main_mulmodel_create
+BEGIN
+	call main_mulmodel_count.setvalue class mainMulModelChildDialogList.size
+	call main_mulmodel_count.increment
+	call main_build_tmp.setvalue "main_mulmodelchild_"
+	call main_build_tmp.append class main_mulmodel_count.value
+	call main_build_tmp.withvalue main_build_childdlg.setvalue @
+	call program main_show_mulmodel_child
+END
+
+PROGRAM main_mulmodel_edit
+BEGIN
+	call mainMulModelCommandDisplayList.findstr class		///
+		main.lb_mulmodelBuild.value
+	call main_build_position.setvalue class				///
+		mainMulModelCommandDisplayList.position
+	call main_build_position.withvalue				///
+		main_build_childdlg.setvalue				///
+		class mainMulModelChildDialogList.values[@]
+	call program main_show_mulmodel_child_edit
+END
+
+PROGRAM main_show_mulmodel_child
+BEGIN
+	call main_build_tmp.setvalue "bayesmh_mulreg AS "
+	call main_build_tmp.append class main_build_childdlg.value
+	call main_build_tmp.withvalue create CHILD @
+	call main_build_childdlg.withvalue @.setExitString		///
+		"main_build_child_result"
+	call main_build_childdlg.withvalue @.setExitAction		///
+		"program main_mulmodel_child_create_done"
+
+	call main_mulmodel_count.withvalue				///
+		build_STMP.format "resource LBL_EQUATION_FMT" "@" ""
+	call main_build_childdlg.withvalue				///
+		main_build_tmp2.setvalue "@.settitle"
+	call main_build_tmp2.append `" ""'
+	call main_build_tmp2.append class build_STMP.value
+	call main_build_tmp2.append `"""'
+	call main_build_tmp2.withvalue @
+END
+
+PROGRAM main_show_mulmodel_child_edit
+BEGIN
+	call main_build_tmp.setvalue "bayesmh_mulreg AS "
+	call main_build_tmp.append class main_build_childdlg.value
+	call main_build_tmp.withvalue create CHILD @
+	call main_build_childdlg.withvalue @.setExitString		///
+		"main_build_child_result"
+	call main_build_childdlg.withvalue @.setExitAction		///
+		"program main_mulmodel_child_edit_done"
+
+	call main_build_position.withvalue				///
+		main_build_tmp.setvalue					///
+		class mainMulModelCommandDisplayList.values[@]
+	call main_build_childdlg.withvalue				///
+		main_build_tmp2.setvalue "@.settitle"
+	call main_build_tmp2.append `" ""'
+	call main_build_tmp2.append class main_build_tmp.value
+	call main_build_tmp2.append `"""'
+	call main_build_tmp2.withvalue @
+END
+
+PROGRAM main_mulmodel_child_create_done
+BEGIN
+	call main_mulmodel_arraysize.setvalue class			///
+		mainMulModelChildDialogList.size
+	call main_mulmodel_arraysize.increment
+
+	/* Store child dialog name */
+	call mainMulModelChildDialogList.store class			///
+		main_mulmodel_arraysize.value class main_build_childdlg.value
+
+	/* Store listbox display equation string */
+	call main_mulmodel_arraysize.withvalue				///
+		build_STMP.format "resource LBL_EQUATION_FMT" "@" ""
+		
+	call build_STMP.withvalue					///
+		mainMulModelCommandDisplayList.store class		///
+		main_mulmodel_arraysize.value "@"
+
+	/* Store child dialog result string */
+	call mainMulModelCommandList.store class			///
+		main_mulmodel_arraysize.value				///
+		class main_build_child_result.value
+
+
+	/* Store child dialog result string for final command
+	   For disable/enable */
+	call mainMulModelCommandValues.store class			///
+		main_mulmodel_arraysize.value				///
+		class main_build_child_result.value
+
+	/* Store disable/enable status */
+	call mainMulModelStatusList.store class				///
+		main_mulmodel_arraysize.value "active"
+
+	call mainMulModelCommandDisplayList.copyToArray main_mulmodel_list
+	call main.lb_mulmodelBuild.repopulate
+	call build_STMP.withvalue					///
+		main.lb_mulmodelBuild.setvalue "@"
+END
+
+PROGRAM main_mulmodel_child_edit_done
+BEGIN
+	call mainMulModelChildDialogList.findstr class			///
+		main_build_childdlg.value
+	call main_build_position.setvalue class				///
+		mainMulModelChildDialogList.position
+	call main_build_position.withvalue main_build_tmp.setvalue	///
+		class mainMulModelStatusList.values[@]
+	if main_build_tmp.iseq("active") {
+		call main_build_position.withvalue			///
+			build_STMP.format "resource LBL_EQUATION_FMT" "@" ""
+		
+		call build_STMP.withvalue				///
+			mainMulModelCommandDisplayList.store class	///
+			main_build_position.value "@"
+		call mainMulModelCommandValues.store class		///
+			main_build_position.value class			///
+			main_build_child_result.value
+
+		call build_STMP.withvalue				///
+			main_build_tmp2.setvalue "@"
+	}
+	else {		
+		call main_build_position.withvalue build_STMP.format	///
+			"resource LBL_EQUATION_FMT" "@"			///
+			"resource LBL_PAREN_DISABLED"
+		call build_STMP.withvalue				///
+			main_build_tmp2.setvalue "@"
+
+		call main_build_tmp2.withvalue				///
+			mainMulModelCommandDisplayList.store		///
+			class main_build_position.value "@"
+	}
+
+	call mainMulModelCommandList.store class			///
+		main_build_position.value class				///
+		main_build_child_result.value
+
+	call mainMulModelCommandDisplayList.copyToArray main_mulmodel_list
+	call main.lb_mulmodelBuild.repopulate
+	call main.lb_mulmodelBuild.setvalue class main_build_tmp2.value
+END
+
+PROGRAM main_mulmodel_sel_changed
+BEGIN
+	call mainMulModelCommandDisplayList.findstr class		///
+		main.lb_mulmodelBuild.value
+	call main_build_position.setvalue class				///
+		mainMulModelCommandDisplayList.position
+	call main_build_position.withvalue main_build_tmp.setvalue	///
+		class mainMulModelStatusList.values[@]
+	if main_build_position {
+		call main.bu_mulmodel_edit.enable
+
+		call main_build_position.withvalue			///
+			main.tb_mulmodel_note.setlabel			///
+		class mainMulModelCommandList.values[@]
+	}
+
+	if main_build_tmp.iseq("disable") {
+		call main.bu_mulmodel_enable.enable
+		call main.bu_mulmodel_disable.disable
+	}
+	if main_build_tmp.iseq("active") {
+		call main.bu_mulmodel_enable.disable
+		call main.bu_mulmodel_disable.enable
+	}
+END
+
+PROGRAM main_mulmodel_disable
+BEGIN
+	call mainMulModelCommandDisplayList.findstr class		///
+		main.lb_mulmodelBuild.value
+	call main_build_position.setvalue class				///
+		mainMulModelCommandDisplayList.position
+
+	call main_build_tmp.setvalue class main.lb_mulmodelBuild.value
+	call mainMulModelStatusList.store class				///
+		main_build_position.value "disable"
+	call mainMulModelCommandValues.store class main_build_position.value ""
+
+	call build_STMP.format "resource LBL_PAREN_DISABLED"
+	call main_build_tmp.append " "
+	call main_build_tmp.append class build_STMP.value
+			
+	call main_build_tmp.withvalue					///
+		mainMulModelCommandDisplayList.store			///
+		class main_build_position.value "@"
+
+	call mainMulModelCommandDisplayList.copyToArray main_mulmodel_list
+	call main_build_tmp.withvalue main_build_tmp2.setvalue "@"
+	call main.lb_mulmodelBuild.repopulate
+	call main.lb_mulmodelBuild.setvalue class main_build_tmp2.value
+END
+
+PROGRAM main_mulmodel_enable
+BEGIN
+	call mainMulModelCommandDisplayList.findstr class		///
+		main.lb_mulmodelBuild.value
+	call main_build_position.setvalue class				///
+		mainMulModelCommandDisplayList.position
+
+	call mainMulModelStatusList.store class				///
+		main_build_position.value "active"
+	call main_build_position.withvalue				///
+		mainMulModelCommandValues.store				///
+		class main_build_position.value class			///
+		mainMulModelCommandList.values[@]
+
+	call main_build_position.withvalue				///
+		build_STMP.format "resource LBL_EQUATION_FMT" "@" ""
+		
+	call build_STMP.withvalue					///
+		mainMulModelCommandDisplayList.store			///
+		class main_build_position.value "@"
+
+	call mainMulModelCommandDisplayList.copyToArray main_mulmodel_list
+	call main_build_position.withvalue				///
+		main_build_tmp2.setvalue class				///
+		mainMulModelCommandDisplayList.values[@]
+	call main.lb_mulmodelBuild.repopulate
+	call main.lb_mulmodelBuild.setvalue class main_build_tmp2.value
+END
+
+INCLUDE ifin
+INCLUDE weights_f
+
+PROGRAM muleqs_distr_output
+BEGIN
+	put "likelihood("
+	
+	if main.rb_single {
+		if main.lb_distr.equals("") {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_MUST_BE_SPECIFIED_FMT" ///
+				"resource LBL_TAB_MODEL"		///
+				"resource BAYES_LBL_LIKELIHOOD_MODEL"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Model" tab, "Likelihood model" must be specified.
+		}
+		if main.lb_distr.equals("normal") {
+			require main.ed_normalvar
+			put "normal("
+			put main.ed_normalvar
+			put ")"
+		}
+		if main.lb_distr.equals("t") {
+			require main.ed_tsigma2
+			require main.ed_tdf
+			put "t("
+			put main.ed_tsigma2
+			put ", "
+			put main.ed_tdf
+			put ")"
+		}
+		if main.lb_distr.equals("lognormal") {
+			require main.ed_lnnormalvar
+			put "lognormal("
+			put main.ed_lnnormalvar
+			put ")"
+			if main.vn_offset {
+				put ", offset("
+				put main.vn_offset
+				put ")"
+			}
+		}
+		if main.lb_distr.equals("exponential") {
+			put "exponential"
+			if main.vn_offset {
+				put ","
+			}
+			if main.vn_offset {
+				put " offset("
+				put main.vn_offset
+				put ")"
+			}
+		}
+		if main.lb_distr.equals("probit") {
+			put "probit"
+			if main.vn_offset {
+				put ", offset("
+				put main.vn_offset
+				put ")"
+			}
+		}
+		if main.lb_distr.equals("logit") {
+			put "logit"
+			if main.vn_offset {
+				put ", offset("
+				put main.vn_offset
+				put ")"
+			}
+		}
+		if main.lb_distr.equals("binomial") {
+			require main.ed_bintrials
+			put "binomial("
+			put main.ed_bintrials
+			put ")"
+			if main.vn_offset {
+				put ","
+			}
+			if main.vn_offset {
+				put " offset("
+				put main.vn_offset
+				put ")"
+			}
+		}
+		if main.lb_distr.equals("oprobit") {
+			put "oprobit"
+			if main.vn_offset {
+				put ", offset("
+				put main.vn_offset
+				put ")"
+			}
+		}
+		if main.lb_distr.equals("ologit") {
+			put "ologit"
+			if main.vn_offset {
+				put ", offset("
+				put main.vn_offset
+				put ")"
+			}
+		}
+		if main.lb_distr.equals("poisson") {
+			put "poisson"
+			if main.vn_exposure | main.vn_offset {
+				put ","
+				if main.vn_exposure.isenabled() {
+					put " exposure("
+					put main.vn_exposure
+					put ")"
+				}
+				if main.vn_offset.isenabled() {
+					put " offset("
+					put main.vn_offset
+					put ")"
+				}
+			}
+		}
+		if main.lb_distr.equals("llf") {
+			require main.ex_llfsub
+			put "llf("
+			put main.ex_llfsub
+			put ")"
+		}
+	}
+	if main.rb_mulvar | main.rb_mulvarreg {
+		if main.lb_distr_all.equals("") {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_MUST_BE_SPECIFIED_FMT" ///
+				"resource LBL_TAB_MODEL"		///
+				"resource BAYES_LBL_LIKELIHOOD_MODEL"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Model" tab, "Likelihood model" must be specified.
+		}
+		if main.lb_distr_all.equals("normal") {
+			require main.ed_normalvar
+			put "normal("
+			put main.ed_normalvar
+			put ")"
+		}
+		if main.lb_distr_all.equals("t") {
+			require main.ed_tsigma2
+			require main.ed_tdf
+			put "t("
+			put main.ed_tsigma2
+			put ", "
+			put main.ed_tdf
+			put ")"
+		}
+		if main.lb_distr_all.equals("lognormal") {
+			require main.ed_lnnormalvar
+			put "lognormal("
+			put main.ed_lnnormalvar
+			put ")"
+			if main.vn_offset {
+				put ", offset("
+				put main.vn_offset
+				put ")"
+			}
+		}
+		if main.lb_distr_all.equals("exponential") {
+			put "exponential"
+			if main.vn_offset {
+				put ","
+			}
+			if main.vn_offset {
+				put " offset("
+				put main.vn_offset
+				put ")"
+			}
+		}
+		if main.lb_distr_all.equals("mvnormal") {
+			require main.ed_mulnormalvar
+			put "mvnormal("
+			put main.ed_mulnormalvar
+			put ")"
+		}
+		if main.lb_distr_all.equals("probit") {
+			put "probit"
+			if main.vn_offset {
+				put ", offset("
+				put main.vn_offset
+				put ")"
+			}
+		}
+		if main.lb_distr_all.equals("logit") {
+			put "logit"
+			if main.vn_offset {
+				put ", offset("
+				put main.vn_offset
+				put ")"
+			}
+		}
+		if main.lb_distr_all.equals("binomial") {
+			require main.ed_bintrials
+			put "binomial("
+			put main.ed_bintrials
+			put ")"
+			
+			if main.vn_offset {
+				put ","
+			}
+			if main.vn_offset {
+				put " offset("
+				put main.vn_offset
+				put ")"
+			}
+		}
+		if main.lb_distr_all.equals("oprobit") {
+			put "oprobit"
+			if main.vn_offset {
+				put ", offset("
+				put main.vn_offset
+				put ")"
+			}
+		}
+		if main.lb_distr_all.equals("ologit") {
+			put "ologit"
+			if main.vn_offset {
+				put ", offset("
+				put main.vn_offset
+				put ")"
+			}
+		}
+		if main.lb_distr_all.equals("poisson") {
+			put "poisson"
+			if main.vn_exposure | main.vn_offset {
+				put ","
+				if main.vn_exposure.isenabled() {
+					put " exposure("
+					put main.vn_exposure
+					put ")"
+				}
+				if main.vn_offset.isenabled() {
+					put " offset("
+					put main.vn_offset
+					put ")"
+				}
+			}
+		}
+		if main.lb_distr_all.equals("llf") {
+			require main.ex_llfsub
+			put "llf("
+			put main.ex_llfsub
+			put ")"
+		}
+	}
+	put ")"
+END
+
+PROGRAM muleqs_output
+BEGIN
+	if main.rb_single {
+		require main.vn_unidv 
+		if main.ed_eqname {
+			put main.ed_eqname 
+			put ":"
+		}
+		varlist main.vn_unidv
+		if main.vl_uniiv & main.vl_uniiv.isenabled() {
+			varlist main.vl_uniiv
+		}
+	}
+	if main.rb_mulvar {
+		require main.vl_muldv
+		varlist main.vl_muldv
+		put " = "
+		if main.vl_muliv & main.vl_muliv.isenabled() {
+			varlist main.vl_muliv
+		}
+	}
+	if main.rb_mulvarreg {
+		call mainMulModelCommandValues.copyToString main_mulmodel_output
+		if main_mulmodel_output.equals("") {
+			call create STRING _MSG_TMP
+                	call _MSG_TMP.format 					///
+				"resource BAYES_MSGBOX_EQUATION_REQUIRED_FMT"	///
+				"resource LBL_TAB_MODEL"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Model" tab, at least one equation must be specified.
+		}
+		put " " main_mulmodel_output
+	}
+	put " " /program ifin_output
+	put " " /program weights_output
+	beginoptions
+		option main.ck_uninocons
+		option main.ck_mulnocons
+		option main.ck_mulmodelnocons
+		
+		put " " /program muleqs_distr_output
+	endoptions
+END
+
+PROGRAM command
+BEGIN
+	put "("
+	put /program muleqs_output
+	put ")"
+END

@@ -1,0 +1,261 @@
+/*
+   sts generate
+
+*!  VERSION 2.1.0  19nov2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE _ht310
+INCLUDE header
+
+HELP hlp1, view("help sts")
+RESET res1
+
+DEFINE sep 160
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource STS_GENERATE_DLG_HSCALE
+END
+
+DIALOG main,label(resource STS_GENERATE_DLG_TITLE)/*
+                */ tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  DEFINE _x _xsetbu
+  DEFINE _y _top
+  INCLUDE _bu_stset
+
+  TEXT     tx_gen         _lft      +10       _vnwd       .,            /*
+                */ label(resource LBL_GENERATE_COLON)
+  DEFINE y @y
+
+  FRAME    fr_gen         _lft      _ss       142         _ht23,        /*
+                */ label("")
+
+  EDIT     ed_gen         _indent   +8        _vnwd       .,            /*
+                */ label(resource LBL_GENERATE_COLON)                   /*
+                */ max(32)
+
+  TEXT     tx_equal       sep       @         10          .,            /*
+		*/ label(resource LBL_EQUAL_SIGN)
+
+  TEXT     tx_produce     _lft3_2   y         _vnwd       .,            /*
+                */ label(resource STS_GENERATE_MAIN_TX_PRODUCE)
+
+  FRAME    fr_produce     @         _ss       314         _ht23,        /*
+                */ label("")
+
+  RADIO    rb_s           _indent   +10       _inwd       ., first      /*
+                */ label(resource STS_GENERATE_MAIN_RB_S)         /*
+                */ clickon("script enable_strata_adj_dis_level")	/*
+		*/ option(s)
+
+  RADIO    rb_se          @         _ss       @           .,            /*
+		*/ label(resource STS_GENERATE_MAIN_RB_SE)              /*
+		*/ clickon("script disable_strata_adj_dis_level")	/*
+		*/ option(se(s))
+
+  RADIO    rb_h           @         _ss       @           .,            /*
+            */ label(resource STS_GENERATE_MAIN_RB_H) /*
+                */ clickon("script enable_strata_adj_dis_level")	/*
+                */ option(h)
+
+  RADIO    rb_se_lls      @         _ss       @           .,            /*
+                */ label(resource STS_GENERATE_MAIN_RB_SE_LLS)          /*
+                */ clickon("script disable_strata_adj_dis_level")	/*
+                */ option(se(lls))
+
+  RADIO    rb_lbs         @         _ss       @           .,            /*
+		*/ label(resource STS_GENERATE_MAIN_RB_LBS) /*
+                */ clickon("script disable_strata_adj_en_level")	/*
+                */ option(lb(s))
+
+  RADIO    rb_ubs         @         _ss       @           .,            /*
+                */ label(resource STS_GENERATE_MAIN_RB_UBS)/*
+                */ clickon("script disable_strata_adj_en_level")        /*
+                */ option(ub(s))
+
+  RADIO    rb_na          @         _ss       @           .,            /*
+                */ label(resource STS_GENERATE_MAIN_RB_NA)/*
+                */ clickon("script disable_strata_adj_dis_level")	/*
+                */ option(na)
+
+  RADIO    rb_se_na       @         _ss       @           .,            /*
+		*/ label(resource STS_GENERATE_MAIN_RB_SE_NA)           /*
+                */ clickon("script disable_strata_adj_dis_level")	/*
+                */ option(se(na))
+
+  RADIO    rb_lb_na       @         _ss       @           .,            /*
+                */ label(resource STS_GENERATE_MAIN_RB_LB_NA) /*
+                */ clickon("script disable_strata_adj_en_level")	/*
+                */ option(lb(na))
+
+  RADIO    rb_up_na       @         _ss       @           .,            /*
+                */ label(resource STS_GENERATE_MAIN_RB_UP_NA) /*
+		*/ clickon("script disable_strata_adj_en_level")	/*
+                */ option(ub(na))
+
+  RADIO    rb_n           @         _ss       @           .,            /*
+		*/ label(resource STS_GENERATE_MAIN_RB_N)   /*
+		*/ clickon("script disable_strata_adj_dis_level")	/*
+                */ option(n)
+
+  RADIO    rb_d           @         _ss       @           ., last       /*
+                */ label(resource STS_GENERATE_MAIN_RB_D)              /*
+		*/ clickon("script disable_strata_adj_dis_level")	/*
+                */ option(d)
+END
+
+INCLUDE ifin
+
+DIALOG opt, tabtitle(resource LBL_OPTIONS)
+BEGIN
+
+  GROUPBOX gb_by          _lft      _top      _iwd        _ht13,	///
+                label(resource LBL_CALCULATION)
+
+  CHECKBOX ck_byvar          _ilft     _ms       _inwd     .,		///
+ 		onclickon(program opt_by_on)				///
+ 		onclickoff(script opt_by_off)				///
+ 		label(resource LBL_SEPARATE_ON_DIFF_GROUPS_OF_SP_VAR_BY_VAR)
+  VARLIST  vl_byvar          @         _ss       @         .,		///
+ 		option(by)						///
+ 		label(resource LBL_SEPARATE_ON_DIFF_GROUPS_OF_SP_VAR)
+
+  CHECKBOX ck_adjvar         _ilft     _ls       _ibwd     .,		///
+  		onclickon(program opt_adjvar_on)			///
+  		onclickoff(script opt_adjvar_off)			///
+   		label(resource LBL_ADJUST_THE_ESTIMATES_TO_ZERO_VALUES_OF_ADJ_VAR)
+  VARLIST  vl_adjvar         @         _ss       @         .,		///
+ 		option(adjustfor)					///
+ 		numeric							///
+ 		label(resource LBL_ADJUST_THE_ESTIMATES_TO_ZERO_VALUES_OF_ADJ_VAR)
+
+  CHECKBOX ck_strvar         @         _ls       @         .,		///
+ 		label(resource LBL_STRATIFY_ON_GROUPING_VARIABLES)
+
+  DEFINE _x _lft
+  DEFINE _cx _spr
+  DEFINE _y _xxls
+  INCLUDE _sp_level
+END
+
+PROGRAM opt_by_on
+BEGIN
+	call opt.vl_byvar.enable
+	if opt.ck_adjvar {
+		call opt.ck_strvar.enable
+	}
+END
+
+SCRIPT opt_by_off
+BEGIN
+	opt.vl_byvar.disable
+	opt.ck_strvar.disable
+END
+
+PROGRAM opt_adjvar_on
+BEGIN
+	call opt.vl_adjvar.enable
+	if opt.ck_byvar {
+		call opt.ck_strvar.enable
+	}
+END
+
+SCRIPT opt_adjvar_off
+BEGIN
+	opt.vl_adjvar.disable
+	opt.ck_strvar.disable
+END
+
+SCRIPT disable_strata_adj_en_level
+BEGIN
+	script strata_off
+	script adjust_off
+	script level_enable
+END
+
+SCRIPT disable_strata_adj_dis_level
+BEGIN
+	script strata_off
+	script adjust_off
+	script level_disable
+END
+
+SCRIPT enable_strata_adj_dis_level
+BEGIN
+	program strata_on
+	program adjust_on
+	script level_disable
+END
+
+SCRIPT strata_off
+BEGIN
+	opt.ck_strvar.disable
+END
+
+PROGRAM strata_on
+BEGIN
+	if opt.ck_adjvar & opt.ck_byvar {
+		call gaction opt.ck_strvar.enable
+	}
+END
+
+SCRIPT adjust_off
+BEGIN
+	opt.vl_adjvar.disable
+	opt.ck_adjvar.disable
+	opt.ck_strvar.disable
+END
+
+PROGRAM adjust_on
+BEGIN
+	call opt.ck_adjvar.enable
+	if opt.ck_adjvar {
+		call opt.vl_adjvar.enable
+	}
+	if opt.ck_byvar {
+		call opt.ck_strvar.enable
+	}
+END
+
+SCRIPT level_enable
+BEGIN
+	opt.sp_level.enable
+	opt.tx_level.enable
+END
+
+SCRIPT level_disable
+BEGIN
+	opt.sp_level.disable
+	opt.tx_level.disable
+END
+
+PROGRAM command
+BEGIN
+	require main.ed_gen
+	if opt.ck_byvar {
+		require opt.vl_byvar
+	}
+	if opt.ck_adjvar {
+		require opt.vl_adjvar
+	}
+	put "sts generate "  main.ed_gen  " "  "  = "
+	option radio(main rb_s rb_se rb_h rb_se_lls rb_lbs rb_ubs rb_na /*
+				*/ rb_se_na rb_lb_na rb_up_na rb_n rb_d )
+	INCLUDE _ifin_pr
+	beginoptions
+		if opt.ck_strvar.isenabled() & opt.ck_strvar {
+			call opt.vl_byvar.setoption "strata"
+		}
+		else {
+			call opt.vl_byvar.setoption "by"
+		}
+		optionarg opt.vl_byvar
+		optionarg opt.vl_adjvar
+		INCLUDE _level_opt_pr
+	endoptions
+END

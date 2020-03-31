@@ -1,0 +1,507 @@
+/*
+    nlogit
+ 
+*!  VERSION 2.2.5  o3dec20198
+ 
+*/
+
+VERSION 14.0
+
+INCLUDE _std_wide
+DEFINE _dlght 440
+INCLUDE header
+
+DEFINE c1 20
+DEFINE c1wd 63
+
+DEFINE c2 90
+DEFINE c2wd 110
+
+DEFINE c3h 225
+DEFINE c3hwd 50
+DEFINE c3 220
+DEFINE c3wd 20
+
+DEFINE c4 440
+DEFINE c4fwd 110
+DEFINE c4wd 200
+
+DEFINE c5 520
+DEFINE c5wd 70
+
+DEFINE c6hwd 57
+DEFINE c6wd 20
+
+HELP hlp1, view("help nlogit")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING constraint_res
+        script se_createAsNlogit
+	setscale_hadj resource NLOGIT_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script max_setListNoBHHH
+	program check_constraint_res
+	create STRING STMP
+
+	STMP.format "resource LBL_EQUATION_FMT" "1"			///
+		"resource LBL_ALTERNATIVE_VARIABLE_LOWERCASE"
+	STMP.withvalue main.vn_altvar_1.setlabel "@"
+	STMP.format "resource LBL_EQUATION_FMT" "2"			///
+		"resource LBL_ALTERNATIVE_VARIABLE_LOWERCASE"
+	STMP.withvalue main.vn_altvar_2.setlabel "@"
+	STMP.format "resource LBL_EQUATION_FMT" "3"			///
+		"resource LBL_ALTERNATIVE_VARIABLE_LOWERCASE"
+	STMP.withvalue main.vn_altvar_3.setlabel "@"
+	STMP.format "resource LBL_EQUATION_FMT" "4"			///
+		"resource LBL_ALTERNATIVE_VARIABLE_LOWERCASE"
+	STMP.withvalue main.vn_altvar_4.setlabel "@"
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)				///
+	label(resource NLOGIT_DLG_TITLE)
+BEGIN
+  TEXT tx_dv 		_lft	_top	_vnwd	.,			///
+	label(resource LBL_DEPVAR)
+  VARNAME vn_dv		@ 	_ss	@	.,			///
+	numeric								///
+	label(resource LBL_DEPVAR)
+
+  TEXT tx_iv		_vlx	_top	160	.,			///
+	label(resource LBL_INDDEPVAR)
+  VARLIST vl_iv		@	_ss	_vlwd	.,			///
+	fv 								///
+	allowcat							///
+	numeric								///
+	label(resource LBL_INDDEPVAR)
+
+  TEXT     tx_case		_lft	_ls	@	.,		///
+	label(resource NLOGIT_MAIN_TX_CASE)
+  VARNAME  vn_case		_lft	_ss	_vnwd	.,		///
+  	label(resource NLOGIT_MAIN_VN_CASE)				///
+  	numeric								///
+	option("case")
+
+
+  CHECKBOX ck_nocons		_vlx	@	_vlwd	.,		///
+	label(resource NLOGIT_MAIN_CK_NOCONS)	///
+  	onclickon(program main_noconst_off)				///
+  	onclickoff(script main_noconst_on)				///
+	option(noconst)
+
+  GROUPBOX gb_model		_lft	+35	_iwd	250,		///
+	label(resource NLOGIT_MAIN_GB_MODEL)
+
+  //Headings
+  TEXT     tx_eq		_ilft	_ss	c1wd	.,		///
+  	label(resource LBL_LEVEL)
+DEFINE toprow @y
+  TEXT     tx_eq_2		@	_vss	@	.,		///
+  	label(resource LBL_EQUATION_LOWERCASE)
+
+  TEXT     tx_alternative	c2	toprow	c2wd	.,		///
+  	label(resource LBL_ALTERNATIVE)
+  TEXT     tx_alternative_2	@	_vss	@	.,		///
+  	label(resource LBL_VARIABLE_LOWERCASE)
+
+  TEXT     tx_byalternative	c3	toprow	c4wd	.,		///
+  	label(resource NLOGIT_MAIN_TX_BY_ALTERNATIVE)
+  TEXT     tx_byalternative_2	@	_vss	@	.,		///
+  	label(resource LBL_VARIABLES_LOWERCASE)
+
+  TEXT     tx_base_alternative	c4	toprow	c5wd	.,		///
+  	label(resource LBL_BASE)
+  TEXT     tx_base_alternative_2 @	_vss	@	.,		///
+  	label(resource NLOGIT_MAIN_TX_BASE_ALTERNATIVE)
+
+  TEXT     tx_estconst		c5	toprow	c6hwd	.,		///
+  	label(resource LBL_ESTIMATE)
+  TEXT     tx_estconst_2	@	_vss	@	.,		///
+  	label(resource LBL_CONSTANT_LOWERCASE)
+  	
+//Equation_1
+  CHECKBOX ck_equation_1	c1	_ms	c1wd	.,		///
+  	label("1:")							///
+  	onclickon(program main_equation_1_on)				///
+  	onclickoff(script main_equation_1_off)
+  VARNAME  vn_altvar_1		c2	@	c2wd	.,		///
+  	numeric
+  VARLIST  vl_byaltvar_1	c3	@	c4wd	.,		///
+	fv								///
+  	numeric
+  EDIT     ed_base_1		c4	@	c5wd	.,		///
+  	option(base)
+  CHECKBOX ck_estconst_1	c5	@	c6wd	., 		///
+  	option(estconst)						///
+  	onclickon(program check_estconst1)
+ 
+ //Equation_2
+   CHECKBOX ck_equation_2	c1	_ms	c1wd	.,		///
+   	label("2:")							///
+   	onclickon(program main_equation_2_on)				///
+   	onclickoff(script main_equation_2_off)
+   VARNAME  vn_altvar_2		c2	@	c2wd	.,		///
+   	numeric	
+   VARLIST  vl_byaltvar_2	c3	@	c4wd	.,		///
+	fv								///
+   	numeric	
+   EDIT     ed_base_2		c4	@	c5wd	.,		///
+   	option(base)
+   CHECKBOX ck_estconst_2	c5	@	c6wd	.,		///
+  	option(estconst)						///
+  	onclickon(program check_estconst2)
+
+//Equation_3
+  CHECKBOX ck_equation_3	c1	_ms	c1wd	.,		///
+  	label("3:")							///
+  	onclickon(program main_equation_3_on)				///
+  	onclickoff(script main_equation_3_off)
+  VARNAME  vn_altvar_3		c2	@	c2wd	.,		///
+  	numeric	
+  VARLIST  vl_byaltvar_3	c3	@	c4wd	.,		///
+	fv								///
+  	numeric
+  EDIT     ed_base_3		c4	@	c5wd	.,		///
+  	option(base)
+  CHECKBOX ck_estconst_3	c5	@	c6wd	., 		///
+  	option(estconst)						///
+  	onclickon(program check_estconst3)
+
+//Equation_4
+  CHECKBOX ck_equation_4	c1	_ms	c1wd	.,		///
+  	label("4:")							///
+  	onclickon(program main_equation_4_on)				///
+  	onclickoff(script main_equation_4_off)
+  VARNAME  vn_altvar_4		c2	@	c2wd	.,		///
+  	numeric	
+  VARLIST  vl_byaltvar_4	c3	@	c4wd	.,		///
+	fv								///
+  	numeric
+  EDIT     ed_base_4		c4	@	c5wd	.,		///
+  	option(base)
+  CHECKBOX ck_estconst_4	c5	@	c6wd	.,		///
+  	option(estconst)						///
+  	onclickon(program check_estconst4)
+
+  GROUPBOX gb_bottom		_ilft	_ls	_ibwd	75,		///
+	label(resource NLOGIT_MAIN_GB_BOTTOM)
+
+//Bottom-level
+  TEXT     tx_required_bottom 	_iilft	_ss	55	.,		///
+  	label("*") right
+  VARNAME  vn_altvar_bottom	c2	@	c2wd	.,		///
+  	numeric								///
+  	label(resource NLOGIT_MAIN_VN_ALTVAR_BOTTOM)
+  VARLIST  vl_byaltvar_bottom   c3	@	c4wd	.,		///
+	fv								///
+  	numeric								///
+  	label(resource NLOGIT_MAIN_VL_BYALTVAR_BOTTOM)
+  EDIT     ed_base_bottom	c4	@	c5wd	.,		///
+   	option(base)
+  TEXT     tx_note		_iilft	_ls	_iibwd	.,		///
+	label(resource NLOGIT_MAIN_TX_NOTE)
+
+  CHECKBOX ck_nonnorm		_lft	+50	_rj120	.,		///
+	label(resource NLOGIT_MAIN_CK_NONNORM)				///
+	option(nonnormalized)
+  CHECKBOX ck_altwise		@	_ms	@	.,		///
+	label(resource LBL_USE_ALTERNATIVEWISE_DELETION_INSTEAD_CASEWISE) ///
+	option(altwise)
+
+  BUTTON bu_constraints		_rj100	-25	100	., 		///
+	label(resource NLOGIT_MAIN_BU_CONSTRAINTS)			///
+	onpush(script show_constraint_dlg)
+END
+
+PROGRAM check_estconst1
+BEGIN
+	call main.ck_estconst_2.setoff
+	call main.ck_estconst_3.setoff
+	call main.ck_estconst_4.setoff
+END
+
+PROGRAM check_estconst2
+BEGIN
+	call main.ck_estconst_1.setoff
+	call main.ck_estconst_3.setoff
+	call main.ck_estconst_4.setoff
+END
+
+PROGRAM check_estconst3
+BEGIN
+	call main.ck_estconst_1.setoff
+	call main.ck_estconst_2.setoff
+	call main.ck_estconst_4.setoff
+END
+
+PROGRAM check_estconst4
+BEGIN
+	call main.ck_estconst_1.setoff
+	call main.ck_estconst_2.setoff
+	call main.ck_estconst_3.setoff
+END
+
+/* equation_1 programming */
+PROGRAM main_equation_1_on
+BEGIN
+	call main.vn_altvar_1.enable
+	call main.vl_byaltvar_1.enable
+	call main.ed_base_1.enable
+	if main.ck_nocons {
+		call main.ck_estconst_1.enable
+	}
+END
+SCRIPT main_equation_1_off
+BEGIN
+	main.vn_altvar_1.disable
+	main.vl_byaltvar_1.disable
+	main.ed_base_1.disable
+	main.ck_estconst_1.disable
+END
+
+/* equation_2 programming */
+PROGRAM main_equation_2_on
+BEGIN
+	call main.vn_altvar_2.enable
+	call main.vl_byaltvar_2.enable
+	call main.ed_base_2.enable
+	if main.ck_nocons {
+		call main.ck_estconst_2.enable
+	}
+END
+SCRIPT main_equation_2_off
+BEGIN
+	main.vn_altvar_2.disable
+	main.vl_byaltvar_2.disable
+	main.ed_base_2.disable
+	main.ck_estconst_2.disable
+END
+
+/* equation_3 programming */
+PROGRAM main_equation_3_on
+BEGIN
+	call main.vn_altvar_3.enable
+	call main.vl_byaltvar_3.enable
+	call main.ed_base_3.enable
+	if main.ck_nocons {
+		call main.ck_estconst_3.enable
+	}
+END
+SCRIPT main_equation_3_off
+BEGIN
+	main.vn_altvar_3.disable
+	main.vl_byaltvar_3.disable
+	main.ed_base_3.disable
+	main.ck_estconst_3.disable
+END
+
+/* equation_4 programming */
+PROGRAM main_equation_4_on
+BEGIN
+	call main.vn_altvar_4.enable
+	call main.vl_byaltvar_4.enable
+	call main.ed_base_4.enable
+	if main.ck_nocons {
+		call main.ck_estconst_4.enable
+	}
+END
+SCRIPT main_equation_4_off
+BEGIN
+	main.vn_altvar_4.disable
+	main.vl_byaltvar_4.disable
+	main.ed_base_4.disable
+	main.ck_estconst_4.disable
+END
+
+/* noconst programming */
+SCRIPT main_noconst_on
+BEGIN
+	main.ck_estconst_1.disable
+	main.ck_estconst_2.disable
+	main.ck_estconst_3.disable
+	main.ck_estconst_4.disable
+END
+
+SCRIPT show_constraint_dlg
+BEGIN
+	create CHILD constraint_option
+	constraint_option.setExitString constraint_res
+	constraint_option.setExitAction "program check_constraint_res"
+END
+
+PROGRAM check_constraint_res
+BEGIN
+	if constraint_res {
+		call main.bu_constraints.modified_on
+	}
+	else {
+		call main.bu_constraints.modified_off
+	}
+END
+
+PROGRAM main_noconst_off
+BEGIN
+	if main.ck_equation_1 {
+		call main.ck_estconst_1.enable
+	}
+	if main.ck_equation_2 {
+		call main.ck_estconst_2.enable
+	}
+	if main.ck_equation_3 {
+		call main.ck_estconst_3.enable
+	}
+	if main.ck_equation_4 {
+		call main.ck_estconst_4.enable
+	}
+END
+
+INCLUDE byifin
+INCLUDE weights_fpi
+INCLUDE se
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+	program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  CHECKBOX ck_notree	_lft	_ls	_iwd	.,		///
+	label(resource NLOGIT_RPT_CK_NOTREE)			///
+	option(notree)
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _nocnsreport
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE factor_vars_reporting_pr
+INCLUDE fmt_coef_table_reporting_pr
+
+INCLUDE max_ml
+
+PROGRAM equation_1_output
+BEGIN
+	if main.ck_equation_1 {
+		put " " "|| "
+		require main.vn_altvar_1
+		put main.vn_altvar_1 ": "
+		put main.vl_byaltvar_1
+		beginoptions
+			optionarg main.ed_base_1
+			option main.ck_estconst_1
+		endoptions
+	}
+END
+
+PROGRAM equation_2_output
+BEGIN
+	if main.ck_equation_2 {
+		put " " "|| "
+		require main.vn_altvar_2
+		put main.vn_altvar_2 ": "
+		put main.vl_byaltvar_2
+		beginoptions
+			optionarg main.ed_base_2
+			option main.ck_estconst_2
+		endoptions
+	}
+END
+
+PROGRAM equation_3_output
+BEGIN
+	if main.ck_equation_3 {
+		put " " "|| "
+		require main.vn_altvar_3
+		put main.vn_altvar_3 ": "
+		put main.vl_byaltvar_3
+		beginoptions
+			optionarg main.ed_base_3
+			option main.ck_estconst_3
+		endoptions
+	}
+END
+
+PROGRAM equation_4_output
+BEGIN
+	if main.ck_equation_4 {
+		put " " "|| "
+		require main.vn_altvar_4
+		put main.vn_altvar_4 ": "
+		put main.vl_byaltvar_4
+		beginoptions
+			optionarg main.ed_base_4
+			option main.ck_estconst_4
+		endoptions
+	}
+END
+
+PROGRAM bottom_level_output
+BEGIN
+	put " " "|| "
+	require main.vn_altvar_bottom
+	put main.vn_altvar_bottom ": "
+	put main.vl_byaltvar_bottom
+END
+
+PROGRAM command
+BEGIN
+	put /program by_output " "
+	put "nlogit "
+	varlist main.vn_dv [main.vl_iv]
+	put " " /program ifin_output
+	put " " /program weights_output
+
+	put " " /program equation_1_output
+	put " " /program equation_2_output
+	put " " /program equation_3_output
+	put " " /program equation_4_output
+	put " " /program bottom_level_output
+
+	beginoptions
+		optionarg main.ed_base_bottom
+		optionarg main.vn_case
+		option main.ck_nocons
+		option main.ck_nonnorm
+		option main.ck_altwise
+
+		put " " constraint_res
+		put " " /program se_output
+
+		optionarg /hidedefault rpt.sp_level
+		option rpt.ck_notree
+		INCLUDE _nocnsreport_pr
+		INCLUDE _report_columns_pr
+		put " " rpt_bu_facvarsResults
+		put " " rpt_bu_fmtcoefResults
+		put " " /program max_output
+	endoptions
+
+END
+

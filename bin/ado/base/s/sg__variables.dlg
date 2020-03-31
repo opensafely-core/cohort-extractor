@@ -1,0 +1,1386 @@
+/*
+  sg__variables.dlg
+
+*!  VERSION 1.2.4  06dec2018
+
+*/
+
+VERSION 14.0
+MODAL
+SYNCHRONOUS_ONLY
+
+INCLUDE _std_msmall
+DEFINE _dlght 270
+INCLUDE header_sem_ed
+
+DEFINE _clwd	15
+DEFINE _wd	160
+DEFINE _sep	+165
+DEFINE _wd2	120
+DEFINE _sep2	+125
+DEFINE _cbwd	100
+DEFINE _cbsep	+105
+
+INCLUDE sg__common_output		/* routines necessary for output */
+
+SCRIPT PREINIT
+BEGIN
+	script sg__common_output_init 	/* initialize output globals */
+
+	create STRING OBJ
+	program setupOBJECT
+
+	create BOOLEAN bInit		/* has initialized */
+	bInit.setfalse
+	create STRING sTemp
+	create DOUBLE dTemp
+	create DOUBLE nSelected 
+	create BOOLEAN bLatent		/* latent only 		*/
+	create BOOLEAN bObserved	/* observed only 	*/
+	create BOOLEAN bML		/* multi-level 		*/
+	create BOOLEAN bGLM		/* GLM			*/
+	create BOOLEAN bExogenous	/* exogenous only 	*/
+	create BOOLEAN bEndogenous	/* endogenous only	*/
+	create BOOLEAN bGSEM		/* gsem mode enabled 	*/
+
+	program global_get_defaults
+	setscale_hadj resource SG__VARIABLES_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	bInit.settrue
+END
+
+PROGRAM setupOBJECT
+BEGIN
+	if ! __MESSAGE {
+		stopbox stop resource LBL_MSGBOX_OBJECT_NOT_FOUND
+// An unexpected error has occurred. Object not found.
+		exit 198
+	}
+	call OBJ.setvalue class __MESSAGE.value
+END
+
+PROGRAM global_get_defaults
+BEGIN
+	call nSelected.setvalue class .__SEMG.dbsettings.n_selected
+	if (!nSelected) {
+		call nSelected.setvalue 0
+	}
+
+	call bLatent.setfalse
+	call bObserved.setfalse
+	call sTemp.setvalue class .__SEMG.dbsettings.type
+	// 1=observed, 2=latent, <multiple>
+	if (sTemp.iseq("1")) { 
+		call bObserved.settrue
+	}
+	if (sTemp.iseq("2")) {
+		call bLatent.settrue
+	}
+	
+
+	call sTemp.setvalue class .__SEMG.dbsettings.isml
+	call bML.setfalse
+	if (sTemp.iseq("1")) {
+		call bML.settrue
+	}
+	
+	call sTemp.setvalue class .__SEMG.dbsettings.isglm
+	call bGLM.setfalse
+	if (sTemp.iseq("1")) {
+		call bGLM.settrue
+	}
+
+	call bExogenous.setfalse
+	call bEndogenous.setfalse
+	call sTemp.setvalue class .__SEMG.dbsettings.isexog
+	// 1=exogenous, 0=endogenous, <multiple>
+	if (sTemp.iseq("1")) { 
+		call bExogenous.settrue
+	}
+	if (sTemp.iseq("0")) {
+		call bEndogenous.settrue
+	}
+
+	call bGSEM.setfalse
+	call sTemp.setvalue class .__SEMG.dbsettings.estmode
+	if (sTemp.iseq("1")) { 
+		call bGSEM.settrue
+	}
+END
+
+SCRIPT variable_PREINIT
+BEGIN
+	create STRING sFlink
+	create STRING sExpvar
+	create STRING sDenom
+	create STRING sVarname
+	create STRING sBasename
+	create STRING sLevel
+	create STRING sLname
+	create STRING sMLname
+	create STRING sLabel
+	create STRING sXpos
+	create STRING sYpos
+	create STRING sCnsMean		/* constraint mean 	*/
+	create STRING sCnsCons		/* constraint intercept	*/
+	create STRING sCnsVar		/* constraint variance	*/
+	create STRING sEstMean
+	create STRING sPropHaz
+
+	create ARRAY vlist_array
+	create ARRAY level_array
+	create ARRAY level_array_val
+
+	program flink_hide	// necessary to prevent unnecessary 
+	                        // -stata hidden- calls on init
+	
+	program variable_get_defaults
+END
+
+SCRIPT variable_POSTINIT
+BEGIN
+	program variable_initialize_controls
+END
+
+PROGRAM variable_get_defaults
+BEGIN
+	call sFlink.setvalue class .__SEMG.dbsettings.familylink
+	call sFlink.withvalue variable.cb_flink.setdefault "@"
+
+	call sExpvar.setvalue class .__SEMG.dbsettings.expvar
+	call sExpvar.withvalue variable.vn_exposure.setdefault "@"
+
+	call sDenom.setvalue class .__SEMG.dbsettings.denomvar
+	call sDenom.withvalue variable.vn_denomvar.setdefault "@"
+
+	call sVarname.setvalue class .__SEMG.dbsettings.varname
+	call sVarname.withvalue variable.vn_var.setdefault "@"
+
+	call sBasename.setvalue class .__SEMG.dbsettings.basename
+	call sBasename.withvalue variable.cb_var2.setdefault "@"
+	
+	call sLevel.setvalue class .__SEMG.dbsettings.mnllev
+	call sLevel.withvalue variable.cb_level.setdefault "@"
+
+	call sLname.setvalue class .__SEMG.dbsettings.lname
+	call sLname.withvalue variable.ed_lname.setdefault "@"
+	
+	call sMLname.setvalue class .__SEMG.dbsettings.mlname
+	call sMLname.withvalue variable.ed_mlname.setdefault "@"
+
+	call sLabel.setvalue class .__SEMG.dbsettings.label
+	call sLabel.withvalue variable.ed_label.setdefault "@"
+	call sLabel.withvalue variable.ed_label_alt.setdefault "@"
+
+	call sXpos.setvalue class .__SEMG.dbsettings.x
+	call sXpos.withvalue variable.ed_xpos.setdefault "@"
+
+	call sYpos.setvalue class .__SEMG.dbsettings.y
+	call sYpos.withvalue variable.ed_ypos.setdefault "@"
+
+	call sCnsMean.setvalue class .__SEMG.dbsettings.cns_mean
+	call sCnsMean.withvalue variable.ed_cnsmean.setdefault "@"
+
+	call sCnsCons.setvalue class .__SEMG.dbsettings.cns_cons
+	call sCnsCons.withvalue variable.ed_cnscons.setdefault "@"
+
+	call sCnsVar.setvalue class .__SEMG.dbsettings.cns_var
+	call sCnsVar.withvalue variable.ed_cnsvar.setdefault "@"
+
+	call sEstMean.setvalue class .__SEMG.dbsettings.estmean
+	if sEstMean.iseq("1") {
+		call variable.ck_estmean.setdefault 1
+	}
+	else {
+		call variable.ck_estmean.setdefault 0
+	}
+
+	call sPropHaz.setvalue class .__SEMG.dbsettings.aft
+	if sPropHaz.iseq("1") {
+		call variable.ck_aft.setdefault 1
+	}
+	else {
+		call variable.ck_aft.setdefault 0
+	}
+END
+
+PROGRAM variable_initialize_controls
+BEGIN
+	/* bLatent and bObserved are mutually exclusive */
+	if ((bLatent | bObserved) & !nSelected.isgt(1)) {
+		if (bLatent) {
+			call variable.tx_var.hide
+			call variable.vn_var.hide
+			if (bML) {
+				call variable.tx_mlname.show
+				call variable.ed_mlname.show
+				call variable.bn_mlname.show
+				call variable.tx_lname.hide
+				call variable.ed_lname.hide
+			}
+			else {
+				call variable.tx_lname.show
+				call variable.ed_lname.show
+				call variable.tx_mlname.hide
+				call variable.ed_mlname.hide
+				call variable.bn_mlname.hide
+			}
+			call program flink_hide
+		}
+		if (bObserved) {
+			call variable.tx_var.show
+			call variable.vn_var.show
+			call variable.tx_lname.hide
+			call variable.ed_lname.hide
+			call variable.tx_mlname.hide
+			call variable.ed_mlname.hide
+			call variable.bn_mlname.hide
+			if (bGLM) {
+				call program flink_show
+			}
+			else {
+				call program flink_hide
+			}
+		}
+		call variable.tx_label_alt.hide
+		call variable.ed_label_alt.hide
+		call variable.tx_label.show
+		call variable.ed_label.show
+	}
+	else {
+		if (bGLM) {
+			call program flink_show
+			call variable.tx_label_alt.setposition . 60
+			call variable.ed_label_alt.setposition . 80
+		}
+		else {
+			call program flink_hide
+			call variable.tx_label_alt.setposition . 10
+			call variable.ed_label_alt.setposition . 30
+		}
+		call variable.tx_label_alt.show
+		call variable.ed_label_alt.show
+		call variable.tx_label.hide
+		call variable.ed_label.hide
+		call variable.tx_var.hide
+		call variable.vn_var.hide
+		call variable.tx_var2.hide
+		call variable.cb_var2.hide
+		call variable.tx_level.hide
+		call variable.cb_level.hide
+		call variable.tx_lname.hide
+		call variable.ed_lname.hide
+		call variable.tx_mlname.hide
+		call variable.ed_mlname.hide
+		call variable.bn_mlname.hide
+	}
+
+	call variable.vn_var.setvalue class sVarname.value
+	call variable.cb_var2.setvalue class sBasename.value
+	call variable.ed_lname.setvalue class sLname.value
+	call variable.ed_mlname.setvalue class sMLname.value
+	call variable.ed_label.setvalue class sLabel.value
+	call variable.ed_label_alt.setvalue class sLabel.value
+	call variable.cb_flink.setvalue class sFlink.value
+	call variable.vn_exposure.setvalue class sExpvar.value
+	call variable.vn_denomvar.setvalue class sDenom.value
+	call variable.ed_xpos.setvalue class sXpos.value
+	call variable.ed_ypos.setvalue class sYpos.value
+
+	call variable.ed_cnsmean.setvalue class sCnsMean.value
+	call variable.ed_cnscons.setvalue class sCnsCons.value
+	call variable.ed_cnsvar.setvalue class sCnsVar.value
+	
+	call program variable_setup_switched_state
+
+	if sEstMean.iseq("1") | sEstMean.iseq("0") {
+		if sEstMean.iseq("1") {
+			call variable.ck_estmean.seton
+		}
+		else {
+			call variable.ck_estmean.setoff
+		}
+		call variable.ck_estmean.setlabel resource SG__VARIABLES_ESTIMATE_MEAN
+		call variable.ck_estmean.enable
+	}
+	else {
+		call variable.ck_estmean.setlabel resource SG__VARIABLES_ESTIMATE_MEAN_MULTIPLE
+		call variable.ck_estmean.disable
+		call variable.ck_estmean.setoff
+	}
+	if sPropHaz.iseq("1") | sPropHaz.iseq("0") {
+		if sPropHaz.iseq("1") {
+			call variable.ck_aft.seton
+		}
+		else {
+			call variable.ck_aft.setoff
+		}
+	}
+END
+
+PROGRAM variable_setup_switched_state
+BEGIN
+	if (!bExogenous | (bExogenous & !bGSEM) | (bLatent & bExogenous)) {
+		if (bExogenous) {
+			call variable.tx_cnsmean.show
+			call variable.ed_cnsmean.show
+			call variable.bu_cnsmean.show
+			call variable.tx_cnsvar.show
+			call variable.ed_cnsvar.show
+			call variable.bu_cnsvar.show
+
+			call variable.tx_cnscons.hide
+			call variable.ed_cnscons.hide
+			call variable.bu_cnscons.hide
+			
+			if (bLatent) {
+				call variable.ck_estmean.show
+				call variable.gb_cons.setposition . . . 110
+			}
+			else {
+				call variable.ck_estmean.hide
+				call variable.gb_cons.setposition . . . 85
+			}
+			call variable.gb_cons.show
+		}
+		else {
+			call variable.tx_cnsmean.hide
+			call variable.ed_cnsmean.hide
+			call variable.bu_cnsmean.hide
+			call variable.tx_cnsvar.hide
+			call variable.ed_cnsvar.hide
+			call variable.bu_cnsvar.hide
+
+			if variable.cb_flink.startswith("ordinal") {
+				call variable.gb_cons.hide
+				call variable.tx_cnscons.hide
+				call variable.ed_cnscons.hide
+				call variable.bu_cnscons.hide
+			}
+			else {
+				call variable.gb_cons.show
+				call variable.tx_cnscons.show
+				call variable.ed_cnscons.show
+				call variable.bu_cnscons.show
+				call variable.gb_cons.setposition . . . 55
+			}
+
+			call variable.ck_estmean.hide
+		}
+	}
+	else {
+		call variable.tx_cnsvar.hide
+		call variable.ed_cnsvar.hide
+		call variable.bu_cnsvar.hide
+
+		call variable.tx_cnsmean.hide
+		call variable.ed_cnsmean.hide
+		call variable.bu_cnsmean.hide
+		call variable.tx_cnscons.hide
+		call variable.ed_cnscons.hide
+		call variable.bu_cnscons.hide
+		call variable.ck_estmean.hide
+		
+		call variable.gb_cons.hide
+	}
+END
+
+PROGRAM get_levels
+BEGIN
+	if variable.cb_level.isvisible() {
+		call sTemp.storeDialogClassName
+		put "sg__variables_vlist getLevels "
+		put `"""' variable.cb_var2 `"""' " "
+		put "." sTemp ".level_array" " "
+		put "." sTemp ".level_array_val"
+		stata hidden immediate
+	
+		call variable.cb_level.repopulate
+
+		call variable.cb_level.setvalue class sLevel.value
+	}
+END
+
+PROGRAM check_link_type
+BEGIN
+	if (nSelected.isgt(1)) {
+		exit
+	}
+	if (variable.cb_flink.isvisible()) {
+		if (variable.cb_flink.contains("poisson") 		///
+				| variable.cb_flink.contains("nbinomial")) {
+			call variable.tx_exposure.show
+			call variable.vn_exposure.show
+		}
+		else {
+			call variable.tx_exposure.hide
+			call variable.vn_exposure.hide
+		}
+
+		if (variable.cb_flink.startswith("binomial")) {
+			call variable.tx_denomvar.show
+			call variable.vn_denomvar.show
+		}
+		else {
+			call variable.tx_denomvar.hide
+			call variable.vn_denomvar.hide
+		}
+		
+		if (variable.cb_flink.iseqignorecase("gaussian identity")) {
+			call variable.bu_censor.show
+		}
+		else {
+			call variable.bu_censor.hide
+		}
+
+		if (variable.cb_flink.iseqignorecase("exponential log")   | ///
+		    variable.cb_flink.iseqignorecase("gamma log")         | ///
+		    variable.cb_flink.iseqignorecase("loglogistic log")   | ///
+		    variable.cb_flink.iseqignorecase("lognormal log")     | ///
+		    variable.cb_flink.iseqignorecase("weibull log")) {
+			call variable.bu_failure.show
+		}
+		else {
+			call variable.bu_failure.hide
+		}
+
+		if (variable.cb_flink.iseqignorecase("multinomial logit")) {
+			call variable.tx_level.show 
+			call variable.cb_level.show
+			call variable.tx_var2.show
+			call variable.cb_var2.show
+			call variable.tx_var.hide
+			call variable.vn_var.hide
+
+			call variable.tx_label.setposition 255 60 125 .
+			call variable.ed_label.setposition 255 80 125 .
+			call variable.gb_pos.setposition . 115 . .
+			call variable.tx_xpos.setposition . 135 . .
+			call variable.ed_xpos.setposition . 135 . .
+			call variable.tx_ypos.setposition . 135 . .
+			call variable.ed_ypos.setposition . 135 . .
+
+			call sTemp.storeDialogClassName
+			put "sg__variables_vlist getVars "
+			put "." sTemp ".vlist_array"
+			stata hidden immediate
+			call variable.cb_var2.repopulate
+			
+			call variable.cb_var2.setvalue class sBasename.value
+		}
+		else {
+			call variable.tx_level.hide 
+			call variable.cb_level.hide
+			call variable.tx_var2.hide
+			call variable.cb_var2.hide
+			call variable.tx_var.show
+			call variable.vn_var.show
+if (variable.cb_flink.iseqignorecase("exponential log") | ///
+		    variable.cb_flink.iseqignorecase("weibull log")) {
+				call variable.ck_aft.show
+				call variable.tx_var.setposition . 85 . .
+				call variable.vn_var.setposition . 105 . .
+				call variable.tx_label.setposition 150 85 230 .
+				call variable.ed_label.setposition 150 105 230 .
+				call variable.gb_pos.setposition . 135 . .
+				call variable.tx_xpos.setposition . 155 . .
+				call variable.ed_xpos.setposition . 155 . .
+				call variable.tx_ypos.setposition . 155 . .
+				call variable.ed_ypos.setposition . 155 . .
+			}
+			else {
+				call variable.ck_aft.hide
+				call variable.tx_var.setposition . 60 . .
+				call variable.vn_var.setposition . 80 . .
+				call variable.tx_label.setposition 150 60 230 .
+				call variable.ed_label.setposition 150 80 230 .
+				call variable.gb_pos.setposition . 115 . .
+				call variable.tx_xpos.setposition . 135 . .
+				call variable.ed_xpos.setposition . 135 . .
+				call variable.tx_ypos.setposition . 135 . .
+				call variable.ed_ypos.setposition . 135 . .
+			}
+		}
+		
+		if (bInit) {
+			call program variable_setup_switched_state
+			call program error_setup_switched_state
+			call program adv_setup_switched_state
+		}
+	}
+END
+
+PROGRAM flink_hide
+BEGIN
+	call variable.tx_flink.hide
+	call variable.cb_flink.hide
+	
+	call variable.bu_censor.hide
+	call variable.bu_failure.hide
+	call variable.ck_aft.hide
+
+	call variable.tx_exposure.hide
+	call variable.vn_exposure.hide
+
+	call variable.tx_denomvar.hide
+	call variable.vn_denomvar.hide
+	
+	call variable.tx_level.hide 
+	call variable.cb_level.hide
+	call variable.tx_var2.hide
+	call variable.cb_var2.hide
+
+	call variable.tx_var.setposition . 10 . .
+	call variable.vn_var.setposition . 30 . .
+	call variable.tx_label.setposition . 10 . .
+	call variable.ed_label.setposition . 30 . .
+
+	call variable.gb_pos.setposition . 65 . .
+	call variable.tx_xpos.setposition . 85 . .
+	call variable.ed_xpos.setposition . 85 . .
+	call variable.tx_ypos.setposition . 85 . .
+	call variable.ed_ypos.setposition . 85 . .
+
+	call variable.gb_cons.setposition . 130 . .
+	call variable.tx_cnsmean.setposition . 150 . .
+	call variable.ed_cnsmean.setposition . 150 . .
+	call variable.bu_cnsmean.setposition . 150 . .
+	call variable.tx_cnscons.setposition . 150 . .
+	call variable.ed_cnscons.setposition . 150 . .
+	call variable.bu_cnscons.setposition . 150 . .
+	call variable.tx_cnsvar.setposition . 180 . .
+	call variable.ed_cnsvar.setposition . 180 . .
+	call variable.bu_cnsvar.setposition . 180 . .
+	call variable.ck_estmean.setposition . 210 . .
+END
+
+PROGRAM flink_show
+BEGIN
+	call variable.tx_flink.show
+	call variable.cb_flink.show
+	
+	call variable.tx_var.hide
+	call variable.vn_var.hide
+
+	call variable.tx_var2.show
+	call variable.cb_var2.show
+	call variable.tx_level.show 
+	call variable.cb_level.show
+
+	// mlogit controls	
+	call variable.tx_var2.setposition . 60 . .
+	call variable.cb_var2.setposition . 80 . .
+	call variable.tx_level.setposition . 60 . . 
+	call variable.cb_level.setposition . 80 . .
+	call variable.tx_label.setposition 255 60 125 .
+	call variable.ed_label.setposition 255 80 125 .
+	
+	call variable.gb_pos.setposition . 115 . .
+	call variable.tx_xpos.setposition . 135 . .
+	call variable.ed_xpos.setposition . 135 . .
+	call variable.tx_ypos.setposition . 135 . .
+	call variable.ed_ypos.setposition . 135 . .
+
+	call variable.gb_cons.setposition . 180 . .
+	call variable.tx_cnsmean.setposition . 200 . .
+	call variable.ed_cnsmean.setposition . 200 . .
+	call variable.bu_cnsmean.setposition . 200 . .
+	call variable.tx_cnscons.setposition . 200 . .
+	call variable.ed_cnscons.setposition . 200 . .
+	call variable.bu_cnscons.setposition . 200 . .
+	call variable.tx_cnsvar.setposition . 230 . .
+	call variable.ed_cnsvar.setposition . 230 . .
+	call variable.bu_cnsvar.setposition . 230 . .
+	call variable.ck_estmean.setposition . 260 . .
+END
+
+SCRIPT show_ml_dlg
+BEGIN
+	create STRING sVarMLResults
+	OBJ.withvalue create CHILD sg__mllatvars, message(@)
+	sg__mllatvars.setExitString sVarMLResults
+	sg__mllatvars.setExitAction "program sg__mllatvars_done"
+END
+
+PROGRAM sg__mllatvars_done
+BEGIN
+	call sMLname.setvalue class .__SEMG.dbsettings.mlname
+	call sMLname.withvalue variable.ed_mlname.setdefault "@"
+	call variable.ed_mlname.setvalue class sMLname.value
+END
+
+SCRIPT create_censordlg
+BEGIN
+	create STRING sCensorDlgResult
+	OBJ.withvalue create CHILD sg__variables_censor, message(@)
+END
+
+SCRIPT create_failuredlg
+BEGIN
+	create STRING sFailureDlgResult
+	OBJ.withvalue create CHILD sg__variables_failure, message(@)
+END
+
+DIALOG variable, label(resource LBL_VARIABLE_PROPERTIES) tabtitle(resource LBL_VN_VARIABLE)
+BEGIN
+  TEXT     tx_flink	_lft	_top	_cwd1	.,		///
+	label(resource LBL_FAMILY_LINK)
+  COMBOBOX cb_flink	@	_ss	@	., nomemory	///
+	dropdown editreadonly					///
+	contents(__SEM_STYLES_LABEL.familylink)			///
+	values(__SEM_STYLES.familylink) 			///
+	onselchange(program check_link_type)
+
+  TEXT     tx_exposure	_lft2	_top	_cwd1	.,		///
+	label(resource LBL_EXPOSURE)
+  VARNAME  vn_exposure	@	_ss	_vnwd	., nomemory	///
+	label(resource LBL_EXPOSURE)
+  BUTTON   bu_censor	@	@	100	.,		///
+	label(resource SG__VARIABLES_VARIABLE_BU_CENSOR)	///
+	onpush(script create_censordlg)
+  BUTTON   bu_failure	@	@	150	.,		///
+	onpush(script create_failuredlg)			///
+	label(resource LBL_BU_FAILURE_AND_TRUNCATION)	
+  CHECKBOX ck_aft	_lft	_ls	_iwd	.,		///
+	label(resource SG__VARIABLES_VARIABLE_CK_AFT)
+
+  TEXT     tx_denomvar	_lft2	_top	_cwd1	.,		///
+	label(resource SG__VARIABLES_VARIABLE_TX_DEMOMVAR)
+  VARNAME  vn_denomvar	@	_ss	_vnwd	., nomemory	///
+	label(resource SG__VARIABLES_VARIABLE_TX_DEMOMVAR)
+
+  TEXT     tx_var	_lft	_top	_vnwd	.,		///
+	label(resource LBL_VARIABLE)
+  VARNAME  vn_var	@	_ss	@	., nomemory
+
+  TEXT     tx_var2	_lft	_top	_vnwd	.,		///
+	label(resource LBL_VARIABLE)
+  COMBOBOX cb_var2	@	_ss	@	., nomemory	///
+	dropdown contents(vlist_array) onselchange(program get_levels)
+
+  TEXT     tx_lname	_lft	_top	@	.,		///
+	label(resource LBL_NAME)
+  EDIT     ed_lname	@	_ss	@	., nomemory
+
+  TEXT     tx_mlname	_lft	_top	@	.,		///
+	label(resource LBL_NAME_LEVEL)
+  EDIT     ed_mlname	@	_ss	105	., nomemory
+  BUTTON   bn_mlname	+107	@	18	., 		///
+	label("...") onpush(script show_ml_dlg)			///
+	tooltip(resource SG__VARIABLES_VARIABLE_BN_MLNAME)
+
+  TEXT     tx_level	_vlx	_top	85	.,		///
+	label(resource LBL_LEVEL_COLON)
+  COMBOBOX cb_level	@	_ss	@	.,		///
+	dropdown contents(level_array)				///
+	values(level_array_val)
+  TEXT     tx_label	_vlx	_top	_vlwd	.,		///
+	label(resource LBL_LABEL)
+  EDIT     ed_label	@	_ss	@	., nomemory
+
+  /* alternate version used when no variable or name shown. */
+  TEXT     tx_label_alt	_lft	_top	_iwd	.,		///
+	label(resource LBL_LABEL)
+  EDIT     ed_label_alt	@	_ss	@	., nomemory
+
+  GROUPBOX gb_pos	_lft	+35	_iwd	55,		///
+	label(resource LBL_POSITION_NO_COLON) 
+  TEXT     tx_xpos	80	_ss	25	.,		///
+	label(resource LBL_X_LOWERCASE_COLON) right 
+  EDIT     ed_xpos	+30	@	75	., nomemory
+  TEXT     tx_ypos	+80	@	25	.,		///
+	label(resource LBL_Y_LOWERCASE) right 
+  EDIT     ed_ypos	+30	@	75	., nomemory
+
+  GROUPBOX gb_cons	_lft	+45	_iwd	85,		///
+	label(resource LBL_CONSTRAINTS)
+  TEXT     tx_cnsmean	_ilft	_ss	_wd2	.,		///
+	label(resource LBL_MEAN_COLON) right
+  EDIT     ed_cnsmean	_sep2	@	_cbwd	., nomemory
+  BUTTON   bu_cnsmean	_cbsep	@	_clwd	.,		///
+	label(resource LBL_?) onpush(view help sg__constraints##|_new)
+
+  TEXT     tx_cnscons	_ilft	@	_wd2	.,		///
+	label(resource LBL_INTERCEPT,colon) right
+  EDIT     ed_cnscons	_sep2	@	_cbwd	., nomemory
+  BUTTON   bu_cnscons	_cbsep	@	_clwd	.,		///
+	label(resource LBL_?) onpush(view help sg__constraints##|_new)
+
+  TEXT     tx_cnsvar	_ilft	_ls	_wd2	.,		///
+	label(resource LBL_VARIANCE) right
+  EDIT     ed_cnsvar	_sep2	@	_cbwd	., nomemory
+DEFINE x @x
+  BUTTON   bu_cnsvar	_cbsep	@	_clwd	.,		///
+	label(resource LBL_?) onpush(view help sg__constraints##|_new)
+
+  CHECKBOX ck_estmean	x	_ls	180	.,		///
+	label(resource SG__VARIABLES_ESTIMATE_MEAN)
+END
+
+PROGRAM variable_output
+BEGIN
+	call program variable_get_defaults
+
+	if variable.vn_var.isvisible() & ! variable.vn_var.isdefault() {
+		if (bGSEM) {
+			if !variable.vn_var._isValidIVarSpec() {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 			///
+					"resource LBL_MSGBOX_NAME_ENTERED_IS_INVALID_FMT" ///
+					"resource LBL_VN_VARIABLE" 	///
+					"resource LBL_VN_VARIABLE"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Variable" tab, the "Variable" name you entered is invalid. 
+			}
+		}
+		else {
+			if !variable.vn_var._isValidTSVarSpec() {
+                                call create STRING _MSG_TMP
+                                call _MSG_TMP.format 			///
+					"resource LBL_MSGBOX_NAME_ENTERED_IS_INVALID_FMT" ///
+					"resource LBL_VN_VARIABLE" 	///
+					"resource LBL_VN_VARIABLE"
+                                stopbox stop "class _MSG_TMP.value"
+// On the "Variable" tab, the "Variable" name you entered is invalid. 
+			}
+		}
+		call sg__PARAM2.setvalue "SetVariable"
+		call sg__ARG_00.setvalue class variable.vn_var.value
+		put /program sg__do_output_arg0_sub
+	}
+
+	if ((variable.cb_var2.isvisible() & ! variable.cb_var2.isdefault()) ///
+		| (variable.cb_level.isvisible() & ! variable.cb_level.isdefault())) {
+		if ! variable.cb_var2.isvalidname() {
+                                call create STRING _MSG_TMP
+                                call _MSG_TMP.format 			///
+					"resource LBL_MSGBOX_NAME_ENTERED_IS_INVALID_FMT" ///
+					"resource LBL_VN_VARIABLE" 	///
+					"resource LBL_VN_VARIABLE"
+                                stopbox stop "class _MSG_TMP.value"
+// On the "Variable" tab, the "Variable" name you entered is invalid.
+		}
+		
+		call sg__PARAM2.setvalue "SetVariable"
+		call sg__ARG_00.setvalue ""
+		if (variable.cb_level) {
+			call sg__ARG_00.setvalue class variable.cb_level.value
+			call sg__ARG_00.append "."
+		}
+		call sg__ARG_00.append class variable.cb_var2.value 
+		put /program sg__do_output_arg0_sub
+	}
+
+	if variable.ed_lname.isvisible() & !variable.ed_lname.isdefault() {
+		if ! variable.ed_lname.isvalidname() {
+                                call create STRING _MSG_TMP
+                                call _MSG_TMP.format 			///
+					"resource LBL_MSGBOX_NAME_ENTERED_IS_INVALID_FMT" ///
+					"resource LBL_VN_VARIABLE" 	///
+					"resource LBL_TX_NAME"
+                                stopbox stop "class _MSG_TMP.value"
+// On the "Variable" tab, the "Name" you entered is invalid.
+		}
+		call sg__PARAM2.setvalue "SetName"
+		call sg__ARG_00.setvalue class variable.ed_lname.value
+		put /program sg__do_output_arg0_sub
+	}
+	
+	if variable.ed_mlname.isvisible() & !variable.ed_mlname.isdefault() {
+		call sg__PARAM2.setvalue "SetMultilevelLatent"
+		call sg__ARG_00.setvalue class variable.ed_mlname.value
+		put /program sg__do_output_arg0_sub
+	}
+
+	if variable.ed_label.isvisible() & ! variable.ed_label.isdefault() {
+		call sg__PARAM2.setvalue "SetSelected"
+		call sg__ARG_00.setvalue "label"
+		call sg__ARG_01.setvalue class variable.ed_label.value
+		put /program sg__do_output_sub
+	}
+	if variable.ed_label_alt.isvisible() & ! variable.ed_label_alt.isdefault() {
+		call sg__PARAM2.setvalue "SetSelected"
+		call sg__ARG_00.setvalue "label"
+		call sg__ARG_01.setvalue class variable.ed_label_alt.value
+		put /program sg__do_output_sub
+	}
+
+	if variable.cb_flink.isvisible() & !variable.cb_flink.isdefault() {
+		call sg__PARAM2.setvalue "SetSelected"
+		call sg__ARG_00.setvalue "familylink"
+		call sg__ARG_01.setvalue class variable.cb_flink.value
+		put /program sg__do_output_sub
+	}
+
+	if variable.vn_exposure.isvisible() 				///
+			& !variable.vn_exposure.isdefault() {
+		if variable.vn_exposure & !variable.vn_exposure.isvalidname() {
+			call create STRING _MSG_TMP
+                        call _MSG_TMP.format				/// 
+				"resource LBL_MSGBOX_VARIABLE_ENTERED_INVALID_FMT" ///
+				"resource LBL_EXPOSURE"
+			stopbox stop "class _MSG_TMP.value"
+// The "Exposure" variable you entered is invalid.
+		}
+		call sg__PARAM2.setvalue "SetSelected"
+		call sg__ARG_00.setvalue "expvar"
+		call sg__ARG_01.setvalue class variable.vn_exposure.value
+		put /program sg__do_output_sub
+	}
+
+	if variable.vn_denomvar.isvisible() 				///
+			& !variable.vn_denomvar.isdefault() {
+		call sg__PARAM2.setvalue "SetSelected"
+		call sg__ARG_00.setvalue "denomvar"
+		call sg__ARG_01.setvalue class variable.vn_denomvar.value
+		put /program sg__do_output_sub
+	}
+	
+	if ! variable.ed_xpos.isdefault() {
+		call dTemp.setvalue class variable.ed_xpos.value
+		call sTemp.setvalue class variable.ed_xpos.value
+		if (!dTemp & dTemp.isneq(0) & sTemp.isneq("<multiple>")) {
+			call create STRING _MSG_TMP
+                        call _MSG_TMP.format				/// 
+				"resource LBL_MSGBOX_TAB_POSITION_CONTAINS_A_NONNUMERIC_VALUE_FMT" ///
+				"resource LBL_TAB_MAIN" 		///
+				"resource LBL_X_LOWERCASE_COLON"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "x" position contains a nonnumeric value.
+		}
+		call sg__PARAM2.setvalue "SetSelected"
+		call sg__ARG_00.setvalue "pos[1]"
+		call sg__ARG_01.setvalue class variable.ed_xpos.value
+		put /program sg__do_output_sub
+	}
+
+	if ! variable.ed_ypos.isdefault() {
+		call dTemp.setvalue class variable.ed_ypos.value
+		call sTemp.setvalue class variable.ed_ypos.value
+		if (!dTemp & dTemp.isneq(0) & sTemp.isneq("<multiple>")) {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format				/// 
+				"resource LBL_MSGBOX_TAB_POSITION_CONTAINS_A_NONNUMERIC_VALUE_FMT" ///
+				"resource LBL_TAB_MAIN" 		///
+				"resource LBL_Y_LOWERCASE"
+                        stopbox stop "class _MSG_TMP.value"
+
+// On the "Main" tab, "y" position contains a nonnumeric value.
+		}
+		call sg__PARAM2.setvalue "SetSelected"
+		call sg__ARG_00.setvalue "pos[2]"
+		call sg__ARG_01.setvalue class variable.ed_ypos.value
+		put /program sg__do_output_sub
+	}
+	
+	if ! variable.ed_cnsmean.isdefault() {
+		call sg__PARAM2.setvalue "SetSelected"
+		call sg__ARG_00.setvalue "cns_mean"
+		call sg__ARG_01.setvalue class variable.ed_cnsmean.value
+		put /program sg__do_output_sub
+	}
+
+	if ! variable.ed_cnscons.isdefault() {
+		call sg__PARAM2.setvalue "SetSelected"
+		call sg__ARG_00.setvalue "cns_cons"
+		call sg__ARG_01.setvalue class variable.ed_cnscons.value
+		put /program sg__do_output_sub
+	}
+
+	if ! variable.ed_cnsvar.isdefault() {
+		call sg__PARAM2.setvalue "SetSelected"
+		call sg__ARG_00.setvalue "cns_var"
+		call sg__ARG_01.setvalue class variable.ed_cnsvar.value
+		put /program sg__do_output_sub
+	}
+
+	if ! variable.ck_estmean.isdefault() {
+		call sg__PARAM2.setvalue "SetSelected"
+		call sg__ARG_00.setvalue "estmean"
+		if variable.ck_estmean {
+			call sg__ARG_01.setvalue "1"
+		}
+		else {
+			call sg__ARG_01.setvalue "0"
+		}
+		put /program sg__do_output_sub
+	}
+	if ! variable.ck_aft.isdefault() {
+		call sg__PARAM2.setvalue "SetSelected"
+		call sg__ARG_00.setvalue "aft"
+		if variable.ck_aft {
+			call sg__ARG_01.setvalue "1"
+		}
+		else {
+			call sg__ARG_01.setvalue "0"
+		}
+		put /program sg__do_output_sub
+	}
+END
+
+/*****************************************************************************/
+
+SCRIPT error_PREINIT
+BEGIN
+	create STRING sErrorDir
+	create STRING sErrorCnsVar
+
+	program error_get_defaults
+END
+
+SCRIPT error_POSTINIT
+BEGIN
+	program error_initialize_controls
+END
+
+PROGRAM error_get_defaults
+BEGIN
+	call sErrorDir.setvalue class .__SEMG.dbsettings.nodestyle_errdir
+	call sErrorDir.withvalue error.cb_direction.setdefault "@"
+
+	call sErrorCnsVar.setvalue class .__SEMG.dbsettings.errornode_cns_var
+	call sErrorCnsVar.withvalue error.ed_cnsvar.setdefault "@"
+END
+
+PROGRAM error_initialize_controls
+BEGIN
+	call error_setup_switched_state
+
+	call error.cb_direction.setvalue class sErrorDir.value
+	call error.ed_cnsvar.setvalue class sErrorCnsVar.value
+END
+
+PROGRAM error_setup_switched_state
+BEGIN
+	if (bEndogenous & (bGLM | variable.cb_flink.startswith("gaussian"))) {
+		call error.tx_direction.enable
+		call error.cb_direction.enable
+		call error.gb_cons.enable
+		call error.tx_cnsvar.enable
+		call error.ed_cnsvar.enable
+		call error.bu_cnsvar.enable
+	}
+	else {
+		call error.tx_direction.disable
+		call error.cb_direction.disable
+		call error.gb_cons.disable
+		call error.tx_cnsvar.disable
+		call error.ed_cnsvar.disable
+		call error.bu_cnsvar.disable
+	}
+END
+
+DIALOG error, tabtitle(resource SG__VARIABLES_TAB_ERROR)
+BEGIN
+  TEXT     tx_direction	_ilft	20	_wd2	.,		///
+	label(resource SG__VARIABLES_ERROR_TX_DIRECTION) right
+  COMBOBOX cb_direction	_sep2	@	_cbwd	., nomemory	///
+	dropdown 						///
+	contents(__SEM_STYLES_LABEL.direction)			///
+	values(__SEM_STYLES.direction)
+
+  GROUPBOX gb_cons	_lft	_ls	_iwd	50,		///
+	label(resource LBL_CONSTRAINTS)
+  TEXT     tx_cnsvar	_ilft	_ss	_wd2	.,		///
+	label(resource SG__VARIABLES_ERROR_TX_CNSVAR) right
+  EDIT     ed_cnsvar	_sep2	@	_cbwd	., nomemory
+  BUTTON   bu_cnsvar	_cbsep	@	_clwd	.,		///
+	label(resource LBL_?) onpush(view help sg__constraints##|_new)
+END
+
+PROGRAM error_output
+BEGIN
+	call program error_get_defaults
+
+	if ! error.cb_direction.isdefault() & error.cb_direction.isenabled(){
+		call sg__PARAM2.setvalue "SetErrDir"
+		call sg__ARG_00.setvalue "nodestyle.errdir"
+		call sg__ARG_01.setvalue class error.cb_direction.value
+		put /program sg__do_output_sub
+	}
+
+	if ! error.ed_cnsvar.isdefault() & error.ed_cnsvar.isenabled() {
+		call sg__PARAM2.setvalue "SetSelected"
+		call sg__ARG_00.setvalue "errornode.cns_var"
+		call sg__ARG_01.setvalue class error.ed_cnsvar.value
+		put /program sg__do_output_sub
+	}
+END
+
+/*****************************************************************************/
+
+SCRIPT prop_custom_on
+BEGIN
+	prop.bu_propset.enable
+	prop.bu_propclear.enable
+END
+
+SCRIPT prop_custom_off
+BEGIN
+	prop.bu_propset.disable
+	prop.bu_propclear.disable
+END
+
+DIALOG prop, tabtitle(resource LBL_APPEARANCE_NO_COLON)
+BEGIN
+  TEXTBOX tb_n1			_lft	_top	_iwd	105,		///
+	label(resource SG__VARIABLES_PROP_TB_N1)
+
+  CHECKBOX ck_custom		_lft	+110	_iwd	_ht6,		///
+	nomemory							///
+	onclickon(script prop_custom_on)				///
+	onclickoff(script prop_custom_off)				///
+	groupbox label(resource LBL_CUSTOMIZE_APPEARANCE_FOR_SELECTED_VARIABLES)
+
+  BUTTON  bu_propset 		+20	_ms	160	.,		///
+	label(resource LBL_SET_CUSTOM_APPEARANCE)			///
+	onpush(program do_prop_selected)	
+  BUTTON  bu_propclear 		@	 _mls	160	.,		///
+	label(resource LBL_CLEAR_CUSTOM_APPEARANCE)			///
+	onpush(program do_prop_clear)
+END
+
+PROGRAM do_prop_selected
+BEGIN
+	call sg__PARAM1.setvalue class OBJ.value
+	call sg__PARAM2.setvalue "LaunchDlg"
+	call sg__ARG_00.setvalue "variables_prop"
+	call sg__ARG_01.setvalue "selected"
+	put /program sg__do_output_sub
+END
+
+PROGRAM do_prop_clear
+BEGIN
+	call sg__PARAM1.setvalue class OBJ.value
+	call sg__PARAM2.setvalue "ClearStylesSelected"
+	call sg__ARG_00.setvalue "variables_prop"
+	call sg__ARG_01.setvalue "selected"
+	put /program sg__do_output_sub
+END
+
+/*****************************************************************************/
+
+SCRIPT adv_PREINIT
+BEGIN
+	create STRING sIniMean
+	create STRING sIniCons
+	create STRING sIniVar
+	create STRING sReliab
+
+	program adv_get_defaults
+END
+
+SCRIPT adv_POSTINIT
+BEGIN
+	program adv_initialize_controls
+END
+
+PROGRAM adv_get_defaults
+BEGIN
+	call sIniMean.setvalue class .__SEMG.dbsettings.ini_mean
+	call sIniMean.withvalue adv.ed_cnsmean.setdefault "@"
+
+	call sIniCons.setvalue class .__SEMG.dbsettings.ini_cons
+	call sIniCons.withvalue adv.ed_cnscons.setdefault "@"
+
+	call sIniVar.setvalue class .__SEMG.dbsettings.ini_var
+	call sIniVar.withvalue adv.ed_cnsvar.setdefault "@"
+
+	call sReliab.setvalue class .__SEMG.dbsettings.reliab
+	if sReliab.iseq(".") {
+		call sReliab.setvalue ""
+	}
+	call sReliab.withvalue adv.ed_reliab.setdefault "@"
+END
+
+PROGRAM adv_initialize_controls
+BEGIN
+	call create BOOLEAN hasInitValues
+	call create BOOLEAN hasReliability
+
+	call adv.ed_cnsmean.setvalue class sIniMean.value
+	call adv.ed_cnscons.setvalue class sIniCons.value
+	call adv.ed_cnsvar.setvalue class sIniVar.value
+	call adv.ed_reliab.setvalue class sReliab.value
+
+	call program adv_setup_switched_state
+END
+
+PROGRAM adv_setup_switched_state
+BEGIN
+/* handle initial values */
+	if (!bExogenous | (bExogenous & !bGSEM) | (bLatent & bExogenous)) {
+		if (bExogenous) {
+			call adv.gb_init.show
+			call hasInitValues.settrue
+			call adv.tx_cnsmean.show
+			call adv.ed_cnsmean.show
+			call adv.bu_cnsmean.show
+			call adv.tx_cnsvar.show
+			call adv.ed_cnsvar.show
+			call adv.bu_cnsvar.show
+
+			call adv.tx_cnscons.hide
+			call adv.ed_cnscons.hide
+			call adv.bu_cnscons.hide
+
+			call adv.gb_init.setposition . . . 85
+
+		}
+		else {
+			call adv.tx_cnsmean.hide
+			call adv.ed_cnsmean.hide
+			call adv.bu_cnsmean.hide
+			call adv.tx_cnsvar.hide
+			call adv.ed_cnsvar.hide
+			call adv.bu_cnsvar.hide
+			
+			if variable.cb_flink.startswith("ordinal") {
+				call adv.gb_init.hide
+				call adv.tx_cnscons.hide
+				call adv.ed_cnscons.hide
+				call adv.bu_cnscons.hide
+			}
+			else {
+				call adv.gb_init.show
+				call hasInitValues.settrue
+				call adv.gb_init.show
+				call adv.tx_cnscons.show
+				call adv.ed_cnscons.show
+				call adv.bu_cnscons.show
+				call adv.gb_init.setposition . . . 55
+			}
+		}
+
+		call adv.gb_init.setposition . 40
+		call adv.tx_cnsmean.setposition . 60
+		call adv.ed_cnsmean.setposition . 60
+		call adv.bu_cnsmean.setposition . 60
+		call adv.tx_cnscons.setposition . 60
+		call adv.ed_cnscons.setposition . 60
+		call adv.bu_cnscons.setposition . 60
+		call adv.tx_cnsvar.setposition . 90
+		call adv.ed_cnsvar.setposition . 90
+		call adv.bu_cnsvar.setposition . 90
+	}
+	else {
+		call adv.gb_init.hide
+		call adv.tx_cnsvar.hide
+		call adv.ed_cnsvar.hide
+		call adv.bu_cnsvar.hide
+
+		call adv.tx_cnsmean.hide
+		call adv.ed_cnsmean.hide
+		call adv.bu_cnsmean.hide
+		call adv.tx_cnscons.hide
+		call adv.ed_cnscons.hide
+		call adv.bu_cnscons.hide
+		
+		call hasInitValues.setfalse
+	}
+	
+/* handle reliabililty */
+	if (bEndogenous	& (!bGLM | variable.cb_flink.iseq("gaussian identity"))) {
+		call hasReliability.settrue
+	
+		call adv.gb_reliab.show
+		call adv.tx_reliab.show
+		call adv.ed_reliab.show
+		call adv.bu_reliab.show
+
+		if (hasInitValues) {
+			call adv.gb_reliab.setposition . 105
+			call adv.tx_reliab.setposition . 125
+			call adv.ed_reliab.setposition . 125
+			call adv.bu_reliab.setposition . 125
+		}
+	}
+	else {
+		call adv.gb_reliab.hide
+		call adv.tx_reliab.hide
+		call adv.ed_reliab.hide
+		call adv.bu_reliab.hide
+
+		call hasReliability.setfalse
+	}
+END
+
+SCRIPT create_convertdlg
+BEGIN
+	create STRING sConvertDlgResult
+	OBJ.withvalue create CHILD sg__variables_convert, message(@)
+	sg__variables_convert.setExitString sConvertDlgResult
+	sg__variables_convert.setExitAction "program convertdlg_done"
+END
+
+PROGRAM convertdlg_done
+BEGIN
+	call program global_get_defaults
+	call program variable_get_defaults
+	call program variable_initialize_controls
+	call program adv_get_defaults
+	call program adv_initialize_controls
+END
+
+DIALOG adv, tabtitle(resource LBL_ADVANCED)
+BEGIN
+  BUTTON   bu_convert	_lft	_top	120	.,		///
+	label(resource SG__VARIABLES_ADV_BU_CONVERT) onpush(script create_convertdlg)
+
+  GROUPBOX gb_init	_lft	+45	_iwd	80,		///
+	label(resource LBL_INITIAL_VALUES)
+  TEXT     tx_cnsmean	_ilft	_ss	_wd2	.,		///
+	label(resource LBL_MEAN_COLON) right
+  EDIT     ed_cnsmean	_sep2	@	_cbwd	., nomemory
+  BUTTON   bu_cnsmean	_cbsep	@	_clwd	.,		///
+	label(resource LBL_?) onpush(view help sg__initialvalues##|_new)
+
+  TEXT     tx_cnscons	_ilft	@	_wd2	.,		///
+	label(resource LBL_INTERCEPT) right
+  EDIT     ed_cnscons	_sep2	@	_cbwd	., nomemory
+  BUTTON   bu_cnscons	_cbsep	@	_clwd	.,		///
+	label(resource LBL_?) onpush(view help sg__initialvalues##|_new)
+
+  TEXT     tx_cnsvar	_ilft	_ls	_wd2	.,		///
+	label(resource LBL_VARIANCE) right
+  EDIT     ed_cnsvar	_sep2	@	_cbwd	., nomemory
+  BUTTON   bu_cnsvar	_cbsep	@	_clwd	.,		///
+	label(resource LBL_?) onpush(view help sg__initialvalues##|_new)
+
+  GROUPBOX gb_reliab	_lft	+45	_iwd	_ht2h,		///
+	label(resource SG__VARIABLES_ADV_GB_RELIAB)
+  TEXT     tx_reliab	_ilft	_ss	_wd2	.,		///
+	label(resource SG__VARIABLES_ADV_TX_RELIAB) right
+  EDIT     ed_reliab	_sep2	@	_cbwd	., nomemory
+  BUTTON   bu_reliab	_cbsep	@	_clwd	.,		///
+	label(resource LBL_?) onpush(view help sg__reliability##|_new)
+END
+
+PROGRAM adv_output
+BEGIN
+	call program adv_get_defaults
+
+	if ! adv.ed_cnsmean.isdefault() {
+		call dTemp.setvalue class adv.ed_cnsmean.value
+		call sTemp.setvalue class adv.ed_cnsmean.value
+		if (!dTemp & dTemp.isneq(0) & sTemp & sTemp.isneq("<multiple>")) {
+			call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_CONTAINS_A_NONNUMERIC_VALUE_FMT" ///
+				"resource LBL_ADVANCED" 		///
+				"resource LBL_INITIAL_VALUES"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Advanced" tab, "Initial values" contains a nonnumeric value.
+		}
+		call sg__PARAM2.setvalue "SetSelected"
+		call sg__ARG_00.setvalue "ini_mean"
+		call sg__ARG_01.setvalue class adv.ed_cnsmean.value
+		put /program sg__do_output_sub
+	}
+
+	if ! adv.ed_cnscons.isdefault() {
+		call dTemp.setvalue class adv.ed_cnscons.value
+		call sTemp.setvalue class adv.ed_cnscons.value
+		if (!dTemp & dTemp.isneq(0) & sTemp & sTemp.isneq("<multiple>")) {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_CONTAINS_A_NONNUMERIC_VALUE_FMT" ///
+				"resource LBL_ADVANCED" 		///
+				"resource LBL_INITIAL_VALUES"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Advanced" tab, "Initial values" contains a nonnumeric value.
+		}
+		call sg__PARAM2.setvalue "SetSelected"
+		call sg__ARG_00.setvalue "ini_cons"
+		call sg__ARG_01.setvalue class adv.ed_cnscons.value
+		put /program sg__do_output_sub
+	}
+
+	if ! adv.ed_cnsvar.isdefault() {
+		call dTemp.setvalue class adv.ed_cnsvar.value
+		call sTemp.setvalue class adv.ed_cnsvar.value
+		if (!dTemp & dTemp.isneq(0) & sTemp & sTemp.isneq("<multiple>")) {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_CONTAINS_A_NONNUMERIC_VALUE_FMT" ///
+				"resource LBL_ADVANCED" 		///
+				"resource LBL_INITIAL_VALUES"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Advanced" tab, "Initial values" contains a nonnumeric value.
+		}
+		call sg__PARAM2.setvalue "SetSelected"
+		call sg__ARG_00.setvalue "ini_var"
+		call sg__ARG_01.setvalue class adv.ed_cnsvar.value
+		put /program sg__do_output_sub
+	}
+
+	if ! adv.ed_reliab.isdefault() {
+		call dTemp.setvalue class adv.ed_reliab.value
+		call sTemp.setvalue class adv.ed_reliab.value
+		if sTemp.iseq("") {
+			call dTemp.setvalue 1
+			call adv.ed_reliab.insert 1
+		}
+		if (!dTemp & dTemp.isneq(0) & sTemp.isneq("<multiple>")) {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_CONTAINS_A_NONNUMERIC_VALUE_FMT" ///
+				"resource LBL_ADVANCED" 		///
+				"resource SG__VARIABLES_ADV_GB_RELIAB"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Advanced" tab, "Reliability" contains a nonnumeric value.
+		}
+		call create DOUBLE dRelTemp
+		call dRelTemp.setvalue class adv.ed_reliab.value
+		if dRelTemp.isle(0) | dRelTemp.isgt(1) {
+			call _MSG_TMP.format				/// 
+				"resource LBL_MSGBOX_GREATER_THAN_ZERO_LESS_THAN_EQ_ONE_FMT" ///
+				"resource LBL_ADVANCED" 		///
+				"resource SG__VARIABLES_ADV_GB_RELIAB"
+                        stopbox stop "class _MSG_TMP.value"
+
+// On the "Advanced tab",
+// "Reliability" must be greater than zero and less than or equal to one.
+		}
+
+		call sg__PARAM2.setvalue "SetSelected"
+		call sg__ARG_00.setvalue "reliab"
+		call sg__ARG_01.setvalue class adv.ed_reliab.value
+		put /program sg__do_output_sub
+	}
+END
+
+/*****************************************************************************/
+
+PROGRAM command
+BEGIN
+	call program global_get_defaults
+
+	call sg__PARAM1.setvalue class OBJ.value
+	
+	call sg__PARAM2.setvalue "BeginSet"
+	call sg__DESCPT.setvalue "change variable settings"
+	put /program sg__do_output_sub
+	
+	put /program variable_output
+	put /program error_output
+	put /program adv_output
+
+	call sg__PARAM2.setvalue "EndSet"
+	call sg__DESCPT.setvalue "change variable settings"
+	put /program sg__do_output_sub
+
+
+	call sg__PARAM1.setvalue class OBJ.value
+	call sg__PARAM2.setvalue "UpdateDlg"
+	call sg__ARG_00.setvalue "variables"
+	call sg__ARG_01.setvalue class sSrcTypeOrig.value
+	put /program sg__do_output_sub
+
+	call sg__PARAM1.setvalue class OBJ.value
+	call sg__PARAM2.setvalue "Reselect"
+	put /program sg__do_output_sub
+END

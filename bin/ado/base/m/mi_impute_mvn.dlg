@@ -1,0 +1,595 @@
+/*
+  mi impute mvn
+
+*!  VERSION 1.1.5  03dec2019
+
+  keyword:  mi impute
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 485
+INCLUDE header
+
+HELP hlp1, view("help mi impute mvn")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING _mi_ivars
+	create LIST   _mi_IVARS_LIST
+	create STRING opts_bu_emResults
+	create STRING opts_bu_initmatResults
+	create STRING adv_bu_emResults
+	create STRING bu_groupOptResults
+	setscale_hadj resource MI_IMPUTE_MVN_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	_mi_ivars.setvalue char _dta[_mi_ivars]
+
+	_mi_IVARS_LIST.Arrdropall
+	_mi_ivars.tokenize _mi_IVARS_LIST
+	main.cb_ivar.repopulate
+
+	create DOUBLE _mi_M
+	create STRING _mi_M_STR
+	program check_M
+END
+
+PROGRAM check_M
+BEGIN
+	call _mi_M_STR.setvalue char _dta[_mi_M]
+	call _mi_M.setvalue class _mi_M_STR.value
+
+	if _mi_M.islt(1) {
+		call main.ck_add.seton
+	}
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	label(resource MI_IMPUTE_MVN_DLG_TITLE)
+BEGIN
+  TEXT     tx_dv 	_lft	_top	_iwd	.,			///
+	label(resource LBL_IMPUTED_VARIABLES)
+  COMBOBOX cb_ivar	@ 	_ss	@	.,			///
+	dropdown							///
+	append								///
+	contents(_mi_IVARS_LIST)					///
+	label(resource LBL_IMPUTED_VARIABLES)
+
+  TEXT     tx_iv	@	_ms	@	.,			///
+	label(resource LBL_INDDEPVAR)
+  VARLIST  vl_iv	@	_ss	@	.,			///
+	fv								///
+	numeric								///
+	label(resource LBL_INDDEPVAR)
+
+  CHECKBOX ck_nocons	@	_ms	@	.,			///
+	label(resource LBL_NOCONSTANT)					///
+	option(noconstant)
+
+  DEFINE _x _lft
+  DEFINE _cx _iwd
+  DEFINE _y _ls
+  INCLUDE _mi_impute_opts
+END
+
+INCLUDE _mi_impute_opts_sc
+
+INCLUDE if
+
+SCRIPT opts_PREINIT
+BEGIN
+        opts.fi_savew.formatfilter "{0} (*.dta)|*.dta|{1} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_DTA" "resource ui_ex FILE_TYPE_ALL_FILES"
+		
+        opts.fi_savep.formatfilter "{0} (*.stptrace)|*.stptrace|{1} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_PTRACE_FILES" "resource ui_ex FILE_TYPE_ALL_FILES"
+END
+
+DIALOG opts, tabtitle(resource MI_IMPUTE_MVN_TAB_OPTS)
+BEGIN
+  SPINNER sp_burnin	_lft	_top	_spwd	.,			///
+	default(100)							///
+	min(0)								///
+	max(1000)							///
+	option(burnin)							///
+	label(resource MI_IMPUTE_MVN_OPTS_SP_BURNIN)
+  TEXT tx_burnin	_spsep	@	_cwd1	.,			///
+	label(resource MI_IMPUTE_MVN_OPTS_SP_BURNIN)
+  SPINNER sp_burnb	_lft2	@	_spwd	.,			///
+	default(100)							///
+	min(0)								///
+	max(1000)							///
+	option(burnbetween)						///
+	label(resource MI_IMPUTE_MVN_OPTS_SP_BURNB)
+  TEXT tx_burnb		_spsep	@	_cwd1	.,			///
+	label(resource MI_IMPUTE_MVN_OPTS_SP_BURNB)
+
+  TEXT tx_prior		_lft	_ls	_cwd1	.,			///
+	label(resource MI_IMPUTE_MVN_OPTS_TX_PRIOR)
+  COMBOBOX cb_prior	_lft	_ss	@	.,			///
+	dropdownlist							///
+	option(prior)							///
+	contents(opts_prior_list)					///
+	values(opts_prior_values)					///
+	onselchange(program opts_prior_sel_changed)			///
+	label(resource MI_IMPUTE_MVN_OPTS_TX_PRIOR)
+
+  SPINNER sp_df		_lft2	@	_spwd	.,			///
+	option(df)							///
+	default(1)							///
+	min(1)								///
+	max(10000)							///
+	label(resource LBL_DEGREES_OF_FREEDOM)
+  TEXT tx_df		_spsep	@	200	.,			///
+	label(resource LBL_DEGREES_OF_FREEDOM)
+
+  CHECKBOX ck_mcmconly	_lft	_ls	_iwd	.,			///
+	option(mcmconly)						///
+	label(resource MI_IMPUTE_MVN_OPTS_CK_MCMCONLY)
+
+  GROUPBOX gb_initmcmc	_lft	_ls	_iwd	_ht4,			///
+	label(resource MI_IMPUTE_MVN_OPTS_GB_INITMCMC)
+  RADIO rb_em		_indent	_ss	100	., first		///
+	onclickon("opts.bu_em.enable")					///
+	onclickoff("opts.bu_em.disable")				///
+	label(resource MI_IMPUTE_MVN_OPTS_RB_EM)
+  BUTTON bu_em		+105	@	130	.,			///
+	onpush("program opts_bu_em_getOpts")				///
+	label(resource LBL_EM_OPTIONS)
+  RADIO rb_initmat	_ilft	_ms	100	., last			///
+	onclickon("opts.bu_initmat.enable")				///
+	onclickoff("opts.bu_initmat.disable")				///
+	label(resource LBL_INITIAL_MATRIX)
+  BUTTON bu_initmat	+105	@	130	.,			///
+	onpush("program opts_bu_initmat_getOpts")			///
+	label(resource LBL_INITIAL_MATRIX_OPTIONS)
+
+  CHECKBOX ck_wlfwgt	_lft	+40	_iwd	_ht2,			///
+	groupbox							///
+	onclickon("program opts_wlfwgt_on")				///
+	onclickoff("script opts_wlfwgt_off")				///
+	label(resource MI_IMPUTE_MVN_OPTS_CK_WLFWGT)
+  COMBOBOX cb_wlfwgt	_indent _ss	_ilw100	.,			///
+	dropdown							///
+	option("wlfwgt")						///
+	contents(matrix)						///
+	label(resource MI_IMPUTE_MVN_OPTS_CK_WLFWGT)
+  BUTTON bu_matrix_input _islw100 @	100	.,			///
+	label(resource LBL_INPUT_MATRIX)				///
+	onpush(program main_show_matrix_input)				///
+	tooltip(resource LBL_INPUT_HAND)
+
+  CHECKBOX ck_savew	_lft	+45	_iwd	_ht6h,			///
+	groupbox							///
+	onclickon(program opts_savingw_on)				///
+	onclickoff(script opts_savingw_off)				///
+	label(resource MI_IMPUTE_MVN_OPTS_CK_SAVEW)
+  TEXT tx_savew		_indent	_ss	_ibwd	.,			///
+	label(resource LBL_FILENAME)
+  FILE fi_savew		@	_ss	@	.,			///
+	label(resource LBL_BU_BROWSE)					///
+	option(savewlf)							///
+	save								///
+	error(resource LBL_FILENAME)
+  CHECKBOX ck_replacew	@	_ms	@	.,			///
+	option(replace)							///
+	label(resource LBL_OVERWRITE_FILE_IF_IT_ALREADY_EXISTS)
+
+  CHECKBOX ck_savep	_lft	+45	_iwd	_ht6h,			///
+	groupbox							///
+	onclickon(program opts_savingp_on)				///
+	onclickoff(script opts_savingp_off)				///
+	label(resource LBL_SAVE_PARAMETER_EST_FROM_EACH_ITERATION_TO_FILE)
+  TEXT tx_savep		_indent	_ss	_ibwd	.,			///
+	label(resource LBL_FILENAME)
+  FILE fi_savep		@	_ss	@	.,			///
+	label(resource LBL_BU_BROWSE)					///
+	option(saveptrace)						///
+	defext(stptrace)						///
+	save								///
+	error(resource LBL_FILENAME)
+  CHECKBOX ck_replacep	@	_ms	@	.,			///
+	option(replace)							///
+	label(resource LBL_OVERWRITE_FILE_IF_IT_ALREADY_EXISTS)
+END
+
+LIST opts_prior_list
+BEGIN
+	resource MI_IMPUTE_MVN_UNIFORM
+	resource LBL_JEFFREYS
+	resource MI_IMPUTE_MVN_RIDGE_WITH_DEGREES_OF_FREEDOM
+END
+
+LIST opts_prior_values
+BEGIN
+	""
+	"jeffreys"
+	"ridge"
+END
+
+PROGRAM opts_prior_sel_changed
+BEGIN
+	if opts.cb_prior.iseq("ridge") {
+		call opts.sp_df.show
+		call opts.tx_df.show
+	}
+	else {
+		call opts.sp_df.hide
+		call opts.tx_df.hide
+	}
+END
+
+PROGRAM opts_bu_em_getOpts
+BEGIN
+	call create CHILD mi_impute_mvn_emopts AS opts_bu_em
+	call opts_bu_em.setExitString opts_bu_emResults
+	call opts_bu_em.setExitAction "program opts_bu_em_ckResults"
+END
+
+PROGRAM opts_bu_em_ckResults
+BEGIN
+	if opts_bu_emResults {
+		call opts.bu_em.modified_on
+	}
+	else {
+		call opts.bu_em.modified_off
+	}
+END
+
+PROGRAM opts_bu_initmat_getOpts
+BEGIN
+	call create CHILD mi_impute_mvn_initmatlist AS opts_bu_initmat
+	call opts_bu_initmat.setExitString opts_bu_initmatResults
+	call opts_bu_initmat.setExitAction "program opts_bu_initmat_ckResults"
+END
+
+PROGRAM opts_bu_initmat_ckResults
+BEGIN
+	if opts_bu_initmatResults {
+		call opts.bu_initmat.modified_on
+	}
+	else {
+		call opts.bu_initmat.modified_off
+	}
+END
+
+PROGRAM opts_wlfwgt_on
+BEGIN
+	if (main.vl_group.isneq("")) {
+		call opts.ck_wlfwgt.setoff
+stopbox stop resource LBL_MSGBOX_IMPUTE_SEP_ON_EACH_GROUP_CANNOT_BE_COMB
+// On the "Main" tab, "Impute separately on each group formed by variables"
+// cannot be combined with this option.
+	}
+
+	call opts.cb_wlfwgt.enable
+	call opts.bu_matrix_input.enable
+END
+
+SCRIPT opts_wlfwgt_off
+BEGIN
+	opts.cb_wlfwgt.disable
+	opts.bu_matrix_input.disable
+END
+
+PROGRAM main_show_matrix_input
+BEGIN
+	call create STRING matrixInputResult
+	call create CHILD matrix_input AS matrixInput
+	if ! _rc {
+		call matrixInput.setExitString matrixInputResult
+		call matrixInput.setExitAction				///
+			"program main_getMatrixInputResult"
+		call matrixInput.callthru "isChildContext.settrue"
+	}
+END
+
+PROGRAM main_getMatrixInputResult
+BEGIN
+	call opts.cb_wlfwgt.repopulate
+END
+
+PROGRAM opts_savingw_on
+BEGIN
+	if (main.vl_group.isneq("")) {
+		call opts.ck_savew.setoff
+stopbox stop resource LBL_MSGBOX_IMPUTE_SEP_ON_EACH_GROUP_CANNOT_BE_COMB
+// On the "Main" tab, "Impute separately on each group formed by variables"
+// cannot be combined with this option.
+	}
+	call opts.tx_savew.enable
+	call opts.fi_savew.enable
+	call opts.ck_replacew.enable
+END
+
+SCRIPT opts_savingw_off
+BEGIN
+	opts.tx_savew.disable
+	opts.fi_savew.disable
+	opts.ck_replacew.disable
+END
+
+PROGRAM opts_savingw_output
+BEGIN
+        put `"""' opts.fi_savew `"""'
+        beginoptions
+                option opts.ck_replacew
+        endoptions
+END
+
+PROGRAM opts_savingp_on
+BEGIN
+	if (main.vl_group.isneq("")) {
+		call opts.ck_savep.setoff
+stopbox stop resource LBL_MSGBOX_IMPUTE_SEP_ON_EACH_GROUP_CANNOT_BE_COMB
+// On the "Main" tab, "Impute separately on each group formed by variables"
+// cannot be combined with this option.
+	}
+	call opts.tx_savep.enable
+	call opts.fi_savep.enable
+	call opts.ck_replacep.enable
+END
+
+SCRIPT opts_savingp_off
+BEGIN
+	opts.tx_savep.disable
+	opts.fi_savep.disable
+	opts.ck_replacep.disable
+END
+
+PROGRAM opts_savingp_output
+BEGIN
+        put `"""' opts.fi_savep `"""'
+        beginoptions
+                option opts.ck_replacep
+        endoptions
+END
+
+SCRIPT opts_disabled
+BEGIN
+	opts.sp_burnin.disable
+	opts.tx_burnin.disable
+	opts.sp_burnb.disable
+	opts.tx_burnb.disable
+	opts.tx_prior.disable
+	opts.cb_prior.disable
+	opts.sp_df.disable
+	opts.tx_df.disable
+	opts.ck_mcmconly.disable
+	opts.gb_initmcmc.disable
+	opts.rb_em.disable
+	opts.bu_em.disable
+	opts.rb_initmat.disable
+	opts.bu_initmat.disable
+	opts.ck_wlfwgt.disable
+	opts.cb_wlfwgt.disable
+	opts.bu_matrix_input.disable
+	opts.ck_savew.disable
+	opts.tx_savew.disable
+	opts.fi_savew.disable
+	opts.ck_replacew.disable
+	opts.ck_savep.disable
+	opts.tx_savep.disable
+	opts.fi_savep.disable
+	opts.ck_replacep.disable
+
+	adv.bu_em.enable
+END
+
+PROGRAM opts_enabled
+BEGIN
+	call opts.sp_burnin.enable
+	call opts.tx_burnin.enable
+	call opts.sp_burnb.enable
+	call opts.tx_burnb.enable
+	call opts.tx_prior.enable
+	call opts.cb_prior.enable
+	call opts.sp_df.enable
+	call opts.tx_df.enable
+	call opts.ck_mcmconly.enable
+	call opts.gb_initmcmc.enable
+	call opts.rb_em.enable
+	call opts.rb_initmat.enable
+	if opts.rb_em {
+		call opts.bu_em.enable
+	}
+	else {
+		call opts.bu_initmat.enable
+	}
+	call opts.ck_wlfwgt.enable
+	if opts.ck_wlfwgt {
+		call script opts_wlfwgt_on
+	}
+	call opts.ck_savew.enable
+	if opts.ck_savew {
+		call script opts_savingw_on
+	}
+	call opts.ck_savep.enable
+	if opts.ck_savep {
+		call script opts_savingp_on
+	}
+
+	call adv.bu_em.disable
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _iwd
+  DEFINE _y _top
+  INCLUDE _mi_impute_rpt
+  CHECKBOX ck_emlog	@	_ms	@	.,			///
+	option(emlog)							///
+	label(resource MI_IMPUTE_MVN_RPT_CK_EMLOG)
+  CHECKBOX ck_emoutput	@	_ms	@	.,			///
+	option(emoutput)						///
+	label(resource MI_IMPUTE_MVN_RPT_CK_EMOUTPUT)
+  CHECKBOX ck_mcmcdots	@	_ms	@	.,			///
+	option(mcmcdots)						///
+	label(resource MI_IMPUTE_MVN_RPT_CK_MCMCDOTS)
+  CHECKBOX ck_alldots	@	_ms	@	.,			///
+	option(alldots)							///
+	label(resource MI_IMPUTE_MVN_RPT_CK_ALLDOTS)
+  CHECKBOX ck_nolog	@	_ms	@	.,			///
+	option(nolog)							///
+	label(resource MI_IMPUTE_MVN_RPT_CK_NOLOG)
+END
+
+DIALOG adv, tabtitle(resource LBL_ADVANCED)
+BEGIN
+  CHECKBOX ck_force	_lft	_top	_iwd	.,			///
+	option(force)							///
+	label(resource LBL_PROCEED_WITH_IMPUTATION_WHEN_MISSING_IMPUTED_VAL)
+  CHECKBOX ck_emonly	@	_ms	_cwd1	_ht2,			///
+	groupbox							///
+	option(emonly)							///
+	onclickon("script opts_disabled")				///
+	onclickoff("program opts_enabled")				///
+	label(resource MI_IMPUTE_MVN_RPT_CK_EMONLY)
+  BUTTON bu_em		_indent	_ss	130	.,			///
+	onpush("program adv_bu_em_getOpts")				///
+	label(resource LBL_EM_OPTIONS)
+END
+
+PROGRAM adv_bu_em_getOpts
+BEGIN
+	call create CHILD mi_impute_mvn_emopts AS adv_bu_em
+	call adv_bu_em.setExitString adv_bu_emResults
+	call adv_bu_em.setExitAction "program adv_bu_em_ckResults"
+END
+
+PROGRAM adv_bu_em_ckResults
+BEGIN
+	if adv_bu_emResults {
+		call adv.bu_em.modified_on
+	}
+	else {
+		call adv.bu_em.modified_off
+	}
+END
+
+PROGRAM opt_ridge_output
+BEGIN
+	put "ridge,"
+	optionarg opts.sp_df
+END
+
+PROGRAM command
+BEGIN
+	if (opts.ck_wlfwgt & main.vl_group.isneq("")) {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format					/// 
+			"resource LBL_MSGBOX_OPTIONS_NOT_COMBINED_FMT" 	///
+			"resource LBL_TAB_MAIN"				///
+			"resource LBL_IMPUTE_SEPARATELY_ON_EACH_GROUP_FORMED_BY_VAR" ///
+			"resource MI_IMPUTE_MVN_OPTS_CK_WLFWGT" ///
+			"resource MI_IMPUTE_MVN_TAB_OPTS" 
+		stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Impute separately on each group formed by variables" 
+// cannot be combined with "Specify weights for the worst linear function" 
+// option on "MCMC options" tab.
+ 	}
+	if (opts.ck_savew & main.vl_group.isneq("")) {
+		call create STRING _MSG_TMP
+                call _MSG_TMP.format					/// 
+			"resource LBL_MSGBOX_OPTIONS_NOT_COMBINED_FMT" 	///
+			"resource LBL_TAB_MAIN"				///
+			"resource LBL_IMPUTE_SEPARATELY_ON_EACH_GROUP_FORMED_BY_VAR" ///
+			"resource MI_IMPUTE_MVN_OPTS_CK_SAVEW" 		///
+			"resource MI_IMPUTE_MVN_TAB_OPTS"
+                stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Impute separately on each group formed by variables" 
+// cannot be combined with "Save the worst linear function from each iteration to a dataset" 
+// option on "MCMC options" tab.
+ 	}
+	if (opts.ck_savep & main.vl_group.isneq("")) {
+		call create STRING _MSG_TMP
+                call _MSG_TMP.format					/// 
+			"resource LBL_MSGBOX_OPTIONS_NOT_COMBINED_FMT"	///
+			"resource LBL_TAB_MAIN"				///
+			"resource LBL_IMPUTE_SEPARATELY_ON_EACH_GROUP_FORMED_BY_VAR" ///
+			"resource LBL_SAVE_PARAMETER_EST_FROM_EACH_ITERATION_TO_FILE" ///
+			"resource MI_IMPUTE_MVN_TAB_OPTS"
+                stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Impute separately on each group formed by variables" 
+// cannot be combined with "Save parameter estimates from each iteration to a file" 
+// option on "MCMC options" tab.
+ 	}
+
+	put "mi impute mvn "
+	varlist main.cb_ivar
+	if main.vl_iv {
+		put " = " main.vl_iv
+	}
+	put " " /program if_output
+	beginoptions
+		option main.ck_nocons
+		INCLUDE _mi_impute_opts_main_pr
+		if !adv.ck_emonly {
+			optionarg /hidedefault opts.sp_burnin
+			optionarg /hidedefault opts.sp_burnb
+			option opts.ck_mcmconly
+			if opts.cb_prior.iseq("jeffreys") {
+				optionarg opts.cb_prior
+			}
+			if opts.cb_prior.iseq("ridge") {
+				put "prior("
+				put /program opt_ridge_output
+				put ") "
+			}
+			if opts.ck_wlfwgt {
+				require opts.cb_wlfwgt
+				optionarg opts.cb_wlfwgt
+			}
+
+			if opts.ck_savew {
+				require opts.fi_savew
+				put "savewlf("
+				put /program opts_savingw_output
+				put ") "
+			}
+
+			if opts.rb_em & opts_bu_emResults {
+				put "initmcmc(em, "
+				put opts_bu_emResults
+				put ") "
+			}
+			if opts.rb_initmat & opts_bu_initmatResults {
+				put "initmcmc("
+				put opts_bu_initmatResults
+				put ") "
+			}
+
+			if opts.ck_savep {
+				require opts.fi_savep
+				put "saveptrace("
+				put /program opts_savingp_output
+				put ") "
+			}
+		}
+		INCLUDE _mi_impute_rpt_pr
+		option rpt.ck_emlog
+		option rpt.ck_emoutput
+		option rpt.ck_mcmcdots
+		option rpt.ck_alldots
+		option rpt.ck_nolog
+
+		option adv.ck_force
+		if adv.ck_emonly {
+			if adv_bu_emResults {
+				put "emonly("
+				put adv_bu_emResults
+				put ") "
+			}
+			else {
+				option adv.ck_emonly
+			}
+		}
+	endoptions
+END

@@ -1,0 +1,48 @@
+*! version 1.0.0  15jul2014
+version 13
+
+class {
+
+}, inherit(serset)
+
+
+// ---------------------------------------------------------------------------
+// Class exists solely so that mata sersets can have their own constructor.
+//
+//	Usage:  .new [varlist] [, noCOUNT
+//			OMITANYMiss OMITALLMiss OMITDUPmiss OMITNothing
+
+program define new
+
+	syntax [namelist] , [ MATAMATRIX(passthru) 			///
+		OMITANYMiss OMITALLMiss OMITDUPmiss OMITNothing		///
+		noCOUNT READLOG(passthru) ]
+
+	.Super.new , `readlog'
+
+	if "`namelist'" == "" { 			// will leave if readlog
+		exit 
+	} 
+
+							// default missing
+	local miss `omitanymiss' `omitallmiss' `omitdupmiss' `omitnothing'
+
+	serset createmata `namelist' `if' `in' , `matamatrix' `miss'
+
+	.id = r(id)
+	.miss_opts = "`miss'"
+
+							// create series
+	if "`omitanymiss'" == "" {
+		local missing missing
+	}
+
+	local k = 0
+	foreach var of local namelist {
+		.sers[`.sers.arrnels'+1] = .mataseries_g.new `var' `++k',  /// 
+			`matamatrix' variable `count' `missing'
+
+		// any style info used here must be duplicated in seton
+	}
+end
+

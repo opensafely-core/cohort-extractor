@@ -1,0 +1,388 @@
+/*
+    irf_graph.dlg
+
+*!  VERSION 2.1.1  10mar2015
+
+*/
+
+VERSION 14.0
+SYNCHRONOUS_ONLY
+
+INCLUDE _std_wide
+DEFINE _dlght 320
+INCLUDE header
+
+HELP hlp1, view("help irf_graph")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource IRF_GRAPH_DLG_HSCALE
+	create STRING dlgname
+	dlgname.setvalue class _dlg_rsrcname
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script gr_plots_setMultiView_on
+	script gr_plots_setLimit_4
+	script gr_plots_setDefaultLine
+
+	script gr_ciplots_setMultiView_on
+	script gr_ciplots_setLimit_2
+	gr_ciplots_outputCmdPrefix.setstring "ciopts"
+	gr_ciplots_outputCmdSuffix.setstring ""
+	script gr_ciplots_setDefaultArea
+
+	program main_get_irf
+END
+
+SCRIPT main_PREINIT
+BEGIN
+	create LIST irfresults
+	create LIST irfimpulse
+	create LIST irfresponse
+	// a temporary fix for uninitialized comboxes not dropping down.
+	irfresults.Arrpush ""
+	irfresults.Arrpush ""
+	irfimpulse.Arrpush ""
+	irfimpulse.Arrpush ""
+	irfresponse.Arrpush ""
+	irfresponse.Arrpush ""
+	create BOOLEAN isGettingIRF
+	create BOOLEAN isGettingIRFVars
+	create BOOLEAN isLoading
+	isLoading.settrue
+END
+
+SCRIPT main_POSTINIT
+BEGIN
+	isLoading.setfalse
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN) ///
+	label(resource IRF_GRAPH_DLG_TITLE)
+BEGIN
+
+  // set IRF active file
+  DEFINE _x _xsetbu
+  DEFINE _y _top
+  INCLUDE _bu_irfset
+
+  TEXT     tx_stat	     _lft      _top      _rj230  .,		///
+			label(resource IRF_GRAPH_MAIN_TX_STAT)
+  COMBOBOX cb_stat	     @         _ss       @         .,		///
+		append							///
+		dropdown						///
+		contents(irf_stat_contents)				///
+		values(irf_stat_values)					///
+		label(resource IRF_GRAPH_MAIN_CB_STAT)
+
+  GROUPBOX gb_comb	     _lft      +35       _iwd      _ht14h,	///
+		label(resource LBL_IRF_COMBINATIONS)
+  TEXT     tx_irf	     _indent   _ss       _irj230    .,		///
+	label(resource LBL_IRF_RESULT_SETS_LEAVE_EMPTY_FOR_ALL)
+  COMBOBOX cb_irf	     @         _ss       @         .,		///
+		option(irf)						///
+		dropdown append 					///
+		contents(irfresults) 					///
+		label(resource IRF_GRAPH_MAIN_CB_IRF)			///
+		onselchange(program main_update_vars)
+  DEFINE _y @y
+
+  TEXT     tx_imp	     @         _ls       @         .,		///
+	label(resource LBL_IMPULSE_VARIABLES_LEAVE_EMPTY_FOR_ALL)
+  COMBOBOX cb_imp	     @         _ss       @         .,		///
+		option(impulse)						///
+		label(resource IRF_GRAPH_MAIN_CB_IMP)			///
+		contents(irfimpulse) dropdown append
+  TEXT     tx_resp	     @         _ls       @         .,		///
+	label(resource LBL_RESPONSE_VARIABLES_LEAVE_EMPTY_FOR_ALL)
+  COMBOBOX cb_resp	     @         _ss       @         .,		///
+		option(response)					///
+		label(resource IRF_GRAPH_MAIN_CB_RESP)			///
+		contents(irfresponse) dropdown append
+  FRAME    fr_note           _irj200    _y        200       _ht9,
+  TEXTBOX  tb_note1          _indent   _vss      _inwd     _tb5,	///
+  		label(resource IRF_GRAPH_MAIN_TB_NOTE1)
+  BUTTON   bu_refresh        @         +75       @         ., 		///
+  		label(resource LBL_REFRESH)				///
+  		onpush(program main_get_irf)
+
+  CHECKBOX ck_ci	     _lft      +60       _cwd1     .,		///
+		onclickon(program noci_check)				///
+		onclickoff(program noci_check)				///
+		option(ci)						///
+		label(resource IRF_GRAPH_MAIN_CK_CI) default(1)
+  DEFINE   y @y
+  DEFINE   _x _indent2
+  DEFINE   _cx _ckspr2b
+  DEFINE   _y _ms
+  INCLUDE  _sp_level
+
+  CHECKBOX ck_lstep	     _irj200   y         _ckwd     .,		///
+		onclickon(program lstep_check)				///
+		onclickoff(program lstep_check)
+  DEFINE x @x
+  SPINNER  sp_lstep	     _cksep    @         _spwd     .,		///
+		min(0)							///
+		max(500)						///
+		default(0)						///
+		option(lstep)						///
+		label(resource IRF_GRAPH_MAIN_SP_LSTEP)
+  TEXT     tx_lstep	     _spsep    @         _ckspr2b  .,		///
+		label(resource IRF_GRAPH_MAIN_SP_LSTEP)
+  CHECKBOX ck_ustep	     x         _ms       _ckwd     .,		///
+		onclickon(program ustep_check)				///
+		onclickoff(program ustep_check)
+
+  SPINNER  sp_ustep	     _cksep    @         _spwd     .,		///
+		min(1)							///
+		max(500)						///
+		default(10)						///
+		option(ustep)						///
+		label(resource IRF_GRAPH_MAIN_SP_USTEP)
+  TEXT     tx_ustep	     _spsep    @         _ckspr2b  .,		///
+		label(resource IRF_GRAPH_MAIN_SP_USTEP)
+		
+/*
+  	-cilines- was not included because it is a command line utility.
+  	and because the individual cioptions can perform the same function.
+*/
+
+END
+
+PROGRAM noci_check
+BEGIN
+	if ! main.ck_ci {
+		call main.sp_level.disable
+		call main.tx_level.disable
+		call script gr_ciplots_disable
+	}
+	else {
+		call main.sp_level.enable
+		call main.tx_level.enable
+		call script gr_ciplots_enable
+	}
+END
+
+PROGRAM lstep_check
+BEGIN
+	if main.ck_lstep {
+		call main.sp_lstep.enable
+	}
+	else {
+		call main.sp_lstep.disable
+	}
+END
+
+PROGRAM ustep_check
+BEGIN
+	if main.ck_ustep {
+		call main.sp_ustep.enable
+	}
+	else {
+		call main.sp_ustep.disable
+	}
+END
+
+PROGRAM main_get_irf
+BEGIN
+	put "_get_irf, "
+	if dlgname.iseq("") {
+		put "dialog(irf_graph) "
+	}
+	else {
+		put "dialogcls("
+		put dlgname
+		put ") "
+	}
+	put "control(main.cb_irf) "
+	put "irfvalue(" main.cb_irf ") "
+	put "irfappends "
+	put "busyflag(isGettingIRF) "
+	stata hidden
+	call program main_update_vars  // initialize the sub lists
+END
+
+PROGRAM main_update_vars
+BEGIN
+	if main.cb_irf {
+		if ! isGettingIRF & ! isLoading & ! isGettingIRFVars {
+			put "_set_irf_vars, "
+			if dlgname.iseq("") {
+				put "dialog(irf_graph) "
+			}
+			else {
+				put "dialogcls("
+				put dlgname
+				put ") "
+			}
+			put "irfname(" main.cb_irf ") "
+			put "impulsetarget(main.cb_imp) "
+			put "impulsevalue(" main.cb_imp ") "
+			put "responsetarget(main.cb_resp) "
+			put "responsevalue(" main.cb_resp ") "
+			put "list(main.cb_irf) "
+			put "busyflag(isGettingIRFVars) "
+			stata hidden
+		}
+	}
+	if ! main.cb_irf { // handle the empty case here
+		call irfimpulse.Arrdropall
+		call irfresponse.Arrdropall
+		call main.cb_imp.clearlist
+		call main.cb_resp.clearlist
+		call main.cb_imp.setvalue ""
+		call main.cb_resp.setvalue ""
+	}
+END
+
+INCLUDE irf_stat_list		// LISTs for statlist
+
+DIALOG opt, tabtitle(resource LBL_ADVANCED)
+BEGIN
+  CHECKBOX ck_indiv	     _lft      _top      _iwd      _ht15,	///
+		groupbox						///
+		onclickon(program indiv_check)				///
+		onclickoff(program indiv_check)				///
+		option(individual)					///
+		label(resource IRF_GRAPH_OPT_CK_INDIV)
+
+  CHECKBOX ck_iname	     _indent   _ms       _inwd     .,		///
+		onclickon(program iname_check)				///
+		onclickoff(program iname_check)				///
+		label(resource IRF_GRAPH_OPT_CK_INAME)
+  DEFINE x @x
+  DEFINE cx @cx
+  EDIT     ed_iname	     _indent2  _ss       _vnwd     .,		///
+		max(32)							///
+		label(resource IRF_GRAPH_OPT_CK_INAME)
+  CHECKBOX ck_inrep	     @         _ms       _cwd5     .,		///
+		option(replace) nomem					///
+		label(resource IRF_GRAPH_OPT_CK_INREP)
+  CHECKBOX ck_isav	     x         _ls       cx        .,		///
+		onclickon(program isav_check)				///
+		onclickoff(program isav_check)				///
+		label(resource IRF_GRAPH_OPT_CK_ISAV)
+  EDIT     ed_isav	     _indent2  _ss       _vnwd     .,		///
+		max(32)							///
+		label(resource IRF_GRAPH_OPT_CK_ISAV)
+  CHECKBOX ck_isrep	     @         _ms       _cwd5     .,		///
+		option(replace) nomem					///
+		label(resource IRF_GRAPH_OPT_CK_ISREP)
+END
+
+PROGRAM indiv_check
+BEGIN
+	if opt.ck_indiv {
+		call opt.ck_iname.enable
+		call program iname_check
+		call opt.ck_isav.enable
+		call program isav_check
+		call script gr_yaxis_setByoptsContext_off
+		call script gr_xaxis_setByoptsContext_off
+		call script gr_titles_setByoptsContext_off
+		call script gr_legend_setByoptsContext_off
+		call script gr_overall_setByoptsContext_off
+	}
+	if ! opt.ck_indiv {
+		call opt.ck_iname.disable
+		call program iname_check
+		call opt.ck_isav.disable
+		call program isav_check
+		call script gr_yaxis_setByoptsContext_on
+		call script gr_xaxis_setByoptsContext_on
+		call script gr_titles_setByoptsContext_on
+		call script gr_legend_setByoptsContext_on
+		call script gr_overall_setByoptsContext_on
+	}
+END
+
+PROGRAM iname_check
+BEGIN
+	if !H(opt.ck_iname) & opt.ck_iname {
+		call opt.ed_iname.enable
+		call opt.ck_inrep.enable
+	}
+	if H(opt.ck_iname) | ! opt.ck_iname {
+		call opt.ed_iname.disable
+		call opt.ck_inrep.disable
+	}
+END
+
+PROGRAM isav_check
+BEGIN
+	if !H(opt.ck_isav) & opt.ck_isav {
+		call opt.ed_isav.enable
+		call opt.ck_isrep.enable
+	}
+	if H(opt.ck_isav) | ! opt.ck_isav {
+		call opt.ed_isav.disable
+		call opt.ck_isrep.disable
+	}
+END
+
+INCLUDE gr_plots
+INCLUDE gr_ciplots
+INCLUDE gr_yaxis
+INCLUDE gr_xaxis
+INCLUDE gr_titles
+INCLUDE gr_legend
+INCLUDE gr_overall
+INCLUDE gr_byopts
+
+PROGRAM command
+BEGIN
+	put "irf graph "
+	require main.cb_stat
+	put main.cb_stat
+	beginoptions
+		optionarg main.cb_irf
+		optionarg main.cb_imp
+		optionarg main.cb_resp
+		if ! main.ck_ci {
+			put " noci "
+		}
+		INCLUDE _level_main_pr
+		
+		if main.ck_lstep {
+			optionarg main.sp_lstep
+		}
+		if main.ck_ustep {
+			optionarg main.sp_ustep
+		}
+
+		// advanced options
+		if opt.ck_indiv {
+			option opt.ck_indiv
+			if opt.ck_iname {
+				require opt.ed_iname
+				put " iname(" opt.ed_iname
+				if opt.ck_inrep {
+					put ","
+					option opt.ck_inrep
+				}
+				put " " ") "
+			}
+			if opt.ck_isav {
+				require opt.ed_isav
+				put " isaving(" opt.ed_isav
+				if opt.ck_isrep {
+					put ","
+					option opt.ck_isrep
+				}
+				put " " ") "
+			}
+		}
+
+		put " " /program gr_plots_output
+		put " " /program gr_ciplots_output
+		put " " /program gr_yaxis_output
+		put " " /program gr_xaxis_output
+		put " " /program gr_titles_output
+		put " " /program gr_legend_output
+		put " " /program gr_overall_output
+		put " " /program gr_byopts_output
+	endoptions
+END

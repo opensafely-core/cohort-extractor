@@ -1,0 +1,733 @@
+*! version 1.2.0  28apr2017
+// Class for drawing tables
+
+version 8.2
+
+class {
+
+instance:
+
+	// table parameters
+	_columns = 2			// # of columns
+	_lmargin = 2			// left margin, # of spaces
+	_fmt_comma = 0			// use comma in numeric formats
+	_color_outline = ""		// color of outline
+	_color_current = ""		// current color
+	_sep = 0			// add separator every # rows
+	_rows = 0			// # of rows displayed
+
+	putTab  = ""
+	after_ms = 0
+
+	// default element parameters
+	default_width = 12		// column width
+	default_fmt_title = ""		// column string format
+	default_fmt_num = ""		// column numeric format
+	default_fmt_str = ""		// column string format
+	default_pad = 0			// column padding
+	default_color_title = "text"	// column string color
+	default_color_num = "result"	// column numeric color
+	default_color_str = "text"	// column string color
+	default_ignore = ""		// ignore string
+
+	// arrays that contain information for each column of the table
+	array _width = {}		// column widths
+	array _column_start = {}	// column starting positions
+	array _vbar = {}		// vertical separator bars
+	array _fmt_title = {}		// column title formats
+	array _fmt_num = {}		// column numeric formats
+	array _fmt_str = {}		// column string formats
+	array _pad = {}			// column padding 
+	array _color_title = {}		// column title colors
+	array _color_num = {}		// column numeric colors
+	array _color_str = {}		// column string colors
+	array _ignore = {}		// ignore strings
+
+}, inherit(object)
+
+// User interface routines ===================================================
+
+// All the routines in this section should be documented.
+
+program new
+	syntax [, CLEAR1(passthru) clear * ]
+	reset, `options' clear
+end
+
+program destructor
+	mata: st_put_tab_remove("`.putTab'")
+end
+
+program reset
+	local default_width = `.default_width'
+	syntax [,				///
+		LColor(string)			/// parameters
+		LMargin(integer `._lmargin')	///
+		IGnore(string asis)		///
+		SEParator(integer `._sep')	///
+		Width(integer `.default_width')	/// clearable parameters
+		COLumns(integer `._columns')	///
+		TColor(string)			///
+		NColor(string)			///
+		SColor(string)			///
+		TFmt(string)			///
+		NFmt(string)			///
+		SFmt(string)			///
+		NOCOMmas			///
+		COMmas				///
+		CLEAR1(string)			/// clear options
+		CLEAR				///
+		puttab(name)			///
+	]
+
+	if `width' < 1 {
+		di as err "option width() requires a positive integer"
+		exit 198
+	}
+	if `columns' < 1 {
+		di as err "option columns() requires a positive integer"
+		exit 198
+	}
+	if `lmargin' < 0 {
+		di as err "option lmargin() requires a nonnegative integer"
+		exit 198
+	}
+	local commas `commas' `nocommas'
+	if `:list sizeof commas' > 1 {
+		di as err "options `commas' cannot be combined"
+		exit 198
+	}
+	if `separator' < 0 {
+		di as err "option separator() requires a nonnegative integer"
+		exit 198
+	}
+
+	local newcolumns 0
+	if `.default_width' != `width' {
+		local newcolumns 1
+		.default_width = `width'
+	}
+	if `._columns' != `columns' {
+		local newcolumns 1
+		._columns = `columns'
+	}
+	if `._lmargin' != `lmargin' {
+		local newcolumns 1
+		._lmargin = `lmargin'
+	}
+	if `"`ignore'"' != "" {
+		local ignore `ignore'		// remove outer quotes
+		.default_ignore = `"`ignore'"'
+	}
+	if `._sep' != `separator' {
+		._sep = `separator'
+	}
+	if `"`ncolor'"' != "" {
+		_check_color `ncolor'
+		.default_color_num = "`s(color)'"
+	}
+	if `"`tcolor'"' != "" {
+		_check_color `tcolor'
+		.default_color_title = "`s(color)'"
+	}
+	if `"`scolor'"' != "" {
+		_check_color `scolor'
+		.default_color_str = "`s(color)'"
+	}
+	if `"`lcolor'"' != "" {
+		_check_color `lcolor'
+		._color_outline = "`s(color)'"
+	}
+	else	._color_outline = "`.default_color_str'"
+	if "`commas'" == "commas" {
+		._fmt_comma = 1
+	}
+	else if "`commas'" == "nocommas" {
+		._fmt_comma = 0
+	}
+	if `"`tfmt'"' != "" {
+		_check_str_fmt `tfmt'
+		.default_fmt_title = "`tfmt'"
+	}
+	if `"`nfmt'"' != "" {
+		_check_num_fmt `nfmt'
+		.default_fmt_num = "`nfmt'"
+	}
+	if `"`sfmt'"' != "" {
+		_check_str_fmt `sfmt'
+		.default_fmt_str = "`sfmt'"
+	}
+
+	if "`clear1'`clear'" != "" {
+		_clear, `clear1' `clear'
+	}
+
+	if "`puttab'" != "" {
+		mata: st_put_tab_remove(`"`.putTab'"')
+		.putTab = `"`puttab'"'
+		mata: st_put_tab_new(`"`.putTab'"', 1)
+	}
+	mata: st_put_tab_init(`"`.putTab'"', `=`._columns'-1')
+end
+
+// user setup routines -------------------------------------------------------
+
+program width
+	_reset_vbars
+	syntax [anything] [, noREFormat ]
+	local 0 `"`anything'"'
+	local i 1
+	while `"`0'"' != "" {
+		gettoken tok 0 : 0, parse(" |")
+		if `"`tok'"' == "|" {
+			._vbar[`i'] = 1
+		}
+		else {
+			if "`tok'" != "." {
+				confirm integer number `tok'
+				._width[`i'] = `tok'
+			}
+			local ++i
+		}
+	}
+
+	// `i' should always be 1 more than the number of columns when this
+	// loop finishes
+
+	_check_columns width `--i'
+	if "`reformat'" == "" {
+		_reset_fmts
+	}
+	_reset_columns
+end
+
+program titlefmt
+	_check_columns titlefmt `:list sizeof 0'
+	forvalues i = 1/`._columns' {
+		gettoken fmt 0 : 0
+		if `"`fmt'"' != "" & `"`fmt'"' != "." {
+			_check_str_fmt `fmt'
+			._fmt_title[`i'] = `"`fmt'"'
+		}
+	}
+end
+
+program strfmt
+	_check_columns strfmt `:list sizeof 0'
+	forvalues i = 1/`._columns' {
+		gettoken fmt 0 : 0
+		if `"`fmt'"' != "" & `"`fmt'"' != "." {
+			_check_str_fmt `fmt'
+			._fmt_str[`i'] = `"`fmt'"'
+		}
+	}
+end
+
+program numfmt
+	_check_columns numfmt `:list sizeof 0'
+	forvalues i = 1/`._columns' {
+		gettoken fmt 0 : 0
+		if `"`fmt'"' != "" & `"`fmt'"' != "." {
+			_check_num_fmt `fmt'
+			._fmt_num[`i'] = `"`fmt'"'
+		}
+	}
+end
+
+program pad
+	_check_columns pad `:list sizeof 0'
+	forvalues i = 1/`._columns' {
+		gettoken pad 0 : 0
+		if `"`pad'"' != "" & `"`pad'"' != "." {
+			confirm integer number `pad'
+			if `pad' > `._get _width `i'' {
+				di as err ///
+"padding for column `i' is greater than column width"
+				exit 198
+			}
+			._pad[`i'] = `pad'
+		}
+	}
+end
+
+program ignore
+	_check_columns ignore `:list sizeof 0'
+	forvalues i = 1/`._columns' {
+		gettoken str 0 : 0
+		if `"`str'"' != "" {
+			._ignore[`i'] = `"`str'"'
+		}
+	}
+end
+
+program titlecolor
+	_check_columns titlecolor `:list sizeof 0'
+	forvalues i = 1/`._columns' {
+		gettoken color 0 : 0
+		if `"`color'"' != "" & `"`color'"' != "." {
+			_check_color `color'
+			._color_title[`i'] = `"`s(color)'"'
+		}
+	}
+end
+
+program strcolor
+	_check_columns strcolor `:list sizeof 0'
+	forvalues i = 1/`._columns' {
+		gettoken color 0 : 0
+		if `"`color'"' != "" & `"`color'"' != "." {
+			_check_color `color'
+			._color_str[`i'] = `"`s(color)'"'
+		}
+	}
+end
+
+program numcolor
+	_check_columns numcolor `:list sizeof 0'
+	forvalues i = 1/`._columns' {
+		gettoken color 0 : 0
+		if `"`color'"' != "" & `"`color'"' != "." {
+			_check_color `color'
+			._color_num[`i'] = `"`s(color)'"'
+		}
+	}
+end
+
+// user table drawing routines -----------------------------------------------
+
+program sep
+	syntax [, Top Middle Bottom ]
+	
+	local type `top' `bottom'
+	if `:list sizeof type' > 1 {
+		di as err "options `:list retok top' may not be combined"
+		exit 198
+	}
+	if "`type'" == "top" {
+		local left	"{c TLC}"
+		local middle	"{c TT}"
+		local right	"{c TRC}"
+	}
+	else if "`type'" == "" {
+		local left	"{c LT}"
+		local middle	"{c +}"
+		local right	"{c RT}"
+		mata: st_put_tab_set_sep("`.putTab'")
+	}
+	else {	// bottom
+		local left	"{c BLC}"
+		local middle	"{c BT}"
+		local right	"{c BRC}"
+	}
+
+	_display_left_margin
+	di "{`._color_outline'}" _c
+	if `._vbar[1]' {
+		di "`left'" _c
+	}
+	di "{hline `._get _width 1'}" _c
+	forvalues i = 2/`._columns' {
+		if `._vbar[`i']' {
+			di "`middle'" _c
+		}
+		di "{hline `._get _width `i''}" _c
+	}
+	if `._vbar[`._columns'+1]' {
+		di "`right'" _c
+	}
+	di
+end
+
+program titles
+	_check_columns titles `:list sizeof 0'
+
+	._color_current = ""
+	gettoken corner 0 : 0
+	_display_token 1 2 `"`corner'"'
+	forvalues i = 2/`._columns' {
+		gettoken tok 0 : 0
+		_display_token `i' 2 `"`tok'"'
+		local titles `"`titles' `"`tok'"'"'
+		local formats `"`formats' `._get _fmt_num `i''"'
+	}
+	_display_token `=`._columns'+1' 3
+	di
+	mata: st_put_tab_add_ctitles("`.putTab'", `"`corner'"', `"`titles'"')
+	mata: st_put_tab_set_cformats("`.putTab'", `"`formats'"')
+end
+
+program row
+	local copy : list retok 0
+	local i 0
+	while `"`copy'"' != "" {
+		local ++i
+		gettoken drop copy : copy, match(paren)
+	}
+	_check_columns row `i'
+
+	if `._sep' & `._rows' != 0 {
+		if mod(`._rows',`._sep') == 0 {
+			sep, middle
+		}
+	}
+
+	._color_current = ""
+	gettoken tok 0 : 0, qed(is_str) match(paren)
+	_display_token 1 `is_str' `"`tok'"'
+	if `is_str' {
+		local rtitle : copy local tok
+	}
+	forvalues i = 2/`._columns' {
+		gettoken tok 0 : 0, qed(is_str) match(paren)
+		_display_token `i' `is_str' `"`tok'"'
+		if `is_str' {
+			if `:length local tok' {
+				local note : copy local tok
+			}
+			local values `"`values' .b"'
+		}
+		else if inlist(`"`tok'"',"",`"`._get _ignore `i''"') {
+			local values `"`values' .b"'
+		}
+		else {
+			local tok = `tok'
+			if inlist(`"`tok'"',"",`"`._get _ignore `i''"') {
+				local values `"`values' .b"'
+			}
+			else {
+				local values `"`values' `tok'"'
+			}
+		}
+	}
+	_display_token `=`._columns'+1' 3
+	di
+	._rows = `._rows' + 1
+	if `.after_ms' == 0 {
+		mata: st_put_tab_add_row(`"`.putTab'"')
+	}
+	.after_ms = 0
+	if `:length local rtitle' {
+		mata: st_put_tab_add_rtitle("`.putTab'", `"`rtitle'"')
+	}
+	mata: st_put_tab_add_values("`.putTab'", `"`values'"')
+	if `:length local note' {
+		mata: st_put_tab_add_note("`.putTab'", `"`note'"')
+	}
+end
+
+program after_ms_eq_display
+	.after_ms = 1
+	mata: st_put_tab_after_ms_eq_display(`"`.putTab'"',`"`0'"')
+end
+
+program after_ms_display
+	.after_ms = 1
+	mata: st_put_tab_after_ms_display(`"`.putTab'"',`"`0'"')
+end
+
+program width_of_table, sclass
+	local w = `._get _width 1'
+	forvalues i = 2/`._columns' {
+		if `._vbar[`i']' {
+			local ++w
+		}
+		local w = `w' + `._get _width `i''
+	}
+	sreturn clear
+	sreturn local width `"`w'"'
+	class exit `"`w'"'
+end
+
+program post_results
+	args prefix suffix
+	mata: st_rclear()
+	mata: st_put_tab_post_results("`.putTab'", "`prefix'", "`suffix'")
+end
+
+// internal utilities --------------------------------------------------------
+
+program _display_left_margin
+	di _col(`._column_start[1]') _c
+end
+
+program _display_token
+	args i type tok
+	if `type' == 3 {
+		// `tok' is ignored, so it can/should be empty
+		if `._vbar[`i']' {
+			di _col(`._column_start[`i']') _c
+			if "`._color_outline'" != "`._color_current'" {
+				._color_current = "`._color_outline'"
+				di "{`._color_current'}" _c
+			}
+			di "{c |}" _c
+		}
+		exit
+	}
+	if `._vbar[`i']' {
+		di _col(`._column_start[`i']') _c
+		if "`._color_outline'" != "`._color_current'" {
+			._color_current = "`._color_outline'"
+			di "{`._color_current'}" _c
+		}
+		di "{c |}" _c
+	}
+	else if `"`tok'"' != "" {
+		di _col(`._column_start[`i']') _c
+	}
+	if inlist(`"`tok'"',"",`"`._get _ignore `i''"') exit
+	if `type' == 2 {
+		local color "`._get _color_title `i''"
+		if "`color'" != "`._color_current'" {
+			._color_current = "`color'"
+			di "{`._color_current'}" _c
+		}
+		// display a title
+		di `._get _fmt_title `i'' `"`tok'"' _c
+		exit
+	}
+	if `type' == 1 {
+		if `"`tok'"' != `"`._get _ignore `i''"' {
+			local color "`._get _color_str `i''"
+			if "`color'" != "`._color_current'" {
+				._color_current = "`color'"
+				di "{`._color_current'}" _c
+			}
+			// display a string
+			di `._get _fmt_str `i'' `"`tok'"' _c
+		}
+		exit
+	}
+	if `"`._get _ignore `i''"' != "" {
+		local tokval = `tok'
+		if `"`tokval'"' == `"`._get _ignore `i''"' {
+			exit
+		}
+	}
+	local color "`._get _color_num `i''"
+	if "`color'" != "`._color_current'" {
+		._color_current = "`color'"
+		di "{`._color_current'}" _c
+	}
+	// display a number
+	if `._get _pad `i'' {
+		di "{space `._get _pad `i''}" _c
+	}
+	di `._get _fmt_num `i'' `tok' _c
+end
+
+program _get, sclass
+	args name i
+	if "`.`name'[`i']'" == "" {
+		local result `"`.default`name''"'
+	}
+	else	local result `"`.`name'[`i']'"'
+	sreturn clear
+	sreturn local result `"`result'"'
+	class exit `"`result'"'
+end
+
+// initialize and reset routines ---------------------------------------------
+
+program _clear
+	syntax [,		///
+		Widths		///
+		TColors		///
+		NColors		///
+		SColors		///
+		TFmts		///
+		NFmts		///
+		SFmts		///
+		Pads		///
+		IGnore		///
+		VSeps		///
+		ROWs		///
+		Columns		///
+		Fmts		///
+		all clear	///
+	]
+	if "`all'`clear'" != "" {
+		_clear_array _width
+		_clear_array _color_title
+		_clear_array _color_num
+		_clear_array _color_str
+		_clear_array _fmt_title
+		_clear_array _fmt_num
+		_clear_array _fmt_str
+		_clear_array _pad
+		_clear_array _ignore
+		._rows = 0
+		_reset_vbars
+		// following tasks must be performed last
+		_reset_columns
+		_reset_default_fmts
+		exit
+	}
+	if "`widths'" != "" {
+		_clear_array _widths
+	}
+	if "`tcolors'" != "" {
+		_clear_array _color_title
+	}
+	if "`ncolors'" != "" {
+		_clear_array _color_num
+	}
+	if "`scolors'" != "" {
+		_clear_array _color_str
+	}
+	if "`tfmts'" != "" {
+		_clear_array _fmt_title
+	}
+	if "`nfmts'" != "" {
+		_clear_array _fmt_num
+	}
+	if "`sfmts'" != "" {
+		_clear_array _fmt_str
+	}
+	if "`pads'" != "" {
+		_clear_array _pad
+	}
+	if "`ignore'" != "" {
+		_clear_array _ignore
+	}
+	if "`vseps'" != "" {
+		_reset_vbars
+	}
+	if "`rows'" != "" {
+		._rows = 0
+	}
+	// following tasks must be performed last
+	if "`columns'" != "" {
+		_reset_columns
+	}
+	if "`fmts'" != "" {
+		_reset_default_fmts
+	}
+end
+
+program _clear_array
+	syntax name(name=array)
+	forvalues i = 1/`.`array'.arrnels' {
+		.`array'[`i'].Arrdropel
+	}
+end
+
+program _reset_vbars
+	forval i = 1/`._columns' {
+		._vbar[`i'] = 0
+	}
+	._vbar[`._columns'+1] = 0
+end
+
+program _reset_columns
+	local current = `._lmargin' + 1
+	forval i = 1/`._columns' {
+		._column_start[`i'] = `current'
+		local current = `current' + `._get _width `i'' + `._vbar[`i']'
+	}
+	._column_start[`._columns'+1] = `current'
+end
+
+program _reset_default_fmts
+	local cm1 = `.default_width' - 1
+	if `cm1' < 1 {
+		local cm1 1
+	}
+	if `._fmt_comma' {
+		.default_fmt_num = "%`cm1'.0gc"
+	}
+	else {
+		.default_fmt_num = "%`cm1'.0g"
+	}
+	.default_fmt_str = "%`cm1's"
+	.default_fmt_title = "%`cm1's"
+end
+
+program _reset_fmts
+	forval i = 1/`._columns' {
+		local cm1 = `._get _width `i''-1
+		if `cm1' < 1 {
+			local cm1 1
+		}
+		if `._fmt_comma' {
+			._fmt_num[`i'] = "%`cm1'.0gc"
+		}
+		else	._fmt_num[`i'] = "%`cm1'.0g"
+		._fmt_str[`i'] = "%`cm1's"
+		._fmt_title[`i'] = "%`cm1's"
+		._pad[`i'] = 0
+	}
+end
+
+// error checking ------------------------------------------------------------
+
+program _check_columns
+	args routine columns
+	if `"`columns'"' != "`._columns'" {
+		di as err ///
+		"arguments to `routine' do not match the number of columns"
+		exit 198
+	}
+end
+
+program _check_fmt
+	if bsubstr(`"`0'"',1,1) != "%" {
+		di as err `"invalid %fmt: `0'"'
+		exit 120
+	}
+end
+
+program _check_num_fmt
+	_check_fmt `0'
+	capture di `0' 0
+	if c(rc) {
+		di as err `"invalid numeric %fmt: `0'"'
+		exit 120
+	}
+end
+
+program _check_str_fmt
+	_check_fmt `0'
+	if bsubstr(`"`0'"',-1,1) != "s" {
+		di as err `"invalid string %fmt: `0'"'
+		exit 120
+	}
+	capture di `0' "zero"
+	if c(rc) {
+		di as err `"invalid string %fmt: `0'"'
+		exit 120
+	}
+end
+
+program _check_color, sclass
+	if `:list sizeof 0' > 1 {
+		di as err "multiple colors incorrectly specified"
+		exit 198
+	}
+	local color `0'
+	local 0 ", `0'"
+	local smcl_colors INPut ERRor RESult text txt
+	capture syntax [, Green Red Yellow White `smcl_colors' ]
+	if c(rc) {
+		di as err "invalid color specification: `color'"
+		exit 198
+	}
+	sreturn clear
+	if "`green'" != "" | "`txt'" != "" {
+		sreturn local color text
+	}
+	else if "`red'" != "" {
+		sreturn local color error
+	}
+	else if "`yellow'" != "" {
+		sreturn local color result
+	}
+	else if "`white'" != "" {
+		sreturn local color input
+	}
+	else {
+		sreturn local color `color'
+	}
+end
+
+exit

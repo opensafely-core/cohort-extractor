@@ -1,0 +1,186 @@
+/*
+    bayesstats ppvalues
+
+*!  VERSION 1.0.6  11apr2019
+
+*/
+
+VERSION 16.0
+SYNCHRONOUS_ONLY
+
+INCLUDE _std_large
+DEFINE _dlght 530
+INCLUDE header
+
+HELP hlp1, view("help bayesstats ppvalues")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource BAYESSTATS_PPVALUES_DLG_HSCALE
+
+	create STRING sTMP
+	create STRING main_build_tmp
+	create STRING main_build_tmp2
+	create STRING main_build_childdlg
+	create STRING main_build_child_result
+	create DOUBLE main_build_position
+	
+	create STRING main_pred_tmp
+	create STRING main_pred_tmp2
+	create STRING main_pred_childdlg
+	create STRING main_pred_child_result
+	create DOUBLE main_pred_position
+	
+	create ARRAY main_predspec_list
+	create SVECTOR mainPredspecCommandDisplayList
+	create SVECTOR mainPredspecCommandList
+	create SVECTOR mainPredspecCommandValues
+	create SVECTOR mainPredspecStatusList
+	create SVECTOR mainPredspecChildDialogList
+	create DOUBLE main_predspec_count
+	create DOUBLE main_predspec_arraysize
+	create STRING main_predspec_output
+	
+	create STRING cmdName
+	create STRING cmdStr
+	create STRING cmdPrefix
+	create STRING dlgname
+	
+	cmdName.setvalue e(cmd)
+	cmdStr.setvalue e(cmdline)
+	cmdPrefix.setvalue e(prefix)
+	dlgname.storeDialogClassName
+	
+	main.bu_predspec_edit.disable
+	main.bu_predspec_disable.disable
+	main.bu_predspec_enable.disable
+	
+	main.fi_use.formatfilter "{0} (*.dta)|*.dta|{1} (*.*)|*.*" ///
+			"resource ui_ex FILE_TYPE_DTA" "resource ui_ex FILE_TYPE_ALL_FILES"
+END
+
+PROGRAM check_predict
+BEGIN
+	if !cmdName.equals("bayesmh") | cmdStr.equals("") | cmdPrefix.equals("bayes") {
+		call main.gb_syntax.disable
+		call main.gb_predspec.disable
+		call main.tx_use.disable
+		call main.fi_use.disable
+		call main.gb_opt.disable
+		call main.ck_nolegend.disable
+		
+		stopbox stop resource BAYESSTATS_PPVALUES_MSGBOX_SUPPORT
+//stopbox stop "Posterior predictive p-values are supported only after -bayesmh-."		
+	}
+	else {
+		call main.gb_syntax.enable
+		call main.gb_predspec.enable
+		call main.tx_use.enable
+		call main.fi_use.enable
+		call main.gb_opt.enable
+		call main.ck_nolegend.enable
+	}
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program check_predict
+	
+	mainPredspecCommandDisplayList.copyToArray main_predspec_list
+	main.lb_predspecBuild.repopulate
+	
+	program main_file_change
+ 	program check_nchains
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	title(resource BAYESSTATS_PPVALUES_DLG_TITLE)
+BEGIN
+  GROUPBOX gb_syntax		_lft	_top	_iwd	230,		///
+	label(resource BAYESSTATS_PPVALUES_MAIN_GB_SYNTAX)
+
+  DEFINE usex _ilft
+  DEFINE usey 35
+  DEFINE usew _ibwd	
+  INCLUDE bayes_predfile
+	
+  GROUPBOX gb_predspec		_ilft	_ss	_ibwd	_ht12,		///
+	label("")
+	
+  DEFINE resy _ms
+  INCLUDE bayesstats_predspec
+
+  GROUPBOX gb_opt		_lft	+50	_iwd	190,		///
+	label(resource LBL_OPTIONS)
+
+  DEFINE chain_x _ilft
+  DEFINE chain_y +25
+  DEFINE chain_w _ibwd
+  INCLUDE bayes_chains_opts
+
+  CHECKBOX ck_nolegend		_ilft	+40	_ibwd	.,		///
+	option(nolegend)						///
+	label(resource LBL_SUP_TABLE_LEGEND)
+END
+
+INCLUDE bayesstats_predspec_sc
+
+PROGRAM main_file_change
+BEGIN
+	if main.fi_use.isenabled() & !main.fi_use.equals("") {
+		call main.lb_predspecBuild.enable
+		call main.bu_predspec_create.enable
+		call main.tb_predspec_note.enable
+		call program main_predspec_sel_changed
+	}
+	else {
+		call main.lb_predspecBuild.disable
+		call main.bu_predspec_create.disable
+		call main.bu_predspec_edit.disable
+		call main.bu_predspec_disable.disable
+		call main.bu_predspec_enable.disable
+		call main.tb_predspec_note.disable
+	}
+END
+
+INCLUDE bayes_chains_opts_sc
+
+SCRIPT chains_move_hide
+BEGIN
+	main.gb_chains.hide
+	main.rb_chain_all.hide
+	main.rb_chain_nlist.hide
+	main.cb_chains.hide
+	main.ck_sepchains.hide 
+END
+
+PROGRAM command
+BEGIN
+	call cmdName.setvalue e(cmd)
+	call cmdStr.setvalue e(cmdline)
+	call cmdPrefix.setvalue e(prefix)
+	
+	if !cmdName.equals("bayesmh") | cmdStr.equals("") | cmdPrefix.equals("bayes") {
+		stopbox stop resource BAYESSTATS_PPVALUES_MSGBOX_SUPPORT
+//stopbox stop "Posterior predictive p-values are supported only after -bayesmh-."		
+	}
+	
+	put "bayesstats ppvalues "
+	call mainPredspecCommandValues.copyToString main_predspec_output
+	if main_predspec_output.equals("") {
+		stopbox stop resource BAYESSTATS_PPVALUES_MSGBOX_SUMM_MUST_BE_SPECIFIED
+	}
+	put " " main_predspec_output
+	
+	require main.fi_use
+	
+	put " using "
+	put main.fi_use
+
+	beginoptions
+		put " " /program chains_output
+		option main.ck_nolegend
+	endoptions
+END
+

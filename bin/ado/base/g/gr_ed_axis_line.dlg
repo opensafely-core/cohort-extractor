@@ -1,0 +1,165 @@
+/*
+  gr_ed_axis_line.dlg
+
+*!  VERSION 1.1.1  18may2016
+
+*/
+
+VERSION 14.0
+MODAL
+
+INCLUDE _std_vsmall
+DEFINE _dlght 140
+INCLUDE header_gr_ed
+
+DEFINE _clwd	15
+DEFINE _wd	120
+DEFINE _sep	+125
+DEFINE _cbwd	130
+DEFINE _cbsep	+135
+
+SCRIPT PREINIT
+BEGIN
+	create STRING G
+	create STRING parent_name
+
+	// Get the Graphics object name (G) from the parent...
+	parent_name.setvalue class PARENT._dlg_rsrcname
+	parent_name.withvalue G.setvalue class @.G.value
+
+	create STRING color
+	create STRING rgb
+	create STRING opacity
+	create STRING width
+	create STRING pattern
+
+	create DOUBLE index
+	create STRING tmp
+	
+	program get_defaults
+	setscale_hadj resource GR_ED_AXIS_LINE_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program initialize_controls
+END
+
+SCRIPT finalize // called from parent after creation so that G is populated
+BEGIN	
+	program get_defaults
+	program initialize_controls
+END
+
+DIALOG main, title(resource LBL_AXIS_LINE_PROPERTIES_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_clr	_lft	20	_wd	.,		///
+	label(resource LBL_COLOR) right
+  COMBOBOX cb_clr	_sep	@	_cbwd	.,		///
+	dropdownlist contents(_colors) 				///
+	onselchangelist(main_cl_clr_sel)
+  COLOR    cl_clr	_cbsep	@	_clwd	.,
+  TEXT     tx_opacity	_lft	_mls	_wd	.,		///
+	label(resource LBL_OPACITY) right
+  SPINNER sp_opacity	_sep	@	_spwd	.,		///
+	default(100)						///
+	min(0)							///
+	max(100)
+
+  TEXT     tx_width	_lft	_mls	_wd	.,		///
+	label(resource LBL_WIDTH) right
+  COMBOBOX cb_width	_sep	@	_cbwd	.,		///
+	dropdown 						///
+	contents(_linewidths)
+
+  TEXT     tx_pattern	_lft	_mls	_wd	.,		///
+	label(resource LBL_PATTERN) right
+  COMBOBOX cb_pattern	_sep	@	_cbwd	.,		///
+	dropdownlist						///
+	contents(_linepatterns)
+END
+
+
+LIST main_cl_clr_sel
+BEGIN
+	main.cl_clr.show
+	main.cl_clr.hide
+END
+
+PROGRAM get_defaults
+BEGIN
+	call G.withvalue index.setvalue class @.style.linestyle.color.styledex
+	call index.withvalue color.setstring class .__STYLES.color[@]
+	call main.cb_clr.setdefault class color.value
+	
+	call G.withvalue rgb.setstring class @.style.linestyle.color.rgb
+	call main.cl_clr.setdefault class rgb.value
+
+	call G.withvalue opacity.setstring class @.style.linestyle.color.opacity
+	call main.sp_opacity.setdefault class opacity.value
+
+	call G.withvalue index.setvalue class @.style.linestyle.width.styledex
+	call index.withvalue width.setstring class .__STYLES.linewidth[@]
+	if ! width {
+		call G.withvalue width.setvalue class @.style.linestyle.width.val
+	}
+	call main.cb_width.setdefault class width.value
+
+	call G.withvalue index.setvalue class @.style.linestyle.pattern.styledex
+	call index.withvalue pattern.setstring class .__STYLES.linepattern[@]
+	call main.cb_pattern.setdefault class pattern.value
+END
+
+PROGRAM initialize_controls
+BEGIN
+	if color {
+		call main.cb_clr.setvalue class color.value
+	}
+	else {
+		call main.cb_clr.setvalue "custom"
+	}
+	call main.cl_clr.setvalue class rgb.value
+	call main.sp_opacity.setvalue class opacity.value
+
+	call main.cb_width.setvalue class width.value
+	call main.cb_pattern.setvalue class pattern.value
+END
+
+PROGRAM command
+BEGIN
+	call program get_defaults
+	put "_gm_dlg_edits"
+	beginoptions
+		put " object(" G ") "
+		if ! main.cl_clr.isvisible() & ! main.cb_clr.isdefault() {
+			put "style(linestyle(color(" 
+			put main.cb_clr 
+			put "))) "
+		}
+		if main.cl_clr.isvisible() & ! main.cl_clr.isdefault() {
+			put "style(linestyle(color("    `"""'
+			put main.cl_clr
+			put `"""'
+			put "))) "
+		}
+		if ! main.sp_opacity.isdefault() {
+			put "style(linestyle(color("    `"""'
+			put "%"
+			put main.sp_opacity
+			put `"""'
+			put "))) "
+		}
+		if ! main.cb_width.isdefault() {
+			put "style(linestyle(width("
+			put main.cb_width
+			put "))) "
+		}
+		if ! main.cb_pattern.isdefault() {
+			put "style(linestyle(pattern("
+			put main.cb_pattern
+			put "))) "
+		}
+		put " epilog(_gedi toolbar axis " G ")"
+	endoptions
+	stata hidden queue
+END

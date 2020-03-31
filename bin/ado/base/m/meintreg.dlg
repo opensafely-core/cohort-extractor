@@ -1,0 +1,353 @@
+/*
+  meintreg
+
+*!  VERSION 1.0.4  28nov2018
+
+*/
+
+VERSION 15.0
+
+INCLUDE _std_large
+DEFINE _dlght 510
+INCLUDE header
+
+HELP hlp1, view("help meintreg")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING STMP
+	script se_setMI_on
+	script se_createAsSvyOIMClRobust
+
+	create STRING main_equ_tmp
+	create STRING main_equ_tmp2
+	create STRING main_equ_childdlg
+	create STRING main_equ_dlgname
+	create STRING main_equ_child_result
+	create STRING main_equ_cmd_output
+	create STRING main_equ_cmd_last
+
+	create ARRAY main_equ_list
+	create ARRAY main_equ_toklist
+
+	create SVECTOR mainEQUCommandDisplayList
+	create SVECTOR mainEQUCommandList
+	create SVECTOR mainEQUCommandValues
+	create SVECTOR mainEQUStatusList
+	create SVECTOR mainEQUChildDialogList
+
+	create DOUBLE main_equ_count
+	create DOUBLE main_equ_position
+	create DOUBLE main_equ_arraysize
+	create DOUBLE main_equ_tmpcount
+
+	main.bu_equ_edit.disable
+	main.bu_equ_disable.disable
+	main.bu_equ_enable.disable
+
+	create BOOLEAN allow_fweights
+	create BOOLEAN allow_pweights
+	create BOOLEAN allow_iweights
+	
+	create SVECTOR mainEQUCommandList_wgt
+	create SVECTOR mainEQUCommandValues_wgt
+	create STRING fweights_cmd
+	create STRING pweights_cmd
+	create STRING iweights_cmd
+	create STRING main_equ_child_result_wgt
+
+	allow_fweights.settrue
+	allow_pweights.settrue
+	allow_iweights.settrue
+
+	program svy_check_title
+	setscale_hadj resource MEINTREG_DLG_HSCALE
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	call program check_bytab
+	call se_hasOPG.settrue
+END
+
+SCRIPT POSTINIT
+BEGIN
+	mainEQUCommandDisplayList.copyToArray main_equ_list
+	main.lb_equBuild.repopulate
+	program se_setFinalInitState
+END
+
+PROGRAM check_bytab
+BEGIN
+	if !__MESSAGE.contains("__MI__") {
+		call script sub_set_by_on
+	}
+END
+
+PROGRAM svy_check_title
+BEGIN
+	if __MESSAGE.contains("-svy-") {
+		call settitle resource MEINTREG_DLG_TITLE_SVY
+	}
+END
+
+SCRIPT svy_is_on
+BEGIN
+	allow_fweights.setfalse
+	allow_pweights.setfalse
+	allow_iweights.setfalse
+	script max_setDefaultNoLog
+	program main_equ_sel_changed
+END
+
+SCRIPT svy_is_off
+BEGIN
+	allow_fweights.settrue
+	allow_pweights.settrue
+	allow_iweights.settrue
+	script max_setDefaultLog
+	program main_equ_sel_changed
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)				///
+	label(resource MEINTREG_DLG_TITLE)
+BEGIN
+  GROUPBOX gb_fe		_lft	_top	_iwd	_ht15h,		///
+	label(resource LBL_FIXED_EFFECTS_MODEL)
+  TEXT tx_dv1			_ilft	_ss	_vnwd	.,		///
+	label(resource LBL_DEPENDENT_VARIABLE_1)
+  DEFINE holdy @y
+  VARNAME vn_dv1		@	_ss	@	.,		///
+	numeric ts							///
+	label(resource LBL_DEPENDENT_VARIABLE_1)
+
+  TEXT tx_dv2			_vlx	holdy	@	.,		///
+	label(resource LBL_DEPENDENT_VARIABLE_2)
+  VARNAME vn_dv2		@	_ss	@	.,		///
+	numeric ts							///
+	label(resource LBL_DEPENDENT_VARIABLE_2)
+
+  TEXT tx_iv			_ilft	_ls	_ibwd	.,		///
+	label(resource LBL_INDDEPVAR)
+
+  VARLIST vl_iv			@	_ss	@	.,		///
+	allowcat ts fv numeric						///
+	label(resource LBL_INDDEPVAR)
+
+  CHECKBOX ck_nocons		_lft2	_ms	200	.,		///
+	option(noconstant)						///
+	label(resource LBL_NOCONSTANT)
+		
+  TEXT tx_offset		_ilft	_ss	_cwd2	.,		///
+		label(resource LBL_OFFSET_VARIABLE)
+
+  VARNAME vn_offset		_ilft	_ss	_vnwd	.,		///
+	option(offset)							///
+	label(resource LBL_OFFSET_VARIABLE)
+
+  DEFINE _x _lft
+  DEFINE _y +35
+  INCLUDE me_equ
+
+  GROUPBOX gb_opts		_lft	+40	_iwd	_ht6,		///
+	label(resource LBL_OPTIONS)
+
+  DEFINE _x _ilft
+  DEFINE _y _ss
+  DEFINE _cx _ilw80
+  DEFINE _bux _islw80
+  INCLUDE _constraints
+
+//  CHECKBOX ck_collinear		20	_ls	_ibwd	.,	///
+//	option(collinear)						///
+//	label(resource LBL_KEEP_COLLINEAR_VARIABLES)
+END
+
+INCLUDE me_equ_pr
+INCLUDE _constraints_sc
+INCLUDE sub_by_ifin_over_subpop
+INCLUDE weights_fpi
+
+INCLUDE se
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+	program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  CHECKBOX ck_nocnsreport		@	_ls	@	.,	///
+	option(nocnsreport)						///
+	label(resource LBL_DO_NOT_DISPLAY_CONSTRAINTS)
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  CHECKBOX ck_notable			@	_ms	@	.,	///
+	option(notable)							///
+	label(resource LBL_SUPPRESS_COEFFICIENT_TABLE)
+  CHECKBOX ck_noheader			@	_ms	@	.,	///
+	option(noheader)						///
+	label(resource LBL_SUPPRESS_OUTPUT_HEADER)
+  CHECKBOX ck_nogroup			@	_ms	@	.,	///
+	option(nogroup)							///
+	label(resource LBL_SUPPRESS_TABLE_SUMMARIZING_GROUPS)
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y  @
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+
+DIALOG int,  tabtitle(resource LBL_TAB_INTEGRATION)
+BEGIN
+  TEXT tx_intm			_lft	_top	_iwd	.,		///
+	label(resource LBL_INTEGRATION_METHOD)
+  COMBOBOX cb_intm		@	_ss	325	.,		///
+	dropdownlist							///
+	contents(int_intm_contents)					///
+	values(int_intm_values)						///
+	onselchangelist(int_intm_sel)					///
+	option(intmethod)						///
+	default(mvaghermite)						///
+	label(resource LBL_INTEGRATION_METHOD)
+
+  SPINNER sp_intp		@	_ls	_spwd	.,		///
+	min(1) default(7)						///
+	option(intpoints)						///
+	label(resource LBL_NUMBER_OF_INTEGRATION_POINTS)
+  TEXT tx_intp			_spsep	@	200	.,		///
+	label(resource LBL_NUMBER_OF_INTEGRATION_POINTS)
+END
+
+LIST int_intm_contents
+BEGIN
+	resource LBL_MEAN_VARIANCE_ADAPTIVE_GAUSS_HERMITE_QUAD
+	resource LBL_MODE_CURVATURE_ADAPTIVE_GAUSS_HERMITE_QUAD
+	resource LBL_NONADAPTIVE_GAUSS_HERMITE_QUADRATURE
+	resource LBL_LAPLACIAN_APPROXIMATION
+END
+
+LIST int_intm_values
+BEGIN
+	"mvaghermite"
+	"mcaghermite"
+	"ghermite"
+	"laplace"
+END
+
+LIST int_intm_sel
+BEGIN
+	script int_intp_enable
+	script int_intp_enable
+	script int_intp_enable
+	script int_intp_disable
+END
+
+SCRIPT int_intp_enable
+BEGIN
+	int.tx_intp.enable
+	int.sp_intp.enable
+END
+
+SCRIPT int_intp_disable
+BEGIN
+	int.tx_intp.disable
+	int.sp_intp.disable
+END
+
+INCLUDE max_ml
+
+PROGRAM fe_opt_output
+BEGIN
+	option main.ck_nocons
+	optionarg main.vn_offset
+END
+
+PROGRAM rpt_output
+BEGIN
+	optionarg /hidedefault rpt.sp_level
+	option rpt.ck_nocnsreport
+	INCLUDE _report_columns_pr
+	option rpt.ck_notable
+	option rpt.ck_noheader
+	option rpt.ck_nogroup
+	put " " rpt_bu_facvarsResults
+	put " " rpt_bu_fmtcoefResults
+END
+
+PROGRAM command
+BEGIN
+	if allow_fweights | allow_pweights | allow_iweights {
+		call mainEQUCommandValues_wgt.copyToString main_equ_cmd_output
+	}
+	else {
+		call mainEQUCommandValues.copyToString main_equ_cmd_output
+	}
+	call main_equ_cmd_output.tokenizeOnStr main_equ_toklist "||"
+	call main_equ_tmpcount.storeClsArraySize main_equ_toklist
+	call main_equ_tmpcount.withvalue main_equ_cmd_last.setvalue class main_equ_toklist[@]
+
+	put /program by_output " "
+	put /program se_prefix_output " "
+	put "meintreg "
+	varlist main.vn_dv1 main.vn_dv2 [main.vl_iv]
+	put " " /program ifin_output
+	put " " /program weights_output
+
+	if main_equ_cmd_last.contains(",") {
+		beginoptions
+			put " " /program fe_opt_output
+			put " " main_equ_cmd_output
+		endoptions
+	}
+	else {
+		if main_equ_cmd_output {
+			if main.ck_nocons | main.vn_offset {
+				put ","
+			}
+			if main.ck_nocons {
+				put " noconstant"
+			}
+			if main.vn_offset {
+				put " offset("
+				put main.vn_offset
+				put ")"
+			}
+			put " "  main_equ_cmd_output
+		}
+		else {
+			beginoptions
+				put " " /program fe_opt_output
+			endoptions
+		}
+	}
+
+	beginoptions
+		INCLUDE _constraints_main_pr
+//		option main.ck_collinear
+		optionarg /hidedefault int.cb_intm
+		optionarg /hidedefault int.sp_intp
+		put " " /program se_output
+		put " " /program rpt_output
+		put " " /program max_output
+	endoptions
+END

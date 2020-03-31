@@ -1,0 +1,299 @@
+/*
+        describe
+
+*!  VERSION 1.2.5  02may2019
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 330
+INCLUDE header
+
+HELP hlp1, view("help describe")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create ARRAY main_using_variables
+	create DOUBLE main_des_error
+	setscale_hadj resource DESCRIBE_DLG_HSCALE
+	
+        main.fi_filename.formatfilter "{0} (*.dta)|*.dta|{1} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_DTA_FILES" "resource ui_ex FILE_TYPE_ALL_FILES"
+END
+
+DIALOG main, label(resource DESCRIBE_DLG_TITLE)				///
+        tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  GROUPBOX gb_type		_lft	_top	_iwd	_ht4,		///
+	label(resource LBL_DESCRIBE_DATA)
+  RADIO rb_descmem		_ilft	_ss	_inwd   .,		///
+	first								///
+	onclickon(script main_descmem_on)				///
+	label(resource DESCRIBE_MAIN_RB_DESCMEM)
+  RADIO rb_descuse		@	_ss	@	.,		///
+	last								///
+	onclickon(script main_descuse_on)				///
+	label(resource DESCRIBE_MAIN_RB_DESCUSE)
+  TEXT tx_var			_lft	_xls	_iwd	.,		///
+	label(resource LBL_VARIABLES_LEAVE_EMPTY_FOR_ALL_VARIABLES)
+  DEFINE holdy @y
+  VARLIST vl_varlist		@	_ss	@	.,		///
+	nomemory							///
+	label(resource LBL_VARIABLES_LEAVE_EMPTY_FOR_ALL_VARIABLES)
+
+  TEXT tx_filename		_lft	holdy	_iwd	.,		///
+	label(resource LBL_FILENAME_OF_DATASET_ON_DISK)
+  FILE fi_filename		@	_ss	@	.,		///
+	error(resource LBL_FILENAME_OF_DATASET_ON_DISK)			///
+	defext(dta) label(resource LBL_BU_BROWSE)
+  TEXT tx_using			_lft	_ls	_iwd	.,		///
+	label(resource LBL_VARIABLES)
+  COMBOBOX cb_using		@	_ss	_lw80	.,		///
+	append								///
+	dropdown							///
+	contents(main_using_variables)					///
+	option(keepusing)						///
+	label(resource LBL_VARIABLES_TO_KEEP_DTA_ON_DISK)
+  BUTTON bu_populate		_rj80	@	80	.,		///
+	onpush(program populate_cb_using)				///
+	tooltip(resource LBL_POPULATE_COMBOBOX_VARLIST_DATASET_ON_DISK)	///
+	label(resource LBL_POPULATE)
+  GROUPBOX gb_opts		_lft	_ls	_iwd	_ht30,		///
+	label(resource LBL_OPTIONS)
+  CHECKBOX ck_simple		_indent	_ms	_inwd	.,		///
+	option(simple)							///
+	onclickon(program check_simple)					///
+	onclickoff(program check_simple)				///
+	label(resource DESCRIBE_MAIN_CK_SIMPLE)
+  CHECKBOX ck_short		@	_ms	@	.,		///
+	option(short)							///
+	label(resource DESCRIBE_MAIN_CK_SHORT)				///
+	onclickon(program check_short)					///
+	onclickoff(program check_short)
+  CHECKBOX ck_fullnames		@	_ms	@	.,		///
+	option(fullnames)						///
+	label(resource LBL_FULLNAMES)					///
+	onclickon(program check_fullnames)				///
+	onclickoff(program check_fullnames)
+  CHECKBOX ck_numbers		@	_ms	@	.,		///
+	option(numbers)							///
+	label(resource DESCRIBE_MAIN_CK_NUMBERS)			///
+	onclickon(program check_numbers)				///
+	onclickoff(program check_numbers)
+  CHECKBOX ck_replace		@	_ms	@	.,		///
+	option(replace)							///
+	label(resource DESCRIBE_MAIN_CK_REPLACE)			///
+	onclickon(program check_replace_on)				///
+	onclickoff(program check_replace_off)
+  CHECKBOX ck_clear		@	_ms	@	.,		///
+	option(clear)							///
+	label(resource LBL_CLEAR_DATASET_FROM_MEMORY)
+END
+
+SCRIPT main_descmem_on
+BEGIN
+	main.tx_var.show
+	main.vl_varlist.show
+	main.ck_simple.show
+	main.ck_short.show
+	main.ck_fullnames.show
+	main.ck_numbers.show
+	main.ck_replace.show
+	main.ck_clear.show
+
+	main.tx_filename.hide
+	main.fi_filename.hide
+	main.tx_using.hide
+	main.cb_using.hide
+	main.bu_populate.hide
+
+	main.gb_opts.setposition . 145 . 175
+	main.ck_simple.setposition . 165
+	main.ck_short.setposition . 190
+	main.ck_fullnames.setposition . 215
+	main.ck_numbers.setposition . 240
+	main.ck_replace.setposition . 265
+	main.ck_clear.setposition . 290
+END
+
+SCRIPT main_descuse_on
+BEGIN
+	main.tx_filename.show
+	main.fi_filename.show
+	main.tx_using.show
+	main.cb_using.show
+	main.bu_populate.show
+	main.ck_short.show
+	main.ck_simple.show
+
+	main.tx_var.hide
+	main.vl_varlist.hide
+	main.ck_fullnames.hide
+	main.ck_numbers.hide
+	main.ck_replace.hide
+	main.ck_clear.hide
+
+	main.gb_opts.setposition . 190 . 80
+	main.ck_simple.setposition . 240
+	main.ck_short.setposition . 215
+END
+
+SCRIPT main_showvlist_on
+BEGIN
+	main.tx_var.enable
+	main.vl_varlist.enable
+END
+
+PROGRAM populate_cb_using
+BEGIN
+	require main.fi_filename
+	call main_des_error.setvalue 0
+	put "describe_wrk_dlg using "
+	put `"""'
+	put main.fi_filename
+	put `"""'
+	stata hidden immediate
+
+	if main_des_error {
+		stopbox stop resource LBL_MSGBOX_UNABLE_GET_VARIABLES_FROM_DTA_ON_DISK
+// Unable to get variables from dataset on disk.
+	}
+	call main.cb_using.repopulate
+END
+
+PROGRAM check_simple
+BEGIN
+	if main.ck_simple {
+		call main.ck_short.disable
+		call main.ck_fullnames.disable
+		call main.ck_numbers.disable
+		call main.ck_replace.disable
+		call main.ck_clear.disable
+	}
+	else {
+		call main.ck_short.enable
+		call main.ck_replace.enable
+		call main.ck_clear.enable
+		if ! main.ck_short {
+			if ! main.ck_numbers {
+				call main.ck_fullnames.enable
+			}
+		if ! main.ck_fullnames {
+				call main.ck_numbers.enable
+			}
+		}
+	}
+END
+
+PROGRAM check_short
+BEGIN
+	if main.ck_short.isenabled() {
+		if main.ck_short {
+			call main.ck_fullnames.disable
+			call main.ck_numbers.disable
+			call main.ck_simple.disable
+			call main.ck_replace.disable
+			call main.ck_clear.disable
+		}
+		else {
+			call main.ck_simple.enable
+			call main.ck_replace.enable
+			call main.ck_clear.enable
+			if ! main.ck_numbers {
+				call main.ck_fullnames.enable
+			}
+			if ! main.ck_fullnames {
+				call main.ck_numbers.enable
+			}
+		}
+	}
+END
+
+PROGRAM check_fullnames
+BEGIN
+	if main.ck_fullnames.isenabled() {
+		if main.ck_fullnames {
+			call main.ck_simple.disable
+			call main.ck_short.disable
+			call main.ck_replace.disable
+			call main.ck_clear.disable
+			call main.ck_numbers.disable
+		}
+		else {
+			call main.ck_simple.enable
+			call main.ck_short.enable
+			call main.ck_replace.enable
+			call main.ck_clear.enable
+			call main.ck_numbers.enable
+		}
+	}
+END
+
+PROGRAM check_numbers
+BEGIN
+	if main.ck_numbers.isenabled() {
+		if main.ck_numbers {
+			call main.ck_simple.disable
+			call main.ck_short.disable
+			call main.ck_replace.disable
+			call main.ck_clear.disable
+			call main.ck_fullnames.disable
+		}
+		else {
+			call main.ck_simple.enable
+			call main.ck_short.enable
+			call main.ck_replace.enable
+			call main.ck_clear.enable
+			call main.ck_fullnames.enable
+		}
+	}
+END
+
+PROGRAM check_replace_on
+BEGIN
+	call main.ck_clear.enable
+	call main.ck_simple.disable
+	call main.ck_short.disable
+	call main.ck_fullnames.disable
+	call main.ck_numbers.disable
+END
+
+PROGRAM check_replace_off
+BEGIN
+	call main.ck_clear.disable
+	call main.ck_simple.enable
+	call main.ck_short.enable
+	call main.ck_fullnames.enable
+	call main.ck_numbers.enable
+END
+
+PROGRAM command
+BEGIN
+	if main.rb_descmem {
+		put "describe "
+		varlist [main.vl_varlist]
+		beginoptions
+			option main.ck_simple
+			option main.ck_short
+			option main.ck_fullnames
+			option main.ck_numbers
+			option main.ck_replace
+			option main.ck_clear
+		endoptions
+	}
+	if main.rb_descuse {
+		put "describe "
+		put "using "
+		require main.fi_filename
+		put `"""' main.fi_filename `"""'
+
+		beginoptions
+			option main.ck_short
+			option main.ck_simple
+		endoptions
+	}
+
+END

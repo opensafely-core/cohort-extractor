@@ -1,0 +1,203 @@
+/*                                 gridline
+
+	a view of a grid or x/y line
+
+        This is a subview.  When drawn, assumes that the appropriate x and y
+        scales have already been set.
+
+	View is tightly tied to its plotregion, and of little use without it.
+
+*/
+*! version 1.1.1  28jan2015  
+
+version 8
+
+class {
+	z		= 0				// x or y point
+	ord		= .ordstyle.new
+	plotregion 	= ""				// key of our plotregion
+
+	style		= .gridlinestyle.new
+
+	draw_view       = .yesno.new, style(yes)
+
+	dragable	= 1
+	hold_dragable	= 1
+	dialog		= "refline"
+} , inherit(subview)
+
+
+/*--------------------------------------------------------------------------*/
+/*
+	Usage:  .gridline.new z0 [ , style(stylename) styleref(name|key)]
+
+	if reference is specified the style is assigned by reference rather
+	than by copying (by value)
+*/
+
+program define new
+
+	syntax anything ,						///
+		Ordinate(string) PLOTRegion(string)			///
+		[ Style(passthru) STYLEREF(passthru) datesok * ]
+
+	if ! 0`.`plotregion'.isofclass plotregion' {
+		di as error "invalid plotregion for xline or yline"
+		exit 198
+	}
+
+	.grid_dragable	= 0
+	.deleted	= 0
+
+	if "`datesok'" != "" {
+		.`plotregion'.get_time_format
+		local fmt `r(fmt)'
+	}
+	else {
+		local anything `anything'
+	}
+
+	capture numlist `"`anything'"' , max(1) min(1)
+	local rc = _rc
+	local numlist `r(numlist)'
+	if `rc' & "`datesok'" != "" {
+		_date2elapsed , format(`fmt') datelist(`anything')
+		local tfmt `s(fmt)'
+		local numlist `s(args)'
+		capture numlist "`numlist'" , max(1) min(1)
+		local rc = _rc
+	}
+	if `rc' {
+		if "`tfmt'" == "" {
+			di as error `"invalid number, `anything'"'
+		}
+		else {
+			di as err ///
+`"invalid argument "' ///
+`""`anything'" must be a number or valid argument for `tfmt'() function"'
+		}
+		exit 198
+	}
+
+	.z   = `numlist'
+	.ord.setstyle, style(`ordinate')
+	.dragable = cond("`ordinate'" == "x", 2, 3)
+	.hold_dragable = .dragable
+	.plotregion = "`.`plotregion'.objkey'"
+
+	if "`style'" == "" & "`styleref'" == "" {
+		local style style(scheme)
+	}
+
+	.setstyle , `style' `styleref' `options'
+end
+
+/*--------------------------------------------------------------------------*/
+
+program swap_ord
+	if "`.ord.stylename'" == "x" {
+		.ord.setstyle, style(y)
+		.hold_dragable = 3
+		if (`.dragable')  .dragable = .hold_dragable
+	}
+	else {
+		.ord.setstyle, style(x)
+		.hold_dragable = 2
+		if (`.dragable')  .dragable = .hold_dragable
+	}
+end
+
+/*--------------------------------------------------------------------------*/
+
+program define draw
+
+	if (! `.draw_view.istrue')  exit				// Exit
+
+	if (0`.style.linestyle.blank_line')  exit
+
+	.style.linestyle.setgdifull
+
+	local ord `.ord.stylename'
+	local ordw = cond("`ord'"== "x", "y", "x")
+
+	local margin `.plotregion'.style.margin
+
+	local w0 0
+	local w1 0`.`.plotregion'.`ordw'size_ren'
+
+	if 0`.style.extend_low.istrue' {
+		local side = cond("`ord'"== "x", "bottom", "left")
+		local w0 = `w0' - 0`.`margin'.gm`side''
+	}
+	if 0`.style.extend_high.istrue' {
+		local side = cond("`ord'"== "x", "top", "right")
+		local w1 = `w1' + 0`.`margin'.gm`side''
+	}
+
+			// maybe add a free x and y transform in the global
+			// space that can be used by anyone.
+
+	tempname transform			// must hold transform
+	.`transform' = .transform.new , dimension(`ord')
+	.`transform'.get_from_gdi
+						// set gdi transforms 
+	.`.plotregion'.`ord'scale.setgdi `.`.plotregion'.`ord'size_ren'
+
+	if "`ord'" == "x" {
+		gdi line      `.z' `w0' `.z' `w1'
+		.set_gdi_posn `w0' `.z' `w1' `.z'
+	}
+	else {
+		gdi line      `w0' `.z' `w1' `.z' 
+		.set_gdi_posn `.z' `w0' `.z' `w1' 
+	}
+
+	.`transform'.reset			// reset the transform
+end
+
+// ----------------------------------------------------------------------------
+// Determine if a position is in/on the view
+
+program at_pos
+	args y x ymult xmult gmult
+
+	if (! 0`.draw_view.istrue')  class exit = 0
+	if (0`.locked')              class exit = 0
+
+
+	local ord "`.ord.stylename'"
+
+	if `._Gr_Global.`ord'_log' {			// handle log scales
+		local `ord' = log(``ord'')
+		local     z = log(`.z')
+	}
+	else	local     z = `.z'
+
+	local halo = max(`gmult'*`.style.linestyle.width.val', 1.6) *	///
+		    ``ord'mult' / 2
+
+	class exit = (abs(``ord'' - `z') < `halo')
+end
+
+
+// ----------------------------------------------------------------------------
+// Respond to a .DragBy by moving the position
+
+program DragBy
+	args y_shift x_shift
+
+	.z = `.z' + cond("`.ord.stylename'" == "y", `y_shift', `x_shift')
+end
+
+// ----------------------------------------------------------------------------
+// Possibly map supplied name to one appropriate for the object browser
+
+program BrowserName
+	args name
+
+	if bsubstr("`name'",1,9) == "_xylines[" {
+		local ord `.ord.stylename'
+		gettoken pre index: name , parse("[")
+		class exit "reference lines.line`index' (`ord')"
+	}
+end

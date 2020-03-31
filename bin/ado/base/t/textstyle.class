@@ -1,0 +1,201 @@
+*! version 1.0.2  02nov2005
+version 8
+
+class {
+
+    instance:
+	horizontal = .horizontal.new,    /* style(center) */
+	vertical   = .vertical_text.new, /* style(bottom) */
+	angle	   = .anglestyle.new,    /* style(default) */
+	size	   = .gsize.new,         /* style(medium) */
+	color 	   = .color.new, type(text) /* style(black) */
+	position   = .relative_posn.new, /* style(default) */
+
+	proxy = "textboxstyle"
+
+}, inherit(style)
+
+
+/* -------------------------------------------------------------------------*/
+
+program define new
+
+	syntax [, Style(string) * ]				/* default */
+	if "`style'" == "" { 
+		.setstyle, style(scheme)
+	}
+	.Super.new, `.set `0''
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*
+	Usage:  just like .new
+*/
+
+program define set
+
+	syntax [,  Angle(real `.angle.val') Size(real -999) Color(string) /*
+		*/ Horizontal(string) Vertical(string) * ]
+
+	if `angle' != `.angle.val' {
+		.angle.val = `angle'
+	}
+
+	if `size' != -999 {
+		.size.val = `size'
+	}
+
+	if "`horizontal'" != "" {
+		.horizontal.setstyle, style(`horizontal')
+	}
+	if "`vertical'" != "" {
+		.vertical.setstyle, style(`vertical')
+	}
+
+	if "`color'" != "" {
+		.color.setstyle , style(`color')
+	}
+
+	class exit `"`options'"'
+end
+
+// ---------------------------------------------------------------------------
+// Return a compass direction for the current horizontal and vertical
+// alignment and an optional position.
+
+program align2compass
+	args pos justification
+
+	if "`.position.snm'" != "default" { 
+		local pos `.position.snm' 
+	}
+
+	if "`pos'" == "" {
+		local dir `.vertical.compassdir'`.horizontal.compassdir'
+		if ("`dir'" == "") local dir 0
+		class exit "`dir'"
+	}
+
+	local 0 , `pos'
+	syntax [ , Left Right Above Below ]
+
+
+	local base = ("`right'"!="")*270 + ("`above'"!="")*180 +	///
+		     ("`left'"!="")*90 
+	local tangle = mod(`angle'+`base', 360)
+
+	if ( `tangle' == 0 ) {
+		if      ("`justification'" == "left" ) class exit "SE"
+		else if ("`justification'" == "right") class exit "SW"
+		else                                   class exit "S"
+	}
+	if ( `tangle' == 180 ) {
+		if      ("`justification'" == "left" ) class exit "NE"
+		else if ("`justification'" == "right") class exit "NW"
+		else                                   class exit "N"
+	}
+	if ( `tangle' > 0   & `tangle' < 180 )	       class exit "W"
+	if ( `tangle' > 180 & `tangle' < 360 )	       class exit "E"
+
+	class exit "0"
+
+end
+
+
+/* -------------------------------------------------------------------------*/
+/* 
+	Set this text style to the GDI
+
+	syntax:  .setgdi, angle(#) posdefault(left|right|above|below)
+
+
+	angle(#) specifies that # will be used as the text angle if
+		.angle is of style default.
+
+	posdefault() specifies that the angle alignment of the text
+             will be set s.t. the text is always to the left (or right, or
+             above, or below) the location at which the text is shown.
+
+*/
+
+program define setgdi
+
+	syntax [, Angle(real `.angle.val') POSdefault(string) ]
+
+	if "`.angle.snm'" != "default" { 
+		local angle `.angle.val' 
+	}
+
+	if "`.position.snm'" != "default" { 
+		local posdefault `.position.snm' 
+	}
+
+	.color.setgdi , text
+	gdi gm_textsize  = `.size.gmval'
+	gdi textangle  = `angle'
+
+							/* set alignments */
+
+	if "`.horizontal.setting'" != "default" {
+		gdi texthalign = `.horizontal.setting'
+	} 
+	else	gdi texthalign = center
+
+	if "`.vertical.setting'" != "default" {
+		gdi textvalign = `.vertical.setting'
+	}
+	else	gdi textvalign = middle	
+
+	if "`posdefault'" == "" { 
+		exit						/* EXIT */
+	}	
+
+	local 0 , `posdefault'
+	syntax [ , Left Right Above Below ]
+
+
+	local base = ("`right'"!="")*270 + ("`above'"!="")*180 +	/*
+		*/   ("`left'"!="")*90 
+	local tangle = mod(`angle'+`base', 360)
+
+	if `tangle' == 0 {
+		if ("`.horizontal.setting'"=="default") gdi texthalign = center
+		if ("`.vertical.setting'"  =="default") gdi textvalign = top
+		exit						/* EXIT */
+	}
+
+	if `tangle' == 180 {
+		if ("`.horizontal.setting'"=="default") gdi texthalign = center
+		if ("`.vertical.setting'"  =="default") gdi textvalign = bottom 
+		exit						/* EXIT */
+	}
+
+
+	if `tangle' > 0 & `tangle' < 180 {
+		if ("`.horizontal.setting'"=="default") gdi textvalign = middle
+		if ("`.vertical.setting'"  =="default") gdi texthalign = right
+		exit
+	}
+
+	if `tangle' > 180 & `tangle' < 360 {
+		if ("`.horizontal.setting'"=="default") gdi textvalign = middle
+		if ("`.vertical.setting'"  =="default") gdi texthalign = left
+		exit
+	}
+
+end
+
+
+/* -------------------------------------------------------------------------*/
+/* 
+	Set this line style to the GDI and reset the pen
+*/
+
+program define setgdifull
+
+	.setgdi `0'
+	gdi textchange
+end
+
+

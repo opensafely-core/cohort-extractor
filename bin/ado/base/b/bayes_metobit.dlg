@@ -1,0 +1,264 @@
+/*
+  bayes metobit
+
+*!  VERSION 1.0.8  28may2019
+
+  keyword:  eclass
+
+*/
+
+VERSION 15.0
+
+INCLUDE _std_xwide
+DEFINE _dlght 670
+INCLUDE header
+
+HELP hlp1, view("help bayes_metobit")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING STMP
+
+	create STRING main_equ_tmp
+	create STRING main_equ_tmp2
+	create STRING main_equ_childdlg
+	create STRING main_equ_dlgname
+	create STRING main_equ_child_result
+	create STRING main_equ_cmd_output
+	create STRING main_equ_cmd_last
+
+	create ARRAY main_equ_list
+	create ARRAY main_equ_toklist
+
+	create SVECTOR mainEQUCommandDisplayList
+	create SVECTOR mainEQUCommandList
+	create SVECTOR mainEQUCommandValues
+	create SVECTOR mainEQUStatusList
+	create SVECTOR mainEQUChildDialogList
+
+	create DOUBLE main_equ_count
+	create DOUBLE main_equ_position
+	create DOUBLE main_equ_arraysize
+	create DOUBLE main_equ_tmpcount
+
+	main.bu_equ_edit.disable
+	main.bu_equ_disable.disable
+	main.bu_equ_enable.disable
+
+	create DOUBLE unstructured
+	create SVECTOR mainEQUUnstructured
+	create DOUBLE numUns
+	create DOUBLE loopI
+	create DOUBLE priorUns
+	create DOUBLE unsI
+	create STRING stsI
+
+	create DOUBLE numRe
+	numRe.setvalue 0
+	create STRING restubs
+	create STRING strRe1
+	create STRING strRe2
+
+	create SVECTOR mainEQULevelvar
+	create STRING iwishart_levelvar
+	create STRING iwishart_relevel
+	create ARRAY iwishart_relevel_list
+	create DOUBLE numRelevel
+	create STRING relevelI
+
+	create STRING cmdname
+	cmdname.setvalue "metobit"
+
+	setscale_hadj resource BAYES_METOBIT_DLG_HSCALE
+END
+	
+SCRIPT POSTINIT
+BEGIN
+	script prior_iwishart_disable
+	script prior_flat_hide
+	script simulation_restubs_disable
+	script rpt_coef_on
+
+	mainEQUCommandDisplayList.copyToArray main_equ_list
+	main.lb_equBuild.repopulate
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)				///
+	title(resource BAYES_METOBIT_DLG_TITLE)
+BEGIN
+  GROUPBOX gb_fe		_lft	_top	_iwd	_ht20,		///
+	label(resource LBL_FIXED_EFFECTS_MODEL)
+  DEFINE _x _indent
+  DEFINE _y _ss
+  INCLUDE me_dviv
+
+  CHECKBOX ck_nocons		@	_ms	@	.,		///
+	option(noconstant)						///
+	label(resource LBL_NOCONSTANT)
+
+  GROUPBOX gb_censor		_ilft	_ls	_inwd	_ht4h,		///
+	label(resource LBL_SPECIFY_CENSORING_LIMIT)
+  TEXT  tx_ll			_indent	_ss	_cwd3_2	.,		///
+	label(resource LBL_LEFT_CENSORING_LIMIT)
+  DEFINE y @y
+  VARNAME vn_ll			@	_ss	_vnwd	.,		///
+	option("ll")							///
+	numeric								///
+	label(resource LBL_LEFT_CENSORING_LIMIT)
+  TEXT tx_ul			_lft3_2	y	_cwd3_2	.,		///
+	label(resource LBL_RIGHT_CENSORING_LIMIT)
+  VARNAME  vn_ul		@	_ss	_vnwd	.,		///
+	option("ul")							///
+	numeric								///
+	label(resource LBL_RIGHT_CENSORING_LIMIT)
+
+  TEXT tx_offset		_ilft	_xls	_cwd2	., 		///
+	label(resource LBL_OFFSET)
+  VARNAME vn_offset		@	_ss	_vnwd	.,		///
+	option(offset)							///
+	label(resource LBL_OFFSET_VARIABLE)
+
+  DEFINE _x _lft
+  DEFINE _y +45
+  INCLUDE me_equ
+
+//  CHECKBOX ck_collinear		_lft	+45	_ibwd	.,	///
+//	option(collinear)						///
+//	label(resource LBL_KEEP_COLLINEAR_VARIABLES)
+
+END
+
+PROGRAM fe_opt_output
+BEGIN
+	option main.ck_nocons
+	optionarg main.vn_offset
+END
+
+INCLUDE bayes_me_equ_pr
+
+INCLUDE ifin
+INCLUDE weights_f
+INCLUDE bayes_me_priors
+INCLUDE bayes_me_simulation
+INCLUDE bayes_blocking
+INCLUDE bayes_initialization
+INCLUDE bayes_adaptation
+INCLUDE bayes_me_reporting
+INCLUDE bayes_advanced
+
+PROGRAM bayes_opts_output
+BEGIN
+	beginoptions
+		put " " /program bayes_priors_output
+		put " " /program bayes_simulation_output
+		put " " /program bayes_blocking_output
+		put " " /program bayes_init_output
+		put " " /program bayes_adaptation_output
+		put " " /program bayes_reporting_output
+		put " " /program bayes_advanced_output
+	endoptions
+END
+
+PROGRAM bayes_build_parse 
+BEGIN
+
+	call mainEQUCommandValues.copyToString main_equ_cmd_output
+
+	call main_equ_cmd_output.tokenizeOnStr main_equ_toklist "||"
+	call main_equ_tmpcount.storeClsArraySize main_equ_toklist
+	call main_equ_tmpcount.withvalue main_equ_cmd_last.setvalue class main_equ_toklist[@]
+
+	put "metobit "
+	varlist main.vn_dv [main.vl_iv]
+
+	if main_equ_cmd_last.contains(",") {
+		beginoptions
+			put " " /program fe_opt_output
+			put " " main_equ_cmd_output
+		endoptions
+	}
+	else {
+		if main_equ_cmd_output {
+			if main.ck_nocons | main.vn_offset {
+				put ","
+			}
+			if main.ck_nocons {
+				put " noconstant"
+			}
+			if main.vn_offset & main.vn_offset.isenabled() {
+				put " offset("
+				put main.vn_offset
+				put ")"
+			}
+			put " "  main_equ_cmd_output
+		}
+		else {
+			beginoptions
+				put " " /program fe_opt_output
+			endoptions
+		}
+	}
+
+	beginoptions
+		optionarg main.vn_ul
+		optionarg main.vn_ll
+//		option main.ck_collinear
+	endoptions
+END
+
+PROGRAM ecommand_output
+BEGIN
+	call mainEQUCommandValues.copyToString main_equ_cmd_output
+
+	call main_equ_cmd_output.tokenizeOnStr main_equ_toklist "||"
+	call main_equ_tmpcount.storeClsArraySize main_equ_toklist
+	call main_equ_tmpcount.withvalue main_equ_cmd_last.setvalue class main_equ_toklist[@]
+
+	put "metobit "
+	varlist main.vn_dv [main.vl_iv]
+	put " " /program ifin_output
+	put " " /program weights_output
+
+	if main_equ_cmd_last.contains(",") {
+		beginoptions
+			put " " /program fe_opt_output
+			put " " main_equ_cmd_output
+		endoptions
+	}
+	else {
+		if main_equ_cmd_output {
+			if main.ck_nocons | main.vn_offset {
+				put ","
+			}
+			if main.ck_nocons {
+				put " noconstant"
+			}
+			if main.vn_offset & main.vn_offset.isenabled() {
+				put " offset("
+				put main.vn_offset
+				put ")"
+			}
+			put " "  main_equ_cmd_output
+		}
+		else {
+			beginoptions
+				put " " /program fe_opt_output
+			endoptions
+		}
+	}
+
+	beginoptions
+		optionarg main.vn_ul
+		optionarg main.vn_ll
+//		option main.ck_collinear
+	endoptions
+END
+
+PROGRAM command
+BEGIN
+	put "bayes"
+	put /program bayes_opts_output
+	put " : "
+	put /program ecommand_output
+END

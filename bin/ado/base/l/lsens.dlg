@@ -1,0 +1,131 @@
+/*
+	lsens
+
+*!  VERSION 2.2.0  21oct2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_wide
+DEFINE _dlght 320
+INCLUDE header
+
+HELP hlp1, view("help lsens")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource LSENS_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script gr_plots_setDefaultConnected
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)	///
+	label(resource LSENS_DLG_TITLE)
+BEGIN
+  GROUPBOX gb_test        _lft      _top      _iwd      _ht4,	///
+	label(resource LSENS_MAIN_GB_TEST)
+  RADIO    rb_estimate    _ilft     _ss       _ibwd     .,	///
+	label(resource LBL_ESTIMATION_SAMPLE)      		///
+	first							///
+	onclickon(script ifin_enable)
+
+  RADIO    rb_all         @         _ss       @         .,	///
+	label(resource LSENS_MAIN_RB_ALL)			///
+	last							///
+	onclickon(script ifin_disable)				///
+	option(all)
+  GROUPBOX gb_opt         _lft      _xls      _iwd      _ht18h,	///
+	label(resource LBL_OPTIONS)
+  TEXT     tx_genprob     _ilft     _ss       _ibwd     .,	///
+	label(resource LSENS_MAIN_TX_GENPROB)
+  EDIT     vn_genprob     @         _ss       _vnwd     .,	///
+	label(resource LSENS_MAIN_VN_GENPROB)			///
+	option(genprob)
+  TEXT     tx_gensens     @         _ms       _ibwd     .,	///
+	label(resource LSENS_MAIN_TX_GENSENS)
+  EDIT     vn_gensens     @         _ss       _vnwd     .,	///
+	label(resource LSENS_MAIN_VN_GENSENS)			///
+	option(gensens)
+  TEXT     tx_genspec     @         _ms       _ibwd     .,	///
+	label(resource LSENS_MAIN_TX_GENSPEC)
+  EDIT     vn_genspec     @         _ss       _vnwd     .,	///
+	label(resource LSENS_MAIN_VN_GENSPEC)			///
+	option(genspec)
+  CHECKBOX ck_replace     @         _ls       _ibwd     .,	///
+	label(resource LSENS_MAIN_CK_REPLACE)			///
+	option(replace) nomem
+  CHECKBOX ck_nograph     @         _ms       @         .,	///
+	label(resource LBL_SUPPRESS_GRAPH)			///
+	onclickoff(script graph_on)				///
+	onclickon(script graph_off)				///
+	option(nograph)
+END
+
+SCRIPT graph_on
+BEGIN
+	/* turn on all the graphs tabs */
+	script gr_plots_enable
+	script gr_addplots_enable
+	script gr_yaxis_enable
+	script gr_xaxis_enable
+	script gr_titles_enable
+	script gr_legend_enable
+	script gr_overall_enable
+END
+
+SCRIPT graph_off
+BEGIN
+	/* turn off all the graphs tabs */
+	script gr_plots_disable
+	script gr_addplots_disable
+	script gr_yaxis_disable
+	script gr_xaxis_disable
+	script gr_titles_disable
+	script gr_legend_disable
+	script gr_overall_disable
+END
+
+INCLUDE ifin
+INCLUDE weights_f
+
+INCLUDE _beta_adv
+
+INCLUDE gr_plots
+INCLUDE gr_addplots
+INCLUDE gr_yaxis
+INCLUDE gr_xaxis
+INCLUDE gr_titles
+INCLUDE gr_legend
+INCLUDE gr_overall
+
+PROGRAM command
+BEGIN
+	put "lsens "
+        put " " /program _beta_adv_depvar_output
+	put " " /program weights_output
+	put " " /program ifin_output
+	beginoptions
+		option main.rb_all
+		optionarg main.vn_genprob
+		optionarg main.vn_gensens
+		optionarg main.vn_genspec
+		option main.ck_replace
+		option main.ck_nograph
+		put " " /program _beta_adv_lbbeta_output
+
+		if ! main.ck_nograph {
+			put " " /program gr_plots_output
+			put " " /program gr_addplots_output
+			put " " /program gr_yaxis_output
+			put " " /program gr_xaxis_output
+			put " " /program gr_titles_output
+			put " " /program gr_legend_output
+			put " " /program gr_overall_output
+		}
+	endoptions
+END

@@ -1,0 +1,158 @@
+/*
+  bayes hetprobit
+
+*!  VERSION 1.0.7  29may2019
+
+  keyword:  eclass
+
+*/
+
+VERSION 15.0
+
+INCLUDE _std_wide
+DEFINE _dlght 670
+INCLUDE header
+
+HELP hlp1, view("help bayes_hetprobit")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource BAYES_HETPROBIT_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script prior_gibbs_hide
+	script rpt_coef_on
+	program prior_show_normal_default
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)	///
+	title(resource BAYES_HETPROBIT_DLG_TITLE)
+BEGIN
+  TEXT tx_dv 			_lft	_top	_vnwd	.,		///
+	label(resource LBL_DEPVAR)
+  VARNAME vn_dv			@ 	_ss	@	.,		///
+	ts								///
+	numeric								///
+	label(resource LBL_DEPVAR)
+  TEXT tx_iv			_vlx	_top	160	.,		///
+	label(resource LBL_INDDEPVAR)
+  VARLIST vl_iv			@	_ss	_vlwd	.,		///
+	fv ts								///
+	allowcat							///
+	numeric								///
+	label(resource LBL_INDDEPVAR)
+  CHECKBOX ck_nocons		@	_ms	@	.,		///
+	option("noconstant")						///
+	label(resource LBL_NOCONSTANT)
+  GROUPBOX gb_het		_lft	_ls	_iwd	_ht9,		///
+	label("Variance model")
+  TEXT     tx_het		_ilft	_ss	_inwd	.,		///
+	label(resource LBL_INDDEPVAR)
+  VARLIST  vl_het		@	_ss	@	.,		///
+	allowcat fv							///
+	numeric								///
+	label(resource LBL_INDDEPVAR)
+  TEXT     tx_hetoff		_ilft	_ls	_cwd2	.,		///
+	label(resource LBL_OFFSET_VARIABLE)
+  VARNAME  vn_hetoff		@	_ss	_vnwd	.,		///
+	numeric								///
+	option("offset")						///
+	label(resource LBL_OFFSET_VARIABLE)
+  GROUPBOX gb_output		_lft	+45	_iwd	_ht5,		///
+	label(resource LBL_OPTIONS)
+  TEXT     tx_offset		_ilft	_ss	_cwd2	.,		///
+	label(resource LBL_OFFSET_VARIABLE)
+  VARNAME  vn_offset		_ilft	_ss	_vnwd	.,		///
+	option("offset")						///
+	numeric								///
+	label(resource LBL_OFFSET_VARIABLE)
+  CHECKBOX ck_asis		_lft2	@	_cwd2	.,		///
+	option("asis")							///
+	label(resource LBL_RETAIN_PERFECT_PREDICTOR_VARS)
+  DEFINE _x _ilft
+  DEFINE _xw _cwd1
+  DEFINE _y _ms
+//  INCLUDE _ck_collinear
+END
+
+INCLUDE ifin
+INCLUDE weights_f
+INCLUDE bayes_priors
+INCLUDE bayes_simulation
+INCLUDE bayes_blocking
+INCLUDE bayes_initialization
+INCLUDE bayes_adaptation
+INCLUDE bayes_reporting
+INCLUDE bayes_advanced
+
+PROGRAM bayes_opts_output
+BEGIN
+	beginoptions
+		put " " /program bayes_priors_output
+		put " " /program bayes_simulation_output
+		put " " /program bayes_blocking_output
+		put " " /program bayes_init_output
+		put " " /program bayes_adaptation_output
+		put " " /program bayes_reporting_output
+		put " " /program bayes_advanced_output
+	endoptions
+END
+
+PROGRAM bayes_build_parse 
+BEGIN
+	put "hetprobit "
+	varlist main.vn_dv [main.vl_iv]
+	beginoptions
+		option main.ck_nocons
+		put "het("
+		put /program subcommand
+		put ")"
+		optionarg main.vn_offset
+		option main.ck_asis
+//		option main.ck_collinear
+	endoptions
+END
+
+PROGRAM subcommand
+BEGIN
+	varlist main.vl_het
+	beginoptions
+		optionarg main.vn_hetoff
+	endoptions
+END
+
+PROGRAM ecommand_output
+BEGIN
+	put "hetprobit "
+	varlist main.vn_dv [main.vl_iv]
+	if !main.vl_iv & main.ck_nocons {
+	         call create STRING _MSG_TMP
+          call _MSG_TMP.format						/// 
+		"resource LBL_MSGBOX_IS_SELECTED_WITHOUT_INDVARS_FMT" 	///
+                "resource LBL_NOCONSTANT"
+                stopbox stop "class _MSG_TMP.value"
+// "Suppress constant term" is selected without independent variables.
+	}
+	put " " /program ifin_output
+	put " " /program weights_output
+	beginoptions
+		option main.ck_nocons
+		put "het("
+		put /program subcommand
+		put ")"
+		optionarg main.vn_offset
+		option main.ck_asis
+//		option main.ck_collinear
+	endoptions
+END
+
+PROGRAM command
+BEGIN
+	put "bayes"
+	put /program bayes_opts_output
+	put " : "
+	put /program ecommand_output
+END

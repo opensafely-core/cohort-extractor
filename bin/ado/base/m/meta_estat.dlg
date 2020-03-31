@@ -1,0 +1,252 @@
+/*
+	meta_estat.dlg
+
+*!  VERSION 1.0.3  02dec2019
+
+*/
+
+VERSION 16.0
+
+INCLUDE _std_large
+DEFINE _dlght 430
+INCLUDE header
+
+HELP hlp1, view("help meta_postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING m_model
+	create STRING bubbleplot_graph_res
+	create STRING moderators
+	create ARRAY main_moderators_list
+	create BOOLEAN has_FactorVars
+
+	has_FactorVars.setfalse
+
+	moderators.setvalue e(indepvars)
+	moderators.tokenizeOnStr main_moderators_list " "
+
+	setscale_hadj resource META_ESTAT_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program check_bubbleplot_graph_res
+	program parseMessage
+END
+
+PROGRAM parseMessage
+BEGIN
+	call m_model.setvalue char _dta[_meta_model]
+	if m_model.iseq("reml") {
+		call main.ck_reweighted.enable
+	}
+	else {
+		call main.ck_reweighted.disable
+	}
+	if __MESSAGE.contains("-bubbleplot-") {
+		call main.lb_subcmd.setvalue "bubbleplot"
+	}
+	if __MESSAGE.contains("-summarize-") {
+		call main.lb_subcmd.setvalue "summarize"
+	}
+	if __MESSAGE.contains("-vce-") {
+		call main.lb_subcmd.setvalue "vce"
+	}
+END
+
+DIALOG main, label(resource ESTAT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT tx_subcmd		_lft	_top	400	.,		///
+	label(resource LBL_REPORTS_STATISTICS_SUBCOMMAND)
+  LISTBOX lb_subcmd		@	_ss	@	75,		///
+	contents(main_subcommand_contents)				///
+	values(main_subcommand_values)					///
+	onselchangelist(main_subcommand_scripts)
+
+  DEFINE holdy 115
+
+  //bubbleplot
+  CHECKBOX ck_reweighted	_lft	holdy	_iwd	.,		///
+	option(reweighted)						///
+	label(resource META_ESTAT_MAIN_CK_REWEIGHTED)
+  CHECKBOX ck_noregline		@	_ms	@	.,		///
+	option(noregline)						///
+	label(resource META_ESTAT_MAIN_CK_NOREGLINE)
+  CHECKBOX ck_noci		@	_ms	@	.,		///
+	option(noci)							///
+	onclickon("script main_noci_on")				///
+	onclickoff("script main_noci_off")				///
+	label(resource META_ESTAT_MAIN_CK_NOCI)
+  COMBOBOX cb_level		_lft	_ls	_spwd	.,		///
+	dropdown							///
+	label(resource LBL_TX_LEVEL)					///
+	default(c(level))						///
+	contents(levels)						///
+	option(level)
+  TEXT tx_level			_spsep	@	_spr	., 		///
+	label(resource LBL_TX_LEVEL)
+
+  SPINNER sp_n			_lft	_ls	_spwd	.,		///
+	option(n)							///
+	min(1)								///
+	max(100000)							///
+	default(100)
+  TEXT tx_n			_spsep	@	350	.,		///
+	label(resource META_ESTAT_MAIN_TX_N)
+
+  BUTTON bu_bubbleplot_graph	_lft	_ls	180	.,		///
+	onpush(program main_show_bubbleplot_graph_dlg)			///
+	label(resource LBL_GRAPH_OPTIONS)
+
+  INCLUDE estat_sum
+  INCLUDE estat_vce
+END
+
+INCLUDE estat_sum_pr
+INCLUDE estat_vce_pr
+
+SCRIPT main_hide_all  // MUST BE IMPLEMENTED FOR BOOTSTRAP
+BEGIN
+	script main_bubbleplot_off
+	program vce_off
+	script main_summ_off
+END
+
+LIST main_subcommand_contents
+BEGIN	
+	resource LBL_BUBBLE_PLOTS
+	resource LBL_SUMMARIZE_ESTIMATION_SAMPLE
+	resource LBL_COVARIANCE_MATRIX_ESTIMATES
+END
+
+LIST main_subcommand_values
+BEGIN
+	bubbleplot
+	summarize
+	vce
+END
+
+LIST main_subcommand_scripts
+BEGIN
+	script sel_bubbleplot
+	script sel_summarize
+	script sel_vce
+END
+SCRIPT main_noci_on
+BEGIN
+	main.cb_level.disable
+	main.tx_level.disable
+END
+
+SCRIPT main_noci_off
+BEGIN
+	main.cb_level.enable
+	main.tx_level.enable
+END
+
+SCRIPT sel_bubbleplot
+BEGIN
+	script main_hide_all
+	program bubbleplot_on
+END
+
+PROGRAM bubbleplot_on
+BEGIN
+	call main.ck_reweighted.show
+	call main.ck_noregline.show
+	call main.ck_noci.show
+	call main.cb_level.show
+	call main.tx_level.show
+	call main.sp_n.show
+	call main.tx_n.show
+	call main.bu_bubbleplot_graph.show
+END
+
+SCRIPT main_bubbleplot_off
+BEGIN
+	main.ck_reweighted.hide
+	main.ck_noregline.hide
+	main.ck_noci.hide
+	main.cb_level.hide
+	main.tx_level.hide
+	main.sp_n.hide
+	main.tx_n.hide
+	main.bu_bubbleplot_graph.hide
+END
+
+PROGRAM main_show_bubbleplot_graph_dlg
+BEGIN
+	call create CHILD meta_estat_bubbleplot_opts AS graph_opt, allowsubmit
+	call graph_opt.setExitString bubbleplot_graph_res
+	call graph_opt.setExitAction "program check_bubbleplot_graph_res"
+	call graph_opt.setSubmitAction "program graph_bubbleplot_Submit"
+END
+
+PROGRAM check_bubbleplot_graph_res
+BEGIN
+	if bubbleplot_graph_res.iseq("") {
+		call main.bu_bubbleplot_graph.modified_off
+	}
+	else {
+		call main.bu_bubbleplot_graph.modified_on
+	}
+END
+
+PROGRAM graph_bubbleplot_Submit
+BEGIN
+	call program check_bubbleplot_graph_res
+	call Submit
+END
+
+PROGRAM bubbleplot_output
+BEGIN
+	option main.ck_reweighted
+	option main.ck_noregline
+	option main.ck_noci
+	optionarg /hidedefault main.cb_level
+	optionarg /hidedefault main.sp_n
+	if main.lb_subcmd.iseq("bubbleplot") {
+		if bubbleplot_graph_res {
+			put bubbleplot_graph_res
+		}
+	}
+END
+
+SCRIPT sel_summarize
+BEGIN
+	script main_hide_all
+	program main_summ_on
+END
+
+SCRIPT sel_vce
+BEGIN
+	script main_hide_all
+	program vce_on
+END
+
+PROGRAM vl_output
+BEGIN
+	put main.vl_spec
+END
+
+PROGRAM vl_eq_output
+BEGIN
+	put main.vl_eq
+END
+
+INCLUDE ifin
+
+PROGRAM command
+BEGIN
+	put "estat "
+	put main.lb_subcmd
+	put " " /program summarize_output
+	put " " /program ifin_output
+	beginoptions
+		put " " /program bubbleplot_output
+		put " " /program summarize_opts_output
+		put " " /program vce_output
+	endoptions
+END

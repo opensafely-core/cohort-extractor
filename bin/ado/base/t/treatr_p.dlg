@@ -1,0 +1,101 @@
+/*
+	predict (after etregress, twostep)
+
+*!  VERSION 1.3.0  04feb2015
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large  // ** set POSTINIT to match
+DEFINE _dlght 285
+INCLUDE header
+
+HELP hlp1, view("help etregress postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING prefix_name
+	prefix_name.setstring e(prefix)
+        setscale_hadj resource TREATR_P_DLG_HSCALE
+END
+
+
+SCRIPT main_POSTINIT
+BEGIN
+	script _p_gentype_setLarge
+END
+
+DIALOG main, label(resource PREDICT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  INCLUDE  _p_gentype
+
+  GROUPBOX gb_opts       _lft     _ls     _iwd    _ht16,	/*
+		*/ label(resource LBL_PRODUCE)
+  RADIO    rb_xb      _indent      _ss    _inwd        ., first /*
+		*/ option(xb)					/*
+		*/ onclickon(script _p_gentype_single)		/*
+		*/ label(resource TREATR_P_MAIN_RB_XB)
+  RADIO    rb_stdp          @      _ss        @        .,	/*
+		*/ option(stdp)					/*
+		*/ onclickon(script _p_gentype_single)		/*
+		*/ label(resource TREATR_P_MAIN_RB_STDP)
+  RADIO    rb_stdf          @      _ss        @        .,	/*
+		*/ option(stdf)					/*
+		*/ onclickon(script _p_gentype_single)		/*
+		*/ label(resource TREATR_P_MAIN_RB_STDF)
+  RADIO    rb_yctrt         @      _ss        @        .,	/*
+		*/ option(yctrt)				/*
+		*/ onclickon(script _p_gentype_single)		/*
+		*/ label(resource TREATR_P_MAIN_RB_YCTRT)
+  RADIO    rb_ycntrt        @      _ss        @        .,	/*
+		*/ option(ycntrt)				/*
+		*/ onclickon(script _p_gentype_single)		/*
+		*/ label(resource TREATR_P_MAIN_RB_YCNTRT)
+  RADIO    rb_ptrt          @      _ss        @        .,	/*
+		*/ option(ptrt)					/*
+		*/ onclickon(script _p_gentype_single)		/*
+		*/ label(resource TREATR_P_MAIN_RB_PTRT)
+  RADIO    rb_xbtrt         @      _ss        @        .,	/*
+		*/ option(xbtrt)				/*
+		*/ onclickon(script _p_gentype_single)		/*
+		*/ label(resource TREATR_P_MAIN_RB_XBTRT)
+  RADIO    rb_stdptrt       @      _ss        @        ., last	/*
+		*/ option(stdptrt)				/*
+		*/ onclickon(script _p_gentype_single)		/*
+		*/ label(resource TREATR_P_MAIN_RB_STDPTRT)
+  INCLUDE _svy_predict_note
+END
+
+SCRIPT POSTINIT
+BEGIN
+	main.tx_temp.hide
+	main.tx_svy_note.hide
+	program svy_check
+END
+
+PROGRAM svy_check
+BEGIN
+	if prefix_name.equals("svy") {
+		call main.tx_svy_note.show
+		call main.rb_stdf.disable
+	}
+END
+
+
+INCLUDE _p_gentype_sc
+INCLUDE ifin
+
+INCLUDE _type_list_fd
+
+PROGRAM command
+BEGIN
+	put "predict "
+	put " " /program _p_gentype_output
+	INCLUDE _ifin_pr
+	beginoptions
+		option radio(main rb_xb rb_stdp rb_stdf rb_yctrt rb_ycntrt /*
+			*/ rb_ptrt rb_xbtrt rb_stdptrt)
+	endoptions
+END

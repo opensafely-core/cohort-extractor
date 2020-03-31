@@ -1,0 +1,222 @@
+/*
+  sg__latset_tool.dlg
+
+*!  VERSION 1.1.2  03jun2015
+
+*/
+
+VERSION 14.0
+MODAL
+
+INCLUDE _std_msmall
+DEFINE _dlght 200
+POSITION . . _dlgwd _dlght
+
+OK ok1, label(resource LBL_BU_OK) target(stata hidden)
+CANCEL can1, label(resource LBL_BU_CANCEL)
+
+DEFINE _clwd	15
+DEFINE _wd	160
+DEFINE _sep	+165
+DEFINE _wd2	110
+DEFINE _sep2	+115
+DEFINE _cbwd	100
+DEFINE _cbsep	+105
+
+INCLUDE sg__common_output 		/* routines necessary for output */
+
+SCRIPT PREINIT
+BEGIN
+	script sg__common_output_init 	/* initialize output globals */
+
+	create STRING OBJ
+	program setupOBJECT
+
+	create DOUBLE index
+END
+
+PROGRAM setupOBJECT
+BEGIN
+	if ! __MESSAGE {
+		stopbox stop resource LBL_MSGBOX_OBJECT_NOT_FOUND
+// An unexpected error has occurred. Object not found.
+		exit 198
+	}
+	call OBJ.setvalue class __MESSAGE.value
+END
+
+SCRIPT main_PREINIT
+BEGIN
+	create STRING sOrient
+	create STRING sK
+	create STRING sNamlist
+
+	program main_get_defaults
+	setscale_hadj resource SG__LATSET_TOOL_DLG_HSCALE
+END
+
+SCRIPT main_POSTINIT
+BEGIN
+	program main_initialize_controls
+END
+
+PROGRAM main_get_defaults
+BEGIN
+	call sOrient.setvalue class .__SEMG.dbsettings.orient
+	call sOrient.withvalue main.cb_orient.setdefault "@"
+
+	call sK.setvalue class .__SEMG.dbsettings.k
+	call sK.withvalue main.sp_k.setdefault @
+	
+	call sNamlist.setvalue class .__SEMG.dbsettings.namelist
+	call sNamlist.withvalue main.ed_variables.setdefault "@"
+END
+
+PROGRAM main_initialize_controls
+BEGIN
+	call main.cb_orient.setvalue class sOrient.value
+	call main.sp_k.setvalue class sK.value
+	call main.ed_variables.setvalue class sNamlist.value
+END
+
+PROGRAM check_mode
+BEGIN
+	if main.rb_vars {
+		call main.tx_variables.show
+		call main.ed_variables.show
+		call main.tx_k.hide
+		call main.sp_k.hide
+	}
+	if main.rb_k {
+		call main.tx_k.show
+		call main.sp_k.show
+		call main.tx_variables.hide
+		call main.ed_variables.hide
+	}
+END
+
+DIALOG main, label(resource SG__LATSET_TOOL_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  GROUPBOX gb_variables	_lft	_top	_iwd	_ht14h,		///
+	label(resource LBL_GB_VARIABLES)
+
+  RADIO    rb_vars	_ilft	_ss	_ibwd	., first	///
+	label(resource LBL_SELECT_VARIABLES)			///
+	onclickon(program check_mode)
+  RADIO    rb_k		@	_ss	@	., last		///
+	label(resource LBL_SPECIFY_NUMBER_OF_VARIABLES)		///
+	onclickon(program check_mode)
+
+  TEXT     tx_variables	_ilft	_ms	_ibwd	.,		///
+	label(resource LBL_VARIABLES)
+DEFINE y @y
+  EDIT     ed_variables	@	_ss	@	.,		///
+	label(resource LBL_VARIABLES) nomemory
+
+  TEXT     tx_k		_ilft	y	_ibwd	.,		///
+	label(resource LBL_NUMBER_OF_VARIABLES) 
+  SPINNER  sp_k		@	_ss	_spwd	.,		///
+	nomemory min(1) max(40)
+
+  TEXT     tx_orient	_ilft	_ls	_ibwd	.,		///
+	label(resource LBL_ORIENTATION) 
+  COMBOBOX cb_orient	@	_ss	100	.,		///
+	dropdownlist contents(__SEM_STYLES_LABEL.orient)	///
+	values(__SEM_STYLES.orient)
+END
+
+PROGRAM main_output
+BEGIN
+	call program main_get_defaults
+
+	if main.rb_vars {
+		require main.ed_variables
+		call sg__PARAM2.setvalue "SetStyle"
+		call sg__ARG_00.setvalue "latsettool.namelist" 
+		call sg__ARG_01.setvalue class main.ed_variables.value
+		put /program sg__do_output_sub
+	}
+	if main.rb_k {
+		call sg__PARAM2.setvalue "SetStyle"
+		call sg__ARG_00.setvalue "latsettool.k" 
+		call sg__ARG_01.setvalue class main.sp_k.value
+		put /program sg__do_output_sub
+	}	
+
+	if ! main.cb_orient.isdefault() {
+		call sg__PARAM2.setvalue "SetStyle"
+		call sg__ARG_00.setvalue "latsettool.orient"
+		call sg__ARG_01.setvalue class main.cb_orient.value
+		put /program sg__do_output_sub
+	}
+END
+
+/*****************************************************************************/
+
+SCRIPT opts_PREINIT
+BEGIN
+	create STRING sGap
+
+	program opts_get_defaults
+END
+
+SCRIPT opts_POSTINIT
+BEGIN
+	program opts_initialize_controls
+END
+
+PROGRAM opts_get_defaults
+BEGIN
+	call sGap.setvalue class .__SEMG.dbsettings.gap
+	call sGap.withvalue opts.cb_dist1.setdefault "@"
+END
+
+PROGRAM opts_initialize_controls
+BEGIN
+	call opts.cb_dist1.setvalue class sGap.value
+END
+
+DIALOG opts, tabtitle(resource LBL_DISTANCES)
+BEGIN
+  GROUPBOX gb_distance	_lft	_top	_iwd	_ht2h,		///
+	label(resource LBL_DISTANCES)
+  TEXT     tx_dist1	_ilft	_ss	200	.,		///
+	label(resource SG__LATSET_TOOL_OPTS_TX_DIST1) right
+  COMBOBOX cb_dist1	+205	@	60	.,		///
+	dropdown contents(__SEM_STYLES_LABEL.size)		///
+	values(__SEM_STYLES.size)
+  TEXT     tx_dist1_m	+65	@	50	.,		///
+	label(resource LBL_PAREN_IN_PAREN)
+END
+
+PROGRAM opts_output
+BEGIN
+	call program opts_get_defaults
+
+	if ! opts.cb_dist1.isdefault() {
+		call sg__PARAM2.setvalue "SetStyle"
+		call sg__ARG_00.setvalue "latsettool.gap"
+		call sg__ARG_01.setvalue class opts.cb_dist1.value
+		put /program sg__do_output_sub
+	}
+END
+
+/*****************************************************************************/
+
+PROGRAM command
+BEGIN
+	call sg__PARAM1.setvalue class OBJ.value
+	
+	/* Signal to mata that this dialog interaction is done
+	 * and to start processing this signal. From the dialog
+	 * point of view this is BeginSet. */
+	call sg__PARAM2.setvalue "AddLatSetDlgDone" 
+	put /program sg__do_output_sub
+	
+	put /program main_output
+	put /program opts_output
+
+	call sg__PARAM2.setvalue "EndSet"
+	call sg__DESCPT.setvalue "add latent variables set"
+	put /program sg__do_output_sub
+END

@@ -1,0 +1,518 @@
+/*
+    stteffects postestimation
+
+*!  VERSION 1.0.2  20mar2016
+
+*/
+VERSION 14.0
+
+INCLUDE _std_medium
+DEFINE _dlght 420
+INCLUDE header
+HELP hlp1, view("help stteffects postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource STTEFFECTS_P_DLG_HSCALE
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	call script _p_gentype_multiple
+	call script _p_gentype_setMedium
+
+	call create STRING cmd_sub
+	call create STRING omodel
+	call create STRING tmodel
+	call create STRING cmodel
+
+	call cmd_sub.setvalue e(subcmd)
+	call omodel.setvalue e(omodel)
+	call tmodel.setvalue e(tmodel)
+	call cmodel.setvalue e(cmodel)
+
+	if(cmd_sub.iseq("ra")) {
+		call main.cb_est.setvalue class cmd_sub.value
+		if omodel.iseq("exponential") {
+			call main.rb_ra_lnshape.disable
+		}
+	}
+	if(cmd_sub.iseq("wra")) {
+		call main.cb_est.setvalue class cmd_sub.value
+		if omodel.iseq("exponential") {
+			call main.rb_wra_lnshape.disable
+		}
+		if cmodel.iseq("exponential") {
+			call main.rb_wra_clnshape.disable
+		}
+		if cmodel.iseq("") {
+			call main.rb_wra_censurv.disable
+		}
+	}
+	if(cmd_sub.iseq("ipw")) {
+		call main.cb_est.setvalue class cmd_sub.value
+		if tmodel.isneq("hetprobit") {
+			call main.rb_ipw_lnsigma.disable
+		}
+		if cmodel.iseq("exponential") {
+			call main.rb_ipw_clnshape.disable
+		}
+		if cmodel.iseq("") {
+			call main.rb_ipw_censurv.disable
+		}
+	}
+	if(cmd_sub.iseq("ipwra")) {
+		call main.cb_est.setvalue class cmd_sub.value
+		if omodel.iseq("exponential") {
+			call main.rb_ipwra_lnshape.disable
+		}
+		if cmodel.iseq("exponential") {
+			call main.rb_ipwra_clnshape.disable
+		}
+		if tmodel.isneq("hetprobit") {
+			call main.rb_ipwra_pslnsigma.disable
+		}
+		if cmodel.iseq("") {
+			call main.rb_ipwra_censurv.disable
+		}
+	}
+END
+
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN) label(resource PREDICT_DLG_TITLE)
+BEGIN
+	TEXT	tx_est		_lft	_top	_cwd3_1	.,		///
+		label(resource TEFFECTS_P_MAIN_TX_EST)
+	
+	COMBOBOX cb_est		@ 	_ss	@	.,		///
+		dropdownlist						///
+		contents(estimator_list)				///
+		values(estimator_list)					///
+		onselchangelist(estimator_list_sel)			///
+		label(resource TEFFECTS_P_MAIN_TX_EST)
+	
+	DEFINE _top 60
+	INCLUDE  _p_gentype
+	DEFINE _top 10
+	
+	GROUPBOX gb_ra_opt	_lft	_ls	_iwd	_ht10h,		///
+		label(resource LBL_PRODUCE)
+	DEFINE holdy @y
+	RADIO	rb_ra_te	_indent	_ss	_inwd 	.,		///
+		first							///
+		option(te)						///
+		onclickon(script _p_gentype_multiple)			///
+		label(resource TEFFECTS_P_TREATMENT_EFFECT)
+	RADIO	rb_ra_cmean	@	_ss	@	.,		///
+		option(cmean)						///
+		onclickon(script _p_gentype_multiple)			///
+		label(resource STTEFFECTS_P_CONDITIONAL_MEAN_AT_TREAT_LVL)
+	RADIO	rb_ra_xb	@	_ss	@	.,		/// 
+		option(xb)						///
+		onclickon(script _p_gentype_multiple)			///
+		label(resource STTEFFECTS_P_LINEAR_PRED_FOR_OUTCOME_MODEL)
+	RADIO	rb_ra_lnshape	@	_ss	@	.,		/// 
+		option(lnshape)						///
+		onclickon(script _p_gentype_multiple)			///
+		label(resource STTEFFECTS_P_LOG_COND_LATENT_SHAPE_TREAT)
+	RADIO	rb_ra_scores	@	_ss	@	.,		/// 
+		last							///
+		option(scores)						///
+		onclickon(script main_ra_level_disable)			///
+		onclickoff(script main_ra_level_enable)			///
+		label(resource LBL_PARAMETER_LEVEL_SCORES)
+	TEXT	tx_ra_level	_lft	_xls	_iwd	.,		///
+		label(resource TEFFECTS_P_TREATMENT_LEVEL)
+	EDIT	ed_ra_level	@	_ss	_irj150	.,		///
+		option(tlevel)						///
+		label(resource TEFFECTS_P_TREATMENT_LEVEL)
+		
+	GROUPBOX gb_wra_opt	_lft	holdy	_iwd	_ht16,		///
+		label(resource LBL_PRODUCE)
+	RADIO	rb_wra_te	_indent	_ss	_inwd 	.,		///
+		first							///
+		option(te)						///
+		onclickon(script _p_gentype_multiple)			///
+		label(resource TEFFECTS_P_TREATMENT_EFFECT)
+	RADIO	rb_wra_cmean	@	_ss	_inwd 	.,		///
+		option(cmean)						///
+		onclickon(script _p_gentype_multiple)			///
+		label(resource STTEFFECTS_P_CONDITIONAL_MEAN_AT_TREAT_LVL)
+	RADIO	rb_wra_censurv	@	_ss	_inwd 	.,		///
+		option(censurv)						///
+		onclickon(script _p_gentype_single)			///
+		label(resource STTEFFECTS_P_CENSORED_SURVIVAL_PROB)
+	RADIO	rb_wra_xb	@	_ss	@	.,		/// 
+		option(xb)						///
+		onclickon(script _p_gentype_multiple)			///
+		label(resource STTEFFECTS_P_LINEAR_PRED_FOR_OUTCOME_MODEL)
+	RADIO	rb_wra_cxb	@	_ss	@	.,		/// 
+		option(cxb)						///
+		onclickon(script _p_gentype_single)			///
+		label(resource STTEFFECTS_P_LINEAR_PRED_CENSOR_MODEL)
+	RADIO	rb_wra_lnshape	@	_ss	@	.,		/// 
+		option(lnshape)						///
+		onclickon(script _p_gentype_multiple)			///
+		label(resource STTEFFECTS_P_LOG_COND_LATENT_SHAPE_TREAT)	
+	RADIO	rb_wra_clnshape	@	_ss	@	.,		/// 
+		option(clnshape)					///
+		onclickon(script _p_gentype_single)			///
+		label(resource STTEFFECTS_P_LOG_COND_LATENT_SHAPE_CENSOR)	
+	RADIO	rb_wra_scores	@	_ss	@	.,		/// 
+		last							///
+		option(scores)						///
+		onclickon(script main_wra_level_disable)		///
+		onclickoff(script main_wra_level_enable)		///
+		label(resource LBL_PARAMETER_LEVEL_SCORES)
+	TEXT	tx_wra_level	_lft	_xls	_iwd	.,		///
+		label(resource TEFFECTS_P_TREATMENT_LEVEL)
+	EDIT	ed_wra_level	@	_ss	_irj150	.,		///
+		option(tlevel)						///
+		label(resource TEFFECTS_P_TREATMENT_LEVEL)
+
+	GROUPBOX gb_ipw_opt	_lft	holdy	_iwd	_ht14,		///
+		label(resource LBL_PRODUCE)
+	RADIO	rb_ipw_ps	_indent	_ss	_inwd 	.,		///
+		first							///
+		option(ps)						///
+		onclickon(script _p_gentype_multiple)			///
+		label(resource TEFFECTS_P_PROPENSITY_SCORE)
+	RADIO	rb_ipw_censurv	@	_ss	_inwd 	.,		///
+		option(censurv)						///
+		onclickon(script _p_gentype_single)			///
+		label(resource STTEFFECTS_P_CENSORED_SURVIVAL_PROB)
+	RADIO	rb_ipw_xb	@	_ss	@	.,		/// 
+		option(xb)						///
+		onclickon(script _p_gentype_multiple)			///
+		label(resource STTEFFECTS_P_MAIN_RB_IPW_XB)
+	RADIO	rb_ipw_cxb	@	_ss	@	.,		/// 
+		option(cxb)						///
+		onclickon(script _p_gentype_single)			///
+		label(resource STTEFFECTS_P_LINEAR_PRED_CENSOR_MODEL)
+	RADIO	rb_ipw_lnsigma	@	_ss	@	.,		/// 
+		option(lnsigma)						///
+		onclickon(script _p_gentype_single)			///
+		label(resource TEFFECTS_P_MAIN_RB_NNPS_LNSIGMA)	
+	RADIO	rb_ipw_clnshape	@	_ss	@	.,		/// 
+		option(clnshape)					///
+		onclickon(script _p_gentype_single)			///
+		label(resource STTEFFECTS_P_LOG_COND_LATENT_SHAPE_TREAT)	
+	RADIO	rb_ipw_scores	@	_ss	@	.,		/// 
+		last							///
+		option(scores)						///
+		onclickon(script main_ipw_level_disable)		///
+		onclickoff(script main_ipw_level_enable)		///
+		label(resource LBL_PARAMETER_LEVEL_SCORES)
+	TEXT	tx_ipw_level	_lft	_xls	_iwd	.,		///
+		label(resource TEFFECTS_P_TREATMENT_LEVEL)
+	EDIT	ed_ipw_level	@	_ss	_irj150	.,		///
+		option(tlevel)						///
+		label(resource TEFFECTS_P_TREATMENT_LEVEL)
+	
+	GROUPBOX gb_ipwra_opt	_lft	holdy	_iwd	_ht22,		///
+		label(resource LBL_PRODUCE)
+	RADIO	rb_ipwra_te	_indent	_ss	_inwd 	.,		///
+  		first							///
+		option(te)						///
+		onclickon(script _p_gentype_multiple)			///
+		label(resource TEFFECTS_P_TREATMENT_EFFECT)
+  	RADIO	rb_ipwra_cmean	@	_ss	@	.,		/// 
+		option(cmean)						///
+		onclickon(script _p_gentype_multiple)			///
+		label(resource STTEFFECTS_P_CONDITIONAL_MEAN_AT_TREAT_LVL)
+	RADIO	rb_ipwra_ps	@	_ss	@	.,		/// 
+		option(ps)						///
+		onclickon(script _p_gentype_multiple)			///
+		label(resource TEFFECTS_P_PROPENSITY_SCORE)
+	RADIO	rb_ipwra_censurv @	_ss	_inwd 	.,		///
+		option(censurv)						///
+		onclickon(script _p_gentype_single)			///
+		label(resource STTEFFECTS_P_CENSORED_SURVIVAL_PROB)
+	RADIO	rb_ipwra_xb	@	_ss	@	.,		/// 
+		option(xb)						///
+		onclickon(script _p_gentype_multiple)			///
+		label(resource STTEFFECTS_P_LINEAR_PRED_FOR_OUTCOME_MODEL)
+  	RADIO	rb_ipwra_cxb	@	_ss	@	.,		/// 
+		option(cxb)						///
+		onclickon(script _p_gentype_single)			///
+		label(resource STTEFFECTS_P_LINEAR_PRED_CENSOR_MODEL)
+	RADIO	rb_ipwra_psxb	@	_ss	@	.,		/// 
+		option(psxb)						///
+		onclickon(script _p_gentype_multiple)			///
+		label(resource TEFFECTS_P_MAIN_RB_AIPWRA_XB)
+	RADIO	rb_ipwra_lnshape @	_ss	@	.,		/// 
+		option(lnshape)						///
+		onclickon(script _p_gentype_multiple)			///
+		label(resource STTEFFECTS_P_LOG_COND_LATENT_SHAPE_TREAT)	
+	RADIO	rb_ipwra_clnshape @	_ss	@	.,		/// 
+		option(clnshape)					///
+		onclickon(script _p_gentype_single)			///
+		label(resource STTEFFECTS_P_LOG_COND_LATENT_SHAPE_CENSOR)	
+	RADIO	rb_ipwra_pslnsigma	@	_ss	@	.,	/// 
+		option(pslnsigma)					///
+		onclickon(script _p_gentype_single)			///
+		label(resource TEFFECTS_P_MAIN_RB_AIPWRA_PSLNSIGMA)
+	RADIO	rb_ipwra_scores	@	_ss	@	.,		/// 
+  		last							///
+		option(scores)						///
+		onclickon(script main_ipwra_level_disable)		///
+		onclickoff(script main_ipwra_level_enable)		///
+		label(resource LBL_PARAMETER_LEVEL_SCORES)
+	TEXT	tx_ipwra_level	_lft	_xls	_iwd	.,		///
+		label(resource TEFFECTS_P_TREATMENT_LEVEL)
+	EDIT	ed_ipwra_level	@	_ss	_irj150	.,		///
+		option(tlevel)						///
+		label(resource TEFFECTS_P_TREATMENT_LEVEL)
+END
+
+LIST estimator_list
+BEGIN
+  	"ra"
+	"wra"
+  	"ipw"
+  	"ipwra"
+END
+
+LIST estimator_list_sel
+BEGIN
+	program main_ra_show
+	program main_wra_show
+	program main_ipw_show
+	program main_ipwra_show
+END
+
+PROGRAM main_ra_show
+BEGIN
+	call main.gb_ra_opt.show
+	call main.rb_ra_te.show
+	call main.rb_ra_cmean.show
+	call main.rb_ra_xb.show
+	call main.rb_ra_lnshape.show
+	call main.rb_ra_scores.show
+	call main.tx_ra_level.show
+	call main.ed_ra_level.show
+	call script main_wra_hide
+	call script main_ipw_hide
+	call script main_ipwra_hide
+END
+
+SCRIPT main_ra_hide
+BEGIN
+	main.gb_ra_opt.hide
+	main.rb_ra_te.hide
+	main.rb_ra_cmean.hide
+	main.rb_ra_xb.hide
+	main.rb_ra_lnshape.hide
+	main.rb_ra_scores.hide
+	main.tx_ra_level.hide
+	main.ed_ra_level.hide
+END
+
+SCRIPT main_ra_level_enable
+BEGIN
+	main.tx_ra_level.enable
+	main.ed_ra_level.enable
+END
+
+SCRIPT main_ra_level_disable
+BEGIN
+	main.tx_ra_level.disable
+	main.ed_ra_level.disable
+	script _p_gentype_multiple
+END
+
+PROGRAM main_wra_show
+BEGIN
+	call main.gb_wra_opt.show
+	call main.rb_wra_te.show
+	call main.rb_wra_cmean.show
+	call main.rb_wra_censurv.show
+	call main.rb_wra_xb.show
+	call main.rb_wra_cxb.show
+	call main.rb_wra_lnshape.show
+	call main.rb_wra_clnshape.show
+	call main.rb_wra_scores.show
+	call main.tx_wra_level.show
+	call main.ed_wra_level.show
+	call script main_ra_hide
+	call script main_ipw_hide
+	call script main_ipwra_hide
+END
+
+SCRIPT main_wra_hide
+BEGIN
+	main.gb_wra_opt.hide
+	main.rb_wra_te.hide
+	main.rb_wra_cmean.hide
+	main.rb_wra_censurv.hide
+	main.rb_wra_xb.hide
+	main.rb_wra_cxb.hide
+	main.rb_wra_lnshape.hide
+	main.rb_wra_clnshape.hide
+	main.rb_wra_scores.hide
+	main.tx_wra_level.hide
+	main.ed_wra_level.hide
+END
+
+SCRIPT main_wra_level_enable
+BEGIN
+	main.tx_wra_level.enable
+	main.ed_wra_level.enable
+END
+
+SCRIPT main_wra_level_disable
+BEGIN
+	main.tx_wra_level.disable
+	main.ed_wra_level.disable
+	script _p_gentype_multiple
+END
+
+PROGRAM main_ipw_show
+BEGIN
+	call main.gb_ipw_opt.show
+	call main.rb_ipw_ps.show
+	call main.rb_ipw_censurv.show 
+	call main.rb_ipw_xb.show
+	call main.rb_ipw_cxb.show 
+	call main.rb_ipw_lnsigma.show
+	call main.rb_ipw_clnshape.show
+	call main.rb_ipw_scores.show
+	call main.tx_ipw_level.show
+	call main.ed_ipw_level.show
+	call script main_ra_hide
+	call script main_wra_hide
+	call script main_ipwra_hide
+END
+
+SCRIPT main_ipw_hide
+BEGIN
+	main.gb_ipw_opt.hide
+	main.rb_ipw_ps.hide
+	main.rb_ipw_censurv.hide
+	main.rb_ipw_xb.hide
+	main.rb_ipw_cxb.hide
+	main.rb_ipw_lnsigma.hide
+	main.rb_ipw_clnshape.hide
+	main.rb_ipw_scores.hide
+	main.tx_ipw_level.hide
+	main.ed_ipw_level.hide
+END
+
+SCRIPT main_ipw_level_enable
+BEGIN
+	main.tx_ipw_level.enable
+	main.ed_ipw_level.enable
+END
+
+SCRIPT main_ipw_level_disable
+BEGIN
+	main.tx_ipw_level.disable
+	main.ed_ipw_level.disable
+	script _p_gentype_multiple
+END
+
+PROGRAM main_ipwra_show
+BEGIN
+	call main.gb_ipwra_opt.show
+	call main.rb_ipwra_te.show
+	call main.rb_ipwra_cmean.show
+	call main.rb_ipwra_ps.show
+	call main.rb_ipwra_censurv.show
+	call main.rb_ipwra_xb.show
+	call main.rb_ipwra_cxb.show
+	call main.rb_ipwra_psxb.show
+	call main.rb_ipwra_lnshape.show
+	call main.rb_ipwra_clnshape.show
+	call main.rb_ipwra_pslnsigma.show
+	call main.rb_ipwra_scores.show
+	call main.tx_ipwra_level.show
+	call main.ed_ipwra_level.show
+	call script main_ra_hide
+	call script main_wra_hide
+	call script main_ipw_hide
+END
+
+SCRIPT main_ipwra_hide
+BEGIN
+	main.gb_ipwra_opt.hide
+	main.rb_ipwra_te.hide
+	main.rb_ipwra_cmean.hide
+	main.rb_ipwra_ps.hide
+	main.rb_ipwra_censurv.hide
+	main.rb_ipwra_xb.hide
+	main.rb_ipwra_cxb.hide
+	main.rb_ipwra_psxb.hide
+	main.rb_ipwra_lnshape.hide
+	main.rb_ipwra_clnshape.hide
+	main.rb_ipwra_pslnsigma.hide
+	main.rb_ipwra_scores.hide
+	main.tx_ipwra_level.hide
+	main.ed_ipwra_level.hide
+END
+
+SCRIPT main_ipwra_level_enable
+BEGIN
+	main.tx_ipwra_level.enable
+	main.ed_ipwra_level.enable
+END
+
+SCRIPT main_ipwra_level_disable
+BEGIN
+	main.tx_ipwra_level.disable
+	main.ed_ipwra_level.disable
+	script _p_gentype_multiple
+END
+
+INCLUDE _p_gentype_sc
+INCLUDE ifin
+INCLUDE _type_list_fd
+
+PROGRAM command
+BEGIN
+	put "predict "
+	put " " /program _p_gentype_output
+	INCLUDE _ifin_pr
+	beginoptions
+		if main.cb_est.iseq("ra") {
+			option radio(main rb_ra_te rb_ra_cmean rb_ra_xb ///
+				          rb_ra_lnshape rb_ra_scores)
+		        if main.rb_ra_te | main.rb_ra_cmean | main.rb_ra_xb | ///
+		           main.rb_ra_lnshape {
+		           	optionarg main.ed_ra_level
+		        }
+		}
+		if main.cb_est.iseq("wra") {
+			option radio(main rb_wra_te rb_wra_cmean rb_wra_censurv ///
+					rb_wra_xb rb_wra_cxb rb_wra_lnshape	///
+					rb_wra_clnshape rb_wra_scores)
+		        if main.rb_wra_te | main.rb_wra_cmean | rb_wra_censurv | ///
+				main.rb_wra_xb | main.rb_wra_cxb | ///
+				main.rb_wra_lnshape | main.rb_wra_clnshape {
+		           	optionarg main.ed_wra_level
+		        }
+		}
+		if main.cb_est.iseq("ipw") {
+			option radio(main rb_ipw_ps rb_ipw_censurv rb_ipw_xb ///
+				          rb_ipw_cxb rb_ipw_lnsigma rb_ipw_clnshape ///
+					  rb_ipw_scores)
+		        if main.rb_ipw_ps | rb_ipw_censurv | main.rb_ipw_xb | ///
+				main.rb_ipw_cxb | main.rb_ipw_lnsigma | main.rb_ipw_clnshape {
+		           	optionarg main.ed_ipw_level
+		        }
+		}
+		if main.cb_est.iseq("ipwra") {
+			option radio(main rb_ipwra_te rb_ipwra_cmean rb_ipwra_ps ///
+				          rb_ipwra_censurv rb_ipwra_xb rb_ipwra_cxb ///
+					  rb_ipwra_psxb rb_ipwra_lnshape rb_ipwra_clnshape ///
+				          rb_ipwra_pslnsigma rb_ipwra_scores)
+		        if main.rb_ipwra_te | main.rb_ipwra_cmean | main.rb_ipwra_ps | ///
+				main.rb_ipwra_censurv | main.rb_ipwra_xb | main.rb_ipwra_cxb | ///
+				main.rb_ipwra_psxb | main.rb_ipwra_lnshape | main.rb_ipwra_clnshape | ///
+				main.rb_ipwra_pslnsigma {
+				optionarg main.ed_ipwra_level
+			}
+		}		
+	endoptions
+END
+

@@ -1,0 +1,112 @@
+/*
+  cluster stop
+
+*! VERSION 1.4.2  16may2015
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+DEFINE _dlght 380
+INCLUDE header
+HELP hlp1, view("help cluster_stop")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING oldCluster // < stata 10 cluster results
+	create STRING newCluster
+	create LIST  clusters
+	program getClusters
+	setscale_hadj resource CLUSTER_STOP_DLG_HSCALE
+END
+
+PROGRAM getClusters
+BEGIN
+	call oldCluster.setvalue char _dta[_cl]
+	call newCluster.setvalue char _dta[_cluster_objects]
+	if newCluster {
+		call newCluster.tokenize clusters
+	}
+	else {
+		call oldCluster.tokenize clusters
+	}
+	call main.lb_clname.repopulate
+END
+
+DIALOG main, label(resource CLUSTER_STOP_DLG_TITLE) 			///
+	tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  GROUPBOX gb_rule	_lft	_top	_iwd	_ht4,			///
+	label(resource LBL_STOPPING_RULE)
+  RADIO rb_calinski	_indent	_ss	_inwd	., first		///
+	option("rule(calinski)")					///
+	label(resource LBL_CALINSKI_HARABASZ_PSEUDO_F_INDEX)
+  RADIO    rb_duda	@	_ss	@	., last			///
+	option("rule(duda)")						///	
+	label(resource LBL_DUDA_HART_JE_INDEX)
+
+  TEXT     tx_clname	_lft	_ls	_iwd	.,			///
+	label(resource LBL_CLUSTER_ANALYSIS)
+  LISTBOX  lb_clname	@	_ss	@	_ht10,			///
+	contents(clusters)						///
+	label(resource LBL_CLUSTER_ANALYSIS)
+
+  GROUPBOX gb_options	_lft	+150	_iwd	_ht9,			///
+	label(resource LBL_OPTIONS)
+  CHECKBOX ck_groups	_indent	_ss	_cwd1	.,			///
+	clickon("gaction main.sp_groups.enable")			///
+	clickoff("gaction main.sp_groups.disable")			///
+	label(resource CLUSTER_STOP_MAIN_CK_GROUPS)
+  DEFINE holdy @y
+  SPINNER  sp_groups	_iilft	_ms	_spwd	.,			///
+	min(2) max(100000) default(15)					///
+	label(resource LBL_HIERARCHICAL_CLUSTERING_ONLY)
+  TEXT     tx_matrix	_lft2	holdy	_cwd1	.,			///
+	label(resource LBL_SAVE_RESULTS_IN_MATRIX)
+  EDIT     ed_matrix	@	_ss	_vnwd	.,			///
+	option(matrix)							///
+	max(32)								///
+	label(resource LBL_SAVE_RESULTS_IN_MATRIX)
+  CHECKBOX ck_variables _ilft	_ls	_ibwd 	.,			///
+	clickon("gaction main.vl_variables.enable")			///
+	clickoff("gaction main.vl_variables.disable")			///
+	label(resource CLUSTER_STOP_MAIN_CK_VARIABLES)
+  VARLIST  vl_variables	@	_ss	.	.,			///
+	label(resource CLUSTER_STOP_MAIN_CK_VARIABLES)			///
+	option(variables)						///
+	numeric
+END
+
+
+PROGRAM command
+BEGIN
+	put "cluster stop " main.lb_clname
+	beginoptions
+		option radio(main rb_calinski rb_duda)
+		if main.ck_groups {
+			put "groups("
+			if main.rb_calinski {
+				put "2"
+			}
+			if main.rb_duda {
+				put "1"
+			}
+			put "/" main.sp_groups ") "
+		}
+		optionarg main.ed_matrix
+		if main.ck_variables {
+			if !main.vl_variables {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 			///
+				"resource LBL_MSGBOX_REQUIRED_FMT"	///
+				"resource CLUSTERMAT_STOP_TX_VARIABLES"
+				stopbox stop "class _MSG_TMP.value"
+// "Compute the stopping rule using these variables" must be filled in.
+			}
+			optionarg main.vl_variables
+		}
+	endoptions
+END
+

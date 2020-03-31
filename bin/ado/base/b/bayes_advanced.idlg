@@ -1,0 +1,97 @@
+/*
+    bayes_advanced.idlg - bayes advanced tab
+
+*!  VERSION 1.0.2  28feb2017
+
+*/
+
+SCRIPT adv_PREINIT
+BEGIN
+	create BOOLEAN hasbatch
+END
+
+DIALOG adv, tabtitle(resource BAYES_ADVANCED_TABTITLE)
+BEGIN
+  GROUPBOX gb_search			_lft	_top	_iwd	_ht7h,	///
+	label(resource BAYES_LBL_CTRL_SEARCH_INIT_VALUES)
+  RADIO	   rb_repeat			_ilft	_ms	_ibwd	.,	///
+	first								///
+	onclickon(script adv_repeat_on)					///
+	onclickoff(script adv_repeat_off)				///
+	label(resource BAYES_LBL_NUM_RANDOM_ATTEMPTS_FIND_INIT_VALUES)
+  RADIO    rb_off			@	+50	@	.,	///
+	last								///
+	label(resource BAYES_LBL_DO_NOT_SEARCH_INIT_VALUES)
+  SPINNER  sp_repeat			35	-25	_en7wd	.,	///
+	default(500) min(1) max(1000000)				///
+	label(resource BAYES_LBL_NUM_RANDOM_ATTEMPTS)
+  TEXT	   tx_repeat			_en7sep	@	350	.,	///
+	label(resource BAYES_LBL_NUM_RANDOM_ATTEMPTS)
+  SPINNER   sp_corrlag			_lft	+75	_en7wd .,	///
+	default(500) min(0) max(1000000)				///
+	option(corrlag)							///
+	onchange(program adv_change)					///
+	label(resource BAYES_LBL_TX_MAX_CORRLAG)
+  TEXT	    tx_corrlag			_en7sep @	_iwd	.,	///
+	label(resource BAYES_LBL_TX_MAX_CORRLAG)
+  EDIT    ed_corrtol			_lft	_ls	_en7wd	.,	///
+	numonly								///
+	option(corrtol)							///
+	default(0.01)							///
+	onchange(program adv_change)					///
+	label(resource BAYES_LBL_TX_CORRTOL)
+  TEXT	  tx_corrtol			_en7sep @	_iwd	.,	///
+	label(resource BAYES_LBL_TX_CORRTOL)
+END
+
+SCRIPT adv_repeat_on
+BEGIN
+	adv.sp_repeat.enable
+	adv.tx_repeat.enable
+END
+
+SCRIPT adv_repeat_off
+BEGIN
+	adv.sp_repeat.disable
+	adv.tx_repeat.disable
+END
+
+PROGRAM adv_change
+BEGIN
+	call hasbatch.settrue
+	
+	if adv.sp_corrlag & adv.sp_corrlag.isneq(500) {
+		call hasbatch.setfalse
+	}
+	
+	if adv.ed_corrtol & adv.ed_corrtol.isneq(0.01) {
+		call hasbatch.setfalse
+	}
+	
+	if hasbatch {
+		call rpt.tx_batch.enable
+		call rpt.ed_batch.enable
+	}
+	else {
+		call rpt.tx_batch.disable
+		call rpt.ed_batch.disable
+	}
+END
+
+PROGRAM bayes_advanced_output
+BEGIN
+	if adv.rb_repeat {
+		require adv.sp_repeat
+		if adv.sp_repeat.isneq(500) {
+			put " search(repeat("
+			put adv.sp_repeat
+			put "))"
+		}
+	}
+	if adv.rb_off {
+		put " search(off) "
+	}
+	
+	optionarg /hidedefault adv.sp_corrlag
+	optionarg /hidedefault adv.ed_corrtol
+END

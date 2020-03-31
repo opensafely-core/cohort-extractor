@@ -1,0 +1,585 @@
+/*
+	power cmh
+
+*!  VERSION 1.1.5  025may2017
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_wide
+DEFINE _dlght 525
+INCLUDE header
+
+HELP hlp1, view("help power cmh")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING graph_res
+	create STRING numContents
+	create STRING stok
+	create ARRAY tmp
+	create BOOLEAN containsNumlist
+	create STRING dlgName
+	create STRING stratasimpsi_res
+	create STRING tmp_probspec
+	create DOUBLE nstratums
+	create DOUBLE tmp_nstratums
+	create BOOLEAN child_hasNumlist
+
+	dlgName.setvalue class _dlg_rsrcname
+	child_hasNumlist.setfalse
+	program table_create4Cmh
+	setscale_hadj resource POWER_CMH_DLG_HSCALE
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+  label(resource POWER_CMH_DLG_TITLE)
+BEGIN
+  INCLUDE power_compute
+
+  DEFINE errpos _ls
+  INCLUDE power_errorprob
+
+  DEFINE sspos +45
+  INCLUDE power_cmhsampsi
+
+  GROUPBOX gb_effect_size	_lft	+40	_iwd	_ht5h,		///
+	label(resource LBL_EFFECT_SIZE)
+  TEXT tx_specify		_ilft	_ms	 _ibwd	.,		///
+	label(resource LBL_SPECIFY)
+  COMBOBOX cb_effect_probspec 	_ilft	_ss	250	., 		///
+  	dropdownlist							///
+	contents("main_esize_probspec_list")				///
+	values("main_esize_probspec_values")				///
+	onselchange("program main_esize_probspec_changed")		///
+	label(resource LBL_EFFECT_SIZE)
+  EDIT ed_probspec		_ilft	_ms	_en14wd	.,		///
+	onchange(program power_cmh_dim_check)				///
+	tooltip(resource POWER_CMH_MAIN_ED_PROBSPEC_TIP)		///
+	label(resource POWER_CMH_MAIN_ED_PROBSPEC)
+  TEXT tx_probspec		_en14sep @ 	430	.,		///
+	label(resource POWER_CMH_MAIN_ED_PROBSPEC)
+  COMBOBOX cb_probspec_mat	_ilft	@	_en14wd	.,		///
+	label(resource POWER_CMH_MAIN_CB_PROBSPEC_MAT)			///
+	option(grratios)						///
+	contents(matrix)						///
+	onselchange(program power_cmh_dim_check)			///
+	dropdown
+  BUTTON bu_probspec_mat	_en14sep @	100	.,		///
+	label(resource LBL_INPUT_MATRIX)				///
+	onpush(program show_probspec_matrix)				///
+	tooltip(resource POWER_CMH_MAIN_BU_PROBSPEC_MAT)
+  EDIT ed_oratio		_ilft	_ls	_en14wd	.,		///
+	option(oratio)							///
+	onchange(program check_for_numlist)				///
+	tooltip(resource POWER_CMH_MAIN_ED_ORATIO_TIP) 			///
+	label(resource POWER_CMH_MAIN_ED_ORATIO) 
+  TEXT tx_oratio		_en14sep @	430	.,		///
+	label(resource POWER_CMH_MAIN_TX_ORATIO)
+  CHECKBOX ck_continuity	_lft	+50	_iwd	.,		///
+	option(continuity)						///
+	label(resource POWER_CMH_MAIN_CK_CONTINUITY)
+  DEFINE ypos +25
+  INCLUDE power_test_maincommon
+END
+
+LIST main_compute_list
+BEGIN
+	resource LBL_SAMPLE_SIZE
+	resource PSS_LBL_POWER
+	resource POWER_CMH_TARGET_ODDS_RATIO
+END
+
+LIST main_compute_values
+BEGIN
+	sampsi
+	power
+	effect
+END
+
+LIST main_esize_probspec_list
+BEGIN
+	resource POWER_CMH_CONTROL_GROUP_SUCCESS_PROB
+	resource POWER_CMH_CONTROL_GROUP_SUCCESS_PROB_MATRIX
+END
+
+LIST main_esize_probspec_values
+BEGIN
+	probspec
+	probspec_mat
+END
+
+PROGRAM main_compute_changed
+BEGIN
+	if main.cb_compute.iseq("sampsi") {
+		call program main_sampsi_on
+	}
+	if main.cb_compute.iseq("power") {
+		call program main_power_on
+	}
+	if main.cb_compute.iseq("effect") {
+		call program main_effect_on
+	}
+END
+
+PROGRAM main_sampsi_on
+BEGIN
+	call script main_sampsi_hide_all
+	call main.tx_spec.show
+	call main.cb_sampsi.hide
+	call main.cb_strataw.show
+	call main.ed_power.show
+	call main.ed_beta.show
+	call main.tx_power_beta_power.show
+	call main.cb_power_beta.show
+	call main.ck_nfrac.show
+	call main.ed_oratio.show
+	call main.tx_oratio.show
+	call program main_move_effect_size
+	call program main_move_main_opts
+	call script power_test_maincommon_hide_dir
+	call program main_power_beta_changed
+	call program main_strataw_changed
+	call program main_grratios_changed
+	call program check_for_numlist
+	call program power_iteration_tab_check
+END
+
+PROGRAM main_power_on
+BEGIN
+	call script main_sampsi_hide_all
+	call main.tx_spec.show
+	call main.cb_sampsi.show
+	call main.ed_power.hide
+	call main.ed_beta.hide
+	call main.tx_power_beta_power.hide
+	call main.cb_power_beta.hide
+	call main.ck_nfrac.show
+	call main.ed_oratio.show
+	call main.tx_oratio.show
+	call program main_move_effect_size
+	call program main_move_main_opts
+	call script power_test_maincommon_hide_dir
+	call program main_sampsi_changed
+	call program main_grratios_changed
+	call program check_for_numlist
+	call program power_iteration_tab_check
+END
+
+PROGRAM main_effect_on
+BEGIN
+	call script main_sampsi_hide_all
+	call main.tx_spec.show
+	call main.cb_sampsi.show
+	call main.ed_power.show
+	call main.ed_beta.show
+	call main.tx_power_beta_power.show
+	call main.cb_power_beta.show
+	call main.ck_nfrac.show
+	call main.ed_oratio.hide
+	call main.tx_oratio.hide
+	call program main_move_effect_size
+	call program main_move_main_opts
+	call script power_test_maincommon_show_dir
+	call program main_power_beta_changed
+	call program main_sampsi_changed
+	call program main_grratios_changed
+	call program check_for_numlist
+	call program power_iteration_tab_check
+END
+
+INCLUDE power_errorprob_pr
+INCLUDE power_cmhsampsi_pr
+
+PROGRAM main_move_effect_size
+BEGIN
+	if main.cb_compute.iseq("sampsi") {
+		call main.gb_sample_size.setposition . . . 125
+		call main.gb_effect_size.setposition . 260 . 120
+		call main.cb_strataw.setposition . 165
+		call main.cb_grratios.setposition . 195
+		call main.ed_grratios.setposition 275 195
+		call main.tx_grratios.setposition 400 195
+		call main.cb_grratios_mat.setposition 275 195
+		call main.bu_grratios_mat.setposition 400 195
+		call main.ck_nfrac.setposition . 225
+		call main.tx_specify.setposition . 275
+		call main.cb_effect_probspec.setposition . 295
+		call main.ed_probspec.setposition . 325
+		call main.tx_probspec.setposition . 325
+		call main.cb_probspec_mat.setposition . 325
+		call main.bu_probspec_mat.setposition . 325
+		call main.ed_oratio.setposition . 350
+		call main.tx_oratio.setposition . 350
+	}
+	if main.cb_compute.iseq("power") {
+		call main.gb_sample_size.setposition . . . 145
+		call main.gb_effect_size.setposition . 285 . 120
+		call main.cb_sampsi.setposition . 165
+		call main.cb_grratios.setposition . 215
+		call main.ed_grratios.setposition 275 215
+		call main.tx_grratios.setposition 400 215
+		call main.cb_grratios_mat.setposition 275 215
+		call main.bu_grratios_mat.setposition 400 215
+		call main.ck_nfrac.setposition . 245
+		call main.tx_specify.setposition . 300
+		call main.cb_effect_probspec.setposition . 320
+		call main.ed_probspec.setposition . 350
+		call main.tx_probspec.setposition . 350
+		call main.cb_probspec_mat.setposition . 350
+		call main.bu_probspec_mat.setposition . 350
+		call main.ed_oratio.setposition . 375
+		call main.tx_oratio.setposition . 375
+	}
+	if main.cb_compute.iseq("effect") {
+		call main.gb_sample_size.setposition . . . 145
+		call main.gb_effect_size.setposition . 285 . 95
+		call main.cb_sampsi.setposition . 165
+		call main.cb_grratios.setposition . 215
+		call main.ed_grratios.setposition 275 215
+		call main.tx_grratios.setposition 400 215
+		call main.cb_grratios_mat.setposition 275 215
+		call main.bu_grratios_mat.setposition 400 215
+		call main.ck_nfrac.setposition . 245
+		call main.tx_specify.setposition . 300
+		call main.cb_effect_probspec.setposition . 320
+		call main.ed_probspec.setposition . 350
+		call main.tx_probspec.setposition . 350
+		call main.cb_probspec_mat.setposition . 350
+		call main.bu_probspec_mat.setposition . 350
+		call main.ed_oratio.setposition . 375
+		call main.tx_oratio.setposition . 375
+	}
+END
+
+PROGRAM main_move_main_opts
+BEGIN
+	if main.cb_compute.iseq("power") {
+		call main.ck_continuity.setposition . 420
+		call main.tx_oneside.setposition . 445
+		call main.cb_oneside.setposition . 465
+		call main.tx_direction.setposition . 445
+		call main.cb_direction.setposition . 465
+		call main.ck_parallel.setposition  . 495
+	}
+	if main.cb_compute.iseq("effect") {
+		call main.ck_continuity.setposition . 395
+		call main.tx_oneside.setposition . 420
+		call main.cb_oneside.setposition . 440
+		call main.tx_direction.setposition . 420
+		call main.cb_direction.setposition . 440
+		call main.ck_parallel.setposition  . 470
+	}
+	if main.cb_compute.iseq("sampsi") {
+		call main.ck_continuity.setposition . 395
+		call main.tx_oneside.setposition . 420
+		call main.cb_oneside.setposition . 440
+		call main.tx_direction.setposition . 420
+		call main.cb_direction.setposition . 440
+		call main.ck_parallel.setposition  . 470
+	}
+END
+
+PROGRAM main_esize_probspec_changed
+BEGIN
+	if main.cb_effect_probspec.iseq("probspec") {
+		call main.ed_probspec.show
+		call main.tx_probspec.show
+		call main.cb_probspec_mat.hide
+		call main.bu_probspec_mat.hide
+	}
+	if main.cb_effect_probspec.iseq("probspec_mat") {
+		call main.ed_probspec.hide
+		call main.tx_probspec.hide
+		call main.cb_probspec_mat.show
+		call main.bu_probspec_mat.show
+	}
+END
+
+PROGRAM show_probspec_matrix
+BEGIN
+	call create STRING ProbspecMatResult
+	call create CHILD matrix_input AS ProbspecMat
+	if ! _rc {
+		call ProbspecMat.setExitString ProbspecMatResult
+		call ProbspecMat.setExitAction "program main_getProbspecMatResult"
+		call ProbspecMat.callthru "isChildContext.settrue"
+	}
+END
+
+PROGRAM main_getProbspecMatResult
+BEGIN
+	call main.cb_probspec_mat.repopulate
+	call main.cb_probspec_mat.setvalue class ProbspecMatResult.value
+END
+
+PROGRAM main_power_beta_table
+BEGIN
+	call program table_create4Cmh
+END
+
+PROGRAM check_for_numlist
+BEGIN
+	call containsNumlist.setfalse
+
+	if main.ed_alpha {
+		call numContents.setvalue class main.ed_alpha.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_power & main.ed_power.isvisible() {
+		call numContents.setvalue class main.ed_power.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_beta & main.ed_beta.isvisible() {
+		call numContents.setvalue class main.ed_beta.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+	
+	if main.ed_oratio.isvisible() {
+		call numContents.setvalue class main.ed_oratio.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+	
+	if main.ed_sampsi_n.isvisible() {
+		call numContents.setvalue class main.ed_sampsi_n.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+	
+	if main.ed_sampsi_npg.isvisible() {
+		call numContents.setvalue class main.ed_sampsi_npg.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if containsNumlist {
+		call main.ck_parallel.enable
+	}
+	else {
+		call main.ck_parallel.disable
+	}
+END
+
+PROGRAM power_iteration_tab_check
+BEGIN
+	call script power_iteration_enable
+	if main.cb_compute.iseq("power") {
+		call script power_iteration_disable
+	}
+	else {
+		if main.cb_oneside.iseq("onesided") &			///
+			main.cb_compute.iseq("sampsi") {
+			call script power_iteration_disable
+		}
+		if main.cb_compute.iseq("sampsi") {
+			call script power_iteration_is_sampsi
+		}
+		if main.cb_compute.iseq("effect") {
+			call script power_iteration_is_effect
+		}
+	}
+END
+
+PROGRAM power_cmh_dim_check
+BEGIN
+	if main.ed_probspec.isneq(tmp_probspec) {
+		if main.ed_probspec.isvisible() & main.ed_probspec {
+			put "power_anova_dim pcmh, "
+			put "clsname(" dlgName ") "
+			put "ctrlname(""ed_probspec"") "
+			put "is_mat(0) "
+			stata hidden immediate	
+			call nstratums.setvalue r(ngcount)
+		}
+	}
+	if main.cb_probspec_mat.isneq(tmp_probspec) {	
+		if main.cb_probspec_mat.isvisible() & main.cb_probspec_mat {
+			put "power_anova_dim pcmh, "
+			put "clsname(" dlgName ") "
+			put "ctrlname(""cb_probspec_mat"") "
+			put "is_mat(1) "
+			stata hidden immediate	
+			call nstratums.setvalue r(ngcount)
+		}
+	}
+	
+	call program table_create4Cmh
+END
+
+INCLUDE _power_list
+INCLUDE power_table_opts
+INCLUDE power_graph
+INCLUDE power_iteration
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN		
+  CHECKBOX ck_noshowgrstr	_lft	_top	_iwd	.,		///
+	option(noshowgrstrsizes)					///
+	onclickon(script rpt_noshowgrstr_on)				///
+	onclickoff(program rpt_noshowgrstr_off)				///
+	label(resource POWER_CMH_RPT_CK_NOSHOWGRSTR)
+
+  CHECKBOX ck_showgrstr		_lft	_ms	_iwd	.,		///
+	option(showgrstrsizes)						///
+	onclickon(script rpt_showgrstr_on)				///
+	onclickoff(program rpt_showgrstr_off)				///
+	label(resource POWER_CMH_RPT_CK_SHOWGRSTR)
+
+  CHECKBOX ck_showasmatrix 	_lft	_ms	_iwd	.,		///
+	option(showasmatrix)						///
+	onclickon(script rpt_showasmatrix_on)				///
+	onclickoff(script rpt_showasmatrix_off)				///
+	label(resource POWER_CMH_RPT_CK_SHOWASMATRIX)
+END
+
+SCRIPT rpt_noshowgrstr_on
+BEGIN
+	rpt.ck_showasmatrix.disable
+END
+
+PROGRAM rpt_noshowgrstr_off
+BEGIN
+	if rpt.ck_showgrstr {
+		call rpt.ck_showasmatrix.disable
+	}
+	else {
+		call rpt.ck_showasmatrix.enable
+	}
+END
+
+SCRIPT rpt_showgrstr_on
+BEGIN
+	program table_create4Cmh
+	rpt.ck_showasmatrix.disable
+END
+
+PROGRAM rpt_showgrstr_off
+BEGIN
+	call program table_create4Cmh
+	if rpt.ck_noshowgrstr {
+		call rpt.ck_showasmatrix.disable
+	}
+	else {
+		call rpt.ck_showasmatrix.enable
+	}
+END
+
+SCRIPT rpt_showasmatrix_on
+BEGIN
+	rpt.ck_showgrstr.disable
+	rpt.ck_noshowgrstr.disable
+END
+
+SCRIPT rpt_showasmatrix_off
+BEGIN
+	rpt.ck_showgrstr.enable
+	rpt.ck_noshowgrstr.enable
+END
+
+INCLUDE power_test_maincommon_pr
+
+PROGRAM command
+BEGIN
+	call tmp_probspec.setvalue ""
+	call tmp_nstratums.setvalue 0
+	if main.ed_probspec.isvisible() & main.ed_probspec {
+		call main.ed_probspec.withvalue tmp_probspec.setvalue "@"
+	}
+	if main.cb_probspec_mat.isvisible() & main.cb_probspec_mat {
+		call main.cb_probspec_mat.withvalue tmp_probspec.setvalue "@"
+	}
+	call nstratums.withvalue tmp_nstratums.setvalue @
+
+	put "power cmh "
+	require main.ed_probspec
+	put main.ed_probspec
+	
+	beginoptions
+		if main.cb_compute.isneq("effect") {
+			require main.ed_oratio 
+			if !main.ed_oratio.isnumlist() {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 			///
+					"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+					"resource LBL_TAB_MAIN"		///
+					"resource POWER_CMH_MAIN_ED_ORATIO"
+				stopbox stop "class _MSG_TMP.value
+// On the "Main" tab, an invalid numlist is specified for 
+// "Common odds ratio of the experimental group to the control group".
+			}
+			if main.ed_oratio.isNumlistLE(0) {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format			/// 
+					"resource LBL_MSGBOX_ON_TAB_GREATER_THAN_0_FMT" ///
+					"resource LBL_TAB_MAIN"		///
+					"resource POWER_CMH_MAIN_ED_ORATIO"
+				stopbox stop "class _MSG_TMP.value
+// On the "Main" tab, "Common odds ratio of the experimental group to the control group" 
+// must be greater than 0.
+			}			
+			optionarg main.ed_oratio
+		}
+
+		option main.ck_continuity
+		put " " /program power_errorprob_output
+		put " " /program power_cmhsampsi_output
+		put " " /program power_test_maincommon_output
+		put " " /program power_table_opts_output
+		put " " /program power_graph_output
+		put " " /program power_iteration_output
+
+		option rpt.ck_showgrstr
+		option rpt.ck_noshowgrstr
+		option rpt.ck_showasmatrix
+	endoptions
+END

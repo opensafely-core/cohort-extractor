@@ -1,0 +1,129 @@
+/*
+	kap (two unique raters, two or more ratings)
+
+*!  VERSION 1.1.0  21oct2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+INCLUDE header
+HELP hlp1, view("help kap")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource KAP_UNIQ_DLG_HSCALE
+END
+
+DIALOG main, label(resource KAP_UNIQ_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_var1           _lft      _top      _vnwd     .,		/*
+		*/ label(resource LBL_RATER_1_VARIABLE)
+  VARNAME  vn_var1           @         _ss       @         .,		/*
+  		*/ numeric						/*
+		*/ label(resource LBL_RATER_1_VARIABLE)
+
+  TEXT     tx_var2           _vnsep    _top      @         .,		/*
+		*/ label(resource LBL_RATER_2_VARIABLE)
+  VARNAME  vn_var2           @         _ss       @         .,		/*
+  		*/ numeric						/*
+		*/ label(resource LBL_RATER_2_VARIABLE)
+
+  CHECKBOX ck_tab            _lft      _ls       _iwd      .,		/*
+		*/ option(tab)						/*
+		*/ label(resource KAP_UNIQ_MAIN_CK_TAB)
+  CHECKBOX ck_wgt            @         _ms       @         _ht11,	/*
+		*/ groupbox						/*
+		*/ clickon("program wgton")				/*
+		*/ clickoff("script wgtoff")				/*
+		*/ label(resource KAP_UNIQ_MAIN_CK_WGT)
+  RADIO    rb_wgtw           _indent   _ss       _inwd     ., first	/*
+		*/ option("wgt(w)")					/*
+		*/ clickon("script kwgtoff")				/*
+		*/ label(resource KAP_UNIQ_MAIN_RB_WGTW)
+  RADIO    rb_wgtw2          @         _ss       @         .,		/*
+		*/ option("wgt(w2)")					/*
+		*/ clickon("script kwgtoff")				/*
+		*/ label(resource KAP_UNIQ_MAIN_RB_WGTW2)
+  RADIO    rb_wgt            @         _ss       @         ., last	/*
+		*/ option(NONE)  /* handled another way */		/*
+		*/ clickon("script kwgton")				/*
+		*/ label(resource KAP_UNIQ_MAIN_RB_WGT)
+  DEFINE   holdx @x
+  DEFINE   holdcx @cx
+  EDIT     ed_wgt            _indent2  _ss       _vnwd     .,		/*
+		*/ option(wgt)						/*
+		*/ label(resource KAP_UNIQ_MAIN_RB_WGT)
+  BUTTON   bu_wgt            _lft2     @         _buwd     .,		/*
+		*/ onpush("view dialog kapwgt")				/*
+		*/ label(resource KAP_UNIQ_MAIN_BU_WGT)			/*
+		*/ tooltip(resource KAP_UNIQ_MAIN_BU_WGT_TOOL_TIP)
+  CHECKBOX ck_absolute       holdx     _ls       holdcx    .,		/*
+		*/ option(absolute)					/*
+		*/ label(resource KAP_UNIQ_MAIN_CK_ABSOLUTE)
+
+END
+
+
+INCLUDE ifin
+INCLUDE weights_f
+
+
+PROGRAM wgton
+BEGIN
+	call gaction main.ck_absolute.enable
+	call gaction main.rb_wgtw.enable
+	call gaction main.rb_wgtw2.enable
+	call gaction main.rb_wgt.enable
+	if main.rb_wgt {
+		call gaction main.ed_wgt.enable
+		call gaction main.bu_wgt.enable
+	}
+	if !main.rb_wgt {
+		call gaction main.ed_wgt.disable
+		call gaction main.bu_wgt.disable
+	}
+END
+
+SCRIPT wgtoff
+BEGIN
+	main.ck_absolute.disable
+	main.rb_wgtw.disable
+	main.rb_wgtw2.disable
+	main.rb_wgt.disable
+	main.ed_wgt.disable
+	main.bu_wgt.disable
+END
+
+SCRIPT kwgton
+BEGIN
+	main.ed_wgt.enable
+	main.bu_wgt.enable
+END
+
+SCRIPT kwgtoff
+BEGIN
+	main.ed_wgt.disable
+	main.bu_wgt.disable
+END
+
+PROGRAM command
+BEGIN
+	put "kap "
+	varlist main.vn_var1 main.vn_var2
+	INCLUDE _weights_pr
+	INCLUDE _ifin_pr
+	beginoptions
+		option main.ck_tab
+		if main.ck_wgt {
+			option radio(main rb_wgtw rb_wgtw2 rb_wgt)
+			if main.rb_wgt {
+				require main.ed_wgt
+				optionarg main.ed_wgt
+			}
+			option main.ck_absolute
+		}
+	endoptions
+END

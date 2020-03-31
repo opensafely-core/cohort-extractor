@@ -1,0 +1,317 @@
+// sunflower_g
+//
+// Base class for the sunflower density view.
+
+*! version 1.2.2  06jun2011
+
+version 8
+
+class {
+	type	= .sunflowertype.new,	     style(sunflower)
+	style	= .sunflowerstyle.new
+
+	double cvar			// count variable id
+
+	double binwidth	= 0
+	double binar	= 0		// bin aspect ratio
+	double yc	= 0		// y-center
+	double yr	= 0		// y-range
+	double ymin	= 0		// y-minimum
+	double ymax	= 0		// y-maximum
+	double xc	= 0		// x-center
+	double xr	= 0		// x-range
+	double xmin	= 0		// x-minimum
+	double xmax	= 0		// x-maximum
+	double light	= 3		// min bin count for light flower
+	double dark	= 13		// min bin count for dark flower
+	double pw	= 0		// dark flower petal weight
+	double pl	= 100		// petal length (% of binwidth/2)
+	double singlepetal	= 1	// indicator to draw a single petal
+
+	double sf_label_call = 0	// call to .label
+
+} , inherit(yxview)
+
+// ---------------------------------------------------------------------------
+
+program set
+
+	syntax ,						///
+		binwidth(numlist min=1 max=1 >0)		///
+		binar(numlist min=1 max=1 >0)			///
+		ycenter(numlist min=1 max=1)			///
+		yrange(numlist min=1 max=1)			///
+		ymin(numlist min=1 max=1)			///
+		ymax(numlist min=1 max=1)			///
+		xcenter(numlist min=1 max=1)			///
+		xrange(numlist min=1 max=1)			///
+		xmin(numlist min=1 max=1)			///
+		xmax(numlist min=1 max=1)			///
+		light(numlist min=1 max=1 integer >0)		///
+		dark(numlist min=1 max=1 integer >0)		///
+		pw(numlist min=1 max=1 integer)			///
+		pl(numlist min=1 max=1 integer >0 <=100)	///
+		[						///
+			noSINGLEpetal				///
+			Cvariable(string)			///
+			Type(string)				///
+			*					///
+		]
+
+	.Super.set , `options'
+
+	.binwidth	= `binwidth'
+	.binar		= `binar'
+	.yc		= `ycenter'
+	.yr		= `yrange'
+	.ymin		= `ymin'
+	.ymax		= `ymax'
+	.xc		= `xcenter'
+	.xr		= `xrange'
+	.xmin		= `xmin'
+	.xmax		= `xmax'
+	.light		= `light'
+	.dark		= `dark'
+	.pw		= `pw'
+	.pl		= `pl'
+	.singlepetal	= "`singlepetal'" != "nosinglepetal"
+
+	if `"`cvariable'"' != `""' {
+
+		capture confirm integer number `cvariable'
+		if _rc {
+			local varid = `.serset.seriesof `cvariable''
+			if 0`varid' {
+				.cvar = `varid'
+			}
+			else {
+			    di in white `"`cvariable' not found in serset"'
+			}
+		}
+		else {
+			.cvar = `cvariable'
+		}
+	}
+
+	if "`type'" != "" { 
+		.type.setstyle, style(`type')
+	}
+
+	// number of keys for the legend:
+	// 	marker		-- variable label/name
+	// 	light bin	-- 1 petal = 1 obs.
+	// 	dark bin	-- 1 petal = ? obs.
+	.numkeys = 3
+
+	// default petal weight allows at most 14 petals
+	if `.pw' < 1 {
+		local pw = `.serset.sers[`.cvar'].max'
+		.pw = max(1,ceil(`pw'/14))
+	}
+end
+
+// ---------------------------------------------------------------------------
+// Returns a key object of the view
+
+program newkey
+
+	if `.numkeys' == 0 {
+		class exit ""
+	}
+
+	syntax [anything(name=keyid)] [ , Position(passthru) ]
+	class exit .sunflowerkey_g.new `keyid' , view(`.objkey') `position'
+
+end
+
+/* -------------------------------------------------------------------------*/
+/*
+	Returns a label for the view.  In this case based on the y variable.
+	Note, supports the -NAMEonly- option to ignore variable labels and 
+	return only the variable name of the y series.
+*/
+program label
+
+	local dim = cond("`.bar_drop_to.stylename'" == "x" , "y" , "x")
+	class exit `"`.dimtitle `dim' `0''"'
+end
+
+
+
+// ---------------------------------------------------------------------------
+// Returns minimum and maximum sizes
+
+program ranges , rclass
+
+	local factor 0.05
+
+	capture return scalar xmin = `.xmin'-`factor'*`.xr'
+	capture return scalar xmax = `.xmax'+`factor'*`.xr'
+	capture return scalar ymin = `.ymin'-`factor'*`.yr'
+	capture return scalar ymax = `.ymax'+`factor'*`.yr'
+
+end
+
+/* -------------------------------------------------------------------------*/
+/*
+	Returns the label of the specified dimension variable, or if that is 
+	blank the name of the <dim>variable.  Optionally, returns only the name.
+
+	Note will work for dim = "y2" or "y3" for y2xview_g.class and
+	y3xview_g.class.
+*/
+
+program dimtitle
+
+	gettoken dim 0 : 0
+
+	syntax [ , Nameonly Keynum(integer 1) ]
+
+	if "`.bar_drop_to.stylename'" == "y" {
+		local dim = cond("`dim'" == "x" , "y", "x")
+	}
+
+	if ! `.Local.serset.isofclass serset' {
+		exit
+	}
+
+	if `keynum' == 1 {
+		if "`nameonly'" == "" {
+			class exit `"`.serset.sers[`.`dim'var'].label_or_name'"'
+		}
+		class exit `"`.serset.sers[`.`dim'var'].name'"'
+	}
+	else if `keynum' == 2 {
+		class exit `"1 petal = 1 obs."'
+	}
+	else if `keynum' == 3 {
+		class exit `"1 petal = `.pw' obs."'
+	}
+
+end
+
+program draw
+
+	if ! `.draw_view.istrue' { 
+		exit						/* EXIT */
+	}
+	.serset.set
+
+	// rotation/rescale to get hexagons to point vertically
+	local angle = c(pi)/2
+
+	// note: sunflower hexagons are a 90 degree rotation of those drawn by
+	// -gdi_hexagon-, thus we must divide by sqrt(3)/2
+
+	// half length between opposite sides
+	local r = `.binwidth'/sqrt(3)		// the 2's cancel
+
+	// note: do not divide by sqrt(3)/2 for the bin height; gdi_hexagon
+	// handles this automatically
+
+	// half length between opposite points
+	local h = `r'*`.binar'
+
+	// flower petal radius and height
+	local fr = (`.binwidth'/2)*(`.pl'/100)
+	local fh = (`.binwidth'/2)*(`.pl'/100)*`.binar'
+
+	// Draw the points and the light and dark hexagonal bins
+	forvalues j = 1/`:serset N' {
+		local y = serset(`.yvar', `j')
+		local c = serset(`.cvar', `j')
+		local x = serset(`.xvar', `j')
+
+		// the following shouldn't be possible
+		if missing(`x'+`y'+`c') continue
+
+		if `c' < `.light' {
+			.style.marker.setgdifull
+			// singular points
+			gdi point `x' `y'
+		}
+		else if `c' < `.dark' {
+			// draw hexagon
+			.style.lighthexbin.setgdifull
+			gdi_hexagon `x' `y' `r' `h' `angle'
+			if `c' > 1 | `.singlepetal' {
+				// draw the flower
+				.style.lightflower.setgdifull
+				gdi_spokes `x' `y' `fr' `fh' `c'
+			}
+			else {
+				// singular point in a bin
+				.style.marker.setgdifull
+				gdi point `x' `y'
+			}
+		}
+		else {
+			// draw hexagon
+			.style.darkhexbin.setgdifull
+			gdi_hexagon `x' `y' `r' `h' `angle'
+			local petals = max(1,round(`c'/`.pw',1))
+			if `petals' > 1 | `.singlepetal' {
+				// draw the flower
+				.style.darkflower.setgdifull
+				gdi_spokes `x' `y' `fr' `fh' `petals'
+			}
+			else {
+				// singular point in a bin
+				.style.marker.setgdifull
+				gdi point `x' `y'
+			}
+		}
+	}
+
+end
+
+
+// ----------------------------------------------------------------------------
+// Determine if a position is in/on the view
+
+program _at_pos_sunflower
+	args y x ymult xmult gmult
+
+					// Search marker, also looks for
+					// marker-size hexagons, assumes
+					// hexagons at least marker size
+	local sz = max(`gmult'*`.style.marker.size.val', .9)
+	if (0`._at_points `y' `x' `ymult' `xmult' `sz' `two'') {
+		._Gr_Global.serset_index = (.)
+		class exit = 1
+	}
+
+						// Search hexagons
+
+	local w = (`.binwidth'/2)*(`.pl'/100)	// half the width and height
+	local h = (`.binwidth'/2)*(`.pl'/100)*`.binar'
+
+	local y0 = `y' - `h'			// Pretend hexagons are square
+	local y1 = `y' + `h'
+	local x0 = `x' - `w'
+	local x1 = `x' + `w'
+
+	local found 0
+
+	forvalues j = 1/`:serset N' {
+		local yp = serset(`.yvar', `j')
+		local c  = serset(`.cvar', `j')
+		local xp = serset(`.xvar', `j')
+
+		if missing(`x'+`y'+`c') continue
+
+		if (`c' < `.light')  continue
+
+		if `yp' > `y0' & `yp' < `y1' {
+			if `xp' > `x0' & `xp' < `x1' {
+				local found 1
+				continue, break
+			}
+		}
+	}
+
+	._Gr_Global.serset_index = (.)
+	class exit = `found'
+end
+
+exit

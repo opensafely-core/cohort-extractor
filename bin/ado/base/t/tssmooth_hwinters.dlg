@@ -1,0 +1,236 @@
+/*
+   tssmooth hwinters
+
+*! VERSION 1.2.0  16dec2014
+
+*/
+
+VERSION 14.0
+INCLUDE _std_large
+INCLUDE _ht350
+INCLUDE header
+HELP hlp1, view("help tssmooth_hwinters")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource TSSMOOTH_HWINTERS_DLG_HSCALE
+END
+
+DIALOG main, label(resource TSSMOOTH_HWINTERS_DLG_TITLE) /*
+		*/ tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  DEFINE _x _xsetbu
+  DEFINE _y _top
+  INCLUDE _bu_tsset
+
+  TEXT     tx_gener    _lft      _ss       _cwd3_1   .,			/*
+  		*/label(resource TSSMOOTH_HWINTERS_MAIN_TX_GENER)
+
+  TEXT     tx_exp      _lft3_2   @         _comb3_1  .,			/*
+  		*/label(resource TSSMOOTH_HWINTERS_MAIN_TX_EXP)
+
+  EDIT     ed_gener    _lft      _ss       _vnwd     .,			/*
+  		*/label(resource TSSMOOTH_HWINTERS_MAIN_TX_GENER)
+
+  TEXT     tx_equals   _eqxpos   @         _eqwd     .,			/*
+  		*/center						/*
+  		*/label(resource LBL_EQUAL_SIGN)
+
+  EXP      ex_exp      _lft3_2   @         _comb3_1  .,			/*
+  		*/label(resource LBL_BU_CREATE)				/*
+  		*/error(resource TSSMOOTH_HWINTERS_MAIN_TX_EXP)
+
+DEFINE _x _lft
+DEFINE _y _ls
+DEFINE _cx _cwd1
+INCLUDE _type
+DEFINE holdy @y
+
+  CHECKBOX ck_replace  _lft3_2	 holdy	   _cwd2     .,			/*
+		*/ option(replace) nomem				/*
+		*/ label(resource TSSMOOTH_HWINTERS_MAIN_CK_REPLACE)
+
+  GROUPBOX gb_opts     _lft      +35       _iwd      _ht16h,		/*
+		*/ label(resource LBL_OPTIONS)
+
+  RADIO    rb_parms1   _ilft     _ss       _cwd2     .,			/*
+  		*/ label(resource TSSMOOTH_HWINTERS_MAIN_RB_PARMS1)	/*
+		*/ clickon(script main_parms_on)			/*
+		*/ first
+
+  DEFINE holdy1 @y
+
+  TEXT     tx_parms1    _indent2  _vss      _inwd     .,		/*
+  		*/label(resource TSSMOOTH_HWINTERS_MAIN_TX_PARMS1)
+  TEXT     tx_parms2   @         _vss      @         .,			/*
+  		*/label(resource TSSMOOTH_HWINTERS_MAIN_TX_PARMS2)
+
+  RADIO    rb_parms2   _lft4_3   holdy1    _cwd2     .,			/*
+  		*/ label(resource TSSMOOTH_HWINTERS_MAIN_RB_PARMS2)	/*
+		*/ clickon(script main_parms_off)			/*
+		*/ last
+
+  TEXT     tx_parms3    _indent2  _vss      _inwd     .,		/*
+  		*/label(resource TSSMOOTH_HWINTERS_MAIN_TX_PARMS3)
+
+  EDIT     ed_parms1   @         _ss       _en7wd    ., numonly		/*
+  		*/ label(resource TSSMOOTH_HWINTERS_MAIN_ED_PARMS1)
+
+  DEFINE holdy2 @y
+
+  EDIT     ed_parms2   +80       holdy2	   _en7wd    ., numonly		/*
+  		*/ label(resource TSSMOOTH_HWINTERS_MAIN_ED_PARMS2)
+
+  CHECKBOX ck_samp0    _ilft     _ms       _cwd2     .,			/*
+  		*/ label(resource TSSMOOTH_HWINTERS_MAIN_CK_SAMP0)	/*
+  		*/ clickon(script main_samp0_on)			/*
+    		*/ clickoff(script main_samp0_off)
+  DEFINE holdy3 @y
+  TEXT     tx_samp0    _indent2  _vss      _inwd     .,			/*
+  		*/label(resource TSSMOOTH_HWINTERS_MAIN_TX_SAMP0)
+
+  SPINNER  sp_samp0    @         _ss	   _spwd     .,			/*
+  		*/ option(samp0)					/*
+      		*/ min(2)						/*
+      		*/ max(c(N))						/*
+		*/ default(2)
+
+  CHECKBOX ck_s0       _ilft4_3  holdy3	   _cwd2     .,			/*
+		*/ label(resource TSSMOOTH_HWINTERS_MAIN_CK_S0)		/*
+		*/ clickon(script main_s0_on)				/*
+  		*/ clickoff(script main_s0_off)
+
+  EDIT     ed_s01      _indent2  _ss   	   _en7wd    .,	numonly		/*
+  		*/ label(resource TSSMOOTH_HWINTERS_MAIN_ED_S01)
+
+  EDIT     ed_s02      +80       @         _en7wd    .,	numonly		/*
+  		*/ label(resource TSSMOOTH_HWINTERS_MAIN_ED_S02)
+
+  CHECKBOX ck_for      _ilft     _xls      _cwd1     .,			/*
+  		*/ label(resource TSSMOOTH_HWINTERS_MAIN_CK_FOR)	/*
+		*/ clickon(gaction main.sp_for.enable)			/*
+  		*/ clickoff(gaction main.sp_for.disable)
+
+  SPINNER  sp_for      _indent2  _ss       _spwd     .,			/*
+  		*/ option(forecast)					/*
+  		*/ min(1)						/*
+  		*/ max(500)						/*
+		*/ default(1)
+
+
+END
+
+DIALOG opt, tabtitle(resource LBL_OPTIONS)
+BEGIN
+  CHECKBOX ck_diff     _lft      _top      _iwd      .,			///
+	option(diff)							///
+	label(resource TSSMOOTH_HWINTERS_OPT_CK_DIFF)
+
+  TEXT     tx_diff1    _indent2  _vss      _inwd     .,			///
+	label(resource TSSMOOTH_HWINTERS_OPT_TX_DIFF1)
+
+  TEXT     tx_diff2    @         _vss      @         .,			///
+	label(resource TSSMOOTH_HWINTERS_OPT_TX_DIFF2)
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script max_setDefaultDifficult
+	script max_setFromForHwinters
+END
+
+INCLUDE ifin
+INCLUDE _type_list_fd
+INCLUDE max_ml
+
+SCRIPT main_parms_on
+BEGIN
+	gaction main.ed_parms1.disable
+	gaction main.ed_parms2.disable
+	script max_from_enable
+END
+
+SCRIPT main_parms_off
+BEGIN
+	script max_from_disable
+	gaction main.ed_parms1.enable
+	gaction main.ed_parms2.enable
+END
+
+SCRIPT main_samp0_on
+BEGIN
+	gaction main.ck_s0.disable
+	gaction main.ed_s01.disable
+	gaction main.ed_s02.disable
+	gaction main.sp_samp0.enable
+END
+
+SCRIPT main_samp0_off
+BEGIN
+	gaction main.sp_samp0.disable
+	gaction main.ck_s0.enable
+END
+
+SCRIPT main_s0_on
+BEGIN
+	gaction main.sp_samp0.disable
+	gaction main.ck_samp0.disable
+	gaction main.tx_samp0.disable
+	gaction main.ed_s01.enable
+	gaction main.ed_s02.enable
+END
+
+SCRIPT main_s0_off
+BEGIN
+	gaction main.ed_s01.disable
+	gaction main.ed_s02.disable
+	gaction main.ck_samp0.enable
+	gaction main.tx_samp0.enable
+END
+
+PROGRAM command
+BEGIN
+	put "tssmooth hwinters "
+	INCLUDE _type_pr
+	require main.ed_gener
+	put main.ed_gener
+	put " "
+	put "= "
+	require main.ex_exp
+	put main.ex_exp
+	INCLUDE _ifin_pr
+	beginoptions
+		if main.rb_parms2 {
+			require main.ed_parms1
+			require main.ed_parms2
+			put "parms("
+			put main.ed_parms1
+			put " "
+			put main.ed_parms2
+			put ")"
+			put " "
+		}
+
+		if main.ck_s0 {
+		   	require main.ed_s01
+		   	require main.ed_s02
+			put "s0("
+			put main.ed_s01
+			put " "
+			put main.ed_s02
+			put ")"
+			put " "
+		}
+		if main.ck_samp0 {
+			optionarg main.sp_samp0
+		}
+		if main.ck_for {
+			optionarg main.sp_for
+		}
+		option main.ck_replace
+		option opt.ck_diff
+		put " " /program max_output
+	endoptions
+
+END

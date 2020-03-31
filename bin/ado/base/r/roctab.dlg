@@ -1,0 +1,224 @@
+/*
+ roctab
+
+*!  VERSION 2.1.0  16nov2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_xwide
+DEFINE _dlght 340
+INCLUDE header
+
+HELP hlp1, view("help roctab")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource ROCTAB_DLG_HSCALE
+END
+
+
+SCRIPT main_POSTINIT
+BEGIN
+	gr_line_options.settabtitle resource LBL_TAB_REFERENCE_LINE
+	gr_line_options_optionName.setstring "rlopts"
+	script gr_plots_setDefaultConnected
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	label(resource ROCTAB_DLG_TITLE)
+BEGIN
+  TEXT tx_varr			_lft	_top	_cwd1	.,		///
+	label(resource LBL_REFERENCE_VARIABLE)
+  TEXT tx_varc			_lft4_2	@	@	.,		///
+	label(resource LBL_CLASSIFICATION_VARIABLE)			
+  DEFINE holdy @y
+  VARNAME vn_varr		_lft	_ss	_vnwd	.,		///
+  	numeric								///
+	label(resource LBL_REFERENCE_VARIABLE)
+  VARNAME vn_varc		_lft4_2	@	@	.,		///
+  	numeric								///
+	label(resource LBL_CLASSIFICATION_VARIABLE)
+	
+  CHECKBOX ck_lorenz		_lft	+35	_cwd1	.,		///
+	label(resource ROCTAB_MAIN_CK_LORENZ)				///
+	option(lorenz)							///
+	onclickon(program main_lorenz_on)				///
+	onclickoff(program main_lorenz_off)
+  DEFINE y1 @y
+  CHECKBOX ck_binom		@	_ms	_cwd1	.,		///
+	label(resource ROCTAB_MAIN_CK_BINOM)				///
+	option(binomial)
+  CHECKBOX ck_detail		_lft2	y1	@	.,		///
+	option(detail)							///
+	label(resource ROCTAB_MAIN_CK_DETAIL)
+  CHECKBOX ck_table		@	_ms	@	.,		///
+	label(resource ROCTAB_MAIN_CK_TABLE)				///
+	option(table)
+  CHECKBOX ck_nolabel		_lft	_ms	@	.,		///
+	label(resource ROCTAB_MAIN_CK_NOLABEL)				///
+	option(nolabel)
+
+  GROUPBOX gb_ste		_lft	_ls	_iwd	_ht2,		///
+	label(resource ROCTAB_MAIN_GB_STE)
+  RADIO rb_delong		_indent	_ss	_cwd4_4	.,		///
+	label(resource ROCTAB_MAIN_RB_DELONG)							///
+	option(NONE)							///
+	first
+  RADIO rb_bamber		_ilft4_2 @ 	_cwd4_2	.,		///
+	label(resource ROCTAB_MAIN_RB_BAMBER)							///
+	option(bamber)
+  RADIO rb_hanley		_ilft4_3 @	_cwd4_4	.,		///
+	label(resource ROCTAB_MAIN_RB_HANLEY)							///
+	option(hanley)							///
+	last
+
+  CHECKBOX ck_graph		_lft	+45	_iwd	_ht5,		///
+	groupbox							///
+	onclickon(program main_graph_on)				///
+	onclickoff(program main_graph_off)				///
+	label(resource LBL_GRAPH_THE_ROC_CURVE)				///
+	option(graph)
+  CHECKBOX ck_noref		_indent	_ms	_cwd2	.,		///
+	label(resource ROCTAB_MAIN_CK_NOREG)				///
+	onclickon(program check_noref)					///
+	onclickoff(program check_noref)					///
+	option(norefline)
+  DEFINE holdx @x
+  CHECKBOX ck_spec		_lft2	@	_cwd2	.,		///
+	option(specificity)						///
+	label(resource ROCTAB_MAIN_CK_SPEC)
+  CHECKBOX ck_summ		holdx	_ms	@	.,		///
+	label(resource LBL_REPORT_AREA_UNDER_ROC_CURVE)			///	
+	option(summary)
+  DEFINE _x _lft
+  DEFINE _y +45
+  DEFINE _cx _sprb
+  INCLUDE _sp_level
+
+END
+
+// Main program/scripts
+PROGRAM main_lorenz_on
+BEGIN
+	call main.gb_ste.disable
+	call main.rb_hanley.disable
+	call main.rb_delong.disable
+	call main.rb_bamber.disable
+	call main.ck_binom.disable
+	if main.ck_graph {
+    		call main.ck_noref.disable
+		call script gr_line_options_disable
+	}
+END
+
+PROGRAM main_lorenz_off
+BEGIN
+	call main.gb_ste.enable
+	call main.rb_hanley.enable
+	call main.rb_delong.enable
+	call main.rb_bamber.enable
+	call main.ck_binom.enable
+	if main.ck_graph {
+		call main.ck_noref.enable
+		if ! main.ck_noref {
+			call script gr_line_options_enable
+		}
+	}
+END
+
+PROGRAM check_noref
+BEGIN
+	if main.ck_graph {
+		if ! main.ck_noref {
+			call script gr_line_options_enable
+		}
+		if !H(main.ck_noref) & main.ck_noref {
+			call script gr_line_options_disable
+		}
+	}
+END
+
+PROGRAM main_graph_on
+BEGIN
+	if ! main.ck_lorenz {
+		call main.ck_noref.enable
+	}
+	call main.ck_summ.enable
+	call main.ck_spec.enable
+	if ! main.ck_lorenz {
+		call program check_noref
+	}
+	call script gr_plots_enable
+	call script gr_addplots_enable
+	call script gr_yaxis_enable
+	call script gr_xaxis_enable
+	call script gr_titles_enable
+	call script gr_legend_enable
+	call script gr_overall_enable
+END
+
+PROGRAM main_graph_off
+BEGIN
+	call main.ck_noref.disable
+	call main.ck_summ.disable
+	call main.ck_spec.disable
+
+	call script gr_plots_disable
+	call script gr_addplots_disable
+	call script gr_yaxis_disable
+	call script gr_xaxis_disable
+	call script gr_titles_disable
+	call script gr_legend_disable
+	call script gr_overall_disable
+END
+
+INCLUDE ifin
+INCLUDE weights_f
+INCLUDE gr_plots
+INCLUDE gr_line_options
+INCLUDE gr_addplots
+INCLUDE gr_yaxis
+INCLUDE gr_xaxis
+INCLUDE gr_titles
+INCLUDE gr_legend
+INCLUDE gr_overall
+
+PROGRAM command
+BEGIN
+	put "roctab "
+	varlist main.vn_varr
+	varlist main.vn_varc
+	put " " /program ifin_output
+	put " " /program weights_output
+	beginoptions
+	        option main.ck_lorenz
+		if !(main.ck_lorenz) {
+			option radio(main rb_delong rb_bamber rb_hanley)
+			option main.ck_binom
+		}
+		option main.ck_detail
+		option main.ck_table
+		option main.ck_nolabel
+		INCLUDE _level_main_pr
+		option main.ck_graph
+		if main.ck_graph {
+			option main.ck_spec
+			if !(main.ck_lorenz){
+				option main.ck_noref
+			}
+			option main.ck_summ
+			
+			put " " /program gr_plots_output
+			put " " /program gr_line_options_output
+			put " " /program gr_addplots_output
+			put " " /program gr_yaxis_output
+			put " " /program gr_xaxis_output
+			put " " /program gr_titles_output
+			put " " /program gr_legend_output
+			put " " /program gr_overall_output
+		}
+	endoptions
+END

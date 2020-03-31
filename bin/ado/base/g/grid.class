@@ -1,0 +1,2382 @@
+/*                               grid
+
+	spanfit(...) will expand into empty cells, but will not back
+	up if other cells later invade space that it has captured.
+*/
+*! version 1.2.0  10jun2019
+
+version 8
+
+class {
+    instance:
+    	style	= .plotregionstyle.new
+
+	subview	     = .yesno.new , style(no)
+	gmetric_mult = 1
+
+	fixed_xsize = (.)
+	fixed_ysize = (.)
+	xoffset	    = 0
+	yoffset	    = 0
+
+	maxrow = 0			/* max row number 		*/
+	maxcol = 0			/* max column number 		*/
+	array  rowpos = { 1 }		/* array of row positions	*/
+	array  colpos = { 1 }		/* array of column positions	*/
+	double shared_rowsz		/* size of shared stretch rows	*/
+	double shared_colsz		/* size of shared stretch cols	*/
+	array  fitcells			/* cells who span by fitting	*/
+	cells = .null.new		/* cell information that aligns   *
+					 * with dynamically declared view */
+
+	addpgm	= "_add_view"		// member program to add a view
+
+	draw_view       = .yesno.new, style(yes)
+	fill_if_undrawn = .yesno.new, style(no)
+
+	drawn_gmult	= 1		// for scaling when finding subviews
+    	drawn_margin	= .margin.new , style(zero)	// for finding
+
+	_hold_scaling		= (.)
+	_hold_gmetric_mult	= (.)
+
+	_dialog			= "grid"	// dialog/toolbar name
+	dragable		= 1
+
+	y_click			= (.)		// Clicked position
+	x_click			= (.)		// in local metric
+
+						// Graph recorder
+	added_lines_rec		= 0			// total at end of
+	added_markers_rec	= 0			// recording
+	added_text_rec		= 0
+	added_lines_new		= 0			// added during playback
+	added_markers_new	= 0
+	added_text_new		= 0
+
+} , inherit(container)
+
+
+/* -------------------------------------------------------------------------*/
+program define new
+
+	syntax [, Style(string) SUBVIEW GMETricmult(integer 1) * ]
+
+	if `gmetricmult' <= 0 {
+		di as error "gmetricmult() invalid, must be > 0"
+		exit 198
+	}
+
+	.gmetric_mult = `gmetricmult'
+
+	if "`subview'" != "" {
+		.subview.set_true
+	}
+
+	if "`style'" == "" {
+		local style scheme graph
+	}
+	.style.setstyle, style(`style') 		/* uses schemes */
+
+	.xstretch.set free
+	.ystretch.set free
+							/* ... more ? ... */
+
+	.Super.new , `options'
+end
+
+
+/* -------------------------------------------------------------------------*/
+/* Move an existing view
+
+   Usage: .move <view_name> location_syntax_from_insert_below
+
+*/
+
+program move
+
+	gettoken view location : 0
+
+	if !(0`.`view'.isofclass view' | 0`.`view'.isofclass subview') {
+		di in white "May only move dynamically declared views"
+		exit 198
+	}
+		
+	nobreak {
+		.addpgm = "_move_view"
+		capture noisily .insert (`view') `location'
+		local rc = _rc
+		.addpgm	= "_add_view"
+	}
+	if (`rc') exit `rc'
+
+/*
+	tempname holdview
+	.`holdview' = .`view'.ref
+	.delete `view'
+	gettoken view rest : view , parse("[")
+	.insert (`view' = .`holdview'.ref) `location'
+*/
+end
+
+
+
+/* -------------------------------------------------------------------------*/
+/* Insert a view into the grid above, below, leftof, or rightof of the named 
+   view.  A new row or column is created to hold the view.
+
+   Usage:  
+
+     insert (<new_view>) [overlay] {A|B|L|R|N...} {baseview|rc} [, Span(...) ]
+
+		{A|B|L|R|N|O} :=	Above   name|#_r #_c
+					Below   name|#_r #_c
+					Leftof  name|#_r #_c
+					Rightof name|#_r #_c
+					On
+					AT row column
+					Top		(very top)
+					Bottom		(very bottom)
+					FULLLeft	(far left)
+					FULLRight	(far right)
+					New
+
+		<new_view>  :=  name = rvalue (returning a view)
+				class viewclass [name]
+*/
+program insert 
+	gettoken new_dec 0 : 0, match(par)
+
+	if "`par'" == "" {
+		di as error "grid.insert, (new_view) not found"
+		exit 198
+	}
+
+	gettoken direct 0 : 0 , parse(" ,")
+
+	local overlay = "`direct'" == "overlay"
+	if `overlay' {
+		gettoken direct 0 : 0 , parse(" ,")
+	}
+
+	._set_direction direct : `direct'		/* set the direction */
+
+					/* handle "new" location */
+	if "`direct'" == "new" {
+		if "`.dynamicmv.arrnels'" != "" {
+			di as error "may not insert using new when "	/*
+				*/ "grid already contains view"
+			exit 198
+		}
+
+		.maxrow = 3
+		.maxcol = 3
+		.`.addpgm' `"`new_dec'"' 2 2 `"`0"'
+
+		exit						/* EXIT */
+	}
+
+					/* handle "at" location */
+	if "`direct'" == "at" {
+		gettoken row 0 : 0
+		gettoken col 0 : 0 , parse(" ,")
+
+		capture confirm integer number `row'
+		local rc = _rc
+		capture confirm integer number `col'
+		if _rc | `rc' {
+			di as error "grid.insert:  at row col, row and col " /*
+				*/ "must be integers"
+		}
+		if `row' < 1 | `col' < 1 {
+			di as error "grid.insert:  at row col, row and col " /*
+				*/ "must be positive integers"
+			local row = max(`row', 1)
+			local col = max(`col', 1)
+		}
+		if 0`.maxrow' <= `row' { 
+			.maxrow = `row' + 1 
+		}
+		if 0`.maxcol' <= `col' { 
+			.maxcol = `col' + 1 
+		}
+		.`.addpgm' `"`new_dec'"' `row' `col' `"`0'"'
+
+		exit						/* EXIT */
+	}
+
+
+					/* handle relative locations and
+					 * extreme positions */
+	if ! inlist("`direct'",  "fullleft", "fullright", "top", "bottom") {
+
+		syntax [anything] [ , RING(real -1) * ]
+
+		capture numlist "`anything'" , min(2) max(2) integer range(>0)
+		if ! _rc {					// #_r #_c
+			tokenize `r(numlist)'
+
+			if ("`direct'" == "above")   local ins_row = `1' + 1
+			else			     local ins_row = `1'
+
+			if ("`direct'" == "rightof") local ins_col = `2' + 1
+			else			     local ins_col = `2'
+
+			local 0 , ring(`ring') `options'
+		}
+		else {						// obj name
+			gettoken basename 0 : 0 , parse(" ,")
+			local cellname cells.`basename'
+
+			if "`.`cellname'.isa'" == "array" {  
+				local cellname `cellname'[1]	// 1st element
+			}
+						// check errors */
+			if "`.`cellname'.isa'" == "" {
+			    di as error `"grid.insert:  `basename' not found"'
+			    exit 198
+			}
+
+			if "`.`cellname'.minrow'" == "" | 		///
+			   "`.`cellname'.mincol'" == "" {
+				di in red "`basename' not in grid, may " ///
+					"not use grid.insert"
+			    exit 198
+			}
+						/* hold insertion row and col */
+			if "`direct'" == "above" {
+				local ins_row = `.`cellname'.maxrow' + 1
+			}
+			else {
+				local ins_row = `.`cellname'.minrow'
+			}
+
+			if "`direct'" == "rightof" {
+				local ins_col = `.`cellname'.maxcol' + 1
+			}
+			else {
+				local ins_col = `.`cellname'.mincol'
+			}
+		}
+
+		if 0`ring' > 0 & "`direct'" != "on" {
+		    if "`direct'" == "above" | "`direct'" == "below" {
+			._find_ringrow ins_row f_ring :			///
+				`ins_row' `ins_col' `ring' `direct'
+		    }
+		    else {
+			._find_ringcol ins_col f_ring : 		///
+				`ins_row' `ins_col' `ring' `direct'
+		    }
+
+		    local overlay = `ring' == 0`f_ring'
+		}
+//		local ins_row = `.`cellname'.minrow' + ("`direct'" == "above")
+//		local ins_col = `.`cellname'.mincol' + ("`direct'" == "rightof")
+	}
+	else {						/* extreme position */
+		local ins_row = cond("`direct'" == "top",		/*
+			*/ max(2, `.maxrow'), 2)
+		local ins_col = cond("`direct'" == "fullright",		/*
+			*/ max(2, `.maxcol'), 2)
+	}
+
+					/* handle "on" location */
+	if "`direct'" == "on" {
+		.`.addpgm' `"`new_dec'"' `ins_row' `ins_col' `"`0'"'
+
+		exit						/* EXIT */
+	}
+
+					/* handle insertion locations */
+
+	local shift_on = cond(						/*
+		*/ index("`direct'", "left") | index("`direct'", "right"),  /*
+		*/ "col", "row")
+
+	if `overlay' {
+		local ins_`shift_on' = `ins_`shift_on'' - 		/*
+			*/ ("`direct'" == "below" | "`direct'" == "leftof")
+		if `ins_`shift_on'' > 0 {
+			if `ins_`shift_on'' > `.max`shift_on'' {
+				.max`shift_on' = `ins_`shift_on''
+			}
+			.`.addpgm' `"`new_dec'"' `ins_row' `ins_col' `"`0'"'
+
+			exit					/* EXIT */
+		}
+		else	local ins_`shift_on' = 1
+	}
+		
+						/* shift current views */
+	local shift_at `ins_`shift_on''
+
+	forvalues i = 1/0`.cells.dynamicmv.arrnels' {
+
+		if "`.cells.dynamicmv[`i'].isa'" != "array" {
+			._shift_at cells.dynamicmv[`i'] `shift_on' `shift_at'
+			continue				/* CONTINUE */
+		}
+
+					/* loop over any that are arrays */
+		forvalues j = 1/0`.cells.dynamicmv[`i'].arrnels' {
+		       ._shift_at cells.dynamicmv[`i'][`j']		///
+		       		  `shift_on' `shift_at'
+		}
+	}
+						/* track largest row and col */
+	.max`shift_on' = `.max`shift_on'' + 1
+
+						/* insert the new view */
+	.`.addpgm' `"`new_dec'"' `ins_row' `ins_col' `"`0'"'
+end
+
+program define _set_direction
+	args lname colon
+
+	mac shift 2
+	local 0 `",  `*'"'
+	syntax [ , Above Below Leftof Rightof On AT New Top BOttom 	/*
+		*/ FULLLeft FULLRight ]
+
+/*
+	if _rc {
+		di as error "{p 0 6} grid.insert:  `lname' not "	/*
+			*/ "allowed, first argument must be above, "	/*
+			*/ "below, leftof, rightof, on, at, or new"
+		exit 198
+	}
+*/
+
+	c_local `lname' `above'`below'`leftof'`rightof'`on'`at'`new'/*
+		*/`top'`bottom'`fullright'`fullleft'
+end
+
+program _find_ringrow
+	args imac rmac colon irow icol ring dir
+
+	if "`dir'" == "above" {
+		local mm   max
+		local test >=
+		local above_shift 1
+	}
+	else {
+		local mm   min
+		local test <
+		local above_shift 0
+	}
+
+	forvalues i = 1/0`.cells.dynamicmv.arrnels' {
+	    local cell cells.dynamicmv[`i']
+	    if 0`.`cell'.mincol' <= `icol' & 0`.`cell'.maxcol' >= `icol' {
+		if `.`cell'.`mm'row' `test' `irow' {
+		    if 0`.`cell'.ring' < `ring' {
+			local irow = `.`cell'.`mm'row' + `above_shift'
+			c_local `rmac' `.`cell'.ring'
+		    }
+		    else {
+			if 0`.`cell'.ring' == `ring' {
+			    local irow = `.`cell'.`mm'row'
+			    c_local `rmac' `.`cell'.ring'
+			    continue , break
+			}
+		    }
+		}
+	    }
+	}
+
+	c_local `imac' `irow'
+end
+
+program _find_ringcol
+	args imac rmac colon irow icol ring dir
+
+	if "`dir'" == "rightof" {
+		local mm   max
+		local test >=
+		local right_shift 1
+	}
+	else {
+		local mm   min
+		local test <
+		local right_shift 0
+	}
+
+	forvalues i = 1/0`.cells.dynamicmv.arrnels' {
+	    local cell cells.dynamicmv[`i']
+	    if 0`.`cell'.minrow' <= `irow' & 0`.`cell'.maxrow' >= `irow' {
+		if `.`cell'.`mm'col' `test' `icol' {
+		    if 0`.`cell'.ring' < `ring' {
+			local icol = `.`cell'.`mm'col' + `right_shift'
+			c_local `rmac' `.`cell'.ring'
+		    }
+		    else {
+			if 0`.`cell'.ring' == `ring' {
+			    c_local `rmac' `.`cell'.ring'
+			}
+		    }
+		}
+	    }
+	}
+
+	c_local `imac' `icol'
+end
+
+program define _add_view
+
+	args new_dec row col options
+
+	gettoken name rvalue : new_dec , parse(" =")
+
+	.cells.Declare `name' = .cell.new		/* aligned cell */
+	local cell cells.`r(name)'
+	._declare_view `name' `rvalue'			/* new view     */
+	local view `r(name)'
+
+	.`cell'.minrow = `row'
+	.`cell'.maxrow = `row'
+	.`cell'.mincol = `col'
+	.`cell'.maxcol = `col'
+
+	.`cell'._prse_set_span `view' `.maxrow' `.maxcol' `"`options'"'
+
+	if "`.`cell'.fitspan'" != "" {
+		.fitcells[`.fitcells.arrnels'+1] = .`cell'.ref
+	}
+	if `.fitcells.arrnels' > 0 {
+		_fill_fitgaps 
+	}	
+end
+
+program define _move_view
+
+	args view row col options
+
+	local cell "cells.`view'"
+
+	.`cell'.minrow = `row'
+	.`cell'.maxrow = `row'
+	.`cell'.mincol = `col'
+	.`cell'.maxcol = `col'
+
+	.`cell'._prse_set_span `view' `.maxrow' `.maxcol' `"`options'"'
+
+	if "`.`cell'.fitspan'" != "" {
+		.fitcells[`.fitcells.arrnels'+1] = .`cell'.ref
+	}
+	if `.fitcells.arrnels' > 0 {
+		_fill_fitgaps 
+	}	
+end
+
+program define _declare_view
+				/* this exists so that, lgrid can shadow it 
+				 * with one that logs the key */
+	gettoken name 0 : 0
+
+	.Declare `name' `0'
+end
+
+/* internal
+program define _shift_at
+	args cell shift_on shift_at
+
+	if "`.`cell'.isa'" == "" { 
+		exit					/* empty view */
+	}		
+
+	if ".`cell'.`shift_on'" == "" { 
+		exit 
+	}
+
+	if `.`cell'.min`shift_on'' >=  `shift_at' {
+		.`cell'.min`shift_on' = `.`cell'.min`shift_on'' + 1
+	}
+	if `.`cell'.max`shift_on'' >=  `shift_at' {
+		.`cell'.max`shift_on' = `.`cell'.max`shift_on'' + 1
+	}
+end
+*/
+
+program define _fill_fitgaps
+
+	_set_fitgaps
+
+	forvalues i = 1/`.fitcells.arrnels' {
+
+		local 0 ", `.fitcells[`i'].fitspan'"
+		syntax [, Left Right Above Below ]
+
+		if "`left'"  != "" { 
+			_fitgaps_goleft  "fitcells[`i']" 
+		}
+		if "`right'" != "" { 
+			_fitgaps_goright "fitcells[`i']" 
+		}
+		if "`above'" != "" { 
+			_fitgaps_goabove "fitcells[`i']" 
+		}
+		if "`below'" != "" { 
+			_fitgaps_gobelow "fitcells[`i']" 
+		}
+	}
+
+	_clear_fitgaps
+end
+
+program define _set_fitgaps
+
+	if `.maxcol' > 80 {
+		di as error "grid:  maximum grid columns exceeded"
+		error 198
+	}
+
+	global T_one "11111111111111111111111111111111111111111111111111111111111111111111111111111111"
+	global T_zero "00000000000000000000000000000000000000000000000000000000000000000000000000000000"
+						/* initialize matrix */
+	forvalues r = 1/`.maxrow' {
+		global T_gaprow`r' = bsubstr("$T_zero", 1, `.maxcol')
+	}
+
+						/* set filled values to 0 */
+	forvalues i = 1/0`.dynamicmv.arrnels' {
+
+		if "`.cells.dynamicmv[`i'].isa'" != "array" {
+			_set_cell_gap "cells.dynamicmv[`i']"
+			continue				/* CONTINUE */
+		}
+
+						/* loop over any arrays */
+		forvalues j = 1/`.cells.dynamicmv[`i'].arrnels' {
+			_set_cell_gap "cells.dynamicmv[`i'][`j']"
+		}
+	}
+end
+
+program define _set_cell_gap
+	args cell
+
+	local cmin = max(1, 0`.`cell'.mincol')
+	local cmax 0`.`cell'.maxcol'
+
+	local rmin 0`.`cell'.minrow'
+	local rmax 0`.`cell'.maxrow'
+
+	_fitgaps_blot `rmin' `rmax' `cmin' `cmax'
+end
+
+program define _fitgaps_blot
+	args rmin rmax cmin cmax
+
+	if `rmin' < 1 { 
+		exit 
+	}
+
+	forvalues r = `rmin'/`rmax' {
+		global T_gaprow`r' = 					/*
+			*/ bsubstr("${T_gaprow`r'}", 1, `cmin'-1) +	/*
+			*/ bsubstr("$T_one"  , 1, `cmax'-`cmin'+1) +	/*
+			*/ bsubstr("${T_gaprow`r'}", `cmax'+1, `.maxcol')
+	}
+end
+
+program define _fitgaps_check_n_blot
+	args clear_mac colon rmin rmax cmin cmax
+
+	local len = `cmax' - `cmin' + 1
+	local rng `cmin' , `len'
+	forvalues r = `rmin'/`rmax' {
+		if bsubstr("${T_gaprow`r'}", `rng') != bsubstr("$T_zero", `rng') {
+			c_local `clear_mac' 0
+			exit
+		}
+	}
+
+	_fitgaps_blot `rmin' `rmax' `cmin' `cmax'
+	c_local `clear_mac' 1
+end
+
+program define _fitgaps_goabove
+	args cell
+
+	local cmin `.`cell'.mincol'
+	local cmax `.`cell'.maxcol'
+
+	local r = `.`cell'.maxrow' + 1
+	while `r' < `.maxrow' {
+		._fitgaps_check_n_blot clear : `r' `r' `cmin' `cmax'
+		if ! `clear' { 
+			continue, break				/* BREAK */
+		}	
+		.`cell'.maxrow = `r'
+		local r = `r' + 1
+	}
+end
+
+program define _fitgaps_gobelow
+	args cell
+
+	local cmin `.`cell'.mincol'
+	local cmax `.`cell'.maxcol'
+
+	local m = `.`cell'.minrow' - 1
+	forvalues r = `m'(-1)1 {
+		._fitgaps_check_n_blot clear : `r' `r' `cmin' `cmax'
+		if ! `clear' { 
+			continue, break				/* BREAK */
+		}		
+		.`cell'.minrow = `r'
+	}
+end
+
+program define _fitgaps_goleft
+	args cell
+
+	local rmin `.`cell'.minrow'
+	local rmax `.`cell'.maxrow'
+
+	local m = `.`cell'.mincol' - 1
+	forvalues c = `m'(-1)1 {
+		._fitgaps_check_n_blot clear : `rmin' `rmax' `c' `c'
+		if ! `clear' { 
+			continue, break				/* BREAK */
+		}
+		.`cell'.mincol = `c'
+	}
+end
+
+program define _fitgaps_goright
+	args cell
+
+	local rmin `.`cell'.minrow'
+	local rmax `.`cell'.maxrow'
+
+	local c = `.`cell'.maxcol' + 1
+	while `c' < `.maxcol' {
+		._fitgaps_check_n_blot clear : `rmin' `rmax' `c' `c'
+		if ! `clear' { 
+			continue, break				/* BREAK */
+		}
+		.`cell'.maxcol = `c'
+		local c = `c' + 1
+	}
+end
+
+program define _clear_fitgaps
+	cap macro drop T_gaprow*
+	cap macro drop T_one
+	cap macro drop T_zero
+end
+
+program define _fitgaps_show
+	di bsubstr("--------------------------------------------", 1, `.maxcol')
+	forvalues r = `.maxrow'(-1)1 {
+		di "${T_gaprow`r'}"
+	}
+	di bsubstr("--------------------------------------------", 1, `.maxcol')
+end
+
+
+/* -------------------------------------------------------------------------*/
+program delete
+	args view
+
+	if "`.`view'.isa'" != "" {
+		.`view'.ref       = NULLKEY
+	}
+	if "`.cells.`view'.isa'" != "" {
+		.cells.`view'.ref = NULLKEY
+	}
+	if `.fitcells.arrnels' > 0 {
+		_fill_fitgaps 
+	}
+end
+
+/* -------------------------------------------------------------------------*/
+program clear_all_views
+	forvalues i = 1/0`.dynamicmv.arrnels' {
+		class nameoflocal dynamicmv[`i'] 
+		.delete `r(name)'
+	}
+end
+
+
+// ---------------------------------------------------------------------------
+program clear_ofclass
+	args classtype
+
+	foreach gr in `.list_ofclass `classtype'' {
+		.delete `gr'
+	}
+end
+
+// ---------------------------------------------------------------------------
+program clear_notnamed
+	local keeplist "`0'"
+
+	forvalues i = 1/0`.dynamicmv.arrnels' {
+		class nameoflocal dynamicmv[`i'] 
+		local name "`r(name)'"
+		gettoken basename : name , parse(" [")
+		if ! `:list posof "`basename'" in keeplist' {
+			.delete `r(name)'
+		}
+	}
+end
+
+
+/* -------------------------------------------------------------------------*/
+program define xsize
+
+	if "`.xstretch.setting'" == "fixed" & `.fixed_xsize' < . {
+		class exit `.fixed_xsize'
+	}
+	class exit = `._fixed_sz col'
+end
+
+program define ysize
+
+	if "`.ystretch.setting'" == "fixed" & `.fixed_ysize' < . {
+		class exit `.fixed_ysize'
+	}
+	class exit = `._fixed_sz row'
+end
+
+program _fixed_sz
+	args dim
+
+	local ord = cond("`dim'"=="col", "x", "y")
+
+	if "`.`ord'stretch.setting'" != "fixed" {
+		class exit = 0
+	}
+
+	local holdgm `._Gr_Cglobal.gmetric_mult'	// gmetric multiplier
+	._Gr_Cglobal.gmetric_mult =					///
+		`.gmetric_mult' * `._Gr_Cglobal.gmetric_mult'
+
+	tempname sizes				/* get sizes for each row/col */
+	.`sizes' = {}
+
+	forvalues i = 1/0`.cells.dynamicmv.arrnels' {
+
+		if "`.cells.dynamicmv[`i'].isa'" != "array" {
+			._do_fixed `sizes' `dim' "[`i']"
+			continue				/* CONTINUE */
+		}
+
+					/* loop over any that are arrays */
+		forvalues j = 1/0`.cells.dynamicmv[`i'].arrnels' {
+		       ._do_fixed `sizes' `dim' "[`i'][`j']" 
+		}
+	}
+
+						/* handle views that span */
+	forvalues i = 1/0`.cells.dynamicmv.arrnels' {
+
+		if "`.cells.dynamicmv[`i'].isa'" != "array" {
+			._adj_span `sizes' `dim' "[`i']"
+			continue				/* CONTINUE */
+		}
+
+					/* loop over any that are arrays */
+		forvalues j = 1/0`.cells.dynamicmv[`i'].arrnels' {
+		       ._adj_span `sizes' `dim' "[`i'][`j']" 
+		}
+	}
+
+	forvalues i = 1/0`.`sizes'.arrnels' {
+		local sz = 0`sz' + 0`.`sizes'[`i']'
+	}
+
+	._Gr_Cglobal.gmetric_mult = `holdgm'
+
+	class exit = 0`sz'
+
+end
+
+program _do_fixed
+	args sizes dim dex
+
+	local cell cells.dynamicmv`dex'
+	local view dynamicmv`dex'
+	local ord = cond("`dim'"=="col", "x", "y")
+
+	if "`.`view'.`ord'stretch.setting'" != "fixed" {	/* not fixed */
+		exit
+	}
+	if 0`.`cell'.min`dim'' != 0`.`cell'.max`dim'' {		/* spans */
+		exit
+	}
+
+	local sz = 0`.`view'.extent `ord''
+	if `sz' > 0`.`sizes'[`.`cell'.min`dim'']' {
+		.`sizes'[`.`cell'.min`dim''] = `sz'
+	}
+
+end
+
+program _adj_span
+	args sizes dim dex
+
+	local cell cells.dynamicmv`dex'
+	local view dynamicmv`dex'
+
+	if 0`.`cell'.min`dim'' == 0`.`cell'.max`dim'' {		/* no span */
+		exit
+	}
+	if "`.`view'.`ord'stretch.setting'" != "fixed" {	/* not fixed */
+		exit
+	}
+
+	local ord = cond("`dim'"=="col", "x", "y")
+	local sz = 0`.`view'.extent `ord''
+
+	forvalues i = `.`cell'.min`dim''/`.`cell'.max`dim'' {
+		local sum = `sum' + 0`.`sizes'[`i']'
+	}
+
+	if `sz' > 0`sum' {
+		.`sizes'[`.`cell'.min`dim''] = `sz'
+		forvalues i = `=`.cell.min`dim''+1'/`.`cell'.max`dim'' {
+			.`sizes'[`i'] = 0
+		}
+	}
+
+end
+
+
+// ---------------------------------------------------------------------------
+//  Places all of the pieces (views) of the source grid into this grid
+//  at the specified location.  `ref' may be "" meaning copy, or ".ref"
+//  meaning the target will contain references to the original views.
+//  Copying is dangerous because of styles.
+//  margin is optional and if it is specified, spacer views of the size of the
+//  margin are placed around the views.  If a margin direction is zero, no
+//  spacer is placed and if the caller is tracking rows and columns it is
+//  her responsibility to adjust for this.
+
+program place_views
+	args source r0 c0 ref margin
+
+	if 0`.`source'.dynamicmv.arrnels' < 0 {		// nothing to place
+		exit					// margins ignored
+	}
+
+	if 0`.`margin'.isofclass margin' {		// handle margins
+	    if `.`margin'.left' > 0 {
+		.insert (space = .spacer.new, xsize(`.`margin'.left'))	  ///
+			at `=`r0'+1+`.`margin'.bottom'>0' `++c0'
+	    }
+	    if `.`margin'.bottom' > 0 {
+		.insert (space = .spacer.new, ysize(`.`margin'.bottom'))  ///
+			at `++r0' `=`c0'+1'
+	    }
+
+	    if `.`margin'.right' > 0 {
+		.insert (space = .spacer.new, xsize(`.`margin'.right'))  ///
+			at `=`r0'+1' `=`c0'+`.`source'.maxcol''
+	    }
+	    if `.`margin'.top' > 0 {
+		.insert (space = .spacer.new, ysize(`.`margin'.top'))  ///
+			at `=`r0'+`.`source'.maxrow'' `=`c0'+1'
+	    }
+	}
+
+	forvalues i = 1/0`.`source'.dynamicmv.arrnels' {	// place views
+
+	    class nameof `source' dynamicmv[`i'] 
+
+	    if "`.`source'.dynamicmv[`i'].isa'" != "array" {
+		._insert_plview `source' `r(name)' "[`i']" `r0' `c0' `ref'
+		continue				// Continue
+	    }
+
+						/* loop over any arrays */
+	    forvalues j = 1/`.`src'[`i'].arrnels' {
+		._insert_plview `source' `r(name)' "[`i'][`j']" `r0' `c0' `ref'
+	    }
+	}
+
+
+end
+
+program _insert_plview
+	args source name dex r0 c0 ref
+
+	local src    `source'.dynamicmv`dex'
+	local srcell `source'.cells.dynamicmv`dex'
+
+	local range = `.`srcell'.maxrow' - `.`srcell'.minrow'
+	if `range' > 0 {
+		local spanrow spanrow(`range')
+	}
+	local range = `.`srcell'.maxcol' - `.`srcell'.mincol'
+	if `range' > 0 {
+		local spancols spancols(`range')
+	}
+
+	.insert (`name' = .`src'`ref')					  ///
+		at `=`r0'+`.`srcell'.minrow'' `=`c0'+`.`srcell'.mincol''  ///
+		, `spanrows' `spancols'
+end
+
+// ---------------------------------------------------------------------------
+
+program draw
+
+	if (! `.draw_view.istrue')  exit			// Exit
+
+	.draw_setup1 `0'			// so children can break in
+	.draw_setup2
+	.draw_cells
+end
+
+program draw_setup1
+
+	syntax [, *]
+
+	if "`._scheme.isa'" != "" {		/* set the scheme */
+		set curscm `._scheme.objkey'
+	}
+
+	._hold_scaling = .get_gu_scaling	// hold current GU scaling 
+
+	._set_rensize, `options' setguscaling	// set rensize and GU scaling
+
+	if `.xoffset' | `.yoffset' {
+		.xtransform.get_from_gdi
+		.ytransform.get_from_gdi
+	}
+	if `.xoffset' {
+		.xtransform.translate `.xoffset'
+	}
+	if `.yoffset' {
+		.ytransform.translate `.yoffset'
+	}
+
+	if 0`.style.boxstyle.is_drawn' {			/* outer box */
+		.style.boxstyle.draw 0 0 `.xsize_ren' `.ysize_ren'
+	}
+	.set_gdi_posn 0 0 `.ysize_ren' `.xsize_ren'
+
+/* 
+							// gmetric multiplier
+	._hold_gmetric_mult = ._Gr_Cglobal.gmetric_mult	
+	._Gr_Cglobal.gmetric_mult =					///
+		`.gmetric_mult' * `._Gr_Cglobal.gmetric_mult'
+	.drawn_gmult = ._Gr_Cglobal.gmetric_mult
+*/
+
+	.style.margin.setgdi,  view(`.objkey')		/* allow for margins */
+	.drawn_margin = .style.margin.copy
+
+	if 0`.style.inner_boxstyle.is_drawn'  {			/* inner box */
+		.style.inner_boxstyle.draw 0 0 `.xsize_ren' `.ysize_ren'
+	}
+
+	.xtransform.get_from_gdi	/* fetch current transform */
+	.ytransform.get_from_gdi
+end
+
+program _set_rensize
+	syntax [, XSize(real -999) YSize(real -999) SETGUscaling ]
+
+	if `xsize' == -999 {
+		local xsize `.xsize'
+	}
+	if `ysize' == -999 {
+		local ysize `.ysize'
+	}
+				// set new GU scaling and ren sizes
+
+	if `.subview.istrue' {				
+//		if ("`setguscaling'" != "")				///
+//		   .set_gu_scaling `xsize' `ysize' subview
+		.xsize_ren = `xsize'
+		.ysize_ren = `ysize'
+	}
+	else {
+		if ("`setguscaling'" != "") .set_gu_scaling `xsize' `ysize'		
+		if `xsize' < `ysize' {
+			.ysize_ren = `ysize' * 100 / `xsize'
+			.xsize_ren = 100
+		}
+		else {
+			.xsize_ren = `xsize' * 100 / `ysize'
+			.ysize_ren = 100
+		}
+	}
+end
+
+program draw_setup2
+
+	._align y 			/* align if fixed stretch */
+	._align x 			/* align if fixed stretch */
+
+							// gmetric multiplier
+	._hold_gmetric_mult = ._Gr_Cglobal.gmetric_mult	
+	._Gr_Cglobal.gmetric_mult =					///
+		`.gmetric_mult' * `._Gr_Cglobal.gmetric_mult'
+	.drawn_gmult = ._Gr_Cglobal.gmetric_mult
+
+	.position			/* position grid cells */
+
+end
+
+program draw_cells
+					/* loop over all cells in the grid 
+					 * and have them draw themselves */
+	forvalues i = 1/0`.dynamicmv.arrnels' {
+
+		if "`.dynamicmv[`i'].isa'" != "array" {
+			._draw_cell "[`i']"
+			continue				/* CONTINUE */
+		}
+
+					/* loop over any name that are arrays */
+		forvalues j = 1/`.dynamicmv[`i'].arrnels' {
+			._draw_cell "[`i'][`j']"
+		}
+						/* get row/col index from 1 */
+	}
+
+	._Gr_Cglobal.gmetric_mult = ._hold_gmetric_mult
+	.reset_gu_scaling `._hold_scaling'	/* reset original GU scaling */
+	gdi update
+end
+
+
+program draw_cell				// children may break in
+	._draw_cell `0'
+end
+
+program define _draw_cell				
+	gettoken dex options : 0
+
+	local cell cells.dynamicmv`dex'
+	local view dynamicmv`dex'
+
+	if "`.`view'.isa'" == "" { 
+		exit					/* empty view */
+	}
+
+	if "`.`view'.draw_view.istrue'"  == "0" & 			///
+	   "`.`view'.force_draw.istrue'" != "1" {
+		exit						/* not drawn */
+	}	
+
+	local row `.`cell'.minrow'		/* get row/col index from 1 */
+	local col `.`cell'.mincol'
+
+	if "`row'" == "" {			/* a view not in the grid */
+		.`view'.draw
+		exit				/* EXIT */
+	}
+	.xtransform.translate `.colpos[`col']'	/* translate to position */
+	.ytransform.translate `.rowpos[`row']'	/* of view		 */
+
+						/* compute allocated size */
+	local toprow = min(`.`cell'.maxrow'+1, `.maxrow'+1)
+	local topcol = min(`.`cell'.maxcol'+1, `.maxcol'+1)
+	local xsize = cond(						/*
+		*/    "`.`view'.xstretch.setting'" == "shared",	 	/*
+		*/	`.shared_colsz', 				/*
+		*/	`.colpos[`topcol']' - `.colpos[`col']'		/*
+		*/ )
+	local ysize = cond(						/*
+		*/    "`.`view'.ystretch.setting'" == "shared",		/*
+		*/	`.shared_rowsz', 				/*
+		*/	`.rowpos[`toprow']' - `.rowpos[`row']'		/*
+		*/ )
+
+	.`view'.draw ,  xsize(`xsize') ysize(`ysize') `options'	    /* draw */
+
+	.xtransform.reset			/* reset any scale changes */
+	.ytransform.reset			/* made when object drew   */
+end
+
+
+program _align
+	args dim
+
+	if "`.`dim'stretch.setting'" != "fixed" {
+		exit						// Exit
+	}
+
+	if `.fixed_`dim'size' < . {
+		local sz `.fixed_`dim'size'
+	}
+	else {
+		local sz `.`dim'size'
+	}
+
+	local dimshift  = cond("`dim'" == "y", "top", "right")
+	local stydim    = cond("`dim'" == "y", "vertical", "horizontal")
+
+	if `.`dim'size_ren' > `sz' {
+	    if "`.style.`stydim'.stylename'" == "`dimshift'" {
+		.`dim'transform.translate_permanent `=`.`dim'size_ren'-`sz''
+	    }
+	    else if "`.style.`stydim'.stylename'" == "center" {
+		.`dim'transform.translate_permanent `=(`.`dim'size_ren'-`sz')/2'
+	    }
+
+	    .`dim'size_ren = `sz'
+	}
+
+end
+
+// Not so much an alignment, but a shifting of a click position to translate
+// it to the position where _align above will slide the grid before drawing
+program _align_click_shift
+	args dim
+
+	if "`.`dim'stretch.setting'" != "fixed" {
+		class exit = 0
+	}
+
+	if `.fixed_`dim'size' < . {
+		local sz `.fixed_`dim'size'
+	}
+	else {
+		local sz `.`dim'size'
+	}
+
+	local shift = cond("`dim'" == "y", "top", "right")
+
+	if `.`dim'size_ren' > `sz' {
+	    if "`.style.vertical.stylename'"      == "`shift'" {
+		class exit = `.`dim'size_ren'-`sz'
+	    }
+	    else {
+		if "`.style.vertical.stylename'" == "center" {
+		    class exit = (`.`dim'size_ren'-`sz') / 2
+		}
+	    }
+	}
+
+end
+
+
+/* -------------------------------------------------------------------------*/
+/* Determine the positions of the grid's rows and columns.
+*/
+program define position
+
+	if 0`._Gr_Cglobal.noposition'  exit
+
+	_pos_dim row
+	_pos_dim col
+end
+
+program define _pos_dim
+	args dim			/* dim is "row" or "col" */
+
+	tempname shrfrac		/* largest fraction in a shared view */
+	.`shrfrac' = {}
+					/* initialize sizes, will reuse the 
+					 * position array */
+	local m = `.max`dim'' + 1				/* sic */
+	forvalues i = 1/`m' {
+		.`dim'pos[`i'] = 0
+		.`shrfrac'[`i'] = 0
+	}
+
+	global T_gm_fix_span 0
+	.shared_`dim'sz = 0
+
+	local ord = cond("`dim'"=="col", "x", "y")
+
+					/* compute the maximum size of each 
+					 * dim (row/col) and flag those that 
+					 * are shared sizeable */
+	forvalues i = 1/0`.dynamicmv.arrnels' {
+		if "`.dynamicmv[`i'].isa'" != "array" {
+			_update_pos `shrfrac' `dim' "[`i']"
+			continue				/* CONTINUE */
+		}
+					/* loop over any that are arrays */
+		forvalues j = 1/`.dynamicmv[`i'].arrnels' {
+			_update_pos `shrfrac' `dim' "[`i'][`j']"
+		}
+	}
+					/* expand sizes for spanning fixed */
+	if $T_gm_fix_span {
+		forvalues i = 1/0`.dynamicmv.arrnels' {
+			if "`.dynamicmv[`i'].isa'" != "array" {
+				_spread_fixed `shrfrac' `dim' "[`i']"
+				continue			/* CONTINUE */
+			}
+					/* loop over any that are arrays */
+			forvalues j = 1/`.dynamicmv[`i'].arrnels' {
+				_spread_fixed `shrfrac' `dim' "[`i'][`j']"
+			}
+		}
+	}
+	
+	._set_sizes    `shrfrac' `dim'
+
+	_posn_from_size `dim'		/* set the positions from the sizes */
+
+end
+
+program define _update_pos
+	args shrfrac dim dex			/* dim is "row" or "col" */
+
+	local cell cells.dynamicmv`dex'
+	local view dynamicmv`dex'
+
+	if ("`.`cell'.isa'" == "") exit				// Exit
+
+					
+	if "`.`view'.isa'" == ""  {			/* empty view */
+		exit
+	}		
+	if "`.`view'.draw_view.istrue'" == "0" & 			/*
+	    */ ! 0`.`view'.fill_if_undrawn.istrue' { 
+		exit					/* not drawn */
+	}	
+
+	local ord = cond("`dim'"=="col", "x", "y")
+
+					/* see if sizeable in the current dim */
+	
+	local stretchability `.`view'.`ord'stretch.setting'
+
+	if "`stretchability'" == "free" {
+		if `.`cell'.min`dim'' == `.`cell'.max`dim'' {
+			.`shrfrac'[`.`cell'.min`dim''] = 1
+		}
+		exit						/* EXIT */
+	}                  
+
+	if "`stretchability'" == "shared" {
+		forvalues i = `.`cell'.min`dim''/`.`cell'.max`dim'' {
+		   .`shrfrac'[`i'] = 1 + `.`cell'.max`dim'' - `.`cell'.min`dim''
+		}
+		exit						/* EXIT */
+	}
+
+							/* must be fixed */
+	if `.`cell'.min`dim'' != `.`cell'.max`dim'' {
+		global T_gm_fix_span 1
+		exit						/* EXIT */
+	}
+					/* possibly update maximum size of the
+					 * cell's row or column (dim) */
+
+	local sizeref `dim'pos[`.`cell'.min`dim'']  /* ref to col/row size  */
+	local size = 0`.`view'.extent `ord''
+	
+	if `size' > `.`sizeref'' {
+		.`sizeref' = `size'
+	}
+end
+
+program define _spread_fixed
+	args shrfrac dim dex			/* dim is "row" or "col" */
+
+	local cell cells.dynamicmv`dex'
+	local view dynamicmv`dex'
+
+	if ("`.`cell'.isa'" == "") exit			// floating, not a cell
+					
+	if "`.`view'.isa'" == ""  {			/* empty view	*/
+		exit
+	}		
+	if "`.`view'.draw_view.istrue'" == "0" & 			/*
+	    */ ! 0`.`view'.fill_if_undrawn.istrue' { 
+		exit					/* not drawn	*/
+	}	
+	if `.`cell'.min`dim'' == `.`cell'.max`dim'' {
+		exit					/* not spanning	*/
+	}
+
+	local ord = cond("`dim'"=="col", "x", "y") 
+
+	if "`.`view'.`ord'stretch.setting'" != "fixed" {	/* not fixed */
+		exit
+	}
+
+	if 0`.max`dim'' < 0`.`cell'.max`dim'' {		// expand maxrows/cols
+		.max`dim' = 0`.`cell'.max`dim''
+	}
+	if 0`.min`dim'' < 0`.`cell'.min`dim'' {
+		.min`dim' = 0`.`cell'.min`dim''
+	}
+
+					/* compute # and size of contained
+					 * fixed row/cols. count shared too */
+	local shr_ct 0
+	local all_ct  0
+	local sum_sz  0
+	forvalues i = `.`cell'.min`dim''/`.`cell'.max`dim'' {
+		if 0`.`dim'pos[`i']' {
+			local sum_sz = `sum_sz' + `.`dim'pos[`i']'
+		}
+		else {
+			if 0`.`shrfrac'[`i']' {
+				local ++shr_ct
+			}
+		}
+
+		local ++all_ct
+	}
+
+	local view_sz = 0`.`view'.extent `ord''
+
+	if `view_sz' <= `sum_sz' {
+		exit					/* big enough */
+	}
+
+					/* expand shared sized row/cols 
+					 * if possible */
+	if 0`shr_ct' {
+		local sz = (`view_sz' - `sum_sz') / `shr_ct'
+		forvalues i = `.`cell'.min`dim''/`.`cell'.max`dim'' {
+			if ! 0`.`dim'pos[`i']' {
+				if 0`.`shrfrac'[`i']' {
+					.`dim'pos[`i'] = `sz'
+				}
+			}
+		}
+		exit						/* EXIT */
+	}
+					/* expand all contained row/cols 
+					 * proportionally */
+	if `sum_sz' {
+		local prop = `view_sz' / `sum_sz'
+
+		forvalues i = `.`cell'.min`dim''/`.`cell'.max`dim'' {
+			if ! 0`.`dim'pos[`i']' {
+				.`dim'pos[`i'] = `prop' * `.`dim'pos[`i']'
+			}
+		}
+		exit						/* EXIT */
+	}
+					/* contract all contained row/cols 
+					 * a common fixed amount */
+	local adj = `view_sz' / `all_ct'
+	forvalues i = `.`cell'.min`dim''/`.`cell'.max`dim'' {
+		.`dim'pos[`i'] = `adj' + 0`.`dim'pos[`i']'
+	}
+
+end
+
+program define _set_sizes
+	args shrfrac dim
+						/* sum fixed sizes, etc */
+	._sum_fixed size negsize shr_ct : `shrfrac' `dim'
+
+	local ord = cond("`dim'"=="col", "x", "y") 
+	local dimsize `.`ord'size_ren'
+
+	if `size'+`negsize' > `dimsize' {
+				/* bad case, sum of row/col sizes is bigger 
+				 * than our size.  Just scale them to overlap 
+				 * and fit.  Sizeables get a small size 
+				 * just so they show */
+	    local t_shr_sz .06
+	    local shr_ct 0`._shr_only_ct'
+	    if `shr_ct' {					/* sizeables */
+		local shr_sz    = `t_shr_sz' / `shr_ct'
+		.shared_`dim'sz = `shr_sz'
+	    }
+	    else {
+	    	local t_shr_sz 0
+		.shared_`dim'sz = 0
+	    }
+
+	    local scale = (`dimsize'-`t_shr_sz') / (`size'+`negsize'-`t_shr_sz')
+
+	    local fx_shr = 1e300
+	    forvalues i = 1/`.max`dim'' {
+		if `.`dim'pos[`i']' == 0 {
+		    if 0`.`shrfrac'[`i']' {
+			.`dim'pos[`i'] = `.shared_`dim'sz' / `.`shrfrac'[`i']' 
+		    }
+		}
+		else {
+		    .`dim'pos[`i'] = `scale' * `.`dim'pos[`i']'
+		    if 0`.`shrfrac'[`i']' {
+		    	local fx_shr = min(`fx_shr', `.`dim'pos[`i']')
+		    }
+		}
+	    }
+
+	    if `fx_shr' < 1e300 {
+		.shared_`dim'sz = max(`.shared_`dim'sz', `fx_shr')
+	    }
+
+	    exit						/* EXIT */
+	}
+	if `shr_ct' == 0 & `size' != 0 {
+				/* unusual case, no stretchable row/cols.
+				 * just expand them all, need rules
+				 * or other scale settings */
+
+				 /* loop will be more sophisticated */
+		local scale = `dimsize' / `size'
+
+		forvalues i = 1/`.max`dim'' {
+			.`dim'pos[`i'] = `scale' * `.`dim'pos[`i']'
+		}
+		exit						/* EXIT */
+	}
+
+	if `shr_ct' == 0 {			/* size == 0 */
+				/* another unusual case, no stretchable 
+				 * row/cols and all column sizes are 0 */
+				 * just make all a fixed equal size,
+				 *  need rules or other scale settings */
+
+		if `.max`dim'' <= 1 { 
+			exit				/* nothing to do */
+		}
+
+				 /* loop will be more sophisticated */
+		local size = `dimsize' / (`.max`dim'' - 1)
+
+		local m = `.max`dim'' - 1
+		forvalues i = 1/`=`.max`dim''-1' {
+			.`dim'pos[`i'] = `size'
+		}
+		exit						/* EXIT */
+	}
+
+				/* standard case, just size the stretchables */
+
+				/* try equal sizes for all stretchables make
+				 * any that need more size fixed and
+				 * keep iterating until we have only fixed and
+				 * stretchables that fit the standard size */
+	local allfit = 0
+	while (! `allfit') {
+		local shared_sz = (`dimsize' - `size') / `shr_ct'
+
+		local allfit = 1
+		forvalues i = 1/`.max`dim'' {
+			if ! 0`.`shrfrac'[`i']' {
+				continue
+			}
+			if `.`dim'pos[`i']' > `shared_sz'/`.`shrfrac'[`i']' {
+				local allfit = 0
+				local size = `size' + `.`dim'pos[`i']'
+				local shr_ct = `shr_ct' - 1 / `.`shrfrac'[`i']'
+				.`shrfrac'[`i'] = 0
+			}
+		}
+	}
+	.shared_`dim'sz = `shared_sz'
+
+	forvalues i = 1/`.max`dim'' {
+		if 0`.`shrfrac'[`i']' {
+			.`dim'pos[`i'] = `shared_sz' / `.`shrfrac'[`i']'
+		}
+	}
+
+end
+
+program define _sum_fixed
+	args szmac shrszmac ctmac colon shrfrac dim
+
+	local size    0
+	local negsize 0
+	local shr_ct  0
+	forvalues i = 1/`.max`dim'' {
+		if 0`.`shrfrac'[`i']' {
+			local negsize = `negsize' + 0`.`dim'pos[`i']'
+			local shr_ct = `shr_ct' + 1 / `.`shrfrac'[`i']'
+		}
+		else {
+			local size = `size' + 0`.`dim'pos[`i']'
+		}
+	}
+
+	c_local `szmac'    `size'
+	c_local `shrszmac' `negsize'
+	c_local `ctmac'    `shr_ct'
+end
+
+program define _shr_only_ct
+	args shrfrac dim
+
+	local ct 0
+	forvalues i = 1/`.max`dim'' {
+		if 0`.`shrfrac'[`i']' {
+			if `.`dim'pos[`i']' == 0 {
+				local ct = `ct' + 1 / `.`shrfrac'[`i']'
+			}
+		}
+	}
+	class exit = `ct'
+end
+
+
+program define _posn_from_size
+	args dim
+
+	local dsz = 0`.`dim'pos[1]'
+	.`dim'pos[1] = 0
+	forvalues i = 1/`.max`dim'' {
+		local dsz1 = 0`.`dim'pos[`i'+1]'
+		.`dim'pos[`i'+1] = 0`.`dim'pos[`i']' + `dsz'
+		local dsz `dsz1'
+
+	}
+end
+
+program define _rev_row_pos			/* reverses row array */
+	local n = int((`.maxrow'+2)/2)
+	forvalues i = 1/`n' {
+		local tpos `.rowpos[`i']'
+		.rowpos[`i'] 		= `.rowpos[`.maxrow'+1-`i']'
+		.rowpos[`.maxrow'+1-`i'] = `tpos'
+	}
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*  Scale the gmetric to nicely size text, symbols, ticks, keys, etc given the
+    specified # of rows or columns (or whatever value you would like to use
+    for  the scaling).  The scaling is less than proportional for 
+    # < knot (or the default if not specified) then becomes proportional
+    for  #'s above knot.  The slopes of the 2-part spline may also be 
+    specified.
+
+	Usage: scale_gmetric # [ [knot] beta1 beta2 ]
+*/
+
+program scale_gmetric
+	args n k1 b1 b2
+
+	if `"`k1'"' == `""' {
+		local k1 = `.`c(curscm)'.special.default_knot1'
+	}
+	if `"`b1'"' == `""' {
+		local b1 = `.`c(curscm)'.special.default_slope1'
+	}
+	if `"`b2'"' == `""' {
+		local b2 = `.`c(curscm)'.special.default_slope2'
+	}
+
+	local b_fctr  = (`n' - 1) / `n'
+	local resz = `b_fctr' * `b1'
+	if `n' > `k1' {
+		local resz = `resz' + (`b2'-`b1') * (`n'-`k1') / `n'
+	}
+	local resz = 1 - `resz'
+
+	.gmetric_mult = `resz'
+end
+
+
+/* -------------------------------------------------------------------------*/
+/* _set_ programs for making changes to values that require a side effect.
+*/
+
+program define _set_fixed_xsize
+	._set_fixed_dimsize x `0'
+end
+
+program define _set_fixed_ysize
+	._set_fixed_dimsize y `0'
+end
+
+program define _set_fixed_dimsize
+	gettoken dim val : 0
+
+	if `val' == `.fixed_`dim'size' {
+		exit
+	}
+
+	if `val' >= . {
+		if "`.`dim'stretch.setting'" == "fixed" {
+			.`dim'stretch.set free
+		}
+		.fixed_`dim'size = (.)
+		exit
+	}
+
+	.`dim'stretch.set fixed
+	.fixed_`dim'size = `val'
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*  Return a list of .Declared objects that are of the specified class type
+
+	Usage:  .list_ofclassname
+*/
+
+program list_ofclassname
+	args classnm
+
+	forvalues i = 1/0`.cells.dynamicmv.arrnels' {
+
+		if "`.cells.dynamicmv[`i'].isa'" == "array" {
+			forvalues j = 1/0`.cells.dynamicmv[`i'].arrnels' {
+			  if "`.dynamicmv[`i'][`j'].classname'" == "`classnm'" {
+				class nameoflocal dynamicmv[`i']
+				local list `list' `r(name)'[`j']
+			  }
+			}
+		}
+		else {
+			if "`.dynamicmv[`i'].classname'" == "`classnm'" {
+				class nameoflocal dynamicmv[`i']
+				local list `list' `r(name)'
+			}
+		}
+	}
+
+	class exit "`list'"
+end
+
+
+
+/* -------------------------------------------------------------------------*/
+/*  Return a list of .Declared objects that are of the specified class type
+    or inherit from the specified classtype.
+
+	Usage:  .list_ofclass
+*/
+
+program list_ofclass
+	args classnm
+
+	forvalues i = 1/0`.cells.dynamicmv.arrnels' {
+
+		if "`.cells.dynamicmv[`i'].isa'" == "array" {
+			forvalues j = 1/0`.cells.dynamicmv[`i'].arrnels' {
+			    if 0`.dynamicmv[`i'][`j'].isofclass `classnm'' {
+				class nameoflocal dynamicmv[`i']
+				local list `list' `r(name)'[`j']
+			    }
+			}
+		}
+		else {
+			if 0`.dynamicmv[`i'].isofclass `classnm'' {
+				class nameoflocal dynamicmv[`i']
+				local list `list' `r(name)'
+			}
+		}
+	}
+
+	class exit "`list'"
+end
+
+
+
+/* -------------------------------------------------------------------------*/
+/*  Return a list of indexes into .Declared objects that are of the specified 
+    class type or inherit from the specified classtype.
+
+	Usage:  .list_ofclass_indices
+*/
+
+program list_ofclass_indices
+	args classnm
+
+	forvalues i = 1/0`.cells.dynamicmv.arrnels' {
+
+		if "`.cells.dynamicmv[`i'].isa'" == "array" {
+			forvalues j = 1/0`.cells.dynamicmv[`i'].arrnels' {
+			    if 0`.dynamicmv[`i'][`j'].isofclass `classnm'' {
+				local list `list' [`i'][`j']
+			    }
+			}
+		}
+		else {
+			if 0`.dynamicmv[`i'].isofclass `classnm'' {
+				local list `list' [`i']
+			}
+		}
+	}
+
+	class exit "`list'"
+end
+
+// ---------------------------------------------------------------------------
+// Return the number of objects in the grid.
+
+program numobjects
+
+	local ct = 0
+	forvalues i = 1/0`.cells.dynamicmv.arrnels' {
+
+		if "`.cells.dynamicmv[`i'].isa'" == "array" {
+			forvalues j = 1/0`.cells.dynamicmv[`i'].arrnels' {
+			    if "`.dynamicmv[`i'][`j'].isa'" != ""  {
+			    	local ++ct
+			    }
+			}
+		}
+		else {
+			if "`.dynamicmv[`i'].isa'" != "" {
+			    	local ++ct
+			}
+		}
+	}
+
+	class exit = `ct'
+end
+
+// ---------------------------------------------------------------------------
+// Return the number of grid dragable objects in the grid.
+
+program numgriddragable
+
+	local ct = 0
+	forvalues i = 1/0`.cells.dynamicmv.arrnels' {
+
+		if "`.cells.dynamicmv[`i'].isa'" == "array" {
+			forvalues j = 1/0`.cells.dynamicmv[`i'].arrnels' {
+			    if 0`.dynamicmv[`i'][`j'].grid_dragable'  {
+			    	local ++ct
+			    }
+			}
+		}
+		else {
+			if 0`.dynamicmv[`i'].grid_dragable' {
+			    	local ++ct
+			}
+		}
+	}
+
+	class exit = `ct'
+end
+
+/* -------------------------------------------------------------------------*/
+/*  Return 1 if the named view is in the specified row/col of the grid.  If
+    the view spans rows/columns then returns 1 if any of those spanned
+    rows/columns includes the on specified.
+*/
+
+program in_row
+	args view row
+
+	class exit = `.cells.`view'.minrow' <= `row' &			///
+		     `.cells.`view'.maxrow' >= `row'
+end
+
+program in_col
+	args view col
+
+	class exit = `.cells.`view'.mincol' <= `col' &			///
+		     `.cells.`view'.maxcol' >= `col'
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*  Return the (minimum) row/col position of the specified object in the 
+    grid.  Returns missing if not found.
+
+	Usage:  .minrowof
+	        .mincolof
+
+   The maximum positions are returned by,
+	        .maxrowof
+	        .maxcolof
+*/
+
+program minrowof
+	class exit = cond("`.cells.`1'.minrow'"=="", . , `.cells.`1'.minrow')
+end
+
+program mincolof
+	class exit = cond("`.cells.`1'.mincol'"=="", . , `.cells.`1'.mincol')
+end
+
+program maxrowof
+	class exit = cond("`.cells.`1'.maxrow'"=="", . , `.cells.`1'.maxrow')
+end
+
+program maxcolof
+	class exit = cond("`.cells.`1'.maxcol'"=="", . , `.cells.`1'.maxcol')
+end
+
+/* -------------------------------------------------------------------------*/
+/*  Return the minimum/maximum row/col position of any object in the 
+    specified list.
+
+    Returns 0. for max/min respectively if nothing found.
+*/
+
+program minrow_oflist
+	local min = .
+	foreach i of local 0 {
+		if 0`.cells.`i'.minrow' < `min' {
+			local min = 0`.cells.`i'.minrow'
+		}
+	}
+	class exit 0`min'
+end
+
+program maxrow_oflist
+	local max = 0
+	foreach i of local 0 {
+		if 0`.cells.`i'.maxrow' > `max' {
+			local max = 0`.cells.`i'.maxrow'
+		}
+	}
+	class exit `max'
+end
+
+program mincol_oflist
+	local min = .
+	foreach i of local 0 {
+		if 0`.cells.`i'.mincol' < `min' {
+			local min = 0`.cells.`i'.mincol'
+		}
+	}
+	class exit 0`min'
+end
+
+program maxcol_oflist
+	local max = 0
+	foreach i of local 0 {
+		if 0`.cells.`i'.maxcol' > `max' {
+			local max = 0`.cells.`i'.maxcol'
+		}
+	}
+	class exit `max'
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*  Return the minimum x/y position (in GUs) of the specified object in the 
+    grid.  Returns missing if not found.
+
+	Usage:  .minyposof
+	        .minxposof
+
+   The maximum positions are returned by,
+	        .maxyposof
+	        .maxxposof
+*/
+
+program minyposof
+	local minrow "`.cells.`1'.minrow'"
+	if ("`minrow'" == "")  class exit = (.)
+	class exit = `.rowpos[`minrow']'
+end
+
+program minxposof
+	local mincol "`.cells.`1'.mincol'"
+	if ("`mincol'" == "")  class exit = (.)
+	class exit = `.colpos[`mincol']'
+end
+
+program maxyposof
+	local maxrow "`.cells.`1'.maxrow'"
+	if ("`maxrow'" == "")  class exit = (.)
+	class exit = `.rowpos[`maxrow'+1]'
+end
+
+program maxxposof
+	local maxcol "`.cells.`1'.maxcol'"
+	if ("`maxcol'" == "")  class exit = (.)
+	class exit = `.colpos[`maxcol'+1]'
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*  Given a row and list of viewnames, return the max/min column where 
+    something from the list was found.  Returns 0 if none found in the row
+
+    Likewise for a column.
+*/
+
+program maxcol_oflist_inrow
+	gettoken row list : 0
+
+	local max = 0
+	foreach i of local list {
+	    if 0`.cells.`i'.minrow' >= `row' & 0`.cells.`i'.maxrow' <= `row' {
+		if 0`.cells.`i'.maxcol' > `max' {
+		    local max = 0`.cells.`i'.maxcol'
+		}
+	    }
+	}
+	class exit = `max'
+end
+
+program mincol_oflist_inrow
+	gettoken row list : 0
+
+	local min = .
+	foreach i of local list {
+	    if 0`.cells.`i'.minrow' >= `row' & 0`.cells.`i'.maxrow' <= `row' {
+		if 0`.cells.`i'.mincol' < `min' {
+		    local min = 0`.cells.`i'.mincol'
+		}
+	    }
+	}
+	class exit = 0`min'
+end
+
+program maxrow_oflist_incol
+	gettoken col list : 0
+
+	local max = 0
+	foreach i of local list {
+	    if 0`.cells.`i'.mincol' >= `col' & 0`.cells.`i'.maxcol' <= `col' {
+		if 0`.cells.`i'.maxrow' > `max' {
+		    local max = 0`.cells.`i'.maxrow'
+		}
+	    }
+	}
+	class exit = `max'
+end
+
+program minrow_oflist_incol
+	gettoken col list : 0
+
+	local min = .
+	foreach i of local list {
+	    if 0`.cells.`i'.mincol' >= `col' & 0`.cells.`i'.maxcol' <= `col' {
+		if 0`.cells.`i'.minrow' < `min' {
+		    local min = 0`.cells.`i'.minrow'
+		}
+	    }
+	}
+	class exit = 0`min'
+end
+
+
+// ---------------------------------------------------------------------------
+// Work program to traverses all held views and adds the names of all views 
+// at the current clicked position to selected views array.  Should only be
+// invoked through AddSelectedViews.
+
+program _add_selected_views
+
+	forvalues i = 1/0`.dynamicmv.arrnels' {
+
+		local name `.attribname dynamicmv `i''
+
+		if "`.dynamicmv[`i'].isa'" != "array" {
+			if 0`.`name'.isofclass container' |		///
+			   0`.`name'.isofclass axis'      |		///
+			   0`.`name'.isofclass plotregion'  {
+				.`name'.AddSelectedViews `name'
+			}
+			else if 0`.`name'.AtClickedPos' {
+				._Gr_Global.AddSelected `name'
+			}
+			continue				// Continue
+		}
+
+				// loop over any that are arrays
+		forvalues j = 1/0`.dynamicmv[`i'].arrnels' {
+			if 0`.`name'[`j'].isofclass container' |	///
+			   0`.`name'[`j'].isofclass axis     ' |	///
+			   0`.`name'[`j'].isofclass plotregion'  {
+				.`name'[`j'].AddSelectedViews `name'[`j']
+			}
+			else if 0`.`name'[`j'].AtClickedPos' {
+				._Gr_Global.AddSelected `name'[`j']
+			}
+		}
+	}
+
+							// Record positions
+	if `.AtClickedPos' {
+						// Convert GDI pos to GU pos
+						// and handle margins
+		local pos `.LocalClicked'
+		gettoken y x : pos
+
+		._Gr_Global.y_grid = `y'		// Save GU clicked
+		._Gr_Global.x_grid = `x'		// posn in grid
+
+		.y_click = `y'
+		.x_click = `x'
+
+		._Gr_Global.y_offset = `y'
+		._Gr_Global.x_offset = `x'
+	}
+	else if "`.uname'" == "`.`._Gr_Global.edit_graph'.uname'" {
+					// In case on boundary of whole graph
+		local pos `.LocalClicked'
+		gettoken y x : pos
+
+		.y_click = `y'
+		.x_click = `x'
+	}
+
+end
+
+
+
+//  ------------------------------------------------------------------------
+//  Given an (y,x) position and size of the containing object, returns the
+//  local (y_loc,x_loc) position and local size of this object.
+
+program LocalPosition
+	args y x ysz xsz
+
+	_set_rensize, ysize(`ysz') xsize(`xsz')
+
+	local x = `x' - (0`.xoffset')		// translate any offsets
+	local y = `y' - (0`.yoffset')
+
+					// adjust for any fixed-size shifting
+	local y = `y' - 0`._align_click_shift y'
+	local x = `x' - 0`._align_click_shift x'
+    
+	local y = `y' - `.drawn_margin.bottom'
+	local x = `x' - `.drawn_margin.left'
+
+	._Gr_Global.y_container = `y'
+	._Gr_Global.x_container = `x'
+
+	class exit "`y' `x' `.ysize_ren' `.xsize_ren'"
+end
+
+//  Returns the local position and size of the object/cell at specified 
+//  position, translated to the location of the named object in the grid.
+
+program LocalPositionOf
+	args name y x ysz xsz
+	gettoken name 0 : 0
+
+	tokenize "`.LocalPosition `0''"
+	args y x ysz xsz
+
+if ("$grdebug"!="") di in white "		name :`name':"
+	local y = `y' - 0`.minyposof `name''
+	local x = `x' - 0`.minxposof `name''
+
+	local ysz = 0`.maxyposof `name'' - 0`.minyposof `name''
+	local xsz = 0`.maxxposof `name'' - 0`.minxposof `name''
+
+if ("$grdebug"!="") di in white "	LocalPositionOf: `y' `x' `ysz' `xsz'"
+	class exit "`y' `x' `ysz' `xsz'"
+end
+
+
+//  -------------------------------------------------------------------------
+//  Scales the supplied y and x shifts from the GDI metric to the local 
+//  GU metric of the grid
+
+program LocalShift
+	args y_shift x_shift
+
+							// GDI --> local GU
+	local y_gusz = `.ysize_ren' + `.drawn_gmult' *		///
+			(`.style.margin.gmbottom' + `.style.margin.gmtop')
+	local x_gusz = `.xsize_ren' + `.drawn_gmult' *		///
+			(`.style.margin.gmleft' + `.style.margin.gmright')
+
+	local y_shift = `y_gusz' * `y_shift' / (`.gdi_y1' - `.gdi_y0')
+	local x_shift = `x_gusz' * `x_shift' / (`.gdi_x1' - `.gdi_x0')
+
+	class exit "`y_shift' `x_shift'"
+end
+
+
+//  -------------------------------------------------------------------------
+//  Returns the local GU position of the current clicked position that is
+//  recorded in the GDI metric.
+
+program LocalClicked
+
+						// Convert GDI pos to GU pos
+	local y_gusz = `.ysize_ren' + `.drawn_gmult' *		    ///
+		(`.style.margin.gmbottom' + `.style.margin.gmtop')
+	local x_gusz = `.xsize_ren' + `.drawn_gmult' *		    ///
+		(`.style.margin.gmleft' + `.style.margin.gmright')
+	local y = `y_gusz' * (`._Gr_Global.click_y' - `.gdi_y0') /  ///
+			     (`.gdi_y1' - `.gdi_y0')
+	local x = `x_gusz' * (`._Gr_Global.click_x' - `.gdi_x0') /  ///
+			     (`.gdi_x1' - `.gdi_x0')
+
+						// Handle margins
+	local y = `y' - `.drawn_gmult' * `.style.margin.bottom'
+	local x = `x' - `.drawn_gmult' * `.style.margin.left'
+
+	class exit "`y' `x'"
+end
+
+// ----------------------------------------------------------------------------
+// Move the currently edited object to the grid location where the mouse was
+// released and log the edit.
+//
+// Unfortunately, this program must log the edit and record it in the undo log 
+// itself and so needs the full container name.
+//
+//  If the release position is less than half way to any edge of the cell
+//  then the object is moved onto the cell, otherwise it is inserted along 
+//  the boundary.
+
+program GridDrag
+	args container viewname y_shift x_shift
+
+
+						// Find released position in GU
+	local pos `.LocalClicked'
+	gettoken y x : pos
+	local y = `y' + `y_shift'
+	local x = `x' + `x_shift'
+
+						// Find the row and column
+						// and their spans
+	forvalues r = 1/`=0`.rowpos.arrnels'-1' {
+		if `y' >= `.rowpos[`r']' {
+			if `y' <= `.rowpos[`r'+1]' {
+				local row  = `r'
+				continue, break
+			}
+		}
+	}
+	forvalues c = 1/0`=`.colpos.arrnels'-1' {
+		if `x' >= `.colpos[`c']' {
+			if `x' <= `.colpos[`c'+1]' {
+				local col  = `c'
+				continue, break
+			}
+		}
+	}
+
+						// Handle boundary of grid 
+	if 0`row' == 0 {
+		local row 1
+		while `.rowpos[`row']' == `.rowpos[`row'+1]' &		///
+		      `row' < `.rowpos.arrnels' {
+			local ++row
+		}
+		if (`y' > `.rowpos[`row']') {
+			local row = `.rowpos.arrnels'
+			while `.rowpos[`row']' == `.rowpos[`row'-1]' &	///
+			      `row' > 1 {
+				local --row
+			}
+			local row = min(`row'-1, `.rowpos.arrnels'-1)
+		}
+	}
+	if 0`col' == 0 {
+		local col 1
+		while `.colpos[`col']' == `.colpos[`col'+1]' &		///
+		      `col' < `.colpos.arrnels' {
+			local ++col
+		}
+		if (`x' > `.colpos[`col']') {
+			local col = `.colpos.arrnels'
+			while `.colpos[`col']' == `.colpos[`col'-1]' &	///
+			      `col' > 1 {
+				local --col
+			}
+			local col = min(`col'-1, `.colpos.arrnels'-1)
+		}
+	}
+
+	local rmin = `.rowpos[`row']'
+	local rmax = `.rowpos[`row'+1]'
+	local cmin = `.colpos[`col']'
+	local cmax = `.colpos[`col'+1]'
+
+						// position between -1 and 1
+	local rloc = (2 * (`y'-`rmin')) / (`rmax' - `rmin') - 1
+	local cloc = (2 * (`x'-`cmin')) / (`cmax' - `cmin') - 1
+
+	if abs(`rloc') < .5 & abs(`cloc') < .5 {
+			local place "on"
+	}
+	else if abs(`rloc') > abs(`cloc') {
+		if (`rloc' > 0)  local place "above"
+		else		 local place "below"
+	}
+	else {
+		if (`cloc' > 0)  local place "rightof"
+		else		 local place "leftof"
+	}
+
+	capture .`viewname'.yoffset = 0			// Clear offsets
+	capture .`viewname'.xoffset = 0
+
+	local no_cell = "`.cells.`viewname'.isa'" == ""
+if ("$grdebug"!="") di in white `".move `viewname' `place'  `row' `col'"'
+	_gm_edit .`container'.move `viewname' `place'  `row' `col'	// Move view
+/*
+	if `no_cell' {
+		capture .`viewname'.ypos.val = 0
+		capture .`viewname'.xpos.val = 0
+	}
+*/
+
+if ("$grdebug"!="") di in white "(`row',`col') `y',`x' : `rmin',`rmax' : `cmin',`cmax'  : `rloc',`cloc'" 
+end
+
+
+// ----------------------------------------------------------------------------
+// Respond to a .DragTo by moving the y and x offsets.
+
+program DragTo
+      .yoffset = `.yoffset' + `._Gr_Global.y_container' - `._Gr_Global.y_offset'
+      .xoffset = `.xoffset' + `._Gr_Global.x_container' - `._Gr_Global.x_offset'
+end
+
+
+// ----------------------------------------------------------------------------
+// Respond to a .DragBy by moving the position
+
+program DragBy
+	args y_shift x_shift
+
+      .yoffset = `.yoffset' + `y_shift'
+      .xoffset = `.xoffset' + `x_shift'
+end
+
+
+// ----------------------------------------------------------------------------
+// Handle Contract and Expand messages
+
+program Contract
+	args name dir ct
+
+	if ("`.cells.`name'.isa'" == "")  exit
+
+	if "`dir'" == "left" {
+		local move  "mincol"
+		local fence "maxcol"
+		local sign  "+"
+	}
+	else if "`dir'" == "right" {
+		local move  "maxcol"
+		local fence "mincol"
+		local sign  "-"
+	}
+	else if "`dir'" == "below" {
+		local move  "minrow"
+		local fence "maxrow"
+		local sign  "+"
+	}
+	else if "`dir'" == "above" {
+		local move  "maxrow"
+		local fence "minrow"
+		local sign  "-"
+	}
+
+	if ("`move'" == "")  exit
+
+	forvalues i = 1/`ct' {
+		if (`.cells.`name'.`move'' == `.cells.`name'.`fence'')	///
+			continue, break
+		.cells.`name'.`move' = `.cells.`name'.`move'' `sign' 1
+	}
+end
+
+program Expand
+	args name dir ct
+
+	if ("`.cells.`name'.isa'" == "")  exit
+
+	if "`dir'" == "left" {
+		local move  "mincol"
+		local fence = 1
+		local sign  "-"
+	}
+	else if "`dir'" == "right" {
+		local move  "maxcol"
+		local fence  = `.maxcol'
+		local sign  "+"
+	}
+	else if "`dir'" == "below" {
+		local move  "minrow"
+		local fence = 1
+		local sign  "-"
+	}
+	else if "`dir'" == "above" {
+		local move  "maxrow"
+		local fence = `.maxrow'
+		local sign  "+"
+	}
+	else if "`dir'" == "vertical" {
+		.cells.`name'.minrow = 1
+		.cells.`name'.maxrow = `.maxrow'
+		exit
+	}
+	else if "`dir'" == "horizontal" {
+		.cells.`name'.mincol = 1
+		.cells.`name'.maxcol = `.maxcol'
+		exit
+	}
+
+	if ("`move'" == "")  exit
+
+	forvalues i = 1/`ct' {
+		if (`.cells.`name'.`move'' == `fence')			///
+			continue, break
+		.cells.`name'.`move' = `.cells.`name'.`move'' `sign' 1
+	}
+end
+
+// ----------------------------------------------------------------------------
+// Possibly map supplied name to one appropriate for the object browser
+
+program BrowserName
+	args name
+
+	if "`.key.isa'" != "" {		// Kludgy handling of plreg in legends
+		class exit "key region"
+	}
+end
+
+// ---------------------------------------------------------------------------
+// Zero the counts of added text, lines, markers, and reference lines
+// that have been added during the current playback
+
+program ZeroPlaybackCounts
+	.added_lines_new   = 0
+	.added_markers_new = 0
+	.added_text_new    = 0
+	._yxlines_new      = 0
+
+	forvalues i = 1/0`.cells.dynamicmv.arrnels' {
+
+		if "`.dynamicmv[`i'].isa'" == "array" {
+			forvalues j = 1/0`.dynamicmv[`i'].arrnels' {
+			    if 0`.dynamicmv[`i'][`j'].isofclass grid' |  ///
+			       0`.dynamicmv[`i'][`j'].isofclass plotregion' {
+			           .dynamicmv[`i'][`j'].ZeroPlaybackCounts
+			    }
+			}
+		}
+		else {
+		        if 0`.dynamicmv[`i'][`j'].isofclass grid' |  ///
+			   0`.dynamicmv[`i'][`j'].isofclass plotregion' {
+				.dynamicmv[`i'][`j'].ZeroPlaybackCounts
+			}
+		}
+	}
+end
+
+// ---------------------------------------------------------------------------
+// Return the dialog type for the view/plot.  Note, dialog
+// files have "gr_ed_" prefixed to this returned value.
+
+program dialog
+	class exit "`._dialog'"
+end
+
+exit
+
+
+/* -------------------------------------------------------------------------*/
+/*
+	Implementation notes:
+
+        A grid contains views that are referenced by dynamically declared
+        attributes of class cell.  If a name is used more than once for
+        different attribute (e.g. 2 or 3 scatters), then an array of
+        attributes with that name is created.  Each dynamically declared cell
+        attribute holds the grid position of the attribute, the style of the
+        cell, and a reference to the view itself
+
+	We cannot store the position information directly in the view as a
+	view may be included many times in a grid through references.
+
+*/

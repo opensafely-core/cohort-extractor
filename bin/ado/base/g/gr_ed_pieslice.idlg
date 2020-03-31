@@ -1,0 +1,371 @@
+/*
+  gr_ed_pieslice.idlg
+
+*!  VERSION 1.1.4  09aug2017
+
+*/
+
+SCRIPT pie_hide_explode
+BEGIN
+	pie.ck_explode.hide
+	pie.tx_explode.hide
+	pie.cb_explode.hide
+END
+
+SCRIPT pie_PREINIT
+BEGIN
+	create DOUBLE plotCustomLabel
+	create DOUBLE plotCustomStyle
+
+	create DOUBLE d_tmp
+	create STRING fill_color
+	create STRING fill_rgb
+	create STRING fill_opacity
+	create STRING intensity
+	create STRING line_color
+	create STRING line_rgb
+	create STRING line_opacity
+	create STRING width
+	create STRING pattern
+	create STRING line_align
+	create DOUBLE explodeValue
+	create STRING explodeStyle
+	create DOUBLE drawview
+	program pie_get_defaults
+END
+
+SCRIPT pie_POSTINIT
+BEGIN
+	program pie_initialize_controls
+END
+
+DIALOG pie, label(resource LBL_PIE_SLICE_PROPERTIES) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  GROUPBOX gb_rect	_lft	_top	_iwd	_ht25,		///
+	label(resource LBL_SLICE_PROPERTIES)
+  TEXT     tx_fclr	_ilft	_ss	_wd	.,		///
+	label(resource LBL_COLOR) right
+  COMBOBOX cb_fclr	_sep	@	_cbwd	.,		///
+	dropdownlist contents(_colors) 				///
+	onselchangelist(pie_cl_fclr_sel)
+  COLOR    cl_fclr	_cbsep	@	_clwd	.,
+  TEXT     tx_fopacity	_ilft	_mls	_wd	.,		///
+	label(resource LBL_OPACITY) right
+  SPINNER sp_fopacity	_sep	@	_spwd	.,		///
+	default(100)						///
+	min(0)							///
+	max(100)
+
+  TEXT     tx_intensity	_ilft	_mls	_wd	.,		///
+	label(resource LBL_FILL_INTENSITY) right
+  COMBOBOX cb_intensity	_sep	@	_cbwd	.,		///
+	dropdown contents(_intensity)
+  
+  TEXT     tx_width	_ilft	 _mls	_wd	.,		///
+	label(resource LBL_OUTLINE_WIDTH) right
+  COMBOBOX cb_width	_sep	@	_cbwd	.,		///
+	dropdown 						///
+	contents(_linewidths)
+
+  TEXT     tx_pattern	_ilft	_mls	_wd	.,		///
+	label(resource LBL_OUTLINE_PATTERN) right
+  COMBOBOX cb_pattern	_sep	@	_cbwd	.,		///
+	dropdownlist						///
+	contents(_linepatterns)
+
+   TEXT     tx_lalign	_ilft	_mls	_wd	.,		///
+      label(resource LBL_OUTLINE_ALIGNMENT) right
+   COMBOBOX cb_lalign	_sep	@	_cbwd	.,		///
+      dropdownlist option(lalign)				///
+      contents(alignstroke)
+
+
+  CHECKBOX ck_outline	_ilft	_ls	_ibwd	_ht5,		///
+	groupbox						///
+	label(resource LBL_DIFFERENT_OUTLINE_COLOR)		///
+	onclickon(script pie_outline_on)			///
+	onclickoff(script pie_outline_off) nomemory
+
+  TEXT     tx_lclr	_iilft	_ss	_wd2	.,		///
+	label(resource LBL_OUTLINE_COLOR) right
+  COMBOBOX cb_lclr	_sep2	@	_cbwd	.,		///
+	dropdownlist contents(_colors) 				///
+	onselchangelist(pie_cl_lclr_sel)
+  COLOR    cl_lclr	_cbsep	@	_clwd	.,
+  TEXT     tx_lopacity	_iilft	_mls	_wd2	.,		///
+	label(resource LBL_OUTLINE_OPACITY) right
+  SPINNER sp_lopacity	_sep2	@	_spwd	.,		///
+	default(100)						///
+	min(0)							///
+	max(100)
+
+  CHECKBOX ck_explode	_lft	+50	_iwd	_ht2h,		///
+	groupbox label(resource LBL_EXPLODE_SLICE)		///
+	onclickon(program pie_check_explode)			///
+	onclickoff(program pie_check_explode)
+  TEXT     tx_explode	_ilft	_ss	_wd	.,		///
+	label(resource GR_ED_PIESLICE_PIE_TX_EXPLODE) right
+  COMBOBOX cb_explode	_sep	@	_cbwd	.,		///
+	dropdown contents(_textsizes)
+
+  // public scope (do not change name)
+  CHECKBOX ck_hide	_lft	_xxls	_iwd	.,		///
+	label(resource GR_ED_PIESLICE_PIE_CK_HIDE)
+END
+
+PROGRAM pie_check_explode
+BEGIN
+	if pie.ck_explode {
+		call pie.tx_explode.enable
+		call pie.cb_explode.enable
+	}
+	else {
+		call pie.tx_explode.disable
+		call pie.cb_explode.disable
+	}
+END
+
+SCRIPT pie_outline_on
+BEGIN
+	pie.tx_lclr.enable
+	pie.cb_lclr.enable
+	pie.tx_lopacity.enable
+	pie.sp_lopacity.enable
+END
+
+SCRIPT pie_outline_off
+BEGIN
+	pie.tx_lclr.disable
+	pie.cb_lclr.disable
+	pie.tx_lopacity.disable
+	pie.sp_lopacity.disable
+END
+
+LIST pie_cl_fclr_sel
+BEGIN
+	pie.cl_fclr.show
+	pie.cl_fclr.hide
+END
+LIST pie_cl_lclr_sel
+BEGIN
+	pie.cl_lclr.show
+	pie.cl_lclr.hide
+END
+
+PROGRAM pie_get_defaults
+BEGIN
+	call G.withvalue index.setvalue class @.style.shadestyle.color.styledex
+	call index.withvalue fill_color.setvalue class .__STYLES.color[@]
+	call pie.cb_fclr.setdefault class fill_color.value
+	call G.withvalue fill_rgb.setvalue class @.style.shadestyle.color.rgb
+	call pie.cl_fclr.setdefault class fill_rgb.value
+	call G.withvalue fill_opacity.setvalue class @.style.shadestyle.color.opacity
+	call pie.sp_fopacity.setdefault class fill_opacity.value
+
+	call G.withvalue index.setvalue  class @.style.shadestyle.intensity.styledex
+	call index.withvalue intensity.setvalue class .__STYLES.intensity[@]
+	if ! intensity {
+		call G.withvalue intensity.setvalue class @.style.shadestyle.intensity.val
+	}
+	call pie.cb_intensity.setdefault class intensity.value
+
+	call G.withvalue index.setvalue class @.style.linestyle.color.styledex
+	call index.withvalue line_color.setvalue class .__STYLES.color[@]
+	call pie.cb_lclr.setdefault class line_color.value
+	call G.withvalue line_rgb.setvalue class @.style.linestyle.color.rgb
+	call pie.cl_lclr.setdefault class line_rgb.value
+	call G.withvalue line_opacity.setvalue class @.style.linestyle.color.opacity
+	call pie.sp_lopacity.setdefault class line_opacity.value
+
+	call G.withvalue index.setvalue class @.style.linestyle.width.styledex
+	call index.withvalue width.setvalue class .__STYLES.linewidth[@]
+	if ! width {
+		call G.withvalue width.setvalue class @.style.linestyle.width.val
+	}
+	call pie.cb_width.setdefault class width.value
+
+	call G.withvalue index.setvalue class @.explode.styledex
+	call index.withvalue explodeStyle.setvalue class .__STYLES.gsize[@]
+	if ! explodeStyle {
+		call G.withvalue explodeStyle.setvalue class @.explode.val
+	}
+	call G.withvalue explodeValue.setvalue class @.explode.val
+	if explodeValue.iseq(0) {
+		call explodeStyle.setvalue "Medium"
+		call pie.ck_explode.setdefault 0
+	}
+	else {
+		call pie.ck_explode.setdefault 1
+	}
+	call pie.cb_explode.setdefault class explodeStyle.value
+
+	call G.withvalue index.setvalue class @.style.linestyle.pattern.styledex
+	call index.withvalue pattern.setvalue class .__STYLES.linepattern[@]
+	call pie.cb_pattern.setdefault class pattern.value
+
+	call G.withvalue index.setvalue class @.style.linestyle.align.styledex
+	call index.withvalue line_align.setvalue class .__STYLES.alignstroke[@]
+	call pie.cb_lalign.setdefault class line_align.value
+
+	call G.withvalue drawview.setvalue class @.draw_view.istrue
+	if drawview {
+		call pie.ck_hide.setdefault 0
+	}
+	else {
+		call pie.ck_hide.setdefault 1
+	}
+END
+
+PROGRAM pie_initialize_controls
+BEGIN
+	if fill_color {
+		call pie.cb_fclr.setvalue class fill_color.value
+	}
+	else {
+		call pie.cb_fclr.setvalue "custom"
+	}
+	call pie.cl_fclr.setvalue class fill_rgb.value
+	call pie.sp_fopacity.setvalue class fill_opacity.value
+	call pie.cb_intensity.setvalue class intensity.value
+
+	if line_color {
+		call pie.cb_lclr.setvalue class line_color.value
+	}
+	else {
+		call pie.cb_lclr.setvalue "custom"
+	}
+	call pie.cl_lclr.setvalue class line_rgb.value
+	call pie.sp_lopacity.setvalue class line_opacity.value
+
+	call pie.cb_width.setvalue class width.value
+	call pie.cb_pattern.setvalue class pattern.value
+	call pie.cb_lalign.setvalue class line_align.value
+
+	if fill_rgb.isneq(line_rgb) {
+		call pie.ck_outline.seton
+	}
+	else {
+		call pie.ck_outline.setoff
+	}
+
+	if explodeValue.iseq(0) {
+		call pie.ck_explode.setoff
+	}
+	else {
+		call pie.ck_explode.seton
+	}
+	call pie.cb_explode.setvalue class explodeStyle.value
+
+	if drawview {
+		call pie.ck_hide.setoff
+	}
+	else {
+		call pie.ck_hide.seton
+	}
+END
+
+PROGRAM pie_output
+BEGIN
+	call program pie_get_defaults
+
+	if ! pie.cl_fclr.isvisible() & ! pie.cb_fclr.isdefault() {
+		put "style(shadestyle(color(" 
+		put pie.cb_fclr 
+		put "))) "
+	}
+	if pie.cl_fclr.isvisible() & ! pie.cl_fclr.isdefault() {
+		put "style(shadestyle(color("  `"""'
+		put pie.cl_fclr
+		put `"""'
+		put "))) "
+	}
+	if ! pie.sp_fopacity.isdefault() {
+		put "style(shadestyle(color(" 
+		put "%"
+		put pie.sp_fopacity
+		put "))) "
+	}
+	if ! pie.ck_outline & pie.cb_fclr.isneq(line_color) {
+		if ! pie.cl_fclr.isvisible() {
+			put "style(linestyle(color(" 
+			put pie.cb_fclr 
+			put "))) "
+		}
+		if pie.cl_fclr.isvisible() & pie.cl_fclr.isneq(line_rgb) {
+			put "style(linestyle(color("  `"""'
+			put pie.cl_fclr
+			put `"""'
+			put "))) "
+		}
+	}
+	call line_opacity.withvalue d_tmp.setvalue @
+	if ! pie.ck_outline & pie.sp_fopacity.isneq(d_tmp) {
+		put "style(linestyle(color("
+		put "%"
+		put pie.sp_fopacity
+		put "))) "
+	}
+	if pie.cb_lclr & pie.ck_outline {
+		if ! pie.cl_lclr.isvisible() & ! pie.cb_lclr.isdefault() {
+			put "style(linestyle(color(" 
+			put pie.cb_lclr 
+			put "))) "
+		}
+		if pie.cl_lclr.isvisible() & ! pie.cl_lclr.isdefault() {
+			put "style(linestyle(color("  `"""'
+			put pie.cl_lclr
+			put `"""'
+			put "))) "
+		}
+	}
+	if ! pie.sp_lopacity.isdefault() {
+		put "style(linestyle(color("
+		put "%"
+		put pie.sp_lopacity
+		put "))) "
+	}
+
+	if ! pie.cb_intensity.isdefault() & pie.cb_intensity {
+		put "style(shadestyle(intensity("
+		put pie.cb_intensity
+		put "))) "
+	}
+
+	if ! pie.cb_width.isdefault() {
+		put "style(linestyle(width("
+		put pie.cb_width
+		put "))) "
+	}
+	if ! pie.cb_pattern.isdefault() {
+		put "style(linestyle(pattern("
+		put pie.cb_pattern
+		put "))) "
+	}
+	if ! pie.cb_lalign.isdefault() {
+		put "style(linestyle(align("
+		put pie.cb_lalign
+		put "))) "
+	}
+	if pie.ck_explode.isvisible() {
+		if ! pie.ck_explode.isdefault() {
+			if ! pie.ck_explode {
+				put "set(explode 0) "
+			}
+		}
+		if pie.ck_explode {
+			if ! pie.cb_explode.isdefault() {
+				put "set(explode "
+				put pie.cb_explode
+				put ") "
+			}
+		}
+	}
+	if ! pie.ck_hide.isdefault() {
+		if pie.ck_hide {
+			put "set(draw_view no) "
+		}
+		else {
+			put "set(draw_view yes) "
+		}
+	}
+END

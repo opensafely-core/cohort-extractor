@@ -1,0 +1,83 @@
+/*
+	nlsur_estat.dlg
+
+*!  VERSION 1.0.1  03mar2015
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 385
+INCLUDE header
+
+HELP hlp1, view("help estat")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create BOOLEAN has_FactorVars
+	has_FactorVars.settrue
+	program sum_bu_facvars_ckResults
+	program vce_bu_facvars_ckResults
+	setscale_hadj resource NLSUR_ESTAT_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program show_subcmds
+	program parseMessage
+END
+
+PROGRAM show_subcmds
+BEGIN
+	call create STRING e_ll
+	call create STRING e_properties
+	call create STRING e_boot
+
+	call e_ll.setvalue e(ll)
+	call e_properties.setvalue e(properties)
+	call e_boot.setvalue e(prefix)
+
+	call main.lb_subcmd.clearlist
+	call script main_hide_all
+
+	if e_ll.isneq("") {
+	        call main_subcommand_contents.ArrpushR		///
+			resource dlg LBL_INFORMATION_CRITERIA
+	        call main_subcommand_values.Arrpush "ic"
+	}
+	call main_subcommand_contents.ArrpushR		///
+		resource dlg LBL_SUMMARIZE_ESTIMATION_SAMPLE
+	call main_subcommand_values.Arrpush "summarize"
+	if e_properties.contains("V") {
+		call main_subcommand_contents.ArrpushR		///
+			resource dlg LBL_COVARIANCE_MATRIX_ESTIMATES
+		call main_subcommand_values.Arrpush "vce"
+	}
+	if e_boot.iseq("bootstrap") {
+		call main_subcommand_contents.ArrpushR		///
+			resource dlg _ESTAT_BOOTSTRAP_PR_CI
+		call main_subcommand_values.Arrpush "bootstrap"
+	}
+
+	call main.lb_subcmd.repopulate
+END
+
+PROGRAM parseMessage
+BEGIN
+	if __MESSAGE.contains("-ic-") {
+		call main.lb_subcmd.setvalue "ic"
+	}
+	if __MESSAGE.contains("-summarize-") {
+		call main.lb_subcmd.setvalue "summarize"
+	}
+	if __MESSAGE.contains("-vce-") {
+		call main.lb_subcmd.setvalue "vce"
+	}
+	if __MESSAGE.contains("-bootstrap-") {
+		call main.lb_subcmd.setvalue "bootstrap"
+	}
+END
+
+INCLUDE estat

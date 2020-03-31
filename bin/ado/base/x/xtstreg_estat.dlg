@@ -1,0 +1,164 @@
+/*
+	xtstreg_estat
+
+*!  VERSION 1.0.2  11feb2015
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 400
+INCLUDE header
+
+HELP hlp1, view("help xtstreg postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create BOOLEAN has_FactorVars
+	has_FactorVars.settrue
+	program sum_bu_facvars_ckResults
+	program vce_bu_facvars_ckResults
+	setscale_hadj resource XTSTREG_ESTAT_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program parseMessage
+END
+
+PROGRAM parseMessage
+BEGIN
+	if __MESSAGE.contains("-ic-") {
+		call main.lb_subcmd.setvalue "ic"
+	}
+	if __MESSAGE.contains("-summarize-") {
+		call main.lb_subcmd.setvalue "summarize"
+	}
+	if __MESSAGE.contains("-vce-") {
+		call main.lb_subcmd.setvalue "vce"
+	}
+	if __MESSAGE.contains("-bootstrap-") {
+		call main.lb_subcmd.setvalue "bootstrap"
+	}
+END
+
+
+DIALOG main, label(resource XTSTREG_ESTAT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_subcmd		_lft	_top	_cwd1	.,		///
+	label(resource LBL_REPORTS_STATISTICS_SUBCOMMAND)
+  LISTBOX  lb_subcmd		@	_ss	_iwd	70,		///
+	contents(main_subcommand_contents)				///
+	values(main_subcommand_values)					///
+	onselchangelist(main_subcommand_scripts)
+
+  DEFINE holdy 110
+  // stcurve 
+
+  // Information criteria
+  CHECKBOX ck_n			_lft	holdy	_iwd	.,		///
+	onclickon(main.sp_n.enable)					///
+	onclickoff(main.sp_n.disable)					///
+	label(resource LBL_NUMBER_OBSERVATIONS_CALCULATING_BIC)
+  SPINNER sp_n			_indent2 _ss	_spwd	.,		///
+	default(e(N)) min(1) max(e(N))					///
+	option(n)
+
+  INCLUDE estat_sum
+  INCLUDE estat_vce
+END
+
+INCLUDE estat_sum_pr
+INCLUDE estat_vce_pr
+
+LIST main_subcommand_contents
+BEGIN
+	resource LBL_PLOT_THE_SURVIVOR_HAZARD_CUM_HAZARD
+	resource LBL_INFORMATION_CRITERIA
+	resource LBL_SUMMARIZE_ESTIMATION_SAMPLE
+	resource LBL_COVARIANCE_MATRIX_ESTIMATES
+END
+
+LIST main_subcommand_values
+BEGIN
+	stcurve
+	ic
+	summarize
+	vce
+END
+
+LIST main_subcommand_scripts
+BEGIN
+	script sel_stcurve
+	script sel_ic
+	script sel_summarize
+	script sel_vce
+END
+
+SCRIPT sel_stcurve
+BEGIN
+	main.ck_n.hide
+	main.sp_n.hide
+	script main_summ_off
+	program vce_off
+	script non_basic_opt_off
+END
+
+SCRIPT sel_ic
+BEGIN
+	main.ck_n.show
+	main.sp_n.show
+	script main_summ_off
+	program vce_off
+	script non_basic_opt_off
+END
+
+SCRIPT sel_summarize
+BEGIN
+	main.ck_n.hide
+	main.sp_n.hide
+	program main_summ_on
+	program vce_off
+	script non_basic_opt_off
+END
+
+SCRIPT sel_vce
+BEGIN
+	main.ck_n.hide
+	main.sp_n.hide
+	program vce_on
+	script main_summ_off
+	script non_basic_opt_off
+END
+
+SCRIPT non_basic_opt_off
+BEGIN
+END
+
+PROGRAM vl_output
+BEGIN
+	put main.vl_spec
+END
+
+PROGRAM vl_eq_output
+BEGIN
+	put main.vl_eq
+END
+
+PROGRAM command
+BEGIN
+	put "estat "
+	put main.lb_subcmd
+	put " " /program summarize_output
+	beginoptions
+		// ic options
+		optionarg main.sp_n
+
+		// Summarize options
+		put " " /program summarize_opts_output
+
+		put /program vce_output
+	endoptions
+END

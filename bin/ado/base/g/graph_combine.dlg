@@ -1,0 +1,281 @@
+/*
+  graph combine - combine multiple graphs into one
+
+*!  VERSION 2.1.4  15nov2019
+
+*/
+
+VERSION 14
+
+INCLUDE _std_mlarge
+DEFINE _dlght  285   // minimum height of 285 for overall tab
+INCLUDE header
+HELP hlp1, view("help graph_combine")
+RESET res1
+
+DEFINE _clwd 15
+
+SCRIPT PREINIT
+BEGIN
+	create STRING browseResults
+	setscale_hadj resource GRAPH_COMBINE_DLG_HSCALE
+END
+
+DIALOG main, label(resource GRAPH_COMBINE_DLG_TITLE)			///
+	tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_graphs		_lft	_top	_iwd	.,		///
+	label(resource GRAPH_COMBINE_MAIN_TX_GRAPHS)
+  EDIT     ed_graphs		@	_ss	@	.,		///
+	label(resource GRAPH_COMBINE_MAIN_TX_GRAPHS)
+
+  BUTTON   bu_select		_lft	_xls	80	.,		///
+	label(resource LBL_BU_BROWSE)					///
+	tooltip(resource GRAPH_COMBINE_MAIN_BU_SELECT)			///
+	onpush(script show_browse_dialog)
+END
+
+SCRIPT show_browse_dialog
+BEGIN
+	create CHILD gr_combine_browse_opts AS browse
+	browse.setExitString browseResults
+	browse.setExitAction "script getBrowseResults"
+END
+
+SCRIPT getBrowseResults
+BEGIN
+	browseResults.withvalue main.ed_graphs.smartinsert `"@"'
+END
+
+DIALOG options, tabtitle(resource LBL_OPTIONS)
+BEGIN
+  CHECKBOX ck_colf		_lft	_top	_iwd	.,		///
+	label(resource GRAPH_COMBINE_OPTIONS_CK_COLF) 			///
+	option(colfirst)
+  CHECKBOX ck_ycom		@	_ms	@	.,		///
+	label(resource GRAPH_COMBINE_OPTIONS_CK_YCOM) option(ycommon)
+  CHECKBOX ck_xcom		@	_ms	@	.,		///
+	label(resource GRAPH_COMBINE_OPTIONS_CK_XCOM) option(xcommon)
+  		
+  		
+  TEXT     tx_margin		_lft	_ls	_vnwd	.,		///
+	label(resource LBL_MARGINS)
+DEFINE y @y
+  COMBOBOX cb_margin		@	_ss	@	.,		///
+	label(resource LBL_MARGINS) option(imargin) contents(margin)	///
+	dropdownlist
+
+  TEXT     tx_holes		180	y	_vnwd	.,		///
+	label(resource LBL_HOLES)
+  EDIT     ed_holes		@	_ss	@	.,		///
+	label(resource LBL_HOLES) option(holes)
+  BUTTON   bu_holes		_vnsep	@	_clwd	., 		///
+	label(resource LBL_?) onpush(view help numlist##|_new)
+  TEXT     tx_layout         	_lft	_ls	_vnwd	., 		///
+	label(resource LBL_LAYOUT)
+  DEFINE y @y
+  COMBOBOX cb_layout		@	_ss	_vnwd	.,		///
+	label(resource LBL_LAYOUT) contents(opt_layout) dropdownlist	///
+	onselchangelist(opt_layout_action)
+  
+  TEXT     tx_scale		180	y	_vnwd	.,		///
+	label(resource LBL_SCALE_TEXT)
+  EDIT     en_scale		@	_ss	@	.,		///
+	label(resource LBL_SCALE_TEXT) numonly option(iscale) default(1.0)
+  
+  TEXT     tx_rows		_lft	_ls	100	.,		///
+	label(resource LBL_ROWS)
+  TEXT     tx_cols		@	@	@	.,		///
+	label(resource LBL_TX_COLUMNS)
+  SPINNER  sp_rows		@	_ss	_spwd	.,		///
+	label(resource LBL_NUMBER_OF_ROWS) default(1) min(1) max(100) 	///
+	option(rows)
+  SPINNER  sp_cols		@	@	@	.,		///
+	label(resource LBL_NUMBER_OF_COLUMNS) min(1) default(1) max(100) ///
+	option(cols)
+END
+
+INCLUDE gr_titles
+
+SCRIPT overall_PREINIT
+BEGIN
+	create STRING regionResults
+END
+
+SCRIPT overall_POSTINIT
+BEGIN
+	program overall_checkRegionResults
+END
+
+DIALOG overall, tabtitle(resource LBL_OVERALL)
+BEGIN
+  TEXT	tx_scheme	_lft	_top	120	.,		///
+	label(resource LBL_SCHEME)
+  COMBOBOX cb_scheme	@	_ss	@	.,		///
+	option(scheme) dropdownlist contents(schemes)
+
+  TEXT     tx_name	180	_top	120	.,		///
+	label(resource LBL_NAME_OF_GRAPH)
+  EDIT     ed_name	180	_ss	120	.,
+  CHECKBOX ck_replace	+125	@	120	.,		///
+	label(resource LBL_REPLACE) nomemory
+	
+  CHECKBOX ck_common	_lft	_ls	_iwd	.,		///
+	label(resource GRAPH_COMBINE_OVERALL_CK_COMMON)		///
+	option(commonscheme)	
+	
+  GROUPBOX gb_size	_lft	+30	_iwd	_ht4h,		///
+	label(resource LBL_GRAPH_SIZE)
+  TEXT     tx_width	_ilft	_ss	_vnwd	.,		///
+	label(resource LBL_WIDTH_INCHES)
+  DEFINE y @y
+  EDIT     ed_width	@	_ss	@	.,		///
+	numonly option(xsize)
+  TEXT     tx_height	180	y	_vnwd	.,		///
+	label(resource LBL_HEIGHT_INCHES)
+  EDIT     ed_height	@	_ss	@	.,		///
+	numonly option(ysize)
+	
+  CHECKBOX ck_scale	_lft	+50	_iwd	60,		///
+	label(resource GRAPH_COMBINE_OVERALL_CK_SCALE) 		///
+	groupbox						///
+	onclickon(script overall_scale_on)			///
+	onclickoff(script overall_scale_off)
+  EDIT	   ed_scale	+10	_ms	40	.,		///
+	numonly option(scale) default(1)			///
+	label(resource LBL_SCALE)
+  TEXT     tx_scale	+45	@	150	.,		///
+	label(resource LBL_SCALE_MULTIPLIER)
+
+  BUTTON   bu_region	_lft	+50	120	.,		///
+	label(resource LBL_REGION_PROPERTIES)				///
+	onpush(script get_region_options)			///
+	tooltip(resource LBL_PROPERTIES_AFFECT_BOTH_GRAPH_PLOT_REGIONS)
+END
+
+SCRIPT overall_scale_on
+BEGIN
+	overall.ed_scale.enable
+	overall.tx_scale.enable
+END
+
+SCRIPT overall_scale_off
+BEGIN
+	overall.ed_scale.disable
+	overall.tx_scale.disable
+END
+
+
+SCRIPT get_region_options
+BEGIN
+	create CHILD gr_region_options AS region, allowsubmit
+	region.setExitString regionResults
+	region.settitle resource LBL_REGION_OPTIONS
+	region.setExitAction "program overall_checkRegionResults"
+	region.setSubmitAction "program overall_regionSubmit"
+END
+PROGRAM overall_checkRegionResults
+BEGIN
+	if regionResults.iseq("") {
+		call overall.bu_region.modified_off
+	}
+	if ! regionResults.iseq("") {
+		call overall.bu_region.modified_on
+	}
+END
+PROGRAM overall_regionSubmit
+BEGIN
+	call program overall_checkRegionResults
+	call Submit
+END
+
+PROGRAM overall_name_output
+BEGIN
+	put overall.ed_name
+END
+
+PROGRAM overall_output
+BEGIN
+	optionarg overall.cb_scheme
+	option overall.ck_common
+	if overall.ed_name {
+		put " name("
+		put /program overall_name_output
+		if overall.ck_replace {
+			put ", replace"
+		}
+		put ") "
+	}
+
+	optionarg overall.ed_width
+	optionarg overall.ed_height
+
+	if overall.ck_scale {
+		require overall.ed_scale
+		optionarg overall.ed_scale
+	}
+	put " " regionResults " "
+END
+
+
+LIST opt_layout
+BEGIN
+	resource LBL_DEFAULT
+	resource LBL_TAB_ROWS
+	resource LBL_COLUMNS
+END
+
+LIST opt_layout_action
+BEGIN
+	script opt_hide_rc
+	script opt_rows_show
+	script opt_cols_show
+END
+
+SCRIPT opt_rows_show
+BEGIN
+	options.tx_rows.show
+	options.sp_rows.show
+	options.tx_cols.hide
+	options.sp_cols.hide
+END
+
+SCRIPT opt_cols_show
+BEGIN
+	options.tx_cols.show
+	options.sp_cols.show
+	options.tx_rows.hide
+	options.sp_rows.hide
+END
+
+SCRIPT opt_hide_rc
+BEGIN
+	options.tx_cols.hide
+	options.tx_rows.hide
+	options.sp_rows.hide
+	options.sp_cols.hide
+END
+
+PROGRAM command
+BEGIN
+	require main.ed_graphs
+	put "graph combine "
+	put main.ed_graphs
+	beginoptions
+		option options.ck_colf
+		option options.ck_ycom
+		option options.ck_xcom		
+		optionarg options.sp_cols
+		optionarg options.sp_rows
+		optionarg options.ed_holes
+		if !default(options.en_scale) {
+			if (options.en_scale) {
+				put " iscale(*" options.en_scale ")"
+			}
+		}
+		optionarg options.cb_margin
+		put " " /program gr_titles_output
+		put " " /program overall_output
+	endoptions
+
+END

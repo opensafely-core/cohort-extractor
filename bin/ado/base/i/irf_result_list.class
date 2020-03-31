@@ -1,0 +1,63 @@
+/*
+	Data structure that manages a list of irf_result(s) 
+*/
+
+*! version 1.0.0  25jan2005
+
+version 9
+
+class irf_result_list {
+	array irfResults	// an array of irf_result(s)
+	double size = 0		// # of irf_result(s)
+}
+
+program addIrfResult
+	syntax , irfname(string) [irfvars(string)]
+	.size = `.size' + 1
+	.irfResults[`.size'] = .irf_result.new, 			///
+				irfname(`irfname') irfvars(`"`irfvars'"')
+end
+
+program getSize
+	class exit `"`.size'"'
+end
+
+program getIrfName
+	syntax , index(numlist > 0 max=1 min=1)
+	class exit `"`.irfResults[`index'].getIrfName'"'
+end
+
+program getIrfVars
+	syntax , index(numlist > 0 max=1 min=1)
+	class exit `"`.irfResults[`index'].getIrfVars'"'
+end
+
+program getIrfVarsByName
+	syntax , name(string)
+	forvalues index = 1/`.size' {
+		if `"`.getIrfName, index(`index')'"' == `"`name'"' {
+			local vars `"`.getIrfVars, index(`index')'"'
+		}		
+	}
+	class exit "`vars'"
+end
+
+program getAllIrfVars
+	forvalues index = 1/`.size' {
+		local result `result' `.getIrfVars, index(`index')'
+	}
+	local result : list uniq result
+	class exit "`result'"
+end
+
+program clear
+	.irfResults.Arrdropall
+	.size = 0	
+end
+
+program print
+	forvalues index = 1/`.size' {
+		display as result "`.getIrfName, index(`index')'" 	///
+			"{col 20}`.getIrfVars, index(`index')'"
+	}
+end

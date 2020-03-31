@@ -1,0 +1,104 @@
+//				derived_serset
+
+*! version 1.0.1  07apr2005
+version 8
+
+class {
+	class sersettype type
+	double           bands
+	double           spline_pts
+	class serset	 base_serset
+	double		 yvar
+	double		 xvar
+
+} , inherit(serset)
+
+
+/* -------------------------------------------------------------------------*/
+program define new
+	syntax , BASE(string) [ Yvariable(integer 1) Xvariable(integer 2)  /*
+		*/  Bands(integer -1) SPlinepts(integer 10) Type(string) ]
+
+	.base_serset.ref = .`base'.ref
+	.yvar		 = `yvariable'
+	.xvar		 = `xvariable'
+	.spline_pts	 = `splinepts'
+
+	serset set `.base_serset.id'
+	_gs_default_bands bands : `bands'
+	.bands = `bands'
+
+	if "`type'" == "" {
+		.type.set spline
+	}
+	else {
+		.type.set `type'
+	}
+
+	.sers[1] = .base_serset.sers[`yvariable'].copy
+	.sers[2] = .base_serset.sers[`xvariable'].copy
+
+	.reset
+end
+
+
+/* -------------------------------------------------------------------------*/
+/* Creates the derived serset from the current settings and base serset
+*/
+
+program define reset
+
+	if `.id' < . {
+		serset drop `.id' 
+	}
+
+	serset set `.base_serset.id'
+	serset create_xmedians `.yvar' `.xvar' , bands(`.bands') 
+	local med_id `r(id)'
+	local id     `r(id)'
+
+	if "`.type.setting'" == "spline" {
+		serset create_cspline 1 2 , n(`.spline_pts')
+		local id     = r(id)
+		serset drop `med_id'
+		.sers[1].label = "Median spline"
+	}
+	else {
+		.sers[1].label = "Median bands"
+	}
+
+	if `.id' >= . {
+		.id = `id'
+	}
+	else {
+		serset reset_id `.id'
+	}
+
+	.sers[1].reset_partial 1
+	.sers[2].reset_partial 2
+end
+
+
+/* -------------------------------------------------------------------------*/
+/* _set_ programs for making changes to .bands, .n, and .type.
+   dialog boxes use these like a trigger to change a value w/ side effects.
+*/
+program define _set_bands
+	
+	.bands = `1'
+	.reset
+end
+
+program define _set_spline_pts
+
+	.spline_pts = `1'
+	.reset
+end
+
+program define _set_type
+
+	.type.current = `1'
+	.reset
+end
+
+

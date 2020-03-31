@@ -1,0 +1,355 @@
+/*
+    bayes_blocking.idlg - bayes blocking tab
+
+*!  VERSION 1.0.2  01mar2017
+
+*/
+
+SCRIPT block_PREINIT
+BEGIN
+	create STRING STMP
+	create STRING EstimateCmdString
+	create STRING tempEstimateCmdString
+	
+	create STRING block_build_tmp
+	create STRING block_build_tmp2
+	create STRING block_build_childdlg
+	create STRING block_build_child_result
+	create DOUBLE block_build_position
+
+	create STRING dlgname
+	dlgname.storeDialogClassName
+	
+	create ARRAY block_block_list
+	create SVECTOR blockBlockCommandDisplayList
+	create SVECTOR blockBlockCommandList
+	create SVECTOR blockBlockCommandValues
+	create SVECTOR blockBlockStatusList
+	create SVECTOR blockBlockChildDialogList
+	create DOUBLE block_block_count
+	create DOUBLE block_block_arraysize
+	create STRING block_block_output
+	
+	create STRING BAYES_PARSE_PARAMS_ERROR
+	create STRING BAYES_PARSE_PARAMS_RESULT
+	
+	block.bu_block_edit.disable
+	block.bu_block_disable.disable
+	block.bu_block_enable.disable
+
+END
+
+PROGRAM block_POSTINIT_PROGRAM
+BEGIN
+	call blockBlockCommandDisplayList.copyToArray block_block_list
+	call block.lb_blockBuild.repopulate
+END
+
+DIALOG block, tabtitle(resource LBL_TAB_BLOCKING)
+BEGIN
+  EDIT	ed_blocksize		_lft	_top	_en7wd	.,		///
+  	default(50)							///
+  	option(blocksize)						///
+  	label(resource BAYES_LBL_MAXIMUM_BLOCK_SIZE)								
+  TEXT  tx_blocksize		_en7sep	@	400	.,		///
+  	label(resource BAYES_LBL_MAXIMUM_BLOCK_SIZE)			 	
+  GROUPBOX gb_block		_lft	_ls	_iwd	_ht18,		///
+	label(resource BAYES_LBL_BLOCKS_PARAMETERS)
+  LISTBOX lb_blockBuild		_indent	_ss	300	145,		///
+	contents(block_block_list)					///
+	ondblclick(program block_block_edit)				///
+	onselchange(program block_block_sel_changed)			///
+	nomemory
+  BUTTON bu_block_create	335	@	75	.,		///
+	onpush(program block_block_create)				///
+	label(resource LBL_BU_CREATE)
+  BUTTON bu_block_edit		@	_ls	@	.,		///
+	onpush(program block_block_edit)				///
+	label(resource LBL_BU_EDIT)					
+  BUTTON bu_block_disable	@	_ls	@	.,		///
+	onpush(program block_block_disable)				///
+	label(resource LBL_BU_DISABLE)
+  BUTTON bu_block_enable	@	_ls	@	.,		///
+	onpush(program block_block_enable)				///
+	label(resource LBL_BU_ENABLE)
+  TEXTBOX tb_block_note		20	+70	500	20,		///
+	label(resource BAYES_LBL_PRESS_CREATE_TO_DEFINE_BLOCK)
+  CHECKBOX ck_blocksummary	_lft	_xls	_iwd	.,		///
+	option(blocksummary)						///
+	onclickon(prior.ck_dryrun.disable)				///
+	onclickoff(prior.ck_dryrun.enable)				///
+	label(resource BAYES_LBL_DISPLAY_BLCOK_SUMMARY)
+  CHECKBOX ck_noblock		_lft	_ms	_iwd	.,		///
+  	option(noblocking)						///
+  	label(resource BAYES_LBL_NO_BLOCK_PARAMS_BY_DEFAULT)
+
+
+END
+
+PROGRAM block_block_create
+BEGIN
+	call block_block_count.setvalue class blockBlockChildDialogList.size
+	call block_block_count.increment
+	call block_build_tmp.setvalue "block_block_"
+	call block_build_tmp.append class block_block_count.value
+	call block_build_tmp.withvalue block_build_childdlg.setvalue @
+	call program block_show_block_child
+END
+
+PROGRAM block_block_edit
+BEGIN
+	call blockBlockCommandDisplayList.findstr class			///
+		block.lb_blockBuild.value
+	call block_build_position.setvalue class			///
+		blockBlockCommandDisplayList.position
+	call block_build_position.withvalue				///
+		block_build_childdlg.setvalue				///
+		class blockBlockChildDialogList.values[@]
+	call program block_show_block_child_edit
+END
+
+PROGRAM block_show_block_child
+BEGIN	
+	call blockBlockCommandValues.copyToString block_block_output
+	put "capture bayes_parse_params "
+	if !block_block_output.equals("") {
+		put "," block_block_output
+	}
+	put " : "
+	put /program bayes_build_parse
+	stata hidden immediate
+	
+	call BAYES_PARSE_PARAMS_ERROR.setvalue ""
+	call BAYES_PARSE_PARAMS_RESULT.setvalue ""
+	call BAYES_PARSE_PARAMS_RESULT.setvalue s(params)
+	if BAYES_PARSE_PARAMS_RESULT.iseq("") {
+		call BAYES_PARSE_PARAMS_ERROR.setvalue resource BAYES_MSGBOX_ERRORS_IN_SPECIFICATION
+	stopbox stop "class BAYES_PARSE_PARAMS_ERROR.value"
+// Errors in model specification.
+	}
+	
+	call block_build_tmp.setvalue "bayes_block AS "
+	call block_build_tmp.append class block_build_childdlg.value
+	call block_build_tmp.withvalue create CHILD @
+	call block_build_childdlg.withvalue @.setExitString		///
+		"block_build_child_result"
+	call block_build_childdlg.withvalue @.setExitAction		///
+		"program block_block_child_create_done"
+
+	call block_block_count.withvalue				///
+		build_STMP.format "resource BAYES_LBL_BLOCK_FMT" "@" ""
+	call block_build_childdlg.withvalue				///
+		block_build_tmp2.setvalue "@.settitle"
+	call block_build_tmp2.append `" ""'
+	call block_build_tmp2.append class build_STMP.value
+	call block_build_tmp2.append `"""'
+	call block_build_tmp2.withvalue @
+END
+
+PROGRAM block_show_block_child_edit
+BEGIN	
+	call blockBlockCommandValues.copyToString block_block_output
+	put "capture bayes_parse_params "
+	if !block_block_output.equals("") {
+		put "," block_block_output
+	}
+	put ":"
+	put /program bayes_build_parse
+	stata hidden immediate
+
+	call block_build_tmp.setvalue "bayes_block AS "
+	call block_build_tmp.append class block_build_childdlg.value
+	call block_build_tmp.withvalue create CHILD @
+	call block_build_childdlg.withvalue @.setExitString		///
+		"block_build_child_result"
+	call block_build_childdlg.withvalue @.setExitAction		///
+		"program block_block_child_edit_done"
+
+	call block_build_position.withvalue				///
+		block_build_tmp.setvalue				///
+		class blockBlockCommandDisplayList.values[@]
+	call block_build_childdlg.withvalue				///
+		block_build_tmp2.setvalue "@.settitle"
+	call block_build_tmp2.append `" ""'
+	call block_build_tmp2.append class block_build_tmp.value
+	call block_build_tmp2.append `"""'
+	call block_build_tmp2.withvalue @
+END
+
+PROGRAM block_block_child_create_done
+BEGIN
+	call block_block_arraysize.setvalue class			///
+		blockBlockChildDialogList.size
+	call block_block_arraysize.increment
+
+	/* Store child dialog name */
+	call blockBlockChildDialogList.store class			///
+		block_block_arraysize.value class block_build_childdlg.value
+
+	/* Store listbox display equation string */
+	call block_block_arraysize.withvalue				///
+		build_STMP.format "resource BAYES_LBL_BLOCK_FMT" "@" ""
+		
+	call build_STMP.withvalue					///
+		blockBlockCommandDisplayList.store class		///
+		block_block_arraysize.value "@"
+
+	/* Store child dialog result string */
+	call blockBlockCommandList.store class				///
+		block_block_arraysize.value				///
+		class block_build_child_result.value
+
+
+	/* Store child dialog result string for final command
+	   For disable/enable */
+	call blockBlockCommandValues.store class			///
+		block_block_arraysize.value				///
+		class block_build_child_result.value
+
+	/* Store disable/enable status */
+	call blockBlockStatusList.store class				///
+		block_block_arraysize.value "active"
+
+	call blockBlockCommandDisplayList.copyToArray block_block_list
+	call block.lb_blockBuild.repopulate
+	call build_STMP.withvalue					///
+		block.lb_blockBuild.setvalue "@"
+END
+
+PROGRAM block_block_child_edit_done
+BEGIN	
+	call blockBlockChildDialogList.findstr class			///
+		block_build_childdlg.value
+	call block_build_position.setvalue class			///
+		blockBlockChildDialogList.position
+	call block_build_position.withvalue block_build_tmp.setvalue	///
+		class blockBlockStatusList.values[@]
+	if block_build_tmp.iseq("active") {
+		call block_build_position.withvalue			///
+			build_STMP.format "resource BAYES_LBL_BLOCK_FMT" "@" ""
+		
+		call build_STMP.withvalue				///
+			blockBlockCommandDisplayList.store class	///
+			block_build_position.value "@"
+		call blockBlockCommandValues.store class		///
+			block_build_position.value class		///
+			block_build_child_result.value
+
+		call build_STMP.withvalue				///
+			block_build_tmp2.setvalue "@"
+	}
+	else {
+		call block_build_position.withvalue build_STMP.format	///
+			"resource BAYES_LBL_BLOCK_FMT" "@"		///
+			"resource LBL_PAREN_DISABLED"
+		call build_STMP.withvalue				///
+			block_build_tmp2.setvalue "@"
+
+		call block_build_tmp2.withvalue				///
+			blockBlockCommandDisplayList.store		///
+			class block_build_position.value "@"
+	}
+
+	call blockBlockCommandList.store class				///
+		block_build_position.value class			///
+		block_build_child_result.value
+
+	call blockBlockCommandDisplayList.copyToArray block_block_list
+	call block.lb_blockBuild.repopulate
+	call block.lb_blockBuild.setvalue class block_build_tmp2.value
+END
+
+PROGRAM block_block_sel_changed
+BEGIN
+	call blockBlockCommandDisplayList.findstr class			///
+		block.lb_blockBuild.value
+	call block_build_position.setvalue class			///
+		blockBlockCommandDisplayList.position
+	call block_build_position.withvalue block_build_tmp.setvalue	///
+		class blockBlockStatusList.values[@]
+	if block_build_position {
+		call block.bu_block_edit.enable
+
+		call block_build_position.withvalue			///
+			block.tb_block_note.setlabel			///
+		class blockBlockCommandList.values[@]
+	}
+
+	if block_build_tmp.iseq("disable") {
+		call block.bu_block_enable.enable
+		call block.bu_block_disable.disable
+	}
+	if block_build_tmp.iseq("active") {
+		call block.bu_block_enable.disable
+		call block.bu_block_disable.enable
+	}
+END
+
+PROGRAM block_block_disable
+BEGIN
+	call blockBlockCommandDisplayList.findstr class			///
+		block.lb_blockBuild.value
+	call block_build_position.setvalue class			///
+		blockBlockCommandDisplayList.position
+
+	call block_build_tmp.setvalue class block.lb_blockBuild.value
+	call blockBlockStatusList.store class				///
+		block_build_position.value "disable"
+	call blockBlockCommandValues.store class block_build_position.value ""
+
+	call build_STMP.format "resource LBL_PAREN_DISABLED"
+	call block_build_tmp.append " "
+	call block_build_tmp.append class build_STMP.value
+	
+	call block_build_tmp.withvalue					///
+		blockBlockCommandDisplayList.store			///
+		class block_build_position.value "@"
+
+	call blockBlockCommandDisplayList.copyToArray block_block_list
+	call block_build_tmp.withvalue block_build_tmp2.setvalue "@"
+	call block.lb_blockBuild.repopulate
+	call block.lb_blockBuild.setvalue class block_build_tmp2.value
+END
+
+PROGRAM block_block_enable
+BEGIN
+	call blockBlockCommandDisplayList.findstr class			///
+		block.lb_blockBuild.value
+	call block_build_position.setvalue class			///
+		blockBlockCommandDisplayList.position
+
+	call blockBlockStatusList.store class				///
+		block_build_position.value "active"
+	call block_build_position.withvalue				///
+		blockBlockCommandValues.store				///
+		class block_build_position.value class			///
+		blockBlockCommandList.values[@]
+
+	call block_build_position.withvalue				///
+		build_STMP.format "resource BAYES_LBL_BLOCK_FMT" "@" ""
+		
+	call build_STMP.withvalue					///
+		blockBlockCommandDisplayList.store			///
+		class block_build_position.value "@"
+
+	call blockBlockCommandDisplayList.copyToArray block_block_list
+	call block_build_position.withvalue				///
+		block_build_tmp2.setvalue class				///
+		blockBlockCommandDisplayList.values[@]
+	call block.lb_blockBuild.repopulate
+	call block.lb_blockBuild.setvalue class block_build_tmp2.value
+END
+
+PROGRAM block_blockopt_output
+BEGIN
+	call blockBlockCommandValues.copyToString block_block_output
+	put " " block_block_output
+END
+
+PROGRAM bayes_blocking_output
+BEGIN
+	optionarg /hidedefault block.ed_blocksize
+	put " " /program block_blockopt_output
+	option block.ck_blocksummary
+	option block.ck_noblock
+END

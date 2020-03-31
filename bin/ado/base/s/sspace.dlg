@@ -1,0 +1,1516 @@
+/*
+  sspace
+
+*!  VERSION 1.2.5  08feb2019
+
+  keyword:  eclass
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_wide
+DEFINE _dlght 460
+INCLUDE header
+
+HELP hlp1, view("help sspace")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING STMP
+	/* State covariance equation list box */
+	create BOOLEAN main_sceq_has_noerror
+
+	create STRING main_sceqtmp
+	create STRING main_sceqtmp2
+	create STRING main_sceq_childdlg
+	create STRING main_sceq_child_result
+	create STRING main_sceq_cmd_output
+
+	create ARRAY main_sceq_list
+
+	create SVECTOR mainSCEQCommandDisplayList
+	create SVECTOR mainSCEQCommandList
+	create SVECTOR mainSCEQCommandValues
+	create SVECTOR mainSCEQStatusList
+	create SVECTOR mainSCEQChildDialogList
+	create SVECTOR mainSCEQHasNoError
+
+	create DOUBLE main_sceq_count
+	create DOUBLE main_sceq_position
+	create DOUBLE main_sceq_arraysize
+
+	main.bu_sceq_edit.disable
+	main.bu_sceq_disable.disable
+	main.bu_sceq_enable.disable
+	main.tx_covst.disable
+	main.cb_covst.disable
+
+	/* Observation covariance equation list box */
+	create BOOLEAN main_oceq_has_noerror
+
+	create STRING main_oceqtmp
+	create STRING main_oceqtmp2
+	create STRING main_oceq_childdlg
+	create STRING main_oceq_child_result
+	create STRING main_oceq_cmd_output
+
+	create ARRAY main_oceq_list
+
+	create SVECTOR mainOCEQCommandDisplayList
+	create SVECTOR mainOCEQCommandList
+	create SVECTOR mainOCEQCommandValues
+	create SVECTOR mainOCEQStatusList
+	create SVECTOR mainOCEQChildDialogList
+	create SVECTOR mainOCEQHasNoError
+
+	create DOUBLE main_oceq_count
+	create DOUBLE main_oceq_position
+	create DOUBLE main_oceq_arraysize
+
+	main.bu_oceq_edit.disable
+	main.bu_oceq_disable.disable
+	main.bu_oceq_enable.disable
+	main.tx_covob.disable
+	main.cb_covob.disable
+
+	/* State error form equation list box */
+	create STRING main_sefeqtmp
+	create STRING main_sefeqtmp2
+	create STRING main_sefeq_childdlg
+	create STRING main_sefeq_child_result
+	create STRING main_sefeq_cmd_output
+
+	create ARRAY main_sefeq_list
+
+	create SVECTOR mainSEFEQCommandDisplayList
+	create SVECTOR mainSEFEQCommandList
+	create SVECTOR mainSEFEQCommandValues
+	create SVECTOR mainSEFEQStatusList
+	create SVECTOR mainSEFEQChildDialogList
+
+	create DOUBLE main_sefeq_count
+	create DOUBLE main_sefeq_position
+	create DOUBLE main_sefeq_arraysize
+
+	main.bu_sefeq_edit.disable
+	main.bu_sefeq_disable.disable
+	main.bu_sefeq_enable.disable
+
+       /* Observation error form equation list box */
+	create STRING main_oefeqtmp
+	create STRING main_oefeqtmp2
+	create STRING main_oefeq_childdlg
+	create STRING main_oefeq_child_result
+	create STRING main_oefeq_cmd_output
+
+	create ARRAY main_oefeq_list
+
+	create SVECTOR mainOEFEQCommandDisplayList
+	create SVECTOR mainOEFEQCommandList
+	create SVECTOR mainOEFEQCommandValues
+	create SVECTOR mainOEFEQStatusList
+	create SVECTOR mainOEFEQChildDialogList
+
+	create DOUBLE main_oefeq_count
+	create DOUBLE main_oefeq_position
+	create DOUBLE main_oefeq_arraysize
+
+	main.bu_oefeq_edit.disable
+	main.bu_oefeq_disable.disable
+	main.bu_oefeq_enable.disable
+
+	script se_createAsRobustOIM
+	setscale_hadj resource SSPACE_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program se_setFinalInitState
+	script max_nonrtolerance_hide
+
+	mainSCEQCommandDisplayList.copyToArray main_sceq_list
+	main.lb_sceqBuild.repopulate
+
+	mainOCEQCommandDisplayList.copyToArray main_oceq_list
+	main.lb_oceqBuild.repopulate
+
+	mainSEFEQCommandDisplayList.copyToArray main_sefeq_list
+	main.lb_sefeqBuild.repopulate
+
+	mainOEFEQCommandDisplayList.copyToArray main_oefeq_list
+	main.lb_oefeqBuild.repopulate
+
+	program SCEQckHasNoErrorOpt
+	program OCEQckHasNoErrorOpt
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)				///
+	title(resource SSPACE_DLG_TITLE)
+BEGIN
+  DEFINE _x _xsetbu
+  DEFINE _y _top
+  INCLUDE _bu_tsset
+  GROUPBOX gb_syntax	_lft	_ss	_iwd	_ht4,			///
+	label(resource LBL_SYNTAX)
+  RADIO rb_covariance	_ilft	_ss	_inwd	., first		///
+	label(resource LBL_COVARIANCE_NO_COLON)				///
+	onclickon(program main_covariance_on)
+  RADIO rb_error_form	@	_ss	@	., last			///
+	label(resource SSPACE_MAIN_RB_ERROR_FORM)			///
+	onclickon(program main_error_form_on)
+
+  TEXT tx_sceqBuild	_lft	_xls	@	.,			///
+	label(resource LBL_STATE_EQUATIONS)
+  DEFINE holdy @y
+  LISTBOX lb_sceqBuild	@	_ss	200	95,			///
+	contents(main_sceq_list) 					///
+	ondblclick(program main_sceq_edit)				///
+	onselchange(program main_sceq_sel_changed)			///
+	nomemory
+  BUTTON bu_sceq_new	+210	@	80	.,			///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program main_sceq_create)				///
+	tooltip(resource LBL_CREATE_EQUATION)
+  BUTTON bu_sceq_edit	@	_ms	@	.,			///
+	label(resource LBL_BU_EDIT)					///
+	onpush(program main_sceq_edit)  				///
+	tooltip(resource LBL_EDIT_EQUATION)
+  BUTTON bu_sceq_disable	@	_ms	@	.,		///
+	label(resource LBL_BU_DISABLE)					///
+	onpush(program main_sceq_disable)				///
+	tooltip(resource LBL_CLICK_TO_DISABLE_AN_EQUATION)
+  BUTTON bu_sceq_enable	@	_ms	@	.,			///
+	label(resource LBL_BU_ENABLE)					///
+	onpush(program main_sceq_enable)				///
+	tooltip(resource LBL_CLICK_TO_ENABLE_PREVIOUSLY_DISABLED_EQ)
+  TEXTBOX tb_sceq_note	_lft	+25	_iwd	_tb2,			///
+	label(resource LBL_PRESS_CREATE_TO_DEFINE_EQUATION)
+  
+  TEXT tx_covst		_iilft2	holdy	_cwd6	.,			///
+		label(resource SSPACE_MAIN_TX_COVST)
+  TEXT tx_ecovst	@	@	@	.,			///
+		label(resource SSPACE_MAIN_TX_COVST)
+  COMBOBOX cb_covst	@	_ss	@	.,			///
+	dropdownlist							///
+	contents(covform_list)						///
+	values(covform_values)						///
+	option(covstate)						///
+	label(resource SSPACE_MAIN_TX_COVST)
+  COMBOBOX cb_ecovst	@	@	@	.,			///
+	dropdownlist							///
+	contents(ecovform_list)						///
+	values(ecovform_values)						///
+	option(covstate)						///
+	label(resource SSPACE_MAIN_TX_COVST)
+
+  TEXT tx_oceqBuild	_lft	+130	_cwd3	.,			///
+	label(resource LBL_OBSERVATION_EQUATIONS)
+  DEFINE holdy2 @y
+  LISTBOX lb_oceqBuild	@	_ss	200	95,			///
+	contents(main_oceq_list) 					///
+	ondblclick(program main_oceq_edit)				///
+	onselchange(program main_oceq_sel_changed)			///
+	nomemory
+  BUTTON bu_oceq_new	+210	@	80	.,			///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program main_oceq_create)				///
+	tooltip(resource LBL_CREATE_EQUATION)
+  BUTTON bu_oceq_edit	@	_ms	@	.,			///
+	label(resource LBL_BU_EDIT)					///
+	onpush(program main_oceq_edit)  				///
+	tooltip(resource LBL_EDIT_EQUATION)
+  BUTTON bu_oceq_disable	@	_ms	@	.,		///
+	label(resource LBL_BU_DISABLE)					///
+	onpush(program main_oceq_disable)				///
+	tooltip(resource LBL_CLICK_TO_DISABLE_AN_EQUATION)
+  BUTTON bu_oceq_enable	@	_ms	@	.,			///
+	label(resource LBL_BU_ENABLE)					///
+	onpush(program main_oceq_enable)				///
+	tooltip(resource LBL_CLICK_TO_ENABLE_PREVIOUSLY_DISABLED_EQ)
+  TEXTBOX tb_oceq_note	_lft	+25	_iwd	_tb2,			///
+	label(resource LBL_PRESS_CREATE_TO_DEFINE_EQUATION)
+  
+  TEXT tx_covob		_iilft2	holdy2	_cwd6	.,			///
+	label(resource SSPACE_MAIN_TX_COVOB)
+  TEXT tx_ecovob	@	@	@	.,			///
+	label(resource SSPACE_MAIN_TX_COVOB)
+  COMBOBOX cb_covob	@	_ss	@	.,			///
+	dropdownlist							///
+	contents(covform_list)						///
+	values(covform_values)						///
+	option(covobserved)						///
+	label(resource SSPACE_MAIN_TX_COVOB)
+  COMBOBOX cb_ecovob	@	@	@	.,			///
+	dropdownlist							///
+	contents(ecovform_list)						///
+	values(ecovform_values)						///
+	option(covobserved)						///
+	label(resource SSPACE_MAIN_TX_COVOB)
+
+  TEXT tx_sefeqBuild	_lft	holdy	_iwd	.,			///
+	label(resource LBL_STATE_EQUATIONS)
+  LISTBOX lb_sefeqBuild	@	_ss	200	95,			///
+	contents(main_sefeq_list) 					///
+	ondblclick(program main_sefeq_edit)				///
+	onselchange(program main_sefeq_sel_changed)			///
+	nomemory
+  BUTTON bu_sefeq_new	+210	@	80	.,			///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program main_sefeq_create)				///
+	tooltip(resource LBL_CREATE_EQUATION)
+  BUTTON bu_sefeq_edit	@	_ms	@	.,			///
+	label(resource LBL_BU_EDIT)					///
+	onpush(program main_sefeq_edit)  				///
+	tooltip(resource LBL_EDIT_EQUATION)
+  BUTTON bu_sefeq_disable	@	_ms	@	.,		///
+	label(resource LBL_BU_DISABLE)					///
+	onpush(program main_sefeq_disable)				///
+	tooltip(resource LBL_CLICK_TO_DISABLE_AN_EQUATION)
+  BUTTON bu_sefeq_enable	@	_ms	@	.,		///
+	label(resource LBL_BU_ENABLE)					///
+	onpush(program main_sefeq_enable)				///
+	tooltip(resource LBL_CLICK_TO_ENABLE_PREVIOUSLY_DISABLED_EQ)
+  TEXTBOX tb_sefeq_note	_lft	+25	_iwd	_tb2,			///
+	label(resource LBL_PRESS_CREATE_TO_DEFINE_EQUATION)
+
+  TEXT tx_oefeqBuild	_lft	_ls	_iwd	.,			///
+	label(resource LBL_OBSERVATION_EQUATIONS)
+  LISTBOX lb_oefeqBuild	@	_ss	200	95,			///
+	contents(main_oefeq_list) 					///
+	ondblclick(program main_oefeq_edit)				///
+	onselchange(program main_oefeq_sel_changed)			///
+	nomemory
+  BUTTON bu_oefeq_new	+210	@	80	.,			///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program main_oefeq_create)				///
+	tooltip(resource LBL_CREATE_EQUATION)
+  BUTTON bu_oefeq_edit	@	_ms	@	.,			///
+	label(resource LBL_BU_EDIT)					///
+	onpush(program main_oefeq_edit)  				///
+	tooltip(resource LBL_EDIT_EQUATION)
+  BUTTON bu_oefeq_disable	@	_ms	@	.,		///
+	label(resource LBL_BU_DISABLE)					///
+	onpush(program main_oefeq_disable)				///
+	tooltip(resource LBL_CLICK_TO_DISABLE_AN_EQUATION)
+  BUTTON bu_oefeq_enable	@	_ms	@	.,		///
+	label(resource LBL_BU_ENABLE)					///
+	onpush(program main_oefeq_enable)				///
+	tooltip(resource LBL_CLICK_TO_ENABLE_PREVIOUSLY_DISABLED_EQ)
+  TEXTBOX tb_oefeq_note	_lft	+25	_iwd	_tb2,			///
+	label(resource LBL_PRESS_CREATE_TO_DEFINE_EQUATION)
+  
+  TEXT     tx_constr 	_lft	_ls	_lw80	.,			///
+	label(resource LBL_CONSTRAINTS_OPTIONAL)
+  COMBOBOX cb_constr 	@	_ss	@	.,			///
+	append								///
+	dropdown							///
+	contents(constraint)						///
+	label(resource LBL_CONSTRAINTS)					///
+	option(constraints)
+  BUTTON   bu_constr	_slw80	@	80	.,			///
+	label(resource LBL_MANAGE)					///
+	onpush(script show_constraint_dialog)
+END
+
+INCLUDE _constraints_sc
+
+PROGRAM main_covariance_on
+BEGIN
+	call main.tx_sceqBuild.show
+	call main.lb_sceqBuild.show
+	call main.bu_sceq_new.show
+	call main.bu_sceq_edit.show
+	call main.bu_sceq_disable.show
+	call main.bu_sceq_enable.show
+	call main.tb_sceq_note.show
+
+	call main.tx_oceqBuild.show
+	call main.lb_oceqBuild.show
+	call main.bu_oceq_new.show
+	call main.bu_oceq_edit.show
+	call main.bu_oceq_disable.show
+	call main.bu_oceq_enable.show
+	call main.tb_oceq_note.show
+
+	call main.tx_sefeqBuild.hide
+	call main.lb_sefeqBuild.hide
+	call main.bu_sefeq_new.hide
+	call main.bu_sefeq_edit.hide
+	call main.bu_sefeq_disable.hide
+	call main.bu_sefeq_enable.hide
+	call main.tb_sefeq_note.hide
+
+	call main.tx_oefeqBuild.hide
+	call main.lb_oefeqBuild.hide
+	call main.bu_oefeq_new.hide
+	call main.bu_oefeq_edit.hide
+	call main.bu_oefeq_disable.hide
+	call main.bu_oefeq_enable.hide
+	call main.tb_oefeq_note.hide
+	
+	call main.tx_ecovst.hide
+	call main.cb_ecovst.hide
+	call main.tx_ecovob.hide
+	call main.cb_ecovob.hide
+
+	call main.tx_covst.show
+	call main.cb_covst.show
+	call main.tx_covob.show
+	call main.cb_covob.show
+END
+
+PROGRAM main_error_form_on
+BEGIN
+	call main.tx_sceqBuild.hide
+	call main.lb_sceqBuild.hide
+	call main.bu_sceq_new.hide
+	call main.bu_sceq_edit.hide
+	call main.bu_sceq_disable.hide
+	call main.bu_sceq_enable.hide
+	call main.tb_sceq_note.hide
+
+	call main.tx_oceqBuild.hide
+	call main.lb_oceqBuild.hide
+	call main.bu_oceq_new.hide
+	call main.bu_oceq_edit.hide
+	call main.bu_oceq_disable.hide
+	call main.bu_oceq_enable.hide
+	call main.tb_oceq_note.hide
+
+	call main.tx_sefeqBuild.show
+	call main.lb_sefeqBuild.show
+	call main.bu_sefeq_new.show
+	call main.bu_sefeq_edit.show
+	call main.bu_sefeq_disable.show
+	call main.bu_sefeq_enable.show
+	call main.tb_sefeq_note.show
+
+	call main.tx_oefeqBuild.show
+	call main.lb_oefeqBuild.show
+	call main.bu_oefeq_new.show
+	call main.bu_oefeq_edit.show
+	call main.bu_oefeq_disable.show
+	call main.bu_oefeq_enable.show
+	call main.tb_oefeq_note.show
+
+	call main.tx_ecovst.show
+	call main.cb_ecovst.show
+	call main.tx_ecovob.show
+	call main.cb_ecovob.show
+
+	call main.tx_covst.hide
+	call main.cb_covst.hide
+	call main.tx_covob.hide
+	call main.cb_covob.hide
+END
+
+	/* State covariance equation list box */
+PROGRAM main_sceq_create
+BEGIN
+	call main_sceq_count.setvalue class mainSCEQChildDialogList.size
+	call main_sceq_count.increment
+	call main_sceq_count.withvalue main_sceq_childdlg.setvalue	///
+		"main_sceq@"
+	call program main_show_sceq_child
+END
+
+PROGRAM main_sceq_edit
+BEGIN
+	call mainSCEQCommandDisplayList.findstr class main.lb_sceqBuild.value
+	call main_sceq_position.setvalue class 				///
+		mainSCEQCommandDisplayList.position
+	call main_sceq_position.withvalue main_sceq_childdlg.setvalue	///
+		class mainSCEQChildDialogList.values[@]
+
+	call program main_show_sceq_child_edit
+END
+
+PROGRAM main_show_sceq_child
+BEGIN
+	call main_sceq_has_noerror.setfalse
+	call main_sceq_childdlg.withvalue create CHILD sspace_new_sceq AS @
+	call main_sceq_childdlg.withvalue @.setExitString 		///
+		"main_sceq_child_result"
+	call main_sceq_childdlg.withvalue @.setExitAction		///
+		"program main_sceq_child_done"
+
+
+	call main_sceq_count.withvalue STMP.format			///
+		"resource LBL_EQUATION_FMT" "@" ""
+	call STMP.withvalue main_sceqtmp.setvalue "@"
+	call main_sceq_childdlg.withvalue main_sceqtmp2.setvalue "@.settitle"
+	call main_sceqtmp2.append `" ""'
+	call main_sceqtmp2.append class main_sceqtmp.value
+	call main_sceqtmp2.append `"""'
+	call main_sceqtmp2.withvalue @
+END
+
+PROGRAM main_show_sceq_child_edit
+BEGIN
+	call main_sceq_has_noerror.setfalse
+	call main_sceq_childdlg.withvalue create CHILD sspace_new_sceq AS @
+	call main_sceq_childdlg.withvalue @.setExitString 		///
+		"main_sceq_child_result"
+	call main_sceq_childdlg.withvalue @.setExitAction		///
+		"program main_sceq_child_done"
+
+	call main_sceq_position.withvalue main_sceqtmp.setvalue		///
+		class mainSCEQCommandDisplayList.values[@]
+	call main_sceq_childdlg.withvalue main_sceqtmp2.setvalue "@.settitle"
+	call main_sceqtmp2.append `" ""'
+	call main_sceqtmp2.append class main_sceqtmp.value
+	call main_sceqtmp2.append `"""'
+	call main_sceqtmp2.withvalue @
+END
+
+PROGRAM main_sceq_child_done
+BEGIN
+	call mainSCEQChildDialogList.findstr class main_sceq_childdlg.value
+	call main_sceq_position.setvalue class mainSCEQChildDialogList.position
+	if main_sceq_position {
+		call main_sceq_position.withvalue main_sceqtmp.setvalue	///
+			class mainSCEQStatusList.values[@]
+		if main_sceqtmp.iseq("active") {
+			call main_sceq_position.withvalue STMP.format	///
+				"resource LBL_EQUATION_FMT" "@" ""
+			call STMP.withvalue				///
+				mainSCEQCommandDisplayList.store class	///
+				main_sceq_position.value "@"
+			call mainSCEQCommandValues.store class		///
+				main_sceq_position.value class		///
+				main_sceq_child_result.value
+			call STMP.withvalue				///
+				main_sceqtmp2.setvalue "@"
+		}
+		else {
+			call main_sceq_position.withvalue STMP.format	///
+				"resource LBL_EQUATION_FMT" "@"		///
+				"resource LBL_PAREN_DISABLED"
+			call STMP.withvalue				///
+				main_sceqtmp2.setvalue "@"
+			call main_sceqtmp2.withvalue			///
+				mainSCEQCommandDisplayList.store	///
+				class main_sceq_position.value "@"
+		}
+
+		call mainSCEQCommandList.store class			///
+			main_sceq_position.value class 			///
+			main_sceq_child_result.value
+		
+		/* Store noerror option */
+		call mainSCEQHasNoError.store class			///
+			main_sceq_position.value class 			///
+			main_sceq_has_noerror.value
+
+		call mainSCEQCommandDisplayList.copyToArray main_sceq_list
+		call main.lb_sceqBuild.repopulate
+		call main.lb_sceqBuild.setvalue class main_sceqtmp2.value
+	}
+	else {
+		call main_sceq_arraysize.setvalue class 		///
+			mainSCEQChildDialogList.size
+		call main_sceq_arraysize.increment
+
+		/* Store child dialog name */
+		call mainSCEQChildDialogList.store class		///
+			main_sceq_arraysize.value class			///
+			main_sceq_childdlg.value
+
+		/* Store listbox display equation string */
+		call main_sceq_arraysize.withvalue STMP.format		///
+			"resource LBL_EQUATION_FMT" "@" ""
+		call STMP.withvalue					///
+			mainSCEQCommandDisplayList.store class		///
+			main_sceq_arraysize.value "@"
+
+		/* Store child dialog result string */
+		call mainSCEQCommandList.store class			///
+			main_sceq_arraysize.value 			///
+			class main_sceq_child_result.value
+
+		/* Store child dialog result string for final command
+		   For disable/enable */
+		call mainSCEQCommandValues.store class			///
+			main_sceq_arraysize.value class 		///
+			main_sceq_child_result.value
+
+		/* Store disable/enable status */
+		call mainSCEQStatusList.store				///
+			class main_sceq_arraysize.value "active"
+	
+		/* Store noerror option */
+		call mainSCEQHasNoError.store				///
+			class main_sceq_arraysize.value 		///
+			class main_sceq_has_noerror.value
+
+		call mainSCEQCommandDisplayList.copyToArray main_sceq_list
+		call main.lb_sceqBuild.repopulate
+		call STMP.withvalue main.lb_sceqBuild.setvalue "@"
+	}
+
+	call program SCEQckHasNoErrorOpt
+END
+
+PROGRAM SCEQckHasNoErrorOpt
+BEGIN
+	call mainSCEQHasNoError.findstr "1"
+	call main_sceq_position.setvalue class mainSCEQHasNoError.position
+	if !main_sceq_position {
+		call main.tx_covst.enable
+		call main.cb_covst.enable
+	}
+	else {
+		call main.tx_covst.disable
+		call main.cb_covst.disable
+	}
+END
+
+PROGRAM main_sceq_sel_changed
+BEGIN
+	call mainSCEQCommandDisplayList.findstr class main.lb_sceqBuild.value
+	call main_sceq_position.setvalue class 				///
+		mainSCEQCommandDisplayList.position
+	call main_sceq_position.withvalue main_sceqtmp.setvalue		///
+		class mainSCEQStatusList.values[@]
+	if main_sceq_position {
+		call main.bu_sceq_edit.enable
+		call main_sceq_position.withvalue			///
+			main.tb_sceq_note.setlabel			///
+			class mainSCEQCommandList.values[@]
+	}
+
+	if main_sceqtmp.iseq("disable") {
+		call main.bu_sceq_enable.enable
+		call main.bu_sceq_disable.disable
+	}
+	if main_sceqtmp.iseq("active") {
+		call main.bu_sceq_enable.disable
+		call main.bu_sceq_disable.enable
+	}
+END
+
+PROGRAM main_sceq_disable
+BEGIN
+	call mainSCEQCommandDisplayList.findstr class main.lb_sceqBuild.value
+	call main_sceq_position.setvalue class				///
+		mainSCEQCommandDisplayList.position
+
+	call main_sceqtmp.setvalue class main.lb_sceqBuild.value
+	call mainSCEQStatusList.store class main_sceq_position.value "disable"
+	call mainSCEQCommandValues.store class main_sceq_position.value ""
+	call STMP.format "resource LBL_PAREN_DISABLED"
+	call main_sceqtmp.append " "
+	call main_sceqtmp.append class STMP.value
+	call main_sceqtmp.withvalue STMP.setvalue "@"
+
+	call main_sceqtmp.withvalue mainSCEQCommandDisplayList.store	///
+		class main_sceq_position.value "@"
+
+	call mainSCEQCommandDisplayList.copyToArray main_sceq_list
+	call main.lb_sceqBuild.repopulate
+	call main.lb_sceqBuild.setvalue class STMP.value
+END
+
+PROGRAM main_sceq_enable
+BEGIN
+	call mainSCEQCommandDisplayList.findstr class main.lb_sceqBuild.value
+	call main_sceq_position.setvalue class 				///
+		mainSCEQCommandDisplayList.position
+
+	call mainSCEQStatusList.store class main_sceq_position.value "active"
+	call main_sceq_position.withvalue mainSCEQCommandValues.store	///
+		class main_sceq_position.value class 			///
+		mainSCEQCommandList.values[@]
+
+	call main_sceq_position.withvalue STMP.format 			///
+		"resource LBL_EQUATION_FMT" "@" ""
+
+	call STMP.withvalue						///
+		mainSCEQCommandDisplayList.store			///
+		class main_sceq_position.value "@"
+
+	call mainSCEQCommandDisplayList.copyToArray main_sceq_list
+	call main_sceq_position.withvalue main_sceqtmp2.setvalue class	///
+		mainSCEQCommandDisplayList.values[@]
+	call main.lb_sceqBuild.repopulate
+	call main.lb_sceqBuild.setvalue class main_sceqtmp2.value
+END
+
+PROGRAM main_lb_sceqBuild_output
+BEGIN
+	call mainSCEQCommandValues.copyToString main_sceq_cmd_output
+	call main_sceq_arraysize.setvalue class mainSCEQStatusList.size
+	if main_sceq_cmd_output.iseq("") & main_sceq_arraysize.iseq(0)	///
+		 & main.lb_sceqBuild.isvisible() {
+		stopbox stop resource SSPACE_MSGBOX_STATE_EQUATION_NOT_DEFINED
+// State equation not defined.
+// Please enter a state equation before proceeding.
+	}
+	if main_sceq_cmd_output.iseq("") & main_sceq_arraysize.isgt(0)	///
+		& main.lb_sceqBuild.isvisible() {
+		stopbox stop resource SSPACE_MSGBOX_ALL_STATE_EQ_ARE_DISABLED
+// All state equations are disabled.
+// Either define a new state equation or enable an existing state
+// equation before proceeding.
+	}
+
+	if main_sceq_cmd_output & main.lb_sceqBuild.isvisible() {
+		put main_sceq_cmd_output
+	}
+END
+
+/* Observation covariance equation list box */
+PROGRAM main_oceq_create
+BEGIN
+	call main_oceq_count.setvalue class mainOCEQChildDialogList.size
+	call main_oceq_count.increment
+	call main_oceq_count.withvalue main_oceq_childdlg.setvalue	///
+		"main_oceq@"
+	call program main_show_oceq_child
+END
+
+PROGRAM main_oceq_edit
+BEGIN
+	call mainOCEQCommandDisplayList.findstr class main.lb_oceqBuild.value
+	call main_oceq_position.setvalue class				///
+		mainOCEQCommandDisplayList.position
+	call main_oceq_position.withvalue main_oceq_childdlg.setvalue	///
+		class mainOCEQChildDialogList.values[@]
+
+	call program main_show_oceq_child_edit
+END
+
+PROGRAM main_show_oceq_child
+BEGIN
+	call main_oceq_has_noerror.setfalse
+	call main_oceq_childdlg.withvalue create CHILD sspace_new_oceq AS @
+	call main_oceq_childdlg.withvalue @.setExitString		///
+		"main_oceq_child_result"
+	call main_oceq_childdlg.withvalue @.setExitAction		///
+		"program main_oceq_child_done"
+
+	call main_oceq_count.withvalue STMP.format			///
+		"resource LBL_EQUATION_FMT" "@" ""
+	call STMP.withvalue main_oceqtmp.setvalue "@"
+	call main_oceq_childdlg.withvalue main_oceqtmp2.setvalue "@.settitle"
+	call main_oceqtmp2.append `" ""'
+	call main_oceqtmp2.append class main_oceqtmp.value
+	call main_oceqtmp2.append `"""'
+	call main_oceqtmp2.withvalue @
+END
+
+PROGRAM main_show_oceq_child_edit
+BEGIN
+	call main_oceq_has_noerror.setfalse
+	call main_oceq_childdlg.withvalue create CHILD sspace_new_oceq AS @
+	call main_oceq_childdlg.withvalue @.setExitString		///
+		"main_oceq_child_result"
+	call main_oceq_childdlg.withvalue @.setExitAction		///
+		"program main_oceq_child_done"
+
+	call main_oceq_position.withvalue main_oceqtmp.setvalue		///
+		class mainOCEQCommandDisplayList.values[@]
+	call main_oceq_childdlg.withvalue main_oceqtmp2.setvalue "@.settitle"
+	call main_oceqtmp2.append `" ""'
+	call main_oceqtmp2.append class main_oceqtmp.value
+	call main_oceqtmp2.append `"""'
+	call main_oceqtmp2.withvalue @
+END
+
+PROGRAM main_oceq_child_done
+BEGIN
+	call mainOCEQChildDialogList.findstr class main_oceq_childdlg.value
+	call main_oceq_position.setvalue class mainOCEQChildDialogList.position
+	if main_oceq_position {
+		call main_oceq_position.withvalue main_oceqtmp.setvalue	///
+			class mainOCEQStatusList.values[@]
+		if main_oceqtmp.iseq("active") {
+			call main_oceq_position.withvalue STMP.format	///
+				"resource LBL_EQUATION_FMT" "@" ""
+
+			call STMP.withvalue				///
+				mainOCEQCommandDisplayList.store class	///
+				main_oceq_position.value		///
+				"@"
+			call mainOCEQCommandValues.store class		///
+				main_oceq_position.value class		///
+				main_oceq_child_result.value
+			call STMP.withvalue				///
+				main_oceqtmp2.setvalue "@"
+		}
+		else {
+			call main_oceq_position.withvalue STMP.format	///
+			"resource LBL_EQUATION_FMT" "@"			///
+			"resource LBL_PAREN_DISABLED"
+			call STMP.withvalue				///
+				main_oceqtmp2.setvalue "@"
+
+			call main_oceqtmp2.withvalue			///
+				mainOCEQCommandDisplayList.store	///
+				class main_oceq_position.value "@"
+		}
+
+		call mainOCEQCommandList.store class			///
+			main_oceq_position.value class 			///
+			main_oceq_child_result.value
+
+		/* Store noerror option */
+		call mainOCEQHasNoError.store class			///
+			main_oceq_position.value class 			///
+			main_oceq_has_noerror.value
+
+		call mainOCEQCommandDisplayList.copyToArray main_oceq_list
+		call main.lb_oceqBuild.repopulate
+		call main.lb_oceqBuild.setvalue class main_oceqtmp2.value
+	}
+	else {
+		call main_oceq_arraysize.setvalue class			///
+			mainOCEQChildDialogList.size
+		call main_oceq_arraysize.increment
+
+		/* Store child dialog name */
+		call mainOCEQChildDialogList.store class		///
+			main_oceq_arraysize.value class			///
+			main_oceq_childdlg.value
+
+		/* Store listbox display equation string */
+		call main_oceq_arraysize.withvalue STMP.format		///
+			"resource LBL_EQUATION_FMT" "@" ""
+		call STMP.withvalue					///
+			mainOCEQCommandDisplayList.store class		///
+			main_oceq_arraysize.value "@"
+
+		/* Store child dialog result string */
+		call mainOCEQCommandList.store class			///
+			main_oceq_arraysize.value class			///
+			main_oceq_child_result.value
+
+		/* Store child dialog result string for final command
+		   For disable/enable */
+		call mainOCEQCommandValues.store class			///
+			main_oceq_arraysize.value class			///
+			main_oceq_child_result.value
+
+		/* Store disable/enable status */
+		call mainOCEQStatusList.store				///
+			class main_oceq_arraysize.value "active"
+
+		/* Store noerror option */
+		call mainOCEQHasNoError.store				///
+			class main_oceq_arraysize.value 		///
+			class main_oceq_has_noerror.value
+
+		call mainOCEQCommandDisplayList.copyToArray main_oceq_list
+		call main.lb_oceqBuild.repopulate
+		call STMP.withvalue main.lb_oceqBuild.setvalue "@"
+	}
+	call program OCEQckHasNoErrorOpt
+END
+
+PROGRAM OCEQckHasNoErrorOpt
+BEGIN
+	call mainOCEQHasNoError.findstr "1"
+	call main_oceq_position.setvalue class mainOCEQHasNoError.position
+	if !main_oceq_position {
+		call main.tx_covob.enable
+		call main.cb_covob.enable
+	}
+	else {
+		call main.tx_covob.disable
+		call main.cb_covob.disable
+	}
+END
+
+PROGRAM main_oceq_sel_changed
+BEGIN
+	call mainOCEQCommandDisplayList.findstr class main.lb_oceqBuild.value
+	call main_oceq_position.setvalue class				///
+		mainOCEQCommandDisplayList.position
+	call main_oceq_position.withvalue main_oceqtmp.setvalue		///
+		class mainOCEQStatusList.values[@]
+	if main_oceq_position {
+		call main.bu_oceq_edit.enable
+		call main_oceq_position.withvalue			///
+			main.tb_oceq_note.setlabel			///
+			class mainOCEQCommandList.values[@]
+	}
+
+	if main_oceqtmp.iseq("disable") {
+		call main.bu_oceq_enable.enable
+		call main.bu_oceq_disable.disable
+	}
+	if main_oceqtmp.iseq("active") {
+		call main.bu_oceq_enable.disable
+		call main.bu_oceq_disable.enable
+	}
+END
+
+PROGRAM main_oceq_disable
+BEGIN
+	call mainOCEQCommandDisplayList.findstr class main.lb_oceqBuild.value
+	call main_oceq_position.setvalue class				///
+		mainOCEQCommandDisplayList.position
+
+	call main_oceqtmp.setvalue class main.lb_oceqBuild.value
+	call mainOCEQStatusList.store class main_oceq_position.value "disable"
+	call mainOCEQCommandValues.store class main_oceq_position.value ""
+	call STMP.format "resource LBL_PAREN_DISABLED"
+	call main_oceqtmp.append " "
+	call main_oceqtmp.append class STMP.value
+	call main_oceqtmp.withvalue STMP.setvalue "@"
+
+	call main_oceqtmp.withvalue mainOCEQCommandDisplayList.store	///
+		class main_oceq_position.value "@"
+
+	call mainOCEQCommandDisplayList.copyToArray main_oceq_list
+	call main.lb_oceqBuild.repopulate
+	call main.lb_oceqBuild.setvalue class main_oceqtmp2.value
+	call main.lb_oceqBuild.setvalue class STMP.value
+END
+
+PROGRAM main_oceq_enable
+BEGIN
+	call mainOCEQCommandDisplayList.findstr class main.lb_oceqBuild.value
+	call main_oceq_position.setvalue class				///
+		mainOCEQCommandDisplayList.position
+
+	call mainOCEQStatusList.store class main_oceq_position.value "active"
+	call main_oceq_position.withvalue				///
+		mainOCEQCommandValues.store class			///
+		main_oceq_position.value class mainOCEQCommandList.values[@]
+
+	call main_oceq_position.withvalue STMP.format			///
+		"resource LBL_EQUATION_FMT" "@" ""
+	call STMP.withvalue						///
+		mainOCEQCommandDisplayList.store			///
+		class main_oceq_position.value "@"
+
+	call mainOCEQCommandDisplayList.copyToArray main_oceq_list
+	call main_oceq_position.withvalue main_oceqtmp2.setvalue class	///
+		mainOCEQCommandDisplayList.values[@]
+	call main.lb_oceqBuild.repopulate
+	call main.lb_oceqBuild.setvalue class main_oceqtmp2.value
+END
+
+PROGRAM main_lb_oceqBuild_output
+BEGIN
+	call mainOCEQCommandValues.copyToString main_oceq_cmd_output
+	call main_oceq_arraysize.setvalue class mainOCEQStatusList.size
+	if main_oceq_cmd_output.iseq("") & main_oceq_arraysize.iseq(0)	///
+		 & main.lb_oceqBuild.isvisible() {
+		stopbox stop resource SSPACE_MSGBOX_OBSERVATION_EQ_NOT_DEFINED
+// Observation equation not defined.
+// Please enter an observation equation before proceeding.
+	}
+	if main_oceq_cmd_output.iseq("") & main_oceq_arraysize.isgt(0)	///
+		& main.lb_oceqBuild.isvisible() {
+		stopbox stop resource SSPACE_MSGBOX_OBSERVATION_EQ_ARE_DISABLED
+// All observation equations are disabled.
+// Either define a new observation equation or enable an existing
+// observation equation before proceeding.
+	}
+
+	if main_oceq_cmd_output & main.lb_oceqBuild.isvisible() {
+		put main_oceq_cmd_output
+	}
+END
+
+/* State error form equation list box */
+PROGRAM main_sefeq_create
+BEGIN
+	call main_sefeq_count.setvalue class mainSEFEQChildDialogList.size
+	call main_sefeq_count.increment
+	call main_sefeq_count.withvalue main_sefeq_childdlg.setvalue	///
+		"main_sefeq@"
+	call program main_show_sefeq_child
+END
+
+PROGRAM main_sefeq_edit
+BEGIN
+	call mainSEFEQCommandDisplayList.findstr class main.lb_sefeqBuild.value
+	call main_sefeq_position.setvalue class 			///
+		mainSEFEQCommandDisplayList.position
+	call main_sefeq_position.withvalue main_sefeq_childdlg.setvalue	///
+		class mainSEFEQChildDialogList.values[@]
+
+	call program main_show_sefeq_child_edit
+END
+
+PROGRAM main_show_sefeq_child
+BEGIN
+	call main_sefeq_childdlg.withvalue create CHILD sspace_new_sefeq AS @
+	call main_sefeq_childdlg.withvalue @.setExitString 		///
+		"main_sefeq_child_result"
+	call main_sefeq_childdlg.withvalue @.setExitAction		///
+		"program main_sefeq_child_done"
+
+	call main_sefeq_count.withvalue STMP.format			///
+		"resource LBL_EQUATION_FMT" "@" ""
+	call STMP.withvalue main_sefeqtmp.setvalue "@"
+	call main_sefeq_childdlg.withvalue main_sefeqtmp2.setvalue "@.settitle"
+	call main_sefeqtmp2.append `" ""'
+	call main_sefeqtmp2.append class main_sefeqtmp.value
+	call main_sefeqtmp2.append `"""'
+	call main_sefeqtmp2.withvalue @
+END
+
+PROGRAM main_show_sefeq_child_edit
+BEGIN
+	call main_sefeq_childdlg.withvalue create CHILD sspace_new_sefeq AS @
+	call main_sefeq_childdlg.withvalue @.setExitString 		///
+		"main_sefeq_child_result"
+	call main_sefeq_childdlg.withvalue @.setExitAction		///
+		"program main_sefeq_child_done"
+
+	call main_sefeq_position.withvalue main_sefeqtmp.setvalue	///
+		class mainSEFEQCommandDisplayList.values[@]
+	call main_sefeq_childdlg.withvalue main_sefeqtmp2.setvalue "@.settitle"
+	call main_sefeqtmp2.append `" ""'
+	call main_sefeqtmp2.append class main_sefeqtmp.value
+	call main_sefeqtmp2.append `"""'
+	call main_sefeqtmp2.withvalue @
+END
+
+PROGRAM main_sefeq_child_done
+BEGIN
+	call mainSEFEQChildDialogList.findstr class main_sefeq_childdlg.value
+	call main_sefeq_position.setvalue class 			///
+		mainSEFEQChildDialogList.position
+	if main_sefeq_position {
+		call main_sefeq_position.withvalue			///
+			main_sefeqtmp.setvalue				///
+			class mainSEFEQStatusList.values[@]
+		if main_sefeqtmp.iseq("active") {
+			call main_sefeq_position.withvalue STMP.format	///
+				"resource LBL_EQUATION_FMT" "@" ""
+			call STMP.withvalue				///
+				mainSEFEQCommandDisplayList.store class	///
+				main_sefeq_position.value "@"
+			call mainSEFEQCommandValues.store class		///
+				main_sefeq_position.value class		///
+				main_sefeq_child_result.value
+			call STMP.withvalue main_sefeqtmp2.setvalue "@"
+		}
+		else {
+			call main_sefeq_position.withvalue STMP.format	///
+				"resource LBL_EQUATION_FMT" "@"		///
+				"resource LBL_PAREN_DISABLED"
+			call STMP.withvalue				///
+				main_sefeqtmp2.setvalue "@"
+			call main_sefeqtmp2.withvalue			///
+				mainSEFEQCommandDisplayList.store	///
+				class main_sefeq_position.value "@"
+		}
+
+		call mainSEFEQCommandList.store class			///
+			main_sefeq_position.value class 		///
+			main_sefeq_child_result.value
+
+		call mainSEFEQCommandDisplayList.copyToArray main_sefeq_list
+		call main.lb_sefeqBuild.repopulate
+		call main.lb_sefeqBuild.setvalue class main_sefeqtmp2.value
+	}
+	else {
+		call main_sefeq_arraysize.setvalue class 		///
+			mainSEFEQChildDialogList.size
+		call main_sefeq_arraysize.increment
+
+		/* Store child dialog name */
+		call mainSEFEQChildDialogList.store class		///
+			main_sefeq_arraysize.value class		///
+			main_sefeq_childdlg.value
+
+		/* Store listbox display equation string */
+		call main_sefeq_arraysize.withvalue STMP.format		///
+			"resource LBL_EQUATION_FMT" "@" ""
+		call STMP.withvalue					///
+			mainSEFEQCommandDisplayList.store class		///
+			main_sefeq_arraysize.value "@"
+
+		/* Store child dialog result string */
+		call mainSEFEQCommandList.store class			///
+			main_sefeq_arraysize.value 			///
+			class main_sefeq_child_result.value
+
+		/* Store child dialog result string for final command
+		   For disable/enable */
+		call mainSEFEQCommandValues.store class			///
+			main_sefeq_arraysize.value class 		///
+			main_sefeq_child_result.value
+
+		/* Store disable/enable status */
+		call mainSEFEQStatusList.store				///
+			class main_sefeq_arraysize.value "active"
+
+		call mainSEFEQCommandDisplayList.copyToArray main_sefeq_list
+		call main.lb_sefeqBuild.repopulate
+		call main_sefeq_arraysize.withvalue STMP.format		///
+			"resource LBL_EQUATION_FMT" "@" ""
+		call STMP.withvalue					///
+			main.lb_sefeqBuild.setvalue "@"
+	}
+END
+
+PROGRAM main_sefeq_sel_changed
+BEGIN
+	call mainSEFEQCommandDisplayList.findstr class main.lb_sefeqBuild.value
+	call main_sefeq_position.setvalue class 			///
+		mainSEFEQCommandDisplayList.position
+	call main_sefeq_position.withvalue main_sefeqtmp.setvalue	///
+		class mainSEFEQStatusList.values[@]
+	if main_sefeq_position {
+		call main.bu_sefeq_edit.enable
+		call main_sefeq_position.withvalue			///
+			main.tb_sefeq_note.setlabel			///
+			class mainSEFEQCommandList.values[@]
+	}
+
+	if main_sefeqtmp.iseq("disable") {
+		call main.bu_sefeq_enable.enable
+		call main.bu_sefeq_disable.disable
+	}
+	if main_sefeqtmp.iseq("active") {
+		call main.bu_sefeq_enable.disable
+		call main.bu_sefeq_disable.enable
+	}
+END
+
+PROGRAM main_sefeq_disable
+BEGIN
+	call mainSEFEQCommandDisplayList.findstr class main.lb_sefeqBuild.value
+	call main_sefeq_position.setvalue class				///
+		mainSEFEQCommandDisplayList.position
+
+	call main_sefeqtmp.setvalue class main.lb_sefeqBuild.value
+	call mainSEFEQStatusList.store class main_sefeq_position.value "disable"
+
+	call STMP.format "resource LBL_PAREN_DISABLED"
+	call main_sefeqtmp.append " "
+	call main_sefeqtmp.append class STMP.value
+	call main_sefeqtmp.withvalue STMP.setvalue "@"
+
+	call main_sefeqtmp.withvalue mainSEFEQCommandDisplayList.store	///
+		class main_sefeq_position.value "@"
+
+	call mainSEFEQCommandDisplayList.copyToArray main_sefeq_list
+	call main.lb_sefeqBuild.repopulate
+	call main.lb_sefeqBuild.setvalue class STMP.value
+END
+
+PROGRAM main_sefeq_enable
+BEGIN
+	call mainSEFEQCommandDisplayList.findstr class main.lb_sefeqBuild.value
+	call main_sefeq_position.setvalue class 			///
+		mainSEFEQCommandDisplayList.position
+
+	call mainSEFEQStatusList.store class main_sefeq_position.value "active"
+	call main_sefeq_position.withvalue mainSEFEQCommandValues.store	///
+		class main_sefeq_position.value class 			///
+		mainSEFEQCommandList.values[@]
+
+	call main_sefeq_position.withvalue STMP.format 			///
+		"resource LBL_EQUATION_FMT" "@" ""
+	call STMP.withvalue						///
+		mainSEFEQCommandDisplayList.store			///
+		class main_sefeq_position.value "@"
+
+	call mainSEFEQCommandDisplayList.copyToArray main_sefeq_list
+	call main_sefeq_position.withvalue main_sefeqtmp2.setvalue	///
+		class mainSEFEQCommandDisplayList.values[@]
+	call main.lb_sefeqBuild.repopulate
+	call main.lb_sefeqBuild.setvalue class main_sefeqtmp2.value
+END
+
+PROGRAM main_lb_sefeqBuild_output
+BEGIN
+	call mainSEFEQCommandValues.copyToString main_sefeq_cmd_output
+	call main_sefeq_arraysize.setvalue class mainSEFEQStatusList.size
+	if main_sefeq_cmd_output.iseq("") &				///
+		main_sefeq_arraysize.iseq(0)				///
+		 & main.lb_sefeqBuild.isvisible() {
+		stopbox stop resource SSPACE_MSGBOX_STATE_EQUATION_NOT_DEFINED
+// State equation not defined.
+// Please enter a state equation before proceeding.
+	}
+	if main_sefeq_cmd_output.iseq("") &				///
+		main_sefeq_arraysize.isgt(0)				///
+		& main.lb_sefeqBuild.isvisible() {
+		stopbox stop resource SSPACE_MSGBOX_ALL_STATE_EQ_ARE_DISABLED
+// All state equations are disabled.
+// Either define a new state equation or enable an existing state
+// equation before proceeding.
+	}
+
+	if main_sefeq_cmd_output & main.lb_sefeqBuild.isvisible() {
+		put main_sefeq_cmd_output
+	}
+END
+
+/* Observation error form equation list box */
+PROGRAM main_oefeq_create
+BEGIN
+	call main_oefeq_count.setvalue class mainOEFEQChildDialogList.size
+	call main_oefeq_count.increment
+	call main_oefeq_count.withvalue main_oefeq_childdlg.setvalue	///
+		"main_oefeq@"
+	call program main_show_oefeq_child
+END
+
+PROGRAM main_oefeq_edit
+BEGIN
+	call mainOEFEQCommandDisplayList.findstr class main.lb_oefeqBuild.value
+	call main_oefeq_position.setvalue class 			///
+		mainOEFEQCommandDisplayList.position
+	call main_oefeq_position.withvalue main_oefeq_childdlg.setvalue	///
+		class mainOEFEQChildDialogList.values[@]
+
+	call program main_show_oefeq_child_edit
+END
+
+PROGRAM main_show_oefeq_child
+BEGIN
+	call main_oefeq_childdlg.withvalue create CHILD sspace_new_oefeq AS @
+	call main_oefeq_childdlg.withvalue @.setExitString 		///
+		"main_oefeq_child_result"
+	call main_oefeq_childdlg.withvalue @.setExitAction		///
+		"program main_oefeq_child_done"
+
+
+	call main_oefeq_count.withvalue STMP.format			///
+		"resource LBL_EQUATION_FMT" "@" ""
+	call STMP.withvalue main_oefeqtmp.setvalue "@"
+	call main_oefeq_childdlg.withvalue main_oefeqtmp2.setvalue "@.settitle"
+	call main_oefeqtmp2.append `" ""'
+	call main_oefeqtmp2.append class main_oefeqtmp.value
+	call main_oefeqtmp2.append `"""'
+	call main_oefeqtmp2.withvalue @
+END
+
+PROGRAM main_show_oefeq_child_edit
+BEGIN
+	call main_oefeq_childdlg.withvalue create CHILD sspace_new_oefeq AS @
+	call main_oefeq_childdlg.withvalue @.setExitString 		///
+		"main_oefeq_child_result"
+	call main_oefeq_childdlg.withvalue @.setExitAction		///
+		"program main_oefeq_child_done"
+
+	call main_oefeq_position.withvalue main_oefeqtmp.setvalue	///
+		class mainOEFEQCommandDisplayList.values[@]
+	call main_oefeq_childdlg.withvalue main_oefeqtmp2.setvalue "@.settitle"
+	call main_oefeqtmp2.append `" ""'
+	call main_oefeqtmp2.append class main_oefeqtmp.value
+	call main_oefeqtmp2.append `"""'
+	call main_oefeqtmp2.withvalue @
+END
+
+PROGRAM main_oefeq_child_done
+BEGIN
+	call mainOEFEQChildDialogList.findstr class main_oefeq_childdlg.value
+	call main_oefeq_position.setvalue class 			///
+		mainOEFEQChildDialogList.position
+	if main_oefeq_position {
+		call main_oefeq_position.withvalue			///
+			main_oefeqtmp.setvalue				///
+			class mainOEFEQStatusList.values[@]
+		if main_oefeqtmp.iseq("active") {
+			call main_oefeq_position.withvalue STMP.format	///
+				"resource LBL_EQUATION_FMT" "@" ""
+			call STMP.withvalue				///
+				mainOEFEQCommandDisplayList.store class	///
+				main_oefeq_position.value "@"
+			call mainOEFEQCommandValues.store class		///
+				main_oefeq_position.value class		///
+				main_oefeq_child_result.value
+			call STMP.withvalue				///
+				main_oefeqtmp2.setvalue "@"
+		}
+		else {
+			call main_oefeq_position.withvalue STMP.format	///
+				"resource LBL_EQUATION_FMT" "@"		///
+				"resource LBL_PAREN_DISABLED"
+			call STMP.withvalue				///
+				main_oefeqtmp2.setvalue "@"
+
+			call main_oefeqtmp2.withvalue			///
+				mainOEFEQCommandDisplayList.store	///
+				class main_oefeq_position.value "@"
+		}
+
+		call mainOEFEQCommandList.store class			///
+			main_oefeq_position.value class 		///
+			main_oefeq_child_result.value
+
+		call mainOEFEQCommandDisplayList.copyToArray main_oefeq_list
+		call main.lb_oefeqBuild.repopulate
+		call main.lb_oefeqBuild.setvalue class main_oefeqtmp2.value
+	}
+	else {
+		call main_oefeq_arraysize.setvalue class 		///
+			mainOEFEQChildDialogList.size
+		call main_oefeq_arraysize.increment
+
+		/* Store child dialog name */
+		call mainOEFEQChildDialogList.store class		///
+			main_oefeq_arraysize.value class		///
+			main_oefeq_childdlg.value
+
+		/* Store listbox display equation string */
+		call main_oefeq_arraysize.withvalue STMP.format		///
+			"resource LBL_EQUATION_FMT" "@" ""
+		call STMP.withvalue					///
+			mainOEFEQCommandDisplayList.store class		///
+			main_oefeq_arraysize.value "@"
+
+		/* Store child dialog result string */
+		call mainOEFEQCommandList.store class			///
+			main_oefeq_arraysize.value 			///
+			class main_oefeq_child_result.value
+
+		/* Store child dialog result string for final command
+		   For disable/enable */
+		call mainOEFEQCommandValues.store class			///
+			main_oefeq_arraysize.value class 		///
+			main_oefeq_child_result.value
+
+		/* Store disable/enable status */
+		call mainOEFEQStatusList.store				///
+			class main_oefeq_arraysize.value "active"
+
+		call mainOEFEQCommandDisplayList.copyToArray main_oefeq_list
+		call main.lb_oefeqBuild.repopulate
+		call STMP.withvalue main.lb_oefeqBuild.setvalue "@"
+	}
+END
+
+PROGRAM main_oefeq_sel_changed
+BEGIN
+	call mainOEFEQCommandDisplayList.findstr class main.lb_oefeqBuild.value
+	call main_oefeq_position.setvalue class 			///
+		mainOEFEQCommandDisplayList.position
+	call main_oefeq_position.withvalue main_oefeqtmp.setvalue	///
+		class mainOEFEQStatusList.values[@]
+	if main_oefeq_position {
+		call main.bu_oefeq_edit.enable
+		call main_oefeq_position.withvalue			///
+			main.tb_oefeq_note.setlabel			///
+			class mainOEFEQCommandList.values[@]
+	}
+
+	if main_oefeqtmp.iseq("disable") {
+		call main.bu_oefeq_enable.enable
+		call main.bu_oefeq_disable.disable
+	}
+	if main_oefeqtmp.iseq("active") {
+		call main.bu_oefeq_enable.disable
+		call main.bu_oefeq_disable.enable
+	}
+END
+
+PROGRAM main_oefeq_disable
+BEGIN
+	call mainOEFEQCommandDisplayList.findstr class main.lb_oefeqBuild.value
+	call main_oefeq_position.setvalue class				///
+		mainOEFEQCommandDisplayList.position
+
+	call main_oefeqtmp.setvalue class main.lb_oefeqBuild.value
+	call mainOEFEQStatusList.store class main_oefeq_position.value "disable"
+	call mainOEFEQCommandValues.store class main_oefeq_position.value ""
+	call STMP.format "resource LBL_PAREN_DISABLED"
+	call main_oefeqtmp.append " "
+	call main_oefeqtmp.append class STMP.value
+	call main_oefeqtmp.withvalue STMP.setvalue "@"
+
+	call main_oefeqtmp.withvalue mainOEFEQCommandDisplayList.store	///
+		class main_oefeq_position.value "@"
+
+	call mainOEFEQCommandDisplayList.copyToArray main_oefeq_list
+	call main.lb_oefeqBuild.repopulate
+	call main.lb_oefeqBuild.setvalue class main_oefeqtmp2.value
+	call main.lb_oefeqBuild.setvalue class STMP.value
+END
+
+PROGRAM main_oefeq_enable
+BEGIN
+	call mainOEFEQCommandDisplayList.findstr class main.lb_oefeqBuild.value
+	call main_oefeq_position.setvalue class 			///
+		mainOEFEQCommandDisplayList.position
+
+	call mainOEFEQStatusList.store class main_oefeq_position.value "active"
+	call main_oefeq_position.withvalue mainOEFEQCommandValues.store	///
+		class main_oefeq_position.value class 			///
+		mainOEFEQCommandList.values[@]
+
+	call main_oefeq_position.withvalue STMP.format 			///
+			"resource LBL_EQUATION_FMT" "@" ""
+
+	call STMP.withvalue						///
+		mainOEFEQCommandDisplayList.store			///
+		class main_oefeq_position.value "@"
+
+	call mainOEFEQCommandDisplayList.copyToArray main_oefeq_list
+	call main_oefeq_position.withvalue main_oefeqtmp2.setvalue	///
+		class mainOEFEQCommandDisplayList.values[@]
+	call main.lb_oefeqBuild.repopulate
+	call main.lb_oefeqBuild.setvalue class main_oefeqtmp2.value
+END
+
+PROGRAM main_lb_oefeqBuild_output
+BEGIN
+	call mainOEFEQCommandValues.copyToString main_oefeq_cmd_output
+	call main_oefeq_arraysize.setvalue class mainOEFEQStatusList.size
+	if main_oefeq_cmd_output.iseq("") &				///
+		main_oefeq_arraysize.iseq(0)				///
+		 & main.lb_oefeqBuild.isvisible() {
+		stopbox stop resource SSPACE_MSGBOX_OBSERVATION_EQ_NOT_DEFINED
+// Observation equation not defined.
+// Please enter an observation equation before proceeding.
+	}
+	if main_oefeq_cmd_output.iseq("") &				///
+		main_oefeq_arraysize.isgt(0)				///
+		& main.lb_oefeqBuild.isvisible() {
+		stopbox stop resource SSPACE_MSGBOX_OBSERVATION_EQ_ARE_DISABLED
+// All observation equations are disabled.
+// Either define a new observation equation or enable an existing
+// observation equation before proceeding.
+	}
+
+	if main_oefeq_cmd_output & main.lb_oefeqBuild.isvisible() {
+		put main_oefeq_cmd_output
+	}
+END
+
+LIST covform_list
+BEGIN
+	Diagonal matrix
+	Identity matrix
+	Diagonal scalar matrix
+	Symmetric, positive-definite matrix
+END
+
+LIST covform_values
+BEGIN
+	""
+	identity
+	dscalar
+	unstructured
+END
+
+LIST ecovform_list
+BEGIN
+	Identity matrix
+	Diagonal matrix
+	Diagonal scalar matrix
+END
+
+LIST ecovform_values
+BEGIN
+	""
+	diagonal	
+	dscalar
+END
+
+INCLUDE byifin
+INCLUDE se
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+	program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE   _x  _lft
+  DEFINE   _cx _spr
+  DEFINE   _y  _top
+  INCLUDE  _sp_level
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _nocnsreport
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+
+INCLUDE max_ml
+
+DIALOG adv, tabtitle(resource LBL_ADVANCED)
+BEGIN
+  TEXT tx_method	_lft	_top	360	.,			///
+		label(resource LBL_METHOD_CALCULATING_LOG_LIKELIHOOD)
+  DEFINE holdy @y
+  COMBOBOX cb_method	@	_ss	@	.,			///
+	dropdownlist							///
+	contents(method_list)						///
+	values(method_values)						///
+	option(method)							///
+	label(resource LBL_METHOD_CALCULATING_LOG_LIKELIHOOD)
+END
+
+LIST method_list
+BEGIN
+	resource LBL_STATIONARY_KALMAN_FILT_DIFFUSE_DE_JONG_KALMAN
+	resource LBL_STATIONARY_DIFFUSE_DE_JONG_KALMAN_FILTERS
+	resource SSPACE_ST_KALMAN_FILTER_LARGE_KAPPA_DIFFUSE_KALMAN_FIL
+END
+
+LIST method_values
+BEGIN
+	""
+	dejong
+	kdiffuse
+END
+
+PROGRAM command
+BEGIN
+	put " " /program by_output
+	put "sspace "
+	if main.rb_covariance {
+		put " " /program main_lb_sceqBuild_output
+		put " " /program main_lb_oceqBuild_output
+	}
+	if main.rb_error_form {
+		put " " /program main_lb_sefeqBuild_output
+		put " " /program main_lb_oefeqBuild_output
+	}
+	put " " /program ifin_output
+	beginoptions
+		if main.rb_covariance {
+			optionarg main.cb_covst
+			optionarg main.cb_covob
+		}
+		if main.rb_error_form {
+			optionarg main.cb_ecovst
+			optionarg main.cb_ecovob
+		}
+		INCLUDE _constraints_main_pr
+		put " " /program se_output
+		optionarg /hidedefault rpt.sp_level
+		INCLUDE _nocnsreport_pr
+		INCLUDE _report_columns_pr
+		put " " rpt_bu_facvarsResults
+		put " " rpt_bu_fmtcoefResults
+		 put " " /program max_output
+		optionarg adv.cb_method
+	endoptions
+END
+

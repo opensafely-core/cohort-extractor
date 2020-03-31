@@ -1,0 +1,286 @@
+/*
+  stcox_estat
+
+*!  VERSION 1.2.3  04dec2019
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 400	//dialog length for bootstrap options
+INCLUDE header
+
+HELP hlp1, view("help stcox postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create BOOLEAN has_FactorVars
+	has_FactorVars.settrue
+	program sum_bu_facvars_ckResults
+	program vce_bu_facvars_ckResults
+	create STRING phtestResult
+	setscale_hadj resource STCOX_ESTAT_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program phtestCheckResult
+	program parseMessage
+END
+
+PROGRAM parseMessage
+BEGIN
+	if __MESSAGE.contains("-concordance-") {
+		call main.lb_subcmd.setvalue "concordance"
+	}
+	if __MESSAGE.contains("-phtest-") {
+		call main.lb_subcmd.setvalue "phtest"
+	}
+	if __MESSAGE.contains("-ic-") {
+		call main.lb_subcmd.setvalue "ic"
+	}
+	if __MESSAGE.contains("-summarize-") {
+		call main.lb_subcmd.setvalue "summarize"
+	}
+	if __MESSAGE.contains("-vce-") {
+		call main.lb_subcmd.setvalue "vce"
+	}
+	if __MESSAGE.contains("-bootstrap-") {
+		call main.lb_subcmd.setvalue "bootstrap"
+	}
+END
+
+
+DIALOG main, label(resource ESTAT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_subcmd		_lft	_top	_iwd	.,		///
+  	label(resource LBL_REPORTS_STATISTICS_SUBCOMMAND)
+  LISTBOX  lb_subcmd		@	_ss	@	70,		///
+  	contents(main_subcommand_contents)				///
+  	values(main_subcommand_values)					///
+  	onselchangelist(main_subcommand_scripts)
+
+  DEFINE holdy 110
+
+  // Information criteria
+  CHECKBOX ck_n			_lft	holdy	_iwd	.,		///
+	onclickon(main.sp_n.enable)					///
+	onclickoff(main.sp_n.disable)					///
+	label(resource LBL_NUMBER_OBSERVATIONS_CALCULATING_BIC)
+  SPINNER sp_n			_indent2 _ss	_spwd	.,		///
+	default(e(N)) min(1) max(e(N))					///
+	option(n)
+
+  INCLUDE estat_sum
+  INCLUDE estat_vce
+
+  // concordance options
+  GROUPBOX gb_coef		_lft	holdy	_iwd	_ht6,		///
+	label(resource STCOX_ESTAT_MAIN_GB_COEF)
+  RADIO rb_harrell		_ilft	_ss	_cwd1	., first	///
+	onclickon(main.ck_se.disable)					///
+	onclickoff(main.ck_se.enable)					///
+	label(resource STCOX_ESTAT_MAIN_RB_HARRELL)
+DEFINE holdy2 @y
+  RADIO rb_gheller		@	_ss	@	.,		///
+	option(gheller)							///
+	label(resource STCOX_ESTAT_MAIN_RB_GHELLER)
+  RADIO rb_both			@	_ss	@	., last		///
+	option(harrell gheller)						///
+	label(resource STCOX_ESTAT_MAIN_RB_BOTH)
+  CHECKBOX ck_se		_lft2	holdy2	_cwd2	.,		///
+	option(se)							///
+	label(resource STCOX_ESTAT_MAIN_CK_SE)
+
+  GROUPBOX gb_option		_lft	+75 	_iwd	_ht4,		///
+	label(resource LBL_SAMPLE)
+  RADIO    rb_default2		_ilft	_ss	_inwd	.,		///
+	first label(resource STCOX_ESTAT_MAIN_RB_DEFAULT2)
+  RADIO    rb_all		@	_ss	@	.,		///
+	label(resource STCOX_ESTAT_MAIN_RB_ALL) option(all) last
+
+  CHECKBOX ck_noshow		_lft	+45	_iwd	.,		///
+	label(resource STCOX_ESTAT_MAIN_CK_NOSHOW) option(noshow)
+
+  // phtest options
+  BUTTON   bu_phtest		_lft	holdy	100	.,		///
+  	onpush(script show_dialog_phtest) 				///
+  	label(resource LBL_OPTIONS)					///
+  	tooltip(resource STCOX_ESTAT_MAIN_BU_PHTEST)
+
+  INCLUDE _estat_bootstrap
+END
+
+SCRIPT show_dialog_phtest
+BEGIN
+	create CHILD stcox_estat_phtest AS phtest, allowsubmit
+	phtest.setExitString phtestResult
+	phtest.setOkAction "program phtestCheckResult"
+	phtest.setSubmitAction "script phtestSubmit"
+END
+PROGRAM phtestCheckResult
+BEGIN
+	if phtestResult {
+		call main.bu_phtest.modified_on
+	}
+	else {
+		call main.bu_phtest.modified_off
+	}
+END
+SCRIPT phtestSubmit
+BEGIN
+	program phtestCheckResult
+	Submit
+END
+
+INCLUDE estat_sum_pr
+INCLUDE _estat_bootstrap_pr
+INCLUDE estat_vce_pr
+
+LIST main_subcommand_contents
+BEGIN
+	resource STCOX_ESTAT_CONCORDANCE
+	resource STCOX_ESTAT_PHTEST
+	resource LBL_INFORMATION_CRITERIA
+	resource LBL_SUMMARIZE_ESTIMATION_SAMPLE
+	resource LBL_COVARIANCE_MATRIX_ESTIMATES
+END
+
+LIST main_subcommand_values
+BEGIN
+	concordance
+	phtest
+	ic
+	summarize
+	vce
+END
+
+LIST main_subcommand_scripts
+BEGIN
+	script sel_concordance
+	script sel_phtest
+	script sel_ic
+	script sel_summarize
+	script sel_vce
+END
+
+SCRIPT sel_ic
+BEGIN
+	script main_hide_all
+	main.ck_n.show
+	main.sp_n.show
+END
+
+SCRIPT sel_summarize
+BEGIN
+	script main_hide_all
+	program main_summ_on
+END
+
+SCRIPT sel_vce
+BEGIN
+	script main_hide_all
+	program vce_on
+END
+
+SCRIPT sel_concordance
+BEGIN
+	script main_hide_all
+	script main_concordance_on
+	script ifin_enable
+END
+
+SCRIPT sel_phtest
+BEGIN
+	script main_hide_all
+	script main_phtest_on
+END
+
+SCRIPT main_concordance_on
+BEGIN
+	main.gb_option.show
+	main.rb_default2.show
+	main.rb_all.show
+	main.gb_coef.show
+	main.rb_harrell.show
+	main.rb_gheller.show
+	main.rb_both.show
+	main.ck_se.show
+	main.ck_noshow.show
+END
+SCRIPT main_concordance_off
+BEGIN
+	main.gb_option.hide
+	main.rb_default2.hide
+	main.rb_all.hide
+	main.gb_coef.hide
+	main.rb_harrell.hide
+	main.rb_gheller.hide
+	main.ck_se.hide
+	main.rb_both.hide
+	main.ck_noshow.hide
+END
+
+SCRIPT main_phtest_on
+BEGIN
+  	main.bu_phtest.show
+END
+SCRIPT main_phtest_off
+BEGIN
+  	main.bu_phtest.hide
+END
+
+PROGRAM vl_output
+BEGIN
+	put main.vl_spec
+END
+
+PROGRAM vl_eq_output
+BEGIN
+	put main.vl_eq
+END
+
+SCRIPT main_hide_all
+BEGIN
+	main.ck_n.hide
+	main.sp_n.hide
+	script main_summ_off
+	program vce_off
+	script main_concordance_off
+	script main_bootstrap_hide
+	script ifin_disable
+	script main_phtest_off
+END
+
+INCLUDE ifin
+
+PROGRAM command
+BEGIN
+	put "estat "
+	put main.lb_subcmd
+
+	put " " /program summarize_output
+
+	INCLUDE _ifin_pr
+	beginoptions
+		// concordance options
+		option main.rb_all
+		option radio(main rb_gheller rb_both)
+		option main.ck_se
+		option main.ck_noshow
+
+		// ic options
+		optionarg main.sp_n
+
+		// Summarize options
+		put " " /program summarize_opts_output
+
+		put " " /program vce_output
+		put " " /program bootstrap_output
+		if !H(main.bu_phtest) {
+			put " " phtestResult
+		}
+	endoptions
+END

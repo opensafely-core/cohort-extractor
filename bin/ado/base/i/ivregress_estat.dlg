@@ -1,0 +1,722 @@
+/*
+	ivregress_estat
+
+*!  VERSION 1.1.4  03jun2015
+
+	***
+	USE EXTREME CARE WHEN CHANGING CONTROL NAMES. The names used
+	in this file have multiple external dependencies.
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 460	//dialog length for bootstrap options
+INCLUDE header
+
+HELP hlp1, view("help ivregress postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING estimator
+	estimator.setstring e(estimator)
+
+	create STRING vcetype
+	vcetype.setstring e(vcetype)
+
+	create BOOLEAN has_FactorVars
+	has_FactorVars.settrue
+	program sum_bu_facvars_ckResults
+	program vce_bu_facvars_ckResults
+	setscale_hadj resource IVREGRESS_ESTAT_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program show_subcmds
+	program parseMessage
+END
+
+PROGRAM show_subcmds
+BEGIN
+	call create STRING e_ll
+	call create STRING e_properties
+	call create STRING e_boot
+
+	call e_ll.setvalue e(ll)
+	call e_properties.setvalue e(properties)
+	call e_boot.setvalue e(prefix)
+
+	call main.lb_subcmd.clearlist
+	call script main_hide_all
+	if estimator.isneq("liml") {
+		call main_subcommand_contents.ArrpushR		///
+			resource dlg IVREGRESS_ESTAT_PERFORM_TESTS_ENDOGENEITY
+		call main_subcommand_values.Arrpush "endog"
+	}
+	call main_subcommand_contents.ArrpushR		///
+		resource dlg IVREGRESS_ESTAT_FIRST_STAGE_REGRESSION_STAT
+	call main_subcommand_values.Arrpush "firststage"
+	call main_subcommand_contents.ArrpushR		///
+		resource dlg LBL_PERFORM_TEST_OVERID_RESTRICTIONS_OVERID
+	call main_subcommand_values.Arrpush "overid"
+	if estimator.iseq("2sls") {
+		call main_subcommand_contents.ArrpushR		///
+			resource dlg IVREGRESS_ESTAT_SBSINGLE
+		call main_subcommand_values.Arrpush "sbsingle"
+		call main_subcommand_contents.ArrpushR		///
+			resource dlg IVREGRESS_ESTAT_SBKNOWN
+		call main_subcommand_values.Arrpush "sbknown"
+	}
+	if e_ll.isneq("") {
+		call main_subcommand_contents.ArrpushR		///
+			resource dlg LBL_INFORMATION_CRITERIA
+		call main_subcommand_values.Arrpush "ic"
+	}
+	call main_subcommand_contents.ArrpushR		///
+		resource dlg LBL_SUMMARIZE_ESTIMATION_SAMPLE
+	call main_subcommand_values.Arrpush "summarize"
+	if e_properties.contains("V") {
+		call main_subcommand_contents.ArrpushR		///
+			resource dlg LBL_COVARIANCE_MATRIX_ESTIMATES
+		call main_subcommand_values.Arrpush "vce"
+	}
+	if e_boot.iseq("bootstrap") {
+		call main_subcommand_contents.ArrpushR		///
+			resource dlg _ESTAT_BOOTSTRAP_PR_CI
+		call main_subcommand_values.Arrpush "bootstrap"
+	}
+
+	call main.lb_subcmd.repopulate
+END
+
+PROGRAM parseMessage
+BEGIN
+	if __MESSAGE.contains("-endogenous-") {
+		call main.lb_subcmd.setvalue "endog"
+	}
+	if __MESSAGE.contains("-firststage-") {
+		call main.lb_subcmd.setvalue "firststage"
+	}
+	if __MESSAGE.contains("-overid-") {
+		call main.lb_subcmd.setvalue "overid"
+	}
+	if __MESSAGE.contains("-sbsingle-") {
+		call main.lb_subcmd.setvalue "sbsingle"
+	}
+	if __MESSAGE.contains("-sbknown-") {
+		call main.lb_subcmd.setvalue "sbknown"
+	}
+	if __MESSAGE.contains("-summarize-") {
+		call main.lb_subcmd.setvalue "summarize"
+	}
+	if __MESSAGE.contains("-vce-") {
+		call main.lb_subcmd.setvalue "vce"
+	}
+	if __MESSAGE.contains("-bootstrap-") {
+		call main.lb_subcmd.setvalue "bootstrap"
+	}
+END
+
+
+DIALOG main, label(resource IVREGRESS_ESTAT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_subcmd		_lft	_top	_iwd	.,		///
+  	label(resource LBL_REPORTS_STATISTICS_SUBCOMMAND)
+  LISTBOX  lb_subcmd		@	_ss	@	70,		///
+  	contents(main_subcommand_contents)				///
+  	values(main_subcommand_values)					///
+  	onselchange(program main_subcommand_scripts)
+
+  DEFINE holdy 110
+
+  // firststage options
+  CHECKBOX ck_all		_lft	holdy	_iwd	.,		///
+	option(all)							///
+	label(resource IVREGRESS_ESTAT_MAIN_CK_ALL)
+  CHECKBOX ck_forcenonrobust	@	_ms	@	.,		///
+	option(forcenonrobust)						///
+	label(resource IVREGRESS_ESTAT_MAIN_CK_FORCENONROBUST)
+
+  // overid options
+  SPINNER sp_lags		_lft	holdy	_spwd	.,		///
+	option(lags)							///
+	min(1)								///
+	max(10000)							///
+	default(1)							///
+	label(resource LBL_NUMBER_LAGS_FOR_PREWHITENING)
+  TEXT tx_lags			_spsep	@	220	.,		///
+	label(resource LBL_NUMBER_LAGS_FOR_PREWHITENING)
+  CHECKBOX ck_forceweights	_lft	_ls	_iwd	.,		///
+	option(forceweights)						///
+	label(resource IVREGRESS_ESTAT_MAIN_CK_FORCEWEIGHTS)
+  CHECKBOX ck_forcenonroid	@	_ms	@	.,		///
+	option(forcenonrobust)						///
+	label(resource IVREGRESS_ESTAT_MAIN_CK_FORCENONROID)
+
+  // endog options
+  SPINNER sp_lags_endog		_lft	holdy	_spwd	.,		///
+	option(lags)							///
+	min(1)								///
+	max(10000)							///
+	default(1)							///
+	label(resource LBL_NUMBER_LAGS_FOR_PREWHITENING)
+  TEXT tx_lags_endog		_spsep	@	220	.,		///
+	label(resource LBL_NUMBER_LAGS_FOR_PREWHITENING)
+  CHECKBOX ck_forceweight_endog _lft	_ls	_iwd	.,		///
+	option(forceweights)						///
+	label(resource IVREGRESS_ESTAT_MAIN_CK_FORCEWEIGHTS)
+  CHECKBOX ck_forcenonroid_endog @	_ms	@	.,		///
+	option(forcenonrobust)						///
+	label(resource IVREGRESS_ESTAT_MAIN_CK_FORCENONROID_ENDOG)
+  TEXT     tx_endog_vl		@	_ms	_vlwd	.,		///
+	label(resource IVREGRESS_ESTAT_MAIN_TX_ENDOG_VL)
+  COMBOBOX vl_endog		@	_ss	@	.,		///
+	label(resource IVREGRESS_ESTAT_MAIN_TX_ENDOG_VL)		///
+	dropdown append contents(e(instd))
+  TEXT     tx_liml		_lft	holdy	_iwd	.,		///
+	label(resource IVREGRESS_ESTAT_MSGBOX_TEST_NOT_AVAILABLE)
+
+  // time-series, sbsingle 
+  TEXT tx_sbsingle_breakvars	_lft	holdy	_iwd	.,		///
+  	label(resource IVREGRESS_BREAK_VARIABLES)
+  VARLIST vl_sbsingle_breakvars	@	_ss	_iwd	.,		///
+	ts								///
+  	numeric								///
+	label(resource IVREGRESS_BREAK_VARIABLES)
+  CHECKBOX ck_sbsingle_cons	_ilft	_ss	_cwd1	.,		///
+	option(constant)						///
+	label(resource LBL_INCLUDE_CONSTANT)
+  RADIO rb_sbsingle_trim	_lft	_ls	_iwd	., first	///
+	onclickon("script main_sbsingle_trim_on")			///
+  	label(resource IVREGRESS_ESTAT_MAIN_RB_SBSINGLE_TRIM)
+  RADIO rb_sbsingle_lrtrim	@	+45	@	., last		///
+	onclickon("script main_sbsingle_lrtrim_on")			///
+  	label(resource IVREGRESS_ESTAT_MAIN_RB_SBSINGLE_LRTRIM)
+  SPINNER sp_trim		_indent2 -20	_spwd	.,		///
+	default(15) min(1) max(49)					///
+	option(trim)
+  SPINNER sp_ltrim		@	+45	@	.,		///
+	min(1) max(99)							///
+	option(ltrim)
+  SPINNER sp_rtrim		_lft2	@	@	.,		///
+	min(1) max(99)							///
+	option(rtrim)
+
+  CHECKBOX ck_sbsingle_swald	_lft	_ls	_cwd1	.,		///
+	option(swald)							///
+	label(resource IVREGRESS_ESTAT_MAIN_CK_SBSINGLE_SWALD)
+  DEFINE yy @y
+  CHECKBOX ck_sbsingle_awald	@	_ms	@	.,		///
+	option(awald)							///
+	label(resource IVREGRESS_ESTAT_MAIN_CK_SBSINGLE_AWALD)
+  CHECKBOX ck_sbsingle_ewald	@	_ms	@	.,		///
+	option(ewald)							///
+	label(resource IVREGRESS_ESTAT_MAIN_CK_SBSINGLE_EWALD)
+  CHECKBOX ck_sbsingle_slr	_lft2	yy	@	.,		///
+	option(slr)							///
+	label(resource IVREGRESS_ESTAT_MAIN_CK_SBSINGLE_SLR)
+  CHECKBOX ck_sbsingle_alr	@	_ms	@	.,		///
+	option(alr)							///
+	label(resource IVREGRESS_ESTAT_MAIN_CK_SBSINGLE_ALR)
+  CHECKBOX ck_sbsingle_elr	@	_ms	@	.,		///
+	option(elr)							///
+	label(resource IVREGRESS_ESTAT_MAIN_CK_SBSINGLE_ELR)
+  CHECKBOX ck_sbsingle_all	_lft	_ms	@	.,		///
+	option(all)							///
+	onclickon("script main_sbsingle_all_on")			///
+	onclickoff("script main_sbsingle_all_off")			///
+	label(resource IVREGRESS_ESTAT_MAIN_CK_SBSINGLE_ALL)
+  TEXT tx_sbsingle_gen		_lft	_ls	_iwd	.,		///
+	label(resource IVREGRESS_ESTAT_MAIN_CK_SBSINGLE_GEN)
+  EDIT ed_sbsingle_gen		@	_ss	_iwd	.,		///
+	option(generate)						///
+	label(resource IVREGRESS_ESTAT_MAIN_CK_SBSINGLE_GEN)
+  CHECKBOX ck_sbsingle_nodots	@	_ms	@	.,		///
+	option(nodots)							///
+	label(resource IVREGRESS_ESTAT_MAIN_CK_SBSINGLE_NODOTS)
+
+  // time-series, sbknown
+  TEXT tx_sbknown_break		_lft	holdy	_iwd	.,		///
+	label(resource IVREGRESS_ESTAT_MAIN_TX_SBKNOWN_BREAK)
+  EDIT ed_sbknown_break		@	_ss	_iwd	.,		///
+	option(break)							///
+	label(resource IVREGRESS_ESTAT_MAIN_TX_SBKNOWN_BREAK)
+  TEXT tx_sbknown_breakvars	_lft	_ls	_iwd	.,		///
+  	label(resource IVREGRESS_BREAK_VARIABLES)
+  VARLIST vl_sbknown_breakvars	@	_ss	_iwd	.,		///
+	ts								///
+  	numeric								///
+	label(resource IVREGRESS_BREAK_VARIABLES)
+  CHECKBOX ck_sbknown_cons	_ilft	_ss	_cwd1	.,		///
+	option(constant)						///
+	label(resource LBL_INCLUDE_CONSTANT)
+  RADIO rb_sbknown_wald		_lft	_ls	_iwd	., first	///
+	option("")							///
+  	label(resource LBL_WALD_TEST)
+  RADIO rb_sbknown_lr		@	_ss	@	., last		///
+	option(lr)							///
+  	label(resource IVREGRESS_ESTAT_MAIN_RB_SBKNOWN_LR)
+
+  // Summarize options
+  INCLUDE estat_sum
+  INCLUDE estat_vce
+  INCLUDE _estat_bootstrap
+END
+
+INCLUDE estat_sum_pr
+INCLUDE estat_vce_pr
+
+SCRIPT sel_bootstrap
+BEGIN
+	script main_hide_all
+	script main_bootstrap_show
+END
+
+SCRIPT main_bootstrap_show
+BEGIN
+	main._gb_ci.show
+	main._ck_all.show
+	main._ck_bc.show
+	main._ck_bca.show
+	main._ck_norm.show
+	main._ck_p.show
+	main._ck_verbose.show
+	main._ck_noheader.show
+	main._ck_nolegend.show
+	main._tx_title.show
+	main._ed_title.show
+END
+SCRIPT main_bootstrap_hide
+BEGIN
+	main._tx_bs.hide
+	main._gb_ci.hide
+	main._ck_all.hide
+	main._ck_bc.hide
+	main._ck_bca.hide
+	main._ck_norm.hide
+	main._ck_p.hide
+	main._ck_verbose.hide
+	main._ck_noheader.hide
+	main._ck_nolegend.hide
+	main._tx_title.hide
+	main._ed_title.hide
+END
+
+
+PROGRAM _bs_check_all
+BEGIN
+	if main._ck_all {
+		call gaction main._ck_bc.disable
+		call gaction main._ck_bca.disable
+		call gaction main._ck_norm.disable
+		call gaction main._ck_p.disable
+	}
+	if !main._ck_all {
+		call gaction main._ck_bc.enable
+		call gaction main._ck_bca.enable
+		call gaction main._ck_norm.enable
+		call gaction main._ck_p.enable
+	}
+END
+
+PROGRAM _bs_verbose_check
+BEGIN
+	if main._ck_verbose {
+		call main._ck_noheader.disable
+		call main._ck_nolegend.disable
+	}
+	if ! main._ck_verbose {
+		call main._ck_noheader.enable
+		if ! main._ck_noheader {
+			call main._ck_nolegend.enable
+		}
+	}
+END
+
+PROGRAM bootstrap_output
+BEGIN
+	option main._ck_all
+	option main._ck_bc
+	option main._ck_bca
+	option main._ck_norm
+	option main._ck_p
+	option main._ck_noheader
+	option main._ck_nolegend
+	option main._ck_verbose
+	optionarg main._ed_title
+END
+
+SCRIPT main_group_on
+BEGIN
+	main.sp_group.enable
+	main.tx_group.enable
+END
+SCRIPT main_group_off
+BEGIN
+	main.sp_group.disable
+	main.tx_group.disable
+END
+
+LIST main_subcommand_contents
+BEGIN
+END
+
+LIST main_subcommand_values
+BEGIN
+END
+
+PROGRAM main_subcommand_scripts
+BEGIN
+	if main.lb_subcmd.iseq("endog") {
+		call script sel_endog
+	}
+	if main.lb_subcmd.iseq("firststage") {
+		call script sel_firststage
+	}
+	if main.lb_subcmd.iseq("overid") {
+		call script sel_overid
+	}	
+	if main.lb_subcmd.iseq("sbsingle") {
+		call script sel_sbsingle
+	}
+	if main.lb_subcmd.iseq("sbknown") {
+		call script sel_sbknown
+	}
+	if main.lb_subcmd.iseq("summarize") {
+		call script sel_summarize
+	}
+	if main.lb_subcmd.iseq("vce") {
+		call script sel_vce
+	}
+	if main.lb_subcmd.iseq("bootstrap") {
+		call script sel_bootstrap
+	}
+END
+
+SCRIPT sel_firststage
+BEGIN
+	script main_hide_all
+	script main_firststage_on
+END
+
+SCRIPT sel_overid
+BEGIN
+	script main_hide_all
+	program main_overid_on
+END
+
+SCRIPT sel_endog
+BEGIN
+	script main_hide_all
+	program main_endog_on
+END
+
+SCRIPT sel_sbsingle
+BEGIN
+	script main_hide_all
+	script sbsingle_on
+END
+
+SCRIPT sel_sbknown
+BEGIN
+	script main_hide_all
+	script sbknown_on
+END
+
+SCRIPT sel_summarize
+BEGIN
+	script main_hide_all
+	program main_summ_on
+END
+
+SCRIPT sel_vce
+BEGIN
+	script main_hide_all
+	program vce_on
+END
+
+SCRIPT main_firststage_on
+BEGIN
+	main.ck_all.show
+	main.ck_forcenonrobust.setposition . 135 . .
+	main.ck_forcenonrobust.show
+END
+
+SCRIPT main_firststage_off
+BEGIN
+	main.ck_all.hide
+	main.ck_forcenonrobust.hide
+END
+
+PROGRAM main_overid_on
+BEGIN
+	call main.sp_lags.show
+	call main.tx_lags.show
+	if (estimator.iseq("2sls") & vcetype.iseq("HAC")) {
+		call main.sp_lags.enable
+		call main.tx_lags.enable
+	}
+	else {
+		call main.sp_lags.disable
+		call main.tx_lags.disable
+	}
+	call main.ck_forceweights.show
+	call main.ck_forcenonroid.setposition . 165 . .
+	call main.ck_forcenonroid.show
+END
+
+SCRIPT main_overid_off
+BEGIN
+	main.sp_lags.hide
+	main.tx_lags.hide
+	main.ck_forceweights.hide
+	main.ck_forcenonroid.hide
+END
+
+PROGRAM main_endog_on
+BEGIN
+	if (estimator.iseq("2sls") ) {
+		call main.sp_lags_endog.show
+		call main.tx_lags_endog.show
+		if (estimator.iseq("2sls") & vcetype.iseq("HAC")) {
+			call main.sp_lags_endog.enable
+			call main.tx_lags_endog.enable
+		}
+		else {
+			call main.sp_lags_endog.disable
+			call main.tx_lags_endog.disable
+		}
+		call main.ck_forceweight_endog.show
+		call main.ck_forcenonroid_endog.setposition . 165 . .
+		call main.ck_forcenonroid_endog.show
+		call main.tx_endog_vl.show
+		call main.vl_endog.show
+		call main.tx_liml.hide
+	}
+	if (estimator.iseq("gmm") ) {
+		call main.sp_lags_endog.hide
+		call main.tx_lags_endog.hide
+		call main.ck_forceweight_endog.setposition . 110 . .
+		call main.ck_forceweight_endog.show
+		call main.ck_forcenonroid_endog.hide
+		call main.tx_endog_vl.setposition . 135 . .
+		call main.tx_endog_vl.show 
+		call main.vl_endog.setposition . 155 . .
+		call main.vl_endog.show
+		call main.tx_liml.hide
+	}
+	if (estimator.iseq("liml") ) {
+		call main.sp_lags_endog.hide
+		call main.tx_lags_endog.hide
+		call main.ck_forceweight_endog.hide
+		call main.ck_forcenonroid_endog.hide
+		call main.tx_endog_vl.hide
+		call main.vl_endog.hide
+		call main.tx_liml.show
+	}
+END
+
+SCRIPT main_endog_off
+BEGIN
+	main.sp_lags_endog.hide
+	main.tx_lags_endog.hide
+	main.ck_forceweight_endog.hide
+	main.ck_forcenonroid_endog.hide
+	main.tx_endog_vl.hide
+	main.vl_endog.hide
+	main.tx_liml.hide
+END
+
+SCRIPT sbsingle_on
+BEGIN
+	main.tx_sbsingle_breakvars.show
+	main.vl_sbsingle_breakvars.show
+	main.ck_sbsingle_cons.show
+	main.rb_sbsingle_trim.show
+	main.rb_sbsingle_lrtrim.show
+	main.sp_trim.show
+	main.sp_ltrim.show
+	main.sp_rtrim.show
+	main.ck_sbsingle_swald.show
+	main.ck_sbsingle_awald.show
+	main.ck_sbsingle_ewald.show
+	main.ck_sbsingle_slr.show
+	main.ck_sbsingle_alr.show
+	main.ck_sbsingle_elr.show
+	main.ck_sbsingle_all.show
+	main.tx_sbsingle_gen.show
+	main.ed_sbsingle_gen.show
+	main.ck_sbsingle_nodots.show
+END
+
+SCRIPT main_sbsingle_trim_on
+BEGIN
+	main.sp_trim.enable
+	main.sp_ltrim.disable
+	main.sp_rtrim.disable
+END
+
+SCRIPT main_sbsingle_lrtrim_on
+BEGIN
+	main.sp_trim.disable
+	main.sp_ltrim.enable
+	main.sp_rtrim.enable
+END
+
+SCRIPT main_sbsingle_all_on
+BEGIN
+	main.ck_sbsingle_swald.disable
+	main.ck_sbsingle_awald.disable
+	main.ck_sbsingle_ewald.disable
+	main.ck_sbsingle_slr.disable
+	main.ck_sbsingle_alr.disable
+	main.ck_sbsingle_elr.disable
+END
+
+SCRIPT main_sbsingle_all_off
+BEGIN
+	main.ck_sbsingle_swald.enable
+	main.ck_sbsingle_awald.enable
+	main.ck_sbsingle_ewald.enable
+	main.ck_sbsingle_slr.enable
+	main.ck_sbsingle_alr.enable
+	main.ck_sbsingle_elr.enable
+END
+
+SCRIPT sbknown_on
+BEGIN
+	main.tx_sbknown_break.show
+	main.ed_sbknown_break.show
+	main.tx_sbknown_breakvars.show
+	main.vl_sbknown_breakvars.show
+	main.ck_sbknown_cons.show
+	main.rb_sbknown_wald.show
+	main.rb_sbknown_lr.show
+END
+
+SCRIPT main_hide_all  // MUST BE IMPLEMENTED FOR BOOTSTRAP
+BEGIN
+	script main_firststage_off
+	script main_overid_off
+	script main_endog_off
+	script main_summ_off
+	program vce_off
+	script main_bootstrap_hide
+	main.tx_sbsingle_breakvars.hide
+	main.vl_sbsingle_breakvars.hide
+	main.ck_sbsingle_cons.hide
+	main.rb_sbsingle_trim.hide
+	main.rb_sbsingle_lrtrim.hide
+	main.sp_trim.hide
+	main.sp_ltrim.hide
+	main.sp_rtrim.hide
+	main.ck_sbsingle_swald.hide
+	main.ck_sbsingle_awald.hide
+	main.ck_sbsingle_ewald.hide
+	main.ck_sbsingle_slr.hide
+	main.ck_sbsingle_alr.hide
+	main.ck_sbsingle_elr.hide
+	main.ck_sbsingle_all.hide
+	main.tx_sbsingle_gen.hide
+	main.ed_sbsingle_gen.hide
+	main.ck_sbsingle_nodots.hide
+	main.tx_sbknown_break.hide
+	main.ed_sbknown_break.hide
+	main.tx_sbknown_breakvars.hide
+	main.vl_sbknown_breakvars.hide
+	main.ck_sbknown_cons.hide
+	main.rb_sbknown_wald.hide
+	main.rb_sbknown_lr.hide
+END
+
+PROGRAM vl_output
+BEGIN
+	put main.vl_spec
+END
+
+PROGRAM vl_eq_output
+BEGIN
+	put main.vl_eq
+END
+
+PROGRAM breakvars_output
+BEGIN
+	put main.vl_sbsingle_breakvars
+	if main.ck_sbsingle_cons {
+		put ", constant"
+	}
+END
+
+PROGRAM known_breakvars_output
+BEGIN
+	put main.vl_sbknown_breakvars
+	if main.ck_sbknown_cons {
+		put ", constant"
+	}
+END
+
+
+PROGRAM command
+BEGIN
+	put "estat "
+	if (estimator.iseq("liml") & main.lb_subcmd.iseq("endog") ) {
+		stopbox stop resource IVREGRESS_ESTAT_MSGBOX_TEST_NOT_AVAILABLE
+// Tests of endogeneity are not available.
+	}
+	put main.lb_subcmd
+	put " " /program summarize_output
+	if main.vl_endog {
+		put " " main.vl_endog
+	}
+	beginoptions
+		// firststage and overid options
+		option main.ck_all
+		option main.ck_forcenonrobust
+		option main.ck_forcenonroid
+		optionarg /hidedefault main.sp_lags
+		option main.ck_forceweights
+		
+		// endog options
+		optionarg /hidedefault main.sp_lags_endog
+		option main.ck_forceweight_endog
+		option main.ck_forcenonroid_endog
+
+		// sbsingle options
+		if main.vl_sbsingle_breakvars | main.ck_sbsingle_cons {
+			put " breakvars("
+			put /program breakvars_output
+			put ")"
+		}
+		optionarg /hidedefault main.sp_trim
+		if main.rb_sbsingle_lrtrim {
+			optionarg main.sp_ltrim
+			optionarg main.sp_rtrim
+		}
+		option main.ck_sbsingle_swald
+		option main.ck_sbsingle_awald
+		option main.ck_sbsingle_ewald
+		option main.ck_sbsingle_slr
+		option main.ck_sbsingle_alr
+		option main.ck_sbsingle_elr
+		option main.ck_sbsingle_all
+		optionarg main.ed_sbsingle_gen
+		option main.ck_sbsingle_nodots
+
+		// sbknown options
+
+		optionarg main.ed_sbknown_break
+		if main.vl_sbknown_breakvars | main.ck_sbknown_cons {
+			put " breakvars("
+			put /program known_breakvars_output
+			put ")"
+		}
+		option main.rb_sbknown_lr
+
+		// Summarize options
+		put " " /program summarize_opts_output
+		put " " /program vce_output
+		put " " /program bootstrap_output
+	endoptions
+END

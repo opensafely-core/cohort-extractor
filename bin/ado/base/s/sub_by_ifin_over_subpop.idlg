@@ -1,0 +1,517 @@
+/*
+  sub_by_ifin_over_subpop.idlg	-- include tab for mean, proportion, ratio,
+				   and total (if/in restrictions; over, and
+				   subpop options)
+
+*!  VERSION 1.1.6  03may2019
+
+	SCRIPTs called from outside this file:
+
+		sub_set_svy_off
+		sub_set_svy_on
+		sub_set_by_off
+		sub_set_by_on
+		sub_set_over_off
+		sub_set_over_on
+
+	PROGRAMs called from outside this file:
+
+		by_output
+		ifin_output
+		over_output
+		subpop_output
+
+	NOTE: Internal PROGRAMs and SCRIPTs are all prefixed with "_sub_" in
+	their name.  They are not meant to be called outside this file.
+
+	NOTE: Although you can set both 'sub_has_by' and 'sub_has_over' to
+	true, 'sub_has_by' will be ignored when 'sub_has_over' is true.  No
+	estimation command accepts both the 'by:' prefix and an 'over()'
+	option.
+
+*/
+
+DEFINE fromwd 130
+DEFINE fromsep +125
+DEFINE towd 35
+DEFINE tosep +40
+
+// SCRIPTs for external use -------------------------------------------------
+
+SCRIPT sub_set_svy_on
+BEGIN
+	// switch to svy layout
+	sub_is_svy.settrue
+	program _sub_redraw
+END
+
+SCRIPT sub_set_svy_off
+BEGIN
+	// switch to nonsvy layout
+	sub_is_svy.setfalse
+	program _sub_redraw
+END
+
+SCRIPT sub_set_by_on
+BEGIN
+	sub_has_by.settrue
+	program _sub_redraw
+END
+
+SCRIPT sub_set_by_off
+BEGIN
+	sub_has_by.setfalse
+	program _sub_redraw
+END
+
+SCRIPT sub_set_over_on
+BEGIN
+	sub_has_over.settrue
+	program _sub_redraw
+END
+
+SCRIPT sub_set_over_off
+BEGIN
+	sub_has_over.setfalse
+	program _sub_redraw
+END
+
+// output PROGRMSs ----------------------------------------------------------
+
+PROGRAM by_output
+BEGIN
+	if sub.ck_by {
+		require sub.vl_by
+		bysort sub.vl_by
+	}
+END
+
+PROGRAM ifin_output
+BEGIN
+	ifexp sub.ex_if
+	if sub.ck_in {
+		inrange sub.sp_from sub.sp_to
+	}
+END
+
+PROGRAM over_output
+BEGIN
+	if !sub.ck_nolab {
+		optionarg sub.vl_over
+	}
+	if sub.ck_nolab {
+		require sub.vl_over
+		put "over(" sub.vl_over ", nolabel)"
+	}
+END
+
+PROGRAM subpop_output
+BEGIN
+	if sub.vn_subpop | sub.ex_subif {
+		put "subpop("
+		put /program _sub_subpop_args_output
+		put ") "
+	}
+END
+PROGRAM _sub_subpop_args_output
+BEGIN
+	// NOTE: only -PROGRAM subpop_output- should call this program
+	put sub.vn_subpop " "
+	ifexp sub.ex_subif
+END
+
+// SCRIPTs and PROGRAMs for internal use only -------------------------------
+
+SCRIPT sub_PREINIT
+BEGIN
+	create BOOLEAN sub_is_svy
+	create BOOLEAN sub_has_by
+	create BOOLEAN sub_has_over
+END
+
+SCRIPT _sub_note_hide
+BEGIN
+	sub.tx_by_note.hide
+END
+PROGRAM _sub_note_show
+BEGIN
+	if sub_is_svy & sub_has_by {
+		call sub.tx_by_note.show
+	}
+END
+
+PROGRAM _sub_settabtitle
+BEGIN
+	if sub_has_by {
+		call sub.settabtitle 		///
+			resource LBL_BY_IF_IN
+	}
+	if ! sub_has_by {
+		if sub_has_over {
+			call sub.settabtitle 	///
+			resource LBL_IF_IN_OVER
+		}
+		if ! sub_has_over {
+			call sub.settabtitle	///
+			resource SUB_BY_IFIN_OVER_SUBPOP_TABTITLE_IF_IN
+		}
+	}
+END
+
+SCRIPT _sub_over_hide
+BEGIN
+	sub.gb_subpop.hide
+	sub.ck_over.hide
+	sub.tx_over.hide
+	sub.vl_over.hide
+	sub.ck_nolab.hide
+END
+
+SCRIPT _sub_over_show
+BEGIN
+	sub.tx_over.show
+	sub.vl_over.show
+	sub.ck_nolab.show
+END
+
+SCRIPT _sub_over_on
+BEGIN
+	sub.tx_over.enable
+	sub.vl_over.enable
+	sub.ck_nolab.enable
+END
+
+SCRIPT _sub_over_off
+BEGIN
+	sub.tx_over.disable
+	sub.vl_over.disable
+	sub.ck_nolab.disable
+END
+
+SCRIPT _sub_redraw_svy_over
+BEGIN
+	// subpop groupbox
+	sub.gb_subpop.setposition . . . 150
+	sub.vl_over.setposition . . 312 .
+	sub.tx_subpop.setposition 340 .
+	sub.vn_subpop.setposition 340 .
+	sub.tx_subif.setposition . 105
+	sub.ex_subif.setposition . 125
+	// if/in checkbox
+	sub.ck_ifin.setposition . 175
+	sub.tx_if.setposition . 195
+	sub.ex_if.setposition . 215
+	sub.ck_in.setposition . 245
+	sub.sp_from.setposition . 245
+	sub.tx_to.setposition . 245
+	sub.sp_to.setposition . 245
+	// NOTE: tx_by_note should not be shown in this case
+	sub.tx_over.setlabel resource SUB_BY_IFIN_OVER_SUBPOP_TX_OVER
+	sub.vl_over.setlabel resource SUB_BY_IFIN_OVER_SUBPOP_TX_OVER
+	sub.ck_nolab.setlabel resource SUB_BY_IFIN_OVER_SUBPOP_CK_NOLAB
+	sub.ck_over.hide
+	script _sub_over_on
+	script _sub_over_show
+END
+
+SCRIPT _sub_redraw_svy_noover
+BEGIN
+	// subpop groupbox
+	sub.gb_subpop.setposition . . . 125
+	sub.tx_subpop.setposition 20 .
+	sub.vn_subpop.setposition 20 .
+	sub.tx_subif.setposition . 80
+	sub.ex_subif.setposition . 100
+	// if/in checkbox
+	sub.ck_ifin.setposition . 150
+	sub.tx_if.setposition . 170
+	sub.ex_if.setposition . 190
+	sub.ck_in.setposition . 220
+	sub.sp_from.setposition . 220
+	sub.tx_to.setposition . 220
+	sub.sp_to.setposition . 220
+	sub.tx_by_note.setposition . 265
+	sub.tx_by_note.setlabel 		///
+		resource SUB_BY_IFIN_OVER_SUBPOP_BY_NOTE_NOOVER
+END
+
+PROGRAM _sub_redraw_nonsvy_over
+BEGIN
+	// over groupbox
+	call sub.vl_over.setposition . . 460 .
+	// if/in groupbox
+	call sub.gb_ifin.setposition . 120
+	call sub.tx_if.setposition . 140
+	call sub.ex_if.setposition . 160
+	call sub.ck_in.setposition . 190
+	call sub.sp_from.setposition . 190
+	call sub.tx_to.setposition . 190
+	call sub.sp_to.setposition . 190
+	call sub.tx_over.setlabel 		///
+		resource LBL_GROUP_VARIABLES
+	call sub.vl_over.setlabel 		///
+		resource LBL_GROUP_VARIABLES
+	call sub.ck_nolab.setlabel 		///
+		resource SUB_BY_IFIN_OVER_SUBPOP_CK_NOLAB_NOSVY
+	call sub.ck_over.show
+	call sub.tx_subpop.hide
+	call sub.vn_subpop.hide
+	if sub.ck_over {
+		call script _sub_over_on
+	}
+	if ! sub.ck_over {
+		call script _sub_over_off
+	}
+	call script _sub_over_show
+END
+
+SCRIPT _sub_by_show
+BEGIN
+	sub.ck_by.show
+	sub.tx_by.show
+	sub.vl_by.show
+END
+
+SCRIPT _sub_by_hide
+BEGIN
+	sub.ck_by.hide
+	sub.tx_by.hide
+	sub.vl_by.hide
+END
+
+SCRIPT _sub_by_on
+BEGIN
+	sub.tx_by.enable
+	sub.vl_by.enable
+END
+
+SCRIPT _sub_by_off
+BEGIN
+	sub.tx_by.disable
+	sub.vl_by.disable
+END
+
+PROGRAM _sub_redraw_nonsvy_noover
+BEGIN
+	// by groupbox and if/in groupbox
+	if sub_has_by {
+		call sub.gb_ifin.setposition . 100
+		call sub.tx_if.setposition . 120
+		call sub.ex_if.setposition . 140
+		call sub.ck_in.setposition . 170
+		call sub.sp_from.setposition . 170
+		call sub.tx_to.setposition . 170
+		call sub.sp_to.setposition . 170
+		call script _sub_by_show
+		if sub.ck_by {
+			call script _sub_by_on
+		}
+		if ! sub.ck_by {
+			call script _sub_by_off
+		}
+	}
+	// if/in groupbox only
+	if ! sub_has_by {
+		call sub.gb_ifin.setposition . 10
+		call sub.tx_if.setposition . 30
+		call sub.ex_if.setposition . 50
+		call sub.ck_in.setposition . 80
+		call sub.sp_from.setposition . 80
+		call sub.tx_to.setposition . 80
+		call sub.sp_to.setposition . 80
+	}
+END
+
+PROGRAM _sub_redraw_svy
+BEGIN
+	call sub.gb_subpop.show
+	call sub.tx_subpop.show
+	call sub.vn_subpop.show
+	call sub.tx_subif.show
+	call sub.ex_subif.show
+	call sub.gb_ifin.hide
+	if sub_has_over {
+		call script _sub_redraw_svy_over
+	}
+	if ! sub_has_over {
+		call script _sub_redraw_svy_noover
+	}
+END
+
+PROGRAM _sub_redraw_nonsvy
+BEGIN
+	call sub.gb_subpop.hide
+	call sub.tx_subpop.hide
+	call sub.vn_subpop.hide
+	call sub.tx_subif.hide
+	call sub.ex_subif.hide
+	call sub.ck_ifin.hide
+	call sub.gb_ifin.show
+	call sub.tx_if.enable
+	call sub.ex_if.enable
+	call sub.ck_in.enable
+	if sub_has_over {
+		call program _sub_redraw_nonsvy_over
+	}
+	if ! sub_has_over {
+		call program _sub_redraw_nonsvy_noover
+	}
+END
+
+SCRIPT _sub_ifin_on
+BEGIN
+	sub.tx_if.enable
+	sub.ex_if.enable
+	sub.ck_in.enable
+	program _sub_check_in
+END
+
+SCRIPT _sub_ifin_off
+BEGIN
+	sub.tx_if.disable
+	sub.ex_if.disable
+	sub.ck_in.disable
+	script _sub_in_off
+	sub.tx_to.disable
+END
+
+PROGRAM _sub_check_ifin
+BEGIN
+	call sub.ck_ifin.show
+	if sub.ck_ifin {
+		call script _sub_ifin_on
+	}
+	if ! sub.ck_ifin {
+		call script _sub_ifin_off
+	}
+END
+
+SCRIPT _sub_in_on
+BEGIN
+	sub.sp_from.enable
+	sub.sp_to.enable
+	program _sub_check_in_range
+END
+
+SCRIPT _sub_in_off
+BEGIN
+	sub.sp_from.disable
+	sub.sp_to.disable
+END
+
+PROGRAM _sub_check_in
+BEGIN
+	if sub.ck_in {
+		call script _sub_in_on
+	}
+	if ! sub.ck_in {
+		call script _sub_in_off
+	}
+	call sub.tx_to.enable
+	call program _sub_check_in_range
+END
+
+PROGRAM _sub_check_in_range
+BEGIN
+	call sub.sp_from.setrange 1 c(N)
+	call sub.sp_to.setrange 1 c(N)
+END
+
+PROGRAM _sub_redraw
+BEGIN
+	call script _sub_note_hide
+	call program _sub_settabtitle
+	call script _sub_over_hide
+	call script _sub_by_hide
+	if sub_is_svy {
+		call program _sub_redraw_svy
+		call program _sub_check_ifin
+		call program _sub_note_show
+	}
+	if ! sub_is_svy {
+		call program _sub_redraw_nonsvy
+		call program _sub_check_in
+	}
+END
+
+// DIALOG definition --------------------------------------------------------
+
+DIALOG sub, tabtitle(resource LBL_IF_IN_OVER)
+BEGIN
+  // svy layout -------------------------------------------------------------
+  GROUPBOX gb_subpop   _lft        _top      _iwd        _ht12, 	///
+		label(resource LBL_SUBPOPULATION_ESTIMATION)
+
+  TEXT     tx_over  _ilft       _ss       _ivlwd      .,		///
+		label(resource SUB_BY_IFIN_OVER_SUBPOP_TX_OVER)
+DEFINE y @y
+  VARLIST  vl_over  @           _ss       _comb3_1    .,		///
+		label(resource SUB_BY_IFIN_OVER_SUBPOP_TX_OVER)	///
+		option(over)
+
+  TEXT     tx_subpop   _ilft3_3    y         _cwd3_2     .,		///
+		label(resource LBL_INDICATOR_VARIABLE)
+  VARNAME  vn_subpop   @           _ss       _cwd3_2     .,		///
+		label(resource LBL_INDICATOR_VARIABLE)
+
+  CHECKBOX ck_nolab    _ilft       _ls       _ibwd       .,		///
+		label(resource SUB_BY_IFIN_OVER_SUBPOP_CK_NOLAB)	///
+		 option(nolabel)
+
+  TEXT     tx_subif    _ilft       _ls       _ibwd       .,		///
+		label(resource LBL_IF_EXPRESSION)
+  EXP      ex_subif    @           _ss       _ibwd       .,		///
+		label(resource LBL_BU_CREATE)
+
+  // nonsvy layout with over() option --------------------------------------
+  GROUPBOX gb_ifin	_lft	   120       _iwd        _ht7h,		///
+		label(resource LBL_RESTRICT_OBS)
+
+  // back to svy layout ----------------------------------------------------
+  CHECKBOX ck_ifin     _lft        175       _iwd        _ht7h,		///
+		label(resource LBL_RESTRICT_OBS)			///
+		groupbox						///
+		onclickon(script _sub_ifin_on)				///
+		onclickoff(script _sub_ifin_off)
+  TEXT     tx_if       _ilft       195       _ibwd       .,		///
+		label(resource LBL_IF_EXPRESSION)
+  EXP      ex_if       @           215       _ibwd       .,		///
+		label(resource LBL_BU_CREATE)
+
+  CHECKBOX ck_in       _ilft       245       fromwd      .,		///
+		onclickon(script _sub_in_on)				///
+		onclickoff(script _sub_in_off)				///
+		label(resource LBL_OBS_IN_RANGE)
+  SPINNER  sp_from     fromsep     @         100         .,		///
+		min(1)							///
+		max(c(N))						///
+		default(1)
+  TEXT     tx_to       +105        @         towd        .,		///
+		label(resource LBL_TO)	///
+		right
+
+  SPINNER  sp_to       tosep       @         100         .,		///
+		min(1)							///
+		max(c(N))						///
+		default(c(N))
+
+  // nonsvy layout with over() option ---------------------------------------
+  CHECKBOX ck_over  _lft        _top      _iwd        _ht7,	 	///
+  	label(resource SUB_BY_IFIN_OVER_SUBPOP_CK_OVER) groupbox	///
+  	onclickon(script _sub_over_on)					///
+	onclickoff(script _sub_over_off)
+
+  // nonsvy layout with by() option -----------------------------------------
+  CHECKBOX ck_by    _lft        _top      _iwd        _ht4h,	 	///
+  	label(resource LBL_REPEAT_COMMAND_BY_GROUPS) groupbox		///
+  	onclickon(script _sub_by_on)					///
+	onclickoff(script _sub_by_off)
+
+  TEXT     tx_by    _indent     _ss       _inwd       .,		///
+	label(resource LBL_VARIABLES_THAT_DEFINE_GROUPS)
+  VARLIST  vl_by    @           _ss       @           .,		///
+	label(resource LBL_VARIABLES_THAT_DEFINE_GROUPS)
+
+  // svy layout -------------------------------------------------------------
+  TEXT     tx_by_note _lft 0 _iwd .
+END

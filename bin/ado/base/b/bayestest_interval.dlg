@@ -1,0 +1,1283 @@
+/*
+    bayestest_interval
+
+*!  VERSION 1.2.7  03apr2019
+
+*/
+
+VERSION 14.0
+SYNCHRONOUS_ONLY
+
+INCLUDE _std_large
+DEFINE _dlght 680
+INCLUDE header
+
+HELP hlp1, view("help bayestest interval")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource BAYESTEST_INTERVAL_DLG_HSCALE
+
+	create STRING exp_res
+	create STRING estfile
+	create STRING sTMP
+	create STRING main_build_tmp
+	create STRING main_build_tmp2
+	create STRING main_build_childdlg
+	create STRING main_build_child_result
+	create DOUBLE main_build_position
+	
+	create ARRAY main_intspec_list
+	create SVECTOR mainIntspecCommandDisplayList
+	create SVECTOR mainIntspecCommandList
+	create SVECTOR mainIntspecCommandValues
+	create SVECTOR mainIntspecStatusList
+	create SVECTOR mainIntspecChildDialogList
+	create DOUBLE main_intspec_count
+	create DOUBLE main_intspec_arraysize
+	create STRING main_intspec_output
+	
+	create ARRAY main_predspec_list
+	create SVECTOR mainPredspecCommandDisplayList
+	create SVECTOR mainPredspecCommandList
+	create SVECTOR mainPredspecCommandValues
+	create SVECTOR mainPredspecStatusList
+	create SVECTOR mainPredspecChildDialogList
+	create DOUBLE main_predspec_count
+	create DOUBLE main_predspec_arraysize
+	create STRING main_predspec_output
+	
+	create ARRAY paras_list
+	create STRING paras_str
+	create STRING paras_tmp
+	
+	create STRING cmdName
+	create STRING cmdStr
+	create STRING cmdPrefix
+	create STRING dlgname
+	dlgname.storeDialogClassName
+	
+	estfile.setvalue ""
+	cmdStr.setvalue ""
+	cmdName.setvalue ""
+	cmdPrefix.setvalue ""
+	cmdName.setvalue e(cmd)
+	cmdStr.setvalue e(cmdline)
+	cmdPrefix.setvalue e(prefix)
+	
+	main.bu_intspec_edit.disable
+	main.bu_intspec_disable.disable
+	main.bu_intspec_enable.disable
+	
+	main.bu_predspec_edit.disable
+	main.bu_predspec_disable.disable
+	main.bu_predspec_enable.disable
+
+	main.fi_use.formatfilter "{0} (*.dta)|*.dta|{1} (*.*)|*.*" ///
+		"resource ui_ex FILE_TYPE_DTA" "resource ui_ex FILE_TYPE_ALL_FILES	
+	
+	program paras_init
+END
+
+PROGRAM paras_init
+BEGIN
+	call paras_list.Arrdropall
+	
+	if cmdName.equals("bayesmh") & !cmdStr.equals("") {
+		put "bayesmh_parse_params "
+		put cmdStr
+		stata hidden immediate
+		put "bayesmh_wrk_dlg " 
+		put dlgname
+		put " paras_list"
+		put `" "s(postparams)""'
+		put " 0"
+		stata hidden immediate
+	}
+	if cmdPrefix.equals("bayes") & !cmdStr.equals("") {
+		put "bayes_parse_params "
+		put cmdStr
+		stata hidden immediate
+		put "bayesmh_wrk_dlg " 
+		put dlgname
+		put " paras_list"
+		put `" "s(postparams)""'
+		put " 0"
+		stata hidden immediate
+	}
+	
+	call main.cb_paras.repopulate
+END
+
+PROGRAM check_predict
+BEGIN
+	if !cmdName.equals("bayesmh") | cmdStr.equals("") | cmdPrefix.equals("bayes") {
+		call main.rb_para.hide
+		call main.rb_pred.hide
+		call main.rb_predsingle.hide 
+		call main.rb_predmulti.hide
+		
+		call program main_syntax_para
+	}
+	else {
+		call main.rb_para.show
+		call main.rb_pred.show
+		call main.rb_predsingle.show 
+		call main.rb_predmulti.show
+		
+		if main.rb_para {
+			call program main_syntax_para
+		}
+		if main.rb_pred {
+			call program main_syntax_pred
+		}
+	}
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	call program check_predict
+	
+	call mainIntspecCommandDisplayList.copyToArray main_intspec_list
+	call main.lb_intspecBuild.repopulate
+	
+	call mainPredspecCommandDisplayList.copyToArray main_predspec_list
+	call main.lb_predspecBuild.repopulate
+	
+	call program check_nchains
+	call program chains_move_hide_pr
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	title(resource BAYESTEST_INTERVAL_TITLE)				
+BEGIN
+  GROUPBOX gb_syntax		_lft	_top	_iwd	_ht8,		///
+	label(resource LBL_HYPOTHESIS)
+  RADIO  rb_para			_ilft	_ss	_ibwd	.,	///
+	first								///
+	onclickon(program main_syntax_para)				///
+	label(resource BAYESTEST_INTERVAL_MAIN_RB_PARA)
+  RADIO rb_pred		@	_ss	@	.,			///
+	last								///
+	onclickon(program main_syntax_pred)				///
+	label(resource BAYESTEST_INTERVAL_MAIN_RB_PRED)
+	
+  RADIO  rb_all			+15	_ss	_iibwd	.,		///
+	first								///
+	onclickon(program main_parasyntax_single)			///
+	label(resource BAYESTEST_INTERVAL_MAIN_RB_ALL)
+  RADIO rb_selected		@	_ss	@	.,		///
+	last								///
+	onclickon(program main_parasyntax_multi)			///
+	label(resource BAYESTEST_INTERVAL_MAIN_RB_SELECTED)
+	
+  RADIO  rb_predsingle		@	_ss	@	.,		///
+	first								///
+	onclickon(program main_predsyntax_single)			///
+	label(resource BAYESTEST_INTERVAL_MAIN_RB_ALL)
+  RADIO rb_predmulti		@	_ss	@	.,		///
+	last								///
+	onclickon(program main_predsyntax_multi)			///
+	label(resource BAYESTEST_INTERVAL_MAIN_RB_SELECTED)
+
+  DEFINE usex _lft
+  DEFINE usey 200
+  DEFINE usew _iwd	
+  INCLUDE bayes_predfile
+
+  GROUPBOX gb_intspec		_lft	@	_iwd	_ht25,		///
+	label(resource BAYES_LBL_GB_INTSPEC)
+  
+  RADIO  rb_onepara		_ilft	_ss	_ibwd	.,		///
+	first								///
+	onclickon(script main_onepara_on)				///
+	label(resource BAYES_LBL_RB_ONEPARA)
+  RADIO rb_paraexp		@	165	@	.,		///
+	last								///
+	onclickon(script main_paraexp_on)				///
+	label(resource BAYES_LBL_RB_PARAEXP)
+  HLINK hl_exspec		415 	165	65	.,		///
+	right								///
+	onpush(view help bayesian_postestimation##functions)		///
+	label(resource LBL_PAREN_EXAMPLES_PAREN) 
+  HLINK hl_exspec2              415     205     65      .,              ///
+        right                                                           ///
+        onpush(view help bayesian_postestimation##functions)            ///
+        label(resource LBL_PAREN_EXAMPLES_PAREN)
+
+  COMBOBOX  cb_paras		40	170	200	.,		///
+	dropdown							///
+	contents(paras_list)						///
+	label(resource BAYES_LBL_RB_ONEPARA)
+  
+  EXP   ex_exspec		@	220	440	.,		///
+	parameter							///
+	bayes 								///
+	tooltip(resource BAYES_LBL_EX_EXSPEC_TIP)			///
+	error(resource BAYES_LBL_RB_PARAEXP)				///
+	label(resource LBL_BU_CREATE)
+
+  INCLUDE bayestest_interval_testspec
+	
+  TEXT tx_label			_ilft 	+30	_ibwd	.,		///
+	label(resource BAYES_LBL_TX_LABEL)
+  EDIT ed_label			@	_ss  	@ 	.,		///
+	label(resource BAYES_LBL_TX_LABEL)
+	
+  LISTBOX lb_intspecBuild	_ilft	160	245	95,		///
+	contents(main_intspec_list)					///
+	ondblclick(program main_intspec_edit)				///
+	onselchange(program main_intspec_sel_changed)			///
+	nomemory
+  BUTTON bu_intspec_create	275	@	80	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program main_intspec_create)
+  BUTTON bu_intspec_edit	@	_ms	@	.,		///
+	label(resource LBL_BU_EDIT)					///
+	onpush(program main_intspec_edit)
+  BUTTON bu_intspec_disable	@	_ms	@	.,		///
+	label(resource LBL_BU_DISABLE)					///
+	onpush(program main_intspec_disable)
+  BUTTON bu_intspec_enable	@	_ms	@	.,		///
+	label(resource LBL_BU_ENABLE)					///
+	onpush(program main_intspec_enable)
+  TEXTBOX tb_intspec_note	_ilft	+25	370	20,		///
+	label(resource BAYES_LBL_PRESS_CREATE_TO_DEFINE_TEST_INTERVAL)
+	
+  DEFINE predy 210
+  INCLUDE bayestest_interval_pred
+	
+  GROUPBOX gb_opt		_lft	+145	_iwd	_ht9h,		///
+	label(resource LBL_OPTIONS)
+  DEFINE chain_x _ilft
+  DEFINE chain_y _ss
+  DEFINE chain_w _ibwd
+  INCLUDE bayes_chains_opts
+
+  SPINNER  sp_skip		_ilft	_ls	_en14wd	.,		///
+	option(skip)							///
+	min(0) max(e(mcmcsize))						///
+	default(0)
+  TEXT 	   tx_skip		_en14sep @	300	.,		///
+	label(resource BAYES_LBL_TX_SKIP)
+
+  CHECKBOX ck_nolegend		_ilft	_ls	_ibwd	.,		///
+	option(nolegend)						///
+	label(resource LBL_SUP_TABLE_LEGEND)
+END
+  
+INCLUDE bayestest_interval_testspec_sc
+INCLUDE bayes_chains_opts_sc
+
+PROGRAM chains_move_hide_pr
+BEGIN
+	if main.rb_para.isvisible() {
+		if main.rb_para {
+			if main.rb_all {
+				call main.gb_opt.setposition . 460 . 210
+				call main.gb_chains.setposition . 480
+				call main.rb_chain_all.setposition . 500
+				call main.rb_chain_nlist.setposition . 520
+				call main.cb_chains.setposition . 540
+				call main.ck_sepchains.setposition  . 570
+
+				call main.sp_skip.setposition . 610
+				call main.tx_skip.setposition . 610
+				call main.ck_nolegend.setposition . 640
+			}
+			else {
+				call main.gb_opt.setposition . 310 . 210
+				call main.gb_chains.setposition . 330
+				call main.rb_chain_all.setposition . 350
+				call main.rb_chain_nlist.setposition . 370
+				call main.cb_chains.setposition . 390
+				call main.ck_sepchains.setposition  . 420
+
+				call main.sp_skip.setposition . 460
+				call main.tx_skip.setposition . 460
+				call main.ck_nolegend.setposition . 490
+			}
+		}
+		else {
+			if main.rb_predsingle {
+				call main.gb_opt.setposition . 465 . 210
+				call main.gb_chains.setposition . 485
+				call main.rb_chain_all.setposition . 505
+				call main.rb_chain_nlist.setposition . 525
+				call main.cb_chains.setposition . 545
+				call main.ck_sepchains.setposition  . 575
+
+				call main.sp_skip.setposition . 615
+				call main.tx_skip.setposition . 615
+				call main.ck_nolegend.setposition . 645
+			}
+			else {
+				call main.gb_opt.setposition . 365 . 210
+				call main.gb_chains.setposition . 385
+				call main.rb_chain_all.setposition . 405
+				call main.rb_chain_nlist.setposition . 425
+				call main.cb_chains.setposition . 445
+				call main.ck_sepchains.setposition  . 475
+
+				call main.sp_skip.setposition . 515
+				call main.tx_skip.setposition . 515
+				call main.ck_nolegend.setposition . 545
+			}
+		}
+	}
+	else {
+		if main.rb_all {
+			call main.gb_opt.setposition . 430 . 210
+			call main.gb_chains.setposition . 450
+			call main.rb_chain_all.setposition . 470
+			call main.rb_chain_nlist.setposition . 490
+			call main.cb_chains.setposition . 510
+			call main.ck_sepchains.setposition  . 540
+
+			call main.sp_skip.setposition . 580
+			call main.tx_skip.setposition . 580
+			call main.ck_nolegend.setposition . 610
+		}
+		else {
+			call main.gb_opt.setposition . 280 . 210
+			call main.gb_chains.setposition . 300
+			call main.rb_chain_all.setposition . 320
+			call main.rb_chain_nlist.setposition . 340
+			call main.cb_chains.setposition . 360
+			call main.ck_sepchains.setposition  . 390
+
+			call main.sp_skip.setposition . 430
+			call main.tx_skip.setposition . 430
+			call main.ck_nolegend.setposition . 460
+		}
+	}
+END
+
+PROGRAM main_syntax_para
+BEGIN
+	call main.rb_all.show
+	call main.rb_selected.show 
+	call main.rb_predsingle.hide 
+	call main.rb_predmulti.hide
+
+	call main.tx_use.hide
+	call main.fi_use.hide
+	call main.tx_predexp.hide 
+	call main.ed_predspec.hide
+	call main.bu_predspec.hide
+	call main.hl_predspec.hide
+	call main.gb_intspec.enable
+	
+	call main.lb_predspecBuild.hide
+	call main.bu_predspec_create.hide
+	call main.bu_predspec_edit.hide
+	call main.bu_predspec_disable.hide
+	call main.bu_predspec_enable.hide
+	call main.tb_predspec_note.hide
+	
+	if main.rb_all {
+		call program main_parasyntax_single
+	}
+	else {
+		call program main_parasyntax_multi
+	}
+END
+
+PROGRAM main_parasyntax_single
+BEGIN
+	call main.rb_onepara.show 
+	call main.rb_paraexp.show
+	call main.cb_paras.show
+	call main.ex_exspec.show
+	call main.ed_label.show 
+	call main.tx_label.show
+    	call script main_testspec_show
+	
+	call main.lb_intspecBuild.hide
+	call main.bu_intspec_create.hide
+	call main.bu_intspec_edit.hide
+	call main.bu_intspec_disable.hide
+	call main.bu_intspec_enable.hide
+	call main.tb_intspec_note.hide
+	
+	call main.tx_intvalues.enable
+	call main.rb_int.enable
+	call main.rb_single.enable
+	call main.tx_label.enable
+	call main.ed_label.enable
+	
+	if main.rb_para.isvisible() {
+		call main.gb_syntax.setposition . . . 110
+		call main.rb_para.setposition 20 30
+		call main.rb_all.setposition 35 50
+		call main.rb_selected.setposition 35 70
+		call main.rb_pred.setposition 20 90
+		
+		call main.gb_intspec.setposition . 130 . 315
+		call main.rb_onepara.setposition . 150
+		call main.cb_paras.setposition . 175
+		call main.rb_paraexp.setposition . 205
+		call main.ex_exspec.setposition . 225
+		call main.hl_exspec.hide
+		call main.hl_exspec2.show
+		
+		call main.tx_intvalues.setposition . 255
+		call main.rb_int.setposition . 280
+		call main.rb_single.setposition . 330
+		call main.tx_lower.setposition . 305
+		call main.ed_lower.setposition . 305
+		call main.cb_lower.setposition . 305
+		call main.tx_theta.setposition . 305
+		call main.cb_upper.setposition . 305
+		call main.ed_upper.setposition . 305
+		call main.tx_upper.setposition . 305 
+		call main.tx_equal.setposition . 355
+		call main.ed_equal.setposition . 355
+		
+		call main.tx_label.setposition . 390
+		call main.ed_label.setposition . 410
+	}
+	else {
+		call main.gb_syntax.setposition . . . 70
+		call main.rb_all.setposition 20 30
+		call main.rb_selected.setposition 20 50
+		
+		call main.gb_intspec.setposition . 95 . 315
+		call main.rb_onepara.setposition . 115
+		call main.cb_paras.setposition . 135
+		call main.rb_paraexp.setposition . 165
+		call main.ex_exspec.setposition . 185
+		call main.hl_exspec.show
+		call main.hl_exspec2.hide
+		
+		call main.tx_intvalues.setposition . 220
+		call main.rb_int.setposition . 245
+		call main.rb_single.setposition . 295
+		call main.tx_lower.setposition . 270
+		call main.ed_lower.setposition . 270
+		call main.cb_lower.setposition . 270
+		call main.tx_theta.setposition . 270
+		call main.cb_upper.setposition . 270
+		call main.ed_upper.setposition . 270
+		call main.tx_upper.setposition . 270 
+		call main.tx_equal.setposition . 320
+		call main.ed_equal.setposition . 320
+		
+		call main.tx_label.setposition . 355
+		call main.ed_label.setposition . 375
+	}
+
+	call program chains_move_hide_pr
+END
+
+PROGRAM main_parasyntax_multi
+BEGIN
+        call main.cb_paras.hide
+        call main.ex_exspec.hide
+	call main.rb_onepara.hide
+	call main.hl_exspec.hide 
+	call main.hl_exspec2.hide
+	call main.rb_paraexp.hide 
+	call main.ed_label.hide 
+	call main.tx_label.hide
+	call script main_testspec_hide
+	
+	call main.lb_intspecBuild.show
+	call main.bu_intspec_create.show
+	call main.bu_intspec_edit.show
+	call main.bu_intspec_disable.show
+	call main.bu_intspec_enable.show
+	call main.tb_intspec_note.show
+	
+	if main.rb_para.isvisible() {
+		call main.gb_syntax.setposition . . . 110
+		call main.rb_para.setposition 20 30
+		call main.rb_all.setposition 35 50
+		call main.rb_selected.setposition 35 70
+		call main.rb_pred.setposition 20 90
+		
+		call main.gb_intspec.setposition . 130 . 165
+		call main.lb_intspecBuild.setposition . 165
+		call main.bu_intspec_create.setposition . 165
+		call main.bu_intspec_edit.setposition . 190
+		call main.bu_intspec_disable.setposition . 215
+		call main.bu_intspec_enable.setposition . 240
+		call main.tb_intspec_note.setposition . 265
+	}
+	else {
+		call main.gb_syntax.setposition . . . 70
+		call main.rb_all.setposition 20 30
+		call main.rb_selected.setposition 20 50
+		
+		call main.gb_intspec.setposition . 95 . 165
+		call main.lb_intspecBuild.setposition . 120
+		call main.bu_intspec_create.setposition . 120
+		call main.bu_intspec_edit.setposition . 145
+		call main.bu_intspec_disable.setposition . 170
+		call main.bu_intspec_enable.setposition . 195
+		call main.tb_intspec_note.setposition . 225
+	}
+	
+	call program chains_move_hide_pr
+END
+
+PROGRAM main_syntax_pred
+BEGIN
+	call main.rb_all.hide
+	call main.rb_selected.hide 
+	call main.rb_predsingle.show 
+	call main.rb_predmulti.show
+	call main.tx_use.show
+	call main.fi_use.show
+
+	call main.rb_pred.setposition 20 50
+	call main.rb_predsingle.setposition 30 70
+	call main.rb_predmulti.setposition 30 90
+	
+	call main.tx_use.setposition . 130
+	call main.fi_use.setposition . 150
+	
+	call main.rb_onepara.hide 
+	call main.rb_paraexp.hide
+	call main.hl_exspec.hide
+	call main.hl_exspec2.hide
+	call main.cb_paras.hide
+	call main.ex_exspec.hide
+	call main.ed_label.hide 
+	call main.tx_label.hide
+	
+	call main.lb_intspecBuild.hide
+	call main.bu_intspec_create.hide
+	call main.bu_intspec_edit.hide
+	call main.bu_intspec_disable.hide
+	call main.bu_intspec_enable.hide
+	call main.tb_intspec_note.hide
+	
+	if main.rb_predsingle {
+		call program main_predsyntax_single
+	}
+	else {
+		call program main_predsyntax_multi
+	}
+END
+
+PROGRAM main_predsyntax_single
+BEGIN
+	call main.tx_predexp.show
+	call main.ed_predspec.show 
+	call main.bu_predspec.show 
+	call main.hl_predspec.show
+	
+	call script main_testspec_show
+	call main.tx_label.show 
+	call main.ed_label.show
+	
+	call main.lb_predspecBuild.hide
+	call main.bu_predspec_create.hide
+	call main.bu_predspec_edit.hide
+	call main.bu_predspec_disable.hide
+	call main.bu_predspec_enable.hide
+	call main.tb_predspec_note.hide
+	
+	call main.gb_syntax.setposition . . . 110
+	call main.rb_para.setposition 20 30
+	call main.rb_pred.setposition 20 50
+	call main.rb_predsingle.setposition 35 70
+	call main.rb_predmulti.setposition 35 90
+	
+	call main.tx_predexp.setposition . 210
+	call main.ed_predspec.setposition . 230
+	call main.bu_predspec.setposition . 230
+	call main.gb_intspec.setposition . 190 . 260
+	
+	call main.tx_intvalues.setposition . 265
+	call main.rb_int.setposition . 290
+	call main.rb_single.setposition . 340
+	call main.tx_lower.setposition . 315
+	call main.ed_lower.setposition . 315
+	call main.cb_lower.setposition . 315
+	call main.tx_theta.setposition . 315
+	call main.cb_upper.setposition . 315
+	call main.ed_upper.setposition . 315
+	call main.tx_upper.setposition . 315 
+	call main.tx_equal.setposition . 365
+	call main.ed_equal.setposition . 365
+	
+	call main.tx_label.setposition . 395
+	call main.ed_label.setposition . 415
+	
+	call program chains_move_hide_pr
+	call program main_file_change
+END
+
+PROGRAM main_predsyntax_multi
+BEGIN
+	call main.tx_predexp.hide
+	call main.ed_predspec.hide 
+	call main.bu_predspec.hide 
+	call main.hl_predspec.hide
+	call main.tx_label.hide 
+	call main.ed_label.hide
+	call script main_testspec_hide
+	
+	call main.lb_predspecBuild.show
+	call main.bu_predspec_create.show
+	call main.bu_predspec_edit.show
+	call main.bu_predspec_disable.show
+	call main.bu_predspec_enable.show
+	call main.tb_predspec_note.show
+	
+	call main.gb_intspec.setposition . 185 . 165
+
+	call program main_file_change	
+	call program chains_move_hide_pr
+END
+
+PROGRAM main_file_change
+BEGIN
+	if !main.fi_use.equals("") {
+		call main.tx_predexp.enable
+		call main.ed_predspec.enable
+		call main.bu_predspec.enable
+		call main.hl_predspec.enable
+		call script main_testspec_enable
+		
+		call main.gb_intspec.enable
+		call main.lb_predspecBuild.enable
+		call main.bu_predspec_create.enable
+		call main.tb_predspec_note.enable
+		call program main_predspec_sel_changed
+		if main.rb_int {
+			call script main_int_enable
+		}
+		else {
+			call script main_int_disable
+		}
+		call main.tx_label.enable
+		call main.ed_label.enable
+		call estfile.setvalue class main.fi_use.value
+	}
+	else {
+		call main.tx_predexp.disable
+		call main.ed_predspec.disable
+		call main.bu_predspec.disable
+		call main.hl_predspec.disable
+		call main.tx_label.disable
+		call main.ed_label.disable
+		call script main_testspec_disable
+		
+		call main.gb_intspec.disable
+		call main.lb_predspecBuild.disable
+		call main.bu_predspec_create.disable
+		call main.bu_predspec_disable.disable
+		call main.bu_predspec_enable.disable
+		call main.bu_predspec_edit.disable
+		call main.tb_predspec_note.disable
+		call estfile.setvalue ""
+	}
+END
+
+SCRIPT main_onepara_on
+BEGIN
+	main.cb_paras.enable
+	main.ex_exspec.disable
+END 
+
+SCRIPT main_paraexp_on
+BEGIN
+	main.cb_paras.disable
+	main.ex_exspec.enable
+END
+
+PROGRAM main_predexp_exp
+BEGIN
+	call create CHILD bayestest_interval_predspec AS exp
+	call exp.settitle resource BAYES_LBL_TEST_PREDICTIONS
+	call exp.setExitString exp_res
+	call exp.setExitAction "program main_predexp_results"
+END
+
+PROGRAM main_predexp_results
+BEGIN
+	call exp_res.withvalue main.ed_predspec.setvalue "@"
+END
+
+PROGRAM main_intspec_create
+BEGIN
+	call main_intspec_count.setvalue class mainIntspecChildDialogList.size
+	call main_intspec_count.increment
+	call main_build_tmp.setvalue "main_intspec_"
+	call main_build_tmp.append class main_intspec_count.value
+	call main_build_tmp.withvalue main_build_childdlg.setvalue @
+	call program main_show_intspec_child
+END
+
+PROGRAM main_intspec_edit
+BEGIN
+	call mainIntspecCommandDisplayList.findstr class		///
+		main.lb_intspecBuild.value
+	call main_build_position.setvalue class				///
+		mainIntspecCommandDisplayList.position
+	call main_build_position.withvalue				///
+		main_build_childdlg.setvalue				///
+		class mainIntspecChildDialogList.values[@]
+	call program main_show_intspec_child_edit
+END
+
+PROGRAM main_show_intspec_child
+BEGIN
+	call main_build_tmp.setvalue "bayestest_interval_joint AS "
+	call main_build_tmp.append class main_build_childdlg.value
+	call main_build_tmp.withvalue create CHILD @
+	call main_build_childdlg.withvalue @.setExitString		///
+		"main_build_child_result"
+	call main_build_childdlg.withvalue @.setExitAction		///
+		"program main_intspec_child_create_done"
+
+	call main_intspec_count.withvalue				///
+		sTMP.format "resource LBL_SPECIFICATION_FMT" "@" ""
+
+	call main_build_childdlg.withvalue				///
+		main_build_tmp2.setvalue "@.settitle"
+	call main_build_tmp2.append `" ""'
+	call main_build_tmp2.append class sTMP.value
+	call main_build_tmp2.append `"""'
+	call main_build_tmp2.withvalue @
+END
+
+PROGRAM main_show_intspec_child_edit
+BEGIN
+	call main_build_tmp.setvalue "bayestest_interval_joint AS "
+	call main_build_tmp.append class main_build_childdlg.value
+	call main_build_tmp.withvalue create CHILD @
+	call main_build_childdlg.withvalue @.setExitString		///
+		"main_build_child_result"
+	call main_build_childdlg.withvalue @.setExitAction		///
+		"program main_intspec_child_edit_done"
+
+	call main_build_position.withvalue				///
+		main_build_tmp.setvalue					///
+		class mainIntspecCommandDisplayList.values[@]
+	call main_build_childdlg.withvalue				///
+		main_build_tmp2.setvalue "@.settitle"
+	call main_build_tmp2.append `" ""'
+	call main_build_tmp2.append class main_build_tmp.value
+	call main_build_tmp2.append `"""'
+	call main_build_tmp2.withvalue @
+END
+
+PROGRAM main_intspec_child_create_done
+BEGIN
+	call main_intspec_arraysize.setvalue class			///
+		mainIntspecChildDialogList.size
+	call main_intspec_arraysize.increment
+
+	/* Store child dialog name */
+	call mainIntspecChildDialogList.store class			///
+		main_intspec_arraysize.value class main_build_childdlg.value
+
+	call main_intspec_arraysize.withvalue				///
+		sTMP.format "resource LBL_SPECIFICATION_FMT" "@" ""
+
+	/* Store listbox display equation string */
+	call sTMP.withvalue						///
+		mainIntspecCommandDisplayList.store class		///
+		main_intspec_arraysize.value "@"
+
+	/* Store child dialog result string */
+	call mainIntspecCommandList.store class				///
+		main_intspec_arraysize.value				///
+		class main_build_child_result.value
+
+
+	/* Store child dialog result string for final command
+	   For disable/enable */
+	call mainIntspecCommandValues.store class			///
+		main_intspec_arraysize.value				///
+		class main_build_child_result.value
+
+	/* Store disable/enable status */
+	call mainIntspecStatusList.store class				///
+		main_intspec_arraysize.value "active"
+
+	call mainIntspecCommandDisplayList.copyToArray main_intspec_list
+	call main.lb_intspecBuild.repopulate
+	call sTMP.withvalue main.lb_intspecBuild.setvalue "@"
+END
+
+PROGRAM main_intspec_child_edit_done
+BEGIN
+	call mainIntspecChildDialogList.findstr class			///
+		main_build_childdlg.value
+	call main_build_position.setvalue class				///
+		mainIntspecChildDialogList.position
+	call main_build_position.withvalue main_build_tmp.setvalue	///
+		class mainIntspecStatusList.values[@]
+	if main_build_tmp.iseq("active") {
+		call main_build_position.withvalue			///
+			sTMP.format "resource LBL_SPECIFICATION_FMT" "@" ""
+	
+		call sTMP.withvalue					///
+			mainIntspecCommandDisplayList.store class	///
+			main_build_position.value "@"
+		call mainIntspecCommandValues.store class		///
+			main_build_position.value class			///
+			main_build_child_result.value
+			
+		call sTMP.withvalue					///
+			main_build_tmp2.setvalue "@"
+	}
+	else {
+		call main_build_position.withvalue			///
+			sTMP.format 					///
+				"resource LBL_SPECIFICATION_FMT" "@" 	///
+				"resource LBL_PAREN_DISABLED"
+				
+		call sTMP.withvalue main_build_tmp2.setvalue "@"
+
+		call main_build_tmp2.withvalue				///
+			mainIntspecCommandDisplayList.store		///
+			class main_build_position.value "@"
+	}
+
+	call mainIntspecCommandList.store class				///
+		main_build_position.value class				///
+		main_build_child_result.value
+
+	call mainIntspecCommandDisplayList.copyToArray main_intspec_list
+	call main.lb_intspecBuild.repopulate
+	call main.lb_intspecBuild.setvalue class main_build_tmp2.value
+END
+
+PROGRAM main_intspec_sel_changed
+BEGIN
+	call mainIntspecCommandDisplayList.findstr class		///
+		main.lb_intspecBuild.value
+	call main_build_position.setvalue class				///
+		mainIntspecCommandDisplayList.position
+	call main_build_position.withvalue main_build_tmp.setvalue	///
+		class mainIntspecStatusList.values[@]
+	if main_build_position {
+		call main.bu_intspec_edit.enable
+
+		call main_build_position.withvalue			///
+			main.tb_intspec_note.setlabel			///
+		class mainIntspecCommandList.values[@]
+	}
+
+	if main_build_tmp.iseq("disable") & main.lb_intspecBuild.isenabled() {
+		call main.bu_intspec_enable.enable
+		call main.bu_intspec_disable.disable
+	}
+	if main_build_tmp.iseq("active") & main.lb_intspecBuild.isenabled() {
+		call main.bu_intspec_enable.disable
+		call main.bu_intspec_disable.enable
+	}
+END
+
+PROGRAM main_intspec_disable
+BEGIN
+	call mainIntspecCommandDisplayList.findstr class		///
+		main.lb_intspecBuild.value
+	call main_build_position.setvalue class				///
+		mainIntspecCommandDisplayList.position
+
+	call main_build_tmp.setvalue class main.lb_intspecBuild.value
+	call mainIntspecStatusList.store class				///
+		main_build_position.value "disable"
+	call mainIntspecCommandValues.store class main_build_position.value ""
+
+	call main_build_position.withvalue sTMP.format 			///
+		"resource LBL_SPECIFICATION_FMT" "@" 			///
+		"resource LBL_PAREN_DISABLED"
+
+	call sTMP.withvalue						///
+		mainIntspecCommandDisplayList.store			///
+		class main_build_position.value "@"
+
+	call mainIntspecCommandDisplayList.copyToArray main_intspec_list
+	call sTMP.withvalue main_build_tmp2.setvalue "@"
+	call main.lb_intspecBuild.repopulate
+	call main.lb_intspecBuild.setvalue class main_build_tmp2.value
+END
+
+PROGRAM main_intspec_enable
+BEGIN
+	call mainIntspecCommandDisplayList.findstr class		///
+		main.lb_intspecBuild.value
+	call main_build_position.setvalue class				///
+		mainIntspecCommandDisplayList.position
+
+	call mainIntspecStatusList.store class				///
+		main_build_position.value "active"
+	call main_build_position.withvalue				///
+		mainIntspecCommandValues.store				///
+		class main_build_position.value class			///
+		mainIntspecCommandList.values[@]
+
+	call main_build_position.withvalue sTMP.format 			///
+		"resource LBL_SPECIFICATION_FMT" "@" ""
+
+	call sTMP.withvalue						///
+		mainIntspecCommandDisplayList.store			///
+		class main_build_position.value "@"
+
+	call mainIntspecCommandDisplayList.copyToArray main_intspec_list
+	call main_build_position.withvalue				///
+		main_build_tmp2.setvalue class				///
+		mainIntspecCommandDisplayList.values[@]
+	call main.lb_intspecBuild.repopulate
+	call main.lb_intspecBuild.setvalue class main_build_tmp2.value
+END
+
+PROGRAM main_predspec_create
+BEGIN
+	call main_predspec_count.setvalue class mainPredspecChildDialogList.size
+	call main_predspec_count.increment
+	call main_build_tmp.setvalue "main_predspec_"
+	call main_build_tmp.append class main_predspec_count.value
+	call main_build_tmp.withvalue main_build_childdlg.setvalue @
+	call program main_show_predspec_child
+END
+
+PROGRAM main_predspec_edit
+BEGIN
+	call mainPredspecCommandDisplayList.findstr class		///
+		main.lb_predspecBuild.value
+	call main_build_position.setvalue class				///
+		mainPredspecCommandDisplayList.position
+	call main_build_position.withvalue				///
+		main_build_childdlg.setvalue				///
+		class mainPredspecChildDialogList.values[@]
+	call program main_show_predspec_child_edit
+END
+
+PROGRAM main_show_predspec_child
+BEGIN
+	call main_build_tmp.setvalue "bayestest_interval_predjoint AS "
+	call main_build_tmp.append class main_build_childdlg.value
+	call main_build_tmp.withvalue create CHILD @
+	call main_build_childdlg.withvalue @.setExitString		///
+		"main_build_child_result"
+	call main_build_childdlg.withvalue @.setExitAction		///
+		"program main_predspec_child_create_done"
+
+	call main_predspec_count.withvalue				///
+		sTMP.format "resource LBL_SPECIFICATION_FMT" "@" ""
+
+	call main_build_childdlg.withvalue				///
+		main_build_tmp2.setvalue "@.settitle"
+	call main_build_tmp2.append `" ""'
+	call main_build_tmp2.append class sTMP.value
+	call main_build_tmp2.append `"""'
+	call main_build_tmp2.withvalue @
+END
+
+PROGRAM main_show_predspec_child_edit
+BEGIN
+	call main_build_tmp.setvalue "bayestest_interval_predjoint AS "
+	call main_build_tmp.append class main_build_childdlg.value
+	call main_build_tmp.withvalue create CHILD @
+	call main_build_childdlg.withvalue @.setExitString		///
+		"main_build_child_result"
+	call main_build_childdlg.withvalue @.setExitAction		///
+		"program main_predspec_child_edit_done"
+
+	call main_build_position.withvalue				///
+		main_build_tmp.setvalue					///
+		class mainPredspecCommandDisplayList.values[@]
+	call main_build_childdlg.withvalue				///
+		main_build_tmp2.setvalue "@.settitle"
+	call main_build_tmp2.append `" ""'
+	call main_build_tmp2.append class main_build_tmp.value
+	call main_build_tmp2.append `"""'
+	call main_build_tmp2.withvalue @
+END
+
+PROGRAM main_predspec_child_create_done
+BEGIN
+	call main_predspec_arraysize.setvalue class			///
+		mainPredspecChildDialogList.size
+	call main_predspec_arraysize.increment
+
+	/* Store child dialog name */
+	call mainPredspecChildDialogList.store class			///
+		main_predspec_arraysize.value class main_build_childdlg.value
+
+	call main_predspec_arraysize.withvalue				///
+		sTMP.format "resource LBL_SPECIFICATION_FMT" "@" ""
+
+	/* Store listbox display equation string */
+	call sTMP.withvalue						///
+		mainPredspecCommandDisplayList.store class		///
+		main_predspec_arraysize.value "@"
+
+	/* Store child dialog result string */
+	call mainPredspecCommandList.store class				///
+		main_predspec_arraysize.value				///
+		class main_build_child_result.value
+
+
+	/* Store child dialog result string for final command
+	   For disable/enable */
+	call mainPredspecCommandValues.store class			///
+		main_predspec_arraysize.value				///
+		class main_build_child_result.value
+
+	/* Store disable/enable status */
+	call mainPredspecStatusList.store class				///
+		main_predspec_arraysize.value "active"
+
+	call mainPredspecCommandDisplayList.copyToArray main_predspec_list
+	call main.lb_predspecBuild.repopulate
+	call sTMP.withvalue main.lb_predspecBuild.setvalue "@"
+END
+
+PROGRAM main_predspec_child_edit_done
+BEGIN
+	call mainPredspecChildDialogList.findstr class			///
+		main_build_childdlg.value
+	call main_build_position.setvalue class				///
+		mainPredspecChildDialogList.position
+	call main_build_position.withvalue main_build_tmp.setvalue	///
+		class mainPredspecStatusList.values[@]
+	if main_build_tmp.iseq("active") {
+		call main_build_position.withvalue			///
+			sTMP.format "resource LBL_SPECIFICATION_FMT" "@" ""
+	
+		call sTMP.withvalue					///
+			mainPredspecCommandDisplayList.store class	///
+			main_build_position.value "@"
+		call mainPredspecCommandValues.store class		///
+			main_build_position.value class			///
+			main_build_child_result.value
+			
+		call sTMP.withvalue					///
+			main_build_tmp2.setvalue "@"
+	}
+	else {
+		call main_build_position.withvalue			///
+			sTMP.format 					///
+				"resource LBL_SPECIFICATION_FMT" "@" 	///
+				"resource LBL_PAREN_DISABLED"
+				
+		call sTMP.withvalue main_build_tmp2.setvalue "@"
+
+		call main_build_tmp2.withvalue				///
+			mainPredspecCommandDisplayList.store		///
+			class main_build_position.value "@"
+	}
+
+	call mainPredspecCommandList.store class				///
+		main_build_position.value class				///
+		main_build_child_result.value
+
+	call mainPredspecCommandDisplayList.copyToArray main_predspec_list
+	call main.lb_predspecBuild.repopulate
+	call main.lb_predspecBuild.setvalue class main_build_tmp2.value
+END
+
+PROGRAM main_predspec_sel_changed
+BEGIN
+	call mainPredspecCommandDisplayList.findstr class		///
+		main.lb_predspecBuild.value
+	call main_build_position.setvalue class				///
+		mainPredspecCommandDisplayList.position
+	call main_build_position.withvalue main_build_tmp.setvalue	///
+		class mainPredspecStatusList.values[@]
+	if main_build_position {
+		call main.bu_predspec_edit.enable
+
+		call main_build_position.withvalue			///
+			main.tb_predspec_note.setlabel			///
+		class mainPredspecCommandList.values[@]
+	}
+
+	if main_build_tmp.iseq("disable") & main.lb_predspecBuild.isenabled() {
+		call main.bu_predspec_enable.enable
+		call main.bu_predspec_disable.disable
+	}
+	if main_build_tmp.iseq("active") & main.lb_predspecBuild.isenabled() {
+		call main.bu_predspec_enable.disable
+		call main.bu_predspec_disable.enable
+	}
+END
+
+PROGRAM main_predspec_disable
+BEGIN
+	call mainPredspecCommandDisplayList.findstr class		///
+		main.lb_predspecBuild.value
+	call main_build_position.setvalue class				///
+		mainPredspecCommandDisplayList.position
+
+	call main_build_tmp.setvalue class main.lb_predspecBuild.value
+	call mainPredspecStatusList.store class				///
+		main_build_position.value "disable"
+	call mainPredspecCommandValues.store class main_build_position.value ""
+
+	call main_build_position.withvalue sTMP.format 			///
+		"resource LBL_SPECIFICATION_FMT" "@" 			///
+		"resource LBL_PAREN_DISABLED"
+
+	call sTMP.withvalue						///
+		mainPredspecCommandDisplayList.store			///
+		class main_build_position.value "@"
+
+	call mainPredspecCommandDisplayList.copyToArray main_predspec_list
+	call sTMP.withvalue main_build_tmp2.setvalue "@"
+	call main.lb_predspecBuild.repopulate
+	call main.lb_predspecBuild.setvalue class main_build_tmp2.value
+END
+
+PROGRAM main_predspec_enable
+BEGIN
+	call mainPredspecCommandDisplayList.findstr class		///
+		main.lb_predspecBuild.value
+	call main_build_position.setvalue class				///
+		mainPredspecCommandDisplayList.position
+
+	call mainPredspecStatusList.store class				///
+		main_build_position.value "active"
+	call main_build_position.withvalue				///
+		mainPredspecCommandValues.store				///
+		class main_build_position.value class			///
+		mainPredspecCommandList.values[@]
+
+	call main_build_position.withvalue sTMP.format 			///
+		"resource LBL_SPECIFICATION_FMT" "@" ""
+
+	call sTMP.withvalue						///
+		mainPredspecCommandDisplayList.store			///
+		class main_build_position.value "@"
+
+	call mainPredspecCommandDisplayList.copyToArray main_predspec_list
+	call main_build_position.withvalue				///
+		main_build_tmp2.setvalue class				///
+		mainPredspecCommandDisplayList.values[@]
+	call main.lb_predspecBuild.repopulate
+	call main.lb_predspecBuild.setvalue class main_build_tmp2.value
+END
+
+DIALOG adv, tabtitle(resource LBL_ADVANCED)
+BEGIN
+  DEFINE advy _top
+  INCLUDE bayesmh_advanced
+END
+
+INCLUDE bayesmh_advanced_sc
+
+PROGRAM command
+BEGIN
+	put "bayestest interval "
+	
+	if main.rb_para {
+		if main.rb_all {
+			if main.ed_label {
+				put main.ed_label
+				put ":"
+			}
+			if main.rb_onepara {
+				require main.cb_paras
+				put main.cb_paras
+			}
+			if main.rb_paraexp {
+				require main.ex_exspec
+				put main.ex_exspec
+			}
+			if main.rb_single {
+				require main.ed_equal
+				if main.ed_equal {
+					put " == "
+					put main.ed_equal
+				}
+			}
+		}
+		if main.rb_selected {
+			call mainIntspecCommandValues.copyToString main_intspec_output
+			if main_intspec_output.equals("") {
+				stopbox stop resource BAYESTEST_INTERVAL_MSGBOX_INTERVALSPEC
+// An interval specification must be specified.
+			}
+			put main_intspec_output
+		}
+	}
+	else {
+		require main.fi_use
+		if main.rb_predsingle {
+			require main.ed_predspec
+			
+			if main.ed_label {
+				put main.ed_label
+				put ":"
+			}
+			put main.ed_predspec
+			
+			if main.rb_single {
+				require main.ed_equal
+				if main.ed_equal {
+					put "=="
+					put main.ed_equal
+				}
+			}
+		}
+		if main.rb_predmulti {
+			call mainPredspecCommandValues.copyToString main_predspec_output
+			if main_predspec_output.equals("") {
+				stopbox stop resource BAYESTEST_INTERVAL_MSGBOX_INTERVALSPEC
+// An interval specification must be specified.
+			}
+			put main_predspec_output
+		}
+		
+		put " using "
+		put main.fi_use
+	}
+	beginoptions
+		if main.rb_all | main.rb_predsingle {
+			if main.rb_int.isvisible() & main.rb_int {
+				call create DOUBLE lvalue
+				call create DOUBLE uvalue
+				call lvalue.setvalue class main.ed_lower.value
+				call uvalue.setvalue class main.ed_upper.value
+				if main.ed_lower.equals("") & main.ed_upper.equals("") {
+		stopbox stop resource BAYES_MSGBOX_ONE_UPPER_LOWER_SPECIFIED
+// At least one of lower value or upper value must be specified.
+				}
+				if main.ed_lower & main.ed_upper {
+					if main.ed_lower.iseq(".") & main.ed_upper.iseq(".") {
+		stopbox stop resource BAYES_MSGBOX_ONE_UPPER_LOWER_SPECIFIED
+// At least one of lower value or upper value must be specified.		
+					}
+					if main.ed_lower.isneq(".") & main.ed_upper.isneq(".") { 
+						if lvalue.isNumlistGE(uvalue) {
+		stopbox stop resource BAYES_MSGBOX_LOWER_MUST_BE_LESSTHAN_UPPER
+// Lower value must be less than upper value.
+						}
+					}
+				}
+				if main.ed_lower & main.ed_lower.isneq(".") {
+					put " lower("
+					put main.ed_lower
+					if main.cb_lower.equals("<=") {
+						put ", inclusive"
+					}
+					put ")"
+				}
+				if main.ed_upper & main.ed_upper.isneq(".") {
+					put " upper("
+					put main.ed_upper 
+					if main.cb_upper.equals("<=") {
+						put ", inclusive"
+					}
+					put ")"
+				}
+			}
+		}
+		optionarg /hidedefault main.sp_skip
+		put " " /program chains_output
+		option main.ck_nolegend
+		put " " /program advanced_output
+	endoptions
+END
+

@@ -1,0 +1,156 @@
+/*
+
+ksmirnov
+
+*! VERSION 1.1.1  14nov2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+DEFINE _dlght 270
+INCLUDE header
+
+HELP hlp1, view("help ksmirnov")
+RESET res1
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	if __MESSAGE.iseq("-one-") {
+		call main.rb_kstest1.seton
+	}
+	if __MESSAGE.iseq("-two-") {
+		call main.rb_kstest2.seton
+	}
+	if __MESSAGE.iseq("-exact-") {
+		call main.rb_kstest2.seton
+		call main.ck_exact.seton
+	}
+END
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource KSMIRNOV_DLG_HSCALE
+END
+
+DIALOG main, label(resource KSMIRNOV_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+	GROUPBOX	gb_kstest	_lft	_top	_iwd	_ht4,	///
+		label(resource KSMIRNOV_MAIN_GB_KSTEST)
+	RADIO		rb_kstest1	_indent	_ss	_ibwd	.,	///
+		first							///
+		onclickon("program main_kstest1_on")			///
+		label(resource KSMIRNOV_ONE_SAMPLE_KOLMOGOROV_SMIRNOV_TEST)
+	RADIO		rb_kstest2	@	_ss	@	.,	///
+		last							///
+		onclickon("program main_kstest2_on")			///
+		label(resource KSMIRNOV_TWO_SAMPLE_KOLMOGOROV_SMIRNOV_TEST)
+
+	GROUPBOX	gb_group	_lft	_xls	_iwd	_ht13,	///
+		label(resource KSMIRNOV_ONE_SAMPLE_KOLMOGOROV_SMIRNOV_TEST)
+
+	/* One-sample Kolmogorov-Smirnov test */
+	TEXT		tx_var		_indent	_ms	_ibwd	.,	///
+		label(resource LBL_VARIABLE)
+	DEFINE	holdx @x
+	DEFINE	holdy @y
+	VARNAME		vn_var		@	_ss	_vnwd	.,	///
+		numeric							///
+		label(resource LBL_VARIABLE)
+	TEXT		tx_exp		@       _ls	_ibwd	.,	///
+		label(resource KSMIRNOV_MAIN_TX_EXP)
+	EXP		ex_exp		@       _ss	@       .,	///
+		label(resource LBL_BU_CREATE)
+
+	/* Two-sample Kolmogorov-Smirnov test */
+	TEXT		tx_var2		holdx	holdy	_ibwd	.,	///
+		label(resource LBL_VARIABLE)
+	VARNAME		vn_var2          @       _ss     _vnwd   .,	///
+		numeric							///
+		label(resource LBL_VARIABLE)
+	TEXT		tx_byopt        @       _ls	_ibwd	.,	///
+		label(resource KSMIRNOV_MAIN_TX_BYOPT)
+	VARNAME		vn_byopt        @       _ss	_vnwd	.,	///
+		label(resource KSMIRNOV_MAIN_VN_BYOPT)
+	CHECKBOX	ck_exact        @       _ls	_ibwd	.,	///
+		option("exact")						///
+		label(resource KSMIRNOV_MAIN_CK_EXACT)
+END
+
+INCLUDE ifin
+
+PROGRAM main_kstest1_on
+BEGIN
+	call script main_kstest1_show
+	call script main_kstest2_hide
+	call main.gb_group.setlabel resource KSMIRNOV_ONE_SAMPLE_KOLMOGOROV_SMIRNOV_TEST
+END
+
+PROGRAM main_kstest2_on
+BEGIN
+	call script main_kstest1_hide
+	call script main_kstest2_show
+	call main.gb_group.setlabel resource KSMIRNOV_TWO_SAMPLE_KOLMOGOROV_SMIRNOV_TEST
+END
+
+SCRIPT main_kstest1_show
+BEGIN
+	main.tx_var.show
+	main.vn_var.show
+	main.tx_exp.show
+	main.ex_exp.show
+END
+
+SCRIPT main_kstest1_hide
+BEGIN
+	main.tx_var.hide
+	main.vn_var.hide
+	main.tx_exp.hide
+	main.ex_exp.hide
+END
+
+SCRIPT main_kstest2_show
+BEGIN
+	main.tx_var2.show
+	main.vn_var2.show
+	main.tx_byopt.show
+	main.vn_byopt.show
+	main.ck_exact.show
+END
+
+SCRIPT main_kstest2_hide
+BEGIN
+	main.tx_var2.hide
+	main.vn_var2.hide
+	main.tx_byopt.hide
+	main.vn_byopt.hide
+	main.ck_exact.hide
+END
+
+PROGRAM	main_ck_exact_output
+BEGIN
+	varlist main.vn_byopt
+END
+
+PROGRAM command
+BEGIN
+	put "ksmirnov "
+	if main.rb_kstest1 {
+		varlist main.vn_var
+		put " = "
+		put main.ex_exp
+	}
+	if main.rb_kstest2 {
+		varlist main.vn_var2
+		beginoptions
+			put "by("
+			put /program main_ck_exact_output
+			put ")"
+			option main.ck_exact
+		endoptions
+	}
+
+	INCLUDE _ifin_pr
+END
+

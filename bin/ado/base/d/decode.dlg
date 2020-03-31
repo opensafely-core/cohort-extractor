@@ -1,0 +1,108 @@
+/*
+	decode
+
+*!  VERSION 1.1.0  19sep2014
+
+** This dialog box may be called internally by the Data Editor
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_small
+INCLUDE header
+HELP hlp1, view("help decode")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create ARRAY  ARGS
+	create STRING VARS
+	create DOUBLE INFROM
+	create DOUBLE INTO
+	setscale_hadj resource DECODE_DLG_HSCALE
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	if __MESSAGE {
+			call sub.ck_in.setoff
+			call __MESSAGE.tokenize ARGS
+			call VARS.setvalue class ARGS[1]
+			call INFROM.setvalue class ARGS[2]
+			call INTO.setvalue class ARGS[3]
+			call main.vn_var.setvalue class VARS.value
+
+			if (INFROM) {
+				call sub.sp_from.setvalue class INFROM.value
+				call sub.ck_in.seton
+				if (INTO) {
+					call sub.sp_to.setvalue		///
+						class INTO.value
+				}
+			else {
+				call sub.sp_from.setvalue 1
+				call sub.sp_to.setvalue c(N)
+			}
+		}
+	}
+END
+
+DIALOG main,label(resource DECODE_DLG_TITLE)		///
+	tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT tx_var			_lft	_top	_cwd1	.,		///
+	label(resource DECODE_MAIN_TX_VAR)
+  VARNAME vn_var		@	_ss	_vnwd	.,		///
+  	numeric								///
+	label(resource DECODE_MAIN_TX_VAR)
+  TEXT tx_newvar		_lft2	_top	_cwd1	.,		///
+	label(resource DECODE_MAIN_TX_NEWVAR)
+  EDIT ed_newvar		@	_ss	_vnwd	.,		///
+	option(generate)						///
+	max(32)								///
+	label(resource DECODE_MAIN_TX_NEWVAR)
+  GROUPBOX gb_maxlen		_lft	_xls	_iwd	_ht2,		///
+	label(resource LBL_VALUE_LABEL) 
+  CHECKBOX ck_maxlen		_ilft	_ss	_ckwd	.,		///
+	clickon("script main_maxlength_on")				///
+	clickoff("script main_maxlength_off")				///
+	label("")
+  SPINNER sp_maxlen		_cksep	@	_spwd	.,		///
+	min(1)								///
+	max(80)								///
+	default(80)							///
+	option(maxlength)						///
+	label(resource LBL_VALUE_LABEL_NAME)
+  TEXT tx_maxlen		_spsep	@	_cksprb	.,		///
+	label(resource DECODE_MAIN_TX_MAXLEN)
+END
+
+SCRIPT main_maxlength_on
+BEGIN
+	main.sp_maxlen.enable
+	main.tx_maxlen.enable
+END
+
+SCRIPT main_maxlength_off
+BEGIN
+	main.sp_maxlen.disable
+	main.tx_maxlen.disable
+END
+
+INCLUDE ifin
+
+PROGRAM command
+BEGIN
+	put "decode "
+	varlist main.vn_var
+	put " " /program ifin_output
+	beginoptions
+		require main.ed_newvar 
+		optionarg main.ed_newvar
+		if main.ck_maxlen{
+			optionarg main.sp_maxlen
+		}
+	endoptions
+END
+

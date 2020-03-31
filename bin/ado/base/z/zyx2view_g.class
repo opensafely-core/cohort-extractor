@@ -1,0 +1,358 @@
+//                                 zyx2view_g
+//
+//	Base class for twoway data views that have z, y, and x variables
+//	and possibly a weight variable
+
+*! version 1.0.9  20oct2011
+
+version 12
+
+class {
+	type	= .zyx2type.new	, style(contour)
+	style	= .zyx2style.new
+	dserset	= .serset.new
+	zaxis	= ""
+
+	lastcuts  = ""
+	interp    = "thinplatespline"
+	genmethod = ""
+	double zvar		// z variable id
+
+} , inherit(yxview)
+
+
+// ---------------------------------------------------------------------------
+program set
+
+	syntax [ , Zvariable(string) * ]
+
+	.Super.set , `options'
+
+	if `"`zvariable'"' != `""' {
+		capture confirm integer number `zvariable'
+		if _rc {
+			local varid = `.serset.seriesof `zvariable'
+			if 0`varid' {
+				.zvar = `varid'
+			}	
+			else {
+				di in white `"`zvariable' not found in serset"'
+			}
+		}
+		else	.zvar = `zvariable'
+	}
+
+end
+
+
+// ---------------------------------------------------------------------------
+//	Returns the value of z for the specified observation
+//
+//	Usage:  .Z #_obs
+
+program Y2
+	.serset.set
+
+	class exit = serset(`.zvar', `1')
+end
+
+
+// ---------------------------------------------------------------------------
+//	Returns minimum and maximum sizes
+
+program ranges , rclass
+
+	.Super.ranges
+
+	capture return scalar xmin = r(xmin)
+	capture return scalar xmax = r(xmax)
+	capture return scalar ymin = r(ymin)
+	capture return scalar ymax = r(ymax)
+
+	capture return scalar zmin = `.serset.sers[`.zvar'].min'
+	capture return scalar zmax = `.serset.sers[`.zvar'].max'
+
+end
+
+
+// ---------------------------------------------------------------------------
+// Returns a key object of the view
+
+program newkey
+
+	syntax [anything] [ , Position(passthru) ]
+
+	class exit .zyx2key_g.new `anything', view(`.objkey') `position'
+end
+
+
+// ---------------------------------------------------------------------------
+// Returns a view for a legend plotregion, as opposed to just a key, of
+// the view
+
+program legendview
+
+	class exit .plkey_g.new , view(`.objkey')
+end
+
+
+// ---------------------------------------------------------------------------
+//	Returns a label for the view.  In this case based on the z variable.
+//	Note, supports the -NAMEonly- option to ignore variable labels and 
+//	return only the variable name of the z series.
+
+program label
+	class exit `"`.dimtitle z `0''"'
+end
+
+
+// ---------------------------------------------------------------------------
+// Register_with_scale is handled by yxview.class for now. 
+
+
+// ----------------------------------------------------------------------------
+// Determine if a position is in/on the view
+// Switched to from yxview at_pos and most work is done in yxview functions
+// May need improve for hit detection 
+
+program _at_pos_contour
+
+	if 0`._at_pos_area `0'' {
+		.object_found_dialog = "contour"
+		class exit = 1
+	}
+
+	class exit = 0
+end
+
+
+program _at_pos_patch
+
+	if 0`._at_pos_area `0'' {
+		.object_found_dialog = "patch"
+		class exit = 1
+	}
+
+	class exit = 0
+end
+
+program _at_pos_contourline
+
+	if 0`._at_pos_line `0'' {
+		.object_found_dialog = "contourline"
+		class exit = 1
+	}
+
+	class exit = 0
+end
+
+
+// ---------------------------------------------------------------------------
+// Set the extents to the graphics editor.
+
+program gedi_extent
+	// Do not need this unless we need more control.
+end
+
+// ---------------------------------------------------------------------------
+// Return the appropriate default dialog type for the view/plot.
+
+program _dialog
+
+	local type "`.type.stylename'"
+
+	if "`type'" == "contour" {
+		class exit "contour"
+	}
+	if "`type'" == "patch" {
+		class exit "patch"
+	}
+
+	class exit "`.Super._dialog'"
+end
+
+// ---------------------------------------------------------------------------
+//  Returns the number of contour keys for the plot.
+
+program numckeys
+
+	if "`.type.setting'" == "contour" {
+		class exit = `.style.levels.val'
+	}
+	else if "`.type.setting'" == "contourline" {
+		class exit = `.style.levels.val' - 1
+	}
+	else if "`.type.setting'" == "patch" {
+		class exit = `.style.levels.val'
+	}
+	else	class exit = 0
+end
+
+
+// ---------------------------------------------------------------------------
+//  Returns the contour label for the specified level
+
+program clabel
+	args k
+
+	if 0`k' == 0`.style.levels.val' {
+		class exit ""
+	}
+	else if `"`.style.clabels[`k']'"' != `""' {
+		class exit `"`.style.clabels[`k']'"'
+	}
+	else {
+		if "`.style.format'" == "" {
+			local fmt "`.serset.sers[`.zvar'].format'"
+		}
+		else	local fmt "`.style.format'"
+
+		local lab `"`=string(`.style.ccuts[`k']', "`fmt'")'"'
+	}
+
+	class exit `"`lab'"'
+
+end
+
+
+// ---------------------------------------------------------------------------
+// Create/recreate the derived serset.  Currently needed only for 
+// contour views.
+
+program reset_dserset
+	
+	if "`.type.setting'" == "contour" | "`.type.setting'" == "contourline" {
+		if "`.style.ccutsopt'" != "" {
+			local cuts `.style.ccutsopt'
+		}
+		else {
+			local ticks `.`.zaxis'.major.tick_values'
+			local numticks : list sizeof ticks
+			if 0`.`.zaxis'.major.use_rule.istrue' {
+				if `numticks' > 2 {
+					tokenize "`ticks'"
+					forvalues i=2/`=`numticks'-1' {
+						local cuts `cuts' ``i''
+					}
+				}
+			}
+			else {
+				tokenize "`ticks'"
+				forvalues i=1/`numticks' {
+					local cuts `cuts' ``i''
+				}
+			}
+		}
+
+		if `.dserset.id' >= . | "`cuts'" != "`.lastcuts'" {
+			local cutsneedcheck = 0
+			if ("`cuts'" == `""') {
+				local cuts `.`.zaxis'.overallmax'
+				local cutsneedcheck = 1
+			}
+
+			preserve
+			drop _all
+			.serset.set
+			serset use
+
+			if `cutsneedcheck' == 1 {
+				if `.`.zaxis'.overallmax' > `=0`.serset.sers[`.zvar'].max'' {
+					local cuts `=0`.serset.sers[`.zvar'].max''
+				}
+			}
+
+			.style.setcuts `cuts'
+			.lastcuts = "`cuts'"
+			.style.editstyle ccutsopt("`cuts'") 		///
+				levels(`=`:list sizeof cuts' + 1') editcopy
+			.style.reset
+
+			
+			if "`.type.setting'" == "contour" {
+				quietly twoway__contour_gen			///
+					`.serset.sers[`.zvar'].name'		///
+					`.serset.sers[`.yvar'].name'		///
+					`.serset.sers[`.xvar'].name' , 		///
+					gen(z y x levels) cuts(`cuts')          ///
+					`.genmethod' interp("`.interp'") 
+			}
+			else {
+				quietly twoway__contour_gen			///
+					`.serset.sers[`.zvar'].name'		///
+					`.serset.sers[`.yvar'].name'		///
+					`.serset.sers[`.xvar'].name' , 		///
+					gen(z y x levels) cuts(`cuts') line	///
+					interp("`.interp'")
+			}
+			.dserset.ref = .serset.new z y x levels,  omitnothing
+				// serset not updated yet, dserset and serset 
+				// now out of sync. 
+		}
+	}
+
+end
+
+// ---------------------------------------------------------------------------
+
+program set_ccuts_from_levels
+	args minmax
+
+	local diff = (`=0`.serset.sers[`.zvar'].max'' -			///
+		      `=0`.serset.sers[`.zvar'].min'') / 0`.style.levels.val'
+
+	forvalues i = 1/`=0`.style.levels.val'-1' {
+		local cuts `cuts' `=0`.serset.sers[`.zvar'].min'+`i'*`diff''
+	}
+	if "`minmax'" != "" {
+		local cuts `.serset.sers[`.zvar'].min' `cuts'		///
+			   `.serset.sers[`.zvar'].max'
+	}
+	.style.ccutsopt = "`cuts'"
+	.style.setcuts `cuts'
+
+	class exit `"zlabel(`cuts') `.goptions'"'
+end
+
+
+program set_interp
+	args method
+
+	.interp = "`method'"
+	class exit = `"interp("`interp'") `.goptions'"'
+end
+
+program set_genmethod
+	args method
+
+	.genmethod = "`method'"
+	if "`.genmethod'" == "heatmap" {
+		class exit = `"heatmap `.goptions'"'
+	}
+	else {
+		class exit = `" `.goptions'"'	
+	}
+end
+
+// ---------------------------------------------------------------------------
+// Are there multiple styles in the view
+
+program multistyles
+
+	if ("`.type.setting'" != "contourline") class exit = 1
+	if (0`.style.colorlines.istrue')	class exit = 1
+
+	forvalues i = 1/`=`.style.levels.val'-1' {
+		if (0`.style.lpstyles[`i'].isofclass linepattern')	///
+			class exit = 1
+		if (0`.style.lwstyles[`i'].isofclass linewidth')	///
+			class exit = 1
+	}
+
+	class exit = 0
+end
+
+
+// ---------------------------------------------------------------------------
+//  Picks up .draw and other member programs from yxview.
+

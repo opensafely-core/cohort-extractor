@@ -1,0 +1,757 @@
+/*
+  mvtest
+
+*!  VERSION 1.1.0  17apr2015
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+DEFINE _dlght 270
+INCLUDE header
+
+HELP hlp1, view("help mvtest")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource MVTEST_DLG_HSCALE
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)				///
+	title(resource MVTEST_DLG_TITLE)
+BEGIN
+  GROUPBOX gb_test	_lft	_top	_cwd1	_ht8,			///
+	label(resource LBL_TEST)
+  DEFINE holdy @y
+  RADIO	rb_means	_indent	_ss	_inwd	., first		///
+	label(resource LBL_MEANS)					///
+	onclickon("program main_means_on")				///
+	option("means")
+  RADIO	rb_covar	@	_ss	@	.,			///
+	label(resource MVTEST_MAIN_RB_COVAR)				///
+	onclickon("program main_covar_on")				///
+	option("covariances")
+  RADIO	rb_corr		@	_ss	@	.,			///
+	label(resource LBL_CORRELATIONS)				///
+	onclickon("program main_corr_on")				///
+	option("correlations")
+  RADIO	rb_norm		@	_ss	@	., last			///
+	onclickon("script main_norm_on")				///
+	option("normality")						///
+	label(resource MVTEST_MAIN_RB_NORM)
+
+  GROUPBOX gb_sample	_lft2	holdy	_cwd1	_ht8,			///
+	label(resource LBL_SAMPLE)
+  RADIO	rb_one		_indent	_ss	_inwd	., first		///
+	onclickon("program main_one_sample_on")				///
+	label(resource MVTEST_MAIN_RB_ONE)
+  RADIO	rb_multi	@	_ss	@	., last			///
+	onclickon("program main_multi_sample_on")			///
+	label(resource MVTEST_MAIN_RB_MULTI)
+
+  TEXT tx_vars		_lft	+85	_cwd1	.,			///
+	label(resource LBL_VARIABLES)
+  VARLIST vl_vars	@	_ss	_iwd	.,			///
+  	numeric								///
+	label(resource LBL_VARIABLES)
+
+  TEXT tx_gvars		@	_ls	_cwd1	.,			///
+	label(resource LBL_VARIABLES_THAT_DEFINE_GROUPS)
+  VARLIST vl_gvars	@	_ss	_iwd	.,			///
+	option(by)							///
+	label(resource LBL_VARIABLES_THAT_DEFINE_GROUPS)
+
+  CHECKBOX ck_missing	_lft	_ms	_iwd	.,			///
+	option(missing)							///
+	label(resource LBL_TREAT_MISSING_VALUES_AS_ORDINARY_VALUES)
+END
+
+INCLUDE byifin
+INCLUDE weights_fa
+
+PROGRAM main_means_on
+BEGIN
+	call script main_show_sample
+	call script weights_setLayout_fa
+	if main.rb_one {
+		call script main_means_one_sample_on
+	}
+	else {
+		call script main_means_multi_sample_on
+	}
+END
+
+PROGRAM main_covar_on
+BEGIN
+	call script main_show_sample
+	call script weights_setLayout_fa
+	if main.rb_one {
+		call script main_covar_one_sample_on
+	}
+	else {
+		call script main_covar_multi_sample_on
+	}
+END
+
+PROGRAM main_corr_on
+BEGIN
+	call script main_show_sample
+	call script weights_setLayout_fa
+	if main.rb_one {
+		call script main_corr_one_sample_on
+	}
+	else {
+		call script main_corr_multi_sample_on
+	}
+END
+
+SCRIPT main_norm_on
+BEGIN
+	main.gb_sample.hide
+	main.rb_one.hide
+	main.rb_multi.hide
+
+	main.tx_gvars.hide
+	main.vl_gvars.hide
+	main.ck_missing.hide
+
+	script weights_setLayout_f
+
+	script opt_means_one_sample_hide
+	script opt_means_multi_sample_hide
+	script opt_covar_one_sample_hide
+	script opt_corr_one_sample_hide
+	script opt_norm_show
+
+	opt.tx_note.hide
+END
+
+SCRIPT main_show_sample
+BEGIN
+	main.gb_sample.show
+	main.rb_one.show
+	main.rb_multi.show
+END
+
+PROGRAM main_one_sample_on
+BEGIN
+	if main.rb_means {
+		call script main_means_one_sample_on
+	}
+
+	if main.rb_covar {
+		call script main_covar_one_sample_on
+	}
+
+	if main.rb_corr {
+		call script main_corr_one_sample_on
+	}
+END
+
+PROGRAM main_multi_sample_on
+BEGIN
+	if main.rb_means {
+		call script main_means_multi_sample_on
+	}
+
+	if main.rb_covar {
+		call script main_covar_multi_sample_on
+	}
+
+	if main.rb_corr {
+		call script main_corr_multi_sample_on
+	}
+END
+
+SCRIPT main_means_one_sample_on
+BEGIN
+	main.tx_gvars.hide
+	main.vl_gvars.hide
+	main.ck_missing.hide
+
+	script opt_means_one_sample_show
+	script opt_means_multi_sample_hide
+	script opt_covar_one_sample_hide
+	script opt_corr_one_sample_hide
+	script opt_norm_hide
+
+	opt.tx_note.hide
+END
+
+SCRIPT main_covar_one_sample_on
+BEGIN
+	main.tx_gvars.hide
+	main.vl_gvars.hide
+	main.ck_missing.hide
+
+	script opt_means_one_sample_hide
+	script opt_means_multi_sample_hide
+	script opt_covar_one_sample_show
+	script opt_corr_one_sample_hide
+	script opt_norm_hide
+
+	opt.tx_note.hide
+END
+
+SCRIPT main_corr_one_sample_on
+BEGIN
+	main.tx_gvars.hide
+	main.vl_gvars.hide
+	main.ck_missing.hide
+
+	script opt_means_one_sample_hide
+	script opt_means_multi_sample_hide
+	script opt_covar_one_sample_hide
+	script opt_corr_one_sample_show
+	script opt_norm_hide
+
+	opt.tx_note.hide
+END
+
+SCRIPT main_means_multi_sample_on
+BEGIN
+	main.tx_gvars.show
+	main.vl_gvars.show
+	main.ck_missing.show
+
+	script opt_means_one_sample_hide
+	script opt_means_multi_sample_show
+	script opt_covar_one_sample_hide
+	script opt_corr_one_sample_hide
+	script opt_norm_hide
+
+	opt.tx_note.hide
+END
+
+SCRIPT main_covar_multi_sample_on
+BEGIN
+	main.tx_gvars.show
+	main.vl_gvars.show
+	main.ck_missing.show
+
+	script opt_means_one_sample_hide
+	script opt_means_multi_sample_hide
+	script opt_covar_one_sample_hide
+	script opt_corr_one_sample_hide
+	script opt_norm_hide
+
+	opt.tx_note.show
+END
+
+SCRIPT main_corr_multi_sample_on
+BEGIN
+	main.tx_gvars.show
+	main.vl_gvars.show
+	main.ck_missing.show
+
+	script opt_means_one_sample_hide
+	script opt_means_multi_sample_hide
+	script opt_covar_one_sample_hide
+	script opt_corr_one_sample_hide
+	script opt_norm_hide
+
+	opt.tx_note.show
+END
+
+DIALOG opt, tabtitle(resource LBL_OPTIONS)
+BEGIN
+	/* Means one sample */
+  GROUPBOX gb_meansOH	_lft	_top	_iwd	_ht14,			///
+	label(resource LBL_HYPOTHESIS)
+  RADIO	rb_means_eq	_indent	_ss	_cwd1	., first		///
+	label(resource MVTEST_OPT_RB_MEANS_EQ)
+  RADIO	rb_means_zero	@	_ss	@	.,			///
+	label(resource MVTEST_OPT_RB_MEANS_ZERO)			///
+	option("zero")
+
+  RADIO	rb_means_eqs	@	_ss	@	.,			///
+	label(resource MVTEST_OPT_RB_MEANS_EQS)				///
+	onclickon(script opt_rb_means_eqs_on)				///
+	onclickoff(script opt_rb_means_eqs_off)
+  COMBOBOX cb_means_eqs	_indent2 _ss	_cwd1	.,			///
+	option("equals")						///
+	label(resource MVTEST_OPT_RB_MEANS_EQS)				///
+	contents(vector)						///
+	dropdown
+  BUTTON bu_means_eqs	+195	@	100	.,			///
+	label(resource LBL_INPUT_MATRIX)				///
+	onpush(program opt_show_means_eq)				///
+	tooltip(resource LBL_INPUT_HAND)
+
+  RADIO	rb_means_lin	_ilft	_ls	_cwd1	., last			///
+	label(resource MVTEST_OPT_RB_MEANS_LIN)				///
+	onclickon(script opt_rb_means_lin_on)				///
+	onclickoff(script opt_rb_means_lin_off)
+  COMBOBOX cb_means_lin	_indent2 _ss	_cwd1	.,			///
+	option("linear")						///
+	label(resource MVTEST_OPT_RB_MEANS_LIN)				///
+	contents(matrix)						///
+	dropdown
+  BUTTON bu_means_lin	+195	@	100	.,			///
+	label(resource LBL_INPUT_MATRIX)				///
+	onpush(program opt_show_means_l)				///
+	tooltip(resource LBL_INPUT_HAND)
+
+	/* Means multi sample */
+  GROUPBOX gb_meansMH	_lft	_top	_iwd	_ht16,			///
+	label(resource MVTEST_OPT_GB_MEANSMH)
+  RADIO	rb_means_homo	_indent	_ss	_inwd	., first		///
+	label(resource MVTEST_OPT_RB_MEANS_HOMO)
+  RADIO	rb_means_het	@	_ss	@	.,			///
+	option("heterogeneous")						///
+	label(resource MVTEST_OPT_RB_MEANS_HET)
+  RADIO	rb_means_lr	@	_ss	@	., last			///
+	onclickon(script opt_ck_lr_on)					///
+	onclickoff(script opt_ck_lr_off)				///
+	option("lr")							///
+	label(resource MVTEST_OPT_RB_MEANS_LR)
+
+  CHECKBOX ck_lr	_indent2 _ms	_inwd	_ht6,			///
+	groupbox							///
+	onclickon(program opt_means_lr_protect_on)			///
+	onclickoff(script opt_means_lr_protect_off)			///
+	label(resource MVTEST_OPT_CK_LR)
+  RADIO	rb_means_lr_prg	_indent _ss	_inwd	., first		///
+	label(resource MVTEST_OPT_RB_MEANS_LR_PRG)			///
+	option("protect(groups)")
+  RADIO	rb_means_lr_prn	@	_ss	@	., last			///
+	label(resource MVTEST_OPT_RB_MEANS_LR_PRN)			///
+	onclickon(script opt_means_lr_prn_enable)			///
+	onclickoff(script opt_means_lr_prn_disable)
+  SPINNER sp_means_lr_prn +35	_ss	_spwd	.,			///
+	option("protect")						///
+	default(1)							///
+	min(1)								///
+	max(c(N))							///
+	label(resource MVTEST_OPT_RB_MEANS_LR_PRN)
+  TEXT tx_means_lr_prn	_spsep	@	140	.,			///
+	label(resource LBL_NUMBER_OF_OBSERVATIONS)
+
+	/* Covariances one sample */
+  GROUPBOX gb_covarOH	_lft	_top	_iwd	_ht17,			///
+	label(resource LBL_HYPOTHESIS)
+  RADIO	rb_covar_diag	_indent _ss	_inwd	., first		///
+	label(resource MVTEST_OPT_RB_COVAR_DIAG)
+  RADIO	rb_covar_sph	@	_ss	@	.,			///
+	label(resource MVTEST_OPT_RB_COVAR_SPH)				///
+	option("spherical")
+  RADIO	rb_covar_comp	@	_ss	@	.,			///
+	label(resource MVTEST_OPT_RB_COVAR_COMP)			///
+	option("compound")
+
+  RADIO	rb_covar_eqs	@	_ss	@	.,			///
+	label(resource MVTEST_OPT_RB_COVAR_EQS)				///
+	onclickon(script opt_rb_covar_eqs_on)				///
+	onclickoff(script opt_rb_covar_eqs_off)
+  DEFINE holdcx @cx
+  COMBOBOX cb_covar_eqs	_indent2 _ss	_cwd1	.,			///
+	option("equals")						///
+	label(resource MVTEST_OPT_RB_COVAR_EQS)				///
+	contents(matrix)						///
+	dropdown
+  BUTTON bu_covar_eqs	+195	@	100	.,			///
+	label(resource LBL_INPUT_MATRIX)				///
+	onpush(program opt_show_covar_eqs)				///
+	tooltip(resource LBL_INPUT_HAND)
+
+  RADIO	rb_covar_bl	_ilft	_ms	holdcx	., last			///
+	onclickon(opt.vl_covar_bl.enable)				///
+	onclickoff(opt.vl_covar_bl.disable)				///
+	label(resource MVTEST_OPT_RB_COVAR_BL)
+  VARLIST vl_covar_bl	_indent2 _ss	_inwd	.,			///
+	option("block")							///
+	numeric								///
+	label(resource MVTEST_OPT_RB_COVAR_BL)
+  TEXT tx_covar_bl	@	_ss	@	.,			///
+	label(resource MVTEST_OPT_TX_COVAR_BL)
+
+	/* Correlation one sample */
+  GROUPBOX gb_corrOH	_lft	_top	_iwd	_ht6h,			///
+	label(resource LBL_HYPOTHESIS)
+  RADIO	rb_corr_comp	_indent _ss	_inwd	., first		///
+	label(resource MVTEST_OPT_RB_CORR_COMP)
+  RADIO	rb_corr_eqs	@	_ss	@	., last			///
+	label(resource MVTEST_OPT_RB_CORR_EQS)				///
+	onclickon(script opt_rb_corr_eqs_on)				///
+	onclickoff(script opt_rb_corr_eqs_off)
+  COMBOBOX cb_corr_eqs	_indent2 _ss	_cwd1	.,			///
+	option("equals")						///
+	label(resource MVTEST_OPT_RB_CORR_EQS)				///
+	contents(matrix)						///
+	dropdown
+  BUTTON bu_corr_eqs	+195	@	100	.,			///
+	label(resource LBL_INPUT_MATRIX)				///
+	onpush(program opt_show_corr_eqs)				///
+	tooltip(resource LBL_INPUT_HAND)
+
+	/* Normality */
+  CHECKBOX ck_norm_uni	_lft	_top	_iwd	.,			///
+	option(univariate)						///
+	label(resource MVTEST_OPT_CK_NORM_UNI)
+  CHECKBOX ck_norm_bi	@	_ms	@	.,			///
+	option(bivariate)						///
+	label(resource MVTEST_OPT_CK_NORM_BI)
+  CHECKBOX ck_norm_stats @	_ms	@	.,			///
+	label(resource LBL_TEST_STATISTICS)				///
+	onclickon(opt.cb_norm_stats.enable)				///
+	onclickoff(opt.cb_norm_stats.disable)
+  COMBOBOX cb_norm_stats _indent2 _ss	_inwd	.,			///
+	option(stats)							///
+	label(resource LBL_TEST_STATISTICS)				///
+	contents(stats_list)						///
+	values(stats_values)						///
+	append								///
+	dropdown
+  TEXT tx_note		_lft	_top	_iwd	.,			///
+	label(resource MVTEST_OPT_TX_NOTE)
+END
+
+SCRIPT opt_means_one_sample_show
+BEGIN
+	opt.gb_meansOH.show
+	opt.rb_means_eq.show
+	opt.rb_means_zero.show
+	opt.rb_means_eqs.show
+	opt.cb_means_eqs.show
+	opt.bu_means_eqs.show
+	opt.rb_means_lin.show
+	opt.cb_means_lin.show
+	opt.bu_means_lin.show
+END
+
+SCRIPT opt_means_one_sample_hide
+BEGIN
+	opt.gb_meansOH.hide
+	opt.rb_means_eq.hide
+	opt.rb_means_zero.hide
+	opt.rb_means_eqs.hide
+	opt.cb_means_eqs.hide
+	opt.bu_means_eqs.hide
+	opt.rb_means_lin.hide
+	opt.cb_means_lin.hide
+	opt.bu_means_lin.hide
+END
+
+SCRIPT opt_rb_means_eqs_on
+BEGIN
+	opt.cb_means_eqs.enable
+	opt.bu_means_eqs.enable
+END
+
+SCRIPT opt_rb_means_eqs_off
+BEGIN
+	opt.cb_means_eqs.disable
+	opt.bu_means_eqs.disable
+END
+
+SCRIPT opt_rb_means_lin_on
+BEGIN
+	opt.cb_means_lin.enable
+	opt.bu_means_lin.enable
+END
+
+SCRIPT opt_rb_means_lin_off
+BEGIN
+	opt.cb_means_lin.disable
+	opt.bu_means_lin.disable
+END
+
+PROGRAM opt_show_means_eq
+BEGIN
+	call create STRING MeansEQResult
+	call create CHILD matrix_input AS MeansEQ
+	if ! _rc {
+		call MeansEQ.setExitString MeansEQResult
+		call MeansEQ.setExitAction "program opt_getMeansEQResult"
+		call MeansEQ.callthru "isChildContext.settrue"
+	}
+END
+
+PROGRAM opt_getMeansEQResult
+BEGIN
+	call opt.cb_means_eqs.repopulate
+	call opt.cb_means_eqs.setvalue class MeansEQResult.value
+END
+
+PROGRAM opt_show_means_l
+BEGIN
+	call create STRING MeansLResult
+	call create CHILD matrix_input AS MeansL
+	if ! _rc {
+		call MeansL.setExitString MeansLResult
+		call MeansL.setExitAction "program opt_getMeansLResult"
+		call MeansL.callthru "isChildContext.settrue"
+	}
+END
+
+PROGRAM opt_getMeansLResult
+BEGIN
+	call opt.cb_means_lin.repopulate
+	call opt.cb_means_lin.setvalue class MeansLResult.value
+END
+
+SCRIPT opt_means_multi_sample_show
+BEGIN
+	opt.gb_meansMH.show
+	opt.rb_means_homo.show
+	opt.rb_means_het.show
+	opt.rb_means_lr.show
+	opt.ck_lr.show
+	opt.rb_means_lr_prg.show
+	opt.rb_means_lr_prn.show
+	opt.sp_means_lr_prn.show
+	opt.tx_means_lr_prn.show
+END
+
+SCRIPT opt_means_multi_sample_hide
+BEGIN
+	opt.gb_meansMH.hide
+	opt.rb_means_homo.hide
+	opt.rb_means_het.hide
+	opt.rb_means_lr.hide
+	opt.ck_lr.hide
+	opt.rb_means_lr_prg.hide
+	opt.rb_means_lr_prn.hide
+	opt.sp_means_lr_prn.hide
+	opt.tx_means_lr_prn.hide
+END
+
+SCRIPT opt_ck_lr_on
+BEGIN
+	opt.ck_lr.enable
+	program opt_means_lr_protect_on
+END
+
+SCRIPT opt_ck_lr_off
+BEGIN
+	opt.ck_lr.disable
+	script opt_means_lr_protect_off
+END
+
+PROGRAM opt_means_lr_protect_on
+BEGIN
+	if opt.ck_lr {
+		call opt.rb_means_lr_prg.enable
+		call opt.rb_means_lr_prn.enable
+		if opt.rb_means_lr_prn {
+			call script opt_means_lr_prn_enable
+		}
+	}
+END
+
+SCRIPT opt_means_lr_protect_off
+BEGIN
+	opt.rb_means_lr_prg.disable
+	opt.rb_means_lr_prn.disable
+	script opt_means_lr_prn_disable
+END
+
+SCRIPT opt_means_lr_prn_enable
+BEGIN
+	opt.sp_means_lr_prn.enable
+	opt.tx_means_lr_prn.enable
+END
+
+SCRIPT opt_means_lr_prn_disable
+BEGIN
+	opt.sp_means_lr_prn.disable
+	opt.tx_means_lr_prn.disable
+END
+
+SCRIPT opt_covar_one_sample_show
+BEGIN
+	opt.gb_covarOH.show
+	opt.rb_covar_diag.show
+	opt.rb_covar_sph.show
+	opt.rb_covar_comp.show
+	opt.rb_covar_eqs.show
+	opt.cb_covar_eqs.show
+	opt.bu_covar_eqs.show
+	opt.rb_covar_bl.show
+	opt.vl_covar_bl.show
+	opt.tx_covar_bl.show
+END
+
+SCRIPT opt_covar_one_sample_hide
+BEGIN
+	opt.gb_covarOH.hide
+	opt.rb_covar_diag.hide
+	opt.rb_covar_sph.hide
+	opt.rb_covar_comp.hide
+	opt.rb_covar_eqs.hide
+	opt.cb_covar_eqs.hide
+	opt.bu_covar_eqs.hide
+	opt.rb_covar_bl.hide
+	opt.vl_covar_bl.hide
+	opt.tx_covar_bl.hide
+END
+
+SCRIPT opt_rb_covar_eqs_on
+BEGIN
+	opt.cb_covar_eqs.enable
+	opt.bu_covar_eqs.enable
+END
+
+SCRIPT opt_rb_covar_eqs_off
+BEGIN
+	opt.cb_covar_eqs.disable
+	opt.bu_covar_eqs.disable
+END
+
+PROGRAM opt_show_covar_eqs
+BEGIN
+	call create STRING CovarEQSResult
+	call create CHILD matrix_input AS CovarEQS
+	if ! _rc {
+		call CovarEQS.setExitString CovarEQSResult
+		call CovarEQS.setExitAction "program opt_getCovarEQSResult"
+		call CovarEQS.callthru "isChildContext.settrue"
+	}
+END
+
+PROGRAM opt_getCovarEQSResult
+BEGIN
+	call opt.cb_covar_eqs.repopulate
+	call opt.cb_covar_eqs.setvalue class CovarEQSResult.value
+END
+
+SCRIPT opt_corr_one_sample_show
+BEGIN
+	opt.gb_corrOH.show
+	opt.rb_corr_comp.show
+	opt.rb_corr_eqs.show
+	opt.cb_corr_eqs.show
+	opt.bu_corr_eqs.show
+END
+
+SCRIPT opt_corr_one_sample_hide
+BEGIN
+	opt.gb_corrOH.hide
+	opt.rb_corr_comp.hide
+	opt.rb_corr_eqs.hide
+	opt.cb_corr_eqs.hide
+	opt.bu_corr_eqs.hide
+END
+
+SCRIPT opt_rb_corr_eqs_on
+BEGIN
+	opt.cb_corr_eqs.enable
+	opt.bu_corr_eqs.enable
+END
+
+SCRIPT opt_rb_corr_eqs_off
+BEGIN
+	opt.cb_corr_eqs.disable
+	opt.bu_corr_eqs.disable
+END
+
+PROGRAM opt_show_corr_eqs
+BEGIN
+	call create STRING CorrEQSResult
+	call create CHILD matrix_input AS CorrEQS
+	if ! _rc {
+		call CorrEQS.setExitString CorrEQSResult
+		call CorrEQS.setExitAction "program opt_getCorrEQSResult"
+		call CorrEQS.callthru "isChildContext.settrue"
+	}
+END
+
+PROGRAM opt_getCorrEQSResult
+BEGIN
+	call opt.cb_corr_eqs.repopulate
+	call opt.cb_corr_eqs.setvalue class CorrEQSResult.value
+END
+
+SCRIPT opt_norm_show
+BEGIN
+	opt.ck_norm_uni.show
+	opt.ck_norm_bi.show
+	opt.ck_norm_stats.show
+	opt.cb_norm_stats.show
+END
+
+SCRIPT opt_norm_hide
+BEGIN
+	opt.ck_norm_uni.hide
+	opt.ck_norm_bi.hide
+	opt.ck_norm_stats.hide
+	opt.cb_norm_stats.hide
+END
+
+
+LIST stats_list
+BEGIN
+	Doornik-Hansen omnibus test
+	Henze-Zirkler's consistent test
+	Mardia's multivariate kurtosis test
+	Mardia's multivariate skewness test
+	All of the above
+END
+
+LIST stats_values
+BEGIN
+	dhansen
+	hzirkler
+	kurtosis
+	skewness
+	all
+END
+
+PROGRAM command
+BEGIN
+	put " " /program by_output
+	put "mvtest "
+	option radio(main rb_means rb_covar rb_corr rb_norm)
+	require main.vl_vars
+	varlist [main.vl_vars]
+	put " " /program ifin_output
+	put " " /program weights_output
+	beginoptions
+		if main.rb_multi & main.rb_multi.isvisible() {
+			require main.vl_gvars
+			optionarg main.vl_gvars
+			option main.ck_missing
+		}
+		option opt.rb_means_zero
+		if opt.rb_means_eqs & opt.rb_means_eqs.isvisible() {
+			require opt.cb_means_eqs
+			optionarg opt.cb_means_eqs
+		}
+		if opt.rb_means_lin & opt.rb_means_lin.isvisible() {
+			require opt.cb_means_lin
+			optionarg opt.cb_means_lin
+		}
+		option opt.rb_means_het
+		option opt.rb_means_lr
+		if opt.ck_lr {
+			option opt.rb_means_lr_prg
+			if opt.rb_means_lr_prn & ///
+				opt.rb_means_lr_prn.isvisible(){
+				optionarg opt.sp_means_lr_prn
+			}
+		}
+		option opt.rb_covar_sph
+		option opt.rb_covar_comp
+		if opt.rb_covar_eqs & opt.rb_covar_eqs.isvisible() {
+			require opt.cb_covar_eqs
+			optionarg opt.cb_covar_eqs
+		}
+		if opt.rb_covar_bl & opt.rb_covar_bl.isvisible() {
+			require opt.vl_covar_bl
+			optionarg opt.vl_covar_bl
+		}
+		if opt.rb_corr_eqs & opt.rb_corr_eqs.isvisible() {
+			require opt.cb_corr_eqs
+			optionarg opt.cb_corr_eqs
+		}
+		option opt.ck_norm_uni
+		option opt.ck_norm_bi
+		if opt.ck_norm_stats & opt.ck_norm_stats.isvisible() {
+			require opt.cb_norm_stats
+			optionarg opt.cb_norm_stats
+		}
+	endoptions
+END
+

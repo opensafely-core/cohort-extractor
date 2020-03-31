@@ -1,0 +1,140 @@
+/*
+	tetrachoric
+
+*! VERSION 2.2.0  16dec2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE  _dlght 500
+INCLUDE header
+
+HELP hlp1, view("help tetrachoric")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource TETRACHORIC_DLG_HSCALE
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	if __MESSAGE.iseq("-exact-") {
+		call main.ck_p.seton
+	}
+END
+
+DIALOG main, label(resource TETRACHORIC_DLG_TITLE) ///
+	tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+   TEXT	    tx_var	_lft	_top	_iwd	.,		///
+	label(resource LBL_VARIABLES)
+   VARLIST  vl_var	@	_ss	@	.,		///
+   	numeric							///
+	label(resource LBL_VARIABLES)
+
+  GROUPBOX gb_stats	_lft	_ls	_iwd	_ht5,           ///
+        label(resource LBL_LIST_OF_STATISTICS)
+
+  CHECKBOX ck_rho	_indent	_ss	_cwd2	.,              ///
+        label(resource TETRACHORIC_MAIN_CK_RHO) option(rho)
+  DEFINE holdx @x
+  DEFINE holdy @y
+  CHECKBOX ck_se	@	_ms	@	.,              ///
+        label(resource TETRACHORIC_MAIN_CK_SE) option(se)
+  CHECKBOX ck_obs	_lft2	holdy	@	.,              ///
+        label(resource LBL_DISPLAY_NUMBER_OF_OBS) option(obs)
+  CHECKBOX ck_p		@	_ms	_cwd2	.,              ///
+        label(resource TETRACHORIC_MAIN_CK_P) option(p)
+
+  CHECKBOX ck_ed	_lft	_xxls	_iwd	.,		///
+	label(resource TETRACHORIC_MAIN_CK_ED) option(edwards)
+
+  GROUPBOX gb_dadj	_lft	_ls	_iwd	_ht4h,		///
+        label(resource LBL_DISPLAY_ADJUSTMENT)
+  CHECKBOX ck_print	_indent	_ss	_ckwd	.,		///
+        onclickoff(main.ed_print.disable)			///
+        onclickon(main.ed_print.enable)
+  EDIT     ed_print	_cksep	@	_spwd	.,		///
+        default(0.10) option(print)
+  TEXT     tx_print	_spsep	@	_rbsprb	.,		///
+        label(resource LBL_SIGNIFICANCE_LEVEL_DISPLAYING_COEFFICIENTS)
+
+  CHECKBOX ck_star	_ilft	_ms	_ckwd	.,		///
+        label("")						///
+        onclickoff(main.ed_star.disable)			///
+        onclickon(main.ed_star.enable)
+  EDIT     ed_star	_cksep	@	_spwd	.,		///
+        default(0.05) option(star)
+
+  TEXT     tx_star	_spsep	@	_rbsprb	.,		///
+        label(resource LBL_SIGNIFICANCE_LEVEL_DISPLAYING_STAR)
+
+  GROUPBOX gb_sig	_lft	_xls	_iwd	_ht6,		///
+        label(resource LBL_SIGNIFICANCE_LEVELS)
+  RADIO    rb_none	_indent	_ss	_inwd	.,		///
+        label(resource LBL_DO_NOT_ADJUST_SIGNIFICANCE_LEVEL) option(NONE) first
+  RADIO    rb_bonf	@	_ss	@	.,		///
+        label(resource LBL_USE_BONFERRONI_ADJUSTED_SIGN_LEVEL)	///
+        option(bonferroni)
+  RADIO    rb_sidak	@	_ss	@	.,		///
+        label(resource LBL_USE_SIDAK_ADJUSTED_SIGN_LEVEL)	///
+        option(sidak)  last
+
+
+  CHECKBOX ck_pw	_lft	_xls	_iwd	.,		///
+	option(pw)						///
+	label(resource TETRACHORIC_MAIN_CK_PW)
+  CHECKBOX ck_adj	_lft	_ms	_iwd	.,		///
+	option(zeroadjust)					///
+	label(resource TETRACHORIC_MAIN_CK_ADJ)
+  CHECKBOX ck_mat	_lft	_ms	@	.,		///
+	label(resource LBL_FORCE_MATRIX_TABLE_OUTPUT) option(matrix)
+  CHECKBOX ck_notable	_lft	_ms	@	.,		///
+	label(resource TETRACHORIC_MAIN_CK_NOTABLE) option(notable)
+  CHECKBOX ck_posdef	_lft	_ms	@	.,		///
+   	 option(posdef)						///
+	label(resource TETRACHORIC_MAIN_CK_POSDEF)
+END
+
+INCLUDE byifin
+INCLUDE weights_f
+
+PROGRAM stats_option_output
+BEGIN
+	option main.ck_rho
+	option main.ck_se
+	option main.ck_obs
+	option main.ck_p
+END
+
+PROGRAM command
+BEGIN
+  	INCLUDE _by_pr
+        put "tetrachoric "
+        varlist main.vl_var
+ 	INCLUDE _weights_pr
+        INCLUDE _ifin_pr
+        beginoptions
+		if (main.ck_rho | main.ck_se | main.ck_obs | main.ck_p){
+			put "stats("
+			put /program stats_option_output
+			put ") "
+		}
+		option main.ck_ed
+		if main.ck_print{
+                        optionarg main.ed_print
+                }
+                if main.ck_star{
+                        optionarg main.ed_star
+                }
+		option radio(main rb_none rb_bonf rb_sidak)
+        	option main.ck_pw
+        	option main.ck_adj
+                option main.ck_mat
+		option main.ck_notable
+		option main.ck_posdef
+      endoptions
+END

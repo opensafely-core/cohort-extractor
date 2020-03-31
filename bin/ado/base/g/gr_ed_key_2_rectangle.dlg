@@ -1,0 +1,83 @@
+/*
+    gr_ed_key_2_rectangle.dlg
+    
+*!  VERSION 1.1.3  31jul2016
+
+*/
+
+VERSION 14.0
+MODAL
+
+INCLUDE _std_vsmall
+DEFINE _dlght 300
+INCLUDE header_gr_ed
+
+DEFINE _clwd	15
+DEFINE _wd	110
+DEFINE _sep	+115
+DEFINE _wd2	100
+DEFINE _sep2	+105
+DEFINE _cbwd	130
+DEFINE _cbsep	+135
+
+SCRIPT PREINIT
+BEGIN
+	settitle "Key properties"
+	create STRING G
+	create STRING GRAPH
+	create STRING J
+	create STRING style
+	create STRING Gstyle
+	create ARRAY  ARGS
+	program setupGOBJECT
+	create DOUBLE index
+
+	rect.ck_hide.hide
+	setscale_hadj resource GR_ED_KEY_2_RECTANGLE_DLG_HSCALE
+END
+
+PROGRAM setupGOBJECT
+BEGIN
+	if ! __MESSAGE {
+		stopbox stop "resource LBL_MSGBOX_OBJECT_NOT_FOUND"
+// An unexpected error has occurred. Object not found.
+		exit 198
+	}
+	call G.setvalue class __MESSAGE.value
+	call __MESSAGE.tokenize ARGS
+	call G.setvalue class ARGS[1]
+	call J.setvalue class ARGS[2]
+	
+	call create STRING Gkey
+	call Gkey.setvalue class G.value // must be set for INCLUDES
+	call Gstyle.setvalue class G.value
+	call Gstyle.append ".style.area"
+
+	call GRAPH.setvalue class ._Gr_Global.edit_graph
+END
+
+INCLUDE gr_ed_rectangle
+INCLUDE gr_ed_keysize
+INCLUDE gr_ed_keyadv
+
+PROGRAM command
+BEGIN
+	put "." GRAPH ".UndoBegin"
+	stata hidden queue
+
+	put "_gm_dlg_edits"
+	beginoptions
+		put " object(" G ") "
+		put " " /program rect_key_output
+		put " " /program keysize_output // has own output routine
+		put " " /program keyadv_output // has own output routine
+		if J {
+			put " jindex(" J ") "
+		}
+		put " epilog(_gedi toolbar key_2_rectangle " Gkey ")"
+	endoptions
+	stata hidden queue
+
+	put "." GRAPH ".UndoEnd " G
+	stata hidden queue
+END

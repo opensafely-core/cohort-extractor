@@ -1,0 +1,113 @@
+/*
+  import sasxport
+
+*! VERSION 1.1.3  03mar2019
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+DEFINE _dlght 290
+INCLUDE header
+
+HELP hlp1, view("help import sasxport")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource IMPORT_SASXPORT_DLG_HSCALE
+	
+        main.fi_file.formatfilter "{0} (*.xpt)|*.xpt|{1} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_XPT_FILE" "resource ui_ex FILE_TYPE_ALL_FILES"
+END
+
+
+DIALOG main,								///
+label(resource IMPORT_SASXPORT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+ GROUPBOX gb_syntax		_lft	_top	_iwd	_ht4,		///
+	label(resource LBL_SYNTAX)
+  RADIO rb_import		_indent	_ss	_inwd	., first	///
+	onclickon(script main_import_on)				///
+	label(resource IMPORT_SASXPORT_MAIN_RB_IMPORT)
+  RADIO rb_describe		@	_ss	@	., last		///
+	onclickon(script main_describe_on)				///
+	label(resource IMPORT_SASXPORT_MAIN_RB_DESCRIBE)
+  TEXT tx_file			_lft	+45	_iwd	.,		///
+	label(resource LBL_FILENAME)
+  FILE fi_file			@	_ss	@	.,		///
+	error(resource LBL_FILENAME)					///
+	label(resource LBL_BU_BROWSE)
+
+  GROUPBOX gb_options		@	+35	@	_ht9h,		///
+	label(resource LBL_OPTIONS)
+  CHECKBOX ck_clear		_indent	_ss	_inwd	.,		///
+	label(resource LBL_REPLACE_DATA_IN_MEMORY)			///  
+	option(clear)
+  CHECKBOX ck_novallab		@	_ms	@	.,		///
+	option(novallabels) 						///
+	label(resource LBL_IGNORE_ACCOMPANYING_FORMATS_XPF_FILE)
+  CHECKBOX ck_member		@	_ms	@	.,		///
+	onclickon(script main_member_on)				///
+	onclickoff(script main_member_off)				///
+	label(resource LBL_XPT_FILE_MULTIPLE_MEMBERS)
+
+  EDIT ed_member		_indent	_ss	_vnwd	.,		///
+	option(member)							///
+	label(resource LBL_MEMBER)
+  TEXT tx_member		_vnsep	@	_vnwd	.,		///
+	label(resource LBL_MEMBER)
+END
+
+SCRIPT main_import_on
+BEGIN
+	main.gb_options.setposition . . . 120
+	main.ck_clear.show
+	main.ck_novallab.show
+	main.ck_member.setposition . 220
+	main.ed_member.setposition . 240
+	main.tx_member.setposition . 240
+END
+
+SCRIPT main_describe_on
+BEGIN
+	main.gb_options.setposition . . . 70
+	main.ck_clear.hide
+	main.ck_novallab.hide
+	main.ck_member.setposition . 170
+	main.ed_member.setposition . 190
+	main.tx_member.setposition . 190
+END
+
+SCRIPT main_member_on
+BEGIN
+	main.tx_member.enable
+	main.ed_member.enable
+END
+
+SCRIPT main_member_off
+BEGIN
+	main.tx_member.disable
+	main.ed_member.disable
+END
+
+PROGRAM command
+BEGIN
+	put "import sasxport5 "
+	require main.fi_file
+	put `"""' main.fi_file `"""'
+	beginoptions
+		if main.rb_import {
+			option main.ck_clear
+			option main.ck_novallab
+		}
+		if main.rb_describe {
+			put " describe"
+		}
+		if main.ck_member {
+			require main.ed_member
+			optionarg main.ed_member
+		}
+	endoptions
+END

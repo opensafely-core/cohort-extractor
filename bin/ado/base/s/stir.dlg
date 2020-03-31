@@ -1,0 +1,185 @@
+/*
+    stir.dlg
+
+*!  VERSION 1.2.0  20nov2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 320
+INCLUDE header
+
+HELP hlp1, view("help stir")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource STIR_DLG_HSCALE
+END
+
+DIALOG main, label(resource STIR_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  DEFINE  _x _xsetbu
+  DEFINE  _y _top
+  INCLUDE _bu_stset
+
+  TEXT     tx_varexp         _lft      _top      _cwd1     .,		///
+		label(resource LBL_EXPOSED_VARIABLE)
+  VARNAME  vn_varexp         _lft      _ss       _vnwd     .,		///
+		label(resource LBL_EXPOSED_VARIABLE)
+
+  CHECKBOX ck_strata         _lft      +35       _iwd      _ht5,	///
+		label(resource STIR_MAIN_CK_STRATA)			///
+		onclickon(program main_strata_on)			///
+		onclickoff(script main_strata_off)			///
+		groupbox
+  TEXT     tx_var            _ilft     _ms	 _inwd     .,		///
+  		label(resource LBL_STRATA_ID_VARIABLE)
+  VARNAME  vn_strata         @         _ss       _vnwd     .,		///
+		option(strata)						///
+		label(resource LBL_STRATA_ID_VARIABLE)
+  CHECKBOX ck_noshow         _lft      _xxls     _iwd      .,		///
+		option(noshow)						///
+		label(resource LBL_DO_NOT_SHOW_ST_SETTING_INFORMATION)
+END
+
+PROGRAM main_strata_on
+BEGIN
+	call main.vn_strata.enable
+	call main.tx_var.enable
+	if ! opt.rb_mstd {
+		call opt.gb_report.enable
+		call opt.rb_irr.enable
+		call opt.rb_ird.enable
+	}
+	call opt.gb_std.enable
+	call opt.rb_mstd.enable
+	call opt.rb_istd.enable
+	call opt.rb_estd.enable
+	call opt.rb_vstd.enable
+	call opt.ck_nocrude.enable
+	call opt.ck_pool.enable
+	call opt.ck_nohom.enable
+END
+
+SCRIPT main_strata_off
+BEGIN
+	main.vn_strata.disable
+	main.tx_var.disable
+	opt.gb_report.disable
+	opt.rb_irr.disable
+	opt.rb_ird.disable
+	opt.gb_std.disable
+	opt.rb_mstd.disable
+	opt.rb_istd.disable
+	opt.rb_estd.disable
+	opt.rb_vstd.disable
+	opt.ck_nocrude.disable
+	opt.ck_pool.disable
+	opt.ck_nohom.disable
+END
+
+INCLUDE byifin
+
+DIALOG opt, tabtitle(resource LBL_OPTIONS)
+BEGIN
+  GROUPBOX gb_report    _lft	_top	_cwd1	_ht4,		///
+  	label(resource LBL_REPORT)
+  RADIO    rb_irr	_ilft	_ss	_cwd3	.,		///
+  	label(resource LBL_INCIDENCE_RATE_RATIO)  first
+  RADIO    rb_ird	_ilft	_ss	_cwd3	.,		///
+  	label(resource STIR_MAIN_RB_IRD) last option(ird)
+
+  GROUPBOX gb_std	_lft	_xls	_cwd1	_ht10h,		///
+	label(resource LBL_WITHIN_STRATUM_WEIGHTS)
+  RADIO    rb_mstd	_indent	_ss	_inwd	.,		///
+	first option(NONE) label(resource LBL_USE_MANTEL_HAENSZEL)	///
+	onclickon(script mstd_on)
+  RADIO    rb_estd	@	_ss	@	.,		///
+	label(resource LBL_USE_EXTERNAL) option(estandard)	///
+	onclickon(script estd_on)
+  RADIO    rb_istd	@	_ss	@	.,		///
+	label(resource LBL_USE_INTERNAL) option(istandard) 	///
+	onclickon(script istd_on)
+  RADIO    rb_vstd	@	_ss	@	.,		///
+	last option(NONE) label(resource LBL_USER_SPECIFIED_VARIABLE)	///
+	onclickon(script vstd_on)
+  VARNAME  vn_vstd	_indent2 _ss	_vnwd	., 		///
+	option(standard)					///
+	label(resource LBL_WITHIN_STRATUM_WEIGHT_VARIABLE)
+  CHECKBOX ck_pool      _lft	+45	_cwd1	.,		///
+	option(pool) label(resource LBL_DISPLAY_POOLED_ESTIMATE)
+  CHECKBOX ck_nocrude	@	_ms	@	.,		///
+	option(nocrude) label(resource LBL_NO_CRUDE_ESTIMATE)
+  CHECKBOX ck_nohom	@	_ms	@	.,		///
+	option(nohom) label(resource LBL_NO_HOMOGENEITY_TEST)
+
+  CHECKBOX ck_tb        _lft2   _top    _cwd1   .,		///
+	option(tb)						///
+	label(resource LBL_TEST_BASED_CONF_INTERVALS)
+  DEFINE _x _lft2
+  DEFINE _y _ls
+  DEFINE _cx _spr2
+  INCLUDE _sp_level
+END
+
+SCRIPT mstd_on
+BEGIN
+	opt.gb_report.disable
+	opt.rb_irr.disable
+	opt.rb_ird.disable
+	opt.vn_vstd.disable
+END
+
+SCRIPT estd_on
+BEGIN
+	opt.gb_report.enable
+	opt.rb_irr.enable
+	opt.rb_ird.enable
+	opt.vn_vstd.disable
+END
+
+SCRIPT istd_on
+BEGIN
+	opt.gb_report.enable
+	opt.rb_irr.enable
+	opt.rb_ird.enable
+	opt.vn_vstd.disable
+END
+
+SCRIPT vstd_on
+BEGIN
+	opt.gb_report.enable
+	opt.rb_irr.enable
+	opt.rb_ird.enable
+	opt.vn_vstd.enable
+END
+
+PROGRAM command
+BEGIN
+	INCLUDE _by_pr
+	put "stir "
+	varlist main.vn_varexp
+	INCLUDE _ifin_pr
+	beginoptions
+		if main.ck_strata {
+			require main.vn_strata
+			optionarg main.vn_strata
+		}
+		option main.ck_noshow
+		option opt.rb_ird
+		option opt.rb_istd
+		option opt.rb_estd
+		if opt.rb_vstd {
+			require opt.vn_vstd
+			optionarg opt.vn_vstd
+		}
+		option opt.ck_tb
+		option opt.ck_pool
+		option opt.ck_nocrude
+		option opt.ck_nohom
+		INCLUDE _level_opt_pr
+	endoptions
+END

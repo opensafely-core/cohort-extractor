@@ -1,0 +1,4908 @@
+/*
+ 	mi
+
+*!  VERSION 1.3.12  30jul2019
+
+*/
+
+VERSION 14.0
+POSITION . . 700 510
+CANCEL can1, label(resource LBL_BU_CLOSE) target(dialog) uaction(on_close)
+HELP hlp1, view(help mi)
+RESET res1
+
+PROGRAM on_close
+BEGIN
+	call SaveState
+END
+
+SCRIPT PREINIT
+BEGIN
+	create STRING mi_STMP
+	create BOOLEAN isINITDONE
+	isINITDONE.setfalse
+	create STRING EstimateCmdString
+	create STRING ImputeCmdString
+	create STRING ImportCmdString
+	create STRING ManageCmdString
+	create STRING _mi_marker
+	create STRING _mi_style
+	create STRING _mi_name
+	create STRING _mi_ivars
+	create STRING _mi_pvars
+	create STRING _mi_rvars
+	create STRING _mi_ALLVARS
+	create LIST   _mi_ALLVARS_LIST
+	create DOUBLE _mi_M
+	create STRING _mi_M_STR
+	create STRING _mi_e_mi
+	create BOOLEAN isRegVars
+
+	create DOUBLE c_changed_tmp
+
+	create STRING bu_facvarsResults
+	create STRING bu_tableOutResults
+
+	create STRING bu_xtmeResults
+
+	/* test list box */
+	create STRING mi_test_tmp
+	create STRING mi_test_tmp2
+	create STRING mi_test_childdlg
+	create STRING mi_test_dlgname
+	create STRING mi_test_child_result
+	create STRING mi_test_cmd_output
+
+	create ARRAY mi_test_list
+
+	create SVECTOR miTestCommandDisplayList
+	create SVECTOR miTestCommandList
+	create SVECTOR miTestCommandValues
+	create SVECTOR miTestStatusList
+	create SVECTOR miTestChildDialogList
+	create SVECTOR miTestDialogNameList
+
+	create DOUBLE mi_test_count
+	create DOUBLE mi_test_position
+	create DOUBLE mi_test_arraysize
+	setscale_hadj resource MI_DLG_HSCALE
+	
+        mi.br_eusing.formatfilter "{0} (*.ster)|*.ster|{1} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_STER_FILE" "resource ui_ex FILE_TYPE_ALL_FILES"
+		
+        mi.fi_saving.formatfilter "{0} (*.ster)|*.ster|{1} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_STER_FILE" "resource ui_ex FILE_TYPE_ALL_FILES"
+		
+        mi.br_pmain_using.formatfilter "{0} (*.ster)|*.ster|{1} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_STER_FILE" "resource ui_ex FILE_TYPE_ALL_FILES"
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program check_state
+	isINITDONE.settrue
+
+	program bu_tableOut_ckResults
+	program bu_facvars_ckResults
+
+	create STRING bu_fmtcoefResults
+	program bu_fmtcoef_ckResults
+	program parseMessage
+END
+
+PROGRAM parseMessage
+BEGIN
+	if __MESSAGE.contains("-test-") {
+		call mi.btn_7.seton
+		call mi.rb_test.seton
+	}
+	if __MESSAGE.contains("-testtransform-") {
+		call mi.btn_7.seton
+		call mi.rb_testtr.seton
+	}
+	if __MESSAGE.contains("-predict-") {
+		call mi.btn_8.seton
+		call mi.rb_pred.seton
+	}
+	if __MESSAGE.contains("-predictnl-") {
+		call mi.btn_8.seton
+		call mi.rb_prednl.seton
+	}
+END
+
+PROGRAM ON_DOTPROMPT
+BEGIN
+	call program check_state
+
+	call create STRING tmpSTR
+	call tmpSTR.setvalue class mi.cb_testtr.value
+	call mi.cb_testtr.repopulate
+	call mi.cb_testtr.setvalue class tmpSTR.value
+END
+
+PROGRAM check_state
+BEGIN
+	call isRegVars.setfalse
+	call _mi_marker.setvalue char _dta[_mi_marker]
+	call _mi_style.setvalue char _dta[_mi_style]
+	call _mi_name.setvalue char _dta[_mi_name]
+	call _mi_ivars.setvalue char _dta[_mi_ivars]
+	call _mi_pvars.setvalue char _dta[_mi_pvars]
+	call _mi_rvars.setvalue char _dta[_mi_rvars]
+	call _mi_M_STR.setvalue char _dta[_mi_M]
+	call _mi_M.setvalue class _mi_M_STR.value
+
+	call _mi_e_mi.setvalue e(mi)
+
+	call _mi_ALLVARS.setvalue ""
+	if _mi_ivars {
+		call _mi_ALLVARS.append class _mi_ivars.value
+		call _mi_ALLVARS.append " "
+	}
+	if _mi_pvars {
+		call _mi_ALLVARS.append class _mi_pvars.value
+		call _mi_ALLVARS.append " "
+	}
+	if _mi_rvars {
+		call _mi_ALLVARS.append class _mi_rvars.value
+	}
+
+	if !_mi_marker {
+		call mi.tx_ex3.disable
+		call mi.bu_ex3.disable
+		call mi.ck_ex3.disable
+
+		call script setup_reg_disable
+		call script setup_ureg_disable
+		call script setup_num_disable
+
+		call mi.tx_info1_v.setlabel resource MI_NOT_SET
+		call mi.tx_info2.setlabel ""
+		call mi.tx_info2_v.setlabel ""
+
+	}
+	else {
+		if _mi_ivars | _mi_pvars | _mi_rvars {
+			call isRegVars.settrue
+		}
+
+		call mi.tx_ex3.enable
+		call mi.bu_ex3.enable
+		call mi.ck_ex3.enable
+
+		call script setup_reg_enable
+		if isRegVars {
+			call script setup_ureg_enable
+		}
+		else {
+			call script setup_ureg_disable
+		}
+		call script setup_num_enable
+
+		call mi.tx_info1_v.setlabel class _mi_style.value
+		call mi.tx_info2.setlabel resource MI_MI_TX_INFO2
+		call mi.tx_info2_v.setlabel class _mi_M_STR.value
+	}
+
+	call program BTN3_check
+	call program BTN4_check
+	call program BTN5_check
+	call program BTN6_check
+	call program BTN7_check
+
+	call mi.cb_set_style.setvalue class _mi_style.value
+	call mi.ed_set_sname.setvalue class _mi_name.value
+
+	call _mi_ALLVARS_LIST.Arrdropall
+	call _mi_ALLVARS.tokenize _mi_ALLVARS_LIST
+	call mi.cb_set_uregvars.setvalue ""
+	call mi.cb_set_uregvars.repopulate
+
+	if _mi_M {
+		call mi.sp_set_mset.setvalue class _mi_M.value
+	}
+	else {
+		call mi.sp_set_mset.setvalue 0
+	}
+	if _mi_style.iseq("flong") | _mi_style.iseq("flongsep") {
+		call mi.ck_esample.enable
+		if mi.ck_esample {
+			call program esample_on
+		}
+		call mi.ck_pmiopt_store.enable
+	}
+	else {
+		call mi.ck_esample.disable
+		call script esample_off
+		call mi.ck_pmiopt_store.disable
+	}
+  
+	call mi.sp_eopt_num1.setrange 2 "class _mi_M.value"
+	call mi.sp_pmiopt_num1.setrange 2 "class _mi_M.value"
+END
+
+DEFINE cx 100
+DEFINE cy 60
+DEFINE y +60
+DEFINE x2 120
+
+DIALOG mi, title(resource MI_DLG_TITLE)
+BEGIN
+  RADIO btn_1 10 20 cx cy, panebutton  first			///
+  	label(resource MI_MI_BTN_1)				///
+	tooltip(resource MI_MI_BTN_1)				///
+	onclickon(script OnBTN1)
+  RADIO btn_2 10 y cx cy, panebutton 				///
+	label(resource LBL_SETUP)				///
+	tooltip(resource LBL_SETUP)				///
+	onclickon(script OnBTN2)
+  RADIO btn_3 10 y cx cy, panebutton 				///
+	label(resource MI_MI_BTN_3)				/// 
+	tooltip(resource MI_MI_BTN_3)				///
+	onclickon(script OnBTN3)
+  RADIO btn_4 10 y cx cy, panebutton				///
+	label(resource MI_MI_BTN_4)				///
+	tooltip(resource MI_MI_BTN_4)				///
+	onclickon(script OnBTN4)
+  RADIO btn_5 10 y cx cy, panebutton				///
+	label(resource MI_MI_BTN_5)				///
+	tooltip(resource MI_MI_BTN_5)				///
+	onclickon(script OnBTN5)
+  RADIO btn_6 10 y cx cy, panebutton				///
+	label(resource LBL_ESTIMATE)				///
+	tooltip(resource LBL_ESTIMATE)				///
+	onclickon(script OnBTN6)
+  RADIO btn_7 10 y cx cy, panebutton				///
+	label(resource LBL_TEST)				///
+	tooltip(resource MI_MI_BTN_7_TOOLTIP)			///
+	onclickon(script OnBTN7)
+  RADIO btn_8 11 y cx cy, panebutton last			///
+	label(resource MI_MI_BTN_8)				///
+	tooltip(resource MI_MI_BTN_8_TOOLTIP)			///
+	onclickon(script OnBTN8)
+
+  GROUPBOX gb_label x2 15 570 483, label("")
+  TEXT     tx_general 130 40 550 ., label(resource LBL_FEATURE_CURRENTLY_NOT_AVAILABLE)
+  TEXTBOX  tb_general +20 +20 -40 30,
+
+  /* ---------- Examine Tab ---------- */
+
+  TEXT     tx_ex1  130  40   430   ., 				///
+	label(resource MI_MI_TX_EX1)
+  BUTTON   bu_ex1  600  @    80    .,				///
+	label(resource LBL_BU_SUBMIT) onpush(program on_query)
+  FRAME    fr_ex1  130  +35  550   1,
+
+  TEXT     tx_ex2  130  +15   430  ., 				///
+	label(resource MI_MI_TX_EX2)
+  BUTTON   bu_ex2  600  @    80    .,				///
+	label(resource LBL_GO_ARROW) onpush(program on_misstable)
+  FRAME    fr_ex2  130  +35  550   1,
+
+  TEXT     tx_ex3  130  +15  430   ., 				///
+	label(resource MI_MI_TX_EX3)
+  BUTTON   bu_ex3  600  @    80    .,				///
+	label(resource LBL_BU_SUBMIT) onpush(program on_describe)
+  CHECKBOX ck_ex3  130  +25  430   ., 				///
+	label(resource MI_MI_CK_EX3)
+  FRAME    fr_ex3  130  +35  550   1,
+
+  TEXT     tx_info0  	130	470	80	., 		///
+ 	label(resource MI_MI_TX_INFO0)
+  TEXT     tx_info1  	+85	@	60	.,right		///
+ 	label(resource MI_MI_TX_INFO1)
+  TEXT     tx_info1_v	+65	@	60	.,
+
+  TEXT     tx_info2	+65	@	60	.,right		///
+ 	label(resource MI_MI_TX_INFO2)
+  TEXT     tx_info2_v	+65	@	60	.,
+  FRAME    fr_info0	130	465	550	1,
+
+  /* ---------- Setup Tab ---------- */
+
+  GROUPBOX gb_set_style		130	40	550	60,	///
+	label(resource MI_MI_GB_SET_STYLE)
+  TEXT     tx_set_style		140 	+25	60	.,	///
+	label(resource LBL_TX_STYLE) right
+  COMBOBOX cb_set_style		+65	@	140	.,	///
+	dropdownlist 						///
+	contents(setup_style) values(setup_style_values)	///
+	onselchange(program setup_style_sel_change)
+  TEXT     tx_set_sname		+145	@	65	.,	///
+	right label(resource LBL_NAME)
+  EDIT     ed_set_sname		+70	@	100	.,	///
+	error(resource MI_MI_ED_SET_SNAME)			///
+	onchange(program setup_style_sel_change)
+  BUTTON   bu_set_style		590	@	80	.,	///
+	label(resource LBL_BU_SUBMIT) onpush(program set_submit_style)
+
+  GROUPBOX gb_set_reg		130	+48	550	60,	///
+	label(resource MI_MI_GB_SET_REG)
+
+  TEXT     tx_set_reg		140 	+25	60	.,	///
+	label(resource LBL_TYPE_COLON) right
+  COMBOBOX cb_set_reg		+65	@	140	.,	///
+	dropdownlist 						///
+	contents(setup_reg) values(setup_reg_values)		///
+	onselchangelist(setup_reg_sel)
+  TEXT     tx_set_regvars	+145	@	65	.,	///
+	right label(resource LBL_VARIABLES)
+  VARLIST  vl_set_regvars	+70	@	160	.,	///
+  	numeric							///
+	label(resource LBL_VARIABLES)
+  BUTTON   bu_set_reg		590	@	80	.,	///
+	label(resource LBL_BU_SUBMIT) onpush(program set_submit_register)
+
+  GROUPBOX gb_set_ureg		130	+48	550	60,	///
+	label(resource MI_MI_GB_SET_UREG)
+  TEXT     tx_set_uregvars	140	+25	60	.,	///
+	right label(resource LBL_VARIABLES)
+  COMBOBOX  cb_set_uregvars	+65	@	375	.,	///
+	dropdown append label(resource LBL_VARIABLES) 		///
+	contents(_mi_ALLVARS_LIST)				///
+	onselchange(program check_uregvars)
+  BUTTON   bu_set_ureg		590	@	80	.,	///
+	label(resource LBL_BU_SUBMIT) onpush(program set_submit_uregister)
+
+  GROUPBOX gb_set_mset		130	+48	550	130,	///
+	label(resource MI_MI_GB_SET_MSET)
+  RADIO    rb_set_mset		140	+20	180	., 	///
+	first							///
+	onclickon(program setup_num_check)			///
+	label(resource MI_MI_RB_SET_MSET)
+  DEFINE y @y
+  SPINNER  sp_set_mset		+185	@	50	.,	///
+	onchange(program setup_num_check) min(0) max(1000)
+  RADIO    rb_set_madd		140	+25	180	.,	///
+	onclickon(program setup_num_check)			///
+	label(resource MI_MI_RB_SET_MADD)
+  SPINNER  sp_set_madd		+185	@	50	.,	///
+	onchange(program setup_num_check) min(1) max(1000)
+  RADIO    rb_set_mdel1		140	+25	180	.,	///
+	onclickon(program setup_num_check)			///
+	label(resource MI_MI_RB_SET_MDEL1)
+  SPINNER  sp_set_mdel1		+185	@	50	.,	///
+	onchange(program setup_num_check) min(1) max(1000)
+  RADIO    rb_set_mdel2		140	+25	180	., 	///
+	last							///
+	onclickon(program setup_num_check)			///
+	label(resource MI_MI_RB_SET_MDEL2)
+  EDIT     ed_set_mdel2		+185	@	120	.,	///
+	label(resource MI_MI_RB_SET_MDEL2)			///
+	onchange(program setup_num_check)
+  BUTTON   bu_set_mset		590	y	80	.,	///
+	label(resource LBL_BU_SUBMIT) onpush(program set_submit_mset)
+
+  /* ---------- Impute Tab ---------- */
+  TEXT     tx_impute	130	40	410	.,		///
+	label(resource MI_MI_TX_IMPUTE)
+
+  LISTBOX  lb_impute	@	+20	450	280, 		///
+  	contents(impute_commands) 				///
+  	values(impute_commands_values)				///
+  	onselchange(program impute_commands_changed)		///
+  	ondblclick(program doDialogImpute)
+  BUTTON   bu_impute	+455	@	55	.,		///
+	label(resource LBL_GO_ARROW) onpush(program doDialogImpute)
+  TEXTBOX  tb_impute_note 130	+285	510	.,		///
+	label(resource MI_MI_TB_IMPUTE_NOTE)
+
+  /* ---------- Import Tab ---------- */
+  TEXT     tx_import	130	40	410	.,		///
+	label(resource MI_MI_TX_IMPORT)
+
+  LISTBOX  lb_import	@	+20	@	185, 		///
+  	contents(import_commands) 				///
+  	values(import_commands_values)				///
+  	onselchange(program import_commands_changed)		///
+  	ondblclick(program doDialogImport)
+  BUTTON   bu_import	+415	@	55	.,		///
+	label(resource LBL_GO_ARROW) onpush(program doDialogImport)
+
+  /* ---------- Manage Tab ---------- */
+  TEXT     tx_mcmd	130	40	410	.,		///
+	label(resource MI_MI_TX_MCMD)
+
+  LISTBOX  lb_mcmd	@	+20	@	275, 		///
+  	contents(mcommands) values(mcommand_values)		///
+  	onselchange(program mcommand_changed)			///
+  	ondblclick(program doDialogManage)
+  BUTTON   bu_mcmd	+415	@	55	.,		///
+	label(resource LBL_GO_ARROW) onpush(program doDialogManage)
+
+  /* ---------- Estimate Tab ---------- */
+  RADIO btn_e1 130  40 79 32, panebutton first			///
+	label(resource LBL_TAB_MAIN) onclickon(program estimates_show_tab)
+  RADIO btn_e2 +80  @  114  @, panebutton			///
+	label(resource MI_TRANSFORMATIONS) onclickon(program estimates_show_tab)
+  RADIO btn_e3 +115 @  79  @, panebutton 			///
+	label(resource LBL_OPTIONS) onclickon(program estimates_show_tab)
+  RADIO btn_e4 +80  @   @  @, panebutton 			///
+	label(resource LBL_TABLES_NO_COLON) onclickon(program estimates_show_tab)
+  RADIO btn_e5 +80  @   @  @, panebutton 			///
+	label(resource LBL_TAB_REPORTING) onclickon(program estimates_show_tab)
+  RADIO btn_e6 +80  @   @  @, panebutton  last			///
+	label(resource LBL_ADVANCED) onclickon(program estimates_show_tab)
+
+  /* ---------- Estimate Tab (Main) ---------- */
+  GROUPBOX gb_ecmd	130	+45	550	380,		///
+	label(resource LBL_TAB_MAIN)
+  RADIO    rb_esyntax1	140	+20	230	., first	///
+	onclickon(program ecmd_on)				///
+	label(resource MI_MI_RB_ESYNTAX1)
+  RADIO    rb_esyntax2	+235	@	@	., last		///
+	onclickon(program eusing_on)				///
+	label(resource MI_MI_RB_ESYNTAX2)
+DEFINE etop1 @y
+  TEXT     tx_ecmd	140	+25	410	.,		///
+	label(resource LBL_CHOOSE_ESTIMATION_COMMAND_PRESS_GO)
+
+  LISTBOX  lb_ecmd	@	+20	@	185, 		///
+  	contents(ecommands) values(ecommand_values)		///
+  	onselchange(program ecommand_changed)			///
+  	ondblclick(program doDialogECmd)
+  BUTTON   bu_ecmd	+415	@	55	.,		///
+	label(resource LBL_GO_ARROW) onpush(program doDialogECmd)
+DEFINE etop2 @y
+
+  TEXT     tx_ecommand	140	+195	530	.,		///
+	label(resource LBL_ESTIMATION_COMMAND)
+  EDIT	   ed_ecommand	@	+20	@	.,		///
+	label(resource LBL_ESTIMATION_COMMAND)
+
+  TEXT	   tx_eusing	@	etop2	530	.,		///
+	label(resource MI_MI_TX_EUSING)
+  BROWSE   br_eusing	@	+20	@	.,		///
+	label(resource LBL_BU_BROWSE)				///
+	defext(ster)
+
+  /* ---------- Estimate Tab (Transformations) ---------- */
+  DEFINE L1 140
+  DEFINE L2 175
+  DEFINE L3 545
+  DEFINE CX1 30
+  DEFINE CX2 350
+  DEFINE CX3 120
+  DEFINE DN +30
+
+  TEXT     tx_trans	L2	etop1	150	.,		///
+	label(resource MI_MI_TX_TRANS)
+  HLINK	   hl_trans_exp 445	@	80	.,		///
+	right 							///
+	label(resource LBL_PAREN_EXAMPLES_PAREN)		///
+	onpush(view help nlcom_examples)
+  TEXT     tx_trans_lab L3	@	CX3	.,		///
+	label(resource LBL_LABEL_OPTIONAL)
+
+  CHECKBOX ck_trans1	L1	+20	CX1	.,		///
+	label("1:") 						///
+	onclickon(program check_trans1_on) 			///
+	onclickoff(program check_trans1_on)
+  EDIT     ex_trans1	L2	@	CX2	.,		///
+	label(resource LBL_BU_CREATE)
+  EDIT     ed_trans1	L3	@	CX3	.,
+
+  CHECKBOX ck_trans2	L1	DN	CX1	.,		///
+	label("2:")	 					///
+	onclickon(program check_trans2_on) 			///
+	onclickoff(program check_trans2_on)
+  EDIT     ex_trans2	L2	@	CX2	.,		///
+	label(resource LBL_BU_CREATE)
+  EDIT     ed_trans2	L3	@	CX3	.,
+
+  CHECKBOX ck_trans3	L1	DN	CX1	.,		///
+	label("3:") 						///
+	onclickon(program check_trans3_on) 			///
+	onclickoff(program check_trans3_on)
+  EDIT     ex_trans3	L2	@	CX2	.,		///
+	label(resource LBL_BU_CREATE)
+  EDIT     ed_trans3	L3	@	CX3	.,
+
+  CHECKBOX ck_trans4	L1	DN	CX1	.,		///
+	label("4:") 						///
+	onclickon(program check_trans4_on) 			///
+	onclickoff(program check_trans4_on)
+  EDIT     ex_trans4	L2	@	CX2	.,		///
+	label(resource LBL_BU_CREATE)
+  EDIT     ed_trans4	L3	@	CX3	.,
+
+  CHECKBOX ck_trans5	L1	DN	CX1	.,		///
+	label("5:") 						///
+	onclickon(program check_trans5_on) 			///
+	onclickoff(program check_trans5_on)
+  EDIT     ex_trans5	L2	@	CX2	.,		///
+	label(resource LBL_BU_CREATE)
+  EDIT     ed_trans5	L3	@	CX3	.,
+
+  CHECKBOX ck_trans6	L1	DN	CX1	.,		///
+	label("6:") 						///
+	onclickon(program check_trans6_on) 			///
+	onclickoff(program check_trans6_on)
+  EDIT     ex_trans6	L2	@	CX2	.,		///
+	label(resource LBL_BU_CREATE)
+  EDIT     ed_trans6	L3	@	CX3	.,
+
+  CHECKBOX ck_trans7	L1	DN	CX1	.,		///
+	label("7:") 						///
+	onclickon(program check_trans7_on) 			///
+	onclickoff(program check_trans7_on)
+  EDIT     ex_trans7	L2	@	CX2	.,		///
+	label(resource LBL_BU_CREATE)
+  EDIT     ed_trans7	L3	@	CX3	.,
+
+  CHECKBOX ck_trans8	L1	DN	CX1	.,		///
+	label("8:") 					///
+	onclickon(program check_trans8_on) 			///
+	onclickoff(program check_trans8_on)
+  EDIT     ex_trans8	L2	@	CX2	.,		///
+	label(resource LBL_BU_CREATE)
+  EDIT     ed_trans8	L3	@	CX3	.,
+
+  CHECKBOX ck_trans_off	L1	+30	200	.,		///
+	label(resource MI_MI_CK_TRANS_OFF) 			///
+	onclickoff(program setTransOff)				///
+	onclickon(program setTransOn)				///
+	nomemory
+
+  BUTTON   bu_esubmit   600	470	80	.,		///
+	label(resource LBL_BU_SUBMIT) onpush(program esubmit)
+
+  /* ---------- Estimate Tab (Options) ---------- */
+  DEFINE L1 140
+  DEFINE L2 150
+  DEFINE CX1 530
+  DEFINE CX2 510
+
+  GROUPBOX gb_eopt_num	L1	etop1	CX1	140,		///
+	label(resource LBL_IMPUTATIONS_TO_USE)
+  RADIO    rb_eopt_num0	L2	+20	CX2	., first	///
+	label(resource LBL_USE_ALL_EXISTING_IMPUTATIONS)	///
+	onclickon(program check_eopt_rb_num)
+  RADIO    rb_eopt_num1	L2	+20	CX2	., 		///
+	label(resource LBL_SPECIFY_NUMBER_OF_IMPUTATIONS_TO_USE) ///
+	onclickon(program check_eopt_rb_num)
+  SPINNER  sp_eopt_num1 +20	+20	60	.,		///
+	default(2) min(2) max(1000)
+  TEXT     tx_eopt_num1 +65	@	160	.,		///
+	label(resource LBL_#_OF_IMPUTATIONS_TO_USE)
+  RADIO    rb_eopt_num2 L2	+25	CX2	., last		///
+	label(resource LBL_SPECIFY_WHICH_IMPUTATIONS_TO_USE)	///
+	onclickon(program check_eopt_rb_num)
+  EDIT     ed_eopt_num2 +20	+20	120	.,		///
+	label(resource LBL_IMPUTATIONS_TO_USE)
+  TEXT     tx_eopt_num2 +125	@	160	.,		///
+	label(resource LBL_IMPUTATIONS_TO_USE)
+
+  CHECKBOX ck_eopt_est	L1	+40	CX1	.,		///
+	label(resource LBL_SPECIFY_ESTIMATION_RESULTS_TO_USE)	///
+	onclickon(program check_eopt_ck_estimation)		///
+	onclickoff(program check_eopt_ck_estimation)
+  EDIT     ed_eopt_est	+20	+20	120	.,		///
+	label(resource LBL_ESTIMATION_RESULTS_TO_USE)
+  TEXT     tx_eopt_est	+125	@	120	.,		///
+	label(resource LBL_ESTIMATION_RESULTS)
+
+  CHECKBOX ck_eopt_mce	L1	+30	250	.,		///
+	label(resource MI_MI_CK_EOPT_MCE)
+  CHECKBOX ck_eopt_ufmi	400	@	250	.,		///
+	label(resource LBL_PERFORM_UNRESTRICTED_FMI_MODEL_TEST)
+  CHECKBOX ck_eopt_nsm	L1	+25	CX1	.,		///
+	label(resource LBL_DO_NOT_APPLY_SMALL_SAM_CORR_TO_DEGREES_OF_FREEDOM)
+
+  CHECKBOX ck_saving	L1	+25	CX1	.,		///
+	onclickon(mi.fi_saving.enable)				///
+	onclickoff(mi.fi_saving.disable)			///
+	label(resource MI_MI_CK_SAVING)
+  FILE     fi_saving   	+20	+20	-20	.,		///
+	label(resource LBL_SAVE_AS)				///
+	defext(ster)						///
+	error(resource MI_MI_CK_SAVING) 			///
+	save
+
+  /* ---------- Estimate Tab (Tables) ---------- */
+  DEFINE L1 140
+  DEFINE L2 150
+  DEFINE CX1 530
+  DEFINE CX2 510
+
+  GROUPBOX gb_etbl_coef	L1	etop1	CX1	95,		///
+	label(resource LBL_COEFFICIENTS_NO_COLON)
+  RADIO    rb_etbl_coef1 L2	+20	CX2	., first	///
+	label(resource MI_MI_RB_ETBL_COEF1)
+  RADIO    rb_etbl_coef2 L2	+20	CX2	.,		///
+	label(resource MI_MI_RB_ETBL_COEF2)
+  RADIO    rb_etbl_coef3 L2	+20	CX2	., last		///
+	label(resource MI_MI_RB_ETBL_COEF3)
+
+  CHECKBOX ck_etbl_vart	L1	+45	CX1	.,		///
+	label(resource MI_MI_ETBL_VART)
+
+  BUTTON   bu_etbl_tout	L1	+30	120	.,		///
+	label(resource LBL_TABLE_OPTIONS)			///
+	onpush(program on_etbl_tout)
+
+  CHECKBOX ck_noomitted L1	+30	CX1	.,		///
+	label(resource LBL_SUPPRESS_OMITTED_COLLINEAR_COVARIATES)
+
+  CHECKBOX ck_vsquish	L1	+25	CX1	.,		///
+	label(resource LBL_SUPPRESS_BLANK_LINES)
+
+  BUTTON   bu_etbl_fv	L1	+30	190	.,		///
+  	label(resource LBL_FACTOR_VARIABLE_DISPLAY_OPTIONS)	///
+	onpush(program bu_facvars_getOpts)
+
+  BUTTON bu_fmtcoef	350	@	200	.,		///
+	onpush("program bu_fmtcoef_getOpts")			///
+	label(resource LBL_SET_TABLE_FORMATS)
+
+  /* ---------- Estimate Tab (Reporting) ---------- */
+  DEFINE L1 140
+  DEFINE L2 150
+  DEFINE CX1 530
+  DEFINE CX2 510
+
+  COMBOBOX  sp_level	L1	etop1	60	.,		///
+	dropdown						///
+	label(resource LBL_TX_LEVEL)				///
+	default(c(level))					///
+	contents(levels)					///
+	option(level)
+  TEXT     tx_level	+65	@	200	.,  		///
+	label(resource LBL_TX_LEVEL)
+
+  GROUPBOX gb_displ	L1	+30	CX1	130,		///
+	label(resource MI_MI_GB_DISPL)
+  RADIO    rb_nodots	+10	+20	CX2	.,		///
+	first							///
+	label(resource MI_MI_RB_NODOTS)
+  RADIO    rb_dots	@	+20	@	.,		///
+	label(resource MI_MI_RB_DOTS)
+  RADIO    rb_noi	@	+20	@	.,		///
+	label(resource LBL_DISPLAY_ANY_OUTPUT_FROM_COMMAND)
+  RADIO    rb_trace	@	+20	@	.,		///
+	last							///
+	label(resource LBL_TRACE_THE_COMMAND)
+  CHECKBOX ck_replay	@	+25	@	.,		///
+	onclickon(program output_per_imp_check)			///
+	onclickoff(program output_per_imp_check)		///
+	label(resource LBL_REPLAY_COM_SPECIFIC_RESULTS_FROM_EACH_IND_EST)
+
+  CHECKBOX ck_cmdlegend L1	+30	CX1	.,		///
+	label(resource LBL_DISPLAY_COMMAND_LEGEND)
+
+  CHECKBOX ck_eform	@	+25	CX1	.,		///
+	onclickon("mi.cb_eform.enable")				///
+	onclickoff("mi.cb_eform.disable")			///
+	label(resource LBL_REPORT_EXPONENTIATED_COEFFICIENTS)
+  COMBOBOX cb_eform	+10	+20	120	.,		///
+	dropdown						///
+	default(exp(b))						///
+	contents(eform_values)					///
+	label(resource MI_MI_TX_SYNTAX)
+
+  GROUPBOX gb_xt	L1	+35	CX1	80,		///
+	label(resource MI_MI_GB_XT)
+  CHECKBOX ck_nogroup	+10	+20	CX2	.,		///
+	label(resource MI_MI_CK_NOGROUP)
+  BUTTON bu_xtme	@	+25	200	.,		///
+	label(resource MI_MI_BU_XTME)				///
+	onpush(program bu_xtme_getOpts)				///
+	tooltip(resource MI_MI_BU_XTME_TOOLTIP)
+
+  /* ---------- Estimate Tab (Advanced) ---------- */
+  DEFINE L1 140
+  DEFINE L2 150
+  DEFINE CX1 530
+  DEFINE CX2 510
+
+  CHECKBOX ck_esample	L1	etop1	CX1	.,		///
+	onclickon(program esample_on) 				///
+	onclickoff(script esample_off)				///
+	label(resource MI_MI_CK_ESAMPLE)
+  EDIT     ed_esample	+20	+20	120	.,
+  TEXT     tx_esample	+125	@	200	.,		///
+	label(resource LBL_NEW_VARIABLE_NAME_NO_COLON)
+
+  GROUPBOX gb_eforce	L1	+30	CX1	105,		///
+	label(resource MI_MI_GB_EFORCE)
+  CHECKBOX ck_eerror	+10	+20	-20	.,		///
+	label(resource MI_MI_CK_EERROR)
+  CHECKBOX ck_evary	@	+25	@	.,		///
+	label(resource MI_MI_CK_EVARY)
+  CHECKBOX ck_cmdok	@	+25	@	.,		///
+	label(resource MI_MI_CK_CMDOK)
+
+  /* ---------- Test Tab ---------- */
+  DEFINE L1 130
+  DEFINE L2 140
+  DEFINE CX1 550
+  DEFINE CX2 530
+  DEFINE CX1H 210
+
+  GROUPBOX gb_test	L1	40	CX1	70,		///
+	label(resource MI_MI_GB_TEST)
+  RADIO    rb_test	L2	+20	CX2	., first	///
+	onclickon(program mi_test_typeCheck)			///
+	label(resource MI_MI_RB_TEST)
+  RADIO    rb_testtr	@	+20	@	., last		///
+	onclickon(program mi_test_typeCheck)			///
+	label(resource MI_MI_RB_TESTTR)
+
+  HLINK    hl_estuse	L1	+15	275	.,		///
+	onpush(view dialog estimates_use)			///
+	label(resource MI_MI_HL_ESTUSE)
+
+  TEXT tx_syntax	L1	+30	CX1	.,		///
+	label(resource MI_MI_TX_SYNTAX)
+  DEFINE holdy @y
+  COMBOBOX cb_test_syntax @	+20	220	.,		///
+	dropdownlist						///
+	contents(test_syntax_list)				///
+	values(test_syntax_values)				///
+	label(resource MI_MI_TX_SYNTAX)
+  BUTTON bu_test_new	+230	@	80	.,		///
+	label(resource LBL_BU_CREATE)				///
+	onpush(program mi_test_create)				///
+	tooltip(resource LBL_CREATE_SPECIFICATION)
+
+  TEXT tx_testBuild	L1	+35	CX1	.,		///
+	label(resource LBL_SPECIFICATION)
+  LISTBOX lb_testBuild	@	+20	220	90,		///
+	contents(mi_test_list) 					///
+	ondblclick(program mi_test_edit)			///
+	onselchange(program mi_test_sel_changed)		///
+	nomemory
+  BUTTON bu_test_edit	+230	@	80	.,		///
+	label(resource LBL_BU_EDIT)				///
+	onpush(program mi_test_edit)  				///
+	tooltip(resource LBL_EDIT_SPECIFICATION)
+  BUTTON bu_test_disable @	+25	@	.,		///
+	label(resource LBL_BU_DISABLE)				///
+	onpush(program mi_test_disable)				///
+	tooltip(resource LBL_CLICK_TO_DISABLE_A_SPECIFICATION)
+  BUTTON bu_test_enable	@	+25	@	.,		///
+	label(resource LBL_BU_ENABLE)				///
+	onpush(program mi_test_enable)				///
+	tooltip(resource LBL_CLICK_TO_ENABLE_PREV_DISABLED_SPEC)
+  TEXTBOX tb_test_note	L1	+45	CX1	30,		///
+	label(resource LBL_PRESS_CREATE_DEFINE_SPECIFICATION)
+
+  TEXT     tx_testtr	L1	holdy	CX1	.,		///
+	label(resource LBL_NAME_OF_EXPRESSIONS_USED_FOR_MI_ESTIMATE)
+  COMBOBOX cb_testtr	@	+20	@	.,		///
+	append							///
+	dropdown 						///
+	contents(e(expnames_mi))				///
+	error(resource LBL_NAME_OF_EXPRESSIONS_USED_FOR_MI_ESTIMATE)
+  CHECKBOX ck_testopt_ufmi @	+30	@	.,		///
+	label(resource LBL_PERFORM_UNRESTRICTED_FMI_MODEL_TEST)
+  CHECKBOX ck_testopt_nsm @	+25	@	.,		///
+	label(resource LBL_DO_NOT_APPLY_SMALL_SAM_CORR_TO_DEGREES_OF_FREEDOM)
+  CHECKBOX ck_testopt_nlg @	+25	@	.,		///
+	label(resource MI_MI_CK_TESTOPT_NLG)
+  CHECKBOX ck_testopt_con @	@	@	.,		///
+	label(resource LBL_INCLUDE_THE_CONSTANT_IN_COEFFICIENTS_TO_BE_TESTED)
+
+  BUTTON   bu_tsubmit   600	470	80	.,		///
+	label(resource LBL_BU_SUBMIT) onpush(program tsubmit)
+
+  /* ---------- Predict Tab ---------- */
+  RADIO btn_p1 130  40 79 32, panebutton first			///
+	label(resource LBL_TAB_MAIN) onclickon(program predict_show_tab)
+  RADIO btn_p2 +80  @  114  @, panebutton			///
+	label(resource MI_MI_BTN_P2) onclickon(program predict_show_tab)
+  RADIO btn_p3 +115 @  79  @, panebutton 			///
+	label(resource MI_MI_BTN_P3) onclickon(program predict_show_tab)
+  RADIO btn_p4 +80  @   @  @, panebutton 			///
+	label(resource LBL_TAB_REPORTING) onclickon(program predict_show_tab)
+  RADIO btn_p5 +80  @   @  @, panebutton  last			///
+	label(resource LBL_ADVANCED) onclickon(program predict_show_tab)
+
+  /* ---------- Predict Tab (Main) ---------- */
+  DEFINE L1 140
+  DEFINE L2 280
+  DEFINE VNCX 120
+  DEFINE CX1 530
+  DEFINE CX2 510
+
+  GROUPBOX gb_pcmd		130	+45	550	380,		///
+	label(resource LBL_TAB_MAIN)
+  RADIO rb_pred			L1	+20	230	., first	///
+	onclickon(program pred_on)					///
+	label(resource MI_MI_RB_PRED)
+  RADIO rb_prednl		+235	@	@	., last		///
+	onclickon(program prednl_on)					///
+	label(resource MI_MI_RB_PREDNL)
+  DEFINE ptop1 @y
+
+  TEXT tx_pmain_var		L1	+30	200	.,		///
+	label(resource LBL_GENERATE_VARIABLE)
+  TEXT tx_pmain_pnlexp		L2	@	@	.,		///
+	label(resource LBL_NONLINEAR_EXPRESSION)
+
+  EDIT ed_pmain_var		L1	+20	VNCX	.,		///
+	max(32)								///
+	label(resource LBL_GENERATE_VARIABLE_NO_COLON)
+  TEXT tx_pmain_equals		+120	@	20	.,		///
+	center label(resource LBL_EQUAL_SIGN)
+  EXP ex_pmain_nlexp		L2	@	390	.,		///
+	error(resource LBL_NONLINEAR_EXPRESSION)			///
+	label(resource LBL_BU_CREATE)
+
+  TEXT tx_pmain_type		L1	+30	VNCX	.,		///
+	label(resource LBL_NEW_VARIABLE_TYPE)
+  COMBOBOX cb_pmain_type	L1	+20	VNCX	.,		///
+	dropdownlist							///
+	contents(type)							///
+	default(c(type))						///
+	label(resource LBL_TYPE_COLON)
+
+  TEXT tx_pmain_pnltxt1		L2	-30	300	.,		///
+	label(resource MI_MI_TX_PMAIN_PNLTXT1)
+  TEXT tx_pmain_pnltxt2		@	+15	@	.,		///
+	label(resource MI_MI_TX_PMAIN_PNLTXT2)
+
+  TEXT tx_pmain_if		L1	+30	VNCX	.,		///
+	label(resource LBL_IF_EXPRESSION)
+  EXP ex_pmain_if		L1	+20	530	.,		///
+	error(resource LBL_IF_EXPRESSION)				///
+	label(resource LBL_BU_CREATE)
+  TEXT tx_pmain_using		L1	+30	530	.,		///
+	label(resource MI_MI_TX_EUSING)
+  BROWSE br_pmain_using		@	+20	@	.,		///
+	defext(ster)							///
+	label(resource LBL_BU_BROWSE)
+
+  /* ---------- Predict Tab (Predict options) ---------- */
+  DEFINE L1 150
+  DEFINE L2 350
+  DEFINE L3 490
+  DEFINE CKCX 200
+  DEFINE CX1 530
+
+  /* ---------- Predict Tab (Predict options) ---------- */
+  GROUPBOX gb_popt_prod		140	ptop1	530	65,		///
+	label(resource LBL_PRODUCE)
+  RADIO rb_popt_xb		L1	+20	CKCX	., first	///
+	option(xb)							///
+	label(resource LBL_LINEAR_PREDICTION_XB)
+  DEFINE holdy@y
+  RADIO rb_popt_stdp		L1	+20	@	., last		///
+	option(stdp)							///
+	label(resource LBL_STANDARD_ERROR_PREDICTION)
+
+  CHECKBOX ck_popt_nooffset	140	+40	CX1	.,		///
+	option(nooffset)						///
+	label(resource LBL_IGNORE_OFFSET_OR_EXPOSURE_VARIABLE)
+  CHECKBOX ck_popt_equation	@	+25	CKCX	.,		///
+	clickon("gaction mi.ed_popt_equation.enable")			///
+	clickoff("gaction mi.ed_popt_equation.disable")			///
+	label(resource LBL_EQUATION_COLON)
+  DEFINE holdy1 @y
+  EDIT ed_popt_equation		+10	+20	VNCX	.,		///
+	max(32)								///
+	option(equation)						///
+	label(resource LBL_EQUATION)
+
+  /* ---------- Predict Tab (Predictnl options) ---------- */
+  GROUPBOX gb_popt_gens		140	ptop1	530	350,		///
+	label(resource MI_MI_GB_POPT_GENS)
+  CHECKBOX ck_popt_se		L1	+20	CKCX	.,		///
+	clickon("gaction mi.ed_popt_se.enable")				///
+	clickoff("gaction mi.ed_popt_se.disable")			///
+	label(resource LBL_STANDARD_ERRORS_COLON)
+  DEFINE holdy1 @y
+  EDIT ed_popt_se		+10	+20	VNCX	.,		///
+	max(32)								///
+	option(se)							///
+	label(resource LBL_STANDARD_ERRORS)
+  CHECKBOX ck_popt_variance	L2	holdy1	CKCX	.,		///
+	clickon("gaction mi.ed_popt_variance.enable")			///
+	clickoff("gaction mi.ed_popt_variance.disable")			///
+	label(resource LBL_VARIANCES)
+  EDIT ed_popt_variance		+10	+20	VNCX	.,		///
+	max(32)								///
+	option(variance)						///
+	label(resource LBL_VARIANCES)
+
+  CHECKBOX ck_popt_wald		L1	+30	CKCX	.,		///
+	clickon("gaction mi.ed_popt_wald.enable")			///
+	clickoff("gaction mi.ed_popt_wald.disable")			///
+	label(resource LBL_WALD_TEST_STATISTICS)
+  DEFINE holdy2 @y
+  EDIT ed_popt_wald		+10	+20	VNCX	.,		///
+	max(32)								///
+	option(wald)							///
+	label(resource LBL_WALD_TEST_STATISTICS)
+  CHECKBOX ck_popt_p		L2	holdy2	200	.,		///
+	clickon("script popt_p_on")					///
+	clickoff("script popt_p_off")					///
+	label(resource LBL_P_VALUES_FOR_WALD_TESTS)
+  EDIT ed_popt_p		+10	+20	VNCX	.,		///
+	max(32)								///
+	option(p)							///
+	label(resource LBL_P_VALUES_FOR_WALD_TESTS)
+  CHECKBOX ck_popt_ci		L1	+30	240	.,		///
+	clickon("script popt_ci_on")					///
+	clickoff("script popt_ci_off")					///
+	label(resource LBL_LOWER_AND_UPPER_CONFIDENCE_INTERVALS)
+  DEFINE holdy3 @y
+  EDIT ed_popt_ci1		+10	+20	VNCX	.,		///
+	max(32)								///
+	label(resource LBL_LOWER_CONFIDENCE_INTERVALS)
+  EDIT ed_popt_ci2		+130	@	VNCX	.,		///
+	max(32)								///
+	label(resource LBL_UPPER_CONFIDENCE_INTERVALS)
+  TEXT tx_popt_cisiglev		L3	holdy3	CKCX	.,		///
+	label(resource MI_MI_TX_POPT_CISIGLEV)
+  SPINNER sp_popt_cisiglev	@	+20	60	.,		///
+	min(10)								///
+	max(99)								///
+	default(global S_level)						///
+	option(level)							///
+	label(resource MI_MI_TX_POPT_CISIGLEV)
+
+  CHECKBOX ck_popt_bvariance	L1	+30	CKCX	.,		///
+	clickon("gaction mi.ed_popt_bvariance.enable")			///
+	clickoff("gaction mi.ed_popt_bvariance.disable")		///
+	label(resource MI_MI_TX_POPT_BVARIANCE)
+  DEFINE holdy4 @y
+  EDIT ed_popt_bvariance	+10	+20	VNCX	.,		///
+	max(32)								///
+	option(bvariance)						///
+	label(resource MI_MI_TX_POPT_BVARIANCE)
+  CHECKBOX ck_popt_wvariance	L2	holdy4	CKCX	.,		///
+	clickon("gaction mi.ed_popt_wvariance.enable")			///
+	clickoff("gaction mi.ed_popt_wvariance.disable")		///
+	label(resource MI_MI_CK_POPT_WVARIANCE)
+  EDIT ed_popt_wvariance	+10	+20	VNCX	.,		///
+	max(32)								///
+	option(wvariance)						///
+	label(resource MI_MI_CK_POPT_WVARIANCE)
+
+  CHECKBOX ck_popt_df		L1	+30	CKCX	.,		///
+	clickon("script popt_df_on")					///
+	clickoff("script popt_df_off")					///
+	label(resource MI_MI_CK_POST_DF)
+  EDIT ed_popt_df		+10	+20	VNCX	.,		///
+	max(32)								///
+	option(df)							///
+	label(resource MI_MI_CK_POST_DF)
+
+  CHECKBOX ck_popt_rvi		L1	+30	170	.,		///
+	clickon("gaction mi.ed_popt_rvi.enable")			///
+	clickoff("gaction mi.ed_popt_rvi.disable")			///
+	label(resource MI_MI_CK_POPT_RVI)
+  DEFINE holdy5 @y
+  EDIT ed_popt_rvi		+10	+20	VNCX	.,		///
+	max(32)								///
+	option(rvi)							///
+	label(resource MI_MI_CK_POPT_RVI)
+  CHECKBOX ck_popt_re		+160	holdy5	150	.,		///
+	clickon("script popt_re_on")					///
+	clickoff("script popt_re_off")					///
+	label(resource MI_MI_POPT_RE)
+  EDIT ed_popt_re		+10	+20	VNCX	.,		///
+	max(32)								///
+	option(re)							///
+	label(resource MI_MI_POPT_RE)
+  CHECKBOX ck_popt_fmi		+140	holdy5	CKCX	.,		///
+	clickon("script popt_fmi_on")					///
+	clickoff("script popt_fmi_off")					///
+	label(resource MI_MI_CK_POPT_FMI)
+  EDIT ed_popt_fmi		+10	+20	VNCX	.,		///
+	max(32)								///
+	option(fmi)							///
+	label(resource MI_MI_CK_POPT_FMI)
+
+  CHECKBOX ck_popt_nosmall	L1	+30	350	.,		///
+	label(resource MI_MI_CK_POPT_NOSMALL)
+  /* ---------- Predict Tab (MI options) ---------- */
+  DEFINE L1 140
+  DEFINE L2 150
+  DEFINE CX1 530
+  DEFINE CX2 510
+
+  GROUPBOX gb_pmiopt_num	L1	ptop1	CX1	140,		///
+	label(resource LBL_IMPUTATIONS_TO_USE)
+  RADIO    rb_pmiopt_num0	L2	+20	CX2	., first	///
+	label(resource LBL_USE_ALL_EXISTING_IMPUTATIONS)		///
+	onclickon(program check_pmiopt_rb_num)
+  RADIO    rb_pmiopt_num1	L2	+20	CX2	., 		///
+	label(resource LBL_SPECIFY_NUMBER_OF_IMPUTATIONS_TO_USE)	///
+	onclickon(program check_pmiopt_rb_num)
+  SPINNER  sp_pmiopt_num1 	+20	+20	60	.,		///
+	default(2) min(2) max(1000)
+  TEXT     tx_pmiopt_num1 	+65	@	160	.,		///
+	label(resource LBL_#_OF_IMPUTATIONS_TO_USE)
+  RADIO    rb_pmiopt_num2	L2	+25	CX2	., last		///
+	label(resource LBL_SPECIFY_WHICH_IMPUTATIONS_TO_USE)		///
+	onclickon(program check_pmiopt_rb_num)
+  EDIT     ed_pmiopt_num2 	+20	+20	120	.,		///
+	label(resource LBL_IMPUTATIONS_TO_USE)
+  TEXT     tx_pmiopt_num2 	+125	@	160	.,		///
+	label(resource LBL_IMPUTATIONS_TO_USE)
+
+  CHECKBOX ck_pmiopt_est	L1	+45	CX1	.,		///
+	label(resource LBL_SPECIFY_ESTIMATION_RESULTS_TO_USE)		///
+	onclickon(program check_pmiopt_ck_estimation)			///
+	onclickoff(program check_pmiopt_ck_estimation)
+  EDIT     ed_pmiopt_est	+20	+20	120	.,		///
+	label(resource LBL_ESTIMATION_RESULTS_TO_USE)
+  TEXT     tx_pmiopt_est	+125	@	120	.,		///
+	label(resource LBL_ESTIMATION_RESULTS)
+
+  CHECKBOX ck_pmiopt_esample	L1	+30	CX1	.,		///
+	onclickon(program pmiopt_esample_on) 				///
+	onclickoff(script pmiopt_esample_off)				///
+	label(resource MI_MI_CK_PMIOPT_ESAMPLE)
+  VARNAME  vn_pmiopt_esample	+20	+20	120	.,		///
+  	numeric
+  TEXT     tx_pmiopt_esample	+125	@	200	.,		///
+	label(resource LBL_VARIABLE)
+  CHECKBOX ck_pmiopt_store 	L1	+30	CX1	.,		///
+	label(resource MI_MI_CK_PMIOPT_STORE)
+
+  /* ---------- Predict Tab (Reporting) ---------- */
+  DEFINE L1 140
+  DEFINE L2 150
+  DEFINE CX1 530
+  DEFINE CX2 510
+
+  CHECKBOX ck_prpt_replay	L1	ptop1	CX1	.,		///
+	label(resource LBL_REPLAY_COM_SPECIFIC_RESULTS_FROM_EACH_IND_EST)
+
+  CHECKBOX ck_prpt_cmdlegend	L1	+25	CX1	.,		///
+	label(resource LBL_DISPLAY_COMMAND_LEGEND)
+
+  /* ---------- Predict Tab (Advanced) ---------- */
+  DEFINE L1 140
+  DEFINE L2 150
+  DEFINE CX1 530
+  DEFINE CX2 510
+
+  SPINNER  sp_padv_num1 	L1	ptop1	60	.,		///
+	default(100) min(2) max(1000)
+  TEXT     tx_padv		@	@	CX1	.,		///
+	label(resource MI_MI_TX_PADV)
+  TEXT     tx_padv_num1 	+65	@	260	.,		///
+	label(resource LBL_MAXIMUM_ITERATIONS_FOR_FINDING_OPTIMAL_STEP_SIZE)
+  CHECKBOX ck_padv_force	L1	+30	CX1	.,		///
+	label(resource MI_MI_CK_PADV_FORCE)
+
+  BUTTON   bu_psubmit   	600	470	80	.,		///
+	label(resource LBL_BU_SUBMIT) onpush(program psubmit)
+END
+
+/* -------------------- Examine Tab -------------------- */
+PROGRAM on_query
+BEGIN
+	put "mi query"
+	stata
+END
+
+PROGRAM on_describe
+BEGIN
+	call create STRING _mi_marker
+	call _mi_marker.setvalue char _dta[_mi_marker]
+	if !_mi_marker {
+		stopbox stop resource MI_MSGBOX_DATA_NOT_SET_AS_MULTIPLE_IMPUTATION
+// Data have not been set as multiple imputation.
+	}
+	put "mi describe"
+	if mi.ck_ex3 {
+		put ", detail"
+	}
+	stata
+END
+
+PROGRAM on_misstable
+BEGIN
+	call create STRING misstable_cmd
+	if _mi_marker {
+		call create CHILD mi_misstable, allowsubmit
+		call mi_misstable.setExitString "misstable_cmd"
+		call mi_misstable.setExitAction "program misstable_done"
+	}
+	else {
+		call create CHILD misstable, allowsubmit
+		call misstable.setExitString "misstable_cmd"
+		call misstable.setExitAction "program misstable_done"
+	}
+END
+PROGRAM misstable_done
+BEGIN
+	if misstable_cmd {
+		put misstable_cmd
+		stata
+	}
+END
+
+SCRIPT info_hide
+BEGIN
+	mi.tx_info0.hide
+	mi.tx_info1.hide
+	mi.tx_info1_v.hide
+	mi.tx_info2.hide
+	mi.tx_info2_v.hide
+	mi.fr_info0.hide
+END
+
+SCRIPT info_show
+BEGIN
+	mi.tx_info0.show
+	mi.tx_info1.show
+	mi.tx_info1_v.show
+	mi.tx_info2.show
+	mi.tx_info2_v.show
+	mi.fr_info0.show
+END
+SCRIPT info_e_show
+BEGIN
+	mi.tx_info0.show
+	mi.tx_info1.show
+	mi.tx_info1_v.show
+	mi.tx_info2.show
+	mi.tx_info2_v.show
+	mi.fr_info0.hide
+END
+
+SCRIPT info_p_show
+BEGIN
+	mi.tx_info0.show
+	mi.tx_info1.show
+	mi.tx_info1_v.show
+	mi.tx_info2.show
+	mi.tx_info2_v.show
+	mi.fr_info0.hide
+END
+
+SCRIPT examine_hide
+BEGIN
+	script info_hide
+	mi.tx_ex1.hide
+	mi.bu_ex1.hide
+	mi.fr_ex1.hide
+	mi.tx_ex2.hide
+	mi.bu_ex2.hide
+	mi.fr_ex2.hide
+	mi.tx_ex3.hide
+	mi.bu_ex3.hide
+	mi.fr_ex3.hide
+	mi.ck_ex3.hide
+END
+SCRIPT examine_show
+BEGIN
+	script info_show
+	mi.tx_ex1.show
+	mi.bu_ex1.show
+	mi.fr_ex1.show
+	mi.tx_ex2.show
+	mi.bu_ex2.show
+	mi.fr_ex2.show
+	mi.tx_ex3.show
+	mi.bu_ex3.show
+	mi.fr_ex3.show
+	mi.ck_ex3.show
+END
+
+/* -------------------- Setup Tab -------------------- */
+
+SCRIPT setup_hide
+BEGIN
+	mi.gb_set_style.hide
+	mi.tx_set_style.hide
+	mi.cb_set_style.hide
+	mi.tx_set_sname.hide
+	mi.ed_set_sname.hide
+	mi.bu_set_style.hide
+
+	mi.gb_set_reg.hide
+	mi.tx_set_reg.hide
+	mi.cb_set_reg.hide
+	mi.tx_set_regvars.hide
+	mi.vl_set_regvars.hide
+	mi.bu_set_reg.hide
+
+	mi.gb_set_ureg.hide
+	mi.tx_set_uregvars.hide
+	mi.cb_set_uregvars.hide
+	mi.bu_set_ureg.hide
+
+	mi.gb_set_mset.hide
+	mi.rb_set_mset.hide
+	mi.sp_set_mset.hide
+	mi.rb_set_madd.hide
+	mi.sp_set_madd.hide
+	mi.rb_set_mdel1.hide
+	mi.sp_set_mdel1.hide
+	mi.rb_set_mdel2.hide
+	mi.ed_set_mdel2.hide
+	mi.bu_set_mset.hide
+
+	script info_hide
+END
+SCRIPT setup_show
+BEGIN
+	mi.gb_set_style.show
+	mi.tx_set_style.show
+	mi.cb_set_style.show
+	mi.tx_set_sname.show
+	mi.ed_set_sname.show
+	mi.bu_set_style.show
+
+	mi.gb_set_reg.show
+	mi.tx_set_reg.show
+	mi.cb_set_reg.show
+	mi.tx_set_regvars.show
+	mi.vl_set_regvars.show
+	mi.bu_set_reg.show
+
+	mi.gb_set_ureg.show
+	mi.tx_set_uregvars.show
+	mi.cb_set_uregvars.show
+	mi.bu_set_ureg.show
+
+	mi.gb_set_mset.show
+	mi.rb_set_mset.show
+	mi.sp_set_mset.show
+	mi.rb_set_madd.show
+	mi.sp_set_madd.show
+	mi.rb_set_mdel1.show
+	mi.sp_set_mdel1.show
+	mi.rb_set_mdel2.show
+	mi.ed_set_mdel2.show
+	mi.bu_set_mset.show
+
+	script info_show
+END
+
+SCRIPT setup_reg_disable
+BEGIN
+	mi.gb_set_reg.disable
+	mi.tx_set_reg.disable
+	mi.cb_set_reg.disable
+	mi.tx_set_regvars.disable
+	mi.vl_set_regvars.disable
+	mi.bu_set_reg.disable
+END
+SCRIPT setup_reg_enable
+BEGIN
+	mi.gb_set_reg.enable
+	mi.tx_set_reg.enable
+	mi.cb_set_reg.enable
+	mi.cb_set_reg.forceselchange
+END
+
+SCRIPT setup_ureg_disable
+BEGIN
+	mi.gb_set_ureg.disable
+	mi.tx_set_uregvars.disable
+	mi.cb_set_uregvars.disable
+END
+SCRIPT setup_ureg_enable
+BEGIN
+	mi.gb_set_ureg.enable
+	mi.tx_set_uregvars.enable
+	mi.cb_set_uregvars.enable
+	program check_uregvars
+END
+
+SCRIPT setup_num_disable
+BEGIN
+	mi.gb_set_mset.disable
+	mi.rb_set_mset.disable
+	mi.sp_set_mset.disable
+	mi.rb_set_madd.disable
+	mi.sp_set_madd.disable
+	mi.rb_set_mdel1.disable
+	mi.sp_set_mdel1.disable
+	mi.rb_set_mdel2.disable
+	mi.ed_set_mdel2.disable
+END
+SCRIPT setup_num_enable
+BEGIN
+	mi.gb_set_mset.enable
+	mi.rb_set_mset.enable
+	mi.rb_set_madd.enable
+	mi.rb_set_mdel1.enable
+	mi.rb_set_mdel2.enable
+	program setup_num_check
+END
+
+PROGRAM setup_num_check
+BEGIN
+	if mi.rb_set_mset & mi.rb_set_mset.isenabled() {
+		call mi.sp_set_mset.enable
+		call mi.sp_set_madd.disable
+		call mi.sp_set_mdel1.disable
+		call mi.ed_set_mdel2.disable
+		if _mi_M.iseq(mi.sp_set_mset) {
+			call mi.bu_set_mset.disable
+		}
+		else {
+			call mi.bu_set_mset.enable
+		}
+	}
+	if mi.rb_set_madd & mi.rb_set_madd.isenabled() {
+		call mi.sp_set_mset.disable
+		call mi.sp_set_madd.enable
+		call mi.sp_set_mdel1.disable
+		call mi.ed_set_mdel2.disable
+		if mi.sp_set_madd.iseq(0) {
+			call mi.bu_set_mset.disable
+		}
+		else {
+			call mi.bu_set_mset.enable
+		}
+	}
+	if mi.rb_set_mdel1 & mi.rb_set_mdel1.isenabled() {
+		call mi.sp_set_mset.disable
+		call mi.sp_set_madd.disable
+		call mi.sp_set_mdel1.enable
+		call mi.ed_set_mdel2.disable
+		if mi.sp_set_mdel1.iseq(0) {
+			call mi.bu_set_mset.disable
+		}
+		else {
+			call mi.bu_set_mset.enable
+		}
+	}
+	if mi.rb_set_mdel2 & mi.rb_set_mdel2.isenabled() {
+		call mi.sp_set_mset.disable
+		call mi.sp_set_madd.disable
+		call mi.sp_set_mdel1.disable
+		call mi.ed_set_mdel2.enable
+		if mi.ed_set_mdel2 {
+			call mi.bu_set_mset.enable
+		}
+		else {
+			call mi.bu_set_mset.disable
+		}
+	}
+END
+
+LIST setup_style
+BEGIN
+	resource MI_CHOOSE_STYLE
+	resource LBL_WIDE
+	resource LBL_MARGINAL_LONG
+	resource LBL_FULL_LONG
+	resource LBL_FULL_LONG_AND_SEPARATE
+END
+LIST setup_style_values
+BEGIN
+	""
+	wide
+	mlong
+	flong
+	flongsep
+END
+LIST setup_style_sel
+BEGIN
+	script setup_style_off
+	script setup_style_wide
+	script setup_style_mlong
+	script setup_style_flong
+	script setup_style_flongsep
+END
+
+PROGRAM setup_style_sel_change
+BEGIN
+	if mi.cb_set_style.iseq("") 				///
+		| mi.cb_set_style.iseq("wide") 			///
+		| mi.cb_set_style.iseq("mlong")			///
+		| mi.cb_set_style.iseq("flong")			///
+	{
+		call mi.tx_set_sname.disable
+		call mi.ed_set_sname.disable
+	}
+
+	if mi.cb_set_style.iseq("flongsep") {
+		call mi.tx_set_sname.enable
+		call mi.ed_set_sname.enable
+	}
+
+	if !mi.cb_set_style 					///
+		| (mi.cb_set_style.iseq(_mi_style)		///
+			& mi.ed_set_sname.iseq(_mi_name))	///
+	{
+		call mi.bu_set_style.disable
+	}
+	else {
+		call mi.bu_set_style.enable
+	}
+END
+
+SCRIPT setup_style_off
+BEGIN
+	mi.tx_set_sname.disable
+	mi.ed_set_sname.disable
+	mi.bu_set_style.disable
+END
+SCRIPT setup_style_wide
+BEGIN
+	mi.tx_set_sname.disable
+	mi.ed_set_sname.disable
+	mi.bu_set_style.enable
+END
+SCRIPT setup_style_mlong
+BEGIN
+	mi.tx_set_sname.disable
+	mi.ed_set_sname.disable
+	mi.bu_set_style.enable
+END
+SCRIPT setup_style_flong
+BEGIN
+	mi.tx_set_sname.disable
+	mi.ed_set_sname.disable
+	mi.bu_set_style.enable
+END
+SCRIPT setup_style_flongsep
+BEGIN
+	mi.tx_set_sname.enable
+	mi.ed_set_sname.enable
+	mi.bu_set_style.enable
+END
+
+LIST setup_reg
+BEGIN
+	resource MI_CHOOSE_TYPE
+	resource LBL_IMPUTED
+	resource MI_PASSIVE
+	resource MI_REGULAR
+END
+LIST setup_reg_values
+BEGIN
+	""
+	imputed
+	passive
+	regular
+END
+LIST setup_reg_sel
+BEGIN
+	script setup_reg_off
+	script setup_reg_on
+END
+
+SCRIPT setup_reg_off
+BEGIN
+	mi.tx_set_regvars.disable
+	mi.vl_set_regvars.disable
+	mi.bu_set_reg.disable
+END
+
+SCRIPT setup_reg_on
+BEGIN
+	mi.tx_set_regvars.enable
+	mi.vl_set_regvars.enable
+	mi.bu_set_reg.enable
+END
+
+PROGRAM set_submit_style
+BEGIN
+	call create STRING style_submit_tmp
+	call style_submit_tmp.setvalue class mi.ed_set_sname.value
+	call style_submit_tmp.append ".dta"
+
+	if mi.cb_set_style.iseq("flongsep") {
+		require mi.ed_set_sname
+	}
+
+	if _mi_style {
+		call c_changed_tmp.setvalue c(changed)
+		if c_changed_tmp {
+			stopbox rusure resource MI_MSGBOX_DATA_CHANGED_SINCE_YOU_LAST_SAVED
+// The data in memory have changed since you last saved.
+// Do you want to continue?
+		}
+		put "mi convert " mi.cb_set_style
+		if mi.cb_set_style.iseq("flongsep") {
+			repfile style_submit_tmp
+			put  " " mi.ed_set_sname
+		}
+		beginoptions
+			if c_changed_tmp {
+				put " clear"
+			}
+			if mi.cb_set_style.iseq("flongsep") {
+				put " replace"
+			}
+		endoptions
+		stata
+	}
+	else {
+		put "mi set " mi.cb_set_style
+		put  " " mi.ed_set_sname
+		stata
+	}
+END
+
+PROGRAM set_submit_register
+BEGIN
+// Enforcement rules... (not enforced at this time)
+//	unregistered or regular -- > can go to regular
+//	unregistered or passive -- > can go to imputed
+//	unregistered or imputed -- > can go to passive
+
+	require mi.vl_set_regvars
+	put "mi register " mi.cb_set_reg " " mi.vl_set_regvars
+	stata
+
+	call mi.cb_set_reg.setvalue ""
+	call mi.vl_set_regvars.setvalue ""
+END
+
+PROGRAM check_uregvars
+BEGIN
+	if mi.cb_set_uregvars {
+		call mi.bu_set_ureg.enable
+	}
+	else {
+		call mi.bu_set_ureg.disable
+	}
+END
+
+PROGRAM set_submit_uregister
+BEGIN
+	require mi.cb_set_uregvars
+	put "mi unregister " mi.cb_set_uregvars
+	stata
+END
+
+PROGRAM set_submit_mset
+BEGIN
+	if mi.rb_set_mset {
+		put "mi set M = " mi.sp_set_mset
+		stata
+	}
+	if mi.rb_set_madd {
+		put "mi set M += " mi.sp_set_madd
+		stata
+	}
+	if mi.rb_set_mdel1 {
+		put "mi set M -= " mi.sp_set_mdel1
+		stata
+	}
+	if mi.rb_set_mdel2 {
+		require mi.ed_set_mdel2
+		put "mi set m -= (" mi.ed_set_mdel2 ")"
+		stata
+	}
+	call mi.rb_set_mset.seton
+END
+
+/* -------------------- Impute Tab -------------------- */
+
+LIST impute_commands
+BEGIN
+	resource MI_UNIVARIATE
+	resource MI_LINEAR_REGRESSION_FOR_CONTINUOUS_VARIABLE
+	resource MI_PREDICTIVE_MEAN_MATCHING_CONTINUOUS_VARIABLE
+	resource MI_TRUNCATED_REGRESSION_FOR_CONTINUOUS_VAR_REST_RANGE
+	resource MI_INTERVAL_REGRESSION_FOR_CENSORED_CONTINUOUS_VAR
+	resource MI_LOGISTIC_REGRESSION_FOR_BINARY_VARIABLE
+	resource MI_ORDERED_LOGISTIC_REGRESSION_FOR_ORDINAL_VAR
+	resource MI_MULTINOMIAL_LOGISTIC_REGRESSION_FOR_NOMINAL_VAR
+	resource MI_POISSON_REGRESSION_FOR_COUNT_VARIABLE
+	resource MI_NEGATIVE_BINOMIAL_REGRESSION_FOR_OVERDIS_COUNT_VAR
+        resource MI_MULTIVARIATE
+	resource MI_SEQUENTIAL_IMPUTATION_USING_MONOTONE_MISSING_PATTERN
+	resource MI_SEQUENTIAL_IMPUTATION_USING_CHAINED_EQUATIONS
+	resource MI_MULTIVARIATE_NORMAL_REGRESSION
+END
+
+LIST impute_commands_values
+BEGIN
+	""
+	mi_impute_regress
+	mi_impute_pmm
+	mi_impute_truncreg
+	mi_impute_intreg
+	mi_impute_logit
+	mi_impute_ologit
+	mi_impute_mlogit
+	mi_impute_poisson
+	mi_impute_nbreg
+	""
+	mi_impute_monotone
+	mi_impute_chained
+	mi_impute_mvn
+END
+
+PROGRAM impute_commands_changed
+BEGIN
+	if mi.lb_impute {
+		if isRegVars {
+			call mi.bu_impute.enable
+			call mi.tb_impute_note.hide
+		}
+		else {
+			if (mi.lb_impute.iseq("mi_impute_intreg") | 	///
+				mi.lb_impute.iseq("mi_impute_monotone") | ///
+				mi.lb_impute.iseq("mi_impute_chained")) {
+				call mi.bu_impute.enable
+				call mi.tb_impute_note.hide
+			}
+			else {
+				call mi.bu_impute.disable
+				call mi.tb_impute_note.show
+			}
+		}
+	}
+	else {
+		call mi.bu_impute.disable
+		call mi.tb_impute_note.hide
+	}
+END
+
+PROGRAM doDialogImpute
+BEGIN
+	// place any logic for immediate commands here
+	call program doDialogImputeCmd
+END
+
+PROGRAM doDialogImputeCmd
+BEGIN
+	call create STRING tmpSTR
+
+	call tmpSTR.setvalue class mi.lb_impute.value
+	call tmpSTR.withvalue create CHILD @, allowsubmit message("__MI__")
+	call tmpSTR.withvalue @.setExitString ImputeCmdString
+	call tmpSTR.withvalue @.setExitAction "program dialogImputeCmdDone"
+END
+
+PROGRAM dialogImputeCmdDone
+BEGIN
+	put ImputeCmdString
+	stata
+END
+
+SCRIPT impute_hide
+BEGIN
+	mi.tx_general.hide
+	mi.tb_general.hide
+	mi.tx_impute.hide
+	mi.lb_impute.hide
+	mi.bu_impute.hide
+	mi.tb_impute_note.hide
+	script info_hide
+END
+
+PROGRAM impute_show
+BEGIN
+	if _mi_marker {
+		call mi.tx_general.hide
+		call mi.tb_general.hide
+		call mi.tx_impute.show
+		call mi.lb_impute.show
+		call mi.bu_impute.show
+		call program impute_commands_changed
+	}
+	else {
+		call mi.tx_general.show
+		call mi.tb_general.show
+		call mi.tb_general.setlabel resource MI_MUST_MI_SET_YOUR_DATA_PERFORM_DATA_MANIP
+//"You must 'mi set' your data to perform data manipulation. Choose 'Setup' to perform this action."
+	resource LBL_SETUP
+		call mi.tx_impute.hide
+		call mi.lb_impute.hide
+		call mi.bu_impute.hide
+		call mi.tb_impute_note.hide
+	}
+	call script info_show
+END
+
+/* -------------------- Import Tab -------------------- */
+
+LIST import_commands
+BEGIN
+	resource MI_IMPORT_MI_DATA
+	resource MI_NHANES_DATA
+	resource MI_ICE_DATA
+	resource MI_FLONG_LIKE_DATA
+	resource MI_FLONGSEP_LIKE_DATA
+	resource MI_WIDE_LIKE_DATA
+END
+
+LIST import_commands_values
+BEGIN
+	""
+	mi_import_nhanes1
+	mi_import_ice
+	mi_import_flong
+	mi_import_flongsep
+	mi_import_wide
+END
+
+PROGRAM import_commands_changed
+BEGIN
+	if mi.lb_import {
+		call mi.bu_import.enable
+		if (mi.lb_import.iseq("mi_export_ice")) {
+			call mi.bu_import.setlabel resource LBL_BU_SUBMIT
+		}
+		else {
+			call mi.bu_import.setlabel resource LBL_GO_ARROW
+		}
+	}
+	else {
+		call mi.bu_import.setlabel resource LBL_GO_ARROW
+		call mi.bu_import.disable
+	}
+END
+
+PROGRAM doDialogImport
+BEGIN
+	// place any logic for immediate commands here
+	if mi.lb_import.iseq("mi_export_ice") {
+		call c_changed_tmp.setvalue c(changed)
+		if c_changed_tmp {
+			stopbox rusure resource MI_MSGBOX_DATA_CHANGED_SINCE_YOU_LAST_SAVED
+// The data in memory have changed since you last saved.
+// Do you want to continue?
+		}
+		put "mi export ice, clear"
+		stata
+	}
+	else {
+		call program doDialogImportCmd
+	}
+END
+
+PROGRAM doDialogImportCmd
+BEGIN
+	call create STRING tmpSTR
+
+	call tmpSTR.setvalue class mi.lb_import.value
+	call tmpSTR.withvalue create CHILD @, allowsubmit message("__MI__")
+	call tmpSTR.withvalue @.setExitString ImportCmdString
+	call tmpSTR.withvalue @.setExitAction "program dialogImportCmdDone"
+END
+
+PROGRAM dialogImportCmdDone
+BEGIN
+	put ImportCmdString
+	stata
+END
+
+SCRIPT import_hide
+BEGIN
+	mi.tx_general.hide
+	mi.tb_general.hide
+	mi.tx_import.hide
+	mi.lb_import.hide
+	mi.bu_import.hide
+	script info_hide
+END
+
+PROGRAM import_show
+BEGIN
+	if ! _mi_marker {
+		call mi.tx_general.hide
+		call mi.tb_general.hide
+		call mi.tx_import.show
+		call mi.lb_import.show
+		call mi.bu_import.show
+	}
+	else {
+		call mi.tx_general.show
+		call mi.tb_general.show
+		call mi.tb_general.setlabel resource MI_IMPORT_IS_NOT_AVAILABLE_BC_DATA_ALREADY_MI_SET
+
+		call mi.tx_import.hide
+		call mi.lb_import.hide
+		call mi.bu_import.hide
+	}
+	call script info_show
+END
+
+
+/* -------------------- Manage Tab -------------------- */
+
+LIST mcommands
+BEGIN
+	resource LBL_REPORT
+	resource MI_QUERY
+	resource MI_DESCRIBE
+	resource MI_DESCRIBE_IN_DETAIL
+	resource MI_EXAMINE_VERIFY_MI_DATA
+	resource MI_IDENTIFY_VARIABLES_THAT_VARY_ACROSS_IMPUTATIONS
+	resource MI_TABULATE_PATTERN_MISSING_VALUES
+	resource MI_VERIFY_MAKE_DATA_CONSISTENT
+	resource MI_MI_DATA_MANAGEMENT
+	resource MI_CREATE_PASSIVE_VARIABLE
+	resource MI_CREATE_PASSIVE_VARIABLE_EXTENDED
+	resource MI_REPLACE_PASSIVE_VARIABLE
+	resource MI_RENAME_VARIABLE
+	resource MI_APPEND_DATASETS
+	resource MI_MERGE_DATASET
+	resource MI_EXPAND_DATA
+	resource MI_RESHAPE_DATA
+	resource MI_ADD_IMPUTATIONS_FROM_ONE_DATASET_TO_ANOTHER
+	resource MI_CHANGE_STYLE_OF_MI_DATA
+	resource MI_COPY_FLONGSEP_DATA
+	resource MI_ERASE_MI_DATASETS
+	resource MI_DECLARE_OTHER_CHARACTERISTICS_OF_MI_DATA
+	resource MI_FACTOR_VARIABLE_SETTINGS
+	resource MI_SURVIVAL_DATA_SETTINGS
+	resource MI_SURVEY_DATA_SETTINGS
+	resource MI_TIME_SERIES_DATA_SETTINGS
+	resource MI_PANEL_DATA_SETTINGS
+	resource MI_SURVIVAL_MI_DATA_MANAGEMENT
+	resource MI_SPLIT_TIME_SPAN_RECORDS
+	resource MI_JOIN_TIME_SPAN_RECORDS
+	resource LBL_UTILITIES
+	resource MI_EXTRACT_ORIGINAL_IMPUTED_DATA
+	resource MI_REPLACE_ORIGINAL_DATA
+	resource MI_RESET_IMPUTED_PASSIVE_VARIABLES
+        resource MI_EXPORT
+	resource MI_NATIONAL_HEALTH_NUTRITION_EXAMINATION_SURVEY_FORMAT
+	resource MI_ICE_FORMAT
+END
+
+LIST mcommand_values
+BEGIN
+	""
+	mi_query
+	mi_describe
+	mi_describe_detail
+	""
+	mi_varying
+	mi_misstable
+	mi_update
+	""
+	mi_passive_gen
+	mi_passive_egen
+	mi_passive_repl
+	mi_rename
+	mi_append
+	mi_merge
+	mi_expand
+	mi_reshape
+	mi_add
+	mi_convert
+	mi_copy
+	mi_erase
+	""
+	mi_fvset
+	mi_stset
+	mi_svyset
+	mi_tsset
+	mi_xtset
+	""
+	mi_stsplit
+	mi_stjoin
+	""
+	mi_extract
+	mi_replace0
+	mi_reset
+	""
+	mi_export_nhanes1
+	mi_export_ice
+END
+
+PROGRAM mcommand_changed
+BEGIN
+	if mi.lb_mcmd {
+		call mi.bu_mcmd.enable
+		if (mi.lb_mcmd.iseq("mi_query") |			///
+			mi.lb_mcmd.iseq("mi_describe") |		///
+			mi.lb_mcmd.iseq("mi_describe_detail") |		///
+			mi.lb_mcmd.iseq("mi_update") |			///
+			mi.lb_mcmd.iseq("mi_export_ice")) {
+			call mi.bu_mcmd.setlabel resource LBL_BU_SUBMIT
+		}
+		else {
+			call mi.bu_mcmd.setlabel resource LBL_GO_ARROW
+		}
+	}
+	else {
+		call mi.bu_mcmd.setlabel resource LBL_GO_ARROW
+		call mi.bu_mcmd.disable
+	}
+END
+
+PROGRAM doDialogManage
+BEGIN
+	if mi.lb_mcmd.iseq("mi_query") {
+		put "mi query"
+		stata
+	}
+	if mi.lb_mcmd.iseq("mi_describe") {
+		put "mi describe"
+		stata
+	}
+	if mi.lb_mcmd.iseq("mi_describe_detail") {
+		put "mi describe, detail"
+		stata
+	}
+	if mi.lb_mcmd.iseq("mi_update") {
+		put "mi update"
+		stata
+	}
+	if mi.lb_mcmd.iseq("mi_export_ice") {
+		call c_changed_tmp.setvalue c(changed)
+		if c_changed_tmp {
+			stopbox rusure resource MI_MSGBOX_DATA_CHANGED_SINCE_YOU_LAST_SAVED
+// The data in memory have changed since you last saved.
+// Do you want to continue?
+		}
+		put "mi export ice, clear"
+		stata
+	}
+	else {
+		call program doDialogMCmd
+	}
+END
+
+PROGRAM doDialogMCmd
+BEGIN
+	call create STRING tmpSTR
+
+	call tmpSTR.setvalue class mi.lb_mcmd.value
+	call tmpSTR.withvalue create CHILD @, allowsubmit message("__MI__")
+	call tmpSTR.withvalue @.setExitString ManageCmdString
+	call tmpSTR.withvalue @.setExitAction "program dialogMCmdDone"
+END
+
+PROGRAM dialogMCmdDone
+BEGIN
+	put ManageCmdString
+	stata
+END
+
+SCRIPT manage_hide
+BEGIN
+	mi.tx_mcmd.hide
+	mi.lb_mcmd.hide
+	mi.bu_mcmd.hide
+	script info_hide
+END
+
+PROGRAM manage_show
+BEGIN
+	if _mi_marker {
+		call mi.tx_general.hide
+		call mi.tb_general.hide
+		call mi.tx_mcmd.show
+		call mi.lb_mcmd.show
+		call mi.bu_mcmd.show
+
+	}
+	else {
+		call mi.tx_general.show
+		call mi.tb_general.show
+		call mi.tb_general.setlabel resource MI_MUST_MI_SET_YOUR_DATA_PERFORM_DATA_MANIP
+
+		call mi.tx_mcmd.hide
+		call mi.lb_mcmd.hide
+		call mi.bu_mcmd.hide
+	}
+	call script info_show
+END
+
+/* -------------------- Estimate Tab -------------------- */
+
+PROGRAM OnBTN_e1
+BEGIN
+	call mi.gb_ecmd.setlabel resource LBL_TAB_MAIN
+	call mi.gb_ecmd.show
+	call mi.rb_esyntax1.show
+	call mi.rb_esyntax2.show
+	if (mi.rb_esyntax1) {
+		call script ecmd_show
+		call script eusing_hide
+	}
+	if (mi.rb_esyntax2) {
+		call script ecmd_hide
+		call script eusing_show
+	}
+	call script etrans_hide
+	call script eopt_hide
+	call script etbl_hide
+	call script erpt_hide
+	call script eadv_hide
+END
+SCRIPT OnBTN_e2
+BEGIN
+	mi.gb_ecmd.setlabel resource MI_TRANSFORMATIONS
+	mi.gb_ecmd.show
+	mi.rb_esyntax1.hide
+	mi.rb_esyntax2.hide
+	script ecmd_hide
+	script eusing_hide
+	script etrans_show
+	script eopt_hide
+	script etbl_hide
+	script erpt_hide
+	script eadv_hide
+END
+SCRIPT OnBTN_e3
+BEGIN
+	mi.gb_ecmd.setlabel resource LBL_OPTIONS
+	mi.gb_ecmd.show
+	mi.rb_esyntax1.hide
+	mi.rb_esyntax2.hide
+	script ecmd_hide
+	script eusing_hide
+	script etrans_hide
+	script eopt_show
+	script etbl_hide
+	script erpt_hide
+	script eadv_hide
+END
+SCRIPT OnBTN_e4
+BEGIN
+	mi.gb_ecmd.setlabel resource LBL_TABLES_NO_COLON
+	mi.gb_ecmd.show
+	mi.rb_esyntax1.hide
+	mi.rb_esyntax2.hide
+	script ecmd_hide
+	script eusing_hide
+	script etrans_hide
+	script eopt_hide
+	script etbl_show
+	script erpt_hide
+	script eadv_hide
+END
+SCRIPT OnBTN_e5
+BEGIN
+	mi.gb_ecmd.setlabel resource LBL_TAB_REPORTING
+	mi.gb_ecmd.show
+	mi.rb_esyntax1.hide
+	mi.rb_esyntax2.hide
+	script ecmd_hide
+	script eusing_hide
+	script etrans_hide
+	script eopt_hide
+	script etbl_hide
+	script erpt_show
+	script eadv_hide
+END
+SCRIPT OnBTN_e6
+BEGIN
+	mi.gb_ecmd.setlabel resource LBL_ADVANCED
+	mi.gb_ecmd.show
+	mi.rb_esyntax1.hide
+	mi.rb_esyntax2.hide
+	script ecmd_hide
+	script eusing_hide
+	script etrans_hide
+	script eopt_hide
+	script etbl_hide
+	script erpt_hide
+	script eadv_show
+END
+
+/* -------------------- Estimate Tab (Main) -------------------- */
+
+LIST ecommands
+BEGIN
+	resource MI_LINEAR_REGRESSION_MODELS
+	resource MI_LINEAR_REGRESSION
+	resource MI_CONSTRAINED_LINEAR_REGRESSION
+	resource MI_MULTIVARIATE_LINEAR_REGRESSION
+	resource MI_BINARY_RESPONSE_REGRESSION_MODELS
+	resource MI_LOGISTIC_REGRESSION
+	resource MI_LOGIT_REGRESSION
+	resource MI_PROBIT_REGRESSION
+	resource MI_COMPLEMENTARY_LOG_LOG_REGRESSION
+	resource MI_GLM_FOR_THE_BINOMIAL_FAMILY
+	resource MI_COUNT_RESPONSE_REGRESSION_MODELS
+	resource MI_POISSON_REGRESSION
+	resource MI_NEGATIVE_BINOMIAL_REGRESSION
+	resource MI_GENERALIZED_NEGATIVE_BINOMIAL_REGRESSION
+	resource MI_ORDINAL_RESPONSE_REGRESSION_MODELS
+	resource MI_ORDERED_LOGISTIC_REGRESSION
+	resource MI_ORDERED_PROBIT_REGRESSION
+	resource MI_CATEGORICAL_RESPONSE_REGRESSION_MODELS
+	resource MI_MULTINOMIAL_POLYTOMOUS_LOGISTIC_REGRESSION
+	resource MI_MULTINOMIAL_PROBIT_REGRESSION
+	resource MI_CONDITIONAL_FIXED_EFFECTS_LOGISTIC_REGRESSION
+	resource MI_FRACTIONAL_RESPONSE_REGRESSION_MODELS
+	resource MI_FRACTIONAL_RESPONSE_REGRESSION
+	resource MI_QUANTILE_REGRESSION_MODELS
+	resource MI_QUANTILE_REGRESSION
+	resource MI_INTERQUANTILE_RANGE_REGRESSION
+	resource MI_SIMULTANEOUS_QUANTILE_REGRESSION
+	resource MI_QUANTILE_REGRESSION_WITH_BOOTSTRAP_SE
+	resource MI_SURVIVAL_REGRESSION_MODELS
+	resource MI_COX_PROPORTIONAL_HAZARDS_MODEL
+	resource MI_PARAMETRIC_SURVIVAL_MODELS
+	resource MI_COMPETING_RISKS_REGRESSION
+	resource MI_OTHER_REGRESSION_MODELS
+	resource MI_GENERALIZED_LINEAR_MODELS
+	resource MI_ROBUST_REGRESSION
+	resource MI_TRUNCATED_REGRESSION
+	resource MI_LINEAR_REGRESSION_WITH_LARGE_DUMMY_VARIABLE_SET
+	resource MI_DESCRIPTIVE_STATISTICS
+	resource MI_MEAN_ESTIMATES
+	resource MI_PROPORTIONS_ESTIMATES
+	resource MI_RATIOS_ESTIMATES
+	resource MI_TOTAL_ESTIMATES
+	resource MI_PANEL_DATA_MODELS
+	resource MI_LINEAR_REGRESSION_FE_RE_PA_BE
+	resource MI_RANDOM_COEFFICIENTS_REGRESSION_BY_GLS
+	resource MI_PANEL_LOGISTIC_REGRESSION
+	resource MI_PANEL_PROBIT_REGRESSION
+	resource MI_PANEL_COMPLEMENTARY_LOG_LOG_REGRESSION
+	resource MI_PANEL_POISSON_REGRESSION
+	resource MI_PANEL_NEGATIVE_BINOMIAL_REGRESSION
+	resource MI_GENERALIZED_ESTIMATING_EQUATIONS_GEE
+	resource MI_MULTILEVEL_HIERARCHICAL_MODELS
+	resource MI_MULTILEVEL_MIXED_EFFECTS_LINEAR_REGRESSION
+	resource MI_MULTILEVEL_MIXED_EFFECTS_LOGISTIC_REGRESSION_QR_DEC
+	resource MI_MULTILEVEL_MIXED_EFFECTS_POISSON_REGRESSION_QR_DEC
+END
+
+LIST ecommand_values
+BEGIN
+	""
+	regress
+	cnsreg
+	mvreg
+	""
+	logistic
+	logit
+	probit
+	cloglog
+	binreg
+	""
+	poisson
+	nbreg
+	gnbreg
+	""
+	ologit
+	oprobit
+	""
+	mlogit
+	mprobit
+	clogit
+	""
+	fracreg
+	""
+	qreg
+	iqreg
+	sqreg
+	bsqreg
+	""
+	stcox
+	streg
+	stcrreg
+	""
+	glm
+	rreg
+	truncreg
+	areg
+	""
+	mean
+	proportion
+	ratio
+	total
+	""
+	xtreg
+	xtrc
+	xtlogit
+	xtprobit
+	xtcloglog
+	xtpoisson
+	xtnbreg
+	xtgee
+	""
+	mixed
+	meqrlogit
+	meqrpoisson
+END
+
+LIST eform_values
+BEGIN
+	"exp(b)"
+	"Haz. Ratio"
+	"IRR"
+	"Odds Ratio"
+	"RRR"
+	"SHR"
+END
+
+PROGRAM ecommand_changed
+BEGIN
+	if mi.lb_ecmd {
+		call mi.bu_ecmd.enable
+	}
+	else {
+		call mi.bu_ecmd.disable
+	}
+END
+
+PROGRAM doDialogECmd
+BEGIN
+	call create STRING tmpSTR
+
+	call tmpSTR.setvalue class mi.lb_ecmd.value
+	call tmpSTR.withvalue create CHILD @, allowsubmit message("__MI__")
+	call tmpSTR.withvalue @.setExitString EstimateCmdString
+	call tmpSTR.withvalue @.setOkAction "program dialogECmdOk"
+	call tmpSTR.withvalue @.setSubmitAction "program dialogECmdSubmit"
+END
+
+PROGRAM dialogECmdOk
+BEGIN
+	call mi.ed_ecommand.setvalue class EstimateCmdString.value
+END
+
+PROGRAM dialogECmdSubmit
+BEGIN
+	call mi.ed_ecommand.setvalue class EstimateCmdString.value
+	put /program esubmit
+END
+
+SCRIPT estimates_hide
+BEGIN
+	mi.tx_general.hide
+	mi.tb_general.hide
+
+	script estimates_hide_u
+	script info_hide
+END
+
+SCRIPT estimates_hide_u
+BEGIN
+	mi.btn_e1.hide
+	mi.btn_e2.hide
+	mi.btn_e3.hide
+	mi.btn_e4.hide
+	mi.btn_e5.hide
+	mi.btn_e6.hide
+	mi.gb_ecmd.hide
+	mi.rb_esyntax1.hide
+	mi.rb_esyntax2.hide
+	script ecmd_hide
+	script eusing_hide
+	script etrans_hide
+	script eopt_hide
+	script etbl_hide
+	script erpt_hide
+	script eadv_hide
+	mi.bu_esubmit.hide
+END
+
+PROGRAM estimates_show
+BEGIN
+	if _mi_marker & _mi_M.isge(2) {
+		call mi.tx_general.hide
+		call mi.tb_general.hide
+		call mi.btn_e1.show
+		call mi.btn_e2.show
+		call mi.btn_e3.show
+		call mi.btn_e4.show
+		call mi.btn_e5.show
+		call mi.btn_e6.show
+		call program estimates_show_tab
+
+		call mi.bu_esubmit.show
+		call script info_e_show
+	}
+	else {
+		call mi.tx_general.show
+		call mi.tb_general.show
+		call mi.tb_general.setlabel resource MI_YOU_MUST_HAVE_AT_LEAST_TWO_IMPUTATIONS_TO_OBTAIN
+
+		call script estimates_hide_u
+		call script info_show
+	}
+END
+
+PROGRAM estimates_show_tab
+BEGIN
+	if mi.btn_e1 & mi.btn_e1.isvisible() {
+		call program OnBTN_e1
+	}
+	if mi.btn_e2 & mi.btn_e2.isvisible() {
+		call script OnBTN_e2
+	}
+	if mi.btn_e3 & mi.btn_e3.isvisible() {
+		call script OnBTN_e3
+	}
+	if mi.btn_e4 & mi.btn_e4.isvisible() {
+		call script OnBTN_e4
+	}
+	if mi.btn_e5 & mi.btn_e5.isvisible() {
+		call script OnBTN_e5
+	}
+	if mi.btn_e6 & mi.btn_e6.isvisible() {
+		call script OnBTN_e6
+	}
+END
+
+PROGRAM ecmd_on
+BEGIN
+	if mi.rb_esyntax1 {
+		if mi.rb_esyntax1.isvisible() {
+			call script ecmd_show
+			call script eusing_hide
+		}
+		call script eopt_estimation_disable
+		call program output_per_imp_check
+		call mi.ck_cmdlegend.disable
+		call mi.ck_saving.enable
+		if mi.ck_saving {
+			call mi.fi_saving.enable
+		}
+
+		if _mi_style.iseq("flong") | _mi_style.iseq("flongsep") {
+			call mi.ck_esample.enable
+			if mi.ck_esample {
+				call program esample_on
+			}
+		}
+		call mi.ck_cmdok.enable
+		call mi.ck_evary.enable
+	}
+END
+
+PROGRAM eusing_on
+BEGIN
+	if mi.rb_esyntax2 {
+		if mi.rb_esyntax2.isvisible() {
+			call script ecmd_hide
+			call script eusing_show
+		}
+		call script eopt_estimation_enable
+		call program output_per_imp_check
+		call mi.ck_cmdlegend.enable
+		call mi.ck_saving.disable
+		call mi.fi_saving.disable
+
+		call mi.ck_esample.disable
+		call script esample_off
+		call mi.ck_cmdok.disable
+		call mi.ck_evary.disable
+	}
+END
+
+SCRIPT ecmd_show
+BEGIN
+	mi.tx_ecmd.show
+	mi.lb_ecmd.show
+	mi.bu_ecmd.show
+	mi.tx_ecommand.show
+	mi.ed_ecommand.show
+END
+
+SCRIPT ecmd_hide
+BEGIN
+	mi.tx_ecmd.hide
+	mi.lb_ecmd.hide
+	mi.bu_ecmd.hide
+	mi.tx_ecommand.hide
+	mi.ed_ecommand.hide
+END
+
+SCRIPT eusing_show
+BEGIN
+	mi.tx_eusing.show
+	mi.br_eusing.show
+END
+
+SCRIPT eusing_hide
+BEGIN
+	mi.tx_eusing.hide
+	mi.br_eusing.hide
+END
+
+/* -------------------- Estimate Tab (Transformations) -------------------- */
+
+SCRIPT etrans_show
+BEGIN
+	mi.tx_trans.show
+	mi.hl_trans_exp.show
+	mi.tx_trans_lab.show
+	mi.ck_trans1.show
+	mi.ex_trans1.show
+	mi.ed_trans1.show
+	mi.ck_trans2.show
+	mi.ex_trans2.show
+	mi.ed_trans2.show
+	mi.ck_trans3.show
+	mi.ex_trans3.show
+	mi.ed_trans3.show
+	mi.ck_trans4.show
+	mi.ex_trans4.show
+	mi.ed_trans4.show
+	mi.ck_trans5.show
+	mi.ex_trans5.show
+	mi.ed_trans5.show
+	mi.ck_trans6.show
+	mi.ex_trans6.show
+	mi.ed_trans6.show
+	mi.ck_trans7.show
+	mi.ex_trans7.show
+	mi.ed_trans7.show
+	mi.ck_trans8.show
+	mi.ex_trans8.show
+	mi.ed_trans8.show
+	mi.ck_trans_off.show
+END
+
+SCRIPT etrans_hide
+BEGIN
+	mi.tx_trans.hide
+	mi.hl_trans_exp.hide
+	mi.tx_trans_lab.hide
+	mi.ck_trans1.hide
+	mi.ex_trans1.hide
+	mi.ed_trans1.hide
+	mi.ck_trans2.hide
+	mi.ex_trans2.hide
+	mi.ed_trans2.hide
+	mi.ck_trans3.hide
+	mi.ex_trans3.hide
+	mi.ed_trans3.hide
+	mi.ck_trans4.hide
+	mi.ex_trans4.hide
+	mi.ed_trans4.hide
+	mi.ck_trans5.hide
+	mi.ex_trans5.hide
+	mi.ed_trans5.hide
+	mi.ck_trans6.hide
+	mi.ex_trans6.hide
+	mi.ed_trans6.hide
+	mi.ck_trans7.hide
+	mi.ex_trans7.hide
+	mi.ed_trans7.hide
+	mi.ck_trans8.hide
+	mi.ex_trans8.hide
+	mi.ed_trans8.hide
+	mi.ck_trans_off.hide
+END
+
+PROGRAM check_trans1_on
+BEGIN
+	if mi.ck_trans1 {
+		call mi.ex_trans1.enable
+		call mi.ed_trans1.enable
+	}
+	else {
+		call mi.ex_trans1.disable
+		call mi.ed_trans1.disable
+	}
+END
+
+PROGRAM check_trans2_on
+BEGIN
+	if mi.ck_trans2 {
+		call mi.ex_trans2.enable
+		call mi.ed_trans2.enable
+	}
+	else {
+		call mi.ex_trans2.disable
+		call mi.ed_trans2.disable
+	}
+END
+
+PROGRAM check_trans3_on
+BEGIN
+	if mi.ck_trans3 {
+		call mi.ex_trans3.enable
+		call mi.ed_trans3.enable
+	}
+	else {
+		call mi.ex_trans3.disable
+		call mi.ed_trans3.disable
+	}
+END
+
+PROGRAM check_trans4_on
+BEGIN
+	if mi.ck_trans4 {
+		call mi.ex_trans4.enable
+		call mi.ed_trans4.enable
+	}
+	else {
+		call mi.ex_trans4.disable
+		call mi.ed_trans4.disable
+	}
+END
+
+PROGRAM check_trans5_on
+BEGIN
+	if mi.ck_trans5 {
+		call mi.ex_trans5.enable
+		call mi.ed_trans5.enable
+	}
+	else {
+		call mi.ex_trans5.disable
+		call mi.ed_trans5.disable
+	}
+END
+
+PROGRAM check_trans6_on
+BEGIN
+	if mi.ck_trans6 {
+		call mi.ex_trans6.enable
+		call mi.ed_trans6.enable
+	}
+	else {
+		call mi.ex_trans6.disable
+		call mi.ed_trans6.disable
+	}
+END
+
+PROGRAM check_trans7_on
+BEGIN
+	if mi.ck_trans7 {
+		call mi.ex_trans7.enable
+		call mi.ed_trans7.enable
+	}
+	else {
+		call mi.ex_trans7.disable
+		call mi.ed_trans7.disable
+	}
+END
+
+PROGRAM check_trans8_on
+BEGIN
+	if mi.ck_trans8 {
+		call mi.ex_trans8.enable
+		call mi.ed_trans8.enable
+	}
+	else {
+		call mi.ex_trans8.disable
+		call mi.ed_trans8.disable
+	}
+END
+
+PROGRAM setTransOff
+BEGIN
+	if !isINITDONE {
+		exit
+	}
+	call mi.ck_trans1.setoff
+	call mi.ck_trans2.setoff
+	call mi.ck_trans3.setoff
+	call mi.ck_trans4.setoff
+	call mi.ck_trans5.setoff
+	call mi.ck_trans6.setoff
+	call mi.ck_trans7.setoff
+	call mi.ck_trans8.setoff
+END
+PROGRAM setTransOn
+BEGIN
+	if !isINITDONE {
+		exit
+	}
+	call mi.ck_trans1.seton
+	call mi.ck_trans2.seton
+	call mi.ck_trans3.seton
+	call mi.ck_trans4.seton
+	call mi.ck_trans5.seton
+	call mi.ck_trans6.seton
+	call mi.ck_trans7.seton
+	call mi.ck_trans8.seton
+END
+
+PROGRAM etrans_output
+BEGIN
+	if mi.ck_trans1 {
+		put "("
+		if !mi.ex_trans1 {
+                        call create STRING _MSG_TMP
+			call mi_STMP.format				///
+				"resource LBL_NONLINEAR_EXPRESSION_FMT" "1"
+                        call mi_STMP.withvalue _MSG_TMP.format		///
+				"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT" ///
+				"resource MI_TRANSFORMATIONS" 		///
+				"@"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Transformations" tab,
+// "Nonlinear expression 1" must be filled in.
+		}
+		if mi.ed_trans1 {
+			put /hidden mi.ed_trans1 ":"
+		}
+		put /hidden mi.ex_trans1
+		put ") "
+	}
+	if mi.ck_trans2 {
+		put "("
+		if !mi.ex_trans2 {
+                        call create STRING _MSG_TMP
+			call mi_STMP.format				///
+				"resource LBL_NONLINEAR_EXPRESSION_FMT" "2"
+                        call mi_STMP.withvalue _MSG_TMP.format		///
+				"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT" ///
+				"resource MI_TRANSFORMATIONS" 		///
+				"@"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Transformations" tab,
+// "Nonlinear expression 2" must be filled in.
+		}
+		if mi.ed_trans2 {
+			put /hidden mi.ed_trans2 ":"
+		}
+		put /hidden mi.ex_trans2
+		put ") "
+	}
+	if mi.ck_trans3 {
+		put "("
+		if !mi.ex_trans3 {
+                        call create STRING _MSG_TMP
+			call mi_STMP.format				///
+				"resource LBL_NONLINEAR_EXPRESSION_FMT" "3"
+                        call mi_STMP.withvalue _MSG_TMP.format		///
+				"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT" ///
+				"resource MI_TRANSFORMATIONS" 		///
+				"@"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Transformations" tab,
+// "Nonlinear expression 3" must be filled in.
+		}
+		if mi.ed_trans3 {
+			put /hidden mi.ed_trans3 ":"
+		}
+		put /hidden mi.ex_trans3
+		put ") "
+	}
+	if mi.ck_trans4 {
+		put "("
+		if !mi.ex_trans4 {
+                        call create STRING _MSG_TMP
+			call mi_STMP.format				///
+				"resource LBL_NONLINEAR_EXPRESSION_FMT" "4"
+                        call mi_STMP.withvalue _MSG_TMP.format		///
+				"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT" ///
+				"resource MI_TRANSFORMATIONS" 		///
+				"@"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Transformations" tab,
+// "Nonlinear expression 4" must be filled in.
+		}
+		if mi.ed_trans4 {
+			put /hidden mi.ed_trans4 ":"
+		}
+		put /hidden mi.ex_trans4
+		put ") "
+	}
+	if mi.ck_trans5 {
+		put "("
+		if !mi.ex_trans5 {
+                        call create STRING _MSG_TMP
+			call mi_STMP.format				///
+				"resource LBL_NONLINEAR_EXPRESSION_FMT" "5"
+                        call mi_STMP.withvalue _MSG_TMP.format		///
+				"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT" ///
+				"resource MI_TRANSFORMATIONS" ///
+				"@"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Transformations" tab,
+// "Nonlinear expression 5" must be filled in.
+		}
+		if mi.ed_trans5 {
+			put /hidden mi.ed_trans5 ":"
+		}
+		put /hidden mi.ex_trans5
+		put ") "
+	}
+	if mi.ck_trans6 {
+		put "("
+		if !mi.ex_trans6 {
+                        call create STRING _MSG_TMP
+			call mi_STMP.format				///
+				"resource LBL_NONLINEAR_EXPRESSION_FMT" "6"
+                        call mi_STMP.withvalue _MSG_TMP.format		///
+				"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT" ///
+				"resource MI_TRANSFORMATIONS" 		///
+				"@"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Transformations" tab,
+// "Nonlinear expression 6" must be filled in.
+		}
+		if mi.ed_trans6 {
+			put /hidden mi.ed_trans6 ":"
+		}
+		put /hidden mi.ex_trans6
+		put ") "
+	}
+	if mi.ck_trans7 {
+		put "("
+		if !mi.ex_trans7 {
+                        call create STRING _MSG_TMP
+			call mi_STMP.format				///
+				"resource LBL_NONLINEAR_EXPRESSION_FMT" "7"
+                        call mi_STMP.withvalue _MSG_TMP.format		///
+				"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT" ///
+				"resource MI_TRANSFORMATIONS" 		///
+				"@"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Transformations" tab,
+// "Nonlinear expression 7" must be filled in.
+		}
+		if mi.ed_trans7 {
+			put /hidden mi.ed_trans7 ":"
+		}
+		put /hidden mi.ex_trans7
+		put ") "
+	}
+	if mi.ck_trans8 {
+		put "("
+		if !mi.ex_trans8 {
+                        call create STRING _MSG_TMP
+			call mi_STMP.format				///
+				"resource LBL_NONLINEAR_EXPRESSION_FMT" "8"
+                        call mi_STMP.withvalue _MSG_TMP.format		///
+				"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT" ///
+				"resource MI_TRANSFORMATIONS" ///
+				"@"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Transformations" tab,
+// "Nonlinear expression 8" must be filled in.
+		}
+		if mi.ed_trans8 {
+			put /hidden mi.ed_trans8 ":"
+		}
+		put /hidden mi.ex_trans8
+		put ") "
+	}
+END
+
+/* -------------------- Estimate Tab (Options) -------------------- */
+
+SCRIPT eopt_hide
+BEGIN
+	mi.gb_eopt_num.hide
+	mi.rb_eopt_num0.hide
+	mi.rb_eopt_num1.hide
+	mi.sp_eopt_num1.hide
+	mi.tx_eopt_num1.hide
+	mi.rb_eopt_num2.hide
+	mi.ed_eopt_num2.hide
+	mi.tx_eopt_num2.hide
+	mi.ck_eopt_mce.hide
+	mi.ck_eopt_ufmi.hide
+	mi.ck_eopt_nsm.hide
+	mi.ck_eopt_est.hide
+	mi.ed_eopt_est.hide
+	mi.tx_eopt_est.hide
+	mi.ck_saving.hide
+	mi.fi_saving.hide
+END
+
+SCRIPT eopt_show
+BEGIN
+	mi.gb_eopt_num.show
+	mi.rb_eopt_num0.show
+	mi.rb_eopt_num1.show
+	mi.sp_eopt_num1.show
+	mi.tx_eopt_num1.show
+	mi.rb_eopt_num2.show
+	mi.ed_eopt_num2.show
+	mi.tx_eopt_num2.show
+	mi.ck_eopt_mce.show
+	mi.ck_eopt_ufmi.show
+	mi.ck_eopt_nsm.show
+	mi.ck_eopt_est.show
+	mi.ed_eopt_est.show
+	mi.tx_eopt_est.show
+	mi.ck_saving.show
+	mi.fi_saving.show
+END
+
+PROGRAM check_eopt_rb_num
+BEGIN
+	if mi.rb_eopt_num0 {
+		call mi.sp_eopt_num1.disable
+		call mi.tx_eopt_num1.disable
+		call mi.ed_eopt_num2.disable
+		call mi.tx_eopt_num2.disable
+	}
+	if mi.rb_eopt_num1 & mi.rb_eopt_num1.isenabled() {
+		call mi.sp_eopt_num1.enable
+		call mi.tx_eopt_num1.enable
+	}
+	if mi.rb_eopt_num2 & mi.rb_eopt_num2.isenabled() {
+		call mi.ed_eopt_num2.enable
+		call mi.tx_eopt_num2.enable
+	}
+END
+
+PROGRAM check_eopt_ck_estimation
+BEGIN
+	if mi.ck_eopt_est & mi.ck_eopt_est.isenabled() {
+		call mi.ed_eopt_est.enable
+		call mi.tx_eopt_est.enable
+		call script eopt_imputations_disable
+	}
+	else {
+		call mi.ed_eopt_est.disable
+		call mi.tx_eopt_est.disable
+		call script eopt_imputations_enable
+	}
+END
+
+SCRIPT eopt_imputations_disable
+BEGIN
+	mi.gb_eopt_num.disable
+	mi.rb_eopt_num0.disable
+	mi.rb_eopt_num1.disable
+	mi.rb_eopt_num2.disable
+	mi.sp_eopt_num1.disable
+	mi.tx_eopt_num1.disable
+	mi.ed_eopt_num2.disable
+	mi.tx_eopt_num2.disable
+END
+
+SCRIPT eopt_imputations_enable
+BEGIN
+	mi.gb_eopt_num.enable
+	mi.rb_eopt_num0.enable
+	mi.rb_eopt_num1.enable
+	mi.rb_eopt_num2.enable
+	program check_eopt_rb_num
+END
+
+SCRIPT eopt_estimation_disable
+BEGIN
+	mi.ck_eopt_est.disable
+	mi.ed_eopt_est.disable
+	mi.tx_eopt_est.disable
+	program check_eopt_ck_estimation
+END
+
+SCRIPT eopt_estimation_enable
+BEGIN
+	mi.ck_eopt_est.enable
+	program check_eopt_ck_estimation
+END
+
+PROGRAM eopt_output
+BEGIN
+	if mi.rb_eopt_num1 & mi.rb_eopt_num1.isenabled() {
+		put /hidden " " "nimputations(" mi.sp_eopt_num1 ")"
+	}
+	if mi.rb_eopt_num2 & mi.rb_eopt_num2.isenabled() {
+		if !mi.ed_eopt_num2 {
+			call create STRING _MSG_TMP
+                        call _MSG_TMP.format				/// 
+				"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT" ///
+				"resource LBL_OPTIONS" 			///
+				"resource LBL_IMPUTATIONS_TO_USE"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Options" tab, "Imputations to use" must be filled in.
+		}
+		put /hidden " " "imputations(" mi.ed_eopt_num2 ")"
+	}
+	if mi.rb_esyntax2 {
+		if mi.ck_eopt_est {
+			if !mi.ed_eopt_est {
+			call create STRING _MSG_TMP
+                        call _MSG_TMP.format				/// 
+				"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT" ///
+				"resource LBL_OPTIONS" 			///
+				"resource LBL_ESTIMATION_RESULTS"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Options" tab, "Estimation results" must be filled in.
+			}
+			put /hidden " " "estimations(" mi.ed_eopt_est ")"
+		}
+	}
+	if mi.ck_eopt_mce {
+		put /hidden " mcerror"
+	}
+	if mi.ck_eopt_ufmi {
+		put /hidden " ufmitest"
+	}
+	if mi.ck_eopt_nsm {
+		put /hidden " nosmall"
+	}
+
+	if mi.rb_esyntax1 {
+		if mi.ck_saving {
+			if ! mi.fi_saving {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format			/// 
+					"resource MI_MSGBOX_FILENAME_FOR_ESTIMATION_NOT_FILLED_IN_FMT" ///
+					"resource LBL_OPTIONS"
+				stopbox stop "class _MSG_TMP.value"
+// "On the "Options" tab,
+// the filename for saved estimation results has not been filled in.
+			}
+			repfile /hidden mi.fi_saving
+			put " saving(" `"""'
+			put /hidden mi.fi_saving
+			put `"", replace"' ")"
+		}
+	}
+END
+
+/* -------------------- Estimate Tab (Tables) -------------------- */
+
+SCRIPT etbl_hide
+BEGIN
+	mi.gb_etbl_coef.hide
+	mi.rb_etbl_coef1.hide
+	mi.rb_etbl_coef2.hide
+	mi.rb_etbl_coef3.hide
+	mi.ck_etbl_vart.hide
+	mi.bu_etbl_tout.hide
+	mi.ck_noomitted.hide
+	mi.ck_vsquish.hide
+	mi.bu_etbl_fv.hide
+	mi.bu_fmtcoef.hide
+END
+
+SCRIPT etbl_show
+BEGIN
+	mi.gb_etbl_coef.show
+	mi.rb_etbl_coef1.show
+	mi.rb_etbl_coef2.show
+	mi.rb_etbl_coef3.show
+	mi.ck_etbl_vart.show
+	mi.bu_etbl_tout.show
+	mi.ck_noomitted.show
+	mi.ck_vsquish.show
+	mi.bu_etbl_fv.show
+	mi.bu_fmtcoef.show
+END
+
+PROGRAM on_etbl_tout
+BEGIN
+	call create CHILD mi_table_outopts, allowsubmit
+	call mi_table_outopts.setExitString "bu_tableOutResults"
+	call mi_table_outopts.setOkAction "program bu_tableOut_ckResults"
+	call mi_table_outopts.setSubmitAction "program bu_tableOut_Submit"
+END
+
+PROGRAM bu_tableOut_ckResults
+BEGIN
+	if bu_tableOutResults {
+		call mi.bu_etbl_tout.modified_on
+	}
+	else {
+		call mi.bu_etbl_tout.modified_off
+	}
+END
+
+PROGRAM bu_tableOut_Submit
+BEGIN
+	call program bu_tableOut_ckResults
+	call program esubmit
+END
+
+PROGRAM bu_facvars_getOpts
+BEGIN
+	call create CHILD factor_vars_reporting, allowsubmit
+	call factor_vars_reporting.setExitString "bu_facvarsResults"
+	call factor_vars_reporting.setOkAction "program bu_facvars_ckResults"
+	call factor_vars_reporting.setSubmitAction "program bu_facvars_Submit"
+	call factor_vars_reporting.settitle resource LBL_FACTOR_VARIABLE_DISPLAY_OPTIONS
+END
+
+PROGRAM bu_facvars_ckResults
+BEGIN
+	if bu_facvarsResults {
+		call mi.bu_etbl_fv.modified_on
+	}
+	else {
+		call mi.bu_etbl_fv.modified_off
+	}
+END
+
+PROGRAM bu_facvars_Submit
+BEGIN
+	call program bu_facvars_ckResults
+	call program esubmit
+END
+
+PROGRAM bu_fmtcoef_getOpts
+BEGIN
+	call create CHILD fmt_coef_table_reporting AS bu_fmtcoef
+	call bu_fmtcoef.setExitString bu_fmtcoefResults
+	call bu_fmtcoef.setExitAction "program bu_fmtcoef_ckResults"
+END
+
+PROGRAM bu_fmtcoef_ckResults
+BEGIN
+	if bu_fmtcoefResults {
+		call mi.bu_fmtcoef.modified_on
+	}
+	else {
+		call mi.bu_fmtcoef.modified_off
+	}
+END
+
+PROGRAM etbl_output
+BEGIN
+	if mi.rb_etbl_coef2 {
+		put " dftable"
+	}
+	if mi.rb_etbl_coef3 {
+		put " citable dftable"
+	}
+	if mi.ck_etbl_vart {
+		put " vartable"
+	}
+	if mi.ck_noomitted {
+		put " noomitted"
+	}
+	if mi.ck_vsquish {
+		put " vsquish"
+	}
+	if bu_tableOutResults {
+		put " " bu_tableOutResults
+	}
+	if bu_facvarsResults {
+		put " " bu_facvarsResults
+	}
+	if bu_fmtcoefResults {
+		put " " bu_fmtcoefResults
+	}
+END
+
+/* -------------------- Estimate Tab (Reporting) -------------------- */
+
+INCLUDE levels_list
+
+SCRIPT erpt_hide
+BEGIN
+	mi.sp_level.hide
+	mi.tx_level.hide
+
+	mi.gb_displ.hide
+	mi.rb_nodots.hide
+	mi.rb_dots.hide
+	mi.rb_noi.hide
+	mi.rb_trace.hide
+	mi.ck_replay.hide
+
+	mi.ck_cmdlegend.hide
+
+	mi.gb_xt.hide
+	mi.ck_nogroup.hide
+	mi.bu_xtme.hide
+
+	mi.ck_eform.hide
+	mi.cb_eform.hide
+END
+
+SCRIPT erpt_show
+BEGIN
+	mi.sp_level.show
+	mi.tx_level.show
+
+	mi.gb_displ.show
+	mi.rb_nodots.show
+	mi.rb_dots.show
+	mi.rb_noi.show
+	mi.rb_trace.show
+	mi.ck_replay.show
+
+	mi.ck_cmdlegend.show
+
+	mi.ck_eform.show
+	mi.cb_eform.show
+
+	program mi_est_reporting_xt_bu
+END
+
+PROGRAM mi_est_reporting_xt_bu
+BEGIN
+	if mi.rb_esyntax1 {
+		if (mi.lb_ecmd.iseq("xtreg") |				///
+			mi.lb_ecmd.iseq("xtrc") |			///
+			mi.lb_ecmd.iseq("xtlogit") |			///
+			mi.lb_ecmd.iseq("xtprobit") |			///
+			mi.lb_ecmd.iseq("xtcloglog") |			///
+			mi.lb_ecmd.iseq("xtpoisson") |			///
+			mi.lb_ecmd.iseq("xtnbreg") |			///
+			mi.lb_ecmd.iseq("xtgee") |			///
+			mi.lb_ecmd.iseq("mixed") |			///
+			mi.lb_ecmd.iseq("melogit") |			///
+			mi.lb_ecmd.iseq("mepoisson")) {
+			call mi.gb_xt.show
+			call mi.ck_nogroup.show
+			if (mi.lb_ecmd.iseq("mixed") |			///
+				mi.lb_ecmd.iseq("melogit") |		///
+				mi.lb_ecmd.iseq("mepoisson")) {
+				call mi.bu_xtme.show
+				call mi.gb_xt.setposition . . . 80
+			}
+			else {
+				call mi.gb_xt.setposition . . . 50
+			}
+		}
+		else {
+			call mi.gb_xt.hide
+			call mi.ck_nogroup.hide
+			call mi.bu_xtme.hide
+		}
+	}
+	if mi.rb_esyntax2 {
+		call mi.gb_xt.show
+		call mi.gb_xt.setposition . . . 80
+		call mi.ck_nogroup.show
+		call mi.bu_xtme.show
+	}
+END
+
+PROGRAM bu_xtme_getOpts
+BEGIN
+	call create CHILD mi_reporting_xtme_opts, allowsubmit
+	call mi_reporting_xtme_opts.setExitString "bu_xtmeResults"
+	call mi_reporting_xtme_opts.setOkAction "program bu_xtme_ckResults"
+	call mi_reporting_xtme_opts.setSubmitAction "program bu_xtme_Submit"
+END
+
+PROGRAM bu_xtme_ckResults
+BEGIN
+	if bu_xtmeResults {
+		call mi.bu_xtme.formatlabel "resource MI_BU_MIXED_EFFECTS_OPTIONS_FMT" " *"
+	}
+	else {
+		call mi.bu_xtme.formatlabel "resource MI_BU_MIXED_EFFECTS_OPTIONS_FMT" "  "
+	}
+END
+
+PROGRAM bu_xtme_Submit
+BEGIN
+	call program bu_xtme_ckResults
+	call program esubmit
+END
+
+PROGRAM output_per_imp_check
+BEGIN
+	if mi.rb_esyntax2 {
+		call mi.ck_replay.enable
+	}
+	else {
+		call mi.ck_replay.disable
+	}
+
+	if mi.ck_replay & mi.ck_replay.isenabled() {
+		call mi.rb_nodots.disable
+		call mi.rb_dots.disable
+		call mi.rb_noi.disable
+		call mi.rb_trace.disable
+	}
+	else {
+		call mi.rb_nodots.enable
+		call mi.rb_dots.enable
+		call mi.rb_noi.enable
+		call mi.rb_trace.enable
+	}
+END
+
+PROGRAM erpt_output
+BEGIN
+	if ! mi.sp_level.isdefault() {
+		put " level("
+		put /hidden mi.sp_level
+		put ")"
+	}
+
+	if mi.rb_dots & mi.rb_dots.isenabled() {
+		put " dots"
+	}
+	if mi.rb_noi & mi.rb_noi.isenabled() {
+		put " noisily"
+	}
+	if mi.rb_trace & mi.rb_trace.isenabled() {
+		put " trace"
+	}
+
+	if mi.rb_esyntax2 {
+		if mi.ck_replay {
+			put " replay"
+		}
+		if mi.ck_cmdlegend {
+			put " cmdlegend"
+		}
+	}
+	if mi.ck_eform {
+		put " eform"
+		if mi.cb_eform.isneq("exp(b)") {
+			put `"(""'
+			put mi.cb_eform
+			put `"")"'
+		}
+	}
+	if mi.ck_nogroup & (mi.lb_ecmd.iseq("xtreg") |			///
+			mi.lb_ecmd.iseq("xtrc") |			///
+			mi.lb_ecmd.iseq("xtlogit") |			///
+			mi.lb_ecmd.iseq("xtprobit") |			///
+			mi.lb_ecmd.iseq("xtcloglog") |			///
+			mi.lb_ecmd.iseq("xtpoisson") |			///
+			mi.lb_ecmd.iseq("xtnbreg") |			///
+			mi.lb_ecmd.iseq("xtgee") |			///
+			mi.lb_ecmd.iseq("mixed") |			///
+			mi.lb_ecmd.iseq("melogit") |			///
+			mi.lb_ecmd.iseq("mepoisson")) {
+		put " nogroup"
+	}
+	if (bu_xtmeResults & (mi.lb_ecmd.iseq("mixed") |		///
+		mi.lb_ecmd.iseq("melogit") |				///
+		mi.lb_ecmd.iseq("mepoisson") | mi.rb_esyntax2)) {
+		put " " bu_xtmeResults
+	}
+END
+
+/* -------------------- Estimate Tab (Advanced) -------------------- */
+
+SCRIPT eadv_hide
+BEGIN
+	mi.ck_esample.hide
+	mi.ed_esample.hide
+	mi.tx_esample.hide
+	mi.gb_eforce.hide
+	mi.ck_cmdok.hide
+	mi.ck_evary.hide
+	mi.ck_eerror.hide
+END
+
+SCRIPT eadv_show
+BEGIN
+	mi.ck_esample.show
+	mi.ed_esample.show
+	mi.tx_esample.show
+	mi.gb_eforce.show
+	mi.ck_cmdok.show
+	mi.ck_evary.show
+	mi.ck_eerror.show
+END
+
+PROGRAM esample_on
+BEGIN
+	if mi.ck_esample.isenabled() {
+		call mi.ed_esample.enable
+		call mi.tx_esample.enable
+	}
+END
+
+SCRIPT esample_off
+BEGIN
+	mi.ed_esample.disable
+	mi.tx_esample.disable
+END
+
+PROGRAM eadv_output
+BEGIN
+	if mi.ck_esample & mi.ck_esample.isenabled() {
+		if !mi.ed_esample {
+			call create STRING _MSG_TMP
+                        call _MSG_TMP.format				/// 
+				"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT" ///
+				"resource LBL_ADVANCED" 		///
+				"resource LBL_NEW_VARIABLE_NAME_NO_COLON"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Advanced" tab, "New variable name" must be filled in.
+		}
+		if ! mi.ed_esample.isvalidname() {
+			call create STRING _MSG_TMP
+                        call _MSG_TMP.format				///
+				"resource MI_MSGBOX_NEW_VARIABLE_NAME_IS_INVALID_FMT"	///
+				"resource LBL_ADVANCED" 		///
+				"resource LBL_NEW_VARIABLE_NAME_NO_COLON"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Advanced" tab, "New variable name" you specified is invalid.
+		}
+		if mi.ed_esample.isvarname() {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format				/// 
+				"resource MI_MSGBOX_NEW_VARIABLE_NAME_ALREADY_EXISTS_FMT" ///
+				"resource LBL_ADVANCED" 		///
+				"resource LBL_NEW_VARIABLE_NAME_NO_COLON"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Advanced" tab, the "New variable name" you specified already exists.
+		}
+		put " esample("
+		put /hidden mi.ed_esample
+		put ")"
+	}
+	if mi.ck_cmdok & mi.ck_cmdok.isenabled() {
+		put " cmdok"
+	}
+	if mi.ck_evary & mi.ck_evary.isenabled() {
+		put " esampvaryok"
+	}
+	if mi.ck_eerror & mi.ck_eerror.isenabled() {
+		put " errorok"
+	}
+END
+
+
+/* -------------------- Estimate Tab (Submit) -------------------- */
+
+PROGRAM esubmit_prefix_output
+BEGIN
+	put "mi estimate "
+	put /program etrans_output
+	beginoptions
+		put " " /program esubmit_common_output
+	endoptions
+END
+
+PROGRAM esubmit_common_output
+BEGIN
+	put " " /program eopt_output
+	put " " /program etbl_output
+	put " " /program erpt_output
+	put " " /program eadv_output
+END
+
+PROGRAM esubmit
+BEGIN
+	if mi.btn_6 {
+		if mi.rb_esyntax1 {
+			put /program esubmit_prefix_output
+			put " : "
+			if !mi.ed_ecommand {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format					/// 
+			"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT" 	///
+			"resource LBL_TAB_MAIN" 			///
+			"resource LBL_ESTIMATION_COMMAND"
+		stopbox stop "class _MSG_TMP.value"
+// On the Main tab, "Estimation command:" must be filled in.
+			}
+			put /hidden mi.ed_ecommand
+		}
+		if mi.rb_esyntax2 {
+			put "mi estimate "
+			put /program etrans_output
+			if !mi.br_eusing {
+		call create STRING _MSG_TMP     
+                call _MSG_TMP.format					/// 
+			"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT" 	///
+			"resource LBL_TAB_MAIN" 			///
+			"resource MI_MI_TX_EUSING"
+		stopbox stop "class _MSG_TMP.value"
+// On the Main tab, "File containing saved fitted models:" must be filled in.
+			}
+			put " using "
+			put /hidden `"""' mi.br_eusing `"""'
+			beginoptions
+				put " " /program esubmit_common_output
+			endoptions
+		}
+		stata
+	}
+END
+
+/* -------------------- Test Tab -------------------- */
+
+/*
+look at e(mi) ... if it is there turn on Test otherwise do...
+
+        You must have MI estimation results in memory to perform hypotheses
+        tests. Choose 'Estimate' to obtain MI estimation results or
+        choose 'Load estimation results' below to obtain previously saved
+        results.
+
+        (Load estimation results) >> db estimates_use
+*/
+
+SCRIPT test_hide
+BEGIN
+	mi.tx_general.hide
+	mi.tb_general.hide
+
+	mi.hl_estuse.hide
+	script test_hide_sub
+END
+
+SCRIPT test_hide_sub
+BEGIN
+	mi.gb_test.hide
+	mi.rb_test.hide
+	mi.rb_testtr.hide
+
+	mi.tx_syntax.hide
+	mi.cb_test_syntax.hide
+	mi.bu_test_new.hide
+	mi.tx_testBuild.hide
+	mi.lb_testBuild.hide
+	mi.bu_test_edit.hide
+	mi.bu_test_disable.hide
+	mi.bu_test_enable.hide
+	mi.tb_test_note.hide
+	mi.ck_testopt_con.hide
+
+	mi.tx_testtr.hide
+	mi.cb_testtr.hide
+
+	mi.ck_testopt_ufmi.hide
+  	mi.ck_testopt_nsm.hide
+  	mi.ck_testopt_nlg.hide
+	mi.ck_testopt_con.hide
+
+	mi.bu_tsubmit.hide
+END
+
+PROGRAM test_show
+BEGIN
+	if _mi_e_mi {
+		call mi.gb_test.show
+		call mi.rb_test.show
+		call mi.rb_testtr.show
+		call mi.ck_testopt_ufmi.show
+		call mi.ck_testopt_nsm.show
+		call mi.bu_tsubmit.show
+		call program mi_test_typeCheck
+
+		call mi.tx_general.hide
+		call mi.tb_general.hide
+		call mi.hl_estuse.hide
+
+	}
+	else {
+		call mi.tx_general.show
+		call mi.tb_general.show
+		call mi.tb_general.setlabel resource MI_MUST_HAVE_MULTIPLE_IMPUTATIONS_EST_RESULTS_IN_MEM
+		call mi.hl_estuse.show
+
+		call script test_hide_sub
+	}
+END
+
+PROGRAM mi_test_typeCheck
+BEGIN
+	if mi.rb_test & mi.rb_test.isvisible() {
+		call program mi_test_on
+	}
+	if mi.rb_testtr & mi.rb_testtr.isvisible() {
+	  	call script mi_testtr_on
+	}
+END
+
+PROGRAM mi_test_on
+BEGIN
+	if mi.btn_7 {
+		call mi.tx_syntax.show
+		call mi.cb_test_syntax.show
+		call mi.bu_test_new.show
+		call mi.tx_testBuild.show
+		call mi.lb_testBuild.show
+		call mi.bu_test_edit.show
+		call mi.bu_test_disable.show
+		call mi.bu_test_enable.show
+		call mi.bu_test_edit.disable
+		call mi.bu_test_disable.disable
+		call mi.bu_test_enable.disable
+		call mi.tb_test_note.show
+		call mi.ck_testopt_con.show
+		call miTestCommandDisplayList.copyToArray mi_test_list
+		call mi.lb_testBuild.repopulate
+
+		call mi.tx_testtr.hide
+		call mi.cb_testtr.hide
+  		call mi.ck_testopt_nlg.hide
+
+		call mi.ck_testopt_ufmi.setposition . 330
+		call mi.ck_testopt_nsm.setposition . 355
+		call mi.ck_testopt_con.setposition . 380
+	}
+END
+
+LIST test_syntax_list
+BEGIN
+	resource LBL_COEFFICIENTS_ARE_ZERO
+	resource COEFFICIENTS_IN_SPECIFIC_EQUATION_ARE_ZERO
+END
+LIST test_syntax_values
+BEGIN
+	ca0
+	eqn
+END
+
+PROGRAM mi_test_create
+BEGIN
+	call mi_test_count.setvalue class miTestChildDialogList.size
+	call mi_test_count.increment
+	call mi_test_tmp.setvalue "mi_test_"
+	call mi_test_tmp.append class mi.cb_test_syntax.value
+	call mi_test_tmp.append class mi_test_count.value
+	call mi_test_tmp.withvalue mi_test_childdlg.setvalue @
+	call program mi_show_test_child
+END
+
+PROGRAM mi_test_edit
+BEGIN
+	call miTestCommandDisplayList.findstr class mi.lb_testBuild.value
+	call mi_test_position.setvalue class				///
+		miTestCommandDisplayList.position
+	call mi_test_position.withvalue mi_test_childdlg.setvalue	///
+		class miTestChildDialogList.values[@]
+	call mi_test_position.withvalue mi_test_dlgname.setvalue	///
+		class miTestDialogNameList.values[@]
+	call program mi_show_test_child_edit
+END
+
+PROGRAM mi_show_test_child
+BEGIN
+	call mi_test_tmp.setvalue "test_new_"
+	call mi_test_tmp.append class mi.cb_test_syntax.value
+	call mi_test_tmp.append " AS "
+	call mi_test_tmp.append class mi_test_childdlg.value
+	call mi_test_tmp.withvalue create CHILD @
+	call mi_test_childdlg.withvalue @.setExitString	"mi_test_child_result"
+	call mi_test_childdlg.withvalue @.setExitAction			///
+		"program mi_test_child_create_done"
+
+
+
+	call mi_test_count.withvalue mi_STMP.format			///
+		"resource LBL_SPECIFICATION_FMT" "@" ""
+	call mi_STMP.withvalue mi_test_tmp.setvalue "@"
+	call mi_test_childdlg.withvalue mi_test_tmp2.setvalue "@.settitle"
+	call mi_test_tmp2.append `" ""'
+	call mi_test_tmp2.append class mi_test_tmp.value
+	call mi_test_tmp2.append `"""'
+	call mi_test_tmp2.withvalue @
+END
+
+PROGRAM mi_show_test_child_edit
+BEGIN
+	call mi_test_tmp.setvalue "test_new_"
+	call mi_test_tmp.append class mi_test_dlgname.value
+	call mi_test_tmp.append " AS "
+	call mi_test_tmp.append class mi_test_childdlg.value
+	call mi_test_tmp.withvalue create CHILD @
+	call mi_test_childdlg.withvalue @.setExitString 		///
+		"mi_test_child_result"
+	call mi_test_childdlg.withvalue @.setExitAction			///
+		"program mi_test_child_edit_done"
+
+	call mi_test_position.withvalue mi_test_tmp.setvalue		///
+		class miTestCommandDisplayList.values[@]
+	call mi_test_childdlg.withvalue mi_test_tmp2.setvalue "@.settitle"
+	call mi_test_tmp2.append `" ""'
+	call mi_test_tmp2.append class mi_test_tmp.value
+	call mi_test_tmp2.append `"""'
+	call mi_test_tmp2.withvalue @
+END
+
+PROGRAM mi_test_child_create_done
+BEGIN
+	call mi_test_arraysize.setvalue class miTestChildDialogList.size
+	call mi_test_arraysize.increment
+
+	/* Store child dialog name */
+	call miTestChildDialogList.store class				///
+		mi_test_arraysize.value class mi_test_childdlg.value
+
+	/* Store listbox display specification string */
+	call mi_test_arraysize.withvalue mi_STMP.format			///
+		"resource LBL_SPECIFICATION_FMT" "@" ""
+	call mi_STMP.withvalue						///
+		miTestCommandDisplayList.store class			///
+		mi_test_arraysize.value "@"
+
+	/* Store child dialog result string */
+	call miTestCommandList.store class mi_test_arraysize.value 	///
+		class mi_test_child_result.value
+
+	/* Store child dialog result string for final command
+	   For disable/enable */
+	call miTestCommandValues.store class mi_test_arraysize.value	///
+		class mi_test_child_result.value
+
+	/* Store disable/enable status */
+	call miTestStatusList.store class mi_test_arraysize.value "active"
+
+	/* Store dialog name */
+	call miTestDialogNameList.store class mi_test_arraysize.value	///
+		class mi.cb_test_syntax.value
+
+	call miTestCommandDisplayList.copyToArray mi_test_list
+	call mi.lb_testBuild.repopulate
+	call mi_STMP.withvalue mi.lb_testBuild.setvalue "@"
+END
+
+PROGRAM mi_test_child_edit_done
+BEGIN
+	call miTestChildDialogList.findstr class mi_test_childdlg.value
+	call mi_test_position.setvalue class miTestChildDialogList.position
+	call mi_test_position.withvalue mi_test_tmp.setvalue		///
+		class miTestStatusList.values[@]
+	if mi_test_tmp.iseq("active") {
+		call mi_test_position.withvalue mi_STMP.format		///
+			"resource LBL_SPECIFICATION_FMT" "@" ""
+		call mi_STMP.withvalue					///
+			miTestCommandDisplayList.store class		///
+			mi_test_position.value "@"
+		call miTestCommandValues.store class			///
+			mi_test_position.value class			///
+			mi_test_child_result.value
+		call mi_STMP.withvalue mi_test_tmp2.setvalue "@"
+	}
+	else {
+		call mi_test_position.withvalue mi_STMP.format		///
+			"resource LBL_SPECIFICATION_FMT" "@"		///
+			"resource LBL_PAREN_DISABLED"
+		call mi_STMP.withvalue					///
+			mi_test_tmp2.setvalue "@"
+
+		call mi_test_tmp2.withvalue				///
+			miTestCommandDisplayList.store			///
+			class mi_test_position.value "@"
+	}
+
+	call miTestCommandList.store class				///
+		mi_test_position.value class 				///
+		mi_test_child_result.value
+
+	call miTestCommandDisplayList.copyToArray mi_test_list
+	call mi.lb_testBuild.repopulate
+	call mi.lb_testBuild.setvalue class mi_test_tmp2.value
+END
+
+PROGRAM mi_test_sel_changed
+BEGIN
+	call miTestCommandDisplayList.findstr class mi.lb_testBuild.value
+	call mi_test_position.setvalue class 				///
+		miTestCommandDisplayList.position
+	call mi_test_position.withvalue mi_test_tmp.setvalue		///
+		class miTestStatusList.values[@]
+	if mi_test_position {
+		call mi.bu_test_edit.enable
+		call mi_test_position.withvalue				///
+			mi.tb_test_note.setlabel			///
+			class miTestCommandList.values[@]
+	}
+
+	if mi_test_tmp.iseq("disable") {
+		call mi.bu_test_enable.enable
+		call mi.bu_test_disable.disable
+	}
+	if mi_test_tmp.iseq("active") {
+		call mi.bu_test_enable.disable
+		call mi.bu_test_disable.enable
+	}
+END
+
+PROGRAM mi_test_disable
+BEGIN
+	call miTestCommandDisplayList.findstr class mi.lb_testBuild.value
+	call mi_test_position.setvalue class				///
+		miTestCommandDisplayList.position
+
+	call mi_test_tmp.setvalue class mi.lb_testBuild.value
+	call miTestStatusList.store class mi_test_position.value "disable"
+	call miTestCommandValues.store class mi_test_position.value ""
+	call mi_STMP.format "resource LBL_PAREN_DISABLED"
+	call mi_test_tmp.append " "
+	call mi_test_tmp.append class mi_STMP.value
+	call mi_test_tmp.withvalue mi_STMP.setvalue "@"
+
+	call mi_test_tmp.withvalue miTestCommandDisplayList.store	///
+		class mi_test_position.value "@"
+
+	call miTestCommandDisplayList.copyToArray mi_test_list
+	call mi.lb_testBuild.repopulate
+	call mi.lb_testBuild.setvalue class mi_STMP.value
+END
+
+PROGRAM mi_test_enable
+BEGIN
+	call miTestCommandDisplayList.findstr class mi.lb_testBuild.value
+	call mi_test_position.setvalue class 				///
+		miTestCommandDisplayList.position
+
+	call miTestStatusList.store class mi_test_position.value "active"
+	call mi_test_position.withvalue miTestCommandValues.store	///
+		class mi_test_position.value class 			///
+		miTestCommandList.values[@]
+
+	call mi_test_position.withvalue mi_STMP.format 			///
+		"resource LBL_SPECIFICATION_FMT" "@" ""
+	call mi_STMP.withvalue						///
+		miTestCommandDisplayList.store				///
+		class mi_test_position.value "@"
+
+	call miTestCommandDisplayList.copyToArray mi_test_list
+	call mi_test_position.withvalue mi_test_tmp2.setvalue class	///
+		miTestCommandDisplayList.values[@]
+	call mi.lb_testBuild.repopulate
+	call mi.lb_testBuild.setvalue class mi_test_tmp2.value
+END
+
+PROGRAM mi_lb_testBuild_output
+BEGIN
+	call miTestCommandValues.copyToString mi_test_cmd_output
+	call mi_test_arraysize.setvalue class miTestStatusList.size
+	if mi_test_cmd_output.iseq("") & mi_test_arraysize.iseq(0)	///
+		 & mi.lb_testBuild.isvisible() {
+		stopbox stop resource LBL_MSGBOX_SPECIFICATION_NOT_DEFINED
+// Specification not defined. Please enter a specification before proceeding.
+	}
+	if mi_test_cmd_output.iseq("") & mi_test_arraysize.isgt(0)	///
+		& mi.lb_testBuild.isvisible() {
+		stopbox stop resource MI_MSGBOX_ALL_SPECIFICATIONS_ARE_DISABLED
+// All specifications are disabled.
+// Either define a new specification or enable an existing specification
+// before proceeding.
+	}
+
+	if mi_test_cmd_output & mi.lb_testBuild.isvisible() {
+		put mi_test_cmd_output
+	}
+END
+
+SCRIPT mi_testtr_on
+BEGIN
+	mi.tx_syntax.hide
+	mi.cb_test_syntax.hide
+	mi.bu_test_new.hide
+	mi.tx_testBuild.hide
+	mi.lb_testBuild.hide
+	mi.bu_test_edit.hide
+	mi.bu_test_disable.hide
+	mi.bu_test_enable.hide
+	mi.tb_test_note.hide
+	mi.ck_testopt_con.hide
+
+	mi.tx_testtr.show
+	mi.cb_testtr.show
+  	mi.ck_testopt_nlg.show
+
+	mi.ck_testopt_ufmi.setposition . 185
+	mi.ck_testopt_nsm.setposition . 210
+	mi.ck_testopt_nlg.setposition . 235
+END
+
+PROGRAM tsubmit
+BEGIN
+	if mi.btn_7 {
+		if mi.rb_test {
+			put "mi test"
+			put " " /program mi_lb_testBuild_output
+			beginoptions
+				if mi.ck_testopt_ufmi {
+					put " ufmitest"
+				}
+				if mi.ck_testopt_nsm {
+					put " nosmall"
+				}
+				if mi.ck_testopt_con {
+					put " constant"
+				}
+			endoptions
+
+		}
+		if mi.rb_testtr {
+			require mi.cb_testtr
+			put "mi testtransform "
+			put mi.cb_testtr
+			beginoptions
+				if mi.ck_testopt_ufmi {
+					put " ufmitest"
+				}
+				if mi.ck_testopt_nsm {
+					put " nosmall"
+				}
+				if mi.ck_testopt_nlg {
+					put " nolegend"
+				}
+			endoptions
+		}
+		stata
+	}
+END
+
+/* -------------------- Predict Tab -------------------- */
+
+INCLUDE _type_list_fd
+
+PROGRAM OnBTN_p1
+BEGIN
+	call mi.gb_pcmd.setlabel resource LBL_TAB_MAIN
+	call mi.gb_pcmd.show
+	call mi.rb_pred.show
+	call mi.rb_prednl.show
+	if (mi.rb_pred) {
+		call script pred_main_hide
+		call script pred_show
+	}
+	if (mi.rb_prednl) {
+		call script pred_main_hide
+		call script prednl_show
+	}
+	call script popt_hide
+	call script pmiopt_hide
+	call script prpt_hide
+	call script padv_hide
+END
+
+PROGRAM OnBTN_p2
+BEGIN
+	if (mi.rb_pred) {
+		call mi.gb_pcmd.setlabel resource MI_MI_BTN_P2
+	}
+	else {
+		call mi.gb_pcmd.setlabel resource MI_MI_PREDICTNL_OPTIONS
+	}
+	call mi.gb_pcmd.show
+	call mi.rb_pred.hide
+	call mi.rb_prednl.hide
+	call script pred_main_hide
+	call program popt_show
+	call script pmiopt_hide
+	call script prpt_hide
+	call script padv_hide
+END
+
+SCRIPT OnBTN_p3
+BEGIN
+	mi.gb_pcmd.setlabel resource MI_MI_BTN_P3
+	mi.gb_pcmd.show
+	mi.rb_pred.hide
+	mi.rb_prednl.hide
+	script pred_main_hide
+	script popt_hide
+	script pmiopt_show
+	script prpt_hide
+	script padv_hide
+END
+
+SCRIPT OnBTN_p4
+BEGIN
+	mi.gb_pcmd.setlabel resource LBL_TAB_REPORTING
+	mi.gb_pcmd.show
+	mi.rb_pred.hide
+	mi.rb_prednl.hide
+	script pred_main_hide
+	script popt_hide
+	script pmiopt_hide
+	script prpt_show
+	script padv_hide
+END
+
+SCRIPT OnBTN_p5
+BEGIN
+	mi.gb_pcmd.setlabel resource LBL_ADVANCED
+	mi.gb_pcmd.show
+	mi.rb_pred.hide
+	mi.rb_prednl.hide
+	script pred_main_hide
+	script popt_hide
+	script pmiopt_hide
+	script prpt_hide
+	program padv_show
+END
+
+SCRIPT predict_hide
+BEGIN
+	mi.tx_general.hide
+	mi.tb_general.hide
+
+	script predict_hide_u
+	script info_hide
+END
+
+SCRIPT predict_hide_u
+BEGIN
+	mi.btn_p1.hide
+	mi.btn_p2.hide
+	mi.btn_p3.hide
+	mi.btn_p4.hide
+	mi.btn_p5.hide
+	mi.gb_pcmd.hide
+	mi.rb_pred.hide
+	mi.rb_prednl.hide
+	script pred_main_hide
+	script popt_hide
+	script pmiopt_hide
+	script prpt_hide
+	script padv_hide
+	mi.bu_psubmit.hide
+END
+
+PROGRAM predict_show
+BEGIN
+	if _mi_marker {
+		call mi.tx_general.hide
+		call mi.tb_general.hide
+		call mi.btn_p1.show
+		call mi.btn_p2.show
+		call mi.btn_p3.show
+		call mi.btn_p4.show
+		call mi.btn_p5.show
+		call program predict_show_tab
+
+		call mi.bu_psubmit.show
+		call script info_p_show
+	}
+	else {
+		call mi.tx_general.show
+		call mi.tb_general.show
+		call mi.tb_general.setlabel resource MI_MSGBOX_MUST_HAVE_MI_DATA_IN_MEMORY_TO_OBT_MI_PRED
+// You must have mi data in memory to obtain multiple-imputation predictions.
+		call script predict_hide_u
+		call script info_show
+	}
+END
+
+PROGRAM predict_show_tab
+BEGIN
+	if mi.btn_p1 & mi.btn_p1.isvisible() {
+		call program OnBTN_p1
+	}
+	if mi.btn_p2 & mi.btn_p2.isvisible() {
+		call program OnBTN_p2
+	}
+	if mi.btn_p3 & mi.btn_p3.isvisible() {
+		call script OnBTN_p3
+	}
+	if mi.btn_p4 & mi.btn_p4.isvisible() {
+		call script OnBTN_p4
+	}
+	if mi.btn_p5 & mi.btn_p5.isvisible() {
+		call script OnBTN_p5
+	}
+END
+
+PROGRAM pred_on
+BEGIN
+	call script pred_main_hide
+	if mi.rb_pred {
+		if mi.rb_pred.isvisible() {
+			call script pred_show
+		}
+	}
+END
+
+PROGRAM prednl_on
+BEGIN
+	call script pred_main_hide
+	if mi.rb_prednl {
+		if mi.rb_prednl.isvisible() {
+			call script prednl_show
+		}
+	}
+END
+
+SCRIPT pred_main_hide
+BEGIN
+	mi.tx_pmain_var.hide
+	mi.tx_pmain_pnlexp.hide
+	mi.ed_pmain_var.hide
+	mi.tx_pmain_equals.hide
+	mi.ex_pmain_nlexp.hide
+	mi.tx_pmain_type.hide	
+	mi.tx_pmain_pnltxt1.hide
+	mi.tx_pmain_pnltxt2.hide
+	mi.cb_pmain_type.hide
+	mi.tx_pmain_if.hide
+	mi.ex_pmain_if.hide
+	mi.tx_pmain_using.hide
+	mi.br_pmain_using.hide
+END
+
+SCRIPT pred_show
+BEGIN
+	mi.tx_pmain_var.show
+	mi.ed_pmain_var.show
+	mi.tx_pmain_type.show
+	mi.cb_pmain_type.show
+	mi.tx_pmain_type.setposition 380 135
+	mi.cb_pmain_type.setposition 380 155
+
+	mi.tx_pmain_if.show
+	mi.ex_pmain_if.show
+	mi.tx_pmain_if.setposition 140 185
+	mi.ex_pmain_if.setposition 140 205
+
+	mi.tx_pmain_using.show
+	mi.br_pmain_using.show
+	mi.tx_pmain_using.setposition 140 235
+	mi.br_pmain_using.setposition 140 255
+END
+
+SCRIPT prednl_show
+BEGIN
+	mi.tx_pmain_var.show
+	mi.tx_pmain_pnlexp.show
+	mi.ed_pmain_var.show
+	mi.tx_pmain_equals.show
+	mi.ex_pmain_nlexp.show
+	mi.tx_pmain_type.show
+	mi.cb_pmain_type.show
+	mi.tx_pmain_pnltxt1.show
+	mi.tx_pmain_pnltxt2.show
+	mi.tx_pmain_type.setposition 140 185
+	mi.cb_pmain_type.setposition 140 205
+
+	mi.tx_pmain_if.show
+	mi.ex_pmain_if.show
+	mi.tx_pmain_if.setposition 140 235
+	mi.ex_pmain_if.setposition 140 255
+
+	mi.tx_pmain_using.show
+	mi.br_pmain_using.show
+	mi.tx_pmain_using.setposition 140 285
+	mi.br_pmain_using.setposition 140 305
+END
+
+PROGRAM pmain_output
+BEGIN
+	if ! mi.cb_pmain_type.isdefault() {
+		put " "
+		put /hidden mi.cb_pmain_type
+	}
+	if !mi.ed_pmain_var {
+		call create STRING _MSG_TMP
+                call _MSG_TMP.format					/// 
+			"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT" 	///
+			"resource LBL_TAB_MAIN" 			///
+			"resource LBL_GENERATE_VARIABLE"
+		stopbox stop "class _MSG_TMP.value"
+// On the Main tab, "Generate variable:" must be filled in.
+	}
+	put " "
+	put /hidden mi.ed_pmain_var
+	if mi.rb_prednl {
+		if !mi.ex_pmain_nlexp {
+		call create STRING _MSG_TMP
+                call _MSG_TMP.format					/// 
+			"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT" 	///
+			"resource LBL_TAB_MAIN" 			///
+			"resource LBL_NONLINEAR_EXPRESSION"
+		stopbox stop "class _MSG_TMP.value"
+// On the Main tab, "Nonlinear expression:" must be filled in.
+		}
+		put " = "
+		put /hidden mi.ex_pmain_nlexp
+	}
+
+	if mi.ex_pmain_if {
+		put " if "
+		put /hidden mi.ex_pmain_if
+	}
+	if !mi.br_pmain_using {
+		call create STRING _MSG_TMP
+                call _MSG_TMP.format					/// 
+			"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT" 	///
+			"resource LBL_TAB_MAIN" 			///
+			"resource MI_MI_TX_EUSING" 
+		stopbox stop "class _MSG_TMP.value"
+// On the Main tab, "File containing saved fitted models:" must be filled in.
+	}
+	put " using "
+	put /hidden `"""' mi.br_pmain_using `"""'
+END
+
+/* -------------------- Predict Tab (Predict options) ---------------------- */
+SCRIPT popt_hide
+BEGIN
+	script pred_popt_hide
+	script prednl_popt_hide
+END
+
+SCRIPT pred_popt_hide
+BEGIN
+	mi.gb_popt_prod.hide
+	mi.rb_popt_xb.hide
+	mi.rb_popt_stdp.hide
+	mi.ck_popt_nooffset.hide
+	mi.ck_popt_equation.hide
+	mi.ed_popt_equation.hide
+END
+
+PROGRAM pred_popt_show
+BEGIN
+	call mi.gb_popt_prod.show
+	call mi.rb_popt_xb.show
+	call mi.rb_popt_stdp.show
+	call mi.ck_popt_nooffset.show
+	call mi.ck_popt_equation.show
+	call mi.ed_popt_equation.show
+	if mi.ck_popt_equation {
+		call mi.ed_popt_equation.enable
+	}
+	else {
+		call mi.ed_popt_equation.disable
+	}
+END
+
+SCRIPT prednl_popt_hide
+BEGIN
+	mi.gb_popt_gens.hide
+	mi.ck_popt_se.hide
+	mi.ed_popt_se.hide
+	mi.ck_popt_variance.hide
+	mi.ed_popt_variance.hide
+	mi.ck_popt_wald.hide
+	mi.ed_popt_wald.hide
+	mi.ck_popt_p.hide
+	mi.ed_popt_p.hide
+	mi.ck_popt_ci.hide
+	mi.ed_popt_ci1.hide
+	mi.ed_popt_ci2.hide
+	mi.tx_popt_cisiglev.hide
+	mi.sp_popt_cisiglev.hide
+	mi.ck_popt_bvariance.hide
+	mi.ed_popt_bvariance.hide
+	mi.ck_popt_wvariance.hide
+	mi.ed_popt_wvariance.hide
+	mi.ck_popt_df.hide
+	mi.ed_popt_df.hide
+	mi.ck_popt_nosmall.hide
+	mi.ck_popt_rvi.hide
+	mi.ed_popt_rvi.hide
+	mi.ck_popt_re.hide
+	mi.ed_popt_re.hide
+	mi.ck_popt_fmi.hide
+	mi.ed_popt_fmi.hide
+END
+
+PROGRAM prednl_popt_show
+BEGIN
+	call mi.gb_popt_gens.show
+	call mi.ck_popt_se.show
+	call mi.ed_popt_se.show
+	if mi.ck_popt_se {
+		call mi.ed_popt_se.enable
+	}
+	else {
+		call mi.ed_popt_se.disable
+	}
+	call mi.ck_popt_variance.show
+	call mi.ed_popt_variance.show
+	if mi.ck_popt_variance {
+		call mi.ed_popt_variance.enable
+	}
+	else {
+		call mi.ed_popt_variance.disable
+	}
+	call mi.ck_popt_wald.show
+	call mi.ed_popt_wald.show
+	if mi.ck_popt_wald {
+		call mi.ed_popt_wald.enable
+	}
+	else {
+		call mi.ed_popt_wald.disable
+	}
+	call mi.ck_popt_p.show
+	call mi.ed_popt_p.show
+	if mi.ck_popt_p {
+		call script popt_p_on
+	}
+	else {
+		call script popt_p_off
+	}
+	call mi.ck_popt_ci.show
+	call mi.ed_popt_ci1.show
+	call mi.ed_popt_ci2.show
+	if mi.ck_popt_ci {
+		call script popt_ci_on
+	}
+	else {
+		call script popt_ci_off
+	}
+	call mi.tx_popt_cisiglev.show
+	call mi.sp_popt_cisiglev.show
+	call mi.ck_popt_bvariance.show
+	call mi.ed_popt_bvariance.show
+	if mi.ck_popt_bvariance {
+		call mi.ed_popt_bvariance.enable
+	}
+	else {
+		call mi.ed_popt_bvariance.disable
+	}
+	call mi.ck_popt_wvariance.show
+	call mi.ed_popt_wvariance.show
+	if mi.ck_popt_wvariance {
+		call mi.ed_popt_wvariance.enable
+	}
+	else {
+		call mi.ed_popt_wvariance.disable
+	}
+	call mi.ck_popt_df.show
+	call mi.ed_popt_df.show
+	call mi.ck_popt_nosmall.show
+	if mi.ck_popt_df {
+		call script popt_df_on
+	}
+	else {
+		call script popt_df_off
+	}
+	call mi.ck_popt_rvi.show
+	call mi.ed_popt_rvi.show
+	if mi.ck_popt_rvi {
+		call mi.ed_popt_rvi.enable
+	}
+	else {
+		call mi.ed_popt_rvi.disable
+	}
+	call mi.ck_popt_re.show
+	call mi.ed_popt_re.show
+	if mi.ck_popt_re {
+		call script popt_re_on
+	}
+	else {
+		call script popt_re_off
+	}
+	call mi.ck_popt_fmi.show
+	call mi.ed_popt_fmi.show
+	if mi.ck_popt_fmi {
+		call script popt_fmi_on
+	}
+	else {
+		call script popt_fmi_off
+	}
+	call program popt_check_nosmall
+END
+
+PROGRAM popt_show
+BEGIN
+	if mi.rb_pred {
+		call program pred_popt_show
+		call script prednl_popt_hide
+	}
+	else {
+		call script pred_popt_hide
+		call program prednl_popt_show
+	}
+END
+
+PROGRAM popt_check_nosmall
+BEGIN
+	if (mi.ck_popt_p | mi.ck_popt_ci | mi.ck_popt_df |		///
+		mi.ck_popt_fmi | mi.ck_popt_re) {
+		call mi.ck_popt_nosmall.enable
+	}
+	else {
+		call mi.ck_popt_nosmall.disable
+	}
+END
+
+SCRIPT popt_p_on
+BEGIN
+	mi.ed_popt_p.enable
+	program popt_check_nosmall
+END
+
+SCRIPT popt_p_off
+BEGIN
+	mi.ed_popt_p.disable
+	program popt_check_nosmall
+END
+
+SCRIPT popt_ci_on
+BEGIN
+	mi.ed_popt_ci1.enable
+	mi.ed_popt_ci2.enable
+	program popt_check_nosmall
+  	mi.tx_popt_cisiglev.enable
+	mi.sp_popt_cisiglev.enable
+END
+
+SCRIPT popt_ci_off
+BEGIN
+	mi.ed_popt_ci1.disable
+	mi.ed_popt_ci2.disable
+	program popt_check_nosmall
+  	mi.tx_popt_cisiglev.enable
+	mi.sp_popt_cisiglev.enable
+END
+
+SCRIPT popt_df_on
+BEGIN
+	mi.ed_popt_df.enable
+	program popt_check_nosmall
+END
+
+SCRIPT popt_df_off
+BEGIN
+	mi.ed_popt_df.disable
+	program popt_check_nosmall
+END
+
+SCRIPT popt_re_on
+BEGIN
+	mi.ed_popt_re.enable
+	program popt_check_nosmall
+END
+
+SCRIPT popt_re_off
+BEGIN
+	mi.ed_popt_re.disable
+	program popt_check_nosmall
+END
+
+SCRIPT popt_fmi_on
+BEGIN
+	mi.ed_popt_fmi.enable
+	program popt_check_nosmall
+END
+
+SCRIPT popt_fmi_off
+BEGIN
+	mi.ed_popt_fmi.disable
+	program popt_check_nosmall
+END
+
+PROGRAM popt_output
+BEGIN
+	if mi.rb_pred {
+		if mi.rb_popt_xb {
+			put " xb"
+		}
+		if mi.rb_popt_stdp {
+			put " stdp"
+		}
+		if mi.ck_popt_nooffset {
+			put " nooffset"
+		}
+		if mi.ck_popt_equation {
+			if !mi.ed_popt_equation {
+				call create STRING _MSG_TMP
+	                        call _MSG_TMP.format			/// 
+					"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT" ///
+					"resource MI_MI_BTN_P2" 	///
+					"resource LBL_EQUATION"
+				stopbox stop "class _MSG_TMP.value"
+	
+// On the "Predict options" tab, "Equation" must be filled in.
+			}
+			put /hidden " " "equation(" mi.ed_popt_equation ")"
+		}
+	}
+	else {
+		if mi.ck_popt_se {
+			if !mi.ed_popt_se {
+				call create STRING _MSG_TMP
+                                call _MSG_TMP.format			/// 
+					"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT" ///
+					"resource MI_MI_BTN_P2" 	///
+					"resource LBL_STANDARD_ERRORS_COLON" 
+				stopbox stop "class _MSG_TMP.value"
+// On the "Predict options" tab, "Standard errors:" must be filled in.
+			}
+			put /hidden " " "se(" mi.ed_popt_se ")"
+		}
+		if mi.ck_popt_variance {
+			if !mi.ed_popt_variance {
+                                call create STRING _MSG_TMP
+                                call _MSG_TMP.format			/// 
+					"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT" ///
+					"resource MI_MI_BTN_P2" 	///
+					"resource LBL_VARIANCES"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Predict options" tab, "Variances:" must be filled in.
+			}
+			put /hidden " " "variance(" mi.ed_popt_variance ")"
+		}
+		if mi.ck_popt_wald {
+			if !mi.ed_popt_wald {
+                                call create STRING _MSG_TMP
+                                call _MSG_TMP.format			/// 
+					"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT" ///
+					"resource MI_MI_BTN_P2"		///
+					"resource LBL_WALD_TEST_STATISTICS"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Predict options" tab, "Wald test statistic:" must be filled in.
+			}
+			put /hidden " " "wald(" mi.ed_popt_wald ")"
+		}
+		if mi.ck_popt_p {
+			if !mi.ed_popt_p {
+				call create STRING _MSG_TMP
+                                call _MSG_TMP.format			/// 
+					"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT" ///
+					"resource MI_MI_BTN_P2" 	///
+					"resource LBL_P_VALUES_FOR_WALD_TESTS" 				
+				stopbox stop "class _MSG_TMP.value"
+// On the "Predict options" tab,
+// "Significance levels of Wald tests:" must be filled in.
+			}
+			put /hidden " " "p(" mi.ed_popt_p ")"
+		}
+		if mi.ck_popt_ci {
+			if (!mi.ed_popt_ci1 | !mi.ed_popt_ci2) {
+				call create STRING _MSG_TMP
+                                call _MSG_TMP.format			/// 
+					"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT" ///
+					"resource MI_MI_BTN_P2" 	///
+					"resource LBL_LOWER_AND_UPPER_CONFIDENCE_INTERVALS"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Predict options" tab,
+// "Lower and upper confidence intervals:" must be filled in.
+			}
+			put /hidden " " "ci(" mi.ed_popt_ci1		///
+				" " mi.ed_popt_ci2 ")"
+		}
+		if ! mi.sp_popt_cisiglev.isdefault() {
+			put " level("
+			put /hidden mi.sp_popt_cisiglev
+			put ")"
+		}
+		if mi.ck_popt_bvariance {
+			if !mi.ed_popt_bvariance {
+                                call create STRING _MSG_TMP
+                                call _MSG_TMP.format 			///
+					"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT" ///
+					"resource MI_MI_BTN_P2" 	///
+					"resource MI_MI_TX_POPT_BVARIANCE" 
+				stopbox stop "class _MSG_TMP.value"
+// On the "Predict options" tab,
+// "Between-imputation variances:" must be filled in.
+			}
+			put /hidden " " "bvariance(" mi.ed_popt_bvariance ")"
+		}
+		if mi.ck_popt_wvariance {
+			if !mi.ed_popt_wvariance {
+	                        call create STRING _MSG_TMP
+                                call _MSG_TMP.format			/// 
+					"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT" ///
+					"resource MI_MI_BTN_P2" 	///
+					"resource MI_MI_CK_POPT_WVARIANCE"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Predict options" tab,
+// "Within-imputation variances:" must be filled in.
+			}
+			put /hidden " " "wvariance(" mi.ed_popt_wvariance ")"
+		}
+		if mi.ck_popt_df {
+			if !mi.ed_popt_df {
+                                call create STRING _MSG_TMP
+                                call _MSG_TMP.format			/// 
+					"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT" ///
+					"resource MI_MI_BTN_P2" 	///
+					"resource MI_MI_CK_POST_DF" 
+				stopbox stop "class _MSG_TMP.value"
+// On the "Predict options" tab, "MI degrees of freedom:" must be filled in.
+			}
+			put /hidden " " "df(" mi.ed_popt_df ")"
+		}
+		if mi.ck_popt_rvi {
+			if !mi.ed_popt_rvi {
+				call create STRING _MSG_TMP
+                                call _MSG_TMP.format 			///
+					"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT" ///
+					"resource MI_MI_BTN_P2" 	///
+					"resource MI_MI_CK_POPT_RVI" 
+				stopbox stop "class _MSG_TMP.value"
+// On the "Predict options" tab, "Relative variance increase:" must be filled in.
+			}
+			put /hidden " " "rvi(" mi.ed_popt_rvi ")"
+		}
+		if mi.ck_popt_re {
+			if !mi.ed_popt_re {
+                                call create STRING _MSG_TMP
+                                call _MSG_TMP.format			/// 
+					"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT" ///
+					"resource MI_MI_BTN_P2" 	///
+					"resource MI_MI_POPT_RE" 
+				stopbox stop "class _MSG_TMP.value"
+// On the "Predict options" tab,
+// "Relative efficiencies:" must be filled in.
+			}
+			put /hidden " " "re(" mi.ed_popt_re ")"
+		}
+		if mi.ck_popt_fmi {
+			if !mi.ed_popt_fmi {
+                                call create STRING _MSG_TMP
+                                call _MSG_TMP.format			/// 
+					"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT" ///
+					"resource MI_MI_BTN_P2" 	///
+					"resource MI_MI_CK_POPT_FMI" 
+				stopbox stop "class _MSG_TMP.value"
+// On the "Predict options" tab,
+// "Fractions of missing information:" must be filled in.
+			}
+			put /hidden " " "fmi(" mi.ed_popt_fmi ")"
+		}
+		if mi.ck_popt_nosmall {
+			put " nosmall"
+		}
+	}
+END
+
+/* -------------------- Predict Tab (MI Options) --------------------------- */
+
+SCRIPT pmiopt_hide
+BEGIN
+	mi.gb_pmiopt_num.hide
+	mi.rb_pmiopt_num0.hide
+	mi.rb_pmiopt_num1.hide
+	mi.sp_pmiopt_num1.hide
+	mi.tx_pmiopt_num1.hide
+	mi.rb_pmiopt_num2.hide
+	mi.ed_pmiopt_num2.hide
+	mi.tx_pmiopt_num2.hide
+	mi.ck_pmiopt_est.hide
+	mi.ed_pmiopt_est.hide
+	mi.tx_pmiopt_est.hide
+	mi.ck_pmiopt_esample.hide
+	mi.vn_pmiopt_esample.hide
+	mi.tx_pmiopt_esample.hide
+	mi.ck_pmiopt_store.hide
+END
+
+SCRIPT pmiopt_show
+BEGIN
+	mi.gb_pmiopt_num.show
+	mi.rb_pmiopt_num0.show
+	mi.rb_pmiopt_num1.show
+	mi.sp_pmiopt_num1.show
+	mi.tx_pmiopt_num1.show
+	mi.rb_pmiopt_num2.show
+	mi.ed_pmiopt_num2.show
+	mi.tx_pmiopt_num2.show
+	mi.ck_pmiopt_est.show
+	mi.ed_pmiopt_est.show
+	mi.tx_pmiopt_est.show
+	mi.ck_pmiopt_esample.show
+	mi.vn_pmiopt_esample.show
+	mi.tx_pmiopt_esample.show
+	mi.ck_pmiopt_store.show
+END
+
+PROGRAM check_pmiopt_rb_num
+BEGIN
+	if mi.rb_pmiopt_num0 {
+		call mi.sp_pmiopt_num1.disable
+		call mi.tx_pmiopt_num1.disable
+		call mi.ed_pmiopt_num2.disable
+		call mi.tx_pmiopt_num2.disable
+	}
+	if mi.rb_pmiopt_num1 & mi.rb_pmiopt_num1.isenabled() {
+		call mi.sp_pmiopt_num1.enable
+		call mi.tx_pmiopt_num1.enable
+		call mi.ed_pmiopt_num2.disable
+		call mi.tx_pmiopt_num2.disable
+	}
+	if mi.rb_pmiopt_num2 & mi.rb_pmiopt_num2.isenabled() {
+		call mi.ed_pmiopt_num2.enable
+		call mi.tx_pmiopt_num2.enable
+		call mi.sp_pmiopt_num1.disable
+		call mi.tx_pmiopt_num1.disable
+	}
+END
+
+PROGRAM check_pmiopt_ck_estimation
+BEGIN
+	if mi.ck_pmiopt_est & mi.ck_pmiopt_est.isenabled() {
+		call mi.ed_pmiopt_est.enable
+		call mi.tx_pmiopt_est.enable
+		call script pmiopt_imputations_disable
+	}
+	else {
+		call mi.ed_pmiopt_est.disable
+		call mi.tx_pmiopt_est.disable
+		call script pmiopt_imputations_enable
+	}
+END
+
+SCRIPT pmiopt_imputations_disable
+BEGIN
+	mi.gb_pmiopt_num.disable
+	mi.rb_pmiopt_num0.disable
+	mi.rb_pmiopt_num1.disable
+	mi.rb_pmiopt_num2.disable
+	mi.sp_pmiopt_num1.disable
+	mi.tx_pmiopt_num1.disable
+	mi.ed_pmiopt_num2.disable
+	mi.tx_pmiopt_num2.disable
+END
+
+SCRIPT pmiopt_imputations_enable
+BEGIN
+	mi.gb_pmiopt_num.enable
+	mi.rb_pmiopt_num0.enable
+	mi.rb_pmiopt_num1.enable
+	mi.rb_pmiopt_num2.enable
+	program check_pmiopt_rb_num
+END
+
+SCRIPT pmiopt_estimation_disable
+BEGIN
+	mi.ck_pmiopt_est.disable
+	mi.ed_pmiopt_est.disable
+	mi.tx_pmiopt_est.disable
+	program check_pmiopt_ck_estimation
+END
+
+SCRIPT pmiopt_estimation_enable
+BEGIN
+	mi.ck_pmiopt_est.enable
+	program check_pmiopt_ck_estimation
+END
+
+PROGRAM pmiopt_esample_on
+BEGIN
+	if mi.ck_pmiopt_esample.isenabled() {
+		call mi.vn_pmiopt_esample.enable
+		call mi.tx_pmiopt_esample.enable
+	}
+END
+
+SCRIPT pmiopt_esample_off
+BEGIN
+	mi.vn_pmiopt_esample.disable
+	mi.tx_pmiopt_esample.disable
+END
+
+PROGRAM pmiopt_output
+BEGIN
+	if mi.rb_pmiopt_num1 & mi.rb_pmiopt_num1.isenabled() {
+		put /hidden " " "nimputations(" mi.sp_pmiopt_num1 ")"
+	}
+	if mi.rb_pmiopt_num2 & mi.rb_pmiopt_num2.isenabled() {
+		if !mi.ed_pmiopt_num2 {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format				/// 
+				"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT" ///
+				"resource MI_MI_BTN_P3" 		///
+				"resource LBL_IMPUTATIONS_TO_USE"
+			stopbox stop "class _MSG_TMP.value"
+// On the "MI options" tab, "Imputations to use" must be filled in.
+		}
+		put /hidden " " "imputations(" mi.ed_pmiopt_num2 ")"
+	}
+	if mi.ck_pmiopt_est {
+		if !mi.ed_pmiopt_est {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format				/// 
+				"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT" ///
+				"resource MI_MI_BTN_P3" 		///
+				"resource LBL_ESTIMATION_RESULTS"
+			stopbox stop "class _MSG_TMP.value"
+// On the "MI options" tab, "Estimation results" must be filled in.
+		}
+		put /hidden " " "estimations(" mi.ed_pmiopt_est ")"
+	}
+	if mi.ck_pmiopt_esample & mi.ck_pmiopt_esample.isenabled() {
+		if !mi.vn_pmiopt_esample {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format				/// 
+				"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT" ///
+				"resource MI_MI_BTN_P3" 		///
+				"resource LBL_ED_VARIABLE_NAME" 
+			stopbox stop "class _MSG_TMP.value"
+// On the "MI options" tab, "Variable name" must be filled in.
+		}
+		put " esample("
+		put /hidden mi.vn_pmiopt_esample
+		put ")"
+	}
+	if mi.ck_pmiopt_store & mi.ck_pmiopt_store.isenabled() {
+		put " storecompleted"
+	}
+END
+
+/* -------------------- Predict Tab (Reporting) --------------------------- */
+
+SCRIPT prpt_hide
+BEGIN
+	mi.ck_prpt_replay.hide
+	mi.ck_prpt_cmdlegend.hide
+END
+
+SCRIPT prpt_show
+BEGIN
+	mi.ck_prpt_replay.show
+	mi.ck_prpt_cmdlegend.show
+END
+
+PROGRAM prpt_output
+BEGIN
+	if mi.ck_prpt_replay {
+		put " replay"
+	}
+	if mi.ck_prpt_cmdlegend {
+		put " cmdlegend"
+	}
+END
+
+/* -------------------- Predict Tab (Advanced) --------------------------- */
+
+SCRIPT padv_hide
+BEGIN
+	mi.sp_padv_num1.hide
+	mi.tx_padv.hide
+	mi.tx_padv_num1.hide
+	mi.ck_padv_force.hide
+END
+
+PROGRAM padv_show
+BEGIN
+	if (mi.rb_pred) {
+		call mi.sp_padv_num1.hide
+		call mi.tx_padv_num1.hide
+		call mi.ck_padv_force.hide
+		call mi.tx_padv.show
+	}
+	else {
+		call mi.sp_padv_num1.show
+		call mi.tx_padv_num1.show
+		call mi.ck_padv_force.show
+		call mi.tx_padv.hide
+	}
+END
+
+PROGRAM padv_output
+BEGIN
+	if (mi.rb_prednl) {
+		if ! mi.sp_padv_num1.isdefault() {
+			put " iterate("
+			put /hidden mi.sp_padv_num1
+			put ")"
+		}
+		if mi.ck_padv_force {
+			put " force"
+		}
+	}
+
+END
+
+/* -------------------- Predict Tab (Submit) -------------------- */
+
+PROGRAM psubmit
+BEGIN
+	if mi.btn_8 {
+		if (mi.rb_pred) {
+			put "mi predict "
+		}
+		if (mi.rb_prednl) {
+			put "mi predictnl "
+		}
+		put /program pmain_output
+		beginoptions
+			put " " /program popt_output
+			put " " /program pmiopt_output
+			put " " /program prpt_output
+			put " " /program padv_output
+		endoptions
+		stata
+	}
+END
+
+/* -------------------- Overall Dialog Control -------------------- */
+
+SCRIPT OnBTN1
+BEGIN
+	mi.gb_label.setlabel resource MI_MI_BTN_1
+	script setup_hide
+	script impute_hide
+	script import_hide
+	script manage_hide
+	script estimates_hide
+	script test_hide
+	script predict_hide
+	script examine_show
+END
+
+SCRIPT OnBTN2
+BEGIN
+	mi.gb_label.setlabel resource LBL_SETUP
+	script examine_hide
+	script impute_hide
+	script import_hide
+	script manage_hide
+	script estimates_hide
+	script test_hide
+	script predict_hide
+	script setup_show
+END
+
+SCRIPT OnBTN3
+BEGIN
+	mi.gb_label.setlabel resource MI_MI_BTN_3
+	script examine_hide
+	script setup_hide
+	script import_hide
+	script manage_hide
+	script estimates_hide
+	script test_hide
+	script predict_hide
+	program impute_show
+END
+
+SCRIPT OnBTN4
+BEGIN
+	mi.gb_label.setlabel resource MI_MI_BTN_4
+	script examine_hide
+	script setup_hide
+	script impute_hide
+	script manage_hide
+	script estimates_hide
+	script test_hide
+	script predict_hide
+	program import_show
+END
+
+SCRIPT OnBTN5
+BEGIN
+	mi.gb_label.setlabel resource MI_MI_BTN_5
+	script examine_hide
+	script setup_hide
+	script impute_hide
+	script import_hide
+	script estimates_hide
+	script test_hide
+	script predict_hide
+	program manage_show
+END
+
+SCRIPT OnBTN6
+BEGIN
+	mi.gb_label.setlabel resource MI_MI_BTN_1
+	script examine_hide
+	script setup_hide
+	script impute_hide
+	script import_hide
+	script manage_hide
+	script test_hide
+	script predict_hide
+	program estimates_show
+END
+
+SCRIPT OnBTN7
+BEGIN
+	mi.gb_label.setlabel resource LBL_TEST
+	script examine_hide
+	script setup_hide
+	script impute_hide
+	script import_hide
+	script manage_hide
+	script estimates_hide
+	script predict_hide
+	program test_show
+END
+
+SCRIPT OnBTN8
+BEGIN
+	mi.gb_label.setlabel resource MI_MI_BTN_8
+	script examine_hide
+	script setup_hide
+	script impute_hide
+	script import_hide
+	script manage_hide
+	script estimates_hide
+	script test_hide
+	program predict_show
+END
+
+PROGRAM BTN3_check
+BEGIN
+	if mi.btn_3 {
+		call program impute_show
+	}
+END
+
+PROGRAM BTN4_check
+BEGIN
+	if mi.btn_4 {
+		call program import_show
+	}
+END
+
+PROGRAM BTN5_check
+BEGIN
+	if mi.btn_5 {
+		call program manage_show
+	}
+END
+
+PROGRAM BTN6_check
+BEGIN
+	if mi.btn_6 {
+		call program estimates_show
+	}
+END
+
+PROGRAM BTN7_check
+BEGIN
+	if mi.btn_7 {
+		call program test_show
+	}
+END
+
+PROGRAM BTN8_check
+BEGIN
+	if mi.btn_8 {
+		call program predict_show
+	}
+END

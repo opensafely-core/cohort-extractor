@@ -1,0 +1,100 @@
+/*
+
+*!  VERSION 1.2.3  01mar2019
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_msmall
+POSITION . . _dlgwd 250
+
+OK ok1, label(resource LBL_BU_OK)
+CANCEL can1, label(resource LBL_BU_CANCEL)
+RESET res1
+HELP hlp1, view("help varlist")
+COPY copy1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING s_output
+	create STRING s_tsvar
+	setscale_hadj resource _VN_TS_INTERNAL_DLG_HSCALE
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	if __MESSAGE {
+		if (!__MESSAGE.contains(".")) {
+			/* if the variable is not already ts, fill it in */
+			call main.vl_var.setvalue ""
+			call __MESSAGE.withvalue main.vl_var.smartinsert "@"
+		}
+	}
+	call program check_tsset
+	call program _ts_operators_show
+END
+
+PROGRAM ON_DOTPROMPT
+BEGIN
+	call program check_tsset
+END
+
+PROGRAM check_tsset
+BEGIN
+	call s_tsvar.setvalue char _dta[_TStvar]
+	if (s_tsvar) {
+		call program _ts_operators_enable
+	}
+	else {
+		call program _ts_operators_disable
+	}
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN) 	///
+	label(resource _VN_TS_INTERNAL_DLG_TITLE)
+BEGIN
+  HYPERLINK	hl_time		_rj100	_top	100	.,		///
+	label(resource LBL_TIME_SETTINGS) right onpush(program show_tsset)
+  TEXT		tx_var		_lft	_top	_vnwd	.,		///
+	label(resource LBL_VARIABLE)
+  VARNAME	vl_var		@	_ss	@ 	.,		///
+  	numeric								///
+	label(resource LBL_VARIABLE)
+
+  DEFINE _x _lft
+  DEFINE _y +35
+  DEFINE _cx _iwd
+  INCLUDE _ts_operators
+END
+
+PROGRAM show_tsset
+BEGIN
+	call create STRING tssetResult
+	call create CHILD tsset
+	call tsset.setExitString "tssetResult"
+	call tsset.setExitAction "program get_tsset_result"
+END
+PROGRAM get_tsset_result
+BEGIN
+	if tssetResult {
+		put tssetResult
+		stata
+	}
+END
+
+INCLUDE _ts_operators_pr
+
+PROGRAM command
+BEGIN
+	require main.vl_var
+	
+	call s_output.setvalue ""
+	call program _ts_operators_add
+	if (s_output) {
+		call s_output.append "."
+	}
+	call s_output.append class main.vl_var.value
+
+	put s_output
+END

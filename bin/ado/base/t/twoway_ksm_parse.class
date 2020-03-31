@@ -1,0 +1,90 @@
+/*                                 twoway_ksm_parse
+
+   A parser for a ksm smooth view.  Works with twoway.ado.
+
+*/
+*! version 1.0.1  16jan2003
+
+version 8
+
+class {
+	method		= "lowess"
+	bwidth		= .8
+	ksm_options	= ""
+} , inherit(twoway_yxview_parse)
+
+
+// ---------------------------------------------------------------------------
+
+program parse
+	.must_create_serset = 1
+
+	.viewtype = "line"
+	.Super.parse `.factor `0''
+
+							// check number of vars
+	_clsarr2list mlablist : labvars			// allow marker labels
+	local vlist `.varlist'
+	local vlist : list vlist - mlablist
+	if 0`:word count `vlist'' > 2 {
+	    di in smcl "{error}{p 0 8}too many variables specified: `.varlist'"
+      	    exit 103
+	}
+
+	local 0 , `.options'
+	syntax [ , LINE MEAN LOWESS BWidth(real .8) LOGit Weight ADJust * ]
+
+	.ksm_options = "`logit' `weight' `weight'"
+	.bwidth = `bwidth'
+	
+	local method `line' `mean' `lowess'
+	if `:word count `method'' > 1 {
+		di as error "options `method' may not be combined"
+	}
+	if "`method'" != "" {
+		.method = "`method'"
+	}
+	.options   = `"`options'"'
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*
+	Creates a new serset and the view and returns its reference.
+	Assumes that the data in memory is the same as when parse was called.
+
+	Allows a touse(varname) option that further restricts the sample, 
+	restricts beyond the held .if and .in
+
+	Additional options to the .serset.new command may be specified, but
+	this is unlikely to be necessary.
+
+	If must_create_serset == 1, then this command MUST be used, 
+	otherwise the serset may be created by other means.
+*/ 
+
+program log_create_serset
+
+	syntax , LOG(name) SERSETNAME(string) [ TOUSE(passthru) * ]
+
+	.log_touse , log(`log') `touse'
+
+	local rest `.varlist'
+	gettoken y rest : rest
+	gettoken x rest : rest
+
+	.`log'.Arrpush __NOLOG__ tempname yhat
+	.`log'.Arrpush __NOLOG__ ksm `y' `x' if \`touse1' , `.method' ///
+		gen(\`yhat') bwidth(`.bwidth') `.ksm_options' nograph
+
+	.`log'.Arrpush __NOLOG__ label variable \`yhat' 		 ///
+		"ksm of `y', `method' bwidth(`.bwidth') `options'"
+
+	.`log'.Arrpush .`sersetname' = .serset.new \`yhat' `x' `rest'	 ///
+		if \`touse1' , `.omitmethod' `options' nocount
+	.`log'.Arrpush __NOLOG__ .`sersetname'.sort `x'
+
+	.`log'.Arrpush __NOLOG__ .`sersetname'.sers[1].name = "`y'"
+end
+
+

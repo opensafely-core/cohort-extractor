@@ -1,0 +1,186 @@
+//				clegend_g.class
+//
+//  Class for contour legends -- a thin plotregion, filled with areas (a
+//  contour key), and a z axis.
+
+*! version 1.3.0  15mar2019
+
+version 12
+
+class {
+
+    instance:
+    	clegendstyle	style
+	view	= ""
+
+} , inherit(grid)
+
+
+
+// ---------------------------------------------------------------------------
+//
+//  Usage:	.new , view(view_objkey) ...
+
+program new
+
+	syntax [ , ALTAXIS VIEW(string) STYle(passthru) * ]
+
+	.Super.new , `style' `options'
+
+	.xstretch.set fixed
+	.ystretch.set free
+	.subview.set_true
+
+	if `"`view'"' != `""' {
+		.view = "`view'"
+	}
+
+	if `"`style'"' == `""' {
+		.style.setstyle, style(scheme contour)
+	}
+
+	.insert (plotregion1 = .plotregion.new, style(scheme clegend)) at 1 1
+
+	if (`.plotregion1.style.styledex' != 0)				///
+		.plotregion1.style.remake_as_copy
+
+	.plotregion1.zscale.ref = .plotregion1.yscale.ref
+
+	if "`altaxis'" != "" {
+		local axispos = cond(					///
+			"`.style.myposition.gridpos'" == "rightof",	///
+			"leftof", "rightof")
+	}
+	else	local axispos "`.style.myposition.gridpos'"
+	local orient : subinstr local axispos "of" ""
+
+	local title `"`.`.view'.serset.sers[`.`.view'.zvar'].label_or_name'"'
+	.insert (zaxis = .axis.new, plotregion(`.plotregion1.objkey')	///
+		style(scheme clegend) pos(`orient')			///
+		title(`"`macval(title)'"')) `axispos' plotregion1		
+
+	if `"`view'"' != `""' {
+		.plotregion1.Declare contour = .`view'.legendview
+		.plotregion1.contour.view.zaxis = "`.zaxis.objkey'"
+	}
+
+	.SetFixedDim
+	.SetMargin
+
+	.zaxis.set_ticks
+end
+
+
+// ---------------------------------------------------------------------------
+// Set the fixed/set x and y size based on the settings in the style.
+// Also set/reset the plotregions scales
+
+program SetFixedDim
+
+	.plotregion1.xstretch.set fixed
+	.plotregion1.set_xsize.setstyle, style(`.style.width.stylesetting')
+
+	.plotregion1.reset_scales y
+	.plotregion1.xscale.set, min(0) max(1)
+
+	if 0`.style.height.val' > 0 {
+	    .plotregion1.set_ysize.setstyle, style(`.style.height.stylesetting')
+	    .plotregion1.ystretch.set fixed
+	    .ystretch.set fixed
+	}
+	else {
+	    .plotregion1.ystretch.set free
+	    .ystretch.set free
+	}
+
+end
+
+
+// ---------------------------------------------------------------------------
+// Zero the margin on the side where the axis is.
+//
+
+program SetMargin
+
+	if "`.style.myposition.setting'" == "right" {
+		.plotregion1.style.margin.editstyle editcopy style(r=0)
+	}
+	else if "`.style.myposition.setting'" == "left" {
+		.plotregion1.style.margin.editstyle editcopy style(l=0)
+	}
+	else if "`.style.myposition.setting'" == "above" {
+		.plotregion1.style.margin.editstyle editcopy style(r=0)
+	}
+	else if "`.style.myposition.setting'" == "below" {
+		.plotregion1.style.margin.editstyle editcopy style(r=0)
+	}
+end
+
+
+// ---------------------------------------------------------------------------
+//  Parse title options and push its declaration and any style edits onto the 
+//  specified log.
+//
+//  This call MUST occur after the declaration of plotregion1 has been pushed.
+//  Returns the unparsed options.
+//
+//  Usage:  local options = `".parse_and_log_title <logname> objname `options'"'
+
+
+program parse_and_log_titles , rclass
+
+	if "`.title.isa'" != "" {
+		.parse_and_log_titles_edits `0'
+		exit
+	}
+
+	gettoken log   0 : 0
+	gettoken obj   0 : 0
+
+							// preferred span order
+ _fr_title_parse_and_log `log' "`obj'" note     NOTE     cleg_note     `0'
+ _fr_title_parse_and_log `log' "`obj'" caption  CAPtion  cleg_caption  `r(rest)'
+ _fr_title_parse_and_log `log' "`obj'" subtitle SUBtitle cleg_subtitle `r(rest)'
+ _fr_title_parse_and_log `log' "`obj'" title    Title    cleg_title    `r(rest)'
+	
+	return local rest `r(rest)'
+end
+
+program parse_and_log_titles_edits , rclass
+	gettoken log   0 : 0
+	gettoken obj   0 : 0
+
+							// preferred span order
+	_fr_tedits_parse_and_log `log' "`obj'" title    Title    `r(rest)'
+	_fr_tedits_parse_and_log `log' "`obj'" caption  CAPtion  `r(rest)'
+	_fr_tedits_parse_and_log `log' "`obj'" subtitle SUBtitle `r(rest)'
+	_fr_tedits_parse_and_log `log' "`obj'" title    Title    `r(rest)'
+	
+	return local rest `r(rest)'
+end
+
+
+// ---------------------------------------------------------------------------
+//  Use compass_draw to allow alignment of the sized clegend in an area that
+//  is possibly larger than the size of the legend.
+
+program draw
+
+	syntax [, * ]
+
+	.compass_draw , align(style.box_alignment) drawpgm(_super_draw)	///
+			margins(style.margin) `options'
+end
+
+program _super_draw
+
+	syntax [, XSize(real 0) YSize(real 0) * ]
+
+	.xsize_ren = `xsize'
+	.ysize_ren = `ysize'
+	.style.boxmargin.setgdi, view(`.objkey')		// boxmargin
+
+	.Super.draw , xsize(`.xsize_ren') ysize(`.ysize_ren') `options'
+
+end
+

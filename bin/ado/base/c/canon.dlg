@@ -1,0 +1,227 @@
+/*
+  canon.dlg
+
+*!  VERSION 1.3.0  18sep2014
+
+  keyword:  eclass
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE header
+HELP hlp1, view("help canon")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource CANON_DLG_HSCALE
+END
+
+
+DIALOG	 main,	label(resource CANON_DLG_TITLE) 			/*
+		*/	tabtitle(resource LBL_TAB_MODEL)
+BEGIN
+
+   TEXT	    tx_firstvar		_lft	_top	_iwd	.,		/*
+		*/	label(resource CANON_MAIN_TX_FIRSTVAR)
+
+   VARLIST  vl_firstvar		@	_ss	@	.,		/*
+   		*/	numeric						/*
+		*/	label(resource CANON_MAIN_TX_FIRSTVAR)
+
+   TEXT	    tx_secondvar	@	_ms	@	.,		/*
+		*/	label(resource CANON_MAIN_TX_SECONDVAR)
+
+   VARLIST  vl_secondvar	@	_ss	@	.,		/*
+   		*/	numeric						/*
+		*/	label(resource CANON_MAIN_TX_SECONDVAR)
+
+   GROUPBOX gb_opts		@	_ls	@	_ht8h,		/*
+		*/	label(resource LBL_OPTIONS)
+   CHECKBOX ck_lc		_ilft	_ls	_ckwd	.,		/*
+   		*/ 	onclickon(script sp_lc)				/*
+   		*/	onclickoff(script sp_lc_off)			/*
+   		*/	option(NONE)
+DEFINE   holdx @x
+   SPINNER  sp_lc		_cksep 	@	_spwd	.,		/*
+		*/	label(resource CANON_MAIN_SP_LC)		/*
+		*/	min(1)						/*
+		*/	max(1000) 					/*
+		*/	default(1)					/*
+		*/	option(lc)
+   TEXT	    tx_lc		_spsep	@	_cksprb	.,		/*
+		*/	label(resource CANON_MAIN_TX_LC)
+   CHECKBOX ck_fir	       _ilft    _ms     _ckwd   .,		/*
+   		*/	onclickon(script sp_fir)			/*
+   		*/	onclickoff(script sp_fir_off)			/*
+   		*/ 	option(NONE)
+   SPINNER  sp_fir		_cksep  @       _spwd   .,		/*
+   		*/ 	label(resource CANON_MAIN_SP_FIR)		/*
+   		*/	min(1)						/*
+		*/	max(1000)					/*
+		*/	default(1)					/*
+		*/	option(first)
+   TEXT     tx_fir              _spsep	@	_cksprb	.,		/*
+   		*/label(resource CANON_MAIN_TX_FIR)
+
+   CHECKBOX ck_noconstant	holdx	_ls	_ibwd	.,		/*
+	*/ label(resource CANON_MAIN_CK_NOCONSTANT) 			/*
+	*/ option(noconstant)
+END
+
+INCLUDE byifin
+INCLUDE weights_fa
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+   GROUPBOX gb_opts		_lft	_top	@	_ht8h,		/*
+		*/	label(resource CANON_RPT_GB_OPTS)
+   RADIO    rb_stdo		_ilft   _ss     _ibwd   .,		/*
+   	*/	label(resource CANON_RPT_RB_STDO)/*
+   	*/	option(NONE) 						/*
+	*/	first clickon(program rb_cm)
+   RADIO    rb_sc               @	_ss	@	.,		/*
+   	*/	label(resource CANON_RPT_RB_SC)	/*
+   	*/	option(stdcoef) clickon(program rb_cm)
+   RADIO    rb_se		@	_ss	@	.,		/*
+   	*/	label(resource CANON_RPT_RB_SE)/*
+   	*/	option(stderr)    last clickon(script rb_stdo)
+
+  DEFINE _x _indent2
+  DEFINE _cx _spr
+  DEFINE _y _ss
+  INCLUDE _sp_level
+  RADIO	    rb_stest         _lft       _xxls    _iwd   .,		/*
+  	*/ label(resource CANON_RPT_RB_STEST) first 			/*
+  	*/ clickon(gaction rpt.ed_test.disable) option(NONE)
+  RADIO     rb_test          @          _ms     _rbwd  .,		/*
+  	*/ clickon(gaction rpt.ed_test.enable)
+  EDIT      ed_test          _rbsep     @       _en7wd  .,		/*
+  	*/ option(test)
+  TEXT      tx_tests         _en7sep     @      _rben7r .,		/*
+  	*/label(resource CANON_RPT_TX_TESTS)
+  RADIO     rb_notests       _lft       _ms    _iwd   .,		/*
+  	*/label(resource CANON_RPT_RB_NOTESTS) last 	/*
+  	*/option(notests) clickon(gaction rpt.ed_test.disable)
+  CHECKBOX  ck_format		@	_ls	@	.,		///
+	onclickon(program check_format)					///
+	onclickoff(program check_format)				///
+  	label(resource CANON_RPT_CK_FORMAT)
+  EDIT     ed_format    	+20	_ss	200	.,		///
+	option(format) label(resource LBL_DISPLAY_FORMAT)
+  BUTTON   bu_format      	+205	@	80	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(script showFormatDialog)					///
+	tooltip(resource LBL_CREATE_DISPLAY_FORMAT)
+END
+
+SCRIPT showFormatDialog
+BEGIN
+	create STRING formatString
+	create CHILD format_chooser
+	format_chooser.setExitString formatString
+	format_chooser.setExitAction "rpt.ed_format.setvalue class formatString.value"
+END
+
+PROGRAM check_format
+BEGIN
+	if rpt.ck_format & rpt.ck_format.isenabled() {
+		call rpt.ed_format.enable
+		call rpt.bu_format.enable
+	}
+	else {
+		call rpt.ed_format.disable
+		call rpt.bu_format.disable
+	}
+END
+
+PROGRAM vl_1
+BEGIN
+	varlist main.vl_firstvar
+END
+
+PROGRAM vl_2
+BEGIN
+	varlist main.vl_secondvar
+END
+
+PROGRAM rb_cm
+BEGIN
+	call rpt.ck_format.enable
+	call rpt.sp_level.disable
+	if rpt.ck_format & rpt.ck_format.isenabled() {
+		call rpt.ed_format.enable
+		call rpt.bu_format.enable
+	}
+	else {
+		call rpt.ed_format.disable
+		call rpt.bu_format.disable
+	}
+END
+
+SCRIPT rb_stdo
+BEGIN
+	rpt.sp_level.enable
+	rpt.ck_format.disable
+	rpt.ed_format.disable
+	rpt.bu_format.disable
+END
+
+SCRIPT sp_lc
+BEGIN
+	main.sp_lc.enable
+	main.ck_fir.disable
+	main.sp_fir.disable
+	main.tx_fir.disable
+END
+
+SCRIPT sp_lc_off
+BEGIN
+	main.sp_lc.disable
+	main.ck_fir.enable
+	main.tx_fir.enable
+END
+
+SCRIPT sp_fir
+BEGIN
+	main.sp_lc.disable
+	main.ck_lc.disable
+	main.tx_lc.disable
+	main.sp_fir.enable
+END
+
+SCRIPT sp_fir_off
+BEGIN
+	main.sp_fir.disable
+	main.ck_lc.enable
+	main.tx_lc.enable
+END
+
+PROGRAM command
+BEGIN
+	INCLUDE _by_pr
+	put "canon "
+	put "("
+	put /program vl_1
+	put ") ("
+	put /program vl_2
+	put ")"
+	INCLUDE _weights_pr
+	INCLUDE _ifin_pr
+	beginoptions
+		optionarg main.sp_lc
+		optionarg main.sp_fir
+		option main.ck_noconstant
+		option rpt.rb_sc
+		option rpt.rb_se
+		optionarg /hidedefault rpt.sp_level
+		optionarg rpt.ed_test
+		option rpt.rb_notests
+		if rpt.ck_format {
+			require rpt.ed_format
+			optionarg rpt.ed_format
+		}
+ 	endoptions
+END
+

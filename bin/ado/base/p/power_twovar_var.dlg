@@ -1,0 +1,622 @@
+/*
+	power twovariances
+
+*!  VERSION 1.1.3  14mar2017
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_xlarge
+DEFINE _dlght 480
+INCLUDE header
+
+HELP hlp1, view("help power twovariances")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING graph_res
+	create STRING standdev_res
+	create STRING numContents
+	create STRING stok
+	create ARRAY tmp
+	create BOOLEAN containsNumlist
+	create BOOLEAN containsNumlist_v1
+	create BOOLEAN containsNumlist_v2
+	create BOOLEAN child_hasNumlist
+	create STRING child_dlgName
+
+	child_hasNumlist.setfalse
+	child_dlgName.setvalue "Power_Twovar"
+
+	program table_create4Twovar_var
+	setscale_hadj resource POWER_TWOVAR_VAR_DLG_HSCALE
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	label(resource POWER_TWOVAR_VAR_DLG_TITLE)
+BEGIN
+  INCLUDE power_compute
+  DEFINE errpos _ls
+  INCLUDE power_errorprob
+  DEFINE sspos +45
+  INCLUDE power_twosampsi
+
+  GROUPBOX gb_effect_size	_lft	200	_iwd	_ht7h,		///
+	label(resource LBL_EFFECT_SIZE)
+  GROUPBOX gb_var		_indent	_ss	_cwd1	_ht4h,		///
+	label(resource LBL_VARIANCES_NO_COLON)
+  DEFINE holdy2 @y
+  EDIT ed_control		_indent	_ss	_en14wd	.,		///
+	onchange(program check_for_numlist)				///
+	tooltip(resource POWER_TWOVAR_VAR_MAIN_ED_CONTROL)		///
+	label("")
+  TEXT tx_control		_en14sep @	100	.,		///
+	label(resource LBL_STAR_CONTROL)
+  EDIT ed_exp_ratio		_iilft	_ls	_en14wd	.,		///
+	onchange(program check_for_numlist)				///
+	option(ratio)							///
+	label("")
+  TEXT tx_exp_ratio		_en14sep @	8	.,		///
+	label("*")
+  COMBOBOX cb_exp_ratio		+10	 @	100	.,		///
+	dropdownlist							///
+	contents("main_effect_list")					///
+	values("main_effect_values")					///
+	onselchange("program main_exp_ratio_changed")			///
+	label("")
+  DEFINE ypos +45
+  INCLUDE power_test_maincommon
+END
+
+LIST main_compute_list
+BEGIN
+	resource LBL_TOTAL_SAMPLE_SIZE
+	resource LBL_CONTROL_GROUP_SAMPLE_SIZE
+	resource LBL_EXPERIMENTAL_GROUP_SAMPLE_SIZE
+	resource PSS_LBL_POWER
+	resource POWER_TWOVAR_VAR_EFFECT_SIZE_EXP_GROUP_VAR
+END
+
+LIST main_compute_values
+BEGIN
+	tot_sampsi
+	ctrl_sampsi
+	exp_sampsi
+	power
+	effect
+END
+
+INCLUDE _power_list
+
+LIST main_effect_list
+BEGIN
+	resource LBL_EXPERIMENTAL
+	resource LBL_RATIO_NO_COLON
+END
+
+LIST main_effect_values
+BEGIN
+	"exp"
+	"ratio"
+END
+
+PROGRAM main_compute_changed
+BEGIN
+	if main.cb_compute.iseq("tot_sampsi") {
+		call program main_tot_sampsi_on
+	}
+	if main.cb_compute.iseq("ctrl_sampsi") {
+		call program main_ctrl_sampsi_on
+	}
+	if main.cb_compute.iseq("exp_sampsi") {
+		call program main_exp_sampsi_on
+	}
+	if main.cb_compute.iseq("power") {
+		call program main_power_on
+	}
+	if main.cb_compute.iseq("effect") {
+		call program main_effect_on
+	}
+	call program check_for_numlist
+END
+
+PROGRAM main_tot_sampsi_on
+BEGIN
+	call script main_sampsi_hide_all
+	call main.gb_sample_size.setposition . . . 75
+	call main.ck_nfrac.setposition . 170
+	call main.tx_sampsi.hide
+	call main.cb_sampsi.hide
+	call main.ed_nratio.show
+	call main.tx_nratio.show
+	call main.ed_power.show
+	call main.ed_beta.show
+	call main.tx_power_beta_power.show
+	call main.cb_power_beta.show
+	call main.ed_exp_ratio.show
+	call main.tx_exp_ratio.show
+	call main.cb_exp_ratio.show
+
+	call program main_move_effect_size
+	call program main_move_main_opts
+	call script power_test_maincommon_hide_dir
+	call program main_power_beta_changed
+	call program power_iteration_tab_check
+END
+
+PROGRAM main_ctrl_sampsi_on
+BEGIN
+	call script main_sampsi_hide_all
+	call main.gb_sample_size.setposition . . . 75
+	call main.ck_nfrac.setposition . 170
+	call main.tx_sampsi.hide
+	call main.cb_sampsi.hide
+	call main.ed_n2.show
+	call main.tx_n2.show
+	call main.ed_power.show
+	call main.ed_beta.show
+	call main.tx_power_beta_power.show
+	call main.cb_power_beta.show
+	call main.ed_exp_ratio.show
+	call main.tx_exp_ratio.show
+	call main.cb_exp_ratio.show
+	call program main_move_effect_size
+	call program main_move_main_opts
+	call script power_test_maincommon_hide_dir
+	call program main_power_beta_changed
+	call program power_iteration_tab_check
+END
+
+PROGRAM main_exp_sampsi_on
+BEGIN
+	call script main_sampsi_hide_all
+	call main.gb_sample_size.setposition . . . 75
+	call main.ck_nfrac.setposition . 170
+	call main.tx_sampsi.hide
+	call main.cb_sampsi.hide
+	call main.ed_n1.show
+	call main.tx_n1.show
+	call main.ed_power.show
+	call main.ed_beta.show
+	call main.tx_power_beta_power.show
+	call main.cb_power_beta.show
+	call main.ed_exp_ratio.show
+	call main.tx_exp_ratio.show
+	call main.cb_exp_ratio.show
+	call program main_move_effect_size
+	call program main_move_main_opts
+	call script power_test_maincommon_hide_dir
+	call program main_power_beta_changed
+	call program power_iteration_tab_check
+END
+
+PROGRAM main_power_on
+BEGIN
+	call script main_sampsi_hide_all
+	call main.gb_sample_size.setposition . . . 95
+	call main.ck_nfrac.setposition . 190
+	call main.tx_sampsi.show
+	call main.cb_sampsi.show
+	call main.ed_power.hide
+	call main.ed_beta.hide
+	call main.tx_power_beta_power.hide
+	call main.cb_power_beta.hide
+	call main.ed_exp_ratio.show
+	call main.tx_exp_ratio.show
+	call main.cb_exp_ratio.show
+	call program main_sampsi_changed
+	call program main_move_effect_size
+	call program main_move_main_opts
+	call script power_test_maincommon_hide_dir
+	call program power_iteration_tab_check
+END
+
+PROGRAM main_effect_on
+BEGIN
+	call script main_sampsi_hide_all
+	call main.gb_sample_size.setposition . . . 95
+	call main.ck_nfrac.setposition . 190
+	call main.tx_sampsi.show
+	call main.cb_sampsi.show
+	call main.ed_power.show
+	call main.ed_beta.show
+	call main.tx_power_beta_power.show
+	call main.cb_power_beta.show
+	call main.ed_exp_ratio.hide
+	call main.tx_exp_ratio.hide
+	call main.cb_exp_ratio.hide
+	call program main_sampsi_changed
+	call program main_move_effect_size
+	call program main_move_main_opts
+	call script power_test_maincommon_show_dir
+	call program main_power_beta_changed
+	call program power_iteration_tab_check
+END
+
+PROGRAM main_exp_ratio_changed
+BEGIN
+	if main.cb_exp_ratio.iseq("exp") {
+		call main.ed_exp_ratio.settooltip resource POWER_TWOVAR_VAR_EXPERIMENTAL_GROUP_VAR_V2
+	}
+	else {
+		call main.ed_exp_ratio.settooltip resource POWER_TWOVAR_VAR_VARIANCE_RATIO_V2_V1
+	}
+	call program check_for_numlist
+	call program table_create4Twovar_var
+END
+
+INCLUDE power_errorprob_pr
+INCLUDE power_twosampsi_pr
+
+PROGRAM main_power_beta_table
+BEGIN
+	call program table_create4Twovar_var
+END
+
+PROGRAM main_move_effect_size
+BEGIN
+	if main.cb_compute.iseq("power") | main.cb_compute.iseq("effect") {
+		call main.gb_effect_size.setposition . 240
+		call main.gb_var.setposition . 260
+		call main.ed_control.setposition . 280
+		call main.tx_control.setposition . 280
+		call main.ed_exp_ratio.setposition . 305
+		call main.tx_exp_ratio.setposition . 305
+		call main.cb_exp_ratio.setposition . 305
+	}
+	else {
+		call main.gb_effect_size.setposition . 215
+		call main.gb_var.setposition . 235
+		call main.ed_control.setposition . 255
+		call main.tx_control.setposition . 255
+		call main.ed_exp_ratio.setposition . 280
+		call main.tx_exp_ratio.setposition . 280
+		call main.cb_exp_ratio.setposition . 280
+	}
+END
+
+PROGRAM main_move_main_opts
+BEGIN
+	if main.cb_compute.iseq("power") | main.cb_compute.iseq("effect") {
+		call main.tx_oneside.setposition . 360
+		call main.cb_oneside.setposition . 380
+		call main.tx_direction.setposition . 360
+		call main.cb_direction.setposition . 380
+		call main.ck_parallel.setposition  . 415
+	}
+	else {
+		call main.tx_oneside.setposition . 335
+		call main.cb_oneside.setposition . 355
+		call main.tx_direction.setposition . 335
+		call main.cb_direction.setposition . 355
+		call main.ck_parallel.setposition  . 390
+	}
+END
+
+INCLUDE power_test_maincommon_pr
+INCLUDE power_table_opts
+INCLUDE power_graph
+INCLUDE power_iteration
+
+PROGRAM check_for_numlist
+BEGIN
+	call containsNumlist.setfalse
+	call containsNumlist_v1.setfalse
+	call containsNumlist_v2.setfalse
+
+	if main.ed_control {
+		call numContents.setvalue class main.ed_control.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+			call containsNumlist_v1.settrue
+		}
+	}
+
+	if main.ed_exp_ratio.isvisible() {
+		call numContents.setvalue class main.ed_exp_ratio.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+			call containsNumlist_v2.settrue
+		}
+		call program table_create4Twovar_var
+	}
+
+	if main.ed_alpha {
+		call numContents.setvalue class main.ed_alpha.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_power.isvisible() {
+		call numContents.setvalue class main.ed_power.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_beta.isvisible() {
+		call numContents.setvalue class main.ed_beta.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_nratio.isvisible() {
+		call numContents.setvalue class main.ed_nratio.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+		call program table_create4Twovar_var
+	}
+
+	if main.ed_n1.isvisible() {
+		call numContents.setvalue class main.ed_n1.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_n2.isvisible() {
+		call numContents.setvalue class main.ed_n2.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_sampsi_n.isvisible() {
+		call numContents.setvalue class main.ed_sampsi_n.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_sampsi_nratio.isvisible() {
+		call numContents.setvalue class main.ed_sampsi_nratio.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+		call program table_create4Twovar_var
+	}
+
+	if main.ed_sampsi_n1.isvisible() {
+		call numContents.setvalue class main.ed_sampsi_n1.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_sampsi_n2.isvisible() {
+		call numContents.setvalue class main.ed_sampsi_n2.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if containsNumlist {
+		call main.ck_parallel.enable
+	}
+	else {
+		call main.ck_parallel.disable
+	}
+END
+
+PROGRAM power_iteration_tab_check
+BEGIN
+	call script power_iteration_enable
+	if main.cb_compute.iseq("power") {
+		call script power_iteration_disable
+	}
+	else {
+		if main.cb_oneside.iseq("onesided") &		///
+			main.cb_compute.iseq("effect") {
+			call script power_iteration_disable
+		}
+		if main.cb_compute.endswith("sampsi") {
+			call script power_iteration_is_sampsi
+		}
+		if main.cb_compute.iseq("effect") {
+			call script power_iteration_is_effect
+		}
+	}
+END
+
+PROGRAM command
+BEGIN
+	put "power twovariances "
+
+	if !main.ed_control {
+		call create STRING _MSG_TMP
+                call _MSG_TMP.format					/// 
+			"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT" 	///
+			"resource LBL_TAB_MAIN" 			///
+			"resource LBL_CONTROL_GROUP_VARIANCE"
+		stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Control-group variance" must be filled in.
+	}
+
+	if !main.ed_control.isnumlist() {
+		call create STRING _MSG_TMP
+                call _MSG_TMP.format 					///
+			"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+			"resource LBL_TAB_MAIN" 			///
+			"resource LBL_CONTROL_GROUP_VARIANCE"
+                stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Control-group variance".
+	}
+	if !main.ed_control.isNumlistGT(0) {
+		call create STRING _MSG_TMP
+                call _MSG_TMP.format 					///
+			"resource LBL_MSGBOX_ON_TAB_GREATER_THAN_0_FMT" ///
+			"resource LBL_TAB_MAIN" 			///
+			"resource LBL_CONTROL_GROUP_VARIANCE"
+                stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Control-group variance" must be greater than 0.
+	}
+	if containsNumlist_v1 {
+		put "("
+		put main.ed_control
+		put ")"
+	}
+	else {
+		put main.ed_control
+	}
+
+	if main.cb_compute.endswith("sampsi") | main.cb_compute.iseq("power") {
+		if !main.ed_exp_ratio {
+			if main.cb_exp_ratio.iseq("exp") {
+                call create STRING _MSG_TMP
+                call _MSG_TMP.format					/// 
+			"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT" 	///
+			"resource LBL_TAB_MAIN" 			///
+			"resource LBL_EXPERIMENTAL_GROUP_VARIANCE"
+                stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Experimental-group variance" must be filled in.
+			}
+			else  {
+				call create STRING _MSG_TMP
+		                call _MSG_TMP.format			/// 
+					"resource LBL_MSGBOX_OF_VARIANCES_REQUIRED_FMT" ///
+					"resource LBL_TAB_MAIN" 	///
+					"resource LBL_RATIO_NO_COLON"
+	              		  stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Ratio" of variances must be filled in.
+			}
+		}
+	}
+
+	if main.cb_exp_ratio.iseq("exp") & main.cb_exp_ratio.isvisible() {
+		if !main.ed_exp_ratio.isnumlist() {
+                call create STRING _MSG_TMP
+                call _MSG_TMP.format 					///
+			"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+			"resource LBL_TAB_MAIN" 			///
+			"resource LBL_EXPERIMENTAL_GROUP_VARIANCE"
+                stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Experimental-group variance".
+		}
+		if !main.ed_exp_ratio.isNumlistGT(0) {
+                call create STRING _MSG_TMP
+                call _MSG_TMP.format					/// 
+			"resource LBL_MSGBOX_ON_TAB_GREATER_THAN_0_FMT" ///
+			"resource LBL_TAB_MAIN" 			///
+			"resource LBL_EXPERIMENTAL_GROUP_VARIANCE"
+                stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Experimental-group variance" must be greater than 0.
+		}
+		if containsNumlist_v2 {
+			put " ("
+			put main.ed_exp_ratio
+			put ")"
+		}
+		else {
+			put " " main.ed_exp_ratio
+		}
+	}
+
+	beginoptions
+		if main.cb_exp_ratio.iseq("ratio") &			///
+			main.cb_exp_ratio.isvisible(){
+			if !main.ed_exp_ratio.isnumlist() {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 			///
+					"resource LBL_MSGBOX_INVALID_NUMLIST_OF_VARIANCES_FMT" ///
+					"resource LBL_TAB_MAIN" 	///
+					"resource LBL_RATIO_NO_COLON"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Ratio" of variances.
+			}
+			if !main.ed_exp_ratio.isNumlistGT(0) {
+                                call create STRING _MSG_TMP
+                                call _MSG_TMP.format			/// 
+					"resource LBL_MSGBOX_OF_VARIANCES_GREATER_THAN_0_FMT" ///
+					"resource LBL_TAB_MAIN" 	///
+					"resource LBL_RATIO_NO_COLON"
+                                stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Ratio" of variances must be greater than 0.
+			}
+			optionarg main.ed_exp_ratio
+		}
+
+		put " " /program power_errorprob_output
+		put " " /program power_twosampsi_output
+		put " " /program power_test_maincommon_output
+		put " " /program power_table_opts_output
+		put " " /program power_graph_output
+		put " " /program power_iteration_output
+	endoptions
+END

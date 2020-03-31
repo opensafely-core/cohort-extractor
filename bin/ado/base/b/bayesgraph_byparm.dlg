@@ -1,0 +1,248 @@
+/*
+    bayesgraph_byparm.dlg
+
+*!  VERSION 1.0.4  22oct2019
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_small
+DEFINE _dlght 210
+INCLUDE header
+
+HELP hlp1, view("help by_option##byopts")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource BAYESGRAPH_BYPARM_DLG_HSCALE
+END
+
+SCRIPT gr_byopts_setAxesOptionsOff
+BEGIN
+	by.bu_axes_adv.hide
+END
+
+SCRIPT gr_byopts_disable
+BEGIN
+	by.ck_by.disable
+	script by_off
+END
+
+SCRIPT gr_byopts_enable
+BEGIN
+	program gr_byopts_enable_wrk
+END
+PROGRAM gr_byopts_enable_wrk
+BEGIN
+	call by.ck_by.enable
+	if by.ck_by {
+		call program by_on
+	}
+END
+
+SCRIPT gr_byopts_setMissingOff
+BEGIN
+	by.ck_missing.hide
+END
+
+SCRIPT gr_byopts_setTotalOff
+BEGIN
+	by.ck_total.hide
+END
+
+SCRIPT by_PREINIT
+BEGIN
+	create STRING byResults
+	create STRING byTitleResults
+	create STRING byAxesResults
+	create STRING byRegionResults
+END
+
+PROGRAM by_POSTINIT_PROGRAM
+BEGIN
+	call program by_checkByResults
+	call program by_checkByTitleResults
+	call program by_checkAxesResults
+	call program by_checkByRegionResults
+END
+
+DIALOG by, tabtitle(resource GR_BYOPTS_TAB_BY)
+BEGIN
+  CHECKBOX ck_by	_lft	_top	_iwd	180,		///
+	groupbox						///
+	onclickon(program by_on) onclickoff(script by_off)	///
+	label(resource GR_BYOPTS_BY_CK_BY)
+
+  CHECKBOX ck_total	_ilft	_ss	220	.,		///
+	label(resource LBL_ADD_GRAPH_WITH_TOTALS)		///
+	option(total)
+  DEFINE y @y
+  CHECKBOX ck_missing	@	_ms	@	.,		///
+	label(resource LBL_ADD_GRAPH_FOR_MISSING_VALUES)	///
+	option(missing)
+	
+  BUTTON   bu_opts	@	_ms	180	.,		///
+	label(resource LBL_SUBGRAPH_ORGANIZATION)		///
+	onpush(program get_by_options)				///
+	tooltip(resource LBL_AFFECT_HOW_SUBGRAPHS_ARE_ARRANGED)
+	
+  BUTTON   bu_title	@	_ms	@	.,		///
+	label(resource LBL_SUBGRAPH_TITLE_PROPERTIES)		///
+	onpush(script get_by_title_options)			///
+	tooltip(resource LBL_PROPERTIES_EACH_SUBGRAPH)
+  BUTTON   bu_region	@	_ms	@	.,		///
+	label(resource LBL_SUBGRAPH_REGION_PROPERTIES)		///
+	onpush(script get_by_region_options)			///
+	tooltip(resource LBL_PROP_AFFECT_BOTH_GRAPH_PLOT_REGION_IND_SUBGR)
+  BUTTON   bu_axes_adv	@	_ms	@	.,		///
+	label(resource LBL_BU_SUBGRAPH_AXES)			///
+	onpush(script get_by_axes_adv)				///
+	tooltip(resource LBL_AFFECT_HOW_AXES_RELATE_INDIVIDUAL_SUBGRAPHS)
+END
+
+PROGRAM by_on
+BEGIN
+	if by.ck_by.isenabled() & by.ck_by {
+		call by.ck_total.enable
+		call by.ck_missing.enable
+		call by.bu_opts.enable
+		call by.bu_title.enable
+		call script by_setByContext_on
+		call by.bu_axes_adv.enable
+		call by.bu_region.enable
+	}
+END
+
+SCRIPT by_setByContext_on
+BEGIN
+	// not guaranteed to exist
+	script gr_legend_setByOutput_on
+	script gr_titles_setByOutput_on
+	script gr_overall_setByOutput_on
+END
+
+SCRIPT by_off
+BEGIN
+	by.ck_total.disable
+	by.ck_missing.disable
+	by.bu_opts.disable
+	by.bu_title.disable
+	script gr_legend_setByOutput_off
+	script gr_titles_setByOutput_off
+	script gr_overall_setByOutput_off
+	by.bu_axes_adv.disable
+	by.bu_region.disable
+END
+
+PROGRAM get_by_options
+BEGIN
+	call create CHILD gr_by_options AS byOpts, allowsubmit
+	call byOpts.setExitString byResults
+	call byOpts.settitle resource LBL_SUBGRAPH_ORGANIZATION
+	call byOpts.setExitAction "program by_checkByResults"
+	call byOpts.setSubmitAction "program by_bySubmit"
+END
+PROGRAM by_checkByResults
+BEGIN
+	if byResults {
+		call by.bu_opts..modified_on
+	}
+	else {
+		call by.bu_opts..modified_off
+	}
+END
+PROGRAM by_bySubmit
+BEGIN
+	call program by_checkByResults
+	call Submit
+END
+
+SCRIPT get_by_title_options
+BEGIN
+	create CHILD gr_title_options AS by_stitle, allowsubmit
+	by_stitle.setExitString byTitleResults
+	by_stitle.settitle resource LBL_SUBGRAPH_TITLE_PROPERTIES
+	by_stitle.setExitAction "program by_checkByTitleResults"
+	by_stitle.setSubmitAction "program by_titlesSubmit"
+END
+PROGRAM by_checkByTitleResults
+BEGIN
+	if byTitleResults {
+		call by.bu_title.modified_on
+	}
+	else {
+		call by.bu_title.modified_off
+	}
+END
+PROGRAM by_titlesSubmit
+BEGIN
+	call program by_checkByTitleResults
+	call Submit
+END
+
+SCRIPT get_by_axes_adv
+BEGIN
+	create CHILD gr_by_axis_options AS byAxes, allowsubmit
+	byAxes.settitle resource LBL_BU_SUBGRAPH_AXES
+	byAxes.setExitString byAxesResults
+	byAxes.setExitAction "program by_checkAxesResults"
+	byAxes.setSubmitAction "program by_axesSubmit"
+END
+PROGRAM by_checkAxesResults
+BEGIN
+	if byAxesResults {
+		call by.bu_axes_adv.modified_on
+	}
+	else {
+		call by.bu_axes_adv.modified_off
+	}
+END
+PROGRAM by_axesSubmit
+BEGIN
+	call program by_checkAxesResults
+	call Submit
+END
+
+SCRIPT get_by_region_options
+BEGIN
+	create CHILD gr_region_options AS byRegion, allowsubmit
+	byRegion.setExitString byRegionResults
+	byRegion.settitle resource LBL_SUBGRAPH_REGION_PROPERTIES
+	byRegion.setExitAction "program by_checkByRegionResults"
+	byRegion.setSubmitAction "program by_regionSubmit"
+END
+PROGRAM by_checkByRegionResults
+BEGIN
+	if byRegionResults.iseq("") {
+		call by.bu_region.modified_off
+	}
+	else {
+		call by.bu_region.modified_on
+	}
+END
+PROGRAM by_regionSubmit
+BEGIN
+	call program by_checkByRegionResults
+	call Submit
+END
+
+PROGRAM by_output_wrk
+BEGIN
+	option by.ck_total
+	option by.ck_missing
+	put " " byResults
+	put " " byAxesResults
+END
+
+PROGRAM command
+BEGIN
+	if by.ck_by.isenabled() & by.ck_by & (by.ck_total | by.ck_missing | byResults | byAxesResults | byRegionResults | byTitleResults){
+		put /program by_output_wrk
+		if !H(by.bu_title) & byTitleResults {
+			put " subtitle(, " byTitleResults ") "
+		}
+		put " " byRegionResults
+	}
+END

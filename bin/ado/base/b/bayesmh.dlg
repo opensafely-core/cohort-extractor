@@ -1,0 +1,4949 @@
+/*
+	bayesmh
+
+*!  VERSION 1.4.5  22oct2019
+
+*/
+
+VERSION 15.0
+SYNCHRONOUS_ONLY
+INCLUDE _std_xwide
+DEFINE _dlght 650
+INCLUDE header
+
+HELP hlp1, view("help bayesmh")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource BAYESMH_DLG_HSCALE
+
+	create STRING STMP
+	create STRING distrstr
+	create BOOLEAN hasadaptation
+	
+	create STRING main_build_tmp
+	create STRING main_build_tmp2
+	create STRING main_build_childdlg
+	create STRING main_build_child_result
+	create DOUBLE main_build_position
+	
+	create ARRAY main_mulmodel_list
+	create SVECTOR mainMulModelCommandDisplayList
+	create SVECTOR mainMulModelCommandList
+	create SVECTOR mainMulModelCommandValues
+	create SVECTOR mainMulModelStatusList
+	create SVECTOR mainMulModelChildDialogList
+	create DOUBLE main_mulmodel_count
+	create DOUBLE main_mulmodel_arraysize
+	create STRING main_mulmodel_output
+
+	create STRING dlgname
+	dlgname.storeDialogClassName
+	
+	create ARRAY main_mulequ_list
+	create SVECTOR mainMulEquCommandDisplayList
+	create SVECTOR mainMulEquCommandList
+	create SVECTOR mainMulEquCommandValues
+	create SVECTOR mainMulEquStatusList
+	create SVECTOR mainMulEquChildDialogList
+	create DOUBLE main_mulequ_count
+	create DOUBLE main_mulequ_arraysize
+	create STRING main_mulequ_output
+	
+	create ARRAY main_mulnon_list
+	create SVECTOR mainMulNonCommandDisplayList
+	create SVECTOR mainMulNonCommandList
+	create SVECTOR mainMulNonCommandValues
+	create SVECTOR mainMulNonStatusList
+	create SVECTOR mainMulNonChildDialogList
+	create DOUBLE main_mulnon_count
+	create DOUBLE main_mulnon_arraysize
+	create STRING main_mulnon_output
+	
+	create ARRAY main_mulequd_list
+	create SVECTOR mainMulEqudCommandDisplayList
+	create SVECTOR mainMulEqudCommandList
+	create SVECTOR mainMulEqudCommandValues
+	create SVECTOR mainMulEqudStatusList
+	create SVECTOR mainMulEqudChildDialogList
+	create DOUBLE main_mulequd_count
+	create DOUBLE main_mulequd_arraysize
+	create STRING main_mulequd_output
+	
+	create ARRAY main_prior_list
+	create SVECTOR mainPriorCommandDisplayList
+	create SVECTOR mainPriorCommandList
+	create SVECTOR mainPriorCommandValues
+	create SVECTOR mainPriorStatusList
+	create SVECTOR mainPriorChildDialogList
+	create DOUBLE main_prior_count
+	create DOUBLE main_prior_arraysize
+	create STRING main_prior_output
+	
+	create ARRAY main_redefine_list
+	create SVECTOR mainRedefineCommandDisplayList
+	create SVECTOR mainRedefineCommandList
+	create SVECTOR mainRedefineCommandValues
+	create SVECTOR mainRedefineStatusList
+	create SVECTOR mainRedefineChildDialogList
+	create DOUBLE main_redefine_count
+	create DOUBLE main_redefine_arraysize
+	create STRING main_redefine_output
+	
+	create ARRAY main_block_list
+	create SVECTOR mainBlockCommandDisplayList
+	create SVECTOR mainBlockCommandList
+	create SVECTOR mainBlockCommandValues
+	create SVECTOR mainBlockStatusList
+	create SVECTOR mainBlockChildDialogList
+	create SVECTOR mainBlockReffectsList
+	create DOUBLE main_block_count
+	create DOUBLE main_block_arraysize
+	create STRING main_block_output
+
+	create STRING BAYESMH_PARSE_PARAMS
+	create STRING BAYESMH_PARSE_PARAMS_ERROR
+	create STRING BAYESMH_PARSE_PARAMS_ERROR_STR
+	create STRING RC
+	create STRING BAYESMH_PARSE_PARAMS_RESULT
+	
+	create BOOLEAN hasbatch
+	create DOUBLE distr_layout
+	create DOUBLE prior_layout
+	create ARRAY main_paras_list
+	create STRING main_paras_str
+	create DOUBLE prior_mode
+	
+	create STRING build_STMP
+	create DOUBLE nblockre
+	create DOUBLE showre
+	create STRING blockre
+	create DOUBLE loopI
+	
+	main.bu_mulmodel_edit.disable
+	main.bu_mulmodel_disable.disable
+	main.bu_mulmodel_enable.disable
+	
+	main.bu_mulequ_edit.disable
+	main.bu_mulequ_disable.disable
+	main.bu_mulequ_enable.disable
+	
+	main.bu_mulnon_edit.disable
+	main.bu_mulnon_disable.disable
+	main.bu_mulnon_enable.disable
+	
+	main.bu_mulequd_edit.disable
+	main.bu_mulequd_disable.disable
+	main.bu_mulequd_enable.disable
+	
+	main.bu_prior_edit.disable
+	main.bu_prior_disable.disable
+	main.bu_prior_enable.disable
+	
+	model.bu_redefine_edit.disable
+	model.bu_redefine_disable.disable
+	model.bu_redefine_enable.disable
+	
+	block.bu_block_edit.disable
+	block.bu_block_disable.disable
+	block.bu_block_enable.disable
+	distr_layout.setvalue 1
+	prior_mode.setvalue 0
+	showre.setvalue 0
+	nblockre.setvalue 0
+	blockre.setvalue "n"
+END
+
+SCRIPT POSTINIT
+BEGIN
+	mainMulModelCommandDisplayList.copyToArray main_mulmodel_list
+	main.lb_mulmodelBuild.repopulate
+	
+	mainMulEquCommandDisplayList.copyToArray main_mulequ_list
+	main.lb_mulequBuild.repopulate
+	
+	mainMulNonCommandDisplayList.copyToArray main_mulnon_list
+	main.lb_mulnonBuild.repopulate
+	
+	mainMulEqudCommandDisplayList.copyToArray main_mulequd_list
+	main.lb_mulequdBuild.repopulate
+	
+	mainPriorCommandDisplayList.copyToArray main_prior_list
+	main.lb_priorBuild.repopulate
+	
+	mainBlockCommandDisplayList.copyToArray main_block_list
+	block.lb_blockBuild.repopulate
+	
+	mainRedefineCommandDisplayList.copyToArray main_redefine_list
+	model.lb_redefineBuild.repopulate
+
+	program simulation_sp_nchains_change
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL) 				///
+	title(resource BAYESMH_TITLE)
+BEGIN
+  TEXT     tx_syntax		_lft 	_top	_iwd	.,		///
+	label(resource BAYESMH_MAIN_TX_SYNTAX)
+  COMBOBOX cb_syntax		@	_ss	400	.,		///
+	dropdownlist							///
+	contents(syntax_list)						///
+	values(syntax_values)						///
+	onselchange(program main_syntax_change)
+  
+  /*			   univariate regression			 */
+  GROUPBOX gb_model		_lft	+30	_iwd	_ht6,		///
+	label(resource BAYESMH_MAIN_GB_MODEL)
+  TEXT	   tx_unidv		_ilft	_ss	_vnwd	.,		///
+	label(resource LBL_DEPVAR)
+  DEFINE holddv @y
+  VARNAME  vn_unidv		@	_ss	@	.,		///
+	numeric								///
+	allowts								///
+	label(resource LBL_DEPVAR)
+  TEXT	tx_uniiv		_vlx	holddv	_ivlwd	.,		///
+	label(resource LBL_INDDEPVAR)
+  VARLIST vl_uniiv		@	_ss	@	.,		///
+	allowcat							///
+	numeric								///
+	allowts								///
+	fv								///
+	label(resource LBL_INDDEPVAR)
+  CHECKBOX ck_uninocons 	@         _ms       @         .,	///
+  	option("noconstant")						///
+  	label(resource BAYESMH_LBL_SUPPRESS_CONSTANT_TERMS)
+	
+  /*	multivariate normal linear regression with common regressors	*/
+  TEXT	   tx_muldv		_ilft	holddv	_vnwd	.,		///
+	label(resource LBL_DEPENDENT_VARIABLES)
+  DEFINE holddv3 @y
+  VARLIST  vl_muldv		@	_ss	@	.,		///
+	numeric								///
+	allowts								///
+	label(resource LBL_DEPENDENT_VARIABLES)
+  TEXT	tx_muliv		_vlx	holddv3	_ivlwd	.,		///
+	label(resource LBL_INDDEPVAR)
+  VARLIST vl_muliv		@	_ss	@	.,		///
+	allowcat							///
+	numeric								///
+	allowts								///
+	fv								///
+	label(resource LBL_INDDEPVAR)
+  CHECKBOX ck_mulnocons 	@	_ms	@	.,		///
+  	option("noconstant")						///
+  	label(resource BAYESMH_LBL_SUPPRESS_CONSTANT_TERMS)
+	
+  /*   multivariate normal regression with outcome-specific regressors	 */
+  LISTBOX lb_mulmodelBuild	_ilft	holddv	245	95,		///
+	contents(main_mulmodel_list)					///
+	ondblclick(program main_mulmodel_edit)				///
+	onselchange(program main_mulmodel_sel_changed)			///
+	nomemory
+  BUTTON bu_mulmodel_create	275	@	75	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program main_mulmodel_create)
+  BUTTON bu_mulmodel_edit	@	_ms	@	.,		///
+	label(resource LBL_BU_EDIT)					///
+	onpush(program main_mulmodel_edit)
+  BUTTON bu_mulmodel_disable	@	_ms	@	.,		///
+	label(resource LBL_BU_DISABLE)					///
+	onpush(program main_mulmodel_disable)
+  BUTTON bu_mulmodel_enable	@	_ms	@	.,		///
+	label(resource LBL_BU_ENABLE)					///
+	onpush(program main_mulmodel_enable)
+  TEXTBOX tb_mulmodel_note	20	+25	370	20,		///
+	label(resource BAYES_LBL_PRESS_CREATE_TO_DEFINE_EQUATION)
+  CHECKBOX ck_mulmodelnocons 	@        _ss       @         .,		///
+  	option("noconstant")						///
+  	label(resource BAYESMH_LBL_SUPPRESS_CONSTANT_TERMS)
+
+  /*		   multiple equations linear models			*/
+  LISTBOX lb_mulequBuild	_ilft	holddv	245	95,		///
+	contents(main_mulequ_list)					///
+	ondblclick(program main_mulequ_edit)				///
+	onselchange(program main_mulequ_sel_changed)			///
+	nomemory
+  BUTTON bu_mulequ_create	275	@	75	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program main_mulequ_create)
+  BUTTON bu_mulequ_edit		@	_ms	@	.,		///
+	label(resource LBL_BU_EDIT)					///
+	onpush(program main_mulequ_edit)
+  BUTTON bu_mulequ_disable	@	_ms	@	.,		///
+	label(resource LBL_BU_DISABLE)					///
+	onpush(program main_mulequ_disable)
+  BUTTON bu_mulequ_enable	@	_ms	@	.,		///
+	label(resource LBL_BU_ENABLE)					///
+	onpush(program main_mulequ_enable)
+  TEXTBOX tb_mulequ_note	20	+25	_ibwd	20,		///
+	label(resource BAYES_LBL_PRESS_CREATE_TO_DEFINE_MODEL)
+	
+  /*		univariate nonlinear regression			 	*/
+  TEXT	   tx_uninondv		_ilft	holddv	_vnwd	.,		///
+	label(resource LBL_DEPVAR)
+  DEFINE holddv4 @y
+  VARNAME  vn_uninondv		@	_ss	@	.,		///
+	numeric								///
+	allowts								///
+	label(resource LBL_DEPVAR)
+  TEXT	tx_uninonexp		_vlx	holddv4 _ivlwd	.,		///
+	label(resource LBL_SUBSTITUTABLE_EXPRESSION)
+  EXP   ex_uninonexp		@	_ss	@	.,		///
+	label(resource LBL_BU_CREATE)					///
+	parameter							///
+	error(resource LBL_SUBSTITUTABLE_EXPRESSION_NO_COLON)
+	
+  /*		multivariate normal nonlinear regression		 */
+  LISTBOX lb_mulnonBuild	_ilft	holddv	245	95,		///
+	contents(main_mulnon_list)					///
+	ondblclick(program main_mulnon_edit)				///
+	onselchange(program main_mulnon_sel_changed)			///
+	nomemory
+  BUTTON bu_mulnon_create	275	@	75	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program main_mulnon_create)
+  BUTTON bu_mulnon_edit		@	_ms	@	.,		///
+	label(resource LBL_BU_EDIT)					///
+	onpush(program main_mulnon_edit)
+  BUTTON bu_mulnon_disable	@	_ms	@	.,		///
+	label(resource LBL_BU_DISABLE)					///
+	onpush(program main_mulnon_disable)
+  BUTTON bu_mulnon_enable	@	_ms	@	.,		///
+	label(resource LBL_BU_ENABLE)					///
+	onpush(program main_mulnon_enable)
+  TEXTBOX tb_mulnon_note	20	+25	470	20,		///
+	label(resource BAYES_LBL_PRESS_CREATE_TO_DEFINE_EQUATION)
+	
+  /*			   univariate distributions			 */
+  TEXT	   tx_uniddv		_ilft	holddv	_vnwd	.,		///
+	label(resource LBL_DEPVAR)
+  VARNAME  vn_uniddv		@	_ss	@	.,		///
+	numeric								///
+	allowts								///
+	label(resource LBL_DEPVAR)
+	
+  /*		   multiple-equation distribution specifications	*/
+  LISTBOX lb_mulequdBuild	_ilft	holddv	245	95,		///
+	contents(main_mulequd_list)					///
+	ondblclick(program main_mulequd_edit)				///
+	onselchange(program main_mulequd_sel_changed)			///
+	nomemory
+  BUTTON bu_mulequd_create	275	@	75	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program main_mulequd_create)
+  BUTTON bu_mulequd_edit	@	_ms	@	.,		///
+	label(resource LBL_BU_EDIT)					///
+	onpush(program main_mulequd_edit)
+  BUTTON bu_mulequd_disable	@	_ms	@	.,		///
+	label(resource LBL_BU_DISABLE)					///
+	onpush(program main_mulequd_disable)
+  BUTTON bu_mulequd_enable	@	_ms	@	.,		///
+	label(resource LBL_BU_ENABLE)					///
+	onpush(program main_mulequd_enable)
+  TEXTBOX tb_mulequd_note	20	+25	_ibwd	20,		///
+	label(resource BAYES_LBL_PRESS_CREATE_TO_DEFINE_MODEL)
+
+  INCLUDE bayesmh_distribution
+	
+  GROUPBOX gb_prior		_lft	+110	_iwd	_ht11h,		///
+	label(resource BAYESMH_MAIN_GB_PRIOR)
+  LISTBOX lb_priorBuild		_indent	_ss	245	95,		///
+	contents(main_prior_list)					///
+	ondblclick(program main_prior_edit)				///
+	onselchange(program main_prior_sel_changed)			///
+	nomemory
+  BUTTON bu_prior_create	275	@	75	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program main_prior_create)
+  BUTTON bu_prior_edit		@	_ms	@	.,		///
+	label(resource LBL_BU_EDIT)					///
+	onpush(program main_prior_edit)
+  BUTTON bu_prior_disable	@	_ms	@	.,		///
+	label(resource LBL_BU_DISABLE)					///
+	onpush(program main_prior_disable)
+  BUTTON bu_prior_enable		@	_ms	@	.,	///
+	label(resource LBL_BU_ENABLE)					///
+	onpush(program main_prior_enable)
+  TEXTBOX tb_prior_note		20	+25	370	20,		///
+	label(resource BAYES_LBL_PRESS_CREATE_TO_DEFINE_A_PRIOR_DIST)
+	
+  CHECKBOX ck_dryrun		_lft	+50	_iwd	.,		///
+	option(dryrun)							///
+	onclickon(block.ck_blocksummary.disable)				///
+	onclickoff(block.ck_blocksummary.enable)				///
+	label(resource BAYES_LBL_SHOW_MSUM_WITHOUT_EST)
+END
+
+LIST syntax_list
+BEGIN
+	resource BAYESMH_LST_ITEM_UNIVARIATE_LINEAR
+	resource BAYESMH_LST_ITEM_MULTIVARIATE_NLINEAR_W_COMMON
+	resource BAYESMH_LST_ITEM_MULTIVARIATE_NLINEAR_W_OUTCOME-SPECIFIC
+	resource BAYESMH_LST_ITEM_MULTIEQ_LINEAR
+	resource BAYESMH_LST_ITEM_UNIVARIATE_NONLINEAR_REG
+	resource BAYESMH_LST_ITEM_MULTIVARIATE_NONLINEAR_REG
+	resource BAYESMH_LST_ITEM_UNIVARIATE_DISTRIBUTIONS
+	resource BAYESMH_LST_ITEM_MULTIEQ_DISTRIBUTIONS
+END
+
+LIST syntax_values
+BEGIN
+	"uvar"
+	"mvar"
+	"mvarreg"
+	"mequ"
+	"nuvar"
+	"nmvar"
+	"uvard"
+	"mequd"
+END
+
+INCLUDE bayesmh_distribution_pr
+
+PROGRAM main_uvar_show
+BEGIN
+	call main.tx_unidv.show
+	call main.vn_unidv.show
+	call main.tx_uniiv.show
+	call main.vl_uniiv.show
+	call main.ck_uninocons.show
+	call program model_reffects_change
+END
+
+SCRIPT main_uvar_hide
+BEGIN
+	main.tx_unidv.hide
+	main.vn_unidv.hide
+	main.tx_uniiv.hide
+	main.vl_uniiv.hide
+	main.ck_uninocons.hide
+	program main_distr_hide
+END
+
+PROGRAM main_mvar_show
+BEGIN
+	call main.tx_muldv.show
+	call main.vl_muldv.show
+	call main.tx_muliv.show
+	call main.vl_muliv.show
+	call main.ck_mulnocons.show
+	call program model_reffects_change
+END
+
+SCRIPT main_mvar_hide
+BEGIN
+	main.tx_muldv.hide
+	main.vl_muldv.hide
+	main.tx_muliv.hide
+	main.vl_muliv.hide
+	main.ck_mulnocons.hide
+END
+
+PROGRAM main_mmodel_show
+BEGIN
+	call main.lb_mulmodelBuild.show
+	call main.bu_mulmodel_create.show
+	call main.bu_mulmodel_edit.show
+	call main.bu_mulmodel_disable.show
+	call main.bu_mulmodel_enable.show
+	call main.tb_mulmodel_note.show
+	call main.ck_mulmodelnocons.show
+	call program model_reffects_change
+END
+
+SCRIPT main_mmodel_hide
+BEGIN
+	main.lb_mulmodelBuild.hide
+	main.bu_mulmodel_create.hide
+	main.bu_mulmodel_edit.hide
+	main.bu_mulmodel_disable.hide
+	main.bu_mulmodel_enable.hide
+	main.tb_mulmodel_note.hide
+	main.ck_mulmodelnocons.hide
+END
+
+PROGRAM main_mequ_show	
+BEGIN
+	call main.lb_mulequBuild.show
+	call main.bu_mulequ_create.show
+	call main.bu_mulequ_edit.show
+	call main.bu_mulequ_disable.show
+	call main.bu_mulequ_enable.show
+	call main.tb_mulequ_note.show
+	call program model_reffects_change
+END
+
+SCRIPT main_mequ_hide
+BEGIN
+	main.lb_mulequBuild.hide
+	main.bu_mulequ_create.hide
+	main.bu_mulequ_edit.hide
+	main.bu_mulequ_disable.hide
+	main.bu_mulequ_enable.hide
+	main.tb_mulequ_note.hide
+END
+
+PROGRAM main_uninon_show
+BEGIN
+	call main.tx_uninondv.show
+	call main.vn_uninondv.show
+	call main.tx_uninonexp.show
+	call main.ex_uninonexp.show
+	call program model_reffects_change
+END
+
+SCRIPT main_uninon_hide
+BEGIN
+	main.tx_uninondv.hide
+	main.vn_uninondv.hide
+	main.tx_uninonexp.hide
+	main.ex_uninonexp.hide
+END
+
+PROGRAM main_mulnon_show	
+BEGIN
+	call main.lb_mulnonBuild.show
+	call main.bu_mulnon_create.show
+	call main.bu_mulnon_edit.show
+	call main.bu_mulnon_disable.show
+	call main.bu_mulnon_enable.show
+	call main.tb_mulnon_note.show
+	call program model_reffects_change
+END
+
+SCRIPT main_mulnon_hide
+BEGIN
+	main.lb_mulnonBuild.hide
+	main.bu_mulnon_create.hide
+	main.bu_mulnon_edit.hide
+	main.bu_mulnon_disable.hide
+	main.bu_mulnon_enable.hide
+	main.tb_mulnon_note.hide
+END
+
+PROGRAM main_uvard_show
+BEGIN
+	call main.tx_uniddv.show
+	call main.vn_uniddv.show
+	call program model_reffects_change
+END
+
+SCRIPT main_uvard_hide
+BEGIN
+	main.tx_uniddv.hide
+	main.vn_uniddv.hide
+	program main_distr_hide
+END
+
+PROGRAM main_mequd_show	
+BEGIN
+	call main.lb_mulequdBuild.show
+	call main.bu_mulequd_create.show
+	call main.bu_mulequd_edit.show
+	call main.bu_mulequd_disable.show
+	call main.bu_mulequd_enable.show
+	call main.tb_mulequd_note.show
+	call program model_reffects_change
+END
+
+SCRIPT main_mequd_hide
+BEGIN
+	main.lb_mulequdBuild.hide
+	main.bu_mulequd_create.hide
+	main.bu_mulequd_edit.hide
+	main.bu_mulequd_disable.hide
+	main.bu_mulequd_enable.hide
+	main.tb_mulequd_note.hide
+END
+
+PROGRAM main_distr_change
+BEGIN
+	call program main_distr_hide
+	if main.cb_syntax.equals("uvar") {
+		call main.gb_distr.setlabel resource BAYES_LBL_LIKELIHOOD_MODEL
+		if main.lb_distr.equals("normal") {
+			call main.tx_normalvar.show
+			call main.ed_normalvar.show
+			call main.bu_normalvar.show
+			call main.tx_normalvar.setposition 315 180 220 .
+			call main.ed_normalvar.setposition 315 200 140 .
+			call main.bu_normalvar.setposition 455 200 75 .
+		}
+		if main.lb_distr.equals("t") {
+			call main.tx_tsigma2.show
+			call main.ed_tsigma2.show
+			call main.bu_tsigma2.show
+			call main.tx_tdf.show
+			call main.ed_tdf.show
+			call main.bu_tdf.show
+			call main.tx_tsigma2.setposition 315 180 220 .
+			call main.ed_tsigma2.setposition 315 200 140 .
+			call main.bu_tsigma2.setposition 455 200 75 .
+			call main.tx_tdf.setposition 315 225 220 .
+			call main.ed_tdf.setposition 315 245 140 .
+			call main.bu_tdf.setposition 455 245 75 .
+		}
+		if main.lb_distr.equals("lognormal") {
+			call main.tx_lnnormalvar.show
+			call main.ed_lnnormalvar.show
+			call main.bu_lnnormalvar.show
+			call main.tx_offset.show
+			call main.vn_offset.show
+			call main.tx_lnnormalvar.setposition 315 180 220 .
+			call main.ed_lnnormalvar.setposition 315 200 140 .
+			call main.bu_lnnormalvar.setposition 455 200 75 .
+			call main.tx_offset.setposition 315 225 220 .
+			call main.vn_offset.setposition 315 245 220 .
+		}
+		if main.lb_distr.equals("exponential") {
+			call main.tx_offset.show
+			call main.vn_offset.show
+			call main.tx_offset.setposition 315 180 220 .
+			call main.vn_offset.setposition 315 200 220 .
+		}
+		if main.lb_distr.equals("probit") {
+			call main.tx_offset.show
+			call main.vn_offset.show
+			call main.tx_offset.setposition 315 180 220 .
+			call main.vn_offset.setposition 315 200 220 .
+		}
+		if main.lb_distr.equals("logit") {
+			call main.tx_offset.show
+			call main.vn_offset.show
+			call main.tx_offset.setposition 315 180 220 .
+			call main.vn_offset.setposition 315 200 220 .
+		}
+		if main.lb_distr.equals("binomial") {
+			call main.tx_bintrials.show
+			call main.ed_bintrials.show
+			call main.bu_bintrials.show
+			call main.tx_offset.show
+			call main.vn_offset.show
+			call main.tx_bintrials.setposition 315 180 220 .
+			call main.ed_bintrials.setposition 315 200 140 .
+			call main.bu_bintrials.setposition 455 200 75 .
+			call main.tx_offset.setposition 315 225 220 .
+			call main.vn_offset.setposition 315 245 220 .
+		}
+		if main.lb_distr.equals("oprobit") {
+			call main.tx_offset.show
+			call main.vn_offset.show
+			call main.tx_offset.setposition 315 180 220 .
+			call main.vn_offset.setposition 315 200 220 .
+		}
+		if main.lb_distr.equals("ologit") {
+			call main.tx_offset.show
+			call main.vn_offset.show
+			call main.tx_offset.setposition 315 180 220 .
+			call main.vn_offset.setposition 315 200 220 .
+		}
+		if main.lb_distr.equals("poisson") {
+			call main.rb_exposure.show
+			call main.vn_exposure.show
+			call main.rb_offset.show
+			call main.vn_offset.show
+			call main.rb_exposure.setposition 315 180 220 .
+			call main.vn_exposure.setposition 315 200 220 .
+			call main.rb_offset.setposition 315 225 220 .
+			call main.vn_offset.setposition 315 245 220 .
+			call program distr_poisson_check
+		}
+		if main.lb_distr.equals("llf") {
+			call main.tx_llfsub.show
+			call main.ex_llfsub.show
+			call main.tx_llfsub.setposition 315 180 220 .
+			call main.ex_llfsub.setposition 315 200 220 .
+		}
+	}
+	if main.cb_syntax.equals("mvar") {
+		call main.gb_distr.setlabel resource BAYES_LBL_COVARIANCE_OF_THE_MODEL
+		call main.ed_mulnormalvar.setlabel resource BAYESMH_DISTRIBUTION_LBL_COVARIANCE_SIGMA 
+		call main.tx_mulnormalvar.show
+		call main.ed_mulnormalvar.show
+		call main.bu_mulnormalvar.show
+		call main.tx_mulnormalvar.setposition 20 185
+		call main.ed_mulnormalvar.setposition 20 205 435 .
+		call main.bu_mulnormalvar.setposition 455 205 75 .
+	}
+	if main.cb_syntax.equals("mvarreg") {
+		call main.gb_distr.setlabel resource BAYES_LBL_COVARIANCE_OF_THE_MODEL
+		call main.ed_mulnormalvar.setlabel resource BAYESMH_DISTRIBUTION_LBL_COVARIANCE_SIGMA 
+		call main.tx_mulnormalvar.show
+		call main.ed_mulnormalvar.show
+		call main.bu_mulnormalvar.show
+		call main.tx_mulnormalvar.setposition 20 260
+		call main.ed_mulnormalvar.setposition 20 280 435 .
+		call main.bu_mulnormalvar.setposition 455 280 75 .
+	}
+	if main.cb_syntax.equals("nuvar") {
+		call main.gb_distr.setlabel resource BAYES_LBL_LIKELIHOOD_MODEL
+		if main.lb_distr.equals("normal") {
+			call main.tx_normalvar.show
+			call main.ed_normalvar.show
+			call main.bu_normalvar.show
+			call main.tx_normalvar.setposition 315 165 220 .
+			call main.ed_normalvar.setposition 315 185 140 .
+			call main.bu_normalvar.setposition 455 185 75 .
+		}
+		if main.lb_distr.equals("t") {
+			call main.tx_tsigma2.show
+			call main.ed_tsigma2.show
+			call main.bu_tsigma2.show
+			call main.tx_tdf.show
+			call main.ed_tdf.show
+			call main.bu_tdf.show
+			call main.tx_tsigma2.setposition 315 165 220 .
+			call main.ed_tsigma2.setposition 315 185 140 .
+			call main.bu_tsigma2.setposition 455 185 75 .
+			call main.tx_tdf.setposition 315 210 220 .
+			call main.ed_tdf.setposition 315 230 140 .
+			call main.bu_tdf.setposition 455 230 75 .
+		}
+		if main.lb_distr.equals("lognormal") {
+			call main.tx_lnnormalvar.show
+			call main.ed_lnnormalvar.show
+			call main.bu_lnnormalvar.show
+			call main.tx_lnnormalvar.setposition 315 165 210 .
+			call main.ed_lnnormalvar.setposition 315 185 140 .
+			call main.bu_lnnormalvar.setposition 455 185 75 .
+		}
+		if main.lb_distr.equals("exponential") {
+		}
+		if main.lb_distr.equals("binomial") {
+			call main.tx_bintrials.show
+			call main.ed_bintrials.show
+			call main.bu_bintrials.show
+			call main.tx_bintrials.setposition 315 165 220 .
+			call main.ed_bintrials.setposition 315 185 140 .
+			call main.bu_bintrials.setposition 455 185 75 .
+		}
+		if main.lb_distr.equals("poisson") {
+		}
+		if main.lb_distr.equals("llf") {
+			call main.tx_llfsub.show
+			call main.ex_llfsub.show
+			call main.tx_llfsub.setposition 315 165 220 .
+			call main.ex_llfsub.setposition 315 185 220 .
+		}
+	}
+	if main.cb_syntax.equals("nmvar") {
+		call main.gb_distr.setlabel resource BAYES_LBL_COVARIANCE_OF_THE_MODEL
+		call main.ed_mulnormalvar.setlabel resource BAYESMH_DISTRIBUTION_LBL_COVARIANCE_SIGMA
+		call main.tx_mulnormalvar.show
+		call main.ed_mulnormalvar.show
+		call main.bu_mulnormalvar.show
+		call main.tx_mulnormalvar.setposition 20 240
+		call main.ed_mulnormalvar.setposition 20 260 435 .
+		call main.bu_mulnormalvar.setposition 455 260 75 .
+	}
+	if main.cb_syntax.equals("uvard") {
+		call main.gb_distr.setlabel resource LBL_DISTRIBUTION
+		if main.lb_distr_distr.equals("dexponential") {
+			call main.tx_dexpbeta.show
+			call main.ed_dexpbeta.show
+			call main.bu_dexpbeta.show
+			call main.tx_dexpbeta.setposition 315 165 220 .
+			call main.ed_dexpbeta.setposition 315 185 140 .
+			call main.bu_dexpbeta.setposition 455 185 75 .
+		}
+		if main.lb_distr_distr.equals("dbernoulli") {
+			call main.tx_dberp.show 
+			call main.ed_dberp.show
+			call main.bu_dberp.show
+			call main.tx_dberp.setposition 315 165 220 .
+			call main.ed_dberp.setposition 315 185 140 .
+			call main.bu_dberp.setposition 455 185 75 .
+		}
+		if main.lb_distr_distr.equals("dbinomial") {
+			call main.tx_dbinop.show 
+			call main.ed_dbinop.show
+			call main.bu_dbinop.show
+			call main.tx_dbinon.show 
+			call main.ed_dbinon.show
+			call main.bu_dbinon.show 
+			call main.tx_dbinop.setposition 315 165 220 .
+			call main.ed_dbinop.setposition 315 185 140 .
+			call main.bu_dbinop.setposition 455 185 75 .
+			call main.tx_dbinon.setposition 315 210 220 .
+			call main.ed_dbinon.setposition 315 230 140 .
+			call main.bu_dbinon.setposition 455 230 75 .
+		}
+		if main.lb_distr_distr.equals("dpoisson") {
+			call main.tx_dpoimu.show 
+			call main.ed_dpoimu.show
+			call main.bu_dpoimu.show
+			call main.tx_dpoimu.setposition 315 165 220 .
+			call main.ed_dpoimu.setposition 315 185 140 .
+			call main.bu_dpoimu.setposition 455 185 75 .
+		}
+	}
+END
+
+PROGRAM main_syntax_change
+BEGIN
+	if main.cb_syntax.equals("uvar") {
+		call program main_uvar_show
+		call script main_mvar_hide
+		call script main_mmodel_hide
+		call script main_mequ_hide
+		call script main_uninon_hide
+		call script main_mulnon_hide
+		call script main_uvard_hide
+		call script main_mequd_hide
+		call program main_distr_change
+	}
+	if main.cb_syntax.equals("mvar") {
+		call script main_uvar_hide
+		call program main_mvar_show
+		call script main_mmodel_hide
+		call script main_mequ_hide
+		call script main_uninon_hide
+		call script main_mulnon_hide
+		call script main_uvard_hide
+		call script main_mequd_hide
+		call program main_distr_change
+	}
+	if main.cb_syntax.equals("mvarreg") {
+		call script main_uvar_hide
+		call script main_mvar_hide
+		call program main_mmodel_show
+		call script main_mequ_hide
+		call script main_uninon_hide
+		call script main_mulnon_hide
+		call script main_uvard_hide
+		call script main_mequd_hide
+		call program main_distr_change
+	}
+	if main.cb_syntax.equals("mequ") {
+		call script main_uvar_hide
+		call script main_mvar_hide
+		call script main_mmodel_hide
+		call program main_mequ_show
+		call script main_uninon_hide
+		call script main_mulnon_hide
+		call script main_uvard_hide
+		call script main_mequd_hide
+		call program main_distr_change
+	}
+	if main.cb_syntax.equals("nuvar") {
+		call script main_uvar_hide
+		call script main_mvar_hide
+		call script main_mmodel_hide
+		call script main_mequ_hide
+		call program main_uninon_show
+		call script main_mulnon_hide
+		call script main_uvard_hide
+		call script main_mequd_hide
+		call program main_distr_change
+	}
+	if main.cb_syntax.equals("nmvar") {
+		call script main_uvar_hide
+		call script main_mvar_hide
+		call script main_mmodel_hide
+		call script main_mequ_hide
+		call script main_uninon_hide
+		call program main_mulnon_show
+		call script main_uvard_hide
+		call script main_mequd_hide		
+		call program main_distr_change
+	}
+	if main.cb_syntax.equals("uvard") {
+		call script main_uvar_hide
+		call script main_mvar_hide
+		call script main_mmodel_hide
+		call script main_mequ_hide
+		call script main_uninon_hide
+		call script main_mulnon_hide
+		call program main_uvard_show
+		call script main_mequd_hide		
+		call program main_distr_change
+	}
+	if main.cb_syntax.equals("mequd") {
+		call script main_uvar_hide
+		call script main_mvar_hide
+		call script main_mmodel_hide
+		call script main_mequ_hide
+		call script main_uninon_hide
+		call script main_mulnon_hide
+		call script main_uvard_hide
+		call program main_mequd_show
+		call program main_distr_change
+	}	
+	call program main_move_options
+END
+
+PROGRAM main_move_options
+BEGIN
+	if main.cb_syntax.equals("uvar") {
+		call main.gb_model.setposition . . . 90
+		call main.gb_distr.show
+		call main.lb_distr.show
+		call main.lb_distr_all.hide
+		call main.lb_distr_distr.hide
+		call main.gb_distr.setposition . 165 . 215
+		call main.lb_distr.setposition . 185 290 185
+		call main.gb_prior.setposition . 395
+		call main.lb_priorBuild.setposition . 415
+		call main.bu_prior_create.setposition . 415
+		call main.bu_prior_edit.setposition . 440
+		call main.bu_prior_disable.setposition . 465
+		call main.bu_prior_enable.setposition . 490
+		call main.tb_prior_note.setposition . 515
+		call main.ck_dryrun.setposition . 555
+	}
+	if main.cb_syntax.equals("mvar") {
+		call main.gb_model.setposition . . . 90
+		call main.gb_distr.show
+		call main.lb_distr.hide
+		call main.lb_distr_all.hide
+		call main.lb_distr_distr.hide
+		call main.gb_distr.setposition . 165 . 75
+		call main.gb_prior.setposition . 255
+		call main.lb_priorBuild.setposition . 275
+		call main.bu_prior_create.setposition . 275
+		call main.bu_prior_edit.setposition . 300
+		call main.bu_prior_disable.setposition . 325 
+		call main.bu_prior_enable.setposition . 350 
+		call main.tb_prior_note.setposition . 375
+		call main.ck_dryrun.setposition . 415
+	}
+	if main.cb_syntax.equals("mvarreg") {
+		call main.gb_model.setposition . . . 165
+		call main.gb_distr.show
+		call main.lb_distr.hide
+		call main.lb_distr_all.hide
+		call main.lb_distr_distr.hide
+		call main.gb_distr.setposition . 240 . 75
+		call main.gb_prior.setposition . 330
+		call main.lb_priorBuild.setposition . 350
+		call main.bu_prior_create.setposition . 350
+		call main.bu_prior_edit.setposition . 375
+		call main.bu_prior_disable.setposition . 400 
+		call main.bu_prior_enable.setposition . 425
+		call main.tb_prior_note.setposition . 450
+		call main.ck_dryrun.setposition . 490
+	}
+	if main.cb_syntax.equals("mequ") {
+		call main.gb_model.setposition . . . 145
+		call main.gb_distr.hide
+		call main.lb_distr.hide
+		call main.lb_distr_all.hide
+		call main.lb_distr_distr.hide
+		call main.gb_prior.setposition . 220
+		call main.lb_priorBuild.setposition . 240
+		call main.bu_prior_create.setposition . 240
+		call main.bu_prior_edit.setposition . 265
+		call main.bu_prior_disable.setposition . 290 
+		call main.bu_prior_enable.setposition . 315 
+		call main.tb_prior_note.setposition . 340
+		call main.ck_dryrun.setposition . 380
+	}
+	if main.cb_syntax.equals("nuvar") {
+		call main.gb_model.setposition . . . 75
+		call main.gb_distr.show
+		call main.lb_distr.show
+		call main.lb_distr_all.hide
+		call main.lb_distr_distr.hide
+		call main.gb_distr.setposition . 150 . 215
+		call main.lb_distr.setposition . 170 290 185
+		call main.gb_prior.setposition . 380
+		call main.lb_priorBuild.setposition . 400
+		call main.bu_prior_create.setposition . 400
+		call main.bu_prior_edit.setposition . 425
+		call main.bu_prior_disable.setposition . 450 
+		call main.bu_prior_enable.setposition . 475 
+		call main.tb_prior_note.setposition . 500
+		call main.ck_dryrun.setposition . 540
+	}
+	if main.cb_syntax.equals("nmvar") {
+		call main.gb_model.setposition . . . 145
+		call main.gb_distr.show
+		call main.lb_distr.hide
+		call main.lb_distr_all.hide
+		call main.lb_distr_distr.hide
+		call main.gb_distr.setposition . 220 . 75
+		call main.gb_prior.setposition . 310
+		call main.lb_priorBuild.setposition . 330
+		call main.bu_prior_create.setposition . 330
+		call main.bu_prior_edit.setposition . 355
+		call main.bu_prior_disable.setposition . 380 
+		call main.bu_prior_enable.setposition . 405 
+		call main.tb_prior_note.setposition . 430
+		call main.ck_dryrun.setposition . 470
+	}
+	if main.cb_syntax.equals("uvard") {
+		call main.gb_model.setposition . . . 75
+		call main.gb_distr.show
+		call main.lb_distr.hide
+		call main.lb_distr_all.hide
+		call main.lb_distr_distr.show
+		call main.gb_distr.setposition . 150 . 135
+		call main.lb_distr_distr.setposition . 170 290 105
+		call main.gb_prior.setposition . 300
+		call main.lb_priorBuild.setposition . 320
+		call main.bu_prior_create.setposition . 320
+		call main.bu_prior_edit.setposition . 345
+		call main.bu_prior_disable.setposition . 370 
+		call main.bu_prior_enable.setposition . 395 
+		call main.tb_prior_note.setposition . 420
+		call main.ck_dryrun.setposition . 460
+	}
+	if main.cb_syntax.equals("mequd") {
+		call main.gb_model.setposition . . . 145
+		call main.gb_distr.hide
+		call main.lb_distr.hide
+		call main.lb_distr_all.hide
+		call main.lb_distr_distr.hide
+		call main.gb_prior.setposition . 220
+		call main.lb_priorBuild.setposition . 240
+		call main.bu_prior_create.setposition . 240
+		call main.bu_prior_edit.setposition . 265
+		call main.bu_prior_disable.setposition . 290 
+		call main.bu_prior_enable.setposition . 315 
+		call main.tb_prior_note.setposition . 340
+		call main.ck_dryrun.setposition . 380
+	}
+END
+
+PROGRAM main_mulmodel_create
+BEGIN
+	call main_mulmodel_count.setvalue class mainMulModelChildDialogList.size
+	call main_mulmodel_count.increment
+	call main_build_tmp.setvalue "main_mulmodel_"
+	call main_build_tmp.append class main_mulmodel_count.value
+	call main_build_tmp.withvalue main_build_childdlg.setvalue @
+	call program main_show_mulmodel_child
+END
+
+PROGRAM main_mulmodel_edit
+BEGIN
+	call mainMulModelCommandDisplayList.findstr class		///
+		main.lb_mulmodelBuild.value
+	call main_build_position.setvalue class				///
+		mainMulModelCommandDisplayList.position
+	call main_build_position.withvalue				///
+		main_build_childdlg.setvalue				///
+		class mainMulModelChildDialogList.values[@]
+	call program main_show_mulmodel_child_edit
+END
+
+PROGRAM main_show_mulmodel_child
+BEGIN
+	call main_build_tmp.setvalue "bayesmh_mulreg AS "
+	call main_build_tmp.append class main_build_childdlg.value
+	call main_build_tmp.withvalue create CHILD @
+	call main_build_childdlg.withvalue @.setExitString		///
+		"main_build_child_result"
+	call main_build_childdlg.withvalue @.setExitAction		///
+		"program main_mulmodel_child_create_done"
+
+	call main_mulmodel_count.withvalue				///
+		build_STMP.format "resource LBL_EQUATION_FMT" "@" ""
+	call main_build_childdlg.withvalue				///
+		main_build_tmp2.setvalue "@.settitle"
+	call main_build_tmp2.append `" ""'
+	call main_build_tmp2.append class build_STMP.value
+	call main_build_tmp2.append `"""'
+	call main_build_tmp2.withvalue @
+END
+
+PROGRAM main_show_mulmodel_child_edit
+BEGIN
+	call main_build_tmp.setvalue "bayesmh_mulreg AS "
+	call main_build_tmp.append class main_build_childdlg.value
+	call main_build_tmp.withvalue create CHILD @
+	call main_build_childdlg.withvalue @.setExitString		///
+		"main_build_child_result"
+	call main_build_childdlg.withvalue @.setExitAction		///
+		"program main_mulmodel_child_edit_done"
+
+	call main_build_position.withvalue				///
+		main_build_tmp.setvalue					///
+		class mainMulModelCommandDisplayList.values[@]
+	call main_build_childdlg.withvalue				///
+		main_build_tmp2.setvalue "@.settitle"
+	call main_build_tmp2.append `" ""'
+	call main_build_tmp2.append class main_build_tmp.value
+	call main_build_tmp2.append `"""'
+	call main_build_tmp2.withvalue @
+END
+
+PROGRAM main_mulmodel_child_create_done
+BEGIN
+	call main_mulmodel_arraysize.setvalue class			///
+		mainMulModelChildDialogList.size
+	call main_mulmodel_arraysize.increment
+
+	/* Store child dialog name */
+	call mainMulModelChildDialogList.store class			///
+		main_mulmodel_arraysize.value class main_build_childdlg.value
+		
+	/* Store listbox display equation string */
+	call main_mulmodel_arraysize.withvalue				///
+		build_STMP.format "resource LBL_EQUATION_FMT" "@" ""
+		
+	call build_STMP.withvalue					///
+		mainMulModelCommandDisplayList.store class		///
+		main_mulmodel_arraysize.value "@"
+
+	/* Store child dialog result string */
+	call mainMulModelCommandList.store class			///
+		main_mulmodel_arraysize.value				///
+		class main_build_child_result.value
+
+
+	/* Store child dialog result string for final command
+	   For disable/enable */
+	call mainMulModelCommandValues.store class			///
+		main_mulmodel_arraysize.value				///
+		class main_build_child_result.value
+
+	/* Store disable/enable status */
+	call mainMulModelStatusList.store class				///
+		main_mulmodel_arraysize.value "active"
+
+	call mainMulModelCommandDisplayList.copyToArray main_mulmodel_list
+	call main.lb_mulmodelBuild.repopulate
+	call build_STMP.withvalue main.lb_mulmodelBuild.setvalue "@"
+END
+
+PROGRAM main_mulmodel_child_edit_done
+BEGIN
+	call mainMulModelChildDialogList.findstr class			///
+		main_build_childdlg.value
+	call main_build_position.setvalue class				///
+		mainMulModelChildDialogList.position
+	call main_build_position.withvalue main_build_tmp.setvalue	///
+		class mainMulModelStatusList.values[@]
+	if main_build_tmp.iseq("active") {
+		call main_build_position.withvalue			///
+			build_STMP.format "resource LBL_EQUATION_FMT" "@" ""
+		
+		call build_STMP.withvalue				///
+			mainMulModelCommandDisplayList.store class	///
+			main_build_position.value "@"
+		call mainMulModelCommandValues.store class		///
+			main_build_position.value class			///
+			main_build_child_result.value
+
+		call build_STMP.withvalue				///
+			main_build_tmp2.setvalue "@"
+	}
+	else {
+		call main_build_position.withvalue build_STMP.format	///
+			"resource LBL_EQUATION_FMT" "@"			///
+			"resource LBL_PAREN_DISABLED"
+		call build_STMP.withvalue				///
+			main_build_tmp2.setvalue "@"
+
+		call main_build_tmp2.withvalue				///
+			mainMulModelCommandDisplayList.store		///
+			class main_build_position.value "@"
+	}
+
+	call mainMulModelCommandList.store class			///
+		main_build_position.value class				///
+		main_build_child_result.value
+
+	call mainMulModelCommandDisplayList.copyToArray main_mulmodel_list
+	call main.lb_mulmodelBuild.repopulate
+	call main.lb_mulmodelBuild.setvalue class main_build_tmp2.value
+END
+
+PROGRAM main_mulmodel_sel_changed
+BEGIN
+	call mainMulModelCommandDisplayList.findstr class		///
+		main.lb_mulmodelBuild.value
+	call main_build_position.setvalue class				///
+		mainMulModelCommandDisplayList.position
+	call main_build_position.withvalue main_build_tmp.setvalue	///
+		class mainMulModelStatusList.values[@]
+	if main_build_position {
+		call main.bu_mulmodel_edit.enable
+
+		call main_build_position.withvalue			///
+			main.tb_mulmodel_note.setlabel			///
+		class mainMulModelCommandList.values[@]
+	}
+
+	if main_build_tmp.iseq("disable") {
+		call main.bu_mulmodel_enable.enable
+		call main.bu_mulmodel_disable.disable
+	}
+	if main_build_tmp.iseq("active") {
+		call main.bu_mulmodel_enable.disable
+		call main.bu_mulmodel_disable.enable
+	}
+END
+
+PROGRAM main_mulmodel_disable
+BEGIN
+	call mainMulModelCommandDisplayList.findstr class		///
+		main.lb_mulmodelBuild.value
+	call main_build_position.setvalue class				///
+		mainMulModelCommandDisplayList.position
+
+	call main_build_tmp.setvalue class main.lb_mulmodelBuild.value
+	call mainMulModelStatusList.store class				///
+		main_build_position.value "disable"
+	call mainMulModelCommandValues.store class main_build_position.value ""
+
+	call build_STMP.format "resource LBL_PAREN_DISABLED"
+	call main_build_tmp.append " "
+	call main_build_tmp.append class build_STMP.value
+	
+	call main_build_tmp.withvalue					///
+		mainMulModelCommandDisplayList.store			///
+		class main_build_position.value "@"
+
+	call mainMulModelCommandDisplayList.copyToArray main_mulmodel_list
+
+	call main_build_tmp.withvalue main_build_tmp2.setvalue "@"
+	call main.lb_mulmodelBuild.repopulate
+	call main.lb_mulmodelBuild.setvalue class main_build_tmp2.value
+END
+
+PROGRAM main_mulmodel_enable
+BEGIN
+	call mainMulModelCommandDisplayList.findstr class		///
+		main.lb_mulmodelBuild.value
+	call main_build_position.setvalue class				///
+		mainMulModelCommandDisplayList.position
+
+	call mainMulModelStatusList.store class				///
+		main_build_position.value "active"
+	call main_build_position.withvalue				///
+		mainMulModelCommandValues.store				///
+		class main_build_position.value class			///
+		mainMulModelCommandList.values[@]
+
+	call main_build_position.withvalue				///
+		build_STMP.format "resource LBL_EQUATION_FMT" "@" ""
+	
+	call build_STMP.withvalue					///
+		mainMulModelCommandDisplayList.store			///
+		class main_build_position.value "@"
+
+	call mainMulModelCommandDisplayList.copyToArray main_mulmodel_list
+	call main_build_position.withvalue				///
+		main_build_tmp2.setvalue class				///
+		mainMulModelCommandDisplayList.values[@]
+	call main.lb_mulmodelBuild.repopulate
+	call main.lb_mulmodelBuild.setvalue class main_build_tmp2.value
+END
+
+PROGRAM main_mulequ_create
+BEGIN
+	call main_mulequ_count.setvalue class mainMulEquChildDialogList.size
+	call main_mulequ_count.increment
+	call main_build_tmp.setvalue "main_mulequ_"
+	call main_build_tmp.append class main_mulequ_count.value
+	call main_build_tmp.withvalue main_build_childdlg.setvalue @
+	call program main_show_mulequ_child
+END
+
+PROGRAM main_mulequ_edit
+BEGIN
+	call mainMulEquCommandDisplayList.findstr class			///
+		main.lb_mulequBuild.value
+	call main_build_position.setvalue class				///
+		mainMulEquCommandDisplayList.position
+	call main_build_position.withvalue				///
+		main_build_childdlg.setvalue				///
+		class mainMulEquChildDialogList.values[@]
+	call program main_show_mulequ_child_edit
+END
+
+PROGRAM main_show_mulequ_child
+BEGIN
+	call main_build_tmp.setvalue "bayesmh_muleqs AS "
+	call main_build_tmp.append class main_build_childdlg.value
+	call main_build_tmp.withvalue create CHILD @
+	call main_build_childdlg.withvalue @.setExitString		///
+		"main_build_child_result"
+	call main_build_childdlg.withvalue @.setExitAction		///
+		"program main_mulequ_child_create_done"
+
+	call main_mulequ_count.withvalue				///
+		build_STMP.format "resource LBL_MODEL_FMT" "@" ""
+
+	call main_build_childdlg.withvalue				///
+		main_build_tmp2.setvalue "@.settitle"
+	call main_build_tmp2.append `" ""'
+	call main_build_tmp2.append class build_STMP.value
+	call main_build_tmp2.append `"""'
+	call main_build_tmp2.withvalue @
+END
+
+PROGRAM main_show_mulequ_child_edit
+BEGIN
+	call main_build_tmp.setvalue "bayesmh_muleqs AS "
+	call main_build_tmp.append class main_build_childdlg.value
+	call main_build_tmp.withvalue create CHILD @
+	call main_build_childdlg.withvalue @.setExitString		///
+		"main_build_child_result"
+	call main_build_childdlg.withvalue @.setExitAction		///
+		"program main_mulequ_child_edit_done"
+
+	call main_build_position.withvalue				///
+		main_build_tmp.setvalue					///
+		class mainMulEquCommandDisplayList.values[@]
+	call main_build_childdlg.withvalue				///
+		main_build_tmp2.setvalue "@.settitle"
+	call main_build_tmp2.append `" ""'
+	call main_build_tmp2.append class main_build_tmp.value
+	call main_build_tmp2.append `"""'
+	call main_build_tmp2.withvalue @
+END
+
+PROGRAM main_mulequ_child_create_done
+BEGIN
+	call main_mulequ_arraysize.setvalue class			///
+		mainMulEquChildDialogList.size
+	call main_mulequ_arraysize.increment
+
+	/* Store child dialog name */
+	call mainMulEquChildDialogList.store class			///
+		main_mulequ_arraysize.value class main_build_childdlg.value
+
+	/* Store listbox display equation string */
+	call main_mulequ_arraysize.withvalue				///
+		build_STMP.format "resource LBL_MODEL_FMT" "@" ""
+
+	call build_STMP.withvalue					///
+		mainMulEquCommandDisplayList.store class		///
+		main_mulequ_arraysize.value "@"
+
+	/* Store child dialog result string */
+	call mainMulEquCommandList.store class				///
+		main_mulequ_arraysize.value				///
+		class main_build_child_result.value
+
+
+	/* Store child dialog result string for final command
+	   For disable/enable */
+	call mainMulEquCommandValues.store class			///
+		main_mulequ_arraysize.value				///
+		class main_build_child_result.value
+
+	/* Store disable/enable status */
+	call mainMulEquStatusList.store class				///
+		main_mulequ_arraysize.value "active"
+
+	call mainMulEquCommandDisplayList.copyToArray main_mulequ_list
+	call main.lb_mulequBuild.repopulate
+	call build_STMP.withvalue					///
+		main.lb_mulequBuild.setvalue "@"
+END
+
+PROGRAM main_mulequ_child_edit_done
+BEGIN
+	call mainMulEquChildDialogList.findstr class			///
+		main_build_childdlg.value
+	call main_build_position.setvalue class				///
+		mainMulEquChildDialogList.position
+	call main_build_position.withvalue main_build_tmp.setvalue	///
+		class mainMulEquStatusList.values[@]
+	if main_build_tmp.iseq("active") {
+		call main_build_position.withvalue			///
+			build_STMP.format "resource LBL_MODEL_FMT" "@" ""
+			
+		call build_STMP.withvalue				///
+			mainMulEquCommandDisplayList.store class	///
+			main_build_position.value "@"
+		call mainMulEquCommandValues.store class		///
+			main_build_position.value class			///
+			main_build_child_result.value
+
+		call build_STMP.withvalue				///
+			main_build_tmp2.setvalue "@"
+	}
+	else {		
+		call main_build_position.withvalue build_STMP.format	///
+			"resource LBL_MODEL_FMT" "@"			///
+			"resource LBL_PAREN_DISABLED"
+		call build_STMP.withvalue				///
+			main_build_tmp2.setvalue "@"
+
+		call main_build_tmp2.withvalue				///
+			mainMulEquCommandDisplayList.store		///
+			class main_build_position.value "@"
+	}
+
+	call mainMulEquCommandList.store class				///
+		main_build_position.value class				///
+		main_build_child_result.value
+
+	call mainMulEquCommandDisplayList.copyToArray main_mulequ_list
+	call main.lb_mulequBuild.repopulate
+	call main.lb_mulequBuild.setvalue class main_build_tmp2.value
+END
+
+PROGRAM main_mulequ_sel_changed
+BEGIN
+	call mainMulEquCommandDisplayList.findstr class			///
+		main.lb_mulequBuild.value
+	call main_build_position.setvalue class				///
+		mainMulEquCommandDisplayList.position
+	call main_build_position.withvalue main_build_tmp.setvalue	///
+		class mainMulEquStatusList.values[@]
+	if main_build_position {
+		call main.bu_mulequ_edit.enable
+
+		call main_build_position.withvalue			///
+			main.tb_mulequ_note.setlabel			///
+		class mainMulEquCommandList.values[@]
+	}
+
+	if main_build_tmp.iseq("disable") {
+		call main.bu_mulequ_enable.enable
+		call main.bu_mulequ_disable.disable
+	}
+	if main_build_tmp.iseq("active") {
+		call main.bu_mulequ_enable.disable
+		call main.bu_mulequ_disable.enable
+	}
+END
+
+PROGRAM main_mulequ_disable
+BEGIN
+	call mainMulEquCommandDisplayList.findstr class			///
+		main.lb_mulequBuild.value
+	call main_build_position.setvalue class				///
+		mainMulEquCommandDisplayList.position
+
+	call main_build_tmp.setvalue class main.lb_mulequBuild.value
+	call mainMulEquStatusList.store class				///
+		main_build_position.value "disable"
+	call mainMulEquCommandValues.store class main_build_position.value ""
+
+	call build_STMP.format "resource LBL_PAREN_DISABLED"
+	call main_build_tmp.append " "
+	call main_build_tmp.append class build_STMP.value
+	
+	call main_build_tmp.withvalue					///
+		mainMulEquCommandDisplayList.store			///
+		class main_build_position.value "@"
+
+	call mainMulEquCommandDisplayList.copyToArray main_mulequ_list
+	call main_build_tmp.withvalue main_build_tmp2.setvalue "@"
+
+	call main.lb_mulequBuild.repopulate
+	call main.lb_mulequBuild.setvalue class main_build_tmp2.value
+END
+
+PROGRAM main_mulequ_enable
+BEGIN
+	call mainMulEquCommandDisplayList.findstr class			///
+		main.lb_mulequBuild.value
+	call main_build_position.setvalue class				///
+		mainMulEquCommandDisplayList.position
+
+	call mainMulEquStatusList.store class				///
+		main_build_position.value "active"
+	call main_build_position.withvalue				///
+		mainMulEquCommandValues.store				///
+		class main_build_position.value class			///
+		mainMulEquCommandList.values[@]
+
+	call main_build_position.withvalue				///
+		build_STMP.format "resource LBL_MODEL_FMT" "@" ""
+	
+	call build_STMP.withvalue					///
+		mainMulEquCommandDisplayList.store			///
+		class main_build_position.value "@"
+
+	call mainMulEquCommandDisplayList.copyToArray main_mulequ_list
+	call main_build_position.withvalue				///
+		main_build_tmp2.setvalue class				///
+		mainMulEquCommandDisplayList.values[@]
+	call main.lb_mulequBuild.repopulate
+	call main.lb_mulequBuild.setvalue class main_build_tmp2.value
+END
+
+PROGRAM main_mulnon_create
+BEGIN
+	call main_mulnon_count.setvalue class mainMulNonChildDialogList.size
+	call main_mulnon_count.increment
+	call main_build_tmp.setvalue "main_mulnon_"
+	call main_build_tmp.append class main_mulnon_count.value
+	call main_build_tmp.withvalue main_build_childdlg.setvalue @
+	call program main_show_mulnon_child
+END
+
+PROGRAM main_mulnon_edit
+BEGIN
+	call mainMulNonCommandDisplayList.findstr class			///
+		main.lb_mulnonBuild.value
+	call main_build_position.setvalue class				///
+		mainMulNonCommandDisplayList.position
+	call main_build_position.withvalue				///
+		main_build_childdlg.setvalue				///
+		class mainMulNonChildDialogList.values[@]
+	call program main_show_mulnon_child_edit
+END
+
+PROGRAM main_show_mulnon_child
+BEGIN
+	call main_build_tmp.setvalue "bayesmh_mulnon AS "
+	call main_build_tmp.append class main_build_childdlg.value
+	call main_build_tmp.withvalue create CHILD @
+	call main_build_childdlg.withvalue @.setExitString		///
+		"main_build_child_result"
+	call main_build_childdlg.withvalue @.setExitAction		///
+		"program main_mulnon_child_create_done"
+
+	call main_mulnon_count.withvalue				///
+		build_STMP.format "resource LBL_EQUATION_FMT" "@" ""
+	call main_build_childdlg.withvalue				///
+		main_build_tmp2.setvalue "@.settitle"
+	call main_build_tmp2.append `" ""'
+	call main_build_tmp2.append class build_STMP.value
+	call main_build_tmp2.append `"""'
+	call main_build_tmp2.withvalue @
+END
+
+PROGRAM main_show_mulnon_child_edit
+BEGIN
+	call main_build_tmp.setvalue "bayesmh_mulnon AS "
+	call main_build_tmp.append class main_build_childdlg.value
+	call main_build_tmp.withvalue create CHILD @
+	call main_build_childdlg.withvalue @.setExitString		///
+		"main_build_child_result"
+	call main_build_childdlg.withvalue @.setExitAction		///
+		"program main_mulnon_child_edit_done"
+
+	call main_build_position.withvalue				///
+		main_build_tmp.setvalue					///
+		class mainMulNonCommandDisplayList.values[@]
+	call main_build_childdlg.withvalue				///
+		main_build_tmp2.setvalue "@.settitle"
+	call main_build_tmp2.append `" ""'
+	call main_build_tmp2.append class main_build_tmp.value
+	call main_build_tmp2.append `"""'
+	call main_build_tmp2.withvalue @
+END
+
+PROGRAM main_mulnon_child_create_done
+BEGIN
+	call main_mulnon_arraysize.setvalue class			///
+		mainMulNonChildDialogList.size
+	call main_mulnon_arraysize.increment
+
+	/* Store child dialog name */
+	call mainMulNonChildDialogList.store class			///
+		main_mulnon_arraysize.value class main_build_childdlg.value
+
+	/* Store listbox display equation string */
+	call main_mulnon_arraysize.withvalue				///
+		build_STMP.format "resource LBL_EQUATION_FMT" "@" ""
+		
+	call build_STMP.withvalue					///
+		mainMulNonCommandDisplayList.store class		///
+		main_mulnon_arraysize.value "@"
+
+	/* Store child dialog result string */
+	call mainMulNonCommandList.store class				///
+		main_mulnon_arraysize.value				///
+		class main_build_child_result.value
+
+
+	/* Store child dialog result string for final command
+	   For disable/enable */
+	call mainMulNonCommandValues.store class			///
+		main_mulnon_arraysize.value				///
+		class main_build_child_result.value
+
+	/* Store disable/enable status */
+	call mainMulNonStatusList.store class				///
+		main_mulnon_arraysize.value "active"
+
+	call mainMulNonCommandDisplayList.copyToArray main_mulnon_list
+	call main.lb_mulnonBuild.repopulate
+	call build_STMP.withvalue					///
+		main.lb_mulnonBuild.setvalue "@"
+END
+
+PROGRAM main_mulnon_child_edit_done
+BEGIN
+	call mainMulNonChildDialogList.findstr class			///
+		main_build_childdlg.value
+	call main_build_position.setvalue class				///
+		mainMulNonChildDialogList.position
+	call main_build_position.withvalue main_build_tmp.setvalue	///
+		class mainMulNonStatusList.values[@]
+	if main_build_tmp.iseq("active") {
+		call main_build_position.withvalue			///
+			build_STMP.format "resource LBL_EQUATION_FMT" "@" ""
+			
+		call build_STMP.withvalue				///
+			mainMulNonCommandDisplayList.store class	///
+			main_build_position.value "@"
+		call mainMulNonCommandValues.store class		///
+			main_build_position.value class			///
+			main_build_child_result.value
+
+		call build_STMP.withvalue				///
+			main_build_tmp2.setvalue "@"
+	}
+	else {
+		call main_build_position.withvalue build_STMP.format	///
+			"resource LBL_EQUATION_FMT" "@"			///
+			"resource LBL_PAREN_DISABLED"
+		call build_STMP.withvalue				///
+			main_build_tmp2.setvalue "@"
+
+		call main_build_tmp2.withvalue				///
+			mainMulNonCommandDisplayList.store		///
+			class main_build_position.value "@"
+	}
+
+	call mainMulNonCommandList.store class				///
+		main_build_position.value class				///
+		main_build_child_result.value
+
+	call mainMulNonCommandDisplayList.copyToArray main_mulnon_list
+	call main.lb_mulnonBuild.repopulate
+	call main.lb_mulnonBuild.setvalue class main_build_tmp2.value
+END
+
+PROGRAM main_mulnon_sel_changed
+BEGIN
+	call mainMulNonCommandDisplayList.findstr class			///
+		main.lb_mulnonBuild.value
+	call main_build_position.setvalue class				///
+		mainMulNonCommandDisplayList.position
+	call main_build_position.withvalue main_build_tmp.setvalue	///
+		class mainMulNonStatusList.values[@]
+	if main_build_position {
+		call main.bu_mulnon_edit.enable
+
+		call main_build_position.withvalue			///
+			main.tb_mulnon_note.setlabel			///
+		class mainMulNonCommandList.values[@]
+	}
+
+	if main_build_tmp.iseq("disable") {
+		call main.bu_mulnon_enable.enable
+		call main.bu_mulnon_disable.disable
+	}
+	if main_build_tmp.iseq("active") {
+		call main.bu_mulnon_enable.disable
+		call main.bu_mulnon_disable.enable
+	}
+END
+
+PROGRAM main_mulnon_disable
+BEGIN
+	call mainMulNonCommandDisplayList.findstr class			///
+		main.lb_mulnonBuild.value
+	call main_build_position.setvalue class				///
+		mainMulNonCommandDisplayList.position
+
+	call main_build_tmp.setvalue class main.lb_mulnonBuild.value
+	call mainMulNonStatusList.store class				///
+		main_build_position.value "disable"
+	call mainMulNonCommandValues.store class main_build_position.value ""
+	
+	
+	call build_STMP.format "resource LBL_PAREN_DISABLED"
+	call main_build_tmp.append " "
+	call main_build_tmp.append class build_STMP.value
+
+	call main_build_tmp.withvalue					///
+		mainMulNonCommandDisplayList.store			///
+		class main_build_position.value "@"
+
+	call mainMulNonCommandDisplayList.copyToArray main_mulnon_list
+	call main_build_tmp.withvalue main_build_tmp2.setvalue "@"
+	call main.lb_mulnonBuild.repopulate
+	call main.lb_mulnonBuild.setvalue class main_build_tmp2.value
+END
+
+PROGRAM main_mulnon_enable
+BEGIN
+	call mainMulNonCommandDisplayList.findstr class			///
+		main.lb_mulnonBuild.value
+	call main_build_position.setvalue class				///
+		mainMulNonCommandDisplayList.position
+
+	call mainMulNonStatusList.store class				///
+		main_build_position.value "active"
+	call main_build_position.withvalue				///
+		mainMulNonCommandValues.store				///
+		class main_build_position.value class			///
+		mainMulNonCommandList.values[@]
+
+	call main_build_position.withvalue				///
+		build_STMP.format "resource LBL_EQUATION_FMT" "@" ""
+		
+	call build_STMP.withvalue					///
+		mainMulNonCommandDisplayList.store			///
+		class main_build_position.value "@"
+
+	call mainMulNonCommandDisplayList.copyToArray main_mulnon_list
+	call main_build_position.withvalue				///
+		main_build_tmp2.setvalue class				///
+		mainMulNonCommandDisplayList.values[@]
+	call main.lb_mulnonBuild.repopulate
+	call main.lb_mulnonBuild.setvalue class main_build_tmp2.value
+END
+
+
+
+PROGRAM main_mulequd_create
+BEGIN
+	call main_mulequd_count.setvalue class mainMulEqudChildDialogList.size
+	call main_mulequd_count.increment
+	call main_build_tmp.setvalue "main_mulequd_"
+	call main_build_tmp.append class main_mulequd_count.value
+	call main_build_tmp.withvalue main_build_childdlg.setvalue @
+	call program main_show_mulequd_child
+END
+
+PROGRAM main_mulequd_edit
+BEGIN
+	call mainMulEqudCommandDisplayList.findstr class		///
+		main.lb_mulequdBuild.value
+	call main_build_position.setvalue class				///
+		mainMulEqudCommandDisplayList.position
+	call main_build_position.withvalue				///
+		main_build_childdlg.setvalue				///
+		class mainMulEqudChildDialogList.values[@]
+	call program main_show_mulequd_child_edit
+END
+
+PROGRAM main_show_mulequd_child
+BEGIN
+	call main_build_tmp.setvalue "bayesmh_muleqsd AS "
+	call main_build_tmp.append class main_build_childdlg.value
+	call main_build_tmp.withvalue create CHILD @
+	call main_build_childdlg.withvalue @.setExitString		///
+		"main_build_child_result"
+	call main_build_childdlg.withvalue @.setExitAction		///
+		"program main_mulequd_child_create_done"
+
+	call main_mulequd_count.withvalue				///
+		build_STMP.format "resource LBL_MODEL_FMT" "@" ""
+
+	call main_build_childdlg.withvalue				///
+		main_build_tmp2.setvalue "@.settitle"
+	call main_build_tmp2.append `" ""'
+	call main_build_tmp2.append class build_STMP.value
+	call main_build_tmp2.append `"""'
+	call main_build_tmp2.withvalue @
+END
+
+PROGRAM main_show_mulequd_child_edit
+BEGIN
+	call main_build_tmp.setvalue "bayesmh_muleqsd AS "
+	call main_build_tmp.append class main_build_childdlg.value
+	call main_build_tmp.withvalue create CHILD @
+	call main_build_childdlg.withvalue @.setExitString		///
+		"main_build_child_result"
+	call main_build_childdlg.withvalue @.setExitAction		///
+		"program main_mulequd_child_edit_done"
+
+	call main_build_position.withvalue				///
+		main_build_tmp.setvalue					///
+		class mainMulEqudCommandDisplayList.values[@]
+	call main_build_childdlg.withvalue				///
+		main_build_tmp2.setvalue "@.settitle"
+	call main_build_tmp2.append `" ""'
+	call main_build_tmp2.append class main_build_tmp.value
+	call main_build_tmp2.append `"""'
+	call main_build_tmp2.withvalue @
+END
+
+PROGRAM main_mulequd_child_create_done
+BEGIN
+	call main_mulequd_arraysize.setvalue class			///
+		mainMulEqudChildDialogList.size
+	call main_mulequd_arraysize.increment
+
+	/* Store child dialog name */
+	call mainMulEqudChildDialogList.store class			///
+		main_mulequd_arraysize.value class main_build_childdlg.value
+
+	/* Store listbox display equation string */
+	call main_mulequd_arraysize.withvalue				///
+		build_STMP.format "resource LBL_MODEL_FMT" "@" ""
+
+	call build_STMP.withvalue					///
+		mainMulEqudCommandDisplayList.store class		///
+		main_mulequd_arraysize.value "@"
+
+	/* Store child dialog result string */
+	call mainMulEqudCommandList.store class				///
+		main_mulequd_arraysize.value				///
+		class main_build_child_result.value
+
+
+	/* Store child dialog result string for final command
+	   For disable/enable */
+	call mainMulEqudCommandValues.store class			///
+		main_mulequd_arraysize.value				///
+		class main_build_child_result.value
+
+	/* Store disable/enable status */
+	call mainMulEqudStatusList.store class				///
+		main_mulequd_arraysize.value "active"
+
+	call mainMulEqudCommandDisplayList.copyToArray main_mulequd_list
+	call main.lb_mulequdBuild.repopulate
+	call build_STMP.withvalue					///
+		main.lb_mulequdBuild.setvalue "@"
+END
+
+PROGRAM main_mulequd_child_edit_done
+BEGIN
+	call mainMulEqudChildDialogList.findstr class			///
+		main_build_childdlg.value
+	call main_build_position.setvalue class				///
+		mainMulEqudChildDialogList.position
+	call main_build_position.withvalue main_build_tmp.setvalue	///
+		class mainMulEqudStatusList.values[@]
+	if main_build_tmp.iseq("active") {
+		call main_build_position.withvalue			///
+			build_STMP.format "resource LBL_MODEL_FMT" "@" ""
+			
+		call build_STMP.withvalue				///
+			mainMulEqudCommandDisplayList.store class	///
+			main_build_position.value "@"
+		call mainMulEqudCommandValues.store class		///
+			main_build_position.value class			///
+			main_build_child_result.value
+
+		call build_STMP.withvalue				///
+			main_build_tmp2.setvalue "@"
+	}
+	else {		
+		call main_build_position.withvalue build_STMP.format	///
+			"resource LBL_MODEL_FMT" "@"			///
+			"resource LBL_PAREN_DISABLED"
+		call build_STMP.withvalue				///
+			main_build_tmp2.setvalue "@"
+
+		call main_build_tmp2.withvalue				///
+			mainMulEqudCommandDisplayList.store		///
+			class main_build_position.value "@"
+	}
+
+	call mainMulEqudCommandList.store class				///
+		main_build_position.value class				///
+		main_build_child_result.value
+
+	call mainMulEqudCommandDisplayList.copyToArray main_mulequd_list
+	call main.lb_mulequdBuild.repopulate
+	call main.lb_mulequdBuild.setvalue class main_build_tmp2.value
+END
+
+PROGRAM main_mulequd_sel_changed
+BEGIN
+	call mainMulEqudCommandDisplayList.findstr class			///
+		main.lb_mulequdBuild.value
+	call main_build_position.setvalue class				///
+		mainMulEqudCommandDisplayList.position
+	call main_build_position.withvalue main_build_tmp.setvalue	///
+		class mainMulEqudStatusList.values[@]
+	if main_build_position {
+		call main.bu_mulequd_edit.enable
+
+		call main_build_position.withvalue			///
+			main.tb_mulequd_note.setlabel			///
+		class mainMulEqudCommandList.values[@]
+	}
+
+	if main_build_tmp.iseq("disable") {
+		call main.bu_mulequd_enable.enable
+		call main.bu_mulequd_disable.disable
+	}
+	if main_build_tmp.iseq("active") {
+		call main.bu_mulequd_enable.disable
+		call main.bu_mulequd_disable.enable
+	}
+END
+
+PROGRAM main_mulequd_disable
+BEGIN
+	call mainMulEqudCommandDisplayList.findstr class		///
+		main.lb_mulequdBuild.value
+	call main_build_position.setvalue class				///
+		mainMulEqudCommandDisplayList.position
+
+	call main_build_tmp.setvalue class main.lb_mulequdBuild.value
+	call mainMulEqudStatusList.store class				///
+		main_build_position.value "disable"
+	call mainMulEqudCommandValues.store class main_build_position.value ""
+
+	call build_STMP.format "resource LBL_PAREN_DISABLED"
+	call main_build_tmp.append " "
+	call main_build_tmp.append class build_STMP.value
+	
+	call main_build_tmp.withvalue					///
+		mainMulEqudCommandDisplayList.store			///
+		class main_build_position.value "@"
+
+	call mainMulEqudCommandDisplayList.copyToArray main_mulequd_list
+	call main_build_tmp.withvalue main_build_tmp2.setvalue "@"
+
+	call main.lb_mulequdBuild.repopulate
+	call main.lb_mulequdBuild.setvalue class main_build_tmp2.value
+END
+
+PROGRAM main_mulequd_enable
+BEGIN
+	call mainMulEqudCommandDisplayList.findstr class		///
+		main.lb_mulequdBuild.value
+	call main_build_position.setvalue class				///
+		mainMulEqudCommandDisplayList.position
+
+	call mainMulEqudStatusList.store class				///
+		main_build_position.value "active"
+	call main_build_position.withvalue				///
+		mainMulEqudCommandValues.store				///
+		class main_build_position.value class			///
+		mainMulEqudCommandList.values[@]
+
+	call main_build_position.withvalue				///
+		build_STMP.format "resource LBL_MODEL_FMT" "@" ""
+	
+	call build_STMP.withvalue					///
+		mainMulEqudCommandDisplayList.store			///
+		class main_build_position.value "@"
+
+	call mainMulEqudCommandDisplayList.copyToArray main_mulequd_list
+	call main_build_position.withvalue				///
+		main_build_tmp2.setvalue class				///
+		mainMulEqudCommandDisplayList.values[@]
+	call main.lb_mulequdBuild.repopulate
+	call main.lb_mulequdBuild.setvalue class main_build_tmp2.value
+END
+
+PROGRAM main_prior_create
+BEGIN
+	if main.cb_syntax.equals("uvar") {
+		require main.vn_unidv
+		call BAYESMH_PARSE_PARAMS.setvalue ""
+		call BAYESMH_PARSE_PARAMS.append class main.vn_unidv.value
+		call BAYESMH_PARSE_PARAMS.append " "
+		if main.vl_uniiv.isenabled() {
+			call BAYESMH_PARSE_PARAMS.append class main.vl_uniiv.value
+		}
+		call BAYESMH_PARSE_PARAMS.append ", "
+		if main.ck_uninocons & main.ck_uninocons.isenabled() {
+			call BAYESMH_PARSE_PARAMS.append "noconstant "
+		}
+	}
+	if main.cb_syntax.equals("mvar") {
+		require main.vl_muldv
+		call BAYESMH_PARSE_PARAMS.setvalue ""
+		call BAYESMH_PARSE_PARAMS.append class main.vl_muldv.value 
+		call BAYESMH_PARSE_PARAMS.append "="
+		call BAYESMH_PARSE_PARAMS.append class main.vl_muliv.value
+		call BAYESMH_PARSE_PARAMS.append ", "
+		if main.ck_mulnocons {
+			call BAYESMH_PARSE_PARAMS.append "noconstant "
+		}
+	}
+	if main.cb_syntax.equals("mvarreg") {
+		call mainMulModelCommandValues.copyToString main_mulmodel_output
+		if main_mulmodel_output.equals("") {
+			call create STRING _MSG_TMP
+                	call _MSG_TMP.format 					///
+				"resource BAYES_MSGBOX_EQUATION_REQUIRED_FMT" 	///
+				"resource LBL_TAB_MAIN"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, at least one equation must be specified.
+		}
+		call BAYESMH_PARSE_PARAMS.setvalue ""
+		call BAYESMH_PARSE_PARAMS.append class main_mulmodel_output.value
+		call BAYESMH_PARSE_PARAMS.append ", "
+		if main.ck_mulmodelnocons {
+			call BAYESMH_PARSE_PARAMS.append "noconstant "
+		}
+	}
+	if main.cb_syntax.equals("mequ") {
+		call mainMulEquCommandValues.copyToString main_mulequ_output
+		if main_mulequ_output.equals("") {
+			call create STRING _MSG_TMP
+                	call _MSG_TMP.format 					///
+				"resource BAYES_MSGBOX_MODEL_REQUIRED_FMT" 	///
+				"resource LBL_TAB_MAIN"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, at least one model must be specified.
+		}
+		call BAYESMH_PARSE_PARAMS.setvalue ""
+		call BAYESMH_PARSE_PARAMS.append class main_mulequ_output.value
+		call BAYESMH_PARSE_PARAMS.append ", "
+	}
+	if main.cb_syntax.equals("nuvar") {
+		require main.vn_uninondv
+		call BAYESMH_PARSE_PARAMS.setvalue ""
+		call BAYESMH_PARSE_PARAMS.append class main.vn_uninondv.value
+		if main.ex_uninonexp {
+			call BAYESMH_PARSE_PARAMS.append "=("
+			call BAYESMH_PARSE_PARAMS.append class main.ex_uninonexp.value
+			call BAYESMH_PARSE_PARAMS.append ")"
+		}
+		call BAYESMH_PARSE_PARAMS.append ", "
+	}
+	if main.cb_syntax.equals("nmvar")  {
+		call mainMulNonCommandValues.copyToString main_mulnon_output
+		if main_mulnon_output.equals("") {
+			call create STRING _MSG_TMP
+                	call _MSG_TMP.format 					///
+				"resource BAYES_MSGBOX_EQUATION_REQUIRED_FMT" 	///
+				"resource LBL_TAB_MAIN"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, at least one equation must be specified.
+		}
+		call BAYESMH_PARSE_PARAMS.setvalue ""
+		call BAYESMH_PARSE_PARAMS.append class main_mulnon_output.value
+		call BAYESMH_PARSE_PARAMS.append ", "
+	}
+	if main.cb_syntax.equals("uvard") {
+		require main.vn_unidv
+		call BAYESMH_PARSE_PARAMS.setvalue ""
+		call BAYESMH_PARSE_PARAMS.append class main.vn_uniddv.value
+		call BAYESMH_PARSE_PARAMS.append ", "
+	}
+	if main.cb_syntax.equals("mequd") {
+		call mainMulEqudCommandValues.copyToString main_mulequd_output
+		if main_mulequd_output.equals("") {
+			call create STRING _MSG_TMP
+                	call _MSG_TMP.format 					///
+				"resource BAYES_MSGBOX_MODEL_REQUIRED_FMT" 	///
+				"resource LBL_TAB_MAIN"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, at least one model must be specified.
+		}
+		call BAYESMH_PARSE_PARAMS.setvalue ""
+		call BAYESMH_PARSE_PARAMS.append class main_mulequd_output.value
+		call BAYESMH_PARSE_PARAMS.append ", "
+	}
+	
+	if model.vn_reffects.isvisible() & model.vn_reffects {
+		call BAYESMH_PARSE_PARAMS.append " reffects("
+		call BAYESMH_PARSE_PARAMS.append class model.vn_reffects.value
+		call BAYESMH_PARSE_PARAMS.append ")"
+	}
+	call mainRedefineCommandValues.copyToString main_redefine_output
+	if !main_redefine_output.equals("") {
+		call BAYESMH_PARSE_PARAMS.append class main_redefine_output.value
+	}
+	if model.vl_xbdefine.isvisible() & model.vl_xbdefine {
+		require model.ed_xbdefine_lbl
+		call BAYESMH_PARSE_PARAMS.append " xbdefine("
+		if model.ed_xbdefine_lbl {
+			call BAYESMH_PARSE_PARAMS.append class model.ed_xbdefine_lbl.value
+			call BAYESMH_PARSE_PARAMS.append ":"
+		}
+		call BAYESMH_PARSE_PARAMS.append class model.vl_xbdefine.value
+		call BAYESMH_PARSE_PARAMS.append ")"
+	}
+	
+	call prior_mode.setvalue 0
+	call main_prior_count.setvalue class mainPriorChildDialogList.size
+	call main_prior_count.increment
+	call main_build_tmp.setvalue "main_prior_"
+	call main_build_tmp.append class main_prior_count.value
+	call main_build_tmp.withvalue main_build_childdlg.setvalue @
+	call program main_show_prior_child
+END
+
+PROGRAM main_prior_edit
+BEGIN
+	if main.cb_syntax.equals("uvar") {
+		require main.vn_unidv
+		call BAYESMH_PARSE_PARAMS.setvalue ""
+		call BAYESMH_PARSE_PARAMS.append class main.vn_unidv.value
+		call BAYESMH_PARSE_PARAMS.append " "
+		if main.vl_uniiv.isenabled() {
+			call BAYESMH_PARSE_PARAMS.append class main.vl_uniiv.value
+		}
+		call BAYESMH_PARSE_PARAMS.append ", "
+		if main.ck_uninocons & main.ck_uninocons.isenabled() {
+			call BAYESMH_PARSE_PARAMS.append "noconstant "
+		}
+	}
+	if main.cb_syntax.equals("mvar") {
+		require main.vl_muldv
+		call BAYESMH_PARSE_PARAMS.setvalue ""
+		call BAYESMH_PARSE_PARAMS.append class main.vl_muldv.value 
+		call BAYESMH_PARSE_PARAMS.append "="
+		call BAYESMH_PARSE_PARAMS.append class main.vl_muliv.value
+		call BAYESMH_PARSE_PARAMS.append ", "
+		if main.ck_mulnocons {
+			call BAYESMH_PARSE_PARAMS.append "noconstant "
+		}
+	}
+	if main.cb_syntax.equals("mvarreg") {
+		call mainMulModelCommandValues.copyToString main_mulmodel_output
+		if main_mulmodel_output.equals("") {
+			call create STRING _MSG_TMP
+                	call _MSG_TMP.format 					///
+				"resource BAYES_MSGBOX_EQUATION_REQUIRED_FMT" 	///
+				"resource LBL_TAB_MAIN"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, at least one equation must be specified.
+		}
+		call BAYESMH_PARSE_PARAMS.setvalue ""
+		call BAYESMH_PARSE_PARAMS.append class main_mulmodel_output.value
+		call BAYESMH_PARSE_PARAMS.append ", "
+		if main.ck_mulmodelnocons {
+			call BAYESMH_PARSE_PARAMS.append "noconstant "
+		}
+	}
+	if main.cb_syntax.equals("mequ") {
+		call mainMulEquCommandValues.copyToString main_mulequ_output
+		if main_mulequ_output.equals("") {
+			call create STRING _MSG_TMP
+                	call _MSG_TMP.format 					///
+				"resource BAYES_MSGBOX_MODEL_REQUIRED_FMT" 	///
+				"resource LBL_TAB_MAIN"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, at least one model must be specified.
+		}
+		call BAYESMH_PARSE_PARAMS.setvalue ""
+		call BAYESMH_PARSE_PARAMS.append class main_mulequ_output.value
+		call BAYESMH_PARSE_PARAMS.append ", "
+	}
+	if main.cb_syntax.equals("nuvar") {
+		require main.vn_uninondv
+		call BAYESMH_PARSE_PARAMS.setvalue ""
+		call BAYESMH_PARSE_PARAMS.append class main.vn_uninondv.value
+		if main.ex_uninonexp {
+			call BAYESMH_PARSE_PARAMS.append "=("
+			call BAYESMH_PARSE_PARAMS.append class main.ex_uninonexp.value
+			call BAYESMH_PARSE_PARAMS.append ")"
+		}
+		call BAYESMH_PARSE_PARAMS.append ", "
+	}
+	if main.cb_syntax.equals("nmvar")  {
+		call mainMulNonCommandValues.copyToString main_mulnon_output
+		if main_mulnon_output.equals("") {
+			call create STRING _MSG_TMP
+                	call _MSG_TMP.format 					///
+				"resource BAYES_MSGBOX_EQUATION_REQUIRED_FMT" 	///
+				"resource LBL_TAB_MAIN"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, at least one equation must be specified.
+		}
+		call BAYESMH_PARSE_PARAMS.setvalue ""
+		call BAYESMH_PARSE_PARAMS.append class main_mulnon_output.value
+		call BAYESMH_PARSE_PARAMS.append ", "
+	}
+	if main.cb_syntax.equals("uvard") {
+		require main.vn_unidv
+		call BAYESMH_PARSE_PARAMS.setvalue ""
+		call BAYESMH_PARSE_PARAMS.append class main.vn_uniddv.value
+		call BAYESMH_PARSE_PARAMS.append ", "
+	}
+	if main.cb_syntax.equals("mequd") {
+		call mainMulEqudCommandValues.copyToString main_mulequd_output
+		if main_mulequd_output.equals("") {
+			call create STRING _MSG_TMP
+                	call _MSG_TMP.format 					///
+				"resource BAYES_MSGBOX_MODEL_REQUIRED_FMT" 	///
+				"resource LBL_TAB_MAIN"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, at least one model must be specified.
+		}
+		call BAYESMH_PARSE_PARAMS.setvalue ""
+		call BAYESMH_PARSE_PARAMS.append class main_mulequd_output.value
+		call BAYESMH_PARSE_PARAMS.append ", "
+	}
+	
+	if model.vn_reffects.isvisible() & model.vn_reffects {
+		call BAYESMH_PARSE_PARAMS.append " reffects("
+		call BAYESMH_PARSE_PARAMS.append class model.vn_reffects.value
+		call BAYESMH_PARSE_PARAMS.append ")"
+	}
+	call mainRedefineCommandValues.copyToString main_redefine_output
+	if !main_redefine_output.equals("") {
+		call BAYESMH_PARSE_PARAMS.append class main_redefine_output.value
+	}
+	if model.vl_xbdefine.isvisible() & model.vl_xbdefine {
+		require model.ed_xbdefine_lbl
+		call BAYESMH_PARSE_PARAMS.append " xbdefine("
+		if model.ed_xbdefine_lbl {
+			call BAYESMH_PARSE_PARAMS.append class model.ed_xbdefine_lbl.value
+			call BAYESMH_PARSE_PARAMS.append ":"
+		}
+		call BAYESMH_PARSE_PARAMS.append class model.vl_xbdefine.value
+		call BAYESMH_PARSE_PARAMS.append ")"
+	}
+	
+	call prior_mode.setvalue 1
+	call mainPriorCommandDisplayList.findstr class			///
+		main.lb_priorBuild.value
+	call main_build_position.setvalue class				///
+		mainPriorCommandDisplayList.position
+	call main_build_position.withvalue				///
+		main_build_childdlg.setvalue				///
+		class mainPriorChildDialogList.values[@]
+	call program main_show_prior_child_edit
+END
+
+PROGRAM main_show_prior_child
+BEGIN
+	call mainPriorCommandValues.copyToString main_prior_output
+	put "capture bayesmh_parse_params " 
+	put BAYESMH_PARSE_PARAMS
+	put " " /program main_distr_output
+	put " " main_prior_output
+	stata hidden immediate
+	call RC.setvalue s(error)
+	call BAYESMH_PARSE_PARAMS_ERROR.setvalue ""
+	call BAYESMH_PARSE_PARAMS_RESULT.setvalue ""
+	if RC.isneq("100") {
+		call RC.setvalue ""
+		call BAYESMH_PARSE_PARAMS_RESULT.setvalue s(params)
+		if BAYESMH_PARSE_PARAMS_RESULT.iseq("") {
+			call BAYESMH_PARSE_PARAMS_ERROR.setvalue resource BAYES_MSGBOX_ERRORS_IN_SPECIFICATION
+stopbox stop "class BAYESMH_PARSE_PARAMS_ERROR.value"
+// Errors in model specification.
+		}
+	}
+	else {
+		call RC.setvalue ""
+		call BAYESMH_PARSE_PARAMS_ERROR_STR.setvalue ""
+		call BAYESMH_PARSE_PARAMS_ERROR_STR.append s(duplicate) 
+		call BAYESMH_PARSE_PARAMS_ERROR_STR.withvalue 					///
+			BAYESMH_PARSE_PARAMS_ERROR.format							///
+			"resource BAYESMH_MSGBOX_PRIOR_ALREADY_DEFINED_FMT" "@"
+stopbox stop "class BAYESMH_PARSE_PARAMS_ERROR.value"
+// Prior of {0} is already defined.
+	}
+	call BAYESMH_PARSE_PARAMS_ERROR.setvalue ""
+
+	call main_paras_list.Arrdropall
+
+	call main_paras_str.setvalue ""
+	put "bayesmh_wrk_dlg " 
+	put dlgname
+	put " main_paras_list"
+	put `" "s(eqnames) s(params)""'
+	put " 0"
+	stata hidden immediate
+	
+//	call simulation.cb_exclude.setcontentslist main_paras_list
+
+	call simulation.cb_exclude.repopulate
+	
+	call main_build_tmp.setvalue "bayesmh_prior AS "
+	call main_build_tmp.append class main_build_childdlg.value
+	call main_build_tmp.withvalue create CHILD @
+	call main_build_childdlg.withvalue @.setExitString		///
+		"main_build_child_result"
+	call main_build_childdlg.withvalue @.setExitAction		///
+		"program main_prior_child_create_done"
+
+	call main_prior_count.withvalue					///
+		build_STMP.format "resource BAYES_LBL_PRIOR_FMT" "@" ""
+	call main_build_childdlg.withvalue				///
+		main_build_tmp2.setvalue "@.settitle"
+	call main_build_tmp2.append `" ""'
+	call main_build_tmp2.append class build_STMP.value
+	call main_build_tmp2.append `"""'
+	call main_build_tmp2.withvalue @
+END
+
+PROGRAM main_show_prior_child_edit
+BEGIN
+	call mainPriorCommandValues.copyToString main_prior_output
+	put "capture bayesmh_parse_params " 
+	put BAYESMH_PARSE_PARAMS
+	put " " /program main_distr_output
+	stata hidden immediate
+	
+	call main_build_tmp.setvalue "bayesmh_prior AS "
+	call main_build_tmp.append class main_build_childdlg.value
+	call main_build_tmp.withvalue create CHILD @
+	call main_build_childdlg.withvalue @.setExitString		///
+		"main_build_child_result"
+	call main_build_childdlg.withvalue @.setExitAction		///
+		"program main_prior_child_edit_done"
+
+	call main_build_position.withvalue				///
+		main_build_tmp.setvalue					///
+		class mainPriorCommandDisplayList.values[@]
+	call main_build_childdlg.withvalue				///
+		main_build_tmp2.setvalue "@.settitle"
+	call main_build_tmp2.append `" ""'
+	call main_build_tmp2.append class main_build_tmp.value
+	call main_build_tmp2.append `"""'
+	call main_build_tmp2.withvalue @
+END
+
+PROGRAM main_prior_child_create_done
+BEGIN
+	call main_prior_arraysize.setvalue class			///
+		mainPriorChildDialogList.size
+	call main_prior_arraysize.increment
+
+	/* Store child dialog name */
+	call mainPriorChildDialogList.store class			///
+		main_prior_arraysize.value class main_build_childdlg.value
+
+	/* Store listbox display equation string */
+	call main_prior_arraysize.withvalue				///
+		build_STMP.format "resource BAYES_LBL_PRIOR_FMT" "@" ""
+		
+	call build_STMP.withvalue					///
+		mainPriorCommandDisplayList.store class			///
+		main_prior_arraysize.value "@"
+
+	/* Store child dialog result string */
+	call mainPriorCommandList.store class				///
+		main_prior_arraysize.value				///
+		class main_build_child_result.value
+
+
+	/* Store child dialog result string for final command
+	   For disable/enable */
+	call mainPriorCommandValues.store class				///
+		main_prior_arraysize.value				///
+		class main_build_child_result.value
+
+	/* Store disable/enable status */
+	call mainPriorStatusList.store class				///
+		main_prior_arraysize.value "active"
+
+	call mainPriorCommandDisplayList.copyToArray main_prior_list
+	call main.lb_priorBuild.repopulate
+	call build_STMP.withvalue					///
+		main.lb_priorBuild.setvalue "@"
+END
+
+PROGRAM main_prior_child_edit_done
+BEGIN	
+	call mainPriorChildDialogList.findstr class			///
+		main_build_childdlg.value
+	call main_build_position.setvalue class				///
+		mainPriorChildDialogList.position
+	call main_build_position.withvalue main_build_tmp.setvalue	///
+		class mainPriorStatusList.values[@]
+	if main_build_tmp.iseq("active") {
+		call main_build_position.withvalue			///
+			build_STMP.format "resource BAYES_LBL_PRIOR_FMT" "@" ""
+		
+		call build_STMP.withvalue				///
+			mainPriorCommandDisplayList.store class		///
+			main_build_position.value "@"
+		call mainPriorCommandValues.store class			///
+			main_build_position.value class			///
+			main_build_child_result.value
+
+		call build_STMP.withvalue				///
+			main_build_tmp2.setvalue "@"
+	}
+	else {
+		call main_build_position.withvalue build_STMP.format	///
+			"resource BAYES_LBL_PRIOR_FMT" "@"		///
+			"resource LBL_PAREN_DISABLED"
+		call build_STMP.withvalue				///
+			main_build_tmp2.setvalue "@"
+
+		call main_build_tmp2.withvalue				///
+			mainPriorCommandDisplayList.store		///
+			class main_build_position.value "@"
+	}
+
+	call mainPriorCommandList.store class				///
+		main_build_position.value class				///
+		main_build_child_result.value
+
+	call mainPriorCommandDisplayList.copyToArray main_prior_list
+	call main.lb_priorBuild.repopulate
+	call main.lb_priorBuild.setvalue class main_build_tmp2.value
+END
+
+PROGRAM main_prior_sel_changed
+BEGIN
+	call mainPriorCommandDisplayList.findstr class			///
+		main.lb_priorBuild.value
+	call main_build_position.setvalue class				///
+		mainPriorCommandDisplayList.position
+	call main_build_position.withvalue main_build_tmp.setvalue	///
+		class mainPriorStatusList.values[@]
+	if main_build_position {
+		call main.bu_prior_edit.enable
+
+		call main_build_position.withvalue			///
+			main.tb_prior_note.setlabel			///
+		class mainPriorCommandList.values[@]
+	}
+
+	if main_build_tmp.iseq("disable") {
+		call main.bu_prior_enable.enable
+		call main.bu_prior_disable.disable
+	}
+	if main_build_tmp.iseq("active") {
+		call main.bu_prior_enable.disable
+		call main.bu_prior_disable.enable
+	}
+END
+
+PROGRAM main_prior_disable
+BEGIN
+	call mainPriorCommandDisplayList.findstr class			///
+		main.lb_priorBuild.value
+	call main_build_position.setvalue class				///
+		mainPriorCommandDisplayList.position
+
+	call main_build_tmp.setvalue class main.lb_priorBuild.value
+	call mainPriorStatusList.store class				///
+		main_build_position.value "disable"
+	call mainPriorCommandValues.store class main_build_position.value ""
+
+	call build_STMP.format "resource LBL_PAREN_DISABLED"
+	call main_build_tmp.append " "
+	call main_build_tmp.append class build_STMP.value
+	
+	call main_build_tmp.withvalue					///
+		mainPriorCommandDisplayList.store			///
+		class main_build_position.value "@"
+
+	call mainPriorCommandDisplayList.copyToArray main_prior_list
+	call main_build_tmp.withvalue main_build_tmp2.setvalue "@"
+	call main.lb_priorBuild.repopulate
+	call main.lb_priorBuild.setvalue class main_build_tmp2.value
+END
+
+PROGRAM main_prior_enable
+BEGIN
+	call mainPriorCommandDisplayList.findstr class			///
+		main.lb_priorBuild.value
+	call main_build_position.setvalue class				///
+		mainPriorCommandDisplayList.position
+
+	call mainPriorStatusList.store class				///
+		main_build_position.value "active"
+	call main_build_position.withvalue				///
+		mainPriorCommandValues.store				///
+		class main_build_position.value class			///
+		mainPriorCommandList.values[@]
+
+	call main_build_position.withvalue				///
+		build_STMP.format "resource BAYES_LBL_PRIOR_FMT" "@" ""
+		
+	call build_STMP.withvalue					///
+		mainPriorCommandDisplayList.store			///
+		class main_build_position.value "@"
+
+	call mainPriorCommandDisplayList.copyToArray main_prior_list
+	call main_build_position.withvalue				///
+		main_build_tmp2.setvalue class				///
+		mainPriorCommandDisplayList.values[@]
+	call main.lb_priorBuild.repopulate
+	call main.lb_priorBuild.setvalue class main_build_tmp2.value
+END
+
+
+DIALOG model, tabtitle(resource LBL_TAB_MODEL2)
+BEGIN
+  VARNAME  vn_reffects		_lft	_top	_vnwd 	.,		///
+	option(reffects)						///
+	label(resource BAYESMH_MODEL_TX_REFFECTS)
+  TEXT	   tx_reffects		_vnsep	@	400	.,		///
+	label(resource BAYESMH_MODEL_TX_REFFECTS)
+  GROUPBOX gb_redefine		_lft	+30	_iwd	_ht12,		///
+	label(resource BAYESMH_MODEL_TX_REDEFINE)
+  LISTBOX lb_redefineBuild	_indent	_ss	245	95,		///
+	contents(main_redefine_list)					///
+	ondblclick(program main_redefine_edit)				///
+	onselchange(program main_redefine_sel_changed)			///
+	nomemory
+  BUTTON bu_redefine_create	275	@	75	.,		///
+	onpush(program main_redefine_create)				///
+	label(resource LBL_BU_CREATE)
+  BUTTON bu_redefine_edit	@	_ms	@	.,		///
+	onpush(program main_redefine_edit)				///
+	label(resource LBL_BU_EDIT)					
+  BUTTON bu_redefine_disable	@	_ms	@	.,		///
+	onpush(program main_redefine_disable)				///
+	label(resource LBL_BU_DISABLE)
+  BUTTON bu_redefine_enable	@	_ms	@	.,		///
+	onpush(program main_redefine_enable)				///
+	label(resource LBL_BU_ENABLE)
+  TEXTBOX tb_redefine_note	20	+25	500	25,		///
+	label(resource BAYES_LBL_PRESS_CREATE_TO_DEFINE_REDEFINE)
+  TEXT	   tx_xbdefine		_lft	_ms 	300	.,		///
+	label(resource BAYESMH_MODEL_TX_XBDEFINE)
+  TEXT	   tx_xbdefine_lbl	370	@	200	.,		///
+	label(resource BAYESMH_MODEL_TX_LINEAR_COMBINATION)
+  VARLIST  vl_xbdefine		_lft	_ss	340	.,		///
+	numeric								///
+	label(resource BAYESMH_MODEL_TX_XBDEFINE)
+  EDIT	   ed_xbdefine_lbl	370	@	_vnwd	.,		///
+	label(resource BAYESMH_MODEL_TX_LINEAR_COMBINATION)
+END
+
+PROGRAM model_reffects_change
+BEGIN
+	if main.cb_syntax.equals("uvar") {
+		call model.vn_reffects.show
+		call model.tx_reffects.show
+		call model.vn_reffects.setposition . 10
+		call model.tx_reffects.setposition . 10
+		call model.gb_redefine.setposition . 40
+		call model.lb_redefineBuild.setposition . 60
+		call model.bu_redefine_create.setposition . 60
+		call model.bu_redefine_edit.setposition . 85
+		call model.bu_redefine_disable.setposition . 110
+		call model.bu_redefine_enable.setposition . 135
+		call model.tb_redefine_note.setposition . 160
+		call model.tx_xbdefine.setposition . 205
+		call model.tx_xbdefine_lbl.setposition . 205
+		call model.vl_xbdefine.setposition . 225
+		call model.ed_xbdefine_lbl.setposition . 225
+	}
+	else {
+		call model.vn_reffects.hide
+		call model.tx_reffects.hide
+		call model.gb_redefine.setposition . 10
+		call model.lb_redefineBuild.setposition . 30
+		call model.bu_redefine_create.setposition . 30
+		call model.bu_redefine_edit.setposition . 55
+		call model.bu_redefine_disable.setposition . 80
+		call model.bu_redefine_enable.setposition . 105
+		call model.tb_redefine_note.setposition . 130
+		call model.tx_xbdefine.setposition . 175
+		call model.tx_xbdefine_lbl.setposition . 175
+		call model.vl_xbdefine.setposition . 195
+		call model.ed_xbdefine_lbl.setposition . 195
+	}
+END
+
+PROGRAM main_redefine_create
+BEGIN
+	call main_redefine_count.setvalue class mainRedefineChildDialogList.size
+	call main_redefine_count.increment
+	call main_build_tmp.setvalue "main_redefine_"
+	call main_build_tmp.append class main_redefine_count.value
+	call main_build_tmp.withvalue main_build_childdlg.setvalue @
+	call program main_show_redefine_child
+END
+
+PROGRAM main_redefine_edit
+BEGIN
+	call mainRedefineCommandDisplayList.findstr class		///
+		model.lb_redefineBuild.value
+	call main_build_position.setvalue class				///
+		mainRedefineCommandDisplayList.position
+	call main_build_position.withvalue				///
+		main_build_childdlg.setvalue				///
+		class mainRedefineChildDialogList.values[@]
+	call program main_show_redefine_child_edit
+END
+
+PROGRAM main_show_redefine_child
+BEGIN	
+	call main_build_tmp.setvalue "bayesmh_redefine AS "
+	call main_build_tmp.append class main_build_childdlg.value
+	call main_build_tmp.withvalue create CHILD @
+	call main_build_childdlg.withvalue @.setExitString		///
+		"main_build_child_result"
+	call main_build_childdlg.withvalue @.setExitAction		///
+		"program main_redefine_child_create_done"
+
+	call main_redefine_count.withvalue				///
+		build_STMP.format "resource BAYES_LBL_REDEFINE_FMT" "@" ""
+	call main_build_childdlg.withvalue				///
+		main_build_tmp2.setvalue "@.settitle"
+	call main_build_tmp2.append `" ""'
+	call main_build_tmp2.append class build_STMP.value
+	call main_build_tmp2.append `"""'
+	call main_build_tmp2.withvalue @
+END
+
+PROGRAM main_show_redefine_child_edit
+BEGIN	
+	call main_build_tmp.setvalue "bayesmh_redefine AS "
+	call main_build_tmp.append class main_build_childdlg.value
+	call main_build_tmp.withvalue create CHILD @
+	call main_build_childdlg.withvalue @.setExitString		///
+		"main_build_child_result"
+	call main_build_childdlg.withvalue @.setExitAction		///
+		"program main_redefine_child_edit_done"
+
+	call main_build_position.withvalue				///
+		main_build_tmp.setvalue					///
+		class mainRedefineCommandDisplayList.values[@]
+	call main_build_childdlg.withvalue				///
+		main_build_tmp2.setvalue "@.settitle"
+	call main_build_tmp2.append `" ""'
+	call main_build_tmp2.append class main_build_tmp.value
+	call main_build_tmp2.append `"""'
+	call main_build_tmp2.withvalue @
+END
+
+PROGRAM main_redefine_child_create_done
+BEGIN
+	call main_redefine_arraysize.setvalue class			///
+		mainRedefineChildDialogList.size
+	call main_redefine_arraysize.increment
+
+	/* Store child dialog name */
+	call mainRedefineChildDialogList.store class			///
+		main_redefine_arraysize.value class main_build_childdlg.value
+
+	/* Store listbox display equation string */
+	call main_redefine_arraysize.withvalue				///
+		build_STMP.format "resource BAYES_LBL_REDEFINE_FMT" "@" ""
+		
+	call build_STMP.withvalue					///
+		mainRedefineCommandDisplayList.store class		///
+		main_redefine_arraysize.value "@"
+
+	/* Store child dialog result string */
+	call mainRedefineCommandList.store class			///
+		main_redefine_arraysize.value				///
+		class main_build_child_result.value
+
+
+	/* Store child dialog result string for final command
+	   For disable/enable */
+	call mainRedefineCommandValues.store class			///
+		main_redefine_arraysize.value				///
+		class main_build_child_result.value
+
+	/* Store disable/enable status */
+	call mainRedefineStatusList.store class				///
+		main_redefine_arraysize.value "active"
+
+	call mainRedefineCommandDisplayList.copyToArray main_redefine_list
+	call model.lb_redefineBuild.repopulate
+	call build_STMP.withvalue					///
+		model.lb_redefineBuild.setvalue "@"
+END
+
+PROGRAM main_redefine_child_edit_done
+BEGIN	
+	call mainRedefineChildDialogList.findstr class			///
+		main_build_childdlg.value
+	call main_build_position.setvalue class				///
+		mainRedefineChildDialogList.position
+	call main_build_position.withvalue main_build_tmp.setvalue	///
+		class mainRedefineStatusList.values[@]
+	if main_build_tmp.iseq("active") {
+		call main_build_position.withvalue			///
+			build_STMP.format "resource BAYES_LBL_REDEFINE_FMT" "@" ""
+		
+		call build_STMP.withvalue				///
+			mainRedefineCommandDisplayList.store class	///
+			main_build_position.value "@"
+		call mainRedefineCommandValues.store class		///
+			main_build_position.value class			///
+			main_build_child_result.value
+
+		call build_STMP.withvalue				///
+			main_build_tmp2.setvalue "@"
+	}
+	else {
+		call main_build_position.withvalue build_STMP.format	///
+			"resource BAYES_LBL_REDEFINE_FMT" "@"		///
+			"resource LBL_PAREN_DISABLED"
+		call build_STMP.withvalue				///
+			main_build_tmp2.setvalue "@"
+
+		call main_build_tmp2.withvalue				///
+			mainRedefineCommandDisplayList.store		///
+			class main_build_position.value "@"
+	}
+
+	call mainRedefineCommandList.store class			///
+		main_build_position.value class				///
+		main_build_child_result.value
+
+	call mainRedefineCommandDisplayList.copyToArray main_redefine_list
+	call model.lb_redefineBuild.repopulate
+	call model.lb_redefineBuild.setvalue class main_build_tmp2.value
+END
+
+PROGRAM main_redefine_sel_changed
+BEGIN
+	call mainRedefineCommandDisplayList.findstr class		///
+		model.lb_redefineBuild.value
+	call main_build_position.setvalue class				///
+		mainRedefineCommandDisplayList.position
+	call main_build_position.withvalue main_build_tmp.setvalue	///
+		class mainRedefineStatusList.values[@]
+	if main_build_position {
+		call model.bu_redefine_edit.enable
+
+		call main_build_position.withvalue			///
+			model.tb_redefine_note.setlabel			///
+		class mainRedefineCommandList.values[@]
+	}
+
+	if main_build_tmp.iseq("disable") {
+		call model.bu_redefine_enable.enable
+		call model.bu_redefine_disable.disable
+	}
+	if main_build_tmp.iseq("active") {
+		call model.bu_redefine_enable.disable
+		call model.bu_redefine_disable.enable
+	}
+END
+
+PROGRAM main_redefine_disable
+BEGIN
+	call mainRedefineCommandDisplayList.findstr class		///
+		model.lb_redefineBuild.value
+	call main_build_position.setvalue class				///
+		mainRedefineCommandDisplayList.position
+
+	call main_build_tmp.setvalue class model.lb_redefineBuild.value
+	call mainRedefineStatusList.store class				///
+		main_build_position.value "disable"
+	call mainRedefineCommandValues.store class main_build_position.value ""
+
+	call build_STMP.format "resource LBL_PAREN_DISABLED"
+	call main_build_tmp.append " "
+	call main_build_tmp.append class build_STMP.value
+	
+	call main_build_tmp.withvalue					///
+		mainRedefineCommandDisplayList.store			///
+		class main_build_position.value "@"
+
+	call mainRedefineCommandDisplayList.copyToArray main_redefine_list
+	call main_build_tmp.withvalue main_build_tmp2.setvalue "@"
+	call model.lb_redefineBuild.repopulate
+	call model.lb_redefineBuild.setvalue class main_build_tmp2.value
+END
+
+PROGRAM main_redefine_enable
+BEGIN
+	call mainRedefineCommandDisplayList.findstr class		///
+		model.lb_redefineBuild.value
+	call main_build_position.setvalue class				///
+		mainRedefineCommandDisplayList.position
+
+	call mainRedefineStatusList.store class				///
+		main_build_position.value "active"
+	call main_build_position.withvalue				///
+		mainRedefineCommandValues.store				///
+		class main_build_position.value class			///
+		mainRedefineCommandList.values[@]
+
+	call main_build_position.withvalue				///
+		build_STMP.format "resource BAYES_LBL_REDEFINE_FMT" "@" ""
+		
+	call build_STMP.withvalue					///
+		mainRedefineCommandDisplayList.store			///
+		class main_build_position.value "@"
+
+	call mainRedefineCommandDisplayList.copyToArray main_redefine_list
+	call main_build_position.withvalue				///
+		main_build_tmp2.setvalue class				///
+		mainRedefineCommandDisplayList.values[@]
+	call model.lb_redefineBuild.repopulate
+	call model.lb_redefineBuild.setvalue class main_build_tmp2.value
+END
+
+INCLUDE ifin
+INCLUDE weights_f
+
+DIALOG simulation, tabtitle(resource BAYES_SIMULATION_TABTITLE)
+BEGIN
+  SPINNER sp_nchains			_lft	_top	_en7wd	.,	///
+	default(1) min(1) max(10)					///
+	option(nchains)							///
+	onchange("program simulation_sp_nchains_change")		///
+	label(resource LBL_NUMBER_OF_CHAINS)
+  TEXT tx_nchains			_en7sep @	300	.,	///
+	label(resource LBL_NUMBER_OF_CHAINS)
+  SPINNER sp_mcmcsize			_lft	_ls	_en7wd	.,	///
+	default(10000) min(1) max(1000000)				///
+	option(mcmcsize)						///
+	label(resource BAYES_LBL_MCMC_SAMPLE_SIZE) 
+  TEXT    tx_mcmcsize			_en7sep @	300	.,	///
+	label(resource BAYES_LBL_MCMC_SAMPLE_SIZE)
+  SPINNER sp_burnin			_lft	_ls	_en7wd	.,	///
+	default(2500) min(1) max(1000000)				///
+	option(burnin)							///
+	label(resource BAYES_LBL_NUM_ITER_BURNIN_MCMC) 
+  TEXT    tx_burnin			_en7sep @	300	.,	///
+	label(resource BAYES_LBL_NUM_ITER_BURNIN_MCMC)
+  EDIT    ed_thinning			_lft	_ls	_en7wd	.,	///
+	numonly								///
+	option(thinning)						///
+	default(1)							///
+	label(resource BAYES_LBL_THINNING_INTERVAL)
+  TEXT	  tx_thinning			_en7sep @	300	.,	///
+	label(resource BAYES_LBL_THINNING_INTERVAL)
+  EDIT    ed_rseed			_lft	_ls	_en7wd	.,	///
+	numonly								///
+	option(rseed)							///
+	label(resource LBL_RANDOM_NUMBER_SEED_NO_COLON)
+  TEXT	  tx_rseed			_en7sep @	300	.,	///
+	label(resource LBL_RANDOM_NUMBER_SEED_NO_COLON)
+
+  TEXT     tx_exclude 			_lft	+35	_iwd	.,	///
+	label(resource BAYES_LBL_MODEL_PARAMS_EXCLUDED_SIMULATION)
+  COMBOBOX cb_exclude 			@	_ss	_iwd	.,	///
+	dropdown							///
+	append								///
+	contents(main_paras_list)					///
+	option(exclude)							///
+	label(resource BAYES_LBL_MODEL_PARAMS_EXCLUDED_SIMULATION)
+END
+
+PROGRAM simulation_sp_nchains_change
+BEGIN
+	call init.tx_initial.hide
+	call init.ed_initial.hide
+	call init.bu_initial.hide
+	call init.tx_initall.show
+	call init.ed_initall.show
+	call init.bu_initall.show
+
+	if simulation.sp_nchains.isgt(1) {
+		call STMP.format "resource BAYES_LBL_SUPPRESS_MAX_LIKELIHOOD_EST_START_FOR_CHAIN1"
+		call rpt.ck_chainsdetail.enable
+	}
+	else {
+		call STMP.format "resource BAYES_LBL_SUPPRESS_MAX_LIKELIHOOD_EST_START"
+		call rpt.ck_chainsdetail.disable
+	}
+	call STMP.withvalue init.ck_nomleinitial.setlabel @
+
+	if simulation.sp_nchains.iseq(1) {
+		call init.tx_initial.show
+		call init.ed_initial.show
+		call init.bu_initial.show
+		call init.tx_init1.hide
+		call init.ed_init1.hide
+		call init.bu_init1.hide
+		call init.tx_init2.hide
+		call init.ed_init2.hide
+		call init.bu_init2.hide
+		call init.tx_init3.hide
+		call init.ed_init3.hide
+		call init.bu_init3.hide
+		call init.tx_init4.hide
+		call init.ed_init4.hide
+		call init.bu_init4.hide
+		call init.tx_init5.hide
+		call init.ed_init5.hide
+		call init.bu_init5.hide
+		call init.tx_init6.hide
+		call init.ed_init6.hide
+		call init.bu_init6.hide
+		call init.tx_init7.hide
+		call init.ed_init7.hide
+		call init.bu_init7.hide
+		call init.tx_init8.hide
+		call init.ed_init8.hide
+		call init.bu_init8.hide
+		call init.tx_init9.hide
+		call init.ed_init9.hide
+		call init.bu_init9.hide
+		call init.tx_init10.hide
+		call init.ed_init10.hide
+		call init.bu_init10.hide
+		call init.tx_initall.hide
+		call init.ed_initall.hide
+		call init.bu_initall.hide
+
+		call init.ck_nomleinitial.setposition . 60
+		call init.ck_initrandom.setposition . 85
+		call init.ck_initsummary.setposition . 110
+	}
+	if simulation.sp_nchains.iseq(2) {
+		call init.tx_init1.show
+		call init.ed_init1.show
+		call init.bu_init1.show
+		call init.tx_init2.show
+		call init.ed_init2.show
+		call init.bu_init2.show
+		call init.tx_init3.hide
+		call init.ed_init3.hide
+		call init.bu_init3.hide
+		call init.tx_init4.hide
+		call init.ed_init4.hide
+		call init.bu_init4.hide
+		call init.tx_init5.hide
+		call init.ed_init5.hide
+		call init.bu_init5.hide
+		call init.tx_init6.hide
+		call init.ed_init6.hide
+		call init.bu_init6.hide
+		call init.tx_init7.hide
+		call init.ed_init7.hide
+		call init.bu_init7.hide
+		call init.tx_init8.hide
+		call init.ed_init8.hide
+		call init.bu_init8.hide
+		call init.tx_init9.hide
+		call init.ed_init9.hide
+		call init.bu_init9.hide
+		call init.tx_init10.hide
+		call init.ed_init10.hide
+		call init.bu_init10.hide
+
+		call init.tx_initall.setposition . 110
+		call init.ed_initall.setposition . 130
+		call init.bu_initall.setposition . 130
+
+		call init.ck_nomleinitial.setposition . 165
+		call init.ck_initrandom.setposition . 190
+		call init.ck_initsummary.setposition . 215
+		
+	}
+	if simulation.sp_nchains.iseq(3) {
+		call init.tx_init1.show
+		call init.ed_init1.show
+		call init.bu_init1.show
+		call init.tx_init2.show
+		call init.ed_init2.show
+		call init.bu_init2.show
+		call init.tx_init3.show
+		call init.ed_init3.show
+		call init.bu_init3.show
+		call init.tx_init4.hide
+		call init.ed_init4.hide
+		call init.bu_init4.hide
+		call init.tx_init5.hide
+		call init.ed_init5.hide
+		call init.bu_init5.hide
+		call init.tx_init6.hide
+		call init.ed_init6.hide
+		call init.bu_init6.hide
+		call init.tx_init7.hide
+		call init.ed_init7.hide
+		call init.bu_init7.hide
+		call init.tx_init8.hide
+		call init.ed_init8.hide
+		call init.bu_init8.hide
+		call init.tx_init9.hide
+		call init.ed_init9.hide
+		call init.bu_init9.hide
+		call init.tx_init10.hide
+		call init.ed_init10.hide
+		call init.bu_init10.hide
+
+		call init.tx_initall.setposition . 160
+		call init.ed_initall.setposition . 180
+		call init.bu_initall.setposition . 180
+
+		call init.ck_nomleinitial.setposition . 220
+		call init.ck_initrandom.setposition . 245
+		call init.ck_initsummary.setposition . 270
+	}
+	if simulation.sp_nchains.iseq(4) {
+		call init.tx_init1.show
+		call init.ed_init1.show
+		call init.bu_init1.show
+		call init.tx_init2.show
+		call init.ed_init2.show
+		call init.bu_init2.show
+		call init.tx_init3.show
+		call init.ed_init3.show
+		call init.bu_init3.show
+		call init.tx_init4.show
+		call init.ed_init4.show
+		call init.bu_init4.show
+		call init.tx_init5.hide
+		call init.ed_init5.hide
+		call init.bu_init5.hide
+		call init.tx_init6.hide
+		call init.ed_init6.hide
+		call init.bu_init6.hide
+		call init.tx_init7.hide
+		call init.ed_init7.hide
+		call init.bu_init7.hide
+		call init.tx_init8.hide
+		call init.ed_init8.hide
+		call init.bu_init8.hide
+		call init.tx_init9.hide
+		call init.ed_init9.hide
+		call init.bu_init9.hide
+		call init.tx_init10.hide
+		call init.ed_init10.hide
+		call init.bu_init10.hide
+
+		call init.tx_initall.setposition . 210
+		call init.ed_initall.setposition . 230
+		call init.bu_initall.setposition . 230
+
+		call init.ck_nomleinitial.setposition . 265
+		call init.ck_initrandom.setposition . 290
+		call init.ck_initsummary.setposition . 315
+	}
+	if simulation.sp_nchains.iseq(5) {
+		call init.tx_init1.show
+		call init.ed_init1.show
+		call init.bu_init1.show
+		call init.tx_init2.show
+		call init.ed_init2.show
+		call init.bu_init2.show
+		call init.tx_init3.show
+		call init.ed_init3.show
+		call init.bu_init3.show
+		call init.tx_init4.show
+		call init.ed_init4.show
+		call init.bu_init4.show
+		call init.tx_init5.show
+		call init.ed_init5.show
+		call init.bu_init5.show
+		call init.tx_init6.hide
+		call init.ed_init6.hide
+		call init.bu_init6.hide
+		call init.tx_init7.hide
+		call init.ed_init7.hide
+		call init.bu_init7.hide
+		call init.tx_init8.hide
+		call init.ed_init8.hide
+		call init.bu_init8.hide
+		call init.tx_init9.hide
+		call init.ed_init9.hide
+		call init.bu_init9.hide
+		call init.tx_init10.hide
+		call init.ed_init10.hide
+		call init.bu_init10.hide
+
+		call init.tx_initall.setposition . 260
+		call init.ed_initall.setposition . 280
+		call init.bu_initall.setposition . 280
+
+		call init.ck_nomleinitial.setposition . 325
+		call init.ck_initrandom.setposition . 350
+		call init.ck_initsummary.setposition . 375
+	}
+	if simulation.sp_nchains.iseq(6) {
+		call init.tx_init1.show
+		call init.ed_init1.show
+		call init.bu_init1.show
+		call init.tx_init2.show
+		call init.ed_init2.show
+		call init.bu_init2.show
+		call init.tx_init3.show
+		call init.ed_init3.show
+		call init.bu_init3.show
+		call init.tx_init4.show
+		call init.ed_init4.show
+		call init.bu_init4.show
+		call init.tx_init5.show
+		call init.ed_init5.show
+		call init.bu_init5.show
+		call init.tx_init6.show
+		call init.ed_init6.show
+		call init.bu_init6.show
+		call init.tx_init7.hide
+		call init.ed_init7.hide
+		call init.bu_init7.hide
+		call init.tx_init8.hide
+		call init.ed_init8.hide
+		call init.bu_init8.hide
+		call init.tx_init9.hide
+		call init.ed_init9.hide
+		call init.bu_init9.hide
+		call init.tx_init10.hide
+		call init.ed_init10.hide
+		call init.bu_init10.hide
+
+		call init.tx_initall.setposition . 310
+		call init.ed_initall.setposition . 330
+		call init.bu_initall.setposition . 330
+
+		call init.ck_nomleinitial.setposition . 370
+		call init.ck_initrandom.setposition . 395
+		call init.ck_initsummary.setposition . 420
+	}
+	if simulation.sp_nchains.iseq(7) {
+		call init.tx_init1.show
+		call init.ed_init1.show
+		call init.bu_init1.show
+		call init.tx_init2.show
+		call init.ed_init2.show
+		call init.bu_init2.show
+		call init.tx_init3.show
+		call init.ed_init3.show
+		call init.bu_init3.show
+		call init.tx_init4.show
+		call init.ed_init4.show
+		call init.bu_init4.show
+		call init.tx_init5.show
+		call init.ed_init5.show
+		call init.bu_init5.show
+		call init.tx_init6.show
+		call init.ed_init6.show
+		call init.bu_init6.show
+		call init.tx_init7.show
+		call init.ed_init7.show
+		call init.bu_init7.show
+		call init.tx_init8.hide
+		call init.ed_init8.hide
+		call init.bu_init8.hide
+		call init.tx_init9.hide
+		call init.ed_init9.hide
+		call init.bu_init9.hide
+		call init.tx_init10.hide
+		call init.ed_init10.hide
+		call init.bu_init10.hide
+
+		call init.tx_initall.setposition . 360
+		call init.ed_initall.setposition . 380
+		call init.bu_initall.setposition . 380
+
+		call init.ck_nomleinitial.setposition . 410
+		call init.ck_initrandom.setposition . 435
+		call init.ck_initsummary.setposition . 460
+	}
+	if simulation.sp_nchains.iseq(8) {
+		call init.tx_init1.show
+		call init.ed_init1.show
+		call init.bu_init1.show
+		call init.tx_init2.show
+		call init.ed_init2.show
+		call init.bu_init2.show
+		call init.tx_init3.show
+		call init.ed_init3.show
+		call init.bu_init3.show
+		call init.tx_init4.show
+		call init.ed_init4.show
+		call init.bu_init4.show
+		call init.tx_init5.show
+		call init.ed_init5.show
+		call init.bu_init5.show
+		call init.tx_init6.show
+		call init.ed_init6.show
+		call init.bu_init6.show
+		call init.tx_init7.show
+		call init.ed_init7.show
+		call init.bu_init7.show
+		call init.tx_init8.show
+		call init.ed_init8.show
+		call init.bu_init8.show
+		call init.tx_init9.hide
+		call init.ed_init9.hide
+		call init.bu_init9.hide
+		call init.tx_init10.hide
+		call init.ed_init10.hide
+		call init.bu_init10.hide
+
+		call init.tx_initall.setposition . 410
+		call init.ed_initall.setposition . 430
+		call init.bu_initall.setposition . 430
+
+		call init.ck_nomleinitial.setposition . 470
+		call init.ck_initrandom.setposition . 495
+		call init.ck_initsummary.setposition . 520
+	}
+	if simulation.sp_nchains.iseq(9) {
+		call init.tx_init1.show
+		call init.ed_init1.show
+		call init.bu_init1.show
+		call init.tx_init2.show
+		call init.ed_init2.show
+		call init.bu_init2.show
+		call init.tx_init3.show
+		call init.ed_init3.show
+		call init.bu_init3.show
+		call init.tx_init4.show
+		call init.ed_init4.show
+		call init.bu_init4.show
+		call init.tx_init5.show
+		call init.ed_init5.show
+		call init.bu_init5.show
+		call init.tx_init6.show
+		call init.ed_init6.show
+		call init.bu_init6.show
+		call init.tx_init7.show
+		call init.ed_init7.show
+		call init.bu_init7.show
+		call init.tx_init8.show
+		call init.ed_init8.show
+		call init.bu_init8.show
+		call init.tx_init9.show
+		call init.ed_init9.show
+		call init.bu_init9.show
+		call init.tx_init10.hide
+		call init.ed_init10.hide
+		call init.bu_init10.hide
+
+		call init.tx_initall.setposition . 460
+		call init.ed_initall.setposition . 480
+		call init.bu_initall.setposition . 480
+
+		call init.ck_nomleinitial.setposition . 510
+		call init.ck_initrandom.setposition . 535
+		call init.ck_initsummary.setposition . 560
+	}
+	if simulation.sp_nchains.iseq(10) {
+		call init.tx_init1.show
+		call init.ed_init1.show
+		call init.bu_init1.show
+		call init.tx_init2.show
+		call init.ed_init2.show
+		call init.bu_init2.show
+		call init.tx_init3.show
+		call init.ed_init3.show
+		call init.bu_init3.show
+		call init.tx_init4.show
+		call init.ed_init4.show
+		call init.bu_init4.show
+		call init.tx_init5.show
+		call init.ed_init5.show
+		call init.bu_init5.show
+		call init.tx_init6.show
+		call init.ed_init6.show
+		call init.bu_init6.show
+		call init.tx_init7.show
+		call init.ed_init7.show
+		call init.bu_init7.show
+		call init.tx_init8.show
+		call init.ed_init8.show
+		call init.bu_init8.show
+		call init.tx_init9.show
+		call init.ed_init9.show
+		call init.bu_init9.show
+		call init.tx_init10.show
+		call init.ed_init10.show
+		call init.bu_init10.show
+
+		call init.tx_initall.setposition . 510
+		call init.ed_initall.setposition . 530
+		call init.bu_initall.setposition . 530
+
+		call init.ck_nomleinitial.setposition . 565
+		call init.ck_initrandom.setposition . 590
+		call init.ck_initsummary.setposition . 615
+	}
+END
+
+PROGRAM block_POSTINIT_PROGRAM
+BEGIN
+	call mainBlockCommandDisplayList.copyToArray main_block_list
+	call block.lb_blockBuild.repopulate
+END
+
+DIALOG block, tabtitle(resource LBL_TAB_BLOCKING)
+BEGIN
+  GROUPBOX gb_block		_lft	_top	_iwd	_ht13,		///
+	label(resource BAYES_LBL_BLOCKS_PARAMETERS)
+  LISTBOX lb_blockBuild		_indent	_ss	245	95,		///
+	contents(main_block_list)					///
+	ondblclick(program main_block_edit)				///
+	onselchange(program main_block_sel_changed)			///
+	nomemory
+  BUTTON bu_block_create	275	@	75	.,		///
+	onpush(program main_block_create)				///
+	label(resource LBL_BU_CREATE)
+  BUTTON bu_block_edit		@	_ms	@	.,		///
+	onpush(program main_block_edit)					///
+	label(resource LBL_BU_EDIT)					
+  BUTTON bu_block_disable	@	_ms	@	.,		///
+	onpush(program main_block_disable)				///
+	label(resource LBL_BU_DISABLE)
+  BUTTON bu_block_enable	@	_ms	@	.,		///
+	onpush(program main_block_enable)				///
+	label(resource LBL_BU_ENABLE)
+  TEXTBOX tb_block_note		20	+35	500	25,		///
+	label(resource BAYES_LBL_PRESS_CREATE_TO_DEFINE_BLOCK)
+  CHECKBOX ck_blocksummary	_lft	+45	_iwd	.,		///
+	option(blocksummary)						///
+	onclickon(main.ck_dryrun.disable)				///
+	onclickoff(main.ck_dryrun.enable)				///
+	label(resource BAYES_LBL_DISPLAY_BLCOK_SUMMARY)
+END
+
+PROGRAM main_block_create
+BEGIN
+	call mainPriorCommandValues.copyToString main_prior_output
+	if main_prior_output.equals("") {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format 					///
+			"resource LBL_MSGBOX_ON_TAB_MUST_BE_SPECIFIED_FMT" ///
+			"resource LBL_TAB_MAIN"				///
+			"resource BAYESMH_MAIN_GB_PRIOR"
+		stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Priors of model parameters" must be specified.
+	}
+	call main_block_count.setvalue class mainBlockChildDialogList.size
+	call main_block_count.increment
+	call main_build_tmp.setvalue "main_block_"
+	call main_build_tmp.append class main_block_count.value
+	call main_build_tmp.withvalue main_build_childdlg.setvalue @
+	call program main_show_block_child
+END
+
+PROGRAM main_block_edit
+BEGIN
+	call mainBlockCommandDisplayList.findstr class			///
+		block.lb_blockBuild.value
+	call main_build_position.setvalue class				///
+		mainBlockCommandDisplayList.position
+	call main_build_position.withvalue				///
+		main_build_childdlg.setvalue				///
+		class mainBlockChildDialogList.values[@]
+	call program main_show_block_child_edit
+END
+
+PROGRAM main_show_block_child
+BEGIN	
+	call main_build_tmp.setvalue "bayesmh_block AS "
+	call main_build_tmp.append class main_build_childdlg.value
+	call main_build_tmp.withvalue create CHILD @
+	call main_build_childdlg.withvalue @.setExitString		///
+		"main_build_child_result"
+	call main_build_childdlg.withvalue @.setExitAction		///
+		"program main_block_child_create_done"
+
+	call main_block_count.withvalue					///
+		build_STMP.format "resource BAYES_LBL_BLOCK_FMT" "@" ""
+	call main_build_childdlg.withvalue				///
+		main_build_tmp2.setvalue "@.settitle"
+	call main_build_tmp2.append `" ""'
+	call main_build_tmp2.append class build_STMP.value
+	call main_build_tmp2.append `"""'
+	call main_build_tmp2.withvalue @
+END
+
+PROGRAM main_show_block_child_edit
+BEGIN	
+	call main_build_tmp.setvalue "bayesmh_block AS "
+	call main_build_tmp.append class main_build_childdlg.value
+	call main_build_tmp.withvalue create CHILD @
+	call main_build_childdlg.withvalue @.setExitString		///
+		"main_build_child_result"
+	call main_build_childdlg.withvalue @.setExitAction		///
+		"program main_block_child_edit_done"
+
+	call main_build_position.withvalue				///
+		main_build_tmp.setvalue					///
+		class mainBlockCommandDisplayList.values[@]
+	call main_build_childdlg.withvalue				///
+		main_build_tmp2.setvalue "@.settitle"
+	call main_build_tmp2.append `" ""'
+	call main_build_tmp2.append class main_build_tmp.value
+	call main_build_tmp2.append `"""'
+	call main_build_tmp2.withvalue @
+END
+
+PROGRAM main_block_child_create_done
+BEGIN
+	call main_block_arraysize.setvalue class			///
+		mainBlockChildDialogList.size
+	call main_block_arraysize.increment
+
+	/* Store child dialog name */
+	call mainBlockChildDialogList.store class			///
+		main_block_arraysize.value class main_build_childdlg.value
+
+	/* Store listbox display equation string */
+	call main_block_arraysize.withvalue				///
+		build_STMP.format "resource BAYES_LBL_BLOCK_FMT" "@" ""
+		
+	call build_STMP.withvalue					///
+		mainBlockCommandDisplayList.store class			///
+		main_block_arraysize.value "@"
+
+	/* Store child dialog result string */
+	call mainBlockCommandList.store class				///
+		main_block_arraysize.value				///
+		class main_build_child_result.value
+		
+	/* Store child dialog main.ck_reffects */
+	call mainBlockReffectsList.store class				///
+		main_block_arraysize.value				///
+		class blockre.value
+
+	/* Store child dialog result string for final command
+	   For disable/enable */
+	call mainBlockCommandValues.store class				///
+		main_block_arraysize.value				///
+		class main_build_child_result.value
+
+	/* Store disable/enable status */
+	call mainBlockStatusList.store class				///
+		main_block_arraysize.value "active"
+
+	call mainBlockCommandDisplayList.copyToArray main_block_list
+	call block.lb_blockBuild.repopulate
+	call build_STMP.withvalue					///
+		block.lb_blockBuild.setvalue "@"
+END
+
+PROGRAM main_block_child_edit_done
+BEGIN	
+	call mainBlockChildDialogList.findstr class			///
+		main_build_childdlg.value
+	call main_build_position.setvalue class				///
+		mainBlockChildDialogList.position
+	call main_build_position.withvalue main_build_tmp.setvalue	///
+		class mainBlockStatusList.values[@]
+	if main_build_tmp.iseq("active") {
+		call main_build_position.withvalue			///
+			build_STMP.format "resource BAYES_LBL_BLOCK_FMT" "@" ""
+		
+		call build_STMP.withvalue				///
+			mainBlockCommandDisplayList.store class		///
+			main_build_position.value "@"
+		call mainBlockCommandValues.store class			///
+			main_build_position.value class			///
+			main_build_child_result.value
+
+		call build_STMP.withvalue				///
+			main_build_tmp2.setvalue "@"
+	}
+	else {
+		call main_build_position.withvalue build_STMP.format	///
+			"resource BAYES_LBL_BLOCK_FMT" "@"		///
+			"resource LBL_PAREN_DISABLED"
+		call build_STMP.withvalue				///
+			main_build_tmp2.setvalue "@"
+
+		call main_build_tmp2.withvalue				///
+			mainBlockCommandDisplayList.store		///
+			class main_build_position.value "@"
+	}
+	
+	/* Store child dialog main.ck_reffects */
+	call mainBlockReffectsList.store class				///
+		main_build_position.value				///
+		class blockre.value
+
+	call mainBlockCommandList.store class				///
+		main_build_position.value class				///
+		main_build_child_result.value
+
+	call mainBlockCommandDisplayList.copyToArray main_block_list
+	call block.lb_blockBuild.repopulate
+	call block.lb_blockBuild.setvalue class main_build_tmp2.value
+END
+
+PROGRAM main_block_sel_changed
+BEGIN
+	call mainBlockCommandDisplayList.findstr class			///
+		block.lb_blockBuild.value
+	call main_build_position.setvalue class				///
+		mainBlockCommandDisplayList.position
+	call main_build_position.withvalue main_build_tmp.setvalue	///
+		class mainBlockStatusList.values[@]
+	if main_build_position {
+		call block.bu_block_edit.enable
+
+		call main_build_position.withvalue			///
+			block.tb_block_note.setlabel			///
+		class mainBlockCommandList.values[@]
+	}
+
+	if main_build_tmp.iseq("disable") {
+		call block.bu_block_enable.enable
+		call block.bu_block_disable.disable
+	}
+	if main_build_tmp.iseq("active") {
+		call block.bu_block_enable.disable
+		call block.bu_block_disable.enable
+	}
+END
+
+PROGRAM main_block_disable
+BEGIN
+	call mainBlockCommandDisplayList.findstr class			///
+		block.lb_blockBuild.value
+	call main_build_position.setvalue class				///
+		mainBlockCommandDisplayList.position
+
+	call main_build_tmp.setvalue class block.lb_blockBuild.value
+	call mainBlockStatusList.store class				///
+		main_build_position.value "disable"
+	call mainBlockCommandValues.store class main_build_position.value ""
+
+	call build_STMP.format "resource LBL_PAREN_DISABLED"
+	call main_build_tmp.append " "
+	call main_build_tmp.append class build_STMP.value
+	
+	call main_build_tmp.withvalue					///
+		mainBlockCommandDisplayList.store			///
+		class main_build_position.value "@"
+
+	call mainBlockCommandDisplayList.copyToArray main_block_list
+	call main_build_tmp.withvalue main_build_tmp2.setvalue "@"
+	call block.lb_blockBuild.repopulate
+	call block.lb_blockBuild.setvalue class main_build_tmp2.value
+END
+
+PROGRAM main_block_enable
+BEGIN
+	call mainBlockCommandDisplayList.findstr class			///
+		block.lb_blockBuild.value
+	call main_build_position.setvalue class				///
+		mainBlockCommandDisplayList.position
+
+	call mainBlockStatusList.store class				///
+		main_build_position.value "active"
+	call main_build_position.withvalue				///
+		mainBlockCommandValues.store				///
+		class main_build_position.value class			///
+		mainBlockCommandList.values[@]
+
+	call main_build_position.withvalue				///
+		build_STMP.format "resource BAYES_LBL_BLOCK_FMT" "@" ""
+		
+	call build_STMP.withvalue					///
+		mainBlockCommandDisplayList.store			///
+		class main_build_position.value "@"
+
+	call mainBlockCommandDisplayList.copyToArray main_block_list
+	call main_build_position.withvalue				///
+		main_build_tmp2.setvalue class				///
+		mainBlockCommandDisplayList.values[@]
+	call block.lb_blockBuild.repopulate
+	call block.lb_blockBuild.setvalue class main_build_tmp2.value
+END
+
+SCRIPT init_PREINIT
+BEGIN
+	create DOUBLE init_error
+	create STRING initialResult
+	create STRING init1Result
+	create STRING init2Result
+	create STRING init3Result
+	create STRING init4Result
+	create STRING init5Result
+	create STRING init6Result
+	create STRING init7Result
+	create STRING init8Result
+	create STRING init9Result
+	create STRING init10Result
+	create STRING initallResult
+	create STRING STMP2
+
+	STMP2.format							///
+		"resource LBL_INITIAL_VALUES_FOR_MODEL_PARAMETERS_FOR_CHAIN_FMT"	///
+		"1"
+	STMP2.withvalue init.tx_init1.setlabel "@"
+	STMP2.withvalue init.ed_init1.setlabel "@"
+
+	STMP2.format							///
+		"resource LBL_INITIAL_VALUES_FOR_MODEL_PARAMETERS_FOR_CHAIN_FMT"	///
+		"2"
+	STMP2.withvalue init.tx_init2.setlabel "@"
+	STMP2.withvalue init.ed_init2.setlabel "@"
+
+	STMP2.format							///
+		"resource LBL_INITIAL_VALUES_FOR_MODEL_PARAMETERS_FOR_CHAIN_FMT"	///
+		"3"
+	STMP2.withvalue init.tx_init3.setlabel "@"
+	STMP2.withvalue init.ed_init3.setlabel "@"
+
+	STMP2.format							///
+		"resource LBL_INITIAL_VALUES_FOR_MODEL_PARAMETERS_FOR_CHAIN_FMT"	///
+		"4"
+	STMP2.withvalue init.tx_init4.setlabel "@"
+	STMP2.withvalue init.ed_init4.setlabel "@"
+
+	STMP2.format							///
+		"resource LBL_INITIAL_VALUES_FOR_MODEL_PARAMETERS_FOR_CHAIN_FMT"	///
+		"5"
+	STMP2.withvalue init.tx_init5.setlabel "@"
+	STMP2.withvalue init.ed_init5.setlabel "@"
+
+	STMP2.format							///
+		"resource LBL_INITIAL_VALUES_FOR_MODEL_PARAMETERS_FOR_CHAIN_FMT"	///
+		"6"
+	STMP2.withvalue init.tx_init6.setlabel "@"
+	STMP2.withvalue init.ed_init6.setlabel "@"
+
+	STMP2.format							///
+		"resource LBL_INITIAL_VALUES_FOR_MODEL_PARAMETERS_FOR_CHAIN_FMT"	///
+		"7"
+	STMP2.withvalue init.tx_init7.setlabel "@"
+	STMP2.withvalue init.ed_init7.setlabel "@"
+
+	STMP2.format							///
+		"resource LBL_INITIAL_VALUES_FOR_MODEL_PARAMETERS_FOR_CHAIN_FMT"	///
+		"8"
+	STMP2.withvalue init.tx_init8.setlabel "@"
+	STMP2.withvalue init.ed_init8.setlabel "@"
+
+	STMP2.format							///
+		"resource LBL_INITIAL_VALUES_FOR_MODEL_PARAMETERS_FOR_CHAIN_FMT"	///
+		"9"
+	STMP2.withvalue init.tx_init9.setlabel "@"
+	STMP2.withvalue init.ed_init9.setlabel "@"
+
+	STMP2.format							///
+		"resource LBL_INITIAL_VALUES_FOR_MODEL_PARAMETERS_FOR_CHAIN_FMT"	///
+		"10"
+	STMP2.withvalue init.tx_init10.setlabel "@"
+	STMP2.withvalue init.ed_init10.setlabel "@"
+END
+
+DIALOG init, tabtitle(resource LBL_TAB_INITIALIZATION)
+BEGIN
+  TEXT     tx_initial		_lft	_top	_iwd	.,		///
+	label(resource BAYES_LBL_INIT_VALUES_FOR_MODEL_PARAMS)
+  EDIT	   ed_initial		@	_ss	455	.,		///
+	option(initial)							///
+	label(resource BAYES_LBL_INIT_VALUES_FOR_MODEL_PARAMS)
+  BUTTON   bu_initial		465	@	75	.,		///
+	onpush(program show_initial_input)				///
+	label(resource LBL_BU_CREATE)
+  TEXT     tx_init1		_lft	_top	_iwd	.,		///
+	label(resource LBL_INITIAL_VALUES_FOR_MODEL_PARAMETERS_FOR_CHAIN_FMT)
+  EDIT	   ed_init1		@	_ss	455	.,		///
+	option(init1)							///
+	label(resource LBL_INITIAL_VALUES_FOR_MODEL_PARAMETERS_FOR_CHAIN_FMT)
+  BUTTON   bu_init1		465	@	75	.,		///
+	onpush(program show_init1_input)				///
+	label(resource LBL_BU_CREATE)
+  TEXT     tx_init2		_lft	_ls	_iwd	.,		///
+	label(resource LBL_INITIAL_VALUES_FOR_MODEL_PARAMETERS_FOR_CHAIN_FMT)
+  EDIT	   ed_init2		@	_ss	455	.,		///
+	option(init2)							///
+	label(resource LBL_INITIAL_VALUES_FOR_MODEL_PARAMETERS_FOR_CHAIN_FMT)
+  BUTTON   bu_init2		465	@	75	.,		///
+	onpush(program show_init2_input)				///
+	label(resource LBL_BU_CREATE)
+  TEXT     tx_init3		_lft	_ls	_iwd	.,		///
+	label(resource LBL_INITIAL_VALUES_FOR_MODEL_PARAMETERS_FOR_CHAIN_FMT)
+  EDIT	   ed_init3		@	_ss	455	.,		///
+	option(init3)							///
+	label(resource LBL_INITIAL_VALUES_FOR_MODEL_PARAMETERS_FOR_CHAIN_FMT)
+  BUTTON   bu_init3		465	@	75	.,		///
+	onpush(program show_init3_input)				///
+	label(resource LBL_BU_CREATE)
+  TEXT     tx_init4		_lft	_ls	_iwd	.,		///
+	label(resource LBL_INITIAL_VALUES_FOR_MODEL_PARAMETERS_FOR_CHAIN_FMT)
+  EDIT	   ed_init4		@	_ss	455	.,		///
+	option(init4)							///
+	label(resource LBL_INITIAL_VALUES_FOR_MODEL_PARAMETERS_FOR_CHAIN_FMT)
+  BUTTON   bu_init4		465	@	75	.,		///
+	onpush(program show_init4_input)				///
+	label(resource LBL_BU_CREATE)
+  TEXT     tx_init5		_lft	_ls	_iwd	.,		///
+	label(resource LBL_INITIAL_VALUES_FOR_MODEL_PARAMETERS_FOR_CHAIN_FMT)
+  EDIT	   ed_init5		@	_ss	455	.,		///
+	option(init5)							///
+	label(resource LBL_INITIAL_VALUES_FOR_MODEL_PARAMETERS_FOR_CHAIN_FMT)
+  BUTTON   bu_init5		465	@	75	.,		///
+	onpush(program show_init5_input)				///
+	label(resource LBL_BU_CREATE)
+  TEXT     tx_init6		_lft	_ls	_iwd	.,		///
+	label(resource LBL_INITIAL_VALUES_FOR_MODEL_PARAMETERS_FOR_CHAIN_FMT)
+  EDIT	   ed_init6		@	_ss	455	.,		///
+	option(init6)							///
+	label(resource LBL_INITIAL_VALUES_FOR_MODEL_PARAMETERS_FOR_CHAIN_FMT)
+  BUTTON   bu_init6		465	@	75	.,		///
+	onpush(program show_init6_input)				///
+	label(resource LBL_BU_CREATE)
+  TEXT     tx_init7		_lft	_ls	_iwd	.,		///
+	label(resource LBL_INITIAL_VALUES_FOR_MODEL_PARAMETERS_FOR_CHAIN_FMT)
+  EDIT	   ed_init7		@	_ss	455	.,		///
+	option(init7)							///
+	label(resource LBL_INITIAL_VALUES_FOR_MODEL_PARAMETERS_FOR_CHAIN_FMT)
+  BUTTON   bu_init7		465	@	75	.,		///
+	onpush(program show_init7_input)				///
+	label(resource LBL_BU_CREATE)
+  TEXT     tx_init8		_lft	_ls	_iwd	.,		///
+	label(resource LBL_INITIAL_VALUES_FOR_MODEL_PARAMETERS_FOR_CHAIN_FMT)
+  EDIT	   ed_init8		@	_ss	455	.,		///
+	option(init8)							///
+	label(resource LBL_INITIAL_VALUES_FOR_MODEL_PARAMETERS_FOR_CHAIN_FMT)
+  BUTTON   bu_init8		465	@	75	.,		///
+	onpush(program show_init8_input)				///
+	label(resource LBL_BU_CREATE)
+  TEXT     tx_init9		_lft	_ls	_iwd	.,		///
+	label(resource LBL_INITIAL_VALUES_FOR_MODEL_PARAMETERS_FOR_CHAIN_FMT)
+  EDIT	   ed_init9		@	_ss	455	.,		///
+	option(init9)							///
+	label(resource LBL_INITIAL_VALUES_FOR_MODEL_PARAMETERS_FOR_CHAIN_FMT)
+  BUTTON   bu_init9		465	@	75	.,		///
+	onpush(program show_init9_input)				///
+	label(resource LBL_BU_CREATE)
+  TEXT     tx_init10		_lft	_ls	_iwd	.,		///
+	label(resource LBL_INITIAL_VALUES_FOR_MODEL_PARAMETERS_FOR_CHAIN_FMT)
+  EDIT	   ed_init10		@	_ss	455	.,		///
+	option(init10)							///
+	label(resource LBL_INITIAL_VALUES_FOR_MODEL_PARAMETERS_FOR_CHAIN_FMT)
+  BUTTON   bu_init10		465	@	75	.,		///
+	onpush(program show_init10_input)				///
+	label(resource LBL_BU_CREATE)
+  TEXT     tx_initall		_lft	_ls	_iwd	.,		///
+	label(resource LBL_INITIAL_VALUES_FOR_MODEL_PARAMETERS_FOR_ALL_CHAINS)
+  EDIT	   ed_initall		@	_ss	455	.,		///
+	option(initall)							///
+	label(resource LBL_INITIAL_VALUES_FOR_MODEL_PARAMETERS_FOR_ALL_CHAINS)
+  BUTTON   bu_initall		465	@	75	.,		///
+	onpush(program show_initall_input)				///
+	label(resource LBL_BU_CREATE)
+  CHECKBOX ck_nomleinitial	_lft	_ls	_iwd	.,		///
+	option(nomleinitial)						///
+	onclickon(init.ck_initrandom.disable)				///
+	onclickoff(init.ck_initrandom.enable)				///
+	label(resource BAYES_LBL_SUPPRESS_MAX_LIKELIHOOD_EST_START)
+  CHECKBOX ck_initrandom	@	_ms	@	.,		///
+	option(initrandom)						///
+	onclickon(init.ck_nomleinitial.disable)				///
+	onclickoff(init.ck_nomleinitial.enable)				///
+	label(resource BAYES_LBL_REQUEST_MODEL_PARAMS_INIT_RANDOMLY)
+  CHECKBOX ck_initsummary	@	_ms	@	.,		///
+	option(initsummary)						///
+	label(resource BAYES_LBL_DISPLAY_INITIAL_VALUES_SIMULATION)
+END
+
+PROGRAM init_check_prior
+BEGIN
+	call mainPriorCommandValues.copyToString main_prior_output
+	if main_prior_output.equals("") {
+		call init_error.setvalue 1
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format 					///
+			"resource LBL_MSGBOX_ON_TAB_MUST_BE_SPECIFIED_FMT" ///
+			"resource LBL_TAB_MAIN"				///
+			"resource BAYESMH_MAIN_GB_PRIOR"
+		stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Priors of model parameters" must be specified.
+	}
+
+END
+
+PROGRAM show_initial_input
+BEGIN
+	call init_error.setvalue 0
+	call program init_check_prior
+	if init_error {
+		exit
+	}
+	
+	call create CHILD bayesmh_initvalue AS initialDlg 
+	call initialDlg.setExitString initialResult
+	call initialDlg.setExitAction "program get_initial_inputResult"
+END
+
+PROGRAM get_initial_inputResult
+BEGIN
+	call init.ed_initial.setvalue class initialResult.value
+END
+
+PROGRAM show_init1_input
+BEGIN
+	call init_error.setvalue 0
+	call program init_check_prior
+	if init_error {
+		exit
+	}
+
+	call create CHILD bayesmh_initvalue AS init1Dlg 
+	call init1Dlg.setExitString init1Result
+	call init1Dlg.setExitAction "program get_init1_inputResult"
+END
+
+PROGRAM get_init1_inputResult
+BEGIN
+	call init.ed_init1.setvalue class init1Result.value
+END
+
+PROGRAM show_init2_input
+BEGIN
+	call init_error.setvalue 0
+	call program init_check_prior
+	if init_error {
+		exit
+	}
+
+	call create CHILD bayesmh_initvalue AS init2Dlg 
+	call init2Dlg.setExitString init2Result
+	call init2Dlg.setExitAction "program get_init2_inputResult"
+END
+
+PROGRAM get_init2_inputResult
+BEGIN
+	call init.ed_init2.setvalue class init2Result.value
+END
+
+PROGRAM show_init3_input
+BEGIN
+	call init_error.setvalue 0
+	call program init_check_prior
+	if init_error {
+		exit
+	}
+
+	call create CHILD bayesmh_initvalue AS init3Dlg 
+	call init3Dlg.setExitString init3Result
+	call init3Dlg.setExitAction "program get_init3_inputResult"
+END
+
+PROGRAM get_init3_inputResult
+BEGIN
+	call init.ed_init3.setvalue class init3Result.value
+END
+
+PROGRAM show_init4_input
+BEGIN
+	call init_error.setvalue 0
+	call program init_check_prior
+	if init_error {
+		exit
+	}
+
+	call create CHILD bayesmh_initvalue AS init4Dlg 
+	call init4Dlg.setExitString init4Result
+	call init4Dlg.setExitAction "program get_init4_inputResult"
+END
+
+PROGRAM get_init4_inputResult
+BEGIN
+	call init.ed_init4.setvalue class init4Result.value
+END
+
+PROGRAM show_init5_input
+BEGIN
+	call init_error.setvalue 0
+	call program init_check_prior
+	if init_error {
+		exit
+	}
+
+	call create CHILD bayesmh_initvalue AS init5Dlg 
+	call init5Dlg.setExitString init5Result
+	call init5Dlg.setExitAction "program get_init5_inputResult"
+END
+
+PROGRAM get_init5_inputResult
+BEGIN
+	call init.ed_init5.setvalue class init5Result.value
+END
+
+PROGRAM show_init6_input
+BEGIN
+	call init_error.setvalue 0
+	call program init_check_prior
+	if init_error {
+		exit
+	}
+
+	call create CHILD bayesmh_initvalue AS init6Dlg 
+	call init6Dlg.setExitString init6Result
+	call init6Dlg.setExitAction "program get_init6_inputResult"
+END
+
+PROGRAM get_init6_inputResult
+BEGIN
+	call init.ed_init6.setvalue class init6Result.value
+END
+
+PROGRAM show_init7_input
+BEGIN
+	call init_error.setvalue 0
+	call program init_check_prior
+	if init_error {
+		exit
+	}
+
+	call create CHILD bayesmh_initvalue AS init7Dlg 
+	call init7Dlg.setExitString init7Result
+	call init7Dlg.setExitAction "program get_init7_inputResult"
+END
+
+PROGRAM get_init7_inputResult
+BEGIN
+	call init.ed_init7.setvalue class init7Result.value
+END
+
+PROGRAM show_init8_input
+BEGIN
+	call init_error.setvalue 0
+	call program init_check_prior
+	if init_error {
+		exit
+	}
+
+	call create CHILD bayesmh_initvalue AS init8Dlg 
+	call init8Dlg.setExitString init8Result
+	call init8Dlg.setExitAction "program get_init8_inputResult"
+END
+
+PROGRAM get_init8_inputResult
+BEGIN
+	call init.ed_init8.setvalue class init8Result.value
+END
+
+PROGRAM show_init9_input
+BEGIN
+	call init_error.setvalue 0
+	call program init_check_prior
+	if init_error {
+		exit
+	}
+
+	call create CHILD bayesmh_initvalue AS init9Dlg 
+	call init9Dlg.setExitString init9Result
+	call init9Dlg.setExitAction "program get_init9_inputResult"
+END
+
+PROGRAM get_init9_inputResult
+BEGIN
+	call init.ed_init9.setvalue class init9Result.value
+END
+
+PROGRAM show_init10_input
+BEGIN
+	call init_error.setvalue 0
+	call program init_check_prior
+	if init_error {
+		exit
+	}
+
+	call create CHILD bayesmh_initvalue AS init10Dlg 
+	call init10Dlg.setExitString init10Result
+	call init10Dlg.setExitAction "program get_init10_inputResult"
+END
+
+PROGRAM get_init10_inputResult
+BEGIN
+	call init.ed_init10.setvalue class init10Result.value
+END
+
+PROGRAM show_initall_input
+BEGIN
+	call init_error.setvalue 0
+	call program init_check_prior
+	if init_error {
+		exit
+	}
+	call create CHILD bayesmh_initvalue AS initallDlg 
+	call initallDlg.setExitString initallResult
+	call initallDlg.setExitAction "program get_initall_inputResult"
+END
+
+PROGRAM get_initall_inputResult
+BEGIN
+	call init.ed_initall.setvalue class initallResult.value
+END
+
+PROGRAM init_output
+BEGIN
+	optionarg init.ed_initial
+	optionarg init.ed_init1
+	optionarg init.ed_init2
+	optionarg init.ed_init3
+	optionarg init.ed_init4
+	optionarg init.ed_init5
+	optionarg init.ed_init6
+	optionarg init.ed_init7
+	optionarg init.ed_init8
+	optionarg init.ed_init9
+	optionarg init.ed_init10
+	optionarg init.ed_initall
+	option init.ck_nomleinitial
+	option init.ck_initrandom
+	option init.ck_initsummary
+END
+
+DIALOG adaptation, tabtitle(resource BAYES_ADAPTATION_TABTITLE)
+BEGIN
+  GROUPBOX gb_adaptation		_lft	_top	_iwd	_ht24,	///
+	label(resource BAYES_LBL_ADAPTIVE_MCMC_PROCEDURE)
+  SPINNER sp_adapt_int			_ilft	_ms	_en7wd	.,	///
+	default(100) min(1) max(1000000)				///
+	option(every)							///
+	label(resource BAYES_LBL_ADAPTATION_INTERVAL) 
+  TEXT    tx_adapt_int			_en7sep @	400	.,	///
+	label(resource BAYES_LBL_ADAPTATION_INTERVAL)
+  SPINNER sp_adapt_max			_ilft	_ls	_en7wd	.,	///
+	default(25) min(1) max(1000000)					///
+	option(maxiter)							///
+	label(resource BAYES_LBL_MAX_NUM_ADAPT_ITERATIONS) 
+  TEXT    tx_adapt_max			_en7sep @	400	.,	///
+	label(resource BAYES_LBL_MAX_NUM_ADAPT_ITERATIONS)
+  SPINNER sp_adapt_min			_ilft	_ls	_en7wd	.,	///
+	default(5) min(1) max(1000000)					///
+	option(miniter)							///
+	label(resource BAYES_LBL_MIN_NUM_ADAPT_ITERATIONS) 
+  TEXT    tx_adapt_min			_en7sep @	400	.,	///
+	label(resource BAYES_LBL_MIN_NUM_ADAPT_ITERATIONS)
+  EDIT    ed_adapt_alpha		_ilft	_ls	_en7wd	.,	///
+	numonly								///
+	default(0.75) 							///
+	option(alpha)							///
+	label(resource BAYES_LBL_PARAM_CONTRL_ACCPT_ALPHA) 
+  TEXT    tx_adapt_alpha		_en7sep @	400	.,	///
+	label(resource BAYES_LBL_PARAM_CONTRL_ACCPT_ALPHA)
+  EDIT    ed_adapt_beta			_ilft	_ls	_en7wd	.,	///
+	numonly								///
+	default(0.8) 							///
+	option(beta)							///
+	label(resource BAYES_LBL_PARAM_CONTRL_PROP_BETA) 
+  TEXT    tx_adapt_beta			_en7sep @	400	.,	///
+	label(resource BAYES_LBL_PARAM_CONTRL_PROP_BETA)
+  EDIT    ed_adapt_gamma		_ilft	_ls	_en7wd	.,	///
+	numonly								///
+	default(0) 							///
+	option(gamma)							///
+	label(resource BAYES_LBL_PARAM_CONTRL_ADAP_GAMMA) 
+  TEXT    tx_adapt_gamma		_en7sep @	400	.,	///
+	label(resource BAYES_LBL_PARAM_CONTRL_ADAP_GAMMA)
+  EDIT    ed_adapt_arate		_ilft	_ls	_en7wd	.,	///
+	numonly								///
+	option(tarate)							///
+	label(resource BAYES_LBL_TARGET_ACCPT_ALL) 
+  TEXT    tx_adapt_arate		_en7sep @	400	.,	///
+	label(resource BAYES_LBL_TARGET_ACCPT_ALL)
+  EDIT    ed_adapt_atolerance		_ilft	_ls	_en7wd	.,	///
+	numonly								///
+	default(0.01) 							///
+	option(tolerance)						///
+	label(resource BAYES_LBL_TX_ATOLERANCE) 
+  TEXT    tx_adapt_atolerance		_en7sep @	400	.,	///
+	label(resource BAYES_LBL_TX_ATOLERANCE)
+	
+  EDIT    ed_scale			_lft	+50	_en7wd	.,	///
+	numonly								///
+	default(2.38) 							///
+	option(scale)							///
+	label(resource BAYES_LBL_INIT_MULTI_SCALE_FACTOR_ALL) 
+  TEXT    tx_scale			_en7sep @	400	.,	///
+	label(resource BAYES_LBL_INIT_MULTI_SCALE_FACTOR_ALL)
+  COMBOBOX cb_covariance		_lft	_ls	120	.,	///
+	dropdown							///
+	contents(matrix)						///
+	option(covariance)						///
+	label(resource BAYES_LBL_TX_COVARIANCE)
+  BUTTON   btn_covariance		130 	@	85	.,	///
+	onpush(program show_cov_matrix)					///
+	tooltip(resource BAYES_LBL_INPUT_SCALE_MATRIX_BY_HAND)		///
+	label(resource LBL_INPUT_MATRIX)
+  TEXT    tx_covariance			+90 	@	350	.,	///
+	label(resource BAYES_LBL_TX_COVARIANCE)
+END
+
+PROGRAM show_cov_matrix
+BEGIN
+	call create STRING CovMatResult
+	call create CHILD matrix_input AS CovMat
+	if ! _rc {
+		call CovMat.setExitString CovMatResult
+		call CovMat.setExitAction "program adaptation_getCovMatResult"
+		call CovMat.callthru "isChildContext.settrue"
+	}
+END
+
+PROGRAM adaptation_getCovMatResult
+BEGIN
+	call adaptation.cb_covariance.repopulate
+	call adaptation.cb_covariance.setvalue class CovMatResult.value
+END
+
+PROGRAM check_showre
+BEGIN
+	call showre.setvalue 0
+	if model.vn_reffects.isvisible() & model.vn_reffects {
+		call showre.setvalue 1
+	}
+	else {
+		call mainRedefineCommandValues.copyToString main_redefine_output
+		if !main_redefine_output.equals("") {
+			call showre.setvalue 1
+		}
+		else {
+			call nblockre.setvalue class		///
+				mainBlockReffectsList.size
+			call loopI.setvalue 1 
+			while(loopI.isle(nblockre)) {
+				call loopI.withvalue blockre.setvalue ///
+					class mainBlockReffectsList.values[@]
+				call loopI.withvalue build_STMP.setvalue ///
+					class mainBlockStatusList.values[@]
+				if blockre.iseq("y") & build_STMP.iseq("active") {
+					call showre.setvalue 1
+					call nblockre.increment
+					call nblockre.withvalue loopI.setvalue @
+				}
+				else {
+					call loopI.increment
+				}
+			}
+		}
+	}
+END
+
+SCRIPT rpt_PREINIT
+BEGIN
+        rpt.fi_save.formatfilter "{0} (*.dta)|*.dta|{1} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_DTA" "resource ui_ex FILE_TYPE_ALL_FILES"
+END
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_facvarsResults
+	create STRING rpt_bu_outputResults
+        program rpt_bu_facvars_ckResults
+        program rpt_bu_output_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  COMBOBOX  sp_level			_lft	_top	_en7wd	.,	///
+	dropdown							///
+	default(c(level))						///
+	contents(clevels)						///
+	option(clevel)							///
+	label(resource BAYES_LBL_TX_LEVEL)
+  TEXT	    tx_level			_en7sep @	350	.,	///
+	label(resource BAYES_LBL_TX_LEVEL)
+  CHECKBOX ck_hpd			_lft	_ls	_iwd	.,	///
+	option(hpd)							///
+	label(resource BAYES_LBL_CK_HPD)
+  COMBOBOX cb_coef			_lft	_ms	_cwd0	.,	///
+  	dropdownlist							///
+  	contents(rpt_coef_list)						///
+  	values(rpt_coef_value)						///
+  	onselchange(program rpt_coef_change)				///
+  	label(resource LBL_REPORT_COEFFICIENTS)
+  EDIT     ed_eform			_ilft2	@	_vnwd	.,	///
+  	default("exp(b)")						///
+  	option(eform)							///
+  	label(resource LBL_REPORT_EXPONENTIATED_COEFFICIENTS_LABEL_AS)
+  EDIT    ed_batch			_lft	_ls	_en7wd	.,	///
+	numonly								///
+	option(batch)							///
+	default(0)							///
+	onchange(program main_batch_change)				///
+	label(resource BAYES_LBL_TX_BATCH)
+  TEXT	  tx_batch			_en7sep @	350	.,	///
+	label(resource BAYES_LBL_TX_BATCH)
+  CHECKBOX ck_save			_lft	_ls	_iwd	_ht5,	///
+	groupbox							///
+	onclickon(script rpt_save_on)					///
+	onclickoff(script rpt_save_off)					///
+	label(resource BAYES_REPORTING_CK_SAVE)
+  FILE	fi_save				_ilft	_ms	_ibwd	.,	///
+	option(saving)							///
+	defext(dta)							///
+	save								///
+	error(resource BAYES_REPORTING_FI_SAVE)				///
+	label(resource LBL_BU_BROWSE)
+  CHECKBOX ck_repdta			@	_ms	@	.,	///
+	label(resource LBL_OVERWRITE_FILE_IF_IT_ALREADY_EXISTS)
+  CHECKBOX ck_model			_lft	+40	_iwd	.,	///
+	option(nomodelsummary)						///
+	label(resource BAYES_REPORTING_CK_MODEL)
+  CHECKBOX ck_noexpression		_lft	_ms	_iwd	.,	///
+	option(noexpression)						///
+	label(resource BAYES_REPORTING_CK_NOEXPRESSION)
+  CHECKBOX ck_chainsdetail		_lft	_ms	_iwd	.,	///
+	option(chainsdetail)						///
+	label(resource BAYES_REPORTING_CK_CHAINSDETAIL)
+  CHECKBOX ck_dots			_lft	_ls	_iwd	_ht10,	///
+	groupbox							///
+	onclickon(program rpt_dots_on)					///
+	onclickoff(script rpt_dots_off)					///
+	label(resource BAYES_REPORTING_CK_DOTS)
+  RADIO	rb_dots1			_ilft	_ms	_ibwd	.,	///
+	first								///
+	onclickon(script rpt_dots_disable)				///
+	label(resource BAYES_REPORTING_RB_DOTS1)
+  RADIO rb_dots2			@	_ms	@	.,	///
+	last								///
+	onclickon(script rpt_dots_enable)				///
+	label(resource BAYES_REPORTING_RB_DOTS2)
+  TEXT    tx_dots1			37  	_ms	70	.,	///
+	label(resource BAYES_REPORTING_TX_DOTS1)	
+  SPINNER sp_dots1			165	@	_en7wd	.,	///
+	default(0) min(0) max(1000000)					///
+	option(dots)							///
+	label(resource BAYES_REPORTING_TX_DOTS2)
+  TEXT    tx_dots2			_en7sep  @	70	.,	///
+	label(resource BAYES_REPORTING_TX_DOTS2)
+	
+  TEXT    tx_dots3			37  	_ms	130	.,	///
+	label(resource BAYES_REPORTING_TX_DOTS3)	
+  SPINNER sp_dots2			165	@	_en7wd	.,	///
+	default(0) min(0) max(1000000)					///
+	option(dots)							///
+	label(resource BAYES_REPORTING_TX_DOTS4)
+  TEXT    tx_dots4			_en7sep  @	70	.,	///
+	label(resource BAYES_REPORTING_TX_DOTS4)
+  BUTTON bu_output   			_lft	+50	200	.,	///
+	onpush("program rpt_bu_output_getOpts")				///
+	label(resource LBL_OUTPUT_REPORTING_OPTIONS)
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_factor_vars_reporting
+END
+
+INCLUDE factor_vars_reporting_pr
+
+PROGRAM rpt_bu_output_getOpts
+BEGIN	
+	call program check_showre
+	call mainPriorCommandValues.copyToString main_prior_output
+	if main_prior_output.equals("") {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format 					///
+			"resource LBL_MSGBOX_ON_TAB_MUST_BE_SPECIFIED_FMT" ///
+			"resource LBL_TAB_MAIN"				///
+			"resource BAYESMH_MAIN_GB_PRIOR"
+		stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Priors of model parameters" must be specified.
+	}	
+	call program gen_output_child
+END
+PROGRAM gen_output_child
+BEGIN
+	call create CHILD bayesmh_rpt_output_opts AS rpt_bu_output
+	call rpt_bu_output.setExitString rpt_bu_outputResults
+        call rpt_bu_output.setExitAction "program rpt_bu_output_ckResults"
+END
+
+PROGRAM rpt_bu_output_ckResults
+BEGIN
+	call create STRING sTMP
+        if rpt_bu_outputResults {
+		call rpt.bu_output.modified_on        	
+        }
+        else {
+        	call rpt.bu_output.modified_off
+        }
+END
+
+LIST clevels
+BEGIN
+	99.9 
+	99.5
+	99
+	97.5
+	95
+	90
+	80
+END
+
+LIST rpt_coef_list
+BEGIN
+	
+	resource LBL_REPORT_COEFFICIENTS
+	resource LBL_REPORT_EXPONENTIATED_COEFFICIENTS_LABEL_AS
+END
+LIST rpt_coef_value
+BEGIN
+	""
+	"eform"
+END
+PROGRAM rpt_coef_change
+BEGIN
+	if rpt.cb_coef.equals("eform") {
+		call rpt.ed_eform.show
+	}
+	else {
+		call rpt.ed_eform.hide
+	}
+END
+PROGRAM rpt_dots_on
+BEGIN
+	call rpt.rb_dots1.enable
+	call rpt.rb_dots2.enable
+	
+	if rpt.rb_dots1 {
+		call script rpt_dots_disable
+	}
+	else {
+		call script rpt_dots_enable
+	}
+END
+
+SCRIPT rpt_dots_off
+BEGIN
+	rpt.rb_dots1.disable
+	rpt.rb_dots2.disable
+	script rpt_dots_disable
+END
+
+SCRIPT rpt_dots_enable
+BEGIN
+	rpt.tx_dots1.enable
+	rpt.tx_dots2.enable
+	rpt.tx_dots3.enable
+	rpt.tx_dots4.enable
+	rpt.sp_dots1.enable
+	rpt.sp_dots2.enable
+END
+
+SCRIPT rpt_dots_disable
+BEGIN
+	rpt.tx_dots1.disable
+	rpt.tx_dots2.disable
+	rpt.tx_dots3.disable
+	rpt.tx_dots4.disable
+	rpt.sp_dots1.disable
+	rpt.sp_dots2.disable
+END
+
+PROGRAM main_batch_change
+BEGIN
+	if rpt.ed_batch & rpt.ed_batch.isneq(0) {
+		call adv.tx_corrlag.disable
+		call adv.sp_corrlag.disable
+		call adv.tx_corrtol.disable
+		call adv.ed_corrtol.disable
+	}
+	else {
+		call adv.tx_corrlag.enable
+		call adv.sp_corrlag.enable
+		call adv.tx_corrtol.enable
+		call adv.ed_corrtol.enable
+	}
+END
+
+SCRIPT rpt_save_on
+BEGIN
+	rpt.fi_save.enable
+	rpt.ck_repdta.enable
+END
+
+SCRIPT rpt_save_off
+BEGIN
+	rpt.fi_save.disable
+	rpt.ck_repdta.disable
+END
+
+DIALOG adv, tabtitle(resource BAYES_ADVANCED_TABTITLE)
+BEGIN
+  GROUPBOX gb_search			_lft	_top	_iwd	_ht7h,	///
+	label(resource BAYES_LBL_CTRL_SEARCH_INIT_VALUES)
+  RADIO	   rb_repeat			_ilft	_ms	_ibwd	.,	///
+	first								///
+	onclickon(script adv_repeat_on)					///
+	onclickoff(script adv_repeat_off)				///
+	label(resource BAYES_LBL_NUM_RANDOM_ATTEMPTS_FIND_INIT_VALUES)
+  RADIO    rb_off			@	+50	@	.,	///
+	last								///
+	label(resource BAYES_LBL_DO_NOT_SEARCH_INIT_VALUES)
+  SPINNER  sp_repeat			35	-25	_en7wd	.,	///
+	default(500) min(1) max(1000000)				///
+	label(resource BAYES_LBL_NUM_RANDOM_ATTEMPTS)
+  TEXT	   tx_repeat			_en7sep	@	350	.,	///
+	label(resource BAYES_LBL_NUM_RANDOM_ATTEMPTS)
+  SPINNER   sp_corrlag			_lft	+75	_en7wd .,	///
+	default(500) min(0) max(1000000)				///
+	option(corrlag)							///
+	onchange(program adv_change)					///
+	label(resource BAYES_LBL_TX_MAX_CORRLAG)
+  TEXT	    tx_corrlag			_en7sep @	_iwd	.,	///
+	label(resource BAYES_LBL_TX_MAX_CORRLAG)
+  EDIT    ed_corrtol			_lft	_ls	_en7wd	.,	///
+	numonly								///
+	option(corrtol)							///
+	default(0.01)							///
+	onchange(program adv_change)					///
+	label(resource BAYES_LBL_TX_CORRTOL)
+  TEXT	  tx_corrtol			_en7sep @	_iwd	.,	///
+	label(resource BAYES_LBL_TX_CORRTOL)
+END
+
+SCRIPT adv_repeat_on
+BEGIN
+	adv.sp_repeat.enable
+	adv.tx_repeat.enable
+END
+
+SCRIPT adv_repeat_off
+BEGIN
+	adv.sp_repeat.disable
+	adv.tx_repeat.disable
+END
+
+PROGRAM adv_change
+BEGIN
+	call hasbatch.settrue
+	
+	if adv.sp_corrlag & adv.sp_corrlag.isneq(500) {
+		call hasbatch.setfalse
+	}
+	
+	if adv.ed_corrtol & adv.ed_corrtol.isneq(0.01) {
+		call hasbatch.setfalse
+	}
+	
+	if hasbatch {
+		call rpt.tx_batch.enable
+		call rpt.ed_batch.enable
+	}
+	else {
+		call rpt.tx_batch.disable
+		call rpt.ed_batch.disable
+	}
+END
+
+PROGRAM simulation_output
+BEGIN
+	optionarg /hidedefault simulation.sp_nchains
+	optionarg /hidedefault simulation.sp_mcmcsize
+	optionarg /hidedefault simulation.sp_burnin
+	optionarg /hidedefault simulation.ed_thinning
+	optionarg simulation.ed_rseed
+	optionarg simulation.cb_exclude
+END
+
+PROGRAM adaptation_mcmc_output
+BEGIN
+	if !adaptation.sp_adapt_int.isdefault() & adaptation.sp_adapt_int {
+		put " every("
+		put adaptation.sp_adapt_int
+		put ")"
+	}
+	if !adaptation.sp_adapt_max.isdefault() & adaptation.sp_adapt_max {
+		put " maxiter("
+		put adaptation.sp_adapt_max
+		put ")"
+	}
+	if !adaptation.sp_adapt_min.isdefault() & adaptation.sp_adapt_min {
+		put " miniter("
+		put adaptation.sp_adapt_min
+		put ")"
+	}
+	if !adaptation.ed_adapt_alpha.isdefault() & adaptation.ed_adapt_alpha {
+		if adaptation.ed_adapt_alpha.isNumlistLE(0) | adaptation.ed_adapt_alpha.isNumlistGE(1) {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format 					///
+				"resource LBL_MSGBOX_ON_TAB_GE_0_LE_1_FMT" 	///
+				"resource BAYES_ADAPTATION_TABTITLE"		///
+				"resource BAYES_LBL_PARAM_CONTRL_ACCPT_ALPHA"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Adaptation" tab, "parameter controlling acceptance rate, alpha()" must be in [0,1].
+		}
+		put " alpha("
+		put adaptation.ed_adapt_alpha
+		put ")"
+	}
+	if !adaptation.ed_adapt_beta.isdefault() & adaptation.ed_adapt_beta {
+		if adaptation.ed_adapt_beta.isNumlistLT(0) | adaptation.ed_adapt_beta.isNumlistGT(1) {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format 					///
+				"resource LBL_MSGBOX_ON_TAB_GE_0_LE_1_FMT" 	///
+				"resource BAYES_ADAPTATION_TABTITLE"		///
+				"resource BAYES_LBL_PARAM_CONTRL_PROP_BETA"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Adaptation" tab, "parameter controlling proposal covariance, beta()" must be in [0,1].
+		}
+		put " beta("
+		put adaptation.ed_adapt_beta
+		put ")"
+	}
+	if !adaptation.ed_adapt_gamma.isdefault() & adaptation.ed_adapt_gamma {
+		if adaptation.ed_adapt_gamma.isNumlistLT(0) | adaptation.ed_adapt_gamma.isNumlistGT(1) {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format 					///
+				"resource LBL_MSGBOX_ON_TAB_GE_0_LE_1_FMT" 	///
+				"resource BAYES_ADAPTATION_TABTITLE"		///
+				"resource BAYES_LBL_PARAM_CONTRL_ADAP_GAMMA"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Adaptation" tab, "parameter controlling adaptation rate, gamma()" must be in [0,1].
+		}
+		put " gamma("
+		put adaptation.ed_adapt_gamma
+		put ")"
+	}
+	if adaptation.ed_adapt_arate {
+		if adaptation.ed_adapt_arate.isNumlistLE(0) | adaptation.ed_adapt_arate.isNumlistGE(1) {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format 					///
+				"resource LBL_MSGBOX_ON_TAB_GT_0_LT_1_FMT" 	///
+				"resource BAYES_ADAPTATION_TABTITLE"		///
+				"resource BAYES_LBL_TARGET_ACCPT_ALL"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Adaptation" tab, "target acceptance rate for all blocks of model parameters" must be in (0,1).
+		}
+		put " tarate("
+		put adaptation.ed_adapt_arate
+		put ")"
+	}
+	if !adaptation.ed_adapt_atolerance.isdefault() & adaptation.ed_adapt_atolerance {
+		if adaptation.ed_adapt_atolerance.isNumlistLE(0) | adaptation.ed_adapt_atolerance.isNumlistGE(1) {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format 					///
+				"resource LBL_MSGBOX_ON_TAB_GT_0_LT_1_FMT" 	///
+				"resource BAYES_ADAPTATION_TABTITLE"		///
+				"resource BAYES_LBL_TX_ATOLERANCE"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Adaptation" tab, "tolerance for acceptance rate" must be in (0,1).
+		}
+		put " tolerance("
+		put adaptation.ed_adapt_atolerance
+		put ")"
+	}
+END
+
+PROGRAM adaptation_output
+BEGIN
+	call hasadaptation.setfalse
+	
+	if !adaptation.sp_adapt_int.isdefault() & adaptation.sp_adapt_int {
+		call hasadaptation.settrue
+	}
+	if !adaptation.sp_adapt_max.isdefault() & adaptation.sp_adapt_max {
+		call hasadaptation.settrue
+	}
+	if !adaptation.sp_adapt_min.isdefault() & adaptation.sp_adapt_min {
+		call hasadaptation.settrue
+	}
+	if !adaptation.ed_adapt_alpha.isdefault() & adaptation.ed_adapt_alpha {
+		call hasadaptation.settrue
+	}
+	if !adaptation.ed_adapt_beta.isdefault() & adaptation.ed_adapt_beta {
+		call hasadaptation.settrue
+	}
+	if !adaptation.ed_adapt_gamma.isdefault() & adaptation.ed_adapt_gamma {
+		call hasadaptation.settrue
+	}
+	if adaptation.ed_adapt_arate {
+		call hasadaptation.settrue
+	}
+	if !adaptation.ed_adapt_atolerance.isdefault() & adaptation.ed_adapt_atolerance {
+		call hasadaptation.settrue
+	}
+	
+	if hasadaptation {
+		put "adaptation("
+		put /program adaptation_mcmc_output
+		put ")"
+	}
+	optionarg /hidedefault adaptation.ed_scale
+	optionarg adaptation.cb_covariance
+END
+
+PROGRAM reporting_output
+BEGIN
+	optionarg /hidedefault rpt.sp_level
+	option rpt.ck_hpd
+	if rpt.cb_coef.equals("eform") {
+		put " eform"
+		if rpt.ed_eform & !rpt.ed_eform.isdefault() {
+			put "("
+			put rpt.ed_eform
+			put ")"
+		}
+	}
+	optionarg /hidedefault rpt.ed_batch
+	if rpt.ck_save {
+		require rpt.fi_save
+		put `"saving("'
+		put rpt.fi_save
+		if rpt.ck_repdta {
+			put `", replace"'
+		}
+		put `")"'
+	}	
+	option rpt.ck_model
+	option rpt.ck_noexpression
+	option rpt.ck_chainsdetail
+	if rpt.ck_dots {
+		if rpt.rb_dots1 {
+			put " dots "
+		}
+		else {
+			if rpt.sp_dots1.iseq(0) {
+				put " dots(0)"
+			}
+			if rpt.sp_dots1 & !rpt.sp_dots1.isdefault() {
+				put " dots("
+				put rpt.sp_dots1 
+				if rpt.sp_dots2 & !rpt.sp_dots2.isdefault() {
+					put ", every("
+					put rpt.sp_dots2
+					put ")"
+				}
+				put ") "
+			}
+		}
+	}
+
+	put " " rpt_bu_outputResults
+	put " " rpt_bu_facvarsResults
+END
+
+PROGRAM advanced_output
+BEGIN
+	if adv.rb_repeat {
+		require adv.sp_repeat
+		if adv.sp_repeat.isneq(500) {
+			put " search(repeat("
+			put adv.sp_repeat
+			put "))"
+		}
+	}
+	if adv.rb_off {
+		put " search(off) "
+	}
+	
+	optionarg /hidedefault adv.sp_corrlag
+	optionarg /hidedefault adv.ed_corrtol
+END
+
+PROGRAM main_distr_output
+BEGIN
+	if main.cb_syntax.equals("uvar") {
+		put "likelihood("
+		if main.lb_distr.equals("") {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_MUST_BE_SPECIFIED_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource BAYES_LBL_LIKELIHOOD_MODEL"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Likelihood model" must be specified.
+		}
+		if main.lb_distr.equals("normal") {
+			require main.ed_normalvar
+			put "normal("
+			put main.ed_normalvar
+			put ")"
+		}
+		if main.lb_distr.equals("t") {
+			require main.ed_tsigma2
+			require main.ed_tdf
+			put "t("
+			put main.ed_tsigma2
+			put ", "
+			put main.ed_tdf
+			put ")"
+		}
+		if main.lb_distr.equals("lognormal") {
+			require main.ed_lnnormalvar
+			put "lognormal("
+			put main.ed_lnnormalvar
+			put ")"
+			if main.vn_offset {
+				put ", offset("
+				put main.vn_offset
+				put ")"
+			}
+		}
+		if main.lb_distr.equals("exponential") {
+			put "exponential"
+			if main.vn_offset {
+				put ","
+			}
+			if main.vn_offset {
+				put " offset("
+				put main.vn_offset
+				put ")"
+			}
+		}
+		if main.lb_distr.equals("probit") {
+			put "probit"
+			if main.vn_offset {
+				put ", offset("
+				put main.vn_offset
+				put ")"
+			}
+		}
+		if main.lb_distr.equals("logit") {
+			put "logit"
+			if main.vn_offset {
+				put ", offset("
+				put main.vn_offset
+				put ")"
+			}
+		}
+		if main.lb_distr.equals("binomial") {
+			require main.ed_bintrials
+			put "binomial("
+			put main.ed_bintrials
+			put ")"
+			if main.vn_offset {
+				put ","
+			}
+			if main.vn_offset {
+				put " offset("
+				put main.vn_offset
+				put ")"
+			}
+		}
+		if main.lb_distr.equals("oprobit") {
+			put "oprobit"
+			if main.vn_offset {
+				put ", offset("
+				put main.vn_offset
+				put ")"
+			}
+		}
+		if main.lb_distr.equals("ologit") {
+			put "ologit"
+			if main.vn_offset {
+				put ", offset("
+				put main.vn_offset
+				put ")"
+			}
+		}
+		if main.lb_distr.equals("poisson") {
+			put "poisson"
+			if main.vn_exposure | main.vn_offset {
+				put ","
+				if main.vn_exposure.isenabled() {
+					put " exposure("
+					put main.vn_exposure
+					put ")"
+				}
+				if main.vn_offset.isenabled() {
+					put " offset("
+					put main.vn_offset
+					put ")"
+				}
+			}
+		}
+		if main.lb_distr.equals("llf") {
+			require main.ex_llfsub
+			put "llf("
+			put main.ex_llfsub
+			put ")"
+		}
+		put ")"
+	}
+	if main.cb_syntax.equals("nuvar") {
+		put "likelihood("
+		if main.lb_distr.equals("") {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_MUST_BE_SPECIFIED_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource BAYES_LBL_LIKELIHOOD_MODEL"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Likelihood model" must be specified.
+		}
+		if main.lb_distr.equals("normal") {
+			require main.ed_normalvar
+			put "normal("
+			put main.ed_normalvar
+			put ")"
+		}
+		if main.lb_distr.equals("t") {
+			require main.ed_tsigma2
+			require main.ed_tdf
+			put "t("
+			put main.ed_tsigma2
+			put ", "
+			put main.ed_tdf
+			put ")"
+		}
+		if main.lb_distr.equals("lognormal") {
+			require main.ed_lnnormalvar
+			put "lognormal("
+			put main.ed_lnnormalvar
+			put ")"
+		}
+		if main.lb_distr.equals("exponential") {
+			put "exponential"
+		}
+		if main.lb_distr.equals("probit") {
+			put "probit"
+		}
+		if main.lb_distr.equals("logit") {
+			put "logit"
+		}
+		if main.lb_distr.equals("binomial") {
+			require main.ed_bintrials
+			put "binomial("
+			put main.ed_bintrials
+			put ")"
+		}
+		if main.lb_distr.equals("oprobit") {
+			put "oprobit"
+		}
+		if main.lb_distr.equals("ologit") {
+			put "ologit"
+		}
+		if main.lb_distr.equals("poisson") {
+			put "poisson"
+		}
+		if main.lb_distr.equals("llf") {
+			require main.ex_llfsub
+			put "llf("
+			put main.ex_llfsub
+			put ")"
+		}
+		put ")"
+	}
+	if main.cb_syntax.equals("mvar") | main.cb_syntax.equals("mvarreg") {
+		require main.ed_mulnormalvar
+		put "likelihood(mvnormal("
+		put main.ed_mulnormalvar
+		put "))"
+	}
+	if main.cb_syntax.equals("nmvar") {
+		require main.ed_mulnormalvar
+		put "likelihood(mvnormal("
+		put main.ed_mulnormalvar
+		put "))"
+	}
+	if main.cb_syntax.equals("uvard") {
+		put "likelihood("
+		if main.lb_distr_distr.equals("dexponential") {
+			require main.ed_dexpbeta
+			put "dexponential("
+			put main.ed_dexpbeta
+			put ")"
+		}
+		if main.lb_distr_distr.equals("dbernoulli") {
+			require main.ed_dberp
+			put "dbernoulli("
+			put main.ed_dberp
+			put ")"
+		}
+		if main.lb_distr_distr.equals("dbinomial") {
+			require main.ed_dbinop
+			require main.ed_dbinon
+			put "dbinomial("
+			put main.ed_dbinop
+			put ","
+			put main.ed_dbinon
+			put ")"
+		}
+		if main.lb_distr_distr.equals("dpoisson") {
+			require main.ed_dpoimu
+			put "dpoisson("
+			put main.ed_dpoimu
+			put ")"
+		}
+		put ")"
+	}
+END
+
+PROGRAM main_prioropt_output
+BEGIN
+	call mainPriorCommandValues.copyToString main_prior_output
+	if main_prior_output.equals("") {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_MUST_BE_SPECIFIED_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource BAYESMH_MAIN_GB_PRIOR"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Priors of model parameters" must be specified.
+	}
+	put " " main_prior_output	
+END
+
+PROGRAM command
+BEGIN
+	put "bayesmh "
+	if main.cb_syntax.equals("uvar") {
+		require main.vn_unidv 
+		varlist main.vn_unidv
+		if main.vl_uniiv & main.vl_uniiv.isenabled() {
+			varlist main.vl_uniiv
+		}
+	}
+	if main.cb_syntax.equals("mvar") {
+		require main.vl_muldv
+		varlist main.vl_muldv
+		put " = "
+		if main.vl_muliv {
+			varlist main.vl_muliv
+		}
+	}
+	if main.cb_syntax.equals("mvarreg") {
+		call mainMulModelCommandValues.copyToString main_mulmodel_output
+		if main_mulmodel_output.equals("") {
+			call create STRING _MSG_TMP
+                	call _MSG_TMP.format 					///
+				"resource BAYES_MSGBOX_EQUATION_REQUIRED_FMT"	///
+				"resource LBL_TAB_MAIN"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, at least one equation must be specified.
+		}
+		put " " main_mulmodel_output
+	}
+	if main.cb_syntax.equals("mequ") {
+		call mainMulEquCommandValues.copyToString main_mulequ_output
+		if main_mulequ_output.equals("") {
+			call create STRING _MSG_TMP
+                	call _MSG_TMP.format 					///
+				"resource BAYES_MSGBOX_MODEL_REQUIRED_FMT"	///
+				"resource LBL_TAB_MAIN"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, at least one model must be specified.
+		}
+		put " " main_mulequ_output		
+	}
+	if main.cb_syntax.equals("nuvar") {
+		require main.vn_uninondv
+		put main.vn_uninondv
+		if main.ex_uninonexp {
+			put " = ("
+			put main.ex_uninonexp
+			put ")"
+		}
+	}
+	if main.cb_syntax.equals("nmvar") {
+		call mainMulNonCommandValues.copyToString main_mulnon_output
+		if main_mulnon_output.equals("") {
+			call create STRING _MSG_TMP
+                	call _MSG_TMP.format 					///
+				"resource BAYES_MSGBOX_EQUATION_REQUIRED_FMT"	///
+				"resource LBL_TAB_MAIN"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, at least one equation must be specified.
+		}
+		put " " main_mulnon_output		
+	}
+	if main.cb_syntax.equals("uvard") {
+		require main.vn_uniddv 
+		varlist main.vn_uniddv
+	}
+	if main.cb_syntax.equals("mequd") {
+		call mainMulEqudCommandValues.copyToString main_mulequd_output
+		if main_mulequd_output.equals("") {
+			call create STRING _MSG_TMP
+                	call _MSG_TMP.format 					///
+				"resource BAYES_MSGBOX_MODEL_REQUIRED_FMT"	///
+				"resource LBL_TAB_MAIN"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, at least one model must be specified.
+		}
+		put " " main_mulequd_output		
+	}
+ 	put " " /program ifin_output
+	put " " /program weights_output
+	beginoptions
+		option main.ck_uninocons
+		option main.ck_mulnocons
+		option main.ck_mulmodelnocons
+		
+		put " " /program main_distr_output
+		put " " /program main_prioropt_output
+		option main.ck_dryrun
+		if model.vn_reffects.isvisible() & model.vn_reffects {
+			optionarg model.vn_reffects
+		}
+		
+		call mainRedefineCommandValues.copyToString main_redefine_output
+		if !main_redefine_output.equals("") {
+			put " " main_redefine_output
+		}
+		
+		if model.vl_xbdefine.isvisible() & model.vl_xbdefine {
+			require model.ed_xbdefine_lbl
+			put " xbdefine("
+			if model.ed_xbdefine_lbl {
+				put model.ed_xbdefine_lbl
+				put ":"
+			}
+			put model.vl_xbdefine
+			put ")"
+		}
+		
+		put " " /program simulation_output
+		
+		call mainBlockCommandValues.copyToString main_block_output
+		if !main_block_output.equals("") {
+			put " " main_block_output
+		}
+		option block.ck_blocksummary
+		
+		put " " /program init_output
+		put " " /program adaptation_output
+		put " " /program reporting_output
+		put " " /program advanced_output
+	endoptions
+END

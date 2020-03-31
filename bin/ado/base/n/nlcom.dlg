@@ -1,0 +1,357 @@
+/*
+  nlcom
+
+  VERSION 2.1.7  03dec2019
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_mlarge
+DEFINE _dlght 290
+INCLUDE header
+
+HELP hlp1, view("help nlcom")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING STMP
+	create STRING main_nlexptmp
+	create STRING main_nlexptmp2
+	create STRING main_nlexp_childdlg
+	create STRING main_nlexp_child_result
+	create STRING main_nlexp_cmd_output
+
+	create ARRAY main_nlexp_list
+
+	create SVECTOR mainNLEXPCommandDisplayList
+	create SVECTOR mainNLEXPCommandList
+	create SVECTOR mainNLEXPCommandValues
+	create SVECTOR mainNLEXPStatusList
+	create SVECTOR mainNLEXPChildDialogList
+	create SVECTOR mainNLEXPHasNoError
+
+	create DOUBLE main_nlexp_count
+	create DOUBLE main_nlexp_position
+	create DOUBLE main_nlexp_arraysize
+
+	main.bu_nlexp_edit.disable
+	main.bu_nlexp_disable.disable
+	main.bu_nlexp_enable.disable
+	setscale_hadj resource NLCOM_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	create STRING bu_fmtcoefResults
+	program bu_fmtcoef_ckResults
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	label(resource NLCOM_DLG_TITLE)
+BEGIN
+  TEXT tx_exp			_lft	_top	200	.,		///
+	label(resource NLCOM_MAIN_TX_EXP)
+  DEFINE holdy @y
+  LISTBOX lb_nlexpBuild		_lft	_ss	200	95,		///
+	contents(main_nlexp_list)					///
+	ondblclick(program main_nlexp_edit)				///
+	onselchange(program main_nlexp_sel_changed)			///
+	nomemory
+  BUTTON bu_nlexp_new		+210	@	80	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program main_nlexp_create)				///
+	tooltip(resource LBL_CREATE_EXPRESSION)
+  BUTTON bu_nlexp_edit		@	_ms	@	.,		///
+	label(resource LBL_BU_EDIT)					///
+	onpush(program main_nlexp_edit)					///
+	tooltip(resource LBL_EDIT_EXPRESSION)
+  BUTTON bu_nlexp_disable	@	_ms	@	.,		///
+	label(resource LBL_BU_DISABLE)					///
+	onpush(program main_nlexp_disable)				///
+	tooltip(resource LBL_CLICK_TO_DISABLE_AN_EXPRESSION)
+  BUTTON bu_nlexp_enable	@	_ms	@	.,		///
+	label(resource LBL_BU_ENABLE)					///
+	onpush(program main_nlexp_enable)				///
+	tooltip(resource LBL_CLICK_ENABLE_PREVIOUSLY_DISABLED_EXPRESSION)
+  TEXTBOX tb_nlexp_note		_lft	+25	_iwd	_tb2,		///
+	label(resource NLCOM_MAIN_TB_NLEXP_NOTE)
+
+  GROUPBOX gb_output		_lft	_xls	_iwd	_ht8,		///
+	label(resource LBL_OPTIONS)
+  DEFINE _x _ilft
+  DEFINE _cx _spr2b
+  DEFINE _y _ss
+  INCLUDE _sp_level
+  DEFINE y @y
+  SPINNER sp_iter		_ilft	_ls	_spwd	.,		///
+	label(resource LBL_MAXIMUM_ITERATIONS)				///
+	min(1) max(10000) default(100)					///
+	option(iterate)
+  TEXT tx_iter			_spsep	@	_sprb	.,		///
+	label(resource LBL_MAXIMUM_ITERATIONS)
+  BUTTON bu_fmtcoef		_ilft	_ls	130	.,		///
+	onpush("program bu_fmtcoef_getOpts")				///
+	label(resource LBL_SET_TABLE_FORMATS)
+  CHECKBOX ck_post		_lft2	y	_cwd2	.,		///
+	label(resource NLCOM_MAIN_CK_POST)				///
+	option(post)
+END
+
+PROGRAM main_nlexp_create
+BEGIN
+	call main_nlexp_count.setvalue class mainNLEXPChildDialogList.size
+	call main_nlexp_count.increment
+	call main_nlexp_count.withvalue main_nlexp_childdlg.setvalue	///
+		"main_nlexp@"
+	call program main_show_nlexp_child
+END
+
+PROGRAM main_nlexp_edit
+BEGIN
+	call mainNLEXPCommandDisplayList.findstr class main.lb_nlexpBuild.value
+	call main_nlexp_position.setvalue class				///
+		mainNLEXPCommandDisplayList.position
+	call main_nlexp_position.withvalue main_nlexp_childdlg.setvalue	///
+		class mainNLEXPChildDialogList.values[@]
+
+	call program main_show_nlexp_child_edit
+END
+
+PROGRAM main_show_nlexp_child
+BEGIN
+	call main_nlexp_childdlg.withvalue create CHILD nlcom_exp AS @
+	call main_nlexp_childdlg.withvalue @.setExitString		///
+		"main_nlexp_child_result"
+	call main_nlexp_childdlg.withvalue @.setExitAction		///
+		"program main_nlexp_child_done"
+
+	call main_nlexp_count.withvalue STMP.format			///
+		"resource LBL_EXPRESSION_FMT" "@" ""
+	call STMP.withvalue main_nlexptmp.setvalue "@"
+	call main_nlexp_childdlg.withvalue main_nlexptmp2.setvalue "@.settitle"
+	call main_nlexptmp2.append `" ""'
+	call main_nlexptmp2.append class main_nlexptmp.value
+	call main_nlexptmp2.append `"""'
+	call main_nlexptmp2.withvalue @
+END
+
+PROGRAM main_show_nlexp_child_edit
+BEGIN
+	call main_nlexp_childdlg.withvalue create CHILD nlcom_exp AS @
+	call main_nlexp_childdlg.withvalue @.setExitString		///
+		"main_nlexp_child_result"
+	call main_nlexp_childdlg.withvalue @.setExitAction		///
+		"program main_nlexp_child_done"
+
+	call main_nlexp_position.withvalue main_nlexptmp.setvalue	///
+		class mainNLEXPCommandDisplayList.values[@]
+	call main_nlexp_childdlg.withvalue main_nlexptmp2.setvalue "@.settitle"
+	call main_nlexptmp2.append `" ""'
+	call main_nlexptmp2.append class main_nlexptmp.value
+	call main_nlexptmp2.append `"""'
+	call main_nlexptmp2.withvalue @
+END
+
+PROGRAM main_nlexp_child_done
+BEGIN
+	call mainNLEXPChildDialogList.findstr class main_nlexp_childdlg.value
+	call main_nlexp_position.setvalue class				///
+		mainNLEXPChildDialogList.position
+	if main_nlexp_position {
+		call main_nlexp_position.withvalue main_nlexptmp.setvalue ///
+			class mainNLEXPStatusList.values[@]
+		if main_nlexptmp.iseq("active") {
+			call main_nlexp_position.withvalue STMP.format	///
+				"resource LBL_EXPRESSION_FMT" "@" ""
+			call STMP.withvalue				///
+				mainNLEXPCommandDisplayList.store class	///
+				main_nlexp_position.value "@"
+			call mainNLEXPCommandValues.store class		///
+				main_nlexp_position.value class		///
+				main_nlexp_child_result.value
+			call STMP.withvalue				///
+				main_nlexptmp2.setvalue "@"
+		}
+		else {
+			call main_nlexp_position.withvalue STMP.format	///
+				"resource LBL_EXPRESSION_FMT" "@"	///
+				"resource LBL_PAREN_DISABLED"
+			call STMP.withvalue				///
+				main_nlexptmp2.setvalue "@"
+
+			call main_nlexptmp2.withvalue			///
+				mainNLEXPCommandDisplayList.store	///
+				class main_nlexp_position.value "@"
+		}
+
+		call mainNLEXPCommandList.store class			///
+			main_nlexp_position.value class			///
+			main_nlexp_child_result.value
+
+		call mainNLEXPCommandDisplayList.copyToArray main_nlexp_list
+		call main.lb_nlexpBuild.repopulate
+		call main.lb_nlexpBuild.setvalue class main_nlexptmp2.value
+	}
+	else {
+		call main_nlexp_arraysize.setvalue class		///
+			mainNLEXPChildDialogList.size
+		call main_nlexp_arraysize.increment
+
+		/* Store child dialog name */
+		call mainNLEXPChildDialogList.store class		///
+			main_nlexp_arraysize.value class		///
+			main_nlexp_childdlg.value
+
+		call main_nlexp_arraysize.withvalue STMP.format		///
+			"resource LBL_EXPRESSION_FMT" "@" ""
+		call STMP.withvalue					///
+			mainNLEXPCommandDisplayList.store class		///
+			main_nlexp_arraysize.value "@"
+
+		/* Store child dialog result string */
+		call mainNLEXPCommandList.store class			///
+			main_nlexp_arraysize.value			///
+			class main_nlexp_child_result.value
+
+		/* Store child dialog result string for final command
+		   For disable/enable */
+		call mainNLEXPCommandValues.store class			///
+			main_nlexp_arraysize.value class		///
+			main_nlexp_child_result.value
+
+		/* Store disable/enable status */
+		call mainNLEXPStatusList.store				///
+			class main_nlexp_arraysize.value "active"
+
+		call mainNLEXPCommandDisplayList.copyToArray main_nlexp_list
+		call main.lb_nlexpBuild.repopulate
+		call STMP.withvalue main.lb_nlexpBuild.setvalue "@"
+	}
+
+	call program NLEXPckHasNoErrorOpt
+END
+
+PROGRAM main_nlexp_sel_changed
+BEGIN
+	call mainNLEXPCommandDisplayList.findstr class main.lb_nlexpBuild.value
+	call main_nlexp_position.setvalue class			///
+		mainNLEXPCommandDisplayList.position
+	call main_nlexp_position.withvalue main_nlexptmp.setvalue	///
+		class mainNLEXPStatusList.values[@]
+	if main_nlexp_position {
+		call main.bu_nlexp_edit.enable
+		call main_nlexp_position.withvalue			///
+			main.tb_nlexp_note.setlabel			///
+			class mainNLEXPCommandList.values[@]
+	}
+
+	if main_nlexptmp.iseq("disable") {
+		call main.bu_nlexp_enable.enable
+		call main.bu_nlexp_disable.disable
+	}
+	if main_nlexptmp.iseq("active") {
+		call main.bu_nlexp_enable.disable
+		call main.bu_nlexp_disable.enable
+	}
+END
+
+PROGRAM main_nlexp_disable
+BEGIN
+	call mainNLEXPCommandDisplayList.findstr class main.lb_nlexpBuild.value
+	call main_nlexp_position.setvalue class				///
+		mainNLEXPCommandDisplayList.position
+
+	call main_nlexptmp.setvalue class main.lb_nlexpBuild.value
+	call mainNLEXPStatusList.store class main_nlexp_position.value "disable"
+	call mainNLEXPCommandValues.store class main_nlexp_position.value ""
+	call STMP.format "resource LBL_PAREN_DISABLED"
+	call main_nlexptmp.append " "
+	call main_nlexptmp.append class STMP.value
+	call main_nlexptmp.withvalue STMP.setvalue "@"
+
+	call main_nlexptmp.withvalue mainNLEXPCommandDisplayList.store	///
+		class main_nlexp_position.value "@"
+
+	call mainNLEXPCommandDisplayList.copyToArray main_nlexp_list
+	call main.lb_nlexpBuild.repopulate
+	call main.lb_nlexpBuild.setvalue class STMP.value
+END
+
+PROGRAM main_nlexp_enable
+BEGIN
+	call mainNLEXPCommandDisplayList.findstr class main.lb_nlexpBuild.value
+	call main_nlexp_position.setvalue class				///
+		mainNLEXPCommandDisplayList.position
+
+	call mainNLEXPStatusList.store class main_nlexp_position.value "active"
+	call main_nlexp_position.withvalue mainNLEXPCommandValues.store	///
+		class main_nlexp_position.value class			///
+		mainNLEXPCommandList.values[@]
+
+	call main_nlexp_position.withvalue STMP.format			///
+		"resource LBL_EXPRESSION_FMT" "@" ""
+	call STMP.withvalue						///
+		mainNLEXPCommandDisplayList.store			///
+		class main_nlexp_position.value "@"
+
+	call mainNLEXPCommandDisplayList.copyToArray main_nlexp_list
+	call main_nlexp_position.withvalue main_nlexptmp2.setvalue	///
+		class mainNLEXPCommandDisplayList.values[@]
+	call main.lb_nlexpBuild.repopulate
+	call main.lb_nlexpBuild.setvalue class main_nlexptmp2.value
+END
+
+PROGRAM main_lb_nlexpBuild_output
+BEGIN
+	call mainNLEXPCommandValues.copyToString main_nlexp_cmd_output
+	call main_nlexp_arraysize.setvalue class mainNLEXPStatusList.size
+	if main_nlexp_cmd_output.iseq("") &				///
+		main_nlexp_arraysize.iseq(0) {
+		stopbox stop resource LBL_MSGBOX_EXPRESSION_NOT_DEFINED
+// Expression not defined.
+// Please enter an expression before proceeding.
+	}
+	if main_nlexp_cmd_output.iseq("") & main_nlexp_arraysize.isgt(0) ///
+		& main.lb_nlexpBuild.isvisible() {
+		stopbox stop resource LBL_MSGBOX_ALL_EXPRESSIONS_ARE_DISABLED
+// All expressions are disabled.
+// Either define a new expression or enable an existing expression
+// before proceeding.
+	}
+
+	if main_nlexp_cmd_output & main.lb_nlexpBuild.isvisible() {
+		put main_nlexp_cmd_output
+	}
+END
+
+PROGRAM bu_fmtcoef_getOpts
+BEGIN
+	call create CHILD fmt_coef_table_reporting AS bu_fmtcoef
+	call bu_fmtcoef.setExitString bu_fmtcoefResults
+	call bu_fmtcoef.setExitAction "program bu_fmtcoef_ckResults"
+END
+
+PROGRAM bu_fmtcoef_ckResults
+BEGIN
+	if bu_fmtcoefResults {
+		call main.bu_fmtcoef.modified_on
+	}
+	else {
+		call main.bu_fmtcoef.modified_off
+	}
+END
+
+PROGRAM command
+BEGIN
+	put "nlcom "
+	put " " /program main_lb_nlexpBuild_output
+	beginoptions
+		INCLUDE _level_main_pr
+		option main.ck_post
+		optionarg /hidedefault main.sp_iter
+		put " " bu_fmtcoefResults
+	endoptions
+END
+

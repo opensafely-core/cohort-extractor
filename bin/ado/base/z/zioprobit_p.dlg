@@ -1,0 +1,283 @@
+/*
+  predict (after zioprobit)
+
+*! VERSION 1.1.9  09apr2019
+
+*/
+VERSION 15.0
+
+INCLUDE _std_wide
+DEFINE _dlght 390
+INCLUDE header
+
+HELP hlp1, view("help zioprobit postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING STMP
+	create STRING STMP2
+	setscale_hadj resource ZIOPROBIT_P_DLG_HSCALE
+	create DOUBLE k
+	create DOUBLE k_plus
+	k.setvalue e(k_cat)
+	k_plus.setvalue e(k_cat)
+	k_plus.increment
+	create ARRAY main_outcome_k_list
+	program gen_k_list	
+	create DOUBLE k_cat	
+	k_cat.setvalue e(k_cat)		
+END
+
+PROGRAM gen_k_list
+BEGIN
+	call create DOUBLE count
+	call create STRING num
+	call count.setvalue 1
+
+	if (k.isgt(1000)) {
+		call k.setvalue 0
+	}
+
+	while(count.isle(k)) {
+		call num.setvalue "#"
+		call num.append class count.value
+		call num.withvalue main_outcome_k_list.Arrpush @
+		call count.increment
+	}
+END
+
+DIALOG main, label(resource PREDICT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  GROUPBOX gb_var		_lft		_top	_iwd	_ht6,	///
+	label(resource LBL_NEW_VARIABLES)
+  RADIO rb_onevar		_ilft		_ss	_cwd1	.,first	///
+	onclickon(script main_one_var)					///
+	label(resource LBL_NEW_VARIABLE_NAME)
+  RADIO rb_mulvars		_ilft		_ss	380	.,last	///
+	onclickon(script main_mul_vars)					///
+	label(resource LBL_NEW_VARIABLE_NAMES_STUB)
+  TEXT tx_vartype		_lft3_3		@	_vnwd	.,	///
+	label(resource LBL_NEW_VARIABLE_TYPE)
+  EDIT ed_vars			_ilft		_ss	300	.,	///
+	label(resource LBL_NEW_VARIABLE_NAMES_STUB)
+  COMBOBOX cb_vartype		_lft3_3		@	_vnwd	.,	///
+	dropdownlist contents(type) default(c(type))			///
+	label(resource LBL_TYPE)
+
+  GROUPBOX gb_opts		_lft		_xls	_iwd	_ht20,	///
+	label(resource LBL_PRODUCE)
+  RADIO rb_pmargin		_ilft		_ss	380	.,first ///
+	option(pmargin)							///
+	onclickon(program main_check_state)				///
+	label(resource ZIOPROBIT_P_MAIN_RB_PMARGIN_ONE)
+  DEFINE   holdy@y
+
+  RADIO rb_pjoint1		@		_ss	@	.,	///
+	option(pjoint1)							///
+	onclickon(program main_check_state)				///
+	label(resource ZIOPROBIT_P_MAIN_RB_PJOINT1_ONE)
+
+  RADIO rb_pcond1		@		_ss	@	.,	///
+	option(pcond1)							///
+	onclickon(program main_check_state)				///
+	label(resource ZIOPROBIT_P_MAIN_RB_PCOND1_ONE)
+
+  RADIO rb_ppar			@		_ss	@	.,	///
+	option(ppar)							///
+	onclickon(script main_onevar_on)				///
+	label(resource ZIOPROBIT_P_MAIN_RB_PPAR)
+  RADIO rb_pnpar		@		_ss	@	.,	///
+	option(pnpar)							///
+	onclickon(script main_onevar_on)				///
+	label(resource ZIOPROBIT_P_MAIN_RB_PNPAR)
+  RADIO rb_xb			_ilft		_ss	@	.,	///
+	option(xb)							///
+	onclickon(script main_onevar_on)				///
+	label(resource LBL_LINEAR_PREDICTION)
+  RADIO rb_xbinfl		@		_ss	@	.,	///
+	option(xbinfl)							///
+	onclickon(script main_onevar_on)				///
+	label(resource ZIOPROBIT_P_MAIN_RB_XBINFL)
+  RADIO rb_stdp			@		_ss	@	.,	///
+	option(stdp)							///
+	onclickon(script main_onevar_on)				///
+	label(resource LBL_STANDARD_ERROR_OF_LINEAR_PREDICTION)
+  RADIO rb_stdpinfl		@		_ss	@	.,	///
+	option(stdpinfl)						///
+	onclickon(script main_onevar_on)				///
+	label(resource ZIOPROBIT_P_MAIN_RB_STDPINFL)
+  RADIO rb_scores		@		_ss	@	.,last	///
+	option(scores)							///
+	onclickon(program main_check_state)				///
+	label(resource LBL_EQUATION_LEVEL_SCORES)
+
+  TEXT tx_outcome		_ilft3_3	holdy	_cwd3_2	.,	///
+  	label(resource ZIOPROBIT_P_MAIN_TX_OUTCOME)
+  COMBOBOX cb_outcome		@		_ss	@	.,	///
+	option(outcome)							///
+	default(#1)							///
+	dropdown							///
+	contents(main_outcome_k_list)					///
+	label(resource LBL_OUTCOME)
+
+  CHECKBOX ck_nooffset		_lft		+200	_iwd	.,	///
+	option(nooffset)						///
+	label(resource LBL_IGNORE_OFFSET_VARIABLE)
+END
+
+INCLUDE ifin
+INCLUDE _type_list_fd
+
+SCRIPT main_one_var
+BEGIN
+	main.rb_scores.hide
+	main.ck_nooffset.enable
+	main.rb_ppar.show
+	main.rb_pnpar.show
+	main.rb_xb.show
+	main.rb_xbinfl.show
+	main.rb_stdp.show
+	main.rb_stdpinfl.show
+	main.tx_outcome.hide
+	main.cb_outcome.hide
+	main.gb_opts.setposition . . . 210
+	main.ck_nooffset.setposition . 330
+	main.rb_pmargin.setlabel resource ZIOPROBIT_P_MAIN_RB_PMARGIN_ONE
+	main.rb_pjoint1.setlabel resource ZIOPROBIT_P_MAIN_RB_PJOINT1_ONE
+	main.rb_pcond1.setlabel resource ZIOPROBIT_P_MAIN_RB_PCOND1_ONE	
+	program main_check_outcome
+	program main_check_label
+
+	main.ck_nooffset.enable
+END
+
+SCRIPT main_mul_vars
+BEGIN
+	main.rb_pmargin.seton
+	main.rb_scores.show
+	main.rb_ppar.hide
+	main.rb_pnpar.hide
+	main.rb_xb.hide
+	main.rb_xbinfl.hide
+	main.rb_stdp.hide
+	main.rb_stdpinfl.hide
+	main.tx_outcome.hide
+	main.cb_outcome.hide
+	main.gb_opts.setposition . . . 105
+	main.rb_scores.setposition . 190
+	main.ck_nooffset.setposition . 220
+	main.rb_pmargin.setlabel resource ZIOPROBIT_P_MAIN_RB_PMARGIN
+	main.rb_pjoint1.setlabel resource ZIOPROBIT_P_MAIN_RB_PJOINT1
+	main.rb_pcond1.setlabel resource ZIOPROBIT_P_MAIN_RB_PCOND1
+	main.ck_nooffset.disable
+	program main_check_label
+END
+
+PROGRAM main_check_label
+BEGIN
+	if main.rb_onevar {
+		call main.ed_vars.settooltip "1 variable name"
+	}
+	else {
+		call STMP2.format resource LBL_VARIABLE_NAMES
+		call STMP.setvalue ""
+		if main.rb_scores {
+			call k_plus.withvalue STMP.append @
+			call STMP.append " "
+			call STMP2.withvalue STMP.append @
+			call STMP.withvalue main.ed_vars.settooltip @
+		}
+		else {
+			call k.withvalue STMP.append @
+			call STMP.append " "
+			call STMP2.withvalue STMP.append @
+			call STMP.withvalue main.ed_vars.settooltip @
+		}
+	}
+	
+	if main.rb_pmargin | main.rb_pjoint1 | main.rb_pcond1 {
+		call main.tx_outcome.show
+		call main.cb_outcome.show
+		call main.rb_mulvars.setlabel resource LBL_NEW_#_VAR_NAMES_FMT
+		call STMP.format "resource LBL_NEW_#_VAR_NAMES_FMT" "e(k_cat)"
+		call STMP.withvalue main.rb_mulvars.setlabel "@"		
+	}
+	
+	if main.rb_ppar | main.rb_pnpar | main.rb_xb | main.rb_xbinfl | main.rb_stdp | 	///
+	   main.rb_stdpinfl | main.rb_scores {
+		call main.tx_outcome.hide
+		call main.cb_outcome.hide
+		call main.rb_mulvars.setlabel resource LBL_NEW_VARIABLE_NAMES_STUB
+	}
+END
+
+PROGRAM main_check_outcome
+BEGIN
+	call main.tx_outcome.hide
+	call main.cb_outcome.hide
+
+	if main.rb_pmargin | main.rb_pjoint1 | main.rb_pcond1 {
+		call main.tx_outcome.show
+		call main.cb_outcome.show
+	}
+END
+
+SCRIPT main_onevar_on
+BEGIN
+	main.tx_outcome.hide
+	main.cb_outcome.hide
+	program main_check_label	
+END
+
+PROGRAM main_check_state
+BEGIN
+	call main.tx_outcome.hide
+	call main.cb_outcome.hide
+	call program main_check_label
+	if main.rb_onevar {
+		call program main_check_outcome
+	}
+END
+
+PROGRAM newvar_output
+BEGIN
+	if main.rb_onevar {
+		require main.ed_vars
+		if ! main.cb_vartype.isdefault(){
+			put main.cb_vartype " "
+			put main.ed_vars
+			put " "
+		}
+		else {
+			put " " main.ed_vars " "
+		}
+	}
+	if main.rb_mulvars {
+		require main.ed_vars
+		if ! main.cb_vartype.isdefault(){
+			put main.cb_vartype " "
+			put main.ed_vars
+			put " "
+		}
+		else {
+			put " " main.ed_vars " "
+		}
+	}
+END
+
+PROGRAM command
+BEGIN
+	put "predict "
+	put " " /program newvar_output
+	put " " /program ifin_output
+	beginoptions
+		option radio(main rb_pmargin rb_pjoint1 rb_pcond1 	///
+		rb_ppar rb_pnpar rb_xb rb_xbinfl rb_stdp rb_stdpinfl	///
+		rb_scores)
+		if main.cb_outcome.isvisible() {
+			optionarg /hidedefault main.cb_outcome
+		}
+		option main.ck_nooffset
+	endoptions
+END

@@ -1,0 +1,337 @@
+/*
+  test_syntax.dlg
+
+*!  VERSION 1.1.1  25sep2017
+
+  keyword:  eclass
+
+*/
+
+VERSION 14.0
+SYNCHRONOUS_ONLY
+INCLUDE _std_small
+DEFINE _dlght 210
+INCLUDE header
+
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create ARRAY coef
+	create STRING s_output
+	create STRING dlgname
+	dlgname.storeDialogClassName
+	
+	create STRING eqnames_contents
+	create STRING eqnames_values
+	create DOUBLE eqnames_array_size
+
+	program get_defaults
+	setscale_hadj resource TEST_SYNTAX_DLG_HSCALE
+END
+
+PROGRAM get_defaults
+BEGIN
+	call dlgname.withvalue eqnames_contents.setvalue @
+	call eqnames_contents.append "."
+	call eqnames_contents.append class main.cb_eqnames.contents
+	call eqnames_contents.withvalue 				///
+		eqnames_array_size.storeClsArraySize @
+	call dlgname.withvalue eqnames_contents.setvalue @
+	call dlgname.withvalue eqnames_values.setvalue @
+	call eqnames_contents.append "."
+	call eqnames_values.append "."
+	if eqnames_array_size.islt(2) {
+		call eqnames_contents.append "main_syntax_list_2"
+		call eqnames_values.append "main_syntax_values_2"
+	}
+	else {
+		call eqnames_contents.append "main_syntax_list"
+		call eqnames_values.append "main_syntax_values"
+	}
+	call eqnames_contents.withvalue main.cb_syntax.setcontentslist ".@"
+	call eqnames_values.withvalue main.cb_syntax.setvalueslist ".@"
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	if main.cb_syntax.iseq("syntax3") {
+		call program main_syntax3_populate_coef
+	}
+	if main.cb_syntax.iseq("syntax4") {
+		call program main_syntax4_populate_coef
+	}
+END
+
+PROGRAM ON_DOTPROMPT
+BEGIN
+	call main.cb_ivars.repopulate
+	call main.cb_eqnames.repopulate
+	call main.cb_eqnames_ivars.repopulate
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT tx_syntax		_lft	_top	250	.,		///
+	label(resource TEST_SYNTAX_MAIN_TX_SYNTAX)
+  COMBOBOX cb_syntax		@	_ss	@	.,		///
+	dropdownlist							///
+	contents(main_syntax_list)					///
+	values(main_syntax_values)					///
+	onselchange("program main_syntax_selchange")			///
+	label(resource TEST_SYNTAX_MAIN_CB_SYNTAX)
+
+  /* Syntax 1 */
+  TEXT tx_ivars			@	_ls	_iwd	.,		///
+	label(resource TEST_SYNTAX_TEST_THESE_COEFFICIENTS)
+  COMBOBOX cb_ivars		@	_ss	@	.,		///
+	dropdown							///
+	append								///
+	contents(ivars)							///
+	label(resource TEST_SYNTAX_TEST_THESE_COEFFICIENTS)
+
+  /* Syntax 2 */
+  TEXT tx_eqnames_ivars		_lft	-20	100	.,		///
+	label(resource TEST_SYNTAX_MAIN_TX_EQNAMES_IVARS)
+  COMBOBOX cb_eqnames_ivars	@	_ss	250	.,		///
+	dropdown							///
+	contents(eqnames_ivars)						///
+	label(resource TEST_SYNTAX_MAIN_TX_EQNAMES_IVARS)
+  BUTTON bu_add_syntax2		_rj80	@	80	.,		///
+	onpush("program main_add_syntax2_pushed")			///
+	label(resource LBL_BU_ADD)
+  TEXT tx_linear_exp		_lft	_ls	_iwd	.,		///
+	label(resource LBL_LINEAR_EXPRESSION)
+  HLINK hl_test_exp		_rj240	@	80	.,		///
+	left								///
+	onpush("view help test_example##|_new")				///
+	label(resource LBL_PAREN_EXAMPLES_PAREN)
+  EDIT ed_linear_exp		_lft	_ss	_iwd	.,		///
+	label(resource LBL_LINEAR_EXPRESSION)
+
+  /* Syntax 3 */
+  TEXT tx_eqnames		_lft	_ls	_cwd1	.,		///
+	label(resource LBL_TEXT_EQUATIONS)
+  COMBOBOX cb_eqnames		@	_ss	@	.,		///
+	dropdown							///
+	contents(eqnames)						///
+	onselchange(program main_syntax3_populate_coef)			///
+	label(resource LBL_TEXT_EQUATIONS)
+  TEXT tx_coef			_lft	_ls	_iwd	.,		///
+	label(resource TEST_SYNTAX_TEST_THESE_COEFFICIENTS)
+  COMBOBOX cb_coef		@	_ss	@	.,		///
+	dropdown							///
+	append								///
+	contents(coef)							///
+	label(resource TEST_SYNTAX_TEST_THESE_COEFFICIENTS)
+
+  /* Syntax 4 */
+  BUTTON bu_add_syntax4		_rj170	@	80	.,		///
+	onpush("program main_add_syntax4_pushed")			///
+	label(resource LBL_BU_ADD)
+  TEXT tx_eqlist		_lft	_ls	_iwd	.,		///
+	label(resource LBL_EQUATION_LIST)
+  EDIT ed_eqlist		@	_ss	@	.,		///
+	label(resource LBL_EQUATION_LIST)
+END
+
+LIST main_syntax_list
+BEGIN
+	resource LBL_COEFFICIENTS_ARE_ZERO
+	resource TEST_SYNTAX_LINEAR_EXP_ARE_EQUAL
+	resource TEST_SYNTAX_COEF_SPEC_EQ_ARE_ZERO
+	resource TEST_SYNTAX_COEF_EQ_BETWEEN_EQUATIONS
+END
+
+LIST main_syntax_values
+BEGIN
+	syntax1
+	syntax2
+	syntax3
+	syntax4
+END
+
+LIST main_syntax_list_2
+BEGIN
+	resource LBL_COEFFICIENTS_ARE_ZERO
+	resource TEST_SYNTAX_LINEAR_EXP_ARE_EQUAL
+END
+
+LIST main_syntax_values_2
+BEGIN
+	syntax1
+	syntax2
+END
+
+PROGRAM main_syntax_selchange
+BEGIN
+	call script main_hide_all
+
+	if main.cb_syntax.iseq("syntax1") {
+		call main.tx_ivars.setposition . 60
+		call main.cb_ivars.setposition . 80
+		call main.tx_ivars.setlabel resource TEST_SYNTAX_TEST_THESE_COEFFICIENTS
+
+		call main.tx_ivars.show
+		call main.cb_ivars.show
+	}
+	if main.cb_syntax.iseq("syntax2") {
+		call main.tx_eqnames_ivars.setposition . 60
+		call main.cb_eqnames_ivars.setposition . 80
+		call main.bu_add_syntax2.setposition . 80
+		call main.tx_linear_exp.setposition . 110
+		call main.ed_linear_exp.setposition . 130
+
+		call main.tx_eqnames_ivars.show
+		call main.cb_eqnames_ivars.show
+		call main.bu_add_syntax2.show
+		call main.tx_linear_exp.show
+		call main.hl_test_exp.show
+		call main.ed_linear_exp.show
+	}
+	if main.cb_syntax.iseq("syntax3") {
+		call main.tx_eqnames.setposition . 60
+		call main.cb_eqnames.setposition . 80
+		call main.tx_coef.setposition . 110
+		call main.cb_coef.setposition . 130
+		call main.tx_eqnames.setlabel resource LBL_TEXT_EQUATIONS
+
+		call main.tx_eqnames.show
+		call main.cb_eqnames.show
+		call main.tx_coef.show
+		call main.cb_coef.show
+	}
+	if main.cb_syntax.iseq("syntax4") {
+		call main.tx_eqnames.setposition . 60
+		call main.cb_eqnames.setposition . 80
+		call main.bu_add_syntax4.setposition . 80
+		call main.tx_eqlist.setposition . 110
+		call main.ed_eqlist.setposition . 130
+		call main.tx_coef.setposition . 160
+		call main.cb_coef.setposition . 180
+		call main.tx_eqnames.setlabel resource LBL_EQUATION_COLON
+		call main.tx_ivars.setlabel resource LBL_COEFFICIENTS
+
+		call main.tx_eqnames.show
+		call main.cb_eqnames.show
+		call main.bu_add_syntax4.show
+		call main.tx_eqlist.show
+		call main.ed_eqlist.show
+		call main.tx_coef.show
+		call main.cb_coef.show
+	}
+END
+
+SCRIPT main_hide_all
+BEGIN
+	main.tx_ivars.hide
+	main.cb_ivars.hide
+	main.tx_eqnames_ivars.hide
+	main.cb_eqnames_ivars.hide
+	main.bu_add_syntax2.hide
+	main.tx_linear_exp.hide
+	main.hl_test_exp.hide
+	main.ed_linear_exp.hide
+	main.tx_eqnames.hide
+	main.cb_eqnames.hide
+	main.tx_coef.hide
+	main.cb_coef.hide
+	main.bu_add_syntax4.hide
+	main.tx_eqlist.hide
+	main.ed_eqlist.hide
+END
+
+PROGRAM main_add_syntax2_pushed
+BEGIN
+	call s_output.setvalue ""
+	if main.ed_linear_exp.iseq("") {
+		call s_output.append  "_b["
+		call s_output.append class main.cb_eqnames_ivars.value
+		call s_output.append  "] "
+	}
+	if main.ed_linear_exp.isneq("") {
+		call s_output.append  "= _b["
+		call s_output.append class main.cb_eqnames_ivars.value
+		call s_output.append  "]"
+	}
+	call s_output.withvalue main.ed_linear_exp.append "@"
+END
+
+PROGRAM main_syntax3_populate_coef
+BEGIN
+	put "test_syntax_wrk_dlg 3 " dlgname 
+	stata hidden immediate
+	call main.cb_coef.repopulate
+END
+
+PROGRAM main_add_syntax4_pushed
+BEGIN
+	call s_output.setvalue ""
+	if main.ed_eqlist.iseq("") {
+		call s_output.append class main.cb_eqnames.value
+	}
+	if main.ed_eqlist.isneq("") {
+		call s_output.append  "= "
+		call s_output.append class main.cb_eqnames.value
+	}
+	call s_output.withvalue main.ed_eqlist.smartinsert "@"
+	
+	call program main_syntax4_populate_coef
+END
+
+PROGRAM main_syntax4_populate_coef
+BEGIN
+	put "test_syntax_wrk_dlg 4 " dlgname 
+	stata hidden immediate
+	call main.cb_coef.repopulate
+END
+
+PROGRAM main_syntax1_output
+BEGIN
+	put main.cb_ivars
+END
+
+PROGRAM main_syntax2_output
+BEGIN
+	put main.ed_linear_exp
+END
+
+PROGRAM main_syntax3_output
+BEGIN
+	put "["
+	put main.cb_eqnames
+	put "]"
+	if main.cb_coef {
+		put ": "
+		put main.cb_coef
+	}
+END
+
+PROGRAM main_syntax4_output
+BEGIN
+	put "[" main.ed_eqlist "]"
+	if main.cb_coef {
+		put ": "
+		put main.cb_coef
+	}
+END
+
+PROGRAM command
+BEGIN
+	if main.cb_syntax.iseq("syntax1") {
+		require main.cb_ivars
+		put "(" /program main_syntax1_output ")"
+	}
+	if main.cb_syntax.iseq("syntax2") {
+		require main.ed_linear_exp
+		put "(" /program main_syntax2_output ")"
+	}
+	if main.cb_syntax.iseq("syntax3") {
+		require main.cb_eqnames
+		put "(" /program main_syntax3_output ")"
+	}
+	if main.cb_syntax.iseq("syntax4") {
+		require main.ed_eqlist
+		put "(" /program main_syntax4_output ")"
+	}
+END

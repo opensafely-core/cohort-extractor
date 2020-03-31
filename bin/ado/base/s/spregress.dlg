@@ -1,0 +1,315 @@
+/*
+  spregress
+
+*!  VERSION 1.0.9  08may2017
+
+  keyword:  eclass
+
+*/
+
+VERSION 15.0
+SYNCHRONOUS_ONLY
+INCLUDE _std_xlarge
+DEFINE _dlght 540
+INCLUDE header
+HELP hlp1, view("help spregress")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource SPREGRESS_DLG_HSCALE
+	script se_createAsRobustOIM
+
+	create STRING dlgname
+	dlgname.storeDialogClassName
+	
+	program sp_load_spmatrix
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program se_setFinalInitState
+	program check_method
+END
+
+PROGRAM sp_load_spmatrix
+BEGIN	
+	put "sp_wrk_dlg getmat " 
+	put dlgname
+	put " main_spmatrix_list"
+	stata hidden immediate
+	
+	call main.cb_dvarlag.repopulate
+	call main.cb_errorlag.repopulate
+END
+
+PROGRAM check_method
+BEGIN
+	if main.rb_gs2sls {
+		call script gs2sls_on
+	}
+	if main.rb_ml {
+		call script ml_on
+	}
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)				///
+	title(resource SPREGRESS_DLG_TITLE)
+BEGIN
+  GROUPBOX gb_estimate		_lft	_top	_iwd	_ht2,		///
+	label(resource LBL_ESTIMATOR)
+  RADIO rb_gs2sls		_ilft	_ss	_cwd0	.,first		///
+	option(gs2sls)							///
+	onclickon(script gs2sls_on)					///
+	label(resource SP_LBL_GS2SLS)
+  RADIO rb_ml			_iilft2	@	_cwd2	.,last		///
+	option(ml)							///
+	onclickon(script ml_on)						///
+	label(resource LBL_MAXIMUM_LIKELIHOOD)
+  TEXT tx_dv 			_lft	_xls	_vnwd	.,		///
+	label(resource LBL_DEPVAR)
+  DEFINE holdy @y
+  VARNAME vn_dv			@ 	_ss	@	.,		///
+	numeric								///
+	label(resource LBL_DEPVAR)
+  TEXT tx_iv			_vlx	holdy	160	.,		///
+	label(resource LBL_INDDEPVAR)
+  VARLIST vl_iv			@	_ss	_vlwd	.,		///
+	fv								///
+	allowcat							///
+	numeric								///
+	label(resource LBL_INDDEPVAR)
+  CHECKBOX ck_nocons		@	_ms	_vlwd	.,		///
+	option("noconstant")						///
+	label(resource LBL_NOCONSTANT)
+
+  INCLUDE spopts
+
+  COMBOBOX cb_dvarlag		_ilft	yd	_vnwd	.,		///
+	dropdown							///
+	contents(main_spmatrix_list)					///
+	option(dvarlag)							///
+	label(resource SP_LBL_SPATIAL_LAG_DEPENDENT_VAR)
+
+  COMBOBOX cb_errorlag		_ilft	ye	_vnwd	.,		///
+	dropdown							///
+	contents(main_spmatrix_list)					///
+	option(errorlag)						///
+	label(resource SP_LBL_SPATIAL_LAG_ERROR_TERM)
+
+  CHECKBOX ck_heter		_ilft	430	_ibwd	.,		///
+	option(heteroskedastic)						///
+	label(resource SP_LBL_TREAT_ERRORS_AS_HETER)
+  CHECKBOX ck_force		_ilft	_ss	_ibwd	.,		///
+	option(force)							///
+	label(resource SP_LBL_FORCE_MATRIX_MATCH_SAMPLE)
+  SPINNER sp_impower		_ilft	_ls	_spwd	.,		///
+	option(impower)							///
+	min(1)								///
+	default(2)							///
+	max(5)								///
+	label(resource SP_LBL_ORDER_INSTRUMENTAL_VAR_APPROX)
+  TEXT tx_impower		_spsep	@	450	.,		///
+	label(resource SP_LBL_ORDER_INSTRUMENTAL_VAR_APPROX)
+
+  DEFINE _x _ilft
+  DEFINE _y 450
+  DEFINE _cx _ilw80
+  DEFINE _bux _islw80
+  INCLUDE _constraints
+
+  EDIT ed_gridsearch		_ilft	_ls	_en7wd	.,		///
+	option(gridsearch)						///
+	numonly								///
+	default(0.1)							///
+	label(resource SP_LBL_RESOLUTION_INITVAL_SEARCH_GRID)
+  TEXT tx_gridsearch		_en7sep	@	_ilw140	.,		///
+	label(resource SP_LBL_RESOLUTION_INITVAL_SEARCH_GRID)
+END
+
+LIST main_spmatrix_list
+BEGIN
+END
+
+SCRIPT gs2sls_on
+BEGIN
+	script se_off
+	script gs2slsopts_on
+END
+SCRIPT ml_on
+BEGIN
+	script se_on
+	script mlopts_on
+END
+SCRIPT se_on
+BEGIN
+	se.tx_type.enable
+	se.lb_vcetype.enable
+	se.tx_note1.enable
+END
+SCRIPT se_off
+BEGIN
+	se.tx_type.disable
+	se.lb_vcetype.disable
+	se.tx_note1.disable
+END
+SCRIPT gs2slsopts_on
+BEGIN
+	main.ed_dvarlags.show
+	main.bu_dvarlags.show
+	main.ed_errorlags.show
+	main.bu_errorlags.show
+	main.cb_dvarlag.hide
+	main.cb_errorlag.hide
+	main.ck_heter.show
+	main.ck_force.setposition . 450
+	main.sp_impower.show
+	main.tx_impower.show
+	main.tx_constr.hide
+	main.cb_constr.hide
+	main.bu_constr.hide
+	main.ed_gridsearch.hide
+	main.tx_gridsearch.hide
+	main.gb_opts.setposition . . . 370
+	main.tx_dvarlags.setlabel resource SP_LBL_SPATIAL_LAGS_DEPENDENT_VARIABLE_COLON
+	main.tx_errorlags.setlabel resource SP_LBL_SPATIAL_LAGS_ERROR_TERM_COLON
+	rpt.ck_nocnsreport.disable
+
+	program opt_enable
+	program check_opt
+	script max_disable
+	script max_setFromNotVisible
+	
+END
+SCRIPT mlopts_on
+BEGIN
+	main.ed_dvarlags.hide
+	main.bu_dvarlags.hide
+	main.ed_errorlags.hide
+	main.bu_errorlags.hide	
+	main.cb_dvarlag.show
+	main.cb_errorlag.show
+	main.ck_heter.hide
+	main.ck_force.setposition . 430
+	main.tx_impower.hide
+	main.sp_impower.hide
+	main.tx_constr.show
+	main.cb_constr.show
+	main.bu_constr.show
+	main.ed_gridsearch.show
+	main.tx_gridsearch.show
+	main.gb_opts.setposition . . . 390
+	main.tx_dvarlags.setlabel resource SP_LBL_SPATIAL_LAG_DEPENDENT_VAR
+	main.tx_errorlags.setlabel resource SP_LBL_SPATIAL_LAG_ERROR_TERM
+	rpt.ck_nocnsreport.enable
+
+	program opt_disable
+	script max_enable
+	script max_setListNoBHHH 
+	script max_setFromNotVisible
+END
+
+PROGRAM check_opt
+BEGIN
+	if main.ed_errorlags.isneq("") {
+		call program opt_enable
+	}
+	else {
+		call program opt_disable
+	}
+END
+
+INCLUDE spopts_sc
+INCLUDE _constraints_sc
+INCLUDE ifin
+INCLUDE se
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+	program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2b
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _nocnsreport
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+
+PROGRAM rpt_output
+BEGIN
+	optionarg /hidedefault rpt.sp_level
+	INCLUDE _nocnsreport_pr
+	INCLUDE _report_columns_pr
+	put " " rpt_bu_facvarsResults
+	put " " rpt_bu_fmtcoefResults
+END
+
+INCLUDE sp_optimization
+INCLUDE max_ml
+
+PROGRAM command
+BEGIN
+	put "spregress "
+	if main.ed_gridsearch.isvisible() {
+		if !(main.ed_gridsearch.isge(0.001)			///
+		   & main.ed_gridsearch.isle(0.1)) {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format 			   	///
+				"resource SP_MSGBOX_ON_TAB_BETWEEN_001_AND_01_FMT" ///
+				"resource LBL_TAB_MODEL"	   	///
+				"resource SP_LBL_RESOLUTION_INITVAL_SEARCH_GRID"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Model" tab, "Resolution of the initial-value search grid" must between 0.001 to 0.1.
+		}
+	}
+	varlist main.vn_dv [main.vl_iv]
+	put " " /program ifin_output
+	beginoptions
+		option radio(main rb_gs2sls rb_ml)
+		option main.ck_nocons
+		optionarg main.cb_dvarlag
+		optionarg main.cb_errorlag
+		put /program spopts_output
+		option main.ck_heter
+		option main.ck_force
+		optionarg /hidedefault main.sp_impower
+		INCLUDE _constraints_main_pr
+		optionarg /hidedefault main.ed_gridsearch
+		if main.rb_ml {
+			put " " /program se_output
+		}
+		put " " /program rpt_output
+		if main.rb_gs2sls {
+			put " " /program opt_output
+		}
+		if main.rb_ml {
+			put " " /program max_output
+		}
+	endoptions
+END

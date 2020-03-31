@@ -1,0 +1,1590 @@
+//                               bygraph_g
+//
+//	Base class for by graphs
+
+*! version 1.1.15  03apr2018
+
+version 8
+
+class {
+
+    class:
+    	graphfamily	= "by"
+
+    instance:
+
+	bygraphstyle	style
+
+	n		= 0				// number of subgraphs
+	rows		= 0
+	cols		= 0
+	set_rows	= 0				// from user
+	set_cols	= 0				// from user
+	set_colfirst	= 0				// from user
+	has_total	= .yesno.new , 	style(no)	
+	holes		= ""				// list of holes
+	xlst		= ""				// list of xaxes
+	ylst		= ""				// list of yaxes
+	prlst		= ""				// list of plotregions
+
+	array graphs					// array of bygraphs
+
+	draw_legend	= .yesno.new			// is legend drawn
+	at_legend	= .bylegend_g.new		// only if at a hole
+	at_plegend	= .byplegend_g.new		// only if at a hole
+	at_clegend	= .byclegend_g.new		// only if at a hole
+	legend_hole	= 0				// hole for legend
+	plegend_hole	= 0				// hole for plegend
+	clegend_hole	= 0				// hole for clegend
+
+} , inherit(graph_g)
+
+
+// ---------------------------------------------------------------------------
+program new
+	syntax [ , STYLE(string) SUBVIEW READLOG(string) * ]
+
+	if `"`style'"' == `""' {
+		local style scheme bygraph
+	}
+
+	.Super.new , style(`style') `subview' `options'
+
+	._dialog = "bygraph"
+
+	._scheme.ref = .`c(curscm)'.ref		// declare local scheme 
+
+	if "`readlog'" != "" {				// reading from a file
+		.runfromfile `readlog'
+		exit
+	}
+end
+
+
+program parse_make , sortpreserve
+	gettoken do       cmd : 0
+	gettoken by       cmd : cmd
+	gettoken glob_if  cmd : cmd
+	gettoken glob_in  cmd : cmd
+	gettoken glob_op  cmd : cmd
+
+	local 0 `by'						// parse by 
+	syntax [varlist] [ , 						///
+		TOTal MISSing						///
+		Rows(numlist integer >0 min=0 max=1) COLFirst 		///
+		Cols(numlist integer >0 min=0 max=1)			///
+		SCALE(string) ISCALE(string)				///
+		LEGend(string) LEGLOC(string)				///
+		PLEGend(string) PLEGLOC(string)        			///		
+		CLEGend(string) CLEGLOC(string)				///
+		* ]
+
+	if `:word count `rows' `cols'' > 1 {
+		di as error "may not specify both rows() and cols()"
+		exit 198
+	}
+
+	tempname log
+
+	.`log' = {}
+	.`log'.Arrpush .set_rows     = 0`rows'
+	.`log'.Arrpush .set_cols     = 0`cols'
+	.`log'.Arrpush .set_colfirst = "`colfirst'" != ""
+	_fr_runlog `log'
+
+	.`log' = {}
+	.parse_settings `log' , `options'		// by graph settings
+	local options `"`r(rest)'"'
+	_fr_runlog `log'
+
+	.`log' = {}
+
+	if "`missing'" == "" {
+		tempname missvar
+		gen byte `missvar' = 1
+		markout  `missvar' `varlist' , strok
+	}
+							// create by graphs, 
+							// fill graphs array
+	tempname obsnum
+	gen long `obsnum' = _n
+	local sortedby (`:sortedby' `obsnum')
+
+	bysort `varlist' `sortedby': RunGraph `do' `"`glob_if'"'	///
+		`"`glob_in'"' `"`glob_op'"' "`missvar'" "`commonscheme'" `cmd'
+
+	if "`total'" != "" {
+		tempname one lblone
+		qui gen byte `one' = 1
+		label define `lblone' 1 Total
+		label values `one' `lblone'
+		bysort `one' `sortedby' : RunGraph `do' `"`glob_if'"'	///
+			`"`glob_in'"' `"`glob_op'"' "`missvar'"		///
+			"`commonscheme'" `cmd'
+		label drop `lblone'
+		.`log'.Arrpush .has_total.set_true
+	}
+
+	if 0`.graphs.arrnels' == 0 {
+		di as error "nothing to graph"
+		exit 198
+	}
+	
+
+	.n = 0`.graphs.arrnels'
+	.`log'.Arrpush .n = 0`.graphs.arrnels'
+
+	.`log'.Arrpush .MapGraphs
+
+						// "plotregion1" is a grid
+	.`log'.Arrpush .insert (plotregion1 = .graph_g.new, 		///
+		 style(\`.style.plotregionstyle.snm')) new
+	.`log'.Arrpush .plotregion1._dialog = "grid"
+
+	.`log'.Arrpush .SetLegend , `legend' `legloc'      // create legend
+	.`log'.Arrpush .SetPlegend , `plegend' `plegloc'      // create plegend
+	.`log'.Arrpush .SetClegend , `clegend' `clegloc'   // create clegend
+
+	.`log'.Arrpush .set_placement			// place by graphs
+
+						// set styles to subs
+	.`log'.Arrpush .set_axes_titles
+	.`log'.Arrpush .set_axes_shown
+	.`log'.Arrpush .set_axes_labels		// if style/scheme sets off
+	.`log'.Arrpush .set_axes_ticks		// must reset to get anywhere
+
+	.`log'.Arrpush .set_rescaled		// set rescaled
+	.`log'.Arrpush .set_shrink		// set shrinkage
+	.`log'.Arrpush .set_scale  `scale'
+	.`log'.Arrpush .set_iscale `iscale'
+
+	.`log'.Arrpush .set_outer_axes
+//	.`log'.Arrpush .set_outer_axes_edges_only
+
+	if 0`.style.indiv_as_whole.istrue' {
+		.`log'.Arrpush .set_margins
+	}
+
+	.`log'.Arrpush .set_styles		// for graph editor
+	.`log'.Arrpush .set_plot_styles	
+	.`log'.Arrpush .set_subgraphs
+
+	_fr_runlog `log'
+	.`log' = {}
+
+/*
+	local laxes `.graphs[1].list_axes left'
+	local raxes `.graphs[1].list_axes right'
+	local taxes `.graphs[1].list_axes above'
+	local baxes `.graphs[1].list_axes below'
+
+
+							// x/yalt errors
+	if "`taxes'" != "" & "`xalternate'`xsalternate'" != "" {  
+		local xalternate
+		local xsalternate
+		di in green "note, graphs have top axes, `xalternate'"
+			"`xsalternate' ignored"
+	}
+	if "`raxes'" != "" & "`yalternate'`ysalternate'" != "" {
+		local yalternate
+		local yalternate
+		di in green "note, graphs have right axes, `yalternate'"
+			"`ysalternate' ignored"
+	}
+*/
+
+
+						// put our titles at the front
+						// of options so they can be
+						// superseded by typed options
+
+	.SetByList bylist : `varlist'				// title
+	local options `"note("Graphs by `bylist'") `options'"'
+
+	foreach d in x y {					// "axis" titles
+	    if 0`.style.outer_`d'titles.istrue' {
+		local text `"`.graphs[1].get_axis_title `d''"'
+		local tsty \`.graphs[1].get_axis_title_styleref `d''
+		if `"`text'"' != `""' {
+		    local p = cond("`d'"=="x", "b", "l")
+		    local tsty`p' `macval(tsty)'
+		    local options `"`p'1title(`text') `options'"'
+/*
+		    local options	///
+		    	  `"`p'1title(`text', style(`tsty')) `options'"'
+*/
+		}
+	     }
+	}
+
+							// standard areastyles
+	_fr_area_parse_and_log `log' ""          GRAPHRegion , `options'
+	_fr_area_parse_and_log `log' plotregion1 PLOTRegion  , `r(rest)'
+	.parse_and_log_titles  `log' "" `r(rest)'	// standard titles
+	.parse_and_log_spacers `log' "" `r(rest)'	// spacers
+							// bgcolor
+	_fr_merged_implicit `log' BGColor				///
+		".bgcolor.setstyle , style(X)" , `r(rest)'
+
+	local 0 `", `r(rest)'"'
+	syntax [, FAKE_OPT_FOR_BETTER_MSG ]
+
+	_fr_runlog `log'
+
+	foreach p in b l {				// axis title styles
+	    if "tsty`p'" != "" {			// extra work because
+		.`p'1title.setstyle , style(`tsty`p'')	// tsty a reference
+		.__LOG.Arrpush .`p'1title.setstyle , style(`macval(tsty`p')')
+	    }
+	}
+
+
+end
+
+
+// ---------------------------------------------------------------------------
+// Pushes log entries to map the graphs when reading from disk.
+
+program MapGraphs
+	
+	forvalues i = 1/`.n' {
+		.__LOG.Arrpush __NOLOG__				///
+			.graphs[`i'] =.__Map.`.graphs[`i'].uname'.ref
+	}
+end
+
+
+// ---------------------------------------------------------------------------
+// Parse and set bygraph settings
+
+program parse_settings , rclass
+	gettoken log 0 : 0
+		
+	syntax [ , COMpact						///
+		   STYLE(passthru)					///
+		   NORescale Rescale 					///
+		   NOXRescale NOYRescale XRescale YRescale		///
+		   HOLes(numlist integer >0 max=300) 			///
+		   NOEDGElabel EDGElabel				///
+		   NOIXaxes NOIYaxes IXaxes IYaxes			///
+		   NOXTitles XTitles NOYTitles YTitles			///
+		   NOIXLabels NOIYLabels IXLabels IYLabels		///
+		   NOIXTicks  NOIYTicks  IXTicks  IYTicks		///
+		   NOIXTitles NOIYTitles IXTitles IYTitles		///
+		   NOINDividual INDividual				///
+		   ILEGends						///
+		   IMargin(string)					///
+		   NOSHRink NOISHRink NOOVERALLSHRink			///
+		     SHRink   ISHRink   OVERALLSHRink			///
+		* ]
+
+//		   XAlternate XSalternate YAlternate YSalternate
+
+
+	local holes : list uniq holes
+	.`log'.Arrpush .holes = "`holes'"
+
+						// overall options
+	if "`style'" == "" & "`compact'" != "" {
+		local style style(compact)
+	}
+	if "`style'" != "" {
+		.`log'.Arrpush .style.setstyle , `style'
+	}
+							// outer axis titles
+	if "`xtitles'`noxtitles'" != "" {
+	   .`log'.Arrpush ._set_xor outer_xtitles "`xtitles'" "`noxtitles'"
+	}
+	if "`ytitles'`noytitles'" != "" {
+	   .`log'.Arrpush ._set_xor outer_ytitles "`ytitles'" "`noytitles'"
+	}
+
+						// edge labels
+	if "`edgelabel'`noedgelabel'" != "" {
+	   .`log'.Arrpush ._set_xor edgelabel "`edgelabel'" "`noedgelabel'"
+	}
+
+							// rip apart or not
+	if "`individual'`noindividual'" != "" {
+		.`log'.Arrpush ._set_xor indiv_as_whole			///
+			"`individual'" "`noindividual'"
+	}
+	if "`ilegends'" != "" {
+		.`log'.Arrpush ._set_xor indiv_legends "`ilegends'"
+	}
+							// shrinking
+	if "`shrink'`noshrink'" != "" {
+		.`log'.Arrpush ._set_xor shrink_indiv "`shrink'" "`noshrink'"
+		.`log'.Arrpush ._set_xor shrink_plotregion		///
+			"`shrink'" "`noshrink'"
+	}
+	if "`ishrink'`noishrink'" != "" {
+		.`log'.Arrpush ._set_xor shrink_indiv "`ishrink'" "`noishrink'"
+	}
+	if "`overallshrink'`nooverallshrink'" != "" {
+		.`log'.Arrpush ._set_xor shrink_plotregion		///
+	      		"`overallshrink'" "`nooverallshrink'"
+	}
+
+						// individual/by graphs
+							
+	if "`ixaxes'`noixaxes'" != "" {
+	      .`log'.Arrpush ._set_xor indiv_xaxes "`ixaxes'" "`noixaxes'"
+	}
+	if "`iyaxes'`noiyaxes'" != "" {
+	      .`log'.Arrpush ._set_xor indiv_yaxes "`iyaxes'" "`noiyaxes'"
+	}
+	if "`ixtitles'`noixtitles'" != "" {
+	      .`log'.Arrpush ._set_xor indiv_xtitles "`ixtitles'" "`noixtitles'"
+	}
+	if "`iytitles'`noiytitles'" != "" {
+	    .`log'.Arrpush ._set_xor indiv_ytitles "`iytitles'" "`noiytitles'"
+	}
+	if "`ixlabels'`noixlabels'" != "" {
+		.`log'.Arrpush ._set_xor indiv_xlabels			///
+			"`ixlabels'" "`noixlabels'"
+	}
+	if "`iylabels'`noiylabels'" != "" {
+		.`log'.Arrpush ._set_xor indiv_ylabels			///
+			"`iylabels'" "`noiylabels'"
+	}
+	if "`ixticks'`noixticks'" != "" {
+	    .`log'.Arrpush ._set_xor indiv_xticks "`ixticks'" "`noixticks'"
+	}
+	if "`iyticks'`noiyticks'" != "" {
+	    .`log'.Arrpush ._set_xor indiv_yticks "`iyticks'" "`noiyticks'"
+	}
+
+						// rescaling
+	if "`rescale'" != "" {
+		local xrescale xrescale			// implies x and y
+		local yrescale yrescale
+	}
+	else if "`norescale'" != "" {
+		local noxrescale noxrescale		// implies x and y
+		local noyrescale noyrescale
+	}
+	if "`xrescale'`noxrescale'" != "" {
+	    .`log'.Arrpush ._set_xor indiv_xrescale "`xrescale'" "`noxrescale'"
+	    if "`xrescale'" != "" {
+		.`log'.Arrpush .style.editstyle indiv_xaxes(yes) editcopy
+		.`log'.Arrpush .style.editstyle outer_xaxes(yes) editcopy
+	    }
+	}
+	if "`yrescale'`noyrescale'" != "" {
+	    .`log'.Arrpush ._set_xor indiv_yrescale "`yrescale'" "`noyrescale'"
+	    if "`yrescale'" != "" {
+		.`log'.Arrpush .style.editstyle indiv_yaxes(yes) editcopy
+		.`log'.Arrpush .style.editstyle outer_yaxes(yes) editcopy
+	    }
+	}
+
+	if `"`imargin'"' != `""' {
+		.`log'.Arrpush .style.editstyle indiv_margin(`imargin') editcopy
+	}
+
+	return local rest `"`options'"'
+end
+
+// ---------------------------------------------------------------------------
+program define RunGraph , byable(recall, noheader)
+	gettoken do         cmd_1 : 0
+	gettoken glob_if    cmd_1 : cmd_1
+	gettoken glob_in    cmd_1 : cmd_1
+	gettoken glob_op    cmd_1 : cmd_1
+	gettoken missvar    cmd_1 : cmd_1
+	gettoken uniq_schm  cmd_1 : cmd_1
+
+							// by titles
+	tempname n
+	gen long `n' = _n
+	sum `n' if `_byindex' == _byindex() , meanonly
+	local obs `r(min)'
+	local oc 0
+	foreach var of local _byvars {
+		if bsubstr("`:type `var''", 1, 3) == "str" {
+			local vtitl `"`=`var'[`obs']'"'
+			if `"`vtitl'"' == `""' {
+				local vtitl (missing)
+			}
+		}
+		else {
+			local vtitl `"`: label (`var') `=`var'[`obs']''"'
+			if `"`vtitl'"' == `"."' {
+				local vtitl (missing)
+			}
+		}
+		if `"`vtitle'"' != `"(missing)"' {
+						// Does title need extra quoting
+			gettoken unused rest : vtitl , qed(quoted)
+			capture local unq `"`vtitl'"'
+			local rc = _rc
+			if (!`rc') {
+				local 0 `", try(`unq')"' 
+				capture syntax [, TRY(string asis) ]
+				local rc = _rc
+				if (!`rc') {
+					local 0 `"`vtitl'"'
+					capture syntax [anything] [, * ]
+					if `"`options'"' != `""' {
+						local rc = 1
+					} 
+				}
+			}
+			if `rc' {
+				if `quoted' {
+					local vtitl `"`"`vtitl'"'"'
+					capture di ""
+				}
+				else {
+					local oc 1
+				}
+			}
+
+		}
+		local title `"`title'`sep'`vtitl'"'
+
+		local sep ", "
+	}
+
+	local 0 `"`title'"'
+	capture syntax anything
+	if _rc | `oc' | 0`:list sizeof _byvars' > 1 | `"`title'"' == `""' {
+		local title `"`"`title'"'"'
+	}
+
+							// by options
+	local glob_op `"subtitle(`title') `glob_op'"'  
+	if ! `.style.indiv_legends.istrue' {
+		local glob_op `"legend(nodraw) plegend(nodraw) clegend(nodraw) `glob_op'"'  
+	}
+	local glob_op `"`.style.special_options' `glob_op'"'  
+	if "`do'" == "twoway" {
+		local glob_op `"`.style.twoway_options' `glob_op'"'
+	}
+
+
+						// Prepare subgraph syntax
+
+	if ("`missvar'" != "")  local missif "& `missvar'"
+
+	if "`do'" == "twoway" {
+							// add to global if
+		if `"`glob_if'"' == `""' {		// the by restriction
+			local glob_if if `_byindex' == `=_byindex()' `missif'
+		}
+		else {
+			local 0 `"`glob_if'"'
+			syntax [if/]
+			local glob_if					///
+			`"if (`if') & (`_byindex' == `=_byindex()' `missif')"'
+		}
+
+		qui count `glob_in' `glob_if'
+		if (r(N) == 0)  exit			// if excludes group
+
+							// fully canonicalize
+		local full `cmd_1' || `glob_if' `glob_in' , `glob_op'
+	}
+	else {						// all but twoway
+		local 0 `"`cmd_1'"'
+		syntax [anything(equalok)] [aw pw fw] [if/] [in] [ , * ]
+
+		local byqual `_byindex' == `=_byindex()'
+
+		if `"`if'"' != `""' {
+			local ifqual `"if (`if') `missif'"'
+			local ifand  `"& (`if')"'
+		}
+		else if `"`missvar'"' != `""' {
+			local ifqual if `missvar'
+		}
+
+		qui count `in' if (`byqual') `ifand' `missif'
+		if (r(N) == 0)  exit			// if excludes group
+
+		if (`"`exp'"' != `""')  local wtopt `"[`weight'`exp']"'
+		local full `"`anything' `wtopt' `ifqual' `in' , byif(`byqual') `glob_op' `options'"'
+
+	}
+
+	if ("`uniq_schm'" != "")  gr_setscheme		// graph has own scheme
+
+	.graphs[`.graphs.arrnels'+1] = .`do'graph_g.new `full'
+
+	if (`.graphs.arrnels' == 1)  ._check_aspect_shrink
+end
+
+
+program _check_aspect_shrink
+	if 0`.style.shrink_plotregion.istrue' {
+	    if 0`.graphs[1].style.aspect_ratio.val' != 0 {
+		di as error "options aspect() and shrink may not be combined"
+		exit 198
+	    }
+	}
+end
+
+
+program SetLegend
+
+	if (`.style.indiv_legends.istrue')  exit
+
+	if ! 0`.graphs[1].legend.isofclass legend_g' {
+		exit							// Exit
+	}
+							// parse position
+	syntax [ , POSition(string) RING(string) SPAN AT(integer 0)	///
+		   NODRAW DRAW OFF ON * ]
+
+	if (0`.graphs[1].legend.keys.arrnels' > 1)  local drawn yes
+	else					    local drawn no
+
+	if ("`nodraw'`off'" != "")  local drawn no
+	if ("`draw'`on'"    != "")  local drawn yes
+
+	tempname leg					// legend from graph[1]
+	.`leg' = .bylegend_g.new `.graphs[1].legend.objkey'  `drawn'
+
+							// position and ring
+	if `"`position'"' != "" {
+		.style.editstyle legend_position(`position') editcopy
+	}
+	if `"`ring'"' != "" {
+		.style.editstyle legend_ring(`ring') editcopy
+	}
+
+	local pos  `.style.legend_position.relative_position'
+	local ring `.style.legend_ring.setting'
+	local boxa `.style.legend_position.compass2style'
+
+
+	if "`span'" != "" {				// handle spanning
+		if "`pos'" != "on" {
+			if "`pos'" == "above" | "`pos'" == "below" {
+				local span spancols(all)
+			}
+			else {
+				local span spanrows(all)
+			}
+		}
+	}
+
+							// insert
+	if `at' {
+		.at_legend.ref = .`leg'.ref
+		.legend_hole = `at'
+		local holes `.holes'
+		local holes : list holes - at
+		.holes = "`holes'"
+	}
+	else {
+	   .insert (legend = .`leg'.ref) `pos' plotregion1 , ring(`ring') `span'
+	}
+						// over-ride box alignment
+	.`leg'.style.editstyle editcopy	box_alignment(`boxa')
+end
+
+program SetClegend
+
+	if (`.style.indiv_legends.istrue')  exit
+
+	if ! 0`.graphs[1].clegend.isofclass  clegend_g' {
+		exit							// Exit
+	}
+							// parse position
+	syntax [ , POSition(string) RING(string) SPAN AT(integer 0)	///
+		   NODRAW DRAW OFF ON * ]
+
+	local drawn no
+	if ("`nodraw'`off'" != "")  local drawn no
+	if ("`draw'`on'"    != "")  local drawn yes
+
+	tempname leg					// legend from graph[1]
+	.`leg' = .byclegend_g.new `.graphs[1].clegend.objkey' `drawn'
+
+
+							// position and ring
+	if `"`position'"' != "" {
+	      .style.editstyle zyx2legend_position(`position') editcopy
+	}
+	if `"`ring'"' != "" {
+	      .style.editstyle zyx2legend_ring(`ring') editcopy
+	}
+
+	local pos  `.style.zyx2legend_position.relative_position'
+	local ring `.style.zyx2legend_ring.setting'
+	local boxa `.style.zyx2legend_position.compass2style'
+
+
+	if "`span'" != "" {				// handle spanning
+		if "`pos'" != "on" {
+			if "`pos'" == "above" | "`pos'" == "below" {
+				local span spancols(all)
+			}
+			else {
+				local span spanrows(all)
+			}
+		}
+	}
+
+							// insert
+	if `at' {
+		.at_clegend.ref = .`leg'.ref
+		.clegend_hole = `at'
+		local holes `.holes'
+		local holes : list holes - at
+		.holes = "`holes'"
+	}
+	else {
+	  .insert (clegend = .`leg'.ref) `pos' plotregion1, ring(`ring') `span'
+	}
+						// over-ride box alignment
+	.`leg'.style.editstyle editcopy	box_alignment(`boxa')
+end
+
+program SetPlegend
+
+	if (`.style.indiv_legends.istrue')  exit
+
+	if ! 0`.graphs[1].plegend.isofclass  zyx2legend_g' {
+		exit							// Exit
+	}
+							// parse position
+	syntax [ , POSition(string) RING(string) SPAN AT(integer 0)	///
+		   NODRAW DRAW OFF ON * ]
+
+	local drawn no
+	if ("`nodraw'`off'" != "")  local drawn no
+	if ("`draw'`on'"    != "")  local drawn yes
+
+	tempname leg					// legend from graph[1]
+	.`leg' = .byplegend_g.new `.graphs[1].plegend.objkey' `drawn'
+
+
+							// position and ring
+	if `"`position'"' != "" {
+	      .style.editstyle zyx2legend_position(`position') editcopy
+	}
+	if `"`ring'"' != "" {
+	      .style.editstyle zyx2legend_ring(`ring') editcopy
+	}
+
+	local pos  `.style.zyx2legend_position.relative_position'
+	local ring `.style.zyx2legend_ring.setting'
+	local boxa `.style.zyx2legend_position.compass2style'
+
+
+	if "`span'" != "" {				// handle spanning
+		if "`pos'" != "on" {
+			if "`pos'" == "above" | "`pos'" == "below" {
+				local span spancols(all)
+			}
+			else {
+				local span spanrows(all)
+			}
+		}
+	}
+
+							// insert
+	if `at' {
+		.at_clegend.ref = .`leg'.ref
+		.clegend_hole = `at'
+		local holes `.holes'
+		local holes : list holes - at
+		.holes = "`holes'"
+	}
+	else {
+	  .insert (plegend = .`leg'.ref) `pos' plotregion1, ring(`ring') `span'
+	}
+						// over-ride box alignment
+	.`leg'.style.editstyle editcopy	box_alignment(`boxa')
+end
+
+
+// ---------------------------------------------------------------------------
+//  Returns list of x/yaxes names.  If they are empty, repopulates the list.
+//  Use these, rather that xlst and ylst.
+
+program xaxes_list
+	if "`.xlst'" == "" {
+		.xlst = .graphs[1].list_axes x
+	}
+	class exit "`.xlst'"
+end
+
+program yaxes_list
+	if "`.ylst'" == "" {
+		.ylst = .graphs[1].list_axes y
+	}
+	class exit "`.ylst'"
+end
+
+
+// Same for plotregions
+
+program plotregion_list
+	if "`.prlst'" == "" {
+		.prlst = .graphs[1].list_ofclass plotregion
+	}
+	class exit "`.prlst'"
+end
+
+
+// ---------------------------------------------------------------------------
+program SetListStyle
+	gettoken prefix  list : 0		// prefix of object name
+	gettoken suffix  list : list		// suffix of object & setting
+
+
+	forvalues i = 1/`.n' {
+		foreach obj of local list {
+			if ! 0`.graphs[`i'].isofclass bargraph_g' |	///
+			     "`obj'" == "scaleaxis" {
+				capture .graphs[`i']`prefix'.`obj'`suffix'
+			}
+		}
+	}
+end
+
+
+//----------------------------------------------------------------------------
+//  Number of graphs and "holes" (including legends and other views).
+
+program define full_n
+	class exit = `.n' + `:word count `.holes'' +			///
+		(`.legend_hole' > 0) + (`.clegend_hole' > 0)
+end
+
+
+// ---------------------------------------------------------------------------
+//  Set the rows and cols based on .holes and number of graphs and
+//  the optional positional arguments.
+
+program set_rows_cols
+
+	local n = 0`.full_n'
+	if 0`.set_cols' {				// # of rows and cols
+		.cols = `.set_cols'
+		.rows    = 1 + int((`n' - 1) / `.cols')
+	} 
+	else if 0`.set_rows' {
+		.rows    = `.set_rows'
+		.cols = 1 + int((`n' - 1) / `.rows')
+	}
+	else {
+		local r  = sqrt(`n')
+		.cols = int(`r') + ((`r' - int(`r')) > .01)
+		.rows    = 1 + int((`n' - 1) / `.cols')
+	}
+end
+
+// ---------------------------------------------------------------------------
+//  Place the by/subgraphs into the plotregion based on the current
+//  style and bygraph settings.
+
+program set_placement
+
+	.plotregion1.clear_notnamed added_text added_lines
+
+	.set_rows_cols 
+
+	if 0`.style.indiv_margin.left' > 0 {
+		local left
+	}
+
+	local holes `.holes'
+	local subr = `.graphs[1].maxrow' +				///
+		     (`.style.indiv_margin.left'  > 0) +		///
+		     (`.style.indiv_margin.right' > 0)
+	local subc = `.graphs[1].maxcol' +				///
+		     (`.style.indiv_margin.top'    > 0) +		///
+		     (`.style.indiv_margin.bottom' > 0)
+	local r = `.rows'
+	local c = 1
+	local j = 0
+	forvalues i=1/0`.full_n' {
+		local r0 `r'
+		local c0 `c'
+
+		if ! 0`:list i in holes' {
+		    if `i' == 0`.legend_hole' {
+			if 0`.style.indiv_as_whole.istrue' {
+			    local at at `r' `c'
+			}
+			else {
+			    local at at `=(`r'-1)*`subr'+1'		///
+			    	     `=(`c'-1)*`subc'+1' ,		///
+				     spanrows(`=`subr'-1') spancols(`=`subc'-1')
+			}
+		    	local leg `.at_legend.objkey'
+			.plotregion1.insert (atlegend = .`leg'.ref) `at'
+		    }
+		    else if `i' == 0`.clegend_hole' {
+			if 0`.style.indiv_as_whole.istrue' {
+			    local at at `r' `c'
+			}
+			else {
+			    local at at `=(`r'-1)*`subr'+1'		///
+			    	     `=(`c'-1)*`subc'+1' ,		///
+				     spanrows(`=`subr'-1') spancols(`=`subc'-1')
+			}
+		    	local leg `.at_clegend.objkey'
+			.plotregion1.insert (atclegend = .`leg'.ref) `at'
+		    }
+		    else {
+		    	if `++j' <= 0`.graphs.arrnels' {
+			    if 0`.style.indiv_as_whole.istrue' {
+				.plotregion1.insert			    ///
+				    (graph`j' = .`.graphs[`j'].objkey'.ref) ///
+				    at `r' `c'
+			    }
+			    else {
+				.plotregion1.place_views		///
+				    `.graphs[`j'].objkey'		///
+				    `=(`r'-1)*`subr'' `=(`c'-1)*`subc''	///
+				    .ref `.style.indiv_margin.objkey'
+			    }
+			}
+		    }
+		}
+
+		if ! 0`.set_colfirst' {
+		    local ++c
+		    if `c' > `.cols' {
+			local c 1
+			local `r--'
+		    }
+		}
+		else {
+		    local --r
+		    if `r' == 0 {
+			local r `.rows'
+			local `c++'
+		    }
+		}
+
+	}
+end
+
+
+// ---------------------------------------------------------------------------
+//  Place or replace the boundary axes if requested.
+//  Assumes that any axes that are not supposed to be drawn have already been
+//  set to not drawn.
+
+program set_outer_axes
+	args d
+
+	if ! 0`.style.edgelabel.istrue' {
+		.set_outer_axes_edges_only `d'
+		exit						// Exit
+	}
+
+	if "`d'" == "" {
+		.set_outer_axes x
+		.set_outer_axes y
+		exit
+	}
+
+	if 0`.graphs[1].isofclass bargraph_g' & ! 0`.graphs[1].is_scale `d'' {
+		exit
+	}
+
+	if 0`.style.outer_`d'axes.isfalse' | 0`.style.indiv_as_whole.istrue' {
+		exit						// Exit
+	}
+
+						// lists of plotregs and axes
+	local plotregions `.plotregion1.list_ofclass plotregion'
+	local axes        `.plotregion1.list_ofclass axis'
+
+	if "`d'" == "x" & 0`.style.outer_xaxes.istrue' {
+	    forvalues col = 1/0`.plotregion1.maxcol' {
+		local minr = `.plotregion1.minrow_oflist_incol `col'	///
+			     `plotregions''
+		local maxr = `.plotregion1.maxrow_oflist_incol `col'	///
+			     `plotregions''
+		if 0`minr' + 0`maxr' == 0 {
+			continue				// Continue
+		}
+
+		foreach ax of local axes {
+		    if 0`.plotregion1.in_col `ax' `col'' {
+			if 0`.plotregion1.minrowof `ax'' < `minr' |	///
+			   0`.plotregion1.maxrowof `ax'' > `maxr' {
+				.plotregion1.`ax'.draw_view.set_true
+//				.plotregion1.`ax'.set_labels_onoff	///
+//					`.style.outer_xlabels.stylename'
+//				.plotregion1.`ax'.set_ticks_onoff	///
+//					`.style.outer_xticks.stylename'
+			}
+		    }
+		}
+	    }
+	}
+
+	if "`d'" == "y" & 0`.style.outer_yaxes.istrue' {
+	    forvalues row = 1/0`.plotregion1.maxrow' {
+		local minc = `.plotregion1.mincol_oflist_inrow `row'	///
+			     `plotregions''
+		local maxc = `.plotregion1.maxcol_oflist_inrow `row'	///
+			     `plotregions''
+		if 0`minc' + 0`maxc' == 0 {
+			continue				// Continue
+		}
+
+		foreach ax of local axes {
+		    if 0`.plotregion1.in_row `ax' `row'' {
+			if 0`.plotregion1.mincolof `ax'' < `minc' |	///
+			   0`.plotregion1.maxcolof `ax'' > `maxc' {
+				.plotregion1.`ax'.draw_view.set_true
+//				.plotregion1.`ax'.set_labels_onoff	///
+//					`.style.outer_ylabels.stylename'
+//				.plotregion1.`ax'.set_ticks_onoff	///
+//					`.style.outer_yticks.stylename'
+			}
+		    }
+		}
+	    }
+	}
+
+end
+
+// ---------------------------------------------------------------------------
+// Just like set_outer_axes, but defines edge as only the square outer edge of
+// the views.  Does not turn on axes where there are gaps in the outer
+// edge.
+
+program set_outer_axes_edges_only
+	args d
+
+	if "`d'" == "" {
+		.set_outer_axes x
+		.set_outer_axes y
+		exit
+	}
+
+	if 0`.style.outer_`d'axes.isfalse' | 0`.style.indiv_as_whole.istrue' {
+		exit						// Exit
+	}
+
+						// lists of plotregs and axes
+	local plotregions `.plotregion1.list_ofclass plotregion'
+	local axes        `.plotregion1.list_ofclass axis'
+
+	if "`d'" == "x" & 0`.style.outer_xaxes.istrue' &		///
+	   (! 0`.graphs[1].isofclass bargraph_g' | 0`.graphs[1].is_scale `d'') {
+		local minr = `.plotregion1.minrow_oflist `plotregions''
+		local maxr = `.plotregion1.maxrow_oflist `plotregions''
+
+		foreach ax of local axes {
+			if 0`.plotregion1.minrowof `ax'' < `minr' |	///
+			   0`.plotregion1.maxrowof `ax'' > `maxr' {
+				.plotregion1.`ax'.draw_view.set_true
+//				.plotregion1.`ax'.set_labels_onoff	///
+//					`.style.outer_xlabels.stylename'
+//				.plotregion1.`ax'.set_ticks_onoff	///
+//					`.style.outer_xticks.stylename'
+			}
+		}
+	}
+
+	if "`d'" == "y" & 0`.style.outer_yaxes.istrue' &		///
+	   (! 0`.graphs[1].isofclass bargraph_g' | 0`.graphs[1].is_scale `d'') {
+		local minc = `.plotregion1.mincol_oflist `plotregions''
+		local maxc = `.plotregion1.maxcol_oflist `plotregions''
+
+		foreach ax of local axes {
+			if 0`.plotregion1.mincolof `ax'' < `minc' |	///
+			   0`.plotregion1.maxcolof `ax'' > `maxc' {
+				.plotregion1.`ax'.draw_view.set_true
+//				.plotregion1.`ax'.set_labels_onoff	///
+//					`.style.outer_ylabels.stylename'
+//				.plotregion1.`ax'.set_ticks_onoff	///
+//					`.style.outer_yticks.stylename'
+			}
+		}
+	}
+
+/*
+	if `.style.alternate_axes.istrue' {
+		.set_alt_outer_axes
+		exit						// Exit
+	}
+
+	if 0`.style.alternate_yaxes.istrue' {
+		if "`left'" == "" | "`right'" == "" {
+			local alt 1
+		}
+		else {
+			local alt 0
+			di in green "alternate ignored, bygraphs have "	\\\
+				"both left and right axes"
+		}
+	}
+*/
+
+end
+*/
+
+
+
+// ---------------------------------------------------------------------------
+//  programs to set styles for ALL x and/or y axes.  If style/setting is 
+//  blank uses the setting from the current .style
+
+program set_axes_shown
+	args d style					// optional
+
+	if "`d'" == "" {				// set both
+		.set_axes_shown x `style'
+		.set_axes_shown y `style'
+		exit						// exit
+	}
+
+	if 0`.graphs[1].isofclass bargraph_g' & ! 0`.graphs[1].is_scale `d'' {
+		exit
+	}
+
+	if "`style'" == "" {				// setting from style
+		local style `.style.indiv_`d'axes.stylename'
+	}
+	else {
+		.style.editstyle indiv_`d'axes(`style') editcopy
+	}
+
+	.SetListStyle "" ".draw_view.setstyle, style(`style')"		///
+		`.`d'axes_list'
+end
+
+program set_axes_titles
+	args d style					// optional
+
+	if "`d'" == "" {				// set both
+		.set_axes_titles x `style'
+		.set_axes_titles y `style'
+		exit						// exit
+	}
+
+	if "`style'" == "" {				// setting from style
+		local style `.style.indiv_`d'titles.stylename'
+	}
+	else {
+		.style.editstyle indiv_`d'titles(`style') editcopy
+	}
+
+	.SetListStyle "" ".title.draw_view.setstyle, style(`style')"	///
+		`.`d'axes_list'
+end
+
+program set_axes_labels
+	args d style					// optional
+
+	if "`d'" == "" {				// set both
+		.set_axes_labels x `style'
+		.set_axes_labels y `style'
+		exit						// exit
+	}
+
+	if "`style'" == "" {				// setting from style
+		local style `.style.indiv_`d'labels.stylename'
+	}
+	else {
+		.style.editstyle indiv_`d'labels(`style') editcopy
+	}
+
+	.SetListStyle "" ".set_labels_onoff `style'" `.`d'axes_list'
+end
+
+
+program set_axes_ticks
+	args d style					// optional
+
+	if "`d'" == "" {				// set both
+		.set_axes_ticks x `style'
+		.set_axes_ticks y `style'
+		exit						// exit
+	}
+
+	if "`style'" == "" {				// setting from style
+		local style `.style.indiv_`d'ticks.stylename'
+	}
+	else {
+		.style.editstyle indiv_`d'ticks(`style') editcopy
+	}
+
+	.SetListStyle "" ".set_ticks_onoff `style'" `.`d'axes_list'
+end
+
+
+program set_rescaled
+	args d style nocur				// optional
+
+	if "`d'" == "" {				// set both
+		.set_rescaled x "`style'" "`nocur'"
+		.set_rescaled y "`style'" "`nocur'"
+		exit						// exit
+	}
+
+	if "`style'" == "" {				// setting from style
+		local style `.style.indiv_`d'rescale.stylename'
+	}
+	else {
+		.style.editstyle indiv_`d'rescale(`style') editcopy
+	}
+
+	if 0`.style.indiv_`d'rescale.istrue' {
+		.SetListStyle "" ".reset_scales `d'" `.plotregion_list'
+		.SetListStyle "" ".set_ticks only_default" `.`d'axes_list'
+	}
+	else {
+	    local set_type = 						///
+	    	  cond(`.isofclass combinegraph_g', "rerange", "only_default")
+
+	    foreach axis in `.`d'axes_list' {
+		tokenize `.axis_allrange `axis' `d''
+		.SetListStyle ""					///
+			".plotregion.`d'scale.set, min(`1') max(`2')" `axis'
+		.SetListStyle "" ".set_ticks `set_type'" `axis'
+
+		if "`nocur'" == "" {
+		    // set_ticks can change curmin and curmax differently
+		    // for individual graphs, so recall .set to propagate
+		    // those changes to all axis scales
+		    tokenize `.axis_allrange `axis' `d' cur'
+		    .SetListStyle ""					///
+		    ".plotregion.`d'scale.set, curmin(`1') curmax(`2')" `axis'
+		}
+	    }
+	}
+end
+
+
+// ---------------------------------------------------------------------------
+//  programs to set styles for all sub/bygraphs.  If style/setting is 
+//  blank uses the setting from the current .style
+
+program set_margins
+	args style
+
+	if "`style'" == "" {
+		local style `.style.indiv_margin.stylename'
+		if ( "`style'" == "" ) local style `.style.indiv_margin.setting'
+
+	}
+	else {
+		.style.editstyle indiv_margin(`style') editcopy
+	}
+
+	.SetListStyle "" ".editstyle margin(`style') editcopy" style
+end
+
+
+// ---------------------------------------------------------------------------
+//  Set the views to "shrink" according to the current settings.  Shrink means
+//  that the views are fullviews, noshrink that they are subviews inheriting
+//  the relative sizes of the whole bygraph.
+
+program set_shrink
+
+	if 0`.style.shrink_plotregion.istrue' {		// plregion is view
+		.plotregion1.subview.set_false
+	}
+	else {						// plregion is subview
+		.plotregion1.subview.set_true
+	}
+
+	if 0`.style.shrink_indiv.istrue' {		// graphs are views
+		forvalues i=1/0`.graphs.arrnels' {
+			.graphs[`i'].subview.set_false
+		}
+	}
+	else {						// graphs are subviews
+		forvalues i=1/0`.graphs.arrnels' {
+			.graphs[`i'].subview.set_true
+		}
+	}
+end
+
+
+// ---------------------------------------------------------------------------
+//  Sets the gmetric multiplier.
+
+program set_iscale
+	local scale `0'
+
+	.plotregion1.scale_gmetric `=ceil(sqrt(`.full_n'))'		///
+		`.`c(curscm)'.special.by_knot1'				///
+		`.`c(curscm)'.special.by_slope1'			///
+		`.`c(curscm)'.special.by_slope2'
+
+	if `"`scale'"' != `""' {
+		tempname rsz
+		.`rsz' = .numstyle.new, style(`.plotregion1.gmetric_mult')
+		.`rsz'.setstyle , style(`scale')
+		.plotregion1.gmetric_mult = `.`rsz'.val'
+	}
+end
+
+
+// ---------------------------------------------------------------------------
+// Sets the styles for the overall sub/bygraphs and all first-level
+// dynamically declared objects to reference those in the first graph
+
+program set_styles
+	forvalues i=1/0`.graphs.arrnels' {
+		if (`i' > 1) .graphs[`i'].style.ref = .graphs[1].style.ref
+		.graphs[`i'].already_custom = 0
+
+		forvalues j = 1/0`.graphs[`i'].dynamicmv.arrnels' {
+		    if (`i' > 1) {
+			capture .graphs[`i'].dynamicmv[`j'].style.ref =	  ///
+				  .graphs[1].dynamicmv[`j'].style.ref 
+			if (! _rc) {
+			    if `.graphs[`i'].dynamicmv[`j'].isofclass textbox' {
+			       .graphs[`i'].dynamicmv[`j'].orientation.ref = ///
+			         .graphs[1].dynamicmv[`j'].orientation.ref
+			       .graphs[`i'].dynamicmv[`j'].ystretch.ref =   ///
+			         .graphs[1].dynamicmv[`j'].ystretch.ref
+			       .graphs[`i'].dynamicmv[`j'].xstretch.ref =   ///
+			         .graphs[1].dynamicmv[`j'].xstretch.ref
+			    }
+			}
+		    }
+		    capture .graphs[`i'].dynamicmv[`j'].already_custom = 0
+		}
+	}
+end
+
+
+// ---------------------------------------------------------------------------
+// Sets the plots styles for all of the sub/bygraphs to reference those in
+// the first graph
+
+program set_plot_styles
+
+	if      (`.graphs[1].isofclass twowaygraph_g') ._set_twoway_plot_styles
+	else if (`.graphs[1].isofclass bargraph_g')    ._set_bar_plot_styles
+	else if (`.graphs[1].isofclass piegraph_g')    ._set_pie_plot_styles
+end
+
+program _set_twoway_plot_styles
+	forvalues i=1/0`.graphs.arrnels' {
+	    local j 0
+	    while "`.graphs[`i'].plotregion`++j'.isa'" != "" {
+		local p 0
+		while "`.graphs[`i'].plotregion`j'.plot`++p'.isa'" != "" {
+		    .graphs[`i'].plotregion`j'.plot`p'.already_custom = 0
+		    if `i' > 1 {
+			.graphs[`i'].plotregion`j'.plot`p'.style.ref =	///
+			  .graphs[1].plotregion`j'.plot`p'.style.ref
+		    }
+		}
+	    }
+	}
+end
+
+program _set_bar_plot_styles
+	forvalues i=2/0`.graphs.arrnels' {
+	    forvalues j = 1/0`.graphs[`i'].barstyles.arrnels' {
+		.graphs[`i'].barstyles[`j'].ref = .graphs[1].barstyles[`j'].ref 
+		.graphs[`i']._remake = 1
+	    }
+	}
+end
+
+program _set_pie_plot_styles
+	forvalues i=2/0`.graphs.arrnels' {
+	    forvalues j = 1/0`.graphs[`i'].barstyles.arrnels' {
+		.graphs[`i'].piestyles[`j'].ref = .graphs[1].piestyles[`j'].ref 
+		.graphs[`i']._remake = 1
+	    }
+	}
+end
+
+// ---------------------------------------------------------------------------
+// Inform bar graphs of their sibling subgraphs.
+
+program set_subgraphs
+
+	if (`.graphs[1].isofclass bargraph_g') {
+		forvalues i=1/0`.graphs.arrnels' {
+			.graphs[`i'].bygraphs = "`.graphs.objkey'"
+		}
+	}
+end
+
+
+// ---------------------------------------------------------------------------
+//  Applies the supplied edit to all sub/bygraphs.  This edit may be a
+//  .style.setstyle command, a .style.editstyle, or any other legal edit to a
+//  graph.
+
+program apply_edit_to_all
+	forvalues i=1/0`.graphs.arrnels' {
+		.graphs[`i'].`0'
+	}
+end
+
+// ---------------------------------------------------------------------------
+//  Find full min/max true range for all scales of the bygraphs in the 
+//  specified dimension.  Note, this includes all axes.
+
+program allrange
+	args d
+
+	local min =  1e300
+	local max = -1e300
+	forvalues i = 1/0`.n' {
+		foreach plreg in `.plotregion_list' {
+		    local min = min(`min',				///
+			0`.graphs[`i'].`plreg'.`d'scale.min')
+		    local max = max(`max',				///
+			0`.graphs[`i'].`plreg'.`d'scale.max')
+		}
+	}
+
+	class exit "`min' `max'"
+end
+
+
+// ---------------------------------------------------------------------------
+//  Find full min/max true range for all bygraph scales of the specified axis.
+//  Include any specified ticks or labels in the true range.
+
+program axis_allrange
+	args axis d cur
+
+	local min =  1e300
+	local max = -1e300
+	forvalues i = 1/0`.n' {
+		.graphs[`i'].`axis'.plotregion.`d'scale.add_views
+
+		local min = min(`min',				///
+			0`.graphs[`i'].`axis'.plotregion.`d'scale.`cur'min')
+		local max = max(`max',				///
+			0`.graphs[`i'].`axis'.plotregion.`d'scale.`cur'max')
+
+	    	if `.isofclass combinegraph_g' {
+		    local min = min(`min', 0`.graphs[`i'].`axis'.specifiedmin')
+		    local max = max(`max', 0`.graphs[`i'].`axis'.specifiedmax')
+		}
+
+	}
+
+	class exit "`min' `max'"
+end
+
+
+// ---------------------------------------------------------------------------
+program SetByList
+	gettoken mac   0      : 0
+	gettoken colon bylist : 0
+
+	local ct : word count `bylist'
+
+	if `ct' < 2 {
+		c_local `mac' `"`.LabOrName `bylist''"'
+		exit
+	}
+
+	tokenize `bylist'
+
+	if `ct' == 2 {
+		c_local `mac' "`.LabOrName `1'' and `.LabOrName `2''"
+		exit
+	}
+
+	local list `1'
+	forvalues i=2/`=`ct'-1' {
+		local list `"`list', `.LabOrName ``i'''"'
+	}
+	local list `"`list', and `.LabOrName ``ct'''"'
+
+	c_local `mac' `"`list'"'
+end
+
+program LabOrName
+
+	local nm : variable label `0'
+
+	if `"`nm'"' == `""' {
+		local nm `0'
+	}
+
+	class exit `"`nm'"'
+end
+
+
+// ---------------------------------------------------------------------------
+//  _setstyle_  member programs to set styles in .style that have side effects
+
+program _setstyle_margin
+
+	if "`0'" == "`.style.indiv_margin.stylename'" {
+		exit
+	}
+
+	.style.editstyle indiv_margin(`0') editcopy
+
+	if 0`.style.indiv_as_whole.istrue' {
+		.set_margins
+	}
+	else {
+		.set_placement
+	}
+end
+
+program _set_xor
+	args attribute opt noopt
+
+	if (`.style.styledex' != 0) .style.remake_as_copy
+
+	.style.`attribute'.set_xor "`opt'" "`noopt'"
+
+end
+
+
+// ---------------------------------------------------------------------------
+program draw
+
+	local aspect_ratio = 0`.graphs[1].style.aspect_ratio.val'
+
+	if `aspect_ratio' == 0 {
+		.Super.draw `0'
+		exit
+	}
+
+	forvalues i = 1/0`.graphs.arrnels' {		// Reinit aspect, jic
+		.graphs[`i'].SetAspectRatio 0
+	}
+	.set_spacers_fixed
+
+				// Sub-graphs have a fixed aspect ratio
+					// handle subgraphs
+
+	forvalues i = 1/0`.graphs.arrnels' {
+		.graphs[`i'].SetAspectRatio `aspect_ratio'
+		.graphs[`i']._reinit_stretches
+		.graphs[`i'].set_spacers_fixed
+	}
+
+	._draw_quietly `0'				
+
+	forvalues i = 1/0`.graphs.arrnels' {
+		.graphs[`i']._reinit_stretches
+		.graphs[`i']._setup_aspect_ratio
+
+		.graphs[`i'].set_spacers_fixed
+	}
+
+	if "`.graphs[1].plotregion1.ystretch.setting'" == "fixed" {
+		.plotregion1.ystretch.set fixed
+		if 0`.graphs[1].style.aspect_pos.issouth_orcenter'	///
+			.spacert.ystretch.set free
+		if 0`.graphs[1].style.aspect_pos.isnorth_orcenter'	///
+			.spacerb.ystretch.set free
+	}
+	else {
+		.plotregion1.xstretch.set fixed
+		if 0`.graphs[1].style.aspect_pos.iswest_orcenter'	///
+			.spacerr.xstretch.set free
+		if 0`.graphs[1].style.aspect_pos.iseast_orcenter'	///
+			.spacerl.xstretch.set free
+	}
+
+	.Super.draw `0'
+end
+
+program _draw_quietly
+	tempname holds
+	.`holds' = {}
+	._hold_for_aspect `holds'
+
+	capture noisily .Super.draw `0'
+	local rc = _rc
+
+	._reset_for_aspect `holds'
+
+	if (`rc')  exit `rc'
+end
+
+
+//  --------------------------------------------------------------------------
+//  Set the aspect ratio for the graph.  Handle reinitializing from a possible
+//  existing aspect ratio.
+
+program SetAspectRatio
+	args ratio
+
+	forvalues i = 1/0`.graphs.arrnels' {		// Reinit aspect, jic
+		.graphs[`i'].SetAspectRatio `ratio'
+	}
+
+	capture .set_spacers_fixed
+
+	.plotregion1.ystretch.set free
+	.plotregion1.xstretch.set free
+end
+
+// ---------------------------------------------------------------------------
+// Edits from the graph editor that may require repositioning the graphs
+
+program Edit
+	
+	syntax [, style(string asis) cmd(string asis) noreposition *]
+
+	if (`"`style'`cmd'"' == `""')  exit				// Exit
+
+	while `"`style'`cmd'"' != `""' {
+		if `"`style'"' != "" {
+			.style.editstyle `style' editcopy
+		}
+
+		if `"`cmd'"' != `""' {
+			`cmd'
+		}
+
+		local 0 `", `options'"'
+		syntax [, style(string asis) cmd(string asis) * ]
+	}
+
+	syntax [, FAKE_OPT_FOR_BETTER_MSG ]
+
+	if ("`noreposition'" == "") {
+		.set_placement
+
+		if "`.classname'" == "bygraph_g" {
+			.set_axes_titles
+			.set_axes_shown
+			.set_axes_labels
+			.set_axes_ticks	
+
+			.set_rescaled "" "" "nocur"
+			.set_shrink
+			.set_scale
+
+			.set_outer_axes
+
+			if 0`.style.indiv_as_whole.istrue' {
+				.set_margins
+			}
+		}
+
+		_gedi browser reinit
+	}
+end
+
+
+// -------------------------------------------------------------------------
+// Log anything that must be done after the graph is created, but before
+// any other edits are applied.   These are only logged for replay, not run.
+
+program after_header 
+	args log
+
+	capture .graphs[1].after_header `log'
+end
+

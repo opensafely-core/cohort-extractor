@@ -1,0 +1,130 @@
+/*
+  xtologit
+
+*!  VERSION 1.1.2  29nov2018
+
+  keyword:  eclass
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 320
+INCLUDE header
+
+HELP hlp1, view("help xtologit")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	program parseMessage
+	script se_createAsInternalML
+	setscale_hadj resource XTOLOGIT_DLG_HSCALE
+END
+
+PROGRAM parseMessage
+BEGIN
+	if __MESSAGE.contains("__MI__") {
+		call script se_setMI_on
+		call main.bu_xtset.hide
+	}
+	else {
+		call main.bu_mi_xtset.hide
+	}
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program check_bytab
+	script max_int_on
+//	script max_show_startgrid
+END
+
+PROGRAM check_bytab
+BEGIN
+	if __MESSAGE.contains("__MI__") {
+		call script byifin_set_by_off
+	}
+END
+
+SCRIPT show_xtset
+BEGIN
+	create STRING note
+	note.withvalue create CHILD xtset, message(`"" " `"@"'"')
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)	///
+	label(resource XTOLOGIT_DLG_TITLE)
+BEGIN
+	BUTTON	bu_xtset	_xsetbu	_top	_setbuwd	.,	///
+		onpush(script show_xtset)				///
+		label(resource LBL_BU_PANEL_SETTINGS)
+	BUTTON	bu_mi_xtset	_xsetbu	_top	_setbuwd	.,	///
+		onpush("view dialog mi_xtset")				///
+		label(resource LBL_BU_PANEL_SETTINGS)
+
+	TEXT	tx_dv		_lft	_topph	_vnwd		.,	///
+		label(resource LBL_DEPVAR)
+	VARNAME  vn_dv		@	_ss	@		.,	///
+		ts							///
+		numeric							///
+		label(resource LBL_DEPVAR)
+
+	TEXT	tx_iv		_vlx	_topph	160		.,	///
+		label(resource LBL_INDDEPVAR)
+	VARLIST	vl_iv		@	_ss	_vlwd		.,	///
+		allowcat						///
+		ts fv							///
+		numeric							///
+		label(resource LBL_INDDEPVAR)
+
+	GROUPBOX b_opts		_lft	_ls	_iwd		_ht10,	///
+		label(resource LBL_OPTIONS)
+
+	TEXT     tx_offset	_ilft	_ss	_cwd2		.,	///
+		label(resource LBL_OFFSET_VARIABLE)
+
+	DEFINE y @y
+	VARNAME  vn_offset	@	_ss	_vnwd		.,	///
+		option("offset")					///
+		numeric							///
+		label(resource LBL_OFFSET_VARIABLE)
+
+	DEFINE _x _ilft
+	DEFINE _y _ls
+	DEFINE _cx _ilw80
+	DEFINE _bux _islw80
+	INCLUDE _constraints
+
+	DEFINE _x _ilft
+	DEFINE _xw _ibwd
+//	INCLUDE _ck_collinear
+END
+
+INCLUDE _constraints_sc
+INCLUDE byifin
+INCLUDE weights_fpi
+INCLUDE se
+INCLUDE rpt_xt_or
+INCLUDE intopts_fe
+INCLUDE max_ml
+
+PROGRAM command
+BEGIN
+	put /program by_output " "
+	put "xtologit "
+	require main.vn_dv
+	varlist main.vn_dv [main.vl_iv]
+	put " " /program ifin_output
+	put " " /program weights_output
+	beginoptions
+		optionarg main.vn_offset
+		INCLUDE _constraints_main_pr
+//		option main.ck_collinear
+		put " " /program se_output
+		put " " /program rpt_output
+		put " " /program intopts_fe_output
+		put " " /program max_output
+	endoptions
+END

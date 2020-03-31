@@ -1,0 +1,448 @@
+/*
+	power oneproportion, test(score)
+
+*!  VERSION 1.1.5  14mar2017
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_xlarge
+DEFINE _dlght 475
+INCLUDE header
+
+HELP hlp1, view("help power oneproportion")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING graph_res
+	create STRING numContents
+	create STRING stok
+	create ARRAY tmp
+	create BOOLEAN containsNumlist
+	create BOOLEAN containsNumlist_null
+	create BOOLEAN containsNumlist_pa_diff
+
+	program table_create4Oneprop_score
+	setscale_hadj resource POWER_ONEPROP_SCORE_DLG_HSCALE
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	label(resource POWER_ONEPROP_SCORE_DLG_TITLE)
+BEGIN
+  INCLUDE power_compute
+
+  DEFINE errpos _ls
+  INCLUDE power_errorprob
+
+  DEFINE sspos +40
+  INCLUDE power_onesampsize
+
+  GROUPBOX gb_effect_size	_lft	+40	_iwd	_ht8,		///
+	label(resource LBL_EFFECT_SIZE)
+  GROUPBOX gb_prop		_indent	_ss	_ibwd	_ht5,		///
+	label(resource LBL_PROPORTIONS)
+  DEFINE holdy2 @y
+  EDIT ed_null			_indent	_ss	_en14wd	.,		///
+	onchange(program check_for_numlist)				///
+	tooltip(resource LBL_NULL_PROPORTION_P0)			///
+	label("")
+  TEXT tx_null			_en14sep @	100	.,		///
+	label(resource LBL_STAR_NULL)
+  EDIT ed_pa_diff		_iilft	_ls	_en14wd	.,		///
+	option(diff)							///
+	onchange(program check_for_numlist)				///
+	label("")
+  TEXT tx_pa_diff		_en14sep @	8	.,		///
+	label("*")
+  COMBOBOX cb_pa_diff		+10	 @	100	.,		///
+	dropdownlist							///
+	contents("main_effect_list")					///
+	values("main_effect_values")					///
+	onselchange("program main_pa_diff_changed")			///
+	label("")
+  CHECKBOX cb_continuity	_lft	+55	_iwd	.,		///
+  	option(continuity)						///
+  	label(resource LBL_APPLY_NORMAL_APPROX_CORRECTION_FOR_CONTINUITY)
+  DEFINE ypos +25
+  INCLUDE power_test_maincommon
+END
+
+LIST main_compute_list
+BEGIN
+	resource LBL_SAMPLE_SIZE
+	resource PSS_LBL_POWER
+	resource LBL_EFFECT_SIZE_AND_TARGET_PROPORTION
+END
+
+LIST main_compute_values
+BEGIN
+	sampsi
+	power
+	effect
+END
+
+LIST main_effect_list
+BEGIN
+	resource POWER_LBL_ALTERNATIVE
+	resource POWER_LBL_DIFFERENCE
+END
+
+LIST main_effect_values
+BEGIN
+	"pa"
+	"diff"
+END
+
+PROGRAM main_compute_changed
+BEGIN
+	if main.cb_compute.iseq("sampsi") {
+		call program main_sampsi_on
+	}
+	if main.cb_compute.iseq("power") {
+		call program main_power_on
+	}
+	if main.cb_compute.iseq("effect") {
+		call program main_effect_on
+	}
+END
+
+PROGRAM main_sampsi_on
+BEGIN
+	call main.ed_power.show
+	call main.ed_beta.show
+	call main.tx_power_beta_power.show
+	call main.cb_power_beta.show
+	call main.ed_n.hide
+	call main.tx_n.hide
+	call main.ck_nfrac.show
+	call main.ed_pa_diff.show
+	call main.tx_pa_diff.show
+	call main.cb_pa_diff.show
+	call script power_test_maincommon_hide_dir
+	call program main_power_beta_changed
+	call program check_for_numlist
+	call program power_iteration_tab_check
+END
+
+PROGRAM main_power_on
+BEGIN
+	call main.ed_power.hide
+	call main.ed_beta.hide
+	call main.tx_power_beta_power.hide
+	call main.cb_power_beta.hide
+	call main.ed_n.show
+	call main.tx_n.show
+	call main.ck_nfrac.hide
+	call main.ed_pa_diff.show
+	call main.tx_pa_diff.show
+	call main.cb_pa_diff.show
+	call script power_test_maincommon_hide_dir
+	call program check_for_numlist
+	call program power_iteration_tab_check
+END
+
+PROGRAM main_effect_on
+BEGIN
+	call main.ed_power.show
+	call main.ed_beta.show
+	call main.tx_power_beta_power.show
+	call main.cb_power_beta.show
+	call main.ed_n.show
+	call main.tx_n.show
+	call main.ck_nfrac.hide
+	call main.ed_pa_diff.hide
+	call main.tx_pa_diff.hide
+	call main.cb_pa_diff.hide
+	call script power_test_maincommon_show_dir
+	call program main_power_beta_changed
+	call program check_for_numlist
+	call program power_iteration_tab_check
+END
+
+PROGRAM main_pa_diff_changed
+BEGIN
+	if main.cb_pa_diff.iseq("pa") {
+		call main.ed_pa_diff.settooltip resource LBL_ALTERNATIVE_PROPORTION_PA
+	}
+	else {
+		call main.ed_pa_diff.settooltip resource LBL_PROPORTION_DIFFERENCE_PA_PO
+	}
+	call program check_for_numlist
+	call program table_create4Oneprop_score
+END
+
+PROGRAM main_power_beta_table
+BEGIN
+	call program table_create4Oneprop_score
+END
+
+PROGRAM check_for_numlist
+BEGIN
+	call containsNumlist.setfalse
+	call containsNumlist_null.setfalse
+	call containsNumlist_pa_diff.setfalse
+
+	if main.ed_null {
+		call numContents.setvalue class main.ed_null.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+			call containsNumlist_null.settrue
+		}
+	}
+
+	if main.ed_pa_diff & main.ed_pa_diff.isvisible() {
+		call numContents.setvalue class main.ed_pa_diff.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+			call containsNumlist_pa_diff.settrue
+		}
+	}
+
+	if main.ed_alpha {
+		call numContents.setvalue class main.ed_alpha.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_power & main.ed_power.isvisible() {
+		call numContents.setvalue class main.ed_power.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_beta & main.ed_beta.isvisible() {
+		call numContents.setvalue class main.ed_beta.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_n & main.ed_n.isvisible() {
+		call numContents.setvalue class main.ed_n.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if containsNumlist {
+		call main.ck_parallel.enable
+	}
+	else {
+		call main.ck_parallel.disable
+	}
+END
+
+PROGRAM power_iteration_tab_check
+BEGIN
+	call script power_iteration_enable
+	if main.cb_compute.iseq("power") {
+		call script power_iteration_disable
+	}
+	else {
+		if main.cb_oneside.iseq("onesided") &			///
+			main.cb_compute.iseq("sampsi") {
+			call script power_iteration_disable
+		}
+		if main.cb_compute.iseq("sampsi") {
+			call script power_iteration_is_sampsi
+		}
+		if main.cb_compute.iseq("effect") {
+			call script power_iteration_is_effect
+		}
+	}
+END
+
+INCLUDE _power_list
+INCLUDE power_errorprob_pr
+INCLUDE power_table_opts
+INCLUDE power_graph
+INCLUDE power_iteration
+INCLUDE power_test_maincommon_pr
+
+PROGRAM command
+BEGIN
+	put "power oneproportion "
+	if !main.ed_null {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format 					///
+			"resource LBL_MSGBOX_PROPORTION_REQUIRED_FMT" 	///
+			"resource LBL_TAB_MAIN" 			///
+			"resource LBL_NULL"
+		stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Null" proportion must be filled in.
+	}
+	if !main.ed_null.isnumlist() {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format 					///
+			"resource LBL_MSGBOX_INVALID_NUMLIST_FOR_PROPORTION_FMT" ///
+			"resource LBL_TAB_MAIN" 			///
+			"resource LBL_NULL"
+		stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Null" proportion.
+	}
+	if !(main.ed_null.isNumlistGT(0) & main.ed_null.isNumlistLT(1)) {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format 					///
+			"resource LBL_MSGBOX_PROPORTION_BETWEEN_0_AND_1_FMT"	///
+			"resource LBL_TAB_MAIN" 			///
+			"resource LBL_NULL"
+		stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Null" proportion must be between 0 and 1.
+	}
+	if containsNumlist_null {
+		put "("
+		put main.ed_null
+		put ")"
+	}
+	else {
+		put main.ed_null
+	}
+
+	if main.cb_compute.iseq("sampsi") | main.cb_compute.iseq("power") {
+		if !main.ed_pa_diff {
+			if main.cb_pa_diff.iseq("pa") {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format 					///
+			"resource LBL_MSGBOX_PROPORTION_REQUIRED_FMT" 	///
+			"resource LBL_TAB_MAIN" 			///
+			"resource POWER_LBL_ALTERNATIVE"
+		stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Alternative" proportion must be filled in.
+			}
+			else {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format	 						///
+			"resource POWER_MSGBOX_BETWEEN_PROPORTIONS_REQUIRED_FMT"	///
+			"resource LBL_TAB_MAIN"						///
+			"resource POWER_LBL_DIFFERENCE"
+		stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Difference" between proportions must be filled in.
+			}
+		}
+	}
+
+	if main.cb_compute.iseq("power") | main.cb_compute.iseq("effect") {
+		require main.ed_n
+	}
+
+	if main.cb_pa_diff.iseq("pa") & main.cb_pa_diff.isvisible() {
+		if !main.ed_pa_diff.isnumlist() {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format 					///
+				"resource LBL_MSGBOX_INVALID_NUMLIST_FOR_PROPORTION_FMT" ///
+				"resource LBL_TAB_MAIN" 			///
+				"resource POWER_LBL_ALTERNATIVE"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Alternative" proportion.
+		}
+		if !(main.ed_pa_diff.isNumlistGT(0) & main.ed_pa_diff.isNumlistLT(1)) {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format 					///
+				"resource LBL_MSGBOX_PROPORTION_BETWEEN_0_AND_1_FMT"	///
+				"resource LBL_TAB_MAIN" 			///
+				"resource POWER_LBL_ALTERNATIVE"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Alternative" proportion must be between 0 and 1.
+		}
+		if containsNumlist_pa_diff {
+			put " ("
+			put main.ed_pa_diff
+			put ")"
+		}
+		else {
+			put " " main.ed_pa_diff
+		}
+	}
+	beginoptions
+		if main.cb_pa_diff.iseq("diff") & main.cb_pa_diff.isvisible() {
+			if !main.ed_pa_diff.isnumlist() {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 			///
+					"resource LBL_MSGBOX_INVALID_NUMLIST_BETWEEN_PROPORTIONS_FMT" ///
+					"resource LBL_TAB_MAIN" 	///
+					"resource POWER_LBL_DIFFERENCE"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Difference" between proportions.
+			}
+			if !(main.ed_pa_diff.isNumlistGT(-1) & main.ed_pa_diff.isNumlistLT(1)) {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 			///
+					"resource POWER_MSGBOX_BETWEEN_PROPORTIONS_BETWEEN_1_AND_1_FMT" ///
+					"resource LBL_TAB_MAIN" 	///
+					"resource POWER_LBL_DIFFERENCE"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Difference" between proportions must be between -1 and 1.
+			}
+			optionarg main.ed_pa_diff
+		}
+		if main.ed_n & main.ed_n.isvisible() {
+			if !main.ed_n.isnumlist() {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format 					///
+			"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+			"resource LBL_TAB_MAIN"				///
+			"resource LBL_SAMPLE_SIZE"
+		 stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Sample size".
+			}
+			if !main.ed_n.isNumlistGT(0) {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format 					///
+			"resource LBL_MSGBOX_ON_TAB_GREATER_THAN_0_FMT"	///
+			"resource LBL_TAB_MAIN"				///
+			"resource LBL_SAMPLE_SIZE"
+		stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Sample size" must be greater than 0.
+			}
+			optionarg main.ed_n
+		}
+		option main.ck_nfrac
+
+		put " " /program power_errorprob_output
+		put " " /program power_test_maincommon_output
+		option main.cb_continuity
+		put " " /program power_table_opts_output
+		put " " /program power_graph_output
+		put " " /program power_iteration_output
+	endoptions
+END

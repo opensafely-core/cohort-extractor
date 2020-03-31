@@ -1,0 +1,1055 @@
+*! version 1.0.1  30oct2019
+version 16
+
+/* See Syntax and NOTES at the end of this file. */
+
+class _coef_table__header {
+
+	// set by options in .new
+
+	string	result		= "e"
+
+	double	opt_dvheader	= 0
+	double	opt_modeltest	= 0
+	double	opt_cluster	= 0
+	double	opt_rules	= 0
+	double	opt_tvar	= 0
+	double	opt_septitle	= 0
+	double	linesize	= 0
+
+	string	title		= ""
+	string	title2		= ""
+
+	// properties of the current results
+
+	string	cmd		= ""
+	string	cmd2		= ""
+	string	prefix		= ""
+	double	is_prefix	= 0
+	double	is_svy		= 0
+	double	is_margins	= 0
+	double	is_gsem		= 0
+	double	is_gsem_group	= 0
+	double	is_sem		= 0
+	double	is_areg		= 0
+	double	is_sum		= 0
+	double	is_tab		= 0
+
+	double	prop_pushtitle	= 0
+	double	prop_groupvar	= 0
+	double	prop_censlimits	= 0
+	double	prop_censored	= 0
+	double	prop_nouncensored	= 0
+	double	prop_iselected	= 0
+	double	prop_selected	= 0
+	double	prop_groups	= 0
+	double	prop_balance	= 0
+
+	// status
+
+	double	ablen		= 16
+
+	double	width		= 78
+	double	c1		= 1
+	double	c2		= 16
+	double	c3		= 49
+	double	c4		= 67
+	double	c2wfmt		= 10
+	double	c4wfmt		= 10
+	string	scheme		= "ml"
+
+	// header content arrays
+
+	array	left
+	array	right
+}
+
+// callables   --------------------------------------------------------------
+
+program .new
+	syntax [,			///
+		rclass			///
+		noDVHeader		///
+		noMODELtest		///
+		TItle(string asis)	///
+		nocluster		///
+		noRULES			///
+		noTVAR			///
+		SEPTITLE		///
+		linesize(int 0)		///
+	]
+
+	if "`rclass'" != "" {
+		.result = "r"
+	}
+	if "`dvheader'" == "" {
+		.opt_dvheader = 1
+	}
+	if "`modeltest'" == "" {
+		.opt_modeltest = 1
+	}
+	if "`cluster'" == "" {
+		.opt_cluster = 1
+	}
+	if "`rules'" == "" {
+		.opt_rules = 1
+	}
+	if "`tvar'" == "" {
+		.opt_tvar = 1
+	}
+	if "`septitle'" != "" {
+		.opt_septitle = 1
+	}
+
+	.linesize = `linesize'
+
+	.title = `"`title'"'
+
+	if `"`.result'"' == "e" {
+		.New4e
+	}
+	else {
+		.New4r
+	}
+
+	// actions from properties
+	//
+	// See NOTES below for a description of each of the coefficient
+	// table properties.
+
+	local props `"`.Macro _coef_table_props'"'
+
+	if `.is_sem' | `.is_gsem_group' | `:list posof "pushtitle" in props' {
+		.prop_pushtitle = 1
+	}
+
+	if `.is_sem' | `.is_gsem_group' | `:list posof "groupvar" in props' {
+		.prop_groupvar = 1
+	}
+
+	local list tobit cpoisson ivtobit metobit
+	local list2 metobit
+	if `:list posof "`.cmd'" in list' | ///
+	   `:list posof "`.cmd2'" in list2' | ///
+	   `:list posof "censlimits" in props' {
+		.prop_censlimits = !missing(e(N_unc))
+	}
+
+	local list intreg tobit cpoisson ivtobit eintreg
+	local list2 meintreg metobit stintreg
+	if `:list posof "`.cmd'" in list' | ///
+	   `:list posof "`.cmd2'" in list2' | ///
+	   `:list posof "censored" in props' {
+		.prop_censored = !missing(e(N_unc))
+	}
+	
+	if `:list posof "nouncensored" in props' {
+		.prop_nouncensored = 1 
+	}
+
+	local list eintreg
+	if `:list posof "`.cmd'" in list' | ///
+	   `:list posof "iselected" in props' {
+		.prop_iselected = 1
+	}
+
+	local list eregress eprobit eoprobit
+	if `:list posof "`.cmd'" in list' | ///
+	   `:list posof "selected" in props' {
+		.prop_selected = 1
+	}
+
+	if `:list posof "groups" in props' {
+		.prop_groups = 1
+	}
+
+	if `:list posof "balance" in props' {
+		.prop_balance = 1
+	}
+
+	// column arrays
+
+	.left = {}
+	.right = {}
+end
+
+program .build
+	if `"`.title'"' == "" {
+		.title	= `"`.Macro title'"'
+		.title2	= `"`.Macro title2'"'
+	}
+	if `.is_areg' {
+		local absvar = abbrev("`e(absvar)'", 22)
+		.title2	= "Absorbed variable: {bf:`absvar'}"
+	}
+
+	// force title into the left column array
+	if `.prop_pushtitle' {
+		.PushLeft `"`.title'"'
+		.title = ""
+		.title2 = ""
+	}
+
+	if `.prop_groupvar' | `.is_gsem_group' {
+		local groupvar `"`.Macro groupvar'"'
+		if `"`groupvar'"' != "" {
+			.PushLeft "Grouping variable"	///
+				"= " as res abbrev("`groupvar'",`.ablen')
+		}
+	}
+
+	if `.is_svy' {
+		.BuildLeft4svy
+	}
+	else if `.is_prefix' {
+		if !`.is_margins' {
+			.Build4strata
+		}
+	}
+
+	// display N of stdize strata
+	if (`.is_tab' | `.is_sum') & !missing(`.result'(N_stdize)) {
+		.PushLeft					///
+			"N. of std strata"			///
+			"= " as res %`.c2wfmt'.0fc `.result'(N_stdize)
+	}
+
+	.Build4tvar
+
+	// display N obs
+	if !missing(`.Scalar N') {
+		.PushRight					///
+			"Number of obs" 			///
+			"= " as res %`.c4wfmt'.0fc `.Scalar N'
+	}
+
+	if `.is_areg' {
+ 		.PushRight					///
+ 			"No. of categories" 			///
+			"= " as res %`.c4wfmt'.0fc e(k_absorb)
+	}
+
+	if `.is_sem' | `.is_gsem_group' {
+		if `"`.Macro groupvar'"' != "" {
+			.PushRight				///
+				"Number of groups"		///
+				"= " as res %`.c4wfmt'.0fc `.Scalar N_groups'
+		}
+	}
+	if `.is_sem' & !`.is_svy' {
+		.PushLeft				///
+			"Estimation method"		///
+			"= " as res `"`.Macro method'"'
+	}
+
+	if `.prop_selected' {
+		.Build4selected
+	}
+
+	if `.is_svy' {
+		.BuildRight4svy
+		if `.prop_censored' {
+			.PushRight
+			.Build4censobs "header"
+			.PushRight
+		}
+	}
+	else {
+		if `.is_margins' {
+			.Build4subpop
+		}
+		if `.prop_iselected' {
+			.Build4title
+			.Build4iselected
+		}
+		if `.prop_censored' {
+			.Build4title
+			.Build4censobs
+			if !`.is_prefix' {
+				.PushRight
+			}
+		}
+		.Build4cluster
+		.Build4reps
+	}
+
+	if `.prop_groups' {
+		.Build4groups
+	}
+
+	.Build4modeltest
+	.Build4r2
+	.Build4title
+
+	if `.prop_censlimits' {
+		.Build4censlimits 1
+	}
+
+	if `.is_gsem' {
+		if `.opt_dvheader' {
+			gsem_depvar_header,		///
+				left(`.left.objkey')	///
+				right(`.right.objkey')	///
+				c3(`.c3')		///
+				c4(`.c4')		///
+				c4wfmt(`.c4wfmt')
+		}
+	}
+
+	.Build4crit
+end
+
+program .PushLeft
+	gettoken tok rest : 0
+	if `:length local rest' {
+		.left.Arrpush `.C1' `"`tok'"' `.C2' `rest'
+	}
+	else if `:length local tok' {
+		.left.Arrpush `.C1' `"`tok'"'
+	}
+	else {
+		.left.Arrpush
+	}
+end
+
+program .PushRight
+	gettoken tok rest : 0
+	if `:length local rest' {
+		.right.Arrpush `.C3' `"`tok'"' `.C4' `rest'
+	}
+	else if `:length local tok' {
+		.right.Arrpush `.C3' `"`tok'"'
+	}
+	else {
+		.right.Arrpush
+	}
+end
+
+program .Balance
+	local kr = `.right.arrnels'
+	local kl = `.left.arrnels'
+	local diff = `kr' - `kl'
+	if `diff' > 0 {
+		local arr left
+	}
+	if `diff' < 0 {
+		local diff = abs(`diff')
+		local arr right
+	}
+	forval i = 1/`diff' {
+		.`arr'.Arrpush ""
+	}
+end
+
+program .FillLeft
+	args offset
+	local kr = `.right.arrnels'
+	local kl = `.left.arrnels'
+	local diff = `kr' - `kl' - 0`offset'
+	forval i = 1/`diff' {
+		.left.Arrpush ""
+	}
+end
+
+program .display
+	.ShowRules
+
+	local nl = `.left.arrnels'
+	local nr = `.right.arrnels'
+	local K = max(`nl',`nr')
+
+	display
+	if `"`.title'"' != "" {
+		display as txt `"`.title'"'
+		if `"`.title2'"' != "" {
+			display as txt `"`.title2'"'
+		}
+		if `K' {
+			display
+		}
+	}
+
+	forval i = 1/`K' {
+		display as txt `.left[`i']' as txt `.right[`i']'
+	}
+end
+
+// subroutines --------------------------------------------------------------
+
+program .New4e
+	.cmd = "`e(cmd)'"
+	.cmd2 = "`e(cmd2)'"
+	.prefix = "`e(prefix)'"
+
+	if `"`.prefix'"' != "" {
+		.is_prefix = 1
+	}
+	if "`.prefix'" == "svy" {
+		.is_svy = 1
+	}
+	if "`.cmd'" == "margins" {
+		.is_margins = 1
+	}
+	if inlist("`.cmd'", "contrast", "pwcompare") {
+		if "`.cmd2'" == "margins" {
+			.is_margins = 1
+		}
+	}
+	if "`.cmd'" == "gsem" | "`.cmd2'" == "gsem" {
+		.is_gsem = 1
+	}
+	if "`.cmd'" == "sem" {
+		.is_sem = 1
+	}
+	if "`.cmd'" == "areg" {
+		.is_areg = 1
+	}
+	is_svysum `.cmd'
+	.is_sum = r(is_svysum)
+	if `.is_svy' {
+		if "`.cmd'" == "tabulate" {
+			.is_tab = 1
+		}
+	}
+	if `.is_gsem' {
+		if `"`e(groupvar)'"' != "" & "`.cmd2'" == "" {
+			.is_gsem_group = 1
+		}
+	}
+
+	local c2pfix 20
+	if `.is_sem' | `.is_gsem_group' {
+		local crlen = udstrlen(`"`e(crittype)'"')
+		if `crlen' >= `c2pfix' {
+			local c2pfix = `crlen' + 2
+		}
+	}
+
+	if `.is_sum' {
+		if `.linesize' > 62 {
+			local offset = `.linesize' - 62
+		}
+		else	local offset 0
+		.width	= 62 + `offset'
+		.c2	= 18
+		.c3	= 35 + `offset'
+		.c4	= 51 + `offset'
+		.c2wfmt = 7
+		.c4wfmt = 10
+		.scheme = "compact"
+	}
+	else if `.is_prefix' | `.is_sem' | `.is_gsem_group' {
+		.width	= 78
+		.c2	= `c2pfix'
+		.c3	= 49
+		.c4	= 67
+		.c2wfmt	= 9
+		.c4wfmt	= 10
+		.scheme	= "svy"
+	}
+
+	if `.is_svy' {
+		local maxlen = `.width'-`.c2'-(`.c2wfmt'+2)-2-(`.c4'-`.c3')-2
+		if `maxlen' > 19 {
+			local maxlen 19
+		}
+		local len : display %`maxlen'.0fc e(N_pop)
+		local len : list retok len
+		local len : length local len
+		local ++maxlen
+		local ++len
+		if `.c4wfmt' <= `len' & `len' <= `maxlen' {
+			.c3 = `.c3' + `.c4wfmt' - `len'
+			.c4 = `.c4' + `.c4wfmt' - `len'
+			.c4wfmt = `len'
+		}
+	}
+end
+
+program .New4r
+	.cmd = "`r(cmd)'"
+
+	if "`.cmd'" == "permute" {
+		.is_prefix = 1
+		.c2 = 18
+	}
+end
+
+program .Build4strata
+	// display N strata
+	if !missing(`.Scalar N_strata') {
+		.PushLeft					///
+			"Number of strata"			///
+			"= " as res %`.c2wfmt'.0fc `.Scalar N_strata'
+	}
+end
+
+program .BuildLeft4svy
+	.Build4strata
+
+	// display number of PSU/clusters
+	if !missing(e(N_psu)) {
+		.PushLeft					///
+			"Number of PSUs"			///
+			"= " as res %`.c2wfmt'.0fc e(N_psu)
+	}
+
+	// display N of poststrata
+	if !missing(e(N_poststrata)) {
+		.PushLeft					///
+			"N. of poststrata"			///
+			"= " as res %`.c2wfmt'.0fc e(N_poststrata)
+	}
+
+	// display calibration method
+	if !missing(e(regress)) {
+		local calmethod regress
+	}
+	if !missing(e(rake)) {
+		local calmethod rake
+	}
+	if "`calmethod'" != "" {
+		.PushLeft				///
+			"Calibration"			///
+			": " as res %`.c2wfmt's "`calmethod'"
+	}
+end
+
+program .Build4subpop
+	// display subpop N obs
+	if !missing(e(N_sub)) {
+		.PushRight				///
+			"Subpop. no. obs"		///
+			"=" as res %`.C4wfmt1'.0fc e(N_sub)
+	}
+end
+
+program .Build4reps
+	// display N of replications
+	if !missing(`.Scalar N_reps') {
+		.PushRight				///
+			"Replications"			///
+			"= " as res %`.c4wfmt'.0fc `.Scalar N_reps'
+		if `.prop_censored' & !`.is_svy' {
+			.PushRight
+		}
+	}
+end
+
+program .BuildRight4svy
+	// display Pop size
+	if !missing(e(N_pop)) {
+		.PushRight				///
+			"Population size"		///
+			"=" as res %`.C4wfmt1'.0gc e(N_pop)
+	}
+
+	// display subpop N obs and subpop size
+	if !missing(e(N_sub)) {
+		.Build4subpop
+		.PushRight			///
+			"Subpop. size"		///
+			"=" as res %`.C4wfmt1'.0gc e(N_subpop)
+	}
+
+	.Build4reps
+
+	if !missing(e(df_r)) {
+		.PushRight				///
+			"Design df"			///
+			"= " as res %`.c4wfmt'.0fc e(df_r)
+	}
+end
+
+program .Build4cluster
+	if missing(`.Scalar N_clust') {
+		exit
+	}
+	if `"`.opt_cluster'`.Macro clustvar'"' != "1" {
+		exit
+	}
+	if "`.scheme'" != "svy" {
+		local NumClust "No. of clusters"
+	}
+	else {
+		local NumClust "Number of clusters"
+	}
+	.PushRight				///
+		"`NumClust'"			///
+		"= " as res %`.c4wfmt'.0fc `.Scalar N_clust'
+end
+
+program .Build4prefix
+	// display N strata
+	if !missing(e(N_strata)) {
+		.PushLeft					///
+			"Number of strata"			///
+			"= " as res %`.c2wfmt'.0fc e(N_strata)
+	}
+end
+
+program .Build4tvar
+	// time-series sample
+	if `.opt_tvar' == 0 {
+		exit
+	}
+	if "`.Macro tvar'" == "" {
+		exit
+	}
+	if "`.Macro tmins'" == "" {
+		exit
+	}
+	if "`.Macro tmaxs'" == "" {
+		exit
+	}
+	if "`.Macro N_gaps'" != "" {
+		if `.Scalar N_gaps' == 1 {
+			local gaps_msg ", but with a gap"
+		}
+		else if `.Scalar N_gaps' > 1 {
+			local gaps_msg ", but with gaps"
+		}
+	}
+	.PushLeft `"Sample: `.Macro tmins' - `.Macro tmaxs'`gaps_msg'"'
+end
+
+program .Build4censlimits
+	args blanks
+	forval i = 1/0`blanks' {
+		.PushLeft
+	}
+	local llopt=cond("`e(limit_l)'"=="","`e(llopt)'","`e(limit_l)'")
+	local ulopt=cond("`e(limit_u)'"=="","`e(ulopt)'","`e(limit_u)'")
+	_censobs_limits llopt ulopt : "`llopt'" "`ulopt'"
+	.PushLeft "Limits: lower = {res:`llopt'}"
+	.PushLeft "        upper = {res:`ulopt'}"
+	.prop_censlimits = 0
+end
+
+program .Build4selected
+	if missing(e(N_selected)) {
+		exit
+	}
+	if `.is_svy' {
+		exit
+	}
+
+	if `.prop_balance' {
+		.Balance
+	}	
+
+	.PushRight				///
+		"      Selected"		///
+		"= " as res %`.c4wfmt'.0fc e(N_selected)
+	.PushRight				///
+		"      Nonselected"		///
+		"= " as res %`.c4wfmt'.0fc e(N_nonselected)
+	.PushRight
+
+	if `.prop_balance' {
+		.Balance
+	}	
+end
+
+program .Build4iselected
+	if missing(e(N_selected)) {
+		exit
+	}
+	if `.is_svy' {
+		exit
+	}
+
+	if `.prop_balance' {
+		.Balance
+	}	
+
+	.PushRight				///
+		"   Selected"			///
+		"= " as res %`.c4wfmt'.0fc e(N_selected)
+	.PushRight				///
+		"   Nonselected"		///
+		"= " as res %`.c4wfmt'.0fc e(N_nonselected)
+
+	if `.prop_balance' {
+		.Balance
+	}	
+end
+
+program .Build4censobs
+	args header
+
+	if "`header'" != "" {
+		.PushRight "Censoring of obs:"
+	}
+
+	if `.prop_nouncensored' == 0 {
+		.PushRight				///
+			"   Uncensored"			///
+			"= " as res %`.c4wfmt'.0fc e(N_unc)
+	}
+
+	if `.prop_censlimits' {
+		.FillLeft 0
+		.Build4censlimits 0
+	}
+	.PushRight				///
+		"   Left-censored"		///
+		"= " as res %`.c4wfmt'.0fc e(N_lc)
+	.PushRight				///
+		"   Right-censored"		///
+		"= " as res %`.c4wfmt'.0fc e(N_rc)
+	if !missing(e(N_int)) {
+		.PushRight			///
+			"   Interval-cens."	///
+			"= " as res %`.c4wfmt'.0fc e(N_int)
+	}
+	if `.prop_balance' {
+		.Balance
+	}
+end
+
+program .Build4groups
+	local groupvar = abbrev("`e(repanvar)'",`.ablen')
+	.Balance
+	.PushLeft  "{txt}Group variable: {res}`groupvar'" 
+	.PushLeft
+	.PushRight "Number of groups" "= " as res %`.c4wfmt'.0fc e(N_g)
+	.PushRight
+
+	.PushLeft
+	.PushLeft
+	.PushLeft
+	.PushLeft
+	.PushRight "Obs. per group:"
+	.PushRight "              min" "= " as res %`.c4wfmt'.0fc e(g_min)
+	.PushRight "              avg" "= " as res %`.c4wfmt'.1fc e(g_avg)
+	.PushRight "              max" "= " as res %`.c4wfmt'.0fc e(g_max)
+
+	.PushLeft
+	.PushRight
+
+	.PushLeft  "Integration method" ": " as res e(reintmethod)
+	.PushLeft
+	.PushRight "Integration pts." "= " as res %`.c4wfmt'.0fc e(reintpoints)
+	.PushRight
+end
+
+program .Build4modeltest
+	if "`.result'" != "e" {
+		exit
+	}
+	if `.opt_modeltest' == 0 {
+		exit
+	}
+	if `"`.Macro k_eq_model'"' == "0" {
+		exit
+	}
+	if missing(`.Scalar df_m') {
+		exit
+	}
+	if `"`.Macro chi2'"' != "" | `"`.Macro df_r'"' == "" {
+		.Build4chi2test
+	}
+	else {
+		.Build4Ftest
+	}
+end
+
+program .Build4chi2test
+	local type `e(chi2type)'
+	if `"`type'"' == "" {
+		local type Wald
+	}
+	if !missing(e(chi2)) {
+		.right.Arrpush					///
+		   as txt `.C3' "`type' chi2("			///
+		   as res e(df_m)				///
+		   as txt ")" `.C4' "= "			///
+		   as res %`.c4wfmt'.2f e(chi2)
+		.right.Arrpush					///
+		   as txt `.C3' "Prob > chi2" `.C4' "= "	///
+		   as res %`.c4wfmt'.4f chi2tail(e(df_m),e(chi2))
+	}
+	else {
+		local j_robust					///
+		"{help j_robustsingular##|_new:`type' chi2(`e(df_m)')}"
+		.right.Arrpush					///
+		          `.C3' "`j_robust'"			///
+		   as txt `.C4' "= " as res %`.c4wfmt's "."
+		.right.Arrpush					///
+		          `.C3' "Prob > chi2" `.C4' "= "	///
+		   as res %`.c4wfmt's "."
+	}
+end
+
+program .Build4Ftest
+	if `.is_svy' & "`e(adjust)'" == "" {
+		// -svy- F tests are adjusted by default
+		if e(df_m) == 0 {
+			local df = e(df_r)
+		}
+		else	local df = e(df_r) - e(df_m) + 1
+	}
+	else {
+		local df = e(df_r)
+	}
+	if !missing(e(F)) {
+		.right.Arrpush					///
+		   as txt `.C3' "F("				///
+		   as res %4.0f e(df_m)				///
+		   as txt ","					///
+		   as res %7.0f `df' as txt ")" `.C4' "= "	///
+		   as res %`.c4wfmt'.2f e(F)
+		.right.Arrpush					///
+		   as txt `.C3' "Prob > F" `.C4' "= "		///
+		   as res %`.c4wfmt'.4f Ftail(e(df_m),`df',e(F))
+	}
+	else {
+		local dfm_l : di %4.0f e(df_m)
+		local dfm_l2: di %7.0f `df'
+		local j_robust ///
+		"{help j_robustsingular##|_new:F(`dfm_l',`dfm_l2')}"
+		.right.Arrpush					///
+		   as txt `.C3' "`j_robust'"			///
+		   as txt `.C4' "= " as result %`.c4wfmt's "."
+		.right.Arrpush					///
+		   as txt `.C3' "Prob > F" `.C4' "= " as res %`.c4wfmt's "."
+	}
+end
+
+program .Build4r2
+	if "`.result'" != "e" {
+		exit
+	}
+	if !missing(e(r2)) {
+		.PushRight				///
+			"R-squared"			///
+			"= " as res %`.c4wfmt'.4f e(r2)
+	}
+	if !missing(e(r2_p)) {
+		.PushRight				///
+			"Pseudo R2"			///
+			"= " as res %`.c4wfmt'.4f e(r2_p)
+	}
+	if !missing(e(r2_a)) {
+		.PushRight				///
+			"Adj R-squared"			///
+			"= " as res %`.c4wfmt'.4f e(r2_a)
+	}
+	if !missing(e(rmse)) {
+		.PushRight				///
+			"Root MSE"			///
+			"= " as res %`.c4wfmt'.4f e(rmse)
+	}
+end
+
+program .Build4title
+	if `.opt_septitle' {
+		exit
+	}
+	if `"`.title'"' == "" {
+		exit
+	}
+	if `.left.arrnels' {
+		exit
+	}
+
+	// make title line part of the header if it fits
+
+	local len = udstrlen(`"`.title'"')
+	local len2 = udstrlen(`"`.title2'"')
+	if `len2' > `len' {
+		local len = `len2'
+	}
+	if `len' < (`.c3' - 2) - (`.c1' - 1) {
+		.left.Arrpush `"`"`.title'"'"'
+		.title = ""
+		if `len2' {
+			.left.Arrpush `"`"`.title2'"'"'
+			.title2 = ""
+		}
+	}
+	.opt_septitle = 1
+end
+
+program .Build4crit
+	if "`.result'" != "e" {
+		exit
+	}
+
+	local offset 1
+	local hascrit = !missing(`"`e(ll)'"') & !missing(`"`e(crittype)'"')
+
+	// special code just for -nbreg- and -gnbreg-
+	if inlist("`e(dispers)'", "mean", "constant") {
+		if `hascrit' {
+			local ++offset
+			local crtype `"`e(crittype)'"'
+			local clen : length local crtype
+			.c2 = `clen' + 2
+		}
+		local DISPERS `""Dispersion" "= " as res e(dispers)"'
+	}
+
+	.FillLeft `offset'
+
+	if `"`DISPERS'"' != "" {
+		.PushLeft `DISPERS'
+	}
+
+	local crtype = upper(bsubstr(`"`e(crittype)'"',1,1)) +	///
+		bsubstr(`"`e(crittype)'"',2,.)
+	if `.is_sem' & `"`e(critvalue)'"' != "" & !`.is_svy' {
+		.PushLeft "`crtype'" "= " as res %10.0g e(critvalue)
+	}
+	else if `hascrit' {
+		if `.is_gsem_group' {
+			.PushLeft "`crtype'" "= " as res %10.0g e(ll)
+		}
+		else {
+			.left.Arrpush `""`crtype' = " as res %10.0g e(ll)"'
+		}
+	}
+end
+
+program .ShowRules
+	if "`.result'" != "e" {
+		exit
+	}
+	if `.opt_rules' == 0 {
+		exit
+	}
+	if !inlist("`.cmd'", "logistic", "logit", "probit") {
+		exit
+	}
+	if `"`e(rules)'"' != "matrix" {
+		exit
+	}
+	if el(e(rules),1,1) == 0 {
+		exit
+	}
+	tempname rules
+	matrix `rules' = e(rules)
+	display
+	_binperfout `rules'
+end
+
+program .Macro
+	class exit `"``.result'(`0')'"'
+end
+
+program .Scalar
+	class exit `"`= `.result'(`0')'"'
+end
+
+program .C1
+	class exit `"_col(`.c1')"'
+end
+
+program .C2
+	class exit `"_col(`.c2')"'
+end
+
+program .C3
+	class exit `"_col(`.c3')"'
+end
+
+program .C4
+	class exit `"_col(`.c4')"'
+end
+
+program .C4wfmt1
+	class exit `"`=`.c4wfmt' + 1'"'
+end
+
+exit
+
+Syntax
+
+	.x = ._coef_table_utils.new [, <options>]
+	.x.build
+	.x.PushLeft
+	.x.PushRight
+	.x.Balance
+	.x.FillLeft <integer>
+	.x.display
+
+	.x.c2 = <integer>
+	.x.c4 = <integer>
+
+	All other properties and methods should be considered private.
+
+Options
+
+rclass
+- look in -r()- instead of -e()-
+
+nodvheader
+- do not report -gsem-'s depvar header
+
+nomodeltest
+- do not report the overall model test
+
+title(string asis)
+- replaces macro -e(title)-
+
+nocluster
+- do not report cluster information
+
+norules
+- do not report the rules for -logistic-, -logit-, or -probit-
+
+notvar
+- do not report time-series information
+
+septitle
+- do not try to put the title at the top of the left column array
+
+linesize(int 0)
+- try to accommodate a linesize > 62 for -mean-, -proportion-, -ratio-
+  and -total-
+
+
+NOTES:
+
+In the following, all -e()- references are understood to mean -r()-
+references when .result is "r".
+
+The following keywords in macro -e(_coef_table_props)- have the
+described behavior:
+
+pushtitle
+- push the title into the left column array
+- by default the title is only pushed into the left column array if the
+  array is empty (with a few exceptions) and the title is not too long
+
+groupvar
+- push "Grouping variable" -e(groupvar)- into the left column array
+
+censlimits
+- push censoring limits onto the left column array
+
+censored
+- push censored counts onto the right column array
+
+iselected
+- push selected counts onto the right column array
+- special version for -eintreg-
+
+selected
+- push selected counts onto the right column array
+
+groups
+- push group information into the left and right column arrays
+- assumes the column arrays are already balanced
+
+balance
+- push blank spaces onto the left or right column array to balance their
+  contents
+- only used in the following subroutines
+
+	.Build4selected
+	.Build4iselected
+	.Build4censobs
+
+<end>

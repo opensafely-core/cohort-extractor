@@ -1,0 +1,207 @@
+/*
+  sg__area_prop.dlg
+
+*!  VERSION 1.1.1  03jun2015
+
+*/
+
+VERSION 14.0
+MODAL
+
+INCLUDE _std_msmall
+DEFINE _dlght 180
+INCLUDE header_sem_ed
+
+DEFINE _clwd	15
+DEFINE _wd	90
+DEFINE _sep	+95
+DEFINE _wd2	120
+DEFINE _sep2	+125
+DEFINE _cbwd	110
+DEFINE _cbsep	+115
+
+INCLUDE sg__common_output		/* routines necessary for output */
+
+SCRIPT PREINIT
+BEGIN
+	script sg__common_output_init 	/* initialize output globals */
+
+	create STRING OBJ
+	program setupOBJECT
+
+	create STRING sTemp
+	create DOUBLE dTemp
+	create STRING sSrcType
+	setscale_hadj resource SG__AREA_PROP_DLG_HSCALE
+END
+
+PROGRAM setupOBJECT
+BEGIN
+	if ! __MESSAGE {
+		stopbox stop resource LBL_MSGBOX_OBJECT_NOT_FOUND
+// An unexpected error has occurred. Object not found.
+		exit 198
+	}
+	call OBJ.setvalue class __MESSAGE.value
+END
+
+SCRIPT area_PREINIT
+BEGIN
+	create STRING sAreaColor
+	create STRING sAreaUseLcolor
+	create STRING sAreaOwidth
+	create STRING sAreaOcolor
+
+	program area_get_defaults
+END
+
+SCRIPT area_POSTINIT
+BEGIN
+	program area_initialize_controls
+END
+
+PROGRAM area_get_defaults
+BEGIN
+	call sSrcType.setvalue class .__SEMG.dbsettings.source
+
+	call sSrcType.withvalue sAreaColor.setvalue class .__SEMG.dbsettings.@_fillcolor
+	call sAreaColor.withvalue area.cb_color.setdefault "@"
+
+	call sSrcType.withvalue sAreaUseLcolor.setvalue class .__SEMG.dbsettings.@_uselineclr
+	if (sAreaUseLcolor.iseq("yes")) {
+		call area.ck_custom.setdefault 1
+	}
+	else {
+		call area.ck_custom.setdefault 0
+	}
+
+	call sSrcType.withvalue sAreaOwidth.setvalue class .__SEMG.dbsettings.@_line_width
+	call sAreaOwidth.withvalue area.cb_owidth.setdefault "@"
+
+	call sSrcType.withvalue sAreaOcolor.setvalue class .__SEMG.dbsettings.@_line_color
+	call sAreaOcolor.withvalue area.cb_ocolor.setdefault "@"
+END
+
+PROGRAM area_initialize_controls
+BEGIN
+	call area.cb_color.setvalue class sAreaColor.value
+	if (sAreaUseLcolor.iseq("yes")) {
+		call area.ck_custom.seton
+	}
+	else {
+		call area.ck_custom.setoff
+	}
+	call area.cb_owidth.setvalue class sAreaOwidth.value
+	call area.cb_ocolor.setvalue class sAreaOcolor.value
+END
+
+PROGRAM check_custom
+BEGIN
+	if area.ck_custom {
+		call area.tx_owidth.enable
+		call area.cb_owidth.enable
+		call area.tx_width_m.enable
+		call area.tx_ocolor.enable
+		call area.cb_ocolor.enable
+	}
+	else {
+		call area.tx_owidth.disable
+		call area.cb_owidth.disable
+		call area.tx_width_m.disable
+		call area.tx_ocolor.disable
+		call area.cb_ocolor.disable
+	}
+END
+
+DIALOG area, label(resource LBL_GB_AREA_PROPERTIES) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_color	_ilft	30	_wd2	.,		///
+	label(resource LBL_COLOR) right
+  COMBOBOX cb_color	_sep2	@	_cbwd	., nomemory	///
+	dropdown contents(.__SEM_STYLES_LABEL.color)		///
+	values(.__SEM_STYLES.color)
+  TEXT     tx_color_m	_cbsep	@	110	., 		///
+	label(resource LBL_FILL_AND_OUTLINE)
+
+  CHECKBOX ck_custom	_lft	+30	_iwd	_ht5h,		///
+	groupbox label(resource LBL_CUSTOMIZE_OUTLINE)		///
+	onclickon(program check_custom)				///
+	onclickoff(program check_custom)
+
+  TEXT     tx_ocolor	_ilft	_ss	_wd2	.,		///
+	label(resource LBL_OUTLINE_COLOR) right
+  COMBOBOX cb_ocolor	_sep2	@	_cbwd	., nomemory	///
+	dropdown contents(.__SEM_STYLES_LABEL.color)		///
+	values(.__SEM_STYLES.color)
+
+  TEXT     tx_owidth	_ilft	_mls	_wd2	.,		///
+	label(resource LBL_OUTLINE_WIDTH) right
+  COMBOBOX cb_owidth	_sep2	@	_cbwd	., nomemory	///
+	dropdown contents(.__SEM_STYLES_LABEL.width)		///
+	values(.__SEM_STYLES.width)
+  TEXT     tx_width_m	_cbsep	@	50	.,		///
+	label(resource LBL_PT)
+END
+
+PROGRAM area_output
+BEGIN
+	call program area_get_defaults
+
+	if (!area.cb_color.isdefault()) {
+		call sg__PARAM2.setvalue "SetStyle"
+		call sg__ARG_00.setvalue class sSrcType.value
+		call sg__ARG_00.append ".fillcolor"
+		call sg__ARG_01.setvalue class area.cb_color.value
+		put /program sg__do_output_sub
+	}
+
+	if (!area.ck_custom.isdefault()) {
+		call sg__PARAM2.setvalue "SetStyle"
+		call sg__ARG_00.setvalue class sSrcType.value
+		call sg__ARG_00.append ".uselineclr"
+		if (area.ck_custom) {
+			call sg__ARG_01.setvalue "yes"
+		}
+		else {
+			call sg__ARG_01.setvalue "no"
+		}
+		put /program sg__do_output_sub
+	}
+
+	if (area.cb_ocolor.isenabled() & !area.cb_ocolor.isdefault()) {
+		call sg__PARAM2.setvalue "SetStyle"
+		call sg__ARG_00.setvalue class sSrcType.value
+		call sg__ARG_00.append ".line.color"
+		call sg__ARG_01.setvalue class area.cb_ocolor.value
+		put /program sg__do_output_sub
+	}
+
+	if (area.cb_owidth.isenabled() & !area.cb_owidth.isdefault()) {
+		call sg__PARAM2.setvalue "SetStyle"
+		call sg__ARG_00.setvalue class sSrcType.value
+		call sg__ARG_00.append ".line.width"
+		call sg__ARG_01.setvalue class area.cb_owidth.value
+		put /program sg__do_output_sub
+	}
+END
+
+PROGRAM command
+BEGIN
+	call sg__PARAM1.setvalue class OBJ.value
+	
+	call sg__PARAM2.setvalue "BeginSet"
+	call sg__DESCPT.setvalue "change default area settings"
+	put /program sg__do_output_sub
+	
+	put /program area_output
+
+	call sg__PARAM2.setvalue "EndSet"
+	call sg__DESCPT.setvalue "change default area settings"
+	put /program sg__do_output_sub
+
+	call sg__PARAM1.setvalue class OBJ.value
+	call sg__PARAM2.setvalue "UpdateDlg"
+	call sg__ARG_00.setvalue "area_prop"
+	call sg__ARG_01.setvalue class sSrcType.value
+	put /program sg__do_output_sub
+END

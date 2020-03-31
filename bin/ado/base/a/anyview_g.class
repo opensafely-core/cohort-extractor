@@ -1,0 +1,367 @@
+//				anyview_g
+//
+//  Parent class for view.class and subview.class.  Contains programs shared 
+//  by both classes.
+// 
+//  Views may share a reference to a common style and in that case their
+//  styles may be customized, primarily through the graph editor -- see
+//  as_custom_ed.class
+
+*! version 1.1.3  30jul2013
+
+version 8
+
+class {
+	xstretch = .stretchability.new		// fixed by default
+	ystretch = .stretchability.new		// fixed by default
+
+
+	gdi_y0		= (.)			// position drawn (lower left)
+	gdi_x0		= (.)			// units in the gdi metric
+	gdi_y1		= (.)			// upper-right corner drawn
+	gdi_x1		= (.)
+
+	locked		= 0			// locked in editor
+	grid_dragable	= 1			// grid-dragable in editor
+	deleted		= -1			// -1 cannot delete, 0 can be
+						//    deleted, 1 deleted
+					// could have been pgm
+					// so could be dragable
+	found		= 0
+	found_y		= (.)
+	found_x		= (.)
+} , inherit(object as_custom_ed)
+
+
+/* -------------------------------------------------------------------------*/
+program define new
+
+	if `"`0'"' != `""' {
+		.set `0'
+	}
+end
+
+
+program define set
+
+	syntax [,  XSTretchability(string) YSTretchability(string) 	/*
+		*/ Style(passthru) STYLEREF(passthru) STYLEREF1(passthru) ]
+						// ?? STYLEREF1 patches a bug
+						// in parsing opt("" "(") 
+	
+	if "`xstretchability'" != "" {
+		.xstretch.set `"`xstretchability'"'
+	}
+	if "`ystretchability'" != "" {
+		.ystretch.set `"`ystretchability'"'
+	}
+	if `"`style'`styleref'"' != `""' {
+		.setstyle , `style' `styleref'
+	}
+end
+
+
+
+// ---------------------------------------------------------------------------
+//
+//	Usage:  .setstyle [ , style(stylename) styleref(name|key) ]
+//
+//	if reference is specified the style is assigned by reference rather
+//	than by copying (by value)
+//
+//	Note, assumes that the child class names the style ".style"
+
+program define setstyle
+
+	syntax [, Style(passthru) STYLEREF(string) ]
+
+	if "`.Local.style.isa'" == "" {
+		exit				// no .style in the view
+	}
+
+	if "`styleref'" != "" {			// style assigned by ref
+		.style.ref = .`styleref'.ref
+		exit
+	}
+
+	if "`style'" != "" {			// style by named style
+		.style.setstyle, `style'
+	}
+
+end
+
+
+// ---------------------------------------------------------------------------
+//
+//  Draw a view after first adjusting the location of the view within the
+//  specified size to the compass location in an instance of compass2dir
+//  specified in align(). 
+//
+//  Also allows a program other than .draw to perform the drawing after
+//  adjustment, this is specified in drawpgm().  NOTE, this option is almost
+//  always specified; rarely would .draw be OK.
+//
+//  The effect of any number of margins can also be accounted for by
+//  specifying instances of .margin.class in margin().
+
+program compass_draw
+
+	syntax [ , Align(string) XSize(real -1) YSize(real -1)		///
+		   Drawpgm(string) Margins(string) * ]
+
+	if `"`drawpgm'"' == `""' {
+		local drawpgm "draw"
+	}
+
+	if "`.`align'.classname'" != "compass2dir" {
+		di in smcl "{txt}{p 0 8}note, `align' is not an instance of compass2dir, alignment not possible{p_end}"
+		.`drawpgm' , xsize(`xsize') ysize(`ysize') `options'
+		exit						// Exit
+	}
+
+	local actual_xsz =	///
+	      cond("`.xstretch.setting'" == "fixed", 0`.xsize', `xsize')
+	local actual_ysz =	///
+	      cond("`.ystretch.setting'" == "fixed", 0`.ysize', `ysize')
+
+	foreach margin of local margins {
+		if "`.xstretch.setting'" == "fixed" {
+			local actual_xsz = `actual_xsz' + 		///
+				    0`.`margin'.gmleft' + 0`.`margin'.gmright'
+		}
+
+		if "`.ystretch.setting'" == "fixed" {
+			local actual_ysz = `actual_ysz' +		///
+				    0`.`margin'.gmtop' + 0`.`margin'.gmbottom'
+		}
+	}
+
+	foreach dim in x y {
+	    local fulltest = cond("`dim'"=="x", "iseast", "isnorth")
+	    local halftest = cond("`dim'"=="x", "iswest", "issouth")
+	    if `actual_`dim'sz' < ``dim'size' {
+		if `.`align'.`fulltest'' {
+			local `dim'shift = ``dim'size'- `actual_`dim'sz'
+		}
+		else {
+		    if ! `.`align'.`halftest'' {
+			local `dim'shift = (``dim'size'- `actual_`dim'sz') / 2
+		    }
+		}
+
+		if 0``dim'shift' {		     // we are not a container
+			tempname `dim'transform	     // so get a temp transform
+			.``dim'transform' = .transform.new , dimension(`dim')
+			.``dim'transform'.get_from_gdi
+			.``dim'transform'.translate ``dim'shift'
+		}
+
+		local `dim'size `actual_`dim'sz'
+	    }
+	}
+
+	.`drawpgm', xsize(`xsize') ysize(`ysize') `options'
+
+	foreach dim in x y {
+		if 0``dim'shift' {
+			if "`.``dim'transform'.isa'" != "" {
+				.``dim'transform'.reset
+			}
+		}
+	}
+end
+
+// ---------------------------------------------------------------------------
+// Set the lower-left and upper-right corners of the object as drawn in the
+// GDI metric.  May only be called during drawing.
+
+program set_gdi_posn
+	args y0 x0 y1 x1
+
+	.gdi_y0 = 0`.gdi_yposn `y0''
+	.gdi_x0 = 0`.gdi_xposn `x0''
+
+	.gdi_y1 = 0`.gdi_yposn `y1''
+	.gdi_x1 = 0`.gdi_xposn `x1''
+end
+
+program set_gdi_posn_notrans
+	args y0 x0 y1 x1
+
+	.gdi_y0 = 0`y0'
+	.gdi_x0 = 0`x0'
+
+	.gdi_y1 = 0`y1'
+	.gdi_x1 = 0`x1'
+end
+
+// ---------------------------------------------------------------------------
+// Converts the GU supplied x position to a GDI x position
+// May only be called during drawing when GDI scaling is properly set.
+
+program gdi_yposn
+	if "`gdi(ytransform)'" == "ln" {
+		class exit = log(`1') * `gdi(ybeta)' + `gdi(yalpha)'
+	}
+	else {
+		class exit = `1'      * `gdi(ybeta)' + `gdi(yalpha)'
+	}
+
+end
+
+// ---------------------------------------------------------------------------
+// Converts the GU supplied y position to a GDI y position
+// May only be called during drawing when GDI scaling is properly set.
+
+program gdi_xposn
+	if "`gdi(xtransform)'" == "ln" {
+		class exit = log(`1') * `gdi(xbeta)' + `gdi(xalpha)'
+	}
+	else {
+		class exit = `1'      * `gdi(xbeta)' + `gdi(xalpha)'
+	}
+end
+
+
+// ------------------------------------------------------------------------
+// Add an empty textbox at the specified position with the specified style
+// in the specified array.  Adds the text array itself if necessary.
+
+program AddTextBox
+	args arraynm style y x
+
+	._maybe_fixup_old_gph_array `arraynm'
+
+	.MaybeCreateArray `arraynm'
+
+	.`arraynm'[`.`arraynm'.arrnels'+1] = .pos_textbox.new ,		///
+		 ypos(`y') xpos(`x') forcesized style(`style')
+
+end
+
+
+// ------------------------------------------------------------------------
+// Add a line at the specified position with the specified style in 
+// the specified array.  Adds the array of lines itself if necessary.
+
+program AddLine
+	args arraynm style x0 y0 x1 y1
+
+	._maybe_fixup_old_gph_array `arraynm'
+
+	.MaybeCreateArray `arraynm'
+
+	.`arraynm'[`.`arraynm'.arrnels'+1] = .arrow_g.new		///
+		`x0' `y0' `x1' `y1' , style(`style')
+end
+
+
+// ------------------------------------------------------------------------
+// Add a marker at the specified position with the specified style in the
+// specified array.  Adds the text array itself if necessary.
+
+program AddMarker
+	args arraynm style x y
+
+	._maybe_fixup_old_gph_array `arraynm'
+
+	.MaybeCreateArray `arraynm'
+
+	.`arraynm'[`.`arraynm'.arrnels'+1] = .marker_g.new `x' `y' ,	///
+		 style(`style')
+
+end
+
+
+// ------------------------------------------------------------------------
+// Create an array in myself, if that array does not already exist.
+
+program MaybeCreateArray
+	args arrayname
+
+	if ("`.`arrayname'.isa'" != "")  exit
+
+	.Declare `arrayname' = {}
+end
+
+
+// ---------------------------------------------------------------------------
+// Older gph files may have a scalar object where an array is now expected.
+
+program _maybe_fixup_old_gph_array
+	args arraynm
+
+	if 0`.`arraynm'.isofclass anyview_g' {
+		tempname view
+		.`view'.ref = .`plreg'.`arraynm'.ref
+
+		.`arraynm'.ref = NULLKEY
+		.Declare `arraynm' = {}
+		.`arraynm'[1].ref = .`view'.ref
+	}
+end
+
+// ---------------------------------------------------------------------------
+// "Delete" the view.  Really just signal:  1) not drawn, 2) take no space, 3)
+// do not appear in object browser
+
+program Delete
+	capture .deleted = 1
+	capture .draw_view.set_false
+	capture .fill_if_undrawn.set_false
+end
+
+// ---------------------------------------------------------------------------
+// Traverses all held views and adds the names of all views at the current
+// clicked position to selected views array.
+//
+// It is overreaching to place this here, because only views that contain
+// other views need this, but some of those are not containers.
+
+program AddSelectedViews
+	args myname
+
+	.found = 0
+
+	if (0`.locked')  exit					// Exit
+
+	._Gr_Global.extend_prefix `myname'
+
+	local startnum = `._Gr_Global.views.arrnels'
+	if (0`.draw_view.istrue')  capture noisily ._add_selected_views
+
+	if ("`myname'" != "")  ._Gr_Global.pop_prefix
+
+	if 0`.draw_view.istrue' {
+		if 0`.AtClickedPos' {
+			.found = 1
+			if `._Gr_Global.views.arrnels' == `startnum' {
+				._Gr_Global.AddSelected `myname'
+			}
+		}
+	}
+end
+
+// ---------------------------------------------------------------------------
+// Returns true if the view is at the clicked position
+
+program AtClickedPos
+
+	if (! 0`.draw_view.istrue')  class exit = 0
+	if (0`.locked')  	     class exit = 0	
+	if (0`.Local.deleted' == 1)  class exit = 0	
+
+	class exit = (0`._Gr_Global.click_y' > `.gdi_y0' &		///
+		      0`._Gr_Global.click_y' < `.gdi_y1' &		///
+		      0`._Gr_Global.click_x' > `.gdi_x0' &		///
+		      0`._Gr_Global.click_x' < `.gdi_x1')
+end
+
+// ---------------------------------------------------------------------------
+// Runs the argument as a program in the current instance of the class.
+
+program runprogram
+	`0'
+end
+
+

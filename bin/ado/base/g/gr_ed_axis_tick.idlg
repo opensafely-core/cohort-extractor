@@ -1,0 +1,262 @@
+/*
+  gr_ed_axis_tick.idlg
+
+*!  VERSION 1.1.2  17may2016
+
+*/
+
+INCLUDE _std_vsmall
+DEFINE _dlght 220
+INCLUDE header_gr_ed
+
+DEFINE _clwd	15
+DEFINE _wd	120
+DEFINE _sep	+125
+DEFINE _cbwd	130
+DEFINE _cbsep	+135
+
+SCRIPT local_init
+BEGIN
+	create STRING G
+	create STRING parent_name
+
+	// Get the Graphics object name (G) from the parent...
+	parent_name.setvalue class PARENT._dlg_rsrcname
+	parent_name.withvalue G.setvalue class @.G.value
+
+	create STRING tstyle
+	create STRING Gstyle
+	program setStyleType
+
+	create DOUBLE hasTicks
+	create STRING color
+	create STRING rgb
+	create STRING opacity
+	create STRING length
+	create STRING position
+	create STRING width
+
+	create DOUBLE index
+	create STRING tmp
+
+	program get_defaults
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program initialize_controls
+END
+
+PROGRAM setStyleType
+BEGIN
+	if styleType.iseq("major") {
+		// dereference dlg_major and setup object path
+		call Gstyle.setvalue class G.value			// initialize to G
+		call G.withvalue tstyle.setvalue class @.dlg_major 	// -> tstyle | majornl
+		call tstyle.append "style"				// -> majorstyle | majornlstyle
+		call tstyle.withvalue Gstyle.append ".style.@"		// -> .Graph.xaxis1.style.majorstyle
+	}
+	if styleType.iseq("minor") {
+		// dereference dlg_minor and setup object path
+		call Gstyle.setvalue class G.value			// initialize to G
+		call G.withvalue tstyle.setvalue class @.dlg_minor 	// -> minor | minornl
+		call tstyle.append "style"				// -> minorstyle | minornlstyle
+		call tstyle.withvalue Gstyle.append ".style.@"		// -> .Graph.xaxis1.style.minorstyle
+	}
+END
+
+DIALOG main, title(resource LBL_TICK_PROPERTIES) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  CHECKBOX ck_show	_lft	20	_iwd	_ht14h,		///
+	label(resource LBL_SHOW_TICKS)				///
+	groupbox						///
+	onclickon(program check_show)				///
+	onclickoff(program check_show)
+  TEXT     tx_clr	_ilft	_mls	_wd	.,		///
+	label(resource LBL_COLOR) right
+  COMBOBOX cb_clr	_sep	@	_cbwd	.,		///
+	dropdownlist contents(_colors) 				///
+	onselchangelist(main_cl_clr_sel)
+  COLOR    cl_clr	_cbsep	@	_clwd	.,
+  TEXT     tx_opacity	_ilft	_mls	_wd	.,		///
+	label(resource LBL_OPACITY) right
+  SPINNER sp_opacity	_sep	@	_spwd	.,		///
+	default(100)						///
+	min(0)							///
+	max(100)
+
+  TEXT     tx_length	_ilft	_mls	_wd	.,		///
+  	label(resource LBL_LENGTH) right
+  COMBOBOX cb_length	_sep	@	_cbwd	.,		///
+	dropdown contents(_textsizes)
+
+  TEXT     tx_width	_ilft	 _mls	_wd	.,		///
+	label(resource LBL_WIDTH) right
+  COMBOBOX cb_width	_sep	@	_cbwd	.,		///
+	dropdown 						///
+	contents(_linewidths)
+
+  TEXT     tx_pos	_ilft	_mls	_wd	.,		///
+  	label(resource LBL_PLACEMENT) right
+  COMBOBOX cb_pos	_sep	@	_cbwd	.,		///
+	dropdown contents(_tickpos)
+END
+
+PROGRAM check_show
+BEGIN
+	if main.ck_show {
+		call main.tx_clr.enable
+		call main.cb_clr.enable
+		call main.cl_clr.enable
+		call main.tx_opacity.enable
+		call main.sp_opacity.enable
+
+		call main.tx_length.enable
+		call main.cb_length.enable
+
+		call main.tx_pos.enable
+		call main.cb_pos.enable
+
+		call main.tx_width.enable
+		call main.cb_width.enable
+	}
+	else {
+		call main.tx_clr.disable
+		call main.cb_clr.disable
+		call main.cl_clr.disable
+		call main.tx_opacity.disable
+		call main.sp_opacity.disable
+
+		call main.tx_length.disable
+		call main.cb_length.disable
+
+		call main.tx_pos.disable
+		call main.cb_pos.disable
+
+		call main.tx_width.disable
+		call main.cb_width.disable
+	}
+END
+
+LIST main_cl_clr_sel
+BEGIN
+	main.cl_clr.show
+	main.cl_clr.hide
+END
+
+PROGRAM get_defaults
+BEGIN
+	call Gstyle.withvalue hasTicks.setvalue class @.tickstyle.show_ticks.istrue
+	call hasTicks.withvalue main.ck_show.setdefault @
+
+	call Gstyle.withvalue index.setvalue class @.tickstyle.linestyle.color.styledex
+	call index.withvalue color.setstring class .__STYLES.color[@]
+	call main.cb_clr.setdefault class color.value
+	
+	call Gstyle.withvalue rgb.setstring class @.tickstyle.linestyle.color.rgb
+	call main.cl_clr.setdefault class rgb.value
+	call Gstyle.withvalue opacity.setstring class @.tickstyle.linestyle.color.opacity
+	call main.sp_opacity.setdefault class opacity.value
+
+	call Gstyle.withvalue index.setvalue class @.tickstyle.length.styledex
+	call index.withvalue length.setstring class .__STYLES.gsize[@]
+	if ! length {
+		call Gstyle.withvalue length.setstring class @.tickstyle.length.val
+	}
+	call main.cb_length.setdefault class length.value
+
+	call Gstyle.withvalue index.setvalue class @.tickstyle.position.styledex
+	call index.withvalue position.setstring class .__STYLES.tickposition[@]
+	call main.cb_pos.setdefault class position.value
+
+	call Gstyle.withvalue index.setvalue class @.tickstyle.linestyle.width.styledex
+	call index.withvalue width.setstring class .__STYLES.linewidth[@]
+	if ! width {
+		call Gstyle.withvalue width.setvalue class @.tickstyle.linestyle.width.val
+	}
+	call main.cb_width.setdefault class width.value
+END
+
+PROGRAM initialize_controls
+BEGIN
+	if hasTicks {
+		call main.ck_show.seton
+	}
+	else {
+		call main.ck_show.setoff
+	}
+
+	if color {
+		call main.cb_clr.setvalue class color.value
+	}
+	if ! color {
+		call main.cb_clr.setvalue "custom"
+	}
+	call main.cl_clr.setvalue class rgb.value
+	call main.sp_opacity.setvalue class opacity.value
+
+	call main.cb_length.setvalue class length.value
+
+	call main.cb_pos.setvalue class position.value
+
+	call main.cb_width.setvalue class width.value
+END
+
+PROGRAM command
+BEGIN
+	call program get_defaults
+	put "_gm_dlg_edits"
+	beginoptions
+		put " object(" G ") "
+
+		if ! main.ck_show.isdefault() {
+			if main.ck_show {
+				put "style(" tstyle "(tickstyle(show_ticks(" 
+				put "yes"
+				put ")))) "
+			}
+			else {
+				put "style(" tstyle "(tickstyle(show_ticks(" 
+				put "no"
+				put ")))) "
+			}
+		}
+		if main.ck_show {
+			if ! main.cl_clr.isvisible() & ! main.cb_clr.isdefault() {
+				put "style(" tstyle "(tickstyle(linestyle(color(" 
+				put main.cb_clr 
+				put "))))) "
+			}
+			if main.cl_clr.isvisible() & ! main.cl_clr.isdefault() {
+				put "style(" tstyle "(tickstyle(linestyle(color("   `"""'
+				put main.cl_clr
+				put `"""'
+				put "))))) "
+			}
+			if ! main.sp_opacity.isdefault() {
+				put "style(" tstyle "(tickstyle(linestyle(color("   `"""'
+				put "%"
+				put main.sp_opacity
+				put `"""'
+				put "))))) "
+			}
+			if ! main.cb_length.isdefault() {
+				put "style(" tstyle "(tickstyle(length("
+				put main.cb_length
+				put ")))) "
+			}
+			if ! main.cb_pos.isdefault() {
+				put "style(" tstyle "(tickstyle(position("
+				put main.cb_pos
+				put ")))) "
+			}
+			if ! main.cb_width.isdefault() {
+				put "style(" tstyle "(tickstyle(linestyle(width("
+				put main.cb_width
+				put "))))) "
+			}
+		}
+		put " epilog(_gedi toolbar axis " G ")"
+	endoptions
+	stata hidden queue
+END

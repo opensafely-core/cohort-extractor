@@ -1,0 +1,150 @@
+/*                                 twoway_normgen_parse
+
+   A parser for plotting the normal density.  Works with twoway.ado.
+
+*/
+*! version 1.0.5  20jan2003
+
+version 8
+
+class {
+	norm_varlist	= ""
+	norm_n		= 300		// default value only
+	norm_y		= "density"
+	norm_x		= "x"
+	norm_preserve	= ""
+	droplines	= ""
+	yxswitch	= 0
+	base		= (.)
+} , inherit(twoway_yxview_parse)
+
+// ---------------------------------------------------------------------------
+
+program parse
+	.must_create_serset = 1
+	.viewtype = "line"
+	.n = 1						// number of plots
+	.varcheck = 0					// side signal
+
+	.Super.parse `0'
+
+	_clsarr2list mlablist : labvars			// allow marker labels
+	local vlist `.varlist'
+	local vlist : list vlist - mlablist
+
+	local options `"`vlist' [`.wtype'`.wtexp'], `.options'"'
+	_parse expand loc glob : options
+	if `loc_n' != 1 {
+		error 198
+	}
+	local 0 `"`loc_1'"'
+	_parse combop 0 : 0, option(MIN)	rightmost
+	_parse combop 0 : 0, option(MAX)	rightmost
+	_parse combop 0 : 0, option(N)		rightmost
+	_parse combop 0 : 0, option(STDdev)	rightmost
+	_parse combop 0 : 0, option(STDRange)	rightmost
+	_parse combop 0 : 0, option(MEAN)	rightmost
+	_parse combop 0 : 0, option(AREA)	rightmost
+	_parse combop 0 : 0, option(BASE)	rightmost
+
+	syntax [varname(numeric default=none)]	///
+		[fw aw] [,			///
+		MIN(passthru)			///
+		MAX(passthru)			///
+		N(real `.norm_n')		///
+		STDdev(passthru)		///
+		STDRange(passthru)		///
+		MEAN(passthru)			///
+		AREA(passthru)			///
+		///MLE				/// not implemented yet
+		YXswitch			///
+		*				///
+	]
+
+	local opts `min' `max' n(`n') `stddev'	///
+		`stdrange' `mean' `area' `mle'
+	.norm_opts = `"`:list retok opts'"'
+
+	/* this is a partial parse, see second call to -twoway__normgen_gen-
+	 * in -log_create_serset-
+	 */
+	twoway__normgen_gen `varlist'	///
+		[`.wtype'`.wtexp'] ,	///
+		`.norm_opts'		///
+		// blank
+
+	.norm_varname	= "`varlist'"
+ 	.norm_area 	= r(area)
+ 	.norm_preserve	= `"`r(preserve)'"'
+	.yxswitch	= ("`yxswitch'" != "")
+	.options	= `"`options'"'
+end
+
+/* -------------------------------------------------------------------------*/
+/*
+	Creates a new serset and the view and returns its reference.
+	Assumes that the data in memory is the same as when parse was called.
+
+	Allows a touse(varname) option that further restricts the sample, 
+	restricts beyond the held .if and .in
+
+	Additional options to the .serset.new command may be specified, but
+	this is unlikely to be necessary.
+
+	If must_create_serset == 1, then this command MUST be used, 
+	otherwise the serset may be created by other means.
+*/ 
+
+program log_create_serset
+
+	syntax , LOG(name) SERSETNAME(string) [ TOUSE(string) * ]
+
+	.log_touse , log(`log') touse(`touse')
+
+	local nolog  .`log'.Arrpush __NOLOG__
+
+	// compute the normal density
+	if (`"`.norm_preserve'"' != "") `nolog' preserve
+	`nolog' tempvar x den
+	`nolog' twoway__normgen_gen		///
+		`.norm_varname'			///
+		[`.wtype'`.wtexp']		///
+		if \`touse1',			///
+		`.norm_opts'			///
+		generate(\`den' \`x')		///
+		// blank
+
+	if `"`.norm_area'"' != "1" {
+		local area `", area=`.norm_area'"'
+	}
+	`nolog' label variable \`den' "normgen `.norm_varname'`area'"
+
+	// remove weights, they are not needed for the serset
+	.wtype = ""
+	.wtexp = ""
+
+	/* note: do not use `touse1' to generate the serset; -kdensity-
+	 * generates values outside the supplied -if- condition.
+	 */
+
+	.`log'.Arrpush				///
+		.`sersetname' = .serset.new	///
+			\`den' \`x' `.varlist'	///
+			,			///
+			nocount			///
+			`.omitmethod'		///
+			`options'
+	if (`"`.norm_preserve'"' != "") `nolog' restore
+
+	`nolog' .`sersetname'.sort \`x'
+	`nolog' .`sersetname'.sers[1].name = "`.norm_y'"	// den
+	`nolog' .`sersetname'.sers[2].name = "`.norm_x'"	// x
+
+	if ! `.yxswitch' {
+		.varlist = "`.norm_y' `.norm_x'"
+	}
+	else	.varlist = "`.norm_x' `.norm_y'"
+
+end
+
+exit

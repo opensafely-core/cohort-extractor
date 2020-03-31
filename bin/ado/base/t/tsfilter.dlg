@@ -1,0 +1,364 @@
+/*
+  tsfilter
+
+*!  VERSION 1.1.3  12jul2017
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large /* DO NOT CHANGE WIDTH UNLESS YOU CHANGE -setposition- */
+DEFINE _dlght 380 
+INCLUDE header
+
+HELP hlp1, view("help tsfilter")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource TSFILTER_DLG_HSCALE
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	if __MESSAGE.iseq("-bk-") {
+		call main.rb_bk.seton
+	}
+	if __MESSAGE.iseq("-cf-") {
+		call main.rb_cf.seton
+	}
+	if __MESSAGE.iseq("-bw-") {
+		call main.rb_bw.seton
+	}
+	if __MESSAGE.iseq("-hp-") {
+		call main.rb_hp.seton
+	}
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	title(resource TSFILTER_DLG_TITLE)
+BEGIN
+  DEFINE _x _rj140
+  DEFINE _setbuwd 140
+  DEFINE _y _top
+  INCLUDE _bu_tsset
+  BUTTON bu_xtset		_rj290	_top	140     .,		///
+	onpush(script show_xtset)					///
+	label(resource LBL_BU_PANEL_SETTINGS)
+
+  GROUPBOX gb_filter		_lft	_ms	_iwd	_ht2,		///
+	label(resource TSFILTER_MAIN_GB_FILTER)
+  DEFINE holdy @y
+  RADIO	rb_bk			_indent	_ss	90	., first	///
+	onclickon("script main_bk_on")					///
+	option("bk")							///
+	label(resource TSFILTER_MAIN_RB_BK)
+  RADIO	rb_cf			+95	@	140	.,		///
+	onclickon("script main_cf_on")					///
+	option("cf")							///
+	label(resource TSFILTER_MAIN_RB_CF)
+  RADIO	rb_bw			+145	@	90	.,		///
+	onclickon("script main_bw_on")					///
+	option("bw")							///
+	label(resource TSFILTER_MAIN_RB_BW)
+  RADIO	rb_hp			+95	@	120	., last		///
+	onclickon("script main_hp_on")					///
+	option("hp")							///
+	label(resource TSFILTER_MAIN_RB_HP)
+
+  TEXT tx_vars			_lft	_xls	_iwd	.,		///
+	label(resource TSFILTER_MAIN_TX_VARS)
+  VARLIST vl_vars		@	_ss	@	.,		///
+	ts								///
+	numeric								///
+	label(resource TSFILTER_MAIN_TX_VARS)
+  
+  TEXT tx_stub_or_var		@	_ls	@	.,		///
+	label(resource TSFILTER_MAIN_TX_STUB_OR_VAR)
+  EDIT ed_stub_or_var		@	_ss	@	.,		///
+	label(resource TSFILTER_MAIN_TX_STUB_OR_VAR)
+
+  TEXT tx_type			@	_ls	_vnwd	.,		///
+	label(resource LBL_TX_VARIABLE_TYPE)
+  COMBOBOX cb_type		@	_ss	@	.,		///
+	label(resource LBL_TYPE) dropdownlist contents(type)		///
+	onselchangelist(main_type_actions) default(c(type))
+
+  GROUPBOX gb_opts		_lft	_ls	_iwd	_ht6h,		///
+	label(resource TSFILTER_MAIN_GB_OPTS)
+  TEXT tx_minperiod		_ilft	_ss	_vnwd	.,		///
+	label(resource TSFILTER_MAIN_TX_MINPERIOD)
+  DEFINE holdy4 @y
+  EDIT ed_minperiod		@	_ss	@	.,		///
+	numonly								///
+	option("minperiod")						///
+	label(resource TSFILTER_MAIN_TX_MINPERIOD)
+  TEXT tx_smooth		@	holdy4	_vnwd	.,		///
+	label(resource TSFILTER_MAIN_TX_SMOOTH)
+  DEFINE holdy5 @y
+  EDIT ed_smooth		@	_ss	@	.,		///
+	numonly								///
+	option("smooth")						///
+	label(resource TSFILTER_MAIN_TX_SMOOTH)
+
+  TEXT tx_maxperiod		+170	holdy5	_vnwd	.,		///
+	label(resource TSFILTER_MAIN_TX_MAXPERIOD)
+  EDIT ed_maxperiod		@	_ss	@	.,		///
+	numonly								///
+	option("maxperiod")						///
+	label(resource TSFILTER_MAIN_TX_MAXPERIOD)
+  TEXT tx_maorder		@	holdy5	_vnwd	.,		///
+	label(resource TSFILTER_MAIN_TX_MAORDER)
+  SPINNER sp_maorder		@	_ss	_spwd	.,		///
+	option("maorder")						///
+	default("2")							///
+	label(resource TSFILTER_MAIN_TX_MAORDER)
+
+  TEXT tx_smaorder		+115	holdy5	160	.,		///
+	label(resource TSFILTER_MAIN_TX_SMAORDER)
+  SPINNER sp_smaorder		@	_ss	_spwd	.,		///
+	option("smaorder")						///
+	label(resource TSFILTER_MAIN_TX_SMAORDER)
+  CHECKBOX ck_stationary 	_ilft	_ls	_ivlwd	.,		///
+	option("stationary")						///
+	label(resource TSFILTER_MAIN_CK_STATIONARY)
+  CHECKBOX ck_drift 		_ilft	_ms	@	.,		///
+	option("drift")							///
+	label(resource TSFILTER_MAIN_CK_DRIFT)
+END
+
+SCRIPT show_xtset
+BEGIN
+	create CHILD xtset
+END
+
+SCRIPT main_bk_on
+BEGIN
+	main.gb_opts.setposition . . 480 100 
+	main.tx_minperiod.show
+	main.ed_minperiod.show
+	main.tx_smooth.hide
+	main.ed_smooth.hide
+	main.tx_maxperiod.show
+	main.ed_maxperiod.show
+	main.tx_maxperiod.setposition 160 . . .
+	main.ed_maxperiod.setposition 160 . . .
+	main.tx_maorder.hide
+	main.sp_maorder.hide
+	main.tx_smaorder.show
+	main.sp_smaorder.show
+	main.ck_stationary.show
+	main.ck_drift.hide
+END
+
+SCRIPT main_cf_on
+BEGIN
+	main.gb_opts.setposition . . 480 120
+	main.tx_minperiod.show
+	main.ed_minperiod.show
+	main.tx_smooth.hide
+	main.ed_smooth.hide
+	main.tx_maxperiod.show
+	main.ed_maxperiod.show
+	main.tx_maxperiod.setposition 160 . . .
+	main.ed_maxperiod.setposition 160 . . .
+	main.tx_maorder.hide
+	main.sp_maorder.hide
+	main.tx_smaorder.show
+	main.sp_smaorder.show
+	main.ck_stationary.show
+	main.ck_drift.show
+END
+
+SCRIPT main_bw_on
+BEGIN
+	main.gb_opts.setposition . . 275 70
+	main.tx_minperiod.hide
+	main.ed_minperiod.hide
+	main.tx_smooth.hide
+	main.ed_smooth.hide
+	main.tx_maxperiod.show
+	main.ed_maxperiod.show
+	main.tx_maxperiod.setposition 20 . . .
+	main.ed_maxperiod.setposition 20 . . .
+	main.tx_maorder.show
+	main.sp_maorder.show
+	main.tx_maorder.setposition 160 . . .
+	main.sp_maorder.setposition 160 . . .
+	main.tx_smaorder.hide
+	main.sp_smaorder.hide
+	main.ck_stationary.hide
+	main.ck_drift.hide
+END
+
+SCRIPT main_hp_on
+BEGIN
+	main.gb_opts.setposition . . 275 70
+	main.tx_minperiod.hide
+	main.ed_minperiod.hide
+	main.tx_smooth.show
+	main.ed_smooth.show
+	main.tx_maxperiod.hide
+	main.ed_maxperiod.hide
+	main.tx_maorder.hide
+	main.sp_maorder.hide
+	main.tx_smaorder.hide
+	main.sp_smaorder.hide
+	main.ck_stationary.hide
+	main.ck_drift.hide
+END
+
+INCLUDE _type_list_fd
+INCLUDE ifin
+
+DIALOG trend, tabtitle(resource TSFILTER_TAB_TREND)
+BEGIN
+  GROUPBOX gb_trend 		_lft	_top	_iwd	_ht4,		///
+	label(resource TSFILTER_TREND_GB_TREND)
+  TEXT tx_tr_type		_ilft	_ss	_vnwd	.,		///
+	label(resource LBL_TX_VARIABLE_TYPE)
+  DEFINE holdy @y
+  COMBOBOX cb_tr_type		@	_ss	@	.,		///
+	label(resource LBL_TYPE) dropdownlist contents(type)		///
+	onselchangelist(main_type_actions) default(c(type))
+  TEXT tx_trend			_vlx	holdy	_ivlwd	.,		///
+	label(resource TSFILTER_TREND_TX_TREND)
+  EDIT ed_trend			@	_ss 	@	.,		///
+	label(resource TSFILTER_TREND_TX_TREND)
+END
+
+PROGRAM trend_output
+BEGIN
+	if trend.ed_trend {
+		put "trend("
+		if ! trend.cb_tr_type.isdefault() {
+			put trend.cb_tr_type " "
+			put "(" trend.ed_trend "))"
+		}
+		else {
+			put trend.ed_trend ")"
+		}
+	}
+END
+
+DIALOG gain, tabtitle(resource TSFILTER_TAB_GAIN)
+BEGIN
+  GROUPBOX gb_gain 		_lft	_top	_iwd	_ht9,		///
+	label(resource TSFILTER_GAIN_GB_GAIN)
+  TEXT tx_g_type		_ilft	_ss	_vnwd	.,		///
+	label(resource LBL_TX_VARIABLE_TYPE)
+  DEFINE holdy2 @y
+  COMBOBOX cb_g_type		@	_ss	@	.,		///
+	label(resource LBL_TYPE) dropdownlist contents(type)		///
+	onselchangelist(main_type_actions) default(c(type))
+  TEXT tx_gain1			_vlx	holdy2	_ivlwd	.,		///
+	label(resource TSFILTER_GAIN_TX_GAIN1)
+  EDIT ed_gain1			@	_ss	_vnwd	.,		///
+	label(resource TSFILTER_GAIN_TX_GAIN1)
+  TEXT tx_f_type		_ilft	_ls	_vnwd	.,		///
+	label(resource LBL_TX_VARIABLE_TYPE)
+  DEFINE holdy3 @y
+  COMBOBOX cb_f_type		@	_ss	@	.,		///
+	label(resource LBL_TYPE) dropdownlist contents(type)		///
+	onselchangelist(main_type_actions) default(c(type))
+  TEXT tx_gain2			_vlx	holdy3	_ivlwd	.,		///
+	label(resource TSFILTER_GAIN_TX_GAIN2)
+  EDIT ed_gain2			@	_ss	_vnwd	.,		///
+	label(resource TSFILTER_GAIN_TX_GAIN2)
+END
+
+PROGRAM gain_output
+BEGIN
+	put "gain("
+	if ! gain.cb_g_type.isdefault() {
+		put gain.cb_g_type " "
+	}
+	put gain.ed_gain1 " "
+	if ! gain.cb_f_type.isdefault() {
+		put gain.cb_f_type " "
+	}
+	put gain.ed_gain2 ")"
+END
+
+PROGRAM command
+BEGIN
+	put "tsfilter "
+	option radio(main rb_bk rb_bw rb_cf rb_hp)
+	require main.vl_vars
+	if ! main.cb_type.isdefault() {
+		put " " main.cb_type " ("
+		require main.ed_stub_or_var
+		put main.ed_stub_or_var ") ="
+	}
+	else {
+		require main.ed_stub_or_var
+		put main.ed_stub_or_var " ="
+	}
+	varlist [main.vl_vars]
+	put " " /program ifin_output
+	beginoptions
+		call create DOUBLE max
+		call create DOUBLE min
+		call create DOUBLE smooth
+		call main.ed_maxperiod.withvalue max.setvalue @
+		call main.ed_minperiod.withvalue min.setvalue @
+		call main.ed_smooth.withvalue smooth.setvalue @
+		if main.ed_minperiod {
+			if min.islt(2) {
+				call create STRING _MSG_TMP
+	                        call _MSG_TMP.format			/// 
+					"resource TSFILTER_MSGBOX_INVALID_MIN_PERIOD_FMT" ///
+					"resource TSFILTER_MAIN_TX_MINPERIOD"
+				stopbox stop "class _MSG_TMP.value"
+// Invalid minimum period.
+// "Minimum period" must be greater than or equal to 2.
+			}
+			if main.ed_maxperiod &	min.isgt(max) {
+                                call create STRING _MSG_TMP
+                                call _MSG_TMP.format 			///
+					"resource TSFILTER_MSGBOX_INVALID_MIN_PERIOD_LESS_THAN_FMT" ///
+					"resource TSFILTER_MAIN_TX_MINPERIOD"
+                                stopbox stop "class _MSG_TMP.value"
+
+// Invalid minimum period.
+// "Minimum period" must be less than maximum period.
+			}
+		}
+		if main.ed_maxperiod {
+			if max.islt(2) {
+                                call create STRING _MSG_TMP
+                                call _MSG_TMP.format			/// 
+					"resource TSFILTER_MSGBOX_INVALID_MAX_PERIOD_FMT" /// 
+					"resource TSFILTER_MAIN_TX_MAXPERIOD"
+				stopbox stop "class _MSG_TMP.value"
+// Invalid maximum period.
+// "Maximum period" must be greater than or equal to 2.
+			}
+		}
+		if main.ed_smooth & smooth.islt(0) {
+				call create STRING _MSG_TMP
+                                call _MSG_TMP.format					/// 
+					"resource TSFILTER_MSGBOX_INVALID_SMOOTH_PARAMETER_FMT" ///
+					"resource TSFILTER_MAIN_TX_SMOOTH"
+				stopbox stop "class _MSG_TMP.value"
+// Invalid smooth parameter.
+// "Smoothing parameter" must be greater than or equal to 0.
+		}
+
+		optionarg main.ed_minperiod
+		optionarg main.ed_maxperiod
+		optionarg /hidedefault main.sp_maorder
+		optionarg /hidedefault main.sp_smaorder
+		optionarg /hidedefault main.ed_smooth
+
+		put " " /program trend_output
+		if gain.ed_gain1 | gain.ed_gain2 {
+			require gain.ed_gain1
+			require gain.ed_gain2
+			put " " /program gain_output
+		}
+		option main.ck_stationary
+		option main.ck_drift
+	endoptions
+END
+

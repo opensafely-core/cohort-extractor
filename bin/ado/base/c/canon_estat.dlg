@@ -1,0 +1,321 @@
+/*
+	canon_estat
+
+*!  VERSION 1.2.2  01mar2018
+
+	***
+	USE EXTREME CARE WHEN CHANGING CONTROL NAMES. The names used
+	in this file have multiple external dependencies.
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 340
+INCLUDE header
+
+HELP hlp1, view("help canon postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create BOOLEAN has_FactorVars
+	has_FactorVars.setfalse
+	setscale_hadj resource CANON_ESTAT_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program parseMessage
+END
+
+PROGRAM parseMessage
+BEGIN
+	if __MESSAGE.contains("-correlations-") {
+		call main.lb_subcmd.setvalue "correlations"
+	}
+	if __MESSAGE.contains("-loadings-") {
+		call main.lb_subcmd.setvalue "loadings"
+	}
+	if __MESSAGE.contains("-rotate-") {
+		call main.lb_subcmd.setvalue "rotate"
+	}
+	if __MESSAGE.contains("-rotatecompare-") {
+		call main.lb_subcmd.setvalue "rotatecompare"
+	}
+	if __MESSAGE.contains("-summarize-") {
+		call main.lb_subcmd.setvalue "summarize"
+	}
+	if __MESSAGE.contains("-vce-") {
+		call main.lb_subcmd.setvalue "vce"
+	}
+END
+
+
+DIALOG main, label(resource CANON_ESTAT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_subcmd		_lft	_top	400	.,		///
+  	label(resource LBL_REPORTS_STATISTICS_SUBCOMMAND)
+  LISTBOX  lb_subcmd		@	_ss	@	70,		///
+  	contents(main_subcommand_contents)				///
+  	values(main_subcommand_values)					///
+  	onselchangelist(main_subcommand_scripts)
+
+  DEFINE holdy 110
+
+  // Options for correlations and loadings and rotatecompare
+  CHECKBOX ck_format_1		_lft	holdy	_iwd	.,		///
+  	label(resource LBL_OVERRIDE_DISPLAY_FORMAT) 			///
+  	onclickon(script main_format_on)				///
+  	onclickoff(script main_format_off)
+  EDIT     ed_format_1	       +20	_ss	200	.,		///
+  	option(format) label(resource LBL_DISPLAY_FORMAT)
+  BUTTON   bn_format_1	      +205	@       80	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(script showFormatDialog1)				///
+	tooltip(resource LBL_CREATE_DISPLAY_FORMAT)
+
+  // Options for rotate
+  RADIO    rb_rawc            _lft      holdy   _iwd    .,		///
+	label(resource CANON_ESTAT_MAIN_RB_RAWC)			///
+	option(rawcoefs) first
+  RADIO    rb_stdc            @         _ss     _iwd    .,		///
+	label(resource CANON_ESTAT_MAIN_RB_STDC)			///
+	option(stdcoefs)
+  RADIO    rb_load            @         _ss     _iwd    .,		///
+	label(resource CANON_ESTAT_MAIN_RB_LOAD)			///
+	option(loadings) last
+  CHECKBOX ck_format_2        @         _ls     _iwd    .,		///
+	label(resource LBL_OVERRIDE_DISPLAY_FORMAT)			///
+	onclickon(script main_format2_on) onclickoff(script main_format2_off)
+  EDIT     ed_format_2        +20       _ss     200	.,		///
+	option(format) label(resource LBL_DISPLAY_FORMAT)
+  BUTTON   bn_format_2        +205	@       80      .,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(script showFormatDialog2)				///
+	tooltip(resource LBL_CREATE_DISPLAY_FORMAT)
+
+  // Summarize options
+  GROUPBOX gb_eqlist            _lft    holdy	_iwd	_ht6,		///
+  	label(resource LBL_SUMMARIZE)
+  RADIO    rb_default		_ilft	_ss	_inwd	.,		///
+  	first label(resource LBL_ALL_VARIABLES_INVOLVED_ESTIMATION)	///
+  	onclickon(main.vl_spec.disable)
+  RADIO    rb_spec		@	_ss	@	.,		///
+	onclickon(main.vl_spec.enable) last				///
+	label(resource LBL_VARIABLES_OPTIONAL_EQUATION_NAMES)
+  VARLIST  vl_spec	      _indent2	_ss	_inwd	.,		///
+  	numeric								///
+	label(resource LBL_VARIABLES_OPTIONAL_EQUATION_NAMES)
+  CHECKBOX ck_equation      	_lft	+45	_iwd	.,		///
+	option(equation)						///
+	label(resource LBL_DISPLAY_SUMMARY_EQUATION)
+  CHECKBOX ck_labels		@	_ms	@	.,		///
+  	label(resource LBL_DISPLAY_VARIABLE_LABELS)			///
+  	option(labels)
+  CHECKBOX ck_noheader		_lft	_ms	_iwd	.,		///
+	option(noheader)						///
+	label(resource LBL_SUPPRESS_HEADER)
+  CHECKBOX ck_noweights		@	_ms	@	.,		///
+	option(noweights)						///
+	label(resource LBL_IGNORE_WEIGHTS)
+
+  INCLUDE estat_vce
+END
+
+SCRIPT showFormatDialog1
+BEGIN
+	create STRING formatString1
+	create CHILD format_chooser
+	format_chooser.setExitString formatString1
+	format_chooser.setExitAction "main.ed_format_1.setvalue class formatString1.value"
+END
+
+SCRIPT showFormatDialog2
+BEGIN
+	create STRING formatString2
+	create CHILD format_chooser
+	format_chooser.setExitString formatString2
+	format_chooser.setExitAction "main.ed_format_2.setvalue class formatString2.value"
+END
+
+INCLUDE estat_vce_pr
+
+LIST main_subcommand_contents
+BEGIN
+	resource CANON_ESTAT_CORRELATIONS
+	resource CANON_ESTAT_LOADINGS
+	resource CANON_ESTAT_ROTATE
+	resource LBL_COMPARE_ROTATED_UNROTATED_COMPONENTS
+	resource LBL_SUMMARIZE_ESTIMATION_SAMPLE
+	resource LBL_COVARIANCE_MATRIX_ESTIMATES
+END
+
+LIST main_subcommand_values
+BEGIN
+	correlations
+	loadings
+	rotate
+	rotatecompare
+	summarize
+	vce
+END
+
+LIST main_subcommand_scripts
+BEGIN
+	script sel_correlations
+	script sel_loadings
+	script sel_rotate
+	script sel_rotatecompare
+	script sel_summarize
+	script sel_vce
+END
+
+SCRIPT sel_correlations
+BEGIN
+	script main_hide_all
+	main.ck_format_1.show
+	main.ed_format_1.show
+	main.bn_format_1.show
+END
+
+SCRIPT sel_loadings
+BEGIN
+	script main_hide_all
+	main.ck_format_1.show
+	main.ed_format_1.show
+	main.bn_format_1.show
+END
+
+SCRIPT sel_rotate
+BEGIN
+	script main_hide_all
+	main.rb_rawc.show
+	main.rb_stdc.show
+	main.rb_load.show
+	main.ck_format_2.show
+	main.ed_format_2.show
+	main.bn_format_2.show
+END
+
+SCRIPT sel_rotatecompare
+BEGIN
+	script main_hide_all
+	main.ck_format_1.show
+	main.ed_format_1.show
+	main.bn_format_1.show
+END
+
+SCRIPT sel_summarize
+BEGIN
+	script main_hide_all
+	script main_summ_on
+END
+
+SCRIPT sel_vce
+BEGIN
+	script main_hide_all
+	program vce_on
+END
+
+SCRIPT main_summ_on
+BEGIN
+	main.ck_equation.show
+	main.ck_labels.show
+	main.ck_noheader.show
+	main.ck_noweights.show
+	main.gb_eqlist.show
+	main.rb_default.show
+	main.rb_spec.show
+	main.vl_spec.show
+END
+
+SCRIPT main_summ_off
+BEGIN
+	main.ck_equation.hide
+	main.ck_labels.hide
+	main.ck_noheader.hide
+	main.ck_noweights.hide
+	main.gb_eqlist.hide
+	main.rb_default.hide
+	main.rb_spec.hide
+	main.vl_spec.hide
+END
+
+SCRIPT main_hide_all
+BEGIN
+	program vce_off
+	script main_summ_off
+	main.ck_format_1.hide
+	main.ed_format_1.hide
+	main.bn_format_1.hide
+	main.rb_rawc.hide
+	main.rb_stdc.hide
+	main.rb_load.hide
+	main.ck_format_2.hide
+	main.ed_format_2.hide
+	main.bn_format_2.hide
+END
+
+SCRIPT main_format_on
+BEGIN
+	main.ed_format_1.enable
+	main.bn_format_1.enable
+END
+SCRIPT main_format_off
+BEGIN
+	main.ed_format_1.disable
+	main.bn_format_1.disable
+END
+
+SCRIPT main_format2_on
+BEGIN
+	main.ed_format_2.enable
+	main.bn_format_2.enable
+END
+SCRIPT main_format2_off
+BEGIN
+	main.ed_format_2.disable
+	main.bn_format_2.disable
+END
+
+PROGRAM vl_output
+BEGIN
+	put main.vl_spec
+END
+
+PROGRAM vl_eq_output
+BEGIN
+	put main.vl_eq
+END
+
+PROGRAM command
+BEGIN
+	put "estat "
+	put main.lb_subcmd
+
+	if main.rb_spec {
+		require main.vl_spec
+		put " " main.vl_spec
+	}
+
+	beginoptions
+		// rotate options
+		option radio(main rb_rawc rb_stdc rb_load)
+		if main.ck_format_2 {
+			require main.ed_format_2
+			optionarg main.ed_format_2
+		}
+		// correlations and loadings options
+		if main.ck_format_1 {
+			require main.ed_format_1
+			optionarg main.ed_format_1
+		}
+		// Summarize options
+		option main.ck_equation
+		option main.ck_labels
+		option main.ck_noheader
+		option main.ck_noweights
+		put " " /program vce_output
+	endoptions
+END

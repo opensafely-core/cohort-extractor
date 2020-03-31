@@ -1,0 +1,193 @@
+/*
+    lowess.dlg
+
+*!  VERSION 2.1.0  22oct2014
+
+*/
+
+VERSION 14
+
+INCLUDE _std_wide  // _std_wide is minimum size due to number of tabs (MAC)
+DEFINE _dlght 320
+INCLUDE header
+
+HELP hlp1, view("help lowess")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        script  p1_opts_createAsNoRange
+        script p1_opts_setDefaultScatter
+	setscale_hadj resource LOWESS_DLG_HSCALE
+END
+
+DIALOG main, label(resource LOWESS_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_dv	_lft	_top	_vnwd	.,		///
+	label(resource LBL_DEPVAR)
+  VARNAME  vn_dv	@	_ss	@	.,		///
+  	numeric							///
+	label(resource LBL_DEPVAR)
+
+  TEXT     tx_iv	_lft4_2	_top	_vnwd	.,		///
+	label(resource LBL_INDDEPVAR)
+  VARNAME  vn_iv	@	_ss	@	.,		///
+  	numeric							///
+	label(resource LBL_INDDEPVAR)
+
+  GROUPBOX gb_meth	_lft	+35	_cwd1	_ht4,		///
+	label(resource LOWESS_MAIN_GB_METH)
+DEFINE y @y
+  CHECKBOX ck_mean	_indent	_ss	_cwd3	.,		///
+	label(resource LBL_RUNNING_MEAN_SMOOTH)			///
+	option(mean)
+
+  CHECKBOX ck_weight 	@	_ss	@	.,		///
+	label(resource LBL_SUPPRESS_WEIGHTED_REGRESSIONS)	///
+	option(noweight)
+
+  CHECKBOX ck_bwidth 	_lft2	y	_cwd1	_ht4,		///
+	groupbox						///
+	label(resource LOWESS_MAIN_CK_BWIDTH)			///
+	onclickon(script bwidth_on)				///
+	onclickoff(script bwidth_off)
+
+  EDIT     en_bwidth	_indent	_ls	_en7wd	.,		///
+	label(resource LBL_BANDWIDTH)				///
+	default(literal 0.8)					///
+	numonly							///
+	option(bwidth)
+  TEXT     tx_bwidth	_en7sep	@	_en7r2b	.,		///
+	label(resource LBL_BANDWIDTH)
+
+  CHECKBOX ck_logit	_lft	+55	_iwd	.,		///
+	label(resource LOWESS_MAIN_CK_LOGIT)			///
+	option(logit)
+
+  CHECKBOX ck_adjust	@	_ms	@	.,		///
+	option(adjust)						///
+	label(resource LOWESS_MAIN_CK_ADJUST)
+
+  CHECKBOX ck_nogr	@	_ms	@	.,		///
+	label(resource LBL_SUPPRESS_GRAPH)			///
+	option(nograph)						///
+	onclickon(script graph_off)				///
+	onclickoff(script graph_on)
+
+  CHECKBOX ck_gen	_lft	_ls	_iwd	_ht5,		///
+	groupbox						///
+	onclickon(script gen_on)				///
+	onclickoff(script gen_off)				///
+	label(resource LOWESS_MAIN_CK_GEN)
+
+  TEXT     tx_gen	_indent	_ms	_vnwd	.,		///
+	label(resource LBL_NEW_VARIABLE_NAME)
+  EDIT     ed_gen	@	_ss	_vnwd	.,		///
+	label(resource LBL_VARIABLE_NAME)			///
+	error(resource LOWESS_MAIN_ED_GEN)			///
+	option(generate)
+END
+
+INCLUDE ifin
+INCLUDE gr_plots
+INCLUDE gr_line_options
+INCLUDE gr_addplots
+INCLUDE gr_yaxis
+INCLUDE gr_xaxis
+INCLUDE gr_titles
+INCLUDE gr_legend
+INCLUDE gr_overall
+INCLUDE gr_by
+
+
+SCRIPT POSTINIT
+BEGIN
+	script gr_by_setMissingOff
+	script gr_by_setTotalOff
+	gr_line_options.settabtitle resource LBL_SMOOTHED_LINE
+	gr_line_options_optionName.setstring "lineopts"
+END
+
+
+SCRIPT graph_on
+BEGIN
+	script gr_plots_enable
+	script gr_line_options_enable
+	script gr_addplots_enable
+	script gr_titles_enable
+	script gr_yaxis_enable
+	script gr_xaxis_enable
+	script gr_legend_enable
+	script gr_overall_enable
+	script gr_by_enable
+END
+
+SCRIPT graph_off
+BEGIN
+	script gr_plots_disable
+	script gr_line_options_disable
+	script gr_addplots_disable
+	script gr_titles_disable
+	script gr_yaxis_disable
+	script gr_xaxis_disable
+	script gr_legend_disable
+	script gr_overall_disable
+	script gr_by_disable
+END
+
+SCRIPT gen_on
+BEGIN
+	main.ed_gen.enable
+	main.tx_gen.enable
+END
+
+SCRIPT gen_off
+BEGIN
+	main.ed_gen.disable
+	main.tx_gen.disable
+END
+
+SCRIPT bwidth_on
+BEGIN
+	main.en_bwidth.enable
+	main.tx_bwidth.enable
+END
+
+SCRIPT bwidth_off
+BEGIN
+	main.en_bwidth.disable
+	main.tx_bwidth.disable
+END
+
+PROGRAM command
+BEGIN
+	put "lowess "
+	varlist main.vn_dv main.vn_iv
+	put " " /program ifin_output
+	beginoptions
+		option main.ck_mean
+		option main.ck_weight
+		if main.ck_bwidth {
+			optionarg main.en_bwidth
+		}
+		option main.ck_logit
+		option main.ck_adjust
+		option main.ck_nogr
+		if main.ck_gen {
+			require main.ed_gen
+			put "generate("
+			put main.ed_gen
+			put ")"
+		}
+
+		put " " /program gr_plots_output
+		put " " /program gr_line_options_output
+		put " " /program gr_addplots_output
+		put " " /program gr_yaxis_output
+		put " " /program gr_xaxis_output
+		put " " /program gr_titles_output
+		put " " /program gr_legend_output
+		put " " /program gr_overall_output
+		put " " /program gr_by_output
+	endoptions
+END

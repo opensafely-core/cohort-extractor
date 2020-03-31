@@ -1,0 +1,153 @@
+/*
+	predict (after truncreg)
+
+*!  VERSION 1.4.0  16dec2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium  // ** set POSTINIT to match
+INCLUDE _ht260
+INCLUDE header
+
+HELP hlp1, view("help truncreg postestimation")
+RESET res1
+
+DEFINE awid   45
+DEFINE asep  +50
+DEFINE bwid   40
+DEFINE bsep  +45
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource TRUNCR_P_DLG_HSCALE
+	create STRING prefix_name
+	prefix_name.setstring e(prefix)
+END
+
+DIALOG main, label(resource PREDICT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  INCLUDE  _p_gentype
+
+  GROUPBOX gb_opts       _lft     _ls     _iwd    _ht13h,	/*
+		*/ label(resource LBL_PRODUCE)
+  RADIO    rb_xb      _indent      _ss    _inwd        ., first /*
+		*/ option(xb)					/*
+		*/ clickon("script all_off")			/*
+		*/ label(resource LBL_LINEAR_PREDICTION)
+  RADIO    rb_stdp          @      _ss        @        .,	/*
+		*/ option(stdp)					/*
+		*/ clickon("script all_off")			/*
+		*/ label(resource LBL_STANDARD_ERROR_PREDICTION)
+  RADIO    rb_stdf          @      _ss        @        .,	/*
+		*/ option(stdf)					/*
+		*/ clickon("script all_off")			/*
+		*/ label(resource LBL_STANDARD_ERROR_FORECAST)
+  DEFINE   holdx @x
+
+  RADIO    rb_pr            @      _ms     awid        .,	/*
+		*/ option(NONE)   /* handled another way */	/*
+		*/ clickon("script pr_on")			/*
+		*/ label(resource LBL_PR_Y)
+  EDIT     en_pr_a       asep        @   _en7wd        .,	/*
+		*/ numonly					/*
+		*/ label(resource LBL_PR_LOWER_LIMIT)
+  TEXT     tx_pr      _en7sep        @     bwid        .,	/*
+		*/ center label(resource LBL_LESSTHAN_Y_LESSTHAN)
+  EDIT     en_pr_b       bsep        @   _en7wd        .,	/*
+		*/ numonly					/*
+		*/ label(resource LBL_PR_UPPER_LIMIT)
+  TEXT     tx_pr2     _en7sep        @     bwid        ., 	/*
+		*/label(resource LBL_RIGHT_PARENTHESES)
+
+  RADIO    rb_e         holdx      _ms     awid        .,	/*
+		*/ option(NONE)   /* handled another way */	/*
+		*/ clickon("script e_on")			/*
+		*/ label(resource LBL_E_Y)
+  EDIT     en_e_a        asep        @   _en7wd        .,	/*
+		*/ numonly					/*
+		*/ label(resource LBL_E_LOWER_LIMIT)
+  TEXT     tx_e       _en7sep        @     bwid        .,	/*
+		*/ center label(resource LBL_LESSTHAN_Y_LESSTHAN)
+  EDIT     en_e_b        bsep        @   _en7wd        .,	/*
+		*/ numonly					/*
+		*/ label(resource LBL_E_UPPER_LIMIT)
+  TEXT     tx_e2      _en7sep        @     bwid        .,	/*
+		*/label(resource LBL_RIGHT_PARENTHESES)
+  RADIO    rb_score     _ilft      _ms    _ibwd        ., last	/*
+		*/ option(scores)				/*
+		*/ onclickon(script _p_gentype_multiple)	/*
+		*/ label(resource LBL_EQUATION_LEVEL_SCORES)
+  INCLUDE _svy_predict_note
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script _p_gentype_setMedium
+	main.tx_temp.hide
+	main.tx_svy_note.hide
+	program svy_check
+END
+
+PROGRAM svy_check
+BEGIN
+	if prefix_name.equals("svy") {
+		call main.tx_svy_note.show
+		call main.rb_stdf.disable
+	}
+END
+
+INCLUDE _p_gentype_sc
+INCLUDE ifin
+
+SCRIPT all_off
+BEGIN
+  script pr_off
+  script e_off
+  script _p_gentype_single
+END
+
+SCRIPT pr_on
+BEGIN
+  script e_off
+  main.en_pr_a.enable
+  main.en_pr_b.enable
+  script _p_gentype_single
+END
+
+SCRIPT pr_off
+BEGIN
+  main.en_pr_a.disable
+  main.en_pr_b.disable
+  script _p_gentype_single
+END
+
+SCRIPT e_on
+BEGIN
+  script pr_off
+  main.en_e_a.enable
+  main.en_e_b.enable
+  script _p_gentype_single
+END
+
+SCRIPT e_off
+BEGIN
+  main.en_e_a.disable
+  main.en_e_b.disable
+  script _p_gentype_single
+END
+
+INCLUDE _type_list_fd
+
+PROGRAM command
+BEGIN
+	put "predict "
+	put " " /program _p_gentype_output
+	INCLUDE _ifin_pr
+	beginoptions
+		option radio(main rb_xb rb_stdp rb_stdf rb_pr rb_e rb_score)
+	endoptions
+	INCLUDE _pr_pr
+	INCLUDE _e_pr
+END

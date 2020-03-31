@@ -1,0 +1,175 @@
+/*
+	rocreg estat
+
+*!  VERSION 1.1.2  03jun2015
+
+	***
+	USE EXTREME CARE WHEN CHANGING CONTROL NAMES. The names used
+	in this file have multiple external dependencies.
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_mlarge
+DEFINE _dlght 280
+INCLUDE header
+
+HELP hlp1, view("help rocreg postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create BOOLEAN has_FactorVars
+	has_FactorVars.setfalse
+	setscale_hadj resource ROCREG_ESTAT_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program parseMessage
+END
+
+PROGRAM parseMessage
+BEGIN
+	if __MESSAGE.contains("-nproc-") {
+		call main.lb_subcmd.setvalue "nproc"
+	}
+END
+
+
+DIALOG main, label(resource ROCREG_ESTAT_DLG_TITLE)			///
+	tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_subcmd		_lft	_top	_iwd	.,		///
+  	label(resource LBL_REPORTS_STATISTICS_SUBCOMMAND)
+  LISTBOX  lb_subcmd		@	_ss	_iwd	70,		///
+  	contents(main_subcommand_contents)				///
+  	values(main_subcommand_values)					///
+  	onselchangelist(main_subcommand_scripts)
+
+  DEFINE holdy 110
+
+  // nproc options
+  CHECKBOX ck_auc		_lft	holdy	_iwd	.,		///
+	option("auc")							///
+	label(resource ROCREG_ESTAT_MAIN_CK_AUC)
+  CHECKBOX ck_roc		@	_ms	@	.,		///
+	onclickon("main.ed_roc.enable")					///
+	onclickoff("main.ed_roc.disable")				///
+	label(resource LBL_ESTIMATE_ROC_FOR_GIVEN_FALSE_POSITIVE_RATES)
+  EDIT ed_roc			+20	_ss	_vnwd	.,		///
+	option(roc)							///
+	label(resource LBL_ESTIMATE_ROC_FOR_GIVEN_FALSE_POSITIVE_RATES)
+  CHECKBOX ck_invroc		_lft	_ms	_iwd	.,		///
+	onclickon("main.ed_invroc.enable")				///
+	onclickoff("main.ed_invroc.disable")				///
+	label(resource ROCREG_ESTAT_MAIN_CK_INVROC)
+  EDIT ed_invroc		+20	_ss	_vnwd	.,		///
+	option(invroc)							///
+	label(resource ROCREG_ESTAT_MAIN_CK_INVROC)
+  CHECKBOX ck_pauc		_lft	_ms	_iwd	.,		///
+	onclickon("main.ed_pauc.enable")				///
+	onclickoff("main.ed_pauc.disable")				///
+	label(resource ROCREG_ESTAT_MAIN_CK_PAUC)
+  EDIT ed_pauc			+20	_ss	_vnwd	.,		///
+	option(pauc)							///
+	label(resource ROCREG_ESTAT_MAIN_CK_PAUC)
+END
+
+LIST main_subcommand_contents
+BEGIN
+	resource ROCREG_ESTAT_POSTEST_FOR_NONPARA_ROC_CURVE_EST_NPROC
+END
+
+LIST main_subcommand_values
+BEGIN
+	nproc
+END
+
+LIST main_subcommand_scripts
+BEGIN
+	script sel_nproc
+END
+
+SCRIPT sel_nproc
+BEGIN
+	script main_hide_all
+	script nproc_on
+END
+
+SCRIPT main_hide_all
+BEGIN
+	main.ck_auc.hide
+	main.ck_roc.hide
+	main.ed_roc.hide
+	main.ck_invroc.hide
+	main.ed_invroc.hide
+	main.ck_pauc.hide
+	main.ed_pauc.hide
+END
+	
+SCRIPT nproc_on
+BEGIN
+	main.ck_auc.show
+	main.ck_roc.show
+	main.ed_roc.show
+	main.ck_invroc.show
+	main.ed_invroc.show
+	main.ck_pauc.show
+	main.ed_pauc.show
+END
+
+PROGRAM command
+BEGIN
+	put "estat "
+	put main.lb_subcmd
+	beginoptions
+		// nproc options
+		if (!main.ck_auc & !main.ck_roc &	///
+			!main.ck_invroc & !main.ck_pauc) {
+			stopbox stop resource ROCREG_ESTAT_MSGBOX_AT_LEAST_ONE_OPTION_REQUIRED
+// You must specify at least one option.
+		}
+		option main.ck_auc
+
+		if main.ck_roc {
+			require main.ed_roc
+			if !main.ed_roc.isnumlist() {
+				call create STRING _MSG_TMP
+	                        call _MSG_TMP.format 			///
+					"resource LBL_MSGBOX_INVALID_NUMLIST_SPECIFIED_FOR_FMT" ///
+					"resource LBL_ESTIMATE_ROC_FOR_GIVEN_FALSE_POSITIVE_RATES" 
+				stopbox stop "class _MSG_TMP.value"
+// An invalid numlist is specified for "Estimate ROC for given false-positive rates".
+			}
+			optionarg main.ed_roc
+		}
+
+		if main.ck_invroc {
+			require main.ed_invroc
+			if !main.ed_invroc.isnumlist() {
+                                call create STRING _MSG_TMP
+                                call _MSG_TMP.format 			///
+					"resource LBL_MSGBOX_INVALID_NUMLIST_SPECIFIED_FOR_FMT" ///
+                                "resource ROCREG_ESTAT_MAIN_CK_INVROC"
+                                stopbox stop "class _MSG_TMP.value"
+// An invalid numlist is specified for "Estimate false-positive rate for given ROC values".
+			}
+			optionarg main.ed_invroc
+		}
+
+		if main.ck_pauc {
+			require main.ed_pauc
+			if !main.ed_pauc.isnumlist() {
+                                call create STRING _MSG_TMP
+                                call _MSG_TMP.format 			///
+					"resource LBL_MSGBOX_INVALID_NUMLIST_SPECIFIED_FOR_FMT" ///
+					"resource ROCREG_ESTAT_MAIN_CK_PAUC"
+                                stopbox stop "class _MSG_TMP.value"
+// An invalid numlist is specified for "Estimate partial area under the ROC curve for given false-positive rates".
+			}
+			optionarg main.ed_pauc
+		}
+	endoptions
+END

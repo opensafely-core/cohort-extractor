@@ -1,0 +1,170 @@
+/*
+    gr_lfit_options.dlg
+    
+*!  VERSION 1.1.3  31oct2019 
+
+*/
+
+VERSION 14
+
+INCLUDE _std_large
+INCLUDE header_gr_child
+
+DEFINE _clwd 15
+
+HELP hlp1, view("help twoway_lfit")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING lineResults
+	setscale_hadj resource GR_LFIT_OPTIONS_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program checkLineResults
+END
+
+DIALOG main, label(resource LBL_LINEAR_PREDICTION_OPTIONS) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  CHECKBOX ck_range		_lft	_top	_iwd	_ht4,	///
+	groupbox						///
+	onclickon(script range_on) onclickoff(script range_off)	///
+	label(resource LBL_OVERRIDE_RANGE_X_WHICH_PREDICTIONS_ARE_CAL)
+  TEXT     tx_min		_ilft	_ss	120	.,	///
+	label(resource LBL_TX_MINIMUM_VALUE)
+  DEFINE y @y
+  EDIT     ed_min		@	_ss	85	.,	///
+	numonly label(resource LBL_TX_MINIMUM_VALUE)
+  TEXT     tx_max		140	y	120	.,	///
+	label(resource LBL_TX_MAXIMUM_VALUE)
+  EDIT     ed_max		@	_ss	85	.,	///
+	numonly label(resource LBL_TX_MAXIMUM_VALUE)
+
+  CHECKBOX ck_points		_lft	+45	_iwd	_ht5,	///
+	groupbox						///
+	onclickon(program points_on)				///
+	onclickoff(script points_off)				///
+	label(resource GR_LFIT_OPTIONS_MAIN_CK_POINTS)
+  RADIO    rb_n			_ilft	_ms	15	.,	///
+	first							///
+	onclickon(program check_rb_n)
+  SPINNER  sp_n			+20	@	_spwd	.,	///
+	min(1) max(100000) default(3) option(n)
+  TEXT     tx_n			_spsep	@	200	.,	///
+	label(resource LBL_PREDICTION_POINTS)
+  RADIO    rb_atobs		_ilft	_ms	_cwd1	.,	///
+	last label(resource LBL_PREDICT_AT_X_VALUES) option(atobs) ///
+	onclickon(main.sp_n.disable)
+	
+  BUTTON   bu_line_opts		_lft	+45	120	.,	///
+	label(resource LBL_GB_LINE_PROPERTIES)			///
+	onpush(script line_options_show)			///
+	tooltip(resource LBL_LINE_PROP_LINEAR_PREDICTION_PLOT)
+END
+
+PROGRAM check_rb_n
+BEGIN
+	if main.rb_n.isenabled() {
+		call main.sp_n.enable
+	}
+END
+
+SCRIPT range_on
+BEGIN
+	main.ed_min.enable
+	main.tx_min.enable
+	main.ed_max.enable
+	main.tx_max.enable
+END
+SCRIPT range_off
+BEGIN
+	main.ed_min.disable
+	main.tx_min.disable
+	main.ed_max.disable
+	main.tx_max.disable
+END
+
+PROGRAM points_on
+BEGIN
+	call main.rb_n.enable
+	if main.rb_n {
+		call main.sp_n.enable
+	}
+	call main.tx_n.enable
+	call main.rb_atobs.enable
+END
+SCRIPT points_off
+BEGIN
+	main.rb_n.disable
+	main.sp_n.disable
+	main.tx_n.disable
+	main.rb_atobs.disable
+END
+
+SCRIPT line_options_show
+BEGIN
+	create CHILD gr_line_options AS lineOptions, allowsubmit
+	lineOptions.setExitString lineResults
+	lineOptions.settitle resource LBL_LINE_PROP_LINEAR_PREDICTION_PLOT
+	lineOptions.setExitAction "program checkLineResults"
+	lineOptions.setSubmitAction "script lineSubmit"
+END
+PROGRAM checkLineResults
+BEGIN
+	if lineResults.iseq("") {
+		call main.bu_line_opts.modified_off
+	}
+	if lineResults.isneq("") {
+		call main.bu_line_opts.modified_on
+	}
+END
+SCRIPT lineSubmit
+BEGIN
+	program checkLineResults
+	Submit
+END
+
+DIALOG adv, tabtitle(resource LBL_ADVANCED)
+BEGIN
+  TEXT     tx_regress		_lft	_top	_vlwd	.,	///
+	label(resource LBL_REGRESS_OPTIONS)
+  EDIT	   ed_regress		@	_ss	@	.,	///
+	option(estopts)
+  BUTTON   bu_regress		_vlsep	@	_clwd	.,	///
+	label(resource LBL_?) tooltip(resource LBL_HELP_REGRESS) ///
+	onpush(view help regress##|_new)
+	
+  TEXT     tx_predict		_lft	_ls	_vlwd	.,	///
+	label(resource LBL_PREDICT_OPTIONS)
+  EDIT	   ed_predict		@	_ss	@	.,	///
+	option(predopts)	
+  BUTTON   bu_predict		_vlsep	@	_clwd	.,	///
+	label(resource LBL_?) tooltip(resource LBL_HELP_PREDICT_AFTER_REGRESS)	///
+	onpush(view help regress postestimation##predict|_new)
+END
+
+PROGRAM range_output
+BEGIN
+	put main.ed_min
+	put " " main.ed_max
+END
+
+PROGRAM command
+BEGIN
+	if main.ck_range {
+		require main.ed_min
+		require main.ed_max
+		put " range("
+		put /program range_output
+		put ") "
+	}
+	optionarg main.sp_n
+	option main.rb_atobs
+	
+	put " " lineResults " "
+	
+	optionarg adv.ed_regress
+	optionarg adv.ed_predict
+END

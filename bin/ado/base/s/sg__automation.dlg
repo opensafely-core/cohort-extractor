@@ -1,0 +1,185 @@
+/*
+  sg__automation.dlg
+
+*!  VERSION 1.1.2  03jun2015
+
+*/
+
+VERSION 14.0
+MODAL
+
+INCLUDE _std_medium
+DEFINE _dlght 220
+POSITION . . _dlgwd _dlght
+OK ok1, label(resource LBL_BU_OK) target(stata hidden)
+CANCEL can1, label(resource LBL_BU_CANCEL)
+
+INCLUDE sg__common_output 		/* routines necessary for output */
+
+SCRIPT PREINIT
+BEGIN
+	script sg__common_output_init 	/* initialize output globals */
+
+	create STRING OBJ
+	program setupOBJECT
+
+	create DOUBLE index
+END
+
+PROGRAM setupOBJECT
+BEGIN
+	if ! __MESSAGE {
+		stopbox stop resource LBL_MSGBOX_OBJECT_NOT_FOUND
+// An unexpected error has occurred. Object not found.
+		exit 198
+	}
+	call OBJ.setvalue class __MESSAGE.value
+END
+
+SCRIPT main_PREINIT
+BEGIN
+	create STRING attachmeth
+	create STRING createedges
+	create STRING ssdsave
+
+	program main_get_defaults
+	setscale_hadj resource SG__AUTOMATION_DLG_HSCALE
+END
+
+SCRIPT main_POSTINIT
+BEGIN
+	program main_initialize_controls
+END
+
+PROGRAM main_get_defaults
+BEGIN
+	call attachmeth.setvalue class .__SEMG.dbsettings.attachmeth
+	if (attachmeth.iseq("2")) {
+		call main.rb_pos.setdefault 0
+		call main.rb_point.setdefault 1
+	}
+	else {
+		call main.rb_pos.setdefault 1
+		call main.rb_point.setdefault 0
+	}
+
+	call createedges.setvalue class .__SEMG.dbsettings.createedges
+	if (createedges.iseq("yes")) {
+		call main.ck_add_cov.setdefault 1
+	}
+	else {
+		call main.ck_add_cov.setdefault 0
+	}
+
+	call ssdsave.setvalue class .__SEMG.dbsettings.ssdsave
+	if (ssdsave.iseq("yes")) {
+		call main.ck_ssdsave.setdefault 1
+	}
+	else {
+		call main.ck_ssdsave.setdefault 0
+	}
+END
+
+PROGRAM main_initialize_controls
+BEGIN
+	if (attachmeth.iseq("2")) {
+		call main.rb_point.seton
+	}
+	else {
+		call main.rb_pos.seton
+	}
+
+	if (createedges.iseq("yes")) {
+		call main.ck_add_cov.seton
+	}
+	else {
+		call main.ck_add_cov.setoff
+	}
+
+	if (ssdsave.iseq("yes")) {
+		call main.ck_ssdsave.seton
+	}
+	else {
+		call main.ck_ssdsave.setoff
+	}
+END
+
+DIALOG main, label(resource SG__AUTOMATION_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  GROUPBOX gb_conn		_lft	_top	_iwd	_ht4,		///
+	label(resource SG__AUTOMATION_MAIN_GB_CONN)
+  RADIO    rb_pos		_ilft	_ss	_ibwd	., first	///
+	label(resource SG__AUTOMATION_MAIN_RB_POS)
+  RADIO    rb_point		@	_ss	@	., last		///
+	label(resource SG__AUTOMATION_MAIN_RB_POINT)
+
+  GROUPBOX gb_estimation	_lft	+40	_iwd	_ht2,		///
+	label(resource SG__AUTOMATION_MAIN_GB_ESTIMATION)
+  CHECKBOX ck_add_cov		_ilft	_ss	_ibwd	.,		///
+	label(resource SG__AUTOMATION_MAIN_CK_ADD_COV)
+
+  GROUPBOX gb_msave		_lft	+40	_iwd	_ht2,		///
+	label(resource SG__AUTOMATION_MAIN_GB_MSAVE)
+  CHECKBOX ck_ssdsave		_ilft	_ss	_ibwd	.,		///
+	label(resource SG__AUTOMATION_MAIN_CK_SSDSAVE)
+END
+
+PROGRAM main_output
+BEGIN
+	call program main_get_defaults
+
+	if !main.rb_pos.isdefault() | !main.rb_point.isdefault() {	
+		call sg__PARAM2.setvalue "SetStyle"
+		call sg__ARG_00.setvalue "auto.attachmeth"
+		if main.rb_point {
+			call sg__ARG_01.setvalue "2"
+		}
+		else {
+			call sg__ARG_01.setvalue "1"
+		}
+		put /program sg__do_output_sub
+	}
+
+	if !main.ck_add_cov.isdefault() {	
+		call sg__PARAM2.setvalue "SetStyle"
+		call sg__ARG_00.setvalue "auto.createedges"
+		if main.ck_add_cov {
+			call sg__ARG_01.setvalue "yes"
+		}
+		else {
+			call sg__ARG_01.setvalue "no"
+		}
+		put /program sg__do_output_sub
+	}
+
+	if !main.ck_ssdsave.isdefault() {	
+		call sg__PARAM2.setvalue "SetStyle"
+		call sg__ARG_00.setvalue "auto.ssdsave"
+		if main.ck_ssdsave {
+			call sg__ARG_01.setvalue "yes"
+		}
+		else {
+			call sg__ARG_01.setvalue "no"
+		}
+		put /program sg__do_output_sub
+	}
+END
+
+/*****************************************************************************/
+
+PROGRAM command
+BEGIN
+	call sg__PARAM1.setvalue class OBJ.value
+	
+	/* Signal to mata that this dialog interaction is done
+	 * and to start processing this signal. From the dialog
+	 * point of view this is BeginSet. */
+	call sg__PARAM2.setvalue "AutomationDlgDone" 
+	put /program sg__do_output_sub
+	
+	put /program main_output
+
+	call sg__PARAM2.setvalue "EndSet"
+	call sg__DESCPT.setvalue "change automation settings"
+	put /program sg__do_output_sub
+END

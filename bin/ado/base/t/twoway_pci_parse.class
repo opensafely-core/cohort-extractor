@@ -1,0 +1,118 @@
+//                                 twoway_pci_parse
+//
+//   A parser for adding immediate paired coordinate plots, particularly
+//   pcarrows.  Works with twoway.ado.
+
+*! version 1.0.0  30dec2004
+
+version 8
+
+class {
+	ptlist = ""
+} , inherit(twoway_yxyxview_parse)
+
+
+// ---------------------------------------------------------------------------
+
+program parse
+	.must_create_serset = 1
+
+	if ("`.viewtype'" == "pci") .viewtype = "pcspike"
+
+	.allow_anything = 1				// side signals
+	.varcheck = 0
+	.n = 1						// number of plots
+
+	.Super.parse `0'
+
+	if `"`.wtype'"' != "" {
+		di as error "weights not allowed"
+		exit 198
+	}
+
+
+							// process points
+	local pts `"`.anything'"'
+	gettoken y0 pts : pts
+	gettoken x0 pts : pts
+	gettoken y1 pts : pts
+	gettoken x1 pts : pts
+
+	while `"`x1'"' != `""' {
+								// x-y point
+		capture numlist "`x0' `y0' `x1' `y1'" , max(4) min(4) missingok
+		if _rc {
+			di as error `"invalid point, `x' `y'"'
+			exit 198
+		}
+							// optional position
+		gettoken pos pts : pts , match(pfnd) quotes
+		if "`pfnd'" != "" {
+			capture numlist "`pos'" , max(1) min(1) range(>=0 <=12)
+			if _rc {
+				di as error `"invalid position, `pos'"'
+				exit 198
+			}
+			gettoken txtq pts : pts , quotes
+			.posnm = "position"
+		}
+		else {
+			local txtq `"`pos'"'
+			local pos .
+		}
+
+		gettoken txt : txtq			// optional text label
+		if `"`txt'"' == `"`txtq'"' {
+			local ynxt `txt'
+			local txt
+		}
+		else {
+			.labvars[1] = "label"
+			gettoken ynxt pts : pts
+		}
+
+	     local ptlist `"`ptlist' `"`y0' `x0' `y1' `x1' "`pos'" `"`txt'"'"'"'
+
+		local    y0 `"`ynxt'"'
+		gettoken x0 pts : pts
+		gettoken y1 pts : pts
+		gettoken x1 pts : pts
+	}
+
+	.ptlist = `"`ptlist'"'
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*
+	Creates a new serset and the view and returns its reference.
+	Assumes that the data in memory is the same as when parse was called.
+
+	Allows a touse(varname) option that further restricts the sample, 
+	restricts beyond the held .if and .in
+
+	Additional options to the .serset.new command may be specified, but
+	this is unlikely to be necessary.
+
+	If must_create_serset == 1, then this command MUST be used, 
+	otherwise the serset may be created by other means.
+*/ 
+
+program log_create_serset
+
+	syntax , LOG(name) SERSETNAME(string) [ TOUSE(passthru) * ]
+
+	.varlist = "y x yb xb `.posnm' `.labvars[1]'"
+
+	.`log'.Arrpush __NOLOG__ twoway__pci_serset `.ptlist' ,		///
+		xnm(x) ynm(y) xbnm(xb) ybnm(yb)				///
+		pos(`.posnm') lbl(`.labvars[1]') sersetname(`sersetname')
+
+	.`log'.Arrpush LogMapping .`sersetname'	// make _fr_runlog place 
+						// mapping statement into 
+						// permanent log.
+
+	.wtype = ""			// so .Super.log_create_view will
+	.wtexp = ""			// not try to add weight to serset
+end
+

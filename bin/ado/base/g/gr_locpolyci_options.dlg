@@ -1,0 +1,507 @@
+/*
+    gr_locpolyci_options.dlg
+    
+*!  VERSION 1.1.5  12nov2019
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_mlarge
+DEFINE _dlght 250
+INCLUDE header_gr_child
+
+DEFINE _clwd 15
+
+HELP hlp1, view("help twoway_lpolyci")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING lineResults
+	setscale_hadj resource GR_LOCPOLYCI_OPTIONS_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program checkLineResults
+END
+
+INCLUDE _kernel_function_list
+
+DIALOG main, label(resource LBL_LOCAL_POLYNOMIAL_PLOT_OPTIONS) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_function		_lft	_top	200	.,	///
+	label(resource LBL_KERNEL_FUNCTION)
+  COMBOBOX cb_function		@	_ss	_vnwd	.,	///
+	dropdownlist						///
+	contents(kernel_function)				///
+	values(kernel_function_val)
+	
+  SPINNER  sp_degree		@	+35	_spwd	.,	///
+	default(0) min(0) max(10000000)				///
+	option(degree)
+  TEXT     tx_degree		_spsep	@	380	.,	///
+	label(resource LBL_DEGREE_POLY_USED_SMOOTHING_DEFAULT_0)
+	
+  CHECKBOX ck_points		_lft	+35	_iwd	.,	///
+	onclickon(script points_on)				///
+	onclickoff(script points_off)	  			///
+	label(resource LBL_OVERRIDE_NUMBER_POINTS_WHICH_SMOOTH_EVAL)
+  SPINNER  sp_points		+20	_ss	_en7wd	.,	///
+	default(50) min(1) max(10000000) option(n)
+  TEXT     tx_points		_en7sep	@	200	.,	///
+	label(resource LBL_NUMBER_OF_POINTS)
+END
+
+SCRIPT points_on
+BEGIN
+	main.sp_points.enable
+	main.tx_points.enable
+END
+
+SCRIPT points_off
+BEGIN
+	main.sp_points.disable
+	main.tx_points.disable
+END
+
+DIALOG se_ci, tabtitle(resource LBL_SE_CI)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _y _top
+  DEFINE _cx 200
+  INCLUDE _sp_level
+
+  CHECKBOX ck_bwidth		_lft	_ls	_iwd	.,	///
+	onclickon(script bwidth_on)				///
+	onclickoff(script bwidth_off)				///
+	label(resource GR_LOCPOLYCI_OPTIONS_SE_CI_CK_BWIDTH)
+  EDIT     ed_bwidth		+20	_ss	_en7wd	.,	///
+  	option(bwidth) label(resource LBL_HALFWIDTH_OF_THE_KERNEL)
+  TEXT     tx_bwidth		_en7sep	@	200	.,	///
+	label(resource LBL_HALFWIDTH_OF_THE_KERNEL)
+
+  CHECKBOX ck_pwidth		_lft	_ls	_iwd	.,	///
+	onclickon(script pwidth_on)				///
+	onclickoff(script pwidth_off)				///
+	label(resource GR_LOCPOLYCI_OPTIONS_SE_CI_CK_PWIDTH)
+  EDIT     ed_pwidth		+20	_ss	_en7wd	.,	///
+  	option(pwidth) label(resource LBL_PILOT_BANDWIDTH)
+  TEXT     tx_pwidth		_en7sep	@	200	.,	///
+	label(resource LBL_PILOT_BANDWIDTH)
+
+  CHECKBOX ck_var		_lft	_ls	_iwd	.,	///
+	onclickon(script var_on)				///
+	onclickoff(script var_off)				///
+	label(resource LBL_OVERRIDE_ESTIMATE_RESIDUAL_VARIANCE)
+  EDIT     ed_var		+20	_ss	_en7wd	.,	///
+  	option(var) label(resource LBL_ESTIMATE) numonly
+  TEXT     tx_var		_en7sep	@	200	.,	///
+	label(resource LBL_ESTIMATE)
+END
+
+SCRIPT bwidth_on
+BEGIN
+	se_ci.ed_bwidth.enable
+	se_ci.tx_bwidth.enable
+END
+
+SCRIPT bwidth_off
+BEGIN
+	se_ci.ed_bwidth.disable
+	se_ci.tx_bwidth.disable
+END
+
+SCRIPT pwidth_on
+BEGIN
+	se_ci.ed_pwidth.enable
+	se_ci.tx_pwidth.enable
+END
+
+SCRIPT pwidth_off
+BEGIN
+	se_ci.ed_pwidth.disable
+	se_ci.tx_pwidth.disable
+END
+
+SCRIPT var_on
+BEGIN
+	se_ci.ed_var.enable
+	se_ci.tx_var.enable
+END
+
+SCRIPT var_off
+BEGIN
+	se_ci.ed_var.disable
+	se_ci.tx_var.disable
+END
+
+SCRIPT plot_PREINIT
+BEGIN
+	create STRING lineResults
+	create STRING markerResults
+	create STRING rareaResults
+	create STRING rbarResults
+	create STRING rspikeResults
+	create STRING rlineResults
+END
+
+SCRIPT plot_POSTINIT
+BEGIN
+	program checkLineResults
+	program checkMarkerResults
+	program checkRangeAreaResults
+	program checkRangeBarResults
+	program checkRangeSpikeResults
+	program checkRangeLineResults
+END
+
+DIALOG plot, tabtitle(resource LBL_TAB_PLOT)
+BEGIN
+  TEXT     tx_plot		_lft	_top	120	.,	///
+	label(resource LBL_PLOT_TYPE_OF_FIT)
+DEFINE y @y
+  COMBOBOX cb_plot		@	_ss	@	.,	///
+	dropdownlist						///
+	contents(fit_plot_list)					///
+	values(fit_plot_list_values)				///
+	onselchangelist(fit_plot_actions)			///
+	option(fitplot) default(line)
+  BUTTON   bu_line_opts		@	+35	@	.,	///
+	label(resource LBL_GB_LINE_PROPERTIES)			///
+	onpush(script line_options_show)			///
+	tooltip(resource LBL_LINE_PROP_LOCAL_POLYNOMIAL_PLOT)
+  BUTTON   bu_marker_opts	@	_ls	@	.,	///
+	label(resource LBL_MARKER_PROPERTIES_DLG_TITLE)		///
+	onpush(script marker_options_show)			///
+	tooltip(resource GR_LOCPOLYCI_OPTIONS_PLOT_BU_MARKER_OPTS)
+
+  TEXT     tx_ciplot		+160	y	155	.,	///
+	label(resource LBL_PLOT_TYPE_OF_CI)
+  COMBOBOX cb_ciplot		@	_ss	@	.,	///
+	dropdownlist						///
+	contents(fit_ciplot_list)				///
+	values(fit_ciplot_list_values)				///
+	onselchangelist(fit_ciplot_actions)			///
+	option(ciplot) default(rarea)
+	
+  BUTTON   bu_rarea_opts	@	+35	@	.,	///
+	label(resource LBL_GB_AREA_PROPERTIES)			///
+	onpush(script rarea_options_show)			///
+	tooltip(resource LBL_AREA_PROP_FOR_CI_PLOT)
+  BUTTON   bu_rbar_opts		@	@	@	.,	///
+	label(resource LBL_GB_BAR_PROPERTIES)			///
+	onpush(script rbar_options_show)			///
+	tooltip(resource LBL_BAR_PROP_FOR_CI_PLOT)
+  BUTTON   bu_rspike_opts	@	@	@	.,	///
+	label(resource LBL_SPIKE_PROPERTIES)			///
+	onpush(script rspike_options_show)			///
+	tooltip(resource LBL_SPIKE_PROP_FOR_CI_PLOT)
+  BUTTON   bu_rline_opts	@	@	@	.,	///
+	label(resource LBL_GB_LINE_PROPERTIES)			///
+	onpush(script rline_options_show)			///
+	tooltip(resource LBL_LINE_PROP_FOR_CI_PLOT)
+  
+  TEXT     tx_cap_size		+175	-20	120	.,	///
+	label(resource LBL_TX_CAP_SIZE) 
+  COMBOBOX cb_cap_size		@	+20	100	.,	///
+	dropdown 						///
+	contents(symbolsizes) option(msize)
+END
+
+LIST fit_plot_list
+BEGIN
+	resource LBL_LINE_PLOT
+	resource LBL_CONNECTED
+	resource LBL_SCATTER
+END
+LIST fit_plot_list_values
+BEGIN
+	line
+	connected
+	scatter
+END
+LIST fit_plot_actions
+BEGIN
+	script line_on
+	script connected_on
+	script scatter_on
+END
+
+SCRIPT line_on
+BEGIN
+	plot.bu_line_opts.enable
+	plot.bu_marker_opts.disable
+END
+SCRIPT connected_on
+BEGIN
+	plot.bu_line_opts.enable
+	plot.bu_marker_opts.enable
+END
+SCRIPT scatter_on
+BEGIN
+	plot.bu_line_opts.disable
+	plot.bu_marker_opts.enable
+END
+
+LIST fit_ciplot_list
+BEGIN
+	resource LBL_RANGE_AREA
+	resource LBL_RANGE_BAR
+	resource LBL_RANGE_SPIKE
+	resource LBL_RANGE_SPIKE_WITH_CAP
+	resource LBL_RANGE_LINE
+END
+LIST fit_ciplot_list_values
+BEGIN
+	rarea
+	rbar
+	rspike
+	rcap
+	rline
+END
+LIST fit_ciplot_actions
+BEGIN
+	script rarea_on
+	script rbar_on
+	script rspike_on
+	script rcap_on
+	script rline_on
+END
+
+SCRIPT rarea_on
+BEGIN
+	plot.bu_rarea_opts.show
+	plot.bu_rbar_opts.hide
+	plot.bu_rspike_opts.hide
+	plot.bu_rline_opts.hide
+	plot.cb_cap_size.hide
+	plot.tx_cap_size.hide
+END
+SCRIPT rbar_on
+BEGIN
+	plot.bu_rarea_opts.hide
+	plot.bu_rbar_opts.show
+	plot.bu_rspike_opts.hide
+	plot.bu_rline_opts.hide
+	plot.cb_cap_size.hide
+	plot.tx_cap_size.hide
+END
+SCRIPT rspike_on
+BEGIN
+	plot.bu_rarea_opts.hide
+	plot.bu_rbar_opts.hide
+	plot.bu_rspike_opts.show
+	plot.bu_rline_opts.hide
+	plot.cb_cap_size.hide
+	plot.tx_cap_size.hide
+END
+SCRIPT rcap_on
+BEGIN
+	plot.bu_rarea_opts.hide
+	plot.bu_rbar_opts.hide
+	plot.bu_rspike_opts.show
+	plot.bu_rline_opts.hide
+	plot.cb_cap_size.show
+	plot.tx_cap_size.show
+END
+SCRIPT rline_on
+BEGIN
+	plot.bu_rarea_opts.hide
+	plot.bu_rbar_opts.hide
+	plot.bu_rspike_opts.hide
+	plot.bu_rline_opts.show
+	plot.cb_cap_size.hide
+	plot.tx_cap_size.hide
+END
+
+SCRIPT line_options_show
+BEGIN
+	create CHILD gr_line_options AS lineOptions, allowsubmit
+	lineOptions.setExitString lineResults
+	lineOptions.settitle resource GR_LOCPOLYCI_OPTIONS_LINE_PROP_LOCAL_POLY
+	lineOptions.setExitAction "program checkLineResults"
+	lineOptions.setSubmitAction "script lineSubmit"
+	lineOptions.callthru "script gr_line_setOptionsTo_cl"
+END
+PROGRAM checkLineResults
+BEGIN
+	if lineResults.iseq("") {
+		call plot.bu_line_opts.modified_off
+	}
+	if lineResults.isneq("") {
+		call plot.bu_line_opts.modified_on
+	}
+END
+SCRIPT lineSubmit
+BEGIN
+	program checkLineResults
+	Submit
+END
+
+SCRIPT marker_options_show
+BEGIN
+	create CHILD gr_marker_options AS markerOptions, allowsubmit
+	markerOptions.setExitString markerResults
+	markerOptions.settitle resource GR_LOCPOLYCI_OPTIONS_MARKER_PROP_LOCAL_POLY
+	markerOptions.setExitAction "program checkMarkerResults"
+	markerOptions.setSubmitAction "script markerSubmit"
+END
+PROGRAM checkMarkerResults
+BEGIN
+	if markerResults.iseq("") {
+		call plot.bu_marker_opts.modified_off
+	}
+	if markerResults.isneq("") {
+		call plot.bu_marker_opts.modified_on
+	}
+END
+SCRIPT markerSubmit
+BEGIN
+	program checkMarkerResults
+	Submit
+END
+
+SCRIPT rarea_options_show
+BEGIN
+	create CHILD gr_rarea_options AS rareaOptions, allowsubmit
+	rareaOptions.setExitString rareaResults
+	rareaOptions.settitle resource GR_LOCPOLYCI_OPTIONS_AREA_PROP_LOCAL_POLY_CIS
+	rareaOptions.setExitAction "program checkRangeAreaResults"
+	rareaOptions.setSubmitAction "script rareaSubmit"
+	rareaOptions.callthru "script gr_rarea_setOptionsTo_al"
+	rareaOptions.callthru "script gr_rarea_setOrientationOff"
+END
+PROGRAM checkRangeAreaResults
+BEGIN
+	if rareaResults.iseq("") {
+		call plot.bu_rarea_opts.modified_off
+	}
+	if rareaResults.isneq("") {
+		call plot.bu_rarea_opts.modified_on
+	}
+END
+SCRIPT rareaSubmit
+BEGIN
+	program checkRangeAreaResults
+	Submit
+END
+
+SCRIPT rbar_options_show
+BEGIN
+	create CHILD gr_rbar_options AS rbarOptions, allowsubmit
+	rbarOptions.setExitString rbarResults
+	rbarOptions.settitle resource GR_LOCPOLYCI_OPTIONS_BAR_PROP_LOCAL_POLY_CIS
+	rbarOptions.setExitAction "program checkRangeBarResults"
+	rbarOptions.setSubmitAction "script rbarSubmit"
+	rbarOptions.callthru "script gr_rbar_setOptionsTo_bl"
+	rbarOptions.callthru "script gr_rbar_setOrientationOff"
+	rbarOptions.callthru "script gr_rbar_setBarWidthOff"
+END
+PROGRAM checkRangeBarResults
+BEGIN
+	if rbarResults.iseq("") {
+		call plot.bu_rbar_opts.modified_off
+	}
+	if rbarResults.isneq("") {
+		call plot.bu_rbar_opts.modified_on
+	}
+END
+SCRIPT rbarSubmit
+BEGIN
+	program checkRangeBarResults
+	Submit
+END
+
+SCRIPT rspike_options_show
+BEGIN
+	create CHILD gr_rspike_options AS rspikeOptions, allowsubmit
+	rspikeOptions.setExitString rspikeResults
+	rspikeOptions.settitle resource GR_LOCPOLYCI_OPTIONS_SPIKE_PROP_LOCAL_POLY_CIS
+	rspikeOptions.setExitAction "program checkRangeSpikeResults"
+	rspikeOptions.setSubmitAction "script rspikeSubmit"
+	rspikeOptions.callthru "script gr_rspike_setOptionsTo_bl"
+	rspikeOptions.callthru "script gr_rspike_setOrientationOff"
+END
+PROGRAM checkRangeSpikeResults
+BEGIN
+	if rspikeResults.iseq("") {
+		call plot.bu_rspike_opts.modified_off
+	}
+	if rspikeResults.isneq("") {
+		call plot.bu_rspike_opts.modified_on
+	}
+END
+SCRIPT rspikeSubmit
+BEGIN
+	program checkRangeSpikeResults
+	Submit
+END
+
+SCRIPT rline_options_show
+BEGIN
+	create CHILD gr_line_options AS rlineOptions, allowsubmit
+	rlineOptions.setExitString rlineResults
+	rlineOptions.settitle resource GR_LOCPOLYCI_OPTIONS_RANGE_LINE_LOCAL_POLY_CIS
+	rlineOptions.setExitAction "program checkRangeLineResults"
+	rlineOptions.setSubmitAction "script rlineSubmit"
+	rlineOptions.callthru "script gr_line_setOptionsTo_bl"
+END
+PROGRAM checkRangeLineResults
+BEGIN
+	if rlineResults.iseq("") {
+		call plot.bu_rline_opts.modified_off
+	}
+	if rlineResults.isneq("") {
+		call plot.bu_rline_opts.modified_on
+	}
+END
+SCRIPT rlineSubmit
+BEGIN
+	program checkRangeLineResults
+	Submit
+END
+
+PROGRAM command
+BEGIN
+	put main.cb_function " "
+	optionarg /hidedefault main.sp_degree
+	optionarg main.sp_points
+
+	optionarg /hidedefault se_ci.sp_level
+	if se_ci.ck_bwidth {
+		require se_ci.ed_bwidth
+		optionarg se_ci.ed_bwidth
+	}
+	if se_ci.ck_pwidth {
+		require se_ci.ed_pwidth
+		optionarg se_ci.ed_pwidth
+	}
+	if se_ci.ck_var {
+		require se_ci.ed_var
+		optionarg se_ci.ed_var
+	}
+	
+	optionarg /hidedefault plot.cb_plot
+	if ! D(plot.bu_line_opts) {
+		put " " lineResults " "
+	}
+	if ! D(plot.bu_marker_opts) {
+		put " " markerResults " "
+	}
+	optionarg /hidedefault plot.cb_ciplot
+	if ! H(plot.bu_rarea_opts) {
+		put " " rareaResults " "
+	}
+	if ! H(plot.bu_rbar_opts) {
+		put " " rbarResults " "
+	}
+	if ! H(plot.bu_rspike_opts) {
+		put " " rspikeResults " "
+	}
+	if ! H(plot.bu_rline_opts) {
+		put " " rlineResults " "
+	}
+	optionarg /hidedefault plot.cb_cap_size
+END

@@ -1,0 +1,282 @@
+/*
+    gr_legend_region_options.idlg
+    
+*!  VERSION 1.1.3  31jul2017
+    	
+	// SCRIPTS and PROGRAMS for external use
+		*
+*/
+
+
+DEFINE _clwd	15
+DEFINE _wd	150
+DEFINE _sep	+155
+DEFINE _wd2	140
+DEFINE _sep2	+145
+DEFINE _cbwd	120
+DEFINE _cbsep	+125
+
+
+SCRIPT region_PREINIT
+BEGIN
+	create STRING tmp
+	create ARRAY  tmpArray
+	create STRING region_imarginResult
+	create STRING region_omarginResult
+END
+
+SCRIPT region_POSTINIT
+BEGIN
+	program region_checkIMarginResult
+	program region_checkOMarginResult
+END
+
+
+DIALOG region, tabtitle(resource LBL_TAB_REGION)
+BEGIN
+  GROUPBOX gb_region	_lft	_top	_iwd	_ht27,		///
+	label(resource LBL_REGION_PROPERTIES)
+  TEXT     tx_bclr	_ilft	_ss	_wd	.,		///
+	label(resource LBL_FILL_COLOR) right
+  COMBOBOX cb_bclr	_sep	@	_cbwd	.,		///
+	dropdownlist contents(colors) option(fcolor)		///
+	onselchangelist(region_cl_bclr_sel)
+  COLOR    cl_bclr   	_cbsep	@	_clwd	., 		///
+	option(fcolor)
+  TEXT     tx_bopacity	_ilft	_mls	_wd	.,		///
+	label(resource LBL_FILL_OPACITY) right
+  SPINNER  sp_bopacity	_sep	@	_spwd	.,		///
+	default(100)						///
+	min(0)							///
+	max(100)
+
+  TEXT     tx_imargin	_ilft	_mls	_wd	.,		///
+	label(resource GR_LEGEND_REGION_OPTIONS_REGION_TX_IMARGIN) right
+  COMBOBOX cb_imargin	_sep	@	_cbwd	.,		///
+	dropdownlist contents(margin) option(margin)		///
+	onselchange(program region_cb_imargin_check)
+  BUTTON   bu_imargin	_vnsep	@	_clwd	.,		///
+	label(resource LBL_TWO_DOTS) tooltip(resource LBL_CUSTOM_MARGIN)			///
+	onpush(script region_show_imargin_dialog)
+	
+  TEXT     tx_omargin	_ilft	_mls	_wd	.,		///
+	label(resource GR_LEGEND_REGION_OPTIONS_REGION_TX_OMARGIN) right
+  COMBOBOX cb_omargin	_sep	@	_cbwd	.,		///
+	dropdownlist contents(margin) option(bmargin)  		///
+	onselchange(program region_cb_omargin_check)
+  BUTTON   bu_omargin	_vnsep	@	_clwd	.,		///
+	label(resource LBL_TWO_DOTS) tooltip(resource LBL_CUSTOM_MARGIN)			///
+	onpush(script region_show_omargin_dialog)
+
+  TEXT     tx_blclr	_ilft	_mls	_wd	.,		///
+	label(resource LBL_OUTLINE_COLOR) right
+  COMBOBOX cb_blclr	_sep   	@	_cbwd	.,		///
+	dropdownlist contents(colors) option(lcolor)		///
+	onselchangelist(region_cl_blclr_sel)
+  COLOR    cl_blclr	_cbsep	@	_clwd	., 		///
+	option(lcolor)
+  TEXT     tx_blopacity	_ilft	_mls	_wd	.,		///
+	label(resource LBL_OUTLINE_OPACITY) right
+  SPINNER sp_blopacity	_sep	@	_spwd	.,		///
+	default(100)						///
+	min(0)							///
+	max(100)
+
+  TEXT     tx_lwidth	_ilft	_mls	_wd	.,		///
+	label(resource LBL_OUTLINE_WIDTH) right
+  COMBOBOX cb_lwidth	_sep	@	_cbwd	.,		///
+	dropdown contents(linewidths) option(lwidth)
+	
+  TEXT     tx_lpattern	_ilft	_mls	_wd	.,		///
+	label(resource LBL_OUTLINE_PATTERN) right
+  COMBOBOX cb_lpattern	_sep	@	_cbwd	.,		///
+	dropdownlist contents(linepatterns) option(lpattern)
+
+   TEXT     tx_lalign	_ilft	_mls	_wd	.,		///
+      label(resource LBL_OUTLINE_ALIGNMENT) right
+   COMBOBOX cb_lalign	_sep	@	_cbwd	.,		///
+      dropdownlist option(lalign)				///
+      contents(alignstroke)
+
+  CHECKBOX ck_bexpand	_ilft	_ls	_ibwd	.,		///
+	option(bexpand) 					///
+	label(resource GR_LEGEND_REGION_OPTIONS_REGION_CK_BEXPAND)
+END
+
+PROGRAM region_cb_imargin_check
+BEGIN
+	if region.cb_imargin.iseq("custom") {
+		call region.bu_imargin.show
+	}
+	else {
+		call region.bu_imargin.hide
+	}
+END
+
+SCRIPT region_show_imargin_dialog
+BEGIN
+	create CHILD gr_margin_create AS region_imargin_dlg
+	region_imargin_dlg.setExitString region_imarginResult
+	region_imargin_dlg.setExitAction "program region_checkIMarginResult"
+END	
+PROGRAM region_checkIMarginResult
+BEGIN
+	if region_imarginResult {
+		call region_imarginResult.tokenize tmpArray
+		call tmp.setvalue "Custom margin "
+		call tmp.append "(Left:"
+		call tmp.append class tmpArray[1]
+		call tmp.append " Right:"
+		call tmp.append class tmpArray[2]
+		call tmp.append " Bottom:"
+		call tmp.append class tmpArray[3]
+		call tmp.append " Top:"
+		call tmp.append class tmpArray[4]
+		call tmp.append ")"
+		call tmp.withvalue region.bu_imargin.settooltip "@"
+	}
+	else {
+		call region.bu_imargin.settooltip resource LBL_CUSTOM_MARGIN_NOT_DEFINED
+	}
+END
+
+PROGRAM region_cb_omargin_check
+BEGIN
+	if region.cb_omargin.iseq("custom") {
+		call region.bu_omargin.show
+	}
+	else {
+		call region.bu_omargin.hide
+	}
+END
+
+SCRIPT region_show_omargin_dialog
+BEGIN
+	create CHILD gr_margin_create AS region_omargin_dlg
+	region_omargin_dlg.setExitString region_omarginResult
+	region_omargin_dlg.setExitAction "program region_checkOMarginResult"
+END	
+PROGRAM region_checkOMarginResult
+BEGIN
+	if region_omarginResult {
+		call region_omarginResult.tokenize tmpArray
+		call tmp.setvalue "Custom margin "
+		call tmp.append "(Left:"
+		call tmp.append class tmpArray[1]
+		call tmp.append " Right:"
+		call tmp.append class tmpArray[2]
+		call tmp.append " Bottom:"
+		call tmp.append class tmpArray[3]
+		call tmp.append " Top:"
+		call tmp.append class tmpArray[4]
+		call tmp.append ")"
+		call tmp.withvalue region.bu_omargin.settooltip "@"
+	}
+	else {
+		call region.bu_omargin.settooltip resource LBL_CUSTOM_MARGIN_NOT_DEFINED
+	}
+END
+
+LIST region_cl_bclr_sel
+BEGIN
+	region.cl_bclr.hide
+	region.cl_bclr.show
+	region.cl_bclr.hide
+END
+
+LIST region_cl_blclr_sel
+BEGIN
+	region.cl_blclr.hide
+	region.cl_blclr.show
+	region.cl_blclr.hide
+END
+
+PROGRAM region_fcolor_output
+BEGIN
+	if (region.cb_bclr.isneq("") | region.sp_bopacity.isneq(100)) {
+		put "fcolor("
+		if (region.cb_bclr.iseq("custom")) {
+			put `"""' region.cl_bclr
+			if (region.sp_bopacity.isneq(100)) {
+				put " %" region.sp_bopacity
+			}
+			put `"""'
+		}
+		else {
+			if (region.cb_bclr.isneq("")) {
+				put region.cb_bclr
+			}
+			if (region.sp_bopacity.isneq(100)) {
+				put "%" region.sp_bopacity
+			}
+		}
+		put ")"
+	}	
+END
+PROGRAM region_lcolor_output
+BEGIN
+	if (region.cb_blclr.isneq("") | region.sp_blopacity.isneq(100)) {
+		put "lcolor("
+		if (region.cb_blclr.iseq("custom")) {
+			put `"""' region.cl_blclr
+			if (region.sp_blopacity.isneq(100)) {
+				put " %" region.sp_blopacity
+			}
+			put `"""'
+		}
+		else {
+			if (region.cb_blclr.isneq("")) {
+				put region.cb_blclr
+			}
+			if (region.sp_blopacity.isneq(100)) {
+				put "%" region.sp_blopacity
+			}
+		}
+		put ")"
+	}
+END
+
+PROGRAM region_output_wrk
+BEGIN
+	put /program " " region_fcolor_output
+	if region.cb_imargin.isneq("custom") {
+		optionarg /hidedefault region.cb_imargin
+	}
+	else {
+		if region_imarginResult {
+			put " margin("
+			put region_imarginResult
+			put ") "
+		}
+	}
+
+	put /program " " region_lcolor_output
+	optionarg /hidedefault region.cb_lwidth
+	optionarg /hidedefault region.cb_lpattern
+	optionarg /hidedefault region.cb_lalign
+END
+
+PROGRAM gr_legend_region_output
+BEGIN
+	if region.cb_bclr | region.cb_imargin 			///
+		| region.sp_bopacity.isneq(100)			///
+		| region.sp_blopacity.isneq(100)		///
+		| region.cb_blclr | region.cb_lwidth 		///
+		| region.cb_lpattern | region.cb_lalign		///
+	{
+		put " region("
+		put /program region_output_wrk
+		put ") "
+	}
+	if region.cb_omargin.isneq("custom") {
+		optionarg /hidedefault region.cb_omargin
+	}
+	else {
+		if region_omarginResult {
+			put " bmargin("
+			put region_omarginResult
+			put ") "
+		}
+	}
+	option region.ck_bexpand
+END

@@ -1,0 +1,2930 @@
+/*
+    bayesgraph
+
+*!  VERSION 1.2.2  18jun2019
+
+*/
+
+VERSION 14.0
+SYNCHRONOUS_ONLY
+
+INCLUDE _std_large
+DEFINE _dlght 590
+INCLUDE header
+
+HELP hlp1, view("help bayesgraph")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN	
+	setscale_hadj resource BAYESGRAPH_DLG_HSCALE
+
+	create STRING gbtype
+	create ARRAY main_gtype_list
+	create ARRAY main_gtype_values
+	
+	create STRING combineResult
+	create STRING byparmResult
+	
+	create STRING GraphSingleOptsResult
+	create STRING GraphSingleOpts1Result
+	create STRING GraphSingleOpts2Result
+	create STRING GraphSingleOpts3Result
+	create STRING GraphSingleOpts4Result
+	create STRING GraphSingleOpts5Result
+	create STRING GraphSingleOpts6Result
+	
+	create STRING GraphMatrixOptsResult
+	
+	create STRING GraphMulOptsResult
+	create STRING GraphMulOpts1Result
+	create STRING GraphMulOpts2Result
+	create STRING GraphMulOpts3Result
+	create STRING GraphMulOpts4Result
+	create STRING GraphMulOpts5Result
+	create STRING GraphMulOpts6Result
+	create STRING GraphMulOptsSResult
+	create STRING GraphMulOptsS1Result
+	create STRING GraphMulOptsS2Result
+	create STRING GraphMulOptsS3Result
+	create STRING GraphMulOptsS4Result
+	create STRING GraphMulOptsS5Result
+	create STRING GraphMulOptsS6Result
+	
+	create STRING bychainResult
+
+	create STRING ChainNumOptsResult
+	create STRING ChainNOptsDiagResult
+	create STRING ChainNOptsTraceResult
+	create STRING ChainNOptsAcResult
+	create STRING ChainNOptsHistResult
+	create STRING ChainNOptsKdenResult
+	create STRING ChainNOptsCusumResult
+	create STRING ChainNOptsMatResult
+	
+	create STRING ChainMatrixOptsResult
+	
+	create STRING ChainOptsResult
+	create STRING ChainOptsDiagResult
+	create STRING ChainOptsTraceResult
+	create STRING ChainOptsAcResult
+	create STRING ChainOptsHistResult
+	create STRING ChainOptsKdenResult
+	create STRING ChainOptsCusumResult
+	create STRING ChainOptsMatResult
+	
+	create STRING ParaStr
+	create ARRAY ParasArray
+	create SVECTOR ParasList
+	create STRING plotType
+	create STRING mulSpecStr
+	create DOUBLE NumOfParas
+
+	create STRING dlgname
+	dlgname.storeDialogClassName
+	
+	create DOUBLE hasby
+	create STRING GraphSingleParaResult
+	create STRING GraphSinglePredResult
+	
+	create STRING main_build_tmp
+	create STRING main_build_tmp2
+	create STRING build_STMP
+	create STRING main_build_childdlg
+	create STRING main_build_child_result
+	create DOUBLE main_build_position
+	
+	create ARRAY main_paraspecgph_list
+	create SVECTOR mainParaspecCommandDisplayList
+	create SVECTOR mainParaspecCommandList
+	create SVECTOR mainParaspecCommandValues
+	create SVECTOR mainParaspecStatusList
+	create SVECTOR mainParaspecChildDialogList
+	create DOUBLE main_paraspec_count
+	create DOUBLE main_paraspec_arraysize
+	create STRING main_paraspec_output
+	
+	create ARRAY main_predspecgph_list
+	create SVECTOR mainPredspecCommandDisplayList
+	create SVECTOR mainPredspecCommandList
+	create SVECTOR mainPredspecCommandValues
+	create SVECTOR mainPredspecStatusList
+	create SVECTOR mainPredspecChildDialogList
+	create DOUBLE main_predspec_count
+	create DOUBLE main_predspec_arraysize
+	create STRING main_predspec_output
+	
+	main.bu_paraspec_edit.disable
+	main.bu_paraspec_disable.disable
+	main.bu_paraspec_enable.disable
+	
+	main.bu_predspec_edit.disable
+	main.bu_predspec_disable.disable
+	main.bu_predspec_enable.disable
+	
+	ParaStr.setvalue e(parnames)
+	ParaStr.tokenize ParasArray
+	ParasList.copyFromArray ParasArray
+	
+	hasby.setvalue 0
+	
+	create ARRAY paras_list
+	create STRING paras_str
+	create STRING paras_tmp
+	create STRING cmdName
+	create STRING cmdStr
+	create STRING cmdPrefix
+	create STRING tabname
+	
+	create DOUBLE paras_sel
+	paras_sel.setvalue 1
+	
+	cmdStr.setvalue ""
+	cmdName.setvalue ""
+	cmdPrefix.setvalue ""
+	cmdName.setvalue e(cmd)
+	cmdStr.setvalue e(cmdline)
+	cmdPrefix.setvalue e(prefix)
+
+	main.fi_use.formatfilter "{0} (*.dta)|*.dta|{1} (*.*)|*.*" ///
+		"resource ui_ex FILE_TYPE_DTA" "resource ui_ex FILE_TYPE_ALL_FILES
+	
+	program paras_init
+	
+	program check_reffects
+END
+
+PROGRAM gtype_init
+BEGIN
+	call main.lb_gtype.withvalue gbtype.setvalue "@"
+	
+	call main_gtype_list.Arrdropall 
+	call main_gtype_values.Arrdropall
+
+	if main.rb_para {
+		call main_gtype_list.ArrpushR resource BAYESGRAPH_LST_MULT_DIAG_COMPACT
+		call main_gtype_list.ArrpushR resource BAYESGRAPH_LST_TRACE_PLOTS
+		call main_gtype_list.ArrpushR resource BAYESGRAPH_LST_AUTOCORR_PLOTS
+		call main_gtype_list.ArrpushR resource BAYESGRAPH_LST_HISTOGRAMS
+		call main_gtype_list.ArrpushR resource BAYESGRAPH_LST_DENSITY_PLOTS
+		call main_gtype_list.ArrpushR resource BAYESGRAPH_LST_CUM_SUM_PLOTS
+		call main_gtype_list.ArrpushR resource BAYESGRAPH_LST_SCATTERPLOT_MATRIX
+		
+		call main_gtype_values.Arrpush "diagnostics"
+		call main_gtype_values.Arrpush "trace"
+		call main_gtype_values.Arrpush "ac"
+		call main_gtype_values.Arrpush "histogram"
+		call main_gtype_values.Arrpush "kdensity"
+		call main_gtype_values.Arrpush "cusum"
+		call main_gtype_values.Arrpush "matrix"
+	}
+	else {
+		call main_gtype_list.ArrpushR resource BAYESGRAPH_LST_HISTOGRAMS
+		call main_gtype_list.ArrpushR resource BAYESGRAPH_LST_DENSITY_PLOTS
+		call main_gtype_list.ArrpushR resource BAYESGRAPH_LST_SCATTERPLOT_MATRIX
+		
+		call main_gtype_values.Arrpush "histogram"
+		call main_gtype_values.Arrpush "kdensity"
+		call main_gtype_values.Arrpush "matrix"
+	}
+	
+	call main.lb_gtype.setcontentslist main_gtype_list
+	call main.lb_gtype.setvalueslist main_gtype_values
+	call main.lb_gtype.repopulate
+	
+	call gbtype.withvalue main.lb_gtype.setvalue "@"
+END
+
+PROGRAM paras_init
+BEGIN
+	call paras_list.Arrdropall
+
+	if cmdName.equals("bayesmh") & !cmdStr.equals("") {
+		put "bayesmh_parse_params "
+		put cmdStr
+		stata hidden immediate
+		put "bayesmh_wrk_dlg " 
+		put dlgname
+		put " paras_list"
+		put `" "s(eqnames) s(postparams)""'
+		put " 0"
+		stata hidden immediate
+	}
+	if cmdPrefix.equals("bayes") & !cmdStr.equals("") {
+		put "bayes_parse_params "
+		put cmdStr
+		stata hidden immediate
+		put "bayesmh_wrk_dlg " 
+		put dlgname
+		put " paras_list"
+		put `" "s(eqnames) s(postparams)""'
+		put " 0"
+		stata hidden immediate
+	}
+
+	call main.cb_matrix.repopulate
+END
+
+PROGRAM	check_reffects
+BEGIN
+	call ParaStr.setvalue ""
+	call ParaStr.append s(reparams)
+	
+	if ParaStr.iseq("") {
+		call program show_reffects_disable
+	}
+	else {
+		call program show_reffects_enable
+	}
+END
+
+PROGRAM check_predict
+BEGIN
+	if !cmdName.equals("bayesmh") | cmdStr.equals("") | cmdPrefix.equals("bayes") {
+		call main.gb_syntax.hide
+		call main.rb_para.hide 
+		call main.rb_pred.hide
+		
+		call main.gb_gtype.setposition . 10
+		call main.lb_gtype.setposition . 30
+		call main.rb_single.setposition . 185
+		call main.rb_multi.setposition . 240
+		call main.rb_all.setposition . 365
+		call main.ed_single.setposition . 210
+		call main.bu_single.setposition . 210
+		call main.cb_matrix.setposition . 210
+		call main.gb_paraspec.setposition . 260
+		call main.lb_paraspecBuild.setposition . 285
+		call main.bu_paraspec_create.setposition . 285
+		call main.bu_paraspec_edit.setposition . 310
+		call main.bu_paraspec_disable.setposition . 335
+		call main.bu_paraspec_enable.setposition . 360
+		call main.tb_paraspec_note.setposition . 385
+		
+		call script main_syntax_para
+	}
+	else {
+		call main.gb_syntax.show
+		call main.rb_para.show 
+		call main.rb_pred.show
+		
+		call main.gb_syntax.setposition . 10
+		call main.rb_para.setposition . 30
+		call main.rb_pred.setposition . 50
+		call main.gb_gtype.setposition . 95
+		call main.lb_gtype.setposition . 115
+		call main.rb_single.setposition . 270
+		call main.rb_multi.setposition . 325
+		call main.rb_all.setposition . 525
+		call main.ed_single.setposition . 295
+		call main.bu_single.setposition . 295
+		call main.cb_matrix.setposition . 295
+		call main.gb_paraspec.setposition . 345
+		call main.lb_paraspecBuild.setposition . 370
+		call main.bu_paraspec_create.setposition . 370
+		call main.bu_paraspec_edit.setposition . 395
+		call main.bu_paraspec_disable.setposition . 420
+		call main.bu_paraspec_enable.setposition . 445
+		call main.tb_paraspec_note.setposition . 470
+		
+		if main.rb_para {
+			call script main_syntax_para
+		}
+		else {
+			call script main_syntax_pred
+		}
+	}
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program check_predict
+	program gtype_init
+	
+	mainParaspecCommandDisplayList.copyToArray main_paraspecgph_list
+	main.lb_paraspecBuild.repopulate
+	
+	mainPredspecCommandDisplayList.copyToArray main_predspecgph_list
+	main.lb_predspecBuild.repopulate
+	
+	opts.rb_showallref.setlabel "resource BAYESGRAPH_LABEL_SHOWALLREF"
+	opts.rb_showselref.setlabel "resource BAYESGRAPH_LABEL_SHOWSELREF"
+	opts.ck_showreffects.setposition . . . 105
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	title(resource BAYESGRAPH_TITLE)				
+BEGIN
+  GROUPBOX gb_syntax		_lft	_top	_iwd	_ht4,		///
+	label(resource LBL_SYNTAX)
+  RADIO  rb_para			_ilft	_ss	_ibwd	.,	///
+	first								///
+	onclickon(script main_syntax_para)				///
+	label(resource BAYESGRAPH_MAIN_RB_PARA)
+
+  RADIO rb_pred				@	_ss	@	.,	///
+	last								///
+	onclickon(script main_syntax_pred)				///
+	label(resource BAYESGRAPH_MAIN_RB_PRED)
+
+  GROUPBOX gb_gtype		_lft	+45	_iwd	_ht13,		///
+	label(resource BAYESGRAPH_MAIN_GB_GTYPE)
+  LISTBOX lb_gtype		25	_ss	260	130,		///
+	onselchange(program main_gtype_sel_changed)			///
+	nomemory
+	
+  RADIO  rb_single		_lft	+155	_iwd	.,		///
+	first								///
+	onclickon(script main_single_on)				///
+	label(resource BAYESGRAPH_MAIN_ED_SINGLE)
+  DEFINE holdy @y
+  RADIO rb_multi		@	+55	@	.,		///
+	onclickon(script main_multi_on)					///
+	label(resource BAYESGRAPH_MAIN_RB_MULTI)
+  RADIO rb_all			@	+180	@	.,		///
+	last								///
+	onclickon(script main_all_on)					///
+	label(resource BAYESGRAPH_MAIN_RB_ALL)
+
+  EDIT   ed_single		25	-210	390	.,		///
+	label(resource BAYESGRAPH_MAIN_ED_SINGLE)	
+  BUTTON bu_single		415	@	75	.,		///
+	onpush(program main_singlepara_create)				///
+	tooltip(resource BAYESGRAPH_MAIN_BU_SINGLE_TIP)			///
+	label(resource LBL_BU_CREATE)	
+  COMBOBOX cb_matrix		25	@	465	.,		///
+	dropdown append							///
+	contents(paras_list)						///
+	label(resource BAYESGRAPH_MAIN_CB_MATRIX)
+	
+  GROUPBOX gb_paraspec		25	+50	465	_ht12,		///
+	label("")
+  LISTBOX lb_paraspecBuild	35	_ms	245	95,		///
+	contents(main_paraspecgph_list)					///
+	ondblclick(program main_paraspec_edit)				///
+	onselchange(program main_paraspec_sel_changed)			///
+	nomemory							///
+	error(resource BAYESGRAPH_MAIN_RB_MULTI)
+  BUTTON bu_paraspec_create	295	@	80	.,		///
+	onpush(program main_paraspec_create)				///
+	label(resource LBL_BU_CREATE)	
+  BUTTON bu_paraspec_edit	@	_ms	@	.,		///
+	onpush(program main_paraspec_edit)				///
+	label(resource LBL_BU_EDIT)
+  BUTTON bu_paraspec_disable	@	_ms	@	.,		///
+	onpush(program main_paraspec_disable)				///
+	label(resource LBL_BU_DISABLE)	
+  BUTTON bu_paraspec_enable	@	_ms	@	.,		///
+	onpush(program main_paraspec_enable)				///
+	label(resource LBL_BU_ENABLE)
+  TEXTBOX tb_paraspec_note	35	+25	370	20,		///
+	label(resource LBL_PRESS_CREATE_DEFINE_SPECIFICATION)
+
+  DEFINE usex _lft
+  DEFINE usey holdy
+  DEFINE usew _iwd
+  INCLUDE bayes_predfile	
+	
+  RADIO  rb_predsingle	_lft	+45	_iwd	.,		///
+	first								///
+	onclickon(script main_predsingle_on)				///
+	label(resource BAYESGRAPH_MAIN_RB_PREDSINGLE)
+  RADIO rb_predmulti		@	+55	@	.,		///
+	last								///
+	onclickon(script main_predmulti_on)				///
+	label(resource BAYESGRAPH_MAIN_RB_PREDMULTI)
+	
+  EDIT   ed_predsingle		25	-30	390	.,		///
+	label(resource BAYESGRAPH_MAIN_RB_PREDMULTI)
+  BUTTON bu_predsingle		415	@	75	.,		///
+	onpush(program main_singlepred_create)				///
+	tooltip(resource BAYESGRAPH_MAIN_BU_SINGLE_TIP)			///
+	label(resource LBL_BU_CREATE)
+	
+  GROUPBOX gb_predspec		25	+50	465	_ht12,		///
+	label("")
+  LISTBOX lb_predspecBuild	35	_ms	245	95,		///
+	contents(main_predspecgph_list)					///
+	ondblclick(program main_predspec_edit)				///
+	onselchange(program main_predspec_sel_changed)			///
+	nomemory							///
+	error(resource BAYESGRAPH_MAIN_RB_MULTI)
+  BUTTON bu_predspec_create	295	@	80	.,		///
+	onpush(program main_predspec_create)				///
+	label(resource LBL_BU_CREATE)	
+  BUTTON bu_predspec_edit	@	_ms	@	.,		///
+	onpush(program main_predspec_edit)				///
+	label(resource LBL_BU_EDIT)
+  BUTTON bu_predspec_disable	@	_ms	@	.,		///
+	onpush(program main_predspec_disable)				///
+	label(resource LBL_BU_DISABLE)	
+  BUTTON bu_predspec_enable	@	_ms	@	.,		///
+	onpush(program main_predspec_enable)				///
+	label(resource LBL_BU_ENABLE)
+  TEXTBOX tb_predspec_note	35	+25	370	20,		///
+	label(resource LBL_PRESS_CREATE_DEFINE_SPECIFICATION)
+END
+
+SCRIPT main_syntax_para
+BEGIN
+	program gtype_init
+	main.rb_single.show
+	main.rb_multi.show 
+	main.rb_all.show
+	
+	main.tx_use.hide 
+	main.fi_use.hide
+	main.rb_predsingle.hide 
+	main.rb_predmulti.hide
+	main.ed_predsingle.hide 
+	main.bu_predsingle.hide
+	main.gb_predspec.hide 
+	main.lb_predspecBuild.hide 
+	main.tb_predspec_note.hide 
+	main.bu_predspec_create.hide 
+	main.bu_predspec_edit.hide 
+	main.bu_predspec_disable.hide 
+	main.bu_predspec_enable.hide
+	program main_gtype_sel_changed
+END
+
+SCRIPT main_syntax_pred
+BEGIN
+	program gtype_init
+	main.rb_single.hide
+	main.ed_single.hide 
+	main.bu_single.hide
+	main.cb_matrix.hide
+	main.rb_multi.hide 
+	main.rb_all.hide 
+	main.gb_paraspec.hide 
+	main.lb_paraspecBuild.hide 
+	main.tb_paraspec_note.hide 
+	main.bu_paraspec_create.hide 
+	main.bu_paraspec_edit.hide 
+	main.bu_paraspec_disable.hide 
+	main.bu_paraspec_enable.hide
+	
+	main.tx_use.show 
+	main.fi_use.show
+	main.rb_predsingle.show 
+	main.rb_predmulti.show
+	main.ed_predsingle.show 
+	main.bu_predsingle.show
+	
+	main.gb_predspec.show 
+	main.lb_predspecBuild.show 
+	main.tb_predspec_note.show 
+	main.bu_predspec_create.show 
+	main.bu_predspec_edit.show 
+	main.bu_predspec_disable.show 
+	main.bu_predspec_enable.show
+	
+	program main_gtype_sel_changed
+	program main_file_change
+END
+
+SCRIPT main_predsingle_on
+BEGIN
+	main.gb_predspec.disable
+	main.lb_predspecBuild.disable
+	main.bu_predspec_create.disable
+	main.bu_predspec_edit.disable
+	main.bu_predspec_disable.disable
+	main.bu_predspec_enable.disable
+	main.tb_predspec_note.disable
+	main.ed_predsingle.enable
+	main.bu_predsingle.enable
+	program main_singleopts_show
+	program show_reffects_hide
+	NumOfParas.setvalue 1
+END
+
+SCRIPT main_predmulti_on
+BEGIN
+	main.gb_predspec.enable
+	main.lb_predspecBuild.enable
+	main.bu_predspec_create.enable
+	main.bu_predspec_edit.disable
+	main.bu_predspec_disable.disable
+	main.bu_predspec_enable.disable
+	main.tb_predspec_note.enable
+	main.ed_predsingle.disable
+	main.bu_predsingle.disable
+	program show_reffects_hide
+	program main_multiopts_show
+	program main_predspec_sel_changed
+	NumOfParas.setvalue class mainPredspecCommandValues.size
+END
+
+PROGRAM main_file_change
+BEGIN
+	if main.fi_use.equals("") {
+		call main.rb_predsingle.disable
+		call main.rb_predmulti.disable
+		call main.gb_predspec.disable
+		call main.lb_predspecBuild.disable
+		call main.bu_predspec_create.disable
+		call main.bu_predspec_edit.disable
+		call main.bu_predspec_disable.disable
+		call main.bu_predspec_enable.disable
+		call main.tb_predspec_note.disable	
+		call main.ed_predsingle.disable
+		call main.bu_predsingle.disable		
+	}
+	else {
+		call main.rb_predsingle.enable
+		call main.rb_predmulti.enable
+		if main.rb_predsingle {
+			call script main_predsingle_on
+		}
+		else {
+			call script main_predmulti_on
+		}
+	}
+END
+
+SCRIPT main_single_on
+BEGIN
+	main.gb_paraspec.disable
+	main.lb_paraspecBuild.disable
+	main.bu_paraspec_create.disable
+	main.bu_paraspec_edit.disable
+	main.bu_paraspec_disable.disable
+	main.bu_paraspec_enable.disable
+	main.tb_paraspec_note.disable
+	main.ed_single.enable
+	main.bu_single.enable
+	program show_reffects_hide
+	program main_singleopts_show
+	paras_sel.setvalue 1
+	NumOfParas.setvalue 1
+END
+
+SCRIPT main_multi_on
+BEGIN
+	main.gb_paraspec.enable
+	main.lb_paraspecBuild.enable
+	main.bu_paraspec_create.enable
+	main.bu_paraspec_edit.disable
+	main.bu_paraspec_disable.disable
+	main.bu_paraspec_enable.disable
+	main.tb_paraspec_note.enable
+	main.ed_single.disable
+	main.bu_single.disable
+	program main_paraspec_sel_changed
+	program show_reffects_hide
+	program main_multiopts_show
+	paras_sel.setvalue 2
+	NumOfParas.setvalue class ParasList.size
+END
+
+SCRIPT main_all_on
+BEGIN
+	main.gb_paraspec.disable
+	main.lb_paraspecBuild.disable
+	main.bu_paraspec_create.disable
+	main.bu_paraspec_edit.disable
+	main.bu_paraspec_disable.disable
+	main.bu_paraspec_enable.disable
+	main.tb_paraspec_note.disable
+	main.ed_single.disable
+	main.bu_single.disable
+	program show_reffects_show
+	program main_multiopts_show
+	NumOfParas.setvalue class ParasList.size
+END
+
+PROGRAM main_singleopts_show
+BEGIN
+	call opts.ck_byparm.hide
+	call opts.bu_byparmgraphopts.hide
+	call opts.ck_combine.hide
+	call opts.gb_combine.hide
+	call opts.bu_combinegraphopts.hide
+	call opts.sp_sleep.hide
+	call opts.tx_sleep.hide
+	call opts.ck_wait.hide
+	call opts.ck_close.hide
+	call opts.bu_graphopts_single.hide
+	call opts.bu_graphopts_matrix.hide
+	call opts.bu_graphopts_mul1.hide
+	call opts.bu_graphopts_mul2.hide
+
+	call opts.sp_skip.show
+	call opts.tx_skip.show
+	call opts.ck_name.show
+	call opts.ed_name.show
+	call opts.ck_repname.show
+	call opts.ck_save.show
+	call opts.fi_save.show
+	call opts.ck_repdta.show
+	
+	call opts.ck_name.setlabel resource BAYESGRAPH_OPTS_CK_NAME_SINGLE
+	call opts.ck_repname.setlabel resource BAYESGRAPH_OPTS_CK_REPNAME_SINGLE
+	call opts.ck_save.setlabel resource BAYESGRAPH_OPTS_CK_SAVE_SINGLE
+	call opts.ck_repdta.setlabel 		///
+		resource LBL_OVERWRITE_FILE_IF_IT_ALREADY_EXISTS
+	
+	if main.lb_gtype.equals("diagnostics") {
+		call opts.gb_combine.show
+		call opts.bu_combinegraphopts.show
+		call opts.bu_combinegraphopts.enable
+		call opts.bu_graphopts_single.show
+		
+		call opts.gb_combine.setposition . 10
+		call opts.bu_combinegraphopts.enable
+		call opts.bu_combinegraphopts.setposition . 30
+		call opts.sp_skip.setposition . 75
+		call opts.tx_skip.setposition . 75
+		call opts.ck_name.setposition . 110
+		call opts.ed_name.setposition . 140
+		call opts.ck_repname.setposition . 165
+		call opts.ck_save.setposition . 210
+		call opts.fi_save.setposition . 235
+		call opts.ck_repdta.setposition . 260
+		call opts.bu_graphopts_single.setposition . 305
+	}
+	if main.lb_gtype.equals("trace") | main.lb_gtype.equals("ac") | ///
+		main.lb_gtype.equals("histogram") |			///
+		main.lb_gtype.equals("kdensity")  |			///
+		main.lb_gtype.equals("cusum") {
+		call opts.bu_graphopts_single.show
+		
+		call opts.sp_skip.setposition . 10
+		call opts.tx_skip.setposition . 10
+		call opts.ck_name.setposition . 45
+		call opts.ed_name.setposition . 75
+		call opts.ck_repname.setposition . 100
+		call opts.ck_save.setposition . 145
+		call opts.fi_save.setposition . 170
+		call opts.ck_repdta.setposition . 195
+		call opts.bu_graphopts_single.setposition . 240
+
+	}
+	if main.lb_gtype.equals("matrix") {
+		call opts.bu_graphopts_matrix.show
+		
+		call opts.sp_skip.setposition . 10
+		call opts.tx_skip.setposition . 10
+		call opts.ck_name.setposition . 45
+		call opts.ed_name.setposition . 75
+		call opts.ck_repname.setposition . 100
+		call opts.ck_save.setposition . 145
+		call opts.fi_save.setposition . 170
+		call opts.ck_repdta.setposition . 195
+		call opts.bu_graphopts_matrix.setposition . 240
+	}
+END
+
+PROGRAM main_multiopts_show
+BEGIN
+	call opts.bu_graphopts_single.hide
+	call opts.sp_skip.show
+	call opts.tx_skip.show
+	call opts.ck_name.show
+	call opts.ed_name.show
+	call opts.ck_repname.show
+	call opts.ck_save.show
+	call opts.fi_save.show
+	call opts.ck_repdta.show
+	
+	call opts.ck_name.setlabel resource BAYESGRAPH_OPTS_CK_NAME_PLURAL
+	call opts.ck_repname.setlabel resource BAYESGRAPH_OPTS_CK_REPNAME_PLURAL
+	call opts.ck_save.setlabel resource BAYESGRAPH_OPTS_CK_SAVE_PLURAL
+	call opts.ck_repdta.setlabel 		///
+		resource LBL_OVERWRITE_FILES_IF_THEY_ALREADY_EXIST
+	
+	call opts.ck_byparm.hide 
+	call opts.bu_byparmgraphopts.hide
+	call opts.ck_combine.hide
+	call opts.gb_combine.hide
+	call opts.bu_combinegraphopts.hide
+	call opts.sp_sleep.hide
+	call opts.tx_sleep.hide
+	call opts.ck_wait.hide
+	call opts.ck_close.hide
+	call opts.bu_graphopts_mul1.hide
+	call opts.bu_graphopts_mul2.hide
+	call opts.bu_graphopts_matrix.hide
+
+	if main.lb_gtype.equals("diagnostics") {
+		call opts.sp_sleep.show
+		call opts.tx_sleep.show
+		call opts.ck_wait.show
+		call opts.ck_close.show
+		call opts.bu_graphopts_mul1.show
+		call opts.bu_graphopts_mul2.show
+		call opts.ck_showreffects.show
+		call opts.rb_showallref.show
+		call opts.rb_showselref.show
+		call opts.cb_showre.show
+
+		call opts.sp_sleep.setposition . 10
+		call opts.tx_sleep.setposition . 10
+		call opts.ck_wait.setposition . 35
+		call opts.ck_close.setposition . 60
+		call opts.sp_skip.setposition . 85
+		call opts.tx_skip.setposition . 85
+		call opts.ck_name.setposition . 120
+		call opts.ed_name.setposition . 150
+		call opts.ck_repname.setposition . 175
+		call opts.ck_save.setposition . 220
+		call opts.fi_save.setposition . 245
+		call opts.ck_repdta.setposition . 270
+		call opts.ck_showreffects.setposition . 320
+		call opts.rb_showallref.setposition . 345
+		call opts.rb_showselref.setposition . 370
+		call opts.cb_showre.setposition . 390
+		call opts.bu_graphopts_mul1.setposition 10 435
+		call opts.bu_graphopts_mul2.setposition 230 435
+	}
+	if main.lb_gtype.equals("matrix") {
+		call opts.bu_graphopts_matrix.show
+		call opts.sp_skip.setposition . 10
+		call opts.tx_skip.setposition . 10
+		call opts.ck_name.setposition . 45
+		call opts.ed_name.setposition . 75
+		call opts.ck_repname.setposition . 100
+		call opts.ck_save.setposition . 145
+		call opts.fi_save.setposition . 170
+		call opts.ck_repdta.setposition . 195
+		call opts.ck_showreffects.setposition . 245
+		call opts.rb_showallref.setposition . 270
+		call opts.rb_showselref.setposition . 295
+		call opts.cb_showre.setposition . 315
+		call opts.bu_graphopts_matrix.setposition . 360
+	}
+	if main.lb_gtype.equals("trace") | main.lb_gtype.equals("ac") | ///
+		main.lb_gtype.equals("histogram") |			///
+		main.lb_gtype.equals("kdensity")  |			///
+		main.lb_gtype.equals("cusum") {
+		call opts.ck_byparm.show 
+		call opts.bu_byparmgraphopts.show
+		call opts.ck_combine.show
+		call opts.bu_combinegraphopts.show
+		call opts.sp_sleep.show
+		call opts.tx_sleep.show
+		call opts.ck_wait.show
+		call opts.ck_close.show
+		call opts.bu_graphopts_mul1.show
+		call opts.bu_graphopts_mul2.show
+		
+		call opts.ck_byparm.setposition . 10
+		call opts.bu_byparmgraphopts.setposition . 30
+		call opts.ck_combine.setposition . 75
+		call opts.bu_combinegraphopts.setposition . 95
+		call opts.sp_sleep.setposition . 140
+		call opts.tx_sleep.setposition . 140
+		call opts.ck_wait.setposition . 165
+		call opts.ck_close.setposition . 190
+		call opts.sp_skip.setposition . 215
+		call opts.tx_skip.setposition . 215
+		call opts.ck_name.setposition . 250
+		call opts.ed_name.setposition . 280
+		call opts.ck_repname.setposition . 305
+		call opts.ck_save.setposition . 350
+		call opts.fi_save.setposition . 375
+		call opts.ck_repdta.setposition . 400
+		call opts.ck_showreffects.setposition . 450
+		call opts.rb_showallref.setposition . 475
+		call opts.rb_showselref.setposition . 500
+		call opts.cb_showre.setposition . 520
+		if opts.cb_showre.isvisible() {
+			call opts.bu_graphopts_mul1.setposition 10 565
+			call opts.bu_graphopts_mul2.setposition 230 565
+		}
+		else {
+			call opts.bu_graphopts_mul1.setposition 10 440
+			call opts.bu_graphopts_mul2.setposition 230 440
+		}
+	}
+END
+
+PROGRAM main_gtype_sel_changed
+BEGIN
+	call main.lb_gtype.withvalue plotType.setvalue @
+	if main.rb_para {
+		if main.lb_gtype.equals("matrix") {
+			call main.rb_single.setlabel resource BAYESGRAPH_MAIN_CB_MATRIX
+			call main.ed_single.hide
+			call main.bu_single.hide
+			call main.cb_matrix.show
+			call main.rb_single.seton
+			
+			call main.rb_multi.hide 
+			call main.gb_paraspec.hide
+			call main.lb_paraspecBuild.hide 
+			call main.bu_paraspec_create.hide
+			call main.bu_paraspec_disable.hide 
+			call main.bu_paraspec_edit.hide 
+			call main.bu_paraspec_enable.hide
+			call main.tb_paraspec_note.hide
+			if main.rb_para.isvisible() {
+				call main.rb_all.setposition . 325
+			}
+			else {
+				call main.rb_all.setposition . 245
+			}
+		}
+		else {
+			call main.rb_single.setlabel resource BAYESGRAPH_MAIN_ED_SINGLE
+			call main.ed_single.show
+			call main.bu_single.show
+			call main.cb_matrix.hide
+			
+			call main.rb_multi.show 
+			call main.gb_paraspec.show
+			call main.lb_paraspecBuild.show 
+			call main.bu_paraspec_create.show
+			call main.bu_paraspec_disable.show 
+			call main.bu_paraspec_edit.show 
+			call main.bu_paraspec_enable.show
+			call main.tb_paraspec_note.show
+			if main.rb_para.isvisible() {
+				call main.rb_all.setposition . 505
+			}
+			else {
+				call main.rb_all.setposition . 420
+			}
+		}
+		if main.rb_single {
+			call script main_single_on
+		}
+		if main.rb_multi {
+			call script main_multi_on
+		}
+		if main.rb_all {
+			call script main_all_on
+		}
+		if opts.ck_byparm & opts.ck_byparm.isvisible() {
+			call opts.bu_byparmgraphopts.enable
+		}
+		else {
+			call opts.bu_byparmgraphopts.disable
+		}
+		if opts.ck_combine {
+			call opts.bu_combinegraphopts.enable
+		}
+		else {
+			call opts.bu_combinegraphopts.disable
+		}
+		call program graph_get_GraphSingleOptsResult
+		call program graph_get_GraphMulOptsResult
+		call program graph_get_GraphMulOptsSepResult
+		call program check_nchains
+	}
+	else {
+		if main.lb_gtype.equals("matrix") {	
+			call main.rb_predsingle.hide
+			call main.ed_predsingle.hide 
+			call main.bu_predsingle.hide
+			call main.rb_predmulti.seton
+			call main.rb_predmulti.setlabel resource BAYESGRAPH_MAIN_RB_PREDMULTI2
+			
+			call main.rb_predmulti.setposition . 330
+			call main.gb_predspec.setposition . 350
+			call main.lb_predspecBuild.setposition . 375
+			call main.bu_predspec_create.setposition . 375
+			call main.bu_predspec_edit.setposition . 400
+			call main.bu_predspec_disable.setposition . 425
+			call main.bu_predspec_enable.setposition . 450
+			call main.tb_predspec_note.setposition . 475
+		}
+		else {
+			call main.rb_predsingle.show
+			call main.ed_predsingle.show 
+			call main.bu_predsingle.show
+			call main.rb_predmulti.setlabel resource BAYESGRAPH_MAIN_RB_PREDMULTI
+			
+			call main.rb_predsingle.setposition . 330
+			call main.ed_predsingle.setposition . 355
+			call main.bu_predsingle.setposition . 355
+			call main.rb_predmulti.setposition . 390
+			call main.gb_predspec.setposition . 410
+			call main.lb_predspecBuild.setposition . 435
+			call main.bu_predspec_create.setposition . 435
+			call main.bu_predspec_edit.setposition . 460
+			call main.bu_predspec_disable.setposition . 485
+			call main.bu_predspec_enable.setposition . 510
+			call main.tb_predspec_note.setposition . 535
+		}
+		
+		call program main_file_change
+		if opts.ck_byparm & opts.ck_byparm.isvisible() {
+			call opts.bu_byparmgraphopts.enable
+		}
+		else {
+			call opts.bu_byparmgraphopts.disable
+		}
+		if opts.ck_combine {
+			call opts.bu_combinegraphopts.enable
+		}
+		else {
+			call opts.bu_combinegraphopts.disable
+		}
+		call program graph_get_GraphSingleOptsResult
+		call program graph_get_GraphMulOptsResult
+		call program graph_get_GraphMulOptsSepResult
+		call program check_nchains
+	}
+END
+
+PROGRAM main_singlepara_create
+BEGIN
+	call create CHILD bayesgraph_paraspec AS GraphSingleParaDlg
+	call GraphSingleParaDlg.settitle 	///
+		resource BAYESGRAPH_GRAPH_SINGLE_PARA_CHILD_TITLE
+	call GraphSingleParaDlg.setExitString GraphSingleParaResult
+	call GraphSingleParaDlg.setExitAction "program graph_get_GraphSingleParaResult"
+END
+
+PROGRAM graph_get_GraphSingleParaResult
+BEGIN
+	call main.ed_single.setvalue class GraphSingleParaResult.value
+END
+
+PROGRAM main_paraspec_create
+BEGIN
+	call main_paraspec_count.setvalue class mainParaspecChildDialogList.size
+	call main_paraspec_count.increment
+	call main_build_tmp.setvalue "main_paraspecgph_"
+	call main_build_tmp.append class main_paraspec_count.value
+	call main_build_tmp.withvalue main_build_childdlg.setvalue @
+	call program main_show_paraspec_child
+END
+
+PROGRAM main_paraspec_edit
+BEGIN
+	call mainParaspecCommandDisplayList.findstr class		///
+		main.lb_paraspecBuild.value
+	call main_build_position.setvalue class				///
+		mainParaspecCommandDisplayList.position
+	call main_build_position.withvalue				///
+		main_build_childdlg.setvalue				///
+		class mainParaspecChildDialogList.values[@]
+	call program main_show_paraspec_child_edit
+END
+
+PROGRAM main_show_paraspec_child
+BEGIN
+	call main_build_tmp.setvalue "bayesgraph_paraspec AS "
+	call main_build_tmp.append class main_build_childdlg.value
+	call main_build_tmp.withvalue create CHILD @
+	call main_build_childdlg.withvalue @.setExitString		///
+		"main_build_child_result"
+	call main_build_childdlg.withvalue @.setExitAction		///
+		"program main_paraspec_child_create_done"
+
+	call main_paraspec_count.withvalue build_STMP.format 	///
+		"resource BAYESGRAPH_GRAPH_PARASPEC_CHILD_TITLE_FMT" "@"		
+
+	call main_build_childdlg.withvalue				///
+		main_build_tmp2.setvalue "@.settitle"
+	call main_build_tmp2.append `" ""'
+	call main_build_tmp2.append class build_STMP.value
+	call main_build_tmp2.append `"""'
+	call main_build_tmp2.withvalue @
+END
+
+PROGRAM main_show_paraspec_child_edit
+BEGIN
+	call main_build_tmp.setvalue "bayesgraph_paraspec AS "
+	call main_build_tmp.append class main_build_childdlg.value
+	call main_build_tmp.withvalue create CHILD @
+	call main_build_childdlg.withvalue @.setExitString		///
+		"main_build_child_result"
+	call main_build_childdlg.withvalue @.setExitAction		///
+		"program main_paraspec_child_edit_done"
+
+	call main_build_position.withvalue				///
+		main_build_tmp.setvalue					///
+		class mainParaspecCommandDisplayList.values[@]
+	call main_build_childdlg.withvalue				///
+		main_build_tmp2.setvalue "@.settitle"
+	call main_build_tmp2.append `" ""'
+	call main_build_tmp2.append class main_build_tmp.value
+	call main_build_tmp2.append `"""'
+	call main_build_tmp2.withvalue @
+END
+
+PROGRAM main_paraspec_child_create_done
+BEGIN
+	
+	call main_paraspec_arraysize.setvalue class			///
+		mainParaspecChildDialogList.size
+	call main_paraspec_arraysize.increment
+
+	call main_paraspec_arraysize.withvalue build_STMP.format	///
+		"resource BAYESGRAPH_GRAPH_PARASPEC_CHILD_TITLE_FMT" "@"
+
+	/* Store child dialog name */
+	call mainParaspecChildDialogList.store class			///
+		main_paraspec_arraysize.value class main_build_childdlg.value
+
+	/* Store listbox display equation string */
+	call mainParaspecCommandDisplayList.store 			///
+		class main_paraspec_arraysize.value class build_STMP.value
+
+	/* Store child dialog result string */
+	call mainParaspecCommandList.store class			///
+		main_paraspec_arraysize.value				///
+		class main_build_child_result.value
+
+
+	/* Store child dialog result string for final command
+	   For disable/enable */
+	call mainParaspecCommandValues.store class			///
+		main_paraspec_arraysize.value				///
+		class main_build_child_result.value
+
+	/* Store disable/enable status */
+	call mainParaspecStatusList.store class				///
+		main_paraspec_arraysize.value "active"
+
+	call mainParaspecCommandDisplayList.copyToArray main_paraspecgph_list
+	call main.lb_paraspecBuild.repopulate
+	call main.lb_paraspecBuild.setvalue class build_STMP.value
+	call NumOfParas.increment
+END
+
+PROGRAM main_paraspec_child_edit_done
+BEGIN
+	call mainParaspecChildDialogList.findstr class			///
+		main_build_childdlg.value
+	call main_build_position.setvalue class				///
+		mainParaspecChildDialogList.position
+
+	call main_build_position.withvalue main_build_tmp.setvalue	///
+		class mainParaspecStatusList.values[@]
+
+	if main_build_tmp.iseq("active") {
+		call main_build_position.withvalue build_STMP.format	///
+			"resource BAYESGRAPH_GRAPH_PARASPEC_CHILD_TITLE_FMT" "@"
+	
+		call mainParaspecCommandDisplayList.store 		///
+			class main_build_position.value 		///
+			class build_STMP.value
+		call mainParaspecCommandValues.store class		///
+			main_build_position.value class			///
+			main_build_child_result.value
+		call main_build_tmp2.setvalue class build_STMP.value
+	}
+	else {
+		call main_build_position.withvalue build_STMP.format	///
+			"resource BAYESGRAPH_GRAPH_PARASPEC_CHILD_DISABLED_FMT" "@"
+
+		call mainParaspecCommandDisplayList.store		///
+			class main_build_position.value class build_STMP.value
+		call main_build_tmp2.setvalue class build_STMP.value
+	}
+
+	call mainParaspecCommandList.store class			///
+		main_build_position.value class				///
+		main_build_child_result.value
+
+	call mainParaspecCommandDisplayList.copyToArray main_paraspecgph_list
+	call main.lb_paraspecBuild.repopulate
+	call main.lb_paraspecBuild.setvalue class main_build_tmp2.value
+END
+
+PROGRAM main_paraspec_sel_changed
+BEGIN
+	call mainParaspecCommandDisplayList.findstr class		///
+		main.lb_paraspecBuild.value
+	call main_build_position.setvalue class				///
+		mainParaspecCommandDisplayList.position
+	call main_build_position.withvalue main_build_tmp.setvalue	///
+		class mainParaspecStatusList.values[@]
+	if main_build_position {
+		call main.bu_paraspec_edit.enable
+
+		call main_build_position.withvalue			///
+			main.tb_paraspec_note.setlabel			///
+		class mainParaspecCommandList.values[@]
+	}
+
+	if main_build_tmp.iseq("disable") & main.lb_paraspecBuild.isenabled() {
+		call main.bu_paraspec_enable.enable
+		call main.bu_paraspec_disable.disable
+	}
+	if main_build_tmp.iseq("active") & main.lb_paraspecBuild.isenabled() {
+		call main.bu_paraspec_enable.disable
+		call main.bu_paraspec_disable.enable
+	}
+END
+
+PROGRAM main_paraspec_disable
+BEGIN
+	call mainParaspecCommandDisplayList.findstr class		///
+		main.lb_paraspecBuild.value
+	call main_build_position.setvalue class				///
+		mainParaspecCommandDisplayList.position
+
+	call mainParaspecStatusList.store class				///
+		main_build_position.value "disable"
+	call mainParaspecCommandValues.store class main_build_position.value ""
+
+	call main_build_position.withvalue build_STMP.format		///
+		"resource BAYESGRAPH_GRAPH_PARASPEC_CHILD_DISABLED_FMT" "@"
+	
+	call mainParaspecCommandDisplayList.store			///
+		class main_build_position.value class build_STMP.value
+
+	call mainParaspecCommandDisplayList.copyToArray main_paraspecgph_list
+	call main_build_tmp2.setvalue class build_STMP.value 
+	call main.lb_paraspecBuild.repopulate
+	call main.lb_paraspecBuild.setvalue class main_build_tmp2.value
+	call NumOfParas.decrement
+END
+
+PROGRAM main_paraspec_enable
+BEGIN
+	call mainParaspecCommandDisplayList.findstr class		///
+		main.lb_paraspecBuild.value
+	call main_build_position.setvalue class				///
+		mainParaspecCommandDisplayList.position
+
+	call mainParaspecStatusList.store class				///
+		main_build_position.value "active"
+	call main_build_position.withvalue				///
+		mainParaspecCommandValues.store				///
+		class main_build_position.value class			///
+		mainParaspecCommandList.values[@]
+
+	call main_build_position.withvalue build_STMP.format		///
+		"resource BAYESGRAPH_GRAPH_PARASPEC_CHILD_TITLE_FMT" "@"
+		
+	call mainParaspecCommandDisplayList.store			///
+		class main_build_position.value class build_STMP.value
+
+	call mainParaspecCommandDisplayList.copyToArray main_paraspecgph_list
+	call main_build_position.withvalue				///
+		main_build_tmp2.setvalue class				///
+		mainParaspecCommandDisplayList.values[@]
+	call main.lb_paraspecBuild.repopulate
+	call main.lb_paraspecBuild.setvalue class main_build_tmp2.value
+	call NumOfParas.increment
+END
+
+PROGRAM main_singlepred_create
+BEGIN
+	call create CHILD bayesgraph_predspec AS GraphSinglePredDlg
+	call GraphSinglePredDlg.settitle resource BAYESGRAPH_MAIN_RB_PREDSINGLE
+	call GraphSinglePredDlg.setExitString GraphSinglePredResult
+	call GraphSinglePredDlg.setExitAction "program graph_get_GraphSinglePredResult"
+END
+
+PROGRAM graph_get_GraphSinglePredResult
+BEGIN
+	call main.ed_predsingle.setvalue class GraphSinglePredResult.value
+END
+
+PROGRAM main_predspec_create
+BEGIN
+	call main_predspec_count.setvalue class mainPredspecChildDialogList.size
+	call main_predspec_count.increment
+	call main_build_tmp.setvalue "main_predspecgph_"
+	call main_build_tmp.append class main_predspec_count.value
+	call main_build_tmp.withvalue main_build_childdlg.setvalue @
+	call program main_show_predspec_child
+END
+
+PROGRAM main_predspec_edit
+BEGIN
+	call mainPredspecCommandDisplayList.findstr class		///
+		main.lb_predspecBuild.value
+	call main_build_position.setvalue class				///
+		mainPredspecCommandDisplayList.position
+	call main_build_position.withvalue				///
+		main_build_childdlg.setvalue				///
+		class mainPredspecChildDialogList.values[@]
+	call program main_show_predspec_child_edit
+END
+
+PROGRAM main_show_predspec_child
+BEGIN
+	call main_build_tmp.setvalue "bayesstats_predspec AS "
+	call main_build_tmp.append class main_build_childdlg.value
+	call main_build_tmp.withvalue create CHILD @
+	call main_build_childdlg.withvalue @.setExitString		///
+		"main_build_child_result"
+	call main_build_childdlg.withvalue @.setExitAction		///
+		"program main_predspec_child_create_done"
+
+	call main_predspec_count.withvalue build_STMP.format 	///
+		"resource BAYESGRAPH_GRAPH_PARASPEC_CHILD_TITLE_FMT" "@"		
+
+	call main_build_childdlg.withvalue				///
+		main_build_tmp2.setvalue "@.settitle"
+	call main_build_tmp2.append `" ""'
+	call main_build_tmp2.append class build_STMP.value
+	call main_build_tmp2.append `"""'
+	call main_build_tmp2.withvalue @
+END
+
+PROGRAM main_show_predspec_child_edit
+BEGIN
+	call main_build_tmp.setvalue "bayesstats_predspec AS "
+	call main_build_tmp.append class main_build_childdlg.value
+	call main_build_tmp.withvalue create CHILD @
+	call main_build_childdlg.withvalue @.setExitString		///
+		"main_build_child_result"
+	call main_build_childdlg.withvalue @.setExitAction		///
+		"program main_predspec_child_edit_done"
+
+	call main_build_position.withvalue				///
+		main_build_tmp.setvalue					///
+		class mainPredspecCommandDisplayList.values[@]
+	call main_build_childdlg.withvalue				///
+		main_build_tmp2.setvalue "@.settitle"
+	call main_build_tmp2.append `" ""'
+	call main_build_tmp2.append class main_build_tmp.value
+	call main_build_tmp2.append `"""'
+	call main_build_tmp2.withvalue @
+END
+
+PROGRAM main_predspec_child_create_done
+BEGIN
+	
+	call main_predspec_arraysize.setvalue class			///
+		mainPredspecChildDialogList.size
+	call main_predspec_arraysize.increment
+
+	call main_predspec_arraysize.withvalue build_STMP.format	///
+		"resource BAYESGRAPH_GRAPH_PARASPEC_CHILD_TITLE_FMT" "@"
+
+	/* Store child dialog name */
+	call mainPredspecChildDialogList.store class			///
+		main_predspec_arraysize.value class main_build_childdlg.value
+
+	/* Store listbox display equation string */
+	call mainPredspecCommandDisplayList.store 			///
+		class main_predspec_arraysize.value class build_STMP.value
+
+	/* Store child dialog result string */
+	call mainPredspecCommandList.store class			///
+		main_predspec_arraysize.value				///
+		class main_build_child_result.value
+
+
+	/* Store child dialog result string for final command
+	   For disable/enable */
+	call mainPredspecCommandValues.store class			///
+		main_predspec_arraysize.value				///
+		class main_build_child_result.value
+
+	/* Store disable/enable status */
+	call mainPredspecStatusList.store class				///
+		main_predspec_arraysize.value "active"
+
+	call mainPredspecCommandDisplayList.copyToArray main_predspecgph_list
+	call main.lb_predspecBuild.repopulate
+	call main.lb_predspecBuild.setvalue class build_STMP.value
+	call NumOfParas.increment
+END
+
+PROGRAM main_predspec_child_edit_done
+BEGIN
+	call mainPredspecChildDialogList.findstr class			///
+		main_build_childdlg.value
+	call main_build_position.setvalue class				///
+		mainPredspecChildDialogList.position
+
+	call main_build_position.withvalue main_build_tmp.setvalue	///
+		class mainPredspecStatusList.values[@]
+
+	if main_build_tmp.iseq("active") {
+		call main_build_position.withvalue build_STMP.format	///
+			"resource BAYESGRAPH_GRAPH_PARASPEC_CHILD_TITLE_FMT" "@"
+	
+		call mainPredspecCommandDisplayList.store 		///
+			class main_build_position.value 		///
+			class build_STMP.value
+		call mainPredspecCommandValues.store class		///
+			main_build_position.value class			///
+			main_build_child_result.value
+		call main_build_tmp2.setvalue class build_STMP.value
+	}
+	else {
+		call main_build_position.withvalue build_STMP.format	///
+			"resource BAYESGRAPH_GRAPH_PARASPEC_CHILD_DISABLED_FMT" "@"
+
+		call mainPredspecCommandDisplayList.store		///
+			class main_build_position.value class build_STMP.value
+		call main_build_tmp2.setvalue class build_STMP.value
+	}
+
+	call mainPredspecCommandList.store class			///
+		main_build_position.value class				///
+		main_build_child_result.value
+
+	call mainPredspecCommandDisplayList.copyToArray main_predspecgph_list
+	call main.lb_predspecBuild.repopulate
+	call main.lb_predspecBuild.setvalue class main_build_tmp2.value
+END
+
+PROGRAM main_predspec_sel_changed
+BEGIN
+	call mainPredspecCommandDisplayList.findstr class		///
+		main.lb_predspecBuild.value
+	call main_build_position.setvalue class				///
+		mainPredspecCommandDisplayList.position
+	call main_build_position.withvalue main_build_tmp.setvalue	///
+		class mainPredspecStatusList.values[@]
+	if main_build_position {
+		call main.bu_predspec_edit.enable
+
+		call main_build_position.withvalue			///
+			main.tb_predspec_note.setlabel			///
+		class mainPredspecCommandList.values[@]
+	}
+
+	if main_build_tmp.iseq("disable") & main.lb_predspecBuild.isenabled() {
+		call main.bu_predspec_enable.enable
+		call main.bu_predspec_disable.disable
+	}
+	if main_build_tmp.iseq("active") & main.lb_predspecBuild.isenabled() {
+		call main.bu_predspec_enable.disable
+		call main.bu_predspec_disable.enable
+	}
+END
+
+PROGRAM main_predspec_disable
+BEGIN
+	call mainPredspecCommandDisplayList.findstr class		///
+		main.lb_predspecBuild.value
+	call main_build_position.setvalue class				///
+		mainPredspecCommandDisplayList.position
+
+	call mainPredspecStatusList.store class				///
+		main_build_position.value "disable"
+	call mainPredspecCommandValues.store class main_build_position.value ""
+
+	call main_build_position.withvalue build_STMP.format		///
+		"resource BAYESGRAPH_GRAPH_PARASPEC_CHILD_DISABLED_FMT" "@"
+	
+	call mainPredspecCommandDisplayList.store			///
+		class main_build_position.value class build_STMP.value
+
+	call mainPredspecCommandDisplayList.copyToArray main_predspecgph_list
+	call main_build_tmp2.setvalue class build_STMP.value 
+	call main.lb_predspecBuild.repopulate
+	call main.lb_predspecBuild.setvalue class main_build_tmp2.value
+	call NumOfParas.decrement
+END
+
+PROGRAM main_predspec_enable
+BEGIN
+	call mainPredspecCommandDisplayList.findstr class		///
+		main.lb_predspecBuild.value
+	call main_build_position.setvalue class				///
+		mainPredspecCommandDisplayList.position
+
+	call mainPredspecStatusList.store class				///
+		main_build_position.value "active"
+	call main_build_position.withvalue				///
+		mainPredspecCommandValues.store				///
+		class main_build_position.value class			///
+		mainPredspecCommandList.values[@]
+
+	call main_build_position.withvalue build_STMP.format		///
+		"resource BAYESGRAPH_GRAPH_PARASPEC_CHILD_TITLE_FMT" "@"
+		
+	call mainPredspecCommandDisplayList.store			///
+		class main_build_position.value class build_STMP.value
+
+	call mainPredspecCommandDisplayList.copyToArray main_predspecgph_list
+	call main_build_position.withvalue				///
+		main_build_tmp2.setvalue class				///
+		mainPredspecCommandDisplayList.values[@]
+	call main.lb_predspecBuild.repopulate
+	call main.lb_predspecBuild.setvalue class main_build_tmp2.value
+	call NumOfParas.increment
+END
+
+DIALOG chains, tabtitle(resource LBL_CHAINS)
+BEGIN
+  GROUPBOX gb_chain		_lft	_top	_iwd	_ht8h,		///
+	label(resource BAYESGRAPH_CHAINS_GB_CHAINS_TO_PLOT)
+  RADIO rb_chain		_ilft	_ss	_inwd	., first	///
+	onclickon(script chains_all_on)					///
+	label(resource BAYESGRAPH_CHAINS_RB_CHAIN)
+  RADIO rb_chain_all		@	_ss	@	.,		///
+	onclickon(script chains_all_on)					///
+	label(resource BAYESGRAPH_CHAINS_RB_CHAIN_ALL)
+  RADIO rb_chain_nlist		@	_ss	@	., last		///
+	onclickon(script chains_nlist_on)				///
+	label(resource BAYESGRAPH_CHAINS_RB_CHAIN_NLIST)
+  COMBOBOX cb_chains		+15	_ss	_en14wd	.,		///
+	dropdown							///
+	append								///
+	option(chains)							///
+	contents(chains_chain_values)					///
+	label(resource LBL_CHAIN_TO_USE_FOR_COMPUTATION)
+  CHECKBOX ck_sepchains		_lft	+45	_ibwd	.,		///
+	onclickon(program check_nchains)				///
+	onclickoff(program check_nchains)				///
+	option(sepchains)						///
+	label(resource LBL_DRAW_SEPARATE_GRAPH_FOR_EACH_CHAIN)
+  CHECKBOX ck_chainslegend	_lft	_ms	_ibwd	.,		///
+	option(chainslegend)						///
+	label(resource LBL_SHOW_LEGENDKEYS_FOR_CHAINNUMS)
+  CHECKBOX ck_bychain		_lft	_ls	_iwd	_ht2,		///
+	groupbox							///
+	onclickon(program chains_bychain_on)				///
+	onclickoff(program chains_bychain_off)				///
+	label(resource BAYESGRAPH_CHAINS_CK_BYCHAIN)
+  BUTTON  bu_bychainopts	_ilft 	_ss	125	.,		///
+	onpush(script show_bychain_dialog)				///
+	label(resource BAYESGRAPH_OPTS_BU_BYPARMGRAPHOPTS)		///
+
+  BUTTON  bu_chainnumopts	_lft 	_xls	200	.,		///
+	onpush(program chains_chainnumopts_show_child)			///
+	label(resource BAYESGRAPH_CHAINS_BU_CHAINNUMOPTS)
+
+  BUTTON  bu_chainopts		_lft2 	@	220	.,		///
+	onpush(program chains_chainopts_show_child)			///
+	label(resource BAYESGRAPH_CHAINS_BU_CHAINOPTS)
+END
+
+PROGRAM chains_chainnumopts_show_child
+BEGIN
+	if main.lb_gtype.equals("diagnostics") {
+		call create CHILD bayesgraph_mulsepopts AS 		///
+			ChainNOptsDiagDlg, message("-chain-")
+		call ChainNOptsDiagDlg.setExitString ChainNOptsDiagResult
+		call ChainNOptsDiagDlg.setExitAction			///
+			"program chains_check_ChainNumResult"
+	}
+	if main.lb_gtype.equals("trace") {
+		call create CHILD bayesgraph_mulsepopts AS		///
+			ChainNOptsTraceDlg, message("-chain-")
+		call ChainNOptsTraceDlg.setExitString ChainNOptsTraceResult
+		call ChainNOptsTraceDlg.setExitAction			///
+			"program chains_check_ChainNumResult"
+	}
+	if main.lb_gtype.equals("ac") {
+		call create CHILD bayesgraph_mulsepopts AS		///
+			ChainNOptsAcDlg, message("-chain-")
+		call ChainNOptsAcDlg.setExitString ChainNOptsAcResult
+		call ChainNOptsAcDlg.setExitAction			///
+			"program chains_check_ChainNumResult"
+	}
+	if main.lb_gtype.equals("histogram") {
+		call create CHILD bayesgraph_mulsepopts AS		///
+			ChainNOptsHistDlg, message("-chain-")
+		call ChainNOptsHistDlg.setExitString ChainNOptsHistResult
+		call ChainNOptsHistDlg.setExitAction			///
+			"program chains_check_ChainNumResult"
+	}
+	if main.lb_gtype.equals("kdensity") {
+		call create CHILD bayesgraph_mulsepopts AS		///
+			ChainNOptsKdenDlg, message("-chain-")
+		call ChainNOptsKdenDlg.setExitString ChainNOptsKdenResult
+		call ChainNOptsKdenDlg.setExitAction			///
+			"program chains_check_ChainNumResult"
+	}
+	if main.lb_gtype.equals("cusum") {
+		call create CHILD bayesgraph_mulsepopts AS		///
+			ChainNOptsCusumDlg, message("-chain-")
+		call ChainNOptsCusumDlg.setExitString ChainNOptsCusumResult
+		call ChainNOptsCusumDlg.setExitAction			///
+			"program chains_check_ChainNumResult"
+	}
+	if main.lb_gtype.equals("matrix") {
+		call create CHILD bayesgraph_mulsepopts AS		///
+			ChainNOptsMatDlg, message("-chain-")
+		call ChainNOptsMatDlg.setExitString ChainNOptsMatResult
+		call ChainNOptsMatDlg.setExitAction			///
+			"program chains_check_ChainNumResult"
+	}
+END
+
+PROGRAM chains_check_ChainNumResult
+BEGIN
+	call create STRING sTMP
+	call sTMP.setvalue resource BAYESGRAPH_CHAINS_BU_CHAINNUMOPTS
+
+	call ChainNumOptsResult.setvalue ""
+	
+	if main.lb_gtype.equals("diagnostics") {
+		if ChainNOptsDiagResult {
+			call sTMP.append " *"
+call ChainNOptsDiagResult.withvalue ChainNumOptsResult.setvalue `"@"'
+		}
+		else {
+			call sTMP.append "  "
+		}
+	}
+	if main.lb_gtype.equals("trace") {
+		if ChainNOptsTraceResult {
+			call sTMP.append " *"
+call ChainNOptsTraceResult.withvalue ChainNumOptsResult.setvalue `"@"'
+		}
+		else {
+			call sTMP.append "  "
+		}
+	}
+	if main.lb_gtype.equals("ac") {
+		if ChainNOptsAcResult {
+			call sTMP.append " *"
+call ChainNOptsAcResult.withvalue ChainNumOptsResult.setvalue `"@"'
+		}
+		else {
+			call sTMP.append "  "
+		}
+	}
+	if main.lb_gtype.equals("histogram") {
+		if ChainNOptsHistResult {
+			call sTMP.append " *"
+call ChainNOptsHistResult.withvalue ChainNumOptsResult.setvalue `"@"'
+		}
+		else {
+			call sTMP.append "  "
+		}
+	}
+	if main.lb_gtype.equals("kdensity") {
+		if ChainNOptsKdenResult {
+			call sTMP.append " *"
+call ChainNOptsKdenResult.withvalue ChainNumOptsResult.setvalue `"@"'
+		}
+		else {
+			call sTMP.append "  "
+		}
+	}
+	if main.lb_gtype.equals("cusum") {
+		if ChainNOptsCusumResult {
+			call sTMP.append " *"
+call ChainNOptsCusumResult.withvalue ChainNumOptsResult.setvalue `"@"'
+		}
+		else {
+			call sTMP.append "  "
+		}
+	}
+	if main.lb_gtype.equals("matrix") {
+		if ChainNOptsMatResult {
+			call sTMP.append " *"
+call ChainNOptsMatResult.withvalue ChainNumOptsResult.setvalue `"@"'
+		}
+		else {
+			call sTMP.append "  "
+		}
+	}
+
+	call chains.bu_chainnumopts.setlabel class sTMP.value
+END
+
+PROGRAM chains_chainopts_show_child
+BEGIN
+	if main.lb_gtype.equals("diagnostics") {
+		call create CHILD bayesgraph_compact AS			///
+			ChainDiagOptsDlg, message("-chain-")
+		call ChainDiagOptsDlg.setExitString ChainOptsDiagResult
+		call ChainDiagOptsDlg.setExitAction			///
+			"program chains_check_ChainOptsResult"
+	}
+	if main.lb_gtype.equals("trace") {
+		call create CHILD bayesgraph_tsline AS			///
+			ChainOptsTraceDlg, message("-chain-")
+		call ChainOptsTraceDlg.setExitString ChainOptsTraceResult
+		call ChainOptsTraceDlg.setExitAction			///
+			"program chains_check_ChainOptsResult"
+	}
+	if main.lb_gtype.equals("ac") {
+		call create CHILD bayesgraph_ac AS			///
+			ChainOptsAcDlg, message("-chain-")
+		call ChainOptsAcDlg.setExitString ChainOptsAcResult
+		call ChainOptsAcDlg.setExitAction			///
+			"program chains_check_ChainOptsResult"
+	}
+	if main.lb_gtype.equals("histogram") {
+		call create CHILD bayesgraph_hist AS			///
+			ChainOptsHistDlg, message("-chain-")
+		call ChainOptsHistDlg.setExitString ChainOptsHistResult
+		call ChainOptsHistDlg.setExitAction			///
+			"program chains_check_ChainOptsResult"
+	}
+	if main.lb_gtype.equals("kdensity") {
+		call create CHILD bayesgraph_kdensity AS		///
+			ChainOptsKdenDlg, message("-chain-")
+		call ChainOptsKdenDlg.setExitString ChainOptsKdenResult
+		call ChainOptsKdenDlg.setExitAction			///
+			"program chains_check_ChainOptsResult"
+	}
+	if main.lb_gtype.equals("cusum") {
+		call create CHILD bayesgraph_tsline AS			///
+			ChainOptsCusumDlg, message("-chain-")
+		call ChainOptsCusumDlg.setExitString ChainOptsCusumResult
+		call ChainOptsCusumDlg.setExitAction			///
+			"program chains_check_ChainOptsResult"
+	}
+	if main.lb_gtype.equals("matrix") {
+		call create CHILD bayesgraph_matrix AS			///
+			ChainOptsMatDlg, message("-chain-")
+		call ChainOptsMatDlg.setExitString ChainOptsMatResult
+		call ChainOptsMatDlg.setExitAction			///
+			"program chains_check_ChainOptsResult"
+	}
+END
+
+PROGRAM chains_check_ChainOptsResult
+BEGIN
+	call create STRING sTMP
+	call sTMP.setvalue resource BAYESGRAPH_CHAINS_BU_CHAINOPTS
+
+	call ChainOptsResult.setvalue ""
+	
+	if main.lb_gtype.equals("diagnostics") {
+		if ChainOptsDiagResult {
+			call sTMP.append " *"
+	call ChainOptsDiagResult.withvalue ChainOptsResult.setvalue `"@"'
+		}
+		else {
+			call sTMP.append "  "
+		}
+	}
+	if main.lb_gtype.equals("trace") {
+		if ChainOptsTraceResult {
+			call sTMP.append " *"
+	call ChainOptsTraceResult.withvalue ChainOptsResult.setvalue `"@"'
+		}
+		else {
+			call sTMP.append "  "
+		}
+	}
+	if main.lb_gtype.equals("ac") {
+		if ChainOptsAcResult {
+			call sTMP.append " *"
+	call ChainOptsAcResult.withvalue ChainOptsResult.setvalue `"@"'
+		}
+		else {
+			call sTMP.append "  "
+		}
+	}
+	if main.lb_gtype.equals("histogram") {
+		if ChainOptsHistResult {
+			call sTMP.append " *"
+	call ChainOptsHistResult.withvalue ChainOptsResult.setvalue `"@"'
+		}
+		else {
+			call sTMP.append "  "
+		}
+	}
+	if main.lb_gtype.equals("kdensity") {
+		if ChainOptsKdenResult {
+			call sTMP.append " *"
+	call ChainOptsKdenResult.withvalue ChainOptsResult.setvalue `"@"'
+		}
+		else {
+			call sTMP.append "  "
+		}
+	}
+	if main.lb_gtype.equals("cusum") {
+		if ChainOptsCusumResult {
+			call sTMP.append " *"
+	call ChainOptsCusumResult.withvalue ChainOptsResult.setvalue `"@"'
+		}
+		else {
+			call sTMP.append "  "
+		}
+	}
+	if main.lb_gtype.equals("matrix") {
+		if ChainOptsMatResult {
+			call sTMP.append " *"
+	call ChainOptsMatResult.withvalue ChainOptsResult.setvalue `"@"'
+		}
+		else {
+			call sTMP.append "  "
+		}
+	}
+
+	call chains.bu_chainopts.setlabel class sTMP.value
+END
+
+PROGRAM check_nchains
+BEGIN
+	call create STRING cmdName
+	call create STRING cmdPrefix
+	call create DOUBLE nchains
+	call create DOUBLE hasnchain
+	
+	call hasnchain.setvalue 0
+	call cmdName.setvalue e(cmd)
+	call cmdPrefix.setvalue e(prefix)
+	call nchains.setvalue e(nchains)
+	
+	if cmdName.equals("bayesmh") {
+		call hasnchain.setvalue 1
+	}
+	if cmdPrefix.equals("bayes") {
+		call hasnchain.setvalue 1
+	}
+
+	call chains.gb_chain.enable
+	call chains.rb_chain.enable
+	call chains.rb_chain_all.enable
+	call chains.rb_chain_nlist.enable
+	call chains.ck_sepchains.enable
+	call chains.ck_chainslegend.enable
+	call chains.ck_bychain.enable
+	call chains.bu_bychainopts.enable
+	call chains.bu_chainnumopts.enable
+	call chains.bu_chainopts.enable
+	call chains.bu_chainnumopts.setposition . 265
+	call chains.bu_chainopts.setposition . 265
+	call chains.ck_bychain.show
+	call chains.bu_bychainopts.show
+	call chains.ck_chainslegend.show
+
+	if main.lb_gtype.iseq("diagnostics") |			///
+		main.lb_gtype.iseq("matrix") {	
+		call chains.ck_bychain.hide
+		call chains.bu_bychainopts.hide
+		call chains.ck_chainslegend.hide
+		call chains.bu_chainnumopts.setposition . 175
+		call chains.bu_chainopts.setposition . 175
+	}
+	if main.lb_gtype.iseq("matrix") {
+		call chains.ck_sepchains.disable
+		call chains.ck_sepchains.seton
+	}
+
+	if nchains.islt(2) | !hasnchain {
+		call chains.gb_chain.disable
+		call chains.rb_chain_all.disable
+		call chains.rb_chain.disable
+		call chains.rb_chain_all.disable
+		call chains.rb_chain_nlist.disable
+		call chains.ck_sepchains.disable
+		call chains.ck_chainslegend.disable
+		call chains.bu_chainnumopts.disable
+		call chains.bu_chainopts.disable
+		call chains.ck_bychain.disable
+		call chains.bu_bychainopts.disable
+	}
+	else {
+		if chains.ck_bychain {
+			call program chains_bychain_on
+		}
+		else {
+			call program chains_bychain_off
+		}
+		if chains.ck_sepchains {
+			call chains.ck_bychain.disable
+			call chains.bu_bychainopts.disable
+		}
+		else {
+			call chains.ck_bychain.enable
+			if chains.ck_bychain {
+				call chains.bu_bychainopts.enable
+			}
+			else {
+				call chains.bu_bychainopts.disable
+			}
+		}
+		if nchains.iseq(2) {
+		call chains.cb_chains.setcontentslist chains_chain2_values
+		}
+		if nchains.iseq(3) {
+		call chains.cb_chains.setcontentslist chains_chain3_values
+		}
+		if nchains.iseq(4) {
+		call chains.cb_chains.setcontentslist chains_chain4_values
+		}
+		if nchains.iseq(5) {
+		call chains.cb_chains.setcontentslist chains_chain5_values
+		}
+		if nchains.iseq(6) {
+		call chains.cb_chains.setcontentslist chains_chain6_values
+		}
+		if nchains.iseq(7) {
+		call chains.cb_chains.setcontentslist chains_chain7_values
+		}
+		if nchains.iseq(8) {
+		call chains.cb_chains.setcontentslist chains_chain8_values
+		}
+		if nchains.iseq(9) {
+		call chains.cb_chains.setcontentslist chains_chain9_values
+		}
+		if nchains.iseq(10) {
+		call chains.cb_chains.setcontentslist chains_chain10_values
+		}
+	}
+	call program chains_check_ChainOptsResult
+	call program chains_check_ChainNumResult
+END
+
+
+SCRIPT chains_all_on
+BEGIN
+	chains.cb_chains.disable
+END
+
+SCRIPT chains_nlist_on
+BEGIN
+	chains.cb_chains.enable
+END
+
+LIST chains_chain1_values
+BEGIN
+	1
+END
+
+LIST chains_chain2_values
+BEGIN
+	1
+	2
+END
+
+LIST chains_chain3_values
+BEGIN
+	1
+	2
+	3
+END
+
+LIST chains_chain4_values
+BEGIN
+	1
+	2
+	3
+	4
+END
+
+LIST chains_chain5_values
+BEGIN
+	1
+	2
+	3
+	4
+	5
+END
+
+LIST chains_chain6_values
+BEGIN
+	1
+	2
+	3
+	4
+	5
+	6
+END
+
+LIST chains_chain7_values
+BEGIN
+	1
+	2
+	3
+	4
+	5
+	6
+	7
+END
+
+LIST chains_chain8_values
+BEGIN
+	1
+	2
+	3
+	4
+	5
+	6
+	7
+	8
+END
+
+LIST chains_chain9_values
+BEGIN
+	1
+	2
+	3
+	4
+	5
+	6
+	7
+	8
+	9
+END
+
+LIST chains_chain10_values
+BEGIN
+	1
+	2
+	3
+	4
+	5
+	6
+	7
+	8
+	9
+	10
+END
+
+PROGRAM chains_bychain_on
+BEGIN
+	if chains.ck_bychain.isvisible() & chains.ck_bychain.isenabled() {
+		call chains.bu_bychainopts.enable
+		call chains.ck_sepchains.disable
+		call opts.ck_combine.disable 
+		call opts.bu_combinegraphopts.disable
+		call opts.ck_wait.disable
+		call opts.bu_graphopts_mul2.hide
+		call opts.ck_byparm.disable
+		call opts.bu_byparmgraphopts.disable
+	}
+END
+
+PROGRAM chains_bychain_off
+BEGIN
+	if chains.ck_bychain.isvisible() & chains.ck_bychain.isenabled() {
+		call chains.bu_bychainopts.disable
+		call opts.ck_combine.enable
+		if nchains.isgt(1) {
+			call chains.ck_sepchains.enable
+		}
+		if opts.ck_combine {
+			call opts.bu_combinegraphopts.enable
+		}
+		else {
+			call opts.bu_combinegraphopts.disable
+		}
+		call opts.ck_wait.enable
+		call opts.sp_sleep.enable
+		call opts.tx_sleep.enable
+		call opts.bu_graphopts_mul2.show
+		call opts.ck_byparm.enable
+		if opts.ck_byparm {
+			call opts.bu_byparmgraphopts.enable
+		}
+		else {
+			call opts.bu_byparmgraphopts.disable
+		}
+	}
+END
+
+SCRIPT show_bychain_dialog
+BEGIN
+	create CHILD bayesgraph_byparm AS bychain
+	bychain.settitle resource BAYESGRAPH_BYPARM_CHILD_TITLE
+	bychain.setExitString bychainResult
+	bychain.setExitAction "program check_bychainResult"
+END
+
+PROGRAM check_bychainResult
+BEGIN
+	call create STRING sTMP
+	call sTMP.setvalue resource BAYESGRAPH_OPTS_BU_BYPARMGRAPHOPTS
+	if bychainResult.isneq("") {
+		call sTMP.append " *"
+	}
+	else {
+		call sTMP.append "  "
+	}
+	call chains.bu_bychainopts.setlabel class sTMP.value
+END
+
+PROGRAM chains_output
+BEGIN
+  	if chains.rb_chain_all {
+		put " chains(_all)"
+	}
+	if chains.rb_chain_nlist {
+		optionarg /hidedefault chains.cb_chains
+	}
+	option chains.ck_sepchains
+	option chains.ck_chainslegend
+
+	if chains.ck_bychain {
+		put " bychain"
+		if bychainResult {
+			put "("
+			put bychainResult
+			put ")"
+		}
+	}
+	if ChainOptsResult {
+		put " chainopts(" ChainOptsResult ")"
+	}
+	if ChainNumOptsResult {
+		put " " ChainNumOptsResult
+	}
+END
+
+SCRIPT opts_PREINIT
+BEGIN
+        opts.fi_save.formatfilter "{0} (*.gph)|*.gph|{1} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_GPH" "resource ui_ex FILE_TYPE_ALL_FILES"
+END
+
+DIALOG opts, tabtitle(resource BAYESGRAPH_OPTIONS_TABTITLE)
+BEGIN
+  CHECKBOX ck_byparm		_lft	_top	_iwd	_ht2,		///
+	groupbox							///
+	onclickon(program opts_byparm_on)				///
+	onclickoff(program opts_byparm_off)				///
+	label(resource BAYESGRAPH_OPTS_CK_BYPARM)
+  BUTTON  bu_byparmgraphopts	_ilft 	_ss	125	.,		///
+	label(resource BAYESGRAPH_OPTS_BU_BYPARMGRAPHOPTS)		///
+	onpush(script show_byparm_dialog)
+  CHECKBOX ck_combine		_lft	_ms	_iwd	_ht2,		///
+	groupbox							///
+	onclickon(program opts_combine_on)				///
+	onclickoff(program opts_combine_off)				///
+	label(resource BAYESGRAPH_OPTS_CK_COMBINE)
+  GROUPBOX gb_combine		_lft	@	@	_ht2,		///
+	label(resource BAYESGRAPH_OPTS_CK_COMBINE)
+  BUTTON  bu_combinegraphopts	_ilft 	_ss	125	.,		///
+	label(resource BAYESGRAPH_OPTS_BU_COMBINEGRAPHOPTS)		///
+	onpush(script show_combine_dialog)
+  SPINNER sp_sleep		_lft	_ms	_en14wd	.,		///
+	option(sleep)							///
+	default(0)							///
+	min(0)  max(1000000)						///
+	onchange(program opts_sleep_change)
+  TEXT 	   tx_sleep		_en14sep @	300	.,		///
+	label(resource BAYESGRAPH_OPTS_TX_SLEEP)
+  CHECKBOX ck_wait		_lft	_ms	_iwd	.,		///
+	onclickon(program opts_wait_on)					///
+	onclickoff(program opts_wait_off)				///
+	option(wait)							///
+	label(resource BAYESGRAPH_OPTS_CK_WAIT)
+  CHECKBOX ck_close		_lft	_ms	_iwd	.,		///
+	option(close)							///
+	label(resource BAYESGRAPH_OPTS_CK_CLOSE)
+  SPINNER  sp_skip		_lft	_ms	_en14wd	.,		///
+	option(skip)							///
+	min(0)  max(e(mcmcsize))					///
+	default(0)
+  TEXT 	   tx_skip		_en14sep @	300	.,		///
+	label(resource BAYES_LBL_TX_SKIP)
+	
+  CHECKBOX ck_name		_lft	_ls	_iwd	_ht5,		///
+	groupbox							///
+	onclickon(script opts_name_on)					///
+	onclickoff(script opts_name_off)				///
+	label(resource BAYESGRAPH_OPTS_CK_NAME_PLURAL)
+  EDIT	ed_name			_ilft	_ss	_ibwd	.,		///
+	option(name)							///
+	label(resource BAYESGRAPH_OPTS_CK_NAME_PLURAL)
+  CHECKBOX ck_repname		@	_ms	@	.,		///
+	label(resource BAYESGRAPH_OPTS_CK_REPNAME_PLURAL)
+	
+  CHECKBOX ck_save		_lft	_ms	_iwd	_ht5,		///
+	groupbox							///
+	onclickon(script opts_save_on)					///
+	onclickoff(script opts_save_off)				///
+	label(resource BAYESGRAPH_OPTS_CK_SAVE_PLURAL)
+  FILE	fi_save			_ilft	_ss	_ibwd	.,		///
+	option(saving)							///
+	defext(gph) 							///
+	save								///
+	error(resource BAYESGRAPH_OPTS_CK_SAVE_PLURAL)			///
+	label(resource LBL_BU_BROWSE)
+	
+  CHECKBOX ck_repdta		@	_ms	@	.,		///
+	label(resource LBL_OVERWRITE_FILES_IF_THEY_ALREADY_EXIST)
+	
+  DEFINE rex _lft
+  DEFINE rey +50
+  DEFINE rewid _iwd
+  INCLUDE bayes_showreffects
+	
+  BUTTON  bu_graphopts_single	_lft 	_ms	125	.,		///
+	onpush(program graph_submit_singleoptions)			///
+	label(resource BAYES_LBL_BU_GRAPH_PROPERTIES)
+	
+  BUTTON  bu_graphopts_matrix	_lft 	_ms	125	.,		///
+	onpush(program graph_submit_matrixoptions)			///
+	label(resource BAYES_LBL_BU_GRAPH_PROPERTIES)
+
+  BUTTON  bu_graphopts_mul1	_lft 	@	200	.,		///
+	onpush(program graph_submit_muloptions1)			///
+	label(resource BAYES_LBL_BU_GRAPH_PROPERTIES_ALL)
+
+  BUTTON  bu_graphopts_mul2	_lft 	@	200	.,		///
+	onpush(program graph_submit_muloptions2)			///
+	label(resource BAYES_LBL_BU_GRAPH_PROPERTIES_EACH)
+END
+
+SCRIPT opts_name_on
+BEGIN
+	opts.ed_name.enable
+	opts.ck_repname.enable
+END
+
+SCRIPT opts_name_off
+BEGIN
+	opts.ed_name.disable
+	opts.ck_repname.disable
+END
+
+SCRIPT opts_save_on
+BEGIN
+	opts.fi_save.enable
+	opts.ck_repdta.enable
+END
+
+SCRIPT opts_save_off
+BEGIN
+	opts.fi_save.disable
+	opts.ck_repdta.disable
+END
+
+PROGRAM show_reffects_show
+BEGIN
+	call opts.ck_showreffects.show
+	call opts.rb_showallref.show
+	call opts.rb_showselref.show
+	call opts.cb_showre.show
+END
+
+PROGRAM show_reffects_hide
+BEGIN
+	call opts.ck_showreffects.hide
+	call opts.rb_showallref.hide
+	call opts.rb_showselref.hide
+	call opts.cb_showre.hide
+END
+
+PROGRAM show_reffects_check
+BEGIN
+	if opts.rb_showallref.isenabled() & opts.rb_showallref {
+		call opts.cb_showre.disable
+	}
+	if opts.rb_showselref.isenabled() & opts.rb_showselref {
+		call opts.cb_showre.enable
+		call program get_showre_params
+	}	
+END
+
+PROGRAM show_reffects_on
+BEGIN
+	if opts.ck_showreffects.isenabled() & opts.ck_showreffects {
+		call opts.rb_showallref.enable
+		call opts.rb_showselref.enable
+		call program show_reffects_check
+	}
+END
+
+PROGRAM show_reffects_off
+BEGIN
+	call opts.rb_showallref.disable
+	call opts.rb_showselref.disable
+	call opts.cb_showre.disable	
+END
+
+PROGRAM show_reffects_enable
+BEGIN
+	call opts.ck_showreffects.enable
+	if opts.ck_showreffects {
+		call program show_reffects_on
+	}
+	else {
+		call program show_reffects_off
+	}
+END
+
+PROGRAM show_reffects_disable
+BEGIN
+	call opts.ck_showreffects.disable
+	call opts.rb_showallref.disable
+	call opts.rb_showselref.disable
+	call opts.cb_showre.disable
+END
+
+PROGRAM show_reffects_output
+BEGIN
+	if opts.rb_showallref.isenabled() & opts.rb_showallref {
+		option opts.rb_showallref
+	}
+	
+	if opts.rb_showselref.isenabled() & opts.rb_showselref {
+		optionarg opts.cb_showre
+	}
+END
+
+PROGRAM opts_byparm_on
+BEGIN
+	if opts.ck_byparm.isvisible() & opts.ck_byparm.isenabled() {
+		call opts.bu_byparmgraphopts.enable
+		call opts.ck_combine.disable 
+		call opts.bu_combinegraphopts.disable
+		call opts.sp_sleep.disable
+		call opts.tx_sleep.disable
+		call opts.ck_wait.disable
+		call opts.bu_graphopts_mul2.hide
+		call hasby.setvalue 1
+		call chains.ck_bychain.disable
+		call chains.bu_bychainopts.disable
+		call chains.ck_chainslegend.disable
+	}
+END
+
+PROGRAM opts_byparm_off
+BEGIN
+	if opts.ck_byparm.isvisible() & opts.ck_byparm.isenabled() {
+		call opts.bu_byparmgraphopts.disable
+		call opts.ck_combine.enable
+		if opts.ck_combine {
+			call opts.bu_combinegraphopts.enable
+		}
+		else {
+			call opts.bu_combinegraphopts.disable
+		}
+		call opts.ck_wait.enable
+		call opts.sp_sleep.enable
+		call opts.tx_sleep.enable
+		call opts.bu_graphopts_mul2.show
+		call hasby.setvalue 0
+		call chains.ck_bychain.enable
+		if chains.ck_bychain {
+			call chains.bu_bychainopts.enable
+		}
+		else {
+			call chains.bu_bychainopts.disable
+		}
+		call chains.ck_chainslegend.enable
+	}
+END
+
+PROGRAM opts_combine_on
+BEGIN
+	if opts.ck_combine.isvisible() & opts.ck_combine.isenabled() {
+		call opts.bu_combinegraphopts.enable
+		call opts.ck_byparm.disable 
+		call opts.bu_byparmgraphopts.disable
+		call opts.sp_sleep.disable
+		call opts.tx_sleep.disable
+		call opts.ck_wait.disable
+		call opts.bu_graphopts_mul2.show
+		call hasby.setvalue 0
+		call chains.ck_bychain.disable
+		call chains.bu_bychainopts.disable
+		call chains.ck_chainslegend.disable
+	}
+END
+
+PROGRAM opts_combine_off
+BEGIN
+	if opts.ck_combine.isvisible() & opts.ck_combine.isenabled() {
+		call opts.bu_combinegraphopts.disable
+		call opts.ck_byparm.enable
+		if opts.ck_byparm {
+			call opts.bu_byparmgraphopts.enable
+		}
+		else {
+			call opts.bu_byparmgraphopts.disable
+		}
+		call opts.ck_wait.enable
+		call opts.sp_sleep.enable
+		call opts.tx_sleep.enable
+		if !main.rb_single {
+			call opts.bu_graphopts_mul2.show
+		}
+		call chains.ck_bychain.enable
+		if chains.ck_bychain {
+			call chains.bu_bychainopts.enable
+		}
+		else {
+			call chains.bu_bychainopts.disable
+		}
+		call chains.ck_chainslegend.enable
+	}
+END
+
+PROGRAM opts_sleep_change
+BEGIN
+	if opts.sp_sleep.isvisible() & opts.sp_sleep.isenabled() & 	///
+		opts.sp_sleep & opts.sp_sleep.isneq(0) {
+		call opts.ck_byparm.disable
+		call opts.bu_byparmgraphopts.disable
+		call opts.ck_combine.disable
+		call opts.bu_combinegraphopts.disable
+		call opts.ck_wait.disable
+		call hasby.setvalue 0
+	}
+	else {
+		call opts.ck_byparm.enable
+		call opts.ck_combine.enable
+		call opts.ck_wait.enable
+	}
+END
+
+PROGRAM opts_wait_on 
+BEGIN
+	if opts.ck_wait.isvisible() & opts.ck_wait.isenabled() {
+		call opts.ck_byparm.disable
+		call opts.bu_byparmgraphopts.disable
+		call opts.ck_combine.disable
+		call opts.bu_combinegraphopts.disable
+		call opts.sp_sleep.disable
+		call opts.tx_sleep.disable
+		call opts.ck_combine.disable
+		call opts.bu_combinegraphopts.disable
+		call hasby.setvalue 0
+	}
+END
+
+PROGRAM opts_wait_off
+BEGIN
+	if opts.ck_wait.isvisible() & opts.ck_wait.isenabled() {
+		call opts.ck_byparm.enable
+		call opts.ck_combine.enable
+		call opts.sp_sleep.enable
+		call opts.tx_sleep.enable
+	}
+END
+
+SCRIPT show_byparm_dialog
+BEGIN
+	create CHILD bayesgraph_byparm AS byparm
+	byparm.settitle resource BAYESGRAPH_BYPARM_CHILD_TITLE
+	byparm.setExitString byparmResult
+	byparm.setExitAction "program check_byparmResult"
+END
+
+PROGRAM check_byparmResult
+BEGIN
+	call create STRING sTMP
+	call sTMP.setvalue resource BAYESGRAPH_OPTS_BU_BYPARMGRAPHOPTS
+	if byparmResult.isneq("") {
+		call sTMP.append " *"
+	}
+	else {
+		call sTMP.append "  "
+	}
+	call opts.bu_byparmgraphopts.setlabel class sTMP.value
+END
+
+SCRIPT show_combine_dialog
+BEGIN
+	create CHILD gr_combine_options
+	gr_combine_options.settitle resource LBL_GRAPH_COMBINE_PROPERTIES
+	gr_combine_options.setExitString combineResult
+	gr_combine_options.setExitAction "program check_combineResult"
+END
+
+PROGRAM check_combineResult
+BEGIN
+	call create STRING sTMP
+	call sTMP.setvalue resource BAYESGRAPH_OPTS_BU_COMBINEGRAPHOPTS
+	if combineResult {
+		call sTMP.append " *"
+	}
+	else {
+		call sTMP.append "  "
+	}
+	call opts.bu_combinegraphopts.setlabel class sTMP.value
+END
+
+PROGRAM graph_submit_singleoptions
+BEGIN
+	if main.lb_gtype.equals("diagnostics") {
+		call create CHILD bayesgraph_compact AS GraphOpts1Dlg
+		call GraphOpts1Dlg.setExitString GraphSingleOpts1Result
+		call GraphOpts1Dlg.setExitAction "program graph_get_GraphSingleOptsResult"
+	}
+	if main.lb_gtype.equals("trace") {
+		call create CHILD bayesgraph_tsline AS GraphOpts2Dlg
+		call GraphOpts2Dlg.setExitString GraphSingleOpts2Result
+		call GraphOpts2Dlg.setExitAction "program graph_get_GraphSingleOptsResult"
+	}
+	if main.lb_gtype.equals("ac") {
+		call create CHILD bayesgraph_ac AS GraphOpts3Dlg
+		call GraphOpts3Dlg.setExitString GraphSingleOpts3Result
+		call GraphOpts3Dlg.setExitAction "program graph_get_GraphSingleOptsResult"
+	}
+	if main.lb_gtype.equals("histogram") {
+		call create CHILD bayesgraph_hist AS GraphOpts4Dlg
+		call GraphOpts4Dlg.setExitString GraphSingleOpts4Result
+		call GraphOpts4Dlg.setExitAction "program graph_get_GraphSingleOptsResult"
+	}
+	if main.lb_gtype.equals("kdensity") {
+		call create CHILD bayesgraph_kdensity AS GraphOpts5Dlg
+		call GraphOpts5Dlg.setExitString GraphSingleOpts5Result
+		call GraphOpts5Dlg.setExitAction "program graph_get_GraphSingleOptsResult"
+	}
+	if main.lb_gtype.equals("cusum") {
+		call create CHILD bayesgraph_tsline AS GraphOpts6Dlg
+		call GraphOpts6Dlg.setExitString GraphSingleOpts6Result
+		call GraphOpts6Dlg.setExitAction "program graph_get_GraphSingleOptsResult"
+	}
+END
+
+PROGRAM graph_get_GraphSingleOptsResult
+BEGIN
+	call create STRING sTMP
+	call sTMP.setvalue resource BAYES_LBL_BU_GRAPH_PROPERTIES
+
+	call GraphSingleOptsResult.setvalue ""
+	
+	if main.lb_gtype.equals("diagnostics") {
+		if GraphSingleOpts1Result {
+			call sTMP.append " *"
+			call GraphSingleOpts1Result.withvalue GraphSingleOptsResult.setvalue `"@"'
+		}
+		else {
+			call sTMP.append "  "
+		}
+	}
+	if main.lb_gtype.equals("trace") {
+		if GraphSingleOpts2Result {
+			call sTMP.append " *"
+			call GraphSingleOpts2Result.withvalue GraphSingleOptsResult.setvalue `"@"'
+		}
+		else {
+			call sTMP.append "  "
+		}
+	}
+	if main.lb_gtype.equals("ac") {
+		if GraphSingleOpts3Result {
+			call sTMP.append " *"
+			call GraphSingleOpts3Result.withvalue GraphSingleOptsResult.setvalue `"@"'
+		}
+		else {
+			call sTMP.append "  "
+		}
+	}
+	if main.lb_gtype.equals("histogram") {
+		if GraphSingleOpts4Result {
+			call sTMP.append " *"
+			call GraphSingleOpts4Result.withvalue GraphSingleOptsResult.setvalue `"@"'
+		}
+		else {
+			call sTMP.append "  "
+		}
+	}
+	if main.lb_gtype.equals("kdensity") {
+		if GraphSingleOpts5Result {
+			call sTMP.append " *"
+			call GraphSingleOpts5Result.withvalue GraphSingleOptsResult.setvalue `"@"'
+		}
+		else {
+			call sTMP.append "  "
+		}
+	}
+	if main.lb_gtype.equals("cusum") {
+		if GraphSingleOpts6Result {
+			call sTMP.append " *"
+			call GraphSingleOpts6Result.withvalue GraphSingleOptsResult.setvalue `"@"'
+		}
+		else {
+			call sTMP.append "  "
+		}
+	}
+	call opts.bu_graphopts_single.setlabel class sTMP.value
+END
+
+PROGRAM graph_submit_matrixoptions
+BEGIN
+	call create CHILD bayesgraph_matrix AS GraphMatrixOptsDlg
+	call GraphMatrixOptsDlg.setExitString GraphMatrixOptsResult
+	call GraphMatrixOptsDlg.setExitAction "program graph_get_GraphMatrixOptsResult"
+END
+
+PROGRAM graph_get_GraphMatrixOptsResult
+BEGIN
+	call create STRING sTMP
+	call sTMP.setvalue resource BAYES_LBL_BU_GRAPH_PROPERTIES
+
+	if GraphMatrixOptsResult {
+		call sTMP.append " *"
+	}
+	else {
+		call sTMP.append "  "
+	}
+	call opts.bu_graphopts_matrix.setlabel class sTMP.value
+END
+
+PROGRAM graph_submit_muloptions1
+BEGIN
+	if main.lb_gtype.equals("diagnostics") {
+		call create CHILD bayesgraph_compact AS GraphMulOpts1Dlg
+		call GraphMulOpts1Dlg.setExitString GraphMulOpts1Result
+		call GraphMulOpts1Dlg.setExitAction "program graph_get_GraphMulOptsResult"
+	}
+	if main.lb_gtype.equals("trace") {
+		call create CHILD bayesgraph_tsline AS GraphMulOpts2Dlg
+		call GraphMulOpts2Dlg.setExitString GraphMulOpts2Result
+		call GraphMulOpts2Dlg.setExitAction "program graph_get_GraphMulOptsResult"
+	}
+	if main.lb_gtype.equals("ac") {
+		call create CHILD bayesgraph_ac AS GraphMulOpts3Dlg
+		call GraphMulOpts3Dlg.setExitString GraphMulOpts3Result
+		call GraphMulOpts3Dlg.setExitAction "program graph_get_GraphMulOptsResult"
+	}
+	if main.lb_gtype.equals("histogram") {
+		call create CHILD bayesgraph_hist AS GraphMulOpts4Dlg
+		call GraphMulOpts4Dlg.setExitString GraphMulOpts4Result
+		call GraphMulOpts4Dlg.setExitAction "program graph_get_GraphMulOptsResult"
+	}
+	if main.lb_gtype.equals("kdensity") {
+		call create CHILD bayesgraph_kdensity AS GraphMulOpts5Dlg
+		call GraphMulOpts5Dlg.setExitString GraphMulOpts5Result
+		call GraphMulOpts5Dlg.setExitAction "program graph_get_GraphMulOptsResult"
+	}
+	if main.lb_gtype.equals("cusum") {
+		call create CHILD bayesgraph_tsline AS GraphMulOpts6Dlg
+		call GraphMulOpts6Dlg.setExitString GraphMulOpts6Result
+		call GraphMulOpts6Dlg.setExitAction "program graph_get_GraphMulOptsResult"
+	}
+END
+
+PROGRAM graph_get_GraphMulOptsResult
+BEGIN
+	call create STRING sTMP
+	call sTMP.setvalue resource BAYES_LBL_BU_GRAPH_PROPERTIES_ALL
+
+	call GraphMulOptsResult.setvalue ""
+	
+	if main.lb_gtype.equals("diagnostics") {
+		if GraphMulOpts1Result {
+			call sTMP.append " *"
+			call GraphMulOpts1Result.withvalue GraphMulOptsResult.setvalue `"@"'
+		}
+		else {
+			call sTMP.append "  "
+		}
+	}
+	if main.lb_gtype.equals("trace") {
+		if GraphMulOpts2Result {
+			call sTMP.append " *"
+			call GraphMulOpts2Result.withvalue GraphMulOptsResult.setvalue `"@"'
+		}
+		else {
+			call sTMP.append "  "
+		}
+	}
+	if main.lb_gtype.equals("ac") {
+		if GraphMulOpts3Result {
+			call sTMP.append " *"
+			call GraphMulOpts3Result.withvalue GraphMulOptsResult.setvalue `"@"'
+		}
+		else {
+			call sTMP.append "  "
+		}
+	}
+	if main.lb_gtype.equals("histogram") {
+		if GraphMulOpts4Result {
+			call sTMP.append " *"
+			call GraphMulOpts4Result.withvalue GraphMulOptsResult.setvalue `"@"'
+		}
+		else {
+			call sTMP.append "  "
+		}
+	}
+	if main.lb_gtype.equals("kdensity") {
+		if GraphMulOpts5Result {
+			call sTMP.append " *"
+			call GraphMulOpts5Result.withvalue GraphMulOptsResult.setvalue `"@"'
+		}
+		else {
+			call sTMP.append "  "
+		}
+	}
+	if main.lb_gtype.equals("cusum") {
+		if GraphMulOpts6Result {
+			call sTMP.append " *"
+			call GraphMulOpts6Result.withvalue GraphMulOptsResult.setvalue `"@"'
+		}
+		else {
+			call sTMP.append "  "
+		}
+	}
+	call opts.bu_graphopts_mul1.setlabel class sTMP.value
+END
+
+PROGRAM graph_submit_muloptions2
+BEGIN
+	if main.lb_gtype.equals("diagnostics") {
+		call create CHILD bayesgraph_mulsepopts AS GraphMulOptsS1Dlg
+		call GraphMulOptsS1Dlg.setExitString GraphMulOptsS1Result
+		call GraphMulOptsS1Dlg.setExitAction "program graph_get_GraphMulOptsSepResult"
+	}
+	if main.lb_gtype.equals("trace") {
+		call create CHILD bayesgraph_mulsepopts AS GraphMulOptsS2Dlg
+		call GraphMulOptsS2Dlg.setExitString GraphMulOptsS2Result
+		call GraphMulOptsS2Dlg.setExitAction "program graph_get_GraphMulOptsSepResult"
+	}
+	if main.lb_gtype.equals("ac") {
+		call create CHILD bayesgraph_mulsepopts AS GraphMulOptsS3Dlg
+		call GraphMulOptsS3Dlg.setExitString GraphMulOptsS3Result
+		call GraphMulOptsS3Dlg.setExitAction "program graph_get_GraphMulOptsSepResult"
+	}
+	if main.lb_gtype.equals("histogram") {
+		call create CHILD bayesgraph_mulsepopts AS GraphMulOptsS4Dlg
+		call GraphMulOptsS4Dlg.setExitString GraphMulOptsS4Result
+		call GraphMulOptsS4Dlg.setExitAction "program graph_get_GraphMulOptsSepResult"
+	}
+	if main.lb_gtype.equals("kdensity") {
+		call create CHILD bayesgraph_mulsepopts AS GraphMulOptsS5Dlg
+		call GraphMulOptsS5Dlg.setExitString GraphMulOptsS5Result
+		call GraphMulOptsS5Dlg.setExitAction "program graph_get_GraphMulOptsSepResult"
+	}
+	if main.lb_gtype.equals("cusum") {
+		call create CHILD bayesgraph_mulsepopts AS GraphMulOptsS6Dlg
+		call GraphMulOptsS6Dlg.setExitString GraphMulOptsS6Result
+		call GraphMulOptsS6Dlg.setExitAction "program graph_get_GraphMulOptsSepResult"
+	}
+END
+
+PROGRAM graph_get_GraphMulOptsSepResult
+BEGIN
+	call create STRING sTMP
+	call sTMP.setvalue resource BAYES_LBL_BU_GRAPH_PROPERTIES_EACH
+	
+	call GraphMulOptsSResult.setvalue ""
+	
+	if main.lb_gtype.equals("diagnostics") {
+		if GraphMulOptsS1Result {
+			call sTMP.append " *"
+			call GraphMulOptsS1Result.withvalue GraphMulOptsSResult.setvalue `"@"'
+		}
+		else {
+			call sTMP.append "  "
+		}
+	}
+	if main.lb_gtype.equals("trace") {
+		if GraphMulOptsS2Result {
+			call sTMP.append " *"
+			call GraphMulOptsS2Result.withvalue GraphMulOptsSResult.setvalue `"@"'
+		}
+		else {
+			call sTMP.append "  "
+		}
+	}
+	if main.lb_gtype.equals("ac") {
+		if GraphMulOptsS3Result {
+			call sTMP.append " *"
+			call GraphMulOptsS3Result.withvalue GraphMulOptsSResult.setvalue `"@"'
+		}
+		else {
+			call sTMP.append "  "
+		}
+	}
+	if main.lb_gtype.equals("histogram") {
+		if GraphMulOptsS4Result {
+			call sTMP.append " *"
+			call GraphMulOptsS4Result.withvalue GraphMulOptsSResult.setvalue `"@"'
+		}
+		else {
+			call sTMP.append "  "
+		}
+	}
+	if main.lb_gtype.equals("kdensity") {
+		if GraphMulOptsS5Result {
+			call sTMP.append " *"
+			call GraphMulOptsS5Result.withvalue GraphMulOptsSResult.setvalue `"@"'
+		}
+		else {
+			call sTMP.append "  "
+		}
+	}
+	if main.lb_gtype.equals("cusum") {
+		if GraphMulOptsS6Result {
+			call sTMP.append " *"
+			call GraphMulOptsS6Result.withvalue GraphMulOptsSResult.setvalue `"@"'
+		}
+		else {
+			call sTMP.append "  "
+		}
+	}
+	call opts.bu_graphopts_mul2.setlabel class sTMP.value
+END
+
+PROGRAM command
+BEGIN	
+	put "bayesgraph"
+	put " " main.lb_gtype
+	if main.rb_para {
+		if main.rb_single {
+			if main.lb_gtype.isneq("matrix") {
+				require main.ed_single
+				put " " main.ed_single
+			}
+			else {
+				call create ARRAY tmpArray
+				call create STRING tmpStr
+				call create DOUBLE tmpSize
+				require main.cb_matrix
+				call main.cb_matrix.withvalue tmpStr.setvalue @
+				call tmpStr.tokenizeOnStr tmpArray "}"
+				call tmpSize.storeClsArraySize tmpArray
+				if tmpSize.islt(2) {
+					call create STRING _MSG_TMP
+							call _MSG_TMP.format 		///
+								"resource BAYESGRAPH_MSGBOX_2PARAMS_SELECTED_FMT" ///
+						"resource LBL_TAB_MAIN"
+					stopbox stop class _MSG_TMP.value
+// On the "Main" tab, at least two parameters must be selected.
+				}
+				put " " main.cb_matrix
+			}
+		}
+		if main.rb_multi {
+			call mainParaspecCommandValues.copyToString mulSpecStr
+			if mulSpecStr {
+				put " " mulSpecStr
+			}
+			else {
+				require main.lb_paraspecBuild
+			}
+		}
+		if main.rb_all {
+			put " _all"
+		}
+	}
+	else {
+		require main.fi_use
+		
+		if main.rb_predsingle {
+			require main.ed_predsingle
+			put " " main.ed_predsingle			
+		}
+		else {
+			if main.lb_gtype.iseq("matrix") {
+				if main_predspec_arraysize.islt(2) {
+
+					call create STRING _MSG_TMP
+					call _MSG_TMP.format 						///
+						"resource BAYESGRAPH_MSGBOX_2PREDS_SELECTED_FMT" 	///
+						"resource LBL_TAB_MAIN"
+					stopbox stop class _MSG_TMP.value
+//	stopbox stop `"On the "Main" tab, at least two predictions must be selected."'
+				}
+				call mainPredspecCommandValues.copyToString mulSpecStr
+				if mulSpecStr {
+					put " " mulSpecStr
+				}
+			}
+			else {
+				call mainPredspecCommandValues.copyToString mulSpecStr
+				if mulSpecStr {
+					put " " mulSpecStr
+				}
+				else {
+					require main.lb_predspecBuild
+				}
+			}
+		}
+
+		put " using " 
+		put main.fi_use
+	}
+	beginoptions
+		put /program chains_output
+		
+		if main.rb_para {
+			if main.rb_single {
+				optionarg /hidedefault opts.sp_skip
+				if main.lb_gtype.equals("matrix") {
+					if GraphMatrixOptsResult {
+						put " " GraphMatrixOptsResult
+					}
+				}
+				else {
+					if GraphSingleOptsResult {
+						put " " GraphSingleOptsResult
+					}
+				}
+				
+				if opts.ck_name {
+					require opts.ed_name
+					optionarg opts.ed_name
+				}
+				if opts.ck_save {
+					require opts.fi_save
+					put `"saving("'
+					put opts.fi_save
+					if opts.ck_repdta {
+						put `", replace"'
+					}
+					put `")"'
+				}
+			}
+			if main.rb_all | main.rb_multi {
+				if opts.ck_byparm.isvisible() & opts.ck_byparm.isenabled() & opts.ck_byparm {
+					put " byparm"
+					if byparmResult {
+						put "("
+						put byparmResult
+						put ")"
+					}
+				}
+				if opts.ck_combine.isvisible() & opts.ck_combine.isenabled() & opts.ck_combine {
+					put " combine"
+					if combineResult {
+						put "("
+						put combineResult
+						put ")"
+					}
+				}
+				optionarg /hidedefault opts.sp_sleep
+				option opts.ck_wait
+				option opts.ck_close
+				optionarg /hidedefault opts.sp_skip
+				if opts.ck_name {
+					require opts.ed_name
+					optionarg opts.ed_name
+				}
+				if opts.ck_save {
+					require opts.fi_save
+					put `"saving("'
+					put opts.fi_save
+					if opts.ck_repdta {
+						put `", replace"'
+					}
+					put `")"'
+				}
+				put " " /program show_reffects_output
+				if main.lb_gtype.isneq("matrix") {
+					if GraphMulOptsResult {
+						put " " GraphMulOptsResult
+					}
+					if !opts.ck_byparm.isenabled() | !opts.ck_byparm {
+						if GraphMulOptsSResult {
+							put " " GraphMulOptsSResult
+						}
+					}
+				}
+			}
+		}
+		else {		
+			if main.rb_predsingle {
+				optionarg /hidedefault opts.sp_skip
+				if main.lb_gtype.equals("matrix") {
+					if GraphMatrixOptsResult {
+						put " " GraphMatrixOptsResult
+					}
+				}
+				else {
+					if GraphSingleOptsResult {
+						put " " GraphSingleOptsResult
+					}
+				}
+				
+				if opts.ck_name {
+					require opts.ed_name
+					optionarg opts.ed_name
+				}
+				if opts.ck_save {
+					require opts.fi_save
+					put `"saving("'
+					put opts.fi_save
+					if opts.ck_repdta {
+						put `", replace"'
+					}
+					put `")"'
+				}
+			}
+			if main.rb_predmulti {
+				if opts.ck_byparm.isvisible() & opts.ck_byparm.isenabled() & opts.ck_byparm {
+					put " byparm"
+					if byparmResult {
+						put "("
+						put byparmResult
+						put ")"
+					}
+				}
+				if opts.ck_combine.isvisible() & opts.ck_combine.isenabled() & opts.ck_combine {
+					put " combine"
+					if combineResult {
+						put "("
+						put combineResult
+						put ")"
+					}
+				}
+				optionarg /hidedefault opts.sp_sleep
+				option opts.ck_wait
+				option opts.ck_close
+				optionarg /hidedefault opts.sp_skip
+				if opts.ck_name {
+					require opts.ed_name
+					optionarg opts.ed_name
+				}
+				if opts.ck_save {
+					require opts.fi_save
+					put `"saving("'
+					put opts.fi_save
+					if opts.ck_repdta {
+						put `", replace"'
+					}
+					put `")"'
+				}
+				put " " /program show_reffects_output
+				if main.lb_gtype.isneq("matrix") {
+					if GraphMulOptsResult {
+						put " " GraphMulOptsResult
+					}
+					if !opts.ck_byparm.isenabled() | !opts.ck_byparm {
+						if GraphMulOptsSResult {
+							put " " GraphMulOptsSResult
+						}
+					}
+				}
+			}
+		}
+	endoptions
+END
+

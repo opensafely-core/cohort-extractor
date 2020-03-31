@@ -1,0 +1,331 @@
+//                                 yxyxview_g
+//
+//	Base class for data views that have two x variables, two y variables 
+//	and possibly a weight variable
+
+*! version 1.2.1  21nov2019
+
+version 9
+
+class {
+	type	= .yxyxtype.new	, style(pcspike)
+	headlbl	= .yesno.new	, style(no)
+
+	double x2var				// x2 variable id
+	double y2var				// y2 variable id
+
+} , inherit(yxview)
+
+
+// ---------------------------------------------------------------------------
+program set
+
+	syntax [ , XBvar(string) YBvar(string) * ]
+
+	.Super.set , `options'
+
+	foreach dim in x y {
+		if `"``dim'bvar'"' != `""' {
+
+			capture confirm integer number ``dim'bvar'
+			if _rc {
+				local varid = `.serset.seriesof ``dim'bvar''
+				if 0`varid' {
+					.`dim'2var = `varid'
+				}
+				else {
+				 di in white `"``dim'bvar' not found in serset"'
+				}
+			}
+			else {
+				.`dim'2var = ``dim'bvar'
+			}
+		}
+	}
+
+end
+
+
+// ---------------------------------------------------------------------------
+//	Returns the value of y2 for the specified observation
+//
+//	Usage:  .Y2 #_obs
+
+program Y2
+	.serset.set
+
+	class exit = serset(`.y2var', `1')
+end
+
+
+// ---------------------------------------------------------------------------
+//	Returns the value of x2 for the specified observation
+//
+//	Usage:  .X2 #_obs
+
+program X2
+	.serset.set
+
+	class exit = serset(`.x2var', `1')
+end
+
+
+// ---------------------------------------------------------------------------
+//	Returns minimum and maximum sizes
+
+program ranges , rclass
+
+	capture return scalar xmin = min(`.serset.sers[`.xvar'].min' ,	///
+					 `.serset.sers[`.x2var'].min')
+	capture return scalar xmax = max(`.serset.sers[`.xvar'].max' ,	///
+					 `.serset.sers[`.x2var'].max')
+	capture return scalar ymin = min(`.serset.sers[`.yvar'].min' ,	///
+					 `.serset.sers[`.y2var'].min')
+	capture return scalar ymax = max(`.serset.sers[`.yvar'].max' ,	///
+					 `.serset.sers[`.y2var'].max')
+
+	if "`.bar_drop_to.stylename'" == "y" {
+		capture local xmin = return(ymin)
+		capture local xmax = return(ymax)
+
+		capture return scalar ymin = return(xmin)
+		capture return scalar ymax = return(xmax)
+		capture return scalar xmin = `xmin'
+		capture return scalar xmax = `xmax'
+	}
+
+/*
+	if `.base' < . {
+		local ord = cond("`.bar_drop_to.snm"=="y", "x", "y")
+
+		capture return scalar `ord'min = min(return(`ord'min) , `.base')
+		capture return scalar `ord'max = max(return(`ord'max) , `.base')
+	}
+*/
+end
+
+
+// ---------------------------------------------------------------------------
+//	Returns a key object of the view
+
+program newkey
+
+	syntax [anything] [ , Position(passthru) ]
+							// anything ignored
+
+	class exit .yxyxkey_g.new , view(`.objkey') `position'
+end
+
+// ---------------------------------------------------------------------------
+//	Returns the label of the specified dimension variable, or if that is 
+//	blank the name of the <dim>variable.  Optionally, returns only the name.
+//
+//      Note that the y-label will be <y_label>/<y2_label> unless both y
+//      variables have the same label and the same is true for x-labels
+
+
+program dimtitle
+
+	gettoken dim 0 : 0
+
+	syntax [ , Nameonly Keynum(integer 1) ]		// keynum ignored
+
+	if "`.bar_drop_to.stylename'" == "y" {
+		local dim = cond("`dim'" == "x" , "y", "x")
+	}
+
+	if ! `.Local.serset.isofclass serset' {
+		exit
+	}
+
+	if "`nameonly'" == "" {
+	    local label `"`.serset.sers[`.`dim'var'].label_or_name'"'
+	    if `"`label'"' != `"`.serset.sers[`.`dim'2var'].label_or_name'"' {
+	      local label `"`label'/`.serset.sers[`.`dim'2var'].label_or_name'"'
+	    }
+	}
+	else {
+	    local label `"`.serset.sers[`.`dim'var'].name'"'
+	    local label `"`label'/`.serset.sers[`.`dim'2var'].name'"'
+	}
+
+	class exit `"`label'"'
+end
+
+// ----------------------------------------------------------------------------
+// Determine if a position is in/on the view
+// Switched to from yxview at_pos and most work is done in yxview functions
+
+program _at_pos_pcscatter
+
+	if `.lvar' >= . {
+		if (0`._at_markers `0'')  class exit = 1
+		class exit 0`._at_markers `0' `.y2var' `.x2var''
+	}
+
+	if `.headlbl.istrue' {
+		if (0`._at_markers `0' `.y2var' `.x2var'')  class exit = 1
+
+		nobreak {
+			local hold `.lvar'
+			.lvar = (.)
+			local found  0`._at_markers `0''
+			.lvar = (`hold')
+		}
+	}
+	else {
+		if ( 0`._at_markers `0'')  class exit = 1
+
+		nobreak {
+			local hold `.lvar'
+			.lvar = (.)
+			local found  0`._at_markers `0' `.y2var' `.x2var''
+			.lvar = (`hold')
+		}
+	}
+
+	class exit = 0`found'
+
+end
+
+
+program _at_pos_pcspike
+	if (`._at_pos_pcspike_wrk `0'')  .object_found_dialog = "spike"
+	class exit = ("`.object_found_dialog'" == "spike")
+end
+
+program _at_pos_pcspike_wrk
+	args yp xp ymult xmult gmult
+
+	local halo = max(`gmult'*`.style.line.width.val', 1.1)*`xmult'
+	local yscale = `xmult' / `ymult'
+	local yln = `._yscale_trans_code'
+	local xln = `._xscale_trans_code'
+
+	if "`.bar_drop_to.stylename'" == "x" {
+		class exit = `.serset.at_pclines `.yvar'  `.xvar'	///
+						 `.y2var' `.x2var'	///
+						 `yp' `xp' `halo'	///
+						 `yscale' `yln' `xln''
+	}
+	else {
+		class exit = `.serset.at_pclines `.xvar'  `.yvar'	///
+						 `.x2var' `.y2var'	///
+						 `yp' `xp' `halo'	///
+						 `yscale' `yln' `xln''
+	}
+end
+
+
+program _at_pos_pccapsym
+	local found (`._at_pos_pcscatter `0'')
+	if (! `found') {
+		local found `._at_pos_pcspike_wrk `0''
+	}
+
+	if ("`.object_found_dialog'" != "markerlabel") .object_found_dialog = ""
+	class exit = `found'
+end
+
+
+program _at_pos_pcarrow
+	if (`._at_pcarrowhead `0'')	class exit = 1
+	if (`._at_pos_pcspike_wrk `0'')	class exit = 1
+	if 0`.headlbl.istrue' {
+		class exit `._at_labels `0' `.y2var' `.x2var''
+	}
+	else {
+		class exit `._at_labels `0' `.yvar' `.xvar''
+	}
+end
+
+
+program _at_pos_pcbarrow
+	if (`._at_pos_pccapsym `0'') {
+		if ("`.object_found_dialog'" != "markerlabel")		///
+			.object_found_dialog = "pcarrow"
+		class exit = 1
+	}
+
+	class exit = 0
+end
+
+
+program _at_pcarrowhead
+
+	nobreak {
+		local found `._at_markers `0' `.y2var' `.x2var''
+	}
+
+	if (`found') {
+		if ("`.object_found_dialog'" != "markerlabel")		///
+			.object_found_dialog = "pcarrow"
+	}
+
+	class exit = 0`found'
+end
+
+
+
+// ---------------------------------------------------------------------------
+// Set the extents to the graphics editor.
+
+program gedi_extent
+
+	if "`.type.stylename'" == "pccapsym"  |				///
+	   "`.type.stylename'" == "pcscatter" {
+		local sz  = `.style.marker.size.gmval' *		///
+	    	     `.`.plotregion'.drawn_gmult' * `.`.plotregion'.drawn_gbeta'
+	}
+	else local sz = 0
+
+	if "`.object_found_dialog'" == "markerlabel" {
+		if (0`.headlbl.istrue')  .Super.gedi_extent `.y2var' `.x2var'
+		else			 .Super.gedi_extent `.yvar'  `.xvar'
+
+		exit
+	}
+	
+	_gedi extent "" "" 0 0 0 0 
+
+	_gedi ytransform `.`.plotregion'.yscale.transform.stylename'
+	_gedi xtransform `.`.plotregion'.xscale.transform.stylename'
+
+	_gedi plotextent 2 `.type.stylename' `.serset.id'		///
+	      `.xvar' `.yvar' `.x2var' `.y2var'				///
+	      `.`.plotregion'.ScaleTransforms' `sz' `.SelectedCustomIndex'
+
+if ("$grdebug"!="") di in white `"_gedi extent "" "" 0 0 0 0"'
+if ("$grdebug"!="") di in white `"_gedi plotextent 2 `.type.stylename' `.serset.id' `.xvar' `.yvar' `.x2var' `.y2var' `.`.plotregion'.ScaleTransforms' `sz' `.SelectedCustomIndex'"'
+
+    class exit = 1
+end
+
+// ---------------------------------------------------------------------------
+// Return the appropriate default dialog type for the view/plot.
+
+program _dialog
+
+	local type "`.type.stylename'"
+
+	if "`type'" == "pccapsym" {
+		class exit "dropline"
+	}
+	if "`type'" == "pcbarrow" {
+		class exit "pcarrow"
+	}
+	if "`type'" == "pcarrow" {
+		class exit "pcarrow"
+	}
+
+	if (bsubstr("`type'", 1, 2) == "pc") {	// pcspike and pcscatter
+		class exit "`=bsubstr("`type'", 3, .)'"
+	}
+
+	class exit "`.Super._dialog'"
+end
+
+// ---------------------------------------------------------------------------
+
+//  Picks up .draw (switcher program from yxview)
+

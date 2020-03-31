@@ -1,0 +1,654 @@
+/*
+	irt graph ccc
+
+*!  VERSION 1.1.6  11dec2017
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 350
+INCLUDE header
+
+HELP hlp1, view("help irtgraph ccc")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN	
+	create STRING	STMP
+	
+	create STRING main_ccc_tmp
+	create STRING main_ccc_tmp2
+	create STRING main_ccc_childdlg
+	create STRING main_ccc_child_result
+	create STRING main_ccc_cmd_output
+
+	create ARRAY main_ccc_list
+	create ARRAY main_ccc_cmdlist
+	create ARRAY main_ccc_cmdvalueslist
+	create ARRAY main_ccc_statuslist
+	create ARRAY main_ccc_childdlglist
+	create ARRAY main_ccc_itemlist
+	create ARRAY main_ccc_editlist
+
+	create SVECTOR mainCCCCommandDisplayVec
+	create SVECTOR mainCCCCommandVec
+	create SVECTOR mainCCCCommandValuesVec
+	create SVECTOR mainCCCStatusVec
+	create SVECTOR mainCCCChildDialogVec
+	create SVECTOR mainCCCItemVec
+	create SVECTOR mainCCCItemVecOrig
+	create SVECTOR mainCCCEditVec
+	
+	create STRING strI
+	create STRING strItems
+	create DOUBLE main_item_count
+	create DOUBLE loopI
+	create STRING selItems
+	create STRING selItemsEdit
+
+	create DOUBLE main_ccc_count
+	create DOUBLE main_ccc_position
+	create DOUBLE main_ccc_arraysize
+	create DOUBLE main_ccc_tmpcount
+
+	main.bu_ccc_edit.disable
+	main.bu_ccc_disable.disable
+	main.bu_ccc_enable.disable
+	main.bu_ccc_clear.disable
+	program builder_SETUP
+	setscale_hadj resource IRT_GRAPH_CCC_BUILD_ALL_DLG_HSCALE
+END
+
+PROGRAM builder_INIT
+BEGIN
+	call main_ccc_list.Arrdropall
+	call main_ccc_cmdlist.Arrdropall
+	call main_ccc_cmdvalueslist.Arrdropall
+	call main_ccc_statuslist.Arrdropall
+	call main_ccc_childdlglist.Arrdropall
+	call main_ccc_itemlist.Arrdropall
+	call main_ccc_editlist.Arrdropall
+	call mainCCCCommandDisplayVec.dropall
+	call mainCCCCommandVec.dropall
+	call mainCCCCommandValuesVec.dropall
+	call mainCCCStatusVec.dropall
+	call mainCCCChildDialogVec.dropall
+	call mainCCCItemVec.dropall
+	call mainCCCEditVec.dropall
+END
+
+PROGRAM builder_SETUP
+BEGIN
+	call program builder_INIT
+	call main_item_count.setvalue e(k_dv)
+	call strItems.setvalue e(item_list)
+	
+	call strItems.tokenize main_ccc_itemlist
+	call mainCCCItemVecOrig.copyFromArray main_ccc_itemlist
+	
+	call loopI.setvalue 1
+	while(loopI.isle(main_item_count)) {
+		call loopI.withvalue strI.format 		///
+			"resource LBL_CURVE_FMT" "@" ""
+		call strI.withvalue main_ccc_list.Arrpush @
+		
+		call strI.setvalue "main_equ_"
+		call strI.append class loopI.value
+		call strI.withvalue main_ccc_childdlglist.Arrpush @
+		
+		call strI.setvalue "("
+		call loopI.withvalue				///
+			strI.append				///
+			class mainCCCItemVecOrig.values[@]
+		call strI.append ")"
+		call strI.withvalue main_ccc_cmdlist.Arrpush @
+
+		call strI.setvalue "("
+		call loopI.withvalue				///
+			strI.append				///
+			class mainCCCItemVecOrig.values[@]
+		call strI.append ")"
+		call strI.withvalue main_ccc_cmdvalueslist.Arrpush @		
+		
+		call main_ccc_statuslist.Arrpush "active"
+		call main_ccc_editlist.Arrpush "0"
+		call loopI.increment
+	}
+	call mainCCCCommandDisplayVec.copyFromArray main_ccc_list
+	call mainCCCCommandVec.copyFromArray main_ccc_cmdlist
+	call mainCCCCommandValuesVec.copyFromArray main_ccc_cmdvalueslist
+	call mainCCCStatusVec.copyFromArray main_ccc_statuslist
+	call mainCCCChildDialogVec.copyFromArray main_ccc_childdlglist
+	call mainCCCEditVec.copyFromArray main_ccc_editlist
+	call mainCCCItemVec.copyFromArray main_ccc_itemlist
+	
+	call main.lb_cccBuild.repopulate
+END
+
+SCRIPT POSTINIT
+BEGIN
+	mainCCCCommandDisplayVec.copyToArray main_ccc_list
+	main.lb_cccBuild.repopulate
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN) 				///
+	label(resource IRT_GRAPH_CCC_BUILD_ALL_DLG_TITLE)
+BEGIN
+  GROUPBOX gb_re		_lft	_top	_iwd	_ht17h,		///
+	label(resource IRT_GRAPH_CCC_BUILD_ALL_MAIN_GB_RE)
+
+  LISTBOX lb_cccBuild		_ilft	_ms	250	145,		///
+	contents(main_ccc_list)						///
+	ondblclick(program main_model_edit)				///
+	onselchange(program main_model_sel_changed)			///
+	nomemory
+  BUTTON bu_ccc_create		280	@	80	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program main_model_create)				///
+	tooltip(resource IRT_GRAPH_CCC_BUILD_ALL_MAIN_BU_CCC_CREATE)
+  BUTTON bu_ccc_edit		@	_ms	@	.,		///
+	label(resource LBL_BU_EDIT)					///
+	onpush(program main_model_edit)					///
+	tooltip(resource IRT_GRAPH_CCC_BUILD_ALL_MAIN_BU_CCC_EDIT)
+  BUTTON bu_ccc_disable	@	_ms	@	.,			///
+	label(resource LBL_BU_DISABLE)					///
+	onpush(program main_model_disable)				///
+	tooltip(resource IRT_GRAPH_CCC_BUILD_ALL_MAIN_BU_CCC_DISABLE)
+  BUTTON bu_ccc_enable		@	_ms	@	.,		///
+	label(resource LBL_BU_ENABLE)					///
+	onpush(program main_model_enable)				///
+	tooltip(resource IRT_GRAPH_CCC_BUILD_ALL_MAIN_BU_CCC_ENABLE)
+  BUTTON bu_ccc_clear		@	_ms	@	.,		///
+	label(resource IRT_GRAPH_CCC_BUILD_ALL_MAIN_BU_CCC_CLEAR)	///
+	onpush(program main_model_clear)				///
+	tooltip(resource IRT_GRAPH_CCC_BUILD_ALL_MAIN_BU_CCC_CLEAR_TIP)
+  BUTTON bu_ccc_addall		@	_ms	@	.,		///
+	label(resource IRT_GRAPH_CCC_BUILD_ALL_MAIN_BU_CCC_ADDALL)	///
+	onpush(program main_model_addall)				///
+	tooltip(resource IRT_GRAPH_CCC_BUILD_ALL_MAIN_BU_CCC_ADDALL_TIP)
+  TEXTBOX tb_ccc_note		20	+30	370	20,		///
+	label(resource IRT_GRAPH_CCC_BUILD_ALL_MAIN_TB_CCC_NOTE)
+	
+  GROUPBOX gb_options		_lft	+40	_iwd	_ht6,		///
+	label(resource LBL_OPTIONS)
+  CHECKBOX ck_range		_ilft	_ms	_ibwd	.,		///
+	onclickon(program main_range_on)				///
+	onclickoff(program main_range_off)				///
+	label(resource IRT_GRAPH_CCC_BUILD_ALL_MAIN_CK_RANGE)
+  EDIT   ed_from		+20	_ms	_en14wd	.,		///
+	numonly								///
+	label(resource LBL_RANGE_OF_THETA)
+  TEXT	tx_range		_en14sep @	50	.,		///
+	label(resource LBL_TO_LOWERCASE)
+  EDIT   ed_to			180	@	_en14wd	.,		///
+	numonly								///
+	label(resource LBL_RANGE_OF_THETA)
+END
+
+PROGRAM main_model_create
+BEGIN
+	call selItemsEdit.setvalue "0"
+	call main_ccc_count.setvalue class mainCCCChildDialogVec.size
+	call main_ccc_count.increment
+	call main_ccc_tmp.setvalue "main_equ_"
+	call main_ccc_tmp.append class main_ccc_count.value
+	call main_ccc_tmp.withvalue main_ccc_childdlg.setvalue @
+	call program main_show_equ_child
+END
+
+PROGRAM main_model_edit
+BEGIN
+	call selItemsEdit.setvalue "1"
+	call mainCCCCommandDisplayVec.findstr class			///
+		main.lb_cccBuild.value
+	call main_ccc_position.setvalue class				///
+		mainCCCCommandDisplayVec.position
+	call main_ccc_position.withvalue				///
+		main_ccc_childdlg.setvalue				///
+		class mainCCCChildDialogVec.values[@]
+	call program main_show_equ_child_edit
+END
+
+PROGRAM main_show_equ_child
+BEGIN
+	call main_ccc_tmp.setvalue "irt_graph_ccc_build_sub AS "
+	call main_ccc_tmp.append class main_ccc_childdlg.value
+	call main_ccc_tmp.withvalue create CHILD @
+	call main_ccc_childdlg.withvalue @.setExitString		///
+		"main_ccc_child_result"
+	call main_ccc_childdlg.withvalue @.setExitAction		///
+		"program main_equ_child_create_done"
+
+
+	call main_ccc_count.withvalue STMP.format			///
+		"resource LBL_CURVE_FMT" "@" ""
+	call STMP.withvalue main_ccc_tmp.setvalue "@"
+	call main_ccc_childdlg.withvalue				///
+		main_ccc_tmp2.setvalue "@.settitle"
+	call main_ccc_tmp2.append `" ""'
+	call main_ccc_tmp2.append class main_ccc_tmp.value
+	call main_ccc_tmp2.append `"""'
+	call main_ccc_tmp2.withvalue @
+END
+
+PROGRAM main_show_equ_child_edit
+BEGIN
+	call main_ccc_tmp.setvalue "irt_graph_ccc_build_sub AS "
+	call main_ccc_tmp.append class main_ccc_childdlg.value
+	call main_ccc_tmp.withvalue create CHILD @
+	call main_ccc_childdlg.withvalue @.setExitString		///
+		"main_ccc_child_result"
+	call main_ccc_childdlg.withvalue @.setExitAction		///
+		"program main_equ_child_edit_done"
+
+	call main_ccc_position.withvalue				///
+		main_ccc_tmp.setvalue					///
+		class mainCCCCommandDisplayVec.values[@]
+	call main_ccc_childdlg.withvalue				///
+		main_ccc_tmp2.setvalue "@.settitle"
+	call main_ccc_tmp2.append `" ""'
+	call main_ccc_tmp2.append class main_ccc_tmp.value
+	call main_ccc_tmp2.append `"""'
+	call main_ccc_tmp2.withvalue @
+END
+
+PROGRAM main_equ_child_create_done
+BEGIN
+	call main_ccc_arraysize.setvalue class				///
+		mainCCCChildDialogVec.size
+	call main_ccc_arraysize.increment
+
+	/* Store child dialog name */
+	call mainCCCChildDialogVec.store class				///
+		main_ccc_arraysize.value class main_ccc_childdlg.value
+
+	/* Store listbox display equation string */
+	call main_ccc_arraysize.withvalue STMP.format			///
+		"resource LBL_CURVE_FMT" "@" ""
+	call STMP.withvalue						///	
+		mainCCCCommandDisplayVec.store class			///
+		main_ccc_arraysize.value "@"
+
+	/* Store child dialog result string */
+	call mainCCCCommandVec.store class				///
+		main_ccc_arraysize.value				///
+		class main_ccc_child_result.value
+
+	/* Store child dialog result string for final command
+	   For disable/enable */
+	call mainCCCCommandValuesVec.store class			///
+		main_ccc_arraysize.value				///
+		class main_ccc_child_result.value
+
+	/* Store disable/enable status */
+	call mainCCCStatusVec.store class				///
+		main_ccc_arraysize.value "active"
+		
+	call mainCCCEditVec.store class					///
+		main_ccc_arraysize.value "1"
+		
+	call mainCCCItemVec.store class					///
+		main_ccc_arraysize.value				///
+		class selItems.value
+
+	call mainCCCCommandVec.copyToArray main_ccc_cmdlist
+	call mainCCCCommandValuesVec.copyToArray main_ccc_cmdvalueslist
+	call mainCCCChildDialogVec.copyToArray main_ccc_childdlglist
+	call mainCCCStatusVec.copyToArray main_ccc_statuslist
+	call mainCCCEditVec.copyToArray main_ccc_editlist
+	call mainCCCItemVec.copyToArray main_ccc_itemlist
+
+	call mainCCCCommandDisplayVec.copyToArray main_ccc_list
+	call main.lb_cccBuild.repopulate
+	call STMP.withvalue main.lb_cccBuild.setvalue "@"
+END
+
+PROGRAM main_equ_child_edit_done
+BEGIN
+	call mainCCCChildDialogVec.findstr class			///
+		main_ccc_childdlg.value
+	call main_ccc_position.setvalue class				///
+		mainCCCChildDialogVec.position
+	call main_ccc_position.withvalue main_ccc_tmp.setvalue		///
+		class mainCCCStatusVec.values[@]
+	if main_ccc_tmp.iseq("active") {
+		call main_ccc_position.withvalue STMP.format		///
+			"resource LBL_CURVE_FMT" "@" ""
+		call STMP.withvalue					///
+			mainCCCCommandDisplayVec.store class		///
+			main_ccc_position.value "@"
+		call mainCCCCommandValuesVec.store class		///
+			main_ccc_position.value class			///
+			main_ccc_child_result.value
+			
+		call STMP.withvalue main_ccc_tmp2.setvalue "@"
+	}
+	else {
+		call main_ccc_position.withvalue STMP.format		///
+			"resource LBL_CURVE_FMT" "@"			///
+			"resource LBL_PAREN_DISABLED"
+
+		call STMP.withvalue					///
+			main_ccc_tmp2.setvalue "@"
+
+		call main_ccc_tmp2.withvalue				///
+			mainCCCCommandDisplayVec.store			///
+			class main_ccc_position.value "@"
+	}
+
+	call mainCCCCommandVec.store class				///
+		main_ccc_position.value class				///
+		main_ccc_child_result.value
+		
+	call mainCCCEditVec.store class					///
+		main_ccc_position.value "1"
+		
+	call mainCCCItemVec.store class					///
+		main_ccc_position.value					///
+		class selItems.value
+
+	call mainCCCCommandVec.copyToArray main_ccc_cmdlist
+	call mainCCCCommandValuesVec.copyToArray main_ccc_cmdvalueslist
+	call mainCCCEditVec.copyToArray main_ccc_editlist
+	call mainCCCItemVec.copyToArray main_ccc_itemlist
+
+	call mainCCCCommandDisplayVec.copyToArray main_ccc_list
+	call main.lb_cccBuild.repopulate
+	call main.lb_cccBuild.setvalue class main_ccc_tmp2.value
+END
+
+PROGRAM main_model_sel_changed
+BEGIN
+	call mainCCCCommandDisplayVec.findstr class			///
+		main.lb_cccBuild.value
+	call main_ccc_position.setvalue class				///
+		mainCCCCommandDisplayVec.position
+	call main_ccc_position.withvalue main_ccc_tmp.setvalue		///
+		class mainCCCStatusVec.values[@]
+	if main_ccc_position {
+		call main.bu_ccc_edit.enable
+
+		call main_ccc_position.withvalue			///
+			main.tb_ccc_note.setlabel			///
+		class mainCCCCommandVec.values[@]
+		
+		call main_ccc_position.withvalue			///
+			selItems.setvalue				///
+		class mainCCCItemVec.values[@]
+		
+		call main_ccc_position.withvalue			///
+			selItemsEdit.setvalue				///
+		class mainCCCEditVec.values[@]
+	}
+
+	if main_ccc_tmp.iseq("disable") {
+		call main.bu_ccc_enable.enable
+		call main.bu_ccc_disable.disable
+	}
+	if main_ccc_tmp.iseq("active") {
+		call main.bu_ccc_enable.disable
+		call main.bu_ccc_disable.enable
+	}
+	if main_ccc_tmp.isneq("") {
+		call main.bu_ccc_clear.enable
+	}
+END
+
+PROGRAM main_model_disable
+BEGIN
+	call mainCCCCommandDisplayVec.findstr class			///
+		main.lb_cccBuild.value
+	call main_ccc_position.setvalue class				///
+		mainCCCCommandDisplayVec.position
+
+	call main_ccc_tmp.setvalue class main.lb_cccBuild.value
+	call mainCCCStatusVec.store class				///
+		main_ccc_position.value "disable"
+	call mainCCCCommandValuesVec.store class main_ccc_position.value ""
+	call STMP.format "resource LBL_PAREN_DISABLED"
+	call main_ccc_tmp.append " "
+	call main_ccc_tmp.append class STMP.value
+	call main_ccc_tmp.withvalue STMP.setvalue "@"
+
+	call main_ccc_tmp.withvalue					///
+		mainCCCCommandDisplayVec.store				///
+		class main_ccc_position.value "@"
+		
+	call mainCCCStatusVec.copyToArray main_ccc_statuslist
+	call mainCCCCommandValuesVec.copyToArray main_ccc_cmdvalueslist
+
+	call mainCCCCommandDisplayVec.copyToArray main_ccc_list
+	call main.lb_cccBuild.repopulate
+	call main.lb_cccBuild.setvalue class STMP.value
+END
+
+PROGRAM main_model_enable
+BEGIN
+	call mainCCCCommandDisplayVec.findstr class			///
+		main.lb_cccBuild.value
+	call main_ccc_position.setvalue class				///
+		mainCCCCommandDisplayVec.position
+
+	call mainCCCStatusVec.store class				///
+		main_ccc_position.value "active"
+	call main_ccc_position.withvalue				///
+		mainCCCCommandValuesVec.store				///
+		class main_ccc_position.value class			///
+		mainCCCCommandVec.values[@]
+
+	call main_ccc_position.withvalue STMP.format			///
+		"resource LBL_CURVE_FMT" "@" ""
+	call STMP.withvalue						///
+		mainCCCCommandDisplayVec.store				///
+		class main_ccc_position.value "@"
+		
+	call mainCCCStatusVec.copyToArray main_ccc_statuslist
+	call mainCCCCommandValuesVec.copyToArray main_ccc_cmdvalueslist
+
+	call mainCCCCommandDisplayVec.copyToArray main_ccc_list
+	call main_ccc_position.withvalue				///
+		main_ccc_tmp2.setvalue class				///
+		mainCCCCommandDisplayVec.values[@]
+	call main.lb_cccBuild.repopulate
+	call main.lb_cccBuild.setvalue class main_ccc_tmp2.value
+END
+
+PROGRAM main_model_clear
+BEGIN
+	call mainCCCCommandDisplayVec.dropall
+	call mainCCCCommandVec.dropall
+	call mainCCCCommandValuesVec.dropall
+	call mainCCCStatusVec.dropall
+	call mainCCCChildDialogVec.dropall
+	call mainCCCItemVec.dropall
+	call mainCCCEditVec.dropall
+	call main_ccc_list.Arrdropall
+	call main_ccc_cmdlist.Arrdropall
+	call main_ccc_cmdvalueslist.Arrdropall
+	call main_ccc_statuslist.Arrdropall
+	call main_ccc_childdlglist.Arrdropall
+	call main_ccc_itemlist.Arrdropall
+	call main_ccc_editlist.Arrdropall
+	
+	call main.lb_cccBuild.clearlist
+	call main.lb_cccBuild.repopulate
+	call main.tb_ccc_note.setlabel resource IRT_GRAPH_CCC_BUILD_ALL_CREATE_ADD_AN_CCC_CURVE
+	call main.bu_ccc_clear.disable
+	call main.bu_ccc_create.enable
+	call main.bu_ccc_edit.disable
+	call main.bu_ccc_enable.disable
+	call main.bu_ccc_disable.disable
+END
+
+PROGRAM main_model_addall
+BEGIN
+	call main_ccc_count.setvalue class mainCCCChildDialogVec.size
+	call loopI.setvalue 1
+
+	call strI.setvalue e(cmd2)
+	if strI.isneq("irt") {
+		call main_item_count.setvalue 0
+	}
+	
+	while(loopI.isle(main_item_count)) {
+		call main_ccc_count.increment
+		call main_ccc_count.withvalue 			///
+			strI.format "resource LBL_CURVE_FMT" "@" ""
+		call strI.withvalue main_ccc_list.Arrpush @
+		
+		call strI.setvalue "main_equ_"
+		call strI.append class main_ccc_count.value
+		call strI.withvalue main_ccc_childdlglist.Arrpush @
+		
+		call strI.setvalue "("
+		call loopI.withvalue				///
+			strI.append				///
+			class mainCCCItemVecOrig.values[@]
+		call strI.append ")"
+		call strI.withvalue main_ccc_cmdlist.Arrpush @
+
+		call strI.setvalue "("
+		call loopI.withvalue				///
+			strI.append				///
+			class mainCCCItemVecOrig.values[@]
+		call strI.append ")"
+		call strI.withvalue main_ccc_cmdvalueslist.Arrpush @
+
+		call loopI.withvalue				///
+			strI.setvalue				///
+			class mainCCCItemVecOrig.values[@]
+		call strI.withvalue main_ccc_itemlist.Arrpush @		
+		
+		call main_ccc_statuslist.Arrpush "active"
+		call main_ccc_editlist.Arrpush "0"
+		call loopI.increment
+	}
+	
+	call mainCCCCommandDisplayVec.copyFromArray main_ccc_list
+	call mainCCCCommandVec.copyFromArray main_ccc_cmdvalueslist
+	call mainCCCCommandValuesVec.copyFromArray main_ccc_cmdvalueslist
+	call mainCCCStatusVec.copyFromArray main_ccc_statuslist
+	call mainCCCChildDialogVec.copyFromArray main_ccc_childdlglist
+	call mainCCCEditVec.copyFromArray main_ccc_editlist
+	call mainCCCItemVec.copyFromArray main_ccc_itemlist
+	
+	call main.lb_cccBuild.repopulate
+END
+
+PROGRAM main_range_on
+BEGIN
+	call main.ed_from.enable
+	call main.tx_range.enable
+	call main.ed_to.enable
+END
+
+PROGRAM main_range_off
+BEGIN
+	call main.ed_from.disable
+	call main.tx_range.disable
+	call main.ed_to.disable
+END
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+END
+
+INCLUDE gr_addplots_2
+INCLUDE gr_yaxis
+INCLUDE gr_xaxis
+INCLUDE gr_titles
+INCLUDE gr_legend
+INCLUDE gr_overall
+
+SCRIPT dataopt_PREINIT
+BEGIN
+        dataopt.fi_save.formatfilter "{0} (*.dta)|*.dta|{1} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_DTA" "resource ui_ex FILE_TYPE_ALL_FILES"
+END
+
+DIALOG dataopt, tabtitle(resource LBL_DATA)
+BEGIN
+  SPINNER sp_n				_lft	_top	_en14wd	.,	///
+	default(300) min(1) max(10000000)				///
+	option(n)							///
+	label(resource IRT_GRAPH_CCC_BUILD_ALL_DATAOPT_SP_N) 
+  TEXT    tx_n				_en14sep @	300	.,	///
+	label(resource IRT_GRAPH_CCC_BUILD_ALL_DATAOPT_SP_N) 
+
+  CHECKBOX ck_save			_lft	+40	_iwd	_ht5,	///
+	groupbox							///
+	onclickon(script dataopt_save_on)				///
+	onclickoff(script dataopt_save_off)				///
+	label(resource LBL_SAVE_PLOT_DATA_AS_DATASET)
+  FILE	fi_save				_ilft	_ss	_ibwd	.,	///
+	option(saving)							///
+	defext(dta)							///
+	save								///
+	error(resource IRT_GRAPH_CCC_BUILD_ALL_FI_SAVE)			///
+	label(resource LBL_BU_BROWSE)
+  CHECKBOX ck_repdta			@	_ms	@	.,	///
+	label(resource LBL_OVERWRITE_FILE_IF_IT_ALREADY_EXISTS)
+END
+
+SCRIPT dataopt_save_on
+BEGIN
+	dataopt.fi_save.enable
+	dataopt.ck_repdta.enable
+END
+
+SCRIPT dataopt_save_off
+BEGIN
+	dataopt.fi_save.disable
+	dataopt.ck_repdta.disable
+END
+
+PROGRAM command
+BEGIN
+	call mainCCCCommandValuesVec.copyToString main_ccc_cmd_output
+	if main_ccc_cmd_output.iseq("") {
+stopbox stop "resource IRT_GRAPH_MSGBOX_ITEMS_REQUIRED_TO_CREATE_CURVES"
+// "Items" must be specified to create curves.
+	}
+	
+	put "irtgraph icc "
+	if main_ccc_cmd_output {
+		put main_ccc_cmd_output
+	}
+	put ", ccc"
+
+	if main.ck_range {
+		require main.ed_from
+		require main.ed_to
+		put " range("
+		put main.ed_from
+		put " "
+		put main.ed_to
+		put ")"
+	}
+
+	put " " /program gr_addplots_output
+	put " " /program gr_yaxis_output
+	put " " /program gr_xaxis_output
+	put " " /program gr_titles_output
+	put " " /program gr_legend_output
+	put " " /program gr_overall_output
+	
+	if !dataopt.sp_n.isdefault() {
+		put " n("
+		put dataopt.sp_n
+		put ")"
+	}
+	
+	if dataopt.ck_save {
+		require dataopt.fi_save
+		put `"data("'
+		put dataopt.fi_save
+		if dataopt.ck_repdta {
+			put `", replace"'
+		}
+		put `")"'
+	}
+END

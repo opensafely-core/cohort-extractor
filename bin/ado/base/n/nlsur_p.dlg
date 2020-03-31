@@ -1,0 +1,77 @@
+/*
+	predict (after nlsur)
+
+*!  VERSION 1.1.0  05nov2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+INCLUDE header
+
+HELP hlp1, view("help nlsur postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource NLSUR_P_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script _p_gentype_setMedium
+END
+
+DEFINE awid   45
+DEFINE asep  +50
+DEFINE bwid   40
+DEFINE bsep  +45
+DEFINE uwid  110
+DEFINE usep +115
+DEFINE vwid   55
+DEFINE vsep  +60
+
+DIALOG main, label(resource PREDICT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  INCLUDE  _p_gentype
+
+  GROUPBOX gb_opts	_lft	_ls	_iwd	_ht4,	///
+	label(resource LBL_PRODUCE)
+  RADIO    rb_yhat	_indent	_ss	_inwd	.,	///
+	first						///
+	option(yhat)					///
+	label(resource LBL_FITTED_VALUES)
+  RADIO    rb_residuals	@	_ss	@	.,	///
+	last						///
+	option(residuals)				///
+	label(resource LBL_RESIDUALS)
+
+  SPINNER  sp_eq	_lft	+45	_spwd	.,	///
+	min(1) max(100) default(1)
+  TEXT     tx_eq	_spsep	@	_spr	.,	///
+	label(resource LBL_EQUATION)
+END
+
+INCLUDE _p_gentype_sc
+INCLUDE ifin
+INCLUDE _type_list_fd
+
+PROGRAM eq_output
+BEGIN
+	put "#"
+	put main.sp_eq
+END
+
+PROGRAM command
+BEGIN
+	put "predict "
+	put " " /program _p_gentype_output
+	put " " /program ifin_output
+	beginoptions
+		option radio(main rb_yhat rb_residuals)
+		put " equation("
+		put /program eq_output
+		put ") "
+	endoptions
+END

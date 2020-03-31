@@ -1,0 +1,118 @@
+/*
+ impute 
+
+*! VERSION 1.1.2  02dec2014 (deprecated)
+
+*/
+
+VERSION 8.0
+
+INCLUDE _std_large
+INCLUDE header
+HELP hlp1, view("help impute")
+RESET res1
+
+DIALOG main, label("impute - Fill in missing values") /*
+		*/ tabtitle("Main")
+BEGIN
+  /*--+----1----+----2----+----3----+----4----+----5----+----6----+----7----+*/ 
+  TEXT     tx_vard         _lft      _top      _cwd3_1  .,		/*
+		*/label("Dependent variable:")
+  TEXT     tx_vari         _lft3_2   @         _comb3_1 .,		/*
+  		*/label("Independent variables:")			/*
+  		*/
+  VARNAME  vn_vard         _lft      _ss       _vnwd    .,		/*
+  		*/numeric						/*
+  		*/label("Dependent variable")				/*
+  		*/
+  VARLIST  vl_vari         _lft3_2   @         _comb3_1 .,		/*
+		*/ label("Independent variables")			/*
+		*/numeric						/*
+  		*/
+  TEXT     tx_varg         _lft      _ms       _iwd     .,		/*
+  		*/label("Generate new variable:")
+  TEXT     tx_varn         _lft3_2   @         _comb3_1 .,		/*
+  		*/label("Independent variables without missing values:")
+  EDIT     ed_varg         _lft      _ss       _vnwd    .,		/*
+		*/max(32)						/*
+  		*/label("Generate new variable")			/*
+  		*/option("generate")
+  VARLIST  vl_varn         _lft3_2   @         _comb3_1 .,		/*
+  		*/label("Independent variables (no missing values):")	/*
+  		*/numeric						/*
+		*/ option("nomissings")					/*
+  		*/
+  GROUPBOX gb_opt          _lft      _ls       _iwd     _ht15h,		/*
+  		*/label("Options")
+  RADIO    rb_reg1         _indent   _ss       _ibwd    .,		/*
+  		*/label("Estimate using observations selected via if and in")/*
+		*/clickon("script regsampoff")				/*
+  		*/option("NONE")					/*
+		*/first
+  RADIO    rb_reg2         @         _ss       @        .,		/*
+  	*/label("Estimate using all observations (regardless of if and in)")/*
+		*/clickon("script regsampoff")				/*
+  		*/option("all")
+  RADIO    rb_reg3         @         _ss       @        .,		/*
+  		*/label("Estimate using these observations:")		/*	
+		*/clickon("script regsampon")				/*
+  		*/option("NONE")					/*
+		*/last
+DEFINE _x @x
+  EXP      ex_reg3      _indent2     _ms       _inwd    .,              /*
+                */ label("Create...")                                   /*
+                */ option("regsample")                                  /*
+                */ 
+
+  CHECKBOX ck_copy         _x        _ms       _ibwd    .,		/*
+*/label("Copy out-of-sample values of dependent variable to generated variable")/*
+  		*/ option("copyrest")
+  CHECKBOX ck_varp         @         _ms       _ibwd    .,		/*
+  */label("Create this variable to contain the variance of the prediction:")/*
+  		*/clickon(gaction main.ed_varp.enable)			/*
+		*/clickoff(gaction main.ed_varp.disable)
+  EDIT     ed_varp         _indent2  _ss       _vnwd    .,		/*
+  */label("Create this variable to contain the variance of the prediction")/*
+  		*/max(32)						/*
+  		*/option("varp")
+END
+
+INCLUDE ifin
+INCLUDE weights_fa
+
+
+SCRIPT regsampon
+BEGIN
+  main.ex_reg3.enable
+END
+
+SCRIPT regsampoff
+BEGIN
+  main.ex_reg3.disable
+END
+
+
+PROGRAM command
+BEGIN
+	put "impute "
+	varlist main.vn_vard
+	varlist main.vl_vari
+	INCLUDE _weights_pr
+	INCLUDE _ifin_pr
+	beginoptions
+		require main.ed_varg
+	        optionarg main.ed_varg
+		option main.rb_reg2
+		if main.rb_reg3 {
+			require main.ex_reg3
+			optionarg main.ex_reg3
+		}
+		option main.ck_copy
+		if main.ck_varp {
+			require main.ed_varp
+			optionarg main.ed_varp
+		}
+		optionarg main.vl_varn
+	endoptions
+END
+

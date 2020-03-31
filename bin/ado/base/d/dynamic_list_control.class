@@ -1,0 +1,200 @@
+/*
+	This class is to be used to manage dynamic lists associated with 
+	dialog controls capable of using a dialog LIST. For a list to work,
+	the control must be associated with a list specified by the 
+	"contents" directive. (ex. contents(SomeListName))
+	
+*/
+
+*! version 1.0.2  06sep2006
+
+version 9
+
+class dynamic_list_control {
+
+    string dialogName		// Name of the dialog box class	
+    string controlName		// Name of the list control in dialog
+    string fullObjectReference	// A string that holds the reference to the 
+    				//   combined name of dialog and control 
+    				//   (a combobox or listbox)
+    				
+    string listName		// Name that class system is using for 
+				//   referencing the items in a control. This
+				//   is the name specified by "contents"   				
+    string fullListReference	// A string that holds the reference to the
+				//   list maintained by the class system for a
+				//   listbox or combobox
+}
+
+/****** Begin public methods *******/
+
+
+/* Either DLGCLSname or DIALOGname must be specified. DLGCLSname is now
+ * the preferred method as it makes no assumptions about the underlying
+ * class name of the dialog. DIALOGname should only be specified in old code.
+ */
+program new
+	syntax , CONTROLname(string) [DLGCLSname(string) DIALOGname(string)]
+	if `"`dlgclsname'"' == "" & `"`dialogname'"' == "" {
+		exit 198
+	}
+	if `"`dlgclsname'"' != "" {
+		.set, dlgcls(`dlgclsname') control(`controlname')
+	}
+	else {
+		.set, dialog(`dialogname') control(`controlname')
+	}
+end
+
+
+/* Either DLGCLSname or DIALOGname must be specified. DLGCLSname is now
+ * the preferred method as it makes no assumptions about the underlying
+ * class name of the dialog. DIALOGname should only be specified in old code.
+ */
+program set
+	syntax , CONTROLname(string) [DLGCLSname(string) DIALOGname(string)]
+	
+	if `"`dlgclsname'"' == "" & `"`dialogname'"' == "" {
+		exit 198
+	}
+	
+	if `"`dlgclsname'"' != "" {
+		local dialogname `dlgclsname'
+	}
+	else {
+		local dialogname `dialogname'_dlg
+	}
+
+	.dialogName  = `"`dialogname'"'
+	.controlName = `"`controlname'"'	
+	.fullObjectReference = "`dialogname'.`controlname'"	
+	.listName = .`.fullObjectReference'.contents
+	.fullListReference = "`.dialogName'.`.listName'"
+	
+	/* 
+	   If a dummy list was defined in the dialog we use it, otherwise
+	   we create a list here, and attach it to the specified dialog
+	   object. The name is obtained by contents(LIST_NAME), specified
+	   by the dialog control.
+	*/	
+	local type "`.`.fullListReference'.isa'"
+	if "`type'" == "" {	
+		.`.dialogName'.Declare array .`.listName'
+	}
+	
+	._clearList
+end
+
+program setList
+	syntax [, NEWlist(string) VALUE(string) ]	
+	._clearList
+	foreach item of local newlist {
+		._appendToList, item(`item')
+	}
+	
+	local defaultString
+	foreach val of local value {
+		if index("`newlist'", "`val'") { // is value in the list
+			local defaultString `defaultString' `val'
+		}
+	}
+	
+	.`.fullObjectReference'.setvalue "`defaultString'"
+end
+
+program appendItem
+	syntax , item(string) [UNIQUE]
+	if "`unique'" == "" {
+		_appendToList, item(`item')
+	}
+	else {
+		if `.contains, item(`item')' == 0 {
+			_appendToList, item(`item')
+		}
+	}
+end
+
+program contains
+	syntax , item(string)
+	local found = 0
+	local n = `.`.fullListReference'.arrnels'
+	forvalues i = 1/`n' {
+		if `"`.`.fullListReference'[`i']'"' == `"`item'"' {
+			local found = 1
+			continue, break
+		}
+	}
+	class exit `found'
+end
+
+program deleteItem
+	syntax , item(string)
+	local n = `.`.fullListReference'.arrnels'
+	forvalues i = 1/`n' {
+		if `"`.`.fullListReference'[`i']'"' == `"`item'"' {
+			.`.fullListReference'[`i'].Arrdropel
+			.`.fullObjectReference'.delitem `"`item'"'
+			if `i' == `n' {
+				capture .`.fullObjectReference'.setvalue "" 
+				continue, break
+			}
+			forvalues j = `i'/`n' {
+				// bubble the remaining items up in the list
+				if `j' < `n' {
+					.`.fullListReference'[`j'] = .`.fullListReference'[`=`j'+1']
+				}
+				else {
+					.`.fullListReference'.Arrpop
+				}
+			}
+			// set the selection to the first item in the list
+			capture .`.fullObjectReference'.setvalue "" 	
+			continue, break
+		}
+	}
+end
+
+program getListContents
+	local n = `.`.fullListReference'.arrnels'
+	forvalues i = 1/`n' {
+		local list `list' `.`.fullListReference'[`i']'
+	}
+	class exit `"`list'"'
+end
+
+program getLength
+	class exit `.`.fullListReference'.arrnels'
+end
+
+program print 
+	display "dialogName         : `.dialogName'"
+	display "controlName        : `.controlName'"	
+	display "listName           : `.listName'"
+	display "fullObjectReference: `.fullObjectReference'"
+	display "fullListReference  : `.fullListReference'"
+	display "length             : `.getLength'"
+	display _newline
+end
+
+/******* End public methods *******/
+
+/******* Begin private methods *******/
+
+program _appendToList 
+	syntax , item(string)
+	// WE MUST KEEP THE GUI CONTROL AND THE CLASS SYSTEM IN SYNC
+	
+	// append the items to the groupbox
+	.`.fullObjectReference'.additem `"`item'"'
+
+	// append the items to the list maintained by the class system
+	.`.fullListReference'.Arrpush `"`item'"'
+end
+
+program _clearList
+	// WE MUST KEEP THE GUI CONTROL AND THE CLASS SYSTEM IN SYNC
+	.`.fullListReference'.Arrdropall
+	.`.fullObjectReference'.clearlist
+end	
+
+/******* End private methods *******/

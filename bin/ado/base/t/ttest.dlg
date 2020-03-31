@@ -1,0 +1,314 @@
+/*
+  ttest
+
+*! VERSION 1.2.0  19aug2019
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+DEFINE _dlght 335
+INCLUDE header
+
+HELP hlp1, view("help ttest")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource TTEST_DLG_HSCALE
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	if __MESSAGE.iseq("-one-") {
+		call main.rb_ttest1.seton
+	}
+	if __MESSAGE.iseq("-two-") {
+		call main.rb_ttest2.seton
+	}
+	if __MESSAGE.iseq("-pair-") {
+		call main.rb_ttestpair.seton
+	}
+	if __MESSAGE.iseq("-by-") {
+		call main.rb_ttestby.seton
+	}
+END
+
+DIALOG main, label(resource TTEST_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+	GROUPBOX	gb_ttest	_lft	_top	_iwd	_ht8,	///
+		label(resource TTEST_MAIN_GB_TESTS)
+	RADIO		rb_ttest1	_indent	_ss	_ibwd	.,	///
+		first							///
+		onclickon("program main_ttest1_on")			///
+		label(resource LBL_ONE_SAMPLE)
+	RADIO		rb_ttestby	@	_ss	@	.,	///
+		onclickon("program main_ttestby_on")			///
+		label(resource LBL_TWO_SAMPLE_USING_GROUPS)
+	RADIO		rb_ttest2	@	_ss	@	.,	///
+		onclickon("program main_ttest2_on")			///
+		label(resource LBL_TWO_SAMPLE_USING_VARIABLES)
+	RADIO		rb_ttestpair	@	_ss	@	.,	///
+		last							///
+		onclickon("program main_ttestpair_on")			///
+		label(resource TTEST_MAIN_RB_TTESTPAIR)
+	
+	GROUPBOX	gb_group	_lft	_xls	_iwd	_ht16,	///
+		label(resource TTEST_MAIN_GB_GROUP)
+	
+	/* One-sample mean-comparison test */
+	TEXT     	tx_var    	_indent _ss     _cwd1	.,	///
+		label(resource LBL_VARIABLE_NAME)				
+	DEFINE	holdx @x
+	DEFINE	holdy @y
+	VARNAME  	vn_var    	@       _ss     _vnwd   .,	///
+		numeric							///
+		label(resource LBL_VARIABLE_NAME)			
+	
+	TEXT     	tx_val    	_lft2   holdy	_cwd2   .,	///
+		label(resource TTEST_MAIN_TX_VAL)			
+	EDIT     	en_val    	@       _ss     _en14wd	.,	///
+		numonly							///
+		label(resource TTEST_MAIN_TX_VAL)								
+	
+	/* Two-sample mean-comparison test (unpaired) */
+	TEXT     	tx_var1   	holdx	holdy	_cwd1	.,	///
+		label(resource LBL_FIRST_VARIABLE)				
+	VARNAME  	vn_var1   	@       _ss     _vnwd   .,	///
+		numeric							///
+		label(resource LBL_FIRST_VARIABLE)			///
+	
+	TEXT     	tx_var2   	_lft2	holdy	_cwd2	.,	///
+		label(resource LBL_SECOND_VARIABLE)				
+	VARNAME  	vn_var2   	@	_ss	_vnwd	.,	///
+		numeric							///
+		label(resource LBL_SECOND_VARIABLE)
+		
+	/* Two-sample mean-comparison test (paired) */
+	TEXT     	tx_pvar1   	holdx	holdy	_cwd1	.,	///
+		label(resource LBL_FIRST_VARIABLE)				
+	VARNAME  	vn_pvar1   	@       _ss     _vnwd   .,	///
+		numeric							///
+		label(resource LBL_FIRST_VARIABLE)			///
+	
+	TEXT     	tx_pvar2   	_lft2	holdy	_cwd2	.,	///
+		label(resource LBL_SECOND_VARIABLE)				
+	VARNAME  	vn_pvar2   	@	_ss	_vnwd	.,	///
+		numeric							///
+		label(resource LBL_SECOND_VARIABLE)	
+	
+	/* Two-group mean-comparison test */ 
+	TEXT     	tx_gvar    	holdx	holdy	_cwd1	.,	///
+		label(resource LBL_VARIABLE_NAME)			
+	VARNAME  	vn_gvar    	@       _ss     _vnwd   .,	///
+		numeric							///
+		label(resource LBL_VARIABLE_NAME)				
+	
+	TEXT     	tx_byopt	_lft2	holdy 	_cwd2	.,	///
+		label(resource LBL_GROUP_VARIABLE_NAME)				
+	VARNAME  	vn_byopt	@	_ss	_vnwd	.,	///
+		option("by")						///
+		label(resource LBL_GROUP_VARIABLE_NAME)				
+	CHECKBOX	ck_reverse	holdx	_ls	_ibwd	.,	///
+		option(reverse)						///
+		label(resource TTEST_MAIN_CK_REVERSE)	
+	CHECKBOX	ck_uneq		@	_ms	@	.,	///
+		onclickon(main.ck_welch.enable)				///
+		onclickoff(main.ck_welch.disable)			///
+		option(unequal)						///
+		label(resource LBL_UNEQUAL_VARIANCES)	
+	CHECKBOX	ck_welch	@	_ms	@	.,	///
+		option(welch)						///
+		label(resource LBL_WELCHS_APPROXIMATION)
+	
+	DEFINE _x holdx
+	DEFINE _cx _cwd2
+	DEFINE _y _xls
+  	INCLUDE _sp_level
+END
+
+INCLUDE byifin
+
+PROGRAM main_ttest1_on	
+BEGIN
+	call script main_ttest1_show
+	call script main_ttest2_hide
+	call script main_ttestpair_hide
+	call script main_ttestby_hide
+	call script main_uneq_welch_hide
+	call main.sp_level.setposition . 205
+	call main.tx_level.setposition . 205
+	call main.gb_group.setlabel resource TTEST_ONE_SAMPLE_T_TEST
+END
+
+PROGRAM main_ttest2_on
+BEGIN
+	call script main_ttest1_hide
+	call script main_ttest2_show
+	call script main_ttestpair_hide
+	call script main_ttestby_hide
+	call script main_uneq_welch_show
+	call main.ck_uneq.setposition . 200 
+	call main.ck_welch.setposition . 225
+	call main.sp_level.setposition . 260
+	call main.tx_level.setposition . 260	
+	call main.gb_group.setlabel resource TTEST_TWO_SAMPLE_T_TEST_USING_VARS
+END
+
+PROGRAM main_ttestpair_on
+BEGIN
+	call script main_ttest1_hide
+	call script main_ttest2_hide
+	call script main_ttestpair_show
+	call script main_ttestby_hide
+	call script main_uneq_welch_hide
+	call main.sp_level.setposition . 205
+	call main.tx_level.setposition . 205
+	call main.gb_group.setlabel resource TTEST_PAIRED_T_TEST
+END
+
+PROGRAM main_ttestby_on
+BEGIN
+	call script main_ttest1_hide
+	call script main_ttest2_hide
+	call script main_ttestpair_hide
+	call script main_ttestby_show
+	call script main_uneq_welch_show
+	call main.ck_uneq.setposition . 225
+	call main.ck_welch.setposition . 250
+	call main.sp_level.setposition . 280
+	call main.tx_level.setposition . 280
+	call main.gb_group.setlabel resource TTEST_TWO_SAMPLE_T_TEST_USING_GROUPS
+END
+
+SCRIPT main_uneq_welch_show
+BEGIN
+	main.ck_uneq.show
+	main.ck_welch.show
+END
+
+SCRIPT main_uneq_welch_hide
+BEGIN
+	main.ck_uneq.hide
+	main.ck_welch.hide
+END
+
+SCRIPT main_ttest1_show
+BEGIN
+	main.tx_var.show
+	main.vn_var.show
+	main.tx_val.show
+	main.en_val.show
+	main.sp_level.setvalue "95"
+END
+
+SCRIPT main_ttest1_hide
+BEGIN
+	main.tx_var.hide
+	main.vn_var.hide
+	main.tx_val.hide
+	main.en_val.hide	
+END
+
+SCRIPT main_ttest2_show
+BEGIN
+	main.tx_var1.show
+	main.vn_var1.show
+	main.tx_var2.show
+	main.vn_var2.show
+	main.ck_uneq.setoff
+	main.ck_welch.setoff
+	main.ck_welch.disable
+	main.sp_level.setvalue "95"
+END
+
+SCRIPT main_ttest2_hide
+BEGIN
+	main.tx_var1.hide
+	main.vn_var1.hide
+	main.tx_var2.hide
+	main.vn_var2.hide
+END
+
+SCRIPT main_ttestpair_show
+BEGIN
+	main.tx_pvar1.show
+	main.vn_pvar1.show
+	main.tx_pvar2.show
+	main.vn_pvar2.show
+	main.sp_level.setvalue "95"
+END
+
+SCRIPT main_ttestpair_hide
+BEGIN
+	main.tx_pvar1.hide
+	main.vn_pvar1.hide
+	main.tx_pvar2.hide
+	main.vn_pvar2.hide
+END
+
+SCRIPT main_ttestby_show
+BEGIN
+	main.tx_gvar.show
+	main.vn_gvar.show
+	main.tx_byopt.show
+	main.vn_byopt.show
+	main.ck_reverse.show
+	main.ck_uneq.setoff
+	main.ck_welch.setoff
+	main.ck_welch.disable
+	main.sp_level.setvalue "95"
+END
+
+SCRIPT main_ttestby_hide
+BEGIN
+	main.tx_gvar.hide
+	main.vn_gvar.hide
+	main.tx_byopt.hide
+	main.vn_byopt.hide	
+	main.ck_reverse.hide
+END
+
+PROGRAM command
+BEGIN
+	put /program by_output " "
+	put "ttest "
+	if main.rb_ttest1 {
+		varlist main.vn_var
+		put "== "
+		require main.en_val
+		put main.en_val
+	}
+	if main.rb_ttest2 {
+		varlist main.vn_var1
+		put "== "
+		varlist main.vn_var2
+	}
+	if main.rb_ttestpair {
+		varlist main.vn_pvar1
+		put "== "
+		varlist main.vn_pvar2
+	}
+	if main.rb_ttestby {
+		varlist main.vn_gvar
+	}
+	put " " /program ifin_output
+	
+	beginoptions
+		if main.rb_ttest2 {
+			put "unpaired "
+		}
+		if main.rb_ttestby {
+			require main.vn_byopt
+			optionarg main.vn_byopt
+			option main.ck_reverse
+		}
+		if (main.rb_ttest2 | main.rb_ttestby) {
+			option main.ck_uneq
+			option main.ck_welch
+		}
+		INCLUDE _level_main_pr
+	endoptions
+END
+

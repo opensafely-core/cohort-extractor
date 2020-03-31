@@ -1,0 +1,235 @@
+/*
+  sub.idlg -- standard include dialog for by, if, and in options
+
+*! VERSION 1.2.2  11apr2019
+
+    // SCRIPTS and PROGRAMS for external use
+	* SCRIPT  byifin_enable
+	* SCRIPT  byifin_disable
+	* SCRIPT  byifin_disable_by
+	* SCRIPT  byifin_disable_if
+	* SCRIPT  byifin_set_by_off
+	* PROGRAM ifin_output
+	* PROGRAM by_output
+
+*/
+
+DEFINE fromwd 34
+DEFINE fromsep +39
+DEFINE towd 30
+DEFINE tosep +35
+
+DIALOG sub, tabtitle(resource LBL_BY_IF_IN)
+BEGIN
+  CHECKBOX ck_by	_lft	_top	_iwd	_ht4,		///
+  	groupbox						///
+	label(resource LBL_REPEAT_COMMAND_BY_GROUPS)		///
+	onclickon(program byifin_by_on)				///
+	onclickoff(script byifin_by_off)
+  TEXT     tx_by	_indent _ss	_inwd	.,		///
+	label(resource LBL_VARIABLES_THAT_DEFINE_GROUPS)
+  VARLIST  vl_by	@	_ss	@	.,		///
+	label(resource LBL_VARIABLES_THAT_DEFINE_GROUPS)
+
+  GROUPBOX gb_ifin	_lft	_xls	_iwd	_ht9h,		///
+	label(resource LBL_RESTRICT_OBS)
+
+  TEXT     tx_if	_ilft	_ss	_inwd	.,		///
+	label(resource LBL_IF_EXPRESSION)
+  EXP      ex_if	@	_ss	@	.,		///
+	label(resource LBL_BU_CREATE)
+
+  CHECKBOX ck_in	@	+35	@	.,		///
+	label(resource LBL_USE_RANGE_OBS)			///
+	onclickon(program byifin_in_on)				///
+	onclickoff(script byifin_in_off)
+  TEXT     tx_from	@	_ss	fromwd	.,		///
+  	label(resource LBL_FROM) right
+  SPINNER  sp_from	fromsep	@	_spwd	.,		///
+	default(1)
+  TEXT     tx_to	_spsep	@	towd	.,		///
+	label(resource LBL_TO) right
+  SPINNER  sp_to	tosep	@	_spwd	.,		///
+  	default(c(N))
+END
+
+PROGRAM byifin_showmessage
+BEGIN
+	call create STRING _MSG_TMP
+	call _MSG_TMP.format						///
+		"resource XTREG_MSGBOX_PREFIX_CANNOT_BE_COMBINED_FMT" 	///
+		"resource LBL_BY_IF_IN" 				///
+		"resource LBL_REPEAT_COMMAND_BY_GROUPS"			///
+		"resource LBL_USE_RANGE_OBS"
+	stopbox stop "class _MSG_TMP.value"
+
+//`"On by/if/in tab, "Repeat command by groups" and "Use a range of observations" may not be specified together."' ///
+	"i.e. the -by- prefix cannot be combined with the -in- qualifier."
+	
+	
+END
+
+///-- For external use
+SCRIPT byifin_enable
+BEGIN
+	program byifin_enable_pr
+END
+
+PROGRAM byifin_enable_pr
+BEGIN
+	call sub.ck_by.enable
+	call sub.gb_ifin.enable
+	call sub.tx_if.enable
+	call sub.ex_if.enable
+	call sub.ck_in.enable
+	if sub.ck_by {
+		call program byifin_by_on
+	}
+	if sub.ck_in {
+		call program byifin_in_on
+	}
+END
+
+SCRIPT byifin_disable
+BEGIN
+	sub.ck_by.disable
+	sub.tx_by.disable
+	sub.vl_by.disable
+	sub.gb_ifin.disable
+	sub.tx_if.disable
+	sub.ex_if.disable
+	sub.ck_in.disable
+	sub.sp_from.disable
+	sub.tx_from.disable
+	sub.tx_to.disable
+	sub.sp_to.disable
+END
+
+SCRIPT byifin_enable_in
+BEGIN
+	program byifin_enable_in_pr
+END
+
+SCRIPT byifin_enable_if
+BEGIN
+	sub.gb_ifin.enable
+	sub.tx_if.enable
+	sub.ex_if.enable
+END
+
+SCRIPT byifin_disable_by
+BEGIN
+	sub.ck_by.disable
+	sub.tx_by.disable
+	sub.vl_by.disable
+END
+
+SCRIPT byifin_disable_if
+BEGIN
+	sub.tx_if.disable
+	sub.ex_if.disable
+END
+
+SCRIPT byifin_set_by_off
+BEGIN
+	sub.settabtitle "if/in"
+	sub.ck_by.hide
+	sub.tx_by.hide
+	sub.vl_by.hide
+	sub.gb_ifin.setposition . 10
+	sub.tx_if.setposition . 30
+	sub.ex_if.setposition . 50
+	sub.ck_in.setposition . 80
+	sub.tx_from.setposition . 105
+	sub.sp_from.setposition . 105
+	sub.tx_to.setposition . 105
+	sub.sp_to.setposition . 105
+END
+
+PROGRAM ifin_output
+BEGIN
+	INCLUDE _ifin_pr
+END
+
+PROGRAM by_output
+BEGIN
+	INCLUDE _by_pr
+END
+///--
+
+PROGRAM byifin_enable_in_pr
+BEGIN
+	call sub.gb_ifin.enable
+	call sub.ck_in.enable
+	if sub.ck_in {
+		call program byifin_in_on
+	}
+END
+
+PROGRAM byifin_by_on
+BEGIN
+	if !H(sub.ck_in) & sub.ck_in {
+		call gaction sub.ck_by.setoff
+		call program byifin_showmessage
+	}
+	if !H(sub.ck_in) & !sub.ck_in {
+		call sub.vl_by.enable
+		call sub.tx_by.enable
+	}
+END
+
+SCRIPT byifin_by_off
+BEGIN
+	sub.tx_by.disable
+	sub.vl_by.disable
+END
+
+PROGRAM byifin_check_range
+BEGIN
+	call sub.sp_from.setrange 1 c(N)
+	call sub.sp_to.setrange 1 c(N)
+END
+
+PROGRAM byifin_in_on
+BEGIN
+	if !H(sub.ck_by) & sub.ck_by {
+		call sub.ck_in.setoff
+		call program byifin_showmessage
+	}
+	if ! sub.ck_by  | (sub.ck_by & D(sub.ck_by)) {
+		call sub.sp_from.enable
+		call sub.tx_from.enable
+		call sub.tx_to.enable
+		call sub.sp_to.enable
+	}
+	call program byifin_check_range
+END
+
+SCRIPT byifin_in_off
+BEGIN
+	sub.tx_from.disable
+	sub.sp_from.disable
+	sub.tx_to.disable
+	sub.sp_to.disable
+	program byifin_check_range
+END
+
+///-- left in for backward compatibility
+//    NOTE: these calls are deprecated
+PROGRAM disable_sub
+BEGIN
+	call script byifin_disable
+END
+
+PROGRAM enable_sub
+BEGIN
+	call program byifin_enable_pr
+END
+
+SCRIPT sub_off
+BEGIN
+	script byifin_disable
+END
+///--
+
+/* END:  sub.idlg */

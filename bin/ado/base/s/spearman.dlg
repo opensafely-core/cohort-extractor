@@ -1,0 +1,109 @@
+/*
+	spearman
+
+*!  VERSION 1.2.0  19nov2014
+
+*/
+
+VERSION 10.0
+
+INCLUDE _std_large
+DEFINE _dlght 410
+INCLUDE header
+
+HELP hlp1, view("help spearman")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource SPEARMAN_DLG_HSCALE
+END
+
+
+DIALOG main, label(resource SPEARMAN_DLG_TITLE) 			///
+	tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT	    tx_var		_lft	_top	_iwd	.,		///
+	label(resource LBL_VARIABLES_LEAVE_EMPTY_FOR_ALL)
+  VARLIST  vl_var		@	_ss	@	.,		///
+  	numeric								///
+	label(resource LBL_VARIABLES)
+
+  GROUPBOX gb_stats		_lft	_ls	_iwd	_ht7,		///
+	label(resource LBL_LIST_OF_STATISTICS)
+
+  CHECKBOX ck_rho		_indent	_ss	_inwd	.,		///
+	label(resource SPEARMAN_MAIN_CK_RHO) option(rho)
+  CHECKBOX ck_obs		@	_ms	@	.,		///
+	label(resource LBL_DISPLAY_NUMBER_OF_OBS) option(obs)
+  CHECKBOX ck_p			@	_ms	@	.,		///
+	label(resource LBL_DISPLAY_SIGNIFICANCE_LEVEL) option(p)
+
+  GROUPBOX gb_displayadj	_lft	_xls	_iwd	_ht4h,		///
+  	label(resource LBL_DISPLAY_ADJUSTMENT)
+  CHECKBOX ck_print		_ilft	_ss	_ckwd 	., 		///
+	onclickoff(main.ed_print.disable)				///
+	onclickon(main.ed_print.enable)
+  EDIT      ed_print		_cksep	@	_spwd	.,		///
+	default(0.10) option(print)
+  TEXT	    tx_print		_spsep	@	_rbsprb	.,		///
+	label(resource LBL_SIGNIFICANCE_LEVEL_DISPLAYING_COEFFICIENTS)
+  CHECKBOX ck_star		_ilft	_ms	_ckwd   .,		///
+	onclickoff(main.ed_star.disable)				///
+	onclickon(main.ed_star.enable)
+  EDIT     ed_star		_cksep	@	_spwd	.,		///
+	default(0.05) option(star)
+  TEXT     tx_star		_spsep	@	_rbsprb	.,		///
+	label(resource LBL_SIGNIFICANCE_LEVEL_DISPLAYING_STAR)
+
+  GROUPBOX gb_significance	_lft	_xls	_iwd	_ht6,		///
+	label(resource LBL_SIGNIFICANCE_LEVELS)
+  RADIO    rb_none		_indent	_ss	_inwd	.,		///
+	label(resource LBL_DO_NOT_ADJUST_SIGNIFICANCE_LEVEL) option(NONE) first
+  RADIO    rb_bonferroni	@	_ss	@	.,		///
+	label(resource LBL_USE_BONFERRONI_ADJUSTED_SIGN_LEVEL)		///
+	option(bonferroni)
+  RADIO    rb_sidak		@	_ss	@	.,		///
+	label(resource LBL_USE_SIDAK_ADJUSTED_SIGN_LEVEL)		///
+	option(sidak)  last
+
+  CHECKBOX ck_pw		_lft	_xls	_iwd	.,		///
+	option(pw)							///
+	label(resource LBL_CALC_ALL_PAIRWISE_CORR_COEF_BY_USING_ALL_AV_DATA)
+  CHECKBOX ck_mat		_lft	_ms	_iwd	.,		///
+	label(resource LBL_FORCE_MATRIX_TABLE_OUTPUT) option(matrix)
+END
+
+INCLUDE byifin
+
+PROGRAM stats_option_output
+BEGIN
+	option main.ck_rho
+	option main.ck_obs
+	option main.ck_p
+END
+
+PROGRAM command
+BEGIN
+  	INCLUDE _by_pr
+        put "spearman "
+        varlist [main.vl_var]
+
+        INCLUDE _ifin_pr
+        beginoptions
+		if (main.ck_rho | main.ck_obs | main.ck_p) {
+			put "stats("
+			put /program stats_option_output
+			put ") "
+		}
+                if main.ck_print{
+			optionarg main.ed_print
+                }
+		if main.ck_star{
+			optionarg main.ed_star
+		}
+		option radio(main rb_none rb_bonferroni rb_sidak)
+		option main.ck_pw
+		option main.ck_mat
+      endoptions
+END

@@ -1,0 +1,100 @@
+/*
+	uselabel
+
+	VERSION 1.1.2  14mar2015
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+INCLUDE _ht280
+INCLUDE header
+
+HELP hlp1, view("help uselabel")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource USELABEL_DLG_HSCALE
+	
+        main.fi_fn.formatfilter "{0} (*.dta)|*.dta|{1} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_DTA_FILES" "resource ui_ex FILE_TYPE_ALL_FILES"
+END
+
+DIALOG main, label(resource USELABEL_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  /*--+----1----+----2----+----3----+----4----+----5----+----6----+----7----+*/
+
+  RADIO    rb_all    _lft      _top      _iwd      .,           /*
+                */ label(resource USELABEL_MAIN_RB_ALL)        /*
+                */ first                                        /*
+                */ clickon("script all_off")
+
+  RADIO    rb_lab    @         _ss       @         .,		/*
+		*/ label(resource USELABEL_MAIN_RB_LAB)         /*
+                */ clickon("script labelfile_off")
+
+  COMBOBOX cb_lab    _indent2  _ss       _inwd     _ht8,   	/*
+		*/ append					/*
+		*/ contents(valuelabels)			/*
+		*/ label(resource USELABEL_MAIN_RB_LAB)
+ 
+  RADIO    rb_fn     _lft      _vs8      _iwd      .,		/*
+		*/label(resource USELABEL_MAIN_RB_FN)		/*
+                */ last                                         /*
+                */ clickon("script label_off") 
+
+  FILE     fi_fn     _indent2  _ss       _inwd     .,		/*
+		*/ option(using)				/*
+		*/ label(resource LBL_BU_BROWSE)			/*
+		*/ defext(dta)					/*
+		*/ error(resource USELABEL_MAIN_RB_FN)
+
+  CHECKBOX ck_clear  _lft      _ls       _iwd      .,           /*
+ 		*/ label(resource USELABEL_MAIN_CK_CLEAR) 	/*
+                */ option(clear) nomem
+  
+  CHECKBOX ck_var    @         _ms       @         .,           /*
+		*/ label(resource USELABEL_MAIN_CK_VAR) 	/*
+                */ option(var)
+
+END
+
+SCRIPT labelfile_off
+BEGIN
+	main.fi_fn.disable
+	main.cb_lab.enable
+END
+
+
+SCRIPT label_off
+BEGIN
+	main.fi_fn.enable 
+	main.cb_lab.disable
+END
+
+SCRIPT all_off
+BEGIN 
+	main.cb_lab.disable
+	main.fi_fn.disable
+END
+
+PROGRAM command
+BEGIN
+	put "uselabel " 
+	if main.rb_lab {
+		require main.cb_lab 
+		put main.cb_lab
+	}
+	if main.rb_fn {
+		require main.fi_fn
+		put "using " 
+		put `"""'
+		put main.fi_fn
+		put `"""'
+	}
+	beginoptions
+		option main.ck_clear
+		option main.ck_var
+	endoptions
+END

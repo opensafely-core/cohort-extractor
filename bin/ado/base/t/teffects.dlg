@@ -1,0 +1,1629 @@
+/*
+  teffects
+
+*!  VERSION 1.1.10  08aug2017
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_xlarge
+DEFINE _dlght 485
+INCLUDE header
+HELP hlp1, view("help teffects")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource TEFFECTS_DLG_HSCALE
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	if __MESSAGE.contains("-ra_continuous-") {
+		call model.cb_est.setvalue "ra"
+		call model.cb_omodel.setvalue "linear"
+	}
+	if __MESSAGE.contains("-ipw_continuous-") {
+		call model.cb_est.setvalue "ipw"
+		call model.cb_omodel.setvalue "linear"
+	}
+	if __MESSAGE.contains("-ipwra_continuous-") {
+		call model.cb_est.setvalue "ipwra"
+		call model.cb_omodel.setvalue "linear"
+	}
+	if __MESSAGE.contains("-aipw_continuous-") {
+		call model.cb_est.setvalue "aipw"
+		call model.cb_omodel.setvalue "linear"
+	}
+	if __MESSAGE.contains("-psmatch_continuous-") {
+		call model.cb_est.setvalue "psmatch"
+		call model.cb_omodel.setvalue "linear"
+	}
+	if __MESSAGE.contains("-nnmatch_continuous-") {
+		call model.cb_est.setvalue "nnmatch"
+		call model.cb_omodel.setvalue "linear"
+	}
+	if __MESSAGE.contains("-ra_binary-") {
+		call model.cb_est.setvalue "ra"
+		call model.cb_omodel.setvalue "logit"
+	}
+	if __MESSAGE.contains("-ipw_binary-") {
+		call model.cb_est.setvalue "ipw"
+		call model.cb_omodel.setvalue "logit"
+	}
+	if __MESSAGE.contains("-ipwra_binary-") {
+		call model.cb_est.setvalue "ipwra"
+		call model.cb_omodel.setvalue "logit"
+	}
+	if __MESSAGE.contains("-aipw_binary-") {
+		call model.cb_est.setvalue "aipw"
+		call model.cb_omodel.setvalue "logit"
+	}
+	if __MESSAGE.contains("-psmatch_binary-") {
+		call model.cb_est.setvalue "psmatch"
+		call model.cb_omodel.setvalue "logit"
+	}
+	if __MESSAGE.contains("-nnmatch_binary-") {
+		call model.cb_est.setvalue "nnmatch"
+		call model.cb_omodel.setvalue "logit"
+	}
+	if __MESSAGE.contains("-ra_count-") {
+		call model.cb_est.setvalue "ra"
+		call model.cb_omodel.setvalue "poisson"
+	}
+	if __MESSAGE.contains("-ipw_count-") {
+		call model.cb_est.setvalue "ipw"
+		call model.cb_omodel.setvalue "poisson"
+	}
+	if __MESSAGE.contains("-ipwra_count-") {
+		call model.cb_est.setvalue "ipwra"
+		call model.cb_omodel.setvalue "poisson"
+	}
+	if __MESSAGE.contains("-aipw_count-") {
+		call model.cb_est.setvalue "aipw"
+		call model.cb_omodel.setvalue "poisson"
+	}
+	if __MESSAGE.contains("-psmatch_count-") {
+		call model.cb_est.setvalue "psmatch"
+		call model.cb_omodel.setvalue "poisson"
+	}
+	if __MESSAGE.contains("-nnmatch_count-") {
+		call model.cb_est.setvalue "nnmatch"
+		call model.cb_omodel.setvalue "poisson"
+	}
+	if __MESSAGE.contains("-ra_frac-") {
+		call model.cb_est.setvalue "ra"
+		call model.cb_omodel.setvalue "flogit"
+	}
+	if __MESSAGE.contains("-ipw_frac-") {
+		call model.cb_est.setvalue "ipw"
+		call model.cb_omodel.setvalue "flogit"
+	}
+	if __MESSAGE.contains("-ipwra_frac-") {
+		call model.cb_est.setvalue "ipwra"
+		call model.cb_omodel.setvalue "flogit"
+	}
+	if __MESSAGE.contains("-aipw_frac-") {
+		call model.cb_est.setvalue "aipw"
+		call model.cb_omodel.setvalue "flogit"
+	}
+	if __MESSAGE.contains("-psmatch_frac-") {
+		call model.cb_est.setvalue "psmatch"
+		call model.cb_omodel.setvalue "flogit"
+	}
+	if __MESSAGE.contains("-nnmatch_frac-") {
+		call model.cb_est.setvalue "nnmatch"
+		call model.cb_omodel.setvalue "flogit"
+	}
+	if __MESSAGE.contains("-ra_nonneg-") {
+		call model.cb_est.setvalue "ra"
+		call model.cb_omodel.setvalue "poisson"
+	}
+	if __MESSAGE.contains("-ipw_nonneg-") {
+		call model.cb_est.setvalue "ipw"
+		call model.cb_omodel.setvalue "poisson"
+	}
+	if __MESSAGE.contains("-ipwra_nonneg-") {
+		call model.cb_est.setvalue "ipwra"
+		call model.cb_omodel.setvalue "poisson"
+	}
+	if __MESSAGE.contains("-aipw_nonneg-") {
+		call model.cb_est.setvalue "aipw"
+		call model.cb_omodel.setvalue "poisson"
+	}
+	if __MESSAGE.contains("-psmatch_nonneg-") {
+		call model.cb_est.setvalue "psmatch"
+		call model.cb_omodel.setvalue "poisson"
+	}
+	if __MESSAGE.contains("-nnmatch_nonneg-") {
+		call model.cb_est.setvalue "nnmatch"
+		call model.cb_omodel.setvalue "poisson"
+	}
+	call script se_nn_iid
+END
+
+DIALOG model, tabtitle(resource LBL_TAB_MODEL)				///
+	label(resource TEFFECTS_DLG_TITLE)
+BEGIN
+  TEXT tx_est			_lft	_top	300	.,		///
+	label(resource TEFFECTS_MODEL_TX_EST)
+  COMBOBOX cb_est		@ 	_ss	@	.,		///
+	dropdownlist							///
+	contents(estimator_list)					///
+	values(estimator_values)					///
+	onselchangelist(estimator_list_sel)				///
+
+  TEXT tx_omodel		@	_ls	_cwd2	.,		///
+	label(resource TEFFECTS_MODEL_TX_OMODEL)
+  TEXT tx_hetprob_o		+155	@ 	380	.,		///
+	label(resource LBL_VARIABLES)
+  COMBOBOX cb_omodel		_lft	_ss	150	.,		///
+	dropdownlist							///
+	contents(omodel_list)						///
+	values(omodel_values)						///
+	onselchange(program omodel_list_sel)				///
+	label(resource TEFFECTS_MODEL_TX_OMODEL)
+  VARLIST vl_hetprob_o		+155 	@	380	.,		///
+	numeric fv							///
+	label(resource LBL_VARIABLES)					///
+	tooltip(resource TEFFECTS_MODEL_VL_HETPROB_O)		
+  TEXT	tx_ovar			_lft	_ls	_cwd3_01	.,	///
+	label(resource LBL_OUTCOME_DEPENDENT)
+  DEFINE holdovn @y
+  VARNAME vn_ovar		@	_ss	_vnwd	.,		///
+	numeric								///
+	label(resource LBL_OUTCOME_DEPENDENT)
+  TEXT tx_ovars			_vnsep	holdovn	410	.,		///
+	label(resource TEFFECTS_MODEL_TX_OVARS)
+  VARLIST vl_ovars		@	_ss	@	.,		///
+	numeric	fv							///
+	label(resource TEFFECTS_MODEL_TX_OVARS)
+  CHECKBOX ck_ovarno		@	_ms	@	.,		///
+	option(noconstant)						///
+	label(resource LBL_SUPPRESS_CONSTANT_OUTCOME)
+
+  TEXT tx_psmodel		_lft	_ss	_cwd2	.,		///
+	label(resource TEFFECTS_MODEL_TX_PSMODEL)
+  TEXT tx_hetprob_t		+155	@	380	.,		///
+	label(resource LBL_GB_VARIABLES)
+  COMBOBOX cb_psmodel		_lft	_ss	150	.,		///
+	dropdownlist							///
+	contents(psmodel_list)						///
+	values(psmodel_values)						///
+	onselchange(program psmodel_list_sel)				///
+	label(resource TEFFECTS_MODEL_TX_PSMODEL)
+  VARLIST vl_hetprob_t		+155	@ 	380	.,		///
+	numeric	fv							///
+	label(resource LBL_GB_VARIABLES)				///
+	tooltip(resource TEFFECTS_MODEL_VL_HETPROB_T)
+  TEXT tx_tvar			_lft	310	_vnwd	 .,		///
+	label(resource LBL_TREATMENT_VARIABLE)
+  TEXT tx_tvars			_vnsep	@	_vlwd	.,		///
+	label(resource TEFFECTS_MODEL_TX_TVARS)
+  VARNAME vn_tvar		_lft	_ss	_vnwd	.,		///
+	numeric								///
+	label(resource LBL_TREATMENT_VARIABLE)
+  VARLIST vl_tvars		_vnsep	_ss	410	.,		///
+	numeric	fv							///
+	label(resource TEFFECTS_MODEL_TX_TVARS)
+  CHECKBOX ck_tvarno		@	_ms	@	.,		///
+	option(noconstant)						///
+	label(resource LBL_SUPPRESS_CONSTANT_TREATMENT)
+
+  SPINNER sp_nneig		_lft	160	_spwd	.,		///
+	min(1) 								///
+	default(1)							///
+	option(nneighbor)						///
+	label(resource TEFFECTS_MODEL_SP_NNEIG)
+  TEXT tx_nneig			_spsep	@	250	.,		///
+	label(resource TEFFECTS_MODEL_SP_NNEIG)
+  TEXT	tx_bias			_lft	_ls	_iwd	.,		///
+	label(resource TEFFECTS_MODEL_TX_BIAS)
+  VARLIST vl_bias		@	_ss	@	.,		///
+	numeric fv							///
+	option(biasadj)							///
+	label(resource TEFFECTS_MODEL_TX_BIAS)
+  TEXT tx_ematch		@	_ls	_iwd	.,		///
+	label(resource TEFFECTS_MODEL_TX_EMATCH)
+  VARLIST vl_ematch		@	_ss	@	.,		///
+	numeric	fv							///
+	option(ematch)							///
+	label(resource TEFFECTS_MODEL_TX_EMATCH)
+
+  CHECKBOX ck_nls		_lft 	320	_iwd	.,		///
+	option(nls)							///
+	onclickon(model.ck_wnls.disable)				///
+	onclickoff(model.ck_wnls.enable)				///
+	label(resource TEFFECTS_MODEL_CK_NLS)
+  CHECKBOX ck_wnls		@	_ms	@	.,		///
+	option(wnls)							///
+	onclickon(model.ck_nls.disable)					///
+	onclickoff(model.ck_nls.enable)					///
+	label(resource TEFFECTS_MODEL_CK_WNLS)
+END
+
+LIST estimator_list
+BEGIN
+	resource TEFFECTS_REG_ADJUSTMENT
+	resource TEFFECTS_INVERSE_PROB_WEIGHTING
+	resource TEFFECTS_INVERSE_PROB_WEIGHTED_REG_ADJ
+	resource TEFFECTS_AUGMENTED_INVERSE_PROB_WEIGHTING
+	resource TEFFECTS_NEAREST_NEIGHBOR_MATCHING
+	resource TEFFECTS_PROPENSITY_SCORE_MATCHING
+END
+
+LIST estimator_values
+BEGIN
+	ra
+	ipw
+	ipwra
+	aipw
+	nnmatch
+	psmatch
+END
+
+LIST omodel_list
+BEGIN
+	resource LBL_LINEAR
+	resource LBL_LOGISTIC
+	resource LBL_PROBIT
+	resource LBL_HETEROSKEDASTIC_PROBIT
+	resource LBL_POISSON_EXPONENTIAL_MEAN
+	resource LBL_FRACTIONAL_LOGISTIC
+	resource LBL_FRACTIONAL_PROBIT
+	resource LBL_FRACTIONAL_HETEROSKEDASTIC_PROBIT
+END
+
+LIST omodel_values
+BEGIN
+	linear
+	logit
+	probit 
+	hetprobit
+	poisson
+	flogit 
+	fprobit
+	fhetprobit
+END
+
+LIST psmodel_list
+BEGIN
+	resource LBL_LOGISTIC
+	resource LBL_PROBIT
+	resource LBL_HETEROSKEDASTIC_PROBIT
+END
+
+LIST psmodel_values
+BEGIN
+	logit
+	probit 
+	hetprobit
+END
+
+
+LIST estimator_list_sel
+BEGIN
+	program model_ra_show
+	program model_ipw_show
+	program model_ipwra_show
+	program model_aipw_show
+	program model_nnmatch_show
+	program model_psmatch_show
+END
+
+SCRIPT main_hide_all
+BEGIN
+	model.tx_omodel.hide
+	model.cb_omodel.hide
+	model.tx_ovar.hide
+	model.vn_ovar.hide
+	model.tx_ovars.hide
+	model.vl_ovars.hide
+	model.ck_ovarno.hide
+
+	model.tx_psmodel.hide
+	model.cb_psmodel.hide
+	model.tx_tvar.hide
+	model.vn_tvar.hide
+	model.tx_tvars.hide
+	model.vl_tvars.hide
+	model.ck_tvarno.hide
+
+	model.ck_nls.hide
+	model.ck_wnls.hide
+	model.tx_nneig.hide
+	model.sp_nneig.hide
+	model.tx_bias.hide
+	model.vl_bias.hide
+	model.tx_ematch.hide
+	model.vl_ematch.hide
+
+END
+
+PROGRAM	model_ra_show
+BEGIN
+	call script main_hide_all
+
+	call model.tx_omodel.show
+	call model.cb_omodel.show
+	call program omodel_list_sel
+	call model.tx_ovar.show
+	call model.vn_ovar.show
+	call model.tx_ovars.show
+	call model.vl_ovars.show
+	call model.ck_ovarno.show
+
+	call model.tx_tvar.show
+	call model.vn_tvar.show
+
+	call model.tx_ovar.setlabel "resource LBL_OUTCOME_DEPENDENT"
+	call model.vn_ovar.setlabel "resource LBL_OUTCOME_DEPENDENT"
+	call model.tx_ovar.setposition . 110
+	call model.vn_ovar.setposition . 130
+	call model.tx_ovars.setposition . 110
+	call model.vl_ovars.setposition . 130
+
+	call model.tx_tvar.setposition . 180
+	call model.vn_tvar.setposition . 200
+
+	call script se_ra_show
+	call script rpt_ra_show
+	call script rpt_nnmatch_hide
+	call script adv_nnmatch_hide
+	call program adv_ra_show
+	call program stat_ctrl
+	call script max_teffects_enable
+	call script weights_setLayout_fpi
+END
+
+PROGRAM model_ipw_show
+BEGIN
+	call script main_hide_all
+
+	call model.tx_ovar.show
+	call model.vn_ovar.show
+	call model.tx_hetprob_o.hide
+	call model.vl_hetprob_o.hide
+	call model.tx_psmodel.show
+	call model.cb_psmodel.show
+	call program psmodel_list_sel
+	call model.tx_tvar.show
+	call model.vn_tvar.show
+	call model.tx_tvars.show
+	call model.vl_tvars.show
+	call model.ck_tvarno.show
+
+	call model.tx_ovar.setlabel "resource LBL_OUTCOME_VARIABLE"
+	call model.vn_ovar.setlabel "resource LBL_OUTCOME_VARIABLE"
+	call model.tx_ovar.setposition . 60
+	call model.vn_ovar.setposition . 80
+	call model.tx_psmodel.setlabel resource TEFFECTS_MODEL_TX_PSMODEL
+	call model.tx_psmodel.setposition . 110
+	call model.cb_psmodel.setposition . 130
+	call model.tx_hetprob_t.setposition . 110
+	call model.vl_hetprob_t.setposition . 130
+	call model.tx_tvar.setposition . 160
+	call model.vn_tvar.setposition . 180
+	call model.tx_tvars.setposition . 160
+	call model.vl_tvars.setposition . 180
+	call model.ck_tvarno.setposition . 205
+
+	call script se_ra_show
+	call script rpt_ra_show
+	call script rpt_nnmatch_hide
+	call script adv_nnmatch_hide
+	call program adv_ra_show
+	call program stat_ctrl
+	call script max_teffects_enable
+	call script weights_setLayout_fpi
+END
+
+PROGRAM	model_ipwra_show
+BEGIN
+	call script main_hide_all
+
+	call model.tx_omodel.show
+	call model.cb_omodel.show
+	call program omodel_list_sel
+
+	call model.tx_ovar.show
+	call model.vn_ovar.show
+	call model.tx_ovars.show
+	call model.vl_ovars.show
+	call model.ck_ovarno.show
+
+	call model.tx_psmodel.show
+	call model.cb_psmodel.show
+	call program psmodel_list_sel
+
+	call model.tx_tvar.show
+	call model.vn_tvar.show
+	call model.tx_tvars.show
+	call model.vl_tvars.show
+	call model.ck_tvarno.show
+
+	call model.tx_ovar.setlabel "resource LBL_OUTCOME_DEPENDENT"
+	call model.vn_ovar.setlabel "resource LBL_OUTCOME_DEPENDENT"
+	call model.tx_ovar.setposition . 110
+	call model.vn_ovar.setposition . 130
+	call model.tx_ovars.setposition . 110
+	call model.vl_ovars.setposition . 130
+	call model.tx_psmodel.setlabel resource TEFFECTS_MODEL_TX_PSMODEL
+	call model.tx_psmodel.setposition . 190
+	call model.cb_psmodel.setposition . 210
+	call model.tx_hetprob_t.setposition . 190
+	call model.vl_hetprob_t.setposition . 210
+	call model.tx_tvar.setposition . 240
+	call model.vn_tvar.setposition . 260
+	call model.tx_tvars.setposition . 240
+	call model.vl_tvars.setposition . 260
+	call model.ck_tvarno.setposition . 285
+
+	call script se_ra_show
+	call script rpt_ra_show
+	call script rpt_nnmatch_hide
+	call script adv_nnmatch_hide
+	call program adv_ra_show
+	call program stat_ctrl
+	call script max_teffects_enable
+	call script weights_setLayout_fpi
+END
+
+PROGRAM model_aipw_show
+BEGIN
+	call script main_hide_all
+
+	call model.tx_omodel.show
+	call model.cb_omodel.show
+	call program omodel_list_sel
+
+	call model.tx_ovar.show
+	call model.vn_ovar.show
+	call model.tx_ovars.show
+	call model.vl_ovars.show
+	call model.ck_ovarno.show
+
+	call model.tx_psmodel.show
+	call model.cb_psmodel.show
+	call program psmodel_list_sel
+
+	call model.tx_tvar.show
+	call model.vn_tvar.show
+	call model.tx_tvars.show
+	call model.vl_tvars.show
+	call model.ck_tvarno.show
+
+	call model.ck_nls.show
+	call model.ck_wnls.show
+
+	call model.tx_ovar.setlabel "resource LBL_OUTCOME_DEPENDENT"
+	call model.vn_ovar.setlabel "resource LBL_OUTCOME_DEPENDENT"
+	call model.tx_ovar.setposition . 110
+	call model.vn_ovar.setposition . 130
+	call model.tx_ovars.setposition . 110
+	call model.vl_ovars.setposition . 130
+	call model.tx_psmodel.setlabel resource TEFFECTS_MODEL_TX_PSMODEL
+	call model.tx_psmodel.setposition . 190
+	call model.cb_psmodel.setposition . 210
+	call model.tx_hetprob_t.setposition . 190
+	call model.vl_hetprob_t.setposition . 210
+	call model.tx_tvar.setposition . 240
+	call model.vn_tvar.setposition . 260
+	call model.tx_tvars.setposition . 240
+	call model.vl_tvars.setposition . 260
+	call model.ck_tvarno.setposition . 285
+
+	call script se_ra_show
+	call script rpt_ra_show
+	call script rpt_nnmatch_hide
+	call script max_teffects_enable
+	call script adv_nnmatch_hide
+	call program model_omoptions_show
+	call program stat_ctrl
+	call program adv_ra_show
+	call script max_teffects_enable
+	call script weights_setLayout_fi
+END
+
+PROGRAM	model_nnmatch_show
+BEGIN
+	call script main_hide_all
+
+	call model.tx_ovar.show
+	call model.vn_ovar.show
+	call model.tx_ovars.show
+	call model.vl_ovars.show
+	call model.tx_tvars.hide
+	call model.vl_tvars.hide
+	call model.tx_tvar.show
+	call model.vn_tvar.show
+	call model.ck_nls.hide
+	call model.ck_wnls.hide
+	call model.tx_nneig.show
+	call model.sp_nneig.show
+	call model.tx_bias.show
+	call model.vl_bias.show
+	call model.tx_ematch.show
+	call model.vl_ematch.show
+	call model.tx_ovar.setposition . 60
+	call model.vn_ovar.setposition . 80
+	call model.tx_ovars.setposition . 60
+	call model.vl_ovars.setposition . 80
+	call model.tx_tvar.setposition . 110
+	call model.vn_tvar.setposition . 130
+	call model.tx_nneig.setposition . 160
+	call model.sp_nneig.setposition . 160
+
+	call script se_nn_show
+	call script rpt_ra_hide
+	call script adv_ra_hide
+	call program stat_ctrl
+	call program rpt_nnmatch_show
+	call program adv_nnmatch_show
+	call script max_teffects_disable
+	call script weights_setLayout_f
+END
+
+PROGRAM	model_psmatch_show
+BEGIN
+	call script main_hide_all
+
+	call model.tx_ovar.show
+	call model.vn_ovar.show
+	call model.tx_psmodel.show
+	call model.cb_psmodel.show
+	call program psmodel_list_sel
+	call model.tx_tvar.show
+	call model.vn_tvar.show
+	call model.tx_tvars.show
+	call model.vl_tvars.show
+	call model.ck_tvarno.show
+	call model.tx_nneig.show
+	call model.sp_nneig.show
+
+	call model.tx_ovar.setlabel "resource LBL_OUTCOME_VARIABLE"
+	call model.vn_ovar.setlabel "resource LBL_OUTCOME_VARIABLE"
+	call model.tx_psmodel.setposition . 60
+	call model.cb_psmodel.setposition . 80
+	call model.tx_psmodel.setlabel resource TEFFECTS_PROPENSITY_SCORE_MODEL
+	call model.tx_hetprob_t.setposition . 60
+	call model.vl_hetprob_t.setposition . 80
+	call model.tx_ovar.setposition . 110
+	call model.vn_ovar.setposition . 130
+	call model.tx_tvar.setposition . 160
+	call model.vn_tvar.setposition . 180
+	call model.tx_tvars.setposition . 160
+	call model.vl_tvars.setposition . 180
+	call model.ck_tvarno.setposition . 205
+	call model.tx_nneig.setposition . 250
+	call model.sp_nneig.setposition . 250
+
+	call script se_nn_show
+	call script rpt_ra_hide
+	call script adv_ra_hide
+	call program rpt_nnmatch_show
+	call program stat_ctrl
+	call program adv_nnmatch_show
+	call script max_teffects_disable
+	call script weights_setLayout_f
+END
+
+PROGRAM omodel_list_sel
+BEGIN
+	if model.cb_omodel.iseq("hetprobit") | model.cb_omodel.iseq("fhetprobit") {
+		call script teffects_hetprob_o_show
+	}
+	else {
+		call script teffects_hetprob_o_hide
+	}
+END
+
+
+PROGRAM psmodel_list_sel
+BEGIN
+	if model.cb_psmodel.iseq("hetprobit") {
+		call script teffects_hetprob_t_show
+	}
+	if model.cb_psmodel.isneq("hetprobit") {
+		call script teffects_hetprob_t_hide
+	}	
+END
+
+SCRIPT model_psoptions_hide
+BEGIN
+	model.tx_psmodel.hide
+	model.cb_psmodel.hide
+	model.ck_tvarno.hide
+	model.vl_hetprob_o.hide
+	model.tx_hetprob_o.hide
+	model.vl_hetprob_t.hide
+	model.tx_hetprob_t.hide
+END
+
+SCRIPT teffects_hetprob_o_show
+BEGIN
+	model.vl_hetprob_o.show
+	model.tx_hetprob_o.show
+END
+
+SCRIPT teffects_hetprob_t_show
+BEGIN
+	model.vl_hetprob_t.show
+	model.tx_hetprob_t.show
+END
+
+SCRIPT teffects_hetprob_o_hide
+BEGIN
+	model.vl_hetprob_o.hide
+	model.tx_hetprob_o.hide
+END
+
+SCRIPT teffects_hetprob_t_hide
+BEGIN
+	model.vl_hetprob_t.hide
+	model.tx_hetprob_t.hide
+END
+
+INCLUDE byifin
+INCLUDE weights_fpi
+
+DIALOG stat, tabtitle(resource TEFFECTS_TAB_STAT)
+BEGIN
+	GROUPBOX gb_stat	_lft	_top	_iwd	_ht6,		///
+		label(resource LBL_OPTION)
+	RADIO	rb_ate		_indent	_ss	_inwd	.,		///
+		first							///
+		option(ate)						///
+		label(resource TEFFECTS_STAT_RB_ATE)
+	RADIO	rb_att		@	_ss	@	.,		///
+		option(atet)						///
+		label(resource TEFFECTS_STAT_RB_ATT)
+	RADIO	rb_pomeans	@	_ss	@	.,		///
+		last							///
+		option(pomeans)						///
+		label(resource TEFFECTS_STAT_RB_POMEANS)
+END
+
+PROGRAM stat_ctrl
+BEGIN
+	if model.cb_est.iseq("aipw") {
+		call stat.rb_att.disable
+	}
+	if model.cb_est.isneq("aipw") {
+		call stat.rb_att.enable
+	}
+	if model.cb_est.iseq("nnmatch") | model.cb_est.iseq("psmatch") {
+		call stat.rb_pomeans.disable
+	}
+	if model.cb_est.isneq("nnmatch") & model.cb_est.isneq("psmatch") {
+		call stat.rb_pomeans.enable
+	}
+END
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+	program rpt_bu_facvars_ckResults
+END
+
+DIALOG se, tabtitle(resource SE_TITLE_SE_ROBUST)
+BEGIN
+	TEXT	tx_ra_type		_lft	_top	_iwd	.,	///
+		label(resource SE_TX_TYPE)
+	LISTBOX	lb_ta_vcetype	@	_ss	225	60,		///
+		contents(se_ra_list)					///
+		values(se_ra_values)					///
+		onselchangelist(se_ra_actions)
+
+	CHECKBOX ck_nodots	@	_xxxxls	_cwd1	.,		///
+		option(nodots)						///
+		label(resource TEFFECTS_SE_CK_NODOTS)
+	DEFINE holdy @y
+	SPINNER  sp_reps	_lft2	@	_spwd	.,		///
+		default(50) min(2) max(1000000) 			///
+		option(reps)
+	TEXT     tx_reps	_spsep	@	200	.,		///
+		label(resource LBL_REPLICATIONS)
+	CHECKBOX ck_mse		_lft	_ms 	_cwd1	.,		///
+		option(mse)						///
+		label(resource LBL_USE_MSE_FORMULA_FOR_VARIANCE)
+	EDIT	ed_seed	_lft2	@	_spwd	., 			///
+		numonly							///
+		option(seed)
+	TEXT	tx_seed	_spsep	@	150	.,			///
+		label(resource LBL_RANDOM_NUMBER_SEED_NO_COLON)
+	CHECKBOX ck_bca         _lft	_ms	_cwd1	.,		///
+		option(bca)						///
+		label(resource SE_CK_BCA)
+
+	TEXT	tx_nn_type	_lft	_top	_iwd	.,		///
+		label(resource SE_TX_TYPE)
+	LISTBOX	lb_nn_vcetype	@	_ss	225	60,		///
+		contents(se_nn_list)					///
+		values(se_nn_values)					///
+		onselchangelist(se_nn_actions)
+	EDIT	ed_match	_lft	_xxxxls	_spwd	., 		///
+		numonly							///
+		default(2)						///
+		option(nn)
+	TEXT	tx_match	_spsep	@	150	.,		///
+		label(resource TEFFECTS_SE_TX_MATCH)
+
+	TEXT	tx_cluster	_lft	holdy	_cwd1	.,		///
+		label(resource LBL_CLUSTER_VARIABLE)
+	VARNAME vn_cluster	_lft	_ss	_vnwd	.,		///
+		label(resource LBL_CLUSTER_VARIABLE)
+END
+
+LIST se_ra_list
+BEGIN
+	resource TEFFECTS_SE_ROBUST_DEFAULT
+	resource LBL_CLUSTERED_ROBUST
+	resource SE_LBL_BOOTSTRAP
+	resource SE_LBL_JACKKNIFE
+END
+
+LIST se_ra_values
+BEGIN
+	"robust"
+	"cluster"
+	"bootstrap"
+	"jackknife"
+END
+
+SCRIPT se_ra_actions
+BEGIN
+	script se_ra_robust
+	script se_ra_cluster
+	script se_ra_bootstrap
+	script se_ra_jacknife
+END
+
+SCRIPT se_ra_hideall
+BEGIN
+	se.ck_nodots.hide
+	se.sp_reps.hide
+	se.tx_reps.hide
+	se.ck_mse.hide
+	se.ed_seed.hide
+	se.tx_seed.hide
+	se.ck_bca.hide
+	se.tx_cluster.hide
+	se.vn_cluster.hide
+	script se_nn_iid
+END
+
+SCRIPT se_ra_robust
+BEGIN
+	script se_ra_hideall
+END
+
+SCRIPT se_ra_cluster
+BEGIN
+	script se_ra_hideall
+	se.tx_cluster.show
+	se.vn_cluster.show
+END
+
+SCRIPT se_ra_bootstrap
+BEGIN
+	script se_ra_hideall
+	se.ck_nodots.show
+	se.sp_reps.show
+	se.tx_reps.show
+	se.ck_mse.show
+	se.ed_seed.show
+	se.tx_seed.show
+	se.ck_bca.show
+END
+
+SCRIPT se_ra_jacknife
+BEGIN
+	script se_ra_hideall
+	se.ck_nodots.show
+	se.ck_mse.show
+END
+
+LIST se_nn_list
+BEGIN
+	resource TEFFECTS_ROBUST_DEFAULT
+	resource TEFFECTS_IID
+END
+
+LIST se_nn_values
+BEGIN
+	"robust"
+	"iid"
+END
+
+SCRIPT se_nn_actions
+BEGIN
+	script se_nn_robust
+	script se_nn_iid
+END
+
+SCRIPT se_nn_iid
+BEGIN
+	se.ed_match.hide
+	se.tx_match.hide
+END
+
+SCRIPT se_nn_robust
+BEGIN
+	se.ed_match.show
+	se.tx_match.show
+END
+
+SCRIPT se_ra_show
+BEGIN
+	se.tx_ra_type.show
+	se.lb_ta_vcetype.show
+	se.tx_nn_type.hide
+	se.lb_nn_vcetype.hide
+	script se_ra_robust
+	se.lb_ta_vcetype.setvalue "robust"
+END
+
+SCRIPT se_nn_show
+BEGIN
+	se.tx_ra_type.hide
+	se.lb_ta_vcetype.hide
+	se.tx_nn_type.show
+	se.lb_nn_vcetype.show
+	script se_ra_robust
+	script se_nn_iid
+	se.lb_nn_vcetype.setvalue "robust"
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+	DEFINE _x _lft
+	DEFINE _cx _spr
+	DEFINE _y _top
+	INCLUDE _sp_level
+
+	/* ra/ipw/ipwra/aipw */
+	CHECKBOX ck_aeq		_lft	_ls	_iwd	.,		///
+		option(aequations)					///
+		label(resource TEFFECTS_RPT_CK_AEQ)
+
+	DEFINE _x _lft
+	DEFINE _y _ls
+	DEFINE _cx _iwd
+	INCLUDE _report_columns
+
+	DEFINE _x _lft
+	DEFINE _y _ls
+	INCLUDE _bu_factor_vars_reporting
+
+	DEFINE _x _lft2
+	DEFINE _y @
+	INCLUDE _bu_coef_table_reporting
+
+	/* nnmatch psmatch */
+	CHECKBOX ck_dmv		_lft	_top	_iwd	.,		///
+		option(dmvariables)					///
+		label(resource TEFFECTS_RPT_CK_DMV)
+END
+
+SCRIPT rpt_ra_show
+BEGIN
+	rpt.ck_aeq.show
+	rpt.tx_level.show
+	rpt.sp_level.show
+	rpt.bu_facvars.show
+	rpt.bu_fmtcoef.show
+	rpt.bu_facvars.setposition . 140
+	rpt.bu_fmtcoef.setposition . 140
+	rpt.rb_report_columns_dflt.show
+	rpt.rb_report_columns_noci.show
+	rpt.rb_report_columns_nopv.show
+END
+
+SCRIPT rpt_ra_hide
+BEGIN
+	rpt.ck_aeq.hide
+	rpt.tx_level.hide
+	rpt.sp_level.hide
+	rpt.bu_facvars.hide
+	rpt.bu_fmtcoef.hide
+	rpt.rb_report_columns_dflt.hide
+	rpt.rb_report_columns_noci.hide
+	rpt.rb_report_columns_nopv.hide
+END
+
+PROGRAM rpt_nnmatch_show
+BEGIN
+	call rpt.tx_level.show
+	call rpt.sp_level.show
+	call rpt.bu_facvars.show
+	call rpt.bu_fmtcoef.show
+	call rpt.rb_report_columns_dflt.show
+	call rpt.rb_report_columns_noci.show
+	call rpt.rb_report_columns_nopv.show
+	if model.cb_est.iseq("nnmatch") {
+		call rpt.ck_dmv.show
+		call rpt.ck_dmv.setposition . 40
+		call rpt.rb_report_columns_dflt.setposition . 65
+		call rpt.rb_report_columns_noci.setposition . 85
+		call rpt.rb_report_columns_nopv.setposition . 105
+		call rpt.bu_facvars.setposition . 140
+		call rpt.bu_fmtcoef.setposition . 140
+	}
+	if model.cb_est.isneq("nnmatch") {
+		call rpt.ck_dmv.hide
+		call rpt.rb_report_columns_dflt.setposition . 40
+		call rpt.rb_report_columns_noci.setposition . 60
+		call rpt.rb_report_columns_nopv.setposition . 80
+		call rpt.bu_facvars.setposition . 110
+		call rpt.bu_fmtcoef.setposition . 110
+	}
+END
+
+SCRIPT rpt_nnmatch_hide
+BEGIN
+	rpt.ck_dmv.hide
+END
+
+DIALOG  maximize, tabtitle(resource LBL_TAB_MAXIMIZATION)
+BEGIN
+	BUTTON	bu_hlp		_xsetbu   _top	_setbuwd .,		///
+		label(resource LBL_HELP_MAXIMIZE)			///
+		onpush(view help maximize##|_new)
+	SPINNER	sp_iter		_lft     _top	_spwd	.,		///
+		label(resource LBL_MAXIMUM_ITERATIONS) option(iterate)	///
+		min(0) max(16000) default(c(maxiter))
+	TEXT	tx_iter		_spsep    @	_spr2	.,		///
+		label(resource LBL_MAXIMUM_ITERATIONS)
+	GROUPBOX gb_iter	_lft     _ls	_iwd	_ht4,		///
+	  	label(resource LBL_ITERATION_LOG)
+	RADIO   rb_log		_indent  _ss	 _inwd    .,		///
+		first 							///
+		option(NONE)						///
+	  	label(resource LBL_SHOW_ITERATION_LOG)
+	RADIO   rb_nolog	@        _ss	@        .,		///
+		last							///
+		option(nolog)						///
+		label(resource LBL_SUPPRESS_ITERATION_LOG)
+	TEXT	tx_from		_lft	_xls	_iwd     .,		///
+		label(resource TEFFECTS_MAXIMIZE_TX_FROM)
+	EDIT	ed_from		@      _ss      @     	 .,		///
+		option("from")						///
+		label(resource LBL_INITIAL_VALUES)
+END
+
+SCRIPT max_teffects_enable
+BEGIN
+	maximize.sp_iter.enable
+	maximize.tx_iter.enable
+	maximize.gb_iter.enable
+	maximize.rb_log.enable
+	maximize.rb_nolog.enable
+	maximize.tx_from.enable
+	maximize.ed_from.enable
+END
+
+SCRIPT max_teffects_disable
+BEGIN
+	maximize.sp_iter.disable
+	maximize.tx_iter.disable
+	maximize.gb_iter.disable
+	maximize.rb_log.disable
+	maximize.rb_nolog.disable
+	maximize.tx_from.disable
+	maximize.ed_from.disable
+END
+
+DIALOG adv, tabtitle(resource LBL_ADVANCED)
+BEGIN
+	/* ra/ipw/ipwra/aipw */
+	EDIT	ed_tol		_lft	_top	_spwd	.,		///
+		numonly							///
+		option(pstolerance)					///
+		default(1e-5)						///
+		label(resource TEFFECTS_ADV_ED_TOL)
+	TEXT	tx_tol		_spsep	@	300	.,		///
+		label(resource TEFFECTS_ADV_ED_TOL)
+	EDIT	ed_osample	_lft	_ls	_vnwd	.,		///
+		option(osample)						///
+		label(resource TEFFECTS_ADV_ED_OSAMPLE)
+	TEXT	tx_osample	_vnsep 	@	_iwd	.,		///
+		label(resource TEFFECTS_ADV_ED_OSAMPLE)
+		
+	EDIT ed_ctrl		_lft	_ls	_vnwd	.,		///
+		option(control)						///
+		label(resource TEFFECTS_ADV_ED_CTRL)
+	TEXT	tx_ctrl		_vnsep	@	300	.,		///
+		label(resource TEFFECTS_ADV_ED_CTRL)
+	EDIT	ed_lvl		_lft	_ls	_vnwd	.,		///
+		option(tlevel)						///
+		label(resource TEFFECTS_ADV_ED_LVL)
+	TEXT	tx_lvl		_vnsep	@	_iwd	.,		///
+		label(resource TEFFECTS_ADV_ED_LVL)
+
+	/* psmatch */
+	EDIT	ed_cal		_lft	_top	_spwd	.,		///
+		option(caliper)						///
+		label(resource TEFFECTS_ADV_ED_CAL)
+	TEXT	tx_cal		_spsep	@	300	.,		///
+		label(resource TEFFECTS_ADV_ED_CAL)
+	EDIT	ed_pstol	_lft	_ls	_spwd	.,		///
+		numonly							///
+		option(pstolerance)					///
+		default(1e-5)						///
+		label(resource TEFFECTS_ADV_ED_PSTOL)
+	TEXT	tx_pstol	_spsep	@	300	.,		///
+		label(resource TEFFECTS_ADV_ED_PSTOL)
+	EDIT	ed_ctrl_ps	_lft	_ss	_vnwd	.,		///
+		option(control)						///
+		label(resource TEFFECTS_ADV_ED_CTRL_PS)
+	TEXT	tx_ctrl_ps	_vnsep	@	300	.,		///
+		label(resource TEFFECTS_ADV_ED_CTRL_PS)
+	EDIT	ed_lvl_ps	_lft	_ls	_vnwd	.,		///
+		option(tlevel)						///
+		label(resource TEFFECTS_ADV_ED_LVL_PS)
+	TEXT	tx_lvl_ps	_vnsep	@	300	.,		///
+		label(resource TEFFECTS_ADV_ED_LVL_PS)
+
+	GROUPBOX gb_stub	_lft	_ls	_iwd	_ht2,		///
+		label(resource TEFFECTS_ADV_GB_STUB)
+	EDIT	ed_stub		_ilft	_ls	_vnwd	.,		///
+		option(generate)					///
+		label(resource TEFFECTS_ADV_ED_STUB)
+	TEXT	tx_stub		_vnsep	@	330	.,		///
+		label(resource TEFFECTS_ADV_ED_STUB)
+
+	/* nnmatch */
+	EDIT	ed_dtol		_lft	_ls	_spwd	.,		///
+		option(dtolerance)					///
+		default("1.490e-08")					///
+		label(resource TEFFECTS_ADV_ED_DTOL)
+	TEXT	tx_dtol		_spsep	@	320	.,		///
+		label(resource TEFFECTS_ADV_ED_DTOL)
+	CHECKBOX ck_metric	_lft	225	_iwd	_ht10,		///
+		groupbox						///
+		onclickon(program adv_ckmetric_on)			///
+		onclickoff(script adv_ckmetric_off)			///
+		label(resource TEFFECTS_ADV_CK_METRIC)
+	RADIO	rb_mah		_indent	_ss	@	.,		///
+		first							///
+		label(resource TEFFECTS_ADV_RB_MAH)
+	RADIO	rb_iva		@	_ss	@	.,		///
+		label(resource TEFFECTS_ADV_RB_IVA)
+	RADIO	rb_euc		@	_ss	@	.,		///
+		label(resource LBL_IDENTITY)
+	RADIO	rb_user		@	_ss	@	.,		///
+		last							///
+		onclickon(script adv_user_metric_on)			///
+		onclickoff(script adv_user_metric_off)			///
+		label(resource TEFFECTS_ADV_RB_USER)
+	COMBOBOX cb_user	_indent2 _ss	_cwd1	.,		///
+		option(umetric)						///
+		contents(matrix)					///
+		dropdown						///
+		label(resource LBL_MATRIX_LOWERCASE)
+	BUTTON	bu_user		+235	@	100	.,		///
+		onpush(program adv_show_user_metric)			///
+		tooltip(resource LBL_INPUT_HAND)			///
+		label(resource LBL_INPUT_MATRIX)
+END
+
+PROGRAM adv_ra_show
+BEGIN
+	call adv.tx_tol.show
+	call adv.ed_tol.show
+	call adv.tx_ctrl.show
+	call adv.ed_ctrl.show
+	call adv.tx_lvl.show
+	call adv.ed_lvl.show
+	call adv.ed_osample.show
+	call adv.tx_osample.show
+	call adv.ed_osample.setposition . 40
+	call adv.tx_osample.setposition . 40
+	if model.cb_est.iseq("ra")  {
+		call adv.tx_tol.disable
+		call adv.ed_tol.disable
+		call adv.ed_osample.disable
+		call adv.tx_osample.disable
+	}
+	if model.cb_est.isneq("ra")  {
+		call adv.tx_tol.enable
+		call adv.ed_tol.enable
+		call adv.ed_osample.enable
+		call adv.tx_osample.enable
+	}
+	if model.cb_est.iseq("aipw")  {
+		call adv.tx_lvl.hide
+		call adv.ed_lvl.hide
+	}
+END
+
+SCRIPT adv_ra_hide
+BEGIN
+	adv.tx_tol.hide
+	adv.ed_tol.hide
+	adv.tx_ctrl.hide
+	adv.ed_ctrl.hide
+	adv.tx_lvl.hide
+	adv.ed_lvl.hide
+	adv.ed_osample.hide
+	adv.tx_osample.hide
+END
+
+PROGRAM adv_nnmatch_show
+BEGIN
+	call adv.tx_cal.show
+	call adv.ed_cal.show
+	call adv.tx_pstol.show
+	call adv.ed_pstol.show
+	call adv.tx_stub.show
+	call adv.gb_stub.show
+	call adv.ed_stub.show
+	call adv.tx_ctrl_ps.show
+	call adv.ed_ctrl_ps.show
+	call adv.tx_lvl_ps.show
+	call adv.ed_lvl_ps.show
+	if model.cb_est.iseq("nnmatch") {
+		call adv.tx_dtol.show
+		call adv.ed_dtol.show
+		call adv.ck_metric.show
+		call adv.rb_mah.show
+		call adv.rb_iva.show
+		call adv.rb_euc.show
+		call adv.rb_user.show
+		call adv.cb_user.show
+		call adv.bu_user.show
+		call adv.ed_osample.show
+		call adv.tx_osample.show
+		call adv.ed_osample.enable
+		call adv.tx_osample.enable
+		call adv.tx_pstol.hide
+		call adv.ed_pstol.hide
+		call adv.tx_pstol.disable
+		call adv.ed_pstol.disable
+		call adv.tx_dtol.setposition . 40
+		call adv.ed_dtol.setposition . 40
+		call adv.ed_osample.setposition . 70
+		call adv.tx_osample.setposition . 70
+		call adv.tx_ctrl_ps.setposition . 100
+		call adv.ed_ctrl_ps.setposition . 100
+		call adv.tx_lvl_ps.setposition . 130
+		call adv.ed_lvl_ps.setposition . 130
+		call adv.gb_stub.setposition . 160
+		call adv.ed_stub.setposition . 180
+		call adv.tx_stub.setposition . 180
+	}
+	if model.cb_est.iseq("psmatch") {
+		call adv.tx_dtol.hide
+		call adv.ed_dtol.hide
+		call adv.ck_metric.hide
+		call adv.rb_mah.hide
+		call adv.rb_iva.hide
+		call adv.rb_euc.hide
+		call adv.rb_user.hide
+		call adv.cb_user.hide
+		call adv.bu_user.hide
+		call adv.tx_pstol.enable
+		call adv.ed_pstol.enable
+		call adv.ed_osample.show
+		call adv.tx_osample.show
+		call adv.ed_osample.enable
+		call adv.tx_osample.enable
+		call adv.tx_pstol.setposition . 40
+		call adv.ed_pstol.setposition . 40
+		call adv.ed_osample.setposition . 70
+		call adv.tx_osample.setposition . 70
+		call adv.tx_ctrl_ps.setposition . 100
+		call adv.ed_ctrl_ps.setposition . 100
+		call adv.tx_lvl_ps.setposition . 130
+		call adv.ed_lvl_ps.setposition . 130
+		call adv.gb_stub.setposition . 160
+		call adv.ed_stub.setposition . 180
+		call adv.tx_stub.setposition . 180
+	}
+END
+
+SCRIPT adv_nnmatch_hide
+BEGIN
+	adv.tx_cal.hide
+	adv.ed_cal.hide
+	adv.tx_pstol.hide
+	adv.ed_pstol.hide
+	adv.gb_stub.hide
+	adv.tx_stub.hide
+	adv.ed_stub.hide
+	adv.tx_ctrl_ps.hide
+	adv.ed_ctrl_ps.hide
+	adv.tx_lvl_ps.hide
+	adv.ed_lvl_ps.hide
+	adv.tx_dtol.hide
+	adv.ed_dtol.hide
+	adv.ck_metric.hide
+	adv.rb_mah.hide
+	adv.rb_iva.hide
+	adv.rb_euc.hide
+	adv.rb_user.hide
+	adv.cb_user.hide
+	adv.bu_user.hide
+	adv.ed_osample.hide
+	adv.tx_osample.hide
+END
+
+PROGRAM adv_ckmetric_on
+BEGIN
+	call adv.rb_mah.enable
+	call adv.rb_iva.enable
+	call adv.rb_euc.enable
+	call adv.rb_user.enable
+	if adv.rb_user {
+		call script adv_user_metric_on
+	}
+END
+
+SCRIPT	adv_ckmetric_off
+BEGIN
+	adv.rb_mah.disable
+	adv.rb_iva.disable
+	adv.rb_euc.disable
+	adv.rb_user.disable
+	adv.cb_user.disable
+	adv.bu_user.disable
+END
+
+SCRIPT adv_user_metric_on
+BEGIN
+	adv.cb_user.enable
+	adv.bu_user.enable
+END
+
+SCRIPT adv_user_metric_off
+BEGIN
+	adv.cb_user.disable
+	adv.bu_user.disable
+END
+
+PROGRAM adv_show_user_metric
+BEGIN
+	call create STRING UserMetricResult
+	call create CHILD matrix_input AS UserMetric
+	if ! _rc {
+		call UserMetric.setExitString UserMetricResult
+		call UserMetric.setExitAction "program adv_getUserMetricResult"
+		call UserMetric.callthru "isChildContext.settrue"
+	}
+END
+
+PROGRAM adv_getUserMetricResult
+BEGIN
+	call adv.cb_user.repopulate
+	call adv.cb_user.setvalue class UserMetricResult.value
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+
+PROGRAM model_ovar_output
+BEGIN
+	if model.cb_est.iseq("ra") | model.cb_est.iseq("ipwra") | ///
+	   model.cb_est.iseq("aipw") | model.cb_est.iseq("nnmatch") {
+		varlist model.vn_ovar [model.vl_ovars]
+	}
+	if model.cb_est.iseq("ipw") | model.cb_est.iseq("psmatch") {
+		require model.vn_ovar
+		varlist model.vn_ovar
+	}
+END
+
+PROGRAM model_tvar_output
+BEGIN
+	if model.cb_est.iseq("ra") | model.cb_est.iseq("nnmatch") {
+		require model.vn_tvar
+		varlist model.vn_tvar
+	}
+	if model.cb_est.iseq("ipw") | model.cb_est.iseq("ipwra") | ///
+	   model.cb_est.iseq("aipw") | model.cb_est.iseq("psmatch") {
+		varlist model.vn_tvar [model.vl_tvars]
+	}
+END
+
+PROGRAM model_vl_hetprob_o_output
+BEGIN
+	require model.vl_hetprob_o
+	put model.vl_hetprob_o
+END
+
+PROGRAM model_vl_hetprob_t_output
+BEGIN
+	require model.vl_hetprob_t
+	put model.vl_hetprob_t
+END
+
+PROGRAM model_ovaroption_output
+BEGIN
+	if model.cb_est.iseq("ra") | model.cb_est.iseq("ipwra") | ///
+	   model.cb_est.iseq("aipw") {
+
+		if model.cb_omodel.iseq("logit") {
+			put ", logit"
+			if model.ck_ovarno {
+				put " noconstant"
+			}
+		}
+		if model.cb_omodel.iseq("probit") {
+			put ", probit"
+			if model.ck_ovarno {
+				put " noconstant"
+			}
+		}
+		if model.cb_omodel.iseq("hetprobit") {
+			put ", hetprobit("
+			put /program model_vl_hetprob_o_output
+			put ")"
+			if model.ck_ovarno {
+				put " noconstant"
+			}
+		}
+		if model.cb_omodel.iseq("poisson") {
+			put ", poisson"
+			if model.ck_ovarno {
+				put " noconstant"
+			}
+		}
+		if model.cb_omodel.iseq("flogit") {
+			put ", flogit"
+			if model.ck_ovarno {
+				put " noconstant"
+			}
+		}
+		if model.cb_omodel.iseq("fprobit") {
+			put ", fprobit"
+			if model.ck_ovarno {
+				put " noconstant"
+			}
+		}
+		if model.cb_omodel.iseq("fhetprobit") {
+			put ", fhetprobit("
+			put /program model_vl_hetprob_o_output
+			put ")"
+			if model.ck_ovarno {
+				put " noconstant"
+			}
+		}
+		if model.cb_omodel.iseq("linear") & model.ck_ovarno {
+			put ", noconstant"
+		}
+	}
+END
+
+PROGRAM model_tvaroption_output
+BEGIN
+	if model.cb_est.iseq("ipw") | model.cb_est.iseq("ipwra") | ///
+	   model.cb_est.iseq("aipw") | model.cb_est.iseq("psmatch") {
+
+		if model.cb_psmodel.iseq("probit") {
+			put ", probit"
+			if model.ck_tvarno {
+				put " noconstant"
+			}
+		}
+		if model.cb_psmodel.iseq("hetprobit") {
+			put ", hetprobit("
+			put /program model_vl_hetprob_t_output
+			put ")"
+			if model.ck_tvarno {
+				put " noconstant"
+			}
+		}
+		if model.cb_psmodel.iseq("logit") & model.ck_tvarno {
+			put ", noconstant"
+		}
+	}
+END
+
+PROGRAM model_opt_output
+BEGIN
+	if model.cb_est.iseq("aipw") {
+		option model.ck_nls
+		option model.ck_wnls
+	}
+	if model.cb_est.iseq("nnmatch") {
+		optionarg /hidedefault model.sp_nneig
+		optionarg model.vl_bias
+		optionarg model.vl_ematch
+	}
+	if model.cb_est.iseq("psmatch") {
+		optionarg /hidedefault model.sp_nneig
+	}
+END
+
+PROGRAM	se_ra_bootstrap_wrk
+BEGIN
+	if se.ck_nodots | se.sp_reps.isneq(50) | se.ck_mse | ///
+	   se.ed_seed | se.ck_bca {
+	   	put ", "
+		if se.ck_nodots {
+			option se.ck_nodots
+		}
+		optionarg /hidedefault se.sp_reps
+		if se.ck_mse {
+			option se.ck_mse
+		}
+		if se.ed_seed {
+			optionarg se.ed_seed
+		}
+		if se.ck_bca {
+			option se.ck_bca
+		}
+	}
+END
+
+PROGRAM	se_ra_jacknife_wrk
+BEGIN
+	if se.ck_nodots | se.ck_mse {
+		put ", "
+		if se.ck_nodots {
+			option se.ck_nodots
+		}
+		if se.ck_mse {
+			option se.ck_mse
+		}
+	}
+END
+
+PROGRAM se_nn_robust_wrk
+BEGIN
+	put ", "
+	optionarg /hidedefault se.ed_match
+END
+
+PROGRAM	se_teffects_output
+BEGIN
+	if model.cb_est.iseq("ra") | model.cb_est.iseq("ipw") | ///
+	   model.cb_est.iseq("ipwra") | model.cb_est.iseq("aipw") {
+		if se.lb_ta_vcetype.iseq("bootstrap") {
+			put " "
+			put "vce(bootstrap"
+			put /program se_ra_bootstrap_wrk
+			put ")"
+		}
+		if se.lb_ta_vcetype.iseq("jacknife") {
+			put " "
+			put "vce(jacknife"
+			put /program se_ra_jacknife_wrk
+			put ")"
+		}
+		if se.lb_ta_vcetype.iseq("cluster") {
+			put " "
+			put "vce(cluster "
+			put se.vn_cluster
+			put ")"
+		}
+	}
+
+	if model.cb_est.iseq("nnmatch") | model.cb_est.iseq("psmatch") {
+		if se.lb_nn_vcetype.iseq("robust") {
+			if !se.ed_match.equals("2") {
+				put " "
+				put "vce(robust"
+				if se.ed_match {
+					put /program se_nn_robust_wrk
+				}
+				put ")"
+			}
+		}
+		if se.lb_nn_vcetype.iseq("iid") {
+			put " "
+			put "vce(iid)"
+		}
+	}
+END
+
+PROGRAM rpt_output
+BEGIN
+	if model.cb_est.iseq("ra") | model.cb_est.iseq("ipw") | ///
+	   model.cb_est.iseq("ipwra") | model.cb_est.iseq("aipw") {
+	   	option rpt.ck_aeq
+	}
+	if model.cb_est.iseq("nnmatch") {
+		option rpt.ck_dmv
+	}
+	optionarg /hidedefault rpt.sp_level
+	INCLUDE _report_columns_pr
+	put " " rpt_bu_facvarsResults
+	put " " rpt_bu_fmtcoefResults
+END
+
+PROGRAM max_teffects_output
+BEGIN
+	optionarg /hidedefault maximize.sp_iter
+	option maximize.rb_log
+	option maximize.rb_nolog
+	optionarg maximize.ed_from
+END
+
+PROGRAM adv_output
+BEGIN
+	if model.cb_est.iseq("ra") | model.cb_est.iseq("ipw") | ///
+	   model.cb_est.iseq("ipwra") | model.cb_est.iseq("aipw") {
+	   	optionarg /hidedefault adv.ed_tol
+	   	optionarg adv.ed_ctrl
+	   	optionarg adv.ed_lvl
+	   	optionarg adv.ed_osample
+	}
+	if model.cb_est.iseq("nnmatch") {
+/*
+		call create DOUBLE dRealTemp1
+		call create DOUBLE dRealTemp2
+		call dRealTemp1.setvalue class adv.ed_cal.value
+		call dRealTemp2.setvalue class adv.ed_dtol.value
+		if dRealTemp2.isgt(dRealTemp1) {
+stopbox stop `""Minimum distance for potential match" must be greater than "Maximum distance between individuals considered equal""'
+		}
+		if dRealTemp2.isle(0) {
+stopbox stop `"""Maximum distance between individuals considered equal" must be greater than 0"'
+		}
+*/
+		optionarg adv.ed_cal
+		optionarg /hidedefault adv.ed_dtol
+		optionarg /hidedefault adv.ed_pstol
+		optionarg adv.ed_stub
+		optionarg adv.ed_ctrl_ps
+		optionarg adv.ed_lvl_ps
+		if adv.ck_metric {
+			put "metric("
+			if adv.rb_mah {
+				put "mahalanobis"
+			}
+			if adv.rb_iva {
+				put "ivariance"
+			}
+			if adv.rb_euc {
+				put "euclidean"
+			}
+			if adv.rb_user {
+				put "matrix "
+				require adv.cb_user
+				put adv.cb_user
+			}
+			put ")"
+		}
+	}
+
+	if model.cb_est.iseq("psmatch") {
+		optionarg adv.ed_cal
+		optionarg /hidedefault adv.ed_pstol
+		optionarg adv.ed_stub
+		optionarg adv.ed_ctrl_ps
+		optionarg adv.ed_lvl_ps
+		optionarg adv.ed_osample
+	}
+END
+
+PROGRAM command
+BEGIN
+	put /program by_output " "
+	put "teffects "
+	put model.cb_est
+	put " ("
+	put /program model_ovar_output
+	put /program model_ovaroption_output
+	put ") "
+	put " ("
+	put /program model_tvar_output
+	put /program model_tvaroption_output
+	put ")"
+	put " " /program ifin_output
+	put " " /program weights_output
+	beginoptions
+		option stat.rb_att stat.rb_pomeans
+		put /program model_opt_output
+		put /program " " se_teffects_output
+		put /program " " max_teffects_output
+		put /program " " rpt_output
+		put /program " " adv_output
+	endoptions
+END
+

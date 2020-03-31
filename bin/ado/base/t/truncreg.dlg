@@ -1,0 +1,204 @@
+/*
+  truncreg
+
+*!  VERSION 1.5.2  05feb2019
+
+  keyword:  eclass
+
+*/
+
+VERSION 15.0
+
+INCLUDE _std_large
+DEFINE _dlght 340
+INCLUDE header
+
+HELP hlp1, view("help truncreg")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	program parseMessage
+	script se_createAsSvyJknifeBstrapML
+	program svy_check_title
+	setscale_hadj resource TRUNCREG_DLG_HSCALE
+END
+
+PROGRAM parseMessage
+BEGIN
+	if __MESSAGE.contains("__MI__") {
+		call script se_setMI_on
+	}
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script max_setFromNotVisible
+	program check_bytab
+	program se_setFinalInitState
+END
+
+PROGRAM check_bytab
+BEGIN
+	if ! __MESSAGE.contains("__MI__") {
+		call script sub_set_by_on
+	}
+END
+
+SCRIPT svy_is_on
+BEGIN
+	rpt.gb_tests.disable
+	rpt.ck_lrmodel.disable
+	script max_setDefaultNoLog
+END
+SCRIPT svy_is_off
+BEGIN
+	rpt.gb_tests.enable
+	rpt.ck_lrmodel.enable
+	script max_setDefaultLog
+END
+PROGRAM svy_check_title
+BEGIN
+	if __MESSAGE.contains("-svy-") {
+		call settitle resource TRUNCREG_SVY_DLG_TITLE
+	}
+END
+
+DIALOG main, 								///
+	title(resource TRUNCREG_DLG_TITLE) /* has svy title */		///
+	tabtitle(resource LBL_TAB_MODEL)
+BEGIN
+  TEXT tx_dv 		_lft	_top	_vnwd	.,			///
+	label(resource LBL_DEPVAR)
+  VARNAME vn_dv		@ 	_ss	@	.,			///
+	ts								///
+	numeric								///
+	label(resource LBL_DEPVAR)
+
+  TEXT tx_iv		_vlx	_top	160	.,			///
+	label(resource LBL_INDDEPVAR)
+  VARLIST vl_iv		@	_ss	_vlwd	.,			///
+	fv ts								///
+	allowcat							///
+	numeric								///
+	label(resource LBL_INDDEPVAR)
+
+  CHECKBOX ck_nocons @         _ms       @         .,			///
+	option("noconstant")						///
+	label(resource LBL_NOCONSTANT)
+  GROUPBOX gb_censor _lft      _ls       _iwd      _ht4h,		///
+	 label(resource TRUNCREG_MAIN_GB_CENSOR)	
+  TEXT     tx_ll     _indent   _ss       _cwd2     .,			///
+	label(resource LBL_LEFT_TRUNCATION_LIMIT)	
+  DEFINE y @y
+  VARNAME  vn_ll     @         _ss       _vnwd     .,			///
+	option("ll")							///
+	numeric								///
+	label(resource LBL_LEFT_TRUNCATION_LIMIT)
+  TEXT     tx_ul     _lft3_2   y         _cwd2     .,			///
+	label(resource LBL_RIGHT_TRUNCATION_LIMIT)
+  VARNAME  vn_ul     @         _ss       _vnwd     .,			///
+	option("ul")							///
+	numeric								///
+	label(resource LBL_RIGHT_TRUNCATION_LIMIT)
+  GROUPBOX gb_option _lft      +45       _iwd      _ht10,		///
+  	label(resource LBL_OPTIONS)
+  TEXT     tx_offset _ilft     _ss       _cwd1     .,			///
+	label(resource LBL_OFFSET_VARIABLE)
+  VARNAME  vn_offset @         _ss       _vnwd     .,			///
+	option("offset")						///
+	numeric								///
+	label(resource LBL_OFFSET_VARIABLE)
+
+  DEFINE _x _ilft
+  DEFINE _y _ls
+  DEFINE _cx _ilw80
+  DEFINE _bux _islw80
+  INCLUDE _constraints
+
+  DEFINE _x _ilft
+  DEFINE _xw _ibwd
+//  INCLUDE _ck_collinear
+END
+
+INCLUDE _constraints_sc 
+INCLUDE sub_by_ifin_over_subpop
+INCLUDE weights_fpai
+INCLUDE se
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+        program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2b
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  GROUPBOX gb_tests  _lft      +35      _iwd       _ht2,		///
+	label(resource LBL_ADDITIONAL_TEST_STATISTICS)
+  CHECKBOX ck_lrmodel _ilft     _ss      _cwd2      .,			///
+	option("lrmodel")						///
+	onclickon(script se_setRobust_off)				///
+  	onclickoff(script se_setRobust_on)				///
+  	label(resource LBL_PERFORM_LIKELIHOOD_RATIO_MODEL_TEST_LRMODEL)
+
+  DEFINE _x _lft
+  DEFINE _y _xls
+  DEFINE _cx _iwd
+  INCLUDE _nocnsreport
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+
+INCLUDE max_ml
+
+PROGRAM command
+BEGIN
+	put /program by_output " "
+	put /program se_prefix_output " "
+	put "truncreg "
+	varlist main.vn_dv [main.vl_iv]
+	put " " /program ifin_output
+	put " " /program weights_output
+	beginoptions
+		if ! (main.vn_ll | main.vn_ul) {
+			stopbox stop resource TRUNCREG_MSGBOX_AT_LEAST_ONE_TRUNC_LEFT_RIGHT_SPEC
+// At least one truncation limit "Left" or "Right" must be specified.
+		}
+		optionarg main.vn_ll
+		optionarg main.vn_ul
+		option main.ck_nocons
+		optionarg main.vn_offset
+		optionarg main.cb_constr
+//		option main.ck_collinear
+		put " " /program se_output
+		optionarg /hidedefault rpt.sp_level
+		option rpt.ck_lrmodel
+		INCLUDE _nocnsreport_pr
+		INCLUDE _report_columns_pr
+		put " " rpt_bu_facvarsResults
+		put " " rpt_bu_fmtcoefResults
+		put " " /program max_output
+	endoptions
+END

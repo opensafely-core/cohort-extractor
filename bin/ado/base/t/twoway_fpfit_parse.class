@@ -1,0 +1,95 @@
+//                                 twoway_fpfit_parse
+//
+//   A parser for adding a fractional polynomial fit line.  
+//   Works with twoway.ado.
+
+*! version 1.0.0  14oct2002
+
+version 8
+
+class {
+    instance: 
+    	est_cmd		= ""
+	predict_opts	= ""
+	regress_opts	= ""
+
+} , inherit(twoway_yxview_parse)
+
+
+// ---------------------------------------------------------------------------
+
+program parse
+	.must_create_serset = 1
+
+	.viewtype = "line"
+	.Super.parse `0'
+							// check number of vars
+	_clsarr2list mlablist : labvars			// allow marker labels
+	local vlist `.varlist'
+	local vlist : list vlist - mlablist
+	if 0`:word count `vlist'' > 2 {
+	    di in smcl "{error}{p 0 8}too many variables specified: `.varlist'"
+      	    exit 103
+	}
+
+
+	local 0 , `.options'
+	_parse combop 0 : 0 , option(ESTCmd)   rightmost
+	_parse combop 0 : 0 , option(ESTopts)  rightmost
+	_parse combop 0 : 0 , option(PREDopts) rightmost
+	syntax [ , ESTCmd(string) ESTopts(string) PREDopts(string) * ]
+		   				// atobs allowed but is only
+						// range fracpoly understands
+
+	.regress_opts = `"`estopts'"'
+	.predict_opts = `"`predopts'"'
+	if `"`estcmd'"' == `""' {
+		.est_cmd = "regress"
+	}
+	else {
+		.est_cmd = `"`estcmd'"'
+	}
+
+	.options = `"`options'"'
+
+end
+
+/* -------------------------------------------------------------------------*/
+/*
+	Creates a new serset and the view and returns its reference.
+	Assumes that the data in memory is the same as when parse was called.
+
+	Allows a touse(varname) option that further restricts the sample, 
+	restricts beyond the held .if and .in
+
+	Additional options to the .serset.new command may be specified, but
+	this is unlikely to be necessary.
+
+	If must_create_serset == 1, then this command MUST be used, 
+	otherwise the serset may be created by other means.
+*/ 
+
+program log_create_serset
+
+	syntax , LOG(name) SERSETNAME(string) [ TOUSE(passthru) * ]
+
+	.log_touse , log(`log') `touse'
+
+	local rest `.varlist'
+	gettoken y rest : rest
+	gettoken x rest : rest
+
+	.`log'.Arrpush __NOLOG__ twoway__fpfit_serset , 		  ///
+		sersetname(`sersetname') touse(\`touse1') x(`x') y(`y')	  ///
+		predopts(`.predict_opts') regopts(`.regress_opts') 	  ///
+		cmd(`.est_cmd') morevars(`rest') weight(`.wtype'`.wtexp')
+
+	.`log'.Arrpush LogMapping .`sersetname'	// make _fr_runlog place 
+						// mapping statement into 
+						// permanent log.
+
+	.wtype = ""			// so .Super.log_create_view will
+	.wtexp = ""			// not try to add weight to serset
+end
+
+

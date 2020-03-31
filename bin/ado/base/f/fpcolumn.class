@@ -1,0 +1,485 @@
+*! version 1.1.0  13sep2019
+version 16
+
+class fpcolumn {
+
+	style		= .fpcolstyle.new
+
+	varidx		= {}		// variable indices in serset
+	formats		= {}		// format for output
+	_mask		= ""		// original mask with _fmt_ codes
+	mask		= ""		// mask for output
+
+	class serset serset
+
+	labels		= ""		// set by subclass
+	alt_text	= ""
+
+} , inherit(plotregion)
+
+program .new
+	syntax [ , serset(string) EFORM *]
+
+	// -eform- is handled by subclasses that care
+
+	if "`serset'" ! = "" {
+		.serset.ref = .`serset'.ref
+	}
+
+	.Super.new , `macval(options)'
+
+	.init_mask
+end
+
+program .init_mask
+	local coltype `.style.colname.snm'
+	._mask = `"`.`c(curscm)'.special.fpmask`coltype''"'
+end
+
+program .reset_mask
+	._mask = `"`0'"'
+end
+
+program .confirm_format
+	args type fmt
+	capture confirm `type' format `fmt'
+	if c(rc) {
+		local name `.style.colname.snm'
+		di as err "invalid format for column {bf:`name'};"
+		confirm `type' format `fmt'
+		exit 198
+	}
+end
+
+program .check_format
+	.confirm_format numeric `0'
+end
+
+program .reset_formats
+	.formats.Arrdropall
+	.check_format `0'
+	local dim = `.varidx.arrnels'
+	forval i = 1/`dim' {
+		.formats[`i'] = `"`0'"'
+	}
+end
+
+program .relabel_for_esse
+	.labels = `""_ES_LABEL_" "with SE""'
+end
+
+program .relabel_for_ci
+	.labels = `""_LEVEL_% CI""'
+end
+
+program .relabel_for_esci
+	.labels = `""_ES_LABEL_" "with _LEVEL_% CI""'
+end
+
+program .create_item
+	args obs
+
+	.content text : `obs'
+	local text = strtrim(`"`text'"')
+
+	.DeclareInArray items = .barlabel_textbox.new ,			///
+		xpos(0)							///
+		ypos(`=serset(`.serset.seriesof _spos', `obs')')	///
+		mtextq(`"`text'"')					///
+		forcesized						///
+		styleref(`.style.itemtextstyle.objkey')
+end
+
+program .create_groups
+	args res_prse n_groups do_overall has_cumul
+
+	if "`.style.colname.snm'" != "_id" {
+		if `has_cumul' {
+			exit
+		}
+	}
+
+	forvalues grpid = 1/`n_groups' {
+		.create_grpitem `res_prse' `grpid' 0
+	}
+
+	if `do_overall' {
+		local start = `n_groups' + 1
+		local stop = `.`res_prse'.arrnels'
+		forval i = `start'/`stop' {
+			.create_grpitem `res_prse' `i' 1
+		}
+	}
+end
+
+program .create_grpitem
+	args res_prse grpid isoverall
+
+	.grpcontent text : `res_prse' `grpid'
+	local text = strtrim(`"`text'"')
+
+	if `isoverall' {
+		local styleref `.style.overalltextstyle.objkey'
+	}
+	else {
+		local styleref `.style.grptextstyle.objkey'
+	}
+
+	.DeclareInArray group_items = .barlabel_textbox.new , 		///
+		xpos(0) 						///
+		ypos(`=serset(`.serset.seriesof _grpspos', `grpid')')	///
+		mtextq(`"`text'"')					///
+		forcesized						///
+		styleref(`styleref')
+end
+
+program .create_hetstats
+	args prefix T2 I2 H2 obs isoverall
+
+	local msg : copy local prefix
+
+	if "`T2'" != ".h" {
+		local s : display %9.2f `T2'
+		local s = strtrim("`s'")
+		local msg "`msg'`comma' {&tau}{sup:2} = `s'"
+		local comma ","
+	}
+
+	local s : display %9.2f `I2'
+	local s = strtrim("`s'")
+	local msg "`msg'`comma' I{sup:2} = `s'%"
+	local comma ","
+
+	local s : display %9.2f `H2'
+	local s = strtrim("`s'")
+	local msg "`msg'`comma' H{sup:2} = `s'"
+
+	if `isoverall' {
+		local styleref `.style.overalltextstyle.objkey'
+	}
+	else {
+		local styleref `.style.grptextstyle.objkey'
+	}
+
+	.DeclareInArray het_stats = .barlabel_textbox.new ,		///
+		xpos(0) 						///
+		ypos(`=serset(`.serset.seriesof _hetspos', `obs')')	///
+		mtextq(`"`msg'"')					///
+		forcesized						///
+		styleref(`styleref')
+end
+
+program .create_homstats
+	args prefix df Q p obs isoverall
+
+	local df : display %9.0f `df'
+	local df = strtrim("`df'")
+
+	local Q : display %9.2f `Q'
+	local Q = strtrim("`Q'")
+
+	local p : display %9.2f `p'
+	local p = strtrim("`p'")
+
+	local msg "`prefix' Q(`df') = `Q', p = `p'"
+
+	if `isoverall' {
+		local styleref `.style.overalltextstyle.objkey'
+	}
+	else {
+		local styleref `.style.grptextstyle.objkey'
+	}
+
+	.DeclareInArray hom_stats = .barlabel_textbox.new ,		///
+		xpos(0) 						///
+		ypos(`=serset(`.serset.seriesof _homspos', `obs')')	///
+		mtextq(`"`msg'"')					///
+		forcesized						///
+		styleref(`styleref')
+end
+
+program .create_sigstats
+	args prefix stat df z p obs isoverall
+
+	local z : display %9.2f `z'
+	local z = strtrim("`z'")
+
+	if "`stat'" == "t" {
+		local df : display %24.0f `df'
+		local df = strtrim("`df'")
+		local msg "`prefix' `stat'(`df') = `z'"
+	}
+	else {
+		local msg "`prefix' `stat' = `z'"
+	}
+
+	local p : display %9.2f `p'
+	local p = strtrim("`p'")
+	local msg "`msg', p = `p'"
+
+	if `isoverall' {
+		local styleref `.style.overalltextstyle.objkey'
+	}
+	else {
+		local styleref `.style.grptextstyle.objkey'
+	}
+
+	.DeclareInArray sig_stats = .barlabel_textbox.new ,		///
+		xpos(0) 						///
+		ypos(`=serset(`.serset.seriesof _sigspos', `obs')')	///
+		mtextq(`"`msg'"')					///
+		forcesized						///
+		styleref(`styleref')
+end
+
+program .create_bhomstats
+	args prefix df Q p row
+
+	local df : display %24.0f `df'
+	local df = strtrim("`df'")
+
+	local Q : display %9.2f `Q'
+	local Q = strtrim("`Q'")
+
+	local p : display %9.2f `p'
+	local p = strtrim("`p'")
+
+	local styleref `.style.overalltextstyle.objkey'
+
+	local msg "`prefix' Q{sub:b}(`df') = `Q', p = `p'"
+
+	.DeclareInArray bhom_stats = .barlabel_textbox.new ,		///
+		xpos(0) 						///
+		ypos(`=serset(`.serset.seriesof _qbspos', `row')')	///
+		mtextq(`"`msg'"')					///
+		forcesized						///
+		styleref(`styleref')
+end
+
+program .recreate
+	args res_prse n_groups do_overall has_cumul
+
+	.make_mask
+
+	local dim = 0`.items.arrnels'
+	forval i = 1/`dim' {
+		.content text : `i'
+		local text = strtrim(`"`text'"')
+		.items[`i'].edit, mtextq(`"`text'"') replace
+	}
+
+	if `has_cumul' {
+		exit
+	}
+
+	forval i = 1/`n_groups' {
+		if `"`.group_items[`i'].isa'"' != "" {
+			.grpcontent text : `res_prse' `i'
+			local text = strtrim(`"`text'"')
+			.group_items[`i'].edit, mtextq(`"`text'"') replace
+		}
+	}
+
+	if `do_overall' {
+		local start = `n_groups' + 1
+		local stop = `.`res_prse'.arrnels'
+		forval i = `start'/`stop' {
+			if `"`.group_items[`i'].isa'"' != "" {
+				.grpcontent text : `res_prse' `i'
+				local text = strtrim(`"`text'"')
+				.group_items[`i'].edit, mtextq(`"`text'"') replace
+			}
+		}
+	}
+end
+
+program .linkallstyles
+	forvalues i = 2/0`.items.arrnels' {
+		.items[`i'].style.ref = .items[1].style.ref
+	}
+
+	forvalues i = 1/0`.group_items.arrnels' {
+		.group_items[`i'].style.ref = .items[1].style.ref
+	}
+end
+
+program .adjust_xpos
+	args xpos
+
+	if "`.style.colname.snm'" == "_id" {
+		// do not adjust column _id
+		exit
+	}
+
+	forvalues i = 1/0`.items.arrnels' {
+		.items[`i'].xpos.setstyle, style(`xpos')
+	}
+
+	forvalues i = 1/0`.group_items.arrnels' {
+		.group_items[`i'].xpos.setstyle, style(`xpos')
+	}
+end
+
+// Return the width of the content and margins in inches.
+// Where relative sizes are scaled for a 4" tall graph.
+
+program .wdinches
+	local width  = 0
+	forvalues i = 1/0`.items.arrnels' {
+		local width = max(`width', `.items[`i'].wdinches')
+	}
+
+	forvalues i = 1/0`.group_items.arrnels' {
+		local width = max(`width', `.group_items[`i'].wdinches')
+	}
+
+	if "`.items.isa'" == "class" {
+		local width = max(`width', `.items.wdinches')
+	}
+
+	if "`.group_items.isa'" == "class" {
+		local width = max(`width', `.group_items.wdinches')
+	}
+
+	local width = `width' + 0`.style.margin.wdinches'
+
+	class exit = `width'
+end
+
+program .wdinches_stats
+	if "`.style.colname.snm'" != "_id" {
+		class exit = 0
+	}
+
+	local width  = 0
+	foreach extra in het_stats hom_stats sig_stats bhom_stats {
+		if "`.`extra'.isa'" == "" {
+			continue
+		}
+		forvalues i = 1/0`.`extra'.arrnels' {
+			local width = max(`width', `.`extra'[`i'].wdinches')
+		}
+	}
+	local width = `width' + 0`.style.margin.wdinches'
+
+	class exit = `width'
+end
+
+program .draw
+	// set vertical positions from dataset
+
+	.serset.set
+
+	local posdex = `.serset.seriesof _spos'
+
+	forvalues j = 1/0`.items.arrnels' {
+		.items[`j'].setpos , ypos(0`=serset(`posdex', `j')')
+	}
+
+	// Set vertical positions for group labels
+
+	local usemrk _es _se _lb _ub
+	local coltype `.style.colname.snm'
+	if `:list coltype in usemrk' {
+		local posdex = `.serset.seriesof _mrkspos'
+	}
+	else {
+		local posdex = `.serset.seriesof _grpspos'
+	}
+
+	forvalues j = 1/0`.group_items.arrnels' {
+		.group_items[`j'].setpos , ypos(0`=serset(`posdex', `j')')
+	}
+
+	* hold current values of x/y alpha to prevent margins from
+	* changing them more than once
+	local xalpha = `gdi(xalpha)'
+	local yalpha = `gdi(yalpha)'
+	if `"`macval(0)'"' == `""' {
+		.Super.draw , gridonly
+	}
+	else {
+		.Super.draw `macval(0)' gridonly
+	}
+
+	* restore original x/y alpha so that margins change them only once
+	gdi xalpha = `xalpha'
+	gdi yalpha = `yalpha'
+	.Super.draw `macval(0)'
+end
+
+// Return our name for the Graph Editor's Object Browser.
+
+program .BrowserName
+	class exit "`.style.colname.snm' column"
+end
+
+program .make_mask
+	local m `"`._mask'"'
+	local dim = `.varidx.arrnels'
+	forval i = 1/`dim' {
+		local fmt `"`.formats[`i']'"'
+		if `"`fmt'"' == "_VAR_" {
+			local fmt `"`.serset.sers[`.varidx[`i']'].format'"'
+		}
+		if `"`fmt'"' != "" {
+			local m = subinstr(`"`m'"', "_fmt`i'_", `"`fmt'"', 1)
+		}
+	}
+	.mask = `"`m'"'
+end
+
+program .content
+	args c_text COLON obs
+
+	// NOTE: some subclasses define their own .content method
+
+	local dim = `.varidx.arrnels'
+	forval i = 1/`dim' {
+		local val `.serset.numvalue `.varidx[`i']' `obs''
+		if "`val'" == "" {
+			local val "."
+		}
+		local vals `vals'`c'`val'
+		local c ","
+	}
+	capture mata: st_local("result", sprintf(`"`.mask'"', `vals'))
+	if c(rc) {
+		local name `.style.colname.snm'
+		di as err "invalid mask for column {bf:`name'}"
+		exit 198
+	}
+
+	c_local `c_text' `"`result'"'
+end
+
+program .grpcontent
+	args c_text COLON res_prse grpid
+
+	// NOTE: subclasses must define their own .grpcontent method if
+	// they want to contribute something for the group
+
+	// return empty string
+	c_local `c_text' ""
+end
+
+program .get_labels
+	args c_text
+	c_local `c_text' `"`.labels'"'
+end
+
+program .GetFormat
+	args c_macro COLON colspec
+	c_local `c_macro' `"`.`c(curscm)'.special.fpfmt`colspec''"'
+end
+
+// --------------------------------------------------------------------------
+// The following are virtual methods that each subclass should override.
+
+program .fill_varidx
+	local name `"subclass {bf:`.style.colname.snm'}"'
+	di as err `"`name' does not define method {bf:.fill_varidx}"'
+	exit 9999
+end
+
+exit

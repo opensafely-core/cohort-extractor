@@ -1,0 +1,3887 @@
+/*
+	se.idlg
+
+*!  VERSION 1.6.2  11feb2020
+
+	SCRIPTs to be called within parent dialog's -SCRIPT PREINIT-:
+
+		se_createAsXTABOND		-- has -robust- and -gmm-
+		se_createAsML			-- has robust
+		se_createAsRobustOIM		-- has -robust- and -oim-
+		se_createAsClRobust		-- has clustered and robust
+		se_createAsOIMClRobust		-- as above with -oim-
+		se_createAsSvyClRobust		-- as above with -svy-
+		se_createAsSvyOIMClRobust	-- as above with -svy- and-oim-
+		se_createAsInternalML		-- has robust
+		se_createAsSvyInternalML	-- as above with -svy-
+		se_createAsNoML			-- has robust
+		se_createAsSvyNoML		-- as above with -svy-
+		se_createAsAnalytic		-- has clustered robust
+		se_createAsSvyAnalytic		-- as above with -svy-
+		se_createAsN2step		-- no robust
+		se_createAsH2step		-- no robust
+		se_createAs2step		-- no robust
+		se_createAsOLS			-- has robust
+		se_createAsSvyOLS		-- as above with -svy-
+		se_createAsLinearized		-- has clustered robust
+		se_createAsSvyLinearized	-- as above with -svy-
+		se_createAsLCASvyLinearized	-- as above with -svy-, used by lca and fmm
+		se_createAsJknifeBstrap		-- no  robust
+		se_createAsOLSJknifeBstrap	-- as above with -ols-
+		se_createAsOIMJknifeBstrap	-- as above with -oim-
+		se_createAsGLSJknifeBstrap	-- as above with -gls-
+		se_createAsConventJknifeBstrap	-- as above with -conventional-
+		se_createAsConvCLRBJknifeBstrap -- as above with robust/cluster
+		se_createAsSvyJknifeBstrap	-- as above with -svy-
+		se_createAsJknifeBstrapML	-- has robust
+		se_createAsSvyJknifeBstrapML	-- as above with -svy-
+		se_createAsNlogit		-- nlogit
+		se_createAsAsclogit		-- asclogit
+		se_createAsGLM			-- glm & binreg
+		se_createAsSvyGLM		-- as above with -svy-
+		se_createAsGEE			-- xtgee & xt..., pa
+		se_createAsNL			-- used with nl
+		se_createAsNLSUR		-- used with nlsur
+		se_createAsIVREGRESS		-- used with ivregress
+		se_createAsIVPOISSON		-- used with ivpoisson
+		se_createAsGMM			-- used with gmm
+		se_createAsSTCRREG		-- used with stcrreg
+		se_createAsSEM_ML		-- used with SEM 
+		se_createAsSEM_MLMV		-- used with SEM 
+		se_createAsSEM_ADF		-- used with SEM 
+		se_createAsNPREGRESS		-- used with npregress
+		se_createAsNPREGRESS_SERIES -- used with npregress series
+
+	PROGRAMs called by parent dialog's -PROGRAM command-:
+
+		se_prefix_output
+		se_output
+
+	SCRIPTs called by the "Weights" tab:
+
+		se_setPW_on
+		se_setNonPW_on
+		se_setWeights_off
+
+	SCRIPTs called by the "Maximization" tab:
+
+		se_setDefaultOIM
+		se_setDefaultOPG
+		se_setDefaultEIM
+		se_setDefaultIOIM
+		se_setDefaultGNR
+		se_setDefaultGLS
+		se_setDefaultGMM
+		se_setDefaultConventional
+		se_setDefaultOLS
+
+	SCRIPTs called by whatever:
+
+		se_setDefaultUnadjusted
+		se_setDefaultRobust
+		se_setDefaultClusteredRobust
+
+	Other SCRIPTs defined in this file:
+
+		se_setNotes_off
+		se_setTitleSeCluster
+		se_setTitleSE
+		se_setCluster_off
+		se_setIOIM_off
+		se_setIOIM_on
+		se_setIOIMRobustClrobust_on
+		se_setGNR_off
+		se_setGNR_on
+		se_setGLS_off
+		se_setGLS_on
+		se_setGMM_off
+		se_setGMM_on
+		se_setConventional_off
+		se_setConventional_on
+		se_setOLS_off
+		se_setOLS_on
+		se_setRobust_off
+		se_setRobust_on
+		se_setClRobust_off
+		se_setClRobust_on
+		se_switchToJknifeBstrap
+		se_switchToJknifeBstrapRobust
+		se_switchToJknifeBstrapML
+		se_switchToSvyJknifeBstrapML
+		se_switchToConventJknifeBstrap
+		se_setBias_on
+		se_setNoAdjust_on
+		se_setGEE_off
+		se_setGEE_on
+		se_setGEE_off_robustOK
+		se_setRGF_off
+		se_setRGF_on
+		se_setIRLS_off
+		se_setIRLS_on
+		se_setNONEST_on
+		se_setNONEST_off
+		se_setDFADJ_on
+		se_setDFADJ_off
+
+	Switch to MI context:
+
+		se_setMI_on
+		se_setMI_off
+
+	outside PROGRAM called by -PROGRAM se_prefix_output-:
+
+		Already present in ifin_over_supop.idlg:
+		-------------------------------------------------------------
+		subpop_output
+
+	outside SCRIPTs called by -PROGRAM _se_hideOrShow-:
+
+		Already present in ifin_over_supop.idlg:
+		-------------------------------------------------------------
+		sub_set_svy_off	- switch to standard estimation sample scheme
+		sub_set_svy_on	- switch to -svy- estimation sample scheme
+
+		Specific to parent dialog:
+		-------------------------------------------------------------
+		svy_is_off	- enable the above controls
+		svy_is_on	- disable controls not allowed with -svy-
+
+		Already present in weights.idlg:
+		-------------------------------------------------------------
+		weights_disable_fromSE	- disable the weights tab
+		weights_enable_fromSE	- enable the weights tab
+
+	Internal PROGRAMs and SCRIPTs are all prefixed with "_se_" in their
+	name.  They are not meant to be called outside this file.
+
+	NOTE: -PROGRAM se_output- uses -robust- instead of -vce(robust)-
+	to make this file compatible with estimation commands that only accept
+	the -robust- option (and do not accept the -vce()- option yet).
+
+	NOTE: Dialogs that use the -svy- features in this file must use
+	-PROGRAM se_prefix_output- in addition to -PROGRAM se_output-.  The
+	following must also be defined (even if they do nothing):
+
+		PROGRAM	subpop_output
+		SCRIPT	sub_set_svy_off
+		SCRIPT	sub_set_svy_on
+		SCRIPT	svy_is_off
+		SCRIPT	svy_is_on
+		PROGRAM	weights_disable_fromSE
+		PROGRAM	weights_enable_fromSE
+
+******* MUST BE LAST CALL IN CALLERS POSTINIT *******
+		* PROGRAM se_setFinalInitState
+
+*/
+
+// SCRIPTs for external use *************************************************
+
+SCRIPT se_createAsClRobust
+BEGIN
+	script _se_SETUP
+	se_hasNotes.settrue
+	// allowed vcetypes
+	se_hasRobust.settrue
+	se_hasClRobust.settrue
+	se_default_vcetype.setstring resource LBL_ROBUST
+	program _se_build_lists
+END
+
+SCRIPT se_createAsOIMClRobust
+BEGIN
+	script _se_SETUP
+	se_hasNotes.settrue
+	// allowed vcetypes
+	se_hasOIM.settrue
+	se_hasRobust.settrue
+	se_hasClRobust.settrue
+	se_default_vcetype.setstring resource SE_LBL_OIM
+	program _se_build_lists
+END
+
+SCRIPT se_createAsSvyClRobust
+BEGIN
+	script _se_SETUP
+	se_hasNotes.settrue
+	// allowed vcetypes
+	se_hasRobust.settrue
+	se_hasClRobust.settrue
+	se_hasSvy.settrue
+	se_default_vcetype.setstring resource LBL_ROBUST
+	program _se_build_lists
+END
+
+SCRIPT se_createAsSvyOIMClRobust
+BEGIN
+	script _se_SETUP
+	se_hasNotes.settrue
+	// allowed vcetypes
+	se_hasOIM.settrue
+	se_hasRobust.settrue
+	se_hasClRobust.settrue
+	se_hasSvy.settrue
+	se_default_vcetype.setstring resource SE_LBL_OIM
+	program _se_build_lists
+END
+
+SCRIPT se_createAsML
+BEGIN
+	script _se_SETUP
+	se_hasNotes.settrue
+	// allowed vcetypes
+	se_hasRobust.settrue
+	se_hasClRobust.settrue
+	se_hasOIM.settrue
+	se_hasOPG.settrue
+	se_default_vcetype.setstring resource SE_LBL_OIM
+	program _se_build_lists
+END
+
+SCRIPT se_createAsRobustOIM
+BEGIN
+	script _se_SETUP
+	se_hasNotes.settrue
+	// allowed vcetypes
+	se_hasRobust.settrue
+	se_hasClRobust.setfalse
+	se_hasOIM.settrue
+	se_hasOPG.setfalse
+	se_hasBootstrap.setfalse
+	se_hasJackknife.setfalse
+	se_default_vcetype.setstring resource SE_LBL_OIM
+	program _se_build_lists
+END
+
+SCRIPT se_createAsInternalML
+BEGIN
+	script _se_SETUP
+	se_hasNotes.settrue
+	// allowed vcetypes
+	se_hasRobust.settrue
+	se_hasClRobust.settrue
+	se_hasIOIM.settrue
+	se_hasBootstrap.settrue
+	se_hasJackknife.settrue
+	se_default_vcetype.setstring "IOIM"
+	program _se_build_lists
+END
+
+SCRIPT se_createAsSvyInternalML
+BEGIN
+	script _se_SETUP
+	se_hasNotes.settrue
+	// allowed vcetypes
+	se_hasRobust.settrue
+	se_hasClRobust.settrue
+	se_hasSvy.settrue
+	se_hasIOIM.settrue
+	se_hasBootstrap.settrue
+	se_hasJackknife.settrue
+	se_default_vcetype.setstring "IOIM"
+	program _se_build_lists
+END
+
+SCRIPT se_createAsNoML
+BEGIN
+	script _se_SETUP
+	se_hasNotes.setfalse
+	// allowed vcetypes
+	se_hasRobust.settrue
+	se_hasClRobust.settrue
+	se_hasBootstrap.settrue
+	se_hasJackknife.settrue
+	program _se_build_lists
+END
+
+SCRIPT se_createAsSvyNoML
+BEGIN
+	script _se_SETUP
+	se_hasNotes.setfalse
+	// allowed vcetypes
+	se_hasRobust.settrue
+	se_hasClRobust.settrue
+	se_hasSvy.settrue
+	se_hasBootstrap.settrue
+	se_hasJackknife.settrue
+	program _se_build_lists
+END
+
+SCRIPT se_createAsAnalytic
+BEGIN
+	script _se_SETUP
+	se_hasNotes.settrue
+	// allowed vcetypes
+	se_hasAnalytic.settrue
+	se_hasBootstrap.settrue
+	se_hasJackknife.settrue
+	se_default_vcetype.setstring resource SE_LBL_ANALYTIC
+	program _se_build_lists
+END
+
+SCRIPT se_createAsSvyAnalytic
+BEGIN
+	script _se_SETUP
+	se_hasNotes.settrue
+	// allowed vcetypes
+	se_hasSvy.settrue
+	se_hasAnalytic.settrue
+	se_hasBootstrap.settrue
+	se_hasJackknife.settrue
+	se_default_vcetype.setstring resource SE_LBL_ANALYTIC
+	program _se_build_lists
+END
+
+SCRIPT se_createAsN2step
+BEGIN
+	script _se_SETUP
+	se_hasNotes.settrue
+	// allowed vcetypes
+	se_hasN2step.settrue
+	se_hasBootstrap.settrue
+	se_hasJackknife.settrue
+	se_default_vcetype.setstring resource SE_LBL_NEWEYS_2STEP
+	program _se_build_lists
+END
+
+SCRIPT se_createAsH2step
+BEGIN
+	script _se_SETUP
+	se_hasNotes.settrue
+	// allowed vcetypes
+	se_hasH2step.settrue
+	se_hasBootstrap.settrue
+	se_hasJackknife.settrue
+	se_default_vcetype.setstring resource SE_LBL_HECKMANS_2STEP
+	program _se_build_lists
+END
+
+SCRIPT se_createAs2step
+BEGIN
+	script _se_SETUP
+	se_hasNotes.settrue
+	// allowed vcetypes
+	se_has2step.settrue
+	se_hasBootstrap.settrue
+	se_hasJackknife.settrue
+	se_default_vcetype.setstring resource LBL_2STEP
+	program _se_build_lists
+END
+
+SCRIPT se_createAs2stage
+BEGIN
+	script _se_SETUP
+	se_hasNotes.settrue
+	// allowed vcetypes
+	se_has2stage.settrue
+	se_default_vcetype.setstring resource SE_LBL_2STAGE
+	program _se_build_lists
+END
+
+SCRIPT se_createAsOLS
+BEGIN
+	script _se_SETUP
+	se_hasNotes.settrue
+	// allowed vcetypes
+	se_hasRobust.settrue
+	se_hasClRobust.settrue
+	se_hasOLS.settrue
+	se_hasBootstrap.settrue
+	se_hasJackknife.settrue
+	se_default_vcetype.setstring resource SE_LBL_OLS
+	program _se_build_lists
+END
+
+SCRIPT se_createAsSvyOLS
+BEGIN
+	script _se_SETUP
+	se_hasNotes.settrue
+	// allowed vcetypes
+	se_hasRobust.settrue
+	se_hasClRobust.settrue
+	se_hasSvy.settrue
+	se_hasOLS.settrue
+	se_hasBootstrap.settrue
+	se_hasJackknife.settrue
+	se_default_vcetype.setstring resource SE_LBL_OLS
+	program _se_build_lists
+END
+
+SCRIPT se_createAsOLSJknifeBstrap
+BEGIN
+	script _se_SETUP
+	se_hasNotes.settrue
+	// allowed vcetypes
+	se_hasOLS.settrue
+	se_hasBootstrap.settrue
+	se_hasJackknife.settrue
+	se_default_vcetype.setstring resource SE_LBL_OLS
+	program _se_build_lists
+END
+
+SCRIPT se_createAsOIMJknifeBstrap
+BEGIN
+	script _se_SETUP
+	se_hasNotes.settrue
+	// allowed vcetypes
+	se_hasIOIM.settrue
+	se_hasBootstrap.settrue
+	se_hasJackknife.settrue
+	se_default_vcetype.setstring "IOIM"
+	program _se_build_lists
+END
+
+SCRIPT se_createAsXTABOND
+BEGIN
+	script _se_SETUP
+	se_hasNotes.settrue
+	// allowed vcetypes
+	se_hasGMM.settrue
+	se_hasRobust.settrue
+	se_default_vcetype.setstring resource LBL_GENERALIZED_METHOD_OF_MOMENTS_GMM
+	program _se_build_lists
+END
+
+SCRIPT se_createAsGLSJknifeBstrap
+BEGIN
+	script _se_SETUP
+	se_hasNotes.settrue
+	// allowed vcetypes
+	se_hasGLS.settrue
+	se_hasBootstrap.settrue
+	se_hasJackknife.settrue
+	se_default_vcetype.setstring resource SE_LBL_GLS
+	program _se_build_lists
+END
+
+SCRIPT se_createAsConventJknifeBstrap
+BEGIN
+	script _se_SETUP
+	se_hasNotes.settrue
+	// allowed vcetypes
+	se_hasConventional.settrue
+	se_hasBootstrap.settrue
+	se_hasJackknife.settrue
+	se_default_vcetype.setstring resource SE_LBL_CONVENTIONAL
+	program _se_build_lists
+END
+
+SCRIPT se_createAsConvCLRBJknifeBstrap
+BEGIN
+	script _se_SETUP
+	se_hasNotes.settrue
+	// allowed vcetypes
+	se_hasConventional.settrue
+	se_hasRobust.settrue
+	se_hasClRobust.settrue
+	se_hasBootstrap.settrue
+	se_hasJackknife.settrue
+	se_default_vcetype.setstring resource SE_LBL_CONVENTIONAL
+	program _se_build_lists
+END
+
+SCRIPT se_createAsLinearized
+BEGIN
+	script _se_SETUP
+	se_hasNotes.settrue
+	// allowed vcetypes
+	se_hasLinearized.settrue
+	se_hasBootstrap.settrue
+	se_hasJackknife.settrue
+	se_default_vcetype.setstring resource SE_LBL_LINEARIZED
+	program _se_build_lists
+END
+
+SCRIPT se_createAsSvyLinearized
+BEGIN
+	script _se_SETUP
+	se_hasNotes.settrue
+	// allowed vcetypes
+	se_hasSvy.settrue
+	se_hasLinearized.settrue
+	se_hasBootstrap.settrue
+	se_hasJackknife.settrue
+	se_default_vcetype.setstring resource SE_LBL_LINEARIZED
+	program _se_build_lists
+END
+
+SCRIPT se_createAsLCASvyLinearized
+BEGIN
+	script se_setMI_on
+	script _se_SETUP
+	se_hasNotes.settrue
+	// allowed vcetypes
+	se_hasOIM.settrue
+	se_hasRobust.settrue
+	se_hasClRobust.settrue
+	se_hasSvy.settrue
+	se_default_vcetype.setstring resource SE_LBL_OIM
+	program _se_build_lists
+END
+
+SCRIPT se_createAsJknifeBstrap
+BEGIN
+	script _se_SETUP
+	se_hasNotes.setfalse
+	// allowed vcetypes
+	se_hasBootstrap.settrue
+	se_hasJackknife.settrue
+	program _se_build_lists
+END
+
+SCRIPT se_createAsSvyJknifeBstrap
+BEGIN
+	script _se_SETUP
+	se_hasNotes.setfalse
+	// allowed vcetypes
+	se_hasSvy.settrue
+	se_hasBootstrap.settrue
+	se_hasJackknife.settrue
+	program _se_build_lists
+END
+
+SCRIPT se_createAsJknifeBstrapML
+BEGIN
+	script _se_SETUP
+	se_hasNotes.settrue
+	// allowed vcetypes
+	se_hasRobust.settrue
+	se_hasClRobust.settrue
+	se_hasBootstrap.settrue
+	se_hasJackknife.settrue
+	se_hasOIM.settrue
+	se_hasOPG.settrue
+	se_default_vcetype.setstring resource SE_LBL_OIM
+	program _se_build_lists
+END
+
+SCRIPT se_createAsSvyJknifeBstrapML
+BEGIN
+	script _se_SETUP
+	se_hasNotes.settrue
+	// allowed vcetypes
+	se_hasRobust.settrue
+	se_hasClRobust.settrue
+	se_hasSvy.settrue
+	se_hasBootstrap.settrue
+	se_hasJackknife.settrue
+	se_hasOIM.settrue
+	se_hasOPG.settrue
+	se_default_vcetype.setstring resource SE_LBL_OIM
+	program _se_build_lists
+END
+
+SCRIPT se_createAsNlogit
+BEGIN
+	script _se_SETUP
+	se_hasNotes.settrue
+	// allowed vcetypes
+	se_hasSvy.setfalse
+	se_hasRobust.settrue
+	se_hasClRobust.settrue
+	se_hasBootstrap.settrue
+	se_hasJackknife.settrue
+	se_hasOIM.settrue
+	se_default_vcetype.setstring resource SE_LBL_OIM
+	program _se_build_lists
+END
+
+SCRIPT se_createAsAsclogit
+BEGIN
+	script _se_SETUP
+	se_hasNotes.settrue
+	// allowed vcetypes
+	se_hasSvy.setfalse
+	se_hasRobust.settrue
+	se_hasClRobust.settrue
+	se_hasBootstrap.settrue
+	se_hasJackknife.settrue
+	se_hasOIM.settrue
+//	se_default_vcetype.setstring resource SE_LBL_OIM
+	se_default_vcetype.setstring "IOIM"
+	program _se_build_lists
+END
+
+
+SCRIPT se_createAsGLM
+BEGIN
+	script _se_SETUP
+	se_hasNotes.settrue
+	se_isGLM.settrue
+	// allowed vcetypes
+	se_hasRobust.settrue
+	se_hasClRobust.settrue
+	se_hasBootstrap.settrue
+	se_hasJackknife.settrue
+	se_hasOIM.settrue
+	se_hasOPG.settrue
+	se_hasEIM.settrue
+	se_hasHAC.settrue
+	se_hasJackknife1.settrue
+	se_hasUnbiased.settrue
+	se_default_vcetype.setstring resource SE_LBL_OIM
+	program _se_build_lists
+END
+
+SCRIPT se_createAsSvyGLM
+BEGIN
+	script _se_SETUP
+	se_hasNotes.settrue
+	se_isGLM.settrue
+	// allowed vcetypes
+	se_hasRobust.settrue
+	se_hasClRobust.settrue
+	se_hasSvy.settrue
+	se_hasBootstrap.settrue
+	se_hasJackknife.settrue
+	se_hasOIM.settrue
+	se_hasOPG.settrue
+	se_hasEIM.settrue
+	se_hasHAC.settrue
+	se_hasJackknife1.settrue
+	se_hasUnbiased.settrue
+	se_default_vcetype.setstring resource SE_LBL_OIM
+	program _se_build_lists
+END
+
+SCRIPT se_createAsNL
+BEGIN
+	script _se_SETUP
+	se_hasNotes.settrue
+	se_hasBias.settrue
+	// allowed vcetypes
+	se_hasRobust.settrue
+	se_hasClRobust.settrue
+	se_hasSvy.settrue
+	se_hasBootstrap.settrue
+	se_hasJackknife.settrue
+	se_hasHAC.settrue
+	se_hasGNR.settrue
+	se_default_vcetype.setstring resource SE_LBL_GNR
+	program _se_build_lists
+END
+
+SCRIPT se_createAsNLSUR
+BEGIN
+	script _se_SETUP
+	se_hasNotes.settrue
+	// allowed vcetypes
+	se_hasRobust.settrue
+	se_hasClRobust.settrue
+	se_hasBootstrap.settrue
+	se_hasJackknife.settrue
+	se_hasGNR.settrue
+	se_default_vcetype.setstring resource SE_LBL_GNR
+	program _se_build_lists
+END
+
+SCRIPT se_createAsGEE
+BEGIN
+	script _se_SETUP
+	se_hasNotes.settrue
+	se_isGEE.settrue
+	se_noCluster.settrue
+	// allowed vcetypes
+	se_hasRobust.settrue
+	se_hasConventional.settrue
+	se_hasBootstrap.settrue
+	se_hasJackknife.settrue
+	se_default_vcetype.setstring resource SE_LBL_CONVENTIONAL
+	program _se_build_lists
+END
+
+SCRIPT se_createAsIVREGRESS
+BEGIN
+	script _se_SETUP
+	se_isIVREGRESS.settrue
+	se_hasNotes.settrue
+	// allowed vcetypes
+	se_hasSvy.settrue
+	se_hasRobust.settrue
+	se_hasClRobust.settrue
+	se_hasBootstrap.settrue
+	se_hasJackknife.settrue
+	se_hasHAC.settrue
+	se_hasUnadjusted.settrue
+	se_default_vcetype.setstring resource LBL_UNADJUSTED
+	program _se_build_lists
+END
+
+SCRIPT se_createAsIVPOISSON
+BEGIN
+	script _se_SETUP
+	se_isIVPOISSON.settrue
+	se_hasNotes.settrue
+	// allowed vcetypes
+	//se_hasSvy.settrue
+	se_hasRobust.settrue
+	se_hasClRobust.settrue
+	se_hasBootstrap.settrue
+	se_hasJackknife.settrue
+	se_hasUnadjusted.settrue
+	se_default_vcetype.setstring resource LBL_ROBUST
+	program _se_build_lists
+END
+
+SCRIPT se_createAsGMM
+BEGIN
+	script _se_SETUP
+	se_isGMM.settrue
+	se_hasNotes.settrue
+	// allowed vcetypes
+//	se_hasSvy.settrue
+	se_hasRobust.settrue
+	se_hasClRobust.settrue
+	se_hasBootstrap.settrue
+	se_hasJackknife.settrue
+	se_hasHAC.settrue
+	se_hasUnadjusted.settrue
+	se_default_vcetype.setstring resource LBL_UNADJUSTED
+	program _se_build_lists
+END
+
+SCRIPT se_createAsSTCRREG
+BEGIN
+	script _se_SETUP
+	se_isSTCRREG.settrue
+	se_hasNotes.settrue
+	// allowed vcetypes
+	se_hasRobust.settrue
+	se_hasClRobust.settrue
+	se_hasBootstrap.settrue
+	se_hasJackknife.settrue
+	se_default_vcetype.setstring resource LBL_ROBUST
+	program _se_build_lists
+	script se_setNoAdjust_on
+END
+
+SCRIPT se_createAsSEM_ML
+BEGIN
+	script _se_SETUP
+	se_hasNotes.settrue
+	// allowed vcetypes
+	se_hasOIM.settrue
+	se_hasEIM.settrue
+	se_hasSBentler.settrue
+	se_hasOPG.settrue
+	se_hasRobust.settrue
+	se_hasClRobust.settrue
+	se_hasBootstrap.settrue
+	se_hasJackknife.settrue
+	se_hasSvy.settrue
+	se.ck_svy.enable
+	se_default_vcetype.setstring resource SE_LBL_OIM
+	program _se_rebuild_listbox
+END
+
+SCRIPT se_createAsSEM_MLMV
+BEGIN
+	script _se_SETUP
+	se_hasNotes.settrue
+	// allowed vcetypes
+	se_hasOIM.settrue
+	se_hasEIM.settrue
+	se_hasOPG.settrue
+	se_hasRobust.settrue
+	se_hasClRobust.settrue
+	se_hasBootstrap.settrue
+	se_hasJackknife.settrue
+	se_hasSvy.settrue
+	se.ck_svy.enable
+	se_default_vcetype.setstring resource SE_LBL_OIM
+	program _se_rebuild_listbox
+END
+
+SCRIPT se_createAsSEM_ADF
+BEGIN
+	script _se_SETUP
+	se_hasNotes.settrue
+	// allowed vcetypes
+	se_hasOIM.settrue
+	se_hasEIM.settrue
+	se_hasOPG.setfalse
+	se_hasRobust.setfalse
+	se_hasClRobust.setfalse
+	se_hasBootstrap.settrue
+	se_hasJackknife.settrue
+	se.ck_svy.setoff
+	se.ck_svy.disable
+	se_default_vcetype.setstring resource SE_LBL_OIM
+	program _se_rebuild_listbox
+END
+
+SCRIPT se_createAsNPREGRESS
+BEGIN
+	script _se_SETUP
+	se_isNpregress.settrue
+	se_hasNotes.settrue
+	// allowed vcetypes
+	se_hasNone.settrue
+	se_hasBootstrap.settrue
+	se_default_vcetype.setstring resource SE_LBL_NONE
+	program _se_build_lists
+END
+
+SCRIPT se_createAsNPREGRESS_SERIES
+BEGIN
+	script _se_SETUP
+	se_hasNotes.settrue
+	// allowed vcetypes
+	se_hasRobust.settrue
+	se_hasBootstrap.settrue
+	se_hasJackknife.setfalse
+	se_hasOLS.settrue
+	se_default_vcetype.setstring resource LBL_ROBUST
+	program _se_build_lists
+END
+
+// PROGRAMs called by -PROGRAM command- *************************************
+
+PROGRAM se_output
+BEGIN
+	if ! se_vcetype.equals(resource SE_LBL_DFLT_STD_ERRORS) ///
+	 & ! se.ck_svy {
+		put /program _se_vce_output
+		if se_closeParenthesis {
+			put ") "
+		}
+		option se.ck_nonest
+		option se.ck_dfadj
+	}
+	if se_isGLM {
+		optionarg se.en_vfact
+		optionarg se.en_disp
+		option se.rb_deflt
+		option se.rb_x2
+		option se.rb_dev
+		option se.rb_value
+		if se.rb_value {
+			require se.en_value
+			optionarg se.en_value
+		}
+	}
+	if se_isGEE {
+		option se.rb_nmp
+		option se.rb_rgf
+		option se.rb_deflt
+		option se.rb_x2
+		option se.rb_dev
+		option se.rb_phi
+		option se.rb_value
+		if se.rb_value {
+			require se.en_value
+			optionarg se.en_value
+		}
+	}
+	if se_hasNoAdjust & !se.ck_noadjust & !H(se.ck_noadjust) {
+		put " " "noadjust"
+	}
+	if se_isGMM {
+		option se.ck_gmm_quickd
+	}
+	if se_isNpregress {
+		option se.ck_bwreplace
+	}
+END
+PROGRAM _se_vce_output
+BEGIN
+	// NOTE: only -PROGRAM se_output- should call this program
+	put " "
+ 	if se_vcetype.equals(resource LBL_ROBUST) & (se.rb_hc2 | se.rb_hc3) {
+		option se.rb_hc2
+		option se.rb_hc3
+	}
+	else {
+		put se.lb_vcetype
+	}
+	if !H(se.cb_hac) {
+		require se.cb_hac
+		put " " se.cb_hac
+		put " " se.en_lag
+	}
+	if !H(se.cb_hac2) {
+		require se.cb_hac2
+		put " " se.cb_hac2
+		if se.rb_hacopt {
+			option se.rb_hacopt
+			if !se.sp_hacopt_lags.isdefault() {
+				put " "
+				put se.sp_hacopt_lags
+			}
+		}
+		if se.rb_haclags {
+			put " " se.sp_lags
+		}
+	}
+// CHECK IS ALSO IN SEM_BUILDER FILES sg__gestoptions and sg__estoptions
+	if se_vcetype.equals(resource LBL_CLUSTERED_ROBUST) ///
+	 | se_vcetype.equals(resource SE_LBL_CLUSTER) {
+		require se.vn_cluster
+		put " " se.vn_cluster
+	}
+
+	if se_vcetype.equals(resource LBL_HAC) {
+	   // verify time settings
+	   call program _se_notes_for_tsset
+	   if se_tsset.equals("") {
+		call se_STMP.format 					///
+			"resource LBL_MSGBOX_TIME_SETTINGS_REQUIRED_FMT" ///
+			"resource LBL_HAC"				///
+			"resource LBL_BU_TIME_SETTINGS" 		///
+			"resource SE_TITLE_SE_ROBUST"
+		stopbox note class se_STMP.value
+	
+// HAC requires time settings. See "Time settings" on the "SE/Robust" tab.
+	   }
+	}
+
+	beginoptions
+		if se_vcetype.equals(resource SE_LBL_BOOTSTRAP) ///
+	 	 | se_vcetype.equals(resource SE_LBL_JACKKNIFE) {
+			optionarg se.vn_cluster
+		}
+		option se.ck_nodots
+		option se.ck_mse
+		option se.ck_bca
+		optionarg /hidedefault se.sp_reps
+		optionarg se.ed_seed
+		optionarg se.sp_dots
+		if se_isGMM {
+			option se.ck_indep
+		}
+	endoptions
+END
+
+PROGRAM se_prefix_output
+BEGIN
+	if se.ck_svy {
+		call se_svyset.setstring char _dta[_svy_version]
+		call create STRING se_title
+		call se_title.setstring class .se.tabtitle
+
+// CHECK IS ALSO IN SEM_BUILDER FILES sg__gestoptions and sg__estoptions
+		if se_svyset.equals("") {
+			if se_title.equals(resource SE_TITLE_SE_ROBUST) {
+				call se_STMP.format				///
+					"resource SE_MSGBOX_SVY_SETTINGS_REQUIRED_FMT" ///
+					"resource LBL_SURVEY_SETTINGS" 	   	///
+					"resource SE_TITLE_SE_ROBUST"
+			stopbox stop "class se_STMP.value"
+// Survey estimation commands require survey settings. See "Survey settings" on the "SE/Robust" tab.
+			}
+			else {
+			  if se_title.equals(resource SE_TITLE_SE_CLUSTER) {
+				call se_STMP.format 				///
+					"resource SE_MSGBOX_SVY_SETTINGS_REQUIRED_FMT" ///
+					"resource LBL_SURVEY_SETTINGS" 	   	///
+					"resource SE_TITLE_SE_CLUSTER"
+			  stopbox stop class se_STMP.value
+// Survey estimation commands require survey settings. See "Survey settings" button on the "SE/Cluster" tab.
+			  }
+			  else {
+			    if se_title.equals(resource LBL_SE) {
+				call se_STMP.format 			   	///
+					"resource SE_MSGBOX_SVY_SETTINGS_REQUIRED_FMT" ///
+					"resource LBL_SURVEY_SETTINGS" 	   	///
+					"resource LBL_SE"
+			        stopbox stop class se_STMP.value
+// Survey estimation commands require survey settings. See "Survey settings" button on the "SE" tab.
+			    }
+			    else {
+				// we really should never get here
+				call se_STMP.format 			   	///
+					"resource SE_MSGBOX_SVY_SETTINGS_REQUIRED_FMT" ///
+					"resource LBL_SURVEY_SETTINGS" 	   	///
+					"resource LBL_SE"
+			        stopbox stop class se_STMP.value
+// Survey estimation commands require survey settings. See "Survey settings" button on the "SE" tab.
+			    }
+			  }
+			}
+		}
+		put /program _se_svy_output
+		put " :"
+	}
+END
+PROGRAM _se_svy_output
+BEGIN
+	// NOTE: only -PROGRAM se_prefix_output- should call this program
+	put "svy"
+	if se_svyvcetype.equals(resource SE_LBL_LINEARIZED) {
+		put " linearized"
+	}
+	if se_svyvcetype.equals(resource SE_LBL_BOOTSTRAP) {
+		put " bootstrap"
+	}
+	if se_svyvcetype.equals(resource SE_LBL_BRR) {
+		put " brr"
+	}
+	if se_svyvcetype.equals(resource SE_LBL_JACKKNIFE) {
+		put " jackknife"
+	}
+	if se_svyvcetype.equals(resource SE_LBL_SDR) {
+		put " sdr"
+	}
+	beginoptions
+		put /program subpop_output
+		optionarg se.en_dof
+		option se.ck_mse
+		option se.ck_nomse
+		option se.ck_nodots
+		optionarg se.ed_bsn
+		optionarg se.ed_hadamard
+		optionarg se.ed_fay
+	endoptions
+END
+
+// SCRIPTs called by the "Weights" tab **************************************
+
+SCRIPT se_setPW_on
+BEGIN
+	se_isPWon.settrue
+	se_isWeighted.settrue
+	program _se_set_notes
+	program _se_rebuild_listbox
+END
+SCRIPT se_setIW_on
+BEGIN
+	se_isIWon.settrue
+	se_isWeighted.settrue
+	program _se_set_notes
+	program _se_rebuild_listbox
+END
+SCRIPT se_setNonPW_on
+BEGIN
+	se_isPWon.setfalse
+	se_isWeighted.settrue
+	program _se_set_notes
+	program _se_rebuild_listbox
+END
+SCRIPT se_setWeights_off
+BEGIN
+	se_isPWon.setfalse
+	se_isIWon.setfalse
+	se_isWeighted.setfalse
+	program _se_set_notes
+	program _se_rebuild_listbox
+END
+
+// SCRIPTs called by the "Maximization" tab **********************************
+
+SCRIPT se_setDefaultOIM
+BEGIN
+	se_old_default_vcetype.setstring resource SE_LBL_OIM
+	se_default_vcetype.setstring resource SE_LBL_OIM
+	program _se_set_notes
+END
+SCRIPT se_setDefaultOPG
+BEGIN
+	se_old_default_vcetype.setstring resource SE_LBL_OPG
+	se_default_vcetype.setstring resource SE_LBL_OPG
+	program _se_set_notes
+END
+SCRIPT se_setDefaultEIM
+BEGIN
+	se_old_default_vcetype.setstring resource SE_LBL_EIM
+	se_default_vcetype.setstring resource SE_LBL_EIM
+	program _se_set_notes
+END
+SCRIPT se_setDefaultIOIM
+BEGIN
+	se_old_default_vcetype.setstring "IOIM"
+	se_default_vcetype.setstring "IOIM"
+	program _se_set_notes
+END
+SCRIPT se_setDefaultGNR
+BEGIN
+	se_old_default_vcetype.setstring resource SE_LBL_GNR
+	se_default_vcetype.setstring resource SE_LBL_GNR
+	program _se_set_notes
+END
+SCRIPT se_setDefaultGLS
+BEGIN
+	se_old_default_vcetype.setstring resource SE_LBL_GLS
+	se_default_vcetype.setstring resource SE_LBL_GLS
+	program _se_set_notes
+END
+SCRIPT se_setDefaultGMM
+BEGIN
+	se_old_default_vcetype.setstring resource LBL_GENERALIZED_METHOD_OF_MOMENTS_GMM
+	se_default_vcetype.setstring LBL_GENERALIZED_METHOD_OF_MOMENTS_GMM
+	program _se_set_notes
+END
+SCRIPT se_setDefaultConventional
+BEGIN
+	se_old_default_vcetype.setstring resource SE_LBL_CONVENTIONAL
+	se_default_vcetype.setstring resource SE_LBL_CONVENTIONAL
+	program _se_set_notes
+END
+SCRIPT se_setDefaultOLS
+BEGIN
+	se_old_default_vcetype.setstring resource SE_LBL_OLS
+	se_default_vcetype.setstring resource SE_LBL_OLS
+	program _se_set_notes
+END
+SCRIPT se_setDefaultUnadjusted
+BEGIN
+	se_old_default_vcetype.setstring resource LBL_UNADJUSTED
+	se_default_vcetype.setstring resource LBL_UNADJUSTED
+	program _se_set_notes
+END
+SCRIPT se_setDefaultRobust
+BEGIN
+	se_old_default_vcetype.setstring resource LBL_ROBUST
+	se_default_vcetype.setstring resource LBL_ROBUST
+	program _se_set_notes
+END
+SCRIPT se_setDefaultClusteredRobust
+BEGIN
+	se_old_default_vcetype.setstring resource LBL_CLUSTERED_ROBUST
+	se_default_vcetype.setstring resource LBL_CLUSTERED_ROBUST
+	program _se_set_notes
+END
+SCRIPT se_setDefaultHAC
+BEGIN
+	se_old_default_vcetype.setstring resource LBL_HAC
+	se_default_vcetype.setstring resource LBL_HAC
+	program _se_set_notes
+END
+
+SCRIPT se_setIOIM_on
+BEGIN
+	se_hasNotes.settrue
+	script se_setDefaultIOIM
+	se_hasIOIM.settrue
+END
+
+SCRIPT se_setIOIM_off
+BEGIN
+	se_hasNotes.setfalse
+	se_hasIOIM.setfalse
+END
+
+SCRIPT se_setIOIMRobustClrobust_on
+BEGIN
+	se_hasNotes.settrue
+	se_hasRobust.settrue
+	se_noCluster.setfalse
+	se_hasClRobust.settrue
+	se_hasBootstrap.settrue
+	se_hasJackknife.settrue
+	se_hasOIM.settrue
+	script se_setDefaultIOIM
+	program _se_rebuild_listbox
+END
+
+SCRIPT se_setGNR_on
+BEGIN
+	se_hasNotes.settrue
+	script se_setDefaultGNR
+	se_hasGNR.settrue
+END
+SCRIPT se_setGNR_off
+BEGIN
+	se_hasNotes.setfalse
+	se_hasGNR.setfalse
+END
+
+SCRIPT se_setGLS_on
+BEGIN
+	se_hasNotes.settrue
+	script se_setDefaultGLS
+	se_hasGLS.settrue
+END
+SCRIPT se_setGLS_off
+BEGIN
+	se_hasNotes.setfalse
+	se_hasGLS.setfalse
+END
+
+SCRIPT se_setGMM_on
+BEGIN
+	se_hasNotes.settrue
+	script se_setDefaultGMM
+	se_hasGMM.settrue
+END
+SCRIPT se_setGMM_off
+BEGIN
+	se_hasNotes.setfalse
+	se_hasGMM.setfalse
+END
+
+SCRIPT se_setConventional_on
+BEGIN
+	se_hasNotes.settrue
+	script se_setDefaultConventional
+	se_hasConventional.settrue
+END
+SCRIPT se_setConventional_off
+BEGIN
+	se_hasNotes.setfalse
+	se_hasConventional.setfalse
+END
+
+SCRIPT se_setOLS_on
+BEGIN
+	se_hasNotes.settrue
+	script se_setDefaultOLS
+	se_hasOLS.settrue
+END
+SCRIPT se_setOLS_off
+BEGIN
+	se_hasNotes.setfalse
+	se_hasOLS.setfalse
+END
+
+// Other external SCRIPTs ***************************************************
+
+SCRIPT se_setNotes_off
+BEGIN
+	se_notesVisible.setfalse
+END
+
+SCRIPT se_setTitleSeCluster
+BEGIN
+	se.settabtitle resource SE_TITLE_SE_CLUSTER
+END
+
+SCRIPT se_setTitleSeRobust
+BEGIN
+	se.settabtitle resource SE_TITLE_SE_ROBUST
+END
+
+SCRIPT se_setTitleSE
+BEGIN
+	se.settabtitle resource LBL_SE
+END
+
+SCRIPT se_setCluster_off
+BEGIN
+	se_noCluster.settrue
+	program _se_rebuild_listbox
+END
+
+SCRIPT se_setRobust_off
+BEGIN
+	se_hasRobust.setfalse
+	se_noCluster.settrue
+	program _se_check_robust
+	program _se_rebuild_listbox
+END
+SCRIPT se_setRobust_on
+BEGIN
+	se_hasRobust.settrue
+	program _se_rebuild_listbox
+END
+
+SCRIPT se_setClRobust_off
+BEGIN
+	script se_setRobust_off
+END
+SCRIPT se_setClRobust_on
+BEGIN
+	se_hasClRobust.settrue
+	se_noCluster.setfalse
+	script se_setRobust_on
+END
+
+SCRIPT se_setBias_on
+BEGIN
+	se_hasBias.settrue
+END
+
+SCRIPT se_setNoAdjust_on
+BEGIN
+	se_hasNoAdjust.settrue
+END
+
+SCRIPT se_setGEE_off
+BEGIN
+	se_isGEE.setfalse
+	se_hasConventional.setfalse
+	script se_setRobust_off
+END
+SCRIPT se_setGEE_on
+BEGIN
+	se_hasNotes.settrue
+	se_isGEE.settrue
+	se_hasConventional.settrue
+	se_hasClRobust.setfalse
+	program _se_check_ClRobust
+	se_default_vcetype.setstring resource SE_LBL_CONVENTIONAL
+	script se_setRobust_on
+END
+
+SCRIPT se_setGEE_off_robustOK
+BEGIN
+	se_hasNotes.setfalse
+	se_isGEE.setfalse
+	se_hasGLS.setfalse
+END
+
+SCRIPT se_setRGF_off
+BEGIN
+	se_hasRGF.setfalse
+	program _se_rebuild_listbox
+END
+SCRIPT se_setRGF_on
+BEGIN
+	se_hasRGF.settrue
+	program _se_rebuild_listbox
+END
+
+SCRIPT se_switchToJknifeBstrap
+BEGIN
+	se_hasNotes.setfalse
+	// allowed vcetypes
+	se_hasBootstrap.settrue
+	se_hasClRobust.setfalse
+	se_hasSvy.setfalse
+	se_hasEIM.setfalse
+	se_hasHAC.setfalse
+	se_hasJackknife.settrue
+	se_hasOIM.setfalse
+	se_hasOPG.setfalse
+	se_hasRobust.setfalse
+	se_hasUnbiased.setfalse
+	program _se_check_robust
+	program _se_rebuild_listbox
+END
+SCRIPT se_switchToJknifeBstrapRobust
+BEGIN
+	se_hasNotes.settrue
+	// allowed vcetypes
+	se_hasBootstrap.settrue
+	se_hasClRobust.setfalse
+	se_hasSvy.setfalse
+	se_hasEIM.setfalse
+	se_hasHAC.setfalse
+	se_hasJackknife.settrue
+	se_hasOIM.setfalse
+	se_hasOPG.setfalse
+	se_hasRobust.settrue
+	se_hasUnbiased.setfalse
+	se_hasConventional.setfalse
+	program _se_check_robust
+	program _se_rebuild_listbox
+END
+SCRIPT se_switchToJknifeBstrapML
+BEGIN
+	se_hasNotes.settrue
+	// allowed vcetypes
+	se_hasBootstrap.settrue
+	se_hasClRobust.settrue
+	se_hasSvy.setfalse
+	se_hasEIM.setfalse
+	se_hasHAC.setfalse
+	se_hasJackknife.settrue
+	se_hasOIM.settrue
+	se_hasOPG.settrue
+	se_hasRobust.settrue
+	se_hasUnbiased.setfalse
+	program _se_rebuild_listbox
+END
+SCRIPT se_switchToSvyJknifeBstrapML
+BEGIN
+	se_hasNotes.settrue
+	// allowed vcetypes
+	se_hasSvy.settrue
+	se_hasBootstrap.settrue
+	se_hasClRobust.settrue
+	se_hasSvy.settrue
+	se_hasEIM.setfalse
+	se_hasHAC.setfalse
+	se_hasJackknife.settrue
+	se_hasOIM.settrue
+	se_hasOPG.settrue
+	se_hasRobust.settrue
+	se_hasUnbiased.setfalse
+	program _se_rebuild_listbox
+END
+SCRIPT se_switchToConventJknifeBstrap
+BEGIN
+	se_hasNotes.settrue
+	// allowed vcetypes
+	se_hasSvy.setfalse
+	se_hasRobust.setfalse
+	se_hasClRobust.setfalse
+	se_hasEIM.setfalse
+	se_hasHAC.setfalse
+	se_hasOIM.setfalse
+	se_hasOPG.setfalse
+	se_hasUnbiased.setfalse
+	se_hasConventional.settrue
+	se_hasBootstrap.settrue
+	se_hasJackknife.settrue
+	se_default_vcetype.setstring resource SE_LBL_CONVENTIONAL
+	se.ck_svy.setoff
+	program _se_rebuild_listbox
+END
+
+SCRIPT se_switchToSvyJknifeBstrapML_et
+BEGIN
+	se_default_vcetype.setstring resource SE_LBL_OIM
+	se_hasConventional.setfalse
+	script se_switchToSvyJknifeBstrapML
+END
+
+SCRIPT se_setJknifeBstrap_off
+BEGIN
+	se_hasBootstrap.setfalse
+	se_hasJackknife.setfalse
+	program _se_rebuild_listbox
+END
+SCRIPT se_setJknifeBstrap_on
+BEGIN
+	se_hasBootstrap.settrue
+	se_hasJackknife.settrue
+	program _se_rebuild_listbox
+END
+
+SCRIPT se_setIRLS_off
+BEGIN
+	se_isIRLS.setfalse
+	program _se_hideOrShow
+END
+SCRIPT se_setIRLS_on
+BEGIN
+	se_isIRLS.settrue
+	program _se_hideOrShow
+END
+
+SCRIPT se_setN2step_off
+BEGIN
+	se_hasN2step.setfalse
+	program _se_restore_vcetype
+	program _se_rebuild_listbox
+END
+SCRIPT se_setN2step_on
+BEGIN
+	se_hasNotes.settrue
+	se_hasN2step.settrue
+	se_default_vcetype.setstring resource SE_LBL_NEWEYS_2STEP
+	program _se_rebuild_listbox
+END
+
+SCRIPT se_set2stage_off
+BEGIN
+	se_has2stage.setfalse
+	program _se_restore_vcetype
+	program _se_rebuild_listbox
+END
+SCRIPT se_set2stage_on
+BEGIN
+	se_hasNotes.settrue
+	se_has2stage.settrue
+	se_default_vcetype.setstring resource SE_LBL_2STAGE
+	program _se_rebuild_listbox
+END
+
+SCRIPT se_setH2step_off
+BEGIN
+	se_hasH2step.setfalse
+	program _se_restore_vcetype
+	program _se_rebuild_listbox
+END
+SCRIPT se_setH2step_on
+BEGIN
+	se_hasNotes.settrue
+	se_hasH2step.settrue
+	se_default_vcetype.setstring resource SE_LBL_HECKMANS_2STEP
+	program _se_rebuild_listbox
+END
+
+SCRIPT se_set2step_off
+BEGIN
+	se_has2step.setfalse
+	program _se_restore_vcetype
+	program _se_rebuild_listbox
+END
+SCRIPT se_set2step_on
+BEGIN
+	se_hasNotes.settrue
+	se_has2step.settrue
+	se_default_vcetype.setstring resource LBL_2STEP
+	program _se_rebuild_listbox
+END
+
+SCRIPT 	se_setNONEST_on
+BEGIN
+	se_hasClusterNONEST.settrue
+END
+SCRIPT 	se_setNONEST_off
+BEGIN
+	se_hasClusterNONEST.setfalse
+END
+
+SCRIPT 	se_setDFADJ_on
+BEGIN
+	se_hasClusterDFADJ.settrue
+END
+SCRIPT 	se_setDFADJ_off
+BEGIN
+	se_hasClusterDFADJ.setfalse
+END
+
+// PROGRAMs and SCRIPTs for internal use ************************************
+
+SCRIPT _se_SETUP
+BEGIN
+	create STRING se_STMP
+
+	// is MI context
+	create BOOLEAN se_isMI
+
+	// prevents recursion
+	create BOOLEAN se_isReBuilding
+
+	// weights indicators
+	create BOOLEAN se_isWeighted
+	create BOOLEAN se_isPWon
+	create BOOLEAN se_isIWon
+
+	// indicator for special -regress, robust- options
+	create BOOLEAN se_hasBias
+
+	// indicators for notes about the default <vcetype>
+	create BOOLEAN se_hasNotes
+	create BOOLEAN se_notesVisible
+	se_notesVisible.settrue
+
+	// indicates whether the -vce()- option needs a closing parenthesis
+	create BOOLEAN se_closeParenthesis
+
+	// indicators for the -vce(cluster 'varname')- option
+	create BOOLEAN se_hasCluster
+	create BOOLEAN se_noCluster
+
+	// The following BOOLEANs are used to determine which <vcetype> of
+	// the -vce(<vcetype>)- option is allowed:
+	create BOOLEAN se_has2stage
+	create BOOLEAN se_has2step
+	create BOOLEAN se_hasAnalytic
+	create BOOLEAN se_hasBootstrap
+	create BOOLEAN se_hasClRobust
+	create BOOLEAN se_hasEIM
+	create BOOLEAN se_hasGLS
+	create BOOLEAN se_hasGMM
+	create BOOLEAN se_hasConventional
+	create BOOLEAN se_hasH2step
+	create BOOLEAN se_hasHAC
+	create BOOLEAN se_hasIOIM
+	create BOOLEAN se_hasGNR
+	create BOOLEAN se_hasJackknife
+	create BOOLEAN se_hasJackknife1
+	create BOOLEAN se_hasLinearized
+	create BOOLEAN se_hasN2step
+	create BOOLEAN se_hasOIM
+	create BOOLEAN se_hasOLS
+	create BOOLEAN se_hasOPG
+	create BOOLEAN se_hasRobust
+	create BOOLEAN se_hasSvy
+	create BOOLEAN se_hasUnbiased
+	create BOOLEAN se_hasUnadjusted
+	create BOOLEAN se_hasSBentler
+	create BOOLEAN se_hasNone
+
+	// indicator for the -noadjust- option
+	create BOOLEAN se_hasNoAdjust
+
+	// special strings for -svy-
+	create STRING se_svyset
+	create STRING se_svymse
+
+	// special strings for HAC
+	create STRING se_tsset
+
+	// indicator for -glm- and -binreg-
+	create BOOLEAN se_isGLM
+	create BOOLEAN se_isIRLS
+
+	// special indicators for the -hac- vcetype
+	create BOOLEAN se_isHAC
+
+	// indicator for -xtgee- and the other -xt- commands that have the
+	// -pa- option
+	create BOOLEAN se_isGEE
+	create BOOLEAN se_hasRGF
+
+	// arrays for the LISTBOX lb_vcetype
+	create ARRAY se_type_list
+	create ARRAY se_type_values
+	create ARRAY se_type_actions
+
+	// string for the currently specified <vcetype>
+	create STRING se_vcetype
+	se_vcetype.setstring resource SE_LBL_DFLT_STD_ERRORS
+
+	// string for the currently specified 'svy' <vcetype>
+	create STRING se_svyvcetype
+
+	// string for the default <vcetype>
+	create STRING se_default_vcetype
+	create STRING se_old_default_vcetype
+	create BOOLEAN se_hasClusterNONEST
+	create BOOLEAN se_hasClusterDFADJ
+
+	// is ivregress
+	create BOOLEAN se_isIVREGRESS
+	
+	// is ivpoisson
+	create BOOLEAN se_isIVPOISSON
+
+	// is gmm
+	create BOOLEAN se_isGMM
+
+	// is stcrreg
+	create BOOLEAN se_isSTCRREG
+	
+	// is npregress
+	create BOOLEAN se_isNpregress
+
+	// sem est opts
+	create BOOLEAN se_hasSBentler
+	se_hasSBentler.setfalse
+
+	program se_svy_build_lists	
+
+END
+
+PROGRAM se_setFinalInitState
+BEGIN
+	call se.lb_vcetype.withvalue se_vcetype.setstring "@"
+	if __MESSAGE.contains("-svy-") {
+		if ! se_hasSvy {
+			exit
+		}
+		call se.ck_svy.seton
+		// When called with the -svy- message this tab will always
+		// show itself with Survey selected, no matter how it was used
+		// last.
+		/*
+		call script se_setTitleSE
+		call se.lb_vcetype.hide
+		call se.tx_type.hide
+		call se.lb_svyvcetype.setposition 10 .
+		*/
+	}
+	call script _se_reset_vcetype
+END
+
+LIST se_hac_list
+BEGIN
+	resource SE_LBL_NEWEY_WEST
+	resource SE_LBL_GALLANT
+	resource SE_LBL_ANDERSON
+END
+
+LIST se_hac_values
+BEGIN
+	"nwest"
+	"gallant"
+	"anderson"
+END
+
+LIST se_hac2_list
+BEGIN
+	resource LBL_BARTLETT
+	resource LBL_PARZEN
+	resource LBL_QUADRATICSPECTRAL
+END
+
+LIST se_hac2_values
+BEGIN
+	"bartlett"
+	"parzen"
+	"quadraticspectral"
+END
+
+LIST se_svy_contents
+BEGIN
+	// intentionally blank
+	// see se_svy_build_lists
+END
+LIST se_svy_values
+BEGIN
+	// intentionally blank
+	// see se_svy_build_lists
+END
+LIST se_svy_change
+BEGIN
+	// intentionally blank
+	// see se_svy_build_lists
+END
+
+PROGRAM se_svy_build_lists
+BEGIN
+	call se_svy_contents.Arrdropall
+	call se_svy_values.Arrdropall
+	call se_svy_change.Arrdropall
+	call se.lb_svyvcetype.clearlist
+	
+	call se_svy_contents.ArrpushR resource dlg SE_LBL_LINEARIZED
+	call se_svy_values.Arrpush "linearized"
+	call se_svy_change.Arrpush "script _se_svy_linearized"
+
+	if !se_isMI {
+		call se_svy_contents.ArrpushR resource dlg SE_LBL_BOOTSTRAP
+		call se_svy_values.Arrpush "bootstrap"
+		call se_svy_change.Arrpush "program _se_svy_bootstrap"
+	
+		call se_svy_contents.ArrpushR resource dlg SE_LBL_BRR
+		call se_svy_values.Arrpush "brr"
+		call se_svy_change.Arrpush "program _se_svy_brr"
+	
+		call se_svy_contents.ArrpushR resource dlg SE_LBL_JACKKNIFE
+		call se_svy_values.Arrpush "jackknife"
+		call se_svy_change.Arrpush "program _se_svy_jackknife"
+	
+		call se_svy_contents.ArrpushR resource dlg SE_LBL_SDR
+		call se_svy_values.Arrpush "sdr"
+		call se_svy_change.Arrpush "program _se_svy_sdr"
+	}
+
+	call se.lb_svyvcetype.repopulate	
+END
+
+SCRIPT _se_svy_linearized
+BEGIN
+	se_svyvcetype.setstring resource SE_LBL_LINEARIZED
+	program _se_svy_hide_options
+	program _se_check_svy_options
+END
+
+PROGRAM _se_svy_bootstrap
+BEGIN
+	call se_svyvcetype.setstring resource SE_LBL_BOOTSTRAP
+	call program _se_check_svy_options
+END
+
+PROGRAM _se_svy_brr
+BEGIN
+	call se_svyvcetype.setstring resource SE_LBL_BRR
+	call program _se_check_svy_options
+END
+
+PROGRAM _se_svy_jackknife
+BEGIN
+	call se_svyvcetype.setstring resource SE_LBL_JACKKNIFE
+	call program _se_check_svy_options
+END
+
+PROGRAM _se_svy_sdr
+BEGIN
+	call se_svyvcetype.setstring resource SE_LBL_SDR
+	call program _se_check_svy_options
+END
+
+SCRIPT _se_EmptyLists
+BEGIN
+	se_type_list.Arrdropall
+	se_type_values.Arrdropall
+	se_type_actions.Arrdropall
+	se.lb_vcetype.clearlist
+END
+
+PROGRAM _se_build_lists
+BEGIN
+	// NOTE: the order in which these scripts are called matters, and
+	// should match the order in -_se_rebuild_listbox.
+	call script _se_addDefaultToLists
+	if se_hasRobust {
+		call script _se_addRobustToLists
+		if se_hasClRobust & !se_noCluster {
+			call script _se_addClRobustToLists
+		}
+	}
+	if se_hasSvy {
+		call script _se_addSvy
+	}
+	else {
+		call script _se_removeSvy
+	}
+	if se_hasAnalytic | se_hasLinearized {
+		if !se_noCluster {
+			call script _se_addClusterToLists
+		}
+	}
+	if se_hasEIM {
+		call script _se_addEIMToLists
+	}
+	if se_hasOIM {
+		call script _se_addOIMToLists
+	}
+	if se_hasIOIM {
+		call script _se_addIOIMToLists
+	}
+	if se_hasGNR {
+		call script _se_addGNRToLists
+	}
+	if se_hasAnalytic {
+		call script _se_addAnalyticToLists
+	}
+	if se_hasN2step {
+		call script _se_addN2stepToLists
+	}
+	if se_hasH2step {
+		call script _se_addH2stepToLists
+	}
+	if se_has2step {
+		call script _se_add2stepToLists
+	}
+	if se_has2stage {
+		call script _se_add2stageToLists
+	}
+	if se_hasOLS {
+		call script _se_addOLSToLists
+	}
+	if se_hasLinearized {
+		call script _se_addLinearizedToLists
+	}
+	if se_hasGLS {
+		call script _se_addGLSToLists
+	}
+	if se_hasGMM {
+		call script _se_addGMMToLists
+	}
+	if se_hasConventional {
+		call script _se_addConventionalToLists
+	}
+	if se_hasOPG {
+		call script _se_addOPGToLists
+	}
+	if se_hasNone {
+		call script _se_addNoneToLists
+	}
+	if se_hasBootstrap & !se_isMI {
+		call script _se_addBootstrapToLists
+	}
+	if se_hasJackknife & !se_isMI {
+		call script _se_addJackknifeToLists
+	}
+	if se_hasHAC {
+		call script _se_addHACToLists
+	}
+	if se_hasJackknife1 & !se_isMI {
+		call script _se_addJackknife1ToLists
+	}
+	if se_hasUnbiased {
+		call script _se_addUnbiasedToLists
+	}
+	if se_hasUnadjusted {
+		call script _se_addUnadjustedToLists
+	}
+	if se_hasSBentler {
+		call script _se_addSBentlerToLists
+	}
+
+	if se_hasRobust {
+		call script se_setTitleSeRobust
+	}
+	else {
+		call script se_setTitleSE
+	}
+END
+
+PROGRAM _se_rebuild_listbox
+BEGIN
+	if se_isReBuilding {
+		// prevent recursion -- exit since we are entering this
+		// routine recursively
+		exit
+	}
+	// make sure to call 'call se_isReBuilding.setfalse' at the end of
+	// this PROGRAM
+	call se_isReBuilding.settrue
+
+	// NOTE: the order in which these scripts are called matters, and
+	// should match the order in -_se_build_lists-.
+	call script _se_EmptyLists
+	call script _se_addDefaultToListBox
+	if se_hasRobust {
+		call script _se_addRobustToListBox
+		if se_hasClRobust & !se_noCluster {
+			call script _se_addClRobustToListBox
+		}
+	}
+	if se_hasSvy {
+		call script _se_addSvy
+	}
+	else {
+		call script _se_removeSvy
+	}
+	if se_hasAnalytic | se_hasLinearized {
+		if !se_noCluster {
+			call script _se_addClusterToListBox
+		}
+	}
+	if se_hasEIM & !se_isPWon {	// -pweights- imply robust by default
+		call script _se_addEIMToListBox
+	}
+	if se_hasOIM & !se_isPWon {	// -pweights- imply robust by default
+		call script _se_addOIMToListBox
+	}
+	if se_hasIOIM & !se_isPWon {	// -pweights- imply robust by default
+		call script _se_addIOIMToListBox
+	}
+	if se_hasOLS & !se_isPWon {	
+		call script _se_addOLSToListBox
+	}
+	if se_hasGNR & !se_isPWon {	// -pweights- imply robust by default
+		call script _se_addGNRToListBox
+	}
+	if se_hasAnalytic & !se_isPWon { // -pweights- imply robust by default
+		call script _se_addAnalyticToListBox
+	}
+	if se_hasN2step & !se_isPWon {	// -pweights- imply robust by default
+		call script _se_addN2stepToListBox
+	}
+	if se_hasH2step & !se_isPWon {	// -pweights- imply robust by default
+		call script _se_addH2stepToListBox
+	}
+	if se_has2step & !se_isPWon {	// -pweights- imply robust by default
+		call script _se_add2stepToListBox
+	}
+	if se_has2stage & !se_isPWon {	// -pweights- imply robust by default
+		call script _se_add2stageToListBox
+	}
+	if se_hasLinearized & !se_isPWon { // -pweights- imply robust by default
+		call script _se_addLinearizedToListBox
+	}
+	if se_hasOPG & !se_isPWon {	// -pweights- imply robust by default
+		call script _se_addOPGToListBox
+	}
+	if se_hasGLS & !se_isPWon {	// -pweights- imply robust by default
+		call script _se_addGLSToListBox
+	}
+	if se_hasGMM & !se_isPWon {	// -pweights- imply robust by default
+		call script _se_addGMMToListBox
+	}
+	if se_hasConventional & !se_isPWon { // -pweights- imply robust by default
+		call script _se_addConventionalToListBox
+	}
+	if se_hasBootstrap & !se_isWeighted & !se_isMI {
+		call script _se_addBootstrapToListBox
+	}
+	if se_hasJackknife & !se_isMI {
+		call script _se_addJackknifeToListBox
+	}
+	if se_hasHAC {
+		call script _se_addHACToListBox
+	}
+	if se_hasJackknife1 & !se_isMI {
+		call script _se_addJackknife1ToListBox
+	}
+	if se_hasUnbiased {
+		call script _se_addUnbiasedToListBox
+	}
+	if se_hasUnadjusted {
+		call script _se_addUnadjustedToListBox
+	}
+	if se_hasSBentler & !se_isPWon & !se_isIWon {
+		call script _se_addSBentlerToListBox
+	}
+	if se_hasNone {
+		call script _se_addNoneToListBox
+	}
+	call script _se_reset_vcetype
+	call script _se_reset_svyvcetype
+
+	call se_isReBuilding.setfalse
+END
+
+SCRIPT _se_reset_vcetype
+BEGIN
+	se_vcetype.withvalue se.lb_vcetype.setvalue "@"
+END
+
+SCRIPT _se_reset_svyvcetype
+BEGIN
+	se_svyvcetype.withvalue se.lb_svyvcetype.setvalue "@"
+END
+
+SCRIPT _se_addDefaultToLists
+BEGIN
+	se_type_list.ArrpushR resource dlg SE_LBL_DFLT_STD_ERRORS
+	se_type_values.Arrpush ""
+	se_type_actions.Arrpush script _se_Default_on
+END
+SCRIPT _se_addDefaultToListBox
+BEGIN
+	se.lb_vcetype.additem resource SE_LBL_DFLT_STD_ERRORS
+	script _se_addDefaultToLists
+END
+SCRIPT _se_Default_on
+BEGIN
+	se_vcetype.setstring resource SE_LBL_DFLT_STD_ERRORS
+	se_closeParenthesis.setfalse
+	se_isHAC.setfalse
+	se_hasCluster.setfalse
+	program _se_hideOrShow
+END
+
+SCRIPT _se_addBootstrapToLists
+BEGIN
+	se_type_list.ArrpushR resource dlg SE_LBL_BOOTSTRAP
+	se_type_values.Arrpush "vce(bootstrap"
+	se_type_actions.Arrpush script _se_Bootstrap_on
+END
+SCRIPT _se_addBootstrapToListBox
+BEGIN
+	se.lb_vcetype.additem resource SE_LBL_BOOTSTRAP
+	script _se_addBootstrapToLists
+END
+SCRIPT _se_Bootstrap_on
+BEGIN
+	se_vcetype.setstring resource SE_LBL_BOOTSTRAP
+	se_closeParenthesis.settrue
+	se_isHAC.setfalse
+	se_hasCluster.settrue
+	program _se_hideOrShow
+END
+
+SCRIPT _se_addClRobustToLists
+BEGIN
+	se_type_list.ArrpushR resource dlg LBL_CLUSTERED_ROBUST
+	se_type_values.Arrpush "vce(cluster"
+	se_type_actions.Arrpush script _se_ClRobust_on
+END
+SCRIPT _se_addClRobustToListBox
+BEGIN
+	se.lb_vcetype.additem resource LBL_CLUSTERED_ROBUST
+	script _se_addClRobustToLists
+END
+SCRIPT _se_ClRobust_on
+BEGIN
+	se_vcetype.setstring resource LBL_CLUSTERED_ROBUST
+	se_closeParenthesis.settrue
+	se_isHAC.setfalse
+	se_hasCluster.settrue
+	program _se_hideOrShow
+END
+
+SCRIPT _se_addClusterToLists
+BEGIN
+	se_type_list.ArrpushR resource dlg SE_LBL_CLUSTER
+	se_type_values.Arrpush "vce(cluster"
+	se_type_actions.Arrpush script _se_Cluster_on
+END
+SCRIPT _se_addClusterToListBox
+BEGIN
+	se.lb_vcetype.additem resource SE_LBL_CLUSTER
+	script _se_addClusterToLists
+END
+SCRIPT _se_Cluster_on
+BEGIN
+	se_vcetype.setstring resource SE_LBL_CLUSTER
+	se_closeParenthesis.settrue
+	se_isHAC.setfalse
+	se_hasCluster.settrue
+	program _se_hideOrShow
+END
+
+SCRIPT _se_addEIMToLists
+BEGIN
+	se_type_list.ArrpushR resource dlg SE_LBL_EIM
+	se_type_values.Arrpush "vce(eim)"
+	se_type_actions.Arrpush script _se_EIM_on
+END
+SCRIPT _se_addEIMToListBox
+BEGIN
+	se.lb_vcetype.additem resource SE_LBL_EIM
+	script _se_addEIMToLists
+END
+SCRIPT _se_EIM_on
+BEGIN
+	se_vcetype.setstring resource SE_LBL_EIM
+	se_closeParenthesis.setfalse
+	se_isHAC.setfalse
+	se_hasCluster.setfalse
+	program _se_hideOrShow
+END
+
+SCRIPT _se_addHACToLists
+BEGIN
+	se_type_list.ArrpushR resource dlg LBL_HAC
+	se_type_values.Arrpush "vce(hac"
+	se_type_actions.Arrpush script _se_HAC_on
+END
+SCRIPT _se_addHACToListBox
+BEGIN
+	se.lb_vcetype.additem resource LBL_HAC
+	script _se_addHACToLists
+END
+SCRIPT _se_HAC_on
+BEGIN
+	se_vcetype.setstring resource LBL_HAC
+	se_closeParenthesis.settrue
+	se_isHAC.settrue
+	se_hasCluster.setfalse
+	program _se_hideOrShow
+END
+
+SCRIPT _se_addJackknifeToLists
+BEGIN
+	se_type_list.ArrpushR resource dlg SE_LBL_JACKKNIFE
+	se_type_values.Arrpush "vce(jackknife"
+	se_type_actions.Arrpush script _se_Jackknife_on
+END
+SCRIPT _se_addJackknifeToListBox
+BEGIN
+	se.lb_vcetype.additem resource SE_LBL_JACKKNIFE
+	script _se_addJackknifeToLists
+END
+SCRIPT _se_Jackknife_on
+BEGIN
+	se_vcetype.setstring resource SE_LBL_JACKKNIFE
+	se_closeParenthesis.settrue
+	se_isHAC.setfalse
+	se_hasCluster.settrue
+	program _se_hideOrShow
+END
+
+SCRIPT _se_addJackknife1ToLists
+BEGIN
+	se_type_list.ArrpushR resource dlg SE_LBL_JACKKNIFE_ONESTEP
+	se_type_values.Arrpush "vce(jackknife1)"
+	se_type_actions.Arrpush script _se_Jackknife1_on
+END
+SCRIPT _se_addJackknife1ToListBox
+BEGIN
+	se.lb_vcetype.additem resource SE_LBL_JACKKNIFE_ONESTEP
+	script _se_addJackknife1ToLists
+END
+SCRIPT _se_Jackknife1_on
+BEGIN
+	se_vcetype.setstring resource SE_LBL_JACKKNIFE_ONESTEP
+	se_closeParenthesis.setfalse
+	se_isHAC.setfalse
+	se_hasCluster.setfalse
+	program _se_hideOrShow
+END
+
+SCRIPT _se_addOIMToLists
+BEGIN
+	se_type_list.ArrpushR resource dlg SE_LBL_OIM
+	se_type_values.Arrpush "vce(oim)"
+	se_type_actions.Arrpush script _se_OIM_on
+END
+SCRIPT _se_addOIMToListBox
+BEGIN
+	se.lb_vcetype.additem resource SE_LBL_OIM
+	script _se_addOIMToLists
+END
+SCRIPT _se_OIM_on
+BEGIN
+	se_vcetype.setstring resource SE_LBL_OIM
+	se_closeParenthesis.setfalse
+	se_isHAC.setfalse
+	se_hasCluster.setfalse
+	program _se_hideOrShow
+END
+
+SCRIPT _se_addIOIMToLists
+BEGIN
+	se_type_list.ArrpushR resource dlg SE_LBL_OIM
+	se_type_values.Arrpush ""
+	se_type_actions.Arrpush script _se_IOIM_on
+END
+SCRIPT _se_addIOIMToListBox
+BEGIN
+	se.lb_vcetype.additem resource SE_LBL_OIM
+	script _se_addIOIMToLists
+END
+SCRIPT _se_IOIM_on
+BEGIN
+	se_vcetype.setstring resource SE_LBL_OIM
+	se_closeParenthesis.setfalse
+	se_isHAC.setfalse
+	se_hasCluster.setfalse
+	program _se_hideOrShow
+END
+
+SCRIPT _se_addGNRToLists
+BEGIN
+	se_type_list.ArrpushR resource dlg SE_LBL_GNR
+	se_type_values.Arrpush ""
+	se_type_actions.Arrpush script _se_GNR_on
+END
+SCRIPT _se_addGNRToListBox
+BEGIN
+	se.lb_vcetype.additem resource SE_LBL_GNR
+	script _se_addGNRToLists
+END
+SCRIPT _se_GNR_on
+BEGIN
+	se_vcetype.setstring resource SE_LBL_GNR
+	se_closeParenthesis.setfalse
+	se_isHAC.setfalse
+	se_hasCluster.setfalse
+	program _se_hideOrShow
+END
+
+SCRIPT _se_addOLSToLists
+BEGIN
+	se_type_list.ArrpushR resource dlg SE_LBL_OLS
+	se_type_values.Arrpush "vce(ols)"
+	se_type_actions.Arrpush script _se_OLS_on
+END
+SCRIPT _se_addOLSToListBox
+BEGIN
+	se.lb_vcetype.additem resource SE_LBL_OLS
+	script _se_addOLSToLists
+END
+SCRIPT _se_OLS_on
+BEGIN
+	se_vcetype.setstring resource SE_LBL_OLS
+	se_closeParenthesis.setfalse
+	se_isHAC.setfalse
+	se_hasCluster.setfalse
+	program _se_hideOrShow
+END
+
+SCRIPT _se_addAnalyticToLists
+BEGIN
+	se_type_list.ArrpushR resource dlg SE_LBL_ANALYTIC
+	se_type_values.Arrpush ""
+	se_type_actions.Arrpush script _se_Analytic_on
+END
+SCRIPT _se_addAnalyticToListBox
+BEGIN
+	se.lb_vcetype.additem resource SE_LBL_ANALYTIC
+	script _se_addAnalyticToLists
+END
+SCRIPT _se_Analytic_on
+BEGIN
+	se_vcetype.setstring resource SE_LBL_ANALYTIC
+	se_closeParenthesis.setfalse
+	se_isHAC.setfalse
+	se_hasCluster.setfalse
+	program _se_hideOrShow
+END
+
+SCRIPT _se_addN2stepToLists
+BEGIN
+	se_type_list.ArrpushR resource dlg SE_LBL_NEWEYS_2STEP
+	se_type_values.Arrpush ""
+	se_type_actions.Arrpush script _se_N2step_on
+END
+SCRIPT _se_addN2stepToListBox
+BEGIN
+	se.lb_vcetype.additem resource SE_LBL_NEWEYS_2STEP
+	script _se_addN2stepToLists
+END
+SCRIPT _se_N2step_on
+BEGIN
+	se_vcetype.setstring resource SE_LBL_NEWEYS_2STEP
+	se_closeParenthesis.setfalse
+	se_isHAC.setfalse
+	se_hasCluster.setfalse
+	program _se_hideOrShow
+END
+
+SCRIPT _se_addH2stepToLists
+BEGIN
+	se_type_list.ArrpushR resource dlg SE_LBL_HECKMANS_2STEP
+	se_type_values.Arrpush ""
+	se_type_actions.Arrpush script _se_H2step_on
+END
+SCRIPT _se_addH2stepToListBox
+BEGIN
+	se.lb_vcetype.additem resource SE_LBL_HECKMANS_2STEP
+	script _se_addH2stepToLists
+END
+SCRIPT _se_H2step_on
+BEGIN
+	se_vcetype.setstring resource SE_LBL_HECKMANS_2STEP
+	se_closeParenthesis.setfalse
+	se_isHAC.setfalse
+	se_hasCluster.setfalse
+	program _se_hideOrShow
+END
+
+SCRIPT _se_add2stepToLists
+BEGIN
+	se_type_list.ArrpushR resource dlg LBL_2STEP
+	se_type_values.Arrpush ""
+	se_type_actions.Arrpush script _se_2step_on
+END
+SCRIPT _se_add2stepToListBox
+BEGIN
+	se.lb_vcetype.additem resource LBL_2STEP
+	script _se_add2stepToLists
+END
+SCRIPT _se_2step_on
+BEGIN
+	se_vcetype.setstring resource LBL_2STEP
+	se_closeParenthesis.setfalse
+	se_isHAC.setfalse
+	se_hasCluster.setfalse
+	program _se_hideOrShow
+END
+
+SCRIPT _se_add2stageToLists
+BEGIN
+	se_type_list.ArrpushR resource dlg SE_LBL_2STAGE
+	se_type_values.Arrpush ""
+	se_type_actions.Arrpush script _se_2stage_on
+END
+SCRIPT _se_add2stageToListBox
+BEGIN
+	se.lb_vcetype.additem resource SE_LBL_2STAGE
+	script _se_add2stageToLists
+END
+SCRIPT _se_2stage_on
+BEGIN
+	se_vcetype.setstring resource SE_LBL_2STAGE
+	se_closeParenthesis.setfalse
+	se_isHAC.setfalse
+	se_hasCluster.setfalse
+	program _se_hideOrShow
+END
+
+SCRIPT _se_addLinearizedToLists
+BEGIN
+	se_type_list.ArrpushR resource dlg SE_LBL_LINEARIZED
+	se_type_values.Arrpush ""
+	se_type_actions.Arrpush script _se_Linearized_on
+END
+SCRIPT _se_addLinearizedToListBox
+BEGIN
+	se.lb_vcetype.additem resource SE_LBL_LINEARIZED
+	script _se_addLinearizedToLists
+END
+SCRIPT _se_Linearized_on
+BEGIN
+	se_vcetype.setstring resource SE_LBL_LINEARIZED
+	se_closeParenthesis.setfalse
+	se_isHAC.setfalse
+	se_hasCluster.setfalse
+	program _se_hideOrShow
+END
+
+SCRIPT _se_addOPGToLists
+BEGIN
+	se_type_list.ArrpushR resource dlg SE_LBL_OPG
+	se_type_values.Arrpush "vce(opg)"
+	se_type_actions.Arrpush script _se_OPG_on
+END
+SCRIPT _se_addOPGToListBox
+BEGIN
+	se.lb_vcetype.additem resource SE_LBL_OPG
+	script _se_addOPGToLists
+END
+SCRIPT _se_OPG_on
+BEGIN
+	se_vcetype.setstring resource SE_LBL_OPG
+	se_closeParenthesis.setfalse
+	se_isHAC.setfalse
+	se_hasCluster.setfalse
+	program _se_hideOrShow
+END
+
+SCRIPT _se_addGLSToLists
+BEGIN
+	se_type_list.ArrpushR resource dlg SE_LBL_GLS
+	se_type_values.Arrpush ""
+	se_type_actions.Arrpush script _se_GLS_on
+END
+SCRIPT _se_addGLSToListBox
+BEGIN
+	se.lb_vcetype.additem resource SE_LBL_GLS
+	script _se_addGLSToLists
+END
+SCRIPT _se_GLS_on
+BEGIN
+	se_vcetype.setstring resource SE_LBL_GLS
+	se_closeParenthesis.setfalse
+	se_isHAC.setfalse
+	se_hasCluster.setfalse
+	program _se_hideOrShow
+END
+
+SCRIPT _se_addGMMToLists
+BEGIN
+	se_type_list.ArrpushR resource dlg LBL_GENERALIZED_METHOD_OF_MOMENTS_GMM
+	se_type_values.Arrpush ""
+	se_type_actions.Arrpush script _se_GMM_on
+END
+SCRIPT _se_addGMMToListBox
+BEGIN
+	se.lb_vcetype.additem resource LBL_GENERALIZED_METHOD_OF_MOMENTS_GMM
+	script _se_addGMMToLists
+END
+SCRIPT _se_GMM_on
+BEGIN
+	se_vcetype.setstring resource LBL_GENERALIZED_METHOD_OF_MOMENTS_GMM
+	se_closeParenthesis.setfalse
+	se_isHAC.setfalse
+	se_hasCluster.setfalse
+	program _se_hideOrShow
+END
+
+SCRIPT _se_addConventionalToLists
+BEGIN
+	se_type_list.ArrpushR resource dlg SE_LBL_CONVENTIONAL
+	se_type_values.Arrpush "vce(conventional)"
+	se_type_actions.Arrpush script _se_Conventional_on
+END
+SCRIPT _se_addConventionalToListBox
+BEGIN
+	se.lb_vcetype.additem resource SE_LBL_CONVENTIONAL
+	script _se_addConventionalToLists
+END
+SCRIPT _se_Conventional_on
+BEGIN
+	se_vcetype.setstring resource SE_LBL_CONVENTIONAL
+	se_closeParenthesis.setfalse
+	se_isHAC.setfalse
+	se_hasCluster.setfalse
+	program _se_hideOrShow
+END
+
+SCRIPT _se_addRobustToLists
+BEGIN
+	se_type_list.ArrpushR resource dlg LBL_ROBUST
+	se_type_values.Arrpush "vce(robust"
+	se_type_actions.Arrpush script _se_Robust_on
+END
+SCRIPT _se_addRobustToListBox
+BEGIN
+	se.lb_vcetype.additem resource LBL_ROBUST
+	script _se_addRobustToLists
+END
+SCRIPT _se_Robust_on
+BEGIN
+	se_vcetype.setstring resource LBL_ROBUST
+	se_closeParenthesis.settrue
+	se_isHAC.setfalse
+	se_hasCluster.setfalse
+	program _se_hideOrShow
+END
+
+SCRIPT _se_addUnbiasedToLists
+BEGIN
+	se_type_list.ArrpushR resource dlg SE_LBL_UNBIASED_SANDWICH
+	se_type_values.Arrpush "vce(unbiased)"
+	se_type_actions.Arrpush script _se_Unbiased_on
+END
+SCRIPT _se_addUnbiasedToListBox
+BEGIN
+	se.lb_vcetype.additem resource SE_LBL_UNBIASED_SANDWICH
+	script _se_addUnbiasedToLists
+END
+SCRIPT _se_Unbiased_on
+BEGIN
+	se_vcetype.setstring resource SE_LBL_UNBIASED_SANDWICH
+	se_closeParenthesis.setfalse
+	se_isHAC.setfalse
+	se_hasCluster.setfalse
+	program _se_hideOrShow
+END
+
+SCRIPT _se_addUnadjustedToLists
+BEGIN
+	se_type_list.ArrpushR resource dlg LBL_UNADJUSTED
+	se_type_values.Arrpush "vce(unadjusted"
+	se_type_actions.Arrpush script _se_Unadjusted_on
+END
+SCRIPT _se_addUnadjustedToListBox
+BEGIN
+	se.lb_vcetype.additem resource LBL_UNADJUSTED
+	script _se_addUnadjustedToLists
+END
+SCRIPT _se_Unadjusted_on
+BEGIN
+	se_vcetype.setstring resource LBL_UNADJUSTED
+	se_closeParenthesis.settrue
+	se_isHAC.setfalse
+	program _se_hideOrShow
+END
+
+SCRIPT _se_addSBentlerToLists
+BEGIN
+	se_type_list.ArrpushR resource dlg LBL_SBENTLER
+	se_type_values.Arrpush "vce(sbentler"
+	se_type_actions.Arrpush script _se_SBentler_on
+END
+SCRIPT _se_addSBentlerToListBox
+BEGIN
+	se.lb_vcetype.additem resource LBL_SBENTLER
+	script _se_addSBentlerToLists
+END
+SCRIPT _se_SBentler_on
+BEGIN
+	se_vcetype.setstring resource LBL_SBENTLER
+	se_closeParenthesis.settrue
+	program _se_hideOrShow
+END
+
+SCRIPT _se_addNoneToLists
+BEGIN
+	se_type_list.ArrpushR resource dlg SE_LBL_NONE
+	se_type_values.Arrpush ""
+	se_type_actions.Arrpush script _se_None_on
+END
+SCRIPT _se_addNoneToListBox
+BEGIN
+	se.lb_vcetype.additem resource dlg SE_LBL_NONE
+	script _se_addNoneToLists
+END
+SCRIPT _se_None_on
+BEGIN
+	se_vcetype.setstring resource SE_LBL_NONE
+	se_closeParenthesis.setfalse
+	program _se_hideOrShow
+END
+
+SCRIPT _se_addSvy
+BEGIN
+	se.ck_svy.show
+	se.tx_type.setposition 10 35
+	se.lb_vcetype.setposition 10 55 . 75
+END
+SCRIPT _se_removeSvy
+BEGIN
+	se.ck_svy.hide
+	se.tx_type.setposition 10 10
+	se.lb_vcetype.setposition 10 30 . 100
+END
+
+PROGRAM _se_hideOrShow
+BEGIN
+	call se.tx_temp.hide
+	call program _se_check_bootstrap
+	call program _se_check_cluster
+	call program _se_check_factors
+	call program _se_check_scale
+	call program _se_check_hac
+	call program _se_check_mse
+	call program _se_check_noadjust
+	call program _se_check_nodots
+	call program _se_check_notes
+	call program _se_notes_for_tsset
+	call program _se_check_vfactor
+	call program _se_check_svy
+	call program _se_check_bias
+	if se.ck_svy {
+		call script _se_switchToSvy
+	}
+	if se_hasSvy & ! se.ck_svy {
+		call script _se_switchToNonSvy
+	}
+	call program _se_check_gmm
+END
+
+SCRIPT _se_check_gmm
+BEGIN
+	if se_isGMM {
+		if (se_vcetype.equals(resource SE_LBL_DFLT_STD_ERRORS)) {
+			call se.ck_indep.setposition . 170 
+			call se.ck_indep.show
+			call se.ck_gmm_quickd.setposition . 210
+		}
+		if (se_vcetype.equals(resource LBL_ROBUST)) {
+			call se.ck_indep.setposition . 140
+			call se.ck_indep.show
+			call se.ck_gmm_quickd.setposition . 165
+		}
+		if (se_vcetype.equals(resource SE_LBL_BOOTSTRAP)) {
+			call se.ck_indep.hide
+			call se.ck_gmm_quickd.setposition . 280
+		}
+		if (se_vcetype.equals(resource LBL_CLUSTERED_ROBUST)) {
+			call se.ck_indep.setposition . 190 
+			call se.ck_indep.show
+			call se.ck_gmm_quickd.setposition . 215
+		}
+		if (se_vcetype.equals(resource SE_LBL_CLUSTER)) {
+			call se.ck_indep.setposition . 170
+			call se.ck_indep.show
+			call se.ck_gmm_quickd.setposition . 195
+		}
+		if (se_vcetype.equals(resource SE_LBL_JACKKNIFE)) {
+			call se.ck_indep.hide
+			call se.ck_gmm_quickd.setposition . 240
+		}
+		if (se_vcetype.equals(resource LBL_HAC)) {
+			call se.ck_indep.setposition . 310
+			call se.ck_indep.show
+			call se.ck_gmm_quickd.setposition . 335
+		}
+		if (se_vcetype.equals(resource LBL_UNADJUSTED)) {
+			call se.ck_indep.setposition . 140
+			call se.ck_indep.show
+			call se.ck_gmm_quickd.setposition . 165
+		}
+		call se.ck_gmm_quickd.show
+	}
+	else {
+		call se.ck_indep.hide
+		call se.ck_gmm_quickd.hide
+	}
+END
+
+SCRIPT _se_switchToSvy
+BEGIN
+	script sub_set_svy_on
+	program weights_disable_fromSE
+	script svy_is_on
+END
+
+SCRIPT _se_switchToNonSvy
+BEGIN
+	script sub_set_svy_off
+	program weights_enable_fromSE
+	script svy_is_off
+END
+
+PROGRAM _se_check_bias
+BEGIN
+	call script _se_bias_hide
+	if !se.ck_svy & se_hasBias & se_vcetype.equals(resource LBL_ROBUST) {
+		call script _se_bias_show
+	}
+END
+SCRIPT _se_bias_hide
+BEGIN
+	se.gb_bias.hide
+	se.rb_hc1.hide
+	se.tx_hc1.hide
+	se.rb_hc2.hide
+	se.tx_hc2.hide
+	se.rb_hc3.hide
+	se.tx_hc3.hide
+END
+SCRIPT _se_bias_show
+BEGIN
+	script _se_notes_hide
+	se.gb_bias.show
+	se.rb_hc1.show
+	se.tx_hc1.show
+	se.rb_hc2.show
+	se.tx_hc2.show
+	se.rb_hc3.show
+	se.tx_hc3.show
+END
+
+PROGRAM _se_check_bootstrap
+BEGIN
+	call script _se_bootstrap_hide
+	if !se.ck_svy & se_hasBootstrap & se_vcetype.equals(resource SE_LBL_BOOTSTRAP) {
+		if se_noCluster {
+			call se.ck_bca.setposition . 190
+			call se.sp_reps.setposition . 140
+			call se.tx_reps.setposition . 140
+			call se.ed_seed.setposition . 170
+			call se.tx_seed.setposition . 170
+			call se.sp_dots.setposition . 200
+			call se.tx_dots.setposition . 200
+			call se.ck_bwreplace.setposition . 215
+		}
+		if ! se_noCluster {
+			call se.ck_bca.setposition . 240
+			call se.sp_reps.setposition . 190
+			call se.tx_reps.setposition . 190
+			call se.ed_seed.setposition . 220
+			call se.tx_seed.setposition . 220
+			call se.sp_dots.setposition . 250
+			call se.tx_dots.setposition . 250
+			call se.ck_bwreplace.setposition . 265
+		}
+		call script _se_bootstrap_show
+		if se_isNpregress {
+			call se.ck_bwreplace.show
+		}
+		else {
+			call se.ck_bwreplace.hide
+		}		
+	}
+END
+SCRIPT _se_bootstrap_hide
+BEGIN
+	se.ck_bca.hide
+	se.sp_reps.hide
+	se.tx_reps.hide
+	se.ed_seed.hide
+	se.tx_seed.hide
+	se.ck_bwreplace.hide
+	se.sp_dots.hide
+	se.tx_dots.hide
+END
+SCRIPT _se_bootstrap_show
+BEGIN
+	script _se_jackknife_show
+	se.ck_bca.show
+	se.sp_reps.show
+	se.tx_reps.show
+	se.ed_seed.show
+	se.tx_seed.show
+	se.sp_dots.show
+	se.tx_dots.show
+END
+
+PROGRAM _se_check_cluster
+BEGIN
+	call script _se_cluster_hide
+	call se.ck_nonest.hide
+	call se.ck_dfadj.hide
+	if !se.ck_svy & se_hasCluster & !se_noCluster & 	///
+	 ( se_vcetype.equals(resource SE_LBL_BOOTSTRAP) 	///
+	 | se_vcetype.equals(resource LBL_CLUSTERED_ROBUST)	///
+	 | se_vcetype.equals(resource SE_LBL_CLUSTER) 		///
+	 | se_vcetype.equals(resource SE_LBL_JACKKNIFE) 	///
+	 ) {
+		if se_vcetype.equals(resource LBL_CLUSTERED_ROBUST) 	///
+		 | se_vcetype.equals(resource SE_LBL_CLUSTER) 		{
+			call se.tx_cluster.setlabel resource LBL_CLUSTER_VARIABLE
+			if se_hasClusterDFADJ {
+				call se.ck_dfadj.show
+			}
+			if ! se_hasClusterDFADJ {
+				call se.ck_dfadj.hide
+			}
+		}
+		if !se_vcetype.equals(resource LBL_CLUSTERED_ROBUST)	///
+		 & !se_vcetype.equals(resource SE_LBL_CLUSTER) {
+			call se.tx_cluster.setlabel ///
+				resource SE_TX_CLUSTER_OPTIONAL
+		}
+		call script _se_cluster_show
+		if se_hasClusterNONEST {
+			if se_vcetype.equals(resource LBL_CLUSTERED_ROBUST) ///
+			 | se_vcetype.equals(resource SE_LBL_CLUSTER)  {
+				call se.ck_nonest.setposition  . 190
+			}
+			if se_vcetype.equals(resource SE_LBL_BOOTSTRAP) {
+				call se.ck_nonest.setposition  . 265
+			}
+			if se_vcetype.equals(resource SE_LBL_JACKKNIFE) {
+				call se.ck_nonest.setposition  . 240
+			}
+			call se.ck_nonest.show
+		}
+		if ! se_hasClusterNONEST {
+			call se.ck_nonest.hide
+		}
+	}
+END
+SCRIPT _se_cluster_hide
+BEGIN
+	se.tx_cluster.hide
+	se.vn_cluster.hide
+END
+SCRIPT _se_cluster_show
+BEGIN
+	se.tx_cluster.show
+	se.vn_cluster.show
+END
+
+PROGRAM _se_check_factors
+BEGIN
+	call script _se_factors_hide
+	if !se.ck_svy & se_isGEE & 					///
+	 (  se_vcetype.equals(resource SE_LBL_DFLT_STD_ERRORS) 		///
+	 | se_vcetype.equals(resource SE_LBL_CONVENTIONAL) 		///
+	 | se_vcetype.equals(resource LBL_ROBUST) 			///
+	 ) {
+		call script _se_factors_show
+	}
+END
+SCRIPT _se_factors_hide
+BEGIN
+	se.gb_factor.hide
+	se.rb_default.hide
+	se.rb_nmp.hide
+	se.rb_rgf.hide
+END
+SCRIPT _se_factors_show
+BEGIN
+	se.gb_factor.show
+	se.rb_default.show
+	se.rb_nmp.show
+	program _se_check_RGF
+END
+
+PROGRAM _se_check_scale
+BEGIN
+	call script _se_scale_hide
+	if !se.ck_svy & se_isGEE & 					///
+	 ( se_vcetype.equals(resource SE_LBL_DFLT_STD_ERRORS) 		///
+	 | se_vcetype.equals(resource SE_LBL_CONVENTIONAL) 		///
+	 | se_vcetype.equals(resource LBL_ROBUST) 			///
+	 ) {
+		call script _se_scale_move
+		call program _se_check_RGF
+		call program _se_scale_show
+	}
+	if !se.ck_svy & se_isGLM & !se_isPWon & 			///
+	 ( se_vcetype.equals(resource SE_LBL_DFLT_STD_ERRORS) 		///
+	 | se_vcetype.equals(resource SE_LBL_OIM) 			///
+	 | se_vcetype.equals(resource SE_LBL_EIM) 			///
+	 ) {
+		call program _se_scale_show
+	}
+END
+SCRIPT _se_scale_move
+BEGIN
+	se.gb_scale.setposition . 110 . 130
+	se.rb_deflt.setposition . 130 . .
+	se.rb_x2.setposition . 150 . .
+	se.rb_dev.setposition . 170 . .
+	se.rb_phi.setposition . 190 . .
+	se.rb_value.setposition . 210 . .
+	se.en_value.setposition . 210 . .
+	se.tx_value.setposition . 210 . .
+END
+SCRIPT _se_scale_hide
+BEGIN
+	se.gb_scale.hide
+	se.rb_deflt.hide
+	se.rb_x2.hide
+	se.rb_dev.hide
+	se.rb_phi.hide
+	se.rb_value.hide
+	se.en_value.hide
+	se.tx_value.hide
+END
+PROGRAM _se_scale_show
+BEGIN
+	call se.gb_scale.show
+	call se.rb_deflt.show
+	call se.rb_deflt.setlabel "resource SE_RB_DEFLT"
+	call se.rb_x2.show
+	call se.rb_x2.setlabel "resource SE_RB_X2"
+	call se.rb_dev.show
+	call se.rb_dev.setlabel "resource SE_RB_DEV"
+	if se_isGEE {
+		call se.rb_phi.show
+	}
+	call se.rb_value.show
+	call se.en_value.show
+	call se.tx_value.show
+END
+PROGRAM _se_check_scale_value
+BEGIN
+	if se.rb_value {
+		call se.en_value.enable
+	}
+	if !se.rb_value {
+		call se.en_value.disable
+	}
+END
+PROGRAM _se_check_RGF
+BEGIN
+	if se_hasRGF & 						///
+	 ( se_vcetype.equals(resource LBL_ROBUST) 		///
+	 | se_vcetype.equals(resource LBL_CLUSTERED_ROBUST) 	///
+	 ) {
+		call se.rb_rgf.show
+		call se.rb_rgf.setlabel "resource SE_RB_RGF"
+		call se.gb_factor.setposition . . . 90
+	}
+	if !se_hasRGF | 					///
+	 ( !se_vcetype.equals(resource LBL_ROBUST) 		///
+	 & !se_vcetype.equals(resource LBL_CLUSTERED_ROBUST) ///
+	 ) {
+		call se.rb_rgf.hide
+		if se.rb_rgf {
+			call se.rb_default.seton
+		}
+		call se.gb_factor.setposition . . . 70
+	}
+END
+
+PROGRAM _se_check_hac
+BEGIN
+	call script _se_hac_hide
+	call script _se_hac2_hide
+	if !se.ck_svy & se_hasHAC & se_vcetype.equals(resource LBL_HAC) {
+		if se_isIVREGRESS | se_isGMM {
+			call program _se_hac2_show
+		}
+		else {
+			call program _se_hac_show
+		}
+	}
+END
+SCRIPT _se_hac_hide
+BEGIN
+	se.tx_hac.hide
+	se.cb_hac.hide
+	se.tx_lag.hide
+	se.en_lag.hide
+	se.bu_tsset.hide
+	se.bu_mi_tsset.hide
+END
+SCRIPT _se_hac2_hide
+BEGIN
+	se.tx_hac.hide
+	se.cb_hac2.hide
+	se.gb_k_opts.hide
+	se.rb_hacdefault.hide
+	se.rb_haclags.hide
+	se.sp_lags.hide
+	se.tx_lags2.hide
+	se.rb_hacopt.hide
+	se.sp_hacopt_lags.hide
+	se.tx_hacopt_lags.hide
+	se.bu_tsset.hide
+	se.bu_mi_tsset.hide
+END
+PROGRAM _se_hac_show
+BEGIN
+	call se.tx_hac.show
+	call se.cb_hac.show
+	call se.tx_lag.show
+	call se.en_lag.show
+	call program _se_show_tsbtn
+END
+PROGRAM _se_hac2_show
+BEGIN
+	call se.tx_hac.show
+	call se.cb_hac2.show
+	call se.gb_k_opts.show
+	call se.rb_hacdefault.show
+	call se.rb_haclags.show
+	call se.sp_lags.show
+	call se.tx_lags2.show
+	call se.rb_hacopt.show
+	call se.sp_hacopt_lags.show
+	call se.tx_hacopt_lags.show
+	call program _se_show_tsbtn
+END
+PROGRAM _se_show_tsbtn
+BEGIN
+	if __MESSAGE.contains("__MI__") {
+		call se.bu_mi_tsset.show
+	}
+	else {
+		call se.bu_tsset.show
+	}
+END
+
+PROGRAM _se_check_mse
+BEGIN
+	call script _se_mse_hide
+	if !se.ck_svy & 						///
+	   (se_vcetype.equals(resource SE_LBL_BOOTSTRAP) 		///
+	   	| se_vcetype.equals(resource SE_LBL_JACKKNIFE)) {
+		if se_noCluster {
+			call se.ck_mse.setposition . 165
+		}
+		if ! se_noCluster {
+			call se.ck_mse.setposition . 215
+		}
+		call script _se_mse_show
+	}
+	if se.ck_svy	///
+	 & (se_svyvcetype.equals(resource SE_LBL_BOOTSTRAP) 		///
+	 |  se_svyvcetype.equals(resource SE_LBL_BRR) 			///
+	 |  se_svyvcetype.equals(resource SE_LBL_SDR) 			///
+	 |  se_svyvcetype.equals(resource SE_LBL_JACKKNIFE)) {
+		call se.ck_nomse.setposition . 170
+		call se.ck_mse.setposition . 170
+		call se_svymse.setstring char _dta[_svy_mse]
+		if se_svymse.equals("mse") {
+			call script _se_nomse_show
+		}
+		if ! se_svymse.equals("mse") {
+			call script _se_mse_show
+		}
+	}
+END
+SCRIPT _se_mse_hide
+BEGIN
+	se.ck_mse.hide
+	se.ck_nomse.hide
+END
+SCRIPT _se_mse_show
+BEGIN
+	se.ck_mse.show
+END
+SCRIPT _se_nomse_show
+BEGIN
+	se.ck_nomse.show
+END
+
+PROGRAM _se_check_noadjust
+BEGIN
+	call script _se_noadjust_hide
+	if !se.ck_svy & se_hasNoAdjust {
+		if se_vcetype.equals(resource LBL_CLUSTERED_ROBUST) {
+			call program _se_noAdjust_moveDown
+			call script _se_noadjust_show
+		}
+	 	if se_vcetype.equals(resource LBL_ROBUST) {
+			call program _se_noAdjust_moveUp
+			call script _se_noadjust_show
+		}
+	}
+END
+PROGRAM _se_noAdjust_moveUp
+BEGIN
+	call se.ck_noadjust.setposition . 140 . .
+END
+PROGRAM _se_noAdjust_moveDown
+BEGIN
+	call se.ck_noadjust.setposition . 190 . .
+END
+SCRIPT _se_noadjust_hide
+BEGIN
+	se.ck_noadjust.hide
+END
+SCRIPT _se_noadjust_show
+BEGIN
+	se.ck_noadjust.show
+END
+
+PROGRAM _se_check_nodots
+BEGIN
+	call script _se_nodots_hide
+	if !se.ck_svy						///
+	 & (se_vcetype.equals(resource SE_LBL_BOOTSTRAP) 	///
+	 	| se_vcetype.equals(resource SE_LBL_JACKKNIFE))	{
+		if se_noCluster {
+			call se.ck_nodots.setposition . 140
+		}
+		if ! se_noCluster {
+			call se.ck_nodots.setposition . 190
+		}
+		call script _se_nodots_show
+	}
+	if se.ck_svy	///
+	 & (se_svyvcetype.equals(resource SE_LBL_BOOTSTRAP) 	///
+	 | se_svyvcetype.equals(resource SE_LBL_BRR) 		///
+	 | se_svyvcetype.equals(resource SE_LBL_SDR) 		///
+	 | se_svyvcetype.equals(resource SE_LBL_JACKKNIFE)) {
+		call se.ck_nodots.setposition . 195
+		call script _se_nodots_show
+	}
+END
+SCRIPT _se_nodots_hide
+BEGIN
+	se.ck_nodots.hide
+END
+SCRIPT _se_nodots_show
+BEGIN
+	se.ck_nodots.show
+END
+
+PROGRAM _se_check_notes
+BEGIN
+	call script _se_notes_hide
+	call program _se_set_notes
+	if se_hasNotes 							  ///
+	 & se_notesVisible 						  ///
+	 & ( se_vcetype.equals(resource SE_LBL_DFLT_STD_ERRORS)		  ///
+	   | se_vcetype.equals(resource SE_LBL_ANALYTIC) 		  ///
+	   | se_vcetype.equals(resource SE_LBL_NEWEYS_2STEP)		  ///
+	   | se_vcetype.equals(resource SE_LBL_HECKMANS_2STEP)		  ///
+	   | se_vcetype.equals(resource LBL_2STEP)			  ///
+	   | se_vcetype.equals(resource SE_LBL_2STAGE)			  ///
+	   | se_vcetype.equals(resource SE_LBL_OLS)			  ///
+	   | se_vcetype.equals(resource SE_LBL_GNR)			  ///
+	   | se_vcetype.equals(resource SE_LBL_GLS) 	  		  ///
+	   | se_vcetype.equals(resource SE_LBL_CONVENTIONAL)		  ///
+	   | se_vcetype.equals(resource LBL_GENERALIZED_METHOD_OF_MOMENTS_GMM)			  ///
+	   | se_vcetype.equals(resource SE_LBL_LINEARIZED)		  ///
+	   | se_vcetype.equals(resource SE_LBL_NONE)			  ///
+	   | (se_default_vcetype.equals(resource LBL_ROBUST)		  ///
+	   	& se_vcetype.equals(resource LBL_UNADJUSTED)		  ///
+	   	& !se_isGMM & !se_isIVPOISSON &				  ///
+		(!se_hasNoAdjust|se.lb_vcetype.iseq("")))		  ///
+	   | se.ck_svy 							  ///
+	   | (se_hasIOIM 						  ///
+	   	& se_vcetype.equals(resource SE_LBL_OIM))		  ///
+	   | (se_default_vcetype.equals(resource LBL_ROBUST)		  ///
+	   	& se_vcetype.equals(resource LBL_ROBUST)		  ///
+	   	& !se_isGMM & (!se_hasNoAdjust|se.lb_vcetype.iseq("")))   ///
+	   ) 								  ///
+	{
+		call script _se_notes_show
+	}
+END
+SCRIPT _se_notes_hide
+BEGIN
+	se.tx_note1.hide
+	se.tx_note3.hide
+	program _se_notes_resetWidth
+END
+SCRIPT _se_notes_show
+BEGIN
+	se.tx_note1.show
+	se.tx_note3.show
+	program _se_notes_resetWidth
+END
+PROGRAM _se_notes_resetWidth
+BEGIN
+	if !se_notesVisible | se.ck_svy {
+		call se.tx_note1.setposition . . 0 .
+	}
+	else {
+		call se.tx_note1.setposition . . 245 .
+	}
+END
+SCRIPT _se_notes_moveUp
+BEGIN
+	// NOTE: once used by -se_isGLM- and -se_isGEE-, keep this script for
+	// possible future use
+	se.tx_note1.setposition . 140 . .
+END
+SCRIPT _se_notes_moveDown
+BEGIN
+	// NOTE: once used by -se_isGLM- and -se_isGEE-, keep this script for
+	// possible future use
+	se.tx_note1.setposition . 240 . .
+END
+PROGRAM _se_set_notes
+BEGIN
+	call se.tx_note1.setlabel ""
+	call se.tx_note3.setlabel ""
+	if ! se.ck_svy {
+		if se_isWeighted {
+			if se_isPWon {
+				call program _se_notes_for_pweights
+			}
+			if !se_isPWon {
+				call program _se_notes_for_nonpweights
+			}
+		}
+		if !se_isWeighted {
+			call program _se_notes_for_noweights
+		}
+	}
+	if se.ck_svy {
+		call program _se_notes_for_svy
+	}
+END
+PROGRAM _se_notes_for_pweights
+BEGIN
+	if se_isMI {
+		if se_hasRobust & se_hasJackknife { // jackknife not allowed
+			call se.tx_note1.setlabel 		///
+				resource SE_TX_NOTE1_ROBUST_JKNIFE_MSG3
+		//"Note: only robust standard errors are available when sampling weights have been selected."
+		}
+		if !se_hasRobust & se_hasJackknife { // jackknife not allowed
+			call se.tx_note1.setlabel 		///
+				resource SE_TX_NOTE1_ROBUST_JKNIFE_MSG4
+		// "Note: no alternative standard errors are available when sampling weights have been selected."
+		}	
+	}
+	else {
+		if se_hasRobust & se_hasJackknife {
+			call se.tx_note1.setlabel 		///
+				resource SE_TX_NOTE1_ROBUST_JKNIFE_MSG1
+		// "Note: only robust and jackknife standard errors are available when sampling weights have been selected. By default robust is used."
+		}
+		if !se_hasRobust & se_hasJackknife {
+			call se.tx_note1.setlabel 		///
+				resource SE_TX_NOTE1_ROBUST_JKNIFE_MSG2
+		// "Note: only jackknife standard errors are available as an alternative when sampling weights have been selected."
+		}
+	}
+
+	if se_vcetype.equals(resource SE_LBL_BOOTSTRAP) {
+		call se_vcetype.setstring resource SE_LBL_DFLT_STD_ERRORS
+		call se_STMP.format 					   ///
+			"resource SE_MSGBOX_DESELECTED_STDERR_WEIGHT_TYPE_FMT" ///
+			"resource SE_TITLE_SE_ROBUST" 		  	   ///
+			"resource SE_LBL_BOOTSTRAP" 		   	   ///
+			"resource WEIGHTS_RB_PW"
+		stopbox note class se_STMP.value		
+// On the "SE/Robust" tab, "Bootstrap" standard errors have been deselected because they are not allowed with "Sampling weights".
+	}
+	if se_vcetype.equals(resource SE_LBL_OIM) {
+		call se_vcetype.setstring resource SE_LBL_DFLT_STD_ERRORS
+		call se_STMP.format 					   ///
+			"resource SE_MSGBOX_DESELECTED_STDERR_WEIGHT_TYPE_FMT" ///
+			"resource SE_TITLE_SE_ROBUST" 		           ///
+			"resource SE_LBL_OIM"	 		   	   ///
+			"resource WEIGHTS_RB_PW"
+ 		stopbox note class se_STMP.value
+ // On the "SE/Robust" tab, "OIM" standard errors have been deselected because they are not allowed with "Sampling weights".
+	}
+	if se_vcetype.equals(resource SE_LBL_OPG) {
+		call se_vcetype.setstring resource SE_LBL_DFLT_STD_ERRORS
+		call se_STMP.format 					   ///
+			"resource SE_MSGBOX_DESELECTED_STDERR_WEIGHT_TYPE_FMT" ///
+			"resource SE_TITLE_SE_ROBUST" 		   	   ///
+			"resource SE_LBL_OPG"	 		   	   ///
+			"resource WEIGHTS_RB_PW"
+		stopbox note class se_STMP.value
+// On the "SE/Robust" tab, "OPG" standard errors have been deselected because they are not allowed with "Sampling weights".
+	}
+	if se_vcetype.equals(resource SE_LBL_GLS) {
+		call se_vcetype.setstring resource SE_LBL_DFLT_STD_ERRORS
+		call se_STMP.format 					   ///
+			"resource SE_MSGBOX_DESELECTED_STDERR_WEIGHT_TYPE_FMT" ///
+			"resource SE_TITLE_SE_ROBUST" 		   	   ///
+			"resource SE_LBL_GLS"	 		   	   ///
+			"resource WEIGHTS_RB_PW"
+		stopbox note class se_STMP.value
+// On the "SE/Robust" tab, "GLS" standard errors have been deselected because they are not allowed with "Sampling weights".
+	}
+	if se_vcetype.equals(resource SE_LBL_EIM) {
+		call se_vcetype.setstring resource SE_LBL_DFLT_STD_ERRORS
+		call se_STMP.format 					   ///
+			"resource SE_MSGBOX_DESELECTED_STDERR_WEIGHT_TYPE_FMT" ///
+			"resource SE_TITLE_SE_ROBUST" 		   	   ///
+			"resource SE_LBL_EIM"	 		   	   ///
+			"resource WEIGHTS_RB_PW"
+		stopbox note class se_STMP.value
+// On the "SE/Robust" tab, "EIM" standard errors have been deselected because they are not allowed with "Sampling weights".
+	}
+END
+PROGRAM _se_notes_for_nonpweights
+BEGIN
+	if se_vcetype.equals(resource SE_LBL_BOOTSTRAP) {
+		call se_vcetype.setstring resource SE_LBL_DFLT_STD_ERRORS
+		call se_STMP.format 					///
+			"resource SE_MSGBOX_DESELECTED_STDERR_WEIGHTS_FMT"  ///
+			"resource SE_TITLE_SE_ROBUST" 			///
+			"resource SE_LBL_BOOTSTRAP"
+		stopbox note class se_STMP.value
+// On the "SE/Robust" tab, "Bootstrap" standard errors have been deselected because they are not allowed with weights.
+	}
+	call program _se_notes_for_noweights
+END
+PROGRAM _se_notes_for_noweights
+BEGIN
+	if se_default_vcetype.equals(resource SE_LBL_OIM) {
+		call se.tx_note1.formatlabel 				///
+			"resource SE_TX_NOTE1_OPTIMIZATION_DFLT_FMT"	///
+			"resource SE_LBL_OIM"
+// Note: based on the optimization technique, the current default is "OIM".
+	}
+	if se_default_vcetype.equals("IOIM") {
+		call se.tx_note1.formatlabel 				///
+			"resource SE_TX_NOTE1_DFLT_FMT"			///
+			"resource SE_LBL_OIM"
+// Note: the default is "OIM".
+	}
+	if se_default_vcetype.equals(resource SE_LBL_GNR) {
+		call se.tx_note1.formatlabel 				///
+			"resource SE_TX_NOTE1_DFLT_FMT"			///
+			"resource SE_LBL_GNR"
+// Note: the default is "GNR".
+	}
+	if se_default_vcetype.equals(resource SE_LBL_ANALYTIC) {
+		call se.tx_note1.formatlabel 				///
+			"resource SE_TX_NOTE1_DFLT_FMT"			///
+			"resource SE_LBL_ANALYTIC"
+// Note: the default is "analytic".
+	}
+	if se_default_vcetype.equals(resource SE_LBL_NEWEYS_2STEP) {
+		call se.tx_note1.formatlabel 				///
+			"resource SE_TX_NOTE1_DFLT_FMT"			///
+			"resource SE_LBL_NEWEYS_2STEP"
+// Note: the default is "Newey's two-step".
+	}
+	if se_default_vcetype.equals(resource SE_LBL_HECKMANS_2STEP) {
+		call se.tx_note1.formatlabel 				///
+			"resource SE_TX_NOTE1_DFLT_FMT"			///
+			"resource SE_LBL_HECKMANS_2STEP"
+// Note: the default is "Heckman's two-step".
+	}
+	if se_default_vcetype.equals(resource LBL_2STEP) {
+		call se.tx_note1.formatlabel 				///
+			"resource SE_TX_NOTE1_DFLT_FMT"			///
+			"resource LBL_2STEP"
+// Note: the default is "two-step".
+	}
+	if se_default_vcetype.equals(resource SE_LBL_2STAGE) {
+		call se.tx_note1.formatlabel 				///
+			"resource SE_TX_NOTE1_DFLT_FMT"			///
+			"resource SE_LBL_2STAGE"
+// Note: the default is "two-stage".
+	}
+	if se_default_vcetype.equals(resource LBL_ROBUST) {
+		call se.tx_note1.formatlabel 				///
+			"resource SE_TX_NOTE1_DFLT_FMT"			///
+			"resource LBL_ROBUST"
+// Note: the default is "robust".
+	}
+	if se_default_vcetype.equals(resource SE_LBL_OLS) {
+		call se.tx_note1.formatlabel 				///
+			"resource SE_TX_NOTE1_DFLT_FMT"			///
+			"resource SE_LBL_OLS"
+// Note: the default is "OLS".
+	}
+	if se_default_vcetype.equals(resource SE_LBL_LINEARIZED) {
+		call se.tx_note1.formatlabel 				///
+			"resource SE_TX_NOTE1_DFLT_FMT"			///
+			"resource SE_LBL_LINEARIZED"
+// Note: the default is "linearized".
+	}
+	if se_default_vcetype.equals(resource SE_LBL_OPG) {
+		call se.tx_note1.formatlabel 				///
+			"resource SE_TX_NOTE1_OPTIMIZATION_DFLT_FMT"	///
+			"resource SE_LBL_OPG"
+// Note: based on the optimization technique, the current default is "OPG".
+	}
+	if se_default_vcetype.equals(resource SE_LBL_GLS) {
+		call se.tx_note1.formatlabel 				///
+			"resource SE_TX_NOTE1_DFLT_FMT"			///
+			"resource SE_LBL_GLS"
+// Note: the default is "GLS".
+	}
+	if se_default_vcetype.equals(resource LBL_GENERALIZED_METHOD_OF_MOMENTS_GMM) {
+		call se.tx_note1.formatlabel 				///
+			"resource SE_TX_NOTE1_DFLT_FMT"			///
+			"resource LBL_GENERALIZED_METHOD_OF_MOMENTS_GMM"
+// Note: the default is "GMM".
+	}
+	if se_default_vcetype.equals(resource SE_LBL_CONVENTIONAL) {
+		call se.tx_note1.formatlabel 				///
+			"resource SE_TX_NOTE1_DFLT_FMT"			///
+			"resource SE_LBL_CONVENTIONAL"
+// Note: the default is "conventional".
+	}
+	if se_default_vcetype.equals(resource LBL_UNADJUSTED) {
+		call se.tx_note1.formatlabel 				///
+			"resource SE_TX_NOTE1_DFLT_FMT"			///
+			"resource LBL_UNADJUSTED"
+// Note: the default is "unadjusted".
+	}
+	if se_default_vcetype.equals(resource LBL_CLUSTERED_ROBUST) {
+		call se.tx_note1.formatlabel 				///
+			"resource SE_TX_NOTE1_DFLT_FMT"			///
+			"resource LBL_CLUSTERED_ROBUST"
+// Note: the default is clustered "robust".
+	}
+	if se_default_vcetype.equals(resource LBL_HAC) {
+		call se.tx_note1.formatlabel 				///
+			"resource SE_TX_NOTE1_DFLT_FMT"			///
+			"resource LBL_HAC"
+// Note: the default is "HAC".
+	}
+	if se_default_vcetype.equals(resource SE_LBL_EIM) {
+		call se.tx_note1.formatlabel 				///
+			"resource SE_TX_NOTE1_OPTIMIZATION_DFLT_FMT"	///
+			"resource SE_LBL_EIM"
+// Note: based on the optimization method, the current default is "EIM".
+	}
+	if se_default_vcetype.equals(resource SE_LBL_NONE) {
+		call se.tx_note1.formatlabel 				///
+			"resource SE_TX_NOTE1_DFLT_FMT"			///
+			"resource SE_LBL_NONE"
+// Note: the default is "No standard errors are reported (None)".
+	}
+END
+PROGRAM _se_notes_for_svy
+BEGIN
+	call se_svyset.setstring char _dta[_svy_version]
+	if se_svyset.equals("") {
+		call se.tx_note3.setlabel ///
+			resource SE_TX_NOTE3_SVY_MSG
+		// "Note: survey settings must be specified."
+			
+	}
+	else {
+		call se.tx_note3.setlabel ""
+	}
+END
+PROGRAM _se_notes_for_tsset
+BEGIN
+	if !se.ck_svy {
+		if se_vcetype.equals(resource LBL_HAC) {
+			call se_tsset.setstring char _dta[_TStvar]
+			if se_tsset.equals("") {
+				call se.tx_note3.show
+				call se.tx_note3.setlabel ///
+					resource LBL_NOTE_TIME_SETTING_MUST_BE_SPECIFIED
+				// "Note: time settings must be specified."
+			}
+			else {
+				call se.tx_note3.setlabel ""
+			}
+		}
+		else {
+			call se.tx_note3.setlabel ""
+		}
+	}
+END
+
+PROGRAM _se_check_vfactor
+BEGIN
+	call script _se_vfactor_hide
+	if !se.ck_svy & se_isGLM {
+		call script _se_vfactor_show
+		if ! se_isIRLS {
+			call script _se_disp_disable
+		}
+		if se_isIRLS {
+			call script _se_disp_enable
+		}
+	}
+END
+SCRIPT _se_vfactor_hide
+BEGIN
+	se.gb_vadj.hide
+	se.tx_vfact.hide
+	se.en_vfact.hide
+	se.tx_disp.hide
+	se.en_disp.hide
+	se.tx_disp2.hide
+END
+SCRIPT _se_vfactor_show
+BEGIN
+	se.gb_vadj.show
+	se.tx_vfact.show
+	se.en_vfact.show
+	se.tx_disp.show
+	se.en_disp.show
+	se.tx_disp2.show
+END
+SCRIPT _se_disp_disable
+BEGIN
+	se.tx_disp.disable
+	se.en_disp.disable
+	se.tx_disp2.disable
+END
+SCRIPT _se_disp_enable
+BEGIN
+	se.tx_disp.enable
+	se.en_disp.enable
+	se.tx_disp2.enable
+END
+
+PROGRAM _se_check_svy
+BEGIN
+	call script _se_svy_hide
+	if se.ck_svy {
+		call script _se_svy_show
+	}
+END
+SCRIPT _se_svy_hide
+BEGIN
+	se.lb_svyvcetype.hide
+	se.lb_vcetype.show
+	se.bu_svyset.hide
+	se.bu_mi_svyset.hide
+	program _se_svy_hide_options
+END
+PROGRAM _se_svy_hide_options
+BEGIN
+	if se.ck_svy & se_svyvcetype.equals(resource SE_LBL_LINEARIZED) {
+		call script _se_mse_hide
+		call script _se_nodots_hide
+	}
+	call se.tx_bsn.hide
+	call se.ed_bsn.hide
+	call se.tx_hadamard.hide
+	call se.ed_hadamard.hide
+	call se.tx_fay.hide
+	call se.ed_fay.hide
+	call se.tx_dof.hide
+	call se.en_dof.hide
+END
+SCRIPT _se_svy_show
+BEGIN
+	se.lb_svyvcetype.show
+	se.lb_vcetype.hide
+	program _se_show_svybtn
+	program _se_check_svy_options
+END
+PROGRAM _se_show_svybtn
+BEGIN
+	if __MESSAGE.contains("__MI__") {
+		call se.bu_mi_svyset.show
+	}
+	else {
+		call se.bu_svyset.show
+	}
+END
+PROGRAM _se_check_svy_options
+BEGIN
+	call program _se_check_mse
+	call program _se_check_nodots
+	if !se.ck_svy {
+		call se.tx_dof.hide
+		call se.en_dof.hide
+	}
+	if !se.ck_svy | se_svyvcetype.equals(resource SE_LBL_LINEARIZED) {
+		call se.tx_bsn.hide
+		call se.ed_bsn.hide
+		call se.tx_hadamard.hide
+		call se.ed_hadamard.hide
+		call se.tx_fay.hide
+		call se.ed_fay.hide
+	}
+	if se.ck_svy {
+		call se.tx_dof.show
+		call se.en_dof.show
+		if se_svyvcetype.equals(resource SE_LBL_BOOTSTRAP) {
+			call se.tx_bsn.show
+			call se.ed_bsn.show
+			call se.tx_hadamard.hide
+			call se.ed_hadamard.hide
+			call se.tx_fay.hide
+			call se.ed_fay.hide
+		}
+		if se_svyvcetype.equals(resource SE_LBL_BRR) {
+			call se.tx_bsn.hide
+			call se.ed_bsn.hide
+			call se.tx_hadamard.show
+			call se.ed_hadamard.show
+			call se.tx_fay.show
+			call se.ed_fay.show
+		}
+		if se_svyvcetype.equals(resource SE_LBL_JACKKNIFE) {
+			call se.tx_bsn.hide
+			call se.ed_bsn.hide
+			call se.tx_hadamard.hide
+			call se.ed_hadamard.hide
+			call se.tx_fay.hide
+			call se.ed_fay.hide
+		}
+		if se_svyvcetype.equals(resource SE_LBL_SDR) {
+			call se.tx_bsn.hide
+			call se.ed_bsn.hide
+			call se.tx_hadamard.hide
+			call se.ed_hadamard.hide
+			call se.tx_fay.hide
+			call se.ed_fay.hide
+		}
+	}
+END
+
+PROGRAM _se_check_robust
+BEGIN
+	if se_vcetype.equals(resource LBL_ROBUST) {
+		call se_STMP.format 					///
+			"resource SE_MSGBOX_DESELECTED_STDERR_LASTOPT_FMT" ///
+			"resource SE_TITLE_SE_ROBUST" 			///
+			"resource LBL_ROBUST"
+		stopbox note class se_STMP.value	
+// On the "SE/Robust" tab, "Robust" standard errors have been deselected because they are not allowed with the last option selected.
+		
+		call se_vcetype.setstring resource SE_LBL_DFLT_STD_ERRORS
+	}
+	call program _se_check_ClRobust
+END
+
+PROGRAM _se_check_ClRobust
+BEGIN
+	if se_vcetype.equals(resource LBL_CLUSTERED_ROBUST) {
+		call se_STMP.format 					///
+			"resource SE_MSGBOX_DESELECTED_STDERR_LASTOPT_FMT" ///
+			"resource SE_TITLE_SE_ROBUST" 			///
+			"resource LBL_CLUSTERED_ROBUST"
+		stopbox note class se_STMP.value
+// On the "SE/Robust" tab, "Clustered robust" standard errors have been deselected because they are not allowed with the last option selected.
+
+		call se_vcetype.setstring resource SE_LBL_DFLT_STD_ERRORS
+	}
+END
+
+PROGRAM _se_restore_vcetype
+BEGIN
+	if se_old_default_vcetype.equals(resource SE_LBL_OIM) {
+		call se_default_vcetype.setstring resource SE_LBL_OIM
+	}
+	if se_old_default_vcetype.equals(resource SE_LBL_OPG) {
+		call se_default_vcetype.setstring resource SE_LBL_OPG
+	}
+	if se_old_default_vcetype.equals(resource SE_LBL_EIM) {
+		call se_default_vcetype.setstring resource SE_LBL_EIM
+	}
+END
+
+SCRIPT se_setMI_on
+BEGIN
+	// assure that se_isMI exists even if this is called before setup
+	create BOOLEAN se_isMI
+
+	se_isMI.settrue
+END
+
+SCRIPT se_setMI_off
+BEGIN
+	// assure that se_isMI exists even if this is called before setup
+	create BOOLEAN se_isMI
+
+	se_isMI.setfalse
+END
+
+// DIALOG definition ********************************************************
+
+DIALOG se, tabtitle(resource SE_TITLE_SE_ROBUST)
+BEGIN
+  /* PUBLIC scope
+   * se.ck_svy is referenced outside this tab
+   * DO NOT REMOVE OR RENAME
+   */
+  CHECKBOX ck_svy      _lft        _top      _cwd1      .,		///
+  	onclickon(program _se_hideOrShow)				///
+  	onclickoff(program _se_hideOrShow)				///
+	label(resource SE_CK_SVY)					///
+	tooltip(resource SE_CK_SVY_TIP)
+  //--
+
+  TEXT     tx_type     _lft        _ms       _iwd       .,		///
+	label(resource SE_TX_TYPE)
+  LISTBOX  lb_vcetype  _lft        _ss       225        75,		///
+	contents(se_type_list)						///
+	values(se_type_values)						///
+	onselchangelist(se_type_actions)
+DEFINE lbx @x
+DEFINE lby @y
+DEFINE lbxsize @xsize
+DEFINE lbysize @ysize
+
+  TEXT     tx_cluster  @           140       @          .,		///
+	label(resource LBL_CLUSTER_VARIABLE)
+DEFINE holdy @y
+  VARNAME  vn_cluster  @           _ss       _vnwd      .,		///
+	label(resource LBL_CLUSTER_VARIABLE)					///
+	option(cluster)
+DEFINE holdy2 @y
+
+  CHECKBOX ck_noadjust @           _ls       _vlwd      .,		///
+	label(resource SE_CK_NOADJUST)					///
+	option("noadjust")						///
+	default(1)
+  CHECKBOX ck_nonest   @           @	     _iwd	.,		///
+  	option(nonest)							///
+  	onclickon(se.ck_dfadj.enable) onclickoff(se.ck_dfadj.disable)	///
+  	label(resource SE_CK_NONEST)
+  CHECKBOX ck_dfadj    @           _ms       @		.,		///
+  	option(dfadj)							///
+  	label(resource SE_CK_DFADJ)
+
+  TEXTBOX  tx_note1    _lft        holdy     _cwd1      _tb4,
+
+  CHECKBOX ck_nodots   @           190       _cwd1      .,		///
+	option(nodots)							///
+	onclickon(se.sp_dots.disable)					///
+	onclickoff(se.sp_dots.enable)					///
+	label(resource LBL_SUPPRESS_REPLICATION_DOTS)
+  CHECKBOX ck_mse      @           215       @          .,		///
+	option(mse)							///
+	label(resource LBL_USE_MSE_FORMULA_FOR_VARIANCE)
+  CHECKBOX ck_nomse   @           @         @          .,		///
+	option(nomse)							///
+	label(resource SE_CK_NOMSE)					///
+  	tooltip(resource SE_CK_NOMSE_TIP)
+  CHECKBOX ck_bca      @           240       @          .,		///
+	option(bca)							///
+	label(resource SE_CK_BCA)
+  SPINNER  sp_reps     _lft2       210       _spwd      .,		///
+	default(50) min(2) max(1000000) option(reps)
+  TEXT     tx_reps     _spsep      @         150        .,		///
+	label(resource LBL_REPLICATIONS)
+
+  EDIT     ed_seed     _lft2       _ls       _spwd      ., 		///
+	  numonly option(seed)
+  TEXT     tx_seed     _spsep      @         150        .,		///
+	label(resource LBL_RANDOM_NUMBER_SEED_NO_COLON)
+  SPINNER sp_dots	_lft2      _ls       _spwd      .,		///
+	option(dots)							///
+	min(1)
+  TEXT tx_dots		_spsep     @         200        .,		///
+	label(resource LBL_DISPLAY_DOTS_EVERY_#_REPS)
+
+//only for npregress
+  CHECKBOX ck_bwreplace	_lft	   265       _iwd	.,		///
+	option(bwreplace)						///
+	label(resource SE_CK_BWREPLACE)
+
+  GROUPBOX gb_bias     _lft        holdy     _iwd       _ht6,		///
+	label(resource SE_TX_BIAS)
+  RADIO    rb_hc1      _indent     _ss       _en14wd    .,		///
+	first label(resource SE_RB_HC1) option(NONE)
+
+DEFINE rb_x @x
+DEFINE rb_wd @cx
+
+  TEXT     tx_hc1      _en14sep    @         _en14r4c   .,		///
+	label(resource SE_RB_HC1_DESC)
+
+DEFINE txt_x @x
+DEFINE txt_wd @cx
+
+  RADIO    rb_hc2      rb_x	   _ss       rb_wd      .,		///
+	label(resource SE_RB_HC2) option("vce(hc2")
+  TEXT     tx_hc2      txt_x	   @         txt_wd     .,		///
+	label(resource SE_RB_HC2_DESC)
+
+  RADIO    rb_hc3      rb_x        _ss       rb_wd      .,		///
+	last label(resource SE_RB_HC3) option("vce(hc3")
+  TEXT     tx_hc3      txt_x       @         txt_wd     .,		///
+	label(resource SE_RB_HC3_DESC)
+
+  TEXT     tx_hac      _lft        holdy     _cwd3_0    .,		///
+		label(resource LBL_KERNEL)
+  COMBOBOX cb_hac      @           _ss       _vnwd      .,		///
+		label(resource LBL_KERNEL)				///
+		contents(se_hac_list)					///
+		values(se_hac_values)					///
+		dropdownlist
+  COMBOBOX cb_hac2     @           @         _vnwd      .,		///
+		label(resource LBL_KERNEL)				///
+		contents(se_hac2_list)					///
+		values(se_hac2_values)					///
+		dropdownlist
+// hac
+  TEXT	   tx_lag      _lft        _ls       lbxsize    .,		///
+		label(resource SE_TX_LAG)
+DEFINE hacy @y
+  EDIT     en_lag      @           _ss       _vnwd      .,		///
+		numonly							///
+		label(resource SE_TX_LAG)
+// hac2
+  GROUPBOX gb_k_opts	@	hacy	_cwd2	_ht8,			///
+	label(resource LBL_NUMBER_OF_LAGS)
+
+  RADIO rb_hacdefault	_indent	_ss	_cwd4	.,			///
+	first								///
+	label(resource LBL_N2_LAGS_DEFAULT)
+
+  RADIO rb_haclags	@	_ss	_rbwd	.,			///
+	onclickon(se.sp_lags.enable)					///
+	onclickoff(se.sp_lags.disable)					///
+	option(NONE)
+  SPINNER sp_lags	_rbsep	@	_spwd	.,			///
+	label(resource LBL_LAGS)					///
+	default(1)							///
+	min(0)								///
+	max(c(N))
+  TEXT tx_lags2		_spsep	@	100	.,			///
+	label(resource LBL_LAGS)
+
+  RADIO rb_hacopt	_ilft	_ss	_cwd4	.,			///
+	last								///
+	option(opt)							///
+	onclickon(se.sp_hacopt_lags.enable)				///
+	onclickoff(se.sp_hacopt_lags.disable)				///
+	label(resource LBL_USE_LAG_SELECTION_ALGORITHM)
+
+  SPINNER sp_hacopt_lags	_rbsep	_ss	_spwd	.,		///
+	label(resource LBL_LAGS)					///
+	default(20)							///
+	min(0)								///
+	max(c(N))
+  TEXT tx_hacopt_lags	_spsep 	@	100	.,			///
+	label(resource LBL_LAGS)
+
+//
+
+  GROUPBOX gb_vadj     _lft2       _top      _cwd1       _ht9,		///
+		label(resource SE_GB_VADJ)
+  TEXT     tx_vfact    _indent     _ss       _inwd       .,		///
+		label(resource SE_TX_VFACT)
+  EDIT     en_vfact    @           _ss       _en7wd      .,		///
+		label(resource SE_TX_VFACT)				///
+		numonly							///
+		option(vfactor)
+  TEXT     tx_disp     @           _ls       _cwd3       .,		///
+		label(resource SE_TX_DISP)
+  EDIT     en_disp     @           _ss       _en7wd      .,		///
+		label(resource SE_TX_DISP)				///
+		numonly							///
+		option(disp)
+  TEXT     tx_disp2    _en7sep     @         _en7r2b     .,		///
+		label(resource SE_TX_DISP2)
+
+  GROUPBOX gb_scale    _lft2       _xls      _cwd1       110,		///
+		label(resource SE_GB_SCALE)
+  RADIO    rb_deflt    _indent     _ss       _inwd       .,		///
+		label("") /// set later [SIC]				///
+		onclickon(program _se_check_scale_value)		///
+		first							///
+		option(NONE)
+  RADIO    rb_x2       @           _ss       @           .,		///
+		label(resource SE_RB_X2)				///
+		onclickon(program _se_check_scale_value)		///
+		option("scale(x2)")
+  RADIO    rb_dev      @           _ss       @           .,		///
+		label("") /// set later [SIC]				///
+		onclickon(program _se_check_scale_value)		///
+		option("scale(dev)")
+  RADIO    rb_phi      @           @         @           .,		///
+		label(resource SE_RB_PHI)				///
+		onclickon(program _se_check_scale_value)		///
+		option("scale(phi)")
+  RADIO    rb_value    @           _ss       _rbwd       .,		///
+		onclickon(program _se_check_scale_value)		///
+		last							///
+		option(NONE)
+  EDIT     en_value    _rbsep      @         _en7wd      .,		///
+		label(resource SE_TX_VALUE)				///
+		numonly							///
+		option(scale)
+  TEXT     tx_value    _en7sep     @         _rben7r2b   .,		///
+		label(resource SE_TX_VALUE)
+
+  GROUPBOX gb_factor _lft2     _top      _cwd1     _ht6,		///
+		label(resource SE_GB_FACTOR)
+  RADIO    rb_default _indent  _ss       _inwd     .,			///
+		label(resource SE_RB_DEFAULT)				///
+		first
+  RADIO    rb_nmp    @         _ss       @         .,			///
+		label(resource SE_RB_NMP)				///
+		option("nmp")
+  RADIO    rb_rgf    @         _ss       @         .,			///
+		label("")  /// set later [SIC]				///
+		option("rgf")						///
+		last
+
+  // survey prefix controls
+  LISTBOX  lb_svyvcetype	lbx	lby	lbxsize	lbysize,	///
+	default(char _dta[_svy_vce])					///
+	contents(se_svy_contents)					///
+	values(se_svy_values)						///
+	onselchangelist(se_svy_change)
+  EDIT     en_dof		_lft	140	_en7wd	.,		///
+	label(resource LBL_DESIGN_DEGREES_OF_FREEDOM)			///
+	numonly								///
+	option(dof)
+  TEXT     tx_dof		_en7sep	@	_en7r	.,		///
+	label(resource LBL_DESIGN_DEGREES_OF_FREEDOM)
+  TEXT     tx_bsn		_lft	220	_iwd	.,		///
+	label(resource LBL_BOOTSTRAP_MEAN_WEIGHT_ADJUSTMENT)
+  EDIT     ed_bsn		@	_ss	_vnwd  	.,		///
+	label(resource LBL_BOOTSTRAP_MEAN_WEIGHT_ADJUSTMENT)					///
+	option(bsn)
+  TEXT     tx_hadamard		_lft	220	_vnwd	.,		///
+	label(resource LBL_HADAMARD_MATRIX)
+  EDIT     ed_hadamard		@	_ss	@    	.,		///
+	label(resource LBL_HADAMARD_MATRIX)				///
+	option(hadamard)
+  TEXT     tx_fay		_lft2	220	_vnwd	.,		///
+	label(resource LBL_FAYS_ADJUSTMENT)
+  EDIT     ed_fay		@	_ss	@    	.,		///
+	numonly								///
+	default(char _dta[_svy_fay])					///
+	label(resource LBL_FAYS_ADJUSTMENT)				///
+	option(fay)
+  // For gmm dialog
+  CHECKBOX ck_indep 		_lft	170	_iwd	.,		///
+	label(resource LBL_MOMENT_EQ_ARE_INDEPENDENT)			///
+	option(independent)
+  CHECKBOX ck_gmm_quickd	_lft	170	_iwd	.,		///
+	option(quickderivatives)					///
+	label(resource SE_CK_GMM_QUICKD)
+
+  // use temporary text box to place the svyset note and button at the bottom
+  // of the tab
+  TEXT tx_temp   0     _dlght _dlgwd      .
+  TEXT tx_note3  _lft  -30    _comb3_1    .
+
+DEFINE _x _xsetbu
+DEFINE _y @y
+  INCLUDE _bu_svyset
+  BUTTON   bu_mi_svyset	_x        _y        _setbuwd  .,		///
+	onpush("view dialog mi_svyset")					///
+	label(resource LBL_TIME_SETTINGS)
+
+  INCLUDE _bu_tsset
+  BUTTON   bu_mi_tsset  _x        _y        _setbuwd  .,		///
+	onpush("view dialog mi_tsset")					///
+	label(resource LBL_TIME_SETTINGS)				///
+	tooltip(resource LBL_DECLARE_DTA_TIME_SERIES_DATA)
+
+END

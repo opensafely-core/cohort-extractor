@@ -1,0 +1,360 @@
+/*
+  mestreg
+
+*!  VERSION 1.2.3  28nov2018
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 590
+INCLUDE header
+
+HELP hlp1, view("help mestreg")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING STMP
+	script se_setMI_on
+	script se_createAsSvyOIMClRobust
+	program svy_check_title
+
+	create STRING main_equ_tmp
+	create STRING main_equ_tmp2
+	create STRING main_equ_childdlg
+	create STRING main_equ_dlgname
+	create STRING main_equ_child_result
+	create STRING main_equ_cmd_output
+	create STRING main_equ_cmd_last
+
+	create ARRAY main_equ_list
+	create ARRAY main_equ_toklist
+
+	create SVECTOR mainEQUCommandDisplayList
+	create SVECTOR mainEQUCommandList
+	create SVECTOR mainEQUCommandValues
+	create SVECTOR mainEQUStatusList
+	create SVECTOR mainEQUChildDialogList
+
+	create DOUBLE main_equ_count
+	create DOUBLE main_equ_position
+	create DOUBLE main_equ_arraysize
+	create DOUBLE main_equ_tmpcount
+
+	main.bu_equ_edit.disable
+	main.bu_equ_disable.disable
+	main.bu_equ_enable.disable
+
+	create BOOLEAN allow_fweights
+	create BOOLEAN allow_pweights
+	create BOOLEAN allow_iweights
+	
+	create SVECTOR mainEQUCommandList_wgt
+	create SVECTOR mainEQUCommandValues_wgt
+	create STRING fweights_cmd
+	create STRING pweights_cmd
+	create STRING iweights_cmd
+	create STRING main_equ_child_result_wgt
+
+	allow_fweights.settrue
+	allow_pweights.settrue
+	allow_iweights.settrue
+	setscale_hadj resource MESTREG_DLG_HSCALE
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	call program check_bytab
+	call se_hasOPG.settrue
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program se_setFinalInitState
+	mainEQUCommandDisplayList.copyToArray main_equ_list
+	main.lb_equBuild.repopulate
+END
+
+PROGRAM check_bytab
+BEGIN
+	if !__MESSAGE.contains("__MI__") {
+		call script sub_set_by_on
+	}
+END
+
+PROGRAM svy_check_title
+BEGIN
+	if __MESSAGE.contains("-svy-") {
+		call settitle resource MESTREG_DLG_TITLE_SVY
+	}
+END
+
+SCRIPT svy_is_on
+BEGIN
+	allow_fweights.setfalse
+	allow_pweights.setfalse
+	allow_iweights.setfalse
+	script max_setDefaultNoLog
+	program main_equ_sel_changed
+	rpt.ck_noheader.disable
+END
+SCRIPT svy_is_off
+BEGIN
+	allow_fweights.settrue
+	allow_pweights.settrue
+	allow_iweights.settrue
+	script max_setDefaultLog
+	program main_equ_sel_changed
+	rpt.ck_noheader.enable
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)				///
+	label(resource MESTREG_DLG_TITLE)
+BEGIN
+  DEFINE _x _xsetbu
+  DEFINE _y _top
+  INCLUDE _bu_stset
+
+  GROUPBOX gb_fe		_lft	_ss	_iwd	_ht11h,		///
+	label(resource LBL_FIXED_EFFECTS_MODEL)
+  TEXT tx_iv			_ilft	_ss	_ibwd	.,		///
+	label(resource LBL_INDDEPVAR)
+  VARLIST vl_iv			@	_ss	@	.,		///
+	allowcat							///
+	numeric								///
+	allowts								///
+	fv ts								///
+	label(resource LBL_INDDEPVAR)
+  CHECKBOX ck_nocons		@	_ms	@	.,		///
+	option(noconstant)						///
+	label(resource LBL_NOCONSTANT)
+
+  TEXT tx_offset		_ilft	_ls	_cwd2	.,		///
+	label(resource LBL_OFFSET_VARIABLE)
+
+  VARNAME vn_offset		_ilft	_ss	_vnwd	.,		///
+	option(offset)							///
+	label(resource LBL_OFFSET_VARIABLE)
+
+  DEFINE _x _lft
+  DEFINE _y +45
+  INCLUDE me_equ
+
+  GROUPBOX gb_opts		_lft	+40	_iwd	_ht16,		///
+	label(resource LBL_OPTIONS)
+
+  DEFINE y _ss
+  INCLUDE st_distribution_gamma
+
+  DEFINE _x _ilft
+  DEFINE _y _ls
+  DEFINE _cx _ilw80
+  DEFINE _bux _islw80
+  INCLUDE _constraints
+
+//  CHECKBOX ck_collinear		20	_ls	_ibwd	.,		///
+//	option(collinear)						///
+//	label(resource LBL_KEEP_COLLINEAR_VARIABLES)
+END
+
+SCRIPT main_exp_on
+BEGIN
+	rpt.ck_nohr.enable
+	rpt.ck_tr.disable
+	script max_from_disable
+END
+
+SCRIPT main_exp_time_on
+BEGIN
+	rpt.ck_nohr.disable
+	rpt.ck_tr.enable
+	script max_from_disable
+END
+
+SCRIPT main_weib_on
+BEGIN
+	rpt.ck_nohr.enable
+	rpt.ck_tr.disable
+	script max_from_enable
+END
+
+SCRIPT main_weib_time_on
+BEGIN
+	rpt.ck_nohr.disable
+	rpt.ck_tr.enable
+	script max_from_enable
+END
+
+SCRIPT main_gomp_on
+BEGIN
+	rpt.ck_nohr.enable
+	rpt.ck_tr.disable
+	script max_from_enable
+END
+
+SCRIPT main_logn_on
+BEGIN
+	rpt.ck_nohr.disable
+	rpt.ck_tr.enable
+	script max_from_enable
+END
+
+SCRIPT main_logl_on
+BEGIN
+	rpt.ck_nohr.disable
+	rpt.ck_tr.enable
+	script max_from_enable
+END
+
+SCRIPT main_gamma_on
+BEGIN
+	rpt.ck_nohr.disable
+	rpt.ck_tr.enable
+	script max_from_enable
+END
+
+INCLUDE me_equ_pr
+INCLUDE _constraints_sc
+
+INCLUDE sub_by_ifin_over_subpop
+INCLUDE weights_fpi
+
+INCLUDE se
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+	program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  CHECKBOX ck_nohr		_lft	_ls	_iwd	.,		///
+	option(nohr)							///
+	label(resource LBL_DO_NO_REPORT_HAZARD_RATIOS)
+  CHECKBOX ck_tr		@	_ms	@	.,		///
+	option("tratio")						///
+	label(resource LBL_REPORT_TIME_RATIOS)
+  CHECKBOX ck_noshow		_lft	_ms	@	.,		///
+	option("noshow")						///  
+	label(resource LBL_DO_NOT_REPORT_ST_VARIABLE_DESCRIPTIONS) 
+  CHECKBOX ck_nocnsreport		@	_ms	@	.,	///
+	option(nocnsreport)						///
+	label(resource LBL_DO_NOT_DISPLAY_CONSTRAINTS)
+  CHECKBOX ck_notable		@	_ms	@	.,		///
+	option(notable)							///
+	label(resource LBL_SUPPRESS_COEFFICIENT_TABLE)
+  CHECKBOX ck_noheader		@	_ms	@	.,		///
+	option(noheader)						///
+	label(resource LBL_SUPPRESS_OUTPUT_HEADER)
+  CHECKBOX ck_nogroup		@	_ms	@	.,		///
+	option(nogroup)							///
+	label(resource LBL_SUPPRESS_TABLE_SUMMARIZING_GROUPS)
+
+DEFINE _x _lft
+DEFINE _y _ls
+DEFINE _cx _iwd
+INCLUDE _report_columns
+
+DEFINE _x _lft
+DEFINE _y _ls
+INCLUDE _bu_factor_vars_reporting
+
+DEFINE _x _lft2
+DEFINE _y  @
+INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+
+PROGRAM rpt_output
+BEGIN
+	optionarg /hidedefault rpt.sp_level
+	option rpt.ck_nohr
+	option rpt.ck_tr
+	option rpt.ck_noshow
+	option rpt.ck_nocnsreport
+	INCLUDE _report_columns_pr
+	option rpt.ck_notable
+	option rpt.ck_noheader
+	option rpt.ck_nogroup
+	put " " rpt_bu_facvarsResults
+	put " " rpt_bu_fmtcoefResults
+END
+
+INCLUDE me_integration
+INCLUDE max_ml
+
+PROGRAM	fe_opt_output
+BEGIN
+	option main.ck_nocons
+	optionarg main.vn_offset
+END
+
+PROGRAM	command
+BEGIN
+	if allow_fweights | allow_pweights | allow_iweights {
+		call mainEQUCommandValues_wgt.copyToString main_equ_cmd_output
+	}
+	else {
+		call mainEQUCommandValues.copyToString main_equ_cmd_output
+	}
+	call main_equ_cmd_output.tokenizeOnStr main_equ_toklist "||"
+	call main_equ_tmpcount.storeClsArraySize main_equ_toklist
+	call main_equ_tmpcount.withvalue main_equ_cmd_last.setvalue class main_equ_toklist[@]
+
+	put /program by_output " "
+	put /program se_prefix_output " "
+	put "mestreg "
+	varlist main.vl_iv
+	put " " /program ifin_output
+	put " " /program weights_output
+
+	if main_equ_cmd_last.contains(",") {
+		beginoptions
+			put " " /program fe_opt_output
+			put " " main_equ_cmd_output
+		endoptions
+	}
+	else {
+		if main_equ_cmd_output {
+			if main.ck_nocons | main.vn_offset {
+				put ","
+			}
+			if main.ck_nocons {
+				put " noconstant"
+			}
+			if main.vn_offset {
+				put " offset("
+				put main.vn_offset
+				put ")"
+			}
+			put " " main_equ_cmd_output
+		}
+		else {
+			beginoptions
+				put " " /program fe_opt_output
+			endoptions
+		}
+	}
+
+	beginoptions
+	option radio(main rb_exp rb_exp_time rb_weib rb_weib_time rb_logn rb_logl rb_gamma)
+		INCLUDE _constraints_main_pr
+//		option main.ck_collinear
+		put " " /program me_int_output
+		put " " /program se_output
+		put " " /program rpt_output
+		put " " /program max_output
+	endoptions
+END

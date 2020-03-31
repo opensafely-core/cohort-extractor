@@ -1,0 +1,191 @@
+*! version 1.3.0  09aug2019
+version 11
+
+class _marg_predict {
+
+class:
+	_nextid	n	= ._nextid.new
+
+instance:
+	string	vv	= "11"
+	string	args	= ""
+	string	varname	= ""
+	string	eq	= ""
+	string	offset	= ""
+	string	opts	= ""
+	double	notxb	= 0
+	double	deriv	= 0
+	double	j1	= 0
+	double	j2	= 0
+	double	outcomeIsEq	= 0
+
+}
+
+program .new
+	.vv = string(_caller())
+	if "`.varname'" == "" {
+		.varname = "__marg_pvar_`.n.next'"
+	}
+end
+
+program .destructor
+	capture drop `.varname'
+end
+
+program .CheckProperties
+	if `:list posof "default_xb" in 0' {
+		if `"`.opts'"' == "" {
+			.opts = "xb"
+		}
+	}
+	if `:list posof "notxb" in 0' {
+		.notxb = 1
+	}
+	if `:list posof "outcomeIsEq" in 0' {
+		.outcomeIsEq = 1
+	}
+end
+
+program .parse
+	.CheckProperties `e(marginsprop)'
+	capture local prop : properties `e(predict)'
+	if !c(rc) {
+		.CheckProperties `prop'
+	}
+
+	if `.outcomeIsEq' {
+		local OUTCOME Outcome(passthru)
+	}
+	syntax [, EQuation(passthru) `OUTCOME' noOFFset *]
+
+	gettoken COMMA args : 0, parse(", ")
+	.args = `"`:list retok args'"'
+	if `.outcomeIsEq' {
+		opts_exclusive `"`equation' `outcome'"'
+	}
+	if `:length local equation' {
+		.eq = `"`equation'"'
+	}
+	if `:length local outcome' {
+		.eq = `"`outcome'"'
+	}
+	.offset = "`offset'"
+	if `:length local options' {
+		.opts = `"`options'"'
+	}
+	local deriv `"`e(marginsderiv)'"'
+	if `"`deriv'"' != "" {
+		local DEFAULT default
+		local hasdflt : list DEFAULT in deriv
+		if `hasdflt' {
+			local deriv : list deriv - DEFAULT
+		}
+		local 0 `", `.opts'"'
+		syntax [, `deriv' *]
+		if `"`options'"' == "" {
+			if `"`.opts'"' == "" {
+				.deriv = `hasdflt'
+			}
+			else	.deriv = 1
+		}
+	}
+	local j1 `"`e(marginsj1)'"'
+	if `"`j1'"' != "" {
+		local DEFAULT default
+		local hasdflt : list DEFAULT in j1
+		if `hasdflt' {
+			local j1 : list j1 - DEFAULT
+		}
+		local 0 `", `.opts'"'
+		syntax [, `j1' *]
+		if `"`options'"' == "" {
+			if `"`.opts'"' == "" {
+				.j1 = `hasdflt'
+			}
+			else	.j1 = 1
+		}
+	}
+	local j2 `"`e(marginsj2)'"'
+	if `"`j2'"' != "" {
+		local DEFAULT default
+		local hasdflt : list DEFAULT in j2
+		if `hasdflt' {
+			local j2 : list j2 - DEFAULT
+		}
+		local 0 `", `.opts'"'
+		syntax [, `j2' *]
+		if `"`options'"' == "" {
+			if `"`.opts'"' == "" {
+				.j2 = `hasdflt'
+			}
+			else	.j2 = 1
+		}
+	}
+end
+
+program .match, rclass
+	if `.outcomeIsEq' {
+		local OUTCOME Outcome(passthru)
+	}
+	syntax [, EQuation(passthru) `OUTCOME' noOFFset *]
+
+	if `.outcomeIsEq' {
+		opts_exclusive `"`equation' `outcome'"'
+	}
+	if `:length local outcome' {
+		local equation : copy local outcome
+	}
+
+	if `"`.eq'"' != `"`equation'"' {
+		return scalar match = 0
+		class exit 0
+		exit
+	}
+	if `"`.offset'"' != "`offset'" {
+		return scalar match = 0
+		class exit 0
+		exit
+	}
+	if `:length local options' {
+		local opts `"`.opts'"'
+		if !`:list opt === options' {
+			return scalar match = 0
+			class exit 0
+			exit
+		}
+	}
+	else if "`e(predict)'" != "" {
+		capture local prop : properties `e(predict)'
+		if !c(rc) {
+			local xb "default_xb"
+			if `:list xb in prop' {
+				if `"`.opts'"' != "xb" {
+					return scalar match = 0
+					class exit 0
+					exit
+				}
+			}
+		}
+	}
+	else if `"`.opts'"' != `""' {
+		return scalar match = 0
+		class exit 0
+		exit
+	}
+	return scalar match = 1
+	class exit 1
+end
+
+program .Predict
+	syntax [if] [in] [iw] [, *]
+	if "`weight'" != "" {
+		local wt "[iw`exp']"
+	}
+	capture drop `.varname'
+	version `.vv':					///
+	quietly						///
+	predict double `.varname' `if' `in' `wt',	///
+		`.offset' `.eq' `.opts' `options'
+end
+
+exit

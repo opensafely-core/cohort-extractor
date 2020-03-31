@@ -1,0 +1,90 @@
+/*
+  mean.dlg
+
+*!  VERSION 1.3.2  18jan2019
+
+  keyword:  eclass
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 300
+INCLUDE header
+
+HELP hlp1, view("help mean")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	program parseMessage
+	script se_createAsSvyAnalytic
+	program svy_check_title
+	setscale_hadj resource MEAN_DLG_HSCALE
+END
+
+PROGRAM parseMessage
+BEGIN
+	if __MESSAGE.contains("__MI__") {
+		call script se_setMI_on
+	}
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script se_setTitleSeCluster
+	script sub_set_over_on
+	program se_setFinalInitState
+	sub.ck_nolab.hide
+END
+
+SCRIPT svy_is_on
+BEGIN
+	//
+END
+SCRIPT svy_is_off
+BEGIN
+	//
+END
+PROGRAM svy_check_title
+BEGIN
+	if __MESSAGE.contains("-svy-") {
+		call settitle resource MEAN_SVY_DLG_TITLE
+	}
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)				///
+	title(resource MEAN_DLG_TITLE) // has svy title
+BEGIN
+  TEXT tx_vars				_lft	_top	_iwd	.,	///
+	label(resource LBL_VARIABLES)
+  VARLIST vl_vars			_lft	_ss	@	.,	///
+  	numeric								///
+	fv								///
+	label(resource LBL_VARIABLES)
+
+  INCLUDE svy_stdize
+END
+
+INCLUDE svy_stdize_pr
+
+INCLUDE sub_by_ifin_over_subpop
+INCLUDE weights_fpai
+INCLUDE se
+INCLUDE srsrpt
+
+PROGRAM command
+BEGIN
+	put /program se_prefix_output " "
+	put "mean "
+	varlist main.vl_vars
+	put " " /program ifin_output
+	put " " /program weights_output
+	beginoptions
+		put /program svy_stdize_output
+		put " " /program over_output
+		put " " /program se_output
+		put " " /program srsrpt_output
+	endoptions
+END

@@ -1,0 +1,427 @@
+/*
+  ds.dlg
+
+*! VERSION 1.1.1  03jun2015
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE _ht340
+INCLUDE header
+HELP hlp1, view("help ds")
+RESET res1
+
+DEFINE exin    +70
+DEFINE exina   +80
+DEFINE exwd     50
+DEFINE exwda   195
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource DS_DLG_HSCALE
+END
+
+DIALOG main, label(resource DS_DLG_TITLE) 				///
+		tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_desc2          _lft      _top      _iwd      .,		///
+		label(resource LBL_VARIABLES_LEAVE_EMPTY_FOR_ALL)
+  VARLIST  vl_var            @         _ss       @         .,		///
+		label(resource LBL_GB_VARIABLES)
+  TEXT     tx_examples       @         _ms       @         .,		///
+		label(resource LBL_EXAMPLES)
+  TEXT     tx_examp1         exin      @         exwd      .,		///
+  		right label(resource LBL_YR_STAR)
+  DEFINE holdx @x
+  TEXT     tx_examp1a        exina     @         exwda     .,		///
+		label(resource LBL_ALL_VARIABLES_STARTING_WITH_YR)
+  TEXT     tx_examp2         holdx     _vss      exwd      .,		///
+  		right label(resource LBL_XYZ_ABC)
+  TEXT     tx_examp2a        exina     @         exwda     .,		///
+		label(resource LBL_ALL_VARIABLES_BETWEEN_XYZ_ABC)
+
+  GROUPBOX gb_not            _lft      _ls       _iwd      _ht4,
+  RADIO    rb_var            _ilft     _ss       _inwd     .,		///
+		label(resource DS_MAIN_RB_VAR)				///
+		first option(NONE) onclickon(program adv_tab_on)
+  RADIO    rb_not            @         _ss       @         .,		///
+		option(not) onclickon(script adv_tab_off)		///
+		last							///
+		label(resource DS_MAIN_RB_NOT)
+
+  GROUPBOX gb_options        _lft      _xls      _iwd      _ht11,	///
+  		label(resource LBL_OPTIONS)
+  CHECKBOX ck_alpha          _ilft     _ss       _cwd1     .,		///
+		option(alpha)						///
+		label(resource DS_MAIN_CK_ALPHA)
+DEFINE   holdx @x
+  CHECKBOX ck_det            @         _ms       @         .,		///
+  		label(resource DS_MAIN_CK_DET) option(detail)	///
+		onclickon(script main_detail) onclickoff(script main_nodetail)
+  SPINNER  sp_varwidth       @         _ls       _spwd     .,		///
+		label(resource DS_MAIN_SP_VARWIDTH)		///
+		min(5) max(32) default(literal 12)			///
+		option(varwidth)
+  TEXT     tx_varwidth       _spsep    @         _sprb     .,		///
+		label(resource DS_MAIN_SP_VARWIDTH)
+  SPINNER  sp_skip           holdx     _ls       _spwd     .,		///
+		label(resource DS_MAIN_SP_SKIP)				///
+		min(1) max(10) default(literal 2)			///
+		option(skip)
+  TEXT     tx_skip           _spsep    @         _sprb     .,		///
+		label(resource DS_MAIN_SP_SKIP)
+END
+
+SCRIPT main_nodetail
+BEGIN
+	main.sp_varwidth.enable
+	main.tx_varwidth.enable
+	main.sp_skip.enable
+	main.tx_skip.enable
+END
+
+SCRIPT main_detail
+BEGIN
+	main.sp_varwidth.disable
+	main.tx_varwidth.disable
+	main.sp_skip.disable
+	main.tx_skip.disable
+END
+
+DIALOG adv, tabtitle(resource LBL_ADVANCED)
+BEGIN
+  GROUPBOX gb_adv            _lft      _top      _iwd      _ht6,	///
+  		label(resource DS_ADV_GB_ADV)
+  RADIO    rb_adv_off        _ilft     _ss       _inwd     .,		///
+		first							///
+		onclickon(script advanced_off)				///
+		label(resource DS_ADV_RB_ADV_OFF)
+  RADIO    rb_has            @         _ss       @         .,		///
+  		onclickon(program advanced_on)				///
+		label(resource DS_ADV_RB_HAS)
+  RADIO    rb_not            @         _ss       @         .,		///
+  		last							///
+  		onclickon(program advanced_on)				///
+		label(resource DS_ADV_RB_NOT)
+
+  GROUPBOX gb_match_to       _lft      _xls      _iwd      _ht4,	///
+  		label(resource DS_ADV_GB_MATCH_TO)
+  RADIO    rb_type           _ilft     _ss       _cwd3_1   .,		///
+  		label(resource LBL_TYPE) option(type) first			///
+		onclickon(script adv_type_on)
+  RADIO    rb_var_label      _ilft3_2  @         @         .,		///
+  		label(resource DS_ADV_RB_VAR_LABEL) option(varlabel)		///
+		onclickon(script adv_var_label_on)
+  RADIO    rb_val_label      _ilft3_3  @         @         .,		///
+  		label(resource LBL_VALUE_LABEL) option(vallabel)			///
+		onclickon(script adv_val_label_on)
+  RADIO    rb_format         _ilft     _ss       @         .,		///
+  		label(resource LBL_RB_FORMAT) option(format)				///
+		onclickon(script adv_format_on)
+  RADIO    rb_char           _ilft3_2  @         @         .,		///
+  		label(resource DS_ADV_RB_CHAR) option(char)	 		///
+		onclickon(script adv_char_on) last
+
+  GROUPBOX gb_types          _lft      _xls      _iwd      _ht9,
+DEFINE y1 @y
+  CHECKBOX ck_numeric        _ilft     _ss       _cwd4_1   .,		///
+  		label(resource DS_ADV_CK_NUMERIC) option(numeric)			///
+		onclickon(script adv_numtype_off)			///
+		onclickoff(program adv_numtype_on)
+DEFINE holdy @y
+  CHECKBOX ck_byte           _ilft4_2  @         @         .,		///
+  		label(resource LBL_BYTE) option(byte)
+  CHECKBOX ck_int            _ilft     _ms       @         .,		///
+  		label(resource DS_ADV_CK_INT) option(int)
+  CHECKBOX ck_long           _ilft4_2  @         @         .,		///
+  		label(resource DS_ADV_CK_LONG) option(long)
+  CHECKBOX ck_float          _ilft     _ms       @         .,		///
+  		label(resource LBL_FLOAT) option(float)
+  CHECKBOX ck_double         _ilft4_2  @         @         .,		///
+  		label(resource LBL_DOUBLE) option(double)
+  CHECKBOX ck_str            _ilft2    holdy     _cwd3     .,		///
+  		label(resource DS_ADV_CK_STR) option(string)			///
+		onclickon(script adv_string_off) 			///
+		onclickoff(program adv_string_on)
+  CHECKBOX ck_strl           _ilft2    _ms   _cwd3     .,		///
+  		label(resource DS_ADV_CK_STRL) option(strL)
+  CHECKBOX ck_str2           @         _ms       @         .,		///
+  		label(resource DS_ADV_CK_STR2) option(NONE) 	///
+		onclickon(gaction adv.ed_str2.enable)			///
+		onclickoff(gaction adv.ed_str2.disable)
+  EDIT     ed_str2           _indent2  _ss       _en14wd   .,		///
+  		label(resource DS_ADV_CK_STR2)
+  BUTTON   bu_str2           _en14sep  @         20        .,		///
+  		label(resource LBL_?) onpush(view help numlist##|_new)
+
+  BUTTON   bu_pat            400       holdy     _buwd     .,		///
+  		label(resource LBL_BU_EXAMPLES) onpush(view "help varfind_pat_examp")
+  TEXT     tx_pat            _ilft     +5        _cwd3     ., 		///
+  		label(resource LBL_PATTERN)
+  EDIT     ed_pat            @         +20       _ibwd     .,		///
+  		label(resource LBL_PATTERN)
+  CHECKBOX ck_insensitive    @         _ms       @         .,		///
+  		label(resource DS_ADV_CK_INSENSITIVE)		///
+		option(insensitive)
+END
+
+PROGRAM adv_tab_on
+BEGIN
+	call adv.gb_adv.enable
+	call adv.rb_adv_off.enable
+	call adv.rb_has.enable
+	call adv.rb_not.enable
+	if ! adv.rb_adv_off {
+		call program advanced_on
+	}
+END
+
+PROGRAM advanced_on
+BEGIN
+	call adv.gb_match_to.enable
+	call adv.rb_type.enable
+	call adv.rb_var_label.enable
+	call adv.rb_val_label.enable
+	call adv.rb_format.enable
+	call adv.rb_char.enable
+	call adv.gb_types.enable
+	call adv.ck_byte.enable
+	call adv.ck_int.enable
+	call adv.ck_long.enable
+	call adv.ck_float.enable
+	call adv.ck_double.enable
+	call adv.ck_numeric.enable
+	call adv.ck_str.enable
+	call adv.ck_strl.enable
+	call adv.ck_str2.enable
+	call adv.ed_str2.enable
+	call adv.bu_str2.enable
+	call adv.ed_pat.enable
+	call adv.tx_pat.enable
+	call adv.bu_pat.enable
+	if ! adv.rb_format {
+		call adv.ck_insensitive.enable
+	}
+END
+
+SCRIPT adv_tab_off
+BEGIN
+	adv.gb_adv.disable
+	adv.rb_adv_off.disable
+	adv.rb_has.disable
+	adv.rb_not.disable
+	script advanced_off
+END
+
+SCRIPT advanced_off
+BEGIN
+	adv.gb_match_to.disable
+	adv.rb_type.disable
+	adv.rb_var_label.disable
+	adv.rb_val_label.disable
+	adv.rb_format.disable
+	adv.rb_char.disable
+	adv.gb_types.disable
+	adv.ck_byte.disable
+	adv.ck_int.disable
+	adv.ck_long.disable
+	adv.ck_float.disable
+	adv.ck_double.disable
+	adv.ck_numeric.disable
+	adv.ck_str.disable
+	adv.ck_strl.disable
+	adv.ck_str2.disable
+	adv.ed_str2.disable
+	adv.bu_str2.disable
+	adv.ed_pat.disable
+	adv.tx_pat.disable
+	adv.bu_pat.disable
+	adv.ck_insensitive.disable
+END
+
+SCRIPT adv_type_off
+BEGIN
+	adv.ck_byte.hide
+	adv.ck_int.hide
+	adv.ck_long.hide
+	adv.ck_float.hide
+	adv.ck_double.hide
+	adv.ck_numeric.hide
+	adv.ck_str.hide
+	adv.ck_strl.hide
+	adv.ck_str2.hide
+	adv.ed_str2.hide
+	adv.bu_str2.hide
+END
+
+SCRIPT adv_pattern_off
+BEGIN
+	adv.ed_pat.hide
+	adv.tx_pat.hide
+	adv.bu_pat.hide
+END
+
+SCRIPT adv_type_on
+BEGIN
+	script adv_pattern_off
+	adv.gb_types.setlabel resource DS_MATCH_VARIABLES_TO_TYPES
+	adv.ck_byte.show
+	adv.ck_int.show
+	adv.ck_long.show
+	adv.ck_float.show
+	adv.ck_double.show
+	adv.ck_numeric.show
+	adv.ck_str.show
+	adv.ck_str2.show
+	adv.ed_str2.show
+	adv.bu_str2.show
+	adv.ck_insensitive.hide
+END
+
+SCRIPT adv_var_label_on
+BEGIN
+	script adv_type_off
+	adv.gb_types.setlabel resource DS_MATCH_VARIABLE_LABEL_PATTERN
+	adv.tx_pat.show
+	adv.tx_pat.setlabel resource DS_PATTERN_LEAVE_BLANK_FOR_ALL
+	adv.ed_pat.show
+	adv.bu_pat.show
+	adv.ck_insensitive.show
+	adv.ck_insensitive.enable
+END
+
+SCRIPT adv_val_label_on
+BEGIN
+	script adv_type_off
+	adv.gb_types.setlabel resource DS_MATCH_NAME_OF_VALUE_LABEL_TO_PATTERN
+	adv.tx_pat.show
+	adv.tx_pat.setlabel resource DS_PATTERN_LEAVE_BLANK_FOR_ALL
+	adv.ed_pat.show
+	adv.bu_pat.show
+	adv.ck_insensitive.show
+	adv.ck_insensitive.enable
+END
+
+SCRIPT adv_format_on
+BEGIN
+	script adv_type_off
+	adv.gb_types.setlabel resource DS_MATCH_FORMAT_TO_PATTERN
+	adv.tx_pat.show
+	adv.tx_pat.setlabel resource DS_PATTERN_REQUIRED
+	adv.ed_pat.show
+	adv.bu_pat.show
+	adv.ck_insensitive.show
+	adv.ck_insensitive.disable
+END
+
+SCRIPT adv_char_on
+BEGIN
+	script adv_type_off
+	adv.gb_types.setlabel resource DS_MATCH_CHARACTERISTIC_NAME_TO_PATTERN
+	adv.tx_pat.show
+	adv.tx_pat.setlabel resource DS_PATTERN_LEAVE_BLANK_FOR_ALL
+	adv.ed_pat.show
+	adv.bu_pat.show
+	adv.ck_insensitive.show
+	adv.ck_insensitive.enable
+END
+
+PROGRAM adv_string_on
+BEGIN
+	if ! D(adv.ck_str) {
+		call gaction adv.ck_str2.enable
+		if adv.ck_str2 {
+			call gaction adv.ed_str2.enable
+		}
+	}
+END
+
+SCRIPT adv_string_off
+BEGIN
+	adv.ck_str2.disable
+	adv.ed_str2.disable
+END
+
+PROGRAM adv_numtype_on
+BEGIN
+	if ! D(adv.ck_numeric) {
+ 		call adv.ck_byte.enable
+		call adv.ck_int.enable
+		call adv.ck_long.enable
+		call adv.ck_float.enable
+		call adv.ck_double.enable
+	}
+END
+
+SCRIPT adv_numtype_off
+BEGIN
+ 	adv.ck_byte.disable
+	adv.ck_int.disable
+	adv.ck_long.disable
+	adv.ck_float.disable
+	adv.ck_double.disable
+END
+
+PROGRAM has_output
+BEGIN
+	option adv.rb_type
+	option adv.rb_var_label
+	option adv.rb_val_label
+	option adv.rb_format
+	option adv.rb_char
+	if adv.rb_type & !D(adv.rb_type) {
+		if !(adv.ck_numeric) & !(adv.ck_byte)&	///
+		!(adv.ck_int)&!(adv.ck_long)&		///
+		!(adv.ck_float)&!(adv.ck_double)&	///
+		!(adv.ck_str)&!(adv.ck_str2) &! (adv.ck_strl) {
+			stopbox stop resource DS_MSGBOX_ONE_VAR_TYPE_REQUIRED
+// At least one of the variable types must be chosen.
+		}
+		option adv.ck_numeric
+		option adv.ck_byte
+		option adv.ck_int
+		option adv.ck_long
+		option adv.ck_float
+		option adv.ck_double
+		option adv.ck_str
+		option adv.ck_strl
+		if adv.ck_str2 {
+			require adv.ed_str2
+			put adv.ed_str2
+		}
+	}
+	if !(adv.rb_type) & ! D(adv.rb_type) {
+		if adv.rb_format {
+			require adv.ed_pat
+		}
+		put adv.ed_pat
+	}
+END
+
+PROGRAM command
+BEGIN
+	put "ds "
+	varlist [main.vl_var]
+	beginoptions
+		option main.rb_not
+		option main.ck_alpha
+		option main.ck_det
+		optionarg /hidedefault main.sp_varwidth
+		optionarg /hidedefault main.sp_skip
+		if adv.rb_has & ! D(adv.rb_has) {
+			put "has("
+				put /program has_output
+			put ") "
+		}
+		if adv.rb_not & ! D(adv.rb_not) {
+			put "not("
+				put /program has_output
+			put ") "
+		}
+		if adv.ed_pat {
+			option adv.ck_insensitive
+		}
+	endoptions
+END

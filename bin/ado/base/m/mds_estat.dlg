@@ -1,0 +1,327 @@
+/*
+	mds_estat
+
+*!  VERSION 1.2.1  08mar2015
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE header
+
+HELP hlp1, view("help mds postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource MDS_ESTAT_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program parseMessage
+END
+
+PROGRAM parseMessage
+BEGIN
+	if __MESSAGE.contains("-config-") {
+		call main.lb_subcmd.setvalue "config"
+	}
+	if __MESSAGE.contains("-correlations-") {
+		call main.lb_subcmd.setvalue "correlations"
+	}
+	if __MESSAGE.contains("-pairwise-") {
+		call main.lb_subcmd.setvalue "pairwise"
+	}
+	if __MESSAGE.contains("-quantiles-") {
+		call main.lb_subcmd.setvalue "quantiles"
+	}
+	if __MESSAGE.contains("-stress-") {
+		call main.lb_subcmd.setvalue "stress"
+	}
+	if __MESSAGE.contains("-summarize-") {
+		call main.lb_subcmd.setvalue "summarize"
+	}
+	if __MESSAGE.contains("-bootstrap-") {
+		call main.lb_subcmd.setvalue "bootstrap"
+	}
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)	///
+	label(resource MDS_ESTAT_DLG_TITLE)
+BEGIN
+  TEXT     tx_subcmd		_lft	_top	_cwd1	.,		///
+  	label(resource LBL_REPORTS_STATISTICS_SUBCOMMAND)
+  LISTBOX  lb_subcmd		@	_ss	_iwd	70,		///
+  	contents(main_subcommand_contents)				///
+  	values(main_subcommand_values)					///
+  	onselchangelist(main_subcommand_scripts)
+
+  DEFINE holdy 110
+
+  // config options
+  SPINNER  sp_maxlength		_lft	holdy	_spwd	.,		///
+	min(5) max(32) default(12) option(maxlength)			///
+	label(resource MDS_ESTAT_MAIN_SP_MAXLENGTH)
+  TEXT     tx_maxlength		_spsep	@	_sprb	.,  		///
+	label(resource MDS_ESTAT_MAIN_SP_MAXLENGTH)
+	
+  CHECKBOX ck_format		_lft	_ms	_iwd	.,		///
+  	onclickon(script main_format_on)				///
+  	onclickoff(script main_format_off)				///
+	label(resource LBL_SPECIFY_THE_DISPLAY_FORMAT)
+  EDIT     ed_format		+20	_ss	200	.,		///
+	option(format) label(resource LBL_DISPLAY_FORMAT_NO_COLON)
+  BUTTON   bn_format      	+205	@	80	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(script showFormatDialog)					///
+	tooltip(resource LBL_CREATE_DISPLAY_FORMAT)
+
+  // corrections options - reuse maxlength and format
+  CHECKBOX ck_nototal		_lft	_ms	_iwd	.,		///
+  	label(resource MDS_ESTAT_MAIN_CK_NOTOTAL)			///
+  	option(nototal)
+  CHECKBOX ck_notransform	@	_ms	@	.,		///
+	option(notransform)						///
+  	label(resource LBL_USE_DISSIMILARITIES_INSTEAD_OF_DISPARITIES)
+
+  // pairwise options - reuse maxlength and notransform
+  CHECKBOX ck_full		_lft	_ms	_iwd	.,		///
+  	label(resource MDS_ESTAT_MAIN_CK_FULL)				///
+  	option(full)
+  CHECKBOX ck_sep		@	_ms	@	.,		///
+	option(separator)						///
+	label(resource MDS_ESTAT_MAIN_CK_SEP)
+
+  // quantiles options - reuse maxlength, format, nototal, and notransform
+
+  // stress options - reuse maxlength, format, nototal, and notransform
+
+  // summarize options
+  CHECKBOX ck_labels		@	_ms	@	.,		///
+  	label(resource LBL_DISPLAY_VARIABLE_LABELS)			///
+  	option(labels)
+END
+
+SCRIPT showFormatDialog
+BEGIN
+	create STRING formatString
+	create CHILD format_chooser
+	format_chooser.setExitString formatString
+	format_chooser.setExitAction "main.ed_format.setvalue class formatString.value"
+END
+
+
+LIST main_subcommand_contents
+BEGIN
+	resource MDS_ESTAT_COORDINATES_OF_THE_APPROX_CONFIG
+	resource MDS_ESTAT_CORRELATIONS_BETWEEN_DISSIM_AND_APPROX_DIST
+	resource MDS_ESTAT_PAIRWISE_DISSIM_APPROX_DIST_AND_RAW_RESID
+	resource MDS_ESTAT_QUANTILES_OF_RESIDUALS_PER_OBJECT
+	resource MDS_ESTAT_KRUSKAL_STRESS_LOSS_MEASURE_STRESS
+	resource MDS_ESTAT_SUMMARIZE_EST_SAMPLE_NOT_AVAIL_AFTER_MDSMAT
+END
+
+LIST main_subcommand_values
+BEGIN
+	config
+	correlations
+	pairwise
+	quantiles
+	stress
+	summarize
+END
+
+LIST main_subcommand_scripts
+BEGIN
+	script sel_config
+	script sel_correlations
+	script sel_pairwise
+	script sel_quantiles
+	script sel_stress
+	script sel_summarize
+END
+
+SCRIPT sel_config
+BEGIN
+	script main_config_on
+END
+
+SCRIPT sel_correlations
+BEGIN
+	script main_corrections_on
+END
+
+SCRIPT sel_pairwise
+BEGIN
+	script main_pairwise_on
+END
+
+SCRIPT sel_quantiles
+BEGIN
+	script main_quantiles_stress_on
+END
+
+SCRIPT sel_stress
+BEGIN
+	script main_quantiles_stress_on
+END
+
+SCRIPT sel_summarize
+BEGIN
+	script main_summarize_on
+END
+
+// Begin on scripts
+SCRIPT main_config_on
+BEGIN
+	//show maxlength
+	main.sp_maxlength.show
+	main.tx_maxlength.show
+
+	//show format with position
+	main.ck_format.show
+	main.ed_format.show
+	main.bn_format.show
+	main.ck_format.setposition . 140 . .
+	main.ed_format.setposition . 160 . .
+	main.bn_format.setposition . 160 . .
+
+	//hide other options
+	main.ck_nototal.hide
+	main.ck_notransform.hide
+	main.ck_full.hide
+	main.ck_sep.hide
+	main.ck_labels.hide
+END
+
+SCRIPT main_corrections_on
+BEGIN
+	//show maxlength
+	main.sp_maxlength.show
+	main.tx_maxlength.show
+
+	//show format with position
+	main.ck_format.show
+	main.ed_format.show
+	main.bn_format.show
+	main.ck_format.setposition . 140 . .
+	main.ed_format.setposition . 160 . .
+	main.bn_format.setposition . 160 . .
+
+	//show nototal with position
+	main.ck_nototal.show
+	main.ck_nototal.setposition . 190 . .
+	main.ck_notransform.show
+	main.ck_notransform.setposition . 215 . .
+
+	//hide other options
+	main.ck_full.hide
+	main.ck_sep.hide
+	main.ck_labels.hide
+END
+
+SCRIPT main_pairwise_on
+BEGIN
+	//show maxlength and other options
+	main.sp_maxlength.show
+	main.tx_maxlength.show
+	main.ck_notransform.setposition . 140 . .
+	main.ck_full.setposition . 165 . .
+	main.ck_sep.setposition . 190 . .
+	main.ck_notransform.show
+	main.ck_full.show
+	main.ck_sep.show
+
+	//hide nototal
+	main.ck_nototal.hide
+
+	//hide format
+	main.ck_format.hide
+	main.ed_format.hide
+	main.bn_format.hide
+	main.ck_labels.hide
+END
+
+SCRIPT main_quantiles_stress_on
+BEGIN
+	//show maxlength
+	main.sp_maxlength.show
+	main.tx_maxlength.show
+
+	//show format
+	main.ck_format.setposition . 140 . .
+	main.ed_format.setposition . 160 . .
+	main.bn_format.setposition . 160 . .
+	main.ck_format.show
+	main.ed_format.show
+	main.bn_format.show
+
+	//show nototal and notransform
+	main.ck_nototal.setposition . 190 . .
+	main.ck_notransform.setposition . 215 . .
+	main.ck_nototal.show
+	main.ck_notransform.show
+
+	//hide others
+	main.ck_full.hide
+	main.ck_sep.hide
+	main.ck_labels.hide
+END
+
+SCRIPT main_summarize_on
+BEGIN
+	//show labels
+	main.ck_labels.setposition . 110 . .
+	main.ck_labels.show
+
+	//hide others
+	main.sp_maxlength.hide
+	main.tx_maxlength.hide
+	main.ck_format.hide
+	main.ed_format.hide
+	main.bn_format.hide
+	main.ck_nototal.hide
+	main.ck_notransform.hide
+	main.ck_full.hide
+	main.ck_sep.hide
+END
+
+SCRIPT main_format_on
+BEGIN
+	main.ed_format.enable
+	main.bn_format.enable
+END
+SCRIPT main_format_off
+BEGIN
+	main.ed_format.disable
+	main.bn_format.disable
+END
+
+PROGRAM command
+BEGIN
+	put "estat "
+	put main.lb_subcmd
+	beginoptions
+		// config options
+		optionarg /hidedefault main.sp_maxlength
+		if main.ck_format {
+			require main.ed_format
+			optionarg main.ed_format
+		}
+
+		// corrections options
+		option main.ck_nototal
+
+		// pairwise options
+		option main.ck_notransform
+		option main.ck_full
+		option main.ck_sep
+
+		// Quantiles and stress options - reused
+
+		// Summarize options
+		option main.ck_labels
+	endoptions
+END

@@ -1,0 +1,390 @@
+/*
+  arima
+
+*!  VERSION 1.3.5  29nov2018
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_glm
+INCLUDE header
+HELP hlp1, view("help arima")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	script se_createAsML
+	setscale_hadj resource ARIMA_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script max_setDefaultOPG
+	script se_setCluster_off
+END
+
+SCRIPT main_PREINIT
+BEGIN
+	script _constraints_main_setOptionalOn
+END
+
+SCRIPT main_POSTINIT
+BEGIN
+	script max_enableGTolerance
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)				///
+	label(resource ARIMA_DLG_TITLE)
+BEGIN
+  DEFINE _x _xsetbu
+  DEFINE _y _top
+  INCLUDE _bu_tsset
+
+  TEXT tx_dv 		_lft	_topph	_vnwd	.,			///
+	label(resource LBL_DEPVAR)
+  VARNAME vn_dv		@ 	_ss	@	.,			///
+	ts								///
+	numeric								///
+	label(resource LBL_DEPVAR)
+
+  TEXT tx_iv		_vlx	_topph	160	.,			///
+	label(resource LBL_INDDEPVAR)
+  VARLIST vl_iv		@	_ss	_vlwd	.,			///
+	ts								///
+	allowcat							///
+	numeric								///
+	label(resource LBL_INDDEPVAR)
+  CHECKBOX ck_nocons @       _ms         @         .,			///
+	label(resource LBL_NOCONSTANT)					///
+	option(noconstant)
+
+  DEFINE _y _ls
+  INCLUDE _arima
+
+  DEFINE _x _lft
+  DEFINE _y _xxxxls
+  DEFINE _cx _lw80
+  DEFINE _bux _slw80
+  INCLUDE _constraints
+  
+  DEFINE _x _lft
+  DEFINE _xw _iwd
+//  INCLUDE _ck_collinear
+END
+
+INCLUDE _constraints_sc 
+INCLUDE _arima_main_sc
+
+DIALOG adv2, tabtitle(resource LBL_TAB_MODEL2)
+BEGIN
+  GROUPBOX gb_spec   _lft      _top      _iwd      _ht16,		///
+	label(resource ARIMA_ADV2_GB_SPEC)
+  RADIO    rb_sarima _indent   _ss       _cwd2     .,			///
+	first label(resource ARIMA_ADV2_RB_SARIMA)			///
+	onclickon(script sarima_on)
+  RADIO    rb_terms  _lft2     @         @         .,			///
+	last label(resource ARIMA_ADV2_RB_TERMS)			///
+	onclickon(script terms_on)
+
+  FRAME    fr_line1  _ilft     _ms       _ibwd     1,
+  TEXT     tx_mark1  _lft2     @         0         0,
+  FRAME    fr_vline1 -15       +2        2         140,
+  SPINNER  sp_p      _ilft     _ss       _spwd     .,			///
+	label(resource LBL_AUTOREGRESSIVE_ORDER)			///
+	min(0) max(c(N)) default(0)
+  DEFINE x @x
+  DEFINE y @y
+  TEXT     tx_p      _spsep    @         _rbspr2   .,			///
+	label(resource ARIMA_ADV2_TX_P)
+
+  SPINNER  sp_d      x         +27       _spwd     .,			///
+	label(resource LBL_ARIMA_INTEGRATED_ORDER)			///
+	min(0) max(c(N)) default(0)
+  TEXT     tx_d      _spsep    @         _rbspr2   .,			///
+	label(resource ARIMA_ADV2_TX_D)
+
+  SPINNER  sp_q      x         +27       _spwd     .,			///
+	label(resource LBL_MOVING_AVERAGE_ORDER)			///
+	min(0) max(c(N)) default(0)
+  TEXT     tx_q      _spsep    @         _rbspr2   .,			///
+	label(resource ARIMA_ADV2_TX_Q)
+
+  SPINNER  sp_s      x         +27       _spwd     .,			///
+	label(resource ARIMA_ADV2_SP_S)					///
+	min(0) max(c(N)) default(0)
+  TEXT     tx_s      _spsep    @         _rbspr2   .,			///
+	label(resource ARIMA_ADV2_TX_S)
+
+  TEXT     tx_mark   _lft2     y         5         .,
+  TEXT     tx_term2  +10       -12       45        .,			///
+  	label(resource LBL_TERM)
+  TEXT     tx_lagnum +50       @         100       .,			///
+  	label(resource ARIMA_ADV2_TX_LAGNUM)
+  TEXT     tx_lags   +105      @         100       .,			///
+  	label(resource ARIMA_ADV2_TX_LAGS)
+  FRAME    fm_line   _lft2     _ss       _cwd2     1,
+  TEXT     tx_mar1   _indent   +7        45        .,			///
+  	label(resource ARIMA_ADV2_TX_MAR)
+  DEFINE y @y
+  TEXT     tx_mar2   @         _ms       @         .,			///
+  	label(resource ARIMA_ADV2_TX_MAR)
+  TEXT     tx_mma1   @         _ms       @         .,			///
+  	label(resource ARIMA_ADV2_TX_MMA)
+  TEXT     tx_mma2   @         _ms       @         .,			///
+  	label(resource ARIMA_ADV2_TX_MMA)
+
+  EDIT     ed_mar_s1 +50       y         60        ., 			///
+	numonly label(resource ARIMA_ADV2_ED_MAR_S1)
+  EDIT     ed_mar_s2 @         _ms       @         ., 			///
+	numonly label(resource ARIMA_ADV2_ED_MAR_S2)
+  EDIT     ed_mma_s1 @         _ms       @         ., 			///
+	numonly label(resource ARIMA_ADV2_ED_MMA_S1)
+  EDIT     ed_mma_s2 @         _ms       @         ., 			///
+	numonly label(resource ARIMA_ADV2_ED_MMA_S1)
+
+  EDIT     ed_mar1   +105      y         100       ., label(resource ARIMA_ADV2_LAG_MAR)
+  EDIT     ed_mar2   @         _ms       @         ., label(resource ARIMA_ADV2_LAG_MAR)
+  EDIT     ed_mma1   @         _ms       @         ., label(resource ARIMA_ADV2_LAG_MMA)
+  EDIT     ed_mma2   @         _ms       @         ., label(resource ARIMA_ADV2_LAG_MMA)
+END
+
+
+
+SCRIPT sarima_on
+BEGIN
+	adv2.sp_p.enable
+	adv2.tx_p.enable
+	adv2.sp_d.enable
+	adv2.tx_d.enable
+	adv2.sp_q.enable
+	adv2.tx_q.enable
+	adv2.sp_s.enable
+	adv2.tx_s.enable
+
+	adv2.tx_term2.disable
+	adv2.tx_lagnum.disable
+	adv2.tx_lags.disable
+	adv2.tx_mar1.disable
+	adv2.tx_mar2.disable
+	adv2.tx_mma1.disable
+	adv2.tx_mma2.disable
+	adv2.ed_mar_s1.disable
+	adv2.ed_mar_s2.disable
+	adv2.ed_mma_s1.disable
+	adv2.ed_mma_s2.disable
+	adv2.ed_mar1.disable
+	adv2.ed_mar2.disable
+	adv2.ed_mma1.disable
+	adv2.ed_mma2.disable
+END
+
+SCRIPT terms_on
+BEGIN
+	adv2.sp_p.disable
+	adv2.tx_p.disable
+	adv2.sp_d.disable
+	adv2.tx_d.disable
+	adv2.sp_q.disable
+	adv2.tx_q.disable
+	adv2.sp_s.disable
+	adv2.tx_s.disable
+
+	adv2.tx_term2.enable
+	adv2.tx_lagnum.enable
+	adv2.tx_lags.enable
+	adv2.tx_mar1.enable
+	adv2.tx_mar2.enable
+	adv2.tx_mma1.enable
+	adv2.tx_mma2.enable
+	adv2.ed_mar_s1.enable
+	adv2.ed_mar_s2.enable
+	adv2.ed_mma_s1.enable
+	adv2.ed_mma_s2.enable
+	adv2.ed_mar1.enable
+	adv2.ed_mar2.enable
+	adv2.ed_mma1.enable
+	adv2.ed_mma2.enable
+END
+
+DIALOG adv3, tabtitle(resource LBL_TAB_MODEL3)
+BEGIN
+  CHECKBOX ck_cond   _lft      _top      _iwd     .,			///
+	label(resource ARIMA_ADV3_CK_COND)				///
+	option(condition)
+  CHECKBOX ck_save   _lft      _ms       @         .,			///
+	label(resource LBL_CONSERVE_MEMORY_DURING_ESTIMATION)		///
+	option(savespace)
+
+  GROUPBOX gb_kalman _lft      _ls       _iwd      _ht12h,		///
+	label(resource ARIMA_ADV3_GB_KALMAN)
+
+  CHECKBOX ck_diffuse _ilft    _ss       _ibwd     .,			///
+	option(diffuse)							///
+	onclickon(script diffuse_on)					///
+	onclickoff(script diffuse_off)					///
+	label(resource ARIMA_ADV3_CK_DIFFUSE)
+
+  TEXT     tx_p0     @         _ls       @         .,			///
+	label(resource ARIMA_ADV3_TX_P0)
+
+  COMBOBOX cb_p0     @         _ss       @         _ht11,		///
+	append dropdown	contents(square) option(p0)			///
+
+  TEXT     tx_state0 @         _ls       @         .,			///
+	label(resource ARIMA_ADV3_TX_STATE0)
+
+  COMBOBOX cb_state0 @         _ss       @         _ht11,		///
+	append dropdown contents(column)				///
+	option(state0)
+END
+
+SCRIPT diffuse_on
+BEGIN
+	adv3.tx_p0.disable
+	adv3.cb_p0.disable
+	adv3.tx_state0.disable
+	adv3.cb_state0.disable
+END
+
+SCRIPT diffuse_off
+BEGIN
+	adv3.tx_p0.enable
+	adv3.cb_p0.enable
+	adv3.tx_state0.enable
+	adv3.cb_state0.enable
+END
+
+INCLUDE byifin
+INCLUDE weights_i
+INCLUDE se
+
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  CHECKBOX ck_detail _lft      _ls       _cwd1     .,			///
+	label(resource LBL_REPORT_LIST_GAPS_TIME_SERIES)		///
+	option(detail)
+
+  DEFINE _x _lft
+  DEFINE _y _ms
+  DEFINE _cx _iwd
+  INCLUDE _nocnsreport
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ms
+  DEFINE _cx _iwd
+  INCLUDE _vsquish
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+
+INCLUDE max_ml
+
+PROGRAM command
+BEGIN
+	allowxi
+	INCLUDE _by_pr
+	put "arima "
+	varlist main.vn_dv [main.vl_iv]
+	INCLUDE _weights_pr
+	INCLUDE _ifin_pr
+	beginoptions
+		option main.ck_nocons
+		if main.rb_arma {
+			optionarg main.ed_ar
+			optionarg main.ed_ma
+		}
+		if main.rb_arima & (main.sp_p | main.sp_d | main.sp_q) {
+			put "arima("		///
+				main.sp_p ","	///
+				main.sp_d ","	///
+				main.sp_q ") "
+		}
+		INCLUDE _constraints_main_pr
+//		option main.ck_collinear
+
+		if adv2.rb_sarima & (adv2.sp_p | adv2.sp_d 	///
+		   | adv2.sp_q | adv2.sp_s) 			///
+		{
+			put "sarima("		///
+			  adv2.sp_p ","		///
+			  adv2.sp_d ","		///
+			  adv2.sp_q ","		///
+			  adv2.sp_s ")"
+		}
+		if adv2.rb_terms {
+			if !(adv2.ed_mar1 | adv2.ed_mar_s1	///
+			   | adv2.ed_mar2 | adv2.ed_mar_s2	///
+			   | adv2.ed_mma1 | adv2.ed_mma_s1	///
+			   | adv2.ed_mma2 | adv2.ed_mma_s2)	///
+			{
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format "resource ARIMA_MSGBOX_MAR_MMA_FMT" ///
+				"resource LBL_TAB_MODEL2"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Model 2" tab, at least one "MAR" or "MMA" must be specified.
+			}
+			if adv2.ed_mar1 | adv2.ed_mar_s1 {
+				require adv2.ed_mar_s1
+				require adv2.ed_mar1
+				put "mar(" adv2.ed_mar1 ", "
+				put adv2.ed_mar_s1 ") "
+			}
+			if adv2.ed_mar2 | adv2.ed_mar_s2 {
+				require adv2.ed_mar_s2
+				require adv2.ed_mar2
+				put "mar(" adv2.ed_mar2 ", "
+				put adv2.ed_mar_s2 ") "
+			}
+			if adv2.ed_mma1 | adv2.ed_mma_s1 {
+				require adv2.ed_mma_s1
+				require adv2.ed_mma1
+				put "mma(" adv2.ed_mma1 ", "
+				put adv2.ed_mma_s1 ") "
+			}
+			if adv2.ed_mma2 | adv2.ed_mma_s2 {
+				require adv2.ed_mma_s2
+				require adv2.ed_mma2
+				put "mma(" adv2.ed_mma2 ", "
+				put adv2.ed_mma_s1 ") "
+			}
+		}
+
+		option adv3.ck_cond
+		option adv3.ck_save
+		option adv3.ck_diffuse
+		optionarg adv3.cb_p0
+		optionarg adv3.cb_state0
+
+		put " " /program se_output
+
+		optionarg /hidedefault rpt.sp_level
+		option rpt.ck_detail
+		INCLUDE _nocnsreport_pr
+		INCLUDE _report_columns_pr
+		INCLUDE _vsquish_pr
+		put " " rpt_bu_fmtcoefResults
+		put " " /program max_output
+	endoptions
+END

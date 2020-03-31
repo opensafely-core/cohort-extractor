@@ -1,0 +1,343 @@
+/*
+  gr_ed_marker.idlg
+
+*!  VERSION 1.1.6  29may2019
+
+	* PROGRAM marker_get_defaults
+	* PROGRAM marker_initialize_controls
+
+*/
+
+SCRIPT marker_PREINIT
+BEGIN
+	create DOUBLE d_tmp
+	create STRING m_color
+	create STRING m_rgb
+	create STRING m_opacity
+	create STRING m_size
+	create STRING m_symbol
+	create STRING m_symbol_angle
+
+	create STRING ln_m_color
+	create STRING ln_m_rgb
+	create STRING ln_m_opacity
+	create STRING ln_m_width
+	create STRING ln_m_align
+
+	create DOUBLE drawview
+	program marker_get_defaults
+	
+	marker.ck_hide.hide
+END
+
+SCRIPT marker_POSTINIT
+BEGIN
+	program marker_initialize_controls
+END
+
+DIALOG marker, tabtitle(resource LBL_MARKERS)
+BEGIN
+  GROUPBOX gb_markers	_lft	_top	_iwd	_ht28,		///
+	label(resource LBL_MARKER_PROPERTIES_DLG_TITLE)
+
+  TEXT     tx_symbol	_ilft	_ss	_wd	.,		///
+	label(resource LBL_SYMBOL) right
+  COMBOBOX cb_symbol	_sep	@	_cbwd	.,		///
+	dropdownlist 						///
+	contents(_symbols)
+
+  TEXT     tx_size	_ilft	_mls	_wd	.,		///
+	label(resource LBL_SIZE) right
+  COMBOBOX cb_size	_sep	@	_cbwd	.,		///
+	dropdown						///
+	contents(_symbolsizes)
+
+  TEXT     tx_clr	_ilft	_mls	_wd	.,		///
+	label(resource LBL_COLOR) right
+  COMBOBOX cb_clr	_sep	@	_cbwd	.,		///
+	dropdownlist contents(_colors) 				///
+	onselchangelist(marker_cl_clr_sel)
+  COLOR    cl_clr	_cbsep	@	_clwd	.,
+
+  TEXT     tx_opacity	_ilft	_mls	_wd	.,		///
+	label(resource LBL_OPACITY) right
+  SPINNER sp_opacity	_sep	@	_spwd	.,		///
+	default(100)						///
+	min(0)							///
+	max(100)
+  TEXT     tx_msymangle	_ilft	_mls	_wd	.,		///
+	label(resource LBL_SYMBOL_ANGLE) right
+  COMBOBOX cb_msymangle	_sep	@	_cbwd	.,		///
+	option(msangle) dropdownlist contents(angles)
+  
+  CHECKBOX ck_outline	_ilft	_ls	_ibwd	_ht10h,		///
+	groupbox						///
+	label(resource LBL_DIFFERENT_OUTLINE_COLOR)		///
+	onclickon(script marker_outline_on)			///
+	onclickoff(script marker_outline_off) nomemory
+  
+  TEXT     tx_lclr	_iilft	_ss	_wd2	.,		///
+	label(resource LBL_OUTLINE_COLOR) right
+  COMBOBOX cb_lclr	_sep2	@	_cbwd	.,		///
+	dropdownlist contents(_colors) 				///
+	onselchangelist(marker_cl_lclr_sel)
+  COLOR    cl_lclr	_cbsep	@	_clwd	.,
+  TEXT     tx_lopacity	_iilft	_mls	_wd2	.,		///
+	label(resource LBL_OUTLINE_OPACITY) right
+  SPINNER sp_lopacity	_sep2	@	_spwd	.,		///
+	default(100)						///
+	min(0)							///
+	max(100)
+
+  TEXT     tx_lwidth	_iilft	_mls	_wd2	.,		///
+	label(resource LBL_OUTLINE_WIDTH) right
+  COMBOBOX cb_lwidth	_sep2	@	_cbwd	.,		///
+	dropdown 						///
+	contents(_linewidths)
+
+   TEXT     tx_lalign	_iilft	_mls	_wd2	.,		///
+      label(resource LBL_OUTLINE_ALIGNMENT) right
+   COMBOBOX cb_lalign	_sep2	@	_cbwd	.,		///
+      dropdownlist option(lalign)				///
+      contents(alignstroke)
+
+  CHECKBOX ck_hide	_lft	_xxls	_iwd	.,		///
+	label(resource LBL_HIDE_PLOT)
+END
+
+SCRIPT marker_outline_on
+BEGIN
+	marker.tx_lclr.enable
+	marker.cb_lclr.enable
+	marker.cl_lclr.enable
+	marker.tx_lopacity.enable
+	marker.sp_lopacity.enable
+	marker.tx_lwidth.enable
+	marker.cb_lwidth.enable
+	marker.tx_lalign.enable
+	marker.cb_lalign.enable
+END
+
+SCRIPT marker_outline_off
+BEGIN
+	marker.tx_lclr.disable
+	marker.cb_lclr.disable
+	marker.cl_lclr.disable
+	marker.tx_lopacity.disable
+	marker.sp_lopacity.disable
+	marker.tx_lwidth.disable
+	marker.cb_lwidth.disable
+	marker.tx_lalign.disable
+	marker.cb_lalign.disable
+END
+
+LIST marker_cl_clr_sel
+BEGIN
+	marker.cl_clr.show
+	marker.cl_clr.hide
+END
+
+LIST marker_cl_lclr_sel
+BEGIN
+	marker.cl_lclr.show
+	marker.cl_lclr.hide
+END
+
+PROGRAM marker_get_defaults /* public scope */
+BEGIN
+	call Gstyle.withvalue index.setvalue class @.marker.size.styledex
+	call index.withvalue m_size.setvalue class .__STYLES.symbolsize[@]
+	if ! m_size {
+		call Gstyle.withvalue m_size.setvalue class @.marker.size.val
+	}
+	call marker.cb_size.setdefault class m_size.value
+
+	call Gstyle.withvalue index.setvalue class @.marker.symbol.styledex
+	call index.withvalue m_symbol.setvalue class .__STYLES.symbol[@]
+	call marker.cb_symbol.setdefault class m_symbol.value
+
+	call Gstyle.withvalue index.setvalue class @.marker.symangle.styledex
+	call index.withvalue m_symbol_angle.setvalue class .__STYLES.anglestyle[@]
+	call marker.cb_msymangle.setdefault class m_symbol_angle.value
+
+	call Gstyle.withvalue index.setvalue class @.marker.fillcolor.styledex
+	call index.withvalue m_color.setvalue class .__STYLES.color[@]
+	call marker.cb_clr.setdefault class m_color.value
+	
+	call Gstyle.withvalue m_rgb.setvalue class @.marker.fillcolor.rgb
+	call marker.cl_clr.setdefault class m_rgb.value
+	call Gstyle.withvalue m_opacity.setvalue class @.marker.fillcolor.opacity
+	call marker.sp_opacity.setdefault class m_opacity.value
+
+	
+	call Gstyle.withvalue index.setvalue class @.marker.linestyle.color.styledex
+	call index.withvalue ln_m_color.setvalue class .__STYLES.color[@]
+	call marker.cb_lclr.setdefault class ln_m_color.value
+	call Gstyle.withvalue ln_m_rgb.setvalue class @.marker.linestyle.color.rgb
+	call marker.cl_lclr.setdefault class ln_m_rgb.value
+	call Gstyle.withvalue ln_m_opacity.setvalue class @.marker.linestyle.color.opacity
+	call marker.sp_lopacity.setdefault class ln_m_opacity.value
+
+	call Gstyle.withvalue index.setvalue class @.marker.linestyle.width.styledex
+	call index.withvalue ln_m_width.setvalue class .__STYLES.linewidth[@]
+	if ! ln_m_width {
+		call Gstyle.withvalue ln_m_width.setvalue class @.marker.linestyle.width.val
+	}
+	call marker.cb_lwidth.setdefault class ln_m_width.value
+
+	call Gstyle.withvalue index.setvalue class @.marker.linestyle.align.styledex
+	call index.withvalue ln_m_align.setvalue class .__STYLES.alignstroke[@]
+	call marker.cb_lalign.setdefault class ln_m_align.value
+
+	call G.withvalue drawview.setvalue class @.draw_view.istrue
+	if drawview {
+		call marker.ck_hide.setdefault 0
+	}
+	else {
+		call marker.ck_hide.setdefault 1
+	}
+END
+
+PROGRAM marker_initialize_controls /* public scope */
+BEGIN
+	call marker.cb_size.setvalue class m_size.value
+	call marker.cb_symbol.setvalue class m_symbol.value
+	call marker.cb_msymangle.setvalue class m_symbol_angle.value
+	
+	if m_color {
+		call m_color.withvalue marker.cb_clr.setvalue "@"
+	}
+	else {
+		call marker.cb_clr.setvalue "custom"
+	}
+	call marker.cl_clr.setvalue class m_rgb.value
+
+	call marker.sp_opacity.setvalue class m_opacity.value
+
+	if ln_m_color {
+		call marker.cb_lclr.setvalue class ln_m_color.value
+	}
+	else {
+		call marker.cb_lclr.setvalue "custom"
+	}
+	call marker.cl_lclr.setvalue class ln_m_rgb.value
+	call marker.sp_lopacity.setvalue class ln_m_opacity.value
+	
+	call marker.cb_lwidth.setvalue class ln_m_width.value
+	call marker.cb_lalign.setvalue class ln_m_align.value
+	
+	if m_rgb.isneq(ln_m_rgb) {
+		call marker.ck_outline.seton
+	}
+	if m_rgb.iseq(ln_m_rgb) {
+		call marker.ck_outline.setoff
+	}
+
+	if drawview {
+		call marker.ck_hide.setoff
+	}
+	else {
+		call marker.ck_hide.seton
+	}
+END
+
+PROGRAM marker_output
+BEGIN
+	call program marker_get_defaults
+	if ! marker.cb_size.isdefault() {
+		put "style(marker(size("
+		put marker.cb_size
+		put "))) "
+	}
+	if ! marker.cb_symbol.isdefault() {
+		put "style(marker(symbol("
+		put marker.cb_symbol
+		put "))) "
+	}
+	if ! marker.cb_msymangle.isdefault() {
+		put "style(marker(symangle("
+		put marker.cb_msymangle
+		put "))) "
+	}
+
+	if ! marker.cl_clr.isvisible() & ! marker.cb_clr.isdefault() {
+		put "style(marker(fillcolor(" 
+		put marker.cb_clr 
+		put "))) "
+	}
+	
+	if marker.cl_clr.isvisible() & ! marker.cl_clr.isdefault() {
+		put "style(marker(fillcolor("  `"""'
+		put marker.cl_clr
+		put `"""'
+		put "))) "
+	}
+
+	if ! marker.sp_opacity.isdefault() {
+		put "style(marker(fillcolor("
+		put "%"
+		put marker.sp_opacity 
+		put "))) "
+	}
+	
+	if ! marker.ck_outline & marker.cb_clr.isneq(ln_m_color) {
+		if ! marker.cl_clr.isvisible() {
+			put "style(marker(linestyle(color(" 
+			put marker.cb_clr 
+			put ")))) "
+		}
+		if marker.cl_clr.isvisible() & marker.cl_clr.isneq(ln_m_rgb) {
+			put "style(marker(linestyle(color("  `"""'
+			put marker.cl_clr
+			put `"""'
+			put ")))) "
+		}
+	}
+
+	call ln_m_opacity.withvalue d_tmp.setvalue @
+	if ! marker.ck_outline & marker.sp_opacity.isneq(d_tmp) {
+		put "style(marker(linestyle(color(" 
+		put "%"
+		put marker.sp_opacity
+		put ")))) "
+	}
+
+	if marker.cb_lclr & marker.ck_outline {
+	    if ! marker.cl_lclr.isvisible() & ! marker.cb_lclr.isdefault(){
+		put "style(marker(linestyle(color(" 
+		put marker.cb_lclr 
+		put ")))) "
+	    }
+	    if marker.cl_lclr.isvisible() & ! marker.cl_lclr.isdefault() {
+		put "style(marker(linestyle(color("  `"""'
+		put marker.cl_lclr
+		put `"""'
+		put ")))) "
+	    }
+	}
+	if ! marker.sp_lopacity.isdefault() & marker.ck_outline {
+		put "style(marker(linestyle(color("
+		put "%"
+		put marker.sp_lopacity
+		put ")))) "
+	}
+	if ! marker.cb_lwidth.isdefault() & marker.ck_outline {
+		put "style(marker(linestyle(width("
+		put marker.cb_lwidth
+		put ")))) "
+	}
+	if ! marker.cb_lalign.isdefault() & marker.ck_outline {
+		put "style(marker(linestyle(align("
+		put marker.cb_lalign
+		put ")))) "
+	}
+
+	if ! marker.ck_hide.isdefault() & marker.ck_hide.isvisible() {
+		if marker.ck_hide {
+			put "set(draw_view no) "
+		}
+		else {
+			put "set(draw_view yes) "
+		}
+	}
+END

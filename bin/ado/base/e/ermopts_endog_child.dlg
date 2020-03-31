@@ -1,0 +1,121 @@
+/*
+  ermopts_endog_child.dlg
+
+*!  VERSION 1.0.6  24sep2018
+
+  keyword:  eclass
+
+*/
+
+VERSION 15.0
+
+INCLUDE _std_large
+DEFINE _dlght 230
+INCLUDE header
+
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource ERMOPTS_ENDOG_DLG_HSCALE
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	if __MESSAGE.contains("eregress") | __MESSAGE.contains("eintreg") {
+		call script main_has_povar
+	}
+	else {
+		call script main_no_povar
+	}
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	title(resource LBL_ENDOGENOUS_COVARIATES)
+BEGIN
+  TEXT tx_dv 			_lft	_top	_vnwd	.,		///
+	label(resource LBL_DEPVAR)
+  VARNAME vn_dv			@ 	_ss	@	.,		///
+	ts								///
+	numeric								///
+	label(resource LBL_DEPVAR)
+  TEXT tx_iv			_vlx	_top	160	.,		///
+	label(resource LBL_INDDEPVAR)
+  VARLIST vl_iv			@	_ss	_vlwd	.,		///
+	fv ts								///
+	allowcat							///
+	numeric								///
+	label(resource LBL_INDDEPVAR)
+  RADIO rb_continuous		_lft	_ls	_iwd	., first	///
+	onclickon(script main_contin_on)				///
+	label(resource LBL_CONTINUOUS)
+  RADIO rb_probit		@	_ss	_iwd	.,		///
+	onclickon(script main_contin_off)				///
+	option(probit)							///
+	label(resource LBL_PROBIT)
+  RADIO rb_oprobit		@	_ss	@	., last		///
+	option(oprobit)							///
+	onclickon(script main_contin_off)				///
+	label(resource LBL_ORDERED_PROBIT)
+  CHECKBOX ck_povar		@	_ls	@	.,		///
+	option(povariance)						///
+	label(resource ERMOPTS_ENDOG_CHILD_MAIN_CK_POVAR)
+  CHECKBOX ck_pocorr		@	_ms	@	.,		///
+	option(pocorrelation)						///
+	label(resource ERMOPTS_ENDOG_CHILD_MAIN_CK_POCORR)
+  CHECKBOX ck_nomain		@	_ms	@	.,		///
+	option(nomain)							///
+	label(resource LBL_DO_NO_ADD_ENDOGENOUS_COVARIATE)
+  CHECKBOX ck_nocons		@	_ms	@	.,		///
+	option(noconstant)						///
+	label(resource LBL_NOCONSTANT)
+END
+
+SCRIPT main_contin_on
+BEGIN
+	main.ck_povar.disable
+	main.ck_pocorr.disable
+END
+
+SCRIPT main_contin_off
+BEGIN
+	main.ck_povar.enable
+	main.ck_pocorr.enable
+END
+
+SCRIPT main_has_povar
+BEGIN
+	main.ck_povar.show
+	main.ck_pocorr.setposition . 150
+	main.ck_nomain.setposition . 170
+	main.ck_nocons.setposition . 190
+END
+
+SCRIPT main_no_povar
+BEGIN
+	main.ck_povar.hide
+	main.ck_pocorr.setposition . 130
+	main.ck_nomain.setposition . 150
+	main.ck_nocons.setposition . 170
+END
+
+PROGRAM endog_output
+BEGIN
+	varlist main.vn_dv 
+	put "="
+	varlist main.vl_iv
+	beginoptions
+		option radio(main rb_probit rb_oprobit)
+		option main.ck_povar
+		option main.ck_pocorr
+		option main.ck_nomain
+		option main.ck_nocons
+	endoptions
+END
+
+PROGRAM command
+BEGIN
+	put " endogenous("
+		put /program endog_output
+	put ")"
+END

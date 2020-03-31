@@ -1,0 +1,163 @@
+/*
+  gr_ed_axis_custom.dlg
+
+*!  VERSION 1.1.3  03jun2015
+
+*/
+
+VERSION 14.0
+MODAL
+SYNCHRONOUS_ONLY
+
+INCLUDE _std_msmall
+DEFINE _dlght 240
+POSITION . . _dlgwd _dlght
+
+CANCEL can1, label(resource LBL_BU_CLOSE)
+
+DEFINE _clwd	15
+DEFINE _wd	120
+DEFINE _sep	+125
+DEFINE _cbwd	130
+DEFINE _cbsep	+135
+
+SCRIPT PREINIT
+BEGIN
+	create STRING G
+	create STRING Gstyle
+	create STRING parent_name
+	create STRING this_name
+	create STRING styleType
+	create STRING tstyle
+	create ARRAY  tick_list
+	create ARRAY  tick_value_list
+	create STRING local__MESSAGE
+	create STRING child__MESSAGE
+	create DOUBLE isRuleTick
+	create STRING tmp  /* used by ado file. do not delete or rename */
+
+	this_name.setvalue class _dlg_rsrcname
+
+	// Get the Graphics object name (G) from the parent...
+	parent_name.setvalue class PARENT._dlg_rsrcname
+	parent_name.withvalue G.setvalue class @.G.value
+	Gstyle.setvalue class G.value
+
+	// Get the message for this child from the parent
+	parent_name.withvalue local__MESSAGE.setvalue class @.child__MESSAGE.value
+	
+	program setStyleType
+	program initialize_list
+	setscale_hadj resource GR_ED_AXIS_CUSTOM_DLG_HSCALE
+END
+
+PROGRAM setStyleType
+BEGIN
+	if local__MESSAGE.contains("__MAJOR__") {
+		call styleType.setvalue "major"
+		// dereference dlg_major
+		call G.withvalue tstyle.setvalue class @.dlg_major 	// -> major | majornl
+		// setup object path
+		call tstyle.withvalue Gstyle.append ".style.@style"	// -> .Graph.xaxis1.style.majorstyle
+	}
+	if local__MESSAGE.contains("__MINOR__") {
+		call styleType.setvalue "minor"
+		// dereference dlg_minor
+		call G.withvalue tstyle.setvalue class @.dlg_minor 	// -> minor | minornl
+		// setup object path
+		call tstyle.withvalue Gstyle.append ".style.@style"	// -> .Graph.xaxis1.style.minorstyle
+	}
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	if ! tstyle { // should not happen
+		stopbox stop resource GR_ED_AXIS_CUSTOM_MSGBOX_TSTYLE_NOT_DEF
+// An unexpected error has occurred (tstyle is not defined).
+	}
+END
+
+PROGRAM initialize_list
+BEGIN
+	put "gr_ed_axis_custom buildList " `"""' this_name `"""' 
+	put "  " `"""' G `"""'
+	put " " styleType
+	stata hidden
+END
+PROGRAM repopulate_list
+BEGIN
+	call program initialize_list
+	call main.lb_ticks.repopulate
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_ticks	_lft	_top	_iwd	.,		///
+	label(resource GR_ED_AXIS_CUSTOM_MAIN_TX_TICKS)
+  LISTBOX  lb_ticks	@	_ss	200	150,		///
+	contents(tick_list) values(tick_value_list)		///
+	ondblclick(program show_edit_dialog)			///
+	onselchange(program check_delete_state)
+  DEFINE y @y
+
+  TEXT     tx_note1	_lft	+160	_iwd	.,		///
+	label(resource GR_ED_AXIS_CUSTOM_MAIN_TX_NOTE1)
+  TEXT     tx_note2	_lft	_vss	_iwd	.,		///
+	label(resource GR_ED_AXIS_CUSTOM_MAIN_TX_NOTE2)
+
+  BUTTON   bu_add	+215	y	80	.,		///
+	label(resource LBL_ADD)					///
+	onpush(program add_entry)				///
+	tooltip(resource GR_ED_AXIS_CUSTOM_MAIN_BU_ADD)
+  BUTTON   bu_edit	@	_ms	@	.,		///
+	label(resource LBL_BU_EDIT)				///
+	onpush(program show_edit_dialog)			///
+	tooltip(resource GR_ED_AXIS_CUSTOM_MAIN_BU_EDIT)
+  BUTTON   bu_delete	@	_ms	@	.,		///
+	label(resource LBL_DELETE)				///
+	onpush(program delete_entry)				///
+	tooltip(resource GR_ED_AXIS_CUSTOM_MAIN_BU_DELETE)
+END
+
+PROGRAM check_delete_state
+BEGIN
+	call tmp.setvalue class G.value
+	call tstyle.withvalue tmp.append ".@"
+	call main.lb_ticks.withvalue tmp.append ".dlg_isrule[@]"
+	call tmp.withvalue isRuleTick.setvalue class @
+	if isRuleTick {
+		call main.bu_delete.disable
+	}
+	else {
+		call main.bu_delete.enable
+	}
+END
+
+PROGRAM add_entry
+BEGIN
+	call child__MESSAGE.setvalue "__ADD__"
+	call create CHILD gr_ed_axis_custom_style, allowsubmit
+	call gr_ed_axis_custom_style.setExitAction "program repopulate_list"
+	call gr_ed_axis_custom_style.setExitString tmp
+	call gr_ed_axis_custom_style.settitle resource GR_ED_AXIS_CUSTOM_ADD_ENTRY
+	
+END
+
+PROGRAM show_edit_dialog
+BEGIN
+	call child__MESSAGE.setvalue ""
+	call create CHILD gr_ed_axis_custom_style, allowsubmit
+	call gr_ed_axis_custom_style.setExitAction "program repopulate_list"
+	call gr_ed_axis_custom_style.setExitString tmp
+	call gr_ed_axis_custom_style.settitle resource LBL_EDIT_INDIVIDUAL_AXIS_TICKS_LABELS
+END
+
+PROGRAM delete_entry
+BEGIN
+	put "gr_ed_axis_custom deleteIndex "
+	put `"""' this_name `"""' " "
+	put `"""' G `"""' " "
+	put tstyle " "
+	put main.lb_ticks
+	stata hidden queue
+END

@@ -1,0 +1,896 @@
+/*
+  format_chooser.dlg
+
+*!  VERSION 1.1.5  28oct2019
+
+	// SCRIPTS and PROGRAMS for external use
+		* SCRIPT setFormatClock
+		* SCRIPT setFormatDaily
+		* SCRIPT setFormatWeekly
+		* SCRIPT setFormatMonthly
+		* SCRIPT setFormatQuarterly
+		* SCRIPT setFormatHalfYear
+		* SCRIPT setFormatAnnual
+		* SCRIPT setFormatBusiness
+*/
+
+VERSION 14.0
+MODAL
+
+INCLUDE _std_msmall
+DEFINE _dlght 390
+INCLUDE header
+HELP hlp1, view(help format)
+RESET res1
+
+DEFINE _clwd	15
+DEFINE _wd	120
+DEFINE _sep	+125
+DEFINE _cbwd	130
+DEFINE _cbsep	+135
+
+DEFINE _spwd	80
+DEFINE _spsep	+85
+DEFINE _wd3	170
+DEFINE _sep3	+175
+
+DEFINE TOP1 140
+DEFINE TOP2 160
+
+SCRIPT PREINIT
+BEGIN
+	create STRING outstr
+	create DOUBLE rightVal
+	create DOUBLE totalVal
+
+	create STRING title
+	program setMessageTitle
+	setscale_hadj resource FORMAT_CHOOSER_DLG_HSCALE
+END
+
+PROGRAM setMessageTitle
+BEGIN
+	// message could contain a variable name
+	if __MESSAGE {
+		call __MESSAGE.withvalue title.format 			///
+			"resource FORMAT_CHOOSER_DLG_TITLE_MESSAGE_FMT" "@"
+		call title.withvalue settitle `"@"'
+	}
+END
+
+SCRIPT setFormatClock
+BEGIN
+	main.lb_type.setvalue resource FORMAT_CHOOSER_DATE_TIME
+END
+
+SCRIPT setFormatDaily
+BEGIN
+	main.lb_type.setvalue resource LBL_DATE
+END
+
+SCRIPT setFormatWeekly
+BEGIN
+	main.lb_type.setvalue resource LBL_WEEKLY
+END
+
+SCRIPT setFormatMonthly
+BEGIN
+	main.lb_type.setvalue resource LBL_MONTHLY
+END
+
+SCRIPT setFormatQuarterly
+BEGIN
+	main.lb_type.setvalue resource LBL_QUARTERLY
+END
+
+SCRIPT setFormatHalfYear
+BEGIN
+	main.lb_type.setvalue resource FORMAT_CHOOSER_BIANNUAL_HALF_YEARS
+END
+
+SCRIPT setFormatAnnual
+BEGIN
+	main.lb_type.setvalue resource FORMAT_CHOOSER_ANNUAL_YEARS
+END
+
+SCRIPT setFormatBusiness
+BEGIN
+	main.lb_type.setvalue resource FORMAT_CHOOSER_BUSINESS_DATE
+END
+
+LIST dataTypes  // NOTE that setFormat... routines match text
+BEGIN
+	resource LBL_NUMERIC
+	resource LBL_STRING
+	resource FORMAT_CHOOSER_DATE_TIME
+	resource LBL_DATE
+	resource LBL_WEEKLY
+	resource LBL_MONTHLY
+	resource LBL_QUARTERLY
+	resource FORMAT_CHOOSER_BIANNUAL_HALF_YEARS
+	resource FORMAT_CHOOSER_ANNUAL_YEARS
+	resource FORMAT_CHOOSER_BUSINESS_DATE
+	
+END
+
+LIST dataTypes_values
+BEGIN
+	"Numeric"
+	"String"
+	"Date-time"
+	"Date"
+	"Weekly"
+	"Monthly"
+	"Quarterly"
+	"Biannual (half years)"
+	"Annual (years)"
+	"Business date"
+END
+
+DIALOG main, title(resource FORMAT_CHOOSER_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_type	_lft	_top	_cwd1	.,		///
+	label(resource FORMAT_CHOOSER_MAIN_TX_TYPE)
+  LISTBOX  lb_type	@	_ss	@	_ht6h,		///
+	contents(dataTypes) values(dataTypes_values)		///
+	onselchange(program check_data)
+
+DEFINE y @y
+
+  GROUPBOX gb_property	_lft	TOP1    _iwd	_ht15h,		///
+	label(resource FORMAT_CHOOSER_MAIN_GB_PROPERTY)
+
+  // STRING
+  TEXT     tx_strjust	_ilft	TOP2	_wd	.,		///
+	label(resource LBL_JUSTIFICATION) right
+  COMBOBOX  cb_strjust	_sep	@	_cbwd	.,		///
+	dropdownlist						///
+	contents(string_just_labels) values(string_just_values)	///
+	onselchange(program showOutput)
+  TEXT     tx_strnum	_ilft	_mls	_wd3	.,		///
+	label(resource FORMAT_CHOOSER_MAIN_TX_STRNUM) right
+  SPINNER  sp_strnum	_sep3	@	_spwd	.,		///
+	default(12) min(1) max(2045)				///
+	onchange(program showOutput)
+
+  // NUMERIC
+  GROUPBOX gb_numeric	_lft2	y	_cwd1	_ht6,		///
+	label(resource FORMAT_CHOOSER_MAIN_GB_NUMERIC)
+  RADIO	   rb_general	_indent	_ss	_inwd	.,		///
+	first label(resource FORMAT_CHOOSER_MAIN_RB_GENERAL)	///
+	onclickon(program check_numeric)
+  RADIO    rb_fixed	@	_ss	@	.,		///
+	label(resource FORMAT_CHOOSER_MAIN_RB_FIXED)		///
+	onclickon(program check_numeric)
+  RADIO    rb_exp	@	_ss	@	.,		///
+	last label(resource FORMAT_CHOOSER_MAIN_RB_EXPONENTIAL)	///
+	onclickon(program check_numeric)
+
+  TEXT     tx_just	_ilft	TOP2	_wd	.,		///
+	label(resource LBL_JUSTIFICATION) right
+  COMBOBOX  cb_just	_sep	@	_cbwd	.,		///
+	dropdownlist						///
+	contents(just_labels) values(just_values)		///
+	onselchange(program showOutput)
+  TEXT     tx_num_total	_ilft	_mls	_wd3	.,		///
+	label(resource FORMAT_CHOOSER_MAIN_TX_NUM_TOTAL) right
+DEFINE YOPTS @y
+  SPINNER  sp_num_total	_sep3	@	_spwd	.,		///
+	default(9) min(1) max(100)				///
+	onchange(program checkTotalSpinner)
+  TEXT     tx_num_right	_ilft	_mls	_wd3	.,		///
+	label(resource FORMAT_CHOOSER_MAIN_TX_NUM_RIGHT) right
+  SPINNER  sp_num_right	_sep3	@	_spwd	.,		///
+	default(0) min(0) max(100)				///
+	onchange(program checkRightSpinner)
+
+  CHECKBOX ck_euro	_ilft	_ls	_ibwd	.,		///
+	label(resource FORMAT_CHOOSER_MAIN_CK_EURO)		///
+	onclickon(program showOutput)				///
+	onclickoff(program showOutput)
+  CHECKBOX ck_comma	@	_ms	@	.,		///
+	label(resource FORMAT_CHOOSER_MAIN_CK_COMMA)		///
+	onclickon(program showOutput)				///
+	onclickoff(program showOutput)
+  CHECKBOX ck_pad	@	_ms	@	.,		///
+	label(resource LBL_PAD_WITH_LEADING_ZEROS)		///
+	onclickon(program showOutput)				///
+	onclickoff(program showOutput)
+
+// DATE
+  TEXT      tx_date	_lft2	_top	_cwd1	.,		///
+	label(resource FORMAT_CHOOSER_SAMPLE)
+  LISTBOX   lb_date	@	_ss	@	_ht6h,		///
+	contents(date_labels) values(date_values)		///
+	onselchange(program showOutput)
+
+// DATE-TIME
+  TEXT      tx_clock	_lft2	_top	_cwd1	.,		///
+	label(resource FORMAT_CHOOSER_SAMPLE)
+  LISTBOX   lb_clock	@	_ss	@	_ht6h,		///
+	contents(clock_labels) values(clock_values)		///
+	onselchange(program showOutput)
+
+// Weekly
+  TEXT      tx_weekly	_lft2	_top	_cwd1	.,		///
+	label(resource FORMAT_CHOOSER_SAMPLE)
+  LISTBOX   lb_weekly	@	_ss	@	_ht6h,		///
+	contents(weekly_labels) values(weekly_values)		///
+	onselchange(program showOutput)
+
+// Monthly
+  TEXT      tx_monthly	_lft2	_top	_cwd1	.,		///
+	label(resource FORMAT_CHOOSER_SAMPLE)
+  LISTBOX   lb_monthly	@	_ss	@	_ht6h,		///
+	contents(monthly_labels) values(monthly_values)		///
+	onselchange(program showOutput)
+
+// Quarterly
+  TEXT      tx_quarter	_lft2	_top	_cwd1	.,		///
+	label(resource FORMAT_CHOOSER_SAMPLE)
+  LISTBOX   lb_quarter	@	_ss	@	_ht6h,		///
+	contents(quarterly_labels) values(quarterly_values)	///
+	onselchange(program showOutput)
+
+// biannual
+  TEXT      tx_biannual	_lft2	_top	_cwd1	.,		///
+	label(resource FORMAT_CHOOSER_SAMPLE)
+  LISTBOX   lb_biannual	@	_ss	@	_ht6h,		///
+	contents(biannual_labels) values(biannual_values)	///
+	onselchange(program showOutput)
+
+// annual
+  TEXT      tx_annual	_lft2	_top	_cwd1	.,		///
+	label(resource FORMAT_CHOOSER_SAMPLE)
+  LISTBOX   lb_annual	@	_ss	@	_ht6h,		///
+	contents(annual_labels) values(annual_values)		///
+	onselchange(program showOutput)
+
+  CHECKBOX  ck_Cleap	_ilft	YOPTS	_ibwd	.,		///
+	label(resource FORMAT_CHOOSER_MAIN_CK_CLEAP)		///
+	onclickon(program showOutput)				///
+	onclickoff(program showOutput)
+
+
+  CHECKBOX  ck_custom	_lft	335	_iwd	.,		///
+	label(resource FORMAT_CHOOSER_MAIN_CK_CUSTOM)		///
+	onclickon(main.ed_output.enable)			///
+	onclickoff(main.ed_output.disable)
+  EDIT      ed_output	_lft	_ss	_iwd	.,
+
+// business date
+  TEXT      tx_business_date	_lft2	_top	_cwd1	.,	///
+	label(resource FORMAT_CHOOSER_SAMPLE)
+  LISTBOX   lb_business_date	@	_ss	@	_ht6h,	///
+	contents(date_labels) values(business_date_values)	///
+	onselchange(program showOutput)
+  TEXT     tx_calendar	_ilft	TOP2	_wd	.,		///
+	label(resource FORMAT_CHOOSER_MAIN_TX_CALENDAR) right
+  COMBOBOX  cb_calendar	_sep	@	_cbwd	.,		///
+	dropdown						///
+	contents(bcal)						///
+	onselchange(program showOutput)
+END
+
+PROGRAM checkTotalSpinner
+BEGIN
+	if main.sp_num_right.isge(main.sp_num_total) {
+		call rightVal.setvalue class main.sp_num_total.value
+		call rightVal.decrement
+		call main.sp_num_right.setvalue class rightVal.value
+	}
+	call program showOutput
+END
+
+PROGRAM checkRightSpinner
+BEGIN
+	if main.sp_num_total.isle(main.sp_num_right) {
+		call totalVal.setvalue class main.sp_num_right.value
+		call totalVal.increment
+		call main.sp_num_total.setvalue class totalVal.value
+	}
+	call program showOutput
+END
+
+LIST string_just_labels
+BEGIN
+	resource FORMAT_CHOOSER_RIGHT_JUSTIFIED
+	resource FORMAT_CHOOSER_LEFT_JUSTIFIED
+END
+
+LIST string_just_values
+BEGIN
+	""
+	"-"
+END
+
+LIST just_labels
+BEGIN
+	resource FORMAT_CHOOSER_RIGHT_JUSTIFIED
+	resource FORMAT_CHOOSER_LEFT_JUSTIFIED
+END
+
+LIST just_values
+BEGIN
+	""
+	"-"
+END
+
+
+LIST date_labels
+BEGIN
+	"07apr2009"
+	"Apr 07, 2009"
+	"April 07, 2009"
+	"Apr 7, 2009"
+	"April 7, 2009"
+	"04/30/2009"
+	"30/04/2009"
+	"2009-04-30"
+END
+
+LIST date_values
+BEGIN
+	"td"
+	"tdMon_DD,_CCYY"
+	"tdMonth_DD,_CCYY"
+	"tdMon_dd,_CCYY"
+	"tdMonth_dd,_CCYY"
+	"tdNN/DD/CCYY"
+	"tdDD/NN/CCYY"
+	"tdCCYY-NN-DD"
+END
+
+LIST clock_labels
+BEGIN
+	"07apr2009 13:46:01"
+	"Apr 07, 2009 13:46:01"
+	"April 07, 2009 13:46:01"
+	"Apr 7, 2009 13:46"
+	"April 7, 2009 13:46:01"
+	"April 7, 2009 13:46:01.001"
+	"04/30/2009 13:46:01"
+	"2009-04-30 1:46 PM"
+END
+
+LIST clock_values
+BEGIN
+	""
+	"Mon_DD,_CCYY_HH:MM:SS"
+	"Month_DD,_CCYY_HH:MM:SS"
+	"Mon_dd,_CCYY_HH:MM"
+	"Month_dd,_CCYY_HH:MM:SS"
+	"Month_dd,_CCYY_HH:MM:SS.sss"
+	"NN/DD/CCYY_HH:MM:SS"
+	"CCYY-NN-DD_hh:MM_AM"
+END
+
+LIST weekly_labels
+BEGIN
+	"2009w18"
+	"2009-18"
+	"18-2009"
+END
+
+LIST weekly_values
+BEGIN
+	"tw"
+	"twCCYY-ww"
+	"twww-CCYY"
+END
+
+LIST monthly_labels
+BEGIN
+	"2009m4"
+	"April 2009"
+	"Apr 2009"
+	"04/2009"
+	"2009-04"
+	"2009m04"
+END
+
+LIST monthly_values
+BEGIN
+	"tm"
+	"tmMonth_CCYY"
+	"tmMon_CCYY"
+	"tmNN/CCYY"
+	"tmCCYY-NN"
+	"tmCCYY!mNN"
+END
+
+LIST quarterly_labels
+BEGIN
+	"2009q2"
+	"Q2-2009"
+	"2009-Q2"
+	"2009-2"
+END
+
+LIST quarterly_values
+BEGIN
+	"tq"
+	"tq!Qq-CCYY"
+	"tqCCYY-!Qq"
+	"tqCCYY-q"
+END
+
+LIST biannual_labels
+BEGIN
+	"2009h1"
+	"2009-1"
+	"2009H1"
+END
+
+LIST biannual_values
+BEGIN
+	"th"
+	"thCCYY-h"
+	"thCCYY!Hh"
+END
+
+LIST annual_labels
+BEGIN
+	"2009"
+	"2009 AD"
+END
+
+LIST annual_values
+BEGIN
+	"ty"
+	"tyCCYY_!A!D"
+END
+
+LIST business_date_values
+BEGIN
+	""
+	"Mon_DD,_CCYY"
+	"Month_DD,_CCYY"
+	"Mon_dd,_CCYY"
+	"Month_dd,_CCYY"
+	"NN/DD/CCYY"
+	"DD/NN/CCYY"
+	"CCYY-NN-DD"
+END
+
+PROGRAM check_numeric
+BEGIN
+	if ! main.lb_type.iseq("Numeric") {
+		exit
+	}
+	if main.rb_general {
+		call main.ck_comma.enable
+		call main.ck_euro.enable
+		call main.ck_pad.disable
+	}
+	if main.rb_fixed {
+		call main.ck_comma.enable
+		call main.ck_euro.enable
+		call main.ck_pad.enable
+	}
+	if main.rb_exp {
+		call main.ck_comma.disable
+		call main.ck_euro.enable
+		call main.ck_pad.disable
+	}
+	call program showOutput
+END
+
+PROGRAM check_data
+BEGIN
+	if main.lb_type.iseq("String") {
+		call main.tx_strjust.show
+		call main.cb_strjust.show
+		call main.tx_strnum.show
+		call main.sp_strnum.show
+
+		call main.tx_just.hide
+		call main.cb_just.hide
+
+		call script hide_numeric
+		call script hide_daily
+		call script hide_clock
+		call script hide_weekly
+		call script hide_monthly
+		call script hide_quarterly
+		call script hide_biannual
+		call script hide_annual
+		call script hide_business
+	}
+	if main.lb_type.iseq("Numeric") {
+		call main.tx_just.show
+		call main.cb_just.show
+
+		call script show_numeric
+		call program check_numeric
+
+		call main.tx_strjust.hide
+		call main.cb_strjust.hide
+		call main.tx_strnum.hide
+		call main.sp_strnum.hide
+
+		call script hide_daily
+		call script hide_clock
+		call script hide_weekly
+		call script hide_monthly
+		call script hide_quarterly
+		call script hide_biannual
+		call script hide_annual
+		call script hide_business
+	}
+	if main.lb_type.iseq("Date") {
+		call main.tx_strjust.hide
+		call main.cb_strjust.hide
+		call main.tx_strnum.hide
+		call main.sp_strnum.hide
+
+		call script hide_numeric
+
+		call main.tx_just.show
+		call main.cb_just.show
+
+		call script hide_clock
+		call script hide_weekly
+		call script hide_monthly
+		call script hide_quarterly
+		call script hide_biannual
+		call script hide_annual
+		call script hide_business
+		call script show_daily
+	}
+	if main.lb_type.iseq("Date-time") {
+		call main.tx_strjust.hide
+		call main.cb_strjust.hide
+		call main.tx_strnum.hide
+		call main.sp_strnum.hide
+
+		call script hide_numeric
+		call script hide_daily
+
+		call main.tx_just.show
+		call main.cb_just.show
+		call script show_clock
+		call script hide_weekly
+		call script hide_monthly
+		call script hide_quarterly
+		call script hide_biannual
+		call script hide_annual
+		call script hide_business
+	}
+	if main.lb_type.iseq("Weekly") {
+		call main.tx_strjust.hide
+		call main.cb_strjust.hide
+		call main.tx_strnum.hide
+		call main.sp_strnum.hide
+
+		call script hide_numeric
+		call script hide_daily
+		call script hide_clock
+
+		call main.tx_just.show
+		call main.cb_just.show
+		call script show_weekly
+		call script hide_monthly
+		call script hide_quarterly
+		call script hide_biannual
+		call script hide_annual
+		call script hide_business
+	}
+	if main.lb_type.iseq("Monthly") {
+		call main.tx_strjust.hide
+		call main.cb_strjust.hide
+		call main.tx_strnum.hide
+		call main.sp_strnum.hide
+
+		call script hide_numeric
+		call script hide_daily
+		call script hide_clock
+
+		call main.tx_just.show
+		call main.cb_just.show
+		call script hide_weekly
+		call script show_monthly
+		call script hide_quarterly
+		call script hide_biannual
+		call script hide_annual
+		call script hide_business
+	}
+	if main.lb_type.iseq("Quarterly") {
+		call main.tx_strjust.hide
+		call main.cb_strjust.hide
+		call main.tx_strnum.hide
+		call main.sp_strnum.hide
+
+		call script hide_numeric
+		call script hide_daily
+		call script hide_clock
+
+		call main.tx_just.show
+		call main.cb_just.show
+		call script hide_weekly
+		call script hide_monthly
+		call script show_quarterly
+		call script hide_biannual
+		call script hide_annual
+		call script hide_business
+	}
+	if main.lb_type.contains("Biannual") {
+		call main.tx_strjust.hide
+		call main.cb_strjust.hide
+		call main.tx_strnum.hide
+		call main.sp_strnum.hide
+
+		call script hide_numeric
+		call script hide_daily
+		call script hide_clock
+
+		call main.tx_just.show
+		call main.cb_just.show
+		call script hide_weekly
+		call script hide_monthly
+		call script hide_quarterly
+		call script show_biannual
+		call script hide_annual
+		call script hide_business
+	}
+	if main.lb_type.contains("Annual") {
+		call main.tx_strjust.hide
+		call main.cb_strjust.hide
+		call main.tx_strnum.hide
+		call main.sp_strnum.hide
+
+		call script hide_numeric
+		call script hide_daily
+		call script hide_clock
+
+		call main.tx_just.show
+		call main.cb_just.show
+		call script hide_weekly
+		call script hide_monthly
+		call script hide_quarterly
+		call script hide_biannual
+		call script show_annual
+		call script hide_business
+	}
+	if main.lb_type.contains("Business date") {
+		call main.tx_strjust.hide
+		call main.cb_strjust.hide
+		call main.tx_strnum.hide
+		call main.sp_strnum.hide
+
+		call script hide_numeric
+		call script hide_daily
+		call script hide_clock
+
+		call main.tx_just.hide
+		call main.cb_just.hide
+		call script hide_weekly
+		call script hide_monthly
+		call script hide_quarterly
+		call script hide_biannual
+		call script hide_annual
+		call script show_business
+	}
+	call program showOutput
+END
+
+SCRIPT hide_numeric
+BEGIN
+	main.rb_general.hide
+	main.rb_fixed.hide
+	main.rb_exp.hide
+	main.gb_numeric.hide
+	main.tx_num_total.hide
+	main.sp_num_total.hide
+	main.tx_num_right.hide
+	main.sp_num_right.hide
+	main.ck_comma.hide
+	main.ck_euro.hide
+	main.ck_pad.hide
+END
+
+SCRIPT show_numeric
+BEGIN
+	main.rb_general.show
+	main.rb_fixed.show
+	main.rb_exp.show
+	main.gb_numeric.show
+	main.tx_num_total.show
+	main.sp_num_total.show
+	main.tx_num_right.show
+	main.sp_num_right.show
+	main.ck_comma.show
+	main.ck_euro.show
+	main.ck_pad.show
+END
+
+SCRIPT hide_daily
+BEGIN
+	main.tx_date.hide
+	main.lb_date.hide
+END
+
+SCRIPT show_daily
+BEGIN
+	main.tx_date.show
+	main.lb_date.show
+END
+
+SCRIPT hide_clock
+BEGIN
+	main.tx_clock.hide
+	main.lb_clock.hide
+	main.ck_Cleap.hide
+END
+
+SCRIPT show_clock
+BEGIN
+	main.tx_clock.show
+	main.lb_clock.show
+	main.ck_Cleap.show
+END
+
+SCRIPT show_weekly
+BEGIN
+	main.tx_weekly.show
+	main.lb_weekly.show
+END
+
+SCRIPT hide_weekly
+BEGIN
+	main.tx_weekly.hide
+	main.lb_weekly.hide
+END
+
+SCRIPT show_monthly
+BEGIN
+	main.tx_monthly.show
+	main.lb_monthly.show
+END
+
+SCRIPT hide_monthly
+BEGIN
+	main.tx_monthly.hide
+	main.lb_monthly.hide
+END
+
+SCRIPT show_quarterly
+BEGIN
+	main.tx_quarter.show
+	main.lb_quarter.show
+END
+
+SCRIPT hide_quarterly
+BEGIN
+	main.tx_quarter.hide
+	main.lb_quarter.hide
+END
+
+SCRIPT show_biannual
+BEGIN
+	main.tx_biannual.show
+	main.lb_biannual.show
+END
+
+SCRIPT hide_biannual
+BEGIN
+	main.tx_biannual.hide
+	main.lb_biannual.hide
+END
+
+SCRIPT show_annual
+BEGIN
+	main.tx_annual.show
+	main.lb_annual.show
+END
+
+SCRIPT hide_annual
+BEGIN
+	main.tx_annual.hide
+	main.lb_annual.hide
+END
+
+SCRIPT show_business
+BEGIN
+	main.tx_business_date.show
+	main.lb_business_date.show
+	main.tx_calendar.show
+	main.cb_calendar.show
+END
+
+SCRIPT hide_business
+BEGIN
+	main.tx_business_date.hide
+	main.lb_business_date.hide
+	main.tx_calendar.hide
+	main.cb_calendar.hide
+END
+
+
+PROGRAM showOutput
+BEGIN
+	call outstr.setvalue "%"
+	if main.lb_type.iseq("String")  {
+		call outstr.append class main.cb_strjust.value
+		call outstr.append class main.sp_strnum.value
+		call outstr.append "s"
+	}
+	if main.lb_type.iseq("Numeric")  {
+		call outstr.append class main.cb_just.value
+		if main.ck_pad & main.ck_pad.isenabled() {
+			call outstr.append "0"
+		}
+		call outstr.append class main.sp_num_total.value
+		if main.ck_euro & main.ck_euro.isenabled() {
+			call outstr.append ","
+		}
+		else {
+			call outstr.append "."
+		}
+		call outstr.append class main.sp_num_right.value
+		if main.rb_general {
+			call outstr.append "g"
+		}
+		if main.rb_fixed {
+			call outstr.append "f"
+		}
+		if main.rb_exp {
+			call outstr.append "e"
+		}
+		if main.ck_comma & main.ck_comma.isenabled() {
+			call outstr.append "c"
+		}
+	}
+	if main.lb_type.iseq("Date")  {
+		call outstr.append class main.cb_just.value
+		call outstr.append class main.lb_date.value
+	}
+	if main.lb_type.iseq("Date-time")  {
+		call outstr.append class main.cb_just.value
+		if main.ck_Cleap {
+			call outstr.append "tC"
+		}
+		else {
+			call outstr.append "tc"
+		}
+		call outstr.append class main.lb_clock.value
+	}
+	if main.lb_type.iseq("Weekly") {
+		call outstr.append class main.cb_just.value
+		call outstr.append class main.lb_weekly.value
+	}
+	if main.lb_type.iseq("Monthly") {
+		call outstr.append class main.cb_just.value
+		call outstr.append class main.lb_monthly.value
+	}
+	if main.lb_type.iseq("Quarterly") {
+		call outstr.append class main.cb_just.value
+		call outstr.append class main.lb_quarter.value
+	}
+	if main.lb_type.contains("Biannual") {
+		call outstr.append class main.cb_just.value
+		call outstr.append class main.lb_biannual.value
+	}
+	if main.lb_type.contains("Annual") {
+		call outstr.append class main.cb_just.value
+		call outstr.append class main.lb_annual.value
+	}
+	if main.lb_type.iseq("Business date")  {
+		call outstr.append "tb"
+		call outstr.append class main.cb_calendar.value
+		call outstr.append ":"
+		call outstr.append class main.lb_business_date.value
+	}
+	call outstr.withvalue main.ed_output.setvalue "@"
+END
+
+PROGRAM command
+BEGIN
+	if __MESSAGE {
+		put "format " __MESSAGE " "
+		put /hidden main.ed_output
+	}
+	else {
+		put /hidden main.ed_output
+	}
+END

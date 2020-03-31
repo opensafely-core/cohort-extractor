@@ -1,0 +1,201 @@
+/*
+  gr_ed_axis_rule.dlg
+
+*!  VERSION 1.1.1  03jun2015
+
+*/
+
+VERSION 14.0
+MODAL
+
+INCLUDE _std_msmall
+DEFINE _dlght 190
+INCLUDE header_gr_ed
+
+DEFINE _clwd	15
+DEFINE _wd	140
+DEFINE _sep	+145
+DEFINE _cbwd	130
+DEFINE _cbsep	+135
+
+SCRIPT PREINIT
+BEGIN
+	create STRING G
+	program setupGOBJECT
+	create STRING tmajor
+
+	major.tb_rule.setlabel			///
+		resource LBL_AXIS_RULE_DETERMINES_TICKS_RELATIVE_POS
+	setscale_hadj resource GR_ED_AXIS_RULE_DLG_HSCALE
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	// dereference dlg_major
+	call G.withvalue tmajor.setvalue class @.dlg_major 	// -> major | majornl
+	if ! tmajor { // should not happen
+		call create STRING _MSG_TMP
+                call _MSG_TMP.format "resource LBL_MSGBOX_UNEXPECTED_ERROR_OCCURRED_TMAJOR"
+		stopbox stop "class _MSG_TMP.value"
+// An unexpected error has occurred (tmajor is not defined).
+	}
+END
+
+PROGRAM setupGOBJECT
+BEGIN
+	if ! __MESSAGE {
+		stopbox stop "resource LBL_MSGBOX_OBJECT_NOT_FOUND"
+// An unexpected error has occurred. Object not found.
+		exit 198
+	}
+	call G.setvalue class __MESSAGE.value
+END
+
+DIALOG major, title(resource LBL_AXIS_RULE) tabtitle(LBL_TAB_MAJOR)
+BEGIN
+  GROUPBOX gb_rule	_lft	_top	_iwd	_ht13h,		///
+	label(resource LBL_AXIS_RULE)
+  RADIO    rb_default	_ilft	_ss	180	.,		///
+	first							///
+	label(resource LBL_USE_EXISTING_RULE)			///
+	onclickon(program check_rule_type)			///
+	nomemory
+  RADIO    rb_suggest	@	_ss	@	.,		///
+	label(resource LBL_SUGGEST_#_TICKS)			///
+	onclickon(program check_rule_type)			///
+	nomemory
+  DEFINE y @y
+  RADIO    rb_delta	@	_ss	@	.,		///
+	label(resource LBL_RANGE_DELTA)				///
+	onclickon(program check_rule_type)			///
+	nomemory
+  RADIO    rb_minmax	@	_ss	@	.,		///
+	label(resource LBL_MIN_MAX)				///
+	onclickon(program check_rule_type)			///
+	nomemory
+  RADIO    rb_norule	@	_ss	@	.,		///
+	last							///
+	label(resource LBL_NONE)				///
+	onclickon(program check_rule_type)			///
+	nomemory
+
+  SPINNER  sp_suggest	200	y	_en7wd	.,		///
+	min(1) default(5) max(10000)
+  TEXT     tx_suggest	_en7sep @	100	.,		///
+	label(resource LBL_TICKS)
+
+  EDIT     ed_min	200	y	_en7wd	.,		///
+	label(resource LBL_MINIMUM_VALUE) numonly
+  TEXT     tx_min	_en7sep @	100	.,		///
+	label(resource LBL_MINIMUM_VALUE)
+  EDIT     ed_max	200	_ms	_en7wd	.,		///
+	label(resource LBL_MAXIMUM_VALUE) numonly
+  TEXT     tx_max	_en7sep @	100	.,		///
+	label(resource LBL_MAXIMUM_VALUE)
+  EDIT     ed_delta	200	_ms	_en7wd	.,		///
+	numonly							///
+	label(resource LBL_DELTA)
+  TEXT     tx_delta	_en7sep @	100	.,		///
+	label(resource LBL_DELTA)
+
+  TEXTBOX  tb_rule	_ilft	+35	_ibwd	_tb2,
+END
+
+PROGRAM check_rule_type
+BEGIN
+	if major.rb_default {
+		call major.sp_suggest.hide
+		call major.tx_suggest.hide
+		call major.ed_min.hide
+		call major.tx_min.hide
+		call major.ed_max.hide
+		call major.tx_max.hide
+		call major.ed_delta.hide
+		call major.tx_delta.hide
+	}
+	if major.rb_suggest {
+		call major.sp_suggest.show
+		call major.tx_suggest.show
+
+		call major.ed_min.hide
+		call major.tx_min.hide
+		call major.ed_max.hide
+		call major.tx_max.hide
+		call major.ed_delta.hide
+		call major.tx_delta.hide
+	}
+	if major.rb_delta {
+		call major.sp_suggest.hide
+		call major.tx_suggest.hide
+
+		call major.ed_min.show
+		call major.tx_min.show
+		call major.ed_max.show
+		call major.tx_max.show
+		call major.ed_delta.show
+		call major.tx_delta.show
+	}
+	if major.rb_minmax {
+		call major.sp_suggest.hide
+		call major.tx_suggest.hide
+		call major.ed_delta.hide
+		call major.tx_delta.hide
+
+		call major.ed_min.hide
+		call major.tx_min.hide
+		call major.ed_max.hide
+		call major.tx_max.hide
+	}
+	if major.rb_norule {
+		call major.sp_suggest.hide
+		call major.tx_suggest.hide
+		call major.ed_min.hide
+		call major.tx_min.hide
+		call major.ed_max.hide
+		call major.tx_max.hide
+		call major.ed_delta.hide
+		call major.tx_delta.hide
+	}
+END
+
+PROGRAM major_output
+BEGIN
+	put "cmd( _gm_edit ." G ".reset_rule "
+	if major.rb_suggest {
+		put major.sp_suggest
+		put ", "
+		put "tickset(" tmajor ") "
+		put "ruletype(suggest) "
+	}
+	if major.rb_delta {
+		require major.ed_min
+		require major.ed_max
+		require major.ed_delta
+		put major.ed_min " " major.ed_max " " major.ed_delta " "
+		put ", "
+		put "tickset(" tmajor ") "
+		put "ruletype(range) "
+	}
+	if major.rb_minmax {
+		put ", "
+		put "tickset(" tmajor ") "
+		put "ruletype(minmax) "
+	}
+	if major.rb_norule {
+		put ", "
+		put "tickset(" tmajor ") "
+		put "ruletype(none) "
+	}
+	put ") "
+END
+
+PROGRAM command
+BEGIN
+	if ! major.rb_default {
+		put "_gm_dlg_edits"
+		beginoptions
+			put " object(" G ") "
+			put " " /program major_output
+		endoptions
+	}
+END

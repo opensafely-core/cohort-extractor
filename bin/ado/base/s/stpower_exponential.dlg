@@ -1,0 +1,1243 @@
+/*
+	stpower exponential
+
+*!  VERSION 1.0.8  02may2017 (deprecated)
+
+*/
+
+VERSION 10.0
+
+INCLUDE _std_xxwide
+DEFINE _dlght 560
+INCLUDE header
+
+HELP hlp1, view("help stpower exponential")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING columns_res
+	create STRING numContents
+	create STRING stok
+	create ARRAY tmp
+	create BOOLEAN containsNumlist
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program check_columns_res
+END
+
+DIALOG main,								///
+	tabtitle("Main")						///
+	label("stpower exponential - Sample size and power for the exponential test")
+BEGIN
+  GROUPBOX gb_output	_lft		_top	_cwd1	_ht4,		///
+	label("Compute")
+  RADIO rb_sampsi	_ilft		_ss	_inwd	.,		///
+	first								///
+	option(NONE)							///
+	onclickon(program main_sampsi_on)				///
+	label("Sample size")						///
+	tooltip(Compute minimum required sample size given power and effect size)
+
+  RADIO rb_power	@		_ss	@	.,		///
+	last								///
+	option(NONE)							///
+	onclickon(program main_power_on)				///
+	label("Power")							///
+	tooltip(Compute minimum power given sample size and effect size)
+
+  EDIT ed_alpha		_lft2		-30	_en14wd	.,		///
+	option(alpha)							///
+	default(0.05)							///
+	onchange(program check_for_numlist)				///
+	tooltip("Probability of a type I error, alpha")			///
+	label("Significance level")
+  TEXT tx_alpha		_en14sep	@	220	.,		///
+	label("* Significance level")
+
+  GROUPBOX gb_n		_lft		+70	_cwd1	_ht5,		///
+	label("Sample size")
+DEFINE y @y
+  EDIT ed_n		_iilft		_ms	_en14wd	.,		///
+	option(n)							///
+	onchange(program check_for_numlist)				///
+	label("Sample size")
+  TEXT tx_n		_en14sep	@	100	.,		///
+	label("* Sample size")
+
+  GROUPBOX gb_errprob	_lft2		y	_cwd1	_ht5,		///
+	label("Power (specify as power or type II error)")
+  RADIO rb_power2	_ilft2		_ms	_rbwd	.,		///
+	option(NONE)							///
+	onclickon(program main_rb_power_on)				///
+	first
+  EDIT ed_power		_rbsep		@	_en14wd	.,		///
+	option(power)							///
+	default(0.8)							///
+	onchange(program check_for_numlist)				///
+	label("Power")
+  TEXT tx_power		_en14sep	@	120	.,		///
+	label("* Power")
+
+  RADIO rb_beta		_ilft2		_ms	_rbwd	.,		///
+	option(NONE)							///
+	onclickon(program main_rb_beta_on)				///
+	last
+  EDIT ed_beta		_rbsep		@	_en14wd	.,		///
+	option(beta)							///
+	default(0.2)							///
+	onchange(program check_for_numlist)				///
+	tooltip("Probability of a type II error, beta")			///
+	label("Type II error probability")
+  TEXT tx_beta		_en14sep	@	120	.,		///
+	label("* Type II error prob.")
+
+
+  GROUPBOX gb_effect	_lft		_xls	_iwd	_ht10,		///
+	label("Effect size and control group rate")
+  GROUPBOX gb_specify	_ilft		_ss	_cwd3_1	_ht7,		///
+	label("Specify as:")
+DEFINE holdy @y
+  RADIO rb_spechaz	_iilft		_ms	_inwd	.,		///
+	first								///
+	onclickon(program main_spechaz_on)				///
+	label("Hazard rates")
+
+  RADIO rb_specsp	_iilft		_ms	@	.,		///
+	last								///
+	onclickon(program main_specsp_on)				///
+	label("Survival probabilities")
+
+  EDIT ed_t		+20		_ss	_en7wd	.,		///
+	option(t)							///
+	tooltip("Reference survival time, t")				///
+	label("Reference time")
+  TEXT tx_t		_en7sep		@	90	.,		///
+	label("Reference time")
+
+  GROUPBOX gb_hazeffect	_ilft3_2	holdy	_comb3_2 _ht7,		///
+	label("Effect size and control group rate")
+
+  TEXT tx_null1		_indent	_ss	_ckwd	.,
+DEFINE holdx @x
+  EDIT ed_hratio	_cksep		@	_en14wd	.,		///
+	option(hratio)							///
+	onchange(program check_for_numlist)				///
+	default(0.5)							///
+	label("Hazard ratio")						///
+	tooltip("Hazard ratio of the experimental group to the control group")
+DEFINE x @x
+  TEXT tx_hratio	_en14sep	@	240	.,		///
+	label("* Hazard ratio")
+
+  EDIT ed_h1		x		_ms	_en14wd	.,		///
+	onchange(program check_for_numlist)				///
+	label("Hazard rate in the control group")
+ DEFINE x2 @x
+  TEXT tx_h1		_en14sep	@	240	.,		///
+	label("* Hazard rate in the control group")
+  CHECKBOX ck_h2	holdx		_ms	_ckwd	.,		///
+	onclickon(program main_h2_on)					///
+	onclickoff(program main_h2_off)					///
+	label("")
+  EDIT ed_h2		x		@	_en14wd	.,		///
+	onchange(program check_for_numlist)				///
+	label("Hazard rate in the experimental group")
+  TEXT tx_h2		_en14sep	@	240	.,		///
+	label("* Hazard rate in the experimental group")
+
+  GROUPBOX gb_speffect	_ilft3_2	holdy	_comb3_2 _ht7,		///
+	label("Effect size from survival probabilities")
+
+  EDIT ed_s1		x2		+45	_en14wd	.,		///
+	onchange(program check_for_numlist)				///
+	label("Survival probability in the control group")
+  TEXT tx_s1		_en14sep	@	270	.,		///
+	label("* Survival probability in the control group")
+  CHECKBOX ck_s2	holdx		_ms	_ckwd	.,		///
+	onclickon(program main_s2_on)					///
+	onclickoff(program main_s2_off)
+  EDIT ed_s2		_cksep		@	_en14wd	.,		///
+	onchange(program check_for_numlist)				///
+	label("Survival probability in the experimental group")
+  TEXT tx_s2		_en14sep	@	270	.,		///
+	label("* Survival probability in the experimental group")
+
+  GROUPBOX gb_allocation _lft		+50	_iwd	_ht8h,		///
+	label("Sample allocations for control and experimental groups")
+
+  TEXT     tx_alloc	_ilft		_ss	_ibwd	.,		///
+	label("Specify sample-size allocation as:")
+  RADIO rb_p1		_indent2	_ss	_inwd	.,		///
+	first								///
+	onclickon(script main_rb_p1_on)					///
+	option(NONE)							///
+	label("Proportion of subjects in control group")
+  RADIO rb_nratio	@		_ss	@	.,		///
+	last								///
+	onclickon(script main_rb_nratio_on)				///
+	option(NONE)							///
+	label("Ratio of experimental group to control group")
+
+  EDIT ed_p1		+20		_ms	_en14wd	.,		///
+	option(p1)							///
+	default(0.5)							///
+	onchange(program check_for_numlist)				///
+	label("Proportion of subjects in the control group")
+DEFINE x3 @x
+  TEXT tx_p1		_en14sep	@	250	.,		///
+	label("* Proportion of subjects in the control group")
+
+
+  EDIT ed_nratio	x3		@	_en14wd	.,		///
+	option(nratio)							///
+	onchange(program check_for_numlist)				///
+	default(1)							///
+	tooltip("Ratio of sample sizes of the experimental group to the control group, N2/N1") ///
+	label("Ratio of sample sizes")
+  TEXT tx_nratio	_en14sep	@	250	.,		///
+	label("* Ratio of sample sizes")
+
+  CHECKBOX ck_loghazard	_lft		+45	_iwd	.,		///
+	option(loghazard)						///
+	onclickon(program main_loghazard_check)				///
+	onclickoff(program main_loghazard_check)			///
+	tooltip("The default is the test of the difference between hazards") ///
+	label("Use the test of the difference between log hazards (log hazard-ratio test)")
+
+  CHECKBOX ck_uncond	@		_ms	@	.,		///
+	option(unconditional)						///
+	tooltip("The default is the conditional approach")		///
+	label("Use the unconditional approach")
+	
+  CHECKBOX ck_parallel	_lft		_ms	_cwd1	.,		///
+	option(parallel)						///
+	label("Treat *lists as parallel")				///
+	tooltip(Treat lists as parallel, compute only for matched 	///
+		elements in the lists, not for all possible combinations)
+
+  TEXT tx_numlist	_rj180		@	120	.,		///
+	label("* Accepts list") right
+  BUTTON bu_numlist	+125		@	55	.,		///
+	label("Help") onpush(view help numlist##|_new)
+
+  COMBOBOX cb_oneside	_lft		_ls	_en14wd	.,		///
+	dropdownlist contents(sides) values(sides_values)
+  TEXT tx_oneside	_en14sep	@	200	.,		///
+	label("Type of test")
+END
+
+LIST sides
+BEGIN
+	Two-sided test
+	One-sided test
+END
+
+LIST sides_values
+BEGIN
+	""
+	onesided
+END
+
+PROGRAM main_sampsi_on
+BEGIN
+	call main.gb_errprob.enable
+	call main.rb_power2.enable
+	call main.tx_power.enable
+	if main.rb_power2 {
+		call main.ed_power.enable
+	}
+	call main.rb_beta.enable
+	call main.tx_beta.enable
+	if main.rb_beta {
+		call main.ed_beta.enable
+	}
+	call main.gb_n.disable
+	call main.ed_n.disable
+	call main.tx_n.disable
+
+	if main.rb_spechaz {
+		call program main_spechaz_on
+	}
+	else {
+		call program main_specsp_on
+	}
+	call program check_for_numlist
+END
+
+PROGRAM main_power_on
+BEGIN
+	call main.gb_errprob.disable
+	call main.rb_power2.disable
+	call main.tx_power.disable
+	call main.ed_power.disable
+	call main.rb_beta.disable
+	call main.tx_beta.disable
+	call main.ed_beta.disable
+	call main.gb_n.enable
+	call main.ed_n.enable
+	call main.tx_n.enable
+
+	if main.rb_spechaz {
+		call program main_spechaz_on
+	}
+	else {
+		call program main_specsp_on
+	}
+	call program check_for_numlist
+END
+
+
+PROGRAM check_for_numlist
+BEGIN
+	call containsNumlist.setfalse
+
+	if main.ed_alpha.isenabled() {
+		call numContents.setvalue class main.ed_alpha.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_power.isenabled() {
+		call numContents.setvalue class main.ed_power.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_beta.isenabled() {
+		call numContents.setvalue class main.ed_beta.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_n.isenabled() {
+		call numContents.setvalue class main.ed_n.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_hratio.isenabled() {
+		call numContents.setvalue class main.ed_hratio.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_s1.isenabled() & main.ed_s1.isvisible() {
+		call numContents.setvalue class main.ed_s1.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+	
+	if main.ed_s2.isenabled() & main.ed_s2.isvisible() {
+		call numContents.setvalue class main.ed_s2.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_h1.isenabled() & main.ed_h1.isvisible() {
+		call numContents.setvalue class main.ed_h1.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+	
+	if main.ed_h2.isenabled() & main.ed_h2.isvisible() {
+		call numContents.setvalue class main.ed_h2.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_p1.isenabled() & main.ed_p1.isvisible() {
+		call numContents.setvalue class main.ed_p1.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_nratio.isenabled() & main.ed_nratio.isvisible() {
+		call numContents.setvalue class main.ed_nratio.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if containsNumlist {
+		call program rpt_table_on
+		call rpt.ck_table.disable
+		call main.ck_parallel.enable
+	}
+	else {
+		call rpt.ck_table.enable
+		if ! rpt.ck_table {
+			call script rpt_table_off
+		}
+		call main.ck_parallel.disable
+	}
+END
+
+PROGRAM main_rb_power_on
+BEGIN
+	if main.rb_power2.isenabled() {
+		call main.ed_power.enable
+		call main.ed_beta.disable
+		call program check_for_numlist
+	}
+END
+
+PROGRAM main_rb_beta_on
+BEGIN
+	if main.rb_beta.isenabled() {
+		call main.ed_beta.enable
+		call main.ed_power.disable
+		call program check_for_numlist
+	}
+END
+
+PROGRAM main_spechaz_on
+BEGIN
+	call main.ed_t.disable
+	call main.tx_t.disable
+	if main.rb_sampsi | main.rb_power {
+		call main.gb_speffect.hide
+		call main.ed_s1.hide
+		call main.tx_s1.hide
+		call main.ck_s2.hide
+		call main.ed_s2.hide
+		call main.tx_s2.hide
+		call main.gb_hazeffect.show
+		call main.ed_h1.show
+		call main.tx_h1.show
+		call main.ck_h2.show
+		if main.ck_h2.isvisible() {
+			if main.ck_h2 {
+				call main.ed_hratio.disable
+				call main.tx_hratio.disable
+				call main.ed_h2.enable
+				call main.tx_h2.enable
+			}
+			else {
+				call main.ed_hratio.enable
+				call main.tx_hratio.enable
+				call main.ed_h2.disable
+				call main.tx_h2.disable
+			}
+		}
+		call main.ed_h2.show
+		call main.tx_h2.show
+	}
+	else {
+		call main.gb_speffect.disable
+		call main.ed_hratio.disable
+		call main.tx_hratio.disable
+		call main.ed_s1.disable
+		call main.tx_s1.disable
+		call main.ck_s2.disable
+		call main.ed_s2.disable
+		call main.tx_s2.disable
+	}
+	call program check_for_numlist
+END
+
+PROGRAM main_specsp_on
+BEGIN
+	call main.ed_t.enable
+	call main.tx_t.enable
+	if main.rb_sampsi | main.rb_power {
+		call main.gb_hazeffect.hide
+		call main.ed_h1.hide
+		call main.tx_h1.hide
+		call main.ck_h2.hide
+		call main.ed_h2.hide
+		call main.tx_h2.hide
+
+		call main.gb_speffect.show
+		call main.ed_s1.show
+		call main.tx_s1.show
+		call main.ck_s2.show
+		call main.ed_s2.show
+		call main.tx_s2.show
+
+		call main.gb_speffect.enable
+		call main.ed_s1.enable
+		call main.tx_s1.enable
+		call main.ck_s2.enable
+		if main.ck_s2.isvisible() {
+			if main.ck_s2 {
+				call main.ed_hratio.disable
+				call main.tx_hratio.disable
+				call main.ed_s2.enable
+				call main.tx_s2.enable
+			}
+			else {
+				call main.ed_hratio.enable
+				call main.tx_hratio.enable
+				call main.ed_s2.disable
+				call main.tx_s2.disable
+			}
+		}
+	}
+	else {
+		call main.gb_speffect.enable
+		call main.ed_hratio.disable
+		call main.tx_hratio.disable
+		call main.ed_s1.enable
+		call main.tx_s1.enable
+		call main.ck_s2.disable
+		call main.ed_s2.disable
+		call main.tx_s2.disable
+	}
+	call program check_for_numlist
+END
+
+PROGRAM main_h2_on
+BEGIN
+	if main.rb_spechaz {
+		call main.ed_h2.enable
+		call main.tx_h2.enable
+		call main.ed_hratio.disable
+		call main.tx_hratio.disable
+		call program check_for_numlist
+	}
+END
+
+PROGRAM main_h2_off
+BEGIN
+	if main.rb_spechaz {
+		call main.ed_h2.disable
+		call main.tx_h2.disable
+		call main.ed_hratio.enable
+		call main.tx_hratio.enable
+		call program check_for_numlist
+	}
+END
+
+PROGRAM main_s2_on
+BEGIN
+	if main.rb_specsp {
+		call main.ed_s2.enable
+		call main.tx_s2.enable
+		call main.ed_hratio.disable
+		call main.tx_hratio.disable
+		call program check_for_numlist
+	}
+END
+
+PROGRAM main_s2_off
+BEGIN
+	if main.rb_specsp {
+		call main.ed_s2.disable
+		call main.tx_s2.disable
+		call main.ed_hratio.enable
+		call main.tx_hratio.enable
+		call program check_for_numlist
+	}
+END
+
+SCRIPT main_rb_p1_on
+BEGIN
+	main.ed_p1.show
+	main.tx_p1.show
+	main.ed_nratio.hide
+	main.tx_nratio.hide
+	program check_for_numlist
+END
+
+SCRIPT main_rb_nratio_on
+BEGIN
+	main.ed_nratio.show
+	main.tx_nratio.show
+	main.ed_p1.hide
+	main.tx_p1.hide
+	program check_for_numlist
+END
+
+PROGRAM main_loghazard_check
+BEGIN
+	if main.ck_loghazard.isenabled() & main.ck_loghazard {
+		call accrual.ck_expacc.disable
+		call program accrual_check_expacc
+	}
+	else {
+		if accrual.ck_accrual.isenabled() & accrual.ck_accrual {
+			call accrual.ck_expacc.enable
+			call program accrual_check_expacc
+		}
+	}
+END
+
+DIALOG accrual, tabtitle("Accrual / Follow-up")
+BEGIN
+
+  EDIT ed_fperiod	_lft	_top	_en7wd	.,			///
+	option(fperiod)							///
+	label("Length of the follow-up period, f") 			///
+	numonly								///
+	onchange(program accrual_check_followup)
+  TEXT tx_fperiod	_en7sep	@	_iwd	.,			///
+	label("Length of the follow-up period, f")
+
+  CHECKBOX ck_accrual	_lft	+35	_iwd	_ht22,			///
+	groupbox							///
+	label("Accrual specification")					///
+	onclickon(program accrual_check_accrual)			///
+	onclickoff(program accrual_check_accrual)
+
+  EDIT ed_aperiod	_ilft	_ms	_en7wd	.,			///
+	option(aperiod)							///
+	label("Length of the accrual period, R")			///
+	numonly
+  TEXT tx_aperiod	_en7sep	@	_en14rb	.,			///
+	label("Length of the accrual period, R")
+
+  CHECKBOX ck_expacc	_ilft	+35	_ibwd	_ht15,			///
+ 	groupbox							///
+	tooltip("Truncated exponential accrual over [0,R]")		///
+	label("Exponential accrual")					///
+	onclickon(program accrual_check_expacc)				///
+	onclickoff(program accrual_check_expacc)
+
+  RADIO rb_prop		_iilft	_ms	_iibwd	.,			///
+	first								///
+	onclickon(program accrual_prop_on)				///
+	tooltip("Default specification corresponds to the uniform accrual") ///
+	label("Specify accrual pattern under truncated exponential accrual")	
+  RADIO rb_shape	_iilft	+105	_iibwd	.,			///
+ 	last								///
+ 	onclickon(script accrual_shape_on)				///
+	label("Specify shape of the truncated exponential accrual distribution")
+
+  TEXT tx_null0		+15	-85	0	.,
+DEFINE x1 @x
+  EDIT ed_aprob		+20	@	_en7wd	.,			///
+	option(aprob)							///
+	default(0.5)							///
+	numonly								///
+	label("Proportion of subjects accrued by time t*, G(t*)")
+DEFINE x2 @x
+  TEXT tx_aprob		_en7sep	@	_en14rb	.,			///
+	label("Proportion of subjects accrued by time t*, G(t*)")
+
+  EDIT ed_aptime	x2	_ms	_en7wd	.,			///
+	option(aptime)							///
+	default(0.5)							///
+	numonly								///
+	label("Proportion of the accrual period, t*/R")			///
+	tooltip("Proportion of the accrual period, t*/R, by which proportion of subjects G(t*) is accrued")
+  TEXT tx_aptime	_en7sep	@	_en14rb	.,			///
+	label("Proportion of the accrual period, t*/R")
+	
+  CHECKBOX ck_atime	x1	_ms	_ckwd	.,			///
+	onclickon(program accrual_atime_check)				///
+	onclickoff(program accrual_atime_check)
+  EDIT ed_atime		x2	@	_en7wd	.,			///
+	option(atime)							///
+	numonly								///
+	label("Reference accrual time, t*")				///
+	tooltip("Accrual time, t*, by which the proportion of subjects G(t*) is accrued")
+  TEXT tx_atime		_en7sep	@	_en14rb	.,			///
+	label("Reference accrual time, t*")
+
+
+  EDIT ed_ashape	x2	+55	_en7wd	.,			///
+	option(ashape)							///
+	numonly								///
+	tooltip("Shape parameter, gamma")				///
+	label("Shape parameter")
+  TEXT tx_ashape	_en7sep	@	_en14rb	.,			///
+	label("Shape parameter")
+	
+
+  CHECKBOX ck_loss	_lft	+55	_iwd	_ht7h,			///
+        groupbox							///
+	label("Loss to follow-up specification")			///
+	onclickon(program accrual_check_loss)				///
+	onclickoff(program accrual_check_loss)
+
+  EDIT ed_lossprob	40	_ms	_en7wd	.,			///
+	option(lossprob)						///
+	label("Proportion of subjects lost to follow-up in the control and the experimental groups")
+  TEXT tx_lossprob	_en7sep	@	_en14rb	.,			///
+	label("Proportion of subjects lost to follow-up in the control and the experimental groups")
+
+  EDIT ed_losstime	40	_ms	_en7wd	.,			///
+	option(losstime)						///
+	default(1)							///
+	numonly								///
+	label("Reference loss to follow-up time")
+  TEXT tx_losstime	_en7sep	@	_en14rb	.,			///
+	label("Reference loss to follow-up time")
+
+  CHECKBOX ck_losshaz	_ilft	_ms	_ckwd	.,			///
+	onclickon(program accrual_ck_losshaz_check)			///
+	onclickoff(program accrual_ck_losshaz_check)
+  EDIT ed_losshaz	40	@	_en7wd	.,			///
+	option(losshaz)							///
+	label("Loss hazard rates in the control and the experimental groups")
+  TEXT tx_losshaz	_en7sep	@	_en14rb	.,			///
+	label("Loss hazard rates in the control and the experimental groups")
+
+END
+
+PROGRAM accrual_check_followup
+BEGIN
+	if accrual.ed_fperiod | accrual.ck_accrual {
+		call accrual.ck_loss.enable
+		if accrual.ck_loss {
+			call accrual.ck_losshaz.enable
+			call program accrual_ck_losshaz_check		
+		}
+	}
+	else {
+		call accrual.ck_loss.disable
+		call accrual.ck_losshaz.disable
+		call accrual.ed_losshaz.disable
+		call accrual.tx_losshaz.disable
+		call accrual.ed_lossprob.disable
+		call accrual.tx_lossprob.disable
+		call accrual.ed_losstime.disable
+		call accrual.tx_losstime.disable
+	}	
+END
+
+PROGRAM accrual_ck_losshaz_check
+BEGIN
+	if accrual.ck_losshaz.isenabled() {
+		if accrual.ck_losshaz {
+			call accrual.ed_losshaz.enable
+			call accrual.tx_losshaz.enable
+			call accrual.ed_lossprob.disable
+			call accrual.tx_lossprob.disable
+			call accrual.ed_losstime.disable
+			call accrual.tx_losstime.disable
+		}
+		else {
+			call accrual.ed_losshaz.disable
+			call accrual.tx_losshaz.disable
+			call accrual.ed_lossprob.enable
+			call accrual.tx_lossprob.enable
+			call accrual.ed_losstime.enable
+			call accrual.tx_losstime.enable	
+		}
+	}
+END
+
+PROGRAM accrual_check_accrual
+BEGIN
+	if accrual.ck_accrual.isenabled() & accrual.ck_accrual {
+		call accrual.ed_aperiod.enable
+		call accrual.tx_aperiod.enable
+		if ! main.ck_loghazard {
+			call accrual.ck_expacc.enable
+			call program accrual_check_expacc
+		}
+	}
+	else {
+		// disable all
+		call accrual.ck_expacc.disable
+		call accrual.ed_aperiod.disable
+		call accrual.tx_aperiod.disable
+		call program accrual_check_expacc
+	}
+	call program accrual_check_followup
+END
+
+PROGRAM accrual_check_expacc
+BEGIN
+	if accrual.ck_expacc.isenabled() & accrual.ck_expacc {
+		call accrual.rb_prop.enable
+		call accrual.rb_shape.enable
+		
+		if accrual.rb_shape.isenabled() & accrual.rb_shape {
+			call accrual.tx_ashape.enable
+			call accrual.ed_ashape.enable
+		}
+
+		if accrual.rb_prop.isenabled() & accrual.rb_prop {
+			call accrual.ck_atime.enable
+			call program accrual_atime_check
+
+			call accrual.ed_aprob.enable
+			call accrual.tx_aprob.enable
+		}
+	}
+	else {
+		call accrual.rb_prop.disable
+		call accrual.rb_shape.disable
+
+		call accrual.tx_ashape.disable
+		call accrual.ed_ashape.disable
+
+		call accrual.ck_atime.disable
+		call accrual.ed_atime.disable
+		call accrual.tx_atime.disable
+		call accrual.ed_aptime.disable
+		call accrual.tx_aptime.disable
+		call accrual.ed_aprob.disable
+		call accrual.tx_aprob.disable
+	}
+END
+
+SCRIPT accrual_shape_on
+BEGIN
+	accrual.tx_ashape.enable
+	accrual.ed_ashape.enable
+	
+	accrual.ck_atime.disable
+	accrual.ed_atime.disable
+	accrual.tx_atime.disable
+	accrual.ed_aptime.disable
+	accrual.tx_aptime.disable
+	accrual.ed_aprob.disable
+	accrual.tx_aprob.disable
+END
+
+PROGRAM accrual_prop_on
+BEGIN
+	call accrual.tx_ashape.disable
+	call accrual.ed_ashape.disable
+	
+	if accrual.rb_prop.isenabled() {
+		call accrual.ck_atime.enable
+		call program accrual_atime_check
+
+		call accrual.ed_aprob.enable
+		call accrual.tx_aprob.enable
+	}
+END
+
+PROGRAM accrual_atime_check
+BEGIN
+	if accrual.ck_atime.isenabled() {
+		if accrual.ck_atime {
+			call accrual.ed_atime.enable
+			call accrual.tx_atime.enable
+			call accrual.ed_aptime.disable
+			call accrual.tx_aptime.disable
+		}
+		else {
+			call accrual.ed_aptime.enable
+			call accrual.tx_aptime.enable
+			call accrual.ed_atime.disable
+			call accrual.tx_atime.disable
+		}
+	}
+END
+
+PROGRAM accrual_check_loss
+BEGIN
+	if accrual.ck_loss.isenabled() & accrual.ck_loss {
+		call accrual.ck_losshaz.enable
+		call program accrual_ck_losshaz_check		
+	}
+	else {
+		call accrual.ck_losshaz.disable
+		call accrual.ed_losshaz.disable
+		call accrual.tx_losshaz.disable
+		call accrual.ed_lossprob.disable
+		call accrual.tx_lossprob.disable
+		call accrual.ed_losstime.disable
+		call accrual.tx_losstime.disable
+	}
+END
+
+DIALOG rpt, tabtitle("Reporting")
+BEGIN
+  CHECKBOX ck_detail	_lft	_top	_iwd	.,			///
+	option(detail)							///
+	label("Show detailed output")
+  CHECKBOX ck_table	_lft	_ms	_iwd	.,			///
+	option(table)							///
+	onclickon(program rpt_table_on)					///
+	onclickoff(program check_for_numlist)				///
+	label(`"Display results in a table (default if *list is specified on the "Main" tab)"')
+
+  GROUPBOX gb_table	_lft	_ls	_iwd	_ht24h,			///
+	label("Table specification")
+
+  GROUPBOX gb_tbltype	_ilft	_ss	_comb3_2 _ht6h,			///
+	label("Table columns")
+
+  RADIO rb_table	_iilft	_ss	_inwd .,			///
+	first								///
+	option(table)							///
+	onclickon(rpt.bu_columns.disable)				///
+	label("Default columns")
+DEFINE holdy @y
+  RADIO rb_columns	@	_ss	@	.,			///
+	last								///
+	option(NONE)							///
+	onclickon(rpt.bu_columns.enable)				///
+	label("Select columns")
+  BUTTON bu_columns    +20	_ss	120	.,			///
+	onpush(script show_columns_dlg)					///
+	label("Custom columns... ")
+
+  CHECKBOX ck_notitle	_ilft3_3 holdy	_cwd3_2	.,			///
+	option(notitle)							///
+	label("Suppress title")
+
+  CHECKBOX ck_nolegend	@	_ms	@	.,			///
+	option(nolegend)						///
+	label("Suppress legend")
+
+  EDIT ed_colwidth	_ilft	+65	_en14wd	.,			///
+	option(colwidth)						///
+	default(9)							///
+	label("Column widths")
+  TEXT tx_colwidth	_en14sep @	120	.,			///
+	label("Column widths")
+
+  SPINNER sp_sep	_lft2	@	_spwd	.,			///
+	option(separator)						///
+	min(0) max(10000) default(0)
+  TEXT tx_sep		_spsep	@	_rbspr2b .,			///
+	label("Separator every N lines")
+
+  CHECKBOX ck_save	_ilft	+35	_ibwd	_ht6h,			///
+	groupbox							///
+	onclickon(script opt_save_on)					///
+	onclickoff(script opt_save_off)					///
+	label("Save table data as dataset")
+  TEXT tx_save		_iilft	_ss	_iibwd	.,			///
+	label("Filename:")
+  FILE fi_save		@	_ss	@	.,			///
+	option(saving)							///
+	filter("Stata Dataset (*.dta)|*.dta|All (*.*)|*.*")		///
+	defext(dta)							///
+	save								///
+	error("Filename")						///
+	label("Browse...")
+  CHECKBOX ck_replace	@	_ms	@	.,			///
+	option(replace)							///
+	label("Overwrite file if it already exists")
+END
+
+PROGRAM rpt_table_on
+BEGIN
+	call rpt.ck_detail.disable
+	call rpt.gb_table.enable
+	call rpt.gb_tbltype.enable
+	call rpt.rb_table.enable
+	call rpt.rb_columns.enable
+	if rpt.rb_columns {
+		call rpt.bu_columns.enable
+	}
+
+	call rpt.ck_notitle.enable
+	call rpt.ck_nolegend.enable
+
+	call rpt.tx_colwidth.enable
+	call rpt.ed_colwidth.enable
+	call rpt.sp_sep.enable
+	call rpt.tx_sep.enable
+
+	call rpt.ck_save.enable
+	if rpt.ck_save {
+		call rpt.tx_save.enable
+		call rpt.fi_save.enable
+		call rpt.ck_replace.enable
+	}
+END
+
+SCRIPT rpt_table_off
+BEGIN
+	rpt.ck_detail.enable
+	rpt.gb_table.disable
+	rpt.gb_tbltype.disable
+	rpt.rb_table.disable
+	rpt.rb_columns.disable
+	rpt.bu_columns.disable
+
+	rpt.ck_notitle.disable
+	rpt.ck_nolegend.disable
+
+	rpt.tx_colwidth.disable
+	rpt.ed_colwidth.disable
+	rpt.sp_sep.disable
+	rpt.tx_sep.disable
+
+	rpt.ck_save.disable
+	rpt.tx_save.disable
+	rpt.fi_save.disable
+	rpt.ck_replace.disable
+END
+
+SCRIPT show_columns_dlg
+BEGIN
+	create CHILD stpower_exponential_columns
+	stpower_exponential_columns.setExitString columns_res
+	stpower_exponential_columns.setExitAction "program check_columns_res"
+END
+
+PROGRAM check_columns_res
+BEGIN
+	if columns_res {
+		call rpt.bu_columns.setlabel "Custom columns... *"
+	}
+	else {
+		call rpt.bu_columns.setlabel "Custom columns...  "
+	}
+	call columns_res.withvalue rpt.bu_columns.settooltip "@"
+END
+
+SCRIPT opt_save_on
+BEGIN
+	rpt.fi_save.enable
+	rpt.tx_save.enable
+	rpt.ck_replace.enable
+END
+
+SCRIPT opt_save_off
+BEGIN
+	rpt.fi_save.disable
+	rpt.tx_save.disable
+	rpt.ck_replace.disable
+END
+
+PROGRAM saving_output
+BEGIN
+	put `"""' rpt.fi_save `"""'
+	beginoptions
+		option rpt.ck_replace
+	endoptions
+END
+
+PROGRAM command
+BEGIN
+	put "stpower exponential "
+	if main.rb_power {
+		require main.ed_n
+	}
+	if main.rb_spechaz {
+		if ! main.ck_loghazard | accrual.ed_fperiod | accrual.ck_accrual {
+			require main.ed_h1
+		}
+		if main.ck_h2 {
+			require main.ed_h1
+			require main.ed_h2
+		}
+	}
+	if main.rb_specsp {
+		require main.ed_t
+		require main.ed_s1
+		if main.ck_s2 {
+			require main.ed_s1
+			require main.ed_s2
+		}
+	}
+	call create STRING sTMP
+	call create ARRAY sTOKS
+	call create DOUBLE tokSize
+
+	if main.ed_h1.isvisible() & main.ed_h1.isenabled() & ///
+	   main.ed_h1.isneq("") {
+		call sTMP.setvalue class main.ed_h1.value
+		call sTMP.tokenize sTOKS
+		call tokSize.storeClsArraySize sTOKS
+		put " "
+		if tokSize.isge(2) {
+			put "("
+		}
+		put main.ed_h1
+		if tokSize.isge(2) {
+			put ") "
+		}
+	}
+	if main.ed_h2.isvisible() & main.ed_h2.isenabled() & ///
+	   main.ed_h2.isneq("") {
+		call sTMP.setvalue class main.ed_h2.value
+		call sTMP.tokenize sTOKS
+		call tokSize.storeClsArraySize sTOKS
+		put " "
+		if tokSize.isge(2) {
+			put "("
+		}
+		put main.ed_h2
+		if tokSize.isge(2) {
+			put ") "
+		}
+	}
+	if main.ed_s1.isvisible() & main.ed_s1.isenabled() & ///
+	   main.ed_s1.isneq("") {
+		call sTMP.setvalue class main.ed_s1.value
+		call sTMP.tokenize sTOKS
+		call tokSize.storeClsArraySize sTOKS
+		put " "
+		if tokSize.isge(2) {
+			put "("
+		}
+		put main.ed_s1
+		if tokSize.isge(2) {
+			put ") "
+		}
+	}
+	if main.ed_s2.isvisible() & main.ed_s2.isenabled() & ///
+	   main.ed_s2.isneq("") {
+		call sTMP.setvalue class main.ed_s2.value
+		call sTMP.tokenize sTOKS
+		call tokSize.storeClsArraySize sTOKS
+		put " "
+		if tokSize.isge(2) {
+			put "("
+		}
+		put main.ed_s2
+		if tokSize.isge(2) {
+			put ") "
+		}
+	}
+	beginoptions
+		optionarg main.ed_t
+		optionarg /hidedefault main.ed_alpha
+		optionarg /hidedefault main.ed_beta
+		optionarg /hidedefault main.ed_power
+		optionarg main.ed_n
+		optionarg /hidedefault main.ed_hratio
+		optionarg /hidedefault main.ed_p1
+		optionarg /hidedefault main.ed_nratio
+		put " " main.cb_oneside
+		
+		option main.ck_loghazard
+		option main.ck_uncond
+		option main.ck_parallel
+
+		optionarg /hidedefault accrual.ed_fperiod
+		if accrual.ed_aperiod.isenabled() {
+			require accrual.ed_aperiod
+			optionarg accrual.ed_aperiod
+		}
+		if accrual.ck_losshaz.isenabled() & accrual.ck_losshaz {
+			call sTMP.setvalue class accrual.ed_losshaz.value
+			call sTMP.tokenize sTOKS
+			call tokSize.storeClsArraySize sTOKS
+			if tokSize.isneq(2) {
+				stopbox stop `"On the "Accrual / Follow-up" tab,"' ///
+				`""Loss hazard rates in the control and the experimental groups" requires two arguments."'
+			}
+			optionarg accrual.ed_losshaz
+		}
+		optionarg /hidedefault accrual.ed_losstime
+		
+		if accrual.ed_lossprob.isenabled() {
+			call sTMP.setvalue class accrual.ed_lossprob.value
+			call sTMP.tokenize sTOKS
+			call tokSize.storeClsArraySize sTOKS
+			if tokSize.isneq(2) {
+				stopbox stop `"On the "Accrual / Follow-up" tab,"' ///
+				`""Proportion of subjects lost to follow-up in the control and the experimental groups" requires two arguments."'
+			}
+		}
+		
+		optionarg /hidedefault accrual.ed_lossprob
+		if accrual.ck_atime.isenabled() & accrual.ck_atime {
+			require accrual.ed_atime
+			optionarg accrual.ed_atime
+		}
+		optionarg /hidedefault accrual.ed_aprob
+		optionarg /hidedefault accrual.ed_aptime
+
+		if accrual.ed_ashape.isenabled() {
+			require accrual.ed_ashape
+			optionarg accrual.ed_ashape
+		}
+
+		option rpt.ck_detail
+		option rpt.ck_table
+
+		if rpt.rb_columns.isenabled() & rpt.rb_columns {
+			if ! columns_res {
+				stopbox stop `"On the "Reporting" tab,"'	///
+				`""Custom columns..." have not been set."'
+			}
+			put " columns(" columns_res ") "
+		}
+
+		option rpt.ck_notitle
+		option rpt.ck_nolegend
+
+		optionarg /hidedefault rpt.ed_colwidth
+		optionarg /hidedefault rpt.sp_sep
+
+		if rpt.ck_save {
+			require rpt.fi_save
+			put "saving("
+			put /program saving_output
+			put ")"
+		}
+	endoptions
+END

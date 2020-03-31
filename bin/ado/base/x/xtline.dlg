@@ -1,0 +1,176 @@
+/*
+    xtline.dlg
+
+*!  VERSION 2.1.0  22dec2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_xlarge
+DEFINE _dlght 300
+INCLUDE header
+HELP hlp1, view("help xtline")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource XTLINE_DLG_HSCALE
+END
+
+SCRIPT main_POSTINIT
+BEGIN
+	script gr_plots_setDefaultLine
+END
+
+DIALOG main, label(resource XTLINE_DLG_TITLE)  tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  GROUPBOX gb_xtline	_lft	_top	_rj220	_ht12h,		///
+	label(resource LBL_TAB_PLOT)
+  RADIO    rb_by	_ilft	_ss	_inwd	.,		///
+	first							///
+	label(resource XTLINE_MAIN_RB_BY) 			///
+	onclickon(script main_by_on)
+  RADIO    rb_overlay	@	_ss	@	.,		///
+	last							///
+	label(resource XTLINE_MAIN_RB_OVERLAY)			///
+  	onclickon(script main_overlay_on)
+
+  TEXT     tx_vars	@	_ls	@	.,		///
+	label(resource LBL_VARIABLES)
+  TEXT     tx_var	@	@	@	.,		///
+	label(resource LBL_VARIABLES)
+  VARLIST  vn_vars	@	_ss	@ 	.,		///
+  	numeric							///
+	label(resource LBL_VARIABLES)
+  VARNAME  vn_var	@	@	_vnwd  	.,		///
+  	numeric							///
+	label(resource LBL_VARIABLES)
+DEFINE y @y
+
+  DEFINE _x _rj190
+  DEFINE _y _top
+  DEFINE _setbuwd 190
+
+  BUTTON   bu_xtset	_x	_y	_setbuwd .,		///
+	onpush(script show_xtset)				///
+	label(resource LBL_BU_PANEL_SETTINGS)
+
+  CHECKBOX ck_override _rj190	45	190	_ht9,		///
+	label(resource XTLINE_MAIN_CK_OVERRIDE)			///
+	onclickon(script override_xtset_on)			///
+	onclickoff(script override_xtset_off)			///
+	groupbox
+  TEXT     tx_ivar     _indent	_ss	_inwd	.,		///
+	label(resource XTLINE_MAIN_TX_IVAR)
+DEFINE cx @cx
+  VARNAME  vn_ivar     @	_ss	_vnwd	.,		///
+	option(i)						///
+	label(resource XTLINE_MAIN_TX_IVAR)
+  TEXT     tx_tvar     @	_ms	cx	.,		///
+	label(resource XTLINE_MAIN_TX_TVAR)
+  VARNAME  vn_tvar     @	_ss	_vnwd	.,		///
+	option(t)						///
+	label(resource XTLINE_MAIN_TX_TVAR)
+END
+
+SCRIPT show_xtset
+BEGIN
+	create STRING note
+	note.setvalue resource XTLINE_TIME_VAR_REQ_FOR_THIS_COMMAND
+	note.withvalue create CHILD xtset, message(`""-timeRequired-" `"@"'"')
+END
+
+SCRIPT main_by_on
+BEGIN
+	main.tx_var.hide
+	main.vn_var.hide
+	script gr_plots_setMultiView_off
+	script gr_yaxis_setByoptsContext_on
+	script gr_taxis_setByoptsContext_on
+	script gr_titles_setByoptsContext_on
+	script gr_legend_setByoptsContext_on
+	script gr_overall_setByoptsContext_on
+
+	main.tx_vars.show
+	main.vn_vars.show
+	script gr_by_enable
+END
+
+SCRIPT main_overlay_on
+BEGIN
+	main.tx_vars.hide
+	main.vn_vars.hide
+	script gr_by_disable
+	script gr_yaxis_setByoptsContext_off
+	script gr_taxis_setByoptsContext_off
+	script gr_titles_setByoptsContext_off
+	script gr_legend_setByoptsContext_off
+	script gr_overall_setByoptsContext_off
+
+	main.tx_var.show
+	main.vn_var.show
+	script gr_plots_setMultiView_on
+END
+
+SCRIPT override_xtset_on
+BEGIN
+	main.tx_ivar.enable
+	main.vn_ivar.enable
+	main.tx_tvar.enable
+	main.vn_tvar.enable
+	main.bu_xtset.disable
+END
+
+SCRIPT override_xtset_off
+BEGIN
+	main.tx_ivar.disable
+	main.vn_ivar.disable
+	main.tx_tvar.disable
+	main.vn_tvar.disable
+	main.bu_xtset.enable
+END
+
+INCLUDE ifin
+INCLUDE gr_plots
+INCLUDE gr_addplots
+INCLUDE gr_yaxis
+INCLUDE gr_taxis
+INCLUDE gr_titles
+INCLUDE gr_legend
+INCLUDE gr_overall
+INCLUDE gr_byopts
+
+PROGRAM command
+BEGIN
+	put "xtline "
+	if main.rb_by {
+		require main.vn_vars
+		put main.vn_vars
+	}
+	if main.rb_overlay {
+		require main.vn_var
+		put main.vn_var
+	}
+
+	put " " /program ifin_output
+	beginoptions
+		if main.rb_overlay {
+			put "overlay "
+		}
+		put " " /program gr_plots_output
+		if main.ck_override {
+			require main.vn_ivar
+			require main.vn_tvar
+			optionarg main.vn_ivar
+			optionarg main.vn_tvar
+		}
+		put " " /program gr_addplots_output
+		put " " /program gr_yaxis_output
+		put " " /program gr_taxis_output
+		put " " /program gr_titles_output
+		put " " /program gr_legend_output
+		put " " /program gr_overall_output
+		put " " /program gr_byopts_output
+	endoptions
+END

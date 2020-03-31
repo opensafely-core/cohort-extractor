@@ -1,0 +1,92 @@
+/*
+  menl_ts_child.dlg
+
+*!  VERSION 1.0.5  28mar2019
+
+  keyword:  eclass
+
+*/
+
+VERSION 16.0
+
+INCLUDE _std_medium
+DEFINE _dlght 120
+INCLUDE header
+
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource MENL_TS_CHILD_DLG_HSCALE
+	create STRING STMP
+	create STRING main_exp_res
+        create ARRAY main_tsvars_list
+        create STRING tsinit_str
+	create DOUBLE eqcounter
+
+        program set_tsinit_list
+END
+
+PROGRAM set_tsinit_list
+BEGIN
+        call tsinit_str.setvalue ""
+        call tsinit_str.append s(tsrecur)
+        call tsinit_str.append " "
+        call tsinit_str.append s(tsexpr)
+        call tsinit_str.tokenizeOnStr main_tsvars_list " "
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN) title("")
+BEGIN
+  TEXT tx_exp_name			_lft	_top	_iwd	.,	///
+	label(resource LBL_EXPRESSION_NAME, colon)
+  COMBOBOX cb_exp_name			_lft	_ss	_cwd1	.,	///
+	dropdown							///
+	contents(main_tsvars_list)					///
+	label(resource LBL_EXPRESSION_NAME)
+  TEXT tx_exp				_lft	_ls	_iwd	.,	///
+  	label(resource LBL_NONLINEAR_EXPRESSION)
+  EDIT ed_exp				@	_ss	310	.,	///
+  	label(resource LBL_NONLINEAR_EXPRESSION)
+  BUTTON bu_exp				+315	@	_buwd	.,	///
+	onpush(program main_show_exp_dlg)				///
+	label(resource LBL_BU_CREATE)
+END
+
+LIST main_tsvars_list
+BEGIN
+END
+
+PROGRAM main_show_exp_dlg
+BEGIN
+	call create CHILD menl_exp AS exp
+	call exp.setExitString main_exp_res
+	call exp.setExitAction "program main_exp_append"
+END
+
+PROGRAM main_exp_append
+BEGIN
+	call STMP.setvalue class main.ed_exp.value
+	call main_exp_res.withvalue STMP.append " @"
+	call STMP.withvalue main.ed_exp.setvalue "@"
+END
+
+PROGRAM main_tsinit_output
+BEGIN
+	require main.cb_exp_name
+	require main.ed_exp
+	put "{"
+	put main.cb_exp_name
+	put ":} = "
+	put main.ed_exp
+END
+
+PROGRAM command
+BEGIN
+	put
+	put "tsinit("
+	put /program main_tsinit_output
+	put ")"
+END
+
+

@@ -1,0 +1,220 @@
+/*
+	lassoselect.dlg
+
+*!  VERSION 1.0.3  17jun2019
+
+*/
+
+VERSION 16.0
+
+INCLUDE _std_medium
+DEFINE _dlght 300
+INCLUDE header
+HELP hlp1, view("help lassoselect")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING _MSG_TMP
+	create ARRAY main_for_depvars
+	create STRING s_depvars
+	create DOUBLE xfold
+	create DOUBLE resample
+	create DOUBLE dtmp
+
+	xfold.setvalue e(n_xfolds)
+	resample.setvalue e(n_resample)
+
+	create STRING ecmd
+	ecmd.setvalue e(cmd)
+
+	setscale_hadj resource LASSOSELECT_DLG_HSCALE
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	call program check_cmd
+END
+
+PROGRAM ON_DOTPROMPT
+BEGIN
+	call program check_cmd
+	call program build_depvars
+END
+
+PROGRAM build_depvars
+BEGIN
+	put "lasso_opts_wrk_dlg"
+	stata hidden immediate
+	call s_depvars.setvalue s(lasso_depvars)
+	call s_depvars.tokenizeOnStr main_for_depvars " "
+	call main.cb_for.repopulate
+
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	label(resource LASSOSELECT_DLG_TITLE)
+BEGIN
+  GROUPBOX gb_select_type	_lft	_top	_iwd	_ht8,		///
+	label(resource LBL_SELECTION)
+  RADIO rb_id			_ilft	_ss	_ibwd	., 		///
+	first								///
+	onclickon(program main_selection_type_changed)			///
+	label(resource LBL_ID)
+  RADIO rb_lambda_alpha		@	+40	_vnwd	., 		///
+	last								///
+	onclickon(program main_selection_type_changed)			///
+	label(resource LBL_LAMBDA)
+  TEXT tx_lambda		155	@	@	.,		///
+	label(resource LBL_LAMBDA)
+  SPINNER sp_id			_iilft	 -20	_spwd	.,		///
+	min(1)								///
+	max(1000)							///
+	error(resource LBL_ID)
+  EDIT ed_alpha			@	+40	_vnwd	.,		///
+	numonly								///
+	error(resource LBL_ALPHA)
+  EDIT ed_lambda		@	@	@	.,		///
+	numonly								///
+	error(resource LBL_LAMBDA)
+  EDIT ed_lambda2		_vnsep	@	@	.,		///
+	numonly								///
+	error(resource LBL_LAMBDA)
+
+  GROUPBOX gb_opts		_lft	_xls	_iwd	_ht10,		///
+	label(resource LBL_OPTIONS)
+  TEXT tx_for			_ilft	_ss	_cwd2	.,		///
+	label(resource LBL_LASSO_FOR_VARIABLE)
+  COMBOBOX cb_for		@	_ss	_vnwd	.,		///
+	dropdown							///
+	contents(main_for_depvars)					///
+	label(resource LBL_LASSO_FOR_VARIABLE)
+  SPINNER sp_xfold		_ilft	 _ls	_spwd	.,		///
+	option(xfold)							///
+	min(1)								///
+	max(e(n_xfolds))
+  TEXT tx_xfold			_spsep	 @	200	.,		///
+	label(resource LBL_LASSO_FOR_THE_#_CROSS_FIT_FOLD)
+  SPINNER sp_resample		_ilft	 _ls	_spwd	.,		///
+	option(resample)						///
+	min(1)								///
+	max(e(n_resample))
+  TEXT tx_resample		_spsep	 @	200	.,		///
+	label(resource LBL_LASSO_FOR_THE_#_RESAMPLE)
+END
+
+PROGRAM check_cmd
+BEGIN
+	if ecmd.iseq("elasticnet") {
+  		call main.ed_lambda.hide
+  		call main.tx_lambda.show
+		call main.ed_alpha.show
+		call main.ed_lambda2.show
+  		call main.rb_lambda_alpha.setlabel resource LBL_ALPHA
+	}
+	else {
+  		call main.tx_lambda.hide
+  		call main.ed_lambda.show
+		call main.ed_alpha.hide
+		call main.ed_lambda2.hide
+	}
+
+	// Options
+	call main.gb_opts.hide
+	call main.tx_for.hide
+	call main.cb_for.hide
+	call main.sp_xfold.hide
+	call main.tx_xfold.hide
+	call main.sp_resample.hide
+	call main.tx_resample.hide
+
+	if ecmd.iseq("dsregress") | ecmd.iseq("dslogit")		///
+		| ecmd.iseq("dspoisson") {
+		call main.gb_opts.show
+		call main.tx_for.show
+		call main.cb_for.show
+		call main.gb_opts.setposition . . . 70
+	}
+	if ecmd.iseq("poregress") | ecmd.iseq("pologit")		///
+		| ecmd.iseq("popoisson") | ecmd.iseq("poivregress") {
+		call main.gb_opts.show
+		call main.tx_for.show
+		call main.cb_for.show
+		call main.gb_opts.setposition . . . 70
+	}
+	if ecmd.iseq("xporegress") | ecmd.iseq("xpologit")		///
+		| ecmd.iseq("xpopoisson") | ecmd.iseq("xpoivregress") {
+		call main.gb_opts.show
+		call main.tx_for.show
+		call main.cb_for.show
+		call main.sp_xfold.show
+		call main.tx_xfold.show
+		if resample.isgt(1) {
+			call main.sp_resample.show
+			call main.tx_resample.show
+		}
+	}
+
+	call program main_selection_type_changed
+END
+
+PROGRAM main_selection_type_changed
+BEGIN
+	call main.sp_id.disable
+	call main.ed_alpha.disable
+	call main.ed_lambda.disable
+	call main.ed_lambda2.disable
+
+	if main.rb_id {
+		call main.sp_id.enable
+	}
+	if main.rb_lambda_alpha {
+  		call main.ed_lambda.enable
+  		call main.ed_alpha.enable
+  		call main.ed_lambda2.enable
+	}
+END
+
+PROGRAM command
+BEGIN
+	put "lassoselect "
+	if main.rb_id {
+		require main.sp_id
+		put "id = "
+		put main.sp_id
+	}
+	if main.rb_lambda_alpha {
+		if main.ed_alpha.isvisible() {
+			require main.ed_alpha
+			require main.ed_lambda2
+			call main.ed_alpha.withvalue dtmp.setvalue @
+
+			if dtmp.islt(0) | dtmp.isgt(1) {
+				call _MSG_TMP.format			///
+		"resource LASSOSELECT_MSGBOX_INVALID_NUMERIC_RANGE_FMT"	///
+		"resource LBL_ALPHA" "0" "1"
+				stopbox stop "class _MSG_TMP.value"
+			}
+
+			put "alpha = "
+			put main.ed_alpha
+			put " lambda = "
+			put main.ed_lambda2
+		}
+		else {
+			require main.ed_lambda
+			put "lambda = "
+  			put main.ed_lambda
+		}
+	}
+	beginoptions
+		if main.cb_for.isvisible() & main.cb_for.isenabled() {
+			require main.cb_for
+			put " for("
+			put main.cb_for
+			put ")"
+		}
+		optionarg main.sp_xfold
+		optionarg main.sp_resample
+	endoptions
+END

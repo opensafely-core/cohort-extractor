@@ -1,0 +1,166 @@
+/*
+  pwmean
+
+*! VERSION 1.2.0  21jan2020
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+DEFINE _dlght 260
+INCLUDE header
+
+HELP hlp1, view("help pwmean")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource PWMEAN_DLG_HSCALE
+END
+
+DIALOG main, label(resource PWMEAN_DLG_TITLE)				///
+	tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT tx_vn			_lft	_topph	_vnwd	.,		///
+	label(resource LBL_VARIABLE)
+  VARNAME vn_var		@	_ss	@	.,		///
+  	numeric								///
+	label(resource LBL_VARIABLE)
+  
+  TEXT tx_over			_vlx	_topph	260	.,		///
+	label(resource PWMEAN_MAIN_TX_OVER)
+  VARLIST vl_over		@	_ss	@	.,		///
+	option(over)							///
+	numeric								///
+	label(resource PWMEAN_MAIN_TX_OVER)
+
+  TEXT tx_mcomp			_lft	_ls	280	.,		///
+	label(resource PWMEAN_MAIN_TX_MCOMP)
+  COMBOBOX cb_mcomp		@	_ss 	@	.,		///
+	dropdownlist							///
+	option(mcompare)						///
+	contents(main_mcomp_list)					///
+	values(main_mcomp_values)					///
+	label(resource PWMEAN_MAIN_TX_MCOMP)
+END
+
+LIST main_mcomp_list
+BEGIN
+	resource PWMEAN_DO_NOT_ADJUST
+	resource LBL_BONFERRONIS_METHOD
+	resource LBL_SIDAKS_METHOD
+	resource LBL_SCHEFFES_METHOD
+	resource LBL_TUKEYS_METHOD
+	resource PWMEAN_STUDENT_NEWMAN_KEULS_METHOD
+	resource LBL_DUNCANS_METHOD
+	resource LBL_DUNNETTS_METHOD
+END
+
+LIST main_mcomp_values
+BEGIN
+	""
+	bonferroni
+	sidak
+	scheffe
+	tukey
+	snk
+	duncan
+	dunnett 
+END
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+END
+
+INCLUDE ifin
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2b
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  RADIO rb_noeffects		_lft	_ls	_iwd	., first	///
+	onclickon("script rpt_effects_off")				///
+	option("noeffects")						///
+	label(resource LBL_SUPPRESS_EFFECTS_TABLES)
+  RADIO rb_effects		@	_ss	@	., last		///
+	onclickon("script rpt_effects_on")				///
+	label(resource LBL_EFFECTS_TABLES)
+  CHECKBOX ck_cieffects		_indent	_ss	_inwd	.,		///
+	option("cieffects")						///
+	label(resource LBL_SHOW_EFFECTS_TABLE_WITH_CI)
+  CHECKBOX ck_pveffects		@	_ss	@	.,		///
+	option("pveffects")						///
+	label(resource LBL_SHOW_EFFECTS_TABLE_WITH_P_VALUES)
+  CHECKBOX ck_effects		@	_ss	@	.,		///
+	option("effects")						///
+	label(resource LBL_SHOW_EFFECTS_TABLE_WITH_CI_AND_P_VALUES)
+
+  CHECKBOX ck_cimeans		_lft	_ls	_iwd	.,		///
+	option("cimeans")						///
+	label(resource PWMEAN_RPT_CK_CI_MEANS)
+  CHECKBOX ck_groups		@	_ms	@	.,		///
+	option("groups")						///
+	label(resource PWMEAN_RPT_CK_GROUPS)
+  CHECKBOX ck_sort		@	_ms	@	.,		///
+	option("sort")							///
+	label(resource PWMEAN_RPT_CK_SORT)
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+
+SCRIPT rpt_effects_on
+BEGIN
+	rpt.ck_cieffects.enable
+	rpt.ck_pveffects.enable
+	rpt.ck_effects.enable
+END
+
+SCRIPT rpt_effects_off
+BEGIN
+	rpt.ck_cieffects.disable
+	rpt.ck_pveffects.disable
+	rpt.ck_effects.disable
+END
+
+PROGRAM command
+BEGIN
+	put "pwmean "
+	require main.vn_var
+	require main.vl_over
+	varlist	main.vn_var
+	put " " /program ifin_output
+	beginoptions
+		optionarg main.vl_over
+		optionarg main.cb_mcomp
+		optionarg /hidedefault rpt.sp_level
+		if (rpt.rb_effects & !rpt.ck_cieffects &		///
+			!rpt.ck_pveffects & !rpt.ck_effects) {
+				call create STRING _MSG_TMP
+	                        call _MSG_TMP.format			/// 
+					"resource LBL_MSGBOX_YOU_MUST_SPECIFY_AN_ON_TAB_FMT" ///
+					"resource LBL_EFFECTS_TABLES" 	///
+					"resource LBL_TAB_REPORTING"
+				stopbox stop "class _MSG_TMP.value"
+// You must specify an "Effects table" on the "Reporting" tab.
+		}
+		if (rpt.rb_effects) {
+			option rpt.ck_cieffects
+			option rpt.ck_pveffects
+			option rpt.ck_effects
+		}
+		option rpt.ck_cimeans
+		option rpt.ck_groups
+		option rpt.ck_sort
+		put " " rpt_bu_fmtcoefResults
+	endoptions
+END

@@ -1,0 +1,349 @@
+/*                                 bcbox_g
+
+	a boxplot box
+
+        This is a subview.  When drawn, assumes that the appropriate x and y
+        scales have already been set.
+
+	Often boxes are drawn with a reference to a common shared style.
+        Allows the box to be customized from this style
+    
+	See as_custom_ed.class for customization
+
+*/
+*! version 1.1.0  02apr2007
+
+version 8
+
+class {
+
+	horizontal	= 0				// is horizontal
+
+	z		= 0				// mid x/y pos
+	p25		= 0				// 25 pctile value
+	p50		= 0				// 50 pctile value
+	p75		= 0				// 75 pctile value
+	adjl		= 0				// lower adjacent
+	adjh		= 0				// upper adjacent
+	width2		= 0				// half box width
+	fencewd2	= 0				// half fence width
+	capsz		= 0				// cap size on whiskers
+
+
+	draw_view       = .yesno.new, style(yes)
+
+	dragable	= 0
+	browser_stop	= 1
+
+	dialog		= "boxplot"
+	
+	class bcboxstyle style
+
+							// last 2 rarely used
+} , inherit(subview)
+
+
+// ---------------------------------------------------------------------------
+//	Usage:  .bcbox_g.new z p25 p50 p75 adjl adjh width2 fencewid2 capsz [ , 
+//			horizontal whiskers(yesno) median(medtype)
+//			style(stylename) styleref(name|key) 
+//			medstyle(stylename) medstyleref(stylename) ]
+//
+//	if reference is specified the style is assigned by reference rather
+//	than by copying (by value)
+
+program new
+
+	syntax anything(name=poslist id="9 position numbers") [ , 	///
+			horizontal 					///
+			whiskers(string asis) median(string asis)	///
+			Style(passthru) STYLEREF(passthru) ]
+
+	.grid_dragable	= 0
+	.deleted	= 0
+	.already_custom	= 0
+
+	if ("`horizontal'" != "")  .horizontal = 1
+	if ("`capped'"     != "")  .capped     = 1
+	if "`whiskers'" != "" {
+		.style.custom_whiskers.setstyle , style(`whiskers')
+	}
+	if "`median'" != "" {
+		.style.median_type.setstyle , style(`median')
+	}
+
+	if `"`style'`styleref'"' != `""'{		// often set by caller
+		.setstyle , `style' `styleref' `options'
+	}
+
+	if "`medstyleref'" != "" {			// medstyle by ref
+		.style.median_style.ref = .`medstyleref'.ref
+		exit
+	}
+
+	if "`medstyle'" != "" {				// medstyle by stylenm
+		.style.median_style.setstyle, `medstyle'
+	}
+
+
+							// fetch positions
+	numlist "`poslist'" , min(8) max(9) missingok
+	tokenize `r(numlist)'
+	.z 	= (`1')
+	.p25 	= (`2')
+	.p50 	= (`3')
+	.p75 	= (`4')
+	.adjl 	= (`5')
+	.adjh 	= (`6')
+	.width2   = (`7')
+	.fencewd2 = (`8')
+	.capsz   = (`9')
+
+							// create parts
+	.make_box
+
+end
+
+
+//  Create/recreate the box
+
+program make_box
+
+	local rtarget  = cond("`.rect.isa'"=="", ".Declare rect", ".rect.ref")
+	local mltarget = cond("`.medianline.isa'"=="",			///
+			      ".Declare medianline", ".medianline.ref")
+	local mmtarget = cond("`.medianmark.isa'"=="",			///
+			      ".Declare medianmark", ".medianmark.ref")
+
+
+							// box/rectangle
+	if `.horizontal' {
+	    `rtarget' = .rectangle_g.new `.p25' `=`.z'-`.width2''	///
+					 `.p75' `=`.z'+`.width2''
+	}
+	else {
+	    `rtarget' = .rectangle_g.new `=`.z'-`.width2'' `.p25'	///
+					 `=`.z'+`.width2'' `.p75'
+	}
+
+							// median
+	if `.horizontal' {					// marker
+		`mmtarget' = .marker_g.new `.p50' `.z'
+	}
+	    else {
+		`mmtarget' = .marker_g.new `.z' `.p50'
+	}
+	if `.horizontal' {					// cline or line
+		`mltarget' = .line_g.new `.p50' `=`.z'-`.width2''	///
+					 `.p50' `=`.z'+`.width2''
+	}
+	else {
+		`mltarget' = .line_g.new `=`.z'-`.width2'' `.p50'	///
+					 `=`.z'+`.width2'' `.p50'
+	}
+
+							// whiskers
+	local s1 = cond("`.stem1.isa'"=="", ".Declare stem1", ".stem1.ref")
+	local s2 = cond("`.stem2.isa'"=="", ".Declare stem2", ".stem2.ref")
+	local w1 = cond("`.whisker1.isa'"=="", ".Declare whisker1",	///
+			".whisker1.ref")
+	local w2 = cond("`.whisker2.isa'"=="", ".Declare whisker2",	///
+			".whisker1.ref")
+	if `.capsz' {
+		local c1 = cond("`.cap1.isa'"=="", ".Declare cap1", ".cap1.ref")
+		local c2 = cond("`.cap2.isa'"=="", ".Declare cap2", ".cap2.ref")
+		local c3 = cond("`.cap3.isa'"=="", ".Declare cap3", ".cap3.ref")
+		local c4 = cond("`.cap4.isa'"=="", ".Declare cap4", ".cap4.ref")
+	}
+
+	local fenl = `.z'-`.fencewd2'
+	local fenh = `.z'+`.fencewd2'
+	if `.horizontal' {
+		`s1' = .line_g.new `.p25' `.z' `.adjl' `.z'
+		`s2' = .line_g.new `.p75' `.z' `.adjh' `.z'
+		`w1' = .line_g.new `.adjl' `fenl' `.adjl' `fenh'
+		`w2' = .line_g.new `.adjh' `fenl' `.adjh' `fenh'
+		if `.capsz' {
+		    `c1' = .line_g.new `.adjl' `fenl' `=`.adjl'+`.capsz'' `fenl'
+		    `c2' = .line_g.new `.adjl' `fenh' `=`.adjl'+`.capsz'' `fenh'
+		    `c3' = .line_g.new `.adjh' `fenl' `=`.adjh'-`.capsz'' `fenl'
+		    `c4' = .line_g.new `.adjh' `fenh' `=`.adjh'-`.capsz'' `fenh'
+		}
+	}
+	else {
+		`s1'    = .line_g.new `.z' `.p25' `.z' `.adjl' 
+		`s2'    = .line_g.new `.z' `.p75' `.z' `.adjh'
+		`w1' = .line_g.new `fenl' `.adjl' `fenh' `.adjl'
+		`w2' = .line_g.new `fenl' `.adjh' `fenh' `.adjh'
+		if `.capsz' {
+		    `c1' = .line_g.new `fenl' `.adjl' `fenl' `=`.adjl'+`.capsz''
+		    `c2' = .line_g.new `fenh' `.adjl' `fenh' `=`.adjl'+`.capsz''
+		    `c3' = .line_g.new `fenl' `.adjh' `fenl' `=`.adjh'-`.capsz''
+		    `c4' = .line_g.new `fenh' `.adjh' `fenh' `=`.adjh'-`.capsz''
+		}
+	}
+
+	.setsubstyles
+
+end
+
+
+// --------------------------------------------------------------------------
+// Resets styles of held views to reference the overall style
+program setsubstyles
+	.rect.style.ref = .style.pstyle.area.ref
+
+	if      ("`.style.median_type.stylename'" == "marker") {
+		.medianmark.style.ref = .style.median_style.ref
+	}
+	else if ("`.style.median_type.stylename'" == "cline") {
+		.medianline.style.ref = .style.pstyle.line.ref
+	}
+	else {
+		.medianline.style.ref = .style.pstyle.area.linestyle.ref
+	}
+
+
+	.style.whisker_style.ref = .style.whisker_style.ref
+
+	if (`.style.custom_whiskers.istrue') {
+		local whiskstyle ".style.whisker_style.ref"
+	}
+	else {
+		local whiskstyle ".style.pstyle.area.linestyle.ref"
+	}
+
+	.stem1.style.ref    = `whiskstyle'
+	.stem2.style.ref    = `whiskstyle'
+	.whisker1.style.ref = `whiskstyle'
+	.whisker2.style.ref = `whiskstyle'
+	if `.capsz' {
+		.cap1.style.ref = `whiskstyle'
+		.cap2.style.ref = `whiskstyle'
+		.cap3.style.ref = `whiskstyle'
+		.cap4.style.ref = `whiskstyle'
+	}
+end
+
+// --------------------------------------------------------------------------
+
+program draw
+	if (! `.draw_view.istrue')  exit				// Exit
+
+	.setsubstyles
+
+	.rect.draw
+
+	if ("`.style.median_type.stylename'" == "marker")  .medianmark.draw
+	else						   .medianline.draw
+
+	.stem1.draw
+	.stem2.draw
+	.whisker1.draw
+	.whisker2.draw
+	if `.capsz' {
+		.cap1.draw
+		.cap2.draw
+		.cap3.draw
+		.cap4.draw
+	}
+
+	if `.horizontal' {
+		local adjl = cond(`.stem1.x1'<., `.stem1.x1', `.rect.x0')
+		local adjh = cond(`.stem2.x1'<., `.stem2.x1', `.rect.x1')
+		.set_gdi_posn `.rect.y0' `adjl' `.rect.y1' `adjh'
+	}
+	else {
+		local adjl = cond(`.stem1.y1'<., `.stem1.y1', `.rect.y0')
+		local adjh = cond(`.stem2.y1'<., `.stem2.y1', `.rect.y1')
+		.set_gdi_posn `adjl' `.rect.x0' `adjh' `.rect.x1'
+//		.set_gdi_posn `.stem1.y1' `.rect.x0' `.stem2.y1' `.rect.x1'
+	}
+end
+
+
+// ---------------------------------------------------------------------------
+// Returns true if the line is at the clicked position
+
+program AtClickedPos
+
+	if (! 0`.draw_view.istrue')  class exit = 0
+	if (0`.locked')  	     class exit = 0	
+
+	local objlist "rect stem1 stem2 whisker1 whisker2"
+	if (`.capsz') local objlist "`objlist' cap1 cap2 cap3 cap4"
+
+	local found 0
+	gettoken obj objlist : objlist
+	while !`found' & "`obj'" != "" {
+		local found = `.`obj'.AtClickedPos'
+		gettoken obj objlist : objlist
+	}
+
+	class exit = `found'
+end
+
+
+// ----------------------------------------------------------------------------
+// Determine if a position is in/on the view
+
+program at_pos
+	args y x 	// ...
+
+	if (! 0`.draw_view.istrue')  class exit = 0
+	if (0`.locked')  	     class exit = 0	
+
+	local objlist "rect stem1 stem2 whisker1 whisker2"
+	if (`.capsz') local objlist "`objlist' cap1 cap2 cap3 cap4"
+
+	local found 0
+	gettoken obj objlist : objlist
+	while !`found' & "`obj'" != "" {
+		local found = `.`obj'.at_pos `0''
+		gettoken obj objlist : objlist
+	}
+
+	class exit = `found'
+end
+
+/*  Not allowed
+// ----------------------------------------------------------------------------
+// Return the currently selected end point
+
+program DragPoint
+	class exit "`.rect.DragPoint'"
+end
+
+
+// ----------------------------------------------------------------------------
+// Return the currently selected end line
+
+program DragLine
+	class exit "`.rect.DragLine'"
+end
+*/
+
+
+// ----------------------------------------------------------------------------
+// Respond to a .DragBy by moving the position
+
+program DragBy
+
+	.rect.drag_point = (.)
+	.rect.drag_side = (.)
+	.rect.DragBy `0'
+
+	.median.DragBy `0'
+	.stem1.DragBy `0'
+	.stem2.DragBy `0'
+	.whisker1.DragBy `0'
+	.whisker2.DragBy `0'
+	if `.capsz' {
+		.cap1.DragBy `0'
+		.cap2.DragBy `0'
+		.cap3.DragBy `0'
+		.cap4.DragBy `0'
+	}
+end
+
+

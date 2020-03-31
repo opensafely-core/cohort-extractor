@@ -1,0 +1,949 @@
+/*
+   sts_graph.dlg
+
+*!  VERSION 2.1.2  20may2015
+
+*/
+
+VERSION 10.0
+INCLUDE _std_xwide  
+DEFINE _dlght 360
+INCLUDE header
+
+HELP hlp1, view("help sts_graph")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING STMP
+        setscale_hadj resource STS_GRAPH_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	gr_plots_outputCmd.setstring "plotopts"
+	script gr_plots_setDefaultLine
+	script gr_plots_setNoMarkerLabel
+	gr_ciplots_outputCmd.setstring "ciopts"
+	script gr_ciplots_setDefaultArea
+	script gr_ciplots_setNoMarkerLabel
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	if __MESSAGE.iseq("-survivor-") {
+		call main.rb_survivor.seton
+	}
+	if __MESSAGE.iseq("-failure-") {
+		call main.rb_failure.seton
+	}
+	if __MESSAGE.iseq("-cumhaz-") {
+		call main.rb_cumhaz.seton
+	}
+	if __MESSAGE.iseq("-hazard-") {
+		call main.rb_hazard.seton
+	}
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)	///
+	label(resource STS_GRAPH_DLG_TITLE)
+BEGIN
+  DEFINE  _x _xsetbu
+  DEFINE  _y _top
+  INCLUDE _bu_stset
+
+  GROUPBOX gb_graph	_lft	_top	_comb4_3 _ht8,		///
+	label(resource LBL_FUNCTION_NO_COLON)
+DEFINE cx @cx	
+  TEXT     tx_null 0 1000 -120 0 
+DEFINE bupos @cx
+
+  RADIO    rb_survivor	_ilft	30	_inwd	.,		///
+	first							///
+	label(resource STS_GRAPH_MAIN_RB_SURVIVOR)		///
+	onclickon(program main_kaplan_on)
+  RADIO    rb_failure    @	_ss	@	.,		///
+	label(resource STS_GRAPH_MAIN_RB_FAILURE)		///
+	option(failure)						///
+	onclickon(program main_kaplan_on)
+  RADIO    rb_cumhaz	@	_ss	@	.,		///
+	label(resource STS_GRAPH_MAIN_RB_CUMHAZ)		///
+	option(cumhaz)						///
+	onclickon(script main_nelson_on)
+  RADIO    rb_hazard	@	_ss	@	.,		///
+	last							///
+	label(resource STS_GRAPH_MAIN_RB_HAZARD)		///
+	option(hazard)						///
+	onclickon(script main_hazard_on)
+
+  CHECKBOX ck_gpvar	_lft	_xls	cx	_ht7,		///
+	onclickon(program main_by_on)				///
+	onclickoff(program main_by_off)				///
+	groupbox						///
+	label(resource STS_GRAPH_MAIN_CK_GPVAR)
+
+  TEXT     tx_gpvar	_indent	_ss	_inwd	.,		///
+  	label(resource LBL_GROUPING_VARIABLES)
+DEFINE y @y
+  VARLIST  vl_gpvar	@	_ss	@	.,		///
+ 	option(by)						///
+	label(resource LBL_GROUPING_VARIABLES)
+ 
+  CHECKBOX ck_separate	_ilft	_ls	-120	.,		///
+	label(resource STS_GRAPH_MAIN_CK_SEPARATE)		///
+	onclickon(program main_separate_check)			///
+	onclickoff(program main_separate_check)			///
+	option(separate)
+
+  CHECKBOX ck_adjvar	_lft	+40	cx	_ht5,		///
+	onclickon(program main_adjvar_on)			///
+	onclickoff(program main_adjvar_off)			///
+	groupbox						///
+	label(resource LBL_ADJUST_ESTIMATES_TO_ZERO_VALUES_OF_SPEC_VAR)
+  VARLIST  vl_adjvar	_indent	_ss	_inwd	.,		///
+	option(adjustfor)					///
+	numeric							///
+	label(resource STS_GRAPH_MAIN_VL_ADJVAR)
+
+  CHECKBOX ck_stratify	@	_ls	@	.,		///
+	label(resource LBL_STRATIFY_ON_GROUPING_VARIABLES)
+
+  CHECKBOX ck_ci	_lft	+40	cx	., 		///
+	label(resource STS_GRAPH_MAIN_CK_CI)			///
+	onclickon(program main_ci_check) 			///
+	onclickoff(program main_ci_check)			///
+	option(ci)
+END
+
+PROGRAM main_kaplan_on
+BEGIN
+	if ! main.ck_ci {
+		call opt.en_per.enable
+		call opt.tx_per.enable
+	}
+	call script opt_noorigin_enable
+	call program main_adjvar_enable
+	call program main_hazard_check
+END
+
+SCRIPT main_nelson_on
+BEGIN
+	opt.en_per.disable
+	opt.tx_per.disable
+	script opt_noorigin_disable
+	script main_adjvar_disable
+	program main_hazard_check
+END
+
+SCRIPT main_hazard_on
+BEGIN
+	opt.en_per.disable
+	opt.tx_per.disable
+	script opt_noorigin_disable
+	program main_adjvar_enable
+	program main_hazard_check
+END
+
+PROGRAM main_adjvar_enable
+BEGIN
+	call main.ck_adjvar.enable
+	if main.ck_adjvar {
+		call program main_adjvar_on
+	}
+END
+
+SCRIPT main_adjvar_disable
+BEGIN
+	main.ck_adjvar.disable
+	program main_adjvar_off
+END
+
+PROGRAM main_by_on
+BEGIN
+	call main.tx_gpvar.enable
+	call main.vl_gpvar.enable
+	call main.ck_separate.enable
+	call program main_gpvar_check
+	call script gr_byopts_enable
+END
+
+PROGRAM main_by_off
+BEGIN
+	call main.tx_gpvar.disable
+	call main.vl_gpvar.disable
+	call main.ck_separate.disable
+	call program main_gpvar_check
+	call script gr_byopts_disable
+END
+
+PROGRAM main_gpvar_check
+BEGIN
+	if main.ck_gpvar {
+		if main.ck_separate & main.ck_separate.isenabled() {
+			call script gr_plots_setMultiView_off
+			call script gr_ciplots_setMultiView_off
+			call script gr_addplots_enable
+		}		
+		else {
+			call script gr_plots_setMultiView_on
+			call script gr_ciplots_setMultiView_on
+			call script gr_addplots_disable
+		}
+		if main.ck_adjvar {
+			call main.ck_stratify.enable
+		}
+		call script risktable_setMulti_on
+	}
+	else {
+		call script gr_plots_setMultiView_off
+		call script gr_ciplots_setMultiView_off
+		call script gr_addplots_enable
+		call script risktable_setMulti_off
+		if main.ck_adjvar {
+			call main.ck_stratify.disable
+		}		
+	}
+	call program main_separate_check
+END
+
+PROGRAM main_separate_check
+BEGIN
+	if main.ck_separate.isenabled() {
+		if main.ck_separate {
+			call script gr_plots_setMultiView_off
+			call script gr_ciplots_setMultiView_off
+			call script gr_addplots_disable
+			call script main_byContext_on
+			call script gr_byopts_disable
+		}
+		else {
+			call script gr_plots_setMultiView_on
+			call script gr_ciplots_setMultiView_on
+			call script gr_addplots_enable
+			call script main_byContext_off
+			call script gr_byopts_enable
+		}
+	}
+	else {
+		call script main_byContext_off
+	}
+	call program check_isRisktableAllowed
+END
+
+SCRIPT main_byContext_on
+BEGIN
+	script gr_legend_setByoptsContext_on
+	script gr_titles_setByoptsContext_on
+	script gr_yaxis_setByoptsContext_on
+	script gr_xaxis_setByoptsContext_on
+	script gr_overall_setByoptsContext_on
+END
+SCRIPT main_byContext_off
+BEGIN
+	script gr_legend_setByoptsContext_off
+	script gr_titles_setByoptsContext_off
+	script gr_yaxis_setByoptsContext_off
+	script gr_xaxis_setByoptsContext_off
+	script gr_overall_setByoptsContext_off
+END
+
+PROGRAM main_ci_check
+BEGIN
+	if main.ck_ci {
+		call opt.tx_per.disable
+		call opt.en_per.disable
+		call script gr_ciplots_enable
+	}
+	else {
+		call script gr_ciplots_disable
+		if main.rb_survivor | main.rb_failure {
+			call opt.tx_per.enable
+			call opt.en_per.enable
+		}
+	}
+END
+
+PROGRAM main_adjvar_on
+BEGIN
+	call main.vl_adjvar.enable
+	if main.ck_gpvar {
+		call main.ck_stratify.enable
+	}
+	call main.ck_ci.disable
+	call script gr_ciplots_disable
+	call program check_isRisktableAllowed
+END
+
+PROGRAM main_adjvar_off
+BEGIN
+	call main.vl_adjvar.disable
+	call main.ck_stratify.disable
+	call main.ck_ci.enable
+	if main.ck_ci {
+		call script gr_ciplots_enable
+	}
+	call program check_isRisktableAllowed
+END
+
+PROGRAM main_hazard_check
+BEGIN
+	if main.rb_hazard {
+		call opt.gb_meth.enable
+		call opt.ck_width.enable
+		call program kdenopts_width_check
+		call opt.tx_kernel.enable
+		call opt.cb_kernel.enable
+		call opt.ck_noboundary.enable
+	}
+	else {
+		call opt.gb_meth.disable
+		call opt.ck_width.disable
+		call opt.ed_width.disable
+		call opt.tx_width.disable
+		call opt.tx_kernel.disable
+		call opt.cb_kernel.disable
+		call opt.ck_noboundary.disable
+	}
+	call program check_isRisktableAllowed
+END
+
+INCLUDE ifin
+
+SCRIPT rtable_PREINIT
+BEGIN
+	create STRING resultRtable
+	create STRING resultRtable1
+	create STRING resultRtable2
+	create STRING resultRtable3
+	create STRING resultRtable4
+	create STRING resultRtable5
+	create STRING resultRtable6
+	create STRING resultRtable7
+	create STRING resultRtable8
+	create LIST rtable_riskrtable_list
+	program rtable_build_gp_list
+	program rtable_checkResults
+END
+
+DIALOG rtable, tabtitle(resource STS_GRAPH_TAB_RTABLE)
+BEGIN
+  CHECKBOX ck_riskt	_lft	_top	_iwd	.,		///
+	label(resource STS_GRAPH_RTABLE_CK_RISKT)		///
+	option(risktable) 					///
+	onclickon(program risktable_enable)			///
+	onclickoff(script risktable_disable)
+
+  BUTTON   bu_risktable	_lft	_ms	190	.,		///
+	onpush(program showRiskTableOpts)			///
+	label(resource STS_GRAPH_RTABLE_BU_RISKTABLE)		///
+	tooltip(resource STS_GRAPH_RTABLE_BU_RISKTABLE_TOOLTIP)
+
+  TEXT     tx_group	_lft	_ls	_iwd	.,		///
+	label(resource STS_GRAPH_RTABLE_TX_GROUP)
+  LISTBOX  lb_riskopts	_lft	_ss	170	135,		///
+	contents(rtable_riskrtable_list) 			///
+	values(rtable_list_values)				///
+	ondblclick(program rtable_list_action) nomemory		///
+	tooltip(resource STS_GRAPH_RTABLE_LB_RISKOPTS)
+  BUTTON  bu_edit	+180	@	80	.,		///
+	label(resource LBL_BU_EDIT)				///
+	onpush(program rtable_list_action)			///
+	tooltip(resource LBL_TOOL_TIP_EDIT_ROW_SPEC_ELEMENTS)
+  TEXTBOX tb_note	_lft	+145	_iwd	_tb2,		///
+	label(resource STS_GRAPH_RTABLE_TB_NOTE)
+END
+
+PROGRAM check_isRisktableAllowed
+BEGIN
+	if ((main.ck_separate.isenabled() & main.ck_separate) 	///
+	    | main.ck_adjvar | main.rb_hazard )			///
+	{
+		// do not allow risktable
+		call rtable.ck_riskt.disable
+		call script risktable_disable
+	}
+	else {
+		// allow risktable
+		call rtable.ck_riskt.enable
+		if rtable.ck_riskt {
+			call program risktable_enable
+		}
+	}		
+END
+
+PROGRAM risktable_enable
+BEGIN
+	if rtable.ck_riskt.isenabled() {
+		call rtable.bu_risktable.enable
+		call rtable.tx_group.enable
+		call rtable.lb_riskopts.enable
+		call rtable.bu_edit.enable
+		call rtable.tb_note.enable
+	}
+
+END
+SCRIPT risktable_disable
+BEGIN
+	rtable.bu_risktable.disable
+	rtable.tx_group.disable
+	rtable.lb_riskopts.disable
+	rtable.bu_edit.disable
+	rtable.tb_note.disable
+END
+
+SCRIPT risktable_setMulti_on
+BEGIN
+	rtable.tx_group.show
+	rtable.lb_riskopts.show
+	rtable.bu_edit.show
+	rtable.tb_note.show
+	program rtable_checkResults  // set the labels correctly
+END
+SCRIPT risktable_setMulti_off
+BEGIN
+	rtable.tx_group.hide
+	rtable.lb_riskopts.hide
+	rtable.bu_edit.hide
+	rtable.tb_note.hide
+	program rtable_checkResults  // set the labels correctly
+END
+
+PROGRAM rtable_build_gp_list
+BEGIN
+	call rtable_riskrtable_list.Arrdropall
+	call rtable.lb_riskopts.clearlist
+	
+	if resultRtable1.isneq("") {
+		call STMP.format "resource LBL_ROW_FMT" "1" "*"
+		call STMP.withvalue rtable_riskrtable_list.Arrpush "@"
+	}
+	if resultRtable1.iseq("") {
+		call STMP.format "resource LBL_ROW_FMT" "1" ""
+		call STMP.withvalue rtable_riskrtable_list.Arrpush "@"
+	}
+	
+	if resultRtable2.isneq("") {
+		call STMP.format "resource LBL_ROW_FMT" "2" "*"
+		call STMP.withvalue rtable_riskrtable_list.Arrpush "@"
+	}
+	if resultRtable2.iseq("") {
+		call STMP.format "resource LBL_ROW_FMT" "2" ""
+		call STMP.withvalue rtable_riskrtable_list.Arrpush "@"
+	}
+	
+	if resultRtable3.isneq("") {
+		call STMP.format "resource LBL_ROW_FMT" "3" "*"
+		call STMP.withvalue rtable_riskrtable_list.Arrpush "@"
+	}
+	if resultRtable3.iseq("") {
+		call STMP.format "resource LBL_ROW_FMT" "3" ""
+		call STMP.withvalue rtable_riskrtable_list.Arrpush "@"
+	}
+
+	if resultRtable4.isneq("") {
+		call STMP.format "resource LBL_ROW_FMT" "4" "*"
+		call STMP.withvalue rtable_riskrtable_list.Arrpush "@"
+	}
+	if resultRtable4.iseq("") {
+		call STMP.format "resource LBL_ROW_FMT" "4" ""
+		call STMP.withvalue rtable_riskrtable_list.Arrpush "@"
+	}
+	
+	if resultRtable5.isneq("") {
+		call STMP.format "resource LBL_ROW_FMT" "5" "*"
+		call STMP.withvalue rtable_riskrtable_list.Arrpush "@"
+	}
+	if resultRtable5.iseq("") {
+		call STMP.format "resource LBL_ROW_FMT" "5" ""
+		call STMP.withvalue rtable_riskrtable_list.Arrpush "@"
+	}
+	
+	if resultRtable6.isneq("") {
+		call STMP.format "resource LBL_ROW_FMT" "6" "*"
+		call STMP.withvalue rtable_riskrtable_list.Arrpush "@"
+	}
+	if resultRtable6.iseq("") {
+		call STMP.format "resource LBL_ROW_FMT" "6" ""
+		call STMP.withvalue rtable_riskrtable_list.Arrpush "@"
+	}
+
+	if resultRtable7.isneq("") {
+		call STMP.format "resource LBL_ROW_FMT" "7" "*"
+		call STMP.withvalue rtable_riskrtable_list.Arrpush "@"
+	}
+	if resultRtable7.iseq("") {
+		call STMP.format "resource LBL_ROW_FMT" "7" ""
+		call STMP.withvalue rtable_riskrtable_list.Arrpush "@"
+	}
+
+	if resultRtable8.isneq("") {
+		call STMP.format "resource LBL_ROW_FMT" "8" "*"
+		call STMP.withvalue rtable_riskrtable_list.Arrpush "@"
+	}
+	if resultRtable8.iseq("") {
+		call STMP.format "resource LBL_ROW_FMT" "8" ""
+		call STMP.withvalue rtable_riskrtable_list.Arrpush "@"
+	}
+	call rtable.lb_riskopts.repopulate
+END
+
+LIST rtable_list_values
+BEGIN
+	row1
+	row2
+	row3
+	row4
+	row5
+	row6
+	row7
+	row8
+END
+
+PROGRAM  rtable_list_action
+BEGIN
+	if rtable.lb_riskopts.iseq("row1") {
+		call script rtable_create_row1
+	}
+	if rtable.lb_riskopts.iseq("row2") {
+		call script rtable_create_row2
+	}
+	if rtable.lb_riskopts.iseq("row3") {
+		call script rtable_create_row3
+	}
+	if rtable.lb_riskopts.iseq("row4") {
+		call script rtable_create_row4
+	}
+	if rtable.lb_riskopts.iseq("row5") {
+		call script rtable_create_row5
+	}
+	if rtable.lb_riskopts.iseq("row6") {
+		call script rtable_create_row6
+	}
+	if rtable.lb_riskopts.iseq("row7") {
+		call script rtable_create_row7
+	}
+	if rtable.lb_riskopts.iseq("row8") {
+		call script rtable_create_row8
+	}
+END
+
+SCRIPT rtable_create_row1
+BEGIN
+	create CHILD sts_risktable_group_options AS rtable1, allowsubmit
+	STMP.format "resource LBL_ROW_FMT" "1"			///
+		"resource LBL_AT_RISK_TABLE_PROPERTIES_LOWERCASE"
+	STMP.withvalue rtable1.settitle "@"
+	rtable1.setExitString resultRtable1
+	rtable1.setExitAction "program rtable_build_gp_list"
+	rtable1.setSubmitAction "script rtableSubmit_1"
+	rtable1.callthru "create PSTRING groupOption"
+	rtable1.callthru `"groupOption.setstring "group(#1)""'
+	rtable.lb_riskopts.setvalue ""
+END
+SCRIPT rtableSubmit_1
+BEGIN
+	program rtable_build_gp_list
+	Submit
+END
+
+SCRIPT rtable_create_row2
+BEGIN
+	create CHILD sts_risktable_group_options AS rtable2, allowsubmit
+	STMP.format "resource LBL_ROW_FMT" "2"			///
+		"resource LBL_AT_RISK_TABLE_PROPERTIES_LOWERCASE"
+	STMP.withvalue rtable2.settitle "@"
+	rtable2.setExitString resultRtable2
+	rtable2.setExitAction "program rtable_build_gp_list"
+	rtable2.setSubmitAction "script rtableSubmit_2"
+	rtable2.callthru "create PSTRING groupOption"
+	rtable2.callthru `"groupOption.setstring "group(#2)""'
+	rtable.lb_riskopts.setvalue ""
+END
+SCRIPT rtableSubmit_2
+BEGIN
+	program rtable_build_gp_list
+	Submit
+END
+
+SCRIPT rtable_create_row3
+BEGIN
+	create CHILD sts_risktable_group_options AS rtable3, allowsubmit
+	STMP.format "resource LBL_ROW_FMT" "3"			///
+		"resource LBL_AT_RISK_TABLE_PROPERTIES_LOWERCASE"
+	STMP.withvalue rtable3.settitle "@"
+	rtable3.setExitString resultRtable3
+	rtable3.setExitAction "program rtable_build_gp_list"'
+	rtable3.setSubmitAction "script rtableSubmit_3"
+	rtable3.callthru "create PSTRING groupOption"
+	rtable3.callthru `"groupOption.setstring "group(#3)""'
+	rtable.lb_riskopts.setvalue ""
+END
+SCRIPT rtableSubmit_3
+BEGIN
+	program rtable_build_gp_list
+	Submit
+END
+
+SCRIPT rtable_create_row4
+BEGIN
+	create CHILD sts_risktable_group_options AS rtable4, allowsubmit
+	STMP.format "resource LBL_ROW_FMT" "4"			///
+		"resource LBL_AT_RISK_TABLE_PROPERTIES_LOWERCASE"
+	STMP.withvalue rtable4.settitle "@"
+	rtable4.setExitString resultRtable4
+	rtable4.setExitAction "program rtable_build_gp_list"
+	rtable4.setSubmitAction "script rtableSubmit_4"
+	rtable4.callthru "create PSTRING groupOption"
+	rtable4.callthru `"groupOption.setstring "group(#4)""'
+	rtable.lb_riskopts.setvalue ""
+END
+SCRIPT rtableSubmit_4
+BEGIN
+	program rtable_build_gp_list
+	Submit
+END
+
+SCRIPT rtable_create_row5
+BEGIN
+	create CHILD sts_risktable_group_options AS rtable5, allowsubmit
+	STMP.format "resource LBL_ROW_FMT" "5"			///
+		"resource LBL_AT_RISK_TABLE_PROPERTIES_LOWERCASE"
+	STMP.withvalue rtable5.settitle "@"
+	rtable5.setExitString resultRtable5
+	rtable5.setExitAction "program rtable_build_gp_list"
+	rtable5.setSubmitAction "script rtableSubmit_5"
+	rtable5.callthru "create PSTRING groupOption"
+	rtable5.callthru `"groupOption.setstring "group(#5)""'
+	rtable.lb_riskopts.setvalue ""
+END
+SCRIPT rtableSubmit_5
+BEGIN
+	program rtable_build_gp_list
+	Submit
+END
+
+SCRIPT rtable_create_row6
+BEGIN
+	create CHILD sts_risktable_group_options AS rtable6, allowsubmit
+	STMP.format "resource LBL_ROW_FMT" "6"			///
+		"resource LBL_AT_RISK_TABLE_PROPERTIES_LOWERCASE"
+	STMP.withvalue rtable6.settitle "@"
+	rtable6.setExitString resultRtable6
+	rtable6.setExitAction "program rtable_build_gp_list"
+	rtable6.setSubmitAction "script rtableSubmit_6"
+	rtable6.callthru "create PSTRING groupOption"
+	rtable6.callthru `"groupOption.setstring "group(#6)""'
+	rtable.lb_riskopts.setvalue ""
+END
+SCRIPT rtableSubmit_6
+BEGIN
+	program rtable_build_gp_list
+	Submit
+END
+
+SCRIPT rtable_create_row7
+BEGIN
+	create CHILD sts_risktable_group_options AS rtable7, allowsubmit
+	STMP.format "resource LBL_ROW_FMT" "7"			///
+		"resource LBL_AT_RISK_TABLE_PROPERTIES_LOWERCASE"
+	STMP.withvalue rtable7.settitle "@"
+	rtable7.setExitString resultRtable7
+	rtable7.setExitAction "program rtable_build_gp_list"
+	rtable7.setSubmitAction "script rtableSubmit_7"
+	rtable7.callthru "create PSTRING groupOption"
+	rtable7.callthru `"groupOption.setstring "group(#7)""'
+	rtable.lb_riskopts.setvalue ""
+END
+SCRIPT rtableSubmit_7
+BEGIN
+	program rtable_build_gp_list
+	Submit
+END
+
+SCRIPT rtable_create_row8
+BEGIN
+	create CHILD sts_risktable_group_options AS rtable8, allowsubmit
+	STMP.format "resource LBL_ROW_FMT" "8"			///
+		"resource LBL_AT_RISK_TABLE_PROPERTIES_LOWERCASE"
+	STMP.withvalue rtable8.settitle "@"
+	rtable8.setExitString resultRtable8
+	rtable8.setExitAction "program rtable_build_gp_list"
+	rtable8.setSubmitAction "script rtableSubmit_8"
+	rtable8.callthru "create PSTRING groupOption"
+	rtable8.callthru `"groupOption.setstring "group(#8)""'
+	rtable.lb_riskopts.setvalue ""
+END
+SCRIPT rtableSubmit_8
+BEGIN
+	program rtable_build_gp_list
+	Submit
+END
+
+PROGRAM showRiskTableOpts
+BEGIN
+	call create CHILD sts_risktable_global_options AS rtableDLG, allowsubmit
+	if main.ck_gpvar & ! main.ck_separate {
+		call rtableDLG.settitle resource STS_GRAPH_AT_RISK_TABLE_GLOBAL_PROP
+	}
+	else {
+		call rtableDLG.settitle resource STS_GRAPH_AT_RISK_TABLE_PROP
+	}
+	call rtableDLG.setExitString resultRtable
+	call rtableDLG.setExitAction "program rtable_checkResults"
+	call rtableDLG.setSubmitAction "script rtableSubmit"
+END
+PROGRAM rtable_checkResults
+BEGIN
+	if ! resultRtable & (main.ck_gpvar & ! main.ck_separate) {
+		call rtable.bu_risktable.formatlabel 	///
+			"resource STS_GRAPH_AT_RISK_TABLE_PROP_GLOBAL_BUTTON_FMT" "  "
+		call rtable.bu_risktable.setposition . . 190 .
+	}
+	if resultRtable & (main.ck_gpvar & ! main.ck_separate) {
+		call rtable.bu_risktable.formatlabel	///
+			"resource STS_GRAPH_AT_RISK_TABLE_PROP_GLOBAL_BUTTON_FMT" " *"
+		call rtable.bu_risktable.setposition . . 190 .
+	}
+	
+	if ! resultRtable & (! main.ck_gpvar | main.ck_separate) {
+		call rtable.bu_risktable.formatlabel 	///
+			"resource STS_GRAPH_AT_RISK_TABLE_PROP_BUTTON_FMT" "  "
+		call rtable.bu_risktable.setposition . . 140 .
+	}
+	if resultRtable & (! main.ck_gpvar | main.ck_separate) {
+		call rtable.bu_risktable.formatlabel 	///
+			"resource STS_GRAPH_AT_RISK_TABLE_PROP_BUTTON_FMT" " *"
+		call rtable.bu_risktable.setposition . . 140 .
+	}	
+END
+SCRIPT rtableSubmit
+BEGIN
+	program rtable_checkResults
+	Submit
+END
+
+SCRIPT opt_PREINIT
+BEGIN
+	create STRING opt_more_results
+END
+SCRIPT opt_POSTINIT
+BEGIN
+	program opt_check_more_results
+END
+
+DIALOG opt, tabtitle(resource LBL_OPTIONS)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  BUTTON   bu_extra	_rj180	@	180	.,		///
+	label(resource STS_GRAPH_OPT_BU_EXTRA)			///
+	onpush(script show_more_plot_dialog)			///
+	tooltip(resource STS_GRAPH_OPT_BU_EXTRA_TOOLTIP)
+
+  EDIT	   en_per	_lft	_ls	_en7wd	.,		///
+ 	label(resource LBL_UNITS_USED_TO_REPORT_RATES)		///
+	default(1.0) numonly option(per)
+  TEXT     tx_per	_en7sep	@	_en7r2	.,		///
+	label(resource LBL_UNITS_USED_TO_REPORT_RATES)  
+	
+  CHECKBOX ck_noshow	_lft	_ls	350	.,    		///
+	option(noshow)						///
+	label(resource LBL_DO_NOT_SHOW_ST_SETTING_INFORMATION)
+
+  EDIT     en_tmax	_lft	_ls	_en7wd	.,		///
+	numonly option(tmax)					///
+	label(resource STS_GRAPH_OPT_EN_TMAX)
+
+  TEXT     tx_tmax	_en7sep	@	_en7r2	.,		///
+	label(resource STS_GRAPH_OPT_EN_TMAX)
+
+  EDIT     en_tmin	_lft	_ms	_en7wd	.,		///
+	numonly option(tmin)					///
+	label(resource STS_GRAPH_OPT_EN_TMIN)
+
+  TEXT     tx_tmin	_en7sep	@	_en7r2	.,		///
+	label(resource STS_GRAPH_OPT_EN_TMIN)
+
+  GROUPBOX gb_noorigin	_lft	_ls	_comb3_1 _ht4,		///
+	label(resource STS_GRAPH_OPT_GB_NOORIGIN)
+
+  RADIO    rb_origin	_indent	_ss	_inwd	.,		///
+	first option(NONE)					///
+	label(resource STS_GRAPH_OPT_RB_ORIGIN)
+
+  RADIO    rb_noorigin	@	_ss	@	.,		///
+	last option(noorigin)					///
+	label(resource STS_GRAPH_OPT_RB_NOORIGIN)
+
+  GROUPBOX gb_meth	_lft	_xls	_comb3_1 _ht7,		///
+	label(resource LBL_SMOOTHING_OPTIONS)
+	
+  CHECKBOX ck_width	_indent	_ss	200	.,		///
+	label(resource LBL_OVERRIDE_OPTIMAL_WIDTH)		///
+	onclickon(program kdenopts_width_check)			///
+	onclickoff(program kdenopts_width_check)
+DEFINE y @y
+  EDIT     ed_width	_indent2 _ss	_en7wd	.,		///
+	label(resource LBL_HALFWIDTH_OF_THE_KERNEL)		///
+	numonly							///
+	option(width)
+  TEXT     tx_width	_en7sep	@	150	.,		///
+	label(resource LBL_HALFWIDTH_OF_THE_KERNEL)
+
+  TEXT     tx_kernel	+155	y	120	.,		///
+	label(resource LBL_KERNEL_FUNCTION)
+  COMBOBOX cb_kernel	@	_ss	@	.,		///
+	label(resource LBL_KERNEL_FUNCTION)			///
+	dropdownlist						///
+	contents(kernel_function)				///
+	values(kernel_function_val)				///
+	option(kernel)
+
+  CHECKBOX ck_noboundary _ilft	_ls	_comb3_3 .,		///
+	label(resource LBL_NO_BOUNDARY_CORRECTION)		///
+	option(noboundary)
+END
+
+INCLUDE _kernel_function_list
+
+SCRIPT show_more_plot_dialog
+BEGIN
+	create CHILD sts_moreplot_options AS morePlot, allowsubmit
+	morePlot.settitle resource STS_GRAPH_ADD_MORE_INFORMATION_TO_STS_GRAPH
+	morePlot.setExitString opt_more_results
+	morePlot.setOkAction "program opt_check_more_results"
+	morePlot.setSubmitAction "script optMoreSubmit"
+END
+PROGRAM opt_check_more_results
+BEGIN
+	if opt_more_results {
+		call opt.bu_extra.formatlabel "resource STS_GRAPH_PLOT_CENSORING_ENTRIES_ETC_FMT" " *"
+	}
+	else {
+		call opt.bu_extra.formatlabel "resource STS_GRAPH_PLOT_CENSORING_ENTRIES_ETC_FMT" "  "
+	}
+END
+SCRIPT optMoreSubmit
+BEGIN
+	program opt_check_more_results
+	Submit
+END
+
+SCRIPT opt_noorigin_enable
+BEGIN
+	opt.gb_noorigin.enable
+	opt.rb_noorigin.enable
+	opt.rb_origin.enable
+END
+
+SCRIPT opt_noorigin_disable
+BEGIN
+	opt.gb_noorigin.disable
+	opt.rb_noorigin.disable
+	opt.rb_origin.disable
+END
+
+PROGRAM kdenopts_width_check
+BEGIN
+	if !H(opt.ck_width) & opt.ck_width {
+		call opt.ed_width.enable
+		call opt.tx_width.enable
+	}
+	else {
+		call opt.ed_width.disable
+		call opt.tx_width.disable
+	}
+END
+
+INCLUDE gr_plots
+INCLUDE gr_ciplots
+INCLUDE gr_addplots_2
+INCLUDE gr_yaxis
+INCLUDE gr_xaxis
+INCLUDE gr_titles
+INCLUDE gr_legend
+INCLUDE gr_overall
+INCLUDE gr_byopts
+
+PROGRAM main_getbyvar
+BEGIN
+	put main.vl_gpvar
+END
+
+PROGRAM command
+BEGIN
+	if main.ck_gpvar {
+		require main.vl_gpvar
+	}
+	if main.ck_adjvar {
+		require main.vl_adjvar
+	}
+	put "sts graph "
+	put /program ifin_output " "
+	beginoptions
+		option main.rb_cumhaz
+		option main.rb_hazard
+		option main.rb_failure
+		optionarg /hidedefault opt.en_per
+		if main.ck_gpvar {			
+			if main.ck_stratify.isenabled() & main.ck_stratify {
+				put "strata("
+			}
+			else {
+				put "by("
+			}
+			put /program main_getbyvar
+			put ") "
+		}
+		option main.ck_separate
+		optionarg main.vl_adjvar
+		option main.ck_ci
+
+		if rtable.ck_riskt.isenabled() & rtable.ck_riskt {
+			option rtable.ck_riskt
+			put " " resultRtable
+			if rtable.lb_riskopts.isenabled() & rtable.lb_riskopts.isvisible() {
+				put " " resultRtable1
+				put " " resultRtable2
+				put " " resultRtable3
+				put " " resultRtable4
+				put " " resultRtable5
+				put " " resultRtable6
+				put " " resultRtable7
+				put " " resultRtable8
+			}
+		}
+
+		INCLUDE _level_opt_pr
+		option opt.ck_noshow
+
+		if main.rb_hazard {
+			if opt.ck_width {
+				require opt.ed_width
+				optionarg opt.ed_width
+			}
+			optionarg /hidedefault opt.cb_kernel
+			option opt.ck_noboundary
+		}
+		
+		optionarg opt.en_tmax
+		optionarg opt.en_tmin
+		option opt.rb_noorigin
+		if !H(opt.bu_extra) {
+			put " " opt_more_results
+		}
+		
+		put " " /program gr_plots_output
+		put " " /program gr_ciplots_output
+		put " " /program gr_addplots_output
+		put " " /program gr_yaxis_output
+		put " " /program gr_xaxis_output
+		put " " /program gr_titles_output
+		put " " /program gr_legend_output
+		put " " /program gr_overall_output
+		put " " /program gr_byopts_output
+	endoptions
+END

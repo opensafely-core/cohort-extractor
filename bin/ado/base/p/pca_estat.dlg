@@ -1,0 +1,619 @@
+/*
+	pca_estat
+
+*!  VERSION 1.2.1  02feb2015
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 330
+INCLUDE header
+
+HELP hlp1, view("help pca postestimation")
+RESET res1
+
+
+SCRIPT PREINIT
+BEGIN
+	create BOOLEAN has_FactorVars
+	has_FactorVars.setfalse
+	setscale_hadj resource PCA_ESTAT_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program parseMessage
+END
+
+PROGRAM parseMessage
+BEGIN
+	if __MESSAGE.contains("-anti-") {
+		call main.lb_subcmd.setvalue "anti"
+	}
+	if __MESSAGE.contains("-kmo-") {
+		call main.lb_subcmd.setvalue "kmo"
+	}
+	if __MESSAGE.contains("-loadings-") {
+		call main.lb_subcmd.setvalue "loadings"
+	}
+	if __MESSAGE.contains("-residuals-") {
+		call main.lb_subcmd.setvalue "residuals"
+	}
+	if __MESSAGE.contains("-rotatecompare-") {
+		call main.lb_subcmd.setvalue "rotatecompare"
+	}
+	if __MESSAGE.contains("-smc-") {
+		call main.lb_subcmd.setvalue "smc"
+	}
+	if __MESSAGE.contains("-summarize-") {
+		call main.lb_subcmd.setvalue "summarize"
+	}
+	if __MESSAGE.contains("-vce-") {
+		call main.lb_subcmd.setvalue "vce"
+	}
+END
+
+
+DIALOG main, label(resource PCA_ESTAT_DLG_TITLE)	///
+	tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_subcmd		_lft	_top	_cwd1	.,		///
+  	label(resource LBL_REPORTS_STATISTICS_SUBCOMMAND)
+  LISTBOX  lb_subcmd		@	_ss	_iwd	70,		///
+  	contents(main_subcommand_contents)				///
+  	values(main_subcommand_values)					///
+  	onselchangelist(main_subcommand_scripts)
+
+  DEFINE holdy 110
+
+  // anti options
+  GROUPBOX gb_anti		_lft	holdy	_iwd	_ht6,		///
+  	label(resource LBL_CORRELATION_AND_COVARIANCE_MATRICES)
+  RADIO    rb_corr_cov		_ilft	_ss	_ibwd	.,		///
+  	first label(resource LBL_RPT_BOTH_CORRELATION_AND_COVARIANCE_MAT)
+  RADIO    rb_nocorr		@	_ss	@	.,		///
+  	label(resource LBL_RPT_ONLY_ANTI_IMAGE_COVARIANCE_MAT)		///
+  	option(nocorr)
+  RADIO    rb_nocov		@	_ss	@	.,		///
+	last option(nocov)						///
+	label(resource LBL_RPT_ONLY_ANTI_IMAGE_CORRELATION_MAT)
+  CHECKBOX ck_anti_format	_lft	_xls	_iwd	.,		///
+  	onclickon(script anti_format_on)				///
+  	onclickoff(script anti_format_off)				///
+	label(resource LBL_SPECIFY_THE_DISPLAY_FORMAT)
+  EDIT     en_anti_format	+20	_ss	200	.,		///
+	option(format) label(resource LBL_DISPLAY_FORMAT_NO_COLON)
+  BUTTON   bn_anti_format	+205	@	80	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(script showAntiFormatDialog)				///
+	tooltip(resource LBL_CREATE_DISPLAY_FORMAT)
+
+  // kmo options
+  CHECKBOX ck_novar		_lft	holdy	_iwd	.,		///
+  	label(resource LBL_DISPLAY_OVERALL_KMO_MEASURE_ONLY)		///
+  	option(novar)
+  CHECKBOX ck_kmo_format	@	_ms	@	.,		///
+  	onclickon(script kmo_format_on)					///
+  	onclickoff(script kmo_format_off)				///
+	label(resource LBL_SPECIFY_THE_DISPLAY_FORMAT)
+  EDIT     en_kmo_format	+20	_ss	200	.,		///
+	option(format) label(resource LBL_DISPLAY_FORMAT_NO_COLON)
+  BUTTON   bn_kmo_format	+205	@	80	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(script showKmoFormatDialog)				///
+	tooltip(resource LBL_CREATE_DISPLAY_FORMAT)
+
+  // loadings options
+  GROUPBOX ck_cnorm		_lft	holdy	_iwd	_ht6,		///
+  	label(resource PCA_ESTAT_MAIN_CK_CNORM)
+  RADIO    rb_unit	       _indent	_ss	_inwd	.,	first	///
+	option(NONE) label(resource PCA_ESTAT_MAIN_RB_UNIT)
+  RADIO    rb_eigen		@	_ss	@	.,		///
+	option(cnorm(eigen)) label(resource PCA_ESTAT_MAIN_RB_EIGEN)
+  RADIO    rb_inveigen		@	_ss	@	.,	last	///
+	option(cnorm(inveigen)) label(resource PCA_ESTAT_MAIN_RB_INVEIGEN)
+  CHECKBOX ck_loading_format	_lft	_xls	_ibwd	.,		///
+  	onclickon(script loading_format_on)				///
+  	onclickoff(script loading_format_off)				///
+	label(resource LBL_SPECIFY_THE_DISPLAY_FORMAT)
+  EDIT     en_loading_format	+20	_ss	200	.,		///
+	option(format) label(resource LBL_DISPLAY_FORMAT_NO_COLON)
+  BUTTON   bn_loading_format	+205	@	80	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(script showLoadingFormatDialog)				///
+	tooltip(resource LBL_CREATE_DISPLAY_FORMAT)
+
+  // residuals options
+  CHECKBOX ck_obs		_lft	holdy	_iwd	.,		///
+  	label(resource PCA_ESTAT_MAIN_CK_OBS)				///
+  	option(obs)
+  CHECKBOX ck_fitted		@	_ms	@	.,		///
+	option(fitted)							///
+	label(resource PCA_ESTAT_MAIN_CK_FITTED)
+  CHECKBOX ck_res_format	@	_ms	@	.,		///
+  	onclickon(script res_format_on)					///
+  	onclickoff(script res_format_off)				///
+	label(resource LBL_SPECIFY_THE_DISPLAY_FORMAT)
+  EDIT     en_res_format	+20	_ss	200	.,		///
+	option(format) label(resource LBL_DISPLAY_FORMAT_NO_COLON)
+  BUTTON   bn_res_format	+205	@	80	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(script showResFormatDialog)				///
+	tooltip(resource LBL_CREATE_DISPLAY_FORMAT)
+
+  // rotatecompare options
+  CHECKBOX ck_rc_format		_lft	holdy	_iwd	.,		///
+  	onclickon(script rc_format_on)					///
+  	onclickoff(script rc_format_off)				///
+	label(resource LBL_SPECIFY_THE_DISPLAY_FORMAT)
+  EDIT     en_rc_format		+20	_ss	200	.,		///
+	option(format) label(resource LBL_DISPLAY_FORMAT_NO_COLON)
+  BUTTON   bn_rc_format		+205	@	80	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(script showRcFormatDialog)				///
+	tooltip(resource LBL_CREATE_DISPLAY_FORMAT)
+
+  // smc options
+  CHECKBOX ck_smc_format	_lft	holdy	_iwd	.,		///
+  	onclickon(script smc_format_on)					///
+  	onclickoff(script smc_format_off)				///
+	label(resource LBL_SPECIFY_THE_DISPLAY_FORMAT)
+  EDIT     en_smc_format	+20	_ss	200	.,		///
+	option(format) label(resource LBL_DISPLAY_FORMAT_NO_COLON)
+  BUTTON   bn_smc_format	+205	@	80	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(script showSmcFormatDialog)				///
+	tooltip(resource LBL_CREATE_DISPLAY_FORMAT)
+
+  // Summarize options
+  CHECKBOX ck_labels		_lft	holdy	_iwd	.,		///
+  	label(resource LBL_DISPLAY_VARIABLE_LABELS)			///
+  	option(labels)
+  CHECKBOX ck_noheader		@	_ms	@	.,		///
+	option(noheader)						///
+	label(resource LBL_SUPPRESS_HEADER)
+  CHECKBOX ck_noweights		@	_ms	@	.,		///
+	option(noweights)						///
+	label(resource LBL_IGNORE_WEIGHTS)
+
+  INCLUDE estat_vce
+
+END
+
+SCRIPT showAntiFormatDialog
+BEGIN
+	create STRING antiFormatString
+	create CHILD format_chooser
+	format_chooser.setExitString antiFormatString
+	format_chooser.setExitAction "main.en_anti_format.setvalue class antiFormatString.value"
+END
+
+SCRIPT showKmoFormatDialog
+BEGIN
+	create STRING kmoFormatString
+	create CHILD format_chooser
+	format_chooser.setExitString kmoFormatString
+	format_chooser.setExitAction "main.en_kmo_format.setvalue class kmoFormatString.value"
+END
+
+SCRIPT showLoadingFormatDialog
+BEGIN
+	create STRING loadingFormatString
+	create CHILD format_chooser
+	format_chooser.setExitString loadingFormatString
+	format_chooser.setExitAction "main.en_loading_format.setvalue class loadingFormatString.value"
+END
+
+SCRIPT showResFormatDialog
+BEGIN
+	create STRING resFormatString
+	create CHILD format_chooser
+	format_chooser.setExitString resFormatString
+	format_chooser.setExitAction "main.en_res_format.setvalue class resFormatString.value"
+END
+
+SCRIPT showRcFormatDialog
+BEGIN
+	create STRING rcFormatString
+	create CHILD format_chooser
+	format_chooser.setExitString rcFormatString
+	format_chooser.setExitAction "main.en_rc_format.setvalue class rcFormatString.value"
+END
+
+SCRIPT showSmcFormatDialog
+BEGIN
+	create STRING smcFormatString
+	create CHILD format_chooser
+	format_chooser.setExitString smcFormatString
+	format_chooser.setExitAction "main.en_smc_format.setvalue class smcFormatString.value"
+END
+
+INCLUDE estat_vce_pr
+
+LIST main_subcommand_contents
+BEGIN
+	resource LBL_ANTI_IMAGE_CORRELATION_COVARIANCE_MATRICES
+	resource LBL_KAISER_MEYER_OLKIN_MEASURE_SAMPLING_ADEQUACY
+	resource PCA_ESTAT_COMPONENT_LOADING_MATRIX_IN_ONE_SEV_NORMAL
+	resource LBL_MATRIX_CORRELATION_COVARIANCE_RESIDUALS
+	resource FACTOR_ESTAT_ROTATECOMPARE
+	resource LBL_SQUARED_MULTIPLE_CORRELATIONS_BTW_EACH_VAR
+	resource PCA_ESTAT_SUMMARIZE_PCA_ONLY
+	resource LBL_COVARIANCE_MATRIX_ESTIMATES
+END
+
+LIST main_subcommand_values
+BEGIN
+	anti
+	kmo
+	loadings
+	residuals
+	rotatecompare
+	smc
+	summarize
+	vce
+END
+
+LIST main_subcommand_scripts
+BEGIN
+	script sel_anti
+	script sel_kmo
+	script sel_loadings
+	script sel_residuals
+	script sel_rotatecompare
+	script sel_smc
+	script sel_summarize
+	script sel_vce
+END
+
+SCRIPT sel_anti
+BEGIN
+	script anti_on
+	script kmo_off
+	script loadings_off
+	script residuals_off
+	script rc_off
+	script smc_off
+	script main_summ_off
+	program vce_off
+END
+
+SCRIPT sel_kmo
+BEGIN
+	script anti_off
+	script kmo_on
+	script loadings_off
+	script residuals_off
+	script rc_off
+	script smc_off
+	script main_summ_off
+	program vce_off
+END
+
+SCRIPT sel_loadings
+BEGIN
+	script anti_off
+	script kmo_off
+	script loadings_on
+	script residuals_off
+	script rc_off
+	script smc_off
+	script main_summ_off
+	program vce_off
+END
+
+SCRIPT sel_residuals
+BEGIN
+	script anti_off
+	script kmo_off
+	script loadings_off
+	script residuals_on
+	script rc_off
+	script smc_off
+	script main_summ_off
+	program vce_off
+END
+
+SCRIPT sel_rotatecompare
+BEGIN
+	script anti_off
+	script kmo_off
+	script loadings_off
+	script residuals_off
+	script rc_on
+	script smc_off
+	script main_summ_off
+	program vce_off
+END
+
+SCRIPT sel_smc
+BEGIN
+	script anti_off
+	script kmo_off
+	script loadings_off
+	script residuals_off
+	script rc_off
+	script smc_on
+	script main_summ_off
+	program vce_off
+END
+
+SCRIPT sel_summarize
+BEGIN
+	script anti_off
+	script kmo_off
+	script loadings_off
+	script residuals_off
+	script rc_off
+	script smc_off
+	script main_summ_on
+	program vce_off
+END
+
+SCRIPT sel_vce
+BEGIN
+	script anti_off
+	script kmo_off
+	script loadings_off
+	script residuals_off
+	script rc_off
+	script smc_off
+	script main_summ_off
+	program vce_on
+END
+
+SCRIPT anti_on
+BEGIN
+	main.gb_anti.show
+	main.rb_corr_cov.show
+	main.rb_nocorr.show
+	main.rb_nocov.show
+	main.ck_anti_format.show
+	main.en_anti_format.show
+	main.bn_anti_format.show
+END
+
+SCRIPT anti_off
+BEGIN
+	main.gb_anti.hide
+	main.rb_corr_cov.hide
+	main.rb_nocorr.hide
+	main.rb_nocov.hide
+	main.ck_anti_format.hide
+	main.en_anti_format.hide
+	main.bn_anti_format.hide
+END
+
+SCRIPT kmo_on
+BEGIN
+	main.ck_novar.show
+	main.ck_kmo_format.show
+	main.en_kmo_format.show
+	main.bn_kmo_format.show
+END
+
+SCRIPT kmo_off
+BEGIN
+	main.ck_novar.hide
+	main.ck_kmo_format.hide
+	main.en_kmo_format.hide
+	main.bn_kmo_format.hide
+END
+
+SCRIPT loadings_on
+BEGIN
+	main.ck_cnorm.show
+	main.rb_unit.show
+	main.rb_eigen.show
+	main.rb_inveigen.show
+	main.ck_loading_format.show
+	main.en_loading_format.show
+	main.bn_loading_format.show
+END
+
+SCRIPT loadings_off
+BEGIN
+	main.ck_cnorm.hide
+	main.rb_unit.hide
+	main.rb_eigen.hide
+	main.rb_inveigen.hide
+	main.ck_loading_format.hide
+	main.en_loading_format.hide
+	main.bn_loading_format.hide
+END
+
+SCRIPT residuals_on
+BEGIN
+	main.ck_obs.show
+	main.ck_fitted.show
+	main.ck_res_format.show
+	main.en_res_format.show
+	main.bn_res_format.show
+END
+
+SCRIPT residuals_off
+BEGIN
+	main.ck_obs.hide
+	main.ck_fitted.hide
+	main.ck_res_format.hide
+	main.en_res_format.hide
+	main.bn_res_format.hide
+END
+
+SCRIPT rc_on
+BEGIN
+	main.ck_rc_format.show
+	main.en_rc_format.show
+	main.bn_rc_format.show
+END
+
+SCRIPT rc_off
+BEGIN
+	main.ck_rc_format.hide
+	main.en_rc_format.hide
+	main.bn_rc_format.hide
+END
+
+SCRIPT smc_on
+BEGIN
+	main.ck_smc_format.show
+	main.en_smc_format.show
+	main.bn_smc_format.show
+END
+
+SCRIPT smc_off
+BEGIN
+	main.ck_smc_format.hide
+	main.en_smc_format.hide
+	main.bn_smc_format.hide
+END
+
+SCRIPT main_summ_on
+BEGIN
+	main.ck_labels.show
+	main.ck_noheader.show
+	main.ck_noweights.show
+END
+
+SCRIPT main_summ_off
+BEGIN
+	main.ck_labels.hide
+	main.ck_noheader.hide
+	main.ck_noweights.hide
+END
+
+SCRIPT anti_format_on
+BEGIN
+	main.en_anti_format.enable
+	main.bn_anti_format.enable
+END
+
+SCRIPT anti_format_off
+BEGIN
+	main.en_anti_format.disable
+	main.bn_anti_format.disable
+END
+
+SCRIPT kmo_format_on
+BEGIN
+	main.en_kmo_format.enable
+	main.bn_kmo_format.enable
+END
+
+SCRIPT kmo_format_off
+BEGIN
+	main.en_kmo_format.disable
+	main.bn_kmo_format.disable
+END
+
+SCRIPT loading_format_on
+BEGIN
+	main.en_loading_format.enable
+	main.bn_loading_format.enable
+END
+
+SCRIPT loading_format_off
+BEGIN
+	main.en_loading_format.disable
+	main.bn_loading_format.disable
+END
+
+SCRIPT res_format_on
+BEGIN
+	main.en_res_format.enable
+	main.bn_res_format.enable
+END
+
+SCRIPT res_format_off
+BEGIN
+	main.en_res_format.disable
+	main.bn_res_format.disable
+END
+
+SCRIPT rc_format_on
+BEGIN
+	main.en_rc_format.enable
+	main.bn_rc_format.enable
+END
+
+SCRIPT rc_format_off
+BEGIN
+	main.en_rc_format.disable
+	main.bn_rc_format.disable
+END
+
+SCRIPT smc_format_on
+BEGIN
+	main.en_smc_format.enable
+	main.bn_smc_format.enable
+END
+
+SCRIPT smc_format_off
+BEGIN
+	main.en_smc_format.disable
+	main.bn_smc_format.disable
+END
+
+PROGRAM vl_eq_output
+BEGIN
+	put main.vl_eq
+END
+
+PROGRAM command
+BEGIN
+	put "estat "
+	put main.lb_subcmd
+	beginoptions
+		// anti options
+		option main.rb_nocorr
+		option main.rb_nocov
+		if main.ck_anti_format {
+			require main.en_anti_format
+			optionarg main.en_anti_format
+		}
+
+  		// kmo options
+		option main.ck_novar
+		if main.ck_kmo_format {
+			require main.en_kmo_format
+			optionarg main.en_kmo_format
+		}
+
+  		// loadings options
+		option main.rb_unit
+		option main.rb_eigen
+		option main.rb_inveigen
+		if main.ck_loading_format {
+			require main.en_loading_format
+			optionarg main.en_loading_format
+		}
+
+		// residuals options
+		option main.ck_obs
+		option main.ck_fitted
+		if main.ck_res_format {
+			require main.en_res_format
+			optionarg main.en_res_format
+		}
+
+		// rotatecompare options
+		if main.ck_rc_format {
+			require main.en_rc_format
+			optionarg main.en_rc_format
+		}
+
+		// smc options
+		if main.ck_smc_format {
+			require main.en_smc_format
+			optionarg main.en_smc_format
+		}
+
+		// Summarize options
+		option main.ck_labels
+		option main.ck_noheader
+		option main.ck_noweights
+		put " " /program vce_output
+	endoptions
+END

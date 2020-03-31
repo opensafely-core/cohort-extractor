@@ -1,0 +1,383 @@
+/*
+    gr_taxis.idlg
+
+*!  VERSION 1.0.5  12dec2019
+
+	// SCRIPTS and PROGRAMS for external use
+	   * SCRIPT gr_taxis_disable
+	   * SCRIPT gr_taxis_enable
+	   * SCRIPT gr_taxis_setByoptsContext_on
+	   * SCRIPT gr_taxis_setByoptsContext_off
+	   * SCRIPT gr_taxis_setByContext_on
+	   * SCRIPT gr_taxis_setByContext_off
+
+*** 	This tab is very closely related to gr_xaxis and somewhat closely
+***	related gr_yaxis. Any changes should be reflected in those files.
+*/
+
+SCRIPT gr_taxis_disable
+BEGIN
+	taxis.ck_noscale.disable
+	taxis.tx_title.disable
+	taxis.ed_title.disable
+	taxis.bu_title.disable
+	taxis.bu_majorTick.disable
+	taxis.bu_minorTick.disable
+	taxis.bu_axisLine.disable
+	taxis.bu_scale.disable
+	taxis.bu_refLines.disable
+	taxis.bu_adv.disable
+	taxis.ck_alt.disable
+END
+
+SCRIPT gr_taxis_enable
+BEGIN
+	program gr_taxis_enable_wrk
+END
+PROGRAM gr_taxis_enable_wrk
+BEGIN
+	call taxis.ck_noscale.enable
+	call taxis.bu_majorTick.enable
+	call taxis.bu_minorTick.enable
+	call taxis.bu_scale.enable
+	call taxis.bu_refLines.enable
+	call taxis.bu_adv.enable
+	if ! taxis.ck_noscale {
+		call taxis.tx_title.enable
+		call taxis.ed_title.enable
+		call taxis.bu_title.enable
+		call taxis.bu_axisLine.enable
+		call taxis.ck_alt.enable
+	}
+END
+
+SCRIPT gr_taxis_setByoptsContext_on
+BEGIN
+	taxis.bu_adv.show
+	gr_taxis_advanedByopts_on.settrue
+END
+SCRIPT gr_taxis_setByoptsContext_off
+BEGIN
+	taxis.bu_adv.hide
+	gr_taxis_advanedByopts_on.setfalse
+END
+SCRIPT gr_taxis_setByContext_on
+BEGIN
+	taxis.bu_adv.show
+	gr_taxis_advanedBy_on.settrue
+END
+SCRIPT gr_taxis_setByContext_off
+BEGIN
+	taxis.bu_adv.hide
+	gr_taxis_advanedBy_on.setfalse
+END
+
+SCRIPT taxis_PREINIT
+BEGIN
+	create STRING taxisTitleResults
+	create STRING taxisLabelResults
+	create STRING taxisMinorLabelResults
+	create STRING taxisLineResults
+	create STRING taxisScaleResults
+	create STRING taxisReflineResults
+	create STRING taxisByAdvResults
+
+	create BOOLEAN gr_taxis_advanedBy_on
+	create BOOLEAN gr_taxis_advanedByopts_on
+	taxis.bu_adv.hide
+END
+SCRIPT taxis_POSTINIT
+BEGIN
+	program taxis_checkTitleResults
+	program taxis_checkLabelResults
+	program taxis_checkMinorLabelResults
+	program taxis_checkLineResults
+	program taxis_checkScaleResults
+	program taxis_checkReflineResults
+	program taxis_checkByAdvResults
+END
+
+DIALOG taxis, tabtitle(resource GR_TAXIS_TAB_TAXIS)
+BEGIN
+
+  TEXT     tx_title	_lft	_top	_iwd	.,		///
+	label(resource LBL_TITLE)
+  EDIT	   ed_title	@	_ss	_lw80	.,
+  BUTTON   bu_title	_slw80	@	80	.,		///
+  	label(resource LBL_BU_PROPERTIES)			///
+	onpush(program get_taxis_title_options)			///
+	tooltip(resource LBL_AXIS_TITLE_PROPERTIES)
+
+  BUTTON   bu_majorTick	_lft	_xls	165	.,		///
+  	label(resource LBL_MAJOR_TICK_LABEL_PROPERTIES)		///
+	onpush(program get_taxis_label_options)	
+
+  BUTTON   bu_minorTick	+190	@	@	.,		///
+  	label(resource LBL_MINOR_TICK_LABEL_PROPERTIES)		///
+	onpush(program get_taxis_mlabel_options)
+
+  BUTTON   bu_axisLine	_lft	_mls	@	.,		///
+  	label(resource LBL_AXIS_LINE_PROPERTIES_DLG_TITLE)	///
+	onpush(program get_taxis_line)
+
+  BUTTON   bu_scale	+190	@	@	.,		///
+  	label(resource GR_ED_AXIS_AXIS_SCALE_PROPERTIES)	///
+	onpush(program get_taxis_scale_options)	
+
+  BUTTON   bu_refLines	_lft	_mls	@	.,		///
+  	label(resource LBL_TAB_REFERENCE_LINES)			///
+	onpush(program get_taxis_refline)
+
+  BUTTON   bu_adv	+190	@	@	.,		///
+  	label(resource LBL_BU_SUBGRAPH_AXES)			///
+	onpush(program taxis_get_advanced_sub)			///
+	tooltip(resource GR_TAXIS_TAXIS_BU_ADV)
+
+  CHECKBOX ck_noscale	_lft	_ls	_iwd	.,		///
+	label(resource LBL_HIDE_AXIS) 				///
+	onclickoff(program taxis_noscale_off)			///
+	onclickon(script taxis_noscale_on)
+
+  CHECKBOX ck_alt	_lft	_ms	_iwd	.,		///
+	label(resource LBL_PLACE_AXIS_OPPOSITE_SIDE)		///
+	option(alt)
+END
+
+SCRIPT taxis_noscale_on
+BEGIN
+	taxis.tx_title.disable
+	taxis.ed_title.disable
+	taxis.bu_title.disable
+	taxis.bu_axisLine.disable
+	taxis.ck_alt.disable
+END
+PROGRAM taxis_noscale_off
+BEGIN
+	if taxis.ck_noscale.isenabled() {
+		call taxis.tx_title.enable
+		call taxis.ed_title.enable
+		call taxis.bu_title.enable
+		call taxis.bu_axisLine.enable
+		call taxis.ck_alt.enable
+	}
+END
+
+PROGRAM get_taxis_title_options
+BEGIN
+	call create CHILD gr_axis_title_options AS ttitle, allowsubmit
+	call ttitle.setExitString taxisTitleResults
+	call ttitle.settitle "resource GR_TAXIS_AXIS_TITLE_PROP_TIME_AXIS"
+	call ttitle.setExitAction "program taxis_checkTitleResults"
+	call ttitle.setSubmitAction "program taxis_titleSubmit"
+	call ttitle.callthru `"titleOption.setstring "ttitle""'
+	call ttitle.callthru `"scaleOption.setstring "tscale""'
+END
+PROGRAM taxis_checkTitleResults
+BEGIN
+	if taxisTitleResults {
+		call taxis.bu_title.modified_on
+	}
+	else {
+		call taxis.bu_title.modified_off
+	}
+END
+PROGRAM taxis_titleSubmit
+BEGIN
+	call program taxis_checkTitleResults
+	call Submit
+END
+
+PROGRAM get_taxis_label_options
+BEGIN
+	call create CHILD gr_axis_tick_label_options AS tlabel, allowsubmit
+	call tlabel.setExitString taxisLabelResults
+	call tlabel.settitle "resource GR_TAXIS_AXIS_TICK_LABEL_PROP_TIME_AXIS_MAJOR"
+	call tlabel.setExitAction "program taxis_checkLabelResults"
+	call tlabel.setSubmitAction "program taxis_labelSubmit"
+	call tlabel.callthru "script axis_setRuleMajor"
+END
+PROGRAM taxis_checkLabelResults
+BEGIN
+	if taxisLabelResults {
+		call taxis.bu_majorTick.modified_on
+	}
+	else {
+		call taxis.bu_majorTick.modified_off
+	}
+END
+PROGRAM taxis_labelSubmit
+BEGIN
+	call program taxis_checkLabelResults
+	call Submit
+END
+
+PROGRAM get_taxis_mlabel_options
+BEGIN
+	call create CHILD gr_axis_tick_label_options AS tmlabel, allowsubmit
+	call tmlabel.setExitString taxisMinorLabelResults
+	call tmlabel.settitle "resource GR_TAXIS_AXIS_TICK_LABEL_PROP_TIME_AXIS_MINOR"
+	call tmlabel.setExitAction "program taxis_checkMinorLabelResults"
+	call tmlabel.setSubmitAction "program taxis_mlabelSubmit"
+	call tmlabel.callthru "script axis_setRuleMinor"
+END
+PROGRAM taxis_checkMinorLabelResults
+BEGIN
+	if taxisMinorLabelResults {
+		call taxis.bu_minorTick.modified_on
+	}
+	else {
+		call taxis.bu_minorTick.modified_off
+	}
+END
+PROGRAM taxis_mlabelSubmit
+BEGIN
+	call program taxis_checkMinorLabelResults
+	call Submit
+END
+
+PROGRAM get_taxis_line
+BEGIN
+	call create CHILD gr_axis_line_options AS tlines, allowsubmit
+	call tlines.setExitString taxisLineResults
+	call tlines.settitle "resource GR_TAXIS_AXIS_LINE_PROP_TIME_AXIS"
+	call tlines.setExitAction "program taxis_checkLineResults"
+	call tlines.setSubmitAction "program taxis_lineSubmit"
+END
+PROGRAM taxis_checkLineResults
+BEGIN
+	if taxisLineResults {
+		call taxis.bu_axisLine.modified_on
+	}
+	else {
+		call taxis.bu_axisLine.modified_off
+	}
+END
+PROGRAM taxis_lineSubmit
+BEGIN
+	call program taxis_checkLineResults
+	call Submit
+END
+
+PROGRAM get_taxis_scale_options
+BEGIN
+	call create CHILD gr_axis_scale_options AS tscale, allowsubmit
+	call tscale.setExitString taxisScaleResults
+	call tscale.settitle "resource GR_TAXIS_AXIS_SCALE_PROP_TIME_AXIS"
+	call tscale.setExitAction "program taxis_checkScaleResults"
+	call tscale.setSubmitAction "program taxis_scaleSubmit"
+END
+PROGRAM taxis_checkScaleResults
+BEGIN
+	if taxisScaleResults {
+		call taxis.bu_scale.modified_on
+	}
+	else {
+		call taxis.bu_scale.modified_off
+	}
+END
+PROGRAM taxis_scaleSubmit
+BEGIN
+	call program taxis_checkScaleResults
+	call Submit
+END
+
+PROGRAM get_taxis_refline
+BEGIN
+	call create CHILD gr_taxis_reflines AS tReflines, allowsubmit
+	call tReflines.setExitString taxisReflineResults
+	call tReflines.settitle "resource GR_TAXIS_REFERENCE_LINES_TIME_AXIS"
+	call tReflines.setExitAction "program taxis_checkReflineResults"
+	call tReflines.setSubmitAction "program taxis_reflineSubmit"
+END
+PROGRAM taxis_checkReflineResults
+BEGIN
+	if taxisReflineResults {
+		call taxis.bu_refLines.modified_on
+	}
+	else {
+		call taxis.bu_refLines.modified_off
+	}
+END
+PROGRAM taxis_reflineSubmit
+BEGIN
+	call program taxis_checkReflineResults
+	call Submit
+END
+
+PROGRAM taxis_get_advanced_sub
+BEGIN
+	call create CHILD gr_by_axis_advanced AS taxis_by_adv, allowsubmit
+	call taxis_by_adv.setExitString taxisByAdvResults
+	call taxis_by_adv.settitle "resource GR_TAXIS_AXIS_PROP_SUBGRAPHS_TIME_AXIS"
+	call taxis_by_adv.setExitAction "program taxis_checkByAdvResults"
+	call taxis_by_adv.setSubmitAction "program taxis_byAdvSubmit"
+	call taxis_by_adv.callthru "script setAxis_t"
+END
+PROGRAM taxis_checkByAdvResults
+BEGIN
+	if taxisByAdvResults {
+		call taxis.bu_adv.modified_on
+	}
+	else {
+		call taxis.bu_adv.modified_off
+	}
+END
+PROGRAM taxis_byAdvSubmit
+BEGIN
+	call program taxis_checkByAdvResults
+	call Submit
+END
+
+PROGRAM taxis_title_output
+BEGIN
+	put taxis.ed_title
+END
+
+PROGRAM gr_taxis_output
+BEGIN
+	if ! taxis.ck_noscale & taxis.ck_noscale.isenabled() {
+		if taxis.ed_title {
+			put " ttitle("
+			put /program taxis_title_output
+			put ") "
+		}
+		put " " taxisTitleResults " "
+	}
+	if taxis.ck_noscale {
+		put " tscale(off) "
+	}
+
+	if taxisScaleResults.isneq("") {
+		put " tscale(" taxisScaleResults ") "
+	}
+	
+	if taxisLineResults.isneq("") {
+		put " tscale(" taxisLineResults ") "
+	}
+
+	put " " taxisReflineResults " "
+	if taxisLabelResults {
+		put " tlabel("
+		put taxisLabelResults
+		put ") "
+	}
+	if taxisMinorLabelResults {
+		put " tmtick("
+		put taxisMinorLabelResults
+		put ") "
+	}
+
+	if !H(taxis.bu_adv) & taxisByAdvResults {
+		if gr_taxis_advanedByopts_on {
+			put " byopts("
+		}
+		else {
+			put " by(, "
+		}
+		put taxisByAdvResults
+		put ") "
+	}
+	if taxis.ck_alt {
+		put " tscale(alt) "
+	}
+END

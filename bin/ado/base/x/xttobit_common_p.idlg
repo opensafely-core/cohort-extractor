@@ -1,0 +1,210 @@
+/*
+	xttobit_common_p.idlg
+
+	This is an INCLUDE file for the -predict- dialogs that go with
+	-xttobit- and -xtinreg-.
+
+*!  VERSION 1.1.2  02sep2015
+
+*/
+
+INCLUDE _std_large
+INCLUDE header
+
+DEFINE awid   45
+DEFINE asep  +50
+DEFINE bwid   40
+DEFINE bsep  +45
+DEFINE uwid  110
+DEFINE usep +115
+DEFINE vwid   55
+DEFINE vsep  +60
+DEFINE endwid  120
+
+DIALOG main, label(resource PREDICT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  INCLUDE  _p_gentype
+
+  GROUPBOX gb_opts           _lft      _ls       _iwd      _ht13h,	/*
+		*/ label(resource LBL_PRODUCE)
+  RADIO    rb_xb             _ilft     _ss       _ibwd     ., first	/*
+		*/ option(xb)						/*
+		*/ clickon("script all_off")				/*
+		*/ label(resource XTRC_MAIN_RB_XB)
+  RADIO    rb_stdp           @         _ss       @         .,		/*
+		*/ option(stdp)						/*
+		*/ clickon("script all_off")				/*
+		*/ label(resource LBL_STANDARD_ERROR_LINEAR_PREDICTION)
+  RADIO    rb_stdf           @         _ss       @         .,		/*
+		*/ option(stdf)						/*
+		*/ clickon("script all_off")				/*
+		*/ label(resource XTRC_MAIN_RB_STDF)
+
+  RADIO    rb_pr             @         _ms       awid      .,		/*
+		*/ option(NONE)  /* handled another way */		/*
+		*/ clickon("script pr_on")				/*
+		*/ label(resource LBL_PR_Y)
+  EDIT     en_pr_a           asep      @         _en7wd    .,		/*
+		*/ numonly						/*
+		*/ label(resource LBL_PR_LOWER_LIMIT)
+  TEXT     tx_pr             _en7sep   @         bwid      .,		/*
+		*/ center label(resource LBL_LESSTHAN_Y_LESSTHAN)
+  EDIT     en_pr_b           bsep      @         _en7wd    .,		/*
+		*/ numonly						/*
+		*/ label(resource LBL_PR_UPPER_LIMIT)
+  TEXT     tx_pr2            _en7sep   @         endwid    .,		/*
+		*/ label(")")
+
+  RADIO    rb_e              _ilft     _ms       awid      .,		/*
+		*/ option(NONE)  /* handled another way */		/*
+		*/ clickon("script e_on")				/*
+		*/ label(resource LBL_E_Y)
+  EDIT     en_e_a            asep      @         _en7wd    .,		/*
+		*/ numonly						/*
+		*/ label(resource LBL_E_LOWER_LIMIT)
+  TEXT     tx_e              _en7sep   @         bwid      .,		/*
+		*/ center label(resource LBL_LESSTHAN_Y_LESSTHAN)
+  EDIT     en_e_b            bsep      @         _en7wd    .,		/*
+		*/ numonly						/*
+		*/ label(resource LBL_E_UPPER_LIMIT)
+  TEXT     tx_e2             _en7sep   @         endwid    .,		/*
+		*/ label(")")
+
+  RADIO    rb_ystar          _ilft     _ms       uwid      ., last	/*
+		*/ option(NONE)  /* handled another way */		/*
+		*/ clickon("script ystar_on")				/*
+		*/ label(resource LBL_EY_Y_EQUAL_MAX)
+  EDIT     en_ystar_a        usep      @         _en7wd    .,		/*
+		*/ numonly						/*
+		*/ label(resource LBL_EY_LOWER_LIMIT)
+  TEXT     tx_ystar          _en7sep   @         vwid      .,		/*
+		*/ center label(resource LBL_MIN_Y)
+  EDIT     en_ystar_b        vsep      @         _en7wd    .,		/*
+		*/ numonly						/*
+		*/ label(resource LBL_EY_UPPER_LIMIT)
+  TEXT     tx_ystar2         _en7sep   @         endwid    .,		/*
+		*/ label("))")
+
+  INCLUDE _p_nooffset
+END
+
+
+INCLUDE ifin
+
+
+SCRIPT all_off
+BEGIN
+  script pr_off
+  script e_off
+  script ystar_off
+END
+
+SCRIPT pr_on
+BEGIN
+  script e_off
+  script ystar_off
+  main.en_pr_a.enable
+  main.en_pr_b.enable
+END
+
+SCRIPT pr_off
+BEGIN
+  main.en_pr_a.disable
+  main.en_pr_b.disable
+END
+
+SCRIPT e_on
+BEGIN
+  script pr_off
+  script ystar_off
+  main.en_e_a.enable
+  main.en_e_b.enable
+END
+
+SCRIPT e_off
+BEGIN
+  main.en_e_a.disable
+  main.en_e_b.disable
+END
+
+SCRIPT ystar_on
+BEGIN
+  script pr_off
+  script e_off
+  main.en_ystar_a.enable
+  main.en_ystar_b.enable
+END
+
+SCRIPT ystar_off
+BEGIN
+  main.en_ystar_a.disable
+  main.en_ystar_b.disable
+END
+
+INCLUDE _p_gentype_sc
+INCLUDE _type_list_fd
+
+PROGRAM command
+BEGIN
+	put "predict "
+	put " " /program _p_gentype_output
+	INCLUDE _ifin_pr
+	beginoptions
+		option radio(main rb_xb rb_stdp rb_stdf rb_pr rb_e rb_ystar)
+		if main.rb_pr {
+			put "pr("
+			if main.en_pr_a {
+				put main.en_pr_a
+			}
+			if !main.en_pr_a {
+				put "."
+			}
+			put ","
+			if main.en_pr_b {
+				put main.en_pr_b
+			}
+			if !main.en_pr_b {
+				put "."
+			}
+			put ")"
+		}
+
+		if main.rb_e {
+			put "e("
+			if main.en_e_a {
+				put main.en_e_a
+			}
+			if !main.en_e_a {
+				put "."
+			}
+			put ","
+			if main.en_e_b {
+				put main.en_e_b
+			}
+			if !main.en_e_b {
+				put "."
+			}
+			put ")"
+		}
+
+		if main.rb_ystar {
+			put "ystar("
+			if main.en_ystar_a {
+				put main.en_ystar_a
+			}
+			if !main.en_ystar_a {
+				put "."
+			}
+			put ","
+			if main.en_ystar_b {
+				put main.en_ystar_b
+			}
+			if !main.en_ystar_b {
+				put "."
+			}
+			put ")"
+		}
+	endoptions
+
+	INCLUDE _p_nooffset_pr
+END

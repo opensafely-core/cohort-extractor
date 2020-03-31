@@ -1,0 +1,77 @@
+/*
+	predict (after npregress series)
+
+*!  VERSION 1.0.1  14feb2019
+
+*/
+
+VERSION 16.0
+
+INCLUDE _std_medium
+INCLUDE header
+
+HELP hlp1, view("help npregress series postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource NPREGRESS_SERIES_P_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script _p_gentype_setMedium
+END
+
+DIALOG main, label(resource PREDICT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  INCLUDE  _p_gentype
+
+  GROUPBOX gb_opts		_lft	_ls	_iwd	_ht6,		///
+	label(resource LBL_PRODUCE)
+  RADIO rb_mean			_indent	_ss	_inwd	., first	///
+	option(mean)							///
+	onclickon(script main_single_on)				///
+	label(resource LBL_CONDITIONAL_MEAN_OF_THE_OUTCOME)
+  RADIO rb_residuals		@	_ss	@	.,		///
+	option(residuals)						///
+	onclickon(script main_single_on)				///
+	label(resource LBL_RESIDUALS)
+  RADIO rb_score		@	_ss	@	., last		///
+	option(score)							///
+	onclickon(script main_single_on)				///
+	label(resource NPREGRESS_SERIES_P_MAIN_RB_SCORE)
+
+  CHECKBOX ck_atsample		_lft 	_xls	_iwd	.,		///
+	option(atsample)						///
+	label(resource NPREGRESS_SERIES_P_MAIN_CK_ATSAMPLE)
+  CHECKBOX ck_tolerance		_lft 	_ms	_iwd	.,		///
+	clickon(main.ed_tolerance.enable)				///
+	clickoff(main.ed_tolerance.disable)				///
+	label(resource NPREGRESS_SERIES_P_MAIN_CK_TOLERANCE)
+  EDIT	ed_tolerance		_iilft	_ms	_en7wd	.,		///
+		option(tolerance)					///
+		default(1e-4)						///
+		label(resource NPREGRESS_SERIES_P_MAIN_CK_TOLERANCE)
+END
+
+SCRIPT main_single_on
+BEGIN
+	script _p_gentype_single
+END
+
+INCLUDE _p_gentype_sc
+INCLUDE ifin
+INCLUDE _type_list_fd
+
+PROGRAM command
+BEGIN
+	put "predict "
+	put " " /program _p_gentype_output
+	put " " /program ifin_output
+	beginoptions
+		option radio(main rb_mean rb_residuals rb_score)
+		option main.ck_atsample
+		optionarg /hidedefault main.ed_tolerance
+	endoptions
+END

@@ -1,0 +1,152 @@
+/*
+  bayesgraph_ac.dlg 
+
+*!  VERSION 1.0.4  22feb2019
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE header
+HELP hlp1, view("help corrgram##ac_options")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING output_cmd
+	create STRING parent_name
+	create DOUBLE hasby
+	create BOOLEAN hasParen
+	
+	hasby.setvalue 0
+	parent_name.setvalue class PARENT._dlg_rsrcname
+	parent_name.withvalue hasby.setvalue			///
+		class @.hasby.value
+	
+	setscale_hadj resource BAYESGRAPH_AC_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script gr_plots_setDefaultDropline
+	script gr_ciplots_setDefaultArea
+	program check_hasby
+	program parse_message
+END
+
+PROGRAM check_hasby
+BEGIN
+	if hasby {
+		call main.ck_ci.disable
+		call main.sp_level.disable
+		call main.tx_level.disable
+	}
+	else {
+		call main.ck_ci.enable 
+		if main.ck_ci {
+			call main.sp_level.enable
+			call main.tx_level.enable
+		}
+	}
+END
+
+PROGRAM parse_message
+BEGIN
+	if __MESSAGE.contains("paren") {
+		call hasParen.settrue
+	}
+	else {
+		call hasParen.setfalse
+	}
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN) 			///
+	     title(resource BAYESGRAPH_AC_TITLE)
+BEGIN
+  GROUPBOX gb_opt	_lft	_top	_iwd	_ht19,		///
+	label(resource LBL_OPTIONS)
+
+  GROUPBOX gb_lags	_indent	_ss	_ibwd	_ht4h,		///
+	label(resource AC_MAIN_GB_LAGS)
+  RADIO    rb_lags1	_indent	_ss	_inwd	.,		///
+	onclickon(main.sp_lags2.disable)			///
+	first							///
+	label(resource AC_MAIN_RB_LAGS1)
+  RADIO    rb_lags2	@	_ms	_rbwd	.,		///
+	onclickon(main.sp_lags2.enable)				///
+	last
+  SPINNER  sp_lags2	_rbsep	@	_spwd	.,		///
+	min(1) max(100) default(1)				///
+	option(lags)
+  TEXT     tx_lags2	_spsep	@	_rbspr2bb .,		///
+	label(resource AC_MAIN_SP_LAGS2)
+
+  CHECKBOX ck_ci	_ilft	_xls	_ibwd	_ht4,		///
+	groupbox						///
+	onclickon(script graph_on)				///
+	onclickoff(script graph_off)				///
+	label(resource BAYESGRAPH_AC_MAIN_CK_CI)
+
+  DEFINE _x +10
+  DEFINE _y +30
+  DEFINE _cx 300
+  INCLUDE _sp_level
+
+  CHECKBOX ck_fft	_ilft	+50	_iibwd	.,		///
+	option(fft)						///
+	label(resource AC_MAIN_CK_FFT)
+END
+
+SCRIPT graph_off
+BEGIN
+	main.sp_level.disable
+	main.tx_level.disable
+	script gr_ciplots_disable
+END
+
+SCRIPT graph_on
+BEGIN
+	main.sp_level.enable
+	main.tx_level.enable
+	script gr_ciplots_enable
+END
+
+INCLUDE gr_plots
+INCLUDE gr_ciplots
+INCLUDE gr_addplots_2
+INCLUDE gr_yaxis
+INCLUDE gr_xaxis
+INCLUDE gr_titles
+INCLUDE gr_legend
+INCLUDE gr_overall
+
+PROGRAM command
+BEGIN
+	if hasParen {
+		put " acopts("
+	}
+	
+	if main.rb_lags2 {
+		optionarg main.sp_lags2
+	}
+	
+	if main.ck_ci {
+		put " ci "
+		INCLUDE _level_main_pr
+	}
+	option main.ck_fft
+
+	put " " /program gr_plots_output
+	put " " /program gr_ciplots_output
+	put " " /program gr_addplots_output
+	put " " /program gr_yaxis_output
+	put " " /program gr_xaxis_output
+	put " " /program gr_titles_output
+	put " " /program gr_legend_output
+	put " " /program gr_overall_output
+	
+	if hasParen {
+		put ")"
+	}
+END

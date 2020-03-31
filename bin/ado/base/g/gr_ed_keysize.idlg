@@ -1,0 +1,117 @@
+/*
+  gr_ed_keysize.idlg
+
+*!  VERSION 1.1.0  30sep2014
+
+*/
+
+
+
+SCRIPT keysize_PREINIT
+BEGIN
+	create STRING key_xsize
+	create STRING key_ysize
+	create STRING key_pos
+	create DOUBLE key_forcefixed
+	program keysize_get_defaults
+END
+
+SCRIPT keysize_POSTINIT
+BEGIN
+	program keysize_initialize_controls
+END
+
+PROGRAM keysize_get_defaults
+BEGIN
+	call Gkey.withvalue key_xsize.setvalue class @.xsz.val
+	call keysize.ed_xsize.setdefault class key_xsize.value
+
+	call Gkey.withvalue key_ysize.setvalue class @.ysz.val
+	call keysize.ed_ysize.setdefault class key_ysize.value
+
+	call Gkey.withvalue index.setvalue class @.pos.styledex
+	call index.withvalue key_pos.setvalue class .__STYLES.compass2dir[@]
+	call keysize.cb_pos.setdefault class key_pos.value
+
+	call Gkey.withvalue key_forcefixed.setvalue class @.force_fixed
+	if key_forcefixed {
+		call keysize.ck_fill.setdefault 0
+	}
+	else {
+		call keysize.ck_fill.setdefault 1
+	}
+END
+
+PROGRAM keysize_initialize_controls
+BEGIN
+	call keysize.ed_xsize.setvalue class key_xsize.value
+	call keysize.ed_ysize.setvalue class key_ysize.value
+	call keysize.cb_pos.setvalue class key_pos.value
+	if key_forcefixed {
+		call keysize.ck_fill.setoff
+	}
+	else {
+		call keysize.ck_fill.seton
+	}
+END
+
+DIALOG keysize, tabtitle(resource LBL_TAB_SIZE)
+BEGIN
+  GROUPBOX gb_size	_lft	_top	_iwd	_ht5,		///
+	label(resource GR_ED_KEYSIZE_KEYSIZE_GB_SIZE)
+
+  TEXT     tx_xsize	_ilft	_ss	_wd	.,		///
+	label(resource GR_ED_KEYSIZE_KEYSIZE_X_SIZE) right
+  EDIT     ed_xsize	_sep	@	_cbwd	.,		///
+	numonly
+  TEXT     tx_ysize	_ilft	_mls	_wd	.,		///
+	label(resource GR_ED_KEYSIZE_KEYSIZE_Y_SIZE) right
+  EDIT     ed_ysize	_sep	@	_cbwd	.,		///
+	numonly
+
+  GROUPBOX gb_adv	_lft	_xls	_iwd	_ht5h,		///
+	label(resource LBL_ADVANCED)
+  TEXT     tx_pos	_ilft	_ss	_wd	.,		///
+	label(resource LBL_POSITION) right
+  COMBOBOX cb_pos	_sep	@	_cbwd	.,		///
+	dropdownlist contents(_compass)
+
+  CHECKBOX ck_fill	_iilft	+35	_iibwd	.,		///
+	label(resource GR_ED_KEYSIZE_KEYSIZE_CK_FILL)
+END
+
+PROGRAM keysize_output
+BEGIN
+	call program keysize_get_defaults
+
+	put "_gm_dlg_edits"
+	beginoptions
+		put " object(" Gkey ") "
+		if ! keysize.ed_xsize.isdefault() {
+			put "set(xsz "
+			put keysize.ed_xsize
+			put ") "
+		}
+		if ! keysize.ed_ysize.isdefault() {
+			put "set(ysz "
+			put keysize.ed_ysize
+			put ") "
+		}
+		if ! keysize.cb_pos.isdefault() {
+			put "set(pos "
+			put keysize.cb_pos
+			put ") "
+		}
+		if ! keysize.ck_fill.isdefault() {
+			if keysize.ck_fill {
+				put " set(force_fixed 0) "
+			}
+			else {
+				put " set(force_fixed 1) "
+			}
+		}
+		put " nodraw "
+	endoptions
+	
+	stata hidden
+END

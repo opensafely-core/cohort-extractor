@@ -1,0 +1,160 @@
+/*				starlegend
+
+	class for the legend of a star graph
+
+*/
+*! version 1.0.0  30jul2002
+
+version 8
+
+class {
+	gstyle	= .starstyle.new
+
+	columns	= 0
+	rows	= 0
+	rows_first = .yesno.new , style(no)
+
+	serset	= .serset.new
+	_has_labs = 0
+} , inherit(grid)
+
+
+/* -------------------------------------------------------------------------*/
+/* Builds the legend in the grid.
+*/
+program new
+
+	syntax anything(name=has_labs) [ , SERSET(string) GSTYLE(string) * ]
+
+	.Super.new , `options' subview
+
+	.gstyle.ref = .`gstyle'.ref
+	.serset.ref = .`serset'.ref
+	._has_labs = 0`has_labs'
+
+	.xstretch.set fixed
+
+	._create
+end
+
+program _create
+
+	local start = cond(0`._has_labs', 2, 1)		/* allow for lab var */
+
+							/* tock angle */
+	local dangle = cond(`:serset k'-`start'+1==2, 			/*
+		*/ _pi / 2, 						/*
+		*/ 2 * _pi / (`:serset k'-`start'+1))
+
+	local angle = 5 * _pi / 2 
+
+	local r = `.gstyle.key_symbol.size.gmval' / 2	/* radius */
+
+							/* legend cols */
+	local k = `:serset k' - `start' + 1
+	if `.rows' {
+		local n_rows = `.rows'
+	}
+	else if `.columns' {
+		local n_rows = ceil(`k' / `.columns')
+	}
+	else	local n_rows = `k'
+
+	local row `n_rows'
+	.insert (keygap = .spacer.new , xsize(`.gstyle.key_gap.gmval'))  at 1 2
+	forvalues i = `start'/`:serset k' {
+
+		local fullrow = 2 * `row'
+		.insert (key = .starkey.new, angle(`angle')		/*
+			*/ symstyle(`.gstyle.key_symbol.snm')		/*
+			*/ tockstyle(`.gstyle.tockstyle.snm')		/*
+			*/ ) at `fullrow' `=`basecol'+1'
+
+		.insert (keylabel = .sized_textbox.new , 		/*
+			*/ text(`"`.serset.sers[`i'].label_or_name'"')	/*
+			*/ style(`.gstyle.keytext_style.snm'))		/*
+			*/ at `fullrow' `=`basecol'+3'
+
+		if `i' != `:serset k' {
+			.insert (sp = .spacer.new, 			 /*
+				*/ ysize(`.gstyle.key_linespace.gmval')) /*
+				*/ at `=`fullrow'-1' `=`basecol'+1'
+		}
+
+		local --row
+
+		if `row' == 0 {
+			local row `n_rows'
+			local basecol = `basecol' + 5
+			if `i' != `start' {
+				.insert (colgap = .spacer.new , 	  /*
+				    */ xsize(`.gstyle.column_gap.gmval')) /*
+				    */ at 1 `=`basecol'-1'
+
+				.insert (keygap = .spacer.new , 	/*
+				    */ xsize(`.gstyle.key_gap.gmval')) 	/*
+				    */ at 1 `=`basecol'+2'
+			}
+		}
+
+		local angle = `angle' - `dangle'
+	}
+
+	.insert (keygap = .spacer.new, xsize(`.gstyle.key_gap.gmval')) at 1 2
+
+end
+
+
+/* -------------------------------------------------------------------------*/
+/* settings that require actions, think triggers.
+*/
+
+program _set_columns
+
+	if 0`1' == `.columns' {
+		exit
+	}
+
+	.columns = `1'
+	if `.columns' != 0 {
+		.rows = 0
+	}
+
+	._recreate
+end
+
+program _set_rows
+
+	if 0`1' == `.rows' {
+		exit
+	}
+
+	.rows = `1'
+	if `.rows' != 0 {
+		.columns = 0
+	}
+
+	._recreate
+end
+
+program _set_rows_first
+
+	if "`1'" == "`.rows_first.setting'" {
+		exit
+	}
+
+	.rows_first.setstyle, style(`1')			/* set style */
+
+	._recreate
+end
+
+
+/* -------------------------------------------------------------------------*/
+program _recreate
+
+	foreach att in key keylabel sp keygap {
+		.delete `att'
+	}
+
+	._create
+end

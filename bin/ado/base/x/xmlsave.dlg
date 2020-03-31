@@ -1,0 +1,106 @@
+/*
+  xmlsave
+
+*!  VERSION 2.1.1  11mar2015
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+INCLUDE header
+
+HELP hlp1, view("help xmlsave")
+RESET res1
+
+DEFINE _hvwd 131
+DEFINE _hvsep +135
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource XMLSAVE_DLG_HSCALE
+	
+        main.fi_file.formatfilter "{0} (*.xml)|*.xml|{1} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_XML" "resource ui_ex FILE_TYPE_ALL_FILES"
+END
+
+DIALOG main, label(resource XMLSAVE_DLG_TITLE)				///
+		tabtitle(resource LBL_TAB_MAIN)
+
+BEGIN
+  TEXT     tx_varlist  _lft        _top      _iwd        .,		///
+		label(resource LBL_VARIABLES_LEAVE_EMPTY_FOR_ALL_VARIABLES)
+  VARLIST  ed_varlist  @           _ss       @           .,		///
+  		label(resource LBL_VARIABLES)
+  TEXT     tx_file     @           _ms       @           .,		///
+		label(resource LBL_SAVE_FILE_AS)
+  FILE     fi_file     @           _ss       @           .,		///
+		error(resource LBL_SAVE_FILE_AS)			///
+		label(resource LBL_SAVE_AS)				///
+		save
+
+  GROUPBOX gb_options  @           _ls       @           _ht8,		///
+		label(resource LBL_OPTIONS)
+  GROUPBOX gb_doctype  _indent     _ms	     _cwd2       _ht4,		///
+		label(resource XMLSAVE_MAIN_GB_DOCTYPE)
+  DEFINE y @y
+  RADIO    rb_dta      _indent     _ss       _inwd       .,		///
+  		onclickon(script dta_on)				///
+  		label(resource XMLSAVE_MAIN_RB_DTA) 			///
+  		option("doctype(dta)")					///
+  		first
+  RADIO    rb_excel    @     	   _ss       @	         .,		///
+  		onclickon(script excel_on)				///
+  		label(resource XMLSAVE_MAIN_RB_EXCEL)			///
+  		option("doctype(excel)")				///
+		last
+  CHECKBOX ck_dtd      _lft2	   y         _cwd2	 ., 		///
+  		label(resource XMLSAVE_MAIN_CK_DTD) 			///
+		option(dtd)
+  CHECKBOX ck_legible  @	   _ms       @	 	 ., 		///
+  		label(resource XMLSAVE_MAIN_CK_LEGIBLE) 		///
+		option(legible)
+  CHECKBOX ck_replace  @	   _ms       @	 	 ., 		///
+  		label(resource XMLSAVE_MAIN_CK_REPLACE) 		///
+		option(replace)
+END
+
+INCLUDE ifin
+
+SCRIPT dta_on
+BEGIN
+	main.ck_dtd.enable
+END
+
+SCRIPT excel_on
+BEGIN
+	main.ck_dtd.disable
+END
+
+PROGRAM command
+BEGIN
+	put "xmlsave "
+	if !main.ed_varlist {
+		require main.fi_file
+	}
+	if main.ed_varlist {
+		put main.ed_varlist " "
+		put "using "
+		require main.fi_file
+	}
+	put `"""'
+	put main.fi_file
+	put `"" "'
+
+	INCLUDE _ifin_pr
+
+	beginoptions
+		option main.rb_dta
+		option main.rb_excel
+		if main.rb_dta {
+			option main.ck_dtd
+		}
+		option main.ck_legible
+		option main.ck_replace
+	endoptions
+END

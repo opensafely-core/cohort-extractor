@@ -1,0 +1,176 @@
+//                          zyx2legend_g
+//
+//	Class for some zyx2 plot legends -- contourline
+//
+//  See legend_g.class for how legends are maintained.
+
+
+*! version 1.0.3  10sep2011
+
+version 12
+
+class {
+
+	view	     = ""
+	numckeyshold = 0
+	first = 1
+
+} , inherit(legend_g)
+
+
+
+
+// ---------------------------------------------------------------------------
+//
+//  Usage:	.new , view(view_objkey) ...
+
+program new
+
+	syntax [ , VIEW(string) STYle(passthru) * ]
+
+	.Super.new , `style' `options'
+
+	if `"`view'"' != `""' {
+		.view = "`view'"
+	}
+
+	.style.setstyle, style(scheme zyx2)
+
+end
+
+
+// ---------------------------------------------------------------------------
+//  Rebuilds the keys and labels from the graph.
+//
+//  Note, does not create the key and label view in the "plotregion", must
+//  call .repositionkeys after .rebuild to complete creation of the legend.
+
+program rebuild
+
+	.clear
+	tempname key
+	local ct 0
+
+	if `.`.view'.style.reversekey.istrue' {
+		local looprange "1/0`.`.view'.numckeys'"
+	}
+	else	local looprange "0`.`.view'.numckeys'(-1)1"
+
+	forvalues k = `looprange' {
+		capture .`key'.ref = .`.view'.newkey `k' ,		///
+					pos(`.style.key_position.snm')
+		if ! _rc  & "`.`key'.isa'" == "class" {
+			.addkey `key' `"`.`.view'.clabel `k''"'
+			local ++ct
+		}
+		capture class free `key'
+	}
+
+	if ((0`.keys.arrnels' > 1 & `.`.view'.multistyles' &		///
+	     ! 0`.style.force_nodraw.istrue') |				///
+	    0`.style.force_draw.istrue') {
+		.draw_view.set_true
+	}
+	else {
+		.draw_view.set_false
+	}
+
+	.numckeyshold = `.`.view'.numckeys'
+end
+
+
+
+/*
+
+    This .repositionkeys existed solely to allow labels to be placed between
+    keys for contour-like plots.  Such plots now use a real z-axis in their
+    legend.
+
+// ---------------------------------------------------------------------------
+//  Recreate the key and label area of the legend using the current style
+//  settings.
+
+program repositionkeys
+
+	if "`.`.view'.type.setting'" == "patch" {
+		local pos "`.style.myposition.setting'"
+		if "`pos'" == "left" {
+			.style.text_first.set_true
+			.style.stacked.set_false
+			local ecol 1
+		}
+		else if "`pos'" == "right" {
+			.style.text_first.set_false
+			.style.stacked.set_false
+			local ecol 3
+		}
+		else if "`pos'" == "above" {
+			.style.text_first.set_true
+			.style.stacked.set_true
+			local rcol 1
+		}
+		else if "`pos'" == "below" {
+			.style.text_first.set_false
+			.style.stacked.set_true
+			local rcol 3
+		}
+	}
+
+	.Super.repositionkeys
+
+	if ("`.`.view'.type.setting'" != "patch" |			///
+	    `"`.`.view'.clabel `.`.view'.numckeys''"' != `""') {
+		exit	// Exit
+	}
+
+
+						// Expand label cells to align
+						// on contours
+
+	if `"`.`.view'.type.setting'"' == `"patch"' {
+
+		if `.`.view'.style.reversekey.istrue' {
+			local looprange "1/`=0`.`.view'.numckeys'-1'"
+			local place "below"
+		}
+		else {
+			local looprange "2/`=0`.`.view'.numckeys''"
+			local place "above"
+		}
+
+
+		if "`pos'" == "left" | "`pos'" == "right" {
+			forvalues k = `looprange' {
+				.plotregion1.Expand label[`k'] `place' 2
+			}
+		}
+		else if "`pos'" == "above" | "`pos'" == "below" {
+			forvalues k = `looprange' {
+				.plotregion1.Expand label[`k'] right 2
+			}
+		}
+	}
+end
+
+*/
+
+// ---------------------------------------------------------------------------
+
+program draw
+	if `.numckeyshold' != `.`.view'.numckeys' | "`.first'"=="1" {
+		.rebuild
+		.repositionkeys
+		._Gr_Cglobal.redraw = 1
+		.first = 0
+	}
+
+	.Super.draw `macval(0)'
+
+end
+
+// ---------------------------------------------------------------------------
+program set_myposition
+	di " "
+	// If needed later, must change other settings, then .repositionkeys.
+end
+

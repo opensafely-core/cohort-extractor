@@ -1,0 +1,134 @@
+//                                 twoway_yxyxview_parse
+//
+//   A parser for yxyxviews.  Works with twoway.ado.
+//   Uses twoway_yxview_parse to do most of the work.
+
+*! version 1.0.3  30jul2013
+
+version 9
+
+class {
+	drop_to	= .ordstyle.new , style(x)	// horiz vs. vert
+	headlbl	= .yesno.new , style(no)	// label the arrowhead
+
+} , inherit(twoway_yxview_parse)
+
+
+// ---------------------------------------------------------------------------
+
+program new
+	.viewclass = "yxyxview_g"
+end
+
+
+// ---------------------------------------------------------------------------
+
+program parse
+
+	if "`.viewtype'" == "" {
+		.viewtype = "pcspike"
+	}
+
+	.Super.parse `0'
+
+	if `.varcheck' | ! `.allow_anything' {
+		_clsarr2list mlablist : labvars		// check number of vars
+		local vlist `.varlist'			// allow marker labels
+		local vlist : list vlist - mlablist
+		local posvar "`.posnm'"
+		local vlist : list vlist - posvar
+		if `:word count `vlist'' > 4 | `:word count `vlist'' < 4 {
+			di in smcl "{error}{p 0 8}`.viewtype' requires 4 " ///
+				"variables: `.varlist'{p_end}"
+			if (`:word count `vlist'' > 4)  exit 103
+			else				exit 102
+		}
+	}
+
+	.n = 1
+
+							// general yxyx options
+	local 0 `", `.options'"'
+	syntax [ , HORizontal VERTical HEADlabel * ]
+
+	.options = `"`options'"'
+
+	if `:word count `horizontal' `vertical'' > 1 {
+		di as error "may not combine options horizontal and vertical"
+		exit 198
+	}
+
+	if "`horizontal'" != "" {
+		.drop_to.setstyle , style(y)
+	}
+	if "`vertical'" != "" {
+		.drop_to.setstyle , style(x)
+	}
+	if ("`headlabel'" != "") .headlbl.set_true
+
+end
+
+// ---------------------------------------------------------------------------
+program log_create_view
+	syntax [, XVariable(passthru) YBvar(passthru) XBvar(passthru)	///
+		  VIEW(integer 1) SERSET(string) * ]
+
+	if `view' != 1 {
+		di as error "may not specify more that one `.viewtype'"	///
+			" per plot"
+		exit 198
+	}
+
+	tokenize `.varlist'
+
+	if `"`xvariable'"' == `""' {
+		local xvariable xvariable(\`.`serset'.seriesof ``=`view'+1''')
+	}
+	if `"`ybvar'"' == `""' {
+		local ybvar ybvar(\`.`serset'.seriesof ``=`view'+2''')
+	}
+	if `"`xbvar'"' == `""' {
+		local xbvar xbvar(\`.`serset'.seriesof ``=`view'+3''')
+	}
+
+	.Super.log_create_view  , `macval(xvariable)' `macval(ybvar)'	///
+		`macval(xbvar)' view(`view') serset(`serset') `macval(options)'
+
+end
+
+// ---------------------------------------------------------------------------
+//  Pushes onto the specified log any post-creation commands implied by 
+//  the parsed syntax that must be applied to the created view.
+
+program log_edits
+	args log view i novlabel
+
+	.Super.log_edits `log' `view' `i'
+
+	.`log'.Arrpush .`view'.bar_drop_to.setstyle , style(`.drop_to.snm')
+	if 0`.headlbl.istrue' {
+		.`log'.Arrpush .`view'.headlbl.set_true
+	}
+
+	local i = `i' + 1		// a few settings for 2nd y and x vars
+
+	if `"`.plotsettings[`i']'"' != `""' {
+		local 0 `", `.plotsettings[`i']'"'
+		syntax [ , YVARLABEL(string asis)  YVARFORMAT(string) * ]
+
+		if "`novlabel'" == "" {
+		    if `"`yvarlabel'"' != `""' {
+		    	local yvarlabel `yvarlabel'		// sic
+			.`log'.Arrpush					  ///
+			    .`view'.serset.sers[\`.`view'.y2var'].label = ///
+			    `"`yvarlabel'"'
+		    }
+		}
+		if `"`yvarformat'"' != `""' {
+			.`log'.Arrpush					   ///
+			    .`view'.serset.sers[\`.`view'.y2var'].format = ///
+			    `"`yvarformat'"'
+		}
+
+	}
+end

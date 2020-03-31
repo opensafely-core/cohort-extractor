@@ -1,0 +1,305 @@
+*! version 2.0.2  24aug2019
+
+version 14
+
+class _asroprobitmodel {
+	instance:
+		/* reversed flag		*/
+		double reverse
+		/* ties-in-ranks flag		*/
+		double ties
+		/* egen ranks			*/
+		_numericvar ranks
+
+}, inherit(_altprobitmodel)
+
+program .oncopy
+
+	di as err "_asroprobitmodel.oncopy not implemented"
+	exit 498
+end
+
+program ._set 
+	if (`.version'>=14) local fv fv
+
+	syntax varlist(numeric `fv') [fw iw pw], touse(varname numeric) /// 
+		altern(varname) case(varname numeric) const(passthru) [	///
+		ifin(varname numeric)			///
+		CASEVars(varlist numeric `fv')		///
+		REVerse					///
+		altwise					///
+		COLlinear				///
+		* ]
+
+	.deptype = "rank"
+	.reverse = ("`reverse'"!="")
+	.ties = 0
+
+	._presetvalidate `varlist', touse(`touse') case(`case')           ///
+		altern(`altern') casevars(`casevars') `const' `collinear' ///
+		`altwise' ifin(`ifin') 
+
+	local casevars `r(casevars)'
+	local varlist `r(varlist)'
+
+	.Super._set `varlist' [`weight'`exp'], touse(`touse') case(`case') ///
+		altern(`altern') casevars(`casevars') `const' `collinear'  ///
+		`options'
+
+	/* make sure ranks are sequential				*/
+	._fixupranks
+end
+
+program ._fixupranks
+
+	/* check that ranks are already setup 				*/
+	if ("`.ranks.varname'"=="`.dep'") exit
+
+	.ranks = ._numericvar.new
+	.mltouse = ._numericvar.new
+
+	local y `.ranks.name'
+	local case `.case.varname'
+	/* missings on the bottom					*/
+	sort `case' `.dep'
+
+	qui by `case' (`.dep'): gen byte `y' = ///
+		(`.dep'[_n-1]==`.dep'[_n]) if `.touse'
+
+	qui by `case' (`.dep'): replace `y' = ///
+		max(`y',(`.dep'[_n+1]==`.dep'[_n])) if `.touse'
+
+	summarize `y' if `.touse', meanonly
+	.ties = r(sum)
+
+	if `.ties' > 0 {
+		qui by `case': replace `y' = sum(`y') if `.touse'
+		qui by `case': replace `y' = 0 if _n < _N & `.touse'
+		qui replace `y' = 1 if `y'>0 & `y'<.
+		summarize `y' if `.touse', meanonly
+		local ncties = r(sum)
+		local mties = `.ties'/`ncties'
+		di as text "{p 0 7 2} note: `ncties' "    ///
+		 plural(`ncties',"case has","cases have") ///
+		 " tied ranks averaging " %5.1g `mties' " ties per case{p_end}"
+	} 
+	else local uniopt unique
+
+	qui drop `y'
+	qui by `case': egen int `y' = rank(`.dep') if `.touse', `uniopt'
+	if `.ties' > 0 {
+		qui replace `y' = trunc(`y') if `.touse'
+		qui recast int `y' 
+	} 
+	qui gen byte `.mltouse.name' = 0
+
+	/* arbitrary which index w/in each case to place likelihood	*/
+	/*  and score values						*/ 
+	if `.reverse' local n 1
+	else local n _N
+
+	/* missings on bottom, _n ==1 or _n == _N will work		*/
+	qui by `case': replace `.mltouse.varname' = 1 if _n==`n' & `.touse'
+
+	/* save original depvar						*/
+	.ranks.exp = "`.dep'"
+	.dep = "`y'"
+end
+
+program .initest
+	syntax, b(name) [ cmat(passthru) trace ]
+
+	if (`.reverse') local reverse reverse 
+
+	/* rologit does not take constraints: discard cmat		*/
+	.Super.initest, b(`b') `trace' call(rologit) `reverse'
+end
+
+program .margins_predict
+
+	.ties = -1	// predict, pr1
+
+	.Super.margins_predict `0'
+end
+
+program .evaluate, rclass
+	syntax newvarlist(min=1 max=1), b(passthru) [ todo(integer 0) ///
+		depvar(passthru) ]
+
+	/* todo == -1 predict, todo == 3 margins predict		*/
+	if ((`todo'<0) | (`todo'>=3)) & `.ties'<0 {
+		/* flag for -predict, pr1-				*/
+		/*  probability each alternative is chosen		*/
+		local ranked = 0
+	}
+	else {
+		/* binary coding for _mprobit_simulator			*/
+		/* 0 0 1  ranked data					*/
+		/* 0 1 0  reverse (low rank is best)			*/
+		/* 1 0 0  ties						*/
+		local ranked = 1 + 2*`.reverse' + 4*(`.ties'>0) 
+	}
+	.Super.evaluate `varlist', `b' todo(`todo') ranked(`ranked') `depvar'
+
+	return add
+end
+
+program .eretpost, eclass
+
+	.Super.eretpost
+
+	._alternstats `.ranks.varname', type(ranked)
+	tempname mat
+	mat `mat' = r(stats)
+
+	ereturn matrix stats = `mat'
+	.dep = "`.ranks.exp'"
+	ereturn local depvar `.dep'
+	ereturn scalar N_ties = `.ties'
+	ereturn scalar reverse = `.reverse'
+end
+
+program .eretget
+	.version = 1/0 // missing
+
+	if ("`e(version)'"!="") .version = e(version)
+
+	if missing(`.version') {
+	        .version = cond("`e(opt)'"=="ml", 10.1, _caller())
+	}
+	local vv : display "version " %5.1f `.version' ":"
+	.vv = "`vv'"
+
+	syntax, touse(varname numeric) [ markout(string) * ]
+
+	.deptype = "rank"
+	._eretmarkout `touse', `markout' `options' 
+
+	.Super.eretget, touse(`touse') `options'
+
+	.reverse = e(reverse)
+	.ties = 0
+end
+
+/* postestimation prediction						*/
+program .predict
+	syntax newvarlist(min=1 max=1), b(passthru) [ opt(string) * ]
+
+	if "`opt'" == "pr1" {
+		/* flag for .evaluate to estimate each alternative 	*/
+		/*  is chosen						*/
+		.ties = -1
+	}
+	else if "`opt'" == "pr" {
+		qui ._fixupranks
+	}
+
+	.Super.predict `typlist' `varlist', `b' opt(`opt') `options'
+end
+
+program .predscores, rclass
+	syntax newvarlist, b(passthru) 
+
+	qui ._fixupranks
+
+	.Super.predscores `typlist' `varlist', `b' `options'
+end
+
+program ._evalmfx, rclass
+	syntax, b(passthru) [ discrete rank(passthru) * ]
+
+	if !`.ranks.isvalid' {
+		tempvar y
+		/* default ranks based on X*b				*/
+		.evaleqs `y', `b' 
+		egen `.ranks.name' = rank(`y')
+		qui replace `.ranks.varname' = floor(`.ranks.varname')
+
+		if "`rank'" != "" {
+			/* replace with user specified ranks		*/
+			qui replace `y' = `.ranks.varname'
+			qui drop `.ranks.varname'
+
+			._mfx_parseevalrank `y', `rank'
+			egen `.ranks.varname' = rank(`y')
+		}
+		/* for ties						*/
+		qui replace `.ranks.varname' = floor(`.ranks.varname')
+		qui recast int `.ranks.varname' 
+	} 
+
+	.Super._evalmfx, `b' `discrete' vrank(`.ranks.varname') ///
+		reverse(`.reverse')
+
+	return add
+end
+
+program ._mfx_parseevalrank 
+	syntax varname(numeric), rank(string asis)
+
+	local n = _N
+	local altvar `.altern.varname'
+	local y `varlist'
+	tempname rnk
+
+	local 0 `"`rank'"'
+
+	while `"`0'"' != "" {
+		local save `"`0'"'
+		gettoken tok 0: 0, parse("=")
+
+		cap .altindex `"`tok'"'
+		if _rc == 459 {
+			di as err `"{p}alternative "`tok'" is not in the "' ///
+			 "postestimation sample{p_end}"
+			exit 459
+		}
+		else if (_rc) error _rc
+
+		local i = `r(index)'
+
+		if `: list posof `"`tok'"' in alts' {
+			di as error `"{p}alternative "`tok'" is ranked "' ///
+			 "twice{p_end}"
+			exit 198
+		}
+		local alts `alts' `tok'
+
+		gettoken tok 0:0, parse("=")
+		if ("`tok'"!="=") ._mfx_parseerror `"`save'"' "rank()"
+
+		gettoken tok 0:0, parse(" ,")
+		cap scalar `rnk' = `tok'
+		if (_rc) ._mfx_parseerror `"`save'"' "rank()"
+
+		qui replace `y' = `rnk' if `altvar'==`i'
+		gettoken tok rest:0, parse(" ,")
+		if ("`tok'"==",") local 0 `"`rest'"'
+	}
+	qui count if `y'>=.
+	if r(N) > 0 {
+		forvalues k=1/`=_N' {
+			if `y'[`k'] >= . {
+				local i = `altvar'[`k']
+				local alt `: label `altvar' `i''
+				local missing `"`missing' "`alt'""' 
+			}
+		}
+		di as err "{p}{bf:rank()} specification is missing for " ///
+		 `"alternatives `missing'{p_end}"'
+
+		exit 198
+	}
+end
+
+program .summary
+
+	di _n "_asroprobitmodel:"
+
+	di "reversed: `.reversed'"
+	di "# ties:   `.ties'"
+
+	.Super.summary
+end
+
+exit

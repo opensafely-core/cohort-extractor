@@ -1,0 +1,208 @@
+/*
+    gr_contour_options.dlg
+    
+*!  VERSION 1.1.2  02may2017
+
+*/
+
+VERSION 14
+
+INCLUDE _std_small
+DEFINE _dlght 300
+INCLUDE header_gr_child
+
+DEFINE _clwd 15
+
+HELP hlp1, view("help twoway_contour")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING formatResults
+	setscale_hadj resource GR_CONTOUR_OPTIONS_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program checkFormatResults
+END
+
+LIST contour_lvl
+BEGIN
+	resource LBL_USE_DEFAULT
+	resource LBL_SPECIFY_NUMBER_OF_LEVELS
+	resource LBL_SPECIFIES_Z_VALUES_FOR_CONTOUR_LINES
+END
+
+LIST contour_lvl_values
+BEGIN
+	default
+	levels
+	ccuts	
+END
+
+LIST contour_interp_methods
+BEGIN
+	resource LBL_DEFAULT
+	resource LBL_THINPLATESPLINE
+	resource LBL_SHEPARD
+	resource LBL_NONE
+END
+
+LIST contour_interp_methods_values
+BEGIN
+	""
+	thinplatespline
+	shepard
+	none
+END
+
+DIALOG main, label(resource LBL_CONTOUR_OPTIONS) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_level0		_lft	_top	300	.,	///
+	label(resource LBL_CONTOUR_LEVELS_CUTS)
+  COMBOBOX cb_levels		_lft	_ss	300	.,	///
+	dropdownlist 						///
+	contents(contour_lvl) values(contour_lvl_values)	///
+	onselchange(program check_level_type)
+
+  SPINNER  sp_levels		_lft	_ls	_spwd	.,	///
+	label(resource LBL_NUMBER_OF_LEVELS) 			///
+	min(1) max(1000) default(5) option(levels)
+  TEXT     tx_levels		_spsep	@	120	.,	///
+	label(resource LBL_NUMBER_OF_LEVELS)
+
+  EDIT     ed_ccuts		_lft	@	120	.,	///
+	label(resource LBL_Z_VALUES) tooltip(resource LBL_SPECIFY_NUMLIST) ///
+	option(ccuts)
+  HYPERLINK tx_ccuts		+125	@	100	.,	///
+	label(resource LBL_Z_VALUES_NUMLIST) onpush(view help numlist##|_new)
+
+  BUTTON   bu_format		_rj70	@	70	.,	///
+	label(resource LBL_RB_FORMAT) onpush(program show_format_dialog)
+
+  TEXT     tx_interp		20	_ls	115	.,	///
+	label(resource LBL_INTERPOLATION) right
+  COMBOBOX cb_interp		+120	@	130	.,	///
+	dropdownlist contents(contour_interp_methods)           ///
+	values(contour_interp_methods_values)			///
+	option(interp)
+
+  GROUPBOX gb_colors		_lft	+30	_iwd	_ht9,	///
+	label(resource GR_CONTOUR_OPTIONS_MAIN_GB_COLORS)
+
+  TEXT     tx_crule		20	_ms	115	.,	///
+	label(resource LBL_TX_RULE) right
+  COMBOBOX cb_crule		+120	@	130	.,	///
+	dropdownlist contents(zyx2rule) option(crule)
+
+  TEXT     tx_bclr		20	_ls	115	.,	///
+	label(resource LBL_START_COLOR) right
+  COMBOBOX cb_bclr		+120	@	130	.,	///
+	dropdownlist contents(colors) option(scolor)		///
+	onselchangelist(main_cl_bclr_sel)
+  COLOR    cl_bclr		+135	@	_clwd	.,	///
+	option(scolor)
+
+  TEXT     tx_eclr		20	_ls	115	.,	///
+	label(resource LBL_END_COLOR) right
+  COMBOBOX cb_eclr		+120	@	130	.,	///
+	dropdownlist contents(colors) option(ecolor)		///
+	onselchangelist(main_cl_eclr_sel)
+  COLOR    cl_eclr		+135	@	_clwd	.,	///
+	option(ecolor)
+
+   CHECKBOX ck_heatmap		_lft	+50	_iwd	.,	///
+ 	option(heatmap)						///
+ 	label(resource GR_CONTOUR_OPTIONS_MAIN_CK_HEATMAP)
+
+END
+
+LIST main_cl_bclr_sel
+BEGIN
+	main.cl_bclr.hide
+	main.cl_bclr.show
+	main.cl_bclr.hide
+END
+
+LIST main_cl_eclr_sel
+BEGIN
+	main.cl_eclr.hide
+	main.cl_eclr.show
+	main.cl_eclr.hide
+END
+PROGRAM check_level_type
+BEGIN
+	if main.cb_levels.iseq("default") {
+		call main.sp_levels.hide
+		call main.tx_levels.hide
+		call main.tx_ccuts.hide
+		call main.ed_ccuts.hide
+		call main.bu_format.hide
+	}
+	if main.cb_levels.iseq("levels") {
+		call main.sp_levels.show
+		call main.tx_levels.show
+		call main.tx_ccuts.hide
+		call main.ed_ccuts.hide
+		call main.bu_format.show
+	}
+	if main.cb_levels.iseq("ccuts") {
+		call main.sp_levels.hide
+		call main.tx_levels.hide
+		call main.tx_ccuts.show
+		call main.ed_ccuts.show
+		call main.bu_format.show
+	}
+END
+
+PROGRAM show_format_dialog
+BEGIN
+	call create CHILD format_chooser AS formatDlg, allowsubmit
+	call formatDlg.setExitString formatResults
+	call formatDlg.setExitAction "program checkFormatResults"
+	call formatDlg.setSubmitAction "program formatSubmit"
+END
+PROGRAM checkFormatResults
+BEGIN
+	if formatResults.iseq("") {
+		call main.bu_format.formatlabel "resource LBL_BUTTON_FORMAT_FMT" "  "
+	}
+	if formatResults.isneq("") {
+		call main.bu_format.formatlabel "resource LBL_BUTTON_FORMAT_FMT" " *"
+	}
+END
+PROGRAM formatSubmit
+BEGIN
+	call program checkFormatResults
+	call Submit
+END
+
+PROGRAM command
+BEGIN
+	optionarg main.sp_levels
+	if ! H(main.bu_format) & formatResults {
+		put " format(" formatResults ") "
+	}
+	optionarg main.ed_ccuts
+
+	optionarg /hidedefault main.cb_interp
+	
+	optionarg /hidedefault main.cb_crule
+
+	if main.cl_bclr.isvisible() {
+		optionarg /quoted main.cl_bclr
+	}
+	if ! main.cl_bclr.isvisible() {
+		optionarg /hidedefault main.cb_bclr
+	}
+
+	if main.cl_eclr.isvisible() {
+		optionarg /quoted main.cl_eclr
+	}
+	if ! main.cl_eclr.isvisible() {
+		optionarg /hidedefault main.cb_eclr
+	}
+	
+	option main.ck_heatmap
+END

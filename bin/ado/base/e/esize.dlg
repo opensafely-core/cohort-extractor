@@ -1,0 +1,232 @@
+/*
+  esize
+
+*! VERSION 1.1.0  24sep2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+DEFINE _dlght 410
+INCLUDE header
+
+HELP hlp1, view("help esize")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource ESIZE_DLG_HSCALE
+END
+
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	if __MESSAGE.iseq("-twosample-") {
+		call main.rb_twosample.seton
+	}
+	if __MESSAGE.iseq("-unpaired-") {
+		call main.rb_unpaired.seton
+	}
+END
+
+DIALOG main, label(resource ESIZE_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+	GROUPBOX	gb_esize	_lft	_top	_iwd	_ht4,	///
+		label(resource ESIZE_MAIN_GB_ESIZE)
+	RADIO		rb_twosample	_indent	_ss	@	.,	///
+		first							///
+		onclickon("program main_twosample_on")			///
+		label(resource LBL_TWO_SAMPLE_USING_GROUPS)
+	RADIO		rb_unpaired	@	_ss	@	.,	///
+		last							///
+		onclickon("program main_unpaired_on")			///
+		label(resource LBL_TWO_SAMPLE_USING_VARIABLES)
+
+	GROUPBOX	gb_group	_lft	_xls	_iwd	_ht4,	///
+		label(resource ESIZE_MAIN_GB_GROUP)
+
+	/* Two independent samples using groups */
+	TEXT		tx_gvar    	_indent	_ss	_cwd1	.,	///
+		label(resource LBL_VARIABLE_NAME)
+	DEFINE	holdx @x
+	DEFINE	holdy @y
+	VARNAME  	vn_gvar    	@       _ss     _vnwd   .,	///
+		numeric							///
+		label(resource LBL_VARIABLE_NAME)
+
+	TEXT     	tx_byopt	_lft2	holdy 	_cwd2	.,	///
+		label(resource LBL_GROUP_VARIABLE_NAME)
+	VARNAME  	vn_byopt	@	_ss	_vnwd	.,	///
+		option("by")						///
+		label(resource LBL_GROUP_VARIABLE_NAME)
+
+	/* Two independent samples using variables */
+	TEXT     	tx_var1   	holdx	holdy	_cwd1	.,	///
+		label(resource LBL_FIRST_VARIABLE)
+
+	VARNAME  	vn_var1   	@       _ss     _vnwd   .,	///
+		numeric							///
+		label(resource LBL_FIRST_VARIABLE)
+
+	TEXT     	tx_var2   	_lft2	holdy	_cwd2	.,	///
+		label(resource LBL_SECOND_VARIABLE)
+	VARNAME  	vn_var2   	@	_ss	_vnwd	.,	///
+		numeric							///
+		label(resource LBL_SECOND_VARIABLE)
+
+	GROUPBOX	gb_opts		_lft	_xls	_iwd	_ht20,	///
+		label(resource LBL_OPTIONS)
+	CHECKBOX	ck_coh		_indent	_ss	_inwd	.,	///
+		option(cohensd)						///
+		onclickon(program main_ck_all_disable)			///
+		onclickoff(program main_ck_all_enable)			///
+		label(resource ESIZE_MAIN_CK_COH)
+	CHECKBOX	ck_hed		@	_ms	@	.,	///
+		option(hedgesg)						///
+		onclickon(program main_ck_all_disable)			///
+		onclickoff(program main_ck_all_enable)			///
+		label(resource ESIZE_MAIN_CK_HED)
+	CHECKBOX	ck_gla		@	_ms	@	.,	///
+		option(glassdelta)					///
+		onclickon(program main_ck_all_disable)			///
+		onclickoff(program main_ck_all_enable)			///
+		label(resource LBL_RPT_GLASS_DELTA_GROUP_STANDARD_DEVIATION)
+	CHECKBOX	ck_pbc		@	_ms	@	.,	///
+		option(pbcorr)						///
+		onclickon(program main_ck_all_disable)			///
+		onclickoff(program main_ck_all_enable)			///
+		label(resource LBL_RPT_POINT_BISERIAL_CORRELATION_COEFFICIENT)
+	CHECKBOX	ck_all		@	_ms	@	.,	///
+		option(all)						///
+		onclickon(script main_ck_all_on)			///
+		onclickoff(script main_ck_all_off)			///
+		label(resource LBL_RPT_ALL_ESTIMATES_OF_EFFECT_SIZE)
+	CHECKBOX	ck_une		@	_ms	@	.,	///
+		option(unequal)						///
+		label(resource LBL_UNEQUAL_VARIANCES)
+	CHECKBOX	ck_w		@	_ms	@	.,	///
+		option(welch)						///
+		label(resource LBL_WELCHS_APPROXIMATION)
+
+	DEFINE _x _ilft
+	DEFINE _cx _cwd2
+	DEFINE _y _ls
+	INCLUDE _sp_level
+END
+
+INCLUDE byifin
+
+PROGRAM main_twosample_on
+BEGIN
+	call script main_twosample_show
+	call script main_unpaired_hide
+	call main.gb_group.setlabel resource ESIZE_MAIN_GB_GROUP
+END
+
+PROGRAM main_unpaired_on
+BEGIN
+	call script main_twosample_hide
+	call script main_unpaired_show
+	call main.gb_group.setlabel resource ESIZE_TWO_INDEPENDENT_SAMPLES_USING_VARIABLES
+END
+
+SCRIPT main_twosample_show
+BEGIN
+	main.tx_gvar.show
+	main.vn_gvar.show
+	main.tx_byopt.show
+	main.vn_byopt.show
+END
+
+SCRIPT main_twosample_hide
+BEGIN
+	main.tx_gvar.hide
+	main.vn_gvar.hide
+	main.tx_byopt.hide
+	main.vn_byopt.hide
+END
+
+SCRIPT main_unpaired_show
+BEGIN
+	main.tx_var1.show
+	main.vn_var1.show
+	main.tx_var2.show
+	main.vn_var2.show
+END
+
+SCRIPT main_unpaired_hide
+BEGIN
+	main.tx_var1.hide
+	main.vn_var1.hide
+	main.tx_var2.hide
+	main.vn_var2.hide
+END
+
+SCRIPT main_ck_all_on
+BEGIN
+	main.ck_coh.disable
+	main.ck_hed.disable
+	main.ck_gla.disable
+	main.ck_pbc.disable
+END
+
+SCRIPT main_ck_all_off
+BEGIN
+	main.ck_coh.enable
+	main.ck_hed.enable
+	main.ck_gla.enable
+	main.ck_pbc.enable
+END
+
+PROGRAM main_ck_all_disable
+BEGIN
+	if main.ck_coh | main.ck_hed | main.ck_gla | ///
+	   main.ck_pbc {
+		call main.ck_all.disable
+	}
+END
+
+PROGRAM main_ck_all_enable
+BEGIN
+	if !main.ck_coh & !main.ck_hed & !main.ck_gla & ///
+	   !main.ck_pbc {
+		call main.ck_all.enable
+	}
+END
+
+PROGRAM command
+BEGIN
+	INCLUDE _by_pr
+	put "esize "
+	if main.rb_twosample {
+		put "twosample "
+		require main.vn_gvar
+		varlist main.vn_gvar
+	}
+	if main.rb_unpaired {
+		put "unpaired "
+		require main.vn_var1
+		varlist main.vn_var1
+		put "== "
+		require main.vn_var2
+		varlist main.vn_var2
+	}
+	INCLUDE _ifin_pr
+	beginoptions
+		if main.rb_twosample {
+			require main.vn_byopt
+			optionarg main.vn_byopt
+		}
+		option main.ck_coh
+		option main.ck_hed
+		option main.ck_gla
+		option main.ck_pbc
+		option main.ck_all
+		option main.ck_une
+		option main.ck_w
+		INCLUDE _level_main_pr
+	endoptions
+END
+
+

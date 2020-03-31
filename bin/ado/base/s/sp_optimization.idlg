@@ -1,0 +1,184 @@
+/*
+    sp_optimization.idlg - spregress, spivregress Optimization tab
+
+*!  VERSION 1.0.2  01may2017
+
+    // SCRIPTS and PROGRAMS for external use
+        * SCRIPT  opt_disable
+        * SCRIPT  opt_enable
+
+*/
+
+DIALOG opt, tabtitle(resource LBL_TAB_OPTIMIZATION)
+BEGIN
+  BUTTON   opt_bu_hlp		_xsetbu	_top	_setbuwd	.,	///
+	onpush(script mopt_hlp)						///
+	label(resource SP_LBL_HELP_MOPTIMIZE)
+
+  SPINNER  opt_sp_iter		_lft	_top	_spwd		.,	///
+	label(resource LBL_MAXIMUM_ITERATIONS) option(iterate)		///
+	min(0) max(16000) default(c(maxiter))
+  TEXT     opt_tx_iter		_spsep	@	145		.,	///
+	label(resource LBL_MAXIMUM_ITERATIONS)
+
+  GROUPBOX opt_gb_ilog		_lft	_ls	_cwd4_1		_ht4,	///
+	label(resource LBL_ITERATION_LOG)
+  DEFINE holdy @y
+
+  RADIO	   opt_rb_log		_indent	_ss	_inwd		.,	///
+	label(resource LBL_SHOW) first option(log)			///
+	onclickon(program opt_logging_check)
+  RADIO	   opt_rb_nolog  		@	_ss	@	.,	///
+	label(resource LBL_SUPPRESS) last option(nolog)			///
+	onclickon(program opt_logging_check)
+  GROUPBOX opt_gb_log		_lft4_2	holdy	_comb4_1	 _ht4,	///
+	label(resource LBL_ELEMENTS_DISPLAY_ITER_LOG)
+  CHECKBOX opt_ck_trace		_indent	_ss	_cwd4_2		.,	///
+	label(resource LBL_PARAMETER) option(trace)
+  DEFINE holdy @y
+  CHECKBOX opt_ck_grad		@	_ss	@		.,	///
+	label(resource LBL_GRADIENT) option(gradient)
+  CHECKBOX opt_ck_show		_ilft4_3 holdy	@		.,	///
+	label(resource LBL_STEPS) option(showstep)
+  CHECKBOX opt_ck_hess		@	_ss	@		.,	///
+	option("hessian")						///
+	label(resource LBL_MAX_ML_NEG_HESSIAN)
+  CHECKBOX opt_ck_shownr            _ilft4_4  @         @         .,	///
+  	label(resource LBL_TOLERANCE) option(showtolerance)
+  GROUPBOX opt_gb_tol		_lft	_xls	_iwd		_ht8,	///
+	label(resource LBL_CONVERGENCE_TOLERANCE)
+  EDIT     opt_ed_tol		_ilft	_ss	_en7wd		.,	///
+	label(resource LBL_COEFFICIENT_VECTOR) option(tolerance) default(1e-6)
+  TEXT     opt_tx_tol		_en7sep	@	_en7r2b		.,	///
+	label(resource LBL_COEFFICIENT_VECTOR)
+  EDIT     opt_ed_nrtol		230	@	_en7wd		.,	///
+	label(resource LBL_HSG) option(nrtolerance) default(1e-5)
+  TEXT     opt_tx_nrtol		_en7sep	@	185		.,	///
+	label(resource LBL_HSG)
+  EDIT     opt_ed_ltol		_ilft	_ls	_en7wd		.,	///
+	label(resource LBL_LOG_LIKELIHOOD) option(ltolerance) default(1e-7)
+  TEXT     opt_tx_ltol		_en7sep	@	_cwd3		.,	///
+	label(resource SP_LBL_VALUE_OF_OBJECTIVE_FUNCTION)
+
+  CHECKBOX opt_ck_nonrtol	_ilft	_ls	_ibwd		.,	///
+	onclickon(script opt_nonrtol) onclickoff(script opt_nrtol)	///
+	option(nonrtolerance)						///
+	label(resource LBL_DISABLE_HSG)
+END
+
+SCRIPT mopt_hlp
+BEGIN
+        view help mf_moptimize
+END
+
+PROGRAM opt_logging_check
+BEGIN
+	if (!H(opt.opt_rb_log) & opt.opt_rb_log) {
+		call opt.opt_ck_trace.enable
+		call opt.opt_ck_grad.enable
+		call opt.opt_ck_hess.enable
+		call opt.opt_ck_show.enable
+		call opt.opt_ck_shownr.enable
+		call opt.opt_gb_log.enable
+		call program opt_check_shownr
+	}
+	if (!H(opt.opt_rb_log) & opt.opt_rb_nolog) {
+		call opt.opt_ck_trace.disable
+		call opt.opt_ck_grad.disable
+		call opt.opt_ck_hess.disable
+		call opt.opt_ck_show.disable
+		call opt.opt_ck_shownr.disable
+		call opt.opt_gb_log.disable
+	}
+END
+
+SCRIPT opt_nonrtol
+BEGIN
+	opt.opt_ed_nrtol.disable
+	opt.opt_tx_nrtol.disable
+//	opt.opt_ck_shownr.disable
+END
+
+SCRIPT opt_nrtol
+BEGIN
+	opt.opt_ed_nrtol.enable
+	opt.opt_tx_nrtol.enable
+	program opt_check_shownr
+END
+
+PROGRAM opt_check_shownr
+BEGIN
+	if ((!H(opt.opt_ck_nonrtol) & !opt.opt_ck_nonrtol) ///
+		& (!H(opt.opt_rb_log) & opt.opt_rb_log)) {
+		call gaction opt.opt_ck_shownr.enable
+	}
+END
+
+PROGRAM opt_disable
+BEGIN
+	call opt.opt_bu_hlp.disable
+	call opt.opt_sp_iter.disable
+	call opt.opt_tx_iter.disable
+	call opt.opt_gb_ilog.disable
+	call opt.opt_rb_log.disable
+	call opt.opt_rb_nolog.disable
+	call opt.opt_gb_log.disable
+	call opt.opt_ck_trace.disable
+	call opt.opt_ck_grad.disable
+	call opt.opt_ck_show.disable
+	call opt.opt_ck_hess.disable
+	call opt.opt_ck_shownr.disable
+	call opt.opt_gb_tol.disable
+	call opt.opt_ed_tol.disable
+	call opt.opt_tx_tol.disable
+	call opt.opt_ed_nrtol.disable
+	call opt.opt_tx_nrtol.disable
+	call opt.opt_ed_ltol.disable
+	call opt.opt_tx_ltol.disable
+	call opt.opt_ck_nonrtol.disable
+END
+
+PROGRAM opt_enable
+BEGIN
+	call opt.opt_bu_hlp.enable
+	call opt.opt_sp_iter.enable
+	call opt.opt_tx_iter.enable
+	call opt.opt_gb_ilog.enable
+	call opt.opt_rb_log.enable
+	call opt.opt_rb_nolog.enable
+	call program opt_logging_check
+	call opt.opt_gb_log.enable
+	call opt.opt_ck_trace.enable
+	call opt.opt_ck_grad.enable
+	call opt.opt_ck_show.enable
+	call opt.opt_ck_hess.enable
+	call opt.opt_ck_shownr.enable
+	call opt.opt_gb_tol.enable
+	call opt.opt_ed_tol.enable
+	call opt.opt_tx_tol.enable
+	call opt.opt_ed_nrtol.enable
+	call opt.opt_tx_nrtol.enable
+	call opt.opt_ed_ltol.enable
+	call opt.opt_tx_ltol.enable
+	call opt.opt_ck_nonrtol.enable
+	if !opt.opt_ck_nonrtol {
+		call opt.opt_ed_nrtol.enable
+		call opt.opt_tx_nrtol.enable
+		call program opt_check_shownr
+	}
+END
+
+PROGRAM opt_output
+BEGIN
+	optionarg /hidedefault opt.opt_sp_iter
+	option opt.opt_rb_nolog
+	option opt.opt_ck_trace
+	option opt.opt_ck_grad
+	option opt.opt_ck_show
+	option opt.opt_ck_hess
+	option opt.opt_ck_shownr
+	optionarg /hidedefault opt.opt_ed_tol
+	optionarg /hidedefault opt.opt_ed_ltol
+	optionarg /hidedefault opt.opt_ed_nrtol
+	option opt.opt_ck_nonrtol
+END

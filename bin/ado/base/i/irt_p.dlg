@@ -1,0 +1,337 @@
+/*
+	predict (after irt)
+
+*!  VERSION 1.0.4  02may2017
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_xlarge
+DEFINE _dlght 350
+INCLUDE header
+
+HELP hlp1, view("help irt postestimation")
+RESET res1
+
+
+SCRIPT PREINIT
+BEGIN
+	create STRING CmdName
+	CmdName.setvalue e(model1)
+	setscale_hadj resource IRT_P_DLG_HSCALE
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	call script _p_gentype_setMedium
+	
+	if main.rb_pr | main.rb_xb | main.rb_scores {
+		call main.tx_var.setlabel resource LBL_NEW_VARIABLE_NAMES_STUB
+		call main.ed_var.setlabel resource LBL_NEW_VARIABLE_NAMES_STUB
+	}
+	
+	call program main_options_check
+END
+
+DIALOG main, label(resource PREDICT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  INCLUDE  _p_gentype
+
+  GROUPBOX gb_prod		_lft	_ls	_iwd	_ht4,		///
+	label(resource LBL_PRODUCE)
+  RADIO	rb_pr			_indent	_ss	230	., first	///
+	option(pr)							///
+	onclickon(script main_re_off)					///
+	label(resource LBL_PREDICTED_PROBABILITIES)
+  RADIO rb_xb			@	_ss	@	.,		///
+	option(xb)							///
+	onclickon(script main_re_off)					///
+	label(resource LBL_LINEAR_PREDICTION)
+  RADIO rb_latent		_ilft2	80	210	.,		///
+	option(latent)							///
+	onclickon(script main_re_on)					///
+	label(resource LBL_LATENT_VARIABLES)
+  RADIO rb_scores		@	_ss	@	., last		///
+	option(scores)							///
+	onclickon(script main_re_on)					///
+	label(resource LBL_PARAMETER_LEVEL_SCORES)
+
+  GROUPBOX gb_opts		_lft	145	_iwd	_ht15,		///
+	label(resource LBL_OPTIONS)
+  COMBOBOX cb_outcome		_ilft	_ss	_vnwd	.,		///
+	dropdown							///
+	contents(e(item_list))						///
+	option(outcome)							///
+	label(resource IRT_P_MAIN_TX_OUTCOME)
+  DEFINE holdy @y
+  TEXT  tx_outcome		_vnsep @	150	.,		///
+	label(resource IRT_P_MAIN_TX_OUTCOME)
+  EDIT ed_outcome		+160	@	_spwd	.,		///
+	numonly								///
+	option(outcome)							///
+	label(resource IRT_P_MAIN_TX_OUTCOMEV)
+  TEXT  tx_outcomev		_spsep @	160	.,		///
+	label(resource IRT_P_MAIN_TX_OUTCOMEV)
+	
+  GROUPBOX gb_item		_ilft	+35	_ibwd	_ht7h,		///
+	label(resource IRT_P_MAIN_GB_ITEM)
+  RADIO rb_mean			_iilft	_ss	_inwd	., first	///
+	option(means)							///
+	label(resource ME_POST_OPTIONS_RB_MEAN)
+  RADIO rb_mode			@	_ss	@	., 		///
+	option(modes)							///
+	label(resource ME_POST_OPTIONS_RB_MODE)
+  RADIO rb_marginal		@	_ss	@	., 		///
+	option(marginal)						///
+	label(resource IRT_P_MAIN_RB_MARGINAL)
+  RADIO rb_fixed		@	_ss	@	., last		///
+	option(fixedonly)						///
+	label(resource ME_POST_OPTIONS_RB_FIXED)
+	
+  GROUPBOX gb_latent		_ilft	holdy	_ibwd	_ht4,		///
+	label(resource IRT_P_MAIN_GB_LATENT)
+  RADIO rb_ebmeans		_iilft	_ss	250	., first	///
+	option(ebmeans)							///
+	label(resource IRT_P_MAIN_RB_EBMEANS)
+  RADIO rb_ebmodes		@	_ss	@	., last		///
+	option(ebmodes)							///
+	label(resource IRT_P_MAIN_RB_EBMODES)
+  CHECKBOX ck_se		_ilft	+45	_iibwd	.,		///
+	onclickon(main.ed_re.enable)					///
+	onclickoff(main.ed_re.disable)					///
+	label(resource IRT_P_MAIN_CK_SE)
+  EDIT ed_re			45	_ss	200	.,		///
+	option(se)							///
+	label(resource IRT_P_MAIN_CK_SE)
+END
+
+PROGRAM main_item_show
+BEGIN
+	call main.cb_outcome.show
+	call main.tx_outcome.show 
+	call main.gb_item.show 
+	call main.rb_mean.show 
+	call main.rb_mode.show 
+	call main.rb_marginal.show
+	call main.rb_fixed.show
+	if CmdName.equals("1pl") | CmdName.equals("2pl") | 	///
+		CmdName.equals("3pl") | CmdName.equals("") {
+		call main.ed_outcome.hide 
+		call main.tx_outcomev.hide
+	}
+	else {
+		call main.ed_outcome.show 
+		call main.tx_outcomev.show
+	}	
+END
+
+SCRIPT main_item_hide
+BEGIN
+	main.cb_outcome.hide
+	main.tx_outcome.hide 
+	main.gb_item.hide 
+	main.rb_mean.hide 
+	main.rb_mode.hide 
+	main.rb_marginal.hide
+	main.rb_fixed.hide
+	main.ed_outcome.hide 
+	main.tx_outcomev.hide
+END
+
+PROGRAM main_item_enable
+BEGIN
+	call main.cb_outcome.enable
+	call main.tx_outcome.enable 
+	if main.rb_pr {
+		call main.gb_item.enable 
+		call main.rb_mean.enable 
+		call main.rb_mode.enable 
+		call main.rb_marginal.enable
+		call main.rb_fixed.enable
+	}
+	if main.rb_xb {
+		call main.gb_item.disable 
+		call main.rb_mean.disable 
+		call main.rb_mode.disable 
+		call main.rb_marginal.disable
+		call main.rb_fixed.disable
+	}
+	call program main_outcome_change
+END
+
+SCRIPT main_item_disable
+BEGIN
+	main.cb_outcome.disable
+	main.tx_outcome.disable 
+	main.gb_item.disable 
+	main.rb_mean.disable 
+	main.rb_mode.disable 
+	main.rb_marginal.disable
+	main.rb_fixed.disable
+	main.ed_outcome.disable 
+	main.tx_outcomev.disable
+END
+
+SCRIPT main_latent_show 
+BEGIN
+	main.gb_latent.show 
+	main.rb_ebmeans.show 
+	main.rb_ebmodes.show
+	main.ck_se.show
+	main.ed_re.show
+END
+
+SCRIPT main_latent_hide
+BEGIN
+	main.gb_latent.hide
+	main.rb_ebmeans.hide 
+	main.rb_ebmodes.hide
+	main.ck_se.hide
+	main.ed_re.hide
+END
+
+PROGRAM main_latent_enable 
+BEGIN
+	call main.gb_latent.enable 
+	call main.rb_ebmeans.enable
+	call main.rb_ebmodes.enable
+	call main.ck_se.enable
+	if main.ck_se {
+		call main.ed_re.enable
+	}
+	else {
+		call main.ed_re.disable
+	}	
+END
+
+SCRIPT main_latent_disable
+BEGIN
+	main.gb_latent.disable
+	main.rb_ebmeans.disable 
+	main.rb_ebmodes.disable
+	main.ck_se.disable
+	main.ed_re.disable
+END
+
+PROGRAM main_outcome_change
+BEGIN
+	if main.cb_outcome.isvisible() & main.cb_outcome.isenabled() {
+		call main.ed_outcome.enable
+		call main.tx_outcomev.enable
+	}
+	else {
+		call main.ed_outcome.disable
+		call main.tx_outcomev.disable
+	}
+END
+
+SCRIPT main_re_on
+BEGIN
+	script _p_gentype_multiple
+	program main_opt_off
+END
+
+SCRIPT main_re_off
+BEGIN
+	script _p_gentype_multiple
+	program main_opt_on
+END
+
+INCLUDE _p_gentype_sc
+INCLUDE _type_list_fd
+INCLUDE me_post_options_pr
+
+PROGRAM main_opt_on
+BEGIN
+	call main.tx_var.setlabel resource LBL_NEW_VARIABLE_NAMES_STUB
+	call main.ed_var.setlabel resource LBL_NEW_VARIABLE_NAMES_STUB
+	call program main_options_check
+END
+
+PROGRAM main_opt_off
+BEGIN
+	call program main_options_check
+END
+
+PROGRAM main_options_check
+BEGIN
+	if main.rb_pr | main.rb_xb {
+		call main.gb_opts.setposition . . . 180
+		call program main_item_show 
+		call script main_latent_hide
+		call program main_item_enable
+		call script me_post_integration_enable
+	}
+	
+	if main.rb_latent {
+		call main.gb_opts.setposition . . . 160
+		call script main_item_hide 
+		call script main_latent_show
+		call program main_latent_enable
+		call script me_post_integration_enable
+	}
+
+	if main.rb_scores {
+		call script main_item_disable
+		call script main_latent_disable
+		call script me_post_integration_disable
+	}
+END
+
+INCLUDE ifin
+INCLUDE me_post_integration
+
+PROGRAM main_outcome_cc_output
+BEGIN
+	put main.cb_outcome
+	put " " main.ed_outcome
+END
+
+PROGRAM main_outcome_output
+BEGIN
+	if (main.ed_outcome & !main.cb_outcome & main.ed_outcome.isvisible()) {
+		require main.cb_outcome
+	}
+	if main.cb_outcome.isvisible() & main.cb_outcome.isenabled() &	///
+		main.cb_outcome {
+		if CmdName.equals("1pl") | CmdName.equals("2pl") | 	///
+			CmdName.equals("3pl") {
+			optionarg main.cb_outcome
+		}
+		else {
+			put "outcome("
+			put /program main_outcome_cc_output
+			put ")"
+		}
+	}
+END
+
+PROGRAM command
+BEGIN
+	put "predict "
+	put " " /program _p_gentype_output
+	INCLUDE _ifin_pr
+	beginoptions
+		option radio(main rb_pr rb_xb rb_latent rb_scores)
+		
+		put " " /program main_outcome_output		
+		
+		if main.rb_mode & main.rb_mode.isenabled() & 	///
+			main.rb_mode.isvisible() {
+			put " conditional(ebmodes) "
+		}
+		if main.rb_marginal & main.rb_marginal.isenabled() & ///
+			main.rb_marginal.isvisible() {
+			put " marginal "
+		}
+		if main.rb_fixed & main.rb_fixed.isenabled() & 	///
+			main.rb_fixed.isvisible() {
+			put " conditional(fixedonly) "
+		}
+		
+		option main.rb_ebmodes
+		optionarg main.ed_re
+		put " " /program me_post_integration_output
+	endoptions
+END

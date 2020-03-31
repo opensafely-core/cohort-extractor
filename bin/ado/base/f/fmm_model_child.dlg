@@ -1,0 +1,530 @@
+/*
+  fmm_model_child.dlg
+
+*!  VERSION 1.0.1  22mar2017
+
+  keyword:  eclass
+
+*/
+
+VERSION 15.0
+
+INCLUDE _std_xlarge
+DEFINE _dlght 320
+INCLUDE header
+
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource FMM_MODEL_CHILD_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script hybrid_model_con
+END
+
+DIALOG main, label("")
+BEGIN
+  DEFINE ystart 10
+  INCLUDE fmm_models
+
+  TEXT tx_modellcp		_lft3_2	_top	_comb3_1	.,	///
+  	label(resource LBL_INDEP_VAR_CLASS_PROB)
+  VARLIST vl_modellcp		@	_ss	@		.,	///
+	fv								///
+	allowcat							///
+	numeric								///
+	option(lcprob)							///
+	label(resource LBL_INDEP_VAR_CLASS_PROB)
+END
+
+INCLUDE fmm_models_pr
+
+PROGRAM hbrd_model_lcprob
+BEGIN
+	optionarg main.vl_modellcp
+END
+
+PROGRAM model_betareg_output
+BEGIN
+	varlist main.vn_dv [main.vl_iv]
+	if !main.vl_iv & main.ck_nocons {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format 					///
+			"resource LBL_MSGBOX_SELECTED_NO_INDVARS_FMT"  	///
+			"resource LBL_TAB_MODEL" 			///
+			"resource LBL_NOCONSTANT"
+		stopbox stop class _MSG_TMP.value
+// On the "Model" tab, "Suppress constant term" is selected without independent variables.
+	}
+	beginoptions
+		put /program hbrd_model_lcprob
+		option main.ck_nocons
+		optionarg /hidedefault main.cb_link
+	endoptions
+END
+
+PROGRAM model_cloglog_output
+BEGIN
+	varlist main.vn_dv [main.vl_iv]
+	if !main.vl_iv & main.ck_nocons {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format 					///
+			"resource LBL_MSGBOX_SELECTED_NO_INDVARS_FMT"  	///
+			"resource LBL_TAB_MODEL" 			///
+			"resource LBL_NOCONSTANT"
+		stopbox stop class _MSG_TMP.value
+// On the "Model" tab, "Suppress constant term" is selected without independent variables.
+	}
+	beginoptions
+		put /program hbrd_model_lcprob
+		option main.ck_nocons
+		optionarg main.vn_offset
+		option main.ck_asis
+	endoptions
+END
+
+PROGRAM model_glm_output
+BEGIN
+	varlist main.vn_dv [main.vl_iv]
+	if !main.vl_iv & main.ck_nocons {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format 					///
+			"resource LBL_MSGBOX_SELECTED_NO_INDVARS_FMT"	///
+			"resource LBL_TAB_MODEL" 			///
+			"resource LBL_NOCONSTANT"
+		stopbox stop class _MSG_TMP.value
+// On the "Model" tab, "Suppress constant term" is selected without independent variables.
+	}
+	beginoptions
+		put /program hbrd_model_lcprob
+		option main.ck_nocons
+		if main.sp_bitrial.isvisible()				/// 
+		 & main.sp_bitrial.isenabled() & main.sp_bitrial.isneq(1) {
+			put "family(binomial "
+			put main.sp_bitrial ")"
+			if main.cb_familink.contains("link(logit)") {
+				put " link(logit)"
+			}
+			if main.cb_familink.contains("link(probit)") {
+				put " link(probit)"
+			}
+			if main.cb_familink.contains("link(cloglog)") {
+				put " link(cloglog)"
+			}
+		}
+		else {
+			if main.vn_bivar.isvisible() 			///
+			 & main.vn_bivar.isenabled() & main.vn_bivar.isneq("") {
+				put "family(binomial "
+				put main.vn_bivar ")"
+				if main.cb_familink.contains("link(logit)") {
+					put " link(logit)"
+				}
+				if main.cb_familink.contains("link(probit)") {
+					put " link(probit)"
+				}
+				if main.cb_familink.contains("link(cloglog)") {
+					put " link(cloglog)"
+				}			
+			}
+			else {
+				put main.cb_familink
+			}
+		}
+		optionarg main.vn_glmexpose
+		optionarg main.vn_glmoffset
+		option main.ck_glmasis
+	endoptions
+END
+
+PROGRAM model_intreg_output
+BEGIN
+	varlist main.vn_dv1
+	varlist main.vn_dv2 [main.vl_intregiv]
+	if !main.vl_intregiv & main.ck_intregnocons {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format 					///
+			"resource LBL_MSGBOX_SELECTED_NO_INDVARS_FMT"  	///
+			"resource LBL_TAB_MODEL" 			///
+			"resource LBL_NOCONSTANT"
+		stopbox stop class _MSG_TMP.value
+// On the "Model" tab, "Suppress constant term" is selected without independent variables.
+	}
+	beginoptions
+		put /program hbrd_model_lcprob
+		option main.ck_intregnocons
+		optionarg main.vn_intregoffset
+	endoptions	
+END
+
+PROGRAM model_ivregress_output
+BEGIN
+	varlist main.vn_dv [main.vl_iv]
+	put "("
+	put /program ivreg_sub
+	put ")"
+	if !main.vl_iv & main.ck_nocons {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format 					///
+			"resource LBL_MSGBOX_SELECTED_NO_INDVARS_FMT"	///
+			"resource LBL_TAB_MODEL" 			///
+			"resource LBL_NOCONSTANT"
+		stopbox stop class _MSG_TMP.value
+// On the "Model" tab, "Suppress constant term" is selected without independent variables.
+	}
+	beginoptions
+		put /program hbrd_model_lcprob
+		option main.ck_nocons
+	endoptions
+END
+
+PROGRAM model_logit_output
+BEGIN
+	varlist main.vn_dv [main.vl_iv]
+	if !main.vl_iv & main.ck_nocons {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format 					///
+			"resource LBL_MSGBOX_SELECTED_NO_INDVARS_FMT"	///
+			"resource LBL_TAB_MODEL" 			///
+			"resource LBL_NOCONSTANT"
+		stopbox stop class _MSG_TMP.value
+// On the "Model" tab, "Suppress constant term" is selected without independent variables.
+	}
+	beginoptions
+		put /program hbrd_model_lcprob
+		option main.ck_nocons
+		optionarg main.vn_offset
+		option main.ck_asis
+	endoptions
+END
+
+PROGRAM model_mlogit_output
+BEGIN
+	varlist main.vn_dv [main.vl_iv]
+	if !main.vl_iv & main.ck_nocons {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format 					///
+			"resource LBL_MSGBOX_SELECTED_NO_INDVARS_FMT"	///
+			"resource LBL_TAB_MODEL" 			///
+			"resource LBL_NOCONSTANT"
+		stopbox stop class _MSG_TMP.value
+// On the "Model" tab, "Suppress constant term" is selected without independent variables.
+	}
+	beginoptions
+		put /program hbrd_model_lcprob
+		option main.ck_nocons
+		if main.ck_base {
+			optionarg main.en_base
+		}
+	endoptions
+END
+
+PROGRAM model_nbreg_output
+BEGIN
+	varlist main.vn_dv [main.vl_iv]
+	if !main.vl_iv & main.ck_nocons {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format 					///
+			"resource LBL_MSGBOX_SELECTED_NO_INDVARS_FMT"  	///
+			"resource LBL_TAB_MODEL" 			///
+			"resource LBL_NOCONSTANT"
+		stopbox stop class _MSG_TMP.value
+// On the "Model" tab, "Suppress constant term" is selected without independent variables.
+	}
+	beginoptions
+		put /program hbrd_model_lcprob
+		option main.ck_nocons
+		option main.rb_discons
+		optionarg main.vn_nbexpose
+		optionarg main.vn_nboffset
+	endoptions
+END
+
+PROGRAM model_ologit_output
+BEGIN
+	varlist main.vn_dv [main.vl_iv]
+	beginoptions
+		put /program hbrd_model_lcprob
+		optionarg main.vn_offset
+	endoptions
+END
+PROGRAM model_oprobit_output
+BEGIN
+	varlist main.vn_dv [main.vl_iv]
+	beginoptions
+		put /program hbrd_model_lcprob
+		optionarg main.vn_offset
+	endoptions
+END
+
+PROGRAM model_pointmass_output
+BEGIN
+	varlist main.vn_dv
+	beginoptions
+		optionarg /hidedefault main.ed_ptmsvalue
+		put /program hbrd_model_lcprob
+	endoptions
+END
+
+PROGRAM model_poisson_output
+BEGIN
+	varlist main.vn_dv [main.vl_iv]
+	if !main.vl_iv & main.ck_nocons {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format 					///
+			"resource LBL_MSGBOX_SELECTED_NO_INDVARS_FMT"	///
+			"resource LBL_TAB_MODEL" 			///
+			"resource LBL_NOCONSTANT"
+		stopbox stop class _MSG_TMP.value
+// On the "Model" tab, "Suppress constant term" is selected without independent variables.
+	}
+	beginoptions
+		put /program hbrd_model_lcprob
+		option main.ck_nocons
+		optionarg main.vn_expose
+		optionarg main.vn_poffset
+	endoptions
+END
+
+PROGRAM model_probit_output
+BEGIN
+	varlist main.vn_dv [main.vl_iv]
+	if !main.vl_iv & main.ck_nocons {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format 					///
+			"resource LBL_MSGBOX_SELECTED_NO_INDVARS_FMT"  	///
+			"resource LBL_TAB_MODEL" 			///
+			"resource LBL_NOCONSTANT"
+		stopbox stop class _MSG_TMP.value
+// On the "Model" tab, "Suppress constant term" is selected without independent variables.
+	}
+	beginoptions
+		put /program hbrd_model_lcprob
+		option main.ck_nocons
+		optionarg main.vn_offset
+		option main.ck_asis
+	endoptions
+END
+
+PROGRAM model_regress_output
+BEGIN
+	varlist main.vn_dv [main.vl_iv]
+	if !main.vl_iv & main.ck_nocons {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format 					///
+			"resource LBL_MSGBOX_SELECTED_NO_INDVARS_FMT"  	///
+			"resource LBL_TAB_MODEL" 			///
+			"resource LBL_NOCONSTANT"
+		stopbox stop class _MSG_TMP.value
+// On the "Model" tab, "Suppress constant term" is selected without independent variables.
+	}
+	beginoptions
+		put /program hbrd_model_lcprob
+		option main.ck_nocons
+	endoptions
+END
+
+PROGRAM model_streg_output
+BEGIN
+	varlist [main.vl_stiv]
+	if !main.vl_stiv & main.ck_stnocons {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format 					///
+			"resource LBL_MSGBOX_SELECTED_NO_INDVARS_FMT"	///
+			"resource LBL_TAB_MODEL" 			///
+			"resource LBL_NOCONSTANT"
+		stopbox stop class _MSG_TMP.value
+// On the "Model" tab, "Suppress constant term" is selected without independent variables.
+	}
+	beginoptions
+		put /program hbrd_model_lcprob
+		option main.ck_stnocons
+		option radio (main rb_exp rb_weib rb_exp_time		///
+			rb_weib_time rb_logn rb_logl rb_gamma)
+		optionarg main.vn_stregoffset
+	endoptions
+END
+
+PROGRAM model_tobit_output
+BEGIN
+	varlist main.vn_dv [main.vl_iv]
+	if !main.vl_iv & main.ck_nocons {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format 					///
+			"resource LBL_MSGBOX_SELECTED_NO_INDVARS_FMT"  	///
+			"resource LBL_TAB_MODEL" 			///
+			"resource LBL_NOCONSTANT"
+		stopbox stop class _MSG_TMP.value
+// On the "Model" tab, "Suppress constant term" is selected without independent variables.
+	}
+	beginoptions
+		put /program hbrd_model_lcprob
+		option main.ck_nocons
+		if ! (main.vn_ll | main.vn_ul) {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format				/// 
+"resource LBL_MSGBOX_AT_LEAST_ONE_CENSORING_LIMIT_SPEC_FMT"		///
+"resource LBL_TAB_MODEL"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Model" tab, at least one censoring limit must be specified.
+		}
+		optionarg main.vn_ll
+		optionarg main.vn_ul
+		optionarg main.vn_toffset
+	endoptions
+END
+
+PROGRAM model_tpoisson_output
+BEGIN
+	varlist main.vn_dv [main.vl_iv]
+	if !main.vl_iv & main.ck_nocons {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format 					///
+			"resource LBL_MSGBOX_SELECTED_NO_INDVARS_FMT"  	///
+			"resource LBL_TAB_MODEL" 			///
+			"resource LBL_NOCONSTANT"
+		stopbox stop class _MSG_TMP.value
+// On the "Model" tab, "Suppress constant term" is selected without independent variables.
+	}
+	beginoptions
+		put /program hbrd_model_lcprob
+		option main.ck_nocons
+		if main.rb_lltrunc_num & !main.ed_lltrunc {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format				/// 
+"resource LBL_MSGBOX_TAB_GROUPBOX_CONTROL_NOT_FILLED_IN_FMT"		///
+"resource LBL_TAB_MODEL"						///
+"resource LBL_LOWER_LIMIT_FOR_TRUNCATION" 					///
+"resource LBL_LOWER_LIMIT"
+		stopbox stop "class _MSG_TMP.value"
+// On the "Model" tab,
+// "Lower limit for truncation" to be "Lower limit" is not filled in.
+		}
+		optionarg /hidedefault main.ed_lltrunc
+		if main.rb_lltrunc_var & !main.vn_lltrunc {
+			call _MSG_TMP.format				/// 
+"resource LBL_MSGBOX_TAB_GROUPBOX_CONTROL_NOT_FILLED_IN_FMT"		///
+"resource LBL_TAB_MODEL"						///
+"resource LBL_LOWER_LIMIT_FOR_TRUNCATION" 					///
+"resource LBL_SPECIFIED_IN_A_VARIABLE"
+
+		stopbox stop "class _MSG_TMP.value"
+// On the "Model" tab,
+// "Lower limit for truncation" to be "Specified in a variable" is not filled in.
+		}
+		optionarg main.vn_lltrunc
+		optionarg main.vn_trexpos
+		optionarg main.vn_troffset
+	endoptions
+END
+
+PROGRAM model_truncreg_output
+BEGIN
+	varlist main.vn_dv [main.vl_iv]
+	if !main.vl_iv & main.ck_nocons {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format 					///
+			"resource LBL_MSGBOX_SELECTED_NO_INDVARS_FMT"  	///
+			"resource LBL_TAB_MODEL" 			///
+			"resource LBL_NOCONSTANT"
+		stopbox stop class _MSG_TMP.value
+// On the "Model" tab, "Suppress constant term" is selected without independent variables.
+	}
+	beginoptions
+		put /program hbrd_model_lcprob
+		option main.ck_nocons
+		if ! (main.vn_ll | main.vn_ul) {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format				/// 
+"resource LBL_MSGBOX_AT_LEAST_ONE_CENSORING_LIMIT_SPEC_FMT"		///
+"resource LBL_TAB_MODEL"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Model" tab, at least one censoring limit must be specified.
+		}
+		optionarg main.vn_ll
+		optionarg main.vn_ul
+		optionarg main.vn_toffset
+	endoptions
+END
+
+PROGRAM fmm_model_output
+BEGIN
+	put main.cb_cmd_ptms
+	
+	if main.cb_cmd_ptms.iseq("betareg") {
+		put " " /program model_betareg_output
+	}
+	if main.cb_cmd_ptms.iseq("cloglog") {
+		put " " /program model_cloglog_output
+	}
+	if main.cb_cmd_ptms.iseq("glm") {
+		put " " /program model_glm_output
+	}
+	if main.cb_cmd_ptms.iseq("intreg") {
+		put " " /program model_intreg_output
+	}
+	if main.cb_cmd_ptms.iseq("ivregress") {
+		put " " /program model_ivregress_output
+	}
+	if main.cb_cmd_ptms.iseq("logit") {
+		put " " /program model_logit_output
+	}
+	if main.cb_cmd_ptms.iseq("mlogit") {
+		put " " /program model_mlogit_output
+	}
+	if main.cb_cmd_ptms.iseq("nbreg") {
+		put " " /program model_nbreg_output
+	}
+	if main.cb_cmd_ptms.iseq("ologit") {
+		put " " /program model_ologit_output
+	}
+	if main.cb_cmd_ptms.iseq("oprobit") {
+		put " " /program model_oprobit_output
+	}
+	if main.cb_cmd_ptms.iseq("pointmass") {
+		put " " /program model_pointmass_output
+	}
+	if main.cb_cmd_ptms.iseq("poisson") {
+		put " " /program model_poisson_output
+	}
+	if main.cb_cmd_ptms.iseq("probit") {
+		put " " /program model_probit_output
+	}
+	if main.cb_cmd_ptms.iseq("regress") {
+		put " " /program model_regress_output
+	}
+	if main.cb_cmd_ptms.iseq("streg") {
+		put " " /program model_streg_output
+	}
+	if main.cb_cmd_ptms.iseq("tobit") {
+		put " " /program model_tobit_output
+	}
+	if main.cb_cmd_ptms.iseq("tpoisson") {
+		put " " /program model_tpoisson_output
+	}
+	if main.cb_cmd_ptms.iseq("truncreg") {
+		put " " /program model_tobit_output
+	}
+	
+END
+
+PROGRAM main_check_lcprob
+BEGIN
+	if main.vl_modellcp.iseq("") {
+		call PARENT.callthru "lcprob.setvalue 0"
+	}
+	else {
+		call PARENT.callthru "lcprob.setvalue 1"
+	}
+END
+
+PROGRAM command
+BEGIN
+	put "("
+	put /program fmm_model_output
+	put ")"
+	call program main_check_lcprob
+END

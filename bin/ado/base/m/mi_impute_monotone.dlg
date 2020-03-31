@@ -1,0 +1,879 @@
+/*
+  mi_impute_monotone
+
+*!  VERSION 1.1.4  03jun2015
+
+  keyword:  eclass
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 545
+INCLUDE header
+
+HELP hlp1, view("help mi_impute_monotone")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING STMP
+	create STRING bu_groupOptResults
+	/* lhs list box */
+	create STRING main_lhs_tmp
+	create STRING main_lhs_tmp2
+	create STRING main_lhs_childdlg
+	create STRING main_lhs_dlgname
+	create STRING main_lhs_child_result
+	create STRING main_lhs_cmd_output
+
+	create ARRAY main_lhs_list
+
+	create SVECTOR mainLHSCommandDisplayList
+	create SVECTOR mainLHSCommandList
+	create SVECTOR mainLHSCommandValues
+	create SVECTOR mainLHSStatusList
+	create SVECTOR mainLHSChildDialogList
+	create SVECTOR mainLHSDialogNameList
+
+	create DOUBLE main_lhs_count
+	create DOUBLE main_lhs_position
+	create DOUBLE main_lhs_arraysize
+
+	main.bu_lhs_edit.disable
+	main.bu_lhs_disable.disable
+	main.bu_lhs_enable.disable
+
+	/* uvmodel list box */
+	create STRING main_uvm_tmp
+	create STRING main_uvm_tmp2
+	create STRING main_uvm_childdlg
+	create STRING main_uvm_dlgname
+	create STRING main_uvm_child_result
+	create STRING main_uvm_cmd_output
+
+	create ARRAY main_uvm_list
+
+	create SVECTOR mainUVMCommandDisplayList
+	create SVECTOR mainUVMCommandList
+	create SVECTOR mainUVMCommandValues
+	create SVECTOR mainUVMStatusList
+	create SVECTOR mainUVMChildDialogList
+	create SVECTOR mainUVMDialogNameList
+
+	create DOUBLE main_uvm_count
+	create DOUBLE main_uvm_position
+	create DOUBLE main_uvm_arraysize
+
+	main.bu_uvm_edit.disable
+	main.bu_uvm_disable.disable
+	main.bu_uvm_enable.disable
+	create STRING bu_groupOptResults
+	setscale_hadj resource MI_IMPUTE_MONOTONE_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	mainLHSCommandDisplayList.copyToArray main_lhs_list
+	main.lb_lhsBuild.repopulate
+
+	mainUVMCommandDisplayList.copyToArray main_uvm_list
+	main.lb_uvmBuild.repopulate
+
+	create DOUBLE _mi_M
+	create STRING _mi_M_STR
+	program check_M
+END
+
+PROGRAM check_M
+BEGIN
+	call _mi_M_STR.setvalue char _dta[_mi_M]
+	call _mi_M.setvalue class _mi_M_STR.value
+
+	if _mi_M.islt(1) {
+		call main.ck_add.seton
+	}
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	title(resource MI_IMPUTE_MONOTONE_DLG_TITLE)
+BEGIN
+  GROUPBOX gb_syntax	_lft	_top	_iwd	_ht1h,			///
+	label(resource MI_IMPUTE_MONOTONE_GB_SYNTAX)
+  RADIO rb_default	_ilft	_ss	_cwd1	., first		///
+	label(resource LBL_DEFAULT)					///
+	onclickon(script main_default_on)
+  RADIO rb_cust		_ilft2	@	@	., last			///
+	option(custom)							///
+	onclickon(script main_cust_on)					///
+	label(resource MI_IMPUTE_MONOTONE_MAIN_RB_CUST)
+
+  TEXT tx_uvmeth	_lft	_ls	_cwd6	.,			///
+	label(resource LBL_UNIVARIATE_METHOD)
+  COMBOBOX cb_lhs_uvmeth @	_ss	@	.,			///
+	dropdownlist							///
+	contents(uvmeth_lhs_list)					///
+	values(uvmeth_lhs_values)					///
+	label(resource LBL_UNIVARIATE_METHOD)
+  COMBOBOX cb_uvm_uvmeth @	@	@	.,			///
+	dropdownlist							///
+	contents(uvmeth_uvm_list)					///
+	values(uvmeth_uvm_values)					///
+	label(resource LBL_UNIVARIATE_METHOD)
+  BUTTON bu_lhs_new	+210	@	80	.,			///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program main_lhs_create)					///
+	tooltip(resource LBL_CREATE_SPECIFICATION)
+  BUTTON bu_uvm_new	@	@	80	.,			///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program main_uvm_create)					///
+	tooltip(resource MI_IMPUTE_MONOTONE_MAIN_BU_UVM_NEW)
+
+  TEXT tx_lhsBuild	_lft	_ls	_cwd1	.,			///
+	label(resource LBL_LEFT_HAND_SIDE_SPECIFICATION)
+  DEFINE holdy @y
+  LISTBOX lb_lhsBuild	@	_ss	200	70,			///
+	contents(main_lhs_list) 					///
+	ondblclick(program main_lhs_edit)				///
+	onselchange(program main_lhs_sel_changed)			///
+	nomemory
+  BUTTON bu_lhs_edit	+210	@	80	.,			///
+	label(resource LBL_BU_EDIT)					///
+	onpush(program main_lhs_edit)  					///
+	tooltip(resource LBL_EDIT_SPECIFICATION)
+  BUTTON bu_lhs_disable @	_ms	@	.,			///
+	label(resource LBL_BU_DISABLE)					///
+	onpush(program main_lhs_disable)				///
+	tooltip(resource LBL_CLICK_TO_DISABLE_A_SPECIFICATION)
+  BUTTON bu_lhs_enable	@	_ms	@	.,			///
+	label(resource LBL_BU_ENABLE)					///
+	onpush(program main_lhs_enable)					///
+	tooltip(resource LBL_CLICK_TO_ENABLE_PREV_DISABLED_SPEC)
+  TEXTBOX tb_lhs_note	_lft	+25	_iwd	_tb2,			///
+	label(resource LBL_PRESS_CREATE_DEFINE_SPECIFICATION)
+
+  TEXT tx_uvmBuild	_lft	holdy	_iwd	.,			///
+	label(resource MI_IMPUTE_MONOTONE_MAIN_TX_UVMBUILD)
+  LISTBOX lb_uvmBuild	@	_ss	200	70,			///
+	contents(main_uvm_list) 					///
+	ondblclick(program main_uvm_edit)				///
+	onselchange(program main_uvm_sel_changed)			///
+	nomemory
+  BUTTON bu_uvm_edit	+210	@	80	.,			///
+	label(resource LBL_BU_EDIT)					///
+	onpush(program main_uvm_edit)  					///
+	tooltip(resource MI_IMPUTE_MONOTONE_MAIN_BU_UVM_EDIT)
+  BUTTON bu_uvm_disable @	_ms	@	.,			///
+	label(resource LBL_BU_DISABLE)					///
+	onpush(program main_uvm_disable)				///
+	tooltip(resource MI_IMPUTE_MONOTONE_MAIN_BU_UVM_DISABLE)
+  BUTTON bu_uvm_enable @	_ms	@	.,			///
+	label(resource LBL_BU_ENABLE)					///
+	onpush(program main_uvm_enable)					///
+	tooltip(resource MI_IMPUTE_MONOTONE_MAIN_BU_UVM_ENABLE)
+  TEXTBOX tb_uvm_note	_lft	+25	_iwd	_tb2,			///
+	label(resource MI_IMPUTE_MONOTONE_MAIN_TB_UVM_NOTE)
+
+  TEXT     tx_rhs	@	_ls	160	.,			///
+	label(resource LBL_INDDEPVAR)
+  VARLIST  vl_rhs	@	_ss	_iwd	.,			///
+	fv								///
+	numeric								///
+	label(resource LBL_INDDEPVAR)
+
+  DEFINE _x _lft
+  DEFINE _cx _iwd
+  DEFINE _y _ls
+  INCLUDE _mi_impute_opts
+  
+  CHECKBOX ck_augment	_lft	_ls	_iwd	.,			///
+	option("augment")						///
+	onclickon("script weights_setLayout_fp")			///
+	onclickoff("script weights_setLayout_fpai")			///
+	label(resource LBL_PERFORM_AUGMENTED_REG_IN_PRESENCE_PERFECT_PRED)
+  CHECKBOX ck_bootstrap	_lft	_ms	_iwd	.,			///
+	option(bootstrap)						///
+	label(resource LBL_EST_MODEL_PARAMETERS_USING_SAMPLING_WITH_REP)
+END
+
+INCLUDE _mi_impute_opts_sc
+
+SCRIPT main_default_on
+BEGIN
+	main.cb_lhs_uvmeth.show
+	main.tx_lhsBuild.show
+	main.lb_lhsBuild.show
+	main.bu_lhs_new.show
+	main.bu_lhs_edit.show
+	main.bu_lhs_disable.show
+	main.bu_lhs_enable.show
+	main.tb_lhs_note.show
+	main.tx_rhs.show
+	main.vl_rhs.show
+
+	main.cb_uvm_uvmeth.hide
+	main.tx_uvmBuild.hide
+	main.lb_uvmBuild.hide
+	main.bu_uvm_new.hide
+	main.bu_uvm_edit.hide
+	main.bu_uvm_disable.hide
+	main.bu_uvm_enable.hide
+	main.tb_uvm_note.hide
+
+	main.gb_imp.setposition . 290
+	main.ck_add.setposition . 315
+	main.sp_add.setposition . 315
+	main.tx_add.setposition  . 315
+	main.ck_replace.setposition . 345
+	main.ed_rseed.setposition . 390
+	main.tx_rseed.setposition . 390
+	main.ck_double.setposition . 420
+	main.tx_group.setposition . 445
+	main.vl_group.setposition . 465
+	main.bu_group.setposition . 465
+	main.ck_augment.setposition . 495
+	main.ck_bootstrap.setposition . 520
+END
+
+SCRIPT main_cust_on
+BEGIN
+	main.cb_lhs_uvmeth.hide
+	main.tx_lhsBuild.hide
+	main.lb_lhsBuild.hide
+	main.bu_lhs_new.hide
+	main.bu_lhs_edit.hide
+	main.bu_lhs_disable.hide
+	main.bu_lhs_enable.hide
+	main.tb_lhs_note.hide
+	main.tx_rhs.hide
+	main.vl_rhs.hide
+
+	main.cb_uvm_uvmeth.show
+	main.tx_uvmBuild.show
+	main.lb_uvmBuild.show
+	main.bu_uvm_new.show
+	main.bu_uvm_edit.show
+	main.bu_uvm_disable.show
+	main.bu_uvm_enable.show
+	main.tb_uvm_note.show
+
+	main.gb_imp.setposition . 235
+	main.ck_add.setposition . 260
+	main.sp_add.setposition . 260
+	main.tx_add.setposition  . 260
+	main.ck_replace.setposition . 290
+	main.ed_rseed.setposition . 335
+	main.tx_rseed.setposition . 335
+	main.ck_double.setposition . 365
+	main.tx_group.setposition . 390
+	main.vl_group.setposition . 410
+	main.bu_group.setposition . 410
+	main.ck_augment.setposition . 440
+	main.ck_bootstrap.setposition . 465
+END
+
+LIST uvmeth_lhs_list
+BEGIN
+	regress
+	pmm
+	truncreg
+	intreg
+	logit
+	ologit
+	mlogit
+	poisson
+	nbreg
+END
+
+LIST uvmeth_lhs_values
+BEGIN
+	regress
+	pmm
+	truncreg
+	intreg
+	logit
+	ologit
+	mlogit
+	poisson
+	nbreg
+END
+
+LIST uvmeth_uvm_list
+BEGIN
+	regress
+	pmm
+	truncreg
+	intreg
+	logit
+	ologit
+	mlogit
+	poisson
+	nbreg
+END
+
+LIST uvmeth_uvm_values
+BEGIN
+	regress
+	pmm
+	truncreg
+	intreg
+	logit
+	ologit
+	mlogit
+	poisson
+	nbreg
+END
+
+PROGRAM main_lhs_create
+BEGIN
+	call main_lhs_count.setvalue class mainLHSChildDialogList.size
+	call main_lhs_count.increment
+	call main_lhs_tmp.setvalue "main_lhs_"
+	call main_lhs_tmp.append class main.cb_lhs_uvmeth.value
+	call main_lhs_tmp.append class main_lhs_count.value
+	call main_lhs_tmp.withvalue main_lhs_childdlg.setvalue @
+	call program main_show_lhs_child
+END
+
+PROGRAM main_lhs_edit
+BEGIN
+	call mainLHSCommandDisplayList.findstr class main.lb_lhsBuild.value
+	call main_lhs_position.setvalue class				///
+		mainLHSCommandDisplayList.position
+	call main_lhs_position.withvalue main_lhs_childdlg.setvalue	///
+		class mainLHSChildDialogList.values[@]
+	call main_lhs_position.withvalue main_lhs_dlgname.setvalue	///
+		class mainLHSDialogNameList.values[@]
+	call program main_show_lhs_child_edit
+END
+
+PROGRAM main_show_lhs_child
+BEGIN
+	call main_lhs_tmp.setvalue "mi_impute_monotone_"
+	call main_lhs_tmp.append class main.cb_lhs_uvmeth.value
+	call main_lhs_tmp.append " AS "
+	call main_lhs_tmp.append class main_lhs_childdlg.value
+	call main_lhs_tmp.withvalue create CHILD @, message("__MONO__")
+	call main_lhs_childdlg.withvalue @.setExitString		///
+		"main_lhs_child_result"
+	call main_lhs_childdlg.withvalue @.setExitAction		///
+		"program main_lhs_child_create_done"
+
+
+
+	call main_lhs_count.withvalue STMP.format			///
+		"resource LBL_SPECIFICATION_FMT" "@" ""
+	call STMP.withvalue main_lhs_tmp.setvalue "@"
+	call main_lhs_childdlg.withvalue main_lhs_tmp2.setvalue "@.settitle"
+	call main_lhs_tmp2.append `" ""'
+	call main_lhs_tmp2.append class main_lhs_tmp.value
+	call main_lhs_tmp2.append " ("
+	call main_lhs_tmp2.append class main.cb_lhs_uvmeth.value
+	call main_lhs_tmp2.append ")"
+	call main_lhs_tmp2.append `"""'
+	call main_lhs_tmp2.withvalue @
+END
+
+PROGRAM main_show_lhs_child_edit
+BEGIN
+	call main_lhs_tmp.setvalue "mi_impute_monotone_"
+	call main_lhs_tmp.append class main_lhs_dlgname.value
+	call main_lhs_tmp.append " AS "
+	call main_lhs_tmp.append class main_lhs_childdlg.value
+	call main_lhs_tmp.withvalue create CHILD @, message("__MONO__")
+	call main_lhs_childdlg.withvalue @.setExitString 		///
+		"main_lhs_child_result"
+	call main_lhs_childdlg.withvalue @.setExitAction		///
+		"program main_lhs_child_edit_done"
+
+	call main_lhs_position.withvalue main_lhs_tmp.setvalue		///
+		class mainLHSCommandDisplayList.values[@]
+	call main_lhs_childdlg.withvalue main_lhs_tmp2.setvalue "@.settitle"
+	call main_lhs_tmp2.append `" ""'
+	call main_lhs_tmp2.append class main_lhs_tmp.value
+	call main_lhs_tmp2.append " ("
+	call main_lhs_tmp2.append class main_lhs_dlgname.value
+	call main_lhs_tmp2.append ")"
+	call main_lhs_tmp2.append `"""'
+	call main_lhs_tmp2.withvalue @
+END
+
+PROGRAM main_lhs_child_create_done
+BEGIN
+	call main_lhs_arraysize.setvalue class mainLHSChildDialogList.size
+	call main_lhs_arraysize.increment
+
+	/* Store child dialog name */
+	call mainLHSChildDialogList.store class				///
+		main_lhs_arraysize.value class main_lhs_childdlg.value
+
+	/* Store listbox display specification string */
+	call main_lhs_arraysize.withvalue STMP.format			///
+		"resource LBL_SPECIFICATION_FMT" "@" ""
+	call STMP.withvalue						///
+		mainLHSCommandDisplayList.store class			///
+		main_lhs_arraysize.value "@"
+
+	/* Store child dialog result string */
+	call mainLHSCommandList.store class main_lhs_arraysize.value 	///
+		class main_lhs_child_result.value
+
+	/* Store child dialog result string for final command
+	   For disable/enable */
+	call mainLHSCommandValues.store class main_lhs_arraysize.value	///
+		class main_lhs_child_result.value
+
+	/* Store disable/enable status */
+	call mainLHSStatusList.store class main_lhs_arraysize.value "active"
+	
+	/* Store dialog name */	
+	call mainLHSDialogNameList.store class main_lhs_arraysize.value	///
+		class main.cb_lhs_uvmeth.value
+
+	call mainLHSCommandDisplayList.copyToArray main_lhs_list
+	call main.lb_lhsBuild.repopulate
+	call STMP.withvalue main.lb_lhsBuild.setvalue "@"
+END
+
+PROGRAM main_lhs_child_edit_done
+BEGIN
+	call mainLHSChildDialogList.findstr class main_lhs_childdlg.value
+	call main_lhs_position.setvalue class mainLHSChildDialogList.position
+	call main_lhs_position.withvalue main_lhs_tmp.setvalue		///
+		class mainLHSStatusList.values[@]
+	if main_lhs_tmp.iseq("active") {
+		call main_lhs_position.withvalue STMP.format		///
+			"resource LBL_SPECIFICATION_FMT" "@" ""
+		call STMP.withvalue					///
+			mainLHSCommandDisplayList.store class		///
+			main_lhs_position.value "@"
+		call mainLHSCommandValues.store class			///
+			main_lhs_position.value class			///
+			main_lhs_child_result.value
+		call STMP.withvalue main_lhs_tmp2.setvalue "@"
+	}
+	else {
+		call main_lhs_position.withvalue STMP.format		///
+			"resource LBL_SPECIFICATION_FMT" "@"		///
+			"resource LBL_PAREN_DISABLED"
+		call STMP.withvalue					///
+			main_lhs_tmp2.setvalue "@"
+
+		call main_lhs_tmp2.withvalue				///
+			mainLHSCommandDisplayList.store			///
+			class main_lhs_position.value "@"
+	}
+
+	call mainLHSCommandList.store class				///
+		main_lhs_position.value class 				///
+		main_lhs_child_result.value
+
+	call mainLHSCommandDisplayList.copyToArray main_lhs_list
+	call main.lb_lhsBuild.repopulate
+	call main.lb_lhsBuild.setvalue class main_lhs_tmp2.value
+END
+
+PROGRAM main_lhs_sel_changed
+BEGIN
+	call mainLHSCommandDisplayList.findstr class main.lb_lhsBuild.value
+	call main_lhs_position.setvalue class 				///
+		mainLHSCommandDisplayList.position
+	call main_lhs_position.withvalue main_lhs_tmp.setvalue		///
+		class mainLHSStatusList.values[@]
+	if main_lhs_position {
+		call main.bu_lhs_edit.enable
+		call main_lhs_position.withvalue			///
+			main.tb_lhs_note.setlabel			///
+			class mainLHSCommandList.values[@]
+	}
+
+	if main_lhs_tmp.iseq("disable") {
+		call main.bu_lhs_enable.enable
+		call main.bu_lhs_disable.disable
+	}
+	if main_lhs_tmp.iseq("active") {
+		call main.bu_lhs_enable.disable
+		call main.bu_lhs_disable.enable
+	}
+END
+
+PROGRAM main_lhs_disable
+BEGIN
+	call mainLHSCommandDisplayList.findstr class main.lb_lhsBuild.value
+	call main_lhs_position.setvalue class				///
+		mainLHSCommandDisplayList.position
+
+	call main_lhs_tmp.setvalue class main.lb_lhsBuild.value
+	call mainLHSStatusList.store class main_lhs_position.value "disable"
+	call mainLHSCommandValues.store class main_lhs_position.value ""
+	call STMP.format "resource LBL_PAREN_DISABLED"
+	call main_lhs_tmp.append " "
+	call main_lhs_tmp.append class STMP.value
+	call main_lhs_tmp.withvalue STMP.setvalue "@"
+
+	call main_lhs_tmp.withvalue mainLHSCommandDisplayList.store	///
+		class main_lhs_position.value "@"
+
+	call mainLHSCommandDisplayList.copyToArray main_lhs_list
+	call main.lb_lhsBuild.repopulate
+	call main.lb_lhsBuild.setvalue class STMP.value
+END
+
+PROGRAM main_lhs_enable
+BEGIN
+	call mainLHSCommandDisplayList.findstr class main.lb_lhsBuild.value
+	call main_lhs_position.setvalue class 				///
+		mainLHSCommandDisplayList.position
+
+	call mainLHSStatusList.store class main_lhs_position.value "active"
+	call main_lhs_position.withvalue mainLHSCommandValues.store	///
+		class main_lhs_position.value class 			///
+		mainLHSCommandList.values[@]
+
+	call main_lhs_position.withvalue STMP.format			///
+		"resource LBL_SPECIFICATION_FMT" "@" ""
+
+	call STMP.withvalue						///
+		mainLHSCommandDisplayList.store				///
+		class main_lhs_position.value "@"
+
+	call mainLHSCommandDisplayList.copyToArray main_lhs_list
+	call main_lhs_position.withvalue main_lhs_tmp2.setvalue class	///
+		mainLHSCommandDisplayList.values[@]
+	call main.lb_lhsBuild.repopulate
+	call main.lb_lhsBuild.setvalue class main_lhs_tmp2.value
+END
+
+PROGRAM main_lb_lhsBuild_output
+BEGIN
+	call mainLHSCommandValues.copyToString main_lhs_cmd_output
+	call main_lhs_arraysize.setvalue class mainLHSStatusList.size
+	if main_lhs_cmd_output.iseq("") & main_lhs_arraysize.iseq(0)	///
+		 & main.lb_lhsBuild.isvisible() {
+		stopbox stop resource LBL_MSGBOX_LEFT_HAND_SIDE_SPEC_NOT_DEFINED
+// Left-hand-side specification not defined.
+// Please enter a left hand side specification before proceeding.
+	}
+	if main_lhs_cmd_output.iseq("") & main_lhs_arraysize.isgt(0)	///
+		& main.lb_lhsBuild.isvisible() {
+stopbox stop resource LBL_MSGBOX_LEFT_HAND_SIDE_SPEC_ARE_DISABLED
+// All left hand side specifications are disabled.
+// Either define a new left hand side specification or enable
+// an existing left hand side specification before proceeding.
+	}
+
+	if main_lhs_cmd_output & main.lb_lhsBuild.isvisible() {
+		put main_lhs_cmd_output
+	}
+END
+
+/* UVModel list box */
+PROGRAM main_uvm_create
+BEGIN
+	call main_uvm_count.setvalue class mainUVMChildDialogList.size
+	call main_uvm_count.increment
+	call main_uvm_tmp.setvalue "main_uvm_"
+	call main_uvm_tmp.append class main.cb_uvm_uvmeth.value
+	call main_uvm_tmp.append class main_uvm_count.value
+	call main_uvm_tmp.withvalue main_uvm_childdlg.setvalue @
+	call program main_show_uvm_child
+END
+
+PROGRAM main_uvm_edit
+BEGIN
+	call mainUVMCommandDisplayList.findstr class main.lb_uvmBuild.value
+	call main_uvm_position.setvalue class 				///
+		mainUVMCommandDisplayList.position
+	call main_uvm_position.withvalue main_uvm_childdlg.setvalue	///
+		class mainUVMChildDialogList.values[@]
+	call main_uvm_position.withvalue main_uvm_dlgname.setvalue	///
+		class mainUVMDialogNameList.values[@]
+
+	call program main_show_uvm_child_edit
+END
+
+PROGRAM main_show_uvm_child
+BEGIN
+	call main_uvm_tmp.setvalue "mi_impute_monotone_"
+	call main_uvm_tmp.append class main.cb_uvm_uvmeth.value
+	call main_uvm_tmp.append " AS "
+	call main_uvm_tmp.append class main_uvm_childdlg.value
+	call main_uvm_tmp.withvalue create CHILD @, message("__MONO_CUST__")
+	call main_uvm_childdlg.withvalue @.setExitString 		///
+		"main_uvm_child_result"
+	call main_uvm_childdlg.withvalue @.setExitAction		///
+		"program main_uvm_child_create_done"
+
+
+	call main_uvm_count.withvalue STMP.format			///
+		"resource LBL_MODEL_FMT" "@" ""
+	call STMP.withvalue main_uvm_tmp.setvalue "@"
+	call main_uvm_childdlg.withvalue main_uvm_tmp2.setvalue "@.settitle"
+	call main_uvm_tmp2.append `" ""'
+	call main_uvm_tmp2.append class main_uvm_tmp.value
+	call main_uvm_tmp2.append " ("
+	call main_uvm_tmp2.append class main.cb_uvm_uvmeth.value
+	call main_uvm_tmp2.append ")"
+	call main_uvm_tmp2.append `"""'
+	call main_uvm_tmp2.withvalue @
+END
+
+PROGRAM main_show_uvm_child_edit
+BEGIN
+	call main_uvm_tmp.setvalue "mi_impute_monotone_"
+	call main_uvm_tmp.append class main_uvm_dlgname.value
+	call main_uvm_tmp.append " AS "
+	call main_uvm_tmp.append class main_uvm_childdlg.value
+	call main_uvm_tmp.withvalue create CHILD @, message("__MONO_CUST__")
+	call main_uvm_childdlg.withvalue @.setExitString 		///
+		"main_uvm_child_result"
+	call main_uvm_childdlg.withvalue @.setExitAction		///
+		"program main_uvm_child_edit_done"
+
+	call main_uvm_position.withvalue main_uvm_tmp.setvalue		///
+		class mainUVMCommandDisplayList.values[@]
+	call main_uvm_childdlg.withvalue main_uvm_tmp2.setvalue "@.settitle"
+	call main_uvm_tmp2.append `" ""'
+	call main_uvm_tmp2.append class main_uvm_tmp.value
+	call main_uvm_tmp2.append " ("
+	call main_uvm_tmp2.append class main_uvm_dlgname.value
+	call main_uvm_tmp2.append ")"
+	call main_uvm_tmp2.append `"""'
+	call main_uvm_tmp2.withvalue @
+END
+
+PROGRAM main_uvm_child_create_done
+BEGIN
+	call main_uvm_arraysize.setvalue class mainUVMChildDialogList.size
+	call main_uvm_arraysize.increment
+
+	/* Store child dialog name */
+	call mainUVMChildDialogList.store class				///
+		main_uvm_arraysize.value class main_uvm_childdlg.value
+
+	/* Store listbox display specification string */
+	call main_uvm_arraysize.withvalue STMP.format			///
+		"resource LBL_MODEL_FMT" "@" ""
+	call STMP.withvalue						///
+		mainUVMCommandDisplayList.store class			///
+		main_uvm_arraysize.value "@"
+
+	/* Store child dialog result string */
+	call mainUVMCommandList.store class main_uvm_arraysize.value 	///
+		class main_uvm_child_result.value
+
+	/* Store child dialog result string for final command
+	   For disable/enable */
+	call mainUVMCommandValues.store class main_uvm_arraysize.value	///
+		class main_uvm_child_result.value
+
+	/* Store disable/enable status */
+	call mainUVMStatusList.store class main_uvm_arraysize.value "active"
+
+	/* Store dialog name */	
+	call mainUVMDialogNameList.store class main_uvm_arraysize.value	///
+		class main.cb_uvm_uvmeth.value
+
+	call mainUVMCommandDisplayList.copyToArray main_uvm_list
+	call main.lb_uvmBuild.repopulate
+	call STMP.withvalue main.lb_uvmBuild.setvalue "@"
+END
+
+PROGRAM main_uvm_child_edit_done
+BEGIN
+	call mainUVMChildDialogList.findstr class main_uvm_childdlg.value
+	call main_uvm_position.setvalue class 				///
+		mainUVMChildDialogList.position
+	call main_uvm_position.withvalue main_uvm_tmp.setvalue		///
+		class mainUVMStatusList.values[@]
+	if main_uvm_tmp.iseq("active") {
+		call main_uvm_position.withvalue STMP.format		///
+			"resource LBL_MODEL_FMT" "@" ""
+		call STMP.withvalue					///
+			mainUVMCommandDisplayList.store class		///
+			main_uvm_position.value "@"
+		call mainUVMCommandValues.store class			///
+			main_uvm_position.value class			///
+			main_uvm_child_result.value
+		call STMP.withvalue main_uvm_tmp2.setvalue "@"
+	}
+	else {
+		call main_uvm_position.withvalue STMP.format		///
+			"resource LBL_MODEL_FMT" "@"			///
+			"resource LBL_PAREN_DISABLED"
+		call STMP.withvalue					///
+			main_uvm_tmp2.setvalue "@"
+
+		call main_uvm_tmp2.withvalue				///
+			mainUVMCommandDisplayList.store			///
+			class main_uvm_position.value "@"
+	}
+
+	call mainUVMCommandList.store class main_uvm_position.value	///
+		class main_uvm_child_result.value
+
+	call mainUVMCommandDisplayList.copyToArray main_uvm_list
+	call main.lb_uvmBuild.repopulate
+	call main.lb_uvmBuild.setvalue class main_uvm_tmp2.value
+END
+
+PROGRAM main_uvm_sel_changed
+BEGIN
+	call mainUVMCommandDisplayList.findstr class main.lb_uvmBuild.value
+	call main_uvm_position.setvalue class 				///
+		mainUVMCommandDisplayList.position
+	call main_uvm_position.withvalue main_uvm_tmp.setvalue		///
+		class mainUVMStatusList.values[@]
+	if main_uvm_position {
+		call main.bu_uvm_edit.enable
+		call main_uvm_position.withvalue			///
+			main.tb_uvm_note.setlabel			///
+			class mainUVMCommandList.values[@]
+	}
+
+	if main_uvm_tmp.iseq("disable") {
+		call main.bu_uvm_enable.enable
+		call main.bu_uvm_disable.disable
+	}
+	if main_uvm_tmp.iseq("active") {
+		call main.bu_uvm_enable.disable
+		call main.bu_uvm_disable.enable
+	}
+END
+
+PROGRAM main_uvm_disable
+BEGIN
+	call mainUVMCommandDisplayList.findstr class main.lb_uvmBuild.value
+	call main_uvm_position.setvalue class				///
+		mainUVMCommandDisplayList.position
+
+	call main_uvm_tmp.setvalue class main.lb_uvmBuild.value
+	call mainUVMStatusList.store class main_uvm_position.value "disable"
+	call mainUVMCommandValues.store class main_uvm_position.value ""
+	call STMP.format "resource LBL_PAREN_DISABLED"
+	call main_uvm_tmp.append " "
+	call main_uvm_tmp.append class STMP.value
+	call main_uvm_tmp.withvalue STMP.setvalue "@"
+
+	call main_uvm_tmp.withvalue mainUVMCommandDisplayList.store	///
+		class main_uvm_position.value "@"
+
+	call mainUVMCommandDisplayList.copyToArray main_uvm_list
+	call main.lb_uvmBuild.repopulate
+	call main.lb_uvmBuild.setvalue class STMP.value
+END
+
+PROGRAM main_uvm_enable
+BEGIN
+	call mainUVMCommandDisplayList.findstr class main.lb_uvmBuild.value
+	call main_uvm_position.setvalue class 				///
+		mainUVMCommandDisplayList.position
+
+	call mainUVMStatusList.store class main_uvm_position.value "active"
+	call main_uvm_position.withvalue mainUVMCommandValues.store	///
+		class main_uvm_position.value class 			///
+		mainUVMCommandList.values[@]
+
+	call main_uvm_position.withvalue STMP.format 			///
+		"resource LBL_MODEL_FMT" "@" ""
+	call STMP.withvalue						///
+		mainUVMCommandDisplayList.store				///
+		class main_uvm_position.value "@"
+
+	call mainUVMCommandDisplayList.copyToArray main_uvm_list
+	call main_uvm_position.withvalue main_uvm_tmp2.setvalue		///
+		class mainUVMCommandDisplayList.values[@]
+	call main.lb_uvmBuild.repopulate
+	call main.lb_uvmBuild.setvalue class main_uvm_tmp2.value
+END
+
+PROGRAM main_lb_uvmBuild_output
+BEGIN
+	call mainUVMCommandValues.copyToString main_uvm_cmd_output
+	call main_uvm_arraysize.setvalue class mainUVMStatusList.size
+	if main_uvm_cmd_output.iseq("") &				///
+		main_uvm_arraysize.iseq(0)				///
+		 & main.lb_uvmBuild.isvisible() {
+		stopbox stop resource MI_IMPUTE_MONOTONE_MSGBOX_UNIVARIATE_MODEL_NOT_DEF
+// Univariate model not defined. 
+// Please enter an univariate model before proceeding.
+	}
+	if main_uvm_cmd_output.iseq("") &				///
+		main_uvm_arraysize.isgt(0)				///
+		& main.lb_uvmBuild.isvisible() {
+		stopbox stop resource MI_IMPUTE_MONOTONE_MSGBOX_UNIVARIATE_MODELS_ARE_DIS
+// All univariate models are disabled.
+// Either define a new univariate model or enable an existing
+// univariate model before proceeding.
+	}
+
+	if main_uvm_cmd_output & main.lb_uvmBuild.isvisible() {
+		put main_uvm_cmd_output
+	}
+END
+
+INCLUDE if
+INCLUDE weights
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _iwd
+  DEFINE _y _top
+  INCLUDE _mi_impute_rpt
+
+  CHECKBOX ck_dryrun	@	_ms	@	.,			///
+	option(dryrun)							///
+	onclickon("rpt.ck_verbose.disable")				///
+	onclickoff("rpt.ck_verbose.enable")				///
+	label(resource LBL_SHOW_COND_SPEC_WITHOUT_IMPUTING_DATA)
+  CHECKBOX ck_verbose	@	_ms	@	.,			///
+	option(verbose)							///
+	onclickon("rpt.ck_dryrun.disable")				///
+	onclickoff("rpt.ck_dryrun.enable")				///
+	label(resource MI_IMPUTE_MONOTONE_RPT_CK_VERBOSE)
+  CHECKBOX ck_report 	@	_ms	@	.,			///
+	option(report)							///
+	label(resource LBL_SHOW_RPT_ABOUT_EACH_CONDITIONAL_SPEC)
+END
+
+DIALOG adv, tabtitle(resource LBL_ADVANCED)
+BEGIN
+  CHECKBOX ck_force	_lft	_top	_iwd	.,			///
+	option(force)							///
+label(resource LBL_PROCEED_WITH_IMPUTATION_WHEN_MISSING_IMPUTED_VAL)
+  CHECKBOX ck_nomono 	@	_ms	@	.,			///
+	option(nomonotonechk)						///
+	label(resource LBL_DO_NOT_CHECK_WH_VAR_FOLLOW_MONOTONE_MISSING_PAT)
+END
+
+PROGRAM command
+BEGIN
+	put "mi impute monotone "
+	if main.rb_default {
+		put " " /program main_lb_lhsBuild_output
+		if main.vl_rhs {
+			put " = "
+			varlist main.vl_rhs
+		}
+	}
+	if main.rb_cust {
+		put " " /program main_lb_uvmBuild_output
+	}
+        put " " /program if_output
+        put " " /program weights_output
+	beginoptions
+		option main.rb_cust
+		INCLUDE _mi_impute_opts_main_pr
+		option main.ck_augment
+		option main.ck_bootstrap
+		INCLUDE _mi_impute_rpt_pr
+		option rpt.ck_dryrun
+		option rpt.ck_verbose
+		option rpt.ck_report
+		option adv.ck_nomono
+		option adv.ck_force
+	endoptions
+END
+

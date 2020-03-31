@@ -1,0 +1,63 @@
+/*
+	export dbase
+
+*!  VERSION 1.0.5  28mar2017
+
+*/
+
+VERSION 15.0
+
+INCLUDE _std_medium
+DEFINE _dlght 180
+INCLUDE header
+HELP hlp1, view("help export dbase")
+RESET res1
+
+
+SCRIPT PREINIT
+BEGIN
+        main.fi_using.formatfilter "{0} (*.dbf)|*.dbf|{1} (*.*)|*.*"	///
+        	"resource ui_ex FILE_TYPE_DBF"				///
+                "resource ui_ex FILE_TYPE_ALL_FILES"
+END
+
+DIALOG main, label(resource EXPORT_DBASE_DLG_TITLE) 			///
+	tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT tx_var			_lft	_top	_iwd	.,		///
+	label(resource LBL_VARIABLES_LEAVE_EMPTY_FOR_ALL_VARIABLES)
+  VARLIST vl_var		@	_ss	@	.,		///
+	label(resource LBL_GB_VARIABLES)
+
+  TEXT tx_using			@	_ls	@	.,		///
+	label(resource LBL_WRITE_TO_THE_FILE)
+  FILE fi_using			@	_ss	@	.,		///
+	error(resource LBL_WRITE_TO_THE_FILE)				///
+	label(resource LBL_SAVE_AS)					///
+	defext(dbf)							///
+	save
+  
+  CHECKBOX ck_datafmt		_lft	_xls	_iwd	.,		///
+	option(datafmt)							///
+	label(resource LBL_USE_VARIABLES_FORMAT_WHEN_EXPORTING)
+END
+
+INCLUDE ifin
+
+PROGRAM command
+BEGIN
+	require main.fi_using
+	repfile main.fi_using
+
+	put "export dbase "
+
+	varlist [main.vl_var]
+	put " using " `"""' main.fi_using `"""' " "
+	put " " /program ifin_output
+
+	beginoptions
+		option main.ck_datafmt
+		put " replace"
+	endoptions
+END
+

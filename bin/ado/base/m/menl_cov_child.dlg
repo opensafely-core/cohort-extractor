@@ -1,0 +1,157 @@
+/*
+  menl_cov_child.dlg
+
+*!  VERSION 1.0.6  15may2017
+
+*/
+
+VERSION 15.0
+INCLUDE _std_medium
+DEFINE _dlght 180
+INCLUDE header
+
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource MENL_COV_CHILD_DLG_HSCALE
+	create DOUBLE lv_count
+	create DOUBLE count
+	create DOUBLE max_k
+	create DOUBLE main_lvl_position
+	create DOUBLE array_size
+	create STRING tmp
+	create STRING max_k_str
+	create STRING path
+	create STRING lv_names
+	create STRING lv_name
+	create STRING re_name
+	create STRING re_num_name
+	create STRING re_names
+	create ARRAY main_lv_list
+	create ARRAY main_re_list
+	create SVECTOR mainLVnumber
+	create SVECTOR mainLVname
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	call program set_lv_list
+END
+
+PROGRAM set_lv_list
+BEGIN
+	call max_k_str.setvalue s(kpath)
+	call max_k_str.withvalue max_k.setvalue @
+	if (max_k.isgt(100)) {
+		call max_k.setvalue 0
+	}
+
+	call lv_names.setvalue ""
+	call count.setvalue 1
+	call lv_count.setvalue 1
+	while(count.isle(max_k)) {
+		call path.setvalue ""
+		call path.setvalue "s(undef_path_"
+		call count.withvalue path.append "@"
+		call path.append ")"
+		call path.withvalue lv_name.setvalue "@"
+		if (lv_name.isneq("")) {
+			call lv_name.withvalue lv_names.append "@"
+			call lv_names.append " "
+			call mainLVnumber.store class                   ///
+				lv_count.value class count.value
+			call lv_count.increment
+		}
+		call count.increment
+	}
+	call lv_names.tokenizeOnStr main_lv_list " "
+	call mainLVname.copyFromArray main_lv_list
+	call main.cb_lvl.repopulate
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  GROUPBOX gb_cov		_lft	_top	_iwd	_ht13,		///
+  	label(resource MENL_COV_CHILD_MAIN_GB_COV)
+  
+  TEXT tx_lvl			_ilft	_ss	_cwd2	.,		///
+  	label(resource LBL_LEVEL_COLON)
+  TEXT tx_re			_lft2	@	@	.,		///
+  	label(resource LBL_RANDOM_EFFECTS_COLON)
+  COMBOBOX cb_lvl		_ilft	_ss	@	.,		///
+	onselchange("program main_cb_lvl_change")			///
+	dropdown							///
+	contents("main_lv_list")					///
+	label(resource LBL_LEVEL_COLON)
+  COMBOBOX cb_re		_lft2	@	@	.,		///
+	dropdown							///
+	append								///
+	contents("main_re_list")					///
+	label(resource LBL_LEVEL_COLON)
+  RADIO rb_independent		_ilft	_ls	_cwd1	., first	///
+	option(independent)						///
+	label(resource LBL_INDEPENDENT)
+  RADIO rb_exchangeable		@	_ss	@	., 		///
+	option(exchangeable)						///
+	label(resource LBL_EXCHANGEABLE)
+  RADIO rb_identity		@	_ss	@	., 		///
+	option(identity)						///
+	label(resource LBL_IDENTITY)
+  RADIO rb_unstructured		@	_ss	@	., last		///
+	option(unstructured)						///
+	label(resource LBL_UNSTRUCTURED)
+END
+
+LIST main_lv_list
+BEGIN
+END
+
+LIST main_re_list
+BEGIN
+END
+
+PROGRAM main_cb_lvl_change
+BEGIN
+	call array_size.setvalue class mainLVname.size
+	if array_size.iseq(0) {
+		exit 0
+	}
+	call main.cb_re.setvalue ""
+	call array_size.withvalue tmp.setvalue @
+	call mainLVname.findstr class main.cb_lvl.value
+	call main_lvl_position.setvalue class				///
+		mainLVname.position
+	call main_lvl_position.withvalue re_num_name.setvalue ///
+		class mainLVnumber.values[@]
+
+	call re_names.setvalue ""
+	call re_name.setvalue ""
+	call re_name.setvalue "s(undef_RE_"
+	call re_num_name.withvalue re_name.append "@"
+	call re_name.append ")"
+	call re_name.withvalue re_names.setvalue "@"
+	call re_names.tokenizeOnStr main_re_list " "
+	call main.cb_re.repopulate
+END
+
+PROGRAM cov_output
+BEGIN
+	if !main.cb_re.contains(" ") {
+		stopbox stop `"At least two random effects must be specified for "Random effects:""'
+//
+	}
+	put main.cb_re
+	beginoptions
+		option radio(main rb_independent rb_exchangeable	///
+			rb_identity rb_unstructured) 
+	endoptions
+END
+
+PROGRAM command
+BEGIN
+	require main.cb_re
+	put " covariance("
+		put /program cov_output
+	put ")"
+END

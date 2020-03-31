@@ -1,0 +1,200 @@
+/*
+  mgarch_new_eq.dlg
+
+*!  VERSION 1.1.1  19may2015
+
+  keyword:  eclass
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_xlarge
+DEFINE _dlght 310
+INCLUDE header
+
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource MGARCH_NEW_EQ_DLG_HSCALE
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT tx_dep		_lft	_top	_iwd	.,			///
+	label(resource LBL_DEPENDENT_VARIABLES)
+  VARLIST vl_dep	@	_ss	@	.,			///
+	ts								///
+	numeric								///
+	label(resource LBL_DEPENDENT_VARIABLES)
+
+  TEXT tx_indep		@	_ls	@	.,			///
+	label(resource LBL_INDEPENDENT_VARIABLES_OPTIONAL)
+  VARLIST vl_indep	@	_ss	_iwd	.,			///
+	fv ts								///
+	numeric								///
+	label(resource LBL_INDDEPVAR) 
+  CHECKBOX ck_nocons	@	_ls	@	.,			///
+	label(resource LBL_SUPPRESS_THE_CONSTANT_TERM)			///
+	option(noconstant)
+
+  GROUPBOX gb_opts	_lft	+30	_iwd	_ht13,			///
+	label(resource MGARCH_NEW_EQ_MAIN_GB_OPTS)
+
+  RADIO rb_lag_max	_indent	_ss	_cwd3	., first		///
+ 	onclickon("program main_lag_on")				///
+	label(resource LBL_MAXIMUM_LAGS)
+  RADIO rb_lag_list	_lft2	@	_cwd3	., last			///
+ 	onclickon("script main_lags_on")				///
+	label(resource LBL_SPECIFY_LIST_OF_LAGS_1_3)
+  DEFINE y1 @y
+  CHECKBOX ck_arch	40	_ms	_ckwd	.,			///
+ 	onclickon("script main_arch_on")				///
+ 	onclickoff("script main_arch_off")
+  DEFINE holdy @y
+  DEFINE holdx @x
+  SPINNER sp_arch	_cksep	@	_spwd	.,			///
+	option(arch)							///
+	min(1)                  					/// 
+	max(c(N))                      					/// 
+	default(1)							///
+	label(resource LBL_ARCH_MAXIMUM_LAG)
+  TEXT tx_arch		_spsep	@	_rbspr2b .,			///
+	label(resource LBL_ARCH_MAXIMUM_LAG)
+
+  CHECKBOX ck_garch	holdx	_ls	_ckwd	.,			///
+	onclickon("script main_garch_on")				///
+	onclickoff("script main_garch_off")
+  SPINNER sp_garch	_cksep	@	_spwd	.,			///
+	option(garch)							///
+	min(1)                  					/// 
+	max(c(N))                      					/// 
+	default(1)							///
+	label(resource LBL_GARCH_MAXIMUM_LAG)
+  TEXT tx_garch		_spsep	@	_rbspr2b .,			///
+	label(resource LBL_GARCH_MAXIMUM_LAG)
+
+  EDIT ed_archs		_iilft2	holdy	_en14wd	.,			///
+	option(arch)							///
+	label(resource LBL_ARCH_LAGS)
+  DEFINE holdx @x
+  TEXT tx_archs		_en14sep @	100	.,			///
+	label(resource LBL_ARCH_LAGS)
+  EDIT ed_garchs	holdx	_ls	_en14wd	.,			///
+	option(garch)							///
+	label(resource LBL_GARCH_LAGS)
+  TEXT tx_garchs	_en14sep @	100	.,			///
+	label(resource LBL_GARCH_LAGS)
+
+  CHECKBOX ck_het	_ilft	_ls	_ibwd	.,			///
+	onclickon(main.vl_het.enable)					///
+	onclickoff(main.vl_het.disable)					///
+	label(resource LBL_INCLUDE_VAR_IN_SPEC_OF_THE_CONDITIONAL_VARIANCE)
+  VARLIST  vl_het	+20	_ss	_inwd	.,			///
+	option(het)							///
+	numeric								///
+	label(resource LBL_INCLUDE_VAR_IN_SPEC_OF_THE_CONDITIONAL_VARIANCE) 
+END
+
+PROGRAM main_lag_on
+BEGIN
+	call main.ck_arch.enable
+	if main.ck_arch {
+		call script main_arch_on
+	}
+	call main.ck_garch.enable
+	if main.ck_garch {
+		call script main_garch_on
+	}
+
+	call main.ed_archs.disable
+	call main.tx_archs.disable
+	call main.ed_garchs.disable
+	call main.tx_garchs.disable
+END
+
+SCRIPT main_lags_on
+BEGIN
+	main.ed_archs.enable
+	main.tx_archs.enable
+	main.ed_garchs.enable
+	main.tx_garchs.enable
+
+	main.ck_arch.disable	
+	main.sp_arch.disable
+	main.tx_arch.disable
+	main.ck_garch.disable	
+	main.sp_garch.disable
+	main.tx_garch.disable
+END
+
+SCRIPT main_arch_on
+BEGIN
+	main.sp_arch.enable
+	main.tx_arch.enable
+END
+
+SCRIPT main_arch_off
+BEGIN
+	main.sp_arch.disable
+	main.tx_arch.disable
+END
+
+SCRIPT main_garch_on
+BEGIN
+	main.sp_garch.enable
+	main.tx_garch.enable
+END
+
+SCRIPT main_garch_off
+BEGIN
+	main.sp_garch.disable
+	main.tx_garch.disable
+END
+
+PROGRAM main_output
+BEGIN
+	put main.vl_dep " = " main.vl_indep
+	beginoptions
+		if main.rb_lag_max {
+			if main.ck_arch {
+				put "arch(1/" main.sp_arch ") "
+			}
+			if main.ck_garch {
+				put "garch(1/" main.sp_garch ") "
+			}
+		}
+		if main.rb_lag_list {
+			if (main.ed_archs & !main.ed_archs.isnumlist()) {
+                                call create STRING _MSG_TMP
+                                call _MSG_TMP.format 			///
+					"resource LBL_MSGBOX_INVALID_NUMLIST_IN_FMT" ///
+					"resource LBL_ARCH_LAGS"
+                                stopbox stop "class _MSG_TMP.value"
+// There is an invalid numlist in "ARCH lags".
+			}
+			if (main.ed_garchs & !main.ed_garchs.isnumlist()) {
+				call create STRING _MSG_TMP
+                       		call _MSG_TMP.format 			///
+					"resource LBL_MSGBOX_INVALID_NUMLIST_IN_FMT" ///
+					"resource LBL_GARCH_LAGS"
+				stopbox stop "class _MSG_TMP.value"
+// There is an invalid numlist in "GARCH lags".
+			}
+			optionarg main.ed_archs
+			optionarg main.ed_garchs
+		}
+		if main.ck_het {
+			require main.vl_het
+			optionarg main.vl_het
+		}
+		option main.ck_nocons
+	endoptions
+END
+
+PROGRAM command
+BEGIN
+	require main.vl_dep
+	put "(" /program main_output ")"
+END

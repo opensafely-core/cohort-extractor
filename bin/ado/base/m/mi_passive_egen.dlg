@@ -1,0 +1,2176 @@
+/*
+	mi passive: egen
+
+*!  VERSION 1.1.2  30jan2020
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE _ht370
+INCLUDE header
+HELP hlp1, view("help mi_passive")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource MI_PASSIVE_EGEN_DLG_HSCALE
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	label(resource MI_PASSIVE_EGEN_DLG_TITLE) 
+BEGIN
+  TEXT     tx_var            _lft      _top      _vnwd     .,		/*
+		*/ label(resource LBL_GENERATE_VARIABLE)
+  EDIT     ed_var            @         _ss       @         .,		/*
+		*/ label(resource LBL_GENERATE_VARIABLE) max(32)
+
+  TEXT     tx_type           _lft3_2   _top      _comb3_1  .,		/*
+		*/ label(resource LBL_GENERATE_VARIABLE_AS_TYPE)
+  COMBOBOX cb_typeall        @         _ss       _vnwd     .,		/*
+		*/ dropdownlist						/*
+		*/ label(resource LBL_TYPE)				/*
+		*/ contents("typeall_words") value("typeall")
+  COMBOBOX cb_typenum        @         @         @         .,		/*
+		*/ dropdownlist						/*
+		*/ label(resource LBL_TYPE)				/*
+		*/ contents("typenum_words") value("typenum")
+  TEXT     tx_typestr        @         @         @         .,		/*
+		*/ label(resource LBL_STRING)
+  TEXT     tx_typebyte       @         @         @         .,		/*
+		*/ label(resource LBL_BYTE)
+  TEXT     tx_typedoub       @         @         @         .,		/*
+		*/ label(resource LBL_DOUBLE)
+
+/*----------------------------------------------------------------------*/
+
+  TEXT     tx_fcn            _lft      _ls       155   .,		/*
+		*/ label(resource LBL_EGEN_FUNCTION)
+  DEFINE holdy @y
+  LISTBOX  lb_fcn            @         _ss       @         _ht7,	/*
+		*/ contents(func_words)					/*
+		*/ value(functions)					/*
+		*/ onselchangelist(func_change)
+
+
+/*----------------------------------------------------------------------*/
+/* Options go here */
+
+  GROUPBOX gb_opt            @         _vs7      _iwd      _ht15,	/*
+		*/ label(resource LBL_OPTIONS)
+
+/* anyvalue, anymatch, anycount */
+  TEXT     tx_values         @         _ss       @         .,		/*
+		*/ label(resource LBL_INTEGER_NUMBER_LIST_REQUIRED)
+  DEFINE opty @y
+  EDIT     ed_values         @         _ss       @         .,		/*
+		*/ option(values)					/*
+		*/ label(resource LBL_INTEGER_NUMBER_LIST)
+
+/* concat */
+  GROUPBOX gb_format         _ilft     opty      _cwd2     _ht7,	/*
+		*/ label(resource LBL_NUMERIC_VARIABLE_FORMAT)
+  RADIO    rb_asisformat     _indent   _ss       _inwd     ., first	/*
+		*/ clickon("script asis_on")				/*
+		*/ label(resource LBL_AS_IS)
+  DEFINE tmpx @x
+  DEFINE tmpcx @cx
+  RADIO    rb_format         @         _ms       _rbwd     .,		/*
+		*/ clickon("script format_on")				/*
+		*/ label("")
+  EDIT     ed_format         _rbsep    @         100       .,		/*
+		*/ option(format)					/*
+		*/ label(resource LBL_RB_FORMAT)
+  BUTTON   bn_format         +105      @         75        .,	   	/*
+		*/ label(resource LBL_BU_CREATE)			/*
+  		*/ onpush(script showFormatDialog)			/*
+  		*/ tooltip(resource LBL_CREATE_DISPLAY_FORMAT)
+
+  RADIO    rb_decode         tmpx      _ms       tmpcx     ., last	/*
+		*/ clickon("script decode_on")				/*
+		*/ option("decode")					/*
+		*/ label(resource LBL_USING_DECODE)
+  TEXT     tx_punct          _lft2     opty      _cwd2     .,		/*
+		*/ label(resource LBL_PUNCTUATION_BETWEEN_VARIABLES)
+  TEXT     tx_punct2         @         _vss      @         .,		/*
+		*/ label(resource LBL_DEFAULT_IS_NOTHING_BETWEEN_VARIABLES)
+  EDIT     ed_punct          @         _ss       @         .,		/*
+		*/ option(punct)					/*
+		*/ label(resource LBL_PUNCTUATION_BETWEEN_VARIABLES)
+  CHECKBOX ck_maxlength      @         _ls       _ckwd     .,		/*
+		*/ clickon("gaction main.sp_maxlength.enable")		/*
+		*/ clickoff("gaction main.sp_maxlength.disable")	/*
+		*/ label("")
+  SPINNER  sp_maxlength      _cksep    @         _spwd     .,		/*
+		*/ min(2) max(100) default(20)				/*
+		*/ option(maxlength)					/*
+		*/ label(resource LBL_MAXIMUM_LABEL_LENGTH)
+  TEXT     tx_maxlength      _spsep    @         _ckspr2b  .,		/*
+		*/ label(resource LBL_MAXIMUM_LABEL_LENGTH)
+  TEXT     tx_maxlength2     @         _vss      @         .,		/*
+		*/ label(resource LBL_WHEN_USING_DECODE)
+
+/* cut */
+  GROUPBOX gb_cut            _ilft     opty      _ibwd     _ht7,	/*
+		*/ label(resource LBL_FORM_GROUPS)
+  RADIO    rb_at             _indent   _ss       _inwd     ., first	/*
+		*/ clickon("script cut_at_on")				/*
+		*/ label(resource LBL_USING_THE_FOLLOWING_BREAK_POINTS)
+  DEFINE cutx @x
+  EDIT     ed_at             _indent2  _ss       _inwd     .,		/*
+		*/ option(at)						/*
+		*/ label(resource LBL_USING_THE_FOLLOWING_BREAK_POINTS)
+  RADIO    rb_group          cutx      _ls       _rbwd     ., last	/*
+		*/ clickon("script cut_group_on")			/*
+		*/ label("")
+  SPINNER  sp_group          _rbsep    @         _spwd     .,		/*
+		*/ min(2) max(100000000) default(2)			/*
+		*/ option(group)					/*
+		*/ label(resource LBL_EQUAL_FREQ_GROUPS)
+  TEXT     tx_group          _spsep    @         _vnwd     .,		/*
+		*/ label(resource LBL_EQUAL_FREQ_GROUPS)
+  CHECKBOX ck_icodes         _ilft     +40      _ibwd     .,		/*
+  		*/ option(icodes)					/*
+		*/ label(resource LBL_USE_CODES_012_INSTEAD)
+  CHECKBOX ck_cut_label       @       _ms         @      .,		/*
+  		*/ option(label)					/*
+		*/ label(resource LBL_LABEL_INTEGER_CODED_VALUES)
+/* ends */
+  GROUPBOX gb_ends           _ilft     opty      _cwd2     _ht6,	/*
+		*/ label(resource LBL_PORTION_OF_STRING_TO_EXTRACT)
+  RADIO    rb_head           _indent   _ss       _inwd     ., first	/*
+		*/ option(head)						/*
+		*/ label(resource LBL_FIRST_WORD)
+  RADIO    rb_tail           @         _ss       @         .,		/*
+		*/ option(tail)						/*
+		*/ label(resource LBL_ALL_BUT_FIRST_WORD)
+  RADIO    rb_last           @         _ss       @         ., last	/*
+		*/ option(last)						/*
+		*/ label(resource LBL_LAST_WORD)
+  TEXT     tx_ends_punct     _lft2     opty      _cwd2     .,		/*
+		*/ label(resource LBL_WORD_DELIMITER_DEFAULT_IS_SPACE)
+  EDIT     ed_ends_punct     @         _ss       _en14wd   .,		/*
+		*/ option(punct)					/*
+		*/ label(resource LBL_WORD_DELIMITER)
+  CHECKBOX ck_trim           @         _ls       _cwd2     .,		/*
+		*/ option(trim)						/*
+		*/ label(resource LBL_TRIM_LEADING_AND_TRAILING_SPACES)
+
+/* group */
+  CHECKBOX ck_gr_missing     _ilft     opty      _ibwd     .,		/*
+		*/ option(missing)					/*
+		*/ label(resource LBL_USE_MISSING_VALUES_IN_DETERMINING_GROUPS)
+  CHECKBOX ck_label          @         _ms       @         _ht5h,	/*
+		*/ groupbox						/*
+		*/ clickon("program grouplabel_on")			/*
+		*/ clickoff("script grouplabel_off")			/*
+		*/ option(label)					/*
+	*/ label(resource LBL_CREATE_LAB_ASSIGN_GROUP_NUMBERS_SORTED_DATA)
+  EDIT     ed_lname          _indent2  _ms       _vnwd     .,		/*
+		*/ option(lname) max(32)				/*
+		*/ label(resource LBL_NAME_FOR_STORING_VALUE_LABEL)
+  DEFINE xlnm @x
+  TEXT     tx_lname          _vnsep    @         _vnr4c    .,		/*
+		*/ label(resource LBL_NAME_FOR_STORING_VALUE_LABEL)
+  CHECKBOX ck_truncate       xlnm      _ls       _ckwd     .,		/*
+		*/ clickon("gaction main.sp_truncate.enable")		/*
+		*/ clickoff("gaction main.sp_truncate.disable")		/*
+		*/ label("")
+  SPINNER  sp_truncate       _cksep    @         _spwd     .,		/*
+		*/ min(1) max(100) default(10)				/*
+		*/ option(truncate)					/*
+		*/ label(resource LBL_MAXIMUM_LABEL_LENGTH_CONTRIBUTION_EACH_VAR)
+  TEXT     tx_truncate       _spsep    @         _comb4_2  .,		/*
+		*/ label(resource LBL_MAXIMUM_LABEL_LENGTH_CONTRIBUTION_EACH_VAR)
+
+/* mode */
+  GROUPBOX gb_modes          _ilft     opty      _cwd2     _ht8,	/*
+		*/ label(resource LBL_WITH_MULTIPLE_MODES_PRODUCE)
+  RADIO    rb_defaultmode    _indent   _ss       _inwd     ., first	/*
+		*/ option(NONE)						/*
+		*/ clickon(script mode_missing_sel)			/*
+		*/ label(resource LBL_MISSING_VALUES)
+  RADIO    rb_minmode        @         _ss       @         .,		/*
+		*/ option(minmode)					/*
+		*/ clickon(script mode_value_sel)			/*
+		*/ label(resource LBL_MINIMUM_MODE_VALUE)
+  RADIO    rb_maxmode        @         _ss       @         .,		/*
+		*/ option(maxmode)					/*
+		*/ clickon(script mode_value_sel)			/*
+		*/ label(resource LBL_MAXIMUM_MODE_VALUE)
+  RADIO    rb_nummode        @         _ss       _rbwd     ., last	/*
+		*/ option(NONE)						/*
+		*/ clickon(script mode_nummode_sel)			/*
+		*/ label("")
+  SPINNER  sp_nummode        _rbsep    @         _spwd     .,		/*
+		*/ min(1) max(100) default(1)				/*
+		*/ option(nummode)					/*
+		*/ label(resource LBL_MODE_VALUE)
+  TEXT     tx_nummode        _spsep    @         _vnwd     .,		/*
+		*/ label(resource LBL_MODE_VALUE)
+  CHECKBOX ck_mode_miss      _lft2     opty      _cwd2     .,		/*
+		*/ option(missing)					/*
+		*/ label(resource LBL_INCLUDE_MISSING_VALUES)
+  TEXT     tx_mode_miss      _indent2  _vss      _inwd     .,		/*
+		*/ label(resource LBL_WHEN_DETERMINING_THE_MODE)
+
+/* pc */
+  RADIO    rb_percent        _ilft     opty      _ibwd     ., first	/*
+		*/ option(NONE)						/*
+		*/ label(resource LBL_PERCENT_OF_TOTAL_0_100)
+  RADIO    rb_prop           @         _ss       @         ., last	/*
+		*/ option(prop)						/*
+		*/ label(resource LBL_PROPORTION_OF_TOTAL_0_1)
+
+/* pctile */
+  SPINNER  sp_pctile_p       _ilft     opty      _spwd     .,		/*
+		*/ min(1) max(99) default(50)				/*
+		*/ option(p)						/*
+		*/ label(resource LBL_PERCENTILE)
+  TEXT     tx_pctile_p       _spsep    @         _sprb     .,		/*
+		*/ label(resource LBL_PERCENTILE)
+
+/* rank */
+  RADIO    rb_average        _ilft     opty      _ibwd     ., first	/*
+		*/ option(NONE)						/*
+	        */label(resource LBL_LOWEST_RANKED_1_TIES_ASSIGNING_AVERAGE_RANK)
+  RADIO    rb_field          @         _ss       @         .,		/*
+		*/ option(field)					/*
+		*/ label(resource LBL_HIGHEST_RANKED_1_TIES_ASSIGNING_BEST_RANK)
+  RADIO    rb_track          @         _ss       @         .,		/*
+		*/ option(track)					/*
+		*/ label(resource LBL_LOWEST_RANKED_1_TIES_ASSIGNING_BEST_RANK)
+  RADIO    rb_unique         @         _ss       @         ., last	/*
+		*/ option(unique)					/*
+		*/ label(resource LBL_LOWEST_RANK_1_TIES_ASSIGNING_UNIQUE_RANK)
+
+/* rownonmiss */
+  CHECKBOX ck_strok          _ilft     opty      _ibwd     .,		/*
+		*/ option(strok)					/*
+		*/ label(resource LBL_ALLOW_STRING_VARIABLES)
+/* rowpctile */
+  SPINNER  sp_pctile_rp      _ilft     opty      _spwd     .,		/*
+		*/ min(1) max(99) default(50)				/*
+		*/ option(p)						/*
+		*/ label(resource LBL_ROW_PERCENTILE)
+  TEXT     tx_pctile_rp      _spsep    @         _sprb     .,		/*
+		*/ label(resource LBL_ROW_PERCENTILE)
+/* rowtotal */
+  CHECKBOX ck_rtotmissing     _ilft     opty      _ibwd     .,          /*
+                */ option(missing)                                      /*
+                */ label(resource LBL_DO_NOT_TREAT_MISSING_VALUES_AS_0)
+
+/* seq */
+  RADIO    rb_seqdef         _ilft     opty      _ibwd     ., first	/*
+		*/ clickon("script sequence_off")			/*
+		*/ label(resource LBL_SEQUENCE_FROM_1_TO_MAXIMUM_NUMBER_OF_VALUES)
+  RADIO    rb_seq            @         _ss       @         ., last	/*
+		*/ clickon("script sequence_on")			/*
+		*/ label(resource LBL_SEQUENCE)
+  TEXT     tx_seq_from       _ilft     _ss       _cwd4_2   ., right	/*
+		*/ label(resource LBL_FROM)
+  SPINNER  sp_seq_from       _lft4_2   @         _spwd     .,		/*
+		*/ min(-10000000) max(100000000) default(1)		/*
+		*/ option(from)						/*
+		*/ label(resource LBL_FROM)
+  TEXT     tx_seq_to         _ilft     _ms       _cwd4_2   ., right	/*
+		*/ label(resource LBL_TX_TO)
+  SPINNER  sp_seq_to         _lft4_2   @         _spwd     .,		/*
+		*/ min(-10000000) max(100000000) default(c(N))		/*
+		*/ option(to)						/*
+		*/ label(resource LBL_TX_TO)
+  TEXT     tx_seq_block      _ilft     _ms       _cwd4_2   ., right	/*
+		*/ label(resource LBL_IN_BLOCKS_OF)
+  SPINNER  sp_seq_block      _lft4_2   @         _spwd     .,		/*
+		*/ min(1) max(100000000) default(1)			/*
+		*/ option(block)					/*
+		*/ label(resource LBL_IN_BLOCKS_OF)
+
+/* std */
+  GROUPBOX gb_std            _ilft     opty      _ibwd     _ht5,	/*
+		*/ label(resource LBL_PRODUCE_A_VARIABLE_WITH)
+  EDIT     en_mean           _indent   _ss       _en7wd    ., numonly	/*
+		*/ default(0)						/*
+		*/ option(mean)						/*
+		*/ label(resource LBL_MEAN)
+  DEFINE xstd @x
+  TEXT     tx_mean           _en7sep   @         _en7r4c   .,		/*
+		*/ label(resource LBL_MEAN)
+  EDIT     en_std            xstd      _ls       _en7wd    ., numonly	/*
+		*/ default(1)						/*
+		*/ option(std)						/*
+		*/ label(resource LBL_STANDARD_DEVIATION)
+  TEXT     tx_std            _en7sep   @         _en7r4c   .,		/*
+		*/ label(resource LBL_STANDARD_DEVIATION)
+
+/* tag */
+  CHECKBOX ck_missing        _ilft     opty      _ibwd     .,		/*
+		*/ option(missing)					/*
+		*/ label(resource LBL_MISSING_VALUES_OF_THE_VARIABLE_LIST_INCLUDED)
+
+/* total */
+  CHECKBOX ck_totmissing     _ilft     opty      _ibwd     .,           /*
+                */ option(missing)                                      /*
+                */ label(resource LBL_DO_NOT_TREAT_MISSING_VALUES_AS_0)
+
+
+/*----------------------------------------------------------------------*/
+/* Function argument goes here */
+
+  GROUPBOX gb_argument       _lft3_2   holdy     _comb3_1  _ht9,	/*
+		*/ label(resource LBL_EGEN_FUNCTION_ARGUMENT)
+
+/* Expression */
+  TEXT     tx_expression     _indent   _ss       _inwd     .,		/*
+		*/ label(resource LBL_EXPRESSION)
+  DEFINE holdy2 @y
+  DEFINE holdcx @cx
+
+  EXP      ex_expression     @         _ss       _comb3_3  .,           /*
+                */ label(resource LBL_BU_CREATE)                        /*
+                */
+
+/* Varlist */
+  TEXT     tx_varlist        @         holdy2    holdcx    .,		/*
+		*/ label(resource LBL_VARIABLES)
+  VARLIST  vl_varlist        @         _ss       @         .,		/*
+		*/ label(resource LBL_VARIABLES)
+
+/* Varname */
+  TEXT     tx_varname        @         holdy2    holdcx    .,		/*
+		*/ label(resource LBL_VARIABLE)
+  VARNAME  vn_varname        @         _ss       _vnwd     .,		/*
+		*/ label(resource LBL_VARIABLE)
+
+/* 2 Varnames */
+  TEXT     tx_yearvar        @         holdy2    holdcx    .,		/*
+		*/ label(resource LBL_YEAR_VARIABLE_CONSTANT)
+  VARNAME  vn_yearvar        @         _ss       _vnwd     .,		/*
+		*/ label(resource LBL_YEAR_VARIABLE_CONSTANT)
+  TEXT     tx_incomevar      @         _ms       holdcx    .,		/*
+		*/ label(resource LBL_INCOME_VARIABLE_CONSTANT)
+  VARNAME  vn_incomevar      @         _ss       _vnwd     .,		/*
+		*/ label(resource LBL_INCOME_VARIABLE_CONSTANT)
+
+/* Numlist */
+  TEXT     tx_numlist        @         holdy2    holdcx    .,		/*
+		*/ label(resource LBL_NUMBER_LIST_THAT_PROVIDES_THE_PATTERN)
+  EDIT     ed_numlist        @         _ss       @         .,		/*
+		*/ label(resource LBL_NUMBER_LIST_THAT_PROVIDES_THE_PATTERN)
+
+END
+
+SCRIPT showFormatDialog
+BEGIN
+	create STRING formatString
+	create CHILD format_chooser
+	format_chooser.setExitString formatString
+	format_chooser.setExitAction "main.ed_format.setvalue class formatString.value"
+END
+
+SCRIPT mode_missing_sel
+BEGIN
+	main.sp_nummode.disable
+	main.ck_mode_miss.enable
+	main.tx_mode_miss.enable
+END
+
+SCRIPT mode_value_sel
+BEGIN
+	main.sp_nummode.disable
+	main.ck_mode_miss.enable
+	main.tx_mode_miss.enable
+END
+
+SCRIPT mode_nummode_sel
+BEGIN
+	main.sp_nummode.enable
+	main.ck_mode_miss.enable
+	main.tx_mode_miss.enable
+END
+
+
+INCLUDE byif
+
+LIST typeall
+BEGIN
+float
+double
+long
+int
+byte
+str
+END
+
+LIST typeall_words
+BEGIN
+resource LBL_FLOAT
+resource LBL_DOUBLE
+resource LBL_LONG_INTEGER
+resource LBL_INTEGER
+resource LBL_BYTE
+resource LBL_STRING
+END
+
+LIST typenum
+BEGIN
+float
+double
+long
+int
+byte
+END
+
+LIST typenum_words
+BEGIN
+resource LBL_FLOAT
+resource LBL_DOUBLE
+resource LBL_LONG_INTEGER
+resource LBL_INTEGER
+resource LBL_BYTE
+END
+
+
+LIST functions
+BEGIN
+anycount
+anymatch
+anyvalue
+concat
+count
+cut
+diff
+ends
+fill
+group
+iqr
+kurt
+mad
+max
+mdev
+mean
+median
+min
+mode
+mtr
+pc
+pctile
+rank
+rowfirst
+rowlast
+rowmax
+rowmean
+rowmedian
+rowmin
+rowmiss
+rownonmiss
+rowpctile
+rowsd
+rowtotal
+sd
+seq
+skew
+std
+tag
+total
+END
+
+LIST func_words
+BEGIN
+resource LBL_ANY_COUNT
+resource LBL_ANY_MATCH
+resource LBL_ANY_VALUE
+resource LBL_CONCATENATE
+resource LBL_COUNT_OF_NONMISSING_VALUES
+resource LBL_CUT
+resource LBL_DIFFERENT
+resource LBL_ENDS_OF_STRING
+resource LBL_FILL_PATTERN
+resource LBL_GROUP
+resource LBL_INTERQUARTILE_RANGE
+resource LBL_KURTOSIS
+resource LBL_MEDIAN_ABSOLUTE_DEVIATION
+resource LBL_MAXIMUM
+resource LBL_MEAN_ABSOLUTE_DEVIATION
+resource LBL_MEAN
+resource LBL_MEDIAN
+resource LBL_MINIMUM
+resource LBL_MODE
+resource LBL_MARGINAL_TAX_RATE
+resource LBL_PERCENT_OR_PROPORTION
+resource LBL_PERCENTILE
+resource LBL_RANK
+resource LBL_ROW_FIRST_NONMISSING_VALUE
+resource LBL_ROW_LAST_NONMISSING_VALUE
+resource LBL_ROW_MAXIMUM
+resource LBL_ROW_MEAN
+resource LBL_ROW_MEDIAN
+resource LBL_ROW_MINIMUM
+resource LBL_ROW_NUMBER_OF_MISSING
+resource LBL_ROW_NUMBER_OF_NONMISSING
+resource MI_PASSIVE_EGEN_ROW_PERCENTILE
+resource LBL_ROW_STANDARD_DEVIATION
+resource LBL_ROW_TOTAL
+resource LBL_STANDARD_DEVIATION
+resource LBL_SEQUENCES_INTEGER
+resource LBL_SKEWNESS
+resource LBL_STANDARDIZED_VALUES
+resource LBL_TAG_ONE_OBS_PER_GROUP
+resource LBL_TOTAL
+END
+
+LIST func_change
+BEGIN
+  script anymatch
+  script anymatch
+  script anyvalue
+  script concat
+  script expNby
+  script cut
+  script diff
+  script ends
+  script fill
+  script group
+  script expNby
+  script varnNby
+  script expNby
+  script expNby
+  script expNby
+  script expNby
+  script expNby
+  script expNby
+  script mode
+  script mtr
+  script pc
+  script pctile
+  script rank
+  script varLall
+  script varLall
+  script varLall
+  script varLnum
+  script varLnum
+  script varLnum
+  script varLnum
+  script rownonmiss
+  script rowpctile
+  script varLnum
+  script rowtotal
+  script expNby
+  script seq
+  script varnNby
+  script std
+  script tag 
+  script total
+END
+
+
+/* expNby --	argument is an expression
+		result is numeric
+		by is allowed
+		no options
+*/
+SCRIPT expNby
+BEGIN
+  script expression_on
+  script varlist_off
+  script varname_off
+  script twovars_off
+  script numlist_off
+
+  program enable_sub
+
+  script typeall_off
+  script typenum_on
+  script typestr_off
+  script typebyte_off
+  script typedoub_off
+
+  main.gb_opt.hide
+  script opt_anyvalue_off
+  script opt_concat_off
+  script opt_cut_off
+  script opt_ends_off
+  script opt_group_off
+  script opt_mode_off
+  script opt_pc_off
+  script opt_pctile_off
+  script opt_rank_off
+  /*rownonmiss*/ main.ck_strok.hide
+  script opt_rowpctile_off
+  script opt_seq_off
+  script opt_std_off
+  script opt_totmissing_off
+  script opt_rtotmissing_off
+  /*tag*/ main.ck_missing.hide
+
+END
+
+/* varLall --	argument is a varlist
+		result is numeric or string
+		by is not allowed
+		no options
+*/
+SCRIPT varLall
+BEGIN
+  script expression_off
+  script varlist_on
+  script varname_off
+  script twovars_off
+  script numlist_off
+
+  program enable_byif_no_by
+
+  script typeall_on
+  script typenum_off
+  script typestr_off
+  script typebyte_off
+  script typedoub_off
+
+  main.gb_opt.hide
+  script opt_anyvalue_off
+  script opt_concat_off
+  script opt_cut_off
+  script opt_ends_off
+  script opt_group_off
+  script opt_mode_off
+  script opt_pc_off
+  script opt_pctile_off
+  script opt_rank_off
+  /*rownonmiss*/ main.ck_strok.hide
+  script opt_rowpctile_off
+  script opt_seq_off
+  script opt_std_off
+  script opt_totmissing_off
+  script opt_rtotmissing_off
+  /*tag*/ main.ck_missing.hide
+END
+
+/* varLnum --	argument is a varlist
+		result is numeric
+		by is not allowed
+		no options
+*/
+SCRIPT varLnum
+BEGIN
+  script expression_off
+  script varlist_on
+  script varname_off
+  script twovars_off
+  script numlist_off
+
+  program enable_byif_no_by
+
+  script typeall_off
+  script typenum_on
+  script typestr_off
+  script typebyte_off
+  script typedoub_off
+
+  main.gb_opt.hide
+  script opt_anyvalue_off
+  script opt_concat_off
+  script opt_cut_off
+  script opt_ends_off
+  script opt_group_off
+  script opt_mode_off
+  script opt_pc_off
+  script opt_pctile_off
+  script opt_rank_off
+  /*rownonmiss*/ main.ck_strok.hide
+  script opt_rowpctile_off
+  script opt_seq_off
+  script opt_std_off
+  script opt_totmissing_off
+  script opt_rtotmissing_off
+  /*tag*/ main.ck_missing.hide
+END
+
+/* varnNby --	argument is a varname
+		result is double (and ignores specified type)
+		by is allowed
+		no options
+*/
+SCRIPT varnNby
+BEGIN
+  script expression_off
+  script varlist_off
+  script varname_on
+  script twovars_off
+  script numlist_off
+
+  program enable_sub
+
+  script typeall_off
+  script typenum_off
+  script typestr_off
+  script typebyte_off
+  script typedoub_on
+
+  main.gb_opt.hide
+  script opt_anyvalue_off
+  script opt_concat_off
+  script opt_cut_off
+  script opt_ends_off
+  script opt_group_off
+  script opt_mode_off
+  script opt_pc_off
+  script opt_pctile_off
+  script opt_rank_off
+  /*rownonmiss*/ main.ck_strok.hide
+  script opt_rowpctile_off
+  script opt_seq_off
+  script opt_std_off
+  script opt_totmissing_off
+  script opt_rtotmissing_off
+  /*tag*/ main.ck_missing.hide
+END
+
+/* anyvalue --	argument is a varname
+		result is numeric
+		by is not allowed
+		options: values(integer_numlist)
+*/
+SCRIPT anyvalue
+BEGIN
+  script expression_off
+  script varlist_off
+  script varname_on
+  script twovars_off
+  script numlist_off
+
+  program enable_byif_no_by
+
+  script typeall_off
+  script typenum_on
+  script typestr_off
+  script typebyte_off
+  script typedoub_off
+
+  main.gb_opt.hide
+  script opt_anyvalue_on
+  script opt_concat_off
+  script opt_cut_off
+  script opt_ends_off
+  script opt_group_off
+  script opt_mode_off
+  script opt_pc_off
+  script opt_pctile_off
+  script opt_rank_off
+  /*rownonmiss*/ main.ck_strok.hide
+  script opt_rowpctile_off
+  script opt_seq_off
+  script opt_std_off
+  script opt_totmissing_off
+  script opt_rtotmissing_off
+  /*tag*/ main.ck_missing.hide
+END
+
+/* concat --	argument is a varlist
+		result is string
+		by is allowed
+		options: format(%fmt) decode maxlength(#) punct(pchars)
+*/
+SCRIPT concat
+BEGIN
+  script expression_off
+  script varlist_on
+  script varname_off
+  script twovars_off
+  script numlist_off
+
+  program enable_byif_no_by
+
+  script typeall_off
+  script typenum_off
+  script typestr_on
+  script typebyte_off
+  script typedoub_off
+
+  main.gb_opt.show
+  script opt_anyvalue_off
+  script opt_concat_on
+  script opt_cut_off
+  script opt_ends_off
+  script opt_group_off
+  script opt_mode_off
+  script opt_pc_off
+  script opt_pctile_off
+  script opt_rank_off
+  /*rownonmiss*/ main.ck_strok.hide
+  script opt_rowpctile_off
+  script opt_seq_off
+  script opt_std_off
+  script opt_totmissing_off
+  script opt_rtotmissing_off
+  /*tag*/ main.ck_missing.hide
+END
+
+/* cut --	argument is a varname
+		result is numeric
+		by is not allowed
+		options: at(#,#,...,#) group(#) icodes label
+  (and one of at() or group() is required)
+*/
+SCRIPT cut
+BEGIN
+  script expression_off
+  script varlist_off
+  script varname_on
+  script twovars_off
+  script numlist_off
+
+  program enable_byif_no_by
+
+  script typeall_off
+  script typenum_on
+  script typestr_off
+  script typebyte_off
+  script typedoub_off
+
+  main.gb_opt.show
+  script opt_anyvalue_off
+  script opt_concat_off
+  script opt_cut_on
+  script opt_ends_off
+  script opt_group_off
+  script opt_mode_off
+  script opt_pc_off
+  script opt_pctile_off
+  script opt_rank_off
+  /*rownonmiss*/ main.ck_strok.hide
+  script opt_rowpctile_off
+  script opt_seq_off
+  script opt_std_off
+  script opt_totmissing_off
+  script opt_rtotmissing_off
+  /*tag*/ main.ck_missing.hide
+END
+
+/* diff --	argument is a varlist
+		result is (0/1) byte
+		by is not allowed
+		no options
+*/
+SCRIPT diff
+BEGIN
+  script expression_off
+  script varlist_on
+  script varname_off
+  script twovars_off
+  script numlist_off
+
+  program enable_byif_no_by
+
+  script typeall_off
+  script typenum_off
+  script typestr_off
+  script typebyte_on
+  script typedoub_off
+
+  main.gb_opt.hide
+  script opt_anyvalue_off
+  script opt_concat_off
+  script opt_cut_off
+  script opt_ends_off
+  script opt_group_off
+  script opt_mode_off
+  script opt_pc_off
+  script opt_pctile_off
+  script opt_rank_off
+  /*rownonmiss*/ main.ck_strok.hide
+  script opt_rowpctile_off
+  script opt_seq_off
+  script opt_std_off
+  script opt_totmissing_off
+  script opt_rtotmissing_off
+  /*tag*/ main.ck_missing.hide
+END
+
+/* ends --	argument is a varname
+		result is string
+		by is not allowed
+		options: punct(pchars) trim [head|tail|last]
+*/
+SCRIPT ends
+BEGIN
+  script expression_off
+  script varlist_off
+  script varname_on
+  script twovars_off
+  script numlist_off
+
+  program enable_byif_no_by
+
+  script typeall_off
+  script typenum_off
+  script typestr_on
+  script typebyte_off
+  script typedoub_off
+
+  main.gb_opt.show
+  script opt_anyvalue_off
+  script opt_concat_off
+  script opt_cut_off
+  script opt_ends_on
+  script opt_group_off
+  script opt_mode_off
+  script opt_pc_off
+  script opt_pctile_off
+  script opt_rank_off
+  /*rownonmiss*/ main.ck_strok.hide
+  script opt_rowpctile_off
+  script opt_seq_off
+  script opt_std_off
+  script opt_totmissing_off
+  script opt_rtotmissing_off
+  /*tag*/ main.ck_missing.hide
+END
+
+/* anymatch --	argument is a varlist
+		result is (0/1) byte
+		by is not allowed
+		options: values(integer_numlist)
+*/
+SCRIPT anymatch
+BEGIN
+  script expression_off
+  script varlist_on
+  script varname_off
+  script twovars_off
+  script numlist_off
+
+  program enable_byif_no_by
+
+  script typeall_off
+  script typenum_off
+  script typestr_off
+  script typebyte_on
+  script typedoub_off
+
+  main.gb_opt.hide
+  script opt_anyvalue_on
+  script opt_concat_off
+  script opt_cut_off
+  script opt_ends_off
+  script opt_group_off
+  script opt_mode_off
+  script opt_pc_off
+  script opt_pctile_off
+  script opt_rank_off
+  /*rownonmiss*/ main.ck_strok.hide
+  script opt_rowpctile_off
+  script opt_seq_off
+  script opt_std_off
+  script opt_totmissing_off
+  script opt_rtotmissing_off
+  /*tag*/ main.ck_missing.hide
+END
+
+/* fill --	argument is a numlist
+		result is numeric
+		by is not allowed
+		no options
+*/
+SCRIPT fill
+BEGIN
+  script expression_off
+  script varlist_off
+  script varname_off
+  script twovars_off
+  script numlist_on
+
+  program disable_sub
+
+  script typeall_off
+  script typenum_on
+  script typestr_off
+  script typebyte_off
+  script typedoub_off
+
+  main.gb_opt.hide
+  script opt_anyvalue_off
+  script opt_concat_off
+  script opt_cut_off
+  script opt_ends_off
+  script opt_group_off
+  script opt_mode_off
+  script opt_pc_off
+  script opt_pctile_off
+  script opt_rank_off
+  /*rownonmiss*/ main.ck_strok.hide
+  script opt_rowpctile_off
+  script opt_seq_off
+  script opt_std_off
+  script opt_totmissing_off
+  script opt_rtotmissing_off
+  /*tag*/ main.ck_missing.hide
+END
+
+/* group --	argument is a varlist
+		result is numeric
+		by is not allowed
+		options: missing label truncate(num)
+*/
+SCRIPT group
+BEGIN
+  script expression_off
+  script varlist_on
+  script varname_off
+  script twovars_off
+  script numlist_off
+
+  program enable_byif_no_by
+
+  script typeall_off
+  script typenum_on
+  script typestr_off
+  script typebyte_off
+  script typedoub_off
+
+  main.gb_opt.show
+  script opt_anyvalue_off
+  script opt_concat_off
+  script opt_cut_off
+  script opt_ends_off
+  script opt_group_on
+  script opt_mode_off
+  script opt_pc_off
+  script opt_pctile_off
+  script opt_rank_off
+  /*rownonmiss*/ main.ck_strok.hide
+  script opt_rowpctile_off
+  script opt_seq_off
+  script opt_std_off
+  script opt_totmissing_off
+  script opt_rtotmissing_off
+  /*tag*/ main.ck_missing.hide
+END
+
+/* mode --	argument is a varname
+		result is numeric or string
+		by is not allowed
+		options: minmode maxmode nummode(integer) missing
+*/
+SCRIPT mode
+BEGIN
+  script expression_off
+  script varlist_off
+  script varname_on
+  script twovars_off
+  script numlist_off
+
+  program enable_sub
+
+  script typeall_on
+  script typenum_off
+  script typestr_off
+  script typebyte_off
+  script typedoub_off
+
+  main.gb_opt.show
+  script opt_anyvalue_off
+  script opt_concat_off
+  script opt_cut_off
+  script opt_ends_off
+  script opt_group_off
+  script opt_mode_on
+  script opt_pc_off
+  script opt_pctile_off
+  script opt_rank_off
+  /*rownonmiss*/ main.ck_strok.hide
+  script opt_rowpctile_off
+  script opt_seq_off
+  script opt_std_off
+  script opt_totmissing_off
+  script opt_rtotmissing_off
+  /*tag*/ main.ck_missing.hide
+END
+
+/* mtr --	argument is 2 variables
+		result is numeric
+		by is not allowed
+		no options
+*/
+SCRIPT mtr
+BEGIN
+  script expression_off
+  script varlist_off
+  script varname_off
+  script twovars_on
+  script numlist_off
+
+  program enable_byif_no_by
+
+  script typeall_off
+  script typenum_on
+  script typestr_off
+  script typebyte_off
+  script typedoub_off
+
+  main.gb_opt.hide
+  script opt_anyvalue_off
+  script opt_concat_off
+  script opt_cut_off
+  script opt_ends_off
+  script opt_group_off
+  script opt_mode_off
+  script opt_pc_off
+  script opt_pctile_off
+  script opt_rank_off
+  /*rownonmiss*/ main.ck_strok.hide
+  script opt_rowpctile_off
+  script opt_seq_off
+  script opt_std_off
+  script opt_totmissing_off
+  script opt_rtotmissing_off
+  /*tag*/ main.ck_missing.hide
+END
+
+/* pc --	argument is an expression
+		result is numeric
+		by is allowed
+		options: prop
+*/
+SCRIPT pc
+BEGIN
+  script expression_on
+  script varlist_off
+  script varname_off
+  script twovars_off
+  script numlist_off
+
+  program enable_sub
+
+  script typeall_off
+  script typenum_on
+  script typestr_off
+  script typebyte_off
+  script typedoub_off
+
+  main.gb_opt.show
+  script opt_anyvalue_off
+  script opt_concat_off
+  script opt_cut_off
+  script opt_ends_off
+  script opt_group_off
+  script opt_mode_off
+  script opt_pc_on
+  script opt_pctile_off
+  script opt_rank_off
+  /*rownonmiss*/ main.ck_strok.hide
+  script opt_rowpctile_off
+  script opt_seq_off
+  script opt_std_off
+  script opt_totmissing_off
+  script opt_rtotmissing_off
+  /*tag*/ main.ck_missing.hide
+END
+
+/* pctile --	argument is an expression
+		result is numeric
+		by is allowed
+		options: p(#)
+*/
+SCRIPT pctile
+BEGIN
+  script expression_on
+  script varlist_off
+  script varname_off
+  script twovars_off
+  script numlist_off
+
+  program enable_sub
+
+  script typeall_off
+  script typenum_on
+  script typestr_off
+  script typebyte_off
+  script typedoub_off
+
+  main.gb_opt.show
+  script opt_anyvalue_off
+  script opt_concat_off
+  script opt_cut_off
+  script opt_ends_off
+  script opt_group_off
+  script opt_mode_off
+  script opt_pc_off
+  script opt_pctile_on
+  script opt_rank_off
+  /*rownonmiss*/ main.ck_strok.hide
+  script opt_rowpctile_off
+  script opt_seq_off
+  script opt_std_off
+  script opt_totmissing_off
+  script opt_rtotmissing_off
+  /*tag*/ main.ck_missing.hide
+END
+
+/* rank --	argument is an expression
+		result is numeric
+		by is allowed
+		options: field|track|unique
+*/
+SCRIPT rank
+BEGIN
+  script expression_on
+  script varlist_off
+  script varname_off
+  script twovars_off
+  script numlist_off
+
+  program enable_sub
+
+  script typeall_off
+  script typenum_on
+  script typestr_off
+  script typebyte_off
+  script typedoub_off
+
+  main.gb_opt.show
+  script opt_anyvalue_off
+  script opt_concat_off
+  script opt_cut_off
+  script opt_ends_off
+  script opt_group_off
+  script opt_mode_off
+  script opt_pc_off
+  script opt_pctile_off
+  script opt_rank_on
+  /*rownonmiss*/ main.ck_strok.hide
+  script opt_rowpctile_off
+  script opt_seq_off
+  script opt_std_off
+  script opt_totmissing_off
+  script opt_rtotmissing_off
+  /*tag*/ main.ck_missing.hide
+END
+
+/* rownonmiss - argument is a varlist
+		result is numeric
+		by is not allowed
+		options: strok
+*/
+SCRIPT rownonmiss
+BEGIN
+  script expression_off
+  script varlist_on
+  script varname_off
+  script twovars_off
+  script numlist_off
+
+  program enable_byif_no_by
+
+  script typeall_off
+  script typenum_on
+  script typestr_off
+  script typebyte_off
+  script typedoub_off
+
+  main.gb_opt.show
+  script opt_anyvalue_off
+  script opt_concat_off
+  script opt_cut_off
+  script opt_ends_off
+  script opt_group_off
+  script opt_mode_off
+  script opt_pc_off
+  script opt_pctile_off
+  script opt_rank_off
+  /*rownonmiss*/ main.ck_strok.show
+  script opt_rowpctile_off
+  script opt_seq_off
+  script opt_std_off
+  script opt_totmissing_off
+  script opt_rtotmissing_off
+  /*tag*/ main.ck_missing.hide
+END
+
+/* rowpctile --	argument is an expression
+		result is numeric
+		by is allowed
+		options: p(#)
+*/
+SCRIPT rowpctile
+BEGIN
+  script expression_off
+  script varlist_on
+  script varname_off
+  script twovars_off
+  script numlist_off
+
+  program enable_sub
+
+  script typeall_off
+  script typenum_on
+  script typestr_off
+  script typebyte_off
+  script typedoub_off
+
+  main.gb_opt.show
+  script opt_anyvalue_off
+  script opt_concat_off
+  script opt_cut_off
+  script opt_ends_off
+  script opt_group_off
+  script opt_mode_off
+  script opt_pc_off
+  script opt_pctile_off
+  script opt_rank_off
+  /*rownonmiss*/ main.ck_strok.hide
+  script opt_rowpctile_on
+  script opt_seq_off
+  script opt_std_off
+  script opt_totmissing_off
+  script opt_rtotmissing_off
+  /*tag*/ main.ck_missing.hide
+END
+
+/* rowtotal --	argument is a varlist
+		result is numeric 
+		by is not allowed
+		options: missing
+*/
+SCRIPT rowtotal
+BEGIN
+  script expression_off
+  script varlist_on
+  script varname_off
+  script twovars_off
+  script numlist_off
+
+  script by_off
+
+  script typeall_off
+  script typenum_on
+  script typestr_off
+  script typebyte_off
+  script typedoub_off
+
+  main.gb_opt.show
+  script opt_anyvalue_off
+  script opt_concat_off
+  script opt_cut_off
+  script opt_ends_off
+  script opt_group_off
+  script opt_mode_off
+  script opt_pc_off
+  script opt_pctile_off
+  script opt_rank_off
+  /*rownonmiss*/ main.ck_strok.hide
+  script opt_rowpctile_off
+  script opt_seq_off
+  script opt_std_off
+  script opt_totmissing_off
+  /*tag*/ main.ck_missing.hide
+  /*rowtotal*/ main.ck_rtotmissing.show
+END
+
+/* seq --	no argument
+		result is numeric
+		by is allowed
+		options: from(#) to(#) block(#)
+*/
+SCRIPT seq
+BEGIN
+  script expression_off
+  script varlist_off
+  script varname_off
+  script twovars_off
+  script numlist_off
+
+  program enable_sub
+
+  script typeall_off
+  script typenum_on
+  script typestr_off
+  script typebyte_off
+  script typedoub_off
+
+  main.gb_opt.show
+  script opt_anyvalue_off
+  script opt_concat_off
+  script opt_cut_off
+  script opt_ends_off
+  script opt_group_off
+  script opt_mode_off
+  script opt_pc_off
+  script opt_pctile_off
+  script opt_rank_off
+  /*rownonmiss*/ main.ck_strok.hide
+  script opt_rowpctile_off
+  script opt_seq_on
+  script opt_std_off
+  script opt_totmissing_off
+  script opt_rtotmissing_off
+  /*tag*/ main.ck_missing.hide
+END
+
+/* std --	argument is an expression
+		result is numeric
+		by is not allowed
+		options: mean(#) std(#)
+*/
+SCRIPT std
+BEGIN
+  script expression_on
+  script varlist_off
+  script varname_off
+  script twovars_off
+  script numlist_off
+
+  program enable_byif_no_by
+
+  script typeall_off
+  script typenum_on
+  script typestr_off
+  script typebyte_off
+  script typedoub_off
+
+  main.gb_opt.show
+  script opt_anyvalue_off
+  script opt_concat_off
+  script opt_cut_off
+  script opt_ends_off
+  script opt_group_off
+  script opt_mode_off
+  script opt_pc_off
+  script opt_pctile_off
+  script opt_rank_off
+  /*rownonmiss*/ main.ck_strok.hide
+  script opt_rowpctile_off
+  script opt_seq_off
+  script opt_std_on
+  script opt_totmissing_off
+  script opt_rtotmissing_off
+  /*tag*/ main.ck_missing.hide
+END
+
+/* tag --	argument is a varlist
+		result is (0/1) byte
+		by is not allowed
+		options: missing
+*/
+SCRIPT tag
+BEGIN
+  script expression_off
+  script varlist_on
+  script varname_off
+  script twovars_off
+  script numlist_off
+
+  program enable_byif_no_by
+
+  script typeall_off
+  script typenum_off
+  script typestr_off
+  script typebyte_on
+  script typedoub_off
+
+  main.gb_opt.show
+  script opt_anyvalue_off
+  script opt_concat_off
+  script opt_cut_off
+  script opt_ends_off
+  script opt_group_off
+  script opt_mode_off
+  script opt_pc_off
+  script opt_pctile_off
+  script opt_rank_off
+  /*rownonmiss*/ main.ck_strok.hide
+  script opt_rowpctile_off
+  script opt_seq_off
+  script opt_std_off
+  script opt_totmissing_off
+  script opt_rtotmissing_off
+  /*tag*/ main.ck_missing.show
+END
+
+/* total --	argument is an expression
+		result is numeric 
+		by is allowed
+		options: missing
+*/
+SCRIPT total
+BEGIN
+  script expression_on
+  script varlist_off
+  script varname_off
+  script twovars_off
+  script numlist_off
+
+  script by_on
+
+  script typeall_off
+  script typenum_on
+  script typestr_off
+  script typebyte_off
+  script typedoub_off
+
+  main.gb_opt.show
+  script opt_anyvalue_off
+  script opt_concat_off
+  script opt_cut_off
+  script opt_ends_off
+  script opt_group_off
+  script opt_mode_off
+  script opt_pc_off
+  script opt_pctile_off
+  script opt_rank_off
+  /*rownonmiss*/ main.ck_strok.hide
+  script opt_rowpctile_off
+  script opt_seq_off
+  script opt_std_off
+  script opt_rtotmissing_off
+  /*tag*/ main.ck_missing.hide
+  /*total*/ main.ck_totmissing.show
+END
+
+PROGRAM enable_byif_no_by
+BEGIN
+	call script sub_on
+	call script by_off
+END
+
+SCRIPT typeall_on
+BEGIN
+  main.cb_typeall.show
+END
+
+SCRIPT typeall_off
+BEGIN
+  main.cb_typeall.hide
+END
+
+SCRIPT typenum_on
+BEGIN
+  main.cb_typenum.show
+END
+
+SCRIPT typenum_off
+BEGIN
+  main.cb_typenum.hide
+END
+
+SCRIPT typestr_on
+BEGIN
+  main.tx_typestr.show
+END
+
+SCRIPT typestr_off
+BEGIN
+  main.tx_typestr.hide
+END
+
+SCRIPT typebyte_on
+BEGIN
+  main.tx_typebyte.show
+END
+
+SCRIPT typebyte_off
+BEGIN
+  main.tx_typebyte.hide
+END
+
+SCRIPT typedoub_on
+BEGIN
+  main.tx_typedoub.show
+END
+
+SCRIPT typedoub_off
+BEGIN
+  main.tx_typedoub.hide
+END
+
+
+SCRIPT expression_on
+BEGIN
+  main.tx_expression.show
+  main.ex_expression.show
+END
+
+SCRIPT expression_off
+BEGIN
+  main.tx_expression.hide
+  main.ex_expression.hide
+END
+
+SCRIPT varlist_on
+BEGIN
+  main.tx_varlist.show
+  main.vl_varlist.show
+END
+
+SCRIPT varlist_off
+BEGIN
+  main.tx_varlist.hide
+  main.vl_varlist.hide
+END
+
+SCRIPT varname_on
+BEGIN
+  main.tx_varname.show
+  main.vn_varname.show
+END
+
+SCRIPT varname_off
+BEGIN
+  main.tx_varname.hide
+  main.vn_varname.hide
+END
+
+SCRIPT twovars_on
+BEGIN
+  main.tx_yearvar.show
+  main.vn_yearvar.show
+  main.tx_incomevar.show
+  main.vn_incomevar.show
+END
+
+SCRIPT twovars_off
+BEGIN
+  main.tx_yearvar.hide
+  main.vn_yearvar.hide
+  main.tx_incomevar.hide
+  main.vn_incomevar.hide
+END
+
+SCRIPT numlist_on
+BEGIN
+  main.tx_numlist.show
+  main.ed_numlist.show
+END
+
+SCRIPT numlist_off
+BEGIN
+  main.tx_numlist.hide
+  main.ed_numlist.hide
+END
+
+PROGRAM by_on
+BEGIN
+	script byon
+END
+
+SCRIPT by_off
+BEGIN
+	sub.ck_by.disable
+	sub.vl_by.disable
+END
+
+SCRIPT opt_anyvalue_on
+BEGIN
+  main.tx_values.show
+  main.ed_values.show
+END
+
+SCRIPT opt_anyvalue_off
+BEGIN
+  main.tx_values.hide
+  main.ed_values.hide
+END
+
+SCRIPT opt_concat_on
+BEGIN
+  main.gb_format.show
+  main.rb_asisformat.show
+  main.rb_format.show
+  main.ed_format.show
+  main.bn_format.show
+  main.rb_decode.show
+  main.tx_punct.show
+  main.tx_punct2.show
+  main.ed_punct.show
+  main.ck_maxlength.show
+  main.sp_maxlength.show
+  main.tx_maxlength.show
+  main.tx_maxlength2.show
+END
+
+SCRIPT opt_concat_off
+BEGIN
+  main.gb_format.hide
+  main.rb_asisformat.hide
+  main.rb_format.hide
+  main.ed_format.hide
+  main.bn_format.hide
+  main.rb_decode.hide
+  main.tx_punct.hide
+  main.tx_punct2.hide
+  main.ed_punct.hide
+  main.ck_maxlength.hide
+  main.sp_maxlength.hide
+  main.tx_maxlength.hide
+  main.tx_maxlength2.hide
+END
+
+SCRIPT opt_totmissing_off
+BEGIN
+  main.ck_totmissing.hide
+END
+
+SCRIPT opt_rtotmissing_off
+BEGIN
+  main.ck_rtotmissing.hide
+END
+
+SCRIPT asis_on
+BEGIN
+  main.ed_format.disable
+  main.bn_format.disable
+  script decodeOFF
+END
+
+SCRIPT format_on
+BEGIN
+  main.ed_format.enable
+  main.bn_format.enable
+  script decodeOFF
+END
+
+SCRIPT decode_on
+BEGIN
+  main.ed_format.disable
+  main.bn_format.disable
+  program decodeON
+END
+
+PROGRAM decodeON
+BEGIN
+	call gaction main.ck_maxlength.enable
+	if main.ck_maxlength {
+		call gaction main.sp_maxlength.enable
+	}
+	if !main.ck_maxlength {
+		call gaction main.sp_maxlength.disable
+	}
+	call gaction main.tx_maxlength.enable
+	call gaction main.tx_maxlength2.enable
+END
+
+SCRIPT decodeOFF
+BEGIN
+  main.ck_maxlength.disable
+  main.sp_maxlength.disable
+  main.tx_maxlength.disable
+  main.tx_maxlength2.disable
+END
+
+SCRIPT opt_cut_on
+BEGIN
+  main.gb_cut.show
+  main.rb_at.show
+  main.ed_at.show
+  main.rb_group.show
+  main.sp_group.show
+  main.tx_group.show
+  main.ck_icodes.show
+  main.ck_cut_label.show
+END
+
+SCRIPT opt_cut_off
+BEGIN
+  main.gb_cut.hide
+  main.rb_at.hide
+  main.ed_at.hide
+  main.rb_group.hide
+  main.sp_group.hide
+  main.tx_group.hide
+  main.ck_icodes.hide
+  main.ck_cut_label.hide
+END
+
+SCRIPT cut_at_on
+BEGIN
+  main.ed_at.enable
+  main.sp_group.disable
+END
+
+SCRIPT cut_group_on
+BEGIN
+  main.ed_at.disable
+  main.sp_group.enable
+END
+
+SCRIPT opt_ends_on
+BEGIN
+  main.gb_ends.show
+  main.rb_head.show
+  main.rb_tail.show
+  main.rb_last.show
+  main.ck_trim.show
+  main.tx_ends_punct.show
+  main.ed_ends_punct.show
+END
+
+SCRIPT opt_ends_off
+BEGIN
+  main.gb_ends.hide
+  main.rb_head.hide
+  main.rb_tail.hide
+  main.rb_last.hide
+  main.ck_trim.hide
+  main.tx_ends_punct.hide
+  main.ed_ends_punct.hide
+END
+
+SCRIPT opt_group_on
+BEGIN
+  main.ck_gr_missing.show
+  main.ck_label.show
+  main.tx_lname.show
+  main.ed_lname.show
+  main.ck_truncate.show
+  main.sp_truncate.show
+  main.tx_truncate.show
+END
+
+SCRIPT opt_group_off
+BEGIN
+  main.ck_gr_missing.hide
+  main.ck_label.hide
+  main.tx_lname.hide
+  main.ed_lname.hide
+  main.ck_truncate.hide
+  main.sp_truncate.hide
+  main.tx_truncate.hide
+END
+
+PROGRAM grouplabel_on
+BEGIN
+	call gaction main.tx_lname.enable
+	call gaction main.ed_lname.enable
+	call gaction main.ck_truncate.enable
+	if main.ck_truncate {
+		call gaction main.sp_truncate.enable
+	}
+	if !main.ck_truncate {
+		call gaction main.sp_truncate.disable
+	}
+	call gaction main.tx_truncate.enable
+END
+
+SCRIPT grouplabel_off
+BEGIN
+  main.tx_lname.disable
+  main.ed_lname.disable
+  main.ck_truncate.disable
+  main.sp_truncate.disable
+  main.tx_truncate.disable
+END
+
+SCRIPT opt_mode_on
+BEGIN
+  main.gb_modes.show
+  main.rb_defaultmode.show
+  main.rb_minmode.show
+  main.rb_maxmode.show
+  main.rb_nummode.show
+  main.sp_nummode.show
+  main.tx_nummode.show
+  main.ck_mode_miss.show
+  main.tx_mode_miss.show
+END
+
+SCRIPT opt_mode_off
+BEGIN
+  main.gb_modes.hide
+  main.rb_defaultmode.hide
+  main.rb_minmode.hide
+  main.rb_maxmode.hide
+  main.rb_nummode.hide
+  main.sp_nummode.hide
+  main.tx_nummode.hide
+  main.ck_mode_miss.hide
+  main.tx_mode_miss.hide
+END
+
+SCRIPT opt_pc_on
+BEGIN
+  main.rb_percent.show
+  main.rb_prop.show
+END
+
+SCRIPT opt_pc_off
+BEGIN
+  main.rb_percent.hide
+  main.rb_prop.hide
+END
+
+SCRIPT opt_pctile_on
+BEGIN
+  main.sp_pctile_p.show
+  main.tx_pctile_p.show
+END
+
+SCRIPT opt_pctile_off
+BEGIN
+  main.sp_pctile_p.hide
+  main.tx_pctile_p.hide
+END
+
+SCRIPT opt_rowpctile_on
+BEGIN
+  main.sp_pctile_rp.show
+  main.tx_pctile_rp.show
+END
+
+SCRIPT opt_rowpctile_off
+BEGIN
+  main.sp_pctile_rp.hide
+  main.tx_pctile_rp.hide
+END
+
+SCRIPT opt_rank_on
+BEGIN
+  main.rb_average.show
+  main.rb_field.show
+  main.rb_track.show
+  main.rb_unique.show
+END
+
+SCRIPT opt_rank_off
+BEGIN
+  main.rb_average.hide
+  main.rb_field.hide
+  main.rb_track.hide
+  main.rb_unique.hide
+END
+
+SCRIPT opt_seq_on
+BEGIN
+  main.rb_seqdef.show
+  main.rb_seq.show
+  main.tx_seq_from.show
+  main.sp_seq_from.show
+  main.tx_seq_to.show
+  main.sp_seq_to.show
+  main.tx_seq_block.show
+  main.sp_seq_block.show
+END
+
+SCRIPT opt_seq_off
+BEGIN
+  main.rb_seqdef.hide
+  main.rb_seq.hide
+  main.tx_seq_from.hide
+  main.sp_seq_from.hide
+  main.tx_seq_to.hide
+  main.sp_seq_to.hide
+  main.tx_seq_block.hide
+  main.sp_seq_block.hide
+END
+
+SCRIPT sequence_on
+BEGIN
+  main.sp_seq_from.enable
+  main.sp_seq_to.enable
+  main.sp_seq_block.enable
+END
+
+SCRIPT sequence_off
+BEGIN
+  main.sp_seq_from.disable
+  main.sp_seq_to.disable
+  main.sp_seq_block.disable
+END
+
+SCRIPT opt_std_on
+BEGIN
+  main.gb_std.show
+  main.en_mean.show
+  main.tx_mean.show
+  main.en_std.show
+  main.tx_std.show
+END
+
+SCRIPT opt_std_off
+BEGIN
+  main.gb_std.hide
+  main.en_mean.hide
+  main.tx_mean.hide
+  main.en_std.hide
+  main.tx_std.hide
+END
+
+PROGRAM egen_function_output
+BEGIN
+	if main.lb_fcn.equals("mtr") {
+		require main.vn_yearvar main.vn_incomevar
+		put main.vn_yearvar " " main.vn_incomevar
+	}
+	if ! main.lb_fcn.equals("mtr") {
+		/* one (and only one) of these will have something in it */
+		put main.ex_expression
+		put main.vl_varlist
+		put main.vn_varname
+		put main.ed_numlist
+	}
+END
+
+PROGRAM my_by_output
+BEGIN
+	if sub.ck_by {
+		require sub.vl_by
+		put "by  " sub.vl_by ":"
+	}
+END
+
+PROGRAM command
+BEGIN
+	put "mi passive: " 
+	put /program my_by_output " "
+/* "egen [type] var" */
+	require main.ed_var
+	put "egen "
+	if !H(main.cb_typeall) {
+		put main.cb_typeall
+	}
+	if !H(main.cb_typenum) {
+		put main.cb_typenum
+	}
+	if !H(main.tx_typebyte) {
+		put "byte "
+	}
+	/* --- do not need to put out anything for these cases ---
+	   if !H(main.tx_typestr) | !H(main.tx_typedoub) {
+		put " "
+	   }
+	*/
+	put " "
+	put main.ed_var
+
+/* error checking */
+	/* if not all hidden ...  (being checked because seq() takes no args */
+	if !(H(main.ex_expression) & H(main.vl_varlist) & H(main.vn_varname) /*
+			*/ & H(main.ed_numlist) & H(main.vn_yearvar) & /*
+			*/ H(main.vn_incomevar)) {
+		/* and if all are empty ... */
+		if main.lb_fcn.equals("mtr") {
+			if !(main.vn_yearvar | main.vn_incomevar) {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format			/// 
+					"resource LBL_MSGBOX_REQUIRED_FMT" ///
+					"resource LBL_EGEN_FUNCTION_ARGUMENT"
+				stopbox stop "class _MSG_TMP.value"
+// "Egen function argument" must be filled in.
+			}
+		}
+
+		if ! main.lb_fcn.equals("mtr") {
+			if ((! H(main.ex_expression) & ! main.ex_expression) /*
+		*/	  | (! H(main.vl_varlist) &  ! main.vl_varlist)      /*
+		*/	  | (! H(main.vn_varname) &  ! main.vn_varname)      /*
+		*/ 	  | (! H(main.ed_numlist) &  ! main.ed_numlist))     /*
+		*/      {
+                                call create STRING _MSG_TMP
+                                call _MSG_TMP.format			/// 
+					"resource LBL_MSGBOX_REQUIRED_FMT" ///
+					"resource LBL_EGEN_FUNCTION_ARGUMENT"
+                                stopbox stop "class _MSG_TMP.value"
+// "Egen function argument" must be filled in.
+			}
+		}
+	}
+
+/* " = fcn(...)" */
+	put " " "=" " " main.lb_fcn "("
+	put /program egen_function_output
+	put ")"
+
+	put " " /program if_output
+
+/* ", <opts>" */
+	beginoptions
+	    /* anyvalue */
+		if !H(main.ed_values) {
+			require main.ed_values
+			optionarg main.ed_values
+		}
+
+	    /* concat */
+		optionarg main.ed_punct
+		if main.rb_format {
+			require main.ed_format
+			optionarg /quoted main.ed_format
+		}
+		if main.rb_decode {
+			option main.rb_decode
+			if main.ck_maxlength {
+				optionarg main.sp_maxlength
+			}
+		}
+
+	    /* cut */
+		if main.rb_at {
+			require main.ed_at
+			optionarg main.ed_at
+		}
+		if main.rb_group {
+			optionarg main.sp_group
+		}
+		option main.ck_icodes
+		option main.ck_cut_label
+
+	    /* ends */
+		option main.rb_head
+		option main.rb_tail
+		option main.rb_last
+		optionarg main.ed_ends_punct
+		option main.ck_trim
+
+	    /* group */
+		option main.ck_gr_missing
+		option main.ck_label
+		optionarg main.ed_lname
+		if main.ck_label & main.ck_truncate {
+			optionarg main.sp_truncate
+		}
+
+	    /* mode */
+		option main.rb_minmode
+		option main.rb_maxmode
+		if main.rb_nummode {
+			optionarg main.sp_nummode
+		}
+		option main.ck_mode_miss
+
+	    /* pc */
+		option main.rb_prop
+
+	    /* pctile */
+		optionarg main.sp_pctile_p
+	    
+	    /* rank */
+		option main.rb_field
+		option main.rb_track
+		option main.rb_unique
+
+	    /* rownonmiss */
+		option main.ck_strok
+
+	    /* rowpctile */
+		optionarg main.sp_pctile_rp
+	    /* seq */
+		if main.rb_seq {
+			optionarg main.sp_seq_from
+			optionarg main.sp_seq_to
+			optionarg main.sp_seq_block
+		}
+
+	    /* std */
+		optionarg main.en_mean
+		optionarg main.en_std
+
+	    /* tag */
+		option main.ck_missing
+	
+	    /* total */
+		option main.ck_totmissing
+
+	    /* rowtotal */
+		option main.ck_rtotmissing
+
+	endoptions
+END

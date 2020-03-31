@@ -1,0 +1,114 @@
+/*
+	pwcorr
+	
+*!  VERSION 1.2.0  11nov2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+INCLUDE _ht300
+INCLUDE header
+
+HELP hlp1, view("help pwcorr")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource PWCORR_DLG_HSCALE
+END
+
+DIALOG main, label(resource PWCORR_DLG_TITLE)       			/*
+		*/ tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+
+   TEXT	    tx_var		_lft	_top	_iwd	.,		/*
+		*/	label(resource LBL_VARIABLES_LEAVE_EMPTY_FOR_ALL)
+	
+   VARLIST  vl_var		@	_ss	@	.,		/*
+   		*/      numeric						/*
+		*/	label(resource LBL_VARIABLES)
+
+
+   CHECKBOX ck_obs		_lft	_ls	_iwd	.,		/*
+		*/	label(resource PWCORR_MAIN_CK_OBS)    		/*
+		*/      option(obs)
+   DEFINE holdx  @x
+   DEFINE holdcx @cx
+
+   CHECKBOX ck_sig		@	_ms	@	.,		/*
+		*/	label(resource PWCORR_MAIN_CK_SIG)        	/*
+                */      option(sig)
+
+   CHECKBOX ck_list		@	_ms	@	., 		/*
+		*/	label(resource PWCORR_MAIN_CK_LIST)		/*
+		*/ option(listwise)
+
+   CHECKBOX ck_print		@	_ls	_ckwd   ., 		/*
+		*/	label("")					/*
+		*/	clickoff("gaction main.sp_print.disable")	/*
+		*/	clickon("gaction main.sp_print.enable")			
+	
+   SPINNER  sp_print		_cksep	@	_spwd	.,		/*
+		*/	label(resource PWCORR_MAIN_SP_PRINT) 		/*
+		*/	min(1)						/*
+		*/	max(100)					/*
+		*/	default(10)					/*
+		*/	option(print)
+
+   TEXT	    tx_print		_spsep	@	_rbsprb	.,		/*
+		*/	label(resource LBL_SIGNIFICANCE_LEVEL_DISPLAYING_COEFFICIENTS)	 
+
+   CHECKBOX ck_star		holdx	_ls	_ckwd   .,		/*
+		*/	label("")					/*
+		*/	clickoff("gaction main.sp_star.disable")	/*
+		*/	clickon("gaction main.sp_star.enable")	
+	
+   SPINNER  sp_star		_cksep	@	_spwd	.,		/*
+		*/	label(resource PWCORR_MAIN_SP_STAR)	/*
+		*/	min(1)						/*
+		*/	max(100)					/*
+		*/	default(5)					/*
+		*/	option(star)
+
+   TEXT     tx_star		_spsep	@	_rbsprb	.,		/*
+		*/	label(resource LBL_SIGNIFICANCE_LEVEL_DISPLAYING_STAR)
+
+   GROUPBOX gb_opts		_lft	_ls	_iwd	_ht6,  		/*
+		*/	label(resource PWCORR_MAIN_GB_OPTS)
+
+   RADIO    rb_none		_ilft	_ss	_ibwd	.,		/*
+   		*/ 	label(resource PWCORR_MAIN_RB_NONE)		/*
+		*/ 	option(NONE) first
+   RADIO    rb_bonferroni	@	_ss	@  	.,		/*
+		*/	label(resource LBL_USE_BONFERRONI_ADJUSTED_SIGN_LEVEL) /*
+		*/      option(bonferroni) middle
+   RADIO    rb_sidak		@	_ss	@	.,		/*
+		*/	label(resource LBL_USE_SIDAK_ADJUSTED_SIGN_LEVEL) /*
+                */      option(sidak) last 
+END
+
+INCLUDE byifin
+INCLUDE weights_fa  
+
+PROGRAM command
+BEGIN
+  	INCLUDE _by_pr 
+        put "pwcorr "
+        varlist [main.vl_var]
+	INCLUDE _weights_pr
+        INCLUDE _ifin_pr
+        beginoptions
+                option main.ck_obs
+		option main.ck_sig
+		option main.ck_list
+                if main.ck_print{
+			optionarg main.sp_print
+                }
+		if main.ck_star{
+			optionarg main.sp_star
+		}
+		option radio(main rb_none rb_bonferroni rb_sidak)
+       endoptions
+END

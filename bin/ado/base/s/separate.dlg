@@ -1,0 +1,143 @@
+/*
+	separate
+	
+*!	VERSION 1.1.0  18nov2014
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+INCLUDE header
+
+HELP hlp1, view("help separate")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource SEPARATE_DLG_HSCALE
+END
+
+DIALOG main, label(resource SEPARATE_DLG_TITLE)            		/*
+		*/	tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+   TEXT	    tx_var        _lft	    _top      _iwd	.,            /*
+		*/	label(resource LBL_VARIABLE)
+
+   VARNAME  vn_var        @         _ss       _vnwd 	.,            /*
+                */      label(resource LBL_VARIABLE)				
+
+   GROUPBOX gb_var        @         _ls       _iwd      _ht9,         /*
+                */      label(resource SEPARATE_MAIN_GB_VAR)
+
+   RADIO    rb_byvar      _ilft     _ss       _ibwd     .,            /*
+                */      label(resource LBL_BY_VARIABLE)               /*
+		*/      first				              /*
+		*/      clickon("script byex_off")	
+
+   VARNAME  vn_byvar      _indent2  _ss       _vnwd     .,            /*
+                */      label(resource LBL_BY_VARIABLE)               /*
+                */      option(by)				      
+
+   RADIO    rb_byexp      _ilft     _ms       _ibwd     .,            /*
+                */      label(resource SEPARATE_MAIN_RB_BYEXP)       /*
+                */      last					      /*
+                */      clickon("script byex_on")
+   
+   EXP      ex_byexp     _indent2   _ss       _expifwd  .,            /*
+                */ label(resource LBL_BU_CREATE)                      /*
+                */ error(resource SEPARATE_MAIN_EX_BYEXP)             /*
+                */ option(by)
+
+END
+
+INCLUDE ifin
+
+DIALOG opt, label(resource SEPARATE_DLG_TITLE)             /*
+                */      tabtitle(resource LBL_OPTIONS)
+BEGIN
+   GROUPBOX gb_gen        _lft      _top      _iwd      _ht6,         /*
+                */      label(resource LBL_VARIABLE_NAMES)
+
+   RADIO    rb_gen        _ilft     _ss       _ibwd     .,            /*
+                */      label(resource SEPARATE_OPT_RB_GEN)   /*
+                */      first                                         /*
+	        */      clickon("script ed_gen_off")                  /*
+                */      option(NONE)
+
+   RADIO    rb_newname    @         _ss       @         .,	      /*
+                */      label(resource SEPARATE_OPT_RB_NEWNAME)           /*
+                */      last                                          /*
+		*/      clickon("script ed_gen_on")                   
+
+   EDIT     ed_gen        _indent2  _ss       _vnwd     .,            /*
+                */      label(resource SEPARATE_OPT_ED_GEN)           /*
+                */      option(generate)                              /*
+                */      max(32)
+
+
+   GROUPBOX gb_seq        _lft      _xls     _iwd      _ht4,         /*
+                */      label(resource SEPARATE_OPT_GB_SEQ)
+
+   RADIO    rb_seqdef     _ilft     _ss       _ibwd     .,            /*
+             */      label(resource SEPARATE_OPT_RB_SEQDEF)  /*
+                */      first 	                                      /*
+                */      option(NONE)
+
+   RADIO    rb_seq        @         _ss       _ibwd     .,            /*
+                */      label(resource SEPARATE_OPT_RB_SEQ)	              /*
+                */      last	                                      /*
+		*/      option(sequential)
+
+   CHECKBOX ck_missing    _lft      _xls     _iwd      .,            /*
+                */  label(resource SEPARATE_OPT_CK_MISSING)  /*
+                */      option(missing)
+
+   CHECKBOX ck_shortlbl   _lft      _ms      _iwd      .,            /*
+                */  label(resource SEPARATE_OPT_CK_SHORTLBL)  /*
+                */      option(shortlabel)
+END
+
+PROGRAM command
+BEGIN
+	put "separate "
+	varlist main.vn_var
+	INCLUDE _ifin_pr 
+	beginoptions
+		if main.rb_byvar{
+			require main.vn_byvar
+			optionarg main.vn_byvar
+		}
+		if main.rb_byexp{
+			require main.ex_byexp
+			optionarg main.ex_byexp
+		}
+                if opt.rb_newname {
+			optionarg opt.ed_gen
+		}
+		option radio(opt rb_seqdef rb_seq)
+                option opt.ck_missing
+		option opt.ck_shortlbl
+	endoptions
+END
+
+SCRIPT byex_off
+BEGIN
+      main.ex_byexp.disable
+      main.vn_byvar.enable
+END
+
+SCRIPT byex_on
+BEGIN	
+      main.ex_byexp.enable
+      main.vn_byvar.disable
+END
+
+SCRIPT ed_gen_off
+BEGIN
+	opt.ed_gen.disable
+END
+
+SCRIPT ed_gen_on	
+BEGIN
+	opt.ed_gen.enable
+END

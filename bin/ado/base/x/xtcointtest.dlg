@@ -1,0 +1,363 @@
+/*
+	xtcointtest
+
+*!  VERSION 1.0.8  28mar2017
+
+*/
+
+VERSION 15.0
+
+INCLUDE _std_xlarge
+DEFINE _dlght 450
+INCLUDE header
+HELP hlp1, view("help xtcointtest")
+RESET res1
+
+
+SCRIPT PREINIT
+BEGIN
+	     setscale_hadj resource XTCOINTTEST_DLG_HSCALE
+END
+
+SCRIPT show_xtset
+BEGIN
+	create CHILD xtset
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)			///
+	label(resource XTCOINTTEST_DLG_TITLE)
+BEGIN
+  BUTTON bu_xtset		_xsetbu	_top	_setbuwd 	.,	///
+	onpush(script show_xtset)					///
+	label(resource LBL_BU_PANEL_SETTINGS)
+  GROUPBOX gb_test		_lft	30	_iwd	_ht2,		///
+	label(resource LBL_TEST)
+  RADIO  rb_kao			_ilft	_ss	_cwd3_1	.,first		///
+	option(kao)							///
+	onclickon(script main_kao_on)					///
+	label(resource XTCOINTTEST_MAIN_RB_KAO)
+  RADIO  rb_pedroni		_ilft3_2 @	_cwd3_1	.	,	///
+	option(pedroni)							///
+	onclickon(script main_pedroni_on)				///
+	label(resource XTCOINTTEST_MAIN_RB_PEDRONI)
+  RADIO  rb_wester		_lft3_3	 @	_cwd3_1	.,last		///
+	option(westerlund)						///
+	onclickon(script main_westerlund_on)				///
+	label(resource XTCOINTTEST_MAIN_RB_WESTERLUND)
+
+  TEXT     tx_depvar		_lft	_xls	_vnwd	.,		///
+	label(resource LBL_DEPVAR)
+  DEFINE holdy @y
+  VARNAME  vn_depvar		@	_ss	@	.,		///
+	numeric								///
+	ts								///
+	label(resource LBL_DEPVAR)
+  TEXT	   tx_iv		_vlx	holdy	_vlwd	.,		///
+	label(resource LBL_VARIABLES)
+  VARLIST  vl_iv		@	_ss	@	.,		///
+	ts								///
+	numeric								///
+	label(resource LBL_VARIABLES)
+
+  GROUPBOX gb_opts		_lft	_ls	_iwd	_ht14,		///
+	label(resource LBL_OPTIONS)
+  RADIO  rb_ar_pspec		_ilft 	 _ss	_cwd2	., first	///
+	label(resource XTCOINTTEST_MAIN_RB_AR_PSPEC)
+  RADIO  rb_ar_same		_lft2	 @	@	., last		///
+	option(ar(same))						///
+	label(resource XTCOINTTEST_MAIN_RB_AR_SAME)
+  CHECKBOX ck_trend		_ilft	_ss	_ibwd	.,		///
+	option(trend)							///
+	onclickon(program check_nocons)					///
+	onclickoff(program check_nocons)				///
+	label(resource XTCOINTTEST_MAIN_CK_TREND)
+  CHECKBOX ck_nocons		@	_ms	@	.,		///
+	option(noconstant)						///
+	onclickon(program check_nocons)					///
+	onclickoff(program check_nocons)				///
+	label(resource LBL_PANEL_SPECIFIC_MEANS)
+
+  CHECKBOX ck_lags		@	_ls	_ibwd	_ht5,		///
+	groupbox							///
+	option(lags)							///
+	onclickon(program lags_on)					///
+	onclickoff(program lags_off)					///
+	label(resource XTCOINTTEST_MAIN_CK_LAGS)
+  COMBOBOX cb_lags		_iilft	_ms	_cwd0	.,		///
+	dropdownlist							///
+	default("")							///
+	contents(main_lagspec_list)					///
+	values(main_lagspec_values)					///
+	onselchange(program check_nlags)
+  SPINNER  sp_lags		_iilft	_ms	_en7wd	.,		///
+	default(1)							///
+	option(lags)
+  TEXT tx_nlags			_en7sep	@	_cwd6	.,		///
+  	label(resource  XTCOINTTEST_MAIN_TX_NUM_LAGS)
+  CHECKBOX ck_kernel		_ilft	_xls	_ibwd	_ht5,		///
+	groupbox							///
+	onclickon(program kernel_on)					///
+	onclickoff(program kernel_off)					///
+	label(resource XTCOINTTEST_MAIN_CK_KERNEL)
+
+  COMBOBOX cb_kernel		_iilft	_ss	300	.,		///
+	dropdownlist							///
+	default(bartlett nwest)						///
+	contents(main_kernel_list)					///
+	values(main_kernel_values)					///
+	onselchange(program check_klags)
+  SPINNER  sp_klags		_iilft	_ss	_en7wd	.,		///
+	default(1)
+  TEXT tx_klags			_en7sep	@	_cwd6	.,		///
+  	label(resource XTCOINTTEST_MAIN_TX_NUM_LAGS)
+  CHECKBOX ck_demean		_ilft	_xls	_ibwd	.,		///
+	option(demean)							///
+	label(resource LBL_SUBTRACT_CROSS_SECTIONAL_MEANS)
+  RADIO rb_somepanels		_ilft	160	_cwd2	., first	///
+  	label(resource XTCOINTTEST_MAIN_RB_SOMEPANELS)
+  RADIO rb_allpanels		_lft2	@	@	., last		///
+	option(allpanels)						///
+	label(resource XTCOINTTEST_MAIN_RB_ALLPANELS)
+END
+
+LIST main_lagspec_list
+BEGIN
+ 	resource LBL_NUM_LAGS_OF_SERIES
+ 	resource LBL_AKAIKE_INFORMATION_CRITERION
+ 	resource LBL_BAYESIAN_INFORMATION_CRITERION
+	resource LBL_HANNAN_QUINN_INFORMATION_CRITERION 
+END
+
+LIST main_lagspec_values
+BEGIN
+	""
+	aic
+	bic
+	hqic
+END
+LIST main_kernel_list
+BEGIN
+ 	resource LBL_BARTLETT_KERNEL
+ 	resource LBL_BARTLETT_KERNEL_NWEST
+ 	resource LBL_PARZEN_KERNEL
+ 	resource LBL_PARZEN_KERNEL_NWEST
+ 	resource LBL_QUADRATICSPECTRAL_KERNEL
+ 	resource LBL_QUADRATICSPECTRAL_KERNEL_NWEST
+END
+
+LIST main_kernel_values
+BEGIN
+	bartlett
+	bartlett nwest
+	parzen
+	parzen nwest
+	quadraticspectral
+	quadraticspectral nwest
+END
+
+SCRIPT main_kao_on
+BEGIN
+	main.rb_somepanels.hide
+	main.rb_allpanels.hide
+	main.rb_ar_pspec.hide
+	main.rb_ar_same.hide
+	main.ck_trend.hide
+	main.ck_nocons.hide
+	main.ck_lags.show
+	main.cb_lags.show
+	main.sp_lags.show
+	main.ck_kernel.show
+	main.cb_kernel.show
+	main.sp_klags.show
+	main.gb_opts.setposition . . . 240
+	main.ck_lags.setposition . 165
+	main.cb_lags.setposition . 190
+	main.sp_lags.setposition . 215
+	main.tx_nlags.setposition . 215
+	main.ck_kernel.setposition . 260
+	main.cb_kernel.setposition . 285
+	main.sp_klags.setposition . 310
+	main.tx_klags.setposition . 310
+	main.ck_demean.setposition . 350
+	program check_nocons
+	program check_nlags
+	program check_klags
+END
+
+SCRIPT main_pedroni_on
+BEGIN
+	main.rb_somepanels.hide
+	main.rb_allpanels.hide
+	main.rb_ar_pspec.show
+	main.rb_ar_same.show
+	main.ck_trend.show
+	main.ck_nocons.show
+	main.ck_lags.show
+	main.cb_lags.show
+	main.sp_lags.show
+	main.ck_kernel.show
+	main.cb_kernel.show
+	main.sp_klags.show
+	main.gb_opts.setposition . . . 295
+	main.ck_trend.setposition . 185
+	main.ck_nocons.setposition . 205
+	main.ck_lags.setposition . 230
+	main.cb_lags.setposition . 255
+	main.sp_lags.setposition . 280
+	main.tx_nlags.setposition . 290
+	main.ck_kernel.setposition . 320
+	main.cb_kernel.setposition . 345
+	main.sp_klags.setposition . 370
+	main.tx_klags.setposition . 370
+	main.ck_demean.setposition . 405
+	program check_nocons
+	program check_nlags
+	program check_klags
+END
+
+SCRIPT main_westerlund_on
+BEGIN
+	main.rb_somepanels.show
+	main.rb_allpanels.show
+	main.rb_ar_pspec.hide
+	main.rb_ar_same.hide
+	main.ck_trend.show
+	main.ck_trend.enable
+	main.ck_nocons.hide
+	main.ck_lags.hide
+	main.cb_lags.hide
+	main.sp_lags.hide
+	main.tx_nlags.hide
+	main.ck_kernel.hide
+	main.cb_kernel.hide
+	main.sp_klags.hide
+	main.tx_klags.hide
+	main.gb_opts.setposition . . . 100
+	main.ck_trend.setposition . 190
+	main.ck_demean.setposition . 210
+END
+PROGRAM lags_on
+BEGIN
+	call main.cb_lags.enable
+	call main.sp_lags.enable
+	call main.tx_nlags.enable
+	call program check_nlags
+END
+PROGRAM lags_off
+BEGIN
+	call main.cb_lags.disable
+	call main.sp_lags.disable
+	call main.tx_nlags.disable
+	call program check_nlags
+END
+PROGRAM kernel_on
+BEGIN
+	call main.cb_kernel.enable
+	call main.sp_klags.enable
+	call main.tx_klags.enable
+	call program check_klags
+END
+PROGRAM kernel_off
+BEGIN
+	call main.cb_kernel.disable
+	call main.sp_klags.disable
+	call main.tx_klags.disable
+	call program check_klags
+END
+PROGRAM check_nlags
+BEGIN
+	if main.cb_lags.iseq("") {
+		call main.tx_nlags.hide
+	}
+	else {
+		call main.tx_nlags.show
+	}
+END
+PROGRAM check_klags
+BEGIN
+	if main.cb_kernel.iseq("bartlett nwest")		///
+	 | main.cb_kernel.iseq("parzen nwest")			///
+	 | main.cb_kernel.iseq("quadraticspectral nwest") {
+		call main.sp_klags.hide
+		call main.tx_klags.hide
+	}
+	else {
+		call main.sp_klags.show
+		call main.tx_klags.show
+	}
+END
+
+PROGRAM check_nocons
+BEGIN
+
+	if main.rb_pedroni {
+		if main.ck_nocons {
+			call main.ck_trend.disable
+		}
+		else {
+			call main.ck_trend.enable
+		}
+		if main.ck_trend {
+			call main.ck_nocons.disable
+		}
+		else {
+			call main.ck_nocons.enable
+		}
+	}
+END
+
+
+INCLUDE ifin
+
+PROGRAM main_lspec_output
+BEGIN
+	if main.ck_lags.isvisible() 					///
+		& main.ck_lags.isenabled() 				///
+		& main.ck_lags {
+		if main.cb_lags.isneq("") {
+			put "lags("
+			put main.cb_lags " "
+			put main.sp_lags
+			put ") "
+		}
+		else {
+			optionarg /hidedefault main.sp_lags
+		}
+	}
+END
+PROGRAM main_kspec_output
+BEGIN
+	if main.ck_kernel.isvisible()				///
+	 & main.ck_kernel.isenabled()				///
+	 & main.ck_kernel {
+		if main.cb_kernel.isneq("bartlett nwest") {
+			put "kernel("
+			put main.cb_kernel
+			if main.sp_klags.isvisible()		///
+			 & main.sp_klags.isenabled() {
+				put " " main.sp_klags
+			}
+			put ") "
+		}
+
+	}
+END
+PROGRAM command
+BEGIN
+	put "xtcointtest "
+	option main.rb_kao
+	option main.rb_pedroni
+	option main.rb_wester
+	varlist main.vn_depvar
+	varlist main.vl_iv
+	put " " /program ifin_output
+	beginoptions
+		option main.ck_trend
+		option main.ck_nocons
+		option main.rb_ar_same
+		option main.rb_allpanels
+		put " " /program main_lspec_output
+		put " " /program main_kspec_output
+		option main.ck_demean
+	endoptions
+END

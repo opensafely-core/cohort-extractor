@@ -1,0 +1,310 @@
+/*
+  tpoisson
+
+*!  VERSION 1.1.10  29nov2018
+
+  keyword:  eclass
+
+*/
+
+VERSION 15.0
+
+INCLUDE _std_xlarge
+DEFINE _dlght 410
+INCLUDE header
+
+HELP hlp1, view("help tpoisson")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING _MSG_TMP
+	script se_createAsSvyJknifeBstrapML
+	program svy_check_title
+	setscale_hadj resource TPOISSON_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script sub_set_by_on
+	program se_setFinalInitState
+END
+
+SCRIPT svy_is_on
+BEGIN
+	script max_setDefaultNoLog
+END
+SCRIPT svy_is_off
+BEGIN
+	script max_setDefaultLog
+END
+PROGRAM svy_check_title
+BEGIN
+	if __MESSAGE.contains("-svy-") {
+		call settitle resource TPOISSON_SVY_DLG_TITLE
+	}
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)				///
+	/// **** has svy title ****					///
+	title(resource TPOISSON_DLG_TITLE)
+BEGIN
+  TEXT tx_dv			_lft	_top	_vnwd	.,		///
+	label(resource LBL_DEPVAR)
+  VARNAME vn_dv			@ 	_ss	@	.,		///
+	ts								///
+	numeric								///
+	label(resource LBL_DEPVAR)
+
+  TEXT tx_iv			_vlx	_top	160	.,		///
+	label(resource LBL_INDDEPVAR)
+  VARLIST vl_iv			@	_ss	_vlwd	.,		///
+	fv ts								///
+	allowcat							///
+	numeric								///
+	label(resource LBL_INDDEPVAR)
+
+  CHECKBOX ck_nocons		@	_ms	@	.,		///
+	option("noconstant")						///
+	label(resource LBL_NOCONSTANT)
+
+  GROUPBOX gb_lltrunc		_lft	_ls	_iwd	_ht4,		///
+	label(resource LBL_LOWER_LIMIT_FOR_TRUNCATION)  
+  RADIO rb_lltrunc_num		_ilft	_ss	_cwd2	.,first		///
+	onclickon(script main_lltrunc_num_on)				///
+	label(resource LBL_LOWER_LIMIT)
+  RADIO rb_lltrunc_var		_lft2	@	@	.,last		///
+	onclickon(script main_lltrunc_var_on)				///
+	label(resource LBL_SPECIFIED_IN_A_VARIABLE)
+  EDIT ed_lltrunc		_ilft	_ss	_vnwd	.,		///
+	option("ll")							///
+	numonly								///
+	label(resource LBL_VN_VARIABLE)
+  VARNAME vn_lltrunc		_lft2	@	@	.,		///
+	option("ll")							///
+	numeric								///
+	label(resource LBL_VN_VARIABLE)
+
+  CHECKBOX ck_ultrunc		_lft	_xls	_iwd	_ht4,		///
+	groupbox							///
+	onclickon("program main_ultrunc_on")				///
+	onclickoff("script main_ultrunc_off")				///
+	label(resource LBL_UPPER_LIMIT_FOR_TRUNCATION)
+  RADIO rb_ultrunc_num		_ilft	_ss	_cwd2	.,first		///
+	onclickon(program main_ultrunc_on)				///
+	label(resource LBL_UPPER_LIMIT)
+  RADIO rb_ultrunc_var		_lft2	@	@	.,last		///
+	onclickon(program main_ultrunc_on)				///
+	label(resource LBL_SPECIFIED_IN_A_VARIABLE)
+  EDIT ed_ultrunc		_ilft	_ss	_vnwd	.,		///
+	option("ul")							///
+	numonly								///
+	label(resource LBL_VN_VARIABLE)
+  VARNAME vn_ultrunc		_lft2 	  @	    @	.,		///
+	option("ul")							///
+	numeric								///
+	label(resource LBL_VN_VARIABLE)
+
+  GROUPBOX gb_opt		_lft	_xls	_iwd	_ht11,		///
+		label(resource LBL_OPTIONS)
+  RADIO rb_expose		_ilft	_ms	_cwd3_2	.,first		///
+  	onclickon(script main_expose_on)				///
+	label(resource LBL_EXPOSURE_VARIABLE)
+  RADIO rb_offset		_lft3_2	@	@	.,last		///
+	onclickon(script main_offset_on)				///
+	label(resource LBL_OFFSET_VARIABLE)
+  VARNAME vn_expose		_ilft	_ss	@	.,		///
+	option(exposure)						///
+	numeric								///
+	label(resource LBL_EXPOSURE_VARIABLE)
+  VARNAME vn_offset		_lft3_2	@	@	.,		///
+	option(offset)							///
+	numeric								///
+	label(resource LBL_OFFSET_VARIABLE)
+
+  DEFINE _x _ilft
+  DEFINE _y _ls
+  DEFINE _cx _ilw80
+  DEFINE _bux _islw80
+  INCLUDE _constraints
+
+  DEFINE _x _ilft
+  DEFINE _xw _ibwd
+//  INCLUDE _ck_collinear
+END
+
+INCLUDE _constraints_sc 
+
+SCRIPT main_lltrunc_num_on
+BEGIN
+	main.ed_lltrunc.enable
+	main.vn_lltrunc.disable
+END
+
+SCRIPT main_lltrunc_var_on
+BEGIN
+	main.ed_lltrunc.disable
+	main.vn_lltrunc.enable
+END
+
+PROGRAM main_ultrunc_on
+BEGIN
+	if !main.ck_ultrunc {
+		call script main_ultrunc_off
+	}
+	else {
+		call main.rb_ultrunc_num.enable
+		call main.rb_ultrunc_var.enable
+		if main.rb_ultrunc_num {
+			call main.ed_ultrunc.enable
+			call main.vn_ultrunc.disable
+		}
+		else {
+			call main.vn_ultrunc.enable
+			call main.ed_ultrunc.disable
+		}
+	}
+END
+
+SCRIPT main_ultrunc_off
+BEGIN
+	main.rb_ultrunc_num.disable
+	main.rb_ultrunc_var.disable
+	main.ed_ultrunc.disable
+	main.vn_ultrunc.disable
+END
+
+SCRIPT main_expose_on
+BEGIN
+	main.vn_expose.enable
+	main.vn_offset.disable
+END
+
+SCRIPT main_offset_off
+BEGIN
+	main.vn_expose.disable
+	main.vn_offset.enable
+END
+
+INCLUDE sub_by_ifin_over_subpop
+INCLUDE weights_fpi
+INCLUDE se
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+	program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2b
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  RADIO  rb_default		_lft	_ls	_cwd1	.,first		///
+	label(resource LBL_REPORT_COEFFICIENTS_DLFT)
+  RADIO rb_irr			@	_ss	@	.,last		///
+	option(irr)							///
+	label(resource LBL_REPORT_INCIDENCE_RATE_RATIOS)
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _nocnsreport
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+
+PROGRAM rpt_output
+BEGIN
+	optionarg /hidedefault rpt.sp_level
+	option rpt.rb_irr
+	INCLUDE _nocnsreport_pr
+	INCLUDE _report_columns_pr
+	put " " rpt_bu_facvarsResults
+	put " " rpt_bu_fmtcoefResults
+END
+
+INCLUDE max_ml
+
+PROGRAM command
+BEGIN
+	put /program by_output " "
+	put /program se_prefix_output " "
+	put "tpoisson "
+	varlist main.vn_dv [main.vl_iv]
+	if !main.vl_iv & main.ck_nocons {
+		call _MSG_TMP.format					/// 
+		"resource LBL_MSGBOX_IS_SELECTED_WITHOUT_INDVARS_FMT" ///
+			"resource LBL_NOCONSTANT"
+		stopbox stop "class _MSG_TMP.value"
+// "Suppress constant term" is selected without independent variables.
+	}
+	put " " /program ifin_output
+	put " " /program weights_output
+	beginoptions
+		option main.ck_nocons
+		optionarg main.ed_lltrunc
+		if main.rb_lltrunc_var & !main.vn_lltrunc {
+			call _MSG_TMP.format				/// 
+"resource LBL_MSGBOX_TAB_GROUPBOX_CONTROL_NOT_FILLED_IN_FMT"		///
+"resource LBL_TAB_MODEL"						///
+"resource LBL_LOWER_LIMIT_FOR_TRUNCATION" 					///
+"resource LBL_SPECIFIED_IN_A_VARIABLE"
+
+		stopbox stop "class _MSG_TMP.value"
+// On the "Model" tab,
+// "Lower limit for truncation" to be "Specified in a variable" is not filled in.
+		}
+		optionarg main.vn_lltrunc
+		if main.ck_ultrunc {
+			if main.rb_ultrunc_num & !main.ed_ultrunc {
+				call _MSG_TMP.format			/// 
+"resource LBL_MSGBOX_TAB_GROUPBOX_CONTROL_NOT_FILLED_IN_FMT"		///
+"resource LBL_TAB_MODEL"						///
+"resource LBL_UPPER_LIMIT_FOR_TRUNCATION" 					///
+"resource LBL_UPPER_LIMIT"
+				stopbox stop "class _MSG_TMP.value"
+	// On the "Model" tab,
+	// "Upper limit" for "Upper limit for truncation" must be filled in.
+			}		
+			optionarg main.ed_ultrunc
+			if main.rb_ultrunc_var & !main.vn_ultrunc {
+				call _MSG_TMP.format			/// 
+"resource LBL_MSGBOX_TAB_GROUPBOX_CONTROL_NOT_FILLED_IN_FMT"		///
+"resource LBL_TAB_MODEL"						///
+"resource LBL_UPPER_LIMIT_FOR_TRUNCATION" 					///
+"resource LBL_SPECIFIED_IN_A_VARIABLE"
+				stopbox stop "class _MSG_TMP.value"
+	// On the "Model" tab,
+	// "Specified in a variable" for "Upper limit for truncation" must be filled in.
+			}
+			optionarg main.vn_ultrunc
+		}
+		optionarg main.vn_expose
+		optionarg main.vn_offset
+		INCLUDE _constraints_main_pr
+//		option main.ck_collinear
+		put " " /program se_output
+		put " " /program rpt_output
+		put " " /program max_output
+	endoptions
+END

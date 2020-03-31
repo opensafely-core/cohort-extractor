@@ -1,0 +1,102 @@
+*! version 1.0.0  17may2019
+
+version 16
+
+class {
+
+	mfun_y		= "_meta_se"
+	mfun_x		= "_meta_es"
+	mfun_n		= 300
+	mfun_opts	= ""
+	mfun_preserve	= ""
+
+}, inherit(twoway_rline_parse)
+
+program .parse
+	.must_create_serset = 1
+	.n = 1
+	.allow_anything = 1
+	.varcheck = 0
+
+	syntax [anything] [if] [in] [, contours(passthru) *]
+
+	if `"`contours'"' == "" {
+		.viewtype = "rline"
+	}
+	else	.viewtype = "rarea"
+
+	.Super.parse `if' `in', `contours' `options'
+
+	local options `"[], `.options'"'		// ignore weights
+	_parse expand loc glob : options
+	if `loc_n' != 1 {
+		error 198
+	}
+	local 0 `"`loc_1'"'
+	_parse combop 0 : 0, option(RAnge)	rightmost
+
+	syntax [,				///
+		theta(passthru)			///
+		contours(passthru)		///
+		range(passthru)			///
+		metric(passthru)		///
+		method(passthru)		///
+		N(integer `.mfun_n')		///
+		level(cilevel)			///
+		*				///
+	]
+	twoway__meta_funnel_gen `anything', `range' `metric' `method' n(`n')
+	local metric metric(`r(metric)')
+	local method method(`r(method)')
+	local level level(`level')
+	.mfun_opts = "`contours' `theta' `range' `metric' `method' `level'"
+
+	.mfun_preserve	= `"`r(preserve)'"'
+	.mfun_n	= r(n)
+	.mfun_y	= "`r(y)'"
+	.mfun_x	= "`r(x)'"
+
+	.options	= `"`options'"'
+end
+
+program log_create_serset
+
+	syntax , LOG(name) SERSETNAME(string) [ TOUSE(passthru) * ]
+
+	local nolog  .`log'.Arrpush __NOLOG__
+
+	.log_touse , log(`log') `touse'
+
+	// make the data
+	if (`"`.mfun_preserve'"' != "") `nolog' preserve
+	`nolog' tempname x y1 y2
+	`nolog' twoway__meta_funnel_gen `.mfun_y' `.mfun_x'	///
+		if \`touse1',					///
+		`.mfun_opts'					///
+		n(`.mfun_n')					///
+		generate(\`y1' \`y2' \`x')			///
+		// blank
+
+	// no weights to remove
+
+	.varlist = "y1 y2 x"
+
+	.`log'.Arrpush				///
+		.`sersetname' = .serset.new	///
+			\`y1' \`y2' \`x'	///
+			in 1/`.mfun_n',		///
+			nocount			///
+			`.omitmethod'		///
+			`options'
+
+	.`log'.Arrpush .`sersetname'.sers[1].name = "y1"
+	.`log'.Arrpush .`sersetname'.sers[2].name = "y2"
+	.`log'.Arrpush .`sersetname'.sers[3].name = "x"
+
+	if (`"`.mfun_preserve'"' != "") `nolog' restore
+
+	`nolog' .`sersetname'.sort \`x'
+
+end
+
+exit

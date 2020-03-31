@@ -1,0 +1,267 @@
+/*
+  gr_ed_refline.dlg
+
+*!  VERSION 1.1.4  23oct2019
+
+*/
+
+VERSION 14.0
+MODAL
+
+INCLUDE _std_vsmall
+DEFINE _dlght 270
+INCLUDE header_gr_ed
+
+DEFINE _clwd	15
+DEFINE _wd	110
+DEFINE _sep	+115
+DEFINE _cbwd	130
+DEFINE _cbsep	+135
+
+SCRIPT PREINIT
+BEGIN
+	create STRING G
+	program setupGOBJECT
+
+	create DOUBLE axisvalue
+	create STRING color
+	create STRING rgb
+	create STRING opacity
+	create STRING width
+	create STRING pattern
+	create DOUBLE extendlow
+	create DOUBLE extendhigh
+	create DOUBLE drawview
+
+	create DOUBLE index
+	create STRING tmp
+
+	program get_defaults
+	setscale_hadj resource GR_ED_REFLINE_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program initialize_controls
+END
+
+PROGRAM setupGOBJECT
+BEGIN
+	if ! __MESSAGE {
+		stopbox stop "resource LBL_MSGBOX_OBJECT_NOT_FOUND"
+// An unexpected error has occurred. Object not found.
+		exit 198
+	}
+	call G.setvalue class __MESSAGE.value
+END
+
+DIALOG main, title(resource LBL_REFLINE_PROP) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  GROUPBOX gb_prop	_lft	_top	_iwd	_ht18h,		///
+	label(resource LBL_REFLINE_PROP)
+  TEXT     tx_value	_ilft	_ss	_wd	.,		///
+	label(resource LBL_VALUE) right
+  EDIT     ed_value	_sep	@	_cbwd	.,		///
+	numonly
+
+  TEXT     tx_clr	_ilft	_mls	_wd	.,		///
+	label(resource LBL_COLOR) right
+  COMBOBOX cb_clr	_sep	@	_cbwd	.,		///
+	dropdownlist contents(_colors) 				///
+	onselchangelist(main_cl_clr_sel)
+  COLOR    cl_clr	_cbsep	@	_clwd	.,
+  TEXT     tx_opacity	_ilft	_mls	_wd	.,		///
+	label(resource LBL_OPACITY) right
+  SPINNER sp_opacity	_sep	@	_spwd	.,		///
+	default(100)						///
+	min(0)							///
+	max(100)
+
+  TEXT     tx_width	_ilft	_mls	_wd	.,		///
+	label(resource LBL_WIDTH) right
+  COMBOBOX cb_width	_sep	@	_cbwd	.,		///
+	dropdown 						///
+	contents(_linewidths)
+
+  TEXT     tx_pattern	_ilft	_mls	_wd	.,		///
+	label(resource LBL_PATTERN) right
+  COMBOBOX cb_pattern	_sep	@	_cbwd	.,		///
+	dropdownlist						///
+	contents(_linepatterns)
+
+  CHECKBOX ck_low	@	_ls	@	.,		///
+	label(resource GR_ED_REFLINE_MAIN_CK_LOW)
+  CHECKBOX ck_high	@	+22	@	.,		///
+	label(resource GR_ED_REFLINE_MAIN_CK_HIGH)
+
+  CHECKBOX ck_hide	_lft	+45	_iwd	.,		///
+	label(resource GR_ED_REFLINE_MAIN_CK_HIDE)
+END
+
+LIST main_cl_clr_sel
+BEGIN
+	main.cl_clr.show
+	main.cl_clr.hide
+END
+
+PROGRAM get_defaults
+BEGIN
+	call G.withvalue axisvalue.setvalue class @.z
+	call main.ed_value.setdefault class axisvalue.value
+
+	call G.withvalue index.setvalue class @.style.linestyle.color.styledex
+	call index.withvalue color.setstring class .__STYLES.color[@]
+	call main.cb_clr.setdefault class color.value
+	
+	call G.withvalue rgb.setstring class @.style.linestyle.color.rgb
+	call main.cl_clr.setdefault class rgb.value
+
+	call G.withvalue opacity.setstring class @.style.linestyle.color.opacity
+	call main.sp_opacity.setdefault class opacity.value
+
+	call G.withvalue index.setvalue class @.style.linestyle.width.styledex
+	call index.withvalue width.setstring class .__STYLES.linewidth[@]
+	if ! width {
+		call G.withvalue width.setvalue class @.style.linestyle.width.val
+	}
+	call main.cb_width.setdefault class width.value
+
+	call G.withvalue index.setvalue class @.style.linestyle.pattern.styledex
+	call index.withvalue pattern.setstring class .__STYLES.linepattern[@]
+	call main.cb_pattern.setdefault class pattern.value
+
+	call G.withvalue extendlow.setvalue class @.style.extend_low.istrue
+	if extendlow {
+		call main.ck_low.setdefault 1
+	}
+	else {
+		call main.ck_low.setdefault 0
+	}
+	
+	call G.withvalue extendhigh.setvalue class @.style.extend_high.istrue
+	if extendhigh {
+		call main.ck_high.setdefault 1
+	}
+	else {
+		call main.ck_high.setdefault 0
+	}
+
+	call G.withvalue drawview.setvalue class @.draw_view.istrue
+	if drawview {
+		call main.ck_hide.setdefault 0
+	}
+	else {
+		call main.ck_hide.setdefault 1
+	}
+END
+
+PROGRAM initialize_controls
+BEGIN
+	call main.ed_value.setvalue class axisvalue.value
+
+	if color {
+		call main.cb_clr.setvalue class color.value
+	}
+	if ! color {
+		call main.cb_clr.setvalue "custom"
+	}
+	call main.cl_clr.setvalue class rgb.value
+	call main.sp_opacity.setvalue class opacity.value
+
+	call main.cb_width.setvalue class width.value
+	call main.cb_pattern.setvalue class pattern.value
+
+	if extendlow {
+		call main.ck_low.seton
+	}
+	else {
+		call main.ck_low.setoff
+	}
+
+	if extendhigh {
+		call main.ck_high.seton
+	}
+	else {
+		call main.ck_high.setoff
+	}
+
+	if drawview {
+		call main.ck_hide.setoff
+	}
+	else {
+		call main.ck_hide.seton
+	}
+END
+
+PROGRAM command
+BEGIN
+	call program get_defaults
+	put "_gm_dlg_edits"
+	beginoptions
+		put " object(" G ") "
+		if ! main.ed_value.isdefault() {
+			put "set(z " main.ed_value ") "
+		}
+		if ! main.cl_clr.isvisible() & ! main.cb_clr.isdefault() {
+			put "style(linestyle(color(" 
+			put main.cb_clr 
+			put "))) "
+		}
+		if main.cl_clr.isvisible() & ! main.cl_clr.isdefault() {
+			put "style(linestyle(color("   `"""'
+			put main.cl_clr
+			put `"""'
+			put "))) "
+		}
+		if ! main.sp_opacity.isdefault() {
+			put "style(linestyle(color("
+			put "%"
+			put main.sp_opacity
+			put "))) "
+		}
+		if ! main.cb_width.isdefault() {
+			put "style(linestyle(width("
+			put main.cb_width
+			put "))) "
+		}
+		if ! main.cb_pattern.isdefault() {
+			put "style(linestyle(pattern("
+			put main.cb_pattern
+			put "))) "
+		}
+		if ! main.ck_low.isdefault() {
+			if main.ck_low {
+				put "style(extend_low("
+				put "yes"
+				put ")) "
+			}
+			else {
+				put "style(extend_low("
+				put "no"
+				put ")) "
+			}
+		}
+		if ! main.ck_high.isdefault() {
+			if main.ck_high {
+				put "style(extend_high("
+				put "yes"
+				put ")) "
+			}
+			else {
+				put "style(extend_high("
+				put "no"
+				put ")) "
+			}
+		}
+		if ! main.ck_hide.isdefault() {
+			if main.ck_hide {
+				put "set(draw_view no) "
+			}
+			else {
+				put "set(draw_view yes) "
+			}
+		}
+		put " epilog(_gedi toolbar refline " G ")"
+	endoptions
+	stata hidden queue
+END

@@ -1,0 +1,210 @@
+/*
+  arfima
+
+*!  VERSION 1.1.5  29nov2018
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 340
+INCLUDE header
+HELP hlp1, view("help arfima")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource ARFIMA_DLG_HSCALE
+END
+
+
+SCRIPT main_PREINIT
+BEGIN
+	script _constraints_main_setOptionalOn
+	script se_createAsRobustOIM
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)	///
+	label(resource ARFIMA_DLG_TITLE)
+BEGIN
+  DEFINE _x _xsetbu
+  DEFINE _y _top
+  INCLUDE _bu_tsset
+
+  TEXT tx_dv 			_lft	_topph	_vnwd	.,		///
+	label(resource LBL_DEPVAR)
+  VARNAME vn_dv			@ 	_ss	@	.,		///
+	ts								///
+	numeric								///
+	label(resource LBL_DEPVAR)
+
+  TEXT tx_iv			_vlx	_topph	160	.,		///
+	label(resource LBL_INDDEPVAR)
+  VARLIST vl_iv			@	_ss	_vlwd	.,		///
+	fv ts								///
+	allowcat							///
+	numeric								///
+	label(resource LBL_INDDEPVAR)
+  CHECKBOX ck_nocons		@	_ms	@	.,		///
+	option(noconstant)						///
+	label(resource LBL_NOCONSTANT)
+
+  CHECKBOX ck_arma		_lft	_ls	_iwd	_ht4,		///
+	groupbox							///
+	onclickon("script main_arma_on")				///
+	onclickoff("script main_arma_off")				///
+	label(resource LBL_SUPPLY_LIST_ARMA_LAGS)
+
+  TEXT tx_ar			_indent	_ss	_en14wd	.,		///
+	label(resource LBL_AR_LAGS)
+  DEFINE holdy @y
+  EDIT ed_ar			@	_ss	@	.,		///
+	option("ar")							///
+	label(resource LBL_AR_LAGS)
+  TEXT tx_ma			_lft2	holdy	_en14wd	.,		///
+	label(resource LBL_MA_LAGS)
+  EDIT ed_ma			@	_ss	@	.,		///
+	option("ma")							///
+	label(resource LBL_MA_LAGS)
+
+  CHECKBOX ck_smemory		_lft	_xxls	_iwd	.,		///
+	option(smemory)							///
+	label(resource ARFIMA_MAIN_CK_SMEMORY)
+  CHECKBOX ck_mle		_lft	_ms	_iwd	.,		///
+	option(mle)							///
+	onclickon("main.ck_mpl.disable")				///
+	onclickoff("main.ck_mpl.enable")				///
+	label(resource LBL_MAXIMUM_LIKELIHOOD_ESTIMATES)
+  CHECKBOX ck_mpl		_lft	_ms	_iwd	.,		///
+	option(mpl)							///
+	onclickon("main.ck_mle.disable")				///
+	onclickoff("main.ck_mle.enable")				///
+	label(resource ARFIMA_MAIN_CK_MPL)
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _lw80
+  DEFINE _bux _slw80
+  INCLUDE _constraints
+
+  DEFINE _x _lft
+  DEFINE _xw _iwd
+//  INCLUDE _ck_collinear
+END
+
+SCRIPT main_arma_on
+BEGIN
+	main.tx_ar.enable
+	main.ed_ar.enable
+	main.tx_ma.enable
+	main.ed_ma.enable
+END
+
+SCRIPT main_arma_off
+BEGIN
+	main.tx_ar.disable
+	main.ed_ar.disable
+	main.tx_ma.disable
+	main.ed_ma.disable
+END
+
+INCLUDE _constraints_sc
+INCLUDE _arima_main_sc
+
+INCLUDE byifin
+INCLUDE se
+
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+        program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _nocnsreport
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+
+INCLUDE max_ml
+
+PROGRAM command
+BEGIN
+	put /program by_output " "
+	put "arfima "
+	varlist main.vn_dv [main.vl_iv]
+	put " " /program ifin_output
+	beginoptions
+		option main.ck_nocons
+		if main.ck_arma {
+			if !main.ed_ar & !main.ed_ma {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_SPECIFY_EITHER_FMT" ///
+                                "resource LBL_AR_LAGS"			/// 
+				"resource LBL_MA_LAGS"
+				stopbox stop "class _MSG_TMP.value"
+// You must specify either "List of AR lags" or "List of MA lags".
+			}
+			if (main.ed_ar & (!main.ed_ar.isnumlist())) {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 			///
+			"resource LBL_MSGBOX_THERE_IS_AN_INVALID_NUMLIST_FOR_FMT" ///
+					"resource LBL_AR_LAGS"
+				stopbox stop "class _MSG_TMP.value"
+// There is an invalid "Numlist" for "List of AR lags".
+			}
+			if (main.ed_ma & (!main.ed_ma.isnumlist())) {
+
+                                call create STRING _MSG_TMP
+				call _MSG_TMP.format 			///
+			"resource LBL_MSGBOX_THERE_IS_AN_INVALID_NUMLIST_FOR_FMT" ///
+					"resource LBL_MA_LAGS"
+				stopbox stop "class _MSG_TMP.value"
+// There is an invalid "Numlist" for "List of MA lags".
+			}
+			optionarg main.ed_ar
+			optionarg main.ed_ma
+		}
+		option main.ck_smemory
+		option main.ck_mle
+		option main.ck_mpl
+		INCLUDE _constraints_main_pr
+//		option main.ck_collinear
+
+		put " " /program se_output
+		optionarg /hidedefault rpt.sp_level
+		INCLUDE _nocnsreport_pr
+		INCLUDE _report_columns_pr
+		put " " rpt_bu_facvarsResults
+		put " " rpt_bu_fmtcoefResults
+		put " " /program max_output
+	endoptions
+END

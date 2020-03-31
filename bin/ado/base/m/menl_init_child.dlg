@@ -1,0 +1,197 @@
+/*
+  menl_init_child.dlg
+
+*!  VERSION 1.0.7  06may2019
+
+  keyword:  eclass
+
+*/
+
+VERSION 15.0
+
+INCLUDE _std_medium
+DEFINE _dlght 280
+INCLUDE header
+
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING STMP
+	create STRING init_params_res
+	setscale_hadj resource MENL_INIT_CHILD_DLG_HSCALE
+
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	title(resource LBL_INITIAL_VALUES)
+BEGIN
+  GROUPBOX gb_init		_lft	_top	_iwd	_ht8,		///
+  	label(resource LBL_SPECIFY_OR_USE_DEFAULT_INIT_VALUES)
+  RADIO rb_default		_ilft	_ss	_ibwd	.,first		///
+	onclickon(script main_hide_all)					///
+	label(resource LBL_DEFAULT)
+  RADIO rb_vector		_ilft	_ss	@	.,		///
+	onclickon(script main_vector_on)				///
+	label(resource LBL_AS_VECTOR)
+  RADIO rb_values		_ilft	_ss	@	.,		///
+	onclickon(script main_values_on)				///
+	label(resource LBL_AS_LIST_VALUES)
+  RADIO rb_params		_ilft	_ss	@	.,last		///
+	onclickon(script main_params_on)				///
+	label(resource LBL_FOR_INDIVIDUAL_PARAMS)
+
+  TEXT tx_vector		_lft	_xls	_iwd	.,		///
+  	label(resource LBL_INITIAL_VALUE_VECTOR)
+  DEFINE ystart @y
+  COMBOBOX cb_vector		_lft	_ss	_iwd	.,		///
+	dropdown							///
+	contents(matrix)						///
+	label(resource LBL_INITIAL_VALUE_VECTOR)
+  CHECKBOX ck_skip		_lft	_ls	_ibwd	.,		///
+	option(skip)							///
+	onclickon(program check_options)				///
+	onclickoff(program check_options)				///
+	label(resource LBL_IGNORE_PARAMS_NOT_FOUND)
+  CHECKBOX ck_copy		_lft	_ms	_ibwd	.,		///
+	option(copy)							///
+	onclickon(program check_options)				///
+	onclickoff(program check_options)				///
+	label(resource LBL_DO_NOT_CHECK_VALID_COLUMN)
+  CHECKBOX ck_fixed		_lft	_ms	_ibwd	.,		///
+	option(fixed)							///
+	label(resource LBL_USE_EM_INIT_VARIANCE)
+
+  TEXT tx_value			_lft	ystart	_iwd	.,		///
+	label(resource LBL_VALUES_COLON)
+  EDIT 	ed_value		_lft	_ss	_iwd	.,		///
+	label(resource LBL_VALUES_COLON)
+
+  TEXT tx_params		_lft	ystart	_iwd	.,		///
+  	label(resource LBL_INIT_VALUE_PARAMETERS)
+  EDIT ed_initparams		@	_ss	310	.,		///
+  	label(resource LBL_INIT_VALUE_PARAMETERS)
+  BUTTON bu_initparams		+315	@	_buwd	.,		///
+	onpush(program main_show_init_params_dlg)			///
+	label(resource LBL_BU_CREATE)
+END
+
+SCRIPT main_hide_all
+BEGIN
+	main.tx_vector.hide
+	main.cb_vector.hide
+	main.ck_skip.hide
+	main.ck_copy.hide
+	main.ck_fixed.hide
+	main.tx_value.hide
+	main.ed_value.hide
+	main.tx_params.hide
+	main.ed_initparams.hide
+	main.bu_initparams.hide
+END
+SCRIPT main_vector_on
+BEGIN
+	script main_hide_all
+	main.tx_vector.show
+	main.cb_vector.show
+	main.ck_skip.show
+	main.ck_copy.show
+	main.ck_fixed.show
+	main.ck_copy.setposition . 205
+	main.ck_fixed.setposition . 230
+	program check_options
+END
+
+SCRIPT main_values_on
+BEGIN
+	script main_hide_all
+	main.tx_value.show
+	main.ed_value.show
+END
+SCRIPT main_params_on
+BEGIN
+	script main_hide_all
+	main.tx_params.show
+	main.ed_initparams.show
+	main.bu_initparams.show
+	main.ck_fixed.show
+	main.ck_fixed.setposition . 180
+END
+
+PROGRAM check_options
+BEGIN
+	if main.ck_skip.isvisible() & main.ck_skip {
+		call main.ck_copy.disable
+	}
+	else {
+		call main.ck_copy.enable
+	}
+	if main.ck_copy.isvisible() & main.ck_copy {
+		call main.ck_skip.disable
+	}
+	else {
+		call main.ck_skip.enable
+	}
+END
+
+PROGRAM main_show_init_params_dlg
+BEGIN
+	call create CHILD menl_init_params_child AS init_params
+	call init_params.setExitString init_params_res
+	call init_params.setExitAction "program init_params_append"
+END
+
+PROGRAM init_params_append
+BEGIN
+	call STMP.setvalue class main.ed_initparams.value
+	call init_params_res.withvalue STMP.append " @"
+	call STMP.withvalue main.ed_initparams.setvalue "@"
+END
+
+PROGRAM main_vector_output
+BEGIN
+	put main.cb_vector
+	beginoptions
+		option main.ck_skip
+		option main.ck_copy
+		option main.ck_fixed
+	endoptions
+END
+
+PROGRAM main_values_output
+BEGIN
+	put main.ed_value
+	put ", copy"
+END
+
+PROGRAM main_initparams_output
+BEGIN
+	put main.ed_initparams
+	beginoptions
+		option main.ck_fixed
+	endoptions
+END
+
+PROGRAM command
+BEGIN
+	if main.rb_vector {
+		require main.cb_vector
+		put "initial("
+		put /program main_vector_output
+		put ")"
+	}
+	if main.rb_values {
+		require main.ed_value
+		put "initial("
+		put /program main_values_output
+		put ")"
+	}
+	if main.rb_params {
+		require main.ed_initparams
+		put "initial("
+		put /program main_initparams_output
+		put ")"
+	}
+END
+
+

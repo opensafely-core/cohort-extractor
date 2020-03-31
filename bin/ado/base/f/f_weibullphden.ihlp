@@ -1,0 +1,28 @@
+{* *! version 1.0.2  23aug2017}{...}
+    {cmd:weibullphden(}{it:a}{cmd:,}{it:b}{cmd:,}{it:x}{cmd:)}
+{p2colset 8 22 22 2}{...}
+{p2col: Description:}the probability density function of the Weibull
+(proportional hazards) distribution with shape {it:a} and
+scale {it:b}{p_end}
+
+{p2col:}{cmd:weibullphden(}{it:a}{cmd:,}{it:b}{cmd:,}{it:x}{cmd:)} =
+{cmd:weibullphden(}{it:a}{cmd:,}{it:b}{cmd:,0,}{it:x}{cmd:)},
+where {it:a} is the shape, {it:b} is the scale, and {it:x} is the value of the
+Weibull (proportional hazards) random variable.{p_end}
+{p2col: Domain {it:a}:}1e-323 to 8e+307{p_end}
+{p2col: Domain {it:b}:}1e-323 to 8e+307{p_end}
+{p2col: Domain {it:x}:}1e-323 to 8e+307{p_end}
+{p2col: Range:}0 to 8e+307{p_end}
+{p2colreset}{...}
+
+    {cmd:weibullphden(}{it:a}{cmd:,}{it:b}{cmd:,}{it:g}{cmd:,}{it:x}{cmd:)}
+{p2colset 8 22 22 2}{...}
+{p2col: Description:}the probability density function of the Weibull
+(proportional hazards) distribution with shape {it:a},
+scale {it:b}, and location {it:g}{p_end}
+{p2col: Domain {it:a}:}1e-323 to 8e+307{p_end}
+{p2col: Domain {it:b}:}1e-323 to 8e+307{p_end}
+{p2col: Domain {it:g}:}-8e+307 to 8e+307{p_end}
+{p2col: Domain {it:x}:}-8e+307 to 8e+307; interesting domain is {it:x} {ul:>} {it:g}{p_end}
+{p2col: Range:}0 to 8e+307{p_end}
+{p2colreset}{...}

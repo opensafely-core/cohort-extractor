@@ -1,0 +1,159 @@
+/*
+   fp_plot.dlg
+
+*!  VERSION 1.1.5  22jul2017
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_xwide
+DEFINE _dlght 420
+INCLUDE header
+
+HELP hlp1, view("help fp")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource FP_PLOT_DLG_HSCALE
+END
+
+PROGRAM main_PREINIT_PROGRAM
+BEGIN
+	call create STRING equ_names
+	call equ_names.setvalue e(eqnames)
+
+	call equ_names.withvalue main.ed_resid.setvalue @
+
+	if !equ_names.equals("") {
+		call main.ed_equation.hide
+		call main.sp_level.setposition . 230
+		call main.tx_level.setposition . 230
+	}
+	if equ_names.equals("") {
+		call main.lb_equation.hide
+		call main.sp_level.setposition . 150
+		call main.tx_level.setposition . 150
+	}
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	call create STRING cmd_sub
+	call create STRING cmd_tmp
+
+	call cmd_sub.setvalue e(cmd)
+	call cmd_tmp.setvalue e(cmd)
+	call cmd_sub.append "_postestimation##syntax_predict"
+
+	call gr_scatter_options.settabtitle resource LBL_TAB_PLOT
+	call gr_scatter_options_optionName.setstring "plotopts"
+	call gr_line_options.settabtitle resource LBL_FITTED_LINE
+	call gr_line_options_optionName.setstring "lineopts"
+	call gr_area_options.settabtitle resource LBL_CI_PLOT
+	call gr_area_options_optionName.setstring "ciopts"
+END
+
+DIALOG main, label(resource FP_PLOT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  RADIO rb_resid		_lft	_top	_iwd	., first	///
+	onclickon(main.ed_resid.enable)					///
+	label(resource FP_PLOT_MAIN_RB_RESID)
+  RADIO	rb_none			_lft	+50	@	., last		///
+	onclickon(main.ed_resid.disable)				///
+	label(resource FP_PLOT_MAIN_RB_NONE)
+  EDIT ed_resid			_iilft	-30	200	.,		///
+	label(resource FP_PLOT_MAIN_ED_RESID)
+
+  HLINK hl_resid_exp		240	@	80	.,		///
+	left								///
+	onpush(program main_viewexample)				///
+	label(resource LBL_RESIDUALS)
+
+  TEXT tx_equation		_lft	_xxxls	200	.,		///
+		label(resource FP_PLOT_MAIN_TX_EQUATION)
+  LISTBOX lb_equation		@	_ss	@	_ht8,		///
+	contents(ereturn eqnames)					///
+	option(equation)						///
+	label(resource LBL_EQUATION)
+  EDIT ed_equation		@	@	@	20,		///
+	option(equation)						///
+	label(resource LBL_EQUATION)
+
+	DEFINE _x _lft
+	DEFINE _cx 200
+	DEFINE _y 230
+	INCLUDE _sp_level
+END
+
+PROGRAM main_viewexample
+BEGIN
+	if !cmd_tmp.equals("") {
+		put "_view help "
+		put cmd_sub
+		stata hidden immediate
+	}
+	if cmd_tmp.equals("") {
+		stopbox note resource FP_PLOT_MSGBOX_LAST_COMMAND_NOT_FOUND
+// last commands not found.
+	}
+END
+
+INCLUDE ifin
+
+INCLUDE gr_scatter_options
+INCLUDE gr_line_options
+INCLUDE gr_area_options
+
+SCRIPT POSTINIT
+BEGIN
+	gr_scatter_options.settabtitle resource LBL_TAB_PLOT
+	gr_scatter_options_optionName.setstring "plotopts"
+	gr_line_options.settabtitle resource LBL_FITTED_LINE
+	gr_line_options_optionName.setstring "lineopts"
+	gr_area_options.settabtitle resource LBL_CI_PLOT
+	gr_area_options_optionName.setstring "ciopts"
+END
+
+DEFINE _iwd 530
+INCLUDE gr_addplots
+INCLUDE gr_yaxis
+INCLUDE gr_xaxis
+INCLUDE gr_titles
+INCLUDE gr_legend
+INCLUDE gr_overall
+
+PROGRAM main_resid_output
+BEGIN
+	if main.rb_resid {
+		put "residuals("
+		require main.ed_resid
+		put main.ed_resid
+		put ")"
+	}
+	if main.rb_none {
+		put "residuals(none)"
+	}
+END
+
+PROGRAM command
+BEGIN
+	put "fp plot"
+	put " " /program ifin_output
+	beginoptions
+		INCLUDE _level_main_pr
+		optionarg main.lb_equation
+		optionarg main.ed_equation
+		put " " /program main_resid_output
+		put " " /program gr_scatter_options_output
+		put " " /program gr_line_options_output
+		put " " /program gr_area_options_output
+		put " " /program gr_addplots_output
+		put " " /program gr_yaxis_output
+		put " " /program gr_xaxis_output
+		put " " /program gr_titles_output
+		put " " /program gr_legend_output
+		put " " /program gr_overall_output
+	endoptions
+END

@@ -1,0 +1,279 @@
+/*
+  churdle.dlg
+
+*! VERSION 1.1.3  14feb2019
+
+  keyword:  eclass
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 530
+INCLUDE header
+HELP hlp1, view("help churdle")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	script se_createAsSvyInternalML
+	program svy_check_title
+	setscale_hadj resource CHURDLE_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script sub_set_by_on
+	program se_setFinalInitState
+END
+
+SCRIPT svy_is_on
+BEGIN
+	script max_setDefaultNoLog
+END
+SCRIPT svy_is_off
+BEGIN
+	script max_setDefaultLog
+END
+PROGRAM svy_check_title
+BEGIN
+	if __MESSAGE.contains("-svy-") {
+		call settitle resource CHURDLE_SVY_DLG_TITLE
+	}
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL) title(resource CHURDLE_DLG_TITLE) 
+BEGIN
+  RADIO rb_linear		_lft	_top	_cwd1	., first	///
+	option(linear)							///
+	onclickon("program main_linear_on")				///
+	label(resource LBL_LINEAR)
+  RADIO rb_exponential		_lft2	@	_cwd1	., last		///
+	option(exponential)						///
+	onclickon("script main_exponential_on")				///
+	label(resource LBL_EXPONENTIAL)
+  TEXT tx_dv			_lft	_ls	_vnwd	.,		///
+	label(resource LBL_DEPVAR)
+  DEFINE holdy @y
+  VARNAME vn_dv			@	_ss	@	.,		///
+	label(resource LBL_DEPVAR)
+
+  TEXT tx_iv			_vlx	holdy	160	.,		///
+	label(resource LBL_INDDEPVAR)
+  VARLIST vl_iv			@	_ss	_vlwd	.,		///
+	fv								///
+	allowcat							///
+	label(resource LBL_INDDEPVAR)
+  CHECKBOX ck_nocons		@	_ms	@	.,		///
+	label(resource LBL_NOCONSTANT)					///
+	option(noconstant)
+
+  GROUPBOX gb_select		_lft	_ls	_iwd	_ht11h,		///
+	label(resource CHURDLE_MAIN_GB_SELECT)		
+
+  TEXT tx_select		_ilft 	_ss	_ibwd	.,		///
+	label(resource LBL_INDDEPVAR)
+  VARLIST vl_select		@	_ss	@	.,		///
+	allowcat fv							///
+	error(resource CHURDLE_MAIN_VL_SELECT)
+  CHECKBOX ck_sel_nocons	@	_ms	@	.,		///
+	option(noconstant)						///
+	label(resource LBL_SUPPRESS_SELECTION_CONSTANT_TERM)
+
+  TEXT tx_select_het		_ilft 	_ls	_ibwd	.,		///
+	label(resource CHURDLE_MAIN_TX_SELECT_HET)
+  VARLIST vl_select_het		@	_ss	@	.,		///
+	option(het)							///
+	allowcat fv							///
+	label(resource CHURDLE_MAIN_VL_SELECT_HET)
+
+  GROUPBOX gb_ll		_lft	_xls	_cwd2	_ht9,		///
+	label(resource LBL_LOWER_LIMIT)
+  DEFINE holdy2 @y
+  RADIO rb_ll_num		_ilft	_ss	_vnwd	., first	///
+	onclickon("main.ed_ll_num.enable")				///
+	onclickoff("main.ed_ll_num.disable")				///
+	label(resource CHURDLE_MAIN_TX_NUMBER)
+  DEFINE holdy3 @y
+  EDIT ed_ll_num		@	_ss	@	.,		///
+	option(ll)							///
+	numonly								///
+	label(resource CHURDLE_MAIN_TX_NUMBER)
+  RADIO rb_ll_var		@	_ls	@	., last		///
+	onclickon("main.vn_ll_var.enable")				///
+	onclickoff("main.vn_ll_var.disable")				///
+	label(resource LBL_VARIABLE)
+  VARNAME vn_ll_var		@	_ss	@	.,		///
+	option(ll)							///
+	label(resource LBL_VN_VARIABLE)
+  
+  GROUPBOX gb_ul		_lft2	holdy2	_cwd2	_ht9,		///
+	label(resource  LBL_UPPER_LIMIT)
+  RADIO rb_ul_num		_ilft2	_ss	_vnwd	., first	///
+	onclickon("main.ed_ul_num.enable")				///
+	onclickoff("main.ed_ul_num.disable")				///
+	label(resource CHURDLE_MAIN_TX_NUMBER)
+  EDIT ed_ul_num		@	_ss	@	.,		///
+	option(ul)							///
+	numonly								///
+	label(resource CHURDLE_MAIN_TX_NUMBER)
+  RADIO rb_ul_var		@	_ls	@	., last		///
+	onclickon("main.vn_ul_var.enable")				///
+	onclickoff("main.vn_ul_var.disable")				///
+	label(resource LBL_VARIABLE)	
+  VARNAME vn_ul_var		@	_ss	@	.,		///
+	option(ul)							///
+	label(resource LBL_VN_VARIABLE)
+
+  GROUPBOX gb_opt		_lft	_xls	_iwd	_ht9,		///
+	label(resource LBL_OPTIONS)
+  TEXT tx_het			_ilft 	_ss	_ibwd	.,		///
+	label(resource CHURDLE_MAIN_GB_OPT)
+  VARLIST vl_het		@	_ss	@	.,		///
+	option(het)							///
+	allowcat fv							///
+	label(resource CHURDLE_MAIN_GB_OPT)
+  
+  DEFINE _x _ilft
+  DEFINE _y _ls
+  DEFINE _cx _ilw80
+  DEFINE _bux _islw80
+  INCLUDE _constraints
+END
+
+SCRIPT main_linear_on
+BEGIN
+	call main.gb_ul.enable
+	call main.rb_ul_num.enable
+	call main.rb_ul_var.enable
+	if main.rb_ul_num {
+		call main.ed_ul_num.enable
+	}
+	else {
+		call main.vn_ul_var.enable
+	}
+END
+
+SCRIPT main_exponential_on
+BEGIN
+	main.gb_ul.disable
+	main.rb_ul_num.disable
+	main.ed_ul_num.disable
+	main.rb_ul_var.disable
+	main.vn_ul_var.disable
+END
+
+INCLUDE sub_by_ifin_over_subpop
+INCLUDE weights_fpi
+INCLUDE se
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+        program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2b
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _nocnsreport
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+
+PROGRAM rpt_output
+BEGIN
+	optionarg /hidedefault rpt.sp_level
+	INCLUDE _nocnsreport_pr
+	INCLUDE _report_columns_pr
+	put " " rpt_bu_facvarsResults
+	put " " rpt_bu_fmtcoefResults
+END
+
+INCLUDE max_ml
+
+PROGRAM select_output
+BEGIN
+	varlist main.vl_select
+	beginoptions
+		optionarg main.vl_select_het
+		option main.ck_sel_nocons
+	endoptions
+END
+
+PROGRAM command
+BEGIN
+
+	put /program by_output " "
+	put /program se_prefix_output " "
+	put "churdle "
+	option radio(main rb_linear rb_exponential)
+	varlist main.vn_dv [main.vl_iv]
+	put " " /program ifin_output
+	put " " /program weights_output
+	beginoptions
+		require main.vl_select
+		if main.rb_exponential & (!main.ed_ll_num & !main.vn_ll_var) {
+			call create STRING _MSG_TMP
+                        call _MSG_TMP.format				/// 
+				"resource LBL_MSGBOX_YOU_MUST_SPECIFY_FMT" ///
+				"resource LBL_LOWER_LIMIT"
+			stopbox stop "class _MSG_TMP.value"
+// You must specify "Lower limit".
+		}
+		else {
+			if ((!main.ed_ll_num & !main.vn_ll_var) &	///
+				(!main.ed_ul_num & !main.vn_ul_var)) {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format			/// 
+					"resource LBL_MSGBOX_YOU_MUST_SPECIFY_OR_FMT" ///
+					"resource LBL_LOWER_LIMIT" ///
+					"resource  LBL_UPPER_LIMIT"
+				stopbox stop "class _MSG_TMP.value"
+// You must specify a "Lower limit" or "Upper limit".
+
+			}
+		}
+		optionarg main.ed_ll_num
+		optionarg main.vn_ll_var
+		optionarg main.ed_ul_num
+		optionarg main.vn_ul_var
+
+		option main.ck_nocons
+		if main.vl_select {
+			put " select("
+			put /program select_output
+			put ")"
+		}
+		optionarg main.vl_het
+		INCLUDE _constraints_main_pr
+		put " " /program se_output
+		put " " /program rpt_output
+		put " " /program max_output
+	endoptions
+END

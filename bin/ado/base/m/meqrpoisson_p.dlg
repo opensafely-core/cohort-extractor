@@ -1,0 +1,162 @@
+/*
+	predict (after meqrpoisson)
+
+*!  VERSION 1.1.3  10feb2016
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 400
+INCLUDE header
+
+HELP hlp1, view("help meqrpoisson postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource MEQRPOISSON_P_DLG_HSCALE
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	call script _p_gentype_setMedium
+END
+
+DIALOG main, label(resource PREDICT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  INCLUDE  _p_gentype
+
+  GROUPBOX gb_prod		_lft	_ls	_iwd	_ht14,		///
+	label(resource LBL_PRODUCE)
+  RADIO rb_mu			_indent	_ss	_inwd	., first	///
+	option(mu)							///
+	onclickon(script main_re_off)					///
+	label(resource LBL_PREDICTED_MEAN)
+  RADIO rb_xb			@	_ss	@	.,		///
+	option(xb)							///
+	onclickon(script main_re_off)					///
+	label(resource LBL_LINEAR_PREDICTOR_XB_FIXED_PORTION)
+  RADIO rb_stdp			@	_ss	@	.,		///
+	option(stdp)							///
+	onclickon(script main_re_off)					///
+	label(resource LBL_STANDARD_ERROR_XB_FOR_FIXED_PORTION)
+  RADIO rb_pearson		@	_ss	@	.,		///
+	option(pearson)							///
+	onclickon(script main_re_off)					///
+	label(resource LBL_PEARSON_RESIDUALS)
+  RADIO rb_deviance		@	_ss	@	.,		///
+	option(deviance)						///
+	onclickon(script main_re_off)					///
+	label(resource LBL_DEVIANCE_RESIDUALS)
+  RADIO rb_ansc			@	_ss	@	.,		///
+	option(anscombe)						///
+	onclickon(script main_re_off)					///
+	label(resource LBL_ANSCOMBE_RESIDUALS)
+  RADIO rb_reffects		@	_ss	@	., last		///
+	option(reffects)						///
+	onclickon(script main_re_on)					///
+	label(resource LBL_EMPIRICAL_BAYES_MODES)
+
+  GROUPBOX gb_opts		_lft	+45	_iwd	_ht11h,		///
+	label(resource LBL_OPTIONS)
+  TEXT tx_reses			_indent	_ss	_inwd	.,		///
+	label(resource LBL_CALCULATE_SD_FOR_EMPIRICAL_BAYES_MODES)
+  EDIT ed_reses			@	_ss	@	.,		///
+	option(reses)							///
+	label(resource LBL_CALCULATE_SD_FOR_EMPIRICAL_BAYES_MODES)
+
+  CHECKBOX ck_relevel		@	_ls	@	.,		///
+	onclickon(program check_cb_relevel)				///
+	onclickoff(program check_cb_relevel)				///
+	label(resource LBL_LEVEL_WHICH_PRED_FOR_RANDOM_EFFECTS_AND_SE_ARE_OBT)
+  COMBOBOX cb_relevel		@	_ss	_vnwd	.,		///
+	dropdown							///
+	contents(e(ivars))						///
+	option(relevel)							///
+	label(resource LBL_LEVEL_WHICH_PRED_FOR_RANDOM_EFFECTS_AND_SE_ARE_OBT)
+
+  CHECKBOX ck_nooffset		@	_ls	210	.,		///
+	option(nooffset)						///
+	label(resource LBL_IGNORE_OFFSET_VARIABLE)
+
+  CHECKBOX ck_fixed		230	@	235	.,		///
+	option(fixedonly)						///
+	onclickon("script main_fixed_on")				///
+	onclickoff("program main_fixed_off")				///
+	label(resource LBL_PREDICT_ONLY_FIXED_PORTION_FOR_MODEL)
+END
+
+SCRIPT main_re_on
+BEGIN
+	script _p_gentype_multiple
+	program main_opt_off
+END
+
+SCRIPT main_re_off
+BEGIN
+	script _p_gentype_single
+	program main_opt_on
+END
+
+PROGRAM main_opt_on
+BEGIN
+	call main.gb_opts.enable
+	call main.ck_nooffset.enable
+	call main.ck_fixed.enable
+	call program check_cb_relevel
+END
+
+PROGRAM main_opt_off
+BEGIN
+	call main.gb_opts.disable
+	call main.ck_nooffset.disable
+	call main.ck_fixed.disable
+	call program check_cb_relevel
+END
+
+PROGRAM	check_cb_relevel
+BEGIN
+	if main.rb_reffects {
+		call main.ck_relevel.enable
+		if main.ck_relevel {
+			call main.cb_relevel.enable
+		}
+		else {
+			call main.cb_relevel.disable
+		}
+		call main.tx_reses.enable
+		call main.ed_reses.enable
+	}
+	if main.rb_mu | main.rb_xb | main.rb_stdp | ///
+		main.rb_pearson | main.rb_deviance | main.rb_ansc {
+		call main.ck_relevel.disable
+		call main.cb_relevel.disable
+		call main.tx_reses.disable
+		call main.ed_reses.disable
+	}
+END
+
+INCLUDE _p_gentype_sc
+INCLUDE ifin
+INCLUDE _type_list_fd
+
+PROGRAM command
+BEGIN
+	put "predict "
+	put " " /program _p_gentype_output
+	put " " /program ifin_output
+	beginoptions
+		option radio(main rb_reffects)
+		if main.ck_relevel {
+			require main.cb_relevel
+			optionarg main.cb_relevel
+		}
+		option radio(main rb_mu rb_xb rb_stdp ///
+			rb_pearson rb_deviance rb_ansc)
+		optionarg main.ed_reses
+		option main.ck_nooffset
+		option main.ck_fixed
+	endoptions
+END

@@ -1,0 +1,263 @@
+/*
+  betareg
+
+*!  VERSION 1.1.2  22mar2017
+
+  keyword:  eclass
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_xlarge // long title w/survey
+INCLUDE header
+
+HELP hlp1, view("help betareg")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	program parseMessage
+	script se_createAsSvyInternalML
+	program svy_check_title
+	setscale_hadj resource BETAREG_DLG_HSCALE
+END
+
+PROGRAM parseMessage
+BEGIN
+	if __MESSAGE.contains("__MI__") {
+		call script se_setMI_on
+		call settitle resource BETAREG_DLG_TITLE
+	}
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program check_bytab
+	program se_setFinalInitState
+END
+
+PROGRAM check_bytab
+BEGIN
+	if ! __MESSAGE.contains("__MI__") {
+		call script sub_set_by_on
+	}
+END
+
+SCRIPT svy_is_on
+BEGIN
+	script max_setDefaultNoLog
+END
+SCRIPT svy_is_off
+BEGIN
+	script max_setDefaultLog
+END
+PROGRAM svy_check_title
+BEGIN
+	if __MESSAGE.contains("-svy-") {
+		call settitle resource BETAREG_SVY_DLG_TITLE
+	}
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)				///
+	title(resource BETAREG_DLG_TITLE)
+BEGIN
+  TEXT tx_dv 			_lft	_top	_vnwd	.,		///
+	label(resource LBL_DEPVAR)
+  VARNAME vn_dv			@ 	_ss	@	.,		///
+	numeric								///
+	label(resource LBL_DEPVAR)
+
+  TEXT tx_iv			_vlx	_top	160	.,		///
+	label(resource LBL_INDDEPVAR)
+  VARLIST vl_iv			@	_ss	_vlwd	.,		///
+	fv								///
+	allowcat							///
+	numeric								///
+	label(resource LBL_INDDEPVAR)
+
+  CHECKBOX ck_nocons		@	_ms	@	.,		///
+	option("noconstant")						///
+	label(resource LBL_NOCONSTANT)
+
+  GROUPBOX gb_options		_lft	_ls	_iwd	_ht16,		///
+	label(resource LBL_OPTIONS)
+  CHECKBOX ck_scale		_ilft	_ss	_inwd	_ht4,		///
+	groupbox							///
+	onclickon("script main_scale_on")				///
+	onclickoff("script main_scale_off")				///
+	label(resource BETAREG_MAIN_CK_SCALE)
+  VARLIST vl_scale		_indent	_ss	_inwd	.,		///
+	fv								///
+	allowcat							///
+	numeric								///
+	label(resource BETAREG_MAIN_CK_SCALE)
+  CHECKBOX ck_scale_nocons	@	_ms	@	.,		///
+	option("noconstant")						///
+	label(resource LBL_NOCONSTANT)
+  TEXT tx_link 			_ilft	_ls	_cwd3	.,		///
+	label(resource LBL_LINK_FUNCTIONS_CONDITIONAL_MEAN)
+  DEFINE holdy @y
+  COMBOBOX cb_link 		@	_ss	@	.,		///
+	dropdownlist							///
+	default(logit)							///
+	option(link)							///
+	contents("main_link_list")					///
+	values("main_link_values")					///
+	label(resource LBL_LINK_FUNCTIONS_CONDITIONAL_MEAN)
+  TEXT tx_slink 		_ilft2 holdy	_cwd3	.,		///
+	label(resource BETAREG_MAIN_TX_SLINK)
+  COMBOBOX cb_slink 		@	_ss	@	.,		///
+	dropdownlist							///
+	default(log)							///
+	option(slink)							///
+	contents("main_slink_list")					///
+	values("main_slink_values")					///
+	label(resource BETAREG_MAIN_TX_SLINK)
+
+  DEFINE _x _ilft
+  DEFINE _y _ms
+  DEFINE _cx _ilw80
+  DEFINE _bux _islw80
+  INCLUDE _constraints
+END
+
+INCLUDE _constraints_sc
+
+SCRIPT main_scale_on
+BEGIN
+	main.vl_scale.enable
+	main.ck_scale_nocons.enable
+END
+
+SCRIPT main_scale_off
+BEGIN
+	main.vl_scale.disable
+	main.ck_scale_nocons.disable
+END
+
+LIST main_link_list
+BEGIN
+	resource LBL_LOGIT
+	resource LBL_PROBIT
+	resource LBL_CLOGLOG
+	resource BETAREG_LOGLOG
+END
+
+LIST main_link_values
+BEGIN
+	logit
+	probit
+	cloglog
+	loglog
+END
+
+LIST main_slink_list
+BEGIN
+	resource LBL_LOG
+	resource BETAREG_ROOT
+	resource LBL_IDENTITY
+END
+
+LIST main_slink_values
+BEGIN
+	log
+	root
+	identity
+END
+
+INCLUDE sub_by_ifin_over_subpop
+INCLUDE weights_fpi
+INCLUDE se
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+        program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _nocnsreport
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+
+PROGRAM rpt_output
+BEGIN
+	optionarg /hidedefault rpt.sp_level
+	INCLUDE _nocnsreport_pr
+	INCLUDE _report_columns_pr
+	put " " rpt_bu_facvarsResults
+	put " " rpt_bu_fmtcoefResults
+END
+
+INCLUDE max_ml
+
+PROGRAM scale_output
+BEGIN
+	put main.vl_scale
+	if main.ck_scale_nocons {
+		put ", noconstant"
+	}
+END
+
+PROGRAM command
+BEGIN
+	put /program by_output " "
+	put /program se_prefix_output " "
+	put "betareg "
+	varlist main.vn_dv [main.vl_iv]
+		
+	if !main.vl_iv & main.ck_nocons {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format 					///
+			"resource LBL_MSGBOX_SELECTED_NO_INDVARS_FMT"  	///
+			"resource LBL_TAB_MODEL" 			///
+			"resource LBL_NOCONSTANT"
+		stopbox stop class _MSG_TMP.value
+// On the "Model" tab, "Suppress constant term" is selected without independent variables.
+	}
+
+	put " " /program ifin_output
+	put " " /program weights_output
+	beginoptions
+		option main.ck_nocons
+		if main.ck_scale {
+			require main.vl_scale
+			put " scale("
+			put /program scale_output
+			put ")"
+		}
+		optionarg /hidedefault main.cb_link
+		optionarg /hidedefault main.cb_slink
+		INCLUDE _constraints_main_pr
+		put " " /program se_output
+		put " " /program rpt_output
+		put " " /program max_output
+	endoptions
+END

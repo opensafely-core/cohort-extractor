@@ -1,0 +1,198 @@
+/*
+	istdize
+
+*!  VERSION 1.3.2  14mar2015
+
+	which istdize - *! version 2.1.11  20dec2004
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE _ht290
+INCLUDE header
+HELP hlp1, view("help istdize")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource ISTDIZE_DLG_HSCALE
+	
+        main.fi_using.formatfilter "{0} (*.dta)|*.dta|{1} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_DTA_FILES" "resource ui_ex FILE_TYPE_ALL_FILES"
+END
+
+DIALOG main, label(resource ISTDIZE_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_case   _lft      _top      _cwd3_0   .,		/*
+		*/ label(resource ISTDIZE_MAIN_TX_CASE)
+
+  VARNAME  vn_case   @         _ss       _vnwd     .,		/*
+  		*/ numeric					/*
+		*/ label(resource ISTDIZE_MAIN_VN_CASE)
+
+  TEXT     tx_pop    _lft3_02  _top      _cwd3_0   .,		/*
+		*/ label(resource LBL_POPULATION_VARIABLE)
+
+  VARNAME  vn_pop    @         _ss       _vnwd     .,		/*
+  		*/ numeric					/*
+		*/ label(resource LBL_POPULATION_VARIABLE)
+
+  TEXT     tx_strata _lft3_03  _top      _cwd3_0   .,		/*
+		*/ label(resource LBL_STRATA_VARIABLES)
+
+  VARLIST  vl_strata @         _ss       @         .,		/*
+		*/ label(resource LBL_STRATA_VARIABLES)
+
+  TEXT     tx_using  _lft      _ls       _iwd      .,		/*
+		*/ label(resource LBL_USE_STANDARD_POPULATION_FROM_DATASET)
+
+  FILE     fi_using  @         _ss       @         .,		/*
+		*/ error(resource LBL_USE_STANDARD_POPULATION_FROM_DATASET)	/*
+		*/ defext(dta)					/*
+		*/ label(resource LBL_BU_BROWSE)
+
+  RADIO    rb_popvar @         _ls       @         .,		/*
+		*/ first					/*
+		*/ clickon("script pop_on")			/*
+		*/ label(resource ISTDIZE_MAIN_RB_POPVAR)
+
+  TEXT     tx_casep  _indent2  _ss       _ibwd     .,		/*
+		*/ label(resource LBL_TX_CASE)
+
+  DEFINE holdy @y
+
+  VARNAME  vn_casep  @         _ss       _vnwd     .,		/*
+  		*/ numeric					/*
+		*/ label(resource LBL_TX_CASE)
+
+  TEXT     tx_popp   _lft2     holdy     _cwd2     .,		/*
+		*/ label(resource LBL_POPULATION_VARIABLE)
+
+  VARNAME  vn_popp   @         _ss       _vnwd     .,		/*
+		*/ option(by)					/*
+		*/ numeric					/*
+		*/ label(resource LBL_POPULATION_VARIABLE)
+
+  RADIO    rb_rate   _lft      _ls       _iwd      .,		/*
+		*/ last 					/*
+		*/ clickon("script rates_on")			/*
+		*/ label(resource ISTDIZE_MAIN_RB_RATE)
+
+  TEXT     tx_rate   _indent2  _ss       _ibwd     .,		/*
+		*/ label(resource ISTDIZE_MAIN_TX_RATE)
+
+  DEFINE holdy @y
+
+  VARNAME  vn_rate   @         _ss       _vnwd     .,		/*
+  		*/ numeric					/*
+		*/ label(resource ISTDIZE_MAIN_TX_RATE)
+
+  TEXT     tx_crude  _lft2     holdy     _cwd2     .,		/*
+		*/ label(resource ISTDIZE_MAIN_TX_CRUDE)
+
+  VARNAME  ed_crude  @         _ss       _vnwd     .,		/*
+  		*/ numeric					/*
+		*/ label(resource ISTDIZE_MAIN_TX_CRUDE)
+
+  DEFINE _x _lft
+  DEFINE _cx _spr
+  DEFINE _y _xls
+  INCLUDE _sp_level
+END
+
+SCRIPT pop_on
+BEGIN
+	main.vn_casep.enable
+	main.vn_popp.enable
+	main.vn_rate.disable
+	main.ed_crude.disable
+END
+
+SCRIPT rates_on
+BEGIN
+	main.vn_casep.disable
+	main.vn_popp.disable
+	main.vn_rate.enable
+	main.ed_crude.enable
+END
+
+INCLUDE ifin
+
+DIALOG opt, tabtitle(resource LBL_OPTIONS)
+BEGIN
+  TEXT     tx_byvars _lft      _top      _iwd      .,		/*
+		*/ label(resource LBL_GROUP_VARIABLES)
+
+  VARLIST  vl_byvars @         _ss       @         .,		/*
+		*/ option(by)					/*
+		*/ label(resource LBL_GROUP_VARIABLES)
+
+  CHECKBOX ck_format    @	_ls	@	.,		///
+	onclickon(script format_on)				///
+	onclickoff(script format_off)				///
+	label(resource LBL_OVERRIDE_DISPLAY_FORMAT_NUMBERS_FINAL_SUM_TAB)
+  EDIT     ed_format	+20	_ss	200	.,		///
+	option(format)						///
+	label(resource LBL_DISPLAY_FORMAT)
+  BUTTON   bu_format	+205	@	80	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(script showFormatDialog)				///
+	tooltip(resource LBL_CREATE_DISPLAY_FORMAT)
+
+  CHECKBOX ck_print  _lft      _ls       _iwd      .,		/*
+		*/ option(print)				/*
+		*/ label(resource LBL_INCLUDE_TABLE_SUMMARY_STANDARD_POPULATION)
+END
+
+
+SCRIPT showFormatDialog
+BEGIN
+	create STRING formatString
+	create CHILD format_chooser
+	format_chooser.setExitString formatString
+	format_chooser.setExitAction "opt.ed_format.setvalue class formatString.value"
+END
+
+SCRIPT format_on
+BEGIN
+  	opt.ed_format.enable
+  	opt.bu_format.enable
+END
+
+SCRIPT format_off
+BEGIN
+  	opt.ed_format.disable
+	opt.bu_format.disable
+END
+
+
+PROGRAM command
+BEGIN
+	put "istdize "
+	varlist main.vn_case
+	varlist main.vn_pop
+	varlist main.vl_strata
+	require main.fi_using
+	put "using " `"""' main.fi_using `"""'
+	INCLUDE _ifin_pr
+	beginoptions
+		if main.rb_popvar {
+			require main.vn_casep
+			require main.vn_popp
+			put "popvars(" main.vn_casep " " main.vn_popp ") "
+		}
+		if main.rb_rate {
+			require main.vn_rate
+			require main.ed_crude
+			put "rate(" main.vn_rate " " main.ed_crude ") "
+		}
+		if opt.vl_byvars {
+			optionarg opt.vl_byvars
+		}
+		option opt.ck_print
+		optionarg opt.ed_format
+		INCLUDE _level_main_pr
+	endoptions
+END

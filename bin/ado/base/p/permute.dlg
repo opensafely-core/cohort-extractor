@@ -1,0 +1,243 @@
+/*
+  permute
+
+*! VERSION 2.2.3  08dec2016
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 320
+INCLUDE header
+
+HELP hlp1, view("help permute")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource PERMUTE_DLG_HSCALE
+END
+
+DIALOG main, label(resource PERMUTE_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_pervar _lft      _top      _cwd1     .,			/*
+		*/ label(resource PERMUTE_MAIN_TX_PERVAR)		/*
+		*/
+  VARNAME  vn_pervar @         _ss       _vnwd     .,			/*
+		*/ label(resource PERMUTE_MAIN_TX_PERVAR)		/*
+		*/
+
+  SPINNER  sp_reps   _lft2     @         _spwd     .,			/*
+		*/ label(resource LBL_REPLICATIONS)			/*
+		*/ min(1)						/*
+		*/ max(1000000)						/*
+		*/ default(100)						/*
+		*/ option("reps")					/*
+		*/
+  TEXT     tx_reps   _spsep    @         _spr2     .,			/*
+		*/ label(resource LBL_REPLICATIONS)			/*
+		*/
+
+  DEFINE _y _ls
+  INCLUDE _cmd_exp_list
+
+  GROUPBOX gb_event  _lft       _xls     _iwd     _ht6,			/*
+		*/ label(resource PERMUTE_MAIN_GB_EVENT)		/*
+		*/
+  DEFINE _y @y
+  RADIO    rb_two    _indent    _ss      _cwd3     .,			/*
+		*/ first						/*
+		*/ label(resource PERMUTE_MAIN_RB_TWO)			/*
+		*/ option("NONE")					/*
+		*/
+  RADIO    rb_left   @          _ss      @         .,			/*
+		*/ label(resource PERMUTE_MAIN_RB_LEFT)			/*
+		*/ option("left")					/*
+		*/
+  RADIO    rb_right  @          _ss      @         .,			/*
+		*/ last							/*
+		*/ label(resource PERMUTE_MAIN_RB_RIGHT)		/*
+		*/ option("right")					/*
+		*/
+END
+
+SCRIPT opt_PREINIT
+BEGIN
+        opt.fi_sav.formatfilter "{0} (*.dta)|*.dta|{1} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_DTA" "resource ui_ex FILE_TYPE_ALL_FILES"
+END
+
+DIALOG opt, tabtitle(resource LBL_OPTIONS)
+BEGIN
+  TEXT tx_strata     _lft       _top      _iwd     .,			/*
+		*/ label(resource PERMUTE_OPT_TX_STRATA)
+  VARLIST  vl_strata @   _ss       _cwd3     .,				/*
+		*/ label(resource PERMUTE_OPT_VL_STRATA)		/*
+		*/ option("strata")					/*
+		*/
+  DEFINE _y _xls
+  INCLUDE _saving
+END
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_facvarsResults
+	program rpt_bu_facvars_ckResults
+
+	create STRING rpt_bu_facvarsResults
+	program rpt_bu_facvars_ckResults
+
+	create STRING rpt_bu_repl_logResults
+	program rpt_bu_repl_log_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  CHECKBOX ck_noheader _lft    _ls       _cwd1     .,			/*
+		*/ label(resource LBL_SUPPRESS_THE_TABLE_HEADER)	/*
+		*/ clickon(program check_header)			/*
+		*/ clickoff(program check_header)			/*
+		*/ option("noheader")					/*
+		*/
+  CHECKBOX ck_nolegend  @      _ms       @         .,			/*
+		*/ label(resource LBL_SUPPRESS_TABLE_LEGEND)		/*
+		*/ clickon(program check_legend)			/*
+		*/ clickoff(program check_legend)			/*
+		*/ option("nolegend")					/*
+		*/
+  CHECKBOX ck_verbose @        _ms       @         .,			/*
+		*/ label(resource LBL_DISPLAY_FULL_TABLE_LEGEND)	/*
+		*/ option("verbose")					/*
+		*/
+  CHECKBOX ck_nodrop  @        _ms       @         .,			/*
+		*/ label(resource LBL_DO_NOT_DROP_OBSERVATIONS)		/*
+		*/ option("nodrop")					/*
+		*/
+
+  TEXT     tx_title	_lft	_ls	_iwd	.,			///
+	label(resource LBL_TITLE)
+  EDIT     ed_title	@	_ss	@	.,			///
+	label(resource LBL_TITLE)					///
+	option(title)
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_replication_log_opts
+
+END
+
+INCLUDE factor_vars_reporting_pr
+INCLUDE replication_log_opts_child_pr
+
+PROGRAM rpt_output
+BEGIN
+	option rpt.ck_noheader
+	option rpt.ck_nolegend
+	option rpt.ck_verbose
+	option rpt.ck_nodrop
+	optionarg rpt.ed_title
+	put " " rpt_bu_facvarsResults
+	put " " rpt_bu_repl_logResults
+END
+
+PROGRAM check_legend
+BEGIN
+	if opt.ck_nolegend {
+		call gaction opt.ck_verbose.disable
+	}
+	if !opt.ck_nolegend {
+		call gaction opt.ck_verbose.enable
+	}
+END
+
+PROGRAM check_header
+BEGIN
+	if opt.ck_noheader {
+		call gaction opt.ck_nolegend.disable
+		call gaction opt.ck_verbose.disable
+	}
+	if !opt.ck_noheader {
+		call gaction opt.ck_nolegend.enable
+		call program check_legend
+	}
+END
+
+INCLUDE _saving_sc
+
+DIALOG adv, tabtitle(resource LBL_ADVANCED)
+BEGIN
+  EDIT     en_eps    _lft      _top      _en7wd    .,			/*
+		*/ label(resource PERMUTE_ADV_EN_EPS)			/*
+		*/ numonly						/*
+		*/ option("eps")					/*
+		*/
+  TEXT     tx_eps    _en7sep   @         _en7r     .,			/*
+		*/ label(resource LBL_NUMERIC_TOLERANCE_RARELY_NEEDED)	/*
+		*/
+  CHECKBOX ck_nowarn _lft      _ls       _iwd      .,			/*
+		*/ label(resource LBL_DO_NOT_WARN_WHEN_ESAMPLE_NOT_SET)	/*
+		*/ option("nowarn")					/*
+		*/
+  CHECKBOX ck_force  @         _ms       _iwd      .,			/*
+		*/ label(resource LBL_DO_NOT_CHECK_WEIGHTS_SVY_COMMANDS) /*
+		*/ option("force")					/*
+		*/
+
+  TEXT     tx_reject @         _ls       @         .,			/*
+		*/ label(resource LBL_IDENTIFY_INVALID_RESULTS)		/*
+		*/
+  EDIT     ed_reject @         _ss       @         .,			/*
+		*/ label(resource LBL_IDENTIFY_INVALID_RESULTS)		/*
+		*/ option("reject")					/*
+		*/
+
+  TEXT     tx_seed   @         _ls       @         .,			/*
+		*/ label(resource PERMUTE_ADV_TX_SEED)			/*
+		*/
+  EDIT     ed_seed   @         _ss       _en14wd   .,			/*
+		*/ label(resource PERMUTE_ADV_TX_SEED)			/*
+		*/ option("seed")					/*
+		*/
+
+END
+
+PROGRAM permute_options
+BEGIN
+	put "permute "
+	require main.vn_pervar
+	put main.vn_pervar " "
+	option main.ck_b
+	option main.ck_se
+	put " " main.ed_explst
+	beginoptions
+		optionarg main.sp_reps
+		option radio(main rb_two rb_left rb_right)
+		optionarg /hidedefault rpt.sp_level
+		put " " /program rpt_output
+		INCLUDE _saving_pr
+		optionarg opt.vl_strata
+		optionarg adv.en_eps
+		option adv.ck_nowarn
+		option adv.ck_force
+		optionarg adv.ed_reject
+		optionarg adv.ed_seed
+	endoptions
+END
+
+PROGRAM command
+BEGIN
+	put /program permute_options
+	put " " " : "	/* end of prefix, begin command */
+		require main.vl_cmd
+		put main.vl_cmd
+END

@@ -1,0 +1,132 @@
+/*
+	cluster_common.idlg include file for -cluster-
+
+*!  VERSION 1.0.2  05oct2015
+*/
+
+DIALOG main, label() tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_var	_lft	_top	_iwd	.,			///
+	label(resource LBL_VARIABLES_LEAVE_EMPTY_FOR_ALL)
+  VARLIST  vl_var	@	_ss	@	.,			///
+	numeric								///
+	label(resource LBL_GB_VARIABLES) allowcat
+
+  GROUPBOX gb_dist		_lft	_ls	_iwd	_ht10,		///
+	label(resource LBL_DISSIMILARITY_MEASURE)
+  RADIO     rb_distc		_indent	_ss	110	., first	///
+	label(resource LBL_CONTINUOUS)					///
+	onclickon(script main_continuous_on)
+  DEFINE    holdx @x
+  RADIO     rb_distb		+120	@	@	.,		///
+	label(resource LBL_BINARY)					///
+	onclickon(script main_binary_on)
+  RADIO     rb_distm		+120	@	@	., last		///
+	label(resource LBL_MIXED)					///
+	onclickon(script main_mixed_on)
+
+  LISTBOX   lb_distc		holdx	_ms	_comb3_2 _ht4,		///
+	contents(continuous_dist)					///
+	onselchange(program main_check_power)				///
+	values(contin_value)
+  DEFINE    holdy @y
+  LISTBOX   lb_distb		@	@	@	_ht4,		///
+	contents(binary_dist)						///
+	values(binary_value)
+  DEFINE    holdy @y
+  LISTBOX   lb_distm		@	@	@	_ht4,		///
+	contents(mixed_dist)						///
+	values(mixed_value)
+
+  EDIT      en_power		_lft	_vs6	_en7wd	.,		///
+	numonly default(literal "2")					///
+	label(resource LBL_NUMBER_FOR_L_OR_LPOWER)
+  TEXT      tx_power		_en7sep	@	_en7rb  .,		///
+	label(resource LBL_NUMBER_FOR_L_OR_LPOWER)
+
+  TEXT     tx_name		_lft	_ls	_iwd	.,		///
+	label(resource LBL_NAME_THIS_CLUSTER_ANALYSIS_LEAVE_EMPTY)
+  EDIT     ed_name		@	_ss	_vnwd	.,		///
+	max(32)								///
+	option(name)							///
+	label(resource LBL_NAME_THIS_CLUSTER_ANALYSIS)
+END
+
+PROGRAM main_check_power
+BEGIN
+	if main.lb_distc.iseq("Lpower") | main.lb_distc.iseq("L"){
+		call main.en_power.enable
+		call main.tx_power.enable
+	}
+	else {
+		call main.en_power.disable
+		call main.tx_power.disable
+	}
+END
+
+INCLUDE ifin
+
+DIALOG adv, tabtitle(resource LBL_ADVANCED)
+BEGIN
+  TEXT     tx_gen		_lft	_top	_iwd	.,		///
+	label(resource LBL_PREFIX_GEN_VARIABLE_EMPTY_DEFAULT)
+  EDIT     ed_gen		@	_ss	_vnwd	.,		///
+	max(28)								///
+	option(generate)						///
+	label(resource LBL_PREFIX_FOR_GENERATED_VARIABLES)
+END
+
+INCLUDE _cl_dist_list
+
+SCRIPT main_continuous_on
+BEGIN
+	main.lb_distb.hide
+	main.lb_distc.show
+	main.lb_distm.hide
+	main.lb_distc.withvalue main.lb_distc.setvalue "@"
+	main.tx_power.enable
+	main.en_power.enable
+END
+
+SCRIPT main_binary_on
+BEGIN
+	main.lb_distb.show
+	main.lb_distc.hide
+	main.lb_distm.hide
+	main.tx_power.disable
+	main.en_power.disable
+END
+
+SCRIPT main_mixed_on
+BEGIN
+	main.lb_distb.hide
+	main.lb_distc.hide
+	main.lb_distm.show
+	main.tx_power.disable
+	main.en_power.disable
+END
+
+PROGRAM cluster_common_output
+BEGIN
+	varlist [main.vl_var]
+	put " " /program ifin_output
+	beginoptions
+		put "measure("
+		if main.rb_distc {
+			put main.lb_distc
+			if main.en_power {
+				put "(" main.en_power ")"
+			}
+		}
+		if main.rb_distb {
+			put main.lb_distb
+		}
+		if main.rb_distm {
+			put main.lb_distm
+		}
+		put ")"
+		optionarg main.ed_name
+		optionarg adv.ed_gen
+	endoptions
+END
+

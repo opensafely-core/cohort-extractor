@@ -1,0 +1,112 @@
+/*
+  sqreg
+
+*!  VERSION 1.1.1  12oct2016
+
+  keyword:  eclass
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+INCLUDE header
+
+HELP hlp1, view("help sqreg")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	program parseMessage
+        setscale_hadj resource SQREG_DLG_HSCALE
+END
+
+PROGRAM parseMessage
+BEGIN
+	if __MESSAGE.contains("__MI__") {
+		call script byifin_set_by_off
+	}
+END
+
+DIALOG main,								///
+	label(resource SQREG_DLG_TITLE) tabtitle(resource LBL_TAB_MODEL)
+BEGIN
+  TEXT tx_dv			_lft	_top	_vnwd	.,		///
+	label(resource LBL_DEPVAR)
+  VARNAME vn_dv			@	_ss	@	.,		///
+	numeric								///
+	label(resource LBL_DEPVAR)
+
+  TEXT tx_iv			_vlx	_top	160	.,		///
+	label(resource LBL_INDDEPVAR)
+  VARLIST vl_iv			@	_ss	_vlwd	.,		///
+	numeric fv							///
+	allowcat							///
+	label(resource LBL_INDDEPVAR)
+  TEXT tx_quantiles		_lft	_ls	_iwd	.,		///
+	label(resource SQREG_MAIN_TX_QUANTILES)
+
+  EDIT ed_quantiles		@	_ss	_iwd	.,		///
+	default(50)							///
+	option("quantiles")						///
+	label(resource LBL_QUANTILES)
+
+  SPINNER sp_reps		_lft	_xls	_spwd	.,		///
+	min(1)								///
+	max(100000)							///
+	option("reps")							///
+	default(20)							///
+	label(resource LBL_BOOTSTRAP_REPLICATIONS)
+  TEXT tx_reps			_spsep	@	_sprb	.,		///
+	label(resource LBL_BOOTSTRAP_REPLICATIONS)
+END
+
+INCLUDE byifin
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+	program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr
+  DEFINE _y _top
+  INCLUDE _sp_level
+  
+  CHECKBOX ck_nodots		_lft	_ls	_iwd	.,		///
+	option("nodots")						///
+	label(resource LBL_DO_NOT_DISPLAY_DOTS_FOR_REPLICATIONS)
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE factor_vars_reporting_pr
+INCLUDE fmt_coef_table_reporting_pr
+
+PROGRAM command
+BEGIN
+	put /program by_output " "
+	put "sqreg "
+	varlist main.vn_dv [main.vl_iv]
+	put " " /program ifin_output
+	beginoptions
+		optionarg main.ed_quantiles
+		optionarg main.sp_reps
+		optionarg /hidedefault rpt.sp_level
+		option rpt.ck_nodots
+		put " " rpt_bu_facvarsResults
+		put " " rpt_bu_fmtcoefResults
+	endoptions
+END
+

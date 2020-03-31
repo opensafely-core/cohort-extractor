@@ -1,0 +1,674 @@
+/*
+  ivregress
+
+*!  VERSION 1.2.2  19may2016
+
+  keyword:  eclass
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_xlarge // long title w/survey
+DEFINE _dlght 470
+INCLUDE header
+
+HELP hlp1, view("help ivregress")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	script se_createAsIVREGRESS
+	program svy_check_title
+	create STRING gmm_tsset
+	setscale_hadj resource IVREGRESS_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script sub_set_by_on
+	program se_setFinalInitState
+END
+
+SCRIPT svy_is_on
+BEGIN
+	rpt.ck_first.disable
+	script max_setDefaultNoLog
+END
+SCRIPT svy_is_off
+BEGIN
+	rpt.ck_first.enable
+	script max_setDefaultLog
+END
+PROGRAM svy_check_title
+BEGIN
+	if __MESSAGE.contains("-svy-") {
+		call settitle resource IVREGRESS_SVY_DLG_TITLE
+	}
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL) 				///
+	/// **** has svy title ****					///
+	title(resource IVREGRESS_DLG_TITLE)
+BEGIN
+  TEXT tx_dv 		_lft	_top	_vnwd	.,			///
+	label(resource LBL_DEPVAR)
+  VARNAME vn_dv		@ 	_ss	@	.,			///
+	ts								///
+	numeric								///
+	label(resource LBL_DEPVAR)
+
+  TEXT tx_iv		_vlx	_top	160	.,			///
+	label(resource LBL_INDDEPVAR)
+  VARLIST vl_iv		@	_ss	_vlwd	.,			///
+	fv ts								///
+	allowcat							///
+	numeric								///
+	label(resource LBL_INDDEPVAR)
+
+  TEXT     tx_vars2	_lft	_ls	_iwd	.,			///
+	label(resource LBL_ENDOGENOUS_VARIABLES)
+  VARLIST  vl_vars2	@	_ss	@	.,			///
+	label(resource LBL_ENDOGENOUS_VARIABLES)			///
+	numeric								///
+	allowcat fv ts
+
+  TEXT     tx_ivars	@	_ls	@	.,			///
+	label(resource LBL_INSTRUMENTAL_VARIABLES)
+  VARLIST  vl_ivars	@	_ss	@	.,			///
+	label(resource LBL_INSTRUMENTAL_VARIABLES)			///
+	numeric								///
+	allowcat fv ts
+
+  GROUPBOX gb_estimator	_lft	+35	_iwd	_ht6,			///
+	label(resource LBL_ESTIMATOR)
+
+  RADIO rb_2sls		_indent	_ss	_inwd	.,			///
+	first								///
+	option(2sls)							///
+	label(resource IVREGRESS_MAIN_RB_2SLS)				///
+	onclickon(script main_gmm_off)
+
+  RADIO rb_liml		@	_ss	@	.,			///
+	option(liml)							///
+	label(resource IVREGRESS_MAIN_RB_LIML) 				///
+	onclickon(script main_gmm_off)
+
+  RADIO rb_gmm		@	_ss	@	.,			///
+	last								///
+	option(gmm)							///
+	label(resource LBL_GENERALIZED_METHOD_OF_MOMENTS_GMM)	///
+	onclickon(program main_gmm_on)
+
+  GROUPBOX gb_constants	_lft	+40	_iwd	_ht4h,	///
+	label(resource LBL_TREATMENT_OF_CONSTANT)
+
+  CHECKBOX ck_nocons	_ilft	_ss	_inwd	.,	///
+	label(resource LBL_NOCONSTANT)			///
+	onclickon(main.ck_hascon.disable)		///
+	onclickoff(main.ck_hascon.enable)		///
+	option(noconstant)
+
+  CHECKBOX ck_hascon	@	_ms	@	.,	///
+	label(resource LBL_HAS_USER_SUPPLIED_CONSTANT)		///
+	option(hascons)
+END
+
+PROGRAM main_gmm_on
+BEGIN
+	call gmm.ck_wm.enable
+	if gmm.ck_wm {
+		call gmm.tx_wmtype.enable
+		call gmm.lb_wmtype.enable
+		call gmm.ck_center.enable
+		call gmm.tx_cluster.enable
+		call gmm.vn_cluster.enable
+		call gmm.tx_hac.enable
+		call gmm.cb_hac.enable
+		call gmm.bu_tsset.enable
+		call gmm.tx_note.enable
+		call program gmm_notes_for_tsset
+		call gmm.gb_k_opts.enable
+		call gmm.rb_default.enable
+		call gmm.rb_lags.enable
+		call gmm.sp_lags.enable
+		call gmm.tx_lags.enable
+		call gmm.rb_opt.enable
+		call gmm.sp_opt_lags.enable
+		call gmm.tx_opt_lags.enable
+	}
+	call gmm.ck_igmm.enable
+	if gmm.ck_igmm {
+		call gmm.ed_eps.enable
+		call gmm.tx_eps.enable
+		call gmm.ed_weps.enable
+		call gmm.tx_weps.enable
+		call gmm.sp_iter.enable
+		call gmm.tx_iter.enable
+		call gmm.ck_nolog.enable
+	}
+	call program gmm_check_type		
+END
+
+PROGRAM gmm_check_type
+BEGIN
+	if gmm.ck_wm.isenabled() & gmm.ck_wm {	
+		if gmm.lb_wmtype.iseq("robust") {
+			call script se_setDefaultRobust
+		}
+		if gmm.lb_wmtype.iseq("cluster") {
+			call script se_setDefaultClusteredRobust
+		}
+		if gmm.lb_wmtype.iseq("hac") {
+			call script se_setDefaultHAC
+		}
+		if gmm.lb_wmtype.iseq("unadjusted") {
+			call script se_setDefaultUnadjusted
+		}
+	}
+	else {
+		if main.rb_gmm {
+			call script se_setDefaultRobust
+		}
+		else {
+			call script se_setDefaultUnadjusted
+		}
+	}
+END
+
+SCRIPT main_gmm_off
+BEGIN
+	gmm.ck_wm.disable
+	gmm.tx_wmtype.disable
+	gmm.lb_wmtype.disable
+	gmm.ck_center.disable
+	gmm.tx_cluster.disable
+	gmm.vn_cluster.disable
+	gmm.tx_hac.disable
+	gmm.cb_hac.disable
+	gmm.bu_tsset.disable
+	gmm.tx_note.disable
+	gmm.ck_igmm.disable
+	gmm.ed_eps.disable
+	gmm.tx_eps.disable
+	gmm.ed_weps.disable
+	gmm.tx_weps.disable
+	gmm.sp_iter.disable
+	gmm.tx_iter.disable
+	gmm.ck_nolog.disable
+	gmm.gb_k_opts.disable
+	gmm.rb_default.disable
+	gmm.rb_lags.disable
+	gmm.sp_lags.disable
+	gmm.tx_lags.disable
+	gmm.rb_opt.disable
+	gmm.sp_opt_lags.disable
+	gmm.tx_opt_lags.disable
+END
+
+INCLUDE sub_by_ifin_over_subpop
+INCLUDE weights
+
+DIALOG gmm, tabtitle(resource LBL_GMM)
+BEGIN
+
+  CHECKBOX ck_wm	_lft	_top	_iwd	_ht15h,	///
+	groupbox					///
+        label(resource LBL_SPECIFY_WEIGHTING_MATRIX)	///
+	onclickon(program gmm_wmtype_on)		///
+	onclickoff(script gmm_wmtype_off)
+  TEXT tx_wmtype	_ilft	_ss	_cwd3	.,	///
+	label(resource LBL_WEIGHTING_MATRIX_TYPE)
+DEFINE holdy @y
+  LISTBOX lb_wmtype	@	_ss	_cwd3	85,	///
+        contents(wmtype_list)				///
+        values(wmtype_values)				///
+        onselchangelist(wmtype_actions)
+
+  CHECKBOX ck_center	_ilft	145	_cwd3	.,	///
+	option(center)					///
+	label(resource LBL_CENTER_SAMPLE_MOMENTS)
+
+  TEXT tx_cluster	_lft2	holdy	@	.,	///
+        label(resource LBL_CLUSTER_VARIABLE)
+DEFINE holdy @y
+  VARNAME vn_cluster	@	_ss	_vnwd	.,	///
+	label(resource LBL_CLUSTER_VARIABLE)		///
+	option(cluster)
+
+  TEXT tx_hac		@	holdy	_cwd3_0	.,	///
+	label(resource LBL_KERNEL)
+  COMBOBOX cb_hac	@	_ss	_vnwd	.,	///
+	label(resource LBL_KERNEL)			///
+	contents(gmm_hac_list)				///
+	values(gmm_hac_values)				///
+	dropdownlist
+
+  GROUPBOX gb_k_opts	@	_ls	_cwd2	_ht7h,	///
+	label(resource LBL_NUMBER_OF_LAGS)
+
+  RADIO rb_default	_indent	_ss	_cwd4	.,	///
+	first						///
+	onclickon(program gmm_check_lags)		///
+	label(resource LBL_N2_LAGS_DEFAULT)
+
+  RADIO rb_lags		@	_ss	_rbwd	.,	///
+	onclickon(program gmm_check_lags)		///
+	option(NONE)
+  SPINNER sp_lags	_rbsep	@	_spwd	.,	///
+	label(resource LBL_LAGS)			///
+	default(1)					///
+	min(0)						///
+	max(c(N))
+  TEXT tx_lags		_spsep	@	100	.,	///
+	label(resource LBL_LAGS)
+
+  RADIO rb_opt		_ilft2	_ss	_cwd4	.,	///
+	last						///
+	option(opt)					///
+	onclickon(program gmm_check_lags)		///
+	label(resource LBL_USE_LAG_SELECTION_ALGORITHM)
+  SPINNER sp_opt_lags	_rbsep	_ss	_spwd	.,	///
+	label(resource LBL_LAGS)			///
+	default(20)					///
+	min(0)						///
+	max(c(N))
+  TEXT tx_opt_lags	_spsep	@	100	.,	///
+	label(resource LBL_LAGS)
+
+  CHECKBOX ck_igmm	_lft	+50	_iwd	_ht12,	///
+	option(igmm)					///
+	groupbox					///
+	label(resource IVREGRESS_GMM_CK_IGMM)		///
+	onclickon(program gmm_igmm_on)			///
+	onclickoff(script gmm_igmm_off)
+
+  EDIT ed_eps		_ilft	_ms	_en7wd	.,	///
+	option(eps)					///
+	default(1e-6)					///
+	label(resource LBL_SUCCESSIVE_PARAMETER_ESTIMATE_CONVERGENCE_CR)
+  TEXT tx_eps		_spsep	@	_sprb	.,	///
+	label(resource LBL_SUCCESSIVE_PARAMETER_ESTIMATE_CONVERGENCE_CR)
+
+  EDIT ed_weps		_ilft	_ms	_en7wd	.,	///
+	option(weps)					///
+	default(1e-6)					///
+	label(resource LBL_SUCCESSIVE_ESTIMATES_WEIGHTING_MATRIX_CONV_CR)
+  TEXT tx_weps		_spsep	@	_sprb	.,	///
+	label(resource LBL_SUCCESSIVE_ESTIMATES_WEIGHTING_MATRIX_CONV_CR)
+
+  SPINNER sp_iter	_ilft	+35	_spwd	.,	///
+	label(resource LBL_MAXIMUM_ITERATIONS) option(iterate)	///
+	min(0) max(16000) default(c(maxiter))
+  TEXT tx_iter		_spsep	@	_spr2	.,	///
+	label(resource LBL_MAXIMUM_ITERATIONS)
+
+  CHECKBOX ck_nolog	_ilft	_ls	_cwd1	.,	///
+	label(resource LBL_SUPPRESS_ITERATION_LOG)			///
+	option(nolog)
+
+  // use temporary text box to place the tsset note and button at the bottom
+  // of the tab
+  TEXT tx_temp   0     _dlght _dlgwd      .
+  TEXT tx_note   _lft  -30    _comb3_1    .
+DEFINE _x _xsetbu
+DEFINE _y @y
+  INCLUDE _bu_tsset
+END
+
+PROGRAM gmm_wmtype_on
+BEGIN
+	if gmm.ck_wm.isenabled() {
+		call gmm.tx_wmtype.enable
+		call gmm.lb_wmtype.enable
+		call gmm.ck_center.enable
+		call gmm.tx_cluster.enable
+		call gmm.vn_cluster.enable
+		call gmm.tx_hac.enable
+		call gmm.cb_hac.enable
+		call gmm.bu_tsset.enable
+		call gmm.tx_note.enable
+		call program gmm_notes_for_tsset
+		call gmm.gb_k_opts.enable
+		call gmm.rb_default.enable
+		call gmm.rb_lags.enable
+		if gmm.rb_lags {
+			call gmm.sp_lags.enable
+		}
+		call gmm.tx_lags.enable
+		call gmm.rb_opt.enable
+		call program gmm_check_type
+	}
+END
+
+SCRIPT gmm_wmtype_off
+BEGIN
+	gmm.tx_wmtype.disable
+	gmm.lb_wmtype.disable
+	gmm.ck_center.disable
+	gmm.tx_cluster.disable
+	gmm.vn_cluster.disable
+	gmm.tx_hac.disable
+	gmm.cb_hac.disable
+	gmm.gb_k_opts.disable
+	gmm.rb_default.disable
+	gmm.rb_lags.disable
+	gmm.sp_lags.disable
+	gmm.tx_lags.disable
+	gmm.rb_opt.disable
+	gmm.sp_opt_lags.disable
+	gmm.tx_opt_lags.disable
+END
+
+PROGRAM gmm_check_lags
+BEGIN
+	if gmm.rb_lags {
+		call gmm.sp_lags.enable
+		call gmm.sp_opt_lags.disable
+	}
+	if gmm.rb_opt {
+		call gmm.sp_opt_lags.enable
+		call gmm.sp_lags.disable
+	}
+	if gmm.rb_default {
+		call gmm.sp_opt_lags.disable
+		call gmm.sp_lags.disable
+	}
+END
+
+PROGRAM wmatrix_output
+BEGIN
+	put gmm.lb_wmtype
+	if gmm.lb_wmtype.iseq("cluster") {
+		varlist gmm.vn_cluster
+	}
+	if gmm.lb_wmtype.iseq("hac") {
+		put " " gmm.cb_hac
+		if gmm.rb_opt {
+			option gmm.rb_opt
+			if !gmm.sp_opt_lags.isdefault() {
+				put " "
+				put gmm.sp_opt_lags
+			}
+		}
+		if gmm.rb_lags {
+			put " " gmm.sp_lags
+		}
+	}
+END
+
+PROGRAM gmm_output
+BEGIN
+	// verify time settings
+	if gmm.cb_hac.isvisible() {
+		call program gmm_notes_for_tsset
+		if gmm_tsset.equals("") {
+			call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_TIME_SETTINGS_REQUIRED_FMT" 	///
+				"resource LBL_HAC" 			///
+				"resource LBL_BU_TIME_SETTINGS" 	///
+				"resource LBL_GMM" 
+			stopbox stop "class _MSG_TMP.value"
+		
+// HAC requires time settings. See the "Time settings" button on the "GMM" tab.
+		}
+	}
+	if gmm.ck_wm {
+		put " wmatrix("
+		put /program wmatrix_output
+		put ") "
+	}
+	option gmm.ck_center
+	option gmm.ck_igmm
+	optionarg /hidedefault gmm.ed_eps
+	optionarg /hidedefault gmm.ed_weps
+	optionarg /hidedefault gmm.sp_iter
+	option gmm.ck_nolog
+END
+
+SCRIPT gmm_hide_all
+BEGIN
+	gmm.tx_cluster.hide
+	gmm.vn_cluster.hide
+	gmm.tx_hac.hide
+	gmm.cb_hac.hide
+	gmm.bu_tsset.hide
+	gmm.tx_note.hide
+	gmm.gb_k_opts.hide
+	gmm.rb_default.hide
+	gmm.rb_lags.hide
+	gmm.sp_lags.hide
+	gmm.tx_lags.hide
+	gmm.rb_opt.hide
+	gmm.sp_opt_lags.hide
+	gmm.tx_opt_lags.hide
+	program gmm_check_type
+END
+
+LIST wmtype_list
+BEGIN
+	resource LBL_ROBUST
+	resource LBL_CLUSTERED_ROBUST
+	resource LBL_HAC
+	resource LBL_UNADJUSTED
+END
+
+LIST wmtype_values
+BEGIN
+	robust
+	cluster
+	hac
+	unadjusted
+END
+
+LIST wmtype_actions
+BEGIN
+	script gmm_hide_all
+	script gmm_cluster_on
+	script gmm_hac_on
+	script gmm_hide_all
+END
+
+LIST gmm_hac_list
+BEGIN
+	resource LBL_BARTLETT
+	resource LBL_PARZEN
+	resource LBL_QUADRATICSPECTRAL
+END
+
+LIST gmm_hac_values
+BEGIN
+	"bartlett"
+	"parzen"
+	"quadraticspectral"
+END
+
+PROGRAM gmm_notes_for_tsset
+BEGIN
+	
+	call gmm_tsset.setstring char _dta[_TStvar]
+	if gmm_tsset.equals("") {
+		call gmm.tx_note.setlabel resource LBL_NOTE_TIME_SETTING_MUST_BE_SPECIFIED
+//			"Note: time settings must be specified."
+	}
+	else {
+		call gmm.tx_note.setlabel ""
+	}
+END
+
+SCRIPT gmm_cluster_on
+BEGIN
+	script gmm_hide_all
+	gmm.tx_cluster.show
+	gmm.vn_cluster.show
+	program gmm_check_type
+END
+
+SCRIPT gmm_hac_on
+BEGIN
+	script gmm_hide_all
+	gmm.tx_hac.show
+	gmm.cb_hac.show
+	gmm.bu_tsset.show
+	gmm.tx_note.show
+	program gmm_notes_for_tsset
+	gmm.gb_k_opts.show
+	gmm.rb_default.show
+	gmm.rb_lags.show
+	gmm.sp_lags.show
+	gmm.tx_lags.show
+	gmm.rb_opt.show
+	gmm.sp_opt_lags.show
+	gmm.tx_opt_lags.show
+	program gmm_check_type
+END
+
+PROGRAM gmm_igmm_on
+BEGIN
+	call gmm.tx_eps.enable
+	call gmm.ed_eps.enable
+	call gmm.tx_weps.enable
+	call gmm.ed_weps.enable
+	call gmm.sp_iter.enable
+	call gmm.tx_iter.enable
+	call gmm.ck_nolog.enable
+END
+
+SCRIPT gmm_igmm_off
+BEGIN
+	gmm.tx_eps.disable
+	gmm.ed_eps.disable
+	gmm.tx_weps.disable
+	gmm.ed_weps.disable
+	gmm.sp_iter.disable
+	gmm.tx_iter.disable
+	gmm.ck_nolog.disable
+END
+
+INCLUDE se
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+        program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2b
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  CHECKBOX ck_first	_lft	_ls	_cwd1	.,	///
+	label(resource LBL_REPORT_FIRST_STAGE_REGRESSION)		///
+	option(first)
+
+  CHECKBOX ck_small	@	_ms	_iwd	.,	///
+	label(resource IVREGRESS_RPT_CK_SMALL)							///
+	option(small)
+
+  GROUPBOX gb_output	_lft	_ls	_iwd	_ht8,	///
+	label(resource LBL_ADVANCED)
+
+  CHECKBOX ck_nohead	_indent	_ss	_cwd3	.,	///
+	label(resource IVREGRESS_RPT_CK_NOHEAD)	///
+	option(noheader)
+
+DEFINE y @y
+
+  TEXT tx_depn		@	_ms	@	.,	///
+	label(resource LBL_SUBSTITUTE_DEP_VARIABLE_NAME)
+  EDIT ed_depn		@	_ss	@	.,	///
+	label(resource LBL_SUBSTITUTE_DEP_VARIABLE_NAME)	///
+	option(depname)
+
+  CHECKBOX ck_eform	_ilft2	y	@	_ht5,	///
+	label(resource LBL_EXPONENTIATE_COEFFICIENTS_NO_COLON)		///
+	groupbox					///
+	onclickon(script rpt_exp_on)			///
+	onclickoff(script rpt_exp_off)
+
+  TEXT tx_eform		_indent	_ms	_cwd5	.,	///
+	label(resource IVREGRESS_RPT_TX_EFORM)
+  EDIT ed_eform		@	_ss	@	.,	///
+	label(resource IVREGRESS_RPT_ED_EFORM)	///
+	option(eform)
+
+  DEFINE _x _lft
+  DEFINE _y _xxxls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+
+SCRIPT rpt_exp_off
+BEGIN
+	rpt.tx_eform.disable
+	rpt.ed_eform.disable
+END
+
+SCRIPT rpt_exp_on
+BEGIN
+	rpt.tx_eform.enable
+	rpt.ed_eform.enable
+END
+
+PROGRAM rpt_output
+BEGIN
+	optionarg /hidedefault rpt.sp_level
+	option rpt.ck_first
+	option rpt.ck_small
+	option rpt.ck_nohead
+	optionarg rpt.ed_depn
+	if rpt.ck_eform {
+		require rpt.ed_eform
+		optionarg rpt.ed_eform
+	}
+	INCLUDE _report_columns_pr
+	put " " rpt_bu_facvarsResults
+	put " " rpt_bu_fmtcoefResults
+END
+
+PROGRAM command_sub
+BEGIN
+	varlist main.vl_vars2
+	put "="
+	varlist main.vl_ivars
+END
+
+PROGRAM command
+BEGIN
+	put /program by_output " "
+	put /program se_prefix_output " "
+	put "ivregress "
+	option main.rb_2sls
+	option main.rb_liml
+	option main.rb_gmm
+	varlist main.vn_dv [main.vl_iv]
+	put "("
+	put /program command_sub
+	put ")"
+	put " " /program ifin_output
+	put " " /program weights_output
+	beginoptions
+		option main.ck_nocons
+		option main.ck_hascon
+		put " " /program gmm_output
+		put " " /program se_output
+		put " " /program rpt_output
+	endoptions
+END

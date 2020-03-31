@@ -1,0 +1,163 @@
+/*
+    bstat
+
+*!  VERSION 2.2.2  14mar2015
+
+  keyword:  eclass
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 400
+INCLUDE header
+HELP hlp1, view("help bstat")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource BSTAT_DLG_HSCALE
+	
+        main.fi_using.formatfilter "{0} (*.dta)|*.dta|{1} (*.*)|*.*" 	///
+                "resource ui_ex FILE_TYPE_DTA_FILES" 			///
+                "resource ui_ex FILE_TYPE_ALL_FILES"
+END
+
+SCRIPT POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+END
+
+
+DIALOG main, label(resource BSTAT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  GROUPBOX gb_syn    _lft      _top      _iwd      _ht4,	///
+  	label(resource BSTAT_MAIN_DB_SYN)
+  RADIO    rb_syn1   _ilft     _ss       _inwd     .,		///
+  	first onclickon(script main_syn1_on)			///
+  	label(resource BSTAT_MAIN_RB_SYN1)
+  RADIO    rb_syn2   @         _ss       @         .,		///
+  	last onclickon(script main_syn2_on)			///
+  	label(resource BSTAT_MAIN_RB_SYN2)
+
+  TEXT     tx_var    _lft      _xls      _iwd      .,		///
+	label(resource BSTAT_MAIN_TX_VAR)
+  EDIT     ed_var    @         _ss       @         .,		///
+	label(resource LBL_VARIABLE_LIST)
+  VARLIST  vl_var    @         @         @         .,		///
+  	numeric							///
+	label(resource LBL_VARIABLE_LIST)
+
+  TEXT     tx_using  _lft      _ls       _vlwd     .,		///
+	label(resource BSTAT_MAIN_TX_USING)
+  FILE     fi_using  _lft      _ss       _iwd      .,		///
+	defext(dta)						///
+	label(resource LBL_BU_BROWSE)				///
+	error(resource BSTAT_MAIN_TX_USING)
+
+  GROUPBOX gb_user   _lft      +35       _iwd      _ht9h,	///
+	label(resource BSTAT_MAIN_GB_USER)
+  TEXT     tx_stat   _indent   _ss       _inwd     .,		///
+	label(resource BSTAT_MAIN_TX_STAT)
+  EDIT     ed_stat   @         _ss       @         .,		///
+	label(resource BSTAT_MAIN_TX_STAT)			///
+	option(stat)
+
+  TEXT     tx_accel  @         _ls       @         .,		///
+	label(resource BSTAT_MAIN_TX_ACCEL)
+  EDIT     ed_accel  @         _ss       @         .,		///
+	label(resource BSTAT_MAIN_TX_ACCEL) option(accel)
+
+  CHECKBOX ck_ties    _lft      _xxls     _cwd0     .,		///
+	option(ties)						///
+	label(resource LBL_ADJUST_BC_BCA_CONFIDENCE_INTERVALS_TIES)
+
+  CHECKBOX ck_mse    _lft      _ms     @    .,			///
+	label(resource LBL_USE_MSE_FORMULA_VARIANCE_ESTIMATION)	///
+	option(mse)
+END
+
+SCRIPT main_syn1_on
+BEGIN
+	main.tx_using.hide
+	main.fi_using.hide
+	main.ed_var.hide
+	main.vl_var.show
+	main.gb_user.setposition . 145 . .
+	main.tx_stat.setposition . 165 . .
+	main.ed_stat.setposition . 185 . .
+	main.tx_accel.setposition . 215 . .
+	main.ed_accel.setposition . 235 . .
+	main.ck_ties.setposition . 285 . .
+	main.ck_mse.setposition . 310 . .
+END
+
+SCRIPT main_syn2_on
+BEGIN
+	main.tx_using.show
+	main.fi_using.show
+	main.ed_var.show
+	main.vl_var.hide
+	main.gb_user.setposition . 195 . .
+	main.tx_stat.setposition . 215 . .
+	main.ed_stat.setposition . 235 . .
+	main.tx_accel.setposition . 265 . .
+	main.ed_accel.setposition . 285 . .
+	main.ck_ties.setposition . 335 . .
+	main.ck_mse.setposition . 360 . .
+END
+
+INCLUDE _coef_table_common_report_pr
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  EDIT     ed_n      _lft      _ls       _en7wd    .,		///
+	numonly	 option(n)					///
+	label(resource BSTAT_RPT_ED_N)
+  TEXT     tx_n      _en7sep   @         _en7r     .,		///
+	label(resource BSTAT_RPT_ED_N)
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _xwd _iwd
+  INCLUDE _coef_table_common
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_coef_table_reporting
+
+  TEXT     tx_title  _lft      _ls       _iwd      .,		///
+	label(resource LBL_TITLE)
+  EDIT     ed_title  @         _ss       @         .,		///
+	label(resource LBL_TITLE) option(title)
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+
+PROGRAM command
+BEGIN
+	require main.fi_using
+	require main.ed_stat
+	put "bstat "
+	put main.vl_var
+	put main.ed_var
+	put " " "using " `"""' main.fi_using `"""'
+	beginoptions
+		optionarg main.ed_stat
+		optionarg main.ed_accel
+		option main.ck_ties
+		option main.ck_mse
+		optionarg /hidedefault rpt.sp_level
+		optionarg rpt.ed_n
+		put /program _coef_table_common_cmd
+		put " " rpt_bu_fmtcoefResults
+		optionarg rpt.ed_title
+	endoptions
+END

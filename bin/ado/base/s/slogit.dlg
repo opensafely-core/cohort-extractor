@@ -1,0 +1,160 @@
+/*
+  slogit
+
+*!  VERSION 1.2.1  29nov2018
+
+  keyword:  eclass
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_wide
+DEFINE _dlght 420  // min 420 for max_setOptionSlogit
+INCLUDE header
+
+HELP hlp1, view("help slogit")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	script se_createAsSvyJknifeBstrapML
+	program svy_check_title
+	setscale_hadj resource SLOGIT_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script max_setOptionSlogit
+	script sub_set_by_on
+	program se_setFinalInitState
+END
+
+SCRIPT svy_is_on
+BEGIN
+	script max_setDefaultNoLog
+END
+SCRIPT svy_is_off
+BEGIN
+	script max_setDefaultLog
+END
+PROGRAM svy_check_title
+BEGIN
+	if __MESSAGE.contains("-svy-") {
+		call settitle resource SLOGIT_SVY_DLG_TITLE
+	}
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)				///
+	/// **** has svy title ****				///
+	title(resource SLOGIT_DLG_TITLE)
+BEGIN
+  TEXT tx_dv 		_lft	_top	_vnwd	.,			///
+	label(resource LBL_DEPVAR)
+  VARNAME vn_dv		@ 	_ss	@	.,			///
+  	numeric								///
+	label(resource LBL_DEPVAR)
+
+  TEXT tx_iv		_vlx	_top	160	.,			///
+	label(resource LBL_INDDEPVAR)
+  VARLIST vl_iv		@	_ss	_vlwd	.,			///
+	fv								///
+	allowcat							///
+	numeric								///
+	label(resource LBL_INDDEPVAR)
+
+  GROUPBOX gb_output	_lft	+35	_iwd	_ht11,		///
+	label(resource LBL_OPTIONS)
+
+  EDIT     en_dimension	_ilft	_ms	_en7wd	.,		///
+	numonly option(dimension)
+  TEXT     tx_dimension	_en7sep @	120	.,		///
+	label(resource LBL_DIMENSION)
+
+  EDIT     en_base	_lft2	@	_en14wd	.,		///
+	label(resource LBL_BASE_OUTCOME) 			///
+	option(baseoutcome)
+  TEXT     tx_base	_en14sep @	120	.,		///
+	label(resource LBL_BASE_OUTCOME)
+
+  DEFINE _x _ilft
+  DEFINE _y _ls
+  DEFINE _cx _ilw80
+  DEFINE _bux _islw80
+  INCLUDE _constraints
+
+  DEFINE _x _ilft
+  DEFINE _xw _ibwd
+//  INCLUDE _ck_collinear
+
+  CHECKBOX ck_nocorner	_ilft	_ls	_ibwd	.,		///
+	label(resource SLOGIT_MAIN_CK_NOCORNER)			///
+	option(nocorner)
+END
+
+INCLUDE _constraints_sc 
+INCLUDE sub_by_ifin_over_subpop
+INCLUDE weights_fpi
+INCLUDE se
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+	program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _nocnsreport
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+
+INCLUDE max_ml
+
+PROGRAM command
+BEGIN
+	put /program by_output " "
+	put /program se_prefix_output " "
+	put "slogit "
+	varlist main.vn_dv main.vl_iv
+	put " " /program ifin_output
+	put " " /program weights_output
+	beginoptions
+		optionarg main.en_dimension
+		optionarg main.en_base
+		optionarg main.cb_constr
+//		option main.ck_collinear
+		option main.ck_nocorner
+		put " " /program se_output
+		optionarg /hidedefault rpt.sp_level
+		INCLUDE _nocnsreport_pr
+		INCLUDE _report_columns_pr
+		put " " rpt_bu_facvarsResults
+		put " " rpt_bu_fmtcoefResults
+		put " " /program max_output
+END

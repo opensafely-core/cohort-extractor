@@ -1,0 +1,295 @@
+//                                 twoway_zyx2view_parse
+//
+//   A parser for zyx2view.  Works with twoway.ado.
+//   Uses twoway_yxview_parse to do most of the work.
+
+*! version 1.0.5  20oct2012
+
+version 12
+
+class {
+	drop_to	= .ordstyle.new , style(x)	// horiz vs. vert
+
+    	goptions	= ""
+
+	bcolor   = ""
+	ecolor   = ""
+	crule    = ""
+	ccuts	 = ""
+	ccolors  = ""
+	outlines = 0
+	format	 = ""
+	levels	 = (.)
+	minmax	 = ""
+	reversekey  = ""
+	clpatterns  = ""
+	clwidths    = ""
+	clabels     = ""
+	colorlines  = ""
+	heatmap     = ""
+	interp      = "thinplatespline"
+
+} , inherit(twoway_yxview_parse)
+
+
+// ---------------------------------------------------------------------------
+
+program new
+	.viewclass = "zyx2view_g"
+end
+
+
+// ---------------------------------------------------------------------------
+
+program parse
+
+	if "`.viewtype'" == "" {
+		.viewtype = "contour"
+	}
+
+	.n = 1
+
+					// Super wants these options too
+	_parse combop 0 : 0 , option(CLPatterns) rightmost
+	_parse combop 0 : 0 , option(CLWidths)	 rightmost
+
+	syntax [anything] [if] [in] [ , CLPatterns(string asis) CLWidths(string asis) * ]
+
+	.Super.parse `macval(anything)' `macval(if)' `macval(in)' , `macval(options)'
+
+	if `.varcheck' | ! `.allow_anything' {
+		_clsarr2list mlablist : labvars		// check number of vars
+		local vlist `.varlist'			// allow marker labels
+		local vlist : list vlist - mlablist
+		local posvar "`.posnm'"
+		local vlist : list vlist - posvar
+		if `:word count `vlist'' > 3 | `:word count `vlist'' < 3 {
+			di in smcl "{error}{p 0 8}`.viewtype' requires 3 " ///
+				"variables: `.varlist'{p_end}"
+			if (`:word count `vlist'' > 3)  exit 103
+			else				exit 102
+		}
+	}
+
+	.n = 1
+
+							// general zyx2 options
+	local 0 `", `.options'"'
+	_parse combop 0 : 0 , option(SColor)	rightmost
+	_parse combop 0 : 0 , option(EColor)	rightmost
+	_parse combop 0 : 0 , option(CRULE)	rightmost
+	_parse combop 0 : 0 , option(CCUTs)	rightmost
+	_parse combop 0 : 0 , option(CColors)	rightmost
+	_parse combop 0 : 0 , option(CLABels)	 rightmost
+	_parse combop 0 : 0 , option(OUTlines)	rightmost
+	_parse combop 0 : 0 , option(FORMAT)	rightmost
+	_parse combop 0 : 0 , option(LEVels)	rightmost
+	_parse combop 0 : 0 , option(MINMAX)	rightmost
+	_parse combop 0 : 0 , option(REVersekey) rightmost
+	_parse combop 0 : 0 , option(COLORLines) rightmost
+	_parse combop 0 : 0 , option(HEATMAP)   rightmost
+	_parse combop 0 : 0 , option(Interp)    rightmost
+	
+	syntax [, SColor(string asis) EColor(string asis)		///
+		  CRULE(string asis) CCUTs(numlist sort)		///
+		  CColors(string asis) CLABels(string asis)		///
+		  OUTlines FORMAT(string asis) LEVels(passthru) MINMAX	///
+		  HEATMAP Interp(string asis)                           /// 
+		  HORizontal VERTical REVersekey COLORLines * ]
+
+	if `"`ccuts'"' != `""' & `"`levels'"' != `""' {
+  di in smcl "{error}{p 0 8}may not combine options ccuts() and levels(){p_end}"
+	 exit 198
+	}
+
+	.bcolor = `"`scolor'"'
+	.ecolor = `"`ecolor'"'
+	.crule  = `"`crule'"'
+	.format = `"`format'"'
+	.ccuts  = `"`ccuts'"'
+	.minmax = `"`minmax'"'
+	.outlines = cond("`outlines'"=="", 0, 1)
+	.reversekey  = `"`reversekey'"'
+	.colorlines  = `"`colorlines'"'
+	.clabels     = `"`clabels'"'
+	.heatmap = `"`heatmap'"'
+	
+	if "`interp'" != "" {
+		.interp = `"`interp'"'
+	}
+	
+	if `"`ccuts'"' != `""' {
+		.goptions = `"zlabel(`ccuts')"'
+	}
+	if `"`levels'"' != "" {
+		local 0 `", `levels'"'
+		syntax [ , LEVels(integer -9999) ]
+		.levels = `levels'
+	}
+	if `"`ccolors'"' != `""' {			// for valid colors only
+		tempname cc 
+		.`cc' = .color.new
+		gettoken color ccolors : ccolors
+		while `"`color'"' != `""' {
+			.`cc'.setstyle, style(`color')
+			local clist `"`clist' "`color'""'
+			gettoken color ccolors : ccolors
+		}
+		.ccolors = `"`clist'"'
+	}
+	if `"`clpatterns'"' != `""' {		// for valid patterns only
+		tempname pp 
+		.`pp' = .linepattern.new
+		gettoken pat clpatterns : clpatterns
+		while `"`pat'"' != `""' {
+			.`pp'.setstyle, style(`pat')
+			local plist `"`plist' "`pat'""'
+			gettoken pat clpatterns : clpatterns
+		}
+		.clpatterns = `"`plist'"'
+	}
+	if `"`clwidths'"' != `""' {		// for valid widths only
+		tempname pp 
+		.`pp' = .linewidth.new
+		gettoken width clwidths : clwidths
+		while `"`width'"' != `""' {
+			.`pp'.setstyle, style(`width')
+			local wlist `"`wlist' "`width'""'
+			gettoken width clwidths : clwidths
+		}
+		.clwidths = `"`wlist'"'
+	}
+	.options = `"`options'"'
+
+	if `:word count `horizontal' `vertical'' > 1 {
+		di as error "may not combine options horizontal and vertical"
+		exit 198
+	}
+
+	if "`horizontal'" != "" {
+		.drop_to.setstyle , style(y)
+	}
+	if "`vertical'" != "" {
+		.drop_to.setstyle , style(x)
+	}
+end
+
+// ---------------------------------------------------------------------------
+program log_create_view
+	syntax [, ZVARiable YVARiable(passthru) XVARiable(passthru)	///
+		  VIEW(integer 1) SERSET(string) * ]
+
+	if `view' != 1 {
+		di as error "may not specify more that one `.viewtype'"	///
+			" per plot"
+		exit 198
+	}
+
+	tokenize `.varlist'
+
+	if `"`zvariable'"' == `""' {
+		local zvariable zvariable(\`.`serset'.seriesof `1'')
+	}
+	if `"`yvariable'"' == `""' {
+		local yvariable yvariable(\`.`serset'.seriesof `2'')
+	}
+	if `"`xvariable'"' == `""' {
+		local xvariable xvariable(\`.`serset'.seriesof `3'')
+	}
+
+	.Super.log_create_view  , `macval(zvariable)'			///
+		`macval(yvariable)' `macval(xvariable)'			///
+		view(`view') serset(`serset') `macval(options)'
+
+end
+
+// ---------------------------------------------------------------------------
+//  Pushes onto the specified log any post-creation commands implied by 
+//  the parsed syntax that must be applied to the created view.
+//  also need change zyx2style.class
+
+program log_edits
+	args log view i novlabel
+
+	.`log'.Arrpush .`view'.bar_drop_to.setstyle , style(`.drop_to.snm')
+
+	if `"`.plotsettings[`i']'"' != `""' {
+		local 0 `", `.plotsettings[`i']'"'
+		syntax [ , ZVARLABEL(string asis)  ZVARFORMAT(string) * ]
+
+		if "`novlabel'" == "" {
+		    if `"`zvarlabel'"' != `""' {
+		    	local zvarlabel `zvarlabel'		// sic
+			.`log'.Arrpush					  ///
+			    .`view'.serset.sers[\`.`view'.zvar'].label = ///
+			    `"`zvarlabel'"'
+		    }
+		}
+		if `"`zvarformat'"' != `""' {
+			.`log'.Arrpush					   ///
+			    .`view'.serset.sers[\`.`view'.zvar'].format = ///
+			    `"`zvarformat'"'
+		}
+
+	}
+
+	if ("`.format'" != "")  local edits `"`edits' format("`.format'")"'
+	//if ("`.bcolor'" != "")  local edits `"`edits' bshade(color(`.bcolor'))"' 
+	//if ("`.ecolor'" != "")  local edits `"`edits' eshade(color(`.ecolor'))"'
+	if ("`.bcolor'" != "")  {
+		local edits `"`edits' bcolor(`.bcolor')"'
+		local edits `"`edits' userbcolor("yes")"'
+	}
+	if ("`.ecolor'" != "")  {
+		local edits `"`edits' ecolor(`.ecolor')"'
+		local edits `"`edits' userecolor("yes")"'
+	}
+	if ("`.crule'"  != "")  local edits `"`edits' rule(`.crule')"'
+	if ("`.ccuts'"  != "")  local edits `"`edits' ccutsopt(`.ccuts')"'
+	if (`"`.ccolors'"'  != "")					///
+		local edits `"`edits' ccolorsopt(`"`.ccolors'"')"'
+	if (`"`.clabels'"'  != "")					///
+		local edits `"`edits' clabelsopt(`"`.clabels'"')"'
+	if (`.levels' < .)	local edits `"`edits' levels(`.levels')"'
+	if (`.outlines')	local edits `"`edits' outlines(yes)"'
+
+	if `"`edits'"' != `""' {
+		.`log'.Arrpush .`view'.style.editstyle `edits' editcopy
+	}
+
+	if (`"`.clpatterns'"'  != "")					///
+		local edits `"`edits' clpatternsopt(`"`.clpatterns'"')"'
+	if (`"`.clwidths'"'  != "")					///
+		local edits `"`edits' clwidthsopt(`"`.clwidths'"')"'
+	if ("`.reversekey'" != "") {
+		local edits `"`edits' reversekey("yes")"'
+	}
+	else {
+		local edits `"`edits' reversekey("no")"'	
+	}
+	if ("`.colorlines'" != "" | `"`.ccolors'"'  != `""') {
+		local edits `"`edits' colorlines("yes")"'
+	}
+	else {
+		local edits `"`edits' colorlines("no")"'	
+	}
+	
+	if `"`edits'"' != `""' {
+		.`log'.Arrpush .`view'.style.editstyle `edits' editcopy
+	}
+
+	.`log'.Arrpush .`view'.style.reset 
+
+	if (`.levels' < .) {
+		.`log'.Arrpush .goptions = 				///
+		`"\`.`view'.set_ccuts_from_levels "`.minmax'"' \`.goptions'"'
+	}
+
+	.`log'.Arrpush .goptions = 				///
+		`"\`.`view'.set_interp "`.interp'"' \`.goptions'"'
+
+	.`log'.Arrpush .goptions = 				///
+		`"\`.`view'.set_genmethod "`.heatmap'"' \`.goptions'"'
+	
+	.Super.log_edits `log' `view' `i'
+end

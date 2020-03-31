@@ -1,0 +1,147 @@
+*! version 1.0.3  30jul2013
+version 8
+
+class {
+
+    instance:
+	linestyle	= .linestyle.new
+	shadestyle	= .shadestyle.new
+
+} , inherit(style)
+
+/* -------------------------------------------------------------------------*/
+/*
+	Usage:  .new style(name)
+*/
+program define new
+
+	.set `0'
+end
+
+program define set
+
+	syntax [, Style(string) * ]
+
+	if "`style'" == "" {					/* defaults */
+		.linestyle.setstyle,  style(scheme foreground)
+		.shadestyle.setstyle, style(scheme foreground)
+	}
+	.setstyle `0'
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*
+	Usage:  .is_drawn 
+*/
+program define is_drawn
+
+	class exit = (	"`.linestyle.width.snm'"   != "none" & 		///
+			"`.linestyle.color.snm'"   != "none" &		///
+			"`.linestyle.pattern.snm'" != "blank" ) |  	///
+			"`.shadestyle.color.snm'"  != "none"
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*
+	Usage:  .patterned_line 
+*/
+program patterned_line
+
+	class exit = ! ("`.linestyle.pattern.snm'"  == "blank" | 	///
+			"`.linestyle.pattern.snm'"  == "solid" )
+end
+
+
+/* -------------------------------------------------------------------------*/
+/* 
+	Set this area style to the GDI
+*/
+
+program define setgdi
+
+	.shadestyle.setgdi
+	.linestyle.setgdi , line
+end
+
+
+/* -------------------------------------------------------------------------*/
+/* 
+	Set this area style to the GDI and reset the pen and shade
+*/
+
+program define setgdifull
+	version 8
+
+	.setgdi `0'
+	gdi shadechange
+	gdi penchange
+end
+
+
+/* -------------------------------------------------------------------------*/
+/* 
+	Set only the linestyle for the area style to the GDI
+*/
+
+program setlinestyle
+
+	.linestyle.setgdi , line
+end
+
+
+/* -------------------------------------------------------------------------*/
+/* 
+	Set only the linestyle for the area style to the GDI and reset the pen
+*/
+
+program setlinestylefull
+	version 8
+
+	.setlinestyle `0'
+	gdi penchange
+end
+
+
+/* -------------------------------------------------------------------------*/
+/* 
+	Set only the linestyle for the area style to the GDI and reset the pen
+*/
+
+program setlineasareafull
+	version 8
+
+	.setlinestyle `0'
+	.linestyle.setgdifullspecial ,					///
+		color(`.shadestyle.color.rgb') pattern("")
+
+	gdi penchange
+end
+
+
+/* -------------------------------------------------------------------------*/
+/* 
+	Draw and fill an area of the specified size using the current 
+	settings for the style.
+*/
+
+program draw
+	if 0`.patterned_line' | 0`.linestyle.blank_line' {
+		.setgdifull
+		tempname linesty
+		.`linesty' = .linestyle.new, style(background)
+		.`linesty'.setgdifull
+		gdi rectangle `0'
+
+		if ! 0`.linestyle.blank_line' {
+			.setgdifull
+			_gr_drawrect  `0'
+		}
+	}
+	else {
+		.setgdifull
+		gdi rectangle `0'
+	}
+end
+

@@ -1,0 +1,177 @@
+/*
+	stphplot
+
+*!  VERSION 2.1.1  20may2015
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 300
+INCLUDE header
+
+HELP hlp1, view("help stphplot")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource STPHPLOT_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script gr_plots_setDefaultConnected
+	script gr_plots_setMultiView_on
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN) ///
+	title(resource STPHPLOT_DLG_TITLE)
+BEGIN
+  RADIO    rb_invar      _lft       _top      _cwd1       .,  first	///
+	label(resource STPHPLOT_MAIN_RB_INVAR)				///
+	onclickon(script strat_off)
+  RADIO    rb_strvar     _lft       _ss       @           .,  last	///
+	label(resource STPHPLOT_MAIN_RB_STRVAR)				///
+	onclickon(script strat_on)
+
+  TEXT     tx_var	 @          _ms       @           .,
+  VARNAME  vn_invar      @          _ss       _vnwd       .,		///
+	label(resource LBL_INDEPENDENT_VARIABLE_NO_COLON) option(by)
+  VARNAME  vn_strvar     @          @         @           .,		///
+	label(resource STPHPLOT_MAIN_VN_STRVAR) option(strata)
+
+  CHECKBOX ck_adjust      _lft      +35       _iwd        _ht9,		///
+	groupbox onclickon(script adjust_on) onclickoff(script adjust_off)
+
+  TEXT     tx_adjvar1     _ilft     _ss       _inwd       .,		///
+	label(resource STPHPLOT_MAIN_TX_ADJVAR1)
+  VARLIST  vl_adjvar      @         _ss       @           .,		///
+	label(resource STPHPLOT_MAIN_TX_ADJVAR1) option(adjust)
+  RADIO    rb_avgval      _ilft     _ls       @           .,		///
+	label(resource STPHPLOT_MAIN_RB_AVGBAL)				///
+	first option(NONE)
+  RADIO    rb_zeroval     @         _ss       @           .,		///
+	label(resource STPHPLOT_MAIN_RB_ZEROVAL)			///
+	last option(zero)
+  DEFINE _x _xsetbu
+  DEFINE _y _top
+  INCLUDE _bu_stset
+END
+
+INCLUDE if
+
+DIALOG opt, tabtitle(resource LBL_OPTIONS)
+BEGIN
+  GROUPBOX gb_noneg       _lft      _top      _iwd        _ht4,
+  RADIO    rb_lnneg       _indent   _ss       _inwd       .,		///
+	label(resource STPHPLOT_OPT_RB_LNNEG) first option(NONE)
+  RADIO    rb_ln          @         _ss       @           .,		///
+	label(resource STPHPLOT_OPT_RB_LN) last option(nonegative)
+
+  GROUPBOX gb_plot        _lft      _xls      _iwd        _ht4,
+  RADIO    rb_lntime      _ilft     _ss       _inwd       .,		///
+	label(resource STPHPLOT_OPT_RB_LNTIME) 				///
+	first option(NONE)
+  RADIO    rb_time        _ilft     _ss       @           .,		///
+	label(resource STPHPLOT_OPT_RB_TIME) last option(nolntime)
+
+  CHECKBOX  ck_noshow     _lft      +45       _iwd        .,		///
+	label(resource LBL_DO_NOT_SHOW_ST_SETTING_INFORMATION) option(noshow)
+END
+
+SCRIPT zero_off
+BEGIN
+	main.rb_zeroval.disable
+	main.rb_avgval.disable
+END
+
+SCRIPT zero_on
+BEGIN
+        main.rb_zeroval.enable
+        main.rb_avgval.enable
+END
+
+
+SCRIPT adjust_on
+BEGIN
+	main.tx_adjvar1.enable
+	main.vl_adjvar.enable
+	script zero_on
+END
+
+SCRIPT adjust_off
+BEGIN
+	main.tx_adjvar1.disable
+        main.vl_adjvar.disable
+        script zero_off
+END
+
+
+SCRIPT strat_off
+BEGIN
+	main.vn_strvar.hide
+	main.vn_invar.show
+	main.tx_var.setlabel resource LBL_INDEPENDENT_VARIABLE
+	main.ck_adjust.setlabel resource STPHPLOT_ADJUST_ESTIMATES
+END
+
+SCRIPT strat_on
+BEGIN
+	main.vn_invar.hide
+        main.vn_strvar.show
+        main.tx_var.setlabel resource STPHPLOT_STRATA_VARIABLE
+        main.ck_adjust.setlabel resource STPHPLOT_ADJUST_ESTIMATES_REQUIRED
+END
+
+INCLUDE gr_plots
+INCLUDE gr_addplots_2
+INCLUDE gr_yaxis
+INCLUDE gr_xaxis
+INCLUDE gr_titles
+INCLUDE gr_legend
+INCLUDE gr_overall
+
+PROGRAM command
+BEGIN
+	if main.rb_invar {
+		require main.vn_invar
+	}
+	if main.rb_strvar {
+		require main.vn_strvar
+		if ! main.ck_adjust {
+			call create STRING _MSG_TMP
+                        call _MSG_TMP.format					/// 
+				"resource STPHPLOT_MSGBOX_REQUIRED_WHEN_FMT" 	///
+				"resource LBL_TAB_MAIN" 			///
+				"resource STPHPLOT_ADJUSTMENT_ESTIMATES" 	///
+				"resource STPHPLOT_MAIN_RB_STRVAR" 
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab,
+// "Adjustment estimates" must be specified when "Fit stratified Cox model" is selected.
+		}
+	}
+	if main.ck_adjust {
+		require main.vl_adjvar
+	}
+	put "stphplot "
+	put " " /program if_output
+	beginoptions
+		optionarg main.vn_invar
+		optionarg main.vn_strvar
+		optionarg main.vl_adjvar
+		option radio(opt rb_lnneg rb_ln)
+		option radio(opt rb_time rb_lntime)
+		if main.ck_adjust {
+			option radio(main rb_avgval rb_zeroval)
+		}
+		option opt.ck_noshow
+
+		put " " /program gr_plots_output
+		put " " /program gr_addplots_output
+		put " " /program gr_yaxis_output
+		put " " /program gr_xaxis_output
+		put " " /program gr_titles_output
+		put " " /program gr_overall_output
+	endoptions
+END

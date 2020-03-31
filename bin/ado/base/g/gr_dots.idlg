@@ -1,0 +1,771 @@
+/*
+    gr_dots.idlg
+
+*!  VERSION 1.1.5  11dec2019
+
+*/
+
+SCRIPT gr_dots_PREINIT
+BEGIN
+	create STRING gr_dots_STMP
+	create STRING gr_dots_result1
+	create STRING gr_dots_result2
+	create STRING gr_dots_result3
+	create STRING gr_dots_result4
+	create STRING gr_dots_result5
+	create STRING gr_dots_result6
+	create STRING gr_dots_result7
+	create STRING gr_dots_result8
+	create STRING gr_dots_result9
+	create STRING gr_dots_result10
+	create STRING gr_dots_result11
+	create STRING gr_dots_result12
+	create STRING gr_dots_result13
+	create STRING gr_dots_result14
+	create STRING gr_dots_result15
+	create STRING gr_dots_result16
+	
+	create STRING gr_dots_labelOptResult
+	create STRING dots_dotResult
+	create STRING dots_lineResult
+	create STRING dots_rectResult
+END
+
+SCRIPT gr_dots_POSTINIT
+BEGIN
+	program gr_dots_rebuild_list
+	program dots_check_dotResult
+	program dots_check_lineResult
+	program dots_check_rectResult
+END
+
+DIALOG gr_dots, tabtitle(resource GR_DOTS_TAB_GR_DOTS)
+BEGIN
+  GROUPBOX gb_dots	_lft	_top	_rj210	_ht18h,	///
+	label(resource LBL_MARKER_PROPERTIES_DLG_TITLE)
+  TEXT     tx_vars	_ilft	_ss	_inwd	.,	///
+	label(resource LBL_TX_MARKERS)
+  DEFINE cx @cx
+  LISTBOX  lb_vars	_ilft	_ss	140	105,	///
+	contents(gr_dots_dotList)			///
+	values(gr_dots_dotList_values)			///
+	ondblclick(program gr_dots_check_selection)
+  BUTTON  bu_edit	+160	@	60	.,	///
+	label(resource LBL_BU_EDIT)			///
+	tooltip(resource LBL_CLICK_EDIT_PROP_OF_SELECTED_ITEM) ///
+	onpush(program gr_dots_check_selection)
+
+  TEXTBOX  tb_note1	_ilft	+120	cx	_tb3,	///
+	label(resource LBL_PROP_EACH_MARKER_ASSOC_VAR_STAT_CAN_BE_SET)
+
+	
+  GROUPBOX gb_linetype	_lft	+65      _iwd	_ht6,	///
+	label(resource GR_DOTS_GR_DOTS_GB_LINETYPE)
+  RADIO    rb_dot	_ilft	_ss	_rj220	.,	///
+	first	label(resource LBL_DOT)			///
+	option("linetype(dot)") 			///
+	onclickon(program gr_dots_check_linetype)
+DEFINE y @y
+  RADIO    rb_line	@	_ss	@	.,	///
+	label(resource LBL_LINE) option("linetype(line)") ///
+	onclickon(program gr_dots_check_linetype)
+  RADIO    rb_rect	@	_ss	@	.,	///
+	last label(resource LBL_RECTANGLE) 		///
+	option("linetype(rectangle)")			///
+	onclickon(program gr_dots_check_linetype)
+  BUTTON   bu_dotProp	_irj120	y	120	.,	///
+	label(resource LBL_DOT_PROPERTIES)		///
+	onpush(script gr_dots_show_dot)	
+  BUTTON   bu_lineProp	@	@	@	.,	///
+	label(resource LBL_GB_LINE_PROPERTIES)		///
+	onpush(script gr_dots_show_line)
+  BUTTON   bu_rectProp	_irj140	@	140	.,	///
+	label(resource LBL_RECTANGLE_PROPERTIES)	///
+	onpush(script gr_dots_show_rect)
+  TEXT     tx_ndots	_irj120 _ls	60	.,	///
+	label(resource GR_DOTS_GR_DOTS_TX_NODOTS) right
+  SPINNER  sp_ndots	+65	@	55	.,	///
+	default(100) min(1) max(10000) option(ndots)
+
+
+  GROUPBOX gb_global	_rj190	_top	190	_ht18h,	///
+	label(resource GR_DOTS_GR_DOTS_GB_GLOBAL)
+  TEXT     tx_ogap	_rj180	_mls	90	.,	///
+	label(resource LBL_OUTER_GAP) right
+  EDIT     ed_ogap	+95	@	75	.,	///
+	option(outergap)
+  TEXT     tx_lgap	_rj180	_mls	90	.,	///
+	label(resource LBL_LINE_GAP) right
+  EDIT     ed_lgap	+95	@	75	.,	///
+	option(linegap)
+
+  TEXT     tx_extend	_rj180	+40	90	.,	///
+	label(resource LBL_EXTEND_LINE) right
+  COMBOBOX cb_extend	+95	@	75	.,	///
+	dropdownlist					///
+	contents(yesno) values(gr_dots_extend) 		///
+	onselchangelist(gr_dots_extend_change)
+  TEXT     tx_lowext	_rj180	_mls	90	.,	///
+	label(resource LBL_LOW_EXTENSION) right
+  EDIT     ed_lowext	+95	@	75	.,	///
+	label(resource LBL_LOW_EXTENSION)  option(lowextension)
+  TEXT     tx_highext	_rj180	_mls	90	.,	///
+	label(resource LBL_HIGH_EXTENSION) right
+  EDIT     ed_highext	+95	@	75	.,	///
+	label(resource LBL_HIGH_EXTENSION) option(highextension)
+END
+
+SCRIPT gr_dots_show_dot
+BEGIN
+	create CHILD gr_marker_nolabel_options AS gr_dots_dotDLG, allowsubmit
+	gr_dots_dotDLG.settitle resource LBL_DOT_PROPERTIES
+	gr_dots_dotDLG.setOkAction "program dots_check_dotResult"
+	gr_dots_dotDLG.setSubmitAction "script dots_submit_dotResult"
+	gr_dots_dotDLG.setExitString "dots_dotResult"
+END
+PROGRAM dots_check_dotResult
+BEGIN
+	if dots_dotResult {
+		call gr_dots.bu_dotProp.modified_on
+	}
+	else {
+		call gr_dots.bu_dotProp.modified_off
+	}
+END
+SCRIPT dots_submit_dotResult
+BEGIN
+	program dots_check_dotResult
+	Submit
+END
+
+SCRIPT gr_dots_show_line
+BEGIN
+	create CHILD gr_line_properties AS gr_dots_lineDLG, allowsubmit
+	gr_dots_lineDLG.setOkAction "program dots_check_lineResult"
+	gr_dots_lineDLG.setSubmitAction "script dots_submit_lineResult"
+	gr_dots_lineDLG.setExitString "dots_lineResult"
+END
+PROGRAM dots_check_lineResult
+BEGIN
+	if dots_lineResult {
+		call gr_dots.bu_lineProp.modified_on
+	}
+	else {
+		call gr_dots.bu_lineProp.modified_off
+	}
+END
+SCRIPT dots_submit_lineResult
+BEGIN
+	program dots_check_lineResult
+	Submit
+END
+
+SCRIPT gr_dots_show_rect
+BEGIN
+	create CHILD gr_dot_rect_options AS gr_dots_rectDLG, allowsubmit
+	gr_dots_rectDLG.setOkAction "program dots_check_rectResult"
+	gr_dots_rectDLG.setSubmitAction "script dots_submit_rectResult"
+	gr_dots_rectDLG.setExitString "dots_rectResult"
+END
+PROGRAM dots_check_rectResult
+BEGIN
+	if dots_rectResult {
+		call gr_dots.bu_rectProp.formatlabel "resource GR_DOTS_BU_RECTANGLE_PROPERTIES_FMT" " *"
+	}
+	else {
+		call gr_dots.bu_rectProp.formatlabel "resource GR_DOTS_BU_RECTANGLE_PROPERTIES_FMT" "  "
+	}
+END
+SCRIPT dots_submit_rectResult
+BEGIN
+	program dots_check_rectResult
+	Submit
+END
+
+PROGRAM gr_dots_check_linetype
+BEGIN
+	if gr_dots.rb_dot {
+		call gr_dots.bu_dotProp.show
+		call gr_dots.tx_ndots.show
+		call gr_dots.sp_ndots.show
+		call gr_dots.bu_lineProp.hide
+		call gr_dots.bu_rectProp.hide
+	}
+	if gr_dots.rb_line {
+		call gr_dots.bu_dotProp.hide
+		call gr_dots.tx_ndots.hide
+		call gr_dots.sp_ndots.hide
+		call gr_dots.bu_lineProp.show
+		call gr_dots.bu_rectProp.hide
+	}
+	if gr_dots.rb_rect {
+		call gr_dots.bu_dotProp.hide
+		call gr_dots.tx_ndots.hide
+		call gr_dots.sp_ndots.hide
+		call gr_dots.bu_lineProp.hide
+		call gr_dots.bu_rectProp.show
+	}
+END
+
+LIST gr_dots_extend
+BEGIN
+	""
+	extendline
+	noextendline
+END
+
+LIST gr_dots_extend_change
+BEGIN
+	script gr_dots_extend_on
+	script gr_dots_extend_on
+	script gr_dots_extend_off
+END
+SCRIPT gr_dots_extend_on
+BEGIN
+	gr_dots.tx_lowext.enable
+	gr_dots.ed_lowext.enable
+	gr_dots.tx_highext.enable
+	gr_dots.ed_highext.enable
+END
+
+SCRIPT gr_dots_extend_off
+BEGIN
+	gr_dots.tx_lowext.disable
+	gr_dots.ed_lowext.disable
+	gr_dots.tx_highext.disable
+	gr_dots.ed_highext.disable
+END
+
+LIST gr_dots_dotList
+BEGIN
+END
+
+LIST gr_dots_dotList_values
+BEGIN
+	"Var 1"
+	"Var 2"
+	"Var 3"
+	"Var 4"
+	"Var 5"
+	"Var 6"
+	"Var 7"
+	"Var 8"
+	"Var 9"
+	"Var 10"
+	"Var 11"
+	"Var 12"
+	"Var 13"
+	"Var 14"
+	"Var 15"
+	"Var 16"
+END
+
+PROGRAM gr_dots_check_selection
+BEGIN
+	if gr_dots.lb_vars.iseq("Var 1") {
+		call script gr_dots_edit_var1
+	}
+	if gr_dots.lb_vars.iseq("Var 2") {
+		call script gr_dots_edit_var2
+	}
+	if gr_dots.lb_vars.iseq("Var 3") {
+		call script gr_dots_edit_var3
+	}
+	if gr_dots.lb_vars.iseq("Var 4") {
+		call script gr_dots_edit_var4
+	}
+	if gr_dots.lb_vars.iseq("Var 5") {
+		call script gr_dots_edit_var5
+	}
+	if gr_dots.lb_vars.iseq("Var 6") {
+		call script gr_dots_edit_var6
+	}
+	if gr_dots.lb_vars.iseq("Var 7") {
+		call script gr_dots_edit_var7
+	}
+	if gr_dots.lb_vars.iseq("Var 8") {
+		call script gr_dots_edit_var8
+	}
+	if gr_dots.lb_vars.iseq("Var 9") {
+		call script gr_dots_edit_var9
+	}
+	if gr_dots.lb_vars.iseq("Var 10") {
+		call script gr_dots_edit_var10
+	}
+	if gr_dots.lb_vars.iseq("Var 11") {
+		call script gr_dots_edit_var11
+	}
+	if gr_dots.lb_vars.iseq("Var 12") {
+		call script gr_dots_edit_var12
+	}
+	if gr_dots.lb_vars.iseq("Var 13") {
+		call script gr_dots_edit_var13
+	}
+	if gr_dots.lb_vars.iseq("Var 14") {
+		call script gr_dots_edit_var14
+	}
+	if gr_dots.lb_vars.iseq("Var 15") {
+		call script gr_dots_edit_var15
+	}
+	if gr_dots.lb_vars.iseq("Var 16") {
+		call script gr_dots_edit_var16
+	}
+END
+
+SCRIPT gr_dots_edit_var1
+BEGIN
+	create CHILD gr_marker_nolabel_options AS var1, allowsubmit
+	var1.setExitString "gr_dots_result1"
+	var1.setExitAction "program gr_dots_rebuild_list"
+	var1.setSubmitAction "program var1_submit_done"
+	gr_dots_STMP.format "resource LBL_MARKER_FOR_VARIABLE_#_FMT" "1" ""
+	gr_dots_STMP.withvalue var1.settitle "@"
+END
+PROGRAM var1_submit_done
+BEGIN
+	call program gr_dots_rebuild_list
+	call Submit
+END
+
+SCRIPT gr_dots_edit_var2
+BEGIN
+	create CHILD gr_marker_nolabel_options AS var2, allowsubmit
+	var2.setExitString "gr_dots_result2"
+	var2.setExitAction "program gr_dots_rebuild_list"
+	var2.setSubmitAction "program var2_submit_done"
+	gr_dots_STMP.format "resource LBL_MARKER_FOR_VARIABLE_#_FMT" "2" ""
+	gr_dots_STMP.withvalue var2.settitle "@"
+END
+PROGRAM var2_submit_done
+BEGIN
+	call program gr_dots_rebuild_list
+	call Submit
+END
+
+SCRIPT gr_dots_edit_var3
+BEGIN
+	create CHILD gr_marker_nolabel_options AS var3, allowsubmit
+	var3.setExitString "gr_dots_result3"
+	var3.setExitAction "program gr_dots_rebuild_list"
+	var3.setSubmitAction "program var3_submit_done"
+	gr_dots_STMP.format "resource LBL_MARKER_FOR_VARIABLE_#_FMT" "3" ""
+	gr_dots_STMP.withvalue var3.settitle "@"
+END
+PROGRAM var3_submit_done
+BEGIN
+	call program gr_dots_rebuild_list
+	call Submit
+END
+
+SCRIPT gr_dots_edit_var4
+BEGIN
+	create CHILD gr_marker_nolabel_options AS var4, allowsubmit
+	var4.setExitString "gr_dots_result4"
+	var4.setExitAction "program gr_dots_rebuild_list"
+	var4.setSubmitAction "program var4_submit_done"
+	gr_dots_STMP.format "resource LBL_MARKER_FOR_VARIABLE_#_FMT" "4" ""
+	gr_dots_STMP.withvalue var4.settitle "@"
+END
+PROGRAM var4_submit_done
+BEGIN
+	call program gr_dots_rebuild_list
+	call Submit
+END
+
+SCRIPT gr_dots_edit_var5
+BEGIN
+	create CHILD gr_marker_nolabel_options AS var5, allowsubmit
+	var5.setExitString "gr_dots_result5"
+	var5.setExitAction "program gr_dots_rebuild_list"
+	var5.setSubmitAction "program var5_submit_done"
+	gr_dots_STMP.format "resource LBL_MARKER_FOR_VARIABLE_#_FMT" "5" ""
+	gr_dots_STMP.withvalue var5.settitle "@"
+END
+PROGRAM var5_submit_done
+BEGIN
+	call program gr_dots_rebuild_list
+	call Submit
+END
+
+SCRIPT gr_dots_edit_var6
+BEGIN
+	create CHILD gr_marker_nolabel_options AS var6, allowsubmit
+	var6.setExitString "gr_dots_result6"
+	var6.setExitAction "program gr_dots_rebuild_list"
+	var6.setSubmitAction "program var6_submit_done"
+	gr_dots_STMP.format "resource LBL_MARKER_FOR_VARIABLE_#_FMT" "6" ""
+	gr_dots_STMP.withvalue var6.settitle "@"
+END
+PROGRAM var6_submit_done
+BEGIN
+	call program gr_dots_rebuild_list
+	call Submit
+END
+
+SCRIPT gr_dots_edit_var7
+BEGIN
+	create CHILD gr_marker_nolabel_options AS var7, allowsubmit
+	var7.setExitString "gr_dots_result7"
+	var7.setExitAction "program gr_dots_rebuild_list"
+	var7.setSubmitAction "program var7_submit_done"
+	gr_dots_STMP.format "resource LBL_MARKER_FOR_VARIABLE_#_FMT" "7" ""
+	gr_dots_STMP.withvalue var7.settitle "@"
+END
+PROGRAM var7_submit_done
+BEGIN
+	call program gr_dots_rebuild_list
+	call Submit
+END
+
+SCRIPT gr_dots_edit_var8
+BEGIN
+	create CHILD gr_marker_nolabel_options AS var8, allowsubmit
+	var8.setExitString "gr_dots_result8"
+	var8.setExitAction "program gr_dots_rebuild_list"
+	var8.setSubmitAction "program var8_submit_done"
+	gr_dots_STMP.format "resource LBL_MARKER_FOR_VARIABLE_#_FMT" "8" ""
+	gr_dots_STMP.withvalue var8.settitle "@"
+END
+PROGRAM var8_submit_done
+BEGIN
+	call program gr_dots_rebuild_list
+	call Submit
+END
+
+SCRIPT gr_dots_edit_var9
+BEGIN
+	create CHILD gr_marker_nolabel_options AS var9, allowsubmit
+	var9.setExitString "gr_dots_result9"
+	var9.setExitAction "program gr_dots_rebuild_list"
+	var9.setSubmitAction "program var9_submit_done"
+	gr_dots_STMP.format "resource LBL_MARKER_FOR_VARIABLE_#_FMT" "9" ""
+	gr_dots_STMP.withvalue var9.settitle "@"
+END
+PROGRAM var9_submit_done
+BEGIN
+	call program gr_dots_rebuild_list
+	call Submit
+END
+
+SCRIPT gr_dots_edit_var10
+BEGIN
+	create CHILD gr_marker_nolabel_options AS var10, allowsubmit
+	var10.setExitString "gr_dots_result10"
+	var10.setExitAction "program gr_dots_rebuild_list"
+	var10.setSubmitAction "program var10_submit_done"
+	gr_dots_STMP.format "resource LBL_MARKER_FOR_VARIABLE_#_FMT" "10" ""
+	gr_dots_STMP.withvalue var10.settitle "@"
+END
+
+PROGRAM var10_submit_done
+BEGIN
+	call program gr_dots_rebuild_list
+	call Submit
+END
+
+SCRIPT gr_dots_edit_var11
+BEGIN
+	create CHILD gr_marker_nolabel_options AS var11, allowsubmit
+	var11.setExitString "gr_dots_result11"
+	var11.setExitAction "program gr_dots_rebuild_list"
+	var11.setSubmitAction "program var11_submit_done"
+	gr_dots_STMP.format "resource LBL_MARKER_FOR_VARIABLE_#_FMT" "11" ""
+	gr_dots_STMP.withvalue var11.settitle "@"
+END
+
+PROGRAM var11_submit_done
+BEGIN
+	call program gr_dots_rebuild_list
+	call Submit
+END
+
+SCRIPT gr_dots_edit_var12
+BEGIN
+	create CHILD gr_marker_nolabel_options AS var12, allowsubmit
+	var12.setExitString "gr_dots_result12"
+	var12.setExitAction "program gr_dots_rebuild_list"
+	var12.setSubmitAction "program var12_submit_done"
+	gr_dots_STMP.format "resource LBL_MARKER_FOR_VARIABLE_#_FMT" "12" ""
+	gr_dots_STMP.withvalue var12.settitle "@"
+END
+
+PROGRAM var12_submit_done
+BEGIN
+	call program gr_dots_rebuild_list
+	call Submit
+END
+
+SCRIPT gr_dots_edit_var13
+BEGIN
+	create CHILD gr_marker_nolabel_options AS var13, allowsubmit
+	var13.setExitString "gr_dots_result13"
+	var13.setExitAction "program gr_dots_rebuild_list"
+	var13.setSubmitAction "program var13_submit_done"
+	gr_dots_STMP.format "resource LBL_MARKER_FOR_VARIABLE_#_FMT" "13" ""
+	gr_dots_STMP.withvalue var13.settitle "@"
+END
+
+PROGRAM var13_submit_done
+BEGIN
+	call program gr_dots_rebuild_list
+	call Submit
+END
+
+SCRIPT gr_dots_edit_var14
+BEGIN
+	create CHILD gr_marker_nolabel_options AS var14, allowsubmit
+	var14.setExitString "gr_dots_result14"
+	var14.setExitAction "program gr_dots_rebuild_list"
+	var14.setSubmitAction "program var14_submit_done"
+	gr_dots_STMP.format "resource LBL_MARKER_FOR_VARIABLE_#_FMT" "14" ""
+	gr_dots_STMP.withvalue var14.settitle "@"
+END
+
+PROGRAM var14_submit_done
+BEGIN
+	call program gr_dots_rebuild_list
+	call Submit
+END
+
+SCRIPT gr_dots_edit_var15
+BEGIN
+	create CHILD gr_marker_nolabel_options AS var15, allowsubmit
+	var15.setExitString "gr_dots_result15"
+	var15.setExitAction "program gr_dots_rebuild_list"
+	var15.setSubmitAction "program var15_submit_done"
+	gr_dots_STMP.format "resource LBL_MARKER_FOR_VARIABLE_#_FMT" "15" ""
+	gr_dots_STMP.withvalue var15.settitle "@"
+END
+
+PROGRAM var15_submit_done
+BEGIN
+	call program gr_dots_rebuild_list
+	call Submit
+END
+
+SCRIPT gr_dots_edit_var16
+BEGIN
+	create CHILD gr_marker_nolabel_options AS var16, allowsubmit
+	var16.setExitString "gr_dots_result16"
+	var16.setExitAction "program gr_dots_rebuild_list"
+	var16.setSubmitAction "program var16_submit_done"
+	gr_dots_STMP.format "resource LBL_MARKER_FOR_VARIABLE_#_FMT" "16" ""
+	gr_dots_STMP.withvalue var16.settitle "@"
+END
+
+PROGRAM var16_submit_done
+BEGIN
+	call program gr_dots_rebuild_list
+	call Submit
+END
+
+PROGRAM gr_dots_rebuild_list
+BEGIN
+	call gr_dots_dotList.Arrdropall
+	call create STRING _BU_TMP
+
+	if gr_dots_result1 {
+		call _BU_TMP.format "resource LBL_MARKER_FOR_VARIABLE_#_FMT" "1" " *"
+		call _BU_TMP.withvalue gr_dots_dotList.Arrpush @
+	}
+	else {
+		call _BU_TMP.format "resource LBL_MARKER_FOR_VARIABLE_#_FMT" "1" "  "
+		call _BU_TMP.withvalue gr_dots_dotList.Arrpush @
+	}
+	if gr_dots_result2 {
+		call _BU_TMP.format "resource LBL_MARKER_FOR_VARIABLE_#_FMT" "2" " *"
+		call _BU_TMP.withvalue gr_dots_dotList.Arrpush @
+	}
+	else {
+		call _BU_TMP.format "resource LBL_MARKER_FOR_VARIABLE_#_FMT" "2" "  "
+		call _BU_TMP.withvalue gr_dots_dotList.Arrpush @
+	}
+	if gr_dots_result3 {
+		call _BU_TMP.format "resource LBL_MARKER_FOR_VARIABLE_#_FMT" "3" " *"
+		call _BU_TMP.withvalue gr_dots_dotList.Arrpush @
+	}
+	else {
+		call _BU_TMP.format "resource LBL_MARKER_FOR_VARIABLE_#_FMT" "3" "  "
+		call _BU_TMP.withvalue gr_dots_dotList.Arrpush @
+	}
+	if gr_dots_result4 {
+		call _BU_TMP.format "resource LBL_MARKER_FOR_VARIABLE_#_FMT" "4" " *"
+		call _BU_TMP.withvalue gr_dots_dotList.Arrpush @
+	}
+	else {
+		call _BU_TMP.format "resource LBL_MARKER_FOR_VARIABLE_#_FMT" "4" "  "
+		call _BU_TMP.withvalue gr_dots_dotList.Arrpush @
+	}
+	if gr_dots_result5 {
+		call _BU_TMP.format "resource LBL_MARKER_FOR_VARIABLE_#_FMT" "5" " *"
+		call _BU_TMP.withvalue gr_dots_dotList.Arrpush @
+	}
+	else {
+		call _BU_TMP.format "resource LBL_MARKER_FOR_VARIABLE_#_FMT" "5" "  "
+		call _BU_TMP.withvalue gr_dots_dotList.Arrpush @
+	}
+	if gr_dots_result6 {
+		call _BU_TMP.format "resource LBL_MARKER_FOR_VARIABLE_#_FMT" "6" " *"
+		call _BU_TMP.withvalue gr_dots_dotList.Arrpush @
+	}
+	else {
+		call _BU_TMP.format "resource LBL_MARKER_FOR_VARIABLE_#_FMT" "6" "  "
+		call _BU_TMP.withvalue gr_dots_dotList.Arrpush @
+	}
+	if gr_dots_result7 {
+		call _BU_TMP.format "resource LBL_MARKER_FOR_VARIABLE_#_FMT" "7" " *"
+		call _BU_TMP.withvalue gr_dots_dotList.Arrpush @
+	}
+	else {
+		call _BU_TMP.format "resource LBL_MARKER_FOR_VARIABLE_#_FMT" "7" "  "
+		call _BU_TMP.withvalue gr_dots_dotList.Arrpush @
+	}
+	if gr_dots_result8 {
+		call _BU_TMP.format "resource LBL_MARKER_FOR_VARIABLE_#_FMT" "8" " *"
+		call _BU_TMP.withvalue gr_dots_dotList.Arrpush @
+	}
+	else {
+		call _BU_TMP.format "resource LBL_MARKER_FOR_VARIABLE_#_FMT" "8" "  "
+		call _BU_TMP.withvalue gr_dots_dotList.Arrpush @
+	}
+	if gr_dots_result9 {
+		call _BU_TMP.format "resource LBL_MARKER_FOR_VARIABLE_#_FMT" "9" " *"
+		call _BU_TMP.withvalue gr_dots_dotList.Arrpush @
+	}
+	else {
+		call _BU_TMP.format "resource LBL_MARKER_FOR_VARIABLE_#_FMT" "9" "  "
+		call _BU_TMP.withvalue gr_dots_dotList.Arrpush @
+	}
+	if gr_dots_result10 {
+		call _BU_TMP.format "resource LBL_MARKER_FOR_VARIABLE_#_FMT" "10" " *"
+		call _BU_TMP.withvalue gr_dots_dotList.Arrpush @
+	}
+	else {
+		call _BU_TMP.format "resource LBL_MARKER_FOR_VARIABLE_#_FMT" "10" "  "
+		call _BU_TMP.withvalue gr_dots_dotList.Arrpush @
+	}
+	if gr_dots_result11 {
+		call _BU_TMP.format "resource LBL_MARKER_FOR_VARIABLE_#_FMT" "11" " *"
+		call _BU_TMP.withvalue gr_dots_dotList.Arrpush @
+	}
+	else {
+		call _BU_TMP.format "resource LBL_MARKER_FOR_VARIABLE_#_FMT" "11" "  "
+		call _BU_TMP.withvalue gr_dots_dotList.Arrpush @
+	}
+	if gr_dots_result12 {
+		call _BU_TMP.format "resource LBL_MARKER_FOR_VARIABLE_#_FMT" "12" " *"
+		call _BU_TMP.withvalue gr_dots_dotList.Arrpush @
+	}
+	else {
+		call _BU_TMP.format "resource LBL_MARKER_FOR_VARIABLE_#_FMT" "12" "  "
+		call _BU_TMP.withvalue gr_dots_dotList.Arrpush @
+	}
+	if gr_dots_result13 {
+		call _BU_TMP.format "resource LBL_MARKER_FOR_VARIABLE_#_FMT" "13" " *"
+		call _BU_TMP.withvalue gr_dots_dotList.Arrpush @
+	}
+	else {
+		call _BU_TMP.format "resource LBL_MARKER_FOR_VARIABLE_#_FMT" "13" "  "
+		call _BU_TMP.withvalue gr_dots_dotList.Arrpush @
+	}
+	if gr_dots_result14 {
+		call _BU_TMP.format "resource LBL_MARKER_FOR_VARIABLE_#_FMT" "14" " *"
+		call _BU_TMP.withvalue gr_dots_dotList.Arrpush @
+	}
+	else {
+		call _BU_TMP.format "resource LBL_MARKER_FOR_VARIABLE_#_FMT" "14" "  "
+		call _BU_TMP.withvalue gr_dots_dotList.Arrpush @
+	}
+	if gr_dots_result15 {
+		call _BU_TMP.format "resource LBL_MARKER_FOR_VARIABLE_#_FMT" "15" " *"
+		call _BU_TMP.withvalue gr_dots_dotList.Arrpush @
+	}
+	else {
+		call _BU_TMP.format "resource LBL_MARKER_FOR_VARIABLE_#_FMT" "15" "  "
+		call _BU_TMP.withvalue gr_dots_dotList.Arrpush @
+	}
+	if gr_dots_result16 {
+		call _BU_TMP.format "resource LBL_MARKER_FOR_VARIABLE_#_FMT" "16" " *"
+		call _BU_TMP.withvalue gr_dots_dotList.Arrpush @
+	}
+	else {
+		call _BU_TMP.format "resource LBL_MARKER_FOR_VARIABLE_#_FMT" "16" "  "
+		call _BU_TMP.withvalue gr_dots_dotList.Arrpush @
+	}
+	call gr_dots.lb_vars.repopulate
+END
+
+PROGRAM gr_dots_output
+BEGIN
+	if gr_dots_result1 {
+		put "marker(1, " gr_dots_result1 ") "
+	}
+	if gr_dots_result2 {
+		put "marker(2, " gr_dots_result2 ") "
+	}
+	if gr_dots_result3 {
+		put "marker(3, " gr_dots_result3 ") "
+	}
+	if gr_dots_result4 {
+		put "marker(4, " gr_dots_result4 ") "
+	}
+	if gr_dots_result5 {
+		put "marker(5, " gr_dots_result5 ") "
+	}
+	if gr_dots_result6 {
+		put "marker(6, " gr_dots_result6 ") "
+	}
+	if gr_dots_result7 {
+		put "marker(7, " gr_dots_result7 ") "
+	}
+	if gr_dots_result8 {
+		put "marker(8, " gr_dots_result8 ") "
+	}
+	if gr_dots_result9 {
+		put "marker(9, " gr_dots_result9 ") "
+	}
+	if gr_dots_result10 {
+		put "marker(10, " gr_dots_result10 ") "
+	}
+	if gr_dots_result11 {
+		put "marker(11, " gr_dots_result11 ") "
+	}
+	if gr_dots_result12 {
+		put "marker(12, " gr_dots_result12 ") "
+	}
+	if gr_dots_result13 {
+		put "marker(13, " gr_dots_result13 ") "
+	}
+	if gr_dots_result14 {
+		put "marker(14, " gr_dots_result14 ") "
+	}
+	if gr_dots_result15 {
+		put "marker(15, " gr_dots_result15 ") "
+	}
+	if gr_dots_result16 {
+		put "marker(16, " gr_dots_result16 ") "
+	}
+
+	optionarg /hidedefault gr_dots.ed_ogap
+	optionarg /hidedefault gr_dots.ed_lgap
+	put gr_dots.cb_extend
+	optionarg /hidedefault gr_dots.ed_lowext
+	optionarg /hidedefault gr_dots.ed_highext
+
+	if gr_dots.rb_dot {
+		optionarg /hidedefault gr_dots.sp_ndots
+		if dots_dotResult {
+			put " dots(" dots_dotResult ") "
+		}
+	}
+	if gr_dots.rb_line {
+		option gr_dots.rb_line
+		if dots_lineResult {
+			put " lines(" dots_lineResult ") "
+		}
+	}
+	if gr_dots.rb_rect {
+		option gr_dots.rb_rect
+		put " "dots_rectResult
+	}
+END

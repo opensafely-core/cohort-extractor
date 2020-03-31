@@ -1,0 +1,925 @@
+//                               twowaygraph_g
+//
+//	Base class for twoway graphs
+
+*! version 1.3.1  15sep2016
+
+version 9
+
+class {
+
+    class:
+    	graphfamily	= "twoway"
+
+    instance:
+	n_views		= 0
+	n_plotregions	= 0
+	n_text		= 0
+	last_style	= 0				// last style id
+	goptions	= ""
+	x_scales	= ""
+	y_scales	= ""
+	contour_view	 = ""
+	contourline_view = ""
+	patch_view	 = ""
+	zaxis1		 = .axis.new
+} , inherit(graph_g)
+
+
+
+// ---------------------------------------------------------------------------
+//  .new
+//
+//  Creates a two-way graph with overlaid plotregions (if needed) for a
+//  series of views (see addplots).
+//
+//  Handles whether reading from a log.  Does not use the mechanism of
+//  graph_g.class.
+
+program new
+
+	.Super.new
+	._scheme.ref = .`c(curscm)'.ref		// declare local scheme 
+
+	capture syntax [ , READLOG(string) * ]
+
+	if "`readlog'" != "" {				// reading from a file
+		.runfromfile `readlog'
+		exit
+	}
+
+	.parse `0'
+end
+
+// ---------------------------------------------------------------------------
+
+program addplots
+	.parse `0'
+end
+
+// ---------------------------------------------------------------------------
+//  .parse
+//
+//  Creates a two-way graph with overlaid plotregions (if needed) for a
+//  series of views specified as:
+//
+//	twoway (<viewtype> varlist [ , options ]) (...) ... [ , options ]
+//					or
+//	twoway <viewtype> varlist [ , options] [ || <viewtype> varlist ...]
+//
+//  varlist may also be 
+//      matamatrix(matname)
+//  or
+//      matamatrix(matname) namelist
+//
+//  First creates an array/log of commands then runs that array.
+//
+//  Does not inherit from nor use many of the facilities of loggraph_g.class 
+//  though it could (there are issues with notitling).
+//
+//  Special options:
+//
+//	nologging  do not post the commands to the objects __LOG, this is useful
+//		when the command that precipitated the .addplots has already
+//		logged itself and that is sufficient for replay.
+//
+//	norescaling specifies that existing plotregions are not rescaled even
+//		if plot/views are added to them.
+//
+//	notitling  specifies that titles are not to be created, useful
+//		when plots are being added to an existing graph.  Needed  for
+//		backward compatibility only, now inferred from graph itself
+//
+//	plotregion() and -add- specify that a single existing plotregion is to
+//		be the recipient of all the created plots.  -add- means the
+//		first plotregion in the graph.
+//		When adding to an existing plot, it is the responsibility of
+//		the caller to either use add or plotregion, or to specify x
+//		and yaxis()s for axes that do not already exist.
+//		Add is kept only for backward compatibility, it is now the
+//		default behavior when the graph already exists.
+
+program parse
+
+	local max_serset_vars 100		// Limit constants
+
+						// Processing new input
+						// Create edit log, then run it
+	tempname log
+	.`log' = {}
+						// options handled by graph_g
+	local graph_g_opts						///
+		TItle(string) SUBtitle(string) CAPtion(string)		///
+		NOTE(string) LEGend(string) LEGLOC(string)		///
+		CLEGend(string) PLEGend(string)				///
+		T1title(string) T2title(string) B1title(string)		///
+		B2title(string) L1title(string) L2title(string)		///
+		R1title(string) R2title(string)				///
+		XLabels(string)  YLabels(string)  TLabels(string)	///
+		XTICks(string)   YTICks(string)   TTICks(string)	///
+		XMLabels(string) YMLabels(string) TMLabels(string)	///
+		XMTicks(string)  YMTicks(string)  TMTicks(string)	///
+		XSCale(string)   YSCale(string)   TSCale(string)	///
+		XTitle(string)   YTitle(string)   TTitle(string)	///
+		XLInes(string)   YLInes(string)   TLInes(string)	///
+		ZLabels(string) ZTicks(string) ZMLabels(string)		///
+		ZMTicks(string) ZSCale(string) ZTitle(string)		///
+		PLOTRegion(string) GRAPHRegion(string) SPACErs(string)	///
+		BGColor(string)  TEXT(string) TTEXT(string)
+
+						// global options for us
+	local graph_opts OMITANYMiss OMITALLMiss OMITDUPmiss OMITNothing ///
+			 USEPLOTRegion(string) ADD noLOGging noTITLING	 ///
+			 ASPECTratio(string asis) 			 ///
+			 XOVERHANGs YOVERHANGs				 ///
+			 PCYCle(real -999)				 ///
+			 SCALE(string) noRESCALING MAXAXES(integer 9)	 ///
+			 BELOW
+
+	_parse expand cmd glob : 0 , common(`graph_opts' `graph_g_opts')
+
+	local 0 `glob_if' `glob_in' , `glob_op'
+	syntax [if] [in] [ , `graph_opts' * ]
+
+	if `"`aspectratio'"' != `""' {
+		if "`xoverhangs'`yoverhangs'" != "" {
+			di as error 					///
+	   "may not combine option aspectratio() with xoverhangs or yoverhangs"
+			exit 198
+		}
+		_fr_aspect_parse_and_log `log' `aspectratio'
+	}
+	if "`yoverhangs'" != "" {
+		.`log'.Arrpush .style.editstyle adj_ymargins(yes) editcopy
+	}
+	if "`xoverhangs'" != "" {
+		.`log'.Arrpush .style.editstyle adj_xmargins(yes) editcopy
+	}
+	if `pcycle' != -999 {
+		.`log'.Arrpush .style.editstyle pcycle(`pcycle') editcopy
+	}
+	else {
+		local pcycle `.style.pcycle.val'
+	}
+
+							// graph area style
+	_fr_area_parse_and_log `log' "" GRAPHRegion , `options'
+	.goptions = `"`r(rest)'"'
+
+	local omit `omitanymiss'`omitallmiss'`omitdupmiss'`omitnothing'
+	SetCheckPlotregion useplotregion : `"`useplotregion'"' `"`add'"'
+
+	tempname gtouse					// overall touse
+	mark `gtouse' `if' `in'
+
+	if "`.plotregion1.isa'" != "" {			// if just adding
+		local titling "notitling"
+	}
+ 
+							// restore stored 
+							// parsing structures
+	local base_ss 0`.sersets.arrnels'
+	local n_plreg `.n_plotregions'
+	local j 0
+	foreach xscl in `.x_scales' {
+		local xscale`++j' `xscl'
+	}
+	local j 0
+	foreach yscl in `.y_scales' {
+		local yscale`++j' `yscl'
+	}
+	local was_n_plreg = 0`.n_plotregions'
+						// pre-parse each subcommand to 
+						// to prepare for sersets, etc. 
+	local n_ss    0
+	local n       0
+	forvalues i = 1/`cmd_n' {
+		local ++n
+		gettoken cmd rest : cmd_`i' , parse(" ,[")
+		_unab_cmd cmd : `cmd'
+							// parse view
+		tempname pnm
+		capture cutil which twoway_`cmd'_parse 
+		if _rc {
+			capture which yxtype-`cmd'.style
+			if _rc {
+			    capture which yxview_`cmd'_draw
+			    if _rc {
+				di as error "`cmd' is not a twoway plot type"
+				exit 198
+			    }
+			}
+			.`pnm' = .twoway_yxview_parse.new   // default parser
+		}
+		else {					    // custom parser
+			.`pnm' = .twoway_`cmd'_parse.new
+		}
+		.`pnm'.viewtype = "`cmd'"
+
+		.`pnm'.parse `rest'
+		local pobj`n' `pnm'
+
+						// parse x and yaxis (scale)
+		ParseOpts xscale yscale serset options : 		///
+			  `maxaxes' `"`useplotregion'"' , `.`pnm'.options'
+		local 0 `", `options'"'
+		syntax [, FAKE_OPT_FOR_BETTER_MSG ]
+
+						// More global options
+		if `"`.`pnm'.goptions'"' != `""' {
+			.goptions = `"`.`pnm'.goptions' `.goptions'"'
+		}
+
+						// determine plotregion 
+		if "`useplotregion'" == "" {
+		    forvalues j = 1/`n_plreg' {
+			if "`:list xscale`j' & xscale'" != "" {
+			    if "`:list yscale`j' & yscale'" != "" {
+				local plreg`n' plotregion`j'
+				local xscale`j' : list xscale`j' | xscale
+				local yscale`j' : list yscale`j' | yscale
+				continue , break	// Break
+			    }
+			}
+		    }
+
+		    if "`plreg`n''" == "" {
+			local plreg`n'         plotregion`++n_plreg'
+			local xscale`n_plreg' `xscale'
+			local yscale`n_plreg' `yscale'
+		    }
+		}
+		
+						/* track sersets by touses */
+		tempname touse
+/*		
+		mark `touse' `.`pnm'.if' `.`pnm'.in'
+		qui replace `touse' = 0 if `gtouse' != 1
+*/
+		local tempif = strtrim(substr(strltrim(`"`.`pnm'.if'"'), 3, .))
+		if `"`tempif'"' != "" {
+			local markif = `"if (`tempif') & (`gtouse' == 1)"' 
+		}
+		else {
+			local markif = `"if `gtouse' == 1"'
+		}
+		mark `touse' `markif' `.`pnm'.in'
+		
+		
+		if 0`.`pnm'.must_create_serset' | `"`serset'"' != "" {
+			local serset`n' `=`base_ss'+`++n_ss''
+			local ss_obj`n_ss'   `pnm'
+			local ss_id `n_ss'
+
+			if `"`serset'"' == `""' {
+				local ss_use_cmd`n_ss' 1
+			}
+			else {
+				local ss_existing_ss`n_ss' `serset'
+			}
+		}
+		else {
+			forvalues j = 1/`n_ss' {
+				if "`.`pnm'.sort'" == "`ss_sort`j''" {
+				    if ! 0`ss_use_cmd`j'' {
+					capture assert `touse' == `ss_touse`j'', fast
+					if ! _rc {
+    if `:word count `.`pnm'.varlist' `ss_varlist`j''' < `max_serset_vars' {
+						local ss_id `j'
+						local serset`n' `=`base_ss'+`j''
+						continue , break      // Break
+    }
+					}
+				    }
+				}
+			}
+			if "`serset`n''" == "" {
+				local serset`n' `=`base_ss'+`++n_ss''
+				local ss_touse`n_ss' `touse'
+				if "`.`pnm'.sort'" != "" {
+					local ss_sort`n_ss' sort(`.`pnm'.sort')
+				}
+				local ss_use_cmd`n_ss' 0
+				local ss_id `n_ss'
+			}
+		}
+
+						// Handle zyx2views/contours
+		if `.`pnm'.isofclass twoway_zyx2view_parse' {	
+			local haszyx = 1
+			if (`.`pnm'.isofclass twoway_contour_parse') {
+			    if 0`hascontour' | 0`haspatch' {
+			        di as error 				///
+				   "multiple contour or patch plots not allowed"
+			        exit 198
+			    }
+			    local hascontour = 1
+			}
+			if (`.`pnm'.isofclass twoway_patch_parse') {
+			    if 0`hascontour' | 0`haspatch' {
+			        di as error 				///
+				   "multiple contour or patch plots not allowed"
+			        exit 198
+			    }
+			    local haspatch = 1
+			}
+			if (`.`pnm'.isofclass twoway_contourline_parse') {
+			    if 0`hascontourline' {
+			        di as error				///
+				    "multiple contourline plots not allowed"
+			        exit 198
+			    }
+			    else if 0`haspatch' {
+			        di as error				///
+				  "may not combine patch and contourline plots"
+			        exit 198
+			    }
+			    local hascontourline = 1
+			}
+
+		}
+
+		local varlist `.`pnm'.varlist'
+		local ss_varlist`ss_id' : list ss_varlist`ss_id' | varlist
+	}
+
+
+	forvalues s = 1/`n_ss' {		/* create the sersets */
+	    local ssdex = `base_ss' + `s'
+	    if "`ss_existing_ss`s''" != "" {
+	        .`log'.Arrpush .sersets[`ssdex'] = .`ss_existing_ss`s''
+	    }
+	    else {
+		if 0`ss_use_cmd`s'' {
+			.`ss_obj`s''.log_create_serset , log(`log')	///
+				sersetname(sersets[`ssdex']) 		///
+				touse(`gtouse') `omit'
+		}
+		else {
+		    .`log'.Arrpush .sersets[`ssdex']  =	///
+			.serset.new `ss_varlist`s'' if `ss_touse`s''	///
+			, `ss_sort`s'' `omit' nocount
+		}
+	    }
+	}
+
+						// create the plot regions
+						// ignores style because fills
+						// a problem with overlays
+	if 0`.n_plotregions' {
+	     local at at `.cells.plotregion1.minrow' `.cells.plotregion1.mincol'
+	}
+	else {
+	     local at at 1 1
+	}
+	forvalues i = `=`.n_plotregions'+1'/0`n_plreg' {
+		local scheme = cond(`i' == 1, "scheme twoway" , "transparent")
+	    	.`log'.Arrpush .insert (plotregion`i' = .plotregion.new , ///
+			style(`scheme') graph(\`.objkey')) `at' 
+		if `i' != 1 {
+			_fr_area_parse_and_log `log' plotregion`i'	///
+			    PLOTRegion , `.goptions' marginonly	// preg margin
+		}
+
+		forvalues j = 1/`=`i'-1' {		// common scales
+			if "`:list xscale`i' & xscale`j''" != "" {
+				.`log'.Arrpush .plotregion`i'.xscale.ref = ///
+					       .plotregion`j'.xscale.ref
+			}
+			if "`:list yscale`i' & yscale`j''" != "" {
+				.`log'.Arrpush .plotregion`i'.yscale.ref = ///
+					       .plotregion`j'.yscale.ref
+			}
+		}
+	}
+	_fr_area_parse_and_log `log' plotregion1 PLOTRegion , `.goptions'
+	.goptions = `"`r(rest)'"'
+
+						// create the views 
+	local n_views_0 = `.n_views'
+	local serid  `.last_style'
+	local plotid `.n_views'
+	forvalues i = 1/`n' {
+	    forvalues j = 1/0`.`pobj`i''.n' {
+		if "`useplotregion'" == "" {
+		    local pregion `plreg`i''
+		}
+		else {
+		    local pregion `useplotregion'
+		}
+		.`pobj`i''.log_create_view , log(`log') view(`j')	 ///
+			name(plot`++plotid') plotregion(`pregion')	 ///
+			serset(sersets[`serset`i''])			 ///
+			seriesid(`=mod(`++serid'-1, 0`pcycle')+1')
+		.`pobj`i''.log_edits `log' `pregion'.plot`plotid' `j'
+	    }
+	}
+	.n_views = `plotid'
+	.last_style = `serid'
+
+						// scale the plotregions 
+	forvalues i = 1/0`n_plreg' {
+		if "`rescaling'" == ""  | `i' > `.n_plotregions' {
+			.`log'.Arrpush .plotregion`i'.clear_scales
+		}
+	}
+	forvalues i = 1/0`n_plreg' {
+		if "`rescaling'" == ""  | `i' > `.n_plotregions' {
+			.`log'.Arrpush .plotregion`i'.reset_scales , noclear
+		}
+	}
+
+					// settings required for save/restore
+					// some needed to create axes
+	.n_plotregions = `n_plreg'
+	.`log'.Arrpush .n_views		= `.n_views'
+	.`log'.Arrpush .n_plotregions	= `.n_plotregions'
+	.`log'.Arrpush .last_style	= `.last_style'
+
+	forvalues j = 1/`.n_plotregions' {
+		local xscs `"`xscs' "`xscale`j''""'
+		local yscs `"`yscs' "`yscale`j''""'
+	}
+	.x_scales = `"`xscs'"'
+	.y_scales = `"`yscs'"'
+	.`log'.Arrpush .x_scales = `"`xscs'"'
+	.`log'.Arrpush .y_scales = `"`yscs'"'
+
+							// create axes
+
+	.`log'.Arrpush .create_axes `=`.was_n_plreg'+1' `n_plreg'	///
+		"`maxaxes'" "`rescaling'" `=_caller()'
+
+					// Everything is now created
+
+
+	_fr_runlog `log' , `logging'		// create our stuff
+	.`log' = {}
+
+					// changes stuff using options
+
+	_fr_legend_parse_and_log `log' `.goptions'		// legend
+
+								// zyx2 legends
+	local rest `r(rest)'
+	if ("`.contourline_view'" != "")  .patch_view = "`.contourline_view'"
+
+/*
+_fr_zyx2legend_parse_and_log `log' `.contour_view' `r(rest)'
+local rest `r(rest)'
+*/
+	if 0`haspatch' | 0`hascontourline' {
+	    _fr_zyx2legend_parse_and_log `log' `.patch_view' `r(rest)'
+	    local rest `r(rest)'
+	}
+	if 0`hascontour' {
+	    _fr_clegend_parse_and_log `log' `.contour_view' `r(rest)'
+	    local rest `r(rest)'
+	    if 0`hascontourline' {
+		.`log'.Arrpush .\`.plegend.view'.zaxis =		///
+			"\`.clegend.zaxis.objkey'"
+	    }
+	}
+	else if 0`hascontourline' {
+	    _fr_clegend_parse_and_log `log' `.contourline_view' `r(rest)'
+	    local rest `r(rest)'
+	}
+	if 0`hascontourline' & !0`hascontour' {
+	    .`log'.Arrpush .clegend.draw_view.set_false
+	}
+	_fr_runlog `log' , `logging'			// Add legends
+	.`log' = {}
+
+	.ParseAndLogAxes `log' 0 "" "_find" "_find" "1" `rest'	// axes
+
+	if (0`hascontour' | 0`hascontourline')				///
+		.`log'.Arrpush .clegend.zaxis.reset_scale
+
+	if "`titling'" == "" {					// titles
+		.parse_and_log_titles  `log' "" `r(rest)'	
+		.parse_and_log_spacers `log' "" `r(rest)'	
+	}
+	else {
+		.parse_and_log_titles_edits `log' "" `r(rest)'
+	}
+
+	_fr_merged_implicit `log' BGColor				///
+		".bgcolor.setstyle , style(X)" , `r(rest)'
+
+	if `"`scale'"' != `""' {
+		.`log'.Arrpush .set_scale `scale'
+	}
+
+								// text
+	if `"`r(rest)'"' != `""' {
+		.ParseAndLogText `log' , `r(rest)'
+	}
+
+	if "`below'" != "" {				// addplots drawn 1st
+		if 0`.plotregion1.isofclass plotregion' &		///
+		   "`.plotregion2.isa'" == "" {
+			forvalues i = `=`n_views_0'+1'/`.n_views' {
+				.`log'.Arrpush .plotregion1.move_view `i' 1
+			}
+		}
+	}
+
+	local 0 `", `r(rest)'"'
+	syntax [, CLEGend(string) PLEGend(string) FAKE_OPT_FOR_BETTER_MSG ]
+
+	_fr_runlog `log' , `logging'
+end
+
+
+program ParseOpts
+	gettoken xmac    0 : 0
+	gettoken ymac    0 : 0
+	gettoken sermac  0 : 0
+	gettoken omac    0 : 0
+	gettoken colon   0 : 0
+	gettoken maxaxes 0 : 0
+	gettoken plreg   0 : 0
+
+	syntax [ , XAXis(numlist integer sort >0 <=`maxaxes')		///
+		   YAXis(numlist integer sort >0 <=`maxaxes')		///
+		   SERSET(string) * ]
+
+	if `"`plreg'"' != `""' {
+	    if "`xaxis'`yaxis'" != "" {
+		di as error "may not combine xaxis() or yaxis() with"  ///
+			" useplotregion() or add"
+		exit 198
+	    }
+	}
+	if "`xaxis'" == "" {
+		local xaxis 1
+	}
+	else {
+		foreach tok of local xaxis {			// reverse
+			local r `tok' `r'
+		}
+		local xaxis `r'
+	}
+	if "`yaxis'" == "" {
+		local yaxis 1
+	}
+	else {
+		local r
+		foreach tok of local yaxis {			// reverse
+			local r `tok' `r'
+		}
+		local yaxis `r'
+	}
+
+	c_local `xmac'   `xaxis'
+	c_local `ymac'   `yaxis'
+	c_local `sermac' `serset'
+	c_local `omac'   `options'
+end
+
+
+program SetCheckPlotregion
+	args plmac colon plotregion add
+
+	if `"`plotregion'`add'"' == `""' {
+		exit
+	}
+
+	if "`add'" != "" {
+		if `"`plotregion'"' != "" {
+		       di as error "may not combine options add and plotregion()"
+		       exit 198
+		}
+		_cls nameoflocal dynamicmv[1]
+		local plotregion `r(name)'
+	}
+
+	if ! 0`.`plotregion'.isofclass plotregion' {
+		di as error `"`plotregion' is not a plotregion"'
+		exit 198
+	}
+
+	c_local `plmac' `plotregion'
+end
+
+
+// ---------------------------------------------------------------------------
+program ParseAndLogText , rclass
+	gettoken log	0 : 0
+
+	syntax [ , TEXT(string asis) TTEXT(string asis) * ]
+	while `"`text'`ttext'"' != `""' {
+		if `"`text'"' != "" {
+			._parse_log_1textbox `log' "" `text'
+		}
+		if `"`ttext'"' != "" {
+			._parse_log_1textbox `log' "datesok" `ttext'
+		}
+		local 0 `", `options'"'
+		syntax [ , TEXT(string asis) TTEXT(string asis) * ]
+	}
+
+	return local rest `"`options'"'
+end
+
+program _parse_log_1textbox
+	gettoken log		0 : 0
+	gettoken datesok	0 : 0
+
+	syntax [ anything(name=triplets) ] [ , AXes(string)		///
+		YAXis(integer 1) XAXis(integer 1) TSTYle(string) * ]
+
+	local fullopts `"`options'"'
+
+	if `"`tstyle'"' == `""' {
+		local tstyle "scheme text_option"
+	}
+
+							// get axis numbers
+	if `"`axes'"' != `""' {
+		if `:list sizeof axes' != 2 {
+			di as error "invalid axes(`axes')"
+			exit 198
+		}
+
+		gettoken yaxis xaxis : axes
+		foreach d in y x {
+			if "``d'axis'" == "." {
+				`d'axis = 1
+			}
+		}
+	}
+
+							// find the plotregion
+	local j 0
+	foreach yscl in `.y_scales' {
+		local ++j
+		if "`:list yscl & yaxis'" != "" {
+			local xscl : word `j' of `.x_scales'
+			local xscl `xscl'				// sic
+			if "`:list xscl & xaxis'" != "" {
+				local plreg plotregion`j'
+				continue , break
+			}
+		}
+	}
+
+	if "`plreg'" == "" {
+		di as error "text() option invalid, specified axis "	///
+			"pair (`yaxis' `xaxis') not in graph"
+		exit 198
+	}
+
+							// Insert the textboxes
+	gettoken y triplets : triplets
+	gettoken x triplets : triplets
+
+	while `"`y'"' != `""' {
+		capture numlist "`x' `y'" , max(2) min(2)	// x-y point
+		local rc = _rc
+		if `rc' & "`datesok'" != "" {
+			capture	{
+				numlist "`y'" , max(1) min(1)
+				_confirm_number_or_date `x'
+			}
+			local rc = _rc
+		}
+		if `rc' {
+			di as error `"invalid point, `x' `y'"'
+			exit 198
+		}
+
+		gettoken txtq triplets : triplets , quotes	// text
+		gettoken txt           : txtq
+		while `"`txtq'"' != `""' & `"`txtq'"' != `"`txt'"' {
+			local mtext `"`mtext' `txtq'"'
+			gettoken txtq triplets : triplets , quotes
+			gettoken txt           : txtq
+		}
+
+		.n_text = `.n_text' + 1
+		// pass the format indirectly to the textbox
+		if "`datesok'" != "" {
+			local dopt datesok(\`tfmt')
+		}
+		.`log'.Arrpush local tfmt \`.`plreg'.get_time_format'
+		.`log'.Arrpush .`plreg'.Declare textbox`.n_text' =	///
+			.pos_textbox.new , ypos(`y') xpos(`x') 		///
+			forcesized mtextq(`"`mtext'"') style(`tstyle')	///
+			`macval(dopt)'
+		local mtext
+
+		_fr_sztextbox_parse_and_log `log' `plreg'.textbox`.n_text' ///
+			, `fullopts'
+
+		local 0 `", `r(rest)'"'
+		syntax [, FAKE_OPT_FOR_BETTER_MSG ]
+
+		local    y `txt'
+		gettoken x triplets : triplets
+	}
+
+end
+
+// ---------------------------------------------------------------------------
+// Add axes for each plotregion being added -- plreg_from to plreg_to.
+
+program create_axes
+	args plreg_from plreg_to maxaxes rescaling caller
+
+	local j 0				// fetch scales for plotregions
+	foreach xscl in `.x_scales' {
+		local xscale`++j' `xscl'
+	}
+	local j 0
+	foreach yscl in `.y_scales' {
+		local yscale`++j' `yscl'
+	}
+
+						// add the axes
+	if (`caller' < 8.2)  local tmth safe
+	else		     local tmth mquoted
+	local n_ys 0
+	local n_xs 0
+	forvalues i = `plreg_to'(-1)`plreg_from' {
+	    foreach d in y x {
+//		local one = cond("`d'" == "y" , "one" , "")
+
+						// special title considerations
+		foreach ax in `:list `d'scale`i' & `d's' {
+		    local j : list posof "`ax'" in `d's
+		    if `j' {
+			local tti					///
+			      `"`.plotregion`i'.dimtitle_`tmth' "" `d' `one''"'
+			if `"`tti'"' != `"``d's_title`j''"' {
+			    local `d's_dots`j' "..."
+			    local `d's_title`n_`d's'			///
+			    `"`.plotregion`i'.dimtitle_`tmth' "..." `d' `one''"'
+			}
+		    }
+		}
+
+		// Above allows, one axis to represent multiple plotregions,  
+		// this is not fully consistent with axis.set_ticks, but then 
+		// neither is two axes representing same plotregion.
+
+						// collect list of axes to make
+		foreach ax in `:list `d'scale`i' - `d's' {
+		    local `d's ``d's' `ax'
+		    local `d'preg ``d'preg' plotregion`i'
+		    local `d's_title`++n_`d's'		///
+			  `"`.plotregion`i'.dimtitle_`tmth' "" `d' `one''"'
+		}
+	    }
+	}			
+
+							// 2 axes in a dim? 
+	local right2 = (`.n_yaxes' + `:list sizeof ys') == 2		
+	local top2   = (`.n_xaxes' + `:list sizeof xs') == 2
+
+	if `plreg_to' == 0 {				// must have to position
+		.insert (plotregion1 = .plotregion.new, style(scheme) 	///
+			graph(`.objkey')) at 1 1
+	}
+
+	tokenize `ypreg'
+	local i 0
+	foreach m of local ys {
+		local ++i
+		local pos = cond(`i'==1 & `right2' &			///
+			    0`.style.y2axis_onright.istrue', "right", "left")
+		local axlook = cond(`m'==1, "vertical_default",		///
+					    "vertical_nogrid")
+		if 0`.style.alt_yaxes.istrue' {
+			local pos = cond("`pos'"=="left", "right", "left")
+		}
+
+		if "`.yaxis`m'.isa'" != "" {
+			continue
+		     // di as error "yaxis(`m') invalid, axis`m' already exists"
+		     // exit 198
+		}
+		if (`caller' >= 8.2 & "`ys_dots`i''" != "") {
+			local ys_title`i'
+		}
+								// create axis
+		.insert (yaxis`m' = .axis.new , 			///
+			plotregion(`.``i''.objkey')			///
+			style(scheme `axlook') position(`pos')		///
+			title(`ys_title`i''))				///
+			`pos'of plotregion1 , ring(`=`m'/(`maxaxes'+2)')
+		.``i''.addaxis `.yaxis`m'.objkey'		// tell plotreg
+								// default fmts
+		local fmt =						  ///
+		    cond(`"`.yaxis`m'.plotregion.dimformat y'"' == `""',  ///
+			 `"`.yaxis`m'.`ticknm'.label_format'"' ,	  ///
+			 `"`.yaxis`m'.plotregion.dimformat y'"')
+		foreach tickset in major minor majornl minornl {
+			.yaxis`m'.`tickset'.label_format = `"`fmt'"'
+		}
+	}
+	if "`rescaling'" == "" {	// reset scales of any pre-existing axes
+		forvalues j=1/`maxaxes' {			
+			if "`.yaxis`j'.isa'" != "" {	
+				.yaxis`j'.set_ticks	
+			}
+		}
+	}
+
+	tokenize `xpreg'
+	local i 0
+	foreach m of local xs {
+		local ++i
+		local pos = cond(`i'==1 & `top2' &			///
+			    0`.style.x2axis_ontop.istrue', "above", "below")
+		local axlook = cond(`m'==1, "horizontal_default",	///
+					    "horizontal_nogrid")
+		if 0`.style.alt_xaxes.istrue' {
+			local pos = cond("`pos'"=="below", "above", "below")
+		}
+
+		if "`.xaxis`m'.isa'" != "" {
+			continue
+		     // di as error "xaxis(`m') invalid, axis`m' already exists"
+		     // exit 198
+		}
+								// create axis
+		.insert (xaxis`m' = .axis.new,				///
+			plotregion(`.``i''.objkey')			///
+			style(scheme `axlook')				///
+			position(`pos')					///
+			title(`xs_title`i''))				///
+			`pos' plotregion1 , ring(`=`m'/(`maxaxes'+2)')
+		.``i''.addaxis `.xaxis`m'.objkey'		// tell plotreg
+								// default fmts
+		local fmt =						  ///
+		    cond(`"`.xaxis`m'.plotregion.dimformat x'"' == `""',  ///
+			 `"`.xaxis`m'.`ticknm'.label_format'"' ,	  ///
+			 `"`.xaxis`m'.plotregion.dimformat x'"')
+		foreach tickset in major minor majornl minornl {
+			.xaxis`m'.`tickset'.label_format = `"`fmt'"'
+		}
+	}
+	if "`rescaling'" == "" {	// reset scales of any pre-existing axes
+		forvalues j=1/`maxaxes' {
+			if "`.xaxis`j'.isa'" != "" {		
+				.xaxis`j'.set_ticks	
+			}
+		}
+	}
+end
+
+
+// ---------------------------------------------------------------------------
+program _unab_cmd
+	args cmac colon cmd
+
+	local 0 , `cmd'
+	syntax [ , SCatter LIne CONnected HISTogram RSCatter RLine	///
+		   RCONnected MBANDs FN FUNction *]
+
+	if "`fn'" != "" {
+		c_local `cmac' function
+		exit
+	}
+
+	c_local `cmac' `scatter'  `line'  `connected' `histogram'	///
+		      `rscatter' `rline' `rconnected'			///
+		      `mbands' `function' `options'
+end
+
+
+// ---------------------------------------------------------------------------
+//  Returns the number of the next default series style and updates that number
+
+program next_default_series
+	.last_style = `.last_style' + 1
+	class exit = `.last_style'
+end
+
+
+// ---------------------------------------------------------------------------
+//  Return the number of y/xaxes.  Note, just because this is 3 does not mean
+//  they are named yaxis1, yaxis2, yaxis3; the numbers may not be dense.
+
+program n_yaxes
+	local n = 0
+	forvalues i=1/9 {
+		if "`.yaxis`i'.isa'" != "" {
+			local ++n
+		}
+	}
+
+	class exit = `n'
+end
+
+program n_xaxes
+	local n = 0
+	forvalues i=1/9 {
+		if "`.xaxis`i'.isa'" != "" {
+			local ++n
+		}
+	}
+
+	class exit = `n'
+end

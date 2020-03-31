@@ -1,0 +1,108 @@
+/*
+  lca_variables_failure.dlg
+
+*!  VERSION 1.0.1  21mar2017
+
+*/
+
+VERSION 15.0
+MODAL
+
+INCLUDE _std_msmall
+DEFINE _dlght 170
+INCLUDE header_sem_ed
+
+SCRIPT PREINIT
+BEGIN
+	     setscale_hadj resource LCA_VARIABLES_FAILURE_DLG_HSCALE
+END
+
+DIALOG main, title(resource SG__VARIABLES_DLG_TITLE)
+BEGIN
+  TEXT     tx_fvar		_lft	_top	_iwd	.,		///
+	label(resource SG__VARIABLES_FAILURE_MAIN_TX_FVAR)
+  VARNAME vn_fvar		@	_ss	_vnwd	.,		///
+	nomemory							///
+	numeric
+
+  CHECKBOX ck_left_trunc	@	_ls	_iwd	_ht7, nomemory	///
+	groupbox							///
+	onclickon("program main_left_trunc_on")				///
+	onclickoff("script main_left_trunc_off")			///
+	label(resource SG__VARIABLES_FAILURE_MAIN_CK_LEFT_TRUC)
+  RADIO rb_fixed_value		_ilft	_ss	_ibwd	., first	///
+	onclickon(program show_left_trunc_field)			///
+	nomemory							///
+	label(resource SG__VARIABLES_FAILURE_MAIN_RB_FIXED_VALUE)
+  RADIO rb_variable		@	_ss	@	., last		///
+	onclickon(program show_left_trunc_field)			///
+	nomemory							///
+	label(resource SG__VARIABLES_FAILURE_MAIN_RB_VARIABLE)
+  EDIT ed_left_trunc_val	_iilft	_ls	_vnwd	., nomemory	///
+	numonly
+  VARNAME vn_left_trunc_var	@	@	_vnwd	.,		///
+	nomemory							///
+	numeric
+  TEXT tx_trunc_label		_vnsep	@	100	.,
+END
+
+PROGRAM main_left_trunc_on
+BEGIN
+	call main.rb_fixed_value.enable
+	call main.rb_variable.enable
+	call main.ed_left_trunc_val.enable
+	call main.vn_left_trunc_var.enable
+	call program show_left_trunc_field
+END
+
+SCRIPT main_left_trunc_off
+BEGIN
+	main.rb_fixed_value.disable
+	main.rb_variable.disable
+	main.ed_left_trunc_val.disable
+	main.vn_left_trunc_var.disable
+END
+
+PROGRAM show_left_trunc_field
+BEGIN
+	if main.rb_fixed_value {
+		call main.ed_left_trunc_val.show
+		call main.vn_left_trunc_var.hide
+		call main.tx_trunc_label.setlabel "resource LBL_CONSTANT"
+	}
+	else {
+		call main.ed_left_trunc_val.hide
+		call main.vn_left_trunc_var.show
+		call main.tx_trunc_label.setlabel "resource LBL_VN_VARIABLE"
+	}
+END
+
+
+/*****************************************************************************/
+
+PROGRAM main_output
+BEGIN
+        if main.vn_fvar {
+		put " failure("
+		put main.vn_fvar
+		put ")"
+	}
+
+	if main.ck_left_trunc {
+		put " ltruncated("
+		if main.rb_fixed_value {
+			require main.ed_left_trunc_val
+			put main.ed_left_trunc_val
+		}
+		if main.rb_variable {
+			require main.vn_left_trunc_var
+			put main.vn_left_trunc_var
+		}
+		put ")"
+	}
+END
+
+PROGRAM command
+BEGIN
+	put /program main_output
+END

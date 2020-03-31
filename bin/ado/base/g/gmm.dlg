@@ -1,0 +1,2022 @@
+/*
+  gmm
+
+*!  VERSION 1.2.8  20feb2020
+
+  keyword:  eclass
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_wide
+DEFINE _dlght 530
+INCLUDE header
+
+HELP hlp1, view("help gmm")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING STMP
+	/* Equation list box */
+	create STRING main_tmp
+	create STRING main_tmp2
+	create STRING main_eq_childdlg
+	create STRING main_eq_child_result
+	create STRING main_eq_cmd_output
+
+	create ARRAY main_equation_list
+
+	create SVECTOR mainEQCommandDisplayList
+	create SVECTOR mainEQCommandList
+	create SVECTOR mainEQCommandValues
+	create SVECTOR mainEQStatusList
+	create SVECTOR mainEQChildDialogList
+
+	create DOUBLE main_eq_count
+	create DOUBLE main_eq_position
+	create DOUBLE main_eq_arraysize
+
+	main.bu_eq_edit.disable
+	main.bu_eq_disable.disable
+	main.bu_eq_enable.disable
+
+	/* Derivative list box */
+	create STRING main_detmp
+	create STRING main_detmp2
+	create STRING main_de_childdlg
+	create STRING main_de_child_result
+	create STRING main_de_cmd_output
+
+	create ARRAY main_derivative_list
+
+	create SVECTOR mainDECommandDisplayList
+	create SVECTOR mainDECommandList
+	create SVECTOR mainDECommandValues
+	create SVECTOR mainDEStatusList
+	create SVECTOR mainDEChildDialogList
+
+	create DOUBLE main_de_count
+	create DOUBLE main_de_position
+	create DOUBLE main_de_arraysize
+
+	main.bu_de_edit.disable
+	main.bu_de_disable.disable
+	main.bu_de_enable.disable
+
+	script instr_PREINIT
+	script wm_PREINIT
+	script se_createAsGMM
+	setscale_hadj resource GMM_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program se_setFinalInitState
+
+	mainEQCommandDisplayList.copyToArray main_equation_list
+	main.lb_eqBuild.repopulate
+
+	mainDECommandDisplayList.copyToArray main_derivative_list
+	main.lb_deBuild.repopulate
+
+	instrINCommandDisplayList.copyToArray instr_instrument_list
+	instr.lb_inBuild.repopulate
+
+	instrXTINCommandDisplayList.copyToArray instr_xtinstrument_list
+	instr.lb_xtinBuild.repopulate
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)				///
+	title(resource GMM_DLG_TITLE)
+BEGIN
+  RADIO rb_interactive	_lft	_top	_cwd1	., first		///
+	label(resource LBL_ENTER_SYSTEM_OF_EQUATIONS)			///
+	onclickon(program main_interactive_on)
+  RADIO rb_program	_lft2	@	@	., last			///
+	label(resource GMM_MAIN_RB_PROGRAM)				///
+	onclickon(program main_program_on)
+
+  TEXT tx_eqBuild	_lft	_ms	@	.,			///
+	label(resource LBL_TEXT_EQUATIONS)
+  LISTBOX lb_eqBuild	@	_ss	200	100,			///
+	contents(main_equation_list) 					///
+	ondblclick(program main_eq_edit)				///
+	onselchange(program main_eq_sel_changed)			///
+	nomemory
+  BUTTON bu_eq_new	+210	@	80	.,			///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program main_eq_create)					///
+	tooltip(resource LBL_CREATE_EQUATION)
+  BUTTON bu_eq_edit	@	_ms	@	.,			///
+	label(resource LBL_BU_EDIT)					///
+	onpush(program main_eq_edit)  					///
+	tooltip(resource LBL_EDIT_EQUATION)
+  BUTTON bu_eq_disable	@	_ms	@	.,			///
+	label(resource LBL_BU_DISABLE)					///
+	onpush(program main_eq_disable)					///
+	tooltip(resource LBL_CLICK_TO_DISABLE_AN_EQUATION)
+  BUTTON bu_eq_enable	@	_ms	@	.,			///
+	label(resource LBL_BU_ENABLE)					///
+	onpush(program main_eq_enable)					///
+	tooltip(resource LBL_CLICK_TO_ENABLE_PREVIOUSLY_DISABLED_EQ)
+  TEXTBOX tb_eq_note	_lft	+30	_iwd	_tb2,			///
+	label(resource LBL_PRESS_CREATE_TO_DEFINE_EQUATION)
+
+  TEXT tx_deBuild	_lft	_xls	_cwd3	.,			///
+	label(resource GMM_MAIN_TX_DEBUILD)
+  LISTBOX lb_deBuild	@	_ss	200	100,			///
+	contents(main_derivative_list) 					///
+	ondblclick(program main_de_edit)				///
+	onselchange(program main_de_sel_changed)			///
+	nomemory
+  BUTTON bu_de_new	+210	@	80	.,			///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program main_de_create)					///
+	tooltip(resource LBL_CREATE_DERIVATIVE)
+  BUTTON bu_de_edit	@	_ms	@	.,			///
+	label(resource LBL_BU_EDIT)					///
+	onpush(program main_de_edit)  					///
+	tooltip(resource LBL_EDIT_DERIVATIVE)
+  BUTTON bu_de_disable	@	_ms	@	.,			///
+	label(resource LBL_BU_DISABLE)					///
+	onpush(program main_de_disable)					///
+	tooltip(resource LBL_CLICK_TO_DISABLE_A_DERIVATIVE)
+  BUTTON bu_de_enable	@	_ms	@	.,			///
+	label(resource LBL_BU_ENABLE)					///
+	onpush(program main_de_enable)					///
+	tooltip(resource LBL_CLICK_ENABLE_PREVIOUSLY_DISABLED_DER)
+  TEXTBOX tb_de_note	_lft	+30	_iwd	_tb2,			///
+	label(resource LBL_PRESS_CREATE_DEFINE_A_DERIVATIVE)
+
+  TEXT tx_prog_n	_lft	35	_cwd1	.,			///
+	label(resource GMM_MAIN_TX_PROG_N)
+  EDIT ed_prog_n	@	_ss	_cwd1	.,			///
+	label(resource GMM_MAIN_TX_PROG_N)
+  TEXT tx_prog_opt	_lft	_ms	_cwd1	.,			///
+	label(resource LBL_PROGRAM_OPTIONS)
+  EDIT ed_prog_opt	@	_ss	_cwd1	.,			///
+	label(resource LBL_PROGRAM_OPTIONS)
+  RADIO rb_noder	@	_ms	_iwd	., first		///
+	label(resource GMM_MAIN_RB_NODER)				///
+	option(hasderivatives)
+  RADIO rb_hasder	@	_ms	_iwd	.,			///
+	label(resource GMM_MAIN_RB_HASDER)				///
+	option(hasderivatives)
+  RADIO rb_haslfder	@	_ms	_iwd	., last			///
+	label(resource GMM_MAIN_RB_HASLFDER)				///
+	option(haslfderivatives)
+
+  GROUPBOX gb_equations	_lft	_ls	_iwd	_ht4h,			///
+	label(resource LBL_EQUATIONS)
+  TEXT tx_eqn		_ilft	_ss	_cwd1	.,			///
+	label(resource LBL_NAMES)
+  DEFINE holdy1 @y
+  EDIT ed_eqn		@	_ss	_inwd	.,			///
+	label(resource LBL_NAMES)					///
+	option(equations)
+  TEXT tx_neqn		_lft2	holdy1	_cwd2	.,			///
+	label(resource GMM_MAIN_TX_NUMBER)
+  EDIT ed_neqn		@	_ss	_en7wd	.,			///
+	label(resource GMM_MAIN_TX_NUMBER)					///
+	numonly								///
+	option(nequations)
+
+  GROUPBOX gb_parameters _lft	_xxls	_iwd	_ht4h,			///
+	label(resource LBL_PARAMETERS)
+  TEXT tx_param		_ilft	_ss	_cwd1	.,			///
+	label(resource LBL_NAMES)
+  DEFINE holdy2 @y
+  EDIT ed_param		@	_ss	_inwd	.,			///
+	label(resource LBL_NAMES)					///
+	option(parameters)
+  TEXT tx_nparam	_lft2	holdy2	_cwd2	.,			///
+	label(resource GMM_MAIN_TX_NUMBER)
+  EDIT ed_nparam	@	_ss	_en7wd	.,			///
+	label(resource GMM_MAIN_TX_NUMBER)					///
+	numonly								///
+	option(nparameters)
+
+  GROUPBOX gb_estimator	_lft	_xls	_iwd	_ht2,			///
+	label(resource GMM_MAIN_GB_ESTIMATOR)
+  RADIO rb_twostep	_indent _ss	_vnwd	.,			///
+	label(resource LBL_2STEP)					///
+	first								///
+	onclickon(program main_check_estimator)
+  RADIO rb_onestep	_lft3_2 @	@	.,			///
+	label(resource LBL_ONE_STEP)					///
+	option(onestep)							///
+	onclickon(program main_check_estimator)
+  RADIO rb_igmm		_lft3_3 @	@	.,			///
+	last								///
+	label(resource LBL_ITERATIVE)					///
+	option(igmm)							///
+	onclickon(program main_check_estimator)
+
+  TEXT tx_vars		_lft	_ls	_iwd	.,			///
+	label(resource LBL_VARIABLES)
+  VARLIST vl_vars	@	_ss	@	.,			///
+	option(variables)						///
+	numeric								///
+	label(resource LBL_VARIABLES)
+  CHECKBOX ck_nocomm	_lft	_ms	@	.,			///
+	option(nocommonesample)						///
+	label(resource GMM_MAIN_CK_NOCOMM)
+END
+
+PROGRAM main_interactive_on
+BEGIN
+	call main.tx_eqBuild.show
+	call main.lb_eqBuild.show
+	call main.bu_eq_new.show
+	call main.bu_eq_edit.show
+	call main.bu_eq_disable.show
+	call main.bu_eq_enable.show
+	call main.tb_eq_note.show
+
+	call main.tx_deBuild.show
+	call main.lb_deBuild.show
+	call main.bu_de_new.show
+	call main.bu_de_edit.show
+	call main.bu_de_disable.show
+	call main.bu_de_enable.show
+	call main.tb_de_note.show
+
+	call main.tx_prog_n.hide
+	call main.ed_prog_n.hide
+	call main.tx_prog_opt.hide
+	call main.ed_prog_opt.hide
+	call main.rb_noder.hide
+	call main.rb_hasder.hide
+	call main.rb_haslfder.hide
+
+	call main.gb_equations.hide
+	call main.tx_eqn.hide
+	call main.ed_eqn.hide
+	call main.tx_neqn.hide
+	call main.ed_neqn.hide
+
+	call main.gb_parameters.hide
+	call main.tx_param.hide
+	call main.ed_param.hide
+	call main.tx_nparam.hide
+	call main.ed_nparam.hide
+
+	call main.gb_estimator.setposition . 360
+	call main.rb_twostep.setposition   . 380
+	call main.rb_onestep.setposition   . 380
+	call main.rb_igmm.setposition      . 380
+	
+	call main.tx_vars.setposition . 425
+	call main.vl_vars.setposition . 445
+	call main.ck_nocomm.setposition . 475
+END
+
+PROGRAM main_program_on
+BEGIN
+	call main.tx_eqBuild.hide
+	call main.lb_eqBuild.hide
+	call main.bu_eq_new.hide
+	call main.bu_eq_edit.hide
+	call main.bu_eq_disable.hide
+	call main.bu_eq_enable.hide
+	call main.tb_eq_note.hide
+
+	call main.tx_deBuild.hide
+	call main.lb_deBuild.hide
+	call main.bu_de_new.hide
+	call main.bu_de_edit.hide
+	call main.bu_de_disable.hide
+	call main.bu_de_enable.hide
+	call main.tb_de_note.hide
+
+	call main.tx_prog_n.show
+	call main.ed_prog_n.show
+	call main.tx_prog_opt.show
+	call main.ed_prog_opt.show
+	call main.rb_noder.show
+	call main.rb_hasder.show
+	call main.rb_haslfder.show
+
+	call main.gb_equations.show
+	call main.tx_eqn.show
+	call main.ed_eqn.show
+	call main.tx_neqn.show
+	call main.ed_neqn.show
+
+	call main.gb_parameters.show
+	call main.tx_param.show
+	call main.ed_param.show
+	call main.tx_nparam.show
+	call main.ed_nparam.show
+
+	call main.gb_estimator.setposition . 385
+	call main.rb_twostep.setposition   . 405
+	call main.rb_onestep.setposition   . 405
+	call main.rb_igmm.setposition      . 405
+	call main.tx_vars.setposition . 450
+	call main.vl_vars.setposition . 470
+	call main.ck_nocomm.setposition . 500
+END
+
+PROGRAM main_check_estimator
+BEGIN
+	if main.rb_twostep {
+		call script main_wm_on
+		call script main_igmm_off
+	}
+
+	if main.rb_onestep {
+		call script main_wm_off
+		call script main_igmm_off
+	}
+
+	if main.rb_igmm {
+		call script main_wm_on
+		call script main_igmm_on
+	}
+END
+
+SCRIPT main_igmm_on
+BEGIN
+	opt.sp_iter.enable
+	opt.tx_iter.enable
+	opt.gb_conv.enable
+	opt.ed_param.enable
+	opt.tx_param.enable
+	opt.ed_wm.enable
+	opt.tx_wm.enable
+END
+
+SCRIPT main_igmm_off
+BEGIN
+	opt.sp_iter.disable
+	opt.tx_iter.disable
+	opt.gb_conv.disable
+	opt.ed_param.disable
+	opt.tx_param.disable
+	opt.ed_wm.disable
+	opt.tx_wm.disable
+END
+
+
+PROGRAM main_eq_create
+BEGIN
+	call main_eq_count.setvalue class mainEQChildDialogList.size
+	call main_eq_count.increment
+	call main_eq_count.withvalue main_eq_childdlg.setvalue		///
+		"main_equation@"
+	call program main_show_eq_child
+END
+
+PROGRAM main_eq_edit
+BEGIN
+	call mainEQCommandDisplayList.findstr class main.lb_eqBuild.value
+	call main_eq_position.setvalue class mainEQCommandDisplayList.position
+	call main_eq_position.withvalue main_eq_childdlg.setvalue	///
+		class mainEQChildDialogList.values[@]
+
+	call program main_show_eq_child_edit
+END
+
+PROGRAM main_show_eq_child
+BEGIN
+	call main_eq_childdlg.withvalue create CHILD gmm_new_eq AS @
+	call main_eq_childdlg.withvalue @.setExitString "main_eq_child_result"
+	call main_eq_childdlg.withvalue @.setExitAction			///
+		"program main_eq_child_done"
+	call main_eq_count.withvalue STMP.format			///
+		"resource LBL_EQUATION_FMT" "@" ""
+	call STMP.withvalue main_tmp.setvalue "@"
+	call main_eq_childdlg.withvalue main_tmp2.setvalue "@.settitle"
+	call main_tmp2.append `" ""'
+	call main_tmp2.append class main_tmp.value
+	call main_tmp2.append `"""'
+	call main_tmp2.withvalue @
+END
+
+PROGRAM main_show_eq_child_edit
+BEGIN
+	call main_eq_childdlg.withvalue create CHILD gmm_new_eq AS @
+	call main_eq_childdlg.withvalue @.setExitString "main_eq_child_result"
+	call main_eq_childdlg.withvalue @.setExitAction			///
+		"program main_eq_child_done"
+
+	call main_eq_position.withvalue main_tmp.setvalue		///
+		class mainEQCommandDisplayList.values[@]
+	call main_eq_childdlg.withvalue main_tmp2.setvalue "@.settitle"
+	call main_tmp2.append `" ""'
+	call main_tmp2.append class main_tmp.value
+	call main_tmp2.append `"""'
+	call main_tmp2.withvalue @
+END
+
+PROGRAM main_eq_child_done
+BEGIN
+	call mainEQChildDialogList.findstr class main_eq_childdlg.value
+	call main_eq_position.setvalue class mainEQChildDialogList.position
+	if main_eq_position {
+		call main_eq_position.withvalue main_tmp.setvalue	///
+			class mainEQStatusList.values[@]
+		if main_tmp.iseq("active") {
+			call main_eq_position.withvalue STMP.format	///
+				"resource LBL_EQUATION_FMT" "@" ""
+			call STMP.withvalue 				///
+				mainEQCommandDisplayList.store class	///
+				main_eq_position.value "@"
+			call mainEQCommandValues.store class		///
+				main_eq_position.value class		///
+				main_eq_child_result.value
+			call STMP.withvalue				///
+				main_tmp2.setvalue "@"
+		}
+		else {
+			call main_eq_position.withvalue STMP.format	///
+				"resource LBL_EQUATION_FMT" "@"		///
+				"resource LBL_PAREN_DISABLED"
+			call STMP.withvalue				///
+				mainEQCommandDisplayList.store		///
+				class main_eq_position.value "@"
+		}
+
+		call mainEQCommandList.store class			///
+			main_eq_position.value class main_eq_child_result.value
+
+		call mainEQCommandDisplayList.copyToArray main_equation_list
+		call main.lb_eqBuild.repopulate
+		call main.lb_eqBuild.setvalue class main_tmp2.value
+	}
+	else {
+		call main_eq_arraysize.setvalue class mainEQChildDialogList.size
+		call main_eq_arraysize.increment
+
+		/* Store child dialog name */
+		call mainEQChildDialogList.store class			///
+			main_eq_arraysize.value class			///
+			main_eq_childdlg.value
+
+		/* Store listbox display equation string */
+		call main_eq_arraysize.withvalue STMP.format		///
+			"resource LBL_EQUATION_FMT" "@" ""
+		call STMP.withvalue					///
+			mainEQCommandDisplayList.store class		///
+			main_eq_arraysize.value "@"
+
+		/* Store child dialog result string */
+		call mainEQCommandList.store class			///
+			main_eq_arraysize.value class main_eq_child_result.value
+
+		/* Store child dialog result string for final command
+		   For disable/enable */
+		call mainEQCommandValues.store class			///
+			main_eq_arraysize.value class main_eq_child_result.value
+
+		/* Store disable/enable status */
+		call mainEQStatusList.store				///
+			class main_eq_arraysize.value "active"
+
+		call mainEQCommandDisplayList.copyToArray main_equation_list
+		call main.lb_eqBuild.repopulate
+		call STMP.withvalue					///
+			main.lb_eqBuild.setvalue "@"
+	}
+END
+
+PROGRAM main_eq_sel_changed
+BEGIN
+	call mainEQCommandDisplayList.findstr class main.lb_eqBuild.value
+	call main_eq_position.setvalue class mainEQCommandDisplayList.position
+	call main_eq_position.withvalue main_tmp.setvalue		///
+		class mainEQStatusList.values[@]
+	if main_eq_position {
+		call main.bu_eq_edit.enable
+		call main_eq_position.withvalue				///
+			main.tb_eq_note.setlabel			///
+			class mainEQCommandList.values[@]
+	}
+
+	if main_tmp.iseq("disable") {
+		call main.bu_eq_enable.enable
+		call main.bu_eq_disable.disable
+	}
+	if main_tmp.iseq("active") {
+		call main.bu_eq_enable.disable
+		call main.bu_eq_disable.enable
+	}
+END
+
+PROGRAM main_eq_disable
+BEGIN
+	call mainEQCommandDisplayList.findstr class main.lb_eqBuild.value
+	call main_eq_position.setvalue class mainEQCommandDisplayList.position
+
+	call main_tmp.setvalue class main.lb_eqBuild.value
+	call mainEQStatusList.store class main_eq_position.value "disable"
+	call mainEQCommandValues.store class main_eq_position.value ""
+	call STMP.format "resource LBL_PAREN_DISABLED"
+	call main_tmp.append " "
+	call main_tmp.append class STMP.value
+	call main_tmp.withvalue mainEQCommandDisplayList.store		///
+		class main_eq_position.value "@"
+	call main_tmp.withvalue STMP.setvalue "@"
+	call mainEQCommandDisplayList.copyToArray main_equation_list
+	call main.lb_eqBuild.repopulate
+	call main.lb_eqBuild.setvalue class STMP.value
+END
+
+PROGRAM main_eq_enable
+BEGIN
+	call mainEQCommandDisplayList.findstr class main.lb_eqBuild.value
+	call main_eq_position.setvalue class mainEQCommandDisplayList.position
+
+	call mainEQStatusList.store class main_eq_position.value "active"
+	call main_eq_position.withvalue mainEQCommandValues.store class	///
+		main_eq_position.value class mainEQCommandList.values[@]
+
+	call main_eq_position.withvalue STMP.format			///
+		"resource LBL_EQUATION_FMT" "@" ""
+	call STMP.withvalue mainEQCommandDisplayList.store		///
+		class main_eq_position.value "@"
+
+	call mainEQCommandDisplayList.copyToArray main_equation_list
+	call main_eq_position.withvalue main_tmp2.setvalue class	///
+		mainEQCommandDisplayList.values[@]
+	call main.lb_eqBuild.repopulate
+	call main.lb_eqBuild.setvalue class main_tmp2.value
+END
+
+PROGRAM main_lb_eqBuild_output
+BEGIN
+	call mainEQCommandValues.copyToString main_eq_cmd_output
+	call main_eq_arraysize.setvalue class mainEQStatusList.size
+	if main_eq_cmd_output.iseq("") & main_eq_arraysize.iseq(0) & 	///
+		main.lb_eqBuild.isvisible() {
+		stopbox stop resource LBL_MSGBOX_EQUATION_NOT_DEFINED
+// Equation not defined. Please enter an equation before proceeding.
+	}
+	if main_eq_cmd_output.iseq("") & main_eq_arraysize.isgt(0) &	///
+		main.lb_eqBuild.isvisible() {
+		stopbox stop resource LBL_MSGBOX_ALL_EQUATIONS_ARE_DISABLED
+// All equations are disabled. 
+// Either define a new equation or enable an existing equation before proceeding.
+	}
+
+	if main_eq_cmd_output & main.lb_eqBuild.isvisible() {
+		put main_eq_cmd_output
+	}
+END
+
+PROGRAM main_de_create
+BEGIN
+	call main_de_count.setvalue class mainDEChildDialogList.size
+	call main_de_count.increment
+	call main_de_count.withvalue main_de_childdlg.setvalue		///
+		"main_derivative@"
+	call program main_show_de_child
+END
+
+PROGRAM main_de_edit
+BEGIN
+	call mainDECommandDisplayList.findstr class main.lb_deBuild.value
+	call main_de_position.setvalue class mainDECommandDisplayList.position
+	call main_de_position.withvalue main_de_childdlg.setvalue	///
+		class mainDEChildDialogList.values[@]
+
+	call program main_show_de_child_edit
+END
+
+PROGRAM main_show_de_child
+BEGIN
+	call main_de_childdlg.withvalue create CHILD gmm_new_der AS @
+	call main_de_childdlg.withvalue @.setExitString "main_de_child_result"
+	call main_de_childdlg.withvalue @.setExitAction			///
+		"program main_de_child_done"
+
+	call main_de_count.withvalue STMP.format			///
+		"resource LBL_DERIVATIVE_FMT" "@" ""
+	call STMP.withvalue main_detmp.setvalue "@"
+	call main_de_childdlg.withvalue main_detmp2.setvalue "@.settitle"
+	call main_detmp2.append `" ""'
+	call main_detmp2.append class main_detmp.value
+	call main_detmp2.append `"""'
+	call main_detmp2.withvalue @
+END
+
+PROGRAM main_show_de_child_edit
+BEGIN
+	call main_de_childdlg.withvalue create CHILD gmm_new_der AS @
+	call main_de_childdlg.withvalue @.setExitString "main_de_child_result"
+	call main_de_childdlg.withvalue @.setExitAction			///
+		"program main_de_child_done"
+
+	call main_de_position.withvalue main_detmp.setvalue		///
+		class mainDECommandDisplayList.values[@]
+	call main_de_childdlg.withvalue main_detmp2.setvalue "@.settitle"
+	call main_detmp2.append `" ""'
+	call main_detmp2.append class main_detmp.value
+	call main_detmp2.append `"""'
+	call main_detmp2.withvalue @
+END
+
+PROGRAM main_de_child_done
+BEGIN
+	call mainDEChildDialogList.findstr class main_de_childdlg.value
+	call main_de_position.setvalue class mainDEChildDialogList.position
+	if main_de_position {
+		call main_de_position.withvalue main_detmp.setvalue	///
+			class mainDEStatusList.values[@]
+		if main_detmp.iseq("active") {
+			call main_de_position.withvalue	STMP.format	///
+				"resource LBL_DERIVATIVE_FMT" "@" ""
+			call STMP.withvalue				///
+				mainDECommandDisplayList.store class	///
+				main_de_position.value "@"
+			call mainDECommandValues.store class		///
+				main_de_position.value class		///
+				main_de_child_result.value
+			call STMP.withvalue				///
+				main_detmp2.setvalue "@"
+		}
+		else {
+			call main_de_position.withvalue	STMP.format	///
+				"resource LBL_DERIVATIVE_FMT" "@" 	///
+				"resource LBL_PAREN_DISABLED"
+			call STMP.withvalue				///
+				mainDECommandDisplayList.store		///
+				class main_de_position.value "@"
+		}
+
+		call mainDECommandList.store class			///
+			main_de_position.value class main_de_child_result.value
+
+		call mainDECommandDisplayList.copyToArray main_derivative_list
+		call main.lb_deBuild.repopulate
+		call main.lb_deBuild.setvalue class main_detmp2.value
+	}
+	else {
+		call main_de_arraysize.setvalue class mainDEChildDialogList.size
+		call main_de_arraysize.increment
+
+		/* Store child dialog name */
+		call mainDEChildDialogList.store class			///
+			main_de_arraysize.value class			///
+			main_de_childdlg.value
+
+		/* Store listbox display derivative string */
+		call main_de_arraysize.withvalue STMP.format		///
+			"resource LBL_DERIVATIVE_FMT" "@" ""
+		call STMP.withvalue					///
+			mainDECommandDisplayList.store class		///
+			main_de_arraysize.value "@"
+
+		/* Store child dialog result string */
+		call mainDECommandList.store class			///
+			main_de_arraysize.value class main_de_child_result.value
+
+		/* Store child dialog result string for final command
+		   For disable/enable */
+		call mainDECommandValues.store class			///
+			main_de_arraysize.value class main_de_child_result.value
+
+		/* Store disable/enable status */
+		call mainDEStatusList.store				///
+			class main_de_arraysize.value "active"
+
+		call mainDECommandDisplayList.copyToArray main_derivative_list
+		call main.lb_deBuild.repopulate
+		call main_de_arraysize.withvalue STMP.format		///
+				"resource LBL_DERIVATIVE_FMT" "@" ""
+		call STMP.withvalue					///
+			main.lb_deBuild.setvalue "@"
+	}
+END
+
+PROGRAM main_de_sel_changed
+BEGIN
+	call mainDECommandDisplayList.findstr class main.lb_deBuild.value
+	call main_de_position.setvalue class mainDECommandDisplayList.position
+	call main_de_position.withvalue main_detmp.setvalue		///
+		class mainDEStatusList.values[@]
+	if main_de_position {
+		call main.bu_de_edit.enable
+		call main_de_position.withvalue				///
+			main.tb_de_note.setlabel			///
+			class mainDECommandList.values[@]
+	}
+
+	if main_detmp.iseq("disable") {
+		call main.bu_de_enable.enable
+		call main.bu_de_disable.disable
+	}
+	if main_detmp.iseq("active") {
+		call main.bu_de_enable.disable
+		call main.bu_de_disable.enable
+	}
+END
+
+PROGRAM main_de_disable
+BEGIN
+	call mainDECommandDisplayList.findstr class main.lb_deBuild.value
+	call main_de_position.setvalue class mainDECommandDisplayList.position
+
+	call main_detmp.setvalue class main.lb_deBuild.value
+	call mainDEStatusList.store class main_de_position.value "disable"
+	call mainDECommandValues.store class main_de_position.value ""
+	call STMP.format "resource LBL_PAREN_DISABLED"
+	call main_detmp.append " "
+	call main_detmp.append class STMP.value
+	call main_detmp.withvalue STMP.setvalue "@"
+	call main_detmp.withvalue mainDECommandDisplayList.store	///
+		class main_de_position.value "@"
+	call mainDECommandDisplayList.copyToArray main_derivative_list
+	call main.lb_deBuild.repopulate
+	call main.lb_deBuild.setvalue class STMP.value
+END
+
+PROGRAM main_de_enable
+BEGIN
+	call mainDECommandDisplayList.findstr class main.lb_deBuild.value
+	call main_de_position.setvalue class mainDECommandDisplayList.position
+
+	call mainDEStatusList.store class main_de_position.value "active"
+	call main_de_position.withvalue mainDECommandValues.store class	///
+		main_de_position.value class mainDECommandList.values[@]
+
+	call main_de_position.withvalue STMP.format			///
+		"resource LBL_DERIVATIVE_FMT" "@" ""
+	call STMP.withvalue mainDECommandDisplayList.store		///
+		class main_de_position.value "@"
+
+	call mainDECommandDisplayList.copyToArray main_derivative_list
+	call main_de_position.withvalue main_detmp2.setvalue class	///
+		mainDECommandDisplayList.values[@]
+	call main.lb_deBuild.repopulate
+	call main.lb_deBuild.setvalue class main_detmp2.value
+
+END
+
+PROGRAM main_lb_deBuild_output
+BEGIN
+	call mainDECommandValues.copyToString main_de_cmd_output
+
+	if main_de_cmd_output & main.lb_deBuild.isvisible() {
+		put main_de_cmd_output
+	}
+END
+
+SCRIPT instr_PREINIT
+BEGIN
+	/* Instrument list box */
+	create STRING instr_tmp
+	create STRING instr_tmp2
+	create STRING instr_in_childdlg
+	create STRING instr_in_child_result
+	create STRING instr_in_cmd_output
+
+	create ARRAY instr_instrument_list
+
+	create SVECTOR instrINCommandDisplayList
+	create SVECTOR instrINCommandList
+	create SVECTOR instrINCommandValues
+	create SVECTOR instrINStatusList
+	create SVECTOR instrINChildDialogList
+
+	create DOUBLE instr_in_count
+	create DOUBLE instr_in_position
+	create DOUBLE instr_in_arraysize
+
+	instr.bu_in_edit.disable
+	instr.bu_in_disable.disable
+	instr.bu_in_enable.disable
+
+	/* Xtinstrument list box */
+	create STRING instr_xttmp
+	create STRING instr_xttmp2
+	create STRING instr_xtin_childdlg
+	create STRING instr_xtin_child_result
+	create STRING instr_xtin_cmd_output
+
+	create ARRAY instr_xtinstrument_list
+
+	create SVECTOR instrXTINCommandDisplayList
+	create SVECTOR instrXTINCommandList
+	create SVECTOR instrXTINCommandValues
+	create SVECTOR instrXTINStatusList
+	create SVECTOR instrXTINChildDialogList
+
+	create DOUBLE instr_xtin_count
+	create DOUBLE instr_xtin_position
+	create DOUBLE instr_xtin_arraysize
+
+	instr.bu_xtin_edit.disable
+	instr.bu_xtin_disable.disable
+	instr.bu_xtin_enable.disable
+
+	create BOOLEAN has_xt_instr
+	has_xt_instr.setfalse
+END
+
+DIALOG instr, tabtitle(resource LBL_INSTRUMENTS)
+BEGIN
+  TEXT tx_inBuild	_lft	_top	_cwd3	.,			///
+	label(resource GMM_INSTR_TX_INBUILD)
+  LISTBOX lb_inBuild	@	_ss	200	100,			///
+	contents(instr_instrument_list) 				///
+	ondblclick(program instr_in_edit)				///
+	onselchange(program instr_in_sel_changed)			///
+	nomemory
+  BUTTON bu_in_new	+210	@	80	.,			///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program instr_in_create)					///
+	tooltip(resource GMM_INSTR_BU_IN_NEW)
+  BUTTON bu_in_edit	@	_ms	@	.,			///
+	label(resource LBL_BU_EDIT)					///
+	onpush(program instr_in_edit)  					///
+	tooltip(resource GMM_INSTR_BU_IN_EDIT)
+  BUTTON bu_in_disable	@	_ms	@	.,			///
+	label(resource LBL_BU_DISABLE)					///
+	onpush(program instr_in_disable)				///
+	tooltip(resource GMM_INSTR_BU_IN_DISABLE)
+  BUTTON bu_in_enable	@	_ms	@	.,			///
+	label(resource LBL_BU_ENABLE)					///
+	onpush(program instr_in_enable)					///
+	tooltip(resource GMM_INSTR_BU_IN_ENABLE)
+  TEXTBOX tb_in_note	_lft	+30	_iwd	_tb2,			///
+	label(resource GMM_INSTR_TB_IN_NOTE)
+
+  TEXT tx_xtinBuild	_lft	_xls	_cwd3	.,			///
+	label(resource GMM_INSTR_TX_XTINBUILD)
+  LISTBOX lb_xtinBuild	@	_ss	200	100,			///
+	contents(instr_xtinstrument_list) 				///
+	ondblclick(program instr_xtin_edit)				///
+	onselchange(program instr_xtin_sel_changed)			///
+	nomemory
+  BUTTON bu_xtin_new	+210	@	80	.,			///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program instr_xtin_create)				///
+	tooltip(resource GMM_INSTR_BU_XTIN_NEW)
+  DEFINE holdx @x
+  BUTTON bu_xtset	+95	@	_setbuwd .,			///
+	label(resource LBL_BU_PANEL_SETTINGS)				///
+	onpush(script show_xtset)
+  BUTTON bu_xtin_edit	holdx	_ms	80	.,			///
+	label(resource LBL_BU_EDIT)					///
+	onpush(program instr_xtin_edit)  				///
+	tooltip(resource GMM_INSTR_BU_XTIN_EDIT)
+  BUTTON bu_xtin_disable @	_ms	@	.,			///
+	label(resource LBL_BU_DISABLE)					///
+	onpush(program instr_xtin_disable)				///
+	tooltip(resource GMM_INSTR_BU_XTIN_DISABLE)
+  BUTTON bu_xtin_enable	@	_ms	@	.,			///
+	label(resource LBL_BU_ENABLE)					///
+	onpush(program instr_xtin_enable)				///
+	tooltip(resource GMM_INSTR_BU_XTIN_ENABLE)
+  TEXTBOX tb_xtin_note	_lft	+30	_iwd	_tb2,			///
+	label(resource GMM_INSTR_TB_XTIN_NOTE)
+END
+
+SCRIPT show_xtset
+BEGIN
+	create CHILD xtset
+END
+
+PROGRAM instr_in_create
+BEGIN
+	call instr_in_count.setvalue class instrINChildDialogList.size
+	call instr_in_count.increment
+	call instr_in_count.withvalue instr_in_childdlg.setvalue	///
+		"instr_instrument@"
+	call program instr_show_in_child
+END
+
+PROGRAM instr_in_edit
+BEGIN
+	call instrINCommandDisplayList.findstr class instr.lb_inBuild.value
+	call instr_in_position.setvalue class instrINCommandDisplayList.position
+	call instr_in_position.withvalue instr_in_childdlg.setvalue	///
+		class instrINChildDialogList.values[@]
+
+	call program instr_show_in_child_edit
+END
+
+PROGRAM instr_show_in_child
+BEGIN
+	call instr_in_childdlg.withvalue create CHILD gmm_new_instr AS @
+	call instr_in_childdlg.withvalue @.setExitString "instr_in_child_result"
+	call instr_in_childdlg.withvalue @.setExitAction		///
+		"program instr_in_child_done"
+
+	call instr_in_count.withvalue STMP.format			///
+		"resource LBL_INSTRUMENT_FMT" "@" ""
+	call STMP.withvalue instr_tmp.setvalue "@"
+	call instr_in_childdlg.withvalue instr_tmp2.setvalue "@.settitle"
+	call instr_tmp2.append `" ""'
+	call instr_tmp2.append class instr_tmp.value
+	call instr_tmp2.append `"""'
+	call instr_tmp2.withvalue @
+END
+
+PROGRAM instr_show_in_child_edit
+BEGIN
+	call instr_in_childdlg.withvalue create CHILD gmm_new_instr AS @
+	call instr_in_childdlg.withvalue @.setExitString "instr_in_child_result"
+	call instr_in_childdlg.withvalue @.setExitAction		///
+		"program instr_in_child_done"
+
+	call instr_in_position.withvalue instr_tmp.setvalue		///
+		class instrINCommandDisplayList.values[@]
+	call instr_in_childdlg.withvalue instr_tmp2.setvalue "@.settitle"
+	call instr_tmp2.append `" ""'
+	call instr_tmp2.append class instr_tmp.value
+	call instr_tmp2.append `"""'
+	call instr_tmp2.withvalue @
+END
+
+PROGRAM instr_in_child_done
+BEGIN
+	call instrINChildDialogList.findstr class instr_in_childdlg.value
+	call instr_in_position.setvalue class instrINChildDialogList.position
+	if instr_in_position {
+		call instr_in_position.withvalue instr_tmp.setvalue	///
+			class instrINStatusList.values[@]
+		if instr_tmp.iseq("active") {
+			call instr_in_position.withvalue STMP.format	///
+				"resource LBL_INSTRUMENT_FMT" "@" ""
+			call STMP.withvalue
+				instrINCommandDisplayList.store class	///
+				instr_in_position.value "@"
+			call instrINCommandValues.store class		///
+				instr_in_position.value class		///
+				instr_in_child_result.value
+			call STMP.withvalue				///
+				instr_tmp2.setvalue "@"
+		}
+		else {
+			call instr_in_position.withvalue STMP.format	///
+				"resource LBL_INSTRUMENT_FMT" "@"	///
+				"resource LBL_PAREN_DISABLED"
+			call STMP.withvalue				///
+				instrINCommandDisplayList.store		///
+				class instr_in_position.value "@"
+		}
+
+		call instrINCommandList.store class			///
+			instr_in_position.value class			///
+			instr_in_child_result.value
+
+		call instrINCommandDisplayList.copyToArray		///
+			instr_instrument_list
+		call instr.lb_inBuild.repopulate
+		call instr.lb_inBuild.setvalue class instr_tmp2.value
+	}
+	else {
+		call instr_in_arraysize.setvalue class			///
+			instrINChildDialogList.size
+		call instr_in_arraysize.increment
+
+		/* Store child dialog name */
+		call instrINChildDialogList.store class			///
+			instr_in_arraysize.value class instr_in_childdlg.value
+
+		/* Store listbox display instrument string */
+		call instr_in_arraysize.withvalue STMP.format		///
+				"resource LBL_INSTRUMENT_FMT" "@" ""
+		call STMP.withvalue 					///
+			instrINCommandDisplayList.store class		///
+			instr_in_arraysize.value "@"
+
+		/* Store child dialog result string */
+		call instrINCommandList.store class			///
+			instr_in_arraysize.value class			///
+			instr_in_child_result.value
+
+		/* Store child dialog result string for final command
+		   For disable/enable */
+		call instrINCommandValues.store class			///
+			instr_in_arraysize.value class			///
+			instr_in_child_result.value
+
+		/* Store disable/enable status */
+		call instrINStatusList.store				///
+			class instr_in_arraysize.value "active"
+
+		call instrINCommandDisplayList.copyToArray		///
+			instr_instrument_list
+		call instr.lb_inBuild.repopulate
+		call instr_in_arraysize.withvalue STMP.format		///
+				"resource LBL_INSTRUMENT_FMT" "@" ""
+		call STMP.withvalue					///	
+			instr.lb_inBuild.setvalue "@"
+	}
+END
+
+PROGRAM instr_in_sel_changed
+BEGIN
+	call instrINCommandDisplayList.findstr class instr.lb_inBuild.value
+	call instr_in_position.setvalue class instrINCommandDisplayList.position
+
+	if instr_in_position {
+		call instr.bu_in_edit.enable
+		call instr_in_position.withvalue			///
+			instr.tb_in_note.setlabel			///
+			class instrINCommandList.values[@]
+	}
+
+	call instr_in_position.withvalue instr_tmp.setvalue		///
+		class instrINStatusList.values[@]
+
+	if instr_tmp.iseq("disable") {
+		call instr.bu_in_enable.enable
+		call instr.bu_in_disable.disable
+	}
+	if instr_tmp.iseq("active") {
+		call instr.bu_in_enable.disable
+		call instr.bu_in_disable.enable
+	}
+END
+
+PROGRAM instr_in_disable
+BEGIN
+	call instrINCommandDisplayList.findstr class instr.lb_inBuild.value
+	call instr_in_position.setvalue class instrINCommandDisplayList.position
+
+	call instr_tmp.setvalue class instr.lb_inBuild.value
+	call instrINStatusList.store class instr_in_position.value "disable"
+	call instrINCommandValues.store class instr_in_position.value ""
+	call STMP.format "resource LBL_PAREN_DISABLED"
+	call instr_tmp.append " "
+	call instr_tmp.append class STMP.value
+	call instr_tmp.withvalue STMP.setvalue "@"
+	call instr_tmp.withvalue instrINCommandDisplayList.store	///
+		class instr_in_position.value "@"
+
+	call instrINCommandDisplayList.copyToArray instr_instrument_list
+	call instr.lb_inBuild.repopulate
+	call instr.lb_inBuild.setvalue class STMP.value
+END
+
+PROGRAM instr_in_enable
+BEGIN
+	call instrINCommandDisplayList.findstr class instr.lb_inBuild.value
+	call instr_in_position.setvalue class instrINCommandDisplayList.position
+
+	call instrINStatusList.store class instr_in_position.value "active"
+	call instr_in_position.withvalue instrINCommandValues.store	///
+		class instr_in_position.value class instrINCommandList.values[@]
+
+	call instr_in_position.withvalue STMP.format			///
+		"resource LBL_INSTRUMENT_FMT" "@" ""
+	call STMP.withvalue						///	
+		instrINCommandDisplayList.store				///
+		class instr_in_position.value "@"
+
+	call instrINCommandDisplayList.copyToArray instr_instrument_list
+	call instr_in_position.withvalue instr_tmp2.setvalue class	///
+		instrINCommandDisplayList.values[@]
+	call instr.lb_inBuild.repopulate
+	call instr.lb_inBuild.setvalue class instr_tmp2.value
+
+END
+
+PROGRAM instr_lb_inBuild_output
+BEGIN
+	call instrINCommandValues.copyToString instr_in_cmd_output
+
+	if instr_in_cmd_output {
+		put instr_in_cmd_output
+	}
+END
+
+PROGRAM instr_xtin_create
+BEGIN
+	call instr_xtin_count.setvalue class instrXTINChildDialogList.size
+	call instr_xtin_count.increment
+	call instr_xtin_count.withvalue instr_xtin_childdlg.setvalue	///
+		"instr_xtinstrument@"
+	call program instr_show_xtin_child
+END
+
+PROGRAM instr_xtin_edit
+BEGIN
+	call instrXTINCommandDisplayList.findstr class instr.lb_xtinBuild.value
+	call instr_xtin_position.setvalue class 			///
+			instrXTINCommandDisplayList.position
+	call instr_xtin_position.withvalue instr_xtin_childdlg.setvalue	///
+		class instrXTINChildDialogList.values[@]
+
+	call program instr_show_xtin_child_edit
+END
+
+PROGRAM instr_show_xtin_child
+BEGIN
+	call instr_xtin_childdlg.withvalue create CHILD gmm_new_xtinstr AS @
+	call instr_xtin_childdlg.withvalue @.setExitString		///
+		"instr_xtin_child_result"
+	call instr_xtin_childdlg.withvalue @.setExitAction		///
+		"program instr_xtin_child_done"
+
+	call instr_xtin_count.withvalue STMP.format			///
+		"resource LBL_XTINSTRUMENT_FMT" "@" ""
+	call STMP.withvalue instr_xttmp.setvalue "@"
+	call instr_xtin_childdlg.withvalue instr_xttmp2.setvalue "@.settitle"
+	call instr_xttmp2.append `" ""'
+	call instr_xttmp2.append class instr_xttmp.value
+	call instr_xttmp2.append `"""'
+	call instr_xttmp2.withvalue @
+END
+
+PROGRAM instr_show_xtin_child_edit
+BEGIN
+	call instr_xtin_childdlg.withvalue create CHILD gmm_new_xtinstr AS @
+	call instr_xtin_childdlg.withvalue @.setExitString		///
+		"instr_xtin_child_result"
+	call instr_xtin_childdlg.withvalue @.setExitAction		///
+		"program instr_xtin_child_done"
+
+	call instr_xtin_position.withvalue instr_xttmp.setvalue		///
+		class instrXTINCommandDisplayList.values[@]
+	call instr_xtin_childdlg.withvalue instr_xttmp2.setvalue "@.settitle"
+	call instr_xttmp2.append `" ""'
+	call instr_xttmp2.append class instr_xttmp.value
+	call instr_xttmp2.append `"""'
+	call instr_xttmp2.withvalue @
+END
+
+PROGRAM instr_xtin_child_done
+BEGIN
+	call instrXTINChildDialogList.findstr class instr_xtin_childdlg.value
+	call instr_xtin_position.setvalue class				///
+		instrXTINChildDialogList.position
+	if instr_xtin_position {
+		call instr_xtin_position.withvalue instr_xttmp.setvalue	///
+			class instrXTINStatusList.values[@]
+		if instr_xttmp.iseq("active") {
+			call instr_xtin_position.withvalue STMP.format	///
+				"resource LBL_XTINSTRUMENT_FMT" "@" ""
+			call STMP.withvalue				///	
+				instrXTINCommandDisplayList.store class	///
+				instr_xtin_position.value "@"
+			call instrXTINCommandValues.store class		///
+				instr_xtin_position.value class		///
+				instr_xtin_child_result.value
+			call STMP.withvalue				///
+				instr_xttmp2.setvalue "@"
+		}
+		else {
+			call instr_xtin_position.withvalue STMP.format	///
+				"resource LBL_XTINSTRUMENT_FMT" "@"	///
+				"resource LBL_PAREN_DISABLED"
+			call STMP.withvalue				///
+				instrXTINCommandDisplayList.store	///
+				class instr_xtin_position.value "@"
+		}
+
+		call instrXTINCommandList.store class			///
+			instr_xtin_position.value class			///
+			instr_xtin_child_result.value
+
+		call instrXTINCommandDisplayList.copyToArray		///
+			instr_xtinstrument_list
+		call instr.lb_xtinBuild.repopulate
+		call instr.lb_xtinBuild.setvalue class instr_xttmp2.value
+	}
+	else {
+		call instr_xtin_arraysize.setvalue class		///
+			instrXTINChildDialogList.size
+		call instr_xtin_arraysize.increment
+
+		/* Store child dialog name */
+		call instrXTINChildDialogList.store class		///
+			instr_xtin_arraysize.value class		///
+			instr_xtin_childdlg.value
+
+		/* Store listbox display instrument string */
+		call instr_xtin_arraysize.withvalue STMP.format		///
+				"resource LBL_XTINSTRUMENT_FMT" "@" ""
+		call STMP.withvalue					///	
+			instrXTINCommandDisplayList.store class		///
+			instr_xtin_arraysize.value "@"
+
+		/* Store child dialog result string */
+		call instrXTINCommandList.store class			///
+			instr_xtin_arraysize.value class		///
+			instr_xtin_child_result.value
+
+		/* Store child dialog result string for final command
+		   For disable/enable */
+		call instrXTINCommandValues.store class			///
+			instr_xtin_arraysize.value class		///
+			instr_xtin_child_result.value
+
+		/* Store disable/enable status */
+		call instrXTINStatusList.store				///
+			class instr_xtin_arraysize.value "active"
+
+		call instrXTINCommandDisplayList.copyToArray		///
+			instr_xtinstrument_list
+		call instr.lb_xtinBuild.repopulate
+		call instr_xtin_arraysize.withvalue STMP.format		///
+			"resource LBL_XTINSTRUMENT_FMT" "@" ""
+		call STMP.withvalue					///	
+			instr.lb_xtinBuild.setvalue "@"
+	}
+END
+
+PROGRAM instr_xtin_sel_changed
+BEGIN
+	call instrXTINCommandDisplayList.findstr class instr.lb_xtinBuild.value
+	call instr_xtin_position.setvalue class				///
+		instrXTINCommandDisplayList.position
+
+	if instr_xtin_position {
+		call instr.bu_xtin_edit.enable
+		call instr_xtin_position.withvalue			///
+			instr.tb_xtin_note.setlabel			///
+			class instrXTINCommandList.values[@]
+	}
+
+	call instr_xtin_position.withvalue instr_xttmp.setvalue		///
+		class instrXTINStatusList.values[@]
+
+	if instr_xttmp.iseq("disable") {
+		call instr.bu_xtin_enable.enable
+		call instr.bu_xtin_disable.disable
+	}
+	if instr_xttmp.iseq("active") {
+		call instr.bu_xtin_enable.disable
+		call instr.bu_xtin_disable.enable
+	}
+END
+
+PROGRAM instr_xtin_disable
+BEGIN
+	call instrXTINCommandDisplayList.findstr class instr.lb_xtinBuild.value
+	call instr_xtin_position.setvalue class				///
+		instrXTINCommandDisplayList.position
+
+	call instr_xttmp.setvalue class instr.lb_xtinBuild.value
+	call instrXTINStatusList.store class instr_xtin_position.value "disable"
+	call instrXTINCommandValues.store class instr_xtin_position.value ""
+	call STMP.format "resource LBL_PAREN_DISABLED"
+	call instr_xttmp.append " "
+	call instr_xttmp.append class STMP.value
+	call instr_xttmp.withvalue STMP.setvalue "@"
+
+	call instr_xttmp.withvalue instrXTINCommandDisplayList.store	///
+		class instr_xtin_position.value "@"
+
+	call instrXTINCommandDisplayList.copyToArray instr_xtinstrument_list
+	call instr.lb_xtinBuild.repopulate
+	call instr.lb_xtinBuild.setvalue class STMP.value
+END
+
+PROGRAM instr_xtin_enable
+BEGIN
+	call instrXTINCommandDisplayList.findstr class instr.lb_xtinBuild.value
+	call instr_xtin_position.setvalue class				///
+		instrXTINCommandDisplayList.position
+
+	call instrXTINStatusList.store class instr_xtin_position.value "active"
+	call instr_xtin_position.withvalue instrXTINCommandValues.store ///
+		class instr_xtin_position.value class			///
+		instrXTINCommandList.values[@]
+
+	call instr_xtin_position.withvalue STMP.format			///
+		"resource LBL_XTINSTRUMENT_FMT" "@" ""
+	call STMP.withvalue						///	
+		instrXTINCommandDisplayList.store			///
+		class instr_xtin_position.value "@"
+
+	call instrXTINCommandDisplayList.copyToArray instr_xtinstrument_list
+	call instr_xtin_position.withvalue instr_xttmp2.setvalue class	///
+		instrXTINCommandDisplayList.values[@]
+	call instr.lb_xtinBuild.repopulate
+	call instr.lb_xtinBuild.setvalue class instr_xttmp2.value
+
+END
+
+PROGRAM instr_lb_xtinBuild_output
+BEGIN
+	call instrXTINCommandValues.copyToString instr_xtin_cmd_output
+
+	if instr_xtin_cmd_output {
+		call has_xt_instr.settrue
+		put instr_xtin_cmd_output
+	}
+END
+
+SCRIPT wm_PREINIT
+BEGIN
+	create STRING wm_tsset
+	create BOOLEAN has_xt_wm
+	has_xt_wm.setfalse
+END
+
+
+DIALOG wm, tabtitle(resource LBL_TAB_WEIGHT_MATRIX)
+BEGIN
+  GROUPBOX gb_wm	_lft	_top	_iwd	_ht16h,			///
+	label(resource LBL_SPECIFY_WEIGHTING_MATRIX)
+
+  TEXT tx_wmtype	_ilft	_ss	_cwd1	.,			///
+	label(resource LBL_WEIGHTING_MATRIX_TYPE)
+  DEFINE holdy @y
+  LISTBOX lb_wmtype	@	_ss	_cwd1	85,			///
+	contents(wmtype_list)						///
+	values(wmtype_values)						///
+	onselchangelist(wmtype_actions)
+
+  CHECKBOX ck_center	_ilft	145	220	.,			///
+	label(resource LBL_CENTER_SAMPLE_MOMENTS)			///
+	option(center)
+  CHECKBOX ck_indep	@	_ms	220	.,			///
+	label(resource LBL_MOMENT_EQ_ARE_INDEPENDENT)			///
+	option(independent)
+
+  TEXT tx_cluster	_lft2	holdy	@	.,			///
+	label(resource LBL_CLUSTER_VARIABLE)
+  DEFINE holdy @y
+  VARNAME vn_cluster	@	_ss	_vnwd	.,			///
+	label(resource LBL_CLUSTER_VARIABLE)				///
+	option(cluster)
+
+  TEXT tx_hac		@	holdy	_cwd3_0	.,			///
+	label(resource LBL_KERNEL)
+  COMBOBOX cb_hac	@	_ss	_vnwd	.,			///
+	label(resource LBL_KERNEL)					///
+	contents(wm_hac_list)						///
+	values(wm_hac_values)						///
+	dropdownlist
+
+  GROUPBOX gb_k_opts	@	_ls	_cwd2	_ht8,			///
+	label(resource LBL_NUMBER_OF_LAGS)
+
+  RADIO rb_default	_indent	_ss	_cwd4	., first		///
+	label(resource LBL_N2_LAGS_DEFAULT)
+
+  RADIO rb_lags		@	_ss	_rbwd	.,			///
+	onclickon(wm.sp_lags.enable)					///
+	onclickoff(wm.sp_lags.disable)					///
+	option(NONE)
+  SPINNER sp_lags	_rbsep	@	_spwd	.,			///
+	default(1)							///
+	min(0)								///
+	max(c(N))
+  TEXT tx_lags		_spsep	@	100	.,			///
+	label(resource LBL_LAGS)
+
+  RADIO rb_opt		_ilft2	_ss	_cwd4	., last			///
+	option(opt)							///
+	onclickon(wm.sp_opt_lags.enable)				///
+	onclickoff(wm.sp_opt_lags.disable)				///
+	label(resource LBL_USE_LAG_SELECTION_ALGORITHM)
+
+  SPINNER sp_opt_lags	_rbsep	_ss	_spwd	.,			///
+	label(resource LBL_LAGS)					///
+	default(20)							///
+	min(0)								///
+	max(c(N))
+  TEXT tx_opt_lags	_spsep	@	100	.,			///
+	label(resource LBL_LAGS)
+
+  TEXT tx_temp		0	+95	_dlgwd	.
+  TEXT tx_note		_lft	-20	_comb3_1 .
+  DEFINE _x _xsetbu
+  DEFINE _y @y
+  INCLUDE _bu_tsset
+
+  GROUPBOX gb_iwm	_lft	_ls	_iwd	_ht18h,			///
+	label(resource GMM_WM_GB_IWM)
+  RADIO rb_iwm_un	_ilft	_ss	_inwd	., first		///
+	label(resource GMM_WM_RB_IWM_UN)
+  RADIO rb_iwm_id	@	_ss	@	.,			///
+	label(resource LBL_USE_IDENTITY_MATRIX)				///
+	option(identity)
+  RADIO rb_iwm_xt	@	_ss	@	., 			///
+	onclickon(script wm_rb_iwm_xt_on)				///
+	onclickoff(script wm_rb_iwm_xt_off)				///
+	label(resource GMM_WM_RB_IWM_XT)
+  RADIO rb_iwm_inp	@	+100	@	., last 		///
+	label(resource LBL_USE_MATRIX)					///
+	onclickon(script wm_rb_iwm_inp_on)				///
+	onclickoff(script wm_rb_iwm_inp_off)
+  COMBOBOX cb_iwm_inp	_indent2 _ss	190	.,			///
+	label(resource LBL_USE_MATRIX)					///
+	contents(matrix)						///
+	dropdown
+  BUTTON bu_iwm_inp	+195	@	100	.,			///
+	label(resource LBL_INPUT_MATRIX)				///
+	onpush(program wm_show_matrix_input)				///
+	tooltip(resource LBL_INPUT_HAND)
+  RADIO rb_iwm_xt_L	50	-100	_cwd1	., first		///
+	label(resource GMM_WM_RB_IWN_XT_L)				///
+	option(L)
+  RADIO rb_iwm_xt_D	@	_ss	@	.,			///
+	label(resource GMM_WM_RB_IWM_XT_D)				///
+	option(D)
+  RADIO rb_iwm_xt_LD	@	_ss	@	., 			///
+	label(resource GMM_WM_RB_IWM_XT_LD)				///
+	option(LD)
+  RADIO rb_iwm_xt_DL	@	_ss	@	., last			///
+	label(resource GMM_WM_RB_IWM_XT_DL)				///
+	option(DL)
+END
+
+SCRIPT main_wm_on
+BEGIN
+	wm.tx_wmtype.enable
+	wm.lb_wmtype.enable
+	wm.ck_center.enable
+	wm.ck_indep.enable
+	wm.tx_cluster.enable
+	wm.vn_cluster.enable
+	wm.tx_hac.enable
+	wm.cb_hac.enable
+	wm.bu_tsset.enable
+	wm.tx_note.enable
+	program wm_notes_for_tsset
+	program wm_check_type
+END
+
+SCRIPT main_wm_off
+BEGIN
+	wm.tx_wmtype.disable
+	wm.lb_wmtype.disable
+	wm.ck_center.disable
+	wm.ck_indep.disable
+	wm.tx_cluster.disable
+	wm.vn_cluster.disable
+	wm.tx_hac.disable
+	wm.cb_hac.disable
+	wm.bu_tsset.disable
+	wm.tx_note.disable
+
+	script se_setDefaultUnadjusted
+END
+
+PROGRAM wm_check_type
+BEGIN
+	if wm.lb_wmtype.iseq("robust") {
+		call script se_setDefaultRobust
+	}
+	if wm.lb_wmtype.iseq("cluster") {
+		call script se_setDefaultClusteredRobust
+	}
+	if wm.lb_wmtype.iseq("hac") {
+		call script se_setDefaultHAC
+	}
+	if wm.lb_wmtype.iseq("unadjusted") {
+		call script se_setDefaultUnadjusted
+	}
+END
+
+PROGRAM wm_wmtype_on
+BEGIN
+	call wm.tx_wmtype.enable
+	call wm.lb_wmtype.enable
+	call wm.ck_center.enable
+	call wm.ck_indep.enable
+	call wm.tx_cluster.enable
+	call wm.vn_cluster.enable
+	call wm.tx_hac.enable
+	call wm.cb_hac.enable
+	call wm.bu_tsset.enable
+	call wm.tx_note.enable
+	call program wm_notes_for_tsset
+	call wm.gb_k_opts.enable
+	call wm.rb_default.enable
+	call wm.rb_lags.enable
+	if wm.rb_lags {
+		call wm.sp_lags.enable
+	}
+	call wm.tx_lags.enable
+	call wm.rb_opt.enable
+	call wm.sp_opt_lags.enable
+	call wm.tx_opt_lags.enable
+	call program wm_check_type
+END
+
+SCRIPT wm_wmtype_off
+BEGIN
+	wm.tx_wmtype.disable
+	wm.lb_wmtype.disable
+	wm.ck_center.disable
+	wm.ck_indep.disable
+	wm.tx_cluster.disable
+	wm.vn_cluster.disable
+	wm.tx_hac.disable
+	wm.cb_hac.disable
+	wm.gb_k_opts.disable
+	wm.rb_default.disable
+	wm.rb_lags.disable
+	wm.sp_lags.disable
+	wm.tx_lags.disable
+	wm.rb_opt.disable
+	wm.sp_opt_lags.disable
+	wm.tx_opt_lags.disable
+	program wm_check_type
+END
+
+SCRIPT wm_hide_all
+BEGIN
+	wm.tx_cluster.hide
+	wm.vn_cluster.hide
+	wm.tx_hac.hide
+	wm.cb_hac.hide
+	wm.bu_tsset.hide
+	wm.tx_note.hide
+	wm.gb_k_opts.hide
+	wm.rb_default.hide
+	wm.rb_lags.hide
+	wm.sp_lags.hide
+	wm.tx_lags.hide
+	wm.rb_opt.hide
+	wm.sp_opt_lags.hide
+	wm.tx_opt_lags.hide
+	program wm_check_type
+END
+
+LIST wmtype_list
+BEGIN
+	resource LBL_ROBUST
+	resource LBL_CLUSTERED_ROBUST
+	resource LBL_HAC
+	resource LBL_UNADJUSTED
+END
+
+LIST wmtype_values
+BEGIN
+	robust
+	cluster
+	hac
+	unadjusted
+END
+
+LIST wmtype_actions
+BEGIN
+	script wm_hide_all
+	script wm_cluster_on
+	script wm_hac_on
+	script wm_hide_all
+END
+
+LIST wm_hac_list
+BEGIN
+	resource LBL_BARTLETT
+	resource LBL_PARZEN
+	resource LBL_QUADRATICSPECTRAL
+END
+
+LIST wm_hac_values
+BEGIN
+	"bartlett"
+	"parzen"
+	"quadraticspectral"
+END
+
+PROGRAM wm_notes_for_tsset
+BEGIN
+	call wm_tsset.setstring char _dta[_TStvar]
+	if wm_tsset.equals("") {
+		call wm.tx_note.setlabel resource LBL_NOTE_TIME_SETTING_MUST_BE_SPECIFIED
+//			"Note: time settings must be specified."
+	}
+	else {
+		call wm.tx_note.setlabel ""
+	}
+END
+
+SCRIPT wm_cluster_on
+BEGIN
+	script wm_hide_all
+	wm.tx_cluster.show
+	wm.vn_cluster.show
+	program wm_check_type
+END
+
+SCRIPT wm_hac_on
+BEGIN
+	script wm_hide_all
+	wm.tx_hac.show
+	wm.cb_hac.show
+	wm.bu_tsset.show
+	wm.tx_note.show
+	program wm_notes_for_tsset
+	wm.gb_k_opts.show
+	wm.rb_default.show
+	wm.rb_lags.show
+	wm.sp_lags.show
+	wm.tx_lags.show
+	wm.rb_opt.show
+	wm.sp_opt_lags.show
+	wm.tx_opt_lags.show
+	program wm_check_type
+END
+
+SCRIPT wm_rb_iwm_xt_on
+BEGIN
+	wm.rb_iwm_xt_L.enable
+	wm.rb_iwm_xt_D.enable
+	wm.rb_iwm_xt_LD.enable
+	wm.rb_iwm_xt_DL.enable
+END
+
+SCRIPT wm_rb_iwm_xt_off
+BEGIN
+	wm.rb_iwm_xt_L.disable
+	wm.rb_iwm_xt_D.disable
+	wm.rb_iwm_xt_LD.disable
+	wm.rb_iwm_xt_DL.disable
+END
+
+SCRIPT wm_rb_iwm_inp_on
+BEGIN
+	wm.cb_iwm_inp.enable
+	wm.bu_iwm_inp.enable
+END
+
+SCRIPT wm_rb_iwm_inp_off
+BEGIN
+	wm.cb_iwm_inp.disable
+	wm.bu_iwm_inp.disable
+END
+
+PROGRAM wm_show_matrix_input
+BEGIN
+	call create STRING MatrixInputResult
+	call create CHILD matrix_input AS MatrixInput
+	if ! _rc {
+		call MatrixInput.setExitString MatrixInputResult
+		call MatrixInput.setExitAction "program wm_getMatrixInputResult"
+		call MatrixInput.callthru "isChildContext.settrue"
+	}
+END
+
+PROGRAM wm_getMatrixInputResult
+BEGIN
+	call wm.cb_iwm_inp.repopulate
+	call wm.cb_iwm_inp.setvalue class MatrixInputResult.value
+END
+
+PROGRAM wmatrix_output
+BEGIN
+	put wm.lb_wmtype
+	if wm.lb_wmtype.iseq("cluster") {
+		varlist wm.vn_cluster
+	}
+	if wm.lb_wmtype.iseq("hac") {
+		put " " wm.cb_hac
+		if wm.rb_opt {
+			option wm.rb_opt
+                        if !wm.sp_opt_lags.isdefault() {
+				put " "
+				put wm.sp_opt_lags
+                        }
+		}
+		if wm.rb_lags {
+			put " " wm.sp_lags
+		}
+	}
+	beginoptions
+		option wm.ck_indep
+	endoptions
+END
+
+PROGRAM winitial_output
+BEGIN
+	if wm.rb_iwm_id {
+		option wm.rb_iwm_id
+	}
+	if wm.rb_iwm_xt {
+		put "xt "
+		option radio(wm rb_iwm_xt_L rb_iwm_xt_D rb_iwm_xt_LD 	///
+			rb_iwm_xt_DL)
+		call has_xt_wm.settrue
+	}
+	if wm.rb_iwm_inp {
+		require wm.cb_iwm_inp
+		put wm.cb_iwm_inp
+		call has_xt_wm.settrue
+	}
+END
+
+PROGRAM wm_output
+BEGIN
+	// verify time settings
+	if wm.cb_hac.isvisible() {
+		call program wm_notes_for_tsset
+		if wm_tsset.equals("") {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_TIME_SETTINGS_REQUIRED_FMT" 	///
+				"resource LBL_HAC" 			///
+				"resource LBL_BU_TIME_SETTINGS" 	///
+				"resource LBL_TAB_WEIGHT_MATRIX" 
+			stopbox stop "class _MSG_TMP.value"
+// HAC requires time settings. See "Time settings" on the "Weight matrix" tab.
+		}
+	}
+	if wm.lb_wmtype.isvisible() {
+		if wm.lb_wmtype.iseq("robust") {
+			if wm.ck_indep {
+				put " wmatrix("
+				put /program wmatrix_output
+				put ") "
+			}
+			if wm.ck_center {
+				option wm.ck_center
+			}
+		}
+		else {
+			put " wmatrix("
+			put /program wmatrix_output
+			put ") "
+			if wm.ck_center {
+				option wm.ck_center
+			}
+		}
+	}
+
+	if !wm.rb_iwm_un {
+		put " winitial("
+		put /program winitial_output
+		put ") "
+	}
+END
+
+INCLUDE byifin
+INCLUDE weights_fpai
+INCLUDE se
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_facvarsResults
+	program rpt_bu_facvars_ckResults
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE   _x  _lft
+  DEFINE   _cx _spr
+  DEFINE   _y  _top
+  INCLUDE  _sp_level
+
+  TEXT tx_title		_lft	+35	60	.,			///
+	label(resource LBL_TITLE)
+  EDIT ed_title		@	_ss	_cwd1	.,			///
+	label(resource LBL_ED_TITLE)					///
+	option(title)
+  TEXT tx_title2	@	_ls	60	.,			///
+	label(resource LBL_SUBTITLE)
+  EDIT ed_title2	@	_ss	_cwd1	.,			///
+	label(resource LBL_ED_SUBTITLE)					///
+	option(title2)
+
+  DEFINE _x _lft
+  DEFINE _y _xls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE factor_vars_reporting_pr
+INCLUDE fmt_coef_table_reporting_pr
+
+DIALOG opt, tabtitle(resource LBL_TAB_OPTIMIZATION)
+BEGIN
+  TEXT tx_from		_lft	_top	_iwd	.,			///
+	label(resource LBL_TX_INITIAL_VALUES)
+  EDIT ed_from		_lft	_ss	_iwd	.,			///
+	label(resource LBL_INITIAL_VALUES)				///
+	option(from)
+  GROUPBOX gb_gmm	_lft	_ls	_iwd	_ht10,			///
+	label(resource LBL_ITERATIVE_OPTIONS)
+  SPINNER sp_iter	_indent	_ms	_spwd	.,			///
+	label(resource LBL_MAXIMUM_ITERATIONS)		 		///
+	min(0) 								///
+	max(16000)							///
+	default(300)							///
+	option(igmmiterate)
+  TEXT tx_iter		_spsep	@	_iwd	.,			///
+	label(resource LBL_MAXIMUM_ITERATIONS)
+  
+  GROUPBOX gb_conv	_ilft	_ls	_inwd	_ht3,			///
+	label(resource LBL_CONVERGENCE_TOLERANCE)
+  EDIT ed_param		_iilft	_ms	_en7wd	.,			///
+	label(resource LBL_PARAMETER_ESTIMATES)				///
+	option(igmmeps)							///
+	default(1e-6)
+  TEXT tx_param		_en7sep	@	_en7r2b	.,			///
+	label(resource LBL_PARAMETER_ESTIMATES)
+  EDIT ed_wm		_ilft2	@	_en7wd	.,			///
+	label(resource LBL_WEIGHTING_MATRIX_ESTIMATES)			///
+	option(igmmweps)						///
+	default(1e-6)
+  TEXT tx_wm		_en7sep	@	_en7r2b	.,			///
+	label(resource LBL_WEIGHTING_MATRIX_ESTIMATES)
+
+  GROUPBOX gb_opti_opts	_lft	+65	_iwd	_ht20,			///
+	label(resource LBL_OPTIMIZATION_OPTIONS)
+
+  COMBOBOX cb_tech	_indent	_ms	200	.,			///
+	dropdownlist							///
+	option(technique)						///
+	contents(technique_list)					///
+	values(technique_val_list)
+  TEXT tx_tech		+205	@	140	.,			///
+	label(resource LBL_TECHNIQUE)
+
+  SPINNER sp_iter_i	_ilft2	@	_spwd	.,			///
+	label(resource LBL_MAXIMUM_ITERATIONS)				///
+	option(conv_maxiter)						///
+	min(0) 								///
+	max(16000)							///
+	default(c(maxiter))
+  TEXT tx_iter_i	_spsep	@	_spr2	.,			///
+	label(resource LBL_MAXIMUM_ITERATIONS)
+
+  GROUPBOX gb_tol	_ilft	_ls	555	_ht7,			///
+	label(resource LBL_TOLERANCE)
+  EDIT ed_ptol		_indent	_ms	_en7wd	.,			///
+	option(conv_ptol)						///
+	default(1e-6)							///
+	label(resource LBL_PARAMETER)
+  DEFINE holdy @y
+  TEXT tx_ptol		_en7sep	@	_cwd1	.,			///
+	label(resource LBL_PARAMETER)
+  EDIT ed_vtol		_ilft2	holdy	_en7wd	.,			///
+	option(conv_vtol)						///
+	default(1e-7)							///
+	label(resource LBL_FUNCTION)
+  TEXT tx_vtol		_en7sep	@	_cwd1	.,			///
+	label(resource LBL_FUNCTION)
+  EDIT ed_nrtol		_iilft	_xls	_en7wd	.,			///
+	option(conv_nrtol)						///
+	default(1e-5)							///
+	label(resource GMM_ED_NRTOL)
+  TEXT tx_nrtol		_en7sep	@	_cwd1	.,			///
+	label(resource GMM_ED_NRTOL)
+  TEXT tx_tracel	_ilft	_xxls	@	.,			///
+	label(resource LBL_TRACE_LEVEL)
+  COMBOBOX cb_tracel	@	_ss	200	.,			///
+	dropdownlist							///
+	option(tracelevel)						///
+	contents(tracelevel_list)					///
+	values(tracelevel_val_list)
+END
+	
+LIST technique_list
+BEGIN
+	resource LBL_GAUSS_NEWTON
+	resource LBL_MODIFIED_NEWTON_RAPHSON
+	resource LBL_DAVIDON_FLETCHER_POWELL
+	resource LBL_BROYDEN_FLETCHER_GOLDFARB_SHANNO
+END
+
+LIST technique_val_list
+BEGIN
+	""
+	"nr"
+	"dfp"
+	"bfgs"
+END
+
+LIST tracelevel_list
+BEGIN
+	resource LBL_NOTHING
+	resource LBL_FUNCTION_VALUE
+	resource LBL_PREVIOUS_CONVERGENCE_VALUES
+	resource LBL_PREVIOUS_PARAMETER_VALUES
+	resource LBL_PREVIOUS_STEPPING_INFORMATION
+	resource LBL_PREVIOUS_GRADIENT_VECTOR
+	resource LBL_PREVIOUS_HESSIAN_MATRIX
+END
+
+LIST tracelevel_val_list
+BEGIN
+	""
+	"value"
+	"tolerance"
+	"params"
+	"step"
+	"gradient"
+	"hessian"
+END
+
+PROGRAM command
+BEGIN
+	put " " /program by_output
+	put " " /program se_prefix_output
+	put "gmm "
+	if main.rb_interactive {
+		put " " /program main_lb_eqBuild_output
+	}
+	if main.rb_program {
+		require main.ed_prog_n
+		put " " main.ed_prog_n
+	}
+
+	put " " /program ifin_output
+	put " " /program weights_output
+	beginoptions
+		option radio(main rb_onestep rb_igmm)
+	
+		if main.rb_program {
+			put main.ed_prog_opt
+			option main.rb_hasder
+			option main.rb_haslfder
+			if main.ed_eqn.iseq("") & main.ed_neqn.iseq("") {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 				///
+					"resource GMM_MSGBOX_EQUATION_NAME_NUMBER_REQUIRED_FMT" ///
+					"resource LBL_TX_NAME" 			///
+					"resource LBL_ED_NUMBER" 		///
+					"resource LBL_TAB_MODEL"
+				stopbox stop "class _MSG_TMP.value"
+// You must specify an equation "Name" or "Number" on the "Model" tab.				
+			}
+			if main.ed_param.iseq("") & main.ed_nparam.iseq("") {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format				/// 
+					"resource GMM_MSGBOX_PARAMETER_NAME_NUMBER_REQUIRED_FMT" ///
+					"resource LBL_TX_NAME" 			///
+					"resource LBL_ED_NUMBER" 		///
+					"resource LBL_TAB_MODEL"
+				stopbox stop "class _MSG_TMP.value"
+// You must specify a parameter "Name" or "Number" on the "Model" tab.				
+			}
+			optionarg main.ed_eqn
+			optionarg main.ed_neqn
+			optionarg main.ed_param
+			optionarg main.ed_nparam
+		}
+
+		put " " /program main_lb_deBuild_output
+		put " " /program instr_lb_inBuild_output
+		put " " /program instr_lb_xtinBuild_output
+		put " " /program wm_output
+
+		if (!has_xt_instr & wm.rb_iwm_xt) {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format					/// 
+				"resource GMM_MSGBOX_PANEL_STYLE_INSTRUMENTS_FMT" ///
+				"resource GMM_INSTR_TX_XTINBUILD" 		///
+				"resource LBL_INSTRUMENTS" 			///
+				"resource GMM_WM_RB_IWM_XT"			///
+				"resource LBL_TAB_WEIGHT_MATRIX" 
+			stopbox stop "class _MSG_TMP.value"
+
+// Initial weight matrix not allowed.	
+// You must specify "Panel-style instruments" on "Instruments" tab		
+// with "Panel-style" on the "Weight matrix" tab.
+		}
+		if (has_xt_instr & !has_xt_wm) {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format 					///
+				"resource GMM_MSGBOX_PANEL_STYLE_USE_MATRIX_FMT" ///
+				"resource GMM_WM_RB_IWM_XT" 			///
+				"resource LBL_USE_MATRIX" 			///
+				"resource LBL_TAB_WEIGHT_MATRIX" 
+			stopbox stop "class _MSG_TMP.value"
+			
+// Initial weight matrix not defined.
+// You must specify "Panel-style" or "Use matrix:" on the
+// "Weight matrix" tab with Panel-type instruments.
+		}
+		if main.vl_vars {
+			optionarg main.vl_vars
+		}
+		option main.ck_nocomm
+		put " " /program se_output
+
+		optionarg /hidedefault rpt.sp_level
+		optionarg rpt.ed_title
+		optionarg rpt.ed_title2
+		INCLUDE _report_columns_pr
+		put " " rpt_bu_fmtcoefResults
+		put " " rpt_bu_facvarsResults
+		optionarg opt.ed_from
+		if main.rb_igmm {
+			optionarg /hidedefault opt.sp_iter
+			optionarg /hidedefault opt.ed_param
+			optionarg /hidedefault opt.ed_wm
+		}
+		optionarg /hidedefault opt.cb_tech
+		optionarg /hidedefault opt.sp_iter_i
+		optionarg /hidedefault opt.ed_ptol
+		optionarg /hidedefault opt.ed_vtol
+		optionarg /hidedefault opt.ed_nrtol
+		optionarg /hidedefault opt.cb_tracel
+	endoptions
+END
+

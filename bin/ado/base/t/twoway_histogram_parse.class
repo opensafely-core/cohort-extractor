@@ -1,0 +1,179 @@
+/*                                 twoway_histogram_parse
+
+   A parser for histogram.  Works with twoway.ado.
+
+*/
+*! version 1.1.4  21may2003
+
+version 8
+
+class {
+	hist_vln	= ""		// value label name
+	hist_opts	= ""
+	hist_gap	= 0		// default value
+	hist_y		= "_height"
+	hist_x		= "x"
+} , inherit(twoway_rbar_parse)
+
+// ---------------------------------------------------------------------------
+
+program parse
+	.must_create_serset = 1
+	.viewtype = "rbar"
+	.n = 1						// number of plots
+	.varcheck = 0					// side signal
+	.allow_anything = 1
+
+	.Super.parse `0'
+
+	_clsarr2list mlablist : labvars			// allow marker labels
+	local vlist `.anything'
+	local vlist : list vlist - mlablist
+
+	local options `"`vlist' [`.wtype'`.wtexp'], `.options'"'
+	_parse expand loc glob : options
+	if `loc_n' != 1 {
+		error 198
+	}
+	local 0 `"`loc_1'"'
+	_parse combop 0 : 0, option(BIN)	rightmost
+	_parse combop 0 : 0, option(Width)	rightmost
+	_parse combop 0 : 0, option(START)	rightmost
+	_parse combop 0 : 0, option(GAP)	rightmost
+
+	syntax varname(numeric) [fw aw]	[,	///
+		DISCrete			///
+		BIN(numlist max=1 >=0 integer)	///
+		Width(numlist max=1 >0)		///
+		START(numlist max=1)		///
+		DENsity FRACtion FREQuency	///
+		percent				///
+		GAP(real `.hist_gap')		///
+		*				///
+	]
+	.varlist = "`varlist'"
+
+	local vln : value label `varlist'
+	capture label list `vln'
+	if !_rc .hist_vln = "`vln'"
+
+	if `gap' < 0 | 100 <= `gap' {
+		di as err "option gap() must be between 0 and 100"
+		exit 198
+	}
+	.hist_gap = `gap'
+
+	local type `density' `fraction' `frequency' `percent'
+	local opts `discrete' bin(`bin') width(`width') start(`start') `type'
+	.hist_opts = `"`:list retok opts'"'
+
+	/* this is a partial parse, see second call to -twoway__histogram_gen-
+	 * in -log_create_serset-
+	 */
+	twoway__histogram_gen `.varlist'	///
+		[`.wtype'`.wtexp']		///
+		`.if' `.in',			///
+		`.hist_opts'			///
+		// blank
+
+	.options   = `"`options'"'
+end
+
+/* -------------------------------------------------------------------------*/
+/*
+	Creates a new serset and the view and returns its reference.
+	Assumes that the data in memory is the same as when parse was called.
+
+	Allows a touse(varname) option that further restricts the sample, 
+	restricts beyond the held .if and .in
+
+	Additional options to the .serset.new command may be specified, but
+	this is unlikely to be necessary.
+
+	If must_create_serset == 1, then this command MUST be used, 
+	otherwise the serset may be created by other means.
+*/ 
+
+program log_create_serset
+
+	syntax , LOG(name) SERSETNAME(string) [ TOUSE(string) * ]
+
+	.log_touse , log(`log') touse(`touse')
+
+	tempvar touse2
+	mark `touse2' `.if' `.in'
+	qui replace `touse2' = 0 if !`touse'
+
+	local nolog  .`log'.Arrpush __NOLOG__
+
+	// compute the bar heights and bin centers
+	`nolog' tempvar x height zero
+	`nolog' twoway__histogram_gen		///
+		`.varlist'			///
+		[`.wtype'`.wtexp']		///
+		if \`touse1',			///
+		`.hist_opts'			///
+		generate(\`height' \`x')	///
+		// blank
+	`nolog' local hist_n_x = r(n_x)
+	twoway__histogram_gen			///
+		`.varlist'			///
+		[`.wtype'`.wtexp']		///
+		if `touse2',			///
+		return				///
+		`.hist_opts'			///
+		// blank
+	.barwidth = cond(`.barwidth' < 0, r(width), `.barwidth')
+
+	`nolog' format %6.4g \`height'
+	`nolog' gen byte \`zero' = 0
+	`nolog' _crcslbl \`zero' \`height'
+
+	if `"`.hist_vln'"' != "" {
+		`nolog' label values \`x' `.hist_vln'
+	}
+
+	/* note: `height' has the appropriate label and the values generated
+	 * in `height' and `x' are NOT necessarily within the `touse1'
+	 * conditions
+	 */
+
+	.`log'.Arrpush				///
+		.`sersetname' = .serset.new	///
+			\`height' \`zero' \`x'	///
+			in 1/\`hist_n_x',	///
+			`.omitmethod'		///
+			`options'
+
+	`nolog' .`sersetname'.sers[1].name = "`.hist_y'"
+	`nolog' .`sersetname'.sers[2].name = "zero"
+	`nolog' .`sersetname'.sers[3].name = "`.hist_x'"
+	.varlist = "`.hist_y' zero `.hist_x'"
+
+	// remove weights, they are not needed
+	.wtype = ""
+	.wtexp = ""
+end
+
+/* -------------------------------------------------------------------------*/
+/*
+	Pushes onto the specified log any post-creation commands implied by 
+	the parsed syntax that must be applied to the created view.
+*/ 
+
+program log_edits
+	args log view i
+
+	.`log'.Arrpush .`view'.style.setstyle, style(histogram)
+
+	.Super.log_edits `log' `view' `i'
+
+	// get the barwidth
+	.`log'.Arrpush .`view'.bar_size = `.barwidth'*(100-`.hist_gap')/100
+
+	if "`.viewtype'" == "rbar" {
+		.`log'.Arrpush .`view'.register_with_scale
+	}
+end
+
+exit

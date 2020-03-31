@@ -1,0 +1,1272 @@
+/*                                object
+
+	Base class for all objects
+*/
+*! version 1.3.1  29jan2015
+
+version 8
+
+class object {
+    class:
+	class dbstyle dbstyle
+}
+
+/* -------------------------------------------------------------------------*/
+/*  Returns the name of the class, instance, or dynamic attribute at the
+    specified index of the requested (classmv, instancemv, or dynamicmv) array.
+
+	Usage:  attribname array_name index
+
+		where:  array_name is "classmv", "instancemv", or "dynamicmv"
+*/
+
+program define attribname 
+
+	capture _cls nameoflocal .`1'[`2']
+	class exit `"`r(name)'"'
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*  Pops the last command off the command log.
+
+	Usage:  .poplog
+
+*/
+
+program define poplog
+
+	.popifendsin poplog
+	.__LOG.Arrpop 
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*  Pops the last command off the command log if the command terminates in
+    <str>.  Note <str> may not contain ".", or "]", or " ".
+
+	Usage:  .popifendsin str
+
+*/
+
+program define popifendsin
+
+	args str
+
+	local lastcmd `.__LOG[`.__LOG.arrnels']'
+
+	gettoken tok lastcmd : lastcmd , parse(".] ")
+	while `:list sizeof lastcmd' {
+		gettoken tok lastcmd : lastcmd , parse(".] ")
+	}
+
+	mata: st_local("found", strofreal(strpos(st_local("tok"), "`")))
+	if ! `found' {
+		if `"`tok'"' == `"`str'"' {
+			.__LOG.Arrpop
+		}
+	}
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*  Pops the last command if it contains <str>
+
+	Usage:  .popifcontains str
+
+*/
+
+program define popifcontains
+
+	args str
+
+	local lastcmd `.__LOG[`.__LOG.arrnels']'
+
+	local str : subinstr local lastcmd `"`str'"' `"`str'"', count(local ct)
+
+	if `ct' {
+		.__LOG.Arrpop
+	}
+end
+
+/* -------------------------------------------------------------------------*/
+/* Saves all objects of the specified class that are attributes of the 
+   specified object or any object it contains recursively.  
+   Builds a Map of the keys of the saved objects.
+*/
+
+program define saveall
+
+	args class save
+
+						// recurse on all attribs
+	foreach attrib_arr in instancemv dynamicmv {
+		if 0`.`attrib_arr'.arrnels' {
+			_saveall_arr `attrib_arr' `class' `save'
+		}
+	}
+
+	if ! `.isofclass `class'' {			// not saving these
+		exit
+	}
+	if "`.__Map.`.uname'.isa'" != "" {	// already saved
+		exit
+	}
+	.__Map.Declare `.uname' = .ref		// maintain map
+
+	if `save' {
+		if "`._scheme.isa'" != "" {
+			local scm <UseScheme> `._scheme.uname'
+		}
+		file write $T_loghndl 					///
+			"<BeginItem> `.classname' `.uname' `scm'" _n
+		if !`.isofclass serset' | 0$T_savesers {
+			.savetofile $T_loghndl		 // object's own save 
+		}
+		file write $T_loghndl "<EndItem>" _n
+	}
+
+end
+
+program define _saveall_arr
+	args array class save
+
+	forvalues i = 1/0`.`array'.arrnels' {
+		local attrib `array'[`i']
+
+		if "`.`attrib'.isa'" == "class" {
+			if `.`attrib'.isofclass cell'	              |	///
+			   "`.`attrib'.classname'" == "serset"        |	///
+			   "`.`attrib'.classname'" == "mataserset_g"  |	///
+			   `.`attrib'.isofclass scheme'		      |	///
+			   `.`attrib'.isofclass container' {
+				.`attrib'.saveall `class' `save'
+			}
+		}
+		else if "`.`attrib'.isa'" == "array" {
+			_saveall_arr `attrib' `class' `save'
+		}
+	}
+end
+
+/* -------------------------------------------------------------------------*/
+/* Default program for an object to save itself to disk.
+   If the object has a __LOG array, then that log is saved, regardless 
+   <EndItem> is spewed.
+*/
+ 
+program define savetofile
+	args filehndl
+
+	if "`.Local.__LOG.isa'" == "array" {
+		forvalues i = 1/0`.__LOG.arrnels' {
+			file classwrite `filehndl' __LOG[`i']
+			file write `filehndl' _n
+		}
+	}
+
+end
+
+/* -------------------------------------------------------------------------*/
+/* Default program to run a log for an item from a file.  Each line 
+   tends to be,
+
+         .<memberpgm or memberattrib>....
+
+   Often the first few lines of the object's log are processed by the object,
+   then runfromfile is called to run the remaining lines in the class context.
+   Processes log until an <EndItem> is encountered.
+
+*/
+
+program define runfromfile
+	args loghndl
+
+	local push 1
+	file read `loghndl' cmd
+	gettoken tok : cmd
+	while "`tok'" != "<EndItem>" & r(eof) == 0 {
+	    if "`tok'" == "<BeginCmd>" {		/* stop push */
+		local push 0
+	    }
+	    else if "`tok'" == "<EndCmd>" {		/* restart push */
+		local push 1
+	    }
+	    else {
+	    	if "`tok'" == "__NOLOG__" {
+			gettoken tok cmd : cmd
+			local push2 0
+		}
+		else	local push2 1
+
+		if 0$T_nostyles {
+		    if ! 0`._is_scheme_edit `cmd'' {
+			`cmd'
+			if `push' & `push2' {
+			    gettoken target : cmd , parse(" =")
+			    if bsubstr(`"`target'"', 1, 9) == ".sersets[" {
+						// must get new serset key
+				.__LOG.Arrpush `target' =		///
+					.__Map.``target'.uname'.ref
+			    }
+			    else {			// Standard "push"
+				.__LOG.Arrpush `macval(cmd)'
+			    }
+			}
+		    }
+		}
+		else {
+		    `cmd'
+		    if `push' & `push2' {
+			    gettoken target : cmd , parse(" =")
+			    if bsubstr(`"`target'"', 1, 9) == ".sersets[" {
+						// must get new serset key
+				.__LOG.Arrpush `target' =		///
+					.__Map.``target'.uname'.ref
+			    }
+			    else {			// Standard "push"
+				.__LOG.Arrpush `macval(cmd)'
+			    }
+		    }
+		}
+	    }
+	    file read `loghndl' cmd
+	    gettoken tok : cmd
+	}
+
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*  Examines a cmd and returns 1 if it is a scheme edit and 0 otherwise.
+*/
+
+program define _is_scheme_edit
+
+	local unused : subinstr local 0 ".decl_style" "",  count(local ct1)
+	local unused : subinstr local 0 ".style_edit" "",  count(local ct2)
+	local unused : subinstr local 0 ".editstyle" "" ,  count(local ct3)
+							// all editstyles ?
+
+	class exit = `ct1' | `ct2' | `ct3'
+end
+
+/* -------------------------------------------------------------------------*/
+/*  Types the log for the object to the screen.
+
+	Usage:  .showlog [ , lines(#) ]
+
+*/
+
+program define showlog
+
+	if "`.__LOG.isa'" != "array" { 
+		exit 
+	}
+
+	syntax [, Lines(integer -1) ]
+
+	.popifcontains .showlog
+
+	if `lines' == -1 { 
+		local lines = `.__LOG.arrnels' 
+	}
+
+	forvalues i = 1/`lines' {
+		di `"`.__LOG[`i']'"'
+	}
+
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*  Puts up a dialog box that allows the attributes of a class to be edited.
+
+    !? Passing name is a real kludge, so that we can have a fullname to post
+       to the log when an attribute is edited, much better if we had an
+       internal way of tracking this, but the first attempt was VERY
+       inefficient.  
+*/
+
+program define dialog_box
+
+	.popifcontains .dialog_box
+
+	syntax , Name(string) [ALL Classmv Instancemv Dynamicmv Redraw Apply ]
+
+	if "`all'`classmv'`instancemv'`dynamicmv'" == "" {  /* set defaults */
+		local instancemv instancemv
+		local dynamicmv dynamicmv
+	}
+
+	global T_Name `name'				/* just easier */
+	global T_SubNm `._restname'
+	global T_TopNm `._topname $T_Name'
+
+	global T_is_style 0				/* is this a style */
+	if 0`.isofclass style' {
+		if ! 0`.hasstyles' {
+			._populate_stylenames
+		}
+		global T_is_style = 0`.hasstyles'
+	}
+
+	local showopts `all' `classmv' `instancemv' `dynamicmv' `apply'
+	global T_opts `showopts'			/* for apply */
+
+
+							/* count attributes */
+	local tnels 0
+	foreach opt in classmv instancemv dynamicmv {
+		if "`all'``opt''" != "" { 
+			local tnels = `tnels' + 0`.`opt'.arrnels'
+		}
+	}
+	if $T_is_style { 
+		local tnels = `tnels' + 1 
+	}
+
+	if `tnels' > 400 {
+		di as error "class has too many attributes for a dialog box"
+		exit 198
+	}
+
+							/* set up for redraws
+							 * and applies */
+	if "`redraw'" != "" {
+		if `.isofclass grid' | `.isofclass graph_g' {
+			global T_drawobj `.objkey'
+			/* .implements member_pgm_name would be nice */
+		}
+		else {
+			local apply
+			di in green "note:  object is not a graph, ignoring " /*
+				*/ "redraw option"
+		}
+	}
+
+	if "`apply'" != "" { 
+		global T_curobj `.objkey' 
+	}
+
+						/* place attribute controls */
+
+	global T_percol = 1 + int( (`tnels'-1) /			/*
+		*/ (1 + int((`tnels'-1) / `.dbstyle.ctrls_per_col')) )
+	local x `.dbstyle.xspace'
+	local y 0
+	local ymax 0
+	local offset 0
+	if $T_is_style {
+	      ._place_controls_from x y ymax : ownstyle `x' `y' `ymax' `offset'
+	      local offset = `offset' + 1
+	}
+	if "`all'`classmv'"    != "" { 
+	      ._place_controls_from x y ymax : classmv   `x' `y' `ymax' `offset'
+	      local offset = `offset' + 0`.classmv.arrnels'
+	}
+	if "`all'`instancemv'" != "" { 
+	      ._place_controls_from x y ymax : instancemv `x' `y' `ymax' `offset'
+	      local offset = `offset' + 0`.instancemv.arrnels'
+	}
+	if "`all'`dynamicmv'"  != "" { 
+	      ._place_controls_from x y ymax : dynamicmv `x' `y' `ymax' `offset'
+	      local offset = `offset' + 0`.dynamicmv.arrnels'
+	}
+	global T_numctrls `offset'
+
+
+						/* OK, Cancel buttons */
+	._place_ok_cancel ymax : `.dbstyle.xspace' `ymax' "`apply'"
+
+	local ysz = `ymax' + `.dbstyle.ysize' + 2 * `.dbstyle.yspace' + 8
+	local xsz = `x' + `.dbstyle.ctrlsize' + `.dbstyle.edctrlsz' + 	/*
+		*/ `.dbstyle.txtsize' + 2*`.dbstyle.xgap' + `.dbstyle.xspace'
+
+						/* put up the dialog box */
+	capture noisily window dialog "`name'" . . `xsz' `ysz'
+	local rc = _rc
+
+	/* --------------- process the results -------------------------- */
+
+	global T_changed 0
+	tempname self				// just in case edits
+	.`self' = .ref				// delete ourself
+
+	if `rc' == 3098 {			/* canceled */
+						/* possibly reset and redraw */
+		._post_all , `showopts' reset 
+		if "$T_drawobj" != "" & $T_changed { 
+			.${T_drawobj}.drawgraph 
+			global T_changed 0
+		}
+		._style_cleanup
+		exit 
+	}
+
+	._post_all , `showopts'		/* post any changes to attributes */
+
+
+	if "$T_drawobj" != "" & $T_changed { 	/* redraw if changed */
+		.${T_drawobj}.drawgraph 
+		global T_changed 0
+	}
+					/* run a sub-view dialog box if
+					 * requested */
+	local xpnd = `rc'-3000-$T_is_style
+
+	if `xpnd' == 0 & $T_is_style {
+		._copy_style_db
+	}
+
+	if `xpnd' < 1 { 
+		exit 
+	}
+
+	local nels 0
+	foreach opt in classmv instancemv dynamicmv {
+		if "`all'``opt''" != "" & "`.`opt'.arrnels'" != "" { 
+			if `xpnd' <= `.`opt'.arrnels' {
+				_cls nameoflocal `opt'[`xpnd']
+				._run_view "`opt'[`xpnd']" , `showopts'   /*
+					*/ name(`name'.`r(name)')
+
+							/* rerun self */
+				.dialog_box, `showopts' name(`name')
+				continue, break
+			}
+
+			local xpnd = `xpnd' - `.`opt'.arrnels'
+		}
+	}
+	._style_cleanup
+
+end
+
+program define _place_controls_from
+	args xmac ymac ymaxmac colon array x y ymax offset
+
+	local ctrlsize	`.dbstyle.ctrlsize'
+	local edsize    `.dbstyle.edctrlsz'
+	local txtsize	`.dbstyle.txtsize'
+	local ysize	`.dbstyle.ysize'
+	local yspace	`.dbstyle.yspace'
+	local ycombosz  = `.dbstyle.ysize' * `.dbstyle.combo_lines'
+
+				/* put out edit controls for all of
+				 * the attributes */ local x0   = `x'
+	local xctl = `x0' + `edsize' + `.dbstyle.xgap'
+	local xtxt = `xctl' + `ctrlsize' + `.dbstyle.xgap'
+	local xfullsz = `edsize' + `ctrlsize' + `txtsize' + 2*`.dbstyle.xgap'
+
+	if "`array'" == "ownstyle" & 0`.hasstyles' {
+		local j = 1 + 0`offset'
+		if `j' > 1 & mod((`j'-1), $T_percol) == 0 {
+							/* shift a column */
+			local x0 = `x0' + `xfullsz' + `.dbstyle.xspace'
+			local xctl = `x0' + `edsize' + `.dbstyle.xgap'
+			local xtxt = `xctl' + `ctrlsize' + `.dbstyle.xgap'
+			local y = 0
+		}
+		local y = `y' + `ysize' + `yspace'
+		local ymax = max(`y', `ymax')
+
+		global T_txt`j' `.classname'
+
+						/* combo and label */
+		window control static T_txt`j' `xctl' 			/*
+			*/ `y' `ctrlsize' `ysize' right
+		global T_codes`j' `.Global.$T_Name.stylelist'
+		global T_v`j' `.Global.$T_Name.stylename'
+		global T_hv`j' ${T_v`j'}
+		window control scombo T_codes`j' `xtxt' `y' 		/*
+			*/ `=`ctrlsize'-8' `ycombosz' T_v`j'
+
+						/* copy button */
+		local rc = 3000 + `j'
+		global T_act`j' exit `rc'
+		window control button "copy" `x0' `y' `edsize' `ysize' T_act`j'
+
+		c_local `xmac' `x0'
+		c_local `ymac' `y'
+		c_local `ymaxmac' `ymax'
+
+		exit						/* EXIT */
+	}
+
+	if "`.`array'.isa'" != "array" { 
+		exit 
+	}
+
+	forvalues i = 1/`.`array'.arrnels' {
+		local j = `i' + 0`offset'
+		if `j' > 1 & mod((`j'-1), $T_percol) == 0 {
+							/* shift a column */
+			local x0 = `x0' + `xfullsz' + `.dbstyle.xspace'
+			local xctl = `x0' + `edsize' + `.dbstyle.xgap'
+			local xtxt = `xctl' + `ctrlsize' + `.dbstyle.xgap'
+			local y = 0
+		}
+		local y = `y' + `ysize' + `yspace'
+		local ymax = max(`y', `ymax')
+
+		local attrib `array'[`i']
+
+		capture _cls nameoflocal `array'[`i']
+		local name `r(name)'
+		if "`name'" == "" {
+			local name `.`attrib'.classname'
+			if "`name'" == "" { 
+				local name `j' 
+			}
+		}
+		global T_txt`j' "`name'"
+
+
+		if "`.`attrib'.isa'" == "string" {
+			window control static T_txt`j' `xtxt' `y' 	/*
+				*/ `txtsize' `ysize'
+			global T_v`j' `.`array'[`i']'
+			global T_hv`j' ${T_v`j'}
+			window control edit `xctl' `y' `ctrlsize' `ysize' T_v`j'
+			continue
+		}
+
+		if "`.`attrib'.isa'" == "double" {
+			window control static T_txt`j' `xtxt' `y' 	/*
+				*/ `txtsize' `ysize'
+			global T_v`j' `.`array'[`i']'
+			global T_hv`j' ${T_v`j'}
+			window control edit `xctl' `y' `ctrlsize' `ysize' T_v`j'
+			continue
+		}
+
+		if "`.`attrib'.isa'" == "class" {
+
+			if `.`attrib'.isofclass code' {
+				window control static T_txt`j' `xtxt' `y'   /*
+					*/ `txtsize' `ysize'
+				global T_codes`j' `.`attrib'.namelist'
+				global T_v`j' `.`attrib'.setting'
+				global T_hv`j' ${T_v`j'}
+				window control scombo T_codes`j' `xctl' `y' /*
+					*/ `ctrlsize' `ycombosz' T_v`j'
+				continue
+			}
+
+/* merge above ? */
+			if `.`attrib'.isofclass style' & 0`.`attrib'.hasstyles'{
+
+							/* combo and label */
+				window control static T_txt`j' `xtxt' `y'   /*
+					*/ `txtsize' `ysize'	/*same*/
+				global T_codes`j' `.`attrib'.stylelist'
+				global T_v`j' `.`attrib'.stylename'
+				global T_hv`j' ${T_v`j'}
+				window control scombo T_codes`j' `xctl' `y' /*
+					*/ `ctrlsize' `ycombosz' T_v`j'
+
+							/* edit button */
+				local rc = 3000 + `j'
+				global T_act`j' exit `rc'
+				window control button "edit" `x0' `y'	/*
+					*/ `edsize' `ysize' T_act`j'
+				continue
+			}
+
+			local rc = 3000 + `j'
+			global T_act`j' exit `rc'
+			window control button "`name'" `x0' `y' 	/*
+				*/ `xfullsz' `ysize' T_act`j'
+			continue
+
+			/* !? might add boxes for small styles */
+		}
+
+		if "`.`attrib'.isa'" == "array" {
+			local rc = 3000 + `j'
+			global T_act`j' exit `rc'
+			window control button "`name' (array)" `x0' `y'  /*
+				*/ `xfullsz' `ysize' T_act`j'
+		}
+		/* would be nice to have booleans and check boxes */
+		/* should disallow things that are not inherited from object */
+
+	}
+
+	c_local `xmac' `x0'
+	c_local `ymac' `y'
+	c_local `ymaxmac' `ymax'
+end
+
+
+program define _place_ok_cancel
+	args ymac colon x y apply
+
+	local y = `y' + `.dbstyle.ysize' + 2 * `.dbstyle.yspace'
+	global T_cancel "exit 3098"
+	global T_ok     "exit 3099"
+	window control button "OK"     `x'  `y' 30 `.dbstyle.ysize' T_ok
+	local sx = `x' + 40
+	window control button "Cancel" `sx' `y' 30 `.dbstyle.ysize' T_cancel
+
+	if "`apply'" == "apply" {
+		local sx = `sx' + 40
+		global T_apply  ".${T_curobj}._db_apply"
+		window control button "Apply" `sx' `y' 30 	/*
+			*/ `.dbstyle.ysize' T_apply
+	}
+
+	c_local `ymac' `y'
+end
+
+program define _post_all
+
+	syntax [, All Classmv Instancemv Dynamicmv Redraw Apply REset ]
+					/* post any changes to attributes */
+	local log $T_TopNm.__LOG
+
+	if ! `._set_changed' {
+		exit
+	}
+
+	if $T_is_style {
+		._post_style
+
+		if ! 0$T_changed_p1 {
+			exit
+		}
+	}
+
+	local offset = $T_is_style
+
+	if "`all'`classmv'"   !="" { 
+		._post_changes classmv `offset' `reset'
+		local offset = `offset' + 0`.classmv.arrnels'
+	}
+	if "`all'`instancemv'"!="" { 
+		._post_changes instancemv `offset' `reset'
+		local offset = `offset' + 0`.instancemv.arrnels'
+	}
+	if "`all'`dynamicmv'" !="" { 
+		._post_changes dynamicmv `offset' `reset'
+	}
+end
+
+program define _set_changed
+	global T_changed    0
+	global T_changed_p1 0
+
+	forvalues j = 1/$T_numctrls {
+		if `"${T_v`j'}"' != `"${T_hv`j'}"' { 
+			global T_changed 1
+			if `j' > 1 {
+				global T_changed_p1 1
+				continue, break
+			}
+		}	
+	}
+
+	class exit = $T_changed
+end
+
+
+/*  Style DBs have a pick list at the top that allows the style being edited
+    on the DB to be changed.  Handle any such change here.
+    Also declares styles in the scheme if an edit has occurred and there are
+    any named styles that own the object in the DB.
+*/
+
+program define _post_style
+
+	if "`reset'" != "" {
+		local h "h"			/* resetting original val */
+	}
+
+	if `"${T_v1}"' != `"${T_hv1}"' {
+		.setstyle, style(${T_`h'v1})
+		_gm_log $T_Name.setstyle, style(${T_`h'v1})
+	}
+
+end
+
+
+program define _post_changes
+	args array offset reset
+
+	if "`reset'" != "" { 			/* resetting original val */
+		local h "h"
+	}
+
+	if "`.`array'.isa'" != "array" { 
+		exit 
+	}
+
+						/* set up for logging */
+	local 0 , `array'
+	syntax [, CLASSMV DYNAMICMV INSTANCEMV * ]
+	if "`classmv'`dynamicmv'`instancemv'" == "" {
+		local name $T_SubNm
+		local Xname $T_Name
+	}
+	else {
+		local name $T_SubNm.`array'
+		local Xname $T_Name.`array'
+	}
+
+	local log $T_TopNm.__LOG
+
+	forvalues i = 1/`.`array'.arrnels' {
+		local j = `i' + 0`offset'
+
+		if `"${T_v`j'}"' == `"${T_hv`j'}"' { 
+			continue				/* Continue */
+		}	
+
+		capture _cls nameoflocal `array'[`i']
+		local attrib `r(name)'
+
+		if "`attrib'" == "" {				/* for arrays */
+			local attrib `array'[`i']
+		}
+
+		local 0 , `.`attrib'.isa'
+		syntax [ , STRING DOUBLE CLASS * ]
+		if "`string'`double'`class'" == "" {
+			continue				/* Continue */
+		}
+
+							/* try ._set_name */
+		capture ._set_`attrib' ${T_`h'v`j'} 	
+		if ! _rc {
+			_gm_log $T_Name._set_`attrib' ${T_`h'v`j'}
+			continue				/* Continue */
+		}
+
+		if "`.`attrib'.isa'" == "string" {
+			.`attrib' = `"${T_`h'v`j'}"'
+			_gm_log $T_Name.`attrib' = `"${T_`h'v`j'}"'
+
+			continue				/* Continue */
+		}
+
+		if "`.`attrib'.isa'" == "double" {
+			capture confirm number ${T_`h'v`j'}
+			if _rc { 
+				continue			/* warn ? */
+			}
+
+			.`attrib' = ${T_`h'v`j'}
+			_gm_log $T_Name.`attrib' = ${T_`h'v`j'}
+
+			continue				/* Continue */
+		}
+
+		if "`.`attrib'.isa'" == "class" {
+
+			if `.`attrib'.isofclass code' {
+				/*  should work, but compound quotes fail 
+				     here 
+				      local res `.`attrib'.codeof `"${T_v`j'}"''
+				*/
+				local res `.`attrib'.codeof "${T_`h'v`j'}"'
+				if "`res'" != "" {
+					.`attrib'.current = `res'
+					_gm_log $T_Name.`attrib'.current = `res'
+				}
+
+				continue			/* Continue */
+			}
+
+			if `.`attrib'.isofclass style' & 		///
+			0`.`attrib'.hasstyles' {
+			  .`attrib'.setstyle, style(${T_`h'v`j'})
+			  _gm_log $T_Name.`attrib'.setstyle, style(${T_`h'v`j'})
+			}
+		}
+	}
+end
+
+program define _array_db
+
+	gettoken array 0 : 0 , parse(" ,")
+	syntax [, Name(string) * ]
+
+	global T_Name `name'				/* just easier */
+
+	local tnels  0`.`array'.arrnels'
+	if `tnels' > 400 {
+		di as error "style has too many attributes for a dialog box"
+		exit 198
+	}
+	global T_percol = 1 + int( (`tnels'-1) /			/*
+		*/ (1 + int((`tnels'-1) / `.dbstyle.ctrls_per_col')) )
+
+					/* place controls for array obs */
+	local ymax 0
+	._place_controls_from x y ymax : `array' `.dbstyle.xspace' 0 0
+	global T_numctrls `.`array'.arrnels'
+
+	._place_ok_cancel ymax : `.dbstyle.xspace' `ymax'
+
+	local ysz = `ymax' + `.dbstyle.ysize' + 2 * `.dbstyle.yspace' + 8
+	local xsz = `x' + `.dbstyle.ctrlsize' + `.dbstyle.txtsize' + 	/*
+		*/ `.dbstyle.xgap' + `.dbstyle.xspace'
+
+						/* put up the dialog box */
+	capture window dialog "array: `name'" . . `xsz' `ysz'
+
+	local rc = _rc				/* leave if canceled	*/
+	if `rc' == 3098 { 
+		._style_cleanup
+		exit 
+	}
+
+	if `._set_changed' {
+		local hold_name $T_Name
+		global T_Name `._holdername nogscope'
+		_post_changes `array'			/* post changes */
+		global T_Name hold_name
+	}
+
+	if "$T_drawobj" != "" & $T_changed { 	/* redraw if changed */
+		.${T_drawobj}.drawgraph 
+		global T_changed 0
+	}
+
+					/* run a sub-view dialog box if
+					 * requested */
+	local xpnd = `rc'-3000
+	if `xpnd' >= 1 & `xpnd' <= `.`array'.arrnels' {
+		._run_view "`array'[`xpnd']" , `options' name(`name'[`xpnd'])
+		_array_db `array' , name(`name')		/* rerun db */
+	}
+
+end
+
+program define _run_view
+
+	gettoken attrib 0 : 0 , parse(" ,")
+	syntax [, * ]
+
+	._style_cleanup					/* cleanup current db */
+
+	if "`.`attrib'.isa'" == "array" {
+		._array_db `attrib', `options'		/* run array db	     */
+	}
+	else {
+		local hold_scheme `c(curscm)'
+		if "`.`attrib'._scheme.isa'" != "" {
+			set curscm `.`attrib'._scheme.objkey'
+		}
+		.`attrib'.dialog_box, `options'		/* run class db	     */
+		set curscm `hold_scheme'
+	}
+
+end
+
+program define _db_apply
+						/* post changes and possibly
+						 * redraw */
+	global T_changed 0
+	._post_all,  $T_opts
+	if "$T_drawobj" != "" & $T_changed { 
+		local holdscm `c(curscm)'
+		.${T_drawobj}.drawgraph 
+		set curscm `holdscm'
+		global T_changed 0
+	}
+end
+
+program define _copy_style_db
+
+	local y      `.dbstyle.yspace'
+	local x0     `.dbstyle.xspace'
+	local ysize  `.dbstyle.ysize'
+	local ctrlsz `.dbstyle.ctrlsize'
+
+	global T_text1 "Copy of style `.stylename'"
+	window control static T_text1 `x0' `y'				/*
+		*/ `=`ctrlsz'+`.dbstyle.txtsize''  `ysize' left
+
+	local y = `y' + `ysize' + `.dbstyle.yspace'
+
+	global T_newname
+	window control edit `x0' `y' `ctrlsz' `ysize' T_newname
+	global T_text2 "new name (optional)"
+	window control static T_text2 `=`x0'+`.dbstyle.xgap'+`ctrlsz'' 	/*
+		*/ `y' `=`.dbstyle.txtsize'+`.dbstyle.xspace'' `ysize'
+
+						/* OK, Cancel buttons */
+	._place_ok_cancel y : `x0' `y' 
+
+	local ysz = `y' + `ysize' + 2 * `.dbstyle.yspace' + 8
+	local xsz = `x' + `ctrlsz' + `.dbstyle.txtsize' + 		/*
+		*/ `.dbstyle.xgap' + 3*`.dbstyle.xspace'
+
+
+	capture noisily window dialog "Make copy of style" . . `xsz' `ysz'
+
+	local rc = _rc
+	if `rc' != 3098 {			/* OK, not canceled */
+		._process_copy
+	}
+
+	capture mac drop T_newname
+	capture mac drop T_text1
+	capture mac drop T_text2
+
+end
+
+program define _process_copy
+
+	local named_somewhere 0`._any_named_styles `._holdername''
+
+	if `named_somewhere' & "$T_newname" == "" {
+		di as error "must name styles that are contained in other" /*
+			*/ " named styles"
+		exit						/* EXIT */
+	}
+
+	if "$T_newname" == "" & ! 0`.namedstyle' {
+		exit				/* already an unnamed style */
+	}
+
+	if `named_somewhere' | "$T_newname" != "" {
+
+		global T_log2scm 1
+		capture _gm_log $T_Name.remake_as_copy $T_newname
+		local rc = _rc
+		capture mac drop T_log2scm
+		if `rc' {
+			exit `rc'
+		}
+
+		if ! `named_somewhere' {
+			_gm_log $T_Name.setstyle, style($T_newname)
+		}
+	}
+	else {
+		_gm_log $T_Name.remake_as_copy $T_newname
+	}
+
+	.remake_as_copy $T_newname
+end
+
+
+program define _topname
+	gettoken token 0 : 0 , parse(" .")
+	while "`token'" != "" {
+		if "`token'" == "Global" {
+			local prefix Global.
+		}
+		else if "`token'" == "Local" {
+			local prefix Local.
+		}
+		else if "`token'" != "." {
+			local topname `prefix'`token'
+			class exit `"`topname'"'		// Done
+		}
+
+		gettoken token 0 : 0 , parse(" .")
+	}
+
+end
+
+program define _restname
+
+	local skiplist . Global Local
+
+	local rest $T_Name
+	local ct 0
+	gettoken token rest : rest , parse(" .")
+	while "`token'" != "" & `ct' < 2 {
+		if ! `:list posof "`token'" in skiplist' {
+			local ++ct
+		}
+
+		if `ct' < 2 {
+			gettoken token rest : rest , parse(" .")
+		}
+	}
+
+	if `ct' == 2 {
+		class exit `".`token'`rest'"'
+	}
+end
+
+program define _holdername
+
+	local rest $T_Name
+	if "`0'" != "nogscope" {
+		local holder Global
+	}
+
+	gettoken tok rest : rest , parse(" .") 
+	while "`rest'" != "" {
+		if "`tok'" != "." {
+			local holder `holder'.`tok'
+		}
+		gettoken tok rest : rest , parse(" .") 
+	}
+	local last `tok'			/* assumes no trailing .'s */
+
+	class exit `"`holder'"'
+end
+
+program define _lastname
+
+	local rest $T_Name
+
+	gettoken tok rest : rest , parse(" .") 
+	while "`rest'" != "" {
+		if "`tok'" != "." {
+			local holder `holder'.`tok'
+		}
+		gettoken tok rest : rest , parse(" .") 
+	}
+	local last `tok'			/* assumes no trailing .'s */
+
+	class exit `"`last'"'
+end
+
+/*  Returns 1 if any of the objects holding the current object are a named
+    style, 0 otherwise.
+*/
+program define _any_named_styles
+	args rest
+
+	local name
+
+	gettoken tok rest : rest , parse(" .") 
+	while "`tok'" != "" {
+		if "`tok'" != "." {
+			local name `name'.`tok'
+			if 0``name'.namedstyle' {
+				class exit = 1
+				exit				/* EXIT */
+			}
+		}
+		gettoken tok rest : rest , parse(" .") 
+	}
+
+	class exit = 0
+end
+
+
+program define _style_cleanup
+	capture mac drop T_percol
+	capture mac drop T_cancel
+	capture mac drop T_ok
+*	capture mac drop T_apply
+	capture mac drop T_txt*
+	capture mac drop T_v*
+	capture mac drop T_hv*
+	capture mac drop T_act*
+	capture mac drop T_codes*
+	capture mac drop T_Name
+	capture mac drop T_TopNm
+	capture mac drop T_SubNm
+/* just leave behind since these need to span recursions
+	capture mac drop T_drawobj
+	capture mac drop T_curobj
+	capture mac drop T_changed
+	capture mac drop T_changed_p1
+	capture mac drop T_opts
+	capture mac drop T_is_style
+	capture mac drop T_numctrls
+*/
+end
+
+/*
+program define db
+
+	.dialog_box `0'
+end
+*/
+
+/* unused would have to be changed to reference styles in schemes
+/* -------------------------------------------------------------------------*/
+/*
+	Removes all named styles referenced by the object or anything it
+	contains recursively.
+*/
+
+program define clearstyles
+
+	if `.isofclass style' {
+		if "`._styles.isa'" == "array" {
+			while 0`._styles.arrnels' > 0 {
+				._styles.Arrpop
+			}
+			while 0`._refs.arrnels' > 0 {
+				._refs.Arrpop
+			}
+		}
+	}
+
+	forvalues i=1/0`.instancemv.arrnels' {
+		if index("`.instancemv[`i'].isa'", "class") {
+			.instancemv[`i'].clearstyles
+		}
+	}
+	forvalues i=1/0`.dynamicmv.arrnels' {
+		if index("`.dynamicmv[`i'].isa'", "class") {
+			.dynamicmv[`i'].clearstyles
+		}
+	}
+	forvalues i=1/0`.classmv.arrnels' {
+		if index("`.classmv[`i'].isa'", "class") {
+			.classmv[`i'].clearstyles
+		}
+	}
+
+end
+*/
+
+
+/* -------------------------------------------------------------------------*/
+/* Recursively drill objects that might contain styles and reset all those of
+   the specified style and style name to reference the same thing (the first 
+   one found.
+*/
+program define _gr_link_wrk
+	args class style
+
+	foreach arr in instancemv dynamicmv {
+		._gr_link_wrk_arr `arr'
+	}
+end
+
+program define _gr_link_wrk_arr
+	args arr
+
+	forvalues i=1/0`.`arr'.arrnels' {
+		local attrib `arr'[`i']
+
+		if "`.`attrib'.isa'" == "array" {
+			._gr_link_wrk_arr `attrib'
+		}
+
+		if "`.`attrib'.isa'" != "class" {
+			continue			/* Continue */
+		}
+
+		if "`.`attrib'.classname'" == "`class'" & 	/*
+		*/ "`.`attrib'.stylename'" == "`style'" {
+			if "$T_linkstyle" == "" {
+				global T_linkstyle `.`attrib'.objkey'
+			}
+			else {
+				.`attrib'.ref = .${T_linkstyle}.ref
+			}
+		}
+		else {
+			if 0`.`attrib'._style_drillable' {
+				.`attrib'._gr_link_wrk `class' `style'
+			}
+		}
+	}
+end
+
+program define _style_drillable
+
+	if "`.isa'" != "class" {
+		class exit = 0
+	}
+
+	if `.isofclass serset' {
+		class exit = 1
+	}
+	if `.isofclass cell' {
+		class exit = 1
+	}
+	if `.isofclass view' {
+		class exit = 1
+	}
+	if `.isofclass subview' {
+		class exit = 1
+	}
+	if `.isofclass style' {
+		class exit = 1
+	}
+
+	class exit = 0
+
+end
+
+/* -------------------------------------------------------------------------*/
+/*  Creates a common axis for everything found at or below the specified
+    object.  May be called repeatedly to give many objects a common axis and
+    plotregion.
+*/
+program define _gr_axes_wrk
+	args class style
+
+	foreach arr in instancemv dynamicmv {
+		._gr_axes_wrk_arr `arr'
+	}
+end
+
+program define _gr_axes_wrk_arr
+	args arr
+
+	forvalues i=1/0`.`arr'.arrnels' {
+		local attrib `arr'[`i']
+
+		if "`.`attrib'.isa'" == "array" {
+			._gr_link_wrk_arr `attrib'
+			continue				/* Continue */
+		}
+
+		if "`.`attrib'.isa'" != "class" {
+			continue				/* Continue */
+		}
+
+		if 0`.`attrib'.isofclass axis' {
+
+			_axis_set_ranges $T_plreg `attrib'.plotregion
+
+			/* don't copy series held in scale */
+
+/*
+			.`attrib'.plotregion.ref = .$T_plreg.ref	
+							/* scales below */
+*/
+
+			local pos `.`attrib'.position.snm'
+			local ord = 					/*
+			   */ cond("`pos'"=="left" | "`pos'"=="right", "y", "x")
+			if "${T_`ord'axis}" == "" {
+				global T_`ord'axis `.`attrib'.objkey'
+			}
+			else {
+				.`attrib'.ref = .${T_`ord'axis}.ref
+			}
+
+			continue				/* Continue */
+		}
+
+		if 0`.`attrib'.isofclass plotregion' {
+			_axis_set_ranges $T_plreg `attrib'
+
+			.`attrib'.xscale.ref = .$T_plreg.xscale.ref
+			.`attrib'.yscale.ref = .$T_plreg.yscale.ref
+			continue				/* Continue */
+		}
+
+		if 0`.`attrib'.isofclass view' | 		/*
+		*/ 0`.`attrib'.isofclass cell' {
+			.`attrib'._gr_axes_wrk `class' `style'
+		}
+	}
+end
+
+program define _axis_set_ranges
+	args shared from
+
+	.`shared'.xscale.addmin `.`from'.xscale.min'
+	.`shared'.xscale.addmax `.`from'.xscale.max'
+	.`shared'.yscale.addmin `.`from'.yscale.min'
+	.`shared'.yscale.addmax `.`from'.yscale.max'
+end

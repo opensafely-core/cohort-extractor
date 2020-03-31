@@ -1,0 +1,178 @@
+/*
+  graph box - Box plots
+
+*!  VERSION 2.1.2  15nov2019
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_xwide
+DEFINE _dlght 370
+INCLUDE header
+
+HELP hlp1, view("help graph_box")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource GRAPH_BOX_DLG_HSCALE
+END
+
+
+DIALOG box, tabtitle(resource LBL_TAB_MAIN) title(resource GRAPH_BOX_DLG_TITLE)
+BEGIN
+  GROUPBOX gb_orientation	_lft	_top	_vlwd	_ht4,	///
+  	label(resource LBL_GB_ORIENTATION)
+  RADIO    rb_vertical		_indent	_ss	_inwd	.,	///
+  	first label(resource LBL_VERTICAL)
+  RADIO    rb_horizontal	@	_ss	@	.,	///
+  	last label(resource LBL_HORIZONTAL)
+
+  TEXT     tx_vars		_lft	+45	_vlwd	.,	///
+  	label(resource LBL_VARIABLES)
+  VARLIST  vl_vars		@	_ss	@	.,	///
+  	numeric							///
+  	label(resource LBL_VARIABLES)
+END
+
+INCLUDE gr_over
+
+INCLUDE ifin
+INCLUDE weights
+
+SCRIPT options_PREINIT
+BEGIN
+	create STRING showyvarResults
+END
+SCRIPT options_POSTINIT
+BEGIN
+	program check_showyvarResults
+END
+
+DIALOG options, tabtitle(resource LBL_OPTIONS)
+BEGIN
+  GROUPBOX gb_baropts	_lft	_top	_iwd	_ht2,		///
+	label(resource LBL_BOX_OPTIONS)
+  CHECKBOX ck_nofill	_ilft	_ss	_cwd1	.,		///
+	label(resource LBL_OMIT_EMPTY_CATEGORIES_BARS) 		///
+	option(nofill)
+
+  GROUPBOX gb_missing	_lft	_xls	_iwd	_ht4h,		///
+	label(resource LBL_MISSING_VALUES)
+  CHECKBOX ck_miss	_ilft	_ss	_ibwd	.,		///
+	label(resource LBL_INCLUDE_CATEGORIES_FOR_MISSING_VALUES)	///
+	option(missing)
+  CHECKBOX ck_cw	@	_ms	@	.,		///
+	option(cw)						///
+	label(resource LBL_EXCLUDE_OBS_WITH_MISSING_VALUES_CASEWISE_DEL)
+  GROUPBOX gb_ybar	_lft	_xls	_iwd	_ht9,		///
+	label(resource LBL_LABELING_LEGEND_OPTIONS)
+  CHECKBOX ck_ascat	_ilft	_ss	_ibwd	.,		///
+	label(resource LBL_TREAT_Y_VAR_AS_FIRST_CATEGORY_GROUPING)	///
+	option(ascategory)
+  CHECKBOX ck_asyvars	@	_ms	@	.,		///
+	label(resource LBL_TREAT_FIRST_CAT_GROUPING_AS_Y_VAR)	///
+	option(asyvars)
+  CHECKBOX ck_showyvars	@	_ms	@	.,		///
+	label(resource LBL_LABEL_Y_VAR_ON_X_AXIS_ADVANCED) 	///
+	option(showyvars)					///
+	onclickon(options.bu_showyvar.enable)			///
+	onclickoff(options.bu_showyvar.disable)
+  BUTTON   bu_showyvar	+20	_ss	100	.,		///
+	label(resource LBL_BU_PROPERTIES)			///
+	onpush(script show_showyvar_dialog)
+
+  CHECKBOX ck_xalt	_lft	_xls	_iwd	.,		///
+	label(resource LBL_PLACE_CATEGORICAL_AXIS_ON_OPPOSITE_SIDE)	///
+	option(xalternate)
+END
+
+SCRIPT show_showyvar_dialog
+BEGIN
+	create CHILD gr_over_options AS showyvar, allowsubmit
+	showyvar.setExitString showyvarResults
+	showyvar.setOkAction "program check_showyvarResults"
+	showyvar.setSubmitAction "script showyvarSubmit"
+END
+PROGRAM check_showyvarResults
+BEGIN
+	if showyvarResults {
+		call options.bu_showyvar.modified_on
+	}
+	else {
+		call options.bu_showyvar.modified_off
+	}
+END
+SCRIPT showyvarSubmit
+BEGIN
+	program check_showyvarResults
+	Submit
+END
+
+LIST display
+BEGIN
+	Default
+	Horizontal
+	Vertical
+END
+
+LIST displayv
+BEGIN
+	""
+	horizontal
+	vertical
+END
+
+PROGRAM options_output
+BEGIN
+	option options.ck_nofill
+	option options.ck_miss
+	option options.ck_ascat
+	option options.ck_asyvars
+	option options.ck_cw
+	option options.ck_showyvars
+	if options.ck_showyvars {
+		if showyvarResults {
+			put " yvaroptions("
+			put showyvarResults
+			put ") "
+		}
+	}
+	option options.ck_xalt
+END
+
+
+INCLUDE gr_boxes
+INCLUDE gr_box_markers
+
+INCLUDE gr_yaxis
+INCLUDE gr_titles
+INCLUDE gr_legend
+INCLUDE gr_overall
+INCLUDE gr_by
+
+PROGRAM command
+BEGIN
+	put "graph "
+	if box.rb_vertical {
+		put "box "
+	}
+	else {
+		put "hbox "
+	}
+	varlist box.vl_vars
+	put " " /program weights_output
+	put " " /program ifin_output
+	beginoptions
+		put " " /program gr_over_output
+		put " " /program options_output
+		put " " /program gr_boxes_output
+		put " " /program gr_box_markers_output
+		put " " /program gr_yaxis_output
+		put " " /program gr_titles_output
+		put " " /program gr_legend_output
+		put " " /program gr_overall_output
+		put " " /program gr_by_output		
+	endoptions
+END

@@ -1,0 +1,424 @@
+/*
+  pksumm
+
+*!  VERSION 2.1.3  03dec2019
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_wide
+DEFINE _dlght 280
+INCLUDE header
+
+HELP hlp1, view("help pksumm")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource PKSUMM_DLG_HSCALE
+END
+
+
+DIALOG main, label(resource PKSUMM_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT tx_vari			_lft	_top	_cwd4_1	.,		///
+	label(resource PKSUMM_MAIN_TX_VARI)
+  TEXT tx_vart			_lft4_2	@	@	.,		///
+	label(resource LBL_TIME_VARIABLE)
+  TEXT tx_varc         		_lft4_3 @	@	.,		///
+	label(resource LBL_CONCENTRATION_VARIABLE)
+  VARNAME vn_vari		_lft	_ss	_vnwd	.,		///
+  	numeric								///
+	label(resource PKSUMM_MAIN_TX_VARI)
+  VARNAME vn_vart		_lft4_2	@	@	.,		///
+  	numeric								///
+	label(resource LBL_TIME_VARIABLE)
+  VARNAME vn_varc		_lft4_3	@	@	.,		///
+  	numeric								///
+	label(resource LBL_CONCENTRATION_VARIABLE)
+  GROUPBOX gb_opt		_lft	_ls	_iwd	_ht17h,		///
+	label(resource LBL_OPTIONS)
+  CHECKBOX ck_trap 		_indent	_ss	_cwd3_1 .,		///
+	label(resource LBL_USE_TRAPEZOIDAL_RULE)			///
+	option(trapezoid)
+  DEFINE _x @x
+  CHECKBOX ck_fit		_lft3_2	@	_comb3_2 .,		///
+	label(resource LBL_POINTS_TO_USE_TO_EXTEND_AUC)			///
+	onclickon(gaction main.sp_fit.enable)				///
+	onclickoff(gaction main.sp_fit.disable)
+  SPINNER  sp_fit		_indent2 _ss	_spwd	.,		///
+	option(fit)							///
+	min(3) max(10000000) default(3)					///
+	label(resource LBL_POINTS_TO_USE_TO_EXTEND_AUC)
+  CHECKBOX ck_notchk		_x	_ms	380	.,		///
+	option(notimechk)						///
+	label(resource PKSUMM_MAIN_CK_NOTCHK)
+  CHECKBOX ck_nodots		@	_ms	@	.,		///
+	option(nodots)							///
+	label(resource PKSUMM_MAIN_CK_NODOTS)
+  CHECKBOX ck_graph		@	_mls	_ibwd	_ht4h,		///	
+	groupbox							///	
+	label(resource PKSUMM_MAIN_CK_GRAPH)				///
+	option(graph)							///	
+	onclickon(program graph_on)					///	
+	onclickoff(script graph_off)
+
+  CHECKBOX ck_stat		_indent	_ms	370	.,		///
+	label(resource PKSUMM_MAIN_CK_STAT)				///
+	clickon(gaction main.cb_stat.enable)				///
+	clickoff(gaction main.cb_stat.disable)
+
+  COMBOBOX cb_stat		_indent2 _ss	_vnwd	.,		///
+	dropdownlist							///
+	contents("measure")						///
+	option("stat")
+END
+
+PROGRAM graph_on
+BEGIN
+	call main.ck_stat.enable
+	if main.ck_stat {
+		call main.cb_stat.enable
+	}
+	call script histogram_enable
+	call script gr_hist_density_plots_enable
+	call script gr_yaxis_enable
+	call script gr_xaxis_enable
+	call script gr_titles_enable
+	call script gr_legend_enable
+	call script gr_overall_enable
+END
+
+SCRIPT graph_off
+BEGIN
+	main.ck_stat.disable
+	main.cb_stat.disable
+	script histogram_disable
+	script gr_hist_density_plots_disable
+	script gr_yaxis_disable
+	script gr_xaxis_disable
+	script gr_titles_disable
+	script gr_legend_disable
+	script gr_overall_disable
+END
+
+LIST measure
+BEGIN
+	auc
+	aucline
+	aucexp
+	auclog
+	half
+	ke
+	cmax
+	tmax
+	tomc
+END
+
+INCLUDE ifin
+
+SCRIPT histogram_PREINIT
+BEGIN
+	create STRING barOptionResults
+	create STRING markerLabelOptionResults
+END
+SCRIPT histogram_POSTINIT
+BEGIN
+	program checkBarOptionResults
+	program checkMarkerLabelOptionResults
+END
+
+DIALOG histogram, tabtitle(resource LBL_HISTOGRAM)
+BEGIN
+  GROUPBOX gb_data		_lft	_top	_iwd	_ht4h,		///
+	label(resource LBL_DATA)
+  
+  RADIO	   rb_contin		_ilft	_ss	180	.,		///
+	first onclickon(program histogram_contin_on)			///
+	label(resource PKSUMM_MAIN_RB_CONTIN)
+  RADIO    rb_discrete		@	_ss	@	.,		///
+	last option("discrete") label(resource PKSUMM_MAIN_RB_DISCRETE)	///
+	onclickon(script histogram_discrete_on)
+
+
+  GROUPBOX gb_bins		_lft	+45	_cwd1	_ht8,		///
+	label(resource LBL_BINS)
+  DEFINE gp2 @y
+  CHECKBOX ck_bin		_ilft	_ms	_ckwd	.,		///
+	onclickon(program histogram_bin_check)				///
+	onclickoff(program histogram_bin_check)
+  SPINNER  sp_bin		_cksep	@	_spwd	.,		///
+	min(1)	max(1000000) default(10) option(bin)
+  TEXT     tx_bin		_spsep	@	_ckspr2b .,		///
+	label(resource LBL_NUMBER_OF_BINS)
+
+  CHECKBOX ck_width		_ilft	_ms	_ckwd	.,		///
+	onclickon(program histogram_width_check)			///
+	onclickoff(program histogram_width_check)
+  EDIT     en_width		_cksep	@	_en7wd	.,		///
+	numonly	option(width)	label(resource LBL_WIDTH_OF_BINS)
+  TEXT     tx_width		_spsep	@	_cken7r2b .,		///
+	label(resource LBL_WIDTH_OF_BINS)
+
+  CHECKBOX ck_start		_ilft	_ms	_ckwd	.,		///
+	onclickon(program histogram_start_check)			///
+	onclickoff(program histogram_start_check)
+  EDIT     en_start		_cksep	@	_en7wd	.,		///
+	numonly	option(start) label(resource LBL_LOWER_LIMIT_OF_FIRST_BIN)
+  TEXT     tx_start		_spsep	@	_cken7r2b .,		///
+	label(resource LBL_LOWER_LIMIT_OF_FIRST_BIN)
+
+  
+  GROUPBOX gb_yaxis		_lft2	gp2	_cwd1	_ht8,		///
+	label(resource LBL_TAB_Y_AXIS)
+  RADIO    rb_den		_ilft2	_ss	_inwd	.,		///
+	label(resource LBL_DENSITY) first
+  RADIO    rb_frac		@	_ss	@	.,		///
+	label(resource LBL_FRACTION) option(fraction)
+  RADIO    rb_freq		@	_ss	@	.,		///
+	label(resource LBL_FREQUENCY) option(frequency)
+  RADIO    rb_perc		@	_ss	@	.,		///
+	label(resource LBL_PERCENT) last option(percent)
+  
+  BUTTON bu_bar_options		_lft	+45	130	.,		///
+	label(resource LBL_GB_BAR_PROPERTIES)				///
+	onpush(script show_bar_dialog)
+
+  CHECKBOX ck_addlab		_lft2	@	_cwd1	.,		///
+	onclickon(program histogram_addlab_check)			///
+	onclickoff(program histogram_addlab_check)			///
+	label(resource LBL_ADD_HEIGHT_LABELS_TO_BARS)			///
+	option(addlabel)
+  BUTTON bu_markerlabel_options +20	_ss	130	.,		///
+	label(resource LBL_GB_BAR_LABEL_PROPERTIES)			///
+	onpush(script show_markerlabel_dialog)
+END
+
+// Main scripts/programs
+PROGRAM histogram_contin_on
+BEGIN
+	if ! D(histogram.rb_contin) {
+		call histogram.ck_bin.enable
+		call histogram.tx_bin.enable
+		call program histogram_bin_check
+	}
+	call histogram.en_start.setlabel resource LBL_LOWER_LIMIT_OF_FIRST_BIN
+	call histogram.tx_start.setlabel resource LBL_LOWER_LIMIT_OF_FIRST_BIN
+END
+
+SCRIPT histogram_discrete_on
+BEGIN
+	histogram.ck_bin.disable
+	histogram.tx_bin.disable
+	program histogram_bin_check
+	histogram.en_start.setlabel resource LBL_THEORETICAL_MINIMUM_VALUE
+	histogram.tx_start.setlabel resource LBL_THEORETICAL_MINIMUM_VALUE
+END
+
+PROGRAM histogram_bin_check
+BEGIN
+	if !H(histogram.ck_bin) & histogram.ck_bin {
+		call histogram.sp_bin.enable
+	}
+	if H(histogram.ck_bin) | !histogram.ck_bin {
+		call histogram.sp_bin.disable
+	}
+END
+
+PROGRAM histogram_width_check
+BEGIN
+	if !H(histogram.ck_width) & histogram.ck_width {
+		call gaction histogram.en_width.enable
+	}
+	if H(histogram.ck_width) | !histogram.ck_width {
+		call gaction histogram.en_width.disable
+	}
+END
+
+PROGRAM histogram_start_check
+BEGIN
+	if !H(histogram.ck_start) & histogram.ck_start {
+		call gaction histogram.en_start.enable
+	}
+	if H(histogram.ck_start) | !histogram.ck_start {
+		call gaction histogram.en_start.disable
+	}
+END
+
+PROGRAM histogram_addlab_check
+BEGIN
+	if !H(histogram.ck_addlab) & histogram.ck_addlab {
+		call gaction histogram.bu_markerlabel_options.enable
+	}
+	if H(histogram.ck_addlab) | !histogram.ck_addlab {
+		call gaction histogram.bu_markerlabel_options.disable
+	}
+END
+
+SCRIPT histogram_disable
+BEGIN
+	histogram.gb_data.disable
+	histogram.rb_contin.disable
+	histogram.rb_discrete.disable
+	histogram.gb_bins.disable
+	histogram.ck_bin.disable
+	histogram.sp_bin.disable
+	histogram.tx_bin.disable
+	histogram.ck_width.disable
+	histogram.en_width.disable
+	histogram.tx_width.disable
+	histogram.ck_start.disable
+	histogram.en_start.disable
+	histogram.tx_start.disable
+	histogram.gb_yaxis.disable
+	histogram.rb_den.disable
+	histogram.rb_frac.disable
+	histogram.rb_freq.disable
+	histogram.rb_perc.disable	
+	histogram.bu_bar_options.disable
+	histogram.ck_addlab.disable
+	histogram.bu_markerlabel_options.disable
+END 
+
+SCRIPT histogram_enable
+BEGIN
+	histogram.gb_data.enable
+	histogram.rb_contin.enable
+	histogram.rb_discrete.enable
+	histogram.gb_bins.enable
+	histogram.ck_bin.enable
+	histogram.tx_bin.enable
+	histogram.ck_width.enable
+	histogram.tx_width.enable
+	histogram.ck_start.enable
+	histogram.tx_start.enable
+	histogram.gb_yaxis.enable
+	histogram.rb_den.enable
+	histogram.rb_frac.enable
+	histogram.rb_freq.enable
+	histogram.rb_perc.enable	
+	histogram.bu_bar_options.enable
+	histogram.ck_addlab.enable
+END 
+
+// Main buttons
+SCRIPT show_bar_dialog
+BEGIN
+	create CHILD gr_bar_options AS barOptions, allowsubmit
+	barOptions.setExitString barOptionResults
+	barOptions.settitle resource LBL_GB_BAR_PROPERTIES
+	barOptions.setExitAction "program checkBarOptionResults"
+	barOptions.setSubmitAction "program barOptionSubmit"
+	barOptions.callthru "script gr_bar_setHistogramOn"
+END
+
+PROGRAM checkBarOptionResults
+BEGIN
+	if barOptionResults.iseq("") {
+		call histogram.bu_bar_options.modified_off
+	}
+	if ! barOptionResults.iseq("") {
+		call histogram.bu_bar_options.modified_on
+	}
+END
+PROGRAM barOptionSubmit
+BEGIN
+	call program checkBarOptionResults
+	call Submit
+END
+
+SCRIPT show_markerlabel_dialog
+BEGIN
+	create CHILD gr_markerlabel_options AS markerLabelOptions, allowsubmit
+	markerLabelOptions.setExitString markerLabelOptionResults
+	markerLabelOptions.settitle resource LBL_GB_BAR_LABEL_PROPERTIES
+	markerLabelOptions.setExitAction "program checkMarkerLabelOptionResults"
+	markerLabelOptions.setSubmitAction "program markerLabelOptionSubmit"
+END
+
+PROGRAM checkMarkerLabelOptionResults
+BEGIN
+	if markerLabelOptionResults.iseq("") {
+		call histogram.bu_markerlabel_options.modified_off
+	}
+	if ! markerLabelOptionResults.iseq("") {
+		call histogram.bu_markerlabel_options.modified_on
+	}
+END
+PROGRAM markerLabelOptionSubmit
+BEGIN
+	call program checkMarkerLabelOptionResults
+	call Submit
+END
+
+PROGRAM histogram_output
+BEGIN
+	option histogram.rb_discrete
+	optionarg histogram.sp_bin
+	if histogram.ck_width {
+		if histogram.ck_bin & !H(histogram.ck_bin) {
+			call create STRING _MSG_TMP
+                        call _MSG_TMP.format				/// 
+			"resource LBL_MSGBOX_ON_TAB_MAY_NOT_COMBINED_FMT" ///
+			"resource LBL_HISTOGRAM" 			///
+			"resource LBL_NUMBER_OF_BINS" 			///
+			"resource LBL_WIDTH_OF_BINS"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Histogram" tab, "Number of bins" and "Width of bins" may not be combined.
+		}
+		require histogram.en_width
+		optionarg histogram.en_width
+	}
+	if histogram.ck_start {
+		require histogram.en_start
+		optionarg histogram.en_start
+	}
+	option histogram.rb_freq
+	option histogram.rb_frac
+	option histogram.rb_perc
+	if barOptionResults & ! H(histogram.bu_bar_options) {
+		put " " barOptionResults " "
+	}
+	option histogram.ck_addlab
+	if markerLabelOptionResults & ! H(histogram.bu_markerlabel_options) {
+		put " addlabopts(" markerLabelOptionResults ") "
+	}
+END
+INCLUDE gr_hist_density_plots
+INCLUDE gr_yaxis
+INCLUDE gr_xaxis
+INCLUDE gr_titles
+INCLUDE gr_legend
+INCLUDE gr_overall
+
+PROGRAM command
+BEGIN
+	put "pksumm "
+	varlist main.vn_vari
+	varlist main.vn_vart
+	varlist main.vn_varc
+	put " " /program ifin_output
+	beginoptions
+		if main.ck_fit {
+			optionarg main.sp_fit
+		}
+	        option main.ck_trap
+		option main.ck_notchk
+		option main.ck_nodots
+		option main.ck_graph
+		if main.ck_graph {
+			if main.ck_stat {
+				require main.cb_stat
+				optionarg main.cb_stat
+			}
+			put " " /program histogram_output
+			put " " /program gr_hist_density_plots_output
+			put " " /program gr_yaxis_output
+			put " " /program gr_xaxis_output
+			put " " /program gr_titles_output
+			put " " /program gr_legend_output
+			put " " /program gr_overall_output
+		}
+	endoptions
+END

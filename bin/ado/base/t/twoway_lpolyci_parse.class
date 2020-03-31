@@ -1,0 +1,171 @@
+//                                 twoway_lpolyci_parse
+//
+// A parser for adding a smoothed local polynomial line with confidence
+// intervals. Works with twoway.ado.
+
+*! version 1.0.3  01jun2013
+version 10
+
+class {
+    instance:
+	lpci_x  	= "at"
+	lpci_y		= "smooth" 
+	lpci_cil	= "cil"
+	lpci_ciu	= "ciu"
+	ci		= "ci"
+	fittype 	= "line"
+	citype  	= "rarea"
+	fit		= 1		// indicator to plot smoothed line
+	lpci_options	 = ""
+} , inherit(twoway_lpoly_parse twoway_y2xview_parse)
+
+			   // multiple inherit not needed if y3xview
+
+
+// ---------------------------------------------------------------------------
+
+program parse
+	.must_create_serset = 1
+
+	_parse combop 0 : 0 , option(Level)    rightmost
+	_parse combop 0 : 0 , option(FITType)  rightmost
+	_parse combop 0 : 0 , option(CIType)   rightmost
+
+	syntax [anything] [fw aw] [if] [in] [ ,				///
+		Level(string) PWidth(string)				///
+		Var(string)						///
+		SMOOTHPlot(string) CIPlot(string) FITPlot(string)	///
+		TYPE(string) RECASTas(string) noFIT * ]
+
+	if `"`type'"' != `""' {
+		di as error "type() option not allowed"
+		exit 198
+	}
+	if `"`recastas'"' != `""' {
+		di as error "recastas() option not allowed"
+		exit 198
+	}
+	if `"`pwdith'"' != "" {
+		confirm number `pwidth'
+	}
+	if `"`var'"' != "" {
+		confirm number `var' 
+	}
+	if `"`fitplot'"' != `""' {
+		.fittype = `"`fitplot'"'
+	}
+	if `"`ciplot'"' != `""' {
+		.citype = `"`ciplot'"'
+	}
+	if `"`level'"' != "" {
+		confirm number `level'
+	}
+	if `"`fit'"' == "nofit" {
+		.fit = 0
+	}
+	
+	.Super(twoway_lpoly_parse).parse `macval(anything)' 		///
+		[`weight'`exp'] `if' `in' , `macval(options)'
+	local opts pwidth(`pwidth') var(`var') `.ci' level(`level')
+	.lpci_options = `"`:list retok opts'"'
+end
+
+
+
+// ---------------------------------------------------------------------------
+//	Creates a new serset and the view and returns its reference.
+//	Assumes that the data in memory is the same as when parse was called.
+//
+//	Allows a touse(varname) option that further restricts the sample, 
+//	restricts beyond the held .if and .in
+//
+//	Additional options to the .serset.new command may be specified, but
+//	this is unlikely to be necessary.
+//
+//	If must_create_serset == 1, then this command MUST be used, 
+//	otherwise the serset may be created by other means.
+
+program log_create_serset
+
+	syntax , LOG(name) SERSETNAME(string) [ TOUSE(passthru) * ]
+
+	.log_touse , log(`log') `touse'
+	
+	local nolog  .`log'.Arrpush __NOLOG__
+	
+	// compute ci and fit
+	`nolog' tempvar yhat x cil ciu
+	`nolog' lpoly				///
+		`.y' `.x' 			///
+		[`.wtype'`.wtexp']		///
+		if \`touse1',			///
+		`.lp_options'			///
+		`.lpci_options'			///
+		generate(\`x' \`yhat')		///
+		nograph				///
+		generateci( \`cil' \`ciu')
+	
+	.`log'.Arrpush				///
+		.`sersetname' = .serset.new	///
+		\`yhat' \`x' \`cil' \`ciu'	///
+		, nocount			///
+		`.omitmethod'			///
+		`options'
+	
+	`nolog' .`sersetname'.sort \`x'
+	`nolog' .`sersetname'.sers[1].name = "`.lpci_y'"
+	`nolog' .`sersetname'.sers[2].name = "`.lpci_x'"
+	`nolog' .`sersetname'.sers[3].name = "`.lpci_cil'"
+	`nolog' .`sersetname'.sers[4].name = "`.lpci_ciu'"
+
+	.varlist = "`.lpci_y' `.lpci_x' `.lpci_cil' `.lpci_ciu'"
+	.wtype = ""			// so .Super.log_create_view will
+	.wtexp = ""			// not try to add weight to serset
+	
+	if `.fit' {
+		.n = 2			// so log_create_view gets called twice
+	}
+	else	.n = 1			// only call for ci
+end
+
+
+// ---------------------------------------------------------------------------
+// not need if y3xview.
+program log_create_view
+	syntax [ , VIEW(integer 1) SERIESID(integer 1) * ]
+	
+	if `view' == 1 {					// CI
+		.viewclass = "y2xview_g"
+		.varlist = "`.lpci_cil' `.lpci_ciu' `.lp_x'"
+		.n = 1
+		.Super(twoway_y2xview_parse).log_create_view ,		///
+			view(1) style(ci) `macval(options)'
+		.n = 2
+		.varlist = "`varlist'"
+	}
+	else {							// fit
+		.viewclass = "yxview"
+		.varlist = "`.lpci_y' `.lpci_x'"
+		.n = 1
+		.Super(twoway_lpoly_parse).log_create_view ,		///
+			view(1) seriesid(`=`seriesid'-1') `macval(options)'
+		.n = 2
+	}
+end
+
+
+// ---------------------------------------------------------------------------
+
+program log_edits
+	args log view i
+	
+	if `i' == 1 {
+		.`log'.Arrpush .`view'.type.setstyle , style(`.citype') 
+		.Super.log_edits `0'
+	}
+
+	if `i' == 2 {
+		.`log'.Arrpush .`view'.type.setstyle , style(`.fittype')
+		.Super.log_edits `log' `view' 1
+	}
+end

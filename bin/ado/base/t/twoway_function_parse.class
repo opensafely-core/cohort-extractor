@@ -1,0 +1,188 @@
+/*                                 twoway_function_parse
+
+   A parser for function evaluation.  Works with twoway.ado.
+
+*/
+*! version 1.1.6  16dec2005
+
+version 8
+
+class {
+	func_y		= "y"
+	func_exp	= ""
+	func_x		= "x"
+	func_min	= 0		// default minimum x
+	func_max	= 1		// default maximum x
+	func_n		= 300		// number of evaluation points
+	func_opts	= ""
+	func_preserve	= ""
+	droplines	= ""
+	yxswitch	= 0
+	base		= (.)
+} , inherit(twoway_yxview_parse)
+
+// ---------------------------------------------------------------------------
+
+program new
+	.viewclass	= "function_g"
+end
+
+// ---------------------------------------------------------------------------
+
+program parse
+	.must_create_serset = 1
+	.viewtype = "line"
+	.n = 1						// number of plots
+	.allow_anything = 1				// side signal
+
+	.Super.parse `0'
+
+	.wtype = ""
+	.wtexp = ""
+	local options `"[], `.options'"'		// ignore weights
+	_parse expand loc glob : options
+	if `loc_n' != 1 {
+		error 198
+	}
+	local 0 `"`loc_1'"'
+	_parse combop 0 : 0, option(RAnge)	rightmost
+	_parse combop 0 : 0, option(n)		rightmost
+	_parse combop 0 : 0, option(DROPlines)	rightmost
+	_parse combop 0 : 0, option(BASE) 	rightmost
+	_parse combop 0 : 0, option(SUBChar) 	rightmost
+
+	// weights are currently not allowed
+	syntax [,				///
+		RAnge(string asis)		///
+		N(integer `.func_n')		///
+		DROPlines(numlist sort)		///
+		BASE(string)			///
+		SUBChar(name)			///
+		HORizontal			///
+		*				///
+	]
+
+	if `"`range'"' == "" {
+		local range "`.func_min' `.func_max'"
+	}
+	if `"`subchar'"' != "" {
+		.func_x = "`subchar'"
+	}
+	.func_opts = "r(`range') n(`n') x(`.func_x')"
+
+	/* this is a partial parse, see second call to -twoway__function_gen-
+	 * in -log_create_serset-
+	 *
+	 * .anything was retrieved by Super.parse
+	 */
+
+	twoway__function_gen `.anything',		///
+		`.func_opts'				///
+		droplines(`droplines')			///
+		// blank
+
+	.droplines	= `"`r(dropxy)'"'
+	.func_preserve	= `"`r(preserve)'"'
+	.func_exp	= `"`r(exp)'"'
+ 	.func_n		= r(n)
+	if `"`r(yis)'"' != "" {
+		.func_y = "`r(yis)'"
+	}
+
+	if `"`base'"' != `""' {
+		capture confirm number `base'
+		if _rc {
+		    di as error "option base() incorrectly specified, "	///
+			"`base' is not a number"
+		}
+		.base = `base'
+	}
+	.yxswitch	= ("`horizontal'" != "")
+	.options	= `"`options'"'
+end
+
+/* -------------------------------------------------------------------------*/
+/*
+	Creates a new serset and the view and returns its reference.
+	Assumes that the data in memory is the same as when parse was called.
+
+	Allows a touse(varname) option that further restricts the sample, 
+	restricts beyond the held .if and .in
+
+	Additional options to the .serset.new command may be specified, but
+	this is unlikely to be necessary.
+
+	If must_create_serset == 1, then this command MUST be used, 
+	otherwise the serset may be created by other means.
+*/ 
+
+program log_create_serset
+
+	syntax , LOG(name) SERSETNAME(string) [ TOUSE(passthru) * ]
+
+	local nolog  .`log'.Arrpush __NOLOG__
+
+	.log_touse , log(`log') `touse'
+
+	// make the data
+	if (`"`.func_preserve'"' != "") `nolog' preserve
+	`nolog' tempname x y
+	`nolog' twoway__function_gen `.anything'	///
+		if \`touse1',				///
+		`.func_opts'				///
+		generate(\`y' \`x')			///
+		// blank
+
+	// no weights to remove
+
+	.`log'.Arrpush				///
+		.`sersetname' = .serset.new	///
+			\`y' \`x'		///
+			in 1/`.func_n',		///
+			nocount			///
+			`.omitmethod'		///
+			`options'
+
+	if (`"`.func_preserve'"' != "") `nolog' restore
+
+	`nolog' .`sersetname'.sort \`x'
+	`nolog' .`sersetname'.sers[1].name = "`.func_y'"
+	`nolog' .`sersetname'.sers[2].name = "`.func_x'"	
+
+	if ! `.yxswitch' {
+		.varlist = "`.func_y' `.func_x'"
+	}
+	else	.varlist = "`.func_x' `.func_y'"
+
+end
+
+// ---------------------------------------------------------------------------
+//  Pushes onto the specified log any post-creation commands implied by 
+//  the parsed syntax that must be applied to the created view.
+
+program log_edits
+	args log view i
+
+	.Super.log_edits `log' `view' `i'
+
+	local push .`log'.Arrpush
+
+	if `.base' < . {
+		`push' .`view'.base = `.base'
+	}
+
+	if `"`.droplines'"' != "" {
+
+		`push' .`view'.Declare droplines = `"`.droplines'"'
+		`push' .`view'.Declare yxswitch = `.yxswitch'
+
+		`push' .`view'.Declare basestyle = "\`.`view'.type.snm'"
+		`push' .`view'.type.setstyle , style(function) 
+	}
+
+	if `.base' < . {
+		`push' .`view'.register_with_scale
+	}
+end
+
+exit

@@ -1,0 +1,306 @@
+/*				margin
+	Class for storing and managing margins
+
+	Note that .setting, but not .stylename and .snm returns a string
+	containing the rgb values, rather than the name.
+*/
+
+*! version 2.0.0  17apr2019
+version 8
+
+class {
+    class:
+
+     instance:
+	gleft	= .gsize.new
+	gright	= .gsize.new
+	gtop	= .gsize.new
+	gbottom	= .gsize.new
+
+}, inherit(style)
+
+
+/* -------------------------------------------------------------------------*/
+
+program define new
+
+	syntax [ , Style(string) * ]
+
+	if "`style'" == "" { 
+		.setstyle, style(zero)				/* default */
+	}	
+
+	.Super.new , `.set `0''
+end
+
+program define set
+
+	syntax [ , Left(string) Right(string) Top(string) Bottom(string) * ]
+
+	foreach d in left right top bottom {
+		if `"``d''"' != `""' {
+			.g`d'.setstyle , style(``d'')
+		}
+	}
+
+	class exit `"`options'"'
+
+end
+
+
+// ---------------------------------------------------------------------------
+// Return the current size values
+
+program left
+	class exit = 0`.gleft.val'
+end
+
+program right
+	class exit = 0`.gright.val'
+end
+
+program top
+	class exit = 0`.gtop.val'
+end
+
+program bottom
+	class exit = 0`.gbottom.val'
+end
+
+
+// ---------------------------------------------------------------------------
+// Set the current transform/metric and the supplied x and y sizes (passed by
+// reference) to use the margins.  Affects GDI transform only.
+//
+// if view is passed (and may be either a full name or reference), then the
+// size of non-fixed size views will be reduced by the margin sizes.
+   
+program define setgdi
+
+	syntax [, view(string) Xonly Yonly ]
+
+	if `.left'   != 0 & "`yonly'" == "" { 
+		gdi xalpha = `gdi(xalpha)' + `.gmleft' * `gdi(gbeta)'
+	}
+	if `.bottom' != 0 & "`xonly'" == "" { 
+		gdi yalpha = `gdi(yalpha)' + `.gmbottom' * `gdi(gbeta)'
+	}
+
+	if "`view'" == "" { 
+		exit						/* EXIT */
+	}
+
+	if "`yonly'" == "" {
+	    .`view'.xsize_ren = `.`view'.xsize_ren' - (`.gmleft' + `.gmright')
+	}
+
+	if "`xonly'" == "" {
+	    .`view'.ysize_ren = `.`view'.ysize_ren' - (`.gmtop' + `.gmbottom')
+	}
+end
+
+
+
+/* -------------------------------------------------------------------------*/
+/* Allow a series of 4 numbers (#_left, #_right, #_top, #_bottom) in place 
+   of a stylename to mean set the margins of the current style to these
+   numbers.
+
+   Usage:  .a.b.setstyle, style(<margins #'s spec>|stylename|scheme)
+
+*/
+program define setstyle
+
+	capture syntax [ , Style(string) ]
+
+	if `._has_dash_unit `style'' |					///
+	   "`:word 1 of `style''" == "scheme" |				///
+	   (								///
+	     `:word count `style'' == 1 				///
+	     & !							///
+	     ( `=strpos(`"`style'"', "+")' |				///
+	       `=strpos(`"`style'"', "-")' |	     			///
+	       `=strpos(`"`style'"', "=")' )				///
+	   ) {
+
+					// Allow scheme to possibly set value
+
+		local scheme_setting `.`c(curscm)'.style `.classname' `style''	
+		capture numlist "`scheme_setting'", min(4) max(4) 
+		if ! _rc {
+			tokenize `r(numlist)'
+			.gleft.setstyle    , style(`1')
+			.gright.setstyle   , style(`2')
+			.gtop.setstyle     , style(`3')
+			.gbottom.setstyle  , style(`4')
+			exit
+		}
+
+						// let parent handle this
+		.Super.setstyle, style(`scheme_setting')      
+
+		exit						// EXIT
+	}
+
+					// style(t [-]# l # ...) and #<unit>
+
+	local style : subinstr local style "rs" "w", all // change units
+	local style : subinstr local style "pt" "x", all // units
+	local style : subinstr local style "in" "y", all // to parseable
+	local style : subinstr local style "cm" "z", all // chars
+
+	local side left	
+	local ct 1
+	local sequence left right bottom top
+	gettoken tok style : style , parse(" lrtb+-")
+	while "`tok'" != "" {
+		if "`tok'" == "l" {
+			local side left
+		}
+		else if "`tok'" == "r" {
+			local side right
+		}
+		else if "`tok'" == "t" {
+			local side top
+		}
+		else if "`tok'" == "b" {
+			local side bottom
+		}
+		else if "`tok'" == "+" {
+			local op +
+		}
+		else if "`tok'" == "-" {
+			local op -
+		}
+		else if "`tok'" == `"="' {
+			local op
+		}
+		else if "`tok'" == `"="' {
+			local op
+		}
+		else {
+		    if "`op'" != "" {
+			capture confirm number `tok'
+			if _rc {
+				gettoken num unitchar : tok , parse("xyz")
+				confirm number `num'
+			}
+			else	local num `tok'
+
+			local tok = "`=`.`side'' `op' `num''`unitchar'"
+		    }
+		    local tok : subinstr local tok "w" "rs", all    // return 
+		    local tok : subinstr local tok "x" "pt", all    // parseable
+		    local tok : subinstr local tok "y" "in", all    // chars to
+		    local tok : subinstr local tok "z" "cm", all    // units
+
+		    .g`side'.setstyle , style(`tok')
+
+		    local op
+		    local side `:word `++ct' of `sequence''
+		    if "`side'" == "" {
+			local side left
+		    }
+		}
+
+		gettoken tok style : style , parse(" lrtb+-")
+	}
+
+end
+
+
+program _has_dash_unit
+
+	if strpos(`"`0'"', "-pt") {
+		class exit = 1
+	}
+	if strpos(`"`0'"', "-in") {
+		class exit = 1
+	}
+	if strpos(`"`0'"', "-cm") {
+		class exit = 1
+	}
+	if strpos(`"`0'"', "-rs") {
+		class exit = 1
+	}
+
+	class exit = 0
+
+end
+	
+
+
+
+// ---------------------------------------------------------------------------
+// Intercept the editstyle and make copies of our own styles if we are told 
+// a copy will be made of us.
+
+program editstyle
+
+	local 0 , `0'
+
+	syntax [ , EDITCOPY * ]
+
+	if "`editcopy'" != "" {
+		.gleft.remake_as_copy
+		.gright.remake_as_copy
+		.gtop.remake_as_copy
+		.gbottom.remake_as_copy
+	}
+
+	.Super.editstyle `options' `editcopy'
+	
+end
+
+
+// ---------------------------------------------------------------------------
+//  Take over .setting and a string containing the margin values rather than 
+//  the current stylename.
+//
+//	Usage:  .setting
+//
+
+
+program setting
+	class exit "`.left' `.right' `.top' `.bottom'"
+end
+
+
+// --------------------------------------------------------------------------
+// Margin values scaled by the current gmetric multiplier
+
+program gmleft
+	class exit = 0`.gleft.gmval'
+end
+
+program gmright
+	class exit = 0`.gright.gmval'
+end
+
+program gmtop
+	class exit = 0`.gtop.gmval'
+end
+
+program gmbottom
+	class exit = 0`.gbottom.gmval'
+end
+
+
+
+// --------------------------------------------------------------------------
+// Return the added height due to the margin, in inches.
+
+program inches
+
+	class exit = `.gtop.inches' + `.gbottom.inches'
+end
+
+
+// --------------------------------------------------------------------------
+// Return the added width due to the margin, in inches.
+
+program wdinches
+
+	class exit = `.gleft.inches' + `.gright.inches'
+end
+

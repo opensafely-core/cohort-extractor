@@ -1,0 +1,132 @@
+/*
+	predict (after gmm)
+
+*!  VERSION 1.1.1 28aug2016
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+INCLUDE header
+
+HELP hlp1, view("help gmm postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	script _p_gentype_set_hasNoOffSet
+	setscale_hadj resource GMM_P_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script _p_gentype_setMedium
+	script _p_gentype_set_hasNoOffSet
+END
+
+DIALOG main, label(resource PREDICT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  INCLUDE  _p_gentype
+
+  GROUPBOX gb_opts		_lft	_ls	_iwd	_ht7,		///
+	label(resource LBL_PRODUCE)
+
+  RADIO rb_xb			_ilft	_ss	_cwd1	., first	///
+	option(xb)							///
+	onclickon(program main_xb_on)					///
+	label(resource LBL_LINEAR_PREDICTION_XB)
+  DEFINE holdy @y
+  RADIO rb_residuals		@	_ss	@	., 		///
+	option(residuals)						///
+	onclickon(program main_residuals_on)				///
+	label(resource LBL_RESIDUALS)
+  RADIO rb_scores		_ilft	_ss	@	., last		///
+	option(scores)							///
+	onclickon(script main_scores_on)				///
+	label(resource LBL_PARAMETER_LEVEL_SCORES)
+
+  RADIO rb_eq			_lft2	holdy	@	.,  first	///
+	onclickon(program main_one_eq_on)				///
+	label(resource LBL_ONE_EQUATION)
+  COMBOBOX cb_eq		_indent2 _ss	_vnwd	.,		///
+	dropdown							///
+	option(equation)						///
+	contents(ereturn eqnames)					///
+	label(resource LBL_ONE_EQUATION)
+  RADIO rb_alleqs		_lft2	_ls	_cwd1	., last		///
+	onclickon(program main_all_eq_on)				///
+	label(resource GMM_P_MAIN_RB_ALLEQS)
+END
+
+PROGRAM main_xb_on
+BEGIN
+	call main.rb_eq.enable
+	call main.rb_alleqs.disable
+	if (main.rb_eq) {
+		call main.cb_eq.enable
+	}
+	else {
+		call main.cb_eq.disable
+
+	}
+	call script _p_gentype_single
+END
+
+PROGRAM main_residuals_on
+BEGIN
+	call main.rb_eq.enable
+	call main.rb_alleqs.enable
+	if (main.rb_eq) {
+		call main.cb_eq.enable
+		call script _p_gentype_single
+	}
+	else {
+		call main.cb_eq.disable
+		call script _p_gentype_multiple
+	}
+
+END
+
+SCRIPT main_scores_on
+BEGIN
+	main.rb_eq.disable
+	main.cb_eq.disable
+	main.rb_alleqs.disable
+	script _p_gentype_multiple
+END
+
+PROGRAM main_one_eq_on
+BEGIN
+	call main.cb_eq.enable
+	call script _p_gentype_single
+END
+
+PROGRAM main_all_eq_on
+BEGIN
+	call main.cb_eq.disable
+	if (main.rb_residuals) {
+		call script _p_gentype_multiple
+	}
+	else {
+		call script _p_gentype_single
+	}
+
+END
+
+INCLUDE _p_gentype_sc
+INCLUDE ifin
+INCLUDE _type_list_fd
+
+PROGRAM command
+BEGIN
+	put "predict "
+	put " " /program _p_gentype_output
+	put " " /program ifin_output
+	beginoptions
+		option radio(main rb_xb rb_residuals rb_scores)
+		if main.rb_eq {
+			optionarg main.cb_eq
+		}
+	endoptions
+END

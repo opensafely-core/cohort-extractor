@@ -1,0 +1,101 @@
+/*
+  svydescribe
+
+*!  VERSION 1.3.0  13dec2014
+
+*/
+
+VERSION 14.0
+SYNCHRONOUS_ONLY
+
+INCLUDE _std_medium
+INCLUDE header
+
+HELP hlp1, view("help svydescribe")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource SVYDESCRIBE_DLG_HSCALE
+END
+
+DIALOG main, label(resource SVYDESCRIBE_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_vars   _lft      _top      _iwd      .,			///
+	label(resource SVYDESCRIBE_MAIN_TX_VARS)
+  VARLIST  vl_vars   _lft      _ss       _iwd      .,			///
+  	numeric								///
+	label(resource SVYDESCRIBE_MAIN_VL_VARS)
+
+  SPINNER  sp_stage  _lft      _ls       _spwd     .,			///
+		label(resource SVYDESCRIBE_MAIN_SP_STAGE)						///
+		min(1)							///
+		option(stage)
+
+  TEXT     tx_stage  _spsep    @         _spr       .,			///
+		label(resource SVYDESCRIBE_MAIN_SP_STAGE)
+
+  CHECKBOX ck_final  _lft      _ls       _iwd      .,			///
+	option(finalstage)						///
+	onclickon(script final_on)					///
+	onclickoff(script final_off)					///
+	label(resource SVYDESCRIBE_MAIN_CK_FINAL)
+
+  CHECKBOX ck_single _lft      _ms       _iwd      .,			///
+	label(resource SVYDESCRIBE_MAIN_CK_SINGLE)			///
+	option(single)
+
+  TEXT     tx_gen    _lft      _ls       _iwd      .,			///
+	label(resource SVYDESCRIBE_MAIN_TX_GEN)
+  EDIT     ed_gen    @         _ss       _vnwd     .,			///
+	option(generate)						///
+	max(32)								///
+	label(resource SVYDESCRIBE_MAIN_TX_GEN)
+
+  DEFINE _x _xsetbu
+  DEFINE _y 220
+  INCLUDE _bu_svyset
+END
+
+SCRIPT main_POSTINIT
+BEGIN
+	program main_get_stages
+END
+
+PROGRAM main_get_stages
+BEGIN
+	put "_svydes_dlg"
+	stata hidden
+END
+
+SCRIPT final_on
+BEGIN
+	main.sp_stage.disable
+	main.tx_stage.disable
+	main.ck_single.disable
+	main.tx_gen.disable
+	main.ed_gen.disable
+END
+SCRIPT final_off
+BEGIN
+	main.sp_stage.enable
+	main.tx_stage.enable
+	main.ck_single.enable
+	main.tx_gen.enable
+	main.ed_gen.enable
+END
+
+INCLUDE ifin
+
+PROGRAM command
+BEGIN
+	put "svydescribe "
+	varlist [main.vl_vars]
+	INCLUDE _ifin_pr
+	beginoptions
+		optionarg /hidedefault main.sp_stage
+		option main.ck_final
+		option main.ck_single
+		optionarg main.ed_gen
+	endoptions
+END

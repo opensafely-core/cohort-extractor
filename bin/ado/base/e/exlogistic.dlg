@@ -1,0 +1,441 @@
+/*
+  exlogistic.dlg
+
+*!  VERSION 1.2.6  18may2015
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 400
+INCLUDE header
+
+HELP hlp1, view("help exlogistic")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	script se_createAsInternalML
+	script weights_setLayout_f
+	setscale_hadj resource EXLOGISTIC_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	create STRING STMP
+
+	STMP.format "resource LBL_TERM_FMT" "1" ""
+	STMP.withvalue terms.ck_term1.setlabel "@"
+	STMP.withvalue terms.vn_term1.setlabel "@"
+
+	STMP.format "resource LBL_TERM_FMT" "2" ""
+	STMP.withvalue terms.ck_term2.setlabel "@"
+	STMP.withvalue terms.vn_term2.setlabel "@"
+
+	STMP.format "resource LBL_TERM_FMT" "3" ""
+	STMP.withvalue terms.ck_term3.setlabel "@"
+	STMP.withvalue terms.vn_term3.setlabel "@"
+
+	STMP.format "resource LBL_TERM_FMT" "4" ""
+	STMP.withvalue terms.ck_term4.setlabel "@"
+	STMP.withvalue terms.vn_term4.setlabel "@"
+
+	STMP.format "resource LBL_TERM_FMT" "5" ""
+	STMP.withvalue terms.ck_term5.setlabel "@"
+	STMP.withvalue terms.vn_term5.setlabel "@"
+
+	STMP.format "resource LBL_TERM_FMT" "6" ""
+	STMP.withvalue terms.ck_term6.setlabel "@"
+	STMP.withvalue terms.vn_term6.setlabel "@"
+END
+
+DIALOG main, label(resource EXLOGISTIC_DLG_TITLE)		///
+	tabtitle(resource LBL_TAB_MODEL)
+BEGIN
+  INCLUDE _dviv
+  
+  TEXT     tx_condv	@	_ls	@	.,		///
+	label(resource EXLOGISTIC_MAIN_TX_CONDV)
+  VARLIST  vl_condv	@	_ss	@	.,		///
+	option(condvars)					///
+	numeric							///
+	label(resource EXLOGISTIC_MAIN_CL_CONDV)
+
+  CHECKBOX ck_group	_lft	_ls	_iwd	_ht4,		///
+	groupbox						///
+	onclickon(script group_on)				///
+	onclickoff(script group_off)				///
+	label(resource LBL_DATA_STRATIFIED_GROUP_OWN_INTERCEPTS)
+  TEXT     tx_group	_ilft	_ss	_ibwd	.,		///
+	label(resource LBL_GROUP_VARIABLE_CONDIT_ON_INTERCEPTS_EACH_VAL)
+  VARNAME  vn_group	@	_ss	_vnwd	.,		///
+	option(group)						///
+	numeric							///
+	label(resource LBL_VN_GROUP_VARIABLE_CONDIT_INTERCEPTS_EACH_VAL) 
+
+  CHECKBOX ck_binomial	_lft	_xls	_iwd	_ht6h,		///
+	groupbox						///
+	label(resource EXLOGISTIC_MAIN_CK_BINOMIAL)		///
+	onclickon(program binomial_on)				///
+	onclickoff(script binomial_off)
+  RADIO    rb_fixed	_ilft	_ss	_ibwd	.,		///
+	first							///
+	onclickon(program show_fixed_binomial)			///
+	label(resource EXLOGISTIC_MAIN_RB_FIXED)
+  RADIO    rb_variable	@	_ss	@	.,		///
+	last							///
+	onclickon(program show_variable_binomial)		///
+	label(resource EXLOGISTIC_MAIN_RB_VARIABLE)
+  SPINNER  sp_binomial	+20	_ms	_vnwd	.,		///
+	option(binomial) min(1) max(10000)
+  VARNAME  vn_binomial	@	@	@	.,		///
+	option(binomial)					///
+	numeric							///
+	label(resource EXLOGISTIC_MAIN_VN_BINOMIAL) 
+  TEXT     tx_binomial	_vnsep	@	300	.,
+
+
+  GROUPBOX gb_cons	_lft	_xls	_iwd	_ht6,		///
+	label(resource EXLOGISTIC_MAIN_GB_CONS)
+  RADIO	   rb_default	_ilft	_ss	_ibwd	.,		///
+	first							///
+	label(resource EXLOGISTIC_MAIN_RB_DEFAULT)
+  RADIO    rb_nocons	@	_ss	@	.,		///
+	label(resource EXLOGISTIC_MAIN_RB_NOCONS)		///
+	option(nocons)
+  RADIO	   rb_estcons	@	_ss	@	.,		///
+	last							///
+	option(estcons)						///
+	label(resource EXLOGISTIC_MAIN_RB_ESTCONS) 
+END
+
+SCRIPT group_on
+BEGIN
+	main.tx_group.enable
+	main.vn_group.enable
+	main.gb_cons.disable
+	main.rb_default.disable
+	main.rb_nocons.disable
+	main.rb_estcons.disable
+END
+
+SCRIPT group_off
+BEGIN
+	main.tx_group.disable
+	main.vn_group.disable
+	main.gb_cons.enable
+	main.rb_default.enable
+	main.rb_nocons.enable
+	main.rb_estcons.enable
+END
+
+
+PROGRAM show_fixed_binomial
+BEGIN
+	if main.rb_fixed {
+		call main.sp_binomial.show
+		call main.vn_binomial.hide
+		call main.tx_binomial.setlabel resource EXLOGISTIC_TRIALS_PER_OBS
+	}
+END
+PROGRAM show_variable_binomial
+BEGIN
+	if main.rb_variable {
+		call main.sp_binomial.hide
+		call main.vn_binomial.show
+		call main.tx_binomial.setlabel resource EXLOGISTIC_MAIN_VN_BINOMIAL
+	}
+END
+
+PROGRAM binomial_on
+BEGIN
+	call main.rb_fixed.enable
+	call main.rb_variable.enable
+	call main.tx_binomial.enable
+	call main.sp_binomial.enable
+	call main.vn_binomial.enable
+END
+
+SCRIPT binomial_off
+BEGIN
+	main.rb_fixed.disable
+	main.rb_variable.disable
+	main.sp_binomial.disable
+	main.vn_binomial.disable
+	main.tx_binomial.disable
+END
+
+DIALOG terms, tabtitle(resource EXLOGISTIC_TAB_TERMS)
+BEGIN
+  TEXTBOX  tb_note1	_lft	_top	_iwd	_tb2,		///
+	label(resource EXLOGISTIC_TERMS_TB_NOTE1)
+
+  TEXT     tx_test	_lft	_xls	80	.,		///
+	label(resource EXLOGISTIC_TERMS_TX_TEST)
+
+  TEXT     tx_vars	+85	@	_lw80	.,		///
+	label(resource EXLOGISTIC_TERMS_TX_VARS)
+
+  CHECKBOX ck_term1	_lft	_ms	80	., 		///
+  	onclickon(terms.vn_term1.enable)			///
+  	onclickoff(terms.vn_term1.disable)
+  VARLIST  vn_term1	+85	@	_lw80	., 		///
+  	numeric
+  
+  CHECKBOX ck_term2	_lft	_ms	80	., 		///
+  	onclickon(terms.vn_term2.enable)			///
+  	onclickoff(terms.vn_term2.disable)
+  VARLIST  vn_term2	+85	@	_lw80	., 		///
+  	numeric	
+
+  CHECKBOX ck_term3	_lft	_ms	80	., 		///
+  	onclickon(terms.vn_term3.enable)			///
+  	onclickoff(terms.vn_term3.disable)
+  VARLIST  vn_term3	+85	@	_lw80	., 		///
+  	numeric	
+
+  CHECKBOX ck_term4	_lft	_ms	80	., 		///
+  	onclickon(terms.vn_term4.enable)			///
+  	onclickoff(terms.vn_term4.disable)
+  VARLIST  vn_term4	+85	@	_lw80	., 		///
+  	numeric	
+
+  CHECKBOX ck_term5	_lft	_ms	80	., 		///
+  	onclickon(terms.vn_term5.enable)			///
+  	onclickoff(terms.vn_term5.disable)
+  VARLIST  vn_term5	+85	@	_lw80	., 		///
+  	numeric
+  
+  CHECKBOX ck_term6	_lft	_ms	80	., 		///
+  	onclickon(terms.vn_term6.enable)			///
+  	onclickoff(terms.vn_term6.disable)
+  VARLIST  vn_term6	+85	@	_lw80	., 		///
+  	numeric
+END
+
+INCLUDE byifin
+INCLUDE weights
+
+SCRIPT opt_PREINIT
+BEGIN
+        opt.fi_sav.formatfilter "{0} (*.dta)|*.dta|{1} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_DTA" "resource ui_ex FILE_TYPE_ALL_FILES"
+END
+
+DIALOG opt, tabtitle(resource LBL_OPTIONS)
+BEGIN
+  SPINNER  sp_memory	_lft	_top	_spwd	.,		///
+	default(10) min(1) max(2048)  
+  TEXT     tx_mb	_spsep	@	250 	.,		///
+  	label(resource LBL_LIMIT_FOR_MEMORY_USAGE_IN_MEGABYTES)
+ 
+  CHECKBOX ck_save	_lft	+35	_iwd	_ht4h,		///
+	label(resource EXLOGISTIC_OPT_CK_SAVE)			///
+	groupbox						///
+	onclickon(script opt_save_on)				///
+	onclickoff(script opt_save_off)
+
+  TEXT     tx_sav	_indent	_ss	_ibwd	.,		///
+	label(resource LBL_FILENAME)
+  FILE     fi_sav	@	_ss	@	.,		///
+	label(resource LBL_BU_BROWSE)				///
+	option(saving)						///
+	defext(dta)						///
+	save							///
+	error(resource LBL_FILENAME)   		
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  GROUPBOX gb_coefopt	_lft	_ls	_iwd	_ht4,		///
+  	label(resource LBL_COEFFICIENT_OPTIONS)
+
+  RADIO    rb_or	_indent	_ss	_ibwd	., 		///
+	first							///
+	label(resource LBL_REPORT_ODDS_RATIOS_DEFAULT) 		///
+	option(or)
+  RADIO    rb_coef	@	_ss	@	.,		///
+	last							///
+	label(resource LBL_REPORT_COEFFICIENTS)			///
+	option(coef)
+
+  GROUPBOX gb_testopt	_lft	_xls	_iwd	_ht6,		///
+  	label(resource LBL_TEST_OPTIONS)
+  
+  RADIO    rb_suff	_indent	_ss	_ibwd	.,		///
+	first							///
+	option(test(sufficient))				///
+	label(resource LBL_RPT_PROBABILITY_OBSERVED_SUFFICIENT_STAT)
+  RADIO    rb_score	@	_ss	@	., 		///
+	label(resource LBL_REPORT_CONDITIONAL_SCORES_TEST)			///
+	option(test(score))
+  RADIO    rb_prob	@	_ss	@ 	.,		///
+	last 							///
+	label(resource LBL_REPORT_CONDITIONAL_PROBABILITIES_TEST)		///
+	option(test(probability))
+
+  TEXT     tx_muev	_lft	+45	_iwd	.,		///
+label(resource EXLOGISTIC_MAIN_TX_MUEV)
+  VARLIST  vl_muev	@	_ss	@	.,		///
+label(resource EXLOGISTIC_MAIN_TX_MUEV) 	///
+	numeric							///
+	option(mue)
+
+  CHECKBOX ck_midp	_lft	_ls	_iwd	.,		///
+	label(resource LBL_USE_MID_P_VALUE_RULE)				///
+	option(midp)
+
+  CHECKBOX ck_nolog	_lft	_ms	_iwd	.,		///
+	label(resource LBL_DO_NOT_DISPLAY_ENUMERATION_LOG)			///
+	option(nolog)
+END
+
+SCRIPT opt_save_on
+BEGIN
+	opt.fi_sav.enable
+	opt.tx_sav.enable
+END
+
+SCRIPT opt_save_off
+BEGIN
+	opt.fi_sav.disable
+	opt.tx_sav.disable
+END
+
+SCRIPT opt_suff_on
+BEGIN
+	opt.rb_suff.enable
+	opt.rb_score.disable
+	opt.rb_prob.disable
+END
+
+SCRIPT opt_score_on
+BEGIN
+	opt.rb_score.enable
+	opt.rb_suff.disable
+	opt.rb_prob.disable
+END
+
+SCRIPT opt_prob_on
+BEGIN
+	opt.rb_prob.enable
+	opt.rb_suff.disable
+	opt.rb_score.disable
+END
+
+PROGRAM terms_output_wrk
+BEGIN
+	call create BOOLEAN comma
+	call comma.setfalse
+	if terms.ck_term1 {
+		varlist terms.vn_term1
+		call comma.settrue
+	}
+	if terms.ck_term2 {
+		if comma {
+			put ", "
+		}
+		varlist terms.vn_term2
+		call comma.settrue
+	}
+	if terms.ck_term3 {
+		if comma {
+			put ", "
+		}
+		varlist terms.vn_term3
+		call comma.settrue
+	}
+	if terms.ck_term4 {
+		if comma {
+			put ", "
+		}
+		varlist terms.vn_term4
+		call comma.settrue
+	}
+	if terms.ck_term5 {
+		if comma {
+			put ", "
+		}
+		varlist terms.vn_term5
+		call comma.settrue
+	}
+	if terms.ck_term6 {
+		if comma {
+			put ", "
+		}
+		varlist terms.vn_term6
+		call comma.settrue
+	}
+END
+
+PROGRAM terms_output
+BEGIN
+	if terms.ck_term1 | terms.ck_term2		///
+		| terms.ck_term3 | terms.ck_term4	///
+		| terms.ck_term5 | terms.ck_term6	///
+	{
+		put " terms("
+		put /program terms_output_wrk
+		put ") "
+	}
+END
+
+PROGRAM command
+BEGIN
+	allowxi
+	put /program by_output " "
+	put "exlogistic "
+	varlist main.vn_dv main.vl_iv
+	put " " /program ifin_output
+	put " " /program weights_output
+	beginoptions
+		optionarg main.vl_condv
+		if main.ck_group {
+			require main.vn_group
+			optionarg main.vn_group
+		}
+		
+		if main.ck_binomial  {
+			if main.rb_variable {
+				require main.vn_binomial
+				optionarg main.vn_binomial
+			}
+			else {
+				optionarg main.sp_binomial
+			}
+		}
+
+		option main.rb_nocons
+		option main.rb_estcons
+		
+		put " " /program terms_output
+		
+		if !opt.sp_memory.isdefault() {
+			put "memory("
+			put opt.sp_memory
+			put "M)"
+		}
+		if opt.ck_save {
+			require opt.fi_sav
+			repfile opt.fi_sav
+			put `"saving("'
+			put opt.fi_sav
+			put `", "'
+			put "replace)"
+		}
+
+		optionarg /hidedefault rpt.sp_level
+		option rpt.rb_coef
+		option rpt.rb_score
+		option rpt.rb_prob
+		optionarg rpt.vl_muev
+		option rpt.ck_midp
+		option rpt.ck_nolog
+	endoptions
+END

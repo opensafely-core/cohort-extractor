@@ -1,0 +1,106 @@
+*! version 1.0.0  17may2019
+
+version 16
+
+class {
+
+	mfu1_y		= "_meta_se"
+	mfu1_x		= "_meta_es"
+	mfu1_n		= 300
+	mfu1_opts	= ""
+	mfu1_preserve	= ""
+
+}, inherit(twoway_function_parse)
+
+program .parse
+	.must_create_serset = 1
+	.viewtype = "area"
+	.n = 1
+	.allow_anything = 1
+	.varcheck = 0
+
+	syntax [anything] [if] [in] [, range(passthru) *]
+
+	.Super.parse 0 `if' `in', type(area) `options'
+
+	local options `"[], `range' `.options'"'	// ignore weights
+	_parse expand loc glob : options
+	if `loc_n' != 1 {
+		error 198
+	}
+	local 0 `"`loc_1'"'
+	_parse combop 0 : 0, option(RAnge)	rightmost
+
+	syntax [,				///
+		contours(passthru)		///
+		LOWer				///
+		UPper				///
+		range(passthru)			///
+		metric(passthru)		///
+		method(passthru)		///
+		N(integer `.mfu1_n')		///
+		*				///
+	]
+	local common				///
+		`contours'			///
+		`lower'				///
+		`upper'				///
+		`range'
+	twoway__meta_funnel_gen `anything', `common' `metric' `method' n(`n')
+	local metric metric(`r(metric)')
+	local method method(`r(method)')
+	.mfu1_opts = "`common' `metric' `method'"
+
+	.mfu1_preserve	= `"`r(preserve)'"'
+	.mfu1_n	= r(n)
+	.mfu1_y	= "`r(y)'"
+	.mfu1_x	= "`r(x)'"
+
+	.options	= `"`options'"'
+end
+
+program log_create_serset
+
+	syntax , LOG(name) SERSETNAME(string) [ TOUSE(passthru) * ]
+
+	local nolog  .`log'.Arrpush __NOLOG__
+
+	.log_touse , log(`log') `touse'
+
+	// make the data
+	if (`"`.mfu1_preserve'"' != "") `nolog' preserve
+	`nolog' tempname x y
+	`nolog' twoway__meta_funnel_gen `.mfu1_y' `.mfu1_x'	///
+		if \`touse1',					///
+		`.mfu1_opts'					///
+		n(`.mfu1_n')					///
+		generate(\`y' \`x')				///
+		// blank
+
+	// no weights to remove
+
+	.varlist = "y x"
+
+	.`log'.Arrpush				///
+		.`sersetname' = .serset.new	///
+			\`y' \`x'	///
+			in 1/`.mfu1_n',		///
+			nocount			///
+			`.omitmethod'		///
+			`options'
+
+	.`log'.Arrpush .`sersetname'.sers[1].name = "y"
+	.`log'.Arrpush .`sersetname'.sers[2].name = "x"
+
+	if ! `.yxswitch' {
+		.varlist = "y x"
+	}
+	else	.varlist = "x y"
+
+	`nolog' .`sersetname'.sort \`x'
+
+	if (`"`.mfu1_preserve'"' != "") `nolog' restore
+
+end
+
+exit

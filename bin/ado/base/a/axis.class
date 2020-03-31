@@ -1,0 +1,1274 @@
+/*                                  axis
+
+	Class for axis views.
+
+    Note, the max and min for ticksets must be set through the _set_xyz_min
+	  programs provided here.
+*/
+
+*! version 1.2.1  22nov2019
+version 8
+
+class {
+	style		= .axisstyle.new
+	position	= .relative_posn.new
+
+	title		= .sized_textbox.new
+
+	.major		= .tickset_g.new		// labeled major ticks
+	.minor		= .tickset_g.new		// labeled minor ticks
+	.majornl	= .tickset_g.new		// unlabeled major ticks
+	.minornl	= .tickset_g.new		// unlabeled minor ticks
+
+	draw_view       = .yesno.new, style(yes)	// ok, primitive style
+	fill_if_undrawn = .yesno.new, style(no)
+	force_draw	= .yesno.new, style(yes)	// for grid
+
+	// plotregion -- declared dynamically by reference
+
+	xtransform = .transform.new , dimension(x)	// so axis can act
+	ytransform = .transform.new , dimension(y)	// as container 
+
+	box_alignment	= .compass2dir.new , style(center) // for aspect()
+
+	dialog		= "axis"
+
+	dlg_major	= ""				// signals to editor
+	dlg_minor	= ""				// dialog, used ticksets
+
+	_recreate	= .yesno.new, style(no)
+	_uncreate	= .yesno.new, style(no)
+	_created	= .yesno.new, style(no)
+
+}, inherit(view)
+
+
+// ----------------------------------------------------------------------------
+//
+//	Usage:  .new , plotregion(plotregion) [ position(left|right|below|above)
+//			label_position style(axis_stylename) 
+//			titlestyle(textbox_stylename) title(title_text) ]
+//
+//  text in title() must be quoted.
+
+program define new
+				// apply default style settings if they are
+				// not about to be reset by options
+	syntax [ , Style(string) TITLEStyle(string) * ]
+	if "`titlestyle'" == "" { 
+		.title.set, style(scheme axis_title)
+	}
+	if "`style'" == ""      { 
+		.style.setstyle, style(scheme)
+	}
+
+	.set `0'
+	.set_formats
+	.set_scales
+
+	.minor.Declare mymajor   = .major.ref
+	.minornl.Declare mymajor = .major.ref
+
+	.title.grid_dragable = 0
+
+	.set_ticks
+end
+
+program define set
+
+	syntax [, PLotregion(string) POSition(string) Style(passthru) 	///
+		  LAbel_position TITLE(string asis) TITLEStyle(string) * ]
+
+	if `"`title'"' != `""' { 
+		local title mtextq(`"`title'"') 
+	}
+	if "`titlestyle'" != "" { 
+		local titlestyle `"style(`titlestyle')"'
+	}
+
+	if "`plotregion'" != "" {
+		if "`.Local.plotregion.isa'" == "" {
+			.Declare plotregion = .Global.`plotregion'.ref
+		}
+		else	.plotregion.ref = .Global.`plotregion'.ref
+
+		local ord = cond("`position'"=="left" |			///
+				 "`position'"=="right", "y", "x")
+		.`plotregion'.`ord'scale.add_axis `.objkey'
+		.`plotregion'.addaxis `.objkey'
+	}
+
+	if "`style'" != "" { 
+		.style.setstyle, `style'
+	}
+
+	.Super.set , `options'
+
+	if "`position'" != "" {
+		.position.setstyle, style(`position')
+
+		if "`position'" == "left" | "`position'" == "right" {
+			.xstretch.set fixed
+			.ystretch.set shared
+		}
+		else if "`position'" == "below" | "`position'" == "above" {
+			.xstretch.set shared
+			.ystretch.set fixed
+		}
+	}
+
+	if "`.position.snm'" == "left" | "`.position.snm'" == "right" {
+		local orient orientation(vertical)
+	}
+	.title.edit, `title' `titlestyle' `orient'
+
+end
+
+program set_pow2
+	if ! 0`.plotregion.isofclass plotregion' {
+		exit					// no plotregion
+	}
+
+	foreach ticks in major majornl minor minornl {
+		.`ticks'.set_pow2
+	}
+end
+
+program set_trans
+	if ! 0`.plotregion.isofclass plotregion' {
+		exit					// no plotregion
+	}
+
+	foreach ticks in major majornl minor minornl {
+		.`ticks'.set_trans
+	}
+end
+
+program set_reverse
+	if ! 0`.plotregion.isofclass plotregion' {
+		exit					// no plotregion
+	}
+
+	foreach ticks in major majornl minor minornl {
+		.`ticks'.set_reverse
+	}
+end
+
+// ---------------------------------------------------------------------------
+//  Lets each of the ticksets use natscale to select a range and actual number
+//  of ticks, then sets the scale to be the smallest minimum and largest
+//  maximum.
+
+program define set_ticks
+	args set_type
+
+	if ! 0`.plotregion.isofclass plotregion' {
+		exit					// no plotregion
+	}
+
+	local ord = cond("`.position.snm'"=="left" |			///
+			 "`.position.snm'"=="right", "y", "x") 
+
+	local min = 0`.plotregion.`ord'scale.min'
+	local max = 0`.plotregion.`ord'scale.max'
+
+	if `min' > `max' {					// not set yet
+		exit 
+	}			
+
+	foreach ticks in major majornl minor {
+		.`ticks'.set_ticks `min' `max'				///
+			`.style.`ticks'style.numticks.val' `set_type'
+	}
+	.minornl.set_ticks `min' `max' 0 only_default
+	.reset_scale 
+        .minornl.suggest_between_ticks `.style.minornlstyle.numticks.val'
+end
+
+
+program define _set_ticks
+	set_ticks `0'
+end
+
+program define reset_scale
+
+	local ord = cond("`.position.snm'"=="left" |			///
+			 "`.position.snm'"=="right", "y", "x") 
+	.plotregion.`ord'scale.reset_from_axes
+end
+
+
+// ---------------------------------------------------------------------------
+// Return the overall min/max of all the ticksets of the axis.
+
+program overallmin
+	local omin 1e300
+	foreach ticks in major majornl minor minornl {
+		local omin = min(`omin', `.`ticks'.overallmin')
+	}
+
+	class exit = `omin'
+end
+
+program define overallmax
+	local omax -1e300
+	foreach ticks in major majornl minor minornl {
+		local omax = max(`omax', `.`ticks'.overallmax')
+	}
+
+	class exit = `omax'
+end
+
+
+// ---------------------------------------------------------------------------
+// Return the min/max of any specified ticks positions among all the 
+// ticksets of the axis.
+
+program specifiedmin
+	local omin 1e300
+	foreach ticks in major majornl minor minornl {
+		local omin = min(`omin', `.`ticks'.specifiedmin')
+	}
+
+	class exit = `omin'
+end
+
+program define specifiedmax
+	local omax -1e300
+	foreach ticks in major majornl minor minornl {
+		local omax = max(`omax', `.`ticks'.specifiedmax')
+	}
+
+	class exit = `omax'
+end
+
+
+// ---------------------------------------------------------------------------
+//  Sets the formatting of each tickset to be the format picked up by the
+//  plotregion.
+
+program define set_formats
+	local ord = cond("`.position.snm'"=="left" |			///
+			 "`.position.snm'"=="right", "y", "x") 
+
+	local fmt `.plotregion.dimformat `ord''
+
+	if "`fmt'" == "" & "`.plotregion.`ord'scale._format'" != "" {
+		local fmt `"`.plotregion.`ord'scale._format'"'
+	}
+
+	if "`fmt'" != "" {
+		foreach ticks in major majornl minor minornl {
+		      .`ticks'.set_format `fmt'
+		}
+	}
+end
+
+
+// ---------------------------------------------------------------------------
+//  Let the ticksets know about their scale.
+
+program define set_scales
+
+
+	local ord = cond("`.position.snm'"=="left" | 			///
+			 "`.position.snm'"=="right", "y", "x") 
+
+	if 0`.plotregion.`ord'scale.isofclass scale' {
+		foreach ticks in major majornl minor minornl {
+		      .`ticks'.set_scale `.plotregion.`ord'scale.objkey'
+		}
+	}
+end
+
+
+// ---------------------------------------------------------------------------
+//  Let the ticksets know about transform (log or linear).
+//  They assume the current transform in the scale.
+
+program define set_transform
+
+	local ord = cond("`.position.snm'"=="left" | 			///
+			 "`.position.snm'"=="right", "y", "x") 
+
+	foreach ticks in major majornl minor minornl {
+	      .`ticks'.set_transform `.plotregion.`ord'scale.objkey'
+	}
+end
+
+
+// ---------------------------------------------------------------------------
+//  Sets the plotregion for the axis and registers the axis with the 
+//  plotregion and scale.
+
+program set_plotregion
+	args plotregion xy
+
+	if "`plotregion'" == "" {
+		exit
+	}
+	if "`xy'" != "x" & "`xy'" != "y" {
+		exit
+	}
+
+	if "`.Local.plotregion.isa'" == "" {
+		.Declare plotregion = .Global.`plotregion'.ref
+	}
+	else	.plotregion.ref = .Global.`plotregion'.ref
+
+	.`plotregion'.`xy'scale.add_axis `.objkey'
+	.`plotregion'.addaxis `.objkey'
+end
+
+
+// ---------------------------------------------------------------------------
+program define xsize
+
+	if "`.position.snm'"=="left" | "`.position.snm'"=="right" {
+	    local size = `.xsize_notitle' + `.style.outer_space.gmval'
+	    if 0`.title.draw_view.istrue' | 0`.title.fill_if_undrawn.istrue' {
+		local size = `size' + `.title.extent x' +	///
+			     `.style.title_gap.gmval'
+	    }
+	}
+	else {
+		local size = cond("`.xstretch.setting'" == "fixed" ,	///
+				0`.plotregion.xsize' , 0)
+	}
+
+	class exit = `size'
+end
+
+program define ysize
+
+	if ! ( "`.position.snm'"=="left" | "`.position.snm'"=="right" ) {
+	    local size = `.ysize_notitle' + `.style.outer_space.gmval'
+	    if 0`.title.draw_view.istrue' | 0`.title.fill_if_undrawn.istrue' {
+		local size = `size' + `.title.extent y' + 	///
+			     `.style.title_gap.gmval'
+	    }
+	}
+	else {
+		local size = cond("`.ystretch.setting'" == "fixed" ,	///
+				0`.plotregion.ysize' , 0)
+	}
+
+	class exit = `size'
+end
+
+program define xsize_notitle
+
+	if "`.position.snm'"!="left" & "`.position.snm'"!="right" {
+		class exit = 0
+	}
+
+	class exit `._tick_and_label_width x'
+end
+
+program define ysize_notitle
+
+	if "`.position.snm'"=="left" | "`.position.snm'"=="right" {
+		class exit = 0
+	}
+
+	class exit = `._tick_and_label_width y'
+end
+
+program _tick_and_label_width
+	args ord
+
+	local frd = cond("`ord'" == "x" , "y" , "x")
+	
+	local max 0
+	foreach ticks in major majornl minor minornl {
+	    local max = max(`max', `.`ticks'._tick_and_label_width 	///
+	      `.style.`ticks'style.objkey' `ord' `._value_label_series `frd''')
+	}
+
+	class exit = `max'
+end
+
+// ---------------------------------------------------------------------------
+//  Returns a structure containing the left (bottom) and right (top) amounts
+//  that the smallest (and largest) major tick labels overhang the size of 
+//  the axis. The sizes are in GU.  Overhang ignores plotregion margin (this
+//  is handier for final adjustments).
+//  Note, not applicable to log scales
+
+program major_label_overhangs
+
+	local ord = cond("`.position.snm'"=="left" |			///
+			 "`.position.snm'"=="right", "y", "x")
+
+	tempname res
+
+	.`res' =  .major._label_overhangs `.style.majorstyle.objkey' `ord' `._value_label_series `ord''
+
+	class exit .`res'.ref
+end
+
+
+// ---------------------------------------------------------------------------
+// Return the size of the specified label whose label matches supplied text.  
+// The size is in the same direction along the axis and is in GUs.  Only 
+// labels with specified text labels among the major labels are searched.
+
+program matching_label_size
+	args txt
+
+	local ord = cond("`.position.snm'"=="left" |			///
+			 "`.position.snm'"=="right", "y", "x")
+
+	class exit =							///
+       `.major._matching_label_size `.style.majorstyle.objkey' `ord' `"`txt'"''
+end
+
+// ---------------------------------------------------------------------------
+// Edit the style for the specified label whose label matches supplied text.  
+// Only labels with specified text labels among the major labels are searched.
+
+program matching_label_editstyle
+	args txt options
+
+	.major._matching_label_editstyle `.style.majorstyle.objkey'	///
+		`"`txt'"' `"`options'"'
+end
+
+// ---------------------------------------------------------------------------
+// Reset the position of the label whose label matches supplied text.  
+// Only labels with specified text labels are searched.
+
+program matching_label_position
+	args txt pos
+
+	.major._matching_label_position `.style.majorstyle.objkey'	///
+		`"`txt'"' `pos'
+end
+
+// ---------------------------------------------------------------------------
+// Convert a distance in GUs to the equivalent distance in the metric of the
+// plotregion for the axis.
+
+program convert_gu_to_scale
+	args dist
+
+	if ("`.plotregion.objkey'" == "")  class exit = 0
+
+	local ord = cond("`.position.snm'"=="left" |			///
+			 "`.position.snm'"=="right", "y", "x")
+
+	class exit = (`.plotregion.`ord'scale.curmax' - 		///
+		      `.plotregion.`ord'scale.curmin') * 		///
+		     `dist' / `.plotregion.`ord'size_ren'
+end
+
+
+// ---------------------------------------------------------------------------
+program set_userules
+	args yesno
+
+	foreach ticks in major majornl minor minornl {
+		.`ticks'.use_rule.setstyle , style(`yesno')
+	}
+end
+
+
+// ---------------------------------------------------------------------------
+program clear_ticks
+	foreach ticks in major majornl minor minornl {
+		.`ticks'.clear_ticks
+	}
+end
+
+// ---------------------------------------------------------------------------
+//  Use compass_draw to allow alignment of the sized axis in an area that
+//  is possibly larger than the size of the axis.
+
+program draw
+
+	syntax [, PLOTREgion(string) * ]
+
+	if ("`plotregion'" == "") local plotregion plotregion
+
+
+	if "`.`.position.parallel_dim'stretch.setting'" == "fixed" {
+		.compass_draw , align(box_alignment)			///
+			drawpgm(_sized_draw)				///
+			margins(`plotregion'.style.margin)		///
+			plotregion(`plotregion') `options'
+	}
+	else {
+		.real_draw , `options'
+	}
+
+	.Selected
+end
+
+program _sized_draw
+
+	syntax [, XSize(real 0) YSize(real 0) * ]
+
+	.xsize_ren = `xsize'
+	.ysize_ren = `ysize'
+
+	.real_draw , xsize(`.xsize_ren') ysize(`.ysize_ren') `options'
+end
+
+
+// ---------------------------------------------------------------------------
+// Note that .draw_view.isfalse implies we are only drawing the grids.
+// Unless, .force_draw is also false
+
+program define real_draw
+
+	syntax [, XSize(real -1) YSize(real -1) GRIDONLY PLOTREgion(string) ]
+
+	if `xsize' == -1 {
+		.xsize_ren = `.xsize'
+	}
+	else	.xsize_ren = `xsize'
+
+	if `ysize' == -1 {
+		.ysize_ren = `.ysize'
+	}
+	else	.ysize_ren = `ysize'
+
+
+	local gridonly = "`gridonly'" != ""
+
+	if "`plotregion'" == "" {
+		local plotregion plotregion
+	}
+
+	if ! (`.draw_view.istrue' | `gridonly') {
+		exit						// Exit
+	}
+
+	.set_gdi_posn 0 0 `.ysize_ren' `.xsize_ren'
+
+	.xtransform.get_from_gdi		// fetch current transform
+	.ytransform.get_from_gdi
+
+
+	.style.linestyle.setgdifull			// compute positions
+	local pos `.position.snm'
+	if "`pos'" == "default" { 
+		local pos below 
+	}
+
+	if "`pos'" == "below" | "`pos'" == "above" {
+	    local x0 = !`.style.extend_full_low.istrue' * 		  ///
+			`.`plotregion'.style.margin.gmleft'
+	    local x1 = `.xsize_ren' - !`.style.extend_full_high.istrue' * ///
+			`.`plotregion'.style.margin.gmright'
+	    local xtitle 0
+	    local xtitlesz `.xsize_ren'
+	    local ytitlesz `.title.extent y'
+	    if "`pos'" == "below" {
+	    	local y0 `.ysize_ren'
+	    	local y1 `.ysize_ren'
+		local ytitle `.style.outer_space.gmval'
+	    }
+	    else {
+	    	local y0 0
+	    	local y1 0
+		local ytitle = `.ysize_notitle' + `.style.title_gap.gmval'
+	    }
+	}
+	else if "`pos'" == "left" | "`pos'" == "right" {
+	    local y0 = !`.style.extend_full_low.istrue' * 		  ///
+			`.`plotregion'.style.margin.gmbottom'
+	    local y1 = `.ysize_ren' - !`.style.extend_full_high.istrue' * ///
+			`.`plotregion'.style.margin.gmtop'
+	    local ytitle = 0
+	    local xtitlesz `.title.extent x'
+	    local ytitlesz `.ysize_ren'
+	    if "`pos'" == "left" {
+	    	local x0 = `.xsize_ren'
+	    	local x1 = `.xsize_ren'
+		local xtitle = `.style.outer_space.gmval'
+	    }
+	    else {
+	    	local x0 0
+	    	local x1 0
+		local xtitle = `.xsize_notitle' + `.style.title_gap.gmval'
+	    }
+	}
+
+							// draw main line
+	if "`.style.linestyle.color.snm'" != "none" & 0`.draw_view.istrue' & ///
+	   ! `gridonly' {
+	    if `.style.extend' {
+		gdi line `x0' `y0' `x1' `y1'	
+		`crt' ._declare_array axis_line1
+		`crt' .Declare axis_line1 = .line_g.new `x0' `y0' `x1' `y1', ///
+			styleref(`.style.linestyle.objkey')
+	    }
+	}
+
+							// draw ticks
+	if "`pos'" == "left" | "`pos'" == "right" {
+		if ! `gridonly' {
+			.`plotregion'.style.margin.setgdi, view(`.objkey') yonly
+		}
+		.`plotregion'.yscale.setgdi `.ysize_ren'
+	}
+	else {
+		if ! `gridonly' {
+			.`plotregion'.style.margin.setgdi, view(`.objkey') xonly
+		}
+		.`plotregion'.xscale.setgdi `.xsize_ren'
+	}
+
+	if `gridonly' {
+		local x0 = - `.`plotregion'.style.margin.gmleft'
+		local y0 = - `.`plotregion'.style.margin.gmbottom'
+	}
+
+	foreach ticks in minor minornl major majornl {
+
+		local drawgrid = `gridonly' & 0`.style.draw_`ticks'_grid.istrue'
+//		local gridonly = 0`.draw_view.isfalse'
+//		local gridonly = `gridonly' | 0`.draw_view.isfalse'
+
+		if "`pos'" == "left" | "`pos'" == "right" {
+		    .`ticks'.draw `.style.`ticks'style.objkey'	///
+			`pos' `x0'				///
+			0`drawgrid'				///
+			0`gridonly'				///
+			0`.`plotregion'.xsize_ren'		///
+			0`.`plotregion'.style.margin.gmleft'	///
+			0`.`plotregion'.style.margin.gmright'	///
+			"`._value_label_series y'"
+
+		}
+		else {
+		    .`ticks'.draw `.style.`ticks'style.objkey'	///
+			`pos' `y0'				///
+			0`drawgrid'				///
+			0`gridonly'				///
+			0`.`plotregion'.ysize_ren'		///
+			0`.`plotregion'.style.margin.gmbottom'	///
+			0`.`plotregion'.style.margin.gmtop'	///
+			"`._value_label_series x'"
+
+		}
+		gdi update
+	}
+
+						// draw main line, noextend
+	if "`.style.linestyle.color.snm'" != "none" & 0`.draw_view.istrue' & ///
+	   ! `gridonly' {
+	    if !`.style.extend' {
+		local min = `.overallmin'
+		local max = `.overallmax'
+		if "`pos'" == "left" | "`pos'" == "right" { 
+			local coord `x0' `min' `x1' `max' 
+		}
+		else {
+			local coord `min' `y0' `max' `y1'
+		}
+		.style.linestyle.setgdifull
+		gdi line `coord'
+		`crt' ._declare_array axis_line1
+		`crt' .Declare axis_line1 = .line_g.new `coord',	///
+			styleref(`.style.linestyle.objkey')
+	    }
+	}
+
+	if ! `gridonly' {
+		._draw_title `xtitle' `ytitle' `xtitlesz' `ytitlesz'
+	}
+	else {
+		.xtransform.reset		/* back to transform when */
+		.ytransform.reset		/* .axis was called 	  */
+	}
+
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*  
+	Draw axis title							
+
+        Must reset transform because .axis is holding a view (.textbox) but
+        is not itself a container
+
+	This must be the last thing drawn because it does not hold and restore
+	the current transform.
+*/
+program define _draw_title
+	args x y xsz ysz
+
+
+	.xtransform.reset			/* back to transform when */
+	.ytransform.reset			/* .axis was called 	  */
+
+	.xtransform.translate `x'		/* translate to position of */
+	.ytransform.translate `y'		/* title 		    */
+
+	.title.draw , xsize(`xsz') ysize(`ysz')		/* draw title */
+
+end
+
+
+/* -------------------------------------------------------------------------*/
+program define draw2
+
+	._drawem axis_line1
+
+	local ord =							      /*
+	 */ cond("`.position.snm'" == "left" | "`.position.snm'" == "right", /*
+	 */ "y", "x")
+
+	.plotregion.style.margin.setgdi, view(`.objkey') `ord'only
+
+	._drawem axis_line
+
+	.plotregion.`ord'scale.setgdi `.`ord'size_ren'
+
+	._drawem major_ticks
+	._drawem major_labels 						/*
+	    */ "angle(`.style.tickangle.val') posdefault(`.position.snm')"
+
+	._drawem minor_ticks
+
+	local pos `.position.snm'
+	if "`pos'" == "default" { 
+		local pos below 
+	}
+
+	if "`pos'" == "below" | "`pos'" == "above" {
+	    local xtitle 0
+	    local xtitlesz `.xsize_ren'
+	    local ytitlesz `.title.extent y'
+	    if "`pos'" == "below" {
+		local ytitle `.style.outer_space.gmval'
+	    }
+	    else {
+		local ytitle = `.ysize_notitle' + `.style.title_gap.gmval'
+	    }
+	}
+	else if "`pos'" == "left" | "`pos'" == "right" {
+	    local ytitle = 0
+	    local xtitlesz `.title.extent x'
+	    local ytitlesz `.ysize_ren'
+	    if "`pos'" == "left" {
+		local xtitle = `.style.outer_space.gmval'
+	    }
+	    else {
+		local xtitle = `.xsize_notitle' + `.style.title_gap.gmval'
+	    }
+	}
+
+
+	._draw_title `xtitle' `ytitle' `xtitlesz' `ytitlesz'
+
+end
+
+/* -------------------------------------------------------------------------*/
+/*
+	Usage:  _drawem name "drawing_options"
+
+	Draws either nothing, a single object called name, or the array of
+	objects held in the array called name.
+*/
+program define _drawem
+
+	args name options
+
+	if "`.Local.`name'.isa'" == "" { 
+		exit						/* Exit */
+	}		
+
+	if "`.Local.`name'.isa'" != "array" {
+		capture .`name'.draw , `options'
+		exit						/* Exit */
+	}
+
+	forvalues i = 1/0`.`name'.arrnels' {
+		.`name'[`i'].draw , `options'
+	}
+
+
+end
+
+
+program _drawem2
+	gettoken name 0 : 0
+
+	if "`.Local.`name'.isa'" != "array" {
+		exit						// Exit
+	}
+
+	forvalues i = 1/0`.`name'.arrnels' {
+		.`name'[`i'].draw `0'
+	}
+end
+
+
+/* -------------------------------------------------------------------------*/
+program define _cleanup_created
+
+	foreach array in axis_line axis_line1 major_ticks major_labels 	/*
+	    */ minor_ticks {
+		forvalues i = 1/0`.`array'.arrnels' {
+			.`array'.Arrpop
+		}
+	}
+end
+
+
+/* -------------------------------------------------------------------------*/
+program define _declare_array
+
+	args name
+
+	if "`.`name'.isa'" == "" {
+		.Declare array `name'
+	}
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*  Return a string containing the object key of the x/y series of the first
+    plot in our plotregion.  Typically used to fetch value labels for ticks.
+*/
+
+program _value_label_series
+	args ord
+
+	class exit "`.plotregion.dynamicmv[1].dim_value_label_series `ord''"
+		//		 ^^^^^^^^^^^^
+		//	usually  plot1
+end
+
+
+// ---------------------------------------------------------------------------
+//  Turn off labeling on all ticks/labels
+program define set_labels_off
+	.style.majorstyle.tickstyle.show_labels.set_false
+	.style.minorstyle.tickstyle.show_labels.set_false
+	.style.majornlstyle.tickstyle.show_labels.set_false
+	.style.minornlstyle.tickstyle.show_labels.set_false
+end
+
+
+// ---------------------------------------------------------------------------
+//  Turn off ticking on all ticks/labels
+program define set_ticks_off
+	.style.majorstyle.tickstyle.show_ticks.set_false
+	.style.minorstyle.tickstyle.show_ticks.set_false
+	.style.majornlstyle.tickstyle.show_ticks.set_false
+	.style.minornlstyle.tickstyle.show_ticks.set_false
+end
+
+
+// ---------------------------------------------------------------------------
+//  Turn on/off ticking/labeling on all ticks/labels
+program define set_labels_onoff
+
+	if "`1'" == "`.style.majorstyle.tickstyle.show_labels.stylename'" & ///
+	   "`1'" == "`.style.minorstyle.tickstyle.show_labels.stylename'" {
+		exit
+	}
+
+	.style.editstyle majorstyle(  tickstyle(show_labels(`1')))	///
+			 minorstyle(  tickstyle(show_labels(`1')))	///
+			 editcopy
+end
+
+program define set_ticks_onoff
+
+	if "`1'" == "`.style.majorstyle.tickstyle.show_ticks.stylename'"   & ///
+	   "`1'" == "`.style.minorstyle.tickstyle.show_ticks.stylename'"   & ///
+	   "`1'" == "`.style.majornlstyle.tickstyle.show_ticks.stylename'" & ///
+	   "`1'" == "`.style.minornlstyle.tickstyle.show_ticks.stylename'" {
+		exit
+	}
+
+	.style.editstyle majorstyle(  tickstyle(show_ticks(`1')))	///
+			 minorstyle(  tickstyle(show_ticks(`1')))	///
+			 majornlstyle(tickstyle(show_ticks(`1')))	///
+			 minornlstyle(tickstyle(show_ticks(`1'))) editcopy
+end
+
+
+// ---------------------------------------------------------------------------
+//  Turn off drawing of the axis, but turn on filling
+program define set_draw_off_fill
+	if 0`.draw_view.istrue' {
+		.draw_view.set_false
+	}
+	if ! 0`.fill_if_undrawn' {
+		.fill_if_undrawn.set_true
+	}
+end
+
+// ---------------------------------------------------------------------------
+// Apply the supplied setting to all of the ticksets
+
+program define set_allticksets
+	
+	foreach ticks in major majornl minor {
+		.`ticks'`0'
+	}
+end
+
+// ---------------------------------------------------------------------------
+// Apply the supplied setting to all of tickset styles
+
+program define set_alltickstyles
+	
+	foreach ticks in major majornl minor {
+		.style.`ticks'style`0'
+	}
+end
+
+
+// ---------------------------------------------------------------------------
+// Used by .dialog_box to update a value -- substitute for a trigger
+
+
+// must usually set maxs and mins at the axis level because only the axis has
+// sufficient information to safely curset the scale.
+
+program define _set_major_min
+	.major.min = `1'
+	.reset_scale
+end
+program define _set_minor_min
+	.minor.min = `1'
+	.reset_scale
+end
+program define _set_majornl_min
+	.majornl.min = `1'
+	.reset_scale
+end
+program define _set_minornl_min
+	.minornl.min = `1'
+	.reset_scale
+end
+
+program define _set_major_max
+	.major.max = `1'
+	.reset_scale
+end
+program define _set_major_max
+	.major.max = `1'
+	.reset_scale
+end
+program define _set_majornl_max
+	.majornl.max = `1'
+	.reset_scale
+end
+program define _set_minornl
+	.minornl.max = `1'
+	.reset_scale
+end
+
+
+// ---------------------------------------------------------------------------
+// add a min/max value to the scale used by the axis.
+
+program addmin
+	local ord = cond("`.position.snm'"=="left" |			///
+			 "`.position.snm'"=="right", "y", "x") 
+
+	.plotregion.`ord'scale.addmin `0'
+end
+
+program addmax
+	local ord = cond("`.position.snm'"=="left" |			///
+			 "`.position.snm'"=="right", "y", "x") 
+
+	.plotregion.`ord'scale.addmax `0'
+end
+
+program daterange
+	.get_time_format
+	local fmt `r(fmt)'
+	_date2elapsed, format(`fmt') datelist(`0')
+	local orig `"`s(orig)'"'
+	local 0 `",  range(`s(args)')"'
+	if "`fmt'" == "" {
+		syntax [ , Range(numlist missingok max=100 sort) * ]
+	}
+	else {
+		local tfmt `s(fmt)'
+		capture syntax [ , Range(numlist missingok max=100 sort) * ]
+		if c(rc) {
+			di as err ///
+`"{p}invalid argument "' ///
+`""`orig'" must be a number or valid argument for `tfmt'() function{p_end}"'
+			exit 121
+		}
+	}
+
+	local min =  .
+	local max = -1e300
+	foreach r of local range {
+		if `r' >= . {
+			continue, break
+		}
+		local min = min(`min', `r')
+		local max = max(`max', `r')
+	}
+	if `min' < . {
+		.addmin `min'
+	}
+	if `max' > -1e300 {
+		.addmax `max'
+	}
+end
+
+program get_time_format, rclass
+	local ticksets major minor majornl minornl
+	if inlist("`.position.snm'", "below", "above") {
+		foreach tickset of local ticksets{
+			local fmt "`.`tickset'.label_format'"
+			if inlist(bsubstr("`fmt'",1,2),"%t","%d") {
+				local tfmt `fmt'
+				continue, break
+			}
+		}
+	}
+	return local fmt "`tfmt'"
+end
+
+
+// ---------------------------------------------------------------------------
+// Return a list of views that are to appear in the graph editor object
+// browser
+
+program browser_objects
+	local views "title"
+	// local views "`views' axis_line1[1]"
+
+	class exit "`views'"
+end
+
+// ---------------------------------------------------------------------------
+// Add ticks in the specified tickset with possibly custom styles.
+// Heavy lifting done by the tickset_g.
+
+program add_ticks
+
+	syntax [anything] [, TICKSET(string) *]
+
+	.`tickset'.add_ticks `anything' , `options'			///
+		basestyle(`.style.`tickset'style.objkey') 
+
+	.reset_scale
+end
+
+// ---------------------------------------------------------------------------
+// Edit an existing tick in the specified tickset with possibly custom styles.
+// Heavy lifting done by the tickset_g.
+
+program edit_tick
+
+	syntax [anything] [, TICKSET(string) *]
+
+	.`tickset'.edit_tick `anything' , `options'			///
+		basestyle(`.style.`tickset'style.objkey') 
+end
+
+// ---------------------------------------------------------------------------
+// Reset the rule in the specified tickset.
+// Heavy lifting done by the tickset_g.
+
+program reset_rule
+	syntax [anything] [, TICKSET(string) RULETYPE(string) *]
+
+	.`tickset'.`ruletype'_ticks `anything' , `options'
+
+	.reset_scale
+end
+
+// ---------------------------------------------------------------------------
+// Return the title name if it is selected, otherwise nothing, 
+// the whole axis is selected.
+// Also sets serset_index to be the major tick and label closest to the
+// clicked point when the point is outside the title.  Note, only major labels
+// are searched.
+
+program define views_at_pos
+	args y x ysz xsz
+
+	tempname views				// array of view names to return
+	.`views' = {}
+
+	if (0`.locked')  class exit .`views'.ref
+
+	local pos `.position.snm'
+	if "`pos'" == "default" { 
+		local pos below 
+	}
+
+	if "`pos'" == "below" | "`pos'" == "above" {
+	    local xtitle 0
+	    local xtitlesz `.xsize_ren'
+	    local ytitlesz `.title.extent y'
+	    if "`pos'" == "below" {
+		local ytitle `.style.outer_space.gmval'
+		if (`y' > `.title.yoffset') {
+		    if (`y' < `ytitle' + `ytitlesz' + `.title.yoffset') {
+			.`views'[1] = "title"
+		    }
+		}
+	    }
+	    else {
+		local ytitle = `.ysize_notitle' + `.style.title_gap.gmval'
+		if (`y' > `ytitle' + `.title.yoffset') {
+		    if (`y' < `ytitle' + `.title.yoffset' + `ytitlesz') {
+			.`views'[1] = "title"
+		    }
+		}
+	    }
+	}
+	else if "`pos'" == "left" | "`pos'" == "right" {
+	    local ytitle = 0
+	    local xtitlesz `.title.extent x'
+	    local ytitlesz `.ysize_ren'
+	    if "`pos'" == "left" {
+		local xtitle = `.style.outer_space.gmval'
+		if (`x' > `.title.xoffset') {
+		    if (`x' < `xtitle' + `xtitlesz' + `.title.xoffset')  {
+			.`views'[1] = "title"
+		    }
+		}
+	    }
+	    else {
+		local xtitle = `.xsize_notitle' + `.style.title_gap.gmval'
+		if (`x' > `xtitle' + `.title.xoffset') {
+		    if (`x' < `xtitle' + `.title.xoffset' + `xtitlesz') {
+			.`views'[1] = "title"
+		    }
+		}
+	    }
+	}
+
+	class exit .`views'.ref
+
+	_set_rensize, ysize(`ysz') xsize(`xsz')
+
+					// adjust for any fixed-size shifting
+	local y_acs = 0`._align_click_shift y'
+	local x_acs = 0`._align_click_shift x'
+	local y = `y' - `y_acs'
+	local x = `x' - `x_acs'
+
+	local y = `y' - `.drawn_margin.bottom'
+	local x = `x' - `.drawn_margin.left'
+
+	._Gr_Global.y_grid = `y'			// Save clicked posn
+	._Gr_Global.x_grid = `x'			// in plotregion
+
+	._Gr_Global.y_offset = `y'
+	._Gr_Global.x_offset = `x'	
+    
+	if (`y' < -abs(`.drawn_margin.bottom'))  class exit .`views'.ref
+	if (`x' < -abs(`.drawn_margin.left'))    class exit .`views'.ref
+
+	class exit .`views'.ref
+
+end
+
+
+// ---------------------------------------------------------------------------
+// Work program to traverses all held views and adds the names of all views 
+// at the current clicked position to selected views array.  Should only be
+// invoked through AddSelectedViews.
+
+program _add_selected_views
+
+	if 0`.title.AtClickedPos' {
+		._Gr_Global.AddSelected title
+	}
+end
+
+
+//  ---------------------------------------------------------------------------
+//  Set the right-click menu for axes
+
+program SetRightMenu
+
+	local editobj "`._Gr_Global.edit_object'"
+
+						// Add tick menu item
+	local cmd "_gedi showdialog gr_ed_axis_custom_style `editobj'"
+	
+	// menu resource -- "Add Tick/Label"
+	_gedi rightmenu add 10 OBJECT_ADD_TICK_LABEL CMD "`cmd'"
+
+	local ord = cond("`.position.snm'"=="left" |			///
+			 "`.position.snm'"=="right", "y", "x") 
+	local y_x `.plotregion.ClickPosInNaturalMetric'
+	gettoken y x : y_x
+	local zclick = ``ord''
+
+	local dex = `.`.dlg_major'.NearestSelectedTick `zclick''
+
+	if (`dex' == 0)  exit
+
+	._Gr_Global.serset_index = `dex'
+
+						// Customize tick menu item
+	local cmd "_gedi showdialog gr_ed_axis_custom_style `editobj' `dex'"
+	
+	// menu resource -- "Tick/Label properties"
+	_gedi rightmenu add 9 OBJECT_TICKPROPERTIES CMD "`cmd'"
+
+	.Super(as_custom_ed).SetRightMenu
+
+end
+
+
+
+/* ?? never mind, it is going to be pretty tough to find the location of the
+ * grid lines that might be associated with any of the ticksets.
+// ---------------------------------------------------------------------------
+// Returns true if the view is at the clicked position
+
+program AtClickedPos
+
+	local inmain = 0`.Super.AtClickedPos'
+
+	if (`inmain')  class exit = 1
+
+	if (0`.style.draw_`.dlg_major'_grid.isfalse' &			///
+	    0`.style.draw_`.dlg_minor'_grid.isfalse') class exit = 0
+
+	local ord = cond("`position'"=="left" |	"`position'"=="right", "y", "x")
+
+	local x_gdi = 0`._Gr_Global.click_x'
+	local y_gdi = 0`._Gr_Global.click_y'
+
+	if "`ord'" == "y" {
+		if (`x_gdi' < `.gdi_x0')  class exit = 0
+		if (`x_gdi' > `.gdi_x1')  class exit = 0
+	}
+	if "`ord'" == "x" {
+		if (`y_gdi' < `.gdi_y0')  class exit = 0
+		if (`y_gdi' > `.gdi_y1')  class exit = 0
+	}
+
+end
+*/
+
+
+// ---------------------------------------------------------------------------
+// The axis has been selected in the graphics editor.
+// Set up information the axis dialog will need.
+
+program Selected
+
+	if      (0`.major.dlg_tickpos.arrnels')    .dlg_major = "major"
+	else if (0`.majornl.dlg_tickpos.arrnels')  .dlg_major = "majornl"
+	else					   .dlg_major = "major"
+
+	if      (0`.minor.dlg_tickpos.arrnels')    .dlg_minor = "minor"
+	else if (0`.minornl.dlg_tickpos.arrnels')  .dlg_minor = "minornl"
+	else					   .dlg_minor = "minornl"
+end

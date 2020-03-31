@@ -1,0 +1,126 @@
+/*
+	cmsample.dlg
+
+*!  VERSION 1.0.4  07feb2019
+
+*/
+
+VERSION 15.0
+
+INCLUDE _std_medium
+DEFINE _dlght 380
+INCLUDE header
+
+HELP hlp1, view("help cmsample")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource CMSAMPLE_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	label(resource CMSAMPLE_DLG_TITLE)
+BEGIN
+  DEFINE _x _xsetbu
+  DEFINE _y _top
+  INCLUDE _bu_cmset
+
+  TEXT tx_choice		_lft	_ss	_iwd	.,		///
+	label(resource CMSAMPLE_CHOICE_DEP_VAR)
+  VARNAME vn_choice		@	_ss	_vnwd	.,		///
+	option(choice)							///
+	label(resource CMSAMPLE_CHOICE_DEP_VAR)
+  TEXT tx_varlist		_lft	_ls	_iwd	.,		///
+	label(resource CMSAMPLE_MAIN_TX_ALTERNATIVE_SPECIFIC_VARS)
+  VARLIST vl_varlist		_lft	_ss	@	.,		///
+	label(resource CMSAMPLE_MAIN_TX_ALTERNATIVE_SPECIFIC_VARS)
+  TEXT tx_casevars		_lft	_ls	@	.,		///
+	label(resource LBL_VN_CASEVARS)
+  VARLIST vl_casevars		@	_ss	@	.,		///
+	option(casevars)						///
+	fv								///
+	label(resource LBL_VN_CASEVARS)
+  CHECKBOX ck_altwise		_lft	_ls	@	.,		///
+	option(altwise)							///
+	label(resource LBL_USE_ALTERNATIVEWISE_DELETION_INSTEAD_CASEWISE)
+  CHECKBOX ck_rank		@	_ms	@	.,		///
+	option(rank)							///
+	label(resource LBL_ALLOW_CHOICE_VAR_RANKS)
+  CHECKBOX ck_gen		@	_ls	@	_ht6,		///
+	groupbox							///
+	onclickon("program main_show_genvar")				///
+	onclickoff("program main_hide_genvar")				///
+	label(resource LBL_GEN_NEW_VARIABLE)
+  TEXT tx_generate		_indent _ss	_inwd	.,		///
+	label(resource LBL_VARIABLE)
+  EDIT ed_generate		@	_ss	@	.,		///
+	error("Generate new variable")					///
+	label(resource LBL_VARIABLE)
+  CHECKBOX ck_replace		@	_ms	@	.,		///
+	option(replace)							///
+	label(resource LBL_REPLACE_ANY_VAR_WITH_ABOVE_NAME)
+END
+
+PROGRAM main_hide_genvar
+BEGIN
+	if !main.ck_gen {
+		call main.tx_generate.disable
+		call main.ed_generate.disable
+		call main.ck_replace.disable
+	}	
+END
+
+PROGRAM main_show_genvar
+BEGIN
+	if main.ck_gen {
+		call main.tx_generate.enable
+		call main.ed_generate.enable
+		call main.ck_replace.enable
+	}
+END
+
+INCLUDE ifin
+INCLUDE weights_fpi
+
+PROGRAM generate_output
+BEGIN
+	put main.ed_generate
+	beginoptions
+		option main.ck_replace
+	endoptions
+END
+
+PROGRAM command
+BEGIN
+	put "cmsample "
+	put main.vl_varlist
+	put " " /program ifin_output
+	put " " /program weights_output
+	
+	beginoptions
+		if main.ed_generate & !main.ed_generate.isvalidname() {
+			stopbox stop resource LBL_MSGBOX_VAR_NAME_INVALID
+// The variable name you specified is invalid.
+		}
+		optionarg main.vn_choice
+		optionarg main.vl_casevars
+		option main.ck_altwise
+		option main.ck_rank
+		if main.ck_gen {
+			require main.ed_generate
+			if main.ed_generate.isvarname() & !main.ck_replace {
+				stopbox stop resource LBL_MSGBOX_VAR_NAME_ALREADY_EXISTS
+// The variable name you specified already exists.
+			}
+			put " generate("
+				put /program generate_output
+			put ")"
+		}
+	endoptions
+END

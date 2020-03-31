@@ -1,0 +1,208 @@
+/*
+  gr_ed_plotregion.dlg
+
+*!  VERSION 1.1.3  31jul2017
+
+*/
+
+VERSION 14.0
+MODAL
+
+INCLUDE _std_vsmall
+DEFINE _dlght 300
+INCLUDE header_gr_ed
+
+DEFINE _clwd	15
+DEFINE _wd	120
+DEFINE _sep	+125
+DEFINE _wd2	110
+DEFINE _sep2	+115
+DEFINE _cbwd	120
+DEFINE _cbsep	+125
+
+SCRIPT PREINIT
+BEGIN
+	settitle resource GR_ED_PLOTREGION_DLG_TITLE
+	create STRING G
+	create STRING MODE
+	create ARRAY ARGS
+	program setupGOBJECT
+
+	create DOUBLE index
+	create STRING tmp
+	create STRING child__MESSAGE
+	create STRING unused
+	
+// advanced
+	create DOUBLE visible
+	create DOUBLE filled
+
+	program get_defaults
+	setscale_hadj resource GR_ED_PLOTREGION_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program initialize_controls
+	program check_init_tab
+END
+
+PROGRAM setupGOBJECT
+BEGIN
+	if ! __MESSAGE {
+		stopbox stop "resource LBL_MSGBOX_OBJECT_NOT_FOUND"
+// An unexpected error has occurred. Object not found.
+		exit 198
+	}
+	call __MESSAGE.tokenize ARGS
+	call G.setvalue class ARGS[1]
+	call MODE.setvalue class ARGS[2]
+END
+
+PROGRAM check_init_tab
+BEGIN
+	if MODE.contains("MODE(") {
+		if MODE.contains("refline") {
+			call reflines.setactive
+		}
+	}
+END
+
+INCLUDE gr_ed_regions
+
+DIALOG reflines, tabtitle(resource LBL_TAB_REFERENCE_LINES)
+BEGIN
+  BUTTON   bu_href	_ilft	20	180	.,		///
+	label(resource LBL_ADD_HORIZONTAL_REFERENCE_LINE)			///
+	onpush(script show_hrefline_dialog)			///
+	tooltip(resource LBL_ADD_HORIZONTAL_REFERENCE_LINE_Y_AXIS)
+  BUTTON   bu_vref	_ilft	_ls	180	.,		///
+	label(resource LBL_ADD_VERTICAL_REFERENCE_LINE)		///
+	onpush(script show_vrefline_dialog)			///
+	tooltip(resource LBL_ADD_VERTICAL_REFERENCE_LINE_X_AXIS)
+END
+
+SCRIPT show_hrefline_dialog
+BEGIN
+	child__MESSAGE.setvalue "yaxis"
+	create STRING hrefline_result
+	create CHILD gr_ed_axis_refline AS gr_ed_h_refline
+	gr_ed_h_refline.settitle resource LBL_ADD_HORIZONTAL_REFERENCE_LINE
+	gr_ed_h_refline.setExitAction "program get_hrefline_result"
+	gr_ed_h_refline.setExitString hrefline_result
+END
+PROGRAM get_hrefline_result
+BEGIN
+	if hrefline_result {
+		put "_gm_dlg_edits , "
+		put "object(" G ") "
+		put "cmd(" 
+			put "." G ".add_log_refline "
+			put "y "
+			put `" "" "'
+			put hrefline_result
+		put ") "
+		stata hidden queue
+	}
+END
+
+SCRIPT show_vrefline_dialog
+BEGIN
+	child__MESSAGE.setvalue "xaxis"
+	create STRING vrefline_result
+	create CHILD gr_ed_axis_refline AS gr_ed_v_refline
+	gr_ed_v_refline.settitle resource LBL_ADD_VERTICAL_REFERENCE_LINE
+	gr_ed_v_refline.setExitAction "program get_vrefline_result"
+	gr_ed_v_refline.setExitString vrefline_result
+END
+PROGRAM get_vrefline_result
+BEGIN
+	if vrefline_result {
+		put "_gm_dlg_edits , "
+		put "object(" G ") "
+		put "cmd(" 
+			put "." G ".add_log_refline "
+			put "x "
+			put `" "" "'
+			put vrefline_result
+		put ") "
+		stata hidden queue
+	}
+END
+
+DIALOG adv, tabtitle(resource LBL_ADVANCED)
+BEGIN
+  CHECKBOX ck_hidden	_lft	_top	_iwd	.,		///
+	label(resource GR_ED_PLOTREGION_ADV_CK_HIDDEN)		///
+	onclickon(adv.ck_collapse.enable)			///
+	onclickoff(adv.ck_collapse.disable)
+  CHECKBOX ck_collapse	@	_ms	@	.,		///
+	label(resource LBL_COLLAPSE_WHEN_HIDDEN)
+END
+
+PROGRAM get_defaults
+BEGIN
+// advanced
+	call G.withvalue visible.setvalue class @.draw_view.istrue
+	if visible {
+		call adv.ck_hidden.setdefault 0
+	}
+	else {
+		call adv.ck_hidden.setdefault 1
+	}
+
+	call G.withvalue filled.setvalue class @.fill_if_undrawn.istrue
+	if filled {
+		call adv.ck_collapse.setdefault 0
+	}
+	else {
+		call adv.ck_collapse.setdefault 1
+	}
+END
+
+
+PROGRAM initialize_controls
+BEGIN
+// advanced
+	if visible {
+		call adv.ck_hidden.setoff
+	}
+	else {
+		call adv.ck_hidden.seton
+	}
+
+	if filled {
+		call adv.ck_collapse.setoff
+	}
+	else {
+		call adv.ck_collapse.seton
+	}
+END
+
+PROGRAM command
+BEGIN
+	call program get_defaults
+	put "_gm_dlg_edits"
+	beginoptions
+		put " object(" G ") "
+		put " " /program region_output
+
+		if ! adv.ck_hidden.isdefault() {
+			if adv.ck_hidden {
+				put " set(draw_view no) " 
+			}
+			else {
+				put " set(draw_view yes) " 
+			}
+		}
+		if ! adv.ck_collapse.isdefault() {
+			if adv.ck_collapse {
+				put " set(fill_if_undrawn no) " 
+			}
+			else {
+				put " set(fill_if_undrawn yes) " 
+			}
+		}
+		put " epilog(_gedi toolbar plotregion " G ")"
+	endoptions
+END

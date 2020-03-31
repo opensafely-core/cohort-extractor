@@ -1,0 +1,345 @@
+/*
+  dyngen.dlg
+
+  VERSION 1.0.2  08feb2019
+
+*/
+
+VERSION 15.1
+
+INCLUDE _std_mlarge
+DEFINE _dlght 290
+INCLUDE header
+
+HELP hlp1, view("help dyngen")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING STMP
+	create STRING main_exptmp
+	create STRING main_exptmp2
+	create STRING main_exp_childdlg
+	create STRING main_exp_child_result
+	create STRING main_exp_cmd_output
+	create STRING tmp_status
+	create STRING tmp
+
+	create ARRAY main_exp_list
+
+	create SVECTOR mainEXPCommandDisplayList
+	create SVECTOR mainEXPCommandList
+	create SVECTOR mainEXPCommandValues
+	create SVECTOR mainEXPStatusList
+	create SVECTOR mainEXPChildDialogList
+	create SVECTOR mainEXPHasNoError
+
+	create DOUBLE main_exp_count
+	create DOUBLE main_exp_position
+	create DOUBLE main_exp_arraysize
+	create DOUBLE main_res_arraysize
+	create DOUBLE count
+
+	main.bu_exp_edit.disable
+	main.bu_exp_disable.disable
+	main.bu_exp_enable.disable
+	setscale_hadj resource DYNGEN_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	create STRING bu_fmtcoefResults
+	program bu_fmtcoef_ckResults
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	label(resource DYNGEN_DLG_TITLE)
+BEGIN
+  TEXT tx_exp			_lft	_top	200	.,		///
+	label(resource LBL_EXPRESSION)
+  DEFINE holdy @y
+  LISTBOX lb_expBuild		_lft	_ss	200	95,		///
+	contents(main_exp_list)						///
+	ondblclick(program main_exp_edit)				///
+	onselchange(program main_exp_sel_changed)			///
+	nomemory
+  BUTTON bu_exp_new		+210	@	80	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program main_exp_create)					///
+	tooltip(resource LBL_CREATE_EXPRESSION)
+  BUTTON bu_exp_edit		@	_ms	@	.,		///
+	label(resource LBL_BU_EDIT)					///
+	onpush(program main_exp_edit)					///
+	tooltip(resource LBL_EDIT_EXPRESSION)
+  BUTTON bu_exp_disable		@	_ms	@	.,		///
+	label(resource LBL_BU_DISABLE)					///
+	onpush(program main_exp_disable)				///
+	tooltip(resource LBL_CLICK_TO_DISABLE_AN_EXPRESSION)
+  BUTTON bu_exp_enable		@	_ms	@	.,		///
+	label(resource LBL_BU_ENABLE)					///
+	onpush(program main_exp_enable)					///
+	tooltip(resource LBL_CLICK_ENABLE_PREVIOUSLY_DISABLED_EXPRESSION)
+  TEXTBOX tb_exp_note		_lft	+25	_iwd	_tb2,		///
+	label(resource LBL_PRESS_CREATE_TO_DEFINE_EQUATION)
+END
+
+PROGRAM main_exp_create
+BEGIN
+	call main_exp_count.setvalue class mainEXPChildDialogList.size
+	call main_exp_count.increment
+	call main_exp_count.withvalue main_exp_childdlg.setvalue	///
+		"main_exp@"
+	call program main_show_exp_child
+END
+
+PROGRAM main_exp_edit
+BEGIN
+	call mainEXPCommandDisplayList.findstr class main.lb_expBuild.value
+	call main_exp_position.setvalue class				///
+		mainEXPCommandDisplayList.position
+	call main_exp_position.withvalue main_exp_childdlg.setvalue	///
+		class mainEXPChildDialogList.values[@]
+
+	call program main_show_exp_child_edit
+END
+
+PROGRAM main_show_exp_child
+BEGIN
+	call main_exp_childdlg.withvalue create CHILD dyngen_exp_child AS @
+	call main_exp_childdlg.withvalue @.setExitString		///
+		"main_exp_child_result"
+	call main_exp_childdlg.withvalue @.setExitAction		///
+		"program main_exp_child_done"
+
+	call main_exp_count.withvalue STMP.format			///
+		"resource LBL_EXPRESSION_FMT" "@" ""
+	call STMP.withvalue main_exptmp.setvalue "@"
+	call main_exp_childdlg.withvalue main_exptmp2.setvalue "@.settitle"
+	call main_exptmp2.append `" ""'
+	call main_exptmp2.append class main_exptmp.value
+	call main_exptmp2.append `"""'
+	call main_exptmp2.withvalue @
+END
+
+PROGRAM main_show_exp_child_edit
+BEGIN
+	call main_exp_childdlg.withvalue create CHILD dyngen_exp_child AS @
+	call main_exp_childdlg.withvalue @.setExitString		///
+		"main_exp_child_result"
+	call main_exp_childdlg.withvalue @.setExitAction		///
+		"program main_exp_child_done"
+
+	call main_exp_position.withvalue main_exptmp.setvalue	///
+		class mainEXPCommandDisplayList.values[@]
+	call main_exp_childdlg.withvalue main_exptmp2.setvalue "@.settitle"
+	call main_exptmp2.append `" ""'
+	call main_exptmp2.append class main_exptmp.value
+	call main_exptmp2.append `"""'
+	call main_exptmp2.withvalue @
+END
+
+PROGRAM main_exp_child_done
+BEGIN
+	call mainEXPChildDialogList.findstr class main_exp_childdlg.value
+	call main_exp_position.setvalue class				///
+		mainEXPChildDialogList.position
+	if main_exp_position {
+		call main_exp_position.withvalue main_exptmp.setvalue ///
+			class mainEXPStatusList.values[@]
+		if main_exptmp.iseq("active") {
+			call main_exp_position.withvalue STMP.format	///
+				"resource LBL_EXPRESSION_FMT" "@" ""
+			call STMP.withvalue				///
+				mainEXPCommandDisplayList.store class	///
+				main_exp_position.value "@"
+			call mainEXPCommandValues.store class		///
+				main_exp_position.value class		///
+				main_exp_child_result.value
+			call STMP.withvalue				///
+				main_exptmp2.setvalue "@"
+		}
+		else {
+			call main_exp_position.withvalue STMP.format	///
+				"resource LBL_EXPRESSION_FMT" "@"	///
+				"resource LBL_PAREN_DISABLED"
+			call STMP.withvalue				///
+				main_exptmp2.setvalue "@"
+
+			call main_exptmp2.withvalue			///
+				mainEXPCommandDisplayList.store	///
+				class main_exp_position.value "@"
+		}
+
+		call mainEXPCommandList.store class			///
+			main_exp_position.value class			///
+			main_exp_child_result.value
+
+		call mainEXPCommandDisplayList.copyToArray main_exp_list
+		call main.lb_expBuild.repopulate
+		call main.lb_expBuild.setvalue class main_exptmp2.value
+	}
+	else {
+		call main_exp_arraysize.setvalue class		///
+			mainEXPChildDialogList.size
+		call main_exp_arraysize.increment
+
+		/* Store child dialog name */
+		call mainEXPChildDialogList.store class		///
+			main_exp_arraysize.value class		///
+			main_exp_childdlg.value
+
+		call main_exp_arraysize.withvalue STMP.format		///
+			"resource LBL_EXPRESSION_FMT" "@" ""
+		call STMP.withvalue					///
+			mainEXPCommandDisplayList.store class		///
+			main_exp_arraysize.value "@"
+
+		/* Store child dialog result string */
+		call mainEXPCommandList.store class			///
+			main_exp_arraysize.value			///
+			class main_exp_child_result.value
+
+		/* Store child dialog result string for final command
+		   For disable/enable */
+		call mainEXPCommandValues.store class			///
+			main_exp_arraysize.value class		///
+			main_exp_child_result.value
+
+		/* Store disable/enable status */
+		call mainEXPStatusList.store				///
+			class main_exp_arraysize.value "active"
+
+		call mainEXPCommandDisplayList.copyToArray main_exp_list
+		call main.lb_expBuild.repopulate
+		call STMP.withvalue main.lb_expBuild.setvalue "@"
+	}
+
+	call program EXPckHasNoErrorOpt
+END
+
+PROGRAM main_exp_sel_changed
+BEGIN
+	call mainEXPCommandDisplayList.findstr class main.lb_expBuild.value
+	call main_exp_position.setvalue class			///
+		mainEXPCommandDisplayList.position
+	call main_exp_position.withvalue main_exptmp.setvalue	///
+		class mainEXPStatusList.values[@]
+	if main_exp_position {
+		call main.bu_exp_edit.enable
+		call main_exp_position.withvalue			///
+			main.tb_exp_note.setlabel			///
+			class mainEXPCommandList.values[@]
+	}
+
+	if main_exptmp.iseq("disable") {
+		call main.bu_exp_enable.enable
+		call main.bu_exp_disable.disable
+	}
+	if main_exptmp.iseq("active") {
+		call main.bu_exp_enable.disable
+		call main.bu_exp_disable.enable
+	}
+END
+
+PROGRAM main_exp_disable
+BEGIN
+	call mainEXPCommandDisplayList.findstr class main.lb_expBuild.value
+	call main_exp_position.setvalue class				///
+		mainEXPCommandDisplayList.position
+
+	call main_exptmp.setvalue class main.lb_expBuild.value
+	call mainEXPStatusList.store class main_exp_position.value "disable"
+	call mainEXPCommandValues.store class main_exp_position.value ""
+	call STMP.format "resource LBL_PAREN_DISABLED"
+	call main_exptmp.append " "
+	call main_exptmp.append class STMP.value
+	call main_exptmp.withvalue STMP.setvalue "@"
+
+	call main_exptmp.withvalue mainEXPCommandDisplayList.store	///
+		class main_exp_position.value "@"
+
+	call mainEXPCommandDisplayList.copyToArray main_exp_list
+	call main.lb_expBuild.repopulate
+	call main.lb_expBuild.setvalue class STMP.value
+END
+
+PROGRAM main_exp_enable
+BEGIN
+	call mainEXPCommandDisplayList.findstr class main.lb_expBuild.value
+	call main_exp_position.setvalue class				///
+		mainEXPCommandDisplayList.position
+
+	call mainEXPStatusList.store class main_exp_position.value "active"
+	call main_exp_position.withvalue mainEXPCommandValues.store	///
+		class main_exp_position.value class			///
+		mainEXPCommandList.values[@]
+
+	call main_exp_position.withvalue STMP.format			///
+		"resource LBL_EXPRESSION_FMT" "@" ""
+	call STMP.withvalue						///
+		mainEXPCommandDisplayList.store			///
+		class main_exp_position.value "@"
+
+	call mainEXPCommandDisplayList.copyToArray main_exp_list
+	call main_exp_position.withvalue main_exptmp2.setvalue	///
+		class mainEXPCommandDisplayList.values[@]
+	call main.lb_expBuild.repopulate
+	call main.lb_expBuild.setvalue class main_exptmp2.value
+END
+
+PROGRAM main_lb_expBuild_output
+BEGIN
+	call mainEXPCommandValues.copyToString main_exp_cmd_output
+	call main_exp_arraysize.setvalue class mainEXPStatusList.size
+	if main_exp_cmd_output.iseq("") &				///
+		main_exp_arraysize.iseq(0) {
+		stopbox stop resource LBL_MSGBOX_EXPRESSION_NOT_DEFINED
+
+// Expression not defined.
+// Please enter an expression before proceeding.
+	}
+	if main_exp_cmd_output.iseq("") & main_exp_arraysize.isgt(0) ///
+		& main.lb_expBuild.isvisible() {
+		stopbox stop resource LBL_MSGBOX_ALL_EXPRESSIONS_ARE_DISABLED
+
+// All expressions are disabled.
+// Either define a new expression or enable an existing expression
+// before proceeding.
+	}
+
+	if main_exp_cmd_output & main.lb_expBuild.isvisible() {
+		put main_exp_cmd_output
+	}
+END
+
+INCLUDE ifin
+
+PROGRAM command
+BEGIN
+	
+	call mainEXPCommandValues.copyToString main_exp_cmd_output
+	if main_exp_cmd_output.iseq("") {
+		stopbox stop resource LBL_MSGBOX_EXPRESSION_NOT_DEFINED
+
+			//"Expression not defined. "			///
+			//"Please enter an expression before proceeding."
+	}
+	put "dyngen { "
+	stata
+	call count.setvalue 1
+	while (count.isle(main_exp_arraysize)) {
+		call count.withvalue tmp_status.setvalue	///
+			class mainEXPStatusList.values[@]
+		if tmp_status.iseq("active") {
+			call count.withvalue tmp.setvalue	///
+				class mainEXPCommandValues.values[@]
+			put tmp
+			stata
+		}
+		call count.increment
+	}
+	stata
+	put "}"
+	put " " /program ifin_output
+END
+

@@ -1,0 +1,146 @@
+/*
+  gboxopt.idlg include file for graph box options
+
+*!  VERSION 1.1.2  21dec2014 (deprecated)
+
+*/
+
+
+DIALOG gboxopt, tabtitle("Misc. options")
+BEGIN
+  GROUPBOX gb_boxopts  _lft        _top       _gwd1       _ht2, 	///
+	label("Box options")
+  CHECKBOX ck_nofill   _igft       _ss       _gwd2       .,		///
+	label("Omit empty categories ") 				///
+	option(nofill)
+
+  GROUPBOX gb_missing  _lft        _xls      _gwd1       _ht6,		///
+	label("Missing values")
+  CHECKBOX ck_miss     _igft       _ss       _gwd2       .,		///
+	label("Include categories for missing values")			///
+	option(missing)
+  CHECKBOX ck_cw       @           _ms       @           .,		///
+	label("Exclude observations with missing values ")		///
+	option(cw)
+  TEXT     tx_cw       _cksep      _vss      _inwd       .,		///
+	label("(casewise deletion)")
+  GROUPBOX gb_ybar     _lft        _xls      _gwd1       _ht5,		///
+	label("Labeling and legend options")
+  CHECKBOX ck_ascat    _igft       _ss       _gwd2       .,		///
+	label("Treat Y-variables as first over() group")		///
+	option(ascategory)
+  CHECKBOX ck_asyvars  @           _ms       @           .,		///
+	label("Treat first over() group as Y-variables")		///
+	option(asyvars)
+
+  GROUPBOX gb_size     _lft2g      _top     _gwd1       _ht6,		///
+	label("Adjacent line size options")
+  TEXT     tx_alsize   _igft2	   _ms	     _txwd       .,		///
+	label("Width:")							///
+	right
+  EDIT     ed_alsize   _txsep      @         _txr4gi     .,		///
+	option(alsize) label("Width of adjacent line")			///
+	default(67) numonly
+  TEXT     tx_capsize  _igft2	   _ls	     _txwd       .,		///
+	label("Height:") right
+  EDIT     ed_capsize  _txsep      @         _txr4gi     .,		///
+	option(capsize) label("Width of adjacent line")			///
+	default(0) numonly
+  CHECKBOX ck_whisk    _lft2g      _xxls     _gwd1       _ht10h,	///
+	label("Use custom whiskers")					///
+	groupbox option(cwhiskers)					///
+	onclickon(program gboxopt_whisk_check)				///
+	onclickoff(program gboxopt_whisk_check)
+  TEXT     tx_lclr     _igft2      _ls       _txwd       .,		///
+	label("Color:") right
+  COMBOBOX cb_lclr     _txsep      @         _tcr4gi     .,		///
+	dropdownlist contents(colors) option(lcolor)			///
+	onselchangelist(gboxopt_lcol_change)
+  COLOR    cl_lclr     _tcr4gisep  @         _colorwd    .,		///
+	option(lcolor)
+  TEXT     tx_lpat     _igft2      _ls       _txwd       .,		///
+	label("Pattern:") right
+  COMBOBOX cb_lpat     _txsep      @         _txr4gi     .,		///
+	contents(linepatterns) option(lpattern) dropdownlist
+  TEXT     tx_lwd      _igft2      _ls       _txwd       .,		///
+	label("Width:") right
+  COMBOBOX cb_lwd      _txsep      @         _txr4gi     .,		///
+	option(lwidth) contents(linewidths) dropdownlist
+END
+
+LIST gboxopt_lcol_change
+BEGIN
+	gboxopt.cl_lclr.hide
+	gboxopt.cl_lclr.show
+	gboxopt.cl_lclr.hide
+END
+
+LIST display
+BEGIN
+	Default
+	Horizontal
+	Vertical
+END
+
+LIST displayv
+BEGIN
+	""
+	horizontal
+	vertical
+END
+
+PROGRAM gboxopt_whisk_check
+BEGIN
+	if !H(gboxopt.ck_whisk) {
+		if gboxopt.ck_whisk {
+			call gaction gboxopt.tx_lclr.enable
+			call gaction gboxopt.cb_lclr.enable
+			call gaction gboxopt.cl_lclr.enable
+			call gaction gboxopt.tx_lpat.enable
+			call gaction gboxopt.cb_lpat.enable
+			call gaction gboxopt.tx_lwd.enable
+			call gaction gboxopt.cb_lwd.enable
+		}
+		if !gboxopt.ck_whisk {
+			call gaction gboxopt.tx_lclr.disable
+			call gaction gboxopt.cb_lclr.disable
+			call gaction gboxopt.cl_lclr.disable
+			call gaction gboxopt.tx_lpat.disable
+			call gaction gboxopt.cb_lpat.disable
+			call gaction gboxopt.tx_lwd.disable
+			call gaction gboxopt.cb_lwd.disable
+		}
+	}
+END
+
+PROGRAM gboxopt_lines_pr
+BEGIN
+	if H(gboxopt.cl_lclr) {
+		optionarg /hidedefault gboxopt.cb_lclr
+	}
+	if !H(gboxopt.cl_lclr) {
+		optionarg /quoted gboxopt.cl_lclr
+	}
+	optionarg gboxopt.cb_lpat
+	optionarg gboxopt.cb_lwd
+END
+
+PROGRAM gboxopt_output
+BEGIN
+	option gboxopt.ck_nofill
+	option gboxopt.ck_miss
+	option gboxopt.ck_ascat
+	option gboxopt.ck_asyvars
+	option gboxopt.ck_cw
+	optionarg /hidedefault gboxopt.ed_alsize
+	optionarg /hidedefault gboxopt.ed_capsize
+	option gboxopt.ck_whisk
+	if gboxopt.ck_whisk {
+		if gboxopt.cb_lclr | !H(gboxopt.cl_lclr) 		///
+		    | gboxopt.cb_lpat | gboxopt.cb_lwd {
+		   	put " " "lines("
+		   	put /program gboxopt_lines_pr
+		   	put ") "
+		}
+	}
+END

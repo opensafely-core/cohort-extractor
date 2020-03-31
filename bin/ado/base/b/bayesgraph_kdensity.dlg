@@ -1,0 +1,430 @@
+/*
+    bayesgraph_kdensity.dlg 
+
+*!  VERSION 1.0.7  28oct2019
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_wide
+DEFINE _dlgwd 650  // _dlgwd 650 is minimum size due to number of tabs (MAC)
+DEFINE _dlght 330
+INCLUDE header
+
+HELP hlp1, view("help bayesgraph##kdens_opts")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create BOOLEAN hasParen
+	create STRING first_prop
+	create STRING second_prop
+	
+    setscale_hadj resource BAYESGRAPH_KDENSITY_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	gr_plots.settabtitle resource KDENSITY_KERNEL_PLOT
+	script gr_plots_setDefaultLine
+	
+	program check_firstResult
+	program check_secondResult
+	program check_parent
+	program parse_message
+END
+
+PROGRAM check_parent
+BEGIN
+	call create STRING parent_name
+	call parent_name.setvalue class PARENT._dlg_rsrcname
+
+	if parent_name.iseq("bayesgraph_dlg") {
+  		call main.ck_show.setoff
+	}
+	else {
+  		call main.ck_show.seton
+  		call main.cb_show.setvalue "both"
+	}
+END
+
+PROGRAM parse_message
+BEGIN
+	if __MESSAGE.contains("paren") {
+		call hasParen.settrue
+	}
+	else {
+		call hasParen.setfalse
+	}
+END
+
+DIALOG main, title(resource BAYESGRAPH_KDENSITY_TITLE) 		///
+	tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT tx_kernel		_lft	_top	_cwd3_1 .,	///
+	label(resource LBL_KERNEL_FUNCTION)
+  COMBOBOX cb_kernel 		@	_ss	_vnwd	.,	///
+	label(resource LBL_KERNEL_FUNCTION)			///	
+	dropdownlist						///
+	contents(kernel_function)				///
+	values(kernel_function_val)				///	
+	option(kernel)					
+
+  TEXT tx_width			_lft3_2 _top	_cwd3_1	.,	///
+	label(resource KDENSITY_MAIN_TX_WIDTH)
+  EDIT en_width			@	_ss	_en14wd	.,	///
+	label(resource LBL_HALFWIDTH_OF_THE_KERNEL)		///
+	numonly							///
+	option(bwidth)								
+
+  CHECKBOX ck_n			_lft	+35	_iwd	_ht10,	///
+	groupbox						///
+	onclickoff(script main_ck_n_off)			///
+	onclickon(program main_ck_n_on)				///
+	label(resource LBL_OVERRIDE_DEFAULT_GRID_EVAL_POINTS)
+  RADIO rb_n			_ilft	_ms	400	.,	///
+	onclickon(program main_rb_n_on) first			///
+	label(resource LBL_ESTIMATE_DENSITY_SPECIFIED_NUMBER_EVAL_POINTS)
+  RADIO rb_at			@	+50	@	.,	///
+	onclickon(program main_rb_at_on) last			///
+	label(resource LBL_ESTIMATE_DENSITY_USING_VALUES_SPECIFIED_BY_VAR)
+  VARNAME vn_at			_indent2 +20	_vnwd	.,	///
+	option(at)						///
+	numeric							///
+	label(resource LBL_ESTIMATE_DENSITY_USING_VALUES_SPECIFIED_BY_VAR) 
+  SPINNER sp_n			@	-50	_spwd	.,	///
+	min(1)							///
+	max(10000000)						///
+	default(50)						///
+	option(n)
+
+  CHECKBOX ck_show		_lft	+95	_iwd	_ht5h,	///
+	groupbox						///
+	onclickon("script main_ck_show_on")			///
+	onclickoff("script main_ck_show_off")			///
+	label(resource BAYESGRAPH_KDENSITY_MAIN_GB_SHOW)
+  COMBOBOX cb_show		_ilft   _ss	320	.,	///
+	dropdownlist						///
+	contents(main_show_contents)				///
+	values(main_show_values)				///
+	onselchange(program main_show_sel)
+  BUTTON bu_first		@	_ls	150	.,	///
+	onpush(script main_show_first)				///
+	label(resource BAYESGRAPH_KDENSITY_MAIN_BU_FIRST)
+  BUTTON bu_second		+170	@	@	.,	///
+	onpush(script main_show_second)				///
+	label(resource BAYESGRAPH_KDENSITY_MAIN_BU_SECOND)
+END
+
+LIST main_show_contents
+BEGIN
+	"Don't show density curves"
+//	resource BAYESGRAPH_KDENSITY_LST_ITEM_SHOW_NONE
+	resource BAYESGRAPH_KDENSITY_LST_ITEM_SHOW_BOTH
+	resource BAYESGRAPH_KDENSITY_LST_ITEM_SHOW_FIRST-HALF
+	resource BAYESGRAPH_KDENSITY_LST_ITEM_SHOW_SECOND-HALF
+END
+
+LIST main_show_values
+BEGIN
+	"none"
+	"both"
+	"first"
+	"second"
+END
+
+PROGRAM main_ck_n_on
+BEGIN
+	call main.rb_n.enable
+	if main.rb_n {
+		call main.sp_n.enable
+	}
+	else {
+		call main.sp_n.disable
+	}
+	call main.rb_at.enable
+	if main.rb_at {
+		call main.vn_at.enable
+	}
+	else {
+		call main.vn_at.disable
+	}
+END
+
+SCRIPT main_ck_n_off
+BEGIN
+	main.rb_n.disable
+	main.rb_at.disable
+	main.vn_at.disable
+	main.sp_n.disable
+END
+
+SCRIPT main_ck_show_on
+BEGIN
+	main.cb_show.enable
+	main.bu_first.enable
+	main.bu_second.enable
+END
+
+SCRIPT main_ck_show_off
+BEGIN
+	main.cb_show.disable
+	main.bu_first.disable
+	main.bu_second.disable
+END
+
+PROGRAM main_show_sel
+BEGIN
+	if main.cb_show.equals("both") {
+		call main.bu_first.enable 
+		call main.bu_second.enable
+	}
+	if main.cb_show.equals("first") {
+		call main.bu_first.enable
+		call main.bu_second.disable
+	}
+	if main.cb_show.equals("second") {
+		call main.bu_first.disable
+		call main.bu_second.enable
+	}
+END
+
+SCRIPT main_show_first
+BEGIN
+	create CHILD bayesgraph_kdensity_half AS first_half 
+	first_half.settitle resource BAYESGRAPH_KDENSITY_FIRST_HALF_CHILD_TITLE
+	first_half.setExitString first_prop
+	first_half.setExitAction "program check_firstResult"
+END
+
+PROGRAM check_firstResult
+BEGIN
+	call create STRING sTMP
+	if first_prop {
+		call main.bu_first.modified_on
+	}
+	else {
+		call main.bu_first.modified_off
+	}
+END
+
+SCRIPT main_show_second
+BEGIN
+	create CHILD bayesgraph_kdensity_half AS second_half 
+	second_half.settitle resource BAYESGRAPH_KDENSITY_SECOND_HALF_CHILD_TITLE
+	second_half.setExitString second_prop
+	second_half.setExitAction "program check_secondResult"
+END
+
+PROGRAM check_secondResult
+BEGIN
+	call create STRING sTMP	
+	if second_prop {
+		call main.bu_second.modified_on
+	}
+	else {
+		call main.bu_second.modified_off
+	}
+END
+
+INCLUDE _kernel_function_list
+
+SCRIPT gen_on
+BEGIN
+	main.ed_newx.enable
+	main.tx_newx.enable
+	main.ed_newden.enable
+	main.tx_newden.enable
+END
+
+
+PROGRAM main_rb_n_on
+BEGIN
+	if main.ck_n { // must check due to initialization order
+		call main.vn_at.disable
+		call main.sp_n.enable
+	}
+END
+
+PROGRAM main_rb_at_on
+BEGIN
+	if main.ck_n { // must check due to initialization order
+		call main.vn_at.enable
+		call main.sp_n.disable
+	}
+END
+
+SCRIPT graph_off
+BEGIN
+	script gr_plots_disable
+	script dplots_disable
+	script gr_addplots_disable
+	script gr_titles_disable
+	script gr_yaxis_disable
+	script gr_xaxis_disable
+	script gr_legend_disable
+	script gr_overall_disable
+END
+
+SCRIPT graph_on
+BEGIN
+	script gr_plots_enable
+	script dplots_enable
+	script gr_addplots_enable
+	script gr_titles_enable
+	script gr_yaxis_enable
+	script gr_xaxis_enable
+	script gr_legend_enable
+	script gr_overall_enable
+END
+
+INCLUDE gr_plots
+
+SCRIPT dplots_disable
+BEGIN
+	dplots.gb_den.disable
+	dplots.ck_norm.disable
+	dplots.bu_norm_line.disable
+END
+
+SCRIPT dplots_enable
+BEGIN
+	program dplots_enable_wrk
+END
+PROGRAM dplots_enable_wrk
+BEGIN
+	call dplots.gb_den.enable
+	call dplots.ck_norm.enable
+	if dplots.ck_norm {
+		call dplots.bu_norm_line.enable
+	}
+END
+
+SCRIPT dplots_PREINIT
+BEGIN
+	create STRING normalLineResults		
+END
+
+SCRIPT dplots_POSTINIT
+BEGIN
+	program checkNormalLineResults
+END
+
+DIALOG dplots, label(resource LBL_DENSITY_PLOTS) 		///
+	tabtitle(resource LBL_DENSITY_PLOTS)
+BEGIN
+  GROUPBOX gb_den		_lft	_top	_iwd	_ht3h,	///
+  	label(resource LBL_DENSITY_PLOTS)
+
+  CHECKBOX ck_norm		_ilft	_ms	200	.,	///
+	label(resource LBL_ADD_NORMAL_DENSITY_PLOT)		///
+	onclickon(program gdensity_normal_enable)		///
+	onclickoff(program gdensity_normal_disable)		///
+	option(normal)
+ 
+  BUTTON bu_norm_line		+220	 @	120	.,	///
+	label(resource LBL_GB_LINE_PROPERTIES)			///
+	onpush(script show_normal_line_dialog)			///
+	tooltip(resource LBL_LINE_PROPERTIES_FOR_NORMAL_DENSITY_PLOT)
+END
+
+PROGRAM gdensity_normal_enable
+BEGIN
+	call dplots.bu_norm_line.enable
+END
+PROGRAM gdensity_normal_disable
+BEGIN
+	call dplots.bu_norm_line.disable
+END
+
+SCRIPT show_normal_line_dialog
+BEGIN
+	create CHILD gr_line_options AS normalLine, allowsubmit
+	normalLine.setExitString normalLineResults
+	normalLine.settitle resource LBL_LINE_PROPERTIES_FOR_NORMAL_DENSITY_PLOT
+	normalLine.setExitAction "program checkNormalLineResults"
+	normalLine.setSubmitAction "program normalLineSubmit"
+END
+PROGRAM checkNormalLineResults
+BEGIN
+	if normalLineResults.iseq("") {
+		call dplots.bu_norm_line.modified_off
+	}
+	if ! normalLineResults.iseq("") {
+		call dplots.bu_norm_line.modified_on
+	}
+END
+PROGRAM normalLineSubmit
+BEGIN
+	call program checkNormalLineResults
+	call Submit
+END
+
+INCLUDE gr_addplots
+INCLUDE gr_yaxis
+INCLUDE gr_xaxis
+INCLUDE gr_titles
+INCLUDE gr_legend
+INCLUDE gr_overall
+
+PROGRAM command
+BEGIN	
+	if hasParen {
+		put " kdensopts("		
+	}
+
+	optionarg /hidedefault main.cb_kernel
+	optionarg main.en_width
+	optionarg main.sp_n
+	if main.rb_at {
+		require main.vn_at
+		optionarg main.vn_at
+	}
+	
+	if main.ck_show {
+		if main.cb_show.equals("first") {
+			put " show(first) "
+		}
+		if main.cb_show.equals("second") {
+			put " show(second) "
+		}
+		if main.cb_show.equals("both") {
+			put " show(both) "
+		}
+		if main.cb_show.equals("none") {
+			put " show(none) "
+		}
+
+		if main.cb_show.equals("first") {
+			if first_prop.isneq("") {
+				put " kdensfirst("
+				put first_prop
+				put ") "
+			}
+		}
+		if main.cb_show.equals("second") {
+			if second_prop.isneq("") {
+				put " kdenssecond("
+				put second_prop
+				put ") "
+			}
+		}
+	}
+	
+	option dplots.ck_norm	
+	if normalLineResults & ! H(dplots.bu_norm_line) {
+		put " normopts(" normalLineResults ") "
+	}
+	
+	put " " /program gr_plots_output
+	put " " /program gr_addplots_output
+	put " " /program gr_yaxis_output
+	put " " /program gr_xaxis_output
+	put " " /program gr_titles_output
+	put " " /program gr_legend_output
+	put " " /program gr_overall_output
+	if hasParen {
+		put ")"		
+	}
+END

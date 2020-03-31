@@ -1,0 +1,164 @@
+/*
+  blogit
+
+*!  VERSION 1.2.4  29nov2018 (deprecated)
+
+  keyword:  eclass
+
+*/
+
+VERSION 12.0
+
+INCLUDE _std_large
+DEFINE _dlght 330
+INCLUDE header
+HELP hlp1, view("help blogit")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	program parseMessage
+	script se_createAsInternalML
+	setscale_hadj resource BLOGIT_DLG_HSCALE
+END
+
+PROGRAM parseMessage
+BEGIN
+	if __MESSAGE.contains("__MI__") {
+		call script byifin_set_by_off
+		call script se_setMI_on
+	}
+END
+
+DIALOG main, label("blogit - Logistic regression for grouped data")	///
+	tabtitle("Model")
+BEGIN
+  TEXT     tx_pos	_lft	_top	_cwd1	.,		///
+	label("Outcome variable:")
+  VARNAME  vn_pos	@	_ss	_vnwd	.,		///
+  	numeric							///
+	label("Outcome variable")
+
+  TEXT     tx_pop	_vlx	_top	_cwd1	.,		///
+	label("Population variable:")
+  VARNAME  vn_pop	@	_ss	_vnwd	.,		///
+  	numeric							///
+	label("Population variable")
+
+  TEXT     tx_iv	_lft	_ls	_iwd	.,		///
+	label("Independent variables:")
+  VARLIST  vl_iv	@	_ss	@	.,		///
+	label("Independent variables") allowcat fv numeric
+
+  GROUPBOX gb_output	_lft	_ls	_iwd	_ht15,		///
+	label("Options")
+  TEXT     tx_offset	_ilft	_ms	_cwd1	.,		///
+	label("Offset variable: (optional)")
+  VARNAME  vn_offset	@	_ss	_vnwd	.,		///
+	label("Offset variable")				///
+	option(offset)						///
+	numeric
+
+  CHECKBOX ck_nocons	@	_ms	_cwd1	.,		///
+	label("Suppress constant term")				///
+	option(noconstant)
+
+  CHECKBOX ck_asis	@	_ms	@	.,		///
+	label("Retain perfect predictor variables")		///
+	option(asis)
+
+  DEFINE _x _ilft
+  DEFINE _y _ms
+  DEFINE _cx _ilw80
+  DEFINE _bux _islw80
+  INCLUDE _constraints
+
+  DEFINE _x _ilft
+  DEFINE _xw _cwd1
+//  INCLUDE _ck_collinear
+END
+
+INCLUDE byifin
+INCLUDE se
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+        program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle("Reporting")
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+
+  RADIO    rb_default	_lft	_ls	_cwd1	.,		///
+	label("Report coefficients (default)") first
+  RADIO    rb_or      @        _ss       @         .,		///
+	label("Report odds ratios")				///
+	option(or) last
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _nocnsreport
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+
+INCLUDE max_ml
+
+SCRIPT POSTINIT
+BEGIN
+	script max_setDefaultNoLog
+END
+
+PROGRAM command
+BEGIN
+	INCLUDE _by_pr
+	put "blogit "
+	require main.vn_pos
+	put main.vn_pos " "
+	require main.vn_pop
+	put main.vn_pop " "
+	put main.vl_iv " "
+	if !main.vl_iv & main.ck_nocons {
+	  stopbox stop `""Suppress constant term" is selected without independent variables."'
+	}
+	INCLUDE _ifin_pr
+	beginoptions
+		option main.ck_nocons
+		option main.ck_asis
+		optionarg main.vn_offset
+		INCLUDE _constraints_main_pr
+//               option main.ck_collinear
+
+		put " " /program se_output
+		optionarg /hidedefault rpt.sp_level
+		option rpt.rb_or
+		INCLUDE _nocnsreport_pr
+		INCLUDE _report_columns_pr
+		put " " rpt_bu_facvarsResults
+		put " " rpt_bu_fmtcoefResults
+		put " " /program max_output
+	endoptions
+END

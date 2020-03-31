@@ -1,0 +1,571 @@
+/*
+    irf_cgraph.dlg
+
+*!  VERSION 2.1.2  18nov2019
+
+*/
+
+VERSION 14.0
+SYNCHRONOUS_ONLY
+
+INCLUDE _std_xwide
+DEFINE _dlght 270
+INCLUDE header
+
+HELP hlp1, view("help irf_cgraph")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource IRF_CGRAPH_DLG_HSCALE
+END
+
+SCRIPT main_PREINIT
+BEGIN
+	create BOOLEAN isGettingIRF
+	create BOOLEAN isGettingIRFVars
+	create BOOLEAN isLoading
+	isLoading.settrue
+
+	// required for irf_ctable... Shared programming requires definitions
+	main.tx_se.hide
+	main.ck_se1.hide
+	main.ck_se2.hide
+	main.ck_se3.hide
+	main.ck_se4.hide
+
+	create STRING  this
+	this.setvalue class _dlg_rsrcname
+
+	create STRING STMP
+
+	STMP.format "resource LBL_GRAPH_FMT"	"1" ""
+	STMP.withvalue main.ck_spec1.setlabel "@"
+	STMP.format "resource LBL_IRF_RESULT_SET_FMT"	"1" ""
+	STMP.withvalue main.cb_irf1.setlabel "@"
+	STMP.format "resource LBL_IMPULSE_FMT"	"1" ""
+	STMP.withvalue main.cb_imp1.setlabel "@"
+	STMP.format "resource LBL_RESPONSE_FMT" "1" ""
+	STMP.withvalue main.cb_res1.setlabel "@"
+	STMP.format "resource LBL_STATISTIC_FMT" "1" ""
+	STMP.withvalue main.cb_stats1.setlabel "@"
+
+	STMP.format "resource LBL_GRAPH_FMT"	"2" ""
+	STMP.withvalue main.ck_spec2.setlabel "@"
+	STMP.format "resource LBL_IRF_RESULT_SET_FMT"	"2" ""
+	STMP.withvalue main.cb_irf2.setlabel "@"
+	STMP.format "resource LBL_IMPULSE_FMT"	"2" ""
+	STMP.withvalue main.cb_imp2.setlabel "@"
+	STMP.format "resource LBL_RESPONSE_FMT" "2" ""
+	STMP.withvalue main.cb_res2.setlabel "@"
+	STMP.format "resource LBL_STATISTIC_FMT" "2" ""
+	STMP.withvalue main.cb_stats2.setlabel "@"
+
+	STMP.format "resource LBL_GRAPH_FMT"	"3" ""
+	STMP.withvalue main.ck_spec3.setlabel "@"
+	STMP.format "resource LBL_IRF_RESULT_SET_FMT"	"3" ""
+	STMP.withvalue main.cb_irf3.setlabel "@"
+	STMP.format "resource LBL_IMPULSE_FMT"	"3" ""
+	STMP.withvalue main.cb_imp3.setlabel "@"
+	STMP.format "resource LBL_RESPONSE_FMT" "3" ""
+	STMP.withvalue main.cb_res3.setlabel "@"
+	STMP.format "resource LBL_STATISTIC_FMT" "3" ""
+	STMP.withvalue main.cb_stats3.setlabel "@"
+
+	STMP.format "resource LBL_GRAPH_FMT"	"4" ""
+	STMP.withvalue main.ck_spec4.setlabel "@"
+	STMP.format "resource LBL_IRF_RESULT_SET_FMT"	"4" ""
+	STMP.withvalue main.cb_irf4.setlabel "@"
+	STMP.format "resource LBL_IMPULSE_FMT"	"4" ""
+	STMP.withvalue main.cb_imp4.setlabel "@"
+	STMP.format "resource LBL_RESPONSE_FMT" "4" ""
+	STMP.withvalue main.cb_res4.setlabel "@"
+	STMP.format "resource LBL_STATISTIC_FMT" "4" ""
+	STMP.withvalue main.cb_stats4.setlabel "@"
+
+END
+
+SCRIPT main_POSTINIT
+BEGIN
+	isLoading.setfalse
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script gr_plots_setDefaultLine
+	script gr_plots_setMultiView_on
+	script gr_plots_setLimit_4
+
+	script gr_ciplots_setDefaultArea
+	script gr_ciplots_setMultiView_on
+	script gr_ciplots_setLimit_2
+
+	program main_get_irf
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN) ///
+label(resource IRF_CGRAPH_DLG_TITLE)
+BEGIN
+  // set IRF active file
+  DEFINE _x _xsetbu
+  DEFINE _y _top
+  INCLUDE _bu_irfset
+
+DEFINE varwd 105
+DEFINE varsep +110
+DEFINE statwd 205
+DEFINE statsep +210
+
+  // column 0
+  TEXT     tx_irf	85        +35       varwd     .,		///
+		label(resource LBL_IRF_RESULT_SET)
+  DEFINE x1 @x						// column 1
+  TEXT     tx_imp	varsep    @         @         .,		///
+		label(resource LBL_IMPULSE)
+  DEFINE x2 @x						// column 2
+  TEXT     tx_res	varsep    @         @         .,		///
+		label(resource LBL_RESPONSE)
+  DEFINE x3 @x						// column 3
+  TEXT     tx_stats	varsep    @         statwd    .,		///
+		label(resource IRF_CGRAPH_STAT_TO_PLOT_LIMIT_4)
+  DEFINE x4 @x						// column 4
+  TEXT     tx_ci	statsep   @         _ckwd     .,		///
+		label(resource LBL_CI)
+  DEFINE x5 @x						// column 5
+  TEXT     tx_se	_cksep    @         @         .,		///
+		label(resource LBL_SE)
+  DEFINE x6 @x						// column 6
+
+//---
+  CHECKBOX ck_spec1	     _lft      _ss       73        .,		///
+		onclickon(script irf_spec1_on)				///
+		onclickoff(script irf_spec1_off)
+
+  COMBOBOX cb_irf1	     x1        @         varwd     .,		///
+		dropdownlist						///
+		contents(irf_list1) onselchange(program main_update_vars1)
+  COMBOBOX cb_imp1	     x2        @         @         .,		///
+		contents(impulse_list1) dropdown
+  COMBOBOX cb_res1	     x3        @         @         .,		///
+		contents(response_list1) dropdown
+  COMBOBOX cb_stats1	     x4        @         statwd    .,		///
+		dropdown						///
+		append							///
+		contents(irf_stat_contents)				///
+		values(irf_stat_values)	
+  CHECKBOX ck_ci1	     x5        @         _ckwd     .,		///
+		option(ci) 						///
+		onclickon(program main_ci_check)			///
+		onclickoff(program main_ci_check)
+  CHECKBOX ck_se1	     x6        @         @         .,		///
+		option(stderror)
+//--
+//---
+  CHECKBOX ck_spec2	     _lft      _ms       73        .,		///
+		onclickon(script irf_spec2_on)				///
+		onclickoff(script irf_spec2_off)
+
+  COMBOBOX cb_irf2	     x1        @         varwd     .,		///
+		dropdownlist						///
+		contents(irf_list2) onselchange(program main_update_vars2)
+  COMBOBOX cb_imp2	     x2        @         @         .,		///
+		contents(impulse_list2) dropdown
+  COMBOBOX cb_res2	     x3        @         @         .,		///
+		contents(response_list2) dropdown
+  COMBOBOX cb_stats2	     x4        @         statwd    .,		///
+		dropdown						///
+		append							///
+		contents(irf_stat_contents)				///
+		values(irf_stat_values)
+  CHECKBOX ck_ci2	     x5        @         _ckwd     .,		///
+		option(ci) 						///
+		onclickon(program main_ci_check)			///
+		onclickoff(program main_ci_check)
+  CHECKBOX ck_se2	     x6        @         @         .,		///
+		option(stderror)
+//--
+//---
+  CHECKBOX ck_spec3	     _lft      _ms       73        .,		///
+		onclickon(script irf_spec3_on)				///
+		onclickoff(script irf_spec3_off)
+
+  COMBOBOX cb_irf3	     x1        @         varwd     .,		///
+		dropdownlist						///
+		contents(irf_list3) onselchange(program main_update_vars3)
+  COMBOBOX cb_imp3	     x2        @         @         .,		///
+		contents(impulse_list3) dropdown
+  COMBOBOX cb_res3	     x3        @         @         .,		///
+		contents(response_list3) dropdown
+  COMBOBOX cb_stats3	     x4        @         statwd    .,		///
+		dropdown						///
+		append							///
+		contents(irf_stat_contents)				///
+		values(irf_stat_values)
+  CHECKBOX ck_ci3	     x5        @         _ckwd     .,		///
+		option(ci) 						///
+		onclickon(program main_ci_check)			///
+		onclickoff(program main_ci_check)
+  CHECKBOX ck_se3	     x6        @         @         .,		///
+		option(stderror)
+//--
+//---
+  CHECKBOX ck_spec4	     _lft      _ms       73        .,		///
+		onclickon(script irf_spec4_on)				///
+		onclickoff(script irf_spec4_off)
+
+  COMBOBOX cb_irf4	     x1        @         varwd     .,		///
+		dropdownlist						///
+		contents(irf_list4) onselchange(program main_update_vars4)
+  COMBOBOX cb_imp4	     x2        @         @         .,		///
+		contents(impulse_list4) dropdown
+  COMBOBOX cb_res4	     x3        @         @         .,		///
+		contents(response_list4) dropdown
+  COMBOBOX cb_stats4	     x4        @         statwd    .,		///
+		dropdown						///
+		append							///
+		contents(irf_stat_contents)				///
+		values(irf_stat_values)
+  CHECKBOX ck_ci4	     x5        @         _ckwd     .,		///
+		option(ci) 						///
+		onclickon(program main_ci_check)			///
+		onclickoff(program main_ci_check)
+  CHECKBOX ck_se4	     x6        @         @         .,		///
+		option(stderror)
+//--
+
+  GROUPBOX gb_note           _lft      +35      400       _ht5h,
+DEFINE y @y
+  TEXTBOX  tb_note           _indent   _ss       _inwd     _tb2,	///
+  		label(resource LBL_REFRESH_IRF_SELECTION_ANY_TIME_ACT_IRF_FILE)
+  BUTTON   bu_refresh        300       +35       100       ., 		///
+  		label(resource LBL_REFRESH)				///
+  		onpush(program main_get_irf)				///
+  		tooltip(resource LBL_REFRESH_IRF_DATA)
+
+  /*
+  	-individual- was not included on this dialog intentionally because
+  	it does not have any use. The individual graphs can just as easily
+  	be created by generating graphs one at a time.
+
+  	-cilines- was not included because it is a command line utility.
+  	and because the individual cioptions can perform the same function.
+*/
+
+END
+
+PROGRAM main_get_irf
+BEGIN
+	put "_get_irf, "
+	put "dialogcls(" this ") "
+	put "control("
+		put "main.cb_irf1 main.cb_irf2 main.cb_irf3 main.cb_irf4"
+	put ") "
+	put "irfvalues("
+		put /hidden main.cb_irf1 " "
+		put /hidden main.cb_irf2 " "
+		put /hidden main.cb_irf3 " "
+		put /hidden main.cb_irf4 " "
+	put ") "
+	put "busyflag(isGettingIRF)"
+	stata hidden
+	call program main_update_vars1
+	call program main_update_vars2
+	call program main_update_vars3
+	call program main_update_vars4
+	if ! main.ck_spec1 & ! main.ck_spec2 & ! main.ck_spec3 & ! main.ck_spec4 {
+		if main.cb_irf1 {
+			call main.ck_spec1.seton
+		}
+	}
+END
+
+
+PROGRAM main_update_vars1
+BEGIN
+	if ! isGettingIRF & ! isLoading & ! isGettingIRFVars {
+		put "_set_irf_vars, "
+		put "dialogcls(" this ") "
+		put "irfname("
+			put /hidden main.cb_irf1
+		put ") "
+		put "impulsetarget(main.cb_imp1) "
+		put "responsetarget(main.cb_res1) "
+		put "impulsevalue(" main.cb_imp1 ") "
+		put "responsevalue(" main.cb_res1 ") "
+		put "list(main.cb_irf1) "
+		put "busyflag(isGettingIRFVars)"
+		stata hidden
+	}
+END
+
+PROGRAM main_update_vars2
+BEGIN
+	if ! isGettingIRF & ! isLoading & ! isGettingIRFVars {
+		put "_set_irf_vars, "
+		put "dialogcls(" this ") "
+		put "irfname("
+			put /hidden main.cb_irf2
+		put ") "
+		put "impulsetarget(main.cb_imp2) "
+		put "responsetarget(main.cb_res2) "
+		put "impulsevalue(" main.cb_imp2 ") "
+		put "responsevalue(" main.cb_res2 ") "
+		put "list(main.cb_irf2) "
+		put "busyflag(isGettingIRFVars)"
+		stata hidden
+	}
+END
+
+PROGRAM main_update_vars3
+BEGIN
+	if ! isGettingIRF & ! isLoading & ! isGettingIRFVars {
+		put "_set_irf_vars, "
+		put "dialogcls(" this ") "
+		put "irfname("
+			put /hidden main.cb_irf3
+		put ") "
+		put "impulsetarget(main.cb_imp3) "
+		put "responsetarget(main.cb_res3) "
+		put "impulsevalue(" main.cb_imp3 ") "
+		put "responsevalue(" main.cb_res3 ") "
+		put "list(main.cb_irf3) "
+		put "busyflag(isGettingIRFVars)"
+		stata hidden
+	}
+END
+
+PROGRAM main_update_vars4
+BEGIN
+	if ! isGettingIRF & ! isLoading & ! isGettingIRFVars {
+		put "_set_irf_vars, "
+		put "dialogcls(" this ") "
+		put "irfname("
+			put /hidden main.cb_irf4
+		put ") "
+		put "impulsetarget(main.cb_imp4) "
+		put "responsetarget(main.cb_res4) "
+		put "impulsevalue(" main.cb_imp4 ") "
+		put "responsevalue(" main.cb_res4 ") "
+		put "list(main.cb_irf4) "
+		put "busyflag(isGettingIRFVars)"
+		stata hidden
+	}
+END
+
+INCLUDE irf_stat_list		// lists for statistics
+INCLUDE irf_spec1_pr		// LISTs for stats1
+INCLUDE irf_spec2_pr		// LISTs for stats2
+INCLUDE irf_spec3_pr		// LISTs for stats3
+INCLUDE irf_spec4_pr		// LISTs for stats3
+
+PROGRAM main_ci_check
+BEGIN
+	if ! ( (main.ck_ci1 & !D(main.ck_ci1) ) ///
+	     | (main.ck_ci2 & !D(main.ck_ci2) )	///
+	     | (main.ck_ci3 & !D(main.ck_ci3) )	///
+	     | (main.ck_ci4 & !D(main.ck_ci4) ) ) {
+		call script gr_ciplots_disable
+		call main.tx_stats.setlabel resource IRF_CGRAPH_STAT_TO_PLOT_LIMIT_4
+	}
+
+	if   ( (main.ck_ci1 & !D(main.ck_ci1) ) ///
+	     | (main.ck_ci2 & !D(main.ck_ci2) )	///
+	     | (main.ck_ci3 & !D(main.ck_ci3) )	///
+	     | (main.ck_ci4 & !D(main.ck_ci4) ) ) {
+		call script gr_ciplots_enable
+		call main.tx_stats.setlabel resource IRF_CGRAPH_STAT_TO_PLOT_LIMIT_2
+	}
+END
+//*
+
+/* see if ci tabs need to be disabled when spec checkboxes are clicked off */
+SCRIPT main_spec1_off
+BEGIN
+	program main_ci_check
+END
+
+SCRIPT main_spec2_off
+BEGIN
+	program main_ci_check
+END
+
+SCRIPT main_spec3_off
+BEGIN
+	program main_ci_check
+END
+
+SCRIPT main_spec4_off
+BEGIN
+	program main_ci_check
+END
+//*
+
+/* see if ci tabs need to be enabled when spec checkboxes are clicked on */
+SCRIPT main_spec1_on
+BEGIN
+	program main_ci_check
+END
+
+SCRIPT main_spec2_on
+BEGIN
+	program main_ci_check
+END
+
+SCRIPT main_spec3_on
+BEGIN
+	program main_ci_check
+END
+
+SCRIPT main_spec4_on
+BEGIN
+	program main_ci_check
+END
+//*
+
+//*************************************
+
+SCRIPT opt1_PREINIT
+BEGIN
+	create STRING combineResult
+END
+
+SCRIPT opt1_POSTINIT
+BEGIN
+	program check_combineResult
+END
+
+DIALOG opt1, tabtitle(resource LBL_OPTIONS)
+BEGIN
+  GROUPBOX gb_opts		_lft	_top	_iwd	_ht8h,	///
+	label(resource LBL_COMMON_OPTIONS)
+  TEXT     tx_fill		_ilft	_ms	0	0,
+  DEFINE   _x  _cksep
+  DEFINE   _cx _ckspr2b
+  DEFINE   _y  @
+  INCLUDE  _sp_level
+
+  CHECKBOX ck_lstep		_ilft	_mls	_ckwd	.,	///
+	onclickon(program lstep_check)				///
+	onclickoff(program lstep_check)
+DEFINE x @x
+  SPINNER  sp_lstep		_cksep	@	_spwd	.,	///
+	min(1)							///
+	max(500)						///
+	default(0)						///
+	option(lstep)						///
+	label(resource LBL_COMMON_FIRST_STEP)
+  TEXT     tx_lstep		_spsep	@	_cksprb	.,	///
+	label(resource LBL_COMMON_FIRST_STEP)
+		
+  CHECKBOX ck_ustep		x	_mls	_ckwd	.,	///
+	onclickon(program ustep_check)				///
+	onclickoff(program ustep_check)
+  SPINNER  sp_ustep		_cksep	@	_spwd	.,	///
+	min(1)							///
+	max(500)						///
+	default(1)						///
+	option(ustep)						///
+	label(resource LBL_COMMON_MAXIMUM_STEP)
+  TEXT     tx_ustep		_spsep	@	_cksprb	.,	///
+	label(resource LBL_COMMON_MAXIMUM_STEP)
+
+  BUTTON   bu_combine		_lft	_xxls	130	.,	///
+	label(resource IRF_CGRAPH_OPT1_BU_COMBINE)		///
+	onpush(script show_combine_dialog)			///
+	tooltip(resource IRF_CGRAPH_OPT1_BU_COMBINE_TOOLTIP)
+END
+
+PROGRAM lstep_check
+BEGIN
+	if opt1.ck_lstep {
+		call gaction opt1.sp_lstep.enable
+	}
+	if !opt1.ck_lstep {
+		call gaction opt1.sp_lstep.disable
+	}
+END
+
+PROGRAM ustep_check
+BEGIN
+	if opt1.ck_ustep {
+		call gaction opt1.sp_ustep.enable
+	}
+	if !opt1.ck_ustep {
+		call gaction opt1.sp_ustep.disable
+	}
+END
+
+SCRIPT show_combine_dialog
+BEGIN
+	create CHILD gr_combine_options, allowsubmit
+	gr_combine_options.setExitString combineResult
+	gr_combine_options.settitle resource LBL_GRAPH_COMBINE_PROPERTIES
+	gr_combine_options.setOkAction "program check_combineResult"
+	gr_combine_options.setSubmitAction "script combineSubmit"
+END
+PROGRAM check_combineResult
+BEGIN
+	if combineResult {
+		call opt1.bu_combine.modified_on
+	}
+	else {
+		call opt1.bu_combine.modified_off
+	}
+END
+SCRIPT combineSubmit
+BEGIN
+	program check_combineResult
+	Submit
+END
+
+PROGRAM irf_cgraph_opts_output
+BEGIN
+	optionarg /hidedefault opt1.sp_level
+	if opt1.ck_lstep {
+		optionarg opt1.sp_lstep
+	}
+	if opt1.ck_ustep {
+		optionarg opt1.sp_ustep
+	}
+	put " " combineResult " "
+END
+//***************************************
+
+INCLUDE gr_plots
+INCLUDE gr_ciplots
+INCLUDE gr_yaxis
+INCLUDE gr_xaxis
+INCLUDE gr_titles
+INCLUDE gr_legend
+INCLUDE gr_overall
+
+PROGRAM command
+BEGIN
+	if !main.ck_spec1 & !main.ck_spec2 & !main.ck_spec3 & !main.ck_spec4 {
+		stopbox stop "resource LBL_MSGBOX_ONE_SPEC_REQUIRED"
+// On Main tab: at least one specification is required.
+	}
+	put "irf cgraph "
+	if main.ck_spec1 {
+		put  "(" /program irf_spec1_output ") "
+	}
+	if main.ck_spec2 {
+		put  "(" /program irf_spec2_output ") "
+	}
+	if main.ck_spec3 {
+		put  "(" /program irf_spec3_output ") "
+	}
+	if main.ck_spec4 {
+		put  "(" /program irf_spec4_output ") "
+	}
+	beginoptions
+		put " " /program irf_cgraph_opts_output
+		put " " /program gr_plots_output
+		put " " /program gr_ciplots_output
+		put " " /program gr_yaxis_output
+		put " " /program gr_xaxis_output
+		put " " /program gr_titles_output
+		put " " /program gr_legend_output
+		put " " /program gr_overall_output
+	endoptions
+END

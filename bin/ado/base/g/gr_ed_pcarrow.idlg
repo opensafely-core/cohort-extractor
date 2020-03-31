@@ -1,0 +1,452 @@
+/*
+  gr_ed_pcarrow.idlg
+
+*!  VERSION 1.1.3  31jul2017
+
+*/
+
+
+SCRIPT main_PREINIT
+BEGIN
+	create STRING color
+	create STRING rgb
+	create STRING opacity
+	create STRING width
+	create STRING pattern
+	program main_get_defaults
+END
+
+DIALOG main, title(resource GR_ED_PCARROW_MAIN_DLG_TITLE) tabtitle(resource LBL_LINES)
+BEGIN
+  GROUPBOX gb_lines	_lft	_top	_iwd	_ht11,		///
+	label(resource LBL_GB_LINE_PROPERTIES)
+  TEXT     tx_clr	_ilft	_ss	_wd	.,		///
+	label(resource LBL_COLOR) right
+  COMBOBOX cb_clr	_sep	@	_cbwd	.,		///
+	dropdownlist contents(_colors) 				///
+	onselchangelist(main_cl_clr_sel)
+  COLOR    cl_clr	_cbsep	@	_clwd	.,
+  TEXT     tx_opacity	_ilft	_mls	_wd	.,		///
+	label(resource LBL_OPACITY) right
+  SPINNER sp_opacity	_sep	@	_spwd	.,		///
+	default(100)						///
+	min(0)							///
+	max(100)
+  
+  TEXT     tx_width	_ilft	 _mls	_wd	.,		///
+	label(resource LBL_WIDTH) right
+  COMBOBOX cb_width	_sep	@	_cbwd	.,		///
+	dropdown 						///
+	contents(_linewidths)
+
+  TEXT     tx_pattern	_ilft	_mls	_wd	.,		///
+	label(resource LBL_PATTERN) right
+  COMBOBOX cb_pattern	_sep	@	_cbwd	.,		///
+	dropdownlist						///
+	contents(_linepatterns)
+END
+
+SCRIPT main_POSTINIT
+BEGIN
+	program main_initialize_controls
+END
+
+LIST main_cl_clr_sel
+BEGIN
+	main.cl_clr.show
+	main.cl_clr.hide
+END
+
+PROGRAM main_get_defaults
+BEGIN	
+	call Gstyle.withvalue index.setvalue class @.area.linestyle.color.styledex
+	call index.withvalue color.setstring class .__STYLES.color[@]
+	call main.cb_clr.setdefault class color.value
+
+	call Gstyle.withvalue rgb.setstring class @.area.linestyle.color.rgb
+	call main.cl_clr.setdefault class rgb.value
+	call Gstyle.withvalue opacity.setstring class @.area.linestyle.color.opacity
+	call main.sp_opacity.setdefault class opacity.value
+
+	call Gstyle.withvalue index.setvalue class @.area.linestyle.width.styledex
+	call index.withvalue width.setstring class .__STYLES.linewidth[@]
+	if ! width {
+		call G.withvalue width.setvalue class @.area.linestyle.width.val
+	}
+	call main.cb_width.setdefault class width.value
+
+	call Gstyle.withvalue index.setvalue class @.area.linestyle.pattern.styledex
+	call index.withvalue pattern.setstring class .__STYLES.linepattern[@]
+	call main.cb_pattern.setdefault class pattern.value
+END
+
+PROGRAM main_initialize_controls
+BEGIN
+	if color {
+		call main.cb_clr.setvalue class color.value
+	}
+	if ! color {
+		call main.cb_clr.setvalue "custom"
+	}
+	call main.cl_clr.setvalue class rgb.value
+	call main.sp_opacity.setvalue class opacity.value
+
+	call main.cb_width.setvalue class width.value
+	call main.cb_pattern.setvalue class pattern.value
+END
+
+PROGRAM main_output
+BEGIN
+	call program main_get_defaults
+
+	if ! main.cl_clr.isvisible() & ! main.cb_clr.isdefault() {
+		put "style(area(linestyle(color(" 
+		put main.cb_clr 
+		put ")))) "
+	}
+	if main.cl_clr.isvisible() & ! main.cl_clr.isdefault() {
+		put "style(area(linestyle(color("  `"""'
+		put main.cl_clr
+		put `"""'
+		put ")))) "
+	}
+	if ! main.sp_opacity.isdefault() {
+		put "style(area(linestyle(color("
+		put "%"
+		put main.sp_opacity
+		put ")))) "
+	}
+	if ! main.cb_width.isdefault() {
+		put "style(area(linestyle(width("
+		put main.cb_width
+		put ")))) "
+	}
+	if ! main.cb_pattern.isdefault() {
+		put "style(area(linestyle(pattern("
+		put main.cb_pattern
+		put ")))) "
+	}
+END
+
+*****************************************************************************
+
+DIALOG arrow, tabtitle(resource LBL_ARROWHEADS)
+BEGIN
+  GROUPBOX gb_basic	_lft	_top	_iwd	_ht28h,		///
+	label(resource LBL_GB_ARROWHEAD_PROPERTIES)
+	
+  TEXT     tx_size	_ilft	_ss	_wd	.,		///
+	label(resource LBL_SIZE) right
+  COMBOBOX cb_size	_sep	@	_cbwd	.,		///
+	dropdown						///
+	contents(_symbolsizes)
+  
+  TEXT     tx_bsize	_ilft	_mls	_wd	.,		///
+	label(resource LBL_BARB_SIZE) right
+  COMBOBOX cb_bsize	_sep	@	_cbwd	.,		///
+	dropdown 						///
+	contents(_symbolsizes)
+
+  TEXT     tx_angle	_ilft	_mls	_wd	.,		///
+	label(resource LBL_ANGLE) right
+  COMBOBOX cb_angle	_sep	@	_cbwd	.,		///
+	dropdown						///
+	contents(_angles)					///
+	nomemory
+
+  TEXT     tx_clr	_ilft	_mls	_wd	.,		///
+	label(resource LBL_COLOR) right
+  COMBOBOX cb_clr	_sep	@	_cbwd	.,		///
+	dropdownlist contents(_colors) 				///
+	onselchangelist(arrow_cl_clr_sel)
+  COLOR    cl_clr	_cbsep	@	_clwd	.,
+  TEXT     tx_opacity	_ilft	_mls	_wd	.,		///
+	label(resource LBL_OPACITY) right
+  SPINNER sp_opacity	_sep	@	_spwd	.,		///
+	default(100)						///
+	min(0)							///
+	max(100)
+
+  CHECKBOX ck_outline	_ilft	+35	_ibwd	_ht11,		///
+	groupbox						///
+	label(resource LBL_DIFFERENT_OUTLINE_COLOR)		///
+	onclickon(script arrow_outline_on)			///
+	onclickoff(script arrow_outline_off) nomemory
+  
+  TEXT     tx_oclr	_iilft	_ms	_wd2	.,		///
+	label(resource LBL_OUTLINE_COLOR) right
+  COMBOBOX cb_oclr	_sep2	@	_cbwd	.,		///
+	dropdownlist contents(_colors) 				///
+	onselchangelist(arrow_cl_oclr_sel)
+  COLOR    cl_oclr	_cbsep	@	_clwd	.,
+  TEXT     tx_oopacity	_iilft	_mls	_wd2	.,		///
+	label(resource LBL_OUTLINE_OPACITY) right
+  SPINNER sp_oopacity	_sep2	@	_spwd	.,		///
+	default(100)						///
+	min(0)							///
+	max(100)
+
+  TEXT     tx_owidth	_iilft	_mls	_wd2	.,		///
+	label(resource LBL_OUTLINE_WIDTH) right
+  COMBOBOX cb_owidth	_sep2	@	_cbwd	.,		///
+	dropdown 						///
+	contents(_linewidths)
+   TEXT     tx_lalign	_iilft	_mls	_wd2	.,		///
+      label(resource LBL_OUTLINE_ALIGNMENT) right
+   COMBOBOX cb_lalign	_sep2	@	_cbwd	.,		///
+      dropdownlist option(lalign)				///
+      contents(alignstroke)
+
+END
+
+SCRIPT arrow_outline_on
+BEGIN
+	arrow.tx_oclr.enable
+	arrow.cb_oclr.enable
+	arrow.cl_oclr.enable
+	arrow.tx_oopacity.enable
+	arrow.sp_oopacity.enable
+	arrow.tx_owidth.enable
+	arrow.cb_owidth.enable
+	arrow.tx_lalign.enable
+	arrow.cb_lalign.enable
+END
+
+SCRIPT arrow_outline_off
+BEGIN
+	arrow.tx_oclr.disable
+	arrow.cb_oclr.disable
+	arrow.cl_oclr.disable
+	arrow.tx_oopacity.disable
+	arrow.sp_oopacity.disable
+	arrow.tx_owidth.disable
+	arrow.cb_owidth.disable
+	arrow.tx_lalign.disable
+	arrow.cb_lalign.disable
+END
+
+LIST arrow_cl_clr_sel
+BEGIN
+	arrow.cl_clr.show
+	arrow.cl_clr.hide
+END
+
+LIST arrow_cl_oclr_sel
+BEGIN
+	arrow.cl_oclr.show
+	arrow.cl_oclr.hide
+END
+
+SCRIPT arrow_PREINIT
+BEGIN
+	create DOUBLE  d_tmp
+	create STRING  arrowSize
+	create STRING  arrowBSize
+	create STRING  arrowAngle
+	create STRING  arrowColor
+	create STRING  arrowRGB
+	create STRING  arrowOpacity
+	create STRING  arrowOColor
+	create STRING  arrowORGB
+	create STRING  arrowOOpacity
+	create STRING  arrowOWidth
+	create STRING  arrowOAlign
+	program arrow_get_defaults
+END
+
+SCRIPT arrow_POSTINIT
+BEGIN
+	program arrow_initialize_controls
+END
+
+PROGRAM arrow_get_defaults
+BEGIN
+	call G.withvalue index.setvalue class @.style.marker.size.styledex
+	call index.withvalue arrowSize.setstring class .__STYLES.symbolsize[@]
+	if ! arrowSize {
+		call G.withvalue arrowSize.setstring class @.style.marker.size.val
+	}
+	call arrow.cb_size.setdefault class arrowSize.value
+	
+	call G.withvalue index.setvalue class @.style.marker.backsize.styledex
+	call index.withvalue arrowBSize.setstring class .__STYLES.symbolsize[@]
+	if ! arrowBSize {
+		call G.withvalue arrowBSize.setstring class @.style.marker.backsize.val
+	}
+	call  arrow.cb_bsize.setdefault class arrowBSize.value
+
+	call G.withvalue index.setvalue class @.style.marker.angle.styledex
+	call index.withvalue arrowAngle.setstring class .__STYLES.anglestyle[@]
+	if ! arrowAngle {
+		call G.withvalue arrowAngle.setstring class @.style.marker.angle.val
+	}
+	call arrow.cb_angle.setdefault class arrowAngle.value
+
+	call G.withvalue index.setvalue class @.style.marker.fillcolor.styledex
+	call index.withvalue arrowColor.setstring class .__STYLES.color[@]
+	call arrow.cb_clr.setdefault class arrowColor.value
+	
+	call G.withvalue arrowRGB.setstring class @.style.marker.fillcolor.rgb
+	call arrow.cl_clr.setdefault class arrowRGB.value
+	call G.withvalue arrowOpacity.setstring class @.style.marker.fillcolor.opacity
+	call arrow.sp_opacity.setdefault class arrowOpacity.value
+
+	call G.withvalue index.setvalue class @.style.marker.linestyle.color.styledex
+	call index.withvalue arrowOColor.setstring class .__STYLES.color[@]
+	call arrow.cb_oclr.setdefault class arrowOColor.value
+
+	call G.withvalue arrowORGB.setstring class @.style.marker.linestyle.color.rgb
+	call arrow.cl_oclr.setdefault class arrowORGB.value
+
+	call G.withvalue arrowOOpacity.setstring class @.style.marker.linestyle.color.opacity
+	call arrow.sp_oopacity.setdefault class arrowOOpacity.value
+
+	call G.withvalue index.setvalue class @.style.marker.linestyle.width.styledex
+	call index.withvalue arrowOWidth.setstring class .__STYLES.linewidth[@]
+	if ! arrowOWidth {
+		call G.withvalue arrowOWidth.setvalue class @.style.marker.linestyle.width.val
+	}
+	call arrow.cb_owidth.setdefault class arrowOWidth.value
+
+	call G.withvalue index.setvalue class @.style.marker.linestyle.align.styledex
+	call index.withvalue arrowOAlign.setstring class .__STYLES.alignstroke[@]
+	call arrow.cb_lalign.setdefault class arrowOAlign.value
+
+END
+
+PROGRAM arrow_initialize_controls
+BEGIN
+	call arrow.cb_size.setvalue class arrowSize.value
+	call arrow.cb_bsize.setvalue class arrowBSize.value
+	call arrow.cb_angle.setvalue class arrowAngle.value
+	if arrowColor {
+		call arrow.cb_clr.setvalue class arrowColor.value
+	}
+	else {
+		call arrow.cb_clr.setvalue "custom"
+	}
+	call arrow.cl_clr.setvalue class arrowRGB.value
+	call arrow.sp_opacity.setvalue class arrowOpacity.value
+	if arrowOColor {
+		call arrow.cb_oclr.setvalue class arrowOColor.value
+	}
+	else {
+		call arrow.cb_oclr.setvalue "custom"
+	}
+	call arrow.cl_oclr.setvalue class arrowORGB.value
+	call arrow.sp_oopacity.setvalue class arrowOOpacity.value
+	call arrow.cb_owidth.setvalue class arrowOWidth.value
+	call arrow.cb_lalign.setvalue class arrowOAlign.value
+	
+	if arrowRGB.iseq(arrowORGB) {
+		call arrow.ck_outline.setoff
+	}
+	else {
+		call arrow.ck_outline.seton
+	}
+END
+
+PROGRAM arrow_output
+BEGIN
+	call program arrow_get_defaults
+
+	if ! arrow.cb_size.isdefault() {
+		put "style(marker(size("
+		put arrow.cb_size
+		put "))) "
+	}
+
+	if ! arrow.cb_bsize.isdefault() {
+		put "style(marker(backsize("
+		put arrow.cb_bsize
+		put "))) "
+	}
+
+	if ! arrow.cb_angle.isdefault() {
+		put "style(marker(angle("
+		put arrow.cb_angle
+		put "))) "
+	}
+
+
+	// always output fill color when not the default
+	if ! arrow.cl_clr.isvisible() & ! arrow.cb_clr.isdefault() {
+		put "style(marker(fillcolor(" 
+		put arrow.cb_clr 
+		put "))) "
+	}
+	if arrow.cl_clr.isvisible() & ! arrow.cl_clr.isdefault() {
+		put "style(marker(fillcolor("  `"""'
+		put arrow.cl_clr
+		put `"""'
+		put "))) "
+	}
+	if ! arrow.sp_opacity.isdefault() {
+		put "style(marker(fillcolor("
+		put "%"
+		put arrow.sp_opacity
+		put "))) "
+	}
+	
+	// determine when outline color should be output
+	if ! arrow.ck_outline {
+		// force the outline color to the same when necessary
+		if ! arrow.cb_clr.iseq(arrowOColor) & ! arrow.cl_clr.isvisible() {
+			// they are different... force them to be the same
+			put "style(marker(linestyle(color(" 
+			put arrow.cb_clr 
+			put ")))) "
+		}
+		if ! arrow.cl_clr.iseq(arrowORGB) & arrow.cl_clr.isvisible() {
+			// they are different... force them to be the same
+			put "style(marker(linestyle(color("  `"""'
+			put arrow.cl_clr
+			put `"""'
+			put ")))) "
+		}
+		call arrowOOpacity.withvalue d_tmp.setvalue @
+		if ! arrow.sp_opacity.isneq(d_tmp) {
+			put "style(marker(linestyle(color(" 
+			put "%"
+			put arrow.sp_opacity
+			put ")))) "
+		}
+	}
+	else {
+		// request that outline and fill are different
+		if ! arrow.cl_oclr.isvisible() & ! arrow.cb_oclr.isdefault() {
+			put "style(marker(linestyle(color(" 
+			put arrow.cb_oclr 
+			put ")))) "
+		}
+		if arrow.cl_oclr.isvisible() & ! arrow.cl_oclr.isdefault() {
+			put "style(marker(linestyle(color("  `"""'
+			put arrow.cl_oclr
+			put `"""'
+			put ")))) "			
+		}
+		if ! arrow.sp_oopacity.isdefault() {
+			put "style(marker(linestyle(color("
+			put "%"
+			put arrow.sp_oopacity
+			put ")))) "			
+		}
+	}
+
+	if ! arrow.cb_owidth.isdefault() {
+		put "style(marker(linestyle(width("
+		put /hidden arrow.cb_owidth
+		put ")))) "
+	}
+	if ! arrow.cb_lalign.isdefault() {
+		put "style(marker(linestyle(align("
+		put /hidden arrow.cb_lalign
+		put ")))) "
+	}
+END
+
+PROGRAM pcarrow_output
+BEGIN
+	put " " /program main_output
+	put " " /program arrow_output
+END

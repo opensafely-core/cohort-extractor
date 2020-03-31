@@ -1,0 +1,89 @@
+//				barregion_g.class
+//
+//  A plotregion for bar, dot, and box graphs.  Needed solely for graphics
+//  editing.
+
+*! version 1.2.3  28may2015
+
+version 10
+
+class {
+}, inherit(plotregion)
+
+
+// ---------------------------------------------------------------------------
+
+program new
+
+	.Super.new `0'
+
+	.dialog = "barregion"
+end
+
+
+// ----------------------------------------------------------------------------
+// Possibly map supplied name to one appropriate for the object browser
+
+program BrowserName
+	args name
+
+	if ("`.dialog'" == "barregion")  class exit "bar region"
+	if ("`.dialog'" == "boxregion")  class exit "box region"
+	if ("`.dialog'" == "dotregion")  class exit "dot region"
+
+end
+
+
+// ---------------------------------------------------------------------------
+// Edits from the graph editor.  These all target the graph
+
+program GraphEdit
+	
+	syntax [, cmd(string asis) * ]
+
+	if (`"`cmd'"' == `""')  exit					// Exit
+
+	while `"`cmd'"' != `""' {
+		if `"`cmd'"' != `""' {
+		    if "`.`.bargraph.bargraph'.bygraphs'" != "" {   
+							// from a by graph
+			forvalues i =  					///
+			        1/0`.`.`.bargraph.bargraph'.bygraphs'.arrnels' {
+			    .`.`.bargraph.bargraph'.bygraphs'[`i'].`cmd'
+			}
+		    }
+		    else    .`.bargraph.bargraph'.`cmd'
+		}
+
+		local 0 `", `options'"'
+		syntax [, style(string asis) cmd(string asis) * ]
+	}
+
+	syntax [, FAKE_OPT_FOR_BETTER_MSG ]
+end
+
+
+
+//  ---------------------------------------------------------------------------
+//  Set the right-click menu for bar and dot regions.  
+
+program SetRightMenu
+
+	local editobj "`._Gr_Global.edit_object'"
+
+	if 0`.`.bargraph.bargraph'.dotplot.istrue' {
+		// menu resource -- local title "Graph as bar chart"
+		local title OBJECT_BAR_REGION_AS_BAR_CHART
+		local yn "no"
+	}
+	else {
+		// menu resource -- local title "Graph as dot plot"
+		local title OBJECT_BAR_REGION_AS_DOT_PLOT
+		local yn "yes"
+	}
+
+	local cmd "_gm_dlg_edits , object(`editobj') cmd(_gm_edit .Graph.plotregion1.GraphEdit , cmd(_set_dotplot `yn'))"
+
+	_gedi rightmenu add 0 "`title'" CMD "`cmd'"
+end
+

@@ -1,0 +1,478 @@
+*! version 2.1.2  02oct2019
+
+version 14
+
+/* base abstract class for all models				*/
+class _model {
+	instance:
+		string dep
+		/* coefficient stripe elements			*/
+		array vars
+		/* touse variable from -markout-		*/
+		string touse
+
+		/* weight type, and variable			*/
+		string wtype
+		_numericvar weight
+
+		/* 0/1 for constant 				*/
+		double const
+
+		/* score variable 				*/
+		_numericvar scvar
+
+		/* version: set by top parent			*/
+		string vv
+		double version		// caller version
+		double mversion		// model version
+}
+
+program .new 
+	if (`"`0'"'=="") exit
+
+	.version = _caller()
+	local vv : display "version " string(_caller()) ":"
+	.vv = "`vv'"
+
+	.mversion = 1	// sub-class will update
+
+	._set `0'
+end
+
+program .oncopy
+
+	di as err "_model.oncopy not implemented"
+	exit 498
+end
+
+program ._set 
+	syntax [varlist(default=none numeric fv)] [fw iw pw],           ///
+		touse(varname numeric) [ const(integer 0) wtobj(string) ///
+		COLlinear ]
+
+	.dep = ""
+	.vars.Arrdropall
+	.const = `const'
+	.wtype = ""
+
+	cap confirm byte variable `touse'
+	if _rc {
+		/* programmer error: should not happen */
+		di as err "{p}{bf:touse()} variable for _model class " ///
+		 "program .set must be a byte variable{p_end}"
+		exit 198
+	}
+	.touse = "`touse'"
+
+	if "`weight'" != "" {
+		if "`wtobj'" != "" {
+			/* programmer error: should not happen 	*/
+			di as err "{bf:[`weight'`exp']} and wtobj() cannot " ///
+			 "be used together"
+			exit 198
+		}
+		.wtype = "`weight'"
+		tempname wgtv
+		gettoken tok wexp : exp, parse("=")
+
+		if ("`weight'"=="fweight") local type long
+		else local type double 
+
+		.weight = ._numericvar.new `type' `wexp' if `touse'
+	}
+	else if "`wtobj'" != "" {
+		/* shared _numericvar object			*/
+		._setweight `wtobj'
+	}
+	else if "`.weight.varname'" != "" {
+		/* clear old weight 				*/
+		.weight = ._numericvar.new
+	}
+
+	if ("`varlist'" == "") exit
+
+	gettoken dep varlist : varlist
+	_fv_check_depvar `dep'
+	.dep = "`dep'"
+
+	if ("`varlist'" == "") exit
+
+	if "`collinear'" == "" {
+		/* drop collinear variables */
+		if (!`const') local conopt noconstant
+
+		/* really drop collinear variables		*/
+		if (`.version'<14) local vv version 10.1 :
+
+		`vv' ///
+		_rmcoll `varlist' if `touse', `conopt'
+		local varlist `r(varlist)'
+	}
+	fvexpand `varlist'
+	local fvvarlist `r(varlist)'
+
+	local fvlist `fvvarlist'
+	local kcoef : list sizeof fvlist
+
+	local kc = 0
+	while "`fvlist'" != "" {
+		gettoken expr fvlist : fvlist, bind
+		.vars.Arrpush `"`expr'"'
+	}
+end
+
+program ._setweight
+	args wtype wtobj
+
+	local wspec fweight iweight pweight aweight
+	local ok : list posof "`wtype'" in wspec
+	if !`ok' | "`wtobj'"=="" {
+		/* programmer error: should not happen */
+		di as err "{bf:_model._set: wtobj(`wtype' `wtobj')} option " ///
+		 "is improperly specified'"
+		exit 198
+	}
+	.wtype = "`wtype'"
+	local wtobj : list retokenize wtobj
+	cap local ok = `.`wtobj'.isofclass _numericvar'
+	if _rc | `ok'==0 {
+		/* programmer error: should not happen */
+		di as err "{bf:_model_set: wtobj()} option does not " ///
+		 "specify an object of class _numericvar" 
+		exit 198
+	}
+	else {
+		.weight.ref = .`wtobj'.ref
+	}
+end
+
+program .evaleq
+	syntax newvarlist(max=1), b(name) [ eq(name) ] 
+
+	if `.kvars'>0 {
+		if ("`eq'" != "") local eqopt eq(`eq')
+
+		mat score double `varlist' = `b' if `.touse', `eqopt'
+	}
+	else {
+		qui gen double `varlist' = 0 if `.touse'
+	}
+end
+
+program .choleskyV, rclass
+	syntax, [ v(string) ]
+
+	tempname R1 R
+	local stripe : colfullnames `v'
+	local nv : list sizeof stripe
+	forvalues i=1/`nv' {
+		local si : word `i' of `stripe'
+		_ms_parse_parts `si'
+
+		if (!r(omit)) {
+			mat `R1' = (nullmat(`R1'),`v'[1...,`i'])
+		}
+	}
+	forvalues i=1/`nv' {
+		local si : word `i' of `stripe'
+		_ms_parse_parts `si'
+
+		if (!r(omit)) {
+			mat `R' = (nullmat(`R') \ `R1'[`i',1...])
+			local strnew `strnew' `si'
+		}
+	}
+	mat rownames `R' = `strnew'
+	mat colnames `R' = `strnew'
+	cap mat `R' = cholesky(`R')
+	if _rc {
+		di as err "coefficient variance-covariance matrix " ///
+		 "is not positive definite; cannot compute stdp"
+		exit 322
+	}
+	return mat R = `R'
+end
+	
+/* compute quadratic form using Cholesky matrix R */
+program .evalxRRx
+	syntax newvarlist(max=1), r(name) [ eq(name) ] 
+
+	qui gen double `varlist' = 0 if `.touse'
+	if `.kvars'>0 {
+		if ("`eq'" != "") local eqopt eq(`eq')
+
+		local nr = rowsof(`r')
+		tempvar t 
+		tempname v
+		forvalues i=1/`nr' {
+			mat `v' = `r'[1...,`i']'
+			mat score double `t' = `v' if `.touse', `eqopt'
+			qui replace `varlist' = `varlist'+`t'*`t' if `.touse'
+			qui drop `t'
+		}
+	}
+end	
+
+program .evalscrs, rclass
+	syntax [newvarlist] [iw], [ g(name) noCONSTant ]
+
+	local kvars = `.kvars'
+	if `kvars' == 0 {
+		return scalar k = 0
+		exit
+	}
+	local kcoef = `.vars.arrnels'
+	local kscrs : list sizeof varlist
+	local bg = ("`g'"!="")
+	if (`kscrs'==0 & !`bg') {
+		/* programmer error */
+		di as err "_model.evalscrs, require either a varlist " ///
+		 "or the {bf:g()} option"
+		exit 499
+	}
+	if `kscrs' > 0 {
+		if `kscrs' < `kcoef' {
+			di as err "insufficient number of variables"
+			exit 489
+		}
+		local scores `varlist'
+	}
+	else tempvar sc
+
+	local sa `.scvar.varname'
+
+	if `bg' {
+		if "`weight'" != "" {
+			local wopt [`weight'`exp']
+		}
+		else if "`.wtype'" != "" {
+			if ("`.wtype'"=="pweight") ///
+				local wopt [iweight=`.weight.varname']
+			else local wopt [`.wtype'=`.weight.varname']
+		}
+	}
+	forvalues i=1/`kcoef' {
+		if `kscrs' > 0 {
+			local sc: word `i' of `scores' 
+			if "`sc'" == "" {
+				di as err `scerr'
+				exit 498
+			}
+		}
+		local expr `.vars[`i']'
+		_ms_parse_parts `expr'
+		if r(omit) {
+			/* omitted					*/
+			qui gen double `sc' = 0 if `.touse'
+		}
+		else {
+			/* factor or interaction			*/
+			local fv = ("`r(type)'"!="variable")
+			if `fv' {
+				fvrevar `expr'
+				local var `r(varlist)'
+			}
+			else local var `expr'
+
+			qui gen double `sc' = `sa'*`var' if `.touse'
+
+			if (`fv') qui drop `var'
+		}
+		if `bg' {
+			summarize `sc' `wopt' if `.touse', meanonly
+			mat `g' = (nullmat(`g'),r(sum))
+			qui drop `sc'
+		}
+	}
+	return scalar k = `kvars'
+end
+
+program .genscvar
+
+	.scvar = ._numericvar.new double .
+end
+
+program .dropscvar
+	if `.scvar.isvalid' {
+		.scvar = ._numericvar.new
+	}
+end
+
+program .kvars 
+	local kvars = `.vars.arrnels'
+
+	class exit `kvars'
+end
+
+program .kcoef
+	syntax, [ noCONSTant ]
+
+	local kc = `.vars.arrnels'
+	if ("`constant'"=="") local kc = `kc'+`.const'
+
+	class exit `kc'
+end
+
+program .stripe
+	syntax, [ eq(string) noCONSTant ]
+
+	if ("`eq'"!="") local eq `eq':
+
+	forvalues i=1/`.vars.arrnels' {
+		local s `.vars[`i']'
+		local stripe `"`stripe' `eq'`s'"'
+	}
+	if (`.const' & "`constant'"=="") local stripe `"`stripe' `eq'_cons"'
+
+	local stripe : list retokenize stripe
+
+	class exit `"`stripe'"'
+end
+
+/* string of model terms					*/
+program .strvars
+	syntax, [ noomit ]
+
+	local keep = 1
+	forvalues j=1/`.vars.arrnels' {
+		local var `.vars[`j']'
+		if "`omit'" != "" {
+			_ms_parse_parts `var'
+			local keep = !r(omit)
+		}
+		if (`keep') local vars `"`vars' `var'"'
+	}
+	local vars : list retokenize vars
+	class exit `"`vars'"'
+end
+
+/* string of variable names that make up the model terms	*/
+program .strvarnames
+	syntax, [ noomit ]
+
+	forvalues j=1/`.vars.arrnels' {
+		local expr `.vars[`j']'
+		_ms_parse_parts `expr'
+		if "`omit'"!="" & r(omit) {
+			continue
+		}
+		if "`r(type)'"=="variable" | "`r(type)'"=="factor" {
+			local varnames `"`varnames' `r(name)'"'
+		}
+		else if "`r(type)'"=="interaction" | "`r(type)'"=="product" {
+			forvalues j=1/`=r(k_names)' {
+				local varnames `"`varnames' `r(name`j')'"'
+			}
+		}
+	}
+	local varnames : list uniq varnames
+	local varnames : list retokenize varnames
+
+	class exit `"`varnames'"'
+end
+
+program .eretpost, eclass
+	syntax, [ index(integer -1) ]
+
+	if "`e(b)'" != "matrix" {
+		ereturn post
+	}
+	ereturn hidden scalar version = `.version'	// caller version
+	ereturn hidden scalar mversion = `.mversion'	// model version
+
+	if (`index'<0) local index
+	if `.kvars' != 0 {
+		ereturn scalar k_indvars`index' = `.kvars' 
+		ereturn local indvars`index' `"`.strvars'"'
+	}
+	else if "`index'" == "" {
+		ereturn scalar k_indvars = `.kvars' 
+	}
+	ereturn scalar const`index' = `.const'
+	if ("`.dep'"!="") ereturn local depvar`index' "`.dep'"
+end
+
+program .eretget
+	syntax, touse(varname) [ index(integer -1)  weight(string) ]
+
+	.version = 1/0	// missing
+	.mversion = 1
+
+	if ("`e(version)'"!="") .version = e(version)
+
+	if ("`e(mversion)'"!="") .mversion = e(mversion)
+
+	.vars.Arrdropall
+	.wtype = ""
+	if (`index' < 0) local index
+
+	if `.weight.isvalid' {
+		.weight = ._numericvar.new
+	}
+	.touse = "`touse'"
+
+	cap local kv = e(k_indvars`index')
+	if ("`index'"=="" & `kv'>=.) exit 322
+
+	if 0<`kv' & `kv'<. {
+		local k = 0
+		local vlist `e(indvars`index')'
+		while "`vlist'" != "" {
+			gettoken expr vlist : vlist, bind
+
+			.vars[`++k'] = "`expr'"
+		}
+		if `.vars.arrnels' != `kv' {
+			di as err "expected `kv' variables in " ///
+			 "e(indvars`index') but got `vars.arrnels'"
+			exit 322
+		}
+	}
+	if ("`e(depvar)'"!="") .dep = "`e(depvar)'"
+
+	.const = e(const`index')
+	if (`.const'>=.) .const = 0
+
+	if "`weight'" != "" { 
+		._setweight `weight'
+	}
+	else if "`e(wtype)'" != "" {
+		local wexp `"`e(wexp)'"'
+		gettoken tok wexp : wexp, parse("=")
+
+		if "`e(wtype)'" == "fweight" {
+			.weight = ._numericvar.new long `wexp'
+		}
+		else {
+			.weight = ._numericvar.new double `wexp'
+		}
+		.wtype = "`e(wtype)'"
+	}
+end
+
+/* markout using elements of eclass known by this object		*/
+/* called before initialization using .eretget, touse(`touse')		*/
+program ._eretmarkout 
+	syntax varname(numeric), [ index(integer -1) depvar ]
+
+	local touse `varlist'
+	if (`index' < 0) local index
+
+	cap local kv = e(k_indvars`index')
+	if ("`index'"=="" & `kv'>=.) exit 322
+
+	if (0<`kv' & `kv'<.) markout `touse' `e(indvars`index')'
+
+	if ("`depvar'"!="" & "`e(depvar)'"!="")	markout `touse' `e(depvar)'
+end
+
+program .summary
+	di as txt _n "_model class:"
+	if `.kvars' > 0 {
+		di as txt "{p}variables: `.strvars'{p_end}"
+		local n 
+	}
+	di as txt "constant = `.const'"
+end
+
+exit

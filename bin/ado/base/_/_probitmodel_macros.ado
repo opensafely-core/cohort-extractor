@@ -1,0 +1,7 @@
+*! version 1.0.0  04apr2019
+
+local PROBIT_VERSION_AS_ML	1
+local PROBIT_VERSION_AS_MOPT	2
+local PROBIT_VERSION_CM_BASE	3
+
+exit

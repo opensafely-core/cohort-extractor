@@ -1,0 +1,291 @@
+/*
+    gr_ed_marker.dlg
+    
+*!  VERSION 1.1.5  29may2019
+
+*/
+
+VERSION 14.0
+MODAL
+
+INCLUDE _std_small
+DEFINE _dlght 330
+INCLUDE header_gr_ed
+
+DEFINE _clwd	15
+DEFINE _wd	120
+DEFINE _sep	+125
+DEFINE _wd2	110
+DEFINE _sep2	+115
+DEFINE _cbwd	130
+DEFINE _cbsep	+135
+
+SCRIPT PREINIT
+BEGIN
+	settitle resource LBL_MARKER_PROPERTIES_DLG_TITLE
+	create STRING G
+	create STRING J
+	create STRING style
+	create STRING Gstyle
+	create ARRAY  ARGS
+	program setupGOBJECT
+	create DOUBLE index
+	create DOUBLE drawview
+
+// label	
+	create STRING text
+	create STRING size
+	create STRING color
+	create STRING rgb
+	create STRING position
+	create STRING angle
+	create STRING gap
+	setscale_hadj resource GR_ED_MARKER_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN	
+	program get_defaults
+	program initialize_controls
+END
+
+PROGRAM setupGOBJECT
+BEGIN
+	if ! __MESSAGE {
+		stopbox stop "resource LBL_MSGBOX_OBJECT_NOT_FOUND"
+// An unexpected error has occurred. Object not found.
+		exit 198
+	}
+	call G.setvalue class __MESSAGE.value
+	call __MESSAGE.tokenize ARGS
+	call G.setvalue class ARGS[1]
+	call J.setvalue class ARGS[2]
+	call Gstyle.setvalue class G.value
+	if J.iseq("") {
+		call Gstyle.append ".style"
+	}
+	else {
+		call create BOOLEAN customstyle
+		call J.withvalue Gstyle.append ".obs_styles[@]"
+		call Gstyle.withvalue customstyle.storeClsObjectExists @
+		if ! customstyle {
+			call Gstyle.setvalue class G.value
+			call Gstyle.append ".style"
+		}
+	}
+END
+
+INCLUDE gr_ed_marker
+
+DIALOG label, tabtitle(resource LBL_TAB_LABEL)
+BEGIN
+  TEXT 	   tx_text	_lft	_top	_iwd	.,		///
+	label(resource LBL_LABEL)
+  EDIT	   ed_text	@	_ss	@	., nomemory
+
+  GROUPBOX gb_label	_lft	_ls	_iwd	_ht14h,		///
+ 	label(resource LBL_GB_LABEL_PROPERTIES)
+  TEXT     tx_size	_ilft	_mls	_wd	.,		///
+ 	label(resource LBL_SIZE) right
+  COMBOBOX cb_size	_sep	@	_cbwd	.,		///
+ 	dropdown 						///
+ 	contents(_symbolsizes)
+   
+  TEXT     tx_clr	_ilft	_mls	_wd	.,		///
+ 	label(resource LBL_COLOR) right
+  COMBOBOX cb_clr	_sep	@	_cbwd	.,		///
+ 	dropdownlist contents(_colors) 				///
+ 	onselchangelist(label_cl_clr_sel)
+  COLOR    cl_clr	_cbsep	@	_clwd	.,
+ 
+  TEXT     tx_position	_ilft	_mls	_wd	.,		///
+ 	label(resource LBL_POSITION) right
+  COMBOBOX cb_position	_sep	@	_cbwd	.,		///
+ 	dropdownlist 						///
+ 	contents(_clockpos)
+ 
+  TEXT     tx_angle	_ilft	_mls	_wd	.,		///
+ 	label(resource LBL_ANGLE) right
+  COMBOBOX cb_angle	_sep	@	_cbwd	.,		///
+ 	dropdown contents(_angles)
+ 
+  TEXT     tx_gap	_ilft	_mls	_wd	.,		///
+ 	label(resource LBL_GAP) right
+  COMBOBOX cb_gap	_sep	@	_cbwd	.,		///
+	dropdown contents(_textsizes)
+END
+
+LIST label_cl_clr_sel
+BEGIN
+	label.cl_clr.show
+	label.cl_clr.hide
+END
+
+DIALOG adv, tabtitle(resource LBL_ADVANCED)
+BEGIN
+  CHECKBOX ck_hide	_lft	_top	_iwd	.,		///
+	label(resource GR_ED_MARKER_ADV_CK_HIDE)
+
+  BUTTON   bu_reset	_lft	@	130	.,		///
+	label(resource LBL_RESET_DEFAULTS)			///
+	onpush(program reset_defaults)
+END
+
+PROGRAM reset_defaults
+BEGIN
+	call create STRING graph_name
+	call graph_name.setvalue class _Gr_Global.edit_graph
+	put "." graph_name ".ResetPrototypeDefaults " G
+	stata hidden immediate
+	
+	call program get_defaults
+	call program initialize_controls
+	call program marker_get_defaults
+	call program marker_initialize_controls
+
+	stopbox note "resource LBL_MSGBOX_DEFAULTS_HAVE_BEEN_RESET"
+// Defaults have been reset.
+END
+
+PROGRAM get_defaults
+BEGIN
+	call G.withvalue drawview.setvalue class @.draw_view.istrue
+	if drawview {
+		call adv.ck_hide.setdefault 0
+	}
+	else {
+		call adv.ck_hide.setdefault 1
+	}
+
+// label
+	call G.withvalue text.setvalue class @.label
+	call text.withvalue label.ed_text.setdefault `"@"'
+
+	call Gstyle.withvalue index.setvalue class @.label.textstyle.size.styledex
+	call index.withvalue size.setvalue class .__STYLES.gsize[@]
+	if !size {
+		call Gstyle.withvalue size.setvalue class @.label.textstyle.size.val
+	}
+	call label.cb_size.setdefault class size.value
+	
+	call Gstyle.withvalue index.setvalue class @.label.textstyle.color.styledex
+	call index.withvalue color.setvalue class .__STYLES.color[@]
+	call label.cb_clr.setdefault  class color.value
+
+	call Gstyle.withvalue rgb.setvalue class @.label.textstyle.color.rgb
+	call label.cl_clr.setdefault class rgb.value
+
+	call Gstyle.withvalue index.setvalue class @.label.position.styledex
+	call index.withvalue position.setvalue class .__STYLES.clockdir[@]
+	call label.cb_position.setdefault class position.value
+
+	call Gstyle.withvalue index.setvalue class @.label.textstyle.angle.styledex
+	call index.withvalue angle.setvalue class .__STYLES.anglestyle[@]
+	if ! angle {
+		call Gstyle.withvalue angle.setvalue class @.label.textstyle.angle.val
+	}
+	call label.cb_angle.setdefault class angle.value
+
+	call Gstyle.withvalue index.setvalue class @.label.textgap.styledex
+	call index.withvalue gap.setvalue class .__STYLES.gsize[@]
+	if ! gap {
+		call Gstyle.withvalue gap.setvalue class @.label.textgap.val
+	}
+	call label.cb_gap.setdefault class gap.value
+END
+
+PROGRAM initialize_controls
+BEGIN
+	if drawview {
+		call adv.ck_hide.setoff
+	}
+	else {
+		call adv.ck_hide.seton
+	}
+	if G.startsWith("_Gr_Global") {
+		call adv.bu_reset.show
+		call adv.ck_hide.hide
+	}
+	else {
+		call adv.bu_reset.hide
+		call adv.ck_hide.show
+	}
+
+// label
+	call label.ed_text.setvalue class text.value
+	call label.cb_size.setvalue class size.value
+	if color {
+		call label.cb_clr.setvalue class color.value
+	}
+	if ! color {
+		call label.cb_clr.setvalue "custom"
+	}
+	call label.cl_clr.setvalue class rgb.value
+	call label.cb_position.setvalue class position.value
+	call label.cb_angle.setvalue class angle.value
+	call label.cb_gap.setvalue class gap.value
+END
+
+PROGRAM command
+BEGIN
+	call program get_defaults
+	
+	put "_gm_dlg_edits"
+	beginoptions
+		put " object(" G ") "
+		put " " /program marker_output
+
+		if ! adv.ck_hide.isdefault() {
+			if adv.ck_hide {
+				put "set(draw_view no) "
+			}
+			else {
+				put "set(draw_view yes) "
+			}
+		}
+		
+		if ! label.ed_text.isdefault() {
+			put "set(label "
+			put label.ed_text
+			put ") "
+		}
+		if ! label.cb_size.isdefault() {
+			put "style(label(textstyle(size("
+			put label.cb_size
+			put ")))) "
+		}
+		if ! label.cl_clr.isvisible() & ! label.cb_clr.isdefault() {
+			put "style(label(textstyle(color(" 
+			put label.cb_clr 
+			put ")))) "
+		}
+		if label.cl_clr.isvisible() & ! label.cl_clr.isdefault() {
+			put "style(label(textstyle(color("  `"""'
+			put label.cl_clr
+			put `"""'
+			put ")))) "
+		}
+		if ! label.cb_position.isdefault() {
+			put "style(label(position("
+			put label.cb_position
+			put "))) "
+		}
+
+		if ! label.cb_angle.isdefault() {
+			put "style(label(textstyle(angle("
+			put label.cb_angle
+			put ")))) "
+		}
+		if ! label.cb_gap.isdefault() {
+			put "style(label(textgap("
+			put label.cb_gap
+			put "))) "
+		}
+		
+		if J {
+			put " jindex(" J ") "
+		}
+
+		put " epilog(_gedi toolbar marker " G " " J ")"
+	endoptions
+END

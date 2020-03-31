@@ -1,0 +1,177 @@
+/*
+    cc.dlg
+
+*!  VERSION 1.3.1  01jul2015
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE _ht360
+INCLUDE header
+HELP hlp1, view("help cc")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource CC_DLG_HSCALE
+END
+
+
+DIALOG main, label(resource CC_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  INCLUDE  _epitab_vars
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	if __MESSAGE.iseq("-exact-") {
+		call opt.ck_exact.seton
+	}
+END
+
+INCLUDE ifin
+INCLUDE weights_f
+
+DIALOG opt, label(resource CC_DLG_TITLE) tabtitle(resource LBL_OPTIONS)
+BEGIN
+  CHECKBOX ck_byopt	_lft	_top	_cwd1	.,		///
+	label(resource LBL_STRATIFY_ON_VARIABLE)				///
+	onclickon(program byopt_on)				///
+	onclickoff(script byopt_off)
+  VARNAME  vn_byopt	_indent2 _ss	_vnwd	.,		///
+	label(resource LBL_STRATIFY_ON_VARIABLE)
+
+  INCLUDE  _epitab_stdopts
+
+  CHECKBOX ck_bd	@   	_ms	@	.,		///
+	option(bd) label(resource CC_OPT_CK_BD)
+
+  CHECKBOX ck_tarone	@   	_ms	@	.,		///
+	option(tarone) label(resource CC_OPT_CK_TARONE)
+
+  CHECKBOX ck_bin	_lft2	_top	_cwd1	.,		///
+	label(resource LBL_NUMBER_OF_SUBJECTS_VARIABLES)			///
+	onclickon(opt.vn_bin.enable)				///
+	onclickoff(opt.vn_bin.disable)
+  VARNAME  vn_bin	_indent2 _ss	_vnwd	.,		///
+	option(binomial) label(resource LBL_NUMBER_OF_SUBJECTS_VARIABLES) numeric
+
+
+  GROUPBOX gb_box	_lft2	_ls	_cwd1	_ht6,
+  RADIO    rb_exact	_indent	_ss	_inwd	.,		///
+	option(NONE) first label(resource LBL_EXACT_CONFIDENCE_INTERVALS)
+  RADIO    rb_cornfield	@	_ss	@	.,		///
+	option(cornfield) label(resource LBL_CORNFIELD_APPROXIMATION)
+  RADIO    rb_woolf	@	_ss	@	.,		///
+	option(woolf) last label(resource LBL_WOOLF_APPROXIMATION)
+
+  CHECKBOX ck_exact	_lft2	+45	_cwd1	.,		///
+	option(exact) label(resource LBL_FISHERS_EXACT_P)
+
+  DEFINE _x _lft2
+  DEFINE _y  _ls
+  DEFINE _cx _spr2
+  INCLUDE _sp_level
+
+
+
+END
+
+PROGRAM byopt_on
+BEGIN
+	call opt.vn_byopt.enable
+	call opt.rb_mstd.enable
+	call opt.rb_istd.enable
+	call opt.rb_estd.enable
+	call opt.rb_vstd.enable
+	if opt.rb_vstd {
+		call opt.vn_vstd.enable
+	}
+	call opt.ck_nocrude.enable
+	call opt.ck_missing.enable
+	call opt.ck_pool.enable
+	call opt.ck_nohom.enable
+	call opt.ck_bd.enable
+	call opt.ck_tarone.enable
+END
+
+SCRIPT byopt_off
+BEGIN
+	opt.vn_byopt.disable
+	opt.rb_mstd.disable
+	opt.rb_istd.disable
+	opt.rb_estd.disable
+	opt.rb_vstd.disable
+	opt.ck_nocrude.disable
+	opt.ck_missing.disable
+	opt.ck_pool.disable
+	opt.ck_nohom.disable
+	opt.ck_bd.disable
+	opt.ck_tarone.disable
+	opt.vn_vstd.disable
+END
+
+SCRIPT mstd_on
+BEGIN
+	opt.vn_vstd.disable
+END
+
+SCRIPT estd_on
+BEGIN
+	opt.vn_vstd.disable
+END
+
+SCRIPT istd_on
+BEGIN
+	opt.vn_vstd.disable
+END
+
+SCRIPT vstd_on
+BEGIN
+	opt.vn_vstd.enable
+END
+
+PROGRAM cc_by_var_output
+BEGIN
+	put opt.vn_byopt
+	if opt.ck_missing {
+		put ", "
+		option opt.ck_missing
+	}
+END
+
+PROGRAM command
+BEGIN
+	put "cc "
+	varlist main.vn_varcase
+	varlist main.vn_varexp
+	INCLUDE _weights_pr
+	INCLUDE _ifin_pr
+	beginoptions
+		if opt.ck_byopt {
+			require opt.vn_byopt
+			put "by("
+			put /program cc_by_var_output
+			put ")"
+		}
+		if opt.ck_byopt {
+			option radio(opt rb_mstd rb_istd rb_estd rb_vstd)
+			if opt.rb_vstd {
+				optionarg opt.vn_vstd
+			}
+		}
+		option opt.ck_pool
+		option opt.ck_nocrude
+		option opt.ck_nohom
+		option opt.ck_bd
+		option opt.ck_tarone
+		if opt.ck_bin {
+			optionarg opt.vn_bin
+		}
+		option radio (opt rb_exact rb_cornfield rb_woolf)
+		option opt.ck_exact
+		INCLUDE _level_opt_pr
+	endoptions
+END

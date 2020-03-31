@@ -1,0 +1,2273 @@
+/*
+	forecast
+
+*!  VERSION 1.2.12  02apr2019
+
+*/
+
+VERSION 14.0
+SYNCHRONOUS_ONLY
+POSITION . . 700 500
+CANCEL can1, label(resource LBL_BU_CLOSE) target(dialog) uaction(on_close)
+HELP hlp1, view(help forecast)
+RESET res1
+
+PROGRAM on_close
+BEGIN
+	call SaveState
+END
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource FORECAST_DLG_HSCALE
+
+	create STRING EstimateCmdString
+	create STRING vectorResult
+	create STRING varianceMatrixResult
+	create STRING evarianceMatrixResult
+	create STRING utilAdjTSVarResult
+
+	create PSTRING TimeFormat
+	create PSTRING ModelName
+	create PBOOLEAN ModelInMemory
+	create PDOUBLE PeriodRangeMax
+	create DOUBLE dRealTemp
+	
+        for.fi_solve_save.formatfilter "{0} (*.dta)|*.dta|{1} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_DTA" "resource ui_ex FILE_TYPE_ALL_FILES"
+		
+        for.fi_est_save.formatfilter "{0} (*.ster)|*.ster|{1} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_STER_FILE" "resource ui_ex FILE_TYPE_ALL_FILES"
+		
+        for.fi_build_est_using.formatfilter "{0} (*.ster)|*.ster|{1} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_STER_FILE" "resource ui_ex FILE_TYPE_ALL_FILES"
+		
+	for.fi_utilities_save.formatfilter "{0} (*.do)|*.do|{1} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_DO" "resource ui_ex FILE_TYPE_ALL_FILES"
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script estimate_hide
+	script build_hide
+	script solve_hide
+	script utilities_hide
+	program set_state
+END
+
+PROGRAM ON_DOTPROMPT
+BEGIN
+	put "forecast_wrk_dlg"
+	stata hidden immediate
+	call program set_state
+
+	call for.cb_build_est_names.repopulate
+	call for.cb_build_coef_vec.repopulate
+	call for.cb_build_coef_var.repopulate
+	call for.cb_build_coef_evar.repopulate
+END
+
+PROGRAM set_state
+BEGIN
+	call ModelName.withvalue for.tx_forecast_query.setlabel "@"
+
+	if for.btn_1 {
+		call program OnBTN1
+	}
+	if for.btn_2 {
+		call program OnBTN2
+	}
+	if for.btn_3 {
+		call program OnBTN3
+	}
+	if for.btn_4 {
+		call program OnBTN4
+	}
+	if for.btn_5 {
+		call program OnBTN5
+	}
+
+	call for.sp_solve_periods.setrange 1 "class PeriodRangeMax.value"
+END
+
+DIALOG for, title(resource FORECAST_DLG_TITLE)
+BEGIN
+  RADIO btn_1			10	20	100	80, panebutton	///
+	first								///
+	onclickon(program OnBTN1)					///
+	label(resource LBL_BU_CREATE)					///
+	tooltip(resource FORECAST_FOR_BTN_1)
+  RADIO btn_2			10	+80	100	80, panebutton	///
+	onclickon(program OnBTN2)					///
+	label(resource FORECAST_FOR_BTN_2)				///
+	tooltip(resource FORECAST_FOR_BTN_2_TOOLTIP)
+  RADIO btn_3			10	+80	100	80, panebutton	///
+	onclickon(program OnBTN3)					///
+	label(resource FORECAST_FOR_BTN_3)				///
+	tooltip(resource FORECAST_FOR_BTN_3_TOOLTIP)
+  RADIO btn_4			10	+80	100	80, panebutton	///
+	onclickon(program OnBTN4)					///
+	label(resource FORECAST_FOR_BTN_4)				///
+	tooltip(resource FORECAST_FOR_BTN_4_TOOLTIP)
+  RADIO btn_5			10	+80	100	80, panebutton	///
+	last								///
+	onclickon(program OnBTN5)					///
+	label(resource LBL_UTILITIES)					///
+	tooltip(resource FORECAST_FOR_BTN_5)
+
+  GROUPBOX gb_label		120	15	570	470,		///
+	label("")
+  TEXT tx_general		130	40	550	.,		///
+		label(resource LBL_FEATURE_CURRENTLY_NOT_AVAILABLE)
+  TEXTBOX tb_general +20 +20 -40 30,
+
+/* -------------------- Create Button -------------------- */
+
+  RADIO rb_create		130	40	300	., first	///
+	label(resource FORECAST_FOR_BTN_1)
+  RADIO rb_create_named		130	+20	300	., last		///
+	onclickon(for.ed_create_named.enable)				///
+	onclickoff(for.ed_create_named.disable)				///
+	label(resource FORECAST_FOR_RB_CREATE_NAMED)
+  EDIT ed_create_named		+20	+20	120	.,		///
+	label(resource FORECAST_FOR_ED_CREATE_NAMED)
+  TEXT tx_create_tsset_xtset	130	+30	530	.,		///
+	label(resource FORECAST_FOR_TX_CREATE_TSSET_XTSET)
+  BUTTON bu_create_tsset	150	+25	110	.,		///
+	onpush("view dialog tsset")					///
+	label(resource LBL_TIME_SETTINGS)				///
+	tooltip(resource LBL_DECLARE_DTA_TIME_SERIES_DATA)
+  BUTTON bu_create_xtset	+120	@	110	.,		///
+	onpush("view dialog xtset")					///
+	label(resource LBL_BU_PANEL_SETTINGS)				///
+	tooltip(resource FORECAST_BU_CREATE_XTSET)
+
+
+  BUTTON bu_create_submit	600	40	80	.,		///
+	onpush(program create_submit)					///
+	label(resource LBL_BU_SUBMIT)
+/* -------------------- Estimate Button -------------------- */
+  GROUPBOX gb_est_step1		130	40	550	200,		///
+	label(resource FORECAST_GB_EST_STEP1)
+  TEXT tx_est_cmd		140	+20	430	.,		///
+	label(resource LBL_CHOOSE_ESTIMATION_COMMAND_PRESS_GO)
+  LISTBOX lb_est_cmds		140	+20	350	150,		///
+	contents(estimate_commands)					///
+	values(estimate_command_values)					///
+	ondblclick(program doDialogEstCmd)
+  BUTTON bu_est_go		+360	@	55	.,		///
+	label(resource LBL_GO_ARROW) onpush(program doDialogEstCmd)
+
+  GROUPBOX gb_est_step2		130	+170	550	170,		///
+	label(resource FORECAST_GB_EST_STEP2)
+  RADIO rb_est_store		140	+20	530	., first	///
+	onclickon(script estimate_store_on)				///
+	onclickoff(script estimate_store_off)				///
+	label(resource FORECAST_RB_EST_STORE)
+  RADIO rb_est_save		140	+50	@	., last		///
+	onclickon(script estimate_save_on)				///
+	onclickoff(script estimate_save_off)				///
+	label(resource FORECAST_RB_EST_SAVE)
+  EDIT ed_est_store		150	-30	120	.,		///
+	label(resource FORECAST_RB_EST_STORE)
+  TEXT tx_est_store		+125	@	350	.,		///
+	label(resource FORECAST_TX_EST_STORE)
+  FILE fi_est_save		150	+50	520	.,		///
+	defext(ster)							///
+	error(resource FORECAST_RB_EST_SAVE) save			///
+	label(resource LBL_SAVE_AS)					
+  CHECKBOX ck_est_append	@	+20	@	.,		///
+	option("append")						///
+	label(resource ESTIMATES_SAVE_MAIN_CK_APPEND)
+
+
+  BUTTON bu_est_submit		590	+30	80	.,		///
+	onpush(program estimate_submit)					///
+	label(resource LBL_BU_SUBMIT)
+
+/* -------------------- Build Button -------------------- */
+
+  TEXT tx_build_cmds		130	40	150	.,		///
+	label(resource LBL_COMMAND)
+  LISTBOX lb_build_cmds		130	+20	300	120,		///
+	contents(build_command)						///
+	values(build_command_values)					///
+	onselchange(program build_command_changed)
+  /* Estimate */
+  RADIO rb_build_est_name	130	+130	550	., first	///
+	onclickon(for.cb_build_est_names.enable)			///
+	onclickoff(for.cb_build_est_names.disable)			///
+	label(resource FORECAST_RB_BUILD_EST_NAME)
+  DEFINE y2 @y
+  RADIO rb_build_est_using	@	+45	@	., last		///
+	onclickon(program build_est_using_on)				///
+	onclickoff(program build_est_using_off)				///
+	label(resource FORECAST_RB_BUILD_EST_USING)
+  COMBOBOX cb_build_est_names	+20	-25	120	.,		///
+	dropdown							///
+	contents(estimates)						///
+	label(resource FORECAST_RB_BUILD_EST_NAME)
+  FILE fi_build_est_using	@	+45	350	.,		///
+	label(resource LBL_BU_BROWSE)					///
+	defext(ster)							///
+	error(resource FORECAST_RB_BUILD_EST_USING)
+  SPINNER sp_build_est_number	+360	@	50	.,		///
+	option(number)							///
+	min(1) max(10000000) default(1)
+  TEXT tx_build_est_number	+55	@	120	.,		///
+	label(resource LBL_ESTIMATES_SET_TO_USE)
+
+  GROUPBOX gb_build_est_opts	130	+30	550	135,		///
+	label(resource LBL_OPTIONS)
+  TEXT tx_build_est_predict	140	+20	150	.,		///
+	label(resource LBL_PREDICT_OPTIONS)
+  EDIT ed_build_est_predict	@	+20	200	.,		///
+	option(predict)							///
+	label(resource LBL_PREDICT_OPTIONS)
+  TEXT tx_build_est_nlist	@	+25	530	.,		///
+	label(resource FORECAST_TX_BUILD_COEF_NLIST)
+  EDIT ed_build_est_nlist	@	+20	530	.,		///
+	label(resource FORECAST_TX_BUILD_COEF_NLIST)
+  CHECKBOX ck_build_est_repl	@	+25	530	.,		///
+	label(resource FORECAST_CK_BUILD_EST_REPL)
+  CHECKBOX ck_build_est_advise	140	+30	530	.,		///
+	option(advise)							///
+	label(resource FORECAST_CK_BUILD_EST_ADVISE)
+
+  /* Identity */
+  TEXT tx_build_iden_var	130	y2	45	.,		///
+	label(resource LBL_VARIABLE)
+  TEXT tx_build_iden_exp	260	@	65	.,		///
+	label(resource LBL_EXPRESSION)
+  VARNAME vn_build_iden_var	130	+20	120	.,		///
+	numeric								///
+	label(resource LBL_VN_VARIABLE)					///
+	tooltip(resource FORECAST_VN_BUILD_IDEN_VAR_TOOLTIP)
+  EXP ex_build_iden_exp		260	@	420	.,		///
+	error(resource LBL_EXPRESSION)					///
+	label(resource LBL_BU_CREATE)					///
+	tooltip(resource FORECAST_EX_BUILD_IDEN_EXP)
+  CHECKBOX ck_build_iden_gen	130	+30	220	.,		///
+  	label(resource LBL_GEN_NEW_VARIABLE)				///
+  	option(generate)						///
+  	nomemory							///
+  	onclickon(for.ck_build_iden_dbl.enable)				///
+  	onclickoff(for.ck_build_iden_dbl.disable)
+  CHECKBOX ck_build_iden_dbl	130	+30	220	.,		///
+  	label(resource FORECAST_CK_BUILD_IDEN_DBL)			///
+  	option(double)							///
+  	nomemory
+  
+  /* Exogenous */
+  TEXT tx_build_exog_vars	130	y2	550	.,		///
+	label(resource LBL_EXOGENOUS_VARIABLES)
+  VARLIST vl_build_exog_vars	@	+20	@	.,		///
+	numeric								///
+	label(resource LBL_EXOGENOUS_VARIABLES)
+
+  /* Coefvector */
+  TEXT     tx_build_coef_vec	130	y2	200	.,		///
+	label(resource FORECAST_BUILD_TX_BUILD_COEF_VEC)
+  COMBOBOX cb_build_coef_vec	@	+20	120	.,		///
+	contents(matrix)						///
+	dropdown							///
+	error(resource FORECAST_BUILD_TX_BUILD_COEF_VEC)
+  BUTTON bu_build_coef_vec	+125	@	105	.,		///
+	onpush(program build_show_vector_input)				///
+	tooltip(resource FORECAST_BU_BUILD_COEF_VEC_TOOLTIP)		///
+	label(resource FORECAST_BU_BUILD_COEF_VEC)
+
+  GROUPBOX gb_build_coef_opts	130	+30	550	140,		///
+	label(resource LBL_OPTIONS)
+  TEXT tx_build_coef_var	140	+20	200	.,		///
+	label(resource FORECAST_TX_BUILD_COEF_VAR)
+  DEFINE y3 @y
+  COMBOBOX cb_build_coef_var	@	+20	120	.,		///
+	dropdown							///
+	option(variance)						///
+	contents(matrix)						///
+	error(resource FORECAST_TX_BUILD_COEF_VAR)
+  BUTTON bu_build_coef_var	+125	@	100	.,		///
+	onpush(program build_show_variance_input)			///
+	tooltip(resource LBL_INPUT_HAND)				///
+	label(resource LBL_INPUT_MATRIX)
+
+  TEXT tx_build_coef_evar	400	y3	200	.,		///
+	label(resource FORECAST_TX_BUILD_COEF_EVAR)
+  COMBOBOX cb_build_coef_evar	@	+20	120	.,		///
+	dropdown							///
+	option(errorvariance)						///
+	contents(matrix)						///
+	error(resource FORECAST_TX_BUILD_COEF_EVAR)
+  BUTTON bu_build_coef_evar	+125	@	100	.,		///
+	onpush(program build_show_evariance_input)			///
+	tooltip(resource LBL_INPUT_HAND)				///
+	label(resource LBL_INPUT_MATRIX)
+
+  TEXT tx_build_coef_nlist	140	+30	530	.,		///
+	label(resource FORECAST_TX_BUILD_COEF_NLIST)
+  EDIT ed_build_coef_nlist	@	+20	@	.,		///
+	label(resource FORECAST_TX_BUILD_COEF_NLIST)
+  CHECKBOX ck_build_coef_repl	@	+25	530	.,		///
+	option(replace)							///
+	label(resource FORECAST_CK_BUILD_EST_REPL)
+
+  BUTTON bu_build_submit	600	455	80	.,		///
+	onpush(program build_submit)					///
+	label(resource LBL_BU_SUBMIT)
+
+/* -------------------- Solve Button -------------------- */
+
+  /* ---------- Solve Tabs ---------- */
+  RADIO btn_s1			130	40	79	32, panebutton	///
+	first								///
+	onclickon(program solve_show_tab)				///
+	label(resource LBL_TAB_MODEL)
+  RADIO btn_s2			+80	@	79	@, panebutton	///
+	onclickon(program solve_show_tab)				///
+	label(resource FORECAST_BTN_S2)
+  RADIO btn_s3			+80	@	79	@, panebutton	///
+	onclickon(program solve_show_tab)				///
+	label(resource LBL_TAB_REPORTING)
+  RADIO btn_s4			+80	@	@	@, panebutton	///
+	last								///
+	onclickon(program solve_show_tab)				///
+	label(resource FORECAST_BTN_S4)
+
+  /* ---------- Solve Tab (Model) ---------- */
+  GROUPBOX gb_solve_title	130	80	550	370,		///
+	label("")
+  RADIO rb_solve_prefix		140	105	175	., first	///
+	onclickon(for.ed_solve_prefix.enable)				///
+	onclickoff(for.ed_solve_prefix.disable)				///
+	label(resource FORECAST_PREFIX_FOR_FORECAST_VAR)
+  RADIO rb_solve_suffix		320	@	175	., last		///
+	onclickon(for.ed_solve_suffix.enable)				///
+	onclickoff(for.ed_solve_suffix.disable)				///
+	label(resource FORECAST_SUFFIX_FORECAST_VAR)
+  EDIT ed_solve_prefix		150	+20	120	.,		///
+	label(resource FORECAST_PREFIX_FOR_FORECAST_VAR)
+  EDIT ed_solve_suffix		330	@	120	.,		///
+	label(resource FORECAST_SUFFIX_FORECAST_VAR)
+
+  GROUPBOX gb_solve_time_cons	140	+30	370	115,		///
+	label(resource FORECAST_GB_SOLVE_TIME_CONS)
+  TEXT tx_solve_begin		150	+20	150	.,		///
+	label(resource FORECAST_TX_SOLVE_BEGIN)
+  RADIO rb_solve_end		320	@	175	., first	///
+	onclickon(for.ed_solve_end.enable)				///
+	onclickoff(for.ed_solve_end.disable)				///
+	label(resource FORECAST_RB_SOLVE_END)
+  RADIO rb_solve_periods	320	+45	185	., last		///
+	onclickon(script solve_periods_on)				///
+	onclickoff(script solve_periods_off)				///
+	label(resource FORECAST_RB_SOLVE_PERIODS)
+  EDIT ed_solve_begin		150	-25	120	.,		///
+	label(resource FORECAST_TX_SOLVE_BEGIN)
+  EDIT ed_solve_end		330	@	120	.,		///
+	label(resource FORECAST_RB_SOLVE_END)
+  SPINNER sp_solve_periods	330	+45	60	.,		///
+	min(1) max(1) default(1)					///
+	label(resource FORECAST_RB_SOLVE_END)
+  TEXT tx_solve_periods		+65	@	100	.,		///
+	label(resource LBL_PERIODS)
+
+  CHECKBOX ck_solve_double	140	+40	530	.,		///
+	label(resource FORECAST_CK_SOLVE_DOUBLE)
+  CHECKBOX ck_solve_static	140	+25	@	.,		///
+	label(resource FORECAST_CK_SOLVE_STATIC)
+  CHECKBOX ck_solve_actuals	140	+25	@	.,		///
+	label(resource FORECAST_CK_SOLVE_ACTUALS)
+
+  /* ---------- Solve Tab (Simulate) ---------- */
+  CHECKBOX ck_solve_beta	140	105	230	.,		///
+	onclickon("program solve_simulation_show")			///
+	onclickoff("program solve_simulation_show")			///
+	label(resource FORECAST_CK_SOLVE_BETA)
+  CHECKBOX ck_solve_errors	370	@	290	.,		///
+	onclickon("program solve_simulation_show")			///
+	onclickoff("program solve_simulation_show")			///
+	label(resource FORECAST_CK_SOLVE_ERRORS)
+  CHECKBOX ck_solve_residuals	@	+25	@	.,		///
+	onclickon("program solve_simulation_show")			///
+	onclickoff("program solve_simulation_show")			///
+	label(resource FORECAST_CK_SOLVE_RESIDUALS)
+
+  GROUPBOX gb_solve_sim_stat	140	+25	530	130,		///
+	label(resource FORECAST_CK_SOLVE_SIM_STAT)
+  CHECKBOX ck_solve_mean	150	+20	160	.,		///
+	onclickon("program solve_mean_on")				///
+	onclickoff("script solve_mean_off")				///
+	label(resource LBL_MEAN)
+  CHECKBOX ck_solve_variance	325	@	@	.,		///
+	onclickon("program solve_variance_on")				///
+	onclickoff("script solve_variance_off")				///
+	label(resource FORECAST_CK_SOLVE_VARIANCE)
+  CHECKBOX ck_solve_stddev	500	@	@	.,		///
+	onclickon("program solve_stddev_on")				///
+	onclickoff("script solve_stddev_off")				///
+	label(resource LBL_STANDARD_DEVIATIONS)
+  RADIO rb_solve_mean_prefix	160	+20	130	., first	///
+	onclickon(for.ed_solve_mean_prefix.enable)			///
+	onclickoff(for.ed_solve_mean_prefix.disable)			///
+	label(resource FORECAST_RB_SOLVE_MEAN_PREFIX)
+  DEFINE y4 @y
+  RADIO rb_solve_mean_suffix	160	+40	130	., last		///
+	onclickon(for.ed_solve_mean_suffix.enable)			///
+	onclickoff(for.ed_solve_mean_suffix.disable)			///
+	label(resource FORECAST_RB_SOLVE_MEAN_SUFFIX)
+  EDIT ed_solve_mean_prefix	170	-20	120	.,		///
+	label(resource FORECAST_ED_SOLVE_MEAN_PREFIX)
+  EDIT ed_solve_mean_suffix	170	+40	120	.,		///
+	label(resource FORECAST_ED_SOLVE_MEAN_SUFFIX)
+  RADIO rb_solve_var_prefix	335	y4	130	., first	///
+	onclickon(for.ed_solve_var_prefix.enable)			///
+	onclickoff(for.ed_solve_var_prefix.disable)			///
+	label(resource FORECAST_RB_SOLVE_MEAN_PREFIX)
+  RADIO rb_solve_var_suffix	@	+40	130	., last		///
+	onclickon(for.ed_solve_var_suffix.enable)			///
+	onclickoff(for.ed_solve_var_suffix.disable)			///
+	label(resource FORECAST_RB_SOLVE_MEAN_SUFFIX)
+  EDIT ed_solve_var_prefix	345	-20	120	.,		///
+	label(resource FORECAST_ED_SOLVE_VAR_PREFIX)
+  EDIT ed_solve_var_suffix	@	+40	120	.,		///
+	label(resource FORECAST_ED_SOLVE_VAR_SUFFIX)
+  RADIO rb_solve_std_prefix	510	y4	130	., first	///
+	onclickon(for.ed_solve_std_prefix.enable)			///
+	onclickoff(for.ed_solve_std_prefix.disable)			///
+	label(resource FORECAST_RB_SOLVE_MEAN_PREFIX)
+  RADIO rb_solve_std_suffix	@	+40	130	., last		///
+	onclickon(for.ed_solve_std_suffix.enable)			///
+	onclickoff(for.ed_solve_std_suffix.disable)			///
+	label(resource FORECAST_RB_SOLVE_MEAN_SUFFIX)
+  EDIT ed_solve_std_prefix	520	-20	120	.,		///
+	label(resource FORECAST_ED_SOLVE_STD_PREFIX)
+  EDIT ed_solve_std_suffix	@	+40	120	.,		///
+	label(resource FORECAST_ED_SOLEV_STD_SUFFIX)
+
+  GROUPBOX gb_solve_sim_opts	140	+35	530	145,		///
+	label(resource FORECAST_GB_SOLVE_SIM_OPTS)
+  CHECKBOX ck_solve_sim_saving	150	+20	510	85,		///
+	groupbox							///
+	onclickon("script solve_sim_saving_on")				///
+	onclickoff("script solve_sim_saving_off")			///
+	label(resource FORECAST_CK_SOLVE_SIM_SAVING)
+  FILE fi_solve_save		160	+20	480	.,		///
+	defext(dta)							///
+	label(resource LBL_SAVE_AS)					///
+	error(resource FORECAST_CK_SOLVE_SIM_SAVING)
+  CHECKBOX ck_solve_save_double	160	+20	235	.,		///
+	label(resource FORECAST_CK_SOLVE_SAVE_DOUBLE)
+  CHECKBOX ck_solve_save_repl	160	+20	@	.,		///
+	label(resource FORECAST_CK_SOLVE_SAVE_REPL)
+  SPINNER sp_solve_save_every	400	-10	50	.,		///
+	min(1) max(10000000) default(1)
+  TEXT tx_solve_save_every	+55	@	140	.,		///
+	label(resource FORECAST_TX_SOLVE_SAVE_EVERY)
+
+  CHECKBOX ck_solve_nodots	160	+45	235	.,		///
+	label(resource FORECAST_CK_SOLVE_NODOTS)
+  SPINNER sp_solve_reps		400	@	50	.,		///
+	min(1) max(10000000) default(50)
+  TEXT tx_solve_reps		+55	@	140	.,		///
+	label(resource FORECAST_TX_SOLVE_REPS)
+
+  /* ---------- Solve Tab (Reporting) ---------- */
+
+  GROUPBOX gb_solve_log		140	105	530	115,		///
+	label(resource FORECAST_GB_SOLVE_LOG)
+  RADIO rb_solve_log_detail	150	+25	510	., first	///
+	label(resource FORECAST_RB_SOLVE_LOG_DETAIL)
+  RADIO rb_solve_log_on		150	+20	510	.,		///
+	label(resource FORECAST_RB_SOLVE_LOG_ON)
+  RADIO rb_solve_log_brief	150	+20	510	.,		///
+	label(resource FORECAST_RB_SOLVE_LOG_BRIEF)
+  RADIO rb_solve_log_off	150	+20	510	., last		///
+	label(resource FORECAST_RB_SOLVE_LOG_OFF)
+
+  /* ---------- Solve Tab (Solver) ---------- */
+
+  TEXT tx_solve_vtolerance	140	105	240	.,		///
+	label(resource FORECAST_TX_SOLVE_VTOLERANCE)
+  TEXT tx_solve_ztolerance	390	@	240	.,		///
+	label(resource FORECAST_TX_SOLVE_ZTOLERANCE)
+  EDIT ed_solve_vtolerance	140	+20	120	.,		///
+	numonly								///
+	label(resource FORECAST_TX_SOLVE_VTOLERANCE)
+  EDIT ed_solve_ztolerance	390	@	120	.,		///
+	numonly								///
+	label(resource FORECAST_TX_SOLVE_ZTOLERANCE)
+
+  SPINNER sp_solve_iterate	140	+30	60	.,		///
+	min(1) max(10000000) default(50)				///
+	label(resource LBL_MAXIMUM_ITERATIONS)
+  TEXT tx_solve_iterate		+65	@	250	.,		///
+	label(resource LBL_MAXIMUM_ITERATIONS)
+
+  GROUPBOX gb_solve_solver_tech	140	+30	250	115,		///
+	label(resource FORECAST_GB_SOLVE_SOLVER_TECH)
+  RADIO rb_solve_solver_damp	150	+20	140	., first	///
+	onclickon("script solve_solver_damp_on")			///
+	onclickoff("script solve_solver_damp_off")			///
+	label(resource FORECAST_RB_SOLVE_SOLVER_DAMP)
+  RADIO rb_solve_solver_gaus	150	+20	140	.,		///
+	onclickon("for.ed_solve_ztolerance.disable")			///
+	onclickoff("for.ed_solve_ztolerance.enable")			///
+	label(resource FORECAST_RB_SOLVE_SOLVER_GAUS)
+  RADIO rb_solve_solver_broy	150	+20	140	.,		///
+	label(resource FORECAST_RB_SOLVE_SOLVER_BROY)
+  RADIO rb_solve_solver_newt	150	+20	140	., last		///
+	label(resource LBL_LIST_TECHNIQUE_NEWTON)
+  EDIT  ed_solve_solver_damp_n	290	-60	40	.,		///
+	numonly								///
+	default(.2)							///
+	label(resource FORECAST_ED_SOLVE_SOLVER_DAMP_N)
+
+  BUTTON bu_solve_submit	600	455	80	.,		///
+	onpush(program solve_submit)					///
+	label(resource LBL_BU_SUBMIT)
+/* -------------------- Utilities Button -------------------- */
+
+  TEXT tx_utilities_cmds	130	40	150	.,		///
+	label(resource LBL_COMMAND)
+  LISTBOX lb_utilities_cmds	130	+20	300	120,		///
+	contents(utilities_command)					///
+	values(utilities_command_values)				///
+	onselchange(program utilities_command_changed)
+
+  /* Adjust */
+  TEXT tx_utilities_adj_var	130	y2	45	.,		///
+	label(resource LBL_VARIABLE)
+  TEXT tx_utilities_adj_func	260	@	100	.,		///
+	label(resource LBL_EXPRESSION)
+  VARNAME vn_utilities_adj_var	130	+20	120	.,		///
+	numeric								///
+	label(resource LBL_VARIABLE)
+  EXP ex_utilities_adj_func	260	@	390	.,		///
+	error(resource LBL_EXPRESSION)					///
+	label(resource LBL_BU_CREATE)
+  BUTTON bu_utilities_adj_tsvar	655	@	20	.,		///
+	onpush(script utilities_adj_tsvar_show)				///
+	label(resource LBL_DOTS)
+
+  TEXT tx_utilities_adj_func_ex	260	+20	420	.,		///
+	label(resource FORECAST_TX_UTILITIES_ADJ_TSVAR)
+
+DEFINE fromwd 34
+DEFINE fromsep +39
+DEFINE towd 30
+DEFINE tosep +35
+
+  GROUPBOX gb_utilities_adj_opts 130	+30	550	125,		///
+	label(resource LBL_OPTIONS)
+  TEXT tx_utilities_adj_if	140	+20	530	.,		///
+	label(resource LBL_IF_EXPRESSION)
+  EXP ex_utilities_adj_if	@	+20	@	.,		///
+	label(resource LBL_BU_CREATE)
+
+  CHECKBOX ck_utilities_adj_in	@	+35	@	.,		///
+	onclickon(script utilities_adj_ifin_enable_in)			///
+	onclickoff(script utilities_adj_ifin_disable_in)		///
+	label(resource LBL_USE_RANGE_OBS)
+  TEXT tx_utilities_adj_from	@	+20	fromwd	.,		///
+	label(resource LBL_FROM) right
+  SPINNER sp_utilities_adj_from	fromsep	@	50	.,		///
+	min(1)								///
+	max(c(N))							///
+	default(1)
+  TEXT tx_utilities_adj_to	+55	@	towd	.,		///
+	label(resource LBL_TO) right
+  SPINNER sp_utilities_adj_to	tosep	@	50	.,		///
+	min(1)								///
+	max(c(N))							///
+	default(c(N))
+
+  /* Describe */
+  GROUPBOX gb_utilities_des	130	190	300	165,		///
+	label(resource FORECAST_GB_UTILITIES_DES)
+  RADIO rb_utilities_des_all	140	+20	280	., first	///
+	label(resource FORECAST_RB_UTILITIES_DES_ALL)
+  RADIO rb_utilities_des_cov	@	+20	@	.,		///
+	option(coefvector)						///
+	label(resource LBL_COEFFICIENT_VECTOR)
+  RADIO rb_utilities_des_ide	@	+20	@	.,		///
+	option(identity)						///
+	label(resource FORECAST_RB_UTILITIES_DES_IDE)
+  RADIO rb_utilities_des_exo	@	+20	@	.,		///
+	option(exogenous)						///
+	label(resource FORECAST_RB_UTILITIES_DES_EXO)
+  RADIO rb_utilities_des_adj	@	+20	@	.,		///
+	option(adjust)							///
+	label(resource FORECAST_RB_UTILITIES_DES_ADJ)
+  RADIO rb_utilities_des_sol	@	+20	@	.,		///
+	option(solve)							///
+	label(resource FORECAST_RB_UTILITIES_DES_SOL)
+  RADIO rb_utilities_des_end	@	+20	@	., last		///
+	option(endogenous)						///
+	label(resource FORECAST_RB_UTILITIES_DES_END)
+  CHECKBOX ck_utilities_brief	130	+35	550	.,		///
+	option(brief)							///
+	onclickon(for.ck_utilities_detail.disable)			///
+	onclickoff(for.ck_utilities_detail.enable)			///
+	label(resource FORECAST_RB_UTILITIES_DES_BRIEF)
+  CHECKBOX ck_utilities_detail	@	+25	550	.,		///
+	option(detail)							///
+	onclickon(for.ck_utilities_brief.disable)			///
+	onclickoff(for.ck_utilities_brief.enable)			///
+	label(resource FORECAST_RB_UTILITIES_DES_DETAIL)
+
+  /* List */
+  CHECKBOX ck_utilities_saving	130	190	550	75,		///
+	groupbox							///
+	onclickon("script utilities_saving_on")				///
+	onclickoff("script utilities_saving_off")			///
+	label(resource FORECAST_CK_UTILITIES_SAVING)
+  FILE fi_utilities_save	140	+20	530	.,		///
+	label(resource LBL_SAVE_AS)					///
+	defext(do)							///
+	error(resource FORECAST_CK_UTILITIES_SAVING)
+  CHECKBOX ck_utilities_repl	140	+30	@	.,		///
+	option(replace)							///
+	label(resource FORECAST_CK_SOLVE_SAVE_REPL)
+  CHECKBOX ck_utilities_notrim	130	+35	550	.,		///
+	option(notrim)							///
+	label(resource FORECAST_CK_UTILITIES_NOTRIM)
+
+  /* Drop */
+  GROUPBOX gb_utilities_drop	130	190	345	70,		///
+	label(resource FORECAST_GB_UTILITIES_DROP)
+  RADIO rb_utilities_prefix	140	+20	160	., first	///
+	onclickon("for.ed_utilities_suffix.disable")			///
+	onclickoff("for.ed_utilities_suffix.enable")			///
+	label(resource FORECAST_RB_UTILITIES_PREFIX)
+  RADIO rb_utilities_suffix	310	@	160	., last		///
+	onclickon("for.ed_utilities_prefix.disable")			///
+	onclickoff("for.ed_utilities_prefix.enable")			///
+	label(resource FORECAST_RB_UTILITIES_SUFFIX)
+  EDIT ed_utilities_prefix	150	+20	120	.,		///
+	option(prefix)							///
+	label(resource FORECAST_RB_UTILITIES_PREFIX)
+  EDIT ed_utilities_suffix	320	@	120	.,		///
+	option(suffix)							///
+	label(resource FORECAST_RB_UTILITIES_SUFFIX)
+
+  BUTTON bu_utilities_submit	600	455	80	.,		///
+	onpush(program utilities_submit)				///
+	label(resource LBL_BU_SUBMIT)
+/* -------------------- Status bar -------------------- */
+  FRAME fr_statusbar		130	445	550	1,
+  TEXT tx_forecast_query	320	455	250	.,		///
+	label("")
+END
+
+
+/* -------------------- Overall Dialog Control -------------------- */
+
+PROGRAM OnBTN1
+BEGIN
+	call for.gb_label.setlabel resource LBL_BU_CREATE
+	call script create_show
+	call script estimate_hide
+	call script build_hide
+	call script solve_hide
+	call script utilities_hide
+END
+
+PROGRAM OnBTN2
+BEGIN
+	call for.gb_label.setlabel resource FORECAST_ESTIMATE_MODEL
+	call script create_hide
+	if ModelInMemory {
+		call script estimate_show
+		call for.tx_general.hide
+		call for.tb_general.hide
+	}
+	else {
+		call script estimate_hide
+		call for.tx_general.show
+		call for.tb_general.show
+		call for.tb_general.setlabel resource FORECAST_CREATE_FORECAST_MODEL_BEFORE_ANOTHER
+	}
+	call script build_hide
+	call script solve_hide
+	call script utilities_hide
+
+END
+
+PROGRAM OnBTN3
+BEGIN
+	call for.gb_label.setlabel resource FORECAST_FOR_BTN_3
+	call script create_hide
+	call script estimate_hide
+	if ModelInMemory {
+		call script build_show
+		call for.tx_general.hide
+		call for.tb_general.hide
+	}
+	else {
+		call script build_hide
+		call for.tx_general.show
+		call for.tb_general.show
+		call for.tb_general.setlabel resource FORECAST_CREATE_FORECAST_MODEL_BEFORE_ANOTHER
+	}
+	call script solve_hide
+	call script utilities_hide
+END
+
+PROGRAM OnBTN4
+BEGIN
+	call for.gb_label.setlabel resource FORECAST_FOR_BTN_4
+	call script create_hide
+	call script build_hide
+	call script estimate_hide
+	if ModelInMemory {
+		call script solve_show
+		call for.tx_general.hide
+		call for.tb_general.hide
+	}
+	else {
+		call script solve_hide
+		call for.tx_general.show
+		call for.tb_general.show
+		call for.tb_general.setlabel resource FORECAST_CREATE_FORECAST_MODEL_BEFORE_ANOTHER
+	}
+	call script utilities_hide
+END
+
+PROGRAM OnBTN5
+BEGIN
+	call for.gb_label.setlabel resource LBL_UTILITIES
+	call script create_hide
+	call script build_hide
+	call script estimate_hide
+	call script solve_hide
+	if ModelInMemory {
+		call script utilities_show
+		call for.tx_general.hide
+		call for.tb_general.hide
+	}
+	else {
+		call script utilities_hide
+		call for.tx_general.show
+		call for.tb_general.show
+		call for.tb_general.setlabel resource FORECAST_CREATE_FORECAST_MODEL_BEFORE_ANOTHER
+	}
+END
+
+
+/* -------------------- Create Button -------------------- */
+
+SCRIPT create_show
+BEGIN
+	for.rb_create.show
+	for.rb_create_named.show
+	for.ed_create_named.show
+	for.tx_create_tsset_xtset.show
+	for.bu_create_tsset.show
+	for.bu_create_xtset.show
+	for.bu_create_submit.show
+	for.tx_general.hide
+	for.tb_general.hide
+END
+
+SCRIPT create_hide
+BEGIN
+	for.rb_create.hide
+	for.rb_create_named.hide
+	for.ed_create_named.hide
+	for.tx_create_tsset_xtset.hide
+	for.bu_create_tsset.hide
+	for.bu_create_xtset.hide
+	for.bu_create_submit.hide
+END
+
+PROGRAM create_submit
+BEGIN
+	if for.btn_1 {
+		put "forecast create"
+		if for.rb_create_named {
+			require for.ed_create_named
+			if !for.ed_create_named.isvalidname(){
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format				///
+"resource FORECAST_MSGBOX_NEW_MODEL_INVALID_NAME_FMT"			///
+			"resource FORECAST_FOR_ED_CREATE_NAMED"
+			stopbox stop "class _MSG_TMP.value"
+// "Create a new forecast model named" contains an invalid forecast model name.
+
+			}
+			put " " for.ed_create_named
+		}
+		if ModelInMemory {
+			stopbox rusure					///
+				"resource FORECAST_MSGBOX_MODEL_IN_MEMORY"
+// Model in memory! There is a model in memory.  Would you like to replace it?
+			put ", replace"
+		}
+		stata
+	}
+END
+
+/* -------------------- Estimate Model Button -------------------- */
+LIST estimate_commands
+BEGIN
+	resource FORECAST_LINEAR_REGRESSION
+	resource FORECAST_SINGLE_EQ_INSTRUMENTAL_VAR_REG
+	resource FORECAST_REGRESSION_NEWEY_WEST_SE
+	resource FORECAST_THREE_STAGE_ESTIMATION_SYSTEMS_SIMUL
+	resource FORECAST_VECTOR_AUTOREGRESSIVE_MODELS
+	resource FORECAST_VECTOR_ERROR_CORRECTION_MODELS
+	resource FORECAST_MARKOV_SWITCHING_REGRESSION_MODELS
+END
+
+LIST estimate_command_values
+BEGIN
+	regress
+	ivregress
+	newey
+	reg3
+	var
+	vec
+	mswitch
+END
+
+SCRIPT estimate_show
+BEGIN
+	for.gb_est_step1.show
+	for.tx_est_cmd.show
+	for.lb_est_cmds.show
+	for.bu_est_go.show
+	for.gb_est_step2.show
+	for.rb_est_store.show
+	for.rb_est_save.show
+	for.ed_est_store.show
+	for.tx_est_store.show
+	for.fi_est_save.show
+	for.ck_est_append.show
+	for.bu_est_submit.show
+END
+
+SCRIPT estimate_hide
+BEGIN
+	for.gb_est_step1.hide
+	for.tx_est_cmd.hide
+	for.lb_est_cmds.hide
+	for.bu_est_go.hide
+	for.gb_est_step2.hide
+	for.rb_est_store.hide
+	for.rb_est_save.hide
+	for.ed_est_store.hide
+	for.tx_est_store.hide
+	for.fi_est_save.hide
+	for.ck_est_append.hide
+	for.bu_est_submit.hide
+END
+
+SCRIPT estimate_save_on
+BEGIN
+	for.fi_est_save.enable
+	for.ck_est_append.enable
+END
+
+SCRIPT estimate_save_off
+BEGIN
+	for.fi_est_save.disable
+	for.ck_est_append.disable
+END
+
+SCRIPT estimate_store_on
+BEGIN
+	for.ed_est_store.enable
+	for.tx_est_store.enable
+END
+
+SCRIPT estimate_store_off
+BEGIN
+	for.ed_est_store.disable
+	for.tx_est_store.disable
+END
+
+PROGRAM doDialogEstCmd
+BEGIN
+	call create STRING tmpSTR
+
+	call tmpSTR.setvalue class for.lb_est_cmds.value
+	call tmpSTR.withvalue create CHILD @, allowsubmit
+	call tmpSTR.withvalue @.setExitString EstimateCmdString
+	call tmpSTR.withvalue @.setOkAction "program dialogECmdOk"
+	call tmpSTR.withvalue @.setSubmitAction "program dialogECmdSubmit"
+END
+
+PROGRAM dialogECmdOk
+BEGIN
+	put EstimateCmdString
+	stata
+END
+
+
+PROGRAM dialogECmdSubmit
+BEGIN
+	put EstimateCmdString
+	stata
+END
+
+PROGRAM estimate_submit
+BEGIN
+	if for.btn_2 {
+		if for.rb_est_store {
+			require for.ed_est_store
+			put "estimates store " for.ed_est_store
+		}
+		if for.rb_est_save {
+			require for.fi_est_save
+			put "estimates save " 
+			put `"""' for.fi_est_save `"""'
+			if for.ck_est_append {
+				put ", append" 
+			}
+		}
+		stata
+	}
+END
+
+/* -------------------- Build Button -------------------- */
+
+LIST build_command
+BEGIN
+	resource FORECAST_ADD_ESTIMATION_RESULTS_FORECAST_MODEL
+	resource FORECAST_ADD_IDENTITY_FORECAST_MODEL
+	resource FORECAST_DECLARE_EXOGENOUS_VARIABLES
+	resource FORECAST_SPECIFY_EQ_COEFFICIENT_VECTOR
+END
+
+LIST build_command_values
+BEGIN
+	estimates
+	identity
+	exogenous
+	coefvector
+END
+
+PROGRAM build_command_changed
+BEGIN
+	if (for.lb_build_cmds.iseq("estimates")) {
+		call script build_show_estimates
+		call script build_hide_identity
+		call script build_hide_exogenous
+		call script build_hide_coefvector
+	}
+	if (for.lb_build_cmds.iseq("identity")) {
+		call script build_hide_estimates
+		call script build_show_identity
+		call script build_hide_exogenous
+		call script build_hide_coefvector
+	}
+	if (for.lb_build_cmds.iseq("exogenous")) {
+		call script build_hide_estimates
+		call script build_hide_identity
+		call script build_show_exogenous
+		call script build_hide_coefvector
+	}
+	if (for.lb_build_cmds.iseq("coefvector")) {
+		call script build_hide_estimates
+		call script build_hide_identity
+		call script build_hide_exogenous
+		call script build_show_coefvector
+	}
+END
+
+SCRIPT build_show
+BEGIN
+	for.tx_build_cmds.show
+	for.lb_build_cmds.show
+
+	program build_command_changed
+
+	for.bu_build_submit.show
+END
+
+SCRIPT build_hide
+BEGIN
+	for.tx_build_cmds.hide
+	for.lb_build_cmds.hide
+
+	script build_hide_estimates
+	script build_hide_identity
+	script build_hide_exogenous
+	script build_hide_coefvector
+
+	for.bu_build_submit.hide
+END
+
+SCRIPT build_show_estimates
+BEGIN
+	for.rb_build_est_name.show
+	for.rb_build_est_using.show
+	for.cb_build_est_names.show
+	for.fi_build_est_using.show
+	for.sp_build_est_number.show
+	for.tx_build_est_number.show
+
+	for.gb_build_est_opts.show
+	for.tx_build_est_predict.show
+	for.ed_build_est_predict.show
+	for.tx_build_est_nlist.show
+	for.ed_build_est_nlist.show
+	for.ck_build_est_repl.show
+	for.ck_build_est_advise.show
+END
+
+SCRIPT build_hide_estimates
+BEGIN
+	for.rb_build_est_name.hide
+	for.rb_build_est_using.hide
+	for.cb_build_est_names.hide
+	for.fi_build_est_using.hide
+	for.sp_build_est_number.hide
+	for.tx_build_est_number.hide
+	for.gb_build_est_opts.hide
+	for.tx_build_est_predict.hide
+	for.ed_build_est_predict.hide
+	for.tx_build_est_nlist.hide
+	for.ed_build_est_nlist.hide
+	for.ck_build_est_repl.hide
+	for.ck_build_est_advise.hide
+END
+
+SCRIPT build_show_identity
+BEGIN
+	for.tx_build_iden_var.show
+	for.vn_build_iden_var.show
+	for.tx_build_iden_exp.show
+	for.ex_build_iden_exp.show
+	for.ck_build_iden_gen.show
+	for.ck_build_iden_dbl.show
+END
+
+SCRIPT build_hide_identity
+BEGIN
+	for.tx_build_iden_var.hide
+	for.vn_build_iden_var.hide
+	for.tx_build_iden_exp.hide
+	for.ex_build_iden_exp.hide
+	for.ck_build_iden_gen.hide
+	for.ck_build_iden_dbl.hide
+END
+
+SCRIPT build_show_exogenous
+BEGIN
+	for.tx_build_exog_vars.show
+	for.vl_build_exog_vars.show
+END
+
+SCRIPT build_hide_exogenous
+BEGIN
+	for.tx_build_exog_vars.hide
+	for.vl_build_exog_vars.hide
+END
+
+SCRIPT build_show_coefvector
+BEGIN
+	for.tx_build_coef_vec.show
+	for.cb_build_coef_vec.show
+	for.bu_build_coef_vec.show
+	for.gb_build_coef_opts.show
+	for.tx_build_coef_var.show
+	for.cb_build_coef_var.show
+	for.bu_build_coef_var.show
+	for.tx_build_coef_evar.show
+	for.cb_build_coef_evar.show
+	for.bu_build_coef_evar.show
+	for.tx_build_coef_nlist.show
+	for.ed_build_coef_nlist.show
+	for.ck_build_coef_repl.show
+END
+
+SCRIPT build_hide_coefvector
+BEGIN
+	for.tx_build_coef_vec.hide
+	for.cb_build_coef_vec.hide
+	for.bu_build_coef_vec.hide
+	for.gb_build_coef_opts.hide
+	for.tx_build_coef_var.hide
+	for.cb_build_coef_var.hide
+	for.bu_build_coef_var.hide
+	for.tx_build_coef_evar.hide
+	for.cb_build_coef_evar.hide
+	for.bu_build_coef_evar.hide
+	for.tx_build_coef_nlist.hide
+	for.ed_build_coef_nlist.hide
+	for.ck_build_coef_repl.hide
+END
+
+PROGRAM build_est_using_on
+BEGIN
+	call for.fi_build_est_using.enable
+	call for.sp_build_est_number.enable
+	call for.tx_build_est_number.enable
+END
+
+PROGRAM build_est_using_off
+BEGIN
+	call for.fi_build_est_using.disable
+	call for.sp_build_est_number.disable
+	call for.tx_build_est_number.disable
+END
+
+PROGRAM build_show_vector_input
+BEGIN
+	call create CHILD matrix_input
+	if ! _rc {
+		call matrix_input.setExitString vectorResult
+		call matrix_input.setExitAction "program build_getVecResult"
+		call matrix_input.callthru "isChildContext.settrue"
+	}
+END
+PROGRAM build_getVecResult
+BEGIN
+	call for.cb_build_coef_vec.repopulate
+	call for.cb_build_coef_var.repopulate
+	call for.cb_build_coef_evar.repopulate
+	call for.cb_build_coef_vec.setvalue class vectorResult.value
+END
+
+PROGRAM build_show_variance_input
+BEGIN
+	call create CHILD matrix_input
+	if ! _rc {
+		call matrix_input.setExitString varianceMatrixResult
+		call matrix_input.setExitAction "program build_getVarResult"
+		call matrix_input.callthru "isChildContext.settrue"
+	}
+END
+PROGRAM build_getVarResult
+BEGIN
+	call for.cb_build_coef_vec.repopulate
+	call for.cb_build_coef_var.repopulate
+	call for.cb_build_coef_evar.repopulate
+	call for.cb_build_coef_var.setvalue class varianceMatrixResult.value
+END
+
+PROGRAM build_show_evariance_input
+BEGIN
+	call create CHILD matrix_input
+	if ! _rc {
+		call matrix_input.setExitString evarianceMatrixResult
+		call matrix_input.setExitAction "program build_getEVarResult"
+		call matrix_input.callthru "isChildContext.settrue"
+	}
+END
+PROGRAM build_getEVarResult
+BEGIN
+	call for.cb_build_coef_vec.repopulate
+	call for.cb_build_coef_var.repopulate
+	call for.cb_build_coef_evar.repopulate
+	call for.cb_build_coef_var.setvalue class varianceMatrixResult.value
+	call for.cb_build_coef_evar.setvalue class evarianceMatrixResult.value
+END
+
+PROGRAM build_estimates_names_output
+BEGIN
+	put for.ed_build_est_nlist
+	if for.ck_build_est_repl {
+		put ", replace"
+	}
+END
+
+PROGRAM build_coefvector_names_output
+BEGIN
+	put for.ed_build_coef_nlist
+	if for.ck_build_coef_repl {
+		put ", replace"
+	}
+END
+
+PROGRAM build_submit
+BEGIN
+	if for.btn_3 {
+		if (for.lb_build_cmds.iseq("estimates")) {
+			put "forecast estimates "
+			if for.rb_build_est_name {
+				require for.cb_build_est_names
+				put  for.cb_build_est_names
+			}
+			if for.rb_build_est_using {
+				require for.fi_build_est_using
+				put "using " `"""' for.fi_build_est_using `"""'
+			}
+			if for.ed_build_est_nlist.iseq("") &	///
+				for.ck_build_est_repl {
+				stopbox stop				///
+				"resource FORECAST_MSGBOX_RENAME_DEPVAR_FILLED"
+// "Rename dependent variables" must be filled in with "Replace existing variables".
+			}
+			beginoptions
+				optionarg /hidedefault for.sp_build_est_number
+				optionarg for.ed_build_est_predict
+				if for.ed_build_est_nlist.isneq("") {
+					put " names("
+					put /program build_estimates_names_output
+					put ")"
+				}
+				option for.ck_build_est_advise
+			endoptions
+		}
+		if (for.lb_build_cmds.iseq("identity")) {
+			put "forecast identity "
+			require for.vn_build_iden_var
+			require for.ex_build_iden_exp
+			put for.vn_build_iden_var
+			put " = "
+			put for.ex_build_iden_exp
+			beginoptions
+				option for.ck_build_iden_gen
+				option for.ck_build_iden_dbl
+			endoptions
+		}
+		if (for.lb_build_cmds.iseq("exogenous")) {
+			put "forecast exogenous "
+			require for.vl_build_exog_vars
+			put for.vl_build_exog_vars
+		}
+		if (for.lb_build_cmds.iseq("coefvector")) {
+			put "forecast coefvector "
+			require for.cb_build_coef_vec
+			put for.cb_build_coef_vec
+			if for.ed_build_coef_nlist.iseq("") &	///
+				for.ck_build_coef_repl {
+				stopbox stop			///
+				"resource FORECAST_MSGBOX_RENAME_DEPVAR_FILLED"
+// "Rename dependent variables" must be filled in with "Replace existing variables".
+			}
+			beginoptions
+				optionarg for.cb_build_coef_var
+				optionarg for.cb_build_coef_evar
+				if for.ed_build_coef_nlist.isneq("") {
+					put " names("
+					put /program build_coefvector_names_output
+					put ")"
+				}
+			endoptions
+		}
+		stata
+	}
+
+END
+
+/* -------------------- Solve Button -------------------- */
+
+SCRIPT solve_show
+BEGIN
+	for.btn_s1.show
+	for.btn_s2.show
+	for.btn_s3.show
+	for.btn_s4.show
+	for.gb_solve_title.show
+	program solve_show_tab
+
+	for.bu_solve_submit.show
+
+	for.fr_statusbar.hide
+END
+
+SCRIPT solve_hide
+BEGIN
+	for.btn_s1.hide
+	for.btn_s2.hide
+	for.btn_s3.hide
+	for.btn_s4.hide
+	for.gb_solve_title.hide
+
+	script solve_model_hide
+	script solve_simulation_hide
+	script solve_reporting_hide
+	script solve_maximization_hide
+
+	for.bu_solve_submit.hide
+
+	for.fr_statusbar.show
+END
+
+PROGRAM solve_show_tab
+BEGIN
+	if for.btn_s1 & for.btn_s1.isvisible() {
+		call script solve_model_show
+        }
+	if for.btn_s2 & for.btn_s2.isvisible() {
+		call program solve_simulation_show
+        }
+	if for.btn_s3 & for.btn_s3.isvisible() {
+		call script solve_reporting_show
+        }
+	if for.btn_s4 & for.btn_s4.isvisible() {
+		call program solve_maximization_show
+        }
+END
+
+SCRIPT solve_model_show
+BEGIN
+	for.gb_solve_title.setlabel resource LBL_TAB_MODEL
+	for.rb_solve_prefix.show
+	for.rb_solve_suffix.show
+	for.ed_solve_prefix.show
+	for.ed_solve_suffix.show
+	for.gb_solve_time_cons.show
+	for.tx_solve_begin.show
+	for.rb_solve_end.show
+	for.rb_solve_periods.show
+	for.ed_solve_begin.show
+	for.ed_solve_end.show
+	for.sp_solve_periods.show
+	for.tx_solve_periods.show
+
+	for.ck_solve_double.show
+	for.ck_solve_static.show
+	for.ck_solve_actuals.show
+
+	script solve_simulation_hide
+	script solve_reporting_hide
+	script solve_maximization_hide
+END
+
+SCRIPT solve_model_hide
+BEGIN
+	for.rb_solve_prefix.hide
+	for.rb_solve_suffix.hide
+	for.ed_solve_prefix.hide
+	for.ed_solve_suffix.hide
+	for.gb_solve_time_cons.hide
+	for.tx_solve_begin.hide
+	for.rb_solve_end.hide
+	for.rb_solve_periods.hide
+	for.ed_solve_begin.hide
+	for.ed_solve_end.hide
+	for.sp_solve_periods.hide
+	for.tx_solve_periods.hide
+
+	for.ck_solve_double.hide
+	for.ck_solve_static.hide
+	for.ck_solve_actuals.hide
+END
+
+PROGRAM solve_simulation_show
+BEGIN
+	call for.gb_solve_title.setlabel resource FORECAST_BTN_S2
+
+	call for.ck_solve_beta.show
+	call for.ck_solve_errors.show
+	call for.ck_solve_residuals.show
+	call for.gb_solve_sim_stat.show
+	call for.ck_solve_mean.show
+	call for.ck_solve_variance.show
+	call for.ck_solve_stddev.show
+	call for.rb_solve_mean_prefix.show
+	call for.rb_solve_mean_suffix.show
+	call for.ed_solve_mean_prefix.show
+	call for.ed_solve_mean_suffix.show
+	call for.rb_solve_var_prefix.show
+	call for.rb_solve_var_suffix.show
+	call for.ed_solve_var_prefix.show
+	call for.ed_solve_var_suffix.show
+	call for.rb_solve_std_prefix.show
+	call for.rb_solve_std_suffix.show
+	call for.ed_solve_std_prefix.show
+	call for.ed_solve_std_suffix.show
+	call for.gb_solve_sim_opts.show
+	call for.ck_solve_sim_saving.show
+	call for.fi_solve_save.show
+	call for.ck_solve_save_double.show
+	call for.ck_solve_save_repl.show
+	call for.sp_solve_save_every.show
+	call for.tx_solve_save_every.show
+	call for.ck_solve_nodots.show
+	call for.sp_solve_reps.show
+	call for.tx_solve_reps.show
+
+	if (for.ck_solve_beta | for.ck_solve_errors | for.ck_solve_residuals) {
+		call for.gb_solve_sim_stat.enable
+		if for.ck_solve_errors {
+			call for.ck_solve_residuals.disable
+		}
+		else {
+			call for.ck_solve_residuals.enable
+		}
+		if for.ck_solve_residuals {
+			call for.ck_solve_errors.disable
+		}
+		else {
+			call for.ck_solve_errors.enable
+		}
+		call for.ck_solve_mean.enable
+		if for.ck_solve_mean {
+			call program solve_mean_on
+		}
+		else {
+			call script solve_mean_off
+		}
+		if for.ck_solve_variance {
+			call program solve_variance_on
+		}
+		else {
+			call script solve_variance_off
+		}
+		if for.ck_solve_stddev {
+			call program solve_stddev_on
+		}
+		else {
+			call script solve_stddev_off
+		}
+		call for.ck_solve_variance.enable
+		call for.ck_solve_stddev.enable
+		call for.gb_solve_sim_opts.enable
+		call for.ck_solve_sim_saving.enable
+		if for.ck_solve_sim_saving {
+			call script solve_sim_saving_on
+		}
+		else {
+			call script solve_sim_saving_off
+		}
+		call for.ck_solve_nodots.enable
+		call for.sp_solve_reps.enable
+		call for.tx_solve_reps.enable
+	}
+	else {
+		call for.ck_solve_residuals.enable
+		call for.ck_solve_errors.enable
+		call for.gb_solve_sim_stat.disable
+		call for.ck_solve_mean.disable
+		call for.ck_solve_variance.disable
+		call for.ck_solve_stddev.disable
+		call for.rb_solve_mean_prefix.disable
+		call for.rb_solve_mean_suffix.disable
+		call for.ed_solve_mean_prefix.disable
+		call for.ed_solve_mean_suffix.disable
+		call for.rb_solve_var_prefix.disable
+		call for.rb_solve_var_suffix.disable
+		call for.ed_solve_var_prefix.disable
+		call for.ed_solve_var_suffix.disable
+		call for.rb_solve_std_prefix.disable
+		call for.rb_solve_std_suffix.disable
+		call for.ed_solve_std_prefix.disable
+		call for.ed_solve_std_suffix.disable
+		call for.gb_solve_sim_opts.disable
+		call for.ck_solve_sim_saving.disable
+		call for.fi_solve_save.disable
+		call for.ck_solve_save_double.disable
+		call for.ck_solve_save_repl.disable
+		call for.sp_solve_save_every.disable
+		call for.tx_solve_save_every.disable
+		call for.ck_solve_nodots.disable
+		call for.sp_solve_reps.disable
+		call for.tx_solve_reps.disable
+	}
+
+	call script solve_model_hide
+	call script solve_reporting_hide
+	call script solve_maximization_hide
+END
+
+SCRIPT solve_simulation_hide
+BEGIN
+	for.ck_solve_beta.hide
+	for.ck_solve_errors.hide
+	for.ck_solve_residuals.hide
+	for.gb_solve_sim_stat.hide
+	for.ck_solve_mean.hide
+	for.ck_solve_variance.hide
+	for.ck_solve_stddev.hide
+	for.rb_solve_mean_prefix.hide
+	for.rb_solve_mean_suffix.hide
+	for.ed_solve_mean_prefix.hide
+	for.ed_solve_mean_suffix.hide
+	for.rb_solve_var_prefix.hide
+	for.rb_solve_var_suffix.hide
+	for.ed_solve_var_prefix.hide
+	for.ed_solve_var_suffix.hide
+	for.rb_solve_std_prefix.hide
+	for.rb_solve_std_suffix.hide
+	for.ed_solve_std_prefix.hide
+	for.ed_solve_std_suffix.hide
+	for.gb_solve_sim_opts.hide
+	for.ck_solve_sim_saving.hide
+	for.fi_solve_save.hide
+	for.ck_solve_save_double.hide
+	for.ck_solve_save_repl.hide
+	for.sp_solve_save_every.hide
+	for.tx_solve_save_every.hide
+	for.ck_solve_nodots.hide
+	for.sp_solve_reps.hide
+	for.tx_solve_reps.hide
+END
+
+PROGRAM solve_mean_on
+BEGIN
+	call for.rb_solve_mean_prefix.enable
+	call for.rb_solve_mean_suffix.enable
+
+	if for.rb_solve_mean_prefix {
+		call for.ed_solve_mean_prefix.enable
+		call for.ed_solve_mean_suffix.disable
+	}
+	else {
+		call for.ed_solve_mean_prefix.disable
+		call for.ed_solve_mean_suffix.enable
+	}
+END
+
+SCRIPT solve_mean_off
+BEGIN
+	for.rb_solve_mean_prefix.disable
+	for.rb_solve_mean_suffix.disable
+	for.ed_solve_mean_prefix.disable
+	for.ed_solve_mean_suffix.disable
+END
+
+PROGRAM solve_variance_on
+BEGIN
+	call for.rb_solve_var_prefix.enable
+	call for.rb_solve_var_suffix.enable
+
+	if for.rb_solve_var_prefix {
+		call for.ed_solve_var_prefix.enable
+		call for.ed_solve_var_suffix.disable
+	}
+	else {
+		call for.ed_solve_var_prefix.disable
+		call for.ed_solve_var_suffix.enable
+	}
+END
+
+SCRIPT solve_variance_off
+BEGIN
+	for.rb_solve_var_prefix.disable
+	for.rb_solve_var_suffix.disable
+	for.ed_solve_var_prefix.disable
+	for.ed_solve_var_suffix.disable
+END
+
+PROGRAM solve_stddev_on
+BEGIN
+	call for.rb_solve_std_prefix.enable
+	call for.rb_solve_std_suffix.enable
+
+	if for.rb_solve_std_prefix {
+		call for.ed_solve_std_prefix.enable
+		call for.ed_solve_std_suffix.disable
+	}
+	else {
+		call for.ed_solve_std_prefix.disable
+		call for.ed_solve_std_suffix.enable
+	}
+END
+
+SCRIPT solve_stddev_off
+BEGIN
+	for.rb_solve_std_prefix.disable
+	for.rb_solve_std_suffix.disable
+	for.ed_solve_std_prefix.disable
+	for.ed_solve_std_suffix.disable
+END
+
+SCRIPT solve_reporting_show
+BEGIN
+	for.gb_solve_title.setlabel resource LBL_TAB_REPORTING
+
+	for.gb_solve_log.show
+	for.rb_solve_log_detail.show
+	for.rb_solve_log_on.show
+	for.rb_solve_log_brief.show
+	for.rb_solve_log_off.show
+
+	script solve_model_hide
+	script solve_simulation_hide
+	script solve_maximization_hide
+END
+
+SCRIPT solve_reporting_hide
+BEGIN
+	for.gb_solve_log.hide
+	for.rb_solve_log_detail.hide
+	for.rb_solve_log_on.hide
+	for.rb_solve_log_brief.hide
+	for.rb_solve_log_off.hide
+END
+
+PROGRAM solve_maximization_show
+BEGIN
+	call for.gb_solve_title.setlabel resource FORECAST_BTN_S4
+
+	call for.tx_solve_vtolerance.show
+	call for.tx_solve_ztolerance.show
+	call for.ed_solve_vtolerance.show
+	call for.ed_solve_ztolerance.show
+	call for.sp_solve_iterate.show
+	call for.tx_solve_iterate.show
+	call for.gb_solve_solver_tech.show
+	call for.rb_solve_solver_gaus.show
+	call for.rb_solve_solver_damp.show
+	if for.rb_solve_solver_damp {
+		call for.ed_solve_solver_damp_n.show
+	}
+	else {
+		call for.ed_solve_solver_damp_n.hide
+	}
+	call for.rb_solve_solver_broy.show
+	call for.rb_solve_solver_newt.show
+
+	call script solve_model_hide
+	call script solve_simulation_hide
+	call script solve_reporting_hide
+END
+
+SCRIPT solve_maximization_hide
+BEGIN
+	for.tx_solve_vtolerance.hide
+	for.tx_solve_ztolerance.hide
+	for.ed_solve_vtolerance.hide
+	for.ed_solve_ztolerance.hide
+	for.sp_solve_iterate.hide
+	for.tx_solve_iterate.hide
+	for.gb_solve_solver_tech.hide
+	for.rb_solve_solver_gaus.hide
+	for.rb_solve_solver_damp.hide
+	for.rb_solve_solver_broy.hide
+	for.rb_solve_solver_newt.hide
+	for.ed_solve_solver_damp_n.hide
+END
+
+SCRIPT solve_periods_on
+BEGIN
+	for.sp_solve_periods.enable
+	for.tx_solve_periods.enable
+END
+
+SCRIPT solve_periods_off
+BEGIN
+	for.sp_solve_periods.disable
+	for.tx_solve_periods.disable
+END
+
+PROGRAM solve_sim_tech_on
+BEGIN
+	call for.ck_solve_beta.enable
+	call for.ck_solve_errors.enable
+	if for.ck_solve_errors {
+		call for.ck_solve_residuals.disable
+	}
+	else {
+		call for.ck_solve_residuals.enable
+	}
+	if for.ck_solve_residuals {
+		call for.ck_solve_errors.disable
+	}
+	else {
+		call for.ck_solve_errors.enable
+	}
+
+END
+
+SCRIPT solve_sim_tech_off
+BEGIN
+	for.ck_solve_beta.disable
+	for.ck_solve_errors.disable
+	for.ck_solve_residuals.disable
+END
+
+SCRIPT solve_sim_saving_on
+BEGIN
+	for.fi_solve_save.enable
+	for.ck_solve_save_double.enable
+	for.ck_solve_save_repl.enable
+	for.sp_solve_save_every.enable
+	for.tx_solve_save_every.enable
+END
+
+SCRIPT solve_sim_saving_off
+BEGIN
+	for.fi_solve_save.disable
+	for.ck_solve_save_double.disable
+	for.ck_solve_save_repl.disable
+	for.sp_solve_save_every.disable
+	for.tx_solve_save_every.disable
+END
+
+SCRIPT solve_solver_damp_on
+BEGIN
+	for.ed_solve_solver_damp_n.show
+	for.ed_solve_ztolerance.disable
+END
+
+SCRIPT solve_solver_damp_off
+BEGIN
+	for.ed_solve_solver_damp_n.hide
+	for.ed_solve_ztolerance.enable
+END
+
+PROGRAM solve_model_output
+BEGIN
+	if for.ed_solve_prefix & for.rb_solve_prefix &			///
+		for.rb_solve_prefix.isenabled() {
+		put /hidden " " "prefix(" for.ed_solve_prefix ")"
+	}
+	if for.ed_solve_suffix & for.rb_solve_suffix &			///
+		for.rb_solve_suffix.isenabled() {
+		put /hidden " " "suffix(" for.ed_solve_suffix ")"
+	}
+	if for.ed_solve_begin {
+		if TimeFormat.isneq("") {
+			put /hidden " " "begin("
+			put TimeFormat
+			put for.ed_solve_begin "))"
+		}
+		else {
+			put /hidden " " "begin(" for.ed_solve_begin ")"
+		}
+	}
+	if for.ed_solve_end & for.rb_solve_end & for.rb_solve_end.isenabled() {
+		if TimeFormat.isneq("") {
+			put /hidden " " "end("
+			put TimeFormat
+			put for.ed_solve_end "))"
+		}
+		else {
+			put /hidden " " "end(" for.ed_solve_end ")"
+		}
+	}
+	if for.rb_solve_periods.isenabled() & for.rb_solve_periods &	///
+		!for.sp_solve_periods.isdefault() {
+		put " periods("
+		put /hidden for.sp_solve_periods
+		put ")"
+	}
+	if for.ck_solve_double {
+		put " double"
+	}
+	if for.ck_solve_static {
+		put " static"
+	}
+	if for.ck_solve_actuals {
+		put " actuals"
+	}
+END
+
+PROGRAM solve_simulate_mean_output
+BEGIN
+	put "mean"
+	beginoptions
+		if for.rb_solve_mean_prefix &				///
+			for.rb_solve_mean_prefix.isenabled() {
+			require for.ed_solve_mean_prefix
+			put /hidden " prefix(" for.ed_solve_mean_prefix ")"
+		}
+		if for.rb_solve_mean_suffix &				///
+			for.rb_solve_mean_suffix.isenabled() {
+			require for.ed_solve_mean_suffix
+			put /hidden " suffix(" for.ed_solve_mean_suffix ")"
+		}
+	endoptions
+
+END
+
+PROGRAM solve_simulate_variance_output
+BEGIN
+	put "variance"
+	beginoptions
+		if for.rb_solve_var_prefix &				///
+			for.rb_solve_var_prefix.isenabled() {
+			require for.ed_solve_var_prefix
+			put /hidden " prefix(" for.ed_solve_var_prefix ")"
+		}
+		if for.rb_solve_var_suffix &				///
+			for.rb_solve_var_suffix.isenabled() {
+			require for.ed_solve_var_suffix
+			put /hidden " suffix(" for.ed_solve_var_suffix ")"
+		}
+	endoptions
+END
+
+PROGRAM solve_simulate_stddev_output
+BEGIN
+	put "stddev"
+	beginoptions
+		if for.rb_solve_std_prefix &				///
+			for.rb_solve_std_prefix.isenabled() {
+			require for.ed_solve_std_prefix
+			put /hidden " prefix(" for.ed_solve_std_prefix ")"
+		}
+		if for.rb_solve_std_suffix &				///
+			for.rb_solve_std_suffix.isenabled() {
+			require for.ed_solve_std_suffix
+			put /hidden " suffix(" for.ed_solve_std_suffix ")"
+		}
+	endoptions
+
+END
+
+PROGRAM solve_simulate_saving_output
+BEGIN
+	require for.fi_solve_save
+	put /hidden `"""' for.fi_solve_save `"""'
+	beginoptions
+		if for.ck_solve_save_double {
+			put " double"
+		}
+		if for.sp_solve_save_every.isenabled() &		///
+			!for.sp_solve_save_every.isdefault() {
+			put /hidden " every(" for.sp_solve_save_every ")"
+		}
+		if for.ck_solve_save_repl {
+			put " replace"
+		}
+	endoptions
+END
+
+PROGRAM solve_simulation_output
+BEGIN
+	if for.ck_solve_beta {
+		put " beta"
+	}
+	if for.ck_solve_errors {
+		put " errors"
+	}
+	if for.ck_solve_residuals {
+		put " residuals"
+	}
+
+	if !for.ck_solve_mean & !for.ck_solve_variance & !for.ck_solve_stddev {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format				///
+		"resource FORECAST_MSGBOX_SIMULATION_STAT_FMT" ///
+		"resource FORECAST_CK_SOLVE_SIM_STAT"
+		stopbox stop "class _MSG_TMP.value"
+// "Simulation statistic of forecast" required.  You must specify at least one statistic.
+	}
+
+	beginoptions
+		if for.ck_solve_mean {
+			put " statistic("
+			put /program solve_simulate_mean_output
+			put ")"
+		}
+		if for.ck_solve_variance {
+			put " statistic("
+			put /program solve_simulate_variance_output
+			put ")"
+		}
+		if for.ck_solve_stddev {
+			put " statistic("
+			put /program solve_simulate_stddev_output
+			put ")"
+		}
+
+		if for.ck_solve_sim_saving {
+			put " saving("
+			put /program solve_simulate_saving_output
+			put ")"
+		}
+
+		if for.ck_solve_nodots {
+			put " nodots"
+		}
+
+		if !for.sp_solve_reps.isdefault() &			///
+			for.sp_solve_reps.isenabled() {
+			put /hidden " reps(" for.sp_solve_reps ")"
+		}
+	endoptions
+
+END
+
+PROGRAM solve_reporting_output
+BEGIN
+	if for.rb_solve_log_on {
+		put " log(on)"
+	}
+	if for.rb_solve_log_brief {
+		put " log(brief)"
+	}
+	if for.rb_solve_log_off {
+		put " log(off)"
+	}
+END
+
+PROGRAM solve_maximization_tech_output
+BEGIN
+	if for.rb_solve_solver_damp {
+		call dRealTemp.setvalue class for.ed_solve_solver_damp_n.value
+		put "dampedgaussseidel"
+		if (dRealTemp.isle(0) | dRealTemp.isge(1) &		///
+			for.ed_solve_solver_damp_n) {
+			stopbox stop					///
+				"resource FORECAST_MSGBOX_DAMPED_GAUSS_SEIDEL"
+// Invalid Damped Gauss-Seidel value.  Value must be between 0 and 1.
+		}
+		put " " for.ed_solve_solver_damp_n
+	}
+	else {
+		if for.rb_solve_solver_gaus {
+			put "gaussseidel"
+		}
+		if for.rb_solve_solver_broy {
+			put "broydenpowell"
+		}
+		if for.rb_solve_solver_newt {
+			put "newtonraphson"
+		}
+	}
+END
+
+PROGRAM solve_maximization_output
+BEGIN
+	call dRealTemp.setvalue class for.ed_solve_vtolerance.value
+	if (dRealTemp.isle(0) | dRealTemp.isge(1) &			///
+		for.ed_solve_vtolerance ) {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format					///
+			"resource FORECAST_MSGBOX_INVALID_VALUE_BETWEEN_0_1_FMT" 	///
+			"resource FORECAST_TX_SOLVE_VTOLERANCE" 
+		stopbox stop "class _MSG_TMP.value"
+// Invalid "Tolerance for forecast values" value.  Value must be between 0 and 1.
+	}
+	call dRealTemp.setvalue class for.ed_solve_ztolerance.value
+	if (dRealTemp.isle(0) | dRealTemp.isge(1) &			///
+		for.ed_solve_ztolerance ) {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format					///
+			"resource FORECAST_MSGBOX_INVALID_VALUE_BETWEEN_0_1_FMT"	///
+			"resource FORECAST_TX_SOLVE_ZTOLERANCE"
+		stopbox stop "class _MSG_TMP.value"
+// Invalid "Tolerance for function zero" value.  Value must be between 0 and 1.
+	}
+	if for.ed_solve_vtolerance {
+		put /hidden " vtolerance(" for.ed_solve_vtolerance ")"
+	}
+	if for.ed_solve_ztolerance {
+		put /hidden " ztolerance(" for.ed_solve_ztolerance ")"
+	}
+	if for.sp_solve_iterate & !for.sp_solve_iterate.isdefault() {
+		put /hidden " iterate(" for.sp_solve_iterate ")"
+	}
+	if !for.rb_solve_solver_damp |				///
+		for.ed_solve_solver_damp_n.isneq(".2") {
+		put " technique("
+		put /program solve_maximization_tech_output
+		put ")"
+	}
+
+END
+
+PROGRAM solve_submit
+BEGIN
+	if for.btn_4 {
+		put "forecast solve"
+		beginoptions
+			put " " /program solve_model_output
+			if (for.ck_solve_beta | for.ck_solve_errors |	///
+				for.ck_solve_residuals) {
+				put " simulate("
+				put /program solve_simulation_output
+				put ")"
+			}
+			put " " /program solve_reporting_output
+			put " " /program solve_maximization_output
+		endoptions
+		stata
+	}
+END
+
+/* -------------------- Utilities Button -------------------- */
+
+LIST utilities_command
+BEGIN
+	resource FORECAST_ADJUST_VARIABLE_ADD_FACTORING
+	resource FORECAST_DESCRIBE_FEATURES
+	resource FORECAST_LIST_FORECAST_COMMANDS_COMPRISING_CUR
+	resource FORECAST_DROP_FORECAST_VARIABLES
+END
+
+LIST utilities_command_values
+BEGIN
+	adjust
+	describe
+	list
+	drop
+END
+
+SCRIPT utilities_show
+BEGIN
+	for.tx_utilities_cmds.show
+	for.lb_utilities_cmds.show
+
+	program utilities_command_changed
+
+	for.bu_utilities_submit.show
+END
+
+SCRIPT utilities_hide
+BEGIN
+	for.bu_utilities_submit.hide
+	for.tx_utilities_cmds.hide
+	for.lb_utilities_cmds.hide
+
+	script utilities_hide_adjust
+	script utilities_hide_describe
+	script utilities_hide_list
+	script utilities_hide_drop
+END
+
+PROGRAM utilities_command_changed
+BEGIN
+	if (for.lb_utilities_cmds.iseq("adjust")) {
+		call script utilities_show_adjust
+		call script utilities_hide_describe
+		call script utilities_hide_list
+		call script utilities_hide_drop
+	}
+	if (for.lb_utilities_cmds.iseq("describe")) {
+		call script utilities_hide_adjust
+		call script utilities_show_describe
+		call script utilities_hide_list
+		call script utilities_hide_drop
+	}
+	if (for.lb_utilities_cmds.iseq("list")) {
+		call script utilities_hide_adjust
+		call script utilities_hide_describe
+		call program utilities_show_list
+		call script utilities_hide_drop
+
+	}
+	if (for.lb_utilities_cmds.iseq("drop")) {
+		call script utilities_hide_adjust
+		call script utilities_hide_describe
+		call script utilities_hide_list
+		call script utilities_show_drop
+	}
+END
+
+SCRIPT utilities_show_adjust
+BEGIN
+	for.tx_utilities_adj_var.show
+	for.tx_utilities_adj_func.show
+	for.vn_utilities_adj_var.show
+	for.ex_utilities_adj_func.show
+	for.bu_utilities_adj_tsvar.show
+	for.tx_utilities_adj_func_ex.show
+	for.gb_utilities_adj_opts.show
+	for.tx_utilities_adj_if.show
+	for.ex_utilities_adj_if.show
+	for.ck_utilities_adj_in.show
+	for.tx_utilities_adj_from.show
+	for.sp_utilities_adj_from.show
+	for.tx_utilities_adj_to.show
+	for.sp_utilities_adj_to.show
+END
+
+SCRIPT utilities_hide_adjust
+BEGIN
+	for.tx_utilities_adj_var.hide
+	for.tx_utilities_adj_func.hide
+	for.vn_utilities_adj_var.hide
+	for.ex_utilities_adj_func.hide
+	for.bu_utilities_adj_tsvar.hide
+	for.tx_utilities_adj_func_ex.hide
+	for.gb_utilities_adj_opts.hide
+	for.tx_utilities_adj_if.hide
+	for.ex_utilities_adj_if.hide
+	for.ck_utilities_adj_in.hide
+	for.tx_utilities_adj_from.hide
+	for.sp_utilities_adj_from.hide
+	for.tx_utilities_adj_to.hide
+	for.sp_utilities_adj_to.hide
+END
+
+SCRIPT utilities_adj_tsvar_show
+BEGIN
+	create CHILD _vn_ts_internal
+	_vn_ts_internal.setExitString utilAdjTSVarResult
+	_vn_ts_internal.setExitAction "script utilities_adj_tsvar_append"
+END
+
+SCRIPT utilities_adj_tsvar_append
+BEGIN
+	utilAdjTSVarResult.withvalue for.ex_utilities_adj_func.append @
+END
+
+PROGRAM utilities_adj_ifin_enable_pr
+BEGIN
+	call for.tx_utilities_adj_if.enable
+	call for.ex_utilities_adj_if.enable
+	call for.ck_utilities_adj_in.enable
+	if for.ck_utilities_adj_in {
+		call script ifin_enable_in
+	}
+END
+
+SCRIPT utilities_adj_ifin_enable_in
+BEGIN
+	for.sp_utilities_adj_from.enable
+	for.tx_utilities_adj_to.enable
+	for.sp_utilities_adj_to.enable
+	for.tx_utilities_adj_from.enable
+	program ifin_check_range
+END
+
+PROGRAM utilities_adj_ifin_check_range
+BEGIN
+	call for.sp_utilities_adj_from.setrange 1 c(N)
+	call for.sp_utilities_adj_to.setrange 1 c(N)
+END
+
+SCRIPT utilities_adj_ifin_disable_in
+BEGIN
+	for.sp_utilities_adj_from.disable
+	for.sp_utilities_adj_to.disable
+	for.tx_utilities_adj_to.disable
+	for.tx_utilities_adj_from.disable
+END
+
+SCRIPT utilities_show_describe
+BEGIN
+	for.gb_utilities_des.show
+	for.rb_utilities_des_all.show
+	for.rb_utilities_des_cov.show
+	for.rb_utilities_des_ide.show
+	for.rb_utilities_des_exo.show
+	for.rb_utilities_des_adj.show
+	for.rb_utilities_des_sol.show
+	for.rb_utilities_des_end.show
+	for.ck_utilities_brief.show
+	for.ck_utilities_detail.show
+END
+
+SCRIPT utilities_hide_describe
+BEGIN
+	for.gb_utilities_des.hide
+	for.rb_utilities_des_all.hide
+	for.rb_utilities_des_cov.hide
+	for.rb_utilities_des_ide.hide
+	for.rb_utilities_des_exo.hide
+	for.rb_utilities_des_adj.hide
+	for.rb_utilities_des_sol.hide
+	for.rb_utilities_des_end.hide
+	for.ck_utilities_brief.hide
+	for.ck_utilities_detail.hide
+END
+
+PROGRAM utilities_show_list
+BEGIN
+	call for.ck_utilities_saving.show
+	call for.fi_utilities_save.show
+	call for.ck_utilities_repl.show
+	if for.ck_utilities_saving {
+		call script utilities_saving_on
+	}
+	else {
+		call script utilities_saving_off
+	}
+	call for.ck_utilities_notrim.show
+END
+
+SCRIPT utilities_hide_list
+BEGIN
+	for.ck_utilities_saving.hide
+	for.fi_utilities_save.hide
+	for.ck_utilities_repl.hide
+	for.ck_utilities_notrim.hide
+END
+
+SCRIPT utilities_saving_on
+BEGIN
+	for.fi_utilities_save.enable
+	for.ck_utilities_repl.enable
+END
+
+SCRIPT utilities_saving_off
+BEGIN
+	for.fi_utilities_save.disable
+	for.ck_utilities_repl.disable
+END
+
+SCRIPT utilities_show_drop
+BEGIN
+	for.gb_utilities_drop.show
+	for.rb_utilities_prefix.show
+	for.rb_utilities_suffix.show
+	for.ed_utilities_prefix.show
+	for.ed_utilities_suffix.show
+END
+
+SCRIPT utilities_hide_drop
+BEGIN
+	for.gb_utilities_drop.hide
+	for.rb_utilities_prefix.hide
+	for.rb_utilities_suffix.hide
+	for.ed_utilities_prefix.hide
+	for.ed_utilities_suffix.hide
+END
+
+PROGRAM utilities_saving_output
+BEGIN
+	require for.fi_utilities_save
+	put `"""' for.fi_utilities_save `"""'
+	if for.ck_utilities_repl {
+		put ", replace"
+	}
+END
+
+PROGRAM utilities_submit
+BEGIN
+	if for.btn_5 {
+		if (for.lb_utilities_cmds.iseq("adjust")) {
+			put "forecast adjust "
+			require for.vn_utilities_adj_var
+			require for.ex_utilities_adj_func
+
+			put for.vn_utilities_adj_var " = "
+			put for.ex_utilities_adj_func
+			if for.ex_utilities_adj_if {
+				put " if " for.ex_utilities_adj_if
+			}
+			if for.ck_utilities_adj_in {
+				put " in "
+				put for.sp_utilities_adj_from
+				put "/"
+				put for.sp_utilities_adj_to
+			}
+		}
+		if (for.lb_utilities_cmds.iseq("describe")) {
+			put "forecast describe"
+
+			option for.rb_utilities_des_cov
+			option for.rb_utilities_des_ide
+			option for.rb_utilities_des_exo
+			option for.rb_utilities_des_adj
+			option for.rb_utilities_des_sol
+			option for.rb_utilities_des_end
+			beginoptions
+				option for.ck_utilities_brief
+				option for.ck_utilities_detail
+			endoptions
+		}
+		if (for.lb_utilities_cmds.iseq("list")) {
+			put "forecast list"
+			beginoptions
+				option for.ck_utilities_notrim
+				if for.ck_utilities_saving {
+					put " saving("
+					put /program utilities_saving_output
+					put ")"
+				}
+			endoptions
+
+		}
+		if (for.lb_utilities_cmds.iseq("drop")) {
+			put "forecast drop"
+			beginoptions
+				optionarg for.ed_utilities_prefix
+				optionarg for.ed_utilities_suffix
+			endoptions
+		}
+		stata
+	}
+END
+

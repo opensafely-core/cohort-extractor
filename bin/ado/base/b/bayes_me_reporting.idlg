@@ -1,0 +1,565 @@
+/*
+    bayes_me_reporting.idlg - bayes me reporting tab
+
+*!  VERSION 1.0.9  18oct2019
+
+    // SCRIPTS and PROGRAMS for external use
+	* SCRIPT  rpt_coef_on
+	* SCRIPT  rpt_coef_or_on
+	* SCRIPT  rpt_coef_es_on
+	* SCRIPT  rpt_coef_non_on
+	* SCRIPT  rpt_coef_rrr_on
+	* SCRIPT  rpt_coef_irr_on
+*/
+
+SCRIPT rpt_PREINIT
+BEGIN
+	rpt.fi_save.formatfilter "{0} (*.dta)|*.dta|{1} (*.*)|*.*" ///
+		"resource ui_ex FILE_TYPE_DTA" "resource ui_ex FILE_TYPE_ALL_FILES"
+	create STRING result
+END
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_facvarsResults
+	create STRING rpt_bu_outputResults
+	program rpt_bu_facvars_ckResults
+	program rpt_bu_output_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  COMBOBOX  sp_level			_lft	_top	_en7wd	.,	///
+	dropdown							///
+	default(c(level))						///
+	contents(clevels)						///
+	option(clevel)							///
+	label(resource BAYES_LBL_TX_LEVEL)
+  TEXT tx_level				_en7sep @	350	.,	///
+	label(resource BAYES_LBL_TX_LEVEL)
+
+  CHECKBOX ck_hpd			_lft	_ls	_iwd	.,	///
+	option(hpd)							///
+	label(resource BAYES_LBL_CK_HPD)
+  COMBOBOX cb_coef			_lft	_ls	_cwd0	.,	///
+	dropdownlist							///
+	contents(rpt_coef_list)						///
+	values(rpt_coef_value)						///
+	onselchange(program rpt_coef_change)				///
+	label(resource LBL_REPORT_COEFFICIENTS)
+  COMBOBOX cb_coefor			@	@	@	.,	///
+	dropdownlist							///
+	contents(rpt_coef_or_list)					///
+	values(rpt_coef_or_value)					///
+	onselchange(program rpt_coefor_change)				///
+	label(resource LBL_REPORT_COEFFICIENTS)
+  COMBOBOX cb_coefes			@	@	@	.,	///
+	dropdownlist							///
+	contents(rpt_coef_es_list)					///
+	values(rpt_coef_es_value)					///
+	onselchange(program rpt_coefes_change)				///
+	label(resource LBL_REPORT_COEFFICIENTS)
+  COMBOBOX cb_coefnon			@	@	@	.,	///
+	dropdownlist							///
+	contents(rpt_coef_non_list)					///
+	values(rpt_coef_non_value)					///
+	onselchange(program rpt_coefnon_change)				///
+	label(resource LBL_REPORT_COEFFICIENTS)
+  COMBOBOX cb_coefrrr			@	@	@	.,	///
+	dropdownlist							///
+	contents(rpt_coef_rrr_list)					///
+	values(rpt_coef_rrr_value)					///
+	onselchange(program rpt_coefrrr_change)				///
+	label(resource LBL_REPORT_COEFFICIENTS)
+  COMBOBOX cb_coefirr			@	@	@	.,	///
+	dropdownlist							///
+	contents(rpt_coef_irr_list)					///
+	values(rpt_coef_irr_value)					///
+	onselchange(program rpt_coefirr_change)				///
+	label(resource LBL_REPORT_COEFFICIENTS)
+  EDIT     ed_eform			_ilft2	@	_vnwd	.,	///
+	default("exp(b)")						///
+	option(eform)							///
+	label(resource LBL_REPORT_EXPONENTIATED_COEFFICIENTS_LABEL_AS)
+  CHECKBOX ck_remargl			_lft	+35	_iwd	.,	///
+	option(remargl)							///
+	label(resource BAYES_ME_REPORTING_CK_REMARGL)
+  EDIT    ed_batch			_lft	_ms	_en7wd	.,	///
+	numonly								///
+	option(batch)							///
+	default(0)							///
+	onchange(program main_batch_change)				///
+	label(resource BAYES_LBL_TX_BATCH)
+  TEXT	  tx_batch			_en7sep @	350	.,	///
+	label(resource BAYES_LBL_TX_BATCH)
+  CHECKBOX ck_save			_lft	_ls	_iwd	_ht4h,	///
+	groupbox							///
+	onclickon(script rpt_save_on)					///
+	onclickoff(script rpt_save_off)					///
+	label(resource BAYES_REPORTING_CK_SAVE)
+  FILE	fi_save				_ilft	_ms	_ibwd	.,	///
+	option(saving)							///
+	defext(dta)							///
+	save								///
+	error(resource BAYES_REPORTING_FI_SAVE)				///
+	label(resource LBL_BU_BROWSE)
+  CHECKBOX ck_repdta			@	_ms	@	.,	///
+	label(resource LBL_OVERWRITE_FILE_IF_IT_ALREADY_EXISTS)
+  CHECKBOX ck_model			_lft	+35	_iwd	.,	///
+	option(nomodelsummary)						///
+	label(resource BAYES_REPORTING_CK_MODEL)
+  CHECKBOX ck_nome			_lft	_ms	_iwd	.,	///
+	option(nomesummary)						///
+	label(resource BAYES_ME_REPORTING_CK_NOME)
+  CHECKBOX ck_chainsdetail		_lft	_ms	_iwd	.,	///
+	option(chainsdetail)						///
+	label(resource BAYES_REPORTING_CK_CHAINSDETAIL)
+
+  CHECKBOX ck_dots			_lft	_ls	_iwd	_ht10,	///
+	groupbox							///
+	onclickon(program rpt_dots_on)					///
+	onclickoff(script rpt_dots_off)					///
+	label(resource BAYES_REPORTING_CK_DOTS)
+  RADIO	rb_dots1			_ilft	_ms	_ibwd	.,	///
+	first								///
+	onclickon(script rpt_dots_disable)				///
+	label(resource BAYES_ME_REPORTING_RB_NODOTS)
+  RADIO rb_dots2			@	_ms	@	.,	///
+	last								///
+	onclickon(script rpt_dots_enable)				///
+	label(resource BAYES_REPORTING_RB_DOTS2)
+  TEXT    tx_dots1			37  	_ms	70	.,	///
+	label(resource BAYES_REPORTING_TX_DOTS1)	
+  SPINNER sp_dots1			165	@	_en7wd	.,	///
+	default(0) min(0) max(1000000)					///
+	option(dots)							///
+	label(resource BAYES_REPORTING_TX_DOTS2)
+  TEXT    tx_dots2			_en7sep  @	70	.,	///
+	label(resource BAYES_REPORTING_TX_DOTS2)
+
+  TEXT    tx_dots3			37  	_ms	130	.,	///
+	label(resource BAYES_REPORTING_TX_DOTS3)	
+  SPINNER sp_dots2			165	@	_en7wd	.,	///
+	default(0) min(0) max(1000000)					///
+	option(dots)							///
+	label(resource BAYES_REPORTING_TX_DOTS4)
+  TEXT    tx_dots4			_en7sep  @	70	.,	///
+	label(resource BAYES_REPORTING_TX_DOTS4)
+	
+  BUTTON bu_output   			_lft	+50	200	.,	///
+	onpush("program rpt_bu_output_getOpts")				///
+	label(resource LBL_OUTPUT_REPORTING_OPTIONS)
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_factor_vars_reporting
+
+END
+
+INCLUDE factor_vars_reporting_pr
+
+PROGRAM rpt_bu_output_getOpts
+BEGIN
+	call program load_show_params
+END
+PROGRAM load_show_params
+BEGIN
+	put "capture bayes_parse_params "
+	put " : " 
+	put /program bayes_build_parse
+	stata hidden immediate
+	call result.setvalue ""
+	call result.setvalue s(params)
+	if result.iseq("") {
+		stopbox note "resource BAYES_MSGBOX_ERRORS_IN_SPECIFICATION"
+	}
+	call create CHILD bayes_me_rpt_output_opts AS rpt_bu_output
+	call rpt_bu_output.setExitString rpt_bu_outputResults
+	call rpt_bu_output.setExitAction "program rpt_bu_output_ckResults"
+END
+
+PROGRAM rpt_bu_output_ckResults
+BEGIN
+	call create STRING sTMP
+	if rpt_bu_outputResults {
+		call rpt.bu_output.modified_on
+	}
+	else {
+		call rpt.bu_output.modified_off
+	}
+END
+LIST clevels
+BEGIN
+	99.9 
+	99.5
+	99
+	97.5
+	95
+	90
+	80
+END
+LIST rpt_coef_list
+BEGIN
+	resource LBL_REPORT_COEFFICIENTS
+	resource LBL_REPORT_EXPONENTIATED_COEFFICIENTS_LABEL_AS
+END
+LIST rpt_coef_value
+BEGIN
+	""
+	"eform"
+END
+LIST rpt_coef_or_list
+BEGIN
+	resource LBL_REPORT_COEFFICIENTS
+	resource LBL_REPORT_ODDS_RATIOS
+	resource LBL_REPORT_EXPONENTIATED_COEFFICIENTS_LABEL_AS
+END
+LIST rpt_coef_or_value
+BEGIN
+	""
+	"or"
+	"eform"
+END
+LIST rpt_coef_es_list
+BEGIN
+	resource LBL_REPORT_ODDS_RATIOS
+	resource LOGISTIC_RPT_RB_COEF
+	resource LBL_REPORT_EXPONENTIATED_COEFFICIENTS_LABEL_AS
+END
+LIST rpt_coef_es_value
+BEGIN
+	""
+	"coef"
+	"eform"
+END
+LIST rpt_coef_non_list
+BEGIN
+	resource LBL_REPORT_COEFFICIENTS
+	resource BINREG_RPT_CK_COEFF
+	resource LBL_REPORT_EXPONENTIATED_COEFFICIENTS_LABEL_AS
+END
+LIST rpt_coef_non_value
+BEGIN
+	""
+	"coefficients"
+	"eform"
+END
+LIST rpt_coef_rrr_list
+BEGIN
+	resource LBL_REPORT_COEFFICIENTS
+	resource LBL_REPORT_RELATIVE_RISK_RATIOS
+	resource LBL_REPORT_EXPONENTIATED_COEFFICIENTS_LABEL_AS
+END
+LIST rpt_coef_rrr_value
+BEGIN
+	""
+	"rrr"
+	"eform"
+END
+LIST rpt_coef_irr_list
+BEGIN
+	resource LBL_REPORT_COEFFICIENTS
+	resource LBL_REPORT_INCIDENCE_RATE_RATIOS
+	resource LBL_REPORT_EXPONENTIATED_COEFFICIENTS_LABEL_AS
+END
+LIST rpt_coef_irr_value
+BEGIN
+	""
+	"irr"
+	"eform"
+END
+
+PROGRAM rpt_coef_change
+BEGIN
+	if rpt.cb_coef.equals("eform") {
+		call rpt.ed_eform.show
+	}
+	else {
+		call rpt.ed_eform.hide
+	}
+END
+PROGRAM rpt_coefor_change
+BEGIN
+	if rpt.cb_coefor.equals("eform") {
+		call rpt.ed_eform.show
+	}
+	else {
+		call rpt.ed_eform.hide
+	}
+END
+PROGRAM rpt_coefes_change
+BEGIN
+	if rpt.cb_coefes.equals("eform") {
+		call rpt.ed_eform.show
+	}
+	else {
+		call rpt.ed_eform.hide
+	}
+END
+PROGRAM rpt_coefnon_change
+BEGIN
+	if rpt.cb_coefnon.equals("eform") {
+		call rpt.ed_eform.show
+	}
+	else {
+		call rpt.ed_eform.hide
+	}
+END
+PROGRAM rpt_coefrrr_change
+BEGIN
+	if rpt.cb_coefrrr.equals("eform") {
+		call rpt.ed_eform.show
+	}
+	else {
+		call rpt.ed_eform.hide
+	}
+END
+PROGRAM rpt_coefirr_change
+BEGIN
+	if rpt.cb_coefirr.equals("eform") {
+		call rpt.ed_eform.show
+	}
+	else {
+		call rpt.ed_eform.hide
+	}
+END
+
+PROGRAM rpt_dots_on
+BEGIN
+	call rpt.rb_dots1.enable
+	call rpt.rb_dots2.enable
+	
+	if rpt.rb_dots1 {
+		call script rpt_dots_disable
+	}
+	else {
+		call script rpt_dots_enable
+	}
+END
+
+SCRIPT rpt_dots_off
+BEGIN
+	rpt.rb_dots1.disable
+	rpt.rb_dots2.disable
+	script rpt_dots_disable
+END
+
+SCRIPT rpt_dots_enable
+BEGIN
+	rpt.tx_dots1.enable
+	rpt.tx_dots2.enable
+	rpt.tx_dots3.enable
+	rpt.tx_dots4.enable
+	rpt.sp_dots1.enable
+	rpt.sp_dots2.enable
+END
+
+SCRIPT rpt_dots_disable
+BEGIN
+	rpt.tx_dots1.disable
+	rpt.tx_dots2.disable
+	rpt.tx_dots3.disable
+	rpt.tx_dots4.disable
+	rpt.sp_dots1.disable
+	rpt.sp_dots2.disable
+END
+
+PROGRAM main_batch_change
+BEGIN
+	if rpt.ed_batch & rpt.ed_batch.isneq(0) {
+		call adv.tx_corrlag.disable
+		call adv.sp_corrlag.disable
+		call adv.tx_corrtol.disable
+		call adv.ed_corrtol.disable
+	}
+	else {
+		call adv.tx_corrlag.enable
+		call adv.sp_corrlag.enable
+		call adv.tx_corrtol.enable
+		call adv.ed_corrtol.enable
+	}
+END
+
+SCRIPT rpt_save_on
+BEGIN
+	rpt.fi_save.enable
+	rpt.ck_repdta.enable
+END
+
+SCRIPT rpt_save_off
+BEGIN
+	rpt.fi_save.disable
+	rpt.ck_repdta.disable
+END
+
+SCRIPT  rpt_coef_on
+BEGIN
+	rpt.cb_coef.show
+	rpt.cb_coefor.hide
+	rpt.cb_coefes.hide
+	rpt.cb_coefnon.hide
+	rpt.cb_coefrrr.hide
+	rpt.cb_coefirr.hide
+END
+SCRIPT  rpt_coef_or_on
+BEGIN
+	rpt.cb_coef.hide
+	rpt.cb_coefor.show
+	rpt.cb_coefes.hide
+	rpt.cb_coefnon.hide
+	rpt.cb_coefrrr.hide
+	rpt.cb_coefirr.hide
+END
+SCRIPT  rpt_coef_es_on
+BEGIN
+	rpt.cb_coef.hide
+	rpt.cb_coefor.hide
+	rpt.cb_coefes.show
+	rpt.cb_coefnon.hide
+	rpt.cb_coefrrr.hide
+	rpt.cb_coefirr.hide
+END
+SCRIPT  rpt_coef_non_on
+BEGIN
+	rpt.cb_coef.hide
+	rpt.cb_coefor.hide
+	rpt.cb_coefes.hide
+	rpt.cb_coefnon.show
+	rpt.cb_coefrrr.hide
+	rpt.cb_coefirr.hide
+END
+SCRIPT  rpt_coef_rrr_on
+BEGIN
+	rpt.cb_coef.hide
+	rpt.cb_coefor.hide
+	rpt.cb_coefes.hide
+	rpt.cb_coefnon.hide
+	rpt.cb_coefrrr.show
+	rpt.cb_coefirr.hide
+END
+SCRIPT  rpt_coef_irr_on
+BEGIN
+	rpt.cb_coef.hide
+	rpt.cb_coefor.hide
+	rpt.cb_coefes.hide
+	rpt.cb_coefnon.hide
+	rpt.cb_coefrrr.hide
+	rpt.cb_coefirr.show
+END
+
+PROGRAM bayes_reporting_output
+BEGIN
+	optionarg /hidedefault rpt.sp_level
+	option rpt.ck_hpd
+	if rpt.cb_coef.isvisible() {
+		if rpt.cb_coef.equals("eform") {
+			put " eform"
+			if rpt.ed_eform & !rpt.ed_eform.isdefault() {
+				put "("
+				put rpt.ed_eform
+				put ")"
+			}
+		}
+	}
+	if rpt.cb_coefor.isvisible() {
+		if rpt.cb_coefor.equals("or") {
+			put " or"
+		}
+		if rpt.cb_coefor.equals("eform") {
+			put " eform"
+			if rpt.ed_eform & !rpt.ed_eform.isdefault() {
+				put "("
+				put rpt.ed_eform
+				put ")"
+			}
+		}
+	}
+	if rpt.cb_coefes.isvisible() {
+		if rpt.cb_coefes.equals("coef") {
+			put " coef"
+		}
+		if rpt.cb_coefes.equals("eform") {
+			put " eform"
+			if rpt.ed_eform & !rpt.ed_eform.isdefault() {
+				put "("
+				put rpt.ed_eform
+				put ")"
+			}
+		}
+	}
+	if rpt.cb_coefnon.isvisible() {
+		if rpt.cb_coefnon.equals("coefficients") {
+			put " coefficients"
+		}
+		if rpt.cb_coefnon.equals("eform") {
+			put " eform"
+			if rpt.ed_eform & !rpt.ed_eform.isdefault() {
+				put "("
+				put rpt.ed_eform
+				put ")"
+			}
+		}
+	}
+	if rpt.cb_coefrrr.isvisible() {
+		if rpt.cb_coefrrr.equals("rrr") {
+			put " rrr"
+		}
+		if rpt.cb_coefrrr.equals("eform") {
+			put " eform"
+			if rpt.ed_eform & !rpt.ed_eform.isdefault() {
+				put "("
+				put rpt.ed_eform
+				put ")"
+			}
+		}
+	}
+	if rpt.cb_coefirr.isvisible() {
+		if rpt.cb_coefirr.equals("irr") {
+			put " irr"
+		}
+		if rpt.cb_coefirr.equals("eform") {
+			put " eform"
+			if rpt.ed_eform & !rpt.ed_eform.isdefault() {
+				put "("
+				put rpt.ed_eform
+				put ")"
+			}
+		}
+	}
+	option rpt.ck_remargl
+	optionarg /hidedefault rpt.ed_batch
+	if rpt.ck_save {
+		require rpt.fi_save
+		put `"saving("'
+		put rpt.fi_save
+		if rpt.ck_repdta {
+			put `", replace"'
+		}
+		put `")"'
+	}
+	option rpt.ck_model
+	option rpt.ck_nome
+	option rpt.ck_chainsdetail
+	if rpt.ck_dots {
+		if rpt.rb_dots1 {
+			put " nodots "
+		}
+		else {
+			if rpt.sp_dots1.iseq(0) {
+				put " dots(0)"
+			}
+			if rpt.sp_dots1 & !rpt.sp_dots1.isdefault() {
+				put " dots("
+				put rpt.sp_dots1 
+				if rpt.sp_dots2 & !rpt.sp_dots2.isdefault() {
+					put ", every("
+					put rpt.sp_dots2
+					put ")"
+				}
+				put ") "
+			}
+		}
+	}
+	put " " rpt_bu_outputResults
+	put " " rpt_bu_facvarsResults
+END

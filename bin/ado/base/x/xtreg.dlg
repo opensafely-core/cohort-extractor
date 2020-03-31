@@ -1,0 +1,341 @@
+/*
+  xtreg
+
+*!  VERSION 1.5.2  14jan2020
+
+  keyword:  eclass
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_wide
+INCLUDE _ht320
+INCLUDE header
+
+HELP hlp1, view("help xtreg")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	program parseMessage
+	script se_createAsGEE
+	setscale_hadj resource XTREG_DLG_HSCALE
+END
+
+PROGRAM parseMessage
+BEGIN
+	if __MESSAGE.contains("__MI__") {
+		call script se_setMI_on
+		call main.bu_xtset.hide
+	}
+	else {
+		call main.bu_mi_xtset.hide
+	}
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program check_bytab
+	script se_setRGF_on
+	program check_se_status
+	corr.ck_force.show
+	script max_internalFrom_on
+	script max_internal_disable
+	script weights_disable
+	script weights_setLayout_fpi
+END
+
+PROGRAM check_bytab
+BEGIN
+	if __MESSAGE.contains("__MI__") {
+		call script byifin_set_by_off
+	}
+END
+
+SCRIPT show_xtset
+BEGIN
+	create STRING note
+	note.setvalue resource XTREG_POP_AVER_MODEL_CORR_STR_EX_INDEP
+	note.withvalue create CHILD xtset, message(`"" " `"@"'"')
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)				///
+	label(resource XTREG_DLG_TITLE)
+BEGIN
+  BUTTON   bu_xtset	_xsetbu	_top	_setbuwd .,			///
+	onpush(script show_xtset)					///
+	label(resource LBL_BU_PANEL_SETTINGS)
+  BUTTON   bu_mi_xtset  _xsetbu	_top	_setbuwd	.,		///
+	onpush("view dialog mi_xtset")					///
+	label(resource LBL_BU_PANEL_SETTINGS)
+
+  TEXT tx_dv 		_lft	_topph	_vnwd	.,			///
+	label(resource LBL_DEPVAR)
+  VARNAME vn_dv		@ 	_ss	@	.,			///
+	ts								///
+	numeric								///
+	label(resource LBL_DEPVAR)
+
+  TEXT tx_iv		_vlx	_topph	160	.,			///
+	label(resource LBL_INDDEPVAR)
+  VARLIST vl_iv		@	_ss	_vlwd	.,			///
+	fv ts								///
+	allowcat							///
+	numeric								///
+	label(resource LBL_INDDEPVAR)
+
+  CHECKBOX ck_nocons   @           _ms       @           .,		///
+		label(resource LBL_NOCONSTANT)				///
+		option(noconstant)
+
+  GROUPBOX gb_model    _lft        _ls       _iwd        _ht4,		///
+		label(resource XTREG_MAIN_GB_MODEL)
+
+  RADIO    rb_re       _ilft       _ss       _cwd3_2     .,		///
+		label(resource XTREG_MAIN_RB_RE)			///
+		onclickon(script re_opts)				///
+		first							///
+		option(re)
+
+  RADIO    rb_be       _ilft3_2    @         @           .,		///
+		label(resource XTREG_MAIN_RB_BE)			///
+		onclickon(script be_opts)				///
+		option(be)
+
+  RADIO    rb_fe       _ilft3_3    @         @           .,		///
+		label(resource LBL_FIXED_EFFECTS_HYPHEN)		///
+		onclickon(script fe_opts)				///
+		option(fe)
+
+  RADIO    rb_ml       _ilft       _ss       @           .,		///
+		label(resource XTREG_MAIN_RB_ML)			///
+		onclickon(script ml_opts)				///
+		option(mle)
+
+  RADIO    rb_pa       _ilft3_2    @         @           .,		///
+		label(resource XTREG_MAIN_RB_PA)			///
+		onclickon(script pa_opts)				///
+		last							///
+		option(pa)
+
+  GROUPBOX gb_opts    _lft      _xls      _iwd      _ht10,		///
+		label(resource LBL_OPTIONS)
+
+  TEXT     tx_offset _ilft     _ss       _cwd2     .,			///
+		label(resource LBL_OFFSET_VARIABLE)
+
+  VARNAME  vn_offset @         _ss       _vnwd     .,			///
+		label(resource LBL_OFFSET_VARIABLE)			///
+		numeric							///
+		option(offset)
+
+  CHECKBOX ck_sa     @         _ls       _cwd2     .,			///
+		label(resource XTREG_MAIN_CK_SA)			///
+		option(sa)
+
+  CHECKBOX ck_wls    @         _ms       @         .,			///
+		label(resource XTREG_MAIN_CK_WLS)			///
+		option(wls)
+END
+
+SCRIPT re_opts
+BEGIN
+	main.tx_offset.disable
+	main.vn_offset.disable
+	main.ck_nocons.disable
+	main.ck_sa.enable
+	rpt.ck_theta.enable
+	main.ck_wls.disable
+	program check_se_status
+	program disable_xtgee_common
+	script max_internalFrom_on
+	script max_internal_disable
+	script weights_disable
+	script weights_setLayout_fpi
+END
+
+SCRIPT be_opts
+BEGIN
+	main.tx_offset.disable
+	main.vn_offset.disable
+	main.ck_nocons.disable
+	main.ck_sa.disable
+	rpt.ck_theta.disable
+	main.ck_wls.enable
+	program check_se_status
+	program disable_xtgee_common
+	script max_internalFrom_on
+	script max_internal_disable
+	script weights_disable
+	script weights_setLayout_fpi
+END
+
+SCRIPT fe_opts
+BEGIN
+	main.tx_offset.disable
+	main.vn_offset.disable
+	main.ck_nocons.disable
+	main.ck_sa.disable
+	rpt.ck_theta.disable
+	main.ck_wls.disable
+	program check_se_status
+	program disable_xtgee_common
+	script max_internalFrom_on
+	script max_internal_disable
+	script weights_enable
+	script weights_setLayout_fpa
+END
+
+SCRIPT ml_opts
+BEGIN
+	main.tx_offset.disable
+	main.vn_offset.disable
+	main.ck_nocons.enable
+	main.ck_sa.disable
+	rpt.ck_theta.disable
+	main.ck_wls.disable
+	program check_se_status
+	program disable_xtgee_common
+	script max_pa_hide
+	script max_internalFrom_on
+	script max_internal_enable
+	script weights_enable
+	script weights_setLayout_i
+END
+
+SCRIPT pa_opts
+BEGIN
+	main.tx_offset.enable
+	main.vn_offset.enable
+	main.ck_nocons.enable
+	main.ck_sa.disable
+	rpt.ck_theta.disable
+	main.ck_wls.disable
+	program check_se_status
+	program enable_xtgee_common
+	script max_pa_on
+	script weights_enable
+	script weights_setLayout_fpi
+END
+
+INCLUDE xtgee_common
+INCLUDE byifin
+INCLUDE weights
+INCLUDE se
+
+PROGRAM check_se_status
+BEGIN
+	if main.rb_pa {
+		call script se_setIOIM_off
+		call script se_setGLS_off
+		call script se_setNONEST_off
+		call script se_setDFADJ_off
+		call script se_setGEE_on
+	}
+	if !main.rb_pa {
+		call script se_setConventional_off
+		call script se_setIOIM_off
+		if main.rb_re {
+			call script se_setGEE_off_robustOK
+			call script se_setGLS_off
+			call script se_setConventional_on
+			call script se_setNONEST_off	// option is now undocumented
+			call script se_setDFADJ_off
+			call script se_setClRobust_on
+		}
+		if main.rb_fe {
+			call script se_setGEE_off_robustOK
+			call script se_setConventional_on
+			call script se_setNONEST_off	// option is now undocumented
+			call script se_setDFADJ_off	// option is now undocumented
+			call script se_setClRobust_on
+		}
+		if main.rb_ml {
+			call script se_setGEE_off_robustOK
+			call script se_setIOIM_on
+			call script se_setClRobust_on
+		}
+		if ! main.rb_fe & ! main.rb_re & ! main.rb_ml{
+			call script se_setGEE_off
+			if main.rb_be {
+				call script se_setConventional_on
+			}
+		}
+	}
+END
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+        program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  CHECKBOX ck_theta    _lft        _ls        _iwd       .,		///
+		label(resource XTREG_RPT_CK_THETA) 			///
+		option(theta)
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+
+PROGRAM rpt_output
+BEGIN
+	optionarg /hidedefault rpt.sp_level
+	option rpt.ck_theta
+	INCLUDE _report_columns_pr
+	put " " rpt_bu_facvarsResults
+	put " " rpt_bu_fmtcoefResults
+END
+
+INCLUDE max_ml
+
+PROGRAM command
+BEGIN
+	put /program by_output " "
+	put "xtreg "
+	varlist main.vn_dv [main.vl_iv]
+	if !main.vl_iv & main.ck_nocons & !D(main.ck_nocons) {
+		call create STRING _MSG_TMP
+                call _MSG_TMP.format					/// 
+			"resource LBL_MSGBOX_IS_SELECTED_WITHOUT_INDVARS_FMT" ///
+			"resource LBL_NOCONSTANT"
+		stopbox stop "class _MSG_TMP.value"
+// "Suppress constant term" is selected without independent variables.
+	}
+	put " " /program ifin_output
+	put " " /program weights_output
+	beginoptions
+		option main.ck_nocons
+		option radio(main rb_re rb_be rb_fe rb_ml rb_pa)
+		optionarg main.vn_offset
+		option main.ck_sa
+		option main.ck_wls
+		put " " /program xtgee_common_output
+		put " " /program se_output
+		put " " /program rpt_output
+		put " " /program max_output
+	endoptions
+END

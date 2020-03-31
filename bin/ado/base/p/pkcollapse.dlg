@@ -1,0 +1,127 @@
+/*
+  pkcollapse
+
+*! VERSION 1.2.0  11nov2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE _ht320
+INCLUDE header
+
+HELP hlp1, view("help pkcollapse")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource PKCOLLAPSE_DLG_HSCALE
+END
+
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)	///
+	label(resource PKCOLLAPSE_DLG_TITLE)
+BEGIN
+  TEXT     tx_vart         _lft      _top      _cwd1     .,		///
+	label(resource LBL_TIME_VARIABLE)
+  TEXT     tx_vari         _lft2     @         @         .,		///
+	label(resource LBL_IDENTIFICATION_VARIABLE)
+  VARNAME  vn_vart         _lft      _ss       _vnwd     .,		///
+  	numeric								///
+	label(resource LBL_TIME_VARIABLE)
+  VARNAME  vn_vari         _lft2     @         _vnwd     .,		///
+	label(resource LBL_IDENTIFICATION_VARIABLE) option(id)
+
+  TEXT     tx_varc         _lft      _ms       _iwd      .,		///
+	label(resource PKCOLLAPSE_MAIN_TX_VARC)
+  VARLIST  vl_varc         @         _ss       _iwd      .,		///
+  	numeric								///
+	label(resource PKCOLLAPSE_MAIN_TX_VARC)
+
+  GROUPBOX gb_opt          _lft      _ls       _iwd      _ht17,		///
+	label(resource LBL_OPTIONS)
+  CHECKBOX ck_stat         _indent   _ss       _ibwd     .,		///
+	label(resource PKCOLLAPSE_MAIN_CK_STAT)				///
+	onclickon(main.cb_stat.enable)					///
+	onclickoff(main.cb_stat.disable)
+DEFINE _x @x
+  COMBOBOX cb_stat         _indent2  _ss       _inwd     .,		///
+	append dropdown	option(stat)					///
+	contents(measure_long) values(measure)				///
+	label(resource PKCOLLAPSE_MAIN_CK_STAT)
+  CHECKBOX ck_trap         _x        _ls      _cwd2     .,		///
+	label(resource LBL_USE_TRAPEZOIDAL_RULE) option(trapezoid)
+  DEFINE holdy @y
+  CHECKBOX ck_fit          _x        _ms       _cwd2     .,		///
+	label(resource LBL_POINTS_TO_USE_TO_EXTEND_AUC)			///
+	onclickon(main.sp_fit.enable)					///
+	onclickoff(main.sp_fit.disable)
+  SPINNER  sp_fit          _indent2  _ss       _spwd     .,		///
+	option(fit) min(3) max(100000000) default(3)			///
+	label(resource LBL_POINTS_TO_USE_TO_EXTEND_AUC)
+  CHECKBOX ck_keep         _x        _ls       _ibwd     .,		///
+	label(resource PKCOLLAPSE_MAIN_CK_KEEP)				///
+	onclickon(main.vl_keep.enable)					///
+	onclickoff(main.vl_keep.disable)
+  VARLIST  vl_keep	   _indent2  _ss       _inwd     .,		///
+	label(resource PKCOLLAPSE_MAIN_CK_KEEP) option(keep)
+  CHECKBOX ck_force        _lft2     holdy     @         .,		///
+	label(resource PKCOLLAPSE_MAIN_CK_FORCE) option(force)
+  CHECKBOX ck_nodots       _lft2     _ms       _cwd2     .,		///
+	option(nodots) label(resource PKCOLLAPSE_MAIN_CK_NODOTS)
+END
+
+INCLUDE if
+
+LIST measure_long
+BEGIN
+	resource PKCOLLAPSE_AUC
+	resource PKCOLLAPSE_AUCLINE
+	resource PKCOLLAPSE_AUCEXP
+	resource PKCOLLAPSE_AUCLOG
+	resource PKCOLLAPSE_HALF
+	resource PKCOLLAPSE_KE
+	resource PKCOLLAPSE_CMAX
+	resource PKCOLLAPSE_TMAX
+	resource PKCOLLAPSE_TOMC
+END
+
+LIST measure
+BEGIN
+	    auc
+	    aucline
+	    aucexp
+	    auclog
+	    half
+	    ke
+	    cmax
+	    tmax
+	    tomc
+END
+
+PROGRAM command
+BEGIN
+	put "pkcollapse "
+	varlist main.vn_vart
+	varlist main.vl_varc
+	INCLUDE _if_pr
+	beginoptions
+		require main.vn_vari
+		optionarg main.vn_vari
+	        option main.ck_trap
+		option main.ck_force
+		option main.ck_nodots
+		if main.ck_stat {
+			require main.cb_stat
+			optionarg main.cb_stat
+		}
+		if main.ck_keep {
+			require main.vl_keep
+			optionarg main.vl_keep
+		}
+		if main.ck_fit {
+			optionarg main.sp_fit
+		}
+	endoptions
+END

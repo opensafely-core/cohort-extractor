@@ -1,0 +1,380 @@
+/*
+	testnl
+
+*! VERSION 2.1.5  07may2017
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 320
+INCLUDE header
+
+HELP hlp1, view("help testnl")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING STMP
+
+	create STRING main_hypotmp
+	create STRING main_hypotmp2
+	create STRING main_hypo_childdlg
+	create STRING main_hypo_child_result
+	create STRING main_hypo_cmd_output
+
+	create ARRAY main_hypo_list
+
+	create SVECTOR mainHYPOCommandDisplayList
+	create SVECTOR mainHYPOCommandList
+	create SVECTOR mainHYPOCommandValues
+	create SVECTOR mainHYPOStatusList
+	create SVECTOR mainHYPOChildDialogList
+	create SVECTOR mainHYPOHasNoError
+
+	create DOUBLE main_hypo_count
+	create DOUBLE main_hypo_position
+	create DOUBLE main_hypo_arraysize
+
+	main.bu_hypo_edit.disable
+	main.bu_hypo_disable.disable
+	main.bu_hypo_enable.disable
+
+	create STRING has_svy
+	setscale_hadj resource TESTNL_DLG_HSCALE
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	label(resource TESTNL_DLG_TITLE)
+BEGIN
+  TEXT tx_hypo			_lft	_top	_comb4_1 .,		///
+	label(resource TESTNL_MAIN_TX_HYPO)
+  DEFINE holdy @y
+  LISTBOX lb_hypoBuild		_lft	_ss	200	95,		///
+	contents(main_hypo_list)					///
+	ondblclick(program main_hypo_edit)				///
+	onselchange(program main_hypo_sel_changed)			///
+	nomemory
+  BUTTON bu_hypo_new		+210	@	80	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program main_hypo_create)				///
+	tooltip(resource TESTNL_MAIN_BU_HYPO_NEW)
+  BUTTON bu_hypo_edit		@	_ms	@	.,		///
+	label(resource LBL_BU_EDIT)					///
+	onpush(program main_hypo_edit)					///
+	tooltip(resource TESTNL_MAIN_BU_HYPO_EDIT)
+  BUTTON bu_hypo_disable	@	_ms	@	.,		///
+	label(resource LBL_BU_DISABLE)					///
+	onpush(program main_hypo_disable)				///
+	tooltip(resource TESTNL_MAIN_BU_HYPO_DISABLE)
+  BUTTON bu_hypo_enable	@	_ms	@	.,			///
+	label(resource LBL_BU_ENABLE)					///
+	onpush(program main_hypo_enable)				///
+	tooltip(resource TESTNL_MAIN_BU_HYPO_ENABLE)
+  TEXTBOX tb_hypo_note		_lft	+25	_iwd	_tb2,		///
+	label(resource TESTNL_MAIN_TB_HYPO_NOTE)
+
+  CHECKBOX ck_mtest		_lft	+40	_cwd3_1	_ht10,		///
+	groupbox							///
+	clickon(script mtest_on)					///
+	clickoff(script mtest_off)					///
+	label(resource TESTNL_MAIN_CK_MTEST)
+  DEFINE holdy @y
+  TEXT tx_mtest2		_ilft	_ss	_cwd3_4	.,		///
+	label(resource TESTNL_MAIN_CK_MTEST2)
+  RADIO rb_noad			@	_ss	@	., first	///
+	option(mtest(noadjust))						///
+	label(resource TESTNL_MAIN_RB_NOAD)
+  RADIO rb_bonf			@	_ss	@	.,		///
+	option(mtest(bonferroni))					///
+	label(resource LBL_BONFERRONI)
+  RADIO rb_holm			@	_ss	@	.,		///
+	option(mtest(holm))						///
+	label(resource TESTNL_MAIN_RB_HOLM)
+  RADIO rb_sidak		@	_ss	@	., last		///
+	option(mtest(sidak))						///
+	label(resource LBL_SIDAK)
+  CHECKBOX ck_iter		_lft3_2	holdy	_comb3_1 _ht10,		///
+	clickon(script iter_on)						///
+	clickoff(script iter_off)	groupbox			///
+	label(resource LBL_MAXIMUM_NUMBER_OF_ITERS)
+  SPINNER sp_iter		_indent _ss	_spwd	.,		///
+	default(100)							///
+	min(2)								///
+	max(1000000000)							///
+	option(iterate)							///
+	label(resource LBL_MAXIMUM_NUMBER_OF_ITERS)
+    TEXTBOX tb_iter		@	_ls	_comb3_3 _tb3,		///
+	label(resource TESTNL_MAIN_TB_ITER)
+END
+
+PROGRAM main_hypo_create
+BEGIN
+	call main_hypo_count.setvalue class mainHYPOChildDialogList.size
+	call main_hypo_count.increment
+	call main_hypo_count.withvalue main_hypo_childdlg.setvalue	///
+		"main_hypo@"
+	call program main_show_hypo_child
+END
+
+PROGRAM main_hypo_edit
+BEGIN
+	call mainHYPOCommandDisplayList.findstr class main.lb_hypoBuild.value
+	call main_hypo_position.setvalue class				///
+		mainHYPOCommandDisplayList.position
+	call main_hypo_position.withvalue main_hypo_childdlg.setvalue	///
+		class mainHYPOChildDialogList.values[@]
+
+	call program main_show_hypo_child_edit
+END
+
+PROGRAM main_show_hypo_child
+BEGIN
+	call main_hypo_childdlg.withvalue create CHILD testnl_hypo AS @
+	call main_hypo_childdlg.withvalue @.setExitString		///
+		"main_hypo_child_result"
+	call main_hypo_childdlg.withvalue @.setExitAction		///
+		"program main_hypo_child_done"
+
+	call main_hypo_count.withvalue STMP.format			///
+		"resource LBL_HYPOTHESES_FMT" "@" ""
+	call STMP.withvalue main_hypotmp.setvalue "@"
+	call main_hypo_childdlg.withvalue main_hypotmp2.setvalue "@.settitle"
+	call main_hypotmp2.append `" ""'
+	call main_hypotmp2.append class main_hypotmp.value
+	call main_hypotmp2.append `"""'
+	call main_hypotmp2.withvalue @
+END
+
+PROGRAM main_show_hypo_child_edit
+BEGIN
+	call main_hypo_childdlg.withvalue create CHILD testnl_hypo AS @
+	call main_hypo_childdlg.withvalue @.setExitString		///
+		"main_hypo_child_result"
+	call main_hypo_childdlg.withvalue @.setExitAction		///
+		"program main_hypo_child_done"
+
+	call main_hypo_position.withvalue main_hypotmp.setvalue	///
+		class mainHYPOCommandDisplayList.values[@]
+	call main_hypo_childdlg.withvalue main_hypotmp2.setvalue "@.settitle"
+	call main_hypotmp2.append `" ""'
+	call main_hypotmp2.append class main_hypotmp.value
+	call main_hypotmp2.append `"""'
+	call main_hypotmp2.withvalue @
+END
+
+PROGRAM main_hypo_child_done
+BEGIN
+	call mainHYPOChildDialogList.findstr class main_hypo_childdlg.value
+	call main_hypo_position.setvalue class				///
+		mainHYPOChildDialogList.position
+	if main_hypo_position {
+		call main_hypo_position.withvalue main_hypotmp.setvalue ///
+			class mainHYPOStatusList.values[@]
+		if main_hypotmp.iseq("active") {
+			call main_hypo_position.withvalue STMP.format	///
+				"resource LBL_HYPOTHESES_FMT" "@" ""
+
+			call STMP.withvalue				///
+				mainHYPOCommandDisplayList.store class	///
+				main_hypo_position.value "@"
+			call mainHYPOCommandValues.store class		///
+				main_hypo_position.value class		///
+				main_hypo_child_result.value
+			call STMP.withvalue				///
+				main_hypotmp2.setvalue "@"
+		}
+		else {
+			call main_hypo_position.withvalue STMP.format	///
+				"resource LBL_HYPOTHESES_FMT" "@"	///
+				"resource LBL_PAREN_DISABLED"
+			call STMP.withvalue				///
+				main_hypotmp2.setvalue "@"
+			call main_hypotmp2.withvalue			///
+				mainHYPOCommandDisplayList.store	///
+				class main_hypo_position.value "@"
+		}
+
+		call mainHYPOCommandList.store class			///
+			main_hypo_position.value class			///
+			main_hypo_child_result.value
+
+		call mainHYPOCommandDisplayList.copyToArray main_hypo_list
+		call main.lb_hypoBuild.repopulate
+		call main.lb_hypoBuild.setvalue class main_hypotmp2.value
+	}
+	else {
+		call main_hypo_arraysize.setvalue class		///
+			mainHYPOChildDialogList.size
+		call main_hypo_arraysize.increment
+
+		/* Store child dialog name */
+		call mainHYPOChildDialogList.store class		///
+			main_hypo_arraysize.value class			///
+			main_hypo_childdlg.value
+
+		call main_hypo_arraysize.withvalue STMP.format		///
+			"resource LBL_HYPOTHESES_FMT" "@" ""
+		call STMP.withvalue					///
+			mainHYPOCommandDisplayList.store class		///
+			main_hypo_arraysize.value "@"
+
+		/* Store child dialog result string */
+		call mainHYPOCommandList.store class			///
+			main_hypo_arraysize.value			///
+			class main_hypo_child_result.value
+
+		/* Store child dialog result string for final command
+		   For disable/enable */
+		call mainHYPOCommandValues.store class			///
+			main_hypo_arraysize.value class		///
+			main_hypo_child_result.value
+
+		/* Store disable/enable status */
+		call mainHYPOStatusList.store				///
+			class main_hypo_arraysize.value "active"
+
+		call mainHYPOCommandDisplayList.copyToArray main_hypo_list
+		call main.lb_hypoBuild.repopulate
+		call STMP.withvalue main.lb_hypoBuild.setvalue "@"
+	}
+
+	call program HYPOckHasNoErrorOpt
+END
+
+PROGRAM main_hypo_sel_changed
+BEGIN
+	call mainHYPOCommandDisplayList.findstr class main.lb_hypoBuild.value
+	call main_hypo_position.setvalue class			///
+		mainHYPOCommandDisplayList.position
+	call main_hypo_position.withvalue main_hypotmp.setvalue	///
+		class mainHYPOStatusList.values[@]
+	if main_hypo_position {
+		call main.bu_hypo_edit.enable
+		call main_hypo_position.withvalue			///
+			main.tb_hypo_note.setlabel			///
+			class mainHYPOCommandList.values[@]
+	}
+
+	if main_hypotmp.iseq("disable") {
+		call main.bu_hypo_enable.enable
+		call main.bu_hypo_disable.disable
+	}
+	if main_hypotmp.iseq("active") {
+		call main.bu_hypo_enable.disable
+		call main.bu_hypo_disable.enable
+	}
+END
+
+PROGRAM main_hypo_disable
+BEGIN
+	call mainHYPOCommandDisplayList.findstr class main.lb_hypoBuild.value
+	call main_hypo_position.setvalue class				///
+		mainHYPOCommandDisplayList.position
+
+	call main_hypotmp.setvalue class main.lb_hypoBuild.value
+	call mainHYPOStatusList.store class main_hypo_position.value "disable"
+	call mainHYPOCommandValues.store class main_hypo_position.value ""
+	call STMP.format "resource LBL_PAREN_DISABLED"
+	call main_hypotmp.append " "
+	call main_hypotmp.append class STMP.value
+	call main_hypotmp.withvalue STMP.setvalue "@"
+	call main_hypotmp.withvalue mainHYPOCommandDisplayList.store	///
+		class main_hypo_position.value "@"
+
+	call mainHYPOCommandDisplayList.copyToArray main_hypo_list
+	call main.lb_hypoBuild.repopulate
+	call main.lb_hypoBuild.setvalue class STMP.value
+END
+
+PROGRAM main_hypo_enable
+BEGIN
+	call mainHYPOCommandDisplayList.findstr class main.lb_hypoBuild.value
+	call main_hypo_position.setvalue class				///
+		mainHYPOCommandDisplayList.position
+
+	call mainHYPOStatusList.store class main_hypo_position.value "active"
+	call main_hypo_position.withvalue mainHYPOCommandValues.store	///
+		class main_hypo_position.value class			///
+		mainHYPOCommandList.values[@]
+
+	call main_hypo_position.withvalue STMP.format			///
+		"resource LBL_HYPOTHESES_FMT" "@" ""
+
+	call STMP.withvalue						///
+		mainHYPOCommandDisplayList.store			///
+		class main_hypo_position.value "@"
+
+	call mainHYPOCommandDisplayList.copyToArray main_hypo_list
+	call main_hypo_position.withvalue main_hypotmp2.setvalue	///
+		class mainHYPOCommandDisplayList.values[@]
+	call main.lb_hypoBuild.repopulate
+	call main.lb_hypoBuild.setvalue class main_hypotmp2.value
+END
+
+PROGRAM main_lb_hypoBuild_output
+BEGIN
+	call mainHYPOCommandValues.copyToString main_hypo_cmd_output
+	call main_hypo_arraysize.setvalue class mainHYPOStatusList.size
+	if main_hypo_cmd_output.iseq("") &				///
+		main_hypo_arraysize.iseq(0) {
+		stopbox stop resource TESTNL_MSGBOX_HYPOTHESES_NOT_DEFINED
+// Hypotheses not defined.
+// Please enter a hypotheses before proceeding.
+	}
+	if main_hypo_cmd_output.iseq("") & main_hypo_arraysize.isgt(0) ///
+		& main.lb_hypoBuild.isvisible() {
+		stopbox stop resource TESTNL_MSGBOX_ALL_HYPOTHESES_ARE_DISABLED
+// All hypotheses are disabled.
+// Either define a new hypotheses or enable an existing hypotheses
+// before proceeding.
+	}
+
+	if main_hypo_cmd_output & main.lb_hypoBuild.isvisible() {
+		put main_hypo_cmd_output
+	}
+END
+
+
+SCRIPT iter_on
+BEGIN
+	main.sp_iter.enable
+END
+
+SCRIPT iter_off
+BEGIN
+	main.sp_iter.disable
+END
+
+SCRIPT mtest_on
+BEGIN
+	main.tx_mtest2.enable
+	main.rb_noad.enable
+	main.rb_bonf.enable
+	main.rb_holm.enable
+	main.rb_sidak.enable
+END
+
+SCRIPT mtest_off
+BEGIN
+	main.tx_mtest2.disable
+	main.rb_noad.disable
+	main.rb_bonf.disable
+	main.rb_holm.disable
+	main.rb_sidak.disable
+END
+
+PROGRAM command
+BEGIN
+	put "testnl "
+	put " " /program main_lb_hypoBuild_output
+	beginoptions
+		if main.ck_mtest {
+			option radio(main rb_noad rb_bonf rb_holm rb_sidak)
+		}
+		if main.ck_iter{
+			optionarg main.sp_iter
+		}
+	endoptions
+END

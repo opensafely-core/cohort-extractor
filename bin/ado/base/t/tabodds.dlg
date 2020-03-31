@@ -1,0 +1,317 @@
+/*
+ tabodds
+
+*!  VERSION 2.1.2  01jul2015
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_wide
+DEFINE _dlght 340
+INCLUDE header
+
+HELP hlp1, view("help tabodds")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource TABODDS_DLG_HSCALE
+END
+
+SCRIPT main_POSTINIT
+BEGIN
+	script gr_plots_setDefaultConnected
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)                            ///
+label(resource TABODDS_DLG_TITLE)
+BEGIN
+  TEXT tx_casevar		_lft	_top	_cwd3_0	.,		///
+	label(resource LBL_CASE_VARIABLE)
+  VARNAME vn_casevar		@	_ss	_vnwd	.,		///
+  	numeric								///
+	label(resource LBL_CASE_VARIABLE)
+  CHECKBOX ck_expvar		+190	_top	_cwd3_0	.,		///
+	label(resource LBL_EXPLANATORY_VARIABLE)			///
+	onclickon(program expvar_on)					///
+	onclickoff(script expvar_off)
+
+  VARNAME  vn_expvar		_indent2 _ss	_vnwd	.,		///
+  	numeric								///
+	label(resource LBL_EXPLANATORY_VARIABLE)
+
+  CHECKBOX ck_bin		+190	_top	_cwd3_1	.,		///
+	label(resource TABODDS_MAIN_CK_BIN)				///
+	onclickon(script subject_on)					///
+	onclickoff(script subject_off)
+  VARNAME vn_bin		_indent2 _ss	_vnwd	.,		///
+	option(binomial)						///
+	numeric								///
+	label(resource TABODDS_MAIN_CK_BIN)
+
+  GROUPBOX gb_options		_lft	+60	_iwd	_ht21,		///
+  	label(resource TABODDS_MAIN_GB_OPTIONS)
+
+  RADIO rb_noor			_ilft	_ss	_comb3_2 .,		///
+  	first option(NONE) 						///
+  	onclickon(program noor)						///
+  	label(resource TABODDS_MAIN_RB_NOOR)
+  DEFINE opttop  @y
+  RADIO rb_or			@	_ss	@	.,		///
+	option(or)							///
+	label(resource TABODDS_MAIN_RB_OR)				///
+	onclickon(program or_on)
+  RADIO rb_adjust		@	_ss	@	.,		///
+	label(resource TABODDS_MAIN_RB_ADJUST) 				///
+	onclickon(program adjust_on) 					///
+	last
+  VARLIST vl_adjust		_indent2 _ss	@	.,		///
+	option(adjust)							///
+	numeric								///
+	label(resource TABODDS_MAIN_VL_ADJUST)
+  CHECKBOX ck_base		_ilft	_ls	_cksprb	.,		///
+	onclickon(main.sp_base.enable)					///
+	onclickoff(main.sp_base.disable)				
+  SPINNER sp_base		_cksep	@	_spwd	.,		///
+	option(base)							///
+	label(resource TABODDS_MAIN_SP_BASE)				///
+	default(1) min(1) max(10000000)
+  TEXT tx_base			_spsep	@	_cksprb	.,		///
+	label(resource TABODDS_MAIN_TX_BASE)
+  GROUPBOX gb_odds		_ilft	_ls	_cwd1	_ht6,		///
+  	label(resource TABODDS_MAIN_GB_ODDS)
+  RADIO rb_default		_indent	_ss	_inwd	.,		///
+  	option(NONE) 							///
+  	first								///
+  	label(resource TABODDS_MAIN_RB_DEFAULT)
+  RADIO rb_cornfield		@	_ss	@	.,		///
+	option(cornfield)						///
+	label(resource LBL_CORNFIELD_APPROXIMATION)
+  RADIO rb_woolf		@	_ss	@	.,		///
+	option(woolf)							///
+	label(resource LBL_WOOLF_APPROXIMATION)				///
+	last
+
+  CHECKBOX ck_graph		_lft3_3	opttop	_cwd3_2	.,		///
+	option(graph)							///
+	label(resource TABODDS_MAIN_CK_GRAPH)				///
+	onclickon(script graph_on)					///
+	onclickoff(program graph_off)
+  CHECKBOX ck_ciplot		@	_ms	@	.,		///
+	option(ciplot)							///
+	label(resource TABODDS_MAIN_CK_CIPLOT)				///
+	onclickon(program ci_check)					///
+	onclickoff(program ci_check)
+  DEFINE _x _lft
+  DEFINE _y -75 
+  DEFINE _cx _spr
+  INCLUDE _sp_level
+END
+
+// Main scripts
+SCRIPT subject_on
+BEGIN
+	main.vn_bin.enable
+	script weights_disable
+END
+
+SCRIPT subject_off
+BEGIN
+	main.vn_bin.disable
+	script weights_enable
+END
+
+PROGRAM ci_check
+BEGIN
+	if main.ck_ciplot {
+		call script gr_ciplots_enable
+	}
+	if !main.ck_ciplot {
+		call script gr_ciplots_disable
+	}
+END
+
+PROGRAM graph_off
+BEGIN
+	if main.ck_expvar {
+		call gaction main.rb_or.enable
+		call gaction main.rb_adjust.enable
+	}
+	call gaction main.ck_ciplot.disable
+	call script gr_ciplots_disable
+	call script gr_plots_disable
+	call script gr_addplots_disable
+        call script gr_yaxis_disable
+        call script gr_xaxis_disable
+        call script gr_titles_disable
+        call script gr_legend_disable
+        call script gr_overall_disable
+	
+END
+
+SCRIPT graph_on
+BEGIN
+	main.rb_or.disable
+	main.rb_adjust.disable
+	main.ck_ciplot.enable
+	program ci_check
+	script gr_plots_enable
+	script gr_addplots_enable
+        script gr_yaxis_enable
+        script gr_xaxis_enable
+        script gr_titles_enable
+        script gr_legend_enable
+        script gr_overall_enable
+END
+
+PROGRAM adjust_on
+BEGIN
+  	call main.ck_base.enable
+  	call main.tx_base.enable
+	if main.ck_base {
+		call main.sp_base.enable
+	}
+	call main.vl_adjust.enable
+	call main.ck_ciplot.disable
+	call main.ck_graph.disable
+	call script or_only_off
+END
+
+PROGRAM noor
+BEGIN
+	call main.vl_adjust.disable
+	call main.ck_base.disable
+	call main.sp_base.disable
+	call main.tx_base.disable
+	if main.ck_expvar {
+		call main.ck_graph.enable
+		if main.ck_graph {
+			call main.ck_ciplot.enable
+		}
+	}
+	call script or_only_off
+END
+
+PROGRAM expvar_on
+BEGIN
+	call main.vn_expvar.enable
+  	call main.rb_or.enable
+	call main.rb_adjust.enable
+	call main.rb_noor.enable
+	if main.rb_adjust {
+  		call program adjust_on
+  	}
+	if main.rb_or {
+		call program or_on
+	}
+	if main.rb_noor {
+  		call main.ck_graph.enable
+		if main.ck_graph {
+			call script graph_on
+			call main.ck_ciplot.enable
+		}
+  	}
+END
+
+SCRIPT expvar_off
+BEGIN
+	main.vn_expvar.disable
+	main.rb_noor.disable
+	main.rb_or.disable
+	main.rb_adjust.disable
+	main.vl_adjust.disable
+	main.gb_odds.disable
+	main.ck_base.disable
+	main.sp_base.disable
+	main.tx_base.disable
+	main.ck_graph.disable
+	main.ck_ciplot.disable
+	main.rb_default.disable
+	main.rb_cornfield.disable
+	main.rb_woolf.disable
+	script graphtab_off
+END
+
+SCRIPT or_only_off
+BEGIN
+	main.gb_odds.disable
+	main.rb_default.disable
+	main.rb_cornfield.disable
+	main.rb_woolf.disable
+END
+
+PROGRAM or_on
+BEGIN
+	call main.ck_base.enable
+	call main.tx_base.enable
+	call main.ck_graph.disable
+	call main.ck_ciplot.disable
+	if main.ck_base {
+		call main.sp_base.enable
+  	}
+	call main.gb_odds.enable
+	call main.rb_default.enable
+	call main.rb_cornfield.enable
+	call main.rb_woolf.enable
+	call main.vl_adjust.disable
+END
+
+INCLUDE ifin
+INCLUDE weights_f
+INCLUDE gr_ciplots
+INCLUDE gr_plots
+INCLUDE gr_addplots
+INCLUDE gr_yaxis
+INCLUDE gr_xaxis
+INCLUDE gr_titles
+INCLUDE gr_legend
+INCLUDE gr_overall
+
+PROGRAM command
+BEGIN
+	put "tabodds " 
+	varlist main.vn_casevar
+        if main.ck_expvar {
+                varlist main.vn_expvar
+        }
+	put " " /program ifin_output
+	put " " /program weights_output
+
+	beginoptions
+		if main.ck_expvar {
+			if main.rb_or{
+				option main.rb_or
+				option radio(main rb_default rb_cornfield rb_woolf)
+			}
+			if main.rb_adjust {
+				require main.vl_adjust
+				optionarg main.vl_adjust
+			}
+			if main.ck_base {
+				optionarg main.sp_base
+			}
+			if main.rb_noor {
+				option main.ck_graph
+				option main.ck_ciplot
+			}
+		}
+		if main.ck_bin {
+			require main.vn_bin
+			optionarg main.vn_bin
+		}
+		
+		INCLUDE _level_main_pr
+		if main.ck_graph {	
+			put " " /program gr_ciplots_output
+			put " " /program gr_plots_output
+			put " " /program gr_addplots_output
+			put " " /program gr_yaxis_output
+			put " " /program gr_xaxis_output
+			put " " /program gr_titles_output
+			put " " /program gr_legend_output
+			put " " /program gr_overall_output
+		}	
+	endoptions
+	
+END

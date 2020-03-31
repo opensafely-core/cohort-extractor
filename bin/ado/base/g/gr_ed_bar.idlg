@@ -1,0 +1,322 @@
+/*
+  gr_ed_bar.idlg
+
+*!  VERSION 1.1.3  31jul2017
+
+*/
+
+SCRIPT bar_PREINIT
+BEGIN
+	create DOUBLE d_tmp
+	create STRING fill_color
+	create STRING fill_rgb
+	create STRING fill_opacity
+	create STRING intensity
+	create STRING line_color
+	create STRING line_rgb
+	create STRING line_opacity
+	create STRING line_align
+	create STRING width
+	create STRING pattern
+	create DOUBLE barwidth
+
+	create DOUBLE drawview
+	program bar_get_defaults
+END
+
+SCRIPT bar_POSTINIT
+BEGIN
+	program bar_initialize_controls
+END
+
+DIALOG bar, label(resource LBL_GB_BAR_PROPERTIES) tabtitle(resource LBL_BAR)
+BEGIN
+  GROUPBOX gb_bar	_lft	_top	_iwd	_ht28,		///
+	label(resource LBL_GB_BAR_PROPERTIES)
+  TEXT     tx_fclr	_ilft	_ss	_wd	.,		///
+	label(resource LBL_COLOR) right
+  COMBOBOX cb_fclr	_sep	@	_cbwd	.,		///
+	dropdownlist contents(_colors) 				///
+	onselchangelist(bar_cl_fclr_sel)
+  COLOR    cl_fclr	_cbsep	@	_clwd	.,
+  TEXT     tx_fopacity	_ilft	_mls	_wd	.,		///
+	label(resource LBL_OPACITY) right
+  SPINNER sp_fopacity	_sep	@	_spwd	.,		///
+	default(100)						///
+	min(0)							///
+	max(100)
+
+  TEXT     tx_intensity	_ilft	_mls	_wd	.,		///
+	label(resource LBL_FILL_INTENSITY) right
+  COMBOBOX cb_intensity	_sep	@	_cbwd	.,		///
+	dropdown contents(_intensity)
+  
+  TEXT     tx_width	_ilft	 _mls	_wd	.,		///
+	label(resource LBL_OUTLINE_WIDTH) right
+  COMBOBOX cb_width	_sep	@	_cbwd	.,		///
+	dropdown						///
+	contents(_linewidths)
+
+  TEXT     tx_pattern	_ilft	_mls	_wd	.,		///
+	label(resource LBL_OUTLINE_PATTERN) right
+  COMBOBOX cb_pattern	_sep	@	_cbwd	.,		///
+	dropdownlist						///
+	contents(_linepatterns)
+   TEXT     tx_lalign	_ilft	_mls	_wd	.,		///
+      label(resource LBL_OUTLINE_ALIGNMENT) right
+   COMBOBOX cb_lalign	_sep	@	_cbwd	.,		///
+      dropdownlist option(lalign)				///
+      contents(alignstroke)
+
+  TEXT     tx_bwidth	_ilft	 _mls	_wd	.,		///
+	label(resource LBL_BAR_WIDTH) right
+  EDIT     ed_bwidth	_sep	@	_cbwd	.,		///
+	numonly
+
+  CHECKBOX ck_outline	_ilft	_ls	_ibwd	_ht5,		///
+	groupbox						///
+	label(resource LBL_DIFFERENT_OUTLINE_COLOR)		///
+	onclickon(script outline_on)				///
+	onclickoff(script outline_off) nomemory
+
+  TEXT     tx_lclr	_iilft	_ss	_wd2	.,		///
+	label(resource LBL_OUTLINE_COLOR) right
+  COMBOBOX cb_lclr	_sep2	@	_cbwd	.,		///
+	dropdownlist contents(_colors) 				///
+	onselchangelist(bar_cl_lclr_sel)
+DEFINE x @x
+  COLOR    cl_lclr	_cbsep	@	_clwd	.,
+
+  TEXT     tx_lopacity	_iilft	_mls	_wd2	.,		///
+	label(resource LBL_OUTLINE_OPACITY) right
+  SPINNER sp_lopacity	_sep2	@	_spwd	.,		///
+	default(100)						///
+	min(0)							///
+	max(100)
+
+  // public scope (do not change name)
+  CHECKBOX ck_hide	_lft	_xxls	_cbwd	.,		///
+	label(resource LBL_HIDE_PLOT)
+END
+
+SCRIPT outline_on
+BEGIN
+	bar.tx_lclr.enable
+	bar.cb_lclr.enable
+	bar.tx_lopacity.enable
+	bar.sp_lopacity.enable
+END
+
+SCRIPT outline_off
+BEGIN
+	bar.tx_lclr.disable
+	bar.cb_lclr.disable
+	bar.tx_lopacity.disable
+	bar.sp_lopacity.disable
+END
+
+LIST bar_cl_fclr_sel
+BEGIN
+	bar.cl_fclr.show
+	bar.cl_fclr.hide
+END
+LIST bar_cl_lclr_sel
+BEGIN
+	bar.cl_lclr.show
+	bar.cl_lclr.hide
+END
+
+PROGRAM bar_get_defaults
+BEGIN
+	call Gstyle.withvalue index.setvalue class @.area.shadestyle.color.styledex
+	call index.withvalue fill_color.setvalue class .__STYLES.color[@]
+	call bar.cb_fclr.setdefault class fill_color.value
+	call Gstyle.withvalue fill_rgb.setvalue class @.area.shadestyle.color.rgb
+	call bar.cl_fclr.setdefault class fill_rgb.value
+	call Gstyle.withvalue fill_opacity.setvalue class @.area.shadestyle.color.opacity
+	call bar.sp_fopacity.setdefault class fill_opacity.value
+
+	call Gstyle.withvalue index.setvalue  class @.area.shadestyle.intensity.styledex
+	call index.withvalue intensity.setvalue class .__STYLES.intensity[@]
+	if ! intensity {
+		call Gstyle.withvalue intensity.setvalue class @.area.shadestyle.intensity.val
+	}
+	call bar.cb_intensity.setdefault class intensity.value
+
+	call Gstyle.withvalue index.setvalue class @.area.linestyle.color.styledex
+	call index.withvalue line_color.setvalue class .__STYLES.color[@]
+	call bar.cb_lclr.setdefault class line_color.value
+	call Gstyle.withvalue line_rgb.setvalue class @.area.linestyle.color.rgb
+	call bar.cl_lclr.setdefault class line_rgb.value
+
+	call Gstyle.withvalue line_opacity.setvalue class @.area.linestyle.color.opacity
+	call bar.sp_lopacity.setdefault class line_opacity.value
+
+	call Gstyle.withvalue index.setvalue class @.area.linestyle.width.styledex
+	call index.withvalue width.setvalue class .__STYLES.linewidth[@]
+	if ! width {
+		call Gstyle.withvalue width.setvalue class @.area.linestyle.width.val
+	}
+	call bar.cb_width.setdefault class width.value
+
+	call Gstyle.withvalue index.setvalue class @.area.linestyle.pattern.styledex
+	call index.withvalue pattern.setvalue class .__STYLES.linepattern[@]
+	call bar.cb_pattern.setdefault class pattern.value
+
+	call G.withvalue barwidth.setvalue class @.bar_size
+	call bar.ed_bwidth.setdefault class barwidth.value
+
+	call Gstyle.withvalue index.setvalue class @.area.linestyle.align.styledex
+	call index.withvalue line_align.setvalue class .__STYLES.alignstroke[@]
+	call bar.cb_lalign.setdefault class line_align.value
+
+	call G.withvalue drawview.setvalue class @.draw_view.istrue
+	if drawview {
+		call bar.ck_hide.setdefault 0
+	}
+	else {
+		call bar.ck_hide.setdefault 1
+	}
+END
+
+PROGRAM bar_initialize_controls
+BEGIN
+	if fill_color {
+		call bar.cb_fclr.setvalue class fill_color.value
+	}
+	else {
+		call bar.cb_fclr.setvalue "custom"
+	}
+	call bar.cl_fclr.setvalue class fill_rgb.value
+	call bar.sp_fopacity.setvalue class fill_opacity.value
+	call bar.cb_intensity.setvalue class intensity.value
+
+	if line_color {
+		call bar.cb_lclr.setvalue class line_color.value
+	}
+	else {
+		call bar.cb_lclr.setvalue "custom"
+	}
+	call bar.sp_lopacity.setvalue class line_opacity.value
+
+	call bar.cb_width.setvalue class width.value
+	call bar.cb_pattern.setvalue class pattern.value
+	call bar.cb_lalign.setvalue class line_align.value
+	call bar.ed_bwidth.setvalue class barwidth.value
+
+	if fill_rgb.isneq(line_rgb) {
+		call bar.ck_outline.seton
+	}
+	else {
+		call bar.ck_outline.setoff
+	}
+
+	if drawview {
+		call bar.ck_hide.setoff
+	}
+	else {
+		call bar.ck_hide.seton
+	}
+END
+
+PROGRAM bar_output
+BEGIN
+	call program bar_get_defaults
+
+	if ! bar.cl_fclr.isvisible() & ! bar.cb_fclr.isdefault() {
+		put "style(area(shadestyle(color(" 
+		put bar.cb_fclr 
+		put ")))) "
+	}
+	if bar.cl_fclr.isvisible() & ! bar.cl_fclr.isdefault() {
+		put "style(area(shadestyle(color("  `"""'
+		put bar.cl_fclr
+		put `"""'
+		put ")))) "
+	}
+	if ! bar.sp_fopacity.isdefault() {
+		put "style(area(shadestyle(color("  `"""'
+		put "%"
+		put bar.sp_fopacity
+		put `"""'
+		put ")))) "
+	}
+
+	if ! bar.ck_outline & bar.cb_fclr.isneq(line_color) {
+		if ! bar.cl_fclr.isvisible() {
+			put "style(area(linestyle(color(" 
+			put bar.cb_fclr 
+			put ")))) "
+		}
+		if bar.cl_fclr.isvisible() & bar.cl_fclr.isneq(line_rgb) {
+			put "style(area(linestyle(color("  `"""'
+			put bar.cl_fclr
+			put `"""'
+			put ")))) "
+		}
+	}
+
+	call line_opacity.withvalue d_tmp.setvalue @
+	if ! bar.ck_outline & bar.sp_fopacity.isneq(d_tmp) {
+		put "style(area(linestyle(color("  `"""'
+		put "%"
+		put bar.sp_fopacity
+		put `"""'
+		put ")))) "
+	}
+
+	if bar.cb_lclr & bar.ck_outline {
+		if ! bar.cl_lclr.isvisible() & ! bar.cb_lclr.isdefault() {
+			put "style(area(linestyle(color(" 
+			put bar.cb_lclr 
+			put ")))) "
+		}
+		if bar.cl_lclr.isvisible() & ! bar.cl_lclr.isdefault() {
+			put "style(area(linestyle(color("  `"""'
+			put bar.cl_lclr
+			put `"""'
+			put ")))) "
+		}
+		if ! bar.sp_lopacity.isdefault() {
+			put "style(area(linestyle(color("  `"""'
+			put "%"
+			put bar.sp_lopacity
+			put `"""'
+			put ")))) "
+		}
+	}
+
+	if ! bar.cb_intensity.isdefault() & bar.cb_intensity {
+		put "style(area(shadestyle(intensity("
+		put bar.cb_intensity
+		put ")))) "
+	}
+
+	if ! bar.cb_width.isdefault() {
+		put "style(area(linestyle(width("
+		put bar.cb_width
+		put ")))) "
+	}
+	if ! bar.cb_pattern.isdefault() {
+		put "style(area(linestyle(pattern("
+		put bar.cb_pattern
+		put ")))) "
+	}
+	if ! bar.cb_lalign.isdefault() {
+		put "style(area(linestyle(align("
+		put bar.cb_lalign
+		put ")))) "
+	}
+	if ! bar.ed_bwidth.isdefault() & bar.ed_bwidth {
+		put "set(bar_size " bar.ed_bwidth ") "
+	}
+
+	if ! bar.ck_hide.isdefault() {
+		if bar.ck_hide {
+			put "set(draw_view no) "
+		}
+		else {
+			put "set(draw_view yes) "
+		}
+	}
+END

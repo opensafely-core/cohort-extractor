@@ -1,0 +1,193 @@
+/*                                 twoway_fn_normden_parse
+
+   A parser for fn_normden evaluation.  Works with twoway.ado.
+
+*/
+*! version 1.1.0  17feb2015
+
+version 8
+
+class {
+	fn_norm_y		= "y"
+	fn_norm_x		= "x"
+	fn_norm_area		= 1		// default value
+	fn_norm_min		= 0		// default minimum x
+	fn_norm_max		= 1		// default maximum x
+	fn_norm_n		= 300		// number of evaluation points
+	fn_norm_opts		= ""
+	fn_norm_preserve	= ""
+	droplines		= ""
+	yxswitch		= 0
+	base			= (.)
+} , inherit(twoway_yxview_parse)
+
+// ---------------------------------------------------------------------------
+
+program parse
+	.must_create_serset = 1
+	.viewtype = "line"
+	.n = 1						// number of plots
+	.varcheck = 0					// side signal
+
+	.Super.parse `0'
+
+	_clsarr2list mlablist : labvars			// allow marker labels
+	local vlist `.anything'
+	local vlist : list vlist - mlablist
+
+	local options `"`vlist' [`.wtype'`.wtexp'], `.options'"'
+	_parse expand loc glob : options
+	if `loc_n' != 1 {
+		error 198
+	}
+	local 0 `"`loc_1'"'
+	_parse combop 0 : 0, option(RAnge)	rightmost
+	_parse combop 0 : 0, option(n)		rightmost
+	_parse combop 0 : 0, option(DROPlines)	rightmost
+	_parse combop 0 : 0, option(BASE) 	rightmost
+	_parse combop 0 : 0, option(SUBChar) 	rightmost
+	_parse combop 0 : 0, option(AREA)	rightmost
+
+	syntax varname(numeric) [fw aw] [,	///
+		RAnge(string asis)		///
+		N(integer `.fn_norm_n')		///
+		DROPlines(numlist sort)		///
+		BASE(string)			///
+		SUBChar(name)			///
+		HORizontal			///
+		AREA(real `.fn_norm_area')	///
+		*				///
+	]
+
+	if `"`range'"' == "" {
+		local range "`.fn_norm_min' `.fn_norm_max'"
+	}
+	if `"`subchar'"' != "" {
+		.fn_norm_x = "`subchar'"
+	}
+	if `area' <= 0 {
+		di as err "option area() expects a positive number"
+		exit 198
+	}
+	else	.fn_norm_area = `area'
+	.fn_norm_opts = "r(`range') n(`n') x(`.fn_norm_x')"
+
+	/* this is a partial parse, see second call to -twoway__function_gen-
+	 * in -log_create_serset-
+	 *
+	 * .varlist was retrieved by Super.parse
+	 */
+
+	quietly summarize `.varlist'
+
+	twoway__function_gen `.varlist',		///
+		`.fn_norm_opts'				///
+		allowemptyrange				///
+		droplines(`droplines')			///
+		// blank
+
+	.droplines		= `"`r(dropxy)'"'
+	.fn_norm_preserve	= `"`r(preserve)'"'
+ 	.fn_norm_n		= r(n)
+	if `"`r(yis)'"' != "" {
+		.fn_norm_y	= "`r(yis)'"
+	}
+
+	if `"`base'"' != `""' {
+		capture confirm number `base'
+		if _rc {
+		    di as error "option base() incorrectly specified, "	///
+			"`base' is not a number"
+		}
+		.base	= `base'
+	}
+	.yxswitch	= ("`horizontal'" != "")
+	.options	= `"`options'"'
+end
+
+/* -------------------------------------------------------------------------*/
+/*
+	Creates a new serset and the view and returns its reference.
+	Assumes that the data in memory is the same as when parse was called.
+
+	Allows a touse(varname) option that further restricts the sample, 
+	restricts beyond the held .if and .in
+
+	Additional options to the .serset.new command may be specified, but
+	this is unlikely to be necessary.
+
+	If must_create_serset == 1, then this command MUST be used, 
+	otherwise the serset may be created by other means.
+*/ 
+
+program log_create_serset
+	syntax , LOG(name) SERSETNAME(string) [ TOUSE(passthru) * ]
+
+	local nolog  .`log'.Arrpush __NOLOG__
+
+	.log_touse , log(`log') `touse'
+
+	// make the data
+	if (`"`.fn_norm_preserve'"' != "") `nolog' preserve
+	`nolog' tempname x y
+	`nolog' quietly summarize `.varlist' [`.wtype'`.wtexp'] if \`touse1'
+	`nolog' local fn_nd_mean = r(mean)
+	`nolog' local fn_nd_sd = r(sd)
+	`nolog' twoway__function_gen				///
+		normalden(x,\`fn_nd_mean',\`fn_nd_sd')*`.fn_norm_area'	///
+		if \`touse1',					///
+		`.fn_norm_opts'					///
+		allowemptyrange					///
+		generate(\`y' \`x')				///
+		// blank
+
+	.`log'.Arrpush						///
+		.`sersetname' = .serset.new			///
+			\`y' \`x'				///
+			in 1/`.fn_norm_n' [`.wtype'`.wtexp'],	///
+			nocount					///
+			`.omitmethod'				///
+			`options'
+
+	if (`"`.fn_norm_preserve'"' != "") `nolog' restore
+
+	`nolog' .`sersetname'.sort \`x'
+	`nolog' .`sersetname'.sers[1].name = "`.fn_norm_y'"
+	`nolog' .`sersetname'.sers[2].name = "`.fn_norm_x'"	
+
+	if ! `.yxswitch' {
+		.varlist = "`.fn_norm_y' `.fn_norm_x'"
+	}
+	else	.varlist = "`.fn_norm_x' `.fn_norm_y'"
+end
+
+// ---------------------------------------------------------------------------
+//  Pushes onto the specified log any post-creation commands implied by 
+//  the parsed syntax that must be applied to the created view.
+
+program log_edits
+	args log view i
+
+	.Super.log_edits `log' `view' `i'
+
+	local push .`log'.Arrpush
+
+	if `.base' < . {
+		`push' .`view'.base = `.base'
+	}
+
+	if `"`.droplines'"' != "" {
+
+		`push' .`view'.Declare droplines = `"`.droplines'"'
+		`push' .`view'.Declare yxswitch = `.yxswitch'
+
+		`push' .`view'.Declare basestyle = "\`.`view'.type.snm'"
+		`push' .`view'.type.setstyle , style(function) 
+	}
+
+	if `.base' < . {
+		`push' .`view'.register_with_scale
+	}
+end
+
+exit

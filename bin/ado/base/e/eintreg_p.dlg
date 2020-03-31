@@ -1,0 +1,136 @@
+/*
+    predict (after eintreg)
+
+*!  VERSION 1.0.6  02may2017
+
+*/
+
+VERSION 15.0
+
+INCLUDE _std_xlarge
+DEFINE _dlght 540
+INCLUDE header
+
+HELP hlp1, view("help eintreg postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource EINTREG_P_DLG_HSCALE
+	create STRING main_depvar
+	create ARRAY DEPVAR_LIST
+	create STRING main_first_dv
+END
+SCRIPT POSTINIT
+BEGIN
+	program main_populate_depvar
+END
+
+PROGRAM main_populate_depvar
+BEGIN
+	call main_depvar.setvalue e(depvar)
+	call main_first_dv.setvalue e(odepvar)
+
+	call DEPVAR_LIST.Arrdropall
+	call main_depvar.tokenize DEPVAR_LIST
+	call main.cb_eq.repopulate
+END
+DIALOG main, label(resource PREDICT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  INCLUDE erm_p_opts
+END
+
+INCLUDE erm_p_opts_sc
+
+PROGRAM main_statistic_check
+BEGIN
+	
+	call script main_opts_on
+	call script main_hide_all
+
+	if main.rb_prab {
+		call script main_prab_on
+	}
+	if main.rb_e {
+		call script main_e_on
+	}
+	if main.rb_ystar {
+		call script main_ystar_on
+	}
+
+	call program check_opt
+END
+
+PROGRAM check_opt
+BEGIN
+	
+	if main.rb_pr {
+		call main.tx_outlevel.enable
+		call main.ed_outlevel.enable
+		call main.tx_tlevel.disable
+		call main.ed_tlevel.disable
+	}
+	else {
+		if main.rb_pomean | main.rb_te | main.rb_tet {
+			call main.tx_tlevel.enable
+			call main.ed_tlevel.enable
+			call main.tx_outlevel.disable
+			call main.ed_outlevel.disable 
+		}
+		else {
+			call main.tx_tlevel.disable
+			call main.ed_tlevel.disable
+			call main.tx_outlevel.disable
+			call main.ed_outlevel.disable
+		}
+	}
+	if main.rb_pomean | main.rb_te | main.rb_tet {
+		call main.tx_eq.disable
+		call main.cb_eq.disable
+	}
+	else {
+		call main.tx_eq.enable
+		call main.cb_eq.enable
+	}
+	if main.rb_mean {
+		if main.cb_eq.isenabled() & main.cb_eq.isneq("") 	///
+		 & main.cb_eq.isneq(main_first_dv){
+			call main.tx_fixed.disable
+			call main.cb_fixed.disable
+			call main.tx_base.disable
+			call main.ed_base.disable
+			call main.tx_target.disable
+			call main.ed_target.disable
+		}
+		else {
+			call main.tx_fixed.enable
+			call main.cb_fixed.enable
+			call main.tx_base.enable
+			call main.ed_base.enable
+			call main.tx_target.enable
+			call main.ed_target.enable
+		}
+	}
+	if main.rb_pr | main.rb_pomean | main.rb_te | main.rb_tet	///
+	 | main.rb_xb | main.rb_prab | main.rb_e | main.rb_ystar {
+		call main.tx_fixed.disable
+		call main.cb_fixed.disable
+		call main.tx_base.disable
+		call main.ed_base.disable
+		call main.tx_target.disable
+		call main.ed_target.disable		
+	}
+END
+
+INCLUDE ifin
+
+PROGRAM command
+BEGIN
+	put "predict "
+	put " " /program newvar_output
+	put " " /program ifin_output
+	beginoptions
+		put " "/program main_statistic_output
+		put " "/program main_options_output
+	endoptions
+END

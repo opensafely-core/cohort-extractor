@@ -1,0 +1,119 @@
+/*
+    vecrank.dlg
+
+*!  VERSION 1.1.0  23dec2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE header
+HELP hlp1, view("help vecrank")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource VECRANK_DLG_HSCALE
+END
+
+DIALOG model, tabtitle(resource LBL_TAB_MODEL) 				///
+	label(resource VECRANK_DLG_TITLE)
+BEGIN
+  INCLUDE _tsdepvars
+
+  SPINNER  sp_lags           _lft        +35       _spwd       .,	///
+  		default(2) min(1) option(lags)
+  TEXT     tx_lags           _spsep      @         _spr        .,	///
+  		label(resource VECRANK_MODEL_TX_LAGS)
+
+  TEXT     tx_trend          _lft        _ls       _cwd1       .,	///
+  		label(resource VECRANK_MODEL_TX_TREND)
+  COMBOBOX cb_trend          @           _ss       _vnwd       .,	///
+  		dropdownlist 						///
+  		option(trend) contents(trend_spec) default(constant) 	///
+  		onselchangelist(trend_action)
+END
+
+LIST trend_spec
+BEGIN
+	trend
+	rtrend
+	constant
+	rconstant
+	none
+END
+
+LIST trend_action
+BEGIN
+	model2.vl_sindicator.enable
+	model2.vl_sindicator.enable
+	model2.vl_sindicator.enable
+	model2.vl_sindicator.disable
+	model2.vl_sindicator.disable
+END
+
+DIALOG model2, tabtitle(resource LBL_TAB_ADV_MODEL)
+BEGIN
+  GROUPBOX gb_advanced       _lft        _top      _iwd      _ht9,	///
+  		label(resource VECRANK_MODEL2_GB_ADVANCED)
+  TEXT     tx_sindicator     _ilft       _ss       _inwd     .,		///
+		label(resource VECRANK_MODEL2_TX_SINDICATOR)
+  VARLIST  vl_sindicator     @           _ss       @         .,		///
+  		option(sindicators)					///
+  		numeric							///
+		label(resource VECRANK_MODEL2_TX_SINDICATOR)
+
+  CHECKBOX ck_noreduce       @           _ls       @         .,		///
+  		option(noreduce)					///
+  		label(resource VECRANK_MODEL2_CK_NOREDUCE)
+  TEXT     tx_noreduce       _indent2    _vss      _inwd     .,		///
+  		label(resource VECRANK_MODEL2_TX_NOREDUCE)
+
+END
+
+INCLUDE byifin
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  CHECKBOX ck_notrace        _lft      _top      _iwd      .,		///
+  		label(resource VECRANK_RPT_CK_NOTRACE)			///
+  		option(notrace)
+  CHECKBOX ck_max            @         _ms       @         .,		///
+  		label(resource VECRANK_RPT_CK_MAX)			///
+  		option(max)
+  CHECKBOX ck_ic             @         _ms       @         .,		///
+  		label(resource VECRANK_RPT_CK_IC)			///
+  		option(ic)
+  CHECKBOX ck_level99        @         _ms       @         .,		///
+  		option(level99)						///
+  		onclickon(rpt.ck_levela.disable)			///
+  		onclickoff(rpt.ck_levela.enable)			///
+  		label(resource VECRANK_RPT_CK_LEVEL99)
+  CHECKBOX ck_levela         @         _ms       @         .,		///
+  		option(levela)						///
+  		onclickon(rpt.ck_level99.disable)			///
+  		onclickoff(rpt.ck_level99.enable)			///
+  		label(resource VECRANK_RPT_CK_LEVELa)
+END
+
+PROGRAM command
+BEGIN
+	INCLUDE _by_pr
+	put "vecrank "
+	varlist model.vl_dv
+	INCLUDE _ifin_pr
+	beginoptions
+		optionarg model.cb_trend
+		optionarg /hidedefault model.sp_lags
+
+		optionarg model2.vl_sindicator
+		option model2.ck_noreduce
+
+		option rpt.ck_notrace
+		option rpt.ck_max
+		option rpt.ck_ic
+		option rpt.ck_level99
+		option rpt.ck_levela
+	endoptions
+END

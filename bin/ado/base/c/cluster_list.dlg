@@ -1,0 +1,119 @@
+/*
+  cluster list
+
+*!  VERSION 1.3.0  16sep2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+INCLUDE header
+HELP hlp1, view("help cluster_utility")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING oldCluster // < stata 10 cluster results
+	create STRING newCluster
+	create LIST  clusters
+	program getClusters
+	setscale_hadj resource CLUSTER_LIST_DLG_HSCALE
+END
+
+PROGRAM getClusters
+BEGIN
+	call oldCluster.setvalue char _dta[_cl]
+	call newCluster.setvalue char _dta[_cluster_objects]
+	if newCluster {
+		call newCluster.tokenize clusters
+	}
+	else {
+		call oldCluster.tokenize clusters
+	}
+	call main.cb_clnames.repopulate
+END
+
+DIALOG main, label(resource CLUSTER_LIST_DLG_TITLE) /*
+		*/ tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_clnames   _lft      _top      _iwd      .,		/*
+		*/ label(resource CLUSTER_LIST_MAIN_TX_CLNAMES)
+  COMBOBOX cb_clnames   @         _ss       @         _ht18, append	/*
+		*/ contents(clusters)					/*
+		*/ label(resource CLUSTER_LIST_MAIN_CB_CLNAMES)
+END
+
+
+DIALOG opt, tabtitle(resource LBL_OPTIONS)
+BEGIN
+  CHECKBOX ck_limit     _lft      _top      _iwd      _ht20, groupbox	/*
+		*/ clickon("script checks_on")				/*
+		*/ clickoff("script checks_off")			/*
+		*/ label(resource CLUSTER_LIST_OPT_CK_LIMIT)
+
+  CHECKBOX ck_notes     _ilft     _ms       _ibwd     .,		/*
+		*/ option(notes)					/*
+		*/ label(resource CLUSTER_LIST_OPT_CK_NOTES)
+  CHECKBOX ck_type      @         _ms       @         .,		/*
+		*/ option(type)						/*
+		*/ label(resource CLUSTER_LIST_OPT_CK_TYPE)
+  CHECKBOX ck_method    @         _ms       @         .,		/*
+		*/ option(method)					/*
+		*/ label(resource CLUSTER_LIST_OPT_CK_METHOD)
+  CHECKBOX ck_dissim    @         _ms       @         .,		/*
+		*/ option(dissimilarity)				/*
+		*/ label(resource CLUSTER_LIST_OPT_CK_DISSIM)
+  CHECKBOX ck_sim       @         _ms       @         .,		/*
+		*/ option(similarity)					/*
+		*/ label(resource CLUSTER_LIST_OPT_CK_SIM)
+  CHECKBOX ck_vars      @         _ms       @         .,		/*
+		*/ option(vars)						/*
+		*/ label(resource CLUSTER_LIST_OPT_CK_VARS)
+  CHECKBOX ck_chars     @         _ms       @         .,		/*
+		*/ option(chars)					/*
+	*/ label(resource CLUSTER_LIST_OPT_CK_CHARS)
+  CHECKBOX ck_other     @         _ms       @         .,		/*
+		*/ option(other)					/*
+		*/ label(resource CLUSTER_LIST_OPT_CK_OTHER)
+END
+
+SCRIPT checks_on
+BEGIN
+  opt.ck_notes.enable
+  opt.ck_type.enable
+  opt.ck_method.enable
+  opt.ck_dissim.enable
+  opt.ck_sim.enable
+  opt.ck_vars.enable
+  opt.ck_chars.enable
+  opt.ck_other.enable
+END
+
+SCRIPT checks_off
+BEGIN
+  opt.ck_notes.disable
+  opt.ck_type.disable
+  opt.ck_method.disable
+  opt.ck_dissim.disable
+  opt.ck_sim.disable
+  opt.ck_vars.disable
+  opt.ck_chars.disable
+  opt.ck_other.disable
+END
+
+
+PROGRAM command
+BEGIN
+	put "cluster list " main.cb_clnames
+	beginoptions
+		option opt.ck_notes
+		option opt.ck_type
+		option opt.ck_method
+		option opt.ck_dissim
+		option opt.ck_sim
+		option opt.ck_vars
+		option opt.ck_chars
+		option opt.ck_other
+	endoptions
+END

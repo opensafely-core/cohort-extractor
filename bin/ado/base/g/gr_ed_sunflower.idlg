@@ -1,0 +1,791 @@
+/*
+  gr_ed_sunflower.idlg
+
+*!  VERSION 1.1.5  31jul2017
+
+*/
+
+
+SCRIPT lbin_PREINIT
+BEGIN
+	create DOUBLE d_tmp
+	create STRING lbin_fill_color
+	create STRING lbin_fill_rgb
+	create STRING lbin_fill_opacity
+	create STRING lbin_intensity
+	create STRING lbin_line_color
+	create STRING lbin_line_rgb
+	create STRING lbin_line_opacity
+	create STRING lbin_width
+	create STRING lbin_pattern
+	create STRING lbin_line_align
+
+	create STRING lptl_color
+	create STRING lptl_rgb
+	create STRING lptl_opacity
+	create STRING lptl_width
+	create STRING lptl_pattern
+
+	program lbin_get_defaults
+END
+
+SCRIPT lbin_POSTINIT
+BEGIN
+	program lbin_initialize_controls
+END
+
+DIALOG lbin, tabtitle(resource GR_ED_SUNFLOWER_TAB_LBIN)
+BEGIN
+  GROUPBOX gb_area	_lft	_top	_iwd	_ht25,		///
+	label(resource LBL_GB_BIN_PROPERTIES)
+  TEXT     tx_fclr	_ilft	_ss	_wd	.,		///
+	label(resource LBL_COLOR) right
+  COMBOBOX cb_fclr	_sep	@	_cbwd	.,		///
+	dropdownlist contents(_colors) 				///
+	onselchangelist(lbin_cl_fclr_sel)
+  COLOR    cl_fclr	_cbsep	@	_clwd	.,
+  TEXT     tx_fopacity	_ilft	_mls	_wd	.,		///
+	label(resource LBL_OPACITY) right
+  SPINNER sp_fopacity	_sep	@	_spwd	.,		///
+	default(100)						///
+	min(0)							///
+	max(100)
+
+  TEXT     tx_intensity	_ilft	_mls	_wd	.,		///
+	label(resource LBL_FILL_INTENSITY) right
+  COMBOBOX cb_intensity	_sep	@	_cbwd	.,		///
+	dropdown contents(_intensity)
+  
+  TEXT     tx_width	_ilft	 _mls	_wd	.,		///
+	label(resource LBL_OUTLINE_WIDTH) right
+  COMBOBOX cb_width	_sep	@	_cbwd	.,		///
+	dropdown 						///
+	contents(_linewidths)
+
+  TEXT     tx_pattern	_ilft	_mls	_wd	.,		///
+	label(resource LBL_OUTLINE_PATTERN) right
+  COMBOBOX cb_pattern	_sep	@	_cbwd	.,		///
+	dropdownlist						///
+	contents(_linepatterns)
+
+   TEXT     tx_lalign	_ilft	_mls	_wd	.,		///
+      label(resource LBL_OUTLINE_ALIGNMENT) right
+   COMBOBOX cb_lalign	_sep	@	_cbwd	.,		///
+      dropdownlist option(lalign)				///
+      contents(alignstroke)
+
+  CHECKBOX ck_outline	_ilft	_ls	_ibwd	_ht5,		///
+	groupbox						///
+	label(resource LBL_DIFFERENT_OUTLINE_COLOR)		///
+	onclickon(script lbin_outline_on)			///
+	onclickoff(script lbin_outline_off) nomemory
+
+  TEXT     tx_lclr	_iilft	_ss	_wd2	.,		///
+	label(resource LBL_OUTLINE_COLOR) right
+  COMBOBOX cb_lclr	_sep2	@	_cbwd	.,		///
+	dropdownlist contents(_colors) 				///
+	onselchangelist(lbin_cl_lclr_sel)
+  COLOR    cl_lclr	_cbsep	@	_clwd	.,
+  TEXT     tx_lopacity	_iilft	_mls	_wd2	.,		///
+	label(resource LBL_OUTLINE_OPACITY) right
+  SPINNER sp_lopacity	_sep2	@	_spwd	.,		///
+	default(100)						///
+	min(0)							///
+	max(100)
+
+  GROUPBOX gb_petal	_lft	+50	_iwd	_ht11,		///
+	label(resource LBL_GB_PETAL_PROPERTIES)
+  TEXT     tx_pclr	_ilft	_ss	_wd	.,		///
+	label(resource LBL_COLOR) right
+  COMBOBOX cb_pclr	_sep	@	_cbwd	.,		///
+	dropdownlist contents(_colors) 				///
+	onselchangelist(lbin_cl_pclr_sel)
+  COLOR    cl_pclr	_cbsep	@	_clwd	.,
+  TEXT     tx_popacity	_ilft	_mls	_wd	.,		///
+	label(resource LBL_OPACITY) right
+  SPINNER sp_popacity	_sep	@	_spwd	.,		///
+	default(100)						///
+	min(0)							///
+	max(100)
+  
+  TEXT     tx_pwidth	_ilft	 _mls	_wd	.,		///
+	label(resource LBL_WIDTH) right
+  COMBOBOX cb_pwidth	_sep	@	_cbwd	.,		///
+	dropdown 						///
+	contents(_linewidths)
+
+  TEXT     tx_ppattern	_ilft	_mls	_wd	.,		///
+	label(resource LBL_PATTERN) right
+  COMBOBOX cb_ppattern	_sep	@	_cbwd	.,		///
+	dropdownlist						///
+	contents(_linepatterns) 
+END
+
+SCRIPT lbin_outline_on
+BEGIN
+	lbin.tx_lclr.enable
+	lbin.cb_lclr.enable
+	lbin.tx_lopacity.enable
+	lbin.sp_lopacity.enable
+END
+
+SCRIPT lbin_outline_off
+BEGIN
+	lbin.tx_lclr.disable
+	lbin.cb_lclr.disable
+	lbin.tx_lopacity.disable
+	lbin.sp_lopacity.disable
+END
+
+LIST lbin_cl_fclr_sel
+BEGIN
+	lbin.cl_fclr.show
+	lbin.cl_fclr.hide
+END
+LIST lbin_cl_lclr_sel
+BEGIN
+	lbin.cl_lclr.show
+	lbin.cl_lclr.hide
+END
+
+LIST lbin_cl_pclr_sel
+BEGIN
+	lbin.cl_pclr.show
+	lbin.cl_pclr.hide
+END
+
+PROGRAM lbin_get_defaults
+BEGIN
+	call G.withvalue index.setvalue class @.style.lighthexbin.shadestyle.color.styledex
+	call index.withvalue lbin_fill_color.setvalue class .__STYLES.color[@]
+	call lbin.cb_fclr.setdefault class lbin_fill_color.value
+	call G.withvalue lbin_fill_rgb.setvalue class @.style.lighthexbin.shadestyle.color.rgb
+	call lbin.cl_fclr.setdefault class lbin_fill_rgb.value
+
+	call G.withvalue lbin_fill_opacity.setvalue class @.style.lighthexbin.shadestyle.color.opacity
+	call lbin.sp_fopacity.setdefault class lbin_fill_opacity.value
+
+	call G.withvalue index.setvalue  class @.style.lighthexbin.shadestyle.intensity.styledex
+	call index.withvalue lbin_intensity.setvalue class .__STYLES.intensity[@]
+	if ! lbin_intensity {
+		call G.withvalue lbin_intensity.setvalue class @.style.lighthexbin.shadestyle.intensity.val
+	}
+	call lbin.cb_intensity.setdefault class lbin_intensity.value
+
+	call G.withvalue index.setvalue class @.style.lighthexbin.linestyle.color.styledex
+	call index.withvalue lbin_line_color.setvalue class .__STYLES.color[@]
+	call lbin.cb_lclr.setdefault class lbin_line_color.value
+	call G.withvalue lbin_line_rgb.setvalue class @.style.lighthexbin.linestyle.color.rgb
+	call lbin.cl_lclr.setdefault class lbin_line_rgb.value
+
+	call G.withvalue lbin_line_opacity.setvalue class @.style.lighthexbin.linestyle.color.opacity
+	call lbin.sp_lopacity.setdefault class lbin_line_opacity.value
+
+	call G.withvalue index.setvalue class @.style.lighthexbin.linestyle.width.styledex
+	call index.withvalue lbin_width.setvalue class .__STYLES.linewidth[@]
+	if ! lbin_width {
+		call G.withvalue lbin_width.setvalue class @.style.lighthexbin.linestyle.width.val
+	}
+	call lbin.cb_width.setdefault class lbin_width.value
+
+	call G.withvalue index.setvalue class @.style.lighthexbin.linestyle.pattern.styledex
+	call index.withvalue lbin_pattern.setvalue class .__STYLES.linepattern[@]
+	call lbin.cb_pattern.setdefault class lbin_pattern.value
+
+	call G.withvalue index.setvalue class @.style.lighthexbin.linestyle.align.styledex
+	call index.withvalue lbin_line_align.setvalue class .__STYLES.alignstroke[@]
+	call lbin.cb_lalign.setdefault class lbin_line_align.value
+
+
+	call G.withvalue index.setvalue class @.style.lightflower.color.styledex
+	call index.withvalue lptl_color.setvalue class .__STYLES.color[@]
+	call lbin.cb_pclr.setdefault class lptl_color.value
+	
+	call G.withvalue lptl_rgb.setvalue class @.style.lightflower.color.rgb
+	call lbin.cl_pclr.setdefault class lptl_rgb.value
+	call G.withvalue lptl_opacity.setvalue class @.style.lightflower.color.opacity
+	call lbin.sp_popacity.setdefault class lptl_opacity.value
+
+	call G.withvalue index.setvalue class @.style.lightflower.width.styledex
+	call index.withvalue lptl_width.setvalue class .__STYLES.linewidth[@]
+	if ! lptl_width {
+		call G.withvalue lptl_width.setvalue class @.style.lightflower.width.val
+	}
+	call lbin.cb_pwidth.setdefault class lptl_width.value
+
+	call G.withvalue index.setvalue class @.style.lightflower.pattern.styledex
+	call index.withvalue lptl_pattern.setvalue class .__STYLES.linepattern[@]
+	call lbin.cb_ppattern.setdefault class lptl_pattern.value
+END
+
+PROGRAM lbin_initialize_controls
+BEGIN
+	if lbin_fill_color {
+		call lbin.cb_fclr.setvalue class lbin_fill_color.value
+	}
+	else {
+		call lbin.cb_fclr.setvalue "custom"
+	}
+	call lbin.cl_fclr.setvalue class lbin_fill_rgb.value
+	call lbin.sp_fopacity.setvalue class lbin_fill_opacity.value
+	call lbin.cb_intensity.setvalue class lbin_intensity.value
+
+	if lbin_line_color {
+		call lbin.cb_lclr.setvalue class lbin_line_color.value
+	}
+	else {
+		call lbin.cb_lclr.setvalue "custom"
+	}
+	call lbin.cl_lclr.setvalue class lbin_line_rgb.value
+	call lbin.sp_lopacity.setvalue class lbin_line_opacity.value
+
+	call lbin.cb_width.setvalue class lbin_width.value
+	call lbin.cb_pattern.setvalue class lbin_pattern.value
+	call lbin.cb_lalign.setvalue class lbin_line_align.value
+
+	if lbin_fill_rgb.isneq(lbin_line_rgb) {
+		call lbin.ck_outline.seton
+	}
+	else {
+		call lbin.ck_outline.setoff
+	}
+
+
+	if lptl_color {
+		call lbin.cb_pclr.setvalue class lptl_color.value
+	}
+	else {
+		call lbin.cb_pclr.setvalue "custom"
+	}
+	call lbin.cl_pclr.setvalue class lptl_rgb.value
+	call lbin.sp_popacity.setvalue class lptl_opacity.value
+
+	call lbin.cb_pwidth.setvalue class lptl_width.value
+	call lbin.cb_ppattern.setvalue class lptl_pattern.value
+END
+
+PROGRAM lbin_output
+BEGIN
+	call program lbin_get_defaults
+
+	if ! lbin.cl_fclr.isvisible() & ! lbin.cb_fclr.isdefault() {
+		put "style(lighthexbin(shadestyle(color(" 
+		put lbin.cb_fclr 
+		put ")))) "
+	}
+	if lbin.cl_fclr.isvisible() & ! lbin.cl_fclr.isdefault() {
+		put "style(lighthexbin(shadestyle(color("  `"""'
+		put lbin.cl_fclr
+		put `"""'
+		put ")))) "
+	}
+	if ! lbin.sp_fopacity.isdefault() {
+		put "style(lighthexbin(shadestyle(color("  
+		put "%"
+		put lbin.sp_fopacity
+		put ")))) "
+	}
+	if ! lbin.ck_outline & lbin.cb_fclr.isneq(lbin_line_color) {
+		if ! lbin.cl_fclr.isvisible() {
+			put "style(lighthexbin(linestyle(color(" 
+			put lbin.cb_fclr 
+			put ")))) "
+		}
+		if lbin.cl_fclr.isvisible() & lbin.cl_fclr.isneq(lbin_line_rgb) {
+			put "style(lighthexbin(linestyle(color("  `"""'
+			put lbin.cl_fclr
+			put `"""'
+			put ")))) "
+		}
+	}
+	call lbin_line_opacity.withvalue d_tmp.setvalue @
+	if ! lbin.ck_outline & lbin.sp_fopacity.isneq(d_tmp) {
+		put "style(lighthexbin(linestyle(color(" 
+		put "%"
+		put lbin.sp_fopacity
+		put ")))) "
+	}
+	if lbin.cb_lclr & lbin.ck_outline {
+		if ! lbin.cl_lclr.isvisible() & ! lbin.cb_lclr.isdefault() {
+			put "style(lighthexbin(linestyle(color(" 
+			put lbin.cb_lclr 
+			put ")))) "
+		}
+		if lbin.cl_lclr.isvisible() & ! lbin.cl_lclr.isdefault() {
+			put "style(lighthexbin(linestyle(color("  `"""'
+			put lbin.cl_lclr
+			put `"""'
+			put ")))) "
+		}
+	}
+	if ! lbin.sp_lopacity.isdefault() & lbin.ck_outline {
+		put "style(lighthexbin(linestyle(color(" 
+		put "%"
+		put lbin.sp_lopacity
+		put ")))) "
+	}
+
+	if ! lbin.cb_intensity.isdefault() & lbin.cb_intensity {
+		put "style(lighthexbin(shadestyle(intensity("
+		put lbin.cb_intensity
+		put ")))) "
+	}
+
+	if ! lbin.cb_width.isdefault() {
+		put "style(lighthexbin(linestyle(width("
+		put lbin.cb_width
+		put ")))) "
+	}
+	if ! lbin.cb_pattern.isdefault() {
+		put "style(lighthexbin(linestyle(pattern("
+		put lbin.cb_pattern
+		put ")))) "
+	}
+	if ! lbin.cb_lalign.isdefault() {
+		put "style(lighthexbin(linestyle(align("
+		put lbin.cb_lalign
+		put ")))) "
+	}
+
+
+	if ! lbin.cl_pclr.isvisible() & ! lbin.cb_pclr.isdefault() {
+		put "style(lightflower(color(" 
+		put lbin.cb_pclr 
+		put "))) "
+	}
+	if lbin.cl_pclr.isvisible() & ! lbin.cl_pclr.isdefault() {
+		put "style(lightflower(color("  `"""'
+		put lbin.cl_pclr
+		put `"""'
+		put "))) "
+	}
+	if ! lbin.sp_popacity.isdefault() {
+		put "style(lightflower(color("
+		put "%"
+		put lbin.sp_popacity
+		put "))) "
+	}
+	if ! lbin.cb_pwidth.isdefault() {
+		put "style(lightflower(width("
+		put lbin.cb_pwidth
+		put "))) "
+	}
+	if ! lbin.cb_ppattern.isdefault() {
+		put "style(lightflower(pattern("
+		put lbin.cb_ppattern
+		put "))) "
+	}
+END
+
+*****************************************************************************
+
+SCRIPT dbin_PREINIT
+BEGIN
+	create STRING dbin_fill_color
+	create STRING dbin_fill_rgb
+	create STRING dbin_fill_opacity
+	create STRING dbin_intensity
+	create STRING dbin_line_color
+	create STRING dbin_line_rgb
+	create STRING dbin_line_opacity
+	create STRING dbin_width
+	create STRING dbin_pattern
+	create STRING dbin_line_align
+
+	create STRING dptl_color
+	create STRING dptl_rgb
+	create STRING dptl_opacity
+	create STRING dptl_width
+	create STRING dptl_pattern
+	program dbin_get_defaults
+END
+
+SCRIPT dbin_POSTINIT
+BEGIN
+	program dbin_initialize_controls
+END
+
+DIALOG dbin, tabtitle(resource GR_ED_SUNFLOWER_TAB_DBIN)
+BEGIN
+  GROUPBOX gb_area	_lft	_top	_iwd	_ht25,		///
+	label(resource LBL_GB_BIN_PROPERTIES)
+  TEXT     tx_fclr	_ilft	_ss	_wd	.,		///
+	label(resource LBL_COLOR) right
+  COMBOBOX cb_fclr	_sep	@	_cbwd	.,		///
+	dropdownlist contents(_colors) 				///
+	onselchangelist(dbin_cl_fclr_sel)
+  COLOR    cl_fclr	_cbsep	@	_clwd	.,
+  TEXT     tx_fopacity	_ilft	_mls	_wd	.,		///
+	label(resource LBL_OPACITY) right
+  SPINNER sp_fopacity	_sep	@	_spwd	.,		///
+	default(100)						///
+	min(0)							///
+	max(100)
+
+  TEXT     tx_intensity	_ilft	_mls	_wd	.,		///
+	label(resource LBL_FILL_INTENSITY) right
+  COMBOBOX cb_intensity	_sep	@	_cbwd	.,		///
+	dropdown contents(_intensity)
+  
+  TEXT     tx_width	_ilft	 _mls	_wd	.,		///
+	label(resource LBL_OUTLINE_WIDTH) right
+  COMBOBOX cb_width	_sep	@	_cbwd	.,		///
+	dropdown 						///
+	contents(_linewidths)
+
+  TEXT     tx_pattern	_ilft	_mls	_wd	.,		///
+	label(resource LBL_OUTLINE_PATTERN) right
+  COMBOBOX cb_pattern	_sep	@	_cbwd	.,		///
+	dropdownlist						///
+	contents(_linepatterns)
+
+   TEXT     tx_lalign	_ilft	_mls	_wd	.,		///
+      label(resource LBL_OUTLINE_ALIGNMENT) right
+   COMBOBOX cb_lalign	_sep	@	_cbwd	.,		///
+      dropdownlist option(lalign)				///
+      contents(alignstroke)
+
+  CHECKBOX ck_outline	_ilft	_ls	_ibwd	_ht5,		///
+	groupbox						///
+	label(resource LBL_DIFFERENT_OUTLINE_COLOR)		///
+	onclickon(script dbin_outline_on)			///
+	onclickoff(script dbin_outline_off) nomemory
+
+  TEXT     tx_lclr	_iilft	_ss	_wd2	.,		///
+	label(resource LBL_OUTLINE_COLOR) right
+  COMBOBOX cb_lclr	_sep2	@	_cbwd	.,		///
+	dropdownlist contents(_colors) 				///
+	onselchangelist(dbin_cl_lclr_sel)
+  COLOR    cl_lclr	_cbsep	@	_clwd	.,
+  TEXT     tx_lopacity	_iilft	_mls	_wd2	.,		///
+	label(resource LBL_OUTLINE_OPACITY) right
+  SPINNER sp_lopacity	_sep2	@	_spwd	.,		///
+	default(100)						///
+	min(0)							///
+	max(100)
+
+
+  GROUPBOX gb_petal	_lft	+50	_iwd	_ht11,		///
+	label(resource LBL_GB_PETAL_PROPERTIES)
+  TEXT     tx_pclr	_ilft	_ss	_wd	.,		///
+	label(resource LBL_COLOR) right
+  COMBOBOX cb_pclr	_sep	@	_cbwd	.,		///
+	dropdownlist contents(_colors) 				///
+	onselchangelist(dbin_cl_pclr_sel)
+  COLOR    cl_pclr	_cbsep	@	_clwd	.,
+  TEXT     tx_popacity	_ilft	_mls	_wd	.,		///
+	label(resource LBL_OPACITY) right
+  SPINNER sp_popacity	_sep	@	_spwd	.,		///
+	default(100)						///
+	min(0)							///
+	max(100)
+  
+  TEXT     tx_pwidth	_ilft	 _mls	_wd	.,		///
+	label(resource LBL_WIDTH) right
+  COMBOBOX cb_pwidth	_sep	@	_cbwd	.,		///
+	dropdown 						///
+	contents(_linewidths)
+
+  TEXT     tx_ppattern	_ilft	_mls	_wd	.,		///
+	label(resource LBL_PATTERN) right
+  COMBOBOX cb_ppattern	_sep	@	_cbwd	.,		///
+	dropdownlist						///
+	contents(_linepatterns) 
+END
+
+SCRIPT dbin_outline_on
+BEGIN
+	dbin.tx_lclr.enable
+	dbin.cb_lclr.enable
+	dbin.tx_lopacity.enable
+	dbin.sp_lopacity.enable
+END
+
+SCRIPT dbin_outline_off
+BEGIN
+	dbin.tx_lclr.disable
+	dbin.cb_lclr.disable
+	dbin.tx_lopacity.disable
+	dbin.sp_lopacity.disable
+END
+
+LIST dbin_cl_fclr_sel
+BEGIN
+	dbin.cl_fclr.show
+	dbin.cl_fclr.hide
+END
+LIST dbin_cl_lclr_sel
+BEGIN
+	dbin.cl_lclr.show
+	dbin.cl_lclr.hide
+END
+
+LIST dbin_cl_pclr_sel
+BEGIN
+	dbin.cl_pclr.show
+	dbin.cl_pclr.hide
+END
+
+PROGRAM dbin_get_defaults
+BEGIN
+	call G.withvalue index.setvalue class @.style.darkhexbin.shadestyle.color.styledex
+	call index.withvalue dbin_fill_color.setvalue class .__STYLES.color[@]
+	call dbin.cb_fclr.setdefault class dbin_fill_color.value
+	call G.withvalue dbin_fill_rgb.setvalue class @.style.darkhexbin.shadestyle.color.rgb
+	call dbin.cl_fclr.setdefault class dbin_fill_rgb.value
+	call G.withvalue dbin_fill_opacity.setvalue class @.style.darkhexbin.shadestyle.color.opacity
+	call dbin.sp_fopacity.setdefault class dbin_fill_opacity.value
+
+	call G.withvalue index.setvalue  class @.style.darkhexbin.shadestyle.intensity.styledex
+	call index.withvalue dbin_intensity.setvalue class .__STYLES.intensity[@]
+	if ! dbin_intensity {
+		call G.withvalue dbin_intensity.setvalue class @.style.darkhexbin.shadestyle.intensity.val
+	}
+	call dbin.cb_intensity.setdefault class dbin_intensity.value
+
+	call G.withvalue index.setvalue class @.style.darkhexbin.linestyle.color.styledex
+	call index.withvalue dbin_line_color.setvalue class .__STYLES.color[@]
+	call dbin.cb_lclr.setdefault class dbin_line_color.value
+	call G.withvalue dbin_line_rgb.setvalue class @.style.darkhexbin.linestyle.color.rgb
+	call dbin.cl_lclr.setdefault class dbin_line_rgb.value
+
+	call G.withvalue dbin_line_opacity.setvalue class @.style.darkhexbin.linestyle.color.opacity
+	call dbin.sp_lopacity.setdefault class dbin_line_opacity.value
+
+	call G.withvalue index.setvalue class @.style.darkhexbin.linestyle.width.styledex
+	call index.withvalue dbin_width.setvalue class .__STYLES.linewidth[@]
+	if ! dbin_width {
+		call G.withvalue dbin_width.setvalue class @.style.darkhexbin.linestyle.width.val
+	}
+	call dbin.cb_width.setdefault class dbin_width.value
+
+	call G.withvalue index.setvalue class @.style.darkhexbin.linestyle.pattern.styledex
+	call index.withvalue dbin_pattern.setvalue class .__STYLES.linepattern[@]
+	call dbin.cb_pattern.setdefault class dbin_pattern.value
+
+	call G.withvalue index.setvalue class @.style.darkhexbin.linestyle.align.styledex
+	call index.withvalue dbin_line_align.setvalue class .__STYLES.alignstroke[@]
+	call dbin.cb_lalign.setdefault class dbin_line_align.value
+
+
+	call G.withvalue index.setvalue class @.style.darkflower.color.styledex
+	call index.withvalue dptl_color.setvalue class .__STYLES.color[@]
+	call lbin.cb_pclr.setdefault class dptl_color.value
+	
+	call G.withvalue dptl_rgb.setvalue class @.style.darkflower.color.rgb
+	call lbin.cl_pclr.setdefault class dptl_rgb.value
+
+	call G.withvalue dptl_opacity.setvalue class @.style.darkflower.color.opacity
+	call lbin.sp_popacity.setdefault class dptl_opacity.value
+
+	call G.withvalue index.setvalue class @.style.darkflower.width.styledex
+	call index.withvalue dptl_width.setvalue class .__STYLES.linewidth[@]
+	if ! dptl_width {
+		call G.withvalue dptl_width.setvalue class @.style.darkflower.width.val
+	}
+	call dbin.cb_pwidth.setdefault class dptl_width.value
+
+	call G.withvalue index.setvalue class @.style.darkflower.pattern.styledex
+	call index.withvalue dptl_pattern.setvalue class .__STYLES.linepattern[@]
+	call dbin.cb_ppattern.setdefault class dptl_pattern.value
+END
+
+PROGRAM dbin_initialize_controls
+BEGIN
+	if dbin_fill_color {
+		call dbin.cb_fclr.setvalue class dbin_fill_color.value
+	}
+	else {
+		call dbin.cb_fclr.setvalue "custom"
+	}
+	call dbin.cl_fclr.setvalue class dbin_fill_rgb.value
+	call dbin.sp_fopacity.setvalue class dbin_fill_opacity.value
+	call dbin.cb_intensity.setvalue class dbin_intensity.value
+
+	if dbin_line_color {
+		call dbin.cb_lclr.setvalue class dbin_line_color.value
+	}
+	else {
+		call dbin.cb_lclr.setvalue "custom"
+	}
+	call dbin.cl_lclr.setvalue class dbin_line_rgb.value
+	call dbin.sp_lopacity.setvalue class dbin_line_opacity.value
+
+	call dbin.cb_width.setvalue class dbin_width.value
+	call dbin.cb_pattern.setvalue class dbin_pattern.value
+	call dbin.cb_lalign.setvalue class dbin_line_align.value
+
+	if dbin_fill_rgb.isneq(dbin_line_rgb) {
+		call dbin.ck_outline.seton
+	}
+	else {
+		call dbin.ck_outline.setoff
+	}
+
+
+	if dptl_color {
+		call dbin.cb_pclr.setvalue class dptl_color.value
+	}
+	else {
+		call dbin.cb_pclr.setvalue "custom"
+	}
+	call dbin.cl_pclr.setvalue class dptl_rgb.value
+	call dbin.sp_popacity.setvalue class dptl_opacity.value
+
+	call dbin.cb_pwidth.setvalue class dptl_width.value
+	call dbin.cb_ppattern.setvalue class dptl_pattern.value
+END
+
+PROGRAM dbin_output
+BEGIN
+	call program dbin_get_defaults
+
+	if ! dbin.cl_fclr.isvisible() & ! dbin.cb_fclr.isdefault() {
+		put "style(darkhexbin(shadestyle(color(" 
+		put dbin.cb_fclr 
+		put ")))) "
+	}
+	if dbin.cl_fclr.isvisible() & ! dbin.cl_fclr.isdefault() {
+		put "style(darkhexbin(shadestyle(color("  `"""'
+		put dbin.cl_fclr
+		put `"""'
+		put ")))) "
+	}
+	if ! dbin.sp_fopacity.isdefault() {
+		put "style(darkhexbin(shadestyle(color(" 
+		put "%"
+		put dbin.sp_fopacity
+		put ")))) "
+	}
+	if ! dbin.ck_outline & dbin.cb_fclr.isneq(dbin_line_color) {
+		if ! dbin.cl_fclr.isvisible() {
+			put "style(darkhexbin(linestyle(color(" 
+			put dbin.cb_fclr 
+			put ")))) "
+		}
+		
+		if dbin.cl_fclr.isvisible() & dbin.cl_fclr.isneq(dbin_line_rgb) {
+			put "style(darkhexbin(linestyle(color("  `"""'
+			put dbin.cl_fclr
+			put `"""'
+			put ")))) "
+		}
+	}
+	call dbin_line_opacity.withvalue d_tmp.setvalue @
+	if ! dbin.ck_outline & dbin.sp_fopacity.isneq(d_tmp) {
+		put "style(darkhexbin(linestyle(color("
+		put "%"
+		put dbin.sp_fopacity
+		put ")))) "
+	}
+
+	if dbin.cb_lclr & dbin.ck_outline {
+		if ! dbin.cl_lclr.isvisible() & ! dbin.cb_lclr.isdefault() {
+			put "style(darkhexbin(linestyle(color(" 
+			put dbin.cb_lclr 
+			put ")))) "
+		}
+		if dbin.cl_lclr.isvisible() & ! dbin.cl_lclr.isdefault() {
+			put "style(darkhexbin(linestyle(color("  `"""'
+			put dbin.cl_lclr
+			put `"""'
+			put ")))) "
+		}
+	}
+
+	if ! dbin.sp_lopacity.isdefault() & dbin.ck_outline {
+		put "style(darkhexbin(linestyle(color("  
+		put "%"
+		put dbin.sp_lopacity
+		put ")))) "
+	}
+
+	if ! dbin.cb_intensity.isdefault() & dbin.cb_intensity {
+		put "style(darkhexbin(shadestyle(intensity("
+		put dbin.cb_intensity
+		put ")))) "
+	}
+
+	if ! dbin.cb_width.isdefault() {
+		put "style(darkhexbin(linestyle(width("
+		put dbin.cb_width
+		put ")))) "
+	}
+	if ! dbin.cb_pattern.isdefault() {
+		put "style(darkhexbin(linestyle(pattern("
+		put dbin.cb_pattern
+		put ")))) "
+	}
+	if ! dbin.cb_lalign.isdefault() {
+		put "style(darkhexbin(linestyle(align("
+		put dbin.cb_lalign
+		put ")))) "
+	}
+
+
+	if ! dbin.cl_pclr.isvisible() & ! dbin.cb_pclr.isdefault() {
+		put "style(darkflower(color(" 
+		put dbin.cb_pclr 
+		put "))) "
+	}
+	if dbin.cl_pclr.isvisible() & ! dbin.cl_pclr.isdefault() {
+		put "style(darkflower(color("  `"""'
+		put dbin.cl_pclr
+		put `"""'
+		put "))) "
+	}
+	if ! dbin.sp_popacity.isdefault() {
+		put "style(darkflower(color("
+		put "%"
+		put dbin.sp_popacity
+		put "))) "
+	}
+	if ! dbin.cb_pwidth.isdefault() {
+		put "style(darkflower(width("
+		put dbin.cb_pwidth
+		put "))) "
+	}
+	if ! dbin.cb_ppattern.isdefault() {
+		put "style(darkflower(pattern("
+		put dbin.cb_ppattern
+		put "))) "
+	}
+
+
+	if ! dbin.cl_pclr.isvisible() & ! dbin.cb_pclr.isdefault() {
+		put "style(darkflower(color(" 
+		put dbin.cb_pclr 
+		put "))) "
+	}
+	if dbin.cl_pclr.isvisible() & ! dbin.cl_pclr.isdefault() {
+		put "style(darkflower(color("  `"""'
+		put dbin.cl_pclr
+		put `"""'
+		put "))) "
+	}
+	if ! dbin.sp_popacity.isdefault() {
+		put "style(darkflower(color("
+		put "%"
+		put dbin.sp_popacity
+		put "))) "
+	}
+	if ! dbin.cb_pwidth.isdefault() {
+		put "style(darkflower(width("
+		put dbin.cb_pwidth
+		put "))) "
+	}
+	if ! dbin.cb_ppattern.isdefault() {
+		put "style(darkflower(pattern("
+		put dbin.cb_ppattern
+		put "))) "
+	}
+END
+
+*****************************************************************************
+
+
+PROGRAM sunflower_output
+BEGIN
+	put " " /program lbin_output
+	put " " /program dbin_output
+END

@@ -1,0 +1,80 @@
+/*
+	estat_sum_pr -- an INCLUDE file containing the SCRIPTs and PROGRAMs
+	used by estat.dlg and svy_estat.dlg
+
+*!  VERSION 1.1.2  09dec2019
+
+	NOTE: this INCLUDE file assumes that the controls for the -estat sum-
+	options are within the 'main' table.
+
+*/
+
+
+PROGRAM main_summ_on
+BEGIN
+	call main.ck_equation.show
+	call main.ck_labels.show
+	call main.ck_noheader.show
+	call main.ck_noweights.show
+	call main.gb_eqlist.show
+	call main.rb_default.show
+	call main.rb_spec.show
+	call main.vl_spec.show
+	if has_FactorVars {
+		call main.bu_facvars_sum.show
+	}
+END
+
+SCRIPT main_summ_off
+BEGIN
+	main.ck_equation.hide
+	main.ck_labels.hide
+	main.ck_noheader.hide
+	main.ck_noweights.hide
+	main.gb_eqlist.hide
+	main.rb_default.hide
+	main.rb_spec.hide
+	main.vl_spec.hide
+	main.bu_facvars_sum.hide
+END
+
+PROGRAM sum_bu_facvars_getOpts
+BEGIN
+	call create STRING sum_bu_facvarsResults
+	call create CHILD factor_vars_reporting AS sum_bu_facvars
+	call sum_bu_facvars.setExitString sum_bu_facvarsResults
+	call sum_bu_facvars.setExitAction "program sum_bu_facvars_ckResults"
+	call sum_bu_facvars.settitle resource LBL_FACTOR_VARIABLE_DISPLAY_OPTIONS
+END
+
+PROGRAM sum_bu_facvars_ckResults
+BEGIN
+	if sum_bu_facvarsResults {
+		call main.bu_facvars_sum.modified_on
+	}
+	else {
+		call main.bu_facvars_sum.modified_off
+	}
+END
+
+PROGRAM summarize_output
+BEGIN
+	if main.rb_spec {
+		require main.vl_spec
+		put " " main.vl_spec
+	}
+END
+
+PROGRAM summarize_opts_output
+BEGIN
+	option main.ck_equation
+	option main.ck_labels
+	option main.ck_noheader
+	option main.ck_noweights
+
+	call create BOOLEAN sum_max_tmpBOOL
+	call sum_max_tmpBOOL.storeClsObjectExists sum_bu_facvarsResults
+	if sum_max_tmpBOOL & !H(main.bu_facvars_sum) {
+		put " "  sum_bu_facvarsResults
+	}
+END

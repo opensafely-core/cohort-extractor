@@ -1,0 +1,238 @@
+/*
+  hetregress
+
+*!  VERSION 1.0.6  05feb2019
+
+  keyword:  eclass
+
+*/
+
+VERSION 15.0
+
+INCLUDE _std_xlarge
+DEFINE _dlght 320
+INCLUDE header
+HELP hlp1, view("help hetregress")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	script se_createAsSvyJknifeBstrapML
+	program svy_check_title
+	setscale_hadj resource HETREGRESS_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script sub_set_by_on
+	program se_setFinalInitState
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	if __MESSAGE.contains("-ml-") {
+		call main.rb_ml.seton
+	}
+	if __MESSAGE.contains("-2step-") {
+		call main.rb_2step.seton
+	}
+END
+
+SCRIPT svy_is_on
+BEGIN
+	rpt.gb_tests.disable
+	rpt.ck_lrmodel.disable
+	rpt.ck_waldhet.disable
+	script max_setDefaultNoLog
+END
+SCRIPT svy_is_off
+BEGIN
+	rpt.gb_tests.enable
+	rpt.ck_lrmodel.enable
+	rpt.ck_waldhet.enable
+	script max_setDefaultLog
+END
+PROGRAM svy_check_title
+BEGIN
+	if __MESSAGE.contains("-svy-") {
+		call settitle resource HETREGRESS_SVY_DLG_TITLE
+	}
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)				///
+	title(resource HETREGRESS_DLG_TITLE)
+BEGIN
+  GROUPBOX gb_est		_lft	_top	_iwd	_ht4,		///
+  	label(resource LBL_ESTIMATOR)
+  RADIO rb_ml			_ilft	_ss	_inwd	., first	///
+  	onclickon(script main_ml_on)					///
+  	label(resource LBL_MAXIMUM_LIKELIHOOD_ESTIMATES)
+  RADIO	rb_2step		@	_ss	@	., last		///
+  	option(twostep)							///
+  	onclickon(script main_twostep_on)				///
+  	label(resource ETREGRESS_MAIN_RB_2STEP)
+
+  TEXT tx_dv 			_lft	+45	_vnwd	.,		///
+	label(resource LBL_DEPVAR)
+  DEFINE holdy @y
+  VARNAME vn_dv			_lft	_ss	@	.,		///
+	ts								///
+	numeric								///
+	label(resource LBL_DEPVAR)
+  TEXT tx_iv			_vlx	holdy	160	.,		///
+	label(resource LBL_INDDEPVAR)
+  VARLIST vl_iv			_vlx	_ss	_vlwd	.,		///
+	fv ts								///
+	allowcat							///
+	numeric								///
+	label(resource LBL_INDDEPVAR)
+  CHECKBOX ck_nocons		@	_ms	@	.,		///
+	label(resource LBL_NOCONSTANT)					///
+	option("noconstant")	
+  TEXT tx_het			_lft	_ls	_iwd	.,		///
+	label(resource LBL_INDEPENDENT_VARIABLES_TO_MODEL_VARIANCE)
+  VARLIST  vl_het		@	_ss	@	.,		///
+	label(resource LBL_INDEPENDENT_VARIABLES_TO_MODEL_VARIANCE)	///
+	allowcat ts fv							///
+	numeric
+  GROUPBOX gb_opts		_lft	_ls	_iwd	_ht5,		///
+	label(resource LBL_OPTIONS)
+
+  DEFINE _x _ilft
+  DEFINE _y _ss
+  DEFINE _cx _ilw80
+  DEFINE _bux _islw80
+  INCLUDE _constraints
+  
+  DEFINE _x _ilft
+  DEFINE _xw _ibwd
+//  INCLUDE _ck_collinear
+END
+
+SCRIPT main_ml_on
+BEGIN
+	main.gb_opts.show
+	main.tx_constr.show
+	main.cb_constr.show
+	main.bu_constr.show
+//	main.ck_collinear.show
+	script weights_setLayout_fpai
+	script weights_enable
+	script max_enable
+	script se_setTitleSeRobust
+	script se_switchToSvyJknifeBstrapML_et
+	rpt.ck_lrmodel.enable
+	rpt.ck_waldhet.enable
+END
+
+SCRIPT main_twostep_on
+BEGIN
+	main.gb_opts.hide
+	main.tx_constr.hide
+	main.cb_constr.hide
+	main.bu_constr.hide
+//	main.ck_collinear.hide
+	program weights_disable_fromSE
+	script max_disable
+	script se_setTitleSE
+	script se_switchToConventJknifeBstrap
+	rpt.ck_lrmodel.disable
+	rpt.ck_waldhet.disable
+END
+
+INCLUDE _constraints_sc 
+INCLUDE sub_by_ifin_over_subpop
+INCLUDE weights_fpai
+INCLUDE se
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+	program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2b
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  GROUPBOX gb_tests	_lft	_ls	_iwd	_ht4h,			///
+	label(resource LBL_ADDITIONAL_TEST_STATISTICS)
+  CHECKBOX ck_lrmodel	_ilft	_ss	_cwd2	.,			///
+	option("lrmodel")						///
+	label(resource LBL_PERFORM_LIKELIHOOD_RATIO_MODEL_TEST_LRMODEL)
+  CHECKBOX ck_waldhet	@	_ms	@	.,			///
+	option("waldhet")						///
+	label(resource LBL_PERFORM_WALD_TEST_ON_VARIANCE)
+
+  DEFINE _x _lft
+  DEFINE _y _xls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+
+PROGRAM rpt_output
+BEGIN
+	optionarg /hidedefault rpt.sp_level
+	option rpt.ck_lrmodel
+	option rpt.ck_waldhet
+	INCLUDE _report_columns_pr
+	put " " rpt_bu_facvarsResults
+	put " " rpt_bu_fmtcoefResults
+END
+
+INCLUDE max_ml
+
+PROGRAM main_het_output
+BEGIN
+	if main.rb_2step {
+		require main.vl_het
+	}
+	if main.vl_het {
+		put "het("
+		put main.vl_het ")"
+	}
+END
+
+PROGRAM command
+BEGIN
+	put /program by_output " "
+	put /program se_prefix_output " "
+	put "hetregress "
+	varlist main.vn_dv [main.vl_iv]
+	if !main.vl_iv & main.ck_nocons {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format					/// 
+		"resource LBL_MSGBOX_IS_SELECTED_WITHOUT_INDVARS_FMT" 	///
+		"resource LBL_NOCONSTANT"
+		stopbox stop "class _MSG_TMP.value"
+// "Suppress constant term" is selected without independent variables.
+	}
+	put " " /program ifin_output
+	put " " /program weights_output
+	beginoptions
+		option main.rb_2step
+		put /program main_het_output
+		option main.ck_nocons
+		INCLUDE _constraints_main_pr
+//		option main.ck_collinear
+		put " " /program se_output
+		put " " /program rpt_output
+		put " " /program max_output
+	endoptions
+END

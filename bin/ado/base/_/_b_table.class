@@ -1,0 +1,1117 @@
+*! version 1.1.5  04nov2016
+version 11
+
+class _b_table {
+	string		LEVEL	= ""
+	double		IS_MI	= 0
+	double		DF_MIS	= 0
+	double		DF	= 0
+	double		Z	= 0
+	double		HAS_V	= 0
+	string		BETA	= ""
+	string		DFTABLE	= ""
+	string		DIOPTS	= ""
+	string		BMAT	= ""
+	string		VMAT	= ""
+	string		DFMAT	= ""
+	string		PISEMAT	= ""
+
+	double		LGND	= 0
+
+	double		neq	= 0
+	array		eqdim
+	array		eq
+
+	_tab		Tab
+
+	string		cfmt	= ""
+	string		sfmt	= ""
+	string		pfmt	= ""
+
+	_b_diparm	Diparm
+}
+
+program .new
+	if "`e(cmd)'" == "regress" {
+		local ALTOPT Beta
+	}
+	.IS_MI	= `"`e(mi)'"' == "mi" & `"`e(df_mi)'"' == "matrix"
+	if `.IS_MI' {
+		local ALTOPT	`ALTOPT'		///
+				DFTable			///
+				DFMATrix(string)	///
+				PISEMATrix(string)
+	}
+	.HAS_V	= "`e(V)'" == "matrix"
+	if `.HAS_V' | "`vmatrix'"!="" {
+		local VOPT	SELEGEND
+	}
+	syntax [,	Level(cilevel)			///
+			VSQuish				///
+			NOALLBASElevels			///
+			ALLBASElevels			///
+			NOBASElevels			///
+			BASElevels			///
+			NOEMPTYcells			///
+			EMPTYcells			///
+			NOOMITted			///
+			OMITted				///
+			BMATrix(string)			///
+			VMATrix(string)			///
+			`ALTOPT'			///
+			COEFLEGEND			///
+			`VOPT'				///
+			cformat(passthru)		///
+			sformat(passthru)		///
+			pformat(passthru)		///
+	]
+
+	opts_exclusive "`coeflegend' `selegend'"
+	tempname t
+	.LEVEL	= "`level'"
+	if `.IS_MI' {
+		.DFTABLE = "`dftable'"
+	}
+	.DF	= e(df_r)
+	if missing(`.DF') {
+		.Z = invnormal((100+`.LEVEL')/200)
+	}
+	else	.Z = invttail(`.DF',(100-`.LEVEL')/200)
+
+	local allbaselevels `allbaselevels' `noallbaselevels'
+	local baselevels `baselevels' `nobaselevels'
+	local noemptycells `emptycells' `noemptycells'
+	local noomitted `omitted' `noomitted'
+	if "`allbaselevels'`baselevels'" == "" {
+		if c(showbaselevels) == "all" {
+			local allbaselevels allbaselevels
+		}
+		else if c(showbaselevels) == "on" {
+			local baselevels baselevels
+		}
+	}
+	if "`noemptycells'" == "" & c(showemptycells) == "off" {
+		local noemptycells noemptycells
+	}
+	if "`noomitted'" == "" & c(showomitted) == "off" {
+		local noomitted noomitted
+	}
+
+	local diopts	`vsquish'	///
+			`allbaselevels'	///
+			`baselevels'	///
+			`noemptycells'	///
+			`noomitted'
+	_get_diopts ignore, `diopts' `cformat' `sformat' `pformat'
+	.DIOPTS = "`:list retok diopts'"
+
+	local cfmt `"`s(cformat)'"'
+	if !`:length local cfmt' {
+		local cfmt = c(cformat)
+	}
+	if `:length local cfmt' {
+		local xx : display `cfmt' 1.1
+		if `:length local xx' > 9 {
+			di as err "option cformat() invalid;"
+			di as err "width too large"
+			exit 198
+		}
+		.cfmt	= "`cfmt'"
+	}
+	else	.cfmt	= "%9.0g"
+	local sfmt `"`s(sformat)'"'
+	if !`:length local sfmt' {
+		local sfmt = c(sformat)
+	}
+	if `:length local sfmt' {
+		local xx : display `sfmt' 1.1
+		if `:length local xx' > 8 {
+			di as err "option sformat() invalid;"
+			di as err "width too large"
+			exit 198
+		}
+		.sfmt	= "`sfmt'"
+	}
+	else	.sfmt	= "%8.2f"
+	local pfmt `"`s(pformat)'"'
+	if !`:length local pfmt' {
+		local pfmt = c(pformat)
+	}
+	if `:length local pfmt' {
+		local xx : display `pfmt' 1.1
+		if `:length local xx' > 5 {
+			di as err "option pformat() invalid;"
+			di as err "width too large"
+			exit 198
+		}
+		.pfmt	= "`pfmt'"
+	}
+	else	.pfmt	= "%5.3f"
+
+	if "`bmatrix'" == "" {
+		if "`e(b)'" != "matrix" {
+			error 301
+		}
+		if `:length local vmatrix' {
+			di as err ///
+"option vmatrix() requires option bmatrix()"
+			exit 198
+		}
+	}
+	else {
+		.HAS_V = "`vmatrix'" != ""
+	}
+	if "`vmatrix'" == "" {
+		if `:length local dfmatrix' {
+			di as err ///
+"option dfmatrix() requires option vmatrix()"
+			exit 198
+		}
+	}
+	if "`dfmatrix'" == "" {
+		if `:length local pisematrix' {
+			di as err ///
+"option pisematrix() requires option dfmatrix()"
+			exit 198
+		}
+	}
+	.BMAT	= "`bmatrix'"
+	.VMAT	= "`vmatrix'"
+	.DFMAT	= "`dfmatrix'"
+	.PISEMAT= "`pisematrix'"
+	opts_exclusive "`beta' `coeflegend'"
+	opts_exclusive "`beta' `selegend'"
+	.BETA	= "`beta'"
+	if "`coeflegend'" != "" {
+		.LGND = 1
+	}
+	else if "`selegend'" != "" {
+		.LGND = 2
+	}
+
+	if `.IS_MI' {
+		if `:length local dfmatrix' {
+			local dfmat : copy local dfmatrix
+			if ("`dfmat'"=="e(df_Q_mi)") {
+				.DF_MIS	= e(_dfnote_Q_mi)
+			}
+			else {
+				.DF_MIS	= e(_dfnote_mi)
+			}
+		}
+		else {
+			local dfmat e(df_mi)
+			.DF_MIS	= e(_dfnote_mi)
+		}
+	}
+	if `:length local bmatrix' {
+		local miopts bmatrix(`bmatrix')
+	}
+	if `:length local vmatrix' {
+		local miopts `miopts' vmatrix(`vmatrix')
+	}
+	if `:length local dfmatrix' {
+		local miopts `miopts' dfmatrix(`dfmatrix')
+	}
+
+	.Diparm	= ._b_diparm.new, level(`level') `miopts'
+
+	_ms_eq_info, matrix(`bmatrix')
+	.neq	= r(k_eq)
+	forval i = 1/`.neq' {
+		.eqdim[`i'] = r(k`i')
+		.eq[`i'] = `"`r(eq`i')'"'
+	}
+
+	if "`.BETA'`.DFTABLE'" == "" {
+		local f6 "%24s"
+		local f7 "."
+		local n6 "`.cfmt'"
+		local n7 "`.cfmt'"
+	}
+	else {
+		local f6 "%12s"
+		local f7 "%12s"
+		if "`.BETA'" != "" {
+			local n6 "%9.0g"
+			local n7 "%9.0g"
+		}
+		else {
+			local n6 "%9.1f"
+			local n7 "%9.2f"
+		}
+	}
+	.Tab	= ._tab.new, col(7) lmargin(0) ignore(.b)
+	// column      1      2       3       4       5     6     7
+	.Tab.width    13    |11      11       9       9    12    12
+	.Tab.titlefmt  .   %11s    %12s     %7s       .   `f6'  `f7'
+	.Tab.strfmt    .   %11s     %1s       .       .     .     .
+	.Tab.pad       .      2       2       1       3     3     3
+	.Tab.numfmt    . `.cfmt' `.cfmt' `.sfmt' `.pfmt'  `n6'  `n7'
+	.Tab.strcolor  . result       .       .       .     .     .
+end
+
+program .display_titles, rclass
+	syntax [,	COEFTitle(string)	///
+			DEPNAME(string)		/// NOT DOCUMENTED
+			noCNSReport		///
+			noCLUSTReport		///
+			FULLCNSReport		///
+	]
+
+	opts_exclusive "`cnsreport' `fullcnsreport'"
+	if !`:length local coeftitle' {
+		if `.LGND' == 2 {
+			local coeftitle "Std. Err."
+		}
+		else {
+			local coeftitle "Coef."
+		}
+	}
+	if `:length local depname' {
+		local dv : copy local depname
+	}
+	else	local dv `"`e(depvar)'"'
+	local dvlen : length local dv
+	if `dvlen' {
+		if `:list sizeof dv' > 1 {
+			local dvlen 0
+		}
+	}
+ 	if `.IS_MI' { // do not display VCE type above Std. Err.
+		local vceti
+	}
+	else {
+		local vceti `"`e(vcetype)'"'
+	}
+
+	local tsdvn 0		// number of depvar lines for time-series
+				// operators to display
+	if `dvlen' {
+		_msparse `dv', ivar
+		local dv `"`r(stripe)'"'
+		gettoken op vn : dv, parse(".")
+		if "`vn'" != "" & `:length local dv' > 12 {
+			local vn = bsubstr("`vn'",2,.)
+			._compute_multi_line_tsop op_ depvar tsdvn : `op' `vn'
+		}
+		else	local depvar = abbrev("`dv'",12)
+	}
+
+	if `"`e(Cns)'"' == "matrix" {
+		if !`:length local cnsreport' {
+			_makecns, displaycns `fullcnsreport'
+		}
+	}
+	if !`:length local clustreport' {
+		._display_cluster
+	}
+	.Tab.sep, top
+	if `tsdvn' > 0 {
+		.Tab.titlefmt  %-12s . . . . . .
+		local last = `tsdvn' - ("`vceti'" != "")
+		forval i = 1/`last' {
+			.Tab.titles "`op_`i''" "" "" "" "" "" ""
+		}
+		.Tab.titlefmt  %12s . . . . . .
+		if `last' < `tsdvn' {
+			local opti : copy local op_`tsdvn'
+		}
+	}
+
+	if `"`vceti'`.DFTABLE'"' != "" & !`.LGND' {
+		if "`e(vce)'" == "bootstrap" {
+			local obs "Observed"
+			if "`vceti'" == "Bootstrap" {
+				local citi "Normal-based"
+			}
+		}
+		local ciwd : length local citi
+		local vcewd : length local vceti
+		local plus 0
+		if `"`e(mse)'"' != "" {
+			capture which `e(vce)'_`e(mse)'.sthlp
+			local mycrc = c(rc)
+			if `mycrc' {
+				capture which `e(vce)'_`e(mse)'.hlp
+				local mycrc = c(rc)
+			}
+			if !`mycrc' {
+				local vceti ///
+				"{help `e(vce)'_`e(mse)'##|_new:`vceti'}"
+				local plus = `: length local vceti' - `vcewd'
+			}
+			capture
+		}
+		if `ciwd' <= 27 {
+			// NOTE: see the width and pad definitions of .Tab
+			local ciwd = `ciwd' + ceil((27-`ciwd')/2)
+		}
+		local ow3 `.Tab._get _width 3'
+		local of3 `.Tab._get _fmt_title 3'
+		local nf3 .
+		if "`obs'" == "" {
+			local os3 `.Tab._get _column_start 3'
+			local op3 `.Tab._get _pad 3'
+			local ow2 `.Tab._get _width 2'
+			local ow4 `.Tab._get _width 4'
+
+			local nw3 = 2*`ow2' + `ow3' + 1
+			if `vcewd' <= `nw3' {
+				local nw3 = `vcewd' + `plus' ///
+					  + ceil((`nw3'-`vcewd')/2+1)
+				local nf3 %`nw3's
+			}
+			.Tab._column_start[3]	= `.Tab._column_start[2]'
+			.Tab._pad[3]		= 0
+		}
+		else {
+			if `vcewd' <= `ow3'+1 {
+				local nw3 = `vcewd' + `plus' ///
+					  + ceil((`ow3'+1-`vcewd')/2+1)
+				local nf3 %`nw3's
+			}
+		}
+		local nf6 %`ciwd's
+		local of6 `.Tab._get _fmt_title 6'
+		if "`.DFTABLE'" != "" {
+			local pi "% Increase"
+		}
+
+	// column          1       2           3   4  5        6       7
+	.Tab.titlefmt  %-12s       .        `nf3'  .  .     `nf6'      .
+	.Tab.titles "`opti'" "`obs'" `" `vceti'"' "" "" "`citi'"  "`pi'"
+	.Tab.titlefmt   %12s       .        `of3'  .  .     `of6'      .
+
+		if "`obs'" == "" {
+			.Tab._column_start[3]	= `os3'
+			.Tab._pad[3]		= `op3'
+		}
+	}
+
+	if !missing(`.DF') | `.IS_MI' {
+		local stat t
+	}
+	else	local stat z
+	if `.LGND' {
+		.Tab.titlefmt . . %1s . . . .
+		.Tab.titles	"`depvar'"		/// 1
+				"`coeftitle'"		/// 2
+				"  Legend"		/// 3
+				""			/// 4
+				""			/// 5
+				"" ""			 // 6 7
+	}
+	else if `.HAS_V' {
+		if "`.BETA'`.DFTABLE'" == "" {
+			local c6 `"[`=strsubdp("`.LEVEL'")'% Conf. Interval]"'
+		}
+		else if "`.BETA'" != "" {
+			local c7 Beta
+		}
+		else {
+			if `.DF_MIS' {
+				local DF "{help mi_missingdf##|_new:DF} "
+				local os6 `.Tab._get _column_start 6'
+				local space = `.Tab._get _width 6' - 2
+				.Tab._column_start[6] = `os6' + `space'
+			}
+			else	local DF "DF "
+			local c6 : copy local DF
+			local c7 "Std. Err."
+		}
+		.Tab.titles	"`depvar'"		/// 1
+				"`coeftitle'"		/// 2
+				"Std. Err."		/// 3
+				"`stat'"		/// 4
+				"P>|`stat'|"		/// 5
+				"`c6'"			/// 6
+				"`c7'"			 // 7
+		if `:length local os6' {
+			.Tab._column_start[6] = `os6'
+		}
+	}
+	else {
+		.Tab.titles	"`depvar'"		/// 1
+				"`coeftitle'"		/// 2
+				""			/// 3
+				""			/// 4
+				""			/// 5
+				"" ""			 // 6 7
+	}
+end
+
+program .display_eq, rclass
+	syntax [anything(name=eq equalok)] [,	///
+		HIDEEQname			///
+		EForm				///
+		ERRormat(name)			///
+		comment(passthru)		///
+		noSEParator			///
+	]
+
+	local sep = "`separator'" == ""
+
+	if `"`eq'"' == "" {
+		local eq "#1"
+	}
+	if bsubstr(`"`eq'"',1,1) == "#" {
+		local eqno = bsubstr(`"`eq'"',2,.)
+	}
+	else {
+		forval i = 1/`.neq' {
+			local eqi `"`.eq[`i']'"'
+			if `:list eqi == eq' {
+				local eqno `i'
+				continue, break
+			}
+		}
+	}
+	capture numlist "`eqno'", range(>=1 <=`.neq') integer min(1) max(1)
+	if c(rc) {
+		error 303
+	}
+	local eq `"`.eq[`eqno']'"'
+	if `:length local comment' {
+		if `sep' {
+			.Tab.sep
+		}
+		._comment `eq', `comment' header
+		exit
+	}
+	local k = `.eqdim[`eqno']'
+	local i1 0
+	forval i = 1/`=`eqno'-1' {
+		local i1 = `i1' + `.eqdim[`i']'
+	}
+	local ++i1
+
+	local hasemat : list sizeof errormat
+	if `hasemat' {
+		tempname emat
+		local i2 = `i1' + `k' - 1
+		matrix `emat' = `errormat'[1,`i1'..`i2']
+	}
+
+	if `"`eq'"' == "_" {
+		local hideeqname hide
+	}
+	else {
+		if `.neq' > 1 {
+			local eqlgnd "`eq':"
+		}
+	}
+	local hideeqname : length local hideeqname
+
+	if `sep' {
+		.Tab.sep
+	}
+
+	local error1 "  (no observations)"
+	local error2 "  (stratum with 1 PSU detected)"
+	local error3 "  (sum of weights equals zero)"
+	local error4 "  (denominator estimate equals zero)"
+	local error5 "  (omitted)"
+	local error6 "  (base)   "
+	local error7 "  (empty)  "
+	local error8 "  (not estimable)"
+
+	local blanks `""" "" "" "" "" """'
+
+	tempname b se t p ll ul beta z pise
+
+	local is_dftable = "`.DFTABLE'" != ""
+
+	local eq0 0
+	local eqm1 = `eqno' - 1
+	forval i = 1/`eqm1' {
+		local eq0 = `eq0' + `.eqdim[`i']'
+	}
+	local df = `.DF'
+	scalar `z' = `.Z'
+
+	local diopts `.DIOPTS'
+	if !`:list posof "vsquish" in diopts' {
+		local diopts `diopts' vsquish
+	}
+
+	local bmat `.BMAT'
+	local vmat `.VMAT'
+	local dfmat `.DFMAT'
+	local pisemat `.PISEMAT'
+	local has_bmat : length local bmat
+	local has_vmat : length local vmat
+	local has_dfmat : length local dfmat
+	local has_pisemat : length local pisemat
+	if `has_bmat' {
+		local matopt matrix(`bmat')
+		local hasbeta 0
+	}
+	else {
+		local hasbeta	= "`.BETA'" != ""
+	}
+	local has_v `.HAS_V'
+	if `.LGND' {
+		if `has_bmat' {
+			local colna : colna `bmat'
+		}
+		else	local colna : colna e(b)
+		local i0 = `i1' - 1
+		forval i = 1/`i0' {
+			gettoken skip colna : colna
+		}
+	}
+
+	// show the equation name
+	if !`hideeqname' {
+		_ms_eq_display, eq(`eqno') `matopt'
+		di
+	}
+
+	// loop through the coefficients
+	if `:length local eform' {
+		local nocons nocons
+	}
+	local compz 0
+	local output 0
+	local first	// starts empty
+	forval i = 1/`k' {
+		if `.LGND' {
+			gettoken x colna : colna
+			local x `eqlgnd'`x'
+		}
+		_ms_display,	eq(#`eqno')	///
+				el(`i')		///
+				`first'		///
+				`nocons'	///
+				`diopts'	///
+				`matopt'
+		if r(output) {
+			local first
+			if !`output' {
+				local output 1
+				local diopts `.DIOPTS'
+			}
+		}
+		else {
+			if r(first) {
+				local first first
+			}
+			continue
+		}
+		local note	`"`r(note)'"'
+
+		local err 0
+		if "`note'" == "(base)" {
+			local err 6
+		}
+		if "`note'" == "(empty)" {
+			local err 7
+		}
+		if "`note'" == "(omitted)" {
+			local err 5
+		}
+
+		local el = `eq0' + `i'
+		if `has_bmat' {
+			scalar `b' = el(`bmat',1,`el')
+			if `has_vmat' {
+				scalar `se' = sqrt(el(`vmat',`el',`el'))
+			}
+			else {
+				scalar `se' = 0
+			}
+		}
+		else {
+			scalar `b' = r(b)
+			scalar `se' = cond(`.HAS_V', r(se), 0)
+			if `hasbeta' {
+				scalar `beta' = r(beta)
+			}
+		}
+		local b0 = `b'
+
+		if `.IS_MI' {
+			if `has_dfmat' {
+				local df = el(`dfmat',1,`el')
+			}
+			else {
+				local df = el(e(df_mi),1,`el')
+			}
+			local compz 1
+		}
+		if `is_dftable' {
+			if `has_pisemat' {
+				scalar `pise' = el(`pisemat',1,`el')
+			}
+			else {
+				scalar `pise' = el(e(pise_mi),1,`el')
+			}
+		}
+		if `compz' {
+			// ttail(n,t) = . for n>2e17, so use Z-approx
+			if `df' > 2e17 {
+				scalar `z' = invnormal((100+`.LEVEL')/200)
+			}
+			else {
+				scalar `z' = invttail(`df',(100-`.LEVEL')/200)
+			}
+		}
+
+		if `has_v' & `se' == 0 & `"`e(census)'"' == "1" {
+			scalar `t' = .
+			scalar `p' = .
+			scalar `ll' = .
+			scalar `ul' = .
+		}
+		else {
+			if `se' == 0 {
+				scalar `se' = .
+			}
+			scalar `t' = `b'/`se'
+			if missing(`df') | (`compz' & `df' > 2e17) {
+				scalar `p' = 2*normal(-abs(`t'))
+			}
+			else	scalar `p' = 2*ttail(`df',abs(`t'))
+			if abs(`t') > 9999 {
+				local numfmt " . . . %8.2e . . ."  
+			}
+			else {
+				local numfmt " . . . `.sfmt' . . ."  
+			}
+			scalar `ll' = `b' - `se'*`z'
+			scalar `ul' = `b' + `se'*`z'
+			if "`eform'" != "" {
+				scalar `b'  = exp(`b')
+				scalar `se' = `b'*`se'
+				scalar `ll' = exp(`ll')
+				scalar `ul' = exp(`ul')
+			}
+		}
+		local error 0
+		if `b0' == 0 {
+			if missing(`se') {
+				if `err' {
+					local error : copy local err
+				}
+				else if `has_v' {
+					local error 5
+				}
+			}
+		}
+
+		if `hasemat' {
+			local err = `emat'[1,`i']
+			capture numlist "`err'", range(>=1 <=8) integer
+			if !c(rc) {
+				local error `err'
+			}
+		}
+		if `:length local numfmt' {
+			.Tab.numfmt `numfmt'
+		}
+		.Tab.width . 12 . . . . ., noreformat
+		if `.LGND' {
+			if `.LGND' == 1 {
+				local stat : copy local b
+				local exp _b[`x']
+			}
+			else {
+				local stat : copy local se
+				local exp _se[`x']
+			}
+			if `error' {
+				local note : copy local error`error'
+				.Tab.row "" "`note'" `"  `exp'"' "" "" "" ""
+			}
+			else {
+				.Tab.row "" `stat' `"  `exp'"' "" "" "" ""
+			}
+		}
+		else if `error' {
+			local note : copy local error`error'
+			.Tab.row "" "`note'" "" "" "" "" ""
+		}
+		else if !`has_v' {
+			.Tab.row "" `b' "" "" "" "" ""
+		}
+		else if `hasbeta' {
+			.Tab.row "" `b' `se' `t' `p' .b `beta'
+		}
+		else if `is_dftable' {
+			.Tab.row "" `b' `se' `t' `p' `df' `pise'
+		}
+		else {
+			.Tab.row "" `b' `se' `t' `p' `ll' `ul'
+		}
+		.Tab.width . |11 . . . . ., noreformat
+	}
+end
+
+program .display_value
+	syntax anything(name=id id="name") [,	///
+		value(real 0.0)			///
+		comment(string)			///
+		AUXiliary			///
+	]
+	if `:length local auxiliary' {
+		local id = "/" + abbrev("`id'",11)
+	}
+	else	local id = abbrev("`id'",12)
+	local osc3 `.Tab._get _color_str 3'
+	.Tab.strcolor         .       .           text   .  .  .  .
+	.Tab.row	`"`id'"' `value' `" `comment'"' "" "" "" ""
+	.Tab.strcolor         .       .         `osc3'   .  .  .  .
+end
+
+program .display_comment
+	syntax [anything(name=idlist id="name list")] [, comment(string asis)]
+	local k : list sizeof idlist
+	if `k' {
+		gettoken id idlist : idlist
+		if `"`id'"' != "_" {
+			if `k' == 1 {
+				._comment `id', comment(`comment') header
+			}
+			else {
+				._comment `id'
+			}
+			foreach id of local idlist {
+				._comment `id', comment(`comment')
+			}
+		}
+	}
+	else {
+		._comment `comment', header
+	}
+end
+
+program .display_offset
+	_get_offopt `0', noconfirm
+	local offset `s(offvar)'
+	if "`s(offopt)'" == "offset(`offset')" {
+		local offtyp "(offset)"
+	}
+	else if "`s(offopt)'" != "" {
+		local offtyp "(exposure)"
+	}
+	if "`offset'" != "" {
+		local offset = abbrev("`offset'", 12)
+		// columns         1            2   3  4  5  6  7
+		local osc2 `.Tab._get _color_str 2'
+		.Tab.strcolor      .         text   .  .  .  .  .
+		.Tab.row `"`offset'"' `"`offtyp'"' "" "" "" "" ""
+		.Tab.strcolor      .       `osc2'   .  .  .  .  .
+	}
+end
+
+program .display_diparm
+	gettoken tok : 0, parse(", ")
+	if "`tok'" == "__lab__" {
+		syntax anything(name=eqs id="equations") ,	///
+			LABel(string)				///
+		[	EQLABel					///
+			VALUE(numlist max=1)			///
+			COMMENT(string)				///
+		]
+	}
+	else if inlist("`tok'", "__sep__", "__bot__") {
+		syntax anything(name=eqs id="equations") [, NOOPT]
+	}
+	else {
+		syntax anything(name=eqs id="equations") [,	///
+			LABel(string)				///
+			NOProb Prob				///
+			DOF(passthru)				///
+			*					///
+		]
+		local prob `noprob' `prob'
+		opts_exclusive "`prob'"
+	}
+
+	if "`eqs'" == "__lab__" {
+		if !`:length local value' {
+			local value .b
+		}
+		if "`eqlabel'" != "" {
+			local osc1 `.Tab._get _color_str 1'
+			local oft1 `.Tab._get _fmt_str 1'
+			.Tab.strcolor  result . . . . . .
+			.Tab.strfmt    %-12s  . . . . . .
+		}
+		local label = abbrev(`"`label'"', 12)
+		.display_value `label', value(`value') comment("`comment'")
+		if "`eqlabel'" != "" {
+			.Tab.strcolor  `osc1' . . . . . .
+			.Tab.strfmt    `oft1' . . . . . .
+		}
+		exit
+	}
+	if "`eqs'" == "__bot__" {
+		.Tab.sep, bottom
+		exit
+	}
+	if "`eqs'" == "__sep__" {
+		.Tab.sep
+		exit
+	}
+
+	local factor 0
+	local varcov 0
+	if "`label'" == "" {
+		gettoken label : eqs
+		local varcov = inlist(bsubstr(`"`label'"',1,4), "var(", "cov(")
+		if `varcov' {
+			if "`.BMAT'" != "" {
+				local matopt matrix(`.BMAT')
+			}
+			_msparse `label':_cons, eq
+			local label `"`r(stripe)'"'
+			local ieq 0
+			_ms_eq_info, `matopt'
+			local k_eq = r(k_eq)
+			forval i = 1/`k_eq' {
+				if `"`label'"' == `"`r(eq`i')'"' {
+					local ieq `i'
+					break
+				}
+			}
+
+			if `ieq' {
+				local label	// empty
+			}
+			else {
+				local varcov 0
+			}
+		}
+		if `varcov' == 0 {
+			_ms_parse_parts `label'
+			local factor = r(type) == "factor"
+			if `factor' {
+				local label "`r(level)'`r(ts_op)'.`r(name)'"
+				local base = r(base)
+			}
+			local label = "/" + abbrev(`"`label'"', 11)
+		}
+	}
+	else	local label = abbrev(`"`label'"', 12)
+
+	if `:length local dof' {
+		local df = `.Diparm.DF'
+		.Diparm.store, `dof'
+	}
+
+	tempname est se z p lb ub
+	.Diparm.compute `eqs', `prob' `options'
+	scalar `est'	= r(est)
+	scalar `se'	= r(se)
+	if "`r(prob)'" == "prob" {
+		scalar `z' = r(z)
+		scalar `p' = r(p)
+	}
+	else {
+		scalar `z' = .b
+		scalar `p' = .b
+	}
+	scalar `lb' = r(lb)
+	scalar `ub' = r(ub)
+	local el = r(i)
+	if `:length local dof' {
+		.Diparm.restore
+	}
+	if `varcov' {
+		tempname res
+		_return hold `res'
+		_ms_eq_display, `matopt' eq(`ieq') astext
+		.Tab.width . 12 . . . . ., noreformat
+		_return restore `res'
+	}
+	if `.LGND' {
+		if `:length local options' == 0 & `:list sizeof eqs' == 1 {
+			if `.LGND' == 1 {
+				local exp _b[`eqs':_cons]
+			}
+			else {
+				local exp _se[`eqs':_cons]
+			}
+		}
+		.Tab.row "`label'" `est' `"  `exp'"' "" "" "" ""
+	}
+	else if !`.HAS_V' {
+		.Tab.row "`label'" `est' "" "" "" "" ""
+	}
+	else if "`.DFTABLE'" != "" {
+		local dfmat `.DFMAT'
+		local has_dfmat : length local dfmat
+		local pisemat `.PISEMAT'
+		local has_pisemat : length local pisemat
+		if `el' {
+			if `has_dfmat' {
+				scalar `lb' = el(`dfmat',1,`el')
+			}
+			else {
+				scalar `lb' = el(e(df_mi),1,`el')
+			}
+			if `has_pisemat' {
+				scalar `ub' = el(`pisemat',1,`el')
+			}
+			else {
+				scalar `ub' = el(e(pise_mi),1,`el')
+			}
+		}
+		else {
+			scalar `lb' = .b
+			scalar `ub' = .b
+		}
+		.Tab.row "`label'" `est' `se' `z' `p' `lb' `ub'
+	}
+	else {
+		if `est' == 0 & inlist(`se', 0, .) {
+			local error5 "  (omitted)"
+			local error6 "  (base)   "
+			local note : copy local error5
+			if `factor' {
+				if `base' {
+					local note : copy local error6
+				}
+			}
+		}
+		if `:length local note' {
+			.Tab.row "`label'" "`note'" "" "" "" "" ""
+		}
+		else {
+			if abs(`z') > 9999 {
+				local numfmt " . %9.0g %9.0g %8.2e %5.3f . ."  
+			}
+			else {
+				local numfmt " . %9.0g %9.0g %8.2f %5.3f . ."  
+			}
+			.Tab.numfmt `numfmt'
+			.Tab.row "`label'" `est' `se' `z' `p' `lb' `ub'
+		}
+	}
+	if `varcov' {
+		.Tab.width . |11 . . . . ., noreformat
+	}
+end
+
+program .sep
+	.Tab.sep
+end
+
+program .finish
+	.Tab.sep, bottom
+end
+
+// subroutines --------------------------------------------------------------
+
+program ._display_cluster
+	if `.IS_MI' {
+		local msg "Within VCE adjusted for"
+		local reps 0
+		local misuf _mi
+	}
+	else if inlist("`e(prefix)'","bootstrap","jackknife") {
+		local msg "Replications based on"
+		local reps 1
+	}
+	else {
+		local msg "Std. Err. adjusted for"
+		local reps 0
+	}
+	local clustvar "`e(clustvar)'"
+	if "`clustvar'" == "" & ("`e(vce)'" == "robust" | `reps') {
+		// NOTE: the 'id' var for -streg- and -stcox- is posted to
+		// -e(clustvar)-
+		if bsubstr("`e(cmd)'",1,2) == "xt" {
+			is_xt "`e(cmd)'"
+			if r(is_xt) {
+				local clustvar "`e(ivar)'"
+			}
+		}
+		else if inlist("`e(cmd)'","clogit","rologit") {
+			local clustvar "`e(group)'"
+		}
+		else if inlist("`e(cmd)'",		///
+				"asmprobit",		///
+				"asroprobit",		///
+				"asclogit",		///
+				"nlogit") {
+			local clustvar "`e(case)'"
+		}
+	}
+	if "`clustvar'" != "" {
+		if !missing(e(N_clust`misuf')) {
+			di as txt ///
+"{ralign 78:(`msg' {res:`e(N_clust`misuf')'} clusters in `clustvar')}"
+		}
+		else {
+			di as txt ///
+"{ralign 78:(`msg' clustering on `clustvar')}"
+		}
+	}
+end
+
+program ._compute_multi_line_tsop
+	args c_op c_dv c_n COLON op vn
+
+	local n 1
+
+	// operator fits on a line by itself
+	if `:length local op' < 12 {
+		c_local `c_op'1	`"`op'."'
+		local vn = abbrev(`"`vn'"',12)
+		c_local `c_dv'	`"`vn'"'
+		c_local `c_n'	`n'
+		exit
+	}
+
+	c_local `c_op'`n' = udsubstr(`"`op'"',1, 12)
+	local clen = usubstr("`c_op'`n'")
+	local op = usubstr(`"`op'"', `clen', .)
+	while `:length local op' >= 12 {
+		local ++n
+		c_local `c_op'`n' = udsubstr(`"`op'"', 1, 12)
+		local clen = usubstr("`c_op'`n'")
+		local op = usubstr(`"`op'"', `clen', .)
+	}
+	if `"`op'"' == "" {
+		local vn = abbrev(`"`vn'"', 12)
+		c_local `c_dv' `"`vn'"'
+	}
+	else {
+		local rest `"`op'.`vn'"'
+		if `:length local rest' <= 12 {
+			c_local `c_dv' `"`rest'"'
+		}
+		else {
+			local ++n
+			c_local `c_op'`n' `"`op'."'
+			local vn = abbrev(`"`vn'"', 12)
+			c_local `c_dv' `"`vn'"'
+		}
+	}
+	c_local `c_n' `n'
+end
+
+program ._comment
+	syntax [anything(name=id id="name")] [, comment(string) Header]
+	local id = abbrev("`id'", 12)
+	local h : length local header
+	local osc1 `.Tab._get _color_str 1'
+	local osc2 `.Tab._get _color_str 2'
+	if `h' {
+		local oft1 `.Tab._get _fmt_str 1'
+		.Tab.strcolor result          text   .  .  .  .  .
+		.Tab.strfmt    %-12s             .   .  .  .  .  .
+		.Tab.row     `"`id'"' `"`comment'"' "" "" "" "" ""
+		.Tab.strfmt   `oft1'             .   .  .  .  .  .
+	}
+	else {
+		.Tab.strcolor   text          text   .  .  .  .  .
+		.Tab.row     `"`id'"' `"`comment'"' "" "" "" "" ""
+	}
+		.Tab.strcolor  `osc1'       `osc2'   .  .  .  .  .
+end
+
+exit

@@ -1,0 +1,1082 @@
+/*
+  mixed
+
+*!  VERSION 1.2.6  06may2019
+
+*/
+
+VERSION 15.0
+
+INCLUDE _std_large
+DEFINE _dlght 620
+INCLUDE header
+
+HELP hlp1, view("help mixed")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING STMP
+	script se_createAsOIMClRobust
+
+	create STRING main_equ_tmp
+	create STRING main_equ_tmp2
+	create STRING main_equ_childdlg
+	create STRING main_equ_dlgname
+	create STRING main_equ_child_result
+	create STRING main_equ_cmd_output
+	create STRING main_equ_cmd_tmp
+	create STRING main_equ_cmd_last
+
+	create ARRAY main_equ_list
+
+	create SVECTOR mainEQUCommandDisplayList
+	create SVECTOR mainEQUCommandList
+	create SVECTOR mainEQUCommandValues
+	create SVECTOR mainEQUStatusList
+	create SVECTOR mainEQUChildDialogList
+
+	create SVECTOR mainEQUCommandList_wgt
+	create SVECTOR mainEQUCommandValues_wgt
+
+	create DOUBLE main_equ_count
+	create DOUBLE main_equ_position
+	create DOUBLE main_equ_arraysize
+
+	main.bu_equ_edit.disable
+	main.bu_equ_disable.disable
+	main.bu_equ_enable.disable
+
+	create BOOLEAN allow_fweights
+	create BOOLEAN allow_pweights
+
+	create STRING fweights_cmd
+	create STRING pweights_cmd
+	create STRING main_equ_child_result_wgt
+
+	allow_fweights.settrue
+	allow_pweights.settrue
+	main.tx_pwscale.disable
+	main.cb_pwscale.disable
+	setscale_hadj resource MIXED_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	mainEQUCommandDisplayList.copyToArray main_equ_list
+	main.lb_equBuild.repopulate
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	call script max_setFromNotVisible
+	call script max_setListNoBHHH
+	call script max_setOptionXTME_MATLOG
+	call program check_bytab
+END
+
+PROGRAM check_bytab
+BEGIN
+	if __MESSAGE.contains("__MI__") {
+		call script byifin_set_by_off
+	}
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)	///
+	label(resource MIXED_DLG_TITLE)
+BEGIN
+
+	GROUPBOX gb_est_method	_lft	_top	_inwd	_ht1h,		///
+		label(resource LBL_ESTIMATION_METHOD)
+	RADIO	rb_mle		_indent _ss	_cwd1	., first	///
+		onclickon("script main_mle_on")				///
+		label(resource LBL_MAXIMUM_LIKELIHOOD)
+	RADIO	rb_reml		250	@	@	., last		///
+		option(reml)						///
+		onclickon("script main_reml_on")			///
+		label(resource LBL_RESTRICTED_MAXIMUM_LIKELIHOOD)
+
+	GROUPBOX gb_fe		_lft	_ls	_iwd	_ht6h,		///
+		label(resource LBL_FIXED_EFFECTS_MODEL)
+	DEFINE _x _indent
+	DEFINE _y _ms
+	INCLUDE me_dviv
+
+	CHECKBOX ck_nocons	@	_ms	@	.,		///
+		option(noconstant)					///
+		label(resource LBL_NOCONSTANT)
+
+	DEFINE _x _lft
+	DEFINE _y _ls
+	INCLUDE me_equ
+
+	GROUPBOX gb_opts	_lft	340	_iwd	_ht23h,		///
+		label(resource LBL_OPTIONS)
+
+	TEXT	tx_pwscale	20	_ss	200	.,		///
+		label(resource MIXED_MAIN_TX_PWSCALE)
+	COMBOBOX cb_pwscale	@	_ss	@	.,		///
+		option(pwscale)						///
+		dropdown						///
+		contents(main_pwscale_contents)				///
+		onselchangelist(main_resid_type_scripts)		///
+		label(resource MIXED_MAIN_TX_PWSCALE)
+
+	CHECKBOX ck_resid	20	_ls	460	_ht7,		///
+		groupbox						///
+		onclickon("script main_ck_resid_on")			///
+		onclickoff("script main_ck_resid_off")			///
+		label(resource LBL_RESIDUALS)
+	TEXT	tx_resid_type	_indent	_ss	_vnwd	.,		///
+		label(resource LBL_TYPE_COLON)
+		DEFINE holdy @y
+	COMBOBOX cb_resid_type	@	_ss	@	.,		///
+		dropdownlist						///
+		contents(main_resid_type_contents)			///
+		values(main_resid_type_values)				///
+		onselchangelist(main_resid_type_scripts)		///
+		label(resource LBL_TYPE_COLON)
+	SPINNER sp_order	30	_ls	_spwd	.,		///
+		default(1)						///
+		min(1)							///
+		max(50)							///
+		label(resource LBL_ORDER)
+	EDIT	ed_order	@	@	@	.,		///
+		default("Full")						///
+		label(resource LBL_ORDER)
+	TEXT	tx_order	_spsep	@	305	.,		///
+		label(resource LBL_ORDER)
+
+	TEXT	tx_resid_by	+90	holdy	_vnwd	.,		///
+		label(resource LBL_BY_VARIABLE)
+	DEFINE holdy @y
+	VARNAME vn_resid_by	@	_ss	@	.,		///
+		option(by)						///
+		label(resource LBL_BY_VARIABLE)
+	TEXT	tx_resid_t	+160	holdy	@	.,		///
+		label(resource LBL_TIME_VARIABLE)
+	VARNAME vn_resid_t	@	_ss	@	.,		///
+		option(t)						///
+		numeric							///
+		label(resource LBL_TIME_VARIABLE)
+	CHECKBOX ck_ddfmethod	20	+75	_ibwd	_ht4,		///
+		groupbox						///
+		onclickon("program main_ddfmethod_on")			///
+		onclickoff("program main_ddfmethod_off")		///
+		label(resource MIXED_MAIN_CK_DDFMETHOD)
+	TEXT	tx_ddfmethod	_indent	_ss	200	.,		///
+		label(resource LBL_METHOD)
+	COMBOBOX cb_ddfmethod	@	_ss	@	.,		///
+		option(dfmethod)					///
+		dropdownlist						///
+		contents(main_ddfmethod_contents)			///
+		values(main_ddfmethod_values)				///
+		onselchange(program main_ddfmethod_changed)		///
+		label(resource LBL_METHOD)
+        RADIO rb_ddfmethod_eim	+210	-20	230	., first	///
+		label(resource LBL_USE_EIM)
+        RADIO rb_ddfmethod_oim	@	_ss	@	., last		///
+		label(resource LBL_USE_OIM)
+END
+
+LIST main_pwscale_contents
+BEGIN
+	size
+	effective
+	gk
+END
+
+SCRIPT main_ck_resid_on
+BEGIN
+	main.tx_resid_type.enable
+	main.cb_resid_type.enable
+	main.tx_order.enable
+	main.sp_order.enable
+	main.ed_order.enable
+	main.tx_resid_by.enable
+	main.vn_resid_by.enable
+	main.tx_resid_t.enable
+	main.vn_resid_t.enable
+END
+
+SCRIPT main_ck_resid_off
+BEGIN
+	main.tx_resid_type.disable
+	main.cb_resid_type.disable
+	main.tx_resid_by.disable
+	main.vn_resid_by.disable
+	main.tx_resid_t.disable
+	main.vn_resid_t.disable
+	main.tx_order.disable
+	main.sp_order.disable
+	main.ed_order.disable
+END
+
+LIST main_resid_type_contents
+BEGIN
+	resource LBL_INDEPENDENT
+	resource LBL_EXCHANGEABLE
+	resource LBL_AUTOREGRESSIVE
+	resource LBL_MOVING_AVERAGE
+	resource LBL_UNSTRUCTURED
+	resource LBL_BANDED
+	resource LBL_TOEPLITZ
+	resource LBL_EXPONENTIAL
+END
+
+LIST main_resid_type_values
+BEGIN
+	"independent"
+	"exchangeable"
+	"ar"
+	"ma"
+	"unstructured"
+	"banded"
+	"toeplitz"
+	"exponential"
+END
+
+SCRIPT main_mle_on
+BEGIN
+	se.lb_vcetype.enable
+	allow_fweights.settrue
+	allow_pweights.settrue
+	script weights_enable
+	program main_check_pwscale_state
+	program main_equ_sel_changed
+	main.cb_ddfmethod.setcontentslist "main_ddfmethod_list"
+	main.cb_ddfmethod.setvalueslist "main_ddfmethod_values"
+	main.cb_ddfmethod.repopulate
+	main.cb_ddfmethod.setvalue "residual"
+END
+
+SCRIPT main_reml_on
+BEGIN
+	se.lb_vcetype.disable
+	allow_fweights.setfalse
+	allow_pweights.setfalse
+	script weights_disable
+	program main_check_pwscale_state
+	program main_equ_sel_changed
+	main.cb_ddfmethod.setcontentslist "main_ddfmethod_reml_list"
+	main.cb_ddfmethod.setvalueslist "main_ddfmethod_reml_values"
+	main.cb_ddfmethod.repopulate
+	main.cb_ddfmethod.setvalue "residual"
+END
+
+LIST main_resid_type_scripts
+BEGIN
+	script sel_indep
+	script sel_exch
+	script sel_ar
+	script sel_ma
+	script sel_unsctr
+	script sel_band
+	script sel_toep
+	script sel_expon
+END
+
+SCRIPT sel_indep
+BEGIN
+	main.tx_resid_t.hide
+	main.vn_resid_t.hide
+	main.tx_order.hide
+	main.sp_order.hide
+	main.ed_order.hide
+	main.tx_resid_t.setlabel resource LBL_TIME_VARIABLE
+	main.vn_resid_t.setlabel resource LBL_TIME_VARIABLE
+END
+
+SCRIPT sel_exch
+BEGIN
+	main.tx_resid_t.hide
+	main.vn_resid_t.hide
+	main.tx_order.hide
+	main.sp_order.hide
+	main.ed_order.hide
+	main.tx_resid_t.setlabel resource LBL_TIME_VARIABLE
+	main.vn_resid_t.setlabel resource LBL_TIME_VARIABLE
+END
+
+SCRIPT sel_ar
+BEGIN
+	main.tx_resid_t.show
+	main.vn_resid_t.show
+	main.tx_order.show
+	main.tx_order.setlabel resource LBL_ORDER
+	main.sp_order.show
+	main.ed_order.hide
+	main.tx_resid_t.setlabel resource LBL_TIME_VARIABLE
+	main.vn_resid_t.setlabel resource LBL_TIME_VARIABLE
+END
+
+SCRIPT sel_ma
+BEGIN
+	main.tx_resid_t.show
+	main.vn_resid_t.show
+	main.tx_order.show
+	main.tx_order.setlabel resource LBL_ORDER
+	main.sp_order.show
+	main.ed_order.hide
+	main.tx_resid_t.setlabel resource LBL_TIME_VARIABLE
+	main.vn_resid_t.setlabel resource LBL_TIME_VARIABLE
+END
+
+SCRIPT sel_unsctr
+BEGIN
+	main.tx_resid_t.show
+	main.vn_resid_t.show
+	main.tx_order.hide
+	main.sp_order.hide
+	main.ed_order.hide
+	main.tx_resid_t.setlabel resource LBL_ID_VARIABLE
+	main.vn_resid_t.setlabel resource LBL_ID_VARIABLE
+END
+
+SCRIPT sel_band
+BEGIN
+	main.tx_resid_t.show
+	main.vn_resid_t.show
+	main.tx_order.show
+	main.tx_order.setlabel resource MIXED_ORDER_VALUE_MUST_BE_EITHER_FULL_OR_INTEGER
+//`"Order  (Note: value must be either "Full" or an integer)"'
+	main.sp_order.hide
+	main.ed_order.show
+	main.tx_resid_t.setlabel resource LBL_ID_VARIABLE
+	main.vn_resid_t.setlabel resource LBL_ID_VARIABLE
+END
+
+SCRIPT sel_toep
+BEGIN
+	main.tx_resid_t.show
+	main.vn_resid_t.show
+	main.tx_order.show
+	main.tx_order.setlabel resource MIXED_ORDER_VALUE_MUST_BE_EITHER_FULL_OR_INTEGER
+//`"Order  (Note: value must be either "Full" or an integer)"'
+	main.sp_order.show
+	main.sp_order.hide
+	main.ed_order.show
+	main.tx_resid_t.setlabel resource LBL_TIME_VARIABLE
+	main.vn_resid_t.setlabel resource LBL_TIME_VARIABLE
+END
+
+SCRIPT sel_expon
+BEGIN
+	main.tx_resid_t.show
+	main.vn_resid_t.show
+	main.tx_order.hide
+	main.sp_order.hide
+	main.ed_order.hide
+	main.tx_resid_t.setlabel resource LBL_TIME_VARIABLE
+	main.vn_resid_t.setlabel resource LBL_TIME_VARIABLE
+END
+
+PROGRAM main_check_pwscale_state
+BEGIN
+	call main.tx_pwscale.disable
+	call main.cb_pwscale.disable
+	if weights.rb_fw {
+		call main.tx_pwscale.disable
+		call main.cb_pwscale.disable
+	}
+	call mainEQUCommandValues.copyToString main_equ_cmd_tmp
+	if main_equ_cmd_tmp {
+		call main.tx_pwscale.enable
+		call main.cb_pwscale.enable
+	}
+	else {
+		call main.tx_pwscale.disable
+		call main.cb_pwscale.disable
+	}
+	if main.rb_reml {
+		call main.tx_pwscale.disable
+		call main.cb_pwscale.disable
+	}
+END
+
+PROGRAM main_ddfmethod_on
+BEGIN
+	call script se_setClRobust_off
+	call script se_setJknifeBstrap_off
+	call main.tx_ddfmethod.enable
+	call main.cb_ddfmethod.enable
+	call rpt.gb_dfmethod.enable
+	call main.rb_ddfmethod_oim.enable
+	call main.rb_ddfmethod_eim.enable
+	call rpt.rb_dftable_default.enable
+	call rpt.rb_dftable_ci.enable
+	call rpt.rb_dftable_pvalue.enable
+	call rpt.ck_nstderr.disable
+	call rpt.rb_report_columns_dflt.disable
+	call rpt.rb_report_columns_noci.disable
+	call rpt.rb_report_columns_nopv.disable
+	call script weights_disable
+	call program main_ddfmethod_changed
+END
+
+PROGRAM main_ddfmethod_off
+BEGIN
+	call script se_setIOIMRobustClrobust_on
+	call script se_setJknifeBstrap_off
+	call main.tx_ddfmethod.disable
+	call main.cb_ddfmethod.disable
+	call main.rb_ddfmethod_oim.disable
+	call main.rb_ddfmethod_eim.disable
+	call rpt.gb_dfmethod.disable
+	call rpt.rb_dftable_default.disable
+	call rpt.rb_dftable_ci.disable
+	call rpt.rb_dftable_pvalue.disable
+	call rpt.ck_nstderr.enable
+	call rpt.rb_report_columns_dflt.enable
+	call rpt.rb_report_columns_noci.enable
+	call rpt.rb_report_columns_nopv.enable
+	call program main_ddfmethod_changed
+END
+
+PROGRAM main_ddfmethod_changed
+BEGIN
+	if main.cb_ddfmethod.iseq("satterthwaite")  | 			///
+		main.cb_ddfmethod.iseq("kroger") {
+		call main.rb_ddfmethod_oim.show
+		call main.rb_ddfmethod_eim.show
+	}
+	else {
+		call main.rb_ddfmethod_oim.hide
+		call main.rb_ddfmethod_eim.hide
+	}
+END
+
+LIST main_ddfmethod_list
+BEGIN
+	resource LBL_RESIDUAL_METHOD_TYPE
+	resource LBL_REPEATED_MEASURES_ANOVA
+	resource LBL_ANOVA
+END
+
+LIST main_ddfmethod_values
+BEGIN
+	residual
+	repeated
+	anova
+END
+
+LIST main_ddfmethod_reml_list
+BEGIN
+	resource LBL_RESIDUAL_METHOD_TYPE
+	resource LBL_REPEATED_MEASURES_ANOVA
+	resource LBL_ANOVA
+	resource LBL_SATTERTHWAITE_METHOD_TYPE
+	resource LBL_KENWARD_ROGER
+END
+
+LIST main_ddfmethod_reml_values
+BEGIN
+	residual
+	repeated
+	anova
+	satterthwaite
+	kroger
+END
+
+PROGRAM main_equ_create
+BEGIN
+	call fweights_cmd.setvalue ""
+	call pweights_cmd.setvalue ""
+	call main_equ_count.setvalue class mainEQUChildDialogList.size
+	call main_equ_count.increment
+	call main_equ_tmp.setvalue "main_equ_"
+	call main_equ_tmp.append class main_equ_count.value
+	call main_equ_tmp.withvalue main_equ_childdlg.setvalue @
+	call program main_show_equ_child
+END
+
+PROGRAM main_equ_edit
+BEGIN
+	call fweights_cmd.setvalue ""
+	call pweights_cmd.setvalue ""
+	call mainEQUCommandDisplayList.findstr class			///
+		main.lb_equBuild.value
+	call main_equ_position.setvalue class				///
+		mainEQUCommandDisplayList.position
+	call main_equ_position.withvalue				///
+		main_equ_childdlg.setvalue				///
+		class mainEQUChildDialogList.values[@]
+	call program main_show_equ_child_edit
+END
+
+PROGRAM main_show_equ_child
+BEGIN
+	call main_equ_tmp.setvalue "me_equ_fixed AS "
+	call main_equ_tmp.append class main_equ_childdlg.value
+	call main_equ_tmp.withvalue create CHILD @
+	call main_equ_childdlg.withvalue @.setExitString		///
+		"main_equ_child_result"
+	call main_equ_childdlg.withvalue @.setExitAction		///
+		"program main_equ_child_create_done"
+
+
+	call main_equ_count.withvalue STMP.format			///
+		"resource LBL_EQUATION_FMT" "@" ""
+	call STMP.withvalue main_equ_tmp.setvalue "@"
+	call main_equ_childdlg.withvalue				///
+		main_equ_tmp2.setvalue "@.settitle"
+	call main_equ_tmp2.append `" ""'
+	call main_equ_tmp2.append class main_equ_tmp.value
+	call main_equ_tmp2.append `"""'
+	call main_equ_tmp2.withvalue @
+END
+
+PROGRAM main_show_equ_child_edit
+BEGIN
+	call main_equ_tmp.setvalue "me_equ_fixed AS "
+	call main_equ_tmp.append class main_equ_childdlg.value
+	call main_equ_tmp.withvalue create CHILD @
+	call main_equ_childdlg.withvalue @.setExitString		///
+		"main_equ_child_result"
+	call main_equ_childdlg.withvalue @.setExitAction		///
+		"program main_equ_child_edit_done"
+
+	call main_equ_position.withvalue				///
+		main_equ_tmp.setvalue					///
+		class mainEQUCommandDisplayList.values[@]
+	call main_equ_childdlg.withvalue				///
+		main_equ_tmp2.setvalue "@.settitle"
+	call main_equ_tmp2.append `" ""'
+	call main_equ_tmp2.append class main_equ_tmp.value
+	call main_equ_tmp2.append `"""'
+	call main_equ_tmp2.withvalue @
+END
+
+PROGRAM main_equ_child_create_done
+BEGIN
+	call main_equ_arraysize.setvalue class				///
+		mainEQUChildDialogList.size
+	call main_equ_arraysize.increment
+
+	/* Store child dialog name */
+	call mainEQUChildDialogList.store class				///
+		main_equ_arraysize.value class main_equ_childdlg.value
+
+	/* Store listbox display equation string */
+	call main_equ_arraysize.withvalue STMP.format			///
+		"resource LBL_EQUATION_FMT" "@" ""
+	call STMP.withvalue						///
+		mainEQUCommandDisplayList.store class			///
+		main_equ_arraysize.value "@"
+
+	/* Store child dialog result string */
+	call mainEQUCommandList.store class				///
+		main_equ_arraysize.value				///
+		class main_equ_child_result.value
+
+	//added
+	call main_equ_child_result_wgt.setvalue class			///
+		main_equ_child_result.value
+
+	if fweights_cmd {
+		call main_equ_child_result_wgt.append class		///
+		fweights_cmd.value
+	}
+	if pweights_cmd {
+		call main_equ_child_result_wgt.append class		///
+		pweights_cmd.value
+	}
+	call mainEQUCommandList_wgt.store class				///
+		main_equ_arraysize.value				///
+		class main_equ_child_result_wgt.value
+
+
+	/* Store child dialog result string for final command
+	   For disable/enable */
+	call mainEQUCommandValues.store class				///
+		main_equ_arraysize.value				///
+		class main_equ_child_result.value
+
+	//added
+	call mainEQUCommandValues_wgt.store class			///
+		main_equ_arraysize.value				///
+		class main_equ_child_result_wgt.value
+
+	/* Store disable/enable status */
+	call mainEQUStatusList.store class				///
+		main_equ_arraysize.value "active"
+
+	call mainEQUCommandDisplayList.copyToArray main_equ_list
+	call main.lb_equBuild.repopulate
+	call STMP.withvalue main.lb_equBuild.setvalue "@"
+	call program main_check_pwscale_state
+END
+
+PROGRAM main_equ_child_edit_done
+BEGIN
+	call mainEQUChildDialogList.findstr class			///
+		main_equ_childdlg.value
+	call main_equ_position.setvalue class				///
+		mainEQUChildDialogList.position
+	call main_equ_position.withvalue main_equ_tmp.setvalue		///
+		class mainEQUStatusList.values[@]
+	if main_equ_tmp.iseq("active") {
+		call main_equ_position.withvalue STMP.format		///
+			"resource LBL_EQUATION_FMT" "@" ""
+		call STMP.withvalue					///
+			mainEQUCommandDisplayList.store class		///
+			main_equ_position.value "@"
+		call mainEQUCommandValues.store class			///
+			main_equ_position.value class			///
+			main_equ_child_result.value
+
+		//added
+		call main_equ_child_result_wgt.setvalue class		///
+			main_equ_child_result.value
+
+		if fweights_cmd {
+			call main_equ_child_result_wgt.append class	///
+			fweights_cmd.value
+		}
+		if pweights_cmd {
+			call main_equ_child_result_wgt.append class	///
+			pweights_cmd.value
+		}
+
+		call mainEQUCommandValues_wgt.store class		///
+			main_equ_position.value				///
+			class main_equ_child_result_wgt.value
+
+		call STMP.withvalue main_equ_tmp2.setvalue "@"
+	}
+	else {
+		//added
+		call main_equ_child_result_wgt.setvalue class		///
+			main_equ_child_result.value
+
+		if fweights_cmd {
+			call main_equ_child_result_wgt.append class	///
+			fweights_cmd.value
+		}
+		if pweights_cmd {
+			call main_equ_child_result_wgt.append class	///
+			pweights_cmd.value
+		}
+		call main_equ_position.withvalue STMP.format		///
+			"resource LBL_EQUATION_FMT" "@"			///
+			"resource LBL_PAREN_DISABLED"
+		call STMP.withvalue					///
+			main_equ_tmp2.setvalue "@"
+
+		call main_equ_tmp2.withvalue				///
+			mainEQUCommandDisplayList.store			///
+			class main_equ_position.value "@"
+	}
+
+	call mainEQUCommandList.store class				///
+		main_equ_position.value class				///
+		main_equ_child_result.value
+
+	//added
+	call mainEQUCommandList_wgt.store class				///
+		main_equ_position.value class				///
+		main_equ_child_result_wgt.value
+
+
+	call mainEQUCommandDisplayList.copyToArray main_equ_list
+	call main.lb_equBuild.repopulate
+	call main.lb_equBuild.setvalue class main_equ_tmp2.value
+	call program main_check_pwscale_state
+END
+
+PROGRAM main_equ_sel_changed
+BEGIN
+	call mainEQUCommandDisplayList.findstr class			///
+		main.lb_equBuild.value
+	call main_equ_position.setvalue class				///
+		mainEQUCommandDisplayList.position
+	call main_equ_position.withvalue main_equ_tmp.setvalue		///
+		class mainEQUStatusList.values[@]
+	if main_equ_position {
+		call main.bu_equ_edit.enable
+
+
+		//modified
+		if allow_fweights | allow_pweights {
+			call main_equ_position.withvalue		///
+				main.tb_equ_note.setlabel		///
+			class mainEQUCommandList_wgt.values[@]
+		}
+		else {
+			call main_equ_position.withvalue		///
+				main.tb_equ_note.setlabel		///
+			class mainEQUCommandList.values[@]
+		}
+	}
+
+	if main_equ_tmp.iseq("disable") {
+		call main.bu_equ_enable.enable
+		call main.bu_equ_disable.disable
+	}
+	if main_equ_tmp.iseq("active") {
+		call main.bu_equ_enable.disable
+		call main.bu_equ_disable.enable
+	}
+END
+
+PROGRAM main_equ_disable
+BEGIN
+	call mainEQUCommandDisplayList.findstr class			///
+		main.lb_equBuild.value
+	call main_equ_position.setvalue class				///
+		mainEQUCommandDisplayList.position
+
+	call main_equ_tmp.setvalue class main.lb_equBuild.value
+	call mainEQUStatusList.store class				///
+		main_equ_position.value "disable"
+	call mainEQUCommandValues.store class main_equ_position.value ""
+
+	//added
+	call mainEQUCommandValues_wgt.store class main_equ_position.value ""
+
+	call STMP.format "resource LBL_PAREN_DISABLED"
+	call main_equ_tmp.append " "
+	call main_equ_tmp.append class STMP.value
+	call main_equ_tmp.withvalue STMP.setvalue "@"
+
+	call main_equ_tmp.withvalue					///
+		mainEQUCommandDisplayList.store				///
+		class main_equ_position.value "@"
+
+	call mainEQUCommandDisplayList.copyToArray main_equ_list
+	call main.lb_equBuild.repopulate
+	call main.lb_equBuild.setvalue class STMP.value
+	call program main_check_pwscale_state
+END
+
+PROGRAM main_equ_enable
+BEGIN
+	call mainEQUCommandDisplayList.findstr class			///
+		main.lb_equBuild.value
+	call main_equ_position.setvalue class				///
+		mainEQUCommandDisplayList.position
+
+	call mainEQUStatusList.store class				///
+		main_equ_position.value "active"
+	call main_equ_position.withvalue				///
+		mainEQUCommandValues.store				///
+		class main_equ_position.value class			///
+		mainEQUCommandList.values[@]
+
+	//added
+	call main_equ_position.withvalue				///
+		mainEQUCommandValues_wgt.store				///
+		class main_equ_position.value class			///
+		mainEQUCommandList_wgt.values[@]
+
+
+	call main_equ_position.withvalue STMP.format			///
+		"resource LBL_EQUATION_FMT" "@" ""
+	call STMP.withvalue						///
+		mainEQUCommandDisplayList.store				///
+		class main_equ_position.value "@"
+
+	call mainEQUCommandDisplayList.copyToArray main_equ_list
+	call main_equ_position.withvalue				///
+		main_equ_tmp2.setvalue class				///
+		mainEQUCommandDisplayList.values[@]
+	call main.lb_equBuild.repopulate
+	call main.lb_equBuild.setvalue class main_equ_tmp2.value
+	call program main_check_pwscale_state
+END
+
+INCLUDE byifin
+INCLUDE weights_fp
+
+INCLUDE se
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+	program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+	DEFINE _x _lft
+	DEFINE _cx _spr2
+	DEFINE _y _top
+	INCLUDE _sp_level
+
+	RADIO rb_variance		_lft	_ls	_iwd	.,first	///
+		option(variance)					///
+		onclickon(program rpt_check_options)			///
+		onclickoff(program rpt_check_options)			///
+		label(resource LBL_VARIANCE_COMPONENTS)
+
+	RADIO rb_stddev			@	_ss	@	.,last	///
+		option(stddeviations)					///
+		onclickon(program rpt_check_options)			///
+		onclickoff(program rpt_check_options)			///
+		label(resource LBL_SHOW_VARIANCE_COMPONENTS_AS_STANDARD_DEV_CORR)
+
+	GROUPBOX gb_dfmethod		@	_ls	@	_ht6,	///
+		label(resource MIXED_RPT_GB_DFMETHOD)
+
+	RADIO rb_dftable_default	_ilft	_ss	_ibwd	.,first	///
+		label(resource MIXED_RPT_RB_DFTABLE_DEFAULT)
+	RADIO rb_dftable_ci		@	_ss	@	.,	///
+		option(dftable(ci))					///
+		label(resource MIXED_RPT_RB_DFTABLE_CI)
+	RADIO rb_dftable_pvalue		@	_ss	@	.,last	///
+		option(dftable(pvalue))					///
+		label(resource MIXED_RPT_RB_DFTABLE_PVALUE)
+
+	CHECKBOX ck_noretable		_lft	_xxls	@	.,	///
+		option(noretable)					///
+		onclickon(program rpt_check_options)			///
+		onclickoff(program rpt_check_options)			///
+		label(resource LBL_SUPPRESS_RANDOM_EFFECTS_TABLE)
+	CHECKBOX ck_nofetable		@	_ms	@	.,	///
+		option(nofetable)					///
+		onclickon(program rpt_check_options)			///
+		onclickoff(program rpt_check_options)			///
+		label(resource LBL_SUPPRESS_FIXED_EFFECTS_TABLE)
+
+	CHECKBOX ck_estmetric		@	_ms	_iwd	.,	///
+		option(estmetric)					///
+		onclickon(script rpt_estmetric_on)			///
+		onclickoff(script rpt_estmetric_off)			///
+		label(resource LBL_REPORT_PARAMETER_EST_IN_EST_METRIC)
+
+	CHECKBOX ck_noheader		_lft	_ms	_iwd	.,	///
+		option(noheader)					///
+		label(resource LBL_SUPPRESS_OUTPUT_HEADER)
+
+	CHECKBOX ck_nogroup		_lft	_ms	_iwd	.,	///
+		option(nogroup)						///
+		label(resource LBL_SUPPRESS_TABLE_SUMMARIZING_GROUPS)
+
+	CHECKBOX ck_nstderr		_lft	_ms	_iwd	.,	///
+		option(nostderr)					///
+		label(resource LBL_DO_NOT_PERFORM_LR_TEST_COMPARING_TO_REGRESSION)
+
+	DEFINE _x _lft
+	DEFINE _y _ls
+	DEFINE _cx _iwd
+	INCLUDE _report_columns
+
+	DEFINE _x _lft
+	DEFINE _y _ls
+	INCLUDE _bu_factor_vars_reporting
+
+	DEFINE _x _lft2
+	DEFINE _y  @
+	INCLUDE _bu_coef_table_reporting
+END
+
+PROGRAM rpt_check_options
+BEGIN
+	call rpt.ck_estmetric.enable
+	if rpt.rb_stddev | rpt.ck_noretable | rpt.ck_nofetable {
+		call rpt.ck_estmetric.disable
+	}
+	if !rpt.rb_stddev & !rpt.ck_noretable. & !rpt.ck_nofetable  {
+		call rpt.ck_estmetric.enable
+	}
+END
+
+SCRIPT rpt_estmetric_on
+BEGIN
+	rpt.rb_variance.disable
+	rpt.rb_stddev.disable
+	rpt.ck_noretable.disable
+	rpt.ck_nofetable.disable
+END
+
+SCRIPT rpt_estmetric_off
+BEGIN
+	rpt.rb_variance.enable
+	rpt.rb_stddev.enable
+	rpt.ck_noretable.enable
+	rpt.ck_nofetable.enable
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+
+DIALOG em, tabtitle(resource LBL_EM_OPTIONS)
+BEGIN
+	SPINNER	sp_emiter		_lft	_top	_spwd	.,	///
+		option(emiter)						///
+		min(0) max(16000) default(20)				///
+		label(resource LBL_NUMBER_OF_EM_ITERATIONS)
+	TEXT	tx_emiter		_spsep	@	_spr	.,	///
+		label(resource LBL_NUMBER_OF_EM_ITERATIONS)
+
+	EDIT	ed_emtol		_lft	_ls	_spwd	.,	///
+		default(1e-10)						///
+		option(emtolerance)					///
+		label(resource LBL_EM_CONVERGENCE_TOLERANCE)
+	TEXT	tx_emtol		_spsep	@	_en7r	.,	///
+		label(resource LBL_EM_CONVERGENCE_TOLERANCE)
+
+	CHECKBOX ck_emonly		_lft	_ls	_iwd	.,	///
+		option(emonly)						///
+		label(resource MIXED_EM_CK_EMONLY)
+	GROUPBOX gb_log			_lft	_ls	_iwd	_ht6,	///
+		label(resource LBL_EM_ITERATION_LOG)
+	RADIO    rb_nolog		_indent	_ss	_inwd	.,	///
+		first							///
+		option(noemshow)					///
+		label(resource LBL_SUPPRESS_LOG)
+	RADIO    rb_emlog		@	_ss	@	.,	///
+		option(emlog)						///
+		label(resource LBL_SHOW_LOG)
+	RADIO    rb_emdots		@	_ss	@	.,	///
+		last							///
+		option(emdots)						///
+		label(resource LBL_SHOW_EM_ITERATIONS_AS_DOTS)
+END
+
+INCLUDE max_ml
+
+PROGRAM em_output
+BEGIN
+	optionarg /hidedefault em.sp_emiter
+	optionarg /hidedefault em.ed_emtol
+	option em.ck_emonly
+	option em.rb_emlog
+	option em.rb_emdots
+END
+
+PROGRAM resid_output
+BEGIN
+	put main.cb_resid_type
+	if main.cb_resid_type.iseq("ar") |				///
+		main.cb_resid_type.iseq("ma") |				///
+		main.cb_resid_type.iseq("unstructured") |		///
+		main.cb_resid_type.iseq("banded") |			///
+		main.cb_resid_type.iseq("toeplitz") |			///
+		main.cb_resid_type.iseq("exponential") {
+		require main.vn_resid_t
+	}
+	put " " main.sp_order
+	if !main.ed_order.iseq("Full") {
+		put " "  main.ed_order
+	}
+	beginoptions
+		optionarg main.vn_resid_by
+		optionarg main.vn_resid_t
+	endoptions
+END
+
+PROGRAM rpt_output
+BEGIN
+	optionarg /hidedefault rpt.sp_level
+	option rpt.rb_stddev
+	option rpt.ck_noretable
+	option rpt.ck_nofetable
+	option rpt.ck_estmetric
+	option rpt.ck_noheader
+	option rpt.ck_nogroup
+	option rpt.ck_nstderr
+	INCLUDE _report_columns_pr
+	put " " rpt_bu_facvarsResults
+	put " " rpt_bu_fmtcoefResults
+	option radio(rpt rb_dftable_ci rb_dftable_pvalue)
+END
+
+PROGRAM command
+BEGIN
+	if allow_fweights | allow_pweights {
+		call mainEQUCommandValues_wgt.copyToString main_equ_cmd_output
+		call main_equ_count.withvalue main_equ_cmd_last.setvalue class mainEQUCommandList_wgt.values[@]
+	}
+	else {
+		call mainEQUCommandValues.copyToString main_equ_cmd_output
+		call main_equ_count.withvalue main_equ_cmd_last.setvalue class mainEQUCommandList.values[@]
+	}
+	INCLUDE _by_pr
+	put "mixed "
+	varlist main.vn_dv [main.vl_iv]
+
+	put " " /program ifin_output
+	put " " /program weights_output
+
+	if main_equ_cmd_last.contains(",") {
+		beginoptions
+			option main.ck_nocons
+			put " " main_equ_cmd_output
+		endoptions
+	}
+	else {
+		if main_equ_cmd_output {
+			if main.ck_nocons {
+				put ", noconstant"
+			}
+			put " " main_equ_cmd_output
+		}
+		else {
+			beginoptions
+				option main.ck_nocons
+			endoptions
+		}
+	}
+
+	beginoptions
+		if main.cb_pwscale & main.ck_ddfmethod {
+			call STMP.format				/// 
+				"resource LBL_MSGBOX_ON_TAB_MAY_NOT_COMBINED_FMT" /// 
+				"resource LBL_TAB_MAIN"			/// 
+				"resource MIXED_MAIN_CK_DDFMETHOD" 	///
+				"resource MIXED_MAIN_TX_PWSCALE"
+			stopbox stop "class STMP.value"
+// On the "Main" tab, "Compute degrees of freedom" and 
+// "Control scaling of sampling weights:" may not be combined.
+		}
+		option main.rb_reml
+		optionarg main.cb_pwscale
+		if main.ck_resid {
+			put " residuals("
+			put /program resid_output
+			put ")"
+		}
+		if main.ck_ddfmethod {
+			if fweights_cmd {
+				call STMP.format			/// 
+					"resource LBL_MSGBOX_ON_TAB_MAY_NOT_COMBINED_FMT" ///
+					"resource LBL_TAB_MAIN"		/// 
+					"resource MIXED_MAIN_CK_DDFMETHOD" ///
+					"resource WEIGHTS_RB_FW"
+				stopbox stop "class STMP.value"
+// On the "Main" tab, "Compute degrees of freedom" and 
+// "Frequency weights" may not be combined.
+			}
+			if pweights_cmd {
+				call STMP.format 			///
+					"resource LBL_MSGBOX_ON_TAB_MAY_NOT_COMBINED_FMT" ///
+					"resource LBL_TAB_MAIN" 	///
+					"resource MIXED_MAIN_CK_DDFMETHOD" ///
+					"resource WEIGHTS_RB_PW"
+				stopbox stop "class STMP.value"
+// On the "Main" tab, "Compute degrees of freedom" and 
+// "Sampling weights" may not be combined.
+			}
+			if ((main.rb_ddfmethod_oim) ///
+				 & main.rb_ddfmethod_oim.isvisible()) {
+				if main.cb_ddfmethod.iseq("satterthwaite") { 
+					put " dfmethod(satterthwaite, oim)"
+				}
+				if main.cb_ddfmethod.iseq("kroger") {
+					put " dfmethod(kroger, oim)"
+				}
+			}
+			else {
+				optionarg main.cb_ddfmethod
+			}
+		}
+		put " " /program se_output
+		put " " /program rpt_output
+		put " " /program em_output
+		put " " /program max_output
+	endoptions
+END
+

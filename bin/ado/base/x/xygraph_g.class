@@ -1,0 +1,702 @@
+*! version 1.1.0  22nov2016
+
+version 8
+
+class {
+}, inherit(graph_g)
+
+
+
+/* -------------------------------------------------------------------------*/
+/* Uses .new from graph.cls
+
+	Usage:  .new serlist [if] [in] [wt] [, omit_opts sort graph_opts ]
+
+		where:
+			serlist = varlist 
+		     or
+			serlist = (varlist [if] [in] [wt], options ) (...) ...
+*/
+
+program new
+	.Super.new
+	.Super.parse_sersets `0'
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*  Creates an xygraph given an existing sersets array.
+
+	Usage:  .makegraph , graph_options
+*/
+
+program define makegraph
+
+	syntax [, BNDOPTIONS(string) Rescale XRescale YRescale	/*
+	     */ noXAXis XAXIStitle(string) XLABel(numlist) XFULLlabel(string) /*
+	     */ noYAXis YAXIStitle(string) YLABel(numlist) YFULLlabel(string) /*
+	     */ noTAXis TAXIStitle(string) TLABel(numlist) TFULLlabel(string) /*
+	     */ noRAXis RAXIStitle(string) RLABel(numlist) RFULLlabel(string) /*
+	     */ Bands(integer -1) SPLINEpts(integer -1) Connect(string)	      /*
+	     */ Symbol(string) * ]
+
+	if "`rescale'" != "" {
+		local xrescale xrescale
+		local yrescale yrescale
+	}
+	foreach opt in bands splinepts yrescale connect symbol options {
+		local all`opt' ``opt''
+	}
+	foreach dim in x y t r {
+		foreach opt in axis axistitle label fulllabel {
+			local all`dim'`opt' ``dim'`opt''
+		}
+	}
+
+						/* check if using right axis */
+	if 0`.sersets.arrnels' == 1 {
+		local use_rt_axis = ( `._y_sers sersets[1]' == 2 )
+	}
+	else {
+		if 0`.sersets.arrnels' == 2 {
+			local use_rt_axis = ( `._y_sers sersets[1]' == 1 ) /*
+				*/ &        ( `._y_sers sersets[2]' == 1 )
+		}
+		else	local use_rt_axis 0
+	}
+
+
+	local addtype new			/* loop over series sets */
+	local yaxis_ct 0
+	local ct 0
+	local i 1
+	forvalues i = 1/0`.sersets.arrnels' {
+						/* parse serset specific opts */
+
+		gettoken 0 bndoptions : bndoptions , match(paren)
+		syntax [, Rescale YRescale				      /*
+	     */ noXAXis XAXIStitle(string) XLABel(numlist) XFULLlabel(string) /*
+	     */ noYAXis YAXIStitle(string) YLABel(numlist) YFULLlabel(string) /*
+	     */ noTAXis TAXIStitle(string) TLABel(numlist) TFULLlabel(string) /*
+	     */ noRAXis RAXIStitle(string) RLABel(numlist) RFULLlabel(string) /*
+	     */ Bands(integer -1) SPLINEpts(integer -1) Connect(string)	      /*
+	     */ Symbol(string) * ]
+
+		if "`yrescale'" == "" { 
+			local yrescale `rescale' 
+		}
+
+					/* use global opts when local blank */
+		foreach opt in yrescale connect symbol options {
+			if `"``opt''"' == `""' {
+				local `opt' `all`opt''
+				local l`opt' 0
+			}
+			else	local l`opt' 1
+		}
+		foreach opt in bands splinepts {
+			if ``opt'' == -1 {
+				if `all`opt'' != -1 {
+					local `opt'opt `opt'(`all`opt'')
+				}
+			}
+			else	local `opt'opt `opt'(``opt'')
+		}
+		foreach dim in x y t r {
+			foreach opt in axis axistitle label fulllabel {
+				if `"``dim'`opt''"' == `""' {
+					local `dim'`opt' `all`dim'`opt''
+				}
+			}
+		}
+
+		._chk_connect `"`connect'"'
+
+						/* get x variable */
+		local n_sers = 0`.sersets[`i'].sers.arrnels'
+		if 0`.sersets[`i'].weight_id' == `n_sers' {
+			local x = `n_sers' - 1
+		}
+		else	local x = `n_sers'
+
+						/* handle weight variable */
+		if `.sersets[`i'].weight_id' >= . {
+			local wopt 
+		}
+		else	local wopt "wvariable(`.sersets[`i'].weight_id')"
+
+						/* declare and add plot region*/
+		if `i' == 1 | "`xrescale'" != "" {
+			.insert (plotregion = .Global.plotregion.new, 	/*
+				*/ style(scheme) graph(`.objkey')) `addtype'
+			local plreg `r(name)'
+			local xser sersets[`i'].sers[`x']
+			.`plreg'.xscale.setfmt `.`xser'.format'
+			local addtype on plotregion
+
+			if "`xaxis'" != "noxaxis" {		/* axis */
+			    if 0`.sersets.arrnels' == 2 & `i' == 2 {
+			    	    local pos  above
+				    local name top_axis
+			    }
+			    else {
+			    	local pos  below
+				local name xaxis
+			    }
+
+			    .insert (`name' = .axisold.new, 		  /*
+			    */ plotregion(`.`plreg'.objkey')		  /*
+			    */ style(horizontal_default) position(`pos')  /*
+			    */ title("`xaxistitle'")) `pos' plotregion
+
+			    local xaxisref `r(name)'
+			}
+			if `i' > 1 & "`yrescale'" == "" {
+				.`plreg'.yscale : .plotregion[1].yscale.ref
+			}
+		}
+		.`plreg'.xscale.addseries `.sersets[`i'].id' `x'	/*
+			*/ `.sersets[`i'].sers[`x'].objkey'
+		if "`xaxis'" != "noxaxis" { 
+			.`xaxisref'.set_ticks 
+		}
+
+
+						/* loop over variables 
+						 * adding views 	*/
+						
+		local yct 0
+		local y 1
+		while `y' < `n_sers' {
+			if "`wopt'" != "" {
+				if `y' == `.sersets[`i'].weight_id' { 
+					continue 
+				}
+			}
+			if `y' == `x' { 
+				continue 
+			}
+
+			local ct = `ct' + 1
+			local yct = `yct' + 1
+			local cct = cond(`lconnect', `yct', `ct')
+			local sct = cond(`lsymbol',  `yct', `ct')
+						/* new plotregion if rescaling*/
+			if `yct' > 1 & "`yrescale'" != "" {
+				.insert (plotregion = .Global.plotregion.new, /*
+					*/ style(scheme) graph(`.objkey')) /*
+					*/ on plotregion
+				.`r(name)'.xscale : .`plreg'.xscale.ref
+				local plreg `r(name)'
+			}
+
+			.`plreg'.yscale.setfmt `.sersets[`i'].sers[`y'].format'
+			.`plreg'.yscale.addseries `.sersets[`i'].id' `y'   /*
+				*/ `.sersets[`i'].sers[`y'].objkey'
+
+			if `ct'==1 | "`yrescale'" != "" {	/* axis */
+			    if "`yaxis'" != "noyaxis" {
+			    	local yaxis_ct = `yaxis_ct' + 1
+
+				if `yaxis_ct' == 2 & `use_rt_axis' {
+					local pos  right
+					local name right_axis
+				}
+				else {
+					local pos  left
+					local name yaxis
+				}
+
+				.insert (`name' = .axisold.new, 	   /*
+				*/ plotregion(`.`plreg'.objkey')	   /*
+				*/ style(vertical_default) position(`pos') /*
+				*/ title("`yaxistitle'"))		   /*
+				*/ `pos'of plotregion
+
+				local yaxisref `r(name)'
+			    }
+			}
+
+			if "`yaxistitle'" == "" { 
+				.`yaxisref'.set_ticks 
+			}
+
+			.`plreg'.insert scatter = .xyview.new,		/*
+			    */ serset(`.sersets[`i'].objkey')	/*
+			    */ x(`x') y(`y') `wopt' type(scatter) 	/*
+			    */ style(scheme p`ct') /*
+			    */ plotregion(`.`plreg'.objkey')
+			local view `plreg'.`r(name)'
+			
+						/* let symbol and connect
+						 * options override styles */
+			if "`symbol'" != "" {
+			    local sym `._symbol_of `sct' "`symbol'"'
+			    if "`sym'" != "" {
+			      .`view'.style.marker.symbol.setstyle, style(`sym')
+			      .`view'.style.marker.backsymbol.setstyle,   /*
+					*/ style(none)
+			    }
+			}
+
+			if "`connect'" != "" {
+			    local cnct `._connect_of `cct' "`connect'"'
+			    if "`cnct'"=="median_bands" | "`cnct'"=="spline" {
+				tempname ss
+				.sersets[`i'].set
+
+				.`ss' = .derived_serset.new ,		     ///
+				   base(`.sersets[`i'].objkey') type(`cnct') ///
+				   x(`x') y(`y') `bandsopt' `splineptsopt'
+
+				.`plreg'.insert smooth = .xyview.new,	 ///
+				     serset(`.`ss'.objkey') x(2) y(1)    ///
+				     type(line) style(scheme p`ct') ///
+				     plotregion(`.`plreg'.objkey')
+			    }
+			    else if bsubstr("`cnct'",1,5) == "range" {
+			    	if `y' >= `n_sers' {
+				    di in red "too few series for "	/*
+				        */ "connect(`connect') option"
+				    exit 198
+				}
+			    	local y = `y' + 1
+				.`view'.yvar2 = `y'
+				.`view'.type.setstyle, style(`cnct')
+			    }
+			    else if "`cnct'" != "" {
+				.`view'.type.setstyle, style(`cnct')
+			    }
+			}
+
+			local y = `y' + 1
+		}
+
+		local addtype "on plotregion"
+
+	}
+						/* default axis titles */
+	foreach axis in xaxis yaxis top_axis right_axis {
+	    if "`.Local.`axis'.isa'" == "" { 
+		    continue					/* CONTINUE */
+	    }
+	    local ord = cond("`axis'"=="xaxis"||"`axis'"=="top_axis", "x", "y")
+	    if "`.`axis'.isa'" == "array" {
+		forvalues i = 1/0`.`axis'.arrnels' {
+		    if `"`.`axis'[`i'].title.text[1]'"' == "" {
+		        .`axis'[`i'].title.text[1] =  ._bld_axis_title    /*
+				*/ `axis'[`i'].plotregion.`ord'scale.series
+		    }
+		}
+	    }
+	    else {
+		if `"`.`axis'.title.text[1]'"' == "" {
+			.`axis'.title.text[1] = ._bld_axis_title 	/*
+				*/ `axis'.plotregion.`ord'scale.series
+		}
+	    }
+	}
+
+					/* Process new-style graph options */
+	.maketitles , `alloptions'
+	local 0 , `r(options)'
+	syntax [, NEED_SOME_OPT_FOR_MSG ]
+	
+					/* Process all the old-style graph
+					 * options not already handled */
+				/* may need a sooner and a later for this */
+	/* .oldopts,  `options' */
+end
+
+/* -------------------------------------------------------------------------*/
+/*
+	Add a new view based on new data to the graph.
+
+	nolog implies that the addview is not logged and that the serset is
+	stored only with the xyview and is thus not saved.  May make this two
+	separate options.
+
+*/ 
+program addview
+
+	syntax anything(name=vlist) [if] [in] [ , 			/*
+		*/ PLotregion(string) STYles(string)			/*
+		*/ Connect(string) Symbol(string) Bands(string)		/*
+		*/ SPLINEpts(string) SOrt(passthru) Name(string)	/*
+		*/ OMITANYMiss OMITALLMiss OMITDUPmiss OMITNothing	/*
+		*/ SERSET(string) noLOG ]
+
+	if "`name'" == "" {
+		local name scatter
+	}
+
+
+	if ! 0$T_xyreading {				/* add a serset */
+		if "`log'" == "" {
+			local sset sersets[`=`.sersets.arrnels'+1']
+		}
+		else {
+			if "`serset'" == "" {
+				tempname sset
+			}
+			else	local sset `serset'
+		}
+		if "`serset'" == "" {
+			.`sset' = .serset.new `vlist' `if' `in' , `sort' `omit'
+		}
+	}
+	else	local sset sersets[`.sersets.arrnels']
+
+	if "`log'" == "" {				/* push cmd to log  */
+		.__LOG.Arrpush .sersets[`.sersets.arrnels'] =		/*
+			*/ .__Map.`.sersets[`.sersets.arrnels'].uname'.ref
+		.__LOG.Arrpush ._addview_fromlog `0'
+	}
+
+							/* handle plotregion */
+	if "`plotregion'" == "new" {
+		.insert (plotregion = .Global.plotregion.new,		/*
+			*/ style(scheme) graph(`.objkey')) on plotregion
+		local plreg plotregion[`.plotregion.arrnels']
+	}
+	else if "`plotregion'" == "" {
+		if "`.plotregion.isa'" == "array" {
+			local plreg plotregion[1]
+		}
+		else	local plreg plotregion
+	}
+	else	local plreg `plotregion'
+
+		
+							/* adjust x scale */
+	local x = 0`.`sset'.sers.arrnels'
+	.`plreg'.xscale.addseries `.`sset'.id' `x' `.`sset'.sers[`x'].objkey'
+
+
+							/* add the views */
+	local style0 = `.next_default_series' - 1
+
+	tokenize `styles'
+	local y   1
+	while `y' < `x' {
+							/* adjust y scale */
+		.`plreg'.yscale.addseries `.`sset'.id' `y' 		/*
+			*/ `.`sset'.sers[`y'].objkey'
+
+							/* add view */
+		if "``y''" == "" {
+			local style scheme p`=`style0'+`y''
+		}
+		else	local style ``y''
+
+		.`plreg'.insert `name' = .xyview.new ,			/*
+			*/ serset(`.`sset'.objkey') x(`x') y(`y')	/*
+			*/ type(scatter) style(`style')			/*
+			*/ plotregion(`.`plreg'.objkey')
+		local view `plreg'.`r(name)'
+
+							/* add connect views */
+
+		local cnct `._connect_of `y' "`connect'"'
+		if "`cnct'"=="median_bands" | "`cnct'"=="spline" {
+			tempname ss
+			.`sset'.set
+
+			.`ss' = .derived_serset.new ,			/*
+				*/ base(`.`sset'.objkey') type(`cnct') /*
+				*/ x(`x') y(`y') `bands' `spline'
+
+			.`plreg'.insert smooth = .xyview.new,		/*
+				*/ serset(`.`ss'.objkey') x(2) y(1) 	/*
+				*/ type(line) style(`style')		/*
+				*/ plotregion(`.`plreg'.objkey')
+		}
+		else if bsubstr("`cnct'",1,5) == "range" {
+			if `y' >= `x' {
+				di in red "too few series for "	/*
+					*/ "connect(`connect') option"
+				exit 198
+			}
+			local y = `y' + 1
+			.`view'.yvar2 = `y'
+			.`view'.type.setstyle, style(`cnct')
+		}
+		else if "`cnct'" != "" {
+			.`view'.type.setstyle, style(`cnct')
+		}
+
+						/* let symbol override style */
+		if "`symbol'" != "" {
+			local sym `._symbol_of `y' "`symbol'"'
+			if "`sym'" != "" {
+			   .`view'.style.marker.symbol.setstyle, style(`sym')
+			   .`view'.style.marker.backsymbol.setstyle, style(none)
+			}
+		}
+
+		local ++y
+	}
+end
+
+program _addview_fromlog
+
+	global T_xyreading 1
+	addview `0'
+	capture mac dtop T_xyreading
+end
+
+/* -------------------------------------------------------------------------*/
+/* Returns the # of the next unused default named series for the graph
+*/
+program define next_default_series
+
+						/* starting default style */
+	local style0 1
+	forvalues p = 1/`=max(1, 0`.plotregion.arrnels')' {
+		if "`.plotregion.isa'" == "array" {
+			local plreg plotregion[`p']
+		}
+		else	local plreg plotregion
+
+		forvalues d = 1/0`.`plreg'.dynamicmv.arrnels' {
+		    local dname `plreg'.dynamicmv[`d']
+		    forvalues v = 1/`=max(1, 0`.`dname'.arrnels')' {
+			if "`.`dname'.isa'" == "array" {
+				local view `dname'[`v']
+			}
+			else	local view `dname'
+			if bsubstr("`.`view'.style.snm'",1,1) == "p" {
+				local sn = bsubstr("`.`view'.style.snm'",2,.)
+				capture confirm integer number `sn'
+				if !_rc {
+					if `sn' >= `style0' {
+						local style0 = `sn' + 1
+					}
+				}
+			}
+		    }
+		}
+	}
+
+	class exit = `style0'
+end
+
+/* -------------------------------------------------------------------------*/
+program define _bld_axis_title
+	args ser_array
+
+	if 0`.`ser_array'.arrnels' == 1 {
+		if `"`.`ser_array'[1].series.label'"' == `""' {
+			class exit `"`.`ser_array'[1].series.name'"'
+		}
+		else {
+			class exit `"`.`ser_array'[1].series.label'"'
+		}
+	}
+
+	local slash
+	forvalues j = 1/0`.`ser_array'.arrnels' {
+		if `j' > 1 { 
+			local slash / 
+		}
+		local title `title'`slash'`.`ser_array'[`j'].series.name'
+	}
+	class exit `"`title'"'
+end
+
+/* -------------------------------------------------------------------------*/
+program define _symbol_of
+	args i symstr
+
+	local symstr : subinstr local symstr " " "" , all
+	local symstr : subinstr local symstr "," "" , all
+
+	local p = bsubstr("`symstr'", `i', 1)
+
+	if "`p'" == "O" {
+		class exit " circle
+		exit
+	}
+	if "`p'" == "S" {
+		class exit " square
+		exit
+	}
+	if "`p'" == "T" {
+		class exit "triangle"
+	}
+	if "`p'" == "o" {
+		class exit "smcircle"
+	}
+	if "`p'" == "d" {
+		class exit "diamond"
+	}
+	if "`p'" == "p" {
+		class exit "plus"
+	}
+	if "`p'" == "x" {
+		class exit "x"
+	}
+	if "`p'" == "." {
+		class exit "point"
+	}
+	if "`p'" == "i" {
+		class exit "none"
+	}
+	if "`p'" == "A" {
+		class exit "arrowf"
+	}
+	if "`p'" == "a" {
+		class exit "arrow"
+	}
+	if "`p'" == "|" {
+		class exit "pipe"
+	}
+	if "`p'" == "v" {
+		class exit "v"
+	}
+
+	if `i' <= length("`symstr'") {
+		di in white "`p' is not a valid symbol"
+		exit 198
+	}
+end
+
+/* -------------------------------------------------------------------------*/
+/*  ._chk_connect should have been previously run on constr		*/
+
+program define _connect_of
+	args i constr
+
+	local constr : subinstr local constr " " "" , all
+	local constr : subinstr local constr "," "" , all
+
+	local constr : subinstr local constr "||" "|", all
+	local constr : subinstr local constr "II" "I", all
+
+	local p = bsubstr("`constr'", `i', 1)
+
+	if "`p'" == "." { 
+		class exit "scatter"
+	}
+	if "`p'" == "l" { 
+		class exit "connected" 
+	}
+	if "`p'" == "L" { 
+		class exit "connected" 
+	}	
+	if "`p'" == "m" { 
+		class exit "median_bands"
+	}
+	if "`p'" == "s" { 
+		class exit "spline"
+	}
+	if "`p'" == "|" { 
+		class exit " range" 
+	}
+	if "`p'" == "I" { 
+		class exit "range_capped"
+	}
+	if "`p'" == "c" {
+		class exit "line"		/* new, line only */
+	}
+
+	if `i' <= length("`constr'") {
+		di in white "`p' is not a valid connect() value"
+		exit 198
+	}
+
+end
+
+program define _chk_connect 
+	args constr
+
+	foreach p in | I {
+		local a : subinstr local constr "`p'" "" , all count(local ct1)
+
+		if mod(`ct1', 2) != 0 {
+			di in red "invalid values in connect(`constr') option"
+			exit 198
+		}
+
+		if `ct1' == 0 { 
+			continue
+		}
+
+		local a : subinstr local constr "`p'`p'" "",all count(local ct2)
+
+		if `ct1' / `ct2' != 2 {
+			di in red "invalid values in connect(`constr') option"
+			exit 198
+		}
+	}
+
+end
+
+program define _y_sers
+	args serset
+
+	class exit = 0`.`serset'.sers.arrnels' - 0`.`serset'.weight_id' - 1
+end
+
+exit
+
+/*  unused
+/* -------------------------------------------------------------------------*/
+program define _set_connect
+	args stub colon constr
+
+	local i
+
+	local constr : subinstr local constr " " "" , all
+	local constr : subinstr local constr "," "" , all
+
+	local i 1
+	local p = bsubstr("`constr'", `i', 1)
+	while "`p'" != "" {
+		if "`p'" == "."      { 
+			c_local `stub'`i' scatter 
+		}
+		else if "`p'" == "l" { 
+			c_local `stub'`i' connected 
+		}
+		else if "`p'" == "L" { 
+			c_local `stub'`i' connected
+		}	
+		else if "`p'" == "m" { 
+			c_local `stub'`i' median connected 
+		}
+		else if "`p'" == "s" { 
+			c_local `stub'`i' median splines connected 
+		}
+		else if "`p'" == "|" { 
+			local i = `i' + 1
+			local p = bsubstr("`constr'", `i', 1)
+			if "`p'" != "|" {
+				di in red "connect option | must be "	/*
+					*/ "specified in pairs"
+				exit 198
+			}
+			c_local `stub'`i' range
+		}
+		else if "`p'" == "I" { 
+			local i = `i' + 1
+			local p = bsubstr("`constr'", `i', 1)
+			if "`p'" != "I" {
+				di in red "connect option | must be "	/*
+					*/ "specified in pairs"
+				exit 198
+			}
+			c_local `stub'`i' range
+		}
+
+		local i = `i' + 1
+		local p = bsubstr("`constr'", `i', 1)
+	}
+
+	forvalues i = `i'/40 {
+		c_local `stub'`i'
+	}
+
+end
+end unused */
+

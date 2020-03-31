@@ -1,0 +1,215 @@
+/*
+  svy sdr
+
+*!  VERSION 1.1.3  08dec2016
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE	_dlght 350
+INCLUDE header
+HELP hlp1, view("help svy sdr")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING matrixResult
+	setscale_hadj resource SVY_SDR_DLG_HSCALE
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	label(resource SVY_SDR_DLG_TITLE)
+BEGIN
+  DEFINE _y _top
+  INCLUDE _cmd_exp_list
+
+  DEFINE _x _xsetbu
+  DEFINE _y _xls
+  INCLUDE _bu_svyset
+END
+
+INCLUDE sub_by_ifin_over_subpop
+
+SCRIPT POSTINIT
+BEGIN
+	script sub_set_svy_on
+END
+
+SCRIPT opt_PREINIT
+BEGIN
+        opt.fi_sav.formatfilter "{0} (*.dta)|*.dta|{1} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_DTA" "resource ui_ex FILE_TYPE_ALL_FILES"
+END
+
+DIALOG opt, tabtitle(resource LBL_OPTIONS)
+BEGIN
+  DEFINE _y _top
+  INCLUDE _saving
+
+  CHECKBOX ck_mse     _lft     _xxls      _iwd      .,		///
+		label(resource LBL_USE_MSE_FORMULA_FOR_VARIANCE)		///
+		option(mse)
+END
+
+INCLUDE _saving_sc
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+
+	create STRING rpt_bu_eformResults
+	program rpt_bu_eform_ckResults
+
+	create STRING rpt_bu_facvarsResults
+	program rpt_bu_facvars_ckResults
+
+	create STRING rpt_bu_repl_logResults
+	program rpt_bu_repl_log_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  CHECKBOX ck_noheader _lft    _ls       _cwd1     .,		///
+		label(resource LBL_SUPPRESS_THE_TABLE_HEADER)	///
+		clickon(program check_header)			///
+		clickoff(program check_header)			///
+		option(noheader)
+  CHECKBOX ck_nolegend @       _ms       @         .,		///
+		label(resource LBL_SUPPRESS_TABLE_LEGEND)	///
+		clickon(program check_legend)			///
+		clickoff(program check_legend)			///
+		option(nolegend)
+  CHECKBOX ck_verbose  @       _ms       @         .,		///
+		label(resource LBL_DISPLAY_FULL_TABLE_LEGEND)	///
+		option(verbose)
+  CHECKBOX ck_noadjust @       _ms       @         .,		///
+		label(resource LBL_DO_NOT_ADJUST_MODEL_WALD_STATISTIC)	///
+		option(noadjust)
+
+  DEFINE _x _lft
+  DEFINE _y _ms
+  DEFINE _cx _cwd1
+  INCLUDE _nocnsreport
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_eform_opts_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_replication_log_opts
+
+  TEXT     tx_title  _lft      _ls     _iwd      .,		///
+		label(resource LBL_TITLE)
+  EDIT     ed_title  @         _ss       @         .,		///
+		label(resource LBL_TITLE) option(title)
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE eform_option_reporting_pr
+INCLUDE factor_vars_reporting_pr
+INCLUDE replication_log_opts_child_pr
+
+PROGRAM check_header
+BEGIN
+	if rpt.ck_noheader {
+		call gaction rpt.ck_nolegend.disable
+		call gaction rpt.ck_verbose.disable
+	}
+	if !rpt.ck_noheader {
+		call gaction rpt.ck_nolegend.enable
+		call program check_legend
+	}
+END
+
+PROGRAM check_legend
+BEGIN
+	if rpt.ck_nolegend {
+		call gaction rpt.ck_verbose.disable
+	}
+	if !rpt.ck_nolegend {
+		call gaction rpt.ck_verbose.enable
+	}
+END
+
+PROGRAM rpt_output
+BEGIN
+	optionarg /hidedefault rpt.sp_level
+	option rpt.ck_noheader
+	option rpt.ck_nolegend
+	option rpt.ck_verbose
+	option rpt.ck_noadjust
+	INCLUDE _nocnsreport_pr
+	INCLUDE _report_columns_pr
+	put " " rpt_bu_facvarsResults
+	put " " rpt_bu_fmtcoefResults
+	put " " rpt_bu_eformResults
+	put " " rpt_bu_repl_logResults
+END
+
+DIALOG adv, tabtitle(resource LBL_ADVANCED)
+BEGIN
+  CHECKBOX ck_nodrop _lft      _top      _iwd      .,			///
+	label(resource LBL_DO_NOT_DROP_OBSERVATIONS)			///
+	option(nodrop)
+
+  TEXT     tx_reject @         _ls       _iwd      .,			///
+	label(resource LBL_IDENTIFY_INVALID_RESULTS)
+  EDIT     ed_reject @         _ss       @         .,			///
+	label(resource LBL_IDENTIFY_INVALID_RESULTS)			///
+	option(reject)
+
+  EDIT     en_dof	_lft	_xls	_en7wd	.,		///
+	label(resource LBL_DESIGN_DEGREES_OF_FREEDOM)			///
+	numonly							///
+	option(dof)
+  TEXT     tx_dof	_en7sep	@	_en7r	.,		///
+	label(resource LBL_DESIGN_DEGREES_OF_FREEDOM)
+END
+
+PROGRAM bs_options
+BEGIN
+	put "svy sdr "
+	option main.ck_b
+	option main.ck_se
+	put " " main.ed_explst
+ 	put " " /program ifin_output
+	beginoptions
+		put " " /program subpop_output
+		INCLUDE _saving_pr
+		option opt.ck_mse
+		put " " /program rpt_output
+		option adv.ck_nodrop
+		optionarg adv.ed_reject
+		optionarg adv.en_dof
+	endoptions
+END
+
+PROGRAM command
+BEGIN
+	put /program bs_options
+	put " " " : "	/* end of prefix, begin command */
+		require main.vl_cmd
+		put main.vl_cmd
+END

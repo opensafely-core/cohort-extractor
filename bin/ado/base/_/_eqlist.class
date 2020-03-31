@@ -1,0 +1,513 @@
+*! version 1.2.3   31oct2017
+version 9.2
+
+class {
+
+instance:
+	array		n_depvars
+	string		needequal
+	string		noneedvarlist
+
+	string		wtypes
+	string		collinear
+	string		nocons
+	string		nocons_ignore
+
+	double		n_eq
+	string		gl_if
+	string		gl_in
+	string		gl_wgt
+	string		gl_options
+
+	_optlist	eq_opts_allowed
+	array		eq_list
+
+	_optlist	mark_opts
+	array		mark_list
+	array		mark_name
+
+	_optlist	rmcoll_opts
+	array		rmcoll_list
+	array		rmcoll_name
+
+	_optlist	rmdcoll_opts
+	array		rmdcoll_list
+	array		rmdcoll_name
+}
+
+// user interface routines --------------------------------------------------
+
+program new
+	._init
+	._setup `0'
+end
+
+program reset
+	._init
+	._setup `0'
+end
+
+program parse
+	._init
+
+	// NOTE: Use upper case letters to prevent collisions with local macro
+	// names generated from user specified options.
+
+	local MARKOPTLIST	`"`.mark_opts.dumpoptions'"'
+	local RMCOLLOPTLIST	`"`.rmcoll_opts.dumpoptions'"'
+	local RMDCOLLOPTLIST	`"`.rmdcoll_opts.dumpoptions'"'
+
+	_parse expand EQ GL : 0,		///
+		gweight				///
+		common(				///
+			`MARKOPTLIST'		///
+			`RMCOLLOPTLIST'		///
+			`RMDCOLLOPTLIST'	///
+			COLlinear		///
+		)
+	if `EQ_n' == 0 & "`.noneedvarlist'" == "" {
+		syntax varlist
+	}
+	local rebind = `EQ_n' == 1
+	if `rebind' {
+		tokenize `"`0'"', parse(",()[]")
+		local rebind = `"`1'"' != "(" & `"`2'"' == "("
+	}
+	if `rebind' {
+		// NOTE: some commands do not allow parentheses around the
+		// first equation, so we need to check for this possibility
+		// here and call -_parse expand- again if this is the case
+
+		// NOTE: this code also handles the case when parens are used
+		// in FV or TS operator notation.
+
+		while `:length local 0' {
+			gettoken tok 0 : 0, parse(" ,") bind match(par)
+			if "`par'" == "(" {
+				local ZERO `"(`ZERO') (`tok') `0'"'
+				local 0
+			}
+			else if inlist("`tok'", "if", "in", ",") {
+				local ZERO `"(`ZERO') `tok' `0'"'
+				local 0
+			}
+			else {
+				local ZERO `"`ZERO' `tok'"'
+			}
+		}
+		_parse expand EQ GL : ZERO,		///
+			gweight				///
+			common(				///
+				`MARKOPTLIST'		///
+				`RMCOLLOPTLIST'		///
+				`RMDCOLLOPTLIST'	///
+				COLlinear		///
+			)
+	}
+	forval i = 1/`EQ_n' {
+		if `i' <= `.n_depvars.arrnels' {
+			local ndep = `.n_depvars[`i']'
+		}
+		.eq_list[`i'] = ._eqspec.new,		///
+			numdepvars(`ndep')		///
+			`.needequal'			///
+			`.noneedvarlist'		///
+			wtypes(`.wtypes')		///
+			`.nocons_ignore'
+		.eq_list[`i'].parse `.eq_opts_allowed.objkey':`EQ_`i''
+	}
+
+	local MARKOPTLIST `"`.mark_opts.dumpoptions'"'
+	local MARKOPTNAMES `"`.mark_opts.dumpnames'"'
+	local OPTLIST1 : subinstr local MARKOPTLIST	///
+		"(passthru)" "(string asis)", all
+
+	local RMCOLLOPTLIST `"`.rmcoll_opts.dumpoptions'"'
+	local RMCOLLOPTNAMES `"`.rmcoll_opts.dumpnames'"'
+	local OPTLIST2 : subinstr local RMCOLLOPTLIST	///
+		"(passthru)" "(string asis)", all
+
+	local RMDCOLLOPTLIST `"`.rmdcoll_opts.dumpoptions'"'
+	local RMDCOLLOPTNAMES `"`.rmdcoll_opts.dumpnames'"'
+	local OPTLIST3 : subinstr local RMDCOLLOPTLIST	///
+		"(passthru)" "(string asis)", all
+
+	local 0 `", `GL_op'"'
+	syntax [, `OPTLIST1' `OPTLIST2' `OPTLIST3' COLlinear noCONStant *]
+	local GL_op `"`options'"'
+
+	if `"`collinear'"' != "" {
+		local GL_op `"`GL_op' `collinear'"'
+		.collinear	= "`collinear'"
+	}
+	if `"`constant'"' != "" {
+		local GL_op `"`GL_op' `constant'"'
+		.nocons		= "`constant'"
+	}
+
+	local I 0
+	foreach OPT of local MARKOPTNAMES {
+		if `:list sizeof `OPT'' {
+			.mark_list[`++I'] = ._eqspec.new, numdep(0)	///
+				wtypes(`.wtypes')
+			.mark_list[`I'].parse "" : ``OPT''
+			.mark_name.Arrpush "`OPT'"
+		}
+	}
+
+	local I 0
+	foreach OPT of local RMCOLLOPTNAMES {
+		if `:list sizeof `OPT'' {
+			.rmcoll_list[`++I'] = ._eqspec.new, numdep(0)	///
+				wtypes(`.wtypes')
+			.rmcoll_list[`I'].parse "" : ``OPT''
+			.rmcoll_name.Arrpush "`OPT'"
+		}
+	}
+
+	local I 0
+	foreach OPT of local RMDCOLLOPTNAMES {
+		if `:list sizeof `OPT'' {
+			.rmdcoll_list[`++I'] = ._eqspec.new, wtypes(`.wtypes')
+			.rmdcoll_list[`I'].parse "" : ``OPT''
+			.rmdcoll_name.Arrpush "`OPT'"
+		}
+	}
+
+	// global elements
+	.n_eq		= `EQ_n'
+	.gl_if		= `"`GL_if'"'
+	.gl_in		= `"`GL_in'"'
+	.gl_wgt		= `"`GL_wt'"'
+	.gl_options	= `"`:list retok GL_op'"'
+end
+
+program dim, sclass
+	syntax
+	local neq = `.eq count'
+	forval i = 1/`neq' {
+		local xvarsi	`"`.eq indepvars `i''"'
+		local noconsi	`"`.eq nocons `i''"'
+		local dim = `dim' + `:list sizeof xvarsi'
+		if "`noconsi'" == "0" {
+			local ++dim
+		}
+	}
+	sreturn local value `"`dim'"'
+	class exit `"`s(value)'"'
+end
+
+program eq, sclass
+	args item idx
+	if "`item'" == "count" {
+		sreturn local value `"`.n_eq'"'
+		class exit `"`s(value)'"'
+	}
+	else if 0 < `idx' & `idx' <= `.n_eq' {
+		.eq_list[`idx'].item `item'
+		class exit `"`s(value)'"'
+	}
+	else {
+		sreturn local value ""
+		class exit ""
+	}
+end
+
+program global, sclass
+	args item
+	._check_gl_item_name item, `item'
+	local value `"`.gl_`item''"'
+	sreturn local value `"`value'"'
+	class exit `"`value'"'
+end
+
+program markout
+	// NOTE: Use upper case letters to prevent collisions with local macro
+	// names generated from user specified options.
+
+	syntax name(name=TOUSE id="mark variable") [, REPLACE ALLDEPSMISsing]
+	if "`replace'" != "" {
+		confirm variable `TOUSE', exact
+		tempname TOUSE2
+		mark `TOUSE2' `.global if' `.global in'
+		quietly replace `TOUSE' = 0 if `TOUSE2' == 0
+		drop `TOUSE2'
+	}
+	else {
+		mark `TOUSE' `.global if' `.global in'
+	}
+
+	forval i = 1/`.eq count' {
+		.eq_list[`i'].markout `TOUSE', `alldepsmissing'
+	}
+	forval i = 1/`.mark_list.arrnels' {
+		.mark_list[`i'].markout `TOUSE'
+	}
+	forval i = 1/`.rmcoll_list.arrnels' {
+		.rmcoll_list[`i'].markout `TOUSE'
+	}
+	forval i = 1/`.rmdcoll_list.arrnels' {
+		.rmdcoll_list[`i'].markout `TOUSE'
+	}
+end
+
+program rmcoll
+	local vv : di "version " string(_caller()) ":"
+	syntax [name(name=touse id="mark variable")] [,		///
+		REPLACE						///
+		ALLDEPSMISsing					///
+		MISSING						///
+	]
+	if "`replace'" != "" {
+		syntax name(name=touse id="mark variable")	///
+			[, REPLACE ALLDEPSMISsing MISSING]
+	}
+	if "`touse'" == "" {
+		if ("`.collinear'" != "") exit
+		if "`missing'" != "" {
+			local touse 1
+		}
+		else	tempvar touse
+	}
+	if "`missing'" == "" {
+		.markout `touse', `replace' `alldepsmissing'
+	}
+	if "`.collinear'" == "" {
+		if "`.nocons_ignore'" == "" {
+			local nocons `.nocons'
+		}
+		forval i = 1/`.eq count' {
+			`vv' .eq_list[`i'].rmcoll if `touse', `nocons'
+		}
+		forval i = 1/`.rmcoll_list.arrnels' {
+			`vv' .rmcoll_list[`i'].rmcoll if `touse'
+		}
+		forval i = 1/`.rmdcoll_list.arrnels' {
+			`vv' .rmdcoll_list[`i'].rmcoll if `touse'
+		}
+	}
+end
+
+program rebuild, sclass
+	syntax [, UNPARFIRSTeq PARentheses OR UNEQUALFIRSTeq EQual ]
+
+	opts_exclusive "`parentheses' `or'"
+	opts_exclusive "`unparfirsteq' `or'"
+	local neq = `.eq count'
+	if "`or'" == "" {
+		if "`parentheses'" != "" | `neq' > 1 {
+			local lpar "("
+			local rpar ")"
+		}
+	}
+	else {
+		local OR " ||"
+	}
+
+	if "`unequalfirsteq'" != "" {
+		local EQUAL `equal'
+		local equal
+	}
+
+	forval i = 1/`.eq count' {
+		.eq_list[`i'].rebuild, `equal'
+		if "`unparfirsteq'" == "" {
+			local cmdline `"`cmdline'`sp'`lpar'`s(eq)'`rpar'`OR'"'
+		}
+		else {
+			local cmdline `"`cmdline'`sp'`s(eq)'"'
+			local unparfirsteq
+		}
+		if "`unequalfirsteq'" != "" {
+			local unequalfirsteq
+			local equal `EQUAL'
+		}
+		local sp " "
+	}
+	if `.eq count' == 1 & `"`s(comma)'"' == "" {
+		local cm ","
+	}
+	._rebuild_gl gl
+	if `.eq count' == 1 {
+		// NOTE: `if' and `in' should already be parsed/rebuilt within
+		// the single equation specification.
+		if `:list sizeof gl_options' {
+			local cmdline `"`cmdline'`cm'`gl_options'"'
+			if `:list sizeof gl_ifinw' {
+				local cmdline `"`cmdline',`gl_ifinw'"'
+			}
+		}
+		else if `:list sizeof gl_ifinw' {
+			local cm = cond("`cm'" == "", ",", "")
+			local cmdline `"`cmdline'`cm'`gl_ifinw'"'
+		}
+	}
+	else {
+		local cmdline `"`cmdline'`gl'"'
+	}
+	sreturn local cmdline `"`cmdline'"'
+	class exit `"`cmdline'"'
+end
+
+program make_b
+	syntax name(name=b id="matrix name")
+	local neq = `.eq count'
+	forval i = 1/`neq' {
+		local namei	`"`.eq name `i''"'
+		if "`namei'" == "" & `neq' != 1 {
+			local namei "eq`i'"
+		}
+		if "`namei'" != "" {
+			local namei "`namei':"
+		}
+		local xvarsi	`"`.eq indepvars `i''"'
+		local noconsi	`"`.eq nocons `i''"'
+		if "`noconsi'" == "0" {
+			local xvarsi `"`xvarsi' _cons"'
+		}
+		foreach xvar of local xvarsi {
+			local xvarlist `"`xvarlist' `namei'`xvar'"'
+		}
+	}
+	local dim : list sizeof xvarlist
+	matrix `b' = J(1,`dim',0)
+	matrix colnames `b' = `xvarlist'
+	matrix rownames `b' = y1
+end
+
+// private routines ---------------------------------------------------------
+
+program _init
+	.n_eq		= 0
+	.gl_if		= ""
+	.gl_in		= ""
+	.gl_wgt		= ""
+	.gl_options	= ""
+	.eq_list	= {}
+end
+
+program _setup
+	.mark_list	= {}
+	.mark_name	= {}
+	.mark_opts.reset
+	.rmcoll_list	= {}
+	.rmcoll_name	= {}
+	.rmcoll_opts.reset
+	.rmdcoll_list	= {}
+	.rmdcoll_name	= {}
+	.rmdcoll_opts.reset
+	syntax [,					///
+		EQopts(namelist)			///
+		EQARGopts(namelist)			///
+		noNEEDVARLIST				///
+		COMMONopts(string asis)			///
+		MARKopts(namelist)			///
+		RMCOLLopts(namelist)			///
+		RMDCOLLopts(namelist)			///
+		NUMDEPvars(numlist integer >=0)		///
+		NEEDEQUAL				///
+		WTYPES(string)				///
+		IGNORENOCONS				///
+	]
+
+	.eq_opts_allowed.reset
+	foreach opt of local eqopts {
+		.eq_opts_allowed.addopt `opt'
+	}
+	foreach opt of local eqargopts {
+		.eq_opts_allowed.addopt `opt', passthru
+	}
+	local i 0
+	foreach opt of local markopts {
+		.mark_opts.addopt `opt', passthru
+	}
+	local i 0
+	foreach opt of local rmcollopts {
+		.rmcoll_opts.addopt `opt', passthru
+	}
+	local i 0
+	foreach opt of local rmdcollopts {
+		.rmdcoll_opts.addopt `opt', passthru
+	}
+	.n_depvars.Arrdropall
+	if "`numdepvars'" != "" {
+		foreach ndep of local numdepvars {
+			.n_depvars.Arrpush `ndep'
+		}
+	}
+	else	 .n_depvars.Arrpush 1
+
+	.needequal	= "`needequal'"
+	.wtypes		= "`wtypes'"
+	.noneedvarlist	= "`needvarlist'"
+	.nocons_ignore	= "`ignorenocons'"
+end
+
+program _check_eq_item_name
+	capture syntax name(name=c_item)	///
+		[, NAME DEPvars INDEPvars IF IN NOCONS OPTions]
+	if c(rc) error 198
+	local item `name' `depvars' `indepvars' `if' `in' `nocons' `options'
+	if `:list sizeof item' != 1 {
+		exit 198
+	}
+	c_local `c_item' `item'
+end
+
+program _check_gl_item_name
+	capture syntax name(name=c_item) [, IF IN WGT OPTions]
+	if c(rc) error 198
+	c_local `c_item' `if' `in' `wgt' `options'
+end
+
+program _rebuild_gl
+	syntax name(name=c_gl)
+
+	forval i = 1/`.mark_list.arrnels' {
+		local opt `.mark_name[`i']'
+		.mark_list[`i'].rebuild
+		local options `"`options'`sp'`opt'(`s(eq)')"'
+		local sp " "
+	}
+
+	forval i = 1/`.rmcoll_list.arrnels' {
+		local opt `.rmcoll_name[`i']'
+		.rmcoll_list[`i'].rebuild
+		local options `"`options'`sp'`opt'(`s(eq)')"'
+		local sp " "
+	}
+
+	forval i = 1/`.rmdcoll_list.arrnels' {
+		local opt `.rmdcoll_name[`i']'
+		.rmdcoll_list[`i'].rebuild
+		local options `"`options'`sp'`opt'(`s(eq)')"'
+		local sp " "
+	}
+
+	local if	`"`.global if'"'
+	if `:list sizeof if' {
+		local if `" `if'"'
+	}
+	local in	`"`.global in'"'
+	if `:list sizeof in' {
+		local in `" `in'"'
+	}
+	local wgt	`"`.global wgt'"'
+	if `:list sizeof wgt' {
+		local wgt `" `wgt'"'
+	}
+	local opts	`"`.global options'"'
+	if `:list sizeof opts' {
+		local options	`"`options'`sp'`opts'"'
+		local sp " "
+	}
+	if `:list sizeof options' {
+		local cm ", "
+	}
+
+	c_local `c_gl'		`"`if'`in'`wgt'`cm'`options'"'
+	c_local `c_gl'_ifinw	`"`if'`in'`wgt'"'
+	c_local `c_gl'_options	`"`sp'`options'"'
+end
+
+exit

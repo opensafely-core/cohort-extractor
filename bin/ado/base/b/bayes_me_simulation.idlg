@@ -1,0 +1,569 @@
+/*
+    bayes_me_simulation.idlg - bayes me simulation tab
+
+*!  VERSION 1.0.7  18mar2019
+
+*/
+
+SCRIPT simulation_PREINIT
+BEGIN
+	create ARRAY simu_exclude_params_list
+	create STRING excludeparams_str
+	create STRING result
+END
+
+PROGRAM simulation_POSTINIT_PROGRAM
+BEGIN
+	call simulation.cb_exclude.repopulate
+	call program simulation_sp_nchains_change
+END
+
+DIALOG simulation, tabtitle(resource BAYES_SIMULATION_TABTITLE)
+BEGIN
+  SPINNER sp_nchains			_lft	_top	_en7wd	.,	///
+	default(1) min(1) max(10)					///
+	option(nchains)							///
+	onchange("program simulation_sp_nchains_change")		///
+	label(resource LBL_NUMBER_OF_CHAINS)
+  TEXT tx_nchains			_en7sep @	300	.,	///
+	label(resource LBL_NUMBER_OF_CHAINS)
+  SPINNER sp_mcmcsize			_lft	_ls	_en7wd	.,	///
+	default(10000) min(1) max(1000000)				///
+	option(mcmcsize)						///
+	label(resource BAYES_LBL_MCMC_SAMPLE_SIZE) 
+  TEXT    tx_mcmcsize			_en7sep @	300	.,	///
+	label(resource BAYES_LBL_MCMC_SAMPLE_SIZE)
+  SPINNER sp_burnin			_lft	_ls	_en7wd	.,	///
+	default(2500) min(1) max(1000000)				///
+	option(burnin)							///
+	label(resource BAYES_LBL_NUM_ITER_BURNIN_MCMC) 
+  TEXT    tx_burnin			_en7sep @	300	.,	///
+	label(resource BAYES_LBL_NUM_ITER_BURNIN_MCMC)
+  EDIT    ed_thinning			_lft	_ls	_en7wd	.,	///
+	numonly								///
+	option(thinning)						///
+	default(1)							///
+	label(resource BAYES_LBL_THINNING_INTERVAL)
+  TEXT	  tx_thinning			_en7sep @	300	.,	///
+	label(resource BAYES_LBL_THINNING_INTERVAL)
+  EDIT    ed_rseed			_lft	_ls	_en7wd	.,	///
+	numonly								///
+	option(rseed)							///
+	label(resource LBL_RANDOM_NUMBER_SEED_NO_COLON)
+  TEXT	  tx_rseed			_en7sep @	300	.,	///
+	label(resource LBL_RANDOM_NUMBER_SEED_NO_COLON)
+
+  CHECKBOX ck_exclude 			_lft	+35	_iwd	.,	///
+	onclickon(program exclude_on)					///
+	onclickoff(program exclude_off)					///
+ 	label(resource BAYES_LBL_MODEL_PARAMS_EXCLUDED_SIMULATION)
+  COMBOBOX cb_exclude 			@	_ms	_iwd	.,	///
+	dropdown							///
+	append								///
+	contents(simu_exclude_params_list)				///
+	option(exclude)							///
+	label(resource BAYES_LBL_MODEL_PARAMS_EXCLUDED_SIMULATION)
+  TEXT tx_restubs			@	_ls	_iwd	.,	///
+  	label(resource BAYES_LBL_STUB_RANDEFFECT_PARAMS)
+  EDIT ed_restubs			@	_ss	_iwd	.,	///
+	option(restubs)							///
+	label(resource BAYES_LBL_STUB_RANDEFFECT_PARAMS)
+END
+
+PROGRAM simulation_sp_nchains_change
+BEGIN
+	call init.tx_initial.hide
+	call init.ed_initial.hide
+	call init.bu_initial.hide
+	call init.tx_initall.show
+	call init.ed_initall.show
+	call init.bu_initall.show
+
+	if simulation.sp_nchains.isgt(1) {
+		call STMP.format "resource BAYES_LBL_SUPPRESS_MAX_LIKELIHOOD_EST_START_FOR_CHAIN1"
+		call rpt.ck_chainsdetail.enable
+	}
+	else {
+		call STMP.format "resource BAYES_LBL_SUPPRESS_MAX_LIKELIHOOD_EST_START"
+		call rpt.ck_chainsdetail.disable
+	}
+	call STMP.withvalue init.ck_nomleinitial.setlabel @
+
+	if simulation.sp_nchains.iseq(1) {
+		call init.tx_initial.show
+		call init.ed_initial.show
+		call init.bu_initial.show
+		call init.tx_init1.hide
+		call init.ed_init1.hide
+		call init.bu_init1.hide
+		call init.tx_init2.hide
+		call init.ed_init2.hide
+		call init.bu_init2.hide
+		call init.tx_init3.hide
+		call init.ed_init3.hide
+		call init.bu_init3.hide
+		call init.tx_init4.hide
+		call init.ed_init4.hide
+		call init.bu_init4.hide
+		call init.tx_init5.hide
+		call init.ed_init5.hide
+		call init.bu_init5.hide
+		call init.tx_init6.hide
+		call init.ed_init6.hide
+		call init.bu_init6.hide
+		call init.tx_init7.hide
+		call init.ed_init7.hide
+		call init.bu_init7.hide
+		call init.tx_init8.hide
+		call init.ed_init8.hide
+		call init.bu_init8.hide
+		call init.tx_init9.hide
+		call init.ed_init9.hide
+		call init.bu_init9.hide
+		call init.tx_init10.hide
+		call init.ed_init10.hide
+		call init.bu_init10.hide
+		call init.tx_initall.hide
+		call init.ed_initall.hide
+		call init.bu_initall.hide
+
+		call init.ck_nomleinitial.setposition . 60
+		call init.ck_initrandom.setposition . 85
+		call init.ck_initsummary.setposition . 110
+		call init.ck_noisily.setposition . 135
+	}
+	if simulation.sp_nchains.iseq(2) {
+		call init.tx_init1.show
+		call init.ed_init1.show
+		call init.bu_init1.show
+		call init.tx_init2.show
+		call init.ed_init2.show
+		call init.bu_init2.show
+		call init.tx_init3.hide
+		call init.ed_init3.hide
+		call init.bu_init3.hide
+		call init.tx_init4.hide
+		call init.ed_init4.hide
+		call init.bu_init4.hide
+		call init.tx_init5.hide
+		call init.ed_init5.hide
+		call init.bu_init5.hide
+		call init.tx_init6.hide
+		call init.ed_init6.hide
+		call init.bu_init6.hide
+		call init.tx_init7.hide
+		call init.ed_init7.hide
+		call init.bu_init7.hide
+		call init.tx_init8.hide
+		call init.ed_init8.hide
+		call init.bu_init8.hide
+		call init.tx_init9.hide
+		call init.ed_init9.hide
+		call init.bu_init9.hide
+		call init.tx_init10.hide
+		call init.ed_init10.hide
+		call init.bu_init10.hide
+
+		call init.tx_initall.setposition . 110
+		call init.ed_initall.setposition . 130
+		call init.bu_initall.setposition . 130
+
+		call init.ck_nomleinitial.setposition . 165
+		call init.ck_initrandom.setposition . 190
+		call init.ck_initsummary.setposition . 215
+		call init.ck_noisily.setposition . 240
+	}
+	if simulation.sp_nchains.iseq(3) {
+		call init.tx_init1.show
+		call init.ed_init1.show
+		call init.bu_init1.show
+		call init.tx_init2.show
+		call init.ed_init2.show
+		call init.bu_init2.show
+		call init.tx_init3.show
+		call init.ed_init3.show
+		call init.bu_init3.show
+		call init.tx_init4.hide
+		call init.ed_init4.hide
+		call init.bu_init4.hide
+		call init.tx_init5.hide
+		call init.ed_init5.hide
+		call init.bu_init5.hide
+		call init.tx_init6.hide
+		call init.ed_init6.hide
+		call init.bu_init6.hide
+		call init.tx_init7.hide
+		call init.ed_init7.hide
+		call init.bu_init7.hide
+		call init.tx_init8.hide
+		call init.ed_init8.hide
+		call init.bu_init8.hide
+		call init.tx_init9.hide
+		call init.ed_init9.hide
+		call init.bu_init9.hide
+		call init.tx_init10.hide
+		call init.ed_init10.hide
+		call init.bu_init10.hide
+
+		call init.tx_initall.setposition . 160
+		call init.ed_initall.setposition . 180
+		call init.bu_initall.setposition . 180
+
+		call init.ck_nomleinitial.setposition . 220
+		call init.ck_initrandom.setposition . 245
+		call init.ck_initsummary.setposition . 270
+		call init.ck_noisily.setposition . 295
+	}
+	if simulation.sp_nchains.iseq(4) {
+		call init.tx_init1.show
+		call init.ed_init1.show
+		call init.bu_init1.show
+		call init.tx_init2.show
+		call init.ed_init2.show
+		call init.bu_init2.show
+		call init.tx_init3.show
+		call init.ed_init3.show
+		call init.bu_init3.show
+		call init.tx_init4.show
+		call init.ed_init4.show
+		call init.bu_init4.show
+		call init.tx_init5.hide
+		call init.ed_init5.hide
+		call init.bu_init5.hide
+		call init.tx_init6.hide
+		call init.ed_init6.hide
+		call init.bu_init6.hide
+		call init.tx_init7.hide
+		call init.ed_init7.hide
+		call init.bu_init7.hide
+		call init.tx_init8.hide
+		call init.ed_init8.hide
+		call init.bu_init8.hide
+		call init.tx_init9.hide
+		call init.ed_init9.hide
+		call init.bu_init9.hide
+		call init.tx_init10.hide
+		call init.ed_init10.hide
+		call init.bu_init10.hide
+
+		call init.tx_initall.setposition . 210
+		call init.ed_initall.setposition . 230
+		call init.bu_initall.setposition . 230
+
+		call init.ck_nomleinitial.setposition . 265
+		call init.ck_initrandom.setposition . 290
+		call init.ck_initsummary.setposition . 315
+		call init.ck_noisily.setposition . 340
+	}
+	if simulation.sp_nchains.iseq(5) {
+		call init.tx_init1.show
+		call init.ed_init1.show
+		call init.bu_init1.show
+		call init.tx_init2.show
+		call init.ed_init2.show
+		call init.bu_init2.show
+		call init.tx_init3.show
+		call init.ed_init3.show
+		call init.bu_init3.show
+		call init.tx_init4.show
+		call init.ed_init4.show
+		call init.bu_init4.show
+		call init.tx_init5.show
+		call init.ed_init5.show
+		call init.bu_init5.show
+		call init.tx_init6.hide
+		call init.ed_init6.hide
+		call init.bu_init6.hide
+		call init.tx_init7.hide
+		call init.ed_init7.hide
+		call init.bu_init7.hide
+		call init.tx_init8.hide
+		call init.ed_init8.hide
+		call init.bu_init8.hide
+		call init.tx_init9.hide
+		call init.ed_init9.hide
+		call init.bu_init9.hide
+		call init.tx_init10.hide
+		call init.ed_init10.hide
+		call init.bu_init10.hide
+
+		call init.tx_initall.setposition . 260
+		call init.ed_initall.setposition . 280
+		call init.bu_initall.setposition . 280
+
+		call init.ck_nomleinitial.setposition . 325
+		call init.ck_initrandom.setposition . 350
+		call init.ck_initsummary.setposition . 375
+		call init.ck_noisily.setposition . 400
+	}
+	if simulation.sp_nchains.iseq(6) {
+		call init.tx_init1.show
+		call init.ed_init1.show
+		call init.bu_init1.show
+		call init.tx_init2.show
+		call init.ed_init2.show
+		call init.bu_init2.show
+		call init.tx_init3.show
+		call init.ed_init3.show
+		call init.bu_init3.show
+		call init.tx_init4.show
+		call init.ed_init4.show
+		call init.bu_init4.show
+		call init.tx_init5.show
+		call init.ed_init5.show
+		call init.bu_init5.show
+		call init.tx_init6.show
+		call init.ed_init6.show
+		call init.bu_init6.show
+		call init.tx_init7.hide
+		call init.ed_init7.hide
+		call init.bu_init7.hide
+		call init.tx_init8.hide
+		call init.ed_init8.hide
+		call init.bu_init8.hide
+		call init.tx_init9.hide
+		call init.ed_init9.hide
+		call init.bu_init9.hide
+		call init.tx_init10.hide
+		call init.ed_init10.hide
+		call init.bu_init10.hide
+
+		call init.tx_initall.setposition . 310
+		call init.ed_initall.setposition . 330
+		call init.bu_initall.setposition . 330
+
+		call init.ck_nomleinitial.setposition . 370
+		call init.ck_initrandom.setposition . 395
+		call init.ck_initsummary.setposition . 420
+		call init.ck_noisily.setposition . 445
+	}
+	if simulation.sp_nchains.iseq(7) {
+		call init.tx_init1.show
+		call init.ed_init1.show
+		call init.bu_init1.show
+		call init.tx_init2.show
+		call init.ed_init2.show
+		call init.bu_init2.show
+		call init.tx_init3.show
+		call init.ed_init3.show
+		call init.bu_init3.show
+		call init.tx_init4.show
+		call init.ed_init4.show
+		call init.bu_init4.show
+		call init.tx_init5.show
+		call init.ed_init5.show
+		call init.bu_init5.show
+		call init.tx_init6.show
+		call init.ed_init6.show
+		call init.bu_init6.show
+		call init.tx_init7.show
+		call init.ed_init7.show
+		call init.bu_init7.show
+		call init.tx_init8.hide
+		call init.ed_init8.hide
+		call init.bu_init8.hide
+		call init.tx_init9.hide
+		call init.ed_init9.hide
+		call init.bu_init9.hide
+		call init.tx_init10.hide
+		call init.ed_init10.hide
+		call init.bu_init10.hide
+
+		call init.tx_initall.setposition . 360
+		call init.ed_initall.setposition . 380
+		call init.bu_initall.setposition . 380
+
+		call init.ck_nomleinitial.setposition . 410
+		call init.ck_initrandom.setposition . 435
+		call init.ck_initsummary.setposition . 460
+		call init.ck_noisily.setposition . 485
+	}
+	if simulation.sp_nchains.iseq(8) {
+		call init.tx_init1.show
+		call init.ed_init1.show
+		call init.bu_init1.show
+		call init.tx_init2.show
+		call init.ed_init2.show
+		call init.bu_init2.show
+		call init.tx_init3.show
+		call init.ed_init3.show
+		call init.bu_init3.show
+		call init.tx_init4.show
+		call init.ed_init4.show
+		call init.bu_init4.show
+		call init.tx_init5.show
+		call init.ed_init5.show
+		call init.bu_init5.show
+		call init.tx_init6.show
+		call init.ed_init6.show
+		call init.bu_init6.show
+		call init.tx_init7.show
+		call init.ed_init7.show
+		call init.bu_init7.show
+		call init.tx_init8.show
+		call init.ed_init8.show
+		call init.bu_init8.show
+		call init.tx_init9.hide
+		call init.ed_init9.hide
+		call init.bu_init9.hide
+		call init.tx_init10.hide
+		call init.ed_init10.hide
+		call init.bu_init10.hide
+
+		call init.tx_initall.setposition . 410
+		call init.ed_initall.setposition . 430
+		call init.bu_initall.setposition . 430
+
+		call init.ck_nomleinitial.setposition . 470
+		call init.ck_initrandom.setposition . 495
+		call init.ck_initsummary.setposition . 520
+		call init.ck_noisily.setposition . 545
+	}
+	if simulation.sp_nchains.iseq(9) {
+		call init.tx_init1.show
+		call init.ed_init1.show
+		call init.bu_init1.show
+		call init.tx_init2.show
+		call init.ed_init2.show
+		call init.bu_init2.show
+		call init.tx_init3.show
+		call init.ed_init3.show
+		call init.bu_init3.show
+		call init.tx_init4.show
+		call init.ed_init4.show
+		call init.bu_init4.show
+		call init.tx_init5.show
+		call init.ed_init5.show
+		call init.bu_init5.show
+		call init.tx_init6.show
+		call init.ed_init6.show
+		call init.bu_init6.show
+		call init.tx_init7.show
+		call init.ed_init7.show
+		call init.bu_init7.show
+		call init.tx_init8.show
+		call init.ed_init8.show
+		call init.bu_init8.show
+		call init.tx_init9.show
+		call init.ed_init9.show
+		call init.bu_init9.show
+		call init.tx_init10.hide
+		call init.ed_init10.hide
+		call init.bu_init10.hide
+
+		call init.tx_initall.setposition . 460
+		call init.ed_initall.setposition . 480
+		call init.bu_initall.setposition . 480
+
+		call init.ck_nomleinitial.setposition . 510
+		call init.ck_initrandom.setposition . 535
+		call init.ck_initsummary.setposition . 560
+		call init.ck_noisily.setposition . 585
+	}
+	if simulation.sp_nchains.iseq(10) {
+		call init.tx_init1.show
+		call init.ed_init1.show
+		call init.bu_init1.show
+		call init.tx_init2.show
+		call init.ed_init2.show
+		call init.bu_init2.show
+		call init.tx_init3.show
+		call init.ed_init3.show
+		call init.bu_init3.show
+		call init.tx_init4.show
+		call init.ed_init4.show
+		call init.bu_init4.show
+		call init.tx_init5.show
+		call init.ed_init5.show
+		call init.bu_init5.show
+		call init.tx_init6.show
+		call init.ed_init6.show
+		call init.bu_init6.show
+		call init.tx_init7.show
+		call init.ed_init7.show
+		call init.bu_init7.show
+		call init.tx_init8.show
+		call init.ed_init8.show
+		call init.bu_init8.show
+		call init.tx_init9.show
+		call init.ed_init9.show
+		call init.bu_init9.show
+		call init.tx_init10.show
+		call init.ed_init10.show
+		call init.bu_init10.show
+
+		call init.tx_initall.setposition . 510
+		call init.ed_initall.setposition . 530
+		call init.bu_initall.setposition . 530
+
+		call init.ck_nomleinitial.setposition . 565
+		call init.ck_initrandom.setposition . 590
+		call init.ck_initsummary.setposition . 615
+		call init.ck_noisily.setposition . 640
+	}
+END
+
+SCRIPT simulation_restubs_enable
+BEGIN
+	simulation.tx_restubs.enable
+	restubs.withvalue simulation.tx_restubs.setlabel "@"
+	simulation.ed_restubs.enable
+	restubs.withvalue simulation.ed_restubs.setlabel "@"
+END
+SCRIPT simulation_restubs_disable
+BEGIN
+	simulation.tx_restubs.disable
+	simulation.ed_restubs.disable
+END
+
+PROGRAM load_simu_params
+BEGIN
+	put "capture bayes_parse_params "
+	put " : " 
+	put /program bayes_build_parse	
+	stata hidden immediate
+	call simulation.cb_exclude.enable
+	call program get_params
+END
+PROGRAM get_params
+BEGIN
+	call result.setvalue s(params)
+	if result.iseq("") {
+		stopbox note "resource BAYES_MSGBOX_ERRORS_IN_SPECIFICATION"
+		call simulation.cb_exclude.disable
+		call simulation.ck_exclude.setoff
+	}
+	else {
+		call excludeparams_str.setvalue ""
+		call excludeparams_str.append s(params)
+
+		call excludeparams_str.append " "
+		call excludeparams_str.append s(eqnames)
+		call excludeparams_str.tokenizeOnStr simu_exclude_params_list " "
+		call simulation.cb_exclude.repopulate
+	}
+END
+
+PROGRAM exclude_on
+BEGIN
+	call program load_simu_params
+
+END
+PROGRAM exclude_off
+BEGIN
+	call simulation.cb_exclude.disable
+END
+
+
+PROGRAM bayes_simulation_output
+BEGIN
+	optionarg /hidedefault simulation.sp_nchains
+	optionarg /hidedefault simulation.sp_mcmcsize
+	optionarg /hidedefault simulation.sp_burnin
+	optionarg /hidedefault simulation.ed_thinning
+	optionarg simulation.ed_rseed
+	optionarg simulation.cb_exclude
+	optionarg simulation.ed_restubs
+END
+
+

@@ -1,0 +1,99 @@
+/*
+	predict (after mprobit)
+
+*!  VERSION 1.0.3  05apr2018
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE header
+
+HELP hlp1, view("help mprobit postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource MPROBIT_P_DLG_HSCALE
+END
+
+DIALOG main, label(resource PREDICT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  INCLUDE  _p_gentype
+
+  GROUPBOX gb_opts           _lft      _ls       _iwd      _ht10,	/*
+		*/ label(resource LBL_PRODUCE)
+  RADIO    rb_p_all          _ilft     _ss       _ibwd     ., first	/*
+		*/ option(p)						/*
+		*/ clickon("script offboth")				/*
+		*/ label(resource LBL_PROBABILITIES_FOR_ALL_OUTCOMES)
+  DEFINE   holdy@y
+  RADIO    rb_p              _ilft     _ss       _comb3_2  .,		/*
+		*/ option(p)						/*
+		*/ clickon("script off2")				/*
+		*/ label(resource LBL_PROBABILITY_FOR_A_SPECIFIC_OUTCOME)
+  RADIO    rb_xb             @         _ss       @         .,		/*
+		*/ option(xb)						/*
+		*/ clickon("script off2")				/*
+		*/ label(resource LBL_LINEAR_PREDICTION_XB)
+  RADIO    rb_stdp           @         _ss       @         ., 		/*
+		*/ option(stdp)						/*
+		*/ clickon("script off2")				/*
+		*/ label(resource LBL_STANDARD_ERROR_OF_LINEAR_PREDICTION)
+  RADIO    rb_score          _ilft     _ss       _comb3_2  ., last	/*
+		*/ option(scores)					/*
+		*/ clickon("script offboth")				/*
+		*/ label(resource LBL_EQUATION_LEVEL_SCORES)		
+
+  TEXT     tx_outcome1       _ilft3_3  holdy     _cwd3_2   .,		/*
+		*/ label(resource LBL_OUTCOME)
+  LISTBOX  lb_outcome1       @         _ss       @         _ht3,	/*
+		*/ contents(ereturn outeqs)				/*
+		*/ label(resource LBL_OUTCOME)
+END
+
+INCLUDE _p_gentype_sc
+INCLUDE ifin
+INCLUDE _type_list_fd
+
+SCRIPT offboth
+BEGIN
+	script _p_gentype_multiple
+	script eq1off
+END
+
+SCRIPT off2
+BEGIN
+	script _p_gentype_single
+	script eq1on
+END
+
+SCRIPT eq1on
+BEGIN
+	main.tx_outcome1.show
+	main.lb_outcome1.show
+END
+
+SCRIPT eq1off
+BEGIN
+	main.tx_outcome1.hide
+	main.lb_outcome1.hide
+END
+
+
+PROGRAM command
+BEGIN
+	put "predict "
+	put " " /program _p_gentype_output
+	INCLUDE _ifin_pr
+	beginoptions
+		if !main.rb_p_all & !main.rb_score {
+			put "outcome("
+			require main.lb_outcome1
+			put main.lb_outcome1
+			put ") "
+		}
+		option radio(main rb_p_all rb_p rb_xb rb_stdp rb_score)
+	endoptions
+END

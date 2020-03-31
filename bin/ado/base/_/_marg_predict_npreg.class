@@ -1,0 +1,115 @@
+*! version 1.0.0  12dec2016
+version 11
+
+class _marg_predict_npreg {
+
+}, inherit(_marg_predict)
+
+program .new
+		.vv = string(_caller())
+		if "`.varname'" == "" {
+			.varname = "__marg_pvar_`.n.next'"
+		}
+end
+
+program .destructor
+	capture drop `.varname'
+	capture drop __npreg__pre1
+end
+
+program .parse
+	syntax [, EQuation(string) noOFFset *]
+
+	gettoken COMMA args : 0, parse(", ")
+	.args = `"`:list retok args'"'
+	if `:length local equation' {
+		.eq = `"equation(`equation')"'
+	}
+	.offset = "`offset'"
+	if `:length local options' {
+		.opts = `"`options'"'
+	}
+	else if "`e(predict)'" != "" {
+		capture local prop : properties `e(predict)'
+		if !c(rc) {
+			local xb "default_xb"
+			if `:list xb in prop' {
+				.opts = "xb"
+			}
+			local xb "notxb"
+			if `:list xb in prop' {
+				.notxb = 1
+			}
+		}
+	}
+	local deriv = e(marginsderiv)
+	if `"`deriv'"' != "" {
+		local DEFAULT default
+		local hasdflt : list DEFAULT in deriv
+		if `hasdflt' {
+			local deriv : list deriv - DEFAULT
+		}
+		local 0 `", `.opts'"'
+		syntax [, `deriv' *]
+		if `"`options'"' == "" {
+			if `"`.opts'"' == "" {
+				.deriv = `hasdflt'
+			}
+			else	.deriv = 1
+		}
+	}
+end
+
+program .match, rclass
+	syntax [, EQuation(string) noOFFset *]
+
+	if `"`.eq'"' != `"`equation'"' {
+		return scalar match = 0
+		class exit 0
+		exit
+	}
+	if `"`.offset'"' != "`offset'" {
+		return scalar match = 0
+		class exit 0
+		exit
+	}
+	if `:length local options' {
+		local opts `"`.opts'"'
+		if !`:list opt === options' {
+			return scalar match = 0
+			class exit 0
+			exit
+		}
+	}
+	else if "`e(predict)'" != "" {
+		capture local prop : properties `e(predict)'
+		if !c(rc) {
+			local xb "default_xb"
+			if `:list xb in prop' {
+				if `"`.opts'"' != "xb" {
+					return scalar match = 0
+					class exit 0
+					exit
+				}
+			}
+		}
+	}
+	else if `"`.opts'"' != `""' {
+		return scalar match = 0
+		class exit 0
+		exit
+	}
+	return scalar match = 1
+	class exit 1
+end
+
+program .Predict
+
+	syntax [if] [in] [, *]
+	capture drop `.varname'
+	version `.vv': ///
+	quietly predict double `.varname' `if' `in',	///
+		`.offset' `.eq' `.opts' `options'
+end
+
+exit

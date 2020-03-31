@@ -1,0 +1,238 @@
+/*
+  bayesstats_predspec_sc.idlg
+	
+
+*!  VERSION 1.0.1  04feb2019
+
+*/
+
+PROGRAM main_predspec_create
+BEGIN
+	call main_predspec_count.setvalue class mainPredspecChildDialogList.size
+	call main_predspec_count.increment
+	call main_pred_tmp.setvalue "main_predspec_"
+	call main_pred_tmp.append class main_predspec_count.value
+	call main_pred_tmp.withvalue main_pred_childdlg.setvalue @
+	call program main_show_predspec_child
+END
+
+PROGRAM main_predspec_edit
+BEGIN
+	call mainPredspecCommandDisplayList.findstr class		///
+		main.lb_predspecBuild.value
+	call main_pred_position.setvalue class				///
+		mainPredspecCommandDisplayList.position
+	call main_pred_position.withvalue				///
+		main_pred_childdlg.setvalue				///
+		class mainPredspecChildDialogList.values[@]
+	call program main_show_predspec_child_edit
+END
+
+PROGRAM main_show_predspec_child
+BEGIN
+	call main_pred_tmp.setvalue "bayesstats_predspec AS "
+	call main_pred_tmp.append class main_pred_childdlg.value
+	call main_pred_tmp.withvalue create CHILD @
+	call main_pred_childdlg.withvalue @.setExitString		///
+		"main_pred_child_result"
+	call main_pred_childdlg.withvalue @.setExitAction		///
+		"program main_predspec_child_create_done"
+
+	call main_predspec_count.withvalue				///
+		sTMP.format "resource LBL_SPECIFICATION_FMT" "@" ""
+
+	call main_pred_childdlg.withvalue				///
+		main_pred_tmp2.setvalue "@.settitle"
+	call main_pred_tmp2.append `" ""'
+	call main_pred_tmp2.append class sTMP.value
+	call main_pred_tmp2.append `"""'
+	call main_pred_tmp2.withvalue @
+END
+
+PROGRAM main_show_predspec_child_edit
+BEGIN
+	call main_pred_tmp.setvalue "bayesstats_predspec AS "
+	call main_pred_tmp.append class main_pred_childdlg.value
+	call main_pred_tmp.withvalue create CHILD @
+	call main_pred_childdlg.withvalue @.setExitString		///
+		"main_pred_child_result"
+	call main_pred_childdlg.withvalue @.setExitAction		///
+		"program main_predspec_child_edit_done"
+
+	call main_pred_position.withvalue				///
+		main_pred_tmp.setvalue					///
+		class mainPredspecCommandDisplayList.values[@]
+	call main_pred_childdlg.withvalue				///
+		main_pred_tmp2.setvalue "@.settitle"
+	call main_pred_tmp2.append `" ""'
+	call main_pred_tmp2.append class main_pred_tmp.value
+	call main_pred_tmp2.append `"""'
+	call main_pred_tmp2.withvalue @
+END
+
+PROGRAM main_predspec_child_create_done
+BEGIN
+	call main_predspec_arraysize.setvalue class			///
+		mainPredspecChildDialogList.size
+	call main_predspec_arraysize.increment
+
+	/* Store child dialog name */
+	call mainPredspecChildDialogList.store class			///
+		main_predspec_arraysize.value class main_pred_childdlg.value
+
+	call main_predspec_arraysize.withvalue				///
+		sTMP.format "resource LBL_SPECIFICATION_FMT" "@" ""
+
+	/* Store listbox display equation string */
+	call sTMP.withvalue						///
+		mainPredspecCommandDisplayList.store class		///
+		main_predspec_arraysize.value "@"
+
+	/* Store child dialog result string */
+	call mainPredspecCommandList.store class			///
+		main_predspec_arraysize.value				///
+		class main_pred_child_result.value
+
+
+	/* Store child dialog result string for final command
+	   For disable/enable */
+	call mainPredspecCommandValues.store class			///
+		main_predspec_arraysize.value				///
+		class main_pred_child_result.value
+
+	/* Store disable/enable status */
+	call mainPredspecStatusList.store class				///
+		main_predspec_arraysize.value "active"
+
+	call mainPredspecCommandDisplayList.copyToArray main_predspec_list
+	call main.lb_predspecBuild.repopulate
+	call sTMP.withvalue						///
+		main.lb_predspecBuild.setvalue "@"
+END
+
+PROGRAM main_predspec_child_edit_done
+BEGIN
+	call mainPredspecChildDialogList.findstr class			///
+		main_pred_childdlg.value
+	call main_pred_position.setvalue class				///
+		mainPredspecChildDialogList.position
+	call main_pred_position.withvalue main_pred_tmp.setvalue	///
+		class mainPredspecStatusList.values[@]
+	if main_pred_tmp.iseq("active") {
+	
+		call main_pred_position.withvalue			///
+			sTMP.format "resource LBL_SPECIFICATION_FMT" "@" ""
+	
+		call sTMP.withvalue					///
+			mainPredspecCommandDisplayList.store class	///
+			main_pred_position.value "@"
+
+		call mainPredspecCommandValues.store class		///
+			main_pred_position.value class			///
+			main_pred_child_result.value
+
+		call sTMP.withvalue					///
+			main_pred_tmp2.setvalue "@"
+	}
+	else {
+		call main_pred_position.withvalue			///
+			sTMP.format "resource LBL_SPECIFICATION_FMT" "@" "resource LBL_PAREN_DISABLED"
+
+		call sTMP.withvalue					///
+			mainPredspecCommandDisplayList.store		///
+			class main_pred_position.value "@"
+			
+		call sTMP.withvalue					///
+			main_pred_tmp2.setvalue "@"
+	}
+
+	call mainPredspecCommandList.store class			///
+		main_pred_position.value class				///
+		main_pred_child_result.value
+
+	call mainPredspecCommandDisplayList.copyToArray main_predspec_list
+	call main.lb_predspecBuild.repopulate
+	call main.lb_predspecBuild.setvalue class main_pred_tmp2.value
+END
+
+PROGRAM main_predspec_sel_changed
+BEGIN
+	call mainPredspecCommandDisplayList.findstr class		///
+		main.lb_predspecBuild.value
+	call main_pred_position.setvalue class				///
+		mainPredspecCommandDisplayList.position
+	call main_pred_position.withvalue main_pred_tmp.setvalue	///
+		class mainPredspecStatusList.values[@]
+	if main_pred_position {
+		call main.bu_predspec_edit.enable
+
+		call main_pred_position.withvalue			///
+			main.tb_predspec_note.setlabel			///
+		class mainPredspecCommandList.values[@]
+	}
+
+	if main_pred_tmp.iseq("disable") & main.lb_predspecBuild.isenabled() {
+		call main.bu_predspec_enable.enable
+		call main.bu_predspec_disable.disable
+	}
+	if main_pred_tmp.iseq("active") & main.lb_predspecBuild.isenabled() {
+		call main.bu_predspec_enable.disable
+		call main.bu_predspec_disable.enable
+	}
+END
+
+PROGRAM main_predspec_disable
+BEGIN
+	call mainPredspecCommandDisplayList.findstr class		///
+		main.lb_predspecBuild.value
+	call main_pred_position.setvalue class				///
+		mainPredspecCommandDisplayList.position
+
+	call main_pred_tmp.setvalue class main.lb_predspecBuild.value
+	call mainPredspecStatusList.store class				///
+		main_pred_position.value "disable"
+	call mainPredspecCommandValues.store class main_pred_position.value ""
+
+	call main_pred_position.withvalue				///
+		sTMP.format "resource LBL_SPECIFICATION_FMT" "@" "resource LBL_PAREN_DISABLED"
+
+	call sTMP.withvalue						///
+		mainPredspecCommandDisplayList.store			///
+		class main_pred_position.value "@"
+
+	call mainPredspecCommandDisplayList.copyToArray main_predspec_list
+	call sTMP.withvalue main_pred_tmp2.setvalue "@"
+	
+	call main.lb_predspecBuild.repopulate
+	call main.lb_predspecBuild.setvalue class main_pred_tmp2.value
+END
+
+PROGRAM main_predspec_enable
+BEGIN
+	call mainPredspecCommandDisplayList.findstr class		///
+		main.lb_predspecBuild.value
+	call main_pred_position.setvalue class				///
+		mainPredspecCommandDisplayList.position
+
+	call mainPredspecStatusList.store class				///
+		main_pred_position.value "active"
+	call main_pred_position.withvalue				///
+		mainPredspecCommandValues.store				///
+		class main_pred_position.value class			///
+		mainPredspecCommandList.values[@]
+
+	call main_pred_position.withvalue				///
+		sTMP.format "resource LBL_SPECIFICATION_FMT" "@" ""
+
+	call sTMP.withvalue						///
+		mainPredspecCommandDisplayList.store			///
+		class main_pred_position.value "@"
+
+	call mainPredspecCommandDisplayList.copyToArray main_predspec_list
+
+	call main_pred_position.withvalue				///
+		main_pred_tmp2.setvalue class				///
+		mainPredspecCommandDisplayList.values[@]
+	call main.lb_predspecBuild.repopulate
+	call main.lb_predspecBuild.setvalue class main_pred_tmp2.value
+END

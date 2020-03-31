@@ -1,0 +1,477 @@
+/*
+    gr_legend_options.dlg
+    
+*!  VERSION 1.1.3  31jul2017
+    	
+	// SCRIPTS and PROGRAMS for external use
+		*
+*/
+
+VERSION 15.0
+
+INCLUDE _std_mlarge
+DEFINE _dlght 390
+INCLUDE header_gr_child
+
+DEFINE _clwd	15
+DEFINE _wd	150
+DEFINE _sep	+155
+DEFINE _wd2	140
+DEFINE _sep2	+145
+DEFINE _cbwd	120
+DEFINE _cbsep	+125
+
+INCLUDE gr_orientation
+
+HELP hlp1, view("help legend_options")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource GR_LEGEND_OPTIONS_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script gr_titles_setLegend_on
+	program labels_checkMarginResult
+END
+
+SCRIPT main_PREINIT
+BEGIN
+	create STRING tmp
+	create ARRAY  tmpArray
+	create STRING labels_marginResult
+END
+
+
+DIALOG main, tabtitle(resource LBL_ORGANIZATION)
+BEGIN
+  GROUPBOX	gb_organization	_lft	_top	_iwd	_ht25,	///
+	label(resource LBL_ORGANIZATION)
+
+  TEXT		tx_layout	_ilft   _ss	_wd	.,	///
+	label(resource LBL_ROWS_COLUMNS) right
+  COMBOBOX	cb_layout	_sep	@	_cbwd	.,	///
+	dropdownlist 						///
+	contents(rows_columns) values(rows_columns_val)		///
+	onselchangelist(rows_columns_sel)
+  SPINNER	sp_rowcol	_cbsep	@	50	.,	///
+	default(1)
+  TEXT		tx_rowcol	+55	@	80	.,	///
+	label(resource LBL_TAB_ROWS)
+
+  TEXT		tx_stack	_ilft	_mls	_wd	.,	///
+	label(resource LBL_STACK_SYMBOLS_TEXT) right
+  COMBOBOX	cb_stack	_sep	@	_cbwd	.,	///
+	dropdownlist 						///
+	contents(yesno) values(stack_val)
+
+  TEXT		tx_colfirst	_ilft	_mls	_wd	.,	///
+	label(resource LBL_KEY_SEQUENCE) right
+  COMBOBOX	cb_colfirst	_sep	@	_cbwd	.,	///
+	dropdownlist 						///
+	contents(key_sequence) 	values(key_sequence_val)
+	
+  TEXT		tx_textfirst	_ilft	_mls	_wd	.,	///
+	label(resource LBL_SYMBOL_ORDER) right
+  COMBOBOX	cb_textfirst	_sep	@	_cbwd	.,	///
+	dropdownlist 						///
+	contents(symbol_order) 	values(symbol_order_val)
+	
+  TEXT		tx_placement	_ilft	_mls	_wd	.,	///
+	label(resource LBL_SYMBOL_ALIGNMENT) right
+  COMBOBOX	cb_placement	_sep	@	_cbwd	.,	///
+	dropdownlist 						///
+	contents(compass) option(symplacement)
+	
+  TEXT		tx_rowgap	_ilft	_mls	_wd	.,	///
+	label(resource LBL_ROW_GAP) right
+  COMBOBOX	cb_rowgap	_sep	@	_cbwd	.,	///
+	option(rowgap) dropdown contents(textsizes)
+
+  TEXT		tx_colgap	_ilft	_mls	_wd	.,	///
+	label(resource LBL_COLUMN_GAP) right
+  COMBOBOX	cb_colgap	_sep	@	_cbwd	.,	///
+	option(colgap) dropdown contents(textsizes)
+
+  TEXT		tx_keygap	_ilft	_mls	_wd	.,	///
+	label(resource LBL_KEY_GAP) right
+  COMBOBOX	cb_keygap	_sep	@	_cbwd	.,	///
+	option(keygap) dropdown contents(textsizes)
+
+  CHECKBOX	ck_all		_ilft	_ls	_ibwd	.,	///
+	option(all) 						///
+	label(resource GR_LEGEND_OPTIONS_MAIN_CK_ALL)
+END
+
+LIST key_sequence
+BEGIN
+	resource LBL_DEFAULT
+	resource LBL_ACROSS_FIRST
+	resource LBL_DOWN_FIRST
+END
+LIST key_sequence_val
+BEGIN
+	""
+	"nocolfirst"
+	"colfirst"
+END
+
+LIST symbol_order
+BEGIN
+	resource LBL_DEFAULT
+	resource LBL_SYMBOLS_FIRST
+	resource LBL_LABELS_FIRST
+END
+LIST symbol_order_val
+BEGIN
+	""
+	"notextfirst"
+	"textfirst"
+END
+
+LIST stack_val
+BEGIN
+	""
+	"stack"
+	"nostack"
+END
+
+// **
+LIST rows_columns
+BEGIN
+	resource LBL_DEFAULT
+	resource LBL_TAB_ROWS
+	resource LBL_COLUMNS
+END
+LIST rows_columns_val
+BEGIN
+	""
+	"rows"
+	"cols"
+END
+LIST rows_columns_sel
+BEGIN
+	script row_col_value_hide
+	script row_value_show
+	script col_value_show
+END
+SCRIPT row_col_value_hide
+BEGIN
+	main.sp_rowcol.hide
+	main.tx_rowcol.hide
+END
+SCRIPT row_value_show
+BEGIN
+	main.sp_rowcol.show
+	main.tx_rowcol.show
+	main.tx_rowcol.setlabel resource LBL_TAB_ROWS
+END
+SCRIPT col_value_show
+BEGIN
+	main.sp_rowcol.show
+	main.tx_rowcol.show
+	main.tx_rowcol.setlabel resource LBL_COLUMNS
+END
+//--
+
+PROGRAM main_output
+BEGIN
+	put main.cb_colfirst
+	put " " main.cb_textfirst
+	optionarg /hidedefault main.cb_placement
+	put " " main.cb_stack 
+	if main.cb_layout & main.cb_layout.isvisible() {
+		put " " main.cb_layout "("
+		put main.sp_rowcol
+		put ")"
+	}
+	optionarg main.cb_rowgap
+	optionarg main.cb_colgap
+	optionarg main.cb_keygap
+	option main.ck_all
+END
+
+DIALOG labels, tabtitle(resource LBL_LABELS)
+BEGIN
+  GROUPBOX	gb_text	_lft	_top	_iwd	365,		///
+	label(resource LBL_LABELS)
+  TEXT     tx_size	_ilft	_ss	_wd	.,		///
+	label(resource LBL_SIZE) right
+  COMBOBOX cb_size	_sep	@	_cbwd	.,		///
+	dropdown contents(textsizes) option(size)
+
+  TEXT     tx_clr	_ilft	_mls	_wd	.,		///
+	label(resource LBL_COLOR) right	
+  COMBOBOX cb_clr	_sep	@	_cbwd	.,		///
+	dropdownlist contents(colors) option(color)		///
+	onselchangelist(labels_cl_clr_sel)
+  COLOR    cl_clr	_cbsep	@	_clwd	., 		///
+	option(color)
+  TEXT     tx_opacity	_ilft	_mls	_wd	.,		///
+	label(resource LBL_OPACITY) right
+  SPINNER sp_opacity	_sep	@	_spwd	.,		///
+	default(100)						///
+	min(0)							///
+	max(100)
+
+  TEXT     tx_margin	_ilft	_mls	_wd	.,		///
+	label(resource LBL_MARGIN) right
+  COMBOBOX cb_margin	_sep	@	_cbwd	.,		///
+	dropdownlist contents(margin) option(margin)		///
+	onselchange(program labels_cb_margin_check)
+  BUTTON   bu_margin	_vnsep	@	_clwd	.,		///
+	label("..") tooltip(resource LBL_CUSTOM_MARGIN)		///
+	onpush(script labels_show_margin_dialog)
+
+  TEXT     tx_lgap	_ilft	_mls	_wd	.,		///
+	label(resource LBL_LINE_GAP) right
+  COMBOBOX cb_lgap	_sep	@	_cbwd	.,		///
+	dropdown option(linegap) contents(textsizes)		///
+	tooltip(resource LBL_USEFUL_FOR_MULTILINE_LABELS)
+
+	
+  GROUPBOX gb_box	_ilft	_ls	_ibwd	_ht16,		///
+	label(resource GR_LEGEND_OPTIONS_LABELS_GB_BOX)
+
+  TEXT     tx_box	_iilft	_ss	_wd2	.,		///
+	label(resource GR_LEGEND_OPTIONS_LABELS_TX_BOX) right
+  COMBOBOX cb_box	_sep2	@	_cbwd	.,		///
+	dropdownlist contents(yesno) values(labels_box_values)	///
+	onselchangelist(labels_box_selection)
+
+  TEXT     tx_bclr	_iilft	_mls	_wd2	.,		///
+	label(resource LBL_FILL_COLOR) right
+  COMBOBOX cb_bclr	_sep2	@	_cbwd	.,		///
+	dropdownlist contents(colors) option(fcolor)		///
+	onselchangelist(labels_cl_bclr_sel)
+  COLOR    cl_bclr   	_cbsep	@	_clwd	., 		///
+	option(fcolor)
+  TEXT     tx_bopacity	_iilft	_mls	_wd2	.,		///
+	label(resource LBL_FILL_OPACITY) right
+  SPINNER  sp_bopacity	_sep2	@	_spwd	.,		///
+	default(100)						///
+	min(0)							///
+	max(100)
+
+  TEXT     tx_blclr	_iilft	_mls	_wd2	.,		///
+	label(resource LBL_OUTLINE_COLOR) right
+  COMBOBOX cb_blclr	_sep2    @	_cbwd	.,		///
+	dropdownlist contents(colors) option(lcolor)		///
+	onselchangelist(labels_cl_blclr_sel)
+  COLOR    cl_blclr	_cbsep	@	_clwd	., 		///
+	option(lcolor)
+  TEXT     tx_blopacity	_iilft	_mls	_wd2	.,		///
+	label(resource LBL_OUTLINE_OPACITY) right
+  SPINNER sp_blopacity	_sep2	@	_spwd	.,		///
+	default(100)						///
+	min(0)							///
+	max(100)
+   TEXT     tx_lalign	_ilft	_mls	_wd	.,		///
+      label(resource LBL_OUTLINE_ALIGNMENT) right
+   COMBOBOX cb_lalign	_sep	@	_cbwd	.,		///
+      dropdownlist option(lalign)				///
+      contents(alignstroke)
+
+END
+
+PROGRAM labels_cb_margin_check
+BEGIN
+	if labels.cb_margin.iseq("custom") {
+		call labels.bu_margin.show
+	}
+	else {
+		call labels.bu_margin.hide
+	}
+END
+
+SCRIPT labels_show_margin_dialog
+BEGIN
+	create CHILD gr_margin_create AS labels_margin_dlg
+	labels_margin_dlg.setExitString labels_marginResult
+	labels_margin_dlg.setExitAction "program labels_checkMarginResult"
+END	
+PROGRAM labels_checkMarginResult
+BEGIN
+	if labels_marginResult {
+		call labels_marginResult.tokenize tmpArray
+		call tmp.setvalue "Custom margin "
+		call tmp.append "(Left:"
+		call tmp.append class tmpArray[1]
+		call tmp.append " Right:"
+		call tmp.append class tmpArray[2]
+		call tmp.append " Bottom:"
+		call tmp.append class tmpArray[3]
+		call tmp.append " Top:"
+		call tmp.append class tmpArray[4]
+		call tmp.append ")"
+		call tmp.withvalue labels.bu_margin.settooltip "@"
+	}
+	else {
+		call labels.bu_margin.settooltip resource LBL_CUSTOM_MARGIN_NOT_DEFINED
+	}
+END
+
+LIST labels_cl_clr_sel
+BEGIN
+	labels.cl_clr.hide
+	labels.cl_clr.show
+	labels.cl_clr.hide
+END
+
+LIST labels_cl_bclr_sel
+BEGIN
+	labels.cl_bclr.hide
+	labels.cl_bclr.show
+	labels.cl_bclr.hide
+END
+
+LIST labels_cl_blclr_sel
+BEGIN
+	labels.cl_blclr.hide
+	labels.cl_blclr.show
+	labels.cl_blclr.hide
+END
+
+LIST labels_box_values
+BEGIN
+	""
+	box
+	nobox
+END
+
+LIST labels_box_selection
+BEGIN
+	script labels_box_on
+	script labels_box_on
+	script labels_box_off
+END
+
+SCRIPT labels_box_on
+BEGIN
+	labels.tx_bclr.enable
+	labels.cb_bclr.enable
+	labels.cl_bclr.enable
+	labels.tx_bopacity.enable
+	labels.sp_bopacity.enable
+	labels.tx_blclr.enable
+	labels.cb_blclr.enable
+	labels.cl_blclr.enable
+	labels.tx_blopacity.enable
+	labels.sp_blopacity.enable
+END
+
+SCRIPT labels_box_off
+BEGIN
+	labels.tx_bclr.disable
+	labels.cb_bclr.disable
+	labels.cl_bclr.disable
+	labels.tx_bopacity.disable
+	labels.sp_bopacity.disable
+	labels.tx_blclr.disable
+	labels.cb_blclr.disable
+	labels.cl_blclr.disable
+	labels.tx_blopacity.disable
+	labels.sp_blopacity.disable
+END
+PROGRAM labels_color_output
+BEGIN
+	if (labels.cb_clr.isneq("") | labels.sp_opacity.isneq(100)) {
+		put "color("
+		if (labels.cb_clr.iseq("custom")) {
+			put `"""' labels.cl_clr
+			if (labels.sp_opacity.isneq(100)) {
+				put " %" labels.sp_opacity
+			}
+			put `"""'
+		}
+		else {
+			if (labels.cb_clr.isneq("")) {
+				put labels.cb_clr
+			}
+			if (labels.sp_opacity.isneq(100)) {
+				put "%" labels.sp_opacity
+			}
+		}
+		put ")"
+	}
+END
+
+PROGRAM labels_fcolor_output
+BEGIN
+	if (labels.cb_bclr.isneq("") | labels.sp_bopacity.isneq(100)) {
+		put "fcolor("
+		if (labels.cb_bclr.iseq("custom")) {
+			put `"""' labels.cl_bclr
+			if (labels.sp_bopacity.isneq(100)) {
+				put " %" labels.sp_bopacity
+			}
+			put `"""'
+		}
+		else {
+			if (labels.cb_bclr.isneq("")) {
+				put labels.cb_bclr
+			}
+			if (labels.sp_bopacity.isneq(100)) {
+				put "%" labels.sp_bopacity
+			}
+		}
+		put ")"
+	}
+END
+
+PROGRAM labels_lcolor_output
+BEGIN
+	if (labels.cb_blclr.isneq("") | labels.sp_blopacity.isneq(100)) {
+		put "lcolor("
+		if (labels.cb_blclr.iseq("custom")) {
+			put `"""' labels.cl_blclr
+			if (labels.sp_blopacity.isneq(100)) {
+				put " %" labels.sp_blopacity
+			}
+			put `"""'
+		}
+		else {
+			if (labels.cb_blclr.isneq("")) {
+				put labels.cb_blclr
+			}
+			if (labels.sp_blopacity.isneq(100)) {
+				put "%" labels.sp_blopacity
+			}
+		}
+		put ")"
+	}
+END
+
+PROGRAM labels_output
+BEGIN
+	optionarg /hidedefault labels.cb_size
+	put " " /program labels_color_output
+	if labels.cb_margin.isneq("custom") {
+		optionarg /hidedefault labels.cb_margin
+	}
+	else {
+		if labels_marginResult {
+			put " margin("
+			put labels_marginResult
+			put ") "
+		}
+	}
+	put " " labels.cb_box
+	put " " /program labels_fcolor_output
+	put " " /program labels_lcolor_output
+	optionarg labels.cb_lgap
+	optionarg /hidedefault labels.cb_lalign
+END
+
+INCLUDE gr_legend_region_options
+INCLUDE gr_titles
+
+PROGRAM command
+BEGIN
+	put " " /program main_output
+	put " " /program labels_output
+	put " " /program gr_legend_region_output
+	put " " /program gr_titles_output
+END

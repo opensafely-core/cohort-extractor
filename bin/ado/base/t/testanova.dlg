@@ -1,0 +1,604 @@
+/*
+  testanova
+
+*!  VERSION 2.2.4  11dec2017
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_xlarge
+DEFINE _dlght 360
+INCLUDE header
+
+HELP hlp1, view("help anova postestimation##test")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING STMP
+	create STRING main_spec_tmp
+	create STRING main_spec_tmp2
+	create STRING main_spec_childdlg
+	create STRING main_spec_dlgname
+	create STRING main_spec_child_result
+	create STRING main_spec_cmd_output
+
+	create ARRAY main_spec_list
+
+	create SVECTOR mainSPECCommandDisplayList
+	create SVECTOR mainSPECCommandList
+	create SVECTOR mainSPECCommandValues
+	create SVECTOR mainSPECStatusList
+	create SVECTOR mainSPECChildDialogList
+
+	create DOUBLE main_spec_count
+	create DOUBLE main_spec_position
+	create DOUBLE main_spec_arraysize
+
+	main.bu_spec_edit.disable
+	main.bu_spec_disable.disable
+	main.bu_spec_enable.disable
+
+	create STRING matrixResult
+	setscale_hadj resource TESTANOVA_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	mainSPECCommandDisplayList.copyToArray main_spec_list
+	main.lb_specBuild.repopulate
+END
+
+DIALOG main, label(resource TESTANOVA_DLG_TITLE)			///
+	tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  GROUPBOX gb_syntax		_lft	_top	_iwd	_ht6,		///
+	label(resource TESTANOVA_MAIN_GB_SYNTAX)
+  RADIO rb_effects		_ilft	_ss	_inwd	., first 	///
+	onclickon(script main_effects_on)				///
+	label(resource TESTANOVA_MAIN_RB_EFFECTS)
+  RADIO rb_standard		@	_ss	@	., 		///
+	onclickon(script main_standard_on)				///
+	label(resource TESTANOVA_MAIN_RB_STANDARD)
+  RADIO rb_matrix		@	_ss	@	., last 	///
+	onclickon(script main_matrix_on)				///
+	label(resource TESTANOVA_MAIN_RB_MATRIX)
+
+  TEXT tx_spec			_lft	+45	220	.,		///
+	label(resource LBL_SPECIFICATION)
+  DEFINE holdy @y
+  LISTBOX lb_specBuild		@	_ss	@	160,		///
+	contents(main_spec_list)					///
+	ondblclick(program main_spec_edit)				///
+	onselchange(program main_spec_sel_changed)			///
+	nomemory
+  BUTTON bu_spec_create		240	@	80	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program main_spec_create)				///
+	tooltip(resource LBL_EDIT_SPECIFICATION)
+  BUTTON bu_spec_edit		@	_ms	@	.,		///
+	label(resource LBL_BU_EDIT)					///
+	onpush(program main_spec_edit)					///
+	tooltip(resource LBL_EDIT_SPECIFICATION)
+  BUTTON bu_spec_disable	@	_ms	@	.,		///
+	label(resource LBL_BU_DISABLE)					///
+	onpush(program main_spec_disable)				///
+	tooltip(resource LBL_CLICK_TO_DISABLE_A_SPECIFICATION)
+  BUTTON bu_spec_enable		@	_ms	@	.,		///
+	label(resource LBL_BU_ENABLE)					///
+	onpush(program main_spec_enable)				///
+	tooltip(resource LBL_CLICK_TO_ENABLE_PREV_DISABLED_SPEC)
+  TEXTBOX tb_spec_note		_lft	+90	_iwd	_tb2,		///
+	label(resource LBL_PRESS_CREATE_DEFINE_SPECIFICATION)
+  
+  TEXT tx_effects		@	holdy	90	.,		///
+	label(resource TESTANOVA_MAIN_TX_EFFECTS)
+  HLINK hl_testanova_exp	100	@	@	.,		///
+	left								///
+	onpush("view help anova_example")				///
+	label(resource LBL_PAREN_EXAMPLES_PAREN)
+  COMBOBOX cb_effects		_lft	_ss	_iwd	.,		///
+	dropdown							///
+	append								///
+	contents(margins_flist)						///
+	error(resource TESTANOVA_MAIN_TX_EFFECTS)
+  CHECKBOX ck_symbolic		@	_ls	@	.,		///
+	option(symbolic)						///
+	label(resource TESTANOVA_MAIN_CK_SYMBOLIC)
+
+  TEXT tx_mat			@	holdy	90	.,		///
+	label(resource TESTANOVA_MAIN_TX_MAT)
+  HLINK hl_testanova_mat_exp	100	@	@	.,		///
+	left								///
+	onpush("view help mat_anova_example")				///
+	label(resource LBL_PAREN_EXAMPLES_PAREN)
+  COMBOBOX cb_mat		_lft	_ss	_vnwd	.,		///
+	contents(matrix)						///
+	dropdown							///
+	error(resource TESTANOVA_MAIN_TX_MAT)
+  BUTTON bu_matinput		_vnsep	@	100	.,		///
+	onpush(program show_matrix_input)				///
+	tooltip(resource LBL_INPUT_HAND)				///
+	label(resource LBL_INPUT_MATRIX)
+  CHECKBOX ck_showorder		_lft	_ls	_iwd	.,		///
+	option(showorder)						///
+	onclickon(program main_showorder_on)				///
+	onclickoff(program main_showorder_on)				///
+	label(resource TESTANOVA_MAIN_CK_SHOWORDER)
+END
+
+SCRIPT main_standard_on
+BEGIN
+	script main_hide_all
+
+	main.tx_spec.show
+	main.lb_specBuild.show
+	main.bu_spec_create.show
+	main.bu_spec_edit.show
+	main.bu_spec_disable.show
+	main.bu_spec_enable.show
+	main.tb_spec_note.show
+
+	program opt_show_all
+END
+
+SCRIPT main_effects_on
+BEGIN
+	script main_hide_all
+	main.tx_effects.show
+	main.hl_testanova_exp.show
+	main.cb_effects.show
+	main.ck_symbolic.show
+	script opt_hide_all
+END
+
+SCRIPT main_matrix_on
+BEGIN
+	script main_hide_all
+	script opt_hide_all
+	
+	main.tx_mat.show
+	main.hl_testanova_mat_exp.show
+	main.cb_mat.show
+	main.bu_matinput.show
+	main.ck_showorder.show
+
+	program main_showorder_on
+END
+
+PROGRAM main_showorder_on
+BEGIN
+	if main.ck_showorder.iseq(1) {
+		call main.cb_mat.disable
+		call script opt_hide_all
+	}
+	else {
+		call main.cb_mat.enable
+		call program opt_mtest_show
+	}
+END
+
+SCRIPT main_hide_all
+BEGIN
+	main.tx_spec.hide
+	main.lb_specBuild.hide
+	main.bu_spec_create.hide
+	main.bu_spec_edit.hide
+	main.bu_spec_disable.hide
+	main.bu_spec_enable.hide
+	main.tb_spec_note.hide
+
+	main.tx_effects.hide
+	main.hl_testanova_exp.hide
+	main.cb_effects.hide
+	main.ck_symbolic.hide
+  
+	main.tx_mat.hide
+	main.hl_testanova_mat_exp.hide
+	main.cb_mat.hide
+	main.bu_matinput.hide
+	main.ck_showorder.hide
+END
+
+PROGRAM main_spec_create
+BEGIN
+	call main_spec_count.setvalue class mainSPECChildDialogList.size
+	call main_spec_count.increment
+	call main_spec_tmp.setvalue "main_spec_"
+	call main_spec_tmp.append class main_spec_count.value
+	call main_spec_tmp.withvalue main_spec_childdlg.setvalue @
+	call program main_show_spec_child
+END
+
+PROGRAM main_spec_edit
+BEGIN
+	call mainSPECCommandDisplayList.findstr class			///
+		main.lb_specBuild.value
+	call main_spec_position.setvalue class				///
+		mainSPECCommandDisplayList.position
+	call main_spec_position.withvalue				///
+		main_spec_childdlg.setvalue				///
+		class mainSPECChildDialogList.values[@]
+	call program main_show_spec_child_edit
+END
+
+PROGRAM main_show_spec_child
+BEGIN
+	call main_spec_tmp.setvalue "test_syntax AS "
+	call main_spec_tmp.append class main_spec_childdlg.value
+	call main_spec_tmp.withvalue create CHILD @
+	call main_spec_childdlg.withvalue @.setExitString		///
+		"main_spec_child_result"
+	call main_spec_childdlg.withvalue @.setExitAction		///
+		"program main_spec_child_create_done"
+
+
+	call main_spec_count.withvalue STMP.format			///
+		"resource LBL_SPECIFICATION_FMT" "@" ""
+	call STMP.withvalue main_spec_tmp.setvalue "@"
+	call main_spec_childdlg.withvalue				///
+		main_spec_tmp2.setvalue "@.settitle"
+	call main_spec_tmp2.append `" ""'
+	call main_spec_tmp2.append class main_spec_tmp.value
+	call main_spec_tmp2.append `"""'
+	call main_spec_tmp2.withvalue @
+END
+
+PROGRAM main_show_spec_child_edit
+BEGIN
+	call main_spec_tmp.setvalue "test_syntax AS "
+	call main_spec_tmp.append class main_spec_childdlg.value
+	call main_spec_tmp.withvalue create CHILD @
+	call main_spec_childdlg.withvalue @.setExitString		///
+		"main_spec_child_result"
+	call main_spec_childdlg.withvalue @.setExitAction		///
+		"program main_spec_child_edit_done"
+
+	call main_spec_position.withvalue				///
+		main_spec_tmp.setvalue					///
+		class mainSPECCommandDisplayList.values[@]
+	call main_spec_childdlg.withvalue				///
+		main_spec_tmp2.setvalue "@.settitle"
+	call main_spec_tmp2.append `" ""'
+	call main_spec_tmp2.append class main_spec_tmp.value
+	call main_spec_tmp2.append `"""'
+	call main_spec_tmp2.withvalue @
+END
+
+PROGRAM main_spec_child_create_done
+BEGIN
+	call main_spec_arraysize.setvalue class				///
+		mainSPECChildDialogList.size
+	call main_spec_arraysize.increment
+
+	/* Store child dialog name */
+	call mainSPECChildDialogList.store class			///
+		main_spec_arraysize.value class main_spec_childdlg.value
+
+	/* Store listbox display specification string */
+	call main_spec_arraysize.withvalue STMP.format			///
+		"resource LBL_SPECIFICATION_FMT" "@" ""
+
+	call STMP.withvalue						///
+		mainSPECCommandDisplayList.store class			///
+		main_spec_arraysize.value "@"
+
+	/* Store child dialog result string */
+	call mainSPECCommandList.store class				///
+		main_spec_arraysize.value				///
+		class main_spec_child_result.value
+
+	/* Store child dialog result string for final command
+	   For disable/enable */
+	call mainSPECCommandValues.store class				///
+		main_spec_arraysize.value				///
+		class main_spec_child_result.value
+
+	/* Store disable/enable status */
+	call mainSPECStatusList.store class				///
+		main_spec_arraysize.value "active"
+
+	call mainSPECCommandDisplayList.copyToArray main_spec_list
+	call main.lb_specBuild.repopulate
+	call STMP.withvalue main.lb_specBuild.setvalue "@"
+END
+
+PROGRAM main_spec_child_edit_done
+BEGIN
+	call mainSPECChildDialogList.findstr class			///
+		main_spec_childdlg.value
+	call main_spec_position.setvalue class				///
+		mainSPECChildDialogList.position
+	call main_spec_position.withvalue main_spec_tmp.setvalue	///
+		class mainSPECStatusList.values[@]
+	if main_spec_tmp.iseq("active") {
+		call main_spec_position.withvalue STMP.format		///
+			"resource LBL_SPECIFICATION_FMT" "@" ""
+		call STMP.withvalue					///
+			mainSPECCommandDisplayList.store class		///
+			main_spec_position.value "@"
+		call mainSPECCommandValues.store class			///
+			main_spec_position.value class			///
+			main_spec_child_result.value
+		call STMP.withvalue main_spec_tmp2.setvalue "@"
+	}
+	else {
+		call main_spec_position.withvalue STMP.format		///
+			"resource LBL_SPECIFICATION_FMT" "@"		///
+			"resource LBL_PAREN_DISABLED"
+		call STMP.withvalue					///
+			main_spec_tmp2.setvalue "@"
+
+		call STMP.withvalue					///
+			mainSPECCommandDisplayList.store		///
+			class main_spec_position.value "@"
+	}
+
+	call mainSPECCommandList.store class				///
+		main_spec_position.value class				///
+		main_spec_child_result.value
+
+	call mainSPECCommandDisplayList.copyToArray main_spec_list
+	call main.lb_specBuild.repopulate
+	call main.lb_specBuild.setvalue class main_spec_tmp2.value
+END
+
+PROGRAM main_spec_sel_changed
+BEGIN
+	call mainSPECCommandDisplayList.findstr class			///
+		main.lb_specBuild.value
+	call main_spec_position.setvalue class				///
+		mainSPECCommandDisplayList.position
+	call main_spec_position.withvalue main_spec_tmp.setvalue	///
+		class mainSPECStatusList.values[@]
+	if main_spec_position {
+		call main.bu_spec_edit.enable
+		call main_spec_position.withvalue			///
+			main.tb_spec_note.setlabel			///
+			class mainSPECCommandList.values[@]
+	}
+
+	if main_spec_tmp.iseq("disable") {
+		call main.bu_spec_enable.enable
+		call main.bu_spec_disable.disable
+	}
+	if main_spec_tmp.iseq("active") {
+		call main.bu_spec_enable.disable
+		call main.bu_spec_disable.enable
+	}
+END
+
+PROGRAM main_spec_disable
+BEGIN
+	call mainSPECCommandDisplayList.findstr class			///
+		main.lb_specBuild.value
+	call main_spec_position.setvalue class				///
+		mainSPECCommandDisplayList.position
+
+	call main_spec_tmp.setvalue class main.lb_specBuild.value
+	call mainSPECStatusList.store class				///
+		main_spec_position.value "disable"
+	call mainSPECCommandValues.store class main_spec_position.value ""
+	call STMP.format "resource LBL_PAREN_DISABLED"
+	call main_spec_tmp.append " "
+	call main_spec_tmp.append class STMP.value
+	call main_spec_tmp.withvalue STMP.setvalue "@"
+
+	call main_spec_tmp.withvalue					///
+		mainSPECCommandDisplayList.store			///
+		class main_spec_position.value "@"
+
+	call mainSPECCommandDisplayList.copyToArray main_spec_list
+	call main.lb_specBuild.repopulate
+	call main.lb_specBuild.setvalue class STMP.value
+END
+
+PROGRAM main_spec_enable
+BEGIN
+	call mainSPECCommandDisplayList.findstr class			///
+		main.lb_specBuild.value
+	call main_spec_position.setvalue class				///
+		mainSPECCommandDisplayList.position
+
+	call mainSPECStatusList.store class				///
+		main_spec_position.value "active"
+	call main_spec_position.withvalue				///
+		mainSPECCommandValues.store				///
+		class main_spec_position.value class			///
+		mainSPECCommandList.values[@]
+
+	call main_spec_position.withvalue STMP.format			///
+		"resource LBL_SPECIFICATION_FMT" "@" ""
+	call STMP.withvalue						///
+		mainSPECCommandDisplayList.store			///
+		class main_spec_position.value "@"
+
+	call mainSPECCommandDisplayList.copyToArray main_spec_list
+	call main_spec_position.withvalue				///
+		main_spec_tmp2.setvalue class				///
+		mainSPECCommandDisplayList.values[@]
+	call main.lb_specBuild.repopulate
+	call main.lb_specBuild.setvalue class main_spec_tmp2.value
+END
+
+PROGRAM show_matrix_input
+BEGIN
+	call create CHILD matrix_input
+	if ! _rc {
+		call matrix_input.setExitString matrixResult
+		call matrix_input.setExitAction "program getMatrixResult"
+		call matrix_input.callthru "isChildContext.settrue"
+	}
+END
+PROGRAM getMatrixResult
+BEGIN
+	call main.cb_mat.repopulate
+	call main.cb_mat.setvalue class matrixResult.value
+END
+
+DIALOG opt, label("")  tabtitle(resource LBL_OPTIONS)
+BEGIN
+  CHECKBOX ck_mtest		_lft	_top	_cwd3_1	_ht10,		///
+	groupbox							///
+	clickon(script opt_mtest_on)					///
+	clickoff(script opt_mtest_off)					///
+	label(resource TESTANOVA_OPT_CK_MTEST)
+  TEXT tx_mtest2		_ilft	_ss	_cwd3_4	.,		///
+	label(resource TESTANOVA_OPT_TX_MTEST2)
+  RADIO rb_noadjust		@	_ss	@	., first	///
+	option(mtest(noadjust))						///
+	label(resource TESTANOVA_OPT_RB_NOADJUST)
+  RADIO rb_bonferroni		@	_ss	@	.,		///
+	option(mtest(bonferroni))					///
+	label(resource LBL_BONFERRONI)
+  RADIO rb_holm			@	_ss	@	.,		///
+	option(mtest(holm))						///
+	label(resource TESTANOVA_OPT_RB_HOLM)
+  RADIO rb_sidak		@	_ss	@	., last		///
+	option(mtest(sidak))						///
+	label(resource LBL_SIDAK)
+  CHECKBOX ck_coef		_lft3_2	_top	_comb3_1 .,		///
+	option(coef)							///
+	label(resource TESTANOVA_OPT_CK_COEF)
+  CHECKBOX ck_accumulate	@	_ms	@	.,		///
+	option(accumulate)						///
+	label(resource TESTANOVA_OPT_CK_ACCUMULATE)
+  CHECKBOX ck_notest		@	_ms	@	.,		///
+	option(notest)							///
+	label(resource TESTANOVA_OPT_CK_NOTEST)
+  CHECKBOX ck_constant		@	_ms	@	.,		///
+	option(constant)						///
+	label(resource LBL_INCLUDE_THE_CONSTANT_IN_COEFFICIENTS_TO_BE_TESTED)
+  CHECKBOX ck_minimum		_lft	+70	_iwd	.,		///
+	option(minimum)							///
+	label(resource TESTANOVA_OPT_CK_MINIMUM)
+  TEXT tx_min			_cksep	_vss	_inwd	.,		///
+	label(resource TESTANOVA_OPT_TX_MIN)
+END
+
+SCRIPT opt_hide_all
+BEGIN
+	opt.ck_mtest.hide
+	opt.tx_mtest2.hide
+	opt.rb_noadjust.hide
+	opt.rb_bonferroni.hide
+	opt.rb_holm.hide
+	opt.rb_sidak.hide
+	opt.ck_accumulate.hide
+	opt.ck_coef.hide
+	opt.ck_notest.hide
+	opt.ck_constant.hide
+	opt.ck_minimum.hide
+	opt.tx_min.hide
+END
+
+PROGRAM opt_show_all
+BEGIN
+	call opt.ck_mtest.show
+	call opt.tx_mtest2.show
+	call opt.rb_noadjust.show
+	call opt.rb_bonferroni.show
+	call opt.rb_holm.show
+	call opt.rb_sidak.show
+	call opt.ck_accumulate.show
+	call opt.ck_coef.show
+	call opt.ck_notest.show
+	call opt.ck_constant.show
+	call opt.ck_minimum.show
+	call opt.tx_min.show
+
+	if opt.ck_mtest {
+		call script opt_mtest_on
+	}
+	else {
+		call script opt_mtest_off
+	}
+END
+
+PROGRAM opt_mtest_show
+BEGIN
+	call opt.ck_mtest.show
+	call opt.tx_mtest2.show
+	call opt.rb_noadjust.show
+	call opt.rb_bonferroni.show
+	call opt.rb_holm.show
+	call opt.rb_sidak.show
+	if opt.ck_mtest {
+		call script opt_mtest_on
+	}
+	else {
+		call script opt_mtest_off
+	}
+END
+
+
+SCRIPT opt_mtest_on
+BEGIN
+	opt.tx_mtest2.enable
+	opt.rb_noadjust.enable
+	opt.rb_bonferroni.enable
+	opt.rb_holm.enable
+	opt.rb_sidak.enable
+	opt.ck_accumulate.disable
+	opt.ck_notest.disable
+END
+
+SCRIPT opt_mtest_off
+BEGIN
+	opt.tx_mtest2.disable
+	opt.rb_noadjust.disable
+	opt.rb_bonferroni.disable
+	opt.rb_holm.disable
+	opt.rb_sidak.disable
+	opt.ck_accumulate.enable
+	opt.ck_notest.enable
+END
+
+PROGRAM opt_output
+BEGIN
+	if opt.ck_mtest {
+		option radio(opt rb_noadjust rb_bonferroni rb_holm rb_sidak)
+	}
+	option opt.ck_coef
+	if opt.ck_accumulate.isenabled() {
+		option opt.ck_accumulate
+	}
+	if opt.ck_notest.isenabled() {
+		option opt.ck_notest
+	}
+	option opt.ck_constant
+	option opt.ck_minimum
+END
+
+PROGRAM command
+BEGIN
+	call mainSPECCommandValues.copyToString main_spec_cmd_output
+
+	put "test "
+
+	if main.rb_standard {
+		if main_spec_cmd_output.iseq("") {
+			stopbox stop "resource LBL_MSGBOX_SPECIFICATION_NOT_DEFINED"
+// Specification not defined. 
+// Please enter a specification before proceeding.
+		}
+		put main_spec_cmd_output
+	}
+	if main.rb_effects {
+		require main.cb_effects
+		put main.cb_effects
+	}
+	beginoptions
+		if main.rb_effects {
+			option main.ck_symbolic
+		}
+		if main.rb_matrix {
+			require main.cb_mat
+			put "test(" main.cb_mat ") "
+			option main.ck_showorder
+		}
+
+		put " " /program opt_output
+	endoptions
+END

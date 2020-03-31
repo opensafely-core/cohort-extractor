@@ -1,0 +1,448 @@
+/*
+    teffects postestimation
+
+*!  VERSION 1.1.0  16dec2014
+
+*/
+VERSION 14.0
+
+INCLUDE _std_medium
+DEFINE _dlght 365
+INCLUDE header
+HELP hlp1, view("help teffects postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource TEFFECTS_P_DLG_HSCALE
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	call script _p_gentype_multiple
+	call script _p_gentype_setMedium
+
+	call create STRING cmd_sub
+	call create STRING omodel
+	call create STRING tmodel
+	call create STRING indexvar
+	
+	call cmd_sub.setvalue e(subcmd)
+	call omodel.setvalue e(omodel)
+	call tmodel.setvalue e(tmodel)
+	call indexvar.setvalue e(indexvar)
+	
+	if(cmd_sub.iseq("ra")) {
+		call main.cb_est.setvalue class cmd_sub.value
+		if omodel.isneq("hetprobit") {
+			call main.rb_ra_lnsigma.disable
+		}
+	}
+	if(cmd_sub.iseq("ipw")) {
+		call main.cb_est.setvalue class cmd_sub.value
+		if tmodel.isneq("hetprobit") {
+			call main.rb_ipw_lnsigma.disable
+		}
+	}
+	if(cmd_sub.iseq("ipwra")) {
+		call main.cb_est.setvalue class cmd_sub.value
+		if omodel.isneq("hetprobit") {
+			call main.rb_aipwra_lnsigma.disable
+		}
+		if tmodel.isneq("hetprobit") {
+			call main.rb_aipwra_pslnsigma.disable
+		}
+	}
+	if(cmd_sub.iseq("aipw")) {
+		call main.cb_est.setvalue class cmd_sub.value
+		if omodel.isneq("hetprobit") {
+			call main.rb_aipwra_lnsigma.disable
+		}
+		if tmodel.isneq("hetprobit") {
+			call main.rb_aipwra_pslnsigma.disable
+		}
+	}
+	if(cmd_sub.iseq("nnmatch")) {
+		call main.cb_est.setvalue class cmd_sub.value
+		if indexvar.iseq("") {
+			call main.rb_nnps_dis.disable
+		}
+	}
+	if(cmd_sub.iseq("psmatch")) {
+		call main.cb_est.setvalue class cmd_sub.value
+	}
+END
+
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN) label(resource PREDICT_DLG_TITLE)
+BEGIN
+	TEXT	tx_est		_lft	_top	_cwd3_1	.,		///
+		label(resource TEFFECTS_P_MAIN_TX_EST)
+	
+	COMBOBOX cb_est		@ 	_ss	@	.,		///
+		dropdownlist						///
+		contents(estimator_list)				///
+		values(estimator_list)					///
+		onselchangelist(estimator_list_sel)			///
+		label(resource TEFFECTS_P_MAIN_TX_EST) 	
+	
+	DEFINE _top 60
+	INCLUDE  _p_gentype
+	DEFINE _top 10
+	
+	GROUPBOX gb_ra_opt	_lft	_ls	_iwd	_ht10h,		///
+		label(resource LBL_PRODUCE)
+	DEFINE holdy @y
+  	RADIO	rb_ra_te	_indent	_ss	_inwd 	.,		///
+  		first							///
+		option(te)						///
+		label(resource TEFFECTS_P_TREATMENT_EFFECT)
+  	RADIO	rb_ra_cmean	@	_ss	@	.,		///
+		option(cmean)						///
+		label(resource TEFFECTS_P_CONDITIONAL_MEAN)
+  	RADIO	rb_ra_xb	@	_ss	@	.,		/// 
+		option(xb)						///
+		label(resource LBL_LINEAR_PREDICTION)
+	RADIO	rb_ra_lnsigma	@	_ss	@	.,		/// 
+		option(lnsigma)						///
+		label(resource TEFFECTS_P_MAIN_RB_AIPWRA_LNSIGMA)	
+	RADIO	rb_ra_scores	@	_ss	@	.,		/// 
+  		last							///
+		option(scores)						///
+		onclickon(script main_ra_level_disable)			///
+		onclickoff(script main_ra_level_enable)			///
+		label(resource LBL_PARAMETER_LEVEL_SCORES)
+	TEXT	tx_ra_level	_lft	_xls	_iwd	.,		///
+		label(resource TEFFECTS_P_TREATMENT_LEVEL)
+	EDIT	ed_ra_level	@	_ss	_irj150	.,		///
+		option(tlevel)						///
+		label(resource TEFFECTS_P_TREATMENT_LEVEL)
+	
+	
+	GROUPBOX gb_ipw_opt	_lft	holdy	_iwd	_ht8h,		///
+		label(resource LBL_PRODUCE)
+	RADIO	rb_ipw_ps	_indent	_ss	_inwd 	.,		///
+  		first							///
+		option(ps)						///
+		label(resource TEFFECTS_P_PROPENSITY_SCORE)
+  	RADIO	rb_ipw_xb	@	_ss	@	.,		/// 
+		option(xb)						///
+		label(resource LBL_LINEAR_PREDICTION)
+	RADIO	rb_ipw_lnsigma	@	_ss	@	.,		/// 
+		option(lnsigma)						///
+		label(resource TEFFECTS_P_MAIN_RB_NNPS_LNSIGMA)	
+	RADIO	rb_ipw_scores	@	_ss	@	.,		/// 
+  		last							///
+		option(scores)						///
+		onclickon(script main_ipw_level_disable)		///
+		onclickoff(script main_ipw_level_enable)		///
+		label(resource LBL_PARAMETER_LEVEL_SCORES)
+	TEXT	tx_ipw_level	_lft	_xls	_iwd	.,		///
+		label(resource TEFFECTS_P_TREATMENT_LEVEL)
+	EDIT	ed_ipw_level	@	_ss	_irj150	.,		///
+		option(tlevel)						///
+		label(resource TEFFECTS_P_TREATMENT_LEVEL)
+	
+	GROUPBOX gb_aipwra_opt	_lft	holdy	_iwd	_ht16h,		///
+		label(resource LBL_PRODUCE)
+	RADIO	rb_aipwra_te	_indent	_ss	_inwd 	.,		///
+  		first							///
+		option(te)						///
+		label(resource TEFFECTS_P_TREATMENT_EFFECT)
+  	RADIO	rb_aipwra_cmean	@	_ss	@	.,		/// 
+		option(cmean)						///
+		label(resource TEFFECTS_P_CONDITIONAL_MEAN)
+	RADIO	rb_aipwra_ps	@	_ss	@	.,		/// 
+		option(ps)						///
+		label(resource TEFFECTS_P_PROPENSITY_SCORE)
+	RADIO	rb_aipwra_xb	@	_ss	@	.,		/// 
+		option(xb)						///
+		label(resource LBL_LINEAR_PREDICTION)	
+	RADIO	rb_aipwra_psxb	@	_ss	@	.,		/// 
+		option(psxb)						///
+		label(resource TEFFECTS_P_MAIN_RB_AIPWRA_XB)
+	RADIO	rb_aipwra_lnsigma	@	_ss	@	.,	/// 
+		option(lnsigma)						///
+		label(resource TEFFECTS_P_MAIN_RB_AIPWRA_LNSIGMA)
+	RADIO	rb_aipwra_pslnsigma	@	_ss	@	.,	/// 
+		option(pslnsigma)					///
+		label(resource TEFFECTS_P_MAIN_RB_AIPWRA_PSLNSIGMA)
+	RADIO	rb_aipwra_scores	@	_ss	@	.,	/// 
+  		last							///
+		option(scores)						///
+		onclickon(script main_aipwra_level_disable)		///
+		onclickoff(script main_aipwra_level_enable)		///
+		label(resource LBL_PARAMETER_LEVEL_SCORES)
+	TEXT	tx_aipwra_level	_lft	_xls	_iwd	.,		///
+		label(resource TEFFECTS_P_TREATMENT_LEVEL)
+	EDIT	ed_aipwra_level	@	_ss	_irj150	.,		///
+		option(tlevels)						///
+		label(resource TEFFECTS_P_TREATMENT_LEVEL)
+
+	GROUPBOX gb_nnps_opt	_lft	holdy	_iwd	_ht10h,		///
+		label(resource LBL_PRODUCE)
+	RADIO	rb_nnps_te	_indent	_ss	_inwd 	.,		///
+  		first							///
+		option(te)						///
+		label(resource TEFFECTS_P_TREATMENT_EFFECT)
+  	RADIO	rb_nnps_po	@	_ss	@	.,		/// 
+		option(po)						///
+		label(resource TEFFECTS_P_MAIN_RB_NNPS_PO)
+	RADIO	rb_nnps_dis	@	_ss	@	.,		/// 
+		option(distance)					///
+		label(resource TEFFECTS_P_MAIN_RB_NNPS_DIS)	
+	RADIO	rb_nnps_ps	@	_ss	@	.,		/// 
+		option(ps)						///
+		label(resource TEFFECTS_P_PROPENSITY_SCORE)	
+	RADIO	rb_nnps_lnsigma	@	_ss	@	.,		/// 
+		last							///
+		option(plnsigma)					///
+		label(resource TEFFECTS_P_MAIN_RB_NNPS_LNSIGMA)
+	TEXT	tx_nnps_level	_lft	_xls	_iwd	.,		///
+		label(resource TEFFECTS_P_TREATMENT_LEVEL)
+	EDIT	ed_nnps_level	@	_ss	_irj150	.,		///
+		option(tlevel)						///
+		label(resource TEFFECTS_P_TREATMENT_LEVEL)
+END
+
+LIST estimator_list
+BEGIN
+  	"ra"  
+  	"ipw"
+  	"ipwra"
+  	"aipw"
+  	"nnmatch"
+  	"psmatch"
+END
+
+LIST estimator_list_sel
+BEGIN
+	program main_ra_show
+	program main_ipw_show
+	program main_aipwra_show
+	program main_aipwra_show
+	program main_nnps_show
+	program main_nnps_show
+END
+
+PROGRAM main_ra_show
+BEGIN
+	call main.gb_ra_opt.show
+	call main.rb_ra_te.show
+	call main.rb_ra_cmean.show
+	call main.rb_ra_xb.show
+	call main.rb_ra_lnsigma.show
+	call main.rb_ra_scores.show
+	call main.tx_ra_level.show
+	call main.ed_ra_level.show
+	call script main_ipw_hide
+	call script main_aipwra_hide
+	call script main_nnps_hide
+END
+
+SCRIPT main_ra_hide
+BEGIN
+	main.gb_ra_opt.hide
+	main.rb_ra_te.hide
+	main.rb_ra_cmean.hide
+	main.rb_ra_xb.hide
+	main.rb_ra_lnsigma.hide
+	main.rb_ra_scores.hide
+	main.tx_ra_level.hide
+	main.ed_ra_level.hide
+END
+
+SCRIPT main_ra_level_enable
+BEGIN
+	main.tx_ra_level.enable
+	main.ed_ra_level.enable
+END
+
+SCRIPT main_ra_level_disable
+BEGIN
+	main.tx_ra_level.disable
+	main.ed_ra_level.disable
+END
+
+PROGRAM main_ipw_show
+BEGIN
+	call main.gb_ipw_opt.show
+	call main.rb_ipw_ps.show
+	call main.rb_ipw_xb.show
+	call main.rb_ipw_lnsigma.show
+	call main.rb_ipw_scores.show
+	call main.tx_ipw_level.show
+	call main.ed_ipw_level.show
+	call script main_ra_hide
+	call script main_aipwra_hide
+	call script main_nnps_hide
+END
+
+SCRIPT main_ipw_hide
+BEGIN
+	main.gb_ipw_opt.hide
+	main.rb_ipw_ps.hide
+	main.rb_ipw_xb.hide
+	main.rb_ipw_lnsigma.hide
+	main.rb_ipw_scores.hide
+	main.tx_ipw_level.hide
+	main.ed_ipw_level.hide
+END
+
+SCRIPT main_ipw_level_enable
+BEGIN
+	main.tx_ipw_level.enable
+	main.ed_ipw_level.enable
+END
+
+SCRIPT main_ipw_level_disable
+BEGIN
+	main.tx_ipw_level.disable
+	main.ed_ipw_level.disable
+END
+
+PROGRAM main_aipwra_show
+BEGIN
+	call main.gb_aipwra_opt.show
+	call main.rb_aipwra_te.show
+	call main.rb_aipwra_cmean.show
+	call main.rb_aipwra_ps.show
+	call main.rb_aipwra_xb.show
+	call main.rb_aipwra_psxb.show
+	call main.rb_aipwra_lnsigma.show
+	call main.rb_aipwra_pslnsigma.show
+	call main.rb_aipwra_scores.show
+	call main.tx_aipwra_level.show
+	call main.ed_aipwra_level.show
+	call script main_ra_hide
+	call script main_ipw_hide
+	call script main_nnps_hide
+END
+
+SCRIPT main_aipwra_hide
+BEGIN
+	main.gb_aipwra_opt.hide
+	main.rb_aipwra_te.hide
+	main.rb_aipwra_cmean.hide
+	main.rb_aipwra_ps.hide
+	main.rb_aipwra_xb.hide
+	main.rb_aipwra_psxb.hide
+	main.rb_aipwra_lnsigma.hide
+	main.rb_aipwra_pslnsigma.hide
+	main.rb_aipwra_scores.hide
+	main.tx_aipwra_level.hide
+	main.ed_aipwra_level.hide
+END
+
+SCRIPT main_aipwra_level_enable
+BEGIN
+	main.tx_aipwra_level.enable
+	main.ed_aipwra_level.enable
+END
+
+SCRIPT main_aipwra_level_disable
+BEGIN
+	main.tx_aipwra_level.disable
+	main.ed_aipwra_level.disable
+END
+
+PROGRAM main_nnps_show
+BEGIN
+	call main.gb_nnps_opt.show
+	call main.rb_nnps_te.show
+	call main.rb_nnps_po.show
+	call main.rb_nnps_dis.show
+	call main.rb_nnps_ps.show
+	call main.rb_nnps_lnsigma.show
+	call main.tx_nnps_level.show
+	call main.ed_nnps_level.show
+	call script main_ra_hide
+	call script main_ipw_hide
+	call script main_aipwra_hide
+	if main.cb_est.iseq("nnmatch") {
+		call script main_nnps_ps_disable
+	}
+	if main.cb_est.iseq("psmatch") {
+		call script main_nnps_ps_enable
+	}
+END
+
+SCRIPT main_nnps_hide
+BEGIN
+	main.gb_nnps_opt.hide
+	main.rb_nnps_te.hide
+	main.rb_nnps_po.hide
+	main.rb_nnps_dis.hide
+	main.rb_nnps_ps.hide
+	main.rb_nnps_lnsigma.hide
+	main.tx_nnps_level.hide
+	main.ed_nnps_level.hide
+END
+
+SCRIPT main_nnps_level_enable
+BEGIN
+	main.tx_nnps_level.enable
+	main.ed_nnps_level.enable
+END
+
+SCRIPT main_nnps_level_disable
+BEGIN
+	main.tx_nnps_level.disable
+	main.ed_nnps_level.disable
+END
+
+SCRIPT	main_nnps_ps_enable
+BEGIN
+	main.rb_nnps_ps.enable
+	main.rb_nnps_lnsigma.enable
+END
+
+SCRIPT	main_nnps_ps_disable
+BEGIN
+	main.rb_nnps_ps.disable
+	main.rb_nnps_lnsigma.disable
+END
+
+INCLUDE _p_gentype_sc
+INCLUDE ifin
+INCLUDE _type_list_fd
+
+PROGRAM command
+BEGIN
+	put "predict "
+	put " " /program _p_gentype_output
+	INCLUDE _ifin_pr
+	beginoptions
+		if main.cb_est.iseq("ra") {
+			option radio(main rb_ra_te rb_ra_cmean rb_ra_xb ///
+				          rb_ra_lnsigma rb_ra_scores)
+		        if main.rb_ra_te | main.rb_ra_cmean | main.rb_ra_xb | ///
+		           main.rb_ra_lnsigma {
+		           	optionarg main.ed_ra_level
+		        }
+		}
+		if main.cb_est.iseq("ipw") {
+			option radio(main rb_ipw_ps rb_ipw_xb ///
+				          rb_ipw_lnsigma rb_ipw_scores)
+		        if main.rb_ipw_ps | main.rb_ipw_xb | main.rb_ipw_lnsigma {
+		           	optionarg main.ed_ipw_level
+		        }
+		}
+		if main.cb_est.iseq("ipwra") | main.cb_est.iseq("aipw") {
+			option radio(main rb_aipwra_te rb_aipwra_cmean rb_aipwra_ps ///
+				          rb_aipwra_xb rb_aipwra_psxb rb_aipwra_lnsigma ///
+				          rb_aipwra_pslnsigma rb_aipwra_scores)
+		        if main.rb_aipwra_te | main.rb_aipwra_cmean | main.rb_aipwra_ps | ///
+		           main.rb_aipwra_xb | main.rb_aipwra_psxb | main.rb_aipwra_lnsigma | ///
+		           main.rb_aipwra_pslnsigma {
+		           	optionarg main.ed_aipwra_level
+		        }
+		}
+		if main.cb_est.iseq("nnmatch") | main.cb_est.iseq("psmatch") {
+			option radio(main rb_nnps_te rb_nnps_po rb_nnps_dis ///
+				          rb_nnps_ps rb_nnps_lnsigma)
+		        optionarg main.ed_nnps_level
+		}		
+	endoptions
+END
+

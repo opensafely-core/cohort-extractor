@@ -1,0 +1,182 @@
+//				plreg_g
+//
+//  class that holds and draws key that is drawn in a plotregion (as opposed
+//  to a legend).
+
+*! version 1.0.2  05dec2011
+
+version 12
+
+class {
+	draw_view       = .yesno.new, style(yes)
+	fill_if_undrawn = .yesno.new, style(no)
+
+	dragable	   = 0
+	no_browser_recurse = 1				// Do not look inside
+
+
+	// .view  -- a reference to a view, is Declared
+	// .style -- a style for the key (only one of .view or .style exist)
+
+} , inherit(subview)
+
+
+//-----------------------------------------------------------------------------
+program new
+
+	syntax , [ View(string) Style(string) ]
+
+	if `"`view'"' != `""' {
+		.Declare view = .`view'.ref
+	}
+
+	if `"`style'"' != `""' {
+		if `=index(`"`style'"', "__key")' {
+			.Declare style = .`style'.ref
+		}
+		else {
+			.Declare style = .seriesstyle.new , style(`style')
+		}
+	}
+end
+
+
+/* 
+//extent, xsize, are ysize are handled. If they are needed again, 
+//they should look like:
+
+program define extent
+	args ord
+
+	class exit = cond("`ord'"=="x" , 0`.xsz.gmval' , 0`.ysz.gmval')
+end
+
+program define xsize
+	class exit = `.xsz.gmval'
+end
+
+program define ysize
+	class exit = `.ysz.gmval'
+end
+*/
+
+//-----------------------------------------------------------------------------
+
+program draw
+
+	if ! `.draw_view.istrue' { 
+		exit							// EXIT
+	}
+
+	.Local.view.dserset.set
+	plkey_`.Local.view.type.stylename'_draw		// may be an ado file
+end
+
+
+program plkey_contour_draw
+	local style "Local.view.style"
+	.`style'.line.setgdifull
+
+	local top = max(`.`.Local.view.zaxis'.overallmax', 		///
+			`.`.view.zaxis'.plotregion.yscale.max')
+	if 0`.`style'.outlines.isfalse' {
+	    gdi gm_linewidth = .001
+	    .`style'.cstyles[`.`style'.cstyles.arrnels'].color.setgdifull, line
+	}
+       .`style'.cstyles[`.`style'.cstyles.arrnels'].setgdifull
+	draw_a_contour `top'
+
+	local cuts `.`style'.ccutsopt'
+	forvalues i = `:list sizeof cuts'(-1)1 {
+		if 0`.`style'.outlines.isfalse' {
+			gdi gm_linewidth = .001
+			.`style'.cstyles[`i'].color.setgdifull, line
+		}
+		.`style'.cstyles[`i'].setgdifull
+		draw_a_contour `:word `i' of `cuts''
+	}
+end
+
+program draw_a_contour
+	args z1
+	
+	local z0 = min(`.`.Local.view.zaxis'.overallmin',		///
+		       `.`.view.zaxis'.plotregion.yscale.min')
+	if `z1' <= `z0' {
+		exit
+	}
+	
+	local x0 = 0
+	local x1 = 1
+
+	gdi moveto `x0' `z1'
+	gdi polybegin
+	gdi lineto `x1' `z1'
+	gdi lineto `x1' `z0'
+	gdi lineto `x0' `z0'
+	gdi moveto `x0' `z1'
+	gdi polyend
+end
+
+
+program plkey_contourline_draw
+
+	capture di ""
+
+end
+
+// ---------------------------------------------------------------------------
+// Returns minimum and maximum sizes
+
+program ranges , rclass
+
+  capture return scalar xmin = `.Local.view.serset.sers[`.Local.view.xvar'].min'
+  capture return scalar xmax = `.Local.view.serset.sers[`.Local.view.xvar'].max'
+  capture return scalar ymin = `.Local.view.serset.sers[`.Local.view.zvar'].min'
+  capture return scalar ymax = `.Local.view.serset.sers[`.Local.view.zvar'].max'
+
+/*
+	//determine if key is horizontal or vertical -- above/below not left/right
+	if "`.bar_drop_to.stylename'" == "y" {
+		capture local xmin = return(ymin)
+		capture local xmax = return(ymax)
+
+		capture return scalar ymin = return(xmin)
+		capture return scalar ymax = return(xmax)
+		capture return scalar xmin = `xmin'
+		capture return scalar xmax = `xmax'
+	}
+*/
+
+end
+
+
+// ---------------------------------------------------------------------------
+// Return the dialog type for the view/plot.  Note, dialog
+// files have "gr_ed_" prefixed to this returned value.
+
+program dialog
+
+	if "`.Local.view.isa'" == "" {
+		di in white "Dialog not available when view is not set"
+	}
+	else {
+		class exit "key_`.Local.view.dialog'"
+	}
+end
+
+
+// ----------------------------------------------------------------------------
+// Determine if a position is in/on the view
+
+program at_pos
+	class exit = 0`._at_pos_`.Local.view.type.stylename' `0''
+end
+
+program _at_pos_contour
+	args y x ymult xmult gmult
+
+	class exit = `x' >= 0 & `x' <= 1 &				///
+		     `y' >= `.`.Local.view.zaxis'.overallmin' &		///
+		     `y' <= `.`.Local.view.zaxis'.overallmax'
+end

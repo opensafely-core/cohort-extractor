@@ -1,0 +1,504 @@
+/*
+    gr_yaxis.idlg
+
+*!  VERSION 1.1.4  29jan2020
+
+	// SCRIPTS and PROGRAMS for external use
+	   * SCRIPT gr_yaxis_disable
+	   * SCRIPT gr_yaxis_enable
+	   * SCRIPT gr_yaxis_setByoptsContext_on
+	   * SCRIPT gr_yaxis_setByoptsContext_off
+	   * SCRIPT gr_yaxis_setByContext_on
+	   * SCRIPT gr_yaxis_setByContext_off
+	   * SCRIPT gr_yaxis_setIsY2
+
+	   * SCRIPT gr_yaxis_showY2
+	   * SCRIPT gr_yaxis_hideY2
+	   * SCRIPT gr_yaxis_showY2_2
+	   * SCRIPT gr_yaxis_hideY2_2
+	   	Some dialogs have two tabs that can influence the button
+	   	for the second y axis. Use the gr_yaxis_showY2 and 
+	   	gr_yaxis_hideY2 for any tabs except the gr_tw_build.idlg
+	   	and gr_addplots.idlg.
+
+*** 	This tab is related gr_xaxis and gr_taxis. 
+***	Any changes should be reflected in those files.
+*/
+
+SCRIPT gr_yaxis_setIsY2
+BEGIN
+	gr_yaxis_isY2.settrue
+END
+
+SCRIPT gr_yaxis_showY2
+BEGIN
+	gr_yaxis_show1.settrue
+	program _gr_yaxis_checkY2
+END
+
+SCRIPT gr_yaxis_hideY2
+BEGIN
+	gr_yaxis_show1.setfalse
+	program _gr_yaxis_checkY2
+END
+
+SCRIPT gr_yaxis_showY2_2
+BEGIN
+	gr_yaxis_show2.settrue
+	program _gr_yaxis_checkY2
+END
+
+SCRIPT gr_yaxis_hideY2_2
+BEGIN
+	gr_yaxis_show2.setfalse
+	program _gr_yaxis_checkY2
+END
+
+PROGRAM _gr_yaxis_checkY2
+BEGIN
+	if gr_yaxis_show1 | gr_yaxis_show2 {
+		call yaxis.bu_y2.show
+	}
+	else {
+		call yaxis.bu_y2.hide
+	}
+END
+
+
+SCRIPT gr_yaxis_disable
+BEGIN
+	yaxis.ck_noscale.disable
+	yaxis.tx_title.disable
+	yaxis.ed_title.disable
+	yaxis.bu_title.disable
+	yaxis.bu_majorTick.disable
+	yaxis.bu_minorTick.disable
+	yaxis.bu_axisLine.disable
+	yaxis.bu_scale.disable
+	yaxis.bu_refLines.disable
+	yaxis.bu_y2.disable
+	yaxis.bu_adv.disable
+	yaxis.ck_alt.disable
+END
+
+SCRIPT gr_yaxis_enable
+BEGIN
+	program gr_yaxis_enable_wrk
+END
+PROGRAM gr_yaxis_enable_wrk
+BEGIN
+	call yaxis.ck_noscale.enable
+	call yaxis.bu_majorTick.enable
+	call yaxis.bu_minorTick.enable
+	call yaxis.bu_scale.enable
+	call yaxis.bu_refLines.enable
+	call yaxis.bu_adv.enable
+	if ! yaxis.ck_noscale {
+		call yaxis.tx_title.enable
+		call yaxis.ed_title.enable
+		call yaxis.bu_title.enable
+		call yaxis.bu_axisLine.enable
+		call yaxis.ck_alt.enable
+	}
+	call yaxis.bu_y2.enable
+END
+
+SCRIPT gr_yaxis_setByoptsContext_on
+BEGIN
+	yaxis.bu_adv.show
+	gr_yaxis_advanedByopts_on.settrue
+END
+SCRIPT gr_yaxis_setByoptsContext_off
+BEGIN
+	yaxis.bu_adv.hide
+	gr_yaxis_advanedByopts_on.setfalse
+END
+SCRIPT gr_yaxis_setByContext_on
+BEGIN
+	yaxis.bu_adv.show
+	gr_yaxis_advanedBy_on.settrue
+END
+SCRIPT gr_yaxis_setByContext_off
+BEGIN
+	yaxis.bu_adv.hide
+	gr_yaxis_advanedBy_on.setfalse
+END
+
+SCRIPT yaxis_PREINIT
+BEGIN
+	yaxis.bu_y2.hide
+	create PBOOLEAN gr_yaxis_isY2
+	create STRING yaxisTitleResults
+	create STRING yaxisLabelResults
+	create STRING yaxisMinorLabelResults
+	create STRING yaxisLineResults
+	create STRING yaxisScaleResults
+	create STRING yaxisReflineResults
+	create STRING yaxis2Results
+	create STRING yaxisByAdvResults
+	create BOOLEAN gr_yaxis_show1
+	create BOOLEAN gr_yaxis_show2
+
+	create BOOLEAN gr_yaxis_advanedBy_on
+	create BOOLEAN gr_yaxis_advanedByopts_on
+	yaxis.bu_adv.hide
+END
+SCRIPT yaxis_POSTINIT
+BEGIN
+	program yaxis_checkTitleResults
+	program yaxis_checkLabelResults
+	program yaxis_checkMinorLabelResults
+	program yaxis_checkLineResults
+	program yaxis_checkScaleResults
+	program yaxis_checkReflineResults
+	program yaxis2_checkResults
+	program yaxis_checkByAdvResults
+END
+
+DIALOG yaxis, tabtitle(resource LBL_TAB_Y_AXIS)
+BEGIN
+
+  TEXT     tx_title	_lft	_top	_iwd	.,		///
+	label(resource LBL_TITLE)
+  EDIT	   ed_title	@	_ss	_lw80	.,
+  BUTTON   bu_title	_slw80	@	80	.,		///
+  	label(resource LBL_BU_PROPERTIES)			///
+	onpush(program get_yaxis_title_options)			///
+	tooltip(resource LBL_AXIS_TITLE_PROPERTIES)
+
+  BUTTON   bu_majorTick	_lft	_xls	165	.,		///
+  	label(resource LBL_MAJOR_TICK_LABEL_PROPERTIES)		///
+	onpush(program get_yaxis_label_options)
+
+  BUTTON   bu_minorTick	+190	@	@	.,		///
+  	label(resource LBL_MINOR_TICK_LABEL_PROPERTIES)		///
+	onpush(program get_yaxis_mlabel_options)
+
+  BUTTON   bu_axisLine	_lft	_mls	@	.,		///
+	label(resource LBL_AXIS_LINE_PROPERTIES_DLG_TITLE)	///
+	onpush(program get_yaxis_line)
+
+  BUTTON   bu_scale	+190	@	@	.,		///
+  	label(resource GR_ED_AXIS_AXIS_SCALE_PROPERTIES)	///
+	onpush(program get_yaxis_scale_options)
+
+  BUTTON   bu_refLines	_lft	_mls	@	.,		///
+  	label(resource LBL_TAB_REFERENCE_LINES)			///
+	onpush(program get_yaxis_refline)
+
+  BUTTON   bu_adv	+190	@	@	.,		///
+  	label(resource LBL_BU_SUBGRAPH_AXES)			///
+	onpush(program yaxis_get_advanced_sub)			///
+	tooltip(resource GR_YAXIS_YAXIS_BU_ADV)
+
+  CHECKBOX ck_noscale	_lft	_ls	_iwd	.,		///
+	label(resource LBL_HIDE_AXIS) 				///
+	onclickoff(program yaxis_noscale_off)			///
+	onclickon(script yaxis_noscale_on)
+
+  CHECKBOX ck_alt	_lft	_ms	_iwd	.,		///
+	label(resource LBL_PLACE_AXIS_OPPOSITE_SIDE)		///
+	option(alt)
+
+  BUTTON   bu_y2	@	+35	125	.,		///
+	onpush(program get_yaxis2_options)
+END
+
+SCRIPT yaxis_noscale_on
+BEGIN
+	yaxis.tx_title.disable
+	yaxis.ed_title.disable
+	yaxis.bu_title.disable
+	yaxis.bu_axisLine.disable
+	yaxis.ck_alt.disable
+END
+PROGRAM yaxis_noscale_off
+BEGIN
+	if yaxis.ck_noscale.isenabled() {
+		call yaxis.tx_title.enable
+		call yaxis.ed_title.enable
+		call yaxis.bu_title.enable
+		call yaxis.bu_axisLine.enable
+		call yaxis.ck_alt.enable
+	}
+END
+
+PROGRAM get_yaxis_title_options
+BEGIN
+	call create CHILD gr_axis_title_options AS ytitle, allowsubmit
+	call ytitle.setExitString yaxisTitleResults
+	call ytitle.settitle resource GR_YAXIS_YAXIS_TITLE_PROP
+	call ytitle.setExitAction "program yaxis_checkTitleResults"
+	call ytitle.setSubmitAction "program yaxis_titleSubmit"
+	call ytitle.callthru `"titleOption.setstring "ytitle""'
+	call ytitle.callthru `"scaleOption.setstring "yscale""'
+	if gr_yaxis_isY2 {
+		call ytitle.callthru "script axis_setSecondAxis"
+	}
+END
+PROGRAM yaxis_checkTitleResults
+BEGIN
+	if yaxisTitleResults.iseq("") {
+		call yaxis.bu_title.modified_off
+	}
+	else {
+		call yaxis.bu_title.modified_on
+	}
+END
+PROGRAM yaxis_titleSubmit
+BEGIN
+	call program yaxis_checkTitleResults
+	call Submit
+END
+
+PROGRAM get_yaxis_label_options
+BEGIN
+	call create CHILD gr_axis_tick_label_options AS ylabel, allowsubmit
+	call ylabel.setExitString yaxisLabelResults
+	call ylabel.settitle resource GR_YAXIS_YAXIS_TICKS_LABEL_PROP
+	call ylabel.setExitAction "program yaxis_checkLabelResults"
+	call ylabel.setSubmitAction "program yaxis_labelSubmit"
+	if gr_yaxis_isY2 {
+		call ylabel.callthru "script axis_setSecondAxis"
+	}
+	call ylabel.callthru "script axis_setRuleMajor"
+END
+PROGRAM yaxis_checkLabelResults
+BEGIN
+	if yaxisLabelResults.iseq("") {
+		call yaxis.bu_majorTick.modified_off
+	}
+	else {
+		call yaxis.bu_majorTick.modified_on
+	}
+END
+PROGRAM yaxis_labelSubmit
+BEGIN
+	call program yaxis_checkLabelResults
+	call Submit
+END
+
+PROGRAM get_yaxis_mlabel_options
+BEGIN
+	call create CHILD gr_axis_tick_label_options AS ymlabel, allowsubmit
+	call ymlabel.setExitString yaxisMinorLabelResults
+	call ymlabel.settitle resource GR_YAXIS_YAXIS_MINOR_TICKS
+	call ymlabel.setExitAction "program yaxis_checkMinorLabelResults"
+	call ymlabel.setSubmitAction "program yaxis_mlabelSubmit"
+	if gr_yaxis_isY2 {
+		call ymlabel.callthru "script axis_setSecondAxis"
+	}
+	call ymlabel.callthru "script axis_setRuleMinor"
+END
+PROGRAM yaxis_checkMinorLabelResults
+BEGIN
+	if yaxisMinorLabelResults.iseq("") {
+		call yaxis.bu_minorTick.modified_off
+	}
+	else {
+		call yaxis.bu_minorTick.modified_on
+	}
+END
+PROGRAM yaxis_mlabelSubmit
+BEGIN
+	call program yaxis_checkMinorLabelResults
+	call Submit
+END
+
+PROGRAM get_yaxis_line
+BEGIN
+	call create CHILD gr_axis_line_options AS ylines, allowsubmit
+	call ylines.setExitString yaxisLineResults
+	call ylines.settitle resource GR_YAXIS_YAXIS_LINE_PROPERTIES_Y_AXIS
+	call ylines.setExitAction "program yaxis_checkLineResults"
+	call ylines.setSubmitAction "program yaxis_lineSubmit"
+END
+PROGRAM yaxis_checkLineResults
+BEGIN
+	if yaxisLineResults.iseq("") {
+		call yaxis.bu_axisLine.modified_off
+	}
+	else {
+		call yaxis.bu_axisLine.modified_on
+	}
+END
+PROGRAM yaxis_lineSubmit
+BEGIN
+	call program yaxis_checkLineResults
+	call Submit
+END
+
+PROGRAM get_yaxis_scale_options
+BEGIN
+	call create CHILD gr_axis_scale_options AS yscale, allowsubmit
+	call yscale.setExitString yaxisScaleResults
+	call yscale.settitle resource GR_YAXIS_YAXIS_AXIS_SCALE_PROPERTIES_Y_AXIS
+	call yscale.setExitAction "program yaxis_checkScaleResults"
+	call yscale.setSubmitAction "program yaxis_scaleSubmit"
+END
+PROGRAM yaxis_checkScaleResults
+BEGIN
+	if yaxisScaleResults.iseq("") {
+		call yaxis.bu_scale.modified_off
+	}
+	else {
+		call yaxis.bu_scale.modified_on
+	}
+END
+PROGRAM yaxis_scaleSubmit
+BEGIN
+	call program yaxis_checkScaleResults
+	call Submit
+END
+
+PROGRAM get_yaxis_refline
+BEGIN
+	call create CHILD gr_yaxis_reflines AS yReflines, allowsubmit
+	call yReflines.setExitString yaxisReflineResults
+	call yReflines.settitle resource GR_YAXIS_YAXIS_REFERENCE_LINES
+	call yReflines.setExitAction "program yaxis_checkReflineResults"
+	call yReflines.setSubmitAction "program yaxis_reflineSubmit"
+	if gr_yaxis_isY2 {
+		call yReflines.callthru "script axis_setSecondAxis"
+	}
+END
+PROGRAM yaxis_checkReflineResults
+BEGIN
+	if yaxisReflineResults.iseq("") {
+		call yaxis.bu_refLines.modified_off
+	}
+	else {
+		call yaxis.bu_refLines.modified_on
+	}
+END
+PROGRAM yaxis_reflineSubmit
+BEGIN
+	call program yaxis_checkReflineResults
+	call Submit
+END
+
+PROGRAM get_yaxis2_options
+BEGIN
+	call create CHILD gr_yaxis2_options AS yaxis2, allowsubmit
+	call yaxis2.setExitString yaxis2Results
+	call yaxis2.settitle resource GR_YAXIS_YAXIS_PROPERTIES_SECOND
+	call yaxis2.setExitAction "program yaxis2_checkResults"
+	call yaxis2.setSubmitAction "program yaxis_yaxis2Submit"
+END
+PROGRAM yaxis2_checkResults
+BEGIN
+	if yaxis2Results.iseq("") {
+		call yaxis.bu_y2.formatlabel "resource GR_YAXIS_YAXIS_BU_Y2_FMT" "  "
+	}
+	if ! yaxis2Results.iseq("") {
+		call yaxis.bu_y2.formatlabel "resource GR_YAXIS_YAXIS_BU_Y2_FMT" " *"
+	}
+END
+PROGRAM yaxis_yaxis2Submit
+BEGIN
+	call program yaxis2_checkResults
+	call Submit
+END
+
+PROGRAM yaxis_get_advanced_sub
+BEGIN
+	call create CHILD gr_by_axis_advanced AS yaxis_by_adv, allowsubmit
+	call yaxis_by_adv.setExitString yaxisByAdvResults
+	call yaxis_by_adv.settitle resource GR_YAXIS_YAXIS_SUBGRAPH_AXIS
+	call yaxis_by_adv.setExitAction "program yaxis_checkByAdvResults"
+	call yaxis_by_adv.setSubmitAction "program yaxis_byAdvSubmit"
+	call yaxis_by_adv.callthru "script setAxis_y"
+END
+PROGRAM yaxis_checkByAdvResults
+BEGIN
+	if yaxisByAdvResults {
+		call yaxis.bu_adv.modified_on
+	}
+	else {
+		call yaxis.bu_adv.modified_off
+	}
+END
+PROGRAM yaxis_byAdvSubmit
+BEGIN
+	call program yaxis_checkByAdvResults
+	call Submit
+END
+
+PROGRAM yaxis_title_output
+BEGIN
+	put yaxis.ed_title
+END
+
+PROGRAM gr_yaxis_output
+BEGIN
+	if ! yaxis.ck_noscale & yaxis.ck_noscale.isenabled() {
+		if yaxis.ed_title {
+			put " ytitle("
+			put /program yaxis_title_output
+			if gr_yaxis_isY2 {
+				put ", axis(2)"
+			}
+			put ") "
+		}
+		put " " yaxisTitleResults " "
+	}
+	if yaxis.ck_noscale {
+		put " yscale("
+		put "off"
+		if gr_yaxis_isY2 {
+			put " axis(2)"
+		}
+		put ") "
+	}
+
+	if yaxisScaleResults {
+		put " yscale(" 
+		put yaxisScaleResults 
+		if gr_yaxis_isY2 {
+			put " axis(2)"
+		}
+		put ") "
+	}
+	
+	if yaxisLineResults {
+		put " yscale(" 
+		put yaxisLineResults 
+		if gr_yaxis_isY2 {
+			put " axis(2)"
+		}
+		put ") "
+	}
+
+	put " " yaxisReflineResults " "
+
+	if yaxisLabelResults {
+		put " ylabel("
+		put yaxisLabelResults
+		put ") "
+	}
+	if yaxisMinorLabelResults {
+		put " ymtick("
+		put yaxisMinorLabelResults
+		put ") "
+	}
+	if ! H(yaxis.bu_y2) {
+		put " " yaxis2Results " "
+	}
+	if !H(yaxis.bu_adv) & yaxisByAdvResults {
+		if gr_yaxis_advanedByopts_on {
+			put " byopts("
+		}
+		else {
+			put " by(, "
+		}
+		put yaxisByAdvResults
+		put ") "
+	}
+	if yaxis.ck_alt {
+		put " yscale(alt"
+		if gr_yaxis_isY2 {
+			put " axis(2)"
+		}
+		put ") "
+	}
+END

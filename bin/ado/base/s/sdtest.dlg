@@ -1,0 +1,213 @@
+/*
+  sdtest
+
+*! VERSION 1.1.0  15dec2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+DEFINE _dlght 265
+INCLUDE header
+
+HELP hlp1, view("help sdtest")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource SDTEST_DLG_HSCALE
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	if __MESSAGE.iseq("-one-") {
+		call main.rb_sdtest1.seton
+	}
+	if __MESSAGE.iseq("-two-") {
+		call main.rb_sdtest2.seton
+	}
+	if __MESSAGE.iseq("-by-") {
+		call main.rb_sdtestby.seton
+	}
+END
+
+
+DIALOG main, label(resource SDTEST_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+	GROUPBOX	gb_sdtest	_lft	_top	_iwd	_ht6,	///
+		label(resource SDTEST_MAIN_GB_SDTEST)
+	RADIO		rb_sdtest1	_indent	_ss	_ibwd	.,	///
+		first							///
+		onclickon("program main_sdtest1_on")			///
+		label(resource LBL_ONE_SAMPLE)
+	RADIO		rb_sdtestby	@	_ss	@	.,	///
+		onclickon("program main_sdtestby_on")			///
+		label(resource LBL_TWO_SAMPLE_USING_GROUPS)
+	RADIO		rb_sdtest2	@	_ss	@	.,	///
+		last							///
+		onclickon("program main_sdtest2_on")			///
+		label(resource LBL_TWO_SAMPLE_USING_VARIABLES)
+	
+	GROUPBOX	gb_group	_lft	_xls	_iwd	_ht9,	///
+		label(resource SDTEST_MAIN_GB_GROUP)
+	
+	/* One-sample variance-comparison test */
+	TEXT     	tx_var    	_indent _ss     _cwd1	.,	///
+		label(resource LBL_VARIABLE)				
+	DEFINE	holdx @x
+	DEFINE	holdy @y
+	VARNAME  	vn_var    	@       _ss     _vnwd   .,	///
+		numeric							///
+		label(resource LBL_VARIABLE)			
+	
+	TEXT     	tx_val    	_lft2   holdy	_cwd2   .,	///
+		label(resource SDTEST_MAIN_TX_VAL)			
+	EDIT     	en_val    	@       _ss     _en14wd	.,	///
+		numonly							///
+		label(resource SDTEST_MAIN_TX_VAL)								
+	
+	/* Two-sample variance-comparison test */
+	TEXT     	tx_var1   	holdx	holdy	_cwd1	.,	///
+		label(resource LBL_FIRST_VARIABLE)				
+	VARNAME  	vn_var1   	@       _ss     _vnwd   .,	///
+		numeric							///
+		label(resource LBL_FIRST_VARIABLE)			///
+	
+	TEXT     	tx_var2   	_lft2	holdy	_cwd2	.,	///
+		label(resource LBL_SECOND_VARIABLE)				
+	VARNAME  	vn_var2   	@	_ss	_vnwd	.,	///
+		numeric							///
+		label(resource LBL_SECOND_VARIABLE)	
+	
+	/* Two-group variance-comparison test */ 
+	TEXT     	tx_gvar    	holdx	holdy	_cwd1	.,	///
+		label(resource LBL_VARIABLE_NAME)			
+	VARNAME  	vn_gvar    	@       _ss     _vnwd   .,	///
+		numeric							///
+		label(resource LBL_VARIABLE_NAME)				
+	
+	TEXT     	tx_byopt	_lft2	holdy 	_cwd2	.,	///
+		label(resource LBL_GROUP_VARIABLE_NAME)				
+	VARNAME  	vn_byopt	@	_ss	_vnwd	.,	///
+		label(resource LBL_GROUP_VARIABLE_NAME)				
+	
+	DEFINE _x holdx
+	DEFINE _cx _cwd2
+	DEFINE _y _xls
+  	INCLUDE _sp_level
+  	
+END
+
+INCLUDE byifin
+
+PROGRAM main_sdtest1_on	
+BEGIN
+	call script main_sdtest1_show
+	call script main_sdtest2_hide
+	call script main_sdtestby_hide
+	call main.gb_group.setlabel resource SDTEST_MAIN_GB_GROUP
+END
+
+PROGRAM main_sdtest2_on
+BEGIN
+	call script main_sdtest1_hide
+	call script main_sdtest2_show
+	call script main_sdtestby_hide
+	call main.gb_group.setlabel resource SDTEST_MAIN_SDTEST2
+END
+
+PROGRAM main_sdtestby_on
+BEGIN
+	call script main_sdtest1_hide
+	call script main_sdtest2_hide
+	call script main_sdtestby_show
+	call main.gb_group.setlabel resource SDTEST_MAIN_SDTESTBY
+END
+
+SCRIPT main_sdtest1_show
+BEGIN
+	main.tx_var.show
+	main.vn_var.show
+	main.tx_val.show
+	main.en_val.show
+	main.sp_level.setvalue "95"
+END
+
+SCRIPT main_sdtest1_hide
+BEGIN
+	main.tx_var.hide
+	main.vn_var.hide
+	main.tx_val.hide
+	main.en_val.hide	
+END
+
+SCRIPT main_sdtest2_show
+BEGIN
+	main.tx_var1.show
+	main.vn_var1.show
+	main.tx_var2.show
+	main.vn_var2.show
+	main.sp_level.setvalue "95"
+END
+
+SCRIPT main_sdtest2_hide
+BEGIN
+	main.tx_var1.hide
+	main.vn_var1.hide
+	main.tx_var2.hide
+	main.vn_var2.hide
+END
+
+SCRIPT main_sdtestby_show
+BEGIN
+	main.tx_gvar.show
+	main.vn_gvar.show
+	main.tx_byopt.show
+	main.vn_byopt.show
+	main.sp_level.setvalue "95"
+END
+
+SCRIPT main_sdtestby_hide
+BEGIN
+	main.tx_gvar.hide
+	main.vn_gvar.hide
+	main.tx_byopt.hide
+	main.vn_byopt.hide	
+END
+
+PROGRAM main_by_group_opt
+BEGIN
+	varlist main.vn_byopt
+END
+
+PROGRAM command
+BEGIN
+	INCLUDE _by_pr
+	put "sdtest "
+	if main.rb_sdtest1 {
+		varlist main.vn_var
+		put " == "
+		require main.en_val
+		put main.en_val
+	}
+	if main.rb_sdtest2 {
+		varlist main.vn_var1
+		put " == "
+		varlist main.vn_var2
+	}
+	if main.rb_sdtestby {
+		varlist main.vn_gvar
+	}
+	INCLUDE _ifin_pr
+	
+	beginoptions
+		if main.rb_sdtestby {
+			put "by("
+			put /program main_by_group_opt
+			put ")"
+		}
+		INCLUDE _level_main_pr
+	endoptions
+END
+

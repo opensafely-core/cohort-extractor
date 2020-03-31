@@ -1,0 +1,276 @@
+/*
+
+*! VERSION 1.1.3 02may2017
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+DEFINE _dlght 360
+INCLUDE header
+
+PROGRAM PREINIT 
+BEGIN
+	script main_excludemissing_off
+	create STRING tmp
+	setscale_hadj resource BCAL_CREATE_DLG_HSCALE
+	
+        main.fi_filename.formatfilter "{0} (*.stbcal)|*.stbcal|{1} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_STBCAL" "resource ui_ex FILE_TYPE_ALL_FILES"
+END
+
+HELP hlp1, view("help bcal")
+RESET res1
+
+DIALOG main, label(resource BCAL_CREATE_DLG_TITLE)		///
+	tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT tx_filename		_lft	_top	_iwd	.,		///
+	label(resource BCAL_CREATE_MAIN_TX_FILENAME)
+  FILE fi_filename		@	_ss	@	.,		///
+	defext(stbcal)							///
+	save								///
+	error(resource BCAL_CREATE_MAIN_TX_FILENAME)			///
+	label(resource LBL_SAVE_AS)
+
+  TEXT tx_from			_lft	_ls	_iwd	.,		///
+	label(resource BCAL_CREATE_MAIN_TX_FROM)
+  VARNAME vn_from		@	_ss	_vnwd	.,		///
+	option("from")							///
+	label(resource BCAL_CREATE_MAIN_TX_FROM)
+
+  GROUPBOX gb_opts		_lft	_ls	_iwd	_ht20,		///
+	label(resource LBL_OPTIONS)
+  TEXT tx_generate		_indent	_ss	_inwd	.,		///
+	label(resource BCAL_CREATE_MAIN_TX_GENERATE)
+  EDIT ed_generate		@	_ss	_vnwd	.,		///
+	option("generate")						///
+	label(resource BCAL_CREATE_MAIN_TX_GENERATE)
+  CHECKBOX ck_excludemissing	@	_ls	_ibwd	_ht6,		///
+	groupbox							///
+	onclickon(program main_excludemissing_on)			///
+	onclickoff(script main_excludemissing_off)			///
+	label(resource BCAL_CREATE_MAIN_CK_EXCLUDEMISSING)
+  TEXT tx_excludemissing	_indent	_ss	_inwd	.,		///
+	label(resource LBL_VARIABLES)
+  VARLIST vl_excludemissing	@	_ss	@	.,		///
+	label(resource LBL_VARIABLES)
+  CHECKBOX ck_any		@	_ms	@	.,		///
+	option("any")							///
+	label(resource BCAL_CREATE_MAIN_CK_ANY)
+  CHECKBOX ck_personal		_ilft	_xls	_ibwd	.,		///
+	label(resource BCAL_CREATE_MAIN_CK_PERSONAL)
+  CHECKBOX ck_replace		@	_ms	@	.,		///
+	label(resource BCAL_CREATE_MAIN_CK_REPLACE)
+END
+
+INCLUDE ifin
+
+PROGRAM main_excludemissing_on
+BEGIN
+	call main.tx_excludemissing.enable
+	call main.vl_excludemissing.enable
+	call main.ck_any.enable
+END
+
+SCRIPT  main_excludemissing_off
+BEGIN
+	main.tx_excludemissing.disable
+	main.vl_excludemissing.disable
+	main.ck_any.disable
+	adv.tx_from.disable
+	adv.ed_from.disable
+	adv.tx_to.disable
+	adv.ed_to.disable
+END
+  
+DIALOG adv, tabtitle(resource LBL_ADVANCED)
+BEGIN
+  TEXT tx_pur			_lft	_top	_iwd	.,		///
+	label(resource BCAL_CREATE_ADV_TX_PUR)
+  EDIT ed_pur			@	_ss	@	.,		///
+	option("purpose")						///
+	max(63)								///
+	tooltip(resource BCAL_CREATE_ADV_TOOL_TIP_PUR)			///
+	label(resource BCAL_CREATE_ADV_ED_PUR)                                                
+  GROUPBOX gb_fmt		_lft	_ls	_iwd	_ht3,		///
+	label(resource BCAL_CREATE_ADV_GB_FMT)
+  COMBOBOX cb_fmt		_indent	_ms	150	.,		///
+	contents(adv_datefmt)						///
+	dropdownlist							///
+	onselchangelist(adv_cb_fmt_on)					///
+	default(ymd)							///
+	option("dateformat")						///
+	label(resource LBL_FORMAT)
+  TEXT tx_note			200	@	@	.,		///
+	label("")
+
+  CHECKBOX ck_date		_lft	130	_iwd	_ht2,		///
+	groupbox							///
+	onclickon(program adv_date_on)					///
+	onclickoff(script adv_date_off)					///
+	label(resource BCAL_CREATE_ADV_CK_DATE)
+  TEXT tx_from			_indent	_ss	45	.,		///
+	label(resource LBL_FROM) right
+  EDIT ed_from			+50	@	_en14wd	.,		///
+	label(resource LBL_FROM)
+  TEXT tx_to			_lft2	@	40	.,		///
+	label(resource LBL_TX_TO) right
+  EDIT ed_to			+45	@	_en14wd	.,		///
+	label(resource LBL_TO)
+  TEXT tx_center		_lft	+45	_cwd1	.,		///
+	label(resource BCAL_CREATE_ADV_TX_CENTER)
+  EDIT ed_center		@ 	_ss	_en14wd	.,		///
+	option("centerdate")						///
+	label(resource BCAL_CREATE_ADV_TX_CENTER)
+  TEXT tx_gap			_lft	_ls	_iwd	.,		///
+	label(resource BCAL_CREATE_ADV_TX_GAP)
+  SPINNER sp_gap		_lft	_ss	_spwd	.,		///
+	min(1)								///
+	max(c(N))							///
+	default(10)							///
+	option("maxgap")						///
+	label(resource BCAL_CREATE_ADV_TX_GAP)
+END
+
+PROGRAM adv_date_on
+BEGIN
+	call adv.tx_from.enable
+	call adv.ed_from.enable
+	call adv.tx_to.enable
+	call adv.ed_to.enable
+END
+
+SCRIPT adv_date_off
+BEGIN
+	adv.tx_from.disable
+	adv.ed_from.disable
+	adv.tx_to.disable
+	adv.ed_to.disable
+END
+
+
+LIST adv_datefmt
+BEGIN
+	"ymd"
+	"ydm"
+	"myd" 
+	"mdy"
+	"dym"
+	"dmy"
+END
+     
+LIST adv_cb_fmt_on
+BEGIN
+	program adv_ymd_on
+	program adv_ydm_on
+	program adv_myd_on
+	program adv_mdy_on
+	program adv_dym_on
+	program adv_dmy_on
+END
+
+PROGRAM adv_ymd_on
+BEGIN
+        call adv.tx_note.setlabel resource BCAL_CREATE_YMD
+        call tmp.setvalue class adv.cb_fmt.value
+        call tmp.withvalue adv.ed_from.settooltip "@ date value"
+        call tmp.withvalue adv.ed_to.settooltip "@ date value"
+        call tmp.withvalue adv.ed_center.settooltip "@ date value"
+END
+
+PROGRAM adv_ydm_on
+BEGIN
+        call adv.tx_note.setlabel resource BCAL_CREATE_YDM
+        call tmp.setvalue class adv.cb_fmt.value
+        call tmp.withvalue adv.ed_from.settooltip "@ date value"
+        call tmp.withvalue adv.ed_to.settooltip "@ date value"
+        call tmp.withvalue adv.ed_center.settooltip "@ date value"
+END
+
+PROGRAM adv_myd_on
+BEGIN
+        call adv.tx_note.setlabel resource BCAL_CREATE_MYD
+        call tmp.setvalue class adv.cb_fmt.value
+        call tmp.withvalue adv.ed_from.settooltip "@ date value"
+        call tmp.withvalue adv.ed_to.settooltip "@ date value"
+        call tmp.withvalue adv.ed_center.settooltip "@ date value"
+END
+
+PROGRAM adv_mdy_on
+BEGIN
+        call adv.tx_note.setlabel resource BCAL_CREATE_MDY
+        call tmp.setvalue class adv.cb_fmt.value
+        call tmp.withvalue adv.ed_from.settooltip "@ date value"
+        call tmp.withvalue adv.ed_to.settooltip "@ date value"
+        call tmp.withvalue adv.ed_center.settooltip "@ date value"
+END
+
+PROGRAM adv_dym_on
+BEGIN
+        call adv.tx_note.setlabel resource BCAL_CREATE_DYM
+        call tmp.setvalue class adv.cb_fmt.value
+        call tmp.withvalue adv.ed_from.settooltip "@ date value"
+        call tmp.withvalue adv.ed_to.settooltip "@ date value"
+        call tmp.withvalue adv.ed_center.settooltip "@ date value"
+END
+
+PROGRAM adv_dmy_on
+BEGIN
+        call adv.tx_note.setlabel resource BCAL_CREATE_DMY
+        call tmp.setvalue class adv.cb_fmt.value
+        call tmp.withvalue adv.ed_from.settooltip "@ date value"
+        call tmp.withvalue adv.ed_to.settooltip "@ date value"
+        call tmp.withvalue adv.ed_center.settooltip "@ date value"
+END
+
+PROGRAM excludemissing_output
+BEGIN
+	put main.vl_excludemissing
+	if main.ck_any {
+		put ", any"
+	}
+END
+
+PROGRAM command
+BEGIN
+	put "bcal create "
+	require main.fi_filename
+	repfile main.fi_filename
+	put main.fi_filename
+	put " " 
+	INCLUDE _ifin_pr
+	beginoptions
+		require main.vn_from
+		optionarg main.vn_from
+		optionarg main.ed_generate
+		if main.ck_excludemissing {
+			require main.vl_excludemissing
+			put "excludemissing("
+			put /program excludemissing_output
+			put ")"
+		}
+		if main.ck_personal {
+			put " personal "
+		}
+		if main.ck_replace {
+			put " replace "
+		}
+		optionarg adv.ed_pur
+		optionarg /hidedefault adv.cb_fmt
+		if adv.ck_date {
+			require adv.ed_from
+			require adv.ed_to
+			put "range("
+			put adv.ed_from
+			put " "
+			put adv.ed_to
+			put ")"
+		}
+		optionarg adv.ed_center
+		optionarg /hidedefault adv.sp_gap
+	endoptions
+END
+
+

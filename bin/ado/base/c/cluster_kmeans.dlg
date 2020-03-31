@@ -1,0 +1,317 @@
+/*
+    cluster kmeans -- clkmeans.dlg
+
+*!  VERSION 1.2.2  05oct2015
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 320
+INCLUDE header
+HELP hlp1, view("help cluster_kmeans")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource CLUSTER_KMEANS_DLG_HSCALE
+	script cluster_common_set_kmeans_on
+        settitle resource CLUSTER_KMEANS_DLG_TITLE
+END
+
+DIALOG main, label() tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_var	_lft	_top	_iwd	.,			///
+	label(resource LBL_VARIABLES_LEAVE_EMPTY_FOR_ALL)
+  VARLIST  vl_var	@	_ss	@	.,			///
+	numeric								///
+	label(resource LBL_GB_VARIABLES) allowcat
+
+  SPINNER  sp_k		@	_ls	_spwd	.,			///
+	option(k) 							///
+	min(2) max(100000) default(2)					///
+	label(resource LBL_K_THE_NUMBER_OF_GROUPS)
+  TEXT     tx_k		_spsep	@	_spr	.,			///
+	label(resource LBL_K_THE_NUMBER_OF_GROUPS)
+
+  GROUPBOX gb_dist		_lft	_ls	_iwd	_ht10,		///
+	label(resource LBL_DISSIMILARITY_MEASURE)
+  RADIO     rb_distc		_indent	_ss	110	., first	///
+	label(resource LBL_CONTINUOUS)					///
+	onclickon(script main_continuous_on)
+  DEFINE    holdx @x
+  RADIO     rb_distb		+120	@	@	.,		///
+	label(resource LBL_BINARY)					///
+	onclickon(script main_binary_on)
+  RADIO     rb_distm		+120	@	@	., last		///
+	label(resource LBL_MIXED)					///
+	onclickon(script main_mixed_on)
+
+  LISTBOX   lb_distc		holdx	_ms	_comb3_2 _ht4,		///
+	contents(continuous_dist)					///
+	onselchange(program main_check_power)				///
+	values(contin_value)
+  DEFINE    holdy @y
+  LISTBOX   lb_distb		@	@	@	_ht4,		///
+	contents(binary_dist)						///
+	values(binary_value)
+  DEFINE    holdy @y
+  LISTBOX   lb_distm		@	@	@	_ht4,		///
+	contents(mixed_dist)						///
+	values(mixed_value)
+
+  EDIT      en_power		_lft	_vs6	_en7wd	.,		///
+	numonly default(literal "2")					///
+	label(resource LBL_NUMBER_FOR_L_OR_LPOWER)
+  TEXT      tx_power		_en7sep	@	_en7rb  .,		///
+	label(resource LBL_NUMBER_FOR_L_OR_LPOWER)
+
+  TEXT     tx_name		_lft	_ls	_iwd	.,		///
+	label(resource LBL_NAME_THIS_CLUSTER_ANALYSIS_LEAVE_EMPTY)
+  EDIT     ed_name		@	_ss	_vnwd	.,		///
+	max(32)								///
+	option(name)							///
+	label(resource LBL_NAME_THIS_CLUSTER_ANALYSIS)
+END
+
+INCLUDE _cl_dist_list
+
+SCRIPT main_continuous_on
+BEGIN
+	main.lb_distb.hide
+	main.lb_distc.show
+	main.lb_distm.hide
+	main.lb_distc.withvalue main.lb_distc.setvalue "@"
+	main.tx_power.enable
+	main.en_power.enable
+END
+
+SCRIPT main_binary_on
+BEGIN
+	main.lb_distb.show
+	main.lb_distc.hide
+	main.lb_distm.hide
+	main.tx_power.disable
+	main.en_power.disable
+END
+
+SCRIPT main_mixed_on
+BEGIN
+	main.lb_distb.hide
+	main.lb_distc.hide
+	main.lb_distm.show
+	main.tx_power.disable
+	main.en_power.disable
+END
+
+PROGRAM main_check_power
+BEGIN
+	if main.lb_distc.iseq("Lpower") | main.lb_distc.iseq("L"){
+		call main.en_power.enable
+		call main.tx_power.enable
+	}
+	else {
+		call main.en_power.disable
+		call main.tx_power.disable
+	}
+END
+
+INCLUDE ifin
+
+DIALOG opt, tabtitle(resource LBL_OPTIONS)
+BEGIN
+  GROUPBOX gb_start          _lft      _top      _iwd      _ht25,	/*
+		*/ label(resource LBL_INITIAL_GROUP_CENTERS)
+  RADIO    rb_krandom        _ilft     _ss       _ibwd     ., first	/*
+		*/ option(krandom)					/*
+		*/ clickon("script start_random")			/*
+		*/ label(resource LBL_K_UNIQUE_RANDOM_OBSERVATIONS)
+  RADIO    rb_firstk         @         _ss       @         .,		/*
+		*/ option(firstk)					/*
+		*/ clickon("script start_exclude")			/*
+		*/ label(resource LBL_FIRST_K_OBSERVATIONS)
+  RADIO    rb_lastk          @         _ss       @         .,		/*
+		*/ option(lastk)					/*
+		*/ clickon("script start_exclude")			/*
+		*/ label(resource LBL_LAST_K_OBSERVATIONS)
+  RADIO    rb_random         @         _ss       @         .,		/*
+		*/ option(random)					/*
+		*/ clickon("script start_random")			/*
+		*/ label(resource LBL_K_RANDOM_CENTERS_CHOSEN_WITHIN_RANGE)
+  RADIO    rb_prandom        @         _ss       @         .,		/*
+		*/ option(prandom)					/*
+		*/ clickon("script start_random")			/*
+		*/ label(resource CLUSTER_KMEANS_OPT_RB_PRANDOM)
+  RADIO    rb_everykth       @         _ss       @         .,		/*
+		*/ option(everykth)					/*
+		*/ clickon("script start_alloff")			/*
+		*/ label(resource CLUSTER_KMEANS_OPT_RB_EVERYKTH)
+  RADIO    rb_segments       @         _ss       @         .,		/*
+		*/ option(segments)					/*
+		*/ clickon("script start_alloff")			/*
+		*/ label(resource CLUSTER_KMEANS_OPT_RB_SEGMENTS)
+  RADIO    rb_group          @         _ss       @         ., last	/*
+		*/ option(group)					/*
+		*/ clickon("script start_group")			/*
+		*/ label(resource CLUSTER_KMEANS_OPT_RB_GROUP)
+  VARNAME  vn_group          _indent2  _ss       _vnwd     .,		/*
+		*/ option(group)					/*
+		*/ label(resource CLUSTER_KMEANS_OPT_RB_GROUP)
+
+  CHECKBOX ck_seed           _ilft     _xls      _ckwd     .,		/*
+		*/ clickon("gaction opt.en_seed.enable")		/*
+		*/ clickoff("gaction opt.en_seed.disable")		/*
+		*/ label("")
+  EDIT     en_seed           _cksep    @         _en7wd    .,		/*
+		*/ numonly						/*
+		*/ label(resource LBL_RANDOM_NUMBER_SEED)
+  TEXT     tx_seed           _en7sep   @         _cken7rb  .,		/*
+		*/ label(resource LBL_RANDOM_NUMBER_SEED)
+
+  CHECKBOX ck_exclude        _ilft     _ls       _ibwd     .,		/*
+		*/ option(", exclude")					/*
+		*/ label(resource LBL_EXCLUDE_K_OBSERVATIONS)
+
+  CHECKBOX ck_keepcenters    _lft      _xls      _iwd      .,		/*
+		*/ option(keepcenters)					/*
+		*/ label(resource CLUSTER_KMEANS_OPT_CK_KEEPCENTERS)
+END
+
+DIALOG adv, tabtitle(resource LBL_ADVANCED)
+BEGIN
+  TEXT     tx_gen            _lft      _top      _iwd      .,		///
+	label(resource LBL_GEN_GROUPING_VAR_NAME_LEAVE_EMPTY_DEFAULT)
+  EDIT     ed_gen            @         _ss       _vnwd     ., max(32)	///
+	option(generate)						///
+	label(resource LBL_GENERATE_GROUPING_VAR_NAME)
+  SPINNER  sp_iterate        @         _xls      _spwd     .,		///
+	option(iterate)							///
+	min(1) max(1000000) default(10000)				///
+	label(resource LBL_MAXIMUM_NUMBER_OF_ITERS)
+  TEXT     tx_iterate        _spsep    @         _spr      .,		///
+	label(resource LBL_MAXIMUM_NUMBER_OF_ITERS)
+END
+
+SCRIPT seedoff
+BEGIN
+	opt.ck_seed.disable
+	opt.en_seed.disable
+	opt.tx_seed.disable
+END
+
+PROGRAM seedon
+BEGIN
+	call gaction opt.ck_seed.enable
+	if opt.ck_seed {
+		call gaction opt.en_seed.enable
+	}
+	if !opt.ck_seed {
+		call gaction opt.en_seed.disable
+	}
+	call gaction opt.tx_seed.enable
+END
+
+SCRIPT start_alloff
+BEGIN
+	opt.vn_group.disable
+	script seedoff
+	opt.ck_exclude.disable
+END
+
+SCRIPT start_exclude
+BEGIN
+	opt.vn_group.disable
+	script seedoff
+	opt.ck_exclude.enable
+END
+
+SCRIPT start_random
+BEGIN
+	opt.vn_group.disable
+	program seedon
+	opt.ck_exclude.disable
+END
+
+SCRIPT start_group
+BEGIN
+	opt.vn_group.enable
+	script seedoff
+	opt.ck_exclude.disable
+END
+
+
+PROGRAM start_opts_output
+BEGIN
+	if opt.rb_krandom & !opt.ck_seed {
+		option opt.rb_krandom
+	}
+	if opt.rb_krandom & opt.ck_seed {
+		require opt.en_seed
+		put "krandom(" opt.en_seed ")"
+	}
+	if opt.rb_firstk | opt.rb_lastk {
+		if opt.rb_firstk {
+			put "firstk"
+		}
+		if opt.rb_lastk {
+			put "lastk"
+		}
+		if opt.ck_exclude {
+			put ", exclude"
+		}
+	}
+	if opt.rb_random & !opt.ck_seed {
+		option opt.rb_random
+	}
+	if opt.rb_random & opt.ck_seed {
+		require opt.en_seed
+		put "random(" opt.en_seed ")"
+	}
+	if opt.rb_prandom & !opt.ck_seed {
+		option opt.rb_prandom
+	}
+	if opt.rb_prandom & opt.ck_seed {
+		require opt.en_seed
+		put "prandom(" opt.en_seed ")"
+	}
+	option opt.rb_everykth
+	option opt.rb_segments
+	if opt.rb_group {
+		require opt.vn_group
+		optionarg opt.vn_group
+	}
+END
+
+PROGRAM command
+BEGIN
+	allowxi
+	put "cluster kmeans "
+	varlist [main.vl_var]
+	put " " /program ifin_output
+	beginoptions
+		optionarg main.sp_k
+		put "measure("
+		if main.rb_distc {
+			put main.lb_distc
+			if main.en_power {
+				put "(" main.en_power ")"
+			}
+		}
+		if main.rb_distb {
+			put main.lb_distb
+		}
+		if main.rb_distm {
+			put main.lb_distm
+		}
+		put ")"
+
+		optionarg main.ed_name
+		put " " "start("
+		put /program start_opts_output
+		put ") "
+		option opt.ck_keepcenters
+		optionarg adv.ed_gen
+		optionarg /hidedefault adv.sp_iterate
+	endoptions
+END

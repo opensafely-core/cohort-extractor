@@ -1,0 +1,80 @@
+/*
+    irf_set.dlg
+
+*!  VERSION 1.1.2  14mar2015
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_small
+INCLUDE _ht150
+INCLUDE header
+
+HELP hlp1, view("help irf_set")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource IRF_SET_DLG_HSCALE
+	
+        main.fi_set.formatfilter "{0} (*.irf)|*.irf|{1} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_IRF_FILES" "resource ui_ex FILE_TYPE_ALL_FILES"
+END
+
+DIALOG main, label(resource IRF_SET_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  RADIO     rb_set           _lft      _top      _iwd      ., 		///
+  		first							///
+		onclickon(script set_on)				///
+		option(NONE)						///
+		label(resource IRF_SET_MAIN_RB_SET)
+  RADIO     rb_clear         _lft      +80       @         ., 		///
+  		last							///
+		onclickon(script set_off)				///
+		option(clear)						///
+		label(resource IRF_SET_MAIN_RB_CLEAR)
+
+  FILE      fi_set           _indent2  -60       _inwd     .,		///
+		default(global S_vrffile) nomemory			///
+		label(resource LBL_BU_BROWSE)				///
+		error(resource IRF_SET_MAIN_RB_SET)			///
+		option(set)						///
+		defext(irf)
+
+  CHECKBOX  ck_replace       @         _ms       @         .,		///
+		option(replace)	nomemory				///
+		label(resource IRF_SET_MAIN_CK_REPLACE)
+
+
+END
+
+SCRIPT set_on
+BEGIN
+	main.fi_set.enable
+	main.ck_replace.enable
+END
+
+SCRIPT set_off
+BEGIN
+	main.fi_set.disable
+	main.ck_replace.disable
+END
+
+
+PROGRAM command
+BEGIN
+	put "irf set "
+	/* not doing replay mode since current file will appear in edit field */
+	if main.rb_set {
+		require main.fi_set
+		put `"""'
+		put main.fi_set
+		put `"""'
+	}
+	beginoptions
+		/* not doing -new- opt (no need, right thing happens anyway) */
+		option radio(main rb_set rb_clear)
+		option main.ck_replace
+	endoptions
+END

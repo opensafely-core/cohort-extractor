@@ -1,0 +1,220 @@
+/*
+  sg__variables_failure.dlg
+
+*!  VERSION 1.0.2  03jun2015
+
+*/
+
+VERSION 14.0
+MODAL
+
+INCLUDE _std_msmall
+DEFINE _dlght 170
+INCLUDE header_sem_ed
+
+INCLUDE sg__common_output		/* routines necessary for output */
+
+SCRIPT PREINIT
+BEGIN
+	script sg__common_output_init 	/* initialize output globals */
+
+	create STRING OBJ
+	program setupOBJECT
+
+	program global_get_defaults
+	setscale_hadj resource SG__VARIABLES_FAILURE_DLG_HSCALE
+END
+
+PROGRAM setupOBJECT
+BEGIN
+	if ! __MESSAGE {
+		stopbox stop resource LBL_MSGBOX_OBJECT_NOT_FOUND
+// An unexpected error has occurred. Object not found.
+		exit 198
+	}
+	call OBJ.setvalue class __MESSAGE.value
+END
+
+PROGRAM global_get_defaults
+BEGIN
+END
+
+SCRIPT main_PREINIT
+BEGIN
+	create STRING failure
+	create STRING ltruncation
+	create DOUBLE d_ltruncation
+	create DOUBLE missing
+
+	ltruncation.setvalue ""
+	missing.setvalue .
+
+	program main_get_defaults
+END
+
+SCRIPT main_POSTINIT
+BEGIN
+	program main_initialize_controls
+END
+
+PROGRAM main_get_defaults
+BEGIN
+	call failure.setvalue class .__SEMG.dbsettings.failure
+	call d_ltruncation.setvalue class .__SEMG.dbsettings.ltruncation
+	if d_ltruncation.islt(missing) {
+		call ltruncation.setvalue ""
+	}
+	else {
+		call ltruncation.setvalue class .__SEMG.dbsettings.ltruncation
+	}
+END
+
+PROGRAM main_initialize_controls
+BEGIN
+	if failure.isneq("") {
+		call failure.withvalue main.vn_fvar.setvalue "@"
+	}
+	if d_ltruncation.islt(missing) {
+		call main.ck_left_trunc.seton
+		call main.rb_fixed_value.seton
+		call d_ltruncation.withvalue main.ed_left_trunc_val.setvalue "@"
+	}
+	if ltruncation.isneq("") {
+		call main.ck_left_trunc.seton
+		call main.rb_variable.seton
+		call ltruncation.withvalue main.vn_left_trunc_var.setvalue "@"
+	}
+END
+
+DIALOG main, title(resource SG__VARIABLES_DLG_TITLE)
+BEGIN
+  TEXT     tx_fvar		_lft	_top	_iwd	.,		///
+	label(resource SG__VARIABLES_FAILURE_MAIN_TX_FVAR)
+  VARNAME vn_fvar		@	_ss	_vnwd	.,		///
+	nomemory							///
+	numeric
+
+  CHECKBOX ck_left_trunc	@	_ls	_iwd	_ht7, nomemory	///
+	groupbox							///
+	onclickon("program main_left_trunc_on")				///
+	onclickoff("script main_left_trunc_off")			///
+	label(resource SG__VARIABLES_FAILURE_MAIN_CK_LEFT_TRUC)
+  RADIO rb_fixed_value		_ilft	_ss	_ibwd	., first	///
+	onclickon(program show_left_trunc_field)			///
+	nomemory							///
+	label(resource SG__VARIABLES_FAILURE_MAIN_RB_FIXED_VALUE)
+  RADIO rb_variable		@	_ss	@	., last		///
+	onclickon(program show_left_trunc_field)			///
+	nomemory							///
+	label(resource SG__VARIABLES_FAILURE_MAIN_RB_VARIABLE)
+  EDIT ed_left_trunc_val	_iilft	_ls	_vnwd	., nomemory	///
+	numonly
+  VARNAME vn_left_trunc_var	@	@	_vnwd	.,		///
+	nomemory							///
+	numeric
+  TEXT tx_trunc_label		_vnsep	@	100	.,
+END
+
+PROGRAM main_left_trunc_on
+BEGIN
+	call main.rb_fixed_value.enable
+	call main.rb_variable.enable
+	call main.ed_left_trunc_val.enable
+	call main.vn_left_trunc_var.enable
+	call program show_left_trunc_field
+END
+
+SCRIPT main_left_trunc_off
+BEGIN
+	main.rb_fixed_value.disable
+	main.rb_variable.disable
+	main.ed_left_trunc_val.disable
+	main.vn_left_trunc_var.disable
+END
+
+PROGRAM show_left_trunc_field
+BEGIN
+	if main.rb_fixed_value {
+		call main.ed_left_trunc_val.show
+		call main.vn_left_trunc_var.hide
+		call main.tx_trunc_label.setlabel "resource LBL_CONSTANT"
+	}
+	else {
+		call main.ed_left_trunc_val.hide
+		call main.vn_left_trunc_var.show
+		call main.tx_trunc_label.setlabel "resource LBL_VN_VARIABLE"
+	}
+END
+
+
+/*****************************************************************************/
+
+PROGRAM main_output
+BEGIN
+        call program main_get_defaults
+
+	call sg__PARAM2.setvalue "SetSelected"
+	call sg__ARG_00.setvalue "failure"
+	call main.vn_fvar.withvalue sg__ARG_01.setvalue @
+	put /program sg__do_output_sub
+
+	if main.ck_left_trunc {
+		if main.rb_fixed_value {
+			call sg__PARAM2.setvalue "SetSelected"
+			call sg__ARG_00.setvalue "ltruncation"
+			call main.ed_left_trunc_val.withvalue		///
+				sg__ARG_01.setvalue @
+			put /program sg__do_output_sub
+		}
+		if main.rb_variable {
+			call sg__PARAM2.setvalue "SetSelected"
+			call sg__ARG_00.setvalue "ltruncation"
+			call main.vn_left_trunc_var.withvalue		///
+				sg__ARG_01.setvalue "@"
+			put /program sg__do_output_sub
+		}
+	}
+	else {
+		call sg__PARAM2.setvalue "SetSelected"
+		call sg__ARG_00.setvalue "ltruncation"
+		call sg__ARG_01.setvalue ""
+		put /program sg__do_output_sub
+	}
+END
+
+PROGRAM command
+BEGIN
+	if main.ck_left_trunc {
+		if main.rb_fixed_value {
+			require main.ed_left_trunc_val
+		}
+		if main.rb_variable {
+			require main.vn_left_trunc_var
+		}
+	}
+
+	call program main_get_defaults
+
+	call sg__PARAM1.setvalue class OBJ.value
+
+	call sg__PARAM2.setvalue "BeginSet"
+	call sg__DESCPT.setvalue "change variable settings"
+	put /program sg__do_output_sub
+	
+	put /program main_output
+
+	call sg__PARAM2.setvalue "EndSet"
+	call sg__DESCPT.setvalue "change variable settings"
+	put /program sg__do_output_sub
+
+
+	call sg__PARAM1.setvalue class OBJ.value
+	call sg__PARAM2.setvalue "UpdateDlg"
+	call sg__ARG_00.setvalue "variables"
+	call sg__ARG_01.setvalue class sSrcTypeOrig.value
+	put /program sg__do_output_sub
+
+	call sg__PARAM1.setvalue class OBJ.value
+	call sg__PARAM2.setvalue "Reselect"
+	put /program sg__do_output_sub
+END

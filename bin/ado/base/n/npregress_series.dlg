@@ -1,0 +1,540 @@
+/*
+  npregress series
+
+*!  VERSION 1.0.4  11oct2019
+
+*/
+
+VERSION 16.0
+INCLUDE _std_xlarge
+DEFINE _dlght 600
+INCLUDE header
+
+HELP hlp1, view("help npregress series")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource NPREGRESS_SERIES_DLG_HSCALE
+
+	script se_createAsNPREGRESS_SERIES
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)				///
+	title(resource NPREGRESS_SERIES_DLG_TITLE)
+BEGIN
+  TEXT tx_dv 			_lft	_top	_vnwd	.,		///
+	label(resource LBL_DEPVAR)
+  VARNAME vn_dv			@	_ss	@	.,		///
+	ts								///
+	numeric								///
+	label(resource LBL_DEPVAR)
+
+  TEXT tx_iv			_vlx	-20	170	.,		///
+	label(resource LBL_INDDEPVAR)
+  VARLIST vl_iv			@	_ss	_ivlwd	.,		///
+	fv								///
+	allowcat							///
+	numeric								///
+	label(resource LBL_INDDEPVAR)
+
+  GROUPBOX gb_opts		_lft	_ls	_iwd	535,		///
+	label(resource LBL_OPTIONS)
+  RADIO rb_bspline		_ilft	_ss	_cwd3_0	., first	///
+	onclickon(script main_bspline_on)				///	
+	label(resource NPREGRESS_SERIES_MAIN_RB_BSPLINE)
+  RADIO rb_nspline		_lft3_02	@	@	., 	///
+    onclickon(script main_nspline_on)					///	
+	label(resource NPREGRESS_SERIES_MAIN_RB_NSPLINE)
+
+  RADIO rb_poly			_lft3_03	@	@	., last	///
+    onclickon(script main_ploy_on)					///
+	label(resource NPREGRESS_SERIES_MAIN_RB_POLY)
+  CHECKBOX ck_order		_ilft	_ls	_cwd3	_ht2,		///
+	groupbox							///
+	onclickon("program main_order_check")				///
+	onclickoff("program main_order_check")				///
+	label("")
+  DEFINE holdz @y
+  SPINNER sp_bspline		_indent	_ss	_spwd	.,		///
+	min(1) max(3) default(3)					///
+	option(bsplines)						///
+	label(resource LBL_ORDER)
+  SPINNER sp_nspline		@	@	@	.,		///
+	min(1) max(3) default(3)					///
+	option(splines)							///
+	label(resource LBL_ORDER)
+  SPINNER sp_poly		@	@	@	.,		///
+	min(1) max(16) default(4)					///
+	option(polynomials)						///
+	label(resource LBL_ORDER)
+  TEXT tx_order			_spsep	@	100	.,		///
+	label(resource LBL_ORDER)
+	
+  TEXT tx_asis			_lft2	holdz	_ibwd	.,		///
+	label(resource NPREGRESS_SERIES_MAIN_TX_ASIS)
+  VARLIST vl_asis		@	_ss	230	.,		///
+	fv								///
+	allowcat							///
+	numeric								///
+	option(asis)							///
+	label(resource NPREGRESS_SERIES_MAIN_TX_ASIS)
+  TEXT tx_nointeract		_ilft	+45	_ibwd	.,		///
+	label(resource NPREGRESS_SERIES_MAIN_TX_NOINTERACT)
+  VARLIST vl_nointeract		@	_ss	@	.,		///
+	fv								///
+	allowcat							///
+	numeric								///
+	option(nointeract)						///
+	label(resource NPREGRESS_SERIES_MAIN_TX_NOINTERACT)
+  TEXT tx_criterion		@	_ls	_ibwd	.,		///
+	label(resource NPREGRESS_SERIES_MAIN_TX_CRITERION)
+  COMBOBOX cb_criterion		@	_ss	190	.,		///
+	option(criterion)						///
+	default(cv)							///
+	dropdownlist							///
+	contents(main_criterion_list)					///
+	values(main_criterion_values)					///
+	label(resource NPREGRESS_SERIES_MAIN_TX_CRITERION)
+
+  CHECKBOX ck_knots		_ilft	_ls	_ibwd	_ht4,		///
+	groupbox							///
+	onclickon(program main_knots_on)				///
+	onclickoff(script main_knots_off)				///
+	label(resource NPREGRESS_SERIES_MAIN_CK_KNOTS)
+  RADIO rb_knots		_iilft	_ss	_cwd4	., first	///
+	onclickon(program main_rb_knots_on)				///	
+	label(resource LBL_NUM_KNOTS)
+  RADIO rb_knotsmat		_ilft2	@	@	., last		///
+    onclickon(program main_rb_knotsmat_on)				///
+	label(resource NPREGRESS_SERIES_MAIN_RB_KNOTSMAT)
+  SPINNER sp_knots	40		_ss	_spwd	.,		///
+	min(0) max(4096) default(0)					///
+	option(knots)							///
+	label(resource MKSPLINE_MAIN_SP_STUB)
+  COMBOBOX cb_knotsmat		_iilft2	@	85	.,		///
+	contents(matrix)						///
+	onselchange(program power_twoway_dim_check)			///
+	dropdown							///
+	option(knotsmat)						///
+	label(resource NPREGRESS_SERIES_MAIN_RB_KNOTSMAT)
+  BUTTON bu_knotsmat		+90 	@	95	.,		///
+	label(resource LBL_INPUT_MATRIX)				///
+	onpush(program show_knots_matrix)				///
+	tooltip(resource LBL_INPUT_GROUP_MEANS_AS_MATRIX_BY_HAND)
+
+  SPINNER sp_distinct		_ilft	_xls	_spwd	.,		///
+	min(3) max(10000000) default(10)				///
+	option(distinct)						///
+	label(resource NPREGRESS_SERIES_MAIN_TX_DISTINCT)
+  TEXT tx_distinct		_spsep	@	400	.,		///
+	label(resource NPREGRESS_SERIES_MAIN_TX_DISTINCT)
+
+  CHECKBOX ck_predict		_ilft	_ls	_ibwd	_ht6,		///
+	groupbox							///
+	onclickon(script main_predict_on)				///
+	onclickoff(script main_predict_off)				///
+	label(resource NPREGRESS_SERIES_MAIN_CK_PREDICT)
+  TEXT tx_predict		_iilft	_ss	_inwd	.,		///
+	label(resource FORECAST_RB_SOLVE_MEAN_PREFIX)
+  EDIT ed_predict		@	_ss	@	.,		///
+	label(resource FORECAST_RB_SOLVE_MEAN_PREFIX)
+  CHECKBOX ck_preplace		@	_ms	@	.,		///
+	option("replace")						///
+	label(resource LBL_REPLACE_VARIABLES_IF_THEY_EXIST)
+	
+  CHECKBOX ck_rescale		_ilft	_xls	_ibwd	_ht6,		///
+	groupbox							///
+	onclickon(script main_rescale_on)				///
+	onclickoff(script main_rescale_off)				///
+	label(resource NPREGRESS_SERIES_MAIN_CK_RESCALE)
+  TEXT tx_rescale		_iilft	_ss	_inwd	.,		///
+	label(resource FORECAST_RB_SOLVE_MEAN_PREFIX)
+  EDIT ed_rescale		@	_ss	@	.,		///
+	label(resource FORECAST_RB_SOLVE_MEAN_PREFIX)
+  CHECKBOX ck_rreplace		@	_ms	@	.,		///
+	option("replace")						///
+	label(resource LBL_REPLACE_VARIABLES_IF_THEY_EXIST)
+END
+
+LIST main_criterion_list
+BEGIN
+	"Cross-validation"
+	"Generalized cross-validation"
+	"Akaike’s information"
+	"Schwarz’s Bayesian information"
+	"Mallows’s Cp"
+END
+
+LIST main_criterion_values
+BEGIN
+	cv
+	gcv
+	aic
+	bic
+	mallows
+END
+
+SCRIPT main_bspline_on
+BEGIN
+	main.ck_order.setlabel resource NPREGRESS_SERIES_MAIN_SELECT_BSPLINE
+	main.sp_bspline.show 
+	main.sp_nspline.hide 
+	main.sp_poly.hide
+	program main_check_knots
+	program main_check_predict
+	program main_check_rescale
+END
+
+SCRIPT main_nspline_on
+BEGIN
+	main.ck_order.setlabel resource NPREGRESS_SERIES_MAIN_SELECT_NSPLINE
+	main.sp_bspline.hide 
+	main.sp_nspline.show 
+	main.sp_poly.hide
+	program main_check_knots
+	program main_check_predict
+	program main_check_rescale
+END
+
+SCRIPT main_ploy_on
+BEGIN
+	main.ck_order.setlabel resource NPREGRESS_SERIES_MAIN_SELECT_POLY
+	main.sp_bspline.hide 
+	main.sp_nspline.hide 
+	main.sp_poly.show 
+	program main_check_knots
+	program main_check_predict
+	program main_check_rescale
+END
+
+PROGRAM main_order_check
+BEGIN
+	if main.ck_order {
+		call main.sp_bspline.enable
+		call main.sp_nspline.enable
+		call main.sp_poly.enable
+		call main.tx_order.enable
+	}
+	else {
+		call main.sp_bspline.disable
+		call main.sp_nspline.disable
+		call main.sp_poly.disable
+		call main.tx_order.disable
+	}
+END
+
+PROGRAM main_knots_on
+BEGIN
+	if main.ck_knots.isenabled() {
+		call main.rb_knots.enable
+		call main.rb_knotsmat.enable
+		if main.rb_knots {
+			call main.sp_knots.enable
+		}
+		if main.rb_knotsmat {
+			call main.cb_knotsmat.enable
+			call main.bu_knotsmat.enable		
+		}
+	}
+	else {
+		call script main_knots_off
+	}
+END
+
+SCRIPT main_knots_off
+BEGIN
+	main.rb_knots.disable
+	main.rb_knotsmat.disable
+	main.sp_knots.disable
+	main.cb_knotsmat.disable
+	main.bu_knotsmat.disable
+END
+
+PROGRAM main_check_knots
+BEGIN
+	if main.rb_bspline | main.rb_nspline {
+		call main.ck_knots.show
+		call main.rb_knots.show
+		call main.rb_knotsmat.show
+		call main.sp_knots.show
+		call main.cb_knotsmat.show
+		call main.bu_knotsmat.show
+		if main.ck_knots {
+			call program main_knots_on
+		}
+		else {
+			call script main_knots_off
+		}
+	}
+	else {
+		call main.ck_knots.hide
+		call main.rb_knots.hide
+		call main.rb_knotsmat.hide
+		call main.sp_knots.hide
+		call main.cb_knotsmat.hide
+		call main.bu_knotsmat.hide
+	}
+END
+
+PROGRAM main_rb_knots_on
+BEGIN
+	if main.ck_knots.isenabled() & main.ck_knots {
+		call main.sp_knots.enable
+		call main.cb_knotsmat.disable
+		call main.bu_knotsmat.disable
+	}
+	else {
+		call main.sp_knots.disable
+	}
+END
+
+PROGRAM main_rb_knotsmat_on
+BEGIN
+	if main.ck_knots.isenabled() & main.ck_knots {
+		call main.sp_knots.disable
+		call main.cb_knotsmat.enable
+		call main.bu_knotsmat.enable
+	}
+	else {
+		call main.cb_knotsmat.disable
+		call main.bu_knotsmat.disable
+	}
+END
+
+PROGRAM show_knots_matrix
+BEGIN
+	call create STRING KnotsMatResult
+	call create CHILD matrix_input AS KnotsMat
+	if ! _rc {
+		call KnotsMat.setExitString KnotsMatResult
+		call KnotsMat.setExitAction "program main_getKnotsMatResult"
+		call KnotsMat.callthru "isChildContext.settrue"
+	}
+END
+
+PROGRAM main_getKnotsMatResult
+BEGIN
+	call main.cb_knotsmat.repopulate
+	call main.cb_knotsmat.setvalue class KnotsMatResult.value
+END
+
+SCRIPT main_predict_on
+BEGIN
+	main.tx_predict.enable
+	main.ed_predict.enable
+	main.ck_preplace.enable
+END
+
+SCRIPT main_predict_off
+BEGIN
+	main.tx_predict.disable
+	main.ed_predict.disable
+	main.ck_preplace.disable
+END
+
+PROGRAM main_check_predict
+BEGIN
+	if main.rb_bspline | main.rb_nspline {
+		call main.ck_predict.show
+		call main.tx_predict.show
+		call main.ed_predict.show
+		call main.ck_preplace.show
+		if main.ck_predict {
+			call program main_predict_on
+		}
+		else {
+			call script main_predict_off
+		}
+	}
+	else {
+		call main.ck_predict.hide
+		call main.tx_predict.hide
+		call main.ed_predict.hide
+		call main.ck_preplace.hide
+	}
+END
+
+SCRIPT main_rescale_on
+BEGIN
+	main.tx_rescale.enable
+	main.ed_rescale.enable
+	main.ck_rreplace.enable
+END
+
+SCRIPT main_rescale_off
+BEGIN
+	main.tx_rescale.disable
+	main.ed_rescale.disable
+	main.ck_rreplace.disable
+END
+
+PROGRAM main_check_rescale
+BEGIN
+	if main.rb_bspline | main.rb_nspline {
+		call main.ck_rescale.show
+		call main.tx_rescale.show
+		call main.ed_rescale.show
+		call main.ck_rreplace.show
+	}
+	else {
+		call main.ck_rescale.hide
+		call main.tx_rescale.hide
+		call main.ed_rescale.hide
+		call main.ck_rreplace.hide
+	}
+END
+
+INCLUDE weights_fi
+INCLUDE byifin
+INCLUDE se
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+	program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2b
+  DEFINE _y _top
+  INCLUDE _sp_level
+  
+  CHECKBOX ck_aequations	_lft	_ls	_iwd		.,	///
+	option(aequations)									///
+	label(resource NPREGRESS_SERIES_RPT_CK_AEQUATIONS)
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+
+PROGRAM rpt_output
+BEGIN
+	optionarg /hidedefault rpt.sp_level
+	option rpt.ck_aequations
+	INCLUDE _report_columns_pr
+	put " " rpt_bu_facvarsResults
+	put " " rpt_bu_fmtcoefResults
+END
+
+DIALOG max, tabtitle(resource LBL_TAB_MAXIMIZATION)
+BEGIN
+  BUTTON   bu_hlp		_xsetbu	_top	_setbuwd	.,	///
+	label(resource LBL_HELP_MAXIMIZE)				///
+	onpush(script max_hlp)
+
+  SPINNER  sp_iter		_lft	_ms	_spwd		.,	///
+	label(resource LBL_MAXIMUM_ITERATIONS) option(iterate)		///
+	min(0) max(16000) default(c(maxiter))
+  TEXT     tx_iter		_spsep	@	145		.,	///
+	label(resource LBL_MAXIMUM_ITERATIONS)
+
+  GROUPBOX gb_ilog		_lft	_ls	_iwd		_ht4,	///
+	label(resource LBL_ITERATION_LOG)
+  DEFINE holdy @y
+
+  RADIO	   rb_log		_indent	_ss	_inwd		.,	///
+	label(resource LBL_SHOW) first option(log)
+  RADIO	   rb_nolog  		@	_ss	@		.,	///
+	label(resource LBL_SUPPRESS) last option(nolog)
+  GROUPBOX gb_tol		_lft	+40	_iwd		_ht3,	///
+	label(resource LBL_CONVERGENCE_TOLERANCE)
+  EDIT     ed_tol		_ilft	_ms	_en7wd		.,	///
+	label(resource LBL_COEFFICIENT_VECTOR) option(tolerance) default(1e-4)
+  TEXT     tx_tol		_en7sep	@	_en7r2b		.,	///
+	label(resource LBL_COEFFICIENT_VECTOR)
+END
+
+SCRIPT max_hlp
+BEGIN
+        view help maximize##|_new
+END
+
+PROGRAM max_output
+BEGIN
+	optionarg /hidedefault max.sp_iter
+	option max.rb_nolog
+	optionarg /hidedefault max.ed_tol
+END
+
+PROGRAM predict_output
+BEGIN
+	require main.ed_predict
+	put main.ed_predict
+	beginoptions
+		option main.ck_preplace
+	endoptions
+END
+
+PROGRAM rescale_output
+BEGIN
+	require main.ed_rescale
+	put main.ed_rescale
+	beginoptions
+		option main.ck_rreplace
+	endoptions
+END
+
+PROGRAM command
+BEGIN
+	put /program by_output " "
+	put "npregress series "
+	varlist main.vn_dv main.vl_iv
+	put " " /program ifin_output
+	put " " /program weights_output
+	beginoptions
+		optionarg /hidedefault main.sp_bspline
+		if main.rb_nspline {
+			if main.sp_nspline.equals(3) {
+				put " splines"
+			}
+			else {
+				optionarg main.sp_nspline
+			}
+		}
+		if main.rb_poly {
+			if main.sp_poly.equals(4) {
+				put " polynomials"
+			}
+			else {
+				optionarg main.sp_poly
+			}
+		}
+		optionarg main.vl_asis
+		optionarg main.vl_nointeract
+  		optionarg /hidedefault main.cb_criterion
+		optionarg /hidedefault main.sp_knots
+		optionarg /hidedefault main.sp_distinct
+		optionarg main.cb_knotsmat
+		if main.ck_predict {
+			put " basis("
+			put /program predict_output
+			put ")"
+		}
+		if main.ck_rescale {
+			put " rescale("
+			put /program rescale_output
+			put ")"
+		}
+		put " " /program se_output
+		put " " /program rpt_output
+		put " " /program max_output
+	endoptions
+END

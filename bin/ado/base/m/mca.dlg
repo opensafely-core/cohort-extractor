@@ -1,0 +1,293 @@
+/*
+  mca.dlg	
+
+*!  VERSION 1.1.1  22mar2017
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_wide
+DEFINE _dlght 380
+INCLUDE header
+
+HELP hlp1, view("help mca")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING crossResult
+	create STRING supCrossResult
+	setscale_hadj resource MCA_DLG_HSCALE
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	if __MESSAGE.iseq("-jca-") {
+		call model.rb_joint.seton
+	}
+END
+
+DIALOG model, tabtitle(resource LBL_TAB_MODEL) 		///
+	title(resource MCA_DLG_TITLE)
+BEGIN
+  TEXT     tx_vars	_lft	_top	_iwd	.,	///
+	label(resource LBL_VARIABLES)
+  VARLIST  vl_vars	@	_ss	_lw140	.,	///
+  	numeric						///
+	label(resource LBL_VARIABLES)
+  BUTTON   bu_cross	_slw140	@	140	.,	///
+	label(resource LBL_ADD_CROSSING_VARIABLES)	///
+	onpush(script show_crossed_dialog)		///
+	tooltip(resource LBL_DEFINE_CROSS_CATEGORICAL_VARIABLE)
+
+  TEXT     tx_svars	_lft	_ls	_iwd	.,	///
+	label(resource MCA_MODEL_TX_SVARS)
+  VARLIST  vl_svars	@	_ss	_lw140	.,	///
+  	numeric						///
+	label(resource MCA_MODEL_VL_SVARS)
+  BUTTON   bu_scross	_slw140	@	140	.,	///
+	label(resource LBL_ADD_CROSSING_VARIABLES)	///
+	onpush(script show_sup_crossed_dialog)		///
+	tooltip(resource MCA_MODEL_BU_SCROSS)
+
+  GROUPBOX gb_method	_lft	+35	_iwd	_ht6,	///
+	label(resource MCA_MODEL_GB_METHOD)
+  RADIO    rb_burt	_ilft	_ss	_ibwd	.,	///
+	first 						///
+	label(resource MCA_MODEL_RB_BURT)		///
+	onclickon(program check_method)
+  RADIO    rb_indicator	@	_ss	@	.,	///
+	label(resource MCA_MODEL_RB_INDICATOR)		///
+	onclickon(program check_method)
+  RADIO    rb_joint	@	_ss	@	.,	///
+	last						///
+	label(resource MCA_MODEL_RB_JOINT)		///
+	onclickon(program check_method)
+
+  SPINNER  sp_dim	_lft	+45	_spwd	.,	///
+	default(2) min(1) max(100) option(dimensions)
+  TEXT     tx_dim	_spsep	@	200	.,	///
+	label(resource LBL_NUMBER_OF_DIMENSIONS)
+
+  GROUPBOX gb_norm	_lft	_ls	_iwd	_ht2,	///
+	label(resource LBL_NORMALIZATION_METHOD)
+  RADIO    rb_standard	_ilft	_ss	_cwd3_1	.,	///
+	first 						///
+	label(resource LBL_STANDARD)
+  RADIO    rb_principal	_lft3_2	@	@	.,	///
+	last						///
+	label(resource MCA_MODEL_RB_PRINCIPAL)
+
+  SPINNER  sp_iter	_lft	+45	_spwd	.,	///
+	default(250) min(1) max(100000) option(iterate)
+  TEXT     tx_iter	_spsep	@	200	.,	///
+	label(resource LBL_MAXIMUM_NUMBER_OF_ITERS)
+
+  EDIT     ed_tol	_lft2	@	_spwd	.,	///
+	option(tolerance) default(1e-5)
+  TEXT     tx_tol	_spsep	@	200	.,	///
+	label(resource MCA_MODEL_TX_TOL)
+
+  CHECKBOX ck_missing	_lft	_ls	_cwd1	.,	///
+	option(missing)					///
+	label(resource LBL_TREAT_MISSING_VALUES_AS_ORDINARY_VALUES)
+
+  CHECKBOX ck_noadjust	_lft2	@	@	.,	///
+	option(noadjust)				///
+	label(resource MCA_MODEL_CK_NOADJUST)
+END
+
+SCRIPT show_crossed_dialog
+BEGIN
+	create CHILD mca_crossed AS spec
+	spec.setExitString crossResult
+	spec.setExitAction "script getCrossResult"
+	
+END
+SCRIPT getCrossResult
+BEGIN
+	crossResult.withvalue model.vl_vars.smartinsert "@"
+END
+
+SCRIPT show_sup_crossed_dialog
+BEGIN
+	create CHILD mca_crossed AS suppSpec
+	suppSpec.setExitString supCrossResult
+	suppSpec.setExitAction "script getSupCrossResult"
+	
+END
+SCRIPT getSupCrossResult
+BEGIN
+	supCrossResult.withvalue model.vl_svars.smartinsert "@"
+END
+
+PROGRAM check_method
+BEGIN
+	if model.rb_burt {
+		call model.ck_noadjust.enable
+	}
+	else {
+		call model.ck_noadjust.disable
+	}
+	
+	if model.rb_joint {
+		call model.sp_iter.enable
+		call model.tx_iter.enable
+		call model.ed_tol.enable
+		call model.tx_tol.enable
+
+		call report.ck_log.enable
+	}
+	else {
+		call model.sp_iter.disable
+		call model.tx_iter.disable
+		call model.ed_tol.disable
+		call model.tx_tol.disable
+
+		call report.ck_log.disable
+	}
+END
+
+INCLUDE byifin
+INCLUDE weights_f
+INCLUDE ca_codes
+
+DIALOG report, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  CHECKBOX ck_ddim		_lft	_top	_iwd	.,		///
+  	onclickon(script ck_ddim_on)					///
+  	onclickoff(script ck_ddim_off)					///
+	label(resource LBL_SPECIFY_NUMBER_SINGULAR_VALUES_DISPLAYED)
+  SPINNER  sp_ddim		+20	_ss	_spwd	.,		///
+	label(resource LBL_SINGULAR_VALUES)				///
+	min(1)								///
+	max(1000)							///
+	default(2)							///
+	option(ddimensions)
+  TEXT     tx_ddim		_spsep	@	_cksprb	.,		///
+	label(resource LBL_SINGULAR_VALUES)
+
+  CHECKBOX ck_points		_lft	_ls	_iwd	.,		///
+  	onclickon(report.vl_points.enable)				///
+  	onclickoff(report.vl_points.disable)				///
+	label(resource MCA_REPORT_CK_POINTS)
+  VARLIST  vl_points		+20	_ss	_vlwd	.,		///
+	label(resource MCA_REPORT_VL_POINTS)				///
+	option(points)
+
+
+  CHECKBOX ck_compact		_lft	_ls	_iwd	.,		///
+	label(resource LBL_DISPLAY_TABLES_IN_COMPACT_FORMAT)		///
+	option(compact)
+
+  CHECKBOX ck_log		@	_ms	@	.,		///
+	label(resource LBL_DISPLAY_AN_ITERATION_LOG) option(log)
+
+  GROUPBOX gb_plotopt		_lft	_ls	_iwd	_ht7,		///
+	label(resource LBL_PLOT_OPTIONS)
+  CHECKBOX ck_plot		_ilft	_ss	_ibwd	.,		///
+	label(resource LBL_PLOT_ROW_COLUMN_COORDINATES)			///
+	onclickon(program ck_maxlength_on)				///
+	onclickoff(program ck_maxlength_off)				///
+	option(plot)
+  CHECKBOX ck_maxlength		@	_ms	_ckwd	.,		///
+	label("")							///
+	onclickon(report.sp_maxlength.enable)				///
+	onclickoff(report.sp_maxlength.disable)
+  SPINNER  sp_maxlength		_cksep	@	_spwd	.,		///
+	label(resource LBL_NUMBER_OF_CHARACTERS)					///
+	min(1)								///
+	max(32)								///
+	default(12)							///
+	option(maxlength)
+  TEXT     tx_maxlength		_spsep	@	_cksprb	.,		///
+	label(resource LBL_NUMBER_PLOTTED_ROW_COLUMN_LAB_CHARACTERS)
+  TEXT     tx_note		_ilft	_ms	_irj40	.,		///
+	label(resource MCA_REPORT_TX_NOTE)
+  BUTTON   bu_mcaplot		_irj20	@	20	.,		///
+	label("..") onpush(view dialog mcaplot)				///
+	tooltip(resource MCA_REPORT_BU_MCAPLOT)
+END
+
+SCRIPT ck_ddim_on
+BEGIN
+	report.sp_ddim.enable
+	report.tx_ddim.enable
+END
+
+SCRIPT ck_ddim_off
+BEGIN
+	report.sp_ddim.disable
+	report.tx_ddim.disable
+END
+
+PROGRAM ck_maxlength_on
+BEGIN
+	call report.ck_maxlength.enable
+	call report.tx_maxlength.enable
+	if report.ck_maxlength {
+		call report.sp_maxlength.enable
+	}
+END
+
+PROGRAM ck_maxlength_off
+BEGIN
+	call report.ck_maxlength.disable
+	call report.tx_maxlength.disable
+	if report.ck_maxlength {
+		call report.sp_maxlength.disable
+	}
+END
+
+PROGRAM svar_output
+BEGIN
+	put model.vl_svars
+END
+
+PROGRAM command
+BEGIN
+	put /program by_output " "
+	put "mca "
+	varlist model.vl_vars
+	put " " /program ifin_output
+	put " " /program weights_output
+	beginoptions
+		if model.vl_svars {
+			put " supplementary(
+			put /program svar_output
+			put ")"
+		}
+		if model.rb_indicator {
+			put " method(indicator)"
+		}
+		if model.rb_joint {
+			put " method(joint)"
+		}
+		if model.rb_principal {
+			put " normalize(principal)"
+		}
+		optionarg /hidedefault model.sp_dim
+		option model.ck_missing
+		option model.ck_noadjust
+		optionarg /hidedefault model.sp_iter
+		optionarg /hidedefault model.ed_tol
+
+		put " " /program ca_codes_output
+
+		if report.ck_points {
+			require report.vl_points
+			optionarg report.vl_points
+		}
+		if report.ck_ddim {
+			optionarg report.sp_ddim
+		}
+		option report.ck_compact
+
+		option report.ck_log
+		option report.ck_plot
+		if report.ck_maxlength {
+			optionarg /hidedefault report.sp_maxlength
+		}
+	endoptions
+END

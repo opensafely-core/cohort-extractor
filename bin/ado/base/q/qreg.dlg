@@ -1,0 +1,326 @@
+/*
+  qreg
+
+*!  VERSION 1.1.2  13oct2015
+
+  keyword:  eclass
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+INCLUDE header
+DEFINE _ht30h 335
+HELP hlp1, view("help qreg")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	program parseMessage
+	setscale_hadj resource QREG_DLG_HSCALE
+END
+
+PROGRAM parseMessage
+BEGIN
+	if __MESSAGE.contains("__MI__") {
+		call script byifin_set_by_off
+	}
+END
+
+DIALOG   main,  label(resource QREG_DLG_TITLE)                     	///
+        tabtitle(resource LBL_TAB_MODEL)
+BEGIN
+  TEXT tx_dv			_lft	_top	_vnwd	.,		///
+	label(resource LBL_DEPVAR)
+  VARNAME vn_dv			@	_ss	@	.,		///
+	numeric								///
+	label(resource LBL_DEPVAR)
+
+  TEXT tx_iv			_vlx	_top	160	.,		///
+	label(resource LBL_INDDEPVAR)
+  VARLIST vl_iv			@	_ss	_vlwd	.,		///
+	numeric fv							///
+	allowcat							///
+	label(resource LBL_INDDEPVAR)
+
+  SPINNER sp_quantile		_lft	_xls	_spwd	.,		///
+	min(1)								///
+	max(100)							///
+	default(50)							///
+	option("quantile")						///
+	label(resource LBL_QUANTILE_TO_ESTIMATE)
+
+  TEXT tx_quantile		_spsep	@	_spr	.,		///
+	label(resource LBL_QUANTILE_TO_ESTIMATE)
+END
+
+INCLUDE byifin
+INCLUDE weights_fpi
+
+DIALOG se, tabtitle(resource SE_TITLE_SE_ROBUST)
+BEGIN
+  TEXT tx_vcetype		_lft	_top	_cwd1	.,		///
+	label(resource SE_TX_TYPE)
+  DEFINE holdy @y
+  COMBOBOX cb_vcetype		@	_ss	_cwd1	.,		///
+	dropdownlist							///
+	contents(se_vcetype_list)					///
+	values(se_vcetype_values)					///
+	onselchange(program se_vcetype_change)				///
+	label(resource SE_TX_TYPE)
+
+  GROUPBOX gb_nonpar		_lft	_ls	_iwd	_ht9h,		///
+	label(resource QREG_SE_GB_NONPAR)
+  TEXT tx_denmethod		_ilft	_ss	280	.,		///
+	label(resource QREG_SE_TX_DENMETHOD)
+  COMBOBOX cb_denmethod		@	_ss	@	.,		///
+	dropdownlist							///
+	contents(se_denmethod_list)					///
+	values(se_denmethod_values)					///
+	onselchange(program se_denmethod_change)			///
+	label(resource QREG_SE_TX_DENMETHOD)
+  TEXT tx_kernel		@	_ls	_cwd1	.,		///
+	label(resource LBL_KERNEL_FUNCTION)
+  COMBOBOX cb_kernel		@	_ss	@	.,		///
+	dropdownlist							///
+	contents(se_kernel_list)					///
+	values(se_kernel_values)					///
+	label(resource LBL_KERNEL_FUNCTION)
+
+  TEXT tx_bwidth		_lft	+45	_cwd1	.,		///
+	label(resource QREG_SE_TX_BWIDTH)
+  COMBOBOX cb_bwidth		@	_ss	@	.,		///
+	dropdownlist							///
+	contents(se_bwidth_list)					///
+	values(se_bwidth_values)					///
+	label(resource QREG_SE_TX_BWIDTH)
+
+END
+
+LIST se_vcetype_list
+BEGIN
+	resource QREG_SE_LIST_VCETYPE_IID
+	resource LBL_ROBUST
+END
+
+LIST se_vcetype_values
+BEGIN
+	iid
+	robust
+END
+
+PROGRAM se_vcetype_change
+BEGIN
+	if se.cb_vcetype.iseq("iid") {
+		call se.cb_denmethod.setcontentslist "se_denmethod1_list"
+		call se.cb_denmethod.setvalueslist "se_denmethod1_values"
+		call se.cb_denmethod.repopulate	
+	}
+	else {
+		call se.cb_denmethod.setcontentslist "se_denmethod2_list"
+		call se.cb_denmethod.setvalueslist "se_denmethod2_values"
+		call se.cb_denmethod.repopulate	
+	}
+END
+
+LIST se_denmethod1_list
+BEGIN
+	resource QREG_SE_LIST_DENMETHOD_FITTED
+	resource QREG_SE_LIST_DENMETHOD_RESIDUAL
+	resource QREG_SE_LIST_DENMETHOD_KERNEL
+END
+
+LIST se_denmethod1_values
+BEGIN
+	fitted
+	residual
+	kernel
+END
+
+LIST se_denmethod2_list
+BEGIN
+	resource QREG_SE_LIST_DENMETHOD_FITTED
+END
+
+LIST se_denmethod2_values
+BEGIN
+	fitted
+END
+
+PROGRAM se_denmethod_change
+BEGIN
+	if se.cb_denmethod.iseq("kernel") {
+		call se.tx_kernel.show
+		call se.cb_kernel.show
+	}
+	else {
+		call se.tx_kernel.hide
+		call se.cb_kernel.hide
+	}
+END
+
+LIST se_kernel_list
+BEGIN
+	resource LBL_EPANECHNIKOV
+	resource LBL_ALTERNATIVE_EPANECHNIKOV
+	resource LBL_BIWEIGHT
+	resource LBL_COSINE_TRACE
+	resource LBL_GAUSSIAN
+	resource LBL_PARZEN
+	resource LBL_RECTANGLE
+	resource LBL_TRIANGLE
+END
+
+LIST se_kernel_values
+BEGIN
+	epanechnikov
+	epan2
+	biweight
+	cosine
+	gaussian
+	parzen
+	rectangle
+	triangle
+END
+
+LIST se_bwidth_list
+BEGIN
+	resource QREG_HALL_SHEATHER
+	resource QREG_BOFINGER
+	resource QREG_CHAMBERLAIN
+END
+
+LIST se_bwidth_values
+BEGIN
+	hsheather
+	bofinger
+	chamberlain
+END
+
+PROGRAM se_output
+BEGIN
+	if se.cb_denmethod.isneq("fitted") |				///
+		se.cb_bwidth.isneq("hsheather") | 			///
+		se.cb_vcetype.isneq("iid") {
+		put "vce("
+		put se.cb_vcetype 
+		if se.cb_denmethod.isneq("fitted") | 			///
+			se.cb_bwidth.isneq("hsheather") {
+			put ", "
+		}
+
+		if se.cb_denmethod.isneq("fitted") {
+			if se.cb_denmethod.iseq("kernel") &		///
+				se.cb_kernel.isneq("epanechnikov") {
+				put "kernel("
+				put se.cb_kernel
+				put ")"
+			}
+			else {
+				put se.cb_denmethod
+			}
+		}
+		if se.cb_bwidth.isneq("hsheather") {
+			if se.cb_denmethod.isneq("fitted") {
+				put " " se.cb_bwidth
+			}
+			else {
+				put se.cb_bwidth
+			}
+		}
+		put ")"
+	}
+END
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+	program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x  _lft
+  DEFINE _cx _sprb
+  DEFINE _y  _top
+  INCLUDE _sp_level
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE factor_vars_reporting_pr
+INCLUDE fmt_coef_table_reporting_pr
+
+PROGRAM rpt_output
+BEGIN
+	optionarg /hidedefault rpt.sp_level
+	INCLUDE _report_columns_pr
+	put " " rpt_bu_facvarsResults
+	put " " rpt_bu_fmtcoefResults
+END
+
+DIALOG maxop, tabtitle(resource LBL_TAB_OPTIMIZATION)
+BEGIN
+  SPINNER sp_iterate		_lft	_top	_spwd	.,		///
+		min(1)							///
+		max(16000)						///
+		default(c(maxiter))					///
+		option("iterate")					///
+		label(resource LBL_MAXIMUM_ITERATIONS)
+  DEFINE holdx @x
+  TEXT tx_iterate		_spsep	@	_sprb	.,		///
+		label(resource LBL_MAXIMUM_ITERATIONS)
+  SPINNER sp_wlsiter		holdx	_ls	_spwd	.,		///
+		min(1)							///
+		max(100)						///
+		default(1)						///
+		option("wlsiter")					///
+		label(resource QREG_MAXOP_SP_WLSITER)
+  TEXT tx_wlsiter		_spsep	@	_spr	.,		///
+		label(resource QREG_MAXOP_TX_WLSITER)
+  TEXT tx_wlster2		@	_vss	@	.,		///
+		label(resource QREG_MAXOP_TX_WLSITER2)
+  GROUPBOX gb_iterate		_lft	_ls	_iwd	_ht6,		///
+		label(resource LBL_ITERATION_LOG)
+  RADIO rb_normal		_ilft	_ss	_inwd	.,		///
+		option(NONE) first					///
+		label(resource LBL_SHOW_LOG)
+  RADIO rb_trace		@	_ss	@	.,		///
+		option("trace")						///
+		label(resource QREG_MAXOP_RB_TRACE)
+  RADIO rb_nolog		@	_ss	@	.,		///
+		option("nolog") last					///
+		label(resource LBL_SUPPRESS_THE_ITERATION_LOG)
+END
+
+PROGRAM command
+BEGIN
+	put /program by_output " "
+	put "qreg "
+	varlist main.vn_dv [main.vl_iv]
+	put " " /program ifin_output
+	put " " /program weights_output
+	beginoptions
+		optionarg main.sp_quantile
+		optionarg /hidedefault maxop.sp_iterate
+		optionarg /hidedefault maxop.sp_wlsiter
+		option radio(maxop rb_normal rb_nolog rb_trace)
+		put " " /program se_output
+		put " " /program rpt_output
+	endoptions
+END
+

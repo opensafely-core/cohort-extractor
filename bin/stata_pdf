@@ -1,0 +1,134 @@
+
+# DO NOT REMOVE THE BLANK LINE ABOVE ...
+# that blank line ensures this script is executed by sh(1).
+#
+#
+# Stata component stata_pdf
+# version 2.0.1
+# 01may2019
+#
+# DESCRIPTION
+#
+#    When a user of Stata for Unix clicks on a link to PDF Stata documentation,
+#    by default, Stata executes one of
+#       STATADIR/stata_pdf                        "<path/file-to-manual.pdf>"
+#       STATADIR/stata_pdf -page    <#>           "<path/file-to-manual.pdf>"
+#       STATADIR/stata_pdf -section <sectionname> "<path/file-to-manual.pdf>"
+#    to load the specified manual or to load it optionally opened to a
+#    specified page number or section name.  STATADIR is assumed to be the
+#    directory where Stata is installed, such as /usr/local/stata.  E.g.,
+#    if the user clicked on a #    {mansection R regress} link Stata would
+#    execute the Unix command 
+#
+#       STATADIR/stata_pdf -section rregress "STATADIR/utilities/r.pdf"
+#
+#    with STATADIR being "/usr/local/stata" or wherever Stata is installed.
+#
+#    stata_pdf is responsible for locating and launching the PDF viewer.
+#
+#
+#
+#  ALTERNATIVES TO STATA_PDF
+#  -------------------------
+#
+#    stata_pdf is known to work with Gnome Evince, Adobe Acrobat Reader,
+#    and may be sufficient for working with other PDF viewers.
+#
+#    Users of Stata may substitute a different script for launching the 
+#    PDF viewer by modifying this script.  In this case, we strongly
+#    recommend making a backup copy of stata_pdf before modifying it.
+#    Contact Stata Technical Support before modifying this script if
+#    you have any questions.
+#
+#
+# UNIX ENVIRONMENT VARIABLES USED BY THIS SCRIPT
+#
+#            environment     default if 
+#            variable        not defined        meaning
+#            ---------------------------------------------------------------
+#            $PDFVIEWER      "evince"          command to launch PDF viewer
+#
+#    The script below also assumes that if a viewer other than evince or
+#    acroread is being used, the commands
+#
+#            $PDFVIEWER                            "<path/file.pdf>"
+#            $PDFVIEWER /a page=<#>                "<path/file.pdf>"
+#            $PDFVIEWER /a nameddest=<sectionname> "<path/file.pdf>"
+#
+#    are sufficient to direct the PDF viewer to open a PDF file, to open
+#    a PDF file to a specified page number, or to open a PDF file to a
+#    specified section name.
+
+case "$PDFVIEWER" in 
+
+"evince"|"")
+	cmd="evince"
+	version="`$cmd --version | awk '{print substr($NF,1,1)}'`" 
+	if [[ "$version" -gt "2" ]]
+	then
+		case "$1" in
+		"-page")	pagenum=$2
+				fname=$3
+				wharg="-p $pagenum"
+				;;
+		"-section")	section=$2
+				fname=$3
+				wharg="-n $section"
+				;;
+		*)		fname="$1"
+				wharg=""
+				;;
+		esac
+	else
+		case "$1" in
+		"-page")	pagenum=$2
+				fname=$3
+				wharg="-p $pagenum"
+				;;
+		"-section")	section=$2
+				fname=$3
+				wharg=""
+				;;
+		*)		fname="$1"
+				wharg=""
+				;;
+		esac
+	fi
+	;;
+
+"acroread")	
+	cmd="acroread"
+	case "$1" in
+	"-page")	pagenum=$2
+			fname=$3
+			wharg="/a page=$pagenum"
+			;;
+	"-section")	section=$2
+			fname=$3
+			wharg="/a nameddest=$section"
+			;;
+	*)		fname="$1"
+			wharg=""
+			;;
+	esac
+	;;
+
+*)	cmd="$PDFVIEWER"
+	case "$1" in
+	"-page")	pagenum=$2
+			fname=$3
+			wharg="/a page=$pagenum"
+			;;
+	"-section")	section=$2
+			fname=$3
+			wharg="/a nameddest=$section"
+			;;
+	*)		fname="$1"
+			wharg=""
+			;;
+	esac
+	;;
+esac
+
+exec $cmd $wharg "$fname" > /dev/null 2>&1
+

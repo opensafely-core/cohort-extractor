@@ -1,0 +1,72 @@
+/*
+	predict (after ca)
+
+*!  VERSION 1.1.0  16sep2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+INCLUDE header
+
+HELP hlp1, view("help ca postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource CA_P_DLG_HSCALE
+END
+
+
+DIALOG main, label(resource PREDICT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_var		_lft	_top	_vnwd	.,		///
+	label(resource LBL_NEW_VARIABLES)
+  EDIT     ed_var		@	_ss	@	.,		///
+	label(resource LBL_NEW_VARIABLES) max(32)
+
+  DEFINE _x  _lft2
+  DEFINE _y  _top
+  DEFINE _cx _cwd1
+  INCLUDE _type
+
+  GROUPBOX gb_produce		_lft	_ls	_iwd	_ht11,		///
+	label(resource LBL_PRODUCE)
+  RADIO    rb_fit		_ilft	_ss	_ibwd	.,	first	///
+	option(fit) label(resource LBL_FITTED_VALUES)
+  RADIO    rb_rowscore		@	_ms	@	.,		///
+  	onclickon(main.en_rowscore.enable)				///
+  	onclickoff(main.en_rowscore.disable)				///
+	label(resource CA_P_MAIN_RB_ROWSCORE)
+  EDIT     en_rowscore	       _indent2	_ss	_en7wd	.,		///
+	option(rowscore) label(resource CA_P_MAIN_RB_ROWSCORE)
+  RADIO    rb_colscore		_ilft	_ms	_ibwd	.,	last	///
+  	onclickon(main.en_colscore.enable)				///
+  	onclickoff(main.en_colscore.disable)				///
+	label(resource CA_P_MAIN_RB_COLSCORE)
+  EDIT     en_colscore	       _indent2	_ss	_en7wd	.,		///
+	option(colscore) label(resource CA_P_MAIN_RB_COLSCORE)
+END
+
+INCLUDE _p_gentype_sc
+INCLUDE ifin
+INCLUDE _type_list_all
+
+PROGRAM command
+BEGIN
+	put "predict "
+	put " " /program _p_gentype_output
+	INCLUDE _ifin_pr
+	beginoptions
+		option main.rb_fit
+		if main.rb_rowscore {
+			require main.en_rowscore
+			optionarg main.en_rowscore
+		}
+		if main.rb_colscore {
+			require main.en_colscore
+			optionarg main.en_colscore
+		}
+	endoptions
+END

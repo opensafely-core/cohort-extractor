@@ -1,0 +1,100 @@
+/*
+  irt_graph_iif_build_sub
+
+*!  VERSION 1.1.2  01dec2019
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+DEFINE _dlght 120
+INCLUDE header
+
+HELP hlp1, view("help irtgraph iif")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING	LinePropResults
+	create STRING 	parent_name
+	create STRING 	items_edit
+	setscale_hadj resource IRT_GRAPH_IIF_BUILD_SUB_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program check_edit
+END
+
+PROGRAM check_edit
+BEGIN
+	call create STRING itemTmp
+	call parent_name.setvalue class PARENT._dlg_rsrcname
+	call parent_name.withvalue items_edit.setvalue			///
+		class @.selItemsEdit.value
+	if items_edit.iseq("1") {
+		call parent_name.withvalue itemTmp.setvalue		///
+			class @.selItems.value
+		call main.cb_eitem.setvalue ""
+		call itemTmp.withvalue main.cb_eitem.smartinsert	///
+			"@"
+	}
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)				///
+	label(resource IRT_GRAPH_IIF_BUILD_SUB_DLG_TITLE)
+BEGIN	
+  TEXT	tx_eitem		_lft	_top	_iwd	.,		///
+	label(resource IRT_ITEMS)
+  COMBOBOX cb_eitem		@	_ss	@	.,		///
+	dropdown							///
+	append								///
+	contents(e(item_list))						///
+	label(resource IRT_ITEMS)
+	
+  BUTTON   btn_lineprop		_lft	+30	_en14wd	.,		///
+	onpush(program main_lineprop)					///
+	label(resource LBL_GB_LINE_PROPERTIES)
+END
+
+PROGRAM main_lineprop
+BEGIN
+	call create CHILD gr_line_options AS LinePropDlg
+	if ! _rc {
+		call LinePropDlg.setExitString LinePropResults
+		call LinePropDlg.setExitAction "program graph_get_LinePropResults"
+	}
+END
+
+PROGRAM graph_get_LinePropResults
+BEGIN
+	if LinePropResults {
+		call main.btn_lineprop.modified_on
+	}
+	else {
+		call main.btn_lineprop.modified_off
+	}
+END
+
+PROGRAM main_iif_build_output
+BEGIN
+	require main.cb_eitem
+	varlist main.cb_eitem
+	beginoptions
+		if LinePropResults {
+			put " " LinePropResults
+		}
+	endoptions
+END
+
+PROGRAM	command
+BEGIN
+	call main.cb_eitem.withvalue PARENT.callthru		///
+		`"selItems.setvalue `"@"'"'
+		
+	put "("
+	put /program main_iif_build_output
+	put ")"
+	
+END

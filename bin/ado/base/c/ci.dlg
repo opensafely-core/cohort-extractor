@@ -1,0 +1,271 @@
+/*
+  ci.dlg
+
+*! VERSION 1.2.3  14oct2015
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 430
+INCLUDE header
+HELP hlp1, view("help ci")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource CI_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program type_change
+END
+
+
+DIALOG main, label(resource CI_DLG_TITLE)				///
+  tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  GROUPBOX gb_type		_lft	_top	_iwd	_ht7h,		///
+	label(resource LBL_CONFIDENCE_INTERVALS)
+  RADIO rb_mean			_ilft	_ss	_inwd	., first	///
+	onclickon(program main_type_changed)				///
+	label(resource LBL_MEANS)
+  RADIO rb_prop			@	_ss	@	.,		///
+	onclickon(program main_type_changed)				///
+	label(resource LBL_PROPORTIONS)
+  RADIO rb_var			@	_ss	@	., 		///
+	onclickon(program main_type_changed)				///
+	label(resource LBL_VARIANCES_NO_COLON)
+  RADIO rb_sd			@	_ss	@	., last		///
+	onclickon(program main_type_changed)				///
+	label(resource LBL_STANDARD_DEVIATIONS)
+
+  TEXT tx_var			_lft	+45	_iwd	.,		///
+	label(resource LBL_VARIABLES_LEAVE_EMPTY_FOR_ALL_VARIABLES)
+  VARLIST vl_var		@	_ss	@	.,		///
+	numeric								///
+	label(resource LBL_GB_VARIABLES)
+
+  GROUPBOX gb_option		_lft	_ls	_iwd	_ht26h,		///
+	label(resource LBL_OPTIONS)
+
+  GROUPBOX gb_cmd_opt		_ilft	_ss	_inwd	_ht9h,		///
+	label(resource LBL_CONFIDENCE_INTERVAL_TYPE)
+/*---------------------------Mean----------------------------------------*/
+  RADIO rb_normal		_iilft	_ss	_iibwd	., first	///
+	option(normal)							///
+	label(resource LBL_NORMAL)
+  DEFINE holdy @y
+  RADIO rb_poisson		@	_ss	@	.,		///
+	option(poisson)							///
+	label(resource CI_MAIN_RB_POISSON)
+  RADIO rb_poisson_expo		@	_ss	@	., last		///
+	option(poisson)							///
+	onclickon("main.vn_expos.enable")				///
+	onclickoff("main.vn_expos.disable")				///
+	label(resource CI_MAIN_RB_POISSON_EXPO)
+  VARNAME vn_expos		_indent2 _ss	_vnwd	.,		///
+	numeric								///
+	option(poisson exposure)					///
+	label(resource CI_MAIN_VN_EXPOS)
+  TEXT tx_expos			_vnsep	@	_vnwd	.,		///
+	label(resource CI_MAIN_VN_EXPOS)
+/*---------------------------Prop----------------------------------------*/
+
+  RADIO rb_exact		_iilft	holdy	_iibwd	., first	///
+	option(exact)							///
+	label(resource LBL_EXACT_CLOPPER_PEARSON)
+  RADIO rb_wald			@	_ss	@	.,		///
+	option(wald)							///
+	label(resource LBL_WALD)
+  RADIO rb_wilson		@	_ss	@	.,		///
+	option(wilson)							///
+	label(resource LBL_WILSON)
+  RADIO rb_agresti		@	_ss	@	.,		///
+	option(agresti)							///
+	label(resource LBL_AGRESTI_COULL)
+  RADIO rb_jeffreys		@	_ss	@	., last		///
+	option(jeffreys)						///
+	label(resource LBL_JEFFREYS)
+/*---------------------------Var-----------------------------------------*/
+  RADIO rb_normal_sd		@	holdy	@	., first	///
+	label(resource LBL_NORMAL)
+  RADIO rb_bonett		@	_ss	@	., last		///
+	option(bonett)							///
+	label(resource LBL_BONETT)
+
+/*---------------------------Global-----------------------------------------*/
+  DEFINE _x _ilft
+  DEFINE _y _ls
+  DEFINE _cx _sprb
+  
+  INCLUDE _sp_level
+
+  SPINNER sp_sep		_ilft	_ls	_spwd	.,		///
+	option(separator)						///
+	min(0)								///
+	max(10000)							///
+	default(5)
+  TEXT tx_sep			_spsep	@	_sprb	.,		///
+	label(resource LBL_SEPARATOR_LINE_EVERY_N_VARIABLES_0_NONE)
+  CHECKBOX ck_total		_ilft	_ls	_ibwd	.,		///
+	option(total)							///
+	label(resource CI_MAIN_CK_TOTAL)
+END
+
+INCLUDE byifin
+INCLUDE weights_fa
+
+PROGRAM main_type_changed
+BEGIN
+	call script hide_all
+	if main.rb_mean {
+		call script mean_on
+	}
+	if main.rb_prop {
+		call script prop_on
+	}
+	if main.rb_var {
+		call script var_on
+	}
+	if main.rb_sd {
+		call script sd_on
+	}
+END
+
+SCRIPT hide_all
+BEGIN
+	main.rb_normal.hide
+	main.rb_poisson.hide
+	main.rb_poisson_expo.hide
+	main.vn_expos.hide
+	main.tx_expos.hide
+	
+	main.rb_exact.hide
+	main.rb_wald.hide
+	main.rb_wilson.hide
+	main.rb_agresti.hide
+	main.rb_jeffreys.hide
+
+	main.rb_normal_sd.hide
+	main.rb_bonett.hide
+END
+
+SCRIPT mean_on
+BEGIN
+	main.rb_normal.show
+	main.rb_poisson.show
+	main.rb_poisson_expo.show
+	main.vn_expos.show
+	main.tx_expos.show
+	main.gb_option.setposition . . . 230
+	main.gb_cmd_opt.setposition . . . 110
+	main.tx_level.setposition . 340
+	main.sp_level.setposition . 340
+	main.sp_sep.setposition . 365
+	main.tx_sep.setposition . 365
+	main.ck_total.setposition . 390
+	script weights_setLayout_fa
+END
+
+SCRIPT prop_on
+BEGIN
+	main.rb_exact.show
+	main.rb_wald.show
+	main.rb_wilson.show
+	main.rb_agresti.show
+	main.rb_jeffreys.show
+	main.gb_option.setposition . . . 235
+	main.gb_cmd_opt.setposition . . . 125
+	main.tx_level.setposition . 345
+	main.sp_level.setposition . 345
+	main.sp_sep.setposition . 370
+	main.tx_sep.setposition . 370
+	main.ck_total.setposition . 395
+	script weights_setLayout_f
+END
+
+SCRIPT var_on
+BEGIN
+	main.rb_normal_sd.show
+	main.rb_bonett.show
+	main.gb_option.setposition . . . 185
+	main.gb_cmd_opt.setposition . . . 65
+	main.tx_level.setposition . 290
+	main.sp_level.setposition . 290
+	main.sp_sep.setposition . 315
+	main.tx_sep.setposition . 315
+	main.ck_total.setposition . 340
+	script weights_setLayout_f
+END
+
+SCRIPT sd_on
+BEGIN
+	main.rb_normal_sd.show
+	main.rb_bonett.show
+	main.gb_option.setposition . . . 185
+	main.gb_cmd_opt.setposition . . . 65
+	main.tx_level.setposition . 290
+	main.sp_level.setposition . 290
+	main.sp_sep.setposition . 315
+	main.tx_sep.setposition . 315
+	main.ck_total.setposition . 340
+	script weights_setLayout_f
+END
+
+PROGRAM command
+BEGIN
+	put /program by_output " "
+	put "ci "
+	if main.rb_mean {
+		put "means "
+	}
+	if main.rb_prop {
+		put "proportions "
+	}
+	if main.rb_var {
+		put "variance "
+	}
+	if main.rb_sd {
+		put "variance "
+	}
+	varlist [main.vl_var]
+	put " " /program weights_output
+	put " " /program ifin_output
+	beginoptions
+		if main.rb_mean {
+			option main.rb_poisson
+			if main.rb_poisson_expo {
+				require main.vn_expos
+				optionarg main.vn_expos
+			}
+		}
+		if main.rb_prop {
+			option main.rb_exact
+			option main.rb_wald
+			option main.rb_wilson
+			option main.rb_agresti
+			option main.rb_jeffreys
+		}
+		if main.rb_var {
+			option main.rb_bonett
+		}
+		if main.rb_sd {
+			put " sd"
+			option main.rb_bonett
+		}
+		
+		if !sub.ck_by & main.ck_total {
+			call create STRING _MSG_TMP
+                        call _MSG_TMP.format "resource CI_MSGBOX_ADD_OUTPUT_FOR_ALL_GROUPS_FMT" "resource LBL_TAB_MAIN" "resource LBL_BY_IF_IN"
+// `"On the "Main" tab, "Add output for all groups combined""' ///
+//`"requires "Repeat command by groups" on the "by/if/in" tab to be used."'
+			stopbox stop "class _MSG_TMP.value"
+		}
+		INCLUDE _level_main_pr
+		optionarg /hidedefault main.sp_sep
+		option main.ck_total
+	endoptions
+END

@@ -1,0 +1,1238 @@
+*! version 2.0.4  28mar2019
+
+version 14
+
+class _altcovmatrix {
+	instance:
+		string correlation
+		string cormattype
+		string stddev
+		string stdmattype
+		double full = 0
+		double structural = 0
+		array  anc
+		/* variance scale			*/
+		double vscale = 0
+		double kalt = 0
+		double kstd = 0
+		double kcor = 0
+		double freeparm = 0
+
+		/* covariance structure			*/
+		_matrix structure
+		/* fixed covariance parameters		*/
+		_matrix fixed
+		/* permutation vector			*/
+		_matrix order
+		/* convert (var,rho) to vech(cov)	*/
+		_matrix T
+		/* standard deviation estimates		*/
+		_matrix std
+		/* correlation estimates		*/
+		_matrix rho
+}, inherit(_matrix)
+
+program .new
+
+	if ("`0'"=="") exit
+
+	._set `0'
+end
+
+program ._set, rclass
+	syntax, nalt(integer) [ CORRelation(string) STDdev(string) ///
+		STRUCtural base(integer 0) scale(integer 0) FREEParm]
+
+	.stdmattype = ""
+	.cormattype = ""
+
+	if (`base' == 0) local base = .
+	if (`scale' == 0) local scale = .
+	.kalt = `nalt'
+	.full = 0
+	local gencorstr = 1
+	local cholesky = 0
+	.structural = ("`structural'"!="")
+	.vscale = 1
+	local lstd = length("`stddev'")
+	if "`stddev'"=="" | ///
+		"`stddev'"==bsubstr("heteroskedastic",1,max(3,`lstd')) {
+		.stddev = "heter"
+	}
+	else if "`stddev'" == "probit" {
+		/* undocumented */
+		.vscale = .5
+		.stddev = "heter"
+	}
+	else if "`stddev'" == bsubstr("homoskedastic",1,max(3,`lstd')) {
+		.stddev = "homo"
+		.structural = 1
+	}
+	else if "`stddev'" != "" {
+		._matrixname `stddev', type(stddev)
+		.stddev = "`r(name)'"
+		.stdmattype = "`r(matspec)'"
+		.structural = 1
+	}
+	local lcor = length("`correlation'")
+	if "`correlation'"=="" | ///
+		"`correlation'"==bsubstr("unstructured",1,max(3,`lcor')) {
+		.correlation = "unstruct"
+		.full = ("`.stddev'"=="heter")
+		local cholesky = `.full'
+		if (!`.structural') .structural = !`cholesky'
+	}
+	else if "`correlation'" == bsubstr("independent",1,max(3,`lcor')) {
+		.correlation = "indep"
+		.structural = 1
+	}
+	else if "`correlation'" == bsubstr("exchangeable",1,max(3,`lcor')) {
+		.correlation = "exch" 
+		.structural = 1
+	}
+	else {
+		._matrixname `correlation', type(correlation)
+		mat `.structure.name' = `r(name)'
+		.cormattype = "`r(matspec)'"
+
+		local gencorstr = 0
+		.structural = 1
+		/* save the name of the original matrix */
+		local cormat = "`r(name)'"
+		.correlation = "user"
+	}
+	if `.structural' & "`stddev'"=="probit" {
+		di as err "{p}{bf:stddev(probit)} may not be used with the " ///
+		"structural covariance parameterization{p_end}"
+		exit 198
+	}
+	
+	if `gencorstr' {
+		._corstruct `base' `scale'    
+	}
+	else {
+		._validatecorstruct "`cormat'" `base' `scale' 
+	}
+	if `.kstd'+`.kcor' == 0 { 
+		local cholesky = 0
+		.structural = 1
+	}
+	if "`freeparm'" != "" {
+		.set_freeparm, on
+	}
+	else {
+		.set_freeparm, off
+	}
+
+	return add
+	return local cholesky = `cholesky'
+end
+
+program .set_freeparm
+	syntax, [ on off ]
+
+	if "`on'" != "" {
+		.freeparm = 1
+	}
+	else {
+		.freeparm = 0
+	}
+end
+
+program ._matrixname, rclass
+	cap syntax namelist(min=1 max=2), type(string) 
+
+	if _rc > 0 {
+		di as err "correlation() or stddev() incorrectly specified"
+		exit 198
+	}
+
+	gettoken spec name : namelist
+
+	local lspec = length("`spec'")
+	if "`spec'" == bsubstr("pattern",1,max(3,`lspec')) {
+		return local matspec pattern
+	}
+	else if "`spec'" == bsubstr("fixed",1,max(3,`lspec')) {
+		return local matspec fixed
+	}
+	else if "`type'" == "correlation" {
+		di as err "{p}{bf:correlation()} must specify either "     ///
+		 "{bf:independent}, {bf:exchangeable}, {bf:unstructured} " ///
+		 "(default), or a matrix specifying the correlation "      ///
+		 "pattern or fixed parameters{p_end}" 
+		exit 198
+	}
+	else {
+		di as err "{p}{bf:stddev()} must specify either "         ///
+		 "{bf:heteroskedastic}, {bf:homoskedastic}, or a matrix " ///
+		 "specifying the standard deviation pattern or fixed "    ///
+		 "parameters{p_end}"
+		exit 198
+	}
+	if "`name'" == "" {
+		di as err "{p}a matrix name must follow the matrix " ///
+		 "specification `spec' in {bf:`type'()}{p_end}"	       
+		exit 198
+	}
+	if _rc != 0 {
+		di as err "syntax error specifying {bf:`type'()}"
+		exit _rc
+	}
+	local name : list retokenize name
+	cap qui confirm matrix `name'
+	if _rc != 0 {
+		di as err "matrix `name' specified in {bf:`type'()} does " ///
+		 "not exist"
+		exit 111
+	}
+	return local name `name'
+end
+
+program ._corstruct, rclass
+	args base scale 
+
+	mat `.structure.name' = J(`.kalt',`.kalt',.)
+	mat `.fixed.name' = I(`.kalt')*sqrt(`.vscale')
+	local corstr `.structure.matname'
+	local corfix `.fixed.matname'
+	mat `.order.name' = J(`.kalt',1,1)
+	local levels  "1"
+	forvalues i=2/`.kalt' { 
+		mat `.order.matname'[`i',1] = `i'
+		local levels `"`levels' `i'"'
+	}
+	mat rownames `corstr' = `levels'
+	mat colnames `corstr' = `levels'
+	mat rownames `corfix' = `levels'
+	mat colnames `corfix' = `levels'
+
+	if "`.stdmattype'" != "" {
+		tempname varstr 
+		/* user matrix temporarily stored in .stddev	*/
+		mat `varstr' = `.stddev'
+		local varmat = "`.stddev'"
+		.stddev = "user" 
+
+		._copyvarstruct "`varstr'" "`varmat'" `base' `scale' 
+		local base = `r(base)'
+		local scale = `r(scale)'
+		local nvar = `r(nvar)'
+
+		if `base' >= . {
+			di as err "{p}could not find an appropriate " ///
+			 "base alternative; at least two standard "   ///
+			 "deviations must be fixed, or use the "      ///
+			 "{bf:basealternative()} option{p_end}"
+			exit 498
+		}
+		else if `scale' >= . {
+			di in gr "{p 0 6 2}note: could not find an " ///
+			 "appropriate scale alternative; the model " ///
+			 "may not be scaled{p_end}"
+		}
+	}
+	else {
+		if `base' >= .  {
+			local base = 1
+			if (`base' == `scale') local base = 2
+		}
+		if `scale' >= . {
+			local scale = 1
+			if (`scale' == `base') local scale = 2
+		}
+	}
+
+	local alpha = 1
+	local sigma = 1
+
+	if "`.correlation'" == "indep" {
+		forvalues i=1/`.kalt' {
+			if (`i'==`base' | `i'==`scale') continue
+			if "`.stddev'" == "heter" {
+				mat `corstr'[`i',`i'] = `sigma'
+				mat `corfix'[`i',`i'] = .
+				local sigma = `sigma'+1
+			}
+		}
+		.kcor = 0
+		if ("`.stddev'"=="user") .kstd = `nvar'
+		else .kstd = `sigma'-1
+	}
+	else { /* if `structural' { */
+		local ibs = 0
+		local ifx = 0
+		forvalues j=1/`.kalt' {
+			if (`j'==`base') continue
+			else if "`.stddev'"=="heter" & `j'!=`scale' {
+				mat `corstr'[`j',`j'] = `sigma'
+				mat `corfix'[`j',`j'] = .
+				local sigma = `sigma'+1
+			}
+			local i1 = `j'+1
+			forvalues i=`i1'/`.kalt' {
+				if `i' != `base' { 
+					mat `corstr'[`i',`j'] = `alpha'
+					mat `corstr'[`j',`i'] = `alpha'
+					mat `corfix'[`i',`j'] = .
+					mat `corfix'[`j',`i'] = .
+					if ("`.correlation'"=="unstruct") ///
+						local alpha = `alpha'+1
+				}
+			}
+		}
+		if ("`.correlation'"=="unstruct") local alpha = `alpha'-1
+		local sigma = `sigma'-1
+
+		.kcor = `alpha'
+		if ("`.stddev'"=="user") .kstd = `nvar'
+		else .kstd = `sigma'
+	}
+	return local base = `base'
+	return local scale = `scale'	
+end
+	
+program ._validatecorstruct, rclass
+	args cormat base scale  
+
+	local corstr `.structure.matname'
+	if rowsof(`corstr')!=`.kalt' | colsof(`corstr')!=`.kalt' {
+		di as err "matrix specified in {bf:correlation()} must be " ///
+		 "`.kalt' by `.kalt'"
+		exit 198
+	}
+	if "`.cormattype'" == "fixed" {
+		mat `.fixed.name' = `corstr'
+		mat `corstr' = J(`.kalt',`.kalt',.)
+	}
+	else {
+		mat `.fixed.name' = J(`.kalt',`.kalt',0)
+	}
+	local corfix `.fixed.matname'
+
+	mat `.order.name' = J(`.kalt',1,1)
+	mat `corstr'[1,1] = .
+	local levels "1"
+	forvalues i=2/`.kalt' {
+		mat `.order.matname'[`i',1] = `i'
+		mat `corstr'[`i',`i'] = .
+		if `corstr'[`i',1] == 0 {
+			mat `corstr'[`i',1] = .
+			mat `corstr'[1,`i'] = .
+		}
+		local i1 = `i'+1
+		forvalues j=`i1'/`.kalt' {
+			if `corstr'[`j',`i'] == 0 {
+				mat `corstr'[`j',`i'] = .
+				mat `corstr'[`i',`j'] = .
+			}
+		}
+		local levels `"`levels' `i'"'
+	}
+	mat rownames `corstr' = `levels'
+	mat colnames `corstr' = `levels'
+	mat rownames `corfix' = `levels'
+	mat colnames `corfix' = `levels'
+
+	if "`.stdmattype'" != "" {
+		tempname varstr 
+		local varmat "`.stddev'"
+		mat `varstr' = `.stddev'
+		.stddev = "user"
+
+		._copyvarstruct "`varstr'" "`varmat'" `base' `scale' 
+		local nvar = `r(nvar)'
+	}
+	local ncor = 0
+	if "`.cormattype'" == "pattern" {
+		tempname r  
+		local n = `.kalt'*(`.kalt'-1)/2
+		mat `r' = J(`n',1,0)
+	}
+	tempname nfree
+	mat `nfree' = J(1,`.kalt',0)
+	forvalues i=1/`.kalt' {
+		local j1 = `i'+1 
+		forvalues j=`j1'/`.kalt' {
+/****************************************************************************/
+if "`.cormattype'"=="pattern" {
+	local k = `corstr'[`j',`i']
+	if  `k' < . {
+		if `k'<1 | `k'>`n' {
+			di as err "{p}correlation parameters identified " ///
+			 "in `cormat' must be consecutive starting from " ///
+			 "1 and cannot exceed `n'{p_end}"
+			exit 459
+		}
+		mat `r'[`k',1] = `r'[`k',1] + 1
+		if  (`k' > `ncor') local ncor = `k'
+		mat `corfix'[`j',`i'] = .
+		mat `nfree'[1,`j'] = `nfree'[1,`j'] + 1
+		mat `nfree'[1,`i'] = `nfree'[1,`i'] + 1
+	}
+}
+else {
+	local val = `corfix'[`j',`i']
+	if `val' < . {
+		if `val'<-1 | `val'>1 {
+			di as err "{p}fixed correlation identified in " ///
+			 "`cormat' must be between -1 and 1 inclusive{p_end}"
+			exit 459
+		}
+	}
+	else {
+		mat `corstr'[`j',`i'] = `++ncor'
+		mat `nfree'[1,`j'] = `nfree'[1,`j'] + 1
+		mat `nfree'[1,`i'] = `nfree'[1,`i'] + 1
+	}
+}
+/****************************************************************************/
+			/* ensure symmetric, lower triangular determines    */
+			/*  the content 				    */
+			mat `corstr'[`i',`j'] = `corstr'[`j',`i'] 
+			mat `corfix'[`i',`j'] = `corfix'[`j',`i']
+		}
+	}
+	if "`.cormattype'" == "pattern" {
+		forvalues i=1/`ncor' {
+			if `r'[`i',1] == 0 {
+				di as err "{p}correlation parameters " ///
+				 "identified in `cormat' must be "     ///
+				 "consecutive starting from 1 and "    ///
+				 "cannot exceed `n'{p_end}"
+				exit 459
+			}
+		}
+	}
+	/* try to find suitable base alternative */
+	if `base' >= . {
+		forvalues i=1/`.kalt' {
+			if `corstr'[`i',`i']>=. & `nfree'[1,`i']==0 {
+				local base = `i'
+				continue, break
+			}
+		}
+		if `base' >= . {
+			forvalues i=1/`.kalt' {
+				if `nfree'[1,`i'] == 0 {
+					local base = `i'
+					continue, break
+				}
+			}
+		}
+	}
+	if `base' >= . {
+		di as err "{p}could not find an appropriate base " ///
+		 "alternative; use the {bf:basealternative()} option{p_end}"
+		exit 498
+	}
+	/* identify a suitable scale alternative */
+	if `scale' == . {
+		forvalues i=1/`.kalt' {
+			if `corstr'[`i',`i'] >= . {
+				if `base' != `i' {
+					local scale = `i'
+					continue, break
+				}
+			}
+		}
+	}
+	if `scale' >= . {
+		di in gr "{p 0 6 2}note: could not find an appropriate " ///
+		 "scale alternative; the model may not be scaled{p_end}"
+	}
+	else if "`.stdmattype'" == "" {
+		local nvar = 0
+		if "`.stddev'" == "heter" {
+			forvalues i=1/`.kalt' {
+				if `i'!=`base' & `i'!=`scale' {
+					mat `corstr'[`i',`i'] = `++nvar'
+					mat `corfix'[`i',`i'] = .
+				}
+				else {
+					mat `corstr'[`i',`i'] = .
+					mat `corfix'[`i',`i'] = 1
+				}
+			}
+		}
+		else { /* if "`.stddev'" == "homo" */
+			forvalues i=1/`.kalt' {
+				mat `corstr'[`i',`i'] = .
+				mat `corfix'[`i',`i'] = 1
+			}
+		}
+	}
+	.kcor = `ncor'
+	.kstd = `nvar'
+
+	return local base = `base'
+	return local scale = `scale'
+end
+
+program ._copyvarstruct, rclass
+	args varstr varmat base scale 
+
+	local corstr `.structure.matname'
+	local corfix `.fixed.matname'
+	local levels : rownames `corstr'
+
+	if (rowsof(`varstr')==`.kalt' & ///
+		colsof(`varstr')==1) mat `varstr' = `varstr''
+	
+	if rowsof(`varstr')!=1 | colsof(`varstr')!=`.kalt' {
+		di as err "matrix specified in {bf:stddev()} must be 1 by " ///
+		 "`.kalt'"
+		exit 198
+	}
+	mat colnames `varstr' = `levels'
+	local nvar = 0
+	if "`.stdmattype'" == "pattern" {
+		tempname v
+		mat `v' = J(`.kalt',1,0) 
+	}
+	forvalues i=1/`.kalt' {
+		if "`.stdmattype'" == "pattern" {
+			if (`varstr'[1,`i'] == 0) mat `varstr'[1,`i'] = .
+			local k = `varstr'[1,`i'] 
+			mat `corstr'[`i',`i'] = `k'
+			if `k' >= . {
+				/* fixed to 1 */
+				if (`base'>=. & `scale'!=`i') ///
+					local base = `i'
+				else if (`scale'>=. & `base'!=`i') ///
+					local scale = `i'
+
+				mat `corfix'[`i',`i'] = 1
+			}
+			else {
+				if `k'<1 | `k'>`.kalt' {
+					di as err "{p}variance "         ///
+					 "parameters identified in "     ///
+					 "`varmat' must be consecutive " ///
+					 "starting from 1 and cannot "   ///
+					 "exceed `.kalt'{p_end}"
+					exit 459
+				}
+				mat `v'[`k',1] = `v'[`k',1] + 1
+				if (`k' > `nvar') local nvar = `k'
+				/* free parameter */
+				mat `corfix'[`i',`i'] = .
+			}
+			
+		}
+		else { /* "`.stdmattype'" == "fixed" */
+			local val = `varstr'[1,`i']
+			mat `corfix'[`i',`i'] = `val'
+			if `val' < . {
+				if `val' <= 0.0 {
+					di as err "{p}fixed standard "  ///
+					 "deviation `varmat'[1,`i'] = " ///
+					 %10.0g `val' " is not valid{p_end}"
+					exit 411
+				}
+				/* fixed to a user specified constant */
+				if (`base'>=. & `scale'!=`i') ///
+					local base = `i'
+				else if (`scale'>=. & `base'!=`i') ///
+					local scale = `i'
+
+				mat `corstr'[`i',`i'] = .
+			}
+			else {
+				/* free parameter, add to pattern matrix */
+				mat `corstr'[`i',`i'] = `++nvar'
+			}
+		}
+	}
+	if "`.stdmattype'" == "pattern" {
+		forvalues i=1/`nvar' {
+			if `v'[`i',1] == 0 {
+				di as err "{p}variance parameters " ///
+				 "identified in `varmat' must be "  ///
+				 "consecutive starting from 1 and " ///
+				 "cannot exceed `.kalt'{p_end}"
+				exit 459
+			}
+		}
+	}
+	return local base `base'
+	return local scale `scale'
+	return local nvar `nvar'
+end
+
+program .diffcov
+	syntax, [ * ]
+
+	/* do not difference if structural	*/
+	if (`.structural') exit
+
+	/* already differenced 			*/
+	if (`.structure.cols' == `.dim') exit
+
+	local fixed `.fixed.matname'
+	local struct `.structure.matname'
+
+	mat `fixed'[2,2] = sqrt(`fixed'[1,1]^2+`fixed'[2,2]^2)
+	mat `struct' = `struct'[2..`.kalt',2..`.kalt']
+	mat `fixed' = `fixed'[2..`.kalt',2..`.kalt']
+end
+
+program .isdiff
+
+	if (!`.structure.isvalid') local isdiff = 0
+	else local isdiff = (`=colsof(`.structure.matname')'==`=`.kalt'-1')
+	class exit `isdiff'
+end
+
+program .kanc
+
+	class exit `.kstd' + `.kcor'
+end
+
+program .stranc
+	if `.kanc' != `.anc.arrnels' {
+		class exit ""
+	}
+	forvalues i=1/`.anc.arrnels' {
+		local stranc `stranc' `.anc[`i']'
+	}
+	class exit `"`stranc'"'
+end
+
+program .initest
+	syntax, b(name)
+
+	mat `b' = J(1,`=`.kanc'',0)
+	if !`.isdiff' {
+		exit
+	}
+	tempname V
+	local n = `.kalt'-1
+	mat `V' = J(`n',`n',`.vscale')+I(`n')*`.vscale'
+	mat `V' = cholesky(`V')
+	if `n'*(`n'+1)/2-1 != `.kstd'+`.kcor' {
+		/* programmer error 	*/
+		di as err "_altcovmatrix.initest: number of covariance " ///
+		 "parameters is `=`.kstd'+`.kcor'' but should be "       ///
+		 "`=`n'*(`n'+1)/2-1'"
+		exit 499
+	}
+	local k = `n'-1
+	forvalues i=1/`n' {
+		if (`i'>1) mat `b'[1,`=`i'-1'] = log(`V'[`i',`i'])
+		local i1 = `i'+1
+		forvalues j=`i1'/`n' {
+			mat `b'[1,`++k'] = `V'[`j',`i']
+		}
+	}
+end
+
+/* permute base and scale to 1st and second position 			*/
+program .permute
+	syntax, base(integer) scale(integer)
+
+	local order `.order.matname'
+	matrix `order' = J(`.kalt',1,2)
+	matrix `order'[1,1] = `base'
+	if `scale' < . {
+		matrix `order'[2,1] = `scale'
+		local j = 3
+	}
+	else local j = 2
+
+	local k = 1
+	local reorder = (`order'[1,1]!=1 | `order'[2,1]!=2)
+	forvalues i=`j'/`.kalt' {
+		while `k'==`base' | `k'==`scale' {
+			local `++k'
+		}
+		matrix `order'[`i',1] = `k++'
+		local reorder = (`reorder' | `order'[`i',1]!=`i')
+	}
+	if (`reorder')	{
+		._permutemat "`.structure.matname'"  1
+		._permutemat "`.fixed.matname'"  0
+	}
+end
+
+program ._permutemat, rclass
+	args mat renumber
+
+	local order `.order.matname'
+	tempname mat1 ip
+	matrix `mat1' = J(`.kalt',`.kalt',.)
+	matrix `ip' = J(`.kalt',1,.)
+
+	local levels : rownames `mat'
+
+	forvalues i=1/`.kalt' {
+		local ci = `order'[`i',1]
+		local olevels `"`olevels' `ci'"'
+
+		local ci : word `i' of `levels'
+		local j = 0
+		local found = 0
+		while `found'==0 & `j'<`.kalt' {
+			cap local found = (`ci' == `order'[`++j',1])
+			if (_rc > 0) continue, break
+		}
+		if `found' == 0 {
+			di as err "internal error permuting matrix" 
+			exit 498
+		}
+		matrix `ip'[`i',1] = `j'
+		forvalues k=1/`.kalt' {
+			matrix `mat1'[`j',`k'] = `mat'[`i',`k']
+		}
+	}
+	matrix `mat' = `mat1'
+	forvalues i=1/`.kalt' {
+		local k = `ip'[`i',1]
+		forvalues j=1/`.kalt' {
+			matrix `mat1'[`j',`k'] = `mat'[`j',`i']
+		}
+	}
+	matrix `mat' = `mat1'
+	matrix rownames `mat' = `olevels'
+	matrix colnames `mat' = `olevels'
+	
+	if `renumber' {
+		/* used for corpattern and corfixed matrices */
+		local kd = 0
+		local kl = 0
+		forvalues j=1/`.kalt' {
+			if `mat'[`j',`j'] < . {
+				matrix `mat'[`j',`j'] = `++kd'
+			}
+			local j1 = `j'+1
+			forvalues i=`j1'/`.kalt' {
+				if `mat'[`i',`j'] < . {
+					matrix `mat'[`i',`j'] = `++kl'
+					matrix `mat'[`j',`i'] = `kl'
+				}
+			}
+	
+		}
+	}
+end
+
+/* reparametrize from Cholesky transformation to structural covariance	*/
+program .reparameterize, rclass
+	syntax, b(name) [ start(integer 0) ]
+
+	if `.structural' == 0 {
+		/* programmer error 		*/
+		di as err "._altcovmatrix.reparameterize: matrix is " ///
+		 "already structural"
+		exit 499
+	}
+
+	.evaluate, b(`b') cholesky
+	if `r(bail)' {
+		/* should not happen! =:0	*/
+		di as err "could not evaluate the Cholesky matrix from " ///
+		 "the parameter estimates"
+		exit 499
+	}
+
+	local R `.matname'
+	matrix `R' = `R'*`R''
+	local struct `.structure.matname'
+	local fixed `.fixed.matname'
+	local order `.order.matname'
+	local reorder = 0
+	local j = 0 
+	while `++j'<`.kalt' & !`reorder' {
+		local reorder = (`j' != `order'[`j',1])
+	}
+	if `reorder' {
+		/* put variance-covariances back into same order as	*/
+		/*  alternatives 					*/
+		mat `order' = J(`.kalt',1,1)
+		forvalues i=2/`.kalt' {
+			mat `order'[`i',1] = `i'
+		}
+		local names : rownames `struct'
+		mat rownames `R' = `names'
+
+		._permutemat "`struct'" 0 
+		._permutemat "`fixed'"  0
+		._permutemat "`R'" 0
+	}
+	local kv = 0
+	local kc = 0
+	/* starting index in b for covariance parameters		*/
+	local k = `start'
+	forvalues j=1/`.kalt' {
+		local aj = `struct'[`j',`j']
+		if `aj' < . {
+			mat `struct'[`j',`j'] = `++kv'
+			mat `b'[1,`++k'] = log(sqrt(`R'[`j',`j']))
+		}
+	}
+	forvalues j=1/`.kalt' {
+		local j1 = `j'+1
+		forvalues i=`j1'/`.kalt' {
+			local ai = `struct'[`i',`j']
+			if (`ai' >=.) continue
+
+			mat `b'[1,`++k'] = atanh(`R'[`i',`j']/ ///
+				sqrt(`R'[`i',`i']*`R'[`j',`j']))
+
+			mat `struct'[`i',`j'] = `++kc'
+			mat `struct'[`j',`i'] = `kc'
+		}
+	}
+end
+
+program .genanc, rclass
+	local version = string(_caller())
+	syntax [, stripe CHOLesky(integer 0) ]
+
+	if "`stripe'" == "" { 
+		local cholesky = `cholesky'
+		local bstripe = 0
+	}
+	else {
+		/* generate stripe only; assume structural cov		*/
+		local cholesky = 0
+		local bstripe = 1
+	}
+	.anc.Arrdropall
+	local stripe
+
+	if `.full' {
+		local corstruct `.structure.matname'
+		local dim = colsof(`corstruct')
+		if `cholesky' {
+			local rii lnl
+			local rij l
+		}
+		else {
+			local rii lnsigma
+			local rij atanhr
+		}
+		forvalues j=1/`dim' {
+			local aj = `corstruct'[`j',`j']
+			if `aj' < . {
+				if (`cholesky') local jj `j'_`j'
+				else local jj `j'
+
+				if `bstripe' {
+					if `.freeparm' == 1 {
+						local nm "/:`rii'`jj'"
+					}
+					else {
+						local nm "`rii'`jj':_cons"
+					}
+					local stripe `"`stripe' `nm'"'
+				}
+				else {
+					.anc.Arrpush "`rii'`jj'"
+				}
+			}
+		}
+		forvalues j=1/`dim' {
+			local j1 = `j'+1
+			forvalues i=`j1'/`dim' {
+				local ai = `corstruct'[`i',`j']
+				if `ai' < . {
+					if `bstripe' {
+						if `.freeparm' == 1 {
+							local nm "/:`rij'"
+							local nm "`nm'`i'_`j'"
+						}
+						else {
+							local nm "`rij'"
+							local nm "`nm'`i'_`j'"
+							local nm "`nm':_cons"
+						}
+						local stripe `"`stripe' `nm'"'
+					}
+					else {
+						.anc.Arrpush "`rij'`i'_`j'"
+					}
+				}
+			}
+		}
+	}
+	else {
+		forvalues j=1/`.kstd' {
+			if `bstripe' {
+				if `.freeparm' == 1 {
+					local nm "/:lnsigmaP`j'"
+				}
+				else {
+					local nm "lnsigmaP`j':_cons"
+				}
+				local stripe `"`stripe' `nm'"'
+			}
+			else {
+				.anc.Arrpush "lnsigmaP`j'"
+			}
+		}
+		forvalues i=1/`.kcor' {
+			if `bstripe' {
+				if `.freeparm' == 1 {
+					local nm "/:atanhrP`i'"
+				}
+				else {
+					local nm "atanhrP`i':_cons"
+				}
+				local stripe `"`stripe' `nm'"'
+			}
+			else {
+				.anc.Arrpush "atanhrP`i'"
+			}
+		}
+	}
+	if (`bstripe') return local stripe `"`:list retokenize stripe'"'
+
+	class exit .anc.ref
+end
+
+/* compute transformation matrix T: vech(cov)*T -> (std,rho)		*/
+program .genTmat
+
+	local nc = `.kstd' + `.kcor'
+	if (`nc' == 0) exit
+	local struct `.structure.matname'
+	local m = `.structure.rows'
+	local np = `m'*(`m'+1)/2
+	local T `.T.name'
+
+	mat `T' = J(`np',`nc',0)
+	local i = 1
+	forvalues j=1/`m' {
+		local j2 = `struct'[`j',`j']
+		if (`j2'<.) mat `T'[`i',`j2'] = 1
+		local j1 = `j' + 1
+		forvalues k=`j1'/`m' {
+			local i = `i'+1
+			if `struct'[`k',`j'] < . {
+				local lc = `struct'[`k',`j']
+				local j2 = `.kstd'+`lc'
+				mat `T'[`i',`j2'] = 1
+			}
+		}
+		local i = `i'+1
+	}
+end
+
+program .dim
+
+	if (`.structural') class exit `.kalt'
+	else class exit `=`.kalt'-1'
+end
+
+program evaluate, rclass
+	syntax, b(name) [ CHOLesky TRace ] 
+
+	tempname D L rho var
+	local dim = `.dim'
+	local cholesky = ("`cholesky'"!="")
+	local trace = ("`trace'"!="")
+	local struct `.structure.matname'
+	local fixed `.fixed.matname'
+	local order `.order.matname'
+
+	matrix `D' = I(`dim') 
+	if `cholesky' {
+		/* cholesky factor of covariance 	*/
+		local rjj lnl
+		local rij l
+		local L `D'
+		local R `D'
+	}
+	else {
+		/* variances and correlations 		*/
+		tempname R
+		matrix `L' = I(`dim')
+		local rjj lnsigma
+		local rij atanhr
+	}
+	if `.kcor' > 0 {
+		local rho `.rho.name'
+		matrix `rho' = J(1,`.kcor',.)
+	}
+	else {
+		matrix `rho' = J(1,1,.)
+	}
+	if `.kstd' > 0 {
+		local var `.std.name'
+		matrix `var' = J(1,`.kstd',.)
+	}
+	else {
+		matrix `var' = J(1,1,.)
+	}
+	
+	local bail = 0
+	local full = `.full'
+	forvalues j=1/`dim' {
+		local cj = `struct'[`j',`j']
+		if `cj' < . {
+			if `var'[1,`cj'] >= . {
+				if `full' {
+					if (`cholesky') local jj `j'_`j'
+					else local jj `j'
+				}
+				else local jj P`cj'
+				if `.freeparm' == 1 {
+					local nm "/:`rjj'`jj'"
+				}
+				else {
+					local nm "`rjj'`jj':"
+				}
+				local k = colnumb(`b',"`nm'")
+				if `k' >= . {
+					di as err "could not find "     ///
+					 "coefficient associated with " ///
+					 "parameter `nm'"
+					exit 497
+				}
+				matrix `var'[1,`cj'] = exp(`b'[1,`k']) 
+				if `var'[1,`cj'] >= 1.0e5 {
+					if `trace' {
+						di as err "invalid " ///
+						 "standard deviation " ///
+						 "estimate `rjj'`jj' = " ///
+						 `b'[1,`k']
+					}
+					local bail = 1
+					continue, break
+				}
+			}
+			matrix `D'[`j',`j'] = `var'[1,`cj']
+		}
+		else {
+			matrix `D'[`j',`j'] = `fixed'[`j',`j']
+		}
+		local j1 = `j'+1
+		forvalues i=`j1'/`dim' {
+			local ci = `struct'[`i',`j']
+			if `ci' < . {
+				if `rho'[1,`ci'] >= . {
+					if (`full') local ij `i'_`j'
+					else local ij P`ci'
+
+					if `.freeparm' == 1 {
+						local nm "/:`rij'`ij'"
+					}
+					else {
+						local nm "`rij'`ij':"
+					}
+					local k = colnumb(`b',"`nm'")
+					if `k' >= . {
+						di as err "could not find " ///
+						 "coefficient associated " ///
+						 "with parameter `nm'"
+						exit 497
+					}
+					if `cholesky' {
+						matrix `rho'[1,`ci'] = ///
+							`b'[1,`k']
+					}
+					else {
+						matrix `rho'[1,`ci'] = ///
+							tanh(`b'[1,`k'])
+					}
+				}
+				matrix `L'[`i',`j'] = `rho'[1,`ci']
+			}
+			else {	
+				matrix `L'[`i',`j'] = `fixed'[`i',`j']
+			}
+			
+			if (`cholesky'==0) matrix `L'[`j',`i'] = `L'[`i',`j']
+		}
+		if (`bail') continue, break
+	}
+
+	if `bail' == 0 {
+		local names: colnames `struct'
+		if (`cholesky' == 0) matrix `R' = `D'*`L'*`D'
+		mat `.name' = `R'
+		mat colnames `.matname' = `names'
+		mat rownames `.matname' = `names'
+	}
+	return local bail `bail'
+end
+
+/* transform scores							*/
+program .transcrs 
+	syntax varlist(min=1), touse(varname numeric) [ CHOLesky ]
+
+	local d `.std.matname'
+	local k = 0
+	forvalues j=1/`.kstd' {
+		local sca : word `++k' of `varlist'
+		qui replace `sca' = `sca'*`d'[1,`j'] if `touse' 
+	}
+	if "`cholesky'" == "" {
+		local rho `.rho.matname'
+		forvalues j=1/`.kcor' {
+			local sca : word `++k' of `varlist'
+			qui replace `sca' = `sca'*(1.0-`rho'[1,`j']^2) ///
+				if `touse'
+		}
+	}
+end
+
+program .eretpost, eclass
+
+	ereturn scalar structcov = `.structural'
+	ereturn scalar fullcov = `.full'
+	ereturn scalar k_sigma = `.kstd'
+	ereturn scalar k_rho = `.kcor'
+	ereturn scalar k_alt = `.kalt'
+
+	if ("`.correlation'"=="indep") ereturn local correlation "independent"
+	else if ("`.correlation'"=="exch") ereturn ///
+		local correlation "exchangeable"
+	else if ("`.correlation'"=="unstruct") ereturn ///
+		local correlation "unstructured"
+	else if ("`.cormattype'"=="pattern") ereturn ///
+		local correlation "pattern matrix"
+	else ereturn local correlation "fixed parameter matrix"
+
+	if ("`.stddev'"=="heter") ereturn local stddev "heteroskedastic"
+	else if ("`.stddev'"=="homo") ereturn local stddev "homoskedastic"
+	else if ("`.stdmattype'"=="pattern") ereturn ///
+		local stddev "pattern matrix"
+	else ereturn local stddev "fixed parameter matrix"
+
+	ereturn hidden local cov_class "`.classname'"
+	tempname varstr varfix corstr corfix
+	mat `corstr' = `.structure.matname'
+	mat `corfix' = `.fixed.matname'
+	mat `varstr' = vecdiag(`corstr')
+	mat `varfix' = vecdiag(`corfix')
+	forvalues i=1/`=rowsof(`corstr')' {
+		mat `corstr'[`i',`i'] = .
+		mat `corfix'[`i',`i'] = .
+	}
+
+	ereturn matrix stdfixed = `varfix'
+	ereturn matrix corfixed = `corfix'
+	ereturn matrix stdpattern = `varstr'
+	ereturn matrix corpattern = `corstr'
+end
+
+program .eretget
+	syntax, [ base(integer 1) ]
+
+	.structural = e(structcov)
+	.full = e(fullcov)
+	.kstd = e(k_sigma)
+	.kcor = e(k_rho)
+	.kalt = e(k_alt)
+	.vscale = 1
+
+	.cormattype = ""
+	.stdmattype = ""
+	local cor = bsubstr("`e(correlation)'",1,3)
+	if ("`cor'"=="ind") .correlation = "indep"
+	else if ("`cor'"=="exc") .correlation = "exch"
+	else if ("`cor'"=="uns") .correlation = "unstruct"
+	else {
+		.correlation = "user"
+		if ("`cor'"=="pat") .cormattype = "pattern"
+		else .cormattype = "fixed"
+	}
+	
+	local std = bsubstr("`e(stddev)'",1,3)
+	if ("`std'" == "het") .stddev = "heter"
+	else if ("`std'" == "hom") .stddev = "homo"
+	else {
+		.stddev = "user"
+		if ("`std'" == "pattern") .stdmattype = "pattern"
+		else .stdmattype = "fixed"
+	}
+
+	mat `.structure.name' = e(corpattern)
+	local index: colnames `.structure.matname'
+	mat `.fixed.name' = e(corfixed)
+	local dim = `.structure.rows'
+	mat `.order.name' = J(`.kalt',1,.)
+	if `dim'==`.kalt'-1 {
+		mat `.order.matname'[1,1] = `base'
+		local l = 1
+	}
+	else local l = 0
+
+	local names 
+	forvalues i=1/`dim' {
+		local j : word `i' of `index'
+		mat `.order.matname'[`=`i'+`l'',1] = `j'
+		mat `.structure.matname'[`i',`i'] = el(e(stdpattern),1,`i')
+		mat `.fixed.matname'[`i',`i'] = el(e(stdfixed),1,`i')
+	}
+end
+
+program .isvalid
+
+	if (`.kalt'<=0) class exit 0
+	if (!`.structure.isvalid') class exit 0
+	if (!`.fixed.isvalid') class exit 0
+	if `.structure.rows'!=`.kalt' | `.structure.cols'!=`.kalt' {
+		if (`.structural') class exit 0
+		local dim = `.kalt'-1
+		if (`.structure.rows'!=`dim' | `.structure.cols'!=`dim') ///
+			class exit 0
+	}
+	if `.fixed.rows'!=`.kalt' | `.fixed.cols'!=`.kalt' {
+		if (`.structural') class exit 0
+		local dim = `.kalt'-1
+		if (`.fixed.rows'!=`dim' | `.fixed.cols'!=`dim') class exit 0
+	}
+	/* smells ok	*/
+	class exit 1
+end
+
+program .list
+
+	if (!`.Super.isvalid') class exit
+	.Super.list
+end
+
+program .summary
+	di "alternatives covariance structure"
+	di "# alternatives: `.kalt'"
+	di _n "stddev:         `.stddev'"
+	di "# std. dev:     `.kstd'"
+	di _n "correlation:    `.correlation'"
+	di "# correlations: `.kcor'"
+
+	di _n "structure" _c
+	.structure.list noheader
+
+	di _n "fixed parameters" _c
+	.fixed.list noheader
+
+	if `.T.isvalid' {
+		di _n "transformation matrix T*(std,rho) -> vech(cov)" _c
+		.T.list
+	}
+	if `.Super.isvalid' {
+		if `.kstd' > 0 {
+			di _n "standard deviation estimates" _c
+			.std.list noheader
+		}
+		if `.kcor' > 0 {
+			di _n "correlation estimates" _c
+			.rho.list noheader
+		}
+		di _n "covariance" _c
+		.Super.list noheader
+
+		di _n "permutation vector" _c
+		.order.list noheader
+	}
+
+	di
+	di "full:         `.full'"
+	di "structural:   `.structural'"
+	di "var scale:    `.vscale'" 
+end
+
+exit

@@ -1,0 +1,751 @@
+/*
+  putexcel
+
+*!  VERSION 2.0.6  31jul2017
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+POSITION . . 420 350
+CANCEL can1, label(resource LBL_BU_CLOSE) target(dialog) uaction(on_close)
+
+
+HELP hlp1, view("help putexcel")
+RESET res1
+
+PROGRAM on_close
+BEGIN
+	call SaveState
+END
+
+SCRIPT PREINIT
+BEGIN
+	create STRING STMP
+	create DOUBLE cell_error
+	cell_error.setvalue 0
+
+	// putexcel globals
+	create STRING gFilename
+	create STRING gFiletype
+	create STRING gFilemode
+	create STRING gSheetname
+	create STRING gLocale
+
+	main.ed_gfilename.disable
+	main.ed_gfiletype.disable
+	main.ed_gfilemode.disable
+	main.ed_gsheetname.disable
+	main.ed_glocale.disable
+
+	create STRING main_res_tmp
+	create STRING main_res_tmp2
+	create STRING main_res_childdlg
+	create STRING main_res_dlgname
+	create STRING main_res_child_result
+	create STRING main_res_cmd_output
+
+	create ARRAY main_res_list
+
+	create SVECTOR mainRESCommandDisplayList
+	create SVECTOR mainRESCommandList
+	create SVECTOR mainRESCommandValues
+	create SVECTOR mainRESStatusList
+	create SVECTOR mainRESChildDialogList
+
+	create DOUBLE main_res_count
+	create DOUBLE main_res_position
+	create DOUBLE main_res_arraysize
+	
+	create STRING tmp
+	create STRING tmp_status
+	create DOUBLE count
+	create DOUBLE size
+	
+	create BOOLEAN fileset
+	create STRING filename
+	create STRING filemode
+
+	main.bu_res_edit.disable
+	main.bu_res_disable.disable
+	main.bu_res_enable.disable
+	main.bu_res_clear.disable
+	setscale_hadj resource PUTEXCEL_DLG_HSCALE
+	
+        main.fi_filename.formatfilter					///
+"{0} (*.xlsx)|*.xlsx|{1} (*.xls)|*.xls|{2} (*.*)|*.*" 			///
+"resource ui_ex FILE_TYPE_XLSX_FILE" "resource ui_ex FILE_TYPE_XLS_FILE" ///
+		"resource ui_ex FILE_TYPE_ALL_FILES"
+	program main_putexcel_command_changed
+	program get_globals
+END
+
+SCRIPT POSTINIT
+BEGIN
+	mainRESCommandDisplayList.copyToArray main_res_list
+	main.lb_resBuild.repopulate
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	call program set_state
+	call program get_globals
+END
+
+PROGRAM ON_DOTPROMPT
+BEGIN
+	call program set_state
+	call program get_globals
+END
+
+PROGRAM set_state
+BEGIN
+	call filename.setvalue global PUTEXCEL_FILE_NAME
+	call filemode.setvalue global PUTEXCEL_FILE_MODE
+	if filename.iseq("") {
+		call fileset.setfalse
+	}
+	else {
+		call fileset.settrue
+	}
+	
+	call program main_putexcel_command_changed
+END
+
+PROGRAM get_globals
+BEGIN
+	call gFilename.setvalue global PUTEXCEL_FILE_NAME
+	call gSheetname.setvalue global PUTEXCEL_SHEET_NAME
+	call gFiletype.setvalue global PUTEXCEL_FILE_TYPE
+	call gFilemode.setvalue global PUTEXCEL_FILE_MODE
+	call gLocale.setvalue global PUTEXCEL_LOCALE
+
+	if gFilename.isneq("") {
+		call gFilename.withvalue main.ed_gfilename.setvalue "@"
+	}
+	else {
+		call main.ed_gfilename.setvalue ""
+	}
+
+	if gSheetname.isneq("") {
+		call gSheetname.withvalue main.ed_gsheetname.setvalue "@"
+	}
+	else {
+		call main.ed_gsheetname.setvalue ""
+	}
+
+	if gFiletype.isneq("") {
+		call gFiletype.withvalue main.ed_gfiletype.setvalue "@"
+	}
+	else {
+		call main.ed_gfiletype.setvalue ""
+	}
+
+	if gFilemode.isneq("") {
+		call gFilemode.withvalue main.ed_gfilemode.setvalue "@"
+	}
+	else {
+		call main.ed_gfilemode.setvalue ""
+	}
+
+	if gLocale.isneq("") {
+		call gLocale.withvalue main.ed_glocale.setvalue "@"
+	}
+	else g{
+		call main.ed_glocale.setvalue ""
+	}
+END
+
+DIALOG main, label(resource PUTEXCEL_DLG_TITLE)				///
+	tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  RADIO rb_set			_lft	_top	_iwd	., first	///
+	onclickon(program main_putexcel_command_changed)		///
+	label(resource PUTEXCEL_MAIN_RB_SET)
+  RADIO rb_export		@	_ss	@	.,		///
+	onclickon(program main_putexcel_command_changed)		///
+	label(resource PUTEXCEL_MAIN_RB_EXPORT)
+  RADIO rb_describe		@	_ss	@	.,		///
+	onclickon(program main_putexcel_command_changed)		///
+	label(resource PUTEXCEL_MAIN_RB_DESCRIBE)
+  RADIO rb_clear		@	_ss	@	., last		///
+	onclickon(program main_putexcel_command_changed)		///
+	label(resource PUTEXCEL_MAIN_RB_CLEAR)
+
+  GROUPBOX gb_cmds		@	_ls	_iwd	_ht21,
+  TEXT tx_general		_ilft	_ss	_ibwd	.,
+  DEFINE holdy @y
+  TEXTBOX tb_general		+20	+20	-100	_tb2,
+
+/* -------------------- Set -------------------- */
+
+  RADIO rb_create		_ilft	holdy	_ibwd	., first	///
+	label(resource PUTEXCEL_MAIN_RB_CREATE)
+  RADIO rb_modify		@	_ss	@	.,		///
+	option(modify)							///
+	label(resource PUTEXCEL_MAIN_RB_MODIFY)
+  RADIO rb_replace		@	_ss	@	., last		///
+	option(replace)							///
+	label(resource PUTEXCEL_MAIN_RB_REPLACE)
+  TEXT tx_filename		@	_ls	@	.,		///
+	label(resource EXPORT_EXCEL_MAIN_TX_USING)
+  FILE fi_filename		@	_ss	@	.,		///
+	defext(xlsx)							///
+	error(resource EXPORT_EXCEL_MAIN_TX_USING)			///
+	save								///
+	label(resource LBL_SAVE_AS)
+
+  TEXT tx_sheet			_ilft	_ls	_vnwd	.,		///
+	label(resource PUTEXCEL_MAIN_TX_SHEET)
+  EDIT ed_sheet			@	_ss	@	.,		///
+	option(sheet)							///
+	label(resource PUTEXCEL_MAIN_TX_SHEET)
+  CHECKBOX ck_sheet_replace	+130	@	240	.,		///
+	option(replace)							///
+	label(resource PUTEXCEL_MAIN_CK_SHEET_REPLACE)
+/*locale()?*/
+  BUTTON bu_set_submit		_rj90	_xxls	80	.,		///
+	onpush(program set_submit)					///
+	label(resource LBL_BU_SUBMIT)
+
+/* -------------------- Export -------------------- */
+
+  TEXT tx_res			_ilft	holdy	220	.,		///
+	label(resource PUTEXCEL_MAIN_TX_RES)
+
+  LISTBOX lb_resBuild		@	_ss	@	140,		///
+	contents(main_res_list)						///
+	ondblclick(program main_res_edit)				///
+	onselchange(program main_res_sel_changed)			///
+	nomemory
+  BUTTON bu_res_create		250	@	80	.,		///
+	onpush(program main_res_create)					///
+	tooltip(resource PUTEXCEL_MAIN_BU_RES_CREATE)			///
+	label(resource LBL_BU_CREATE)
+  BUTTON bu_res_edit		@	_ms	@	.,		///
+	onpush(program main_res_edit)					///
+	tooltip(resource PUTEXCEL_MAIN_BU_RES_CREATE)			///
+	label(resource LBL_BU_EDIT)
+  BUTTON bu_res_disable		@	_ms	@	.,		///
+	onpush(program main_res_disable)				///
+	tooltip(resource PUTEXCEL_MAIN_BU_RES_DISABLE)			///
+	label(resource LBL_BU_DISABLE)
+  BUTTON bu_res_enable		@	_ms	@	.,		///
+	onpush(program main_res_enable)					///
+	tooltip(resource PUTEXCEL_MAIN_BU_RES_ENABLE)			///
+	label(resource LBL_BU_ENABLE)
+  BUTTON bu_res_clear		@	_ms	@	.,		///
+	onpush(program main_res_clear)					///
+	tooltip(resource IRT_GRAPH_CCC_BUILD_ALL_MAIN_BU_CCC_CLEAR_TIP)	///
+	label(resource IRT_GRAPH_CCC_BUILD_ALL_MAIN_BU_CCC_CLEAR)
+  TEXTBOX tb_res_note		_ilft	+45	300	_tb2,		///
+	label(resource PUTEXCEL_MAIN_TB_RES_NOTE)
+
+  BUTTON bu_export_submit	_rj90	+30	80	.,		///
+	onpush(program export_submit)					///
+	label(resource LBL_BU_SUBMIT)
+
+/* -------------------- Describe -------------------- */
+
+  TEXT tx_gfilename		_ilft	holdy	_cwd2	.,		///
+	label(resource LBL_FILENAME)
+  TEXT tx_gsheetname		_lft2	@	@	.,		///
+	label(resource PUTEXCEL_MAIN_TX_SHEET)
+  EDIT ed_gfilename		_ilft	_ss	@	.,		///
+	label(resource LBL_FILENAME)
+  EDIT ed_gsheetname		_lft2	@	@	.,		///
+	label(resource PUTEXCEL_MAIN_TX_SHEET)
+  TEXT tx_gfiletype		_ilft	_ls	_cwd2	.,		///
+	label(resource PUTEXCEL_MAIN_TX_GFILETYPE)
+  TEXT tx_gfilemode		_lft2	@	_cwd2	.,		///
+	label(resource PUTEXCEL_MAIN_TX_GFILEMODE)
+  EDIT ed_gfiletype		_ilft	_ss	_spwd	.,		///
+	label(resource PUTEXCEL_MAIN_TX_GFILETYPE)
+  EDIT ed_gfilemode		_lft2	@	_cwd2	.,		///
+	label(resource PUTEXCEL_MAIN_TX_GFILEMODE)
+  TEXT tx_glocale		_ilft	_ls	_ibwd	.,		///
+	label(resource LBL_LOCALE)
+  EDIT ed_glocale		@	_ss	_cwd2	.,		///
+	label(resource LBL_LOCALE)
+
+/* -------------------- Clear -------------------- */
+
+  BUTTON bu_clear_submit	_rj90	_ss	80	.,		///
+	onpush(program clear_submit)					///
+	label(resource LBL_BU_SUBMIT)
+END
+
+
+PROGRAM main_putexcel_command_changed
+BEGIN
+	call script hide_all
+	if main.rb_set {
+		call script set_show
+	}
+	if main.rb_export {
+		if fileset {
+			call script export_show
+		}
+		else {
+	call main.gb_cmds.setlabel resource PUTEXCEL_MAIN_RB_EXPORT
+			call main.tx_general.show
+			call main.tb_general.show
+			call main.tx_general.setlabel resource LBL_FEATURE_CURRENTLY_NOT_AVAILABLE
+			call main.tb_general.setlabel resource PUTEXCEL_MAIN_TB_GENERAL
+		}
+	}
+	if main.rb_describe {
+		call script describe_show
+	}
+	if main.rb_clear {
+		call script clear_show
+	}
+END
+
+SCRIPT hide_all
+BEGIN
+	script set_hide
+	script export_hide
+	script describe_hide
+	script clear_hide
+
+	main.tx_general.hide
+	main.tb_general.hide
+END
+
+SCRIPT set_show
+BEGIN
+	main.gb_cmds.setlabel resource PUTEXCEL_MAIN_RB_SET
+	main.rb_create.show
+	main.rb_modify.show
+	main.rb_replace.show
+	main.tx_filename.show
+	main.fi_filename.show
+	main.tx_sheet.show
+	main.ed_sheet.show
+	main.ck_sheet_replace.show
+	main.bu_set_submit.show
+	main.tx_general.hide
+	main.tb_general.hide
+END
+
+SCRIPT set_hide
+BEGIN
+	main.rb_create.hide
+	main.rb_modify.hide
+	main.rb_replace.hide
+	main.tx_filename.hide
+	main.fi_filename.hide
+	main.tx_sheet.hide
+	main.ed_sheet.hide
+	main.ck_sheet_replace.hide
+	main.bu_set_submit.hide
+END
+
+SCRIPT export_show
+BEGIN
+	main.gb_cmds.setlabel resource PUTEXCEL_MAIN_RB_EXPORT
+	main.tx_res.show
+	main.lb_resBuild.show
+	main.bu_res_create.show
+	main.bu_res_edit.show
+	main.bu_res_disable.show
+	main.bu_res_enable.show
+	main.bu_res_clear.show
+	main.tb_res_note.show
+	main.bu_export_submit.show
+END
+
+SCRIPT export_hide
+BEGIN
+	main.tx_res.hide
+	main.lb_resBuild.hide
+	main.bu_res_create.hide
+	main.bu_res_edit.hide
+	main.bu_res_disable.hide
+	main.bu_res_enable.hide
+	main.bu_res_clear.hide
+	main.tb_res_note.hide
+	main.bu_export_submit.hide
+END
+
+SCRIPT describe_show
+BEGIN
+	main.gb_cmds.setlabel resource PUTEXCEL_MAIN_RB_DESCRIBE
+	main.tx_gfilename.show
+	main.ed_gfilename.show
+	main.tx_gfiletype.show
+	main.ed_gfiletype.show
+	main.tx_gfilemode.show
+	main.ed_gfilemode.show
+	main.tx_gsheetname.show
+	main.ed_gsheetname.show
+	main.tx_glocale.show
+	main.ed_glocale.show
+END
+
+SCRIPT describe_hide
+BEGIN
+	main.tx_gfilename.hide
+	main.ed_gfilename.hide
+	main.tx_gfiletype.hide
+	main.ed_gfiletype.hide
+	main.tx_gfilemode.hide
+	main.ed_gfilemode.hide
+	main.tx_gsheetname.hide
+	main.ed_gsheetname.hide
+	main.tx_glocale.hide
+	main.ed_glocale.hide
+END
+
+SCRIPT clear_show
+BEGIN
+	main.gb_cmds.setlabel resource PUTEXCEL_MAIN_RB_CLEAR
+	main.tx_gfilename.show
+	main.ed_gfilename.show
+	main.tx_gfiletype.show
+	main.ed_gfiletype.show
+	main.tx_gfilemode.show
+	main.ed_gfilemode.show
+	main.tx_gsheetname.show
+	main.ed_gsheetname.show
+	main.tx_glocale.show
+	main.ed_glocale.show
+	main.bu_clear_submit.show
+END
+
+SCRIPT clear_hide
+BEGIN
+	main.tx_gfilename.hide
+	main.ed_gfilename.hide
+	main.tx_gfiletype.hide
+	main.ed_gfiletype.hide
+	main.tx_gfilemode.hide
+	main.ed_gfilemode.hide
+	main.tx_gsheetname.hide
+	main.ed_gsheetname.hide
+	main.tx_glocale.hide
+	main.ed_glocale.hide
+	main.bu_clear_submit.hide
+END
+
+PROGRAM main_res_create
+BEGIN
+	call main_res_count.setvalue class mainRESChildDialogList.size
+	call main_res_count.increment
+	call main_res_tmp.setvalue "main_res_"
+	call main_res_tmp.append class main_res_count.value
+	call main_res_tmp.withvalue main_res_childdlg.setvalue @
+	call program main_show_res_child
+END
+
+PROGRAM main_res_edit
+BEGIN
+	call mainRESCommandDisplayList.findstr class			///
+		main.lb_resBuild.value
+	call main_res_position.setvalue class				///
+		mainRESCommandDisplayList.position
+	call main_res_position.withvalue				///
+		main_res_childdlg.setvalue				///
+		class mainRESChildDialogList.values[@]
+	call program main_show_res_child_edit
+END
+
+PROGRAM main_show_res_child
+BEGIN
+	call main_res_tmp.setvalue "putexcel_cellexp AS "
+	call main_res_tmp.append class main_res_childdlg.value
+	call main_res_tmp.withvalue create CHILD @
+	call main_res_childdlg.withvalue @.setExitString		///
+		"main_res_child_result"
+	call main_res_childdlg.withvalue @.setExitAction		///
+		"program main_res_child_create_done"
+
+	call main_res_count.withvalue STMP.format			///
+		"resource LBL_RESULT_FMT" "@" ""
+	call STMP.withvalue main_res_tmp.setvalue "@"
+	call main_res_childdlg.withvalue				///
+		main_res_tmp2.setvalue "@.settitle"
+	call main_res_tmp2.append `" ""'
+	call main_res_tmp2.append class main_res_tmp.value
+	call main_res_tmp2.append `"""'
+	call main_res_tmp2.withvalue @
+END
+
+PROGRAM main_show_res_child_edit
+BEGIN
+	call main_res_tmp.setvalue "putexcel_cellexp AS "
+	call main_res_tmp.append class main_res_childdlg.value
+	call main_res_tmp.withvalue create CHILD @
+	call main_res_childdlg.withvalue @.setExitString		///
+		"main_res_child_result"
+	call main_res_childdlg.withvalue @.setExitAction		///
+		"program main_res_child_edit_done"
+
+	call main_res_position.withvalue				///
+		main_res_tmp.setvalue					///
+		class mainRESCommandDisplayList.values[@]
+	call main_res_childdlg.withvalue				///
+		main_res_tmp2.setvalue "@.settitle"
+	call main_res_tmp2.append `" ""'
+	call main_res_tmp2.append class main_res_tmp.value
+	call main_res_tmp2.append `"""'
+	call main_res_tmp2.withvalue @
+END
+
+PROGRAM main_res_child_create_done
+BEGIN
+	call main_res_arraysize.setvalue class				///
+		mainRESChildDialogList.size
+	call main_res_arraysize.increment
+
+	/* Store child dialog name */
+	call mainRESChildDialogList.store class				///
+		main_res_arraysize.value class main_res_childdlg.value
+
+	/* Store listbox display result string */
+	call main_res_arraysize.withvalue STMP.format			///
+		"resource LBL_RESULT_FMT" "@" ""
+
+	call STMP.withvalue						///
+		mainRESCommandDisplayList.store class			///
+		main_res_arraysize.value "@"
+
+	/* Store child dialog result string */
+	call mainRESCommandList.store class				///
+		main_res_arraysize.value				///
+		class main_res_child_result.value
+
+	/* Store child dialog result string for final command
+	   For disable/enable */
+	call mainRESCommandValues.store class				///
+		main_res_arraysize.value				///
+		class main_res_child_result.value
+
+	/* Store disable/enable status */
+	call mainRESStatusList.store class				///
+		main_res_arraysize.value "active"
+
+	call mainRESCommandDisplayList.copyToArray main_res_list
+	call main.lb_resBuild.repopulate
+	call STMP.withvalue						///
+		main.lb_resBuild.setvalue "@"
+END
+
+PROGRAM main_res_child_edit_done
+BEGIN
+	call mainRESChildDialogList.findstr class			///
+		main_res_childdlg.value
+	call main_res_position.setvalue class				///
+		mainRESChildDialogList.position
+	call main_res_position.withvalue main_res_tmp.setvalue		///
+		class mainRESStatusList.values[@]
+	if main_res_tmp.iseq("active") {
+		call main_res_position.withvalue STMP.format		///
+			"resource LBL_RESULT_FMT" "@" ""
+		call STMP.withvalue					///
+			mainRESCommandDisplayList.store class		///
+			main_res_position.value "@"
+		call mainRESCommandValues.store class			///
+			main_res_position.value class			///
+			main_res_child_result.value
+		call STMP.withvalue main_res_tmp2.setvalue "@"
+	}
+	else {
+		call main_res_position.withvalue STMP.format		///
+			"resource LBL_RESULT_FMT" "@"			///
+			"resource LBL_PAREN_DISABLED"
+		call STMP.withvalue					///
+			main_res_tmp2.setvalue "@"
+
+		call main_res_tmp2.withvalue				///
+			mainRESCommandDisplayList.store			///
+			class main_res_position.value "@"
+	}
+
+	call mainRESCommandList.store class				///
+		main_res_position.value class				///
+		main_res_child_result.value
+
+	call mainRESCommandDisplayList.copyToArray main_res_list
+	call main.lb_resBuild.repopulate
+	call main.lb_resBuild.setvalue class main_res_tmp2.value
+END
+
+PROGRAM main_res_sel_changed
+BEGIN
+	call mainRESCommandDisplayList.findstr class			///
+		main.lb_resBuild.value
+	call main_res_position.setvalue class				///
+		mainRESCommandDisplayList.position
+	call main_res_position.withvalue main_res_tmp.setvalue		///
+		class mainRESStatusList.values[@]
+	if main_res_position {
+		call main.bu_res_edit.enable
+		call main_res_position.withvalue			///
+			main.tb_res_note.setlabel			///
+			class mainRESCommandList.values[@]
+	}
+
+	if main_res_tmp.iseq("disable") {
+		call main.bu_res_enable.enable
+		call main.bu_res_disable.disable
+	}
+	if main_res_tmp.iseq("active") {
+		call main.bu_res_enable.disable
+		call main.bu_res_disable.enable
+	}
+	if main_res_tmp.isneq("") {
+		call main.bu_res_clear.enable
+	}
+END
+
+PROGRAM main_res_disable
+BEGIN
+	call mainRESCommandDisplayList.findstr class			///
+		main.lb_resBuild.value
+	call main_res_position.setvalue class				///
+		mainRESCommandDisplayList.position
+
+	call main_res_tmp.setvalue class main.lb_resBuild.value
+	call mainRESStatusList.store class				///
+		main_res_position.value "disable"
+	call mainRESCommandValues.store class main_res_position.value ""
+	call STMP.format "resource LBL_PAREN_DISABLED"
+	call main_res_tmp.append " "
+	call main_res_tmp.append class STMP.value
+	call main_res_tmp.withvalue STMP.setvalue "@"
+
+	call main_res_tmp.withvalue					///
+		mainRESCommandDisplayList.store				///
+		class main_res_position.value "@"
+
+	call mainRESCommandDisplayList.copyToArray main_res_list
+	call main.lb_resBuild.repopulate
+	call main.lb_resBuild.setvalue class STMP.value
+END
+
+PROGRAM main_res_enable
+BEGIN
+	call mainRESCommandDisplayList.findstr class			///
+		main.lb_resBuild.value
+	call main_res_position.setvalue class				///
+		mainRESCommandDisplayList.position
+
+	call mainRESStatusList.store class				///
+		main_res_position.value "active"
+	call main_res_position.withvalue				///
+		mainRESCommandValues.store				///
+		class main_res_position.value class			///
+		mainRESCommandList.values[@]
+
+	call main_res_position.withvalue STMP.format			///
+		"resource LBL_RESULT_FMT" "@" ""
+
+	call STMP.withvalue						///
+		mainRESCommandDisplayList.store				///
+		class main_res_position.value "@"
+
+	call mainRESCommandDisplayList.copyToArray main_res_list
+	call main_res_position.withvalue				///
+		main_res_tmp2.setvalue class				///
+		mainRESCommandDisplayList.values[@]
+	call main.lb_resBuild.repopulate
+	call main.lb_resBuild.setvalue class main_res_tmp2.value
+END
+
+PROGRAM main_res_clear
+BEGIN
+/*
+	call count.setvalue 1
+	while (count.isle(main_res_arraysize)) {
+		call count.withvalue				///
+			main_res_childdlg.setvalue			///
+			class mainRESChildDialogList.values[@]
+		put ".putexcel_dlg." main_res_childdlg ".Reset"
+		stata hidden immediate		
+		call count.increment
+	}
+*/
+
+	stata hidden immediate
+	call mainRESCommandDisplayList.dropall
+	call mainRESCommandList.dropall
+	call mainRESCommandValues.dropall
+	call mainRESStatusList.dropall
+	call mainRESChildDialogList.dropall
+
+	call main_res_list.Arrdropall
+
+	call main.lb_resBuild.clearlist
+	call main.lb_resBuild.repopulate
+	call main.tb_res_note.setlabel "resource PUTEXCEL_MAIN_TB_RES_NOTE"
+
+	call main.bu_res_edit.disable
+	call main.bu_res_disable.disable
+	call main.bu_res_enable.disable
+	call main.bu_res_clear.disable
+END
+
+PROGRAM sheet_output
+BEGIN
+	if main.ck_sheet_replace {
+		require main.ed_sheet
+	}
+	if main.ed_sheet {
+		put "sheet("
+		put main.ed_sheet
+		if main.ck_sheet_replace {
+			put ", replace"
+		}
+		put ")"
+	}
+END
+
+PROGRAM set_submit
+BEGIN
+	if main.rb_set {
+		put "putexcel set "
+		require main.fi_filename
+		put `"""' main.fi_filename `"""'
+		beginoptions
+			option radio(main rb_modify rb_replace)
+			put /program sheet_output
+		endoptions
+		stata
+	}
+END
+
+PROGRAM export_submit
+BEGIN
+	if main.rb_export {
+		call mainRESCommandValues.copyToString main_res_cmd_output
+		if main_res_cmd_output.iseq("") {
+			stopbox stop resource PUTEXCEL_MSGBOX_RESULT_NOT_DEFINED
+//"Result not defined. "			///
+//"Please enter a result before proceeding."
+		}
+		call count.setvalue 1
+		while (count.isle(main_res_arraysize)) {
+			call count.withvalue tmp_status.setvalue	///
+				class mainRESStatusList.values[@]
+			if tmp_status.iseq("active") {
+				put "putexcel "
+				call count.withvalue tmp.setvalue	///
+					class mainRESCommandValues.values[@]
+				put tmp
+				stata
+			}
+			call count.increment
+		}
+	}
+END
+
+PROGRAM clear_submit
+BEGIN
+	if main.rb_clear {
+		put "putexcel clear"
+		stata
+	}
+END

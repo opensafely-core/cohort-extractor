@@ -1,0 +1,359 @@
+/*
+  mfx
+
+*!  VERSION 1.3.2  02dec2014 (deprecated)
+
+*/
+
+VERSION 9.0
+
+INCLUDE _std_large
+INCLUDE header
+
+HELP hlp1, view("help mfx")
+RESET res1
+
+SCRIPT POSTINIT
+BEGIN
+	sub.tx_note1.setlabel "Note: the if and in qualifiers only affect the at() option, which is specified"
+	sub.tx_note2.setlabel `"on the "Model 2" dialog tab, and any offsets used in the preceding estimation."'
+END
+
+DIALOG main, label("mfx - Marginal effects or elasticities")	///
+		tabtitle("Model")
+BEGIN
+  TEXT     tx_predict        _lft      _top      _cwd1     .,		///
+		label("Function to predict: (optional)")
+  EDIT     ed_predict        @         _ss       @         .,		///
+		option(predict) max(32) label("Use predict option")
+
+  TEXT     tx_varlist        @         _ls       @         .,		///
+  		label("Restrict to these variables: (optional)")
+  VARLIST  vl_varlist        @         _ss       @         .,		///
+  		label("Restrict to these variables")			///
+  		numeric							///
+  		option(varlist)
+
+  GROUPBOX gb_meffects       _lft      +35       _iwd      _ht8,	///
+  		label("Marginal effects or elasticities")
+  RADIO    rb_dydx           _ilft     _ss       _inwd     ., first	///
+		option(dydx)						///
+		label("Calculate marginal effects in the form of d(y)/d(x)")
+  RADIO    rb_eyex           @         _ss       @         .,		///
+		option(eyex) 						///
+		label("Calculate elasticities in the form of d(lny)/d(lnx)")
+  RADIO    rb_dyex           @         _ss       @         .,		///
+		option(dyex) 						///
+		label("Calculate elasticities in the form of d(y)/d(lnx)")
+  RADIO    rb_eydx           @         _ss       @         .,	 	///
+		option(eydx) 						///
+		last							///
+		label("Calculate elasticities in the form of d(lny)/d(x)")
+
+  CHECKBOX ck_nodiscrete     _lft      _xls      _iwd      .,		///
+		option(nodiscrete)					///
+		label("Treat indicator variables as continuous")
+  CHECKBOX ck_nose           @         _ms       @         .,		///
+		option(nose)						///
+		label("Do not calculate standard errors")
+END
+
+DIALOG model2, tabtitle("Model 2")
+BEGIN
+  GROUPBOX gb_at             _lft      _top      _cwd1     _ht17,	///
+		label("Calculate marginal effects at:")
+  DEFINE   hldy @y
+  RADIO    rb_mean           _ilft     _ms       _inwd     ., first	///
+		clickon("script standard")				///
+		label("Means (default)")
+  DEFINE   hldcx @cx
+  RADIO    rb_median         @         _ss       @         .,		///
+		clickon("script standard")				///
+		label("Medians")
+  RADIO    rb_zero           @         _ss       @         .,		///
+		clickon("script standard")				///
+		label("Zero")
+  RADIO    rb_numlist        @         _ss       @         .,		///
+		clickon("script numlist_on")				///
+		label("Specified values from numlist:")
+  EDIT     ed_numlist        _indent2  _ss       _inwd     .,		///
+		option(at)						///
+		label("Specified values from numlist")
+  RADIO    rb_matname        _ilft     _ms       hldcx     ., last	///
+		clickon("script matname_on")				///
+		label("Specified values from matrix:")
+  COMBOBOX cb_matname        _indent2  _ss       _inwd     .,		///
+		dropdown contents(vector)				///
+		label("Specified values from matrix")
+
+  CHECKBOX ck_except         _lft2     hldy      _cwd1     _ht17,	///
+		groupbox						///
+		clickon("script varvalon")				///
+		clickoff("script varvaloff")				///
+		label("Use specified variable values")
+  TEXT     tx_var            _indent2  _ss       _vnwd     .,		///
+		label("Variable:")
+  DEFINE   x1 @x
+  TEXT     tx_value          _vnsep    @         _en7wd    .,		///
+		label("Value:")
+  VARNAME  vn_var1           x1        _ss       _vnwd     .,		///
+  		numeric							///
+		label("Variable")
+  EDIT     en_value1         _vnsep    @         _en7wd    ., numonly	///
+		label("Value")
+  VARNAME  vn_var2           x1        _ms       _vnwd     .,		///
+  		numeric							///
+		label("Variable")
+  EDIT     en_value2         _vnsep    @         _en7wd    ., numonly	///
+		label("Value")
+  VARNAME  vn_var3           x1        _ms       _vnwd     .,		///
+  		numeric							///
+		label("Variable")
+  EDIT     en_value3         _vnsep    @         _en7wd    ., numonly	///
+		label("Value")
+  VARNAME  vn_var4           x1        _ms       _vnwd     .,		///
+  		numeric							///
+		label("Variable")
+  EDIT     en_value4         _vnsep    @         _en7wd    ., numonly	///
+		label("Value")
+  VARNAME  vn_var5           x1        _ms       _vnwd     .,		///
+  		numeric							///
+		label("Variable")
+  EDIT     en_value5         _vnsep    @         _en7wd    ., numonly	///
+		label("Value")
+  VARNAME  vn_var6           x1        _ms       _vnwd     .,		///
+  		numeric							///
+		label("Variable")
+  EDIT     en_value6         _vnsep    @         _en7wd    ., numonly	///
+		label("Value")
+
+  CHECKBOX ck_noesample      _lft      _xxls     _iwd      .,		///
+		option(noesample)					///
+label("Do not restrict calculation of means and medians to the estimation sample")
+  CHECKBOX ck_nowght         @         _ms       @         .,		///
+		option(nowght)						///
+		label("Ignore weights when calculating means and medians")
+END
+
+DIALOG adv, tabtitle("Adv. model")
+BEGIN
+  CHECKBOX ck_nonlinear      _lft      _top      _iwd      .,		///
+		option(nonlinear)					///
+		label("Do not assume the linear-form restriction (overriding automatic determination)")
+
+  CHECKBOX ck_force          @         _ms       @         .,		///
+		option(force)						///
+		onclickon(script ck_force_on)				///
+		onclickoff(script ck_force_off)				///
+  		label("Force calculation of marginal effects and standard errors")
+END
+
+SCRIPT ck_force_on
+BEGIN
+	rpt.gb_diagnostic.disable
+	rpt.rb_none.disable
+	rpt.rb_beta.disable
+	rpt.rb_vce.disable
+	rpt.rb_all.disable
+END
+
+SCRIPT ck_force_off
+BEGIN
+	rpt.gb_diagnostic.enable
+	rpt.rb_none.enable
+	rpt.rb_beta.enable
+	rpt.rb_vce.enable
+	rpt.rb_all.enable
+END
+
+SCRIPT standard
+BEGIN
+	program varseton
+	model2.ed_numlist.disable
+	model2.cb_matname.disable
+END
+
+SCRIPT numlist_on
+BEGIN
+	script varsetoff
+	model2.ed_numlist.enable
+	model2.cb_matname.disable
+END
+
+SCRIPT matname_on
+BEGIN
+	script varsetoff
+	model2.ed_numlist.disable
+	model2.cb_matname.enable
+END
+
+PROGRAM varseton
+BEGIN
+	call gaction model2.ck_except.enable
+	if model2.ck_except {
+		call script varvalon
+	}
+END
+
+SCRIPT varsetoff
+BEGIN
+	model2.ck_except.disable
+	script varvaloff
+END
+
+SCRIPT varvalon
+BEGIN
+	model2.tx_var.enable
+	model2.tx_value.enable
+	model2.vn_var1.enable
+	model2.en_value1.enable
+	model2.vn_var2.enable
+	model2.en_value2.enable
+	model2.vn_var3.enable
+	model2.en_value3.enable
+	model2.vn_var4.enable
+	model2.en_value4.enable
+	model2.vn_var5.enable
+	model2.en_value5.enable
+	model2.vn_var6.enable
+	model2.en_value6.enable
+END
+
+SCRIPT varvaloff
+BEGIN
+	model2.tx_var.disable
+	model2.tx_value.disable
+	model2.vn_var1.disable
+	model2.en_value1.disable
+	model2.vn_var2.disable
+	model2.en_value2.disable
+	model2.vn_var3.disable
+	model2.en_value3.disable
+	model2.vn_var4.disable
+	model2.en_value4.disable
+	model2.vn_var5.disable
+	model2.en_value5.disable
+	model2.vn_var6.disable
+	model2.en_value6.disable
+END
+
+INCLUDE ifin
+
+DIALOG rpt, tabtitle("Reporting")
+BEGIN
+  DEFINE _x  _lft
+  DEFINE _cx _spr
+  DEFINE _y  _top
+  INCLUDE _sp_level
+
+  GROUPBOX gb_diagnostic     _lft      _xls      _iwd      _ht8,	///
+  		label("Diagnostic information")
+  RADIO    rb_none           _ilft     _ss       _inwd     .,		///
+  		label("Do not show additional diagnostic information")	///
+  		first
+  RADIO    rb_beta           @         _ss       @         .,		///
+  		option(diagnostics(beta)) 				///
+  		label("Show suitability of marginal effect calculation (beta)")
+  RADIO    rb_vce            @         _ss       @         .,		///
+  		option(diagnostics(vce))				///
+  		label("Show suitability of standard error calculation (vce)")
+  RADIO    rb_all            @         _ss       @         .,		///
+  		option(diagnostics(all))				///
+  		last							///
+  		label("Show all diagnostic information")
+
+  CHECKBOX ck_trace          _lft      +45      _cwd1      .,		///
+  		onclickon(script rpt_ck_trace_on)			///
+  		onclickoff(script rpt_ck_trace_off)			///
+  		label("Show increasing levels of detail")
+  SPINNER  sp_trace          _lft2     @        _spwd     .,		///
+  		label("Trace level") min(1) default(1) max(4)		///
+  		option(tracelvl)
+  TEXT     tx_trace          _spsep    @        _ckspr    .,		///
+  		label("Level")
+END
+
+SCRIPT rpt_ck_trace_on
+BEGIN
+	rpt.sp_trace.enable
+	rpt.tx_trace.enable
+END
+
+SCRIPT rpt_ck_trace_off
+BEGIN
+	rpt.sp_trace.disable
+	rpt.tx_trace.disable
+END
+
+PROGRAM at_output
+BEGIN
+	if model2.rb_mean {
+		put "mean "
+	}
+	if model2.rb_median {
+		put "median "
+	}
+	if model2.rb_zero {
+		put "zero "
+	}
+	if model2.ck_except {
+		require model2.vn_var1 model2.en_value1
+		put model2.vn_var1 "=" model2.en_value1
+		if model2.vn_var2 | model2.en_value2 {
+			require model2.vn_var2 model2.en_value2
+			put ", " model2.vn_var2 "=" model2.en_value2
+		}
+		if model2.vn_var3 | model2.en_value3 {
+			require model2.vn_var3 model2.en_value3
+			put ", " model2.vn_var3 "=" model2.en_value3
+		}
+		if model2.vn_var4 | model2.en_value4 {
+			require model2.vn_var4 model2.en_value4
+			put ", " model2.vn_var4 "=" model2.en_value4
+		}
+		if model2.vn_var5 | model2.en_value5 {
+			require model2.vn_var5 model2.en_value5
+			put ", " model2.vn_var5 "=" model2.en_value5
+		}
+		if model2.vn_var6 | model2.en_value6 {
+			require model2.vn_var6 model2.en_value6
+			put ", " model2.vn_var6 "=" model2.en_value6
+		}
+	}
+	if model2.rb_numlist {
+		require model2.ed_numlist
+		put model2.ed_numlist
+	}
+	if model2.rb_matname {
+		require model2.cb_matname
+		put model2.cb_matname
+	}
+END
+
+PROGRAM command
+BEGIN
+	put "mfx compute "
+	put /program ifin_output
+	beginoptions
+		optionarg main.ed_predict
+		optionarg main.vl_varlist
+		option radio(main rb_dydx rb_eyex rb_dyex rb_eydx)
+		option main.ck_nodiscrete
+		option main.ck_nose
+
+		put " " "at("
+		put /program at_output
+		put ") "
+		option model2.ck_noesample
+		option model2.ck_nowght
+
+		option adv.ck_nonlinear
+		option adv.ck_force
+
+		optionarg /hidedefault rpt.sp_level
+		option rpt.rb_beta
+		option rpt.rb_vce
+		option rpt.rb_all
+		optionarg rpt.sp_trace
+	endoptions
+END

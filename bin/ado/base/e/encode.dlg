@@ -1,0 +1,112 @@
+/*
+	encode
+	
+*!  VERSION 1.1.0  24sep2014
+
+** This dialog box may be called internally by the Data Editor
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_small
+INCLUDE _ht210
+INCLUDE header
+HELP hlp1, view("help encode")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create ARRAY  ARGS
+	create STRING VARS
+	create DOUBLE INFROM
+	create DOUBLE INTO
+	setscale_hadj resource ENCODE_DLG_HSCALE
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	if __MESSAGE {
+			call sub.ck_in.setoff
+			call __MESSAGE.tokenize ARGS
+			call VARS.setvalue class ARGS[1]
+			call INFROM.setvalue class ARGS[2]
+			call INTO.setvalue class ARGS[3]
+			call main.vn_var.setvalue class VARS.value
+
+			if (INFROM) {
+				call sub.sp_from.setvalue class INFROM.value
+				call sub.ck_in.seton
+				if (INTO) {
+					call sub.sp_to.setvalue		///
+						class INTO.value
+				}
+			else {
+				call sub.sp_from.setvalue 1
+				call sub.sp_to.setvalue c(N)
+			}
+		}
+	}
+END
+
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)						///
+	label(resource ENCODE_DLG_TITLE)
+BEGIN
+  TEXT tx_var			_lft	_top	_cwd1	.,		///
+	label(resource ENCODE_MAIN_TX_VAR)
+  VARNAME vn_var		@	_ss	_vnwd	.,		///
+  	string 								///
+	label(resource ENCODE_MAIN_TX_VAR)
+  TEXT tx_newvar		_lft2	_top	_cwd1	.,		///
+	label(resource ENCODE_MAIN_TX_NEWVAR)
+  EDIT ed_newvar		@	_ss	_vnwd	.,		///
+	option(generate)						///
+	max(32)								///
+	label(resource ENCODE_MAIN_TX_NEWVAR)
+  GROUPBOX gb_label		_lft	+35	_iwd	_ht9,		///
+	label(resource LBL_VALUE_LABEL) 
+  RADIO rb_default		_ilft	_ss	_ibwd	., first	///
+	clickon("script main_name_off")					///
+	label(resource ENCODE_MAIN_RB_DEFAULT)
+  RADIO rb_name			@	_ss	_ibwd	., last		///
+	clickon("script main_name_on")					///
+	label(resource ENCODE_MAIN_RB_NAME)
+  EDIT ed_name			+20	_ss	_vnwd	.,		///
+	max(32)								///
+	option(label)							///
+	label(resource LBL_VALUE_LABEL_NAME)
+  CHECKBOX ck_noextend		_ilft	_ls	_ibwd	.,		///
+	option(noextend)						///
+	label(resource ENCODE_MAIN_CK_NOEXTEND)
+END
+
+SCRIPT main_name_off
+BEGIN
+	main.ed_name.disable
+	main.ck_noextend.disable
+END
+
+SCRIPT main_name_on
+BEGIN
+	main.ed_name.enable
+	main.ck_noextend.enable
+END
+
+INCLUDE ifin
+
+PROGRAM command
+BEGIN
+	put "encode "
+	varlist main.vn_var
+	put " " /program ifin_output
+	beginoptions
+		require main.ed_newvar
+		optionarg main.ed_newvar
+		if main.rb_name{
+			optionarg main.ed_name
+		}
+		option main.ck_noextend
+	endoptions
+END
+

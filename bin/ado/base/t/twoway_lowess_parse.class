@@ -1,0 +1,97 @@
+/*                                 twoway_lowess_parse
+
+   A parser for lowess smoothers.  Works with twoway.ado.
+
+*/
+*! version 1.1.0  10jan2007
+
+version 8
+
+class {
+	bwidth		= .8
+	y		= ""
+	x		= ""
+	lowess_options	= ""
+} , inherit(twoway_yxview_parse)
+
+
+// ---------------------------------------------------------------------------
+
+program parse
+	.must_create_serset = 1
+
+	.viewtype = "line"
+	.Super.parse `0'
+
+	_clsarr2list mlablist : labvars			// allow marker labels
+	local vlist `.varlist'
+	local 0 : list vlist -mlablist
+	syntax varlist(numeric min=2 max=2)
+	tokenize `varlist'
+	.y = "`1'"
+	.x = "`2'"
+
+	// weights are not allowed
+	local 0 `"[`.wtype'`.wtexp'], `.options'"'
+	syntax [,			///
+		BWidth(real .8)		///
+		Mean			///
+		noWeight		///
+		Adjust			///
+		LOgit			///
+		*			///
+	]
+
+	.bwidth = `bwidth'
+	.lowess_options = "`mean' `weight' `adjust' `logit'"
+
+	.options   = `"`options'"'
+end
+
+/* -------------------------------------------------------------------------*/
+/*
+	Creates a new serset and the view and returns its reference.
+	Assumes that the data in memory is the same as when parse was called.
+
+	Allows a touse(varname) option that further restricts the sample, 
+	restricts beyond the held .if and .in
+
+	Additional options to the .serset.new command may be specified, but
+	this is unlikely to be necessary.
+
+	If must_create_serset == 1, then this command MUST be used, 
+	otherwise the serset may be created by other means.
+*/ 
+
+program log_create_serset
+
+	syntax , LOG(name) SERSETNAME(string) [ TOUSE(passthru) * ]
+
+	.log_touse , log(`log') `touse'
+
+	local nolog  .`log'.Arrpush __NOLOG__
+
+	// compute the smooth values
+	`nolog' tempvar yhat
+	`nolog'	lowess `.y' `.x'	///
+		if \`touse1' ,		///
+		bwidth(`.bwidth')	///
+		`.lowess_options'	///
+		generate(\`yhat')	///
+		nograph
+
+	// label the new variable
+	`nolog'	label variable \`yhat' "lowess `.y' `.x'"
+
+	.`log'.Arrpush				///
+		.`sersetname' = .serset.new	///
+			\`yhat' `.x'		///
+			if \`touse1',		///
+			nocount			///
+			`.omitmethod'		///
+			`options'
+
+	`nolog' .`sersetname'.sort `.x'
+	`nolog' .`sersetname'.sers[1].name = "`.y'"
+end
+

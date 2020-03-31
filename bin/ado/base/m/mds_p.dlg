@@ -1,0 +1,194 @@
+/*
+	predict (after mds)
+
+*!  VERSION 1.2.3  03jun2015
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE _ht320
+INCLUDE header
+
+HELP hlp1, view("help mds postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	main.ed_cmd.hide
+	create BOOLEAN mds_p_saving_required
+	mds_p_saving_required.setfalse
+	setscale_hadj resource MDS_P_DLG_HSCALE
+	
+        main.fi_sav.formatfilter "{0} (*.dta)|*.dta|{1} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_DTA" "resource ui_ex FILE_TYPE_ALL_FILES"
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	if ! (main.ed_cmd.equals("mds") | main.ed_cmd.equals("mdsmat") | main.ed_cmd.equals("mdslong")) {
+		stopbox note resource MDS_P_MSGBOX_DLG_REQUIRES
+// This dialog requires that one of the multidimensional scaling commands
+// (mds, mdsmat, or mdslong) be performed prior to starting.
+// "Use the "Reset" (R) button on this dialog once that has been done.
+	}
+END
+
+DIALOG main, label(resource PREDICT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  // e(cmd) indicates which estimation command was run before predict
+  EDIT     ed_cmd		0	0	0	0,		///
+	default(e(cmd))
+
+  TEXT     tx_var		_lft	_top	_vlwd	.,		///
+	label(resource LBL_NEW_VARIABLE_NAMES)
+  EDIT     ed_var		@	_ss	@	.,		///
+	label(resource LBL_NEW_VARIABLE_NAMES)
+
+  TEXT     tx_type		_vlsep	_top	_vnwd	.,		///
+	label(resource LBL_NEW_VARIABLE_TYPE)
+  COMBOBOX cb_type		@	_ss	_vnwd	.,		///
+	label(resource LBL_TYPE) dropdownlist contents(type) default(c(type))
+
+  GROUPBOX gb_produce		_lft	_ls	_iwd	_ht10,		///
+	label(resource LBL_PRODUCE)
+  RADIO    rb_config		_indent	_ss	_ibwd	.,	first	///
+	option(config) onclickon(program report_opt)			///
+	label(resource MDS_P_MAIN_RB_CONFIG)
+  RADIO    rb_pairwise		@	_ss	@	.,	last	///
+	option(pairwise) onclickon(program report_opt)			///
+	label(resource MDS_P_MAIN_RB_PAIRWISE)
+  CHECKBOX ck_disp		+20	_ss	_cwd3	.,		///
+	option(disparities)						///
+	label(resource MDS_P_MAIN_CK_DISP)
+DEFINE holdy @y
+  CHECKBOX ck_diss		@	_ss	@	.,		///
+	option(dissimilarities)						///
+	label(resource MDS_P_MAIN_CK_DISS)
+  CHECKBOX ck_dist		@	_ss	@	.,		///
+	option(distances)						///
+	label(resource MDS_P_MAIN_CK_DIST)
+  CHECKBOX ck_rr		_lft2	holdy	@	.,		///
+	option(rresiduals)						///
+	label(resource LBL_RAW_RESIDUALS)
+  CHECKBOX ck_tr		@	_ss	@	.,		///
+	option(tresiduals)						///
+	label(resource MDS_P_MAIN_CK_TR)
+  CHECKBOX ck_weights		@	_ss	@	.,		///
+	option(weights)							///
+	label(resource WEIGHTS_TABTITLE)
+
+  GROUPBOX gb_save		_lft	_xls	_iwd	_ht4, 		///
+  	label(resource LBL_SAVE_AS_DATASET_ON_DISK)
+  TEXT	tx_sav			_indent	_ss	_ibwd	.,		///
+  	label(resource LBL_FILENAME)
+  FILE	fi_sav			@	_ss	@	.,		///
+	label(resource LBL_BU_BROWSE)					///
+	option(saving)							///
+	defext(dta)							///
+	save								///
+	error(resource MDS_P_MAIN_FI_SAV)
+
+  CHECKBOX ck_full		_lft	_xls	_iwd	.,		///
+	option(full) label(resource MDS_P_MAIN_CK_FULL)
+END
+
+INCLUDE ifin
+INCLUDE _type_list_fd
+
+PROGRAM report_opt
+BEGIN
+	if main.ed_cmd.iseq("mds") {
+		if main.rb_pairwise {
+			call main.gb_save.setlabel resource LBL_SAVE_AS_DATASET_ON_DISK_REQUIRED
+			call mds_p_saving_required.settrue
+		}
+		if  main.rb_config {
+			call main.gb_save.setlabel resource LBL_SAVE_AS_DATASET_ON_DISK
+			call mds_p_saving_required.setfalse
+		}
+	}
+	if main.ed_cmd.iseq("mdsmat") {
+		call main.gb_save.setlabel resource LBL_SAVE_AS_DATASET_ON_DISK_REQUIRED
+		call mds_p_saving_required.settrue
+	}
+	if main.ed_cmd.iseq("mdslong") {
+		if main.rb_config {
+			call main.gb_save.setlabel resource LBL_SAVE_AS_DATASET_ON_DISK_REQUIRED
+			call mds_p_saving_required.settrue
+		}
+		if main.rb_pairwise {
+			call main.gb_save.setlabel resource LBL_SAVE_AS_DATASET_ON_DISK
+			call mds_p_saving_required.setfalse
+		}
+	}
+	if main.rb_config {
+		call main.ck_disp.disable
+		call main.ck_diss.disable
+		call main.ck_dist.disable
+		call main.ck_rr.disable
+		call main.ck_tr.disable
+		call main.ck_weights.disable
+	}
+	if main.rb_pairwise {
+		call main.ck_disp.enable
+		call main.ck_diss.enable
+		call main.ck_dist.enable
+		call main.ck_rr.enable
+		call main.ck_tr.enable
+		call main.ck_weights.enable
+	}
+END
+
+PROGRAM main_pairwise_output
+BEGIN
+	option main.ck_disp
+	option main.ck_diss
+	option main.ck_dist
+	option main.ck_rr
+	option main.ck_tr
+	option main.ck_weights
+END
+
+PROGRAM command
+BEGIN
+	put "predict "
+	require main.ed_var
+	if ! main.cb_type.isdefault() {
+		put  main.cb_type " " "("
+		put main.ed_var
+		put ") "
+	}
+	if main.cb_type.isdefault() {
+		put " " main.ed_var " "
+	}
+	INCLUDE _ifin_pr
+	beginoptions
+		option main.rb_config
+		if main.rb_pairwise {
+			put "pairwise"
+			if main.ck_disp | main.ck_diss | main.ck_dist |	///
+				main.ck_rr | main.ck_tr | main.ck_weights {
+				put "("
+				put /program main_pairwise_output
+				put ")"
+			}
+			put " "
+		}
+
+		if mds_p_saving_required {
+			require main.fi_sav
+		}
+
+		if main.fi_sav {
+			repfile main.fi_sav
+			put "saving("
+			put `"""'
+			put main.fi_sav
+			put `"""'
+			put " , replace)"
+		}
+		option main.ck_full
+	endoptions
+END

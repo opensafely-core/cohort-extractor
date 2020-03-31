@@ -1,0 +1,591 @@
+/*
+	predict (after gsem)
+
+*!  VERSION 1.2.8  11apr2017
+
+*/
+
+VERSION 14.0
+SYNCHRONOUS_ONLY
+
+INCLUDE _std_xlarge
+DEFINE _dlght 590
+INCLUDE header
+HELP hlp1, view("help gsem predict")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING main_Lspec
+	create STRING main_depvar
+	create DOUBLE e_k_mult
+
+	create LIST LATENT_LIST
+	create LIST OUTCOME_LIST
+	create ARRAY CLASS_LIST
+
+	create STRING has_latent_vars
+	has_latent_vars.setvalue e(k_hinfo)
+	create STRING has_latent_class
+	has_latent_class.setvalue e(lclass)
+
+	create DOUBLE k_yinfo
+	k_yinfo.setvalue e(k_yinfo)
+	create DOUBLE enable_survival_radio
+	enable_survival_radio.setvalue 0
+	create DOUBLE loopI
+	create DOUBLE missing
+	missing.setvalue .
+	create STRING k_yinfo_tmp
+	create STRING k_yinfo_val
+	setscale_hadj resource GSEM_P_DLG_HSCALE
+	
+	program main_populate_lclass
+END
+
+PROGRAM main_populate_lclass
+BEGIN
+	if !has_latent_class.equals("") {
+		call create STRING dlgname
+		call dlgname.storeDialogClassName
+		
+		call CLASS_LIST.Arrdropall
+		put "gsem_p_wrk_dlg "
+		put dlgname
+		put " CLASS_LIST"
+		stata hidden immediate
+		
+		call main.cb_class.repopulate
+	}
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script _p_gentype_multiple
+	script _p_gentype_setMedium
+	script main_populate_combos
+	main.cb_class.repopulate
+END
+
+SCRIPT main_populate_combos
+BEGIN
+	main_Lspec.setvalue e(Lspec)
+	main_depvar.setvalue e(depvar)
+
+	LATENT_LIST.Arrdropall
+	OUTCOME_LIST.Arrdropall
+
+	main_Lspec.tokenize LATENT_LIST
+	main_depvar.tokenize OUTCOME_LIST
+
+	main.cb_latent_vars.repopulate
+	main.cb_outcome_var.repopulate
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	call script main_populate_combos
+	call e_k_mult.setvalue e(k_mult)
+
+	if has_latent_vars.equals("0") {
+		call main.rb_latent_opts.disable
+		call main.rb_marginal.disable
+		call main.rb_means.disable
+		call main.rb_modes.disable
+		call main.rb_fixedonly.disable
+	}
+	else {
+		call main.rb_latent_opts.enable
+		call script me_post_integration_enable
+		call main.rb_marginal.enable
+		call main.rb_means.enable
+		call main.rb_modes.enable
+		call main.rb_fixedonly.enable
+	}
+	
+	if has_latent_class.equals("") {
+		call main.rb_classpr.disable
+		call main.rb_classpost.disable
+		call main.ck_class.disable
+		call main.tx_class.disable
+		call main.cb_class.disable
+		call main.rb_pmarginal.disable
+	}
+	else {
+		call main.rb_classpr.enable
+		call main.rb_classpost.enable
+		call main.rb_pmarginal.enable
+		if main.ck_class {
+			call main.tx_class.enable
+			call main.cb_class.enable
+		}
+		else {
+			call main.tx_class.disable
+			call main.cb_class.disable
+		}
+	}
+
+	if __MESSAGE.iseq("-mu-") {
+		call main.rb_mu.seton
+	}
+	if __MESSAGE.iseq("-eta-") {
+		call main.rb_eta.seton
+	}
+	if __MESSAGE.iseq("-density-") {
+		call main.rb_density.seton
+	}
+	if __MESSAGE.iseq("-distribution-") {
+		call main.rb_distribution.seton
+	}
+	if __MESSAGE.iseq("-survival-") {
+		call main.rb_survival.seton
+		call enable_survival_radio.setvalue 1
+	}
+	if __MESSAGE.iseq("-latent-") & has_latent_vars.isneq("0") {
+		call main.rb_latent_opts.seton
+	}
+	if __MESSAGE.iseq("-classpr-") & has_latent_class.isneq("") {
+		call main.rb_classpr.seton
+	}
+	if __MESSAGE.iseq("-classposteriorpr-") & has_latent_class.isneq("") {
+		call main.rb_classpost.seton
+	}
+
+	if k_yinfo.isge(1) & k_yinfo.islt(missing) { 
+		call loopI.setvalue 1
+		while (loopI.isle(k_yinfo)) {
+			call k_yinfo_tmp.setvalue "e(yinfo"
+			call k_yinfo_tmp.append class loopI.value
+			call k_yinfo_tmp.append "_finfo_family)"
+			call k_yinfo_tmp.withvalue k_yinfo_val.setvalue @
+			if (k_yinfo_val.iseq("gamma") |			///
+				k_yinfo_val.iseq("exponential") |	///
+				k_yinfo_val.iseq("loglogistic") |	///
+				k_yinfo_val.iseq("lognormal") |		///
+				k_yinfo_val.iseq("weibull")		///
+				) {
+				call enable_survival_radio.setvalue 1
+			}
+			call loopI.increment
+		}
+	}
+
+	if enable_survival_radio.iseq(1) {
+		call main.rb_survival.enable
+	}
+	else {
+		call main.rb_survival.disable
+	}
+	if e_k_mult.isgt(0) & e_k_mult.islt(missing) {
+		call main.rb_distribution.disable
+	}
+	
+	call program check_init_produce
+	call program main_lclass_on
+END
+
+PROGRAM check_init_produce
+BEGIN
+	if !main.rb_distribution.isenabled() & main.rb_distribution {
+		call main.rb_mu.seton
+	}
+	if !main.rb_survival.isenabled() & main.rb_survival {
+		call main.rb_mu.seton
+	}
+	if !main.rb_classpr.isenabled() & main.rb_classpr {
+		call main.rb_mu.seton
+	}
+	if !main.rb_classpost.isenabled() & main.rb_classpost {
+		call main.rb_classpost.seton
+	}
+END
+
+PROGRAM ON_DOTPROMPT
+BEGIN
+	call script main_populate_combos
+END
+
+DIALOG main, label(resource PREDICT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  INCLUDE  _p_gentype
+
+  RADIO rb_obs_endog_opts	_lft	_ls	_iwd	., first	///
+	nomemory							///
+	onclickon(program main_endog_on)				///
+	label(resource GSEM_P_MAIN_RB_OBS_ENDOG_OPTS)
+  RADIO rb_latent_opts		@	_ss	@	.,		///
+	nomemory							///
+	onclickon(program main_latent_on)				///
+	label(resource LBL_LATENT_VARIABLES)
+  RADIO rb_scores_opts		@	_ss	@	., last		///
+	nomemory							///
+	onclickon(program main_scores_on)				///
+	label(resource GSEM_P_MAIN_RB_SCORES_OPTS)
+
+  GROUPBOX gb_opt		_lft	_ls	_iwd	460,		///
+	label(resource LBL_PRODUCE)
+  // observed endogenous options
+  RADIO rb_mu			_indent	_ss	_inwd	., first	///
+	option(mu)							///
+	label(resource LBL_CAL_EXPECT_VALUE_DEPVAR)
+  RADIO rb_eta			@	_ss	@	., 		///
+	option(eta)							///
+	label(resource LBL_CAL_EXPECT_VALUE_LINEAR_DEPVAR)
+  RADIO rb_density		@	_ss	@	., 		///
+	option(density)							///
+	label(resource LBL_CAL_DENSITY_FUNC_DEPVAR)
+  RADIO rb_distribution		@	_ss	@	., 		///
+	option(distribution)						///
+	label(resource LBL_CAL_DISTRIBUTION_FUNC_DEPVAR)
+  RADIO rb_survival		@	_ss	@	., 		///
+	option(survival)						///
+	label(resource LBL_CAL_SURVIVAL_FUNC_DEPVAR)
+  RADIO rb_exp			@	_ss	@	.,		///
+	onclickon("main.ex_exp.enable")					///
+	onclickoff("main.ex_exp.disable")				///
+	label(resource LBL_CALCULATE_PREDICTION_USING_EXPRESSION)
+  EXP ex_exp			_indent2 _ss	360	., 		///
+	option(expression)						///
+	error(resource LBL_CALCULATE_PREDICTION_USING_EXPRESSION)	///
+	label(resource LBL_BU_CREATE)
+  RADIO rb_classpr		_ilft	_ms	@	., 		///
+	option(classpr)							///
+	onclickon(program main_lclass_on)				///
+	onclickoff(program main_lclass_on)				///
+	label(resource GSEM_P_MAIN_RB_CLASSPR)
+  RADIO rb_classpost		@	_ss	@	., last		///
+	option(classposteriorpr)					///
+	onclickon(program main_lclass_on)				///
+	onclickoff(program main_lclass_on)				///
+	label(resource GSEM_LBL_CLASSPOSTPR)
+
+  GROUPBOX gb_latent		_ilft	_ls	_ibwd	_ht9h,		///
+	label(resource GSEM_P_MAIN_GB_LATENT)
+  RADIO rb_means		_indent	_ss	_inwd	., first	///
+	option(means)							///
+	label(resource GSEM_P_MAIN_RB_MEANS)
+  RADIO rb_modes		@	_ss	@	.,		///
+	option(modes)							///
+	label(resource GSEM_P_MAIN_RB_MODES)
+  RADIO rb_marginal		@ 	_ss	@	., 		///
+	option(marginal)						///
+	label(resource LBL_CAL_MARGINAL_RESPECT_LATENT_VARS)
+  RADIO rb_pmarginal		@ 	_ss	@	., 		///
+	option(pmarginal)						///
+	label(resource GSEM_P_MAIN_RB_PMARGINAL)
+  RADIO rb_fixedonly		@	_ss	@	., last		///
+	onclickon("script me_post_integration_disable")			///
+	onclickoff("script me_post_integration_enable")			///
+	option(fixedonly)						///
+	label(resource GSEM_P_MAIN_RB_FIXEDONLY)
+
+  CHECKBOX ck_nooffset		_ilft	_xls	@	.,		///
+	option(nooffset)						///
+	label(resource LBL_CAL_IGNORE_OFFSET)
+
+  CHECKBOX ck_outcome		@	_ls	245	_ht4,		///
+	groupbox							///
+	onclickon("script main_outcome_on")				///
+	onclickoff("script main_outcome_off")				///
+	label(resource LBL_SPEC_OBSERVED_RESPONSE_VAR)
+  DEFINE holdyy @y
+  TEXT tx_outcome_var		_indent	_ss	_vnwd	.,		///
+	label(resource LBL_VARIABLE)
+  DEFINE holdy @y
+  COMBOBOX cb_outcome_var	@	_ss	@	.,		///
+	dropdown							///
+	contents(OUTCOME_LIST)						///
+	label(resource LBL_VARIABLE)
+  TEXT tx_outcome_val		_vnsep	holdy	50	.,		///
+	label(resource LBL_VALUE)
+  EDIT ed_outcome_val		@	_ss	@	.,		///
+	numonly								///
+	label(resource LBL_VALUE)
+	
+  CHECKBOX ck_class		_lft2	holdyy	245	_ht4,		///
+	groupbox							///
+	onclickon("script main_class_on")				///
+	onclickoff("script main_class_off")				///
+	label(resource LBL_SPECIFY_LATENT_CLASS)
+  TEXT tx_class			_indent	_ss	225	.,		///
+  	label(resource LBL_LATENT_CLASS)
+  COMBOBOX cb_class		@	_ss	@	.,		///
+	dropdown							///
+	contents(CLASS_LIST)
+
+
+  // latent options
+  TEXT tx_latent_vars		_ilft	-400	_ibwd	.,		///
+	label(resource GSEM_P_MAIN_TX_LATENT_VARS)
+  COMBOBOX cb_latent_vars	@	_ss	@	.,		///
+	option(latent)							///
+	dropdown							///
+	append								///
+	contents(LATENT_LIST)						///
+	label(resource GSEM_P_MAIN_TX_LATENT_VARS)
+  TEXT tx_se			@	_ls	@	.,		///
+	label(resource GSEM_P_MAIN_TX_SE)
+  EDIT ed_se			@	_ss	_ibwd	.,		///
+	option(se)							///
+	label(resource GSEM_P_MAIN_ED_SE)
+  RADIO rb_means_latent		@	_ls	_ibwd	., first	///
+	option(ebmeans)							///
+	label(resource GSEM_P_MAIN_RB_MEANS_LATENT)
+  RADIO rb_modes_latent		@	_ss	@	., last		///
+	option(ebmodes)							///
+	label(resource GSEM_P_MAIN_RB_MODES_LATENT)
+END
+
+SCRIPT main_hide_all
+BEGIN
+	main.gb_opt.hide
+	main.rb_mu.hide
+	main.rb_eta.hide
+	main.rb_density.hide
+	main.rb_distribution.hide
+	main.rb_survival.hide
+	main.rb_exp.hide
+	main.ex_exp.hide
+	main.rb_classpr.hide 
+	main.rb_classpost.hide
+	main.gb_latent.hide
+	main.rb_marginal.hide
+	main.rb_pmarginal.hide
+	main.rb_means.hide
+	main.rb_modes.hide
+	main.rb_fixedonly.hide
+	main.ck_nooffset.hide
+	main.ck_outcome.hide
+	main.cb_outcome_var.hide
+	main.ed_outcome_val.hide
+	main.tx_outcome_val.hide
+	main.tx_outcome_var.hide
+	main.tx_outcome_val.hide
+	main.ck_class.hide 
+	main.tx_class.hide 
+	main.cb_class.hide
+
+	main.tx_latent_vars.hide
+	main.cb_latent_vars.hide
+	main.tx_se.hide
+	main.ed_se.hide
+	main.rb_means_latent.hide
+	main.rb_modes_latent.hide
+END
+
+PROGRAM main_endog_on
+BEGIN
+	call script main_hide_all
+
+	call main.gb_opt.show
+	call main.rb_mu.show
+	call main.rb_eta.show
+	call main.rb_density.show
+	call main.rb_distribution.show
+	call main.rb_survival.show
+	call main.rb_exp.show
+	call main.ex_exp.show
+	call main.rb_classpr.show 
+	call main.rb_classpost.show
+	call main.gb_latent.show
+	call main.rb_marginal.show
+	call main.rb_pmarginal.show
+	call main.rb_means.show
+	call main.rb_modes.show
+	call main.rb_fixedonly.show
+	call main.ck_nooffset.show
+	call main.ck_outcome.show
+	call main.cb_outcome_var.show
+	call main.ed_outcome_val.show
+	call main.tx_outcome_var.show
+	call main.tx_outcome_val.show
+	if main.ck_outcome {
+		call main.cb_outcome_var.enable
+		call main.ed_outcome_val.enable
+		call main.tx_outcome_var.enable
+		call main.tx_outcome_val.enable
+	}
+	else {
+		call main.cb_outcome_var.disable
+		call main.ed_outcome_val.disable
+		call main.tx_outcome_var.disable
+		call main.tx_outcome_val.disable
+	}
+	call main.ck_class.show 
+	call main.tx_class.show 
+	call main.cb_class.show
+	if main.ck_class {
+		call script main_class_on
+	}
+	else {
+		call script main_class_off
+	}
+	if main.rb_fixedonly {
+		call script me_post_integration_disable
+	}
+	else {
+		call script me_post_integration_enable
+	}
+END
+
+PROGRAM main_lclass_on
+BEGIN
+	if main.rb_classpr | main.rb_classpost {
+		call main.rb_latent_opts.disable
+		call main.gb_latent.disable
+		call main.rb_means.disable
+		call main.rb_modes.disable
+		call main.rb_marginal.disable
+		call main.rb_pmarginal.disable
+		call main.rb_fixedonly.disable
+	}
+	else {
+		call main.gb_latent.enable
+		if has_latent_vars.equals("0") {
+			call main.rb_latent_opts.disable
+			call main.rb_marginal.disable
+			call main.rb_means.disable
+			call main.rb_modes.disable
+			call main.rb_fixedonly.disable
+		}
+		else {
+			call main.rb_latent_opts.enable
+			call main.rb_marginal.enable
+			call main.rb_means.enable
+			call main.rb_modes.enable
+			call main.rb_fixedonly.enable
+		}
+		call main.rb_pmarginal.disable
+		if main.rb_mu & !has_latent_class.equals("") {
+			call main.rb_pmarginal.enable
+		}
+	}
+END
+
+SCRIPT main_outcome_on
+BEGIN
+	main.tx_outcome_var.enable
+	main.cb_outcome_var.enable
+	main.tx_outcome_val.enable
+	main.ed_outcome_val.enable
+END
+
+SCRIPT main_outcome_off
+BEGIN
+	main.tx_outcome_var.disable
+	main.cb_outcome_var.disable
+	main.tx_outcome_val.disable
+	main.ed_outcome_val.disable
+END
+
+SCRIPT main_class_on
+BEGIN
+	main.tx_class.enable
+	main.cb_class.enable
+END
+
+SCRIPT main_class_off
+BEGIN
+	main.tx_class.disable
+	main.cb_class.disable
+END
+
+PROGRAM main_latent_on
+BEGIN
+	call script main_hide_all
+
+	call main.gb_opt.show
+	call main.tx_latent_vars.show
+	call main.cb_latent_vars.show
+	call main.tx_se.show
+	call main.ed_se.show
+	call main.rb_means_latent.show
+	call main.rb_modes_latent.show
+	call script me_post_integration_enable
+END
+
+PROGRAM main_scores_on
+BEGIN
+	call script main_hide_all
+
+	call script me_post_integration_disable
+END
+
+INCLUDE _p_gentype_sc
+INCLUDE _type_list_fd
+
+INCLUDE ifin
+
+INCLUDE me_post_integration
+
+PROGRAM outcome_output
+BEGIN
+	require main.cb_outcome_var
+	put main.cb_outcome_var
+	if main.ed_outcome_val {
+		put  " " main.ed_outcome_val
+	}
+END
+
+PROGRAM class_output
+BEGIN
+	require main.cb_class
+	put main.cb_class
+END
+
+PROGRAM command
+BEGIN
+	put "predict "
+	put " " /program _p_gentype_output
+	INCLUDE _ifin_pr
+	beginoptions
+		if main.rb_obs_endog_opts {
+			option radio(main rb_mu rb_eta rb_density	///
+				rb_distribution rb_survival rb_classpr rb_classpost)
+			if main.rb_exp {
+				require main.ex_exp
+				optionarg main.ex_exp
+			}
+			
+			if main.rb_modes {
+				put " conditional(ebmodes) "
+			}
+			if main.rb_fixedonly {
+				put " conditional(fixedonly) "
+			}
+			if main.rb_marginal {
+				put " marginal "
+			}
+			if main.rb_pmarginal {
+				put " pmarginal"
+			}
+	
+			option main.ck_nooffset
+			if main.ck_outcome {
+				put " outcome("
+				put /program outcome_output
+				require main.cb_outcome_var
+				put ")"
+			}
+			if main.cb_class & main.cb_class.isenabled() {
+				put " class("
+				put /program class_output
+				put ")"
+			}
+		}
+		if main.rb_latent_opts {
+			if main.cb_latent_vars {
+				optionarg main.cb_latent_vars
+			}
+			else {
+				put " latent"
+			}
+			optionarg main.ed_se
+			option main.rb_modes_latent
+		}
+		if main.rb_scores_opts {
+			put " scores"
+		}
+		put " " /program me_post_integration_output
+	endoptions
+END

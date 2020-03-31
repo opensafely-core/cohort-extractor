@@ -1,0 +1,597 @@
+/*
+  sg__regress_tool.dlg
+
+*!  VERSION 1.2.2  03jun2015
+
+*/
+
+VERSION 14.0
+MODAL
+SYNCHRONOUS_ONLY
+
+INCLUDE _std_msmall
+DEFINE _dlght 350
+POSITION . . _dlgwd _dlght
+
+OK ok1, label(resource LBL_BU_OK) target(stata hidden)
+CANCEL can1, label(resource LBL_BU_CANCEL)
+
+DEFINE _clwd	15
+DEFINE _wd	160
+DEFINE _sep	+165
+DEFINE _wd2	110
+DEFINE _sep2	+115
+DEFINE _cbwd	100
+DEFINE _cbsep	+105
+
+INCLUDE sg__common_output 		/* routines necessary for output */
+
+SCRIPT PREINIT
+BEGIN
+	create BOOLEAN isInit
+	isInit.setfalse
+
+	script sg__common_output_init 	/* initialize output globals */
+
+	create STRING OBJ
+	program setupOBJECT
+
+	create DOUBLE index
+
+	create SVECTOR svTemp
+	create STRING sTemp
+	create STRING sTemp2
+	create BOOLEAN bGSEM		/* gsem mode enabled 	*/
+
+	program global_get_defaults
+	setscale_hadj resource SG__REGRESS_TOOL_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	isInit.settrue
+	program check_link_type
+END
+
+PROGRAM global_get_defaults
+BEGIN
+	call bGSEM.setfalse
+	call sTemp.setvalue class .__SEMG.dbsettings.estmode
+	if (sTemp.iseq("1")) { 
+		call bGSEM.settrue
+	}
+END
+
+PROGRAM setupOBJECT
+BEGIN
+	if ! __MESSAGE {
+		stopbox stop resource LBL_MSGBOX_OBJECT_NOT_FOUND
+// An unexpected error has occurred. Object not found.
+		exit 198
+	}
+	call OBJ.setvalue class __MESSAGE.value
+END
+
+SCRIPT main_PREINIT
+BEGIN
+	create STRING sCons
+	create STRING sDirection
+	create STRING sK
+	create STRING sVarlist
+	create STRING sDepname
+	create STRING sFlink
+	create STRING sGLM
+	
+	create ARRAY vlist_array
+	create ARRAY level_array
+	create ARRAY level_array_val
+	
+	main.cb_level.hide
+
+	program main_get_defaults
+END
+
+SCRIPT main_POSTINIT
+BEGIN
+	program main_initialize_controls
+END
+
+PROGRAM main_get_defaults
+BEGIN
+	call sCons.setvalue class .__SEMG.dbsettings.cons
+	if (sCons) {
+		if (sCons.iseq("1")) {
+			call main.ck_cons.setdefault 0
+		}
+		else {
+			call main.ck_cons.setdefault 1
+		}
+	}
+	call sDirection.setvalue class .__SEMG.dbsettings.direction
+	call sDirection.withvalue main.cb_dir.setdefault "@"
+
+	call sK.setvalue class .__SEMG.dbsettings.k
+	call sK.withvalue main.sp_k.setdefault @
+
+	call sVarlist.setvalue class .__SEMG.dbsettings.varlist
+	call sVarlist.withvalue main.vl_vars_ts.setdefault "@"
+	call sVarlist.withvalue main.vl_vars_fvts.setdefault "@"
+
+	// call sDepname.setvalue class .__SEMG.dbsettings.depname
+	// if we do this we should handle levels here too
+	call sDepname.setvalue ""
+	call sDepname.withvalue main.vn_depvar_ts.setdefault "@"
+
+	call sFlink.setvalue class .__SEMG.dbsettings.familylink
+	call sFlink.withvalue main.cb_flink.setdefault "@"
+
+	call sGLM.setvalue class .__SEMG.dbsettings.isglm
+	if (sGLM) {
+		if (sGLM.iseq("yes")) {
+			call main.ck_makegl.setdefault 1
+		}
+		else {
+			call main.ck_makegl.setdefault 0
+		}
+	}
+END
+
+PROGRAM main_initialize_controls
+BEGIN
+	if (sCons) {
+		if (sCons.iseq("1")) {
+			call main.ck_cons.setoff
+		}
+		else {
+			call main.ck_cons.seton
+		}
+	}
+	call main.cb_dir.setvalue class sDirection.value
+	call main.sp_k.setvalue class sK.value
+	call main.vl_vars_ts.setvalue class sVarlist.value
+	call main.vl_vars_fvts.setvalue class sVarlist.value
+	call main.vn_depvar_ts.setvalue class sDepname.value
+	call main.cb_flink.setvalue class sFlink.value
+	if (bGSEM) {
+		call main.ck_makegl.enable
+		if (sGLM) {
+			if (sGLM.iseq("yes")) {
+				call main.ck_makegl.seton
+			}
+			else {
+				call main.ck_makegl.setoff
+			}
+		}
+	}
+	else {
+		call main.ck_makegl.setoff
+		call main.ck_makegl.disable
+	}
+END
+
+PROGRAM get_levels
+BEGIN
+	if isInit & main.cb_level.isvisible() {		
+		call sTemp2.setvalue class main.cb_level.value
+		
+		call sTemp.storeDialogClassName
+		put "sg__variables_vlist getLevels "
+		put `"""' main.cb_depvar `"""' " "
+		put "." sTemp ".level_array" " "
+		put "." sTemp ".level_array_val"
+		stata hidden immediate
+	
+		call main.cb_level.repopulate
+		
+		call svTemp.copyFromArray level_array_val
+		call svTemp.findstr class sTemp2.value
+		call index.setvalue class svTemp.position
+		if (index.isgt(0)) {
+			call main.cb_level.setvalue class sTemp2.value
+		}
+		else {
+			call main.cb_level.setvalue ""
+		}
+	}
+END
+
+PROGRAM check_mode
+BEGIN
+	if main.rb_vars {
+		call main.tx_indepvar.show
+
+		if (bGSEM) {
+			call main.vl_vars_ts.hide
+			call main.vl_vars_fvts.show
+		}
+		else {
+			call main.vl_vars_ts.show
+			call main.vl_vars_fvts.hide
+		}
+
+		call main.tx_k.hide
+		call main.sp_k.hide
+	}
+	if main.rb_k {
+		call main.tx_k.show
+		call main.sp_k.show
+		call main.tx_indepvar.hide
+		call main.vl_vars_ts.hide
+		call main.vl_vars_fvts.hide
+	}
+END
+
+PROGRAM check_link_type
+BEGIN
+	if !isInit {
+		exit
+	}
+
+	if (bGSEM & main.cb_flink.isenabled() 		///
+		& main.cb_flink.contains("multinomial logit")) {
+
+		call main.cb_depvar.show
+		call main.vn_depvar_ts.hide
+		call main.tx_level.show
+		call main.cb_level.show
+
+
+		call sTemp2.setvalue class main.cb_depvar.value
+		call sTemp.storeDialogClassName
+		put "sg__variables_vlist getVars "
+		put "." sTemp ".vlist_array"
+		stata hidden immediate
+		call main.cb_depvar.repopulate
+
+		call main.cb_depvar.setvalue class sTemp2.value
+	}
+	else {
+		call main.cb_depvar.hide
+		call main.vn_depvar_ts.show
+		call main.tx_level.hide
+		call main.cb_level.hide
+	}
+END
+
+PROGRAM check_makegl
+BEGIN
+	if main.ck_makegl.isenabled() & main.ck_makegl {
+		call main.tx_flink.enable
+		call main.cb_flink.enable
+	}
+	else {
+		call main.tx_flink.disable
+		call main.cb_flink.disable
+	}
+	
+	call program check_link_type
+	call program check_mode
+END
+
+DIALOG main, label(resource SG__REGRESS_TOOL_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_depvar	_lft	_top	_iwd	.,		///
+	label(resource LBL_DEPVAR) 
+  VARNAME  vn_depvar_ts	@	_ss	_vnwd	., nomemory 	///
+	ts numeric error(resource LBL_DEPVAR)
+  COMBOBOX cb_depvar	@	@	@	., nomemory	///
+	dropdown contents(vlist_array) onselchange(program get_levels)
+
+
+  TEXT     tx_level	_vlx	_top	100	.,		///
+	label(resource LBL_LEVEL_COLON)
+  COMBOBOX cb_level	@	_ss	@	., nomemory	///
+	dropdown contents(level_array)				///
+	values(level_array_val)
+
+  CHECKBOX ck_makegl	_lft	+35	_iwd	_ht2h,		///
+	label(resource SG__REGRESS_TOOL_MAIN_CK_MAKEGL) groupbox ///
+	onclickon(program check_makegl) onclickoff(program check_makegl)
+  TEXT     tx_flink	+10	_ss	95	., right	///
+	label(resource LBL_FAMILY_LINK)
+  COMBOBOX cb_flink	+100	@	150	.,		///
+	dropdown 						///
+	contents(__SEM_STYLES_LABEL.familylink)			///
+	values(__SEM_STYLES.familylink)				///
+	onselchange(program check_link_type)
+
+
+  GROUPBOX gb_indepvar	_lft	+50	_iwd	_ht17h,		///
+	label(resource LBL_INDDEPVAR)
+
+  RADIO    rb_vars	_ilft	_ss	_ibwd	., first	///
+	label(resource LBL_SELECT_VARIABLES)			///
+	onclickon(program check_mode)
+  RADIO    rb_k		@	_ss	@	., last		///
+	label(resource LBL_SPECIFY_NUMBER_OF_VARIABLES)		///
+	onclickon(program check_mode)
+
+  TEXT     tx_indepvar	_ilft	_ms	_ibwd	.,		///
+	label(resource LBL_INDDEPVAR)
+DEFINE y @y
+  VARLIST  vl_vars_ts	@	_ss	@	.,		///
+	label(resource LBL_INDDEPVAR) nomemory ts numeric
+  VARLIST  vl_vars_fvts	@	@	@	.,		///
+	label(resource LBL_INDDEPVAR) nomemory fv ts numeric
+
+  TEXT     tx_k		_ilft	y	_ibwd	.,		///
+	label(resource LBL_NUMBER_OF_VARIABLES) 
+  SPINNER  sp_k		@	_ss	_spwd	.,		///
+	nomemory min(1) max(40)
+
+  CHECKBOX ck_cons	_ilft	_ls	_ibwd	.,		///
+	label(resource LBL_DO_NOT_ESTIMATE_CONSTANTS) 
+
+  TEXT     tx_dir	@	_ls	@	.,		///
+	label(resource SG__REGRESS_TOOL_MAIN_TX_DIR) 
+  COMBOBOX cb_dir	@	_ss	100	.,		///
+	dropdownlist contents(__SEM_STYLES_LABEL.direction)	///
+	values(__SEM_STYLES.direction)
+END
+
+PROGRAM main_output
+BEGIN
+	call program main_get_defaults
+
+	if (main.vn_depvar_ts.isvisible()) {
+		require main.vn_depvar_ts
+		if main.vn_depvar_ts & !main.vn_depvar_ts.isdefault() {
+			if !main.vn_depvar_ts._isValidTSVarSpec() {
+				call create STRING _MSG_TMP
+                        	call _MSG_TMP.format 			///
+					"resource LBL_MSGBOX_ON_TAB_YOU_SELECTED_IS_NOT_VALID_FMT" ///
+					"resource LBL_TAB_MAIN" ///
+					"resource LBL_DEPVAR"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, the "Dependent variable" you have selected is not valid.
+			}
+
+			call sg__PARAM2.setvalue "SetStyle"
+			call sg__ARG_00.setvalue "regtool.depname" 
+			call sg__ARG_01.setvalue class main.vn_depvar_ts.value
+			put /program sg__do_output_sub
+		}
+	}
+
+	if ((main.cb_depvar.isvisible() & ! main.cb_depvar.isdefault()) ///
+		| (main.cb_level.isvisible() & ! main.cb_level.isdefault())) {
+		if ! main.cb_depvar.isvalidname() {
+                               call create STRING _MSG_TMP
+                                call _MSG_TMP.format 			///
+					"resource LBL_MSGBOX_NAME_ENTERED_IS_INVALID_FMT" ///
+					"resource LBL_TAB_MAIN" 	///
+					"resource LBL_DEPVAR"
+                                stopbox stop "class _MSG_TMP.value"
+
+// On the "Main" tab, the "Dependent variable" name you entered is invalid.
+		}
+		
+		call sg__PARAM2.setvalue "SetStyle"
+		call sg__ARG_00.setvalue "regtool.depname" 
+		call sg__ARG_01.setvalue ""
+		if (main.cb_level) {
+			call sg__ARG_01.setvalue class main.cb_level.value
+			call sg__ARG_01.append "."
+		}
+		call sg__ARG_01.append class main.cb_depvar.value 
+		put /program sg__do_output_sub
+	}
+
+	if ! main.ck_makegl.isdefault() {
+		call sg__PARAM2.setvalue "SetStyle"
+		call sg__ARG_00.setvalue "regtool.isglm"
+		if main.ck_makegl {
+			call sg__ARG_01.setvalue "yes"
+		}
+		else {
+			call sg__ARG_01.setvalue "no"
+		}
+		put /program sg__do_output_sub
+	}
+
+	if main.cb_flink.isenabled() & !main.cb_flink.isdefault() {
+		call sg__PARAM2.setvalue "SetStyle"
+		call sg__ARG_00.setvalue "regtool.familylink" 
+		call sg__ARG_01.setvalue class main.cb_flink.value
+		put /program sg__do_output_sub
+	}
+	
+	if main.rb_vars {
+		call sg__PARAM2.setvalue "SetStyle"
+		call sg__ARG_00.setvalue "regtool.varlist"
+
+		if (main.vl_vars_ts.isvisible()) {
+			require main.vl_vars_ts
+			call sg__ARG_01.setvalue class main.vl_vars_ts.value
+		}
+		else {
+			require main.vl_vars_fvts
+			call sg__ARG_01.setvalue class main.vl_vars_fvts.value
+		}
+		put /program sg__do_output_sub
+	}
+	if main.rb_k {
+		call sg__PARAM2.setvalue "SetStyle"
+		call sg__ARG_00.setvalue "regtool.k" 
+		call sg__ARG_01.setvalue class main.sp_k.value
+		put /program sg__do_output_sub
+	}
+	
+	if ! main.ck_cons.isdefault() {
+		call sg__PARAM2.setvalue "SetStyle"
+		call sg__ARG_00.setvalue "regtool.cons"
+		if main.ck_cons {
+			call sg__ARG_01.setvalue "2"
+		}
+		else {
+			call sg__ARG_01.setvalue "1"
+		}
+		put /program sg__do_output_sub
+	}	
+
+	if ! main.cb_dir.isdefault() {
+		call sg__PARAM2.setvalue "SetStyle"
+		call sg__ARG_00.setvalue "regtool.direction"
+		call sg__ARG_01.setvalue class main.cb_dir.value
+		put /program sg__do_output_sub
+	}
+END
+
+/*****************************************************************************/
+
+SCRIPT opts_PREINIT
+BEGIN
+	create STRING pathdist
+	create STRING exoggap
+
+	program opts_get_defaults
+END
+
+SCRIPT opts_POSTINIT
+BEGIN
+	program opts_initialize_controls
+END
+
+PROGRAM opts_get_defaults
+BEGIN
+	call pathdist.setvalue class .__SEMG.dbsettings.pathdist
+	call pathdist.withvalue opts.cb_dist1.setdefault "@"
+
+	call exoggap.setvalue class .__SEMG.dbsettings.exoggap
+	call exoggap.withvalue opts.cb_dist2.setdefault "@"
+END
+
+PROGRAM opts_initialize_controls
+BEGIN
+	call opts.cb_dist1.setvalue class pathdist.value
+	call opts.cb_dist2.setvalue class exoggap.value
+END
+
+DIALOG opts, tabtitle(resource LBL_DISTANCES)
+BEGIN
+  GROUPBOX gb_distance	_lft	_top	_iwd	_ht5h,		///
+	label(resource LBL_DISTANCES)
+  TEXT     tx_dist1	_ilft	_ss	200	.,		///
+	label(resource SG__REGRESS_TOOL_OPTS_TX_DIST1) right
+  COMBOBOX cb_dist1	+205	@	60	.,		///
+	dropdown contents(__SEM_STYLES_LABEL.size)		///
+	values(__SEM_STYLES.size)
+  TEXT     tx_dist1_m	+65	@	50	.,		///
+	label(resource LBL_PAREN_IN_PAREN)
+
+  TEXT     tx_dist2	_ilft	_mls	200	.,		///
+	label(resource SG__REGRESS_TOOL_OPTS_TX_DIST2) right
+  COMBOBOX cb_dist2	+205	@	50	.,		///
+	dropdown contents(__SEM_STYLES_LABEL.size)		///
+	values(__SEM_STYLES.size)
+  TEXT     tx_dist2_m	+65	@	60	.,		///
+	label(resource LBL_PAREN_IN_PAREN)
+END
+
+PROGRAM opts_output
+BEGIN
+	call program opts_get_defaults
+
+	if ! opts.cb_dist1.isdefault() {
+		call sg__PARAM2.setvalue "SetStyle"
+		call sg__ARG_00.setvalue "regtool.pathdist"
+		call sg__ARG_01.setvalue class opts.cb_dist1.value
+		put /program sg__do_output_sub
+	}
+	if ! opts.cb_dist2.isdefault() {
+		call sg__PARAM2.setvalue "SetStyle"
+		call sg__ARG_00.setvalue "regtool.exoggap"
+		call sg__ARG_01.setvalue class opts.cb_dist2.value
+		put /program sg__do_output_sub
+	}
+END
+
+/*****************************************************************************/
+
+SCRIPT conn_PREINIT
+BEGIN
+	create STRING sConnAttachMethod
+
+	program conn_get_defaults
+END
+
+SCRIPT conn_POSTINIT
+BEGIN
+	program conn_initialize_controls
+END
+
+PROGRAM conn_get_defaults
+BEGIN
+	call sConnAttachMethod.setvalue class .__SEMG.dbsettings.attachmeth
+	if (sConnAttachMethod.iseq("1")) {
+		call conn.rb_intersect.setdefault 1
+		call conn.rb_midpoint.setdefault 0
+	}
+	else {
+		call conn.rb_intersect.setdefault 0
+		call conn.rb_midpoint.setdefault 1
+	}
+END
+
+PROGRAM conn_initialize_controls
+BEGIN
+	if (sConnAttachMethod.iseq("1")) {
+		call conn.rb_intersect.seton
+	}
+	else {
+		call conn.rb_midpoint.seton
+	}
+END
+
+DIALOG conn, tabtitle(resource LBL_CONNECTIONS)
+BEGIN
+  GROUPBOX gb_attach		_lft	_top	_iwd	_ht4h,		///
+	label(resource SG__REGRESS_TOOL_CONN_GB_ATTACH)
+
+  RADIO    rb_intersect		_ilft	_ss	_ibwd	.,		///
+	first label(resource LBL_ATTACH_AT_INTERSECTION_OF_LINE_AND_BOX_CENTER)
+
+  RADIO    rb_midpoint		@	_ss	@	.,		///
+	last label(resource LBL_ATTACH_AT_MIDPOINT_OF_BOX_EDGE)
+END
+
+PROGRAM conn_output
+BEGIN
+	call program opts_get_defaults
+
+	if ! conn.rb_intersect.isdefault() {
+		call sg__PARAM2.setvalue "SetStyle"
+		call sg__ARG_00.setvalue "regtool.attachmeth"
+		call sg__ARG_01.setvalue "1"
+		put /program sg__do_output_sub
+	}
+	else { /* else if */
+		if ! conn.rb_midpoint.isdefault() {
+			call sg__PARAM2.setvalue "SetStyle"
+			call sg__ARG_00.setvalue "regtool.attachmeth"
+			call sg__ARG_01.setvalue "2"
+			put /program sg__do_output_sub
+		}
+	}
+END
+
+/*****************************************************************************/
+
+PROGRAM command
+BEGIN
+	call sg__PARAM1.setvalue class OBJ.value
+	
+	/* Signal to mata that this dialog interaction is done
+	 * and to start processing this signal. From the dialog
+	 * point of view this is BeginSet. */
+	call sg__PARAM2.setvalue "AddRegressDlgDone" 
+	put /program sg__do_output_sub
+	
+	put /program main_output
+	put /program opts_output
+	put /program conn_output
+
+	call sg__PARAM2.setvalue "EndSet"
+	call sg__DESCPT.setvalue "add regression component"
+	put /program sg__do_output_sub
+END

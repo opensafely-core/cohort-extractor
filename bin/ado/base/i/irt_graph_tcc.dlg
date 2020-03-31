@@ -1,0 +1,706 @@
+/*
+	irt graph tcc
+
+*!  VERSION 1.1.6  11dec2017
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 425
+INCLUDE header
+
+HELP hlp1, view("help irtgraph tcc")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING STMP
+	create STRING main_score_tmp
+	create STRING main_score_tmp2
+	create STRING main_score_childdlg
+	create STRING main_score_child_result
+	create STRING main_score_cmd_output
+
+	create ARRAY main_score_list
+
+	create SVECTOR mainSCORECommandDisplayList
+	create SVECTOR mainSCORECommandList
+	create SVECTOR mainSCORECommandValues
+	create SVECTOR mainSCOREStatusList
+	create SVECTOR mainSCOREChildDialogList
+
+	create DOUBLE main_score_count
+	create DOUBLE main_score_position
+	create DOUBLE main_score_arraysize
+	create DOUBLE main_score_tmpcount
+
+	main.bu_score_edit.disable
+	main.bu_score_disable.disable
+	main.bu_score_enable.disable
+	
+	create STRING main_theta_tmp
+	create STRING main_theta_tmp2
+	create STRING main_theta_childdlg
+	create STRING main_theta_child_result
+	create STRING main_theta_cmd_output
+
+	create ARRAY main_theta_list
+
+	create SVECTOR mainTHETACommandDisplayList
+	create SVECTOR mainTHETACommandList
+	create SVECTOR mainTHETACommandValues
+	create SVECTOR mainTHETAStatusList
+	create SVECTOR mainTHETAChildDialogList
+
+	create DOUBLE main_theta_count
+	create DOUBLE main_theta_position
+	create DOUBLE main_theta_arraysize
+	create DOUBLE main_theta_tmpcount
+
+	main.bu_theta_edit.disable
+	main.bu_theta_disable.disable
+	main.bu_theta_enable.disable
+	setscale_hadj resource IRT_GRAPH_TCC_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	mainSCORECommandDisplayList.copyToArray main_score_list
+	main.lb_scoreBuild.repopulate
+	mainTHETACommandDisplayList.copyToArray main_theta_list
+	main.lb_thetaBuild.repopulate
+END
+
+DIALOG main, tabtitle(resource LBL_PLOTS) 				///
+	label(resource IRT_GRAPH_TCC_DLG_TITLE)
+BEGIN
+  GROUPBOX gb_score			_lft	_top	_iwd	_ht13h,	///
+	label(resource IRT_GRAPH_TCC_MAIN_GB_SCORE)
+  TEXT	tx_score			_indent	_ss	220	.,	///
+	label(resource IRT_GRAPH_TCC_MAIN_TX_SCORE)
+
+  LISTBOX lb_scoreBuild			@	_ss	250	95,	///
+	contents(main_score_list)					///
+	ondblclick(program main_score_edit)				///
+	onselchange(program main_score_sel_changed)			///
+	nomemory
+  BUTTON bu_score_create		280	@	80	.,	///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program main_score_create)				///
+	tooltip(resource IRT_GRAPH_TCC_MAIN_BU_SCORE_CREATE)
+  BUTTON bu_score_edit			@	_ms	@	.,	///
+	label(resource LBL_BU_EDIT)					///
+	onpush(program main_score_edit)					///
+	tooltip(resource IRT_GRAPH_TCC_MAIN_BU_SCORE_EDIT)
+  BUTTON bu_score_disable		@	_ms	@	.,	///
+	label(resource LBL_BU_DISABLE)					///
+	onpush(program main_score_disable)				///
+	tooltip(resource IRT_GRAPH_TCC_MAIN_BU_SCORE_DISABLE)
+  BUTTON bu_score_enable		@	_ms	@	.,	///
+	label(resource LBL_BU_ENABLE)					///
+	onpush(program main_score_enable)				///
+	tooltip(resource IRT_GRAPH_TCC_MAIN_BU_SCORE_ENABLE)
+  TEXTBOX tb_score_note			20	+25	370	18,	///
+	label(resource IRT_GRAPH_TCC_MAIN_TB_SCORE_NOTE)
+
+  GROUPBOX gb_theta			_lft	+40	_iwd	_ht13h,	///
+	label(resource IRT_GRAPH_TCC_MAIN_GB_THETA)
+  TEXT	tx_theta			_indent	_ss	220	.,	///
+	label(resource IRT_GRAPH_TCC_MAIN_TX_THETA)
+
+  LISTBOX lb_thetaBuild			@	_ss	250	95,	///
+	contents(main_theta_list)					///
+	ondblclick(program main_theta_edit)				///
+	onselchange(program main_theta_sel_changed)			///
+	nomemory
+  BUTTON bu_theta_create		280	@	80	.,	///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program main_theta_create)				///
+	tooltip(resource IRT_GRAPH_TCC_MAIN_BU_THETA_CREATE)
+  BUTTON bu_theta_edit			@	_ms	@	.,	///
+	label(resource LBL_BU_EDIT)					///
+	onpush(program main_theta_edit)					///
+	tooltip(resource IRT_GRAPH_TCC_MAIN_BU_THETA_EDIT)
+  BUTTON bu_theta_disable		@	_ms	@	.,	///
+	label(resource LBL_BU_DISABLE)					///
+	onpush(program main_theta_disable)				///
+	tooltip(resource IRT_GRAPH_TCC_MAIN_BU_THETA_DISABLE)
+  BUTTON bu_theta_enable		@	_ms	@	.,	///
+	label(resource LBL_BU_ENABLE)					///
+	onpush(program main_theta_enable)				///
+	tooltip(resource IRT_GRAPH_TCC_MAIN_BU_THETA_ENABLE)
+  TEXTBOX tb_theta_note			20	+25	370	18,	///
+	label(resource IRT_GRAPH_TCC_MAIN_TB_THETA_NOTE)
+	
+  CHECKBOX ck_range			_lft	+40	_iwd	.,	///
+	onclickon(program main_range_on)				///
+	onclickoff(program main_range_off)				///
+	label(resource IRT_GRAPH_TCC_MAIN_CK_RANGE)
+  EDIT   ed_from			+20	_ms	_en14wd	.,	///
+	numonly								///
+	label(resource LBL_RANGE_OF_THETA)
+  TEXT	tx_range			_en14sep @	50	.,	///
+	label(resource LBL_TO_LOWERCASE)
+  EDIT   ed_to				172	@	_en14wd	.,	///
+	numonly								///
+	label(resource LBL_RANGE_OF_THETA)
+END
+
+PROGRAM main_score_create
+BEGIN
+	call main_score_count.setvalue class mainSCOREChildDialogList.size
+	call main_score_count.increment
+	call main_score_tmp.setvalue "main_score_"
+	call main_score_tmp.append class main_score_count.value
+	call main_score_tmp.withvalue main_score_childdlg.setvalue @
+	call program main_show_score_child
+END
+
+PROGRAM main_score_edit
+BEGIN
+	call mainSCORECommandDisplayList.findstr class			///
+		main.lb_scoreBuild.value
+	call main_score_position.setvalue class				///
+		mainSCORECommandDisplayList.position
+	call main_score_position.withvalue				///
+		main_score_childdlg.setvalue				///
+		class mainSCOREChildDialogList.values[@]
+	call program main_show_score_child_edit
+END
+
+PROGRAM main_show_score_child
+BEGIN
+	call main_score_tmp.setvalue "irt_graph_tcc_score AS "
+	call main_score_tmp.append class main_score_childdlg.value
+	call main_score_tmp.withvalue create CHILD @
+	call main_score_childdlg.withvalue @.setExitString		///
+		"main_score_child_result"
+	call main_score_childdlg.withvalue @.setExitAction		///
+		"program main_score_child_create_done"
+
+	call main_score_count.withvalue STMP.format			///
+		"resource LBL_SCORE_LINE_SPECIFICATION_FMT" "@" ""
+	call STMP.withvalue main_score_tmp.setvalue "@"
+	call main_score_childdlg.withvalue				///
+		main_score_tmp2.setvalue "@.settitle"
+	call main_score_tmp2.append `" ""'
+	call main_score_tmp2.append class main_score_tmp.value
+	call main_score_tmp2.append `"""'
+	call main_score_tmp2.withvalue @
+END
+
+PROGRAM main_show_score_child_edit
+BEGIN
+	call main_score_tmp.setvalue "irt_graph_tcc_score AS "
+	call main_score_tmp.append class main_score_childdlg.value
+	call main_score_tmp.withvalue create CHILD @
+	call main_score_childdlg.withvalue @.setExitString		///
+		"main_score_child_result"
+	call main_score_childdlg.withvalue @.setExitAction		///
+		"program main_score_child_edit_done"
+
+	call main_score_position.withvalue				///
+		main_score_tmp.setvalue					///
+		class mainSCORECommandDisplayList.values[@]
+	call main_score_childdlg.withvalue				///
+		main_score_tmp2.setvalue "@.settitle"
+	call main_score_tmp2.append `" ""'
+	call main_score_tmp2.append class main_score_tmp.value
+	call main_score_tmp2.append `"""'
+	call main_score_tmp2.withvalue @
+END
+
+PROGRAM main_score_child_create_done
+BEGIN
+	call main_score_arraysize.setvalue class			///
+		mainSCOREChildDialogList.size
+	call main_score_arraysize.increment
+
+	/* Store child dialog name */
+	call mainSCOREChildDialogList.store class			///
+		main_score_arraysize.value class main_score_childdlg.value
+
+	/* Store listbox display equation string */
+	call main_score_arraysize.withvalue STMP.format			///
+		"resource LBL_SCORE_LINE_SPECIFICATION_FMT" "@" ""
+	call STMP.withvalue						///
+		mainSCORECommandDisplayList.store class			///
+		main_score_arraysize.value "@"
+
+	/* Store child dialog result string */
+	call mainSCORECommandList.store class				///
+		main_score_arraysize.value				///
+		class main_score_child_result.value
+
+	/* Store child dialog result string for final command
+	   For disable/enable */
+	call mainSCORECommandValues.store class				///
+		main_score_arraysize.value				///
+		class main_score_child_result.value
+
+	/* Store disable/enable status */
+	call mainSCOREStatusList.store class				///
+		main_score_arraysize.value "active"
+
+	call mainSCORECommandDisplayList.copyToArray main_score_list
+	call main.lb_scoreBuild.repopulate
+	call STMP.withvalue main.lb_scoreBuild.setvalue "@"
+END
+
+PROGRAM main_score_child_edit_done
+BEGIN
+	call mainSCOREChildDialogList.findstr class			///
+		main_score_childdlg.value
+	call main_score_position.setvalue class				///
+		mainSCOREChildDialogList.position
+	call main_score_position.withvalue main_score_tmp.setvalue	///
+		class mainSCOREStatusList.values[@]
+	if main_score_tmp.iseq("active") {
+		call main_score_position.withvalue STMP.format		///
+			"resource LBL_SCORE_LINE_SPECIFICATION_FMT" "@" ""
+		call STMP.withvalue					///
+			mainSCORECommandDisplayList.store class		///
+			main_score_position.value "@"
+		call mainSCORECommandValues.store class			///
+			main_score_position.value class			///
+			main_score_child_result.value
+			
+		call STMP.withvalue					///
+			main_score_tmp2.setvalue "@"
+	}
+	else {
+		call main_score_position.withvalue STMP.format		///
+		"resource LBL_SCORE_LINE_SPECIFICATION_FMT" "@"		///
+			"resource LBL_PAREN_DISABLED"
+
+		call STMP.withvalue main_score_tmp2.setvalue "@"
+
+		call main_score_tmp2.withvalue				///
+			mainSCORECommandDisplayList.store		///
+			class main_score_position.value "@"
+	}
+
+	call mainSCORECommandList.store class				///
+		main_score_position.value class				///
+		main_score_child_result.value
+
+	call mainSCORECommandDisplayList.copyToArray main_score_list
+	call main.lb_scoreBuild.repopulate
+	call main.lb_scoreBuild.setvalue class main_score_tmp2.value
+END
+
+PROGRAM main_score_sel_changed
+BEGIN
+	call mainSCORECommandDisplayList.findstr class			///
+		main.lb_scoreBuild.value
+	call main_score_position.setvalue class				///
+		mainSCORECommandDisplayList.position
+	call main_score_position.withvalue main_score_tmp.setvalue	///
+		class mainSCOREStatusList.values[@]
+	if main_score_position {
+		call main.bu_score_edit.enable
+
+		call main_score_position.withvalue			///
+			main.tb_score_note.setlabel			///
+		class mainSCORECommandList.values[@]
+	}
+
+	if main_score_tmp.iseq("disable") {
+		call main.bu_score_enable.enable
+		call main.bu_score_disable.disable
+	}
+	if main_score_tmp.iseq("active") {
+		call main.bu_score_enable.disable
+		call main.bu_score_disable.enable
+	}
+END
+
+PROGRAM main_score_disable
+BEGIN
+	call mainSCORECommandDisplayList.findstr class			///
+		main.lb_scoreBuild.value
+	call main_score_position.setvalue class				///
+		mainSCORECommandDisplayList.position
+
+	call main_score_tmp.setvalue class main.lb_scoreBuild.value
+	call mainSCOREStatusList.store class				///
+		main_score_position.value "disable"
+	call mainSCORECommandValues.store class main_score_position.value ""
+
+
+	call STMP.format "resource LBL_PAREN_DISABLED"
+	call main_score_tmp.append " "
+	call main_score_tmp.append class STMP.value
+	call main_score_tmp.withvalue STMP.setvalue "@"
+
+	call main_score_tmp.withvalue					///
+		mainSCORECommandDisplayList.store			///
+		class main_score_position.value "@"
+
+	call mainSCORECommandDisplayList.copyToArray main_score_list
+	call main.lb_scoreBuild.repopulate
+	call main.lb_scoreBuild.setvalue class STMP.value
+END
+
+PROGRAM main_score_enable
+BEGIN
+	call mainSCORECommandDisplayList.findstr class			///
+		main.lb_scoreBuild.value
+	call main_score_position.setvalue class				///
+		mainSCORECommandDisplayList.position
+
+	call mainSCOREStatusList.store class				///
+		main_score_position.value "active"
+	call main_score_position.withvalue				///
+		mainSCORECommandValues.store				///
+		class main_score_position.value class			///
+		mainSCORECommandList.values[@]
+
+	call main_score_position.withvalue STMP.format			///
+		"resource LBL_SCORE_LINE_SPECIFICATION_FMT" "@" ""
+	call STMP.withvalue						///
+		mainSCORECommandDisplayList.store			///
+		class main_score_position.value "@"
+
+	call mainSCORECommandDisplayList.copyToArray main_score_list
+	call main_score_position.withvalue				///
+		main_score_tmp2.setvalue class				///
+		mainSCORECommandDisplayList.values[@]
+	call main.lb_scoreBuild.repopulate
+	call main.lb_scoreBuild.setvalue class main_score_tmp2.value
+END
+
+PROGRAM main_theta_create
+BEGIN
+	call main_theta_count.setvalue class mainTHETAChildDialogList.size
+	call main_theta_count.increment
+	call main_theta_tmp.setvalue "main_theta_"
+	call main_theta_tmp.append class main_theta_count.value
+	call main_theta_tmp.withvalue main_theta_childdlg.setvalue @
+	call program main_show_theta_child
+END
+
+PROGRAM main_theta_edit
+BEGIN
+	call mainTHETACommandDisplayList.findstr class			///
+		main.lb_thetaBuild.value
+	call main_theta_position.setvalue class				///
+		mainTHETACommandDisplayList.position
+	call main_theta_position.withvalue				///
+		main_theta_childdlg.setvalue				///
+		class mainTHETAChildDialogList.values[@]
+	call program main_show_theta_child_edit
+END
+
+PROGRAM main_show_theta_child
+BEGIN
+	call main_theta_tmp.setvalue "irt_graph_tcc_theta AS "
+	call main_theta_tmp.append class main_theta_childdlg.value
+	call main_theta_tmp.withvalue create CHILD @
+	call main_theta_childdlg.withvalue @.setExitString		///
+		"main_theta_child_result"
+	call main_theta_childdlg.withvalue @.setExitAction		///
+		"program main_theta_child_create_done"
+
+	call main_theta_count.withvalue STMP.format			///
+		"resource LBL_THETA_LINE_SPECIFICATION_FMT" "@" ""
+	call STMP.withvalue main_theta_tmp.setvalue "@"
+	call main_theta_childdlg.withvalue				///
+		main_theta_tmp2.setvalue "@.settitle"
+	call main_theta_tmp2.append `" ""'
+	call main_theta_tmp2.append class main_theta_tmp.value
+	call main_theta_tmp2.append `"""'
+	call main_theta_tmp2.withvalue @
+END
+
+PROGRAM main_show_theta_child_edit
+BEGIN
+	call main_theta_tmp.setvalue "irt_graph_tcc_theta AS "
+	call main_theta_tmp.append class main_theta_childdlg.value
+	call main_theta_tmp.withvalue create CHILD @
+	call main_theta_childdlg.withvalue @.setExitString		///
+		"main_theta_child_result"
+	call main_theta_childdlg.withvalue @.setExitAction		///
+		"program main_theta_child_edit_done"
+
+	call main_theta_position.withvalue				///
+		main_theta_tmp.setvalue					///
+		class mainTHETACommandDisplayList.values[@]
+	call main_theta_childdlg.withvalue				///
+		main_theta_tmp2.setvalue "@.settitle"
+	call main_theta_tmp2.append `" ""'
+	call main_theta_tmp2.append class main_theta_tmp.value
+	call main_theta_tmp2.append `"""'
+	call main_theta_tmp2.withvalue @
+END
+
+PROGRAM main_theta_child_create_done
+BEGIN
+	call main_theta_arraysize.setvalue class			///
+		mainTHETAChildDialogList.size
+	call main_theta_arraysize.increment
+
+	/* Store child dialog name */
+	call mainTHETAChildDialogList.store class			///
+		main_theta_arraysize.value class main_theta_childdlg.value
+
+	/* Store listbox display equation string */
+	call main_theta_arraysize.withvalue STMP.format			///
+		"resource LBL_THETA_LINE_SPECIFICATION_FMT" "@" ""
+	call STMP.withvalue						///
+		mainTHETACommandDisplayList.store class			///
+		main_theta_arraysize.value "@"
+
+	/* Store child dialog result string */
+	call mainTHETACommandList.store class				///
+		main_theta_arraysize.value				///
+		class main_theta_child_result.value
+
+	/* Store child dialog result string for final command
+	   For disable/enable */
+	call mainTHETACommandValues.store class				///
+		main_theta_arraysize.value				///
+		class main_theta_child_result.value
+
+	/* Store disable/enable status */
+	call mainTHETAStatusList.store class				///
+		main_theta_arraysize.value "active"
+
+	call mainTHETACommandDisplayList.copyToArray main_theta_list
+	call main.lb_thetaBuild.repopulate
+	call STMP.withvalue main.lb_thetaBuild.setvalue "@"
+END
+
+PROGRAM main_theta_child_edit_done
+BEGIN
+	call mainTHETAChildDialogList.findstr class			///
+		main_theta_childdlg.value
+	call main_theta_position.setvalue class				///
+		mainTHETAChildDialogList.position
+	call main_theta_position.withvalue main_theta_tmp.setvalue	///
+		class mainTHETAStatusList.values[@]
+	if main_theta_tmp.iseq("active") {
+		call main_theta_position.withvalue STMP.format		///
+			"resource LBL_THETA_LINE_SPECIFICATION_FMT" "@" ""
+		call STMP.withvalue					///
+			mainTHETACommandDisplayList.store class		///
+			main_theta_position.value "@"
+		call mainTHETACommandValues.store class			///
+			main_theta_position.value class			///
+			main_theta_child_result.value
+			
+		call STMP.withvalue main_theta_tmp2.setvalue "@"
+	}
+	else {
+		call main_theta_position.withvalue STMP.format		///
+			"resource LBL_THETA_LINE_SPECIFICATION_FMT" 	///
+			"resource LBL_PAREN_DISABLED"
+
+		call STMP.withvalue main_theta_tmp2.setvalue "@"
+
+		call STMP.withvalue					///
+			mainTHETACommandDisplayList.store		///
+			class main_theta_position.value "@"
+	}
+
+	call mainTHETACommandList.store class				///
+		main_theta_position.value class				///
+		main_theta_child_result.value
+
+	call mainTHETACommandDisplayList.copyToArray main_theta_list
+	call main.lb_thetaBuild.repopulate
+	call main.lb_thetaBuild.setvalue class main_theta_tmp2.value
+END
+
+PROGRAM main_theta_sel_changed
+BEGIN
+	call mainTHETACommandDisplayList.findstr class			///
+		main.lb_thetaBuild.value
+	call main_theta_position.setvalue class				///
+		mainTHETACommandDisplayList.position
+	call main_theta_position.withvalue main_theta_tmp.setvalue	///
+		class mainTHETAStatusList.values[@]
+	if main_theta_position {
+		call main.bu_theta_edit.enable
+
+		call main_theta_position.withvalue			///
+			main.tb_theta_note.setlabel			///
+		class mainTHETACommandList.values[@]
+	}
+
+	if main_theta_tmp.iseq("disable") {
+		call main.bu_theta_enable.enable
+		call main.bu_theta_disable.disable
+	}
+	if main_theta_tmp.iseq("active") {
+		call main.bu_theta_enable.disable
+		call main.bu_theta_disable.enable
+	}
+END
+
+PROGRAM main_theta_disable
+BEGIN
+	call mainTHETACommandDisplayList.findstr class			///
+		main.lb_thetaBuild.value
+	call main_theta_position.setvalue class				///
+		mainTHETACommandDisplayList.position
+
+	call main_theta_tmp.setvalue class main.lb_thetaBuild.value
+	call mainTHETAStatusList.store class				///
+		main_theta_position.value "disable"
+	call mainTHETACommandValues.store class main_theta_position.value ""
+
+	call STMP.format "resource LBL_PAREN_DISABLED"
+	call main_theta_tmp.append " "
+	call main_theta_tmp.append class STMP.value
+	call main_theta_tmp.withvalue STMP.setvalue "@"
+
+	call main_theta_tmp.withvalue					///
+		mainTHETACommandDisplayList.store			///
+		class main_theta_position.value "@"
+	call mainTHETACommandDisplayList.copyToArray main_theta_list
+	call main.lb_thetaBuild.repopulate
+	call main.lb_thetaBuild.setvalue class STMP.value
+END
+
+PROGRAM main_theta_enable
+BEGIN
+	call mainTHETACommandDisplayList.findstr class			///
+		main.lb_thetaBuild.value
+	call main_theta_position.setvalue class				///
+		mainTHETACommandDisplayList.position
+
+	call mainTHETAStatusList.store class				///
+		main_theta_position.value "active"
+	call main_theta_position.withvalue				///
+		mainTHETACommandValues.store				///
+		class main_theta_position.value class			///
+		mainTHETACommandList.values[@]
+
+	call main_theta_position.withvalue STMP.format			///
+		"resource LBL_THETA_LINE_SPECIFICATION_FMT" "@" ""
+	call STMP.withvalue						///
+		mainTHETACommandDisplayList.store			///
+		class main_theta_position.value "@"
+
+	call mainTHETACommandDisplayList.copyToArray main_theta_list
+	call main_theta_position.withvalue				///
+		main_theta_tmp2.setvalue class				///
+		mainTHETACommandDisplayList.values[@]
+	call main.lb_thetaBuild.repopulate
+	call main.lb_thetaBuild.setvalue class main_theta_tmp2.value
+END
+
+PROGRAM main_range_on
+BEGIN
+	call main.ed_from.enable
+	call main.tx_range.enable
+	call main.ed_to.enable
+END
+
+PROGRAM main_range_off
+BEGIN
+	call main.ed_from.disable
+	call main.tx_range.disable
+	call main.ed_to.disable
+END
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+END
+
+INCLUDE gr_addplots_2
+INCLUDE gr_yaxis
+INCLUDE gr_xaxis
+INCLUDE gr_titles
+INCLUDE gr_legend
+INCLUDE gr_overall
+
+SCRIPT dataopt_PREINIT
+BEGIN
+        dataopt.fi_save.formatfilter "{0} (*.dta)|*.dta|{1} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_DTA" "resource ui_ex FILE_TYPE_ALL_FILES"
+END
+
+DIALOG dataopt, tabtitle(resource LBL_DATA)
+BEGIN
+  SPINNER sp_n				_lft	_top	_en14wd	.,	///
+	default(300) min(1) max(10000000)				///
+	option(n)							///
+	label(resource IRT_GRAPH_TCC_DATAOPT_SP_N) 
+  TEXT    tx_n				_en14sep @	300	.,	///
+	label(resource IRT_GRAPH_TCC_DATAOPT_SP_N) 
+
+  CHECKBOX ck_save			_lft	+40	_iwd	_ht5,	///
+	groupbox							///
+	onclickon(script dataopt_save_on)				///
+	onclickoff(script dataopt_save_off)				///
+	label(resource LBL_SAVE_PLOT_DATA_AS_DATASET)
+  FILE	fi_save				_ilft	_ss	_ibwd	.,	///
+	option(saving)							///
+	defext(dta)							///
+	save								///
+	error(resource IRT_GRAPH_TCC_DATAOPT_FI_SAVE)			///
+	label(resource LBL_BU_BROWSE)
+  CHECKBOX ck_repdta			@	_ms	@	.,	///
+	label(resource LBL_OVERWRITE_FILE_IF_IT_ALREADY_EXISTS)
+END
+
+SCRIPT dataopt_save_on
+BEGIN
+	dataopt.fi_save.enable
+	dataopt.ck_repdta.enable
+END
+
+SCRIPT dataopt_save_off
+BEGIN
+	dataopt.fi_save.disable
+	dataopt.ck_repdta.disable
+END
+
+PROGRAM command
+BEGIN
+	call mainSCORECommandValues.copyToString main_score_cmd_output
+	if main_score_cmd_output {
+		put " " main_score_cmd_output
+	}
+	call mainTHETACommandValues.copyToString main_theta_cmd_output
+	if main_theta_cmd_output {
+		put " " main_theta_cmd_output
+	}
+	if main.ck_range {
+		require main.ed_from
+		require main.ed_to
+		put " range("
+		put main.ed_from
+		put " "
+		put main.ed_to
+		put ")"
+	}
+	
+	put " " /program gr_addplots_output
+	put " " /program gr_yaxis_output
+	put " " /program gr_xaxis_output
+	put " " /program gr_titles_output
+	put " " /program gr_legend_output
+	put " " /program gr_overall_output
+	
+	if !dataopt.sp_n.isdefault() {
+		put " n("
+		put dataopt.sp_n
+		put ")"
+	}
+	
+	if dataopt.ck_save {
+		require dataopt.fi_save
+		put `"data("'
+		put dataopt.fi_save
+		if dataopt.ck_repdta {
+			put `", replace"'
+		}
+		put `")"'
+	}
+END

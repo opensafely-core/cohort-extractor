@@ -1,0 +1,234 @@
+/*
+  me_equ_fixed.dlg
+
+*!  VERSION 1.1.4  14feb2020
+
+  keyword:  eclass
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_small
+DEFINE _dlght 320
+INCLUDE header
+
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING parent_name
+	create DOUBLE allow_fweight
+	create DOUBLE allow_pweight
+
+	parent_name.setvalue class PARENT._dlg_rsrcname
+	parent_name.withvalue allow_fweight.setvalue			///
+		class @.allow_fweights.value
+	parent_name.withvalue allow_pweight.setvalue			///
+		class @.allow_pweights.value
+	setscale_hadj resource ME_EQU_FIXED_DLG_HSCALE
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	if allow_fweight {
+		call main.ck_fweight.show
+		call main.ex_fweight.show
+	}
+	else {
+		call main.ck_fweight.hide
+		call main.ex_fweight.hide
+	}
+
+	if allow_pweight {
+		call main.ck_pweight.show
+		call main.ex_pweight.show
+	}
+	else {
+		call main.ck_pweight.hide
+		call main.ex_pweight.hide
+	}
+END
+
+DIALOG main, label("")
+BEGIN
+	TEXT	tx_level		_lft	_top	_iwd	.,	///
+		label(resource LBL_LEVEL_VARIABLE_FOR_EQUATION)
+	VARNAME	vn_level		@	_ss	_vnwd	.,	///
+		label(resource LBL_LEVEL_VARIABLE_FOR_EQUATION)
+	GROUPBOX gb_random_coef		@	_ls	_iwd	_ht7,	///
+		label(resource LBL_RANDOM_COEFFICIENTS, nocolon)
+	RADIO	rb_independent		_indent	_ss	_inwd	.,	///
+		first							///
+		onclickon(script main_independent_on)			///
+		label(resource LBL_INDEPENDENT_VARIABLES)
+	RADIO	rb_factor		@	_ss	250	.,	///
+		last							///
+		onclickon(script main_factor_on)			///
+		label(resource LBL_CROSSED_EFFECTS_FACTOR_GROUP_VAR)
+	BUTTON bu_factor		+260	@	20	.,	///
+		onpush("view help j_cfactor")			///
+		label(resource LBL_?) 
+
+	VARLIST vl_independent		_ilft _ms	_ibwd	.,	///
+		fv ts							///
+		label(resource LBL_INDEPENDENT_VARIABLES)
+	VARNAME vn_factor		@	@	_vnwd	.,	///
+		label(resource LBL_CROSSED_EFFECTS_FACTOR_GROUP_VAR)
+
+	TEXT	tx_cov_structure	_lft	_xls	_iwd	.,	///
+		label(resource LBL_VARIANCE_COVARIANCE_STRUCTURE_OF_RE)
+	COMBOBOX cb_cov_structure	@	_ss	_vnwd	.,	///
+		option(covariance)					///
+		dropdownlist						///
+		contents(main_covariance_list)				///
+		default(independent)					///
+		label(resource LBL_VARIANCE_COVARIANCE_STRUCTURE_OF_RE)
+	COMBOBOX cb_fcov_structure	@	@	@	.,	///
+		dropdownlist						///
+		option(covariance)					///
+		contents(main_covariance_2_list)			///
+		label(resource ME_EQU_FIXED_MAIN_CB_FCOV_STRUCTURE)
+	CHECKBOX ck_noconstant		_lft	_ls	_iwd	.,	///
+		option(noconstant)					///
+		label(resource LBL_SUPPRESS_CONSTANT_TERM_FROM_RE_EQUATION)
+	CHECKBOX ck_fweight		@	_ms	_iwd	.,	///
+		onclickon(script main_fweight_on)			///
+		onclickoff(program main_fweight_off)			///
+		label(resource LBL_FREQUENCY_WEIGHTS)
+	EXP	ex_fweight		_indent2 _ss	_inwd	.,	///
+		option(fweight)						///
+		error(resource LBL_FREQUENCY_WEIGHTS)			///
+		label(resource LBL_BU_CREATE)
+
+	CHECKBOX ck_pweight		_lft	_ms	_iwd	.,	///
+		onclickon(script main_pweight_on)			///
+		onclickoff(program main_pweight_off)			///
+		label(resource LBL_SAMPLING_WEIGHTS)
+	EXP	ex_pweight		_indent2 _ss	_inwd	.,	///
+		option(pweight)						///
+		error(resource LBL_SAMPLING_WEIGHTS)			///
+		label(resource LBL_BU_CREATE)
+END
+
+LIST main_covariance_list
+BEGIN
+	independent
+	exchangeable
+	identity
+	unstructured
+END
+
+LIST main_covariance_2_list
+BEGIN
+	identity
+	exchangeable
+END
+
+SCRIPT main_independent_on
+BEGIN
+	main.vl_independent.show
+	main.vn_factor.hide
+	main.cb_cov_structure.show
+	main.cb_fcov_structure.hide
+
+END
+
+SCRIPT main_factor_on
+BEGIN
+	main.vl_independent.hide
+	main.vn_factor.show
+	main.cb_cov_structure.hide
+	main.cb_fcov_structure.show
+END
+
+SCRIPT main_fweight_on
+BEGIN
+	main.ex_fweight.enable
+	main.ck_pweight.disable
+END
+
+PROGRAM main_fweight_off
+BEGIN
+	call main.ex_fweight.disable
+	if allow_pweight {
+		call main.ck_pweight.enable
+	}
+END
+
+SCRIPT main_pweight_on
+BEGIN
+	main.ex_pweight.enable
+	main.ck_fweight.disable
+END
+
+PROGRAM main_pweight_off
+BEGIN
+	call main.ex_pweight.disable
+	if allow_fweight {
+		call main.ck_fweight.enable
+	}
+END
+
+PROGRAM command
+BEGIN
+	put " " "|| "
+	if main.vn_level {
+		put main.vn_level ": "
+	}
+	if !main.vn_level {
+		put "_all: "
+	}
+	
+	if main.rb_independent {
+		varlist [main.vl_independent]
+		beginoptions
+			option main.ck_noconstant
+			optionarg /hidedefault main.cb_cov_structure
+		endoptions
+	}
+	if main.rb_factor {
+		require main.vn_factor
+		put "R."
+		put main.vn_factor
+		beginoptions
+			option main.ck_noconstant
+			optionarg main.cb_fcov_structure
+		endoptions
+	}
+	beginoptions
+		if main.cb_cov_structure.isneq("independent")	 	///
+		   | main.ck_noconstant | main.cb_fcov_structure.isvisible() {
+			if main.ck_fweight & main.ex_fweight.isenabled() {
+			require main.ex_fweight
+			call main.ex_fweight.withvalue PARENT.callthru  ///
+				`"fweights_cmd.setvalue " fweight(@)""'
+				call PARENT.callthru 			///
+				`"pweights_cmd.setvalue """'
+			}
+			if main.ck_pweight & main.ex_pweight.isenabled() {
+			require main.ex_pweight
+			call main.ex_pweight.withvalue PARENT.callthru  ///
+				`"pweights_cmd.setvalue " pweight(@)""'
+				call PARENT.callthru 			///
+				`"fweights_cmd.setvalue """'
+			}
+		}
+		else {
+			if main.ck_fweight {
+			require main.ex_fweight
+			call main.ex_fweight.withvalue PARENT.callthru  ///
+				`"fweights_cmd.setvalue ", fweight(@)""'
+				call PARENT.callthru 			///
+				`"pweights_cmd.setvalue """'
+			}
+			if main.ck_pweight {
+			require main.ex_pweight
+			call main.ex_pweight.withvalue PARENT.callthru 	///
+				`"pweights_cmd.setvalue ", pweight(@)""'
+			call PARENT.callthru 				///
+				`"fweights_cmd.setvalue """'
+			}
+		}
+	endoptions
+END

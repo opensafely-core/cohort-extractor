@@ -1,0 +1,145 @@
+/*
+  tsappend
+
+*!  VERSION 1.2.0  17dec2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+INCLUDE header
+
+HELP hlp1, view("help tsappend") 
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource TSAPPEND_DLG_HSCALE
+END
+
+
+DIALOG main, label(resource TSAPPEND_DLG_TITLE) /*
+		*/ tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+/*--+----1----+----2----+----3----+----4----+----5----+----6----+----7----+---*/
+  DEFINE _x _xsetbu
+  DEFINE _y _top
+  INCLUDE _bu_tsset
+
+  RADIO    rb_add            _lft      _ls       _iwd      ., first	/*
+  		*/ label(resource TSAPPEND_MAIN_RB_ADD)			/*
+		*/ onclickon(script add_on)
+  EDIT     ed_add            _indent2  _ms       _en7wd    .,           /*
+                */ numonly                                              /*
+                */ label(resource TSAPPEND_MAIN_ED_ADD)
+  TEXT     tx_add            _en7sep   @         _en7r     .,           /*
+                */ label(resource TSAPPEND_MAIN_ED_ADD)
+
+  RADIO    rb_last           _lft      _ls       _iwd      ., last	/*
+  		*/ label(resource TSAPPEND_MAIN_RB_LAST)		/*
+		*/ onclickon(script last_on)
+  EDIT     ed_last           _indent2  _ms       _buwd     .,		/*
+   		*/ label(resource TSAPPEND_MAIN_ED_LAST)
+  DEFINE   _holdx @x
+  TEXT     tx_last           _cken7sep @         _en7r     .,		/*
+  		*/ label(resource TSAPPEND_MAIN_ED_LAST)
+
+  COMBOBOX cb_tsfmt          _holdx    _ms       _buwd     .,		/*
+   		*/ label(resource TSAPPEND_MAIN_CB_TSFMT)		/*
+   		*/ dropdown						/*
+   		*/ contents(tsfmt)					/*
+   		*/ values(tsfmt_vals)
+
+  TEXT     tx_tsfmt          _cken7sep @         _en7r     .,		/*
+  		*/ label(resource TSAPPEND_MAIN_CB_TSFMT)
+
+  GROUPBOX gb_options        _lft      _ls       _iwd      _ht3,	/*
+  		*/ label(resource LBL_OPTIONS)
+
+  EDIT     ed_panel          _indent2  _ms       _en7wd    .,		/*
+		*/ numonly						/*
+   		*/ label(resource TSAPPEND_MAIN_CB_TSFMT)		/*
+   		*/ option(panel)
+  TEXT     tx_panel          _en7sep   @         _cken7rb  .,		/*
+  		*/ label(resource TSAPPEND_MAIN_TX_PANEL)
+END
+
+/* NB in the next list, daily, weekly, etc changed to lowercase because
+   capitalization makes a difference for clock/Clock
+*/
+LIST tsfmt
+BEGIN
+clock
+Clock
+daily
+weekly
+monthly
+quarterly
+yearly
+half-yearly
+END
+
+LIST tsfmt_vals
+BEGIN
+c
+C
+d
+w
+m
+q
+y
+h
+END
+
+SCRIPT add_on
+BEGIN
+	main.tx_add.enable
+	main.ed_add.enable
+	main.tx_last.disable
+	main.ed_last.disable
+	main.tx_tsfmt.disable
+	main.cb_tsfmt.disable
+END
+
+SCRIPT last_on
+BEGIN
+	main.tx_last.enable
+	main.ed_last.enable
+	main.tx_tsfmt.enable
+	main.cb_tsfmt.enable
+	main.tx_add.disable
+	main.ed_add.disable
+END
+
+PROGRAM command
+BEGIN
+	if main.rb_add {
+		require main.ed_add	
+	}
+	if main.rb_last {
+		require main.ed_last
+		require main.cb_tsfmt
+	}
+	put "tsappend, "
+	if !H(main.ed_add) {
+		put "add("
+		put main.ed_add
+		put ")"
+	}
+	if !H(main.ed_last) {
+		put "last("
+		put main.ed_last
+		put ")"
+		put " "
+		put "tsfmt("
+		put main.cb_tsfmt
+		put ")"
+	}
+	if main.ed_panel {
+		put " "
+		put "panel("
+		put main.ed_panel
+		put ")"
+	}
+END

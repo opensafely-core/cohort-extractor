@@ -1,0 +1,128 @@
+/*
+	list
+
+*! VERSION 1.2.0  22oct2014
+
+        built-in command list
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE header
+
+HELP hlp1, view("help list")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource LIST_DLG_HSCALE
+END
+
+DIALOG main, label(resource LIST_DLG_TITLE) 			///
+	tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_var    _lft      _top      _iwd      .,		///
+	label(resource LBL_VARIABLES_LEAVE_EMPTY_FOR_ALL_VARIABLES)
+  VARLIST  vl_var    @         _ss       @         .,		///
+	label(resource LBL_GB_VARIABLES) fv ts
+
+  GROUPBOX gb_sty    @         _ls       @         _ht16h, 	///
+	label(resource LBL_COLUMN_WIDTHS)
+
+  RADIO    rb_no     _indent   _ss       _inwd     .,		///
+	first label(resource LBL_DEFAULT)
+
+  DEFINE holdx @x
+  RADIO    rb_com    @         _ss       @         ., 		///
+	option(compress)					///
+	label(resource LBL_COMPRESS_WIDTH_COLUMNS_BOTH_TABLES_DIS_FOR)
+
+  RADIO    rb_nocom  @         _ss       @         ., 		///
+	option(nocompress)					///
+	last label(resource LBL_USE_DISPLAY_FORMAT_OF_EACH_VARIABLE)
+
+  CHECKBOX ck_abbr   @         _ls       _ibwd     ., 		///
+	option(display)						///
+	onclickon(script main_abbr_on) 				///
+	onclickoff(script main_abbr_off)			///
+	label(resource LIST_MAIN_CK_ABBR)
+
+  SPINNER  sp_abbr   _indent2  _ss       _spwd     .,		///
+	option(abbreviate)					///
+	min(1) max(32) default(8)				///
+	label(resource LBL_MINIMUM_ABBREVIATION_OF_VARIABLE_NAMES)
+  TEXT	   tx_abbr   _spsep    @         _cksprb   .,		///
+	label(resource LBL_CHARACTERS)
+
+  CHECKBOX ck_str    holdx     _ls       _ibwd     ., 		///
+	onclickon(script main_string_on)			///
+	onclickoff(script main_string_off)			///
+	label(resource LIST_MAIN_CK_STR)
+
+  SPINNER  sp_str    _indent2  _ss       _spwd     .,		///
+	option(string)						///
+	min(1) max(80) default(10)				///
+	label(resource LBL_TRUNCATE_STRING_VARIABLES_TO_N_CHAR)
+
+  TEXT	   tx_str    _spsep    @         _cksprb   .,		///
+ 	label(resource LBL_CHARACTERS)
+
+  CHECKBOX ck_noobs  _lft      +45       _cwd1     ., 		///
+	option(noobs)						///
+	label(resource LIST_MAIN_CK_NOOBS)
+
+  CHECKBOX ck_fvall  _lft2     @         @         ., 		///
+	option(fvall)						///
+	label(resource LIST_MAIN_CK_FVALL)
+END
+
+SCRIPT main_abbr_on
+BEGIN
+	main.sp_abbr.enable
+	main.tx_abbr.enable
+END
+
+SCRIPT main_abbr_off
+BEGIN
+	main.sp_abbr.disable
+	main.tx_abbr.disable
+END
+
+SCRIPT main_string_on
+BEGIN
+	main.sp_str.enable
+	main.tx_str.enable
+END
+
+SCRIPT main_string_off
+BEGIN
+	main.sp_str.disable
+	main.tx_str.disable
+END
+
+INCLUDE byifin
+INCLUDE list_opts
+
+PROGRAM command
+BEGIN
+	INCLUDE _by_pr
+	put "list "
+	varlist [main.vl_var]
+	INCLUDE _ifin_pr
+	beginoptions
+		option main.rb_com
+		option main.rb_nocom
+		if main.ck_abbr {
+			optionarg main.sp_abbr
+		}
+		if main.ck_str {
+			optionarg main.sp_str
+		}
+		option main.ck_noobs
+		option main.ck_fvall
+
+		put " " /program list_opts_output
+	endoptions
+END
+/* end */

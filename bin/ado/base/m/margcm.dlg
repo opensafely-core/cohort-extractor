@@ -1,0 +1,992 @@
+/*
+  margcm.dlg
+
+*!  VERSION 1.0.15  30jul2019
+
+*/
+
+VERSION 16.0
+
+INCLUDE _std_xlarge 
+DEFINE _dlght 630
+INCLUDE header
+
+HELP hlp1, view("help cm_margins")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING plot_plotResults
+	create STRING STMP
+	create STRING cov_var
+	create STRING fvars
+	create STRING cvars
+	create STRING e_cmd
+	create DOUBLE i
+	create DOUBLE e_k_alt
+	create DOUBLE isLoading
+	isLoading.setvalue 1
+	setscale_hadj resource MARGCM_DLG_HSCALE
+	create ARRAY main_outcome_list
+
+	create STRING e_indvars
+	create STRING e_ranvars
+	create STRING e_fixvars
+	create STRING casevars
+	create STRING altvars
+	create STRING outcomes
+
+	create STRING e_altspvars_cat
+	create STRING e_altspvars_cont
+	create STRING e_casevars_cat
+	create STRING e_casevars_cont
+
+	create ARRAY altspvars_cat
+	create ARRAY altspvars_cont
+	create ARRAY casevars_cat
+	create ARRAY casevars_cont
+END
+
+SCRIPT POSTINIT
+BEGIN
+	isLoading.setvalue 0
+	main.cb_hidden1.hide
+	program main_checkPlotResults
+	program load_ereturn
+	program parseMessage
+	script se_noBootstrap
+END
+
+PROGRAM parseMessage
+BEGIN
+	if __MESSAGE.iseq("-fundamental-") {
+		// Do nothing
+	}
+	if __MESSAGE.iseq("-pa-") {
+		// Do nothing
+	}
+	if __MESSAGE.iseq("-atmeans-") {
+		call main.rb_atmeans.seton
+	}
+	if __MESSAGE.iseq("-lsmeans-") {
+		call main.ck_asbalanced.seton
+	}
+	if __MESSAGE.iseq("-emm-") {
+		call main.ck_asbalanced.seton
+	}
+	if __MESSAGE.iseq("-plot-") {
+		call plot.ck_plot.seton
+		call main.ck_inter.seton
+	}
+	if __MESSAGE.contains("-contrast-") {
+		call main.cb_cov_analysis.setvalue "C"
+		if __MESSAGE.contains("-atmeans-") {
+			call main.rb_atmeans.seton
+		}
+		if __MESSAGE.contains("-lsmeans-") {
+			call main.ck_asbalanced.seton
+		}
+		if __MESSAGE.contains("-emm-") {
+			call main.ck_asbalanced.seton
+		}
+	}
+	if __MESSAGE.contains("-mfx1-") {
+		call main.cb_cov_analysis.setvalue "B"
+		if __MESSAGE.contains("-atmeans-") {
+			call main.rb_atmeans.seton
+		}
+	}
+END
+
+PROGRAM load_ereturn
+BEGIN
+	call e_cmd.setvalue ""
+
+	call altvars.setvalue ""
+	call casevars.setvalue ""
+	call outcomes.setvalue e(alteqs)
+	call outcomes.tokenizeOnStr main_outcome_list " "
+
+	call e_altspvars_cat.setvalue e(altspvars_cat)
+	call e_altspvars_cont.setvalue e(altspvars_cont)
+	call e_casevars_cat.setvalue e(casevars_cat)
+	call e_casevars_cont.setvalue e(casevars_cont)
+
+	call e_altspvars_cat.tokenizeOnStr altspvars_cat " "
+	call e_altspvars_cont.tokenizeOnStr altspvars_cont " "
+	call e_casevars_cat.tokenizeOnStr casevars_cat " "
+	call e_casevars_cont.tokenizeOnStr casevars_cont " "
+
+	if e_cmd.iseq("cmclogit") | e_cmd.iseq("cmmprobit") |		///
+		e_cmd.iseq("cmroprobit") {
+		call e_indvars.setvalue e(indvars)
+		call e_indvars.withvalue altvars.setvalue "@" 
+        }
+	if e_cmd.iseq("cmmixlogit") | e_cmd.iseq("cmxtmixlogit") {
+		call e_ranvars.setvalue e(ranvars)
+		call e_fixvars.setvalue e(fixvars)
+		call e_ranvars.withvalue altvars.setvalue "@" 
+		call e_fixvars.withvalue altvars.append " @" 
+        }
+
+	call casevars.setvalue e(casevars)
+	call main.cb_outcomes.repopulate
+	call main.cb_alternatives.repopulate
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	title(resource MARGINS_DLG_TITLE)
+BEGIN
+  GROUPBOX gb_cov		_lft	_top	_iwd	380,		///
+	label(resource MARGCM_MAIN_GB_COV)
+  TEXT tx_cov_type		_ilft	_ss	175	.,		///
+	right								///
+	label(resource LBL_TYPE_OF_COVARIATE, colon)
+  COMBOBOX cb_cov_type		+180	@	200	.,		///
+	dropdownlist							///
+	contents(main_type_covariate_list)				///
+	values(main_type_covariate_values)				///
+	onselchange(program main_covtype_changed)			///
+	label(resource LBL_TYPE_OF_COVARIATE_COLON)
+  TEXT tx_cov			_ilft	_ls	175	.,		///
+	right								///
+	label(resource LBL_COVARIATE_COLON)
+  COMBOBOX cb_cov		+180	@	_vnwd	.,		///
+	dropdown							///
+	label(resource LBL_COVARIATE_COLON)
+  COMBOBOX cb_hidden1		+180	@	_vnwd	.,		///
+	dropdown							///
+	contents(margins_flist)
+  TEXT tx_outcome		_ilft	_ls	175	.,		///
+	right								///
+	label(resource LBL_OUTCOMES, colon)
+  COMBOBOX cb_outcomes		+180	@	335	.,		///
+	dropdown							///
+	append								///
+	contents(main_outcome_list)					///
+	onselchange(program main_covtype_changed)			///
+	label(resource LBL_OUTCOMES, colon)
+  TEXT tx_leave_blank_all	@	_ss	330	.,		///
+	label(resource LBL_LEAVE_BLANK_FOR_ALL)
+  CHECKBOX ck_altsubpop		@	_ms	330	.,		///
+	label(resource MARGCM_MAIN_CK_ALTSUBPOP)
+
+  TEXT tx_alternatives		_ilft	_ls	175	.,		///
+	right								///
+	label(resource LBL_CHG_AT_ALT)
+  COMBOBOX cb_alternatives	+180	@	335	.,		///
+	option(alternative)						///
+	dropdown							///
+	append								///
+	contents(main_outcome_list)					///
+	label(resource LBL_CHG_AT_ALT)
+  TEXT tx_leave_blank_all2	@	_ss	330	.,		///
+	label(resource LBL_LEAVE_BLANK_FOR_ALL)
+  CHECKBOX ck_alt_simul		@	_ms	300	.,		///
+	onclickon(script main_alt_simul_on)				///
+	onclickoff(script main_alt_simul_off)				///
+	label(resource LBL_CHG_ALL_ALT_SIMUL)
+  TEXT tx_cov_analysis		_ilft	_ls	195	.,		///
+	right								///
+	label(resource LBL_ANALYSIS_TYPE_COLON)
+  COMBOBOX cb_cov_analysis	+200	@	315	.,		///
+	dropdownlist							///
+	onselchange(program main_analysis_type_changed)			///
+	contents(main_cov_analysis_list)				///
+	values(main_cov_analysis_values)				///
+	label(resource LBL_ANALYSIS_TYPE_COLON)
+
+  TEXT tx_covariate_levels	_ilft	_ls	195	.,		///
+	right								///
+	label(resource MARGCM_MAIN_TX_COVARIATE_LEVELS)
+  COMBOBOX cb_covariate_levels	+200	@	315	.,		///
+	dropdown							///
+	onselchange(program main_analysis_type_changed)			///
+	contents(main_covariate_levels_list)				///
+	values(main_covariate_levels_values)				///
+	label(resource MARGCM_MAIN_TX_COVARIATE_LEVELS)
+  TEXT tx_outcome_levels	_ilft	_ls	195	.,		///
+	right								///
+	label(resource MARGCM_MAIN_TX_OUTCOME_LEVELS)
+  COMBOBOX cb_outcome_levels	+200	@	315	.,		///
+	dropdown							///
+	onselchange(program main_analysis_type_changed)			///
+	contents(main_outcome_levels_list)				///
+	values(main_outcome_levels_values)				///
+	label(resource MARGCM_MAIN_TX_OUTCOME_LEVELS)
+  TEXT tx_alt_changes		_ilft	_ls	195	.,		///
+	right								///
+	label(resource MARGCM_MAIN_TX_ALT_CHANGES)
+  COMBOBOX cb_alt_changes	+200	@	315	.,		///
+	dropdown							///
+	contents(main_alt_changes_list)					///
+	values(main_alt_changes_values)					///
+	label(resource MARGCM_MAIN_TX_ALT_CHANGES)
+
+  TEXT tx_cov_val		_ilft	_ls	195	.,		///
+	right								///
+	label(resource LBL_VALUES_TO_COMPUTE_ESTIMATES_AT_COLON)
+  EDIT ed_cov_val		+200	@	295	.,		///
+	label(resource LBL_VALUES_TO_COMPUTE_ESTIMATES_AT_COLON)
+  BUTTON bu_cov_val		+295	@	20	.,		///
+	onpush("view help numlist")					///
+	label(resource LBL_?)
+  TEXT tx_leave_blank_none	_ilft	+30	_ibwd	.,		///
+	right								///
+	label(resource LBL_LEAVE_BLANK_FOR_NONE)
+
+  CHECKBOX ck_inter		_lft	+15	_iwd	_ht8,		///
+	groupbox							///
+	onclickon("program main_inter_on")				///
+	onclickoff("program main_inter_off")				///
+	label(resource LBL_INTERACTION_ANALYSIS_WITH_ANOTHER_COVARIATE)
+  TEXT tx_inter_cov_type	_ilft	_ss	170	.,		///
+	right								///
+	label(resource LBL_TYPE_OF_COVARIATE, colon)
+  COMBOBOX cb_inter_cov_type	+175	@	200	.,		///
+	dropdownlist							///
+	contents(main_type_covariate_list)				///
+	values(main_type_covariate_values)				///
+	onselchange(program main_inter_covtype_changed)			///
+	label(resource LBL_TYPE_OF_COVARIATE_COLON)
+  TEXT tx_inter_cov		_ilft	_ls	170	.,		///
+	right								///
+	label(resource LBL_COVARIATE_COLON)
+  COMBOBOX cb_inter_cov		+175	@	_vnwd	.,		///
+	dropdown							///
+	contents(margins_atlist)					///
+	onselchange(program main_inter_cov_changed)			///
+	label(resource LBL_COVARIATE_COLON)
+  TEXT tx_inter_val		_ilft	_ls	195	.,		///
+	right								///
+	label(resource LBL_VALUES_TO_COMPUTE_ESTIMATES_AT_COLON)
+  EDIT ed_inter_val		+200	@	295	.,		///
+	label(resource LBL_VALUES_TO_COMPUTE_ESTIMATES_AT_COLON)
+  BUTTON bu_inter_val		+295	@	20	.,		///
+	onpush("view help numlist")					///
+	label(resource LBL_?)
+
+  TEXT tx_margin_mean		_lft	+40	400	.,		///
+	label(resource LBL_HOW_SHOULD_VARIABLES_IN_MODEL_BE_HANDLED)
+  RADIO rb_default		_ilft	_ms	_iwd	., first	///
+	tooltip(resource MARG_MARGMV_TOOLTIP_1)				///
+	label(resource LBL_POPULATION_AVERAGED)
+  RADIO rb_atmeans		@	_ss	@	., last		///
+	tooltip(resource MARG_MARGMV_TOOLTIP_1)				///
+	option(atmeans)							///
+	label(resource LBL_COMPUTE_ESTIMATES_AT_AVERATE_OF_EST_SAMPLE)
+
+  CHECKBOX ck_asbalanced	@	_ms	@	.,		///
+	option(asbalanced)						///
+	label(resource LBL_TREAT_FACTOR_VARIABLES_AS_BALANCED_NOTE)
+
+  BUTTON bu_cust_analysis	_rj120	 -5	120	.,		///
+	onpush(script show_margins_dialog)				///
+	tooltip(resource MARG_MARGMV_TOOLTIP_2)				///
+	label(resource LBL_CUSTOM_ANALYSIS)
+END
+
+LIST main_type_covariate_list
+BEGIN
+	resource LBL_CAT_ALT_SPECIFIC
+	resource LBL_CAT_CASE_SPECIFIC
+	resource LBL_CONT_ALT_SPECIFIC
+	resource LBL_CONT_CASE_SPECIFIC
+END
+
+LIST main_type_covariate_values
+BEGIN
+	cat_alt
+	cat_case
+	cont_alt
+	cont_case
+END
+
+LIST main_cov_analysis_list
+BEGIN
+	resource LBL_MARGINAL_MEANS_OF_OUTCOME_FOR_LEVELS_OF_COV
+	resource LBL_MARGINAL_EFFECT_OF_COV_ON_OUTCOME
+	resource LBL_CONTRASTS_OF_MARGINAL_MEANS
+END
+
+LIST main_cov_analysis_values
+BEGIN
+	"A"
+	"B"
+	"C"
+END
+
+LIST main_cov_analysis2_list
+BEGIN
+	resource LBL_MARGINAL_MEANS_OF_OUTCOME_FOR_LEVELS_OF_COV
+	resource LBL_MARGINAL_EFFECT_OF_COV_ON_OUTCOME
+END
+
+LIST main_cov_analysis2_values
+BEGIN
+	"A"
+	"B"
+END
+
+LIST main_covariate_levels_list
+BEGIN
+	resource LBL_DIFFERENCES_FROM_REFERENCE_LEVEL
+	resource LBL_DIFFERENCES_FROM_NEXT_LEVEL
+	resource LBL_DIFFERENCES_FROM_PREVIOUS_LEVEL
+	resource LBL_DIFFERENCES_FROM_BALANCED_GRAND_MEAN
+	resource LBL_DIFFERENCES_FROM_BALANCED_MEAN_OF_SUB
+	resource LBL_DIFFERENCES_FROM_BALANCED_MEAN_OF_PREV
+	resource LBL_ORTHOGONAL_POLYNOMIAL_IN_LEVEL_VALUES
+	resource LBL_ORTHOGONAL_POLYNOMIAL_IN_LEVEL_SEQUENCE
+	resource LBL_DIFFERENCES_FROM_OBSERVED_GRAND_MEAN
+	resource LBL_DIFFERENCES_FROM_OBSERVED_MEAN_OF_SUB
+	resource LBL_DIFFERENCES_FROM_OBSERVED_MEAN_OF_PREV
+	resource LBL_OBS_WEIGHTED_ORTHOGONAL_POLYNOMIAL_IN_LEVEL_VALUES
+	resource LBL_OBS_WEIGHTED_ORTHOGONAL_POLYNOMIAL_IN_LEVEL_SEQUENCE
+END
+
+LIST main_covariate_levels_values
+BEGIN
+	"r"
+	"a"
+	"ar"
+	"g"
+	"h"
+	"j"
+	"p"
+	"q"
+	"gw"
+	"hw"
+	"jw"
+	"pw"
+	"qw"
+END
+
+LIST main_outcome_levels_list
+BEGIN
+	resource LBL_DIFFERENCES_FROM_REFERENCE_LEVEL
+	resource LBL_DIFFERENCES_FROM_NEXT_LEVEL
+	resource LBL_DIFFERENCES_FROM_PREVIOUS_LEVEL
+	resource LBL_DIFFERENCES_FROM_BALANCED_GRAND_MEAN
+	resource LBL_DIFFERENCES_FROM_BALANCED_MEAN_OF_SUB
+	resource LBL_DIFFERENCES_FROM_BALANCED_MEAN_OF_PREV
+	resource LBL_ORTHOGONAL_POLYNOMIAL_IN_LEVEL_VALUES
+	resource LBL_ORTHOGONAL_POLYNOMIAL_IN_LEVEL_SEQUENCE
+	resource LBL_DIFFERENCES_FROM_OBSERVED_GRAND_MEAN
+	resource LBL_DIFFERENCES_FROM_OBSERVED_MEAN_OF_SUB
+	resource LBL_DIFFERENCES_FROM_OBSERVED_MEAN_OF_PREV
+	resource LBL_OBS_WEIGHTED_ORTHOGONAL_POLYNOMIAL_IN_LEVEL_VALUES
+	resource LBL_OBS_WEIGHTED_ORTHOGONAL_POLYNOMIAL_IN_LEVEL_SEQUENCE
+END
+
+LIST main_outcome_levels_values
+BEGIN
+	contrast(outcomecontrast(r))
+	contrast(outcomecontrast(a))
+	contrast(outcomecontrast(ar))
+	contrast(outcomecontrast(g))
+	contrast(outcomecontrast(h))
+	contrast(outcomecontrast(j))
+	contrast(outcomecontrast(p))
+	contrast(outcomecontrast(q))
+	contrast(outcomecontrast(gw))
+	contrast(outcomecontrast(hw))
+	contrast(outcomecontrast(jw))
+	contrast(outcomecontrast(pw))
+	contrast(outcomecontrast(qw))
+END
+
+LIST main_alt_changes_list
+BEGIN
+	resource LBL_DIFFERENCES_FROM_REFERENCE_LEVEL
+	resource LBL_DIFFERENCES_FROM_NEXT_LEVEL
+	resource LBL_DIFFERENCES_FROM_PREVIOUS_LEVEL
+	resource LBL_DIFFERENCES_FROM_BALANCED_GRAND_MEAN
+	resource LBL_DIFFERENCES_FROM_BALANCED_MEAN_OF_SUB
+	resource LBL_DIFFERENCES_FROM_BALANCED_MEAN_OF_PREV
+	resource LBL_ORTHOGONAL_POLYNOMIAL_IN_LEVEL_VALUES
+	resource LBL_ORTHOGONAL_POLYNOMIAL_IN_LEVEL_SEQUENCE
+	resource LBL_DIFFERENCES_FROM_OBSERVED_GRAND_MEAN
+	resource LBL_DIFFERENCES_FROM_OBSERVED_MEAN_OF_SUB
+	resource LBL_DIFFERENCES_FROM_OBSERVED_MEAN_OF_PREV
+	resource LBL_OBS_WEIGHTED_ORTHOGONAL_POLYNOMIAL_IN_LEVEL_VALUES
+	resource LBL_OBS_WEIGHTED_ORTHOGONAL_POLYNOMIAL_IN_LEVEL_SEQUENCE
+END
+
+LIST main_alt_changes_values
+BEGIN
+	contrast(alternativecontrast(r))
+	contrast(alternativecontrast(a))
+	contrast(alternativecontrast(ar))
+	contrast(alternativecontrast(g))
+	contrast(alternativecontrast(h))
+	contrast(alternativecontrast(j))
+	contrast(alternativecontrast(p))
+	contrast(alternativecontrast(q))
+	contrast(alternativecontrast(gw))
+	contrast(alternativecontrast(hw))
+	contrast(alternativecontrast(jw))
+	contrast(alternativecontrast(pw))
+	contrast(alternativecontrast(qw))
+END
+
+PROGRAM main_covtype_changed
+BEGIN
+	if isLoading {
+		exit
+	}
+	if main.cb_cov_type.iseq("cat_alt") | main.cb_cov_type.iseq("") {
+		call main.cb_cov_analysis.setcontentslist		///
+			"main_cov_analysis_list"
+		call main.cb_cov_analysis.setvalueslist			///
+			"main_cov_analysis_values"
+		call main.cb_cov.setcontentslist altspvars_cat
+	}
+	if main.cb_cov_type.iseq("cat_case") {
+		call main.cb_cov_analysis.setcontentslist		///
+			"main_cov_analysis_list"
+		call main.cb_cov_analysis.setvalueslist			///
+			"main_cov_analysis_values"
+		call main.cb_cov.setcontentslist casevars_cat
+	}
+	if main.cb_cov_type.iseq("cont_alt") {
+		call main.cb_cov_analysis.setcontentslist		///
+			"main_cov_analysis2_list"
+		call main.cb_cov_analysis.setvalueslist			///
+			"main_cov_analysis2_values"
+		call main.cb_cov.setcontentslist altspvars_cont
+	}
+	if main.cb_cov_type.iseq("cont_case") {
+		call main.cb_cov_analysis.setcontentslist		///
+			"main_cov_analysis2_list"
+		call main.cb_cov_analysis.setvalueslist			///
+			"main_cov_analysis2_values"
+		call main.cb_cov.setcontentslist casevars_cont
+	}
+//	call main.cb_cov_analysis.repopulate
+//	call main.cb_cov_analysis.setvalue "A"
+	call main.cb_cov.repopulate
+
+	if main.cb_cov_type.contains("case") {
+		call main.tx_alternatives.disable
+		call main.cb_alternatives.disable
+		call main.ck_alt_simul.disable
+		call main.tx_alt_changes.disable
+		call main.cb_alt_changes.disable
+	}
+	else {
+		if !main.ck_alt_simul {
+			call main.tx_alternatives.enable
+			call main.cb_alternatives.enable
+		}
+		call main.ck_alt_simul.enable
+		call main.tx_alt_changes.enable
+		call main.cb_alt_changes.enable
+	}
+END
+
+PROGRAM main_analysis_type_changed
+BEGIN
+	if isLoading {
+		exit
+	}
+	if main.cb_cov_analysis.isneq("A") {
+		call main.ed_cov_val.disable
+		if main.cb_cov_type.contains("cont") {
+			call main.ed_inter_val.enable
+		}
+		else {
+			call main.ed_inter_val.disable
+		}
+		if main.cb_cov_analysis.iseq("C") {
+			call main.tx_covariate_levels.enable
+			call main.cb_covariate_levels.enable
+		}
+		else {
+			call main.tx_covariate_levels.disable
+			call main.cb_covariate_levels.disable
+		}
+	}
+	else {
+		if main.cb_cov_type.contains("cont") {
+			call main.ed_cov_val.enable
+		}
+		else {
+			call main.ed_cov_val.disable
+		}
+		if main.ck_inter & main.cb_inter_cov_type.iseq("cont") {
+			call main.ed_inter_val.enable
+		}
+		else {
+			call main.ed_inter_val.disable
+		}
+	}
+END
+
+SCRIPT main_alt_simul_on
+BEGIN
+	main.tx_alternatives.disable
+	main.cb_alternatives.disable
+END
+
+SCRIPT main_alt_simul_off
+BEGIN
+	main.tx_alternatives.enable
+	main.cb_alternatives.enable
+END
+
+PROGRAM main_inter_on
+BEGIN
+	call main.tx_inter_cov.enable
+	call main.cb_inter_cov.enable
+	call main.tx_inter_val.enable
+	call main.tx_inter_cov_type.enable
+	call main.cb_inter_cov_type.enable
+	call program main_analysis_type_changed
+END
+
+PROGRAM main_inter_off
+BEGIN
+	call main.tx_inter_cov.disable
+	call main.cb_inter_cov.disable
+	call main.tx_inter_val.disable
+	call main.ed_inter_val.disable
+	call main.bu_inter_val.disable
+	call main.tx_inter_cov_type.disable
+	call main.cb_inter_cov_type.disable
+END
+
+PROGRAM main_inter_covtype_changed
+BEGIN
+	if isLoading {
+		exit
+	}
+	call main.cb_inter_cov.setvalue ""
+	if main.cb_inter_cov_type.iseq("cat_alt") {
+		call main.cb_inter_cov.setcontentslist altspvars_cat
+	}
+	if main.cb_inter_cov_type.iseq("cat_case") {
+		call main.cb_inter_cov.setcontentslist casevars_cat
+	}
+	if main.cb_inter_cov_type.iseq("cont_alt") {
+		call main.cb_inter_cov.setcontentslist altspvars_cont
+	}
+	if main.cb_inter_cov_type.iseq("cont_case") {
+		call main.cb_inter_cov.setcontentslist casevars_cont
+	}
+
+	call main.cb_inter_cov.repopulate
+
+	call program main_analysis_type_changed
+END
+
+SCRIPT show_margins_dialog
+BEGIN
+	view dialog margins
+END
+
+DIALOG plot, tabtitle(resource LBL_TAB_PLOT)
+BEGIN
+  CHECKBOX ck_plot		_lft	_top	_iwd	_ht4,		///
+	groupbox							///
+	onclickon("script plot_plot_on")				///
+	onclickoff("script plot_plot_off")				///
+	label(resource LBL_DRAW_PROFILE_PLOTS_OF_RESULTS)
+  CHECKBOX ck_plot_swapxp	_ilft	_ss	_cwd1	.,		///
+	option(__swapxp)						///
+	label(resource LBL_SWAP_X_AXIS_PLOT_DIMENSIONS)
+  BUTTON bu_plot_opts		_rj130	@	120	.,		///
+	onpush(script show_marginsplot_dialog)				///
+	label(resource LBL_PLOT_OPTIONS)
+  CHECKBOX ck_plot_noci		_ilft	_ms	_iwd	.,		///
+	option(noci)							///
+	label(resource LBL_DO_NOT_DRAW_CONFIDENCE_INTERVALS)
+END
+
+PROGRAM marginsplot_options
+BEGIN
+	option plot.ck_plot_swapxp
+	option plot.ck_plot_noci
+	put plot_plotResults
+END
+
+SCRIPT show_marginsplot_dialog
+BEGIN
+	create CHILD marg_plot_opts AS plot_opts, allowsubmit 
+	plot_opts.setExitString plot_plotResults
+	plot_opts.setExitAction "program plot_checkPlotResults"
+	plot_opts.setSubmitAction "program marginsplot_submit"
+END
+
+PROGRAM plot_checkPlotResults
+BEGIN
+	if plot_plotResults {
+		call plot.bu_plot_opts.formatlabel			///
+			"resource LBL_PLOT_OPTIONS_FMT" "  *"
+	}
+	else {
+		call plot.bu_plot_opts.formatlabel			///
+			"resource LBL_PLOT_OPTIONS_FMT" "  "
+	}
+END
+
+PROGRAM marginsplot_submit
+BEGIN
+	put /program command
+	call Submit
+END
+
+SCRIPT plot_plot_on
+BEGIN 
+	plot.ck_plot_swapxp.enable
+	plot.bu_plot_opts.enable
+	plot.ck_plot_noci.enable
+END
+
+SCRIPT plot_plot_off
+BEGIN 
+	plot.ck_plot_swapxp.disable
+	plot.bu_plot_opts.disable
+	plot.ck_plot_noci.disable
+END
+
+INCLUDE margins_se
+
+PROGRAM margins_options_nocomma
+BEGIN
+	option main.rb_atmeans
+	option main.ck_asbalanced
+
+	put " " /program se_output
+	if plot.ck_plot {
+		if (plot.ck_plot_swapxp | plot.ck_plot_noci	///
+				| plot_plotResults) {
+			put " plot("
+			put /program marginsplot_options
+			put  ")"
+		}
+		else {
+			put " plot"
+		}
+	}
+	if main.cb_outcomes {
+		put " outcomes("
+		put  main.cb_outcomes
+		if main.ck_altsubpop {
+			put ", altsubpop"
+		}
+		put ")"
+	}
+	if main.ck_alt_simul {
+		put " alternatives(simultaneous)"
+	}
+	else {
+		if main.cb_alternatives {
+			optionarg main.cb_alternatives
+		}
+	}
+
+	if main.cb_outcome_levels {
+		put " " main.cb_outcome_levels.value
+	}
+  	if main.cb_alt_changes {
+		put " " main.cb_alt_changes.value
+	}
+END
+
+PROGRAM margins_options_comma
+BEGIN
+	beginoptions
+		option main.rb_atmeans
+		option main.ck_asbalanced
+		put " " /program se_output
+		if plot.ck_plot {
+			if (plot.ck_plot_swapxp | plot.ck_plot_noci	///
+				| main_plotResults) {
+				put " plot("
+				put /program marginsplot_options
+				put  ")"
+			}
+			else {
+				put " plot"
+			}
+		}
+		if main.cb_outcomes {
+			put " outcomes("
+			put  main.cb_outcomes
+			if main.ck_altsubpop {
+				put ", altsubpop"
+			}
+			put ")"
+		}
+		if main.ck_alt_simul {
+			put " alternatives(simultaneous)"
+		}
+		else {
+			if main.cb_alternatives {
+				optionarg main.cb_alternatives
+			}
+		}
+		if main.cb_outcome_levels {
+			put " " main.cb_outcome_levels
+		}
+		if main.cb_alt_changes {
+			put " " main.cb_alt_changes
+		}
+	endoptions
+END
+
+PROGRAM command
+BEGIN
+	if main.cb_cov_analysis.iseq("C") {
+		require main.cb_covariate_levels
+	}
+	put "margins"
+
+	if (main.cb_cov.iseq("")) {
+		put /program margins_options_comma
+		exit
+	}
+	else {
+		require main.cb_cov_analysis
+	}
+
+	if main.cb_cov_analysis.iseq("C") & 				///
+			main.cb_cov_type.contains("cont") {
+                call STMP.format "resource MARG_MARGMV_MSGBOX2"
+                stopbox stop `"class STMP.value"'
+// Contrasts of continuous covariates are not provided from this dialog,
+// click on "Custom analysis", for ways to contrast across fixed values of
+// continuous covariates.
+	}
+
+	if !main.ck_inter {
+		if main.cb_cov_analysis.iseq("A") & 			///
+			main.cb_cov_type.contains("cont") {
+			require main.ed_cov_val
+			if !main.ed_cov_val.isnumlist() {
+call STMP.format "resource MARV_MARGMV_MSGBOX1_FMT" "class main.cb_cov.value"
+				stopbox stop `"class STMP.value"'
+// Invalid numlist in "Values to compute estimates at:" for covariate age.
+			}
+			put ", at("
+			put main.cb_cov "=" 
+			put "(" main.ed_cov_val ")" 
+			put ") "
+			put /program margins_options_nocomma
+		}
+		if main.cb_cov_analysis.iseq("A") &			///
+			main.cb_cov_type.contains("cat") {
+			put " " main.cb_cov
+			put /program margins_options_comma
+		}
+		if main.cb_cov_analysis.iseq("B") & 			///
+			main.cb_cov_type.contains("cont") {
+/*			if !main.ed_cov_val.isnumlist() {
+call STMP.format "resource MARV_MARGMV_MSGBOX1_FMT" "class main.cb_cov.value"
+				stopbox stop `"class STMP.value"'
+// Invalid numlist in "Values to compute estimates at:" for covariate age.
+			}
+*/
+			put ", dydx(" main.cb_cov ") "
+/*
+			put " at("
+			put main.cb_cov "=" 
+			put "(" main.ed_cov_val ")" 
+			put ") "
+*/
+			put /program margins_options_nocomma
+		}
+		if main.cb_cov_analysis.iseq("B") & 			///
+			main.cb_cov_type.contains("cat") {
+			put ", dydx(" main.cb_cov ") "
+			put /program margins_options_nocomma
+		}
+		if main.cb_cov_analysis.iseq("C") & 			///
+			main.cb_cov_type.contains("cont") {
+			if !main.ed_cov_val.isnumlist() {
+call STMP.format "resource MARV_MARGMV_MSGBOX1_FMT" "class main.cb_cov.value"
+				stopbox stop `"class STMP.value"'
+// Invalid numlist in "Values to compute estimates at:" for covariate age.
+			}
+			put ", at("
+			put main.cb_cov "=" 
+			put "(" main.ed_cov_val ")" 
+			put ") contrast(at(r._at))"
+			put /program margins_options_nocomma
+		}
+		if main.cb_cov_analysis.iseq("C") & 			///
+			main.cb_cov_type.contains("cat") {
+			put " " main.cb_covariate_levels "." main.cb_cov
+			put /program margins_options_comma
+		}
+	}
+	else {
+		require main.cb_inter_cov
+		if main.cb_cov_analysis.iseq("A") &			///
+			main.cb_cov_type.contains("cont") &		///
+			main.cb_inter_cov_type.contains("cat") {
+			require main.ed_cov_val
+			require main.ed_inter_val
+			if !main.ed_cov_val.isnumlist() {
+call STMP.format "resource MARV_MARGMV_MSGBOX1_FMT" "class main.cb_cov.value"
+				stopbox stop `"class STMP.value"'
+// Invalid numlist in "Values to compute estimates at:" for covariate age.
+			}
+			if !main.ed_inter_val.isnumlist() {
+call STMP.format "resource MARV_MARGMV_MSGBOX1_FMT" "class main.cb_inter_cov.value"
+				stopbox stop `"class STMP.value"'
+// Invalid numlist in "Values to compute estimates at:" for covariate age.
+			}
+			put ", at("
+			put main.cb_cov "=" 
+			put "(" main.ed_cov_val ") " 
+			put main.cb_inter_cov "=" 
+			put "(" main.ed_inter_val ")" 
+			put ") "
+			put /program margins_options_nocomma
+		}
+		if main.cb_cov_analysis.iseq("A") &			///
+			main.cb_cov_type.contains("cont") &		///
+			main.cb_inter_cov_type.contains("cat") {
+			require main.ed_cov_val
+			if  !main.ed_cov_val.isnumlist() {
+call STMP.format "resource MARV_MARGMV_MSGBOX1_FMT" "class main.cb_cov.value"
+				stopbox stop `"class STMP.value"'
+// Invalid numlist in "Values to compute estimates at:" for covariate age.
+			}
+			put " " main.cb_inter_cov ", "
+			put "at("
+			put main.cb_cov "=" 
+			put "(" main.ed_cov_val ")" 
+			put ") "
+			put /program margins_options_nocomma
+		}
+		if main.cb_cov_analysis.iseq("A") &			///
+			main.cb_cov_type.contains("cat") &		///
+			main.cb_inter_cov_type.contains("cat") {
+			put " " main.cb_cov "#" main.cb_inter_cov
+			put /program margins_options_comma
+		}
+		if main.cb_cov_analysis.iseq("A") &			///
+			main.cb_cov_type.contains("cat") &		///
+			main.cb_inter_cov_type.contains("cont") {
+			require main.ed_inter_val
+			if  !main.ed_inter_val.isnumlist() {
+call STMP.format "resource MARV_MARGMV_MSGBOX1_FMT" "class main.cb_inter_cov.value"
+				stopbox stop `"class STMP.value"'
+// Invalid numlist in "Values to compute estimates at:" for covariate age.
+			}
+			put " " main.cb_cov ", at("
+			put main.cb_inter_cov "=" 
+			put "(" main.ed_inter_val ")" 
+			put ") "
+			put /program margins_options_nocomma
+		}
+		if main.cb_cov_analysis.iseq("B") &			///
+			main.cb_cov_type.contains("cont") &		///
+			main.cb_inter_cov_type.contains("cat") {
+			put " " main.cb_inter_cov 
+			put ", dydx(" main.cb_cov ") "
+			put /program margins_options_nocomma
+		}
+		if main.cb_cov_analysis.iseq("B") &			///
+			main.cb_cov_type.contains("cont") &		///
+			main.cb_inter_cov_type.contains("cont") {
+			require main.ed_inter_val
+			if !main.ed_inter_val.isnumlist() {
+call STMP.format "resource MARV_MARGMV_MSGBOX1_FMT" "class main.cb_inter_cov.value"
+				stopbox stop `"class STMP.value"'
+// Invalid numlist in "Values to compute estimates at:" for covariate age.
+			}
+			put ", dydx(" main.cb_cov ")"
+			put " at(" main.cb_inter_cov "=" 
+			put "(" main.ed_inter_val ")" 
+			put ") "
+			put /program margins_options_nocomma
+		}
+		if main.cb_cov_analysis.iseq("B") &			///
+			main.cb_cov_type.contains("cat") &		///
+			main.cb_inter_cov_type.contains("cat") {
+			put " " main.cb_inter_cov 
+			put ", dydx(" main.cb_cov ") "
+			put /program margins_options_nocomma
+		}
+		if main.cb_cov_analysis.iseq("B") &			///
+			main.cb_cov_type.contains("cat") &		///
+			main.cb_inter_cov_type.contains("cont") {
+			require main.ed_inter_val
+			if !main.ed_inter_val.isnumlist() {
+call STMP.format "resource MARV_MARGMV_MSGBOX1_FMT" "class main.cb_inter_cov.value"
+				stopbox stop `"class STMP.value"'
+// Invalid numlist in "Values to compute estimates at:" for covariate age.
+			}
+			put ", dydx(" main.cb_cov ")"
+			put " at(" main.cb_inter_cov "=" 
+			put "(" main.ed_inter_val ")" 
+			put ") "
+			put /program margins_options_nocomma
+		}
+		if main.cb_cov_analysis.iseq("C") &			///
+			main.cb_cov_type.contains("cat") &		///
+			main.cb_inter_cov_type.contains("cat") {
+			put " " main.cb_covariate_levels "." main.cb_cov
+			put "@" main.cb_inter_cov
+			put /program margins_options_comma
+		}
+		if main.cb_cov_analysis.iseq("C") &			///
+			main.cb_cov_type.contains("cont") &		///
+			main.cb_inter_cov_type.contains("cont") {
+			require main.ed_cov_val
+			require main.ed_inter_val
+			if !main.ed_cov_val.isnumlist() {
+call STMP.format "resource MARV_MARGMV_MSGBOX1_FMT" "class main.cb_cov.value"
+				stopbox stop `"class STMP.value"'
+// Invalid numlist in "Values to compute estimates at:" for covariate age.
+			}
+			if !main.ed_inter_val.isnumlist() {
+call STMP.format "resource MARV_MARGMV_MSGBOX1_FMT" "class main.cb_inter_cov.value"
+				stopbox stop `"class STMP.value"'
+// Invalid numlist in "Values to compute estimates at:" for covariate age.
+			}
+			put ", at("
+			put main.cb_cov "=" 
+			put "(" main.ed_cov_val ") " 
+			put main.cb_inter_cov "=" 
+			put "(" main.ed_inter_val ")" 
+			put ") contrast(at(r._at)) "
+			put /program margins_options_nocomma
+		}
+		if main.cb_cov_analysis.iseq("C") &			///
+			main.cb_cov_type.contains("cat") &		///
+			main.cb_inter_cov_type.contains("cont") {
+			require main.ed_inter_val
+			if !main.ed_inter_val.isnumlist() {
+call STMP.format "resource MARV_MARGMV_MSGBOX1_FMT" "class main.cb_inter_cov.value"
+				stopbox stop `"class STMP.value"'
+// Invalid numlist in "Values to compute estimates at:" for covariate age.
+			}
+			put " " main.cb_covariate_levels "." main.cb_cov
+			put ", at(" main.cb_inter_cov "=" 
+			put "(" main.ed_inter_val ")" 
+			put ") "
+			put /program margins_options_nocomma
+		}
+		if main.cb_cov_analysis.iseq("C") &			///
+			main.cb_cov_type.contains("cont") &		///
+			main.cb_inter_cov_type.contains("cat") {
+			require main.ed_cov_val
+			if !main.ed_cov_val.isnumlist() {
+call STMP.format "resource MARV_MARGMV_MSGBOX1_FMT" "class main.cb_cov.value"
+				stopbox stop `"class STMP.value"'
+// Invalid numlist in "Values to compute estimates at:" for covariate age.
+			}
+			put " " main.cb_inter_cov
+			put ", at(" main.cb_cov "=" 
+			put "(" main.ed_cov_val ")" 
+			put ") contrast(at(r._at) marginswithin)"
+			put /program margins_options_nocomma
+		}
+	}
+END
+

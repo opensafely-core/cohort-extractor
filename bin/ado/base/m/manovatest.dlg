@@ -1,0 +1,151 @@
+/*
+	manovatest	(for use after manova)
+
+*!  VERSION 1.2.0  04nov2014
+
+*/
+VERSION 14.0
+
+INCLUDE _std_medium
+INCLUDE _ht330
+INCLUDE header
+
+HELP hlp1, view("help manovatest")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING matrixResult
+	setscale_hadj resource MANOVATEST_DLG_HSCALE
+END
+
+DIALOG main, label(resource MANOVATEST_DLG_TITLE)			///
+	tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  BUTTON   bu_matinput    _rj100    _top       100      .,		///
+	label(resource LBL_INPUT_MATRIX) onpush(program show_matrix_input) ///
+	tooltip(resource LBL_INPUT_HAND)
+	
+  GROUPBOX gb_type        _lft      _ss        _iwd     _ht6,		///
+	label(resource LBL_TEST_TYPE)
+  RADIO    rb_terms       _ilft     _ss        _inwd    ., first	///
+	onclickon(program terms_on)					///
+	label(resource MANOVATEST_MAIN_RB_TERMS)
+  RADIO    rb_test	  @         _ss        @        .,		///
+	onclickon(program test_on)					///
+	label(resource MANOVATEST_MAIN_RB_TEST)
+  RADIO    rb_showorder   @         _ss        @        ., last		///
+	onclickon(program all_off)					///
+	label(resource MANOVATEST_MAIN_RB_SHOWORDER)
+  BUTTON   bu_termsexamp  _rj100    _xls       100      .,		///
+	onpush("script examples")					///
+	label(resource LBL_BU_EXAMPLES)
+DEFINE   holdy @y
+  TEXT     tx_terms       _lft      +5         _lw100	.,		///
+	label(resource MANOVATEST_MAIN_TX_TERMS)
+  VARLIST  vl_terms       @         _ss        _iwd     .,		///
+  	numeric								///
+	label(resource MANOVATEST_MAIN_TX_TERMS)
+  TEXT     tx_test        _lft      holdy      _iwd     .,		///
+	label(resource MANOVATEST_MAIN_TX_TEST)
+  LISTBOX  lb_test        @         _ss        @        _ht4,		///
+	contents(matrix)						///
+	option(test)							///
+	label(resource MANOVATEST_MAIN_TX_TEST)
+  CHECKBOX ck_ytrans      @         _vs4       @        .,		///
+	onclickon("gaction main.lb_ytrans.enable")			///
+	onclickoff("gaction main.lb_ytrans.disable")			///
+	label(resource MANOVATEST_MAIN_CK_YTRANS)
+  LISTBOX  lb_ytrans      @         _ss        @        _ht4,		///
+	contents(matrix)						///
+	option(ytransform)						///
+	label(resource MANOVATEST_MAIN_CK_YTRANS)
+END
+
+PROGRAM show_matrix_input
+BEGIN
+	call create CHILD matrix_input
+	if ! _rc {
+		call matrix_input.setExitString matrixResult
+		call matrix_input.setExitAction "program getMatrixResult"
+		call matrix_input.callthru "isChildContext.settrue"
+	}
+END
+PROGRAM getMatrixResult
+BEGIN
+	call create ARRAY matrix_tempvals
+	call matrix_tempvals.Arrdropall
+	
+	call main.lb_test.withvalue matrix_tempvals.Arrpush "@"
+	call main.lb_ytrans.withvalue matrix_tempvals.Arrpush "@"
+
+	call main.lb_test.repopulate
+	call main.lb_ytrans.repopulate
+
+	call main.lb_test.setvalue class matrix_tempvals[1]
+	call main.lb_ytrans.setvalue class matrix_tempvals[2]
+END
+
+PROGRAM all_off
+BEGIN
+	call gaction main.tx_terms.hide
+	call gaction main.vl_terms.hide
+	call gaction main.bu_termsexamp.hide
+	call gaction main.tx_test.hide
+	call gaction main.lb_test.hide
+	call gaction main.ck_ytrans.hide
+	call gaction main.lb_ytrans.hide
+END
+
+PROGRAM terms_on
+BEGIN
+	call program all_off
+	call gaction main.tx_terms.show
+	call gaction main.vl_terms.show
+	call gaction main.bu_termsexamp.show
+	call gaction main.ck_ytrans.show
+	call gaction main.lb_ytrans.show
+END
+
+PROGRAM test_on
+BEGIN
+	call program all_off
+	call gaction main.tx_test.show
+	call gaction main.lb_test.show
+	call gaction main.ck_ytrans.show
+	call gaction main.lb_ytrans.show
+END
+
+
+SCRIPT examples
+BEGIN
+	view help anova_example##|_new
+END
+
+
+PROGRAM command
+BEGIN
+	put "manovatest "
+	if main.rb_terms {
+		varlist main.vl_terms
+	}
+	beginoptions
+		if main.rb_showorder {
+			put "showorder"
+		}
+		if main.rb_terms {
+			if main.ck_ytrans {
+				require main.lb_ytrans
+				optionarg main.lb_ytrans
+			}
+		}
+		if main.rb_test {
+			require main.lb_test
+			optionarg main.lb_test
+			if main.ck_ytrans {
+				require main.lb_ytrans
+				optionarg main.lb_ytrans
+			}
+		}
+	endoptions
+END

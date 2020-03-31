@@ -1,0 +1,151 @@
+/*
+	predict (after meta)
+
+*!  VERSION 1.0.2  17may2019
+
+*/
+
+VERSION 16.0
+
+INCLUDE _std_large
+DEFINE _dlght 340
+INCLUDE header
+
+HELP hlp1, view("help meta postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING e_model
+	setscale_hadj resource META_P_DLG_HSCALE
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	call e_model.setvalue e(model)
+
+	if e_model.iseq("fixed") {
+		call main.rb_reffects.hide
+		call main.ck_fixedonly.hide
+		call main.ck_se_marginal.hide
+	
+		call main.rb_xb.setposition . 80
+		call main.rb_stdp.setposition . 100
+		call main.rb_fitted.setposition . 120
+		call main.rb_residuals.setposition . 140
+		call main.rb_leverage..setposition . 160
+  		call main.rb_xb.seton
+  		call main.gb_produce.setposition . . . 130
+  		call main.gb_se.setposition . 200 . 50
+		call main.ed_se.setposition . 220
+		call main.tx_se.setposition . 220
+	}
+END
+
+DIALOG main, label(resource PREDICT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  INCLUDE  _p_gentype
+
+  GROUPBOX gb_produce		_lft	_ls	_iwd	_ht11h,		///
+	label(resource LBL_PRODUCE)
+  RADIO rb_reffects		_ilft	_ss	_ibwd	., first	///
+	option(reffects)						///
+	onclickon(program main_stat_changed)				///
+	label(resource MIXED_P_MAIN_RB_BLUPS)
+  RADIO rb_xb			@	_ss	@	.,		///
+	option(xb)							///
+	onclickon(program main_stat_changed)				///
+	label(resource MIXED_P_MAIN_RB_XB)
+  RADIO rb_stdp			@	_ss	@	.,		///
+	option(stdp)							///
+	onclickon(program main_stat_changed)				///
+	label(resource MIXED_P_MAIN_RB_STDP)
+  RADIO rb_fitted		@	_ss	@	.,		///
+	option(fitted)							///
+	onclickon(program main_stat_changed)				///
+	label(resource LBL_FITTED_VALUES)
+  RADIO rb_residuals		@	_ss	@	.,		///
+	option(residuals)						///
+	onclickon(program main_stat_changed)				///
+	label(resource MIXED_P_MAIN_RB_RESIDUALS)
+  RADIO rb_leverage		@	_ss	@	., last		///
+	option(leverage)						///
+	onclickon(program main_stat_changed)				///
+	label(resource LBL_LEVERAGE)
+
+  CHECKBOX ck_fixedonly		_lft	+45	_iwd	.,		///
+	option(fixedonly)						///
+	label(resource MENL_P_MAIN_CK_FIXEDONLY)
+
+  GROUPBOX gb_se		_lft	_ls	_iwd	_ht4h,		///
+	label(resource META_CMD_REGRESS_P_MAIN_GB_SE)
+  EDIT ed_se			_ilft	_ss	_vnwd	.,		///
+	option(se)							///
+	label(resource LBL_NEW_VARIABLE_NAME_NO_COLON)
+  TEXT tx_se			_vnsep	@	300	.,		///
+	label(resource LBL_NEW_VARIABLE_NAME_NO_COLON)
+  CHECKBOX ck_se_marginal	_ilft	_ls	_ibwd	.,		///
+	option(marginal)						///
+	onclickon(main.ck_fixedonly.seton)				///
+	label(resource META_CMD_REGRESS_P_MAIN_CK_SE_MARGINAL)
+END
+
+INCLUDE _p_gentype_sc
+INCLUDE ifin
+INCLUDE _type_list_fd
+
+PROGRAM main_stat_changed
+BEGIN
+	call main.ck_fixedonly.disable
+	call main.gb_se.disable
+	call main.ed_se.disable
+	call main.tx_se.disable
+	call main.ck_se_marginal.disable
+
+	if main.rb_reffects {
+		call main.gb_se.enable
+		call main.ed_se.enable
+		call main.tx_se.enable
+	}
+	if main.rb_xb {
+	}
+	if main.rb_stdp {
+	}
+	if main.rb_fitted {
+		call main.ck_fixedonly.enable
+		call main.gb_se.enable
+		call main.ed_se.enable
+		call main.tx_se.enable
+		call main.ck_se_marginal.enable
+	}
+	if main.rb_residuals {
+		call main.ck_fixedonly.enable
+		call main.gb_se.enable
+		call main.ed_se.enable
+		call main.tx_se.enable
+		call main.ck_se_marginal.enable
+	}
+	if main.rb_leverage {
+		call main.ck_fixedonly.enable
+	}
+
+END
+
+PROGRAM command
+BEGIN
+	put "predict "
+	put " " /program _p_gentype_output
+	put " " /program ifin_output
+	beginoptions
+		option radio(main rb_reffects rb_xb rb_stdp rb_fitted rb_residuals rb_leverage)
+		if main.ck_se_marginal & main.ck_se_marginal.isenabled() {
+			put " se("
+			put main.ed_se
+			put ", marginal) fixedonly"
+		}
+		else {
+			option main.ck_fixedonly
+			optionarg main.ed_se
+		}
+	endoptions
+END

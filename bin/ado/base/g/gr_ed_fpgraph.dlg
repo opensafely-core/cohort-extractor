@@ -1,0 +1,192 @@
+/*
+  gr_ed_fpgraph.dlg
+
+*!  VERSION 1.0.0  29may2019
+
+*/
+
+VERSION 16.0
+MODAL
+
+INCLUDE _std_small
+DEFINE _dlght 300
+INCLUDE header_gr_ed
+
+DEFINE _clwd	15
+DEFINE _wd	120
+DEFINE _sep	+125
+DEFINE _wd2	110
+DEFINE _sep2	+115
+DEFINE _cbwd	120
+DEFINE _cbsep	+125
+
+SCRIPT PREINIT
+BEGIN
+	settitle resource LBL_GRAPH_PROPERTIES
+	create STRING G
+	create STRING GRAPH
+	create ARRAY  ARGS
+	create STRING MODE
+	create BOOLEAN isPieGraph
+	program setupGOBJECT
+
+	create DOUBLE index
+	create STRING tmp
+	
+// advanced
+	create DOUBLE visible
+	create DOUBLE filled
+	create STRING xoffset
+	create STRING yoffset
+
+	program get_defaults
+	setscale_hadj resource GR_ED_GRAPH_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program initialize_controls
+	program check_init_tab
+END
+
+PROGRAM setupGOBJECT
+BEGIN
+	if ! __MESSAGE {
+		stopbox stop resource LBL_MSGBOX_OBJECT_NOT_FOUND
+// An unexpected error has occurred. Object not found.
+		exit 198
+	}
+	call __MESSAGE.tokenize ARGS
+	call G.setvalue class ARGS[1]
+	call MODE.setvalue class ARGS[2]
+
+	call GRAPH.setvalue class ._Gr_Global.edit_graph
+
+END
+
+PROGRAM check_init_tab
+BEGIN
+	if MODE.contains("MODE(") {
+		if MODE.contains("region") {
+			call overall.setactive
+		}
+		if MODE.contains("title") {
+			call titles.setactive
+		}
+	}
+END
+
+INCLUDE gr_ed_regions
+INCLUDE gr_ed__titles
+
+DIALOG adv, tabtitle(resource LBL_ADVANCED)
+BEGIN
+  CHECKBOX ck_hidden	_lft	_top	_iwd	.,		///
+	label(resource LBL_HIDE_GRAPH)				///
+	onclickon(adv.ck_collapse.enable)			///
+	onclickoff(adv.ck_collapse.disable)
+  CHECKBOX ck_collapse	@	_ms	@	.,		///
+	label(resource LBL_COLLAPSE_WHEN_HIDDEN)
+
+  GROUPBOX gb_offset	_lft	_ls	_iwd	_ht5,		///
+	label(resource LBL_POSITION_OFFSET)
+  TEXT     tx_xoffset	_ilft	_ss	_wd	.,		///
+	label(resource LBL_X_OFFSET) right
+  EDIT	   ed_xoffset	_sep	@	_cbwd	.,
+
+  TEXT     tx_yoffset	_ilft	_mls	_wd	.,		///
+	label(resource LBL_Y_OFFSET) right
+  EDIT	   ed_yoffset	_sep	@	_cbwd	.,
+END
+
+PROGRAM get_defaults
+BEGIN
+
+// advanced
+	call G.withvalue visible.setvalue class @.draw_view.istrue
+	if visible {
+		call adv.ck_hidden.setdefault 0
+	}
+	else {
+		call adv.ck_hidden.setdefault 1
+	}
+
+	call G.withvalue filled.setvalue class @.fill_if_undrawn.istrue
+	if filled {
+		call adv.ck_collapse.setdefault 0
+	}
+	else {
+		call adv.ck_collapse.setdefault 1
+	}
+
+	call G.withvalue xoffset.setvalue class @.xoffset
+	call adv.ed_xoffset.setdefault class xoffset.value
+
+	call G.withvalue yoffset.setvalue class @.yoffset
+	call adv.ed_yoffset.setdefault class yoffset.value
+END
+
+PROGRAM initialize_controls
+BEGIN
+
+// advanced
+	if visible {
+		call adv.ck_hidden.setoff
+	}
+	else {
+		call adv.ck_hidden.seton
+	}
+
+	if filled {
+		call adv.ck_collapse.setoff
+	}
+	else {
+		call adv.ck_collapse.seton
+	}
+	call xoffset.withvalue adv.ed_xoffset.setvalue "@"
+	call yoffset.withvalue adv.ed_yoffset.setvalue "@"
+END
+
+PROGRAM command
+BEGIN
+	put "." GRAPH ".UndoBegin"
+	stata hidden queue
+
+	call program get_defaults
+	
+	put "_gm_dlg_edits"
+	beginoptions
+		put " object(" G ") "
+		put " " /program region_output
+		call program titles_output	// has own output routine
+
+// advanced
+		if ! adv.ck_hidden.isdefault() {
+			if adv.ck_hidden {
+				put " set(draw_view no) " 
+			}
+			else {
+				put " set(draw_view yes) " 
+			}
+		}
+		if ! adv.ck_collapse.isdefault() {
+			if adv.ck_collapse {
+				put " set(fill_if_undrawn no) " 
+			}
+			else {
+				put " set(fill_if_undrawn yes) " 
+			}
+		}
+		if ! adv.ed_xoffset.isdefault() {
+			put "set(xoffset " adv.ed_xoffset ") "
+		}
+		if ! adv.ed_yoffset.isdefault() {
+			put "set(yoffset " adv.ed_yoffset ") "
+		}
+		put " epilog(_gedi toolbar fpgraph " G ")"
+	endoptions
+	stata hidden queue
+
+	put "." GRAPH ".UndoEnd " G
+	stata hidden queue
+END

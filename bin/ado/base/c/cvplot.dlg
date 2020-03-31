@@ -1,0 +1,371 @@
+/*
+  cvplot
+
+*!  VERSION 1.0.1  23oct2019
+
+*/
+
+VERSION 16.0
+
+INCLUDE _std_wide
+DEFINE _dlght 300
+INCLUDE header
+
+HELP hlp1, view("help cvplot")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource CVPLOT_DLG_HSCALE
+	create STRING STMP
+END
+
+SCRIPT main_PREINIT
+BEGIN
+	create STRING seoptsResults
+	create STRING selineoptsResults
+	create STRING cvlineoptsResults
+	create STRING lslineoptsResults
+	create STRING lineOptionResults
+	create STRING refLabelOptionsResults
+	program check_status
+END
+
+SCRIPT main_POSTINIT
+BEGIN
+	program checkSeOptsResults
+	program checkSelineOptsResults
+	program checkCvlineOptsResults
+	program checkLslineOptsResults
+	program checkLineOptionResults
+	program checkRefLabelOptionResults
+END
+
+PROGRAM main_POSTINIT_PROGRAM
+BEGIN
+	call main.cb_xunits.setvalue "rlnlambda"
+	call main.cb_xunits.setdefault "rlnlambda"
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				/// 
+	label(resource CVPLOT_DLG_TITLE)
+BEGIN
+  INCLUDE lassogph_opts
+
+  BUTTON bu_line_opt 		_lft	+35	170	.,		///
+	onpush(script show_line_dialog)					///
+	label(resource LBL_GB_LINE_PROPERTIES)
+END
+
+LIST xaxis_units
+BEGIN
+	resource LASSOGPH_LBL_NEGATIVE_LOG_OF_LAMBDA
+	resource LASSOGPH_LBL_LOG_OF_LAMBDA
+	resource LASSOGPH_LBL_L1NORM_OF_STANDARDIZED
+	resource LASSOGPH_LBL_L1NORM_OF_UNSTANDARDIZED
+END
+
+LIST xaxis_units_val
+BEGIN
+	rlnlambda
+	lnlambda
+	l1norm
+	l1normraw
+END
+
+INCLUDE lassogph_opts_sc
+
+SCRIPT show_line_dialog
+BEGIN
+	create CHILD gr_line_options AS lineOptions, allowsubmit
+	lineOptions.setExitString lineOptionResults
+	lineOptions.setExitAction "program checkLineOptionResults"
+	lineOptions.setSubmitAction "program lineOptionSubmit"
+END
+
+PROGRAM checkLineOptionResults
+BEGIN
+	if lineOptionResults.iseq("") {
+		call main.bu_line_opt.modified_off
+	}
+	if !lineOptionResults.iseq("") {
+		call main.bu_line_opt.modified_on
+	}
+END
+PROGRAM lineOptionSubmit
+BEGIN
+	call program checkLineOptionResults
+	call Submit
+END
+
+DIALOG seplot, tabtitle(resource CVPLOT_SEPLOT_TAB_TITLE)
+BEGIN
+  CHECKBOX ck_se			_lft	_top	_iwd	.,	///
+ 	onclickon(seplot.bu_seopt.enable)				///
+	onclickoff(seplot.bu_seopt.disable)				///
+	label(resource CVPLOT_SEPLOT_CK_SE)
+  BUTTON bu_seopt 		_iilft	_ms	120	.,		///
+	onpush(script show_seopts_dialog)				///
+	label(resource LBL_BAND_PROPERTIES)
+END
+
+SCRIPT show_seopts_dialog
+BEGIN
+	create CHILD gr_ciplots AS seopts, allowsubmit
+	seopts.setExitString seoptsResults
+	seopts.setExitAction "program checkSeOptsResults"
+	seopts.setSubmitAction "program seOptsSubmit"
+	seopts.callthru "script gr_ciplots_setDefaultSpikec"
+	seopts.callthru  `"gr_ciplots_outputCmd.setstring """'
+	STMP.format "resource LBL_BAND_PROPERTIES" " "
+	seopts.settitle class STMP.value
+
+END
+
+PROGRAM checkSeOptsResults
+BEGIN
+	if seoptsResults.iseq("") {
+		call seplot.bu_seopt.modified_off
+	}
+	if !seoptsResults.iseq("") {
+		call seplot.bu_seopt.modified_on
+	}
+END
+PROGRAM seOptsSubmit
+BEGIN
+	call program checkSeOptsResults
+	call Submit
+END
+
+DIALOG refline, tabtitle(resource LBL_TAB_REFERENCE_LINES)
+BEGIN
+  CHECKBOX ck_seline			_lft	_top	_iwd	.,	///
+ 	onclickon(refline.bu_selineopt.enable)				///
+	onclickoff(refline.bu_selineopt.disable)			///
+	label(resource CVPLOT_REFLINE_CK_SELINE)
+  BUTTON bu_selineopt 		_iilft	_ms	120	.,		///
+	onpush(script show_selineopts_dialog)				///
+	label(resource LBL_GB_LINE_PROPERTIES) 
+	
+  RADIO    rb_cvline		_lft	+40	_iwd	.,		///
+	first 								///
+	onclickon(refline.bu_cvlineopt.enable)				///
+	label(resource CVPLOT_REFLINE_RB_CVLINE)
+  RADIO	   rb_nocvline		@	_ss	@	.,		///
+	last onclickon(refline.bu_cvlineopt.disable)			///
+	label(resource CVPLOT_REFLINE_RB_NOCVLINE)
+  BUTTON bu_cvlineopt 		_iilft	_ms	120	.,		///
+	onpush(script show_cvlineopts_dialog)				///
+	label(resource LBL_GB_LINE_PROPERTIES)
+	
+  RADIO    rb_lsline		_lft	+40	_iwd	.,		///
+	first 								///
+	onclickon(refline.bu_lslineopt.enable)				///
+	label(resource CVPLOT_REFLINE_RB_LSLINE)
+  RADIO	   rb_nolsline		@	_ss	@	.,		///
+	last onclickon(refline.bu_lslineopt.disable)			///
+	label(resource CVPLOT_REFLINE_RB_NOLSLINE)
+  BUTTON bu_lslineopt 		_iilft	_ms	120	.,		///
+	onpush(script show_lslineopts_dialog)				///
+	label(resource LBL_GB_LINE_PROPERTIES)
+	
+  CHECKBOX ck_hrefline	_lft	+40	_iwd	.,			///
+	option(hrefline)						///
+	label(resource CVPLOT_REFLINE_CK_HREFLINE)
+	
+  BUTTON bu_reflabel_options @	+30	200	.,			///
+	onpush(script show_reflabel_dialog)				///
+	label(resource LBL_REFLABEL_PROPERTIES)
+END
+
+SCRIPT show_selineopts_dialog
+BEGIN
+	create CHILD gr_line_options AS selineopts, allowsubmit
+	selineopts.setExitString selineoptsResults
+	selineopts.setExitAction "program checkSelineOptsResults"
+	selineopts.setSubmitAction "program selineOptsSubmit"
+END
+
+PROGRAM checkSelineOptsResults
+BEGIN
+	if selineoptsResults.iseq("") {
+		call refline.bu_selineopt.modified_off
+	}
+	if !selineoptsResults.iseq("") {
+		call refline.bu_selineopt.modified_on
+	}
+END
+PROGRAM selineOptsSubmit
+BEGIN
+	call program checkSelineOptsResults
+	call Submit
+END
+
+SCRIPT show_cvlineopts_dialog
+BEGIN
+	create CHILD gr_line_options AS cvlineopts, allowsubmit
+	cvlineopts.setExitString cvlineoptsResults
+	cvlineopts.setExitAction "program checkCvlineOptsResults"
+	cvlineopts.setSubmitAction "program cvlineOptsSubmit"
+END
+
+PROGRAM checkCvlineOptsResults
+BEGIN
+	if cvlineoptsResults.iseq("") {
+		call refline.bu_cvlineopt.modified_off
+	}
+	if !cvlineoptsResults.iseq("") {
+		call refline.bu_cvlineopt.modified_on
+	}
+END
+PROGRAM cvlineOptsSubmit
+BEGIN
+	call program checkCvlineOptsResults
+	call Submit
+END
+
+SCRIPT show_lslineopts_dialog
+BEGIN
+	create CHILD gr_line_options AS lslineopts, allowsubmit
+	lslineopts.setExitString lslineoptsResults
+	lslineopts.setExitAction "program checkLslineOptsResults"
+	lslineopts.setSubmitAction "program lslineOptsSubmit"
+END
+
+PROGRAM checkLslineOptsResults
+BEGIN
+	if lslineoptsResults.iseq("") {
+		call  refline.bu_lslineopt.modified_off
+	}
+	if !lslineoptsResults.iseq("") {
+		call efline.bu_lslineopt.modified_on
+	}
+END
+PROGRAM lslineOptsSubmit
+BEGIN
+	call program checkLslineOptsResults
+	call Submit
+END
+
+SCRIPT show_reflabel_dialog
+BEGIN
+	create CHILD lasso_markerlabel_options AS refLabelOptions, allowsubmit
+	refLabelOptions.setExitString refLabelOptionsResults
+	refLabelOptions.setExitAction "program checkRefLabelOptionResults"
+	refLabelOptions.setSubmitAction "program refLabelOptionSubmit"
+	STMP.format "resource LBL_REFLABEL_PROPERTIES" " "
+	refLabelOptions.settitle class STMP.value
+
+END
+
+PROGRAM checkRefLabelOptionResults
+BEGIN
+	if refLabelOptionsResults.iseq("") {
+		call  refline.bu_reflabel_options.modified_off
+	}
+	if ! refLabelOptionsResults.iseq("") {
+		call  refline.bu_reflabel_options.modified_on
+	}
+END
+PROGRAM refLabelOptionSubmit
+BEGIN
+	call program checkRefLabelOptionResults
+	call Submit
+END
+
+DIALOG dataopt, tabtitle(resource LBL_DATA)
+BEGIN
+  GROUPBOX ck_save			_lft	_top	_iwd	_ht5,	///
+	label(resource LBL_SAVE_PLOT_DATA_AS_DATASET)
+  FILE	fi_save				_ilft	_ms	_ibwd	.,	///
+	option(saving)							///
+	defext(dta)							///
+	save								///
+	error(resource IRT_GRAPH_CCC_FI_SAVE)				///
+	label(resource LBL_BU_BROWSE)
+  CHECKBOX ck_repdta			@	_ms	@	.,	///
+	label(resource LBL_OVERWRITE_FILE_IF_IT_ALREADY_EXISTS)
+END
+
+INCLUDE gr_yaxis
+INCLUDE gr_xaxis
+INCLUDE gr_titles
+INCLUDE gr_legend
+INCLUDE gr_overall
+
+PROGRAM command
+BEGIN
+	put "cvplot"
+	beginoptions
+		put " " /program lassogph_opts_output
+		
+		if !lineOptionResults.iseq("") {
+			put " lineopts(" 
+			put lineOptionResults
+			put ")"
+		}
+		
+		if seplot.ck_se {
+			put " se"
+			if !seoptsResults.iseq("") {
+				put " seopts("
+				put seoptsResults
+				put ")"
+			}
+		}
+		
+		if refline.ck_seline {
+			put " seline"
+			if !selineoptsResults.iseq("") {
+				put " selineopts("
+				put selineoptsResults
+				put ")"
+			}
+		}
+		
+		if refline.rb_nocvline {
+			put " nocvline"
+		}
+		else {
+			if !cvlineoptsResults.iseq("") {
+				put " cvlineopts("
+				put cvlineoptsResults
+				put ")"
+			}
+		}
+		
+		if refline.rb_nolsline {
+			put " nolsline"
+		}
+		else {
+			if !lslineoptsResults.iseq("") {
+				put " lslineopts("
+				put lslineoptsResults
+				put ")"
+			}
+		}
+		
+		option refline.ck_hrefline
+		
+		if !refLabelOptionsResults.iseq("") {
+			put " rlabelopts("
+			put refLabelOptionsResults
+			put ")"			
+		}
+		
+		if dataopt.fi_save {
+			put `" data("'
+			put dataopt.fi_save
+			if dataopt.ck_repdta {
+				put `", replace"'
+			}
+			put `")"'
+		}
+	
+		put " " /program gr_yaxis_output
+		put " " /program gr_xaxis_output
+		put " " /program gr_titles_output
+		put " " /program gr_legend_output
+		put " " /program gr_overall_output
+	endoptions
+END

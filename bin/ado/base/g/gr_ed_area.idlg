@@ -1,0 +1,345 @@
+/*
+  gr_ed_area.idlg
+
+*!  VERSION 1.1.5  31jul2017
+
+*/
+
+SCRIPT area_PREINIT
+BEGIN
+	create DOUBLE d_tmp
+	create DOUBLE plotCustomLabel
+	create DOUBLE plotCustomStyle
+
+	create STRING fill_color
+	create STRING fill_rgb
+	create STRING fill_opacity
+	create STRING intensity
+	create STRING line_color
+	create STRING line_rgb
+	create STRING line_opacity
+	create STRING line_align
+	create STRING width
+	create STRING pattern
+	create STRING cmissing
+	create DOUBLE drawview
+	program area_get_defaults
+END
+
+SCRIPT area_POSTINIT
+BEGIN
+	program area_initialize_controls
+END
+
+DIALOG area, label(resource LBL_GB_AREA_PROPERTIES) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  GROUPBOX gb_area	_lft	_top	_iwd	_ht28,		///
+	label(resource LBL_GB_AREA_PROPERTIES)
+  TEXT     tx_fclr	_ilft	_ss	_wd	.,		///
+	label(resource LBL_COLOR) right
+  COMBOBOX cb_fclr	_sep	@	_cbwd	.,		///
+	dropdownlist contents(_colors) 				///
+	onselchangelist(area_cl_fclr_sel)
+  COLOR    cl_fclr	_cbsep	@	_clwd	.,
+  TEXT     tx_fopacity	_ilft	_mls	_wd	.,		///
+	label(resource LBL_OPACITY) right
+  SPINNER sp_fopacity	_sep	@	_spwd	.,		///
+	default(100)						///
+	min(0)							///
+	max(100)
+
+  TEXT     tx_intensity	_ilft	_mls	_wd	.,		///
+	label(resource LBL_FILL_INTENSITY) right
+  COMBOBOX cb_intensity	_sep	@	_cbwd	.,		///
+	dropdown contents(_intensity)
+  
+  TEXT     tx_width	_ilft	 _mls	_wd	.,		///
+	label(resource LBL_OUTLINE_WIDTH) right
+  COMBOBOX cb_width	_sep	@	_cbwd	.,		///
+	dropdown 						///
+	contents(_linewidths)
+
+  TEXT     tx_pattern	_ilft	_mls	_wd	.,		///
+	label(resource LBL_OUTLINE_PATTERN) right
+  COMBOBOX cb_pattern	_sep	@	_cbwd	.,		///
+	dropdownlist						///
+	contents(_linepatterns)
+   TEXT     tx_lalign	_ilft	_mls	_wd	.,		///
+      label(resource LBL_OUTLINE_ALIGNMENT) right
+   COMBOBOX cb_lalign	_sep	@	_cbwd	.,		///
+      dropdownlist option(lalign)				///
+      contents(alignstroke)
+
+  CHECKBOX ck_outline	_ilft	_ls	_ibwd	_ht4h,		///
+	groupbox						///
+	label(resource LBL_DIFFERENT_OUTLINE_COLOR)		///
+	onclickon(script area_outline_on)			///
+	onclickoff(script area_outline_off) nomemory
+
+  TEXT     tx_lclr	_iilft	_ss	_wd2	.,		///
+	label(resource LBL_OUTLINE_COLOR) right
+  COMBOBOX cb_lclr	_sep2	@	_cbwd	.,		///
+	dropdownlist contents(_colors) 				///
+	onselchangelist(area_cl_lclr_sel)
+  COLOR    cl_lclr	_cbsep	@	_clwd	.,
+  TEXT     tx_lopacity	_iilft	_mls	_wd2	.,		///
+	label(resource LBL_OUTLINE_OPACITY) right
+  SPINNER sp_lopacity	_sep2	@	_spwd	.,		///
+	default(100)						///
+	min(0)							///
+	max(100)
+
+  TEXT     tx_cmissing	_ilft	 _xls	_wd	.,		///
+	label(resource LBL_FILL_MISSING_VALUES) right
+  COMBOBOX cb_cmissing	_sep	@	_cbwd	.,		///
+	dropdownlist						///
+	contents(_yesno)
+
+  // public scope (do not change name)
+  CHECKBOX ck_hide	_lft	_xxls	_iwd	.,		///
+	label(resource LBL_HIDE_PLOT)
+
+  BUTTON   bu_sort	_rj60	@	60	.,		///
+	label(resource LBL_SORT) tooltip(resource LBL_RESORT_ON_X_VARIABLE)		///
+	onpush(program area_sort_on_x)
+END
+
+PROGRAM area_sort_on_x
+BEGIN
+	call G.withvalue plotCustomStyle.storeClsArraySize @.obs_styles
+	call G.withvalue plotCustomLabel.storeClsArraySize @.obs_labels	
+	if plotCustomStyle.iseq(0) & plotCustomLabel.iseq(0) {
+		put "_gm_dlg_edits, "
+		put "object(" G ") "
+		put "cmd(" "." G ".SortOnX" ") "
+		stata hidden queue
+	}
+	else {
+		stopbox stop "resource LBL_MSGBOX_SORT_NOT_ALLOWED_PLOTS_CUSTOM_STYLES_LABELS"
+// Sort is not allowed on plots with custom styles or labels.
+	}
+END
+
+SCRIPT area_outline_on
+BEGIN
+	area.tx_lclr.enable
+	area.cb_lclr.enable
+	area.tx_lopacity.enable
+	area.sp_lopacity.enable
+END
+
+SCRIPT area_outline_off
+BEGIN
+	area.tx_lclr.disable
+	area.cb_lclr.disable
+	area.tx_lopacity.disable
+	area.sp_lopacity.disable
+END
+
+LIST area_cl_fclr_sel
+BEGIN
+	area.cl_fclr.show
+	area.cl_fclr.hide
+END
+LIST area_cl_lclr_sel
+BEGIN
+	area.cl_lclr.show
+	area.cl_lclr.hide
+END
+
+PROGRAM area_get_defaults
+BEGIN
+	call G.withvalue index.setvalue class @.style.area.shadestyle.color.styledex
+	call index.withvalue fill_color.setvalue class .__STYLES.color[@]
+	call area.cb_fclr.setdefault class fill_color.value
+	call G.withvalue fill_rgb.setvalue class @.style.area.shadestyle.color.rgb
+	call area.cl_fclr.setdefault class fill_rgb.value
+	call G.withvalue fill_opacity.setvalue class @.style.area.shadestyle.color.opacity
+	call area.sp_fopacity.setdefault class fill_opacity.value
+
+	call G.withvalue index.setvalue  class @.style.area.shadestyle.intensity.styledex
+	call index.withvalue intensity.setvalue class .__STYLES.intensity[@]
+	if ! intensity {
+		call G.withvalue intensity.setvalue class @.style.area.shadestyle.intensity.val
+	}
+	call area.cb_intensity.setdefault class intensity.value
+
+	call G.withvalue index.setvalue class @.style.area.linestyle.color.styledex
+	call index.withvalue line_color.setvalue class .__STYLES.color[@]
+	call area.cb_lclr.setdefault class line_color.value
+	call G.withvalue line_rgb.setvalue class @.style.area.linestyle.color.rgb
+	call area.cl_lclr.setdefault class line_rgb.value
+	call G.withvalue line_opacity.setvalue class @.style.area.linestyle.color.opacity
+	call area.sp_lopacity.setdefault class line_opacity.value
+
+	call G.withvalue index.setvalue class @.style.area.linestyle.width.styledex
+	call index.withvalue width.setvalue class .__STYLES.linewidth[@]
+	if ! width {
+		call G.withvalue width.setvalue class @.style.area.linestyle.width.val
+	}
+	call area.cb_width.setdefault class width.value
+
+	call G.withvalue index.setvalue class @.style.area.linestyle.pattern.styledex
+	call index.withvalue pattern.setvalue class .__STYLES.linepattern[@]
+	call area.cb_pattern.setdefault class pattern.value
+
+	call G.withvalue index.setvalue class @.style.area.linestyle.align.styledex
+	call index.withvalue line_align.setvalue class .__STYLES.alignstroke[@]
+	call area.cb_lalign.setdefault class line_align.value
+
+	call G.withvalue index.setvalue class @.style.connect_missings.styledex
+	call index.withvalue cmissing.setvalue class .__STYLES.yesno[@]
+	call area.cb_cmissing.setdefault class cmissing.value
+
+	call G.withvalue drawview.setvalue class @.draw_view.istrue
+	if drawview {
+		call area.ck_hide.setdefault 0
+	}
+	else {
+		call area.ck_hide.setdefault 1
+	}
+END
+
+PROGRAM area_initialize_controls
+BEGIN
+	if fill_color {
+		call area.cb_fclr.setvalue class fill_color.value
+	}
+	else {
+		call area.cb_fclr.setvalue "custom"
+	}
+	call area.cl_fclr.setvalue class fill_rgb.value
+	call area.sp_fopacity.setvalue class fill_opacity.value
+	call area.cb_intensity.setvalue class intensity.value
+
+	if line_color {
+		call area.cb_lclr.setvalue class line_color.value
+	}
+	else {
+		call area.cb_lclr.setvalue "custom"
+	}
+	call area.cl_lclr.setvalue class line_rgb.value
+	call area.sp_lopacity.setvalue class line_opacity.value
+
+	call area.cb_width.setvalue class width.value
+	call area.cb_pattern.setvalue class pattern.value
+
+	call area.cb_lalign.setvalue class line_align.value
+
+	if fill_rgb.isneq(line_rgb) {
+		call area.ck_outline.seton
+	}
+	else {
+		call area.ck_outline.setoff
+	}
+	
+	call area.cb_cmissing.setvalue class cmissing.value
+
+	if drawview {
+		call area.ck_hide.setoff
+	}
+	else {
+		call area.ck_hide.seton
+	}
+END
+
+PROGRAM area_output
+BEGIN
+	call program area_get_defaults
+
+	if ! area.cl_fclr.isvisible() & ! area.cb_fclr.isdefault() {
+		put "style(area(shadestyle(color(" 
+		put area.cb_fclr 
+		put ")))) "
+	}
+	if area.cl_fclr.isvisible() & ! area.cl_fclr.isdefault() {
+		put "style(area(shadestyle(color("  `"""'
+		put area.cl_fclr
+		put `"""'
+		put ")))) "
+	}
+	if ! area.ck_outline & area.cb_fclr.isneq(line_color) {
+		if ! area.cl_fclr.isvisible() {
+			put "style(area(linestyle(color(" 
+			put area.cb_fclr 
+			put ")))) "
+		}
+		if area.cl_fclr.isvisible() & area.cl_fclr.isneq(line_rgb) {
+			put "style(area(linestyle(color("  `"""'
+			put area.cl_fclr
+			put `"""'
+			put ")))) "
+		}
+	}
+	call line_opacity.withvalue d_tmp.setvalue @
+	if ! area.ck_outline & area.sp_fopacity.isneq(d_tmp) {
+		put "style(area(linestyle(color("  `"""'
+		put "%"
+		put area.sp_fopacity
+		put `"""'
+		put ")))) "
+	}
+	if area.cb_lclr & area.ck_outline {
+		if ! area.cl_lclr.isvisible() & ! area.cb_lclr.isdefault() {
+			put "style(area(linestyle(color(" 
+			put area.cb_lclr 
+			put ")))) "
+		}
+		if area.cl_lclr.isvisible() & ! area.cl_lclr.isdefault() {
+			put "style(area(linestyle(color("  `"""'
+			put area.cl_lclr
+			put `"""'
+			put ")))) "
+		}
+		if ! area.sp_lopacity.isdefault() {
+			put "style(area(linestyle(color("  `"""'
+			put "%"
+			put area.sp_lopacity
+			put `"""'
+			put ")))) "
+		}
+	}
+
+	if ! area.sp_fopacity.isdefault() {
+		put "style(area(shadestyle(color("  `"""'
+		put "%"
+		put area.sp_fopacity
+		put `"""'
+		put ")))) "
+	}
+	if ! area.cb_intensity.isdefault() & area.cb_intensity {
+		put "style(area(shadestyle(intensity("
+		put area.cb_intensity
+		put ")))) "
+	}
+
+	if ! area.cb_width.isdefault() {
+		put "style(area(linestyle(width("
+		put area.cb_width
+		put ")))) "
+	}
+	if ! area.cb_pattern.isdefault() {
+		put "style(area(linestyle(pattern("
+		put area.cb_pattern
+		put ")))) "
+	}
+
+	if ! area.cb_lalign.isdefault() {
+		put "style(area(linestyle(align("
+		put area.cb_lalign
+		put ")))) "
+	}
+	if ! area.cb_cmissing.isdefault() {
+		put "style(connect_missings("
+		put area.cb_cmissing
+		put ")) "
+	}
+	if ! area.ck_hide.isdefault() {
+		if area.ck_hide {
+			put "set(draw_view no) "
+		}
+		else {
+			put "set(draw_view yes) "
+		}
+	}
+END

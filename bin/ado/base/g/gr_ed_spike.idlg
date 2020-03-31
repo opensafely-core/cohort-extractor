@@ -1,0 +1,159 @@
+/*
+  gr_ed_spike.idlg
+
+*!  VERSION 1.1.2  22mar2017
+
+*/
+
+
+SCRIPT spike_PREINIT
+BEGIN
+	create STRING color
+	create STRING rgb
+	create STRING opacity
+	create STRING width
+	create STRING pattern
+	create DOUBLE drawview
+
+	program spike_get_defaults
+END
+
+DIALOG spike, tabtitle(resource LBL_SPIKES)
+BEGIN
+  GROUPBOX gb_spike	_lft	_top	_iwd	_ht11,		///
+	label(resource LBL_SPIKE_PROPERTIES)
+  TEXT     tx_clr	_ilft	_ss	_wd	.,		///
+	label(resource LBL_COLOR) right
+  COMBOBOX cb_clr	_sep	@	_cbwd	.,		///
+	dropdownlist contents(_colors) 				///
+	onselchangelist(spike_cl_clr_sel)
+  COLOR    cl_clr	_cbsep	@	_clwd	.,
+  TEXT     tx_opacity	_ilft	_mls	_wd	.,		///
+	label(resource LBL_OPACITY) right
+  SPINNER sp_opacity	_sep	@	_spwd	.,		///
+	default(100)						///
+	min(0)							///
+	max(100)
+  
+  TEXT     tx_width	_ilft	 _mls	_wd	.,		///
+	label(resource LBL_WIDTH) right
+  COMBOBOX cb_width	_sep	@	_cbwd	.,		///
+	dropdown 						///
+	contents(_linewidths)
+
+  TEXT     tx_pattern	_ilft	_mls	_wd	.,		///
+	label(resource LBL_PATTERN) right
+  COMBOBOX cb_pattern	_sep	@	_cbwd	.,		///
+	dropdownlist						///
+	contents(_linepatterns)
+
+  // public scope (do not change name)
+  CHECKBOX ck_hide	_lft	+45	_iwd	.,		///
+	label(resource LBL_HIDE_PLOT)
+END
+
+SCRIPT spike_POSTINIT
+BEGIN
+	program spike_initialize_controls
+END
+
+LIST spike_cl_clr_sel
+BEGIN
+	spike.cl_clr.show
+	spike.cl_clr.hide
+END
+
+PROGRAM spike_get_defaults
+BEGIN
+	call Gstyle.withvalue index.setvalue class @.area.linestyle.color.styledex
+	call index.withvalue color.setvalue class .__STYLES.color[@]
+	call spike.cb_clr.setdefault class color.value
+	
+	call Gstyle.withvalue rgb.setvalue class @.area.linestyle.color.rgb
+	call spike.cl_clr.setdefault class rgb.value
+	call Gstyle.withvalue opacity.setvalue class @.area.linestyle.color.opacity
+	call spike.sp_opacity.setdefault class opacity.value
+
+	call Gstyle.withvalue index.setvalue class @.area.linestyle.width.styledex
+	call index.withvalue width.setvalue class .__STYLES.linewidth[@]
+	if ! width {
+		call Gstyle.withvalue width.setvalue class @.area.linestyle.width.val
+	}
+	call spike.cb_width.setdefault class width.value
+
+	call Gstyle.withvalue index.setvalue class @.area.linestyle.pattern.styledex
+	call index.withvalue pattern.setvalue class .__STYLES.linepattern[@]
+	call spike.cb_pattern.setdefault class pattern.value
+
+	call G.withvalue drawview.setvalue class @.draw_view.istrue
+	if drawview {
+		call spike.ck_hide.setdefault 0
+	}
+	else {
+		call spike.ck_hide.setdefault 1
+	}
+END
+
+PROGRAM spike_initialize_controls
+BEGIN
+	if color {
+		call spike.cb_clr.setvalue class color.value
+	}
+	if ! color {
+		call spike.cb_clr.setvalue "custom"
+	}
+	call spike.cl_clr.setvalue class rgb.value
+	call spike.sp_opacity.setvalue class opacity.value
+
+	call spike.cb_width.setvalue class width.value
+	call spike.cb_pattern.setvalue class pattern.value
+
+	if drawview {
+		call spike.ck_hide.setoff
+	}
+	else {
+		call spike.ck_hide.seton
+	}
+END
+
+PROGRAM spike_output
+BEGIN
+	call program spike_get_defaults
+
+	if ! spike.cl_clr.isvisible() & ! spike.cb_clr.isdefault() {
+		put "style(area(linestyle(color(" 
+		put spike.cb_clr 
+		put ")))) "
+	}
+	if spike.cl_clr.isvisible() & ! spike.cl_clr.isdefault() {
+		put "style(area(linestyle(color("  `"""'
+		put spike.cl_clr
+		put `"""'
+		put ")))) "
+	}
+	if ! spike.sp_opacity.isdefault() {
+		put "style(area(linestyle(color("
+		put "%"
+		put spike.sp_opacity
+		put ")))) "
+	}
+	if ! spike.cb_width.isdefault() {
+		put "style(area(linestyle(width("
+		put spike.cb_width
+		put ")))) "
+	}
+	if ! spike.cb_pattern.isdefault() {
+		put "style(area(linestyle(pattern("
+		put spike.cb_pattern
+		put ")))) "
+	}
+
+	if ! spike.ck_hide.isdefault() {
+		if spike.ck_hide {
+			put "set(draw_view no) "
+		}
+		else {
+			put "set(draw_view yes) "
+		}
+	}
+END

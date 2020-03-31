@@ -1,0 +1,171 @@
+/*                                 twoway_normal_parse
+
+   A parser for ksm smoothing splines.  Works with twoway.ado.
+
+*/
+*! version 1.0.2  04mar2004
+
+version 8
+
+class {
+	min		=  1e300
+	max		= -1e300
+	stdrng		= -10
+	points		= 300
+	mle		= 0
+	std		= -10
+	mean		= 1e300
+} , inherit(twoway_yxview_parse)
+
+
+// ---------------------------------------------------------------------------
+
+program parse
+	.must_create_serset = 1
+
+	.viewtype = "line"
+	.n = 1						// number of plots
+	.varcheck = 0					// side signal
+
+	.Super.parse `0'
+
+	local 0 , `.options'
+
+	_parse combop 0 : 0 , option(MIN)      rightmost
+	_parse combop 0 : 0 , option(MAX)      rightmost
+	_parse combop 0 : 0 , option(POINTS)   rightmost
+	_parse combop 0 : 0 , option(MLE)      rightmost
+	_parse combop 0 : 0 , option(STDdev)   rightmost
+	_parse combop 0 : 0 , option(STDRange) rightmost
+	_parse combop 0 : 0 , option(MEAN)     rightmost
+
+	syntax [ , MIN(real 1e300) MAX(real -1e300) POINTS(real `.points') ///
+		   MLE STDdev(real -10) STDRange(real -10) MEAN(real 1e300) * ]
+
+// CUMulative	
+// NAMe		
+// Drop mle
+
+	if 0`:word count `.varlist'' > 1 {
+	    di in smcl "{error}{p 0 8}too many variables specified: `.varlist'"
+      	    exit 103
+	}
+	if "`.varlist'" != "" {
+		confirm numeric variable `.varlist'
+	}
+
+	local hv = 0`:word count `.varlist''
+
+	.mean = cond(`hv', `mean'   , cond(`mean'==1e300 , 0, `mean'))
+	.std  = cond(`hv', `stddev' , cond(`stddev'<0    , 1, `stddev'))
+	local r = cond(`stdrange' < 0 , 4, `stdrange')
+	.min = cond(`hv', `min', cond(`min'== 1e300, `.mean'-`r'*`.std', `min'))
+	.max = cond(`hv', `max', cond(`max'==-1e300, `.mean'+`r'*`.std', `max'))
+
+	.stdrng = `stdrange'
+
+
+//	.min  = cond(`hv', `min', cond(`min'== 1e300 , `.mean'-4*`.std', `min'))
+//	.max  = cond(`hv', `max', cond(`max'==-1e300 , `.mean'+4*`.std', `max'))
+
+	.points = `points'
+
+	.mle    = "`mle'" != ""
+
+	.options = `"`options'"'
+
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*
+	Creates a new serset and the view and returns its reference.
+	Assumes that the data in memory is the same as when parse was called.
+
+	Allows a touse(varname) option that further restricts the sample, 
+	restricts beyond the held .if and .in
+
+	Additional options to the .serset.new command may be specified, but
+	this is unlikely to be necessary.
+
+	If must_create_serset == 1, then this command MUST be used, 
+	otherwise the serset may be created by other means.
+*/ 
+
+program log_create_serset
+
+	syntax , LOG(name) SERSETNAME(string) [ TOUSE(name) * ]
+
+							// get statistics
+	tempname touse2
+	mark `touse2' `.if' `.in'
+	qui replace `touse2' = 0 if `touse' != 1
+
+	capture summarize `.varlist' if `touse2'
+
+	local mean = cond(`.mean' ==  1e300 , r(mean) , `.mean')
+	local std  = cond(`.std'  <   0     , r(sd)   , `.std')
+	
+							// get range
+	if `.stdrng' < 0 {
+		local min  = cond(`.min'  ==  1e300 , r(min)  , `.min')
+		local max  = cond(`.max'  == -1e300 , r(max)  , `.max')
+	}
+	else {
+		local min = `mean' - `.stdrng' * `std'
+		local max = `mean' + `.stdrng' * `std'
+		local min  = cond(`.min'  ==  1e300 , `min'  , `.min')
+		local max  = cond(`.max'  == -1e300 , `max'  , `.max')
+	}
+
+	if _N < `.points' {
+		local reset 1
+		local n0 = _N + 1
+		.`log'.Arrpush __NOLOG__ qui set obs `.points'
+	}
+
+							// make the data
+	local delta = (`max' - `min') / (`.points'-1)
+	.`log'.Arrpush __NOLOG__ tempname x p
+	.`log'.Arrpush __NOLOG__ qui gen double \`x' = `min' in 1
+	.`log'.Arrpush __NOLOG__ qui replace    \`x' = \`x'[_n-1] + `delta' ///
+		in 2/`.points'
+	.`log'.Arrpush __NOLOG__ qui gen double				///
+		\`p' = normden(\`x',`mean',`std') in 1/`.points'
+
+							// labels
+	if "`.varlist'" == "" {
+		.`log'.Arrpush __NOLOG__ label variable \`x' "X"
+	}
+	else {
+		local lab :variable label `.varlist'
+		if `"`lbl'"' == `""' {
+		    .`log'.Arrpush __NOLOG__				///
+		    		label variable \`p' `"Density of `.varlist'"'
+		}
+		else {
+		    .`log'.Arrpush __NOLOG__ label variable \`x' `"`lbl'"'
+		    .`log'.Arrpush __NOLOG__				///
+				label variable \`p' `"Density of `lbl'"'
+		}
+	}
+
+	.`log'.Arrpush .`sersetname' = .serset.new \`p' \`x'		///
+		in 1/`.points' , `.omitmethod' `options' nocount
+
+	.`log'.Arrpush __NOLOG__ .`sersetname'.sers[1].name = "density"
+	if "`.varlist'" == "" {
+		.`log'.Arrpush __NOLOG__ .`sersetname'.sers[2].name = "x"	
+		.varlist = "density x"
+	}
+	else {
+	      .`log'.Arrpush __NOLOG__ .`sersetname'.sers[2].name = "`.varlist'"
+	      .varlist = "density `.varlist'"
+	}
+
+	if 0`reset' {
+		.`log'.Arrpush __NOLOG__ qui drop in `n0'/l
+	}
+
+end
+

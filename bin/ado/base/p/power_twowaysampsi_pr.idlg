@@ -1,0 +1,242 @@
+/*
+  power_twowaysampsi_pr.idlg 
+
+*!  VERSION 1.1.2  23jun2015
+
+*/
+
+LIST main_sampsi_list
+BEGIN
+	resource POWER_TWOWAYSAMPSI_PR_TOTAL_SAMPLE_SIZE_CELL_WEIGHTS
+	resource POWER_TWOWAYSAMPSI_PR_TOTAL_SAMP_SIZE_CELL_WEI_MAT
+	resource LBL_NUMBER_OF_SUBJECTS_PER_CELL
+END
+
+LIST main_sampsi_values
+BEGIN
+	"tssar"
+	"tssarmat"
+	"togss"
+END
+
+LIST main_grweights_list
+BEGIN
+	resource LBL_CELL_WEIGHTS
+	resource POWER_TWOWAYSAMPSI_CELL_WEIGHTS
+END
+
+LIST main_grweights_values
+BEGIN
+	"grw"
+	"grw_mat"
+END
+
+SCRIPT main_sampsi_hide_all
+BEGIN
+	main.ed_grw.hide
+	main.tx_grw.hide
+	main.cb_grw.hide
+	main.cb_grw_mat.hide
+	main.bu_grw_mat.hide
+	main.ed_sampsi_n.hide
+	main.ed_sampsi_npc.hide
+	main.tx_sampsi_n.hide
+	main.tx_sampsi_npc.hide
+END
+
+PROGRAM main_sampsi_changed
+BEGIN
+	if main.cb_sampsi.isvisible() {
+		if main.cb_sampsi.iseq("tssar") {
+			call program main_tssar_on
+		}
+		if main.cb_sampsi.iseq("tssarmat") {
+			call program main_tssar_mat_on
+		}
+		if main.cb_sampsi.iseq("togss") {
+			call program main_togss_on
+		}
+		call program check_for_numlist
+		call program table_create4Twoway
+	}
+END
+
+PROGRAM main_grw_changed
+BEGIN
+	if main.cb_grw.isvisible() {
+		if main.cb_grw.iseq("grw") {
+			call program main_grw_on
+		}
+		if main.cb_grw.iseq("grw_mat") {
+			call program main_grw_mat_on
+		}
+		call program table_create4Twoway
+	}
+END
+
+PROGRAM main_tssar_on
+BEGIN
+	call script main_sampsi_hide_all
+
+	call main.ed_sampsi_n.show
+	call main.cb_grw.hide
+	call main.tx_sampsi_n.show
+	call main.ed_grw.show
+	call main.tx_grw.show
+
+	call main.ed_sampsi_n.setposition . 165
+	call main.tx_sampsi_n.setposition . 165
+	call main.ed_grw.setposition 335 190
+	call main.tx_grw.setposition 460 190
+END
+
+PROGRAM main_tssar_mat_on
+BEGIN
+	call script main_sampsi_hide_all
+
+	call main.ed_sampsi_n.show
+	call main.cb_grw.hide
+	call main.tx_sampsi_n.show
+	call main.cb_grw_mat.show
+	call main.bu_grw_mat.show
+
+	call main.ed_sampsi_n.setposition . 165
+	call main.tx_sampsi_n.setposition . 165
+	call main.cb_grw_mat.setposition 335 190
+	call main.bu_grw_mat.setposition 460 190
+END
+
+PROGRAM main_togss_on
+BEGIN
+	call script main_sampsi_hide_all
+
+	call main.ed_sampsi_npc.show
+	call main.tx_sampsi_npc.show
+
+	call main.ed_sampsi_npc.setposition . 165
+	call main.tx_sampsi_npc.setposition . 165
+END
+
+PROGRAM main_grw_on
+BEGIN
+	call script main_sampsi_hide_all
+	
+	call main.cb_grw.show
+	call main.ed_grw.show
+	call main.tx_grw.show
+
+	call main.ed_grw.setposition 255 165
+	call main.tx_grw.setposition 385 165
+END
+
+PROGRAM main_grw_mat_on
+BEGIN
+	call script main_sampsi_hide_all
+	
+	call main.cb_grw.show
+	call main.cb_grw_mat.show
+	call main.bu_grw_mat.show
+
+	call main.cb_grw_mat.setposition 255 165
+	call main.bu_grw_mat.setposition 385 165
+END
+
+PROGRAM show_grweights_matrix
+BEGIN
+	call create STRING GrWeightsMatResult
+	call create CHILD matrix_input AS GrWeightsMat
+	if ! _rc {
+		call GrWeightsMat.setExitString GrWeightsMatResult
+		call GrWeightsMat.setExitAction "program main_getGrWeightsMatResult"
+		call GrWeightsMat.callthru "isChildContext.settrue"
+	}
+END
+
+PROGRAM main_getGrWeightsMatResult
+BEGIN
+	call main.cb_grw_mat.repopulate
+	call main.cb_grw_mat.setvalue class GrWeightsMatResult.value
+END
+
+PROGRAM power_twowaydsampsi_output
+BEGIN
+	if main.cb_compute.iseq("power") | main.cb_compute.iseq("effect") {
+		if main.cb_sampsi.isvisible() & main.cb_sampsi.iseq("tssar") | main.cb_sampsi.iseq("tssnog") {
+			require main.ed_sampsi_n
+			if !main.ed_sampsi_n.isnumlist() {
+				call create STRING _MSG_TMP
+	                        call _MSG_TMP.format 			///
+					"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+					"resource LBL_TAB_MAIN"		///
+					"resource LBL_TOTAL_SAMPLE_SIZE"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Total sample size".
+			}
+			if !main.ed_sampsi_n.isNumlistGT(0) {
+                                call create STRING _MSG_TMP
+                                call _MSG_TMP.format 			///
+					"resource LBL_MSGBOX_ON_TAB_GREATER_THAN_0_FMT" ///
+					"resource LBL_TAB_MAIN"		///
+					"resource LBL_TOTAL_SAMPLE_SIZE"
+                                stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Total sample size" must be greater than 0.
+			}
+			optionarg main.ed_sampsi_n
+		}
+		if main.cb_sampsi.isvisible() & main.cb_sampsi.iseq("tssarmat") {
+			require main.ed_sampsi_n
+			if !main.ed_sampsi_n.isnumlist() {
+                                call create STRING _MSG_TMP
+                                call _MSG_TMP.format 			///
+					"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+					"resource LBL_TAB_MAIN"		///
+					"resource LBL_TOTAL_SAMPLE_SIZE"
+                                stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Total sample size".
+			}
+			if !main.ed_sampsi_n.isNumlistGT(0) {
+                                call create STRING _MSG_TMP
+                                call _MSG_TMP.format 			///
+					"resource LBL_MSGBOX_ON_TAB_GREATER_THAN_0_FMT" ///
+					"resource LBL_TAB_MAIN"		///
+					"resource LBL_TOTAL_SAMPLE_SIZE"
+                                stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Total sample size" must be greater than 0.
+			}
+			optionarg main.ed_sampsi_n
+		}
+		if main.cb_sampsi.isvisible() & main.cb_sampsi.iseq("togss") {
+			require main.ed_sampsi_npc
+			if !main.ed_sampsi_npc.isnumlist() {
+                                call create STRING _MSG_TMP
+                                call _MSG_TMP.format 			///
+					"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+					"resource LBL_TAB_MAIN"		///
+					"resource LBL_NUMBER_OF_SUBJECTS_PER_CELL"
+                                stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Number of subjects per cell".
+			}
+			if !main.ed_sampsi_npc.isNumlistGT(0) {
+                                call create STRING _MSG_TMP
+                                call _MSG_TMP.format 			///
+					"resource LBL_MSGBOX_ON_TAB_GREATER_THAN_0_FMT" ///
+					"resource LBL_TAB_MAIN"		///
+					"resource LBL_NUMBER_OF_SUBJECTS_PER_CELL"
+                                stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Number of subjects per cell" must be greater than 0.
+			}
+			optionarg main.ed_sampsi_npc
+		}	
+	}
+	
+	if main.ed_grw.isvisible() {
+		require main.ed_grw 
+		optionarg /hidedefault main.ed_grw
+	}
+	if main.cb_grw_mat.isvisible() {
+		require main.cb_grw_mat
+		optionarg main.cb_grw_mat
+	}
+	option main.ck_nfrac
+END
+

@@ -1,0 +1,153 @@
+/*
+    gr_rspike_options.dlg
+    
+*!  VERSION 1.1.2  22mar2017
+
+	// SCRIPTS and PROGRAMS for external use
+		* SCRIPT  gr_rspike_setOptionsTo_bl
+		* SCRIPT  gr_rspike_setOrientationOff
+
+*/
+
+VERSION 14
+
+INCLUDE _std_small
+DEFINE _dlght 170
+INCLUDE header_gr_child
+
+DEFINE _clwd	15
+DEFINE _wd	140
+DEFINE _sep	+145
+DEFINE _cbwd	130
+DEFINE _cbsep	+135
+
+HELP hlp1, view("help twoway_rspike")
+RESET res1
+
+SCRIPT gr_rspike_setOptionsTo_bl
+BEGIN
+	main.cb_clr.setoption blcolor
+	main.cl_clr.setoption blcolor
+	main.cb_width.setoption blwidth
+	main.cb_pattern.setoption blpattern
+	blOptionSet.settrue
+END
+
+SCRIPT gr_rspike_setOrientationOff
+BEGIN
+	main.tx_orient.hide
+	main.cb_orient.hide
+	orientationOff.settrue
+END
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource GR_RSPIKE_OPTIONS_DLG_HSCALE
+END
+
+PROGRAM PREINIT_PROGRAM
+BEGIN
+	call create PBOOLEAN blOptionSet
+	call create PBOOLEAN orientationOff
+	if blOptionSet {
+		call script gr_rspike_setOptionsTo_bl
+	}
+	if orientationOff {
+		call script gr_rspike_setOrientationOff
+	}
+END
+
+DIALOG main, label(resource LBL_LINE_OPTIONS)
+BEGIN
+  TEXT     tx_clr	_lft	20	_wd	.,		///
+	label(resource LBL_COLOR) right
+  COMBOBOX cb_clr	_sep	@	_cbwd	.,		///
+	dropdownlist contents(colors) option(lcolor)		///
+	onselchangelist(main_cl_clr_sel)
+  COLOR    cl_clr	_cbsep	@	_clwd	., option(lcolor)
+  TEXT     tx_opacity	_lft	_mls	_wd	.,		///
+	label(resource LBL_OPACITY) right
+  SPINNER sp_opacity	_sep	@	_spwd	.,		///
+	default(100)						///
+	min(0)							///
+	max(100)
+
+  TEXT     tx_width	_lft	_mls	_wd	.,		///
+	label(resource LBL_WIDTH) right
+  COMBOBOX cb_width	_sep	@	_cbwd	.,		///
+	dropdown option(lwidth)					///
+	contents(linewidths)
+
+  TEXT     tx_pattern	_lft	_mls	_wd	.,		///
+	label(resource LBL_PATTERN) right
+  COMBOBOX cb_pattern	_sep	@	_cbwd	.,		///
+	dropdownlist option(lpattern)				///
+	contents(linepatterns)
+
+  TEXT     tx_orient	_lft	_mls	_wd	.,		///
+	label(resource LBL_ORIENTATION) right
+  COMBOBOX cb_orient	_sep	@	_cbwd	.,		///
+	dropdownlist 						///
+	contents(orientation_contents)  			///
+	values(orientation_values)
+END
+
+LIST main_cl_clr_sel
+BEGIN
+	main.cl_clr.hide
+	main.cl_clr.show
+	main.cl_clr.hide
+END
+
+LIST main_cl_fclr_sel
+BEGIN
+	main.cl_fclr.hide
+	main.cl_fclr.show
+	main.cl_fclr.hide
+END
+
+LIST orientation_contents
+BEGIN
+	resource LBL_DEFAULT
+	resource LBL_HORIZONTAL
+	resource LBL_VERTICAL
+END
+
+LIST orientation_values
+BEGIN
+	""
+	horizontal
+	vertical
+END
+
+PROGRAM main_lcolor_output
+BEGIN
+	if (main.cb_clr.isneq("") | main.sp_opacity.isneq(100)) {
+		put "lcolor("
+		if (main.cb_clr.iseq("custom")) {
+			put `"""' main.cl_clr
+			if (main.sp_opacity.isneq(100)) {
+				put " %" main.sp_opacity
+			}
+			put `"""'
+		}
+		else {
+			if (main.cb_clr.isneq("")) {
+				put main.cb_clr
+			}
+			if (main.sp_opacity.isneq(100)) {
+				put "%" main.sp_opacity
+			}
+		}
+		put ")"
+	}
+END
+
+PROGRAM command
+BEGIN
+	put /program " " main_lcolor_output
+	optionarg /hidedefault main.cb_width
+	optionarg /hidedefault main.cb_pattern
+	
+	put " " main.cb_orient
+END

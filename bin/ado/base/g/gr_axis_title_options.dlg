@@ -1,0 +1,428 @@
+/*
+    gr_axis_title_options.dlg
+    
+*!  VERSION 1.1.1  16jun2016
+
+    NOTE: (IMPORTANT)
+    	titleOption and scaleOption MUST be set by the caller.
+    	
+	// SCRIPTS and PROGRAMS for external use
+		* SCRIPT axis_setSecondAxis
+*/
+
+VERSION 15.0
+
+INCLUDE _std_small
+DEFINE _dlght 230
+INCLUDE header_gr_child
+
+DEFINE _clwd	15
+DEFINE _wd	130
+DEFINE _sep	+135
+DEFINE _wd2	120
+DEFINE _sep2	+125
+DEFINE _cbwd	120
+DEFINE _cbsep	+125
+
+INCLUDE gr_orientation
+
+HELP hlp1, view("help axis_title_options")
+RESET res1
+
+SCRIPT axis_setSecondAxis
+BEGIN
+	isAxis2.settrue
+END
+
+SCRIPT PREINIT
+BEGIN
+	create PSTRING titleOption
+	create PSTRING scaleOption
+	create PBOOLEAN isAxis2
+	create ARRAY tmpArray
+	create STRING tmp
+	setscale_hadj resource GR_AXIS_TITLE_OPTIONS_DLG_HSCALE
+END
+
+SCRIPT title_PREINIT
+BEGIN
+	create STRING customTitleMargin
+END
+
+SCRIPT title_POSTINIT
+BEGIN
+	program title_checkCustomMargin
+END
+
+DIALOG title, label(resource GR_AXIS_TITLE_OPTIONS_DLG_TITLE) tabtitle(resource LBL_TAB_TEXT)
+BEGIN
+  GROUPBOX tx_rendition	_lft	_top	_iwd	_ht8,		///
+	label(resource LBL_TEXT_PROPERTIES)
+  TEXT     tx_size	_ilft	_ss	_wd	.,		///
+  	label(resource LBL_SIZE) right
+  COMBOBOX cb_size	_sep	@	_cbwd	.,		///
+	dropdown contents(textsizes) option(size)
+
+  TEXT     tx_clr	_ilft	_ls	_wd	.,		///
+	label(resource LBL_COLOR)	right
+  COMBOBOX cb_clr	_sep	@	_cbwd	.,		///
+	dropdownlist contents(colors) option(color)		///
+	onselchangelist(title_cl_clr_sel)
+  COLOR    cl_clr	_cbsep	@	_clwd	., option(color)
+  TEXT     tx_opacity	_ilft	_mls	_wd	.,		///
+	label(resource LBL_OPACITY) right
+  SPINNER sp_opacity	_sep	@	_spwd	.,		///
+	default(100)						///
+	min(0)							///
+	max(100)
+
+  GROUPBOX tx_placement	_lft	+45	_iwd	_ht5h,		///
+	label(resource LBL_PLACEMENT_NO_COLON)
+  TEXT     tx_orient	_ilft	_ss	_wd	.,		///
+	label(resource LBL_ORIENTATION) right
+  COMBOBOX cb_orient	_sep	@	_cbwd	.,		///
+	dropdownlist option(orientation)			///
+	contents(orientation) values(orientation_values)
+	
+  TEXT     tx_margin	_ilft	_ls	_wd	.,		///
+	label(resource LBL_MARGIN) right
+  COMBOBOX cb_margin	_sep	@	_cbwd	.,		///
+	dropdownlist contents(margin) option(margin)		///
+	onselchange(program title_cb_margin_check)
+  BUTTON   bu_margin	_cbsep	@	_clwd	.,		///
+	label("..") tooltip(resource LBL_CUSTOM_MARGIN)		///
+	onpush(script title_show_margin_dialog)
+END
+
+LIST title_cl_clr_sel
+BEGIN
+	title.cl_clr.hide
+	title.cl_clr.show
+	title.cl_clr.hide
+END
+
+PROGRAM title_cb_margin_check
+BEGIN
+	if title.cb_margin.iseq("custom") {
+		call title.bu_margin.show
+	}
+	else {
+		call title.bu_margin.hide
+	}
+END
+
+SCRIPT title_show_margin_dialog
+BEGIN
+	create CHILD gr_margin_create AS title_margin_dlg
+	title_margin_dlg.setExitString customTitleMargin
+	title_margin_dlg.setExitAction "program title_checkCustomMargin"
+END	
+PROGRAM title_checkCustomMargin
+BEGIN
+	if customTitleMargin {
+		call customTitleMargin.tokenize tmpArray
+		call tmp.setvalue "Custom margin "
+		call tmp.append "(Left:"
+		call tmp.append class tmpArray[1]
+		call tmp.append " Right:"
+		call tmp.append class tmpArray[2]
+		call tmp.append " Bottom:"
+		call tmp.append class tmpArray[3]
+		call tmp.append " Top:"
+		call tmp.append class tmpArray[4]
+		call tmp.append ")"
+		call tmp.withvalue title.bu_margin.settooltip "@"
+	}
+	else {
+		call title.bu_margin.settooltip resource LBL_CUSTOM_MARGIN_NOT_DEFINED
+	}
+END
+
+SCRIPT box_PREINIT
+BEGIN
+	create STRING customTitleBoxMargin
+END
+
+SCRIPT box_POSTINIT
+BEGIN
+	program title_checkCustomBoxMargin
+END
+
+DIALOG box, tabtitle(resource LBL_TAB_BOX)
+BEGIN
+  CHECKBOX ck_box	_lft	_top	_iwd	_ht16,		///
+	groupbox label(resource LBL_PLACE_BOX_AROUND_TEXT) 	///
+	option(box)						///
+	onclickon(script title_box_on)				///
+	onclickoff(script title_box_off)
+
+  TEXT     tx_bclr	_ilft	_ss	_wd	.,		///
+	label(resource LBL_FILL_COLOR) right
+  COMBOBOX cb_bclr	_sep	@	_cbwd	.,		///
+	dropdownlist contents(colors) option(fcolor)		///
+	onselchangelist(title_cl_bclr_sel)
+  COLOR    cl_bclr   	_cbsep	@	_clwd	., option(fcolor)
+  TEXT     tx_bopacity	_ilft	_mls	_wd	.,		///
+	label(resource LBL_FILL_OPACITY) right
+  SPINNER  sp_bopacity	_sep	@	_spwd	.,		///
+	default(100)						///
+	min(0)							///
+	max(100)
+
+  TEXT     tx_blclr	_ilft	_mls	_wd	.,		///
+	label(resource LBL_LINE_COLOR) right
+  COMBOBOX cb_blclr	_sep	@	_cbwd	.,		///
+	dropdownlist contents(colors) option(lcolor)		///
+	onselchangelist(title_cl_blclr_sel)
+  COLOR    cl_blclr	_cbsep	@	_clwd	., option(lcolor)
+  TEXT     tx_blopacity	_ilft	_mls	_wd	.,		///
+	label(resource LBL_OUTLINE_OPACITY) right
+  SPINNER sp_blopacity	_sep	@	_spwd	.,		///
+	default(100)						///
+	min(0)							///
+	max(100)  
+  TEXT     tx_bmargin	_ilft	_mls	_wd	.,		///
+	label(resource LBL_MARGIN) right
+  COMBOBOX cb_bmargin	_sep	@	_cbwd	.,		///
+	dropdownlist contents(margin) option(bmargin)		///
+	onselchange(program title_cb_bmargin_check)
+  BUTTON   bu_bmargin	_cbsep	@	_clwd	.,		///
+	label(resource LBL_TWO_DOTS) 				///
+	tooltip(resource LBL_CUSTOM_MARGIN)			///
+	onpush(script title_show_bmargin_dialog)
+
+  CHECKBOX ck_expand	_ilft	_ls	_ibwd	.,		///
+	option(bexpand)						///
+	label(resource LBL_EXPAND_BOX_DIRECTION_OF_TEXT)
+END
+
+LIST title_cl_bclr_sel
+BEGIN
+	box.cl_bclr.hide
+	box.cl_bclr.show
+	box.cl_bclr.hide
+END
+
+LIST title_cl_blclr_sel
+BEGIN
+	box.cl_blclr.hide
+	box.cl_blclr.show
+	box.cl_blclr.hide
+END
+
+SCRIPT title_box_on
+BEGIN
+	box.tx_bclr.enable
+	box.cb_bclr.enable
+	box.cl_bclr.enable
+	box.tx_blclr.enable
+	box.cb_blclr.enable
+	box.cl_blclr.enable
+	box.tx_bopacity.enable
+	box.sp_bopacity.enable
+	box.tx_blopacity.enable
+	box.sp_blopacity.enable
+	box.tx_bmargin.enable
+	box.cb_bmargin.enable
+	box.bu_bmargin.enable
+	box.ck_expand.enable
+END
+
+SCRIPT title_box_off
+BEGIN
+	box.tx_bclr.disable
+	box.cb_bclr.disable
+	box.cl_bclr.disable
+	box.tx_blclr.disable
+	box.cb_blclr.disable
+	box.cl_blclr.disable
+	box.tx_bopacity.disable
+	box.sp_bopacity.disable
+	box.tx_blopacity.disable
+	box.sp_blopacity.disable
+	box.tx_bmargin.disable
+	box.cb_bmargin.disable
+	box.bu_bmargin.disable
+	box.ck_expand.disable
+END
+
+PROGRAM title_cb_bmargin_check
+BEGIN
+	if box.cb_margin.iseq("custom") {
+		call box.bu_bmargin.show
+	}
+	else {
+		call box.bu_bmargin.hide
+	}
+END
+
+SCRIPT title_show_bmargin_dialog
+BEGIN
+	create CHILD gr_margin_create AS title_bmargin_dlg
+	title_bmargin_dlg.setExitString customTitleBoxMargin
+	title_bmargin_dlg.setExitAction "program title_checkCustomBoxMargin"
+END	
+PROGRAM title_checkCustomBoxMargin
+BEGIN
+	if customTitleBoxMargin {
+		call customTitleBoxMargin.tokenize tmpArray
+		call tmp.setvalue "Custom margin "
+		call tmp.append "(Left:"
+		call tmp.append class tmpArray[1]
+		call tmp.append " Right:"
+		call tmp.append class tmpArray[2]
+		call tmp.append " Bottom:"
+		call tmp.append class tmpArray[3]
+		call tmp.append " Top:"
+		call tmp.append class tmpArray[4]
+		call tmp.append ")"
+		call tmp.withvalue box.bu_bmargin.settooltip "@"
+	}
+	else {
+		call box.bu_bmargin.settooltip resource LBL_CUSTOM_MARGIN_NOT_DEFINED
+	}
+END
+
+DIALOG adv, tabtitle(resource LBL_ADVANCED)
+BEGIN
+  GROUPBOX tx_placement	_lft	_top	_iwd	_ht10h,		///
+	label(resource LBL_TEXT_PLACEMENT)
+  TEXT     tx_just	_ilft	_ss	_wd	.,		///
+	label(resource LBL_JUSTIFICATION) right
+  COMBOBOX cb_just	_sep	@	_cbwd	.,		///
+	dropdownlist contents(justification) option(justification)
+
+  TEXT     tx_align	_ilft	_mls	_wd	.,		///
+	label(resource LBL_ALIGNMENT) right
+  COMBOBOX cb_align	_sep	@	_cbwd	.,		///
+	dropdownlist contents(alignment) option(alignment)
+
+  TEXT     tx_tgap	_ilft	_mls	_wd	.,		///
+	label(resource GR_AXIS_TITLE_OPTIONS_ADV_TX_TGAP) right
+  EDIT     ed_tgap	_sep	@	_cbwd	.,		///
+	option(titlegap)
+	
+  TEXT     tx_ogap	_ilft	_mls	_wd	.,		///
+	label(resource LBL_OUTER_GAP) right
+  EDIT     ed_ogap	_sep	@	_cbwd	.,		///
+	option(outergap)
+END
+
+PROGRAM scale_options_output
+BEGIN
+	optionarg adv.ed_tgap
+	optionarg adv.ed_ogap
+	if isAxis2 {
+		put " axis(2)"
+	}
+END
+PROGRAM title_options_output
+BEGIN
+	beginoptions
+		optionarg /hidedefault title.cb_size
+		if (title.cb_clr.isneq("") | title.sp_opacity.isneq(100)) {
+			put "color("
+			if (title.cb_clr.iseq("custom")) {
+				put `"""' title.cl_clr
+				if (title.sp_opacity.isneq(100)) {
+					put " %" title.sp_opacity
+				}
+				put `"""'
+			}
+			else {
+				if (title.cb_clr.isneq("")) {
+					put title.cb_clr
+				}
+				if (title.sp_opacity.isneq(100)) {
+					put "%" title.sp_opacity
+				}
+			}
+			put ")"
+		}
+		optionarg /hidedefault title.cb_orient
+		if title.cb_margin.isneq("custom") {
+			optionarg /hidedefault title.cb_margin
+		}
+		else {
+			if customTitleMargin {
+				put " margin("
+				put customTitleMargin
+				put ") "
+			}
+		}
+		
+		option box.ck_box
+		if (box.cb_bclr.isneq("") | box.sp_bopacity.isneq(100)) {
+			put "fcolor("
+			if (box.cb_bclr.iseq("custom")) {
+				put `"""' box.cl_bclr
+				if (box.sp_bopacity.isneq(100)) {
+					put " %" box.sp_bopacity
+				}
+				put `"""'
+			}
+			else {
+				if (box.cb_bclr.isneq("")) {
+					put box.cb_bclr
+				}
+				if (box.sp_bopacity.isneq(100)) {
+					put "%" box.sp_bopacity
+				}
+			}
+			put ")"
+		}
+		if (box.cb_blclr.isneq("") | box.sp_blopacity.isneq(100)) {
+			put "lcolor("
+			if (box.cb_blclr.iseq("custom")) {
+				put `"""' box.cl_blclr
+				if (box.sp_blopacity.isneq(100)) {
+					put " %" box.sp_blopacity
+				}
+				put `"""'
+			}
+			else {
+				if (box.cb_blclr.isneq("")) {
+					put box.cb_blclr
+				}
+				if (box.sp_blopacity.isneq(100)) {
+					put "%" box.sp_blopacity
+				}
+			}
+			put ")"
+		}
+		if box.cb_bmargin.isneq("custom") {
+			optionarg /hidedefault box.cb_bmargin
+		}
+		else {
+			if customTitleBoxMargin {
+				put " bmargin("
+				put customTitleBoxMargin
+				put ") "
+			}
+		}
+		option box.ck_expand
+		
+		optionarg /hidedefault adv.cb_just
+		optionarg /hidedefault adv.cb_align
+		if isAxis2 {
+			put " axis(2)"
+		}
+	endoptions
+END
+
+PROGRAM command
+BEGIN
+    if  title.cb_size | title.cb_clr | title.sp_opacity.isneq(100)	///
+	| title.cb_orient | title.cb_margin		 		///
+	| adv.cb_just | adv.cb_align | adv.ed_tgap 			///
+	| box.ck_box  {
+		put  " " titleOption "("
+		put /program title_options_output
+		put ") "
+    }
+    if adv.ed_tgap | adv.ed_ogap {
+	    put " " scaleOption "("
+	    put /program scale_options_output
+	    put ") "
+    }
+END

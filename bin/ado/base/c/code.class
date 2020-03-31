@@ -1,0 +1,241 @@
+/*                                    code
+
+	Class for managing "code"s -- variables with sequential discrete
+	values that have a name/string associated with the numeric code.
+
+        Usually another class will inherit from this class through
+        fixedcode.class and will define a class-level array named codes to hold
+        the names of the codes.  If the code is only to be used in one
+        program, this array can be declared dynamically using .new, .add, or
+        .addat.  These may also be used on a child class with a class-level
+        code array, but they will then affect the class-level array.
+
+	By default, code numbering begins at 1.
+
+        Note that in general, codes should NOT be combined with the concept of
+        named styles.  These are really two approaches to the same problem.
+
+*/
+*! version 1.0.1  28jan2015  
+
+version 8
+
+class {
+	double current				/* currently selected code */
+}, inherit(object)
+
+
+/* -------------------------------------------------------------------------*/
+/*	Usage:  .new code_name [code_name ... (current_code) ...]
+*/
+
+program define new
+
+	if `"`0'"' != `""' {
+		.add `0'
+	}
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*  Set the current value of the code to the specified code name.  Ignore if
+    the codename is among the names for this code.
+
+	Usage:  .set code_name
+*/
+program define set
+
+	gettoken codename : 0 , parse(" ,")
+	if `"`codename'"' == `""' { 
+		exit 
+	}
+
+	if `"`codename'"' == "," {
+		syntax [ , Codename(string) ]
+	}
+
+	local c `.codes.arrindexof "`codename'"'
+	if `c' != 0 {
+		.current = `c'
+	}
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*  Set the current value of the code to the specified #/index
+
+	Usage:  .setcode #
+
+    Could just type .current = #
+*/
+program define setcode
+
+	capture confirm integer number `1'
+	if _rc {
+		di as error "`1':  code.setcode, code is not an integer"
+		exit 198
+	}
+	if `1' < 1 | `1' > `.codes.arrnels' {
+		di as error "`1':  code.setcode, code is out of range"
+	}
+
+	.current = `1'
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*  Returns the name of the current code
+
+	Usage:  .setting
+
+*/
+program define setting
+
+	class exit .codes[`.current']
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*	Usage:  .add code_name [code_name ... (current_code) ... ]
+*/
+
+
+program define add
+
+	if "`.codes.isa'" == "" {
+		.Declare codes = {}
+	}
+
+	gettoken cname 0 : 0
+	while "`cname'" != "" {
+		if "`cname'" != "," {
+			if bsubstr("`cname'", 1,1) == "(" {
+				gettoken curname : cname, match(paren)
+				if "`paren'" == "(" {
+					local cname `curname'
+				}
+				else	local curname
+			}
+			.codes[`.codes.arrnels'+1] = `"`cname'"'
+		}
+/*
+		else {
+			return local options `0'
+		}
+*/
+		gettoken cname 0 : 0
+	}
+
+					/* possibly set the current value */
+	if "`curname'" != "" {
+		.current = .codes.arrindexof "`curname'"
+	}
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*	Usage:  .addat code_number code_name [code_name ...]
+*/
+
+program define addat
+
+	gettoken index 0 : 0
+	capture confirm integer number `index'
+	if _rc {
+		di as error "`index':  code.addat, index is not an integer"
+	}
+
+	if "`.codes.isa'" == "" {
+		.Declare codes = {}
+	}
+
+	gettoken cname 0 : 0
+	.codes[`index'] = `"`cname'"'
+
+	if `"`0'"' != `""' {
+		.add `0'
+	}
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*  Returns the code number/index for a code name.  Returns nothing if not
+    found
+
+ 	Usage:  .codeof code_name
+*/
+
+program define codeof
+
+	gettoken cname : 0
+	class exit = 0`.codes.arrindexof "`cname'"'
+
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*  Returns the code name for the specified index.
+
+ 	Usage:  .nameof code
+*/
+
+program define nameof
+
+	class exit `"`.codes[`1']'"'
+end
+
+/* -------------------------------------------------------------------------*/
+/*  Returns a list of the code names.  Puts quotes around names with embedded
+    spaces.
+*/
+
+program define namelist
+
+	_clsarr2list namelist : `.codes.objkey'
+
+	class exit `"`namelist'"'
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*  Puts up a full dialog box with the code names in a drop-down list.  
+    Returns the code/index of the selected item. 
+*/
+
+program define dialog_box
+
+
+	global T_text "select code:"
+	window control static T_text  20 20 100 10
+
+	.namelist
+	global T_codes `r(sresult)'
+	if "`.current'" != "" { 
+		global T_coderes `.codes[`.current']' 
+	}
+	window control scombo T_codes 20 30 150 40 T_coderes
+
+	global T_cancel "exit 3000"
+	global T_ok     "exit 3001"
+	window control button "OK"     20 60 30 15 T_ok
+	window control button "Cancel" 60 60 30 15 T_cancel
+
+
+	capture window dialog "Code picker" . . 180 80
+
+	if _rc != 3001 { 
+		exit 
+	}
+
+	.codeof `"$T_coderes"'
+	.current = r(result)
+
+	cap mac drop T_text
+	cap mac drop T_codes
+	cap mac drop T_coderes
+
+	/* return local sresult $T_coderes */
+
+	class exit = 0`.current'
+end
+

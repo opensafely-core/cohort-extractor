@@ -1,0 +1,735 @@
+/*
+	meta_summary_pr.idlg
+
+*!  VERSION 1.0.3  25nov2019
+
+*/
+
+/* -------------------- Summary Button -------------------- */
+
+PROGRAM summary_show
+BEGIN
+	if meta.btn_summary {
+		call meta.tx_general.hide
+		call meta.tb_general.hide
+		call script summary_hide
+		call meta.gb_summ.show
+		call meta.rb_summ_main.show
+		call meta.rb_summ_ifin.show
+		call meta.rb_summ_opts.show
+		call meta.rb_summ_maxim.show
+		if meta.rb_summ_main {
+			call program summary_main_show
+		}
+		if meta.rb_summ_ifin {
+			call program summary_ifin_show
+		}
+		if meta.rb_summ_opts {
+			call program summary_opts_show
+		}
+		if meta.rb_summ_maxim {
+			call program summary_maxim_show
+		}
+		call meta.bu_summ_submit.show
+		call program summary_disopts_done
+	}
+END
+
+SCRIPT summary_hide
+BEGIN
+	meta.gb_summ.hide
+	meta.rb_summ_main.hide
+	meta.rb_summ_ifin.hide
+	meta.rb_summ_opts.hide
+	meta.rb_summ_maxim.hide
+	script summary_main_hide
+	script summary_ifin_hide
+	script summary_opts_hide
+	script summary_maxim_hide
+	meta.bu_summ_submit.hide
+END
+
+// Main
+PROGRAM summary_main_show
+BEGIN
+	if meta.rb_summ_main {
+		call meta.gb_summ_main_model.show
+		call meta.rb_summ_declared.show
+		call meta.rb_summ_remethod.show
+		call meta.rb_summ_common.show
+		call meta.rb_summ_fixed.show
+		call meta.ck_summ_subgrp.show
+		call meta.tx_summ_subgrp.show
+		call meta.vl_summ_subgrp.show
+		call meta.ck_summ_cumu.show
+		call meta.tx_summ_cumu_ordervar.show
+		call meta.vn_summ_cumu_ordervar.show
+		call meta.tx_summ_cumu_sortorder.show
+		call meta.cb_summ_cumu_sortorder.show
+		call meta.tx_summ_cumu_by.show
+		call meta.vn_summ_cumu_by.show
+
+		call meta.ck_summ_sort.show
+		call meta.tx_summ_sort_by.show
+		call meta.cb_summ_sort_by.show
+		call meta.vl_summ_sort_vars.show
+		call meta.tx_summ_sort_order.show
+  		call meta.cb_summ_sort_order.show
+		
+		call program summ_main_tab_model_changed
+	}
+END
+
+SCRIPT summary_main_hide
+BEGIN
+	meta.gb_summ_main_model.hide
+	meta.rb_summ_declared.hide
+	meta.rb_summ_remethod.hide
+	meta.rb_summ_common.hide
+	meta.rb_summ_fixed.hide
+	meta.tx_summ_method.hide
+	meta.cb_summ_method.hide
+	meta.bu_summ_method_reopts.hide
+
+	meta.ck_summ_subgrp.hide
+	meta.tx_summ_subgrp.hide
+	meta.vl_summ_subgrp.hide
+	meta.ck_summ_cumu.hide
+	meta.tx_summ_cumu_ordervar.hide
+	meta.vn_summ_cumu_ordervar.hide
+	meta.tx_summ_cumu_sortorder.hide
+	meta.cb_summ_cumu_sortorder.hide
+	meta.tx_summ_cumu_by.hide
+	meta.vn_summ_cumu_by.hide
+
+	meta.ck_summ_sort.hide
+	meta.tx_summ_sort_by.hide
+	meta.cb_summ_sort_by.hide
+	meta.tx_summ_sort_order.hide
+	meta.cb_summ_sort_order.hide
+	meta.vl_summ_sort_vars.hide
+END
+
+PROGRAM summ_main_tab_model_changed
+BEGIN
+	call meta.tx_summ_method.hide
+	call meta.cb_summ_method.hide
+	call meta.bu_summ_method_reopts.hide
+	if meta.rb_summ_remethod {
+		call meta.tx_summ_method.show
+		call meta.cb_summ_method.show
+		call meta.bu_summ_method_reopts.show
+	}
+	if meta.rb_summ_common | meta.rb_summ_fixed {
+		call meta.tx_summ_method.show
+		call meta.cb_summ_method.show
+	}
+	call program summ_maxim_set_status
+END
+
+PROGRAM summ_main_model_changed
+BEGIN
+	call meta.tx_summ_method.hide
+	call meta.cb_summ_method.hide
+	call meta.bu_summ_method_reopts.hide
+	if meta.rb_summ_remethod {
+		call meta.tx_summ_method.show
+		call meta.cb_summ_method.show
+		call meta.bu_summ_method_reopts.show
+		call meta.cb_summ_method.enable
+
+		call meta.cb_summ_method.setcontentslist re_method
+		call meta.cb_summ_method.setvalueslist re_method_vals
+
+		call meta.cb_summ_method.repopulate
+		call meta.cb_summ_method.setvalue "reml"
+	}
+	if meta.rb_summ_common | meta.rb_summ_fixed {
+		call meta.tx_summ_method.show
+		call meta.cb_summ_method.show
+		call meta.cb_summ_method.disable
+
+		if allow_mhaenszel {
+			call meta.cb_summ_method.setcontentslist cefe_method
+			call meta.cb_summ_method.setvalueslist cefe_method_vals
+			call meta.cb_summ_method.repopulate
+
+			if default_invvariance {
+				call meta.cb_summ_method.setvalue "invvariance"
+			}
+			else {
+				call meta.cb_summ_method.setvalue "mhaenszel"
+			}
+		}
+		else {
+			call meta.cb_summ_method.setcontentslist cefe_method_fake
+			call meta.cb_summ_method.setvalueslist cefe_method_vals_fake
+			call meta.cb_summ_method.repopulate
+			
+			call meta.cb_summ_method.setvalue "invvariance"
+		}
+	}
+	call program summ_maxim_set_status
+END
+
+PROGRAM summ_main_subgroup_on
+BEGIN
+	call meta.bu_summ_method_reopts.disable
+	
+	call meta.ck_summ_cumu.disable
+	call meta.tx_summ_subgrp.enable
+	call meta.vl_summ_subgrp.enable
+END
+
+SCRIPT summ_main_subgroup_off
+BEGIN
+	meta.bu_summ_method_reopts.enable
+	
+	meta.ck_summ_cumu.enable
+	meta.tx_summ_subgrp.disable
+	meta.vl_summ_subgrp.disable
+END
+
+PROGRAM summ_main_cumu_on
+BEGIN
+	call meta.bu_summ_method_reopts.disable
+
+	call meta.ck_summ_sort.disable
+	call meta.ck_summ_subgrp.disable
+
+	call meta.tx_summ_cumu_ordervar.enable
+	call meta.vn_summ_cumu_ordervar.enable
+	call meta.tx_summ_cumu_sortorder.enable
+	call meta.cb_summ_cumu_sortorder.enable
+	call meta.tx_summ_cumu_by.enable
+	call meta.vn_summ_cumu_by.enable
+	call program summary_disopts_done
+	
+	call meta.ck_summ_maxim_showtrace.disable
+END
+
+SCRIPT summ_main_cumu_off
+BEGIN
+	meta.bu_summ_method_reopts.enable
+
+	meta.ck_summ_sort.enable
+	meta.ck_summ_subgrp.enable
+
+	meta.tx_summ_cumu_ordervar.disable
+	meta.vn_summ_cumu_ordervar.disable
+	meta.tx_summ_cumu_sortorder.disable
+	meta.cb_summ_cumu_sortorder.disable
+	meta.tx_summ_cumu_by.disable
+	meta.vn_summ_cumu_by.disable
+
+	program summary_disopts_done
+	program summ_opt_tdist_allowed
+
+	meta.ck_summ_maxim_showtrace.enable
+END
+
+PROGRAM summ_main_sort_on
+BEGIN
+	call meta.bu_summ_method_reopts.enable
+
+	call meta.ck_summ_cumu.disable
+
+	call meta.tx_summ_sort_by.enable
+	call meta.cb_summ_sort_by.enable
+	call meta.tx_summ_sort_order.enable
+  	call meta.cb_summ_sort_order.enable
+	
+	call program summ_sort_by_change
+	call program summary_disopts_done
+	call meta.ck_summ_maxim_showtrace.enable
+END
+
+SCRIPT summ_main_sort_off
+BEGIN
+	meta.bu_summ_method_reopts.enable
+
+	meta.ck_summ_cumu.enable
+
+	meta.tx_summ_sort_by.disable
+	meta.cb_summ_sort_by.disable
+	meta.vl_summ_sort_vars.disable
+	meta.tx_summ_sort_order.disable
+  	meta.cb_summ_sort_order.disable
+
+	program summary_disopts_done
+	
+	meta.ck_summ_maxim_showtrace.enable
+END
+
+PROGRAM summ_sort_by_change
+BEGIN
+	if meta.cb_summ_sort_by.iseq("vars") {
+		call meta.vl_summ_sort_vars.enable
+	}
+	else {
+		call meta.vl_summ_sort_vars.disable
+	}
+END
+
+//ifin
+
+PROGRAM summary_ifin_show
+BEGIN
+	call meta.tx_summ_if.show
+	call meta.ex_summ_if.show
+	call meta.ck_summ_in.show
+	call meta.tx_summ_from.show
+	call meta.sp_summ_from.show
+	call meta.tx_summ_to.show
+	call meta.sp_summ_to.show
+	call program summ_ifin_in
+END
+
+SCRIPT summary_ifin_hide
+BEGIN
+	meta.tx_summ_if.hide
+	meta.ex_summ_if.hide
+	meta.ck_summ_in.hide
+	meta.tx_summ_from.hide
+	meta.sp_summ_from.hide
+	meta.tx_summ_to.hide
+	meta.sp_summ_to.hide
+END
+
+PROGRAM summ_ifin_in
+BEGIN
+	if meta.ck_summ_in {
+		call meta.tx_summ_from.enable
+		call meta.sp_summ_from.enable
+		call meta.tx_summ_to.enable
+		call meta.sp_summ_to.enable
+	}
+	else {
+		call meta.tx_summ_from.disable
+		call meta.sp_summ_from.disable
+		call meta.tx_summ_to.disable
+		call meta.sp_summ_to.disable
+	}
+END
+
+// Options
+PROGRAM summary_opts_show
+BEGIN
+	call meta.gb_summ_opt.show
+	call meta.tx_summ_opt_ci.show
+	call meta.cb_summ_opt_ci.show
+	call meta.cb_summ_opt_eform.show
+	call meta.ed_summ_opt_eform.show
+	call meta.tx_summ_opt_transform.show
+	call meta.tx_summ_opt_label_as.show
+	call meta.ck_summ_opt_transform.show
+	call meta.cb_summ_opt_transform.show
+	call meta.ed_summ_opt_transform.show
+	call meta.ck_summ_opt_tdistribution.show
+	call meta.ck_summ_opt_nometashow.show
+	call meta.ck_summ_opt_nostudies.show
+	call meta.ck_summ_opt_noheader.show
+	call meta.bu_summ_opt_display.show
+	
+	call program summ_opt_eform_change
+	call program summ_opt_transform_change
+	call program summ_opt_tdist_allowed
+END
+
+SCRIPT summary_opts_hide
+BEGIN
+	meta.gb_summ_opt.hide
+	meta.tx_summ_opt_ci.hide
+	meta.cb_summ_opt_ci.hide
+	meta.cb_summ_opt_eform.hide
+	meta.ed_summ_opt_eform.hide
+	meta.ck_summ_opt_transform.hide
+	meta.tx_summ_opt_transform.hide
+	meta.tx_summ_opt_label_as.hide
+	meta.cb_summ_opt_transform.hide
+	meta.ed_summ_opt_transform.hide
+	meta.ck_summ_opt_tdistribution.hide
+	meta.ck_summ_opt_nometashow.hide
+	meta.ck_summ_opt_nostudies.hide
+	meta.ck_summ_opt_noheader.hide
+	meta.bu_summ_opt_display.hide
+END
+
+PROGRAM summ_opt_tdist_allowed
+BEGIN
+	if meta.ck_summ_subgrp | summary_reopts_se | meta.ck_summ_cumu {
+		call meta.ck_summ_opt_tdistribution.disable
+	}
+	else {
+		call meta.ck_summ_opt_tdistribution.enable
+	}
+	if meta.ck_summ_opt_tdistribution {
+		call meta.ck_summ_subgrp.disable
+		call meta.ck_summ_cumu.disable
+	}
+	else {
+		call meta.ck_summ_subgrp.enable
+		call meta.ck_summ_cumu.enable
+	}
+END
+
+PROGRAM summ_opt_eform_change
+BEGIN
+	if meta.cb_summ_opt_eform.equals("eformstring") {
+		call meta.ed_summ_opt_eform.show
+	}
+	else {
+		call meta.ed_summ_opt_eform.hide
+	}
+END
+
+PROGRAM summ_opt_transform_change
+BEGIN
+	if meta.ck_summ_opt_transform {
+		call meta.cb_summ_opt_eform.disable
+		call meta.ed_summ_opt_eform.disable
+		call meta.tx_summ_opt_transform.enable
+		call meta.tx_summ_opt_label_as.enable
+		call meta.cb_summ_opt_transform.enable
+		call meta.ed_summ_opt_transform.enable
+	}
+	else {
+		call meta.cb_summ_opt_eform.enable
+		call meta.ed_summ_opt_eform.enable
+		call meta.cb_summ_opt_transform.disable
+		call meta.ed_summ_opt_transform.disable
+		call meta.tx_summ_opt_transform.disable
+		call meta.tx_summ_opt_label_as.disable
+	}
+END
+
+// Maximization
+PROGRAM summ_maxim_set_status
+BEGIN
+	call meta.rb_summ_maxim.disable
+	if (meta.rb_summ_remethod | (meta.rb_summ_declared & m_model.equals("random"))) {
+		if ((meta.rb_summ_declared & ( m_method.equals("reml") ///
+					    | m_method.equals("mle") ///
+				            | m_method.equals("ebayes"))) ///
+		  | (meta.rb_summ_remethod & ( meta.cb_summ_method.equals("reml") ///
+					    | meta.cb_summ_method.equals("mle") ///
+					    | meta.cb_summ_method.equals("ebayes")))) { 
+			call meta.rb_summ_maxim.enable
+		}
+		if summary_reopts_taui {
+			call meta.rb_summ_maxim.disable
+		}
+	}
+END
+
+PROGRAM summary_maxim_show
+BEGIN
+	call meta.gb_summ_maxim.show
+	call meta.sp_summ_maxim_iter.show
+	call meta.tx_summ_maxim_iter.show
+	call meta.ck_summ_maxim_showtrace.show
+	call meta.gb_summ_maxim_tol.show
+	call meta.ed_summ_maxim_tol.show
+	call meta.tx_summ_maxim_tol.show
+	call meta.ed_summ_maxim_nrtol.show
+	call meta.tx_summ_maxim_nrtol.show
+	call meta.ck_summ_maxim_nonrtol.show
+	call meta.tx_summ_maxim_from.show
+	call meta.ed_summ_maxim_from.show
+END
+
+SCRIPT summary_maxim_hide
+BEGIN
+	meta.gb_summ_maxim.hide
+	meta.sp_summ_maxim_iter.hide
+	meta.tx_summ_maxim_iter.hide
+	meta.ck_summ_maxim_showtrace.hide
+	meta.gb_summ_maxim_tol.hide
+	meta.ed_summ_maxim_tol.hide
+	meta.tx_summ_maxim_tol.hide
+	meta.ed_summ_maxim_nrtol.hide
+	meta.tx_summ_maxim_nrtol.hide
+	meta.ck_summ_maxim_nonrtol.hide
+	meta.tx_summ_maxim_from.hide
+	meta.ed_summ_maxim_from.hide
+END
+
+SCRIPT summ_maxim_nonrtol_on
+BEGIN
+	meta.ed_summ_maxim_nrtol.disable
+	meta.tx_summ_maxim_nrtol.disable
+END
+
+SCRIPT summ_maxim_nonrtol_off
+BEGIN
+	meta.ed_summ_maxim_nrtol.enable
+	meta.tx_summ_maxim_nrtol.enable
+END
+
+PROGRAM summary_reopts 
+BEGIN
+	call create CHILD meta_reopts AS SummReopts, message("summary")
+	call SummReopts.setExitString SummReoptsResults
+	call SummReopts.setExitAction "program summary_reopts_done"
+END
+
+
+PROGRAM summary_reopts_done
+BEGIN
+	call create STRING STMP
+	call program summ_maxim_set_status
+	if SummReoptsResults {		
+		call STMP.setvalue resource LBL_RE_OPTIONS
+		call STMP.append " *"
+		call STMP.withvalue meta.bu_summ_method_reopts.setlabel "@"
+	}
+	else {
+		call STMP.setvalue resource LBL_RE_OPTIONS
+		call STMP.append "  "
+		call STMP.withvalue meta.bu_summ_method_reopts.setlabel "@"
+	}
+END
+
+PROGRAM summary_disopts 
+BEGIN
+	if meta.ck_summ_cumu {
+		call create CHILD meta_summ_display_options AS SummDisoptsCumu, message("cumulative")
+		call SummDisoptsCumu.setExitString SummDisoptsCumuResults
+		call SummDisoptsCumu.setExitAction "program summary_disopts_done"
+	}
+	else {
+		call create CHILD meta_summ_display_options AS SummDisopts
+		call SummDisopts.setExitString SummDisoptsResults
+		call SummDisopts.setExitAction "program summary_disopts_done"
+		call SummDisopts.settitle "meta summarize display options"
+	}
+	
+END
+
+PROGRAM summary_disopts_done
+BEGIN
+	call create STRING STMP
+	if meta.ck_summ_cumu {
+		if SummDisoptsCumuResults {
+			call STMP.setvalue resource LBL_DISPLAY_OPTIONS
+			call STMP.append " *"
+			call STMP.withvalue meta.bu_summ_opt_display.setlabel "@"
+		}
+		else {
+			call STMP.setvalue resource LBL_DISPLAY_OPTIONS
+			call STMP.append "  "
+			call STMP.withvalue meta.bu_summ_opt_display.setlabel "@"
+		}
+	}
+	else {
+		if SummDisoptsResults {
+			call STMP.setvalue resource LBL_DISPLAY_OPTIONS
+			call STMP.append " *"
+			call STMP.withvalue meta.bu_summ_opt_display.setlabel "@"
+		}
+		else {
+			call STMP.setvalue resource LBL_DISPLAY_OPTIONS
+			call STMP.append "  "
+			call STMP.withvalue meta.bu_summ_opt_display.setlabel "@"
+		}
+	}
+END
+
+PROGRAM summary_subgrp_output
+BEGIN
+	put /hidden meta.vl_summ_subgrp
+END
+
+PROGRAM summary_main_submit
+BEGIN
+	if meta.rb_summ_remethod {
+		put " random("
+		put /hidden meta.cb_summ_method
+		put ")"
+		if ! meta.ck_summ_cumu & ! meta.ck_summ_subgrp {
+			put " "
+			put /hidden SummReoptsResults
+		}
+	}
+	if meta.rb_summ_common {
+		put " common("
+		put /hidden meta.cb_summ_method
+		put ")"
+	}
+	if meta.rb_summ_fixed {
+		put " fixed("
+		put /hidden meta.cb_summ_method
+		put ")"
+	}
+	
+	if meta.ck_summ_subgrp {
+		put " subgroup("
+		put /program summary_subgrp_output
+		put ")"
+	}
+	if meta.ck_summ_cumu {
+		put " cumulative("
+		put /hidden meta.vn_summ_cumu_ordervar
+		put ", "
+		put /hidden meta.cb_summ_cumu_sortorder
+		put " "
+		if ! meta.vn_summ_cumu_by.equals("") {
+			put "by("
+			put /hidden meta.vn_summ_cumu_by
+			put ")"
+		}
+		put ")"
+	}
+
+	if meta.ck_summ_sort {
+		put " sort("
+		if meta.cb_summ_sort_by.iseq("vars") {
+			require meta.vl_summ_sort_vars
+			put /hidden meta.vl_summ_sort_vars
+		}
+		else {
+			put /hidden  meta.cb_summ_sort_by
+		}
+		put ", "
+		put /hidden meta.cb_summ_sort_order
+		put ")"
+	}
+END
+
+PROGRAM summary_opts_submit
+BEGIN
+	if ! meta.cb_summ_opt_ci.equals(m_ci_level) {
+		put " level("
+		put /hidden meta.cb_summ_opt_ci
+		put ") "
+	}
+	
+	if meta.cb_summ_opt_eform.equals("eform") &			///
+		meta.cb_summ_opt_eform.isenabled() {
+		put " eform"
+	}
+	if meta.cb_summ_opt_eform.equals("eformstring") &		///
+		meta.cb_summ_opt_eform.isenabled() {
+		put " eform("
+		put /hidden meta.ed_summ_opt_eform
+		put ")"
+	}
+
+	if meta.ck_summ_opt_transform {
+		put " transform("
+		if meta.ed_summ_opt_transform {
+			put "`" `"""'
+			put /hidden meta.ed_summ_opt_transform
+			put `"""' "': "
+		}
+		put /hidden meta.cb_summ_opt_transform
+		put ")"
+	}
+	
+	if meta.ck_summ_opt_tdistribution {
+		put " tdistribution"
+	}
+	if meta.ck_summ_opt_nostudies {
+		put " nostudies"
+	}
+	if meta.ck_summ_opt_noheader {
+		put " noheader"
+	}
+	if meta.ck_summ_opt_nometashow {
+		put " nometashow"
+	}
+	if meta.ck_summ_cumu {
+		put " "
+		put /hidden SummDisoptsCumuResults 
+	}
+	else {
+		put " "
+		put /hidden SummDisoptsResults 
+	}
+END
+
+PROGRAM summary_maxim_submit
+BEGIN
+	if ! meta.sp_summ_maxim_iter.isdefault() {
+		put " iterate("
+		put /hidden meta.sp_summ_maxim_iter
+		put ")"
+	}
+	
+	if meta.ck_summ_maxim_showtrace {
+		put " showtrace"
+	}
+	
+	
+	if ! meta.ed_summ_maxim_tol.equals("1e-6") {
+		put " tolerance("
+		put /hidden meta.ed_summ_maxim_tol
+		put ")"
+	}
+	if meta.ck_summ_maxim_nonrtol {
+		put " nonrtolerance"
+	}
+	else {
+		if ! meta.ed_summ_maxim_nrtol.equals("1e-5") {
+			put " nrtolerance("
+			put /hidden meta.ed_summ_maxim_nrtol
+			put ")"
+		}
+	}
+
+	if ! meta.ed_summ_maxim_from.equals("") {
+		put " from("
+		put /hidden meta.ed_summ_maxim_from
+		put ")"
+	}
+END
+
+PROGRAM summary_submit
+BEGIN
+	if meta.ck_summ_subgrp {
+		if meta.vl_summ_subgrp.equals("") {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format				///
+			"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT"	///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_VARIABLES"
+			stopbox stop "class _MSG_TMP.value"
+		}
+	}
+	if meta.ck_summ_cumu {
+		if meta.vn_summ_cumu_ordervar.equals("") {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format				///
+			"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT"	///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_ORDER_VARIABLE"
+			stopbox stop "class _MSG_TMP.value"
+		}
+	}
+	put "meta summarize "
+
+	if meta.ex_summ_if {
+		put /hidden " " "if " meta.ex_summ_if
+	}
+	if meta.ck_summ_in {
+		put " " "in "
+		put /hidden meta.sp_summ_from
+		put "/"
+		put /hidden meta.sp_summ_to
+	}
+	
+	beginoptions
+	put " "
+	put /program summary_main_submit
+	put " "
+	put /program summary_opts_submit
+
+	if meta.rb_summ_maxim.isenabled() {
+		put " "
+		put /program summary_maxim_submit
+	}
+	
+	endoptions
+	stata
+END
+

@@ -1,0 +1,217 @@
+/*
+  pac
+
+*!  VERSION 2.1.3  03dec2019
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_xlarge
+DEFINE _dlght 300
+INCLUDE header
+HELP hlp1, view("help pac")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource PAC_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script gr_plots_setDefaultDropline
+	script gr_ciplots_setDefaultArea
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)			///
+	label(resource PAC_DLG_TITLE)
+BEGIN
+  DEFINE _x _xsetbu
+  DEFINE _y _top
+  INCLUDE _bu_tsset
+  TEXT     tx_var	_lft	_top	_cwd2	.,		///
+	label(resource LBL_VARIABLE)
+  VARNAME  vn_var	@	_ss	_vnwd	.,		///
+  	numeric							///
+	label(resource LBL_VARIABLE)
+
+  GROUPBOX gb_opt	@	+35	_iwd	_ht17h,		///
+	label(resource LBL_OPTIONS)
+  RADIO    rb_lags1	_indent	_ss	_inwd	.,		///
+	onclickon(gaction main.sp_lags2.disable)		///
+	first							///
+	label(resource LBL_DEFAULT_NUMBER_AUTOCORRELATIONS)
+  RADIO    rb_lags2	@	_ss	@	.,		///
+	onclickon(gaction main.sp_lags2.enable)			///
+	last							///
+	label(resource LBL_SPECIFIED_NUMBER_AUTOCORRELATIONS)
+  DEFINE _x @x
+  SPINNER  sp_lags2	_indent2 _ss	_spwd	.,		///
+	min(1) max(100) default(1)				///
+	option(lags)
+
+  CHECKBOX ck_gen	_ilft	_ls	_ibwd	.,		///
+	onclickon(script graph_off)				///
+	onclickoff(program graph_on)				///
+	label(resource PAC_MAIN_CK_GEN)
+  EDIT     ed_gen	_indent2 _ss	_vnwd	.,		///
+	max(32)							///
+	option(nograph generate)				///
+	label(resource PAC_MAIN_ED_GEN)
+  TEXT     tx_gen	_vnsep	@	200	.,		///
+	label(resource LBL_NEW_VARIABLE_NAME_NO_COLON)
+
+  CHECKBOX ck_yw	_ilft	_ls	_ibwd	.,		///
+	option(yw)						///
+	onclickon(script main_srv_disable)			///
+	onclickoff(program main_srv_enable)			///
+	label(resource PAC_MAIN_CK_YW)
+
+  DEFINE _x _ilft
+  DEFINE _y _ls
+  DEFINE _cx _sprb
+  INCLUDE _sp_level
+END
+
+SCRIPT main_srv_disable
+BEGIN
+	srv.ck_srv.disable
+	srv.bu_srv.disable
+END
+
+PROGRAM main_srv_enable
+BEGIN
+	call srv.ck_srv.enable
+	if srv.ck_srv {
+		call srv.bu_srv.enable
+	}
+	else {
+		call srv.bu_srv.disable
+	}
+END
+SCRIPT graph_off
+BEGIN
+	main.ed_gen.enable
+	main.tx_gen.enable
+
+	script main_srv_disable
+
+	script gr_plots_disable
+	script gr_ciplots_disable
+	script gr_addplots_disable
+	script gr_yaxis_disable
+	script gr_xaxis_disable
+	script gr_titles_disable
+	script gr_legend_disable
+	script gr_overall_disable
+END
+
+PROGRAM graph_on
+BEGIN
+	call main.ed_gen.disable
+	call main.tx_gen.disable
+	
+	if ! main.ck_yw {
+		call program main_srv_enable
+	}
+
+	call script gr_plots_enable
+	call script gr_ciplots_enable
+	call script gr_addplots_enable
+	call script gr_yaxis_enable
+	call script gr_xaxis_enable
+	call script gr_titles_enable
+	call script gr_legend_enable
+	call script gr_overall_enable
+END
+
+INCLUDE ifin
+
+INCLUDE gr_plots
+INCLUDE gr_ciplots
+
+SCRIPT srv_PREINIT
+BEGIN
+	create STRING srvResults
+END
+
+SCRIPT srv_POSTINIT
+BEGIN
+	program checkSrvResults
+END
+
+DIALOG srv, tabtitle(resource PAC_TAB_SRV)
+BEGIN
+  CHECKBOX ck_srv	_lft	_top	_iwd	.,		///
+	option(srv)						///
+	onclickon(srv.bu_srv.enable)				///
+	onclickoff(srv.bu_srv.disable)				///
+	label(resource PAC_SRV_CK_SRV)
+  BUTTON   bu_srv	+20	_ms	130	.,		///
+	label(resource PAC_BU_SRV)				///
+	onpush(script show_srv_dialog)
+END
+
+SCRIPT show_srv_dialog
+BEGIN
+	create CHILD gr_plots AS srvOpts, allowsubmit
+	srvOpts.setExitString srvResults
+	srvOpts.setOkAction "program checkSrvResults"
+	srvOpts.setSubmitAction "script srvSubmit"
+	srvOpts.settitle resource PAC_BU_SRV
+END
+PROGRAM checkSrvResults
+BEGIN
+	if srvResults {
+		call srv.bu_srv.modified_on
+	}
+	else {
+		call srv.bu_srv.modified_off
+	}		
+END
+SCRIPT srvSubmit
+BEGIN
+	program checkSrvResults
+	Submit
+END
+
+INCLUDE gr_addplots
+INCLUDE gr_yaxis
+INCLUDE gr_xaxis
+INCLUDE gr_titles
+INCLUDE gr_legend
+INCLUDE gr_overall
+
+PROGRAM command
+BEGIN
+	put "pac "
+	varlist main.vn_var
+	INCLUDE _ifin_pr
+	beginoptions
+		if main.rb_lags2 {
+			optionarg main.sp_lags2
+		}
+		if main.ck_gen {
+			require main.ed_gen
+			optionarg main.ed_gen
+		}
+		INCLUDE _level_main_pr
+		option main.ck_yw
+
+		put " " /program gr_plots_output
+		put " " /program gr_ciplots_output
+		
+		option srv.ck_srv
+		if srvResults & !D(srv.bu_srv) {
+			put " srvopts(" srvResults ") "
+		}
+		
+		put " " /program gr_addplots_output
+		put " " /program gr_yaxis_output
+		put " " /program gr_xaxis_output
+		put " " /program gr_titles_output
+		put " " /program gr_legend_output
+		put " " /program gr_overall_output
+	endoptions
+END

@@ -1,0 +1,286 @@
+/*
+  eteffects.dlg
+
+*! VERSION 1.1.7  13apr2017
+
+  keyword:  eclass
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 370
+INCLUDE header
+HELP hlp1, view("help eteffects")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	script se_createAsNoML
+	program svy_check_title
+	setscale_hadj resource ETEFFECTS_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script sub_set_by_on
+	program se_setFinalInitState
+	script max_pa_on
+	script max_int_setFromVisible
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	call program check_message
+END
+
+PROGRAM check_message
+BEGIN
+	call main.cb_omodel.setvalue "linear"
+	if __MESSAGE.contains("-eteffects_frac-") {
+		call main.cb_omodel.setvalue "fractional"
+	}
+	if __MESSAGE.contains("-eteffects_linear-") {
+		call main.cb_omodel.setvalue "linear"
+	}
+	if __MESSAGE.contains("-eteffects_probit-") {
+		call main.cb_omodel.setvalue "probit"
+	}
+	if __MESSAGE.contains("-eteffects_exp-") {
+		call main.cb_omodel.setvalue "exponential"
+	}
+	if __MESSAGE.contains("-eteffects_nonneg-") {
+		call main.cb_omodel.setvalue "nexponential"
+	}
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)				///
+	title(resource ETEFFECTS_DLG_TITLE) 
+BEGIN
+  GROUPBOX gb_omodel		_lft	_top	_iwd	_ht9,		///
+  	label(resource LBL_MODEL_NOCOLON) 
+  COMBOBOX cb_omodel		_ilft	_ss	300	.,		///
+	dropdownlist							///
+	contents(main_omodel_list)					///
+	values(main_omodel_values)					///
+	label(resource LBL_MODEL_NOCOLON)
+  TEXT tx_ovar			_ilft	_ls	_vnwd	.,		///
+	label(resource LBL_DEPVAR)
+  DEFINE holdy @y
+  VARNAME vn_ovar		@	_ss	_vnwd	.,		///
+	numeric								///
+	error(resource ETEFFECTS_MAIN_VN_OVAR)
+  TEXT tx_omvars		_vlx	holdy	330	.,		///
+	label(resource LBL_INDDEPVAR)
+  VARLIST vl_omvarlist		@	_ss	@	.,		///
+	fv								///
+	numeric								///
+	allowcat							///
+	error(resource ETEFFECTS_MAIN_VL_OMVARLIST)
+  CHECKBOX ck_nocons		@	_ms	@	.,		///
+	label(resource LBL_NOCONSTANT)					///
+	option(noconstant)
+
+  GROUPBOX gb_treatment		_lft	+45	_iwd	_ht6,		///
+	label(resource LBL_TREATMENT)		
+  TEXT tx_tvar			_ilft 	_ss	_vnwd	.,		///
+	label(resource LBL_DEPVAR)
+  TEXT tx_tmvarlist		_vlx	@	330	.,		///
+	label(resource LBL_INDDEPVAR)
+  VARNAME vn_tvar		_ilft	_ss	_vnwd	.,		///
+	numeric								///
+	error(resource ETEFFECTS_MAIN_VN_TVAR)
+  VARLIST vl_tmvarlist		_vlx	@	330	.,		///
+	option(het)							///
+	allowcat fv							///
+	numeric								///
+	error(resource ETEFFECTS_MAIN_VL_TMVARLIST)
+  CHECKBOX ck_tnocons		@	_ms	@	.,		///
+	option(noconstant)						///
+	label(resource LBL_NOCONSTANT)
+
+  GROUPBOX gb_opts		_lft	+45	_iwd	_ht6,		///
+	label(resource LBL_OPTIONS)		
+  RADIO rb_stat_ate		_ilft	_ss	_inwd	., first	///
+	option(ate)							///
+	label(resource ETEFFECTS_MAIN_RB_STAT_ATE)
+  RADIO rb_stat_atet		@	_ss	@	., 		///
+	option(atet)							///
+	label(resource ETEFFECTS_MAIN_RB_STAT_ATET)
+  RADIO rb_stat_pomeans		@	_ss	@	., last		///
+	option(pomeans)							///
+	label(resource ETEFFECTS_MAIN_RB_STAT_POMEANS)
+
+END
+
+LIST main_omodel_list
+BEGIN
+	resource ETEFFECTS_MAIN_OMODEL_LST_ITEM_LINEAR
+	resource ETEFFECTS_MAIN_OMODEL_LST_ITEM_BINARY
+	resource ETEFFECTS_MAIN_OMODEL_LST_ITEM_COUNT
+	resource ETEFFECTS_MAIN_OMODEL_LST_ITEM_FRACTIONAL
+	resource ETEFFECTS_MAIN_OMODEL_LST_ITEM_NONNEGATIVE
+END
+
+LIST main_omodel_values
+BEGIN
+	linear
+	probit
+	exponential
+	fractional
+	nexponential
+END
+
+INCLUDE sub_by_ifin_over_subpop
+INCLUDE weights_fpi
+INCLUDE se
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+        program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2b
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  CHECKBOX ck_aequations	_lft	_ms	_iwd	.,		///
+	option(aequations)						///
+	label(resource ETEFFECTS_RPT_CK_AEQUATIONS)
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+
+PROGRAM rpt_output
+BEGIN
+	optionarg /hidedefault rpt.sp_level
+	option rpt.ck_aequations
+	INCLUDE _report_columns_pr
+	put " " rpt_bu_facvarsResults
+	put " " rpt_bu_fmtcoefResults
+END
+
+DIALOG max, tabtitle(resource LBL_TAB_MAXIMIZATION)
+BEGIN
+	BUTTON	bu_hlp		_xsetbu   _top	_setbuwd .,		///
+		label(resource LBL_HELP_MAXIMIZE)			///
+		onpush(view help maximize##|_new)
+	SPINNER	sp_iter		_lft     _top	_spwd	.,		///
+		label(resource LBL_MAXIMUM_ITERATIONS) option(iterate)	///
+		min(0) max(16000) default(c(maxiter))
+	TEXT	tx_iter		_spsep    @	_spr2	.,		///
+		label(resource LBL_MAXIMUM_ITERATIONS)
+	GROUPBOX gb_iter	_lft     _ls	_iwd	_ht4,		///
+	  	label(resource LBL_ITERATION_LOG)
+	RADIO   rb_log		_indent  _ss	 _inwd    .,		///
+		first 							///
+		option(NONE)						///
+	  	label(resource LBL_SHOW_ITERATION_LOG)
+	RADIO   rb_nolog	@        _ss	@        .,		///
+		last							///
+		option(nolog)						///
+		label(resource LBL_SUPPRESS_ITERATION_LOG)
+	TEXT	tx_from		_lft	_xls	_iwd     .,		///
+		label(resource TEFFECTS_MAXIMIZE_TX_FROM)
+	EDIT	ed_from		@      _ss      @     	 .,		///
+		option("from")						///
+		label(resource LBL_INITIAL_VALUES)
+END
+
+PROGRAM max_output
+BEGIN
+	optionarg /hidedefault max.sp_iter
+	option max.rb_log
+	option max.rb_nolog
+	optionarg max.ed_from
+END
+
+DIALOG adv, tabtitle(resource LBL_ADVANCED)
+BEGIN
+  EDIT ed_tol		_lft	_top	_spwd	.,			///
+	numonly								///
+	option(pstolerance)						///
+	default(1e-5)							///
+	label(resource ETEFFECTS_ADV_ED_TOL)
+  TEXT tx_tol		_spsep	@	300	.,			///
+	label(resource ETEFFECTS_ADV_ED_TOL)
+  EDIT ed_osample	_lft	_ls	_spwd	.,			///
+	option(osample)							///
+	label(resource ETEFFECTS_ADV_ED_OSAMPLE)
+  TEXT tx_osample	_spsep 	@	_iwd	.,			///
+	label(resource ETEFFECTS_ADV_ED_OSAMPLE)
+END
+
+PROGRAM adv_output
+BEGIN
+	optionarg /hidedefault adv.ed_tol
+	optionarg adv.ed_osample
+END
+
+PROGRAM outcome_output
+BEGIN
+	varlist main.vn_ovar [main.vl_omvarlist]
+	beginoptions
+		if main.cb_omodel.isneq("linear") {
+			if main.cb_omodel.iseq("nexponential") {
+				put "exponential"
+			}
+			else {
+				put main.cb_omodel
+			}
+		}
+		option main.ck_nocons
+	endoptions
+END
+
+PROGRAM treatment_output
+BEGIN
+	varlist main.vn_tvar [main.vl_tmvarlist]
+	beginoptions
+		option main.ck_tnocons
+	endoptions
+END
+
+PROGRAM command
+BEGIN
+
+	put /program by_output " "
+	put /program se_prefix_output " "
+	put "eteffects "
+	put "("
+	put /program outcome_output
+	put ")"
+	put " ("
+	put /program treatment_output
+	put ")"
+	put " " /program ifin_output
+	put " " /program weights_output
+	beginoptions
+		option radio(main rb_stat_atet rb_stat_pomeans)
+		put " " /program se_output
+		put " " /program rpt_output
+		put " " /program max_output
+		put " " /program adv_output
+	endoptions
+END

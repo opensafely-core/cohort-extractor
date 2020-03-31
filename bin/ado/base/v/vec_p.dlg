@@ -1,0 +1,96 @@
+/*
+	predict (after vec)
+
+*!  VERSION 1.2.0  17dec2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 260
+INCLUDE header
+
+HELP hlp1, view("help vec postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource VEC_P_DLG_HSCALE
+END
+
+
+DIALOG main, label(resource PREDICT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  INCLUDE  _p_gentype
+  GROUPBOX gb_opts           _lft      _ls       _iwd      _ht15,	///
+	label(resource LBL_PRODUCE)
+  RADIO    rb_xb             _ilft     _ss       _comb3_2   ., first	///
+	option(xb) onclickon(program equation_check)			///
+	label(resource LBL_LINEAR_PREDICTION_XB)
+  DEFINE   holdy@y
+  RADIO    rb_stdp           @         _ss       @         ., 		///
+	option(stdp) onclickon(program equation_check)			///
+	label(resource LBL_STANDARD_ERROR_PREDICTION)
+  RADIO    rb_residuals      @         _ss       @         ., 		///
+	option(residuals) onclickon(program equation_check)		///
+	label(resource LBL_RESIDUALS)
+  RADIO    rb_ce	     @         _ss       @         ., 		///
+	option(ce) onclickon(program equation_check)			///
+	label(resource VEC_P_MAIN_RB_CE)
+  RADIO    rb_level	     @         _ss       @         .,	last	///
+  	option(level) onclickon(program equation_check)			///
+  	label(resource VEC_P_MAIN_RB_LEVEL)
+
+  CHECKBOX ck_usece	     @         _ms       _ibwd     .,		///
+  	label(resource VEC_P_MAIN_CK_USECE)	///
+  	onclickon(main.vl_usece.enable) onclickoff(main.vl_usece.disable)
+  VARLIST  vl_usece	     _indent2  _ss       _inwd     .,		///
+  	option(usece) 							///
+  	numeric								///
+  	label(resource VEC_P_MAIN_VL_USECE)
+
+  TEXT     tx_equation       _iilft3_3 holdy     _cwd3_1   .,		///
+	label(resource VEC_P_MAIN_TX_EQUATION)
+  LISTBOX  lb_equation1      @         _ss       @         80,		///
+	contents(e(eqnames))
+  LISTBOX  lb_equation2      @         @         @         @,		///
+	contents(e(cenames))
+END
+
+PROGRAM equation_check
+BEGIN
+	if main.rb_xb | main.rb_stdp | main.rb_residuals | main.rb_level {
+		call main.lb_equation1.show
+		call main.lb_equation2.hide
+		call main.ck_usece.enable
+		if main.ck_usece {
+			call main.vl_usece.enable
+		}
+	}
+	if main.rb_ce {
+		call main.lb_equation1.hide
+		call main.lb_equation2.show
+		call main.ck_usece.disable
+		call main.vl_usece.disable
+	}
+END
+
+INCLUDE _p_gentype_sc
+INCLUDE ifin
+INCLUDE _type_list_fd
+
+PROGRAM command
+BEGIN
+	put "predict "
+	put " " /program _p_gentype_output
+	INCLUDE _ifin_pr
+	beginoptions
+		option radio(main rb_xb rb_stdp rb_residuals rb_ce rb_level)
+		optionarg main.vl_usece
+		put "equation("
+		put main.lb_equation1
+		put main.lb_equation2
+		put ") "
+	endoptions
+END

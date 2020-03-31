@@ -1,0 +1,942 @@
+/*
+    gr_legend.idlg
+
+*!  VERSION 1.2.6  11dec2019
+
+	// SCRIPTS and PROGRAMS for external use
+	   * SCRIPT gr_legend_disable
+	   * SCRIPT gr_legend_enable
+	   * SCRIPT gr_legend_setContour_on
+	   * SCRIPT gr_legend_setContour_off
+	   * SCRIPT gr_legend_setByoptsContext_on
+	   * SCRIPT gr_legend_setByoptsContext_off
+	   * SCRIPT gr_legend_setByContext_on
+	   * SCRIPT gr_legend_setByContext_off
+	   * SCRIPT gr_legend_setByOutput_on	
+	   	// synonym for gr_legend_setByContext_on
+	   * SCRIPT gr_legend_setByOutput_off
+	   	// synonym for gr_legend_setByContext_off
+*/
+
+SCRIPT gr_legend_setContour_on
+BEGIN
+	legend.cb_type.enable
+END
+SCRIPT gr_legend_setContour_off
+BEGIN
+	legend.cb_type.disable
+	program show_legend_options
+END
+
+SCRIPT gr_legend_setByoptsContext_on
+BEGIN
+	legend_isByoptsContext.settrue
+	program legend_checkPlacementResults
+	program plegend_checkPlacementResults
+END
+SCRIPT gr_legend_setByoptsContext_off
+BEGIN
+	legend_isByoptsContext.setfalse
+	program legend_checkPlacementResults
+	program plegend_checkPlacementResults
+END
+
+SCRIPT gr_legend_setByContext_on
+BEGIN
+	legend_isByContext.settrue
+END
+SCRIPT gr_legend_setByContext_off
+BEGIN
+	legend_isByContext.setfalse
+END
+
+SCRIPT gr_legend_setByOutput_on
+BEGIN
+	legend_isByContext.settrue
+END
+SCRIPT gr_legend_setByOutput_off
+BEGIN
+	legend_isByContext.setfalse
+END
+
+SCRIPT gr_legend_disable
+BEGIN
+	legend.cb_type.disable
+	legend.gb_legend.disable
+	legend.rb_default.disable
+	legend.rb_on.disable
+	legend.rb_off.disable
+	legend.ck_order.disable
+	legend.tx_order.disable
+	legend.ed_order.disable
+	legend.bu_order.disable
+	legend.bu_legend.disable
+	legend.bu_placement.disable
+	legend_disabled.settrue
+END
+
+SCRIPT gr_legend_enable
+BEGIN
+	program gr_legend_enable_wrk
+END
+PROGRAM gr_legend_enable_wrk
+BEGIN
+	call legend.cb_type.enable
+	call legend.gb_legend.enable
+	call legend.rb_default.enable
+	call legend.rb_on.enable
+	call legend.rb_off.enable
+	if ! legend.rb_off {
+		call legend.ck_order.enable
+		if legend.ck_order {
+			call legend.tx_order.enable
+			call legend.ed_order.enable
+			call legend.bu_order.enable
+		}
+		call legend.bu_legend.enable
+		call legend.bu_placement.enable
+	}
+	call legend_disabled.setfalse
+END
+
+SCRIPT legend_PREINIT
+BEGIN
+	create STRING legendResults
+	create STRING legendPlacementResults // ring0 and at() are separate
+	create STRING legendPlacementRingResults // set by child directly
+	create STRING legendPlacementAtResults // set by child directly
+	
+	create STRING plegendResults
+	create STRING plegendPlacementResults // ring0 and at() are separate
+	create STRING plegendPlacementRingResults // set by child directly
+	create STRING plegendPlacementAtResults // set by child directly
+
+	create STRING clegendResults
+	create STRING clegendPlacementResults // ring0 and at() are separate
+	create STRING clegendPlacementRingResults // set by child directly
+	create STRING clegendPlacementAtResults // set by child directly
+	create STRING cLegendAxisResults
+	
+	create BOOLEAN legend_disabled
+	create BOOLEAN legend_isByContext
+	create BOOLEAN legend_isByoptsContext
+END
+
+SCRIPT legend_POSTINIT
+BEGIN
+	program legend_checkLegendResults
+	program legend_checkPlacementResults
+	program plegend_checkLegendResults
+	program plegend_checkPlacementResults
+	program clegend_checkLegendResults
+	program clegend_checkPlacementResults
+	program clegend_checkLegendAxisResults
+END
+
+LIST legend_types
+BEGIN
+	resource GR_LEGEND_LIST_STANDARD_LEGEND
+	resource GR_LEGEND_LIST_CONTOUR_LEGEND
+	resource GR_LEGEND_LIST_CONTOURLINE_LEGEND
+END
+
+LIST legend_sel_actions
+BEGIN
+	program show_legend_options
+	program show_clegend_options
+	program show_plegend_options
+END
+
+DIALOG legend, tabtitle(resource LBL_LEGEND)
+BEGIN
+  COMBOBOX cb_type	_lft	_top	300	.,		///
+	dropdownlist						///
+	contents(legend_types) onselchangelist(legend_sel_actions)
+/* legend options */
+  GROUPBOX gb_legend	_lft	_ls	_iwd	90,		///
+  	label(resource GR_LEGEND_LEGEND_GB_LEGEND)
+DEFINE top2 @y
+  RADIO	   rb_default	_ilft	_ss	_ibwd	.,		///
+	first label(resource LBL_DEFAULT)			///
+	onclickon(program legend_check_behavior)
+  RADIO	   rb_on	@	_ss	@	.,		///
+	label(resource LBL_SHOW_LEGEND)				///
+	onclickon(program legend_check_behavior)		///
+	option(on)
+  RADIO	   rb_off	@	_ss	@	.,		///
+	last label(resource LBL_HIDE_LEGEND)			///
+	onclickon(program legend_check_behavior)		///
+	option(off)
+	
+  CHECKBOX ck_order	_lft	+40	_iwd	75,		///
+	groupbox label(resource LBL_OVERRIDE_DEFAULT_KEYS)	///
+	onclickon(program legend_order_on)			///
+	onclickoff(script legend_order_off)
+  TEXT	   tx_order	_ilft	_ss	_ibwd	.,		///
+	label(resource LBL_SPECIFY_ORDER_OF_KEYS)
+  EDIT	   ed_order	@	_ss	_ilw15	.,		///
+	option(order)						///
+	label(resource LBL_SPECIFY_ORDER_OF_KEYS)
+  BUTTON   bu_order	_islw15	@	15	.,		///
+	label(resource LBL_?) onpush(view help legend_order##|_new) ///
+	tooltip(resource LBL_HELP_KEY_ORDER_SPECIFICATION)
+  	
+  BUTTON   bu_legend	_lft	+45	170	.,		///
+	label(resource LBL_ORGANIZATION_APPEARANCE)	 	///
+	onpush(script get_legend_options)			///
+	tooltip(resource GR_LEGEND_LEGEND_BU_LEGEND_TOOLTIP)
+  BUTTON   bu_placement	+180	@	100	.,		///
+	label(resource LBL_PLACEMENT, nocolon) 				///
+	onpush(program get_legend_placement)			///
+	tooltip(resource GR_LEGEND_LEGEND_BU_PLACEMENT_TOOLTIP)
+/* end legend options */
+
+/* plegend options */
+  GROUPBOX gb_plegend	_lft	top2	_iwd	90,		///
+  	label(resource GR_LEGEND_LEGEND_GB_PLEGEND)
+  RADIO	   rb_p_default	_ilft	_ss	_ibwd	.,		///
+	first label(resource LBL_DEFAULT)			///
+	onclickon(program plegend_check_behavior)
+  RADIO	   rb_p_on	@	_ss	@	.,		///
+	label(resource LBL_SHOW_LEGEND)				///
+	onclickon(program plegend_check_behavior)		///
+	option(on)
+  RADIO	   rb_p_off	@	_ss	@	.,		///
+	last label(resource LBL_HIDE_LEGEND)			///
+	onclickon(program plegend_check_behavior)		///
+	option(off)
+	
+  CHECKBOX ck_p_order	_lft	+40	_iwd	75,		///
+	groupbox label(resource LBL_OVERRIDE_DEFAULT_KEYS)	///
+	onclickon(program plegend_order_on)			///
+	onclickoff(script plegend_order_off)
+  TEXT	   tx_p_order	_ilft	_ss	_ibwd	.,		///
+	label(resource LBL_SPECIFY_ORDER_OF_KEYS)
+  EDIT	   ed_p_order	@	_ss	_ilw15	.,		///
+	option(order)						///
+	label(resource LBL_SPECIFY_ORDER_OF_KEYS)
+  BUTTON   bu_p_order	_islw15	@	15	.,		///
+	label(resource LBL_?) onpush(view help legend_order##|_new) ///
+	tooltip(resource LBL_HELP_KEY_ORDER_SPECIFICATION)
+  	
+  BUTTON   bu_p_legend	_lft	+45	170	.,		///
+	label(resource LBL_ORGANIZATION_APPEARANCE)	 	///
+	onpush(script get_plegend_options)			///
+	tooltip(resource GR_LEGEND_LEGEND_BU_P_LEGEND_TOOLTIP)
+  BUTTON   bu_p_placement +180	@	100	.,		///
+	label(resource LBL_PLACEMENT, nocolon) 				///
+	onpush(program get_plegend_placement)			///
+	tooltip(resource GR_LEGEND_LEGEND_BU_P_PLACEMENT_TOOLTIP)
+/* end plegend options */
+
+/* clegend options */
+  GROUPBOX gb_clegend	_lft	top2	_iwd	90,		///
+  	label(resource GR_LEGEND_LEGEND_GB_CLEGEND)
+DEFINE top2 @y
+  RADIO	   rb_c_default	_ilft	_ss	_ibwd	.,		///
+	first label(resource LBL_DEFAULT)			///
+	onclickon(program clegend_check_behavior)
+  RADIO	   rb_c_on	@	_ss	@	.,		///
+	label(resource LBL_SHOW_LEGEND)				///
+	onclickon(program clegend_check_behavior)		///
+	option(on)
+  RADIO	   rb_c_off	@	_ss	@	.,		///
+	last label(resource LBL_HIDE_LEGEND)			///
+	onclickon(program clegend_check_behavior)		///
+	option(off)
+
+  BUTTON   bu_c_legend	_lft	+45	100	.,		///
+	label(resource LBL_APPEARANCE_NO_COLON)			///
+	onpush(script get_clegend_options)			///
+	tooltip(resource GR_LEGEND_LEGEND_BU_C_LEGEND_TOOLTIP)
+  BUTTON   bu_c_placement +105	@	100	.,		///
+	label(resource LBL_PLACEMENT, nocolon) 			///
+	onpush(program get_clegend_placement)			///
+	tooltip(resource GR_LEGEND_LEGEND_BU_C_PLACEMENT_TOOLTIP)
+  BUTTON   bu_c_legendzaxis +105 @	200	.,		///
+  	label(resource GR_LEGEND_CONTOUR_LEGEND_AXIS_PROP)	///
+	onpush(script get_clegend_axis_options)			///
+	tooltip(resource GR_LEGEND_LEGEND_BU_C_LEGENDZAXIS_TOOLTIP)
+
+/* end clegend options */
+END
+
+PROGRAM show_legend_options
+BEGIN
+	call script plegend_opts_hide
+	call script clegend_opts_hide
+	call script legend_opts_show
+END
+
+PROGRAM show_plegend_options
+BEGIN
+	call script legend_opts_hide
+	call script clegend_opts_hide
+	call script plegend_opts_show
+END
+
+PROGRAM show_clegend_options
+BEGIN
+	call script legend_opts_hide
+	call script plegend_opts_hide
+	call script clegend_opts_show
+END
+
+SCRIPT legend_opts_show
+BEGIN
+	legend.gb_legend.show
+	legend.rb_default.show
+	legend.rb_on.show
+	legend.rb_off.show
+	legend.ck_order.show
+	legend.tx_order.show
+	legend.ed_order.show
+	legend.bu_order.show
+	legend.bu_legend.show
+	legend.bu_placement.show
+END
+SCRIPT legend_opts_hide
+BEGIN
+	legend.gb_legend.hide
+	legend.rb_default.hide
+	legend.rb_on.hide
+	legend.rb_off.hide
+	legend.ck_order.hide
+	legend.tx_order.hide
+	legend.ed_order.hide
+	legend.bu_order.hide
+	legend.bu_legend.hide
+	legend.bu_placement.hide
+END
+
+SCRIPT clegend_opts_show
+BEGIN
+	legend.gb_clegend.show
+	legend.rb_c_default.show
+	legend.rb_c_on.show
+	legend.rb_c_off.show
+	legend.bu_c_legend.show
+	legend.bu_c_placement.show
+	legend.bu_c_legendzaxis.show
+END
+SCRIPT clegend_opts_hide
+BEGIN
+	legend.gb_clegend.hide
+	legend.rb_c_default.hide
+	legend.rb_c_on.hide
+	legend.rb_c_off.hide
+	legend.bu_c_legend.hide
+	legend.bu_c_placement.hide
+	legend.bu_c_legendzaxis.hide
+END
+
+SCRIPT plegend_opts_show
+BEGIN
+	legend.gb_plegend.show
+	legend.rb_p_default.show
+	legend.rb_p_on.show
+	legend.rb_p_off.show
+	legend.ck_p_order.show
+	legend.tx_p_order.show
+	legend.ed_p_order.show
+	legend.bu_p_order.show
+	legend.bu_p_legend.show
+	legend.bu_p_placement.show
+END
+SCRIPT plegend_opts_hide
+BEGIN
+	legend.gb_plegend.hide
+	legend.rb_p_default.hide
+	legend.rb_p_on.hide
+	legend.rb_p_off.hide
+	legend.ck_p_order.hide
+	legend.tx_p_order.hide
+	legend.ed_p_order.hide
+	legend.bu_p_order.hide
+	legend.bu_p_legend.hide
+	legend.bu_p_placement.hide
+END
+
+PROGRAM legend_check_behavior
+BEGIN
+	if ( (legend.rb_default | legend.rb_on) 		///
+		& legend.rb_default.isenabled() )		///
+	{
+		call legend.ck_order.enable
+		if legend.ck_order {
+			call legend.tx_order.enable
+			call legend.ed_order.enable
+			call legend.bu_order.enable
+		}
+		call legend.bu_legend.enable
+		call legend.bu_placement.enable
+	}
+	if legend.rb_off {
+		call legend.ck_order.disable
+		call legend.tx_order.disable
+		call legend.ed_order.disable
+		call legend.bu_order.disable
+		call legend.bu_legend.disable
+		call legend.bu_placement.disable
+	}	
+END
+
+
+PROGRAM clegend_check_behavior
+BEGIN
+	if ( (legend.rb_c_default | legend.rb_c_on) 		///
+		& legend.rb_c_default.isenabled() )		///
+	{
+		call legend.bu_c_legend.enable
+		call legend.bu_c_placement.enable
+		call legend.bu_c_legendzaxis.enable
+	}
+	if legend.rb_c_off {
+		call legend.bu_c_legend.disable
+		call legend.bu_c_placement.disable
+		call legend.bu_c_legendzaxis.disable
+	}
+END
+
+PROGRAM plegend_check_behavior
+BEGIN
+	if ( (legend.rb_p_default | legend.rb_p_on) 		///
+		& legend.rb_p_default.isenabled() )		///
+	{
+		call legend.ck_p_order.enable
+		if legend.ck_p_order {
+			call legend.tx_p_order.enable
+			call legend.ed_p_order.enable
+			call legend.bu_p_order.enable
+		}
+		call legend.bu_p_legend.enable
+		call legend.bu_p_placement.enable
+	}
+	if legend.rb_p_off {
+		call legend.ck_p_order.disable
+		call legend.tx_p_order.disable
+		call legend.ed_p_order.disable
+		call legend.bu_p_order.disable
+		call legend.bu_p_legend.disable
+		call legend.bu_p_placement.disable
+	}	
+END
+
+SCRIPT legend_order_on
+BEGIN
+	if legend.ck_order.isenabled() {
+		call legend.tx_order.enable
+		call legend.ed_order.enable
+		call legend.bu_order.enable
+	}
+END
+
+SCRIPT legend_order_off
+BEGIN
+	legend.tx_order.disable
+	legend.ed_order.disable
+	legend.bu_order.disable
+END
+
+SCRIPT plegend_order_on
+BEGIN
+	if legend.ck_p_order.isenabled() {
+		call legend.tx_p_order.enable
+		call legend.ed_p_order.enable
+		call legend.bu_p_order.enable
+	}
+END
+
+SCRIPT plegend_order_off
+BEGIN
+	legend.tx_p_order.disable
+	legend.ed_p_order.disable
+	legend.bu_p_order.disable
+END
+
+SCRIPT get_legend_options
+BEGIN
+	create CHILD gr_legend_options AS legendDlg, allowsubmit
+	legendDlg.setExitString legendResults
+	legendDlg.settitle resource GR_LEGEND_LEGEND_BU_C_LEGEND
+	legendDlg.setExitAction "program legend_checkLegendResults"
+	legendDlg.setSubmitAction "program legend_legendSubmit"
+END
+PROGRAM legend_checkLegendResults
+BEGIN
+	if legendResults.iseq("") {
+		call legend.bu_legend.modified_off
+	}
+	if ! legendResults.iseq("") {
+		call legend.bu_legend.modified_on
+	}
+END
+PROGRAM legend_legendSubmit
+BEGIN
+	call program legend_checkLegendResults
+	call Submit
+END
+
+PROGRAM get_legend_placement
+BEGIN
+	call create CHILD gr_legend_placement AS legendPlacementDlg, allowsubmit
+	call legendPlacementDlg.setExitString legendPlacementResults
+	call legendPlacementDlg.settitle resource GR_LEGEND_PLACEMENT
+	call legendPlacementDlg.setExitAction "program legend_checkPlacementResults"
+	call legendPlacementDlg.setSubmitAction "program legend_placementSubmit"
+	if legend_isByContext | legend_isByoptsContext {
+		call legendPlacementDlg.callthru "script gr_legend_placement_setByOn"
+	}
+	else {
+		call legendPlacementDlg.callthru "script gr_legend_placement_setByOff"
+	}
+END
+PROGRAM legend_checkPlacementResults
+BEGIN
+	if legendPlacementResults 					///
+		| ((legend_isByContext | legend_isByoptsContext) 	///
+			& legendPlacementAtResults)			///
+		| ((!legend_isByContext & ! legend_isByoptsContext)	///
+			& legendPlacementRingResults)			///
+	{
+		call legend.bu_placement.modified_on
+	}
+	else {
+		call legend.bu_placement.modified_off
+	}
+END
+PROGRAM legend_placementSubmit
+BEGIN
+	call program legend_checkPlacementResults
+	call Submit
+END
+
+SCRIPT get_plegend_options
+BEGIN
+	create CHILD gr_legend_options AS plegendDlg, allowsubmit
+	plegendDlg.setExitString plegendResults
+	plegendDlg.settitle resource GR_LEGEND_PLEGEND_OPTIONS
+	plegendDlg.setExitAction "program plegend_checkLegendResults"
+	plegendDlg.setSubmitAction "program plegend_legendSubmit"
+END
+PROGRAM plegend_checkLegendResults
+BEGIN
+	if plegendResults.iseq("") {
+		call legend.bu_p_legend.modified_off
+	}
+	if ! plegendResults.iseq("") {
+		call legend.bu_p_legend.modified_on
+	}
+END
+PROGRAM plegend_legendSubmit
+BEGIN
+	call program plegend_checkLegendResults
+	call Submit
+END
+
+PROGRAM get_plegend_placement
+BEGIN
+	call create CHILD gr_legend_placement AS plegendPlacementDlg, allowsubmit
+	call plegendPlacementDlg.setExitString plegendPlacementResults
+	call plegendPlacementDlg.settitle resource GR_LEGEND_PLACEMENT
+	call plegendPlacementDlg.setExitAction "program plegend_checkPlacementResults"
+	call plegendPlacementDlg.setSubmitAction "program plegend_placementSubmit"
+	if legend_isByContext | legend_isByoptsContext {
+		call plegendPlacementDlg.callthru "script gr_legend_placement_setByOn"
+	}
+	else {
+		call plegendPlacementDlg.callthru "script gr_legend_placement_setByOff"
+	}
+	call plegendPlacementDlg.callthru "script gr_legend_set_plegend"
+END
+PROGRAM plegend_checkPlacementResults
+BEGIN
+	if plegendPlacementResults 					///
+		| ((legend_isByContext | legend_isByoptsContext) 	///
+			& plegendPlacementAtResults)			///
+		| ((!legend_isByContext & ! legend_isByoptsContext)	///
+			& plegendPlacementRingResults)			///
+	{
+		call legend.bu_p_placement.modified_on
+	}
+	else {
+		call legend.bu_p_placement.modified_off
+	}
+END
+PROGRAM plegend_placementSubmit
+BEGIN
+	call program plegend_checkPlacementResults
+	call Submit
+END
+
+SCRIPT get_clegend_options
+BEGIN
+	create CHILD gr_clegend_options AS clegendDlg, allowsubmit
+	clegendDlg.setExitString clegendResults
+	clegendDlg.settitle resource GR_LEGEND_APPEARANCE_PROP
+	clegendDlg.setExitAction "program clegend_checkLegendResults"
+	clegendDlg.setSubmitAction "program clegend_legendSubmit"
+END
+PROGRAM clegend_checkLegendResults
+BEGIN
+	if clegendResults.iseq("") {
+		call legend.bu_c_legend.modified_off
+	}
+	if ! clegendResults.iseq("") {
+		call legend.bu_c_legend.modified_on
+	}
+END
+PROGRAM clegend_legendSubmit
+BEGIN
+	call program clegend_checkLegendResults
+	call Submit
+END
+
+PROGRAM get_clegend_placement
+BEGIN
+	call create CHILD gr_legend_placement AS clegendPlacementDlg, allowsubmit
+	call clegendPlacementDlg.setExitString clegendPlacementResults
+	call clegendPlacementDlg.settitle resource GR_LEGEND_PLACEMENT
+	call clegendPlacementDlg.setExitAction "program clegend_checkPlacementResults"
+	call clegendPlacementDlg.setSubmitAction "program clegend_placementSubmit"
+	if legend_isByContext | legend_isByoptsContext {
+		call clegendPlacementDlg.callthru "script gr_legend_placement_setByOn"
+	}
+	else {
+		call clegendPlacementDlg.callthru "script gr_legend_placement_setByOff"
+	}
+	call clegendPlacementDlg.callthru "script gr_legend_set_clegend"
+END
+PROGRAM clegend_checkPlacementResults
+BEGIN
+	if clegendPlacementResults 					///
+		| ((legend_isByContext | legend_isByoptsContext) 	///
+			& clegendPlacementAtResults)			///
+		| ((!legend_isByContext & ! legend_isByoptsContext)	///
+			& clegendPlacementRingResults)			///
+	{
+		call legend.bu_c_placement.modified_on
+	}
+	else {
+		call legend.bu_c_placement.modified_off
+	}
+END
+PROGRAM clegend_placementSubmit
+BEGIN
+	call program clegend_checkPlacementResults
+	call Submit
+END
+
+SCRIPT get_clegend_axis_options
+BEGIN
+	create STRING sTMP
+	create CHILD gr_legend_zaxis AS clegendAxisDlg, allowsubmit
+	clegendAxisDlg.setExitString cLegendAxisResults
+	sTMP.format "resource GR_LEGEND_CONTOUR_LEGEND_AXIS_PROP_FMT" ""
+	sTMP.withvalue clegendAxisDlg.settitle @
+	clegendAxisDlg.setExitAction "program clegend_checkLegendAxisResults"
+	clegendAxisDlg.setSubmitAction "program clegend_legendAxisSubmit"
+END
+PROGRAM clegend_checkLegendAxisResults
+BEGIN
+	if cLegendAxisResults.iseq("") {
+		call legend.bu_c_legendzaxis.modified_off
+	}
+	if ! cLegendAxisResults.iseq("") {
+		call legend.bu_c_legendzaxis.modified_on
+	}
+END
+PROGRAM clegend_legendAxisSubmit
+BEGIN
+	call program clegend_checkLegendAxisResults
+	call Submit
+END
+
+PROGRAM legend_byopts_wrk	// called from byable context
+BEGIN
+	if (legend.rb_on) {
+		put " on"
+	}
+	if (legend.rb_off) {
+		put " off"
+	}
+	if !D(legend.bu_placement) {
+		put " " legendPlacementResults " "
+		put " " legendPlacementAtResults " "
+	}
+END
+
+PROGRAM legend_output_wrk1 	// called from NOT byable context
+BEGIN
+	if (legend.rb_on) {
+		put " on"
+	}
+	if (legend.rb_off) {
+		put " off"
+	}
+	if ! legend.rb_off {
+		put " " /program legend_output_wrk2
+		if !D(legend.bu_placement) {
+			put " " legendPlacementResults " "
+			put " " legendPlacementRingResults " "
+		}
+	}
+END
+
+PROGRAM legend_output_wrk2	// output routine for things that are
+				/// always independent of byable context
+BEGIN
+	if legend.ck_order {
+		if !legend.ed_order {
+			stopbox stop resource GR_LEGEND_MSGBOX_TAB
+// On the "Legend" tab, "Specify order of keys and optionally change labels" 
+// for the "Standard" legend must be filled in.
+		}
+		put /hidden " order(" legend.ed_order ")"
+	}
+	if  !D(legend.bu_legend) & legendResults {
+		put " " legendResults
+	}
+END
+
+PROGRAM clegend_byopts_wrk	// called from byable context
+BEGIN
+	if (legend.rb_c_on) {
+		put " on"
+	}
+	if (legend.rb_c_off) {
+		put " off"
+	}
+	if !D(legend.bu_c_placement) {
+		put " " clegendPlacementResults " "
+		put " " clegendPlacementAtResults " "
+	}
+END
+
+PROGRAM clegend_output_wrk1 	// called from NOT byable context
+BEGIN
+	if (legend.rb_c_on) {
+		put " on"
+	}
+	if (legend.rb_c_off) {
+		put " off"
+	}
+	if ! legend.rb_c_off { 
+		put " " /program clegend_output_wrk2
+		if !D(legend.bu_c_placement) {
+			put " " clegendPlacementResults " "
+			put " " clegendPlacementRingResults " "
+		}
+	}
+END
+
+PROGRAM clegend_output_wrk2	// output routine for things that are
+				/// always independent of byable context
+BEGIN
+	if  !D(legend.bu_c_legend) & clegendResults {
+		put " " clegendResults
+	}
+END
+
+PROGRAM plegend_byopts_wrk	// called from byable context
+BEGIN
+	if (legend.rb_p_on) {
+		put " on"
+	}
+	if (legend.rb_p_off) {
+		put " off"
+	}
+	if !D(legend.bu_p_placement) {
+		put " " plegendPlacementResults " "
+		put " " plegendPlacementAtResults " "
+	}
+END
+
+PROGRAM plegend_output_wrk1 	// called from NOT byable context
+BEGIN
+	if (legend.rb_p_on) {
+		put " on"
+	}
+	if (legend.rb_p_off) {
+		put " off"
+	}
+	if ! legend.rb_p_off {
+		put " " /program plegend_output_wrk2
+		if !D(legend.bu_p_placement) {
+			put " " plegendPlacementResults " "
+			put " " plegendPlacementRingResults " "
+		}
+	}
+END
+
+PROGRAM plegend_output_wrk2	// output routine for things that are
+				/// always independent of byable context
+BEGIN
+	if legend.ck_p_order {
+		if !legend.ed_p_order {
+			stopbox stop resource GR_LEGEND_MSGBOX_CONTOURLINE
+// On the "Legend" tab, "Specify order of keys and optionally change labels" 
+// for the "Contourline" legend must be filled in.
+		}
+		put /hidden " order(" legend.ed_p_order ")"
+	}
+	if  !D(legend.bu_p_legend) & plegendResults {
+		put " " plegendResults
+	}
+END
+
+PROGRAM gr_legend_output_wrk
+BEGIN
+if legend_isByContext | legend_isByoptsContext {
+		if legend.ck_order 					///
+			| ( !D(legend.bu_legend) & legendResults)	///
+			| ( !D(legend.bu_placement) 			///
+				& (legendPlacementResults 		///
+					| legendPlacementAtResults))	///
+			| legend.rb_on | legend.rb_off 			///
+		{
+			if legend.rb_on | legend.rb_off 		///
+				| ( !D(legend.bu_placement) 		///
+					& (legendPlacementResults 	///
+					| legendPlacementAtResults))	///
+			{
+				if legend_isByoptsContext {
+					put " byopts(legend("
+				}
+				else {
+					put " by(, legend("
+				}
+				put /program legend_byopts_wrk
+				put ")) "
+			}
+			if legend.ck_order 				  ///
+				| ( !D(legend.bu_legend) & legendResults) ///
+			{
+				put " legend(" 
+				put /program legend_output_wrk2
+				put ") "
+			}
+		}
+	}
+	else {
+		if legend.ck_order 					///
+			| ( !D(legend.bu_legend) & legendResults)	///
+			| ( !D(legend.bu_placement) 			///
+				& (legendPlacementResults 		///
+					| legendPlacementRingResults))	///
+			| legend.rb_on | legend.rb_off 			///
+		{
+			put " legend("
+			put /program legend_output_wrk1
+			put ") "
+		}
+	}
+END
+
+PROGRAM gr_clegend_output_wrk
+BEGIN
+	if legend_isByContext | legend_isByoptsContext {
+		if      (  ( !D(legend.bu_c_legend) & clegendResults)	///
+			 | ( !D(legend.bu_c_placement) 			///
+				& (clegendPlacementResults 		///
+					| clegendPlacementAtResults))	///
+			| legend.rb_c_on | legend.rb_c_off) 		///
+		{
+			if legend.rb_c_on | legend.rb_c_off 		///
+				| ( !D(legend.bu_c_placement) 		///
+					& (clegendPlacementResults 	///
+					| clegendPlacementAtResults))	///
+			{
+				if legend_isByoptsContext {
+					put " byopts(clegend("
+				}
+				else {
+					put " by(, clegend("
+				}
+				put /program clegend_byopts_wrk
+				put ")) "
+			}
+			if ( !D(legend.bu_c_legend) & clegendResults) ///
+			{
+				put " clegend(" 
+				put /program clegend_output_wrk2
+				put ") "
+			}
+		}
+	}
+	else {
+		if (      ( !D(legend.bu_c_legend) & clegendResults)	///
+			| ( !D(legend.bu_c_placement) 			///
+				& (clegendPlacementResults 		///
+					| clegendPlacementRingResults))	///
+			| legend.rb_c_on | legend.rb_c_off )		///
+		{
+			put " clegend("
+			put /program clegend_output_wrk1
+			put ") "
+		}
+	}
+END
+
+PROGRAM gr_plegend_output_wrk
+BEGIN
+	if legend_isByContext | legend_isByoptsContext {
+		if legend.ck_p_order 					///
+			| ( !D(legend.bu_p_legend) & plegendResults)	///
+			| ( !D(legend.bu_p_placement) 			///
+				& (plegendPlacementResults 		///
+					| plegendPlacementAtResults))	///
+			| legend.rb_p_on | legend.rb_p_off 		///
+		{
+			if legend.rb_p_on | legend.rb_p_off 		///
+				| ( !D(legend.bu_p_placement) 		///
+					& (plegendPlacementResults 	///
+					| plegendPlacementAtResults))	///
+			{
+				if legend_isByoptsContext {
+					put " byopts(plegend("
+				}
+				else {
+					put " by(, plegend("
+				}
+				put /program plegend_byopts_wrk
+				put ")) "
+			}
+			if legend.ck_p_order 				  ///
+				| ( !D(legend.bu_p_legend) & plegendResults) ///
+			{
+				put " plegend(" 
+				put /program plegend_output_wrk2
+				put ") "
+			}
+		}
+	}
+	else {
+		if legend.ck_p_order 					///
+			| ( !D(legend.bu_p_legend) & plegendResults)	///
+			| ( !D(legend.bu_p_placement) 			///
+				& (plegendPlacementResults 		///
+					| plegendPlacementRingResults))	///
+			| legend.rb_p_on | legend.rb_p_off 		///
+		{
+			put " plegend("
+			put /program plegend_output_wrk1
+			put ") "
+		}
+	}
+END
+
+PROGRAM gr_legend_output
+BEGIN
+	if legend_disabled {
+		exit 
+	}
+	put " " /program gr_legend_output_wrk
+	put " " /program gr_clegend_output_wrk
+	if ! legend.rb_c_off { 
+		if !D(legend.bu_c_legendzaxis) {
+			put " " cLegendAxisResults " "
+		}
+	}
+	put " " /program gr_plegend_output_wrk
+END

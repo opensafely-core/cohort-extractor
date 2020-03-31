@@ -1,0 +1,156 @@
+/*
+	mdsconfig
+
+*!  VERSION 2.1.2  02dec2019
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 260
+INCLUDE header
+
+HELP hlp1, view("help mdsconfig")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING markerResults
+	create STRING labelResults
+	setscale_hadj resource MDSCONFIG_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program check_markerResults
+	program check_labelResults
+END
+
+DIALOG main, label(resource MDSCONFIG_DLG_TITLE) ///
+		tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  GROUPBOX gb_dim		_lft	_top	_iwd	_ht6,	///
+  		label(resource LBL_DIMENSIONS)
+  RADIO    rb_default_dim	_ilft	_ss	_ibwd	.,	///
+  		first label(resource LBL_PLOT_FIRST_SECOND_DIMENSIONS)	///
+  		onclickon(script main_dim_off)
+  RADIO    rb_dim		@	_ss	@	.,	///
+		last label(resource LBL_SPECIFY_OTHER_DIMENSIONS_PLOT)	///
+		onclickon(script main_dim_on)
+  EDIT     ed_dim		_indent2 _ss	_en7wd	.,	///
+  		label(resource LBL_TWO_DIMENSIONS_TO_PLOT) option(dimensions) ///
+  		default("2  1")
+  TEXT     tx_dim		_en7sep	@	200	.,	///
+  		label(resource MDSCONFIG_MAIN_TX_DIM)
+
+  CHECKBOX ck_xnegate		_lft	+45	_iwd	.,	///
+  		label(resource LBL_NEGATE_DATA_RELATIVE_TO_X_AXIS)	///
+  		option(xnegate)
+  CHECKBOX ck_ynegate		@	_ms	@	.,	///
+  		label(resource LBL_NEGATE_DATA_RELATIVE_TO_Y_AXIS)	///
+  		option(ynegate)
+
+  CHECKBOX ck_autoaspect	@	_ms	@	.,	///
+  		option(autoaspect)				///
+  		label(resource LBL_AUTOMATICALLY_ADJUST_ASPECT_RATIO_BASED_ON_DATA)
+
+  SPINNER  sp_maxlength		@	_ms	_spwd	.,	///
+  		default(12) min(1) max(32) option(maxlength)
+  TEXT     tx_maxlength		_spsep	@	_spr	.,	///
+  		label(resource LBL_MAXIMUM_NUMBER_CHARACTERS_DISPLAYED_LABELS)
+
+  BUTTON bu_markers		_lft	+35	120	.,	///
+	label(resource LBL_MARKER_PROPERTIES_DLG_TITLE)		///
+	onpush(script main_show_markers_dialog)
+  BUTTON bu_marker_label	+130	@	120	.,	///
+	label(resource LBL_GB_LABEL_PROPERTIES)			///
+	onpush(script main_show_marker_label_dialog)
+END
+
+SCRIPT main_dim_on
+BEGIN
+	main.ed_dim.enable
+	main.tx_dim.enable
+END
+SCRIPT main_dim_off
+BEGIN
+	main.ed_dim.disable
+	main.tx_dim.disable
+END
+
+SCRIPT main_show_markers_dialog
+BEGIN
+	create CHILD gr_marker_nolabel_options AS markers, allowsubmit
+	markers.setExitString markerResults
+	markers.settitle resource LBL_MARKER_PROPERTIES_DLG_TITLE
+	markers.setExitAction "program check_markerResults"
+	markers.setSubmitAction "script markerSubmit"
+END
+PROGRAM check_markerResults
+BEGIN
+	if markerResults {
+		call main.bu_markers.modified_on
+	}
+	else {
+		call main.bu_markers.modified_off
+	}
+END
+SCRIPT markerSubmit
+BEGIN
+	program check_markerResults
+	Submit
+END
+
+SCRIPT main_show_marker_label_dialog
+BEGIN
+	create CHILD gr_markerlabel_options AS marker_label, allowsubmit
+	marker_label.setExitString labelResults
+	marker_label.settitle resource LBL_GB_LABEL_PROPERTIES
+	marker_label.setExitAction "program check_labelResults"
+	marker_label.setSubmitAction "script labelSubmit"
+END
+PROGRAM check_labelResults
+BEGIN
+	if labelResults {
+		call main.bu_marker_label.modified_on
+	}
+	else {
+		call main.bu_marker_label.modified_off
+	}
+END
+SCRIPT labelSubmit
+BEGIN
+	program check_labelResults
+	Submit
+END
+
+INCLUDE gr_yaxis
+INCLUDE gr_xaxis
+INCLUDE gr_titles
+INCLUDE gr_legend
+INCLUDE gr_overall
+
+PROGRAM command
+BEGIN
+	put "mdsconfig "
+	beginoptions
+		if main.rb_dim {
+			require main.ed_dim
+			optionarg main.ed_dim
+		}
+		option main.ck_xnegate
+		option main.ck_ynegate
+		option main.ck_autoaspect
+		optionarg /hidedefault main.sp_maxlength
+		
+		put " " markerResults " "
+		put " " labelResults " "
+
+		put " " /program gr_yaxis_output
+		put " " /program gr_xaxis_output
+		put " " /program gr_titles_output
+		put " " /program gr_legend_output
+		put " " /program gr_overall_output
+	endoptions
+END

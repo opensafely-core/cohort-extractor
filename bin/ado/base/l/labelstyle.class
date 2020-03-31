@@ -1,0 +1,237 @@
+//				labelstyle	
+*! version 1.1.0  30sep2019
+version 8
+
+
+class {
+    class:
+//	position_hasset = 1		      // signal that position has _set_
+
+    instance:
+	class textstyle	textstyle
+	class clockdir	position
+	class gsize	textgap
+
+	string	format	= ""
+
+					// cannot borrow from textstyle and
+					// retain good textstyle stylenames
+	horizontal = .horizontal.new    , style(default)
+	vertical   = .vertical_text.new , style(default)
+} , inherit(style)
+
+
+// ---------------------------------------------------------------------------
+
+program new
+
+	syntax [, Style(string) * ]				/* default */
+	if "`style'" == "" { 
+		.setstyle, style(scheme)
+	}
+	.Super.new, `.set `0''
+
+//	._set_position `.position.setting' , force
+end
+
+
+// ---------------------------------------------------------------------------
+//
+//  Usage:  just like .new
+
+program set
+
+	syntax [,			///
+		Textstyle(string)	///
+		Position(string)	///
+		Gap(real -99999)	///
+		format(string)		///
+		*]
+
+	if `gap' != -99999 {
+		.textgap.val = `gap'
+	}
+
+	if "`position'" != "" {
+		.position.setstyle, style(`position')
+	}
+
+	if "`textstyle'" != "" {
+		.textstyle.setstyle , style(`textstyle')
+	}
+
+	if `"`format'"' != "" {
+		.format = `"`format'"'
+	}
+
+	class exit `"`options'"'
+end
+
+
+// ---------------------------------------------------------------------------
+//  Set this line style to the GDI
+//
+//  Note, this ignores any vertical, horizontal, or position settings in the
+//  textstyle in deference to our .position.
+
+
+program define setgdi
+
+	.textstyle.color.setgdi , text
+	gdi gm_textsize  = 0`.textstyle.size.gmval'
+	gdi textangle    = 0`.textstyle.angle.val'
+
+	gdi texthalign = `.horizontal_setting'		// set alignments
+	gdi textvalign = `.vertical_setting'
+end
+
+// ---------------------------------------------------------------------------
+// Returns the horizontal and vertical settings including those that would
+// default from the position  when the setting is default.
+
+program horizontal_setting
+
+	if "`.horizontal.stylename'" == "default" {
+		if `.position.eastofcenter' {
+			if `.textstyle.angle.left' {
+				class exit "right"
+			}
+			else {
+				class exit "left"
+			}
+		}
+		else {
+			if `.position.westofcenter' {
+				class exit "right"
+			}
+			else {
+				class exit "center"
+			}
+		}
+		if "`.position.setting'" == "0" {
+			class exit "center"
+		}
+	}
+	else {
+		class exit "`.horizontal.stylename'"
+	}
+end
+
+program define vertical_setting
+
+	if "`.vertical.stylename'" == "default" {
+		if `.position.northofcenter' {
+			class exit "baseline"
+		}
+		else {
+			if `.position.southofcenter' {
+				class exit "top"
+			}
+			else {
+				class exit "middle"
+			}
+		}
+
+		if "`.position.setting'" == "0" {
+			class exit "middle"
+		}
+	}
+	else {
+		class exit "`.vertical.stylename'"
+	}
+end
+
+
+// ---------------------------------------------------------------------------
+//  Set this line style to the GDI and reset the pen
+
+program setgdifull
+
+	.setgdi `0'
+	gdi textchange
+end
+
+
+/*  deprecated, .position now completely controls alignment and justification.
+// ---------------------------------------------------------------------------
+//  _set_ program to set a value with side effects.
+
+program _set_position
+
+	syntax [ anything(name=setting id="stylename") ] [ , Force ]
+
+	if "`setting'" == "`.position.setting'" & "`force'" == "" {
+		exit
+	}
+
+	local dosty = ! 0$InEditstyle
+
+	.position.setstyle, style(`setting')			// set style
+
+	local setting `.position.setting'
+
+	if `.position.eastofcenter' {
+		local edit `edit' horizontal(left)
+//		.editstyle textstyle(horizontal(left)) editcopy
+		if `dosty' {
+			.textstyle.horizontal.setstyle, style(left)
+		}
+	}
+	else {
+		if `.position.westofcenter' {
+			local edit `edit' horizontal(right)
+//			.editstyle textstyle(horizontal(right)) editcopy
+			if `dosty' {
+				.textstyle.horizontal.setstyle, style(right)
+			}
+		}
+		else {
+//			local edit `edit' horizontal(center)
+			.editstyle textstyle(horizontal(center)) editcopy
+			if `dosty' {
+				.textstyle.horizontal.setstyle, style(center)
+			}
+		}
+	}
+
+	if `.position.northofcenter' {
+		local edit `edit' vertical(baseline)
+//		.editstyle textstyle(vertical(baseline)) editcopy
+		if `dosty' {
+			.textstyle.vertical.setstyle, style(baseline)	
+		}
+	}
+	else {
+		if `.position.southofcenter' {
+			local edit `edit' vertical(top)
+//			.editstyle textstyle(vertical(top)) editcopy
+			if `dosty' {
+				.textstyle.vertical.setstyle, style(top)
+			}
+		}
+		else {
+			local edit `edit' vertical(middle)
+//			.editstyle textstyle(vertical(middle)) editcopy
+			if `dosty' {
+				.textstyle.vertical.setstyle, style(middle)
+			}
+		}
+	}
+
+	if "`.position.setting'" == "0" {
+		local edit horizontal(center) vertical(middle)
+//		.editstyle textstyle(horizontal(center)) editcopy
+//		.editstyle textstyle(vertical(middle)) editcopy
+		if `dosty' {
+			.textstyle.horizontal.setstyle, style(center)
+			.textstyle.vertical.setstyle, style(middle)
+		}
+	}
+
+	if ! `dosty' & "`edit'" != "" {
+		.editstyle textstyle(`edit') editcopy
+	}
+
+end
+*/
+

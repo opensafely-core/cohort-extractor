@@ -1,0 +1,175 @@
+*! version 1.0.1  14apr2011
+
+version 11
+
+class u_mi_expr_parser {
+
+	string	stub	= ""
+	string	cmd	= ""
+
+	array	exp
+	array	name
+}
+
+program .new
+	.setup `0'
+end
+
+program .reset
+	.init
+	.setup `0'
+end
+
+program .parse, rclass
+	_parse expand L G : 0
+
+	// no global options other than eform_opts
+	local 0 "`G_if' `G_in', `G_op'"
+	syntax [, * NOHR NOSHR ]
+	if ("`nohr'"!="") {
+		di as err "option nohr not allowed"
+		exit 198
+	}
+	if ("`noshr'"!="") {
+		di as err "option noshr not allowed"
+		exit 198
+	}
+	u_mi_estimate_chk_eform `.cmd', `options'
+	// check for global eform opts
+	_get_eformopts, soptions eformopts(`options') ///
+			allowed(hr shr irr or rrr)
+	return local eform `"`s(eform)'"'
+	return local efopt  `"`s(opt)'"'
+	return local options `"`s(options)'"'
+	local efopt  `"`s(opt)'"'
+	if ("`.cmd'"=="stcrreg" & "`efopt'"=="hr") {
+		di as txt "note: option shr is assumed"
+		_get_eformopts, eformopts(shr) allowed(hr shr irr or rrr)
+		return local eform `"`s(eform)'"'
+		return local efopt  "shr"
+	}
+	if !inlist("`efopt'", "", "eform") {
+		local props : properties `.cmd'
+                if !`:list efopt in props' {
+                        di as err 	///
+		`"option `efopt' not allowed with {bf:mi estimate: `.cmd'}"'
+			exit 198
+                }
+        }
+	// parse expressions
+	local j 0
+	forval i = 1/`L_n' {
+		local COLON
+		gettoken name rest : L_`i', parse(" :")
+		if (!strmatch(`"`name'"',"*_b[*")) {
+			gettoken COLON 0 : rest, parse(" :")
+		}
+		if `"`COLON'"' == ":" {
+			confirm name `name'
+		}
+		else {
+			local name
+			local 0 : copy local L_`i'
+		}
+		syntax [anything(id="expression" name=E)] [, *]
+		// options within expressions are not allowed
+		if `:length local options' {
+			di as err "options not allowed"
+			exit 198
+		}
+		if `:length local E' {
+			// the empty string is counted as being in the list 
+			while `:list name in namelist' {
+				local ++j
+				local name `.stub'`j'
+			}
+			local namelist `namelist' `name'
+			.exp.Arrpush	"`E'"
+			.name.Arrpush	"`name'"
+		}
+	}
+	return scalar k_exp = `.exp.arrnels'
+end
+
+program .k_exp
+	class exit `.exp.arrnels'
+end
+
+program .chk_exprs
+
+	local k	= `.exp.arrnels'
+	forval i = 1/`k' {
+		.chk_val `.exp[`i']'
+	}
+end
+
+program .build_nlcom, sclass
+	local k	= `.exp.arrnels'
+	forval i = 1/`k' {
+		local nlcom `"`nlcom' (`.name[`i']':`.exp[`i']')"'
+		local stripe `"`stripe' `.name[`i']'"'
+	}
+
+	sreturn local nlcom `"`nlcom'"'
+	sreturn local stripe `"`stripe'"'
+end
+
+program .post_legend, eclass
+	args suffix
+
+	local k 0
+	local n = `.exp.arrnels'
+	forval i = 1/`n' {
+		local ++k
+		ereturn local exp`k'`suffix' `"`.exp[`i']'"'
+	}
+	ereturn scalar k_exp`suffix' = `k'
+end
+
+// subroutines --------------------------------------------------------------
+
+program .setup
+	syntax, stub(name) [ CMDname(name) ]
+
+	if `:length local stub' > 20 {
+		di as err "option stub() too long"
+		exit 198
+	}
+	.stub	= "`stub'"
+	.cmd	= "`cmdname'"
+end
+
+program .init
+	.stub	= ""
+	.cmd	= ""
+
+	.exp.Arrdropall
+	.name.Arrdropall
+end
+
+program .chk_val
+	
+	tempname w1 
+	tempvar w2
+	
+	cap scalar `w1' = `0'
+	if (_rc) {
+		di as err `"incorrectly specified expression {bf:(`0')}:"'
+		qui scalar `w1' = `0'
+		exit _rc
+	}
+	if (missing(`w1')) {
+		di as err `"expression {bf:(`0')} evaluates to missing"'
+		exit 498
+	}
+	if (_N>1) {
+		qui gen `w2' = `0'
+		qui summ `w2', meanonly
+		if (r(min)!=r(max)) { // confounds with constant variables
+			di as err `"expression {bf:(`0')} "'	///
+				 "contains reference to X rather than _b[X]"
+			exit 198
+		}
+	}
+end
+exit

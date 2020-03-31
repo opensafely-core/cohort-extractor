@@ -1,0 +1,308 @@
+/*
+	asclogit_mfx
+
+*!  VERSION 1.1.2  16may2015
+
+*/
+
+VERSION 14.0
+SYNCHRONOUS_ONLY
+
+INCLUDE _std_glm
+DEFINE _dlght 440
+INCLUDE header
+
+HELP hlp1, view("help asclogit postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create BOOLEAN loaded
+	main.ed_temp.hide
+	main.bu_drop.disable
+
+	create STRING atCmdList
+	create BOOLEAN main_isListEmpty
+	main_isListEmpty.settrue
+
+	create DOUBLE e_k_alt
+	e_k_alt.setvalue e(k_alt)
+	e_k_alt.decrement
+	setscale_hadj resource ASCLOGIT_MFX_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	loaded.settrue
+	create STRING _MSG_TMP
+	_MSG_TMP.format 						///
+		"resource LBL_NOTE1_FMT"				///
+		"resource LBL_TAB_MAIN"
+// Note: the if and in qualifiers only affect the at() option,
+// which is specified on the "Main" dialog tab.
+	sub.tx_note1.setlabel class _MSG_TMP.value
+	main.sp_k.setrange 1 "class e_k_alt.value"
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	put "asmprobit_mfx__dlg setup , "
+	put "dialog(asclogit_mfx) "
+	put "control(main.lb_values) "
+	stata hidden
+END
+
+PROGRAM main_mfx_setType
+BEGIN
+	if main.rb_alt_spec {
+		call main.cb_altvar.show
+		call main.cb_alt.show
+		call main.tx_alt.show
+		call main.tx_altvar.setlabel "resource LBL_VARIABLE"
+		call main.cb_casevar.hide
+	}
+	if main.rb_case_spec {
+		call main.cb_altvar.hide
+		call main.cb_alt.hide
+		call main.tx_alt.hide
+		call main.cb_casevar.show
+		call main.tx_altvar.setlabel "resource LBL_VARIABLE"
+	}
+END
+
+SCRIPT main_define_disable
+BEGIN
+	main.tx_values.disable
+	main.lb_values.disable
+	main.gb_override.disable
+	main.gb_type.disable
+	main.rb_alt_spec.disable
+	main.rb_case_spec.disable
+	main.tx_alt.disable
+	main.cb_alt.disable
+	main.tx_altvar.disable
+	main.cb_altvar.disable
+	main.cb_casevar.disable
+	main.tx_value.disable
+	main.en_value.disable
+	main.bu_add.disable
+	main.bu_drop.disable
+END
+
+PROGRAM main_define_enable
+BEGIN
+	call main.tx_values.enable
+	call main.lb_values.enable
+	call main.gb_override.enable
+	call main.gb_type.enable
+	call main.rb_alt_spec.enable
+	call main.rb_case_spec.enable
+	call main.tx_alt.enable
+	call main.cb_alt.enable
+	call main.tx_altvar.enable
+	call main.cb_altvar.enable
+	call main.cb_casevar.enable
+	call main.tx_value.enable
+	call main.en_value.enable
+	call main.bu_add.enable
+	if ! main_isListEmpty {
+		call main.bu_drop.enable
+	}
+END
+
+PROGRAM main_add_at
+BEGIN
+	if loaded {
+		require main.cb_altvar
+		require main.cb_casevar
+		require main.en_value
+		call main.ed_temp.setvalue ""
+
+		if main.cb_alt & main.cb_alt.isvisible() {
+			call script main_insertAlt
+		}
+		if main.cb_altvar.isvisible() {
+			call script main_insertAltvar
+		}
+		if main.cb_casevar.isvisible() {
+			call script main_insertCasevar
+		}
+
+		put "asmprobit_mfx__dlg append, "
+		put "dialog(asclogit_mfx) "
+		put "value(" /hidden main.ed_temp ") "
+		stata hidden
+
+		call main.bu_drop.enable
+		call main_isListEmpty.setfalse
+	}
+END
+SCRIPT main_insertAlt
+BEGIN
+	main.cb_alt.withvalue main.ed_temp.append "@"
+	main.ed_temp.append ":"
+END
+SCRIPT main_insertAltvar
+BEGIN
+	main.cb_altvar.withvalue main.ed_temp.append "@"
+	main.ed_temp.append "="
+	main.en_value.withvalue main.ed_temp.append "@"
+END
+SCRIPT main_insertCasevar
+BEGIN
+	main.cb_casevar.withvalue main.ed_temp.append "@"
+	main.ed_temp.append "="
+	main.en_value.withvalue main.ed_temp.append "@"
+END
+
+PROGRAM main_delete
+BEGIN
+	if loaded {
+		put "asmprobit_mfx__dlg delete, "
+		put "dialog(asclogit_mfx) "
+		put "value(" main.lb_values ") "
+		stata hidden
+	}
+END
+
+PROGRAM main_set_override_label
+BEGIN
+	if main.rb_means {
+call main.ck_values.setlabel resource LBL_CK_VALUES_MEANS
+	}
+	if main.rb_medians {
+call main.ck_values.setlabel resource LBL_CK_VALUES_MEDIAN
+	}
+END
+
+SCRIPT main_disable_delete
+BEGIN
+	// CALLED BY EXTERNAL CLASS CODE
+	main.bu_drop.disable
+	main_isListEmpty.settrue
+END
+
+DIALOG main, label(resource ASCLOGIT_MFX_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_vars		_lft	_top	_iwd	.,		///
+  	label(resource LBL_DISPLAY_MARGINAL_EFFECTS_FOR_VARS_ALL_DEFAULT)
+  VARLIST  vl_vars		@	_ss	@	.,		///
+  	label(resource LBL_DISPLAY_MARGINAL_EFFECTS_FOR_VARS)		///
+	option(varlist) numeric
+
+  GROUPBOX gb_estpoints		_lft	_ls	_iwd	_ht2,		///
+  	label(resource LBL_MARGINAL_EFFECTS_AT)
+  RADIO    rb_means		_ilft	_ss	_cwd1	.,		///
+  	first label(resource LBL_MEANS)					///
+  	onclickon(program main_set_override_label)
+  RADIO    rb_medians		_lft2	@	@	.,		///
+  	label(resource LBL_MEDIANS) last				///
+  	onclickon(program main_set_override_label)
+
+  CHECKBOX ck_values		_lft	_xls	_iwd	_ht23h,		///
+  	groupbox							///
+  	onclickon(program main_define_enable) 				///
+  	onclickoff(script main_define_disable)				///
+  	label(resource LBL_CK_VALUES_MEANS)
+
+  TEXT     tx_values		_indent _ss	_cwd3_1	.,		///
+  	label(resource LBL_SPECIFIED_VALUES)
+DEFINE y @y
+  LISTBOX  lb_values		@	_ss	@	185, contents(_listvals)
+  BUTTON   bu_drop		@	+195	@	.,		///
+  	label(resource LBL_DELETE_SELECTED_VALUE) onpush(program main_delete)
+
+  GROUPBOX gb_override		_lft3_2	y	_comb3_2 _ht19,		///
+  	label(resource LBL_NEW_SPECIFIED_VALUE)
+
+  GROUPBOX gb_type		_indent _ss	_inwd	_ht2,		///
+  	label(resource LBL_TYPE_OF_VARIABLE)
+  DEFINE x @x
+  RADIO    rb_alt_spec		_indent	_ss	140	.,		///
+  	first								///
+  	onclickon(program main_mfx_setType)				///
+  	label(resource LBL_ALT_SPEC)
+  RADIO    rb_case_spec		_lft3_3	@	@	.,		///
+  	last								///
+  	onclickon(program main_mfx_setType)				///
+  	label(resource LBL_CASE_SPEC)
+
+  TEXT     tx_altvar		x	_xls	_cwd3_5	.,		///
+  	label(resource LBL_VARIABLE)
+  TEXT     tx_alt		_lft3_3	@	@	.,		///
+  	label(resource LBL_ALTERNATIVE_EMPTY)
+  COMBOBOX cb_altvar		x	_ss	@	.,		///
+  	dropdown contents(e(indvars))					///
+  	label(resource LBL_VARIABLE)
+  DEFINE y @y
+  COMBOBOX cb_alt		_lft3_3	@	@	.,		///
+  	dropdown contents(e(alteqs))
+  COMBOBOX cb_casevar		x	y	@	.,		///
+  	dropdown contents(e(casevars))					///
+  	label(resource LBL_VARIABLE)
+
+  TEXT     tx_value		x	_ls	_vnwd	.,		///
+  	label(resource LBL_VALUE)
+  EDIT	   en_value		@	+20	_en7wd	.,		///
+  	numonly	label(resource LBL_VALUE)
+
+  BUTTON   bu_add		@	+35	140	.,		///
+  	label(resource LBL_ADD_SPECIFIED_VALUE) onpush(program main_add_at)
+
+  SPINNER  sp_k			_lft	+75	_spwd	.,		///
+	default(1)							///
+	min(1)								///
+	option(k)
+  TEXT     tx_k			_spsep	@	_spr	.,		///
+	label(resource LBL_NUM_ALT_COMPUTING_PROBABILITIES)
+
+  EDIT     ed_temp		0 0 0 0
+END
+
+INCLUDE ifin
+
+DIALOG opt, tabtitle(resource LBL_OPTIONS)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2b
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  CHECKBOX ck_noesample		_lft	_ls	_iwd	.,		///
+  	option(noesample)						///
+  	label(resource LBL_NOESAMPLE)
+  CHECKBOX ck_noweight		@	_ms	@	.,		///
+  	option(nowght)							///
+  	label(resource LBL_IGNORE_WEIGHTS_CALCULATING_MEANS_MEDIANS)
+END
+
+PROGRAM command
+BEGIN
+	call atCmdList.setstring ""
+	if main.ck_values {
+		put "asmprobit_mfx__dlg build_atlist, dialog(asclogit_mfx) buffer(atCmdList)"
+		stata hidden
+	}
+
+	put "estat mfx "
+	put /program ifin_output
+	beginoptions
+		optionarg main.vl_vars
+		put " at(
+		if main.rb_means {
+			put "mean"
+		}
+		if main.rb_medians {
+			put "median"
+		}
+		if atCmdList {
+			put " "
+			put atCmdList
+		}
+		put ") "
+		optionarg /hidedefault main.sp_k
+		optionarg /hidedefault opt.sp_level
+		option opt.ck_noesample
+		option opt.ck_noweight
+	endoptions
+END

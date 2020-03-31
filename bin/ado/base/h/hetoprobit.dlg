@@ -1,0 +1,186 @@
+/*
+  hetoprobit
+
+*!  VERSION 1.0.2  24jan2019
+
+  keyword:  eclass
+
+*/
+
+VERSION 16.0
+
+INCLUDE _std_xlarge // has long title
+DEFINE _dlght 360
+INCLUDE header
+HELP hlp1, view("help hetoprobit")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	script se_createAsSvyJknifeBstrapML
+	program svy_check_title
+	setscale_hadj resource HETOPROBIT_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script sub_set_by_on
+	program se_setFinalInitState
+END
+
+SCRIPT svy_is_on
+BEGIN
+	rpt.ck_waldhet.disable
+	script max_setDefaultNoLog
+END
+SCRIPT svy_is_off
+BEGIN
+	rpt.ck_waldhet.enable
+	script max_setDefaultLog
+END
+PROGRAM svy_check_title
+BEGIN
+	if __MESSAGE.contains("-svy-") {
+		call settitle resource HETOPROBIT_SVY_DLG_TITLE
+	}
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)	///
+	title(resource HETOPROBIT_DLG_TITLE) // has svy title
+BEGIN
+  TEXT tx_dv 			_lft	_top	_vnwd	.,		///
+	label(resource LBL_DEPVAR)
+  VARNAME vn_dv			@ 	_ss	@	.,		///
+	ts								///
+	numeric								///
+	label(resource LBL_DEPVAR)
+  TEXT tx_iv			_vlx	_top	160	.,		///
+	label(resource LBL_INDDEPVAR)
+  VARLIST vl_iv			@	_ss	_vlwd	.,		///
+	fv ts								///
+	allowcat							///
+	numeric								///
+	label(resource LBL_INDDEPVAR)
+  GROUPBOX gb_het		_lft	_ls	_iwd	_ht9,		///
+	label(resource LBL_VARIANCE_MODEL)
+  TEXT     tx_het		_ilft	_ss	_inwd	.,		///
+	label(resource LBL_INDDEPVAR)
+  VARLIST  vl_het		@	_ss	@	.,		///
+	option(het)							///
+	allowcat ts fv							///
+	numeric								///
+	error(resource LBL_INDEPVARS_MODEL_THE_VARIANCE)		///
+	label(resource LBL_INDDEPVAR)
+  TEXT tx_hetoff		_ilft	_ls	_cwd2	.,		///
+	label(resource LBL_OFFSET_VARIABLE)
+  VARNAME vn_hetoff		@	_ss	_vnwd	.,		///
+	numeric								///
+	option("offset")						///
+	label(resource LBL_OFFSET_VARIABLE)
+  GROUPBOX gb_options		_lft	_xls	_iwd	_ht10,		///
+	label(resource LBL_OPTIONS)
+
+  TEXT tx_offset		_ilft	_ms	_cwd2	.,		///
+	label(resource LBL_OFFSET_VARIABLE)
+  VARNAME vn_offset		_ilft	_ss	_vnwd	.,		///
+	option("offset")						///
+	numeric								///
+	label(resource LBL_OFFSET_VARIABLE)
+  DEFINE _x _ilft
+  DEFINE _y _ls
+  DEFINE _cx _ilw80
+  DEFINE _bux _islw80
+  INCLUDE _constraints
+
+  DEFINE _x _ilft
+  DEFINE _xw _ibwd
+//  INCLUDE _ck_collinear
+END
+
+INCLUDE _constraints_sc 
+INCLUDE sub_by_ifin_over_subpop
+INCLUDE weights_fpi
+INCLUDE se
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+	program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2b
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  CHECKBOX ck_waldhet		_lft	_ls	_iwd	.,		///
+	option("waldhet")						///
+	label(resource LBL_PERFORM_WALD_TEST_ON_VARIANCE)
+
+  DEFINE _x _lft
+  DEFINE _y _ms
+  DEFINE _cx _iwd
+  INCLUDE _nocnsreport
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+
+PROGRAM rpt_output
+BEGIN
+	optionarg /hidedefault rpt.sp_level
+	option rpt.ck_waldhet
+	INCLUDE _nocnsreport_pr
+	INCLUDE _report_columns_pr
+	put " " rpt_bu_facvarsResults
+	put " " rpt_bu_fmtcoefResults
+END
+
+INCLUDE max_ml
+
+PROGRAM het_output
+BEGIN
+	varlist main.vl_het
+	beginoptions
+		optionarg main.vn_hetoff
+	endoptions	
+END
+
+PROGRAM command
+BEGIN
+	put /program by_output " "
+	put /program se_prefix_output " "
+	put "hetoprobit "
+	varlist main.vn_dv [main.vl_iv]
+	put " " /program ifin_output
+	put " " /program weights_output
+	beginoptions
+		INCLUDE _constraints_main_pr
+//		option main.ck_collinear
+		put " het("
+			require main.vl_het
+			put /program het_output
+		put ")"
+		optionarg main.vn_offset
+		put " " /program se_output
+		put " " /program rpt_output
+		put " " /program max_output
+	endoptions
+END

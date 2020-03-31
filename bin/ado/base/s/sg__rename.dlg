@@ -1,0 +1,108 @@
+/*
+    sg__rename.dlg
+
+*!  VERSION 1.1.3  04apr2019
+
+*/
+
+VERSION 14.0
+MODAL
+
+INCLUDE _std_vsmall
+DEFINE _dlght 90
+POSITION . . _dlgwd _dlght
+
+OK ok1, label(resource LBL_BU_OK) target(stata hidden)
+CANCEL can1, label(resource LBL_BU_CANCEL)
+
+DEFINE _clwd	15
+DEFINE _wd	120
+DEFINE _sep	+125
+DEFINE _cbwd	140
+DEFINE _cbsep	+145
+
+INCLUDE sg__common_output		/* routines necessary for output */
+
+SCRIPT PREINIT
+BEGIN
+	script sg__common_output_init 	/* initialize output globals */
+
+	create STRING OBJ
+	program setupOBJECT
+
+	create STRING sTemp
+	setscale_hadj resource SG__RENAME_DLG_HSCALE
+END
+
+PROGRAM setupOBJECT
+BEGIN
+	if ! __MESSAGE {
+		stopbox stop resource LBL_MSGBOX_OBJECT_NOT_FOUND
+// An unexpected error has occurred. Object not found.
+		exit 198
+	}
+	call OBJ.setvalue class __MESSAGE.value
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	if __MESSAGE {
+		call diagram_list.Arrdropall
+		call __MESSAGE.tokenize diagram_list 
+		call main.cb_current.repopulate
+		call main.cb_current.setvalue class __MESSAGE.value
+	}
+	call main.ed_new.setfocus
+END
+
+LIST diagram_list /* empty stub */
+BEGIN
+END
+
+
+DIALOG main, label(resource SG__RENAME_TAB_MAIN)
+BEGIN
+  TEXT 	   tx_current	_ilft	20	_wd	.,	///
+	label(resource LBL_CURRENT_NAME) right
+  COMBOBOX cb_current	_sep	@	_cbwd	.,	///
+	dropdownlist					///
+	contents(diagram_list) nomemory
+
+  TEXT     tx_new	_ilft	_ls	_wd	.,	///
+	label(resource LBL_NEW_NAME) right
+  EDIT     ed_new	_sep	@	_cbwd	.,	///
+	label(resource LBL_NEW_NAME) nomemory	
+END
+
+PROGRAM command
+BEGIN
+	require main.ed_new
+
+	if ! main.ed_new.isvalidname() {
+		stopbox stop resource LBL_RENAME_MSGBOX_AN_INVALID_NAME_WAS_SPECIFIED
+// An invalid name was specified.
+	}
+
+	call sg__PARAM1.setvalue class OBJ.value
+	
+	call sg__PARAM2.setvalue "BeginSet"
+	call sg__DESCPT.setvalue "rename diagram"
+	put /program sg__do_output_sub
+	
+/* */	/* sg__do_output_sub does not work for Rename due to extra quotes */
+	call sg__PARAM2.setvalue "Rename"
+	call sg__ARG_00.setvalue class main.ed_new.value
+	
+	put "mata: sg__global.signal("  
+	put `"""' sg__PARAM1 `"""' ", "
+	put `"""' sg__PARAM2 `"""' ", "
+	put "`" `"""' sg__ARG_00 `"""' "'" ", "
+	put `"""' `"""' ")"
+	stata hidden immediate
+	call program sg__reset_args
+/* */
+
+	call sg__PARAM2.setvalue "EndSet"
+	call sg__DESCPT.setvalue "rename diagram"
+	put /program sg__do_output_sub
+END

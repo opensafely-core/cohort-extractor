@@ -1,0 +1,320 @@
+/*
+  sg__text_prop.dlg
+
+*!  VERSION 1.1.1  03jun2015
+
+*/
+
+VERSION 14.0
+MODAL
+
+INCLUDE _std_msmall
+DEFINE _dlght 270
+INCLUDE header_sem_ed
+
+DEFINE _clwd	15
+DEFINE _wd	130
+DEFINE _sep	+135
+DEFINE _wd2	120
+DEFINE _sep2	+125
+DEFINE _cbwd	120
+DEFINE _cbsep	+125
+
+INCLUDE sg__common_output		/* routines necessary for output */
+
+SCRIPT PREINIT
+BEGIN
+	script sg__common_output_init 	/* initialize output globals */
+
+	create STRING OBJ
+	program setupOBJECT
+
+	create STRING sTemp
+	create DOUBLE dTemp
+	create STRING sSrcType
+	setscale_hadj resource SG__TEXT_PROP_DLG_HSCALE
+END
+
+PROGRAM setupOBJECT
+BEGIN
+	if ! __MESSAGE {
+		stopbox stop resource LBL_MSGBOX_OBJECT_NOT_FOUND
+// An unexpected error has occurred. Object not found.
+		exit 198
+	}
+	call OBJ.setvalue class __MESSAGE.value
+END
+
+SCRIPT text_PREINIT
+BEGIN
+	create STRING sSize
+	create STRING sColor
+	create STRING sFace
+	create STRING sJust
+	create STRING sAngle
+	create BOOLEAN bBold
+	create BOOLEAN bItalic
+	create STRING sFormat
+
+	program text_get_defaults
+END
+
+SCRIPT text_POSTINIT
+BEGIN
+	program text_initialize_controls
+END
+
+PROGRAM text_get_defaults
+BEGIN
+	call sSrcType.setvalue class .__SEMG.dbsettings.source
+	
+	call sSrcType.withvalue sSize.setvalue class .__SEMG.dbsettings.@_size
+	call sSize.withvalue text.cb_fsize.setdefault "@"
+
+	call sSrcType.withvalue sColor.setvalue class .__SEMG.dbsettings.@_color
+	call sColor.withvalue text.cb_fcolor.setdefault "@"
+
+	call sSrcType.withvalue sFace.setvalue class .__SEMG.dbsettings.@_face
+	call sFace.withvalue text.cb_fface.setdefault "@"
+	
+	call sSrcType.withvalue sJust.setvalue class .__SEMG.dbsettings.@_justification
+	call sJust.withvalue text.cb_just.setdefault "@"
+
+	call sSrcType.withvalue sAngle.setvalue class .__SEMG.dbsettings.@_angle
+	call sAngle.withvalue text.cb_angle.setdefault "@"
+
+	call sSrcType.withvalue sTemp.setvalue class .__SEMG.dbsettings.@_bold
+	if (sTemp.iseq("yes")) {
+		call bBold.settrue
+		call text.ck_bold.setdefault 1
+	}
+	else {
+		call bBold.setfalse
+		call text.ck_bold.setdefault 0
+	}
+
+	call sSrcType.withvalue sTemp.setvalue class .__SEMG.dbsettings.@_italic
+	if (sTemp.iseq("yes")) {
+		call bItalic.settrue
+		call text.ck_italic.setdefault 1
+	}
+	else {
+		call bItalic.setfalse
+		call text.ck_italic.setdefault 0
+	}
+
+	call sSrcType.withvalue sFormat.setvalue class .__SEMG.dbsettings.@_fmt
+	call sFormat.withvalue text.ed_fmt.setdefault "@"
+END
+
+PROGRAM text_initialize_controls
+BEGIN
+	call text.cb_fsize.setvalue class sSize.value
+	call text.cb_fcolor.setvalue class sColor.value
+	call text.cb_fface.setvalue class sFace.value
+	call text.cb_just.setvalue class sJust.value
+	call text.cb_angle.setvalue class sAngle.value
+
+	if (bBold) {
+		call text.ck_bold.seton
+	}
+	else {
+		call text.ck_bold.setoff
+	}
+	if (bItalic) {
+		call text.ck_italic.seton
+	}
+	else {
+		call text.ck_italic.setoff
+	}
+	
+	call text.ed_fmt.setvalue class sFormat.value
+END
+
+DIALOG text, label(resource LBL_TEXT_PROPERTIES) tabtitle(resource LBL_TAB_TEXT)
+BEGIN
+  GROUPBOX gb_appearance	_lft	_top	_iwd	_ht21,		///
+	label(resource LBL_APPEARANCE_NO_COLON)
+
+  TEXT     tx_fsize		_ilft	_ss	_wd	.,		///
+	label(resource LBL_SIZE) right
+  COMBOBOX cb_fsize		_sep	@	80	., nomemory	///
+	dropdown contents(.__SEM_STYLES_LABEL.pointsize)		///
+	values(.__SEM_STYLES.pointsize)
+  TEXT     tx_fsize_m		+85	@	50	.,		///
+	label(resource LBL_PT)
+
+  TEXT     tx_fcolor		_ilft	_mls	_wd	.,		///
+	label(resource LBL_FONT_COLOR) right
+  COMBOBOX cb_fcolor		_sep	@	_cbwd	., nomemory	///
+	dropdown contents(.__SEM_STYLES_LABEL.color)			///
+	values(.__SEM_STYLES.color)
+
+  TEXT     tx_fface		_ilft	_mls	_wd	.,		///
+	label(resource LBL_FONT_FACE) right
+  COMBOBOX cb_fface		_sep	@	_cbwd	., nomemory	///
+	dropdown contents(.__SEM_STYLES_LABEL.face)			///
+	values(.__SEM_STYLES.face)
+
+  TEXT     tx_just		_ilft	_mls	_wd	.,		///
+	label(resource LBL_JUSTIFICATION) right
+  COMBOBOX cb_just		_sep	@	80	., nomemory	///
+	dropdown contents(.__SEM_STYLES_LABEL.justification)		///
+	values(.__SEM_STYLES.justification)
+
+  TEXT     tx_angle		_ilft	_mls	_wd	.,		///
+	label(resource LBL_ANGLE) right
+  COMBOBOX cb_angle		_sep	@	80	., nomemory	///
+	dropdown contents(.__SEM_STYLES_LABEL.angle)			///
+	values(.__SEM_STYLES.angle)
+DEFINE x @x
+  TEXT     tx_angle_m		+85	@	50	.,		///
+	label(resource LBL_DEG)
+	
+  CHECKBOX ck_bold		x	_mls	60	., nomemory	///
+	label(resource LBL_BOLD) 
+  CHECKBOX ck_italic		+65	@	_wd	., nomemory	///
+	label(resource LBL_ITALIC) 
+
+  FRAME    fr_fmt		_ilft	+30	_ibwd	1,
+
+  TEXT     tx_fmt		_ilft	+15	195	.,		///
+  	label(resource LBL_FORMAT_FOR_NUMERIC_SUBSTITUTIONS) right
+  EDIT     ed_fmt		+200	@	125	., nomemory	///
+	option(format)
+  BUTTON   bu_fmt		+130	@	20	.,		///
+	label("...") onpush(script text_GetFormat)			///
+	tooltip(resource LBL_CREATE_DISPLAY_FORMAT)
+END
+
+SCRIPT text_GetFormat
+BEGIN
+	create STRING textFormat
+	create CHILD format_chooser
+	format_chooser.setExitString textFormat
+	format_chooser.setExitAction "text.ed_fmt.setvalue class textFormat.value"
+END
+
+PROGRAM text_output
+BEGIN
+	call program text_get_defaults
+
+	if ! text.cb_fsize.isdefault() {
+		call dTemp.setvalue class text.cb_fsize.value
+		call sTemp.setvalue class text.cb_fsize.value
+		if (!dTemp & dTemp.isneq(0) & sTemp.isneq("<multiple>")) {
+			call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_CONTAINS_A_NONNUMERIC_VALUE_FMT" ///
+				"resource LBL_TAB_SIZE"
+			stopbox stop "class _MSG_TMP.value"
+//  "Size" contains a nonnumeric value.
+		}
+		call sg__PARAM2.setvalue "SetStyle"
+		call sg__ARG_00.setvalue class sSrcType.value
+		call sg__ARG_00.append ".size"
+		call sg__ARG_01.setvalue class text.cb_fsize.value
+		call sg__DESCPT.setvalue "set font size"
+		put /program sg__do_output_sub
+	}
+
+	if ! text.cb_fcolor.isdefault() {
+		call sg__PARAM2.setvalue "SetStyle"
+		call sg__ARG_00.setvalue class sSrcType.value
+		call sg__ARG_00.append ".color"
+		call sg__ARG_01.setvalue class text.cb_fcolor.value
+		put /program sg__do_output_sub
+	}
+
+	if ! text.cb_fface.isdefault() {
+		call sg__PARAM2.setvalue "SetStyle"
+		call sg__ARG_00.setvalue class sSrcType.value
+		call sg__ARG_00.append ".face"
+		call sg__ARG_01.setvalue class text.cb_fface.value
+		put /program sg__do_output_sub
+	}
+
+	if ! text.cb_just.isdefault() {
+		call sg__PARAM2.setvalue "SetStyle"
+		call sg__ARG_00.setvalue class sSrcType.value
+		call sg__ARG_00.append ".justification"
+		call sg__ARG_01.setvalue class text.cb_just.value
+		put /program sg__do_output_sub
+	}
+
+	if ! text.cb_angle.isdefault() {
+		call dTemp.setvalue class text.cb_angle.value
+		call sTemp.setvalue class text.cb_angle.value
+		if (!dTemp & dTemp.isneq(0) & sTemp.isneq("<multiple>")) {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_CONTAINS_A_NONNUMERIC_VALUE_FMT" ///
+				"resource SG__TEXT_ANGLE"
+                        stopbox stop "class _MSG_TMP.value"
+//  "Angle" contains a nonnumeric value.
+		}
+		call sg__PARAM2.setvalue "SetStyle"
+		call sg__ARG_00.setvalue class sSrcType.value
+		call sg__ARG_00.append ".angle"
+		call sg__ARG_01.setvalue class text.cb_angle.value
+		put /program sg__do_output_sub
+	}
+
+	if (!text.ck_bold.isdefault()) {
+		call sg__PARAM2.setvalue "SetStyle"
+		call sg__ARG_00.setvalue class sSrcType.value
+		call sg__ARG_00.append ".bold"
+		if text.ck_bold {
+			call sg__ARG_01.setvalue "yes"
+		}
+		else {
+			call sg__ARG_01.setvalue "no"
+		}
+		put /program sg__do_output_sub
+	}
+
+	if (!text.ck_italic.isdefault()) {
+		call sg__PARAM2.setvalue "SetStyle"
+		call sg__ARG_00.setvalue class sSrcType.value
+		call sg__ARG_00.append ".italic"
+		if text.ck_italic {
+			call sg__ARG_01.setvalue "yes"
+		}
+		else {
+			call sg__ARG_01.setvalue "no"
+		}
+		put /program sg__do_output_sub
+	}
+
+	if ! text.ed_fmt.isdefault() {
+		call sg__PARAM2.setvalue "SetStyle"
+		call sg__ARG_00.setvalue class sSrcType.value
+		call sg__ARG_00.append ".fmt"
+		call sg__ARG_01.setvalue class text.ed_fmt.value
+		put /program sg__do_output_sub
+	}
+END
+
+/*****************************************************************************/
+
+PROGRAM command
+BEGIN
+	call sg__PARAM1.setvalue class OBJ.value
+	
+	call sg__PARAM2.setvalue "BeginSet"
+	call sg__DESCPT.setvalue "change text default settings"
+	put /program sg__do_output_sub
+	
+	put /program text_output
+
+	call sg__PARAM2.setvalue "EndSet"
+	call sg__DESCPT.setvalue "change default text settings"
+	put /program sg__do_output_sub
+
+
+	call sg__PARAM1.setvalue class OBJ.value
+	call sg__PARAM2.setvalue "UpdateDlg"
+	call sg__ARG_00.setvalue "text_prop"
+	call sg__ARG_01.setvalue class sSrcType.value
+	put /program sg__do_output_sub
+END

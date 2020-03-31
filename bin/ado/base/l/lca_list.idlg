@@ -1,0 +1,341 @@
+/*
+    lca_list.idlg
+
+*!  VERSION 1.0.4  27mar2017
+        
+
+*/
+
+LIST main_measure_model_list
+BEGIN	
+	
+//	Regress -- Gaussian family, Identity link
+	resource LCA_MAIN_MEASURE_LST_ITEM_REGRESS	
+//	Gaussian family, Log link
+	resource LCA_MAIN_MEASURE_LST_ITEM_GAUSSIAN_FAMILY_LOG_LINK	
+//	Complementary log-log -- Bernoulli family, Cloglog link
+	resource LCA_MAIN_MEASURE_LST_ITEM_COMPLEMENTARY_LOG_LOG	
+//	Logistic -- Bernoulli family, Logit link
+	resource LCA_MAIN_MEASURE_LST_ITEM_LOGISTIC	
+//	Probit -- Bernoulli family, Probit link
+	resource LCA_MAIN_MEASURE_LST_ITEM_PROBIT	
+//	Binomial family, Cloglog link
+	resource LCA_MAIN_MEASURE_LST_ITEM_BINOMIAL_FAMILY_CLOGLOG	
+//	Binomial family, Logit link
+	resource LCA_MAIN_MEASURE_LST_ITEM_BINOMIAL_FAMILY_LOGIT	
+//	Binomial family, Probit link
+	resource LCA_MAIN_MEASURE_LST_ITEM_BINOMIAL_FAMILY_PROBIT	
+//	Poisson -- Poisson family, Log link
+	resource LCA_MAIN_MEASURE_LST_ITEM_POISSON	
+//	Negative binomial -- Nbinomial constant family, Log link
+	resource LCA_MAIN_MEASURE_LST_ITEM_NEGATIVE_BINOMIAL	
+//	Negative binomial mean -- Nbinomial mean family, Log link
+	resource LCA_MAIN_MEASURE_LST_ITEM_NEGATIVE_BINOMIAL_MEAN	
+//	Ordinal logistic -- Ordinal family, Logit link
+	resource LCA_MAIN_MEASURE_LST_ITEM_ORDINAL_LOGISTIC	
+//	Ordinal probit -- Ordinal family, Probit link
+	resource LCA_MAIN_MEASURE_LST_ITEM_ORDINAL_PROBIT	
+//	Ordinal family, Cloglog link
+	resource LCA_MAIN_MEASURE_LST_ITEM_ORDINAL_FAMILY	
+//	Multinomial logistic -- Multinomial family, Logit link
+	resource LCA_MAIN_MEASURE_LST_ITEM_MULTINOMIAL_LOGISTIC	
+//	Beta family, Logit link
+	resource LCA_MAIN_MEASURE_LST_ITEM_BETA_FAMILY_LOGIT	
+//	Beta family, Probit link
+	resource LCA_MAIN_MEASURE_LST_ITEM_BETA_FAMILY_PROBIT	
+//	Beta family, Cloglog link
+	resource LCA_MAIN_MEASURE_LST_ITEM_BETA_FAMILY_CLOGLOG	
+//	Exponential -- Exponential family, Log link
+	resource LCA_MAIN_MEASURE_LST_ITEM_EXPONENTIAL	
+//	Weibull -- Weibull family, Log link
+	resource LCA_MAIN_MEASURE_LST_ITEM_WEIBULL	
+//	Gamma -- Gamma family, Log link
+	resource LCA_MAIN_MEASURE_LST_ITEM_GAMMA	
+//	Loglogistic -- Loglogistic family, Log link
+	resource LCA_MAIN_MEASURE_LST_ITEM_LOGLOGISTIC	
+//	Lognormal -- Lognormal family, Log link
+	resource LCA_MAIN_MEASURE_LST_ITEM_LOGNORMAL
+END
+
+LIST main_measure_model_values
+BEGIN
+	family(gaussian) link(identity)
+	family(gaussian) link(log)
+	family(bernoulli) link(cloglog)
+	family(bernoulli) link(logit)
+	family(bernoulli) link(probit)
+	family(binomial) link(cloglog)
+	family(binomial) link(logit)
+	family(binomial) link(probit)
+	family(poisson) link(log)
+	family(nbinomial constant) link(log)
+	family(nbinomial mean) link(log)
+	family(ordinal) link(logit)
+	family(ordinal) link(probit)
+	family(ordinal) link(cloglog)
+	family(multinomial) link(logit)
+	family(beta) link(logit)
+	family(beta) link(probit)
+	family(beta) link(cloglog)
+	family(exponential) link(log)
+	family(weibull) link(log)
+	family(gamma) link(log)
+	family(loglogistic) link(log)
+	family(lognormal) link(log)
+END
+
+PROGRAM main_check_measure_model
+BEGIN
+	if main.cb_measure_model.contains("identity") {
+		call main.bu_censor.show
+	}
+	else {
+		call main.bu_censor.hide
+	}
+	if main.cb_measure_model.contains("(binomial)") {
+		call main.vn_measure_model_deno.show
+		call main.tx_measure_model_deno.show
+	}
+	else {
+		call main.vn_measure_model_deno.hide
+		call main.tx_measure_model_deno.hide
+	}
+	if main.cb_measure_model.contains("poisson") |	///
+		main.cb_measure_model.contains("nbinomial") {
+		call main.tx_measure_model_expo.show
+		call main.vn_measure_model_expo.show
+	}
+	else {
+		call main.tx_measure_model_expo.hide
+		call main.vn_measure_model_expo.hide
+	}
+	if main.cb_measure_model.contains("exponential") |	///
+		main.cb_measure_model.contains("weibull") |	///
+		main.cb_measure_model.contains("gamma") |	/// 
+		main.cb_measure_model.contains("loglogistic") |	///
+		main.cb_measure_model.contains("lognormal") {
+		call main.bu_failure.show
+	}
+	else {
+		call main.bu_failure.hide
+	}
+END
+
+PROGRAM create_censordlg
+BEGIN
+	call create CHILD lca_variables_censor AS censor
+	if ! _rc {
+		call censor.setExitString sCensorDlgResult
+		call censor.setExitAction "program lca_getCensorResult"
+	}
+END
+
+PROGRAM lca_getCensorResult
+BEGIN
+	call create STRING sTMP
+	call sTMP.setvalue resource SG__VARIABLES_VARIABLE_BU_CENSOR
+	if sCensorDlgResult {
+		call sTMP.append " *"
+	}
+	else {
+		call sTMP.append "  "
+	}
+	call main.bu_censor.setlabel class sTMP.value
+END
+
+PROGRAM create_failuredlg
+BEGIN
+	call create CHILD lca_variables_failure AS failure
+	if ! _rc {
+		call failure.setExitString sFailureDlgResult
+		call failure.setExitAction "program lca_getFailureResult"
+	}
+END
+
+PROGRAM lca_getFailureResult
+BEGIN
+	call create STRING sTMP
+	call sTMP.setvalue resource LBL_BU_FAILURE_AND_TRUNCATION
+	if sFailureDlgResult {
+		call sTMP.append " *"
+	}
+	else {
+		call sTMP.append "  "
+	}
+	call main.bu_failure.setlabel class sTMP.value
+END
+
+PROGRAM main_measure_model_output
+BEGIN
+	if main.cb_measure_model.equals("family(gaussian) link(identity)") {
+		put " family(gaussian"
+		if sCensorDlgResult {
+			put ", "
+			put sCensorDlgResult
+		}
+		put ")"
+		
+		put " link(identity)"
+	}
+	if main.cb_measure_model.equals("family(gaussian) link(log)") |	///
+		main.cb_measure_model.equals("family(bernoulli) link(cloglog)") | /// 
+		main.cb_measure_model.equals("family(bernoulli) link(logit)") | /// 
+		main.cb_measure_model.equals("family(bernoulli) link(probit)") | ///
+		main.cb_measure_model.equals("family(poisson) link(log)") | ///
+		main.cb_measure_model.equals("family(nbinomial constant) link(log)") | ///
+		main.cb_measure_model.equals("family(nbinomial mean) link(log)") | ///
+		main.cb_measure_model.equals("family(ordinal) link(logit)") | ///
+		main.cb_measure_model.equals("family(ordinal) link(probit)") | ///
+		main.cb_measure_model.equals("family(ordinal) link(cloglog)") | ///
+		main.cb_measure_model.equals("family(multinomial) link(logit)") | ///
+		main.cb_measure_model.equals("family(beta) link(logit)") | ///
+		main.cb_measure_model.equals("family(beta) link(probit)") | ///
+		main.cb_measure_model.equals("family(beta) link(cloglog)") {
+		put " " main.cb_measure_model
+	}
+	
+	if main.cb_measure_model.contains("(binomial)") {
+		put " family(binomial"
+		if main.vn_measure_model_deno.isvisible() &		///
+			main.vn_measure_model_deno {
+			put " "
+			put main.vn_measure_model_deno
+		}
+		put ")"
+		
+		if main.cb_measure_model.contains("cloglog") {
+			put " link(cloglog)"
+		}
+		if main.cb_measure_model.contains("logit") {
+			put " link(logit)"
+		}
+		if main.cb_measure_model.contains("probit") {
+			put " link(probit)"
+		}		
+	}
+	
+	if main.cb_measure_model.equals("family(exponential) link(log)") {
+		put " family(exponential"
+		if sFailureDlgResult {
+			put ", "
+			put sFailureDlgResult
+		}
+		put ")"
+		
+		put " link(log)"
+	}
+	
+	if main.cb_measure_model.equals("family(weibull) link(log)") {
+		put " family(weibull"
+		if sFailureDlgResult {
+			put ", "
+			put sFailureDlgResult
+		}
+		put ")"
+		
+		put " link(log)"
+	}
+	
+	if main.cb_measure_model.equals("family(gamma) link(log)") {
+		put " family(gamma"
+		if sFailureDlgResult {
+			put ", "
+			put sFailureDlgResult
+		}
+		put ")"
+		
+		put " link(log)"
+	}
+	
+	if main.cb_measure_model.equals("family(loglogistic) link(log)") {
+		put " family(loglogistic"
+		if sFailureDlgResult {
+			put ", "
+			put sFailureDlgResult
+		}
+		put ")"
+		
+		put " link(log)"
+	}
+	
+	if main.cb_measure_model.equals("family(lognormal) link(log)") {
+		put " family(lognormal"
+		if sFailureDlgResult {
+			put ", "
+			put sFailureDlgResult
+		}
+		put ")"
+		
+		put " link(log)"
+	}
+	
+	if main.vn_measure_model_expo.isvisible() &	///
+		main.vn_measure_model_expo {
+		put " exposure("
+		put main.vn_measure_model_expo
+		put ")"
+	}
+END
+
+LIST model_param_group_list
+BEGIN
+
+//	"Intercepts and cutpoints"
+	resource LBL_PARAM_LST_ITEM_INTERCEPTS_CUTPOINTS
+//	"Fixed coefficients"
+	resource LBL_PARAM_LST_ITEM_FIXED_COEF
+//	"Latent variable coefficients"
+	resource LBL_PARAM_LST_ITEM_LATENT_VAR_COEF
+//	"Covariances of errors"
+	resource LBL_PARAM_LST_ITEM_COVARIANCES_OF_ERRORS	
+//	"Scaling parameters"
+	resource LBL_PARAM_LST_ITEM_SCALING_PARAMS	
+//	"Means of exogenous latent variables"
+	resource LBL_PARAM_LST_ITEM_MEANS_OF_EXOGENOUS_VARS	
+//	"Covariances of exogenous latent variables"
+	resource LBL_PARAM_LST_ITEM_COVARIANCES_OF_EXOGENOUS_LATENT_VARS	
+//	"All of the above"
+	resource LBL_ALL_OF_THE_ABOVE	
+//	"None of the above"
+	resource LBL_NONE_OF_THE_ABOVE
+END
+
+LIST model_param_group_values
+BEGIN
+	cons
+	coef
+	loading
+	errvar
+	scale
+	means
+	covex
+	all
+	none
+END
+
+LIST main_param_class_list
+BEGIN
+//	"Intercepts and cutpoints"
+	resource LBL_PARAM_LST_ITEM_INTERCEPTS_CUTPOINTS	
+//	"Fixed coefficients"
+	resource LBL_PARAM_LST_ITEM_FIXED_COEF	
+//	"Covariances of errors"
+	resource LBL_PARAM_LST_ITEM_COVARIANCES_OF_ERRORS	
+//	"Scaling parameters"
+	resource LBL_PARAM_LST_ITEM_SCALING_PARAMS	
+//	"All of the above"
+	resource LBL_ALL_OF_THE_ABOVE	
+//	"None of the above"
+	resource LBL_NONE_OF_THE_ABOVE
+END
+
+LIST main_param_class_values
+BEGIN
+	cons
+	coef
+	errvar
+	scale
+	all
+	none
+END
+

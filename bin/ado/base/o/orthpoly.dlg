@@ -1,0 +1,141 @@
+/*
+  -orthpoly-
+
+*! VERSION 1.1.0  06nov2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+INCLUDE _ht300
+INCLUDE header
+
+HELP hlp1, view("help orthpoly")
+RESET res1
+
+DEFINE exin    +60
+DEFINE exina   +80
+DEFINE exwd     55
+DEFINE exwda   195
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource ORTHPOLY_DLG_HSCALE
+END
+
+
+DIALOG main, label(resource ORTHPOLY_DLG_TITLE)	tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_var            _lft      _top      _iwd      .,		/*
+		*/ label(resource ORTHPOLY_MAIN_TX_VAR)
+  VARNAME  vn_var            @         _ss       _vnwd     .,		/*
+  		*/ numeric						/*
+		*/ label(resource ORTHPOLY_MAIN_TX_VAR)
+
+  SPINNER  sp_degree         @         _ls       _spwd     .,		/*
+		*/ min(1) max(100) default(1)				/*
+		*/ option(degree)					/*
+		*/ label(resource ORTHPOLY_MAIN_SP_DEGREE)
+  TEXT     tx_degree         _spsep    @         _spr      .,		/*
+		*/ label(resource ORTHPOLY_MAIN_TX_DEGREE)
+
+  GROUPBOX gb_gen            _lft      _ls       _iwd      _ht17,	/*
+		*/ label(resource LBL_GENERATE_COLON)
+  RADIO    rb_gen            _ilft     _ss       _ibwd     ., first	/*
+		*/ clickon("script gen")				/*
+		*/ label(resource ORTHPOLY_MAIN_RB_GEN)
+  EDIT     ed_gen            _indent2  _ss       _inwd     .,		/*
+		*/ option(generate)					/*
+		*/ label(resource LBL_GENERATE_VARIABLES)
+  TEXT     tx_examples       @         _ss       exwd      .,		/*
+		*/ label(resource LBL_EXAMPLES)
+  TEXT     tx_examp1         exin      @         exwd      ., right	/*
+		*/ label(resource LBL_V_STAR)
+  DEFINE   holdx @x
+  TEXT     tx_examp1a        exina     @         exwda     .,		/*
+		*/ label(resource LBL_CREATE_VARIABLES_V1_V2_V#)
+  TEXT     tx_examp2         holdx     _vss      exwd      ., right	/*
+		*/ label(resource LBL_Z1_Z8)
+  TEXT     tx_examp2a        exina     @         exwda     .,		/*
+		*/ label(resource LBL_CREATE_VARIABLES_Z1_Z2_Z8)
+  TEXT     tx_examp3         holdx     _vss      exwd      ., right	/*
+		*/ label(resource LBL_A_B_C)
+  TEXT     tx_examp3a        exina     @         exwda     .,		/*
+		*/ label(resource LBL_CREATE_VARIABLES_A_B_C)
+
+  RADIO    rb_poly           _ilft     _ls       _ibwd     .,		/*
+		*/ clickon("script poly")				/*
+		*/ label(resource ORTHPOLY_MAIN_RB_POLY)
+  EDIT     ed_poly           _indent2  _ss       _vnwd     .,		/*
+		*/ option(poly)						/*
+		*/ label(resource ORTHPOLY_MAIN_ED_POLY)
+
+  RADIO    rb_genpoly        _ilft     _ls       _ibwd     ., last	/*
+		*/ clickon("script both")				/*
+		*/ label(resource ORTHPOLY_MAIN_RB_GENPOLY)
+END
+
+
+INCLUDE weights_fpai
+INCLUDE ifin
+
+
+SCRIPT gen
+BEGIN
+  script gen_on
+  main.ed_poly.disable
+END
+
+SCRIPT poly
+BEGIN
+  script gen_off
+  main.ed_poly.enable
+END
+
+SCRIPT both
+BEGIN
+  script gen_on
+  main.ed_poly.enable
+END
+
+SCRIPT gen_on
+BEGIN
+  main.ed_gen.enable
+  main.tx_examples.enable
+  main.tx_examp1.enable
+  main.tx_examp1a.enable
+  main.tx_examp2.enable
+  main.tx_examp2a.enable
+END
+
+SCRIPT gen_off
+BEGIN
+  main.ed_gen.disable
+  main.tx_examples.disable
+  main.tx_examp1.disable
+  main.tx_examp1a.disable
+  main.tx_examp2.disable
+  main.tx_examp2a.disable
+END
+
+
+PROGRAM command
+BEGIN
+	put "orthpoly "
+	varlist main.vn_var
+	INCLUDE _weights_pr
+	INCLUDE _ifin_pr
+	beginoptions
+		if main.rb_gen | main.rb_genpoly {
+			require main.ed_gen
+			optionarg main.ed_gen
+		}
+		if main.rb_poly | main.rb_genpoly {
+			require main.ed_poly
+			optionarg main.ed_poly
+		}
+		optionarg main.sp_degree
+	endoptions
+END
+

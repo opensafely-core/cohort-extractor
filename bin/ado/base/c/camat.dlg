@@ -1,0 +1,266 @@
+/*
+	camat
+
+*!  VERSION 1.2.2  17apr2015
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE header
+HELP hlp1, view("help camat")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING matrixResult
+	setscale_hadj resource CAMAT_DLG_HSCALE
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL) label(resource CAMAT_DLG_TITLE)
+BEGIN
+  BUTTON   bu_matinput   	_rj100	_top    100	.,		///
+	label(resource LBL_INPUT_MATRIX) 				///
+	onpush(program show_matrix_input)				///
+	tooltip(resource LBL_INPUT_HAND)
+
+  TEXT     tx_mat		_lft	_ss	_iwd	.,		///
+	label(resource CAMAT_MAIN_TX_MAT)
+  COMBOBOX cb_mat		@       _ss     _vnwd	.,		///
+	label(resource LBL_MATRIX_NAME)					///
+	dropdown 							///
+	contents(matrix)
+  TEXT     tx_mat2		_lft	_ls	_iwd	.,		///
+	label(resource CAMAT_MAIN_TX_MAT2)
+END
+
+DIALOG model2, tabtitle(resource LBL_TAB_MODEL2)
+BEGIN
+  CHECKBOX ck_dimensions	_lft	_top	_iwd	.,		///
+  	onclickon(script ck_dimensions_on)				///
+  	onclickoff(script ck_dimensions_off)				///
+	label(resource CAMAT_MODEL2_CK_DIMENSIONS)
+
+  SPINNER  sp_dimensions	_indent2	_ss	_spwd	.,	///
+	label(resource LBL_DIMENSIONS)					///
+	min(1)								///
+	max(1000)							///
+	default(2)							///
+	option(dimensions)
+  TEXT     tx_dimensions	_spsep	@	_cksprb	.,		///
+	label(resource LBL_DIMENSIONS)
+
+  GROUPBOX gb_normalize		_lft	_ls	_iwd	_ht6,		///
+	label(resource LBL_NORMALIZATION_METHOD)
+  RADIO	rb_default		_ilft	_ss	_cwd1	.,		///
+	first label(resource LBL_SYMMETRIC_COORDINATES_DEFAULT) 	///
+	option(NONE)
+  DEFINE holdy @y
+  RADIO	rb_row			@	_ss	@	., 		///
+	label(resource LBL_ROW_PRINCIPAL_COORDINATES)			///
+	option(normalize(row))
+  RADIO	rb_column		@	_ss	@	., 		///
+	label(resource LBL_COLUMN_PRINCIPAL_COORDINATES)		///
+	option(normalize(column))
+
+  RADIO	rb_principal		_lft2	holdy	_cwd2	., 		///
+	label(resource LBL_PRINCIPAL_COORDINATES)			///
+	option(normalize(principal))
+  RADIO	rb_power		@	_ss	+5 	.,		///
+	last label(resource LBL_POWER_O1_ROW_COORDINATES)		///
+  	onclickon(script ck_power_on)					///
+  	onclickoff(script ck_power_off)					///
+	option(NONE)
+  EDIT     ed_power	_indent2  _ss	_en7wd	.,			///
+	option(normalize)						///
+	label(resource LBL_POWER_NUMBER)
+  TEXT     tx_power	_spsep	@	_ckwd	.,			///
+	label("#")
+
+  TEXT     tx_rowsupp		_lft	_xls	_cwd2	.,		///
+	label(resource LBL_MATRIX_OF_SUPPLEMENTARY_ROWS)
+  DEFINE holdy @y
+  COMBOBOX cb_rowsupp		@       _ss     _vnwd	.,		///
+	label(resource LBL_MATRIX_OF_SUPPLEMENTARY_ROWS)		///
+	dropdown option(rowsupp)					///
+	contents(matrix)
+  TEXT     tx_colsupp		_lft2	holdy	_cwd2	.,		///
+	label(resource LBL_MATRIX_OF_SUPPLEMENTARY_COLUMNS)
+  COMBOBOX cb_colsupp		@       _ss     _vnwd	.,		///
+	label(resource LBL_MATRIX_OF_SUPPLEMENTARY_COLUMNS)		///
+	dropdown option(colsupp)					///
+	contents(matrix)
+
+  TEXT     tx_rowname		_lft	_ls	_cwd2	.,		///
+	label(resource LBL_LABEL_OF_ROWS)
+  DEFINE holdy @y
+  EDIT     ed_rowname		@       _ss     _vnwd	.,		///
+	label(resource LBL_LABEL_OF_ROWS)				///
+	option(rowname) default(rows)
+
+  TEXT     tx_colname		_lft2	holdy	_cwd2	.,		///
+	label(resource LBL_LABEL_OF_COLUMNS)
+  EDIT     ed_colname		@       _ss     _vnwd	.,		///
+	label(resource LBL_LABEL_OF_COLUMNS)				///
+	option(colname) default(columns)
+END
+
+PROGRAM show_matrix_input
+BEGIN
+	call create CHILD matrix_input
+	if ! _rc {
+		call matrix_input.setExitString matrixResult
+		call matrix_input.setExitAction "program getMatrixResult"
+		call matrix_input.callthru "isChildContext.settrue"
+	}
+END
+PROGRAM getMatrixResult
+BEGIN
+	call create ARRAY matrix_tempvals
+	call matrix_tempvals.Arrdropall
+	
+	call main.cb_mat.withvalue matrix_tempvals.Arrpush "@"
+	call model2.cb_rowsupp.withvalue matrix_tempvals.Arrpush "@"
+	call model2.cb_colsupp.withvalue matrix_tempvals.Arrpush "@"
+
+	call main.cb_mat.repopulate
+	call model2.cb_rowsupp.repopulate
+	call model2.cb_colsupp.repopulate
+
+	call main.cb_mat.setvalue class matrix_tempvals[1]
+	call model2.cb_rowsupp.setvalue class matrix_tempvals[2]
+	call model2.cb_colsupp.setvalue class matrix_tempvals[3]
+END
+
+DIALOG report, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  CHECKBOX ck_ddim		_lft	_top	_iwd	.,		///
+  	onclickon(script ck_ddim_on)					///
+  	onclickoff(script ck_ddim_off)					///
+	label(resource LBL_SPECIFY_NUMBER_SINGULAR_VALUES_DISPLAYED)
+
+  SPINNER  sp_ddim		+20	_ss	_spwd	.,		///
+	label(resource LBL_SINGULAR_VALUES)					///
+	min(1)								///
+	max(1000)							///
+	default(2)							///
+	option(ddimensions)
+  TEXT     tx_ddim		_spsep	@	_cksprb	.,		///
+	label(resource LBL_SINGULAR_VALUES)
+
+  CHECKBOX ck_norowpoints	_lft	_ls	_iwd	.,		///
+	label(resource CAMAT_REPORT_CK_NOROWPOINTS)				///
+	option(norowpoints)
+  CHECKBOX ck_nocolpoints	@	_ms	@	.,		///
+	label(resource CAMAT_REPORT_CK_NOCOLPOINTS)			///
+	option(nocolpoints)
+  CHECKBOX ck_compact		@	_ms	@	.,		///
+	label(resource LBL_DISPLAY_TABLES_IN_COMPACT_FORMAT)			///
+	option(compact)
+
+  GROUPBOX gb_plotopt		_lft	_ls	_iwd	_ht7,		///
+	label(resource LBL_PLOT_OPTIONS)
+  CHECKBOX ck_plot		_ilft	_ss	_ibwd	.,		///
+	label(resource LBL_PLOT_ROW_COLUMN_COORDINATES)			///
+	onclickon(program ck_maxlength_on)				///
+	onclickoff(program ck_maxlength_off)				///
+	option(plot)
+  CHECKBOX ck_maxlength		@	_ms	_ckwd	.,		///
+	label("")							///
+	onclickon(report.sp_maxlength.enable)				///
+	onclickoff(report.sp_maxlength.disable)
+  SPINNER  sp_maxlength		_cksep	@	_spwd	.,		///
+	label(resource LBL_NUMBER_OF_CHARACTERS)					///
+	min(1)								///
+	max(1000)							///
+	default(12)							///
+	option(maxlength)
+  TEXT     tx_maxlength		_spsep	@	_cksprb	.,		///
+	label(resource LBL_NUMBER_PLOTTED_ROW_COLUMN_LAB_CHARACTERS)
+  TEXT     tx_note		_ilft	_ms	_ibwd	.,		///
+	label(resource LBL_NOTE_ADD_POSTEST_PLOT_OPTIONS_CABIPLOT)
+END
+
+SCRIPT ck_dimensions_on
+BEGIN
+	model2.sp_dimensions.enable
+	model2.tx_dimensions.enable
+END
+
+SCRIPT ck_dimensions_off
+BEGIN
+	model2.sp_dimensions.disable
+	model2.tx_dimensions.disable
+END
+
+SCRIPT ck_power_on
+BEGIN
+	model2.ed_power.enable
+	model2.tx_power.enable
+END
+
+SCRIPT ck_power_off
+BEGIN
+	model2.ed_power.disable
+	model2.tx_power.disable
+END
+
+PROGRAM ck_maxlength_on
+BEGIN
+	call gaction report.ck_maxlength.enable
+	call gaction report.tx_maxlength.enable
+	if report.ck_maxlength {
+		call gaction report.sp_maxlength.enable
+	}
+END
+
+PROGRAM ck_maxlength_off
+BEGIN
+	call gaction report.ck_maxlength.disable
+	call gaction report.tx_maxlength.disable
+	if report.ck_maxlength {
+		call gaction report.sp_maxlength.disable
+	}
+END
+
+SCRIPT ck_ddim_on
+BEGIN
+	report.sp_ddim.enable
+	report.tx_ddim.enable
+END
+
+SCRIPT ck_ddim_off
+BEGIN
+	report.sp_ddim.disable
+	report.tx_ddim.disable
+END
+
+PROGRAM command
+BEGIN
+	put "camat "
+	require main.cb_mat
+	put main.cb_mat
+	beginoptions
+		optionarg /hidedefault model2.sp_dimensions
+		option radio(model2 rb_default rb_row rb_column rb_principal rb_power)
+		if model2.rb_power {
+			require model2.ed_power
+			optionarg model2.ed_power
+		}
+		optionarg model2.cb_rowsupp
+		optionarg model2.cb_colsupp
+		optionarg /hidedefault model2.ed_rowname
+		optionarg /hidedefault model2.ed_colname
+		if report.ck_ddim {
+			optionarg report.sp_ddim
+		}
+		option report.ck_norowpoints
+		option report.ck_nocolpoints
+		option report.ck_compact
+		option report.ck_plot
+		if report.ck_maxlength {
+			optionarg /hidedefault report.sp_maxlength
+		}
+        endoptions
+END

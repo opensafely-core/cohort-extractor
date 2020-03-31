@@ -1,0 +1,150 @@
+/*
+  mi impute intreg
+
+*!  VERSION 1.1.1  03jun2015
+
+  keyword:  mi impute
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 520
+INCLUDE header
+
+HELP hlp1, view("help mi impute intreg")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING bu_groupOptResults
+	setscale_hadj resource MI_IMPUTE_INTREG_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	create DOUBLE _mi_M
+	create STRING _mi_M_STR
+	program check_M
+END
+
+PROGRAM check_M
+BEGIN
+	call _mi_M_STR.setvalue char _dta[_mi_M]
+	call _mi_M.setvalue class _mi_M_STR.value
+
+	if _mi_M.islt(1) {
+		call main.ck_add.seton
+	}
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	label(resource MI_IMPUTE_INTREG_DLG_TITLE)
+BEGIN
+  TEXT     tx_newname 	_lft	_topph	170	.,			///
+	label(resource LBL_NEW_EXISTING_IMPUTED_VARIABLE)
+  EDIT ed_newname	@	_ss	_vnwd   .,			///
+        nomemory							///
+        label(resource LBL_NEW_EXISTING_IMPUTED_VARIABLE)
+
+  TEXT     tx_iv	+180	_topph	300	.,			///
+	label(resource LBL_INDDEPVAR)
+  VARLIST  vl_iv	@	_ss	300	.,			///
+	fv								///
+	numeric								///
+	label(resource LBL_INDDEPVAR)
+
+  CHECKBOX ck_nocons	@	_ms	@	.,			///
+	label(resource LBL_NOCONSTANT)					///
+	option(noconstant)
+  
+  GROUPBOX gb_censor		_lft	_ls	_iwd	_ht4h,		///
+	label(resource LBL_BOTH_CENSORING_LIMITS_MUST_BE_SPECIFIED)
+  TEXT tx_ll			_indent	_ss	_cwd2	.,		///
+	label(resource LBL_LOWER_INTERVAL_CENSORING_LIMIT)
+  DEFINE y @y
+  VARNAME vn_ll			@	_ss	_vnwd	.,		///
+	option("ll")							///
+	numeric								///
+	label(resource LBL_LOWER_INTERVAL_CENSORING_LIMIT)
+  TEXT tx_ul			+220	y	_cwd2	.,		///
+	label(resource LBL_UPPER_INTERVAL_CENSORING_LIMIT)
+  VARNAME vn_ul			@	_ss	_vnwd	.,		///
+	option("ul")							///
+	numeric								///
+	label(resource LBL_UPPER_INTERVAL_CENSORING_LIMIT)
+
+  DEFINE _x _lft
+  DEFINE _cx _iwd
+  DEFINE _y _xxls
+  INCLUDE _mi_impute_opts
+
+  TEXT tx_offset	_lft	_ls	_cwd1	.,			///
+	label(resource LBL_OFFSET_VARIABLE_OPTIONAL)
+  VARNAME vn_offset	@	_ss	_vnwd	.,			///
+	option(offset)							///
+	numeric								///
+	label(resource LBL_OFFSET_VARIABLE)
+
+  DEFINE _x _lft
+  DEFINE _cx _iwd
+  DEFINE _y _ls
+  INCLUDE _mi_impute_uni_cond_boot
+END
+
+INCLUDE _mi_impute_opts_sc
+
+INCLUDE if
+INCLUDE weights
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _iwd
+  DEFINE _y _top
+  INCLUDE _mi_impute_rpt
+END
+
+INCLUDE max_ml
+
+DIALOG adv, tabtitle(resource LBL_ADVANCED)
+BEGIN
+  CHECKBOX ck_force	_lft	_top	_iwd	.,			///
+	option(force)							///
+	label(resource LBL_PROCEED_WITH_IMPUTATION_WHEN_MISSING_IMPUTED_VAL)
+END
+
+PROGRAM command
+BEGIN
+	put "mi impute intreg "
+	require main.ed_newname
+	if ! main.ed_newname.isvalidname() {
+		stopbox stop resource LBL_MSGBOX_VAR_NAME_INVALID
+// The variable name you specified is invalid.
+	}
+	put main.ed_newname
+
+	if main.vl_iv {
+		put " " main.vl_iv
+	}
+	put " " /program if_output
+	put " " /program weights_output
+	beginoptions
+		option main.ck_nocons
+		INCLUDE _mi_impute_opts_main_pr
+		if ! (main.vn_ll & main.vn_ul) {
+			stopbox stop resource MI_IMPUTE_INTREG_MSGBOX_LOWER_UPPER_INTERVAL_CENSORING
+// Both "Lower" and "Upper" interval-censoring limits must be specified.
+
+		}
+		optionarg main.vn_ll
+		optionarg main.vn_ul
+
+		optionarg main.vn_offset
+		INCLUDE _mi_impute_uni_cond_boot_pr
+		INCLUDE _mi_impute_rpt_pr
+		option adv.ck_force
+		put " " /program max_output
+	endoptions
+END

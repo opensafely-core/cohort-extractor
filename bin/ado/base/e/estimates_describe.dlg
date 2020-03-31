@@ -1,0 +1,100 @@
+/*
+	estimates describe
+
+*!  VERSION 1.1.2  14mar2015
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_msmall
+DEFINE _dlght 160
+INCLUDE header
+
+HELP hlp1, view("help estimates_describe")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource ESTIMATES_DESCRIBE_DLG_HSCALE
+	
+        main.fi_fn.formatfilter "{0} (*.ster)|*.ster|{1} (*.*)|*.*"	///
+                "resource ui_ex FILE_TYPE_STER_FILE" 			///
+                "resource ui_ex FILE_TYPE_ALL_FILES"
+END
+
+DIALOG main, label(resource ESTIMATES_DESCRIBE_DLG_TITLE)		 ///
+	tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+
+  RADIO rb_current	_lft	_top	_iwd	.,			///
+	first								///
+	label(resource ESTIMATES_DESCRIBE_MAIN_RB_CURRENT)		///
+	onclickon(script main_off)
+
+  RADIO rb_name		@	_ms	@	.,			///
+	label(resource ESTIMATES_DESCRIBE_MAIN_RB_NAME)			///
+	onclickon(script main_name_on)
+  COMBOBOX cb_name     	+20	_ss	_vnwd	.,			///
+	label(resource ESTIMATES_DESCRIBE_MAIN_CB_NAME) dropdown contents(estimates)
+  TEXT tx_name		_vnsep	@	200	.,			///
+	label(resource ESTIMATES_DESCRIBE_MAIN_CB_NAME)
+
+  RADIO	rb_file		_lft	_ls	_iwd	.,			///
+	last								///
+	label(resource ESTIMATES_DESCRIBE_MAIN_RB_FILE)			///
+	onclickon(script main_file_on)
+  FILE fi_fn     	+20	_ss	_inwd	.,			///
+	option(using)							///
+	label(resource LBL_BU_BROWSE)					///
+	defext(ster) error(resource ESTIMATES_DESCRIBE_MAIN_FI_FN)
+
+  SPINNER sp_number	_lft	_ms	_spwd	.,			///
+	option(number)							///
+	min(1) max(10000000) default(1)
+  TEXT tx_number	_spsep	@	_iwd	.,			///
+	label(resource ESTIMATES_DESCRIBE_MAIN_TX_NUMBER)
+END
+
+SCRIPT main_off
+BEGIN
+	main.tx_name.disable
+	main.cb_name.disable
+	main.fi_fn.disable
+	main.tx_number.hide
+	main.sp_number.hide
+END
+
+SCRIPT main_name_on
+BEGIN
+	main.tx_name.enable
+	main.cb_name.enable
+	main.fi_fn.disable
+	main.tx_number.hide
+	main.sp_number.hide
+END
+
+SCRIPT main_file_on
+BEGIN
+	main.tx_name.disable
+	main.cb_name.disable
+	main.fi_fn.enable
+	main.tx_number.show
+	main.sp_number.show
+END
+
+PROGRAM command
+BEGIN
+	put "estimates describe "
+	if main.rb_name {
+		require main.cb_name
+		put main.cb_name
+	}
+	if main.rb_file {
+		require main.fi_fn
+		put  "using " `"""' main.fi_fn `"""'
+		beginoptions
+			optionarg /hidedefault main.sp_number
+		endoptions
+	}
+END

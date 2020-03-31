@@ -1,0 +1,129 @@
+/*
+  suest
+
+*! VERSION 1.3.1  20may2015
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 350
+INCLUDE header
+
+HELP hlp1, view("help suest")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	script se_createAsSvyClRobust
+	setscale_hadj resource SUEST_DLG_HSCALE
+END
+
+DIALOG main, label(resource SUEST_DLG_TITLE) /*
+		*/ tabtitle(resource LBL_TAB_MODEL)
+BEGIN
+  TEXT     tx_name         _lft      _top       _iwd     .,		/*
+  		*/label(resource SUEST_MAIN_TX_NAME)
+  COMBOBOX cb_name         @         _ss        @        .,		/*
+  		*/label(resource LBL_MODELS)				/*
+  		*/contents(estimates)					/*
+		*/append dropdown
+
+END
+
+INCLUDE se
+
+SCRIPT sub_set_svy_on
+BEGIN
+	// empty script required by se.idlg
+END
+SCRIPT sub_set_svy_off
+BEGIN
+	// empty script required by se.idlg
+END
+SCRIPT svy_is_on
+BEGIN
+	se.tx_type.hide
+	se.lb_svyvcetype.hide
+END
+SCRIPT svy_is_off
+BEGIN
+	se.tx_type.show
+END
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+	program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _y _top
+  DEFINE _cx _sprb
+  INCLUDE _sp_level
+
+  CHECKBOX ck_dir          _lft      _ls        _iwd     .,		///
+  	label(resource SUEST_RPT_CK_DIR)				///
+  	option(dir)
+
+  TEXT     tx_eform        _lft      _ms        _iwd     .,		///
+	label(resource SUEST_RPT_TX_EFORM)
+  EDIT     vl_eform        @         _ss        _vnwd    .,		///
+	option(eform)							///
+	label(resource SUEST_RPT_TX_EFORM)
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+
+PROGRAM rpt_output
+BEGIN
+	optionarg /hidedefault rpt.sp_level
+	option rpt.ck_dir
+	optionarg rpt.vl_eform
+	INCLUDE _report_columns_pr
+	put " " rpt_bu_facvarsResults
+	put " " rpt_bu_fmtcoefResults
+END
+
+PROGRAM command
+BEGIN
+	put "suest "
+	require main.cb_name
+	put main.cb_name
+	beginoptions
+		if se.ck_svy {
+			call program _se_notes_for_svy
+			if se_svyset.equals("") {
+				call create STRING _MSG_TMP
+	                        call _MSG_TMP.format				/// 
+					"resource SE_MSGBOX_SVY_SETTINGS_REQUIRED_FMT" ///
+					"resource LBL_SURVEY_SETTINGS"		/// 
+					"resource SE_TITLE_SE_ROBUST"
+				stopbox stop "class _MSG_TMP.value"
+// Survey estimation commands require survey settings. See "Survey settings" on the "SE/Robust" tab.
+			}
+			put " " "svy"
+		}
+		put " " /program se_output
+		put " " /program rpt_output
+	endoptions
+END

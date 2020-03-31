@@ -1,0 +1,908 @@
+/*
+	sg__gestoptions
+
+*!  VERSION 1.2.11  29nov2018
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 470
+POSITION . . _dlgwd _dlght
+
+HELP hlp1, view("help gsem")
+
+OK ok1, label(resource LBL_BU_OK)
+CANCEL can1, label(resource LBL_BU_CANCEL)
+MODAL
+
+RESET res1
+INCLUDE levels_list
+
+SCRIPT PREINIT
+BEGIN
+	create STRING STMP
+	create STRING OBJ
+	program setupOBJECT
+
+	script se_createAsSvyOIMClRobust
+
+	create STRING CMD_PREFIX
+	create STRING CMD_COVSTRUCT
+	create STRING CMD_SUFFIXOPT
+	create STRING SG_LEVEL
+	create STRING SSD_MARKER
+	create STRING SSD_GROUPVAR
+
+	program setupDialog
+
+	/* covstructure */
+	create STRING adv_covs_tmp
+	create STRING adv_covs_tmp2
+	create STRING adv_covs_childdlg
+	create STRING adv_covs_child_result
+	create STRING adv_covs_cmd_output
+
+	create ARRAY adv_covs_list
+
+	create SVECTOR advCOVSCommandDisplayList
+	create SVECTOR advCOVSCommandList
+	create SVECTOR advCOVSCommandValues
+	create SVECTOR advCOVSStatusList
+	create SVECTOR advCOVSChildDialogList
+
+	create DOUBLE adv_covs_count
+	create DOUBLE adv_covs_position
+	create DOUBLE adv_covs_arraysize
+
+	adv.bu_covs_edit.disable
+	adv.bu_covs_disable.disable
+	adv.bu_covs_enable.disable
+	setscale_hadj resource SG__GESTOPTIONS_DLG_HSCALE
+END
+
+PROGRAM setupOBJECT
+BEGIN
+	if ! __MESSAGE {
+		stopbox stop resource LBL_MSGBOX_OBJECT_NOT_FOUND
+// An unexpected error has occurred. Object not found.
+		exit 198
+	}
+	call OBJ.setvalue class __MESSAGE.value
+END
+
+PROGRAM setupDialog
+BEGIN
+	call CMD_PREFIX.setvalue class __SEMG.dbsettings.cmd
+	call CMD_COVSTRUCT.setvalue class __SEMG.dbsettings.covstruct
+	call CMD_SUFFIXOPT.setvalue class __SEMG.dbsettings.options
+	call SG_LEVEL.setvalue class __SEMG.dbsettings.level
+
+	call SSD_MARKER.setvalue  ""
+	call SSD_MARKER.setvalue char _dta[ssd_marker]
+	call SSD_GROUPVAR.setvalue ""
+	call SSD_GROUPVAR.setvalue char _dta[ssd_groupvar]
+
+	if SSD_MARKER.iseq("SSD") {
+		if SSD_GROUPVAR.isneq("_group") {
+			call group.rb_group.enable
+			if group.rb_group {
+				call script group_group_on
+			}
+			else {
+				call script group_group_off
+			}
+			call SSD_GROUPVAR.withvalue group.vn_group.insert "@"
+		}
+		else {
+			call group.rb_group.disable
+			call script group_group_off
+		}
+		call script ifin_disable
+	}
+	else {
+		call script ifin_enable
+	}
+END
+
+SCRIPT POSTINIT
+BEGIN
+	advCOVSCommandDisplayList.copyToArray adv_covs_list
+	adv.lb_covsBuild.repopulate
+END
+
+DIALOG group, tabtitle(resource LBL_GROUP)				///
+	label(resource SG__GESTOPTIONS_DLG_TITLE)
+BEGIN
+  RADIO rb_nogroup		_lft	_top	_iwd	., first	///
+	onclickon(script group_group_off)				///
+	label(resource SG__ESTOPTIONS_GROUP_RB_NOGROUP)
+  RADIO rb_group		@	_ss	@	., last		///
+	onclickon(program group_group_on)				///
+	label(resource SG__ESTOPTIONS_GROUP_RB_GROUP)
+  TEXT tx_group			_lft	_ss	_vnwd	.,		///
+	label(resource LBL_GROUP_VARIABLE)
+  VARNAME vn_group		@	_ss	@	.,		///
+	nomemory							///
+	option(group)							///
+	numeric								///
+	label(resource LBL_GROUP_VARIABLE)
+  TEXT tx_type			_cwd3_0	-20	_lft3_03	.,	///
+	label(resource LBL_PARAMETERS_EQUAL_ACROSS_GROUPS)
+  COMBOBOX cb_ginvariant	@	_ss	@	.,		///
+	option(ginvariant)						///
+	dropdown							///
+	append								///
+	contents(param_group_ginvariant_list)				///
+	values(param_group_ginvariant_values)				///
+	label(resource LBL_PARAMETERS_EQUAL_ACROSS_GROUPS)
+END
+
+PROGRAM group_group_on
+BEGIN
+	call group.tx_group.enable
+	if SSD_MARKER.isneq("SSD") {
+		call group.vn_group.enable
+	}
+	call group.tx_type.enable
+	call group.cb_ginvariant.enable
+END
+
+SCRIPT group_group_off
+BEGIN
+	group.tx_group.disable
+	group.vn_group.disable
+	group.tx_type.disable
+	group.cb_ginvariant.disable
+END
+
+LIST param_group_ginvariant_list
+BEGIN
+	resource LBL_PARAM_LST_ITEM_INTERCEPTS_CUTPOINTS
+	resource LBL_PARAM_LST_ITEM_FIXED_COEF
+	resource LBL_PARAM_LST_ITEM_LATENT_VAR_COEF
+	resource LBL_PARAM_LST_ITEM_COVARIANCES_OF_ERRORS	
+	resource LBL_PARAM_LST_ITEM_SCALING_PARAMS	
+	resource LBL_PARAM_LST_ITEM_MEANS_OF_EXOGENOUS_VARS	
+	resource LBL_PARAM_LST_ITEM_COVARIANCES_OF_EXOGENOUS_LATENT_VARS	
+	resource LBL_ALL_OF_THE_ABOVE
+	resource LBL_NONE_OF_THE_ABOVE
+END
+
+LIST param_group_ginvariant_values
+BEGIN
+	cons
+	coef
+	loading
+	errvar
+	scale
+	means
+	covex
+	all
+	none
+END
+
+PROGRAM group_output
+BEGIN
+	if group.rb_group {
+		put /hidden " " "group(" group.vn_group ")"
+		optionarg group.cb_ginvariant
+	}
+END
+
+INCLUDE sub_by_ifin_over_subpop
+
+DIALOG weights, tabtitle(resource WEIGHTS_TABTITLE)
+BEGIN
+  BUTTON bu_help		_xsetbu	_top	_setbuwd .,		///
+	label(resource LBL_HELP_WEIGHTS)				///
+	onpush(view help weights##|_new)
+  CHECKBOX ck_weight_obslevel	_lft	_ls	_iwd	_ht11h,		///
+	groupbox							///
+	onclickon("script weights_obslevel_on")				///
+	onclickoff("script weights_obslevel_off")			///
+	label(resource SG__GESTOPTIONS_WEIGHTS_CK_WEIGHT_OBSLEVEL)
+
+  RADIO rb_fw			_indent	_ss	@	., first	///
+	label(resource WEIGHTS_RB_FW)					///
+	onclickon(script _wgt_on)					///
+	option(fweight)
+  RADIO rb_pw			@	_ss	@	.,		///
+	label(resource WEIGHTS_RB_PW)					///
+	onclickon(script _wgt_on)					///
+	option(pweight)
+  RADIO rb_iw			@	_ss	@	., last 	///
+	label(resource LBL_IMPORTANCE_WEIGHTS)				///
+	onclickon(script _wgt_on)					///
+	option(iweight)
+
+  TEXT tx_wgt			@	_ls	@	., 		///
+	label(resource WEIGHTS_TX_WGT)
+  VARLIST vl_wgt		@	_ss	_ibwd	.,		///
+  	numeric								///
+	label(resource WEIGHTS_TX_WGT)
+
+  CHECKBOX ck_weight_multilevel	_lft	_xxls	_iwd	_ht10h,		///
+	groupbox							///
+	onclickon("script weights_multilevel_on")			///
+	onclickoff("script weights_multilevel_off")			///
+	label(resource SG__GESTOPTIONS_WEIGHTS_CK_WEIGHT_MULTILEVEL)
+  RADIO rb_fweight		_indent	_ss	_ibwd	., first	///
+	label(resource WEIGHTS_RB_FW)
+  RADIO rb_pweight		@	_ss	@	., 		///
+	label(resource WEIGHTS_RB_PW)
+  RADIO rb_iweight		@	_ss	@	., last		///
+	label(resource LBL_IMPORTANCE_WEIGHTS)
+
+  TEXT tx_weight		@	_ms 	@	.,		///
+	label(resource LBL_VARIABLES)
+  VARLIST vl_weight		@	_ss 	@	.,		///
+	numeric								///
+	label(resource LBL_VARIABLES)
+END
+
+SCRIPT weights_obslevel_on
+BEGIN
+	weights.ck_weight_multilevel.disable
+	weights.rb_fw.enable
+	weights.rb_pw.enable
+	weights.rb_iw.enable
+	weights.tx_wgt.enable
+	weights.vl_wgt.enable
+	script _wgt_on
+END
+
+SCRIPT weights_obslevel_off
+BEGIN
+	weights.ck_weight_multilevel.enable
+	weights.rb_fw.disable
+	weights.rb_pw.disable
+	weights.rb_iw.disable
+	weights.tx_wgt.disable
+	weights.vl_wgt.disable
+	script _wgt_off
+END
+
+SCRIPT weights_multilevel_on
+BEGIN
+	weights.ck_weight_obslevel.disable
+	weights.rb_fweight.enable
+	weights.rb_pweight.enable
+	weights.rb_iweight.enable
+	weights.tx_weight.enable
+	weights.vl_weight.enable
+END
+
+SCRIPT weights_multilevel_off
+BEGIN
+	weights.ck_weight_obslevel.enable
+	weights.rb_fweight.disable
+	weights.rb_pweight.disable
+	weights.rb_iweight.disable
+	weights.tx_weight.disable
+	weights.vl_weight.disable
+END
+
+
+PROGRAM check_weight_and_technique
+BEGIN
+	if weights.rb_pw {
+		call script _local_se_setPW_on
+	}
+	if !weights.rb_pw {
+		call script _local_se_setNonPW_on
+	}
+END
+
+// SE tab is not guaranteed to exist--wrappers are to be called locally
+SCRIPT _local_se_setPW_on 
+BEGIN
+	script se_setPW_on
+END
+
+SCRIPT _local_se_setNonPW_on
+BEGIN
+	script se_setNonPW_on
+END
+
+SCRIPT _local_se_setWeights_off
+BEGIN
+	script se_setWeights_off
+END
+
+PROGRAM _wgt_set_labels
+BEGIN
+	if weights.rb_fw {
+		call weights.vl_wgt.setlabel resource WEIGHTS_TX_WGT_FW
+		call weights.tx_wgt.setlabel resource WEIGHTS_TX_WGT_FW
+		exit
+	}
+
+	if weights.rb_pw {
+		call weights.vl_wgt.setlabel resource LBL_SAMPLING_WEIGHT
+		call weights.tx_wgt.setlabel resource LBL_SAMPLING_WEIGHT
+		exit
+	}
+	if weights.rb_iw {
+		call weights.vl_wgt.setlabel resource WEIGHTS_TX_WGT_IW
+		call weights.tx_wgt.setlabel resource WEIGHTS_TX_WGT_IW
+		exit
+	}
+END
+
+SCRIPT _wgt_on
+BEGIN
+	program _wgt_set_labels
+	program check_weight_and_technique
+END
+
+SCRIPT _wgt_off
+BEGIN
+	program _wgt_set_labels
+	program check_weight_and_technique
+END
+
+/*  BEGIN scripts and programs for external use */
+SCRIPT weights_enable
+BEGIN
+	program _weights_enable
+END
+
+PROGRAM _weights_enable
+BEGIN
+	call weights.ck_weight_obslevel.enable
+	call weights.ck_weight_multilevel.enable
+
+	if weights.ck_weight_obslevel {
+		call script weights_obslevel_on
+	}
+	if weights.ck_weight_multilevel {
+		call script weights_multilevel_on
+	}
+END
+
+SCRIPT weights_disable
+BEGIN
+	script weights_obslevel_off
+	script weights_multilevel_off
+	weights.ck_weight_obslevel.disable
+	weights.ck_weight_multilevel.disable
+END
+
+PROGRAM weights_enable_fromSE
+BEGIN
+	call program _weights_enable
+END
+
+PROGRAM weights_disable_fromSE
+BEGIN
+	// SE tab calls this routine to prevent call backs to that tab
+	call script weights_disable
+END
+
+PROGRAM _wgh_output
+BEGIN
+	option radio (weights rb_fw rb_pw rb_iw)
+	put "= "
+	put weights.vl_wgt
+END
+
+PROGRAM weights_output
+BEGIN
+	if weights.ck_weight_obslevel {
+		require weights.vl_wgt
+		put " " "["
+		put /program _wgh_output
+		put "] "
+	}
+END
+
+PROGRAM weight_varlist_output
+BEGIN
+	varlist weights.vl_weight
+END
+
+PROGRAM weight_options_output
+BEGIN
+	if weights.ck_weight_multilevel {
+		require weights.vl_weight
+		if weights.rb_fweight {
+			put " fweight("
+			put /program weight_varlist_output
+		}
+		if weights.rb_pweight {
+			put " pweight("
+			put /program weight_varlist_output
+		}
+		if weights.rb_iweight {
+			put " iweight("
+			put /program weight_varlist_output
+		}
+		put ")"
+	}
+END
+
+INCLUDE se
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	rpt.sp_level.setvalue class SG_LEVEL.value
+	rpt.sp_level.setdefault class SG_LEVEL.value
+
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+	program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, label(resource SG__GESTOPTIONS_DLG_TITLE) tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2b
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  CHECKBOX ck_nocnsreport	_lft	_ls	_iwd	.,		///
+	option(nocnsreport)						///
+	label(resource LBL_DO_NOT_DISPLAY_CONSTRAINTS)
+  CHECKBOX ck_noheader		@	_ms	@	.,		///
+	option(noheader)						///
+	label(resource LBL_DO_NOT_DISPLAY_HEADER_ABOVE_PARAMETER_TABLE)
+  CHECKBOX ck_nodvheader	@	_ms	@	.,		///
+	option(nodvheader)						///
+	label(resource SG__GESTOPTIONS_RPT_CK_NODVHEADER)
+  CHECKBOX ck_notable		@	_ms	@	.,		///
+	option(notable)							///
+	label(resource SG__GESTOPTIONS_RPT_CK_NOTABLE)
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+
+PROGRAM rpt_output
+BEGIN
+	optionarg /hidedefault rpt.sp_level
+	option rpt.ck_nocnsreport
+	option rpt.ck_noheader
+	option rpt.ck_nodvheader
+	option rpt.ck_notable
+	put " " rpt_bu_facvarsResults
+	put " " rpt_bu_fmtcoefResults
+END
+
+DIALOG int, tabtitle(resource LBL_TAB_INTEGRATION)
+BEGIN
+  GROUPBOX gb_intmethod		_lft	_top	_iwd	_ht7h,		///
+	label(resource SG__GESTOPTIONS_INT_GB_INTMETHOD)
+  RADIO rb_mvaghermite		_indent	_ss	_inwd	., first	///
+	label(resource LBL_MEAN_VARIANCE_ADAPTIVE_GAUSS_HERMITE_QUAD)
+  RADIO rb_mcaghermite		@	_ss	@	., 		///
+	option(intmethod(mcaghermite))					///
+	label(resource LBL_MODE_CURVATURE_ADAPTIVE_GAUSS_HERMITE_QUAD)
+  RADIO rb_ghermite		@	_ss	@	., 		///
+	option(intmethod(ghermite))					///
+	label(resource LBL_NONADAPTIVE_GAUSS_HERMITE_QUADRATURE)
+  RADIO rb_laplace		@	_ss	@	., last 	///
+	option(intmethod(laplace))					///
+	label(resource LBL_LAPLACIAN_APPROXIMATION)
+
+  SPINNER sp_intpoints		_lft	+45	_spwd	.,		///
+	option(intpoints)						///
+	default(7)							///
+	min(1)								///
+	max(195)							///
+	label(resource SG__GESTOPTIONS_INT_SP_INTPOINTS)
+  TEXT tx_intpoints		_spsep	@	350	.,		///
+	label(resource SG__GESTOPTIONS_INT_SP_INTPOINTS)
+END
+
+PROGRAM int_output
+BEGIN
+	option radio(int rb_mcaghermite rb_ghermite rb_laplace)
+	optionarg /hidedefault int.sp_intpoints
+END
+
+INCLUDE max_ml
+
+SCRIPT adv_PREINIT
+BEGIN
+	create STRING __const_tab
+	__const_tab.setvalue "adv"
+END
+
+DIALOG adv,tabtitle(resource LBL_ADVANCED)
+BEGIN
+  TEXT tx_covsBuild		_lft	_top	_iwd	.,		///
+	label(resource LBL_COVARIANCE_STRUCTURE)
+  LISTBOX lb_covsBuild		@	_ss	200	95,		///
+	contents(adv_covs_list) 					///
+	ondblclick(program adv_covs_edit)				///
+	onselchange(program adv_covs_sel_changed)			///
+	nomemory
+  BUTTON bu_covs_new		+210	@	80	.,		///
+	onpush(program adv_covs_create)					///
+	tooltip(resource SG__GESTOPTIONS_ADV_BU_COVS_NEW)		///
+	label(resource LBL_BU_CREATE)
+  BUTTON bu_covs_edit		@	_ms	@	.,		///
+	onpush(program adv_covs_edit)  					///
+	tooltip(resource SG__GESTOPTIONS_ADV_BU_COVS_EDIT)		///
+	label(resource LBL_BU_EDIT)
+  BUTTON bu_covs_disable	@	_ms	@	.,		///
+	onpush(program adv_covs_disable)				///
+	tooltip(resource SG__GESTOPTIONS_ADV_BU_COVS_DISABLE)		///
+	label(resource LBL_BU_DISABLE)
+  BUTTON bu_covs_enable		@	_ms	@	.,		///
+	onpush(program adv_covs_enable)					///
+	tooltip(resource SG__GESTOPTIONS_ADV_BU_COVS_ENABLE)		///
+	label(resource LBL_BU_ENABLE)
+  TEXTBOX tb_covs_note		_lft	+25	_iwd	_tb2,		///
+	label(resource SG__GESTOPTIONS_ADV_TB_COVS_NOTE)
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _ilw60
+  DEFINE _bux _islw60
+  INCLUDE _constraints
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _xw _iwd
+//  INCLUDE _ck_collinear
+
+  CHECKBOX ck_noestimate	_x	_ls	_xw	.,		///
+	option(noestimate)						///
+	label(resource LBL_PREVENT_MODEL_FITTING)
+
+  TEXT     tx_startvalues	_lft	_ls	_iwd	.,		///
+	label(resource SG__GESTOPTIONS_ADV_TX_STARTVALUES)
+  COMBOBOX cb_startvalues	@	_ss	440	.,		///
+	option(startvalues)						///
+	dropdown							///
+	contents(adv_startvalues_list)					///
+	values(adv_startvalues_values)					///
+	label(resource SG__GESTOPTIONS_ADV_TX_STARTVALUES)
+  CHECKBOX ck_listwise		@	_ms	@	.,		///
+	option(listwise)						///
+	label(resource SG__GESTOPTIONS_ADV_CK_LISTWISE)
+END
+
+LIST adv_startvalues_list
+BEGIN
+	resource SG__GESTOPTIONS_USE_WHAT_SPEC_IN_MODELS
+	resource SG__GESTOPTIONS_EST_INTERCEPT_SCALE_EACH_RESPONSE_MOD
+	resource SG__GESTOPTIONS_EST_FIXED_EFF_COEF_SCALE
+	resource SG__GESTOPTIONS_USE_GEN_RESID_FROM_FITTED_EFF_IV_METHOD
+END
+
+LIST adv_startvalues_values
+BEGIN
+	zero
+	constantonly
+	fixedonly
+	iv
+END
+
+/* covariance restriction list box */
+PROGRAM adv_covs_create
+BEGIN
+	call adv_covs_count.setvalue class advCOVSChildDialogList.size
+	call adv_covs_count.increment
+	call adv_covs_count.withvalue adv_covs_childdlg.setvalue	///
+		"adv_covs@"
+	call program adv_show_covs_child
+END
+
+PROGRAM adv_covs_edit
+BEGIN
+	call advCOVSCommandDisplayList.findstr class adv.lb_covsBuild.value
+	call adv_covs_position.setvalue class 				///
+		advCOVSCommandDisplayList.position
+	call adv_covs_position.withvalue adv_covs_childdlg.setvalue	///
+		class advCOVSChildDialogList.values[@]
+
+	call program adv_show_covs_child_edit
+END
+
+PROGRAM adv_show_covs_child
+BEGIN
+	call adv_covs_childdlg.withvalue 				///
+		create CHILD sg__opts_newcovs AS @, message("HIDE_GROUP")
+	call adv_covs_childdlg.withvalue @.setExitString 		///
+		"adv_covs_child_result"
+	call adv_covs_childdlg.withvalue @.setExitAction		///
+		"program adv_covs_child_done"
+
+	call adv_covs_count.withvalue STMP.format			///
+		"resource LBL_COVARIANCE_STRUCTURE_FMT" "@" ""
+	call STMP.withvalue adv_covs_tmp.setvalue "@"
+	call adv_covs_childdlg.withvalue adv_covs_tmp2.setvalue "@.settitle"
+	call adv_covs_tmp2.append `" ""'
+	call adv_covs_tmp2.append class adv_covs_tmp.value
+	call adv_covs_tmp2.append `"""'
+	call adv_covs_tmp2.withvalue @
+END
+
+PROGRAM adv_show_covs_child_edit
+BEGIN
+	call adv_covs_childdlg.withvalue create CHILD sg__opts_newcovs AS @
+	call adv_covs_childdlg.withvalue @.setExitString 		///
+		"adv_covs_child_result"
+	call adv_covs_childdlg.withvalue @.setExitAction		///
+		"program adv_covs_child_done"
+
+	call adv_covs_position.withvalue adv_covs_tmp.setvalue		///
+		class advCOVSCommandDisplayList.values[@]
+	call adv_covs_childdlg.withvalue adv_covs_tmp2.setvalue "@.settitle"
+	call adv_covs_tmp2.append `" ""'
+	call adv_covs_tmp2.append class adv_covs_tmp.value
+	call adv_covs_tmp2.append `"""'
+	call adv_covs_tmp2.withvalue @
+END
+
+PROGRAM adv_covs_child_done
+BEGIN
+	call advCOVSChildDialogList.findstr class adv_covs_childdlg.value
+	call adv_covs_position.setvalue class advCOVSChildDialogList.position
+	if adv_covs_position {
+		call adv_covs_position.withvalue adv_covs_tmp.setvalue ///
+			class advCOVSStatusList.values[@]
+		if adv_covs_tmp.iseq("active") {
+			call adv_covs_position.withvalue STMP.format	///
+				"resource LBL_COVARIANCE_STRUCTURE_FMT" "@" ""
+			call STMP.withvalue				///
+				advCOVSCommandDisplayList.store class	///
+				adv_covs_position.value			///
+				"@"
+			call advCOVSCommandValues.store class		///
+				adv_covs_position.value class		///
+				adv_covs_child_result.value
+			call STMP.withvalue				///
+				adv_covs_tmp2.setvalue			///
+				"@"
+		}
+		else {
+			call adv_covs_position.withvalue STMP.format	///
+			"resource LBL_COVARIANCE_STRUCTURE_FMT" "@"	///
+				"resource LBL_PAREN_DISABLED"
+			call STMP.withvalue				///
+				adv_covs_tmp2.setvalue			///
+				"@"
+
+			call adv_covs_tmp2.withvalue			///
+				advCOVSCommandDisplayList.store		///
+				class adv_covs_position.value "@"
+		}
+
+		call advCOVSCommandList.store class			///
+			adv_covs_position.value class 			///
+			adv_covs_child_result.value
+
+		call advCOVSCommandDisplayList.copyToArray adv_covs_list
+		call adv.lb_covsBuild.repopulate
+		call adv.lb_covsBuild.setvalue class adv_covs_tmp2.value
+	}
+	else {
+		call adv_covs_arraysize.setvalue class 			///
+			advCOVSChildDialogList.size
+		call adv_covs_arraysize.increment
+
+		/* Store child dialog name */
+		call advCOVSChildDialogList.store class			///
+			adv_covs_arraysize.value class			///
+			adv_covs_childdlg.value
+
+		/* Store listbox display covariance restriction string */
+		call adv_covs_arraysize.withvalue STMP.format		///
+			"resource LBL_COVARIANCE_STRUCTURE_FMT" "@" ""
+		call STMP.withvalue					///
+			advCOVSCommandDisplayList.store class		///
+			adv_covs_arraysize.value "@"
+
+		/* Store child dialog result string */
+		call advCOVSCommandList.store class			///
+			adv_covs_arraysize.value 			///
+			class adv_covs_child_result.value
+
+		/* Store child dialog result string for final command
+		   For disable/enable */
+		call advCOVSCommandValues.store class			///
+			adv_covs_arraysize.value class 			///
+			adv_covs_child_result.value
+
+		/* Store disable/enable status */
+		call advCOVSStatusList.store				///
+			class adv_covs_arraysize.value "active"
+
+		call advCOVSCommandDisplayList.copyToArray adv_covs_list
+		call adv.lb_covsBuild.repopulate
+		call STMP.withvalue					///
+			adv.lb_covsBuild.setvalue "@"
+	}
+END
+
+PROGRAM adv_covs_sel_changed
+BEGIN
+	call advCOVSCommandDisplayList.findstr class adv.lb_covsBuild.value
+	call adv_covs_position.setvalue class 				///
+		advCOVSCommandDisplayList.position
+	call adv_covs_position.withvalue adv_covs_tmp.setvalue		///
+		class advCOVSStatusList.values[@]
+	if adv_covs_position {
+		call adv.bu_covs_edit.enable
+		call adv_covs_position.withvalue			///
+			adv.tb_covs_note.setlabel			///
+			class advCOVSCommandList.values[@]
+	}
+
+	if adv_covs_tmp.iseq("disable") {
+		call adv.bu_covs_enable.enable
+		call adv.bu_covs_disable.disable
+	}
+	if adv_covs_tmp.iseq("active") {
+		call adv.bu_covs_enable.disable
+		call adv.bu_covs_disable.enable
+	}
+END
+
+PROGRAM adv_covs_disable
+BEGIN
+	call advCOVSCommandDisplayList.findstr class adv.lb_covsBuild.value
+	call adv_covs_position.setvalue class				///
+		advCOVSCommandDisplayList.position
+
+	call adv_covs_tmp.setvalue class adv.lb_covsBuild.value
+	call advCOVSStatusList.store class adv_covs_position.value "disable"
+	call advCOVSCommandValues.store class adv_covs_position.value ""
+
+	call STMP.format "resource LBL_PAREN_DISABLED"
+	call adv_covs_tmp.append " "
+	call adv_covs_tmp.append class STMP.value
+	call adv_covs_tmp.withvalue STMP.setvalue "@"
+
+	call adv_covs_tmp.withvalue advCOVSCommandDisplayList.store	///
+		class adv_covs_position.value "@"
+
+	call advCOVSCommandDisplayList.copyToArray adv_covs_list
+	call adv.lb_covsBuild.repopulate
+	call adv.lb_covsBuild.setvalue class STMP.value
+END
+
+PROGRAM adv_covs_enable
+BEGIN
+	call advCOVSCommandDisplayList.findstr class adv.lb_covsBuild.value
+	call adv_covs_position.setvalue class 				///
+		advCOVSCommandDisplayList.position
+
+	call advCOVSStatusList.store class adv_covs_position.value "active"
+	call adv_covs_position.withvalue advCOVSCommandValues.store	///
+		class adv_covs_position.value class 			///
+		advCOVSCommandList.values[@]
+
+	call adv_covs_position.withvalue STMP.format			///
+		"resource LBL_COVARIANCE_STRUCTURE_FMT" "@" ""
+
+	call STMP.withvalue						///
+		advCOVSCommandDisplayList.store				///
+		class adv_covs_position.value "@"
+
+	call advCOVSCommandDisplayList.copyToArray adv_covs_list
+	call adv_covs_position.withvalue adv_covs_tmp2.setvalue class	///
+		advCOVSCommandDisplayList.values[@]
+	call adv.lb_covsBuild.repopulate
+	call adv.lb_covsBuild.setvalue class adv_covs_tmp2.value
+END
+
+INCLUDE _constraints_sc
+
+PROGRAM adv_output
+BEGIN
+	call advCOVSCommandValues.copyToString adv_covs_cmd_output
+	call adv_covs_arraysize.setvalue class advCOVSStatusList.size
+	if adv_covs_cmd_output & adv.lb_covsBuild.isvisible() {
+		put adv_covs_cmd_output
+	}
+	optionarg adv.cb_constr
+//	option adv.ck_collinear
+	option adv.ck_noestimate
+	optionarg adv.cb_startvalues
+	option adv.ck_listwise
+END
+
+PROGRAM __command
+BEGIN
+	put "mata: sg__global.signal("
+	put `"""' OBJ `"""'		// "SEM_1"
+	put ", " 			// ,
+	put `"""' "EstOptions" `"""'	// "EstOptions"
+	put ", "
+
+	// put out compound quotes
+	put "`" `"""'
+
+	put /program se_prefix_output
+	put ","
+	put " " /program ifin_output
+	put " " /program weights_output
+	put ","
+	put " " /program group_output
+	put " " /program se_output
+	put " " /program rpt_output
+	put " " /program int_output
+	put " " /program max_output
+	put " " /program adv_output
+	put " " /program weight_options_output
+
+	// put out compound quotes
+	put `"""' "'"
+
+	put ", " 			// ,
+	put `"""' `"""'			// ""
+	put ")"
+
+	stata hidden queue
+END
+
+PROGRAM command
+BEGIN
+	// external error checking
+	if se.ck_svy {
+		call se_svyset.setstring char _dta[_svy_version]
+		if se_svyset.equals("") {
+			call se_STMP.format				///
+				"resource SE_MSGBOX_SVY_SETTINGS_REQUIRED_FMT" ///
+				"resource LBL_SURVEY_SETTINGS"		///
+				"resource SE_TITLE_SE_ROBUST"
+			stopbox stop "class se_STMP.value"
+// Survey estimation commands require survey settings. See "Survey settings" on the "SE/Robust" tab.
+		}
+	}
+	if se_vcetype.equals(resource LBL_CLUSTERED_ROBUST)		///
+		| se_vcetype.equals(resource SE_LBL_CLUSTER) {
+		require se.vn_cluster
+	}
+
+	put "_ondot_block"
+	stata hidden queue
+
+	put "capture noisily {"
+	stata hidden queue
+
+	put /program se_prefix_output " "
+
+	put CMD_PREFIX
+
+	put " " /program ifin_output
+	put " " /program weights_output
+	beginoptions
+		put " " CMD_COVSTRUCT
+		put " " /program group_output
+		put " " /program se_output
+		put " " /program rpt_output
+		put " " /program int_output
+		put " " /program max_output
+		put " " /program adv_output
+		put " " /program weight_options_output
+		put " " CMD_SUFFIXOPT
+	endoptions
+	stata
+
+	put "}"
+	stata hidden queue
+
+	put "local sg__rc = _rc"
+	stata hidden queue
+
+	put /program __command
+
+	put "_ondot_unblock"
+	stata hidden queue
+END

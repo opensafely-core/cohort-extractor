@@ -1,0 +1,207 @@
+/*
+  cmclogit.dlg
+
+*!  VERSION 1.0.3  12feb2020
+
+  keyword:  eclass
+
+*/
+
+VERSION 16.0
+SYNCHRONOUS_ONLY
+
+INCLUDE _std_xlarge
+DEFINE _dlght 365
+INCLUDE header
+
+HELP hlp1, view("help cmclogit")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        script se_createAsAsclogit
+	setscale_hadj resource CMCLOGIT_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script max_setListNoBHHH
+	create DOUBLE cmset_error
+	create STRING dlgname
+
+
+	cmset_error.setvalue 0
+	dlgname.storeDialogClassName
+	program populate_basealt
+END
+
+SCRIPT main_PREINIT
+BEGIN
+	script _constraints_main_setOptionalOn
+END
+
+PROGRAM populate_basealt
+BEGIN
+        call main_basealt_list.Arrdropall
+
+        put "cm_wrk_dlg alt "
+        put dlgname
+        put " main.cb_basealt"
+        stata hidden immediate
+
+        call main.cb_basealt.repopulate
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)				///
+	title(resource CMCLOGIT_DLG_TITLE)
+BEGIN
+  DEFINE _x _xsetbu
+  DEFINE _y _top
+  INCLUDE _bu_cmset
+  
+  TEXT tx_dv 				_lft	_ss	_vnwd	.,	///
+	label(resource LBL_DEPVAR)
+  DEFINE holdy @y
+  VARNAME vn_dv				@ 	_ss	@	.,	///
+	numeric								///
+	label(resource LBL_DEPVAR)
+
+  TEXT tx_iv				_vlx	holdy	_vlwd	.,	///
+	label(resource LBL_ALTERNATIVE_SPECIFIC_INDEPENDENT_VARIABLES)
+  VARLIST vl_iv				_vlx	_ss	_vlwd	.,	///
+	fv								///
+	allowcat							///
+	numeric								///
+	label(resource LBL_ALTERNATIVE_SPECIFIC_INDEPENDENT_VARIABLES)
+
+  GROUPBOX gb_options			_lft	_ls	_iwd	_ht25,	///
+	label(resource LBL_OPTIONS)
+  TEXT tx_casevars			_ilft	_ss	_inwd	.,	///
+	label(resource LBL_CASE_SPECIFIC_INDEPENDENT_VARIABLES)
+  VARLIST vl_casevars			@	_ss	@	.,	///
+	option(casevars)						///
+	fv								///
+	numeric								///
+	allowcat							///
+	label(resource LBL_CASE_SPECIFIC_INDEPENDENT_VARIABLES)
+  CHECKBOX ck_basealt			@	_ls	_ibwd	.,	///
+	onclickon(main.cb_basealt.enable)				///
+	onclickoff(main.cb_basealt.disable)				///
+	label(resource LBL_SPECIFY_BASE_ALTERNATIVE)
+  COMBOBOX cb_basealt	       		_iilft	_ss	_en14wd	.,	///
+	dropdown							///
+	contents(main_basealt_list)					///
+  	option(basealternative)						///
+  	label(resource LBL_BASE_ALTERNATIVE) 
+  CHECKBOX ck_noconstant		_ilft	_ls	_ibwd	.,	///
+	option(noconstant)						///
+	label(resource LBL_ALT_NOCONSTANT)
+  CHECKBOX ck_altwise			@	_ms	@	.,	///
+	option(altwise)							///
+	label(resource LBL_USE_ALTERNATIVEWISE_DELETION_INSTEAD_CASEWISE)
+
+  TEXT tx_offset 			_ilft	_ls	_vnwd	.,	///
+	label(resource LBL_OFFSET_VARIABLE)				
+  VARNAME  vn_offset 			@	_ss	@	.,	///
+	option(offset)							///
+	numeric								///
+	label(resource LBL_OFFSET_VARIABLE)
+
+  DEFINE _x _ilft
+  DEFINE _y _ls
+  DEFINE _cx _lw100
+  DEFINE _bux _slw100
+  INCLUDE _constraints
+END
+
+LIST main_basealt_list
+BEGIN
+END
+
+INCLUDE _constraints_sc 
+
+INCLUDE byifin
+INCLUDE weights_fpi
+INCLUDE se
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+	program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2b
+  DEFINE _y _top
+  INCLUDE _sp_level
+  
+  RADIO    rb_default	_lft	_ls	_cwd1	.,			///
+	first								///
+	label(resource LBL_REPORT_COEFFICIENTS_DLFT)
+  RADIO    rb_or	@	_ss	@	.,			///
+	last								///
+	label(resource LBL_REPORT_ODDS_RATIOS_AND_RELATIVE_RISK_RATIOS)	///
+	option(or) 
+
+  CHECKBOX ck_header	_lft	_ms	_iwd	.,			///
+  	label(resource CMCLOGIT_RPT_CK_HEADER)				///
+  	option(noheader)
+
+  DEFINE _x _lft
+  DEFINE _y _ms
+  DEFINE _cx _iwd
+  INCLUDE _nocnsreport
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE factor_vars_reporting_pr
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE max_ml
+
+PROGRAM command
+BEGIN
+	put /program by_output " "
+	put "cmclogit "
+	varlist main.vn_dv [main.vl_iv]
+	put " " /program ifin_output
+	put " " /program weights_output	
+	beginoptions
+		optionarg main.vl_casevars
+		optionarg main.vn_offset
+		option main.ck_noconstant
+		option main.ck_altwise
+		if main.ck_basealt {
+			require main.cb_basealt
+			optionarg main.cb_basealt
+		}
+
+		INCLUDE _constraints_main_pr
+		
+		put " " /program se_output
+
+		optionarg /hidedefault rpt.sp_level
+		option rpt.rb_or
+		option rpt.ck_header
+		INCLUDE _nocnsreport_pr
+		INCLUDE _report_columns_pr
+		put " " rpt_bu_facvarsResults
+		put " " rpt_bu_fmtcoefResults
+		put " " /program max_output
+	endoptions
+END

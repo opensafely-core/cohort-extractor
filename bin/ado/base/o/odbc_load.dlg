@@ -1,0 +1,221 @@
+/*
+  odbc_load.dlg
+
+*! VERSION 2.1.2  03jun2016
+
+*/
+
+VERSION 14.0
+SYNCHRONOUS_ONLY
+MODAL
+
+INCLUDE _std_large
+DEFINE _dlght 470
+INCLUDE header
+
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource ODBC_LOAD_DLG_HSCALE
+END
+
+PROGRAM PREINIT_PROGRAM
+BEGIN
+	call create BOOLEAN isLoading
+	call create STRING odbc_err_msg
+	call create DOUBLE command_flag
+	call isLoading.settrue
+	put "capture odbc list"
+	stata hidden immediate
+	call command_flag.setvalue 0
+END
+
+SCRIPT POSTINIT
+BEGIN
+	isLoading.setfalse
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN) 		///
+	title(resource ODBC_LOAD_DLG_TITLE)
+BEGIN
+  BUTTON   bu_set_auth	_rj100	_top	100	.,	///
+	label(resource LBL_AUTHENTICATION)		///
+	onpush(program main_set_auth)			///
+	tooltip(resource LBL_CLICK_SET_YOUR_DATABASE_USER_ID_PASSWORD)
+  TEXT     tx_dsn	_lft	_topph	_cwd1	.,	///
+	label(resource LBL_ODBC_DATA_SOURCES)
+  LISTBOX  lb_dsn	_lft	_ss	_iwd	80,	///
+	nomemory					///
+	onselchange(program ds_selected)		///
+	option(dsn)					///
+	contents(.__ODBC_INFO.DSLABEL) values(.__ODBC_INFO.DS)
+
+  TEXT     tx_tables	_lft	+95	_cwd1	.,	///
+	label(resource LBL_TABLES)
+  LISTBOX  lb_tables	_lft	_ss	@	200,	///
+	nomemory					///
+	option(table)					///
+	onselchange(program table_selected)		///
+	contents(.__ODBC_INFO.TABLE)
+
+  TEXT     tx_vars	_lft2	-20	95	.,	///
+	label(resource LBL_TX_COLUMNS)
+  CHECKBOX ck_all	+100	@	120	.,	///
+	label(resource ODBC_LOAD_MAIN_CK_ALL) default(1) ///
+	onclickon(main.lb_vars.disable)			///
+	onclickoff(main.lb_vars.enable)
+  LISTBOX  lb_vars	_lft2	_ss	_cwd1	200,	///
+	nomemory					///
+	multiselect					///
+	contents(.__ODBC_INFO.VARIABLES)		///
+	values(.__ODBC_INFO.VARLABELS)			///
+	label(resource LBL_TX_COLUMNS)
+  
+  CHECKBOX ck_clear	_lft	+210	_cwd1	.,	///
+	label(resource ODBC_LOAD_MAIN_CK_CLEAR)		///
+	option(clear)
+  DEFINE y @y
+  CHECKBOX ck_lowercase	@	_ms	@	.,	///
+	option(lowercase)				///
+	label(resource ODBC_LOAD_MAIN_CK_LOWERCASE)
+  CHECKBOX ck_noquote	_lft	_ms	_iwd	.,	///
+	option(noquote)					///
+	label(resource ODBC_LOAD_MAIN_CK_NOQUOTE)
+  CHECKBOX ck_bigint	_lft	_ms	_iwd	.,	///
+	option(bigintasdouble)				///
+	label(resource ODBC_LOAD_MAIN_CK_BIGINT)
+  CHECKBOX ck_allstr	_lft2	y	@	.,	///
+	option(allstring)				///
+	label(resource ODBC_LOAD_MAIN_CK_ALLSTR)
+  CHECKBOX ck_datestr	@	_ms	@	.,	///
+	option(datestring)				///
+	label(resource ODBC_LOAD_MAIN_CK_DATESTR)
+ 
+  CHECKBOX ck_verbose	@ 	_ms	@	.,	///
+	option(verbose)					///
+	label(resource ODBC_LOAD_MAIN_CK_VERBOSE)
+END
+
+PROGRAM ds_selected
+BEGIN
+	call .__ODBC_INFO.TABLE.Arrdropall
+	call .__ODBC_INFO.VARIABLES.Arrdropall
+
+	if isLoading {
+		exit
+	}
+
+	if main.lb_dsn {
+		put "capture odbc query "
+		put `"""'
+		put main.lb_dsn
+		put `"""'
+		beginoptions
+		if main.ck_verbose {
+			put "verbose "
+		}
+		if main.lb_dsn.iseq("Excel Files") | 			///
+			main.lb_dsn.iseq("MS Access Database") {
+			put "dialog(complete) "
+		}
+		put "schema "
+		endoptions
+		stata hidden immediate
+
+		call odbc_err_msg.setvalue class .__ODBC_INFO.ODBC_ERR_MSG
+
+		if (odbc_err_msg) {
+			call command_flag.setvalue 1
+			call create CHILD odbc_error
+			call main.lb_tables.repopulate
+			call main.lb_vars.repopulate
+		}
+		else {
+			call main.lb_tables.repopulate
+			call main.lb_vars.repopulate
+		}
+	}
+END
+
+PROGRAM table_selected
+BEGIN
+	if isLoading {
+		exit
+	}
+	call .__ODBC_INFO.VARIABLES.Arrdropall
+	call main.lb_vars.setvalue ""
+
+	if main.lb_dsn  & main.lb_tables {
+		put "capture odbc describe "
+		put `"""'
+			put main.lb_tables
+		put `"""'
+
+		stata hidden immediate
+
+		call odbc_err_msg.setvalue class .__ODBC_INFO.ODBC_ERR_MSG
+
+		if (odbc_err_msg) {
+			call command_flag.setvalue 2
+			call create CHILD odbc_error
+			call main.lb_vars.repopulate
+		}
+		else {
+			call main.lb_vars.repopulate
+		}
+	}
+END
+
+PROGRAM main_set_auth
+BEGIN
+	call create STRING odbc_load_result // Not used
+	call create CHILD odbc_setauth
+	call odbc_setauth.setExitString "odbc_load_result"
+	call odbc_setauth.setExitAction "program process_setauth"
+END
+
+PROGRAM process_setauth
+BEGIN
+	if(command_flag.iseq(1)) {
+		call program ds_selected
+	}
+	if(command_flag.iseq(2)){
+		call program table_selected
+	}
+END
+
+PROGRAM command
+BEGIN
+	if ! main.lb_dsn | ! main.lb_tables {
+		call create STRING _MSG_TMP
+                call _MSG_TMP.format 					///
+			"resource LBL_MSGBOX_DATA_SOURCE_TABLE_NOT_SELECTED_FMT" ///
+			"resource LBL_TAB_MAIN"
+		stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, A data source and table have not been selected.
+	}
+	put "odbc load "
+	if ! main.ck_all {
+		if ! main.lb_vars {
+                call create STRING _MSG_TMP
+                call _MSG_TMP.format 					///
+			"resource LBL_MSGBOX_HAVE_NOT_BEEN_SELECTED_FMT" ///
+			"resource LBL_TAB_MAIN" 			///
+			"resource LBL_COLUMNS" 
+                stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Columns" have not been selected.
+		}
+		put main.lb_vars
+	}
+
+	beginoptions
+		optionarg /quoted main.lb_tables
+		option main.ck_clear
+		option main.ck_lowercase
+		option main.ck_allstr
+		option main.ck_datestr
+		option main.ck_noquote
+		option main.ck_bigint
+	endoptions
+END

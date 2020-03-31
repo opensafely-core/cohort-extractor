@@ -1,0 +1,76 @@
+/*
+  spreg_ivarlag_child.dlg
+
+*!  VERSION 1.0.2  01may2017
+
+  keyword:  eclass
+
+*/
+
+VERSION 15.0
+SYNCHRONOUS_ONLY
+INCLUDE _std_small
+DEFINE _dlght 120
+INCLUDE header
+
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource SPREG_IVARLAG_CHILD_DLG_HSCALE
+
+	create STRING dlgname
+	dlgname.storeDialogClassName
+
+	program sp_load_spmatrix
+END
+
+PROGRAM sp_load_spmatrix
+BEGIN	
+	put "sp_wrk_dlg getmat "
+	put dlgname
+	put " main_spmatrix_list"
+	stata hidden immediate
+	
+	call main.cb_obj.repopulate
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	title(resource SP_LBL_SPATIAL_LAGS_INDEP_VARS)
+BEGIN
+  TEXT tx_obj 			_lft	_top	200	.,		///
+	label(resource SP_LBL_SPATIAL_MATRIX_COLON)
+  COMBOBOX cb_obj		@ 	_ss	_vnwd	.,		///
+	dropdown							///
+	contents(main_spmatrix_list)					///
+	label(resource SP_LBL_SPATIAL_MATRIX_COLON)
+  TEXT tx_iv			_lft	_ls	_iwd	.,		///
+	label(resource LBL_VARIABLES)
+  VARLIST vl_iv			@	_ss	@	.,		///
+	fv								///
+	allowcat							///
+	numeric								///
+	label(resource LBL_VARIABLES)
+END
+
+LIST main_spmatrix_list
+BEGIN
+END
+
+PROGRAM ivarlag_output
+BEGIN
+	require main.cb_obj
+	require main.vl_iv
+	put main.cb_obj
+	if main.vl_iv {
+		put ":"
+		varlist main.vl_iv
+	}
+END
+
+PROGRAM command
+BEGIN
+	put " ivarlag("
+		put /program ivarlag_output
+	put ")"
+END

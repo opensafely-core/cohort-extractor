@@ -1,0 +1,299 @@
+/*
+  spopts_sc.idlg
+
+  program include file for spopts.idlg
+
+  VERSION 1.0.5  01may2017
+
+*/
+
+SCRIPT main_PREINIT
+BEGIN
+	create STRING STMP
+	create STRING main_ivarlag_tmp
+	create STRING main_ivarlag_tmp2
+	create STRING main_ivarlag_childdlg
+	create STRING main_ivarlag_dlgname
+	create STRING main_ivarlag_child_result
+	create STRING main_ivarlag_cmd_output
+
+	create ARRAY main_ivarlag_list
+
+	create SVECTOR mainVARLAGCommandDisplayList
+	create SVECTOR mainVARLAGCommandList
+	create SVECTOR mainVARLAGCommandValues
+	create SVECTOR mainVARLAGStatusList
+	create SVECTOR mainVARLAGChildDialogList
+
+	create DOUBLE main_ivarlag_count
+	create DOUBLE main_ivarlag_position
+	create DOUBLE main_ivarlag_arraysize
+
+	main_ivarlag_count.setvalue 0
+	
+	main.bu_ivarlag_edit.disable
+	main.bu_ivarlag_disable.disable
+	main.bu_ivarlag_enable.disable
+	
+END
+
+SCRIPT main_POSTINIT
+BEGIN
+	mainVARLAGCommandDisplayList.copyToArray main_ivarlag_list
+	main.lb_ivarlag_build.repopulate
+END
+
+PROGRAM show_dvarlags_input
+BEGIN
+	call create STRING dvarlagsResult
+	call create CHILD spreg_dvarlag_child AS dvarlagsDlg
+	call dvarlagsDlg.setExitString dvarlagsResult
+	call dvarlagsDlg.setExitAction "program get_dvarlags_inputResult"
+END
+PROGRAM get_dvarlags_inputResult
+BEGIN
+	call main.ed_dvarlags.setvalue class dvarlagsResult.value
+END
+
+PROGRAM show_errorlags_input
+BEGIN
+	call create STRING errorlagsResult
+	call create CHILD spreg_errorlag_child AS errorlagsDlg
+	call errorlagsDlg.setExitString errorlagsResult
+	call errorlagsDlg.setExitAction "program get_errorlags_inputResult"
+END
+PROGRAM get_errorlags_inputResult
+BEGIN
+	call main.ed_errorlags.setvalue class errorlagsResult.value
+END
+
+PROGRAM main_ivarlag_create
+BEGIN
+	call main_ivarlag_count.setvalue class mainVARLAGChildDialogList.size
+	call main_ivarlag_count.increment
+	call main_ivarlag_tmp.setvalue "main_ivarlag_"
+	call main_ivarlag_tmp.append class main_ivarlag_count.value
+	call main_ivarlag_tmp.withvalue main_ivarlag_childdlg.setvalue @
+	call program main_show_ivarlag_child
+END
+
+PROGRAM main_ivarlag_edit
+BEGIN
+	call mainVARLAGCommandDisplayList.findstr class			///
+		main.lb_ivarlag_build.value
+	call main_ivarlag_position.setvalue class			///
+		mainVARLAGCommandDisplayList.position
+	call main_ivarlag_position.withvalue				///
+		main_ivarlag_childdlg.setvalue				///
+		class mainVARLAGChildDialogList.values[@]
+	call program main_show_ivarlag_child_edit
+END
+
+PROGRAM main_show_ivarlag_child
+BEGIN
+	call main_ivarlag_tmp.setvalue "spreg_ivarlag_child AS "
+	call main_ivarlag_tmp.append class main_ivarlag_childdlg.value
+	call main_ivarlag_tmp.withvalue create CHILD @
+	call main_ivarlag_childdlg.withvalue @.setExitString		///
+		"main_ivarlag_child_result"
+	call main_ivarlag_childdlg.withvalue @.setExitAction		///
+		"program main_ivarlag_child_create_done"
+
+
+	call main_ivarlag_count.withvalue STMP.format 			///
+		"resource SP_LBL_SPATIAL_LAG_FMT" "@" ""
+		
+	call STMP.withvalue main_ivarlag_tmp.setvalue "@"
+	call main_ivarlag_childdlg.withvalue				///
+		main_ivarlag_tmp2.setvalue "@.settitle"
+	call main_ivarlag_tmp2.append `" ""'
+	call main_ivarlag_tmp2.append class main_ivarlag_tmp.value
+	call main_ivarlag_tmp2.append `"""'
+	call main_ivarlag_tmp2.withvalue @
+END
+
+PROGRAM main_show_ivarlag_child_edit
+BEGIN
+	call main_ivarlag_tmp.setvalue "spreg_ivarlag_child AS "
+	call main_ivarlag_tmp.append class main_ivarlag_childdlg.value
+	call main_ivarlag_tmp.withvalue create CHILD @
+	call main_ivarlag_childdlg.withvalue @.setExitString		///
+		"main_ivarlag_child_result"
+	call main_ivarlag_childdlg.withvalue @.setExitAction		///
+		"program main_ivarlag_child_edit_done"
+
+	call main_ivarlag_position.withvalue				///
+		main_ivarlag_tmp.setvalue				///
+		class mainVARLAGCommandDisplayList.values[@]
+	call main_ivarlag_childdlg.withvalue				///
+		main_ivarlag_tmp2.setvalue "@.settitle"
+	call main_ivarlag_tmp2.append `" ""'
+	call main_ivarlag_tmp2.append class main_ivarlag_tmp.value
+	call main_ivarlag_tmp2.append `"""'
+	call main_ivarlag_tmp2.withvalue @
+END
+
+PROGRAM main_ivarlag_child_create_done
+BEGIN
+	call main_ivarlag_arraysize.setvalue class			///
+		mainVARLAGChildDialogList.size
+	call main_ivarlag_arraysize.increment
+
+	/* Store child dialog name */
+	call mainVARLAGChildDialogList.store class			///
+		main_ivarlag_arraysize.value class main_ivarlag_childdlg.value
+
+	/* Store listbox display specification string */
+	call main_ivarlag_arraysize.withvalue STMP.format 		///
+		"resource SP_LBL_SPATIAL_LAG_FMT" "@" ""
+	call STMP.withvalue						///
+		mainVARLAGCommandDisplayList.store class		///
+		main_ivarlag_arraysize.value "@"
+
+	/* Store child dialog result string */
+	call mainVARLAGCommandList.store class				///
+		main_ivarlag_arraysize.value				///
+		class main_ivarlag_child_result.value
+
+	/* Store child dialog result string for final command
+	   For disable/enable */
+	call mainVARLAGCommandValues.store class			///
+		main_ivarlag_arraysize.value				///
+		class main_ivarlag_child_result.value
+
+	/* Store disable/enable status */
+	call mainVARLAGStatusList.store class				///
+		main_ivarlag_arraysize.value "active"
+
+	call mainVARLAGCommandDisplayList.copyToArray main_ivarlag_list
+	call main.lb_ivarlag_build.repopulate
+	call STMP.withvalue main.lb_ivarlag_build.setvalue "@"
+END
+
+PROGRAM main_ivarlag_child_edit_done
+BEGIN
+	call mainVARLAGChildDialogList.findstr class			///
+		main_ivarlag_childdlg.value
+	call main_ivarlag_position.setvalue class			///
+		mainVARLAGChildDialogList.position
+	call main_ivarlag_position.withvalue main_ivarlag_tmp.setvalue	///
+		class mainVARLAGStatusList.values[@]
+
+	if main_ivarlag_tmp.iseq("active") {
+		call main_ivarlag_position.withvalue STMP.format 	///
+			"resource SP_LBL_SPATIAL_LAG_FMT" "@" ""
+		call STMP.withvalue					///
+			mainVARLAGCommandDisplayList.store class	///
+			main_ivarlag_position.value "@"
+		call mainVARLAGCommandValues.store class		///
+			main_ivarlag_position.value class		///
+			main_ivarlag_child_result.value
+		call STMP.withvalue main_ivarlag_tmp2.setvalue "@"
+	}
+	else {
+		call main_ivarlag_position.withvalue STMP.format 	///
+			"resource SP_LBL_SPATIAL_LAG_FMT" "@" "resource LBL_PAREN_DISABLED"
+		call STMP.withvalue					///
+			main_ivarlag_tmp2.setvalue "@"
+
+		call STMP.withvalue					///
+			mainVARLAGCommandDisplayList.store		///
+			class main_ivarlag_position.value "@"
+	}
+
+
+	call mainVARLAGCommandList.store class				///
+		main_ivarlag_position.value class			///
+		main_ivarlag_child_result.value
+
+	call mainVARLAGCommandDisplayList.copyToArray main_ivarlag_list
+	call main.lb_ivarlag_build.repopulate
+	call main.lb_ivarlag_build.setvalue class main_ivarlag_tmp2.value
+END
+
+PROGRAM main_ivarlag_sel_changed
+BEGIN
+	call mainVARLAGCommandDisplayList.findstr class			///
+		main.lb_ivarlag_build.value
+	call main_ivarlag_position.setvalue class			///
+		mainVARLAGCommandDisplayList.position
+	call main_ivarlag_position.withvalue main_ivarlag_tmp.setvalue	///
+		class mainVARLAGStatusList.values[@]
+	if main_ivarlag_position {
+		call main.bu_ivarlag_edit.enable
+		call main_ivarlag_position.withvalue			///
+			main.tb_ivarlag_note.setlabel			///
+			class mainVARLAGCommandList.values[@]
+	}
+
+	if main_ivarlag_tmp.iseq("disable") {
+		call main.bu_ivarlag_enable.enable
+		call main.bu_ivarlag_disable.disable
+	}
+	if main_ivarlag_tmp.iseq("active") {
+		call main.bu_ivarlag_enable.disable
+		call main.bu_ivarlag_disable.enable
+	}
+END
+
+PROGRAM main_ivarlag_disable
+BEGIN
+	call mainVARLAGCommandDisplayList.findstr class			///
+		main.lb_ivarlag_build.value
+	call main_ivarlag_position.setvalue class			///
+		mainVARLAGCommandDisplayList.position
+
+	call main_ivarlag_tmp.setvalue class main.lb_ivarlag_build.value
+	call mainVARLAGStatusList.store class				///
+		main_ivarlag_position.value "disable"
+	call mainVARLAGCommandValues.store class main_ivarlag_position.value ""
+	call STMP.format "resource LBL_PAREN_DISABLED"
+	call main_ivarlag_tmp.append " "
+	call main_ivarlag_tmp.append class STMP.value
+	call main_ivarlag_tmp.withvalue STMP.setvalue "@"
+
+	call main_ivarlag_tmp.withvalue					///
+		mainVARLAGCommandDisplayList.store			///
+		class main_ivarlag_position.value "@"
+
+	call mainVARLAGCommandDisplayList.copyToArray main_ivarlag_list
+	call main.lb_ivarlag_build.repopulate
+	call main.lb_ivarlag_build.setvalue class STMP.value
+END
+
+PROGRAM main_ivarlag_enable
+BEGIN
+	call mainVARLAGCommandDisplayList.findstr class			///
+		main.lb_ivarlag_build.value
+	call main_ivarlag_position.setvalue class			///
+		mainVARLAGCommandDisplayList.position
+
+	call mainVARLAGStatusList.store class				///
+		main_ivarlag_position.value "active"
+	call main_ivarlag_position.withvalue				///
+		mainVARLAGCommandValues.store				///
+		class main_ivarlag_position.value class			///
+		mainVARLAGCommandList.values[@]
+
+	call main_ivarlag_position.withvalue STMP.format 		///
+		"resource SP_LBL_SPATIAL_LAG_FMT" "@" ""
+	call STMP.withvalue						///
+		mainVARLAGCommandDisplayList.store			///
+		class main_ivarlag_position.value "@"
+
+	call mainVARLAGCommandDisplayList.copyToArray main_ivarlag_list
+	call main_ivarlag_position.withvalue				///
+		main_ivarlag_tmp2.setvalue class			///
+		mainVARLAGCommandDisplayList.values[@]
+	call main.lb_ivarlag_build.repopulate
+	call main.lb_ivarlag_build.setvalue class main_ivarlag_tmp2.value
+END
+
+PROGRAM spopts_output
+BEGIN
+	put main.ed_dvarlags
+	put " " main.ed_errorlags
+	call mainVARLAGCommandValues.copyToString 			///
+		main_ivarlag_cmd_output
+	put " " main_ivarlag_cmd_output
+END

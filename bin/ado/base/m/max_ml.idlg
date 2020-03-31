@@ -1,0 +1,1177 @@
+/*
+    max_ml.idlg
+
+*!  VERSION 1.5.14  30jan2020
+
+    // SCRIPTS and PROGRAMS for external use
+	* SCRIPT max_ml_on
+	* SCRIPT max_internal_on
+	* SCRIPT max_internalFrom_on
+	* SCRIPT max_pa_on
+	* SCRIPT max_int_setPaVisible
+	* SCRIPT max_setDefaultNoLog
+	* SCRIPT max_setDefaultLog
+	* SCRIPT max_int_setDefaultNoLog
+	* SCRIPT max_setDefaultDifficult
+	* SCRIPT max_setDefaultOPG
+	* SCRIPT max_setFromNotVisible
+	* SCRIPT max_int_setFromVisible
+	* SCRIPT max_setFromForShwinters
+	* SCRIPT max_setFromForHwinters
+	* SCRIPT max_setOptionSlogit     // requires std_glm and _dlght 470
+	* SCRIPT max_setOptionXTME 	 // requires std_glm and _dlght 470
+	* SCRIPT max_setOptionXTME_MATLOG
+	* SCRIPT max_from_disable
+	* SCRIPT max_from_enable
+	* SCRIPT max_technique_disable
+	* SCRIPT max_technique_enable
+	* SCRIPT max_int_setLTolNotAllowed
+	* SCRIPT max_disable
+	* SCRIPT max_enable
+	* PROGRAM max_output
+	* SCRIPT max_internal_enable
+	* SCRIPT max_internal_disable
+	* SCRIPT max_setListNoBHHH
+	* SCRIPT max_enableGTolerance
+	* SCRIPT max_nonrtolerance_hide
+	* SCRIPT max_setForDVECH
+	* SCRIPT max_show_startgrid
+	* SCRIPT max_for_etregress_disable
+*/
+
+SCRIPT max_PREINIT
+BEGIN
+	create BOOLEAN max_initializing
+	max_initializing.settrue
+	// for max_internal
+	create BOOLEAN max_isNoLTol
+
+	create BOOLEAN max_log_changed
+	create STRING max_log_default
+	max_log_default.setstring "log"
+
+	// These must be already be hidden when they are created
+	//	so they are tested properly the first time.
+	script max_internal_hide
+	script max_pa_hide
+	script max_ml_show
+	
+	create STRING max_xtme_ml_child_result
+	create PBOOLEAN max_noBHHH
+	program max_noBHHH_init
+	max.bu_start_vals.hide
+END
+
+SCRIPT max_enableGTolerance
+BEGIN
+	max.ed_gtol.show
+	max.tx_gtol.show
+END
+
+SCRIPT max_nonrtolerance_hide
+BEGIN
+	max.ck_nonrtol.hide
+	max.gb_tol.setposition . . . 85
+	max.tx_from.setposition . 240 
+	max.ed_from.setposition . 260 
+	max.ed_from1.setposition . 260 
+	max.ed_from2.setposition . 260 
+	max.ed_from3.setposition . 260 
+END
+
+SCRIPT max_setForDVECH
+BEGIN
+	script max_nonrtolerance_hide
+	max.bu_start_vals.show
+	max.bu_start_vals.setposition . 290
+	
+END
+
+PROGRAM max_check_from
+BEGIN
+	if max.ed_from {
+		call max.bu_start_vals.disable
+	}
+	else {
+		call max.bu_start_vals.enable
+	}
+END
+
+SCRIPT max_POSTINIT
+BEGIN
+	max.cb_tech.setvalue ""
+	max.cb_tech.withvalue max.cb_tech.setvalue "@"
+	max.ck_nodiff.hide
+	max.ed_from1.hide
+	max.ed_from2.hide
+	max.ed_from3.hide
+	script max_slogit_option_hide
+	script max_xtme_option_hide
+	script max_xtme_matlog_option_hide
+	max_log_changed.setfalse
+	max_initializing.setfalse
+
+	program max_xtme_getMaxResult
+	program max_parseMessage
+
+	max.tx_startgrid.hide
+	max.ed_startgrid.hide
+END
+
+PROGRAM max_noBHHH_init
+BEGIN
+	if max_noBHHH {
+		call script max_setListNoBHHH
+	}
+END
+
+PROGRAM max_parseMessage
+BEGIN
+	if __MESSAGE.iseq("-nofrom-") {
+		call script max_setFromNotVisible
+	}
+END
+
+DIALOG max, tabtitle(resource LBL_TAB_MAXIMIZATION)
+BEGIN
+  BUTTON   bu_hlp		_xsetbu   _top      _setbuwd  .,	///
+	label(resource LBL_HELP_MAXIMIZE)				///
+	onpush(script max_hlp)
+
+  CHECKBOX ck_diff		_lft      _top      350       .,	///
+	option(difficult)						///
+	label(resource LBL_USE_DIFFERENT_STEP_ALGORITHM_NONCONCAVE_REGIONS)
+
+  CHECKBOX ck_nodiff 		@         @         @         .,	///
+	option(nodifficult)						///
+	label(resource MAX_ML_MAX_CK_NODIFF)
+
+// For max_internal
+  SPINNER  sp_iter_i		_lft     _top        _spwd     .,	///
+	label(resource LBL_MAXIMUM_ITERATIONS) option(iterate)		///
+	min(0) max(16000) default(c(maxiter))
+  TEXT     tx_iter_i		_spsep    @         _spr2      .,	///
+	label(resource LBL_MAXIMUM_ITERATIONS)
+
+  COMBOBOX cb_tech		_lft      _ms       120        .,	///
+	dropdownlist option(technique)					///
+	contents(technique_list) values(technique_val_list)		///
+	onselchangelist(robust_label_list)
+  DEFINE holdy @y
+  TEXT     tx_tech		+125      @         140       ., 	///
+	label(resource LBL_OPTIMIZATION_TECHNIQUE)
+// Groupbox for max_internal Iteration log
+  GROUPBOX gb_ilog_i            _lft      +10       _cwd1     _ht6,	///
+  	label(resource LBL_ITERATION_LOG)
+  DEFINE ilogy @y
+
+// Options for population averaged model
+// By default these are not visible.
+  GROUPBOX gb_pop_pa            _lft     _top       _iwd      _ht13,    ///
+	label(resource MAX_ML_MAX_GB_OPTIMIZATION_OPTS)
+  SPINNER  sp_iter_pa           _ilft    _ms        _spwd     .,	///
+  	label(resource LBL_MAXIMUM_ITERATIONS)				///
+	min(0) max(5000) default(100) 					///
+	option(iterate)
+  TEXT     tx_iter_pa           _spsep   @          _spr2b    .,	///
+  	label(resource LBL_MAXIMUM_ITERATIONS)
+  EDIT     en_tol2_pa           _lft2    @          _en7wd    .,	///
+        label(resource LBL_CONVERGENCE_CRITERION)			///
+	option(tolerance) default(1e-6)
+  TEXT     tx_tol2_pa           _en7sep  @          _spr2b    .,	///
+  	label(resource LBL_CONVERGENCE_CRITERION)
+  GROUPBOX gb_iter_pa           _ilft    _ls        _cwd2     _ht6,	///
+  	label(resource LBL_ITERATION_LOG)
+  RADIO   rb_log_pa             _indent  _ss        _inwd    .,		///
+  	label(resource LBL_SHOW_ITERATION_LOG) first option(NONE)
+  RADIO   rb_trace_pa           @        _ss        @	     .,		///
+  	label(resource MAX_ML_MAX_RB_TRACE) option(trace)
+  RADIO   rb_nolog_pa           @        _ss        @        .,		///
+	label(resource LBL_SUPPRESS_ITERATION_LOG) option(nolog) last
+
+  SPINNER  sp_iter		280      holdy     _spwd     .,		///
+	label(resource LBL_MAXIMUM_ITERATIONS) option(iterate)		///
+	min(0) max(16000) default(c(maxiter))
+  TEXT     tx_iter		_spsep   @         145       .,		///
+	label(resource LBL_MAXIMUM_ITERATIONS)
+
+  GROUPBOX gb_ilog		_lft      _ls       _cwd4_1   _ht4,	///
+	label(resource LBL_ITERATION_LOG)
+  DEFINE holdy @y
+
+  RADIO	   rb_log		_indent   _ss       _inwd     .,	///
+	label(resource LBL_SHOW) first option(log)			///
+	onclickon(program max_logging_check)
+  DEFINE cy @cy
+  DEFINE inty @y
+  RADIO	   rb_nolog  		@         _ss       @	      .,	///
+	label(resource LBL_SUPPRESS) last option(nolog)			///
+	onclickon(program max_logging_check)
+
+// This is for max_internal
+  RADIO    rb_log_i             @         holdy     _cwd2     .,	///
+  	label(resource LBL_SHOW_LOG) first option(NONE)
+  RADIO    rb_trace_i           @         _ss       @         .,	///
+  	label(resource LBL_SHOW_LOG_AND_PARM_VEC) option(trace)
+  RADIO    rb_nolog_i           @         _ss       @         .,	///
+  	label(resource LBL_SUPPRESS_LOG) last option(nolog)
+
+// This is for max_internal
+  RADIO   rb_nolog2_i          @         holdy     @         .,		///
+        label(resource LBL_SUPPRESS_LOG) first option(NONE)
+  RADIO   rb_trace2_i          @         _ss       @         .,		///
+   	label(resource LBL_SHOW_LOG_AND_PARM_VEC) option(trace)
+  RADIO   rb_log2_i            @         _ss       @         .,		///
+  	label(resource LBL_SHOW_LOG) last option(log)
+  GROUPBOX gb_tol_i            _lft2     ilogy     _cwd1     _ht6,	///
+        label(resource LBL_CONVERGENCE_TOLERANCE)
+  EDIT     ed_tol_i            _ilft2    _ms       _en7wd    .,		///
+  	label(resource LBL_COEFFICIENT_VECTOR) option(tolerance) default(1e-4)
+  TEXT     tx_tol_i            _en7sep   @         _en7r2b   .,		///
+  	label(resource LBL_COEFFICIENT_VECTOR)
+  EDIT     ed_ltol_i           _ilft2    _ls       _en7wd    .,		///
+  	label(resource LBL_LOG_LIKELIHOOD) option(ltolerance) default(0)
+  TEXT     tx_ltol_i           _en7sep   @         _en7r2b   .,		///
+        label(resource LBL_LOG_LIKELIHOOD)
+
+  GROUPBOX gb_log		_lft4_2   holdy     _comb4_1  _ht4,	///
+	label(resource LBL_ELEMENTS_DISPLAY_ITER_LOG)
+  CHECKBOX ck_trace		_indent   _ss       _cwd4_2   .,	///
+	label(resource LBL_PARAMETER) option(trace)
+  DEFINE holdy @y
+  CHECKBOX ck_grad		@         _ss       @         .,	///
+	label(resource LBL_GRADIENT) option(gradient)
+  CHECKBOX ck_show		_ilft4_3  holdy     @         .,	///
+	label(resource LBL_STEPS) option(showstep)
+  CHECKBOX ck_hess		@         _ss       @         .,	///
+	option("hessian")						///
+	label(resource LBL_MAX_ML_NEG_HESSIAN)
+  CHECKBOX ck_shownr            _ilft4_4  @         @         .,	///
+  	label(resource LBL_TOLERANCE) option(showtolerance)
+
+  GROUPBOX gb_tol		_lft      _xls      _iwd      _ht8,	///
+	label(resource LBL_CONVERGENCE_TOLERANCE)
+
+  EDIT     ed_tol		_ilft     _ss       _en7wd    .,	///
+	label(resource LBL_COEFFICIENT_VECTOR) option(tolerance) default(1e-6)
+  TEXT     tx_tol		_en7sep   @         _en7r2b   .,	///
+	label(resource LBL_COEFFICIENT_VECTOR)
+  
+  EDIT     ed_nrtol		230       @         _en7wd    .,	///
+	label(resource LBL_HSG) option(nrtolerance) default(1e-5)
+  TEXT     tx_nrtol		_en7sep   @         185       .,	///
+	label(resource LBL_HSG)
+
+  EDIT     ed_ltol		_ilft     _ls       _en7wd    .,	///
+	label(resource LBL_LOG_LIKELIHOOD) option(ltolerance) default(1e-7)
+  TEXT     tx_ltol		_en7sep   @         _en7r2b   .,	///
+	label(resource LBL_LOG_LIKELIHOOD)
+  
+  EDIT     ed_gtol		230       @         _en7wd    .,	///
+	label(resource LBL_GRADIENT_VECTOR) option(gtolerance)
+  TEXT     tx_gtol		_en7sep   @         _en7r2b   .,	///
+	label(resource LBL_GRADIENT_VECTOR)
+
+  CHECKBOX ck_nonrtol		_ilft     _ls       _ibwd     .,	///
+	onclickon(script nonrtol) onclickoff(script nrtol)		///
+	option(nonrtolerance)						///
+	label(resource LBL_DISABLE_HSG)
+
+  TEXT     tx_from		_lft      _xls      _iwd      .,	///
+	label(resource LBL_INITIAL_VALUES_HELP_MAXIMIZE)
+DEFINE y2 @y
+  EDIT     ed_from		_lft      _ss       _iwd      .,	///
+	onchange(program max_check_from)				///
+	label(resource LBL_INITIAL_VALUES) option(from)
+
+  EDIT     ed_from1		@         @         50        .,  	///
+	numonly								///
+	label(resource MAX_ML_MAX_ED_FROM1)
+  EDIT     ed_from2		+55       @         50        .,	///
+	numonly								///
+	label(resource MAX_ML_MAX_ED_FROM2)
+
+  EDIT     ed_from3		+55       @         50        .,	///
+	numonly								///
+	label(resource MAX_ML_MAX_ED_FROM3)
+
+  // slogit options
+  CHECKBOX ck_initialize	_lft      _ls       _comb3_2   _ht6,	///
+	label(resource MAX_ML_MAX_CK_INITIALIZE) groupbox		///
+	onclickon(script max_estimate_init_on)				///
+	onclickoff(script max_estimate_init_off)
+  DEFINE holdy @y
+  RADIO	   rb_constant		_indent   _ss       _inwd     .,	///
+	label(resource MAX_ML_MAX_RB_CONSTANT) first			///
+	option(initialize(constant))
+  RADIO	   rb_random  		@         _ss       @	      .,	///
+	label(resource MAX_ML_MAX_RB_RANDOM)				///
+	option(initialize(random))
+  RADIO	   rb_svd  		@         _ss       @	      .,	///
+	label(resource MAX_ML_MAX_RB_SVD) last				///
+	option(initialize(svd))
+  CHECKBOX ck_nonormal		_lft3_03  holdy    190        .,	///
+	label(resource MAX_ML_MAX_CK_NONORMAL) option(nonormalize)
+  TEXT     tx_nonormal		_indent2  _vss      150       .,	///
+	label(resource MAX_ML_MAX_TX_NONORMAL)
+
+  // xtme options
+  GROUPBOX gb_xtme_re		_lft	y2	_iwd	_ht2h,		///
+	label(resource MAX_ML_MAX_GB_XTME_RE)
+  EDIT     ed_xtme_tol		_ilft	_ms	_en7wd	.,		///
+	label(resource LBL_TOLERANCE) option(retolerance) default(1e-8)
+  TEXT     tx_xtme_tol		_en7sep	@	185	.,		///
+	label(resource LBL_TOLERANCE)
+  SPINNER  sp_xtme_ittr		230	@	_spwd	.,		///
+	option(reiterate) default(50) min(1) max(100000)
+  TEXT     tx_xtme_ittr		_spsep	@	_spr2b	.,		///
+	label(resource LBL_MAXIMUM_ITERATIONS)
+
+  GROUPBOX gb_xtme_matlog	_lft	_xls	_iwd	_ht2,		///
+	label(resource MAX_ML_MAX_GB_XTME_MATLOG)
+  RADIO	   rb_xtme_sqrt		_ilft	_ss	185	.,		///
+	first label(resource MAX_ML_MAX_RB_XTME_SQRT)
+  RADIO    rb_xtme_matlog	230	@	@	.,		///
+	last option(matlog) label(resource MAX_ML_MAX_RB_XTME_MATLOG)
+
+  // from option reused here
+  BUTTON   bu_xtme_refine	_lft	+90	300	.,		///
+	label(resource MAXIMIZATION_MAX_BU_XTME_REFINE)			///
+	onpush(script max_xtme_show_max_ml)
+
+  BUTTON bu_start_vals	_rj110	_ls	110	.,			///
+	label(resource LBL_STARTING_VALUES)				///
+	onpush(program main_bu_start_vals)				///
+	tooltip(resource MAX_ML_MAX_BU_START_VALS)
+  // startgrid option
+  TEXT     tx_startgrid		_lft	-160	_iwd	.,		///
+	label(resource MAX_ML_MAX_TX_STARTGRID)
+  EDIT     ed_startgrid		@	_ss	@	.,		///
+	option(startgrid)						///
+	label(resource MAX_ML_MAX_TX_STARTGRID)
+END
+
+SCRIPT max_internal_hide
+BEGIN
+	max.gb_ilog_i.hide
+	max.rb_log_i.hide
+	max.rb_trace_i.hide
+	max.rb_nolog_i.hide
+	max.rb_nolog2_i.hide
+	max.rb_trace2_i.hide
+	max.rb_log2_i.hide
+	max.sp_iter_i.hide
+	max.tx_iter_i.hide
+	max.gb_tol_i.hide
+	max.ed_tol_i.hide
+	max.tx_tol_i.hide
+	max.ed_ltol_i.hide
+	max.tx_ltol_i.hide
+	max.tx_from.hide
+	max.ed_from.hide
+END
+
+SCRIPT max_internal_show
+BEGIN
+	max.gb_ilog_i.show
+	max.rb_log_i.show
+	max.rb_trace_i.show
+	max.rb_nolog_i.show
+	max.sp_iter_i.show
+	max.tx_iter_i.show
+	max.gb_tol_i.show
+	max.ed_tol_i.show
+	max.tx_tol_i.show
+	max.ed_ltol_i.show
+	max.tx_ltol_i.show
+END
+
+SCRIPT max_ml_hide
+BEGIN
+	max.ck_diff.hide
+	max.ck_nodiff.hide
+	max.cb_tech.hide
+	max.tx_tech.hide
+	max.sp_iter.hide
+	max.tx_iter.hide
+	max.gb_ilog.hide
+	max.rb_log.hide
+	max.rb_nolog.hide
+	max.gb_log.hide
+	max.ck_trace.hide
+	max.ck_grad.hide
+	max.ck_hess.hide
+	max.ck_shownr.hide
+	max.ck_show.hide
+	max.gb_tol.hide
+	max.ed_tol.hide
+	max.tx_tol.hide
+	max.ed_gtol.hide
+	max.tx_gtol.hide
+	max.ed_ltol.hide
+	max.tx_ltol.hide
+	max.ed_nrtol.hide
+	max.tx_nrtol.hide
+	max.ck_nonrtol.hide
+	max.tx_from.hide
+	max.ed_from.hide
+END
+
+SCRIPT max_ml_show
+BEGIN
+	max.ck_diff.show
+	max.cb_tech.show
+	max.tx_tech.show
+	max.sp_iter.show
+	max.tx_iter.show
+	max.gb_ilog.show
+	max.rb_log.show
+	max.rb_nolog.show
+	max.gb_log.show
+	max.ck_trace.show
+	max.ck_grad.show
+	max.ck_hess.show
+	max.ck_shownr.show
+	max.ck_show.show
+	max.gb_tol.show
+	max.ed_tol.show
+	max.tx_tol.show
+	max.ed_gtol.hide	// Use max_enableGTOLERANCE
+	max.tx_gtol.hide	//
+	max.ed_ltol.show
+	max.tx_ltol.show
+	max.ed_nrtol.show
+	max.tx_nrtol.show
+	max.ck_nonrtol.show
+	max.tx_from.show
+	max.ed_from.show
+END
+
+SCRIPT max_pa_hide
+BEGIN
+	max.gb_pop_pa.hide
+	max.sp_iter_pa.hide
+	max.tx_iter_pa.hide
+	max.en_tol2_pa.hide
+	max.tx_tol2_pa.hide
+	max.gb_iter_pa.hide
+	max.rb_log_pa.hide
+	max.rb_trace_pa.hide
+	max.rb_nolog_pa.hide
+	max.bu_hlp.show
+	max.settabtitle resource LBL_TAB_MAXIMIZATION
+END
+
+SCRIPT max_int_setPaVisible
+BEGIN
+	script max_pa_show
+END
+
+SCRIPT max_pa_show
+BEGIN
+	max.gb_pop_pa.show
+	max.sp_iter_pa.show
+	max.tx_iter_pa.show
+	max.en_tol2_pa.show
+	max.tx_tol2_pa.show
+	max.gb_iter_pa.show
+	max.rb_log_pa.show
+	max.rb_trace_pa.show
+	max.rb_nolog_pa.show
+	max.bu_hlp.hide
+	max.settabtitle resource LBL_TAB_OPTIMIZATION
+END
+
+SCRIPT max_slogit_option_hide
+BEGIN
+	max.ck_initialize.hide
+	max.rb_constant.hide
+	max.rb_random.hide
+	max.rb_svd.hide
+	max.ck_nonormal.hide
+	max.tx_nonormal.hide
+END
+
+SCRIPT max_slogit_option_show
+BEGIN
+	max.ck_initialize.show
+	max.rb_constant.show
+	max.rb_random.show
+	max.rb_svd.show
+	max.ck_nonormal.show
+	max.tx_nonormal.show
+END
+
+SCRIPT max_xtme_option_show
+BEGIN
+	max.gb_xtme_re.show
+	max.ed_xtme_tol.show
+	max.tx_xtme_tol.show
+	max.sp_xtme_ittr.show
+	max.tx_xtme_ittr.show
+	max.gb_xtme_matlog.show
+	max.rb_xtme_sqrt.show
+	max.rb_xtme_matlog.show
+
+	max.tx_from.show
+	max.ed_from.show
+	max.tx_from.setposition . 390 . .
+	max.ed_from.setposition . 410 . .
+
+	max.bu_xtme_refine.show
+END
+
+SCRIPT max_xtme_option_hide
+BEGIN
+	max.gb_xtme_re.hide
+	max.ed_xtme_tol.hide
+	max.tx_xtme_tol.hide
+	max.sp_xtme_ittr.hide
+	max.tx_xtme_ittr.hide
+	max.gb_xtme_matlog.hide
+	max.rb_xtme_sqrt.hide
+	max.rb_xtme_matlog.hide
+	max.bu_xtme_refine.hide
+END
+
+SCRIPT max_xtme_matlog_option_show
+BEGIN
+	max.gb_xtme_matlog.show
+	max.rb_xtme_sqrt.show
+	max.rb_xtme_matlog.show
+	max.gb_xtme_matlog.setposition . 265 . .
+	max.rb_xtme_sqrt.setposition . 285 . .
+	max.rb_xtme_matlog.setposition . 285 . .
+END
+
+SCRIPT max_xtme_matlog_option_hide
+BEGIN
+	max.gb_xtme_matlog.hide
+	max.rb_xtme_sqrt.hide
+	max.rb_xtme_matlog.hide
+END
+
+SCRIPT max_xtme_show_max_ml
+BEGIN
+	create CHILD max_ml AS max_xtme_ml_child, message(-nofrom-)
+	max_xtme_ml_child.setExitString max_xtme_ml_child_result
+	max_xtme_ml_child.setExitAction "program max_xtme_getMaxResult"
+	max_xtme_ml_child.settitle resource MAXIMIZATION_MAX_BU_XTME_REFINE
+	max_xtme_ml_child.callthru "script max_setListNoBHHH"
+END
+PROGRAM max_xtme_getMaxResult
+BEGIN
+	if max_xtme_ml_child_result {
+		call max.bu_xtme_refine.formatlabel "resource MAX_ML_MAX_BU_XTME_REFINE_FMT" " *"
+	}
+	else {
+		call max.bu_xtme_refine.formatlabel "resource MAX_ML_MAX_BU_XTME_REFINE_FMT" "  "
+	}
+END
+
+SCRIPT max_estimate_init_on
+BEGIN
+	max.rb_constant.enable
+	max.rb_random.enable
+	max.rb_svd.enable
+END
+
+SCRIPT max_estimate_init_off
+BEGIN
+	max.rb_constant.disable
+	max.rb_random.disable
+	max.rb_svd.disable
+END
+
+PROGRAM disable_max_int
+BEGIN
+	call max.sp_iter_i.disable
+	call max.tx_iter_i.disable
+	call max.gb_ilog_i.disable
+	call max.rb_nolog_i.disable
+	call max.rb_log_i.disable
+	call max.rb_nolog2_i.disable
+	call max.rb_trace2_i.disable
+	call max.rb_log2_i.disable
+	call max.rb_trace_i.disable
+	call max.gb_tol_i.disable
+	call max.ed_tol_i.disable
+	call max.tx_tol_i.disable
+	call max.ed_ltol_i.disable
+	call max.tx_ltol_i.disable
+	call max.tx_from.disable
+	call max.ed_from.disable
+END
+
+PROGRAM enable_max_int
+BEGIN
+	call max.sp_iter_i.enable
+	call max.tx_iter_i.enable
+	call max.gb_ilog_i.enable
+	call max.rb_nolog_i.enable
+	call max.rb_log_i.enable
+	call max.rb_trace_i.enable
+	call max.rb_log2_i.enable
+	call max.rb_nolog2_i.enable
+	call max.rb_trace2_i.enable
+	call max.gb_tol_i.enable
+	call max.ed_tol_i.enable
+	call max.tx_tol_i.enable
+	if ! max_isNoLTol {
+		call max.ed_ltol_i.enable
+		call max.tx_ltol_i.enable
+	}
+	call max.tx_from.enable
+	call max.ed_from.enable
+END
+
+PROGRAM _max_reset_log
+BEGIN
+	if ! max_initializing & ! max_log_changed {
+		if max_log_default.equals("log") {
+			call max.rb_log.seton
+		}
+		if max_log_default.equals("nolog") {
+			call max.rb_nolog.seton
+		}
+	}
+END
+
+PROGRAM _max_check_log
+BEGIN
+	if ( (max_log_default.equals("log") & ! max.rb_log)	///
+	 | (max_log_default.equals("nolog") & ! max.rb_nolog) ) {
+		call max_log_changed.settrue
+	}
+END
+
+
+/*******  Scripts for external use  *******/
+SCRIPT max_setOptionSlogit
+BEGIN
+	script max_slogit_option_show
+END
+
+SCRIPT max_setOptionXTME
+BEGIN
+	script max_xtme_option_show
+END
+
+SCRIPT max_setOptionXTME_MATLOG
+BEGIN
+	script max_xtme_matlog_option_show
+END
+
+
+SCRIPT max_setDefaultNoLog
+BEGIN
+	program _max_check_log
+	max_log_default.setstring "nolog"
+	program _max_reset_log
+	program max_logging_check
+END
+
+SCRIPT max_setDefaultLog
+BEGIN
+	program _max_check_log
+	max_log_default.setstring "log"
+	program _max_reset_log
+	program max_logging_check
+END
+
+
+SCRIPT max_int_setDefaultNoLog
+BEGIN
+	max.rb_log_i.hide
+	max.rb_trace_i.hide
+	max.rb_nolog_i.hide
+	max.rb_log2_i.show
+	max.rb_trace2_i.show
+	max.rb_nolog2_i.show
+END
+
+
+SCRIPT max_int_setLTolNotAllowed
+BEGIN
+	max_isNoLTol.settrue
+	max.ed_ltol_i.disable
+	max.tx_ltol_i.disable
+END
+
+SCRIPT max_setDefaultDifficult
+BEGIN
+	max.ck_nodiff.show
+	max.ck_diff.hide
+END
+
+SCRIPT max_int_setFromVisible
+BEGIN
+	max.tx_from.show
+	max.ed_from.show
+END
+
+SCRIPT max_setFromNotVisible
+BEGIN
+	max.tx_from.hide
+	max.ed_from.hide
+END
+
+SCRIPT max_setFromForShwinters
+BEGIN
+	max.ed_from1.show
+	max.ed_from2.show
+	max.ed_from3.show
+	max.ed_from.hide
+	max.tx_from.setlabel resource MAX_ML_MAX_TX_FROM_PARAM
+END
+
+SCRIPT max_setFromForHwinters
+BEGIN
+	max.ed_from1.show
+	max.ed_from2.show
+	max.ed_from3.hide
+	max.ed_from.hide
+	max.tx_from.setlabel resource MAX_ML_MAX_TX_FROM_PARAM
+END
+
+SCRIPT max_from_disable
+BEGIN
+	max.ed_from1.disable
+	max.ed_from2.disable
+	max.ed_from3.disable
+	max.ed_from.disable
+	max.tx_from.disable
+END
+
+SCRIPT max_from_enable
+BEGIN
+	max.ed_from1.enable
+	max.ed_from2.enable
+	max.ed_from3.enable
+	max.ed_from.enable
+	max.tx_from.enable
+END
+
+SCRIPT max_from_hide
+BEGIN
+	max.ed_from1.hide
+	max.ed_from2.hide
+	max.ed_from3.hide
+	max.ed_from.hide
+	max.tx_from.hide
+END
+
+SCRIPT max_from_show
+BEGIN
+	max.ed_from1.show
+	max.ed_from2.show
+	max.ed_from3.show
+	max.ed_from.show
+	max.tx_from.show
+END
+
+SCRIPT max_setDefaultOPG
+BEGIN
+	robust_label_list.Arrpop
+	robust_label_list.Arrpop
+	robust_label_list.Arrpop
+	robust_label_list.Arrpop
+	robust_label_list.Arrpop
+	robust_label_list.Arrpush "program max_set_DefaultOPG"
+	robust_label_list.Arrpush "program max_set_DefaultOIM"
+	robust_label_list.Arrpush "program max_set_DefaultOPG"
+	robust_label_list.Arrpush "program max_set_DefaultOIM"
+	robust_label_list.Arrpush "program max_set_DefaultOIM"
+	max.cb_tech.withvalue max.cb_tech.setvalue "@"
+END
+
+PROGRAM max_set_DefaultOIM
+BEGIN
+	call create BOOLEAN max_tmpBOOL
+	call max_tmpBOOL.storeClsObjectExists se_hasOIM
+	if max_tmpBOOL {
+		if se_hasOIM {
+			call script se_setDefaultOIM
+		}
+		if se_hasIOIM {
+			call script se_setDefaultIOIM
+		}
+	}
+END
+
+PROGRAM max_set_DefaultOPG
+BEGIN
+	call create BOOLEAN max_tmpBOOL
+	call max_tmpBOOL.storeClsObjectExists se_hasOIM
+	if max_tmpBOOL {
+		if se_hasOPG {
+			call script se_setDefaultOPG
+		}
+	}
+END
+
+SCRIPT max_internal_on
+BEGIN
+	script max_ml_hide
+	script max_pa_hide
+	script max_internal_show
+END
+
+SCRIPT max_internalFrom_on
+BEGIN
+	script max_ml_hide
+	script max_pa_hide
+	script max_internal_show
+	script max_int_setFromVisible
+END
+
+SCRIPT max_pa_on
+BEGIN
+	script max_ml_hide
+	script max_internal_hide
+	script max_pa_show
+END
+
+SCRIPT max_ml_on
+BEGIN
+	script max_internal_hide
+	script max_pa_hide
+	script max_ml_show
+END
+
+SCRIPT max_internal_disable
+BEGIN
+	max.gb_ilog_i.disable
+	max.rb_log_i.disable
+	max.rb_trace_i.disable
+	max.rb_nolog_i.disable
+	max.sp_iter_i.disable
+	max.tx_iter_i.disable
+	max.gb_tol_i.disable
+	max.ed_tol_i.disable
+	max.tx_tol_i.disable
+	max.ed_ltol_i.disable
+	max.tx_ltol_i.disable
+	max.tx_from.disable
+	max.ed_from.disable
+END
+
+SCRIPT max_internal_enable
+BEGIN
+	max.gb_ilog_i.enable
+	max.rb_log_i.enable
+	max.rb_trace_i.enable
+	max.rb_nolog_i.enable
+	max.sp_iter_i.enable
+	max.tx_iter_i.enable
+	max.gb_tol_i.enable
+	max.ed_tol_i.enable
+	max.tx_tol_i.enable
+	max.ed_ltol_i.enable
+	max.tx_ltol_i.enable
+	max.tx_from.enable
+	max.ed_from.enable
+END
+
+SCRIPT max_show_startgrid
+BEGIN
+	max.tx_startgrid.show
+	max.ed_startgrid.show
+	
+END
+
+SCRIPT max_for_etregress_disable
+BEGIN
+	max.ck_diff.disable
+	max.gb_tol.disable
+	max.ed_tol.disable
+	max.tx_tol.disable
+	max.ed_nrtol.disable
+	max.tx_nrtol.disable
+	max.ed_ltol.disable
+	max.tx_ltol.disable
+	max.ed_gtol.disable
+	max.tx_gtol.disable
+	max.ck_nonrtol.disable
+	max.ck_trace.disable
+	max.ck_grad.disable
+	max.ck_hess.disable
+	max.ck_show.disable
+	max.ck_shownr.disable
+	max.gb_log.disable
+END
+
+/******* End scripts for external use *******/
+
+// This list is used with se.idlg
+LIST robust_label_list
+BEGIN
+	program max_set_DefaultOIM
+	program max_set_DefaultOIM
+	program max_set_DefaultOPG
+	program max_set_DefaultOIM
+	program max_set_DefaultOIM
+END
+
+SCRIPT nonrtol
+BEGIN
+	max.ed_nrtol.disable
+	max.tx_nrtol.disable
+	max.ck_shownr.disable
+END
+
+SCRIPT nrtol
+BEGIN
+	max.ed_nrtol.enable
+	max.tx_nrtol.enable
+	program check_shownr
+END
+
+PROGRAM check_shownr
+BEGIN
+        if ((!H(max.ck_nonrtol) & !max.ck_nonrtol) ///
+         & (!H(max.rb_log) & max.rb_log)) {
+	 	call gaction max.ck_shownr.enable
+	}
+END
+
+
+LIST technique_list
+BEGIN
+	resource LBL_DEFAULT
+	resource LBL_LIST_TECHNIQUE_NEWTON
+	resource LBL_LIST_TECHNIQUE_BHHH
+	resource LBL_LIST_TECHNIQUE_BFGS
+	resource LBL_LIST_TECHNIQUE_DFP
+END
+
+LIST technique_val_list
+BEGIN
+	""
+	"nr"
+	"bhhh"
+	"bfgs"
+	"dfp"
+END
+
+SCRIPT max_setListNoBHHH
+BEGIN
+	technique_list.Arrdropall
+	technique_val_list.Arrdropall
+	max.cb_tech.clearlist
+
+	max.cb_tech.additem resource LBL_DEFAULT
+	max.cb_tech.additem resource LBL_LIST_TECHNIQUE_NEWTON
+	max.cb_tech.additem resource LBL_LIST_TECHNIQUE_BFGS
+	max.cb_tech.additem resource LBL_LIST_TECHNIQUE_DFP
+
+	technique_list.ArrpushR resource dlg LBL_DEFAULT
+	technique_list.ArrpushR resource dlg LBL_LIST_TECHNIQUE_NEWTON
+	technique_list.ArrpushR resource dlg LBL_LIST_TECHNIQUE_BFGS
+	technique_list.ArrpushR resource dlg LBL_LIST_TECHNIQUE_DFP
+
+	technique_val_list.Arrpush ""
+	technique_val_list.Arrpush "nr"
+	technique_val_list.Arrpush "bfgs"
+	technique_val_list.Arrpush "dfp"
+
+	robust_label_list.Arrdropall
+	robust_label_list.Arrpush "program max_setDefaultOIM"
+	robust_label_list.Arrpush "program max_setDefaultOIM"
+	robust_label_list.Arrpush "program max_setDefaultOIM"
+	robust_label_list.Arrpush "program max_setDefaultOIM"
+	
+	max_noBHHH.settrue
+END
+
+SCRIPT max_hlp
+BEGIN
+        view help maximize##|_new
+END
+
+PROGRAM max_logging_check
+BEGIN
+	if (!H(max.rb_log) & max.rb_log) {
+		call max.ck_trace.enable
+		call max.ck_grad.enable
+		call max.ck_hess.enable
+		call max.ck_show.enable
+		call max.ck_shownr.enable
+		call max.gb_log.enable
+		call program check_shownr
+	}
+	if (!H(max.rb_log) & max.rb_nolog) {
+		call max.ck_trace.disable
+		call max.ck_grad.disable
+		call max.ck_hess.disable
+		call max.ck_show.disable
+		call max.ck_shownr.disable
+		call max.gb_log.disable
+	}
+END
+
+PROGRAM disable_max_ml
+BEGIN
+	call max.cb_tech.disable
+	call max.tx_tech.disable
+	call max.gb_ilog.disable
+	call max.rb_log.disable
+	call max.rb_nolog.disable
+	call max.gb_log.disable
+	call max.ck_trace.disable
+	call max.ck_grad.disable
+	call max.ck_hess.disable
+	call max.ck_show.disable
+	call max.ck_diff.disable
+	call max.sp_iter.disable
+	call max.tx_iter.disable
+	call max.gb_tol.disable
+	call max.ed_tol.disable
+	call max.tx_tol.disable
+	call max.ed_gtol.disable
+	call max.tx_gtol.disable
+	call max.ed_ltol.disable
+	call max.tx_ltol.disable
+	call max.ed_nrtol.disable
+	call max.tx_nrtol.disable
+	call max.ck_nonrtol.disable
+	call max.ck_shownr.disable
+	call script max_from_disable
+	call max.tx_startgrid.disable
+	call max.ed_startgrid.disable
+END
+
+PROGRAM enable_max_ml
+BEGIN
+	call max.cb_tech.enable
+	call max.tx_tech.enable
+	call max.gb_ilog.enable
+	call max.rb_log.enable
+	call max.rb_nolog.enable
+	call program max_logging_check
+	call max.ck_diff.enable
+	call max.sp_iter.enable
+	call max.tx_iter.enable
+	call max.gb_tol.enable
+	call max.ed_tol.enable
+	call max.tx_tol.enable
+	call max.ed_gtol.enable
+	call max.tx_gtol.enable
+	call max.ed_ltol.enable
+	call max.tx_ltol.enable
+	call max.ck_nonrtol.enable
+	if ! max.ck_nonrtol {
+		call max.ed_nrtol.enable
+		call max.tx_nrtol.enable
+		call program check_shownr
+	}
+	call script max_from_enable
+	call max.tx_startgrid.enable
+	call max.ed_startgrid.enable
+END
+
+/** for external use **/
+
+SCRIPT max_enable
+BEGIN
+	program enable_max_ml
+END
+
+SCRIPT max_int_enable
+BEGIN
+	program enable_max_int
+END
+
+SCRIPT max_disable
+BEGIN
+	program disable_max_ml
+END
+
+SCRIPT max_int_disable
+BEGIN
+	program disable_max_int
+END
+
+SCRIPT max_technique_disable
+BEGIN
+	max.cb_tech.disable
+	max.tx_tech.disable
+END
+
+SCRIPT max_technique_enable
+BEGIN
+	max.cb_tech.enable
+	max.tx_tech.enable
+END
+
+PROGRAM max_from_list_output
+BEGIN
+	put max.ed_from1 " "
+	put max.ed_from2 " "
+	put max.ed_from3
+END
+
+PROGRAM max_output
+BEGIN
+	call program _max_check_log
+	if max_log_changed {
+		if max.rb_log & max_log_default.equals("nolog") {
+			option max.rb_log
+		}
+		if max.rb_nolog & max_log_default.equals("log") {
+			option max.rb_nolog
+		}
+	}
+	option max.rb_log_i
+	option max.rb_trace_i
+	option max.rb_nolog_i
+	option max.rb_log2_i
+	option max.rb_trace2_i
+	option max.rb_nolog2_i
+	option max.ck_trace
+	option max.ck_grad
+	option max.ck_hess
+	option max.ck_show
+	option max.ck_shownr
+	option max.ck_diff
+	option max.ck_nodiff
+	optionarg /hidedefault max.cb_tech
+	optionarg /hidedefault max.sp_iter
+	optionarg /hidedefault max.sp_iter_i
+	optionarg /hidedefault max.ed_tol
+	optionarg /hidedefault max.ed_ltol
+	optionarg /hidedefault max.ed_tol_i
+	optionarg /hidedefault max.ed_ltol_i
+	optionarg max.ed_gtol
+	optionarg /hidedefault max.ed_nrtol
+	option max.ck_nonrtol
+	optionarg max.ed_from
+	if !H(max.ed_from1) & (max.ed_from1 | max.ed_from2 | max.ed_from3) {
+		put " " "from(
+		put /program max_from_list_output
+		put ") "
+	}
+
+	// for slogit
+	option max.rb_constant
+	option max.rb_random
+	option max.rb_svd
+	option max.ck_nonormal
+
+	// for PA
+	optionarg /hidedefault max.sp_iter_pa
+	optionarg /hidedefault max.en_tol2_pa
+	option max.rb_log_pa
+	option max.rb_trace_pa
+	option max.rb_nolog_pa
+
+	//xtme
+	optionarg /hidedefault max.ed_xtme_tol
+	optionarg /hidedefault max.sp_xtme_ittr
+	option max.rb_xtme_matlog
+	if !H(max.bu_xtme_refine) & max_xtme_ml_child_result {
+		put " refineopts("
+		put max_xtme_ml_child_result
+		put ") "
+	}
+END

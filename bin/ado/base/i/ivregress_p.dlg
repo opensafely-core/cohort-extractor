@@ -1,0 +1,256 @@
+/*
+	predict (after ivregress)
+
+*!  VERSION 1.2.3  04may2017
+
+*/
+
+VERSION 15.0
+
+INCLUDE _std_medium
+INCLUDE _ht280
+INCLUDE header
+
+HELP hlp1, view("help ivregress postestimation")
+RESET res1
+
+DEFINE awid   45
+DEFINE asep  +50
+DEFINE bwid   40
+DEFINE bsep  +45
+DEFINE uwid  110
+DEFINE usep +115
+DEFINE vwid   55
+DEFINE vsep  +60
+
+SCRIPT PREINIT
+BEGIN
+        create STRING prefix_name
+        prefix_name.setstring e(prefix)
+        setscale_hadj resource IVREGRESS_P_DLG_HSCALE
+END
+
+DIALOG main, label(resource PREDICT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  INCLUDE  _p_gentype
+
+  GROUPBOX gb_opts       _lft      _ls     _iwd   _ht17h,	/*
+		*/ label(resource LBL_PRODUCE)
+  RADIO    rb_xb      _ilft      _ss    _inwd        ., first /*
+		*/ option(xb)					/*
+		*/ clickon("script xb_on")			/*
+		*/ label(resource LBL_FITTED_VALUES_XB)
+DEFINE holdcx @cx
+  RADIO    rb_resid         @      _ss        @        .,	/*
+		*/ option(residuals)				/*
+		*/ clickon("script resid_on")			/*
+		*/ label(resource LBL_RESIDUALS)
+  RADIO    rb_stdp          @      _ss        @        .,	/*
+		*/ option(stdp)					/*
+		*/ clickon("script stdp_on")			/*
+		*/ label(resource LBL_STANDARD_ERROR_PREDICTION)
+  RADIO    rb_stdf          @      _ss        @        .,	/*
+		*/ option(stdf)					/*
+		*/ clickon("script stdf_on")			/*
+		*/ label(resource LBL_STANDARD_ERROR_FORECAST)
+
+  RADIO    rb_pr            @      _ms     awid        .,	/*
+		*/ option(NONE)  /* handled in another way */	/*
+		*/ clickon("script pr_on")			/*
+		*/ label(resource LBL_PR_Y)
+  EDIT     en_pr_a       asep        @   _en7wd        .,	/*
+		*/ numonly					/*
+		*/ label(resource LBL_PR_LOWER_LIMIT)
+  TEXT     tx_pr      _en7sep        @     bwid        .,	/*
+		*/ center label(resource LBL_LESSTHAN_Y_LESSTHAN)
+  EDIT     en_pr_b       bsep        @   _en7wd        .,	/*
+		*/ numonly					/*
+		*/ label(resource LBL_PR_UPPER_LIMIT)
+  TEXT     tx_pr2     _en7sep        @     bwid        ., label(resource LBL_RIGHT_PARENTHESES)
+
+  RADIO    rb_e         _ilft      _ms     awid        .,	/*
+		*/ option(NONE)  /* handled in another way */	/*
+		*/ clickon("script e_on")			/*
+		*/ label(resource LBL_E_Y)
+  EDIT     en_e_a        asep        @   _en7wd        .,	/*
+		*/ numonly					/*
+		*/ label(resource LBL_E_LOWER_LIMIT)
+  TEXT     tx_e       _en7sep        @     bwid        .,	/*
+		*/ center label(resource LBL_LESSTHAN_Y_LESSTHAN)
+  EDIT     en_e_b        bsep        @   _en7wd        .,	/*
+		*/ numonly					/*
+		*/ label(resource LBL_E_UPPER_LIMIT)
+  TEXT     tx_e2      _en7sep        @     bwid        ., label(resource LBL_RIGHT_PARENTHESES)
+
+  RADIO    rb_ystar     _ilft      _ms     uwid        .,	/*
+		*/ option(NONE)  /* handled in another way */	/*
+		*/ clickon("script ystar_on")			/*
+		*/ label(resource LBL_EY_Y_EQUAL_MAX)
+  EDIT     en_ystar_a    usep        @   _en7wd        .,	/*
+		*/ numonly					/*
+		*/ label(resource LBL_EY_LOWER_LIMIT)
+  TEXT     tx_ystar   _en7sep        @     vwid        .,	/*
+		*/ center label(resource LBL_MIN_Y)
+  EDIT     en_ystar_b    vsep        @   _en7wd        .,	/*
+		*/ numonly					/*
+		*/ label(resource LBL_EY_UPPER_LIMIT)
+  TEXT     tx_ystar2  _en7sep        @     bwid        ., label(resource LBL_RIGHT_DOUBLE_PARENTHESES)
+
+  RADIO    rb_scores    _ilft        _ms   holdcx      .,	/*
+		*/ last						/*
+		*/ option(scores)				/*
+		*/ onclickon(script scores_on)			/*
+		*/ label(resource LBL_EQUATION_LEVEL_SCORES)
+END
+
+
+SCRIPT POSTINIT
+BEGIN
+	script _p_gentype_setMedium
+	program svy_check
+END
+
+PROGRAM svy_check
+BEGIN
+	if prefix_name.equals("svy") {
+		call main.gb_opts.setposition . . . 110
+		call main.rb_scores.setposition . 140 . .
+		call main.rb_stdf.hide
+		call main.rb_pr.hide
+		call main.en_pr_a.hide
+		call main.tx_pr.hide
+		call main.en_pr_b.hide
+		call main.tx_pr2.hide
+		call main.rb_e.hide
+		call main.en_e_a.hide
+		call main.tx_e.hide
+		call main.en_e_b.hide
+		call main.tx_e2.hide
+		call main.rb_ystar.hide
+		call main.en_ystar_a.hide
+		call main.tx_ystar.hide
+		call main.en_ystar_b.hide
+		call main.tx_ystar2.hide
+	}
+	else {
+		call main.gb_opts.setposition . . . 210
+		call main.rb_scores.setposition . 240 . .
+		call main.rb_stdf.show
+		call main.rb_pr.show
+		call main.en_pr_a.show
+		call main.tx_pr.show
+		call main.en_pr_b.show
+		call main.tx_pr2.show
+		call main.rb_e.show
+		call main.en_e_a.show
+		call main.tx_e.show
+		call main.en_e_b.show
+		call main.tx_e2.show
+		call main.rb_ystar.show
+		call main.en_ystar_a.show
+		call main.tx_ystar.show
+		call main.en_ystar_b.show
+		call main.tx_ystar2.show
+	}
+END
+
+INCLUDE ifin
+
+SCRIPT all_off
+BEGIN
+  script pr_off
+  script e_off
+  script ystar_off
+END
+
+SCRIPT xb_on
+BEGIN
+  script _p_gentype_single
+  script all_off
+END
+
+SCRIPT resid_on
+BEGIN
+  script _p_gentype_single
+  script all_off
+END
+
+SCRIPT stdp_on
+BEGIN
+  script _p_gentype_single
+  script all_off
+END
+
+SCRIPT stdf_on
+BEGIN
+  script _p_gentype_single
+  script all_off
+END
+
+SCRIPT pr_on
+BEGIN
+  script _p_gentype_single
+  script e_off
+  script ystar_off
+  main.en_pr_a.enable
+  main.en_pr_b.enable
+END
+
+SCRIPT pr_off
+BEGIN
+  main.en_pr_a.disable
+  main.en_pr_b.disable
+END
+
+SCRIPT e_on
+BEGIN
+  script _p_gentype_single
+  script pr_off
+  script ystar_off
+  main.en_e_a.enable
+  main.en_e_b.enable
+END
+
+SCRIPT e_off
+BEGIN
+  main.en_e_a.disable
+  main.en_e_b.disable
+END
+
+SCRIPT ystar_on
+BEGIN
+  script _p_gentype_single
+  script pr_off
+  script e_off
+  main.en_ystar_a.enable
+  main.en_ystar_b.enable
+END
+
+SCRIPT ystar_off
+BEGIN
+  main.en_ystar_a.disable
+  main.en_ystar_b.disable
+END
+
+SCRIPT scores_on
+BEGIN
+  script all_off
+  script _p_gentype_multiple
+END
+
+INCLUDE _p_gentype_sc
+INCLUDE _type_list_fd
+
+PROGRAM command
+BEGIN
+	put "predict "
+	put " " /program _p_gentype_output
+	INCLUDE _ifin_pr
+	beginoptions
+		option radio(main rb_xb rb_resid rb_stdp rb_stdf /*
+				*/ rb_pr rb_e rb_ystar rb_scores)
+	endoptions
+	INCLUDE _pr_pr
+	INCLUDE _e_pr
+	INCLUDE _ystar_pr
+END

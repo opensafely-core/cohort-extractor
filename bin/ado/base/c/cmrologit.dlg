@@ -1,0 +1,210 @@
+/*
+  cmrologit.dlg
+
+*!  VERSION 1.0.4  24apr2019
+
+  keyword:  eclass
+
+*/
+
+VERSION 16.0
+
+INCLUDE _std_large
+DEFINE _dlght 380
+INCLUDE header
+
+HELP hlp1, view("help cmrologit")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        script se_createAsInternalML
+        setscale_hadj resource CMROLOGIT_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program main_check_ties
+END
+
+DIALOG main, label(resource CMROLOGIT_DLG_TITLE)			///
+		tabtitle(resource LBL_TAB_MODEL)
+BEGIN
+  DEFINE _x _xsetbu
+  DEFINE _y _top
+  INCLUDE _bu_cmset
+  
+  TEXT tx_dv 				_lft	_ss	_vnwd	.,	///
+	label(resource LBL_DEPVAR)
+  DEFINE holdy @y
+  VARNAME vn_dv				@ 	_ss	@	.,	///
+  	numeric								///
+	label(resource LBL_DEPVAR)
+  TEXT tx_iv				_vlx	holdy	120	.,	///
+	label(resource LBL_INDDEPVAR)
+  VARLIST vl_iv				_vlx	_ss	_vlwd	.,	///
+	fv								///
+	allowcat							///
+	numeric								///
+	label(resource LBL_INDDEPVAR)
+
+  GROUPBOX gb_option			_lft	_ls	_iwd	_ht26,	///
+	label(resource LBL_OPTIONS)
+  TEXT tx_inc				_ilft	_ss	_cwd1	.,	///
+	label(resource ROLOGIT_MAIN_TX_INC)
+  EDIT en_inc				@	_ss	_en7wd	.,	///
+	numonly								///
+	option("incomplete")						///
+	default("0")							///
+	label(resource ROLOGIT_MAIN_TX_INC)
+  TEXT tx_inc2				_en7sep	@	_en7r2b	.,	///
+	label(resource ROLOGIT_MAIN_TX_INC2)
+
+  CHECKBOX ck_rev			_ilft	_ls	_cwd2	.,	///
+	option("reverse")						///
+	label(resource ROLOGIT_MAIN_CK_REV)
+
+  GROUPBOX gb_tied			_ilft	_ls	_ibwd	_ht4,	///
+	label(resource ROLOGIT_MAIN_GB_TIED)
+  RADIO rb_exactm			_indent	_ss	_cwd3	.,first	///
+	option("ties(exactm)")						///
+	onclickon(program main_check_ties)				///
+	label(resource LBL_EXACT_MARGINAL_LIKELIHOOD)
+  DEFINE y @y
+  RADIO rb_efron			@	_ss	@	.,	///
+	option("ties(efron)")						///
+	onclickon(program main_check_ties)				///
+	label(resource LBL_EFRON)
+  RADIO rb_breslow			_lft2	y	@	.,	///
+	option("ties(breslow)")						///
+	onclickon(program main_check_ties)				///
+	label(resource LBL_BRESLOW)
+  RADIO rb_none				@	_ss	@	.,last	///
+	option("ties(none)")						///
+	onclickon(program main_check_ties)				///
+	label(resource LBL_NONE)
+
+  CHECKBOX ck_altwise			_ilft	+45	_ibwd	.,	///
+	option(altwise)							///
+	label(resource LBL_USE_ALTERNATIVEWISE_DELETION_INSTEAD_CASEWISE)
+
+  CHECKBOX ck_notest			@	_ms	@	.,	///
+	option("notestrhs")						///
+	label(resource ROLOGIT_MAIN_CK_NOTEST)
+  TEXT tx_offset			@	_ls	_ibwd	.,	///
+	label(resource LBL_OFFSET_VARIABLE)
+  DEFINE y @y
+  VARNAME vn_offset			@	_ss	_vnwd	.,	///
+	numeric								///
+	option("offset")						///
+	label(resource LBL_OFFSET_VARIABLE)
+END
+
+PROGRAM main_check_ties
+BEGIN
+	call script weights_setLayout_fpi
+	if main.rb_exactm {
+		call script weights_setLayout_fi
+		call script exactm_on
+	}
+	if main.rb_efron {
+		call script efron_on
+	}
+	if main.rb_breslow {
+		call script breslow_on
+	}
+	if main.rb_none {
+		call script none_on
+	}
+END
+
+SCRIPT exactm_on
+BEGIN
+	program enable_weights
+	script se_setRobust_off
+END
+
+SCRIPT breslow_on
+BEGIN
+	program enable_weights
+	script se_setClRobust_on
+END
+
+SCRIPT efron_on
+BEGIN
+	program disable_weights
+	script se_setClRobust_on
+END
+
+SCRIPT none_on
+BEGIN
+	program enable_weights
+	script se_setClRobust_on
+END
+
+INCLUDE byifin
+INCLUDE weights_fpi
+INCLUDE se
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+	program rpt_bu_facvars_ckResults	
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2b
+  DEFINE _y 20
+  INCLUDE _sp_level
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+
+PROGRAM rpt_output
+BEGIN
+	optionarg /hidedefault rpt.sp_level
+	INCLUDE _report_columns_pr
+	put " " rpt_bu_facvarsResults
+	put " " rpt_bu_fmtcoefResults
+END
+
+INCLUDE max_internal
+
+PROGRAM command
+BEGIN
+	put /program by_output " "
+	put "cmrologit "
+	varlist main.vn_dv
+	varlist main.vl_iv
+	put " " /program weights_output
+	put " " /program ifin_output
+	beginoptions
+		option main.ck_rev
+		option main.ck_notest
+		option main.ck_altwise
+		optionarg /hidedefault main.en_inc
+		optionarg main.vn_offset
+		option radio(main rb_exactm rb_breslow rb_efron rb_none)
+		put " " /program se_output
+		put " " /program rpt_output
+		put " " /program max_output
+	endoptions
+END

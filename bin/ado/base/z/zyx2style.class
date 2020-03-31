@@ -1,0 +1,280 @@
+//                        zyx2style
+//
+//  Style for zyx2view_g views.
+
+*! version 1.0.12  15jun2011
+
+version 12
+
+class {
+
+    instance:
+	class zyx2rule		rule		// rule for creating styles
+	class shadestyle	bshade		// beginning color/shade
+	class shadestyle	eshade		// ending    color/shade
+	class numstyle		levels		// number of levels/contours
+	class yesno		outlines	// outline areas
+	class yesno		reversekey	// reverse the clegend key
+	class yesno		colorlines	// reverse the clegend key
+	class color             bcolor		// begin color
+	class color             ecolor		// end color
+	userbcolor	= ""                    
+	userecolor	= ""                    
+	format		= ""			// format for labels
+	ccuts		= {}			// cut points for contours
+	cstyles		= {}			// shades/colors for each level
+	clabels		= {}			// labels for contours
+	lpstyles	= {}			// line patterns for each level
+	lwstyles	= {}			// line widths for each level
+	ccutsopt	= ""			// ccuts() option
+	ccolorsopt	= ""			// ccolors() option
+	clabelsopt	= ""			// clabels() option
+	clpatternsopt	= ""			// clpatterns() option
+	clwidthsopt	= ""			// clwidths() option
+	rule_hasset	= 1			// has a setting program
+	bcolor_hasset   = 1
+	ecolor_hasset   = 1
+} , inherit(seriesstyle)
+
+
+//  Don't bother with a new, this will always be -.setstyle-d 
+
+//  Don't bother with a setgdi, the area and marker will conflict, holder
+//  should invoke .setgdi's for the symbol, line, area, or label as needed.
+
+
+// ---------------------------------------------------------------------------
+program setrule
+	.rule.setstyle, style(`0')
+	.reset
+end
+
+// ---------------------------------------------------------------------------
+program setbcolor
+	.bcolor.set, color(`0')
+	.usebcolor = "yes"
+	.reset
+end
+
+// ---------------------------------------------------------------------------
+program setecolor
+	.ecolor.set, color(`0')
+	.useecolor = "yes"
+	.reset
+end
+
+// ---------------------------------------------------------------------------
+//  _set_ program to set a value with side effects.
+
+program _set_rule
+	syntax [ anything(name=setting id="stylename") ] [ , Force ]
+
+	.ccolorsopt = ""
+	.setrule `setting'
+end
+
+// ---------------------------------------------------------------------------
+//  _set_ program to set a value with side effects.
+
+program _set_bcolor
+	syntax [ anything(name=setting id="stylename") ] [ , Force ]
+
+	.ccolorsopt = ""
+	.setbcolor `setting'
+end
+
+// ---------------------------------------------------------------------------
+//  _set_ program to set a value with side effects.
+
+program _set_ecolor
+	syntax [ anything(name=setting id="stylename") ] [ , Force ]
+
+	.ccolorsopt = ""
+	.setecolor `setting'
+end
+
+// ---------------------------------------------------------------------------
+// Rederive the styles for each level from the beginning and ending colors,
+// the rule, and then number of levels.
+
+program reset
+	.cstyles = {}
+	if (`.styledex' != 0) .remake_as_copy
+	if (`.eshade.styledex' != 0) .eshade.remake_as_copy
+	if (`.bshade.styledex' != 0) .bshade.remake_as_copy
+	.`.rule.stylename'
+	if `"`.ccolorsopt'"' != `""' {
+		local i 0
+		foreach color in `.ccolorsopt' {
+			.cstyles[`++i'].color.setstyle, style(`color')
+			.cstyles[`i'].intensity.setstyle, style(inten100)
+		}
+	}
+	if `"`.clabelsopt'"' != `""' {
+		local i 0
+		foreach label in `.clabelsopt' {
+			.clabels[`++i'] = `"`macval(label)'"'
+		}
+	}
+	if `"`.clpatternsopt'"' != `""' {
+		local i 0
+		foreach lpat in `.clpatternsopt' {
+			if "`.lpstyles[`++i'].isa'" == "" {
+				.lpstyles[`i'] = .linepattern.new
+			}
+			.lpstyles[`i'].setstyle, style(`lpat')
+		}
+	}
+	if `"`.clwidthsopt'"' != `""' {
+		local i 0
+		foreach lwidth in `.clwidthsopt' {
+			if "`.lwstyles[`++i'].isa'" == "" {
+				.lwstyles[`i'] = .linewidth.new
+			}
+			.lwstyles[`i'].setstyle, style(`lwidth')
+		}
+	}
+end
+
+program linear
+	if "`.userbcolor'" == "" {
+		tokenize 0`.bshade.color.rgb'
+	}
+	else {
+		tokenize 0`.bcolor.rgb'	
+	}
+	args bred bgrn bblu
+	if "`.userecolor'" == "" {
+		tokenize 0`.eshade.color.rgb'
+	}
+	else {
+		tokenize 0`.ecolor.rgb'	
+	}
+	args ered egrn eblu
+	local dif = `.levels.val' - 1
+	if `dif' == 0 {
+		local dif 1
+	}
+	forvalues i = 1/0`.levels.val' {
+		local i1 = `i' - 1
+		local red = round(`bred' + `i1' * (`ered' - `bred') / `dif')
+		local grn = round(`bgrn' + `i1' * (`egrn' - `bgrn') / `dif')
+		local blu = round(`bblu' + `i1' * (`eblu' - `bblu') / `dif')
+		.cstyles[`i'] = .bshade
+ 		.cstyles[`i'].set, color(`red' `grn' `blu')
+	}
+end
+
+program intensity
+	forvalues i = 1/0`.levels.val' {
+		.cstyles[`i'] = .eshade	
+ 		if "`.userecolor'" == "" {
+			.cstyles[`i'].set, color(0`.eshade.color.rgb')
+		}
+		else {
+			.cstyles[`i'].set, color(0`.ecolor.rgb')		
+		}
+		.cstyles[`i'].color.setintensity `=`i'/`.levels.val''
+//		.cstyles[`i'].set, intensity(`=100*`i'/`.levels.val'')
+	}
+end
+
+program hue
+	if "`.userbcolor'" == "" {
+		local hue0 0`.bshade.color.hue'
+	}
+	else {
+		local hue0 0`.bcolor.hue'	
+	}
+	if "`.userecolor'" == "" {
+		local hue1 0`.eshade.color.hue'
+	}
+	else {
+		local hue1 0`.ecolor.hue'	
+	}
+
+	local dif = `.levels.val' - 1
+	if `dif' == 0 {
+		local dif 1
+	}
+	forvalues i = 1/0`.levels.val' {
+		local i1 = `i' - 1
+		.cstyles[`i'] = .bshade
+		local huetemp = `=`hue0' + `i1' * (`hue1' - `hue0') / `dif''
+		if `huetemp' < 0 {
+			local huetemp 0
+		}
+		.cstyles[`i'].color.sethue `huetemp'
+	}
+end
+
+
+program chue
+	if "`.userbcolor'" == "" {
+		local hue0 0`.bshade.color.hue'
+	}
+	else {
+		local hue0 0`.bcolor.hue'	
+	}
+	if "`.userecolor'" == "" {
+		local hue1 0`.eshade.color.hue'
+	}
+	else {
+		local hue1 0`.ecolor.hue'	
+	}
+
+	if `hue1' <= `hue0' {
+		local hue1 = `hue1'+360
+	}
+	
+	local dif = `.levels.val' - 1
+	if `dif' == 0 {
+		local dif 1
+	}
+
+	forvalues i = 1/0`.levels.val' {
+		local i1 = `i' - 1
+		.cstyles[`i'] = .bshade
+		.cstyles[`i'].color.sethue				///
+			`=`hue0' + `i1' * (`hue1' - `hue0') / `dif''
+	}
+end
+
+program oldhue
+	/* 
+		may put back at some point
+	*/
+	if "`.userbcolor'" == "" {
+		local hue0 0`.bshade.color.hue'
+	}
+	else {
+		local hue0 0`.bcolor.hue'	
+	}
+
+	local n = `.levels.val'
+	
+	if `n' < 1 {
+		local n=1
+	}
+	local hue1 = 360*(`n'-1)/`n'
+
+	local dif = `.levels.val' - 1
+	if `dif' == 0 {
+		local dif 1
+	}
+
+	forvalues i = 1/0`.levels.val' {
+		local i1 = `i' - 1
+		.cstyles[`i'] = .bshade
+		.cstyles[`i'].color.sethue				///
+			`=`hue0' + `i1' * (`hue1' - `hue0') / `dif''
+	}
+end
+
+program setcuts
+	local i 0
+	foreach cut of local 0 {
+		.ccuts[`++i'] = `cut'
+	}
+end
+

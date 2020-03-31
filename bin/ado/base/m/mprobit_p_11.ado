@@ -1,0 +1,218 @@
+*! version 1.2.3  15apr2019
+/* predict for mprobit */
+program define mprobit_p_11
+        version 9
+
+	if "`e(cmd)'" != "mprobit" {
+		di as error "{p}multinomial probit estimates from" ///
+	    	" {help mprobit##|_new:mprobit} " ///
+		"not found{p_end}"
+		exit 301
+	}
+	syntax anything [if] [in] [, XB STDP Pr Outcome(string) SCores]
+
+	local predtype "`xb' `stdp' `pr' `scores'"        
+        local nopt : word count `predtype'
+        if `nopt' > 1 {
+                di as error "{p}only one of pr, xb, stdp, or scores can be " ///
+		 "specified{p_end}"
+                exit 198
+        }
+	local predtype = ltrim(rtrim("`predtype'"))
+	if "`predtype'" == "" {
+		di "{txt}(option {bf:pr} assumed; predicted probabilities)"
+		local predtype "pr"
+	}
+	marksample touse, novarlist
+	markout `touse' `e(indvars)' 
+
+	if "`predtype'"=="xb" | "`predtype'"=="stdp" {
+		if bsubstr("`anything'",-1,1) == "*" {
+			di as err ///
+"option `predtype' requires that you specify 1 new variable"
+			error 103
+		}
+		local 0 `anything'
+		syntax newvarname
+		if `"`outcome'"' == "" {
+			local outcome "#1"
+		}
+
+		Outcome "`outcome'" 
+		local outcome = `s(outcome)'
+		local eq  "`s(eq)'"
+        }
+	else if "`predtype'" == "pr" {
+		cap _stubstar2names `anything', nvars(`e(k_out)') singleok outcome
+		local rc = _rc
+		if `rc' == 0 {
+			local varlist `s(varlist)'
+			local typlist `s(typlist)'
+			local nv : word count `varlist'
+			if `nv' == 1 & "`outcome'" == "" {
+				local outcome "#1"
+			}
+		}
+		if `rc' {
+			if `rc'==102 | `rc'==103 {
+				di as error "{p}must specify " e(k_out) " new variable names, "  ///
+				 "or one new variable name with the outcome() option when using " ///
+				 "the pr option{p_end}"
+				exit 198
+			}
+			error `rc'
+		}
+		if `nv'==1 & "`outcome'"=="" {
+			local outcome "#1"
+		}
+		Outcome "`outcome'" 
+		local outcome `"`s(outcome)'"'
+	}
+
+	tokenize `typlist'
+	local type `1'
+	if "`predtype'"=="xb" | "`predtype'"=="stdp" {
+		if `outcome' == `e(i_base)' {
+			gen `type' `varlist' = 0
+		}
+		else {
+			qui _predict `type' `varlist' if `touse', `predtype' equation(`eq')
+		}
+
+		if ("`predtype'"=="xb") label var `varlist' `"Linear prediction, `e(depvar)'=`=abbrev("`e(out`outcome')'",17)'"'
+		else label var `varlist' `"Standard error of the linear prediction, `e(depvar)'=`=abbrev("`e(out`outcome')'",17)'"'
+
+		local labels : value label `e(depvar)'
+	}
+	else {
+		macro drop MPROBIT_*
+		global MPROBIT_NPOINTS = e(k_points)
+		global MPROBIT_NALT = e(k_out)
+		global MPROBIT_BASE = e(i_base)
+		global MPROBIT_ALTEQS `e(outeqs)'
+
+		tempname qx qw
+		mata: _mprobit_weights_roots_laguerre($MPROBIT_NPOINTS, "`qw'", "`qx'")
+		global MPROBIT_QX `qx'
+		global MPROBIT_QW `qw'
+		global MPROBIT_TOUSE `touse'
+		global MPROBIT_PROBITPARAM = e(probitparam)
+		if "`predtype'" == "scores" {
+			tempvar depvar
+			tempname label
+			markout `touse' `e(depvar)'
+
+			qui egen `depvar' = group(`e(depvar)') if `touse'
+
+			global MPROBIT_CHOICE `depvar'
+			/* will generate one more score than expected */ 
+			tempvar cb
+			gen double `cb' = 0
+			global MPROBIT_SCRS `cb'
+
+			noi ml score `0'
+		}
+		else {
+			tempname b negH lnf g y
+			
+	 		scalar `lnf' = 0.0
+			matrix `b' = e(b)
+			qui gen int `y' = .
+			global MPROBIT_CHOICE `y'
+			local i = 0
+			foreach vi of local varlist {
+				confirm new variable `vi'
+				tempvar `vi'`++i'
+				qui gen `type' ``vi'`i'' = .
+				local li : word `i' of `outcome'
+				qui replace `y' = `li'
+
+				mprobit_lf -1 `b' `lnf' `g' `negH' ``vi'`i'' 
+			} 
+			local i = 0
+			foreach vi of local varlist {
+				rename ``vi'`++i'' `vi'
+				local li : word `i' of `outcome'
+				label var `vi' `"Pr(`e(depvar)'==`=abbrev("`e(out`li')'",17)')"'
+			}
+		}
+		macro drop MPROBIT_*
+	}
+end
+
+program Outcome, sclass
+
+	args outcomes 
+
+	local o = trim(`"`outcomes'"')
+	local nalt : word count `e(outeqs)'
+	if ("`o'"=="") {
+		forvalues i=1/`nalt' {
+			local outcomes `"`outcomes' `i'"'
+		}
+		sreturn local outcome `"`outcomes'"'	
+		exit
+	}	
+	local neq = `nalt' - 1
+	local altlabels `"`s(names)'"'
+	if bsubstr(`"`o'"',1,1) == "#" {
+		local i = bsubstr(`"`o'"',2,.)
+		if `i' < 0 | `i' > `neq' {
+			di as error "{p}equation #`i' does not exist; " ///
+ 			 "there are `neq' equations{p_end}"
+			exit 322
+		}
+		/* interpret eq 0 as the base equation */
+		if (`i' == 0) local outcome = e(i_base)
+		else if (`i' < e(i_base)) local outcome = `i'
+		else local outcome =  `i'+1
+
+		sreturn local eq "`o'"
+		sreturn local outcome = `outcome'
+		exit 
+	}
+	/* level */
+	cap confirm number `o'
+	local eq = 0
+	if _rc == 0 {
+		forvalues i=1/`nalt' {
+			if `o' == el(e(outcomes),`i',1) {
+				local outcome = `i'
+				if `i' == e(i_base) local eq = 0
+				else if `i' > e(i_base) local eq = `i'-1
+				else local eq = `i'
+
+				continue, break
+			}
+		}
+		if `"`outcome'"' == "" {
+			di as error "{p}`o' is not one of the outcomes{p_end}"
+			exit 322
+		}
+
+		sreturn local eq  "#`eq'"
+		sreturn local outcome = `outcome'
+		exit
+	}
+	/* clear _rc */
+	cap
+	/* label must be the syntactic equation names generated by :	*/
+	forvalues i=1/`nalt' {
+		local labi : word `i' of `e(outeqs)'
+		if `"`labi'"' == `"`o'"' {
+			local outcome = `i'
+			if `i' == e(i_base) local eq = 0
+			else if `i' > e(i_base) local eq = `i'-1
+			else local eq = `i'
+
+			continue, break
+		}
+	}
+	if `"`outcome'"' == "" {
+		di as error "{p}`o' is not one of the outcomes{p_end}"
+		exit 322
+	}
+
+	sreturn local eq  "#`eq'"
+	sreturn local outcome = `outcome'
+end

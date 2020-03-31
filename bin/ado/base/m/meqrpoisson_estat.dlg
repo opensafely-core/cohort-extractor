@@ -1,0 +1,246 @@
+/*
+	meqrpoisson_estat
+
+*!  VERSION 1.1.4  14mar2017
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 400
+INCLUDE header
+
+HELP hlp1, view("help meqrpoisson postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create BOOLEAN has_FactorVars
+	has_FactorVars.settrue
+	program sum_bu_facvars_ckResults
+	program vce_bu_facvars_ckResults
+	setscale_hadj resource MEQRPOISSON_ESTAT_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program parseMessage
+END
+
+PROGRAM parseMessage
+BEGIN
+	if __MESSAGE.contains("-group-") {
+		call main.lb_subcmd.setvalue "group"
+	}
+	if __MESSAGE.contains("-recovariance-") {
+		call main.lb_subcmd.setvalue "recovariance"
+	}
+	if __MESSAGE.contains("-sd-") {
+		call main.lb_subcmd.setvalue "sd"
+	}
+	if __MESSAGE.contains("-ic-") {
+		call main.lb_subcmd.setvalue "ic"
+	}
+	if __MESSAGE.contains("-summarize-") {
+		call main.lb_subcmd.setvalue "summarize"
+	}
+	if __MESSAGE.contains("-vce-") {
+		call main.lb_subcmd.setvalue "vce"
+	}
+END
+
+
+DIALOG main, label(resource MEQRPOISSON_ESTAT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_subcmd		_lft	_top	_cwd1	.,		///
+	label(resource LBL_REPORTS_STATISTICS_SUBCOMMAND)
+  LISTBOX  lb_subcmd		@	_ss	_iwd	70,		///
+	contents(main_subcommand_contents)				///
+	values(main_subcommand_values)					///
+	onselchangelist(main_subcommand_scripts)
+
+  DEFINE holdy 110
+  // group
+  TEXT     tx_gpnote		_lft	holdy	_iwd	.,		///
+	label(resource LBL_CLICK_OK_SUBMIT_SUM_COMPOSITION_NESTED_GROUPS)
+
+  // recovariance
+  CHECKBOX ck_level		_lft	holdy	_iwd	.,		///
+	onclickon(script level_on)					///
+	onclickoff(script level_off)					///
+	label(resource LBL_SPECIFY_LEVEL_AT_WHICH_RE_COVARIANCE_MAT_IS_DIS)
+  COMBOBOX cb_level	       _indent2	_ss	_vnwd	.,		///
+	dropdown							///
+	contents(e(ivars))						///
+	option(relevel)							///
+	label(resource LBL_LEVEL_AT_WHICH_RE_COVARIANCE_MATRIX_IS_DIS)
+  TEXT     tx_level2		_vnsep	@	200	.,		///
+	label(resource LBL_LEVEL)
+
+  // sd
+  CHECKBOX ck_verbose		_lft	holdy	_iwd	.,		///
+	option(verbose)							///
+	label(resource LBL_DISPLAY_FULL_ESTIMATION_TABLE)
+  CHECKBOX ck_post		@	_ms	_iwd	.,		///
+	option(post)							///
+	label(resource LBL_STORE_ESTIMATION_RESULTS)
+
+  // Information criteria
+  CHECKBOX ck_n			_lft	holdy	_iwd	.,		///
+	onclickon(main.sp_n.enable)					///
+	onclickoff(main.sp_n.disable)					///
+	label(resource LBL_NUMBER_OBSERVATIONS_CALCULATING_BIC)
+  SPINNER sp_n			_indent2 _ss	_spwd	.,		///
+	default(e(N)) min(1) max(e(N))					///
+	option(n)
+
+  INCLUDE estat_sum
+  INCLUDE estat_vce
+END
+
+INCLUDE estat_sum_pr
+INCLUDE estat_vce_pr
+
+LIST main_subcommand_contents
+BEGIN
+	resource LBL_SUM_COMPOSITION_NESTED_GROUPS_GROUP
+	resource LBL_ESTIMATED_RANDOM_EFFECTS_COVARIANCE_MATRIX_RECOV
+	resource LBL_DISPLAY_ESTIMATED_RE_AS_SD_AND_CORR
+	resource LBL_INFORMATION_CRITERIA
+	resource LBL_SUMMARIZE_ESTIMATION_SAMPLE
+	resource LBL_COVARIANCE_MATRIX_ESTIMATES
+END
+
+LIST main_subcommand_values
+BEGIN
+	group
+	recovariance
+	sd
+	ic
+	summarize
+	vce
+END
+
+LIST main_subcommand_scripts
+BEGIN
+	script sel_group
+	script sel_recovariance
+	script sel_sd
+	script sel_ic
+	script sel_summarize
+	script sel_vce
+END
+
+SCRIPT main_hide_all
+BEGIN
+	main.ck_post.hide
+	main.ck_verbose.hide
+	main.ck_n.hide
+	main.sp_n.hide
+	main.tx_gpnote.hide
+	script main_summ_off
+	program vce_off
+	main.gb_matdisp.hide
+	main.rb_covariance.hide
+	main.rb_correlation.hide
+	main.ck_level.hide
+	main.cb_level.hide
+	main.tx_level2.hide
+END
+
+SCRIPT sel_group
+BEGIN
+	script main_hide_all
+	main.tx_gpnote.show
+END
+
+SCRIPT sel_recovariance
+BEGIN
+	script main_hide_all
+	
+	// controls located in estat_vce
+	main.gb_matdisp.show
+	main.rb_covariance.show
+	main.rb_correlation.show
+
+	main.ck_level.setposition . 170 . .
+	main.cb_level.setposition . 190 . .
+	main.tx_level2.setposition . 190 . .
+	main.ck_level.show
+	main.cb_level.show
+	main.tx_level2.show
+END
+
+SCRIPT sel_sd
+BEGIN
+	script main_hide_all
+	main.ck_post.show
+	main.ck_verbose.show
+END
+
+SCRIPT sel_ic
+BEGIN
+	script main_hide_all
+	main.ck_n.show
+	main.sp_n.show
+END
+
+SCRIPT sel_summarize
+BEGIN
+	script main_hide_all
+	program main_summ_on
+END
+
+SCRIPT sel_vce
+BEGIN
+	script main_hide_all
+	program vce_on
+END
+
+SCRIPT level_on
+BEGIN
+	main.cb_level.enable
+	main.tx_level2.enable
+END
+
+SCRIPT level_off
+BEGIN
+	main.cb_level.disable
+	main.tx_level2.disable
+END
+
+PROGRAM vl_output
+BEGIN
+	put main.vl_spec
+END
+
+PROGRAM vl_eq_output
+BEGIN
+	put main.vl_eq
+END
+
+PROGRAM command
+BEGIN
+	put "estat "
+	put main.lb_subcmd
+	put " " /program summarize_output
+	beginoptions
+		// sd options
+		option main.ck_verbose
+		option main.ck_post
+
+		// ic options
+		optionarg main.sp_n
+
+		// summarize options
+		put " " /program summarize_opts_output
+
+		put /program vce_output
+		// other options
+		if main.ck_level {
+			require main.cb_level
+			optionarg main.cb_level
+		}
+	endoptions
+END

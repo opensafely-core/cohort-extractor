@@ -1,0 +1,105 @@
+/*
+	outsheet
+
+*! VERSION 1.2.2  02dec2014 (deprecated)
+
+*/
+
+VERSION 9.0
+
+INCLUDE _std_medium
+INCLUDE _ht320
+INCLUDE header
+
+HELP hlp1, view("help outsheet")
+RESET res1
+
+DIALOG main, label("outsheet - Export spreadsheet-style dataset")	///
+	tabtitle("Main")
+BEGIN
+  TEXT     tx_var            _lft      _top      _iwd      .,		///
+	label("Variables:  (leave empty for all variables)")
+  VARLIST  vl_var            @         _ss       @         .,		///
+	label("Variables")
+
+  TEXT     tx_using          @         _ls       @         .,		///
+	label("Write to the file:")
+  FILE     fi_using          @         _ss       @         .,		///
+	error("Write to the file")					///
+	label("Save As...")						///
+	filter("Raw Files (*.raw)|*.raw|Text Files (*.txt)|*.txt|Comma Separated Values (*.csv)|*.csv|All (*.*)|*.*")	///
+	defext(raw)							///
+	save
+
+  GROUPBOX gb_options        @         +35       @         _ht8,	///
+	label("Delimiter")
+
+  RADIO rb_tab		    _ilft	_ss	_ibwd	.,		///
+	first								///
+	label("Tab-delimited format")					///
+	option(tab)
+
+  RADIO rb_comma          _ilft     _ss       _ibwd     .,		///
+	option(comma)							///
+	label("Comma-separated (instead of tab-separated) format")
+
+  RADIO rb_delimit   		@       _ss	@	.,		///
+	label("User-specified delimiter")				///
+	option(delimiter) last						///
+	onclickon(script main_delimit_on)				///
+	onclickoff(script main_delimit_off)
+
+  EDIT ed_delimit		_indent2 _ss	40	.,		///
+	option(delimiter) max(1) label("Value delimiter")
+
+  TEXT tx_delimit		+45	@	100	.,		///
+	label("Value delimiter")
+
+  CHECKBOX ck_nonames        _lft	_xls	_iwd    .,		///
+	option(nonames)							///
+	label("Do not write variable names on the first line")
+
+  CHECKBOX ck_nolabel        @         _ms       @         .,		///
+	option(nolabel)							///
+	label("Output numeric values (not labels) of labeled variables")
+
+  CHECKBOX ck_noquote        @         _ms       @         .,		///
+	option(noquote) label("Do not enclose strings in double quotes")
+END
+
+SCRIPT main_delimit_on
+BEGIN
+	main.ed_delimit.enable
+	main.tx_delimit.enable
+END
+
+SCRIPT main_delimit_off
+BEGIN
+	main.ed_delimit.disable
+	main.tx_delimit.disable
+END
+
+
+
+INCLUDE ifin
+
+PROGRAM command
+BEGIN
+	require main.fi_using
+	put "outsheet "
+	varlist [main.vl_var]
+	repfile main.fi_using
+	put " using " `"""' main.fi_using `"""' " "
+	INCLUDE _ifin_pr
+	beginoptions
+		option main.rb_comma
+		if main.rb_delimit {
+			require main.ed_delimit
+			optionarg /quoted main.ed_delimit
+		}
+		option main.ck_nonames
+		option main.ck_nolabel
+		option main.ck_noquote
+		put "replace"
+	endoptions
+END

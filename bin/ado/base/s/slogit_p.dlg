@@ -1,0 +1,150 @@
+/*
+	predict (after slogit)
+
+*!  VERSION 1.2.3  19mar2019
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE header
+
+HELP hlp1, view("help slogit postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource SLOGIT_P_DLG_HSCALE
+END
+
+
+DIALOG main, label(resource PREDICT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_vars           _lft      _top      _vlwd     .,		/*
+		*/ label(resource LBL_NEW_VARIABLE_NAMES_STUB)
+  EDIT     ed_vars           @         _ss       @         .,		/*
+		*/ label(resource LBL_NEW_VARIABLE_NAMES_STUB)
+  TEXT     tx_var            _lft      _top      @         .,		/*
+		*/ label(resource LBL_NEW_VARIABLE_NAME)
+  EDIT     ed_var            @         _ss       _vnwd     .,		/*
+		*/ label(resource LBL_NEW_VARIABLE_NAME) max(32)
+
+  TEXT     tx_type           _vlsep    _top      _vlr      .,		/*
+		*/ label(resource LBL_NEW_VARIABLE_TYPE)
+  COMBOBOX cb_type           @         _ss       @         .,		/*
+		*/ dropdownlist						/*
+		*/ contents(type) default(c(type))			/*
+		*/ label(resource LBL_TYPE)
+
+  GROUPBOX gb_opts           _lft      _ls       _iwd      _ht10,	/*
+		*/ label(resource LBL_PRODUCE)
+  RADIO    rb_p_all          _ilft     _ss       _ibwd     ., first	/*
+		*/ option(pr)						/*
+		*/ clickon("script offmany")				/*
+		*/ label(resource LBL_PROBABILITIES_FOR_ALL_OUTCOMES)
+  RADIO    rb_p              _ilft     _ss       _comb3_2  .,		/*
+		*/ option(pr)						/*
+		*/ clickon("script off2")				/*
+		*/ label(resource LBL_PROBABILITY_FOR_A_SPECIFIC_OUTCOME)
+  DEFINE   holdy@y
+  RADIO    rb_xb             @         _ss       @         .,		/*
+		*/ option(xb)						/*
+		*/ clickon("script off2")				/*
+		*/ label(resource SLOGIT_P_MAIN_RB_XB)
+  RADIO    rb_stdp           @         _ss       @         .,		/*
+		*/ option(stdp)						/*
+		*/ clickon("script off2")				/*
+		*/ label(resource SLOGIT_P_MAIN_RB_STDP)
+  RADIO    rb_score          _ilft     _ss       _comb3_2  ., last	/*
+		*/ option(scores)					/*
+		*/ clickon("script offmany")				/*
+		*/ label(resource LBL_EQUATION_LEVEL_SCORES)
+
+  TEXT     tx_outcome1       _ilft3_3  holdy     _cwd3_2   .,		/*
+		*/ label(resource LBL_OUTCOME)
+  LISTBOX  lb_outcome1       @         _ss       @         _ht3,	/*
+		*/ contents(ereturn labels)				/*
+		*/ label(resource LBL_OUTCOME)
+END
+
+INCLUDE ifin
+INCLUDE _type_list_fd
+
+SCRIPT offmany
+BEGIN
+	script manyvars
+	script eq1off
+END
+
+SCRIPT off2
+BEGIN
+	script onevar
+	script eq1on
+END
+
+SCRIPT manyvars
+BEGIN
+	main.tx_vars.show
+	main.ed_vars.show
+	main.tx_var.hide
+	main.ed_var.hide
+END
+
+SCRIPT onevar
+BEGIN
+	main.tx_vars.hide
+	main.ed_vars.hide
+	main.tx_var.show
+	main.ed_var.show
+END
+
+SCRIPT eq1on
+BEGIN
+	main.tx_outcome1.show
+	main.lb_outcome1.show
+END
+
+SCRIPT eq1off
+BEGIN
+	main.tx_outcome1.hide
+	main.lb_outcome1.hide
+END
+
+
+PROGRAM command
+BEGIN
+	put "predict "
+	if main.cb_type.isdefault() {
+		if main.rb_p_all | main.rb_score {
+			require main.ed_vars
+			put main.ed_vars " "
+		}
+		if !main.rb_p_all & !main.rb_score {
+			require main.ed_var
+			put main.ed_var " "
+		}
+	}
+	if ! main.cb_type.isdefault() {
+		put main.cb_type " " "("
+		if main.rb_p_all | main.rb_score {
+			require main.ed_vars
+			put main.ed_vars
+		}
+		if !main.rb_p_all | main.rb_score {
+			require main.ed_var
+			put main.ed_var
+		}
+		put ") "
+	}
+	INCLUDE _ifin_pr
+	beginoptions
+		if main.rb_p | main.rb_xb | main.rb_stdp {
+			put "outcome("
+			require main.lb_outcome1
+			put main.lb_outcome1
+			put ") "
+		}
+		option radio(main rb_p_all rb_p rb_xb rb_stdp rb_score)
+	endoptions
+END

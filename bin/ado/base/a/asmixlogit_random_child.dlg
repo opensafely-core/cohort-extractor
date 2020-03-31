@@ -1,0 +1,85 @@
+/*
+  asmixlogit_random_child.dlg
+
+*!  VERSION 1.0.2  20mar2017
+
+  keyword:  eclass
+
+*/
+
+VERSION 15.0
+
+INCLUDE _std_medium
+DEFINE _dlght 120
+INCLUDE header
+
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource ASMIXLOGIT_RANDOM_DLG_HSCALE
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	title(resource LBL_RANDOM_COEFFICIENTS_NOCOLON)
+BEGIN
+  TEXT tx_iv			_lft	_top	_iwd	.,		///
+	label(resource LBL_VARIABLES)
+  VARLIST vl_iv			@	_ss	_iwd	.,		///
+	fv								///
+	allowcat							///
+	numeric								///
+	label(resource LBL_VARIABLES)
+  TEXT tx_distribution		_lft	_ls	_iwd	.,		///
+  	label(resource ASMIXLOGIT_RANDOM_CHILD_TX_DISTRIBUTION)
+  COMBOBOX cb_distribution	_lft	_ss	_cwd1	.,		///
+	dropdownlist							///
+	contents(distribution_list)					///
+	values(distribution_values)					///
+	onselchange(program check_corr)
+END
+
+LIST distribution_list
+BEGIN
+	resource LBL_GAUSSIAN
+	resource LBL_CORRELATED_GAUSSIAN
+	resource LBL_LOGNORMAL
+	resource LBL_TRUNC_NORMAL
+	resource LBL_UNIFORM
+	resource LBL_TRIANGULAR
+END
+
+LIST distribution_values
+BEGIN
+        ""
+        "correlated"
+        "lnormal"
+        "tnormal"
+        "uniform"
+        "triangle"
+END
+
+PROGRAM check_corr
+BEGIN
+	if main.cb_distribution.iseq("correlated") {
+		call PARENT.callthru "correlated.setvalue 1"
+	}
+	else {
+		call PARENT.callthru "correlated.setvalue 0"
+	}
+END
+
+PROGRAM random_output
+BEGIN
+	varlist main.vl_iv
+	beginoptions
+		put main.cb_distribution
+	endoptions
+END
+
+PROGRAM command
+BEGIN
+	put " random("
+		put /program random_output
+	put ")"
+END

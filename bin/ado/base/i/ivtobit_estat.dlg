@@ -1,0 +1,397 @@
+/*
+	ivtobit estat
+
+*!  VERSION 1.0.3  07may2017
+
+*/
+
+VERSION 15.0
+
+INCLUDE _std_large
+DEFINE _dlght 400	//dialog length for bootstrap options
+INCLUDE header
+
+HELP hlp1, view("help ivtobit postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create BOOLEAN has_FactorVars
+	create STRING FormatString
+	has_FactorVars.settrue
+	program sum_bu_facvars_ckResults
+	program vce_bu_facvars_ckResults
+	setscale_hadj resource IVTOBIT_ESTAT_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program show_subcmds
+	program parseMessage
+END
+
+PROGRAM show_subcmds
+BEGIN
+	call create STRING e_ll
+	call create STRING e_properties
+	call create STRING e_boot
+	call create STRING emethod
+
+	call e_ll.setvalue e(ll)
+	call e_properties.setvalue e(properties)
+	call e_boot.setvalue e(prefix)
+	call emethod.setstring e(method)
+
+	call main.lb_subcmd.clearlist
+	call script main_hide_all
+
+	if emethod.isneq("twostep") {
+		call main_subcommand_contents.ArrpushR			///
+			resource dlg LBL_COVARIANCE_MATRIX_DEP_VAR_ENDOG_VAR
+		call main_subcommand_values.Arrpush "covariance"
+	}
+	if emethod.isneq("twostep") {
+		call main_subcommand_contents.ArrpushR			///
+			resource dlg LBL_CORRELATION_MATRIX_DEP_VAR_ENDOG_VAR
+		call main_subcommand_values.Arrpush "correlation"
+	}
+	if emethod.isneq("twostep") {
+		call main_subcommand_contents.ArrpushR			///
+			resource dlg LBL_INFORMATION_CRITERIA
+		call main_subcommand_values.Arrpush "ic"
+	}
+	call main_subcommand_contents.ArrpushR				///
+		resource dlg LBL_SUMMARIZE_ESTIMATION_SAMPLE
+	call main_subcommand_values.Arrpush "summarize"
+	if e_properties.contains("V") {
+		call main_subcommand_contents.ArrpushR			///
+			resource dlg LBL_COVARIANCE_MATRIX_ESTIMATES
+		call main_subcommand_values.Arrpush "vce"
+	}
+	if e_boot.iseq("bootstrap") {
+		call main_subcommand_contents.ArrpushR			///
+			resource dlg _ESTAT_BOOTSTRAP_PR_CI
+		call main_subcommand_values.Arrpush "bootstrap"
+	}
+
+	call main.lb_subcmd.repopulate
+END
+
+PROGRAM parseMessage
+BEGIN
+        if __MESSAGE.contains("-correlation-") {
+                call main.lb_subcmd.setvalue "correlation"
+        }
+        if __MESSAGE.contains("-covariance-") {
+                call main.lb_subcmd.setvalue "covariance"
+        }
+	if __MESSAGE.contains("-ic-") {
+		call main.lb_subcmd.setvalue "ic"
+	}
+	if __MESSAGE.contains("-summarize-") {
+		call main.lb_subcmd.setvalue "summarize"
+	}
+	if __MESSAGE.contains("-vce-") {
+		call main.lb_subcmd.setvalue "vce"
+	}
+END
+
+DIALOG main, label(resource IVTOBIT_ESTAT_DLG_TITLE ) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_subcmd		_lft	_top	_iwd	.,		///
+  	label(resource LBL_REPORTS_STATISTICS_SUBCOMMAND)
+  LISTBOX  lb_subcmd		@	_ss	@	70,		///
+  	contents(main_subcommand_contents)				///
+  	values(main_subcommand_values)					///
+  	onselchange(program main_subcommand_scripts)
+
+  DEFINE holdy 110
+
+  // + correlation options
+  GROUPBOX gb_style		_lft	holdy	_iwd	_ht14h,		///
+	label(resource LBL_STYLE)
+  TEXT     tx_border    	_ilft	_ss	_ibwd	.,		///
+	label(resource LBL_BORDER_STYLE)
+  COMBOBOX cb_border		@       _ss     200	.,		///
+	label(resource LBL_BORDER_STYLE)				///
+	dropdownlist default(all)					///
+	contents(style_words)						///
+	value(style_values)						///
+	option(border)
+  TEXT     tx_left		_ilft	_ls	_ibwd	.,  		///
+	label(resource LBL_LEFT_INDENT_FOR_TABLES)
+  SPINNER  sp_left	       @	_ss	_spwd	.,		///
+	label(resource LBL_LEFT_INDENT_FOR_TABLES)			///
+	min(0) max(80) default(2) option(left)
+
+  TEXT	   tx_style_format	_ilft	_ls	_ibwd	.,		///
+	label(resource LBL_DISPLAY_FORMAT)
+  EDIT     ed_style_format	_ilft	_ss	175	.,		///
+	default("%9.0g")						///
+	option(format) label(resource LBL_DISPLAY_FORMAT)
+  BUTTON   bu_style_format   +180    @       80      .,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(script showFormatDialog)				///
+	tooltip(resource LBL_CREATE_DISPLAY_FORMAT)
+
+  // Information criteria
+  TEXT 	   tx_noic		_lft	holdy	_iwd	.,
+  CHECKBOX ck_n			_lft	holdy	_iwd	.,		///
+	onclickon(main.sp_n.enable)					///
+	onclickoff(main.sp_n.disable)					///
+	label(resource LBL_NUMBER_OBSERVATIONS_CALCULATING_BIC)
+  SPINNER sp_n			_indent2 _ss	_spwd	.,		///
+	default(e(N)) min(1) max(e(N))					///
+	option(n)
+  
+  INCLUDE estat_sum
+  INCLUDE estat_vce
+  INCLUDE _estat_bootstrap
+END
+
+LIST style_words
+BEGIN
+	resource LBL_AROUND_ALL_FOUR_SIDES
+	resource LBL_NO_BORDER_LINES_DRAWN
+	resource LBL_AT_THE_TOP_BOTTOM
+	resource LBL_AT_THE_LEFT_RIGHT
+	resource LBL_AT_THE_LEFT
+	resource LBL_AT_THE_RIGHT
+	resource LBL_AT_THE_TOP
+	resource LBL_AT_THE_BOTTOM
+END
+
+LIST style_values
+BEGIN
+	all
+	none
+	rows
+	columns
+	left
+	right
+	top
+	bottom
+END
+
+INCLUDE estat_sum_pr
+INCLUDE estat_vce_pr
+
+SCRIPT sel_bootstrap
+BEGIN
+	script main_hide_all
+	script main_bootstrap_show
+END
+
+SCRIPT main_bootstrap_show
+BEGIN
+	main._gb_ci.show
+	main._ck_all.show
+	main._ck_bc.show
+	main._ck_bca.show
+	main._ck_norm.show
+	main._ck_p.show
+	main._ck_verbose.show
+	main._ck_noheader.show
+	main._ck_nolegend.show
+	main._tx_title.show
+	main._ed_title.show
+END
+SCRIPT main_bootstrap_hide
+BEGIN
+	main._tx_bs.hide
+	main._gb_ci.hide
+	main._ck_all.hide
+	main._ck_bc.hide
+	main._ck_bca.hide
+	main._ck_norm.hide
+	main._ck_p.hide
+	main._ck_verbose.hide
+	main._ck_noheader.hide
+	main._ck_nolegend.hide
+	main._tx_title.hide
+	main._ed_title.hide
+END
+
+
+PROGRAM _bs_check_all
+BEGIN
+	if main._ck_all {
+		call gaction main._ck_bc.disable
+		call gaction main._ck_bca.disable
+		call gaction main._ck_norm.disable
+		call gaction main._ck_p.disable
+	}
+	if !main._ck_all {
+		call gaction main._ck_bc.enable
+		call gaction main._ck_bca.enable
+		call gaction main._ck_norm.enable
+		call gaction main._ck_p.enable
+	}
+END
+
+PROGRAM _bs_verbose_check
+BEGIN
+	if main._ck_verbose {
+		call main._ck_noheader.disable
+		call main._ck_nolegend.disable
+	}
+	if ! main._ck_verbose {
+		call main._ck_noheader.enable
+		if ! main._ck_noheader {
+			call main._ck_nolegend.enable
+		}
+	}
+END
+
+PROGRAM bootstrap_output
+BEGIN
+	option main._ck_all
+	option main._ck_bc
+	option main._ck_bca
+	option main._ck_norm
+	option main._ck_p
+	option main._ck_noheader
+	option main._ck_nolegend
+	option main._ck_verbose
+	optionarg main._ed_title
+END
+
+LIST main_subcommand_contents
+BEGIN
+END
+
+LIST main_subcommand_values
+BEGIN
+END
+
+PROGRAM main_subcommand_scripts
+BEGIN
+	if main.lb_subcmd.iseq("correlation") {
+		call program sel_correlation
+	}
+	if main.lb_subcmd.iseq("covariance") {
+		call program sel_covariance
+	}
+	if main.lb_subcmd.iseq("ic") {
+		call program sel_ic
+	}
+	if main.lb_subcmd.iseq("summarize") {
+		call script sel_summarize
+	}
+	if main.lb_subcmd.iseq("vce") {
+		call script sel_vce
+	}
+	if main.lb_subcmd.iseq("bootstrap") {
+		call script sel_bootstrap
+	}
+END
+
+PROGRAM sel_covariance
+BEGIN
+	call script main_hide_all
+	call main.gb_style.show
+	call main.tx_border.show
+	call main.cb_border.show
+	call main.tx_left.show
+	call main.sp_left.show
+	call main.tx_style_format.show
+	call main.ed_style_format.show
+	call main.bu_style_format.show
+END
+
+PROGRAM sel_correlation
+BEGIN
+	call script main_hide_all
+	call main.gb_style.show
+	call main.tx_border.show
+	call main.cb_border.show
+	call main.tx_left.show
+	call main.sp_left.show
+	call main.tx_style_format.show
+	call main.ed_style_format.show
+	call main.bu_style_format.show
+END
+
+PROGRAM sel_ic
+BEGIN
+	call script main_hide_all
+	call main.ck_n.show
+	call main.sp_n.show
+END
+
+SCRIPT sel_summarize
+BEGIN
+	script main_hide_all
+	program main_summ_on
+END
+
+SCRIPT sel_vce
+BEGIN
+	script main_hide_all
+	program vce_on
+END
+
+SCRIPT showFormatDialog
+BEGIN
+	create STRING FormatString
+	create CHILD format_chooser
+	format_chooser.setExitString FormatString
+	format_chooser.setExitAction 			///
+		"main.ed_style_format.setvalue class FormatString.value"
+END
+
+SCRIPT main_hide_all  // MUST BE IMPLEMENTED FOR BOOTSTRAP
+BEGIN
+	main.gb_style.hide
+	main.tx_border.hide
+	main.cb_border.hide
+	main.tx_left.hide
+	main.sp_left.hide
+	main.tx_style_format.hide
+	main.ed_style_format.hide
+	main.bu_style_format.hide
+	main.ck_n.hide
+	main.sp_n.hide
+	main.tx_noic.hide
+	script main_summ_off
+	program vce_off
+	script main_bootstrap_hide
+END
+
+PROGRAM vl_output
+BEGIN
+	put main.vl_spec
+END
+
+PROGRAM vl_eq_output
+BEGIN
+	put main.vl_eq
+END
+
+PROGRAM command
+BEGIN
+	put "estat "
+	if main.lb_subcmd.iseq("ic") & emethod.iseq("twostep") {
+		stopbox stop resource IVTOBIT_ESTAT_MSGBOX_IC_NOT_AVAILABLE_NEWEYS
+//		stopbox stop "Information criteria (ic) is not available with Newey's two-step estimator." 
+	}
+	put main.lb_subcmd
+	put " " /program summarize_output
+	beginoptions
+		// covariance/correlation
+		optionarg /hidedefault main.ed_style_format
+		optionarg /hidedefault main.cb_border
+		optionarg /hidedefault main.sp_left
+
+		// ic options
+		optionarg main.sp_n
+
+		// Summarize options
+		put " " /program summarize_opts_output
+
+		put " " /program vce_output
+		put " " /program bootstrap_output
+	endoptions
+
+END
+

@@ -1,0 +1,87 @@
+/*
+	mi ptrace ...
+
+*!  VERSION 1.1.2  14mar2015
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+INCLUDE header
+HELP hlp1, view("help mi ptrace")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource MI_PTRACE_DLG_HSCALE
+	
+        main.fi_using.formatfilter "{0} (*.stptrace)|*.stptrace|{1} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_PTRACE_FILES" "resource ui_ex FILE_TYPE_ALL_FILES"
+END
+
+
+DIALOG main, label(resource MI_PTRACE_DLG_TITLE)			///
+	tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  RADIO rb_describe	_lft	_top	_iwd	., first		///
+	option(describe)						///
+	onclickon("script main_rb_describe_on")				///
+	label(resource LBL_DESCRIBE_DATA)
+  RADIO rb_use		@	_ss	@	., last			///
+	option(use)							///
+	onclickon("script main_rb_use_on")				///
+	label(resource MI_PTRACE_MAIN_RB_USE)
+
+  TEXT tx_using		@	_ls	_iwd	.,			///
+	label(resource MI_PTRACE_MAIN_TX_USING)
+  FILE	fi_using	@	_ss	@	.,			///
+	defext(stptrace)						///
+	error(resource MI_PTRACE_MAIN_TX_USING)				///
+	label(resource LBL_BU_BROWSE)
+
+  GROUPBOX gb_opts	@	_ls	@	_ht9h,			///
+	label(resource LBL_OPTIONS)
+  TEXT tx_select	_indent	_ss	_inwd	.,			///
+	label(resource MI_PTRACE_MAIN_TX_SELECT)
+  EDIT ed_select	@	_ss	@	.,			///
+	option(select)							///
+	label(resource MI_PTRACE_MAIN_TX_SELECT)
+  CHECKBOX ck_clear	@	_ls	@	.,			///
+	option(clear)							///
+	label(resource LBL_REPLACE_DATA_IN_MEMORY)
+  CHECKBOX ck_double 	@	_ms	@	.,			///
+	option(double)							///
+	label(resource MI_PTRACE_MAIN_CK_DOUBLE)
+END
+
+SCRIPT main_rb_describe_on
+BEGIN
+	main.gb_opts.hide
+	main.tx_select.hide
+	main.ed_select.hide
+	main.ck_clear.hide
+	main.ck_double.hide
+END
+
+SCRIPT main_rb_use_on
+BEGIN
+	main.gb_opts.show
+	main.tx_select.show
+	main.ed_select.show
+	main.ck_clear.show
+	main.ck_double.show
+END
+
+PROGRAM command
+BEGIN
+	require main.fi_using
+	put "mi ptrace "
+	option radio(main rb_describe rb_use)
+	put `"""' main.fi_using `"""'
+	beginoptions
+		option main.ck_double
+		option main.ck_clear
+		optionarg main.ed_select
+	endoptions
+END

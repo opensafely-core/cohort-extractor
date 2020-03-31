@@ -1,0 +1,360 @@
+/*                                  series
+
+	Class to manage a data series.  Almost always used as a member of a
+	series set, which are a set of aligned series.
+*/
+*! version 1.1.4  09sep2019
+
+version 8
+
+class series {
+						/* variable information	*/
+	string name
+	string label
+	string format
+	type = .vartype.new
+
+						/* summary statistics	*/
+	double min
+	double max
+	double median
+	double pct25
+	double pct75
+	double categories
+
+	vlabs  = .null.new			/* value labels		*/
+
+}, inherit(object)
+
+
+/* -------------------------------------------------------------------------*/
+/*	Usage:  .new [series_name] [, /*Style(stylename)*/ Variable noCOUNT ]
+
+	stylename may just be a stylename or be of the form 
+	.style.copy, .style.new, or `.style.objkey' (now disallowed).
+*/
+
+program define new
+
+	syntax [anything(name=vname)] [if] [in] [, Variable MISSing 	///
+		noCOUNT READLOG(string) ]
+
+	.name = `"`vname'"'
+
+	if "`readlog'" != "" {
+		.readfromfile `readlog'
+	}
+
+					/* load variable information */
+	if "`variable'" != "" {
+		gettoken ts var : vname , parse(.)
+		if "`var'" != "" {
+			gettoken unused var : var , parse(.)
+			local tslab ", `ts'"
+		}
+		else	local var `ts'
+		local t : variable label `var'
+		if `"`macval(t)'"' != `""' {
+			.label = `"`macval(t)'`tslab'"'
+		}
+		local t : type `var'
+		if bsubstr("`t'", 1, 3) == "str" { 
+			.type.set string
+		}
+		else	.type.set numeric
+		local t : format `var'
+		.format = `"`t'"'
+						/* summary stats */
+		if "`count'" == "" {
+			capture tabulate `vname' `if' `in' , `missing'
+			if ! _rc {
+				.categories = r(r)
+			}
+		}
+		summarize `vname' `if' `in' , meanonly
+		.min = r(min)
+		.max = r(max)
+	}
+
+end
+
+/* -------------------------------------------------------------------------*/
+/*	Set the value labels to be those for the variable's label, variable
+        must be in the dataset.
+
+	If and in are ignored.  All labels are included.
+
+	In reality, adds the labels, does not clear any existing labels.
+*/
+
+program define set_labels
+
+	syntax [if/] [in]
+
+	tsrevar `.name', list
+	local labname : value label `r(varlist)'
+	
+	if "`labname'" == "" {
+		exit					/* nothing to do */
+	}
+
+	mata: _series_save_labels("`labname'")
+end
+
+program set_a_label
+	args dex lab
+
+	if "`.vlabs.`dex'.isa'" == "" {
+		.vlabs.Declare `dex' = `"`lab'"'
+	}
+	else	.vlabs.`dex' = `"`lab'"'
+end
+
+
+/* -------------------------------------------------------------------------*/
+/* Map a label index to a legal name for a class object.  Currently assumes that
+   the index is an integer or a .a-style missing value -- the only indexes
+   allowed by -label-. 
+*/
+program Labdex
+	args dex
+
+	if      (`dex' <  0 )  local dex = "N" + bsubstr("`dex'", 2, .)
+	else if (`dex' >= . )  local dex = "M" + bsubstr("`dex'", 2, .)
+
+	class exit "__D_`dex'"
+end
+
+
+
+/* -------------------------------------------------------------------------*/
+/*	Usage:  .value_label #_label
+
+	Returns the value label for #, returns # if no label.
+	#'s start at 1.
+
+*/
+program define value_label
+	args i fmt
+
+	local lbl `"`.vlabs.`.Labdex `i'''"'
+
+	if ( `"`lbl'"' == `""' ) {
+		if ("`fmt'" == "")  class exit `"`i'"'
+		else		    class exit `"`=string(`i',"`fmt'")'"'
+	}
+	else			  class exit `"`lbl'"'
+
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*	Usage:  .value_code label
+
+	Returns the code of the label.
+	Returns . "" if not found.
+
+*/
+program define value_code
+
+	args label
+
+	forvalues i=1/0`.vlabs.dynamicmv.arrnels' {
+		if `"`label'"' == `"`.vlabs.dynamicmv[`i']'"' {
+			local found 1
+			continue, break
+		}
+	}
+
+	if 0`found' {
+		class nameof vlabs dynamicmv[`i']
+		local code `r(name)'
+		local code : subinstr local code "N" "-"
+		local code : subinstr local code "M" "."
+		class exit = (`code')
+	}
+	else	class exit = (.)
+
+end
+
+
+// ---------------------------------------------------------------------------
+//  Usage .vlab_pos_of #_label
+//
+//  Returns the array index in the vlabs array where the label for # is
+//  stored.  Yes, this is odd.  bar graphs use this to map a labels code to a
+//  sequence number
+
+program vlab_pos_of
+	args i
+
+	local nm `.Labdex `i''
+
+	forvalues j = 1/0`.vlabs.dynamicmv.arrnels' {
+		class nameof vlabs .dynamicmv[`j']
+		if "`r(name)'" == "`nm'" {
+			local found `j'
+			continue , break
+		}
+	}
+
+	class exit = cond(0`found' , 0`found' , 0)
+end
+
+
+// ---------------------------------------------------------------------------
+//  Usage .has_labels
+//
+//  Returns 1 if the series has labels, 0 otherwise.
+
+program has_labels
+	class exit  = (0`.vlabs.dynamicmv.arrnels' > 0)
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*	Usage:  .seton series_id [, /*Style(style)*/ ]
+
+*/
+
+program define seton
+	gettoken series 0 : 0, parse(" ,")
+
+	syntax /*[, Style(string) ]*/
+
+					/* load variable information */
+	local t : serset varnames
+	local t : word `series' of `t'
+	.name = `t'
+/* 
+	local t : variable label `name'
+	.label = `"`t'"'
+*/
+	local t : serset type `series'
+	if bsubstr("`t'", 1, 3) == "str" { 
+		.type.set string
+	}
+	else	.type.set numeric
+
+	local t : serset format `series'
+	.format = `"`t'"'
+end
+
+
+/* -------------------------------------------------------------------------*/
+
+program define label_or_name
+	
+	if `"`macval(.label)'"' == `""' {
+		class exit `"`.name'"'
+	}
+	else	class exit `"`macval(.label)'"'
+end
+
+
+/* -------------------------------------------------------------------------*/
+program reset_derived
+	args id
+
+	.min	    = 0`:serset min `id''
+	.max        = 0`:serset max `id''
+	.vlabs.ref  = .null.new
+	.lab_offset = (.)
+	.categories = (.)
+end
+
+program reset_partial
+	args id
+
+	.min	    = 0`:serset min `id''
+	.max        = 0`:serset max `id''
+end
+
+
+/* -------------------------------------------------------------------------*/
+/* Saves a series to a file.
+*/
+ 
+program define savetofile
+	args filehndl
+
+	file write `filehndl' `".name = `"`.name'"'"' _n
+	file write `filehndl' `".label = `"`.label'"'"' _n
+	file write `filehndl' `".format = `"`.format'"'"' _n
+
+	file write `filehndl' ".type.set `.type.setting'" _n
+
+	_writenum `filehndl' min
+	_writenum `filehndl' max
+	_writenum `filehndl' median
+	_writenum `filehndl' pct25
+	_writenum `filehndl' pct75
+	_writenum `filehndl' categories
+
+	if 0`.vlabs.dynamicmv.arrnels' {
+		_writenum `filehndl' lab_offset
+
+		forvalues i=1/0`.vlabs.dynamicmv.arrnels' {
+		    if "`.vlabs.dynamicmv[`i'].isa'" != "" {
+			class nameof vlabs dynamicmv[`i']
+			file write `filehndl'			///
+		`".vlabs.Declare `r(name)' = `"`.vlabs.dynamicmv[`i']'"'"' _n
+		    }
+		}
+	}
+end
+
+/* -------------------------------------------------------------------------*/
+/*  Reads a series from a file
+*/
+
+program define readfromfile
+	args filehndl
+
+	while 1 {
+		file read `filehndl' cmd
+		gettoken tok : cmd
+
+		if "`tok'" == "<EndSeries>" {
+			continue, break				/* DONE */
+		}
+
+		`cmd'			/* file lines are just commands */
+	}
+end
+
+mata:
+
+void _series_save_labels(string scalar labname)
+{
+	real   rowvector values, labels
+	real   scalar    i
+	string scalar    dex
+	pragma unset values
+	pragma unset labels
+
+	st_vlload(labname, values, labels)
+	
+	for (i=1; i<=rows(values); i++) {
+		if (labels[i] != "") {
+			if      (values[i] < 0) {
+				dex = sprintf("%f", values[i])
+				dex = "__D_N" + bsubstr(dex, 2, .)
+			}
+			else if (values[i] >= .) {
+				dex = sprintf("%f", values[i])
+				dex = "__D_M" + bsubstr(dex, 2, .)
+			}
+			else {
+				dex = sprintf("__D_%f", values[i])
+			}
+
+			stata(sprintf(
+			      `".set_a_label "%s" `"%s"'"', dex, labels[i]))
+		}
+	}
+}
+
+end
+
+exit

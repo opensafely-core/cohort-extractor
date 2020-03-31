@@ -1,0 +1,611 @@
+/*
+  mi_impute_chained
+
+*!  VERSION 1.1.7  03jun2015
+
+  keyword:  eclass
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 485
+INCLUDE header
+
+HELP hlp1, view("help mi_impute_chained")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING STMP
+	create STRING bu_groupOptResults
+	/* lhs list box */
+	create STRING main_lhs_tmp
+	create STRING main_lhs_tmp2
+	create STRING main_lhs_childdlg
+	create STRING main_lhs_dlgname
+	create STRING main_lhs_child_result
+	create STRING main_lhs_cmd_output
+
+	create ARRAY main_lhs_list
+
+	create SVECTOR mainLHSCommandDisplayList
+	create SVECTOR mainLHSCommandList
+	create SVECTOR mainLHSCommandValues
+	create SVECTOR mainLHSStatusList
+	create SVECTOR mainLHSChildDialogList
+	create SVECTOR mainLHSDialogNameList
+
+	create DOUBLE main_lhs_count
+	create DOUBLE main_lhs_position
+	create DOUBLE main_lhs_arraysize
+
+	main.bu_lhs_edit.disable
+	main.bu_lhs_disable.disable
+	main.bu_lhs_enable.disable
+	setscale_hadj resource MI_IMPUTE_CHAINED_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	mainLHSCommandDisplayList.copyToArray main_lhs_list
+	main.lb_lhsBuild.repopulate
+
+	create DOUBLE _mi_M
+	create STRING _mi_M_STR
+	program check_M
+END
+
+PROGRAM check_M
+BEGIN
+	call _mi_M_STR.setvalue char _dta[_mi_M]
+	call _mi_M.setvalue class _mi_M_STR.value
+
+	if _mi_M.islt(1) {
+		call main.ck_add.seton
+	}
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	title(resource MI_IMPUTE_CHAINED_DLG_TITLE)
+BEGIN
+  TEXT tx_uvmeth		_lft	_top	_cwd6	.,		///
+	label(resource LBL_UNIVARIATE_METHOD)
+  COMBOBOX cb_lhs_uvmeth	@	_ss	@	.,		///
+	dropdownlist							///
+	contents(uvmeth_lhs_list)					///
+	label(resource LBL_UNIVARIATE_METHOD)
+  BUTTON bu_lhs_new		+210	@	80	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program main_lhs_create)					///
+	tooltip(resource LBL_CREATE_SPECIFICATION)
+
+  TEXT tx_lhsBuild		_lft	_xls	_cwd1	.,		///
+	label(resource LBL_LEFT_HAND_SIDE_SPECIFICATION)
+  DEFINE holdy @y
+  LISTBOX lb_lhsBuild		@	_ss	200	95,		///
+	contents(main_lhs_list) 					///
+	ondblclick(program main_lhs_edit)				///
+	onselchange(program main_lhs_sel_changed)			///
+	nomemory
+  BUTTON bu_lhs_edit		+210	@	80	.,		///
+	label(resource LBL_BU_EDIT)					///
+	onpush(program main_lhs_edit)  					///
+	tooltip(resource LBL_EDIT_SPECIFICATION)
+  BUTTON bu_lhs_disable		@	_ms	@	.,		///
+	label(resource LBL_BU_DISABLE)					///
+	onpush(program main_lhs_disable)				///
+	tooltip(resource LBL_CLICK_TO_DISABLE_A_SPECIFICATION)
+  BUTTON bu_lhs_enable		@	_ms	@	.,		///
+	label(resource LBL_BU_ENABLE)					///
+	onpush(program main_lhs_enable)					///
+	tooltip(resource LBL_CLICK_TO_ENABLE_PREV_DISABLED_SPEC)
+  TEXTBOX tb_lhs_note		_lft	+45	_iwd	_tb2,		///
+	label(resource LBL_PRESS_CREATE_DEFINE_SPECIFICATION)
+
+  TEXT     tx_rhs		_lft	_ls	160	.,		///
+	label(resource LBL_INDDEPVAR)
+  VARLIST  vl_rhs		@	_ss	_iwd	.,		///
+	fv								///
+	numeric								///
+	label(resource LBL_INDDEPVAR)
+
+  DEFINE _x _lft
+  DEFINE _cx _iwd
+  DEFINE _y _ls
+  INCLUDE _mi_impute_opts
+END
+  
+INCLUDE _mi_impute_opts_sc
+
+LIST uvmeth_lhs_list
+BEGIN
+	regress
+	pmm
+	truncreg
+	intreg
+	logit
+	ologit
+	mlogit
+	poisson
+	nbreg
+END
+
+PROGRAM main_lhs_create
+BEGIN
+	call main_lhs_count.setvalue class mainLHSChildDialogList.size
+	call main_lhs_count.increment
+	call main_lhs_tmp.setvalue "main_lhs_"
+	call main_lhs_tmp.append class main.cb_lhs_uvmeth.value
+	call main_lhs_tmp.append class main_lhs_count.value
+	call main_lhs_tmp.withvalue main_lhs_childdlg.setvalue @
+	call program main_show_lhs_child
+END
+
+PROGRAM main_lhs_edit
+BEGIN
+	call mainLHSCommandDisplayList.findstr class main.lb_lhsBuild.value
+	call main_lhs_position.setvalue class				///
+		mainLHSCommandDisplayList.position
+	call main_lhs_position.withvalue main_lhs_childdlg.setvalue	///
+		class mainLHSChildDialogList.values[@]
+	call main_lhs_position.withvalue main_lhs_dlgname.setvalue	///
+		class mainLHSDialogNameList.values[@]
+	call program main_show_lhs_child_edit
+END
+
+PROGRAM main_show_lhs_child
+BEGIN
+	call main_lhs_tmp.setvalue "mi_impute_monotone_"
+	call main_lhs_tmp.append class main.cb_lhs_uvmeth.value
+	call main_lhs_tmp.append " AS "
+	call main_lhs_tmp.append class main_lhs_childdlg.value
+	call main_lhs_tmp.withvalue create CHILD @, message("__CHAIN__")
+	call main_lhs_childdlg.withvalue @.setExitString		///
+		"main_lhs_child_result"
+	call main_lhs_childdlg.withvalue @.setExitAction		///
+		"program main_lhs_child_create_done"
+
+
+	call main_lhs_count.withvalue STMP.format			///
+		"resource LBL_SPECIFICATION_FMT" "@" ""
+	call STMP.withvalue main_lhs_tmp.setvalue "@"
+	call main_lhs_childdlg.withvalue main_lhs_tmp2.setvalue "@.settitle"
+	call main_lhs_tmp2.append `" ""'
+	call main_lhs_tmp2.append class main_lhs_tmp.value
+	call main_lhs_tmp2.append " ("
+	call main_lhs_tmp2.append class main.cb_lhs_uvmeth.value
+	call main_lhs_tmp2.append ")"
+	call main_lhs_tmp2.append `"""'
+	call main_lhs_tmp2.withvalue @
+END
+
+PROGRAM main_show_lhs_child_edit
+BEGIN
+	call main_lhs_tmp.setvalue "mi_impute_monotone_"
+	call main_lhs_tmp.append class main_lhs_dlgname.value
+	call main_lhs_tmp.append " AS "
+	call main_lhs_tmp.append class main_lhs_childdlg.value
+	call main_lhs_tmp.withvalue create CHILD @, message("__CHAIN__")
+	call main_lhs_childdlg.withvalue @.setExitString 		///
+		"main_lhs_child_result"
+	call main_lhs_childdlg.withvalue @.setExitAction		///
+		"program main_lhs_child_edit_done"
+
+	call main_lhs_position.withvalue main_lhs_tmp.setvalue		///
+		class mainLHSCommandDisplayList.values[@]
+	call main_lhs_childdlg.withvalue main_lhs_tmp2.setvalue "@.settitle"
+	call main_lhs_tmp2.append `" ""'
+	call main_lhs_tmp2.append class main_lhs_tmp.value
+	call main_lhs_tmp2.append " ("
+	call main_lhs_tmp2.append class main_lhs_dlgname.value
+	call main_lhs_tmp2.append ")"
+	call main_lhs_tmp2.append `"""'
+	call main_lhs_tmp2.withvalue @
+END
+
+PROGRAM main_lhs_child_create_done
+BEGIN
+	call main_lhs_arraysize.setvalue class mainLHSChildDialogList.size
+	call main_lhs_arraysize.increment
+
+	/* Store child dialog name */
+	call mainLHSChildDialogList.store class				///
+		main_lhs_arraysize.value class main_lhs_childdlg.value
+
+	/* Store listbox display specification string */
+	call main_lhs_arraysize.withvalue STMP.format			///
+		"resource LBL_SPECIFICATION_FMT" "@" ""
+	call STMP.withvalue						///
+		mainLHSCommandDisplayList.store class			///
+		main_lhs_arraysize.value "@"
+
+	/* Store child dialog result string */
+	call mainLHSCommandList.store class main_lhs_arraysize.value 	///
+		class main_lhs_child_result.value
+
+	/* Store child dialog result string for final command
+	   For disable/enable */
+	call mainLHSCommandValues.store class main_lhs_arraysize.value	///
+		class main_lhs_child_result.value
+
+	/* Store disable/enable status */
+	call mainLHSStatusList.store class main_lhs_arraysize.value "active"
+
+	/* Store dialog name */
+	call mainLHSDialogNameList.store class main_lhs_arraysize.value	///
+		class main.cb_lhs_uvmeth.value
+
+	call mainLHSCommandDisplayList.copyToArray main_lhs_list
+	call main.lb_lhsBuild.repopulate
+	call STMP.withvalue main.lb_lhsBuild.setvalue "@"
+END
+
+PROGRAM main_lhs_child_edit_done
+BEGIN
+	call mainLHSChildDialogList.findstr class main_lhs_childdlg.value
+	call main_lhs_position.setvalue class mainLHSChildDialogList.position
+	call main_lhs_position.withvalue main_lhs_tmp.setvalue		///
+		class mainLHSStatusList.values[@]
+	if main_lhs_tmp.iseq("active") {
+		call main_lhs_position.withvalue STMP.format		///
+			"resource LBL_SPECIFICATION_FMT" "@" ""
+		call STMP.withvalue					///
+			mainLHSCommandDisplayList.store class		///
+			main_lhs_position.value "@"
+		call mainLHSCommandValues.store class			///
+			main_lhs_position.value class			///
+			main_lhs_child_result.value
+		call STMP.withvalue main_lhs_tmp2.setvalue "@"
+	}
+	else {
+		call main_lhs_position.withvalue STMP.format		///
+			"resource LBL_SPECIFICATION_FMT" "@"		///
+			"resource LBL_PAREN_DISABLED"
+		call STMP.withvalue main_lhs_tmp2.setvalue "@"
+
+		call main_lhs_tmp2.withvalue				///
+			mainLHSCommandDisplayList.store			///
+			class main_lhs_position.value "@"
+	}
+
+	call mainLHSCommandList.store class				///
+		main_lhs_position.value class 				///
+		main_lhs_child_result.value
+
+	call mainLHSCommandDisplayList.copyToArray main_lhs_list
+	call main.lb_lhsBuild.repopulate
+	call main.lb_lhsBuild.setvalue class main_lhs_tmp2.value
+END
+
+PROGRAM main_lhs_sel_changed
+BEGIN
+	call mainLHSCommandDisplayList.findstr class main.lb_lhsBuild.value
+	call main_lhs_position.setvalue class 				///
+		mainLHSCommandDisplayList.position
+	call main_lhs_position.withvalue main_lhs_tmp.setvalue		///
+		class mainLHSStatusList.values[@]
+	if main_lhs_position {
+		call main.bu_lhs_edit.enable
+		call main_lhs_position.withvalue			///
+			main.tb_lhs_note.setlabel			///
+			class mainLHSCommandList.values[@]
+	}
+
+	if main_lhs_tmp.iseq("disable") {
+		call main.bu_lhs_enable.enable
+		call main.bu_lhs_disable.disable
+	}
+	if main_lhs_tmp.iseq("active") {
+		call main.bu_lhs_enable.disable
+		call main.bu_lhs_disable.enable
+	}
+END
+
+PROGRAM main_lhs_disable
+BEGIN
+	call mainLHSCommandDisplayList.findstr class main.lb_lhsBuild.value
+	call main_lhs_position.setvalue class				///
+		mainLHSCommandDisplayList.position
+
+	call main_lhs_tmp.setvalue class main.lb_lhsBuild.value
+	call mainLHSStatusList.store class main_lhs_position.value "disable"
+	call mainLHSCommandValues.store class main_lhs_position.value ""
+	call STMP.format "resource LBL_PAREN_DISABLED"
+	call main_lhs_tmp.append " "
+	call main_lhs_tmp.append class STMP.value
+	call main_lhs_tmp.withvalue STMP.setvalue "@"
+
+	call main_lhs_tmp.withvalue mainLHSCommandDisplayList.store	///
+		class main_lhs_position.value "@"
+
+	call mainLHSCommandDisplayList.copyToArray main_lhs_list
+	call main.lb_lhsBuild.repopulate
+	call main.lb_lhsBuild.setvalue class STMP.value
+END
+
+PROGRAM main_lhs_enable
+BEGIN
+	call mainLHSCommandDisplayList.findstr class main.lb_lhsBuild.value
+	call main_lhs_position.setvalue class 				///
+		mainLHSCommandDisplayList.position
+
+	call mainLHSStatusList.store class main_lhs_position.value "active"
+	call main_lhs_position.withvalue mainLHSCommandValues.store	///
+		class main_lhs_position.value class 			///
+		mainLHSCommandList.values[@]
+
+	call main_lhs_position.withvalue STMP.format			///
+		"resource LBL_SPECIFICATION_FMT" "@" ""
+	call STMP.withvalue						///
+		mainLHSCommandDisplayList.store				///
+		class main_lhs_position.value "@"
+
+	call mainLHSCommandDisplayList.copyToArray main_lhs_list
+	call main_lhs_position.withvalue main_lhs_tmp2.setvalue class	///
+		mainLHSCommandDisplayList.values[@]
+	call main.lb_lhsBuild.repopulate
+	call main.lb_lhsBuild.setvalue class main_lhs_tmp2.value
+END
+
+PROGRAM main_lb_lhsBuild_output
+BEGIN
+	call mainLHSCommandValues.copyToString main_lhs_cmd_output
+	call main_lhs_arraysize.setvalue class mainLHSStatusList.size
+	if main_lhs_cmd_output.iseq("") & main_lhs_arraysize.iseq(0) 	///
+		& main.lb_lhsBuild.isvisible() {
+		stopbox stop resource LBL_MSGBOX_LEFT_HAND_SIDE_SPEC_NOT_DEFINED
+// Left-hand-side specification not defined.
+// Please enter a left hand side specification before proceeding.
+	}
+	if main_lhs_cmd_output.iseq("") & main_lhs_arraysize.isgt(0)	///
+		& main.lb_lhsBuild.isvisible() {
+stopbox stop resource LBL_MSGBOX_LEFT_HAND_SIDE_SPEC_ARE_DISABLED
+// All left hand side specifications are disabled.
+// Either define a new left hand side specification or enable
+// an existing left hand side specification before proceeding.
+	}
+
+	if main_lhs_cmd_output & main.lb_lhsBuild.isvisible() {
+		put main_lhs_cmd_output
+	}
+END
+
+INCLUDE if
+INCLUDE weights
+
+SCRIPT ice_PREINIT
+BEGIN
+        ice.fi_savet.formatfilter "{0} (*.dta)|*.dta|{1} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_DTA" "resource ui_ex FILE_TYPE_ALL_FILES"
+END
+
+DIALOG ice, tabtitle(resource LBL_MICE_OPTIONS)
+BEGIN
+  SPINNER sp_burnin		_lft	_top	_spwd	.,		///
+	min(1) 								///
+	max(1000000)							///
+	default(10)							///
+	option(burnin)
+  TEXT tx_burnin		_spsep	@	250	.,		///
+	label(resource MI_IMPUTE_CHAINED_ICE_TX_BURNIN)
+  CHECKBOX ck_chainonly		_lft	_ls	_iwd	.,		///
+	option(chainonly)						///
+	label(resource MI_IMPUTE_CHAINED_ICE_CK_CHAINONLY)
+  CHECKBOX ck_augment		@	_ms	@	.,		///
+	option(augment)							///
+	onclickon("script weights_setLayout_fp")			///
+	onclickoff("script weights_setLayout_fpai")			///
+	label(resource LBL_PERFORM_AUGMENTED_REG_IN_PRESENCE_PERFECT_PRED)
+  CHECKBOX ck_noimputed		@	_ms	@	.,		///
+	option(noimputed)						///
+	label(resource MI_IMPUTE_CHAINED_ICE_CK_NOIMPUTED)
+  CHECKBOX ck_bootstrap		@	_ms	@	.,		///
+	option(bootstrap)						///
+	label(resource LBL_EST_MODEL_PARAMETERS_USING_SAMPLING_WITH_REP)
+
+  CHECKBOX ck_savet		_lft	_ls	_iwd	_ht11h,		///
+	groupbox							///
+	onclickon(program ice_savet_on)					///
+	onclickoff(script ice_savet_off)				///
+	label(resource LBL_SAVE_MEANS_SD_OF_IMPUTED_VALUES_TO_FILE)
+  TEXT tx_savet			_indent	_ss	_ibwd	.,		///
+	label(resource LBL_FILENAME)
+  FILE fi_savet			@	_ss	@	.,		///
+	label(resource LBL_BU_BROWSE)					///
+	option(savetrace)						///
+	defext(dta)							///
+	save								///
+	error(resource LBL_FILENAME)
+  CHECKBOX ck_replaces		@	_ms	@	.,		///
+	option(replace)							///
+	label(resource LBL_OVERWRITE_FILES_IF_THEY_ALREADY_EXIST)
+  CHECKBOX ck_doubles		@	_ms	@	.,		///
+	option(double)							///
+	label(resource MI_IMPUTE_CHAINED_ICE_CK_DOUBLES)
+  CHECKBOX ck_details		@	_ms	@	.,		///
+	option(detail)							///
+	label(resource MI_IMPUTE_CHAINED_ICE_CK_DETAILS)
+END
+
+PROGRAM ice_savet_on
+BEGIN
+	if (main.vl_group.isneq("")) {
+		call ice.ck_savet.setoff
+		stopbox stop "resource LBL_MSGBOX_IMPUTE_SEP_ON_EACH_GROUP_CANNOT_BE_COMB"
+// On the "Main" tab, "Impute separately on each group formed by variables" 
+// cannot be combined with this option.
+	}
+	call ice.tx_savet.enable
+	call ice.fi_savet.enable
+	call ice.ck_replaces.enable
+	call ice.ck_doubles.enable
+	call ice.ck_details.enable
+END
+
+SCRIPT ice_savet_off
+BEGIN
+	ice.tx_savet.disable
+	ice.fi_savet.disable
+	ice.ck_replaces.disable
+	ice.ck_doubles.disable
+	ice.ck_details.disable
+END
+
+PROGRAM ice_savet_output
+BEGIN
+        put `"""' ice.fi_savet `"""'
+        beginoptions
+                option ice.ck_replaces
+                option ice.ck_doubles
+                option ice.ck_details
+        endoptions
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  CHECKBOX ck_dots		_lft	_top	_iwd	.,		///
+	option(dots)							///
+	label(resource LBL_DISPLAY_DOTS_AS_IMPUTATIONS_ARE_PERFORMED)
+
+  CHECKBOX ck_noisily		@	_ms	@	.,		///
+	option(noisily)							///
+	label(resource LBL_DISPLAY_INTERMEDIATE_OUTPUT)			///
+	onclickon(program check_noisily)				///
+	onclickoff(program check_noisily)
+
+  CHECKBOX ck_nolegend		@	_ms	@	.,		///
+	option(nolegend)						///
+	label(resource LBL_SUPPRESS_ALL_TABLE_LEGENDS)
+
+  CHECKBOX ck_dryrun		@	_ms	@	.,		///
+	option(dryrun)							///
+	label(resource LBL_SHOW_COND_SPEC_WITHOUT_IMPUTING_DATA)
+  CHECKBOX ck_report 		@	_ms	@	.,		///
+	option(report)							///
+	label(resource LBL_SHOW_RPT_ABOUT_EACH_CONDITIONAL_SPEC)
+  CHECKBOX ck_chaindots		@	_ms	@	.,		///
+	option(chaindots)						///
+	label(resource MI_IMPUTE_CHAINED_RPT_CK_CHAINDOTS)
+  RADIO rb_showevery		@	_ls	_iwd ., first		///
+	onclickon(program check_intermediate)				///
+	label(resource MI_IMPUTE_CHAINED_RPT_RB_SHOWEVERY)
+  RADIO rb_showiter		_lft	+45	_iwd	., last		///
+	onclickon(program check_intermediate)				///
+	label(resource MI_IMPUTE_CHAINED_RPT_RB_SHOWITER)
+  SPINNER sp_showevery		+20	-25	_spwd	.,		///
+	min(1) 								///
+	max(1000000)							///
+	default(1)							///
+	option(showevery)						///
+	label(resource MI_IMPUTE_CHAINED_RPT_RB_SHOWEVERY)
+  EDIT ed_showiter		@	+45	_vnwd	.,		///
+	option(showiter)						///
+	label(resource MI_IMPUTE_CHAINED_RPT_RB_SHOWITER)
+END
+
+PROGRAM check_noisily
+BEGIN
+	if rpt.ck_noisily {
+		call rpt.rb_showevery.enable
+		call rpt.rb_showiter.enable
+	}
+	else {
+		call rpt.rb_showevery.disable
+		call rpt.rb_showiter.disable
+	}
+	call program check_intermediate
+END
+
+PROGRAM check_intermediate
+BEGIN
+	if rpt.rb_showevery.isenabled() & rpt.rb_showevery {
+		call rpt.sp_showevery.enable
+	}
+	else {
+		call rpt.sp_showevery.disable
+	}
+	if rpt.rb_showiter.isenabled() & rpt.rb_showiter {
+		call rpt.ed_showiter.enable
+	}
+	else {
+		call rpt.ed_showiter.disable
+	}
+END
+
+DIALOG adv, tabtitle(resource LBL_ADVANCED)
+BEGIN
+  CHECKBOX ck_force		_lft	_top	_iwd	.,		///
+	option(force)							///
+	label(resource LBL_PROCEED_WITH_IMPUTATION_WHEN_MISSING_IMPUTED_VAL)
+  CHECKBOX ck_orderasis		@	_ms	@	.,		///
+	option(orderasis)						///
+	label(resource MI_IMPUTE_CHAINED_ADV_CK_ORDERASIS)
+  CHECKBOX ck_nomonotone	@	_ms	@	.,		///
+	option(nomonotone)						///
+	label(resource MI_IMPUTE_CHAINED_ADV_CK_NOMONOTONE)
+  CHECKBOX ck_nomonotonechk	@	_ms	@	.,		///
+	option(nomonotonechk)						///
+	label(resource LBL_DO_NOT_CHECK_WH_VAR_FOLLOW_MONOTONE_MISSING_PAT)
+END
+
+PROGRAM command
+BEGIN
+	if (ice.ck_savet & main.vl_group.isneq("")) {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format					/// 
+			"resource LBL_MSGBOX_OPTIONS_NOT_COMBINED_FMT" 	///
+			"resource LBL_TAB_MAIN" 			///
+			"resource LBL_IMPUTE_SEPARATELY_ON_EACH_GROUP_FORMED_BY_VAR" ///
+			"resource LBL_SAVE_MEANS_SD_OF_IMPUTED_VALUES_TO_FILE" ///
+			"resource LBL_MICE_OPTIONS" 
+		stopbox stop "class _MSG_TMP.value"
+// "On the "Main" tab, "Impute separately on each group formed by variables" 
+// cannot be combined with "Save means and standard deviations of imputed values to file" 
+// option on "MICE options" tab.
+	}	
+	
+	put "mi impute chained "
+	put " " /program main_lb_lhsBuild_output
+	if main.vl_rhs {
+		put " = "
+		varlist main.vl_rhs
+	}
+        put " " /program if_output
+        put " " /program weights_output
+	beginoptions
+		INCLUDE _mi_impute_opts_main_pr
+		optionarg /hidedefault ice.sp_burnin
+		option ice.ck_chainonly
+		option ice.ck_augment
+		option ice.ck_noimputed
+		option ice.ck_bootstrap
+		if ice.ck_savet {
+			require ice.fi_savet
+			put "savetrace("
+			put /program ice_savet_output
+			put ") "
+		}
+		option rpt.ck_dots
+		option rpt.ck_noisily
+		option rpt.ck_nolegend
+		option rpt.ck_dryrun
+		option rpt.ck_report
+		option rpt.ck_chaindots
+		optionarg /hidedefault rpt.sp_showevery
+		if rpt.rb_showiter.isenabled() & rpt.rb_showiter {
+			if ! (rpt.ed_showiter.isnumlist()) {
+				stopbox stop "resource MI_IMPUTE_CHAINED_MSGBOX_INVALID_NUMLIST_FOR_DIS_INT_RES"
+// On the "Reporting" tab, there is an invalid numlist specified 
+// for "Display intermediate results from iterations".
+			}
+			optionarg rpt.ed_showiter
+		}
+		option adv.ck_force
+		option adv.ck_orderasis
+		option adv.ck_nomonotone
+		option adv.ck_nomonotonechk
+	endoptions
+END
+

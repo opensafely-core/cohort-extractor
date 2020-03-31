@@ -1,0 +1,166 @@
+/*
+	pchart
+
+*!  VERSION 2.1.0  10nov2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 340
+INCLUDE header
+
+HELP hlp1, view("help pchart")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource PCHART_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script gr_plots_setDefaultConnected
+	script gr_ciplots_setDefaultLine
+	gr_ciplots_outputCmd.setstring "clopts"
+	gr_ciplots.settabtitle resource LBL_CONTROL_LIMITS
+END
+
+DIALOG main, label(resource PCHART_DLG_TITLE)				///
+	tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_reject      _lft       _top       _iwd	   .,		///
+	label(resource PCHART_MAIN_TX_REJECT)
+  VARNAME  vn_reject      @          _ss        _vnwd      .,		///
+  	numeric								///
+	label(resource PCHART_MAIN_VN_REJECT)
+
+  TEXT     tx_unit        @	     _ls        _iwd       .,		///
+	label(resource PCHART_MAIN_TX_UNIT)
+  VARNAME  vn_unit        @          _ss        _vnwd      .,		///
+        numeric								///
+	label(resource PCHART_MAIN_VN_UNIT)
+
+  TEXT     tx_ssize       @          _ls        _iwd       .,		///
+	label(resource PCHART_MAIN_TX_SSIZE)
+  VARNAME  vn_ssize       @          _ss        _vnwd      .,		///
+  	numeric								///
+	label(resource PCHART_MAIN_VN_SSIZE)
+
+  CHECKBOX ck_gen         _lft       +35        _iwd       _ht7h,	///
+	groupbox							///
+	onclickon(program check_gen) onclickoff(program check_gen)	///
+	label(resource PCHART_MAIN_CK_GEN)
+  TEXT     tx_varf        +10        _ss        _irj150    .,		///
+	left								///
+	label(resource PCHART_MAIN_TX_VARF) 
+  DEFINE x @x
+  EDIT     ed_varf        _irj120    @          120        .,		///
+	label(resource PCHART_MAIN_TX_VARF)
+
+  TEXT     tx_varlcl      x          _ms        _irj150    .,		///
+	left								///
+	label(resource PCHART_MAIN_TX_VARLCL)
+  EDIT     ed_varlcl      _irj120    @          120        .,		///
+	label(resource PCHART_MAIN_TX_VARLCL)
+
+  TEXT     tx_varucl      x          _ms        _irj150    .,		///
+	left								///
+	label(resource PCHART_MAIN_TX_VARUCL)
+  EDIT     ed_varucl      _irj120    @          120        .,		///
+	label(resource PCHART_MAIN_TX_VARUCL)
+
+  CHECKBOX ck_stabilized  _lft       +45        _iwd       .,		///
+	label(resource PCHART_MAIN_CK_STABILIZED)			///
+	option(stabilized)
+  CHECKBOX ck_nograph     _lft       _ms        _iwd       .,		///
+	label(resource LBL_SUPPRESS_GRAPH) option(nograph)		///
+	onclickon(script graph_off) onclickoff(script graph_on)
+END
+
+PROGRAM check_gen
+BEGIN
+	if main.ck_gen {
+		call main.ed_varf.enable
+		call main.tx_varf.enable
+		call main.ed_varlcl.enable
+		call main.tx_varlcl.enable
+		call main.ed_varucl.enable
+		call main.tx_varucl.enable
+	}
+	else {
+		call main.ed_varf.disable
+		call main.tx_varf.disable
+		call main.ed_varlcl.disable
+		call main.tx_varlcl.disable
+		call main.ed_varucl.disable
+		call main.tx_varucl.disable
+	}
+END
+
+SCRIPT graph_on
+BEGIN
+	script gr_plots_enable
+	script gr_ciplots_enable
+	script gr_addplots_enable
+	script gr_yaxis_enable
+	script gr_xaxis_enable
+	script gr_titles_enable
+	script gr_legend_enable
+	script gr_overall_enable
+END
+
+SCRIPT graph_off
+BEGIN
+	script gr_plots_disable
+	script gr_ciplots_disable
+	script gr_addplots_disable
+	script gr_yaxis_disable
+	script gr_xaxis_disable
+	script gr_titles_disable
+	script gr_legend_disable
+	script gr_overall_disable
+END
+
+INCLUDE gr_plots
+INCLUDE gr_ciplots
+INCLUDE gr_addplots
+INCLUDE gr_yaxis
+INCLUDE gr_xaxis
+INCLUDE gr_titles
+INCLUDE gr_legend
+INCLUDE gr_overall
+
+PROGRAM gen_output
+BEGIN
+	put main.ed_varf " " main.ed_varlcl " " main.ed_varucl
+END
+
+PROGRAM command
+BEGIN
+	put "pchart "
+	varlist main.vn_reject
+	varlist main.vn_unit
+	varlist main.vn_ssize
+	beginoptions
+		if main.ck_gen {
+			require main.ed_varf
+			require main.ed_varlcl
+			require main.ed_varucl
+			put " generate(" 
+			put /program gen_output
+			put ") "
+		}
+		option main.ck_stabilized
+		option main.ck_nograph
+		put " " /program gr_plots_output
+		put " " /program gr_ciplots_output
+		put " " /program gr_addplots_output
+		put " " /program gr_yaxis_output
+		put " " /program gr_xaxis_output
+		put " " /program gr_titles_output
+		put " " /program gr_legend_output
+		put " " /program gr_overall_output
+	endoptions
+END

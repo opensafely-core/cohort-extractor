@@ -1,0 +1,411 @@
+/*
+    dsgenl_estat.dlg
+
+*!  VERSION 1.0.5  311oct2019
+
+*/
+
+VERSION 16.0
+
+INCLUDE _std_large
+DEFINE _dlght 460
+INCLUDE header
+
+HELP hlp1, view("help dsgenl postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create BOOLEAN has_FactorVars
+	has_FactorVars.setfalse
+/*
+	create STRING main_po_bu_facvarsResults
+	program main_po_bu_facvars_ckResults
+*/
+	create STRING main_po_bu_fmtcoefResults
+	program main_po_bu_fmtcoef_ckResults
+
+	program sum_bu_facvars_ckResults
+	program vce_bu_facvars_ckResults
+	setscale_hadj resource DSGENL_ESTAT_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program parseMessage
+END
+
+PROGRAM parseMessage
+BEGIN
+	if __MESSAGE.contains("-covariance-") {
+		call main.lb_subcmd.setvalue "covariance"
+	}
+	if __MESSAGE.contains("-policy-") {
+		call main.lb_subcmd.setvalue "policy"
+	}
+	if __MESSAGE.contains("-stable-") {
+		call main.lb_subcmd.setvalue "stable"
+	}
+	if __MESSAGE.contains("-steady-") {
+		call main.lb_subcmd.setvalue "steady"
+	}
+	if __MESSAGE.contains("-transition-") {
+		call main.lb_subcmd.setvalue "transition"
+	}
+	if __MESSAGE.contains("-ic-") {
+		call main.lb_subcmd.setvalue "ic"
+	}
+	if __MESSAGE.contains("-summarize-") {
+		call main.lb_subcmd.setvalue "summarize"
+	}
+	if __MESSAGE.contains("-vce-") {
+		call main.lb_subcmd.setvalue "vce"
+	}
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	label(resource DSGENL_ESTAT_DLG_TITLE)
+BEGIN
+  TEXT tx_subcmd		_lft	_top	_iwd	.,		///
+	label(resource LBL_REPORTS_STATISTICS_SUBCOMMAND)
+  LISTBOX  lb_subcmd		@	_ss	@	70,		///
+	contents(main_subcommand_contents)				///
+	values(main_subcommand_values)					///
+	onselchangelist(main_subcommand_scripts)
+
+  DEFINE holdy 110
+
+  // covariance
+  TEXT tx_covariance		_lft	holdy	_iwd	.,		///
+	label(resource LBL_CONTROL_VARIABLES)
+  COMBOBOX cb_covariance	@	_ss	@	.,		///
+	dropdown							///
+	append								///
+	contents(e(control))						///
+	label(resource LBL_CONTROL_VARIABLES)
+
+  TEXT tx_addcovariance		_lft	_ls	@	.,		///
+	label(resource LBL_ADDITIONAL_COVARIANCES, colon)
+  COMBOBOX cb_addcovariance	@	_ss	@	.,		///
+	dropdown							///
+	append								///
+	option(addcovariance)						///
+	contents(e(control))						///
+	label(resource LBL_ADDITIONAL_COVARIANCES)
+  CHECKBOX ck_nocovariance	_lft	_ls	_iwd	.,		///
+	option(nocovariance)						///
+	label(resource LBL_DO_NOT_REPORT_COVARIANCES)
+  CHECKBOX ck_post		_lft	_ms	_iwd	.,		///
+	option(post)							///
+	label(resource LBL_POST_VARIANCES_COVARIANCES_AS_EST_RESULTS)
+
+  // policy/transition
+  DEFINE   _x  _lft
+  DEFINE   _cx _spr
+  DEFINE   _y  holdy
+  INCLUDE  _sp_level
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+/*
+  BUTTON po_bu_facvars		@	_ls	200	.,		///
+	onpush("program main_po_bu_facvars_getOpts")			///
+	label(resource LBL_FACTOR_VARIABLE_DISPLAY_OPTIONS)
+*/
+  BUTTON po_bu_fmtcoef		_lft	_ls	200	.,		///
+	onpush("program main_po_bu_fmtcoef_getOpts")			///
+	label(resource LBL_SET_TABLE_FORMATS)
+
+  // steady
+  CHECKBOX ck_compact		_lft	holdy	_iwd	.,		///
+	option(compact)							///
+	label(resource DSGENL_MAIN_CK_COMPACT)
+
+
+  // Information criteria
+  CHECKBOX ck_n			_lft	holdy	_iwd	.,		///
+	onclickon(main.sp_n.enable)					///
+	onclickoff(main.sp_n.disable)					///
+	label(resource LBL_NUMBER_OBSERVATIONS_CALCULATING_BIC)
+  SPINNER sp_n			_indent2 _ss	_spwd	.,		///
+	default(e(N)) min(1) max(e(N))					///
+	option(n)
+
+  INCLUDE estat_sum
+  INCLUDE estat_vce
+END
+
+SCRIPT main_subpop_on
+BEGIN
+	main.tx_subpop.enable
+	main.tx_subif.enable
+	main.vn_subpop.enable
+	main.ex_subif.enable
+END
+
+SCRIPT main_subpop_off
+BEGIN
+	main.tx_subpop.disable
+	main.tx_subif.disable
+	main.vn_subpop.disable
+	main.ex_subif.disable
+END
+
+INCLUDE estat_sum_pr
+INCLUDE estat_vce_pr
+/*
+PROGRAM main_po_bu_facvars_getOpts
+BEGIN
+	call create CHILD factor_vars_reporting AS main_po_bu_facvars
+	call main_po_bu_facvars.setExitString main_po_bu_facvarsResults
+	call main_po_bu_facvars.setExitAction "program main_po_bu_facvars_ckResults"
+	call main_po_bu_facvars.settitle resource LBL_FACTOR_VARIABLE_DISPLAY_OPTIONS
+END
+
+PROGRAM main_po_bu_facvars_ckResults
+BEGIN
+	if main_po_bu_facvarsResults {
+		call main.po_bu_facvars.formatlabel "resource LBL_BU_FACTOR_VARIABLE_DISPLAY_OPTIONS_FMT" " *"
+	}
+	else {
+		call main.po_bu_facvars.formatlabel "resource LBL_BU_FACTOR_VARIABLE_DISPLAY_OPTIONS_FMT" "  "
+	}
+END
+*/
+PROGRAM main_po_bu_fmtcoef_getOpts
+BEGIN
+	call create CHILD fmt_coef_table_reporting AS main_po_bu_fmtcoef
+	call main_po_bu_fmtcoef.setExitString main_po_bu_fmtcoefResults
+	call main_po_bu_fmtcoef.setExitAction "program main_po_bu_fmtcoef_ckResults"
+END
+
+PROGRAM main_po_bu_fmtcoef_ckResults
+BEGIN
+	if main_po_bu_fmtcoefResults {
+		call main.po_bu_fmtcoef.modified_on
+	}
+	else {
+		call main.po_bu_fmtcoef.modified_off
+	}
+END
+
+LIST main_subcommand_contents
+BEGIN
+	resource LBL_DISPLAY_ESTIMATED_COVARIANCES_OF_MODEL_VARIABLES	
+	resource LBL_POLICY_MATRIX_ESTIMATED_MODEL
+	resource LBL_CHECK_STABILITY_OF_SYSTEM
+	resource LBL_DISPLAY_STEADY_STATE_OF_THE_SYSTEM
+	resource LBL_TRANSITION_MATRIX_ESTIMATED_MODEL
+	resource LBL_INFORMATION_CRITERIA
+	resource LBL_SUMMARIZE_ESTIMATION_SAMPLE
+	resource LBL_COVARIANCE_MATRIX_ESTIMATES
+END
+
+LIST main_subcommand_values
+BEGIN
+	covariance
+	policy
+	stable
+	steady
+	transition
+	ic
+	summarize
+	vce
+END
+
+LIST main_subcommand_scripts
+BEGIN
+	script sel_covariance
+	script sel_policy
+	script sel_stable
+	script sel_steady
+	script sel_transition
+	script sel_ic
+	script sel_summarize
+	script sel_vce
+END
+
+SCRIPT sel_covariance
+BEGIN
+	script main_hide_all
+	script main_covariance_on
+END
+
+SCRIPT sel_policy
+BEGIN
+	script main_hide_all
+	script main_policy_on
+END
+
+SCRIPT sel_stable
+BEGIN
+	script main_hide_all
+END
+
+SCRIPT sel_steady
+BEGIN
+	script main_hide_all
+	script main_steady_on
+END
+
+SCRIPT sel_transition
+BEGIN
+	script main_hide_all
+	script main_policy_on
+END
+
+SCRIPT sel_ic
+BEGIN
+	script main_hide_all
+	main.ck_n.show
+	main.sp_n.show
+END
+
+SCRIPT sel_summarize
+BEGIN
+	script main_hide_all
+	program main_summ_on
+END
+
+SCRIPT sel_vce
+BEGIN
+	script main_hide_all
+	program vce_on
+END
+
+SCRIPT main_covariance_on
+BEGIN
+	main.tx_covariance.show
+	main.cb_covariance.show
+	main.tx_addcovariance.show
+	main.cb_addcovariance.show
+	main.ck_nocovariance.show
+	main.ck_post.show
+
+	main.sp_level.show
+	main.tx_level.show
+	main.rb_report_columns_dflt.show
+	main.rb_report_columns_noci.show
+	main.rb_report_columns_nopv.show
+//	main.po_bu_facvars.show
+	main.po_bu_fmtcoef.show
+
+	main.ck_post.setposition . 240
+	main.sp_level.setposition . 270
+	main.tx_level.setposition . 270
+	main.rb_report_columns_dflt.setposition . 300
+	main.rb_report_columns_noci.setposition . 320
+	main.rb_report_columns_nopv.setposition . 340
+//	main.po_bu_facvars.show
+	main.po_bu_fmtcoef.setposition  . 370
+END
+
+SCRIPT main_policy_on
+BEGIN
+	main.ck_compact.show
+	main.ck_post.show
+	main.sp_level.show
+	main.tx_level.show
+	main.rb_report_columns_dflt.show
+	main.rb_report_columns_noci.show
+	main.rb_report_columns_nopv.show
+//	main.po_bu_facvars.show
+	main.po_bu_fmtcoef.show
+
+	main.ck_compact.setposition . 115
+	main.ck_post.setposition . 140
+	main.sp_level.setposition . 170
+	main.tx_level.setposition . 170
+	main.rb_report_columns_dflt.setposition . 200
+	main.rb_report_columns_noci.setposition . 220
+	main.rb_report_columns_nopv.setposition . 240
+//	main.po_bu_facvars.setposition
+	main.po_bu_fmtcoef.setposition . 270
+END
+
+SCRIPT main_steady_on
+BEGIN
+	main.ck_compact.show
+	main.sp_level.show
+	main.tx_level.show
+	main.rb_report_columns_dflt.show
+	main.rb_report_columns_noci.show
+	main.rb_report_columns_nopv.show
+//	main.po_bu_facvars.show
+	main.po_bu_fmtcoef.show
+
+	main.ck_compact.setposition . 115
+	main.sp_level.setposition . 140
+	main.tx_level.setposition . 140
+	main.rb_report_columns_dflt.setposition . 170
+	main.rb_report_columns_noci.setposition . 190
+	main.rb_report_columns_nopv.setposition . 210
+//	main.po_bu_facvars.setposition
+	main.po_bu_fmtcoef.setposition . 240
+END
+
+SCRIPT main_hide_all
+BEGIN
+	main.tx_covariance.hide
+	main.cb_covariance.hide
+	main.tx_addcovariance.hide
+	main.cb_addcovariance.hide
+	main.ck_nocovariance.hide
+	main.ck_post.hide
+
+	main.sp_level.hide
+	main.tx_level.hide
+	main.rb_report_columns_dflt.hide
+	main.rb_report_columns_noci.hide
+	main.rb_report_columns_nopv.hide
+
+//	main.po_bu_facvars.hide
+	main.po_bu_fmtcoef.hide
+	main.ck_n.hide
+	main.sp_n.hide
+
+ 	main.ck_compact.hide
+
+	script main_summ_off
+	program vce_off
+END
+
+PROGRAM command
+BEGIN
+	put "estat "
+	put main.lb_subcmd
+	put " " /program summarize_output
+	if main.lb_subcmd.iseq("covariance") {
+		if main.cb_covariance & main.cb_addcovariance {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format 							///
+				"resource DSGENL_ESTAT_MSGBOX_OPTS_CANNOT_BE_COMBINED_FMT" 	///
+				"resource LBL_OPTIONS"						///
+				"resource LBL_OBSERVED_CONTROL_VARIABLES"			///
+				"resource LBL_ADDITIONAL_COVARIANCES"
+                        stopbox stop "class _MSG_TMP.value"
+//			stopbox stop `""Options" "Observed control variables" and "Additional covariances" cannot be combined"'
+		}
+		if main.cb_covariance {
+			put " " main.cb_covariance
+		}
+	}
+	beginoptions
+		optionarg main.cb_addcovariance
+		//policy
+		optionarg /hidedefault main.sp_level
+		option main.rb_report_columns_noci
+		option main.rb_report_columns_nopv
+//		put " " main_po_bu_facvarsResults
+		put " " main_po_bu_fmtcoefResults
+		// ic options
+		optionarg main.sp_n
+		option main.ck_nocovariance
+		option main.ck_post
+		option main.ck_compact
+		put " " /program summarize_opts_output
+		put " " /program vce_output
+	endoptions
+END

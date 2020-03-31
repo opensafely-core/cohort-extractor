@@ -1,0 +1,1441 @@
+
+/*
+  gbaryaxis.idlg Include for graphics y-axis
+
+*!  VERSION 1.1.5  21dec2014 (deprecated)
+
+  Note: This include file is closely related to gxaxis, gaxis ,and graxis.
+  Any changes should likely be reflected in those files.
+*/
+
+/*
+  gbaryaxis.idlg is the same as gyaxis except for the following changes:
+  1. replace all occurrences of gy with gbary
+  2. range option is removed
+  3. log option is removed
+  4. yscale(reverse) is changed to yreverse
+  5. options for yalternate and exclude0 have been added
+  6. Major tick grid lines are by default on.  The check box for grid lines
+     now outputs the nogrid option
+*/
+
+/*
+	// SCRIPTS and PROGRAMS for external use
+		* SCRIPT  gbaryaxis_setExcludeZeroOFF
+		* PROGRAM gbaryaxis_output
+*/
+
+
+DIALOG gbaryaxis, label("Y-Axis") tabtitle("Y-Axis")
+BEGIN
+  /* LEFT SIDE-- Title */
+  GROUPBOX gb_title    _lft        _top      _gwd1       _ht20,	///
+	label("Title ")
+  EDIT     ed_title    _lft1g      _ss       _cwd1gb     .,	///
+	label("Title") option(ytitle)
+  /* LEFT SIDE-- Title col(1) */
+  TEXT     tx_size     _igft       _ms       _txwd       .,	///
+	label("Size:") right
+  DEFINE   y @y
+  COMBOBOX cb_size     _txsep      @         _txr2b4g    .,	///
+	dropdownlist contents(textsizes) option(size)
+  TEXT     tx_tclr     _igft       _ms       _txwd       .,	///
+	label("Color:") right
+  COMBOBOX cb_tclr     _txsep      @         _tcr2b4g    .,	///
+	dropdownlist contents(colors) option(color)		///
+	onselchangelist(gbaryaxis_cl_tclr_sel)
+  COLOR    cl_tclr     _tcr2b4gsep @         _colorwd    .,	///
+	option(color)
+  TEXT     tx_orient   _igft       _ms       _txwd       .,	///
+	label("Orientation:") right
+  COMBOBOX cb_orient   _txsep      @         _txr2b4g    .,	///
+	dropdownlist option(orientation)			///
+	contents(orientation) values(orientation_values)
+
+  /* LEFT SIDE-- Title upper col(2)*/
+
+  TEXT     tx_just     _gft4_2    y         _txwd        .,	///
+	label("Justify:") right
+  COMBOBOX cb_just     _txsep     @         _txr2b4g     .,	///
+	dropdownlist contents(justification) option(justification)
+  TEXT     tx_align    _lft4_2g    _ms       _txwd       .,	///
+	label("Alignment:") right
+  COMBOBOX cb_align    _txsep      @         _txr2b4g    .,	///
+	dropdownlist contents(alignment) option(alignment)
+  TEXT     tx_margin   _lft4_2g    _ms       _txwd       .,	///
+	label("Margin:") right
+  COMBOBOX cb_margin   _txsep      @         _txr2b4g    .,	///
+	dropdown contents(margin) option(margin)
+  TEXT     tx_ttlgp    _gft4_2    _ms       _txwd        .,	///
+	label("Title gap:") right
+  EDIT     ed_ttlgp    _txsep      @         _txr2b4g    .,	///
+	label("Title gap") option(titlegap)
+
+  /* LEFT SIDE-- Title lower*/
+  CHECKBOX ck_box      _igft       _ms       _cwd1gb     _ht5,	///
+	groupbox label("Box") option(box)			///
+	onclickon(script gbarybox_enable)			///
+	onclickoff(script gbarybox_disable)
+  /* LEFT SIDE-- Title lower col(1)*/
+  TEXT     tx_bclr     _iigft      _ms       _txswd      .,	///
+	label("Fill color:") right
+  COMBOBOX cb_bclr     _txssep     @         _tcr2b4g    .,	///
+	dropdownlist contents(colors) option(fcolor) 		///
+	onselchangelist(gbaryaxis_cl_bclr_sel)
+  COLOR    cl_bclr     _tcr2b4gsep @         _colorwd    .,	///
+	option(fcolor)
+  DEFINE   ymk @y
+  TEXT     tx_blclr    _iigft      _ms       _txswd      .,	///
+	label("Line color:") right
+  COMBOBOX cb_blclr    _txssep     @         _tcr2b4g    .,	///
+	dropdownlist  contents(colors) option(lcolor)		///
+	onselchangelist(gbaryaxis_cl_blclr_sel)
+  COLOR    cl_blclr    _tcr2b4gsep @         _colorwd    .,	///
+	option(lcolor)
+  TEXT     tx_bmargin  _gft4_2     ymk       _txswd      .,	///
+	label("Margin:") right
+  COMBOBOX cb_bmargin  _txssep     @         _txr2b4g    .,	///
+	dropdown contents(margin) option(bmargin)
+  CHECKBOX ck_expand   @           _ms       _txr2b4g    .,	///
+	label("Ignore text") option(bexpand)
+
+  /* LEFT SIDE-- Options */
+  GROUPBOX gb_option   _lft        _xls      _gwd1       _ht7,	///
+	label("Scale options ")
+  /* LEFT SIDE-- Options col(1) */
+  /* !- range checkbox label and edit boxes were removed */
+  TEXT     tx_lclr     _igft       _ms       _txwd       .,	///
+	label("Color:")	 right
+  COMBOBOX cb_lclr     _txsep      @         _tcr2b4g    .,	///
+	dropdownlist contents(colors) option(lcolor) 		///
+	onselchangelist(gbaryaxis_cl_lclr_sel)
+  COLOR    cl_lclr     _tcr2b4gsep @         _colorwd    .,	///
+	option(lcolor)
+  DEFINE   y @y  /* !- moved from infront of tx_lclr */
+  TEXT     tx_outergp  _igft       _ms       _txwd       .,	///
+	label("Outer gap:") right
+  EDIT     ed_outergp  _txsep      @         _txr2b4g    .,	///
+	label("Outer gap") option(outergap)
+  /* !- added components and option for exclude0 */
+  CHECKBOX ck_exclude  @           _ms       _txr2b4g    .,	///
+	label("Exclude zero")  option(exclude0)
+  /* LEFT SIDE-- Options col(2) */
+  TEXT     tx_scfake   _gft4_2     y         0           0,
+  /* !- replace _txsep with _gft4_2 */
+  CHECKBOX ck_scaleoff _gft4_2	   @	     _gwd4_2     .,	///
+	label("Hide Y-axis") option(off)			///
+ 	onclickon(program gbaryaxis_hide_scale_check)		///
+  	onclickoff(program gbaryaxis_hide_scale_check)
+  /* !- Change ck_log to ck_yalt */
+  CHECKBOX ck_yalt     @           _ms       @           .,	///
+	label("Y-Axis swaps sides") option(yalternate)
+  CHECKBOX ck_rev      @           _ms       @           .,	///
+	label("Reverse") option(yreverse) /* !- reverse to yreverse */
+
+  /**************************************************************/
+
+  /* RIGHT SIDE-- Ticks / Lines */
+  GROUPBOX gb_mode     _lft2g      _top      _gwd1      _ht30h, ///
+	label("Ticks / Lines ")
+  COMBOBOX cb_tkmode   _igft2      _ss       _cwd4_6     .,	///
+	dropdownlist contents(gbarytick_opt)			///
+	onselchangelist(gbarymode_change)
+  TEXT     tx_tkmode   +150        @         _cwd4_6     .,
+  TEXT     tx_mark2    _igft2      _ms       0           0,
+  DEFINE   rty @y
+  /**************************************************************/
+  /* RIGHT SIDE-- Major Ticks */
+  TEXT     tx_rule     _igft2      rty       _txwd	 .,	///
+	label("Rule:") right
+  EDIT     ed_rule     _txsep      @         _tcr2gi     .,	///
+	label("Rule")
+  BUTTON   bt_rule     _tcr2gisep  @         _btwd       .,	///
+	label("?") onpush(view help major_tick_rule##|_new)
+  TEXT     tx_cstm     _igft2      _ms       _txwd	 .,	///
+	label("Custom:") right
+  EDIT     ed_cstm     _txsep      @         _tcr2gi     .,	///
+	label("Custom")
+  BUTTON   bt_cstm     _tcr2gisep  @         _btwd       .,	///
+	label("?") onpush(view help custom_tick_labels##|_new)
+
+  /* RIGHT SIDE-- Major Ticks upper col(1) */
+  TEXT     tx_tpos     _igft2      _ms       _txwd       .,	///
+	label("Position:") right
+  COMBOBOX cb_tpos     _txsep      @         _txr2b4g    .,	///
+	dropdownlist contents(tickpos) option(tposition)
+  DEFINE   y @y
+  TEXT     tx_tlng     _igft2      _ms       _txwd       .,	///
+	label("Length:") right
+  EDIT     ed_tlng     _txsep      @         _txr2b4g    .,	///
+	label("Length") option(tlength)
+  TEXT     tx_notk     _igft2      _ms       _txwd       .,	///
+	label("Hide tick:") right
+  COMBOBOX cb_notk     _txsep      @         _txr2b4g    .,	///
+	dropdownlist contents(yesno) values(gbaryaxis_cb_tick)
+  TEXT     tx_nolab    _igft2      _ms       _txwd       .,	///
+	label("Hide label:") right
+  COMBOBOX cb_nolab    _txsep      @         _txr2b4g    .,	///
+	dropdownlist contents(yesno) values(gbaryaxis_cb_label)
+  CHECKBOX ck_vlab     @           _ms       _txr2b4g    .,	///
+	label("Value labels") option(valuelabel)
+  CHECKBOX ck_altr     @           _ss       _txr2b4g    .,	///
+	label("Alt. labels") option(alternate)
+  TEXT     tx_tmark    _igft2      _vss      _txr2b4g    0,
+  DEFINE   y2 @y
+
+  /* RIGHT SIDE-- Major Ticks upper col(2) */
+  TEXT     tx_tlclr    _gft4_4     y         _txwd       .,	///
+	label("Color:") right
+  COMBOBOX cb_tlclr    _txsep      @         _tcr2b4g    .,	///
+	dropdownlist contents(colors) 				///
+	onselchangelist(gbaryaxis_cl_tlclr_sel)
+  COLOR    cl_tlclr    _tcr2b4gsep @         _colorwd    .,
+  TEXT     tx_ang      _gft4_4     _ms       _txwd       .,	///
+	label("Angle:") right
+  COMBOBOX cb_ang      _txsep      @         _txr2b4g    .,	///
+	dropdownlist contents(angles) option(angle)
+  TEXT     tx_fmt      _gft4_4     _ms       _txwd       .,	///
+	label("Format:") right
+  EDIT     ed_fmt      _txsep      @         _tcr2b4g    .,	///
+	label("Format") option(format)
+  BUTTON   bt_fmt      _tcr2b4gsep @         _btwd       .,	///
+	label("?") onpush(view help format##|_new)
+  TEXT     tx_lgap     _gft4_4     _ms       _txwd       .,	///
+	label("Label gap:") right
+  EDIT     ed_lgap     _txsep      @         _txr2b4g    .,	///
+	label("Label gap") option(labgap)
+  TEXT     tx_lsize    _gft4_4     _ms       _txwd       .,	///
+	label("Label size:") right
+  COMBOBOX cb_lsize    _txsep      @         _txr2b4g    .,	///
+	dropdownlist contents(textsizes) option(labsize)
+
+  /* RIGHT SIDE-- Major Ticks lower*/
+  /* !- modified for gbaryaxis */
+  CHECKBOX ck_grid     _igft2      y2        _gwd2       _ht7,	///
+	groupbox label("Grid ")	 option(grid)			///
+	onclickon(program gbaryaxis_grid_check)			///
+	onclickoff(program gbaryaxis_grid_check)
+  /* RIGHT SIDE-- Major Ticks lower col(1)*/
+  TEXT     tx_gall     _iigft2     _ss       _txswd      .,	///
+	label("All lines:") right
+  COMBOBOX cb_gall     _txssep     @         _txr2b4g    .,	///
+	dropdownlist contents(yesno) values(gbaryaxis_cb_gall)
+  DEFINE   y @y
+  TEXT     tx_gwd      _iigft2     _ms       _txswd      .,	///
+	label("Width:") right
+  COMBOBOX cb_gwd      _txssep     @         _txr2b4g    .,	///
+	dropdownlist contents(linewidths) option(glwidth)
+  /* RIGHT SIDE-- Major Ticks lower col(2)*/
+  TEXT     tx_gclr     _gft4_4     y         _txswd      .,	///
+	label("Color:") right
+  COMBOBOX cb_gclr     _txssep     @         _tcr2b4g    .,	///
+	dropdownlist contents(colors) option(glcolor) 		///
+	onselchangelist(gbaryaxis_cl_gclr_sel)
+  COLOR    cl_gclr     _tcr2b4gsep @         _colorwd    .,	///
+	option(glcolor)
+  TEXT     tx_pat      _gft4_4     _ms       _txswd      .,	///
+	label("Pattern:") right
+  COMBOBOX cb_pat      _txssep     @         _txr2b4g    .,	///
+	dropdownlist contents(linepatterns) option(glpattern)
+  TEXT     tx_extend   _iigft2     _ms       _txr2gia    .,	///
+	label("Extend into plot region margin:") right
+  COMBOBOX cb_extend   _txr2giasep @         _txr2b4g    .,	///
+	dropdownlist contents(yesno) values(gbaryaxis_cb_gextend)
+  /**************************************************************/
+
+  /* RIGHT SIDE-- Minor Ticks */
+  TEXT     tx_mrule    _igft2      rty       _txwd       .,	///
+	label("Rule:") right
+  EDIT     ed_mrule    _txsep      @         _tcr2gi     .,	///
+	label("Rule")
+  BUTTON   bt_mrule    _tcr2gisep  @         _btwd       .,	///
+	label("?") onpush(view help minor_tick_rule##|_new)
+  TEXT     tx_mcstm    _igft2      _ms       _txwd	 .,	///
+	label("Custom:") right
+  EDIT     ed_mcstm    _txsep      @         _tcr2gi     .,	///
+	label("Custom")
+  BUTTON   bt_mcstm    _tcr2gisep  @         _btwd       .,	///
+	label("?") onpush(view help custom_tick_labels##|_new)
+
+  /* RIGHT SIDE-- Minor Ticks upper col(1) */
+  TEXT     tx_mtpos    _igft2      _ms       _txwd       .,	///
+	label("Position:") right
+  COMBOBOX cb_mtpos    _txsep      @         _txr2b4g    .,	///
+	dropdownlist contents(tickpos) option(tposition)
+  DEFINE   y @y
+  TEXT     tx_mtlng    _igft2      _ms       _txwd       .,	///
+	label("Length:") right
+  EDIT     ed_mtlng    _txsep      @         _txr2b4g    .,	///
+	label("Length") option(tlength)
+  TEXT     tx_mnotk    _igft2      _ms       _txwd       .,	///
+  	label("Hide tick:") right
+  COMBOBOX cb_mnotk    _txsep      @         _txr2b4g    .,	///
+	dropdownlist  contents(yesno)  values(gbaryaxis_cb_tick)
+  TEXT     tx_mnolab   _igft2      _ms       _txwd       .,	///
+	label("Hide label:") right
+  COMBOBOX cb_mnolab   _txsep      @         _txr2b4g    .,	///
+	dropdownlist contents(yesno) values(gbaryaxis_cb_label)
+  CHECKBOX ck_mvlab    @           _ms       _txr2b4g    .,	///
+	label("Value labels") option(valuelabel)
+  CHECKBOX ck_maltr    @           _ss       _txr2b4g    .,	///
+	label("Alt. labels") option(alternate)
+  TEXT     tx_mtmark   _igft2      _vss      0           0,
+  DEFINE   y2 @y
+
+  /* RIGHT SIDE-- Minor Ticks upper col(2) */
+
+  TEXT     tx_mtlclr   _gft4_4     y         _txwd       .,	///
+	label("Color:")	right
+  COMBOBOX cb_mtlclr   _txsep      @         _tcr2b4g    .,	///
+	dropdownlist contents(colors)		 		///
+	onselchangelist(gbaryaxis_cl_mtlclr_sel)
+  COLOR    cl_mtlclr   _tcr2b4gsep @         _colorwd    .,
+  TEXT     tx_mang     _gft4_4     _ms       _txwd       .,	///
+	label("Angle:") right
+  COMBOBOX cb_mang     _txsep      @         _txr2b4g    .,	///
+	dropdownlist contents(angles) option(angle)
+  TEXT     tx_mfmt     _gft4_4     _ms       _txwd       .,	///
+	label("Format:") right
+  EDIT     ed_mfmt     _txsep      @         _tcr2b4g    .,	///
+	label("Format") option(format)
+  BUTTON   bt_mfmt     _tcr2b4gsep @         _btwd       .,	///
+	label("?") onpush(view help format##|_new)
+  TEXT     tx_mlgap    _gft4_4     _ms       _txwd       .,	///
+	label("Label gap:") right
+  EDIT     ed_mlgap    _txsep      @         _txr2b4g    .,	///
+	label("Label gap") option(labgap)
+  TEXT     tx_mlsize   _gft4_4     _ms       _txwd       .,	///
+	label("Label size:") right
+  COMBOBOX cb_mlsize   _txsep      @         _txr2b4g    .,	///
+	dropdownlist contents(textsizes) option(labsize)	///
+	label("Label size")
+
+  /* RIGHT SIDE-- Minor Ticks lower*/
+  CHECKBOX ck_mgrid    _igft2      y2        _cwd1gb     _ht7,	///
+	groupbox label("Grid ") option(grid)			///
+	onclickon(program gbaryaxis_mgrid_check)		///
+	onclickoff(program gbaryaxis_mgrid_check)
+  /* RIGHT SIDE-- Minor Ticks lower col(1)*/
+  TEXT     tx_mgall    _iigft2     _ss       _txswd      .,	///
+	label("All lines:") right
+  COMBOBOX cb_mgall    _txssep     @         _txr2b4g    .,	///
+	dropdownlist contents(yesno) values(gbaryaxis_cb_gall)
+  DEFINE   y @y
+  TEXT     tx_mgwd     _iigft2     _ms       _txswd      .,	///
+	label("Width:")	right
+  COMBOBOX cb_mgwd     _txssep     @         _txr2b4g    .,	///
+	dropdownlist contents(linewidths) option(glwidth)
+  /* RIGHT SIDE-- Minor Ticks lower col(2)*/
+  TEXT     tx_mgclr    _gft4_4   y         _txswd        .,	///
+	label("Color:") right
+  COMBOBOX cb_mgclr    _txssep     @         _tcr2b4g    .,	///
+	dropdownlist contents(colors) option(glcolor) 		///
+	onselchangelist(gbaryaxis_cl_mgclr_sel)
+  COLOR    cl_mgclr    _tcr2b4gsep @         _colorwd    .,	///
+	option(glcolor)
+  TEXT     tx_mpat     _gft4_4     _ms       _txswd      .,	///
+	label("Pattern:") right
+  COMBOBOX cb_mpat     _txssep     @         _txr2b4g    .,	///
+	dropdownlist contents(linepatterns) option(glpattern)
+  TEXT     tx_mextend  _iigft2     _ms       _txr2gia    .,	///
+	label("Extend into plot region margin:") right
+  COMBOBOX cb_mextend  _txr2giasep @         _txr2b4g    .,	///
+	dropdownlist contents(yesno) values(gbaryaxis_cb_gextend)
+  /**************************************************************/
+  /* Line options */
+  TEXT     tx_lline    _igft2      rty       _txwd       .,	///
+	label("Values:") right
+  EDIT     ed_lline    _txsep      @         _txr2gi     .,	///
+	label("Values")
+  /* Line options col(1) */
+  TEXT     tx_llwd     _iigft2     _ms       _txswd      .,	///
+	label("Width:") right
+  COMBOBOX cb_llwd     _txssep     @         _txr2b4g    .,	///
+	dropdownlist contents(linewidths) option(lwidth)
+  /* Line options col(2) */
+  TEXT     tx_llclr    _gft4_4     @         _txwd       .,	///
+	label("Color:") right
+  COMBOBOX cb_llclr    _txsep      @         _tcr2b4g    .,	///
+	dropdownlist contents(colors) option(lcolor) 		///
+	onselchangelist(gbaryaxis_cl_llclr_sel)
+  COLOR    cl_llclr    _tcr2b4gsep @         _colorwd    .,	///
+	option(lcolor)
+  TEXT     tx_llpat    _gft4_4     _ms       _txwd       .,	///
+	label("Pattern:") right
+  COMBOBOX cb_llpat    _txsep      @         _txr2b4g    .,	///
+	dropdownlist contents(linepatterns) option(lpattern)
+  TEXT     tx_lextend  _igft2      _ms       _txr2ga     .,	///
+	label("Extend into plot region margin:") right
+  COMBOBOX cb_lextend  _txr2gasep  @         _txr2b4g    .,	///
+	dropdownlist contents(yesno) values(gbaryaxis_cb_extend)
+END
+
+LIST gbarytick_opt
+BEGIN
+	"Major ticks"
+	"Minor ticks"
+	"Additional lines"
+END
+
+LIST gbarymode_change
+BEGIN
+	script gbarymajor_on
+	script gbaryminor_on
+	script gbarylines_on
+END
+
+LIST gbaryaxis_cl_tclr_sel
+BEGIN
+	gbaryaxis.cl_tclr.hide
+	gbaryaxis.cl_tclr.show
+	gbaryaxis.cl_tclr.hide
+END
+
+LIST gbaryaxis_cl_bclr_sel
+BEGIN
+	gbaryaxis.cl_bclr.hide
+	gbaryaxis.cl_bclr.show
+	gbaryaxis.cl_bclr.hide
+END
+
+LIST gbaryaxis_cl_blclr_sel
+BEGIN
+	gbaryaxis.cl_blclr.hide
+	gbaryaxis.cl_blclr.show
+	gbaryaxis.cl_blclr.hide
+END
+
+LIST gbaryaxis_cl_lclr_sel
+BEGIN
+	gbaryaxis.cl_lclr.hide
+	gbaryaxis.cl_lclr.show
+	gbaryaxis.cl_lclr.hide
+END
+
+LIST gbaryaxis_cl_tlclr_sel
+BEGIN
+	gbaryaxis.cl_tlclr.hide
+	gbaryaxis.cl_tlclr.show
+	gbaryaxis.cl_tlclr.hide
+END
+
+LIST gbaryaxis_cl_gclr_sel
+BEGIN
+	gbaryaxis.cl_gclr.hide
+	gbaryaxis.cl_gclr.show
+	gbaryaxis.cl_gclr.hide
+END
+
+LIST gbaryaxis_cl_mtlclr_sel
+BEGIN
+	gbaryaxis.cl_mtlclr.hide
+	gbaryaxis.cl_mtlclr.show
+	gbaryaxis.cl_mtlclr.hide
+END
+
+LIST gbaryaxis_cl_mgclr_sel
+BEGIN
+	gbaryaxis.cl_mgclr.hide
+	gbaryaxis.cl_mgclr.show
+	gbaryaxis.cl_mgclr.hide
+END
+LIST gbaryaxis_cl_llclr_sel
+BEGIN
+	gbaryaxis.cl_llclr.hide
+	gbaryaxis.cl_llclr.show
+	gbaryaxis.cl_llclr.hide
+END
+
+LIST gbaryaxis_cb_tick
+BEGIN
+	""
+	"noticks"
+	"ticks"
+END
+
+LIST gbaryaxis_cb_label
+BEGIN
+	""
+	"nolabels"
+	"labels"
+END
+
+LIST gbaryaxis_cb_gall
+BEGIN
+	""
+	"gmax gmin"
+	"nogmax nogmin"
+END
+
+LIST gbaryaxis_cb_gextend
+BEGIN
+	""
+	"gextend"
+	"nogextend"
+END
+
+LIST gbaryaxis_cb_extend
+BEGIN
+	""
+	"extend"
+	"noextend"
+END
+
+PROGRAM gbaryaxis_hide_scale_check
+BEGIN
+	if !H(gbaryaxis.ck_scaleoff) {
+		if gbaryaxis.ck_scaleoff {
+			call script gbaryaxis_hide_scale_on
+		}
+		if !gbaryaxis.ck_scaleoff {
+			call script gbaryaxis_hide_scale_off
+		}
+	}
+
+END
+
+SCRIPT gbaryaxis_hide_scale_off
+BEGIN
+	program gbarytitle_enable
+	program gbaryscale_enable
+	program gbarymajor_enable
+	program gbaryminor_enable
+END
+
+PROGRAM gbarytitle_enable
+BEGIN
+	call gaction gbaryaxis.gb_title.enable
+	call gaction gbaryaxis.ed_title.enable
+	call gaction gbaryaxis.tx_size.enable
+	call gaction gbaryaxis.cb_size.enable
+	call gaction gbaryaxis.tx_tclr.enable
+	call gaction gbaryaxis.cb_tclr.enable
+	call gaction gbaryaxis.cl_tclr.enable
+	call gaction gbaryaxis.tx_orient.enable
+	call gaction gbaryaxis.cb_orient.enable
+	call gaction gbaryaxis.tx_just.enable
+	call gaction gbaryaxis.cb_just.enable
+	call gaction gbaryaxis.tx_align.enable
+	call gaction gbaryaxis.cb_align.enable
+	call gaction gbaryaxis.tx_margin.enable
+	call gaction gbaryaxis.cb_margin.enable
+	call gaction gbaryaxis.tx_ttlgp.enable
+	call gaction gbaryaxis.ed_ttlgp.enable
+	call gaction gbaryaxis.ck_box.enable
+	if gbaryaxis.ck_box {
+		call script gbarybox_enable
+	}
+END
+
+PROGRAM gbaryscale_enable
+BEGIN
+	call gaction gbaryaxis.tx_lclr.enable
+	call gaction gbaryaxis.cb_lclr.enable
+	call gaction gbaryaxis.cl_lclr.enable
+	call gaction gbaryaxis.tx_outergp.enable
+	call gaction gbaryaxis.ed_outergp.enable
+/// !- add in ck_exclude */
+	call gaction gbaryaxis.ck_exclude.enable
+END
+
+PROGRAM gbarymajor_enable
+BEGIN
+/// Major ticks */
+	call gaction gbaryaxis.tx_rule.enable
+	call gaction gbaryaxis.ed_rule.enable
+	call gaction gbaryaxis.bt_rule.enable
+	call gaction gbaryaxis.tx_cstm.enable
+	call gaction gbaryaxis.ed_cstm.enable
+	call gaction gbaryaxis.bt_cstm.enable
+	call gaction gbaryaxis.tx_tpos.enable
+	call gaction gbaryaxis.cb_tpos.enable
+	call gaction gbaryaxis.tx_tlng.enable
+	call gaction gbaryaxis.ed_tlng.enable
+	call gaction gbaryaxis.tx_notk.enable
+	call gaction gbaryaxis.cb_notk.enable
+	call gaction gbaryaxis.tx_nolab.enable
+	call gaction gbaryaxis.cb_nolab.enable
+	call gaction gbaryaxis.ck_vlab.enable
+	call gaction gbaryaxis.ck_altr.enable
+	call gaction gbaryaxis.tx_tlclr.enable
+	call gaction gbaryaxis.cb_tlclr.enable
+	call gaction gbaryaxis.cl_tlclr.enable
+	call gaction gbaryaxis.tx_ang.enable
+	call gaction gbaryaxis.cb_ang.enable
+	call gaction gbaryaxis.tx_fmt.enable
+	call gaction gbaryaxis.ed_fmt.enable
+	call gaction gbaryaxis.bt_fmt.enable
+	call gaction gbaryaxis.tx_lgap.enable
+	call gaction gbaryaxis.ed_lgap.enable
+	call gaction gbaryaxis.tx_lsize.enable
+	call gaction gbaryaxis.cb_lsize.enable
+	call gaction gbaryaxis.ck_grid.enable
+	if gbaryaxis.ck_grid {
+		call script gbarygrid_enable
+	}
+END
+
+PROGRAM gbaryminor_enable
+BEGIN
+/// Minor ticks */
+	call gaction gbaryaxis.tx_mrule.enable
+	call gaction gbaryaxis.ed_mrule.enable
+	call gaction gbaryaxis.bt_mrule.enable
+	call gaction gbaryaxis.tx_mcstm.enable
+	call gaction gbaryaxis.ed_mcstm.enable
+	call gaction gbaryaxis.bt_mcstm.enable
+	call gaction gbaryaxis.tx_mtpos.enable
+	call gaction gbaryaxis.cb_mtpos.enable
+	call gaction gbaryaxis.tx_mtlng.enable
+	call gaction gbaryaxis.ed_mtlng.enable
+	call gaction gbaryaxis.tx_mnotk.enable
+	call gaction gbaryaxis.cb_mnotk.enable
+	call gaction gbaryaxis.tx_mnolab.enable
+	call gaction gbaryaxis.cb_mnolab.enable
+	call gaction gbaryaxis.ck_mvlab.enable
+	call gaction gbaryaxis.ck_maltr.enable
+	call gaction gbaryaxis.tx_mtlclr.enable
+	call gaction gbaryaxis.cb_mtlclr.enable
+	call gaction gbaryaxis.cl_mtlclr.enable
+	call gaction gbaryaxis.tx_mang.enable
+	call gaction gbaryaxis.cb_mang.enable
+	call gaction gbaryaxis.tx_mfmt.enable
+	call gaction gbaryaxis.ed_mfmt.enable
+	call gaction gbaryaxis.bt_mfmt.enable
+	call gaction gbaryaxis.tx_mlgap.enable
+	call gaction gbaryaxis.ed_mlgap.enable
+	call gaction gbaryaxis.tx_mlsize.enable
+	call gaction gbaryaxis.cb_mlsize.enable
+	call gaction gbaryaxis.ck_mgrid.enable
+	if gbaryaxis.ck_mgrid {
+		call script gbarymgrid_enable
+	}
+END
+
+/* Begin Enable All */
+SCRIPT gbaryaxis_enable
+BEGIN
+	program gbaryaxis_enable_pr
+END
+
+PROGRAM gbaryaxis_enable_pr
+BEGIN
+	call gaction gbaryaxis.gb_option.enable
+/// !- remove gbaryaxis.ck_range references */
+/// !- add in gbaryaxis.ck_exclude */
+	call gaction gbaryaxis.ck_exclude.enable
+/// !- change ck_log ck_yalt*/
+	call gaction gbaryaxis.ck_yalt.enable
+	call gaction gbaryaxis.ck_rev.enable
+	call gaction gbaryaxis.ck_scaleoff.enable
+	if !gbaryaxis.ck_scaleoff {
+		call program gbarytitle_enable
+		call program gbaryscale_enable
+		call program gbarymajor_enable
+		call program gbaryminor_enable
+
+	}
+
+	call gaction gbaryaxis.gb_mode.enable
+	call gaction gbaryaxis.cb_tkmode.enable
+	call gaction gbaryaxis.tx_tkmode.enable
+
+/// Line options */
+	call gaction gbaryaxis.tx_lline.enable
+	call gaction gbaryaxis.ed_lline.enable
+	call gaction gbaryaxis.tx_llwd.enable
+	call gaction gbaryaxis.cb_llwd.enable
+	call gaction gbaryaxis.tx_llclr.enable
+	call gaction gbaryaxis.cb_llclr.enable
+	call gaction gbaryaxis.cl_llclr.enable
+	call gaction gbaryaxis.tx_llpat.enable
+	call gaction gbaryaxis.cb_llpat.enable
+	call gaction gbaryaxis.tx_lextend.enable
+	call gaction gbaryaxis.cb_lextend.enable
+END
+/* End Enable All */
+
+SCRIPT gbarytitle_disable
+BEGIN
+	gbaryaxis.gb_title.disable
+	gbaryaxis.ed_title.disable
+	gbaryaxis.tx_size.disable
+	gbaryaxis.cb_size.disable
+	gbaryaxis.tx_tclr.disable
+	gbaryaxis.cb_tclr.disable
+	gbaryaxis.cl_tclr.disable
+	gbaryaxis.tx_orient.disable
+	gbaryaxis.cb_orient.disable
+	gbaryaxis.tx_just.disable
+	gbaryaxis.cb_just.disable
+	gbaryaxis.tx_align.disable
+	gbaryaxis.cb_align.disable
+	gbaryaxis.tx_margin.disable
+	gbaryaxis.cb_margin.disable
+	gbaryaxis.tx_ttlgp.disable
+	gbaryaxis.ed_ttlgp.disable
+	gbaryaxis.ck_box.disable
+	script gbarybox_disable
+END
+
+SCRIPT gbaryscale_opt_disable
+BEGIN
+	gbaryaxis.tx_lclr.disable
+	gbaryaxis.cb_lclr.disable
+	gbaryaxis.cl_lclr.disable
+	gbaryaxis.tx_outergp.disable
+	gbaryaxis.ed_outergp.disable
+/// !- add in ck_exclude */
+	gbaryaxis.ck_exclude.disable
+END
+
+SCRIPT gbarymajor_disable
+BEGIN
+/// Major ticks */
+	gbaryaxis.tx_rule.disable
+	gbaryaxis.ed_rule.disable
+	gbaryaxis.bt_rule.disable
+	gbaryaxis.tx_cstm.disable
+	gbaryaxis.ed_cstm.disable
+	gbaryaxis.bt_cstm.disable
+	gbaryaxis.tx_tpos.disable
+	gbaryaxis.cb_tpos.disable
+	gbaryaxis.tx_tlng.disable
+	gbaryaxis.ed_tlng.disable
+	gbaryaxis.tx_notk.disable
+	gbaryaxis.cb_notk.disable
+	gbaryaxis.tx_nolab.disable
+	gbaryaxis.cb_nolab.disable
+	gbaryaxis.ck_vlab.disable
+	gbaryaxis.ck_altr.disable
+	gbaryaxis.tx_tlclr.disable
+	gbaryaxis.cb_tlclr.disable
+	gbaryaxis.cl_tlclr.disable
+	gbaryaxis.tx_ang.disable
+	gbaryaxis.cb_ang.disable
+	gbaryaxis.tx_fmt.disable
+	gbaryaxis.ed_fmt.disable
+	gbaryaxis.bt_fmt.disable
+	gbaryaxis.tx_lgap.disable
+	gbaryaxis.ed_lgap.disable
+	gbaryaxis.tx_lsize.disable
+	gbaryaxis.cb_lsize.disable
+	gbaryaxis.ck_grid.disable
+	script gbarygrid_disable
+END
+
+SCRIPT gbaryminor_disable
+BEGIN
+/// Minor ticks */
+	gbaryaxis.tx_mrule.disable
+	gbaryaxis.ed_mrule.disable
+	gbaryaxis.bt_mrule.disable
+	gbaryaxis.tx_mcstm.disable
+	gbaryaxis.ed_mcstm.disable
+	gbaryaxis.bt_mcstm.disable
+	gbaryaxis.tx_mtpos.disable
+	gbaryaxis.cb_mtpos.disable
+	gbaryaxis.tx_mtlng.disable
+	gbaryaxis.ed_mtlng.disable
+	gbaryaxis.tx_mnotk.disable
+	gbaryaxis.cb_mnotk.disable
+	gbaryaxis.tx_mnolab.disable
+	gbaryaxis.cb_mnolab.disable
+	gbaryaxis.ck_mvlab.disable
+	gbaryaxis.ck_maltr.disable
+	gbaryaxis.tx_mtlclr.disable
+	gbaryaxis.cb_mtlclr.disable
+	gbaryaxis.cl_mtlclr.disable
+	gbaryaxis.tx_mang.disable
+	gbaryaxis.cb_mang.disable
+	gbaryaxis.tx_mfmt.disable
+	gbaryaxis.ed_mfmt.disable
+	gbaryaxis.bt_mfmt.disable
+	gbaryaxis.tx_mlgap.disable
+	gbaryaxis.ed_mlgap.disable
+	gbaryaxis.tx_mlsize.disable
+	gbaryaxis.cb_mlsize.disable
+	gbaryaxis.ck_mgrid.disable
+	script gbarymgrid_disable
+END
+
+/* Disable components associated with scale(off) */
+SCRIPT gbaryaxis_hide_scale_on
+BEGIN
+	script gbarytitle_disable
+	script gbaryscale_opt_disable
+	script gbarymajor_disable
+	script gbaryminor_disable
+	gbaryaxis.cb_tkmode.setvalue "Additional lines"
+END
+
+/* Begin Disable All */
+SCRIPT gbaryaxis_disable
+BEGIN
+	script gbarytitle_disable
+	gbaryaxis.gb_option.disable
+	gbaryaxis.ck_scaleoff.disable
+	script gbaryscale_opt_disable
+/// !- remove gbaryaxis.ck_range references */
+/// !- add in gbaryaxis.ck_exclude */
+	gbaryaxis.ck_exclude.disable
+/// !- change ck_log ck_yalt*/
+	gbaryaxis.ck_yalt.disable
+	gbaryaxis.ck_rev.disable
+
+	gbaryaxis.gb_mode.disable
+	gbaryaxis.cb_tkmode.disable
+	gbaryaxis.tx_tkmode.disable
+
+	script gbarymajor_disable
+	script gbaryminor_disable
+
+/// Line options */
+	gbaryaxis.tx_lline.disable
+	gbaryaxis.ed_lline.disable
+	gbaryaxis.tx_llwd.disable
+	gbaryaxis.cb_llwd.disable
+	gbaryaxis.tx_llclr.disable
+	gbaryaxis.cb_llclr.disable
+	gbaryaxis.cl_llclr.disable
+	gbaryaxis.tx_llpat.disable
+	gbaryaxis.cb_llpat.disable
+	gbaryaxis.tx_lextend.disable
+	gbaryaxis.cb_lextend.disable
+END
+/* End Disable All */
+
+/* !- removed gbaryaxis_range_enable */
+/* !- removed gbaryaxis_range_disable */
+
+PROGRAM gbaryaxis_grid_check
+BEGIN
+	if !H(gbaryaxis.ck_grid) {
+		if gbaryaxis.ck_grid {
+			call script gbarygrid_enable
+		}
+		if !gbaryaxis.ck_grid {
+			call script gbarygrid_disable
+		}
+	}
+END
+
+SCRIPT gbarygrid_enable
+BEGIN
+	gbaryaxis.tx_gall.enable
+	gbaryaxis.cb_gall.enable
+	gbaryaxis.tx_gwd.enable
+	gbaryaxis.cb_gwd.enable
+	gbaryaxis.tx_gclr.enable
+	gbaryaxis.cb_gclr.enable
+	gbaryaxis.cl_gclr.enable
+	gbaryaxis.tx_pat.enable
+	gbaryaxis.cb_pat.enable
+	gbaryaxis.tx_extend.enable
+	gbaryaxis.cb_extend.enable
+END
+
+SCRIPT gbarygrid_disable
+BEGIN
+	gbaryaxis.tx_gall.disable
+	gbaryaxis.cb_gall.disable
+	gbaryaxis.tx_gwd.disable
+	gbaryaxis.cb_gwd.disable
+	gbaryaxis.tx_gclr.disable
+	gbaryaxis.cb_gclr.disable
+	gbaryaxis.cl_gclr.disable
+	gbaryaxis.tx_pat.disable
+	gbaryaxis.cb_pat.disable
+	gbaryaxis.tx_extend.disable
+	gbaryaxis.cb_extend.disable
+END
+
+PROGRAM gbaryaxis_mgrid_check
+BEGIN
+	if !D(gbaryaxis.ck_mgrid) {
+		if gbaryaxis.ck_mgrid {
+			call script gbarymgrid_enable
+		}
+		if !gbaryaxis.ck_mgrid {
+			call script gbarymgrid_disable
+		}
+	}
+END
+
+SCRIPT gbarymgrid_enable
+BEGIN
+	gbaryaxis.tx_mgall.enable
+	gbaryaxis.cb_mgall.enable
+	gbaryaxis.tx_mgwd.enable
+	gbaryaxis.cb_mgwd.enable
+	gbaryaxis.tx_mgclr.enable
+	gbaryaxis.cb_mgclr.enable
+	gbaryaxis.cl_mgclr.enable
+	gbaryaxis.tx_mpat.enable
+	gbaryaxis.cb_mpat.enable
+	gbaryaxis.tx_mextend.enable
+	gbaryaxis.cb_mextend.enable
+END
+
+SCRIPT gbarymgrid_disable
+BEGIN
+	gbaryaxis.tx_mgall.disable
+	gbaryaxis.cb_mgall.disable
+	gbaryaxis.tx_mgwd.disable
+	gbaryaxis.cb_mgwd.disable
+	gbaryaxis.tx_mgclr.disable
+	gbaryaxis.cb_mgclr.disable
+	gbaryaxis.cl_mgclr.disable
+	gbaryaxis.tx_mpat.disable
+	gbaryaxis.cb_mpat.disable
+	gbaryaxis.tx_mextend.disable
+	gbaryaxis.cb_mextend.disable
+END
+
+SCRIPT gbarybox_enable
+BEGIN
+	gbaryaxis.tx_bclr.enable
+	gbaryaxis.cb_bclr.enable
+	gbaryaxis.cl_bclr.enable
+	gbaryaxis.tx_blclr.enable
+	gbaryaxis.cb_blclr.enable
+	gbaryaxis.cl_blclr.enable
+	gbaryaxis.tx_bmargin.enable
+	gbaryaxis.cb_bmargin.enable
+	gbaryaxis.ck_expand.enable
+END
+SCRIPT gbarybox_disable
+BEGIN
+	gbaryaxis.tx_bclr.disable
+	gbaryaxis.cb_bclr.disable
+	gbaryaxis.cl_bclr.disable
+	gbaryaxis.tx_blclr.disable
+	gbaryaxis.cb_blclr.disable
+	gbaryaxis.cl_blclr.disable
+	gbaryaxis.tx_bmargin.disable
+	gbaryaxis.cb_bmargin.disable
+	gbaryaxis.ck_expand.disable
+END
+
+SCRIPT gbarymajor_show
+BEGIN
+	gbaryaxis.tx_rule.show
+	gbaryaxis.ed_rule.show
+	gbaryaxis.bt_rule.show
+	gbaryaxis.tx_cstm.show
+	gbaryaxis.ed_cstm.show
+	gbaryaxis.bt_cstm.show
+	gbaryaxis.tx_notk.show
+	gbaryaxis.cb_notk.show
+	gbaryaxis.tx_nolab.show
+	gbaryaxis.cb_nolab.show
+	gbaryaxis.ck_vlab.show
+	gbaryaxis.ck_altr.show
+	gbaryaxis.tx_fmt.show
+	gbaryaxis.ed_fmt.show
+	gbaryaxis.bt_fmt.show
+	gbaryaxis.tx_ang.show
+	gbaryaxis.cb_ang.show
+	gbaryaxis.tx_lgap.show
+	gbaryaxis.ed_lgap.show
+	gbaryaxis.tx_lsize.show
+	gbaryaxis.cb_lsize.show
+	gbaryaxis.tx_tlclr.show
+	gbaryaxis.cb_tlclr.show
+	gbaryaxis.cb_tlclr.withvalue gbaryaxis.cb_tlclr.setvalue "@"
+	gbaryaxis.tx_tlng.show
+	gbaryaxis.ed_tlng.show
+	gbaryaxis.tx_tpos.show
+	gbaryaxis.cb_tpos.show
+	gbaryaxis.ck_grid.show
+	gbaryaxis.tx_gall.show
+	gbaryaxis.cb_gall.show
+	gbaryaxis.tx_gwd.show
+	gbaryaxis.cb_gwd.show
+	gbaryaxis.tx_gclr.show
+	gbaryaxis.cb_gclr.show
+	gbaryaxis.cb_gclr.withvalue gbaryaxis.cb_gclr.setvalue "@"
+	gbaryaxis.tx_pat.show
+	gbaryaxis.cb_pat.show
+	gbaryaxis.tx_extend.show
+	gbaryaxis.cb_extend.show
+	gbaryaxis.tx_tkmode.setlabel "Major tick options"
+END
+
+SCRIPT gbarymajor_hide
+BEGIN
+	gbaryaxis.tx_rule.hide
+	gbaryaxis.ed_rule.hide
+	gbaryaxis.bt_rule.hide
+	gbaryaxis.tx_cstm.hide
+	gbaryaxis.ed_cstm.hide
+	gbaryaxis.bt_cstm.hide
+	gbaryaxis.tx_notk.hide
+	gbaryaxis.cb_notk.hide
+	gbaryaxis.tx_nolab.hide
+	gbaryaxis.cb_nolab.hide
+	gbaryaxis.ck_vlab.hide
+	gbaryaxis.ck_altr.hide
+	gbaryaxis.tx_fmt.hide
+	gbaryaxis.ed_fmt.hide
+	gbaryaxis.bt_fmt.hide
+	gbaryaxis.tx_ang.hide
+	gbaryaxis.cb_ang.hide
+	gbaryaxis.tx_lgap.hide
+	gbaryaxis.ed_lgap.hide
+	gbaryaxis.tx_lsize.hide
+	gbaryaxis.cb_lsize.hide
+	gbaryaxis.tx_tlclr.hide
+	gbaryaxis.cb_tlclr.hide
+	gbaryaxis.cl_tlclr.hide
+	gbaryaxis.tx_tlng.hide
+	gbaryaxis.ed_tlng.hide
+	gbaryaxis.tx_tpos.hide
+	gbaryaxis.cb_tpos.hide
+	gbaryaxis.ck_grid.hide
+	gbaryaxis.tx_gall.hide
+	gbaryaxis.cb_gall.hide
+	gbaryaxis.tx_gwd.hide
+	gbaryaxis.cb_gwd.hide
+	gbaryaxis.tx_gclr.hide
+	gbaryaxis.cb_gclr.hide
+	gbaryaxis.cl_gclr.hide
+	gbaryaxis.tx_pat.hide
+	gbaryaxis.cb_pat.hide
+	gbaryaxis.tx_extend.hide
+	gbaryaxis.cb_extend.hide
+END
+
+SCRIPT gbaryminor_show
+BEGIN
+	gbaryaxis.tx_mrule.show
+	gbaryaxis.ed_mrule.show
+	gbaryaxis.bt_mrule.show
+	gbaryaxis.tx_mcstm.show
+	gbaryaxis.ed_mcstm.show
+	gbaryaxis.bt_mcstm.show
+	gbaryaxis.tx_mnotk.show
+	gbaryaxis.cb_mnotk.show
+	gbaryaxis.tx_mnolab.show
+	gbaryaxis.cb_mnolab.show
+	gbaryaxis.ck_mvlab.show
+	gbaryaxis.ck_maltr.show
+	gbaryaxis.tx_mfmt.show
+	gbaryaxis.ed_mfmt.show
+	gbaryaxis.bt_mfmt.show
+	gbaryaxis.tx_mang.show
+	gbaryaxis.cb_mang.show
+	gbaryaxis.tx_mlgap.show
+	gbaryaxis.ed_mlgap.show
+	gbaryaxis.tx_mlsize.show
+	gbaryaxis.cb_mlsize.show
+	gbaryaxis.tx_mtlclr.show
+	gbaryaxis.cb_mtlclr.show
+	gbaryaxis.cb_mtlclr.withvalue gbaryaxis.cb_mtlclr.setvalue "@"
+	gbaryaxis.tx_mtlng.show
+	gbaryaxis.ed_mtlng.show
+	gbaryaxis.tx_mtpos.show
+	gbaryaxis.cb_mtpos.show
+	gbaryaxis.ck_mgrid.show
+	gbaryaxis.tx_mgall.show
+	gbaryaxis.cb_mgall.show
+	gbaryaxis.tx_mgwd.show
+	gbaryaxis.cb_mgwd.show
+	gbaryaxis.tx_mgclr.show
+	gbaryaxis.cb_mgclr.show
+	gbaryaxis.cb_mgclr.withvalue gbaryaxis.cb_mgclr.setvalue "@"
+	gbaryaxis.tx_mpat.show
+	gbaryaxis.cb_mpat.show
+	gbaryaxis.tx_mextend.show
+	gbaryaxis.cb_mextend.show
+	gbaryaxis.tx_tkmode.setlabel "Minor tick options"
+END
+
+SCRIPT gbaryminor_hide
+BEGIN
+	gbaryaxis.tx_mrule.hide
+	gbaryaxis.ed_mrule.hide
+	gbaryaxis.bt_mrule.hide
+	gbaryaxis.tx_mcstm.hide
+	gbaryaxis.ed_mcstm.hide
+	gbaryaxis.bt_mcstm.hide
+	gbaryaxis.tx_mnotk.hide
+	gbaryaxis.cb_mnotk.hide
+	gbaryaxis.tx_mnolab.hide
+	gbaryaxis.cb_mnolab.hide
+	gbaryaxis.ck_mvlab.hide
+	gbaryaxis.ck_maltr.hide
+	gbaryaxis.tx_mfmt.hide
+	gbaryaxis.ed_mfmt.hide
+	gbaryaxis.bt_mfmt.hide
+	gbaryaxis.tx_mang.hide
+	gbaryaxis.cb_mang.hide
+	gbaryaxis.tx_mlgap.hide
+	gbaryaxis.ed_mlgap.hide
+	gbaryaxis.tx_mlsize.hide
+	gbaryaxis.cb_mlsize.hide
+	gbaryaxis.tx_mtlclr.hide
+	gbaryaxis.cb_mtlclr.hide
+	gbaryaxis.cl_mtlclr.hide
+	gbaryaxis.tx_mtlng.hide
+	gbaryaxis.ed_mtlng.hide
+	gbaryaxis.tx_mtpos.hide
+	gbaryaxis.cb_mtpos.hide
+	gbaryaxis.ck_mgrid.hide
+	gbaryaxis.tx_mgall.hide
+	gbaryaxis.cb_mgall.hide
+	gbaryaxis.tx_mgwd.hide
+	gbaryaxis.cb_mgwd.hide
+	gbaryaxis.tx_mgclr.hide
+	gbaryaxis.cb_mgclr.hide
+	gbaryaxis.cl_mgclr.hide
+	gbaryaxis.tx_mpat.hide
+	gbaryaxis.cb_mpat.hide
+	gbaryaxis.tx_mextend.hide
+	gbaryaxis.cb_mextend.hide
+END
+
+SCRIPT gbarylines_show
+BEGIN
+	gbaryaxis.tx_lline.show
+	gbaryaxis.ed_lline.show
+	gbaryaxis.tx_llwd.show
+	gbaryaxis.cb_llwd.show
+	gbaryaxis.tx_llclr.show
+	gbaryaxis.cb_llclr.show
+	gbaryaxis.cb_llclr.withvalue gbaryaxis.cb_llclr.setvalue "@"
+	gbaryaxis.tx_llpat.show
+	gbaryaxis.cb_llpat.show
+	gbaryaxis.tx_lextend.show
+	gbaryaxis.cb_lextend.show
+	gbaryaxis.tx_tkmode.setlabel "Additional lines options"
+END
+
+SCRIPT gbarylines_hide
+BEGIN
+	gbaryaxis.tx_lline.hide
+	gbaryaxis.ed_lline.hide
+	gbaryaxis.tx_llwd.hide
+	gbaryaxis.cb_llwd.hide
+	gbaryaxis.tx_llclr.hide
+	gbaryaxis.cb_llclr.hide
+	gbaryaxis.cl_llclr.hide
+	gbaryaxis.tx_llpat.hide
+	gbaryaxis.cb_llpat.hide
+	gbaryaxis.tx_lextend.hide
+	gbaryaxis.cb_lextend.hide
+END
+
+SCRIPT gbarymajor_on
+BEGIN
+	script gbaryminor_hide
+	script gbarylines_hide
+	script gbarymajor_show
+END
+
+SCRIPT gbaryminor_on
+BEGIN
+	script gbarymajor_hide
+	script gbarylines_hide
+	script gbaryminor_show
+END
+
+SCRIPT gbarylines_on
+BEGIN
+	script gbarymajor_hide
+	script gbaryminor_hide
+	script gbarylines_show
+END
+
+PROGRAM gbaryaxis_title_pr
+BEGIN
+   if !H(gbaryaxis.gb_title) {
+     if gbaryaxis.ed_title  | gbaryaxis.cb_size | gbaryaxis.cb_tclr | ///
+	   !H(gbaryaxis.cl_tclr) | gbaryaxis.cb_just | gbaryaxis.cb_orient ///
+	   | gbaryaxis.cb_align | gbaryaxis.cb_margin | gbaryaxis.ck_box {
+	put "ytitle("
+	if gbaryaxis.ed_title {
+		put gbaryaxis.ed_title
+	}
+	put /program gbaryaxis_title_opt_pr
+	put ") "
+     }
+   }
+END
+
+PROGRAM gbaryaxis_title_opt_pr
+BEGIN
+	beginoptions
+		optionarg /hidedefault gbaryaxis.cb_size
+		if H(gbaryaxis.cl_tclr) {
+			optionarg /hidedefault gbaryaxis.cb_tclr
+		}
+		if !H(gbaryaxis.cl_tclr) {
+			optionarg /quoted gbaryaxis.cl_tclr
+		}
+		optionarg /hidedefault gbaryaxis.cb_orient
+		optionarg /hidedefault gbaryaxis.cb_just
+		optionarg /hidedefault gbaryaxis.cb_align
+		optionarg /hidedefault gbaryaxis.cb_margin
+		option gbaryaxis.ck_box
+		if H(gbaryaxis.cl_bclr) {
+			optionarg /hidedefault gbaryaxis.cb_bclr
+		}
+		if !H(gbaryaxis.cl_bclr) {
+			optionarg /quoted gbaryaxis.cl_bclr
+		}
+		if H(gbaryaxis.cl_blclr) {
+			optionarg /hidedefault gbaryaxis.cb_blclr
+		}
+		if !H(gbaryaxis.cl_blclr) {
+			optionarg /quoted gbaryaxis.cl_blclr
+		}
+		optionarg /hidedefault gbaryaxis.cb_bmargin
+		option gbaryaxis.ck_expand
+	endoptions
+END
+
+PROGRAM gbaryaxis_scale_pr
+BEGIN
+/* yaxis scale options */
+/* !- remove gbaryaxis.ck_range references */
+/* !- remove ck_rev */
+/* !- remove ck_log */
+  if !D(gbaryaxis.gb_option) { /* If scale options are disabled then do nothing */
+     if gbaryaxis.cb_lclr | gbaryaxis.ed_outergp | !H(gbaryaxis.cl_lclr) /*
+     	*/ | gbaryaxis.ed_ttlgp | gbaryaxis.ck_scaleoff {
+	put "yscale("
+	put /program gbaryaxis_scale_opt_pr
+	put ") "
+     }
+  }
+END
+
+PROGRAM gbaryaxis_scale_opt_pr
+BEGIN
+	optionarg gbaryaxis.ed_ttlgp
+	/* !- remove gbaryaxis.ck_range references */
+
+	if H(gbaryaxis.cl_lclr) {
+		optionarg /hidedefault gbaryaxis.cb_lclr
+	}
+	if !H(gbaryaxis.cl_lclr) {
+		optionarg /quoted gbaryaxis.cl_lclr
+	}
+	optionarg gbaryaxis.ed_outergp
+	/* !- remove ck_log */
+	/* !- remove programming for ck_rev is no longer a scale option */
+	option gbaryaxis.ck_scaleoff
+END
+
+PROGRAM gbaryaxis_major_tick_pr
+BEGIN
+
+   /* Programming for major ticks */
+   /* if any ylabel options put out "ylabel(" */
+   if !D(gbaryaxis.ed_rule) { /* if ed_rule is disabled then do nothing */
+     if gbaryaxis.ed_rule | gbaryaxis.ed_cstm | gbaryaxis.cb_tpos | ///
+	   gbaryaxis.ed_tlng | gbaryaxis.cb_notk | gbaryaxis.cb_nolab |  ///
+	   gbaryaxis.ck_vlab |  gbaryaxis.cb_tlclr | !H(gbaryaxis.cl_tlclr) ///
+	   | gbaryaxis.cb_ang | gbaryaxis.ed_fmt | gbaryaxis.ed_lgap | 	  ///
+	   gbaryaxis.cb_lsize | gbaryaxis.ck_grid | gbaryaxis.ck_altr {
+	put "ylabel("
+	if gbaryaxis.ed_rule | gbaryaxis.ed_cstm {
+		put /hidden gbaryaxis.ed_rule
+		if gbaryaxis.ed_cstm {
+			put " "
+			put /hidden gbaryaxis.ed_cstm
+		}
+	}
+	put /program gbaryaxis_major_tick_opt_pr
+	put ")"
+     }
+   }
+END
+PROGRAM gbaryaxis_major_tick_opt_pr
+BEGIN
+	beginoptions
+		hoptionarg /hidedefault gbaryaxis.cb_tpos
+		hoptionarg /hidedefault gbaryaxis.ed_tlng
+		if gbaryaxis.cb_notk {
+			put " "
+			put /hidden gbaryaxis.cb_notk
+		}
+		if gbaryaxis.cb_nolab {
+			put " "
+			put /hidden gbaryaxis.cb_nolab
+		}
+		hoption gbaryaxis.ck_vlab
+		hoption gbaryaxis.ck_altr
+		if !Hcc(gbaryaxis.cb_tlclr) & gbaryaxis.cb_tlclr {
+			put " " "tlcolor("
+			put /hidden gbaryaxis.cb_tlclr
+			put ")"
+			put " "
+			put "labcolor("
+			put /hidden gbaryaxis.cb_tlclr
+			put ")"
+		}
+		if Hcc(gbaryaxis.cb_tlclr) {
+			put " " `"tlcolor(""'
+			put /hidden gbaryaxis.cl_tlclr
+			put `"")"'
+			put " " `"labcolor(""'
+			put /hidden gbaryaxis.cl_tlclr
+			put `"")"'
+		}
+		hoptionarg /hidedefault gbaryaxis.cb_ang
+		hoptionarg /hidedefault gbaryaxis.ed_fmt
+		hoptionarg /hidedefault gbaryaxis.ed_lgap
+		hoptionarg /hidedefault gbaryaxis.cb_lsize
+		hoption gbaryaxis.ck_grid
+		if gbaryaxis.ck_grid {
+			if gbaryaxis.cb_gall {
+				put " "
+				put /hidden gbaryaxis.cb_gall
+			}
+			hoptionarg /hidedefault gbaryaxis.cb_gwd
+			if !Hcc(gbaryaxis.cb_gclr) {
+				hoptionarg /hidedefault gbaryaxis.cb_gclr
+			}
+			if Hcc(gbaryaxis.cb_gclr) {
+				hoptionarg /quoted gbaryaxis.cl_gclr
+			}
+			hoptionarg /hidedefault gbaryaxis.cb_pat
+			if gbaryaxis.cb_extend {
+				put " "
+				put /hidden gbaryaxis.cb_extend
+			}
+		}
+	endoptions
+END
+
+PROGRAM gbaryaxis_minor_tick_pr
+BEGIN
+
+   /* Programming for minor ticks */
+
+   /* if any ylabel options put out "ylabel(" */
+   if !D(gbaryaxis.ed_mrule) { /* if ed_mrule is disabled then do nothing */
+     if gbaryaxis.ed_mrule | gbaryaxis.ed_mcstm | gbaryaxis.cb_mtpos |     ///
+	gbaryaxis.ed_mtlng | gbaryaxis.cb_mnotk | gbaryaxis.cb_mnolab | ///
+	gbaryaxis.ck_mvlab |  gbaryaxis.cb_mtlclr | !H(gbaryaxis.cl_mtlclr) ///
+	| gbaryaxis.cb_mang | gbaryaxis.ed_mfmt | gbaryaxis.ed_mlgap | 	///
+	gbaryaxis.cb_mlsize | gbaryaxis.ck_mgrid | gbaryaxis.ck_maltr {
+	put "ymlabel("
+	if gbaryaxis.ed_mrule | gbaryaxis.ed_mcstm {
+		put /hidden gbaryaxis.ed_mrule
+		if gbaryaxis.ed_mcstm {
+			put " "
+			put /hidden gbaryaxis.ed_mcstm
+		}
+	}
+	put /program gbaryaxis_minor_tick_opt_pr
+	put ")"
+     }
+   }
+END
+PROGRAM gbaryaxis_minor_tick_opt_pr
+BEGIN
+	beginoptions
+		hoptionarg /hidedefault gbaryaxis.cb_mtpos
+		hoptionarg /hidedefault gbaryaxis.ed_mtlng
+		if gbaryaxis.cb_mnotk {
+			put " "
+			put /hidden gbaryaxis.cb_mnotk
+		}
+		if gbaryaxis.cb_mnolab {
+			put " "
+			put /hidden gbaryaxis.cb_mnolab
+		}
+		hoption gbaryaxis.ck_mvlab
+		hoption gbaryaxis.ck_maltr
+		if !Hcc(gbaryaxis.cb_mtlclr) & gbaryaxis.cb_mtlclr {
+			put " " "tlcolor("
+			put /hidden gbaryaxis.cb_mtlclr
+			put ")"
+			put " " "labcolor("
+			put /hidden gbaryaxis.cb_mtlclr
+			put ")"
+		}
+		if Hcc(gbaryaxis.cb_mtlclr) {
+			put " " `"tlcolor(""'
+			put /hidden gbaryaxis.cl_mtlclr
+			put `"")"'
+			put " " `"labcolor(""'
+			put /hidden gbaryaxis.cl_mtlclr
+			put `"")"'
+		}
+		hoptionarg /hidedefault gbaryaxis.cb_mang
+		hoptionarg /hidedefault gbaryaxis.ed_mfmt
+		hoptionarg /hidedefault gbaryaxis.ed_mlgap
+		hoptionarg /hidedefault gbaryaxis.cb_mlsize
+		hoption gbaryaxis.ck_mgrid
+		if gbaryaxis.ck_mgrid{
+			if gbaryaxis.cb_mgall {
+				put " "
+				put /hidden gbaryaxis.cb_mgall
+			}
+			hoptionarg /hidedefault gbaryaxis.cb_mgwd
+			if !Hcc(gbaryaxis.cb_mgclr) {
+				hoptionarg /hidedefault gbaryaxis.cb_mgclr
+			}
+			if Hcc(gbaryaxis.cb_mgclr) {
+				hoptionarg /quoted gbaryaxis.cl_mgclr
+			}
+			hoptionarg /hidedefault gbaryaxis.cb_mpat
+			if gbaryaxis.cb_mextend {
+				put " "
+				put /hidden gbaryaxis.cb_mextend
+			}
+		}
+	endoptions
+END
+
+PROGRAM gbaryaxis_lines_pr
+BEGIN
+/* yaxis line options */
+  if !D(gbaryaxis.ed_lline) { /* if ed_lline is disabled then do nothing */
+     if gbaryaxis.ed_lline  {
+	put "yline("
+	put /hidden gbaryaxis.ed_lline
+	put /program gbaryaxis_lines_opt_pr
+	put ")"
+     }
+   }
+END
+PROGRAM gbaryaxis_lines_opt_pr
+BEGIN
+	beginoptions
+		hoptionarg /hidedefault gbaryaxis.cb_llwd
+		if !Hcc(gbaryaxis.cb_llclr) {
+			hoptionarg /hidedefault gbaryaxis.cb_llclr
+		}
+		if Hcc(gbaryaxis.cb_llclr) {
+			hoptionarg /quoted gbaryaxis.cl_llclr
+		}
+		hoptionarg /hidedefault gbaryaxis.cb_llpat
+		if gbaryaxis.cb_lextend {
+			put " "
+			put /hidden gbaryaxis.cb_lextend
+		}
+	endoptions
+END
+
+SCRIPT gbaryaxis_setExcludeZeroOFF
+BEGIN
+	gbaryaxis.ck_exclude.hide
+END
+
+PROGRAM gbaryaxis_output
+BEGIN
+	put " " /program gbaryaxis_title_pr
+	put " " /program gbaryaxis_scale_pr
+	put " " /program gbaryaxis_major_tick_pr
+	put " " /program gbaryaxis_minor_tick_pr
+	put " " /program gbaryaxis_lines_pr
+	/* !- add programming for yalternate, yreverse, and exclude0 options */
+	option gbaryaxis.ck_yalt
+	option gbaryaxis.ck_rev
+	option gbaryaxis.ck_exclude
+END

@@ -1,0 +1,348 @@
+//                               combinegraph_g
+//
+//	Base class for combine graphs
+
+*! version 1.2.0  07may2019
+
+version 8
+
+class {
+	rescale_x	= .yesno.new, style(no)
+	rescale_y	= .yesno.new, style(no)
+
+} , inherit(bygraph_g)
+
+
+// ----------------------------------------------------------------------------
+
+program new
+	
+	syntax [anything] [ , STYLE(passthru) SUBVIEW READLOG(passthru) * ]
+
+    	.graphfamily = "combine"
+
+	if "`style'" == "" {
+		local style style(scheme combine)
+	}
+
+	.Super.new , `subview' `readlog'
+
+	if "`readlog'" == "" {				// reading from a file
+		.parse `anything' , `style' `options'
+	}
+end
+
+
+// ----------------------------------------------------------------------------
+// Parses and creates a combine graph.  Uses a log for some common graph
+// options.  
+//
+// This is somewhat tricked up.  combinegraph_g does not really need a log, but
+// would like access to its tools, so the main parsing command is pushed on the
+// log and in that way the main parsing can proceed without having to push many
+// things onto the log.
+
+program parse
+
+	tempname log				// logs all edits
+	.`log' = {}				// then runs the log
+
+	tempname prse				// create a parsing structure
+	.`prse' = .null.new
+
+	.Parse `log' `prse' `0'			// parse
+
+						// special settings
+
+						// "plotregion" is a grid
+        .`log'.Arrpush .insert (plotregion1 = .grid.new ,		///
+		style(\`.style.plotregionstyle.stylename')) new
+	
+						// build array of graphs
+	.`log'.Arrpush __NOLOG__ .ReplayGraphs `prse'
+	.`log'.Arrpush .n = 0\`.graphs.arrnels'
+
+	.`log'.Arrpush .set_scale    `.`prse'.scale'
+	.`log'.Arrpush .set_iscale   `.`prse'.iscale'
+	.`log'.Arrpush .set_imargins `.`prse'.imargins'
+
+	.`log'.Arrpush .set_placement		// place graphs in grid
+//	.`log'.Arrpush .set_axes_titles
+//	.`log'.Arrpush .set_axes_shown
+//	.`log'.Arrpush .set_axes_labels		// if style/scheme sets off
+//	.`log'.Arrpush .set_axes_ticks		// must reset to get anywhere
+	if (`.rescale_x.istrue') .`log'.Arrpush .set_rescaled x
+	if (`.rescale_y.istrue') .`log'.Arrpush .set_rescaled y
+	.`log'.Arrpush .set_shrink
+	.`log'.Arrpush .set_outer_axes
+
+	local options `"`.`prse'.options'"'
+						// graph and plot area style
+	_fr_area_parse_and_log `log' plotregion1 PLOTRegion  , `options'
+	_fr_area_parse_and_log `log' ""          GRAPHRegion , `r(rest)'
+	local options `"`r(rest)'"'
+
+	_fr_runlog `log' , logging			// run the log
+	.`log' = {}
+							// titles
+	.parse_and_log_titles `log' "" `.get_x1y1title' `options'
+
+	local 0 `", `r(rest)'"'
+	syntax [, FAKE_OPT_FOR_BETTER_MSG ]
+
+	_fr_runlog `log' , logging			// run the new log
+end
+
+
+// ----------------------------------------------------------------------------
+//  Parse the combine syntax for others to use.
+
+program Parse
+	gettoken log  0 : 0
+	gettoken prse 0 : 0
+	
+	_parse expand cmd glob : 0			// in case canonical
+	local 0 `"`cmd_1'"'
+	syntax [anything] [ , * ]
+	local 0 `"`anything' `glob_if' `glob_in' , `glob_op' `options'"'
+
+	syntax [anything] [ , 						///
+		noCOPies COMmonscheme NOSTYLES 				///
+		Rows(numlist integer >0 min=0 max=1) COLFirst 		///
+		Cols(numlist integer >0 min=0 max=1)			///
+		HOLes(numlist integer >0 max=300) 			///
+		IMargins(string asis) SCALE(string) ISCALE(string)	///
+		NOALTSHRINK ALTSHRINK					///
+		* ]
+
+
+	.parse_settings `log' , `options'		// by options
+
+	.`prse'.Declare options   = `"`r(rest)'"'
+
+							// graph create options
+
+	if "`altshrink'`noaltshrink'" != "" {
+	    .`log'.Arrpush ._set_xor shrink_indiv "`altshrink'" "`noaltshrink'"
+	    if ("`altshrink'" != "" & `"`iscale'"' == `""')  local iscale 1
+	}
+
+	.`prse'.Declare graphlist = `"`anything'"'
+
+	.`prse'.Declare nostyles      = "`nostyles'" 
+	.`prse'.Declare imargins      = `"`imargins'"'
+	.`prse'.Declare scale         = `"`scale'"'
+	.`prse'.Declare iscale        = `"`iscale'"'
+	.`prse'.Declare copies	      = ("`copies'"        == "")
+	.`prse'.Declare commonscheme  = ("`commonscheme'"  != "")
+	if "`commonscheme'"  != "" {
+		.`prse'.copies = 1
+	}
+
+
+							// logged settings
+	.`log'.Arrpush .set_rows     = 0`rows'
+	.`log'.Arrpush .set_cols     = 0`cols'
+	.`log'.Arrpush .set_colfirst = "`colfirst'" != ""
+
+	local holes : list uniq holes
+	.`log'.Arrpush .holes = "`holes'"
+
+end
+
+
+program parse_settings , rclass
+	gettoken log 0 : 0
+
+	syntax [ , STYLE(passthru) YCOMmon XCOMmon * ]
+
+	if "`style'" != "" {
+		.`log'.Arrpush .style.setstyle , `style'
+	}
+
+//	.Super.parse_settings `log' , `options'	// would activate bygraph opts
+
+						// rescaling
+/*
+	if "`common'" != "" {
+		local xcommon xcommon			// implies x and y
+		local ycommon ycommon
+	}
+*/
+	if "`xcommon'" != "" {
+		.rescale_x.set_true
+		local edits `"`edits' indiv_xrescale(no)"'
+		local edits `"`edits' indiv_xaxes(yes)"'
+		local edits `"`edits' outer_xaxes(yes)"'
+	}
+	if "`ycommon'" != "" {
+		.rescale_y.set_true
+		local edits `"`edits' indiv_yrescale(no)"'
+		local edits `"`edits' indiv_yaxes(yes)"'
+		local edits `"`edits' outer_yaxes(yes)"'
+	}
+
+	if ( `"`edits'"' != `""' )  					///
+		.`log'.Arrpush .style.editstyle `edits' editcopy
+
+	return local rest `"`options'"'
+end
+
+
+// ----------------------------------------------------------------------------
+//  Replay the specified graphs into our graphs array.
+
+program ReplayGraphs
+	args prse
+
+	if `.`prse'.commonscheme' {			// common schemes
+		local gscm scheme(`.`c(curscm)'.objkey') refscheme
+	}
+
+	tempname gphcpy
+
+	local graphlist `"`.`prse'.graphlist'"'
+
+	gettoken graph graphlist : graphlist , qed(quoted)
+	while `"`graph'"' != `""' {
+		local i = `.graphs.arrnels' + 1
+
+		if `quoted' | index(`"`graph'"', ".gph") {
+			capture noisily {
+				local realnm "`._Gr_Global.current_graph_resync'"
+				gs_filetype "`graph'" , suffix
+				if "`r(ft)'" != "live" {
+					di as error `"file `r(fn)' is not"' ///
+						`" a Stata live graph"'
+					exit 198
+				}
+				gr_use "`graph'" , name(`gphcpy') `gscm' nodraw
+				.CheckForestPlot `gphcpy' `graph'
+				.graphs[`i'] = .`gphcpy'.ref
+				._Gr_Global.set_current_graph "`realnm'"
+			}
+			local rc = _rc
+			capture gr_drop `gphcpy'
+			if `rc' {
+				exit `rc'
+			}
+		}
+		else {
+			.CheckForestPlot `graph' `graph'
+			if ! 0`.Global.`graph'.isofclass graph_g' {
+				di as error `"`graph' is not a memory graph"'
+				exit 198
+			}
+
+			if `.`prse'.copies' {
+				gr_replay `graph' , name(`gphcpy') nodraw ///
+					`.`prse'.nostyles' `gscm'
+				.graphs[`i'] = .`gphcpy'.ref
+				gr_drop `gphcpy'
+			}
+			else {
+				.graphs[`i'] = .Global.`graph'.ref
+			}
+		}
+
+						// to retrieve graph reference 
+						// when saved to a file
+		.PushMapGraph `i'
+		.__LOG.Arrpush .PushMapGraph `i'
+
+		gettoken graph graphlist : graphlist , qed(quoted)
+	}
+
+	set curscm `._scheme.objkey'
+end
+
+program .CheckForestPlot
+	args name id
+
+	if ! 0`.`name'.isofclass fpgraph_g' {
+		exit
+	}
+
+	local forest `"{bf:meta} {bf:forestplot}"'
+	di as err `"`forest' graphs not allowed;"'
+	di as err `"{bf:`id'} was created by `forest'"'
+	exit 198
+end
+
+
+// ----------------------------------------------------------------------------
+program PushMapGraph
+	args i
+
+	.__LOG.Arrpush __NOLOG__ .graphs[`i'] = .__Map.`.graphs[`i'].uname'.ref
+end
+
+
+// ----------------------------------------------------------------------------
+
+program set_imargins
+	local imargins `0'
+
+	if `"`imargins'"' == `""' {
+		exit					// nothing to do
+	}
+
+	forvalues i = 1/0`.graphs.arrnels' {
+		.graphs[`i'].style.editstyle margin(`imargins') editcopy
+	}
+end
+
+
+// ----------------------------------------------------------------------------
+
+program set_iscale
+	local iscale `"`0'"'
+
+
+	.plotregion1.scale_gmetric `=ceil(sqrt(`.full_n'))'		///
+		`.`c(curscm)'.special.combine_knot1'			///
+		`.`c(curscm)'.special.combine_slope1'			///
+		`.`c(curscm)'.special.combine_slope2'
+
+	if `"`iscale'"' != `""' {
+		tempname rsz
+		.`rsz' = .numstyle.new, style(`.plotregion1.gmetric_mult')
+		.`rsz'.setstyle , style(`iscale')
+		.plotregion1.gmetric_mult = `.`rsz'.val'
+	}
+
+end
+
+
+// ----------------------------------------------------------------------------
+
+program get_x1y1title
+
+	foreach d in x y {					// "axis" titles
+	    local text
+	    local sep 
+	    if 0`.style.outer_`d'titles.istrue' {
+		forvalues i = 1/0`.graphs.arrnels' {
+		    local ti `.graphs[`i'].`d'axis1.title.get_text'
+		    if `"`ti'"' != `"`text'"' {
+		    	local text `"`text'`sep'`ti'"'
+			local sep  "/"
+		    }
+		}
+
+		if `"`text'"' != `""' {
+		    local p = cond("`d'"=="x", "b", "l")
+		    local options `"`p'1title(`text') `options'"'
+		}
+	    }
+	}
+
+	class exit `"`options'"'
+end
+
+
+// ----------------------------------------------------------------------------
+
+program draw
+	.Super(graph_g).draw `0'		// bypass .bygraph_g.draw
+end

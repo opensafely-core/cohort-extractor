@@ -1,0 +1,461 @@
+/*
+	as_probit_model.idlg
+
+	This is an INCLUDE file for the -model- and -model2- tabs that go 
+	with -asmprobit- and -asroprobit- dialog.
+
+*!  VERSION 1.2.2  29nov2018
+
+	// SCRIPTS and PROGRAMS for external use
+	    * PROGRAM as_probit_model_vars_output
+	    * PROGRAM as_probit_model_opts_output
+	    * SCRIPT as_probit_set_cmd_asmprobit
+*/
+
+SCRIPT 	as_probit_set_cmd_asmprobit
+BEGIN
+	model2.ck_reverse.hide
+END
+
+SCRIPT main_PREINIT
+BEGIN
+	script _constraints_main_setOptionalOn
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)						
+BEGIN
+  TEXT tx_dv 			_lft	_top	_vnwd	.,		///
+	label(resource LBL_DEPVAR)
+  VARNAME vn_dv			@ 	_ss	@	.,		///
+	numeric								///
+	label(resource LBL_DEPVAR)
+
+  TEXT tx_iv			_vlx	_top	160	.,		///
+	label(resource LBL_INDDEPVAR)
+  VARLIST vl_iv			@	_ss	_vlwd	.,		///
+	fv								///
+	allowcat							///
+	numeric								///
+	label(resource LBL_INDDEPVAR)
+
+  TEXT tx_case			_lft	_ls	_vnwd	.,		///
+	label(resource LBL_TX_CASE)
+  DEFINE holdy @y
+  VARNAME vn_case		@	_ss	@	.,		///
+	label(resource LBL_TX_CASE) option(case) numeric
+  TEXT tx_casevars		_vlx	holdy	_vlwd	.,		///
+	label(resource LBL_VN_CASEVARS)
+  VARLIST vl_casevars		@	_ss	_vlwd	.,		///
+	option(casevars) 						///
+	fv								///
+	numeric								///
+	allowcat 							///
+	label(resource LBL_VL_CASEVARS) 
+  TEXT tx_alternatives		_lft	_ls	_iwd	.,		///
+	label(resource LBL_ALTERNATIVES_VAR)
+  VARNAME  vn_alternatives	@	_ss	_vnwd	.,		///
+	label(resource LBL_VL_CASEVARS)					///
+	option(alternatives)
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _lw80
+  DEFINE _bux _slw80
+  INCLUDE _constraints
+  
+  DEFINE _x _lft
+  DEFINE _xw _iwd
+//  INCLUDE _ck_collinear
+END
+
+INCLUDE _constraints_sc 
+
+SCRIPT model2_PREINIT
+BEGIN
+	create STRING matrixResult
+END
+
+DIALOG model2, tabtitle(resource LBL_TAB_MODEL2)
+BEGIN
+  BUTTON   bu_matinput   	_rj100	_top    100	.,		///
+	label(resource LBL_INPUT_MATRIX)				///
+	onpush(program show_matrix_input)				///
+	tooltip(resource LBL_INPUT_HAND)
+
+  GROUPBOX gb_corr		_lft	_ss	_iwd	_ht8h,		///
+	label(resource AS_PROBIT_MODEL2_GB_CORR)
+  RADIO	   rb_unstructured	_indent	_ss	_cwd3_1	.,		///
+	label(resource AS_PROBIT_MODEL2_RB_UNSTRUCTURED) first		///
+	option(NONE)							///
+	onclickon(program check_notransform)
+  DEFINE holdy @y
+  RADIO    rb_exchangeable	@	_ss	@	.,		///
+	label(resource LBL_EXCHANGEABLE)				///
+	option(correlation(exchangeable))				///
+	onclickon(program check_notransform)
+  RADIO    rb_independent	@	_ss	@	.,		///
+	label(resource LBL_INDEPENDENT)					///
+	option(correlation(independent))				///
+	onclickon(program check_notransform)
+  RADIO    rb_cpattern	    _lft3_02	holdy  _comb3_1	.,		///
+	label(resource AS_PROBIT_MODEL2_RB_CPATTERN)			///
+	onclickon(script cpattern_on)					///
+	onclickoff(script cpattern_off)					///
+	option(NONE)
+  COMBOBOX cb_cpattern		220	_ss	_vnwd	.,		///
+  	label(resource LBL_MATRIX) dropdown contents(matrix)
+  TEXT     tx_cpattern		_vnsep	@	150	.,		///
+	label(resource LBL_MATRIX)
+  RADIO	   rb_cfixed	    _lft3_02	_ms    _comb3_1	.,		///
+	onclickon(script cfixed_on)					///
+	onclickoff(script cfixed_off)					///
+	last option(NONE)						///
+	label(resource AS_PROBIT_MODEL2_RB_CFIXED)
+  COMBOBOX cb_cfixed		220	_ss	_vnwd	.,		///
+  	label(resource LBL_MATRIX) dropdown contents(matrix)
+  TEXT     tx_cfixed		_vnsep	@	150	.,		///
+	label(resource LBL_MATRIX)
+
+  GROUPBOX gb_stddev		_lft	_xls	_iwd	_ht8h,		///
+	label(resource AS_PROBIT_MODEL2_GB_STDDEV)
+
+  RADIO	   rb_heteroske		_indent	_ss	_cwd3_1	.,		///
+	label(resource AS_PROBIT_MODEL2_RB_HETEROSKE) first		///
+	option(NONE) 							///
+	onclickon(program check_notransform)
+  DEFINE holdy @y
+  RADIO    rb_homoske		@	_ss	@	.,		///
+	label(resource AS_PROBIT_MODEL2_RB_HOMOSKE)			///
+	option(stddev(homoskedastic))					///
+	onclickon(program check_notransform)
+  RADIO    rb_vpattern	     _lft3_02	holdy  _comb3_1	.,		///
+	label(resource AS_PROBIT_MODEL2_RB_VPATTERN)			///
+	onclickon(script vpattern_on)					///
+	onclickoff(script vpattern_off)					///
+	option(NONE)
+  COMBOBOX cb_vpattern		220	_ss	_vnwd	.,		///
+  	label(resource LBL_MATRIX) dropdown contents(matrix)
+  TEXT     tx_vpattern		_vnsep	@	150	.,		///
+	label(resource LBL_MATRIX)
+  RADIO	   rb_vfixed	     _lft3_02	_ms    _comb3_1	.,		///
+	onclickon(script vfixed_on)					///
+	onclickoff(script vfixed_off)					///
+	last option(NONE)						///
+	label(resource AS_PROBIT_MODEL2_RB_VFIXED)
+  COMBOBOX cb_vfixed		220	_ss	_vnwd	.,		///
+  	label(resource LBL_MATRIX) dropdown contents(matrix)
+  TEXT     tx_vfixed		_vnsep	@	150	.,		///
+	label(resource LBL_MATRIX)
+
+  CHECKBOX ck_factor		_lft	_xls	_cwd1	.,		///
+	onclickon(program factor_on)					///
+	onclickoff(program factor_off)					///
+	label(resource AS_PROBIT_MODEL2_CK_FACTOR)
+  SPINNER  sp_factor   		_lft2   @ 	_spwd	.,		///
+	label(resource LBL_DIMENSION)					///
+	min(1) max(20) default(1)					///
+	option(factor)
+  TEXT     tx_factor  	 	_spsep	@	_spr2b	.,		///
+	label(resource AS_PROBIT_MODEL2_TX_FACTOR)
+
+  CHECKBOX ck_structural	_lft	_ms	_cwd1	.,		///
+	onclickon(program structural_on)				///
+	onclickoff(program structural_off)				///
+	option(structural) label(resource AS_PROBIT_MODEL2_CK_STRUCTURAL)
+  CHECKBOX ck_noconstant	_lft2	@	_cwd1	.,		///
+	option(noconstant) label(resource LBL_ALT_NOCONSTANT)
+  CHECKBOX ck_basealt		_lft	_ms	_cwd1	.,		///
+	onclickon(script basealt_on)					///
+	onclickoff(script basealt_off)					///
+	label(resource LBL_NORMALIZED_LOCATION)
+  DEFINE holdy @y
+  EDIT     en_basealt	       _indent2	_ss	_en14wd	.,		///
+  	label(resource LBL_BASE_ALTERNATIVE)
+  TEXT     tx_basealt		_en14sep @	120	.,		///
+	label(resource LBL_BASE_ALTERNATIVE)
+
+  CHECKBOX ck_scalealt		_lft2	holdy	_cwd1	.,		///
+	onclickon(script scalealt_on)					///
+	onclickoff(script scalealt_off)					///
+	label(resource AS_PROBIT_MODEL2_CK_SCALEALT)
+  EDIT     en_scalealt	       _indent2	_ss	_en14wd	.,		///
+  	label(resource AS_PROBIT_MODEL2_TX_SCALEALT)
+  TEXT     tx_scalealt		_en14sep @	120	.,		///
+	label(resource AS_PROBIT_MODEL2_TX_SCALEALT)
+  CHECKBOX ck_altwise		_lft	_ms	_cwd1	.,		///
+	option(altwise) label(resource LBL_ALTERNATIVEWISE_DELETION)
+  CHECKBOX ck_reverse		_lft2	@	_cwd1	.,		///
+	option(reverse) label(resource AS_PROBIT_MODEL2_CK_REVERSE)
+END
+
+PROGRAM show_matrix_input
+BEGIN
+	call create CHILD matrix_input
+	if ! _rc {
+		call matrix_input.setExitString matrixResult
+		call matrix_input.setExitAction "program getMatrixResult"
+		call matrix_input.callthru "isChildContext.settrue"
+	}
+END
+PROGRAM getMatrixResult
+BEGIN
+	call create ARRAY matrix_tempvals
+	call matrix_tempvals.Arrdropall
+	
+	call model2.cb_cpattern.withvalue matrix_tempvals.Arrpush "@"
+	call model2.cb_cfixed.withvalue matrix_tempvals.Arrpush "@"
+	call model2.cb_vpattern.withvalue matrix_tempvals.Arrpush "@"
+	call model2.cb_vfixed.withvalue matrix_tempvals.Arrpush "@"
+
+	call model2.cb_cpattern.repopulate
+	call model2.cb_cfixed.repopulate
+	call model2.cb_vpattern.repopulate
+	call model2.cb_vfixed.repopulate
+
+	call model2.cb_cpattern.setvalue class matrix_tempvals[1]
+	call model2.cb_cfixed.setvalue class matrix_tempvals[2]
+	call model2.cb_vpattern.setvalue class matrix_tempvals[3]
+	call model2.cb_vfixed.setvalue class matrix_tempvals[4]
+END
+
+PROGRAM check_notransform
+BEGIN
+	if ((!model2.rb_unstructured.isenabled() | model2.rb_unstructured) ///
+	    | (!model2.rb_heteroske.isenabled() | model2.rb_heteroske))    ///
+	{
+		call model2.ck_structural.enable
+		if model2.ck_structural {
+			call rpt.ck_notransform.enable
+			call rpt.tx_notransform.enable
+		}
+	}
+	else {
+		call model2.ck_structural.disable
+		call rpt.ck_notransform.disable
+		call rpt.tx_notransform.disable
+	}
+END
+
+PROGRAM factor_on
+BEGIN
+	call model2.gb_corr.disable
+	call model2.rb_unstructured.disable
+	call model2.rb_exchangeable.disable
+	call model2.rb_independent.disable
+	call model2.rb_cpattern.disable
+	call model2.cb_cpattern.disable
+	call model2.tx_cpattern.disable
+	call model2.rb_cfixed.disable
+	call model2.cb_cfixed.disable
+	call model2.tx_cfixed.disable
+	
+	call model2.gb_stddev.disable
+	call model2.rb_heteroske.disable
+	call model2.rb_homoske.disable
+	call model2.rb_vpattern.disable
+	call model2.cb_vpattern.disable
+	call model2.tx_vpattern.disable
+	call model2.rb_vfixed.disable
+	call model2.cb_vfixed.disable
+	call model2.tx_vfixed.disable
+
+	call model2.bu_matinput.disable	
+
+	call model2.sp_factor.enable
+	call model2.tx_factor.enable
+	
+	call program check_notransform
+END
+
+
+PROGRAM factor_off
+BEGIN
+	call model2.gb_corr.enable
+	call model2.rb_unstructured.enable
+	call model2.rb_exchangeable.enable
+	call model2.rb_independent.enable
+	call model2.rb_cpattern.enable
+	if (model2.rb_cpattern) {
+		call model2.cb_cpattern.enable
+		call model2.tx_cpattern.enable
+	}
+	call model2.rb_cfixed.enable
+	if (model2.rb_cfixed) {
+		call model2.cb_cfixed.enable
+		call model2.tx_cfixed.enable
+	}
+	
+	call model2.gb_stddev.enable
+	call model2.rb_heteroske.enable
+	call model2.rb_homoske.enable
+	call model2.rb_vpattern.enable
+	if (model2.rb_vpattern) {
+		call model2.cb_vpattern.enable
+		call model2.tx_vpattern.enable
+	}
+	call model2.rb_vfixed.enable
+	if (model2.rb_vfixed) {
+		call model2.cb_vfixed.enable
+		call model2.tx_vfixed.enable
+	}
+
+	call model2.bu_matinput.enable	
+
+	call model2.sp_factor.disable
+	call model2.tx_factor.disable
+	
+	call program check_notransform
+END
+
+PROGRAM structural_on
+BEGIN
+	call rpt.ck_notransform.enable
+	call rpt.tx_notransform.enable
+END
+
+PROGRAM structural_off
+BEGIN
+	call rpt.ck_notransform.disable
+	call rpt.tx_notransform.disable
+END
+
+SCRIPT basealt_on
+BEGIN
+	model2.en_basealt.enable
+	model2.tx_basealt.enable
+END
+
+SCRIPT basealt_off
+BEGIN
+	model2.en_basealt.disable
+	model2.tx_basealt.disable
+END
+
+SCRIPT scalealt_on
+BEGIN
+	model2.en_scalealt.enable
+	model2.tx_scalealt.enable
+END
+
+SCRIPT scalealt_off
+BEGIN
+	model2.en_scalealt.disable
+	model2.tx_scalealt.disable
+END
+
+SCRIPT cpattern_on
+BEGIN
+	model2.cb_cpattern.enable
+	model2.tx_cpattern.enable
+	program check_notransform
+END
+
+SCRIPT cpattern_off
+BEGIN
+	model2.cb_cpattern.disable
+	model2.tx_cpattern.disable
+	program check_notransform
+END
+
+SCRIPT cfixed_on
+BEGIN
+	model2.cb_cfixed.enable
+	model2.tx_cfixed.enable
+	program check_notransform
+END
+
+SCRIPT cfixed_off
+BEGIN
+	model2.cb_cfixed.disable
+	model2.tx_cfixed.disable
+	program check_notransform
+END
+
+SCRIPT vpattern_on
+BEGIN
+	model2.cb_vpattern.enable
+	model2.tx_vpattern.enable
+	program check_notransform
+END
+
+SCRIPT vpattern_off
+BEGIN
+	model2.cb_vpattern.disable
+	model2.tx_vpattern.disable
+	program check_notransform
+END
+
+SCRIPT vfixed_on
+BEGIN
+	model2.cb_vfixed.enable
+	model2.tx_vfixed.enable
+	program check_notransform
+END
+
+SCRIPT vfixed_off
+BEGIN
+	model2.cb_vfixed.disable
+	model2.tx_vfixed.disable
+	program check_notransform
+END
+
+PROGRAM as_probit_model_vars_output
+BEGIN
+	varlist main.vn_dv [main.vl_iv]
+END
+
+PROGRAM as_probit_model_opts_output
+BEGIN
+	require main.vn_case
+	optionarg main.vn_case
+	require main.vn_alternatives
+	optionarg main.vn_alternatives
+	optionarg main.vl_casevars
+	INCLUDE _constraints_main_pr
+//	option main.ck_collinear
+
+	option model2.rb_exchangeable
+	option model2.rb_independent
+	if model2.rb_cpattern.isenabled() & model2.rb_cpattern {
+		require model2.cb_cpattern
+		put "correlation(pattern "
+		put model2.cb_cpattern
+		put ") "
+	}
+	if model2.rb_cfixed.isenabled() & model2.rb_cfixed {
+		require model2.cb_cfixed
+		put "correlation(fixed "
+		put model2.cb_cfixed
+		put ") "
+	}
+	option model2.rb_homoske
+	if model2.rb_vpattern.isenabled() & model2.rb_vpattern {
+		require model2.cb_vpattern
+		put "stddev(pattern "
+		put model2.cb_vpattern
+		put ") "
+	}
+	if model2.rb_vfixed.isenabled() & model2.rb_vfixed {
+		require model2.cb_vfixed
+		put "stddev(fixed "
+		put model2.cb_vfixed
+		put ") "
+	}
+	option model2.ck_structural
+	option model2.ck_noconstant
+	if model2.ck_basealt.isenabled() & model2.ck_basealt {
+		require model2.en_basealt
+		put "base("
+		put model2.en_basealt
+		put ") "
+	}
+	if model2.ck_scalealt.isenabled() & model2.ck_scalealt {
+		require model2.en_scalealt
+		put "scale("
+		put model2.en_scalealt
+		put ") "
+	}
+	option model2.ck_altwise
+	option model2.ck_reverse
+	optionarg model2.sp_factor
+END

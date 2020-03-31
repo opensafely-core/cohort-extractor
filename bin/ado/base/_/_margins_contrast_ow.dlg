@@ -1,0 +1,226 @@
+ /* _margins_contrast_ow.dlg
+
+ *!  VERSION 1.1.3  30oct2019
+
+ */
+
+VERSION 14.0
+
+INCLUDE _std_wide
+DEFINE _dlght 140
+DEFINE _dlgwd 600
+INCLUDE header
+HELP hlp1, view(help margins, contrast)
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource _MARGINS_CONTRAST_OW_DLG_HSCALE
+END
+
+PROGRAM PREINIT_PROGRAM
+BEGIN
+	call create STRING s_output
+	if __MESSAGE.iseq("-over-") {
+		call main.vn_over.show
+		call main.cb_within.hide
+	}
+	if __MESSAGE.iseq("-within-") {
+		call main.vn_over.hide
+		call main.cb_within.show
+	}
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	call program cb_contrast_changed_1
+	call main.ed_contrastlist.setvalue ""
+END
+
+DIALOG main, title(resource _MARGINS_CONTRAST_OW_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT tx_variable		10	_top	115	.,		///
+	center								///
+	label(resource LBL_VN_VARIABLE)
+  TEXT tx_contrast		125	@	235	.,		///
+	center								///
+	label(resource LBL_CONTRAST)
+  TEXT tx_base			370	@	80	.,		///
+	center								///
+	label(resource LBL_BASE)
+  HLINK hl_numlist		460	@	140	.,		///
+	center								///
+	onpush(view help contrast##custom)				///
+	label(resource _MARGINS_CONTRAST_OW_MAIN_HL_NUMLIST)
+
+
+
+DEFINE x1   10
+DEFINE cx1  115
+
+DEFINE x2   135
+DEFINE cx2  235
+
+DEFINE x3   380
+DEFINE cx3  80
+
+DEFINE x4   470
+DEFINE cx4  100
+
+  VARNAME vn_over		x1	_ss	cx1	.,		///
+	numeric								///
+	label(resource LBL_VN_VARIABLE)
+  COMBOBOX cb_within		@	@	@	.,		///
+	dropdown							///
+	contents(margins_flist)						///
+	label(resource LBL_VN_VARIABLE)
+
+  COMBOBOX cb_con1		x2	@	cx2	.,		///
+	dropdown							///
+	onselchange(program cb_contrast_changed_1)			///
+	contents(con_list)						///
+	values(con_values)
+  COMBOBOX cb_base1		x3	@	cx3	.,		///
+	dropdown							///
+	contents(base_list)						///
+	values(base_values)
+  EDIT ed_num1			x4	@	cx4	.,		///
+	label(resource _MARGINS_CONTRAST_OW_MAIN_HL_NUMLIST)
+
+  BUTTON bu_add			_lft	_ls	140	.,		///
+	onpush(program contrastOverWithinOutput)			///
+	label(resource _MARGINS_CONTRAST_OW_MAIN_BU_ADD)
+  TEXT tx_contrastlist		_lft	_ls	_cwd1	.,		///
+	label(resource _MARGINS_CONTRAST_OW_MAIN_TX_CONTRASTLIST)
+  EDIT ed_contrastlist		@	_ss	560	.,		///
+	label(resource _MARGINS_CONTRAST_OW_MAIN_TX_CONTRASTLIST)
+END
+
+LIST base_list
+BEGIN
+	resource LBL_DEFAULT
+	resource LBL_FIRST
+	resource LBL_FREQUENT
+	resource LBL_LAST
+	resource LBL_NONE
+	0
+	1
+	2
+END
+
+LIST base_values
+BEGIN
+	""
+	first
+	frequent
+	last
+	none
+	0
+	1
+	2
+END
+
+LIST con_list
+BEGIN
+        resource _MARGINS_CONTRAST_OW_R
+        resource _MARGINS_CONTRAST_OW_A
+        resource _MARGINS_CONTRAST_OW_AR
+        resource _MARGINS_CONTRAST_OW_G
+        resource _MARGINS_CONTRAST_OW_H
+        resource _MARGINS_CONTRAST_OW_J
+        resource _MARGINS_CONTRAST_OW_P
+        resource _MARGINS_CONTRAST_OW_Q
+        resource _MARGINS_CONTRAST_OW_GW
+        resource _MARGINS_CONTRAST_OW_HW
+        resource _MARGINS_CONTRAST_OW_JW
+        resource _MARGINS_CONTRAST_OW_PW
+        resource _MARGINS_CONTRAST_OW_QW
+	resource LBL_CUSTOM
+END
+
+LIST con_values
+BEGIN
+	r
+	a
+	ar
+	g
+	h
+	j
+	p
+	q
+	gw
+	hw
+	jw
+	pw
+	qw
+	custom
+END
+
+PROGRAM cb_contrast_changed_1
+BEGIN
+	if main.cb_con1.iseq("r")  {
+		call main.cb_base1.enable
+	}
+	else {
+		call main.cb_base1.disable
+	}
+	if main.cb_con1.iseq("custom")  {
+		call main.ed_num1.enable
+	}
+	else {
+		call main.ed_num1.disable
+	}
+END
+
+PROGRAM contrastOverWithinOutput
+BEGIN
+	call s_output.setvalue ""
+	if main.cb_con1.iseq("custom") {
+		call s_output.append "{"
+		if main.vn_over.isvisible() {
+			require main.vn_over
+			call s_output.append class main.vn_over.value
+		}
+		if main.cb_within.isvisible() {
+			require main.cb_within
+			call s_output.append class main.cb_within.value
+		}
+		require main.ed_num1
+		if (main.ed_num1.isenabled() &				///
+			!main.ed_num1.isnumlist()) {
+				call create STRING _MSG_TMP
+        	                call _MSG_TMP.format					/// 
+					"resource LBL_MSGBOX_THERE_IS_AN_INVALID_FMT" 	///
+					"resource _MARGINS_CONTRAST_OW_MAIN_HL_NUMLIST"
+				stopbox stop "class _MSG_TMP.value"
+// There is an invalid "Custom Contrast".
+		}
+		call s_output.append " "
+		call s_output.append class main.ed_num1.value
+		call s_output.append "}"
+	}
+	else {
+		if (main.cb_con1 & main.cb_con1.isenabled()) {
+			call s_output.append class main.cb_con1.value
+		}
+		if main.cb_base1 & main.cb_base1.isenabled() {
+			call s_output.append  "b("
+			call s_output.append class main.cb_base1.value
+			call s_output.append  ")"
+		}
+		call s_output.append  "."
+		if main.vn_over.isvisible() {
+			call s_output.append class main.vn_over.value
+		}
+		if main.cb_within.isvisible() {
+			call s_output.append class main.cb_within.value
+		}
+	}
+	call s_output.withvalue main.ed_contrastlist.smartinsert "@"
+END
+
+PROGRAM command
+BEGIN
+	put main.ed_contrastlist
+END
+

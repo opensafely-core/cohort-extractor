@@ -1,0 +1,205 @@
+/*
+	predict (after sem)
+
+*!  VERSION 1.1.0  15dec2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+DEFINE _dlght 340
+INCLUDE header
+HELP hlp1, view("help sem postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING main_oyvars
+	create STRING main_lyvars
+	create STRING main_lyvars_lxvars
+
+	create LIST OYVARS_LIST
+	create LIST LYVARS_LIST
+	create LIST LYVARS_LXVARS_LIST
+	setscale_hadj resource SEM_P_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script _p_gentype_multiple
+	script _p_gentype_setMedium
+	script main_populate_combos
+END
+
+SCRIPT main_populate_combos
+BEGIN
+	main_oyvars.setvalue e(oyvars)
+	main_lyvars.setvalue e(lyvars)
+	main_lyvars_lxvars.setvalue e(lyvars)
+	main_lyvars_lxvars.append " "
+	main_lyvars_lxvars.append e(lxvars)
+
+	OYVARS_LIST.Arrdropall
+	LYVARS_LIST.Arrdropall
+	LYVARS_LXVARS_LIST.Arrdropall
+
+	main_oyvars.tokenize OYVARS_LIST
+	main.cb_xb.repopulate
+
+	main_lyvars.tokenize LYVARS_LIST
+	main.cb_xblatent.repopulate
+
+	main_lyvars_lxvars.tokenize LYVARS_LXVARS_LIST
+	main.cb_latent.repopulate
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+        if __MESSAGE.iseq("-xb-") {
+		call main.rb_xb.seton
+	}
+        if __MESSAGE.iseq("-xblatent-") {
+		call main.rb_xblatent.seton
+	}
+        if __MESSAGE.iseq("-latent-") {
+		call main.rb_latent.seton
+	}
+        if __MESSAGE.iseq("-scores-") {
+		call main.rb_scores.seton
+	}
+END
+
+PROGRAM ON_DOTPROMPT
+BEGIN
+	call script main_populate_combos
+	call main.cb_xb.repopulate
+	call main.cb_xblatent.repopulate
+	call main.cb_latent.repopulate
+END
+
+DIALOG main, label(resource PREDICT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  INCLUDE  _p_gentype
+
+  GROUPBOX gb_opt		_lft	_ls	_iwd	_ht23,		///
+	label(resource LBL_PRODUCE)
+  RADIO rb_xb			_indent	_ss	_inwd 	., first	///
+	option(xb)							///
+	onclickon(script main_xb_on)					///
+	onclickoff(script main_xb_off)					///
+	label(resource SEM_P_MAIN_RB_XB)
+  RADIO rb_xblatent		@	+70	@	.,		///
+	option(xblatent)						///
+	onclickon(script main_xblatent_on)				///
+	onclickoff(script main_xblatent_off)				///
+	label(resource SEM_P_MAIN_RB_XBLATENT)
+  RADIO rb_latent		@	+70	@	.,		///
+	option(latent)							///
+	onclickon(script main_latent_on)				///
+	onclickoff(script main_latent_off)				///
+	label(resource SEM_P_MAIN_RB_LATENT)
+  RADIO rb_scores		@	+70	@	., last		///
+	option(scores)							///
+	label(resource SEM_P_MAIN_RB_SCORES)
+
+  TEXT tx_xb			_indent2 -190	_iibwd	.,		///
+	label(resource LBL_VARIABLES_OPTIONAL)
+  COMBOBOX cb_xb		@	_ss	@	.,		///
+	option(xb)							///
+	dropdown							///
+	append								///
+	contents(OYVARS_LIST)						///
+	label(resource LBL_VARIABLES)
+  TEXT tx_xblatent		@	+50	@	.,		///
+	label(resource LBL_VARIABLES_OPTIONAL)
+  COMBOBOX cb_xblatent		@	_ss	@	.,		///
+	option(xblatent)						///
+	dropdown							///
+	append								///
+	contents(LYVARS_LIST)						///
+	label(resource LBL_VARIABLES)
+  TEXT tx_latent		@	+50	@	.,		///
+	label(resource LBL_VARIABLES_OPTIONAL)
+  COMBOBOX cb_latent		@	_ss	@	.,		///
+	option(latent)							///
+	dropdown							///
+	append								///
+	contents(LYVARS_LXVARS_LIST)					///
+	label(resource LBL_VARIABLES)
+END
+
+SCRIPT main_xb_on
+BEGIN
+	main.tx_xb.enable
+	main.cb_xb.enable
+END
+
+SCRIPT main_xb_off
+BEGIN
+	main.tx_xb.disable
+	main.cb_xb.disable
+END
+
+SCRIPT main_xblatent_on
+BEGIN
+	main.tx_xblatent.enable
+	main.cb_xblatent.enable
+END
+
+SCRIPT main_xblatent_off
+BEGIN
+	main.tx_xblatent.disable
+	main.cb_xblatent.disable
+END
+
+SCRIPT main_latent_on
+BEGIN
+	main.tx_latent.enable
+	main.cb_latent.enable
+END
+
+SCRIPT main_latent_off
+BEGIN
+	main.tx_latent.disable
+	main.cb_latent.disable
+END
+
+INCLUDE ifin
+
+INCLUDE _p_gentype_sc
+INCLUDE _type_list_fd
+
+PROGRAM command
+BEGIN
+	put "predict "
+	put " " /program _p_gentype_output
+	INCLUDE _ifin_pr
+	beginoptions
+		if main.rb_xb {
+			if main.cb_xb {
+				optionarg main.cb_xb
+			}
+			else {
+				option main.rb_xb
+			}
+		}
+		if main.rb_xblatent {
+			if main.cb_xblatent {
+				optionarg main.cb_xblatent
+			}
+			else {
+				option main.rb_xblatent
+			}
+		}
+		if main.rb_latent {
+			if main.cb_latent {
+				optionarg main.cb_latent
+			}
+			else {
+				option main.rb_latent
+			}
+		}
+		option main.rb_scores
+	endoptions
+END

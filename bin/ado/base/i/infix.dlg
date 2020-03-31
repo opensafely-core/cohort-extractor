@@ -1,0 +1,119 @@
+/*
+	infix
+
+*!  VERSION 1.2.2  14mar2015
+
+	which infix - built-in command:  infix
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+INCLUDE _ht270
+INCLUDE header
+HELP hlp1, view("help infix")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource INFIX_DLG_HSCALE
+	
+        main.fi_dict.formatfilter "{0} (*.dct)|*.dct|{1} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_DICT_FILES" "resource ui_ex FILE_TYPE_ALL_FILES"
+		
+        main.fi_using.formatfilter "{0} (*.raw)|*.raw|{1} (*.txt)|*.txt|{2} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_RAW_FILES" "resource ui_ex FILE_TYPE_TXT_FILES" ///
+		"resource ui_ex FILE_TYPE_ALL_FILES"
+END
+
+DIALOG main,label(resource INFIX_DLG_TITLE)			/*
+		*/ tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  RADIO    rb_dict   _lft      _top      _iwd        .,		/*
+                */ label(resource INFIX_MAIN_RB_DICT)		/*
+		*/ clickon("script dict_on")			/*
+		*/ first
+
+  FILE     fi_dict   _indent2  _ss       _ibwd       .,		/*
+		*/ error(resource INFIX_MAIN_FI_DICT)		/*
+                */ label(resource LBL_BU_BROWSE)			/*
+                */ defext(dct)
+
+  RADIO    rb_spec   _lft      _ls       _iwd        .,		/*
+                */ label(resource INFIX_MAIN_RB_SPEC)		/*
+		*/ clickon("script spec_on")			/*
+		*/ last
+
+  EDIT     ed_spec   _indent2  _ss       _inwd       .,		/*
+                */ label(resource INFIX_MAIN_RB_SPEC)
+
+  GROUPBOX gb_ex     @         _ms       @           _ht4,	/*
+                */ label(resource LBL_EXAMPLES)
+
+  TEXT     tx_ex1    _indent   _ss       _inwd       .,		/*
+                */ label(resource INFIX_MAIN_TX_EX1)
+
+  TEXT     tx_ex2    @         _ss       @           .,		/*
+                */ label(resource INFIX_MAIN_TX_EX2)
+
+  TEXT     tx_using  _lft      _xls      _iwd        .,		/*
+                */ label(resource LBL_TEXT_DATASET_FILENAME)
+
+  FILE     fi_using  @         _ss       @           .,		/*
+		*/ option(using)				/*
+		*/ error(resource LBL_TEXT_DATASET_FILENAME)	/*
+		*/ defext(raw)					/*
+                */ label(resource LBL_BU_BROWSE)
+
+  CHECKBOX ck_clear  _lft      _ls       @           .,		/*
+                */ option(clear)				/*
+                */ label(resource LBL_REPLACE_DATA_IN_MEMORY) nomem
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script ifin_setNotDataDependent
+END
+
+SCRIPT dict_on
+BEGIN
+main.fi_dict.enable
+main.ed_spec.disable
+main.tx_using.setlabel resource INFIX_TEXT_DTA_FILENAME_REQUIRED_IF_NOT_SPEC_IN_DICT
+END
+
+SCRIPT spec_on
+BEGIN
+main.fi_dict.disable
+main.ed_spec.enable
+main.tx_using.setlabel resource INFIX_TEXT_DTA_FILENAME_REQUIRED
+END
+
+INCLUDE ifin
+
+PROGRAM command
+BEGIN
+	put "infix "
+	if main.rb_dict {
+		require main.fi_dict
+		put "using "
+		put `"""' main.fi_dict `"""'
+	}
+	if main.rb_spec {
+		require main.ed_spec
+		require main.fi_using
+		put main.ed_spec
+		put " "
+		put "using "
+		put `"""' main.fi_using `"""'
+	}
+	put " " /program ifin_output
+	beginoptions
+		if main.rb_dict {
+			if main.fi_using {
+				optionarg /quoted main.fi_using
+			}
+		}
+		option main.ck_clear
+	endoptions
+END

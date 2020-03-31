@@ -1,0 +1,111 @@
+/*
+	integ
+
+*!  VERSION 1.1.4  06feb2020
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+DEFINE _dlght 350
+INCLUDE header
+HELP hlp1, view("help integ")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource INTEG_DLG_HSCALE
+END
+
+DIALOG main,	label(resource INTEG_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT	tx_yvar			_lft	_top	_cwd1	.,		///
+	label(resource LBL_Y_VARIABLE)
+
+  VARNAME vn_yvar		@	_ss	_vnwd	.,		///
+	numeric								///
+	label(resource LBL_Y_VARIABLE)
+
+  TEXT tx_xvar 			_lft2	_top	_cwd1	.,		///
+	label(resource LBL_X_VARIABLE)
+
+  VARNAME vn_xvar		@	_ss	_vnwd	.,		///
+	numeric								///
+	label(resource LBL_X_VARIABLE)
+  GROUPBOX gb_opts		_lft	_ls	_iwd	_ht24,		///
+	label(resource LBL_OPTIONS)
+
+  GROUPBOX gb_rule		_ilft	_ss	_ibwd	_ht3h,		///
+	label(resource INTEG_MAIN_GB_RULE)
+  RADIO rb_cubic		_iilft	_ss	_inwd	., first	///
+	label(resource INTEG_MAIN_RB_CUBIC)
+
+  RADIO rb_trapezoid		@	_ss	_ibwd	., last		///
+	option(trapezoid)						///
+	label(resource INTEG_MAIN_RB_TRAPEZOID)	
+
+  CHECKBOX ck_generate		_ilft	_xls	_ibwd	_ht9,		///
+	groupbox							///
+	onclickon("script main_generate_on")				///
+	onclickoff("script main_generate_off")				///
+	label(resource LBL_STORE_RESULTS_IN_VAR)
+  TEXT tx_gen			_iilft	_ss	_inwd	.,		///
+	label(resource LBL_VARIABLE_NAME)
+  EDIT ed_gen			@	_ss	_vnwd	.,		///
+	option(generate)						///
+	label(resource LBL_VARIABLE_NAME)
+  CHECKBOX ck_replace		@	_ls	_ibwd	.,		///
+	option(replace)							///
+	label(resource LBL_OVERWRITE_THE_EXISTING_VARIABLE)
+  CHECKBOX ck_double		@	_ms	@	.,		///
+	option(double)							///
+	label(resource LBL_STORE_NEW_VAR_IN_DOUBLE_PRECISION) 
+
+  SPINNER sp_initial		_ilft	_xls	_spwd	.,		///
+	min(0)								///
+	max(10000)							///
+	default(0)							///
+	option(initial)							///
+	label(resource INTEG_MAIN_SP_INITIAL)
+  TEXT tx_init			_spsep	@	_sprb	.,		///
+	label(resource INTEG_MAIN_SP_INITIAL)
+END
+
+SCRIPT main_generate_on
+BEGIN
+	main.tx_gen.enable
+	main.ed_gen.enable
+	main.ck_replace.enable
+	main.ck_double.enable
+END
+
+SCRIPT main_generate_off
+BEGIN
+	main.tx_gen.disable
+	main.ed_gen.disable
+	main.ck_replace.disable
+	main.ck_double.disable
+END
+
+INCLUDE byifin
+
+PROGRAM command
+BEGIN
+	put /program by_output " "
+	put "integ "
+	varlist main.vn_yvar
+	varlist main.vn_xvar
+	put " " /program ifin_output
+	beginoptions
+  		if main.ck_generate {
+			require main.ed_gen
+			optionarg main.ed_gen
+			option main.ck_replace
+			option main.ck_double
+		}
+		option radio(main rb_trapezoid)
+		optionarg /hidedefault main.sp_initial
+	endoptions
+END
+

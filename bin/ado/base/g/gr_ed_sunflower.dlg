@@ -1,0 +1,113 @@
+/*
+  gr_ed_sunflower.dlg
+
+*!  VERSION 1.1.3  31jul2017
+
+*/
+
+VERSION 14.0
+MODAL
+
+INCLUDE _std_msmall
+DEFINE _dlght 450
+INCLUDE header_gr_ed
+
+DEFINE _clwd	15
+DEFINE _wd	140
+DEFINE _sep	+145
+DEFINE _wd2	130
+DEFINE _sep2	+135
+DEFINE _cbwd	120
+DEFINE _cbsep	+125
+
+SCRIPT PREINIT
+BEGIN
+	settitle resource GR_ED_SUNFLOWER_DLG_TITLE
+	create STRING G
+	create STRING Gstyle
+	program setupGOBJECT
+
+	create STRING thisname
+	thisname.setvalue class _dlg_rsrcname
+
+	create DOUBLE index
+	setscale_hadj resource GR_ED_SUNFLOWER_DLG_HSCALE
+END
+
+PROGRAM setupGOBJECT
+BEGIN
+	if ! __MESSAGE {
+		stopbox stop "resource LBL_MSGBOX_OBJECT_NOT_FOUND"
+// An unexpected error has occurred. Object not found.
+		exit 198
+	}
+	call G.setvalue class __MESSAGE.value
+	call Gstyle.setvalue class G.value
+	call Gstyle.append ".style"
+END
+
+INCLUDE gr_ed_sunflower
+INCLUDE gr_ed_marker
+
+SCRIPT adv_PREINIT
+BEGIN
+	create DOUBLE drawview
+	program adv_get_defaults
+END
+
+SCRIPT adv_POSTINIT
+BEGIN
+	program adv_initialize_controls
+END
+
+DIALOG adv, tabtitle(resource LBL_ADVANCED)
+BEGIN
+  CHECKBOX ck_hide	_lft	_top	_iwd	.,		///
+	label(resource LBL_HIDE_PLOT)
+END
+
+PROGRAM adv_get_defaults
+BEGIN
+	call G.withvalue drawview.setvalue class @.draw_view.istrue
+	if drawview {
+		call adv.ck_hide.setdefault 0
+	}
+	else {
+		call adv.ck_hide.setdefault 1
+	}
+END
+
+PROGRAM adv_initialize_controls
+BEGIN
+	if drawview {
+		call adv.ck_hide.setoff
+	}
+	else {
+		call adv.ck_hide.seton
+	}
+END
+
+PROGRAM adv_output
+BEGIN
+	call program adv_get_defaults
+	if ! adv.ck_hide.isdefault() {
+		if adv.ck_hide {
+			put "set(draw_view no) "
+		}
+		else {
+			put "set(draw_view yes) "
+		}
+	}
+END
+
+PROGRAM command
+BEGIN
+	put "_gm_dlg_edits"
+	beginoptions
+		put " object(" G ") "
+		put " " /program sunflower_output
+		put " " /program marker_output
+		put " " /program adv_output
+		put " epilog(_gedi toolbar sunflower " G ")"
+	endoptions
+END

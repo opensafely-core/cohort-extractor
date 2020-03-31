@@ -1,0 +1,98 @@
+/*
+	predict (after probit, dprobit)
+
+*!  VERSION 1.3.0  07nov2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE _ht330
+INCLUDE header
+
+HELP hlp1, view("help probit postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource PROBIT_P_DLG_HSCALE
+END
+
+DIALOG main, label(resource PREDICT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  INCLUDE  _p_gentype
+
+  GROUPBOX gb_opts           _lft      _ls       _iwd      _ht10h,	/*
+		*/ label(resource LBL_PRODUCE)
+  RADIO    rb_p              _indent   _ss       _inwd     ., first	/*
+		*/ option(p)						/*
+		*/ onclickon(script score_off)				/*
+		*/ label(resource LBL_PROBABILITY_OF_A_POSITIVE_OUTCOME)
+  RADIO    rb_xb             @         _ss       @         .,		/*
+		*/ option(xb)						/*
+		*/ onclickon(script score_off)				/*
+		*/ label(resource LBL_LINEAR_PREDICTION)
+  RADIO    rb_stdp           @         _ss       @         .,		/*
+		*/ option(stdp)						/*
+		*/ onclickon(script score_off)				/*
+		*/ label(resource LBL_STANDARD_ERROR_LINEAR_PREDICTION)
+  RADIO    rb_deviance       @         _ss       @         .,		/*
+		*/ option(deviance)					/*
+		*/ onclickon(script score_off)				/*
+		*/ label(resource LBL_DEVIANCE_RESIDUAL)
+  RADIO    rb_score          @         _ss       @         ., last	/*
+		*/ option(score)					/*
+		*/ onclickon(script score_on)				/*
+		*/ label(resource LBL_EQUATION_LEVEL_SCORES)
+
+  GROUPBOX gb_opt            _lft      _xls      _iwd      _ht9,	/*
+		*/ label(resource LBL_OPTIONS)
+
+  CHECKBOX ck_nooffset       _ilft     _ss       _ibwd     .,		/*
+		*/ option(nooffset)					/*
+		*/ label(resource LBL_IGNORE_OFFSET_VARIABLE)
+  RADIO    rb_default        @         _ls       @         ., first	/*
+		*/ option(NONE)						/*
+		*/ label(resource LBL_PRODUCE_MISSING_OBS_EXCLUDED_BY_RULES)
+  RADIO    rb_rules          @         _ss       @         .,		/*
+		*/ option(rules)					/*
+		*/ label(resource LBL_USE_ANY_MODEL_IDENTIFYING_RULES_WHEN_MAKING_PRED)
+  RADIO    rb_asif           @         _ss       @         ., last	/*
+		*/ option(asif)						/*
+  		*/ label(resource LBL_IGNORE_RULES_EXCLUSION_CRITERIA_MAKING_PRED)
+END
+
+SCRIPT score_off
+BEGIN
+	main.ck_nooffset.enable
+	main.rb_default.enable
+	main.rb_rules.enable
+	main.rb_asif.enable
+END
+SCRIPT score_on
+BEGIN
+	main.ck_nooffset.disable
+	main.rb_default.disable
+	main.rb_rules.disable
+	main.rb_asif.disable
+END
+
+INCLUDE _p_gentype_sc
+INCLUDE ifin
+INCLUDE _type_list_fd
+
+PROGRAM command
+BEGIN
+	put "predict "
+	put " " /program _p_gentype_output
+	INCLUDE _ifin_pr
+	beginoptions
+		option radio(main rb_p rb_xb rb_stdp rb_deviance rb_score)
+		option main.ck_nooffset
+		if !main.rb_score {
+			option radio(main rb_default rb_rules rb_asif)
+		}
+	endoptions
+END
+

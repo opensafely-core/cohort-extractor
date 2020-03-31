@@ -1,0 +1,241 @@
+/*
+  gladder
+
+*!  VERSION 2.1.3  31oct2019
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_wide
+DEFINE _dlght 280
+INCLUDE header
+
+HELP hlp1, view("help gladder")
+RESET res1
+
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource GLADDER_DLG_HSCALE
+END
+
+SCRIPT main_PREINIT
+BEGIN
+	create STRING barOptionResults
+	create STRING graphCombineResults
+	create STRING markerLabelOptionResults
+END
+
+SCRIPT main_POSTINIT
+BEGIN
+	script gr_hist_density_plots_setNoNorm
+	program checkBarOptionResults
+	program checkgraphCombineResults
+	program checkMarkerLabelOptionResults
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				/// 
+	label(resource GLADDER_DLG_TITLE)
+BEGIN
+  GROUPBOX gb_data		_lft	_top	_iwd	_ht4h,		///
+	label(resource LBL_DATA)
+  TEXT     tx_var		_ilft	_ss	120	.,		///
+	label(resource LBL_VARIABLE)
+  VARNAME  vn_var		@	_ss	@	.,		///
+  	numeric								///
+	label(resource LBL_VARIABLE)
+  
+  GROUPBOX gb_bins		_lft	+45	_cwd1	_ht8,		///
+	label(resource LBL_BINS)
+  DEFINE gp2 @y
+  CHECKBOX ck_bin		_ilft	_ms	_ckwd	.,		///
+	onclickon(program main_bin_check)				///
+	onclickoff(program main_bin_check)
+  SPINNER  sp_bin		_cksep	@	_spwd	.,		///
+	min(1)	max(1000000) default(10) option(bin)
+  TEXT     tx_bin		_spsep	@	_ckspr2b .,		///
+	label(resource LBL_NUMBER_OF_BINS)
+  
+  GROUPBOX gb_yaxis		_lft2	gp2	_cwd1	_ht8,		///
+	label(resource LBL_TAB_Y_AXIS)
+  RADIO    rb_den		_ilft2	_ss	_inwd	.,		///
+	label(resource LBL_DENSITY) first
+  RADIO    rb_frac		@	_ss	@	.,		///
+	label(resource LBL_FRACTION) option(fraction)
+  RADIO    rb_freq		@	_ss	@	.,		///
+	label(resource LBL_FREQUENCY) option(frequency)
+  RADIO    rb_perc		@	_ss	@	.,		///
+	label(resource LBL_PERCENT) last option(percent)
+  
+  BUTTON bu_bar_options		_lft	+45	130	.,		///
+	label(resource LBL_GB_BAR_PROPERTIES)				///
+	onpush(script show_bar_dialog)
+  BUTTON   bu_combine		@	+25	@	.,		///
+	label(resource LBL_COMBINE_PROPERTIES)				///
+	onpush(script show_graph_combine_dialog)			///
+	tooltip(resource LBL_AFFECT_HOW_SUBGRAPHS_ARE_ORGANIZED)
+
+  CHECKBOX ck_addlab		_lft2	-25	_cwd1	.,		///
+	onclickon(program main_addlab_check)				///
+	onclickoff(program main_addlab_check)				///
+	label(resource LBL_ADD_HEIGHT_LABELS_TO_BARS)			///
+	option(addlabel)
+  BUTTON bu_markerlabel_options +20	_ss	130	.,		///
+	label(resource LBL_GB_BAR_LABEL_PROPERTIES)			///
+	onpush(script show_markerlabel_dialog)
+END
+
+// Main scripts/programs
+PROGRAM main_bin_check
+BEGIN
+	if !H(main.ck_bin) & main.ck_bin {
+		call main.sp_bin.enable
+	}
+	if H(main.ck_bin) | !main.ck_bin {
+		call main.sp_bin.disable
+	}
+END
+
+PROGRAM main_width_check
+BEGIN
+	if !H(main.ck_width) & main.ck_width {
+		call gaction main.en_width.enable
+	}
+	if H(main.ck_width) | !main.ck_width {
+		call gaction main.en_width.disable
+	}
+END
+
+PROGRAM main_start_check
+BEGIN
+	if !H(main.ck_start) & main.ck_start {
+		call gaction main.en_start.enable
+	}
+	if H(main.ck_start) | !main.ck_start {
+		call gaction main.en_start.disable
+	}
+END
+
+PROGRAM main_addlab_check
+BEGIN
+	if !H(main.ck_addlab) & main.ck_addlab {
+		call gaction main.bu_markerlabel_options.enable
+	}
+	if H(main.ck_addlab) | !main.ck_addlab {
+		call gaction main.bu_markerlabel_options.disable
+	}
+END
+
+// Main buttons
+SCRIPT show_bar_dialog
+BEGIN
+	create CHILD gr_bar_options AS barOptions, allowsubmit
+	barOptions.setExitString barOptionResults
+	barOptions.settitle resource LBL_GB_BAR_PROPERTIES
+	barOptions.setExitAction "program checkBarOptionResults"
+	barOptions.setSubmitAction "program barOptionSubmit"
+	barOptions.callthru "script gr_bar_setHistogramOn"
+END
+
+PROGRAM checkBarOptionResults
+BEGIN
+	if barOptionResults.iseq("") {
+		call main.bu_bar_options.modified_off
+	}
+	if ! barOptionResults.iseq("") {
+		call main.bu_bar_options.modified_on
+	}
+END
+PROGRAM barOptionSubmit
+BEGIN
+	call program checkBarOptionResults
+	call Submit
+END
+
+SCRIPT show_markerlabel_dialog
+BEGIN
+	create CHILD gr_markerlabel_options AS markerLabelOptions, allowsubmit
+	markerLabelOptions.setExitString markerLabelOptionResults
+	markerLabelOptions.settitle resource LBL_GB_BAR_LABEL_PROPERTIES
+	markerLabelOptions.setExitAction "program checkMarkerLabelOptionResults"
+	markerLabelOptions.setSubmitAction "program markerLabelOptionSubmit"
+END
+
+PROGRAM checkMarkerLabelOptionResults
+BEGIN
+	if markerLabelOptionResults.iseq("") {
+		call  main.bu_markerlabel_options.modified_off
+	}
+	if ! markerLabelOptionResults.iseq("") {
+		call  main.bu_markerlabel_options.modified_on
+	}
+END
+PROGRAM markerLabelOptionSubmit
+BEGIN
+	call program checkMarkerLabelOptionResults
+	call Submit
+END
+
+SCRIPT show_graph_combine_dialog
+BEGIN
+	create CHILD gr_combine_options AS graph_combine_opts, 	///
+		allowsubmit
+	graph_combine_opts.setExitString graphCombineResults
+	graph_combine_opts.settitle resource LBL_GRAPH_COMBINE_OPTIONS
+	graph_combine_opts.setExitAction "program checkgraphCombineResults"
+	graph_combine_opts.setSubmitAction "program GraphCombineSubmit"
+END
+PROGRAM checkgraphCombineResults
+BEGIN
+	if graphCombineResults {
+		call  main.bu_combine.modified_on
+	}
+	else {
+		call  main.bu_combine.modified_off
+	}
+END
+PROGRAM GraphCombineSubmit
+BEGIN
+	call program checkgraphCombineResults
+	call Submit
+END
+
+INCLUDE ifin
+INCLUDE _kernel_function_list
+INCLUDE gr_hist_density_plots
+INCLUDE gr_yaxis
+INCLUDE gr_xaxis
+INCLUDE gr_titles
+INCLUDE gr_legend
+INCLUDE gr_overall
+
+PROGRAM command
+BEGIN
+	put "gladder "
+	varlist main.vn_var
+	put " " /program ifin_output
+	beginoptions
+		optionarg main.sp_bin
+		option main.rb_freq
+		option main.rb_frac
+		option main.rb_perc
+		if barOptionResults & ! H(main.bu_bar_options) {
+			put " " barOptionResults " "
+		}
+		if graphCombineResults & ! H(main.bu_combine) {
+			put " " graphCombineResults " "
+		}
+		option main.ck_addlab
+		if markerLabelOptionResults & ! H(main.bu_markerlabel_options) {
+			put " addlabopts(" markerLabelOptionResults ") "
+		}
+
+		put " " /program gr_hist_density_plots_output
+		put " " /program gr_yaxis_output
+		put " " /program gr_xaxis_output
+		put " " /program gr_titles_output
+		put " " /program gr_legend_output
+		put " " /program gr_overall_output
+	endoptions
+END

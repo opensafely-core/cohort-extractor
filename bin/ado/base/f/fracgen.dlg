@@ -1,0 +1,138 @@
+/*
+  fracgen
+
+*! VERSION 1.2.1  11may2017
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE _ht390
+INCLUDE header
+HELP hlp1, view("help fracgen")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource FRACGEN_DLG_HSCALE
+END
+
+
+DIALOG main, /*
+*/label(resource FRACGEN_DLG_TITLE)/*
+		*/ tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  /*--+----1----+----2----+----3----+----4----+----5----+----6----+----7----+*/ 
+  TEXT     tx_var    _lft      _top      _iwd      .,			/*
+		*/ label(resource LBL_VARIABLE)				/*
+		*/
+  VARNAME  vn_var    @         _ss       _vnwd     .,			/*
+		*/ label(resource LBL_VARIABLE)				/*
+		*/ numeric						/*
+		*/
+
+  TEXT     tx_pow    @         _ls       _iwd      .,			/*
+	*/ label(resource FRACGEN_MAIN_TX_POW)	/*
+		*/
+  EDIT     ed_pow    @         _ss       @         .,			/*
+	*/ label(resource FRACGEN_MAIN_TX_POW)	/*
+		*/
+
+  GROUPBOX gb_opts   @         _ls       @         _ht24,		/*
+		*/ label(resource LBL_OPTIONS)				/*
+		*/
+  GROUPBOX gb_center	_indent _ss      _ibwd     _ht7,		/*
+		*/ label(resource FRACGEN_MAIN_GB_CENTER)		/*
+		*/
+  DEFINE y @y
+  RADIO    rb_no     _indent   _ss       _inwd     .,			/*
+		*/ label(resource FRACGEN_MAIN_RB_NO)			/*
+		*/ clickon("gaction main.en_value.disable")		/*
+		*/ first						/*
+		*/ option(NONE)						/*
+		*/
+  RADIO    rb_mean   @         _ms       @         .,			/*
+		*/ label(resource FRACGEN_MAIN_RB_MEAN)			/*
+		*/ clickon("gaction main.en_value.disable")		/*
+		*/ option("center(mean)")				/*
+		*/
+  RADIO    rb_value  @         _ms       _rbwd     .,			/*
+		*/ label("")						/*
+		*/ clickon("gaction main.en_value.enable")		/*
+		*/ last							/*
+		*/ option(NONE)						/*
+		*/
+  EDIT     en_value  _rbsep    @         _en7wd    .,			/*
+		*/ label(resource FRACGEN_MAIN_EN_VALUE)		/*
+		*/ numonly						/*
+		*/ option("center")					/*
+		*/
+  TEXT     tx_value  _en7sep   @         _ckvnrbb  .,			/*
+		*/ label(resource FRACGEN_MAIN_EN_VALUE)		/*
+		*/
+
+  CHECKBOX ck_noscal _ilft     _xls       _ibwd     .,			/*
+		*/ label(resource FRACGEN_MAIN_CK_NOSCAL)		/*
+		*/ option("noscaling")					/*
+		*/
+  CHECKBOX ck_replac @         _ms       @         .,			/*
+		*/ label(resource FRACGEN_MAIN_CK_REPLAC)		/*
+		*/ option("replace") nomem				/*
+		*/
+		
+  GROUPBOX gb_restrict _ilft   _ls       _ibwd      _ht4,		/*
+	*/ label(resource FRACGEN_MAIN_GB_RESTRICT)
+  TEXT     tx_restrict _indent _ss       _vnwd      .,			/*
+  		*/ label(resource LBL_INDICATOR_VARIABLE)
+DEFINE y2 @y
+  VARNAME  vn_restrict @       _ss       _cwd3_2    .,			/*
+  		*/ numeric						/*
+		*/ label(resource LBL_INDICATOR_VARIABLE)
+  TEXT     tx_if       180     y2        290         .,			/*
+		*/ label(resource LBL_IF_EXPRESSION)
+  EXP      ex_if       @       _ss       @           .,			/*
+		*/ label(resource LBL_BU_CREATE)
+
+END
+
+PROGRAM restrict_if_output
+BEGIN
+	if main.ex_if {
+		ifexp main.ex_if
+	}
+END
+
+PROGRAM restrict_output
+BEGIN
+	if main.vn_restrict | main.ex_if {
+		put "restrict("
+		put main.vn_restrict
+		if (main.ex_if) {
+			put " "
+		}
+		put /program restrict_if_output
+		put ")"
+	}
+END
+
+INCLUDE ifin
+PROGRAM command
+BEGIN
+	put "fracgen "
+	varlist main.vn_var
+	require main.ed_pow
+	put main.ed_pow
+	INCLUDE _ifin_pr
+	beginoptions
+		option radio(main rb_no rb_mean rb_value)
+		if main.rb_value {
+			require main.en_value
+			optionarg main.en_value
+		}
+		option main.ck_noscal
+		option main.ck_replac
+		put /program restrict_output
+	endoptions
+END
+

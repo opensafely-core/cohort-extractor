@@ -1,0 +1,241 @@
+/*
+  generate
+
+*!  VERSION 1.3.1  03jun2015
+
+** This dialog box may be called internally by the Data Editor
+
+*/
+
+VERSION 14.0
+INCLUDE _std_medium
+DEFINE _dlght 290
+INCLUDE header
+HELP hlp1, view("help generate")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create ARRAY  ARGS
+	create STRING VAR
+	create BOOLEAN isAfter 
+	setscale_hadj resource GENERATE_DLG_HSCALE
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	if __MESSAGE {
+		call __MESSAGE.tokenize ARGS
+		call VAR.setvalue class ARGS[1]
+		call main.vn_before.setvalue class VAR.value
+		call main.vn_after.setvalue class VAR.value
+		if VAR {
+			if isAfter {
+				call main.cb_position.setvalue "after"
+			} 
+			else {
+				call main.cb_position.setvalue "before"
+			}
+		}
+		else {
+			call main.cb_position.setvalue ""
+		}
+	}
+	else {
+		call main.cb_position.setvalue ""
+	}
+END
+
+DIALOG main, label(resource GENERATE_DLG_TITLE)			///
+	tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_type	_lft	_top	_cwd1	.,		///
+	label(resource LBL_TX_VARIABLE_TYPE)
+  COMBOBOX cb_type	@	_ss	_vnwd	.,		///
+	label(resource LBL_TYPE) dropdownlist contents(type) 	///
+	onselchangelist(main_type_actions) default(c(type))
+
+  TEXT     tx_newname	_lft2	_top	_cwd3_1	.,		///
+	label(resource LBL_VARIABLE_NAME)
+  EDIT     ed_newname	@	_ss	_vnwd	.,		///
+	label(resource LBL_VARIABLE_NAME) nomemory
+
+  GROUPBOX gb_contents	_lft	+35	_iwd	_ht7,		///
+	label(resource LBL_CONTENTS_OF_VARIABLE)
+  RADIO    rb_exp	_ilft	_ss	_ibwd	.,		///
+	first 							///
+	label(resource LBL_SPECIFY_A_VALUE_OR_AN_EXPRESSION)	///
+	onclickon(program check_values_exp)
+  RADIO    rb_missing	@	+50	@	.,		///
+	last label(resource LBL_FILL_WITH_MISSING_DATA)		///
+	onclickon(program check_values_exp)
+  EXP      ex_exp	_indent2 -30	_inwd	.,		///
+  	error(resource LBL_SPECIFY_A_VALUE_OR_AN_EXPRESSION) label(resource LBL_BU_CREATE)
+
+  TEXT     tx_position  _lft    +70     _iwd	.,		///
+	label(resource GENERATE_MAIN_TX_POSITION)
+  COMBOBOX cb_position  _lft    +20	_cwd1	.,		///
+	contents(position_list) values(position_values)		///
+	onselchangelist(position_list_act) 			///
+	dropdownlist
+  TEXT     tx_before    _lft2	-20	140	.,		///
+	label(resource GENERATE_MAIN_TX_BEFORE)
+  VARNAME  vn_before	@	+20	_vnwd	.,		///
+	label(resource GENERATE_MAIN_TX_BEFORE) option(before)	
+  TEXT     tx_after     @	-20	140	.,		///
+	label(resource GENERATE_MAIN_TX_AFTER)
+  VARNAME  vn_after	@	+20	_vnwd	.,		///
+	label(resource GENERATE_MAIN_TX_AFTER) option(after)	
+  
+  CHECKBOX ck_vlab	_lft	+35	_cwd1	.,		///
+	label(resource GENERATE_MAIN_CK_VLAB)			///
+	onclickon(main.cb_vlab.enable)				///
+	onclickoff(main.cb_vlab.disable)
+  COMBOBOX cb_vlab	@	_ss	@	.,		///
+	label(resource GENERATE_MAIN_CK_VLAB)			///
+	contents(valuelabels) dropdown
+END
+
+LIST position_list
+BEGIN
+ 	resource GENERATE_ADD_AT_END_OF_DTA
+	resource GENERATE_INSERT_BEFORE_SPECIFIED_VAR
+	resource GENERATE_INSERT_AFTER_SPECIFIED_VAR
+END
+
+LIST position_values
+BEGIN
+  ""
+  "before"
+  "after"
+END
+
+LIST position_list_act
+BEGIN
+  script show_end
+  script show_before
+  script show_after
+END
+
+SCRIPT show_end
+BEGIN
+	main.tx_before.hide
+	main.vn_before.hide
+	main.tx_after.hide
+	main.vn_after.hide
+END
+
+SCRIPT show_before
+BEGIN
+	main.tx_before.show
+	main.vn_before.show
+	main.tx_after.hide
+	main.vn_after.hide
+END
+
+SCRIPT show_after
+BEGIN
+	main.tx_before.hide
+	main.vn_before.hide
+	main.tx_after.show
+	main.vn_after.show
+END
+
+PROGRAM check_values_exp
+BEGIN
+	if main.rb_exp {
+		call main.ex_exp.enable
+		call script ifin_enable
+	}
+	else {
+		call main.ex_exp.disable
+		call script ifin_disable
+	}
+END
+
+LIST main_type_actions
+BEGIN
+	program main_value_labels_enable
+	program main_value_labels_enable
+	program main_value_labels_enable
+	program main_value_labels_enable
+	program main_value_labels_enable
+	script  main_value_labels_disable
+END
+
+
+SCRIPT main_value_labels_disable
+BEGIN
+	main.ck_vlab.disable
+	main.cb_vlab.disable
+END
+
+PROGRAM main_value_labels_enable
+BEGIN
+	call main.ck_vlab.enable
+	if main.ck_vlab {
+		call main.cb_vlab.enable
+	}
+END
+
+INCLUDE ifin
+INCLUDE _type_list_all_string
+
+PROGRAM command
+BEGIN
+	if main.cb_position.iseq("after") {
+		call isAfter.settrue
+	}
+	if main.cb_position.iseq("before") {
+		call isAfter.setfalse
+	}
+
+	put "generate "
+	if ! main.cb_type.isdefault() {
+		put " " main.cb_type " "
+	}
+
+	require main.ed_newname
+	if ! main.ed_newname.isvalidname() {
+		stopbox stop resource LBL_MSGBOX_VAR_NAME_INVALID
+// The variable name you specified is invalid.
+	}
+	if main.ed_newname.isvarname() {
+		stopbox stop resource LBL_MSGBOX_VAR_NAME_ALREADY_EXISTS
+// The variable name you specified already exists.
+	}
+	put main.ed_newname
+
+	if main.ck_vlab & !D(main.ck_vlab) {
+		require main.cb_vlab
+		put ":"
+		put main.cb_vlab
+	}
+	
+	put " " "= "
+	if main.rb_exp {
+		require main.ex_exp
+		put main.ex_exp
+	}
+	else {
+		if main.cb_type.iseq("str") {
+			put `""""'
+		}
+		else {
+			put "."
+		}
+	}
+	
+	put " " /program ifin_output
+	
+	beginoptions
+		if main.cb_position.iseq("before") {
+			require main.vn_before
+			optionarg main.vn_before
+		}
+		if main.cb_position.iseq("after") {
+			require main.vn_after
+			optionarg main.vn_after
+		}
+	endoptions
+END

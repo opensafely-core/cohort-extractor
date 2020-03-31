@@ -1,0 +1,515 @@
+/*
+  gdensity -- graph options for a normal, kernel, and students t density curves
+
+*!  VERSION 1.0.2  21dec2014 (deprecated)
+
+    // SCRIPTS and PROGRAMS for external use
+	* PROGRAM gdensity_output
+
+	** TO add kdensity OR tdensity call _one_ of the following from
+	   the callers POSTINIT script.
+		* SCRIPT gdensity_allow_kDensity
+		* SCRIPT gdensity_allow_tDensity
+
+	** TO use with commands where normal density is plotted by default
+	   call the following for the callers POSTINIT script.
+		* SCRIPT gdensity_normalByDefault
+
+	* SCRIPT gdensity_enable
+	* SCRIPT gdensity_disable
+*/
+
+DIALOG gdensity, tabtitle("Density plots")
+BEGIN
+  CHECKBOX ck_norm	     _lft      _top      _gwd1      _ht6,	///
+	label("Add normal density plot")				///
+	onclickon(program gdensity_normal_check)			///
+	onclickoff(program gdensity_normal_check)			///
+	option(normal) groupbox
+
+  TEXT     tx_ccol	     _igft     _ms       _txwd     .,		///
+	label("Color:") right
+  COMBOBOX cb_ccol	     _txsep    @         _tcr4gi   .,		///
+	option(lcolor) dropdownlist					///
+  	contents(colors) onselchangelist(gdensity_color_ccol)
+  COLOR    cl_ccol	     _tcr4gisep @        _colorwd  .,		///
+	option(lcolor)
+
+  TEXT     tx_clwidth	     _igft4_2  @         _txwd     .,		///
+	label("Width:") right
+  COMBOBOX cb_clwidth	     _txsep    @         _txr4gi   .,		///
+	dropdownlist contents(linewidths) option(lwidth)
+
+  TEXT     tx_conn	     _igft     _ls       _txwd     .,		///
+	label("Type:") right
+  COMBOBOX cb_conn	     _txsep    @         _txr4gi   .,   	///
+	option(connect) dropdownlist contents(connecttypes)
+
+  TEXT     tx_clpat	     _igft4_2  @         _txwd     .,		///
+	label("Pattern:") right
+  COMBOBOX cb_clpat	     _txsep    @         _txr4gi   .,		///
+	dropdownlist contents(linepatterns) option(lpattern)
+
+///---> Kernel density
+  CHECKBOX ck_kden	     _lft      +55       _gwd1	   _ht18h,	///
+	label("Add kernel density plot")				///
+	onclickon(script gdensity_kdensity_enable)			///
+	onclickoff(script gdensity_kdensity_disable)			///
+	option(kdensity) groupbox
+  DEFINE ypos @y
+
+  TEXT     tx_kccol	     _igft     _ms       _txwd     .,		///
+	label("Color:") right
+  COMBOBOX cb_kccol	     _txsep    @         _tcr4gi   .,		///
+	option(lcolor) dropdownlist					///
+  	contents(colors) onselchangelist(gdensity_color_kccol)
+  COLOR    cl_kccol	     _tcr4gisep @        _colorwd  .,		///
+	option(lcolor)
+
+  TEXT     tx_kclwidth	     _igft4_2  @         _txwd     .,		///
+	label("Width:") right
+  COMBOBOX cb_kclwidth	     _txsep    @         _txr4gi   .,		///
+	dropdownlist contents(linewidths) option(lwidth)
+
+  TEXT     tx_kconn	     _igft     _ls       _txwd     .,		///
+	label("Type:") right
+  COMBOBOX cb_kconn	     _txsep    @         _txr4gi   .,   	///
+	option(connect) dropdownlist contents(connecttypes)
+
+  TEXT     tx_kclpat	     _igft4_2  @         _txwd     .,		///
+	label("Pattern:") right
+  COMBOBOX cb_kclpat	     _txsep    @         _txr4gi   .,		///
+	dropdownlist contents(linepatterns) option(lpattern)
+
+///--> Smoothing options
+  GROUPBOX gb_kmethod	     _igft     _ls       _cwd1gb   _ht9h,	///
+	label("Smoothing options")
+
+  CHECKBOX ck_kwidth	     _indent   _ss       _inwd     _ht2h,	///
+	label("Override optimal width")					///
+	onclickon(program gdensity_kdensity_width_check)		///
+	onclickoff(program gdensity_kdensity_width_check)
+
+  DEFINE x @x
+  DEFINE cx @cx
+  EDIT     en_kwidth	     _indent2  _ms       _en7wd    .,		///
+	label("Half-width of kernel") numonly option(width)
+  TEXT     tx_kwidth	     _en7sep   @         _en7r3bb  .,		///
+	label("Half-width of kernel")
+
+  TEXT     tx_kernel	     x         _ls       cx        .,		///
+	label("Kernel function:")
+  COMBOBOX cb_kernel	     @         _ss       @         .,		///
+	dropdownlist							///
+	contents(kernel_function) values(kernel_function_val)
+///--<
+///---<
+
+///---> Students t density
+ CHECKBOX ck_student	     _lft      ypos      _gwd1	   _ht10,	///
+	label("Add a Student's t density plot")				///
+	onclickon(script gdensity_tdensity_enable)			///
+	onclickoff(script gdensity_tdensity_disable) groupbox
+
+  SPINNER  sp_student	     _indent	_ms	 _spwd	   .,		///
+	min(1) max(100000) default(1) option(student)
+  TEXT     tx_student	     _spsep	@	 _ckspr2   .,		///
+	label("Degrees of freedom")
+  TEXT     tx_tccol	     _igft	_xls	 _txwd	   .,		///
+	label("Color:") right
+  COMBOBOX cb_tccol	     _txsep	@	 _tcr4gi   .,		///
+	option(lcolor) dropdownlist contents(colors)			///
+	onselchangelist(gdensity_color_tccol)
+  COLOR    cl_tccol	     _tcr4gisep @	 _colorwd  .,		///
+	option(lcolor)
+  TEXT     tx_tclwidth	     _igft4_2	@      _txwd	   .,		///
+	label("Width:") right
+  COMBOBOX cb_tclwidth	     _txsep	@	 _txr4gi   .,		///
+	dropdownlist contents(linewidths) option(lwidth)
+
+  TEXT     tx_tclpat	     _igft	_ls	 _txwd	   .,		///
+	label("Pattern:") right
+  COMBOBOX cb_tclpat	     _txsep	@	 _txr4gi   .,		///
+	dropdownlist contents(linepatterns) option(lpattern)
+  TEXT     tx_tconn	     _igft4_2	@	 _txwd	   .,		///
+	label("Type:") right
+  COMBOBOX cb_tconn	     _txsep	@	 _txr4gi   .,		///
+	option(connect) dropdownlist contents(connecttypes)
+///---<
+END
+
+SCRIPT gdensity_PREINIT
+BEGIN
+	script gdensity_kdensity_hide
+	script gdensity_tdensity_hide
+	create BOOLEAN gdensity_normalByDefaultFlag
+END
+
+SCRIPT gdensity_normalByDefault
+BEGIN
+	gdensity_normalByDefaultFlag.settrue
+	gdensity.ck_norm.setlabel "Suppress normal density plot"
+	program gdensity_normal_check
+END
+
+LIST gdensity_color_ccol
+BEGIN
+	gdensity.cl_ccol.hide
+	gdensity.cl_ccol.show
+	gdensity.cl_ccol.hide
+END
+
+LIST gdensity_color_kccol
+BEGIN
+	gdensity.cl_kccol.hide
+	gdensity.cl_kccol.show
+	gdensity.cl_kccol.hide
+END
+
+LIST gdensity_color_tccol
+BEGIN
+	gdensity.cl_tccol.hide
+	gdensity.cl_tccol.show
+	gdensity.cl_tccol.hide
+END
+
+SCRIPT gdensity_enable
+BEGIN
+	program gdensity_enable_pr
+END
+PROGRAM gdensity_enable_pr
+BEGIN
+	call gdensity.ck_norm.enable
+	call program gdensity_normal_check
+
+	call gdensity.ck_kden.enable
+	if gdensity.ck_kden {
+		call script gdensity_kdensity_enable
+	}
+
+	call gdensity.ck_student.enable
+	if gdensity.ck_student {
+		call script gdensity_tdensity_enable
+	}
+END
+
+SCRIPT gdensity_disable
+BEGIN
+	gdensity.ck_norm.disable
+	program gdensity_normal_check
+	gdensity.ck_kden.disable
+	script gdensity_kdensity_disable
+	gdensity.ck_student.disable
+	script gdensity_tdensity_disable
+END
+
+PROGRAM gdensity_normal_check
+BEGIN
+	if ! gdensity_normalByDefaultFlag {
+		if gdensity.ck_norm {
+			call script gdensity_normal_enable
+		}
+		if ! gdensity.ck_norm {
+			call script gdensity_normal_disable
+		}
+	}
+	if gdensity_normalByDefaultFlag {
+		if gdensity.ck_norm {
+			call script gdensity_normal_disable
+		}
+		if ! gdensity.ck_norm {
+			call script gdensity_normal_enable
+		}
+	}
+END
+
+SCRIPT gdensity_normal_enable
+BEGIN
+	gdensity.tx_ccol.enable
+	gdensity.cb_ccol.enable
+	gdensity.cl_ccol.enable
+	gdensity.tx_clwidth.enable
+	gdensity.cb_clwidth.enable
+	gdensity.tx_clpat.enable
+	gdensity.cb_clpat.enable
+	gdensity.tx_conn.enable
+	gdensity.cb_conn.enable
+END
+
+SCRIPT gdensity_normal_disable
+BEGIN
+	gdensity.tx_ccol.disable
+	gdensity.cb_ccol.disable
+	gdensity.cl_ccol.disable
+	gdensity.tx_clwidth.disable
+	gdensity.cb_clwidth.disable
+	gdensity.tx_clpat.disable
+	gdensity.cb_clpat.disable
+	gdensity.tx_conn.disable
+	gdensity.cb_conn.disable
+END
+
+///--
+SCRIPT gdensity_kdensity_enable
+BEGIN
+	// line options
+	gdensity.tx_kccol.enable
+	gdensity.cb_kccol.enable
+	gdensity.cl_kccol.enable
+	gdensity.tx_kclwidth.enable
+	gdensity.cb_kclwidth.enable
+	gdensity.tx_kclpat.enable
+	gdensity.cb_kclpat.enable
+	gdensity.tx_kconn.enable
+	gdensity.cb_kconn.enable
+	// smoothing options
+	gdensity.gb_kmethod.enable
+	gdensity.ck_kwidth.enable
+	program gdensity_kdensity_width_check
+	gdensity.tx_kernel.enable
+	gdensity.cb_kernel.enable
+END
+
+SCRIPT gdensity_kdensity_disable
+BEGIN
+	// line options
+	gdensity.tx_kccol.disable
+	gdensity.cb_kccol.disable
+	gdensity.cl_kccol.disable
+	gdensity.tx_kclwidth.disable
+	gdensity.cb_kclwidth.disable
+	gdensity.tx_kclpat.disable
+	gdensity.cb_kclpat.disable
+	gdensity.tx_kconn.disable
+	gdensity.cb_kconn.disable
+	// smoothing options
+	gdensity.gb_kmethod.disable
+	gdensity.ck_kwidth.disable
+	program gdensity_kdensity_width_check
+	gdensity.tx_kernel.disable
+	gdensity.cb_kernel.disable
+END
+
+SCRIPT gdensity_allow_kDensity
+BEGIN
+	script gdensity_kdensity_show
+END
+
+SCRIPT gdensity_kdensity_show
+BEGIN
+	// line options
+	gdensity.ck_kden.show
+	gdensity.tx_kccol.show
+	gdensity.cb_kccol.show
+	gdensity.cb_kccol.withvalue gdensity.cb_kccol.setvalue "@"
+	gdensity.tx_kclwidth.show
+	gdensity.cb_kclwidth.show
+	gdensity.tx_kclpat.show
+	gdensity.cb_kclpat.show
+	gdensity.tx_kconn.show
+	gdensity.cb_kconn.show
+	// smoothing options
+	gdensity.gb_kmethod.show
+	gdensity.ck_kwidth.show
+	gdensity.en_kwidth.show
+	gdensity.tx_kwidth.show
+	gdensity.tx_kernel.show
+	gdensity.cb_kernel.show
+END
+
+SCRIPT gdensity_kdensity_hide
+BEGIN
+	// line options
+	gdensity.ck_kden.hide
+	gdensity.tx_kccol.hide
+	gdensity.cb_kccol.hide
+	gdensity.cl_kccol.hide
+	gdensity.tx_kclwidth.hide
+	gdensity.cb_kclwidth.hide
+	gdensity.tx_kclpat.hide
+	gdensity.cb_kclpat.hide
+	gdensity.tx_kconn.hide
+	gdensity.cb_kconn.hide
+	// smoothing options
+	gdensity.gb_kmethod.hide
+	gdensity.ck_kwidth.hide
+	gdensity.en_kwidth.hide
+	gdensity.tx_kwidth.hide
+	gdensity.tx_kernel.hide
+	gdensity.cb_kernel.hide
+END
+
+SCRIPT gdensity_tdensity_disable
+BEGIN
+	gdensity.sp_student.disable
+	gdensity.tx_student.disable
+	gdensity.tx_tccol.disable
+	gdensity.cb_tccol.disable
+	gdensity.cl_tccol.disable
+	gdensity.tx_tclwidth.disable
+	gdensity.cb_tclwidth.disable
+	gdensity.tx_tclpat.disable
+	gdensity.cb_tclpat.disable
+	gdensity.tx_tconn.disable
+	gdensity.cb_tconn.disable
+END
+
+SCRIPT gdensity_tdensity_enable
+BEGIN
+	gdensity.sp_student.enable
+	gdensity.tx_student.enable
+	gdensity.tx_tccol.enable
+	gdensity.cb_tccol.enable
+	gdensity.cl_tccol.enable
+	gdensity.tx_tclwidth.enable
+	gdensity.cb_tclwidth.enable
+	gdensity.tx_tclpat.enable
+	gdensity.cb_tclpat.enable
+	gdensity.tx_tconn.enable
+	gdensity.cb_tconn.enable
+END
+
+SCRIPT gdensity_allow_tDensity
+BEGIN
+	script gdensity_tdensity_show
+END
+
+SCRIPT gdensity_tdensity_show
+BEGIN
+	gdensity.ck_student.show
+	gdensity.sp_student.show
+	gdensity.tx_student.show
+	gdensity.tx_tccol.show
+	gdensity.cb_tccol.show
+	gdensity.cb_tccol.withvalue gdensity.cb_tccol.setvalue "@"
+	gdensity.tx_tclwidth.show
+	gdensity.cb_tclwidth.show
+	gdensity.tx_tclpat.show
+	gdensity.cb_tclpat.show
+	gdensity.tx_tconn.show
+	gdensity.cb_tconn.show
+END
+
+SCRIPT gdensity_tdensity_hide
+BEGIN
+	gdensity.ck_student.hide
+	gdensity.sp_student.hide
+	gdensity.tx_student.hide
+	gdensity.tx_tccol.hide
+	gdensity.cb_tccol.hide
+	gdensity.cl_tccol.hide
+	gdensity.tx_tclwidth.hide
+	gdensity.cb_tclwidth.hide
+	gdensity.tx_tclpat.hide
+	gdensity.cb_tclpat.hide
+	gdensity.tx_tconn.hide
+	gdensity.cb_tconn.hide
+END
+
+PROGRAM gdensity_kdensity_width_check
+BEGIN
+	if !D(gdensity.ck_kwidth) & gdensity.ck_kwidth {
+		call gdensity.en_kwidth.enable
+		call gdensity.tx_kwidth.enable
+	}
+	if D(gdensity.ck_kwidth) | ! gdensity.ck_kwidth {
+		call gdensity.en_kwidth.disable
+		call gdensity.tx_kwidth.disable
+	}
+END
+
+PROGRAM gdensity_normal_opts_output
+BEGIN
+	if H(gdensity.cl_ccol) {
+		optionarg /hidedefault gdensity.cb_ccol
+	}
+	if !H(gdensity.cl_ccol) {
+		optionarg /quoted gdensity.cl_ccol
+	}
+	optionarg /hidedefault gdensity.cb_clwidth
+	optionarg /hidedefault gdensity.cb_clpat
+	optionarg /hidedefault gdensity.cb_conn
+END
+
+PROGRAM gdensity_kdenopts_opts
+BEGIN
+	if gdensity.ck_kwidth {
+		require gdensity.en_kwidth
+		optionarg gdensity.en_kwidth
+	}
+	put " " gdensity.cb_kernel " "
+
+	if H(gdensity.cl_kccol) {
+		optionarg /hidedefault gdensity.cb_kccol
+	}
+	if !H(gdensity.cl_kccol) {
+		optionarg /quoted gdensity.cl_kccol
+	}
+	optionarg /hidedefault gdensity.cb_kclwidth
+	optionarg /hidedefault gdensity.cb_kclpat
+	optionarg /hidedefault gdensity.cb_kconn
+END
+
+PROGRAM gdensity_tdensity_opts
+BEGIN
+	if H(gdensity.cl_tccol) {
+		optionarg /hidedefault gdensity.cb_tccol
+	}
+	if !H(gdensity.cl_tccol) {
+		optionarg /quoted gdensity.cl_tccol
+	}
+	optionarg /hidedefault gdensity.cb_tclwidth
+	optionarg /hidedefault gdensity.cb_tclpat
+	optionarg /hidedefault gdensity.cb_tconn
+END
+
+PROGRAM gdensity_output
+BEGIN
+	if gdensity_normalByDefaultFlag {
+		if gdensity.ck_norm {
+			put " " "nonormal "
+		}
+	}
+	if ! gdensity_normalByDefaultFlag {
+		option gdensity.ck_norm
+	}
+
+	if ( ( (gdensity.ck_norm & ! gdensity_normalByDefaultFlag)	///
+	     | (gdensity_normalByDefaultFlag & ! gdensity.ck_norm)	///
+	     )								///
+		& !H(gdensity.ck_norm) & 				///
+		( gdensity.cb_ccol | !H(gdensity.cl_ccol)	///
+		| gdensity.cb_clwidth | gdensity.cb_clpat	///
+		| gdensity.cb_conn) 				///
+	   ) 							///
+	{
+		put " " "normopts("
+		put /program gdensity_normal_opts_output
+		put ")"
+	}
+
+	option gdensity.ck_kden
+	if gdensity.ck_kden & !H(gdensity.ck_kden) &		///
+	   ( gdensity.ck_kwidth | gdensity.cb_kernel | !H(gdensity.cl_kccol) ///
+	     | (gdensity.cb_kccol & !H(gdensity.cb_kccol) ) | 	///
+		gdensity.cb_kclwidth | gdensity.cb_kclpat | gdensity.cb_kconn ///
+	   ) ///
+	{
+		put " " "kdenopts("
+		put /program gdensity_kdenopts_opts
+		put ")"
+	}
+
+	optionarg gdensity.sp_student
+	if gdensity.ck_student & !H(gdensity.ck_student) & 	///
+	   ( gdensity.cb_tccol	| !H(gdensity.cl_tccol)		///
+	     | gdensity.cb_tclwidth | gdensity.cb_tclpat	///
+	     | gdensity.cb_tconn				///
+	   ) 							///
+	{
+		put " " "stopts("
+		put /program gdensity_tdensity_opts
+		put ")"
+	}
+END
+/* end */

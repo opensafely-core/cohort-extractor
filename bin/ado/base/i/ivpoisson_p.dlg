@@ -1,0 +1,81 @@
+/*
+	predict (after ivpoisson)
+
+*!  VERSION 1.2.2  04may2017
+
+*/
+
+VERSION 15.0
+
+INCLUDE _std_medium
+DEFINE _dlght 230
+INCLUDE header
+
+HELP hlp1, view("help ivpoisson postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource IVPOISSON_P_DLG_HSCALE
+	create STRING estimator
+	estimator.setvalue e(estimator)
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script _p_gentype_setMedium
+	program check_method
+END
+
+PROGRAM check_method
+BEGIN
+	if estimator.iseq("cfunction") {
+		call main.rb_xbtotal.enable
+	}
+	else {
+		call main.rb_xbtotal.disable
+	}
+END
+
+DIALOG main, label(resource PREDICT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  INCLUDE  _p_gentype
+
+  GROUPBOX gb_opts           _lft      _ls      _iwd      _ht8,		/*
+		*/ label(resource LBL_PRODUCE)
+  RADIO    rb_n             _indent   _ss       _inwd     ., first	/*
+		*/ option(n)						/*
+		*/ onclickon(script _p_gentype_scores_off)		/*
+		*/ label(resource LBL_NUMBER_OF_EVENTS)
+  RADIO    rb_xbtotal         @         _ss       @         .,		/*
+		*/ option(xbtotal)					/*
+		*/ onclickon(script _p_gentype_scores_off)		/*
+		*/ label(resource IVPOISSON_P_MAIN_RB_XBTOTAL)
+  RADIO    rb_xb              @         _ss       @         .,		/*
+		*/ option(xb)						/*
+		*/ onclickon(script _p_gentype_scores_off)		/*
+		*/ label(resource LBL_LINEAR_PREDICTION)
+  RADIO    rb_resid           @         _ss       @         ., last	/*
+		*/ option(residuals)					/*
+		*/ onclickon(script _p_gentype_scores_off)		/*
+		*/ label(resource LBL_RESIDUALS)
+
+  CHECKBOX ck_nooffset        _lft      _xls     _iwd       .,		/*
+		*/ option(nooffset)					/*
+		*/ label(resource LBL_IGNORE_OFFSET_VARIABLE)
+END
+
+INCLUDE _p_gentype_sc
+INCLUDE ifin
+INCLUDE _type_list_fd
+
+PROGRAM command
+BEGIN
+	put "predict "
+	put " " /program _p_gentype_output
+	INCLUDE _ifin_pr
+	beginoptions
+		option radio(main rb_n rb_xbtotal rb_xb rb_resid)
+		option main.ck_nooffset
+	endoptions
+END

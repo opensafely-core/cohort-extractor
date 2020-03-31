@@ -1,0 +1,309 @@
+/*
+    predict after stintreg
+
+*!  VERSION 1.0.3  14mar2017
+
+*/
+
+
+VERSION 15.0
+
+INCLUDE _std_large
+DEFINE _dlght 300
+INCLUDE header
+
+HELP hlp1, view("help stintreg postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource STINTREG_P_DLG_HSCALE
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN	
+	call create STRING predict_sub
+	call create STRING e_shared
+	call create STRING isSvy
+	call create STRING offset
+	
+	call predict_sub.setvalue e(predict_sub)
+	call e_shared.setvalue e(shared)
+	call isSvy.setvalue e(prefix)
+	call offset.setvalue e(offset1)
+
+	if(predict_sub.iseq("gomper_ic_p")) {			
+		call program main_gompertz_hr_setup
+	}
+	if(predict_sub.iseq("lnorm_ic_p")				///
+		| predict_sub.iseq("llog_ic_p")				///
+		| predict_sub.iseq("gamma_ic_p")) {
+			call program main_nohr_setup
+	}
+
+	call program main_check_for_svy
+
+	if offset.isneq("") & !main.rb_scores {
+		call main.ck_nooffset.enable
+	}
+	else {
+		call main.ck_nooffset.disable
+	}
+END
+
+DIALOG main, label(resource PREDICT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT tx_var			_lft	_top	200	.,		///
+	label(resource LBL_NEW_VARIABLE_NAME)
+  EDIT ed_var			@	_ss	_vnwd	.,		///
+	label(resource LBL_NEW_VARIABLE_NAME)
+
+  TEXT tx_type			370	_top	@	.,		///
+	label(resource LBL_NEW_VARIABLE_TYPE)
+  COMBOBOX cb_type		@	_ss	@	.,		///
+	dropdownlist							///
+	contents(type)							///
+	default(c(type))						///
+	label(resource LBL_TYPE)
+
+  TEXT tx_varl			_lft	_top	170	.,		///
+  	label(resource LBL_VARIABLE_NAME_LOWER)
+  TEXT tx_varu			+175	@	@	.,		///
+  	label(resource LBL_VARIABLE_NAME_UPPER)
+  EDIT ed_varl			_lft	_ss	_vnwd	.,		///
+  	label(resource LBL_VARIABLE_NAME_LOWER)
+  EDIT ed_varu			+175	@	@	.,		///
+  	label(resource LBL_VARIABLE_NAME_UPPER)
+
+  GROUPBOX gb_opts		_lft	_ls	_iwd	145,		///
+	label(resource LBL_PRODUCE)
+  RADIO rb_medtime		_indent	_ss	190	., first	///
+	option(median time)						///
+	onclickon(program main_check_opts)				///
+	label(resource LBL_MEDIAN_SURVIVAL_TIME)
+  DEFINE holdy @y
+  RADIO rb_medlntime		@	_ss	@	.,		///
+	option(median lntime)						///
+	onclickon(program main_check_opts)				///
+	label(resource LBL_MEDIAN_LN_SURVIVAL_TIME)
+  RADIO rb_meantime		@	_ss	@	.,		///
+	option(mean time)						///
+	onclickon(program main_check_opts)				///
+	label(resource LBL_MEAN_SURVIVAL_TIME)
+  RADIO rb_meanlntime		@	_ss	@	.,		///
+	option(mean lntime)						///
+	onclickon(program main_check_opts)				///
+	label(resource LBL_MEAN_LN_SURVIVAL_TIME)
+  RADIO rb_hazard		@	_ss	@	.,		///
+	option(hazard)							///
+	onclickon(program main_check_opts)				///
+	label(resource LBL_HAZARD)
+  RADIO rb_hr			@	_ss	@	.,		///
+	option(hr)							///
+	onclickon(program main_check_opts)				///
+	label(resource LBL_HAZARD_RATIO)
+  RADIO rb_xb			+200	holdy	250 	.,		///
+	option(xb)							///
+	onclickon(program main_check_opts)				///
+	label(resource LBL_LINEAR_PREDICTION)
+  RADIO rb_stdp			@	_ss	@	.,		///
+	option(stdp)							///
+	onclickon(program main_check_opts)				///
+	label(resource LBL_STD_ERROR_LINEAR_PREDICTION)
+  RADIO rb_surv			@	_ss	@	.,		///
+	option(surv)							///
+	onclickon(program main_check_opts)				///
+	label(resource LBL_SURVIVOR_PROBABILITY)
+  RADIO rb_csnell		@ 	_ss	@	.,		///
+	option(csnell)							///
+	onclickon(program main_check_opts)				///
+	label(resource LBL_COX_SNELL_RESIDUALS)
+  RADIO rb_mgale		@	_ss	@	., 		///
+	option(mgale)							///
+	onclickon(program main_check_opts)				///
+	label(resource LBL_MARTINGALE_LIKE_RESIDUALS)
+
+  RADIO rb_scores		@	_ss	@	., last		///
+	option(scores)							///
+	onclickon(program main_check_opts)				///
+	label(resource LBL_CALCULATE_EQUATION_LEVEL_SCORE_VARIABLES)
+
+  CHECKBOX ck_nooffset		_lft	_xls	_iwd	.,		///
+	option(nooffset)						///
+	label(resource LBL_IGNORE_OFFSET_VARIABLE)
+  CHECKBOX ck_oos		_lft	_ms	@	.,		///
+	option(oos)							///
+	label(resource LBL_MAKE_STATISTIC_AVAILABLE_IN_OUT_SAMPLE)
+END
+
+PROGRAM main_check_opts
+BEGIN
+	if main.rb_medtime {
+		call program main_oos_off
+		call script main_stat_on
+	}
+	if main.rb_medlntime {
+		call program main_oos_off
+		call script main_stat_on
+	}
+	if main.rb_meantime {
+		call program main_oos_off
+		call script main_stat_on
+	}
+	if main.rb_meanlntime {
+		call program main_oos_off
+		call script main_stat_on
+	}
+	if main.rb_hazard {
+		call program main_oos_off
+		call script main_stat2_on
+	}
+	if main.rb_hr {
+		call program main_oos_off
+		call script main_stat_on
+	}
+	if main.rb_xb {
+		call program main_oos_off
+		call script main_stat_on
+	}
+	if main.rb_stdp {
+		call program main_oos_off
+		call script main_stat_on
+	}
+	if main.rb_surv {
+		call program main_oos_off
+		call script main_stat2_on
+	}
+	if main.rb_csnell {
+		call program main_oos_on
+		call script main_stat2_on
+	}
+	if main.rb_mgale {
+		call program main_oos_on
+		call script main_stat_on
+	}
+	if main.rb_scores {
+		call script main_scores_on
+	}
+
+	if offset.isneq("") & !main.rb_scores {
+		call main.ck_nooffset.enable
+	}
+	else {
+		call main.ck_nooffset.disable
+	}
+END
+
+SCRIPT main_stat_on
+BEGIN
+	script _p_gentype_single
+	main.tx_var.show
+	main.ed_var.show
+	main.tx_varl.hide
+	main.tx_varu.hide
+	main.ed_varl.hide
+	main.ed_varu.hide
+END
+
+SCRIPT main_stat2_on
+BEGIN
+	main.tx_var.hide
+	main.ed_var.hide
+	main.tx_varl.show
+	main.tx_varu.show
+	main.ed_varl.show
+	main.ed_varu.show
+END
+
+SCRIPT main_scores_on
+BEGIN
+	main.tx_varl.hide
+	main.tx_varu.hide
+	main.ed_varl.hide
+	main.ed_varu.hide
+	main.tx_var.show
+	main.ed_var.show
+	main.ck_oos.disable
+	main.ck_nooffset.disable
+	script _p_gentype_multiple
+	script _p_gentype_scores_on
+END
+
+PROGRAM main_gompertz_hr_setup
+BEGIN
+	call program main_check_for_svy
+	call main.rb_meantime.disable
+	call main.rb_meanlntime.disable
+END
+
+PROGRAM main_nohr_setup
+BEGIN
+	call program main_check_for_svy
+	call main.rb_hr.disable
+END
+
+PROGRAM main_check_eshared
+BEGIN
+	if e_shared {
+		call main.rb_scores.disable
+		call program main_check_opts
+	}
+	else {
+		call main.rb_scores.enable
+		if main.rb_scores {
+			call program main_check_opts
+		}
+	}		
+END
+
+PROGRAM main_check_for_svy
+BEGIN
+	if(isSvy.iseq("svy")) {
+		call main.rb_mgale.disable
+		call main.rb_csnell.disable
+		if(main.rb_mgale | main.rb_csnell) {
+			call main.rb_medtime.seton
+		}
+	}
+	else {
+		call main.rb_mgale.enable
+		call main.rb_csnell.enable
+	}
+END
+
+PROGRAM main_oos_off
+BEGIN
+	if(!main.rb_scores) {
+		call main.ck_oos.disable
+	}
+END
+
+PROGRAM main_oos_on
+BEGIN
+	if(!main.rb_scores) {
+		call main.ck_oos.enable
+	}
+END
+
+INCLUDE _p_gentype_sc
+INCLUDE ifin
+INCLUDE _type_list_fd
+
+PROGRAM command
+BEGIN
+	put "predict "
+	put " " /program _p_gentype_output
+	if main.rb_csnell | main.rb_surv | main.rb_hazard {
+		require main.ed_varl
+		require main.ed_varu
+		put " " main.ed_varl " " main.ed_varu
+	}
+	put " " /program ifin_output
+	beginoptions
+		option radio(main rb_medtime rb_medlntime rb_meantime	///
+				 rb_meanlntime rb_hazard rb_hr rb_xb	///
+				 rb_stdp rb_surv rb_csnell rb_mgale rb_scores)
+		option main.ck_oos
+		option main.ck_nooffset
+	endoptions
+END

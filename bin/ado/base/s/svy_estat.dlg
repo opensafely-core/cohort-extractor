@@ -1,0 +1,956 @@
+/*
+	svy_estat -- the estat dialog for svy estimation results
+
+*!  VERSION 1.2.7  04dec2019
+
+	NOTE: this dialog shares INCLUDE files with estat.dlg
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 440
+INCLUDE header
+
+HELP hlp1, view("help svy_estat")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create BOOLEAN has_FactorVars
+	has_FactorVars.settrue
+	create STRING svy_estat_current_subcmd
+
+        create STRING main_bu_facvarsResults
+        create STRING main_bu_facvarsResults2
+        program main_bu_facvars_ckResults
+
+        create STRING main_bu_fmtcoefResults
+        create STRING main_bu_fmtcoefResults2
+        program main_bu_fmtcoef_ckResults
+
+        create STRING main_bu_eformResults
+	program main_bu_eform_ckResults
+
+	setscale_hadj resource SVY_ESTAT_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program show_subcmds
+	program parseMessage
+END
+
+PROGRAM show_subcmds
+BEGIN
+	call create STRING e_cmd
+	call create STRING e_over
+	call create STRING e_subpop
+	call create STRING e_estat_cmd
+
+	call e_cmd.setvalue e(cmd)
+	call e_over.setvalue e(over)
+	call e_subpop.setvalue e(subpop)
+	call e_estat_cmd.setvalue e(estat_cmd)
+
+	call main.lb_subcmd.clearlist
+	call script main_hide_all
+	if e_cmd.iseq("tabulate") {
+		call main_subcommand_contents.ArrpushR			///
+			resource dlg SVY_ESTAT_SVYSET
+		call main_subcommand_values.Arrpush "svyset"
+		call main_subcommand_contents.ArrpushR			///
+			resource dlg SVY_ESTAT_STRATA
+		call main_subcommand_values.Arrpush "strata"
+		call main_subcommand_contents.ArrpushR			///
+			resource dlg LBL_COVARIANCE_MATRIX_ESTIMATES
+		call main_subcommand_values.Arrpush "vce"
+	}
+	else {
+		call main_subcommand_contents.ArrpushR			///
+			resource dlg SVY_ESTAT_SVYSET
+		call main_subcommand_values.Arrpush "svyset"
+
+		call main_subcommand_contents.ArrpushR			///
+			resource dlg SVY_ESTAT_EFFECTS
+		call main_subcommand_values.Arrpush "effects"
+	
+		call main_subcommand_contents.ArrpushR			///
+			resource dlg SVY_ESTAT_LCEFFECTS
+		call main_subcommand_values.Arrpush "lceffects"
+
+		if e_cmd.iseq("mean") | e_cmd.iseq("proportion") |	///
+			e_cmd.iseq("ratio") | e_cmd.iseq("total") {
+			call main_subcommand_contents.ArrpushR		///
+			resource dlg SVY_ESTAT_SIZE
+			call main_subcommand_values.Arrpush "size"
+		}
+		if e_cmd.iseq("mean") {
+			if e_over.isneq("") | e_subpop.isneq("") {
+				call main.ck_srssd.enable
+			}
+			else {
+				call main.ck_srssd.disable
+			}
+			call main_subcommand_contents.ArrpushR		///
+			resource dlg LBL_SUBPOPULATION_STANDARD_DEVIATIONS_SD
+			call main_subcommand_values.Arrpush "sd"
+		} 
+
+		if e_over.isneq("") | e_subpop.isneq("") {
+			call main.ck_srssd.enable
+		}
+		else {
+			call main.ck_srssd.disable
+		}
+		call main_subcommand_contents.ArrpushR			///
+			resource dlg SVY_ESTAT_STRATA
+		call main_subcommand_values.Arrpush "strata"
+
+		call main_subcommand_contents.ArrpushR			///
+			resource dlg SVY_ESTAT_CV
+		call main_subcommand_values.Arrpush "cv"
+		if e_cmd.iseq("logistic") | e_cmd.iseq("logit") |	///
+			e_cmd.iseq("probit") {
+			call main_subcommand_contents.ArrpushR		///
+				resource dlg SVY_ESTAT_GOF
+			call main_subcommand_values.Arrpush "gof"
+		}
+		if e_cmd.iseq("gsem") {
+			call create STRING e_lclass
+			call e_lclass.setvalue e(lclass)
+
+			call create STRING prefix
+			call prefix.setvalue e(prefix)
+
+			call main_subcommand_contents.ArrpushR	///
+			resource dlg GSEM_ESTAT_TABLE_EXPONENTIATED_COEF_EFORM
+			call main_subcommand_values.Arrpush "eform"
+
+			if !prefix.equals("fmm") {
+				call main_subcommand_contents.ArrpushR	///
+			resource dlg LBL_SUBPOPULATION_STANDARD_DEVIATIONS_SD
+				call main_subcommand_values.Arrpush "sd"
+			}
+
+			if e_lclass.isneq("") {
+				call main_subcommand_contents.ArrpushR	///
+					resource dlg GSEM_ESTAT_LCMEAN
+				call main_subcommand_values.Arrpush "lcmean"
+
+				call main_subcommand_contents.ArrpushR	///
+					resource dlg GSEM_ESTAT_LCPROB
+				call main_subcommand_values.Arrpush "lcprob"
+			}
+		}
+		if e_estat_cmd.iseq("erm_estat") {
+			call main_subcommand_contents.ArrpushR		///
+		resource dlg LBL_TREATMENT_EFFECT_POTENTIAL_MEANS_TEFFECTS
+			call main_subcommand_values.Arrpush "teffects"
+
+			if e_cmd.iseq("eoprobit") {
+				call main.tx_outlevel.show
+				call main.ed_outlevel.show
+			}
+			else {
+				call main.tx_outlevel.hide
+				call main.ed_outlevel.hide
+			}
+		}
+		call main_subcommand_contents.ArrpushR		///
+		resource dlg LBL_COVARIANCE_MATRIX_ESTIMATES
+		call main_subcommand_values.Arrpush "vce"
+	}
+
+	call main.lb_subcmd.repopulate
+END
+
+PROGRAM parseMessage
+BEGIN
+	if __MESSAGE.contains("-svyset-") {
+		call main.lb_subcmd.setvalue "svyset"
+	}
+	if __MESSAGE.contains("-effects-") {
+		call main.lb_subcmd.setvalue "effects"
+	}
+	if __MESSAGE.contains("-size-") {
+		call main.lb_subcmd.setvalue "size"
+	}
+	if __MESSAGE.contains("-sd-") {
+		call main.lb_subcmd.setvalue "sd"
+	}
+	if __MESSAGE.contains("-strata-") {
+		call main.lb_subcmd.setvalue "strata"
+	}
+	if __MESSAGE.contains("-cv-") {
+		call main.lb_subcmd.setvalue "cv"
+	}
+	if __MESSAGE.contains("-gof-") {
+		call main.lb_subcmd.setvalue "gof"
+	}
+	if __MESSAGE.contains("-eform-") {
+		call main.lb_subcmd.setvalue "eform"
+	}
+	if __MESSAGE.contains("-lcprob-") {
+		call main.lb_subcmd.setvalue "lcprob"
+	}
+	if __MESSAGE.contains("-lcmean-") {
+		call main.lb_subcmd.setvalue "lcmean"
+	}
+	if __MESSAGE.contains("-teffects-") {
+		call main.lb_subcmd.setvalue "teffects"
+	}
+	if __MESSAGE.contains("-vce-") {
+		call main.lb_subcmd.setvalue "vce"
+	}
+END
+
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN) 	///
+	label(resource SVY_ESTAT_DLG_TITLE)
+BEGIN
+  TEXT		tx_subcmd	_lft	_top	_iwd	.,		///
+	label(resource LBL_REPORTS_STATISTICS_SUBCOMMAND)
+  LISTBOX	lb_subcmd	@	_ss	@	70,		///
+	contents(main_subcommand_contents)				///
+	values(main_subcommand_values)					///
+	onselchange(program main_subcommand_scripts)
+
+  DEFINE holdy 110
+
+  // note for -estat svyset-
+  TEXT		tx_note		_lft	holdy	_iwd	.,		///
+	label(resource SVY_ESTAT_MAIN_TX_NOTE)
+
+  // estat lceffects
+  TEXT		tx_exp		_lft	holdy	_iwd	.,		///
+		label(resource LBL_LINEAR_EXPRESSION)
+  EDIT		ed_exp		@	_ss	@	.,		///
+		label(resource LBL_LINEAR_EXPRESSION)
+
+  // estat effects estat lceffects
+  GROUPBOX	gb_eff		_lft	holdy	_iwd	_ht18,		///
+	label(resource SVY_ESTAT_MAIN_GB_EFF)
+
+  GROUPBOX	gb_def		_indent	_ss	_inwd	_ht7,		///
+	label(resource SVY_ESTAT_MAIN_RB_DEF)
+DEFINE holdy2 @y
+  CHECKBOX	ck_deff		_indent	_ss	_inwd	.,		///
+	label(resource SVY_ESTAT_MAIN_CK_DEFF)				///
+	option(deff)
+  CHECKBOX	ck_deft		@	_ms	@	.,		///
+	label(resource SVY_ESTAT_MAIN_CK_DEFT)				///
+	option(deft)
+  CHECKBOX	ck_srs		@	_ms	@	.,		///
+	label(resource LBL_RPT_DESIGN_EFFECTS_ASSUMING_STS_WITHING_SUBPOP) ///
+	option(srssubpop)
+
+  GROUPBOX	gb_mef		_ilft	300   	_ibwd 	_ht4h,		///
+	label(resource SVY_ESTAT_MAIN_GB_MEF)
+  CHECKBOX	ck_meff		_indent	_ss	_inwd	.,		///
+	label(resource SVY_ESTAT_MAIN_CK_MEFF)				///
+	option(meff)
+  CHECKBOX	ck_meft		@	_ms	@	.,		///
+	label(resource SVY_ESTAT_MAIN_CK_MEFT)				///
+	option(meft)
+
+  GROUPBOX	gb_size		_lft	holdy	_iwd	_ht4h,		///
+	label(resource SVY_ESTAT_MAIN_GB_SIZE)
+  CHECKBOX	ck_obs		_indent	_ss	_inwd	.,		///
+	option(obs)							///
+	label(resource SVY_ESTAT_MAIN_CK_OBS)
+  CHECKBOX	ck_size		@	_ms	@	.,		///
+	label(resource SVY_ESTAT_MAIN_CK_SIZE)				///
+	option(size)
+
+  // estat sd
+  GROUPBOX	gb_sd		_lft	holdy	_iwd	_ht4h,		///
+	label(resource LBL_SUBPOPULATION_STANDARD_DEVIATIONS)
+  CHECKBOX	ck_var		_indent	_ss	_inwd	.,		///
+	option(variance)						///
+	label(resource LBL_RPT_SUBPOPULATION_VARIANCES_INSTEAD_SD)
+  CHECKBOX	ck_srssd	@	_ms	@	.,		///
+	option(srssubpop)						///
+	label(resource LBL_RPT_SD_ASSUMING_SRS_WITHIN_SUBPOPULATION)
+  
+  // estat cv
+  CHECKBOX	ck_nolegend	_lft	holdy	_iwd	.,		///
+	option(nolegend)						///
+	label(resource LBL_SUPPRESS_TABLE_LEGEND)
+  
+  // options for -estat gof-
+  CHECKBOX	ck_total	_lft	_ss	_iwd	.,		///
+	option(total)							///
+	label(resource SVY_ESTAT_MAIN_CK_TOTAL)
+  CHECKBOX	ck_all		_lft	_ss	_iwd	.,		///
+	option(all)							///
+	label(resource SVY_ESTAT_MAIN_CK_ALL)
+  SPINNER	sp_group	_lft	_ss	_spwd	.,		///
+	option(group)							///
+	default(10)							///
+	label(resource LBL_QUANTILES)
+  TEXT		tx_group	_en7sep	@	120	.,		///
+	label(resource LBL_QUANTILES)
+
+  // estat eform
+  TEXT tx_eqlist		_lft	holdy	_iwd	.,		///
+	label(resource LBL_EQUATION_LIST)
+  EDIT ed_eqlist		@	_ss	_iwd	.,		///
+	label(resource LBL_EQUATION_LIST)
+
+  DEFINE   _x  _lft
+  DEFINE   _cx _spr
+  DEFINE   _y  _ls
+  INCLUDE  _sp_level
+
+  DEFINE _x _lft
+  DEFINE _y 190
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  BUTTON bu_facvars		@	_ls	200	.,		///
+	onpush("program main_bu_facvars_getOpts")			///
+	label(resource LBL_FACTOR_VARIABLE_DISPLAY_OPTIONS)
+
+  BUTTON bu_fmtcoef		_lft2	@	200	.,		///
+	onpush("program main_bu_fmtcoef_getOpts")			///
+	label(resource LBL_SET_TABLE_FORMATS)
+
+  BUTTON bu_eform		_lft	_ls	200	.,		///
+	onpush("program main_bu_eform_getOpts")				///
+	label(resource LBL_EXPONENTIATE_COEFFICIENTS_NO_COLON)
+
+  // estat lcmean
+  CHECKBOX ck_nose		_lft	holdy	_iwd	.,		///
+	option(nose)							///
+	label(resource GSEM_ESTAT_MAIN_CK_NOSE)
+  CHECKBOX ck_post		@	_ms	@	.,		///
+	option(post)							///
+	label(resource LBL_POST_MARGINS_AND_VCE_ESTIMATION_RESULTS)
+  BUTTON bu_facvars2		@	_ls	200	.,		///
+	onpush("program main_bu_facvars_getOpts2")			///
+	label(resource LBL_FACTOR_VARIABLE_DISPLAY_OPTIONS)
+  BUTTON bu_fmtcoef2		_lft2	@	200	.,		///
+	onpush("program main_bu_fmtcoef_getOpts2")			///
+	label(resource LBL_SET_TABLE_FORMATS)
+	
+  // estat lcprob
+  CHECKBOX ck_classpostpr	_lft	holdy	_iwd	.,		///
+	option(classposteriorpr)					///
+	label(resource GSEM_LBL_CLASSPOSTPR)
+
+  // estat teffects
+  RADIO rb_ate			_lft	holdy	_iwd		.,first	///
+	option(ate)							///
+	onclickon(program main_check_asf)				///
+	label(resource ERM_ESTAT_RB_ATE)
+
+  RADIO rb_atet			_lft	_ss	_iwd		.,	///
+	option(atet)							///
+	 onclickon(program main_check_asf)				///
+	label(resource ERM_ESTAT_RB_ATET) 
+  RADIO rb_pomean		_lft	_ss	_iwd		.,last	///
+	option(pomean)							///
+	onclickon(program main_check_asf)				///
+	label(resource ERM_ESTAT_RB_POMEAN)
+
+  TEXT tx_tlevel		_lft	_ms	_cwd2		.,	///
+	label(resource LBL_TREATMENT_LEVELS)
+  TEXT tx_outlevel		_lft2	@	_cwd2		.,	///
+	label(resource LBL_LEVELS_OF_ORDINAL_DEP_VARS)
+  EDIT ed_tlevel		_lft	_ss	_cwd3_2		.,	///
+	option(tlevel)							///
+	label(resource LBL_TREATMENT_LEVELS)
+
+  EDIT ed_outlevel		_lft2	@	_cwd3_2		.,	///
+	option(outlevel)						///
+	label(resource LBL_LEVELS_OF_ORDINAL_DEP_VARS)
+
+  CHECKBOX ck_subpop		_lft	_ls	_iwd		_ht4h,	///
+	groupbox							///
+	onclickon(script main_subpop_on)				///
+	onclickoff(script main_subpop_off)				///
+	label(resource LBL_SUBPOPULATION_ESTIMATION)
+  TEXT tx_subpop		_ilft	_ss	_cwd3_01	., 	///
+	label(resource LBL_INDICATOR_VARIABLE)
+  DEFINE y @y
+  VARNAME vn_subpop		_ilft	_ss	_cwd3_2		.,	///
+	option(subpop)							///
+	numeric								///
+	label(resource LBL_INDICATOR_VARIABLE)
+  TEXT tx_subif		_lft3_02	y	_cwd3_01	.,	///
+	label(resource LBL_IF_EXPRESSION)
+  EXP ex_subif		_lft3_02	_ss	_comb3_1	.,	///
+	error(resource MARGINS_SUB_EX_SUBIF)				///
+	label(resource LBL_BU_CREATE)
+
+  INCLUDE estat_vce
+END
+
+PROGRAM main_bu_facvars_getOpts
+BEGIN
+	call create CHILD factor_vars_reporting AS main_bu_facvars
+	call main_bu_facvars.setExitString main_bu_facvarsResults
+	call main_bu_facvars.setExitAction "program main_bu_facvars_ckResults"
+	call main_bu_facvars.callthru "script fv_check_init"
+	call main_bu_facvars.settitle resource LBL_FACTOR_VARIABLE_DISPLAY_OPTIONS
+END
+
+PROGRAM main_bu_facvars_ckResults
+BEGIN
+	if main_bu_facvarsResults {
+		call main.bu_facvars.modified_on
+	}
+	else {
+		call main.bu_facvars.modified_off
+	}
+END
+
+PROGRAM main_bu_facvars_getOpts2
+BEGIN
+	call create CHILD gsem_factor_vars_reporting AS main_bu_facvars2
+	call main_bu_facvars2.setExitString main_bu_facvarsResults2
+	call main_bu_facvars2.setExitAction "program main_bu_facvars_ckResults2"
+	call main_bu_facvars2.settitle resource LBL_FACTOR_VARIABLE_DISPLAY_OPTIONS
+END
+
+PROGRAM main_bu_facvars_ckResults2
+BEGIN
+	if main_bu_facvarsResults2 {
+		call main.bu_facvars2.formatlabel "resource LBL_BU_FACTOR_VARIABLE_DISPLAY_OPTIONS_FMT" " *"
+	}
+	else {
+		call main.bu_facvars2.formatlabel "resource LBL_BU_FACTOR_VARIABLE_DISPLAY_OPTIONS_FMT" "  "
+	}
+END
+
+PROGRAM main_bu_fmtcoef_getOpts2
+BEGIN
+	call create CHILD fmt_coef_table_reporting AS main_bu_fmtcoef2
+	call main_bu_fmtcoef2.setExitString main_bu_fmtcoefResults2
+	call main_bu_fmtcoef2.setExitAction "program main_bu_fmtcoef_ckResults2"
+END
+
+PROGRAM main_bu_fmtcoef_ckResults2
+BEGIN
+	if main_bu_fmtcoefResults2 {
+		call main.bu_fmtcoef2.formatlabel "resource LBL_BU_SET_TABLE_FORMATS_FMT" " *"
+	}
+	else {
+		call main.bu_fmtcoef2.formatlabel "resource LBL_BU_SET_TABLE_FORMATS_FMT" "  "
+	}
+END
+
+INCLUDE estat_vce_pr
+
+LIST main_subcommand_contents
+BEGIN
+END
+
+LIST main_subcommand_values
+BEGIN
+END
+
+PROGRAM main_subcommand_scripts
+BEGIN
+	call script main_hide_all
+	if main.lb_subcmd.iseq("svyset") {
+		call script svyset_show
+	}
+	if main.lb_subcmd.iseq("effects") {
+		call script effects_show
+	}
+	if main.lb_subcmd.iseq("lceffects") {
+		call script lceffects_show
+	}
+	if main.lb_subcmd.iseq("size") {
+		call script size_show
+	}
+	if main.lb_subcmd.iseq("sd") {
+		call script sd_show
+	}
+	if main.lb_subcmd.iseq("strata") {
+		call script strata_show
+	}
+	if main.lb_subcmd.iseq("cv") {
+		call script cv_show
+	}
+	if main.lb_subcmd.iseq("gof") {
+		call script gof_show
+	}
+	if main.lb_subcmd.iseq("lcprob") {
+		call script lcprob_show
+	}
+	if main.lb_subcmd.iseq("lcmean") {
+		call script lcmean_show
+	}
+	if main.lb_subcmd.iseq("eform") {
+		call script eform_show
+	}
+	if main.lb_subcmd.iseq("teffects") {
+		call script teffects_show
+	}
+	if main.lb_subcmd.iseq("vce") {
+		call script vce_show
+	}
+END
+
+SCRIPT main_hide_all
+BEGIN
+	script svyset_hide
+	script effects_hide
+	script lceffects_hide
+	script strata_hide
+	script cv_hide
+	script size_hide
+	script sd_hide
+	script gof_hide
+	script eform_hide
+	script lcprob_hide
+	script lcmean_hide
+	script teffects_hide
+	program vce_off
+	script ifin_disable
+END
+
+SCRIPT svyset_hide
+BEGIN
+	main.tx_note.hide
+END
+
+SCRIPT svyset_show
+BEGIN
+	svy_estat_current_subcmd.setstring "svyset"
+	main.tx_note.setlabel resource SVY_ESTAT_MAIN_TX_NOTE
+	main.tx_note.show
+END
+
+SCRIPT effects_hide
+BEGIN
+	main.gb_eff.hide
+	main.gb_def.hide
+	main.ck_deff.hide
+	main.ck_deft.hide
+	main.ck_srs.hide
+	main.gb_mef.hide
+	main.ck_meff.hide
+	main.ck_meft.hide
+
+	main.bu_facvars.hide
+END
+
+SCRIPT effects_show
+BEGIN
+	svy_estat_current_subcmd.setstring "effects"
+
+	main.gb_eff.setposition		. 110 . .
+	main.gb_def.setposition		. 130 . .
+	main.ck_deff.setposition	. 150 . .
+	main.ck_deft.setposition	. 175 . .
+	main.ck_srs.setposition		. 200 . .
+	main.gb_mef.setposition		. 235 . .
+	main.ck_meff.setposition	. 255 . .
+	main.ck_meft.setposition	. 280 . .
+	main.bu_facvars.setposition	. 330 . .
+
+	main.gb_eff.show
+	main.gb_def.show
+	main.ck_deff.show
+	main.ck_deft.show
+	main.ck_srs.show
+	main.gb_mef.show
+	main.ck_meff.show
+	main.ck_meft.show
+
+	main.bu_facvars.show
+END
+
+SCRIPT lceffects_hide
+BEGIN
+	main.tx_exp.hide
+	main.ed_exp.hide
+
+	main.gb_eff.hide
+	main.gb_def.hide
+	main.ck_deff.hide
+	main.ck_deft.hide
+	main.ck_srs.hide
+	main.gb_mef.hide
+	main.ck_meff.hide
+	main.ck_meft.hide
+
+	main.bu_facvars.hide
+END
+
+SCRIPT lceffects_show
+BEGIN
+	svy_estat_current_subcmd.setstring "lceffects"
+
+	main.gb_eff.setposition		. 160 . .
+	main.gb_def.setposition		. 180 . .
+	main.ck_deff.setposition	. 200 . .
+	main.ck_deft.setposition	. 225 . .
+	main.ck_srs.setposition		. 250 . .
+	main.gb_mef.setposition		. 285 . .
+	main.ck_meff.setposition	. 305 . .
+	main.ck_meft.setposition	. 330 . .
+
+	main.tx_exp.show
+	main.ed_exp.show
+	main.gb_eff.show
+	main.gb_def.show
+	main.ck_deff.show
+	main.ck_deft.show
+	main.ck_srs.show
+	main.gb_mef.show
+	main.ck_meff.show
+	main.ck_meft.show
+END
+
+SCRIPT size_hide
+BEGIN
+	main.gb_size.hide
+	main.ck_obs.hide
+	main.ck_size.hide
+END
+
+SCRIPT size_show
+BEGIN
+	svy_estat_current_subcmd.setstring "size"
+	main.gb_size.show
+	main.ck_obs.show
+	main.ck_size.show
+END
+
+SCRIPT sd_hide
+BEGIN
+	main.gb_sd.hide
+	main.ck_var.hide
+	main.ck_srssd.hide
+END
+
+SCRIPT sd_show
+BEGIN
+	svy_estat_current_subcmd.setstring "sd"
+	main.gb_sd.show
+	main.ck_var.show
+	main.ck_srssd.show
+END
+
+SCRIPT strata_hide
+BEGIN
+	main.tx_note.hide
+END
+
+SCRIPT strata_show
+BEGIN
+	svy_estat_current_subcmd.setstring "strata"
+	main.tx_note.setlabel resource SVY_ESTAT_DIS_TAB_SINGLETON_AND_CERT_STRATA
+	main.tx_note.show
+END
+
+SCRIPT cv_hide
+BEGIN
+	main.ck_nolegend.hide
+	main.bu_facvars.hide
+END
+
+SCRIPT cv_show
+BEGIN
+	svy_estat_current_subcmd.setstring "cv"
+	main.bu_facvars.setposition		. 135 . .
+	main.bu_facvars.show
+	main.ck_nolegend.show
+END
+
+SCRIPT gof_hide
+BEGIN
+	main.ck_total.hide
+	main.ck_all.hide
+	main.sp_group.hide
+	main.tx_group.hide
+END
+
+SCRIPT gof_show
+BEGIN
+	svy_estat_current_subcmd.setstring "gof"
+
+	main.ck_total.setposition		. 110 . .
+	main.ck_all.setposition			. 135 . .
+	main.sp_group.setposition		. 165 . .
+	main.tx_group.setposition		. 165 . .
+
+	main.ck_total.show
+	main.ck_all.show
+	main.sp_group.show
+	main.tx_group.show
+END
+
+SCRIPT eform_hide
+BEGIN
+	main.tx_eqlist.hide
+	main.ed_eqlist.hide
+	main.bu_facvars.hide
+	main.bu_fmtcoef.hide
+	main.bu_eform.hide
+	main.rb_report_columns_dflt.hide
+	main.rb_report_columns_noci.hide
+	main.rb_report_columns_nopv.hide
+	main.sp_level.hide 
+	main.tx_level.hide
+END
+
+SCRIPT eform_show
+BEGIN
+	main.tx_eqlist.show
+	main.ed_eqlist.show
+	main.bu_facvars.show
+	main.bu_fmtcoef.show
+	main.bu_eform.show
+	main.rb_report_columns_dflt.show
+	main.rb_report_columns_noci.show
+	main.rb_report_columns_nopv.show
+	main.sp_level.show
+	main.tx_level.show
+
+	main.tx_level.setposition . 160
+	main.sp_level.setposition . 160
+	main.bu_facvars.setposition . 260
+	main.bu_fmtcoef.setposition . 260
+	main.rb_report_columns_dflt.setposition . 190
+	main.rb_report_columns_noci.setposition . 210
+	main.rb_report_columns_nopv.setposition . 230
+END
+
+SCRIPT lcmean_hide
+BEGIN
+	main.ck_nose.hide
+	main.ck_post.hide
+	main.bu_facvars2.hide
+	main.bu_fmtcoef2.hide
+END
+
+SCRIPT lcmean_show
+BEGIN
+	main.ck_nose.show
+	main.ck_post.show
+	main.bu_facvars2.show
+	main.bu_fmtcoef2.show
+
+	main.ck_nose.setposition . 110
+	main.ck_post.setposition . 135
+	main.bu_facvars2.setposition . 165
+	main.bu_fmtcoef2.setposition . 165
+END
+
+SCRIPT lcprob_hide
+BEGIN
+	main.ck_classpostpr.hide
+	main.ck_nose.hide
+	main.ck_post.hide
+	main.bu_facvars2.hide
+	main.bu_fmtcoef2.hide
+END
+
+SCRIPT lcprob_show
+BEGIN
+	main.ck_classpostpr.show
+	main.ck_nose.show
+	main.ck_post.show
+	main.bu_facvars2.show
+	main.bu_fmtcoef2.show
+
+	main.ck_classpostpr.setposition . 110
+	main.ck_nose.setposition . 135
+	main.ck_post.setposition . 160
+	main.bu_facvars2.setposition . 190
+	main.bu_fmtcoef2.setposition . 190
+END
+
+SCRIPT teffects_hide
+BEGIN
+	main.rb_ate.hide
+	main.rb_atet.hide
+	main.rb_pomean.hide
+	main.tx_tlevel.hide
+	main.tx_outlevel.hide
+	main.ed_tlevel.hide
+	main.ed_outlevel.hide
+	main.ck_subpop.hide
+ 	main.tx_subpop.hide
+	main.vn_subpop.hide
+	main.tx_subif.hide
+	main.ex_subif.hide
+	main.bu_facvars2.hide
+	main.bu_fmtcoef2.hide
+END
+
+SCRIPT teffects_show
+BEGIN
+	main.rb_ate.show
+	main.rb_atet.show
+	main.rb_pomean.show
+	main.tx_tlevel.show
+	main.tx_outlevel.show
+	main.ed_tlevel.show
+	main.ed_outlevel.show
+	main.ck_subpop.show
+ 	main.tx_subpop.show
+	main.vn_subpop.show
+	main.tx_subif.show
+	main.ex_subif.show
+
+
+	main.tx_level.show
+	main.sp_level.show
+	main.rb_report_columns_dflt.show
+	main.rb_report_columns_noci.show
+	main.rb_report_columns_nopv.show
+	main.bu_facvars.show
+	main.bu_fmtcoef.show
+
+
+	main.tx_level.setposition . 310
+	main.sp_level.setposition . 310
+	main.rb_report_columns_dflt.setposition . 345
+	main.rb_report_columns_noci.setposition . 365
+	main.rb_report_columns_nopv.setposition . 385
+	main.bu_facvars.setposition . 410
+	main.bu_fmtcoef.setposition . 410
+END
+
+SCRIPT main_subpop_on
+BEGIN
+	main.tx_subpop.enable
+	main.tx_subif.enable
+	main.vn_subpop.enable
+	main.ex_subif.enable
+END
+
+SCRIPT main_subpop_off
+BEGIN
+	main.tx_subpop.disable
+	main.tx_subif.disable
+	main.vn_subpop.disable
+	main.ex_subif.disable
+END
+
+SCRIPT vce_show
+BEGIN
+	svy_estat_current_subcmd.setstring "vce"
+	program vce_on
+END
+
+INCLUDE ifin
+
+PROGRAM vl_eq_output
+BEGIN
+	put main.vl_eq
+END
+
+PROGRAM sd_output
+BEGIN
+	if main.lb_subcmd.equals("sd") {
+		option main.ck_var
+		option main.ck_srssd
+	}
+END
+
+PROGRAM teffects_output
+BEGIN
+	option radio (main rb_ate rb_atet rb_pomean)
+	optionarg main.ed_tlevel
+	optionarg main.ed_outlevel
+	if main.ck_subpop {
+		put "subpop("
+		if main.vn_subpop & main.ex_subif {
+			put main.vn_subpop " "
+			put "if "
+			put main.ex_subif
+		}
+		else {
+			if main.vn_subpop {
+				put main.vn_subpop
+			}
+			if main.ex_subif {
+				put "if "
+				put main.ex_subif
+			}
+		}
+		put ")"	
+	}
+	optionarg /hidedefault main.sp_level
+	option radio(main rb_report_columns_noci rb_report_columns_nopv)
+	if !H(main.bu_facvars) {
+		put " " main_bu_facvarsResults
+	}
+
+	if !H(main.bu_fmtcoef) {
+		put " " main_bu_fmtcoefResults
+	}
+END
+
+PROGRAM command
+BEGIN
+	put "estat"
+	put " " main.lb_subcmd
+	if svy_estat_current_subcmd.equals("lceffects") {
+		require main.ed_exp
+		put " " main.ed_exp
+	}
+	beginoptions
+		// estat [lc]effects
+		option main.ck_deff
+		option main.ck_deft
+		option main.ck_srs
+		option main.ck_meff
+		option main.ck_meft
+		if svy_estat_current_subcmd.equals("effects") | 	///
+			svy_estat_current_subcmd.equals("cv") {
+			put " " main_bu_facvarsResults
+		}
+
+		// eform options
+		if main.lb_subcmd.iseq("eform") {
+			optionarg /hidedefault main.sp_level
+			put " " main_bu_facvarsResults
+			put " " main_bu_fmtcoefResults
+			put " " main_bu_eformResults
+			option main.rb_report_columns_noci
+			option main.rb_report_columns_nopv
+		}
+
+		// estat size
+		option main.ck_obs
+		option main.ck_size
+
+		// estat sd
+		put " " /program sd_output
+		
+		// estat cv
+		option main.ck_nolegend
+
+		// lcprob 
+		option main.ck_classpostpr
+
+		// lcmean & lcprob 
+		option main.ck_nose
+		option main.ck_post
+
+		if main.lb_subcmd.iseq("lcmean") |      ///
+			main.lb_subcmd.iseq("lcprob") {
+			put " " main_bu_facvarsResults2
+			put " " main_bu_fmtcoefResults2
+		}
+		
+		if svy_estat_current_subcmd.equals("gof") {
+			option main.ck_total
+			option main.ck_all
+			optionarg /hidedefault main.sp_group
+		}
+		// teffects
+		put " " /program teffects_output
+		put " " /program vce_output
+	endoptions
+END

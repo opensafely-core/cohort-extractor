@@ -1,0 +1,97 @@
+/*
+	mi_extract
+
+*!  VERSION 1.1.0  28oct2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_msmall
+DEFINE _dlght 160
+INCLUDE header
+
+HELP hlp1, view("help mi_extract")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource MI_EXTRACT_DLG_HSCALE
+END
+
+DIALOG main, label(resource MI_EXTRACT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  SPINNER sp_data	_lft	_top	_spwd	., 			///
+	min(0)								///
+	max(1000)							///
+	default(0)							///
+	onchange(program main_sp_data_changed)
+  TEXT tx_data		_spsep	@	_spr	.,			///
+	label(resource MI_EXTRACT_MAIN_TX_DATA)
+
+  CHECKBOX ck_esample	_lft	+35	_iwd	_ht4h,			///
+	groupbox							///
+	onclickon("script main_esample_on")				///
+	onclickoff("script main_esample_off")				///
+	label(resource LBL_ESTIMATION_SAMPLE)
+  TEXT tx_var		_ilft	_ss	_cwd1	.,			///
+	label(resource LBL_VARIABLE)
+  DEFINE holdy @y
+  VARNAME vn_var	@	_ss	_vnwd	., 			///
+  	numeric								///
+	label(resource LBL_VARIABLE)
+  TEXT tx_impute_num	_lft2	holdy	90	.,			///
+	label(resource MI_EXTRACT_MAIN_TX_IMPUTE_NUM)
+  SPINNER sp_impute_num	@	_ss	_spwd	., 			///
+	min(0)								///
+	max(1000)							///
+	default(0)							///
+	label(resource MI_EXTRACT_MAIN_TX_IMPUTE_NUM)
+	
+  CHECKBOX ck_clear	_lft	_xxls	_iwd	.,			///
+	option("clear")							///
+	label(resource LBL_REPLACE_DATA_IN_MEMORY)
+END
+
+SCRIPT main_esample_on
+BEGIN
+	main.tx_var.enable
+	main.vn_var.enable
+	main.tx_impute_num.enable
+	main.sp_impute_num.enable
+END
+
+SCRIPT main_esample_off
+BEGIN
+	main.tx_var.disable
+	main.vn_var.disable
+	main.tx_impute_num.disable
+	main.sp_impute_num.disable
+END
+
+PROGRAM main_sp_data_changed
+BEGIN
+	if main.sp_data.iseq(0) {
+		call main.tx_impute_num.show
+		call main.sp_impute_num.show
+	}
+	else {
+		call main.tx_impute_num.hide
+		call main.sp_impute_num.hide
+	}
+END
+
+PROGRAM command
+BEGIN
+	put "mi extract " main.sp_data
+	beginoptions
+		option main.ck_clear
+		if main.ck_esample {
+			require main.vn_var
+			put "esample("
+			put main.vn_var
+			put " " main.sp_impute_num
+			put ")"
+		}
+	endoptions
+END

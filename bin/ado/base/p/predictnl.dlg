@@ -1,0 +1,195 @@
+/*
+	predictnl
+
+*!  VERSION 2.1.2  21may2019
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE _ht330
+INCLUDE header
+
+HELP hlp1, view("help predictnl")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING ecmd
+	ecmd.setvalue e(cmd)
+	setscale_hadj resource PREDICTNL_DLG_HSCALE
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	if ecmd.iseq("lasso") | ecmd.iseq("sqrtlasso")  		///
+		| ecmd.iseq("elasticnet")  | ecmd.iseq("dsregress")	///
+		| ecmd.iseq("dslogit") | ecmd.iseq("dspoisson")		///
+		| ecmd.iseq("poregress") | ecmd.iseq("pologit")		///
+		| ecmd.iseq("popoisson") | ecmd.iseq("poivregress")	///
+		| ecmd.iseq("xporegress") | ecmd.iseq("xpologit")	///
+		| ecmd.iseq("xpoivregress") | ecmd.iseq("xpopoisson") {
+		call script lasso_disable_opts
+	}
+END
+
+DIALOG main, label(resource PREDICTNL_DLG_TITLE) 			/*
+		*/ tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_var            _lft      _top      _vnwd     .,		/*
+		*/ label(resource LBL_GENERATE_VARIABLE)
+  TEXT     tx_pnlexp         _lft3_2   @         _comb3_1  .,		/*
+		*/ label(resource LBL_NONLINEAR_EXPRESSION)
+  EDIT     ed_var            _lft      _ss       _vnwd     ., max(32)	/*
+		*/ label(resource LBL_GENERATE_VARIABLE)
+  TEXT     tx_equals         _eqxpos   @         _eqwd     .,		/*
+		*/ center label(resource LBL_EQUAL_SIGN)
+  EXP     ex_pnlexp         _lft3_2   @         _comb3_1  .,           /*
+		*/ error(resource LBL_NONLINEAR_EXPRESSION)		/*
+		*/ label(resource LBL_BU_CREATE)
+  TEXT     tx_pnltxt1        _indent2  _ls       _inwd     .,		/*
+		*/ label(resource PREDICTNL_MAIN_TX_PNLTXT1)
+  DEFINE   _y  @y
+  TEXT     tx_pnltxt2        @         _vss      @         .,		/*
+		*/ label(resource PREDICTNL_MAIN_TX_PNLTXT2)
+
+  DEFINE   _x  _lft
+  DEFINE   _cx _cwd3_0
+  INCLUDE  _type
+
+  GROUPBOX gb_gens           _lft      +35       _iwd      _ht17h,	/*
+		*/ label(resource PREDICTNL_MAIN_GB_GENS)
+  CHECKBOX ck_se             _ilft     _ss       _cwd2     .,		/*
+		*/ clickon("gaction main.ed_se.enable")			/*
+		*/ clickoff("gaction main.ed_se.disable")		/*
+		*/ label(resource LBL_STANDARD_ERRORS_COLON)
+  DEFINE   holdy @y
+  EDIT     ed_se             _indent2  _ss       _vnwd     ., max(32)	/*
+		*/ option(se) label(resource LBL_STANDARD_ERRORS_COLON)
+  CHECKBOX ck_wald           _ilft     _ms       _cwd2     .,		/*
+		*/ clickon("gaction main.ed_wald.enable")		/*
+		*/ clickoff("gaction main.ed_wald.disable")		/*
+		*/ label(resource LBL_WALD_TEST_STATISTICS)
+  EDIT     ed_wald           _indent2  _ss       _vnwd     ., max(32)   /*
+		*/ option(wald) label(resource LBL_WALD_TEST_STATISTICS)
+  CHECKBOX ck_variance       _lft2     holdy     _cwd2     .,		/*
+		*/ clickon("gaction main.ed_variance.enable")		/*
+		*/ clickoff("gaction main.ed_variance.disable")		/*
+		*/ label(resource LBL_VARIANCES)
+  EDIT     ed_variance       _indent2  _ss       _vnwd     ., max(32)   /*
+		*/ option(variance) label(resource LBL_VARIANCES)
+  CHECKBOX ck_p              _lft2     _ms       _cwd2     .,		/*
+		*/ clickon("gaction main.ed_p.enable")			/*
+		*/ clickoff("gaction main.ed_p.disable")		/*
+		*/ label(resource LBL_P_VALUES_FOR_WALD_TESTS)
+  EDIT     ed_p              _indent2  _ss       _vnwd     ., max(32)   /*
+		*/ option(p) label(resource LBL_P_VALUES_FOR_WALD_TESTS)
+  CHECKBOX ck_ci             _ilft     _ms       _comb3_2  .,		/*
+		*/ clickon("script ci_on")				/*
+		*/ clickoff("script ci_off")				/*
+		*/ label(resource LBL_LOWER_AND_UPPER_CONFIDENCE_INTERVALS)
+  DEFINE   hldy @y
+  EDIT     ed_ci1            _indent2  _ss       _vnwd     ., max(32)   /*
+		*/ label(resource LBL_LOWER_CONFIDENCE_INTERVALS)
+  EDIT     ed_ci2            _vnsep    @         _vnwd     ., max(32)   /*
+		*/ label(resource LBL_UPPER_CONFIDENCE_INTERVALS)
+  TEXT     tx_cisiglev       _ilft3_3  hldy      _cwd3_2   .,		/*
+		*/ label(resource PREDICTNL_MAIN_TX_CISIGLEVE)
+  SPINNER  sp_cisiglev       @         _ss       _spwd     .,		/*
+		*/ min(1) max(100) default(global S_level)		/*
+		*/ option(level) label(resource PREDICTNL_MAIN_TX_CISIGLEVE)
+  CHECKBOX ck_g              _ilft     _ms       _ibwd     .,		/*
+		*/ clickon("gaction main.ed_g.enable")			/*
+		*/ clickoff("gaction main.ed_g.disable")		/*
+		*/ label(resource PREDICTNL_MAIN_CK_G)
+  EDIT     ed_g              _indent2  _ss       _vnwd     ., max(31)   /*
+		*/ option(g) label(resource PREDICTNL_MAIN_CK_G)
+END
+
+SCRIPT lasso_disable_opts
+BEGIN
+	adv.ck_iterate.disable
+	adv.sp_iterate.disable
+	adv.tx_iterate.disable
+	adv.ck_force.disable
+	main.gb_gens.disable
+	main.ck_se.disable
+	main.ed_se.disable
+	main.ck_wald.disable
+	main.ed_wald.disable
+	main.ck_variance.disable
+	main.ed_variance.disable
+	main.ck_p.disable
+	main.ed_p.disable
+	main.ck_ci.disable
+	main.ed_ci1.disable
+	main.ed_ci2.disable
+	main.tx_cisiglev.disable
+	main.sp_cisiglev.disable
+	main.ck_g.disable
+	main.ed_g.disable
+END
+
+INCLUDE _type_list_fd
+INCLUDE ifin
+
+DIALOG adv, tabtitle(resource LBL_ADVANCED)
+BEGIN
+  CHECKBOX ck_iterate        _lft      _top      _ckwd     ., label("") /*
+		*/ clickon("gaction adv.sp_iterate.enable")		/*
+		*/ clickoff("gaction adv.sp_iterate.disable")
+  SPINNER  sp_iterate        _cksep    @         _spwd     .,		/*
+		*/ min(1) max(1000000) default(100)			/*
+		*/ option(iterate)					/*
+		*/ label(resource LBL_MAXIMUM_ITERATIONS_FOR_FINDING_OPTIMAL_STEP_SIZE)
+  TEXT     tx_iterate        _spsep    @         _ckspr    .,		/*
+		*/ label(resource LBL_MAXIMUM_ITERATIONS_FOR_FINDING_OPTIMAL_STEP_SIZE)
+
+  CHECKBOX ck_force          _lft      _ls       _iwd      .,		/*
+		*/ option(force)					/*
+  */ label(resource PREDICTNL_ADV_CK_FORCE)
+END
+
+
+SCRIPT ci_on
+BEGIN
+	main.ed_ci1.enable
+	main.ed_ci2.enable
+	main.tx_cisiglev.enable
+	main.sp_cisiglev.enable
+END
+
+SCRIPT ci_off
+BEGIN
+	main.ed_ci1.disable
+	main.ed_ci2.disable
+	main.tx_cisiglev.disable
+	main.sp_cisiglev.disable
+END
+
+INCLUDE _p_gentype_sc
+
+PROGRAM command
+BEGIN
+	put "predictnl "
+	put " " /program _p_gentype_output
+	require main.ex_pnlexp
+	put " " "= " main.ex_pnlexp " "
+	put " " /program ifin_output
+	beginoptions
+		optionarg main.ed_se
+		optionarg main.ed_variance
+		optionarg main.ed_wald
+		optionarg main.ed_p
+		if main.ck_ci {
+			require main.ed_ci1
+			require main.ed_ci2
+			put " ci(" main.ed_ci1 " " main.ed_ci2 ") "
+			optionarg /hidedefault main.sp_cisiglev
+		}
+		optionarg main.ed_g
+		optionarg adv.sp_iterate
+		option adv.ck_force
+	endoptions
+END

@@ -1,0 +1,115 @@
+*! version 1.0.0  16dec2013
+
+version 14
+
+class _matrix {
+        class:
+                _nextid n = ._nextid.new
+                                                                                
+        instance:
+                string matname = ""	
+}
+
+program .new
+	if (`"`0'"'=="") exit
+
+	._set `0'
+end
+
+program ._set 
+	syntax anything(name=expression id="expression")
+
+	tempname mat
+
+	cap mat `mat' = `expression'
+	if _rc {
+		di as err "matrix expression {bf:`expression'} is " ///
+		 "invalid"
+		exit 499
+	}
+	if `.ref_n' == 1 {
+		.destructor
+	}
+	else {
+		.matname = ""
+	}
+	cap mat `.name' = `mat'	
+end
+
+program .destructor
+        if ("`.matname'"!="") cap mat drop `.matname'
+end
+
+program .oncopy
+        if ("`.`.oncopy_src'.matname'"=="") exit
+
+	/* current name is a copy of .oncopy_src 			*/
+	.matname = ""
+
+	mat `.name' = `.`.oncopy_src'.matname'
+end
+
+program .name
+        if "`.matname'" == "" {
+                .matname = "__tmat_`.n.next'"
+        }
+                                                                                
+        class exit "`.matname'"
+end
+
+program .isvalid
+	if ("`.matname'"=="") class exit 0
+
+	cap mat li `.matname'
+
+	class exit (_rc == 0)
+end
+
+program .rows
+	cap local r = rowsof(`.matname')
+	if (_rc) local r = 0
+	cap 
+	
+	class exit `r'
+end
+
+program .cols
+	cap local c = colsof(`.matname')
+	if (_rc) local c = 0
+	cap 
+	
+	class exit `c'
+end
+
+program .rownames
+	if ("`0'"=="") cap local names : rownames `.matname'
+	else if ("`0'"=="full") cap local names : rowfullnames `.matname'
+	else if ("`0'"=="eq") cap local names : roweq `.matname'
+	else {
+		di as err `"{p}invalid option {bf:`0'}; ._matrix.rownames "' ///
+		 `"options are {bf:full} or {bf:eq}{p_end}"'
+		exit 198
+	}
+	class exit "`names'"
+end
+
+program .colnames
+	if ("`0'"=="") cap local names : colnames `.matname'
+	else if ("`0'"=="full") cap local names : colfullnames `.matname'
+	else if ("`0'"=="eq") cap local names : coleq `.matname'
+	else {
+		di as err `"{p}invalid option {bf:`0'}; ._matrix.colnames "' ///
+		 `"options are {bf:full} or {bf:eq"{p_end}"'
+		exit 198
+	}
+	class exit "`names'"
+end
+
+program .list
+	if (!`.isvalid') exit
+
+	mat li `.matname', `0'
+end
+
+exit
+

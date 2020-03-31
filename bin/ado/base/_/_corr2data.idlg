@@ -1,0 +1,231 @@
+/*
+	Include file for the common items found in corr2data and drawnorm
+	Will not work with small or medium sizes
+
+*! VERSION 1.1.1  16may2015
+
+*/
+
+DIALOG main, label("")	tabtitle("resource LBL_TAB_MAIN")
+BEGIN
+  GROUPBOX gb_generate		_lft	_top	_iwd	_ht9h,		///
+	label(resource LBL_GENERATE)
+  TEXT     tx_var		_indent	_ss	_cwd2	.,		///
+	label(resource LBL_NEW_VARIABLES)
+  DEFINE   holdx @x
+
+  CHECKBOX ck_clear		_lft2	@	@	.,		///
+	option(clear) nomem						///
+	label(resource LBL_REPLACE_CURRENT_DATASET) 
+
+  EDIT     ed_var		holdx	_ss	_ibwd	.,		///
+	label(resource LBL_NEW_VARIABLES)
+
+  RADIO    rb_ndef		_lft2	_ls	_cwd2	., first	///
+	clickon("gaction main.sp_n.disable")				///
+	label(resource LBL_CURRENT_NUMBER_OF_OBSERVATIONS)
+  DEFINE _x _ilft
+  DEFINE _y @y
+  DEFINE _cx _cwd2
+  INCLUDE _type
+  RADIO    rb_n			_lft2	@	_rbwd	., last		///
+	clickon("gaction main.sp_n.enable")				///
+	label("")
+  SPINNER  sp_n			_rbsep	@	_spwd	.,		///
+	min(2) max(10000000) default(c(N))				///
+	option(n)							///
+	label(resource LBL_NUMBER_OF_OBSERVATIONS)
+  TEXT     tx_n			_spsep	@	_rbspr2b .,		///
+	label(resource LBL_OBSERVATIONS)
+
+  CHECKBOX ck_corr		_lft	+45	_iwd	_ht11,		///
+	groupbox							///
+	label(resource LBL_SPECIFY_COVARIANCE_STRUCTURE_DEFAULT_UNCORR)	///
+	clickon("script ck_corr_on")					///
+	clickoff("script ck_corr_off")
+
+  TEXT     tx_sds		_ilft	_ss	_cwd2	.,		///
+	label(resource LBL_STD_DEV_VECTOR_DEFAULT_UNIT_VARIANCE)
+  DEFINE   holdy @y
+  COMBOBOX cb_sds		@	_ss	@	., dropdown	///
+	contents(vector)						///
+	option(sds)							///
+	label(resource LBL_STANDARD_DEVIATIONS_VECTOR) 
+
+  RADIO    rb_corr		_lft2	holdy	_cwd4_3	., first	///
+	clickon("script cr_on")						///
+	label(resource LBL_CORRELATION)
+  RADIO    rb_cov		_ilft4_4 @	@	., last		///
+	clickon("script cv_on")						///
+	label(resource LBL_COVARIANCE)
+  COMBOBOX cb_corr		_lft2	_ss	_cwd2	., dropdown	///
+	contents(matrix)						///
+	label(resource LBL_CORRELATION)
+  TEXT     tx_cstorage		@	_ms	@	.,		///
+	label(resource LBL_STORAGE_MODE)
+  COMBOBOX cb_cstorage		@	_ss	_cwd4_3	.,		///
+	label(resource LBL_STORAGE_MODE)				///
+	dropdownlist							///
+	contents(cstorage_list)						///
+	option(cstorage)
+  CHECKBOX ck_forcepsd		_ilft	_ms	_ibwd	.,		///
+	label(resource LBL_FORCE_COVARIANCE_CORRELATION_MATRIX)		///
+	option(forcepsd)
+
+  CHECKBOX ck_means		_lft	_xls	_iwd	_ht3,		///
+	groupbox							///
+	label(resource LBL_SPECIFY_MEAN_VECTOR_DEFAULT_MEAN_0)		///
+	clickon("gaction main.cb_means.enable")				///
+	clickoff("gaction main.cb_means.disable")
+
+  COMBOBOX cb_means		_ilft	_ms	_cwd1	., dropdown	///
+	contents(vector)						///
+	option(means)							///
+	label(resource LBL_USER_SPECIFIED_MEAN_VECTOR)
+END
+
+
+INCLUDE _type_list_fd
+
+SCRIPT ck_means_on
+BEGIN
+	main.cb_means.enable
+END
+
+SCRIPT ck_means_off
+BEGIN
+	main.cb_means.disable
+END
+
+SCRIPT ck_corr_on
+BEGIN
+	main.rb_corr.enable
+	main.rb_cov.enable
+	main.cb_corr.enable
+	main.tx_cstorage.enable
+	main.cb_cstorage.enable
+	program sds_check
+	main.ck_forcepsd.enable
+END
+
+PROGRAM sds_check
+BEGIN
+	if main.rb_corr {
+		call script sds_on
+	}
+	if main.rb_cov {
+		call script sds_off
+	}
+END
+
+SCRIPT ck_corr_off
+BEGIN
+	main.rb_corr.disable
+	main.rb_cov.disable
+	main.cb_corr.disable
+	main.tx_cstorage.disable
+	main.cb_cstorage.disable
+	script sds_on
+	main.ck_forcepsd.disable
+END
+
+SCRIPT sds_on
+BEGIN
+	main.tx_sds.enable
+	main.cb_sds.enable
+END
+
+SCRIPT sds_off
+BEGIN
+	main.tx_sds.disable
+	main.cb_sds.disable
+END
+
+SCRIPT c_off
+BEGIN
+	main.cb_corr.disable
+	script sds_on
+END
+
+SCRIPT cr_on
+BEGIN
+	script sds_on
+END
+
+SCRIPT cv_on
+BEGIN
+	script sds_off
+END
+
+LIST cstorage_list
+BEGIN
+	full
+	lower
+	upper
+END
+
+DIALOG opt, tabtitle(resource LBL_OPTIONS)
+BEGIN
+  SPINNER  sp_seed		_lft	_top	_spwd	.,		///
+	min(0) max(10000000) default(12345)				///
+	option(seed)							///
+	label(resource LBL_SET_SEED)
+  TEXT     tx_seed		_spsep	@	_ckspr	.,		///
+	label(resource LBL_SEED_FOR_RANDOM_NUMBER_GENERATOR)
+END
+
+PROGRAM corrdata_output
+BEGIN
+	require main.ed_var
+	put main.ed_var
+	beginoptions
+
+		if main.rb_n {
+			optionarg main.sp_n
+		}
+
+		if main.ck_means {
+			require main.cb_means
+			optionarg main.cb_means
+		}
+
+		if main.ck_corr {
+			if main.rb_corr {
+				if !main.cb_corr {
+					call create STRING _MSG_TMP
+					call _MSG_TMP.format				/// 
+						"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT" ///
+						"resource LBL_TAB_MAIN" 		///
+						"resource XTGEE_COMMON_CORR_CB_FIXED"
+					stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Correlation matrix" must be filled in.
+				}
+				put "corr(" main.cb_corr ")"
+				optionarg main.cb_sds
+			}
+			if main.rb_cov {
+				if !main.cb_corr { /* sic */
+					call create STRING _MSG_TMP
+					call _MSG_TMP.format				/// 
+						"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT" ///
+						"resource LBL_TAB_MAIN" 		///
+						"resource LBL_COVARIANCE_MATRIX_NO_COLON"
+					stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Correlation matrix" must be filled in.
+				}
+				put "cov(" main.cb_corr ")"	/* sic */
+			}
+			optionarg main.cb_cstorage
+			option main.ck_forcepsd
+		}
+		if !main.ck_corr {
+			optionarg main.cb_sds
+		}
+		if ! main.cb_type.isdefault() {
+			put " " main.cb_type " "
+		}
+
+		optionarg /hidedefault opt.sp_seed
+		option main.ck_clear
+	endoptions
+END

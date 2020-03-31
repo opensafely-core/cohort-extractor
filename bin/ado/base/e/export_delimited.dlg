@@ -1,0 +1,121 @@
+/*
+	export delimited
+
+*! VERSION 1.2.0  13mar2017
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+DEFINE _dlght 340
+INCLUDE header
+
+HELP hlp1, view("help import delimited")
+RESET res1
+
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource EXPORT_DELIMITED_DLG_HSCALE
+	
+        main.fi_using.formatfilter "{0} (*.csv)|*.csv|{1} (*.txt)|*.txt|{2} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_CSV_FILES" "resource ui_ex FILE_TYPE_TXT_FILES"    ///
+		"resource ui_ex FILE_TYPE_ALL_FILES"
+END
+
+DIALOG main, label(resource EXPORT_DELIMITED_DLG_TITLE) ///
+	tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT tx_var			_lft	_top	_iwd	.,		///
+	label(resource LBL_VARIABLES_LEAVE_EMPTY_FOR_ALL_VARIABLES)
+  VARLIST vl_var		@	_ss	@	.,		///
+	label(resource LBL_GB_VARIABLES)
+
+  TEXT tx_using			@	_ls	@	.,		///
+	label(resource LBL_WRITE_TO_THE_FILE)
+  FILE fi_using			@	_ss	@	.,		///
+	error(resource LBL_WRITE_TO_THE_FILE)				///
+	label(resource LBL_SAVE_AS)					///
+	defext(csv)							///
+	save
+
+  GROUPBOX gb_delimiter		@	+35	@	_ht8,		///
+	label(resource EXPORT_DELIMITED_MAIN_GB_DELIMITER)
+  RADIO rb_comma		_ilft	_ss	_ibwd	.,		///
+	first								///
+	label(resource EXPORT_DELIMITED_MAIN_RB_COMMA)
+  RADIO rb_tab			@	_ss	@	.,		///
+	label(resource LBL_TAB_DELIMITED_FORMAT)
+  RADIO rb_delimit		@	_ss	@	.,		///
+	last								///
+	onclickon(script main_delimit_on)				///
+	onclickoff(script main_delimit_off)				///
+	label(resource LBL_USER_SPECIFIED_DELIMITER)
+
+  EDIT ed_delimit		_indent2 _ss	60	.,		///
+	option(delimiter)						///
+	max(1)								///
+	label(resource LBL_VALUE_DELIMITER)
+
+  TEXT tx_delimit		+65	@	100	.,		///
+	label(resource LBL_VALUE_DELIMITER)
+
+  CHECKBOX ck_novarnames	_lft	_xls	_iwd	.,		///
+	option(novarnames)						///
+	label(resource LBL_DO_NOT_WRITE_VARIABLE_NAMES_FIRST_LINE)
+
+  CHECKBOX ck_nolabel		@	_ms	@	.,		///
+	option(nolabel)							///
+	label(resource LBL_OUTPUT_NUMERIC_VALUES_OF_LABELED_VARIABLES)
+
+  CHECKBOX ck_datafmt		@	_ms	@	.,		///
+	option(datafmt)							///
+	label(resource LBL_USE_VARIABLES_FORMAT_WHEN_EXPORTING)
+
+  CHECKBOX ck_quote		@	_ms	@	.,		///
+	option(quote)							///
+	label(resource EXPORT_DELIMITED_MAIN_CK_QUOTE)
+END
+
+SCRIPT main_delimit_on
+BEGIN
+	main.ed_delimit.enable
+	main.tx_delimit.enable
+END
+
+SCRIPT main_delimit_off
+BEGIN
+	main.ed_delimit.disable
+	main.tx_delimit.disable
+END
+
+INCLUDE ifin
+
+PROGRAM command
+BEGIN
+	require main.fi_using
+
+	put "export delimited "
+	varlist [main.vl_var]
+	repfile main.fi_using
+	put " using " `"""' main.fi_using `"""' " "
+
+	INCLUDE _ifin_pr
+
+	beginoptions
+		if main.rb_tab {
+			put "delimiter(tab) "
+		}
+		if main.rb_delimit {
+			require main.ed_delimit
+			optionarg /quoted main.ed_delimit
+		}
+		option main.ck_novarnames
+		option main.ck_nolabel
+		option main.ck_datafmt
+		option main.ck_quote
+		put "replace"
+	endoptions
+END
+

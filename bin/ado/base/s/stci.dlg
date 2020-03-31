@@ -1,0 +1,233 @@
+/*
+  stci
+
+*! VERSION 2.1.0  22nov2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_wide
+DEFINE _dlght 390
+INCLUDE header
+
+HELP hlp1, view("help stci")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource STCI_DLG_HSCALE
+END
+
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN) 				///
+	label(resource STCI_DLG_TITLE)
+BEGIN
+  DEFINE _x _xsetbu
+  DEFINE _y _top
+  INCLUDE _bu_stset
+
+  GROUPBOX gb_opt          _lft      _ss        _iwd      350,		///
+	label(resource LBL_OPTIONS)
+
+  TEXTBOX  tb_note1        _lft2     +25        _cwd3     _tb4,		///
+  	label(resource STCI_MAIN_TB_NOTE1)
+  	
+  CHECKBOX ck_by           _ilft     @        _cwd3     .,		///
+	label(resource STCI_MAIN_CK_BY)					///
+	onclickon(program by_on) onclickoff(program by_off)
+DEFINE holdy @y
+  VARLIST  vl_by           @         _ss        @ 	  .,		///
+	label(resource STCI_MAIN_VL_BY)					///
+	option(by)
+
+  GROUPBOX gb_calc         _ilft     +35        _ibwd     _ht4,		///
+	label(resource STCI_MAIN_GB_CALC)
+  RADIO    rb_median       _indent   _ss        _cwd4_1   .,		///
+	label(resource LBL_MEDIAN) first				///
+  	onclickon(script median_on) option(median)
+  DEFINE xx @x
+  RADIO    rb_emean        _lft4_2   @          @         .,		///
+	label(resource STCI_MAIN_RB_EMEAN)				///
+	onclickon(program emean_on)					///
+	option("emean")
+  RADIO    rb_rmean        xx        _ss        @         .,		///
+	label(resource STCI_MAIN_RB_RMEAN)				///
+	onclickon(script rmean_on)					///
+	option(rmean)
+  RADIO    rb_perc         _lft4_2   @          _rbwd     .,		///
+	onclickon(script perc_on)					///
+	option(NONE) last
+  SPINNER  sp_perc         _rbsep    @          _spwd     .,		///
+	min(1) default(50) max(100)					///
+	option(p)
+  TEXT     tx_sep          _spsep    @          _vnwd     .,		///
+	label(resource LBL_PERCENTILE)
+
+  CHECKBOX ck_ccorr        _ilft     +45        _ibwd     .,		///
+	option(ccorr)							///
+	label(resource STCI_MAIN_CK_CCORR)
+  CHECKBOX ck_noshow       @         _ms        @         .,		///
+	label(resource LBL_DO_NOT_SHOW_ST_SETTING_INFORMATION) option(noshow)
+
+  CHECKBOX ck_dd           @         _ms        _ckwd     .,		///
+	onclickon(main.sp_dd.enable)					///
+	onclickoff(main.sp_dd.disable)
+  SPINNER  sp_dd           _cksep    @          _spwd     .,		///
+	min(0) default(3) max(8) option(dd)
+  TEXT     tx_dd           _spsep    @          _cksprb   .,		///
+	label(resource STCI_MAIN_TX_DD)
+	
+  DEFINE _x _ilft
+  DEFINE _y _ls
+  DEFINE _cx _spr2b
+  INCLUDE _sp_level
+
+  CHECKBOX ck_graph        _ilft     +35        _ibwd     _ht2h,	///
+	label(resource STCI_MAIN_CK_GRAPH)				///
+	option(graph) groupbox						///
+	onclickon(program graph_on) onclickoff(program graph_off)
+  CHECKBOX ck_tmax         _indent   _ms        _ckwd     .,		///
+	onclickon(main.en_tmax.enable)					///
+	onclickoff(main.en_tmax.disable)
+  EDIT     en_tmax         _cksep    @          _en7wd    .,		///
+	numonly	 label(resource STCI_MAIN_EN_TMAX) option(tmax)
+  TEXT     tx_tmax         _en7sep   @          350       .,		///
+	label(resource STCI_MAIN_EN_TMAX)
+END
+
+PROGRAM by_on
+BEGIN
+	call gaction main.vl_by.enable
+	call gaction main.ck_graph.disable
+	call program graph_off
+END
+
+PROGRAM by_off
+BEGIN
+	call gaction main.vl_by.disable
+	if main.rb_emean {
+		call gaction main.ck_graph.enable
+		if main.ck_graph {
+			call program graph_on
+		}
+	}
+END
+
+SCRIPT rmean_on
+BEGIN
+	main.ck_graph.disable
+	program graph_off
+	main.ck_ccorr.enable
+	main.sp_perc.disable
+END
+
+PROGRAM emean_on
+BEGIN
+	if ! main.ck_by {
+		call gaction main.ck_graph.enable
+		if main.ck_graph {
+			call program graph_on
+		}
+	}
+	call gaction main.ck_ccorr.disable
+	call gaction main.sp_perc.disable
+END
+
+SCRIPT median_on
+BEGIN
+	main.ck_graph.disable
+	program graph_off
+	main.ck_ccorr.disable
+	main.sp_perc.disable
+END
+
+SCRIPT perc_on
+BEGIN
+	main.ck_graph.disable
+	program graph_off
+	main.ck_ccorr.disable
+	main.sp_perc.enable
+END
+
+PROGRAM graph_on
+BEGIN
+	call gaction main.ck_tmax.enable
+	call gaction main.tx_tmax.enable
+
+	call script gr_plots_enable
+	call script gr_addplots_enable
+	call script gr_xaxis_enable
+	call script gr_yaxis_enable
+	call script gr_titles_enable
+	call script gr_legend_enable
+	call script gr_overall_enable
+END
+
+PROGRAM graph_off
+BEGIN
+	call gaction main.ck_tmax.disable
+	call gaction main.en_tmax.disable
+	call gaction main.tx_tmax.disable
+
+	call script gr_plots_disable
+	call script gr_addplots_disable
+	call script gr_xaxis_disable
+	call script gr_yaxis_disable
+	call script gr_titles_disable
+	call script gr_legend_disable
+	call script gr_overall_disable
+END
+
+INCLUDE byifin
+INCLUDE gr_plots
+INCLUDE gr_addplots_2
+INCLUDE gr_yaxis
+INCLUDE gr_xaxis
+INCLUDE gr_titles
+INCLUDE gr_legend
+INCLUDE gr_overall
+
+SCRIPT POSTINIT
+BEGIN
+	script gr_plots_setDefaultLine
+END
+
+PROGRAM command
+BEGIN
+	put /program by_output " "
+	put "stci "
+	put /program ifin_output " "
+	beginoptions
+		if main.ck_by {
+			require main.vl_by
+			optionarg main.vl_by
+		}
+		option radio(main rb_median rb_emean rb_rmean rb_perc)
+		if main.rb_perc{
+			optionarg main.sp_perc
+		}
+		if main.rb_rmean{
+			option main.ck_ccorr
+		}
+		if main.ck_dd{
+			optionarg main.sp_dd
+		}
+		INCLUDE _level_main_pr
+		option main.ck_graph
+		if main.ck_graph {
+			if main.ck_tmax {
+				require main.en_tmax
+				optionarg main.en_tmax
+			}
+		}
+		option main.ck_noshow
+
+		put " " /program gr_plots_output
+		put " " /program gr_addplots_output
+		put " " /program gr_yaxis_output
+		put " " /program gr_xaxis_output
+		put " " /program gr_titles_output
+		put " " /program gr_overall_output
+	endoptions
+END

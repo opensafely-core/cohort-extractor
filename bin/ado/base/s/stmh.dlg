@@ -1,0 +1,135 @@
+/*
+  stmh
+
+*!  VERSION 1.2.2  13feb2015
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE _ht330
+INCLUDE header
+
+HELP hlp1, view("help stmh")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource STMH_DLG_HSCALE
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)	/*
+	*/label(resource STMH_DLG_TITLE)
+BEGIN
+  /*--+----1----+----2----+----3----+----4----+----5----+----6----+----7----+*/ 
+  DEFINE  _x _xsetbu
+  DEFINE  _y _top
+  INCLUDE _bu_stset
+
+  TEXT     tx_var          _lft      _topph    _comb4_3 .,		/*
+  		*/label(resource LBL_VARIABLES)
+  VARLIST  vl_var          @         _ss       _iwd      .,		/*
+  		*/numeric						/*
+  		*/label(resource LBL_VARIABLES)
+  GROUPBOX gb_opt          @         +35        @        _ht22,         /*
+  		*/label(resource LBL_OPTIONS)
+  CHECKBOX ck_by           _indent   _ss        _ibwd    .,		/*
+  		*/label(resource LBL_GROUP_BY)				/*
+  		*/clickon(gaction main.vl_by.enable)			/*
+		*/clickoff(gaction main.vl_by.disable)
+  DEFINE holdx @x
+  VARLIST  vl_by           _indent2  _ss        _inwd    .,		/*
+  		*/label(resource LBL_GROUP_BY)				/*
+  		*/numeric						/*
+  		*/option("by")
+  CHECKBOX ck_comp         holdx     +35        _ibwd    _ht5h,		/*
+  		*/label(resource LBL_COMPARE_CATEGORIES_OF_EXPOSURE_VARIABLE_BY)  /*
+  		*/clickon(script comp_on)  clickoff(script comp_off)	/*
+		*/groupbox
+
+  DEFINE holdy @y
+  COMBOBOX cb_comp1        _indent2  _ms        _vnwd    .,		/*
+  		*/label(resource LBL_NUMERATOR_LOWERCASE)					/*
+		*/contents(rules) dropdown
+  DEFINE holdx2 @x
+  TEXT     tx_comp1        _vnsep    @          _cwd4_4  .,		/*
+  		*/label(resource LBL_NUMERATOR_LOWERCASE)
+  COMBOBOX cb_comp2        _lft2     @          _vnwd    .,		/*
+  		*/label(resource LBL_DENOMINATOR_LOWERCASE)					/*
+		*/contents(rules) dropdown
+  TEXT     tx_comp2        _vnsep    @          _cwd4_4  .,		/*
+  		*/label(resource LBL_DENOMINATOR_LOWERCASE)
+  TEXT     tx_rul2         holdx2    _ss        _vlwd    .,		/*
+  */label(resource LBL_EDIT_RULE_FORMATS_ABOVE_OR_CONSTRUCT_YOUR_OWN_EX)
+  TEXT     tx_rul4         @         _vss       @        .,		/*
+*/label(resource LBL_3_1359_OR_13max_OR_MIN257)
+  DEFINE _y +45
+  DEFINE _x _lft2
+  DEFINE _cx _spr2b
+  INCLUDE _sp_level
+  GROUPBOX gb_miss         holdx     -10        _cwd2    _ht4,		/*
+  		*/label(resource LBL_MISSING_VALUES_ARE) 
+  RADIO    rb_nomiss       _indent   _ss        _inwd    .,		/*
+	*/label(resource STMH_MAIN_RB_NONMISS)  /*
+  	*/option("NONE") first
+  RADIO    rb_miss         @         _ss        @        .,		/*
+		*/label(resource LBL_INCLUDED_AS_EXTRA_CATEGORIES)	/*
+  		*/option(missing) last
+END
+
+INCLUDE byifin
+
+LIST rules
+BEGIN
+  #
+  #/#
+  # #
+  #/# #
+END
+
+SCRIPT comp_on
+BEGIN
+  main.cb_comp1.enable
+  main.tx_comp1.enable
+  main.cb_comp2.enable
+  main.tx_comp2.enable
+  main.tx_rul2.enable
+  main.tx_rul4.enable
+END
+
+SCRIPT comp_off
+BEGIN
+  main.cb_comp1.disable
+  main.tx_comp1.disable
+  main.cb_comp2.disable
+  main.tx_comp2.disable
+  main.tx_rul2.disable
+  main.tx_rul4.disable
+END
+
+PROGRAM command
+BEGIN
+	INCLUDE _by_pr
+	put "stmh "
+	varlist main.vl_var
+	INCLUDE _ifin_pr
+	beginoptions
+		if main.ck_by {
+			require main.vl_by
+			optionarg main.vl_by
+		}
+		if main.ck_comp {
+			require main.cb_comp1
+			require main.cb_comp2
+			put "compare("
+			put main.cb_comp1
+			put ", "
+			put main.cb_comp2
+			put ")"
+		}
+		option radio(main rb_miss rb_nomiss)
+		INCLUDE _level_main_pr
+        endoptions
+END
+

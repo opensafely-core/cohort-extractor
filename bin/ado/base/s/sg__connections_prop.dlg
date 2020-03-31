@@ -1,0 +1,709 @@
+/*
+  sg__connections_prop.dlg
+
+*!  VERSION 1.1.12  15mar2016
+
+*/
+
+VERSION 14.0
+MODAL
+
+INCLUDE _std_mlarge
+DEFINE _dlght 200
+INCLUDE header_sem_ed
+
+DEFINE _clwd	15
+DEFINE _wd	160
+DEFINE _sep	+165
+DEFINE _wd2	110
+DEFINE _sep2	+115
+DEFINE _cbwd	110
+DEFINE _cbsep	+115
+
+INCLUDE sg__common_output		/* routines necessary for output */
+
+SCRIPT PREINIT
+BEGIN
+	script sg__common_output_init 	/* initialize output globals */
+
+	create STRING OBJ
+	program setupOBJECT
+
+	create STRING sTemp
+	create DOUBLE dTemp
+	create STRING sConType		// path(1) / cov(2) / other(<multiple>)
+	create STRING sSrcType
+	create STRING sSrcTypeOrig
+	create DOUBLE nSelected
+	create STRING sTTLSuffix
+
+	program global_get_defaults
+	program setup_title
+	setscale_hadj resource SG__CONNECTIONS_PROP_DLG_HSCALE
+END
+
+PROGRAM setup_title_suffix
+BEGIN
+	if (sSrcTypeOrig.iseq("alledges")) {
+		call sTTLSuffix.setvalue "- all edges"
+	}
+	if (sSrcTypeOrig.iseq("path")) {
+		call sTTLSuffix.setvalue "- paths"
+	}
+	if (sSrcTypeOrig.iseq("cov")) {
+		call sTTLSuffix.setvalue "- covariances"
+	}
+	if (sSrcTypeOrig.iseq("errpath")) {
+		call sTTLSuffix.setvalue "- error paths"
+	}
+
+	if (sSrcTypeOrig.iseq("selected")) {
+		call sTTLSuffix.setvalue "- selected connections"
+	}
+END
+
+PROGRAM setup_title
+BEGIN
+	call program setup_title_suffix
+	call sTTLSuffix.withvalue settitle "Connection settings @"
+END
+
+PROGRAM setupOBJECT
+BEGIN
+	if ! __MESSAGE {
+		stopbox stop resource LBL_MSGBOX_OBJECT_NOT_FOUND
+// An unexpected error has occurred. Object not found.
+		exit 198
+	}
+	call OBJ.setvalue class __MESSAGE.value
+END
+
+PROGRAM global_get_defaults
+BEGIN
+	call sSrcType.setvalue class .__SEMG.dbsettings.source
+	call sSrcTypeOrig.setvalue class .__SEMG.dbsettings.source
+
+	if (sSrcType.iseq("selected")) {
+		call sSrcType.setvalue "edgestyle"
+	}
+
+	call nSelected.setvalue class .__SEMG.dbsettings.n_selected
+	if (!nSelected) {
+		call nSelected.setvalue 0
+	}
+
+	call sConType.setvalue class .__SEMG.dbsettings.type
+	// 1=path, 2=cov, <multiple>
+END
+
+/****************************************************************************/
+
+SCRIPT line_PREINIT
+BEGIN
+	create STRING sLineWidth
+	create STRING sLineColor
+	create STRING sArrowSize
+	create STRING sBarbSize
+	create STRING sBarbWidth
+	program line_get_defaults
+END
+
+SCRIPT line_POSTINIT
+BEGIN
+	program line_initialize_controls
+END
+
+PROGRAM line_get_defaults
+BEGIN
+	call sSrcType.withvalue sLineWidth.setvalue class .__SEMG.dbsettings.@_line_width
+	call sLineWidth.withvalue line.cb_width.setdefault "@"
+
+	call sSrcType.withvalue sLineColor.setvalue class .__SEMG.dbsettings.@_line_color
+	call sLineColor.withvalue line.cb_color.setdefault "@"
+
+	call sSrcType.withvalue sArrowSize.setvalue class .__SEMG.dbsettings.@_line_arrowsize
+	call sArrowSize.withvalue line.cb_asize.setdefault "@"
+
+	call sSrcType.withvalue sBarbSize.setvalue class .__SEMG.dbsettings.@_line_barbsize
+	call sBarbSize.withvalue line.cb_bsize.setdefault "@"
+
+	call sSrcType.withvalue sBarbWidth.setvalue class .__SEMG.dbsettings.@_line_arrowwidth
+	call sBarbWidth.withvalue line.cb_bwidth.setdefault "@"
+END
+
+PROGRAM line_initialize_controls
+BEGIN
+	call line.cb_width.setvalue class sLineWidth.value
+	call line.cb_color.setvalue class sLineColor.value
+	call line.cb_asize.setvalue class sArrowSize.value
+	call line.cb_bsize.setvalue class sBarbSize.value
+	call line.cb_bwidth.setvalue class sBarbWidth.value
+END
+
+DIALOG line, tabtitle(resource LBL_LINE)
+BEGIN
+  TEXT     tx_width	_ilft	_top	_wd	.,		///
+	label(resource LBL_WIDTH) right
+  COMBOBOX cb_width	_sep	@	_cbwd	., nomemory	///
+	dropdown contents(__SEM_STYLES_LABEL.width)		///
+	values(__SEM_STYLES.width)
+  TEXT     tx_width_m	_cbsep	@	50	.,		///
+	label(resource LBL_PT)
+
+  TEXT     tx_color	_ilft	_mls	_wd	.,		///
+	label(resource LBL_COLOR) right
+  COMBOBOX cb_color	_sep	@	_cbwd	., nomemory	///
+	dropdown contents(__SEM_STYLES_LABEL.color)		///
+	values(__SEM_STYLES.color)
+
+  GROUPBOX gb_arrow	_lft	_ls	_iwd	_ht8,		///
+	label(resource SG__CONNECTIONS_PROP_LINE_GB_ARROW)
+  TEXT     tx_asize	_ilft	_ss	_wd	.,		///
+	label(resource SG__CONNECTIONS_PROP_LINE_TX_ASIZE) right
+  COMBOBOX cb_asize	_sep	@	_cbwd	., nomemory	///
+	dropdown contents(__SEM_STYLES_LABEL.pointsize)		///
+	values(__SEM_STYLES.pointsize)
+  TEXT     tx_asize_m	_cbsep	@	50	.,		///
+	label(resource LBL_PT)
+
+  TEXT     tx_bsize	_ilft	_mls	_wd	.,		///
+	label(resource LBL_BARB_SIZE) right
+  COMBOBOX cb_bsize	_sep	@	_cbwd	., nomemory	///
+	dropdown contents(__SEM_STYLES_LABEL.pointsize)		///
+	values(__SEM_STYLES.pointsize)
+  TEXT     tx_bsize_m	_cbsep	@	50	.,		///
+	label(resource LBL_PT)
+
+  TEXT     tx_bwidth	_ilft	_mls	_wd	.,		///
+	label(resource SG__CONNECTIONS_PROP_TX_BWIDTH) right
+  COMBOBOX cb_bwidth	_sep	@	_cbwd	., nomemory	///
+	dropdown contents(__SEM_STYLES_LABEL.pointsize)		///
+	values(__SEM_STYLES.pointsize)
+  TEXT     tx_bwidth_m	_cbsep	@	50	.,		///
+	label(resource LBL_PT)
+END
+
+PROGRAM line_output
+BEGIN
+	call program line_get_defaults
+
+	call create STRING lineTmp
+	if (sSrcType.iseq("edgestyle")) {
+		call lineTmp.setvalue "SetStyleSelected"
+	}
+	else {
+		call lineTmp.setvalue "SetStyle"
+	}
+
+	if (!line.cb_width.isdefault()) {
+		call dTemp.setvalue class line.cb_width.value
+		call sTemp.setvalue class line.cb_width.value
+		if (!dTemp & dTemp.isneq(0) & sTemp.isneq("<multiple>")) {
+			call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_CONTAINS_A_NONNUMERIC_VALUE_FMT" ///
+				"resource LBL_LINE" 			///
+				"resource LBL_WIDTH"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Line" tab, "Width" contains a nonnumeric value.
+		}
+		call sg__PARAM2.setvalue class lineTmp.value
+		call sg__ARG_00.setvalue class sSrcType.value
+		call sg__ARG_00.append ".line.width"
+		call sg__ARG_01.setvalue class line.cb_width.value
+		put /program sg__do_output_sub
+	}
+
+	if (!line.cb_color.isdefault()) {
+		call sg__PARAM2.setvalue class lineTmp.value
+		call sg__ARG_00.setvalue class sSrcType.value
+		call sg__ARG_00.append ".line.color"
+		call sg__ARG_01.setvalue class line.cb_color.value
+		put /program sg__do_output_sub
+	}
+
+	if (!line.cb_asize.isdefault()) {
+		call dTemp.setvalue class line.cb_asize.value
+		call sTemp.setvalue class line.cb_asize.value
+		if (!dTemp & dTemp.isneq(0) & sTemp.isneq("<multiple>")) {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_CONTAINS_A_NONNUMERIC_VALUE_FMT" ///
+				"resource LBL_LINE" 			///
+				"resource SG__CONNECTIONS_PROP_TX_BWIDTH"
+                        stopbox stop "class _MSG_TMP.value"
+
+// On the "Line" tab, "Arrow size" contains a nonnumeric value.
+		}
+		call sg__PARAM2.setvalue class lineTmp.value
+		call sg__ARG_00.setvalue class sSrcType.value
+		call sg__ARG_00.append ".line.arrowsize"
+		call sg__ARG_01.setvalue class line.cb_asize.value
+		put /program sg__do_output_sub
+	}
+
+	if (!line.cb_bsize.isdefault()) {
+		call dTemp.setvalue class line.cb_bsize.value
+		call sTemp.setvalue class line.cb_bsize.value
+		if (!dTemp & dTemp.isneq(0) & sTemp.isneq("<multiple>")) {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_CONTAINS_A_NONNUMERIC_VALUE_FMT" ///
+				"resource LBL_LINE" 			///
+				"resource LBL_BARB_SIZE"
+                        stopbox stop "class _MSG_TMP.value"
+
+// On the "Line" tab, "Barb size" contains a nonnumeric value.
+		}
+		call sg__PARAM2.setvalue class lineTmp.value
+		call sg__ARG_00.setvalue class sSrcType.value
+		call sg__ARG_00.append ".line.barbsize"
+		call sg__ARG_01.setvalue class line.cb_bsize.value
+		put /program sg__do_output_sub
+	}
+
+	if (!line.cb_bwidth.isdefault()) {
+		call dTemp.setvalue class line.cb_bwidth.value
+		call sTemp.setvalue class line.cb_bwidth.value
+		if (!dTemp & dTemp.isneq(0) & sTemp.isneq("<multiple>")) {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_CONTAINS_A_NONNUMERIC_VALUE_FMT" ///
+				"resource LBL_LINE" 			///
+				"resource SG__CONNECTIONS_PROP_LINE_GB_ARROW"
+                        stopbox stop "class _MSG_TMP.value"
+
+// On the "Line" tab, "Barb width" contains a nonnumeric value.
+		}
+		call sg__PARAM2.setvalue class lineTmp.value
+		call sg__ARG_00.setvalue class sSrcType.value
+		call sg__ARG_00.append ".line.arrowwidth"
+		call sg__ARG_01.setvalue class line.cb_bwidth.value
+		put /program sg__do_output_sub
+	}
+END
+
+/****************************************************************************/
+
+SCRIPT result_PREINIT
+BEGIN
+	create STRING STMP
+
+	create STRING sResEdge1
+	create STRING sResEdge2
+	create STRING sResEdge3
+	create STRING sResEdge4
+
+	program result_get_defaults
+END
+
+SCRIPT result_POSTINIT
+BEGIN
+	program result_initialize_controls
+
+	STMP.format "resource LBL_RESULT_FMT" "1" ":"
+	STMP.withvalue result.tx_edge_res1.setlabel "@"
+	STMP.format "resource LBL_RESULT_FMT" "2" ":"
+	STMP.withvalue result.tx_edge_res2.setlabel "@"
+	STMP.format "resource LBL_RESULT_FMT" "3" ":"
+	STMP.withvalue result.tx_edge_res3.setlabel "@"
+	STMP.format "resource LBL_RESULT_FMT" "4" ":"
+	STMP.withvalue result.tx_edge_res4.setlabel "@"
+
+	STMP.format "resource LBL_RESULT_FMT" "1" "..."
+	STMP.withvalue result.bu_app_res1.setlabel "@"
+	STMP.format "resource LBL_RESULT_FMT" "2" "..."
+	STMP.withvalue result.bu_app_res2.setlabel "@"
+	STMP.format "resource LBL_RESULT_FMT" "3" "..."
+	STMP.withvalue result.bu_app_res3.setlabel "@"
+	STMP.format "resource LBL_RESULT_FMT" "4" "..."
+	STMP.withvalue result.bu_app_res4.setlabel "@"
+END
+
+PROGRAM result_get_defaults
+BEGIN
+	call sSrcType.withvalue sResEdge1.setvalue class .__SEMG.dbsettings.@_result1_edgetxt
+	call sResEdge1.withvalue result.ed_edge_res1.setdefault "@"
+
+	call sSrcType.withvalue sResEdge2.setvalue class .__SEMG.dbsettings.@_result2_edgetxt
+	call sResEdge2.withvalue result.ed_edge_res2.setdefault "@"
+
+	call sSrcType.withvalue sResEdge3.setvalue class .__SEMG.dbsettings.@_result3_edgetxt
+	call sResEdge3.withvalue result.ed_edge_res3.setdefault "@"
+
+	call sSrcType.withvalue sResEdge4.setvalue class .__SEMG.dbsettings.@_result4_edgetxt
+	call sResEdge4.withvalue result.ed_edge_res4.setdefault "@"
+
+	if (sSrcType.iseq("errpath")) {
+		call result.cb_edge_res1.setcontentslist ".__SEM_STYLES_LABEL.erroredge"
+		call result.cb_edge_res1.setvalueslist 	 ".__SEM_STYLES.erroredge"
+		call result.cb_edge_res2.setcontentslist ".__SEM_STYLES_LABEL.erroredge"
+		call result.cb_edge_res2.setvalueslist   ".__SEM_STYLES.erroredge"
+		call result.cb_edge_res3.setcontentslist ".__SEM_STYLES_LABEL.erroredge"
+		call result.cb_edge_res3.setvalueslist   ".__SEM_STYLES.erroredge"
+		call result.cb_edge_res4.setcontentslist ".__SEM_STYLES_LABEL.erroredge"
+		call result.cb_edge_res4.setvalueslist   ".__SEM_STYLES.erroredge"
+	}
+	else {
+		call result.cb_edge_res1.setcontentslist ".__SEM_STYLES_LABEL.edgeresult"
+		call result.cb_edge_res1.setvalueslist 	 ".__SEM_STYLES.edgeresult"
+		call result.cb_edge_res2.setcontentslist ".__SEM_STYLES_LABEL.edgeresult"
+		call result.cb_edge_res2.setvalueslist   ".__SEM_STYLES.edgeresult"
+		call result.cb_edge_res3.setcontentslist ".__SEM_STYLES_LABEL.edgeresult"
+		call result.cb_edge_res3.setvalueslist   ".__SEM_STYLES.edgeresult"
+		call result.cb_edge_res4.setcontentslist ".__SEM_STYLES_LABEL.edgeresult"
+		call result.cb_edge_res4.setvalueslist   ".__SEM_STYLES.edgeresult"
+	}
+END
+
+PROGRAM result_initialize_controls
+BEGIN
+
+	call result.ed_edge_res1.setvalue class sResEdge1.value
+	call result.ed_edge_res2.setvalue class sResEdge2.value
+	call result.ed_edge_res3.setvalue class sResEdge3.value
+	call result.ed_edge_res4.setvalue class sResEdge4.value
+
+	call result.cb_edge_res1.setvalue class sResEdge1.value
+	call result.cb_edge_res2.setvalue class sResEdge2.value
+	call result.cb_edge_res3.setvalue class sResEdge3.value
+	call result.cb_edge_res4.setvalue class sResEdge4.value
+END
+
+PROGRAM result_edge_res1_change
+BEGIN
+	if (result.cb_edge_res1.isEqualIgnoreCase("custom")) {
+		call result.ed_edge_res1.setvalue class sResEdge1.value
+	}
+	else {
+		call result.ed_edge_res1.setvalue class result.cb_edge_res1.value
+	}
+END
+
+PROGRAM result_edge_res2_change
+BEGIN
+	if (result.cb_edge_res2.isEqualIgnoreCase("custom")) {
+		call result.ed_edge_res2.setvalue class sResEdge2.value
+	}
+	else {
+		call result.ed_edge_res2.setvalue class result.cb_edge_res2.value
+	}
+END
+
+PROGRAM result_edge_res3_change
+BEGIN
+	if (result.cb_edge_res3.isEqualIgnoreCase("custom")) {
+		call result.ed_edge_res3.setvalue class sResEdge3.value
+	}
+	else {
+		call result.ed_edge_res3.setvalue class result.cb_edge_res3.value
+	}
+END
+
+PROGRAM result_edge_res4_change
+BEGIN
+	if (result.cb_edge_res4.isEqualIgnoreCase("custom")) {
+		call result.ed_edge_res4.setvalue class sResEdge4.value
+	}
+	else {
+		call result.ed_edge_res4.setvalue class result.cb_edge_res4.value
+	}
+END
+
+DIALOG result, tabtitle(resource LBL_RESULTS)
+BEGIN
+  TEXT     tx_exog	_lft	_top	_cwd1	.,		///
+	label(resource SG__CONNECTIONS_PROP_RESULTS_TX_EXOG)
+  HLINK    hl_edgeh	_rj40	@	40	.,		///
+	label(resource LBL_HELP_LOWERCASE) right		///
+	onpush(view help sg__tags##|_new)
+
+  TEXT     tx_edge_res1	_ilft	_ss	50	.,		///
+	right
+  COMBOBOX cb_edge_res1	+55	@	165	., nomemory	///
+	dropdownlist onselchange(program result_edge_res1_change)
+  EDIT     ed_edge_res1 +170	@	205	., nomemory
+
+  TEXT     tx_edge_res2	_ilft	_mls	50	.,		///
+	right
+  COMBOBOX cb_edge_res2	+55	@	165	., nomemory	///
+	dropdownlist onselchange(program result_edge_res2_change)
+  EDIT     ed_edge_res2 +170	@	205	., nomemory
+
+  TEXT     tx_edge_res3	_ilft	_mls	50	.,		///
+	right
+  COMBOBOX cb_edge_res3	+55	@	165	., nomemory	///
+	dropdownlist onselchange(program result_edge_res3_change)
+  EDIT     ed_edge_res3 +170	@	205	., nomemory
+
+  TEXT     tx_edge_res4	_ilft	_mls	50	.,		///
+	right
+  COMBOBOX cb_edge_res4	+55	@	165	., nomemory	///
+	dropdownlist onselchange(program result_edge_res4_change)
+  EDIT     ed_edge_res4 +170	@	205	., nomemory
+
+  TEXT     tx_appearance	_lft	+35	_iwd	.,	///
+	label(resource LBL_APPEARANCE_OF_RESULTS_FONT_COLOR_POSITION_ETC)
+
+  BUTTON   bu_app_res1		+35	_ss	85	.,	///
+	onpush(program result_appearance_do1)
+DEFINE x @x
+  BUTTON   bu_app_res2		+95	@	@	.,	///
+	onpush(program result_appearance_do2)
+
+  BUTTON   bu_app_res3		+95	@	@	.,	///
+	onpush(program result_appearance_do3)
+
+  BUTTON   bu_app_res4		+95	@	@	.,	///
+	onpush(program result_appearance_do4)
+END
+
+PROGRAM result_appearance_do1
+BEGIN
+	call OBJ.withvalue create CHILD sg__connections_prop_result AS result_appearance1, message(@) allowsubmit
+	call program setup_title_suffix
+	call STMP.format "resource LBL_APPEARANCE_OF_RESULT_#_FMT" "1 "
+	call sTTLSuffix.withvalue STMP.append "@"
+	call STMP.withvalue result_appearance1.settitle "@"
+	call result_appearance1.callthru `"sResult.setvalue "result1"'
+	call result_appearance1.callthru "program loadDefaults"
+	call result_appearance1.setExitAction "program send_update_signal"
+	call result_appearance1.setExitString sTemp	/* required, not used */
+END
+
+PROGRAM result_appearance_do2
+BEGIN
+	call OBJ.withvalue create CHILD sg__connections_prop_result AS result_appearance2, message(@) allowsubmit
+	call program setup_title_suffix
+	call STMP.format "resource LBL_APPEARANCE_OF_RESULT_#_FMT" "2 "
+	call sTTLSuffix.withvalue STMP.append "@"
+	call STMP.withvalue result_appearance2.settitle "@"
+	call result_appearance2.callthru `"sResult.setvalue "result2"'
+	call result_appearance2.callthru "program loadDefaults"
+	call result_appearance2.setExitAction "program send_update_signal"
+	call result_appearance2.setExitString sTemp	/* required, not used */
+END
+
+PROGRAM result_appearance_do3
+BEGIN
+	call OBJ.withvalue create CHILD sg__connections_prop_result AS result_appearance3, message(@) allowsubmit
+	call program setup_title_suffix
+	call STMP.format "resource LBL_APPEARANCE_OF_RESULT_#_FMT" "3 "
+	call sTTLSuffix.withvalue STMP.append "@"
+	call STMP.withvalue result_appearance3.settitle "@"
+	call result_appearance3.callthru `"sResult.setvalue "result3"'
+	call result_appearance3.callthru "program loadDefaults"
+	call result_appearance3.setExitAction "program send_update_signal"
+	call result_appearance3.setExitString sTemp	/* required, not used */
+END
+
+PROGRAM result_appearance_do4
+BEGIN
+	call OBJ.withvalue create CHILD sg__connections_prop_result AS result_appearance4, message(@) allowsubmit
+	call program setup_title_suffix
+	call STMP.format "resource LBL_APPEARANCE_OF_RESULT_#_FMT" "4 "
+	call sTTLSuffix.withvalue STMP.append "@"
+	call STMP.withvalue result_appearance4.settitle "@"
+	call result_appearance4.callthru `"sResult.setvalue "result4"'
+	call result_appearance4.callthru "program loadDefaults"
+	call result_appearance4.setExitAction "program send_update_signal"
+	call result_appearance4.setExitString sTemp	/* required, not used */
+END
+
+PROGRAM result_output
+BEGIN
+	call program result_get_defaults
+
+	call create STRING sResultTmp
+	if (sSrcType.iseq("edgestyle")) {
+		call sResultTmp.setvalue "SetStyleSelected"
+	}
+	else {
+		call sResultTmp.setvalue "SetStyle"
+	}
+
+	if !result.ed_edge_res1.isdefault() {
+		call sg__PARAM2.setvalue class sResultTmp.value
+		call sg__ARG_00.setvalue class sSrcType.value
+		call sg__ARG_00.append ".result1.edgetxt"
+		call sg__ARG_01.setvalue class result.ed_edge_res1.value
+		put /program sg__do_output_sub
+	}
+	if !result.ed_edge_res2.isdefault() {
+		call sg__PARAM2.setvalue class sResultTmp.value
+		call sg__ARG_00.setvalue class sSrcType.value
+		call sg__ARG_00.append ".result2.edgetxt"
+		call sg__ARG_01.setvalue class result.ed_edge_res2.value
+		put /program sg__do_output_sub
+	}
+	if !result.ed_edge_res3.isdefault() {
+		call sg__PARAM2.setvalue class sResultTmp.value
+		call sg__ARG_00.setvalue class sSrcType.value
+		call sg__ARG_00.append ".result3.edgetxt"
+		call sg__ARG_01.setvalue class result.ed_edge_res3.value
+		put /program sg__do_output_sub
+	}
+	if !result.ed_edge_res4.isdefault() {
+		call sg__PARAM2.setvalue class sResultTmp.value
+		call sg__ARG_00.setvalue class sSrcType.value
+		call sg__ARG_00.append ".result4.edgetxt"
+		call sg__ARG_01.setvalue class result.ed_edge_res4.value
+		put /program sg__do_output_sub
+	}
+END
+
+/*****************************************************************************/
+
+SCRIPT adv_PREINIT
+BEGIN
+	create STRING sAdvAngle
+	create STRING sAdvStrength
+	program adv_get_defaults
+END
+
+SCRIPT adv_POSTINIT
+BEGIN
+	program adv_initialize_controls
+END
+
+PROGRAM adv_get_defaults
+BEGIN
+	call sSrcType.withvalue sAdvAngle.setvalue class .__SEMG.dbsettings.@_bezangle
+	call sAdvAngle.withvalue adv.cb_angle.setdefault "@"
+
+	call sSrcType.withvalue sAdvStrength.setvalue class .__SEMG.dbsettings.@_bezstrength
+	call sAdvStrength.withvalue adv.cb_strength.setdefault "@"
+END
+
+PROGRAM adv_initialize_controls
+BEGIN
+	call adv.cb_angle.setvalue class sAdvAngle.value
+	call adv.cb_strength.setvalue class sAdvStrength.value
+
+	if (sConType.iseq("2") | sConType.iseq(".")) {
+		// enable
+		call adv.gb_curve.enable
+		call adv.tx_angle.enable
+		call adv.cb_angle.enable
+		call adv.tx_angle_m.enable
+		call adv.tx_strength.enable
+		call adv.cb_strength.enable
+		call adv.tx_strength_m.enable
+	}
+	else {
+		// disable
+		call adv.gb_curve.disable
+		call adv.tx_angle.disable
+		call adv.cb_angle.disable
+		call adv.tx_angle_m.disable
+		call adv.tx_strength.disable
+		call adv.cb_strength.disable
+		call adv.tx_strength_m.disable
+	}
+END
+
+DIALOG adv, tabtitle(resource LBL_ADVANCED)
+BEGIN
+  GROUPBOX gb_curve		_lft	_top	_iwd	_ht5,		///
+	label(resource SG__CONNECTIONS_PROP_ADV_GB_CURVE)
+
+  TEXT     tx_angle		_ilft	_ss	170	.,		///
+	label(resource SG__CONNECTIONS_PROP_ADV_TX_ANGLE) right
+  COMBOBOX cb_angle		+175	@	80	., nomemory	///
+	dropdown 							///
+	contents(.__SEM_STYLES_LABEL.angle)				///
+	values(.__SEM_STYLES.angle)
+  TEXT     tx_angle_m		+85	@	50	.,		///
+	label(resource LBL_DEG)
+
+  TEXT     tx_strength		_ilft	_ls	170	.,		///
+	label(resource SG__CONNECTIONS_PROP_ADV_TX_STRENGTH) right
+  COMBOBOX cb_strength		+175	@	80	., nomemory	///
+	dropdown							///
+	contents(.__SEM_STYLES_LABEL.pct)				///
+	values(.__SEM_STYLES.pct)
+  TEXT     tx_strength_m	+85	@	50	.,		///
+	label(resource LBL_PAREN_PERCENT_PAREN)
+END
+
+PROGRAM adv_output
+BEGIN
+	call program adv_get_defaults
+
+	call create STRING advTmp
+	if (sSrcType.iseq("edgestyle")) {
+		call advTmp.setvalue "SetStyleSelected"
+	}
+	else {
+		call advTmp.setvalue "SetStyle"
+	}
+
+	if (adv.cb_angle.isenabled() & !adv.cb_angle.isdefault()) {
+		call dTemp.setvalue class adv.cb_angle.value
+		call sTemp.setvalue class adv.cb_angle.value
+		if (!dTemp & dTemp.isneq(0) & sTemp.isneq("<multiple>")) {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_CONTAINS_A_NONNUMERIC_VALUE_FMT" ///
+				"resource LBL_ADVANCED" 		///
+				"resource SG__CONNECTIONS_PROP_ADV_TX_ANGLE"
+                        stopbox stop "class _MSG_TMP.value"
+// "On the "Advanced" tab, "Angle relative to line angle" contains a nonnumeric value.
+		}
+		call sg__PARAM2.setvalue class advTmp.value
+		call sg__ARG_00.setvalue class sSrcType.value
+		call sg__ARG_00.append ".bezangle"
+		call sg__ARG_01.setvalue class adv.cb_angle.value
+		put /program sg__do_output_sub
+	}
+
+	if (adv.cb_strength.isenabled() & !adv.cb_strength.isdefault()) {
+		call dTemp.setvalue class adv.cb_strength.value
+		call sTemp.setvalue class adv.cb_strength.value
+		if (!dTemp & dTemp.isneq(0) & sTemp.isneq("<multiple>")) {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_CONTAINS_A_NONNUMERIC_VALUE_FMT" ///
+				"resource LBL_ADVANCED" 		///
+				"resource SG__CONNECTIONS_PROP_ADV_TX_STRENGTH"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Advanced" tab, "Strength of curvature" contains a nonnumeric value.
+		}
+		call sg__PARAM2.setvalue class advTmp.value
+		call sg__ARG_00.setvalue class sSrcType.value
+		call sg__ARG_00.append ".bezstrength"
+		call sg__ARG_01.setvalue class adv.cb_strength.value
+		put /program sg__do_output_sub
+	}
+END
+
+/*****************************************************************************/
+
+PROGRAM send_update_signal
+BEGIN
+	call sg__PARAM1.setvalue class OBJ.value
+	call sg__PARAM2.setvalue "UpdateDlg"
+	call sg__ARG_00.setvalue "connections_prop"
+	call sg__ARG_01.setvalue class sSrcTypeOrig.value
+	put /program sg__do_output_sub
+END
+
+PROGRAM command
+BEGIN
+	call program global_get_defaults
+	call sg__PARAM1.setvalue class OBJ.value
+
+	call sg__PARAM2.setvalue "BeginSet"
+	call sg__DESCPT.setvalue "change connections' appearance"
+	put /program sg__do_output_sub
+
+	put /program line_output
+	put /program result_output
+	put /program adv_output
+
+	call sg__PARAM2.setvalue "EndSet"
+	call sg__DESCPT.setvalue "change connections' appearance"
+	put /program sg__do_output_sub
+
+	call program send_update_signal
+END

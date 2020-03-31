@@ -1,0 +1,512 @@
+/*
+	fmm estat
+
+*!  VERSION 1.0.4  31oct2019
+
+	***
+	USE EXTREME CARE WHEN CHANGING CONTROL NAMES. The names used
+	in this file have multiple external dependencies.
+
+*/
+
+VERSION 15.0
+
+INCLUDE _std_large
+DEFINE _dlght 350
+INCLUDE header
+
+HELP hlp1, view("help fmm postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create BOOLEAN has_FactorVars
+	has_FactorVars.settrue
+
+	create STRING main_bu_facvarsResults
+	create STRING main_bu_facvarsResults2
+	program main_bu_facvars_ckResults
+
+	create STRING main_bu_fmtcoefResults
+	create STRING main_bu_fmtcoefResults2
+	program main_bu_fmtcoef_ckResults
+
+	create STRING main_bu_eformResults
+	program main_bu_eform_ckResults
+	setscale_hadj resource GSEM_ESTAT_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program show_subcmds
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	if __MESSAGE.contains("-eform-") {
+		call main.lb_subcmd.setvalue eform
+	}
+	if __MESSAGE.contains("-ic-") {
+		call main.lb_subcmd.setvalue ic
+	}
+	if __MESSAGE.contains("-summarize-") {
+		call main.lb_subcmd.setvalue summarize
+	}
+	if __MESSAGE.contains("-vce-") {
+		call main.lb_subcmd.setvalue vce
+	}
+	if __MESSAGE.contains("-bootstrap-") {
+		call main.lb_subcmd.setvalue bootstrap
+	}
+	if __MESSAGE.contains("-lcmean-") {
+		call main.lb_subcmd.setvalue "lcmean"
+	}
+	if __MESSAGE.contains("-lcprob-") {
+		call main.lb_subcmd.setvalue "lcprob"
+	}
+END
+
+PROGRAM show_subcmds
+BEGIN
+	call create STRING e_lclass
+	
+	call e_lclass.setvalue e(lclass)
+	
+	if e_lclass.isneq("") {
+	        call main_subcommand_contents.ArrpushR		///
+		  resource dlg GSEM_ESTAT_LCMEAN
+		call main_subcommand_values.Arrpush "lcmean"
+		
+	        call main_subcommand_contents.ArrpushR		///
+		  resource dlg GSEM_ESTAT_LCPROB
+		call main_subcommand_values.Arrpush "lcprob"
+	}
+	
+	call main.lb_subcmd.repopulate
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	title(resource FMM_ESTAT_DLG_TITLE)
+BEGIN
+  TEXT tx_subcmd		_lft	_top	_cwd1	.,		///
+	label(resource LBL_REPORTS_STATISTICS_SUBCOMMAND)
+  LISTBOX lb_subcmd		@	_ss	_iwd	70,		///
+	contents(main_subcommand_contents)				///
+	values(main_subcommand_values)					///
+	onselchangelist(main_subcommand_scripts)
+
+  DEFINE holdy 110
+
+  // Eform
+  TEXT tx_eqlist		_lft	holdy	_iwd	.,		///
+	label(resource LBL_EQUATION_LIST)
+  EDIT ed_eqlist		@	_ss	_iwd	.,		///
+	label(resource LBL_EQUATION_LIST)
+
+  DEFINE   _x  _lft
+  DEFINE   _cx _spr
+  DEFINE   _y  _ls
+  INCLUDE  _sp_level
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  BUTTON bu_facvars		@	_ls	200	.,		///
+	onpush("program main_bu_facvars_getOpts")			///
+	label(resource LBL_FACTOR_VARIABLE_DISPLAY_OPTIONS)
+
+  BUTTON bu_fmtcoef		_lft2	@	200	.,		///
+	onpush("program main_bu_fmtcoef_getOpts")			///
+	label(resource LBL_SET_TABLE_FORMATS)
+
+  BUTTON bu_eform		_lft	_ls	200	.,		///
+	onpush("program main_bu_eform_getOpts")				///
+	label(resource LBL_EXPONENTIATE_COEFFICIENTS_NO_COLON)
+
+  // Information criteria
+  CHECKBOX ck_n			_lft	holdy	_iwd	.,		///
+	onclickon(main.sp_n.enable)					///
+	onclickoff(main.sp_n.disable)					///
+	label(resource LBL_NUMBER_OBSERVATIONS_CALCULATING_BIC)
+  SPINNER sp_n			_indent2 _ss	_spwd	.,		///
+	option(n)							///
+	default(e(N))							///
+	min(1)								///
+	max(e(N))
+
+  // summarize options
+  GROUPBOX gb_eqlist		_lft	holdy	_iwd	_ht6,		///
+	label(resource LBL_SUMMARIZE)
+  RADIO rb_default		_ilft	_ss	_inwd	., first	///
+	onclickon(main.vl_spec.disable)					///
+	label(resource LBL_ALL_VARIABLES_INVOLVED_ESTIMATION)
+  RADIO rb_spec			@	_ss	@	., last		///
+	onclickon(main.vl_spec.enable)					///
+	label(resource LBL_VARIABLES_OPTIONAL_EQUATION_NAMES)
+  VARLIST vl_spec		_indent2 _ss	_inwd	.,		///
+  	numeric								///
+	label(resource LBL_VARIABLES_OPTIONAL_EQUATION_NAMES)
+  CHECKBOX ck_equation		_lft	+45	_iwd	.,		///
+	option(equation)						///
+	label(resource LBL_DISPLAY_SUMMARY_EQUATION)
+  CHECKBOX ck_group		@	_ms	@	.,		///
+	option(group)							///
+	label(resource LBL_DISPLAY_SUMMARY_BY_GROUP)
+  CHECKBOX ck_labels		@	_ms	@	.,		///
+	option(labels)							///
+	label(resource LBL_DISPLAY_VARIABLE_LABELS)
+  CHECKBOX ck_noheader		_lft	_ms	_iwd	.,		///
+	option(noheader)						///
+	label(resource LBL_SUPPRESS_HEADER)
+  CHECKBOX ck_noweights		@	_ms	@	.,		///
+	option(noweights)						///
+	label(resource LBL_IGNORE_WEIGHTS)
+
+  INCLUDE estat_vce
+  INCLUDE _estat_bootstrap
+	
+  /*	estat lcmean	*/
+  CHECKBOX ck_nose		_lft	holdy	_iwd	.,		///
+	option(nose)							///
+	label(resource GSEM_ESTAT_MAIN_CK_NOSE)
+  CHECKBOX ck_post		@	_ms	@	.,		///
+	option(post)							///
+	label(resource LBL_POST_MARGINS_AND_VCE_ESTIMATION_RESULTS)
+  BUTTON bu_facvars2		@	_ls	200	.,		///
+	onpush("program main_bu_facvars_getOpts2")			///
+	label(resource LBL_FACTOR_VARIABLE_DISPLAY_OPTIONS)
+  BUTTON bu_fmtcoef2		_lft2	@	200	.,		///
+	onpush("program main_bu_fmtcoef_getOpts2")			///
+	label(resource LBL_SET_TABLE_FORMATS)
+	
+/*	estat lcprob	*/
+  CHECKBOX ck_classpostpr	_lft	holdy	_iwd	.,		///
+	option(classposteriorpr)					///
+	label(resource GSEM_LBL_CLASSPOSTPR)
+END
+
+INCLUDE estat_vce_pr
+INCLUDE _estat_bootstrap_pr
+
+PROGRAM main_bu_facvars_getOpts
+BEGIN
+	call create CHILD factor_vars_reporting AS main_bu_facvars
+	call main_bu_facvars.setExitString main_bu_facvarsResults
+	call main_bu_facvars.setExitAction "program main_bu_facvars_ckResults"
+	call main_bu_facvars.settitle resource LBL_FACTOR_VARIABLE_DISPLAY_OPTIONS
+END
+
+PROGRAM main_bu_facvars_ckResults
+BEGIN
+	if main_bu_facvarsResults {
+		call main.bu_facvars.modified_on
+	}
+	else {
+		call main.bu_facvars.modified_off
+	}
+END
+
+PROGRAM main_bu_fmtcoef_getOpts
+BEGIN
+	call create CHILD fmt_coef_table_reporting AS main_bu_fmtcoef
+	call main_bu_fmtcoef.setExitString main_bu_fmtcoefResults
+	call main_bu_fmtcoef.setExitAction "program main_bu_fmtcoef_ckResults"
+END
+
+PROGRAM main_bu_fmtcoef_ckResults
+BEGIN
+	if main_bu_fmtcoefResults {
+		call main.bu_fmtcoef.modified_on
+	}
+	else {
+		call main.bu_fmtcoef.modified_off
+	}
+END
+
+PROGRAM main_bu_eform_getOpts
+BEGIN
+	call create CHILD eform_option_reporting AS main_bu_eform
+	call main_bu_eform.setExitString main_bu_eformResults
+	call main_bu_eform.setExitAction "program main_bu_eform_ckResults"
+END
+
+PROGRAM main_bu_eform_ckResults
+BEGIN
+	if main_bu_eformResults {
+		call main.bu_eform.modified_on
+	}
+	else {
+		call main.bu_eform.modified_off
+	}
+END
+
+PROGRAM main_bu_facvars_getOpts2
+BEGIN
+	call create CHILD gsem_factor_vars_reporting AS main_bu_facvars2
+	call main_bu_facvars2.setExitString main_bu_facvarsResults2
+	call main_bu_facvars2.setExitAction "program main_bu_facvars_ckResults2"
+	call main_bu_facvars2.settitle resource LBL_FACTOR_VARIABLE_DISPLAY_OPTIONS
+END
+
+PROGRAM main_bu_facvars_ckResults2
+BEGIN
+	if main_bu_facvarsResults2 {
+		call main.bu_facvars2.modified_on
+	}
+	else {
+		call main.bu_facvars2.modified_off
+	}
+END
+
+PROGRAM main_bu_fmtcoef_getOpts2
+BEGIN
+	call create CHILD fmt_coef_table_reporting AS main_bu_fmtcoef2
+	call main_bu_fmtcoef2.setExitString main_bu_fmtcoefResults2
+	call main_bu_fmtcoef2.setExitAction "program main_bu_fmtcoef_ckResults2"
+END
+
+PROGRAM main_bu_fmtcoef_ckResults2
+BEGIN
+	if main_bu_fmtcoefResults2 {
+		call main.bu_fmtcoef2.modified_on
+	}
+	else {
+		call main.bu_fmtcoef2.modified_off
+	}
+END
+
+
+LIST main_subcommand_contents
+BEGIN
+	resource GSEM_ESTAT_TABLE_EXPONENTIATED_COEF_EFORM
+	resource LBL_INFORMATION_CRITERIA
+	resource LBL_SUMMARIZE_ESTIMATION_SAMPLE
+	resource LBL_COVARIANCE_MATRIX_ESTIMATES
+END
+
+LIST main_subcommand_values
+BEGIN
+	eform
+	ic
+	summarize
+	vce
+END
+
+LIST main_subcommand_scripts
+BEGIN
+	script sel_eform
+	script sel_ic
+	script sel_summarize
+	script sel_vce
+	script sel_lcmean
+	script sel_lcprob
+END
+
+SCRIPT sel_eform
+BEGIN
+	script main_hide_all
+	script main_eform_on
+END
+	
+SCRIPT sel_ic
+BEGIN
+	script main_hide_all
+	script main_ic_on
+END
+
+SCRIPT sel_summarize
+BEGIN
+	script main_hide_all
+	script main_summ_on
+END
+
+SCRIPT sel_vce
+BEGIN
+	script main_hide_all
+	program vce_on
+END
+
+SCRIPT sel_lcmean
+BEGIN
+	script main_hide_all
+	script main_lcmean_on
+END
+
+SCRIPT sel_lcprob
+BEGIN
+	script main_hide_all
+	script main_lcprob_on
+END
+
+SCRIPT main_eform_on
+BEGIN
+	main.tx_eqlist.show
+	main.ed_eqlist.show
+	main.bu_facvars.show
+	main.bu_fmtcoef.show
+	main.bu_eform.show
+	main.rb_report_columns_dflt.show
+	main.rb_report_columns_noci.show
+	main.rb_report_columns_nopv.show
+	main.sp_level.show 
+	main.tx_level.show
+END
+
+SCRIPT main_ic_on
+BEGIN
+	main.ck_n.show
+	main.sp_n.show
+END
+
+SCRIPT main_summ_on
+BEGIN
+	main.ck_equation.show
+	main.ck_group.show
+	main.ck_labels.show
+	main.ck_noheader.show
+	main.ck_noweights.show
+	main.gb_eqlist.show
+	main.rb_default.show
+	main.rb_spec.show
+	main.vl_spec.show
+END
+
+SCRIPT main_eform_off
+BEGIN
+	main.tx_eqlist.hide
+	main.ed_eqlist.hide
+	main.bu_facvars.hide
+	main.bu_fmtcoef.hide
+	main.bu_eform.hide
+	main.rb_report_columns_dflt.hide
+	main.rb_report_columns_noci.hide
+	main.rb_report_columns_nopv.hide
+	main.sp_level.hide 
+	main.tx_level.hide
+END
+
+SCRIPT main_ic_off
+BEGIN
+	main.ck_n.hide
+	main.sp_n.hide
+END
+
+SCRIPT main_summ_off
+BEGIN
+	main.ck_equation.hide
+	main.ck_group.hide
+	main.ck_labels.hide
+	main.ck_noheader.hide
+	main.ck_noweights.hide
+	main.gb_eqlist.hide
+	main.rb_default.hide
+	main.rb_spec.hide
+	main.vl_spec.hide
+END
+
+SCRIPT main_lcmean_on
+BEGIN
+	main.ck_nose.show
+	main.ck_post.show
+	main.bu_facvars2.show
+	main.bu_fmtcoef2.show
+	
+	main.ck_nose.setposition . 110 
+	main.ck_post.setposition . 135 
+	main.bu_facvars2.setposition . 165
+	main.bu_fmtcoef2.setposition . 165
+END
+
+SCRIPT main_lcmean_off
+BEGIN
+	main.ck_nose.hide
+	main.ck_post.hide
+	main.bu_facvars2.hide
+	main.bu_fmtcoef2.hide
+END
+
+SCRIPT main_lcprob_on
+BEGIN
+	main.ck_classpostpr.show
+	main.ck_nose.show
+	main.ck_post.show
+	main.bu_facvars2.show
+	main.bu_fmtcoef2.show
+	
+	main.ck_classpostpr.setposition . 110
+	main.ck_nose.setposition . 135 
+	main.ck_post.setposition . 160 
+	main.bu_facvars2.setposition . 190
+	main.bu_fmtcoef2.setposition . 190
+END
+
+SCRIPT main_lcprob_off
+BEGIN
+	main.ck_classpostpr.hide
+	main.ck_nose.hide
+	main.ck_post.hide
+	main.bu_facvars2.hide
+	main.bu_fmtcoef2.hide
+END
+
+SCRIPT main_hide_all
+BEGIN
+	script main_eform_off
+	script main_ic_off
+	program vce_off
+	script main_summ_off
+	script main_bootstrap_hide
+	script main_lcgof_off
+	script main_lcmean_off
+	script main_lcprob_off
+END
+
+PROGRAM command
+BEGIN
+	put "estat "
+	put main.lb_subcmd
+	if main.lb_subcmd.iseq("eform") {
+		put " " main.ed_eqlist
+	}
+	beginoptions
+		// eform options
+		if main.lb_subcmd.iseq("eform") {
+			optionarg /hidedefault main.sp_level
+			put " " main_bu_facvarsResults
+			put " " main_bu_fmtcoefResults
+			put " " main_bu_eformResults
+			option main.rb_report_columns_noci
+			option main.rb_report_columns_nopv
+		}
+
+		// ic options
+		if (main.ck_n) {
+			optionarg main.sp_n
+		}
+
+		// summarize options
+		option main.ck_equation
+		option main.ck_group
+		option main.ck_labels
+		option main.ck_noheader
+		option main.ck_noweights
+
+		put " " /program vce_output
+		put " " /program bootstrap_output
+		
+		// lcprob options
+		option main.ck_classpostpr
+		
+		// lcmean & lcprob options 
+		option main.ck_nose 
+		option main.ck_post
+
+		if main.lb_subcmd.iseq("lcmean") | 	///
+			main.lb_subcmd.iseq("lcprob") {
+			put " " main_bu_facvarsResults2
+			put " " main_bu_fmtcoefResults2
+		}
+	endoptions
+END

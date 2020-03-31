@@ -1,0 +1,160 @@
+/*
+  destring
+
+*!  VERSION 1.3.2  03mar2015
+
+** This dialog box may be called internally by the Data Editor
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 440
+INCLUDE header
+HELP hlp1, view("help destring")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create ARRAY  ARGS
+	create STRING VARS
+	setscale_hadj resource DESTRING_DLG_HSCALE
+END
+
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	if __MESSAGE {
+		call __MESSAGE.tokenize ARGS
+		call VARS.setvalue class ARGS[1]
+		call main.vl_var.setvalue class VARS.value
+	}
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	label(resource DESTRING_DLG_TITLE)
+BEGIN
+  TEXT tx_var			_lft	_top	_iwd	.,		///
+	label(resource DESTRING_MAIN_TX_VAR)
+  VARLIST vl_var		@	_ss	_iwd	.,		///
+  	string								///
+	label(resource DESTRING_MAIN_VL_VAR)
+
+  GROUPBOX gb_action		@	_ls	@	_ht7h,
+  RADIO rb_gener		_indent	_ss	_inwd	., first	///
+	onclickon(main.ed_gener.enable)					///
+	label(resource DESTRING_MAIN_RB_GENER)
+  RADIO rb_repl			@	+50	@	., last		///
+	option(replace)							///
+	nomemory							///
+	onclickon(main.ed_gener.disable)				///
+	label(resource DESTRING_MAIN_RB_REPL)
+  EDIT ed_gener			_indent2 -30	_inwd	.,		///
+	option(generate)						///
+	label(resource DESTRING_MAIN_ED_GENER)
+
+  GROUPBOX gb_opt		_lft	+75	_iwd	_ht22h,		///
+	label(resource LBL_OPTIONS)
+  CHECKBOX ck_ignore		_indent	_ms	_ibwd	_ht8,		///
+	groupbox							///
+	onclickon(script main_ignore_on)				///
+	onclickoff(script main_ignore_off)				///
+	label(resource LBL_REMOVE_THESE_CHARACTERS)
+  EDIT ed_ignore		_indent2 _ms	_vnwd	.,		///
+	option(ignore)							///
+	label(resource LBL_REMOVE_THESE_CHARACTERS)
+  CHECKBOX ck_illegal		_iilft	_ls	_iibwd	.,		///
+	option(illegal)							///
+	label(resource DESTRING_MAIN_CK_ILLEGAL)			///
+	onclickon(program check_illegal)				///
+	onclickoff(program check_illegal)
+  CHECKBOX ck_asbytes		@	_ms	@	.,		///
+	option(asbytes)							///
+	label(resource DESTRING_MAIN_CK_ASBYTES)			///
+	onclickon(program check_illegal)				///
+	onclickoff(program check_illegal)
+ 
+  CHECKBOX ck_force		_ilft	+40	_ibwd	.,		///
+	option(force)							///
+	label(resource LBL_CONVERT_NONNUMERIC_STRINGS_TO_MISSING_VAL) 
+  CHECKBOX ck_float		@	_ms	@	.,		///
+	option(float)							///
+	label(resource LBL_GENERATE_NUMERIC_VARIABLES_AS_TYPE_FLOAT)
+  CHECKBOX ck_percent		@	_ms	@	.,		///
+	option(percent)							///
+	label(resource LBL_CONVERT_PERCENT_VARIABLES_TO_FRACTIONAL_FORM)
+  CHECKBOX ck_dpcomma		@	_ms	@	.,		///
+	option(dpcomma)							///
+	label(resource DESTRING_MAIN_CK_DPCOMMA)
+END
+
+SCRIPT main_ignore_on
+BEGIN
+	main.ed_ignore.enable
+	program check_illegal
+END
+
+SCRIPT main_ignore_off
+BEGIN
+	main.ed_ignore.disable
+	program check_illegal
+END
+
+PROGRAM check_illegal
+BEGIN
+	if main.ck_ignore.isenabled() & main.ck_ignore {
+		if main.ck_illegal {
+			call main.ck_asbytes.disable
+		}
+		else {
+			call main.ck_asbytes.enable
+		}
+
+		if main.ck_asbytes {
+			call main.ck_illegal.disable
+		}
+		else {
+			call main.ck_illegal.enable
+		}
+	}
+	else {
+		call main.ck_asbytes.disable
+		call main.ck_illegal.disable
+	}
+END
+
+PROGRAM ignore_options
+BEGIN
+	put "`" 
+	put `"""' main.ed_ignore `"""'
+	put "'" 
+	if main.ck_asbytes | main.ck_illegal {
+		put ","
+		option main.ck_asbytes
+		option main.ck_illegal
+	}
+END
+
+PROGRAM command
+BEGIN
+	put "destring "
+	varlist [main.vl_var]
+	beginoptions
+		if main.rb_gener {
+			require main.ed_gener
+			optionarg main.ed_gener
+		}
+		option main.rb_repl
+		if main.ck_ignore {
+			require main.ed_ignore
+			put " ignore("
+			put /program ignore_options
+			put ")"
+		}
+		option main.ck_force
+		option main.ck_float
+		option main.ck_percent
+		option main.ck_dpcomma
+	endoptions
+END

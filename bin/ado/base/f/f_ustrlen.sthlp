@@ -1,0 +1,21 @@
+{smcl}
+{* *! version 1.0.3  19oct2017}{...}
+{vieweralsosee "[FN] String functions" "mansection FN Stringfunctions"}{...}
+{vieweralsosee "" "--"}{...}
+{findalias asfrdiunicode}{...}
+{vieweralsosee "help functions" "help functions"}{...}
+{vieweralsosee "help string functions" "help string_functions"}{...}
+{vieweralsosee "help strlen()" "help f_strlen"}{...}
+{vieweralsosee "help udstrlen()" "help f_udstrlen"}{...}
+{p2colset 1 26 28 2}{...}
+{p2col:{bf:[FN] String functions}}
+{p_end}
+{p2col:({mansection FN Stringfunctions:View complete PDF manual entry})}{p_end}
+{p2colreset}{...}
+
+
+{title:Functions}
+
+INCLUDE help f_ustrlen
+
+INCLUDE help f_ustrinvalidcnt

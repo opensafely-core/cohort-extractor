@@ -1,0 +1,599 @@
+//                               matrixgraph_g
+//
+//	Base class for scatterplot matrix graphs
+
+*! version 1.1.6  08nov2017
+
+version 8
+
+class {
+
+    class:
+    	graphfamily	= "matrix"
+
+    instance:
+	nvars		 = 0
+	rebreak_diagonal = .yesno.new , style(yes)
+
+
+	_bordered	 = 0
+
+} , inherit(loggraph_g)
+
+
+// ----------------------------------------------------------------------------
+// Parse and log, new matrix graph command.  When the log is run, turns the 
+// current object into the specified matrix.
+
+program parse
+
+	tempname log				// logs all creation/edits
+	.`log' = {}				// then runs the log
+
+	local ignored_opts noDRAW NAME(string) 				///
+		SCHeme(passthru) COPYSCHeme REFSCHeme 			///
+		XSIZe(passthru)  YSIZe(passthru)			///
+		FXSIZe(passthru) FYSIZe(passthru) SAVing(string asis)
+
+	syntax varlist(min=2 numeric ts) [if] [in] [aw fw pw] [ ,	///
+		Connect(string)	 DIAGonal(string asis) LEGend(string)	///
+		BYIF(string asis) `ignored_opts' * ]
+			     				// legend() ignored
+
+	local cmd_1 `"`varlist' [`weight'`exp'] `if' `in' , `options'"'
+	* do not mark on the variables in varlist
+	local varlist
+
+	marksample gtouse
+	if (`"`byif'"' != `""')  qui replace `gtouse' = 0 if !(`byif')
+
+						// Split diagonal()
+	if `"`diagonal'"' != `""' {
+
+		local OPTS : copy local options
+		local 0 `"`diagonal'"'
+		syntax [anything(name=diagtext equalok)] [ , noREBREAK * ]
+		if (`"`diagtext'"' != `""') local yvlabopt `"yvarlabel(`diagtext')"'
+		if (`"`options'"' != `""') local diagopt `"diagopts(`options')"'
+		if ("`rebreak'"=="norebreak")  .rebreak_diagonal.set_false
+
+		local 0 `"`cmd_1'"'
+		syntax varlist(min=2 numeric ts) [if] [in] [aw fw pw] [ , * ]
+
+		local cmd_1 `"`varlist' [`weight'`exp'] `if' `in' , `diagopt' `OPTS' `yvlabopt' `options'"'
+	}
+
+					// parse scatter options and serset 
+					// yxview parser sufficient for serset
+	tempname pnm
+	.`pnm' = .twoway_yxview_parse.new 
+	.`pnm'.parse `cmd_1'
+	.`pnm'.viewtype = "scatter"
+
+	local 0 `", `.`pnm'.options'"'				// our options
+	syntax [ , HALF noBORDER SCALE(string) ISCALE(string)		///
+		   XLInes(passthru) YLInes(passthru)			///
+		   XTItles(passthru) YTItles(passthru)			///
+		   * ]
+
+	local border = "`border'" == ""
+	._bordered   = `border'
+	.`log'.Arrpush ._bordered   = `border'
+	local half   = "`half'"   != ""
+
+	if `"`xlines'"' != `""' {
+		di as error "xline() not allowed"
+		exit 198
+	}
+	if `"`ylines'"' != `""' {
+		di as error "yline() not allowed"
+		exit 198
+	}
+	if `"`xtitles'"' != `""' {
+		di as error "xtitle() not allowed"
+		exit 198
+	}
+	if `"`ytitles'"' != `""' {
+		di as error "ytitle() not allowed"
+		exit 198
+	}
+	if `"`connect'"' != `""' {
+		di as error "connect() not allowed"
+		exit 198
+	}
+
+						// create serset
+	.`pnm'.log_create_serset , log(`log') touse(`gtouse') 		///
+		sersetname(sersets[1])
+
+	.nvars = `.`pnm'.n' + 1			// number of views
+	.`log'.Arrpush .nvars = `.nvars'
+
+
+						// "plotregion" is a grid
+        .`log'.Arrpush .insert (plotregion1 = .graph_g.new, subview	///
+	                 style(scheme matrixgraph)) new
+
+							// graph area style
+	_fr_area_parse_and_log `log' "" GRAPHRegion , `options'
+	local options `"`r(rest)'"'
+
+							// gmetric scaling
+	.`log'.Arrpush .set_scale `scale'
+	.`log'.Arrpush .set_iscale `=`.nvars'-`half'' `iscale'
+
+						// create plotregions and plots
+	forvalues i = 1/`.nvars' {
+		local iat  = `.nvars' - `i' + 2
+		local end = cond(`half', `i' - 1 , `.nvars')
+		forvalues j = 1/`end' {
+
+							// plotregion
+	    	    if `i' != `j' | `border' {
+
+			.`log'.Arrpush .plotregion1.insert		///
+			      (plotregion`i'_`j' = .plotregion.new , 	///
+			      style(scheme matrix)			///
+			      graph(\`.objkey')) at `iat' `=`j'+1'
+			_fr_area_parse_and_log `log'			 ///
+			      plotregion1.plotregion`i'_`j' PLOTRegion , ///
+			      `options'
+		    }
+
+			      				// view
+		    if `i' != `j' {
+
+			.`pnm'.log_create_view , log(`log') name(plot1)   ///
+				plotregion(plotregion1.plotregion`i'_`j') ///
+				serset(sersets[1]) yvar(`i') xvar(`j')    ///
+				style(scheme matrix)
+			.`pnm'.log_edits `log'				///
+				plotregion1.plotregion`i'_`j'.plot1 1 novlabel
+		    }
+
+							// common scales
+	    	    if `i' != `j' | `border' {
+			local j0 = cond(`i'==1 & !`border', 2 , 1)
+			if `j' != `j0' {
+			    .`log'.Arrpush				    ///
+				.plotregion1.plotregion`i'_`j'.yscale.ref = ///
+				.plotregion1.plotregion`i'_`j0'.yscale.ref
+			}
+			local i0 = `i' - 1 - (`i' - 1 == `j')
+			if (!`half' & `i0' > 0) | ( `half' & (`i'-`j'>1)) {
+			    .`log'.Arrpush				    ///
+				.plotregion1.plotregion`i'_`j'.xscale.ref = ///
+				.plotregion1.plotregion`i0'_`j'.xscale.ref
+			}
+		    }
+		}
+	}
+	local options `"`r(rest)'"'
+
+	if `border' & ! `half' {
+		.`log'.Arrpush						///
+			.plotregion1.plotregion1_1.xscale.ref =		///
+			.plotregion1.plotregion2_1.xscale.ref
+	}
+
+						// replots of other viewtypes
+				// @@ when twoway_xyz_parses up to taking a
+				// serset (e.g. twoway_lfit_parse).
+
+						// scale the plotregions 
+	forvalues i = 2/`=`.nvars'' {
+		.`log'.Arrpush .plotregion1.plotregion`i'_`=`i'-1'.reset_scales
+	}
+	if ! `half' {
+		.`log'.Arrpush .plotregion1.plotregion1_`.nvars'.reset_scales
+	}
+
+	.`log'.Arrpush .LinkPlotregionSizesStyles
+	.`log'.Arrpush .LinkPlotStyles
+
+
+						// variable labels
+
+	local aspect = 0`.`c(curscm)'.graphsize.x' / 0`.`c(curscm)'.graphsize.y'
+	if (0`aspect' == 0) local aspect = 1.375
+
+	forvalues i = 1/`.nvars' {
+		if `border' {
+			local target plotregion1.titlegrid`i'
+
+			.`log'.Arrpush .plotregion1.insert		///
+			      (titlegrid`i' = .grid.new ,		///
+			       subview style(scheme matrix_label))	///
+			      at `=`.nvars'-`i'+2' `=`i'+1'
+			local at at 1 1
+		}
+		else {
+			local target plotregion1
+			local at at `=`.nvars'-`i'+2' `=`i'+1'
+		}
+		.`log'.Arrpush .`target'.insert				 ///
+			(variable_title`i' = .sized_textbox.new ,	 ///
+			style(scheme matrix_label)			 ///
+			mtextq(`"\`.sersets[1].sers.[`i'].label_or_name'"')) ///
+			`at'
+		.`log'.Arrpush						///
+		   .`target'.variable_title`i'.as_textbox.setstyle , style(yes)
+
+
+		if `.rebreak_diagonal.istrue' {
+		    .`log'.Arrpush					///
+			.`target'.variable_title`i'.rebreak_aspect `aspect'
+		}
+		_frr_sztextbox_pnl `log' `target'.variable_title`i'	///
+			DIAGOPTs, `options'
+
+		.`pnm'.plotoption yvarlabel `i'			// custom
+		local lab `"`.`pnm'.plotoption yvarlabel `i''"'
+		if `"`lab'"' != `""' {
+			.`log'.Arrpush .`target'.variable_title`i'.set	///
+				, mtextq(`"`lab'"')
+		}
+	}
+	local options `"`r(rest)'"'
+
+	.`log'.Arrpush .LinkDiagonalStyles
+
+	local nv `.nvars'					// axes
+	forvalues i = 1/`nv' {
+							// yaxes
+	    if mod(`i', 2) == 0 | `half' & `i' > 1 {
+		.`log'.Arrpush .plotregion1.insert (yaxis`i' = .axis.new,  ///
+		    plotregion(\`.plotregion1.plotregion`i'_1.objkey')	   ///
+		    style(scheme matrix_vert) position(left))		   ///
+		    at `=`nv'-`i'+2' 1 , ring(.5)
+		local yaxes `yaxes' `i'
+	    }
+	    else if ! `half' {
+	    	local c = cond(mod(`i',2)==1 & `i'==`nv', `nv'-1, `nv')
+		.`log'.Arrpush .plotregion1.insert (yaxis`i' = .axis.new,  ///
+		  plotregion(\`.plotregion1.plotregion`i'_`c'.objkey')    ///
+		    style(scheme matrix_vert) position(right))		  ///
+		    at `=`nv'-`i'+2' `=`nv'+2' , ring(.5)
+		local yaxes `yaxes' `i'
+	    }
+							// xaxes
+	    if (!`half' & mod(`i', 2) == 1) | (`half' & `i' < `nv') {
+	    	local r = cond(mod(`i',2)==1 & `i'==`nv' & !`half',	///
+			  `nv'-1, `nv')
+		.`log'.Arrpush .plotregion1.insert (xaxis`i' = .axis.new, ///
+		    plotregion(\`.plotregion1.plotregion`r'_`i'.objkey')  ///
+		    style(scheme matrix_horiz) position(below))		  ///
+		    at 1 `=`i'+1', ring(.5)
+		local xaxes `xaxes' `i'
+	    }
+	    else if ! `half' {
+		.`log'.Arrpush .plotregion1.insert (xaxis`i' = .axis.new,  ///
+		  plotregion(\`.plotregion1.plotregion1_`i'.objkey')       ///
+		    style(scheme matrix_horiz) position(above))		   ///
+		    at `=`nv'+2' `=`i'+1' , ring(.5)
+		local xaxes `xaxes' `i'
+	    }
+	}
+
+	local start = cond(`half', 2, 1)
+	forvalues i = `start'/`.nvars' {
+	    local end = cond(`half', `i' - 1 , `.nvars')
+	    forvalues j = 1/`end' {
+	    	if `i' == `j' & ! `border' {
+			continue
+		}
+		.`log'.Arrpush .plotregion1.plotregion`i'_`j'.addaxis	///
+		      \`.plotregion1.yaxis`i'.objkey'
+		.`log'.Arrpush .plotregion1.plotregion`i'_`j'.addaxis	///
+		      \`.plotregion1.xaxis`j'.objkey'
+	    }
+	}
+
+						// matrix axis scheme settings
+	local edit `"`.`c(curscm)'.special.matrix_yaxis'"'
+	foreach ax in `yaxes' {
+	      local ed : subinstr local edit "Y" "`ax'" , all
+	      .ParseAndLogAxes `log' 0 plotregion1. "`xaxes'" "`yaxes'" "" `ed'
+	}
+	local edit `"`.`c(curscm)'.special.matrix_xaxis'"'
+	foreach ax in `xaxes' {
+	      local ed : subinstr local edit "X" "`ax'" , all
+	      .ParseAndLogAxes `log' 0 plotregion1. "`xaxes'" "`yaxes'" "" `ed'
+	}
+						// common axis style edits
+	.CommonAxesPNL `log' "`xaxes'" "`yaxes'" , `options'
+
+						// axis style edits
+	.ParseAndLogAxes `log' 0 plotregion1. "`xaxes'" "`yaxes'" "" `r(rest)'
+
+	.`log'.Arrpush .LinkAxesStyles
+
+						// titles
+	.parse_and_log_titles `log' "" `r(rest)'
+
+	local 0 `", `r(rest)'"'
+	syntax [, CLEGend(string) PLEGend(string) FAKE_OPT_FOR_BETTER_MSG ]
+
+	_fr_runlog `log' , logging			// run the log
+end
+
+// ----------------------------------------------------------------------------
+
+program CommonAxesPNL , rclass
+	gettoken log   0 : 0
+	gettoken xaxes 0 : 0
+	gettoken yaxes 0 : 0
+					// collect all x and y axis options
+					// allow maxes() to be repeated
+
+	syntax [ , MAXes(string asis) MAXis(string asis) * ]
+	local maxes `"`maxes' `maxis'"'
+	while `"`maxes'"' != `" "' {
+
+		GetXYopts xopts1 yopts1 : , `maxes'
+
+		local xopts `"`xopts' `xopts1'"'
+		local yopts `"`yopts' `yopts1'"'
+		
+		local 0 `", `options'"'
+		syntax [ , MAXes(string asis) MAXis(string asis) * ]
+		local maxes `"`maxes' `maxis'"'
+	}
+
+					// apply options to all x and y axes
+
+	if `"`yopts'"' != `""' {
+		foreach i of local yaxes {
+			.ParseAndLogAxes `log' `i' plotregion1.		///
+				"`xaxes'" "`yaxes'" "" `yopts'
+		}
+	}
+	if `"`xopts'"' != `""' {
+		foreach i of local xaxes {
+			.ParseAndLogAxes `log' `i' plotregion1.		///
+				"`xaxes'" "`yaxes'" "" `xopts'
+		}
+	}
+
+	return local rest `"`options'"'
+end
+
+
+program GetXYopts
+	gettoken xmac   0 : 0
+	gettoken ymac   0 : 0
+	gettoken colon  0 : 0
+
+						// allow any and all x/y
+						// options to be repeated
+	local o (passthru)
+	local opts YSCale`o' YLabels`o' YMLabels`o' YTICks`o' YMTicks`o' ///
+		   XSCale`o' XLabels`o' XMLabels`o' XTICks`o' XMTicks`o' 
+
+	syntax [, `opts' * ]
+	local ynew `yscale' `ylabels' `ymlabels' `yticks' `ymticks'
+	local xnew `xscale' `xlabels' `xmlabels' `xticks' `xmticks'
+
+	while `"`ynew'`xnew'"' != `""' {
+		local xopts `"`xopts' `xnew'"'
+		local yopts `"`yopts' `ynew'"'
+
+		local 0 `", `options'"'
+		syntax [, `opts' * ]
+		local ynew `yscale' `ylabels' `ymlabels' `yticks' `ymticks'
+		local xnew `xscale' `xlabels' `xmlabels' `xticks' `xmticks'
+	}
+	
+	local 0 `", `options'"'
+	syntax [, FAKE_OPT_FOR_BETTER_MSG ]
+
+	c_local `xmac' `"`xopts'"'
+	c_local `ymac' `"`yopts'"'
+
+end
+
+
+// ----------------------------------------------------------------------------
+
+program LinkPlotregionSizesStyles
+	local preg_list `.plotregion1.list_ofclass plotregion'
+
+	gettoken p0 preg_list : preg_list
+	.plotregion1.`p0'.already_custom = 0
+
+	foreach preg of local preg_list {
+	    .plotregion1.`preg'.xsize_ren.ref = .plotregion1.`p0'.xsize_ren.ref
+	    .plotregion1.`preg'.ysize_ren.ref = .plotregion1.`p0'.ysize_ren.ref
+
+	    .plotregion1.`preg'.style.ref = .plotregion1.`p0'.style.ref
+
+	    .plotregion1.`preg'.already_custom = 0
+	}
+
+end
+
+
+// ----------------------------------------------------------------------------
+
+program LinkPlotStyles
+	local preg_list `.plotregion1.list_ofclass plotregion'
+
+	foreach preg of local preg_list {
+		if "`p0'" == "" {
+			if ("`.plotregion1.`preg'.plot1.isa'" != "") {
+				local p0 "`preg'"
+				.plotregion1.`preg'.plot1.already_custom = 0
+			}
+			continue
+		}
+
+		if ("`.plotregion1.`preg'.plot1.isa'" != "") {
+			.plotregion1.`preg'.plot1.style.ref =		///
+			  .plotregion1.`p0'.plot1.style.ref
+			.plotregion1.`preg'.plot1.already_custom = 0
+		}
+	}
+
+end
+
+// ----------------------------------------------------------------------------
+
+program LinkDiagonalStyles
+	local grid_list `.plotregion1.list_ofclass grid'
+
+	gettoken grid0 grid_list : grid_list
+	.plotregion1.`grid0'.already_custom = 0
+
+	local ttl0 : subinstr local grid0 "titlegrid" "variable_title"
+	.plotregion1.`grid0'.`ttl0'.already_custom = 0
+
+	foreach grid of local grid_list {
+	    .plotregion1.`grid'.style.ref = .plotregion1.`grid0'.style.ref
+	    .plotregion1.`grid'.already_custom = 0
+
+	    local ttl : subinstr local grid "titlegrid" "variable_title"
+	    .plotregion1.`grid'.`ttl'.style.ref =			///
+		.plotregion1.`grid0'.`ttl0'.style.ref
+	    .plotregion1.`grid'.`ttl'.orientation.ref =			///
+		.plotregion1.`grid0'.`ttl0'.orientation.ref
+	    .plotregion1.`grid'.`ttl'.ystretch.ref =			///
+		.plotregion1.`grid0'.`ttl0'.ystretch.ref
+	    .plotregion1.`grid'.`ttl'.xstretch.ref =			///
+		.plotregion1.`grid0'.`ttl0'.xstretch.ref
+	    .plotregion1.`grid'.`ttl'.already_custom = 0
+
+	}
+
+end
+
+// ----------------------------------------------------------------------------
+
+program LinkAxesStyles
+
+	local axis_list `.plotregion1.list_ofclass axis'
+
+	foreach dim in y x {
+
+		foreach axis of local axis_list {
+			if (bsubstr("`axis'",1,1) != "`dim'")  continue
+
+			if ("`ax0'" == "")  local ax0 `axis'
+			else   .plotregion1.`axis'.style.ref =		///
+			       .plotregion1.`ax0'.style.ref
+
+			.plotregion1.`axis'.already_custom = 0
+		}
+
+		local ax0 ""
+	}
+end
+
+// ----------------------------------------------------------------------------
+
+program set_iscale
+	args n scale
+
+	.plotregion1.scale_gmetric `n'					///
+		`.`c(curscm)'.special.matrix_knot1'			///
+		`.`c(curscm)'.special.matrix_slope1'			///
+		`.`c(curscm)'.special.matrix_slope2'
+
+	if `"`scale'"' != `""' {
+		tempname rsz
+		.`rsz' = .numstyle.new, style(`.plotregion1.gmetric_mult')
+		.`rsz'.setstyle , style(`scale')
+		.plotregion1.gmetric_mult = `.`rsz'.val'
+	}
+
+end
+
+
+/*
+program CommonAxesPNL , rclass
+	gettoken log   0 : 0
+	gettoken xaxes 0 : 0
+	gettoken yaxes 0 : 0
+
+	syntax [ , YALL(string asis) * ]
+	while `"`yall'"' != `""' {
+		foreach i of local yaxes {
+			.ParseAndLogAxes `log' `i' plotregion1.		///
+				"`xaxes'" "`yaxes'" "" `yall'
+		}
+		
+		local 0 `", `options'"'
+		syntax [ , YALL(string asis) * ]
+	}
+
+	local 0 `", `options'"'
+	syntax [ , XALL(string asis) * ]
+	while `"`xall'"' != `""' {
+		foreach i of local xaxes {
+			.ParseAndLogAxes `log' `i' plotregion1.		///
+				"`xaxes'" "`yaxes'" "" `xall'
+		}
+		
+		local 0 `", `options'"'
+		syntax [ , XALL(string asis) * ]
+	}
+
+
+	return local rest `"`options'"'
+end
+*/
+
+// ----------------------------------------------------------------------------
+//  Reset the ticks of all axes
+
+program reset_ticks
+
+	foreach ax in `.plotregion1.list_ofclass axis' {
+		.plotregion1.`ax'.set_ticks
+	}
+end
+
+// ----------------------------------------------------------------------------
+//  Break the diagonal labels into lines based on the aspect ratio of their
+//  cell.  Note, must be called when x and ysize_ren are set.
+
+program RebreakDiagonals
+
+	local aspect = `.xsize_ren' / `.ysize_ren'
+					// plotregion1 would be better, but
+					// its size may not be set or correct.
+
+	forvalues i = 1/`.nvars' {
+		if (`._bordered')  local target plotregion1.titlegrid`i'
+		else		   local target plotregion1
+
+		.`target'.variable_title`i'.rebreak_aspect `aspect'
+	}
+end
+
+// ----------------------------------------------------------------------------
+
+program draw
+
+	if (! `.draw_view.istrue')  exit			// Exit
+
+						// Fix-up for old saved matrix
+						// graphs.
+	if "`.plotregion1.plotregion1_1.ysize_ren.uname'" !=		///
+	   "`.plotregion1.plotregion1_2.ysize_ren.uname'" {
+		.LinkPlotregionSizesStyles		// link plotregion sizes
+		.__LOG.Arrpush .LinkPlotregionSizesStyles
+		.LinkPlotStyles
+		.__LOG.Arrpush .LinkPlotStyles
+		.LinkDiagonalStyles
+		.__LOG.Arrpush .LinkDiagonalStyles
+		.LinkAxesStyles
+		.__LOG.Arrpush .LinkAxesStyles
+	}
+
+	.draw_setup1 `0'
+	.draw_setup2
+
+	if (`.rebreak_diagonal.istrue')  .RebreakDiagonals
+
+	.draw_cells
+end

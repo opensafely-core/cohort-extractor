@@ -1,0 +1,152 @@
+/*
+	mhodds
+
+*!  VERSION 1.1.2  09jan2015
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+INCLUDE header
+
+HELP hlp1, view("help mhodds")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource MHODDS_DLG_HSCALE
+END
+
+
+DIALOG main, label(resource MHODDS_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_var     _lft      _top      _cwd1         .,		/*
+		*/ label(resource LBL_CASE_VARIABLE)
+  VARNAME  vn_var        @       _ss      _vnwd         .,		/*
+  		*/ numeric						/*
+		*/ label(resource LBL_CASE_VARIABLE)
+
+  TEXT     tx_val    _lft2      _top      _cwd1         .,		/*
+		*/ label(resource LBL_EXPLANATORY_VARIABLE)
+  VARNAME  vn_val        @       _ss      _vnwd         .,		/*
+  		*/ numeric						/*
+		*/ label(resource LBL_EXPLANATORY_VARIABLE)
+  TEXT     tx_adj      _lft      +35      _iwd          .,		/*
+		*/ label(resource MHODDS_MAIN_TX_ADJ)
+  VARLIST  vl_adj      @         _ss       @	        .,    		/*
+  		*/ numeric						/*
+		*/ label(resource MHODDS_MAIN_VL_ADJ)
+END
+
+INCLUDE ifin
+INCLUDE weights_f
+
+DIALOG opt, tabtitle(resource LBL_OPTIONS)
+BEGIN
+  CHECKBOX ck_byopt          _lft      _top       _cwd1    .,		/*
+		*/ label(resource LBL_STRATIFY_ON_VARIABLES)		/*
+		*/ clickon("script byopt_on")				/*
+		*/ clickoff("script byopt_off")
+  VARLIST  vl_byopt          _indent2   _ss       _ibwd    .,    	/*
+		*/ option("by")						/*
+		*/ label(resource LBL_STRATIFY_ON_VARIABLES)
+  CHECKBOX ck_missing        _lft2      _top      _cwd1    .,		/*
+		*/ label(resource LBL_INCLUDE_MISSING_CATEGORIES)	/*
+		*/ option("missing")
+  CHECKBOX ck_bin            _lft      +50       _cwd1	   .,		/*
+		*/ label(resource MHODDS_OPT_CK_BIN)		/*
+		*/ clickon("gaction opt.vn_bin.enable")			/*
+		*/ clickoff("gaction opt.vn_bin.disable")
+  VARNAME  vn_bin            _indent2  _ss       _vnwd	   .,		/*
+		*/ option("binomial")					/*
+		*/ numeric						/*
+		*/ label(resource MHODDS_OPT_CK_BIN)
+  CHECKBOX ck_compare        _lft      _ls       _iwd      .,		/*
+		*/ label(resource MHODDS_OPT_CK_COMPARE)		/*
+		*/ clickon("script compare_on")				/*
+		*/ clickoff("script compare_off")
+  EDIT     en_var1           _indent2  _ss       _en7wd    .,		/*
+		*/ label(resource LBL_NUMERATOR)			/*
+		*/ numonly
+DEFINE x @x
+  TEXT     tx_var1           _en7sep   @         _vnrb     .,		/*
+		*/ label(resource LBL_NUMERATOR)
+  EDIT     en_var2           x         _ms       _en7wd    .,		/*
+		*/ label(resource LBL_DENOMINATOR)			/*
+		*/ numonly
+  TEXT     tx_var2           _en7sep   @         _vnrb     .,		/*
+		*/ label(resource LBL_DENOMINATOR)
+  DEFINE _x _lft
+  DEFINE _y _xls
+  DEFINE _cx _spr
+  INCLUDE _sp_level
+END
+
+SCRIPT byopt_on
+BEGIN
+	 opt.vl_byopt.enable
+	 opt.ck_missing.enable
+END
+
+SCRIPT byopt_off
+BEGIN
+	 opt.vl_byopt.disable
+	 opt.ck_missing.disable
+END
+
+SCRIPT compare_on
+BEGIN
+	opt.en_var2.enable
+	opt.tx_var2.enable
+	opt.en_var1.enable
+	opt.tx_var1.enable
+END
+
+SCRIPT compare_off
+BEGIN
+	opt.en_var2.disable
+	opt.tx_var2.disable
+	opt.en_var1.disable
+	opt.tx_var1.disable
+END
+
+PROGRAM mhodds_by_var_output
+BEGIN
+	put opt.vl_byopt
+	if opt.ck_missing {
+		put ", "
+		option opt.ck_missing
+	}
+END
+
+PROGRAM command
+BEGIN
+	put "mhodds "
+	varlist main.vn_var
+	varlist main.vn_val
+	varlist [main.vl_adj]
+	INCLUDE _weights_pr
+	INCLUDE _ifin_pr
+	beginoptions
+		if opt.ck_byopt {
+			require opt.vl_byopt
+			put "by("
+			put /program mhodds_by_var_output
+			put ")"
+		}
+		if opt.ck_bin {
+			require opt.vn_bin
+			optionarg opt.vn_bin
+		}
+		if opt.ck_compare {
+			require opt.en_var1 opt.en_var2
+			put "compare("
+			put opt.en_var1
+			put ","
+			put opt.en_var2
+			put ")"
+		}
+		INCLUDE _level_opt_pr
+	endoptions
+END

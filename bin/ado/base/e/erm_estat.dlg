@@ -1,0 +1,364 @@
+/*
+    erm_estat
+
+*!  VERSION 1.0.7  31oct2019
+
+*/
+
+VERSION 15.0
+
+INCLUDE _std_large
+DEFINE _dlght 520
+INCLUDE header
+
+HELP hlp1, view("help erm postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource ERM_ESTAT_DLG_HSCALE
+
+	create BOOLEAN has_FactorVars
+	has_FactorVars.settrue
+	create STRING cmdName
+	cmdName.setvalue e(cmd)
+	create STRING main_bu_facvarsResults
+	program main_bu_facvars_ckResults
+
+	create STRING main_bu_fmtcoefResults
+	program main_bu_fmtcoef_ckResults
+
+	program sum_bu_facvars_ckResults
+	program vce_bu_facvars_ckResults
+	program check_outlevel
+END
+PROGRAM check_outlevel
+BEGIN	
+	if cmdName.iseq("eoprobit") {
+		call main.tx_outlevel.show
+		call main.ed_outlevel.show
+	}
+	else {
+		call main.tx_outlevel.hide
+		call main.ed_outlevel.hide	
+	}
+END
+SCRIPT POSTINIT
+BEGIN
+	program parseMessage
+END
+
+PROGRAM parseMessage
+BEGIN
+	if __MESSAGE.contains("-teffects-") {
+		call main.lb_subcmd.setvalue "teffects"
+	}
+	if __MESSAGE.contains("-ic-") {
+		call main.lb_subcmd.setvalue "ic"
+	}
+	if __MESSAGE.contains("-summarize-") {
+		call main.lb_subcmd.setvalue "summarize"
+	}
+	if __MESSAGE.contains("-vce-") {
+		call main.lb_subcmd.setvalue "vce"
+	}
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	label(resource ERM_ESTAT_DLG_TITLE)
+BEGIN
+  TEXT tx_subcmd		_lft	_top	_iwd		.,	///
+	label(resource LBL_REPORTS_STATISTICS_SUBCOMMAND)
+  LISTBOX lb_subcmd		@	_ss	@		70,	///
+	contents(main_subcommand_contents)				///
+	values(main_subcommand_values)					///
+	onselchangelist(main_subcommand_scripts)
+
+  DEFINE holdy 110
+
+  RADIO rb_ate		_lft	holdy	_iwd			.,first	///
+	option(ate)							///
+	onclickon(program main_check_asf)				///
+	label(resource ERM_ESTAT_RB_ATE)
+
+  RADIO rb_atet		_lft	_ss	_iwd			.,	///
+	option(atet)							///
+	 onclickon(program main_check_asf)				///
+	label(resource ERM_ESTAT_RB_ATET) 
+  RADIO rb_pomean		_lft	_ss	_iwd		.,last	///
+	option(pomean)							///
+ 	onclickon(program main_check_asf)				///
+	label(resource ERM_ESTAT_RB_POMEAN)
+
+  TEXT tx_tlevel		_lft	_ms	_cwd2		.,	///
+	label(resource LBL_TREATMENT_LEVELS)
+  TEXT tx_outlevel		_lft2	@	_cwd2		.,	///
+	label(resource LBL_LEVELS_OF_ORDINAL_DEP_VARS)
+  EDIT ed_tlevel		_lft	_ss	_cwd3_2		.,	///
+	option(tlevel)							///
+	label(resource LBL_TREATMENT_LEVELS)
+
+  EDIT ed_outlevel		_lft2	@	_cwd3_2		.,	///
+	option(outlevel)						///
+	label(resource LBL_LEVELS_OF_ORDINAL_DEP_VARS)
+
+  CHECKBOX ck_subpop		_lft	_ls	_iwd		_ht4h,	///
+	groupbox							///
+	onclickon(script main_subpop_on)				///
+	onclickoff(script main_subpop_off)				///
+	label(resource LBL_SUBPOPULATION_ESTIMATION)
+  TEXT tx_subpop		_ilft	_ss	_cwd3_01	., 	///
+	label(resource LBL_INDICATOR_VARIABLE)
+DEFINE y @y
+  VARNAME vn_subpop		_ilft	_ss	_cwd3_2		.,	///
+	option(subpop)							///
+	numeric								///
+	label(resource LBL_INDICATOR_VARIABLE)
+  TEXT tx_subif		_lft3_02	y	_cwd3_01	.,	///
+	label(resource LBL_IF_EXPRESSION)
+  EXP ex_subif		_lft3_02	_ss	_comb3_1	.,	///
+	error(resource MARGINS_SUB_EX_SUBIF)				///
+	label(resource LBL_BU_CREATE)
+
+  DEFINE   _x  _lft
+  DEFINE   _cx _spr
+  DEFINE   _y  +45
+  INCLUDE  _sp_level	
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+  
+  BUTTON bu_facvars		@	_ls	200	.,		///
+	onpush("program main_bu_facvars_getOpts")			///
+	label(resource LBL_FACTOR_VARIABLE_DISPLAY_OPTIONS)
+
+  BUTTON bu_fmtcoef		_lft2	@	200	.,		///
+	onpush("program main_bu_fmtcoef_getOpts")			///
+	label(resource LBL_SET_TABLE_FORMATS) 
+
+  // Information criteria
+  CHECKBOX ck_n			_lft	holdy	_iwd	.,		///
+	onclickon(main.sp_n.enable)					///
+	onclickoff(main.sp_n.disable)					///
+	label(resource LBL_NUMBER_OBSERVATIONS_CALCULATING_BIC)
+  SPINNER sp_n			_indent2 _ss	_spwd	.,		///
+	default(e(N)) min(1) max(e(N))					///
+	option(n)
+
+  INCLUDE estat_sum
+  INCLUDE estat_vce
+END
+
+SCRIPT main_subpop_on
+BEGIN
+	main.tx_subpop.enable
+	main.tx_subif.enable
+	main.vn_subpop.enable
+	main.ex_subif.enable
+END
+
+SCRIPT main_subpop_off
+BEGIN
+	main.tx_subpop.disable
+	main.tx_subif.disable
+	main.vn_subpop.disable
+	main.ex_subif.disable
+END
+
+INCLUDE estat_sum_pr
+INCLUDE estat_vce_pr
+
+PROGRAM main_bu_facvars_getOpts
+BEGIN
+	call create CHILD factor_vars_rpt_estat_teffects AS main_bu_facvars
+	call main_bu_facvars.setExitString main_bu_facvarsResults
+	call main_bu_facvars.setExitAction "program main_bu_facvars_ckResults"
+	call main_bu_facvars.settitle resource LBL_FACTOR_VARIABLE_DISPLAY_OPTIONS
+END
+
+PROGRAM main_bu_facvars_ckResults
+BEGIN
+	if main_bu_facvarsResults {
+		call main.bu_facvars.modified_on
+	}
+	else {
+		call main.bu_facvars.modified_off
+	}
+END
+
+PROGRAM main_bu_fmtcoef_getOpts
+BEGIN
+	call create CHILD fmt_coef_table_reporting AS main_bu_fmtcoef
+	call main_bu_fmtcoef.setExitString main_bu_fmtcoefResults
+	call main_bu_fmtcoef.setExitAction "program main_bu_fmtcoef_ckResults"
+END
+
+PROGRAM main_bu_fmtcoef_ckResults
+BEGIN
+	if main_bu_fmtcoefResults {
+		call main.bu_fmtcoef.modified_on
+	}
+	else {
+		call main.bu_fmtcoef.modified_off
+	}
+END
+
+LIST main_subcommand_contents
+BEGIN
+	resource LBL_TREATMENT_EFFECT_POTENTIAL_MEANS_TEFFECTS
+	resource LBL_INFORMATION_CRITERIA
+	resource LBL_SUMMARIZE_ESTIMATION_SAMPLE
+	resource LBL_COVARIANCE_MATRIX_ESTIMATES
+END
+
+LIST main_subcommand_values
+BEGIN
+	teffects
+	ic
+	summarize
+	vce
+END
+
+LIST main_subcommand_scripts
+BEGIN
+	script sel_teffects
+	script sel_ic
+	script sel_summarize
+	script sel_vce
+END
+
+SCRIPT sel_teffects
+BEGIN
+	script main_hide_all
+	script main_teffects_on
+	
+END
+
+SCRIPT sel_ic
+BEGIN
+	script main_hide_all
+	main.ck_n.show
+	main.sp_n.show
+END
+
+SCRIPT sel_summarize
+BEGIN
+	script main_hide_all
+	program main_summ_on
+END
+
+SCRIPT sel_vce
+BEGIN
+	script main_hide_all
+	program vce_on
+END
+
+SCRIPT main_hide_all
+BEGIN
+	script main_teffects_off
+	main.ck_n.hide
+	main.sp_n.hide	
+	script main_summ_off
+	program vce_off
+END
+
+SCRIPT main_teffects_on
+BEGIN
+	main.rb_ate.show
+	main.rb_atet.show
+	main.rb_pomean.show
+	main.tx_tlevel.show
+	main.tx_outlevel.show
+	main.ed_tlevel.show
+	main.ed_outlevel.show
+	main.ck_subpop.show
+	main.tx_subpop.show
+	main.vn_subpop.show
+	main.tx_subif.show
+	main.ex_subif.show
+	main.sp_level.show
+	main.tx_level.show
+	main.rb_report_columns_dflt.show
+	main.rb_report_columns_noci.show
+	main.rb_report_columns_nopv.show
+	main.bu_facvars.show
+	main.bu_fmtcoef.show
+	program check_outlevel
+	program main_check_asf
+END
+
+SCRIPT main_teffects_off
+BEGIN
+	main.rb_ate.hide
+	main.rb_atet.hide
+	main.rb_pomean.hide
+	main.tx_tlevel.hide
+	main.tx_outlevel.hide
+	main.ed_tlevel.hide
+	main.ed_outlevel.hide
+	main.ck_subpop.hide
+	main.tx_subpop.hide
+	main.vn_subpop.hide
+	main.tx_subif.hide
+	main.ex_subif.hide
+	main.sp_level.hide
+	main.tx_level.hide
+	main.rb_report_columns_dflt.hide
+	main.rb_report_columns_noci.hide
+	main.rb_report_columns_nopv.hide
+	main.bu_facvars.hide
+	main.bu_fmtcoef.hide
+END
+
+PROGRAM main_teffects_output
+BEGIN
+	option radio (main rb_ate rb_atet rb_pomean)
+	optionarg main.ed_tlevel
+	optionarg main.ed_outlevel
+	if main.ck_subpop {
+		put "subpop("
+		if main.vn_subpop & main.ex_subif {
+			put main.vn_subpop " "
+			put "if "
+			put main.ex_subif
+		}
+		else {
+			if main.vn_subpop {
+				put main.vn_subpop
+			}
+			if main.ex_subif {
+				put "if "
+				put main.ex_subif
+			}
+		}
+		put ")"	
+	}
+	optionarg /hidedefault main.sp_level
+	option radio(main rb_report_columns_noci rb_report_columns_nopv)
+	if !H(main.bu_facvars) {
+		put " " main_bu_facvarsResults
+	}
+
+	if !H(main.bu_fmtcoef) {
+		put " " main_bu_fmtcoefResults
+	}
+END
+
+PROGRAM command
+BEGIN
+	put "estat "
+	put main.lb_subcmd
+	put " " /program summarize_output
+
+	beginoptions
+		//teffects options
+		put " " /program main_teffects_output
+  		// ic options
+		optionarg main.sp_n
+		
+		put " " /program summarize_opts_output
+		put " " /program vce_output
+	endoptions
+END

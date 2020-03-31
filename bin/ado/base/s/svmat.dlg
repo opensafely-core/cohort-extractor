@@ -1,0 +1,114 @@
+/*
+	svmat
+	
+*!  VERSION 1.2.0  13dec2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+INCLUDE _ht280
+INCLUDE header
+
+HELP hlp1, view("help svmat")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING matrixResult
+	setscale_hadj resource SVMAT_DLG_HSCALE
+END
+
+DIALOG main,label(resource SVMAT_DLG_TITLE)               		 /*
+		*/ tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  BUTTON   bu_matinput    _rj100   _top     100         .,		///
+	label(resource LBL_INPUT_MATRIX) onpush(program show_matrix_input)	///
+	tooltip(resource LBL_INPUT_HAND)
+
+  TEXT     tx_matname     _lft     _top     _vnwd       .,              /*
+                */ label(resource LBL_MATRIX_NAME_COLON)                
+
+  COMBOBOX cb_matname     @        _ss      @           .,              /*
+                */ label("")                                            /*
+                */ contents(matrix)                                     /*
+                */ dropdown                                             /*
+                */ error(resource LBL_MATRIX_NAME_COLON)
+  
+  GROUPBOX gb_name       _lft      +35      _iwd        _ht12,          /*
+                */ label(resource SVMAT_MAIN_GB_NAME)                        
+
+  RADIO    rb_default    _indent   _ss      _inwd       .,              /*
+    */ label(resource SVMAT_MAIN_RB_DEFAULT)    /*
+                */ first                                                /*
+                */ clickon("gaction main.ed_string.disable")            /*
+                */ option(NONE)
+  RADIO    rb_col        @         _ss      @           .,              /*
+                */ label(resource SVMAT_MAIN_RB_COL)                    /*
+                */ clickon("gaction main.ed_string.disable")            /*
+                */ option(col)
+
+  RADIO    rb_eqcol      @         _ss      @           .,              /*
+                */ label(resource SVMAT_MAIN_RB_EQCOL) /*
+                */ clickon("gaction main.ed_string.disable")            /*
+                */ option(eqcol)
+
+  RADIO    rb_matcol     @         _ss      @           .,              /*
+                */ label(resource SVMAT_MAIN_RB_MATCOL)   /*
+                */ clickon("gaction main.ed_string.disable")            /*
+                */ option(matcol)
+
+  RADIO    rb_string     @         _ss      @           .,              /*
+		*/label(resource SVMAT_MAIN_RB_STRING)/*
+                */ last                                                 /*
+                */ clickon("gaction main.ed_string.enable")             /*
+                */ option(NONE)
+
+  EDIT     ed_string     _indent2  _ss      _vnwd        .,             /*
+		*/ label(resource SVMAT_MAIN_ED_STRING)			/*
+                */ max(32)
+
+  DEFINE  _x  _lft
+  DEFINE  _y  _xls
+  DEFINE  _cx _iwd
+  INCLUDE _type
+END
+
+PROGRAM show_matrix_input
+BEGIN
+	call create CHILD matrix_input
+	if ! _rc {
+		call matrix_input.setExitString matrixResult
+		call matrix_input.setExitAction "program getMatrixResult"
+		call matrix_input.callthru "isChildContext.settrue"
+	}
+END
+PROGRAM getMatrixResult
+BEGIN
+	call main.cb_matname.repopulate
+	call main.cb_matname.setvalue class matrixResult.value
+END
+
+INCLUDE _type_list_all
+
+PROGRAM command
+BEGIN
+	require main.cb_matname 
+	put "svmat "
+	INCLUDE _type_pr
+	put main.cb_matname
+	beginoptions
+		if !main.rb_default {
+			put "names("
+			option radio(main rb_default rb_col rb_eqcol /*
+					*/ rb_matcol rb_string)
+			if main.rb_string {
+				require main.ed_string
+				put main.ed_string
+			}
+			put ")"
+		}
+	endoptions
+END
+

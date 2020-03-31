@@ -1,0 +1,692 @@
+/*
+  tebalance.dlg - 
+
+*!  VERSION 1.1.4  04dec2019
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_xwide
+DEFINE _dlght 370
+INCLUDE header
+
+HELP hlp1, view("help tebalance")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING STMP
+	create STRING ecmd
+	create STRING esubcmd
+	create DOUBLE eklevels
+	create DOUBLE missing
+	missing.setvalue .
+	ecmd.setvalue e(cmd)
+	esubcmd.setvalue e(subcmd)
+	eklevels.setvalue e(k_levels)
+	setscale_hadj resource TEBALANCE_DLG_HSCALE
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	if (eklevels.isgt(2) & eklevels.islt(missing)) {
+  		call main.rb_summarize.seton
+  		call main.rb_overid.disable
+	}
+	else {
+  		call main.rb_overid.enable
+	}
+	if (esubcmd.iseq("psmatch") | esubcmd.iseq("nnmatch")) {
+  		call main.rb_summarize.seton
+  		call main.rb_overid.disable
+  		call main.rb_box.enable
+	}
+	else {
+  		call main.rb_overid.enable
+  		call main.rb_box.disable
+	}
+	
+	if __MESSAGE.iseq("-summarize-") {
+		call main.rb_summarize.seton
+	}
+	if __MESSAGE.iseq("-overid-") {
+		if main.rb_overid.isenabled() {
+			call main.rb_overid.seton
+		}
+	}
+	if __MESSAGE.iseq("-box-") {
+		if main.rb_box.isenabled() {
+			call main.rb_box.seton
+		}
+		else {
+			call main.rb_density.seton
+		}
+	}
+	if __MESSAGE.iseq("-density-") {
+		call main.rb_density.seton
+	}
+
+	call STMP.format "resource LBL_LINE_FMT" "1" ""
+	call STMP.withvalue main_lineList.Arrpush "@"
+	call STMP.format "resource LBL_LINE_FMT" "2" ""
+	call STMP.withvalue main_lineList.Arrpush "@"
+	call STMP.format "resource LBL_LINE_FMT" "3" ""
+	call STMP.withvalue main_lineList.Arrpush "@"
+	call STMP.format "resource LBL_LINE_FMT" "4" ""
+	call STMP.withvalue main_lineList.Arrpush "@"
+	call STMP.format "resource LBL_LINE_FMT" "5" ""
+	call STMP.withvalue main_lineList.Arrpush "@"
+	call STMP.format "resource LBL_LINE_FMT" "6" ""
+	call STMP.withvalue main_lineList.Arrpush "@"
+	call STMP.format "resource LBL_LINE_FMT" "7" ""
+	call STMP.withvalue main_lineList.Arrpush "@"
+	call STMP.format "resource LBL_LINE_FMT" "8" ""
+	call STMP.withvalue main_lineList.Arrpush "@"
+
+	call main.lb_density_lineopts.repopulate
+END
+
+SCRIPT main_PREINIT
+BEGIN
+	create STRING main_linep1Results
+	create STRING main_linep2Results
+	create STRING main_linep3Results
+	create STRING main_linep4Results
+	create STRING main_linep5Results
+	create STRING main_linep6Results
+	create STRING main_linep7Results
+	create STRING main_linep8Results
+	create STRING main_linepectOutput
+	
+	create STRING tlevels
+	create ARRAY tmp
+	create STRING tmpstr
+END
+
+SCRIPT	main_POSTINIT
+BEGIN
+//	program main_checkLineResults
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN) title(resource TEBALANCE_DLG_TITLE)
+BEGIN
+  GROUPBOX gb_subcmd		_lft	_top	_iwd	_ht2,		///
+	label(resource TEBALANCE_MAIN_GB_SUBCMD)
+  RADIO rb_summarize		_indent	_ss	150	., first	///
+	option(summarize) 						///
+	onclickon("program main_summarize_on")				///
+	label(resource LBL_SUMMARIZE)
+  RADIO rb_overid		+150	@	@	., 		///
+	option(overid) 							///
+	onclickon("program main_overid_on")				///
+	label(resource TEBALANCE_MAIN_RB_OVERID)
+  RADIO rb_density		+150	@	@	., 		///
+	option(density)							///
+	onclickon("program main_density_on")				///
+	label(resource TEBALANCE_MAIN_RB_DENSITY)
+  RADIO rb_box			+150	@	@	., last		///
+	option(box)							///
+	onclickon("program main_box_on")				///
+	label(resource TEBALANCE_MAIN_RB_BOX)
+
+  // summarize options
+  TEXT tx_summ_vars		_lft	+45	_iwd	.,		///
+	label(resource LBL_VARIABLES)
+  DEFINE holdy @y
+  VARLIST vl_summ_vars		@	_ss	@	.,		///
+	numeric								///
+	label(resource LBL_VARIABLES)
+  CHECKBOX ck_baseline		_lft	_ls	_iwd	.,		///
+	option(baseline)						///
+	label(resource TEBALANCE_MAIN_CK_BASELINE)
+
+  // overid options
+  CHECKBOX ck_bconly		@	holdy	@	.,		///
+	option(bconly)							///
+	label(resource TEBALANCE_MAIN_CK_BCONLY)
+  CHECKBOX ck_nolog		@	_ms	@	.,		///
+	option(nolog)							///
+	label(resource TEBALANCE_MAIN_CK_NOLOG)
+  SPINNER sp_iter		@	_ls	_spwd	.,		///
+	option(iterate)							///
+	min(0) max(16000) default(c(maxiter))				///
+	label(resource LBL_MAXIMUM_ITERATIONS)
+  TEXT tx_iter			_spsep	@	_spr2	.,		///
+	label(resource LBL_MAXIMUM_ITERATIONS)
+
+  // density options
+  TEXT tx_density_var		_lft	holdy	_vnwd	.,		///
+	label(resource LBL_VARIABLE)
+  VARNAME vn_density_var	@	_ss	@	.,		///
+	numeric								///
+	label(resource LBL_VARIABLE)
+  TEXT tx_density_kernel	_lft2	holdy	200	.,		///
+	label(resource LBL_KERNEL_FUNCTION)
+  COMBOBOX cb_density_kernel	@	_ss	@	.,		///
+	dropdownlist							///
+	option(kernel)							///
+	default(epanechnikov)						///
+	contents(main_kernel_list)					///
+	values(main_kernel_values)					///
+	label(resource LBL_KERNEL_FUNCTION)
+
+  TEXT tx_density_lineopts	_lft	_ls	_vnwd	.,		///
+	label(resource TEBALANCE_MAIN_TX_DENSITY_LINEOPTS)
+  DEFINE holdy2 @y
+  LISTBOX lb_density_lineopts	@	_ss	_vnwd	135,		///
+	contents(main_lineList)						///
+	values(main_lineList_values)					///
+	onselchange(program main_lineList_sel)
+  DEFINE y @y
+  BUTTON bu_linep_1		_vnsep	y	@	.,		///
+	label(resource LBL_GB_LINE_PROPERTIES)				///
+	onpush(program main_showLineDialog)
+  BUTTON bu_linep_2		@	@	@	.,		///
+	label(resource LBL_GB_LINE_PROPERTIES)				///
+	onpush(program main_showLineDialog)
+  BUTTON bu_linep_3		@	@	@	.,		///
+	label(resource LBL_GB_LINE_PROPERTIES)				///
+	onpush(program main_showLineDialog)
+  BUTTON bu_linep_4		@	@	@	.,		///
+	label(resource LBL_GB_LINE_PROPERTIES)				///
+	onpush(program main_showLineDialog)
+  BUTTON bu_linep_5		@	@	@	.,		///
+	label(resource LBL_GB_LINE_PROPERTIES)				///
+	onpush(program main_showLineDialog)
+  BUTTON bu_linep_6		@	@	@	.,		///
+	label(resource LBL_GB_LINE_PROPERTIES)				///
+	onpush(program main_showLineDialog)
+  BUTTON bu_linep_7		@	@	@	.,		///
+	label(resource LBL_GB_LINE_PROPERTIES)				///
+	onpush(program main_showLineDialog)
+  BUTTON bu_linep_8		@	@	@	.,		///
+	label(resource LBL_GB_LINE_PROPERTIES)				///
+	onpush(program main_showLineDialog)
+
+  TEXTBOX tb_main_note		_lft	180	_iwd	_tb3,		///
+	label(resource TEBALANCE_MAIN_TB_MAIN_NOTE)
+  TEXT tx_density_bwidth	_lft2	holdy2	_vnwd	.,		///
+	label(resource TEBALANCE_MAIN_TX_DENSITY_BWIDTH)
+  EDIT ed_density_bwidth	@	_ss	@	.,		///
+	numonly								///
+	option(bwidth)							///
+	label(resource TEBALANCE_MAIN_TX_DENSITY_BWIDTH)
+
+  // box options
+  TEXT tx_box_var		_lft	holdy	_vnwd	.,		///
+	label(resource LBL_VARIABLE_OPTIONAL)
+  VARNAME vn_box_var		@	_ss	@	.,		///
+	numeric								///
+	label(resource LBL_VARIABLE)
+
+END
+
+PROGRAM main_summarize_on
+BEGIN
+	call script main_hide_all
+	call main.tx_summ_vars.show
+	call main.vl_summ_vars.show
+	call main.ck_baseline.show
+	call script gr_boxes_disable
+	call script gr_box_markers_disable
+	call script gr_yaxis_disable
+	call script gr_xaxis_disable
+	call script gr_titles_disable
+	call script gr_legend_disable
+	call script gr_overall_disable
+//	call script gr_byopts_disable
+END
+
+PROGRAM main_overid_on
+BEGIN
+	call script main_hide_all
+	call main.ck_bconly.show
+	call main.ck_nolog.show
+	call main.sp_iter.show
+	call main.tx_iter.show
+	call script gr_boxes_disable
+	call script gr_box_markers_disable
+	call script gr_yaxis_disable
+	call script gr_xaxis_disable
+	call script gr_titles_disable
+	call script gr_legend_disable
+	call script gr_overall_disable
+//	call script gr_byopts_disable
+END
+
+PROGRAM main_density_on
+BEGIN
+	call script main_hide_all
+	call main.tx_density_var.show
+	call main.vn_density_var.show
+	call main.tx_density_kernel.show
+	call main.cb_density_kernel.show
+	call main.tx_density_bwidth.show
+	call main.ed_density_bwidth.show
+	call main.tx_density_lineopts.show
+	call main.lb_density_lineopts.show
+	call script gr_boxes_disable
+	call script gr_box_markers_disable
+	call script gr_yaxis_enable
+	call script gr_xaxis_enable
+	call script gr_titles_enable
+	call script gr_legend_enable
+	call script gr_overall_enable
+//	call script gr_byopts_enable
+        call script gr_yaxis_setByoptsContext_on
+        call script gr_xaxis_setByoptsContext_on
+        call script gr_titles_setByoptsContext_on
+        call script gr_legend_setByoptsContext_on
+        call script gr_overall_setByoptsContext_on
+        call script gr_legend_setContour_off
+END
+
+PROGRAM main_box_on
+BEGIN
+	call script main_hide_all
+	call main.tx_box_var.show
+	call main.vn_box_var.show
+	call main.vn_box_var.show
+	call script gr_boxes_enable
+	call script gr_box_markers_enable
+	call script gr_yaxis_enable
+	call script gr_xaxis_disable
+	call script gr_titles_enable
+	call script gr_legend_enable
+	call script gr_overall_enable
+//	call script gr_byopts_enable
+        call script gr_yaxis_setByoptsContext_on
+        call script gr_xaxis_setByoptsContext_on
+        call script gr_titles_setByoptsContext_on
+        call script gr_legend_setByoptsContext_on
+        call script gr_legend_setContour_off
+        call script gr_overall_setByoptsContext_on
+END
+
+SCRIPT main_hide_all
+BEGIN
+	main.tx_summ_vars.hide
+	main.vl_summ_vars.hide
+	main.tx_box_var.hide
+	main.vn_box_var.hide
+	main.ck_baseline.hide
+	main.ck_bconly.hide
+	main.ck_nolog.hide
+	main.sp_iter.hide
+	main.tx_iter.hide
+	main.tx_density_var.hide
+	main.vn_density_var.hide
+	main.tx_density_kernel.hide
+	main.cb_density_kernel.hide
+	main.tx_density_bwidth.hide
+	main.ed_density_bwidth.hide
+	main.tx_density_lineopts.hide
+	main.lb_density_lineopts.hide
+	program main_lineList_sel
+	main.tb_main_note.hide
+END
+
+LIST main_kernel_list
+BEGIN
+	resource LBL_EPANECHNIKOV
+	resource LBL_TRIANGLE
+	resource LBL_ALTERNATIVE_EPANECHNIKOV
+	resource LBL_BIWEIGHT
+	resource LBL_COSINE_TRACE
+	resource LBL_GAUSSIAN
+	resource LBL_PARZEN
+	resource LBL_RECTANGLE
+END
+
+LIST main_kernel_values
+BEGIN
+	epanechnikov
+	triangle
+	epan2
+	biweight
+	cosine
+	gaussian
+	parzen
+	rectangle
+END
+
+/* line#opts */
+LIST main_lineList
+BEGIN
+END
+
+LIST main_lineList_values
+BEGIN
+	"line1"
+	"line2"
+	"line3"
+	"line4"
+	"line5"
+	"line6"
+	"line7"
+	"line8"
+END
+
+SCRIPT main_hide_buttons
+BEGIN
+	main.bu_linep_1.hide
+	main.bu_linep_2.hide
+	main.bu_linep_3.hide
+	main.bu_linep_4.hide
+	main.bu_linep_5.hide
+	main.bu_linep_6.hide
+	main.bu_linep_7.hide
+	main.bu_linep_8.hide
+END
+
+PROGRAM main_lineList_sel
+BEGIN
+	call script main_hide_buttons
+	if (main.rb_density) {
+		if main.lb_density_lineopts.iseq("line1") {
+			call main.bu_linep_1.show
+		}
+		if main.lb_density_lineopts.iseq("line2") {
+			call main.bu_linep_2.show
+		}
+		if main.lb_density_lineopts.iseq("line3") {
+			call main.bu_linep_3.show
+		}
+		if main.lb_density_lineopts.iseq("line4") {
+			call main.bu_linep_4.show
+		}
+		if main.lb_density_lineopts.iseq("line5") {
+			call main.bu_linep_5.show
+		}
+		if main.lb_density_lineopts.iseq("line6") {
+			call main.bu_linep_6.show
+		}
+		if main.lb_density_lineopts.iseq("line7") {
+			call main.bu_linep_7.show
+		}
+		if main.lb_density_lineopts.iseq("line8") {
+			call main.bu_linep_8.show
+		}
+	}
+END
+
+PROGRAM main_showLineDialog
+BEGIN
+	if main.lb_density_lineopts.iseq("line1") {
+		call create CHILD gr_line_options AS			///
+			main_linepDLG_1, allowsubmit
+		call STMP.format "resource LBL_LINE_FMT"		///
+			"1" "resource LBL_PROPERTIES_LOWERCASE"
+		call STMP.withvalue main_linepDLG_1.settitle "@"
+		call main_linepDLG_1.setExitString			///
+			main_linep1Results
+		call main_linepDLG_1.setExitAction			///
+			"program main_checkLineResults"
+		call main_linepDLG_1.setSubmitAction			///
+			"program main_LineSubmit"
+	}
+	if main.lb_density_lineopts.iseq("line2") {
+		call create CHILD gr_line_options AS			///
+			main_linepDLG_2, allowsubmit
+		call STMP.format "resource LBL_LINE_FMT"		///
+			"2" "resource LBL_PROPERTIES_LOWERCASE"
+		call STMP.withvalue main_linepDLG_2.settitle "@"
+		call main_linepDLG_2.setExitString			///
+			main_linep2Results
+		call main_linepDLG_2.setExitAction			///
+			"program main_checkLineResults"
+		call main_linepDLG_2.setSubmitAction			///
+			"program main_LineSubmit"
+	}
+	if main.lb_density_lineopts.iseq("line3") {
+		call create CHILD gr_line_options AS			///
+			main_linepDLG_3, allowsubmit
+		call STMP.format "resource LBL_LINE_FMT"		///
+			"3" "resource LBL_PROPERTIES_LOWERCASE"
+		call STMP.withvalue main_linepDLG_3.settitle "@"
+		call main_linepDLG_3.setExitString			///
+			main_linep3Results
+		call main_linepDLG_3.setExitAction			///
+			"program main_checkLineResults"
+		call main_linepDLG_3.setSubmitAction			///
+			"program main_LineSubmit"
+	}
+	if main.lb_density_lineopts.iseq("line4") {
+		call create CHILD gr_line_options AS			///
+			main_linepDLG_4, allowsubmit
+		call STMP.format "resource LBL_LINE_FMT"		///
+			"4" "resource LBL_PROPERTIES_LOWERCASE"
+		call STMP.withvalue main_linepDLG_4.settitle "@"
+		call main_linepDLG_4.setExitString			///
+			main_linep4Results
+		call main_linepDLG_4.setExitAction			///
+			"program main_checkLineResults"
+		call main_linepDLG_4.setSubmitAction			///
+			"program main_LineSubmit"
+	}
+	if main.lb_density_lineopts.iseq("line5") {
+		call create CHILD gr_line_options AS			///
+			main_linepDLG_5, allowsubmit
+		call STMP.format "resource LBL_LINE_FMT"		///
+			"5" "resource LBL_PROPERTIES_LOWERCASE"
+		call STMP.withvalue main_linepDLG_5.settitle "@"
+		call main_linepDLG_5.setExitString			///
+			main_linep5Results
+		call main_linepDLG_5.setExitAction			///
+			"program main_checkLineResults"
+		call main_linepDLG_5.setSubmitAction			///
+			"program main_LineSubmit"
+	}
+	if main.lb_density_lineopts.iseq("line6") {
+		call create CHILD gr_line_options AS			///
+			main_linepDLG_6, allowsubmit
+		call STMP.format "resource LBL_LINE_FMT"		///
+			"6" "resource LBL_PROPERTIES_LOWERCASE"
+		call STMP.withvalue main_linepDLG_6.settitle "@"
+		call main_linepDLG_6.setExitString			///
+			main_linep6Results
+		call main_linepDLG_6.setExitAction			///
+			"program main_checkLineResults"
+		call main_linepDLG_6.setSubmitAction			///
+			"program main_LineSubmit"
+	}
+	if main.lb_density_lineopts.iseq("line7") {
+		call create CHILD gr_line_options AS			///
+			main_linepDLG_7, allowsubmit
+		call STMP.format "resource LBL_LINE_FMT"		///
+			"7" "resource LBL_PROPERTIES_LOWERCASE"
+		call STMP.withvalue main_linepDLG_7.settitle "@"
+		call main_linepDLG_7.setExitString			///
+			main_linep7Results
+		call main_linepDLG_7.setExitAction			///
+			"program main_checkLineResults"
+		call main_linepDLG_7.setSubmitAction			///
+			"program main_LineSubmit"
+	}
+	if main.lb_density_lineopts.iseq("line8") {
+		call create CHILD gr_line_options AS			///
+			main_linepDLG_8, allowsubmit
+		call STMP.format "resource LBL_LINE_FMT"		///
+			"8" "resource LBL_PROPERTIES_LOWERCASE"
+		call STMP.withvalue main_linepDLG_8.settitle "@"
+		call main_linepDLG_8.setExitString			///
+			main_linep8Results
+		call main_linepDLG_8.setExitAction			///
+			"program main_checkLineResults"
+		call main_linepDLG_8.setSubmitAction			///
+			"program main_LineSubmit"
+	}
+END
+
+PROGRAM main_checkLineResults
+BEGIN
+	if main_linep1Results.iseq("") {
+		call main.bu_linep_1.modified_off
+		}
+		else {
+			call main.bu_linep_1.modified_on
+	}
+	if main_linep2Results.iseq("") {
+			call main.bu_linep_2.modified_off
+		}
+		else {
+			call main.bu_linep_2.modified_on
+		}
+	if main_linep3Results.iseq("") {
+			call main.bu_linep_3.modified_off
+		}
+		else {
+			call main.bu_linep_3.modified_on
+		}
+	if main_linep4Results.iseq("") {
+			call main.bu_linep_4.modified_off
+		}
+		else {
+			call main.bu_linep_4.modified_on
+		}
+	if main_linep5Results.iseq("") {
+			call main.bu_linep_5.modified_off
+		}
+		else {
+			call main.bu_linep_5.modified_on
+		}
+	if main_linep6Results.iseq("") {
+			call main.bu_linep_6.modified_off
+		}
+		else {
+			call main.bu_linep_6.modified_on
+		}
+	if main_linep7Results.iseq("") {
+			call main.bu_linep_7.modified_off
+		}
+		else {
+			call main.bu_linep_7.modified_on
+		}
+	if main_linep8Results.iseq("") {
+			call main.bu_linep_8.modified_off
+		}
+		else {
+			call main.bu_linep_8.modified_on
+		}
+END
+
+PROGRAM main_LineSubmit
+BEGIN
+	call program main_checkLineResults
+	call Submit
+END
+
+PROGRAM main_linepect_output
+BEGIN
+	if (main_linep1Results) {
+		call main_linepectOutput.append " line1opts("
+		call main_linepectOutput.append class			///
+			main_linep1Results.value
+		call main_linepectOutput.append ")"
+	}
+	if (main_linep2Results) {
+		call main_linepectOutput.append " line2opts("
+		call main_linepectOutput.append class			///
+			main_linep2Results.value
+		call main_linepectOutput.append ")"
+	}
+	if (main_linep3Results) {
+		call main_linepectOutput.append " line3opts("
+		call main_linepectOutput.append class			///
+			main_linep3Results.value
+		call main_linepectOutput.append ")"
+	}
+	if (main_linep4Results) {
+		call main_linepectOutput.append " line4opts("
+		call main_linepectOutput.append class			///
+			main_linep4Results.value
+		call main_linepectOutput.append ")"
+	}
+	if (main_linep5Results) {
+		call main_linepectOutput.append " line5opts("
+		call main_linepectOutput.append class			///
+			main_linep5Results.value
+		call main_linepectOutput.append ")"
+	}
+	if (main_linep6Results) {
+		call main_linepectOutput.append " line6opts("
+		call main_linepectOutput.append class			///
+			main_linep6Results.value
+		call main_linepectOutput.append ")"
+	}
+	if (main_linep7Results) {
+		call main_linepectOutput.append " line7opts("
+		call main_linepectOutput.append class			///
+			main_linep7Results.value
+		call main_linepectOutput.append ")"
+	}
+	if (main_linep8Results) {
+		call main_linepectOutput.append " line8opts("
+		call main_linepectOutput.append class			///
+			main_linep8Results.value
+		call main_linepectOutput.append ")"
+	}
+END
+
+PROGRAM lineopts_output
+BEGIN
+	call main_linepectOutput.setvalue ""
+
+	if (main_linep1Results | main_linep2Results |			///
+		main_linep3Results | main_linep4Results |		///
+		main_linep5Results | main_linep6Results |		///
+		main_linep7Results | main_linep8Results) {
+		call program main_linepect_output
+		put main_linepectOutput
+	}
+END
+
+INCLUDE gr_boxes
+INCLUDE gr_box_markers
+INCLUDE gr_yaxis
+INCLUDE gr_xaxis
+INCLUDE gr_titles
+INCLUDE gr_legend
+INCLUDE gr_overall
+//INCLUDE gr_byopts
+
+PROGRAM command
+BEGIN
+	put "tebalance"
+	option radio(main rb_summarize rb_overid rb_density rb_box)
+	put main.vl_summ_vars
+	if main.rb_density {
+		if esubcmd.isneq("psmatch") {
+			require main.vn_density_var
+		}
+		put main.vn_density_var
+	}
+	put main.vn_box_var
+	beginoptions
+		option main.ck_baseline
+		option main.ck_bconly
+		option main.ck_nolog
+		optionarg /hidedefault main.sp_iter
+		optionarg /hidedefault main.cb_density_kernel
+		if main.ed_density_bwidth & main.ed_density_bwidth.isvisible() {
+			put " bwidth(*"
+			put main.ed_density_bwidth
+			put ")"
+		}
+		if main.rb_density {
+			put " " /program lineopts_output
+		}
+		
+		if main.rb_box {
+			put " " /program gr_boxes_output
+			put " " /program gr_box_markers_output
+		}
+		put " " /program gr_yaxis_output
+		put " " /program gr_xaxis_output
+		put " " /program gr_titles_output
+		put " " /program gr_legend_output
+		put " " /program gr_overall_output
+//		put " " /program gr_byopts_output
+	endoptions
+END

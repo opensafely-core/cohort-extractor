@@ -1,0 +1,169 @@
+/*
+	sg__opts_newcovs
+
+*!  VERSION 1.1.0  18nov2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+DEFINE _dlght 220
+INCLUDE header
+HELP hlp1, view("help sem option covstructure")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING main_matrixResult
+	setscale_hadj resource SG__OPTS_NEWCOVS_DLG_HSCALE
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	if  __MESSAGE {
+		call main.tx_groupid.hide
+		call main.ed_groupid.hide
+		call main.tx_vars.setposition . 60
+		call main.cb_vars.setposition . 80
+		call main.tx_structure.setposition . 110
+		call main.cb_structure.setposition . 130
+		call main.tx_matname.setposition . 110 
+		call main.cb_matname.setposition . 130
+		call main.bu_matinput.setposition . 130
+	}
+END
+
+DIALOG main, label("") tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  RADIO rb_error		_lft	_top	_iwd	., first	///
+	onclickon(script main_error_on)					///
+	label(resource LBL_ERROR_VARIABLES)
+  RADIO rb_exogenous		@	_ss	@	., last		///
+	onclickon(script main_exogenous_on)				///
+	label(resource LBL_EXOGENOUS_VARIABLES_NO_COLON)
+
+  TEXT tx_groupid		_lft	_ls	_vnwd	.,		///
+	label(resource SG__OPTS_NEWCOVS_MAIN_TX_GROUPID)
+  EDIT ed_groupid		@	_ss	@	.,		///
+	label(resource SG__OPTS_NEWCOVS_MAIN_ED_GROUPID)
+  TEXT tx_vars			@	_ls	_iwd	.,		///
+	label(resource LBL_ERROR_VARIABLES_COLON)
+  COMBOBOX cb_vars		@	_ss	@	.,		///
+	dropdown							///
+	append								///
+	contents(main_exog_vars_list)					///
+	label(resource LBL_ERROR_VARIABLES)
+  TEXT tx_structure		@	_ls	150	.,		///
+	label(resource SG__OPTS_NEWCOVS_MAIN_TX_STRUCTURE)
+  DEFINE holdy @y
+  COMBOBOX cb_structure		@	_ss	@	.,		///
+	dropdownlist							///
+	contents(main_structure_list)					///
+	values(main_structure_values)					///
+	onselchange("program main_structure_selChange")			/// 
+	label(resource SG__OPTS_NEWCOVS_MAIN_TX_STRUCTURE)
+  TEXT tx_matname		+160	holdy	120	.,		///
+	label(resource LBL_MATRIX_NAME_COLON)
+  COMBOBOX cb_matname		@	_ss	@	.,		///
+	dropdown							///
+	contents(matrix)						///
+	error(resource LBL_MATRIX_NAME_COLON)
+  BUTTON bu_matinput		+125	@	100	.,		///
+	onpush(program show_matrix_input)				///
+	tooltip(resource LBL_INPUT_HAND)				///
+	label(resource LBL_INPUT_MATRIX)
+END
+
+SCRIPT main_error_on
+BEGIN
+	main.tx_vars.setlabel resource LBL_ERROR_VARIABLES_COLON
+	main.cb_vars.setcontentslist ".__SEMG.dbsettings.errvars" 
+	main.cb_vars.repopulate
+
+END
+
+SCRIPT main_exogenous_on
+BEGIN
+	main.tx_vars.setlabel resource LBL_EXOGENOUS_VARIABLES
+	main.cb_vars.setcontentslist ".__SEMG.dbsettings.exogvars" 
+	main.cb_vars.repopulate
+END
+
+LIST main_structure_list
+BEGIN
+	Diagonal
+	Unstructured
+	Identity
+	Exchangeable
+	Zero
+	Pattern
+	Fixed
+END
+
+LIST main_structure_values
+BEGIN
+	diagonal
+	unstructured
+	identity
+	exchangeable
+	zero
+	pattern
+	fixed
+END
+
+PROGRAM main_structure_selChange
+BEGIN
+	if main.cb_structure.iseq("pattern") | main.cb_structure.iseq("fixed") {
+		call main.tx_matname.show
+		call main.cb_matname.show
+		call main.bu_matinput.show
+	}
+	else {
+		call main.tx_matname.hide
+		call main.cb_matname.hide
+		call main.bu_matinput.hide
+	}
+END
+
+PROGRAM show_matrix_input
+BEGIN
+	call create CHILD matrix_input
+	if ! _rc {
+		call matrix_input.setExitString main_matrixResult
+		call matrix_input.setExitAction "program getMatrixResult"
+		call matrix_input.callthru "isChildContext.settrue"
+	}
+END
+
+PROGRAM getMatrixResult
+BEGIN
+	call main.cb_matname.repopulate
+	call main.cb_matname.setvalue class matrixResult.value
+END
+
+PROGRAM main_output
+BEGIN
+	if main.ed_groupid {
+		put  main.ed_groupid ":"
+	}
+	require main.cb_vars
+	put " " main.cb_vars " , "
+	if main.cb_structure.iseq("pattern") {
+		require main.cb_matname
+		put "pattern(" main.cb_matname ")"
+	}
+	if main.cb_structure.iseq("fixed") {
+		require main.cb_matname
+		put "fixed(" main.cb_matname ")"
+	}
+	if !main.cb_structure.iseq("pattern") & 			///
+		!main.cb_structure.iseq("fixed") {
+		put main.cb_structure
+	}
+END
+
+PROGRAM command
+BEGIN
+	put "covstructure(" /program main_output ")"
+END

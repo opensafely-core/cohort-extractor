@@ -1,0 +1,278 @@
+/*
+  gls_gms_opts - dialog tab for acprplot and cprplot 
+
+*!  VERSION 1.2.3  10dec2019
+
+*/
+
+SCRIPT opts_PREINIT
+BEGIN
+	create STRING lowessLineResults	
+	create STRING splineLineResults	
+END
+
+SCRIPT opts_POSTINIT
+BEGIN
+	program checkLowessLineResults
+	program checkSplineLineResults
+END
+
+DIALOG opts, tabtitle(resource LBL_OPTIONS)
+BEGIN
+  GROUPBOX gb_lowess		_lft	_top	_iwd	_ht10h,		///
+  	label(resource LBL_LOWESS)
+
+  CHECKBOX ck_lowess		_ilft	_ms	230	.,		///
+	label(resource LBL_ADD_LOWESS_SMOOTH_PLOT)			///
+ 	onclickon(program glsopts_check)				///
+ 	onclickoff(program glsopts_check)				///
+ 	option(lowess)							///
+ 
+  BUTTON bu_lowess_line		+240	 @	120	.,		///
+	label(resource LBL_GB_LINE_PROPERTIES)				///
+	onpush(script show_lowess_line_dialog)				///
+	tooltip(resource GLS_GMS_OPTS_SUBDLG_TITLE)
+  DEFINE x @x
+
+  GROUPBOX gb_lowess_meth     _ilft     +25      _ibwd     _ht4h,	///
+	label(resource LBL_SMOOTHING_OPTIONS)
+  
+  CHECKBOX ck_mean	     _indent    _ss      _cwd3   .,		///
+	label(resource LBL_RUNNING_MEAN_SMOOTH)				///
+	option(mean)
+
+  CHECKBOX ck_bwidth	     _lft2	 @	 _cwd3	     .,		///
+  	label(resource LBL_OVERRIDE_DEFAULT_BANDWIDTH) 			///
+  	onclickon(script lowess_bandwidth_on) 				///
+  	onclickoff(script lowess_bandwidth_off)
+  EDIT     en_bwidth	     _iilft2	_ss	 _en7wd	   .,		///
+	label(resource LBL_BANDWIDTH)					///
+	default("literal 0.8")						///
+	numonly								///
+	option(bwidth)
+  TEXT     tx_bwidth	     _en7sep     @        _en7r3b   .,		///
+	label(resource LBL_BANDWIDTH)
+	
+  CHECKBOX ck_weight	     _iilft     +5	 _cwd3   .,		///
+	label(resource LBL_SUPPRESS_WEIGHTED_REGRESSIONS)		///
+	option(noweight)
+
+  GROUPBOX gb_spline	     _lft	+55	  _iwd 	    _ht11h,	///
+  	label(resource LBL_SPLINE) 
+  	
+  CHECKBOX ck_spline		_ilft	_ms	  230 	    .,		///
+	label(resource GLS_GMS_OPTS_OPTS_CK_SPLINE)			///
+	onclickon(program gmsopts_check)				///
+	onclickoff(program gmsopts_check)				///
+	option(mspline)
+  DEFINE y @y
+
+  BUTTON bu_spline_line		x	y	120	.,		///
+	label(resource LBL_GB_LINE_PROPERTIES)				///
+	onpush(script show_spline_line_dialog)				///
+	tooltip(resource GLS_GMS_OPTS_OPTS_BU_SPLINE_LINE)
+
+  GROUPBOX gb_spline_meth     _ilft     +25       _ibwd     _ht5h,	///
+	label(resource LBL_SMOOTHING_OPTIONS)
+  CHECKBOX ck_bands	     _indent   _ms       _ckwd     .,		///
+	onclickon(program gmsopts_bands_check)				///
+	onclickoff(program gmsopts_bands_check)
+  DEFINE x @x
+  SPINNER  sp_bands	     _cksep    @         _spwd     .,		///
+	label(resource LBL_NUMBER_CROSS_MEDIAN_KNOTS)			///
+	min(3) max(200) default(literal 3) option(bands)
+  TEXT     tx_bands	     _spsep    @         300       .,		///
+	label(resource LBL_NUMBER_CROSS_MEDIAN_KNOTS)
+
+  CHECKBOX ck_n		     x         _ms       _ckwd     .,		///
+	onclickon(program gmsopts_n_check)				///
+	onclickoff(program gmsopts_n_check)
+  SPINNER  sp_n		     _cksep    @         _spwd     .,		///
+	label(resource LBL_NUMBER_POINTS_BETWEEN_KNOTS)			///
+	min(1) max(1000) default(literal 10) option(n)
+  TEXT     tx_n		     _spsep    @         300       .,		///
+	label(resource LBL_NUMBER_POINTS_BETWEEN_KNOTS)
+END
+
+SCRIPT lowess_bandwidth_on
+BEGIN
+	opts.en_bwidth.enable
+	opts.tx_bwidth.enable
+END
+SCRIPT lowess_bandwidth_off
+BEGIN
+	opts.en_bwidth.disable
+	opts.tx_bwidth.disable
+END
+
+SCRIPT show_lowess_line_dialog
+BEGIN
+	create CHILD gr_line_options AS lowessLine, allowsubmit
+	lowessLine.setExitString lowessLineResults
+	lowessLine.settitle resource GLS_GMS_OPTS_SUBDLG_TITLE
+	lowessLine.setExitAction "program checkLowessLineResults"
+	lowessLine.setSubmitAction "program lowessLineSubmit"
+END
+
+PROGRAM checkLowessLineResults
+BEGIN
+	if lowessLineResults.iseq("") {
+		call opts.bu_lowess_line.modified_off
+	}
+	if ! lowessLineResults.iseq("") {
+		call opts.bu_lowess_line.modified_on
+	}
+END
+PROGRAM lowessLineSubmit
+BEGIN
+	call program checkLowessLineResults
+	call Submit
+END
+
+PROGRAM glsopts_check
+BEGIN
+	if !H(opts.ck_lowess) & opts.ck_lowess {
+		// smoothing options
+		call opts.bu_lowess_line.enable
+		call opts.gb_lowess_meth.enable
+		call opts.ck_mean.enable
+		call opts.ck_weight.enable
+		call opts.ck_bwidth.enable
+		if opts.ck_bwidth {
+			call opts.en_bwidth.enable
+			call opts.tx_bwidth.enable
+		}
+	}
+	if H(opts.ck_lowess) | ! opts.ck_lowess {
+		// smoothing options
+		call opts.bu_lowess_line.disable
+		call opts.gb_lowess_meth.disable
+		call opts.ck_mean.disable
+		call opts.ck_weight.disable
+		call opts.ck_bwidth.disable
+		call opts.en_bwidth.disable
+		call opts.tx_bwidth.disable
+	}
+END
+
+PROGRAM glsopts_options
+BEGIN
+	option opts.ck_mean
+	option opts.ck_weight
+	if opts.ck_bwidth {
+		require opts.en_bwidth
+	}
+	optionarg opts.en_bwidth
+	put " " lowessLineResults " "
+END
+
+SCRIPT show_spline_line_dialog
+BEGIN
+	create CHILD gr_line_options AS splineLine, allowsubmit
+	splineLine.setExitString splineLineResults
+	splineLine.settitle resource GLS_GMS_OPTS_OPTS_BU_SPLINE_LINE
+	splineLine.setExitAction "program checkSplineLineResults"
+	splineLine.setSubmitAction "program splineLineSubmit"
+END
+
+PROGRAM checkSplineLineResults
+BEGIN
+	if splineLineResults.iseq("") {
+		call opts.bu_spline_line.modified_off
+	}
+	if ! splineLineResults.iseq("") {
+		call opts.bu_spline_line.modified_on
+	}
+END
+
+PROGRAM splineLineSubmit
+BEGIN
+	call program checkSplineLineResults
+	call Submit
+END
+
+PROGRAM gmsopts_bands_check
+BEGIN
+	if !H(opts.ck_bands) & opts.ck_bands {
+		call gaction opts.sp_bands.enable
+	}
+	if H(opts.ck_bands) | ! opts.ck_bands {
+		call gaction opts.sp_bands.disable
+	}
+END
+
+PROGRAM gmsopts_n_check
+BEGIN
+	if !H(opts.ck_n) & opts.ck_n {
+		call gaction opts.sp_n.enable
+	}
+	if H(opts.ck_n) | ! opts.ck_n {
+		call gaction opts.sp_n.disable
+	}
+END
+
+PROGRAM gmsopts_check
+BEGIN
+	if !H(opts.ck_spline) & opts.ck_spline {
+		// smoothing options
+		call gaction opts.bu_spline_line.enable
+		call gaction opts.gb_spline_meth.enable
+		call gaction opts.ck_bands.enable
+		call program gmsopts_bands_check
+		call gaction opts.tx_bands.enable
+		call gaction opts.ck_n.enable
+		call program gmsopts_n_check
+		call gaction opts.tx_n.enable
+	}
+	if H(opts.ck_spline) | ! opts.ck_spline {
+		// smoothing options
+		call gaction opts.bu_spline_line.disable
+		call gaction opts.gb_spline_meth.disable
+		call gaction opts.ck_bands.disable
+		call program gmsopts_bands_check
+		call gaction opts.tx_bands.disable
+		call gaction opts.ck_n.disable
+		call program gmsopts_n_check
+		call gaction opts.tx_n.disable
+	}
+END
+
+PROGRAM gmsopts_options
+BEGIN
+	if opts.ck_bands {
+		optionarg opts.sp_bands
+	}
+	if opts.ck_n {
+		optionarg opts.sp_n
+	}
+	put " " splineLineResults " "
+END
+
+PROGRAM gls_gms_opts_output
+BEGIN
+	option opts.ck_lowess
+	if opts.ck_lowess	& 	///
+	   !D(opts.ck_lowess) & 	///
+	   ( opts.ck_mean	| 	///
+	     opts.ck_weight	| 	///
+	     opts.ck_bwidth	| 	///
+	     lowessLineResults          ///
+	   )				///
+	{
+		put " " "lsopts("
+		put /program glsopts_options
+		put ")"
+	}
+
+	option opts.ck_spline
+	if opts.ck_spline	 &	///
+	   !H(opts.ck_spline) &  	///
+	   ( opts.ck_bands	 |	///
+	     opts.ck_n     	 |	///
+	     splineLineResults		///
+	   ) {
+		put " " "msopts("
+		put /program gmsopts_options
+		put ")"
+	}
+END

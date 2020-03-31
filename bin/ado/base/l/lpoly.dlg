@@ -1,0 +1,437 @@
+/*
+    lpoly.dlg 
+
+*!  VERSION 1.1.1  17may2017
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_wide
+DEFINE  _dlgwd 725 // _dlgwd 725 is minimum size due to number of tabs (MAC)
+DEFINE  _dlght 390 // _dlght 390 is minimum height due to main tab
+INCLUDE header
+
+HELP hlp1, view("help lpoly")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource LPOLY_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	gr_line_options.settabtitle resource LBL_SMOOTHED_LINE
+	gr_line_options_optionName.setstring "lineopts"
+	gr_plots.settabtitle resource LBL_SCATTERPLOT
+	gr_ciplots_outputCmd.setstring "ciopts"
+	script gr_ciplots_setDefaultLine
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)			///
+	label(resource LPOLY_DLG_TITLE)
+BEGIN
+  TEXT     tx_yvar		_lft	_top	_cwd3_1	.,	///
+	label(resource LBL_Y_VARIABLE)
+  DEFINE y @y
+  VARNAME  vn_yvar		@	_ss	_vnwd	.,	///
+  	numeric							///
+	label(resource LBL_Y_VARIABLE)
+
+  TEXT     tx_xvar		_lft4_2	y	_cwd3_1	.,	///
+	label(resource LBL_X_VARIABLE)	
+  VARNAME  vn_xvar		@	_ss	_vnwd	.,	///
+  	numeric							///
+	label(resource LBL_X_VARIABLE)
+	
+  TEXT tx_kernel		_lft	+35	_cwd4_1 .,	///
+	label(resource LBL_KERNEL_FUNCTION)
+DEFINE y @y
+  COMBOBOX cb_kernel 		@	_ss	_vnwd	.,	///
+	label(resource LBL_KERNEL_FUNCTION)			///	
+	dropdownlist						///
+	contents(kernel_function)				///
+	values(kernel_function_val)				///	
+	option(kernel)
+
+  TEXT tx_bwidth		_lft4_2	y	_vnwd	.,	///
+	label(resource LPOLY_MAIN_TX_BWIDTH)
+  EDIT en_bwidth		@	_ss	@	.,	///
+	label(resource LBL_HALFWIDTH_OF_THE_KERNEL)		///
+	numonly							///
+	option(bwidth)
+
+  TEXT tx_degree		_lft4_3	y	140	.,	///
+	label(resource LPOLY_MAIN_TX_DEGREE)
+  SPINNER sp_degree		@	_ss	_vnwd	.,	///
+	label(resource LPOLY_MAIN_TX_DEGREE)			///
+	default(0)						///
+	option(degree)
+
+  CHECKBOX ck_gen		_lft	+35	_iwd	_ht4h,	///
+	label(resource LBL_GEN_NEW_VARIABLES)			///
+	groupbox						///
+	onclickon(script generate_on)				///
+	onclickoff(script generate_off)				
+DEFINE y @y
+  TEXT tx_newx			_ilft	_ss	_vnwd	.,	///
+	label(resource LPOLY_MAIN_TX_NEWX)
+  TEXT tx_news			_ilft4_2 @	@	.,	///
+	label(resource LPOLY_MAIN_TX_NEWS)
+  EDIT ed_newx			_ilft	_ss	_vnwd	.,	///
+	label(resource LPOLY_MAIN_TX_NEWX)			///
+	max(32)							
+  EDIT ed_news 			_ilft4_2 @	@	., 	///
+	label(resource LPOLY_MAIN_TX_NEWS)			///
+	max(32)
+	
+  CHECKBOX ck_n			_lft	_xxls	_iwd	_ht10,	///
+	groupbox						///
+	onclickoff(script main_ck_n_off)			///
+	onclickon(program main_ck_n_on)				///
+	label(resource LBL_OVERRIDE_DEFAULT_GRID_EVAL_POINTS)
+  RADIO rb_n			_ilft	_ms	400	.,	///
+	onclickon(program main_rb_n_on) first			///
+	label(resource LBL_ESTIMATE_DENSITY_SPECIFIED_NUMBER_EVAL_POINTS)
+  RADIO rb_at			@	+50	@	.,	///
+	onclickon(program main_rb_at_on) last			///
+	label(resource LBL_ESTIMATE_DENSITY_USING_VALUES_SPECIFIED_BY_VAR)
+  VARNAME vn_at			_indent2 +20	_vnwd	.,	///
+	option(at)						///
+	label(resource LBL_ESTIMATE_DENSITY_USING_VALUES_SPECIFIED_BY_VAR) 
+  SPINNER sp_n			@	-50	_spwd	.,	///
+	min(1)							///
+	max(10000000)						///
+	default(50)						///
+	option(n)
+
+  CHECKBOX ck_nograph		_lft	+100	120	.,	///
+	label(resource LBL_SUPPRESS_GRAPH)			///
+	option(nograph)						///
+	onclickon(script graph_off)				///
+	onclickoff(program graph_on)
+	
+  CHECKBOX ck_noscatter		_lft4_2	@	420	.,	///
+	label(resource LPOLY_MAIN_CK_NOSCATTER)			///
+	option(noscatter)					///
+	onclickon(program main_check_noscatter)			///
+	onclickoff(program main_check_noscatter)
+END
+
+INCLUDE _kernel_function_list
+
+SCRIPT generate_on
+BEGIN
+	main.ed_news.enable
+	main.tx_news.enable
+	program check_generate_at
+END
+
+SCRIPT generate_off
+BEGIN
+	main.ed_newx.disable
+	main.tx_newx.disable
+	main.ed_news.disable
+	main.tx_news.disable
+	program check_generate_at
+END
+
+SCRIPT main_ck_n_off
+BEGIN
+	main.rb_at.disable
+	main.rb_n.disable
+	main.vn_at.disable
+	main.sp_n.disable
+	program check_generate_at
+END
+
+PROGRAM main_ck_n_on
+BEGIN
+	call main.rb_at.enable
+	call main.rb_n.enable
+	if main.rb_n {
+		call main.sp_n.enable
+	}
+	if main.rb_at {
+		call main.vn_at.enable
+	}
+	call program check_generate_at
+END
+
+PROGRAM main_rb_n_on
+BEGIN
+	if main.ck_n { // must check due to initialization order
+		call main.vn_at.disable
+		call main.sp_n.enable
+		call program check_generate_at
+	}
+END
+
+PROGRAM main_rb_at_on
+BEGIN
+	if main.ck_n { // must check due to initialization order
+		call main.vn_at.enable
+		call main.sp_n.disable
+		call program check_generate_at
+	}
+END
+
+PROGRAM check_generate_at
+BEGIN
+	if main.ck_gen | (main.ck_n & main.rb_at) {
+		call se_ci.ck_se.enable
+		if se_ci.ck_se {
+			call script se_on
+		}
+	}
+	
+	if ( (! main.ck_gen) & ! (main.ck_n & main.rb_at) ) {
+		call se_ci.ck_se.disable
+		call script se_off
+	}
+	call program check_se_ci
+	
+	if (main.ck_gen | (main.ck_n & main.rb_at)) {
+		call main.tx_newx.disable
+		call main.ed_newx.disable
+	}
+	if (main.ck_gen & !(main.ck_n & main.rb_at)) {
+		call main.tx_newx.enable
+		call main.ed_newx.enable
+	}
+END
+
+SCRIPT graph_off
+BEGIN
+	main.ck_noscatter.disable
+	
+	// se_ci tab interactions
+	se_ci.ck_ci.disable
+	script ci_off
+	program check_se_ci
+	
+	script gr_plots_disable
+	script gr_ciplots_disable
+	script gr_line_options_disable
+	script gr_addplots_disable
+	script gr_titles_disable
+	script gr_yaxis_disable
+	script gr_xaxis_disable
+	script gr_legend_disable
+	script gr_overall_disable
+END
+
+PROGRAM graph_on
+BEGIN
+	call main.ck_noscatter.enable
+	
+	// se_ci tab interactions
+	call se_ci.ck_ci.enable
+	if se_ci.ck_ci {
+		call script ci_on
+	}
+	call program check_se_ci
+	call script gr_plots_enable
+	call script gr_line_options_enable
+	call script gr_addplots_enable
+	call script gr_titles_enable
+	call script gr_yaxis_enable
+	call script gr_xaxis_enable
+	call script gr_legend_enable
+	call script gr_overall_enable
+	call program main_check_noscatter
+END
+
+PROGRAM main_check_noscatter
+BEGIN
+	if main.ck_noscatter.isenabled() & ! main.ck_noscatter {
+		call script gr_plots_enable
+	}
+	if ! main.ck_noscatter.isenabled() | main.ck_noscatter {
+		call script gr_plots_disable
+	}
+END
+
+INCLUDE ifin
+INCLUDE weights_fa
+
+DIALOG se_ci, tabtitle(resource LBL_SE_CI)
+BEGIN
+  CHECKBOX ck_ci	_lft	_top	_iwd	.,		///
+	onclickon(script ci_on) onclickoff(script ci_off)	///
+	label(resource LPOLY_SE_CI_CK_CI)			///
+	option(ci)
+  DEFINE _y _ss
+  DEFINE _x +20
+  DEFINE _cx _spr2b
+  INCLUDE _sp_level
+  
+  CHECKBOX ck_se	_lft	_ls	_iwd	.,		///
+	onclickon(script se_on) onclickoff(script se_off)	///
+	label(resource LPOLY_SE_CI_CK_SE)
+  EDIT     ed_se	+20	_ss	_vnwd	.,		///
+	max(32) label(resource LBL_NEW_VARIABLE_NAME_NO_COLON)	///
+	option(se)
+  TEXT     tx_se	_vnsep	@	200	.,		///
+	label(resource LBL_NEW_VARIABLE_NAME_NO_COLON)
+  
+  CHECKBOX ck_pwidth	_lft	+35	_iwd	.,		///
+	onclickon(script pwidth_on)				///
+	onclickoff(script pwidth_off)				///
+	label(resource LPOLY_SE_CI_CK_PWIDTH)
+  EDIT     ed_pwidth	+20	_ss	_en7wd	.,		///
+	label(resource LPOLY_SE_CI_ED_PWIDTH)			///
+	option(pwidth)
+  TEXT     tx_pwidth	_en7sep	@	200	.,		///
+	label(resource LPOLY_SE_CI_ED_PWIDTH)
+
+  CHECKBOX ck_var	_lft	_ls	_iwd	.,		///
+	onclickon(script var_on)				///
+	onclickoff(script var_off)				///
+	label(resource LBL_OVERRIDE_ESTIMATE_RESIDUAL_VARIANCE)
+  EDIT     ed_var	+20	_ss	_vnwd	.,		///
+	label(resource LPOLY_SE_CI_ED_VAR)			///
+	option(var)
+  TEXT     tx_var	_vnsep	@	200	.,		///
+	label(resource LPOLY_SE_CI_ED_VAR)
+END
+
+SCRIPT se_off
+BEGIN
+	se_ci.ed_se.disable
+	se_ci.tx_se.disable
+	program check_se_ci
+END
+SCRIPT se_on
+BEGIN
+	se_ci.ed_se.enable
+	se_ci.tx_se.enable
+	program check_se_ci
+END
+
+SCRIPT ci_off
+BEGIN
+	se_ci.sp_level.disable
+	se_ci.tx_level.disable
+	program check_se_ci
+	script gr_ciplots_disable
+END
+SCRIPT ci_on
+BEGIN
+	se_ci.sp_level.enable
+	se_ci.tx_level.enable
+	program check_se_ci
+	script gr_ciplots_enable
+END
+
+PROGRAM check_se_ci
+BEGIN
+	if ( (se_ci.ck_se.isenabled() & se_ci.ck_se) 	///
+		| (se_ci.ck_ci.isenabled() & se_ci.ck_ci) ) {
+		call se_ci.ck_pwidth.enable
+		if se_ci.ck_pwidth {
+			call script pwidth_on
+		}
+		call se_ci.ck_var.enable
+		if se_ci.ck_var {
+			call script var_on
+		}
+	}
+	
+	if ( (!se_ci.ck_se.isenabled() | ! se_ci.ck_se) ///
+		& (!se_ci.ck_ci.isenabled() | ! se_ci.ck_ci) ) {
+		call se_ci.ck_pwidth.disable
+		call script pwidth_off
+		call se_ci.ck_var.disable
+		call script var_off
+	}
+END
+
+SCRIPT pwidth_off
+BEGIN
+	se_ci.ed_pwidth.disable
+	se_ci.tx_pwidth.disable
+END
+SCRIPT pwidth_on
+BEGIN
+	se_ci.ed_pwidth.enable
+	se_ci.tx_pwidth.enable
+END
+
+SCRIPT var_off
+BEGIN
+	se_ci.ed_var.disable
+	se_ci.tx_var.disable
+END
+SCRIPT var_on
+BEGIN
+	se_ci.ed_var.enable
+	se_ci.tx_var.enable
+END
+
+INCLUDE gr_plots
+INCLUDE gr_line_options
+INCLUDE gr_ciplots
+INCLUDE gr_addplots
+INCLUDE gr_yaxis
+INCLUDE gr_xaxis
+INCLUDE gr_titles
+INCLUDE gr_legend
+INCLUDE gr_overall
+
+PROGRAM command
+BEGIN
+	put "lpoly "
+	varlist main.vn_yvar main.vn_xvar
+	put " " /program ifin_output
+	put " " /program weights_output
+	beginoptions
+		if main.cb_kernel {
+			put "kernel(" main.cb_kernel ") "
+		}
+		optionarg main.en_bwidth
+		optionarg /hidedefault main.sp_degree
+		if main.ck_gen {
+			require main.ed_newx
+			put "generate(" main.ed_newx
+			if !main.ck_n | !main.rb_at {
+				require main.ed_news
+				put " " main.ed_news 
+			}
+			put ") "
+		}
+		optionarg main.sp_n
+		if main.rb_at {
+			require main.vn_at
+			optionarg main.vn_at
+		}
+		option main.ck_nograph
+		option main.ck_noscatter
+
+		option se_ci.ck_ci
+		optionarg /hidedefault se_ci.sp_level
+		if se_ci.ck_se {
+			require se_ci.ed_se
+			optionarg se_ci.ed_se
+		}
+		if se_ci.ck_pwidth {
+			require se_ci.ed_pwidth
+			optionarg se_ci.ed_pwidth
+		}
+		if se_ci.ck_var {
+			require se_ci.ed_var
+			optionarg se_ci.ed_var
+		}		
+		
+		put " " /program gr_plots_output
+		put " " /program gr_line_options_output
+		put " " /program gr_ciplots_output
+		put " " /program gr_addplots_output
+		put " " /program gr_yaxis_output
+		put " " /program gr_xaxis_output
+		put " " /program gr_titles_output
+		put " " /program gr_legend_output
+		put " " /program gr_overall_output
+	endoptions
+END

@@ -1,0 +1,219 @@
+/*
+  stcrreg
+
+*!  VERSION 1.1.2  29nov2018
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 420
+INCLUDE header
+
+HELP hlp1, view("help stcrreg")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	program parseMessage
+	script se_createAsSTCRREG
+	setscale_hadj resource STCRREG_DLG_HSCALE
+END
+
+PROGRAM parseMessage
+BEGIN
+	if __MESSAGE.contains("__MI__") {
+		call script byifin_set_by_off
+		call script se_setMI_on
+		call main.bu_stset.hide
+	}
+	else {
+		call main.bu_mi_stset.hide
+	}
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program se_setFinalInitState
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)				///
+	title(resource STCRREG_DLG_TITLE)
+BEGIN
+  DEFINE _x _xsetbu
+  DEFINE _y _top
+  INCLUDE _bu_stset
+  BUTTON   bu_mi_stset _x        _y        _setbuwd  .,			///
+	onpush("view dialog mi_stset")					///
+	label(resource LBL_SURVIVAL_SETTINGS)				///
+	tooltip(resource LBL_DECLARE_DATA_TO_BE_SURVIVAL_TIME_DATA)
+
+  TEXT tx_iv		_lft	_topph	_comb4_3 .,			///
+	label(resource LBL_INDDEPVAR)
+  VARLIST vl_iv		@	_ss	_iwd	.,			///
+  	numeric								///
+	label(resource LBL_INDDEPVAR) fv
+
+  GROUPBOX gb_compete	_lft	_ls	@	_ht4,			///
+	label(resource LBL_COMPETING_RISKS_EVENTS)
+  TEXT tx_compete_crvar	_ilft	_ss	_cwd3	.,			///
+	label(resource LBL_VARIABLE)
+  DEFINE holdy @y
+  VARNAME  vn_crvar	@	_ss	_vnwd	.,			///
+	label(resource LBL_VARIABLE_FOR_COMPETING_RISK_EVENTS)
+  TEXT tx_crnumlist	_lft2	holdy	_cwd3	.,			///
+	label(resource LBL_VALUES_COLON)
+  EDIT ed_crnumlist	@	_ss	_vnwd	.,			///
+	label(resource LBL_VALUES_COLON)
+  
+  GROUPBOX gb_option	_lft	_xls	_iwd	_ht21,			///
+	label(resource LBL_OPTIONS)
+
+  CHECKBOX ck_tvc	_ilft	_ss	_inwd	_ht8,			///
+	label(resource LBL_TIME_VARYING_COVARIATES)			///
+	clickon("script tvc_on")					///
+	clickoff("script tvc_off")					///
+	groupbox
+  VARLIST vl_tvc	_indent	_ms	_inwd	.,			///
+	label(resource LBL_TIME_VARYING_COVARIATES)			///
+	numeric								///
+	option("tvc")
+
+  TEXT tx_texp		@	_ls	@	.,			///
+	label(resource LBL_MULTIPLIER_FOR_TIME_VARYING_COV_DEFAULT_T)
+  EDIT ed_texp		@	_ss	@	.,			///
+	label(resource LBL_MULTIPLIER_FOR_TIME_VARYING_COV)		///
+	option("texp")							///
+	default(_t)
+
+  TEXT tx_offset	_ilft	_xls	_cwd3	.,			///
+	label(resource LBL_OFFSET_VARIABLE)
+  VARNAME  vn_offset	@	_ss	_vnwd	.,			///
+	label(resource LBL_OFFSET_VARIABLE)				///
+	numeric								///
+	option("offset")
+  
+  DEFINE _x _ilft
+  DEFINE _y _ms
+  DEFINE _cx _ilw80
+  DEFINE _bux _islw80
+  INCLUDE _constraints
+
+  DEFINE _x _ilft
+  DEFINE _xw _cwd1
+//  INCLUDE _ck_collinear
+END
+
+SCRIPT tvc_on
+BEGIN
+	main.vl_tvc.enable
+	main.tx_texp.enable
+	main.ed_texp.enable
+END
+
+SCRIPT tvc_off
+BEGIN
+	main.vl_tvc.disable
+	main.tx_texp.disable
+	main.ed_texp.disable
+END
+
+INCLUDE _constraints_sc
+
+INCLUDE byifin
+INCLUDE se
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+	program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2b
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  CHECKBOX ck_noheader	_lft	_ls	_iwd	.,			///
+	label(resource STCRREG_RPT_CK_NOSHR)				///
+	option("noheader")
+  CHECKBOX ck_noshow	@	_ms	@	.,			///
+	label(resource LBL_DO_NOT_SHOW_ST_SETTING_INFORMATION)		///
+	option("noshow")
+  CHECKBOX ck_noshr	@	_ms	@	.,			///
+	label(resource STCRREG_RPT_CK_NOHEADER)				///
+	option("noshr")
+  CHECKBOX ck_notable	@	_ms	@	.,			///
+	label(resource LBL_SUPPRESS_COEFFICIENT_TABLE)			///
+	option("notable")
+  CHECKBOX ck_nodisplay	@	_ms	@	.,			///
+	label(resource LBL_SUPPRESS_OUTPUT)				///
+	option("nodisplay")
+
+  DEFINE _x _lft
+  DEFINE _y _ms
+  DEFINE _cx _iwd
+  INCLUDE _nocnsreport
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+
+INCLUDE max_ml
+
+PROGRAM command
+BEGIN
+	put /program by_output " "
+	put "stcrreg "
+	varlist [main.vl_iv]
+	put " " /program ifin_output
+	beginoptions
+		require main.vn_crvar
+		put "compete(" main.vn_crvar
+		if (main.ed_crnumlist.isneq("")) {
+			put "==" main.ed_crnumlist
+			put ")"
+		}
+		else {
+			put ")"
+		}
+		if main.ck_tvc {
+			require main.vl_tvc
+			optionarg main.vl_tvc
+			optionarg main.ed_texp
+		}
+		INCLUDE _constraints_main_pr
+//		option main.ck_collinear
+		put " " /program se_output
+		optionarg main.vn_offset
+		optionarg /hidedefault rpt.sp_level
+		option rpt.ck_noshr
+		option rpt.ck_noshow
+		option rpt.ck_noheader
+		option rpt.ck_notable
+		option rpt.ck_nodisplay
+		INCLUDE _nocnsreport_pr
+		INCLUDE _report_columns_pr
+		put " " rpt_bu_facvarsResults
+		put " " rpt_bu_fmtcoefResults
+		put " " /program max_output
+	endoptions
+END

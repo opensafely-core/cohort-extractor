@@ -1,0 +1,280 @@
+/*
+	predict (after regress)
+
+*!  VERSION 1.4.2  01mar2018
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE _ht340
+INCLUDE header
+
+HELP hlp1, view("help regress postestimation")
+RESET res1
+
+DEFINE awid   45
+DEFINE asep  +50
+DEFINE bwid   40
+DEFINE bsep  +45
+DEFINE uwid  110
+DEFINE usep +115
+DEFINE vwid   55
+DEFINE vsep  +60
+DEFINE zwid  140
+DEFINE zsep +145
+
+SCRIPT PREINIT
+BEGIN
+	create STRING prefix_name
+	prefix_name.setstring e(prefix)
+        setscale_hadj resource REGRES_P_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	main.tx_temp.hide
+	main.tx_svy_note.hide
+	program svy_check
+END
+
+PROGRAM svy_check
+BEGIN
+	if prefix_name.equals("svy") {
+		call main.tx_svy_note.show
+		call main.rb_rstand.disable
+		call main.rb_rstud.disable
+		call main.rb_cooksd.disable
+		call main.rb_leverage.disable
+		call main.rb_stdf.disable
+		call main.rb_stdr.disable
+		call main.rb_covratio.disable
+		call main.rb_dfits.disable
+		call main.rb_welsch.disable
+		call main.rb_pr.disable
+		call main.en_pr_a.disable
+		call main.tx_pr.disable
+		call main.en_pr_b.disable
+		call main.tx_pr2.disable
+		call main.rb_e.disable
+		call main.en_e_a.disable
+		call main.tx_e.disable
+		call main.en_e_b.disable
+		call main.tx_e2.disable
+		call main.rb_ystar.disable
+		call main.en_ystar_a.disable
+		call main.tx_ystar.disable
+		call main.en_ystar_b.disable
+		call main.tx_ystar2.disable
+		call main.rb_dfbeta.disable
+	}
+END
+
+DIALOG main, label(resource PREDICT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  INCLUDE  _p_gentype
+
+  GROUPBOX gb_opts       _lft      _ls     _iwd    _ht22,	/*
+		*/ label(resource LBL_PRODUCE)
+  RADIO    rb_xb      _indent      _ss    _cwd2        ., first /*
+		*/ option(xb)					/*
+		*/ clickon("script all_off")			/*
+		*/ label(resource LBL_LINEAR_PREDICTION_XB)
+  DEFINE   holdy @y
+  DEFINE   holdx @x
+  RADIO    rb_resid         @      _ss        @        .,	/*
+		*/ option(residuals)				/*
+		*/ clickon("script all_off")			/*
+		*/ label(resource LBL_RESIDUALS)
+  RADIO    rb_rstand        @      _ss        @        .,	/*
+		*/ option(rstandard)				/*
+		*/ clickon("script all_off")			/*
+		*/ label(resource LBL_STANDARDIZED_RESIDUALS)
+  RADIO    rb_rstud         @      _ss        @        .,	/*
+		*/ option(rstudent)				/*
+		*/ clickon("script all_off")			/*
+		*/ label(resource REGRES_P_MAIN_RB_RSTUD)
+  RADIO    rb_cooksd        @      _ss        @        .,	/*
+		*/ option(cooksd)				/*
+		*/ clickon("script all_off")			/*
+		*/ label(resource LBL_COOKS_DISTANCE)
+  RADIO    rb_leverage      @      _ss        @        .,	/*
+		*/ option(leverage)				/*
+		*/ clickon("script all_off")			/*
+		*/ label(resource LBL_LEVERAGE)
+  RADIO    rb_stdp      _lft2    holdy        @        .,	/*
+		*/ option(stdp)					/*
+		*/ clickon("script all_off")			/*
+		*/ label(resource LBL_STANDARD_ERROR_PREDICTION)
+  RADIO    rb_stdf          @      _ss        @        .,	/*
+		*/ option(stdf)					/*
+		*/ clickon("script all_off")			/*
+		*/ label(resource LBL_STANDARD_ERROR_FORECAST)
+  RADIO    rb_stdr          @      _ss        @        .,	/*
+		*/ option(stdr)					/*
+		*/ clickon("script all_off")			/*
+		*/ label(resource REGRES_P_MAIN_RB_STDR)
+  RADIO    rb_covratio      @      _ss        @        .,	/*
+		*/ option(covratio)				/*
+		*/ clickon("script all_off")			/*
+		*/ label(resource REGRES_P_MAIN_RB_COVRATIO)
+  RADIO    rb_dfits         @      _ss        @        .,	/*
+		*/ option(dfits)				/*
+		*/ clickon("script all_off")			/*
+		*/ label(resource REGRES_P_MAIN_RB_DFITS)
+  RADIO    rb_welsch        @      _ss        @        .,	/*
+		*/ option(welsch)				/*
+		*/ clickon("script all_off")			/*
+		*/ label(resource REGRES_P_MAIN_RB_WELSCH)
+
+  RADIO    rb_pr        holdx      _ms     awid        .,	/*
+		*/ option(NONE)  /* handled another way */	/*
+		*/ clickon("script pr_on")			/*
+		*/ label(resource LBL_PR_Y)
+  EDIT     en_pr_a       asep        @   _en7wd        .,	/*
+		*/ numonly					/*
+		*/ label(resource LBL_PR_LOWER_LIMIT)
+  TEXT     tx_pr      _en7sep        @     bwid        .,	/*
+		*/ center label(resource LBL_LESSTHAN_Y_LESSTHAN)
+  EDIT     en_pr_b       bsep        @   _en7wd        .,	/*
+		*/ numonly					/*
+		*/ label(resource LBL_PR_UPPER_LIMIT)
+  TEXT     tx_pr2     _en7sep        @     bwid        ., 	/*
+		*/ label(resource LBL_RIGHT_PARENTHESES)
+
+  RADIO    rb_e         holdx      _ms     awid        .,	/*
+		*/ option(NONE)  /* handled another way */	/*
+		*/ clickon("script e_on")			/*
+		*/ label(resource LBL_E_Y)
+  EDIT     en_e_a        asep        @   _en7wd        .,	/*
+		*/ numonly					/*
+		*/ label(resource LBL_E_LOWER_LIMIT)
+  TEXT     tx_e       _en7sep        @     bwid        .,	/*
+		*/ center label(resource LBL_LESSTHAN_Y_LESSTHAN)
+  EDIT     en_e_b        bsep        @   _en7wd        .,	/*
+		*/ numonly					/*
+		*/ label(resource LBL_E_UPPER_LIMIT)
+  TEXT     tx_e2      _en7sep        @     bwid        ., 	/*
+		*/ label(resource LBL_RIGHT_PARENTHESES)
+
+  RADIO    rb_ystar     holdx      _ms     uwid        .,	/*
+		*/ option(NONE)  /* handled another way */	/*
+		*/ clickon("script ystar_on")			/*
+		*/ label(resource LBL_EY_Y_EQUAL_MAX)
+  EDIT     en_ystar_a    usep        @   _en7wd        .,	/*
+		*/ numonly					/*
+		*/ label(resource LBL_EY_LOWER_LIMIT)
+  TEXT     tx_ystar   _en7sep        @     vwid        .,	/*
+		*/ center label(resource LBL_MIN_Y)
+  EDIT     en_ystar_b    vsep        @   _en7wd        .,	/*
+		*/ numonly					/*
+		*/ label(resource LBL_EY_UPPER_LIMIT)
+  TEXT     tx_ystar2  _en7sep        @     bwid        ., 	/*
+		*/ label(resource LBL_RIGHT_DOUBLE_PARENTHESES)
+
+  RADIO    rb_dfbeta    holdx      _ms     zwid        ., last	/*
+		*/ option(NONE)  /* handled another way */	/*
+		*/ clickon("script dfbeta_on")			/*
+		*/ label(resource REGRES_P_MAIN_RB_DFBETA)
+  VARNAME  vn_dfbeta     zsep        @    _vnwd        .,	/*
+		*/ option(dfbeta)				/*
+		*/ numeric					/*
+		*/ label(resource REGRES_P_MAIN_RB_DFBETA)
+
+  INCLUDE _svy_predict_note
+END
+
+
+INCLUDE ifin
+
+SCRIPT all_off
+BEGIN
+  script pr_off
+  script e_off
+  script ystar_off
+  script dfbeta_off
+END
+
+SCRIPT pr_on
+BEGIN
+  script e_off
+  script ystar_off
+  script dfbeta_off
+  main.en_pr_a.enable
+  main.en_pr_b.enable
+END
+
+SCRIPT pr_off
+BEGIN
+  main.en_pr_a.disable
+  main.en_pr_b.disable
+END
+
+SCRIPT e_on
+BEGIN
+  script pr_off
+  script ystar_off
+  script dfbeta_off
+  main.en_e_a.enable
+  main.en_e_b.enable
+END
+
+SCRIPT e_off
+BEGIN
+  main.en_e_a.disable
+  main.en_e_b.disable
+END
+
+SCRIPT ystar_on
+BEGIN
+  script pr_off
+  script e_off
+  script dfbeta_off
+  main.en_ystar_a.enable
+  main.en_ystar_b.enable
+END
+
+SCRIPT ystar_off
+BEGIN
+  main.en_ystar_a.disable
+  main.en_ystar_b.disable
+END
+
+SCRIPT dfbeta_on
+BEGIN
+  script pr_off
+  script e_off
+  script ystar_off
+  main.vn_dfbeta.enable
+END
+
+SCRIPT dfbeta_off
+BEGIN
+  main.vn_dfbeta.disable
+END
+
+INCLUDE _p_gentype_sc
+INCLUDE _type_list_fd
+
+PROGRAM command
+BEGIN
+	put "predict "
+	put " " /program _p_gentype_output
+	INCLUDE _ifin_pr
+	beginoptions
+		option radio(main rb_xb rb_resid rb_rstand rb_rstud /*
+				*/ rb_cooksd rb_leverage rb_stdp rb_stdf /*
+				*/ rb_stdr rb_covratio rb_dfits rb_welsch /*
+				*/ rb_pr rb_e rb_ystar rb_dfbeta)
+	endoptions
+	INCLUDE _pr_pr
+	INCLUDE _e_pr
+	INCLUDE _ystar_pr
+	beginoptions
+		if main.rb_dfbeta {
+			require main.vn_dfbeta
+			optionarg main.vn_dfbeta
+		}
+	endoptions
+END

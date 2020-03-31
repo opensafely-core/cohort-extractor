@@ -1,0 +1,2365 @@
+/*
+  putexcel_cellexp
+
+*!  VERSION 2.0.7  09apr2019
+
+*/
+VERSION 14.0
+
+INCLUDE _std_medium
+DEFINE _dlght 390
+INCLUDE header
+
+HELP hlp1, view("help putexcel")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create DOUBLE cell_error
+	create DOUBLE i
+	create STRING parent_name
+	create STRING STMP
+	create STRING fmt_string
+	create STRING int_string
+	create STRING decimal_string
+
+	parent_name.setvalue class PARENT._dlg_rsrcname
+	setscale_hadj resource PUTEXCEL_CELLEXP_DLG_HSCALE
+
+	main.fi_image.formatfilter "{0} (*.png)|*.png|{1} (*.jpeg)|*.jpeg|{2} (*.wmf)|*.wmf|{3} (*.emf)|*.emf|{4} (*.tiff)|*.tiff|{5} (*.*)|*.*"	///
+"resource ui_ex FILE_TYPE_PNG" "resource ui_ex FILE_TYPE_JPEG"		///
+"resource ui_ex FILE_TYPE_WINDOWS_METAFILE" "resource ui_ex FILE_TYPE_EMF" ///
+"resource ui_ex FILE_TYPE_TIFF" "resource ui_ex FILE_TYPE_ALL_FILES"
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN) title("")
+BEGIN
+  TEXT tx_cellexplist_type	_lft	_top	160	.,		///
+	label(resource LBL_TYPE_COLON)
+  COMBOBOX cb_cellexplist_type	@	_ss	_cwd1	.,		///
+	dropdownlist							///
+	onselchange(program main_cellexplist_change)			///
+	contents(main_cellexp_list)					///
+	values(main_cellexp_values)					///
+	label(resource LBL_TYPE_COLON)
+  TEXT tx_ul_cell		_lft	_ls	160 .,			///
+	label(resource PUTEXCEL_CELLEXP_MAIN_TX_UL_CELL)
+  DEFINE holdy @y
+  EDIT ed_ul_cell		@	_ss	_spwd	.,		///
+	label(resource PUTEXCEL_CELLEXP_MAIN_ED_UL_CELL)
+  TEXT tx_lr_cell		_lft2	holdy	160	.,		///
+	label(resource PUTEXCEL_CELLEXP_MAIN_TX_LR_CELL)
+  EDIT ed_lr_cell		@	_ss	_spwd	.,		///
+	label(resource PUTEXCEL_CELLEXP_MAIN_ED_LR_CELL)
+
+  CHECKBOX ck_overwritefmt	_lft	_ls	_iwd	.,		///
+  	option(overwritefmt)						///
+	label(resource PUTEXCEL_CELLEXP_MAIN_CK_OVERWRITEFMT)
+  DEFINE holdy1 @y
+
+  TEXT tx_exp			_lft	_ls	_iwd	.,		///
+	label(resource PUTEXCEL_CELLEXP_MAIN_TX_EXP)
+  DEFINE holdy2 @y
+  EXP ex_exp			@	_ss	@	.,		///
+	error(resource PUTEXCEL_CELLEXP_MAIN_TX_EXP)			///
+	simple								///
+	label(resource LBL_BU_CREATE)
+  RADIO rb_general		@	_ls	_iwd	., first	///
+	label(resource ESTIMATES_TABLE_TAB_OPT2)
+  RADIO rb_asdate		@	_ss	@	., 		///
+  	option(asdate)							///
+	label(resource PUTEXCEL_CELLEXP_MAIN_RB_ASDATE)
+  RADIO rb_asdatetime		@	_ss	@	.,		///
+  	option(asdatetime)						///
+	label(resource PUTEXCEL_CELLEXP_MAIN_RB_ASDATETIME)
+  RADIO rb_asdatenum		@	_ss	@	.,		///
+  	option(asdatenum)						///
+	label(resource PUTEXCEL_CELLEXP_MAIN_RB_ASDATENUM)
+  RADIO rb_asdatetimenum	@	_ss	@	., last		///
+  	option(asdatetimenum)						///
+	label(resource PUTEXCEL_CELLEXP_MAIN_RB_ASDATETIMENUM)
+
+  TEXT tx_formula		_lft	holdy1	_iwd	.,		///
+	label(resource PUTEXCEL_CELLEXP_MAIN_TX_FORMULA)
+  EDIT ed_formula		@	_ss	_iwd	.,		///
+	label(resource PUTEXCEL_CELLEXP_MAIN_TX_FORMULA)
+
+  TEXT tx_image			_lft	holdy1	_iwd	.,		///
+	label(resource LBL_IMAGE)
+  FILE fi_image			@	_ss	@	.,		///
+	defext(png)							///
+	error(resource LBL_IMAGE)					///
+	label(resource LBL_BU_BROWSE)
+
+  TEXT tx_matrix		_lft	holdy2	_iwd	.,		///
+	label(resource PUTEXCEL_CELLEXP_MAIN_TX_MATRIX)
+  EXP ex_matrix			@	_ss	@	.,		///
+	matrixonly							///
+	error(resource PUTEXCEL_CELLEXP_MAIN_TX_MATRIX)			///
+	label(resource PUTEXCEL_CELLEXP_MAIN_EX_MATRIX)
+  RADIO rb_nonames		@	_ms	@	., first	///
+	label(resource PUTEXCEL_CELLEXP_MAIN_RB_NONAMES)
+  RADIO rb_names		@	_ss	@	.,		///
+	option(names)							///
+	label(resource PUTEXCEL_CELLEXP_MAIN_RB_NAMES)
+  RADIO rb_rownames		@	_ss	@	., 		///
+	option(rownames)						///
+	label(resource PUTEXCEL_CELLEXP_MAIN_RB_ROWNAMES)
+  RADIO rb_colnames		@	_ss	@	., last		///
+	option(colnames)						///
+	label(resource PUTEXCEL_CELLEXP_MAIN_RB_COLNAMES)
+
+  TEXT tx_resultset		_lft	holdy2	_iwd	.,		///
+	label(resource PUTEXCEL_CELLEXP_MAIN_TX_RESULTSET)
+  COMBOBOX cb_resultset		@	_ss	_cwd1	.,		///
+	dropdownlist							///
+	contents(main_resultset_list)					///
+	values(main_resultset_values)					///
+	label(resource PUTEXCEL_CELLEXP_MAIN_TX_RESULTSET)
+  CHECKBOX ck_colwise		@	_ls	_iwd	.,		///
+  	option(colwise)							///
+	label(resource PUTEXCEL_CELLEXP_MAIN_CK_COLWISE)
+END
+
+LIST main_cellexp_list
+BEGIN
+	resource LBL_EXPRESSION_NO_COLON
+	resource PUTEXCEL_CELLEXP_FORMULA
+	resource LBL_IMAGE
+	resource LBL_MATRIX
+	resource PUTEXCEL_CELLEXP_RESULTSET
+	resource LBL_RB_FORMAT
+	resource LBL_ESTIMATION_TABLE
+END
+
+LIST main_cellexp_values
+BEGIN
+	"exp"
+	"formula"
+	"image"
+	"matrix"
+	"resultset"
+	"format"
+	"etable"
+END
+
+LIST main_resultset_list
+BEGIN
+	resource PUTEXCEL_CELLEXP_ALL_RETURNED_SCALARS
+	resource PUTEXCEL_CELLEXP_ALL_RETURNED_MACROS
+	resource PUTEXCEL_CELLEXP_ALL_RETURNED_MATRICES
+	resource PUTEXCEL_CELLEXP_ALL_RETURNED_VALUES
+        resource PUTEXCEL_CELLEXP_ALL_ERETURNED_SCALARS
+        resource PUTEXCEL_CELLEXP_ALL_ERETURNED_MACROS
+        resource PUTEXCEL_CELLEXP_ALL_ERETURNED_MATRICES
+        resource PUTEXCEL_CELLEXP_ALL_ERETURNED_VALUES
+        resource PUTEXCEL_CELLEXP_ALL_RETURNED_SCALAR_NAMES
+        resource PUTEXCEL_CELLEXP_ALL_RETURNED_MACRO_NAMES
+        resource PUTEXCEL_CELLEXP_ALL_RETURNED_MATRICES_NAMES
+        resource PUTEXCEL_CELLEXP_ALL_RETURNED_NAMES
+        resource PUTEXCEL_CELLEXP_ALL_ERETURNED_SCALAR_NAMES
+        resource PUTEXCEL_CELLEXP_ALL_ERETURNED_MACRO_NAMES
+        resource PUTEXCEL_CELLEXP_ALL_ERETURNED_MATRICES_NAMES
+        resource PUTEXCEL_CELLEXP_ALL_ERETURNED_NAMES
+END
+
+LIST main_resultset_values
+BEGIN
+	"rscalars"
+	"rmacros"
+	"rmatrices"
+	"r*"
+	"escalars"
+	"emacros"
+	"ematrices"
+	"e*"
+	"rscalarnames"
+	"rmacronames"
+	"rmatrixnames"
+	"rnames"
+	"escalarnames"
+	"emacronames"
+	"ematrixnames"
+	"enames"
+END
+
+SCRIPT main_hide_all
+BEGIN
+	main.tx_lr_cell.hide
+	main.ed_lr_cell.hide
+	main.tx_exp.hide
+	main.ex_exp.hide
+	main.rb_general.hide
+	main.rb_asdate.hide
+	main.rb_asdatetime.hide
+	main.rb_asdatenum.hide
+	main.rb_asdatetimenum.hide
+	main.tx_matrix.hide
+	main.ex_matrix.hide
+	main.rb_nonames.hide
+	main.rb_names.hide
+	main.rb_rownames.hide
+	main.rb_colnames.hide
+	main.tx_resultset.hide
+	main.cb_resultset.hide
+	main.ck_colwise.hide
+	main.tx_formula.hide
+	main.ed_formula.hide
+	main.tx_image.hide
+	main.fi_image.hide
+END
+
+PROGRAM main_cellexplist_change
+BEGIN
+	call script main_hide_all
+
+	if main.cb_cellexplist_type.iseq("exp") {
+		call script main_exp_on
+		call script enable_formatting
+		call main.ck_overwritefmt.show
+		call align.tx_merge.disable
+		call align.cb_merge.disable
+	}
+	if main.cb_cellexplist_type.iseq("formula") {
+		call script main_formula_on
+		call script disable_formatting
+		call main.ck_overwritefmt.hide
+		call align.tx_merge.disable
+		call align.cb_merge.disable
+	}
+	if main.cb_cellexplist_type.iseq("image") {
+		call script main_image_on
+		call script disable_formatting
+		call main.ck_overwritefmt.hide
+		call align.tx_merge.disable
+		call align.cb_merge.disable
+	}
+	if main.cb_cellexplist_type.iseq("matrix") {
+		call script main_matrix_on
+		call script enable_formatting
+		call main.ck_overwritefmt.show
+		call align.tx_merge.disable
+		call align.cb_merge.disable
+	}
+	if main.cb_cellexplist_type.iseq("resultset") {
+		call script main_resultset_on
+		call script enable_formatting
+		call main.ck_overwritefmt.show
+		call align.tx_merge.disable
+		call align.cb_merge.disable
+	}
+	if main.cb_cellexplist_type.iseq("format") {
+		call script main_format_on
+		call script enable_formatting
+		call main.ck_overwritefmt.show
+		call align.tx_merge.enable
+		call align.cb_merge.enable
+	}
+	if main.cb_cellexplist_type.iseq("etable") {
+		call script disable_formatting
+		call main.ck_overwritefmt.hide
+		call align.tx_merge.disable
+		call align.cb_merge.disable
+	}
+END
+
+SCRIPT main_exp_on
+BEGIN
+	main.tx_exp.show
+	main.ex_exp.show
+	main.rb_general.show
+	main.rb_asdate.show
+	main.rb_asdatetime.show
+	main.rb_asdatenum.show
+	main.rb_asdatetimenum.show
+	program main_check_date_datetime
+END
+
+SCRIPT main_formula_on
+BEGIN
+	main.tx_formula.show
+	main.ed_formula.show
+END
+
+SCRIPT main_image_on
+BEGIN
+	main.tx_image.show
+	main.fi_image.show
+END
+
+SCRIPT main_matrix_on
+BEGIN
+	main.tx_matrix.show
+	main.ex_matrix.show
+	main.rb_nonames.show
+	main.rb_names.show
+	main.rb_rownames.show
+	main.rb_colnames.show
+END
+
+SCRIPT main_resultset_on
+BEGIN
+	main.tx_resultset.show
+	main.cb_resultset.show
+	main.ck_colwise.show
+END
+
+SCRIPT main_format_on
+BEGIN
+	main.tx_lr_cell.show
+	main.ed_lr_cell.show
+END
+
+SCRIPT disable_formatting
+BEGIN
+	script number_tab_disable
+
+	align.gb_text_align.disable
+	align.tx_halign.disable
+	align.cb_halign.disable
+	align.tx_valign.disable
+	align.cb_valign.disable
+	align.tx_txtindent.disable
+	align.sp_txtindent.disable
+	align.tx_txtrotate.disable
+	align.sp_txtrotate.disable
+	align.tx_degrees.disable
+	align.gb_text_cntrl.disable
+	align.tx_txtwrap.disable
+	align.cb_txtwrap.disable
+	align.tx_shrinkfit.disable
+	align.cb_shrinkfit.disable
+	align.tx_merge.disable
+	align.cb_merge.disable
+
+	font.tx_font.disable
+	font.cb_font.disable
+	font.tx_font_style.disable
+	font.cb_font_style.disable
+	font.tx_font_size.disable
+	font.cb_font_size.disable
+	font.tx_font_color.disable
+	font.cb_font_color.disable
+	font.cl_color.disable
+	font.tx_underline.disable
+	font.cb_underline.disable
+	font.gb_font_effects.disable
+	font.tx_strike.disable
+	font.cb_strike.disable
+	font.tx_script.disable
+	font.cb_script.disable
+
+	border.tx_border.disable
+	border.cb_border.disable
+	border.tx_border_style.disable
+	border.cb_border_style.disable
+	border.tx_border_color.disable
+	border.cb_border_color.disable
+	border.cl_bcolor.disable
+	border.ck_dborder.disable
+	border.tx_dborder.disable
+	border.cb_dborder.disable
+	border.tx_dborder_style.disable
+	border.cb_dborder_style.disable
+	border.tx_dborder_color.disable
+	border.cb_dborder_color.disable
+	border.cl_dcolor.disable
+
+	fill.tx_fpattern.disable
+	fill.cb_fpattern.disable
+	fill.tx_fgcolor.disable
+	fill.cb_fgcolor.disable
+	fill.cl_fgcolor.disable
+	fill.tx_bgcolor.disable
+	fill.cb_bgcolor.disable
+	fill.cl_bgcolor.disable
+END
+
+SCRIPT enable_formatting
+BEGIN
+	script number_tab_enable
+
+	align.gb_text_align.enable
+	align.tx_halign.enable
+	align.cb_halign.enable
+	align.tx_valign.enable
+	align.cb_valign.enable
+	align.tx_txtindent.enable
+	align.sp_txtindent.enable
+	align.tx_txtrotate.enable
+	align.sp_txtrotate.enable
+	align.tx_degrees.enable
+	align.gb_text_cntrl.enable
+	align.tx_txtwrap.enable
+	align.cb_txtwrap.enable
+	align.tx_shrinkfit.enable
+	align.cb_shrinkfit.enable
+	align.tx_merge.enable
+	align.cb_merge.enable
+
+	font.tx_font.enable
+	font.cb_font.enable
+	font.tx_font_style.enable
+	font.cb_font_style.enable
+	font.tx_font_size.enable
+	font.cb_font_size.enable
+	font.tx_font_color.enable
+	font.cb_font_color.enable
+	font.cl_color.enable
+	font.tx_underline.enable
+	font.cb_underline.enable
+	font.gb_font_effects.enable
+	font.tx_strike.enable
+	font.cb_strike.enable
+	font.tx_script.enable
+	font.cb_script.enable
+
+	border.tx_border.enable
+	border.cb_border.enable
+	border.tx_border_style.enable
+	border.cb_border_style.enable
+	border.tx_border_color.enable
+	border.cb_border_color.enable
+	border.cl_bcolor.enable
+	border.ck_dborder.enable
+	border.tx_dborder.enable
+	border.cb_dborder.enable
+	border.tx_dborder_style.enable
+	border.cb_dborder_style.enable
+	border.tx_dborder_color.enable
+	border.cb_dborder_color.enable
+	border.cl_dcolor.enable
+
+	fill.tx_fpattern.enable
+	fill.cb_fpattern.enable
+	fill.tx_fgcolor.enable
+	fill.cb_fgcolor.enable
+	fill.cl_fgcolor.enable
+	fill.tx_bgcolor.enable
+	fill.cb_bgcolor.enable
+	fill.cl_bgcolor.enable
+END
+
+DIALOG number, tabtitle(resource LBL_ED_NUMBER)
+BEGIN
+  TEXT tx_category		_lft	_top	_vnwd	.,		///
+	label(resource LBL_CATEGORY)
+  LISTBOX lb_category		@	_ss	@	_ht30,		///
+	contents(number_category_list)					///
+	values(number_category_values)					///
+	onselchange("program number_category_changed")
+  GROUPBOX gb_fmt		+135	@	260	_ht2,		///
+	label(resource LBL_RB_FORMAT)
+  DEFINE holdx @x
+  EDIT ed_nformat		+10	_ss	220	.,		///
+	option(nformat)
+  BUTTON bu_nformat_help	+225	@	20	.,		///
+	onpush(view help mf_xl##set_number_format|_new)			///
+	label(resource LBL_?)
+  TEXTBOX tb_nformat_note	holdx	+40	260	.,		///
+	label()
+  DEFINE holdy @y
+  SPINNER sp_decimal		holdx	holdy	_spwd	.,		///
+	min(0)								///
+	max(30)								///
+	default(2)							///
+	onchange("program number_nformat_changed")
+  TEXT tx_decimal		_spsep	@	_cwd1	.,		///
+	label(resource LBL_DECIMAL_PLACES)
+  CHECKBOX ck_separator		holdx	_ls	260	.,		///
+	onclickon("program number_nformat_changed")			///
+	onclickoff("program number_nformat_changed")			///
+  	label(resource PUTEXCEL_CELLEXP_NUMBER_CK_SEPARATOR)
+  TEXT tx_symbol		holdx	_ls	260	.,		///
+	label(resource LBL_SYMBOL)
+  COMBOBOX cb_symbol		@	_ss	@	.,		///
+	dropdownlist							///
+	contents(number_symbol_list)					///
+	onselchange("program number_nformat_changed")
+  TEXT tx_type			holdx	_ls	260	.,		///
+	label()
+  LISTBOX lb_type		@	_ss	@	_ht13,		///
+	contents(number_negative_nums_list)				///
+	values(number_category_values)					///
+	onselchange("program number_nformat_changed")
+END
+
+LIST number_category_list
+BEGIN
+	resource LBL_GENERAL
+	resource LBL_ED_NUMBER
+	resource LBL_CURRENCY
+	resource LBL_ACCOUNTING
+	resource LBL_DATE
+	resource LBL_TIME
+	resource LBL_PERCENTAGE
+	resource LBL_FRACTION
+	resource LBL_SCIENTIFIC
+	resource LBL_TAB_TEXT
+	resource LBL_SPECIAL
+	resource LBL_CUSTOM
+END
+
+LIST number_category_values
+BEGIN
+	general
+	number
+	currency
+	accounting
+	date
+	time
+	percentage
+	fraction
+	scientific
+	text
+	special
+	custom
+END
+
+LIST number_symbol_list
+BEGIN
+	"$"
+	"None"
+END
+
+LIST number_number_list
+BEGIN
+	"-1234.10"
+	"-1234.10 (red)"
+	"(1234.10)"
+	"(1234.10) (red)"
+END
+
+LIST number_number_values
+BEGIN
+	""
+	"red"
+	"paren"
+	"paren_red"
+END
+
+LIST number_currency_list
+BEGIN
+	"-$1,234.10"
+	"-$1,234.10 (red)"
+	"($1,234.10)"
+	"($1,234.10) (red)"
+END
+
+LIST number_currency_values
+BEGIN
+	""
+	"red"
+	"paren"
+	"paren_red"
+END
+
+LIST number_date_list
+BEGIN
+	"3/18/2007"
+	"Sunday, March 18, 2007"
+	"3/18"
+	"3/18/07"
+	"03/18/07"
+	"8-Apr"
+	"8-Apr-04"
+	"08-Apr-04"
+	"Mar-00"
+	"March-00"
+	"January 29, 2010"
+	"1/29/10 1:30 PM"
+	"1/29/10 16:30"
+	"M"
+	"M-01"
+	"18-Mar-2010"
+END
+
+LIST number_date_values
+BEGIN
+	m/d/yyyy
+	dddd, mmmm d, yyyy
+	m/d
+	m/d/yy
+	mm/dd/yy
+	d-mmm
+	d-mmm-yy
+	dd-mmm-yy
+	mmm-yy
+	mmmm-yy
+	mmmm d, yyyy
+	m/d/yy h:m AM/PM
+	m/d/yy h:m 
+	mmmmm
+	mmmmm-yy
+	d-mmm-yyyy
+END
+
+LIST number_time_list
+BEGIN
+	"1:30:55 PM"
+	"13:30"
+	"1:30 PM"
+	"13:30:55"
+	"30:55.2"
+	"37.30:55"
+	"3/14/01 1:30 PM"
+	"3/14/01 13:30"
+END
+
+LIST number_time_values
+BEGIN
+	h:mm:ss AM/PM
+	h:mm
+	h:mm AM/PM
+	h:mm:ss
+	[mm]:ss.00
+	[h]:mm:ss
+	m/d/yy h:m AM/PM
+	m/d/yy h:m 
+END
+
+LIST number_fraction_list
+BEGIN
+	resource PUTEXCEL_CELLEXP_FRACTION_ONE_DIGIT
+	resource PUTEXCEL_CELLEXP_FRACTION_TWO_DIGIT
+	resource PUTEXCEL_CELLEXP_FRACTION_THREE_DIGIT
+/*
+	"As haves (1/2)"
+	"As quarters (2/4)"
+	"As eights (2/4)"
+	"As sixteenths (2/4)"
+	"As tenths (3/10)"
+	"As hundredths (30/100)"
+*/
+END
+
+LIST number_fraction_values
+BEGIN
+	"#/#"
+	"##/##"
+	"###/###"
+/*
+	"# ?/?;[0][<.25];[1/2][>.75];[1][>=.75];"
+	""
+	""
+	""
+	""
+*/
+END
+
+LIST number_special_list
+BEGIN
+	resource PUTEXCEL_CELLEXP_ZIPCODE
+	resource PUTEXCEL_CELLEXP_ZIPCODE_FOUR
+	resource PUTEXCEL_CELLEXP_PHONE_NUMBER
+	resource PUTEXCEL_CELLEXP_SOCIAL_SECURITY_NUMBER
+END
+
+LIST number_special_values
+BEGIN
+	zip
+	zip_four
+	phone
+	ssn
+END
+
+LIST number_custom_list
+BEGIN
+	"Create"
+	"1234"
+	"1234.00"
+	"1,234"		
+	"1,234.00"
+	"(1,234)"
+	"(1,234) (red)"
+	"(1,234.00)"
+	"(1,234.00) (red)"
+	"($1,234)"
+	"($1,234) (red)"
+	"($1,234.00)"
+	"($1,234.00) (red)"
+	"25%"		
+	"25.00%"	
+	"10.00E+01"
+	"10.0E+1"
+	"6 1/2"	
+	"6 50/100"	
+	"3/18/2007"
+	"18-Mar-07"
+	"18-Mar"
+	"Mar-07"
+	"12:00 AM"
+	"12:00:00 AM"
+	"1:15"
+	"1:15:30"
+	"3/18/2007 12:00 AM"
+	"01:14"
+	"01:14.33"
+	"text"
+	"240.00.00"
+END
+
+LIST number_custom_values
+BEGIN
+	""
+	"0"
+	"0.00"
+	"#,##0"
+	"#,##0.00"
+	"#,##0_);(#,##0)"
+	"#,##0_);[Red](#,##0)"
+	"#,##0.00_);(#,##0.00)"
+	"#,##0.00_);[Red](#,##0.00)"
+	"$#,##0_);($#,##0)"
+	"$#,##0_);[Red]($#,##0)"
+	"$#,##0.00_);($#,##0.00)"
+	"$#,##0.00_);[Red]($#,##0.00)"
+	"0%"
+	"0.00%"
+	"0.00E+00"
+	"##0.0E+0"
+	"# ?/?"
+	"# ??/??"
+	"m/d/yyyy"
+	"d-mmm-yy"
+	"d-mmm"
+	"mmmm-yy"
+	"h:mm AM/PM"
+	"h:mm:ss AM/PM"
+	"h:mm"
+	"h:mm:ss"
+	"m/d/yyyy h:mm"
+	"mm:ss"
+	"mm:ss.0"
+	"@"
+	"[h]:mm:ss"
+END
+
+SCRIPT number_hide_all
+BEGIN
+	number.tx_category.disable
+	number.lb_category.disable
+	number.gb_fmt.disable
+	number.ed_nformat.disable
+	number.bu_nformat_help.disable
+	number.tb_nformat_note.disable
+	number.sp_decimal.disable
+	number.tx_decimal.disable
+	number.ck_separator.disable
+	number.tx_symbol.disable
+	number.cb_symbol.disable
+	number.tx_type.disable
+	number.lb_type.disable
+END
+
+PROGRAM number_category_changed
+BEGIN
+	call number.bu_nformat_help.hide
+	call number.tb_nformat_note.hide
+	call number.sp_decimal.hide
+	call number.tx_decimal.hide
+	call number.ck_separator.hide
+	call number.tx_symbol.hide
+	call number.cb_symbol.hide
+	call number.tx_type.hide
+	call number.lb_type.hide
+
+	if number.lb_category.iseq("general") {
+		call number.tb_nformat_note.show
+		call number.ed_nformat.setposition . . 240 .
+call number.tb_nformat_note.setlabel resource PUTEXCEL_CELLEXP_TB_NFORMAT_NOTE_1
+	}
+	if number.lb_category.iseq("number") {
+		call number.sp_decimal.show
+		call number.tx_decimal.show
+		call number.ck_separator.show
+		call number.tx_symbol.hide
+		call number.cb_symbol.hide
+		call number.tx_type.show
+		call number.tx_type.setlabel resource PUTEXCEL_CELLEXP_NUMBER_TX_TYPE
+		call number.lb_type.show
+		call number.tx_type.setposition . 150
+		call number.lb_type.setposition . 170
+		call number.lb_type.setcontentslist number_number_list
+		call number.lb_type.setvalueslist number_number_values
+		call number.lb_type.repopulate
+		call number.ed_nformat.setposition . . 240 .
+	}
+	if number.lb_category.iseq("currency") {
+		call number.sp_decimal.show
+		call number.tx_decimal.show
+		call number.tx_symbol.show
+		call number.cb_symbol.show
+		call number.tx_symbol.setposition . 125
+		call number.cb_symbol.setposition . 145
+		call number.tx_type.show
+		call number.tx_type.setlabel resource PUTEXCEL_CELLEXP_NUMBER_TX_TYPE
+		call number.lb_type.show
+		call number.tx_type.setposition . 180
+		call number.lb_type.setposition . 200
+		call number.lb_type.setcontentslist number_currency_list
+		call number.lb_type.setvalueslist number_currency_values
+		call number.lb_type.repopulate
+		call number.ed_nformat.setposition . . 240 .
+
+	}
+	if number.lb_category.iseq("accounting") {
+		call number.sp_decimal.show
+		call number.tx_type.setposition . 200
+		call number.lb_type.setposition . 220
+		call number.tx_decimal.show
+		call number.tx_symbol.show
+		call number.cb_symbol.show
+		call number.tx_symbol.setposition . 125
+		call number.cb_symbol.setposition . 145
+		call number.ed_nformat.setposition . . 240 .
+	}
+	if number.lb_category.iseq("date") {
+		call number.tx_type.show
+		call number.tx_type.setlabel resource LBL_TYPE_COLON
+		call number.lb_type.show
+		call number.tx_type.setposition . 90
+		call number.lb_type.setposition . 110
+		call number.lb_type.setcontentslist number_date_list
+		call number.lb_type.setvalueslist number_date_values
+		call number.lb_type.repopulate
+		call number.ed_nformat.setposition . . 240 .
+	}
+	if number.lb_category.iseq("time") {
+		call number.tx_type.show
+		call number.tx_type.setlabel resource LBL_TYPE_COLON
+		call number.lb_type.show
+		call number.tx_type.setposition . 90
+		call number.lb_type.setposition . 110
+		call number.lb_type.setcontentslist number_time_list
+		call number.lb_type.setvalueslist number_time_values
+		call number.lb_type.repopulate
+		call number.ed_nformat.setposition . . 240 .
+	}
+	if number.lb_category.iseq("percentage") {
+		call number.sp_decimal.show
+		call number.tx_decimal.show
+		call number.ed_nformat.setposition . . 240 .
+	}
+	if number.lb_category.iseq("fraction") {
+		call number.tx_type.show
+		call number.tx_type.setlabel resource LBL_TYPE_COLON
+		call number.lb_type.show
+		call number.tx_type.setposition . 90
+		call number.lb_type.setposition . 110
+		call number.lb_type.setcontentslist number_fraction_list
+		call number.lb_type.setvalueslist number_fraction_values
+		call number.lb_type.repopulate
+		call number.ed_nformat.setposition . . 240 .
+	}
+	if number.lb_category.iseq("scientific") {
+		call number.sp_decimal.show
+		call number.tx_decimal.show
+		call number.ed_nformat.setposition . . 240 .
+	}
+	if number.lb_category.iseq("text") {
+		call number.tb_nformat_note.show
+call number.tb_nformat_note.setlabel resource PUTEXCEL_CELLEXP_TB_NFORMAT_NOTE_2
+		call number.ed_nformat.setposition . . 240 .
+	}
+	if number.lb_category.iseq("special") {
+		call number.tx_type.show
+		call number.tx_type.setlabel resource LBL_TYPE_COLON
+		call number.lb_type.show
+		call number.tx_type.setposition . 90
+		call number.lb_type.setposition . 110
+		call number.lb_type.setcontentslist number_special_list
+		call number.lb_type.setvalueslist number_special_values
+		call number.lb_type.repopulate
+		call number.ed_nformat.setposition . . 240 .
+
+	}
+	if number.lb_category.iseq("custom") {
+		call number.bu_nformat_help.show
+		call number.tx_type.show
+		call number.tx_type.setlabel resource LBL_TYPE_COLON
+		call number.lb_type.show
+		call number.tx_type.setposition . 90
+		call number.lb_type.setposition . 110
+		call number.lb_type.setcontentslist number_custom_list
+		call number.lb_type.setvalueslist number_custom_values
+		call number.lb_type.repopulate
+		call number.ed_nformat.setposition . . 220 .
+	}
+	call program number_nformat_changed
+END
+
+PROGRAM number_nformat_changed
+BEGIN
+	call fmt_string.setvalue ""
+	call int_string.setvalue ""
+	call decimal_string.setvalue ""
+	call number.ed_nformat.disable
+	call number.ed_nformat.setvalue ""
+	if number.lb_category.iseq("general") {
+	}
+	if number.lb_category.iseq("number") {
+		if number.lb_type.iseq("") {
+			call int_string.append "#"
+			if number.ck_separator  {
+				call int_string.append ","
+			}
+			call int_string.append "###"
+			call int_string.withvalue fmt_string.append "@"
+			call program number_get_decimal
+			call decimal_string.withvalue fmt_string.append "@"
+		}
+		if number.lb_type.iseq("red") {
+			call int_string.append "#"
+			if number.ck_separator  {
+				call int_string.append ","
+			}
+			call int_string.append "###"
+			call int_string.withvalue fmt_string.append "@"
+			call program number_get_decimal
+			call decimal_string.withvalue fmt_string.append "@"
+			call fmt_string.append ";[Red] "
+			call int_string.withvalue fmt_string.append "@"
+			call decimal_string.withvalue fmt_string.append "@"
+			call fmt_string.append ";"
+		}
+		if number.lb_type.iseq("paren") {
+			call int_string.append "#"
+			if number.ck_separator  {
+				call int_string.append ","
+			}
+			call int_string.append "###"
+			call int_string.withvalue fmt_string.append "@"
+			call program number_get_decimal
+			call decimal_string.withvalue fmt_string.append "@"
+			call fmt_string.append ";("
+			call int_string.withvalue fmt_string.append "@"
+			call decimal_string.withvalue fmt_string.append "@"
+			call fmt_string.append ");"
+		}
+		if number.lb_type.iseq("paren_red") {
+			call int_string.append "#"
+			if number.ck_separator  {
+				call int_string.append ","
+			}
+			call int_string.append "###"
+			call int_string.withvalue fmt_string.append "@"
+			call program number_get_decimal
+			call decimal_string.withvalue fmt_string.append "@"
+			call fmt_string.append ";[Red] ("
+			call int_string.withvalue fmt_string.append "@"
+			call decimal_string.withvalue fmt_string.append "@"
+			call fmt_string.append ");"
+		}
+		call fmt_string.withvalue number.ed_nformat.setvalue "@"
+	}
+	if number.lb_category.iseq("currency") {
+		if number.lb_type.iseq("") {
+			if number.cb_symbol.isneq("None") {
+				call number.cb_symbol.withvalue 	///
+					int_string.append "@"
+			}
+			call int_string.append "#,###"
+			call int_string.withvalue fmt_string.append "@"
+			call program number_get_decimal
+			call decimal_string.withvalue fmt_string.append "@"
+		}
+		if number.lb_type.iseq("red") {
+			if number.cb_symbol.isneq("None") {
+				call number.cb_symbol.withvalue 	///
+					int_string.append "@"
+			}
+			call int_string.append "#,###"
+			call int_string.withvalue fmt_string.append "@"
+			call program number_get_decimal
+			call decimal_string.withvalue fmt_string.append "@"
+			call fmt_string.append ";[Red] "
+			call int_string.withvalue fmt_string.append "@"
+			call decimal_string.withvalue fmt_string.append "@"
+			call fmt_string.append ";"
+		}
+		if number.lb_type.iseq("paren") {
+			if number.cb_symbol.isneq("None") {
+				call number.cb_symbol.withvalue 	///
+					int_string.append "@"
+			}
+			call int_string.append "#,###"
+			call int_string.withvalue fmt_string.append "@"
+			call program number_get_decimal
+			call decimal_string.withvalue fmt_string.append "@"
+			call fmt_string.append ";("
+			call int_string.withvalue fmt_string.append "@"
+			call decimal_string.withvalue fmt_string.append "@"
+			call fmt_string.append ");"
+		}
+		if number.lb_type.iseq("paren_red") {
+			if number.cb_symbol.isneq("None") {
+				call number.cb_symbol.withvalue 	///
+					int_string.append "@"
+			}
+			call int_string.append "#,###"
+			call int_string.withvalue fmt_string.append "@"
+			call program number_get_decimal
+			call decimal_string.withvalue fmt_string.append "@"
+			call fmt_string.append ";[Red] ("
+			call int_string.withvalue fmt_string.append "@"
+			call decimal_string.withvalue fmt_string.append "@"
+			call fmt_string.append ");"
+		}
+		call fmt_string.withvalue number.ed_nformat.setvalue "@"
+	}
+	if number.lb_category.iseq("accounting") {
+		if number.cb_symbol.isneq("None") {
+			call number.cb_symbol.withvalue 	///
+				int_string.append "@"
+		}
+		call int_string.append "#,###"
+		call int_string.withvalue fmt_string.append "@"
+		call program number_get_decimal
+		call decimal_string.withvalue fmt_string.append "@"
+		call fmt_string.withvalue number.ed_nformat.setvalue "@"
+	}
+	if number.lb_category.iseq("date") {
+		call number.lb_type.withvalue number.ed_nformat.setvalue "@"
+		call number.lb_type.withvalue fmt_string.setvalue "@"
+	}
+	if number.lb_category.iseq("time") {
+		call number.lb_type.withvalue number.ed_nformat.setvalue "@"
+		call number.lb_type.withvalue fmt_string.setvalue "@"
+	}
+	if number.lb_category.iseq("percentage") {
+		call program number_get_decimal
+		call decimal_string.withvalue fmt_string.append "@"
+		call fmt_string.append "%"
+		call fmt_string.withvalue number.ed_nformat.setvalue "@"
+	}
+	if number.lb_category.iseq("fraction") {
+		call number.lb_type.withvalue number.ed_nformat.setvalue "@"
+		call number.lb_type.withvalue fmt_string.setvalue "@"
+	}
+	if number.lb_category.iseq("scientific") {
+		call fmt_string.append "0"
+		call program number_get_decimal
+		call decimal_string.withvalue fmt_string.append "@"
+		call fmt_string.append "E+00"
+		call fmt_string.withvalue number.ed_nformat.setvalue "@"
+	}
+	if number.lb_category.iseq("text") {
+		call number.ed_nformat.setvalue "@"
+	}
+	if number.lb_category.iseq("special") {
+		if number.lb_type.iseq("zip") {
+			call fmt_string.append "#####"
+		}
+		if number.lb_type.iseq("zip_four") {
+			call fmt_string.append "#####-####"
+		}
+		if number.lb_type.iseq("phone") {
+			call fmt_string.append "(###)###-####"
+		}
+		if number.lb_type.iseq("ssn") {
+			call fmt_string.append "###-##-####"
+		}
+		call fmt_string.withvalue number.ed_nformat.setvalue "@"
+	}
+	if number.lb_category.iseq("custom") {
+		if number.lb_type.iseq("") {
+			call number.ed_nformat.setvalue ""
+			call number.ed_nformat.enable ""
+		}
+		else {
+			call number.ed_nformat.disable ""
+call number.lb_type.withvalue number.ed_nformat.setvalue "@"
+		call number.lb_type.withvalue fmt_string.setvalue "@"
+		}
+	}
+END
+
+PROGRAM number_get_decimal
+BEGIN
+	if number.sp_decimal.isneq(0) {
+		call decimal_string.append "."
+		call i.setvalue 1
+		while (i.isle(number.sp_decimal)) {
+			call decimal_string.append "0"
+			call i.increment
+		}
+	}
+END
+
+SCRIPT number_tab_disable
+BEGIN
+	number.tx_category.disable
+	number.lb_category.disable
+	number.gb_fmt.disable
+	number.ed_nformat.disable
+	number.bu_nformat_help.disable
+	number.tb_nformat_note.disable
+	number.sp_decimal.disable
+	number.tx_decimal.disable
+	number.ck_separator.disable
+	number.tx_symbol.disable
+	number.cb_symbol.disable
+	number.tx_type.disable
+	number.lb_type.disable
+END
+
+SCRIPT number_tab_enable
+BEGIN
+	number.tx_category.enable
+	number.lb_category.enable
+	number.gb_fmt.enable
+	number.bu_nformat_help.enable
+	number.tb_nformat_note.enable
+	number.sp_decimal.enable
+	number.tx_decimal.enable
+	number.ck_separator.enable
+	number.tx_symbol.enable
+	number.cb_symbol.enable
+	number.tx_type.enable
+	number.lb_type.enable
+	program number_category_changed
+END
+
+PROGRAM number_output
+BEGIN
+	if (fmt_string.isneq("")) {
+		put `" nformat(""'
+		put fmt_string
+		put `"")"'
+	}
+	optionarg number.ed_nformat
+END
+
+SCRIPT align_PREINIT
+BEGIN
+	STMP.format "resource PUTEXCEL_CELLEXP_SHRINK_TO_FIT"
+	STMP.append ":"
+	STMP.withvalue align.tx_shrinkfit.setlabel "@"
+
+	STMP.format "resource LBL_HORIZONTAL"
+	STMP.append ":"
+	STMP.withvalue align.tx_halign.setlabel "@"
+
+	STMP.format "resource LBL_VERTICAL"
+	STMP.append ":"
+	STMP.withvalue align.tx_valign.setlabel "@"
+END
+
+DIALOG align, tabtitle(resource LBL_TAB_ALIGNMENT)
+BEGIN
+  GROUPBOX gb_text_align	_lft	_top	_iwd	_ht9,		///
+	label(resource PUTEXCEL_CELLEXP_ALIGN_TX_ALIGNMENT)
+  TEXT tx_halign		_ilft	_ss	_vnwd	.,		///
+	label()
+  DEFINE holdy @y
+  COMBOBOX cb_halign		@	_ss	@	.,		///
+	dropdown							///
+	contents(align_halign_list)					///
+	values(align_halign_values)
+
+  TEXT tx_valign		@	_ls	@	.,		///
+	label()
+  COMBOBOX cb_valign		@	_ss	@	.,		///
+	dropdown							///
+	contents(align_valign_list)					///
+	values(align_valign_values)					///
+	label(resource LBL_VERTICAL)
+
+  TEXT tx_txtindent		_lft2	holdy	_cwd1	.,		///
+	label(resource PUTEXCEL_CELLEXP_ALIGN_TX_TXTINDENT)
+  SPINNER sp_txtindent		@	_ss	_spwd	.,		///
+	min(0)								///
+	max(15)								///
+	option(txtindent)						///
+	default(0)							///
+	label(resource PUTEXCEL_CELLEXP_ALIGN_TX_TXTINDENT)
+	
+  TEXT tx_txtrotate		@	_ls	_cwd1	.,		///
+	label(resource PUTEXCEL_CELLEXP_ALIGN_TX_TXTROTATE)
+  SPINNER sp_txtrotate		@	_ss	_spwd	.,		///
+	min(0)								///
+	max(180)							///
+	default(0)							///
+	option(txtrotate)						///
+	label(resource PUTEXCEL_CELLEXP_ALIGN_TX_TXTROTATE)
+  TEXT tx_degrees		_spsep	@	100	.,		///
+	label(resource PUTEXCEL_CELLEXP_ALIGN_TX_DEGREES)
+
+  GROUPBOX gb_text_cntrl	_lft	_xls	_iwd	_ht4,		///
+	label(resource PUTEXCEL_CELLEXP_ALIGN_GB_TEXT_CNTRL)
+  TEXT tx_txtwrap		_ilft	_ss	_vnwd	.,		///
+	label(resource PUTEXCEL_CELLEXP_ALIGN_TX_TXTWRAP)
+  DEFINE holdy2 @y
+  COMBOBOX cb_txtwrap		@	_ss	@	.,		///
+	dropdown							///
+	contents(align_txtwrap_list)					///
+	values(align_txtwrap_values)
+  TEXT tx_shrinkfit		_lft3_2	holdy2	@	.,		///
+	label()
+  COMBOBOX cb_shrinkfit		@	_ss	@	.,		///
+	dropdown							///
+	contents(align_shrink_list)					///
+	values(align_shrink_values)
+  TEXT tx_merge			+130	holdy2	@	.,		///
+	label(resource PUTEXCEL_CELLEXP_ALIGN_TX_MERGE)
+  COMBOBOX cb_merge		@	_ss	@	.,		///
+	dropdown							///
+	contents(align_merge_list)					///
+	values(align_merge_values)
+END
+
+LIST align_valign_list
+BEGIN
+	resource PUTEXCEL_CELLEXP_TOP
+	resource LBL_CENTER
+	resource PUTEXCEL_CELLEXP_BOTTOM
+//	resource PUTEXCEL_CELLEXP_JUSTIFY
+//	resource PUTEXCEL_CELLEXP_DISTRIBUTED
+END
+
+LIST align_valign_values
+BEGIN
+	top
+	vcenter
+	bottom
+//	justify
+//	distributed
+END
+
+LIST align_halign_list
+BEGIN
+	resource PUTEXCEL_CELLEXP_LEFT
+	resource LBL_CENTER
+	resource PUTEXCEL_CELLEXP_RIGHT
+//	resource LBL_FILL
+//	resource PUTEXCEL_CELLEXP_JUSTIFY
+//	resource PUTEXCEL_CELLEXP_MERGE
+//	resource PUTEXCEL_CELLEXP_DISTRIBUTED
+END
+
+LIST align_halign_values
+BEGIN
+	left
+	hcenter
+	right
+//	fill
+//	justify
+//	merge
+//	distributed
+END
+
+LIST align_shrink_list
+BEGIN
+	resource PUTEXCEL_CELLEXP_SHRINK_TO_FIT
+	resource LBL_WITHOUT
+END
+
+LIST align_shrink_values
+BEGIN
+	shrink
+	noshrink
+END
+
+LIST align_txtwrap_list
+BEGIN
+	resource PUTEXCEL_CELLEXP_WRAP_TEXT
+	resource LBL_WITHOUT
+END
+
+LIST align_txtwrap_values
+BEGIN
+	txtwrap
+	notxtwrap
+END
+
+LIST align_merge_list
+BEGIN
+	resource PUTEXCEL_CELLEXP_MERGE_CELLS
+	resource LBL_WITHOUT
+END
+
+LIST align_merge_values
+BEGIN
+	merge
+	unmerge
+END
+
+PROGRAM align_output
+BEGIN
+	put " " align.cb_halign
+	put " " align.cb_valign
+	optionarg /hidedefault align.sp_txtindent
+	optionarg /hidedefault align.sp_txtrotate
+	put " " align.cb_txtwrap
+	put " " align.cb_shrinkfit
+	put " "  align.cb_merge
+END
+
+SCRIPT font_PREINIT
+BEGIN
+	STMP.format "resource LBL_FONT"
+	STMP.append ":"
+	STMP.withvalue font.tx_font.setlabel "@"
+
+	STMP.format "resource PUTEXCEL_CELLEXP_UNDERLINE"
+	STMP.append ":"
+	STMP.withvalue font.tx_underline.setlabel "@"
+	STMP.format "resource PUTEXCEL_CELLEXP_STRIKETHROUGH"
+	STMP.append ":"
+	STMP.withvalue font.tx_strike.setlabel "@"
+END
+
+DIALOG font, tabtitle(resource LBL_FONT)
+BEGIN
+  TEXT tx_font			_lft	_top	200	.,		///
+	label("")
+  DEFINE yy @y
+  COMBOBOX cb_font		@	_ss	@	110,		///
+	contents(font_font_list)					///
+	values(font_font_values)					///
+	label(resource PUTEXCEL_CELLEXP_FONT_TX_FONT)
+  TEXT tx_font_style		+210	yy	_vnwd	.,		///
+	label(resource LBL_TX_STYLE)
+  COMBOBOX cb_font_style	@	_ss	@	110,		///
+	contents(font_font_style_list)					///
+	values(font_font_style_values)					///
+	label(resource LBL_TX_STYLE)
+
+  TEXT tx_font_size		_vnsep	yy	_spwd	.,		///
+	label(resource LBL_SIZE_MAGNITUDE)
+  COMBOBOX cb_font_size		@	_ss	@	110,		///
+	contents(font_font_size_list)					///
+	label(resource LBL_SIZE_MAGNITUDE)
+
+  TEXT tx_font_color		_lft	+120	_vnwd	.,		///
+	label(resource LBL_COLOR)
+  COMBOBOX cb_font_color	@	_ss	@	.,		///
+	dropdown							///
+	contents(color_list)						///
+	values(color_values)						///
+	onselchange(program font_color_changed)				///
+	label(resource LBL_COLOR)
+  COLOR cl_color		_vnsep	@	20	.,
+  TEXT tx_underline		_lft	_ls	_vnwd	.,		///
+	label()
+  COMBOBOX cb_underline		@	_ss	@	.,		///
+	dropdown							///
+	contents(font_underline_list)					///
+	values(font_underline_values)
+
+  GROUPBOX gb_font_effects	_lft	_ls	_iwd	_ht4,		///
+	label(resource LBL_EFFECTS)
+  TEXT tx_strike		_ilft	_ss	_vnwd	.,
+  DEFINE y2 @y
+  COMBOBOX cb_strike		@	_ss	@	.,		///
+	dropdown							///
+	contents(font_strikeout_list)					///
+	values(font_strikeout_values)
+  TEXT tx_script		_lft2	y2	@	.,		///
+	label(resource PUTEXCEL_CELLEXP_FONT_TX_SCRIPT)
+  COMBOBOX cb_script		@	_ss	@	.,		///
+	option(script)							///
+	dropdown							///
+	contents(font_script_list)					///
+	values(font_script_values)					///
+	label(resource PUTEXCEL_CELLEXP_FONT_TX_SCRIPT)
+END
+
+LIST font_font_list
+BEGIN
+	resource LBL_CALIBRI
+	resource LBL_ARIAL
+	resource LBL_COURIER
+	resource LBL_COURIER_NEW
+	resource LBL_LUCIDA_CONSOLE
+	resource LBL_MODERN
+	resource LBL_ROMAN
+	resource LBL_SYSTEM
+	resource LBL_TIMES_NEW_ROMAN
+	resource LBL_TAHOMA
+	resource LBL_VERDANA
+END
+
+LIST font_font_values
+BEGIN
+
+END
+
+LIST font_font_style_list
+BEGIN
+	resource LBL_REGULAR
+	resource LBL_ITALIC
+	resource LBL_BOLD
+	resource PUTEXCEL_CELLEXP_BOLD_ITALIC
+END
+
+LIST font_font_style_values
+BEGIN
+	"nobold noitalic"
+	italic
+	bold
+	"bold italic"
+END
+
+LIST font_font_size_list
+BEGIN
+	8
+	9
+	10
+	11
+	12
+	14
+	16
+	18
+	20
+	22
+	24
+	26
+	28
+	36
+	48
+	72
+END
+
+LIST font_underline_list
+BEGIN
+	resource PUTEXCEL_CELLEXP_UNDERLINE
+	resource LBL_WITHOUT
+END
+
+LIST font_underline_values
+BEGIN
+	underline
+	nounderline
+END
+
+LIST font_strikeout_list
+BEGIN
+	resource PUTEXCEL_CELLEXP_STRIKETHROUGH
+	resource LBL_WITHOUT
+END
+
+LIST font_strikeout_values
+BEGIN
+	strikeout
+	nostrikeout
+END
+
+LIST font_script_list
+BEGIN
+	resource LBL_NONE
+	resource LBL_SUPER
+	resource LBL_SUB
+END
+
+LIST font_script_values
+BEGIN
+	none
+	super
+	sub
+END
+
+PROGRAM font_color_changed
+BEGIN
+	if font.cb_font_color.iseq("custom") {
+		call font.cl_color.show
+	}
+	else {
+		call font.cl_color.hide
+	}
+END
+
+PROGRAM font_opt_output
+BEGIN
+	put `"""'
+	put font.cb_font
+	put `"""'
+	put ", "
+	put `"""'
+	put font.cb_font_size
+	put `"""'
+	if font.cb_font_color {
+		put ", "
+		put `"""'
+		if H(font.cl_color) {
+			put font.cb_font_color
+		}
+		else {
+			put font.cl_color
+		}
+		put `"""'
+	}
+END
+
+PROGRAM font_output
+BEGIN
+	if (font.cb_font_size.isneq("")) {
+		require font.cb_font
+	}
+	if (font.cb_font.isneq("")) {
+		require font.cb_font_size
+	}
+	if (font.cb_font_color.isneq("")) {
+		require font.cb_font
+		require font.cb_font_size
+	}
+	if (font.cb_font) {
+		put " font("
+		put /program font_opt_output
+		put ") "
+	}
+	put " " font.cb_font_style
+	put " " font.cb_underline
+	put " " font.cb_strike
+	optionarg font.cb_script
+END
+
+SCRIPT border_PREINIT
+BEGIN
+	STMP.format "resource PUTEXCEL_CELLEXP_BORDER"
+	STMP.append ":"
+	STMP.withvalue border.tx_border.setlabel "@"
+	STMP.withvalue border.cb_border.setlabel "@"
+	STMP.withvalue border.tx_dborder.setlabel "@"
+	STMP.withvalue border.cb_dborder.setlabel "@"
+END
+
+DIALOG border, tabtitle(resource PUTEXCEL_CELLEXP_BORDER)
+BEGIN
+  TEXT tx_border		_lft	_top	_cwd4	.,		///
+	label()
+DEFINE holdy @y
+  COMBOBOX cb_border		@	_ss	@	.,		///
+	dropdown							///
+	contents(border_border_list)					///
+	values(border_border_values)
+  TEXT tx_border_style		_lft2	holdy	@	.,		///
+	label(resource LBL_TX_STYLE)
+  COMBOBOX cb_border_style	@	_ss	@	.,		///
+	dropdown							///
+	contents(border_style_list)					///
+	values(border_style_values)					///
+	label(resource LBL_TX_STYLE)
+  TEXT tx_border_color		_lft	_ms	_vnwd	.,		///
+	label(resource LBL_COLOR)
+  COMBOBOX cb_border_color	@	_ss	@	.,		///
+	dropdown							///
+	contents(color_list)						///
+	values(color_values)						///
+	onselchange(program border_bcolor_changed)			///
+	label(resource LBL_COLOR)
+  COLOR cl_bcolor		_vnsep	@	20	.,
+
+  CHECKBOX ck_dborder		_lft	_xls	_iwd	_ht9,		///
+	groupbox							///
+	onclickon(script border_dborder_on)				///
+	onclickoff(script border_dborder_off)				///
+	label(resource PUTEXCEL_CELLEXP_DIAGONAL_BORDER)
+  TEXT tx_dborder		_ilft	_ss	_cwd4	.,		///
+	label()
+  DEFINE holdy2 @y
+  COMBOBOX cb_dborder		@	_ss	@	.,		///
+	dropdown							///
+	contents(border_dborder_list)					///
+	values(border_dborder_values)
+  TEXT tx_dborder_style		_lft2	holdy2	@	.,		///
+	label(resource LBL_TX_STYLE)
+  COMBOBOX cb_dborder_style	@	_ss	@	.,		///
+	dropdown							///
+	contents(border_style_list)					///
+	values(border_style_values)					///
+	label(resource LBL_TX_STYLE)
+  TEXT tx_dborder_color		_ilft	_ms	_cwd2	.,		///
+	label(resource LBL_COLOR)
+  COMBOBOX cb_dborder_color	@	_ss	_vnwd	.,		///
+	dropdown							///
+	contents(color_list)						///
+	values(color_values)						///
+	onselchange(program border_dcolor_changed)			///
+	label(resource LBL_COLOR)
+  COLOR cl_dcolor		_vnsep	@	20	.,
+END
+
+LIST border_border_list
+BEGIN
+	resource PUTEXCEL_CELLEXP_ALL
+	resource PUTEXCEL_CELLEXP_LEFT
+	resource PUTEXCEL_CELLEXP_RIGHT
+	resource PUTEXCEL_CELLEXP_TOP
+	resource PUTEXCEL_CELLEXP_BOTTOM
+END
+
+LIST border_border_values
+BEGIN
+	all
+	left
+	right
+	top
+	bottom
+END
+
+LIST border_style_list
+BEGIN
+	resource LBL_NONE
+	resource PUTEXCEL_CELLEXP_THIN
+	resource PUTEXCEL_CELLEXP_MEDIUM
+	resource PUTEXCEL_CELLEXP_DASHED
+	resource PUTEXCEL_CELLEXP_DOTTED
+	resource PUTEXCEL_CELLEXP_THICK
+	resource LBL_DOUBLE
+	resource PUTEXCEL_CELLEXP_HAIR
+	resource PUTEXCEL_CELLEXP_MEDIUM_DASHED
+	resource PUTEXCEL_CELLEXP_DASH_DOT
+	resource PUTEXCEL_CELLEXP_MEDIUM_DASH_DOT
+	resource PUTEXCEL_CELLEXP_DASH_DOT_DOT
+	resource PUTEXCEL_CELLEXP_MEDIUM_DASH_DOT_DOT
+	resource PUTEXCEL_CELLEXP_SLANT_DASH_DOT
+END
+
+LIST border_style_values
+BEGIN
+	none
+	thin
+	medium
+	dashed
+	dotted
+	thick
+	double
+	hair
+	medium_dashed
+	dash_dot
+	medium_dash_dot
+	dash_dot_dot
+	medium_dash_dot_dot
+	slant_dash_dot
+END
+
+LIST border_dborder_list
+BEGIN
+	resource LBL_NONE
+	resource LBL_DOWN
+	resource LBL_UP
+	resource LBL_BOTH
+END
+
+LIST border_dborder_values
+BEGIN
+	none
+	down
+	up
+	both
+END
+
+SCRIPT border_dborder_on
+BEGIN
+	border.tx_dborder.enable
+	border.cb_dborder.enable
+	border.tx_dborder_style.enable
+	border.cb_dborder_style.enable
+	border.tx_dborder_color.enable
+	border.cb_dborder_color.enable
+	border.cl_dcolor.enable
+END
+
+SCRIPT border_dborder_off
+BEGIN
+	border.tx_dborder.disable
+	border.cb_dborder.disable
+	border.tx_dborder_style.disable
+	border.cb_dborder_style.disable
+	border.tx_dborder_color.disable
+	border.cb_dborder_color.disable
+	border.cl_dcolor.disable
+END
+
+PROGRAM border_bcolor_changed
+BEGIN
+	if border.cb_border_color.iseq("custom") {
+		call border.cl_bcolor.show
+	}
+	else {
+		call border.cl_bcolor.hide
+	}
+END
+
+PROGRAM border_dcolor_changed
+BEGIN
+	if border.cb_dborder_color.iseq("custom") {
+		call border.cl_dcolor.show
+	}
+	else {
+		call border.cl_dcolor.hide
+	}
+END
+
+PROGRAM border_opt_output
+BEGIN
+	put `"""'
+	put border.cb_border
+	put `"""'
+	put ", "
+	put `"""'
+	put border.cb_border_style
+	put `"""'
+	if border.cb_border_color {
+		put ", "
+		put `"""'
+		if H(border.cl_bcolor) {
+			put border.cb_border_color
+		}
+		else {
+			put border.cl_bcolor
+		}
+		put `"""'
+	}
+END
+
+PROGRAM dborder_opt_output
+BEGIN
+	put `"""'
+	put border.cb_dborder
+	put `"""'
+	put ", "
+	put `"""'
+	put border.cb_dborder_style
+	put `"""'
+	if border.cb_dborder_color {
+		put ", "
+		put `"""'
+		if H(border.cl_dcolor) {
+			put border.cb_dborder_color
+		}
+		else {
+			put border.cl_dcolor
+		}
+		put `"""'
+	}
+END
+
+PROGRAM border_output
+BEGIN
+	if (border.cb_border_style.isneq("")) {
+		require border.cb_border
+	}
+	if (border.cb_border.isneq("")) {
+		require border.cb_border_style
+	}
+	if (border.cb_border_color.isneq("")) {
+		require border.cb_border
+		require border.cb_border_style
+	}
+	if (border.cb_border) {
+		put " border("
+		put /program border_opt_output
+		put ") "
+	}
+
+	if (border.cb_dborder_style.isneq("")) {
+		require border.cb_dborder
+	}
+	if (border.cb_dborder.isneq("")) {
+		require border.cb_dborder_style
+	}
+	if (border.cb_dborder_color.isneq("")) {
+		require border.cb_dborder
+		require border.cb_dborder_style
+	}
+	if (border.cb_dborder) {
+		put " dborder("
+		put /program dborder_opt_output
+		put ") "
+	}
+
+END
+
+DIALOG fill, tabtitle(resource LBL_FILL)
+BEGIN
+  TEXT tx_fpattern		_lft	_top	_cwd3	.,		///
+	label(resource PUTEXCEL_CELLEXP_FILL_TX_FPATTERN)
+  COMBOBOX cb_fpattern		@	_ss	@	.,		///
+	dropdown							///
+	contents(fill_pattern_list)					///
+	values(fill_pattern_values)					///
+	label(resource PUTEXCEL_CELLEXP_FILL_TX_FPATTERN)
+
+  TEXT tx_fgcolor		@	_ls	_cwd2	.,		///
+	label(resource PUTEXCEL_CELLEXP_FILL_TX_COLOR2)
+  DEFINE holdy @y
+  COMBOBOX cb_fgcolor		@	_ss	_vnwd	.,		///
+	dropdown							///
+	contents(color_list)						///
+	values(color_values)						///
+	onselchange(program fill_fgcolor_changed)			///
+	label(resource PUTEXCEL_CELLEXP_FILL_TX_COLOR2)
+  COLOR cl_fgcolor		_vnsep	@	20	.,
+
+  TEXT tx_bgcolor		_lft	_ls	_cwd2	.,		///
+	label(resource PUTEXCEL_CELLEXP_BACKGROUND_COLOR)
+  COMBOBOX cb_bgcolor		@	_ss	_vnwd	.,		///
+	dropdown							///
+	contents(color_list)						///
+	values(color_values)						///
+	onselchange(program fill_bgcolor_changed)			///
+	label(resource PUTEXCEL_CELLEXP_BACKGROUND_COLOR)
+  COLOR cl_bgcolor		_vnsep	@	20	.,
+END
+
+LIST fill_pattern_list
+BEGIN
+	resource LBL_NONE
+	resource PUTEXCEL_CELLEXP_SOLID
+	resource PUTEXCEL_CELLEXP_GRAY_50
+	resource PUTEXCEL_CELLEXP_GRAY_75
+	resource PUTEXCEL_CELLEXP_GRAY_25
+	resource PUTEXCEL_CELLEXP_HORIZONTAL_STRIPE
+	resource PUTEXCEL_CELLEXP_VERTICAL_STRIPE
+	resource PUTEXCEL_CELLEXP_REVERSE_DIAGONAL_STRIPE
+	resource PUTEXCEL_CELLEXP_DIAGONAL_STRIPE
+	resource PUTEXCEL_CELLEXP_DIAGONAL_CROSS_HATCH
+	resource PUTEXCEL_CELLEXP_THICK_DIAGONAL_CROSS_HATCH
+	resource PUTEXCEL_CELLEXP_THIN_HORIZONTAL_STRIPE
+	resource PUTEXCEL_CELLEXP_THIN_REVERSE_STRIPE
+	resource PUTEXCEL_CELLEXP_THIN_REVERSE_DIAGONAL_STRIPE
+	resource PUTEXCEL_CELLEXP_THIN_DIAGONAL_STRIPE
+	resource PUTEXCEL_CELLEXP_THIN_HORIZONTAL_CROSS_HATCH
+	resource PUTEXCEL_CELLEXP_THIN_DIAGONAL_CROSS_HATCH
+	resource PUTEXCEL_CELLEXP_GRAY_12P5
+	resource PUTEXCEL_CELLEXP_GRAY_6P25
+END
+
+LIST fill_pattern_values
+BEGIN
+	none
+	solid
+	gray50
+	gray75
+	gray25
+	horstripe
+	verstripe
+	revdiagstripe
+	diagstripe
+	diagcrosshatch
+	thickdiagcrosshatch
+	thinhorstripe
+	thinverstripe
+	thinrevdiagstripe
+	thindiagstripe
+	thinhorcrosshatch
+	thindiagcrosshatch
+	gray12p5
+	gray6p25
+END
+
+PROGRAM fill_fgcolor_changed
+BEGIN
+	if fill.cb_fgcolor.iseq("custom") {
+		call fill.cl_fgcolor.show
+	}
+	else {
+		call fill.cl_fgcolor.hide
+	}
+END
+
+PROGRAM fill_bgcolor_changed
+BEGIN
+	if fill.cb_bgcolor.iseq("custom") {
+		call fill.cl_bgcolor.show
+	}
+	else {
+		call fill.cl_bgcolor.hide
+	}
+END
+
+PROGRAM fill_opt_output
+BEGIN
+	put `"""'
+	put fill.cb_fpattern
+	put `"""'
+	put ", "
+	put `"""'
+	if H(fill.cl_fgcolor) {
+		put fill.cb_fgcolor
+	}
+	else {
+		put fill.cl_fgcolor
+	}
+	put `"""'
+	if fill.cb_bgcolor {
+		put ", "
+		put `"""'
+		if H(fill.cl_bgcolor) {
+			put fill.cb_bgcolor
+		}
+		else {
+			put fill.cl_bgcolor
+		}
+		put `"""'
+	}
+END
+
+PROGRAM fill_output
+BEGIN
+	if (fill.cb_fgcolor.isneq("")) {
+		require fill.cb_fpattern
+	}
+	if (fill.cb_fpattern.isneq("")) {
+		require fill.cb_fgcolor
+	}
+	if (fill.cb_bgcolor.isneq("")) {
+		require fill.cb_fpattern
+		require fill.cb_fgcolor
+	}
+	if (fill.cb_fpattern) {
+		put " fpattern("
+		put /program fill_opt_output
+		put ") "
+	}
+END
+
+LIST color_list
+BEGIN
+	resource LBL_ALICE_BLUE
+	resource LBL_ANTIQUE_WHITE
+	resource LBL_AQUA
+	resource LBL_AQUAMARINE
+	resource LBL_AZURE
+	resource LBL_BEIGE
+	resource LBL_BISQUE
+	resource LBL_BLACK
+	resource LBL_BLANCHED_ALMOND
+	resource LBL_BLUE
+	resource LBL_BLUE_VIOLET
+	resource LBL_BROWN
+	resource LBL_BURLYWOOD
+	resource LBL_CADET_BLUE
+	resource LBL_CHARTREUSE
+	resource LBL_CHOCOLATE
+	resource LBL_CORAL
+	resource LBL_CORNFLOWER_BLUE
+	resource LBL_CORNSILK
+	resource LBL_CRIMSON
+	resource LBL_CUSTOM
+	resource LBL_CYAN
+	resource LBL_DARK_BLUE
+	resource LBL_DARK_CYAN
+	resource LBL_DARK_GOLDENROD
+	resource LBL_DARK_GRAY
+	resource LBL_DARK_GREEN
+	resource LBL_DARK_KHAKI
+	resource LBL_DARK_MAGENTA
+	resource LBL_DARK_OLIVE_GREEN
+	resource LBL_DARK_ORANGE
+	resource LBL_DARK_ORCHID
+	resource LBL_DARK_RED
+	resource LBL_DARK_SALMON
+	resource LBL_DARK_SEA_GREEN
+	resource LBL_DARK_SLATE_BLUE
+	resource LBL_DARK_SLATE_GRAY
+	resource LBL_DARK_TURQUOISE
+	resource LBL_DARK_VIOLET
+	resource LBL_DEEP_PINK
+	resource LBL_DEEP_SKY_BLUE
+	resource LBL_DIMGRAY
+	resource LBL_DODGER_BLUE
+	resource LBL_FIRE_BRICK
+	resource LBL_FLORAL_WHITE
+	resource LBL_FOREST_GREEN
+	resource LBL_FUCHSIA
+	resource LBL_GAINSBORO
+	resource LBL_GHOST_WHITE
+	resource LBL_GOLD
+	resource LBL_GOLDENROD
+	resource LBL_GRAY
+	resource LBL_GREEN
+	resource LBL_GREEN_YELLOW
+	resource LBL_HONEYDEW
+	resource LBL_HOT_PINK
+	resource LBL_INDIAN_RED
+	resource LBL_INDIGO
+	resource LBL_IVORY
+	resource LBL_KHAKI
+	resource LBL_LAVENDER
+	resource LBL_LAVENDER_BLUSH
+	resource LBL_LAWN_GREEN
+	resource LBL_LEMON_CHIFFON
+	resource LBL_LIGHT_BLUE
+	resource LBL_LIGHT_CORAL
+	resource LBL_LIGHT_CYAN
+	resource LBL_LIGHT_GOLDENROD_YELLOW
+	resource LBL_LIGHT_GRAY
+	resource LBL_LIGHT_GREEN
+	resource LBL_LIGHT_PINK
+	resource LBL_LIGHT_SALMON
+	resource LBL_LIGHT_SEA_GREEN
+	resource LBL_LIGHT_SKY_BLUE
+	resource LBL_LIGHT_SLATE_GRAY
+	resource LBL_LIGHT_STEEL_BLUE
+	resource LBL_LIGHT_YELLOW
+	resource LBL_LIME
+	resource LBL_LIME_GREEN
+	resource LBL_LINEN
+	resource LBL_MAGENTA
+	resource LBL_MAROON
+	resource LBL_MEDIUM_AQUAMARINE
+	resource LBL_MEDIUM_BLUE
+	resource LBL_MEDIUM_ORCHID
+	resource LBL_MEDIUM_PURPLE
+	resource LBL_MEDIUM_SEA_GREEN
+	resource LBL_MEDIUM_SLATE_BLUE
+	resource LBL_MEDIUM_SPRING_GREEN
+	resource LBL_MEDIUM_TURQUOISE
+	resource LBL_MEDIUM_VIOLET_RED
+	resource LBL_MIDNIGHT_BLUE
+	resource LBL_MINT_CREAM
+	resource LBL_MISTY_ROSE
+	resource LBL_MOCCASIN
+	resource LBL_NAVAJO_WHITE
+	resource LBL_NAVY
+	resource LBL_OLD_LACE
+	resource LBL_OLIVE
+	resource LBL_OLIVE_DRAB
+	resource LBL_ORANGE
+	resource LBL_ORANGE_RED
+	resource LBL_ORCHID
+	resource LBL_PALE_GOLDENROD
+	resource LBL_PALE_GREEN
+	resource LBL_PALE_TURQUOISE
+	resource LBL_PALE_VIOLET_RED
+	resource LBL_PAPYAWHIP
+	resource LBL_PEACHPUFF
+	resource LBL_PERU
+	resource LBL_PINK
+	resource LBL_PLUM
+	resource LBL_POWDER_BLUE
+	resource LBL_PURPLE
+	resource LBL_RED
+	resource LBL_ROSEY_BROWN
+	resource LBL_ROYAL_BLUE
+	resource LBL_SADDLE_BROWN
+	resource LBL_SALMON
+	resource LBL_SANDY_BROWN
+	resource LBL_SEA_GREEN
+	resource LBL_SEA_SHELL
+	resource LBL_SIENNA
+	resource LBL_SILVER
+	resource LBL_SKY_BLUE
+	resource LBL_SLATE_BLUE
+	resource LBL_SLATE_GRAY
+	resource LBL_SNOW
+	resource LBL_SPRING_GREEN
+	resource LBL_STEEL_BLUE
+	resource LBL_TAN
+	resource LBL_TEAL
+	resource LBL_THISTLE
+	resource LBL_TOMATO
+	resource LBL_TURQUOISE
+	resource LBL_VIOLET
+	resource LBL_WHEAT
+	resource LBL_WHITE
+	resource LBL_WHITE_SMOKE
+	resource LBL_YELLOW
+END
+
+LIST color_values
+BEGIN
+	aliceblue
+	antiquewhite
+	aqua
+	aquamarine
+	azure
+	beige
+	bisque
+	black
+	blanchedalmond
+	blue
+	blueviolet
+	brown
+	burlywood
+	cadetblue
+	chartreuse
+	chocolate
+	coral
+	cornflowerblue
+	cornsilk
+	crimson
+	custom
+	cyan
+	darkblue
+	darkcyan
+	darkgoldenrod
+	darkgray
+	darkgreen
+	darkkhaki
+	darkmagenta
+	darkolivegreen
+	darkorange
+	darkorchid
+	darkred
+	darksalmon
+	darkseagreen
+	darkslateblue
+	darkslategray
+	darkturquoise
+	darkviolet
+	deeppink
+	deepskyblue
+	dimgray
+	dodgerblue
+	firebrick
+	floralwhite
+	forestgreen
+	fuchsia
+	gainsboro
+	ghostwhite
+	gold
+	goldenrod
+	gray
+	green
+	greenyellow
+	honeydew
+	hotpink
+	indianred
+	indigo
+	ivory
+	khaki
+	lavender
+	lavenderblush
+	lawngreen
+	lemonchiffon
+	lightblue
+	lightcoral
+	lightcyan
+	lightgoldenrodyellow
+	lightgray
+	lightgreen
+	lightpink
+	lightsalmon
+	lightseagreen
+	lightskyblue
+	lightslategray
+	lightsteelblue
+	lightyellow
+	lime
+	limegreen
+	linen
+	magenta
+	maroon
+	mediumaquamarine
+	mediumblue
+	mediumorchid
+	mediumpurple
+	mediumseagreen
+	mediumslateblue
+	mediumspringgreen
+	mediumturquoise
+	mediumvioletred
+	midnightblue
+	mintcream
+	mistyrose
+	moccasin
+	navajowhite
+	navy
+	oldlace
+	olive
+	olivedrab
+	orange
+	orangered
+	orchid
+	palegoldenrod
+	palegreen
+	paleturquoise
+	palevioletred
+	papayawhip
+	peachpuff
+	peru
+	pink
+	plum
+	powderblue
+	purple
+	red
+	rosybrown
+	royalblue
+	saddlebrown
+	salmon
+	sandybrown
+	seagreen
+	seashell
+	sienna
+	silver
+	skyblue
+	slateblue
+	slategray
+	snow
+	springgreen
+	steelblue
+	tan
+	teal
+	thistle
+	tomato
+	turquoise
+	violet
+	wheat
+	white
+	whitesmoke
+	yellow
+END
+
+PROGRAM command
+BEGIN
+	require main.ed_ul_cell
+
+	put "putexcel_cellexp_error "
+	put `"""'
+	put main.ed_ul_cell
+	put `"""'
+	stata hidden immediate
+
+	call parent_name.withvalue cell_error.setvalue			///
+		class @.cell_error.value
+
+	if cell_error {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format					///
+		"resource PUTEXCEL_CELLEXP_MSGBOX_INVALID_EXCEL_CELL_NOTATION_FMT" ///
+		"resource PUTEXCEL_CELLEXP_MAIN_ED_UL_CELL"
+		stopbox stop "class _MSG_TMP.value"
+// `"Invalid Excel cell notation in "Upper-left Cell""'
+	}
+	if main.ed_lr_cell {
+		put "putexcel_cellexp_error "
+		put `"""'
+		put main.ed_lr_cell
+		put `"""'
+		stata hidden immediate
+
+		call parent_name.withvalue cell_error.setvalue		///
+			class @.cell_error.value
+
+		if cell_error {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format				///
+		"resource PUTEXCEL_CELLEXP_MSGBOX_INVALID_EXCEL_CELL_NOTATION_FMT" ///
+			"resource PUTEXCEL_CELLEXP_MAIN_ED_LR_CELL"
+			stopbox stop "class _MSG_TMP.value"
+	// `"Invalid Excel cell notation in "Lower-right Cell""'
+		}
+	}
+
+
+	
+	put " ("
+	put main.ed_ul_cell
+
+	if main.cb_cellexplist_type.iseq("exp") {
+		if main.ed_lr_cell {
+			put ":"
+			put main.ed_lr_cell
+		}
+		put ") "
+		require main.ex_exp
+		put " = ("
+		put main.ex_exp
+		put ")"
+	}
+	if main.cb_cellexplist_type.iseq("formula") {
+		if main.ed_lr_cell {
+			put ":"
+			put main.ed_lr_cell
+		}
+		put ") "
+		require main.ed_formula
+		put " = "
+		put `"formula(""'
+		put main.ed_formula
+		put `"")"'
+	}
+	if main.cb_cellexplist_type.iseq("image") {
+		put ") "
+		require main.fi_image
+		put " = "
+		put `"image(""'
+		put main.fi_image
+		put `"")"'
+	}
+	if main.cb_cellexplist_type.iseq("matrix") {
+		put ") "
+		require main.ex_matrix
+		put " = "
+		put `"matrix("'
+		put main.ex_matrix
+		put `")"'
+	}
+	if main.cb_cellexplist_type.iseq("resultset") {
+		put ") "
+		require main.cb_resultset
+		put " = "
+		put main.cb_resultset
+	}
+
+	if main.cb_cellexplist_type.iseq("etable") {
+		put ") "
+		require main.cb_resultset
+		put " = etable"
+	}
+	if main.cb_cellexplist_type.iseq("format") {
+		if (fill.cb_fpattern.iseq("") & 			///
+			fill.cb_fgcolor.iseq("") &			///
+			border.cb_border.iseq("") &			///
+			border.cb_border_style.iseq("") &		///
+			border.cb_dborder.iseq("") &			///
+			border.cb_dborder_style.iseq("") &		///
+			font.cb_font.iseq("") &				///
+			font.cb_font_style.iseq("") &			///
+			font.cb_font_size.iseq("") &			///
+			font.cb_underline.iseq("") &			///
+			font.cb_strike.iseq("") &			///
+			font.cb_script.iseq("") &			///
+			align.cb_halign.iseq("") &			///
+			align.cb_valign.iseq("") &			///
+			align.sp_txtindent.iseq(0) &			///
+			align.sp_txtrotate.iseq(0) &			///
+			align.cb_txtwrap.iseq("") &			///
+			align.cb_shrinkfit.iseq("") &			///
+			align.cb_merge.iseq("") &			///
+			number.ed_nformat.iseq("") ){
+*/
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format				///
+		"resource PUTEXCEL_CELLEXP_MSGBOX_INVALID_EXCEL_CELL_NOTATION_FMT" ///
+			"resource PUTEXCEL_CELLEXP_MAIN_ED_LR_CELL"
+			stopbox stop "class _MSG_TMP.value"
+		}
+		if main.ed_lr_cell {
+			put ":"
+			put main.ed_lr_cell
+		}
+		put ") "
+	}
+	
+	beginoptions
+		if main.cb_cellexplist_type.iseq("exp") {
+			option main.rb_asdate
+			option main.rb_asdatetime
+			option main.rb_asdatenum
+			option main.rb_asdatetimenum
+		}
+		if main.cb_cellexplist_type.iseq("matrix") {
+			option main.rb_names
+			option main.rb_rownames
+			option main.rb_colnames
+		}
+		if main.cb_cellexplist_type.iseq("resultset") {
+			option main.ck_colwise
+		}
+
+		option main.ck_overwritefmt
+
+		put " " /program number_output
+		put " " /program align_output
+		put " " /program font_output
+		put " " /program border_output
+		put " " /program fill_output
+
+	endoptions
+END

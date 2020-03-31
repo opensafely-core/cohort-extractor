@@ -1,0 +1,480 @@
+/*
+	power mcc
+
+*!  VERSION 1.1.3  14mar2017
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_xlarge
+DEFINE _dlght 500
+INCLUDE header
+
+HELP hlp1, view("help power mcc")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING graph_res
+	create STRING numContents
+	create STRING stok
+	create ARRAY tmp
+	create BOOLEAN containsNumlist
+	create BOOLEAN containsNumlist_p0
+
+	program table_create4Mcc
+	setscale_hadj resource POWER_MCC_DLG_HSCALE
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+  label(resource POWER_MCC_DLG_TITLE)
+BEGIN
+  INCLUDE power_compute
+
+  DEFINE errpos _ls
+  INCLUDE power_errorprob
+
+  DEFINE sspos +40
+  INCLUDE power_onesampsize
+
+  GROUPBOX gb_effect_size 	_lft	+40	_iwd	_ht5h,		///
+	label(resource LBL_EFFECT_SIZE)
+  EDIT ed_p0			_indent	_ms	_en14wd	.,		///
+	onchange(program check_for_numlist)				///
+	tooltip(resource POWER_MCC_MAIN_ED_P0_TIP)			///
+	label(resource POWER_MCC_MAIN_ED_P0)
+  TEXT tx_p0			_en14sep @ 	300	.,		///
+	label(resource POWER_MCC_MAIN_TX_P0)
+  EDIT ed_oratio		_ilft	_ms	_en14wd	.,		///
+	option(oratio)							///
+	onchange(program check_for_numlist)				///
+	label(resource POWER_MCC_MAIN_ED_ORATIO) 			///
+	tooltip(resource POWER_MCC_MAIN_ED_ORATIO_TIP)	
+  TEXT tx_oratio		_en14sep @	300	.,		///
+	label(resource POWER_MCC_MAIN_TX_ORATIO)
+  GROUPBOX gb_matched		_lft	+45	_iwd	_ht8,		///
+	label(resource POWER_MCC_MAIN_GB_MATCHED)
+  EDIT ed_m			_ilft	_ms	_en14wd	.,		///
+  	option(m)							///
+	default(1)							///
+	tooltip(resource POWER_MCC_MAIN_ED_M_TIP)			///
+	onchange(program main_m_changed)				///
+  	label(resource POWER_MCC_MAIN_ED_M)
+  TEXT tx_m			_en14sep @ 	300	.,		///
+	label(resource POWER_MCC_MAIN_TX_M)
+  CHECKBOX ck_compare		_ilft	_ms	_iwd	.,		///
+	option(compare)							///
+	onclickon(program main_compare_check)				///
+	onclickoff(program main_compare_check)				///
+	label(resource POWER_MCC_MAIN_CK_COMPARE)
+  EDIT ed_corr			_ilft	_ms	_en14wd	.,		///
+  	option(corr)							///
+	default(0)							///
+	onchange(program check_for_numlist)				///
+	label(resource LBL_CORRELATION_OF_EXPOSURE_BTW_CASES_AND_CONTROLS) ///
+	tooltip(resource POWER_MCC_MAIN_ED_CORR)
+  TEXT tx_corr			_en14sep @ 	300	.,		///
+	label(resource POWER_MCC_MAIN_TX_CORR)
+
+  DEFINE ypos +45
+  INCLUDE power_test_maincommon
+END
+
+LIST main_compute_list
+BEGIN
+	resource LBL_SAMPLE_SIZE
+	resource PSS_LBL_POWER
+	resource POWER_MCC_TARGET_ODDS_RATIO
+END
+
+LIST main_compute_values
+BEGIN
+	sampsi
+	power
+	effect
+END
+
+PROGRAM main_compute_changed
+BEGIN
+	if main.cb_compute.iseq("sampsi") {
+		call program main_sampsi_on
+	}
+	if main.cb_compute.iseq("power") {
+		call program main_power_on
+	}
+	if main.cb_compute.iseq("effect") {
+		call program main_effect_on
+	}
+END
+
+PROGRAM main_sampsi_on
+BEGIN
+	call main.ed_power.show
+	call main.ed_beta.show
+	call main.tx_power_beta_power.show
+	call main.cb_power_beta.show
+	call main.ed_n.hide
+	call main.tx_n.hide
+	call main.ck_nfrac.show
+	call main.ed_oratio.show
+	call main.tx_oratio.show
+	call script power_test_maincommon_hide_dir
+	call program main_power_beta_changed
+	call program main_compare_changed
+	call program check_for_numlist
+	call program power_iteration_tab_check
+END
+
+PROGRAM main_power_on
+BEGIN
+	call main.ed_power.hide
+	call main.ed_beta.hide
+	call main.tx_power_beta_power.hide
+	call main.cb_power_beta.hide
+	call main.ed_n.show
+	call main.tx_n.show
+	call main.ck_nfrac.hide
+	call main.ed_oratio.show
+	call main.tx_oratio.show
+	call script power_test_maincommon_hide_dir
+	call program main_compare_changed
+	call program check_for_numlist
+	call program power_iteration_tab_check
+END
+
+PROGRAM main_effect_on
+BEGIN
+	call main.ed_power.show
+	call main.ed_beta.show
+	call main.tx_power_beta_power.show
+	call main.cb_power_beta.show
+	call main.ed_n.show
+	call main.tx_n.show
+	call main.ck_nfrac.hide
+	call main.ed_oratio.hide
+	call main.tx_oratio.hide
+	call script power_test_maincommon_show_dir
+	call program main_power_beta_changed
+	call program main_compare_changed
+	call program check_for_numlist
+	call program power_iteration_tab_check
+END
+
+PROGRAM main_m_changed
+BEGIN
+	call program main_compare_changed
+	call program check_for_numlist
+END
+
+PROGRAM main_compare_changed
+BEGIN
+	call main.ck_compare.enable
+	if main.cb_compute.isneq("sampsi") {
+		call main.ck_compare.disable
+	}
+	if main.ed_m.isnumlist() & main.ed_m.isNumlistLE(1) {
+		call main.ck_compare.disable
+	}
+	call program table_create4Mcc
+END
+
+PROGRAM main_compare_check
+BEGIN
+	if main.ck_compare.isenabled() {
+		call program table_create4Mcc
+	}
+END
+
+PROGRAM main_power_beta_table
+BEGIN
+	call program table_create4Mcc
+END
+
+PROGRAM check_for_numlist
+BEGIN
+	call containsNumlist.setfalse
+	call containsNumlist_p0.setfalse
+
+	if main.ed_alpha {
+		call numContents.setvalue class main.ed_alpha.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_power & main.ed_power.isvisible() {
+		call numContents.setvalue class main.ed_power.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_beta & main.ed_beta.isvisible() {
+		call numContents.setvalue class main.ed_beta.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_n & main.ed_n.isvisible() {
+		call numContents.setvalue class main.ed_n.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_p0.isenabled() {
+		call numContents.setvalue class main.ed_p0.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+			call containsNumlist_p0.settrue
+		}
+	}
+
+	if main.ed_oratio.isenabled() {
+		call numContents.setvalue class main.ed_oratio.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_m.isenabled() {
+		call numContents.setvalue class main.ed_m.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_corr.isenabled() {
+		call numContents.setvalue class main.ed_corr.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if containsNumlist {
+		call main.ck_parallel.enable
+	}
+	else {
+		call main.ck_parallel.disable
+	}
+END
+
+PROGRAM power_iteration_tab_check
+BEGIN
+	call script power_iteration_enable
+	if main.cb_compute.iseq("power") {
+		call script power_iteration_disable
+	}
+	else {
+		if main.cb_oneside.iseq("onesided") &			///
+			main.cb_compute.iseq("sampsi") {
+			call script power_iteration_disable
+		}
+		if main.cb_compute.iseq("sampsi") {
+			call script power_iteration_is_sampsi
+		}
+		if main.cb_compute.iseq("effect") {
+			call script power_iteration_is_effect
+		}
+	}
+END
+
+INCLUDE _power_list
+INCLUDE power_errorprob_pr
+INCLUDE power_table_opts
+INCLUDE power_graph
+INCLUDE power_iteration
+INCLUDE power_test_maincommon_pr
+
+PROGRAM command
+BEGIN
+	put "power mcc "
+
+	if main.cb_compute.iseq("power") | main.cb_compute.iseq("effect") {
+		require main.ed_n
+	}
+
+	require main.ed_p0 
+	if !main.ed_p0.isnumlist() {
+		call create STRING _MSG_TMP
+                call _MSG_TMP.format 					///
+			"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+			"resource LBL_TAB_MAIN"				///
+			"resource POWER_MCC_MAIN_ED_P0"
+		stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for 
+// "Probability of exposure among control patients".
+	}
+	else {
+		if !(main.ed_p0.isNumlistGT(0) & main.ed_p0.isNumlistLT(1)) {
+			call create STRING _MSG_TMP
+                call _MSG_TMP.format 					///
+			"resource LBL_MSGBOX_ON_TAB_GT_0_LT_1_FMT" 	///
+			"resource LBL_TAB_MAIN"				///
+			"resource POWER_MCC_MAIN_ED_P0"
+		stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Probability of exposure among control patients" 
+// must be in (0,1).
+		}
+	}
+
+	if containsNumlist_p0 {
+		put "("
+		put main.ed_p0
+		put ")"
+	}
+	else {
+		put main.ed_p0
+	}
+
+	beginoptions
+		if main.cb_compute.isneq("effect") {
+			require main.ed_oratio 
+			if !main.ed_oratio.isnumlist() {
+                call create STRING _MSG_TMP
+                call _MSG_TMP.format 					///
+			"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+			"resource LBL_TAB_MAIN"				///
+			"resource POWER_MCC_MAIN_ED_ORATIO"
+                stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for 
+// "Odds ratio of exposure in cases relative to controls".
+			}
+			if main.ed_oratio.isNumlistLE(0) {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format			///
+					"resource LBL_MSGBOX_ON_TAB_GREATER_THAN_0_FMT" ///
+					"resource LBL_TAB_MAIN"		///
+					"resource POWER_MCC_MAIN_ED_ORATIO"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Odds ratio of exposure in cases relative to controls" 
+// must be greater than 0.
+			}
+			optionarg main.ed_oratio
+		}
+		if main.ed_n & main.ed_n.isvisible() {
+			if !main.ed_n.isnumlist() {
+                call create STRING _MSG_TMP
+                call _MSG_TMP.format 					///
+			"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+			"resource LBL_TAB_MAIN"				///
+			"resource LBL_SAMPLE_SIZE"
+                stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Sample size".
+			}
+			if !main.ed_n.isNumlistGT(0) {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format			/// 
+					"resource LBL_MSGBOX_ON_TAB_GREATER_THAN_0_FMT" ///
+					"resource LBL_TAB_MAIN"		///
+					"resource LBL_SAMPLE_SIZE"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Sample size" must be greater than 0.
+			}
+			optionarg main.ed_n
+		}
+		if main.ed_m.isenabled() {
+			if !main.ed_m.isnumlist() {
+                call create STRING _MSG_TMP
+                call _MSG_TMP.format 					///
+			"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+			"resource LBL_TAB_MAIN"				///
+			"resource POWER_MCC_MAIN_ED_M"
+                stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for 
+// "Number of matched controls per case".
+			}
+			if !main.ed_m.isNumlistGE(1) {
+		                call create STRING _MSG_TMP
+				call _MSG_TMP.format			/// 
+					"resource LBL_MSGBOX_ON_TAB_GREATER_THAN_1_FMT" ///
+					"resource LBL_TAB_MAIN"		///
+					"resource POWER_MCC_MAIN_ED_M"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Number of matched controls per case" must be greater than 1.
+			}
+			optionarg /hidedefault main.ed_m
+		}		
+		option main.ck_compare
+		
+		if main.ed_corr.isenabled() {
+			if !main.ed_corr.isnumlist() {
+                call create STRING _MSG_TMP
+                call _MSG_TMP.format 					///
+			"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+			"resource LBL_TAB_MAIN"				///
+			"resource POWER_MCC_MAIN_ED_CORR"
+                stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for 
+// "Correlation of exposure between cases and controls, corr".
+			}
+			if main.ed_corr.isNumlistGE(1) | main.ed_corr.isNumlistLE(-1) {
+		call create STRING _MSG_TMP
+                call _MSG_TMP.format 					///
+			"resource LBL_MSGBOX_ON_TAB_BETWEEN_NEG_1_AND_1_FMT" ///
+			"resource LBL_TAB_MAIN"				///
+			"resource POWER_MCC_MAIN_ED_CORR"
+		stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Correlation of exposure between cases and controls, corr"
+// must be between -1 and 1.
+			}
+			optionarg /hidedefault main.ed_corr
+		}	
+
+		put " " /program power_errorprob_output
+		put " " /program power_test_maincommon_output
+		put " " /program power_table_opts_output
+		put " " /program power_graph_output
+		put " " /program power_iteration_output
+	endoptions
+END

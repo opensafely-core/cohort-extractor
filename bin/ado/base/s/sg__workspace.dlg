@@ -1,0 +1,157 @@
+/*
+  sg__workspace.dlg
+
+*!  VERSION 1.1.2  28nov2017
+
+*/
+
+VERSION 14.0
+MODAL
+
+INCLUDE _std_vsmall
+DEFINE _dlght 80
+INCLUDE header_sem_ed
+
+DEFINE _clwd	15
+DEFINE _wd	160
+DEFINE _sep	+165
+DEFINE _wd2	110
+DEFINE _sep2	+115
+DEFINE _cbwd	100
+DEFINE _cbsep	+105
+
+INCLUDE sg__common_output 		/* routines necessary for output */
+
+SCRIPT PREINIT
+BEGIN
+	script sg__common_output_init 	/* initialize output globals */
+
+	create STRING OBJ
+	program setupOBJECT
+
+	create DOUBLE index
+	setscale_hadj resource SG__WORKSPACE_DLG_HSCALE
+END
+
+PROGRAM setupOBJECT
+BEGIN
+	if ! __MESSAGE {
+		stopbox stop resource LBL_MSGBOX_OBJECT_NOT_FOUND
+// An unexpected error has occurred. Object not found.
+		exit 198
+	}
+	call OBJ.setvalue class __MESSAGE.value
+END
+
+SCRIPT main_PREINIT
+BEGIN
+	create STRING sXsize
+	create STRING sYsize
+
+	program main_get_defaults
+END
+
+SCRIPT main_POSTINIT
+BEGIN
+	program main_initialize_controls
+END
+
+PROGRAM main_get_defaults
+BEGIN
+	call sXsize.setvalue class .__SEMG.dbsettings.xpaper
+	call sXsize.withvalue main.cb_width.setdefault "@"
+
+	call sYsize.setvalue class .__SEMG.dbsettings.ypaper
+	call sYsize.withvalue main.cb_height.setdefault "@"
+END
+
+PROGRAM main_initialize_controls
+BEGIN
+	call main.cb_width.setvalue class sXsize.value
+	call main.cb_height.setvalue class sYsize.value
+END
+
+LIST papersizes
+BEGIN
+	1
+	1.5
+	2
+	2.9
+	3.5
+	4
+	4.1
+	5
+	5.8
+	6
+	7
+	8
+	8.3
+	9
+	10
+	11.7
+	16.5
+END
+
+DIALOG main, label(resource SG__WORKSPACE_TAB_MAIN) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_size	_lft	25	80	.,		///
+	label(resource LBL_SIZE) right 
+  COMBOBOX cb_width	+85	@	60	., nomemory	///
+	dropdown contents(papersizes)				///
+	label(resource LBL_SIZE)
+  TEXT     tx_x		+65	@	17	.,		///
+	label(resource LBL_X_LOWERCASE) center 
+  COMBOBOX cb_height	+20	@	60	., nomemory	///
+	dropdown contents(papersizes)				///
+	label(resource LBL_SIZE)
+  TEXT     tx_size_m	+65	@	50	.,		///
+	label(resource LBL_PAREN_IN_PAREN)
+END
+
+PROGRAM main_output
+BEGIN
+	call program main_get_defaults
+
+	if !main.cb_width.isdefault() | !main.cb_height.isdefault() {
+		require main.cb_width
+		require main.cb_height
+		
+		call create DOUBLE dtmpw
+		call create DOUBLE dtmph
+		call dtmpw.setvalue class main.cb_width.value
+		call dtmph.setvalue class main.cb_height.value
+		if ((!dtmpw & dtmpw.isneq(0)) | (!dtmph & dtmph.isneq(0))) {
+			call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_CONTAINS_A_NONNUMERIC_VALUE_FMT" ///
+				"resource LBL_TAB_SIZE"
+			stopbox stop "class _MSG_TMP.value"
+// "Size" contains a nonnumeric value.
+		}
+		if (dtmpw.isgt(20) | dtmph.isgt(20)) {
+			stopbox stop resource SG__WORKSPACE_MSGBOX_CANVAS_SIZE_GR_THAN_20_NOT_ALLOWED
+// A canvas size of greater than 20 is not allowed.
+		}
+		if (dtmpw.islt(1) | dtmph.islt(1)) {
+			stopbox stop resource SG__WORKSPACE_MSGBOX_CANVAS_SIZE_LESS_THAN_1_NOT_ALLOWED
+// A canvas size of less than 1 is not allowed.
+		}
+
+	
+		call sg__PARAM2.setvalue "PaperSize"
+		call sg__ARG_00.setvalue class main.cb_width.value
+		call sg__ARG_00.append " "
+		call sg__ARG_00.append class main.cb_height.value
+		call sg__DESCPT.setvalue "adjust canvas size"
+		put /program sg__do_output_sub
+	}
+END
+
+/*****************************************************************************/
+
+PROGRAM command
+BEGIN
+	call sg__PARAM1.setvalue class OBJ.value
+	
+	put /program main_output
+END

@@ -1,0 +1,145 @@
+/*
+  gr_line_options.idlg 
+  	-- graph options for a reference line and other line plot graphs
+  	-- This is a complete tab
+
+*!  VERSION 1.1.1  30jun2016
+	*****
+	    DO NOT change the name of this tab (line_options). The name is called
+	    from other files to alter the tab title.
+	*****
+
+	SCRIPTS and PROGRAMS for external use
+		* SCRIPT gr_line_options_disable
+		* SCRIPT gr_line_options_enable
+		* PROGRAM gr_line_options_output
+		* gr_line_options.settabtitle "SOME TITLE"
+		* gr_line_options_optionName.setstring "THE OPTION NAME TO OUTPUT"
+*/
+
+SCRIPT gr_line_options_PREINIT
+BEGIN
+	create STRING gr_line_options_optionName
+END
+
+DEFINE _clwd	15
+DEFINE _wd	140
+DEFINE _sep	+145
+DEFINE _cbwd	130
+DEFINE _cbsep	+135
+
+DIALOG gr_line_options, tabtitle(resource LBL_LINE_OPTIONS)
+BEGIN
+  TEXT     tx_clr	_lft	20	_wd	.,		///
+	label(resource LBL_COLOR) right
+  COMBOBOX cb_clr	_sep	@	_cbwd	.,		///
+	dropdownlist contents(colors) option(lcolor)		///
+	onselchangelist(line_options_cl_clr_sel)
+  COLOR    cl_clr	_cbsep	@	_clwd	., option(lcolor)
+  TEXT     tx_opacity	_lft	_mls	_wd	.,		///
+	label(resource LBL_OPACITY) right
+  SPINNER sp_opacity	_sep	@	_spwd	.,		///
+	default(100)						///
+	min(0)							///
+	max(100)
+
+  TEXT     tx_width	_lft	 _mls	_wd	.,		///
+	label(resource LBL_WIDTH) right
+  COMBOBOX cb_width	_sep	@	_cbwd	.,		///
+	dropdown option(lwidth)					///
+	contents(linewidths)
+
+  TEXT     tx_pattern	_lft	_mls	_wd	.,		///
+	label(resource LBL_PATTERN) right
+  COMBOBOX cb_pattern	_sep	@	_cbwd	.,		///
+	dropdownlist option(lpattern)				///
+	contents(linepatterns) 	
+	
+  TEXT     tx_type	_lft	_mls	_wd	.,		///
+	label(resource LBL_CONNECTING_METHOD) right
+  COMBOBOX cb_type	_sep	@	_cbwd	.,		///
+	dropdownlist option(connect)				///
+	contents(connecttypes)
+END
+
+SCRIPT gr_line_options_disable
+BEGIN
+	gr_line_options.tx_clr.disable
+	gr_line_options.cb_clr.disable
+	gr_line_options.cl_clr.disable
+	gr_line_options.tx_opacity.disable
+	gr_line_options.sp_opacity.disable
+	gr_line_options.tx_width.disable
+	gr_line_options.cb_width.disable
+	gr_line_options.tx_pattern.disable
+	gr_line_options.cb_pattern.disable	
+	gr_line_options.tx_type.disable
+	gr_line_options.cb_type.disable
+END
+
+SCRIPT gr_line_options_enable
+BEGIN
+	gr_line_options.tx_clr.enable
+	gr_line_options.cb_clr.enable
+	gr_line_options.cl_clr.enable
+	gr_line_options.tx_opacity.enable
+	gr_line_options.sp_opacity.enable
+	gr_line_options.tx_width.enable
+	gr_line_options.cb_width.enable
+	gr_line_options.tx_pattern.enable
+	gr_line_options.cb_pattern.enable	
+	gr_line_options.tx_type.enable
+	gr_line_options.cb_type.enable
+END
+
+LIST line_options_cl_clr_sel
+BEGIN
+	gr_line_options.cl_clr.hide
+	gr_line_options.cl_clr.show
+	gr_line_options.cl_clr.hide
+END
+
+PROGRAM line_options_output_wrk
+BEGIN
+	if (gr_line_options.cb_clr.isneq("") | gr_line_options.sp_opacity.isneq(100)) {
+		put "lcolor("
+		if (gr_line_options.cb_clr.iseq("custom")) {
+			put `"""' main.cl_clr
+			if (gr_line_options.sp_opacity.isneq(100)) {
+				put " %" gr_line_options.sp_opacity
+			}
+			put `"""'
+		}
+		else {
+			if (gr_line_options.cb_clr.isneq("")) {
+				put gr_line_options.cb_clr
+			}
+			if (gr_line_options.sp_opacity.isneq(100)) {
+				put "%" gr_line_options.sp_opacity
+			}
+		}
+		put ")"
+	}
+	optionarg /hidedefault gr_line_options.cb_width
+	optionarg /hidedefault gr_line_options.cb_pattern
+	optionarg /hidedefault gr_line_options.cb_type
+END
+
+PROGRAM gr_line_options_output
+BEGIN
+	if ! gr_line_options.tx_clr.isenabled() {
+		exit
+	}
+	if gr_line_options.cb_clr | gr_line_options.cb_width 		///
+		| gr_line_options.sp_opacity.isneq(100)			///
+		| gr_line_options.cb_pattern | gr_line_options.cb_type 	///
+	{
+		if gr_line_options_optionName {
+			put gr_line_options_optionName "("
+		}
+		put /program line_options_output_wrk
+		if gr_line_options_optionName {
+			put ") "
+		}
+	}
+END

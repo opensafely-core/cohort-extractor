@@ -1,0 +1,102 @@
+/*
+  dprobit
+
+*!  VERSION 1.3.3  11may2017 (deprecated)
+
+  keyword:  eclass
+
+*/
+
+VERSION 9.0
+
+INCLUDE _std_large
+INCLUDE header
+HELP hlp1, view("help dprobit")
+RESET res1
+
+DIALOG main, label("dprobit - Probit regression, reporting marginal effects")/*
+		*/ tabtitle("Model")
+BEGIN
+  INCLUDE _dviv
+
+  GROUPBOX gb_output _lft      _ls       _iwd      _ht15h,		/*
+		*/ label("Options")					/*
+		*/
+
+  TEXT     tx_offset _ilft     _ms       _cwd2     .,			/*
+		*/ label("Offset variable:")				/*
+		*/
+  VARNAME  vn_offset @         _ss       _vnwd     .,			/*
+		*/ label("Offset variable")				/*
+		*/ numeric						/*
+		*/ option("offset")					/*
+		*/
+  TEXT     tx_at     @         _ls       280	   .,			/*
+	*/ label("Point at which marginal effects are evaluated:")	/*
+		*/
+  COMBOBOX cb_at     @         _ss       @         .,			/*
+		*/ contents(row)					/*
+		*/ dropdown						/*
+	*/ error("Point at which marginal effects are evaluated")	/*
+		*/ option("at")						/*
+		*/
+
+  CHECKBOX ck_asis   @         _ls       @         .,			/*
+		*/ label("Retain perfect predictor variables")		/*
+		*/ option("asis")					/*
+		*/
+  CHECKBOX ck_class  @         _ms       @         .,			/*
+		*/ label("Treat indicators as continuous")		/*
+		*/ option("classic")					/*
+		*/
+END
+
+INCLUDE byifin
+INCLUDE weights_fpi
+INCLUDE se
+
+SCRIPT PREINIT
+BEGIN
+	script se_createAsInternalML
+	setscale_hadj resource DPROBIT_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script se_setJknifeBstrap_off
+END
+
+DIALOG rpt, tabtitle("Reporting")
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2b
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+END
+
+PROGRAM rpt_output
+BEGIN
+	optionarg /hidedefault rpt.sp_level
+END
+
+INCLUDE max_internal
+
+PROGRAM command
+BEGIN
+	allowxi
+	INCLUDE _by_pr
+	put "dprobit "
+	varlist main.vn_dv main.vl_iv
+	INCLUDE _weights_pr
+	INCLUDE _ifin_pr
+	beginoptions
+		optionarg main.vn_offset
+		optionarg main.cb_at
+		option main.ck_asis
+		option main.ck_class
+		put " " /program se_output
+		put " " /program rpt_output
+		put " " /program max_output
+	endoptions
+END

@@ -1,0 +1,462 @@
+/*
+  svar
+
+*!  VERSION 1.3.2  02may2017
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_xlarge
+DEFINE _dlght 330
+INCLUDE header
+
+HELP hlp1, view("help svar")
+RESET res1
+
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource SVAR_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script max_setListNoBHHH
+END
+
+DIALOG main, label(resource SVAR_DLG_TITLE) /*
+		*/ tabtitle(resource LBL_TAB_MODEL)
+BEGIN
+  DEFINE _x _xsetbu
+  DEFINE _y _top
+  INCLUDE _bu_tsset
+
+  TEXT     tx_dv             _lft      _topph    129       .,		/*
+		*/ label(resource LBL_DEPENDENT_VARIABLES)
+  VARLIST  vl_dv             @         _ss       _iwd      .,		/*
+		*/ label(resource LBL_DEPENDENT_VARIABLES) ts numeric
+
+  COMBOBOX cb_run    _lft      _ls       _cwd3_03  .,			/*
+		*/ dropdownlist						/*
+		*/ contents(run_type)					/*
+		*/ label(resource SVAR_MAIN_CB_RUN)			/*
+		*/ onselchangelist(change_run)
+  CHECKBOX ck_nocons _lft2     @         _cwd1     .,			/*
+		*/ label(resource LBL_SUPPRESS_THE_CONSTANT_TERM)	/*
+		*/ option("noconstant")
+  DEFINE holdy @y
+  GROUPBOX gb_acons  _lft      _ls       _cwd1     _ht12,		/*
+  		*/ label(resource SVAR_MAIN_GB_ACONS)
+  DEFINE   _holdy @y
+  GROUPBOX gb_bcons  _lft2     _holdy    _cwd1     _ht12,		/*
+  		*/ label(resource SVAR_MAIN_GB_BCONS)
+  GROUPBOX gb_ccons  _lft      _holdy    _cwd1     _ht12,		/*
+  		*/ label(resource SVAR_MAIN_GB_CCONS)
+  TEXT     tx_cons   _ilft     _vss      _cwd3     ., 	         	/*
+		*/ label(resource SVAR_MAIN_TX_CONS)
+  DEFINE   _holdy @y
+  TEXT     tx_bcons  _ilft2    _holdy    _cwd3     .,           	/*
+		*/ label(resource SVAR_MAIN_TX_BCONS)
+  COMBOBOX cb_acons  _ilft     _ss       @         ., 			/*
+		*/ label(resource SVAR_MAIN_CB_ACONS)			/*
+		*/ append						/*
+		*/ dropdown						/*
+		*/ contents(constraint)					/*
+		*/ option("aconstraints")
+  DEFINE   _holdy @y
+  COMBOBOX cb_bcons  _ilft2    _holdy    @         ., 			/*
+		*/ label(resource SVAR_MAIN_CB_BCONS)			/*
+		*/ append						/*
+		*/ dropdown						/*
+		*/ contents(constraint)					/*
+		*/ option("bconstraints")
+  COMBOBOX cb_ccons  _ilft     _holdy    @         ., 			/*
+		*/ label(resource SVAR_MAIN_CB_CCONS)			/*
+		*/ append						/*
+		*/ dropdown						/*
+		*/ contents(constraint)					/*
+		*/ option("lrconstraints")
+
+  TEXT     tx_eq     _ilft     _ss       @         .,			/*
+		*/ label(resource SVAR_MAIN_TX_EQ)
+  DEFINE   _holdy @y
+  TEXT     tx_beq    _ilft2    _holdy    @         .,			/*
+		*/ label(resource SVAR_MAIN_TX_EQ)
+  COMBOBOX cb_aeq    _ilft     _ss       @         ., 			/*
+		*/ label(resource SVAR_MAIN_CB_AEQ)			/*
+		*/ dropdown						/*
+		*/ contents(square)					/*
+		*/ option("aeq")
+  DEFINE   _holdy @y
+  COMBOBOX cb_beq    _ilft2    _holdy    @         ., 			/*
+		*/ label(resource SVAR_MAIN_CB_BEQ)			/*
+		*/ dropdown						/*
+		*/ contents(square)					/*
+		*/ option("beq")
+  COMBOBOX cb_ceq    _ilft     _holdy    @         ., 			/*
+		*/ label(resource SVAR_MAIN_CB_CEQ)			/*
+		*/ dropdown						/*
+		*/ contents(square)					/*
+		*/ option("lreq")
+  TEXT     tx_cns    _ilft     _ss       @         .,			/*
+		*/ label(resource SVAR_MAIN_TX_CNS)
+  DEFINE   _holdy @y
+  TEXT     tx_bcns   _ilft2    _holdy    @         .,			/*
+		*/ label(resource SVAR_MAIN_TX_CNS)
+  COMBOBOX cb_acns   _ilft     _ss       @         ., 			/*
+		*/ label(resource SVAR_MAIN_TX_ACNS)			/*
+		*/ dropdown						/*
+		*/ contents(square)					/*
+		*/ option("acns")
+  DEFINE   _holdy @y
+  COMBOBOX cb_bcns   _ilft2    _holdy    @         ., 			/*
+		*/ label(resource SVAR_MAIN_TX_BCNS)			/*
+		*/ dropdown						/*
+		*/ contents(square)					/*
+		*/ option("bcns")
+  COMBOBOX cb_ccns   _ilft     _holdy    @         ., 			/*
+		*/ label(resource SVAR_MAIN_TX_CCNS)			/*
+		*/ dropdown						/*
+		*/ contents(square)					/*
+		*/ option("lrcns")
+
+  GROUPBOX gb_lags   _lft      _xls      _iwd      _ht4,		/*
+		*/ label(resource LBL_LAGS)
+  RADIO    rb_lags1  _ilft     _ss       _rbvnr4c  ., first		/*
+		*/ clickon("script one2n")				/*
+		*/ label(resource SVAR_MAIN_RB_LAGS1)
+  DEFINE holdy @y
+  SPINNER  sp_lags1  _indent2  _ss       _spwd     .,			/*
+		*/ min(1) max(c(N)) default(2)				/*
+		*/ label(resource SVAR_MAIN_RB_LAGS1)
+  RADIO    rb_lags2  _lft2     holdy     _rbvnr4c  ., last		/*
+		*/ clickon("script laglist")				/*
+		*/ label(resource SVAR_MAIN_RB_LAGS2)
+  EDIT     ed_lags2  _indent2  _ss       _vnwd     .,			/*
+		*/ option("lags")					/*
+		*/ label(resource SVAR_MAIN_ED_LAGS2)
+
+END
+
+SCRIPT one2n
+BEGIN
+	main.sp_lags1.enable
+	main.ed_lags2.disable
+END
+
+SCRIPT laglist
+BEGIN
+	main.ed_lags2.enable
+	main.sp_lags1.disable
+END
+
+DIALOG opt,  tabtitle(resource LBL_TAB_MODEL2)
+BEGIN
+  CHECKBOX ck_exog   _lft      _top      _iwd      .,			/*
+		*/ label(resource LBL_EXOGENOUS_VARIABLES)		/*
+		*/ onclickon(gaction opt.vl_exog.enable)		/*
+		*/ onclickoff(gaction opt.vl_exog.disable)
+  VARLIST  vl_exog   _indent2  _ss       _ibwd     .,			/*
+		*/ label(resource LBL_EXOGENOUS_VARIABLES)		/*
+		*/ option("exog") ts numeric
+
+  CHECKBOX ck_constr _lft      _ls       _cwd1     _ht15h,		/*
+		*/ groupbox						/*
+		*/ label(resource SVAR_OPT_CK_CONSTR)			/*
+		*/ onclickon(program constr_on)				/*
+		*/ onclickoff(script constr_off)
+  DEFINE col2top @y
+  COMBOBOX cb_constr _indent   _ms       _cwd3     .,			/*
+		*/ append						/*
+		*/ dropdown						/*
+		*/ contents(constraint)					/*
+		*/ label(resource SVAR_OPT_CK_CONSTR)			/*
+		*/ option("varconstraints")
+  RADIO    rb_sure   @         _ls       _cwd3     ., first		/*
+  		*/ label(resource SVAR_OPT_RB_SURE)			/*
+  		*/ onclickon(program sure)
+  CHECKBOX ck_nolog  _indent2  _ss       _cwd5     .,			/*
+  		*/ label(resource SVAR_OPT_CK_NOLOG)			/*
+  		*/ option(noislog)
+  DEFINE holdy @y
+  DEFINE holdx @x
+  SPINNER  sp_iter   @         _ms       _spwd     .,			/*
+		*/ label(resource SVAR_OPT_SP_ITER)			/*
+		*/ min(1)						/*
+		*/ max(1600)						/*
+		*/ default(1600)					/*
+		*/ option("isiterate")
+  TEXT     tx_sep    _spsep    @         150       .,			/*
+		*/ label(resource LBL_MAXIMUM_ITERATIONS)
+  EDIT	   ed_tol    holdx     _ms       _en7wd    .,			/*
+		*/ option("istolerance")				/*
+		*/ default(.000001)					/*
+		*/ numonly						/*
+		*/ label(resource LBL_CONVERG_TOLERANCE)
+  TEXT     tx_tol    _en7sep   @         150       .,			/*
+		*/ label(resource LBL_CONVERG_TOLERANCE)
+  RADIO    rb_noisur _ilft     _ls       _cwd3     ., last		/*
+  		*/ label(resource SVAR_OPT_RB_NOISUR)			/*
+  		*/ onclickon(script noisure)				/*
+  		*/ option(noisure)
+
+  GROUPBOX gb_adv    _lft      +35       _iwd      _ht4,		/*
+  		*/ label(resource LBL_ADVANCED)
+  CHECKBOX ck_noiden _ilft     _ss       _ibwd     .,			/*
+  		*/ label(resource SVAR_OPT_CK_NOIDEN)			/*
+  		*/ option(noidencheck)
+  CHECKBOX ck_nobigf @         _ss       @         .,			/*
+  		*/ label(resource SVAR_OPT_CK_NOBIGF)			/*
+  		*/ option(nobigf)
+  /* column 2 */
+
+
+  CHECKBOX ck_dfk    _lft2     col2top   _cwd1     .,			/*
+		*/ label(resource SVAR_OPT_CK_DFK)			/*
+		*/ option(dfk)
+  CHECKBOX ck_small  @         _ms       @         .,			/*
+  		*/ label(resource SVAR_OPT_CK_SMALL)			/*
+  		*/ option(small)
+
+
+END
+
+INCLUDE byifin
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  CHECKBOX ck_full   _lft      _ls       _cwd0     .,			/*
+  		*/ label(resource SVAR_RPT_CK_FULL)			/*
+  		*/ option(full)
+  CHECKBOX ck_var    @         _ms       @         .,			/*
+  		*/ label(resource SVAR_RPT_CK_VAR)			/*
+  		*/ option(var)
+
+  GROUPBOX gb_tests  _lft      _ls       _iwd      _ht2,		/*
+  		*/ label(resource LBL_ADDITIONAL_TEST_STATISTICS)
+  CHECKBOX ck_luts   _ilft     _ss       _cwd1     .,			/*
+  		*/ label(resource SVAR_RPT_CK_LUTS)			/*
+  		*/ option(lutstats)
+
+  DEFINE _x _lft
+  DEFINE _y _xls
+  DEFINE _cx _iwd
+  INCLUDE _nocnsreport
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+
+INCLUDE max_ml
+
+PROGRAM constr_on
+BEGIN
+	call gaction opt.cb_constr.enable
+	call gaction opt.rb_sure.enable
+	call gaction opt.rb_noisur.enable
+	if opt.rb_sure {
+		call gaction opt.ck_nolog.enable
+		call gaction opt.sp_iter.enable
+		call gaction opt.tx_sep.enable
+		call gaction opt.ed_tol.enable
+		call gaction opt.tx_tol.enable
+	}
+END
+
+SCRIPT constr_off
+BEGIN
+	opt.cb_constr.disable
+	opt.rb_sure.disable
+	opt.ck_nolog.disable
+	opt.sp_iter.disable
+	opt.tx_sep.disable
+	opt.ed_tol.disable
+	opt.tx_tol.disable
+	opt.rb_noisur.disable
+END
+
+PROGRAM sure
+BEGIN
+	if opt.ck_constr {
+		call gaction opt.ck_nolog.enable
+		call gaction opt.sp_iter.enable
+		call gaction opt.tx_sep.enable
+		call gaction opt.ed_tol.enable
+		call gaction opt.tx_tol.enable
+	}
+END
+
+SCRIPT noisure
+BEGIN
+	opt.ck_nolog.disable
+	opt.sp_iter.disable
+	opt.tx_sep.disable
+	opt.ed_tol.disable
+	opt.tx_tol.disable
+END
+
+LIST run_type
+BEGIN
+	resource SVAR_SHORT_RUN_CONSTRAINTS
+	resource SVAR_LONG_RUN_CONSTRAINTS
+END
+
+LIST change_run
+BEGIN
+    program do_short
+    program do_long
+END
+
+SCRIPT hide_ctrls1
+BEGIN
+    main.gb_acons.hide
+    main.gb_bcons.hide
+    main.gb_ccons.hide
+    main.tx_bcons.hide
+    main.cb_acons.hide
+    main.cb_bcons.hide
+    main.cb_ccons.hide
+    main.tx_beq.hide
+    main.cb_aeq.hide
+    main.cb_beq.hide
+    main.cb_ceq.hide
+    main.tx_bcns.hide
+    main.cb_acns.hide
+    main.cb_bcns.hide
+    main.cb_ccns.hide
+END
+
+/*******************************************************/
+
+PROGRAM do_short
+BEGIN
+    call script hide_ctrls1
+    call gaction main.gb_acons.show
+    call gaction main.gb_bcons.show
+    call gaction main.tx_bcons.show
+    call gaction main.cb_acons.show
+    call gaction main.cb_bcons.show
+    call gaction main.tx_beq.show
+    call gaction main.cb_aeq.show
+    call gaction main.cb_beq.show
+    call gaction main.tx_bcns.show
+    call gaction main.cb_acns.show
+    call gaction main.cb_bcns.show
+END
+
+PROGRAM do_long
+BEGIN
+    call script hide_ctrls1
+    call gaction main.gb_ccons.show
+    call gaction main.cb_ccons.show
+    call gaction main.cb_ceq.show
+    call gaction main.cb_ccns.show
+END
+
+PROGRAM command
+BEGIN
+	INCLUDE _by_pr
+	require main.vl_dv
+
+	if H(main.gb_ccons) {
+		if !main.cb_acons {
+		if !main.cb_aeq {
+		if !main.cb_acns {
+		if !main.cb_bcons {
+		if !main.cb_beq {
+		if !main.cb_bcns {
+			stopbox stop resource SVAR_MSGBOX_NO_SHORT_RUN_CONST_SPEC
+// No short-run constraints specified.
+		}
+		}
+		}
+		}
+		}
+		}
+	}
+	if H(main.gb_acons) {
+		if !main.cb_ccons {
+		if !main.cb_ceq {
+		if !main.cb_ccns {
+			stopbox stop resource SVAR_MSGBOX_NO_LONG_RUN_CONST_SPEC
+// No long-run constraints specified.
+		}
+		}
+		}
+	}
+
+	put "svar "
+	put main.vl_dv
+
+	INCLUDE _ifin_pr
+
+	beginoptions
+		if H(main.gb_ccons) {
+			optionarg main.cb_acons
+			optionarg main.cb_aeq
+			optionarg main.cb_acns
+			optionarg main.cb_bcons
+			optionarg main.cb_beq
+			optionarg main.cb_bcns
+		}
+		if H(main.gb_acons) {
+			optionarg main.cb_ccons
+			optionarg main.cb_ceq
+			optionarg main.cb_ccns
+		}
+		if main.rb_lags1 {
+			put "lags(1/"
+			put main.sp_lags1
+			put ") "
+		}
+		if main.rb_lags2 {
+			require main.ed_lags2
+			optionarg main.ed_lags2
+		}
+		if opt.ck_exog {
+			require opt.vl_exog
+			optionarg opt.vl_exog
+		}
+                if opt.ck_constr {
+                	require opt.cb_constr
+                	optionarg opt.cb_constr
+                }
+                option main.ck_nocons
+                option opt.ck_dfk
+                option opt.ck_noiden
+                option opt.ck_nobigf
+		option opt.rb_noisur
+		optionarg /hidedefault opt.sp_iter
+		optionarg /hidedefault opt.ed_tol
+		option opt.ck_nolog
+                option opt.ck_small
+                optionarg /hidedefault rpt.sp_level
+                option rpt.ck_full
+                option rpt.ck_var
+        	option rpt.ck_luts
+		INCLUDE _nocnsreport_pr
+		INCLUDE _report_columns_pr
+		put " " rpt_bu_fmtcoefResults
+		put " " /program max_output
+	endoptions
+END

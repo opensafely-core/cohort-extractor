@@ -1,0 +1,202 @@
+/*
+	estat.idlg
+
+*!  VERSION 1.1.4  08nov2016
+
+	***
+	USE EXTREME CARE WHEN CHANGING CONTROL NAMES. The names used
+	in this file have multiple external dependencies.
+*/
+
+
+DIALOG main, label(resource ESTAT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_subcmd		_lft	_top	300	.,		///
+  	label(resource LBL_REPORTS_STATISTICS_SUBCOMMAND)
+  LISTBOX  lb_subcmd		@	_ss	@	55,		///
+  	contents(main_subcommand_contents)				///
+  	values(main_subcommand_values)					///
+  	onselchange("program main_subcommand_scripts")
+
+  DEFINE holdy 95
+  // Information criteria
+  CHECKBOX ck_n			_lft	holdy	_iwd	.,		///
+	onclickon(main.sp_n.enable)					///
+	onclickoff(main.sp_n.disable)					///
+	label(resource LBL_NUMBER_OBSERVATIONS_CALCULATING_BIC)
+  SPINNER sp_n			_indent2 _ss	_spwd	.,		///
+	default(e(N)) min(1) max(e(N))					///
+	option(n)
+
+
+  INCLUDE estat_sum
+  INCLUDE estat_vce
+  INCLUDE _estat_bootstrap
+END
+
+INCLUDE estat_sum_pr
+INCLUDE estat_vce_pr
+
+SCRIPT sel_bootstrap
+BEGIN
+	script main_hide_all
+	script main_bootstrap_show
+END
+
+SCRIPT main_bootstrap_show
+BEGIN
+	main._gb_ci.show
+	main._ck_all.show
+	main._ck_bc.show
+	main._ck_bca.show
+	main._ck_norm.show
+	main._ck_p.show
+	main._ck_verbose.show
+	main._ck_noheader.show
+	main._ck_nolegend.show
+	main._tx_title.show
+	main._ed_title.show
+END
+SCRIPT main_bootstrap_hide
+BEGIN
+	main._tx_bs.hide
+	main._gb_ci.hide
+	main._ck_all.hide
+	main._ck_bc.hide
+	main._ck_bca.hide
+	main._ck_norm.hide
+	main._ck_p.hide
+	main._ck_verbose.hide
+	main._ck_noheader.hide
+	main._ck_nolegend.hide
+	main._tx_title.hide
+	main._ed_title.hide
+END
+
+
+PROGRAM _bs_check_all
+BEGIN
+	if main._ck_all {
+		call gaction main._ck_bc.disable
+		call gaction main._ck_bca.disable
+		call gaction main._ck_norm.disable
+		call gaction main._ck_p.disable
+	}
+	if !main._ck_all {
+		call gaction main._ck_bc.enable
+		call gaction main._ck_bca.enable
+		call gaction main._ck_norm.enable
+		call gaction main._ck_p.enable
+	}
+END
+
+PROGRAM _bs_verbose_check
+BEGIN
+	if main._ck_verbose {
+		call main._ck_noheader.disable
+		call main._ck_nolegend.disable
+	}
+	if ! main._ck_verbose {
+		call main._ck_noheader.enable
+		if ! main._ck_noheader {
+			call main._ck_nolegend.enable
+		}
+	}
+END
+
+PROGRAM bootstrap_output
+BEGIN
+	if main.lb_subcmd.isneq("bootstrap") {
+		stopbox stop resource LBL_MSGBOX_BOOTSTRAP_ESTIMATION_NOT_AVAIL
+// Bootstrap estimation results are not available.
+	}
+	option main._ck_all
+	option main._ck_bc
+	option main._ck_bca
+	option main._ck_norm
+	option main._ck_p
+	option main._ck_noheader
+	option main._ck_nolegend
+	option main._ck_verbose
+	optionarg main._ed_title
+END
+
+LIST main_subcommand_contents
+BEGIN
+END
+
+LIST main_subcommand_values
+BEGIN
+END
+
+PROGRAM main_subcommand_scripts
+BEGIN
+	if main.lb_subcmd.iseq("ic") {
+		call script sel_ic
+	}
+	if main.lb_subcmd.iseq("summarize") {
+		call script sel_summarize
+	}
+	if main.lb_subcmd.iseq("vce") {
+		call script sel_vce
+	}
+	if main.lb_subcmd.iseq("bootstrap") {
+		call script sel_bootstrap
+	}
+END
+
+SCRIPT sel_ic
+BEGIN
+	script main_hide_all
+	main.ck_n.show
+	main.sp_n.show
+END
+
+SCRIPT sel_summarize
+BEGIN
+	script main_hide_all
+	program main_summ_on
+END
+
+SCRIPT sel_vce
+BEGIN
+	script main_hide_all
+	program vce_on
+END
+
+SCRIPT main_hide_all  // MUST BE IMPLEMENTED FOR BOOTSTRAP
+BEGIN
+	main.ck_n.hide
+	main.sp_n.hide
+	program vce_off
+	script main_summ_off
+	script main_bootstrap_hide
+END
+
+PROGRAM vl_output
+BEGIN
+	put main.vl_spec
+END
+
+PROGRAM vl_eq_output
+BEGIN
+	put main.vl_eq
+END
+
+PROGRAM command
+BEGIN
+	call create STRING my_e_boot
+	call my_e_boot.setvalue e(prefix)
+	put "estat "
+	put main.lb_subcmd
+	put " " /program summarize_output
+	beginoptions
+		// ic options
+		optionarg main.sp_n
+		put " " /program summarize_opts_output
+		put " " /program vce_output
+		if my_e_boot.isneq("") {
+			put " " /program bootstrap_output
+		}
+	endoptions
+END

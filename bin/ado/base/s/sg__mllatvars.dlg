@@ -1,0 +1,278 @@
+/*
+    sg__mllatvars.dlg
+
+*!  VERSION 1.1.3  25sep2017
+
+*/
+
+VERSION 14.0
+MODAL
+
+INCLUDE _std_large
+DEFINE _dlght 330
+DEFINE _dlgwd 600
+POSITION . . _dlgwd _dlght
+
+OK ok1, label(resource LBL_BU_OK) target(stata hidden)
+CANCEL can1, label(resource LBL_BU_CANCEL)
+
+DEFINE _clwd	15
+DEFINE _wd	120
+DEFINE _sep	+125
+DEFINE _cbwd	140
+DEFINE _cbsep	+145
+
+DEFINE vwd 100
+DEFINE vsep +105
+
+DEFINE awd 10
+DEFINE asep +15
+
+DEFINE _iwd 580
+
+INCLUDE sg__common_output		/* routines necessary for output */
+
+SCRIPT PREINIT
+BEGIN
+	script sg__common_output_init 	/* initialize output globals */
+
+	create STRING OBJ
+	program setupOBJECT
+
+	create STRING sTemp
+	create STRING outarg
+	create BOOLEAN bCallAsChild	/* to be set by caller if the results
+	                                   are to be returned the parent */
+	setscale_hadj resource SG__MLLATVARS_DLG_HSCALE
+END
+
+PROGRAM setupOBJECT
+BEGIN
+	if ! __MESSAGE {
+		stopbox stop resource LBL_MSGBOX_OBJECT_NOT_FOUND
+// An unexpected error has occurred. Object not found.
+		exit 198
+	}
+	call OBJ.setvalue class __MESSAGE.value
+END
+
+SCRIPT main_PREINIT
+BEGIN
+	create STRING sBaseName
+	create STRING sVlist
+	create STRING sVar1
+	create STRING sVar2
+	create STRING sVar3
+	create STRING sVar4
+	create ARRAY aVlist
+
+	program main_get_defaults
+	
+	create STRING sNote	
+	sNote.setvalue resource SG__MLLATVARS_MULTILEVEL_NESTING
+	main.tb_note1.setlabel class sNote.value
+	
+	sNote.setvalue resource SG__MLLATVARS_FULL_NESTING
+	main.tb_note2.setlabel class sNote.value
+
+	sNote.setvalue resource SG__MLLATVARS_NOTE_OBS
+	main.tb_note3.setlabel class sNote.value
+END
+
+PROGRAM main_POSTINIT
+BEGIN
+	create STRING STMP
+	program main_initialize_controls
+	STMP.format "resource LBL_LEVEL_FMT" "2" ""
+	STMP.withvalue main.vn_level2.setlabel "@"
+	STMP.format "resource LBL_LEVEL_FMT" "3" ""
+	STMP.withvalue main.vn_level3.setlabel "@"
+	STMP.format "resource LBL_LEVEL_FMT" "4" ""
+	STMP.withvalue main.vn_level4.setlabel "@"
+END
+
+PROGRAM main_get_defaults
+BEGIN
+	call sBaseName.setvalue class .__SEMG.dbsettings.basename
+	call sVlist.setvalue class .__SEMG.dbsettings.levelvlist
+	call sVlist.tokenize aVlist
+	call sVar1.setvalue class aVlist[1]
+	call sVar2.setvalue class aVlist[2]
+	call sVar3.setvalue class aVlist[3]
+	call sVar4.setvalue class aVlist[4]
+
+	call sBaseName.withvalue main.ed_basenm.setdefault "@"
+	call sVar1.withvalue main.vn_level2.setdefault "@"
+	call sVar2.withvalue main.vn_level3.setdefault "@"
+	call sVar3.withvalue main.vn_level4.setdefault "@"
+	call sVar4.withvalue main.vn_level5.setdefault "@"
+END
+
+PROGRAM main_initialize_controls
+BEGIN
+	call main.ed_basenm.setvalue class sBaseName.value
+	
+	call main.vn_level2.setvalue class sVar1.value
+	call main.vn_level3.setvalue class sVar2.value
+	call main.vn_level4.setvalue class sVar3.value
+	call main.vn_level5.setvalue class sVar4.value
+	
+	call main.sp_levelv.setvalue 2
+	call main.sp_levelv.setdefault 2
+	if sVar1 {
+		call main.sp_levelv.setvalue 2
+		call main.sp_levelv.setdefault 2
+	}
+	if sVar2 {
+		call main.sp_levelv.setvalue 3
+		call main.sp_levelv.setdefault 3
+	}
+	if sVar3 {
+		call main.sp_levelv.setvalue 4
+		call main.sp_levelv.setdefault 4
+	}
+	if sVar4 {
+		call main.sp_levelv.setvalue 5
+		call main.sp_levelv.setdefault 5
+	}
+	
+	call program sp_levelv_change
+END
+
+DIALOG main, label(resource SG__MLLATVARS_TAB_MAIN)
+BEGIN
+  SPINNER  sp_levelv	_lft	20	_spwd	.,		///
+	min(2) max(5) default(2) onchange(program sp_levelv_change)
+  TEXT     tx_levelv	_spsep	@	200	.,		///
+	label(resource LBL_NESTING_DEPTH)
+
+
+  VARNAME  vn_level2	_lft	_xls	vwd	.,
+  TEXT     tx_arrow2	vsep	@	awd	.,		///
+	label(">") right
+DEFINE y @y
+  VARNAME  vn_level3	asep	y	vwd	.,
+  TEXT     tx_arrow3	vsep	@	awd	.,		///
+	label(">") right
+
+  VARNAME  vn_level4	asep	y	vwd	.,
+  TEXT     tx_arrow4	vsep	@	awd	.,		///
+	label(">") right
+
+  VARNAME  vn_level5	asep	y	vwd	.,
+
+  TEXT     tx_arrow5	vsep	@	awd	.,		///
+	label(">") right
+
+  TEXT     tx_obs	asep	y	vwd	.,		///
+	label(resource LBL_OBSERVATIONS)
+
+
+  TEXT     tx_basenm	_lft	+35	vwd	.,		///
+	label(resource SG__MLLATVARS_MAIN_TX_BASENM)
+  EDIT	   ed_basenm	@	_ss	@	.,		///
+	label(resource SG__MLLATVARS_MAIN_TX_BASENM)
+
+  TEXTBOX  tb_note1	_lft	+40	_iwd	60
+  TEXTBOX  tb_note2	@	+62	@	60
+  TEXTBOX  tb_note3	@	+62	@	30
+END
+
+PROGRAM sp_levelv_change
+BEGIN
+	call main.vn_level3.hide
+	call main.tx_arrow3.hide
+	call main.vn_level4.hide
+	call main.tx_arrow4.hide
+	call main.vn_level5.hide
+	call main.tx_arrow5.hide
+
+	call main.tx_obs.setposition 130 .
+
+	if (main.sp_levelv.isgt(2)) {
+		call main.tx_arrow3.show
+		call main.vn_level3.show
+		call main.tx_obs.setposition 250 .
+	}
+	if (main.sp_levelv.isgt(3)) {
+		call main.tx_arrow4.show
+		call main.vn_level4.show
+		call main.tx_obs.setposition 370 .
+	}
+	if (main.sp_levelv.isgt(4)) {
+		call main.tx_arrow5.show
+		call main.vn_level5.show
+		call main.tx_obs.setposition 490 .
+	}
+END
+
+PROGRAM main_output
+BEGIN
+	call program main_get_defaults
+	
+	if main.sp_levelv.isdefault() 					  ///
+		& main.ed_basenm.isdefault() & main.vn_level2.isdefault() ///
+		& main.vn_level3.isdefault() & main.vn_level4.isdefault() ///
+		& main.vn_level5.isdefault()				  ///
+	{
+		exit
+	}
+	
+	if ! main.ed_basenm.isvalidname() {
+		stopbox stop resource SG__MLLATVARS_MSGBOX_BASE_NAME_INVALID
+// The base name you specified is invalid.
+	}
+	if ! main.vn_level2.isvalidname() {
+		stopbox stop resource SG__MLLATVARS_MSGBOX_FIRST_VAR_INVALID
+// The first variable is either empty or invalid.
+	}
+	if main.vn_level3.isvisible() & ! main.vn_level3.isvalidname() {
+		stopbox stop resource SG__MLLATVARS_MSGBOX_SECOND_VAR_INVALID
+// The second variable is either empty or invalid.
+	}
+	if main.vn_level4.isvisible() & ! main.vn_level4.isvalidname() {
+		stopbox stop resource SG__MLLATVARS_MSGBOX_THIRD_VAR_INVALID
+// The third variable is either empty or invalid.
+	}
+	if main.vn_level5.isvisible() & ! main.vn_level5.isvalidname() {
+		stopbox stop resource SG__MLLATVARS_MSGBOX_FOURTH_VAR_INVALID
+// The fourth variable is either empty or invalid.
+	}
+
+	call sg__ONEARG.settrue
+	call sg__PARAM2.setvalue "SetMultilevelLatent"
+
+	call outarg.setvalue ""
+	call main.ed_basenm.withvalue outarg.append "@"
+	call outarg.append "["
+	call main.vn_level2.withvalue outarg.append "@"  
+	if (main.vn_level3.isvisible()) {
+		call outarg.append ">"
+		call main.vn_level3.withvalue outarg.append "@"  
+	}
+	if (main.vn_level4.isvisible()) {
+		call outarg.append ">"
+		call main.vn_level4.withvalue outarg.append "@"  
+	}
+	if (main.vn_level5.isvisible()) {
+		call outarg.append ">"
+		call main.vn_level5.withvalue outarg.append "@"  
+	}
+	call outarg.append "]"
+	
+	if (bCallAsChild) {
+		put outarg
+		exit
+	}
+
+	call sg__ARG_00.setvalue class outarg.value
+	call sg__DESCPT.setvalue "set level variables"
+	put /program sg__do_output_sub
+END
+
+PROGRAM command
+BEGIN
+	call sg__PARAM1.setvalue class OBJ.value
+	
+	put /program main_output
+END

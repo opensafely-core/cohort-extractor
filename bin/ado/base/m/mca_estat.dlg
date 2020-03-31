@@ -1,0 +1,231 @@
+/*
+	mca_estat
+
+*!  VERSION 1.1.2  10mar2015
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 310
+INCLUDE header
+
+HELP hlp1, view("help mca postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource MCA_ESTAT_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program parseMessage
+END
+
+PROGRAM parseMessage
+BEGIN
+	if __MESSAGE.contains("-coordinates-") {
+		call main.lb_subcmd.setvalue "coordinates"
+	}
+	if __MESSAGE.contains("-subinertia-") {
+		call main.lb_subcmd.setvalue "subinertia"
+	}
+	if __MESSAGE.contains("-summarize-") {
+		call main.lb_subcmd.setvalue "summarize"
+	}
+END
+
+DIALOG main, label(resource MCA_ESTAT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_subcmd		_lft	_top	_cwd1	.,	///
+  	label(resource LBL_REPORTS_STATISTICS_SUBCOMMAND)
+  LISTBOX  lb_subcmd		@	_ss	_iwd	70,	///
+  	contents(main_subcommand_contents)			///
+  	values(main_subcommand_values)				///
+  	onselchangelist(main_subcommand_scripts)
+
+  DEFINE holdy 110
+
+  // coordinates options
+  // with which options
+
+  CHECKBOX    ck_varlist	_lft    holdy   _iwd	.,	///
+	label(resource MCA_ESTAT_MAIN_CK_VARLIST) ///
+	onclickon(main.cb_varlist.enable) onclickoff(main.cb_varlist.disable)
+  COMBOBOX    cb_varlist	_ilft	 _ss	_inwd	.,	///
+	label(resource MCA_ESTAT_MAIN_CK_VARLIST) ///
+	contents(e(names)) dropdown append
+  RADIO    rb_normalize		_lft	_ls     _iwd    .,	///
+	first label(resource LBL_USE_DEFAULT_NORMALIZATION_FROM_MCA_EST)
+  RADIO    rb_norms		_lft	_ss	_iwd	.,	///
+	label(resource LBL_USE_STANDARD_NORMALIZATION) option(normalize(standard))
+  RADIO    rb_normp		_lft	_ss	_iwd	.,	///
+	last label(resource LBL_USE_PRINCIPAL_NORMALIZATION) option(normalize(principal))
+
+  CHECKBOX ck_stats		_lft	_ls	_iwd	.,	///
+	label(resource MCA_ESTAT_MAIN_CK_STATS) option(stats)
+
+  CHECKBOX ck_format		_lft	_ms	_iwd	.,	///
+  	onclickon(script main_format_on)			///
+  	onclickoff(script main_format_off)			///
+	label(resource LBL_SPECIFY_THE_DISPLAY_FORMAT)
+  EDIT     ed_format    	_indent2 _ss	200	.,	///
+	option(format) label(resource LBL_DISPLAY_FORMAT_NO_COLON) 
+  BUTTON   bn_format      	+205     @     80 	.,	///
+	label(resource LBL_BU_CREATE)	onpush(script get_format) ///
+ 	tooltip(resource LBL_CREATE_DISPLAY_FORMAT)
+  CHECKBOX ck_crossed	        _lft    holdy   _iwd    .,	///
+	label(resource MCA_ESTAT_MAIN_CK_CROSSED) option(crossed)
+  CHECKBOX ck_labels		_lft	_ms     _iwd    .,	///
+	label(resource LBL_DISPLAY_VARIABLE_LABELS) option(labels)
+  CHECKBOX ck_noheader		@	_ms	@	.,	///
+	option(noheader)					///
+	label(resource LBL_SUPPRESS_HEADER)
+  CHECKBOX ck_noweights		@	_ms	@	.,	///
+	option(noweights)					///
+	label(resource LBL_IGNORE_WEIGHTS)
+  TEXT	   tx_subinertia	@       holdy   @       .,	///
+	label(resource MCA_ESTAT_MAIN_TX_SUBINERTIA)
+END
+
+LIST main_subcommand_contents
+BEGIN
+	resource MCA_ESTAT_COORDINATES
+	resource MCA_ESTAT_SUBINERTIA
+	resource LBL_SUMMARIZE_ESTIMATION_SAMPLE
+END
+
+LIST main_subcommand_values
+BEGIN
+	coordinates
+	subinertia
+	summarize
+END
+
+LIST main_subcommand_scripts
+BEGIN
+	script sel_coordinates
+	script sel_subinertia
+	script sel_summarize
+END
+
+SCRIPT main_format_on
+BEGIN
+	main.ed_format.enable
+	main.bn_format.enable
+END
+
+SCRIPT main_format_off
+BEGIN
+	main.ed_format.disable
+	main.bn_format.disable
+END
+
+SCRIPT get_format
+BEGIN
+	create STRING formatresult
+	create CHILD format_chooser
+	format_chooser.setExitString formatresult
+	format_chooser.setExitAction			///
+		"main.ed_format.setvalue class formatresult.value"
+END
+
+SCRIPT sel_coordinates
+BEGIN
+	script coords_show
+	script subiner_hide
+	script summ_hide
+END
+
+SCRIPT sel_subinertia
+BEGIN
+	script coords_hide
+	script subiner_show
+	script summ_hide
+END
+
+SCRIPT sel_summarize
+BEGIN
+	script coords_hide
+	script subiner_hide
+	script summ_show
+END
+
+SCRIPT coords_show
+BEGIN
+	main.ck_varlist.show
+	main.cb_varlist.show
+	main.rb_normalize.show
+	main.rb_norms.show
+	main.rb_normp.show
+	main.ck_stats.show
+	main.ck_format.show
+	main.ed_format.show
+	main.bn_format.show
+END
+
+SCRIPT coords_hide
+BEGIN
+	main.ck_varlist.hide
+	main.cb_varlist.hide
+	main.rb_normalize.hide
+	main.rb_norms.hide
+	main.rb_normp.hide
+	main.ck_stats.hide
+	main.ck_format.hide
+	main.ed_format.hide
+	main.bn_format.hide
+END
+
+SCRIPT summ_show
+BEGIN
+	main.ck_crossed.show
+	main.ck_noheader.show
+	main.ck_labels.show
+	main.ck_noweights.show
+END
+
+SCRIPT summ_hide
+BEGIN
+	main.ck_crossed.hide
+	main.ck_noheader.hide
+	main.ck_labels.hide
+	main.ck_noweights.hide
+END
+
+SCRIPT subiner_show
+BEGIN
+	main.tx_subinertia.show
+END
+
+SCRIPT subiner_hide
+BEGIN
+	main.tx_subinertia.hide
+END
+
+PROGRAM command
+
+BEGIN
+	put "estat "
+	put main.lb_subcmd
+	if main.ck_varlist {
+		put " " main.cb_varlist
+	}
+	beginoptions
+		// coordinates options
+		option main.rb_norms
+		option main.rb_normp
+		option main.ck_stats
+		if main.ck_format {
+			optionarg main.ed_format
+		}
+
+		// Summarize options
+		option main.ck_crossed
+		option main.ck_labels
+		option main.ck_noheader
+		option main.ck_noweights
+	endoptions
+END

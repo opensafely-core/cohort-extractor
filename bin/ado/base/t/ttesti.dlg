@@ -1,0 +1,278 @@
+/*
+  ttesti
+
+*! VERSION 1.1.2  11dec2017
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+DEFINE _dlght 355
+INCLUDE header
+
+HELP hlp1, view("help ttesti")
+RESET res1
+
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource TTESTI_DLG_HSCALE
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	if __MESSAGE.iseq("-one-") {
+		call main.rb_ttesti1.seton
+	}
+	if __MESSAGE.iseq("-two-") {
+		call main.rb_ttesti2.seton
+	}
+END
+
+DIALOG main, label(resource TTESTI_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+	GROUPBOX	gb_ttesti	_lft	_top	_iwd	_ht4,	///
+		label(resource TTESTI_MAIN_GB_TTESTI)
+	RADIO		rb_ttesti1	_indent	_ss	_ibwd	.,	///
+		first							///
+		onclickon("program main_ttesti1_on")			///
+		label(resource LBL_ONE_SAMPLE)
+	RADIO		rb_ttesti2	@	_ss	@	.,	///
+		last							///
+		onclickon("program main_ttesti2_on")			///
+		label(resource LBL_TWO_SAMPLE)
+
+	GROUPBOX	gb_group	_lft	_xls	_iwd	_ht22,	///
+		label(resource TTESTI_MAIN_GB_GROUP)
+
+	/* One-sample mean-comparison test calculator */
+	SPINNER  	sp_obs    	_indent	_ls	_spwd	.,	///
+		min(1) max(1000000000) default(1)			///
+		label(resource LBL_SAMPLE_SIZE)
+	DEFINE	holdx @x
+	DEFINE	holdy @y
+	TEXT   		tx_obs		_spsep	@	_cwd2	.,	///
+		label(resource LBL_SAMPLE_SIZE)
+	EDIT     	en_mean		holdx	_ls	_en7wd	.,	///
+		numonly							///
+		label(resource LBL_SAMPLE_MEAN)
+	TEXT     	tx_mean   	_en7sep	@	_cwd2	.,	///
+		label(resource LBL_SAMPLE_MEAN)
+	EDIT		en_sd		holdx	_ls	_en7wd	.,	///
+		numonly							///
+		label(resource LBL_SAMPLE_STANDARD_DEVIATION)
+	TEXT		tx_sd		_en7sep	@	_cwd2	.,	///
+		label(resource LBL_SAMPLE_STANDARD_DEVIATION)
+	EDIT		en_cval		holdx	_ls	_en7wd	.,	///
+		numonly							///
+		label(resource TTESTI_MAIN_EN_CVAL)
+	TEXT		tx_cval		_en7sep	@	_cwd2	.,	///
+		label(resource TTESTI_MAIN_EN_CVAL)
+
+	/* Two-sample mean-comparison test calculator */
+	DEFINE _cwd3_01 126
+	DEFINE _cwd3_02 126
+	DEFINE _cwd3_03 126
+	DEFINE _cwd3_1 110
+	DEFINE _cwd3_2 110
+	DEFINE _cwd3_3 96
+	DEFINE _lft3_02 150
+	DEFINE _lft3_03 274
+	DEFINE _ilft3_2 158
+	DEFINE _ilft3_3 283
+
+	DEFINE _iwd 380
+
+	FRAME fr_sam1	_lft3_02	holdy	_cwd3_02	_ht8
+	FRAME fr_sam2	_lft3_03	@	_cwd3_03	@
+	TEXT	tx_sam1		_ilft3_2	@	_cwd3_2	.,	///
+		center							///
+		label(resource LBL_SAMPLE_1)
+	TEXT tx_sam2	_ilft3_3	@	_cwd3_2	.,		///
+		center							///
+		label(resource LBL_SAMPLE_2)
+
+	FRAME fr_rows	holdx		_ss	_iwd	_ht6
+	TEXT tx_size	_indent		_indent	_cwd3_1	.,		///
+		label(resource LBL_SIZE_NOCOLON)
+	DEFINE holdx1 @x
+	SPINNER	sp_size1 _ilft3_2	@	_cwd3_2	.,		///
+		min(1) max(1000000000) default(1)			///
+		label(resource LBL_SIZE_FOR_SAMPLE_1)
+	SPINNER	sp_size2 _ilft3_3	@	_cwd3_2	.,		///
+		min(1) max(1000000000)	default(1)			///
+		label(resource LBL_SIZE_FOR_SAMPLE_2)
+	TEXT tx_cmean	holdx1		_ms	_cwd3_1	.,		///
+		label(resource LBL_MEAN)
+	EDIT en_mean1	_ilft3_2	@	_cwd3_2	.,		///
+		numonly							///
+		label(resource LBL_MEAN_FOR_SAMPLE_1)
+	EDIT en_mean2	_ilft3_3	@	_cwd3_2	.,		///
+		numonly							///
+		label(resource LBL_MEAN_FOR_SAMPLE_2)
+	TEXT tx_csd	holdx1		_ms	_cwd3_1	.,		///
+		label(resource LBL_STD_DEV)
+	EDIT en_sd1	_ilft3_2	@	_cwd3_2	.,		///
+		numonly							///
+		label(resource LBL_STD_DEV_FOR_SAMPLE_1)
+	EDIT en_sd2	_ilft3_3	@	_cwd3_2	.,		///
+		numonly							///
+		label(resource LBL_STD_DEV_FOR_SAMPLE_2)
+
+	CHECKBOX ck_uneq holdx		_ls	_iwd	.,		///
+		onclickon(main.ck_welch.enable)				///
+		onclickoff(main.ck_welch.disable)			///
+		option(unequal)						///
+		label(resource LBL_UNEQUAL_VARIANCES)
+	CHECKBOX ck_welch	@		_ms	@	.,	///
+		option(welch)						///
+		label(resource LBL_WELCHS_APPROXIMATION)
+
+	DEFINE _x holdx
+	DEFINE _cx _cwd2
+	DEFINE _y _xls
+  	INCLUDE _sp_level
+END
+
+PROGRAM main_ttesti1_on
+BEGIN
+	call script main_ttesti1_show
+	call script main_ttesti2_hide
+	call script main_uneq_welch_hide
+	call main.sp_level.setposition . 240
+	call main.tx_level.setposition . 240
+	call main.gb_group.setlabel resource TTESTI_MAIN_GB_GROUP
+END
+
+PROGRAM main_ttesti2_on
+BEGIN
+	call script main_ttesti1_hide
+	call script main_ttesti2_show
+	call script main_uneq_welch_show
+	call main.ck_uneq.setposition . 240
+	call main.ck_welch.setposition . 265
+	call main.sp_level.setposition . 295
+	call main.tx_level.setposition . 295
+	call main.gb_group.setlabel resource TTESTI_TWO_SAMP_MEAN_COMP_TEST_CALC
+END
+
+SCRIPT main_uneq_welch_show
+BEGIN
+	main.ck_uneq.show
+	main.ck_welch.show
+END
+
+SCRIPT main_uneq_welch_hide
+BEGIN
+	main.ck_uneq.hide
+	main.ck_welch.hide
+END
+
+SCRIPT main_ttesti1_show
+BEGIN
+	main.sp_obs.show
+	main.tx_obs.show
+	main.en_mean.show
+	main.tx_mean.show
+	main.en_sd.show
+	main.tx_sd.show
+	main.en_cval.show
+	main.tx_cval.show
+	main.sp_level.setvalue "95"
+END
+
+SCRIPT main_ttesti1_hide
+BEGIN
+	main.sp_obs.hide
+	main.tx_obs.hide
+	main.en_mean.hide
+	main.tx_mean.hide
+	main.en_sd.hide
+	main.tx_sd.hide
+	main.en_cval.hide
+	main.tx_cval.hide
+END
+
+SCRIPT main_ttesti2_show
+BEGIN
+	main.fr_sam1.show
+	main.fr_sam2.show
+	main.tx_sam1.show
+	main.tx_sam2.show
+	main.fr_rows.show
+	main.tx_size.show
+	main.sp_size1.show
+	main.sp_size2.show
+	main.tx_cmean.show
+	main.en_mean1.show
+	main.en_mean2.show
+	main.tx_csd.show
+	main.en_sd1.show
+	main.en_sd2.show
+	main.ck_uneq.setoff
+	main.ck_welch.setoff
+	main.ck_welch.disable
+	main.sp_level.setvalue "95"
+END
+
+SCRIPT main_ttesti2_hide
+BEGIN
+	main.fr_sam1.hide
+	main.fr_sam2.hide
+	main.tx_sam1.hide
+	main.tx_sam2.hide
+	main.fr_rows.hide
+	main.tx_size.hide
+	main.sp_size1.hide
+	main.sp_size2.hide
+	main.tx_cmean.hide
+	main.en_mean1.hide
+	main.en_mean2.hide
+	main.tx_csd.hide
+	main.en_sd1.hide
+	main.en_sd2.hide
+END
+
+PROGRAM command
+BEGIN
+	if main.rb_ttesti1 {
+		require main.en_mean
+		require main.en_sd
+		require main.en_cval
+		put "ttesti "
+		put main.sp_obs
+		put " "
+		put main.en_mean
+		put " "
+		put main.en_sd
+		put " "
+		put main.en_cval
+	}
+
+	if main.rb_ttesti2 {
+		require main.en_mean1 main.en_sd1
+		require main.en_mean2 main.en_sd2
+		put "ttesti "
+		put main.sp_size1
+		put " "
+		put main.en_mean1
+		put " "
+		put main.en_sd1
+		put " "
+		put main.sp_size2
+		put " "
+		put main.en_mean2
+		put " "
+		put main.en_sd2
+	}
+
+	beginoptions
+		if main.rb_ttesti2 {
+			option main.ck_uneq
+			option main.ck_welch
+		}
+		INCLUDE _level_main_pr
+	endoptions
+END
+

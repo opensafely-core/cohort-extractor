@@ -1,0 +1,122 @@
+/*
+	predict (after dsgenl)
+
+*!  VERSION 1.0.2  30jul2019
+
+*/
+
+VERSION 16.0
+
+INCLUDE _std_medium
+DEFINE _dlght 250
+INCLUDE header
+HELP hlp1, view("help dsgenl postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource DSGENL_P_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script _p_gentype_multiple
+	script _p_gentype_setMedium
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+label(resource PREDICT_DLG_TITLE)
+BEGIN
+  INCLUDE  _p_gentype
+
+  GROUPBOX gb_opt	_lft	_ls	_iwd	_ht4,			///
+	label(resource LBL_PRODUCE)
+  RADIO rb_xb		_ilft	_ss	_inwd	., first		///
+	option(xb)							///
+	onclickon(program main_xb_on)					///
+	label(resource LBL_RB_LINEAR_PREDICTIONS_OBSERVED_VARS)
+  RADIO rb_states	@	_ss	@	., last			///
+	option(states)							///
+	onclickon(program main_states_on)				///
+	label(resource LBL_RB_LINEAR_PREDICTIONS_STATE_VARS)
+END
+
+INCLUDE ifin
+
+PROGRAM main_xb_on
+BEGIN
+	if adv.ck_smethod {
+		call adv.rb_filter.disable
+	}
+END
+
+PROGRAM main_states_on
+BEGIN
+	if adv.ck_smethod {
+		call adv.rb_filter.enable
+	}
+END
+
+DIALOG opts, tabtitle(resource LBL_OPTIONS)
+BEGIN
+  TEXT tx_rmse			_lft	_top	_iwd	.,		///
+	label(resource LBL_STORE_ROOT_MEAN_SE_PREDICTED_STAT_NEW_VAR)
+  EDIT ed_rmse			@	_ss	@	.,		///
+	option(rmse)							///
+	label(resource LBL_STORE_ROOT_MEAN_SE_PREDICTED_STAT_NEW_VAR)
+  TEXT tx_dynamic		@	_ls	_vnwd	.,		///
+	label(resource LBL_DYNAMIC_FORECASTS)
+  EDIT ed_dynamic		@	_ss	_cwd1	.,		///
+	option(dynamic)							///
+	label(resource LBL_DYNAMIC_FORECASTS)
+END
+
+DIALOG adv, tabtitle(resource LBL_ADVANCED)
+BEGIN
+  CHECKBOX ck_smethod	_lft	_top	_iwd	_ht4,			///
+	groupbox							///
+	onclickon(program adv_smethod_on)				///
+	onclickoff(script adv_smethod_off)				///
+	label(resource LBL_METHOD_PREDICTING_UNOBSERVED_STATES)
+  RADIO rb_onestep	_ilft	_ss	_inwd	., first		///
+	option(smethod(onestep))					///
+	label(resource LBL_PREDICT_USING_PAST_INFORMATION)
+  RADIO rb_filter	@	_ss	@	., last			///
+	option(smethod(filter))						///
+	label(resource LBL_PREDICT_USING_PAST_CONTEMPORANEOUS_INFO)
+END
+
+PROGRAM adv_smethod_on
+BEGIN
+	call adv.rb_onestep.enable
+	if main.rb_states {
+		call adv.rb_filter.enable
+	}
+END
+
+SCRIPT adv_smethod_off
+BEGIN
+	adv.rb_onestep.disable
+	adv.rb_filter.disable
+END
+
+INCLUDE _p_gentype_sc
+INCLUDE _type_list_fd
+
+PROGRAM command
+BEGIN
+	put "predict "
+	put " " /program _p_gentype_output
+	put " " /program ifin_output
+	beginoptions
+		option radio(main rb_xb rb_states)
+		optionarg opts.ed_rmse
+		optionarg opts.ed_dynamic
+		if adv.ck_smethod {
+			option adv.rb_onestep
+			if main.rb_states {
+				option adv.rb_filter
+			}
+		}
+	endoptions
+END

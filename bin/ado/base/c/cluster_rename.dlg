@@ -1,0 +1,104 @@
+/*
+  cluster rename and cluster renamevar
+
+*!  VERSION 1.3.0  17sep2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+INCLUDE header
+HELP hlp1, view("help cluster_utility")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING oldCluster // < stata 10 cluster results
+	create STRING newCluster
+	create LIST  clusters
+	program getClusters
+	setscale_hadj resource CLUSTER_RENAME_DLG_HSCALE
+END
+
+PROGRAM getClusters
+BEGIN
+	call oldCluster.setvalue char _dta[_cl]
+	call newCluster.setvalue char _dta[_cluster_objects]
+	if newCluster {
+		call newCluster.tokenize clusters
+	}
+	else {
+		call oldCluster.tokenize clusters
+	}
+	call main.cb_clname.repopulate
+END
+
+DIALOG main, /*
+    */ label(resource CLUSTER_RENAME_DLG_TITLE) /*
+		*/ tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_clname    _lft      _top      _iwd      .,		/*
+		*/ label(resource LBL_CLUSTER_ANALYSIS)
+  COMBOBOX cb_clname    @         _ss       @         .,		/*
+		*/ dropdownlist						/*
+		*/ option(name)						/*
+		*/ contents(clusters)					/*
+		*/ label(resource LBL_CLUSTER_ANALYSIS)
+
+  RADIO    rb_rename    @         _xxls     @         ., first		/*
+		*/ clickon("script rename")				/*
+		*/ label(resource CLUSTER_RENAME_MAIN_RB_RENAME)
+  EDIT     ed_rename    _indent2  _ss       _vnwd     .,		/*
+		*/ max(32)						/*
+		*/ label(resource CLUSTER_RENAME_MAIN_RB_RENAME)
+  RADIO    rb_renamevar _lft      _xls      _cwd1     ., last		/*
+		*/ clickon("script renamevar")				/*
+		*/ label(resource CLUSTER_RENAME_MAIN_RB_RENAMEVAR)
+  DEFINE   holdy @y
+  VARNAME  vn_renamevar _indent2  _ss       _vnwd     .,		/*
+		*/ label(resource CLUSTER_RENAME_MAIN_RB_RENAMEVAR)
+  DEFINE   holdx @x
+  TEXT     tx_tovar     _lft2     holdy     _cwd1     ., label(resource LBL_TX_TO)
+  EDIT     ed_tovar     @         _ss       _vnwd     .,		/*
+		*/ max(32)						/*
+		*/ label(resource LBL_TX_TO)
+  CHECKBOX ck_prefix    holdx     _ms       _ibwd     .,		/*
+		*/ option(prefix)					/*
+		*/ label(resource CLUSTER_RENAME_MAIN_CK_PREFIX)
+END
+
+
+SCRIPT rename
+BEGIN
+  main.ed_rename.enable
+  main.vn_renamevar.disable
+  main.ed_tovar.disable
+  main.ck_prefix.disable
+END
+
+SCRIPT renamevar
+BEGIN
+  main.ed_rename.disable
+  main.vn_renamevar.enable
+  main.ed_tovar.enable
+  main.ck_prefix.enable
+END
+
+
+PROGRAM command
+BEGIN
+	require main.cb_clname
+	if main.rb_rename {
+		require main.ed_rename
+		put "cluster rename " main.cb_clname " " main.ed_rename
+	}
+	if main.rb_renamevar {
+		require main.vn_renamevar main.ed_tovar
+		put "cluster renamevar " main.vn_renamevar " " main.ed_tovar
+		beginoptions
+			option main.ck_prefix
+			optionarg main.cb_clname
+		endoptions
+	}
+END

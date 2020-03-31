@@ -1,0 +1,241 @@
+/*
+	export excel
+
+*! VERSION 1.1.3  24sep2018
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+DEFINE _dlght 380
+INCLUDE header
+
+HELP hlp1, view("help export excel")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource EXPORT_EXCEL_DLG_HSCALE
+	
+        main.fi_using.formatfilter "{0} (*.xls)|*.xls|{1} (*.xlsx)|*.xlsx|{2} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_XLS_FILE" "resource ui_ex FILE_TYPE_XLSX_FILE" "resource ui_ex FILE_TYPE_ALL_FILES"
+END
+
+
+DIALOG main, label(resource EXPORT_EXCEL_DLG_TITLE)		///
+	tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_var		_lft	_top	_iwd	.,	///
+	label(resource LBL_VARIABLES_LEAVE_EMPTY_FOR_ALL_VARIABLES)
+  VARLIST  vl_var		@	_ss	@	.,	///
+	label(resource LBL_VARIABLES)
+
+  TEXT     tx_using		@	_ls	@	.,	///
+	label(resource EXPORT_EXCEL_MAIN_TX_USING)
+  FILE     fi_using		@	_ss	@	.,	///
+	error(resource EXPORT_EXCEL_MAIN_TX_USING)		///
+	label(resource LBL_SAVE_AS)				///
+	defext(xlsx)						///
+	save
+
+  GROUPBOX gb_sheet		_lft	+35	_iwd	_ht9h,	///
+	label(resource EXPORT_EXCEL_MAIN_GB_SHEET)
+
+  CHECKBOX ck_sheet		_ilft	_ss	15	.,	///
+	onclickon(program check_sheet)				///
+	onclickoff(program check_sheet)				///
+	tooltip(resource EXPORT_EXCEL_MAIN_CK_SHEET)
+  EDIT     ed_sheet		+20	@	_vnwd	.,	///
+	label(resource EXPORT_EXCEL_MAIN_ED_SHEET) option(sheet)
+  TEXT     tx_sheet		_vnsep	@	200	.,	///
+	label(resource EXPORT_EXCEL_MAIN_TX_SHEET)
+
+  CHECKBOX ck_cell		_ilft	_ms	15	.,	///
+	onclickon(program check_cell)				///
+	onclickoff(program check_cell)				///
+	tooltip(resource EXPORT_EXCEL_MAIN_CK_CELL)
+  EDIT     ed_cell		+20	@	_vnwd	.,	///
+	label(resource EXPORT_EXCEL_MAIN_ED_CELL) option(cell)
+  TEXT     tx_cell		_vnsep	@	200	.,	///
+	label(resource EXPORT_EXCEL_MAIN_ED_CELL)
+
+  CHECKBOX ck_modify_sheet	_ilft	_ms	_ibwd	.,	///
+	onclickon(program check_replace)			///
+	onclickoff(program check_replace)			///
+	option(sheetmodify)					///
+	label(resource EXPORT_EXCEL_MAIN_CK_MODIFY_SHEET)
+  CHECKBOX ck_replace_sheet	@	_ms	@	.,	///
+	onclickon(program check_replace)			///
+	onclickoff(program check_replace)			///
+	option(sheetreplace)					///
+	label(resource EXPORT_EXCEL_MAIN_CK_REPLACE_SHEET)
+
+  CHECKBOX ck_vnames		_lft	+40	_iwd	.,	///
+	option("firstrow(variables)")				///
+	onclickon(main.ck_vlabels.disable)			///
+	onclickoff(main.ck_vlabels.enable)			///
+	label(resource EXPORT_EXCEL_MAIN_CK_VNAMES)
+
+  CHECKBOX ck_vlabels		@	_ms	@	.,	///
+	option("firstrow(varlabels)")				///
+	onclickon(main.ck_vnames.disable)			///
+	onclickoff(main.ck_vnames.enable)			///
+	label(resource EXPORT_EXCEL_MAIN_CK_VLABELS)
+
+  CHECKBOX ck_nolabel		@	_ms	@	.,	///
+	option(nolabel)						///
+	label(resource LBL_OUTPUT_NUMERIC_VALUES_OF_LABELED_VARIABLES)
+
+  CHECKBOX ck_keepcellfmt	@	_ms	@	.,	///
+	option(keepcellfmt)					///
+	label(resource EXPORT_EXCEL_MAIN_CK_KEEPCELLFMT)
+
+  CHECKBOX ck_replace		@	_ms	@	.,	///
+	option(replace)						///
+	onclickon(program check_replace)			///
+	onclickoff(program check_replace)			///
+	label(resource EXPORT_EXCEL_MAIN_CK_REPLACE)
+END
+
+PROGRAM check_sheet
+BEGIN
+	if main.ck_sheet {
+		call main.ed_sheet.enable
+		call main.tx_sheet.enable
+	}
+	else {
+		call main.ed_sheet.disable
+		call main.tx_sheet.disable
+	}
+END
+
+PROGRAM check_cell
+BEGIN
+	if main.ck_cell {
+		call main.ed_cell.enable
+		call main.tx_cell.enable
+	}
+	else {
+		call main.ed_cell.disable
+		call main.tx_cell.disable
+	}
+END
+
+PROGRAM check_replace
+BEGIN
+	if main.ck_replace {
+		call main.ck_modify_sheet.disable
+		call main.ck_replace_sheet.disable
+		call main.ck_keepcellfmt.disable
+	}
+	else {
+		if main.ck_modify_sheet {
+			call main.ck_replace_sheet.disable
+		}
+		else {
+			call main.ck_replace_sheet.enable
+		}
+		if main.ck_replace_sheet {
+			call main.ck_modify_sheet.disable
+			call main.ck_keepcellfmt.disable
+		}
+		else {
+			call main.ck_modify_sheet.enable
+			call main.ck_keepcellfmt.enable
+		}
+	}
+END
+
+INCLUDE ifin
+
+DIALOG adv, tabtitle(resource LBL_ADVANCED)
+BEGIN
+  CHECKBOX ck_format		_lft	_top	_iwd	.,	///
+	onclickon(program check_format)				///
+	onclickoff(program check_format)			///
+	label(resource EXPORT_EXCEL_ADV_CK_FORMAT)
+  EDIT     ed_format		+20	_ss	160	.,	///
+	option(datestring)					///
+	label(resource EXPORT_EXCEL_ADV_CK_FORMAT)
+  BUTTON   bu_format		+165	@	80	.,	///
+	label(resource LBL_BU_FORMAT)				///
+	onpush(script showFormatDialog)				///
+	tooltip(resource LBL_CREATE_DISPLAY_FORMAT)
+
+  CHECKBOX ck_missing		_lft	_ls	_iwd	.,	///
+	onclickon(program check_missing)			///
+	onclickoff(program check_missing)			///
+	label(resource EXPORT_EXCEL_ADV_CK_MISSING)
+  EDIT     ed_missing		+20	_ss	160	.,	///
+	option(missing)						///
+	label(resource EXPORT_EXCEL_ADV_CK_MISSING)	
+END
+
+SCRIPT showFormatDialog
+BEGIN
+	create STRING formatString
+	create CHILD format_chooser
+	format_chooser.setExitString formatString
+	format_chooser.setExitAction "adv.ed_format.setvalue class formatString.value"
+END
+
+PROGRAM check_format
+BEGIN
+	if adv.ck_format & adv.ck_format.isenabled() {
+		call adv.ed_format.enable
+		call adv.bu_format.enable
+	}
+	else {
+		call adv.ed_format.disable
+		call adv.bu_format.disable
+	}
+END
+
+PROGRAM sheet_option
+BEGIN
+	beginoptions
+
+	endoptions
+END
+
+PROGRAM command
+BEGIN
+	require main.fi_using
+	put "export excel "
+	varlist [main.vl_var]
+	put " using " `"""' main.fi_using `"""' " "
+	INCLUDE _ifin_pr
+	beginoptions
+		if (main.ck_sheet) {
+			put " sheet("
+			if main.ck_sheet {
+				require main.ed_sheet
+				put `"""' main.ed_sheet `"""'
+			}
+			put ") "
+		}
+		option main.ck_modify_sheet
+		option main.ck_replace_sheet
+
+		if (main.ck_cell) {
+			require main.ed_cell
+			optionarg main.ed_cell
+		}
+
+		option main.ck_vnames
+		option main.ck_vlabels
+		option main.ck_nolabel
+		option main.ck_replace
+		option main.ck_keepcellfmt
+
+		if adv.ck_format {
+			require adv.ed_format
+			optionarg /quoted adv.ed_format
+		}
+
+		if adv.ck_missing {
+			optionarg /quoted adv.ed_missing
+		}
+	endoptions
+END

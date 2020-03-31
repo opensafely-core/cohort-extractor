@@ -1,0 +1,164 @@
+/*
+  xttobit
+
+*!  VERSION 1.5.6  05feb2019
+
+  keyword:  eclass
+
+*/
+
+VERSION 15.0
+
+INCLUDE _std_large
+DEFINE _dlght 390
+INCLUDE header
+
+HELP hlp1, view("help xttobit")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	script se_createAsOIMJknifeBstrap
+	setscale_hadj resource XTTOBIT_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script se_setCluster_off
+	script se_setTitleSE
+END
+
+SCRIPT show_xtset
+BEGIN
+	create CHILD xtset
+END
+
+DIALOG main, label(resource XTTOBIT_DLG_TITLE) tabtitle(resource LBL_TAB_MODEL)
+BEGIN
+  BUTTON   bu_xtset	_xsetbu	_top	_setbuwd .,			///
+	onpush(script show_xtset)					///
+	label(resource LBL_BU_PANEL_SETTINGS)
+
+  TEXT tx_dv 		_lft	_topph	_vnwd	.,			///
+	label(resource LBL_DEPVAR)
+  VARNAME vn_dv		@ 	_ss	@	.,			///
+	ts								///
+	numeric								///
+	label(resource LBL_DEPVAR)
+
+  TEXT tx_iv		_vlx	_topph	160	.,			///
+	label(resource LBL_INDDEPVAR)
+  VARLIST vl_iv		@	_ss	_vlwd	.,			///
+	fv ts								///
+	allowcat							///
+	numeric								///
+	label(resource LBL_INDDEPVAR)
+
+  CHECKBOX ck_nocons @         _ms       @         .,			///
+	option("noconstant")						///
+	label(resource LBL_NOCONSTANT)
+
+  DEFINE yval _ls
+  INCLUDE censor_ul_ll
+
+  GROUPBOX gb_opts   _lft      _xls     _iwd      _ht10,		///
+	label(resource LBL_OPTIONS)
+  TEXT     tx_offset _ilft     _ss       _cwd2     .,			///
+	label(resource LBL_OFFSET_VARIABLE)
+  VARNAME  vn_offset @         _ss       _vnwd     .,			///
+	option("offset")						///
+	numeric								///
+	label(resource LBL_OFFSET_VARIABLE)
+
+  DEFINE _x _ilft
+  DEFINE _y _ls
+  DEFINE _cx _ilw80
+  DEFINE _bux _islw80
+  INCLUDE _constraints
+
+  DEFINE _x _ilft
+  DEFINE _xw _ibwd
+//  INCLUDE _ck_collinear
+
+END
+
+INCLUDE censor_ul_ll_pr
+INCLUDE _constraints_sc 
+INCLUDE byifin
+INCLUDE weights_i
+INCLUDE se
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+        program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  GROUPBOX gb_tests		_lft	+35	_iwd	_ht2,		///
+	label(resource LBL_ADDITIONAL_TEST_STATISTICS)
+  CHECKBOX ck_lrmodel		_ilft	_ss	_ibwd	.,		///
+	option(lrmodel)							///
+	onclickon(script se_setRobust_off)				///
+	onclickoff(script se_setRobust_on)				///
+	label(resource LBL_PERFORM_LIKELIHOOD_RATIO_MODEL_TEST_LRMODEL)
+
+  DEFINE _x _lft
+  DEFINE _y _xxls
+  DEFINE _cx _iwd
+  INCLUDE _nocnsreport
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+
+INCLUDE intopts_re
+INCLUDE max_ml
+
+PROGRAM command
+BEGIN
+	put /program by_output
+	put "xttobit "
+	varlist main.vn_dv [main.vl_iv]
+	put " " /program ifin_output
+	put " " /program weights_output
+	beginoptions
+		option main.ck_nocons
+
+		put " " /program censor_ul_ll_output
+		optionarg main.vn_offset
+		INCLUDE _constraints_main_pr
+//		option main.ck_collinear
+
+		put " " /program se_output
+		optionarg /hidedefault rpt.sp_level
+		option rpt.ck_lrmodel
+		INCLUDE _nocnsreport_pr
+		INCLUDE _report_columns_pr
+		put " " rpt_bu_facvarsResults
+		put " " rpt_bu_fmtcoefResults
+		put " " /program intopts_re_output
+		put " " /program max_output
+	endoptions
+END

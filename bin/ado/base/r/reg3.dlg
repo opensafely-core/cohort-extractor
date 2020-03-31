@@ -1,0 +1,260 @@
+/*
+  reg3.dlg
+
+*!  VERSION 1.3.4  08feb2019
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_xwide
+DEFINE _dlght 580
+INCLUDE header
+
+HELP hlp1, view("help reg3")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING STMP
+	create STRING main_eq_tmp
+	create STRING main_eq_tmp2
+	create STRING main_eq_tmp3
+	create STRING main_eq_childdlg
+	create STRING main_eq_dlgname
+	create STRING main_eq_child_result
+	create STRING main_eq_cmd_output
+
+	create ARRAY main_eq_list
+
+	create SVECTOR mainEQCommandDisplayList
+	create SVECTOR mainEQCommandList
+	create SVECTOR mainEQCommandValues
+	create SVECTOR mainEQStatusList
+	create SVECTOR mainEQChildDialogList
+
+	create DOUBLE main_eq_count
+	create DOUBLE main_eq_position
+	create DOUBLE main_eq_arraysize
+
+	main.bu_eq_edit.disable
+	main.bu_eq_disable.disable
+	main.bu_eq_enable.disable
+
+	setscale_hadj resource REG3_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script max_setLTolNotAllowed
+	script build_eqn_con_list
+	mainEQCommandDisplayList.copyToArray main_eq_list
+	main.lb_eqBuild.repopulate
+END
+
+DIALOG main, label(resource REG3_DLG_TITLE)				///
+	tabtitle(resource LBL_TAB_MODEL)
+BEGIN
+
+  RADIO rb_1step		340	30	_cwd2	., first	///
+	onclickon(script max_disable)					///
+	label(resource REG3_MAIN_RB_1STEP)
+  RADIO rb_iterate		@	_ss	_cwd2	., last		///
+	onclickon(script max_enable) option(ireg3)			///
+	label(resource REG3_MAIN_RB_ITERATE)
+  DEFINE _y _top
+  INCLUDE _equations
+
+  GROUPBOX gb_method		 _lft	_xls	_iwd	_ht10,		///
+ 		label(resource LBL_ESTIMATION_METHOD)
+
+    RADIO rb_3sls		_ilft	_ss	_cwd2	.,		///
+	first								///
+	option(NONE)							///
+	label(resource REG3_EST_RB_3SLS)
+   DEFINE holdy @y
+
+    RADIO rb_2sls		@	_ss	@	.,		///
+	option("2sls")							///
+	label(resource REG3_EST_RB_2SLS)
+
+    RADIO rb_ols		_ilft	_ss	@	.,		///
+	option("ols")							///
+	label(resource REG3_EST_RB_OLS)
+
+    RADIO    rb_sure     @           _ss       @           .,		///
+	label(resource REG3_EST_RB_SURE)				///
+	option("sure")
+
+    RADIO rb_mvreg		@	_ss	_ibwd	., last		///
+	option("mvreg")							///
+	label(resource REG3_EST_RB_MVREG)
+
+    CHECKBOX ck_corr		_lft2	holdy	_cwd2	_ht4,		///
+	groupbox							///
+	onclickon(script main_corr_on)					///
+	onclickoff(script main_corr_off)				///
+	label(resource REG3_EST_CK_CORR)
+
+    RADIO rb_unstr		_ilft2	_ms	_cwd4	., first	///
+	label(resource LBL_UNSTRUCTURED)			///
+
+    RADIO rb_ind		@	_ss	@	., last		///
+	option("corr(independent)")					///
+	label(resource LBL_INDEPENDENT)
+
+  GROUPBOX gb_options		_lft	+80	_iwd	_ht22h,		///
+	label(resource LBL_OPTIONS)
+
+  RADIO rb_exog			_ilft	_ss	_ibwd	., first	///
+	onclickon(script exog_on)					///
+	label(resource REG3_MODEL2_RB_EXOG)
+  VARLIST vl_exog		@	_ss	@	.,		///
+	option(exog) ts fv numeric					///
+	label(resource REG3_MODEL2_RB_EXOG)
+
+  TEXT tx_endog			@	_ls	@	.,		///
+	label(resource REG3_MODEL2_TX_ENDOG)
+  VARLIST vl_endog		@	_ss	@	.,		///
+	option("endog") ts numeric					///
+	label(resource REG3_MODEL2_TX_ENDOG)
+
+  RADIO  rb_inst		_ilft	_ls	_ibwd	., last		///
+	onclickon(script inst_on)					///
+	label(resource REG3_MODEL2_RB_INST)
+
+  VARLIST vl_inst		@	_ss	_ibwd	.,		///
+	option(inst) ts numeric						///
+	label(resource REG3_MODEL2_RB_INST)
+
+
+  CHECKBOX ck_allex		_ilft	_ls	_cwd2	.,		///
+	option(allexog)							///
+	label(resource REG3_MODEL2_CK_ALLEX)
+
+  CHECKBOX ck_nocons		_lft2	@	@	.,		///
+	option(noconstant)						///
+	label(resource REG3_MODEL2_CK_NOCONS)
+
+  DEFINE _x _ilft
+  DEFINE _y _ls
+  DEFINE _cx _ilw80
+  DEFINE _bux _islw80
+  INCLUDE _constraints
+END
+
+SCRIPT main_corr_on
+BEGIN
+	main.rb_unstr.enable
+	main.rb_ind.enable
+END
+
+SCRIPT main_corr_off
+BEGIN
+	main.rb_unstr.disable
+	main.rb_ind.disable
+END
+
+INCLUDE _constraints_sc
+
+INCLUDE _equations_pr
+
+SCRIPT exog_on
+BEGIN
+	main.vl_exog.enable
+	main.vl_endog.enable
+	main.vl_inst.disable
+END
+
+SCRIPT inst_on
+BEGIN
+	main.vl_exog.disable
+	main.vl_endog.disable
+	main.vl_inst.enable
+END
+
+INCLUDE byifin
+INCLUDE weights_fa
+INCLUDE df_adj
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+	program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2
+  DEFINE _y _top
+  INCLUDE _sp_level
+  CHECKBOX ck_first		_lft	_ls	_cwd1	.,		///
+	option(first)							///
+	label(resource LBL_REPORT_FIRST_STAGE_REGRESSION)
+
+  DEFINE _x _lft
+  DEFINE _y _ms
+  DEFINE _cx _iwd
+  INCLUDE _nocnsreport
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x 62
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x 387
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+
+INCLUDE max_internal
+
+PROGRAM opt_output
+BEGIN
+	INCLUDE _constraints_main_pr
+	option main.rb_iterate
+	optionarg main.vl_exog
+	optionarg main.vl_endog
+	optionarg main.vl_inst
+	option main.ck_allex
+	option main.ck_nocons
+	option radio(main rb_mvreg rb_sure rb_ols rb_2sls rb_3sls)
+	option main.rb_ind
+	put " " /program df_adj_output
+	optionarg /hidedefault rpt.sp_level
+	option rpt.ck_first
+	INCLUDE _nocnsreport_pr
+	INCLUDE _report_columns_pr
+	put " " rpt_bu_facvarsResults
+	put " " rpt_bu_fmtcoefResults
+	put " " /program max_output
+END
+
+PROGRAM command
+BEGIN
+	call mainEQCommandValues.copyToString main_eq_cmd_output
+
+	put /program by_output " "
+	put "reg3 "
+	if main_eq_cmd_output.iseq("") {
+		stopbox stop resource LBL_MSGBOX_EQUATION_NOT_DEFINED
+//"Equation not defined. "             ///
+//"Please enter an equation before proceeding."
+	}
+	put main_eq_cmd_output
+	put " " /program ifin_output
+	put " " /program weights_output
+	beginoptions
+		put " " /program opt_output
+	endoptions
+END

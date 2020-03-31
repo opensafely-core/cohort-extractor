@@ -1,0 +1,119 @@
+/*
+  estat bootstrap
+
+*!  VERSION 1.1.0  24sep2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE _ht320
+INCLUDE header
+HELP hlp1, view("help estat bootstrap")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource ESTAT_BOOTSTRAP_DLG_HSCALE
+END
+
+
+DIALOG main, label(resource ESTAT_BOOTSTRAP_DLG_TITLE) /*
+	*/ tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  GROUPBOX gb_ci     _lft      _top      _iwd      _ht12, 		///
+		label(resource LBL_BOOTSTRAP_CONFIDENCE_INTERVALS)
+  CHECKBOX ck_bc     _indent   _ss       _ibwd         .,		///
+		label(resource LBL_DISPLAY_BIAS_CORRECTED_CI)		///
+		option(bc)
+  CHECKBOX ck_bca    @         _ms       @         .,			///
+		label(resource LBL_BC_ACCELERATED_CI)			///
+		option(bca)
+  CHECKBOX ck_norm   @         _ms       @         .,			///
+		label(resource LBL_DISPLAY_NORMAL_BASED_CI)			///
+		option("normal")
+  CHECKBOX ck_p      @         _ms       @         .,			///
+		label(resource LBL_DISPLAY_PERCENTILE_CI)				///
+		option(percentile)
+  CHECKBOX ck_all    @   	_ms       @	     .,			///
+		label(resource LBL_DISPLAY_ALL_CIS)			///
+		onclickon(program check_all)				///
+		onclickoff(program check_all)				///
+		option(all)
+
+  CHECKBOX ck_noheader _lft    _xls      _iwd      .,			///
+		label(resource LBL_SUPPRESS_THE_TABLE_HEADER)			///
+		onclickon(program check_header)				///
+		onclickoff(program check_header)			///
+		option(noheader)
+  CHECKBOX ck_nolegend  @      _ms       @         .,			///
+		label(resource LBL_SUPPRESS_TABLE_LEGEND)			///
+		onclickon(program check_legend)				///
+		onclickoff(program check_legend)			///
+		option(nolegend)
+  CHECKBOX ck_verbose @        _ms       @         .,			///
+		label(resource LBL_DISPLAY_FULL_TABLE_LEGEND)		///
+		option(verbose)
+
+  TEXT     tx_title  _lft      _ls       _iwd      .,			///
+		label(resource LBL_TITLE)
+  EDIT     ed_title  @         _ss       @         .,			///
+		label(resource LBL_TITLE)						///
+		option(title)
+END
+
+PROGRAM check_all
+BEGIN
+	if main.ck_all {
+		call gaction main.ck_bc.disable
+		call gaction main.ck_bca.disable
+		call gaction main.ck_norm.disable
+		call gaction main.ck_p.disable
+	}
+	if !main.ck_all {
+		call gaction main.ck_bc.enable
+		call gaction main.ck_bca.enable
+		call gaction main.ck_norm.enable
+		call gaction main.ck_p.enable
+	}
+END
+
+PROGRAM check_header
+BEGIN
+	if main.ck_noheader {
+		call gaction main.ck_nolegend.disable
+		call gaction main.ck_verbose.disable
+	}
+	if !main.ck_noheader {
+		call gaction main.ck_nolegend.enable
+		call program check_legend
+	}
+END
+
+PROGRAM check_legend
+BEGIN
+	if main.ck_nolegend {
+		call gaction main.ck_verbose.disable
+	}
+	if !main.ck_nolegend {
+		call gaction main.ck_verbose.enable
+	}
+END
+
+PROGRAM command
+BEGIN
+	put "estat bootstrap"
+	beginoptions
+		option main.ck_all
+		option main.ck_bc
+		option main.ck_bca
+		option main.ck_norm
+		option main.ck_p
+		option main.ck_noheader
+		option main.ck_nolegend
+		option main.ck_verbose
+		optionarg main.ed_title
+	endoptions
+END
+/* end */

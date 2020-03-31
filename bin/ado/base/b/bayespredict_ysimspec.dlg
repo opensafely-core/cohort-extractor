@@ -1,0 +1,89 @@
+/*
+  bayespredict_ysimspec.dlg
+
+*!  VERSION 1.0.3  03apr2019
+
+*/
+
+VERSION 16.0
+
+INCLUDE _std_large
+DEFINE _dlght 200
+INCLUDE header
+
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource BAYESPREDICT_YSIMSPEC_DLG_HSCALE
+	
+	create STRING depvars
+	create ARRAY tmp
+	create ARRAY tmpvalue
+	create SVECTOR tmpvec
+	create DOUBLE tmpsize
+	create DOUBLE loop
+	
+	depvars.setvalue e(depvars)
+	depvars.tokenize tmp
+	tmpvec.copyFromArray tmp
+	tmpsize.setvalue class tmpvec.size
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	call main.cb_obsout.setcontentslist tmp
+	call main.cb_obsout.repopulate
+	
+	call tmpvalue.Arrdropall
+	call loop.setvalue 1
+	while (loop.isle(tmpsize)) {
+		call loop.withvalue tmpvalue.Arrpush "@"
+		call loop.increment
+	}
+	call main.cb_obsout.setvalueslist tmpvalue
+	call main.cb_obsout.setvalue 1
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  DEFINE resx _lft 
+  DEFINE resy _top
+  DEFINE resw _iwd
+  DEFINE resw2 _ibwd
+  INCLUDE bayes_ysimspec
+END
+
+SCRIPT main_allobs_enable
+BEGIN
+	main.hl_selobs.enable
+	main.ed_selobs.enable
+END
+
+SCRIPT main_allobs_disable
+BEGIN
+	main.hl_selobs.disable
+	main.ed_selobs.disable
+END
+
+PROGRAM command
+BEGIN
+	require main.cb_obsout
+	if main.rb_allobs {
+		put "{_ysim"
+		put main.cb_obsout
+		put "}"
+	}
+	if main.rb_selobs {
+		require main.ed_selobs
+		if !main.ed_selobs.isnumlist() {
+		stopbox stop "BAYES_MESSAGEBOX_INVALID_NUMLIST_SPECIFIED_FOR_SELECTED_OBS"
+//stopbox stop "An invalid numlist is specified for the selected observations"
+		}
+		put "{_ysim"
+		put main.cb_obsout
+		put "["
+		put main.ed_selobs
+		put "]}"
+	}
+END

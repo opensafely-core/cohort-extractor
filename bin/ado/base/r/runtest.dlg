@@ -1,0 +1,143 @@
+/*
+	runtest	
+
+	VERSION 1.1.1  01mar2015
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+INCLUDE _ht300
+INCLUDE header
+
+HELP hlp1, view("help runtest")
+RESET res1
+
+DEFINE fromwd 50
+DEFINE fromsep +55
+DEFINE towd 35
+DEFINE tosep +45
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource RUNTEST_DLG_HSCALE
+END
+
+DIALOG main, label(resource RUNTEST_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  /*--+----1----+----2----+----3----+----4----+----5----+----6----+----7----+*/
+  TEXT     tx_var    _lft      _top      _iwd      .,			/*
+		*/ label(resource LBL_VARIABLE)				/*
+		*/
+  VARNAME  vn_var    @         _ss       _vnwd     .,			/*
+  		*/ numeric						/*
+		*/ label(resource LBL_VARIABLE)	
+		
+
+  CHECKBOX ck_cont   _lft      _ls       _iwd      .,			/*
+		*/ option("continuity")					/*
+		*/ label(resource RUNTEST_MAIN_CK_CONT)			/*
+		*/
+
+
+  GROUPBOX gb_equal  _lft      _ls       _cwd1     _ht7h,		/*
+		*/ label(resource RUNTEST_MAIN_GB_EQUAL)		/*
+		*/
+  DEFINE y @y
+  RADIO    rb_below  _indent   _ss       _inwd     .,			/*
+		*/ option(NONE)	/* default option */			/*
+		*/ label(resource RUNTEST_MAIN_RB_BELOW)		/*
+		*/ first						/*
+		*/
+  RADIO    rb_drop   @         _ss       @         .,			/*
+		*/ option("drop")					/*
+		*/ label(resource RUNTEST_MAIN_RB_DROP)			/*
+		*/
+  RADIO    rb_split  @         _ss       @         .,			/*
+		*/ option("split")					/*
+		*/ label(resource RUNTEST_MAIN_RB_SPLIT)		/*
+		*/ last							/*
+		*/
+  TEXT     tx_split  _indent2  _vss      _cwd5     .,			/*
+		*/ label(resource RUNTEST_MAIN_TX_SPLIT)		/*
+		*/
+
+  GROUPBOX gb_thres  _lft2     y         _cwd1     _ht7h,		/*
+		*/ label(resource RUNTEST_MAIN_GB_THRES)		/*
+		*/
+  RADIO    rb_median _indent   _ss       _inwd     .,			/*
+		*/ first						/*
+		*/ option(NONE) /* default option */ 			/*
+		*/ clickon("gaction main.en_thres.disable")		/*
+		*/ label(resource RUNTEST_MAIN_RB_MEDIAN)		/*
+		*/
+  RADIO    rb_mean   @         _ss       @         .,			/*
+		*/ option("mean")					/*
+		*/ clickon("gaction main.en_thres.disable")		/*
+		*/ label(resource RUNTEST_MAIN_RB_MEAN)			/*
+		*/
+  RADIO    rb_thres  @         _ss       _rbwd     ., last		/*
+		*/ option(NONE) /* handled another way */ 		/*
+		*/ clickon("gaction main.en_thres.enable")		/*
+		*/ label("")						/*
+		*/
+
+  EDIT     en_thres  _rbsep    @         _en7wd    .,			/*
+		*/ option("threshold")					/*
+		*/ label(resource RUNTEST_MAIN_RB_THRES)		/*
+		*/ numonly						/*
+		*/
+
+  GROUPBOX gb_sub    _lft      _xxxls    _iwd      _ht2,		/*
+		*/ label(resource RUNTEST_MAIN_GB_SUB)	/*
+		*/
+  CHECKBOX ck_in     _ilft     _ss       fromwd    .,			/*
+		*/ label(resource LBL_FROM_LOWERCASE)			/*
+		*/ clickon("script sub_on")				/*
+		*/ clickoff("script sub_off")				/*
+		*/
+  SPINNER  sp_from   fromsep   @         _spwd     .,			/*
+		*/ min(1)						/*
+		*/ max(100)						/*
+		*/ default(1)						/*
+		*/
+  TEXT     tx_to     _spsep    @         towd      .,			/*
+		*/ label(resource LBL_TO)				/*
+		*/ right						/*
+		*/
+  SPINNER  sp_to     tosep     @         _spwd     .,			/*
+		*/ min(1)						/*
+		*/ max(c(N))						/*
+		*/ default(c(N))					/*
+		*/
+END
+
+SCRIPT sub_on
+BEGIN
+	main.sp_from.enable
+	main.sp_to.enable
+END
+
+SCRIPT sub_off
+BEGIN
+	main.sp_from.disable
+	main.sp_to.disable
+END
+
+PROGRAM command
+BEGIN
+	put "runtest "
+	varlist main.vn_var
+	if main.ck_in {
+		inrange main.sp_from main.sp_to
+	}
+	beginoptions
+		option main.ck_cont
+		option radio(main rb_below rb_drop rb_split)
+		option radio(main rb_median rb_mean rb_thres)
+		if main.rb_thres {
+			optionarg main.en_thres
+		}
+	endoptions
+END

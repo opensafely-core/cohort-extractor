@@ -1,0 +1,334 @@
+/*
+  gr_ed_graph.dlg
+
+*!  VERSION 1.1.3  31jul2017
+
+*/
+
+VERSION 14.0
+MODAL
+
+INCLUDE _std_small
+DEFINE _dlght 300
+INCLUDE header_gr_ed
+
+DEFINE _clwd	15
+DEFINE _wd	120
+DEFINE _sep	+125
+DEFINE _wd2	110
+DEFINE _sep2	+115
+DEFINE _cbwd	120
+DEFINE _cbsep	+125
+
+SCRIPT PREINIT
+BEGIN
+	settitle resource LBL_GRAPH_PROPERTIES
+	create STRING G
+	create STRING GRAPH
+	create ARRAY  ARGS
+	create STRING MODE
+	create BOOLEAN isPieGraph
+	program setupGOBJECT
+
+	create DOUBLE index
+	create STRING tmp
+
+// size
+	create STRING aspect
+	create STRING aspect_pos
+	create STRING xsize
+	create STRING ysize
+	create STRING scale
+	
+// advanced
+	create DOUBLE visible
+	create DOUBLE filled
+	create STRING xoffset
+	create STRING yoffset
+
+	program get_defaults
+	setscale_hadj resource GR_ED_GRAPH_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program initialize_controls
+	program check_init_tab
+END
+
+PROGRAM setupGOBJECT
+BEGIN
+	if ! __MESSAGE {
+		stopbox stop resource LBL_MSGBOX_OBJECT_NOT_FOUND
+// An unexpected error has occurred. Object not found.
+		exit 198
+	}
+	call __MESSAGE.tokenize ARGS
+	call G.setvalue class ARGS[1]
+	call MODE.setvalue class ARGS[2]
+
+	call GRAPH.setvalue class ._Gr_Global.edit_graph
+	
+	/* deal with pie graphs */
+	call G.withvalue isPieGraph.storeClsObjectExists @.piestyles
+	if isPieGraph {
+		call size.gb_aspect.hide
+		call size.tx_aspect.hide
+		call size.ed_aspect.hide
+		call size.tx_pos.hide
+		call size.cb_pos.hide
+
+		call size.settabtitle resource LBL_TAB_SIZE
+		call size.gb_size.setposition . 10
+		call size.tx_ysize.setposition . 30
+		call size.ed_ysize.setposition . 30
+		call size.tx_xsize.setposition . 57
+		call size.ed_xsize.setposition . 57
+
+		call size.gb_scale.setposition . 102
+		call size.tx_scale.setposition . 122
+		call size.ed_scale.setposition . 122
+	}
+	else {
+		call size.gb_aspect.show
+		call size.tx_aspect.show
+		call size.ed_aspect.show
+		call size.tx_pos.show
+		call size.cb_pos.show
+
+		call size.gb_size.setposition . 102
+		call size.tx_ysize.setposition . 122
+		call size.ed_ysize.setposition . 122
+		call size.tx_xsize.setposition . 149
+		call size.ed_xsize.setposition . 149
+
+		call size.gb_scale.setposition . 194
+		call size.tx_scale.setposition . 214
+		call size.ed_scale.setposition . 214
+		call size.settabtitle resource LBL_ASPECT_SIZE
+	}
+END
+
+PROGRAM check_init_tab
+BEGIN
+	if MODE.contains("MODE(") {
+		if MODE.contains("region") {
+			call overall.setactive
+		}
+		if MODE.contains("aspect") {
+			call size.setactive
+			call size.ed_aspect.setfocus
+		}
+		if MODE.contains("size") {
+			call size.setactive
+			call size.ed_ysize.setfocus
+		}
+		if MODE.contains("title") {
+			call titles.setactive
+		}
+	}
+END
+
+INCLUDE gr_ed_regions
+
+DIALOG size, tabtitle(resource LBL_ASPECT_SIZE)
+BEGIN
+  GROUPBOX gb_aspect	_lft	_top	_iwd	_ht5,		///
+	label(resource LBL_GB_ASPECT_RATIO)
+  TEXT     tx_aspect	_ilft	_ss	_wd	.,		///
+	label(resource LBL_ASPECT_RATIO) right
+  EDIT     ed_aspect	_sep	@	_cbwd	.,		///
+	numonly							///
+	tooltip(resource LBL_ASPECT_RATIO_FOR_PLOT_REGIONS)
+  TEXT     tx_pos	_ilft	_mls	_wd	.,		///
+	label(resource LBL_POSITION) right
+  COMBOBOX cb_pos	_sep	@	_cbwd	.,		///
+	dropdownlist contents(_compass)
+
+  GROUPBOX gb_size	_lft	+45	_iwd	_ht5,		///
+	label(resource LBL_TAB_SIZE)
+  TEXT     tx_ysize	_ilft	_ss	_wd	.,		///
+	label(resource LBL_Y_SIZE_INCHES) right
+  EDIT     ed_ysize	_sep	@	_cbwd	.,		///
+	label(resource LBL_ED_Y_SIZE)
+  TEXT     tx_xsize	_ilft	_mls	_wd	.,		///
+	label(resource LBL_X_SIZE_INCHES) right
+  EDIT     ed_xsize	_sep	@	_cbwd	.,		///
+	label(resource LBL_ED_X_SIZE)
+
+  GROUPBOX gb_scale	_lft	+45	_iwd	_ht2,		///
+	label(resource LBL_SCALE_TEXT_MARKERS_LINE_WIDTHS)
+  TEXT     tx_scale	_ilft	_ss	_wd	.,		///
+	label(resource LBL_SCALING_FACTOR) right
+  EDIT     ed_scale	_sep	@	_cbwd	.,		///
+	label(resource LBL_SCALING_FACTOR)			///
+	tooltip(resource LBL_SCALING_FAC_SIZING_TEXT_MARKERS_LINE_WIDTHS)
+END
+
+INCLUDE gr_ed__titles
+
+DIALOG adv, tabtitle(resource LBL_ADVANCED)
+BEGIN
+  CHECKBOX ck_hidden	_lft	_top	_iwd	.,		///
+	label(resource LBL_HIDE_GRAPH)				///
+	onclickon(adv.ck_collapse.enable)			///
+	onclickoff(adv.ck_collapse.disable)
+  CHECKBOX ck_collapse	@	_ms	@	.,		///
+	label(resource LBL_COLLAPSE_WHEN_HIDDEN)
+
+  GROUPBOX gb_offset	_lft	_ls	_iwd	_ht5,		///
+	label(resource LBL_POSITION_OFFSET)
+  TEXT     tx_xoffset	_ilft	_ss	_wd	.,		///
+	label(resource LBL_X_OFFSET) right
+  EDIT	   ed_xoffset	_sep	@	_cbwd	.,
+
+  TEXT     tx_yoffset	_ilft	_mls	_wd	.,		///
+	label(resource LBL_Y_OFFSET) right
+  EDIT	   ed_yoffset	_sep	@	_cbwd	.,
+END
+
+PROGRAM get_defaults
+BEGIN
+// size
+	call G.withvalue aspect.setvalue class @.style.aspect_ratio.val
+	call size.ed_aspect.setdefault class aspect.value
+
+	call G.withvalue index.setvalue class @.style.aspect_pos.styledex
+	call index.withvalue aspect_pos.setvalue class .__STYLES.compass2dir[@]
+	call size.cb_pos.setdefault class aspect_pos.value
+
+	call G.withvalue ysize.setvalue class @.style.declared_ysize.val
+	call size.ed_ysize.setdefault class ysize.value
+	
+	call G.withvalue xsize.setvalue class @.style.declared_xsize.val
+	call size.ed_xsize.setdefault class xsize.value
+	
+	call G.withvalue scale.setvalue class @.gmetric_mult
+	call size.ed_scale.setdefault class scale.value
+
+// advanced
+	call G.withvalue visible.setvalue class @.draw_view.istrue
+	if visible {
+		call adv.ck_hidden.setdefault 0
+	}
+	else {
+		call adv.ck_hidden.setdefault 1
+	}
+
+	call G.withvalue filled.setvalue class @.fill_if_undrawn.istrue
+	if filled {
+		call adv.ck_collapse.setdefault 0
+	}
+	else {
+		call adv.ck_collapse.setdefault 1
+	}
+
+	call G.withvalue xoffset.setvalue class @.xoffset
+	call adv.ed_xoffset.setdefault class xoffset.value
+
+	call G.withvalue yoffset.setvalue class @.yoffset
+	call adv.ed_yoffset.setdefault class yoffset.value
+END
+
+PROGRAM initialize_controls
+BEGIN
+// size
+	call size.ed_aspect.setvalue class aspect.value
+	call size.cb_pos.setvalue class aspect_pos.value
+	call size.ed_ysize.setvalue class ysize.value
+	call size.ed_xsize.setvalue class xsize.value
+	call size.ed_scale.setvalue class scale.value
+
+// advanced
+	if visible {
+		call adv.ck_hidden.setoff
+	}
+	else {
+		call adv.ck_hidden.seton
+	}
+
+	if filled {
+		call adv.ck_collapse.setoff
+	}
+	else {
+		call adv.ck_collapse.seton
+	}
+	call xoffset.withvalue adv.ed_xoffset.setvalue "@"
+	call yoffset.withvalue adv.ed_yoffset.setvalue "@"
+END
+
+PROGRAM command
+BEGIN
+	put "." GRAPH ".UndoBegin"
+	stata hidden queue
+
+	call program get_defaults
+	
+	put "_gm_dlg_edits"
+	beginoptions
+		put " object(" G ") "
+		put " " /program region_output
+		call program titles_output	// has own output routine
+
+// size
+		if ! size.ed_aspect.isdefault() {
+			put " cmd(_gm_edit "
+			put "." G ".SetAspectRatio "
+			put size.ed_aspect
+			put ") "
+		}
+		if ! size.cb_pos.isdefault() {
+			put " style(aspect_pos("
+			put size.cb_pos
+			put ")) "
+		}
+		if ! size.ed_ysize.isdefault() {
+			put " style(declared_ysize("
+			put size.ed_ysize
+			put ")) "
+		}
+		if ! size.ed_xsize.isdefault() {
+			put " style(declared_xsize("
+			put size.ed_xsize
+			put ")) "
+		}
+		if ! size.ed_scale.isdefault() {
+			call create DOUBLE scaleValue 
+			call scaleValue.setvalue class size.ed_scale.value
+			if scaleValue.isle(0) | scaleValue.isge(100) {
+				stopbox stop resource LBL_MSGBOX_SCALING_FACTOR_OUT_OF_RANGE
+// "Scaling factor" out of range. Value must be greater than 0 and less than 100.
+			}
+			put " set(gmetric_mult " size.ed_scale ") "
+		}
+
+// advanced
+		if ! adv.ck_hidden.isdefault() {
+			if adv.ck_hidden {
+				put " set(draw_view no) " 
+			}
+			else {
+				put " set(draw_view yes) " 
+			}
+		}
+		if ! adv.ck_collapse.isdefault() {
+			if adv.ck_collapse {
+				put " set(fill_if_undrawn no) " 
+			}
+			else {
+				put " set(fill_if_undrawn yes) " 
+			}
+		}
+		if ! adv.ed_xoffset.isdefault() {
+			put "set(xoffset " adv.ed_xoffset ") "
+		}
+		if ! adv.ed_yoffset.isdefault() {
+			put "set(yoffset " adv.ed_yoffset ") "
+		}
+		put " epilog(_gedi toolbar graph " G ")"
+	endoptions
+	stata hidden queue
+
+	put "." GRAPH ".UndoEnd " G
+	stata hidden queue
+END

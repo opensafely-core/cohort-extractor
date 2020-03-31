@@ -1,0 +1,1885 @@
+/*
+	meta_forest_pr.idlg
+
+*!  VERSION 1.0.11  03jan2020
+
+*/
+
+LIST forest_bind_list
+BEGIN
+	brackets
+	parentheses
+END
+
+LIST forest_bind_vals
+BEGIN
+	brackets
+	parentheses
+END
+
+LIST forest_bind_listSE
+BEGIN
+	parentheses
+	brackets
+END
+
+LIST forest_bind_valsSE
+BEGIN
+	parentheses
+	brackets
+END
+
+PROGRAM forest_show
+BEGIN
+	if meta.btn_forest {
+		call meta.tx_general.hide
+		call meta.tb_general.hide
+		call script forest_hide
+		call meta.gb_forest.show
+		call meta.rb_forest_main.show
+		call meta.rb_forest_ifin.show
+		call meta.rb_forest_opts.show
+		call meta.rb_forest_maxim.show
+		call meta.rb_forest_plot.show
+		if meta.rb_forest_main {
+			call program forest_main_show
+		}
+		if meta.rb_forest_ifin {
+			call program forest_ifin_show
+		}
+		if meta.rb_forest_opts {
+			call program forest_opts_show
+		}
+		if meta.rb_forest_maxim {
+			call program forest_maxim_show
+		}
+		if meta.rb_forest_plot {
+			call program forest_plot_show
+		}
+		call meta.bu_forest_submit.show
+	}
+END
+
+SCRIPT forest_hide
+BEGIN
+	meta.gb_forest.hide
+	meta.rb_forest_main.hide
+	meta.rb_forest_ifin.hide
+	meta.rb_forest_opts.hide
+	meta.rb_forest_maxim.hide
+	meta.rb_forest_plot.hide
+	script forest_main_hide
+	script forest_ifin_hide
+	script forest_opts_hide
+	script forest_maxim_hide
+	script forest_plot_hide
+	meta.bu_forest_submit.hide
+END
+
+// MAIN
+PROGRAM forest_main_show
+BEGIN
+	if meta.rb_forest_main {
+		call meta.gb_forest_main_model.show
+		call meta.rb_forest_declared.show
+		call meta.rb_forest_remethod.show
+		call meta.rb_forest_common.show
+		call meta.rb_forest_fixed.show
+		call meta.ck_forest_subgrp.show
+		call meta.tx_forest_subgrp.show
+		call meta.vl_forest_subgrp.show
+		call meta.ck_forest_cumu.show
+		call meta.tx_forest_cumu_ordervar.show
+		call meta.vn_forest_cumu_ordervar.show
+		call meta.tx_forest_cumu_sortorder.show
+		call meta.cb_forest_cumu_sortorder.show
+		call meta.tx_forest_cumu_by.show
+		call meta.vn_forest_cumu_by.show
+
+		call meta.ck_forest_sort.show
+		call meta.tx_forest_sort_by.show
+		call meta.cb_forest_sort_by.show
+		call meta.tx_forest_sort_order.show
+		call meta.cb_forest_sort_order.show
+		call meta.vl_forest_sort_vars.show
+
+		call program forest_main_tab_model_changed
+	}
+END
+
+SCRIPT forest_main_hide
+BEGIN
+	meta.gb_forest_main_model.hide
+	meta.rb_forest_declared.hide
+	meta.rb_forest_remethod.hide
+	meta.rb_forest_common.hide
+	meta.rb_forest_fixed.hide
+	meta.tx_forest_method.hide
+	meta.cb_forest_method.hide
+	meta.bu_forest_method_reopts.hide
+
+	meta.ck_forest_subgrp.hide
+	meta.tx_forest_subgrp.hide
+	meta.vl_forest_subgrp.hide
+	meta.ck_forest_cumu.hide
+	meta.tx_forest_cumu_ordervar.hide
+	meta.vn_forest_cumu_ordervar.hide
+	meta.tx_forest_cumu_sortorder.hide
+	meta.cb_forest_cumu_sortorder.hide
+	meta.tx_forest_cumu_by.hide
+	meta.vn_forest_cumu_by.hide
+	meta.ck_forest_sort.hide
+	meta.tx_forest_sort_by.hide
+	meta.cb_forest_sort_by.hide
+	meta.tx_forest_sort_order.hide
+	meta.cb_forest_sort_order.hide
+	meta.vl_forest_sort_vars.hide
+END
+
+PROGRAM forest_main_tab_model_changed
+BEGIN
+	call meta.tx_forest_method.hide
+	call meta.cb_forest_method.hide
+	call meta.bu_forest_method_reopts.hide
+
+	if meta.rb_forest_remethod {
+		call meta.tx_forest_method.show
+		call meta.cb_forest_method.show
+		call meta.cb_forest_method.enable
+		call meta.bu_forest_method_reopts.show
+	}
+	if meta.rb_forest_common {
+		call meta.tx_forest_method.show
+		call meta.cb_forest_method.show
+	}
+	if meta.rb_forest_fixed {
+		call meta.tx_forest_method.show
+		call meta.cb_forest_method.show
+	}
+	call program forest_maxim_set_status
+
+END
+
+PROGRAM forest_main_model_changed
+BEGIN
+	call meta.tx_forest_method.hide
+	call meta.cb_forest_method.hide
+	call meta.bu_forest_method_reopts.hide
+	if meta.rb_forest_remethod {
+		call meta.tx_forest_method.show
+		call meta.cb_forest_method.show
+		call meta.cb_forest_method.enable
+		call meta.bu_forest_method_reopts.show
+
+		call meta.cb_forest_method.setcontentslist re_method
+		call meta.cb_forest_method.setvalueslist re_method_vals
+
+		call meta.cb_forest_method.repopulate
+		call meta.cb_forest_method.setvalue "reml"
+	}
+	if meta.rb_forest_common {
+		call meta.tx_forest_method.show
+		call meta.cb_forest_method.show
+
+		call meta.cb_forest_method.setcontentslist cefe_method
+		call meta.cb_forest_method.setvalueslist cefe_method_vals
+
+		call meta.cb_forest_method.repopulate
+
+		if allow_mhaenszel {
+			call meta.cb_forest_method.setvalue "mhaenszel"
+			call meta.cb_forest_method.enable
+		}
+		else {
+			call meta.cb_forest_method.setvalue "invvariance"
+			call meta.cb_forest_method.disable
+		}
+	}
+	if meta.rb_forest_fixed {
+		call meta.tx_forest_method.show
+		call meta.cb_forest_method.show
+
+		call meta.cb_forest_method.setcontentslist cefe_method
+		call meta.cb_forest_method.setvalueslist cefe_method_vals
+
+		call meta.cb_forest_method.repopulate
+		if allow_mhaenszel {
+			call meta.cb_forest_method.setvalue "mhaenszel"
+			call meta.cb_forest_method.enable
+		}
+		else {
+			call meta.cb_forest_method.setvalue "invvariance"
+			call meta.cb_forest_method.disable
+		}
+	}
+	call program forest_maxim_set_status
+END
+
+PROGRAM forest_main_method_changed
+BEGIN
+	call program forest_maxim_set_status
+END
+
+PROGRAM forest_main_subgroup_on
+BEGIN
+	call meta.bu_forest_method_reopts.disable
+
+	call meta.ck_forest_cumu.disable
+	call meta.tx_forest_subgrp.enable
+	call meta.vl_forest_subgrp.enable
+
+	call program forest_plot_default_build_arrays
+	call program forest_plot_custom_build_arrays
+
+	call program forest_opt_tdist_allowed
+END
+
+PROGRAM forest_main_subgroup_off
+BEGIN
+	call meta.bu_forest_method_reopts.enable
+
+	call meta.ck_forest_cumu.enable
+	call meta.tx_forest_subgrp.disable
+	call meta.vl_forest_subgrp.disable
+
+	call program forest_plot_default_build_arrays
+	call program forest_plot_custom_build_arrays
+
+	call program forest_opt_tdist_allowed
+END
+
+PROGRAM forest_main_cumu_on
+BEGIN
+	call meta.tx_forest_cumu_ordervar.enable
+	call meta.vn_forest_cumu_ordervar.enable
+	call meta.tx_forest_cumu_sortorder.enable
+	call meta.cb_forest_cumu_sortorder.enable
+	call meta.tx_forest_cumu_by.enable
+	call meta.vn_forest_cumu_by.enable
+
+	call meta.bu_forest_method_reopts.disable
+
+	call meta.bu_forest_overall.enable
+	call meta.ck_forest_subgrp.disable
+	call meta.ck_forest_sort.disable
+	call meta.bu_forest_item.disable
+	call meta.bu_forest_tests.disable
+	call meta.ck_forest_maxim_showtrace.disable
+
+	call program forest_opt_tdist_allowed
+
+	call program forest_plot_default_build_arrays
+	call program forest_plot_custom_build_arrays
+END
+
+SCRIPT forest_main_cumu_off
+BEGIN
+	meta.ck_forest_subgrp.enable
+	meta.ck_forest_sort.enable
+
+	meta.tx_forest_cumu_ordervar.disable
+	meta.vn_forest_cumu_ordervar.disable
+	meta.tx_forest_cumu_sortorder.disable
+	meta.cb_forest_cumu_sortorder.disable
+	meta.tx_forest_cumu_by.disable
+	meta.vn_forest_cumu_by.disable
+
+	meta.bu_forest_method_reopts.enable
+	meta.ck_forest_subgrp.enable
+	meta.bu_forest_overall.enable
+	meta.bu_forest_tests.enable
+
+	program forest_opt_tdist_allowed
+	meta.ck_forest_maxim_showtrace.enable
+
+	program forest_plot_default_build_arrays
+	program forest_plot_custom_build_arrays
+END
+
+PROGRAM forest_main_sort_on
+BEGIN
+	call meta.bu_forest_method_reopts.enable
+
+	call meta.ck_forest_cumu.disable
+
+	call meta.tx_forest_sort_by.enable
+	call meta.cb_forest_sort_by.enable
+	call meta.tx_forest_sort_order.enable
+  	call meta.cb_forest_sort_order.enable
+	call program forest_sort_by_change
+	
+	call program forestary_disopts_done
+	call meta.ck_forest_maxim_showtrace.enable
+END
+
+SCRIPT forest_main_sort_off
+BEGIN
+	meta.bu_forest_method_reopts.enable
+
+	meta.ck_forest_cumu.enable
+
+	meta.tx_forest_sort_by.disable
+	meta.cb_forest_sort_by.disable
+	meta.tx_forest_sort_order.disable
+  	meta.cb_forest_sort_order.disable
+	meta.vl_forest_sort_vars.disable
+
+	program forestary_disopts_done
+	
+	meta.ck_forest_maxim_showtrace.enable
+END
+
+PROGRAM forest_sort_by_change
+BEGIN
+	if meta.cb_forest_sort_by.iseq("vars") {
+		call meta.vl_forest_sort_vars.enable
+	}
+	else {
+		call meta.vl_forest_sort_vars.disable
+	}
+END
+
+//IFIN
+PROGRAM forest_ifin_show
+BEGIN
+	call meta.tx_forest_if.show
+	call meta.ex_forest_if.show
+	call meta.ck_forest_in.show
+	call meta.tx_forest_from.show
+	call meta.sp_forest_from.show
+	call meta.tx_forest_to.show
+	call meta.sp_forest_to.show
+	call program forest_ifin_in
+END
+
+SCRIPT forest_ifin_hide
+BEGIN
+	meta.tx_forest_if.hide
+	meta.ex_forest_if.hide
+	meta.ck_forest_in.hide
+	meta.tx_forest_from.hide
+	meta.sp_forest_from.hide
+	meta.tx_forest_to.hide
+	meta.sp_forest_to.hide
+END
+
+PROGRAM forest_ifin_in
+BEGIN
+	if meta.ck_forest_in {
+		call meta.tx_forest_from.enable
+		call meta.sp_forest_from.enable
+		call meta.tx_forest_to.enable
+		call meta.sp_forest_to.enable
+	}
+	else {
+		call meta.tx_forest_from.disable
+		call meta.sp_forest_from.disable
+		call meta.tx_forest_to.disable
+		call meta.sp_forest_to.disable
+	}
+END
+
+// OPTIONS
+PROGRAM forest_opts_show
+BEGIN
+	call meta.gb_forest_opt.show
+	call meta.tx_forest_opt_ci.show
+	call meta.cb_forest_opt_ci.show
+	call meta.cb_forest_opt_eform.show
+	call meta.ed_forest_opt_eform.show
+	call meta.tx_forest_opt_transform.show
+	call meta.tx_forest_opt_label_as.show
+	call meta.ck_forest_opt_transform.show
+	call meta.cb_forest_opt_transform.show
+	call meta.ed_forest_opt_transform.show
+	call meta.ck_forest_opt_tdistribution.show
+	call meta.ck_forest_opt_nometashow.show
+
+	call program forest_opt_eform_change
+	call program forest_opt_transform_change
+	call program forest_opt_tdist_allowed
+END
+
+SCRIPT forest_opts_hide
+BEGIN
+	meta.gb_forest_opt.hide
+	meta.tx_forest_opt_ci.hide
+	meta.cb_forest_opt_ci.hide
+	meta.cb_forest_opt_eform.hide
+	meta.ed_forest_opt_eform.hide
+	meta.ck_forest_opt_transform.hide
+	meta.tx_forest_opt_transform.hide
+	meta.tx_forest_opt_label_as.hide
+	meta.cb_forest_opt_transform.hide
+	meta.ed_forest_opt_transform.hide
+	meta.ck_forest_opt_tdistribution.hide
+	meta.ck_forest_opt_nometashow.hide
+END
+
+PROGRAM forest_opt_tdist_allowed
+BEGIN
+	if meta.ck_forest_subgrp | forest_reopts_se | meta.ck_forest_cumu {
+		call meta.ck_forest_opt_tdistribution.disable
+	}
+	else {
+		call meta.ck_forest_opt_tdistribution.enable
+	}
+
+	if meta.ck_forest_opt_tdistribution {
+		call meta.ck_forest_subgrp.disable
+		call meta.ck_forest_cumu.disable
+	}
+	else {
+		call meta.ck_forest_subgrp.enable
+		call meta.ck_forest_cumu.enable
+	}
+END
+
+PROGRAM forest_opt_eform_change
+BEGIN
+	if meta.cb_forest_opt_eform.equals("eformstring") {
+		call meta.ed_forest_opt_eform.show
+	}
+	else {
+		call meta.ed_forest_opt_eform.hide
+	}
+END
+
+PROGRAM forest_opt_transform_change
+BEGIN
+	if meta.ck_forest_opt_transform {
+		call meta.cb_forest_opt_eform.disable
+		call meta.ed_forest_opt_eform.disable
+		call meta.tx_forest_opt_transform.enable
+		call meta.tx_forest_opt_label_as.enable
+		call meta.cb_forest_opt_transform.enable
+		call meta.ed_forest_opt_transform.enable
+	}
+	else {
+		call meta.cb_forest_opt_eform.enable
+		call meta.ed_forest_opt_eform.enable
+		call meta.cb_forest_opt_transform.disable
+		call meta.ed_forest_opt_transform.disable
+		call meta.tx_forest_opt_transform.disable
+		call meta.tx_forest_opt_label_as.disable
+	}
+END
+
+// Maximization
+PROGRAM forest_maxim_set_status
+BEGIN
+	if (meta.rb_forest_remethod | (meta.rb_forest_declared &	///
+		m_model.equals("random"))) {
+		if ((meta.rb_forest_declared & (m_method.equals("reml")	///
+			| m_method.equals("mle")			///
+			| m_method.equals("ebayes")))			///
+			| (meta.rb_forest_remethod &			///
+			( meta.cb_forest_method.equals("reml")		///
+			| meta.cb_forest_method.equals("mle")		///
+			| meta.cb_forest_method.equals("ebayes")))) { 
+			call meta.rb_forest_maxim.enable
+		}
+		else {
+			call meta.rb_forest_maxim.disable
+		}
+	}
+	else {
+		call meta.rb_forest_maxim.disable
+	}
+END
+
+PROGRAM forest_maxim_show
+BEGIN
+	call meta.gb_forest_maxim.show
+	call meta.sp_forest_maxim_iter.show
+	call meta.tx_forest_maxim_iter.show
+	call meta.ck_forest_maxim_showtrace.show
+	call meta.gb_forest_maxim_tol.show
+	call meta.ed_forest_maxim_tol.show
+	call meta.tx_forest_maxim_tol.show
+	call meta.ed_forest_maxim_nrtol.show
+	call meta.tx_forest_maxim_nrtol.show
+	call meta.ck_forest_maxim_nonrtol.show
+	call meta.tx_forest_maxim_from.show
+	call meta.ed_forest_maxim_from.show
+END
+
+SCRIPT forest_maxim_hide
+BEGIN
+	meta.gb_forest_maxim.hide
+	meta.sp_forest_maxim_iter.hide
+	meta.tx_forest_maxim_iter.hide
+	meta.ck_forest_maxim_showtrace.hide
+	meta.gb_forest_maxim_tol.hide
+	meta.ed_forest_maxim_tol.hide
+	meta.tx_forest_maxim_tol.hide
+	meta.ed_forest_maxim_nrtol.hide
+	meta.tx_forest_maxim_nrtol.hide
+	meta.ck_forest_maxim_nonrtol.hide
+	meta.tx_forest_maxim_from.hide
+	meta.ed_forest_maxim_from.hide
+END
+
+SCRIPT forest_maxim_nonrtol_on
+BEGIN
+	meta.ed_forest_maxim_nrtol.disable
+	meta.tx_forest_maxim_nrtol.disable
+END
+
+SCRIPT forest_maxim_nonrtol_off
+BEGIN
+	meta.ed_forest_maxim_nrtol.enable
+	meta.tx_forest_maxim_nrtol.enable
+END
+
+PROGRAM forest_reopts 
+BEGIN
+	call create CHILD meta_reopts AS ForestReopts, message("forest")
+	call ForestReopts.setExitString ForestReoptsResults
+	call ForestReopts.setExitAction "program forest_reopts_done"
+END
+
+PROGRAM forest_reopts_done
+BEGIN
+	if ForestReoptsResults {
+		call STMP.setvalue resource LBL_RE_OPTIONS
+		call STMP.append " *"
+		call STMP.withvalue meta.bu_forest_method_reopts.setlabel "@"
+	}
+	else {
+		call STMP.setvalue resource LBL_RE_OPTIONS
+		call STMP.append "  "
+		call STMP.withvalue meta.bu_forest_method_reopts.setlabel "@"
+	}
+END
+
+/* -------------------- FOREST PLOT  -------------------- */
+
+PROGRAM forest_plot_show
+BEGIN
+	call meta.rb_forest_default.show 
+	call meta.rb_forest_custom.show
+	call program forest_plot_table_type
+
+	call meta.gb_forest_opts.show
+	call meta.tx_forest_cibind.show
+	call meta.tx_forest_sebind.show
+	call meta.ck_forest_nohrule.show
+	call meta.cb_forest_cibind.show
+	call meta.cb_forest_sebind.show
+	call meta.bu_forest_hruleopts.show
+
+	call meta.gb_forest_text_opts.show
+	call meta.bu_forest_coltitle.show
+	call meta.bu_forest_item.show
+	call meta.bu_forest_overall.show
+	call meta.bu_forest_tests.show
+	call meta.bu_forest_group.show
+
+	call vec_size.setvalue 0
+	if meta.ck_forest_cumu {
+		call meta.bu_forest_group.disable
+		call meta.bu_forest_tests.disable
+		call meta.bu_forest_overall.disable
+	}
+	else {
+		call meta.bu_forest_group.disable
+		call meta.bu_forest_tests.enable
+		call meta.bu_forest_overall.enable
+		call meta.bu_forest_item.enable
+		if meta.ck_forest_subgrp {
+			call program forest_plot_subgroup_check
+		}
+	}
+	call program forest_plot_default_build_arrays
+	call program forest_plot_custom_build_arrays
+
+	call meta.bu_forest_body.show
+	call meta.ck_forest_nonote.show
+	call meta.bu_forest_plot.show
+	call meta.bu_forest_tests.show
+	call meta.bu_forest_twoway.show
+
+	call program forest_plot_table_type
+END
+
+SCRIPT forest_plot_hide
+BEGIN
+	meta.rb_forest_default.hide
+	meta.rb_forest_custom.hide
+	meta.lb_forest_default.hide
+	meta.bu_forest_default_edit.hide
+	meta.tx_forest_default_note.hide
+
+	meta.lb_forest_custom.hide
+	meta.bu_forest_custom_on.hide
+	meta.bu_forest_custom_off.hide
+	meta.bu_forest_custom_up.hide
+	meta.bu_forest_custom_down.hide
+	meta.tx_forest_custom_note.hide
+
+	meta.gb_forest_opts.hide
+	meta.tx_forest_cibind.hide
+	meta.tx_forest_sebind.hide
+	meta.ck_forest_nohrule.hide
+	meta.cb_forest_cibind.hide
+	meta.cb_forest_sebind.hide
+	meta.bu_forest_hruleopts.hide
+
+	meta.gb_forest_text_opts.hide
+	meta.bu_forest_coltitle.hide
+	meta.bu_forest_item.hide
+	meta.bu_forest_overall.hide
+	meta.bu_forest_group.hide
+	meta.bu_forest_body.hide
+	meta.ck_forest_nonote.hide
+	meta.bu_forest_plot.hide
+	meta.bu_forest_tests.hide
+	meta.bu_forest_twoway.hide
+END
+
+PROGRAM forest_plot_subgroup_check
+BEGIN
+	call TMP.setvalue class meta.vl_forest_subgrp.value
+	call TMP.tokenize subgroup_vlist
+	call subgroup_vlist_vec.copyFromArray subgroup_vlist
+	call vec_size.setvalue class subgroup_vlist_vec.size
+	if vec_size.isgt(1) {
+		call meta.bu_forest_group.enable
+		call meta.bu_forest_item.disable
+		////
+	}
+	else {
+		call meta.bu_forest_group.disable
+		//One var
+		call meta.bu_forest_item.enable
+	}
+	call TMP.setvalue ""
+END
+
+PROGRAM forest_plot_table_type
+BEGIN
+	if meta.rb_forest_default {
+		call program forest_plot_default_table_on
+	}
+	if meta.rb_forest_custom {
+		call program forest_plot_custom_table_on
+	}
+	call program forest_plot_check_bind
+END
+
+// FOREST DEFAULT
+PROGRAM forest_plot_default_build_arrays
+BEGIN
+	call m_datatype.setvalue char _dta[_meta_datatype]
+
+	call forest_dflt_contents.Arrdropall
+	call forest_dflt_values.Arrdropall
+	
+	call forest_dflt_contents.ArrpushR resource dlg LBL_STUDY_LABEL
+	call forest_dflt_values.Arrpush "_id"
+	call forest_dflt_dlg_results.Arrpush ""
+	call forest_dflt_dlg_is_on.Arrpush ""
+
+	if meta.ck_forest_subgrp & vec_size.isgt(1) {
+		call forest_dflt_contents.ArrpushR resource dlg LBL_NUM_STUDIES
+		call forest_dflt_values.Arrpush "_K"
+		call forest_dflt_dlg_results.Arrpush ""
+		call forest_dflt_dlg_is_on.Arrpush ""
+	}
+
+	if (m_datatype.isneq("Generic")  & !meta.ck_forest_cumu &	///
+		vec_size.isle(1)) {
+		call forest_dflt_contents.ArrpushR resource dlg LBL_SUMMARY_DATA
+		call forest_dflt_values.Arrpush "_data"
+		call forest_dflt_dlg_results.Arrpush ""
+		call forest_dflt_dlg_is_on.Arrpush ""
+	}
+
+	call forest_dflt_contents.ArrpushR resource dlg  LBL_FOREST_GRAPH
+	call forest_dflt_values.Arrpush "_plot"
+	call forest_dflt_dlg_results.Arrpush ""
+	call forest_dflt_dlg_is_on.Arrpush ""
+
+	call forest_dflt_contents.ArrpushR resource dlg LBL_ESIZE_AND_CI
+	call forest_dflt_values.Arrpush "_esci"
+	call forest_dflt_dlg_results.Arrpush ""
+	call forest_dflt_dlg_is_on.Arrpush ""
+
+	if (!meta.ck_forest_cumu & vec_size.isle(1)) {
+		call forest_dflt_contents.ArrpushR resource 		///
+			dlg LBL_PERCENTAGE_WT_FOR_EACH_STUDY
+		call forest_dflt_values.Arrpush "_weight"
+		call forest_dflt_dlg_results.Arrpush ""
+		call forest_dflt_dlg_is_on.Arrpush ""
+	}
+
+	if (m_datatype.isneq("Generic")  & !meta.ck_forest_cumu		///
+		& vec_size.isle(1)) {
+		call forest_dflt_contents.ArrpushR resource dlg LBL_SUMM_DATA_FOR_TREATMENT_GRP
+		call forest_dflt_values.Arrpush "_data1"
+		call forest_dflt_dlg_results.Arrpush ""
+		call forest_dflt_dlg_is_on.Arrpush ""
+
+		call forest_dflt_contents.ArrpushR resource dlg LBL_SUMM_DATA_FOR_CNTRL_GRP
+		call forest_dflt_values.Arrpush "_data2"
+		call forest_dflt_dlg_results.Arrpush ""
+		call forest_dflt_dlg_is_on.Arrpush ""
+	}
+
+	if (meta.ck_forest_cumu | (meta.ck_forest_subgrp & vec_size.isgt(1))) {
+		call forest_dflt_contents.ArrpushR resource dlg		///
+			LBL_P_VALUES_FOR_SIGNIFICANCE_TESTS
+		call forest_dflt_values.Arrpush "_pvalue"
+		call forest_dflt_dlg_results.Arrpush ""
+		call forest_dflt_dlg_is_on.Arrpush ""
+	}
+	if meta.ck_forest_cumu {
+		call forest_dflt_contents.ArrpushR resource dlg		///
+			LBL_ORDER_VAR_FOR_CUM_META_ANALYSIS
+		call forest_dflt_values.Arrpush "_order"
+		call forest_dflt_dlg_results.Arrpush ""
+		call forest_dflt_dlg_is_on.Arrpush ""
+	}
+/*
+	call forest_dflt_contents.Arrpush "All columns"
+
+	call forest_dflt_values.Arrpush "_all"
+	call forest_dflt_dlg_results.Arrpush ""
+	call forest_dflt_dlg_is_on.Arrpush ""
+	call forest_dflt_contents.Arrpush "Variable in the dataset"
+
+	call forest_dflt_values.Arrpush "varname"
+	call forest_dflt_dlg_results.Arrpush ""
+	call forest_dflt_dlg_is_on.Arrpush ""
+*/
+	call forest_dflt_contents_orig_vec.copyFromArray forest_dflt_contents
+	call forest_dflt_contents_vec.copyFromArray forest_dflt_contents
+	call forest_dflt_values_vec.copyFromArray forest_dflt_values
+	call forest_dflt_dlg_is_on_vec.copyFromArray forest_dflt_dlg_is_on
+	call forest_dflt_dlg_results_vec.copyFromArray forest_dflt_dlg_results
+
+	call meta.lb_forest_default.setcontentslist "forest_dflt_contents"
+	call meta.lb_forest_default.setvalueslist "forest_dflt_values"
+
+	call meta.lb_forest_default.repopulate
+END
+
+PROGRAM forest_plot_default_table_on
+BEGIN
+	call meta.lb_forest_default.show
+	call meta.bu_forest_default_edit.show
+	call meta.tx_forest_default_note.show
+
+	call script forest_plot_custom_table_off
+END
+
+SCRIPT forest_plot_default_table_off
+BEGIN
+	meta.lb_forest_default.hide
+	meta.bu_forest_default_edit.hide
+	meta.tx_forest_default_note.hide
+END
+
+PROGRAM forest_show_dflt_colopts_child
+BEGIN
+	call forest_dflt_values_vec.findstr class meta.lb_forest_default.value
+	call forest_dflt_col_pos.setvalue class forest_dflt_values_vec.position
+	call forest_dflt_col_pos.withvalue				///
+		forest_dflt_childdlg.setvalue "forest_default_@"
+	call forest_dflt_childdlg.withvalue 				///
+		forest_dflt_childdlg_with_msg.setvalue "@"
+	call forest_dflt_childdlg_with_msg.append ", message(-"
+	call forest_dflt_col_pos.withvalue TMP.setvalue			///
+		class forest_dflt_values_vec.values[@]
+	call TMP.withvalue forest_dflt_childdlg_with_msg.append "@"
+	call forest_dflt_childdlg_with_msg.append "-)"
+
+	call forest_child_mode.setvalue "default"
+	call forest_dflt_childdlg_with_msg.withvalue create CHILD	///
+		meta_forestplot_columnopts_child AS @
+	call forest_dflt_childdlg.withvalue @.setExitString forest_dflt_output
+	call forest_dflt_childdlg.withvalue @.setExitAction		///
+		"program forest_default_edit_done"
+END
+
+PROGRAM forest_default_edit_done
+BEGIN
+	if (forest_has_colopts_options) {
+		call TMP.setvalue "columnopts("
+		call forest_dflt_output.withvalue TMP.append `"@"'
+		call TMP.append ")"
+		call forest_dflt_dlg_results_vec.store class		///
+			forest_dflt_col_pos.value class			///
+			TMP.value
+		
+		call forest_dflt_col_pos.withvalue TMP.setvalue class	///
+			forest_dflt_contents_orig_vec.values[@]
+		if !TMP.contains("*") {
+			call TMP.withvalue				///
+				forest_dflt_contents_vec.store		///
+				class forest_dflt_col_pos.value "@ *"
+		}
+		else {
+			call TMP.withvalue				///
+				forest_dflt_contents_vec.store		///
+				class forest_dflt_col_pos.value "@"
+		}
+		call forest_dflt_dlg_is_on_vec.store			///
+			class forest_dflt_col_pos.value "1"
+	}
+	else {
+		call forest_dflt_dlg_results_vec.store class		///
+			forest_dflt_col_pos.value ""
+		call forest_dflt_col_pos.withvalue TMP.setvalue class	///
+			forest_dflt_contents_orig_vec.values[@]
+		call TMP.withvalue forest_dflt_contents_vec.store	///
+			class forest_dflt_col_pos.value "@"
+		call forest_dflt_dlg_is_on_vec.store			///
+			class forest_dflt_col_pos.value ""
+	}
+	call forest_dflt_contents_vec.copyToArray forest_dflt_contents
+	call meta.lb_forest_default.repopulate
+	call forest_dflt_col_pos.withvalue TMP.setvalue class		///
+		forest_dflt_values_vec.values[@]
+	call meta.lb_forest_default.setvalue class TMP.value
+	call forest_dflt_col_pos.withvalue TMP.setvalue class		///
+		forest_dflt_dlg_results_vec.values[@]
+	if TMP.iseq("") {
+		call meta.tx_forest_default_note.formatlabel		///
+			"resource LBL_META_FOREST_DEFAULT_NOTE_FMT"	///
+			"resource LBL_BU_EDIT"
+//"Press 'Edit' to modify column look"
+	}
+	else {
+		call TMP.withvalue meta.tx_forest_default_note.setlabel `"@"'
+	}
+END
+
+PROGRAM forest_default_sel_changed
+BEGIN
+	call forest_dflt_values_vec.findstr class meta.lb_forest_default.value
+	call forest_dflt_col_pos.setvalue class forest_dflt_values_vec.position
+
+	call forest_dflt_col_pos.withvalue TMP.setvalue class		///
+		forest_dflt_dlg_results_vec.values[@]
+	if TMP.iseq("") {
+		call meta.tx_forest_default_note.formatlabel		///
+			"resource LBL_META_FOREST_DEFAULT_NOTE_FMT"	///
+			 "resource LBL_BU_EDIT"
+//"Press 'Edit' to modify column look"
+	}
+	else {
+		call TMP.withvalue meta.tx_forest_default_note.setlabel "@"
+	}
+END
+
+// FOREST CUSTOM
+
+PROGRAM forest_plot_custom_build_arrays
+BEGIN
+	call m_datatype.setvalue char _dta[_meta_datatype]
+
+	if isLoading {
+		call isLoading.setfalse
+		exit
+	}
+	call forest_cust_contents.Arrdropall
+	call forest_cust_values.Arrdropall
+	
+	call forest_cust_contents.ArrpushR resource dlg LBL_STUDY_LABEL
+	call forest_cust_values.Arrpush "_id"
+	call forest_cust_dlg_results.Arrpush ""
+	call forest_cust_dlg_is_on.Arrpush ""
+
+	if meta.ck_forest_subgrp & vec_size.isgt(1) {
+		call forest_cust_contents.ArrpushR resource dlg LBL_NUM_STUDIES
+		call forest_cust_values.Arrpush "_K"
+		call forest_cust_dlg_results.Arrpush ""
+		call forest_cust_dlg_is_on.Arrpush ""
+	}
+
+	if (m_datatype.isneq("Generic")  & !meta.ck_forest_cumu		///
+		& vec_size.isle(1)) {
+		call forest_cust_contents.ArrpushR resource dlg LBL_SUMMARY_DATA
+		call forest_cust_values.Arrpush "_data"
+		call forest_cust_dlg_results.Arrpush ""
+		call forest_cust_dlg_is_on.Arrpush ""
+	}
+
+	call forest_cust_contents.ArrpushR resource dlg LBL_FOREST_GRAPH
+	call forest_cust_values.Arrpush "_plot"
+	call forest_cust_dlg_results.Arrpush ""
+	call forest_cust_dlg_is_on.Arrpush ""
+
+	call forest_cust_contents.ArrpushR resource dlg LBL_ESIZE_AND_CI
+	call forest_cust_values.Arrpush "_esci"
+	call forest_cust_dlg_results.Arrpush ""
+	call forest_cust_dlg_is_on.Arrpush ""
+
+	if (!meta.ck_forest_cumu & vec_size.isle(1)) {
+		call forest_cust_contents.ArrpushR resource 		///
+			dlg LBL_PERCENTAGE_WT_FOR_EACH_STUDY
+		call forest_cust_values.Arrpush "_weight"
+		call forest_cust_dlg_results.Arrpush ""
+		call forest_cust_dlg_is_on.Arrpush ""
+	}
+
+	if (m_datatype.isneq("Generic")  & !meta.ck_forest_cumu		///
+		& vec_size.isle(1)) {
+		call forest_cust_contents.ArrpushR resource		///
+			dlg LBL_SUMM_DATA_FOR_TREATMENT_GRP
+		call forest_cust_values.Arrpush "_data1"
+		call forest_cust_dlg_results.Arrpush ""
+		call forest_cust_dlg_is_on.Arrpush ""
+
+		call forest_cust_contents.ArrpushR resource		///
+			dlg LBL_SUMM_DATA_FOR_CNTRL_GRP
+		call forest_cust_values.Arrpush "_data2"
+		call forest_cust_dlg_results.Arrpush ""
+		call forest_cust_dlg_is_on.Arrpush ""
+	}
+
+	if (m_datatype.iseq("continuous") & !meta.ck_forest_cumu	///
+		& vec_size.isle(1)) {
+		call forest_cust_contents.ArrpushR resource		///
+			dlg LBL_SAMPLE_SIZES_IN_TREATMENT_GRP
+		call forest_cust_values.Arrpush "_n1"
+		call forest_cust_dlg_results.Arrpush ""
+		call forest_cust_dlg_is_on.Arrpush ""
+		call forest_cust_contents.ArrpushR resource		///
+			dlg LBL_MEANS_IN_TREATMENT_GRP
+		call forest_cust_values.Arrpush "_mean1"
+		call forest_cust_dlg_results.Arrpush ""
+		call forest_cust_dlg_is_on.Arrpush ""
+		call forest_cust_contents.ArrpushR resource		///
+			dlg LBL_SD_IN_TREATMENT_GRP
+		call forest_cust_values.Arrpush "_sd1"
+		call forest_cust_dlg_results.Arrpush ""
+		call forest_cust_dlg_is_on.Arrpush ""
+		call forest_cust_contents.ArrpushR resource		///
+			dlg LBL_SAMPLE_SIZES_IN_CNTRL_GRP
+		call forest_cust_values.Arrpush "_n2"
+		call forest_cust_dlg_results.Arrpush ""
+		call forest_cust_dlg_is_on.Arrpush ""
+		call forest_cust_contents.ArrpushR resource		///
+			dlg LBL_MEANS_IN_CNTRL_GRP
+		call forest_cust_values.Arrpush "_mean2"
+		call forest_cust_dlg_results.Arrpush ""
+		call forest_cust_dlg_is_on.Arrpush ""
+		call forest_cust_contents.ArrpushR resource		///
+			dlg LBL_SD_IN_CNTRL_GRP
+		call forest_cust_values.Arrpush "_sd2"
+		call forest_cust_dlg_results.Arrpush ""
+		call forest_cust_dlg_is_on.Arrpush ""
+	}
+	if (m_datatype.iseq("binary") & !meta.ck_forest_cumu		///
+		& vec_size.isle(1)) {
+		call forest_cust_contents.ArrpushR resource		///
+			dlg NUM_SUCCESSES_IN_TREATMENT_GRP
+		call forest_cust_values.Arrpush "_a"
+		call forest_cust_dlg_results.Arrpush ""
+		call forest_cust_dlg_is_on.Arrpush ""
+		call forest_cust_contents.ArrpushR resource		///
+			dlg NUM_FAILURES_IN_TREATMENT_GRP
+		call forest_cust_values.Arrpush "_b"
+		call forest_cust_dlg_results.Arrpush ""
+		call forest_cust_dlg_is_on.Arrpush ""
+		call forest_cust_contents.ArrpushR resource		///
+			dlg NUM_SUCCESSES_IN_CNTRL_GRP
+		call forest_cust_values.Arrpush "_c"
+		call forest_cust_dlg_results.Arrpush ""
+		call forest_cust_dlg_is_on.Arrpush ""
+		call forest_cust_contents.ArrpushR resource		///
+			dlg NUM_FAILURES_IN_CNTRL_GRP
+		call forest_cust_values.Arrpush "_d"
+		call forest_cust_dlg_results.Arrpush ""
+		call forest_cust_dlg_is_on.Arrpush ""
+	}
+
+	call forest_cust_contents.ArrpushR resource dlg LBL_EFFECT_SIZE
+	call forest_cust_values.Arrpush "_es"
+	call forest_cust_dlg_results.Arrpush ""
+	call forest_cust_dlg_is_on.Arrpush ""
+
+	call forest_cust_contents.ArrpushR resource dlg LBL_CI_FOR_ESIZE
+	call forest_cust_values.Arrpush "_ci"
+	call forest_cust_dlg_results.Arrpush ""
+	call forest_cust_dlg_is_on.Arrpush ""
+
+	call forest_cust_contents.ArrpushR resource dlg LBL_LOWER_CONFIDENCE_LIMITS_FOR_ESIZES
+	call forest_cust_values.Arrpush "_lb"
+	call forest_cust_dlg_results.Arrpush ""
+	call forest_cust_dlg_is_on.Arrpush ""
+	call forest_cust_contents.ArrpushR resource dlg LBL_UPPER_CONFIDENCE_LIMITS_FOR_ESIZES
+	call forest_cust_values.Arrpush "_ub"
+	call forest_cust_dlg_results.Arrpush ""
+	call forest_cust_dlg_is_on.Arrpush ""
+	call forest_cust_contents.ArrpushR resource dlg LBL_SD_OF_ESIZES
+	call forest_cust_values.Arrpush "_se"
+	call forest_cust_dlg_results.Arrpush ""
+	call forest_cust_dlg_is_on.Arrpush ""
+	call forest_cust_contents.ArrpushR resource dlg LBL_ESIZES_AND_SDS
+	call forest_cust_values.Arrpush "_esse"
+	call forest_cust_dlg_results.Arrpush ""
+	call forest_cust_dlg_is_on.Arrpush ""
+
+	if (meta.ck_forest_cumu  | (meta.ck_forest_subgrp & vec_size.isgt(1))) {
+		call forest_cust_contents.ArrpushR resource dlg		///
+			LBL_P_VALUES_FOR_SIGNIFICANCE_TESTS
+		call forest_cust_values.Arrpush "_pvalue"
+		call forest_cust_dlg_results.Arrpush ""
+		call forest_cust_dlg_is_on.Arrpush ""
+	}
+
+	if meta.ck_forest_cumu {
+		call forest_cust_contents.ArrpushR resource dlg		///
+			LBL_ORDER_VAR_FOR_CUM_META_ANALYSIS
+		call forest_cust_values.Arrpush "_order"
+		call forest_cust_dlg_results.Arrpush ""
+		call forest_cust_dlg_is_on.Arrpush ""
+	}
+/*
+	call forest_cust_contents.Arrpush "All columns"
+
+	call forest_cust_values.Arrpush "_all"
+	call forest_cust_dlg_results.Arrpush ""
+	call forest_cust_dlg_is_on.Arrpush ""
+	call forest_cust_contents.Arrpush "Variable in the dataset"
+*/
+
+
+	call STMP.setvalue  "resource LBL_CUSTOM"
+	call STMP.append " "
+	call STMP.append "resource LBL_VARIABLE_LOWERCASE"
+	call STMP.append " "
+	call STMP.append "1"
+	call STMP.withvalue forest_cust_contents.ArrpushR resource dlg "@"
+	call forest_cust_values.Arrpush "varname1"
+	call forest_cust_dlg_results.Arrpush ""
+	call forest_cust_dlg_is_on.Arrpush ""
+
+	call STMP.setvalue  "resource LBL_CUSTOM"
+	call STMP.append " "
+	call STMP.append "resource LBL_VARIABLE_LOWERCASE"
+	call STMP.append " "
+	call STMP.append "2"
+	call STMP.withvalue forest_cust_contents.ArrpushR resource dlg "@"
+	call forest_cust_values.Arrpush "varname2"
+	call forest_cust_dlg_results.Arrpush ""
+	call forest_cust_dlg_is_on.Arrpush ""
+
+	call STMP.setvalue  "resource LBL_CUSTOM"
+	call STMP.append " "
+	call STMP.append "resource LBL_VARIABLE_LOWERCASE"
+	call STMP.append " "
+	call STMP.append "3"
+	call STMP.withvalue forest_cust_contents.ArrpushR resource dlg "@"
+	call forest_cust_values.Arrpush "varname3"
+	call forest_cust_dlg_results.Arrpush ""
+	call forest_cust_dlg_is_on.Arrpush ""
+
+	call STMP.setvalue  "resource LBL_CUSTOM"
+	call STMP.append " "
+	call STMP.append "resource LBL_VARIABLE_LOWERCASE"
+	call STMP.append " "
+	call STMP.append "4"
+	call STMP.withvalue forest_cust_contents.ArrpushR resource dlg "@"
+	call forest_cust_values.Arrpush "varname4"
+	call forest_cust_dlg_results.Arrpush ""
+	call forest_cust_dlg_is_on.Arrpush ""
+
+	call STMP.setvalue  "resource LBL_CUSTOM"
+	call STMP.append " "
+	call STMP.append "resource LBL_VARIABLE_LOWERCASE"
+	call STMP.append " "
+	call STMP.append "5"
+	call STMP.withvalue forest_cust_contents.ArrpushR resource dlg "@"
+	call forest_cust_values.Arrpush "varname5"
+	call forest_cust_dlg_results.Arrpush ""
+	call forest_cust_dlg_is_on.Arrpush ""
+
+	call forest_cust_contents_orig_vec.copyFromArray forest_cust_contents
+	call forest_cust_contents_vec.copyFromArray forest_cust_contents
+	call forest_cust_values_vec.copyFromArray forest_cust_values
+	call forest_cust_cmd_vec.copyFromArray forest_cust_values
+	call forest_cust_dlg_is_on_vec.copyFromArray forest_cust_dlg_is_on
+	call forest_cust_dlg_results_vec.copyFromArray forest_cust_dlg_results
+
+	call meta.lb_forest_custom.repopulate
+END
+
+PROGRAM forest_plot_custom_table_on
+BEGIN
+	call meta.lb_forest_custom.show
+	call meta.bu_forest_custom_on.show
+	call meta.bu_forest_custom_off.show
+	call meta.bu_forest_custom_up.show
+	call meta.bu_forest_custom_down.show
+	call meta.tx_forest_custom_note.show
+
+	call script forest_plot_default_table_off
+END
+
+SCRIPT forest_plot_custom_table_off
+BEGIN
+	meta.lb_forest_custom.hide
+	meta.bu_forest_custom_on.hide
+	meta.bu_forest_custom_off.hide
+	meta.bu_forest_custom_up.hide
+	meta.bu_forest_custom_down.hide
+	meta.tx_forest_custom_note.hide
+END
+
+PROGRAM forest_show_cust_colopts_child
+BEGIN
+	call forest_cust_values_vec.findstr class meta.lb_forest_custom.value
+	call forest_cust_col_pos.setvalue class forest_cust_values_vec.position
+	call forest_cust_col_pos.withvalue				///
+		forest_cust_childdlg.setvalue "forest_custom_@"
+	call forest_cust_childdlg.withvalue 				///
+		forest_cust_childdlg_with_msg.setvalue "@"
+	call forest_cust_childdlg_with_msg.append ", message(-"
+	call forest_cust_col_pos.withvalue TMP.setvalue			///
+		class forest_cust_values_vec.values[@]
+	call TMP.withvalue forest_cust_childdlg_with_msg.append "@"
+	call forest_cust_childdlg_with_msg.append "-)"
+
+	call forest_child_mode.setvalue "custom"
+	call forest_cust_childdlg_with_msg.withvalue create CHILD	///
+		meta_forestplot_columnopts_child AS @
+	call forest_cust_childdlg.withvalue @.setExitString forest_cust_output
+	call forest_cust_childdlg.withvalue @.setExitAction		///
+		"program forest_custom_edit_done"
+
+END
+
+PROGRAM forest_custom_edit_done
+BEGIN
+	if forest_cust_output.isneq("") {
+		call TMP.setvalue "columnopts("
+		call forest_cust_output.withvalue TMP.append "@"
+		call TMP.append ")"
+		call forest_cust_dlg_results_vec.store class		///
+			forest_cust_col_pos.value class			///
+			TMP.value
+		if forest_keyword_varname.isneq("") {
+			call forest_keyword_varname.withvalue		///
+				forest_cust_cmd_vec.store		///
+				class forest_cust_col_pos.value "@"
+			call forest_keyword_varname.setvalue ""
+		}
+		
+		call forest_cust_col_pos.withvalue TMP.setvalue class	///
+			forest_cust_contents_orig_vec.values[@]
+		if (!TMP.contains("*") & forest_has_colopts_options) {
+			call TMP.withvalue				///
+				forest_cust_contents_vec.store		///
+				class forest_cust_col_pos.value "@ (on) *"
+		}
+		else {
+			call TMP.withvalue				///
+				forest_cust_contents_vec.store		///
+				class forest_cust_col_pos.value "@ (on)"
+		}
+		call forest_cust_dlg_is_on_vec.store			///
+			class forest_cust_col_pos.value "1"
+	}
+	else {
+		call forest_cust_dlg_results_vec.store class		///
+			forest_cust_col_pos.value ""
+		call forest_cust_col_pos.withvalue TMP.setvalue class	///
+			forest_cust_contents_orig_vec.values[@]
+		call TMP.withvalue forest_cust_contents_vec.store	///
+			class forest_cust_col_pos.value "@"
+		call forest_cust_dlg_is_on_vec.store			///
+			class forest_cust_col_pos.value ""
+	}
+	call forest_cust_contents_vec.copyToArray forest_cust_contents
+	call forest_cust_col_pos.withvalue forest_cust_col_pos2.setvalue @
+	call meta.lb_forest_custom.repopulate
+	call forest_cust_col_pos2.withvalue TMP.setvalue class		///
+		forest_cust_values_vec.values[@]
+	call meta.lb_forest_custom.setvalue class TMP.value
+	call forest_cust_col_pos2.withvalue TMP.setvalue class		///
+		forest_cust_dlg_results_vec.values[@]
+	if TMP.iseq("") {
+		call meta.tx_forest_custom_note.formatlabel		///
+			"resource LBL_META_FOREST_CUSTOM_NOTE_FMT"	///
+			 "resource LBL_TABLE_OPTS_TABLE_OPTS_BU_CUSTOM_ON"
+// "Press 'Choose' to add column and modify column look"
+	}
+	else {
+		call TMP.withvalue meta.tx_forest_custom_note.setlabel "@"
+	}
+	call program forest_plot_check_bind
+END
+	
+PROGRAM forest_plot_check_bind
+BEGIN
+	if meta.rb_forest_default {
+		call meta.tx_forest_cibind.enable
+		call meta.cb_forest_cibind.enable
+		call meta.tx_forest_sebind.disable
+		call meta.cb_forest_sebind.disable
+	}
+	if meta.rb_forest_custom {
+		call meta.tx_forest_cibind.disable
+		call meta.cb_forest_cibind.disable
+		call meta.tx_forest_sebind.disable
+		call meta.cb_forest_sebind.disable
+
+		call forest_cust_values_vec.findstr "_esse"
+		call forest_cust_col_pos.setvalue class			///
+			forest_cust_values_vec.position
+		call forest_cust_col_pos.withvalue TMP.setvalue		///
+			class forest_cust_dlg_is_on_vec.values[@]
+		if TMP.iseq("1") {
+			call meta.tx_forest_sebind.enable
+			call meta.cb_forest_sebind.enable
+		}
+		else {
+			call meta.tx_forest_sebind.disable
+			call meta.cb_forest_sebind.disable
+		}
+
+		call forest_cust_values_vec.findstr "_esci"
+		call forest_cust_col_pos.setvalue class			///
+			forest_cust_values_vec.position
+		call forest_cust_col_pos.withvalue TMP.setvalue	///
+			class forest_cust_dlg_is_on_vec.values[@]
+
+		call forest_cust_values_vec.findstr "_ci"
+		call forest_cust_col_pos.setvalue class			///
+			forest_cust_values_vec.position
+		call forest_cust_col_pos.withvalue TMP2.setvalue	///
+			class forest_cust_dlg_is_on_vec.values[@]
+		if TMP.iseq("1") | TMP2.iseq("1") {
+			call meta.tx_forest_cibind.enable
+			call meta.cb_forest_cibind.enable
+		}
+		else {
+			call meta.tx_forest_cibind.disable
+			call meta.cb_forest_cibind.disable
+		}
+		call TMP.setvalue ""
+	}
+END
+
+PROGRAM forest_custom_off
+BEGIN
+	call forest_cust_values_vec.findstr class meta.lb_forest_custom.value
+	call forest_cust_col_pos.setvalue class forest_cust_values_vec.position
+
+	call forest_cust_dlg_is_on_vec.store				///
+		class forest_cust_col_pos.value "0"
+	call forest_cust_dlg_results_vec.store				///
+		class forest_cust_col_pos.value ""
+	call forest_cust_col_pos.withvalue TMP2.setvalue class		///
+		forest_cust_contents_orig_vec.values[@]
+	call TMP2.withvalue forest_cust_contents_vec.store		///
+		class forest_cust_col_pos.value "@"
+
+	call forest_cust_cmd_vec.store					///
+		class forest_cust_col_pos.value ""
+
+	call forest_cust_contents_vec.copyToArray forest_cust_contents
+	call meta.lb_forest_custom.repopulate
+	call meta.lb_forest_custom.setvalue class TMP2.value
+	call program forest_plot_check_bind
+END
+
+PROGRAM forest_custom_up
+BEGIN
+	call forest_cust_values_vec.findstr class meta.lb_forest_custom.value
+	call forest_cust_col_pos.setvalue class forest_cust_values_vec.position
+	call forest_cust_col_pos2.setvalue class forest_cust_values_vec.position
+	call forest_cust_col_pos2.decrement
+
+	call forest_cust_contents_orig_vec.swap				///
+		class forest_cust_col_pos.value				///
+		class forest_cust_col_pos2.value
+	call forest_cust_contents_vec.swap				///
+		class forest_cust_col_pos.value				///
+		class forest_cust_col_pos2.value
+	call forest_cust_values_vec.swap				///
+		class forest_cust_col_pos.value				///
+		class forest_cust_col_pos2.value
+	call forest_cust_cmd_vec.swap					///
+		class forest_cust_col_pos.value				///
+		class forest_cust_col_pos2.value
+	call forest_cust_vec_size.setvalue class forest_cust_dlg_is_on_vec.size
+	call forest_cust_dlg_is_on_vec.swap				///
+		class forest_cust_col_pos.value				///
+		class forest_cust_col_pos2.value
+	call forest_cust_dlg_results_vec.swap				///
+		class forest_cust_col_pos.value				///
+		class forest_cust_col_pos2.value
+	
+	call TMP2.setvalue class meta.lb_forest_custom.value
+	call forest_cust_contents_vec.copyToArray forest_cust_contents
+	call forest_cust_values_vec.copyToArray forest_cust_values
+	call meta.lb_forest_custom.repopulate
+	call TMP2.withvalue meta.lb_forest_custom.setvalue "@"
+END
+
+PROGRAM forest_custom_down
+BEGIN
+	call forest_cust_values_vec.findstr class meta.lb_forest_custom.value
+	call forest_cust_col_pos.setvalue class forest_cust_values_vec.position
+	call forest_cust_col_pos2.setvalue class forest_cust_values_vec.position
+	call forest_cust_col_pos2.increment
+
+	call forest_cust_contents_orig_vec.swap				///
+		class forest_cust_col_pos.value				///
+		class forest_cust_col_pos2.value
+	call forest_cust_contents_vec.swap				///
+		class forest_cust_col_pos.value				///
+		class forest_cust_col_pos2.value
+	call forest_cust_values_vec.swap				///
+		class forest_cust_col_pos.value				///
+		class forest_cust_col_pos2.value
+	call forest_cust_cmd_vec.swap					///
+		class forest_cust_col_pos.value				///
+		class forest_cust_col_pos2.value
+	call forest_cust_vec_size.setvalue class forest_cust_dlg_is_on_vec.size
+	call forest_cust_dlg_is_on_vec.swap				///
+		class forest_cust_col_pos.value				///
+		class forest_cust_col_pos2.value
+	call forest_cust_dlg_results_vec.swap				///
+		class forest_cust_col_pos.value				///
+		class forest_cust_col_pos2.value
+	
+	call TMP2.setvalue class meta.lb_forest_custom.value
+	call forest_cust_contents_vec.copyToArray forest_cust_contents
+	call forest_cust_values_vec.copyToArray forest_cust_values
+	call meta.lb_forest_custom.repopulate
+	call TMP2.withvalue meta.lb_forest_custom.setvalue "@"
+END
+
+PROGRAM forest_custom_sel_changed
+BEGIN
+	call forest_cust_values_vec.findstr class meta.lb_forest_custom.value
+	call forest_cust_col_pos.setvalue class forest_cust_values_vec.position
+
+	call forest_cust_vec_size.setvalue class forest_cust_values_vec.size
+
+	if forest_cust_col_pos.iseq(1) {
+		if forest_cust_vec_size.iseq(forest_cust_col_pos) {
+			call meta.bu_forest_custom_up.disable
+			call meta.bu_forest_custom_down.disable
+		}
+		else {
+			call meta.bu_forest_custom_up.disable
+			call meta.bu_forest_custom_down.enable
+		}
+	}
+	if forest_cust_col_pos.isgt(1) {
+		if forest_cust_vec_size.iseq(forest_cust_col_pos) {
+			call meta.bu_forest_custom_up.enable
+			call meta.bu_forest_custom_down.disable
+		}
+		else {
+			call meta.bu_forest_custom_up.enable
+			call meta.bu_forest_custom_down.enable
+		}
+	}
+
+	call forest_cust_col_pos.withvalue TMP.setvalue			///
+		class forest_cust_dlg_is_on_vec.values[@]
+
+	if TMP.iseq("1") {
+		call meta.bu_forest_custom_off.enable
+	}
+	else {
+		call meta.bu_forest_custom_off.disable
+	}
+
+	call forest_cust_col_pos.withvalue TMP.setvalue class		///
+		forest_cust_dlg_results_vec.values[@]
+	if TMP.iseq("") {
+		call meta.tx_forest_custom_note.formatlabel		///
+			"resource LBL_META_FOREST_CUSTOM_NOTE_FMT"	///
+			 "resource LBL_TABLE_OPTS_TABLE_OPTS_BU_CUSTOM_ON"
+// "Press 'Choose' to add column and modify column look"
+	}
+	else {
+		call TMP.withvalue meta.tx_forest_custom_note.setlabel "@"
+	}
+END
+
+PROGRAM forest_hruleopts_show
+BEGIN
+	call create CHILD meta_hrule AS HRuleOpts
+	call HRuleOpts.setExitString forest_hruleopts_output
+	call HRuleOpts.setExitAction "program forest_hruleopts_done"
+END
+
+PROGRAM forest_hruleopts_done
+BEGIN
+	if forest_hruleopts_output {
+		call TMP.setvalue resource LBL_HORIZONTAL_RULE_OPTIONS
+		call TMP.append " *"
+		call TMP.withvalue meta.bu_forest_hruleopts.setlabel "@"
+	}
+	else {
+		call TMP.setvalue resource LBL_HORIZONTAL_RULE_OPTIONS
+		call TMP.append "  "
+		call TMP.withvalue meta.bu_forest_hruleopts.setlabel "@"
+	}
+	call TMP.setvalue ""
+END
+
+SCRIPT meta_forest_show_coltitle_child
+BEGIN
+	create CHILD gr_textbox_opts_child AS coltitle
+	coltitle.setExitString forest_coltitleopts_output
+	coltitle.setExitAction "program meta_forest_coltitle_done"
+	coltitle.settitle resource LBL_COLUMN_TITLE_OPTIONS
+
+END
+
+PROGRAM meta_forest_coltitle_done
+BEGIN
+	if forest_coltitleopts_output {
+		call STMP.setvalue resource LBL_COLUMN_TITLE_OPTIONS
+		call STMP.append " *"
+		call STMP.withvalue meta.bu_forest_coltitle.setlabel "@"
+
+	}
+	else {
+		call STMP.setvalue resource LBL_COLUMN_TITLE_OPTIONS
+		call STMP.append "  "
+		call STMP.withvalue meta.bu_forest_coltitle.setlabel "@"
+
+	}
+END
+
+SCRIPT meta_forest_show_item_child
+BEGIN
+	create CHILD gr_textbox_opts_child AS item
+	item.setExitString forest_itemopts_output
+	item.setExitAction "program meta_forest_item_done"
+	item.settitle resource LBL_STUDY_ROW_OPTIONS
+END
+
+PROGRAM meta_forest_item_done
+BEGIN
+	if forest_itemopts_output {
+		call STMP.setvalue resource LBL_STUDY_ROW_OPTIONS
+		call STMP.append " *"
+		call STMP.withvalue meta.bu_forest_item.setlabel "@"
+	}
+	else {
+		call STMP.setvalue resource LBL_STUDY_ROW_OPTIONS
+		call STMP.append "  "
+		call STMP.withvalue meta.bu_forest_item.setlabel "@"
+	}
+END
+
+SCRIPT meta_forest_show_overall_child
+BEGIN
+	create CHILD gr_textbox_opts_child AS overall
+	overall.setExitString forest_overallopts_output
+	overall.setExitAction "program meta_forest_overall_done"
+	overall.settitle resource LBL_OVERALL_ROW_OPTIONS
+END
+
+PROGRAM meta_forest_overall_done
+BEGIN
+	if forest_overallopts_output {
+		call STMP.setvalue resource LBL_OVERALL_ROW_OPTIONS
+		call STMP.append " *"
+		call STMP.withvalue meta.bu_forest_overall.setlabel "@"
+	}
+	else {
+		call STMP.setvalue resource LBL_OVERALL_ROW_OPTIONS
+		call STMP.append "  "
+		call STMP.withvalue meta.bu_forest_overall.setlabel "@"
+	}
+END
+
+SCRIPT meta_forest_show_group_child
+BEGIN
+	create CHILD gr_textbox_opts_child AS group
+	group.setExitString forest_groupopts_output
+	group.setExitAction "program meta_forest_group_done"
+	group.settitle resource LBL_SUBGROUP_ROW_OPTIONS
+END
+
+PROGRAM meta_forest_group_done
+BEGIN
+	if forest_groupopts_output {
+		call STMP.setvalue resource LBL_SUBGROUP_ROW_OPTIONS
+		call STMP.append " *"
+		call STMP.withvalue meta.bu_forest_group.setlabel "@"
+	}
+	else {
+		call STMP.setvalue resource LBL_SUBGROUP_ROW_OPTIONS
+		call STMP.append "  "
+		call STMP.withvalue meta.bu_forest_group.setlabel "@"
+	}
+END
+
+SCRIPT meta_forest_show_body_child
+BEGIN
+	create CHILD gr_textbox_opts_child AS body
+	body.setExitString forest_bodyopts_output
+	body.setExitAction "program meta_forest_body_done"
+	body.settitle resource LBL_BODY_OPTIONS
+END
+
+PROGRAM meta_forest_body_done
+BEGIN
+	if forest_bodyopts_output {
+		call STMP.setvalue resource LBL_BODY_OPTIONS
+		call STMP.append " *"
+		call STMP.withvalue meta.bu_forest_body.setlabel "@"
+	}
+	else {
+		call STMP.setvalue resource LBL_BODY_OPTIONS
+		call STMP.append "  "
+		call STMP.withvalue meta.bu_forest_body.setlabel "@"
+	}
+END
+
+SCRIPT meta_forest_show_plot_child
+BEGIN
+	create CHILD meta_forest_plot AS plot
+	plot.setExitString forest_plotopts_output
+	plot.setExitAction "program meta_forest_plot_done"
+	plot.settitle resource LBL_PLOT_OPTIONS
+END
+
+PROGRAM meta_forest_plot_done
+BEGIN
+	if forest_plotopts_output {
+		call STMP.setvalue resource LBL_PLOT_OPTIONS
+		call STMP.append " *"
+		call STMP.withvalue meta.bu_forest_plot.setlabel "@"
+	}
+	else {
+		call STMP.setvalue resource LBL_PLOT_OPTIONS
+		call STMP.append "  "
+		call STMP.withvalue meta.bu_forest_plot.setlabel "@"
+	}
+END
+
+SCRIPT meta_forest_show_tests_child
+BEGIN
+	create CHILD meta_forest_tests AS tests
+	tests.setExitString forest_testsopts_output
+	tests.setExitAction "program meta_forest_tests_done"
+	tests.settitle resource LBL_TEST_OPTIONS
+END
+
+PROGRAM meta_forest_tests_done
+BEGIN
+	if forest_testsopts_output {
+		call STMP.setvalue resource LBL_TEST_OPTIONS
+		call STMP.append " *"
+		call STMP.withvalue meta.bu_forest_tests.setlabel "@"
+	}
+	else {
+		call STMP.setvalue resource LBL_TEST_OPTIONS
+		call STMP.append "  "
+		call STMP.withvalue meta.bu_forest_tests.setlabel "@"
+	}
+END
+
+SCRIPT meta_forest_show_twoway_child
+BEGIN
+	create CHILD meta_forest_twoway AS twoway
+	twoway.setExitString forest_twowayopts_output
+	twoway.setExitAction "program meta_forest_twoway_done"
+	twoway.settitle resource LBL_TWOWAY_OPTIONS
+END
+
+PROGRAM meta_forest_twoway_done
+BEGIN
+	if forest_twowayopts_output {
+		call STMP.setvalue resource LBL_TWOWAY_OPTIONS
+		call STMP.append " *"
+		call STMP.withvalue meta.bu_forest_twoway.setlabel "@"
+	}
+	else {
+		call STMP.setvalue resource LBL_TWOWAY_OPTIONS
+		call STMP.append "  "
+		call STMP.withvalue meta.bu_forest_twoway.setlabel "@"
+	}
+END
+
+PROGRAM forest_keywords_output
+BEGIN
+	call forest_cust_vec_size.setvalue				///
+		class forest_cust_cmd_vec.size
+	call I.setvalue 1
+	call forest_keyword_output.setvalue ""
+	call forest_cust_colopts_output.setvalue ""
+	while (I.isle(forest_cust_vec_size)) {
+		call I.withvalue TMP.setvalue				///
+			class forest_cust_dlg_is_on_vec.values[@]
+		if TMP.iseq(1) {
+			call I.withvalue TMP2.setvalue			///
+				class forest_cust_cmd_vec.values[@]
+			call forest_keyword_output.append class TMP2.value
+			call forest_keyword_output.append " "
+			call I.withvalue TMP.setvalue			///
+				class forest_cust_contents_vec.values[@]
+			if TMP.contains("*") {
+				call I.withvalue TMP2.setvalue		///
+				class forest_cust_dlg_results_vec.values[@]
+				call forest_cust_colopts_output.append ///
+					class TMP2.value
+				call forest_cust_colopts_output.append " "
+			}
+		}
+		call I.increment
+	}
+	if forest_keyword_output.isneq("") {
+		put forest_keyword_output
+	}
+END
+
+PROGRAM forest_subgrp_output
+BEGIN
+	put /hidden meta.vl_forest_subgrp
+END
+
+PROGRAM forest_main_submit
+BEGIN
+	if meta.rb_forest_remethod {
+		put " random("
+		put /hidden meta.cb_forest_method
+		put ")"
+		if ! meta.ck_forest_cumu & ! meta.ck_forest_subgrp {
+			put " "
+			put /hidden ForestReoptsResults
+		}
+	}
+	if meta.rb_forest_common {
+		put " common("
+		put /hidden meta.cb_forest_method
+		put ")"
+	}
+	if meta.rb_forest_fixed {
+		put " fixed("
+		put /hidden meta.cb_forest_method
+		put ")"
+	}
+	
+	if meta.ck_forest_subgrp {
+		put " subgroup("
+		put /program forest_subgrp_output
+		put ")"
+	}
+	if meta.ck_forest_cumu {
+		put " cumulative("
+		put /hidden meta.vn_forest_cumu_ordervar
+		put ", "
+		put /hidden meta.cb_forest_cumu_sortorder
+		put " "
+		if ! meta.vn_forest_cumu_by.equals("") {
+			put " by("
+			put /hidden meta.vn_forest_cumu_by
+			put ")"
+		}
+		put ")"
+	}
+	if meta.ck_forest_sort {
+		put " sort("
+		if meta.cb_forest_sort_by.iseq("vars") {
+			require meta.vl_forest_sort_vars
+			put /hidden meta.vl_forest_sort_vars
+		}
+		else {
+			put /hidden  meta.cb_forest_sort_by
+		}
+		put ", "
+		put /hidden meta.cb_forest_sort_order
+		put ")"
+	}
+END
+
+PROGRAM forest_options_submit
+BEGIN
+	if ! meta.cb_forest_opt_ci.equals(m_ci_level) {
+		put " level("
+		put /hidden meta.cb_forest_opt_ci
+		put ") "
+	}
+	
+	if meta.cb_forest_opt_eform.equals("eform") {
+		put " eform"
+	}
+	if meta.cb_forest_opt_eform.equals("eformstring") {
+		put " eform("
+		put /hidden meta.ed_forest_opt_eform
+		put ")"
+	}
+
+	if meta.ck_forest_opt_transform {
+		put " transform("
+		if meta.ed_forest_opt_transform {
+			put "`" `"""'	
+			put /hidden meta.ed_forest_opt_transform
+			put `"""' "': "
+		}
+		put /hidden meta.cb_forest_opt_transform
+		put ")"
+	}
+	
+	if meta.ck_forest_opt_tdistribution & meta.ck_forest_opt_tdistribution.isenabled() {
+		put " tdistribution"
+	}
+	if meta.ck_forest_opt_nometashow {
+		put " nometashow"
+	}
+END
+
+PROGRAM forest_maxim_submit
+BEGIN
+	if ! meta.sp_forest_maxim_iter.isdefault() {
+		put " iterate("
+		put /hidden meta.sp_forest_maxim_iter
+		put ")"
+	}
+	
+	if meta.ck_forest_maxim_showtrace {
+		put " showtrace"
+	}
+	
+	if ! meta.ed_forest_maxim_tol.equals("1e-6") {
+		put " tolerance("
+		put /hidden meta.ed_forest_maxim_tol
+		put ")"
+	}
+	if meta.ck_forest_maxim_nonrtol {
+		put " nonrtolerance"
+	}
+	else {
+		if ! meta.ed_forest_maxim_nrtol.equals("1e-5") {
+			put " nrtolerance("
+			put /hidden meta.ed_forest_maxim_nrtol
+			put ")"
+		}
+	}
+
+	if ! meta.ed_forest_maxim_from.equals("") {
+		put " from("
+		put /hidden meta.ed_forest_maxim_from
+		put ")"
+	}
+END
+
+PROGRAM forest_forestplot_output
+BEGIN
+	if meta.rb_forest_default {
+		call forest_dflt_dlg_results_vec.copyToString		///
+			forest_dflt_colopts_output
+		put forest_dflt_colopts_output
+	}
+	if meta.rb_forest_custom {
+		put forest_cust_colopts_output
+	}
+
+	if meta.cb_forest_cibind.isneq("brackets") {
+		put " cibind(parentheses)"
+	}
+	if meta.cb_forest_sebind.isneq("parentheses") {
+		put " sebind(brackets)"
+	}
+
+	if meta.ck_forest_nohrule {
+		put " nohrule"
+	}
+	if forest_hruleopts_output & !meta.ck_forest_nohrule {
+		put " hruleopts("
+		put forest_hruleopts_output
+		put ")"
+	}
+
+
+	if meta.ck_forest_nonote {
+		put " nonotes"
+	}
+	if forest_coltitleopts_output {
+		put " coltitleopts("
+		put forest_coltitleopts_output
+		put ")"
+	}
+	if forest_itemopts_output {
+		put " itemopts("
+		put forest_itemopts_output
+		put ")"
+	}
+	if forest_overallopts_output {
+		put " overallopts("
+		put forest_overallopts_output
+		put ")"
+	}
+	if forest_groupopts_output {
+		put " groupopts("
+		put forest_groupopts_output
+		put ")"
+	}
+	if forest_bodyopts_output {
+		put " bodyopts("
+		put forest_bodyopts_output
+		put ")"
+	}
+	put " " forest_plotopts_output
+	put " " forest_testsopts_output
+	put " " forest_twowayopts_output
+END
+
+PROGRAM forest_submit
+BEGIN
+	if meta.ck_forest_subgrp {
+		if meta.vl_forest_subgrp.equals("") {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format				///
+			"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT"	///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_VARIABLES"
+			stopbox stop "class _MSG_TMP.value"
+		}
+	}
+	if meta.ck_forest_cumu {
+		if meta.vn_forest_cumu_ordervar.equals("") {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format				///
+			"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT"	///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_ORDER_VARIABLE"
+			stopbox stop "class _MSG_TMP.value"
+		}
+	}
+	put "meta forestplot "
+
+	if meta.rb_forest_custom {
+		put /program forest_keywords_output
+	}
+
+	if meta.ex_forest_if {
+		put /hidden " " "if " meta.ex_forest_if
+	}
+	if meta.ck_forest_in {
+		put " " "in "
+		put /hidden meta.sp_forest_from
+		put "/"
+		put /hidden meta.sp_forest_to
+	}
+
+	beginoptions
+		put " " /program forest_main_submit
+		put  " " /program forest_options_submit
+		if meta.rb_forest_maxim.isenabled() {
+			put " " /program forest_maxim_submit
+		}
+		put " " /program forest_forestplot_output
+	endoptions
+	stata
+END
+
+

@@ -1,0 +1,372 @@
+//				yxkey_g
+//
+//  class that holds and draws a key view for an yxview class or a seriesstyle.
+
+*! version 1.2.0  27jan2019
+
+version 8
+
+class {
+	pos	= .compass2dir.new , style(center)
+	xsz	= .gsize.new , style(0)
+	ysz	= .gsize.new , style(0)
+	force_fixed = 0					// force fixed size
+	use_style   = 0					// for dot plots
+
+	xoffset	= 0				
+	yoffset	= 0
+
+	draw_view       = .yesno.new, style(yes)
+	fill_if_undrawn = .yesno.new, style(no)
+
+	dragable	   = 1
+	no_browser_recurse = 1				// Do not look inside
+
+
+	// .view  -- a reference to an view, is Declared
+	// .style -- a style for the key (only one of .view or .style exist)
+
+} , inherit(subview)
+
+
+//-----------------------------------------------------------------------------
+program new
+
+	syntax , [ View(string) Style(string) Position(string) ]
+
+	if `"`view'"' != `""' {
+
+		.Declare view = .`view'.ref
+	}
+
+	if `"`style'"' != `""' {
+		if `=index(`"`style'"', "__key")' {
+			.Declare style = .`style'.ref
+		}
+		else {
+			.Declare style = .seriesstyle.new , style(`style')
+		}
+	}
+
+	if `"`position'"' != `""' {
+		.pos.setstyle, style(`position')
+	}
+
+end
+
+
+//-----------------------------------------------------------------------------
+
+program set
+	syntax [ , XSize(real -1) YSize(real -1) POSition(string) FORCE ]
+
+	if "`force'" == "force" {
+		.force_fixed = 1
+	}
+
+	if ("`position'" != "")  .pos.setstyle, style(`position')
+
+	if `ysize' != -1 {
+		if !`.is_scatter' | "`force'"!="" {
+			.ysz.setstyle, style(`ysize')
+		}
+		if "`.view.type.stylename'" == "sunflower" {
+			.xsz.setstyle, style(`ysize')
+		}
+	}
+
+	if `xsize' != -1 {
+		if ("`.view.type.stylename'" != "sunflower" &		///
+		    !`.is_scatter')  | "`force'" != "" {
+			.xsz.setstyle, style(`xsize')
+		}
+	}
+
+
+end
+
+
+program set_yxsize_dotsize
+	if `.is_scatter' {
+		.use_style = 1
+	}
+end
+
+program define is_scatter
+	local viewtype `.view.type.stylename'
+	class exit = (index("`viewtype'", "scatter") > 0)
+end
+
+
+//-----------------------------------------------------------------------------
+//  Since we are a subview and not a full view, we must provide our own extent 
+//  program.
+
+program define extent
+	args ord
+
+	if 0`.is_scatter' {
+		if `.use_style' {
+			class exit = 0`.style.marker.size.gmval'
+		}
+		else {
+			class exit = 0`.view.style.marker.size.gmval'
+		}
+	}
+	else {
+		class exit = cond("`ord'"=="x" , 0`.xsz.gmval' , 0`.ysz.gmval')
+	}
+
+end
+
+program define xsize
+	if 0`.is_scatter' {
+		if `.use_style' {
+			class exit = 0`.style.marker.size.gmval'
+		}
+		else {
+			class exit = 0`.view.style.marker.size.gmval'
+		}
+	}
+	else {
+		class exit = `.xsz.gmval'
+	}
+end
+
+program define ysize
+	if 0`.is_scatter' {
+		if `.use_style' {
+			class exit = 0`.style.marker.size.gmval'
+		}
+		else {
+			class exit = 0`.view.style.marker.size.gmval'
+		}
+	}
+	else {
+		class exit = `.ysz.gmval'
+	{
+end
+
+
+// ---------------------------------------------------------------------------
+//  Use compass_draw to allow alignment of the sized legend in an area that
+//  is possibly larger than the size of the legend.
+
+program draw
+
+	syntax [, * ]
+
+	if (! `.draw_view.istrue')  exit				// Exit
+
+	.compass_draw , align(pos) drawpgm(realdraw) `options'
+end
+
+
+//-----------------------------------------------------------------------------
+
+program realdraw
+	syntax [ , XSize(real -1) YSize(real -1) ]
+
+	if 0`.force_fixed' & `xsize' > `.xsz.gmval' {
+		local xsize = `.xsz.gmval'
+	}
+
+	local x0 = `.xoffset'				// allow location shift
+	local y0 = `.yoffset'
+
+	local x1 = `x0' + `xsize'
+	local y1 = `y0' + `ysize'
+
+	capture .draw_`.view.type.stylename' `x0' `y0' `x1' `y1'
+	if _rc {
+		di in green "note, no key available for plot type "	///
+			"`.view.type.stylename'"
+	}
+	.set_gdi_posn `y0' `x0' `y1' `x1'
+	gdi update
+end
+
+
+//----------------------------------------------------------------------------
+program draw_scatter
+	args x0 y0 x1 y1
+
+	.draw_symbol `=`x0'+`._sym_x `=`x1'-`x0''''			///
+		     `=`y0'+`._sym_y `=`y1'-`y0''''
+end
+
+
+//----------------------------------------------------------------------------
+program draw_line
+	args x0 y0 x1 y1 substyle			// substyle optional
+
+	local style = cond("`.Local.style.isa'"=="" , "view.style", "style")
+
+	if "`.`style'.connect.stylename'" == "none" {
+		exit
+	}
+
+	if "`substyle'" == "" {
+		local style `style'.line
+	}
+	else {
+		local style `style'.`substyle'
+	}
+
+	.`style'.setgdifull
+
+	local y = `y0' + `._sym_y `=`y1'-`y0'''
+	gdi line `x0' `y' `x1' `y'
+end
+
+
+//----------------------------------------------------------------------------
+program draw_connected
+	args x0 y0 x1 y1 substyle			// substyle optional
+
+	.draw_line `0'
+	.draw_symbol `=`x0'+(`x1'-`x0')/2' `=`y0'+`._sym_y `=`y1'-`y0''''
+end
+
+
+//----------------------------------------------------------------------------
+program draw_symbol
+	args x y 
+
+	local style = cond("`.Local.style.isa'"=="" , "view.style", "style")
+
+	if "`.`style'.marker.backsymbol.setting'" != "none" {
+		.`style'.marker.setgdifull,  backing
+		gdi point `x' `y'
+	}
+
+	if "`.`style'.marker.symbol.setting'" != "none" {
+		.`style'.marker.setgdifull
+		gdi point `x' `y'
+	}
+end
+
+
+//----------------------------------------------------------------------------
+program draw_spike
+	args x0 y0 x1 y1
+	.draw_line `x0' `y0' `x1' `y1' "area.linestyle"
+end
+
+
+//----------------------------------------------------------------------------
+program draw_dropline
+	args x0 y0 x1 y1
+
+	.draw_line `x0' `y0' `x1' `y1' "area.linestyle"
+	.draw_symbol `x1' `=`y0'+`._sym_y `=`y1'-`y0''''
+end
+
+
+//----------------------------------------------------------------------------
+program draw_bar
+	args x0 y0 x1 y1
+
+	local style = cond("`.Local.style.isa'"=="" , "view.style", "style")
+
+	.`style'.area.setgdifull
+
+	local pat `.`style'.area.linestyle.pattern.stylename'
+	local has_pat = ! ("`pat'" == "solid" | "`pat'" == "blank")
+
+	if 0`has_pat' {
+		._draw_pat_rect `x0' `y0' `x1' `y1' `style'.area
+	}
+	else {
+		gdi rectangle `x0' `y0' `x1' `y1'
+	}
+end
+
+program _draw_pat_rect
+	args x0 y0 x1 y1 areastyle
+
+	.`areastyle'.setlineasareafull
+	gdi rectangle `x0' `y0' `x1' `y1'
+	.`areastyle'.setlinestylefull
+	_gr_drawrect `x0' `y0' `x1' `y1'
+end
+
+
+//----------------------------------------------------------------------------
+program draw_pie
+	args x0 y0 x1 y1
+
+	local style = cond("`.Local.style.isa'"=="" , "view.style", "style")
+	.`style'.setgdifull
+
+	if ("`.`style'.pie_linestyle.color.stylename'" == "none")	///
+	      .`style'.shadestyle.setgdipenfull , linewidth(.000001) nointensity
+	else  .`style'.pie_linestyle.setgdifull
+
+	gdi rectangle `x0' `y0' `x1' `y1'
+end
+
+
+//----------------------------------------------------------------------------
+program draw_dot
+	args x0 y0 x1 y1
+
+	.draw_symbol `=`x0'+(`x1'-`x0')/2' `=`y0'+`._sym_y `=`y1'-`y0''''
+end
+
+
+//----------------------------------------------------------------------------
+program draw_area
+	.draw_bar `0'
+end
+
+//----------------------------------------------------------------------------
+
+program define _sym_x
+	args xsize 
+
+	local style = cond("`.Local.style.isa'"=="" , "view.style", "style")
+	class exit = cond(`.pos.iseast' ,				 ///
+			`xsize' - `.`style'.marker.size.gmval' / 2 ,     ///
+			cond(`.pos.iswest' , 				 ///
+			     `.`style'.marker.size.gmval' / 2 ,	         ///
+			     `xsize' / 2))
+end
+
+program define _sym_y
+	args ysize 
+
+	local style = cond("`.Local.style.isa'"=="" , "view.style", "style")
+	class exit= cond(`.pos.issouth' , 				   ///
+			`.`style'.marker.size.gmval' / 2 ,		   ///
+			cond(`.pos.isnorth' , 				   ///
+			     `ysize' - `.`style'.marker.size.gmval' / 2 ,  ///
+			     `ysize' / 2))
+end
+
+
+// ---------------------------------------------------------------------------
+// Return the dialog type for the view/plot.  Note, dialog
+// files have "gr_ed_" prefixed to this returned value.
+
+program dialog
+
+	if "`.view.isa'" == "" {
+		di in white "Dialog not available when view is not set"
+	}
+	else {
+		class exit "key_`.view.dialog'"
+	}
+end
+
+
+// ----------------------------------------------------------------------------
+// Respond to a .DragBy by moving the position
+
+program DragBy
+	args y_shift x_shift
+
+	.yoffset = `.yoffset' + `y_shift'
+	.xoffset = `.xoffset' + `x_shift'
+end
+

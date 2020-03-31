@@ -1,0 +1,229 @@
+/*
+	pcamat
+
+*!  VERSION 1.2.0  10nov2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 330
+INCLUDE header
+
+HELP hlp1, view("help pcamat")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING matrixResult
+	setscale_hadj resource PCAMAT_DLG_HSCALE
+END
+
+DIALOG main, label(resource PCAMAT_DLG_TITLE) tabtitle(resource LBL_TAB_MODEL)
+BEGIN
+  TEXT     tx_selmatrix		_lft	_top	_cwd1	.,		///
+	label(resource LBL_CORRELATION_OR_COVARIANCE_MATRIX)
+  COMBOBOX cb_selmatrix		@       _ss     300	.,		///
+	label(resource LBL_CORRELATION_OR_COVARIANCE_MATRIX)		///
+	dropdown							///
+	contents(matrix)
+  BUTTON   bu_matinput   	_rj100	_top    100	.,		///
+	label(resource LBL_INPUT_MATRIX) onpush(program show_matrix_input) ///
+	tooltip(resource LBL_INPUT_HAND)
+  TEXT     tx_shape    		_lft	_xxls	_iwd	.,		///
+	label(resource LBL_STORAGE_SHAPE)
+  COMBOBOX cb_shape		@       _ss     300	.,		///
+	label(resource LBL_STORAGE_SHAPE)				///
+	dropdownlist							///
+	contents(shape_words)						///
+	value(shape_values)						///
+	option(shape)
+  TEXT     tx_names		@	_ls	_iwd	.,  		///
+	label(resource LBL_VARIABLE_NAMES_CORRESPONDING_ROW_COL_MATRIX)
+  EDIT     en_names		@	_ss	@	.,		///
+	option(names)							///
+	label(resource LBL_VARIABLE_NAMES)
+  CHECKBOX ck_forcepsd		@	_ls	_iwd	.,		///
+	label(resource LBL_FORCE_CORR_COVARIANCE_MATRIX_POSITIVE_SEMIDEF) ///
+	option(forcepsd)
+  SPINNER  sp_n			@	_ls	_spwd	.,		///
+	label(resource LBL_NUMBER_OF_OBSERVATIONS)			///
+	min(1) max(c(N)) default(c(N)) option("n")
+  TEXT     tx_n			_spsep	@	_spr	.,  		///
+	label(resource LBL_NUMBER_OF_OBSERVATIONS)
+  TEXT     tx_sds		_lft	_ls	_iwd	.,		///
+	label(resource LBL_VECTOR_ST_DEVIATIONS_VAR_FOR_CORR_MAT_ONLY)
+  COMBOBOX cb_sds		@       _ss     300	.,		///
+	label(resource LBL_VECTOR_WITH_THE_STANDARD_DEVIATIONS_OF_VAR)	///
+	dropdown option(sds)						///
+	contents(vector)
+  TEXT     tx_means		@	_ls	_iwd	.,		///
+	label(resource LBL_VECTOR_MEANS_VAR_POSTESTIMATION)
+  COMBOBOX cb_means		@       _ss     300	.,		///
+	label(resource LBL_VECTOR_WITH_MEANS_OF_THE_VARIABLES)		///
+	dropdown option(means)						///
+	contents(vector)
+END
+
+PROGRAM show_matrix_input
+BEGIN
+	call create CHILD matrix_input
+	if ! _rc {
+		call matrix_input.setExitString matrixResult
+		call matrix_input.setExitAction "program getMatrixResult"
+		call matrix_input.callthru "isChildContext.settrue"
+	}
+END
+PROGRAM getMatrixResult
+BEGIN
+	call main.cb_selmatrix.repopulate
+	call matrixResult.withvalue main.cb_selmatrix.setvalue "@"
+END
+
+LIST shape_words
+BEGIN
+	resource LBL_SQUARE_SYMMETRIC_MATRIX_DEFAULT
+	resource LBL_VECTOR_ROWWISE_LOWER_TRIANGLE_DIAGONAL
+	resource LBL_VECTOR_ROWWISE_UPPER_TRIANGLE_DIAGONAL
+END
+
+LIST shape_values
+BEGIN
+	full
+	lower
+	upper
+END
+
+DIALOG model2, tabtitle(resource LBL_TAB_MODEL2)
+BEGIN
+  CHECKBOX ck_components	_lft	_top	_iwd	.,		///
+	label(resource LBL_MAXIMUM_NUMBER_OF_PRINCIPAL_COMPONENTS_TO_RETAIN)	///
+	onclickon(model2.sp_components.enable)				///
+	onclickoff(model2.sp_components.disable)
+  SPINNER  sp_components	_cksep	_ss	_spwd	.,		///
+	min(1) max(100000)						///
+	option(components)
+  CHECKBOX ck_mineigen		_lft	_ls	_iwd	.,		///
+  	onclickon(model2.en_mineigen.enable)				///
+  	onclickoff(model2.en_mineigen.disable)				///
+	label(resource LBL_MINIMUM_EIGENVALUE_TO_BE_RETAINED)
+  EDIT     en_mineigen	       _indent2	_ss	_en7wd	.,		///
+	option(mineigen) default(1e-5)					///
+	label(resource LBL_MINIMUM_EIGENVALUE_TO_BE_RETAINED)
+
+  CHECKBOX ck_covar		_lft	_ls	_iwd	.,		///
+	option(covariance)						///
+	label(resource LBL_USE_COVARIANCE_INSTEAD_OF_CORRELATION_MATRIX)
+  CHECKBOX ck_vce		@	_ms	@	.,		///
+	option(vce(normal))						///
+  	onclickon(program ck_vce_on)					///
+  	onclickoff(script ck_vce_off)					///
+	label(resource LBL_COMP_VCE_EIGENVALUES_VECTORS_ASSUMING_MULTIV_NORM)
+END
+
+PROGRAM ck_vce_on
+BEGIN
+	call report.sp_level.enable
+	call report.tx_level.enable
+	call report.ck_blanks.enable
+	if report.ck_blanks {
+		call report.en_blanks.enable
+		call report.tx_blanks.enable
+	}
+	call adv.en_tol.enable
+	call adv.tx_tol.enable
+	call adv.ck_ignore.enable
+END
+
+SCRIPT ck_vce_off
+BEGIN
+	report.sp_level.disable
+	report.tx_level.disable
+	report.ck_blanks.disable
+	report.en_blanks.disable
+	report.tx_blanks.disable
+	adv.en_tol.disable
+	adv.tx_tol.disable
+	adv.ck_ignore.disable
+END
+
+DIALOG report, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  CHECKBOX ck_blanks		_lft	_ls	_iwd	.,		///
+  	onclickon(script ck_blanks_on)					///
+  	onclickoff(script ck_blanks_off)				///
+	label(resource LBL_DIS_LOADINGS_BLANK_WHEN_ABSOLUTE_VALUE_LESS)
+  EDIT     en_blanks	       _indent2	_ss	_en7wd	.,		///
+	option(blanks)							///
+	label(resource LBL_ED_VALUE)
+  TEXT     tx_blanks		_spsep	@	_cksprb	.,		///
+	label(resource LBL_ED_VALUE)
+  CHECKBOX ck_novce		_lft	_ls	_iwd	.,		///
+	option(novce)							///
+	label(resource LBL_SUPPRESS_DISPLAY_OF_STAND_ERRORS_EVEN_IF_COMPUTED)
+END
+
+SCRIPT ck_blanks_on
+BEGIN
+	report.en_blanks.enable
+	report.tx_blanks.enable
+END
+
+SCRIPT ck_blanks_off
+BEGIN
+	report.en_blanks.disable
+	report.tx_blanks.disable
+END
+
+DIALOG adv, tabtitle(resource LBL_ADVANCED)
+BEGIN
+  EDIT     en_tol		_lft	_top	_en7wd	.,		///
+	default(1e-5)							///
+	option(tol)							///
+	label(resource LBL_NUMERIC_TOLERANCE_RARELY_NEEDED)
+  TEXT     tx_tol		_spsep	@	_cksprb	.,		///
+	label(resource LBL_NUMERIC_TOLERANCE_RARELY_NEEDED)
+  CHECKBOX ck_ignore		_lft	_ls	_iwd	.,		///
+	option(ignore)							///
+	label(resource LBL_CONTINUE_COMPUTATION_OF_SE_AND_TESTS_RARELY_NEEDED)
+END
+
+PROGRAM command
+BEGIN
+	put "pcamat "
+	require main.cb_selmatrix
+	put main.cb_selmatrix
+	beginoptions
+		optionarg main.sp_n
+		if !main.cb_shape.equals("full") {
+			optionarg main.cb_shape
+		}
+		optionarg main.en_names
+		option main.ck_forcepsd
+		optionarg main.cb_sds
+		optionarg main.cb_means
+		if model2.ck_components {
+			optionarg model2.sp_components
+		}
+		if model2.ck_mineigen {
+			require model2.en_mineigen
+			optionarg /hidedefault model2.en_mineigen
+		}
+		option model2.ck_covar
+		option model2.ck_vce
+		optionarg /hidedefault report.sp_level
+		if report.ck_blanks {
+			require report.en_blanks
+			optionarg /hidedefault report.en_blanks
+		}
+		option report.ck_novce
+		optionarg /hidedefault adv.en_tol
+		option adv.ck_ignore
+	endoptions
+END

@@ -1,0 +1,186 @@
+/*
+	predict (after meprobit)
+
+*!  VERSION 1.2.1  15oct2018
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 475
+INCLUDE header
+
+HELP hlp1, view("help meprobit postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING ek_r
+        create STRING intmethod
+	ek_r.setvalue e(k_r)
+        intmethod.setvalue e(intmethod)
+
+	setscale_hadj resource MEPROBIT_P_DLG_HSCALE
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	call script _p_gentype_setMedium
+	
+	if main.rb_mu | main.rb_eta | main.rb_xb | ///
+                main.rb_density | main.rb_distribution | main.rb_scores | ///
+		main.rb_stdp | main.rb_pearson | main.rb_deviance | ///
+		main.rb_ansc {
+		call main.tx_var.setlabel resource LBL_NEW_VAR_NAME_OR_VAR_STUB
+		call main.ed_var.setlabel resource LBL_NEW_VAR_NAME_OR_VAR_STUB
+	}
+	call script me_post_hide_outcome_opt
+	call program main_options_check
+
+	if  intmethod.iseq("laplace") {
+		call main.rb_scores.disable
+	}
+	else {
+		call main.rb_scores.enable
+	}
+END
+
+DIALOG main, label(resource PREDICT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  INCLUDE  _p_gentype
+
+  GROUPBOX gb_prod		_lft	_ls	_iwd	_ht13h,		///
+	label(resource LBL_PRODUCE)
+  RADIO	rb_mu			_indent	_ss	230	., first	///
+	option(mu)							///
+	onclickon(script main_re_off)					///
+	label(resource LBL_MEAN_RESPONSE)
+  DEFINE holdy @y
+  RADIO rb_eta			@	_ss	@	.,		///
+	option(eta)							///
+	onclickon(script main_re_off)					///
+	label(resource LBL_FITTED_LINEAR_PREDICTOR)
+  RADIO rb_density		@	_ss	@	.,		///
+	option(density)							///
+	onclickon(script main_re_off)					///
+	label(resource LBL_DENSITY_FUNCTION)
+  RADIO rb_distribution		@	_ss	@	.,		///
+	option(distribution)						///
+	onclickon(script main_re_off)					///
+	label(resource LBL_DISTRIBUTION_FUNCTION)
+  RADIO rb_xb			@	_ss	@	.,		///
+	option(xb)							///
+	onclickon(script main_re_off)					///
+	label(resource LBL_LINEAR_PREDICTOR_XB_FIXED_PORTION)
+  RADIO rb_stdp			@	_ss	@	.,		///
+	option(stdp)							///
+	onclickon(script main_re_off)					///
+	label(resource LBL_STANDARD_ERROR_XB_FOR_FIXED_PORTION)
+  RADIO rb_pearson		@	_ss	@	.,		///
+	option(pearson)							///
+	onclickon(script main_re_off)					///
+	label(resource LBL_PEARSON_RESIDUALS)
+  RADIO rb_deviance		_ilft2	holdy	210	.,		///
+	option(deviance)						///
+	onclickon(script main_re_off)					///
+	label(resource LBL_DEVIANCE_RESIDUALS)
+  RADIO rb_ansc			@	_ss	@	.,		///
+	option(anscombe)						///
+	onclickon(script main_re_off)					///
+	label(resource LBL_ANSCOMBE_RESIDUALS)
+  RADIO rb_scores		@	_ss	@	.,		///
+	option(scores)							///
+	onclickon(script main_re_on)					///
+	label(resource LBL_PARAMETER_LEVEL_SCORES)
+  RADIO rb_remeans		@	_ss	@	.,		///
+	option(ebmeans)							///
+	onclickon(script main_re_on)					///
+	label(resource LBL_EMPIRICAL_BAYES_MEANS)
+  RADIO rb_remodes		@	_ss	@	.,		///
+	last								///
+	option(ebmodes)							///
+	onclickon(script main_re_on)					///
+	label(resource LBL_EMPIRICAL_BAYES_MODES)
+
+  DEFINE _x _lft
+  DEFINE _y 245
+  DEFINE _cx _iwd
+  DEFINE _h _ht12h
+  INCLUDE me_post_options 
+END
+
+SCRIPT main_re_on
+BEGIN
+	script _p_gentype_multiple
+	program main_opt_off
+END
+
+SCRIPT main_re_off
+BEGIN
+	script _p_gentype_single
+	program main_opt_on
+END
+
+INCLUDE _p_gentype_sc
+INCLUDE _type_list_fd
+INCLUDE me_post_options_pr
+
+PROGRAM main_opt_on
+BEGIN
+	call main.tx_var.setlabel resource LBL_NEW_VAR_NAME_OR_VAR_STUB
+	call main.ed_var.setlabel resource LBL_NEW_VAR_NAME_OR_VAR_STUB
+	call program main_options_check
+	if main.rb_xb |	main.rb_stdp {
+		call script me_post_integration_disable
+	}
+	else {
+		call script me_post_integration_enable
+	}
+END
+
+PROGRAM main_opt_off
+BEGIN
+	call program main_options_check
+	call script me_post_integration_disable
+END
+
+PROGRAM main_options_check
+BEGIN
+	if main.rb_remeans | main.rb_remodes {
+		call program me_post_re_options_on
+	}
+	if main.rb_mu | main.rb_eta | main.rb_density |			///
+		main.rb_distribution | main.rb_pearson |		///
+		main.rb_deviance | main.rb_ansc {
+		call program me_post_re_options_off
+	}
+
+	if main.rb_xb | main.rb_stdp | ek_r.equals("0") {
+		call script me_post_xb_stdp_options_on
+	}
+	if main.rb_scores {
+		call script me_post_scores_on
+	}
+END
+
+INCLUDE ifin
+INCLUDE me_post_integration
+
+PROGRAM command
+BEGIN
+	put "predict "
+	put " " /program _p_gentype_output
+	INCLUDE _ifin_pr
+	beginoptions
+		option radio(main rb_mu rb_xb rb_stdp rb_pearson	///
+			rb_density rb_distribution rb_scores		/// 
+			rb_deviance rb_ansc rb_eta)
+		if main.rb_remeans | main.rb_remodes {
+			put " reffects "
+			option radio(main rb_remeans rb_remodes)
+		}
+		put " " /program me_post_options_output
+		put " " /program me_post_integration_output
+	endoptions
+END

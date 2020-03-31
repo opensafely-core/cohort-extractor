@@ -1,0 +1,988 @@
+/*
+  ztest
+
+*!  VERSION 1.2.4  28mar2017
+
+*/
+
+VERSION 15.0
+
+INCLUDE _std_xlarge
+DEFINE _dlght 500
+INCLUDE header
+
+HELP hlp1, view("help ztest")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING STMP
+	setscale_hadj resource ZTEST_DLG_HSCALE
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	if __MESSAGE.iseq("-one-") {
+		call main.rb_ztest1.seton
+	}
+	if __MESSAGE.iseq("-two-") {
+		call main.rb_ztest2.seton
+	}
+	if __MESSAGE.iseq("-pair1-") {
+		call main.rb_ztestpair1.seton
+	}
+	if __MESSAGE.iseq("-pair2-") {
+		call main.rb_ztestpair2.seton
+	}
+	if __MESSAGE.iseq("-by-") {
+		call main.rb_ztestby.seton
+	}
+	call STMP.format "resource LBL_STANDARD_DEVIATION_FOR_GROUP_#_FMT" "1"
+	call STMP.withvalue main.ed_two_sd1.setlabel "@"
+	call STMP.format "resource LBL_STANDARD_DEVIATION_FOR_GROUP_#_FMT" "2"
+	call STMP.withvalue main.ed_two_sd2.setlabel "@"
+
+	call STMP.format "resource LBL_POPULATION_#_FMT" "1"
+	call STMP.withvalue main.tx_paired_sd1.setlabel "@"
+	call STMP.format "resource LBL_POPULATION_#_FMT" "2"
+	call STMP.withvalue main.tx_paired_sd2.setlabel "@"
+
+	call STMP.format "resource LBL_STANDARD_DEVIATION_FOR_POPULATION_#_FMT" "1"
+	call STMP.withvalue main.ed_paired_sd1.setlabel "@"
+	call STMP.format "resource LBL_STANDARD_DEVIATION_FOR_POPULATION_#_FMT" "2"
+	call STMP.withvalue main.ed_paired_sd2.setlabel "@"
+END
+
+DIALOG main, label(resource ZTEST_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+	GROUPBOX	gb_ztest	_lft	_top	_iwd	_ht14,	///
+		label(resource ZTEST_MAIN_GB_ZTEST)
+	RADIO		rb_ztest1	_indent	_ss	_ibwd	.,	///
+		first							///
+		onclickon("program main_ztest1_on")			///
+		label(resource LBL_ONE_SAMPLE)
+	RADIO		rb_ztest1clst	@	_ss	@	.,	///
+		onclickon("program main_ztest1clst_on")			///
+		label(resource LBL_ONE_SAMPLE_ADJUST_CLUSTERING)
+	RADIO		rb_ztestby	@	_ss	@	.,	///
+		onclickon("program main_ztestby_on")			///
+		label(resource LBL_TWO_SAMPLE_USING_GROUPS)
+	RADIO		rb_ztestbyclst	@	_ss	@	.,	///
+		onclickon("program main_ztestbyclst_on")		///
+		label(resource LBL_TWO_SAMPLE_GROUPS_ADJUST_CLUSTERING)	
+	RADIO		rb_ztest2	@	_ss	@	.,	///
+		onclickon("program main_ztest2_on")			///
+		label(resource LBL_TWO_SAMPLE_USING_VARIABLES)
+	RADIO		rb_ztestpair1	@	_ss	@	.,	///
+		onclickon("program main_ztestpair1_on")			///
+		label(resource ZTEST_MAIN_RB_ZTESTPAIR1)
+	RADIO		rb_ztestpair2	@	_ss	@	.,	///
+		last							///
+		onclickon("program main_ztestpair2_on")			///
+		label(resource ZTEST_MAIN_RB_ZTESTPAIR2)
+
+	GROUPBOX	gb_group	_lft	_xls	_iwd	_ht27h,	///
+		label(resource ZTEST_MAIN_GB_GROUP)
+
+	/* One-sample mean-comparison test */
+	TEXT     	tx_var    	_indent _ss     _cwd1	.,	///
+		label(resource LBL_VARIABLE_NAME)
+	DEFINE	holdx @x
+	DEFINE	holdy @y
+	VARNAME  	vn_var    	@       _ss     _vnwd   .,	///
+		numeric							///
+		label(resource LBL_VARIABLE_NAME)
+
+	TEXT     	tx_val    	_lft2   holdy	_cwd2   .,	///
+		label(resource ZTEST_MAIN_TX_VAL)
+	EDIT     	en_val    	@       _ss     _en14wd	.,	///
+		numonly							///
+		label(resource ZTEST_MAIN_TX_VAL)
+
+	/* Two-sample mean-comparison test (unpaired) */
+	TEXT     	tx_var1   	holdx	holdy	_cwd1	.,	///
+		label(resource LBL_FIRST_VARIABLE)
+	VARNAME  	vn_var1   	@       _ss     _vnwd   .,	///
+		numeric							///
+		label(resource LBL_FIRST_VARIABLE)
+
+	TEXT     	tx_var2   	_lft2	holdy	_cwd2	.,	///
+		label(resource LBL_SECOND_VARIABLE)
+	VARNAME  	vn_var2   	@	_ss	_vnwd	.,	///
+		numeric							///
+		label(resource LBL_SECOND_VARIABLE)
+
+	/* Two-sample mean-comparison test (paired) */
+	TEXT     	tx_pvar1   	holdx	holdy	_cwd1	.,	///
+		label(resource LBL_FIRST_VARIABLE)
+	VARNAME  	vn_pvar1   	@       _ss     _vnwd   .,	///
+		numeric							///
+		label(resource LBL_FIRST_VARIABLE)
+
+	TEXT     	tx_pvar2   	_lft2	holdy	_cwd2	.,	///
+		label(resource LBL_SECOND_VARIABLE)
+	VARNAME  	vn_pvar2   	@	_ss	_vnwd	.,	///
+		numeric							///
+		label(resource LBL_SECOND_VARIABLE)
+
+	/* Two-group mean-comparison test */
+	TEXT     	tx_gvar    	holdx	holdy	_cwd1	.,	///
+		label(resource LBL_VARIABLE_NAME)
+	VARNAME  	vn_gvar    	@       _ss     _vnwd   .,	///
+		numeric							///
+		label(resource LBL_VARIABLE_NAME)
+
+	TEXT     	tx_byopt	_lft2	holdy 	_cwd2	.,	///
+		label(resource LBL_GROUP_VARIABLE_NAME)
+	VARNAME  	vn_byopt	@	_ss	_vnwd	.,	///
+		option("by")						///
+		label(resource LBL_GROUP_VARIABLE_NAME)
+
+	/* Two-group cluster mean-comparison test */
+	TEXT     	tx_cgvar    	holdx	holdy	_cwd1	.,	///
+		label(resource LBL_VARIABLE_NAME)
+	VARNAME  	vn_cgvar    	@       _ss     _vnwd   .,	///
+		numeric							///
+		label(resource LBL_VARIABLE_NAME)
+
+	TEXT     	tx_cbyopt	_lft2	holdy 	_cwd2	.,	///
+		label(resource LBL_GROUP_VARIABLE_NAME)
+	VARNAME  	vn_cbyopt	@	_ss	_vnwd	.,	///
+		option("by")						///
+		label(resource LBL_GROUP_VARIABLE_NAME)
+	
+	TEXT		tx_ccvar	holdx	_ls	_cwd1	.,	///
+		label(resource LBL_CLUSTER_VARIABLE)
+DEFINE	holdy2 @y
+	VARNAME  	vn_ccvar   	@       _ss     _vnwd   .,	///
+		numeric							///
+		option(cluster)						///
+		label(resource LBL_CLUSTER_VARIABLE)	
+
+	/* One-sample mean-comparison test */
+	TEXT     	tx_cvar   	holdx	holdy2	_cwd1	.,	///
+		label(resource LBL_CLUSTER_VARIABLE)
+
+	VARNAME  	vn_cvar   	@       _ss     _vnwd   .,	///
+		numeric							///
+		option(cluster)						///
+		label(resource LBL_CLUSTER_VARIABLE)	
+	
+	TEXT		tx_one_sd	_lft2	holdy2	_cwd2	.,	///
+		label(resource ZTEST_MAIN_TX_ONE_SD)
+	EDIT		ed_one_sd	_lft2	_ss	_vnwd	.,	///
+		default(1)						///
+		option(sd)						///
+		label(resource ZTEST_MAIN_ED_ONE_SD)
+
+	TEXT		tx_one_intcorr	_ilft	_ls	_cwd1	.,	///
+		label(resource LBL_INTRACLASS_CORRELATION)
+	EDIT		ed_one_intcorr	_ilft	_ss	_vnwd	.,	///
+		option(rho)						///
+		numonly							///
+		label(resource LBL_INTRACLASS_CORRELATION)
+
+	GROUPBOX	gb_two_std	holdx   holdy2	_ibwd	_ht11,	///
+		label(resource LBL_STANDARD_DEVIATION)
+
+	/* Two-sample mean-comparison test (unpaired) */
+	RADIO		rb_two_sd	_indent	_ss	_cwd2	.,	///
+		first							///
+		onclickon(program main_tcommon_sd_on)			///
+		onclickoff(program main_tgroup_sd_on)			///
+		label(resource LBL_COMMON_STANDARD_DEVIATION)
+	DEFINE holdyr @y
+	RADIO		rb_two_sd12	@	+45	@	.,	///
+		last							///
+		onclickon(program main_tgroup_sd_on)			///
+		onclickoff(program main_tcommon_sd_on)			///
+		label(resource LBL_GROUP_STANDARD_DEVIATIONS)
+	EDIT		ed_two_sd	_indent	-25	_en14wd	.,	///
+		default(1)						///
+		option(sd)						///
+		label(resource LBL_COMMON_STANDARD_DEVIATION)
+	DEFINE	holdx2 @x
+	TEXT		tx_two_sd	_en14sep @	100	.,	///
+		label(resource LBL_COMMON_VALUE)
+	EDIT		ed_two_sd1	holdx2	+45	_en14wd	.,	///
+		option(sd1)
+	TEXT		tx_two_sd1	_en14sep @	100	.,	///
+		label(resource LBL_GROUP1)
+	EDIT		ed_two_sd2	holdx2	_ms	_en14wd	.,	///
+		option(sd2)
+	TEXT		tx_two_sd2	_en14sep @	80	.,	///
+		label(resource LBL_GROUP2)
+		
+	RADIO		rb_two_ic	_lft2	holdyr	_cwd2	.,	///
+		first							///
+		onclickon(program main_tcommon_ic_on)			///
+		onclickoff(program main_tgroup_ic_on)			///
+		label(resource LBL_COMMON_INTRACLASS_CORRELATION)
+	RADIO		rb_two_gic	@	+45	@	.,	///
+		last							///
+		onclickon(program main_tgroup_ic_on)			///
+		onclickoff(program main_tcommon_ic_on)			///
+		label(resource LBL_GROUP_INTRACLASS_CORRELATION)
+	EDIT		ed_two_ic	_indent	-25	_en14wd	.,	///
+		option(rho)						///
+		numonly							///
+		label(resource LBL_COMMON_INTRACLASS_CORRELATION)
+	DEFINE	holdx2 @x
+	EDIT		ed_two_ic1	holdx2	+45	_en14wd	.,	///
+		option(rho1) numonly					///
+		label(resource LBL_GROUP_INTRACLASS_CORRELATION_GROUP1)
+	TEXT		tx_two_ic1	_en14sep @	80	.,	///
+		label(resource LBL_GROUP1)
+	EDIT		ed_two_ic2	holdx2	_ms	_en14wd	.,	///
+		option(rho2) numonly					///
+		label(resource LBL_GROUP_INTRACLASS_CORRELATION_GROUP2)
+	TEXT		tx_two_ic2	_en14sep @	80	.,	///
+		label(resource LBL_GROUP2)
+
+	/* Two-sample mean-comparison test (paired) */
+	TEXT		tx_stddiff	holdx	 holdy2	_ibwd	.,	///
+		label(resource ZTEST_MAIN_TX_STDDIFF)
+	EDIT		ed_stddiff	@	_ss	_en14wd	.,	///
+		option(sddiff)						///
+		label(resource ZTEST_MAIN_TX_STDDIFF)
+
+	GROUPBOX	gb_paired_std	holdx   holdy2	_ibwd	_ht13h,	///
+		label(resource LBL_CORRELATION_AND_STANDARD_DEVIATIONS)
+
+	/* Two-sample mean-comparison test (paired) */
+	EDIT		ed_paired_corr	_indent	_ss	_en14wd	.,	///
+		option(corr)						///
+		label(resource LBL_CORRELATION_BETWEEN_PAIRED_OBSERVATIONS)
+	DEFINE	holdx1 @x
+	TEXT		tx_paired_corr	_en14sep @	250	.,	///
+		label(resource LBL_CORRELATION_BETWEEN_PAIRED_OBSERVATIONS)
+	RADIO		rb_paired_sd	holdx1	_ms	_ibwd	.,	///
+		first							///
+		onclickon(program main_pcommon_sd_on)			///
+		onclickoff(program main_pgroup_sd_on)			///
+		label(resource LBL_COMMON_STANDARD_DEVIATION)
+	RADIO		rb_paired_sd12	@	+45	@	.,	///
+		last							///
+		onclickon(program main_pgroup_sd_on)			///
+		onclickoff(program main_pcommon_sd_on)			///
+		label(resource ZTEST_MAIN_RB_PAIRED_SD12)
+	EDIT		ed_paired_sd	_indent	-25	_en14wd	.,	///
+		default(1)						///
+		option(sd)						///
+		label(resource LBL_COMMON_STANDARD_DEVIATION)
+	DEFINE	holdx2 @x
+	TEXT		tx_paired_sd	_en14sep @	100	.,	///
+		label(resource LBL_COMMON_VALUE)
+	EDIT		ed_paired_sd1	holdx2	+45	_en14wd	.,	///
+		option(sd1)
+	TEXT		tx_paired_sd1	_en14sep @	100	.
+	EDIT		ed_paired_sd2	holdx2	_ms	_en14wd	.,	///
+		option(sd2)
+	TEXT		tx_paired_sd2	_en14sep @	100	.
+
+	DEFINE _x holdx
+	DEFINE _y _xls
+	DEFINE _cx _spsep
+	INCLUDE _sp_level
+END
+
+INCLUDE byifin
+
+PROGRAM main_ztest1_on
+BEGIN
+	call script main_ztest1_show
+	call script main_ztestclst_hide
+	call script main_ztest2_hide
+	call script main_ztestpair1_hide
+	call script main_ztestpair2_hide
+	call script main_ztestpair_common_hide
+	call script main_ztestby_hide
+	call script main_ztesttwo_common_hide
+	call script main_ztesttwo_group_cluster_hide
+	call main.tx_one_sd.setposition . 260
+	call main.ed_one_sd.setposition . 280
+	call main.sp_level.setposition . 280
+	call main.tx_level.setposition . 280
+	call main.gb_group.setlabel resource ZTEST_ONE_SAMPLE_Z_TEST
+END
+
+PROGRAM main_ztest1clst_on
+BEGIN
+	call script main_ztest1_hide
+	call script main_ztestclst_show
+	call script main_ztest2_hide
+	call script main_ztestpair1_hide
+	call script main_ztestpair2_hide
+	call script main_ztestpair_common_hide
+	call script main_ztestby_hide
+	call script main_ztesttwo_common_hide
+	call script main_ztesttwo_group_cluster_hide
+	call main.tx_one_sd.setposition . 260
+	call main.ed_one_sd.setposition . 280
+	call main.tx_one_intcorr.setposition . 310
+	call main.ed_one_intcorr.setposition . 330
+	call main.sp_level.setposition . 365
+	call main.tx_level.setposition . 365
+	call main.gb_group.setlabel resource ZTEST_ONE_SAMPLE_Z_TEST
+END
+
+PROGRAM main_ztest2_on
+BEGIN
+	call script main_ztest1_hide
+	call script main_ztestclst_hide
+	call script main_ztest2_show
+	call script main_ztestpair1_hide
+	call script main_ztestpair2_hide
+	call script main_ztestpair_common_hide
+	call script main_ztestby_hide
+	call script main_ztesttwo_common_show
+	call script main_ztesttwo_group_cluster_hide
+	call main.gb_two_std.setposition . 260
+	call main.rb_two_sd.setposition . 280
+	call main.rb_two_sd12.setposition . 325
+	call main.ed_two_sd.setposition . 300
+	call main.ed_two_sd1.setposition . 345
+	call main.tx_two_sd1.setposition . 345
+	call main.ed_two_sd2.setposition . 370
+	call main.tx_two_sd2.setposition . 370
+	call main.sp_level.setposition . 410
+	call main.tx_level.setposition . 410
+	call STMP.format "resource LBL_POPULATION_#_FMT" "1"
+	call STMP.withvalue main.tx_two_sd1.setlabel "@"
+	call STMP.format "resource LBL_POPULATION_#_FMT" "2"
+	call STMP.withvalue main.tx_two_sd2.setlabel "@"
+	call STMP.format "resource LBL_STANDARD_DEVIATION_FOR_POPULATION_#_FMT" "1"
+	call STMP.withvalue main.ed_two_sd2.setlabel "@"
+	call STMP.format "resource LBL_STANDARD_DEVIATION_FOR_POPULATION_#_FMT" "2"
+	call STMP.withvalue main.ed_two_sd2.setlabel "@"
+	call main.gb_group.setlabel resource ZTEST_TWO_SAMPLE_Z_TEST_USING_VARS
+	call main.gb_two_std.setlabel resource LBL_STANDARD_DEVIATION
+	call main.rb_two_sd12.setlabel resource ZTEST_SD_OF_INDIV_POPULATIONS
+END
+
+PROGRAM main_ztestpair1_on
+BEGIN
+	call script main_ztest1_hide
+	call script main_ztest2_hide
+	call script main_ztestpair1_show
+	call script main_ztestpair2_hide
+	call script main_ztestpair_common_show
+	call script main_ztestby_hide
+	call script main_ztesttwo_common_hide
+	call script main_ztesttwo_group_cluster_hide
+	call main.sp_level.setposition . 315
+	call main.tx_level.setposition . 315
+	call main.gb_group.setlabel resource ZTEST_PAIRED_Z_TEST
+END
+
+PROGRAM main_ztestpair2_on
+BEGIN
+	call script main_ztest1_hide
+	call script main_ztest2_hide
+	call script main_ztestpair1_hide
+	call script main_ztestpair2_show
+	call script main_ztestpair_common_show
+	call script main_ztestby_hide
+	call script main_ztesttwo_common_hide
+	call script main_ztesttwo_group_cluster_hide
+	call main.sp_level.setposition . 435
+	call main.tx_level.setposition . 435
+	call main.gb_group.setlabel resource ZTEST_PAIRED_Z_TEST
+END
+
+PROGRAM main_ztestby_on
+BEGIN
+	call script main_ztest1_hide
+	call script main_ztestclst_hide
+	call script main_ztest2_hide
+	call script main_ztestpair1_hide
+	call script main_ztestpair2_hide
+	call script main_ztestby_show
+	call script main_ztestpair_common_hide
+	call script main_ztesttwo_common_show
+	call script main_ztesttwo_group_cluster_hide
+	call main.gb_two_std.setposition . 260
+	call main.rb_two_sd.setposition . 280
+	call main.rb_two_sd12.setposition . 325
+	call main.ed_two_sd.setposition . 300
+	call main.ed_two_sd1.setposition . 345
+	call main.tx_two_sd1.setposition . 345
+	call main.ed_two_sd2.setposition . 370
+	call main.tx_two_sd2.setposition . 370
+	call main.sp_level.setposition . 410
+	call main.tx_level.setposition . 410
+	call main.tx_two_sd1.setlabel "resource LBL_GROUP1"
+	call main.tx_two_sd2.setlabel "resource LBL_GROUP2"
+	call STMP.format "resource LBL_STANDARD_DEVIATION_FOR_GROUP_#_FMT" "1"
+	call STMP.withvalue main.ed_two_sd1.setlabel "@"
+	call STMP.format "resource LBL_STANDARD_DEVIATION_FOR_GROUP_#_FMT" "2"
+	call STMP.withvalue main.ed_two_sd2.setlabel "@"
+	call main.gb_group.setlabel resource ZTEST_TWO_SAMPLE_Z_TEST_USING_GROUPS
+	call main.gb_two_std.setlabel resource LBL_STANDARD_DEVIATION
+	call main.rb_two_sd12.setlabel resource LBL_GROUP_STANDARD_DEVIATIONS
+END
+
+PROGRAM main_ztestbyclst_on
+BEGIN
+	call script main_ztest1_hide
+	call script main_ztestclst_hide
+	call script main_ztest2_hide
+	call script main_ztestpair1_hide
+	call script main_ztestpair2_hide
+	call script main_ztestby_hide
+	call script main_ztestpair_common_hide
+	call script main_ztesttwo_common_show
+	call script main_ztesttwo_group_cluster_show
+	call main.gb_two_std.setposition . 310
+	call main.rb_two_sd.setposition . 330
+	call main.rb_two_sd12.setposition . 375
+	call main.ed_two_sd.setposition . 350
+	call main.ed_two_sd1.setposition . 395
+	call main.tx_two_sd1.setposition . 395
+	call main.ed_two_sd2.setposition . 420
+	call main.tx_two_sd2.setposition . 420
+	call main.rb_two_ic.setposition . 330
+	call main.rb_two_gic.setposition . 375
+	call main.ed_two_ic.setposition . 350
+	call main.ed_two_ic1.setposition . 395
+	call main.tx_two_ic1.setposition . 395
+	call main.ed_two_ic2.setposition . 420
+	call main.tx_two_ic2.setposition . 420	
+	call main.sp_level.setposition . 460
+	call main.tx_level.setposition . 460
+	call main.tx_two_sd1.setlabel "resource LBL_GROUP1"
+	call main.tx_two_sd2.setlabel "resource LBL_GROUP2"
+	call STMP.format "resource LBL_STANDARD_DEVIATION_FOR_GROUP_#_FMT" "1"
+	call STMP.withvalue main.ed_two_sd1.setlabel "@"
+	call STMP.format "resource LBL_STANDARD_DEVIATION_FOR_GROUP_#_FMT" "2"
+	call STMP.withvalue main.ed_two_sd2.setlabel "@"
+	call main.gb_group.setlabel resource ZTEST_TWO_SAMPLE_Z_TEST_USING_GROUPS
+	call main.gb_two_std.setlabel resource ZTEST_STANDARD_DEVIATIONS_INTRACLASS_CORRELATION
+	call main.rb_two_sd12.setlabel resource LBL_GROUP_STANDARD_DEVIATIONS
+END
+
+SCRIPT main_ztest1_show
+BEGIN
+	main.tx_var.show
+	main.vn_var.show
+	main.tx_val.show
+	main.en_val.show
+	main.tx_one_sd.show
+	main.ed_one_sd.show
+	main.sp_level.setvalue "95"
+END
+
+SCRIPT main_ztest1_hide
+BEGIN
+	main.tx_var.hide
+	main.vn_var.hide
+	main.tx_val.hide
+	main.en_val.hide
+	main.tx_one_sd.hide
+	main.ed_one_sd.hide
+END
+
+SCRIPT main_ztestclst_show
+BEGIN	
+	main.tx_var.show
+	main.vn_var.show
+	main.tx_val.show
+	main.en_val.show
+	main.tx_cvar.show
+	main.vn_cvar.show
+	main.tx_one_sd.show
+	main.ed_one_sd.show
+	main.tx_one_intcorr.show
+	main.ed_one_intcorr.show
+	main.sp_level.setvalue "95"
+END
+
+SCRIPT main_ztestclst_hide
+BEGIN
+	main.tx_cvar.hide
+	main.vn_cvar.hide
+	main.tx_one_intcorr.hide
+	main.ed_one_intcorr.hide
+END
+
+SCRIPT main_ztest2_show
+BEGIN
+	main.tx_var1.show
+	main.vn_var1.show
+	main.tx_var2.show
+	main.vn_var2.show
+	main.sp_level.setvalue "95"
+END
+
+SCRIPT main_ztest2_hide
+BEGIN
+	main.tx_var1.hide
+	main.vn_var1.hide
+	main.tx_var2.hide
+	main.vn_var2.hide
+END
+
+SCRIPT main_ztestpair1_show
+BEGIN
+	main.ed_stddiff.show
+	main.tx_stddiff.show
+	main.sp_level.setvalue "95"
+END
+
+SCRIPT main_ztestpair1_hide
+BEGIN
+	main.ed_stddiff.hide
+	main.tx_stddiff.hide
+END
+
+SCRIPT main_ztestpair2_show
+BEGIN
+	main.ed_paired_corr.show
+	main.tx_paired_corr.show
+	main.gb_paired_std.show
+	main.rb_paired_sd.show
+	main.rb_paired_sd12.show
+	main.ed_paired_sd.show
+	main.tx_paired_sd.show
+	main.ed_paired_sd1.show
+	main.tx_paired_sd1.show
+	main.ed_paired_sd2.show
+	main.tx_paired_sd2.show
+	main.sp_level.setvalue "95"
+END
+
+SCRIPT main_ztestpair2_hide
+BEGIN
+	main.ed_paired_corr.hide
+	main.tx_paired_corr.hide
+	main.gb_paired_std.hide
+	main.rb_paired_sd.hide
+	main.rb_paired_sd12.hide
+	main.ed_paired_sd.hide
+	main.tx_paired_sd.hide
+	main.ed_paired_sd1.hide
+	main.tx_paired_sd1.hide
+	main.ed_paired_sd2.hide
+	main.tx_paired_sd2.hide
+END
+
+SCRIPT main_ztestby_show
+BEGIN
+	main.tx_gvar.show
+	main.vn_gvar.show
+	main.tx_byopt.show
+	main.vn_byopt.show
+	main.sp_level.setvalue "95"
+END
+
+SCRIPT main_ztestby_hide
+BEGIN
+	main.tx_gvar.hide
+	main.vn_gvar.hide
+	main.tx_byopt.hide
+	main.vn_byopt.hide
+END
+
+SCRIPT main_ztestpair_common_show
+BEGIN
+	main.tx_pvar1.show
+	main.vn_pvar1.show
+	main.tx_pvar2.show
+	main.vn_pvar2.show
+END
+
+SCRIPT main_ztestpair_common_hide
+BEGIN
+	main.tx_pvar1.hide
+	main.vn_pvar1.hide
+	main.tx_pvar2.hide
+	main.vn_pvar2.hide
+END
+
+SCRIPT main_ztesttwo_common_show
+BEGIN
+	main.gb_two_std.show
+	main.rb_two_sd.show
+	main.rb_two_sd12.show
+	main.ed_two_sd.show
+	main.tx_two_sd.show
+	main.ed_two_sd1.show
+	main.tx_two_sd1.show
+	main.ed_two_sd2.show
+	main.tx_two_sd2.show
+END
+
+SCRIPT main_ztesttwo_common_hide
+BEGIN
+	main.gb_two_std.hide
+	main.rb_two_sd.hide
+	main.rb_two_sd12.hide
+	main.ed_two_sd.hide
+	main.tx_two_sd.hide
+	main.ed_two_sd1.hide
+	main.tx_two_sd1.hide
+	main.ed_two_sd2.hide
+	main.tx_two_sd2.hide
+END
+SCRIPT main_ztesttwo_group_cluster_show
+BEGIN
+	main.tx_two_sd.hide
+	main.tx_cgvar.show
+	main.vn_cgvar.show
+	main.tx_cbyopt.show
+	main.vn_cbyopt.show
+	main.tx_ccvar.show
+	main.vn_ccvar.show
+	main.rb_two_ic.show
+	main.rb_two_gic.show
+	main.ed_two_ic.show
+	main.ed_two_ic1.show
+	main.tx_two_ic1.show
+	main.ed_two_ic2.show
+	main.tx_two_ic2.show
+END
+
+SCRIPT main_ztesttwo_group_cluster_hide
+BEGIN
+	main.tx_cgvar.hide
+	main.vn_cgvar.hide
+	main.tx_cbyopt.hide
+	main.vn_cbyopt.hide
+	main.tx_ccvar.hide
+	main.vn_ccvar.hide
+	main.rb_two_ic.hide
+	main.rb_two_gic.hide
+	main.ed_two_ic.hide
+	main.ed_two_ic1.hide
+	main.tx_two_ic1.hide
+	main.ed_two_ic2.hide
+	main.tx_two_ic2.hide
+END
+PROGRAM main_tcommon_sd_on
+BEGIN
+	call main.ed_two_sd.enable
+	call main.tx_two_sd.enable
+	call main.ed_two_sd1.disable
+	call main.tx_two_sd1.disable
+	call main.ed_two_sd2.disable
+	call main.tx_two_sd2.disable
+END
+
+PROGRAM main_tgroup_sd_on
+BEGIN
+	call main.ed_two_sd.disable
+	call main.tx_two_sd.disable
+	call main.ed_two_sd1.enable
+	call main.tx_two_sd1.enable
+	call main.ed_two_sd2.enable
+	call main.tx_two_sd2.enable
+END
+
+PROGRAM main_tcommon_ic_on
+BEGIN
+	call main.ed_two_ic.enable
+	call main.ed_two_ic1.disable
+	call main.tx_two_ic1.disable
+	call main.ed_two_ic2.disable
+	call main.tx_two_ic2.disable
+END
+
+PROGRAM main_tgroup_ic_on
+BEGIN
+	call main.ed_two_ic.disable
+	call main.ed_two_ic1.enable
+	call main.tx_two_ic1.enable
+	call main.ed_two_ic2.enable
+	call main.tx_two_ic2.enable
+END
+
+PROGRAM main_pcommon_sd_on
+BEGIN
+	call main.ed_paired_sd.enable
+	call main.tx_paired_sd.enable
+	call main.ed_paired_sd1.disable
+	call main.tx_paired_sd1.disable
+	call main.ed_paired_sd2.disable
+	call main.tx_paired_sd2.disable
+END
+
+PROGRAM main_pgroup_sd_on
+BEGIN
+	call main.ed_paired_sd.disable
+	call main.tx_paired_sd.disable
+	call main.ed_paired_sd1.enable
+	call main.tx_paired_sd1.enable
+	call main.ed_paired_sd2.enable
+	call main.tx_paired_sd2.enable
+END
+
+PROGRAM command
+BEGIN
+	INCLUDE _by_pr
+	put "ztest "
+	if main.rb_ztest1 {
+		varlist main.vn_var
+		put "== "
+		require main.en_val
+		put main.en_val
+	}
+	if main.rb_ztest1clst {
+		varlist main.vn_var
+		put "== "
+		require main.en_val
+		put main.en_val
+	}
+	if main.rb_ztestby {
+		varlist main.vn_gvar
+	}
+	if main.rb_ztestbyclst {
+		varlist main.vn_cgvar
+	}
+	if main.rb_ztest2 {
+		varlist main.vn_var1
+		put "== "
+		varlist main.vn_var2
+	}
+	if main.rb_ztestpair1 {
+		varlist main.vn_pvar1
+		put "== "
+		varlist main.vn_pvar2
+	}
+	if main.rb_ztestpair2 {
+		varlist main.vn_pvar1
+		put "== "
+		varlist main.vn_pvar2
+	}
+	INCLUDE _ifin_pr
+
+	beginoptions
+		if main.rb_ztest1 {
+			if !main.ed_one_sd.isNumlistGT(0) {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format			/// 
+					"resource LBL_MSGBOX_GREATER_THAN_0_FMT" ///
+					"resource LBL_STANDARD_DEVIATION"
+				stopbox stop "class _MSG_TMP.value"
+// "Standard deviation" must be greater than 0.
+			}
+			optionarg /hidedefault main.ed_one_sd
+		}
+		if main.rb_ztest1clst {
+			require main.vn_cvar
+			require main.ed_one_intcorr
+			optionarg main.vn_cvar
+			if !main.ed_one_intcorr.isNumlistInRange(-1,1) {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 			///
+					"resource LBL_MSGBOX_BETWEEN_NEG_1_AND_1_FMT"	///
+					"resource LBL_INTRACLASS_CORRELATION"
+				stopbox stop "class _MSG_TMP.value"
+// "Intraclass correlation" must be between -1 and 1.
+			}
+			optionarg main.ed_one_intcorr
+			if !main.ed_one_sd.isNumlistGT(0) {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format			/// 
+				"resource LBL_MSGBOX_GREATER_THAN_0_FMT" ///
+				"resource LBL_STANDARD_DEVIATION"
+				stopbox stop "class _MSG_TMP.value"
+// "Standard deviation" must be greater than 0.
+			}
+			optionarg /hidedefault main.ed_one_sd
+		}
+		if main.rb_ztestby {
+			require main.vn_byopt
+			optionarg main.vn_byopt
+			if main.rb_two_sd {
+				require main.ed_two_sd
+				if !main.ed_two_sd.isNumlistGT(0) {
+					call create STRING _MSG_TMP
+					call _MSG_TMP.format 		///
+					"resource LBL_MSGBOX_GREATER_THAN_0_FMT" ///
+					"resource LBL_COMMON_STANDARD_DEVIATION"
+				stopbox stop "class _MSG_TMP.value"
+// "Common standard deviation" must be greater than 0.
+				}
+				optionarg /hidedefault main.ed_two_sd
+			}
+			if main.rb_two_sd12 {
+				require main.ed_two_sd1
+				require main.ed_two_sd2
+				if !main.ed_two_sd1.isNumlistGT(0) {
+					call STMP.format 		///
+						"resource LBL_MSGBOX_STD_FOR_GROUP_#_GREATER_THAN_0_FMT" "1"
+					stopbox stop "class STMP.value"
+// "Standard deviation for group 1" must be greater than 0.
+				}
+				if !main.ed_two_sd2.isNumlistGT(0) {
+					call STMP.format 		///
+						"resource LBL_MSGBOX_STD_FOR_GROUP_#_GREATER_THAN_0_FMT" "2"
+					stopbox stop "class STMP.value"
+// "Standard deviation for group 2" must be greater than 0.
+				}
+				optionarg main.ed_two_sd1
+				optionarg main.ed_two_sd2
+			}
+		}
+		if main.rb_ztestbyclst {
+			require main.vn_cbyopt
+			require main.vn_ccvar
+			optionarg main.vn_cbyopt
+			optionarg main.vn_ccvar
+			if main.rb_two_ic {
+				require main.ed_two_ic
+				if !main.ed_two_ic.isNumlistInRange(-1,1) {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 			///
+					"resource LBL_MSGBOX_BETWEEN_NEG_1_AND_1_FMT"	///
+					"resource LBL_COMMON_INTRACLASS_CORRELATION" 
+				stopbox stop "class _MSG_TMP.value"
+// "Common intraclass correlation" must be between -1 and 1.
+				}
+				optionarg main.ed_two_ic
+			}
+			if main.rb_two_gic {
+				require main.ed_two_ic1
+				require main.ed_two_ic2
+				if !main.ed_two_ic1.isNumlistInRange(-1,1) {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 			///
+					"resource LBL_MSGBOX_BETWEEN_NEG_1_AND_1_FMT"	///
+					"resource LBL_GROUP_INTRACLASS_CORRELATION_GROUP1"
+				stopbox stop "class _MSG_TMP.value"
+// "Intraclass correlation for group1" must be between -1 and 1.
+				}
+				optionarg main.ed_two_ic1
+				if !main.ed_two_ic2.isNumlistInRange(-1,1) {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 			///
+					"resource LBL_MSGBOX_BETWEEN_NEG_1_AND_1_FMT"	///
+					"resource LBL_GROUP_INTRACLASS_CORRELATION_GROUP2"
+				stopbox stop "class _MSG_TMP.value"
+// "Intraclass correlation for group2" must be between -1 and 1.
+				}
+				optionarg main.ed_two_ic2
+			}
+			if main.rb_two_sd {
+				require main.ed_two_sd
+				if !main.ed_two_sd.isNumlistGT(0) {
+					call create STRING _MSG_TMP
+					call _MSG_TMP.format 		///
+					"resource LBL_MSGBOX_GREATER_THAN_0_FMT" ///
+					"resource LBL_COMMON_STANDARD_DEVIATION"
+                        stopbox stop "class _MSG_TMP.value"
+// "Common standard deviation" must be greater than 0.
+				}
+				optionarg /hidedefault main.ed_two_sd
+			}
+			if main.rb_two_sd12 {
+				require main.ed_two_sd1
+				require main.ed_two_sd2
+				if !main.ed_two_sd1.isNumlistGT(0) {
+					call STMP.format 		///
+						"resource LBL_MSGBOX_STD_FOR_GROUP_#_GREATER_THAN_0_FMT" "1"
+					stopbox stop "class STMP.value"
+// "Standard deviation for group 1" must be greater than 0.
+				}
+				if !main.ed_two_sd2.isNumlistGT(0) {
+					call STMP.format 		///
+						"resource LBL_MSGBOX_STD_FOR_GROUP_#_GREATER_THAN_0_FMT" "2"
+					stopbox stop "class STMP.value"
+// "Standard deviation for group 2" must be greater than 0.
+				}
+				optionarg main.ed_two_sd1
+				optionarg main.ed_two_sd2
+			}
+		}
+		if main.rb_ztest2 {
+			put "unpaired "
+			if main.rb_two_sd {
+				require main.ed_two_sd
+				if !main.ed_two_sd.isNumlistGT(0) {
+					call create STRING _MSG_TMP
+					call _MSG_TMP.format 		///
+						"resource LBL_MSGBOX_GREATER_THAN_0_FMT" ///
+						"resource LBL_COMMON_STANDARD_DEVIATION"
+					stopbox stop "class _MSG_TMP.value"
+// "Common standard deviation" must be greater than 0.
+				}
+				optionarg /hidedefault main.ed_two_sd
+			}
+			if main.rb_two_sd12 {
+				require main.ed_two_sd1
+				require main.ed_two_sd2
+				if !main.ed_two_sd1.isNumlistGT(0) {
+					call STMP.format 		///
+						"resource LBL_MSGBOX_STD_FOR_POPULATION_#_GREATER_THAN_0_FMT" "1"
+					stopbox stop "class STMP.value"
+// "Standard deviation for population 1" must be greater than 0.
+				}
+				if !main.ed_two_sd2.isNumlistGT(0) {
+					call STMP.format 		///
+						"resource LBL_MSGBOX_STD_FOR_POPULATION_#_GREATER_THAN_0_FMT" "2"
+					stopbox stop "class STMP.value"
+// "Standard deviation for population 2" must be greater than 0.
+				}
+				optionarg main.ed_two_sd1
+				optionarg main.ed_two_sd2
+			}
+		}
+		if main.rb_ztestpair1 {
+			require main.ed_stddiff
+			if !main.ed_stddiff.isNumlistGT(0) {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 			///
+					"resource LBL_MSGBOX_GREATER_THAN_0_FMT" ///
+					"resource LBL_STANDARD_DEVIATION_OF_THE_DIFFERENCES" 
+				stopbox stop "class _MSG_TMP.value"
+// "Standard deviation of the differences" must be greater than 0.
+			}
+			optionarg main.ed_stddiff
+		}
+		if main.rb_ztestpair2 {
+			require main.ed_paired_corr
+			if !main.ed_paired_corr.isNumlistInRange(-1,1) {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 			///
+					"resource LBL_MSGBOX_BETWEEN_NEG_1_AND_1_FMT"	///
+					"resource LBL_CORRELATION_BETWEEN_PAIRED_OBSERVATIONS"
+				stopbox stop "class _MSG_TMP.value"
+// "Correlation between paired observations" must be between -1 and 1.
+			}
+			optionarg main.ed_paired_corr
+			if main.rb_paired_sd {
+				require main.ed_paired_sd
+				if !main.ed_paired_sd.isNumlistGT(0) {
+					call create STRING _MSG_TMP
+					call _MSG_TMP.format 		///
+						"resource LBL_MSGBOX_GREATER_THAN_0_FMT" ///
+						"resource LBL_COMMON_STANDARD_DEVIATION"
+					stopbox stop "class _MSG_TMP.value"
+// "Common standard deviation" must be greater than 0.
+				}
+				optionarg /hidedefault main.ed_paired_sd
+			}
+			if main.rb_paired_sd12 {
+				require main.ed_paired_sd1
+				require main.ed_paired_sd2
+				if !main.ed_paired_sd1.isNumlistGT(0) {
+					call STMP.format 		///
+						"resource LBL_MSGBOX_STD_FOR_POPULATION_#_GREATER_THAN_0_FMT" "1"
+					stopbox stop "class STMP.value"
+// "Standard deviation for population 1" must be greater than 0.
+				}
+				if !main.ed_paired_sd2.isNumlistGT(0) {
+					call STMP.format		/// 
+						"resource LBL_MSGBOX_STD_FOR_POPULATION_#_GREATER_THAN_0_FMT" "2"
+					stopbox stop "class STMP.value"
+// "Standard deviation for population 2" must be greater than 0.
+				}
+				optionarg main.ed_paired_sd1
+				optionarg main.ed_paired_sd2
+			}
+		}
+		INCLUDE _level_main_pr
+	endoptions
+END
+
+

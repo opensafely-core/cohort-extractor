@@ -1,0 +1,476 @@
+/*
+    bayesgraph_mulsepopts.dlg
+    
+*!  VERSION 1.0.7  25feb2019
+    	
+	// SCRIPTS and PROGRAMS for external use
+		*
+*/
+
+VERSION 14.0
+
+INCLUDE _std_msmall
+INCLUDE header_gr_child
+
+HELP hlp1, view("help bayesgraph")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource BAYESGRAPH_MULSEPOPTS_DLG_HSCALE
+
+	create STRING parent_name
+	create STRING opt_name
+	create STRING plot_type
+	create STRING strI
+	create STRING main_plot_childdlg
+	create STRING main_plot_child_result
+	create STRING main_plot_result
+	create STRING main_plot_tmp
+	create STRING main_plot_tmp2
+	create STRING main_plot_selected
+	create STRING main_plot_selected2
+	create STRING main_plot_status
+	create DOUBLE nparas
+	create DOUBLE plot_num
+	create DOUBLE loopI
+	plot_num.setvalue 0
+	
+	create ARRAY main_plot_list
+	create ARRAY main_plot_childdlglist
+	create ARRAY main_plot_resultlist
+	create ARRAY main_plot_statuslist
+	create ARRAY main_plot_resultdisplaylist
+	create ARRAY main_plot_originlist
+	
+	create SVECTOR mainPlotDisplayVec
+	create SVECTOR mainPlotChildDialogVec
+	create SVECTOR mainPlotResultVec
+	create SVECTOR mainPlotStatusVec
+	create SVECTOR mainPlotResultDisplayVec
+	create SVECTOR mainPlotOrigVec
+	
+	create ARRAY tmp_plot_list
+	create ARRAY tmp_plot_childdlglist
+	create ARRAY tmp_plot_resultlist
+	create ARRAY tmp_plot_statuslist
+	create ARRAY tmp_plot_resultdisplaylist
+	create ARRAY tmp_plot_originlist
+	
+	create SVECTOR tmpPlotDisplayVec
+	create SVECTOR tmpPlotChildDialogVec
+	create SVECTOR tmpPlotResultVec
+	create SVECTOR tmpPlotStatusVec
+	create SVECTOR tmpPlotResultDisplayVec
+	create SVECTOR tmpPlotOriginVec
+	
+	create DOUBLE main_plot_position
+	create STRING output_str
+	create DOUBLE tmp_plotsize
+	create DOUBLE hasby
+	
+	create STRING build_STMP
+
+	create DOUBLE nchains
+	nchains.setvalue e(nchains)
+
+	hasby.setvalue 0
+	parent_name.setvalue class PARENT._dlg_rsrcname
+	parent_name.withvalue nparas.setvalue			///
+		class @.NumOfParas.value
+	parent_name.withvalue plot_type.setvalue		///
+		class @.plotType.value
+	parent_name.withvalue hasby.setvalue			///
+		class @.hasby.value
+
+	program parse_message
+	program plot_SETUP
+	program check_buttons
+	
+	main.tb_note.formatlabel 					///
+		"resource BAYESGRAPH_MULSEPOPTS_MAIN_TB_NOTE_FMT"	///
+		"resource LBL_BU_EDIT"
+END
+
+PROGRAM parse_message
+BEGIN
+	if __MESSAGE.contains("-chain-") {
+		call opt_name.setvalue "chain"
+		call nchains.withvalue plot_num.setvalue @
+	}
+	else {
+		call opt_name.setvalue "graph"
+		call nparas.withvalue plot_num.setvalue @
+	}
+	if plot_num.isgt(100) {
+		call plot_num.setvalue 10
+	}
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	call tmp_plotsize.setvalue class tmpPlotDisplayVec.size
+	
+	if tmp_plotsize & tmp_plotsize.equals(plot_num) {
+		call tmpPlotDisplayVec.copyToArray main_plot_list
+		call main.lb_plot.repopulate
+		call mainPlotDisplayVec.copyFromArray main_plot_list
+		
+		call tmpPlotChildDialogVec.copyToArray main_plot_childdlglist
+		call mainPlotChildDialogVec.copyFromArray main_plot_childdlglist
+		
+		call tmpPlotResultVec.copyToArray main_plot_resultlist
+		call mainPlotResultVec.copyFromArray main_plot_resultlist
+		
+		call tmpPlotStatusVec.copyToArray main_plot_statuslist
+		call mainPlotStatusVec.copyFromArray main_plot_statuslist
+		
+		call tmpPlotResultDisplayVec.copyToArray main_plot_resultdisplaylist
+		call mainPlotResultDisplayVec.copyFromArray main_plot_resultdisplaylist
+		
+		call tmpPlotOriginVec.copyToArray main_plot_originlist
+		call mainPlotOrigVec.copyFromArray main_plot_originlist
+	}
+	else {
+		call program plot_SETUP
+	}
+END
+
+PROGRAM check_buttons
+BEGIN
+	if plot_num.equals(0) {
+		call main.bu_edit.disable
+		call main.bu_enable.disable
+		call main.bu_disable.disable
+	}
+	else {
+		call main.bu_edit.enable
+		call main.bu_enable.disable
+		call main.bu_disable.disable
+	}
+END
+
+PROGRAM plot_SETUP
+BEGIN
+	call main_plot_list.Arrdropall
+	call main_plot_childdlglist.Arrdropall
+	call main_plot_resultlist.Arrdropall
+	call main_plot_statuslist.Arrdropall
+	call main_plot_resultdisplaylist.Arrdropall
+	call mainPlotDisplayVec.dropall
+	call mainPlotChildDialogVec.dropall
+	call mainPlotResultVec.dropall
+	call mainPlotStatusVec.dropall
+	call mainPlotResultDisplayVec.dropall
+	
+	call loopI.setvalue 1
+	while(loopI.isle(plot_num)) {
+		call loopI.withvalue strI.format "resource LBL_PLOT_FMT" "@" ""
+		call strI.withvalue main_plot_list.Arrpush @
+		
+		call plot_type.withvalue strI.setvalue @
+		call strI.append "_dlg"
+		call strI.append class loopI.value
+		call strI.withvalue main_plot_childdlglist.Arrpush @
+		
+		call main_plot_resultlist.Arrpush ""
+		call main_plot_resultdisplaylist.Arrpush ""
+		call main_plot_statuslist.Arrpush "active"
+		
+		call loopI.increment
+	}
+	
+	call mainPlotDisplayVec.copyFromArray main_plot_list
+	call mainPlotChildDialogVec.copyFromArray main_plot_childdlglist
+	call mainPlotResultVec.copyFromArray main_plot_resultlist
+	call mainPlotStatusVec.copyFromArray main_plot_statuslist
+	call mainPlotResultDisplayVec.copyFromArray main_plot_resultdisplaylist
+	call mainPlotOrigVec.copyFromArray main_plot_list
+END
+
+DIALOG main, title(resource BAYESGRAPH_MULSEPOPTS_TITLE) 	///
+	tabtitle(resource LBL_TAB_PLOT)
+BEGIN
+  TEXT     tx_plot		_lft	_top	_iwd	.,	///
+	label(resource LBL_SELECT_PLOT)
+  LISTBOX  lb_plot		@	_ss	_vnwd	145,	///
+	contents(main_plot_list)				///
+	ondblclick(program mulopts_plot_edit)			///
+	onselchange(program mulopts_plot_sel)			///
+	nomemory
+
+  DEFINE y @y
+  
+  BUTTON bu_edit 		140	y	100	.,	///
+	label(resource LBL_BU_EDIT)				///
+	onpush(program mulopts_plot_edit)
+	
+  BUTTON bu_enable 		@	+25	@	.,	///
+	label(resource LBL_BU_ENABLE)				///
+	onpush(program mulopts_plot_enable)
+	
+  BUTTON bu_disable 		@	+25	@	.,	///
+	label(resource LBL_BU_DISABLE)				///
+	onpush(program mulopts_plot_disable)
+
+  TEXTBOX tb_note		_lft	185	_iwd	_tb3,
+END
+
+PROGRAM mulopts_plot_edit
+BEGIN
+	call mainPlotDisplayVec.findstr class			///
+		main.lb_plot.value
+	call main_plot_position.setvalue class			///
+		mainPlotDisplayVec.position
+	call main_plot_position.withvalue			///
+		main_plot_childdlg.setvalue			///
+		class mainPlotChildDialogVec.values[@]
+		
+	if plot_type.equals("diagnostics") {
+		call main_plot_tmp.setvalue "bayesgraph_compact AS "
+		call main_plot_tmp.append class main_plot_childdlg.value
+		call main_plot_tmp.append ", message(-paren-"
+		if __MESSAGE.contains("-chain-") {
+			call main_plot_tmp.append "-chain-"
+		}
+		call main_plot_tmp.append ")"
+	}
+	if plot_type.equals("trace") {
+		call main_plot_tmp.setvalue "bayesgraph_tsline AS "
+		call main_plot_tmp.append class main_plot_childdlg.value
+	}
+	if plot_type.equals("ac") {
+		call main_plot_tmp.setvalue "bayesgraph_ac AS "
+		call main_plot_tmp.append class main_plot_childdlg.value
+	}
+	if plot_type.equals("histogram") {
+		call main_plot_tmp.setvalue "bayesgraph_hist AS "
+		call main_plot_tmp.append class main_plot_childdlg.value
+	}
+	if plot_type.equals("kdensity") {
+		call main_plot_tmp.setvalue "bayesgraph_kdensity AS "
+		call main_plot_tmp.append class main_plot_childdlg.value
+	}
+	if plot_type.equals("cusum") {
+		call main_plot_tmp.setvalue "bayesgraph_tsline AS "
+		call main_plot_tmp.append class main_plot_childdlg.value
+	}
+	if plot_type.equals("matrix") {
+		call main_plot_tmp.setvalue "bayesgraph_matrix AS "
+		call main_plot_tmp.append class main_plot_childdlg.value
+	}
+	call main_plot_tmp.withvalue create CHILD @
+	
+	call main_plot_childdlg.withvalue @.setExitString	///
+		"main_plot_child_result"
+	call main_plot_childdlg.withvalue @.setExitAction	///
+		"program mulopts_plot_child_edit_done"
+END
+
+PROGRAM mulopts_plot_child_edit_done
+BEGIN
+	if plot_type.equals("diagnostics") {
+		if __MESSAGE.contains("-chain-") {
+			call opt_name.withvalue main_plot_result.setvalue "@"
+			call main_plot_result.append			///
+				class main_plot_position.value
+			call main_plot_result.append "opts("
+			call main_plot_child_result.withvalue 	///
+				main_plot_result.append @
+			call main_plot_result.append ")"
+		}
+		else {
+			call main_plot_child_result.withvalue 		///
+				main_plot_result.setvalue @
+		}
+	}
+	if plot_type.equals("trace") | plot_type.equals("ac") |	///
+		plot_type.equals("histogram") | 		///
+		plot_type.equals("kdensity")  |			///
+		plot_type.equals("matrix")  |			///
+		plot_type.equals("cusum") {
+		if main_plot_child_result.isneq("") &		///
+			!main_plot_child_result.contains("traceopts()") & ///
+			!main_plot_child_result.contains("histopts()") & ///
+			!main_plot_child_result.contains("kdensopts()") & ///
+			!main_plot_child_result.contains("acopts( )") {
+			call opt_name.withvalue main_plot_result.setvalue "@"
+			call main_plot_result.append class main_plot_position.value
+			call main_plot_result.append "opts("
+			call main_plot_child_result.withvalue 	///
+				main_plot_result.append @
+			call main_plot_result.append ")"
+		}
+		else {
+			call main_plot_result.setvalue ""
+		}
+	}
+	call mainPlotResultVec.store class			///
+		main_plot_position.value class			///
+		main_plot_result.value
+		
+	call mainPlotResultDisplayVec.store class		///
+		main_plot_position.value class			///
+		main_plot_result.value
+	
+	if main_plot_result.isneq("") {
+		call main_plot_position.withvalue 		///
+			main_plot_selected.setvalue class  	///
+			mainPlotOrigVec.values[@]
+			
+		call main_plot_position.withvalue 		///
+			main_plot_status.setvalue class 	///
+			mainPlotStatusVec.values[@]
+		
+		if main_plot_status.equals("active") {
+			call main_plot_selected.withvalue	///
+				mainPlotDisplayVec.store	///
+				class main_plot_position.value "@ *"
+			call main_plot_selected.withvalue main_plot_selected2.setvalue ///
+				"@ *"
+		}
+		else {
+			call build_STMP.format "resource LBL_PAREN_DISABLED"
+			call main_plot_selected.append " "
+			call main_plot_selected.append "*"
+			call main_plot_selected.append " "
+			call main_plot_selected.append class build_STMP.value
+			
+			call main_plot_selected.withvalue	///
+				mainPlotDisplayVec.store	///
+				class main_plot_position.value "@"
+			call mainPlotResultVec.store class 	///
+				main_plot_position.value ""
+			call main_plot_selected.withvalue main_plot_selected2.setvalue ///
+				"@"
+		}
+	}
+	else {
+		call main_plot_position.withvalue 		///
+			main_plot_selected.setvalue class  	///
+			mainPlotOrigVec.values[@]
+		call main_plot_selected.withvalue		///
+			mainPlotDisplayVec.store		///
+			class main_plot_position.value "@"
+		call main_plot_selected.withvalue main_plot_selected2.setvalue ///
+			"@"
+	}
+	
+	call mainPlotDisplayVec.copyToArray main_plot_list
+	call main.lb_plot.repopulate
+	call main.lb_plot.setvalue class main_plot_selected2.value
+END
+
+PROGRAM mulopts_plot_enable
+BEGIN
+	call mainPlotDisplayVec.findstr class			///
+		main.lb_plot.value
+	call main_plot_position.setvalue class			///
+		mainPlotDisplayVec.position
+
+	call mainPlotStatusVec.store class			///
+		main_plot_position.value "active"
+
+	call main_plot_position.withvalue 			///
+		build_STMP.setvalue class  			///
+		mainPlotOrigVec.values[@]
+		
+	call build_STMP.withvalue main_plot_tmp.setvalue 	///
+		"@ *"
+		
+	call mainPlotDisplayVec.store				///
+		class main_plot_position.value class		///
+		main_plot_tmp.value
+	call mainPlotResultVec.store				///
+		class main_plot_position.value class		///
+		mainPlotResultDisplayVec.values[@]
+		
+	call mainPlotStatusVec.copyToArray main_plot_statuslist
+	call mainPlotResultVec.copyToArray main_plot_resultlist
+
+	call mainPlotDisplayVec.copyToArray main_plot_list
+	call main_plot_tmp.withvalue main_plot_tmp2.setvalue "@"
+	call main.lb_plot.repopulate
+	call main.lb_plot.setvalue class main_plot_tmp2.value
+END
+
+PROGRAM mulopts_plot_disable
+BEGIN
+	call mainPlotDisplayVec.findstr class			///
+		main.lb_plot.value
+	call main_plot_position.setvalue class			///
+		mainPlotDisplayVec.position
+
+	call mainPlotStatusVec.store class			///
+		main_plot_position.value "disable"
+	call mainPlotResultVec.store class main_plot_position.value ""
+
+	call main_plot_position.withvalue 			///
+		main_plot_tmp.setvalue class  			///
+		mainPlotOrigVec.values[@]
+		
+	call build_STMP.format "resource LBL_PAREN_DISABLED"
+	call main_plot_tmp.append " "
+	call main_plot_tmp.append "*"
+	call main_plot_tmp.append " "
+	call main_plot_tmp.append class build_STMP.value
+		
+	call mainPlotDisplayVec.store				///
+		class main_plot_position.value class		///
+		main_plot_tmp.value
+	
+	call mainPlotStatusVec.copyToArray main_plot_statuslist
+	call mainPlotResultVec.copyToArray main_plot_resultlist
+
+	call mainPlotDisplayVec.copyToArray main_plot_list
+	call main_plot_tmp.withvalue main_plot_tmp2.setvalue "@"
+	call main.lb_plot.repopulate
+	call main.lb_plot.setvalue class main_plot_tmp2.value
+END
+
+PROGRAM mulopts_plot_sel
+BEGIN	
+	call mainPlotDisplayVec.findstr class			///
+		main.lb_plot.value
+	call main_plot_position.setvalue class			///
+		mainPlotDisplayVec.position
+	call main_plot_position.withvalue main_plot_tmp.setvalue	///
+		class mainPlotDisplayVec.values[@]
+	call main_plot_position.withvalue main_plot_status.setvalue	///
+		class mainPlotStatusVec.values[@]
+	
+	if main_plot_tmp.contains("*") {
+		if main_plot_status.iseq("active") {
+			call main.bu_enable.disable
+			call main.bu_disable.enable
+		}
+		if main_plot_status.iseq("disable") {
+			call main.bu_enable.enable
+			call main.bu_disable.disable
+		}
+	}
+	else {
+		call main.bu_enable.disable
+		call main.bu_disable.disable
+	}
+END
+
+PROGRAM command
+BEGIN	
+	call mainPlotDisplayVec.copyToArray tmp_plot_list
+	call tmpPlotDisplayVec.copyFromArray tmp_plot_list
+	call mainPlotChildDialogVec.copyToArray tmp_plot_childdlglist
+	call tmpPlotChildDialogVec.copyFromArray tmp_plot_childdlglist
+	call mainPlotResultVec.copyToArray tmp_plot_resultlist
+	call tmpPlotResultVec.copyFromArray tmp_plot_resultlist
+	call mainPlotStatusVec.copyToArray tmp_plot_statuslist
+	call tmpPlotStatusVec.copyFromArray tmp_plot_statuslist
+	call mainPlotResultDisplayVec.copyToArray tmp_plot_resultdisplaylist
+	call tmpPlotResultDisplayVec.copyFromArray tmp_plot_resultdisplaylist
+	
+	call mainPlotOrigVec.copyToArray tmp_plot_originlist
+	call tmpPlotOriginVec.copyFromArray tmp_plot_originlist
+	
+	call mainPlotResultVec.copyToString output_str
+	put " " output_str
+END

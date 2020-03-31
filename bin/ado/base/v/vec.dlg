@@ -1,0 +1,386 @@
+/*
+    vec.dlg
+
+*!  VERSION 1.1.1  21dec2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 410
+INCLUDE header
+HELP hlp1, view("help vec")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource VEC_DLG_HSCALE
+END
+
+
+DIALOG model, tabtitle(resource LBL_TAB_MODEL) ///
+	label(resource VEC_DLG_TITLE)
+BEGIN
+  DEFINE _x _xsetbu
+  DEFINE _y _top
+  INCLUDE _bu_tsset
+
+  TEXT     tx_dv             _lft      _topph    129       .,		/*
+		*/ label(resource LBL_DEPENDENT_VARIABLES)
+  VARLIST  vl_dv             @         _ss       _iwd      .,		/*
+  		*/ numeric						/*
+		*/ label(resource LBL_DEPENDENT_VARIABLES) ts
+
+  SPINNER  sp_rank           @           +35       _spwd       .,	///
+  		default(1) min(1) option(rank)
+  TEXT     tx_rank           _spsep      @         _spr        ., 	///
+  		label(resource VEC_MODEL_TX_RANK)
+
+  SPINNER  sp_lags           _lft        _ls       _spwd       .,	///
+  		default(2) min(1) option(lags)
+  TEXT     tx_lags           _spsep      @         _spr        .,	///
+  		label(resource VEC_MODEL_TX_LAGS)
+
+  TEXT     tx_trend          _lft        _ls       _cwd1       .,	///
+  		label(resource VEC_MODEL_TX_TREND)
+  COMBOBOX cb_trend          @           _ss       _vnwd       .,	///
+  		dropdownlist 						///
+  		option(trend) contents(trend_spec) default(constant) 	///
+  		onselchangelist(trend_action)
+
+  GROUPBOX gb_const          _lft        +35       _iwd        _ht9h,	///
+  		label(resource LBL_CONSTRAINTS)
+
+  BUTTON   bu_constraint     _xsetbu     _ss       110         .,	///
+  		label(resource VEC_MODEL_BU_CONSTRAINT)			///
+		onpush(view dialog cons_define)				///
+		tooltip(resource VEC_MODEL_BU_CONSTRAINT_TIP)
+
+  CHECKBOX ck_bconstraint    _ilft       @         _comb4_3    .,	///
+  		onclickon(program bconstant_on)				///
+  		onclickoff(program bconstant_off)			///
+  		label(resource VEC_MODEL_CK_BCONSTRAINT)
+  COMBOBOX cb_bconstraint    @           _ss       @           .,	///
+  		append							///
+		dropdown						///
+		contents(constraint)					///
+		option(bconstraints) 					///
+  		label(resource VEC_MODEL_CK_BCONSTRAINT)
+
+  CHECKBOX ck_aconstraint    _ilft       _ls       _comb4_3    .,	///
+  		onclickon(program aconstant_on)				///
+  		onclickoff(program aconstant_off)			///
+  		label(resource VEC_MODEL_CK_ACONSTRAINT)
+  COMBOBOX cb_aconstraint    @           _ss       @           .,	///
+  		append							///
+		dropdown						///
+		contents(constraint)					///
+		option(aconstraints) 					///
+  		label(resource VEC_MODEL_CK_ACONSTRAINT)
+END
+
+LIST trend_spec
+BEGIN
+	trend
+	rtrend
+	constant
+	rconstant
+	none
+END
+
+LIST trend_action
+BEGIN
+	model2.vl_sindicator.enable
+	model2.vl_sindicator.enable
+	model2.vl_sindicator.enable
+	model2.vl_sindicator.disable
+	model2.vl_sindicator.disable
+END
+
+PROGRAM bconstant_on
+BEGIN
+	call model.cb_bconstraint.enable
+	call script tab_max_enable
+END
+
+PROGRAM bconstant_off
+BEGIN
+	call model.cb_bconstraint.disable
+	if ! model.ck_aconstraint {
+		call script tab_max_disable
+	}
+END
+
+PROGRAM aconstant_on
+BEGIN
+	call model.cb_aconstraint.enable
+	call script tab_max_enable
+END
+
+PROGRAM aconstant_off
+BEGIN
+	call model.cb_aconstraint.disable
+	if ! model.ck_bconstraint {
+		call script tab_max_disable
+	}
+END
+
+DIALOG model2, tabtitle(resource LBL_TAB_ADV_MODEL)
+BEGIN
+  GROUPBOX gb_advanced       _lft        _top      _iwd      _ht9,	///
+  		label(resource VEC_MODEL2_GB_ADVANCED)
+  TEXT     tx_sindicator     _ilft       _ss       _inwd     .,		///
+		label(resource VEC_MODEL2_TX_SINDICATOR)
+  VARLIST  vl_sindicator     @           _ss       @         .,		///
+  		option(sindicators)					///
+		label(resource VEC_MODEL2_TX_SINDICATOR)
+
+  CHECKBOX ck_noreduce       @           _ls       @         .,		///
+  		option(noreduce)					///
+  		label(resource VEC_MODEL2_CK_NOREDUCE)
+  TEXT     tx_noreduce       _indent2    _vss      _inwd     .,		///
+  		label(resource VEC_MODEL2_TX_NOREDUCE)
+END
+
+INCLUDE byifin
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  CHECKBOX ck_nobtable       _lft      _ls       _iwd      .,		///
+  		option(nobtable)					///
+  		label(resource VEC_RPT_CK_NOBTABLE)
+  CHECKBOX ck_noidtest       @         _ms       @         .,		///
+  		option(noidtest)					///
+  		label(resource VEC_RPT_CK_NOIDTEST)
+  CHECKBOX ck_alpha          @         _ms       @         .,		///
+  		option(alpha)						///
+  		label(resource VEC_RPT_CK_ALPHA)
+  CHECKBOX ck_pi             @         _ms       @         .,		///
+  		option(pi)						///
+  		onclickon(rpt.ck_noptable.disable)			///
+  		onclickoff(rpt.ck_noptable.enable)			///
+  		label(resource VEC_RPT_CK_PI)
+  CHECKBOX ck_noptable       @         _ms       @         .,		///
+  		option(noptable)					///
+  		onclickon(rpt.ck_pi.disable)				///
+  		onclickoff(rpt.ck_pi.enable)				///
+  		label(resource VEC_RPT_CK_NOPTABLE)
+  CHECKBOX ck_mai            @         _ms       @         .,		///
+  		option(mai)						///
+  		label(resource VEC_RPT_CK_MAI)
+  CHECKBOX ck_noetable       @         _ms       @         .,		///
+  		option(noetable)					///
+  		label(resource VEC_RPT_CK_NOETABLE)
+  CHECKBOX ck_dforce         @         _ms       @         .,		///
+  		option(dforce)						///
+  		label(resource VEC_RPT_CK_DFORCE)
+  TEXT     tx_force          _indent2  _vss      _inwd     .,		///
+  		label(resource VEC_RPT_TX_FORCE)
+
+  DEFINE _x _lft
+  DEFINE _y _ms
+  DEFINE _cx _iwd
+  INCLUDE _nocnsreport
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ms
+  DEFINE _cx _iwd
+  INCLUDE _vsquish
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+
+DIALOG max, tabtitle(resource LBL_TAB_MAXIMIZATION)
+BEGIN
+  SPINNER  sp_iter           _lft      _top      _spwd     .,		///
+		label(resource LBL_MAXIMUM_ITERATIONS)			///
+		min(1)							///
+		max(16000)						///
+		default(c(maxiter))					///
+		option("iterate")
+
+  TEXT     tx_iter           _spsep    @         _spr2     .,		///
+		label(resource LBL_MAXIMUM_ITERATIONS)
+
+  GROUPBOX gb_iterlog        _lft      _ls       _cwd3_1   _ht4,	///
+		label(resource LBL_ITERATION_LOG)
+  DEFINE holdy @y
+  RADIO	   rb_log            _indent   _ss       _inwd     .,		///
+  		first 							///
+		onclickon(program showlog_on)				///
+		label(resource LBL_SHOW_LOG)
+  RADIO	   rb_nolog          @         _ss       @	   .,		///
+  		last option(nolog)					///
+		onclickon(script showlog_off)				///
+		label(resource LBL_SUPPRESS_LOG)
+
+  GROUPBOX gb_addlog         _lft3_2   holdy     _comb3_1  _ht4,	///
+		label(resource VEC_MAX_GB_ADDLOG)
+  CHECKBOX ck_trace          _indent   _ss       _inwd     .,		///
+		label(resource LBL_PARAMETER_ESTIMATES)			///
+		option(trace)
+  CHECKBOX ck_toltrace       @         _ss       @         .,		///
+  		option(toltrace)					///
+		label(resource VEC_MAX_CK_TOLTRACE)
+
+  GROUPBOX gb_tolerance      _lft      _xls      _iwd      _ht5h,	///
+		label(resource LBL_CONVERGENCE_TOLERANCE)
+  EDIT     ed_tolerance      _ilft     _ss       _en7wd    .,		///
+		label(resource VEC_MAX_ED_TOLERANCE)			///
+		option(tolerance) default(1e-7)
+  TEXT     tx_tolerance      _en7sep   @         _en7rb    .,		///
+		label(resource VEC_MAX_TX_TOLERANCE)
+  EDIT     ed_ltolerance     _ilft     _ls       _en7wd    .,		///
+		label(resource LBL_LOG_LIKELIHOOD)			///
+		option(ltolerance) default(1e-10)
+  TEXT     tx_ltolerance     _en7sep   @         _en7rb    .,		///
+		label(resource VEC_MAX_TX_LTOLERANCE)
+
+  GROUPBOX gb_from           _lft      _xxls     _iwd      _ht6,	///
+  		label(resource VEC_MAX_GB_FROM)
+  COMBOBOX cb_afrom          _ilft     _ms       _vnwd     .,		///
+		option(afrom) dropdown					///
+		contents(vector)
+  TEXT     tx_afrom          _vnsep    @         _vnrb     .,		///
+		label(resource VEC_MAX_TX_AFROM)
+
+  COMBOBOX cb_bfrom          _ilft     _ls       _vnwd     .,		///
+		option(bfrom) dropdown					///
+		contents(vector)
+  TEXT     tx_bfrom          _vnsep    @         _vnrb     .,		///
+		label(resource VEC_MAX_TX_BFROM)
+
+END
+
+PROGRAM showlog_on
+BEGIN
+	if !D(max.rb_log) {
+	// this test must be performed since this tab is initially disabled
+		call max.ck_trace.enable
+		call max.ck_toltrace.enable
+		call max.gb_addlog.enable
+	}
+END
+
+SCRIPT showlog_off
+BEGIN
+	max.ck_trace.disable
+	max.ck_toltrace.disable
+	max.gb_addlog.disable
+END
+
+// wrapper for program
+SCRIPT tab_max_enable
+BEGIN
+	program tab_max_enable_pr
+END
+
+PROGRAM tab_max_enable_pr
+BEGIN
+	call max.sp_iter.enable
+	call max.tx_iter.enable
+	call max.gb_iterlog.enable
+	call max.rb_log.enable
+	call max.rb_nolog.enable
+	if ! max.rb_nolog {
+		call max.gb_addlog.enable
+		call max.ck_trace.enable
+		call max.ck_toltrace.enable
+	}
+	call max.gb_tolerance.enable
+	call max.ed_tolerance.enable
+	call max.tx_tolerance.enable
+	call max.ed_ltolerance.enable
+	call max.tx_ltolerance.enable
+	call max.gb_from.enable
+	call max.cb_afrom.enable
+	call max.tx_afrom.enable
+	call max.cb_bfrom.enable
+	call max.tx_bfrom.enable
+END
+
+SCRIPT tab_max_disable
+BEGIN
+	max.sp_iter.disable
+	max.tx_iter.disable
+	max.gb_iterlog.disable
+	max.rb_log.disable
+	max.rb_nolog.disable
+	max.gb_addlog.disable
+	max.ck_trace.disable
+	max.ck_toltrace.disable
+	max.gb_tolerance.disable
+	max.ed_tolerance.disable
+	max.tx_tolerance.disable
+	max.ed_ltolerance.disable
+	max.tx_ltolerance.disable
+	max.gb_from.disable
+	max.cb_afrom.disable
+	max.tx_afrom.disable
+	max.cb_bfrom.disable
+	max.tx_bfrom.disable
+END
+
+PROGRAM command
+BEGIN
+	require model.cb_bconstraint
+	require model.cb_aconstraint
+	put " " /program by_output
+	put "vec "
+	varlist model.vl_dv
+	put " " /program ifin_output
+	beginoptions
+		optionarg model.cb_trend
+		optionarg /hidedefault model.sp_rank
+		optionarg /hidedefault model.sp_lags
+		optionarg model.cb_bconstraint
+		optionarg model.cb_aconstraint
+
+		optionarg model2.vl_sindicator
+		option model2.ck_noreduce
+
+		optionarg /hidedefault rpt.sp_level
+		option rpt.ck_nobtable
+		option rpt.ck_noidtest
+		option rpt.ck_alpha
+		option rpt.ck_pi
+		option rpt.ck_noptable
+		option rpt.ck_mai
+		option rpt.ck_noetable
+		option rpt.ck_dforce
+		INCLUDE _nocnsreport_pr
+		INCLUDE _report_columns_pr
+		INCLUDE _vsquish_pr
+		put " " rpt_bu_fmtcoefResults
+
+		optionarg /hidedefault max.sp_iter
+		option max.rb_nolog
+		option max.ck_trace
+		option max.ck_toltrace
+		optionarg /hidedefault max.ed_tolerance
+		optionarg /hidedefault max.ed_ltolerance
+		optionarg max.cb_afrom
+		optionarg max.cb_bfrom
+	endoptions
+END

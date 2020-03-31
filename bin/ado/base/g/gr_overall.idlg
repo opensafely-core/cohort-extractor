@@ -1,0 +1,391 @@
+/*
+    gr_overall.idlg
+
+*!  VERSION 1.1.6  11dec2019
+
+	// SCRIPTS and PROGRAMS for external use
+	   * SCRIPT gr_overall_disable
+	   * SCRIPT gr_overall_enable
+	   * SCRIPT gr_overall_setByoptsContext_on
+	   * SCRIPT gr_overall_setByoptsContext_off
+	   * SCRIPT gr_overall_setByContext_on
+	   * SCRIPT gr_overall_setByContext_off
+
+	   * SCRIPT gr_overall_setByOutput_on	
+	   	// Same as gr_overall_setByContext_on but does not show the 
+	   	//   buttons for subgraphs
+	   * SCRIPT gr_overall_setByOutput_off
+	   	// Same as gr_overall_setByContext_off but does not show the 
+	   	//   buttons for subgraphs (they should already be off)
+
+	   * SCRIPT gr_overall_setName_off
+	   * SCRIPT gr_overall_setAspect_off
+*/
+
+SCRIPT gr_overall_setByoptsContext_on
+BEGIN
+	overall_isByoptsContext.settrue
+	overall.bu_subregion.show
+	overall.bu_suborganize.show
+END
+SCRIPT gr_overall_setByoptsContext_off
+BEGIN
+	overall_isByoptsContext.setfalse
+	overall.bu_subregion.hide
+	overall.bu_suborganize.hide
+END
+
+SCRIPT gr_overall_setByContext_on
+BEGIN
+	overall_isByContext.settrue
+	overall.bu_subregion.show
+	overall.bu_suborganize.show
+END
+SCRIPT gr_overall_setByContext_off
+BEGIN
+	overall_isByContext.setfalse
+	overall.bu_subregion.hide
+	overall.bu_suborganize.hide
+END
+
+SCRIPT gr_overall_setByOutput_on
+BEGIN
+	overall_isByContext.settrue
+END
+SCRIPT gr_overall_setByOutput_off
+BEGIN
+	overall_isByContext.setfalse
+END
+
+SCRIPT gr_overall_disable
+BEGIN
+	overall.tx_scheme.disable
+	overall.cb_scheme.disable
+	overall.tx_name.disable
+	overall.ed_name.disable
+	overall.ck_replace.disable
+	overall.gb_size.disable
+	overall.tx_width.disable
+	overall.ed_width.disable
+	overall.tx_height.disable
+	overall.ed_height.disable
+	overall.ck_scale.disable
+	overall.ed_scale.disable
+	overall.tx_scale.disable
+	overall.bu_region.disable
+	overall.bu_subregion.disable
+	overall.bu_suborganize.disable
+	overall.ck_aspect.disable
+	script overall_aspect_off
+	overall_disabled.settrue
+END
+
+SCRIPT gr_overall_enable
+BEGIN
+	program gr_overall_enable_wrk
+END
+PROGRAM gr_overall_enable_wrk
+BEGIN
+	call overall.tx_scheme.enable
+	call overall.cb_scheme.enable
+	call overall.tx_name.enable
+	call overall.ed_name.enable
+	call overall.ck_replace.enable
+	call overall.gb_size.enable
+	call overall.tx_width.enable
+	call overall.ed_width.enable
+	call overall.tx_height.enable
+	call overall.ed_height.enable
+	call overall.ck_scale.enable
+	if overall.ck_scale & overall.ck_scale.isenabled() {
+		call overall.ed_scale.enable
+		call overall.tx_scale.enable
+	}
+	call overall.bu_region.enable
+	call overall.bu_subregion.enable
+	call overall.bu_suborganize.enable
+	call overall.ck_aspect.enable
+	if overall.ck_aspect {
+		call program overall_aspect_on
+	}
+	call overall_disabled.setfalse
+END
+
+SCRIPT gr_overall_setName_off
+BEGIN
+	overall.tx_name.hide
+	overall.ed_name.hide
+	overall.ck_replace.hide
+END
+
+SCRIPT gr_overall_setAspect_off
+BEGIN
+	overall.ck_aspect.hide
+	overall.tx_aspect.hide
+	overall.ed_aspect.hide
+	overall.tx_placement.hide
+	overall.cb_placement.hide
+END
+
+SCRIPT overall_PREINIT
+BEGIN
+	create STRING overall_regionResults
+	create STRING overall_subregionResults
+	create STRING overall_subOrganizResults
+	create BOOLEAN overall_disabled
+
+	create BOOLEAN overall_isByoptsContext
+	create BOOLEAN overall_isByContext
+	overall.bu_subregion.hide
+	overall.bu_suborganize.hide
+END
+
+SCRIPT overall_POSTINIT
+BEGIN
+	program overall_checkRegionResults
+	program overall_checkSubregionResults
+	program overall_checkSubOrganizResults
+END
+
+DIALOG overall, tabtitle(resource LBL_OVERALL)
+BEGIN
+  TEXT	   tx_scheme	_lft	_top	120	.,		///
+	label(resource LBL_SCHEME)
+  COMBOBOX cb_scheme	@	_ss	@	.,		///
+	option(scheme) dropdownlist contents(schemes)
+	
+  TEXT     tx_name	180	_top	120	.,		///
+	label(resource LBL_NAME_OF_GRAPH)
+  EDIT     ed_name	180	_ss	120	.,
+  CHECKBOX ck_replace	+125	@	120	.,		///
+	label(resource LBL_REPLACE) nomemory
+	
+  GROUPBOX gb_size	_lft	+30	_iwd	_ht4,		///
+	label(resource LBL_GRAPH_SIZE)
+  TEXT     tx_width	_ilft	_ss	_vnwd	.,		///
+	label(resource LBL_WIDTH_INCHES)
+  DEFINE y @y
+  EDIT     ed_width	@	_ss	@	.,		///
+	numonly option(xsize)
+  TEXT     tx_height	180	y	_vnwd	.,		///
+	label(resource LBL_HEIGHT_INCHES)
+  EDIT     ed_height	@	_ss	@	.,		///
+	numonly option(ysize)
+  HLINK    hl_graphsize _vnsep	@	@	.,		///
+	onpush("view help region_options##graphsize")		///
+	label(resource LBL_GRAPH_SIZE)
+
+  CHECKBOX ck_scale	_lft	+40	200	_ht4,		///
+	label(resource GR_OVERALL_OVERALL_CK_SCALE) 		///
+	groupbox						///
+	onclickon(program overall_scale_on)			///
+	onclickoff(program overall_scale_off)
+DEFINE y2 @y
+  TEXT     tx_scale	_indent	_ss	150	.,		///
+	label(resource GR_OVERALL_OVERALL_TX_SCALE)
+  EDIT	   ed_scale	@	_ss	40	.,		///
+	numonly option(scale) default(1)			///
+	label(resource LBL_SCALE)
+
+  CHECKBOX ck_aspect	220	y2	_rj220	_ht4,		///
+	label(resource GR_OVERALL_OVERALL_CK_ASPECT)		///
+	groupbox						///
+	onclickon(program overall_aspect_on)			///
+	onclickoff(script overall_aspect_off)
+DEFINE y2 @y
+  TEXT     tx_aspect	_indent	_ss	90	.,		///
+	label(resource LBL_ASPECT_RATIO)
+  DEFINE y @y
+  EDIT     ed_aspect	@	_ss	@	.,
+  TEXT	   tx_placement	+100	y	100	.,		///
+	label(resource LBL_PLACEMENT)
+  COMBOBOX cb_placement	@	_ss	@	.,		///
+	dropdownlist contents(compass) option(placement)
+
+  BUTTON   bu_region	_lft	+42	120	.,		///
+	label(resource LBL_REGION_PROPERTIES)			///
+	onpush(program overall_getRegionOpts)			///
+	tooltip(resource LBL_PROPERTIES_AFFECT_BOTH_GRAPH_PLOT_REGIONS)
+  BUTTON   bu_subregion	+130	@	120	.,		///
+	label(resource GR_OVERALL_OVERALL_BU_SUBREGION)		///
+	onpush(script overall_getSubRegionOpts)			///
+	tooltip(resource LBL_PROP_AFFECT_BOTH_GRAPH_PLOT_REGION_IND_SUBGR)
+  BUTTON   bu_suborganize +130	@	150	.,		///
+	label(resource LBL_SUBGRAPH_ORGANIZATION)		///
+	onpush(script overall_getSubOrganizationOpts)		///
+	tooltip(resource LBL_AFFECT_HOW_SUBGRAPHS_ARE_ARRANGED)
+END
+
+PROGRAM overall_aspect_on
+BEGIN
+	if overall.ck_aspect.isenabled() {
+		call overall.tx_aspect.enable
+		call overall.ed_aspect.enable
+		call overall.tx_placement.enable
+		call overall.cb_placement.enable
+	}
+END
+
+SCRIPT overall_aspect_off
+BEGIN
+	overall.tx_aspect.disable
+	overall.ed_aspect.disable
+	overall.tx_placement.disable
+	overall.cb_placement.disable
+END
+
+PROGRAM overall_scale_on
+BEGIN
+	if overall.ck_scale.isenabled() {
+		call overall.ed_scale.enable
+		call overall.tx_scale.enable
+	}
+END
+
+PROGRAM overall_scale_off
+BEGIN
+	call overall.ed_scale.disable
+	call overall.tx_scale.disable
+END
+
+
+PROGRAM overall_getRegionOpts
+BEGIN
+	call create CHILD gr_region_options AS overall_region, allowsubmit
+	call overall_region.setExitString overall_regionResults
+	call overall_region.settitle "resource LBL_REGION_PROPERTIES"
+	call overall_region.setExitAction "program overall_checkRegionResults"
+	call overall_region.setSubmitAction "program overall_regionSubmit"
+END
+PROGRAM overall_checkRegionResults
+BEGIN
+	if overall_regionResults {
+		call overall.bu_region.modified_on
+	}
+	else {
+		call overall.bu_region.modified_off
+	}
+END
+PROGRAM overall_regionSubmit
+BEGIN
+	call program overall_checkRegionResults
+	call Submit
+END
+
+SCRIPT overall_getSubRegionOpts
+BEGIN
+	create CHILD gr_region_options AS overall_subregion, allowsubmit
+	overall_subregion.setExitString overall_subregionResults
+	overall_subregion.settitle "resource LBL_SUBGRAPH_REGION_PROPERTIES"
+	overall_subregion.setExitAction "program overall_checkSubregionResults"
+	overall_subregion.setSubmitAction "program overall_subregionSubmit"
+END
+PROGRAM overall_checkSubregionResults
+BEGIN
+	if overall_subregionResults {
+		call overall.bu_subregion.modified_on
+	}
+	else {
+		call overall.bu_subregion.modified_off
+	}
+END
+PROGRAM overall_subregionSubmit
+BEGIN
+	call program overall_checkSubregionResults
+	call Submit
+END
+
+SCRIPT overall_getSubOrganizationOpts
+BEGIN
+	create CHILD gr_by_options AS overall_suborganization, allowsubmit
+	overall_suborganization.setExitString overall_subOrganizResults
+	overall_suborganization.settitle "resource LBL_SUBGRAPH_ORGANIZATION"
+	overall_suborganization.setExitAction "program overall_checkSubOrganizResults"
+	overall_suborganization.setSubmitAction "program overall_organizSubmit"
+END
+PROGRAM overall_checkSubOrganizResults
+BEGIN
+	if overall_subOrganizResults {
+		call overall.bu_suborganize.modified_on
+	}
+	else {
+		call overall.bu_suborganize.modified_off
+	}
+END
+PROGRAM overall_organizSubmit
+BEGIN
+	call program overall_checkSubOrganizResults
+	call Submit
+END
+
+PROGRAM overall_name_output
+BEGIN
+	put overall.ed_name
+END
+
+PROGRAM aspect_output
+BEGIN
+	put overall.ed_aspect
+	beginoptions
+		optionarg /hidedefault overall.cb_placement
+	endoptions
+END
+
+PROGRAM gr_overall_output
+BEGIN
+	if ! overall_disabled {
+		optionarg overall.cb_scheme
+		if overall.ed_name & overall.ed_name.isvisible() {
+			put " name("
+			put /program overall_name_output
+			if overall.ck_replace {
+				put ", replace"
+			}
+			put ") "
+		}
+
+		optionarg overall.ed_width
+		optionarg overall.ed_height
+
+		if overall.ck_scale {
+			require overall.ed_scale
+			optionarg overall.ed_scale
+		}
+		if overall.ck_aspect & overall.ck_aspect.isvisible() {
+			require overall.ed_aspect
+			put " aspectratio("
+			put /program aspect_output			
+			put ") "
+		}
+		if overall_isByoptsContext | overall_isByContext {
+			if overall_regionResults {
+				if overall_isByoptsContext {
+					put " byopts("
+				}
+				else {
+					put " by(, "
+				}
+				put overall_regionResults
+				put ") "
+			}
+			if !H(overall.bu_subregion) {
+				put " " overall_subregionResults " "
+			}
+			if !H(overall.bu_suborganize)  			///
+				& overall_subOrganizResults 		///
+			{
+				if overall_isByoptsContext {
+					put " byopts("
+				}
+				else {
+					put " by(, "
+				}
+				put overall_subOrganizResults
+				put ") "
+			}
+		}
+		else {
+			put " " overall_regionResults " "
+		}
+	}
+END

@@ -1,0 +1,139 @@
+/*
+	predict (after asclogit)
+
+*!  VERSION 1.1.1  13nov2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium   // ** set POSTINIT to match
+DEFINE _dlght 350
+INCLUDE header
+
+HELP hlp1, view("help asclogit postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create DOUBLE e_k_alt
+	e_k_alt.setvalue e(k_alt)
+	e_k_alt.decrement
+	setscale_hadj resource ASCLOGIT_P_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script _p_gentype_setMedium
+	main.sp_k.setrange 1 "class e_k_alt.value"
+END
+
+DIALOG main, label(resource PREDICT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  INCLUDE  _p_gentype
+
+  GROUPBOX gb_opts		_lft	_ls	_iwd	_ht8,	///
+		label(resource LBL_PRODUCE)
+  RADIO    rb_pr		_ilft	_ss	_ibwd	.,	///
+		first						///
+		option(pr)					///
+		onclickon(program check_stat)			///
+		label(resource LBL_PROBABILITY_ALTERNATIVE_CHOSEN)
+  RADIO    rb_xb		_ilft	_ss	@	.,	///
+		option(xb)					///
+		onclickon(program check_stat)			///
+		label(resource LBL_LINEAR_PREDICTION)
+  RADIO    rb_stdp		@	_ss	@	.,	///
+		option(stdp)					///
+		onclickon(program check_stat)			///
+		label(resource LBL_STANDARD_ERROR_LINEAR_PREDICTION)
+  RADIO    rb_score		@	_ss	@	.,	///
+		last						///
+		onclickon(program check_stat)			///
+		option(score)					///
+		label(resource LBL_PARAMETER_LEVEL_SCORES)
+
+  GROUPBOX gb_k			_lft	_xls	_iwd	_ht7,	///
+		label(resource ASCLOGIT_P_MAIN_GB_K)
+  RADIO	   rb_knum		_ilft	_ss	_ibwd	.,	///
+		first						///	
+		onclickon(main.sp_k.enable)			///
+		label(resource LBL_NUM_ALT_COMPUTING_PROBABILITIES)
+  SPINNER  sp_k			+20	_ss	_spwd	.,	///
+		default(1)					///
+		min(1)						///
+		option(k)
+  RADIO	   rb_kobserved		_ilft	_ls	_ibwd	.,	///
+		last						///
+		onclickon(main.sp_k.disable)			///
+		option(k(observed))				///
+		label(resource ASCLOGIT_P_MAIN_RB_KOBSERVED)
+
+
+  CHECKBOX ck_altwise		_lft	+45	_iwd	.,	///
+		option(altwise) label(resource LBL_ALTERNATIVE_WISE_DELETION)
+
+  CHECKBOX ck_nooffset		@	_ms	@	.,	///
+                option(nooffset)				///
+                label(resource LBL_IGNORE_OFFSET_VARIABLE)
+END
+
+PROGRAM check_stat
+BEGIN
+	if main.rb_pr {
+		call program k_on
+		call script _p_gentype_single
+	}
+	if main.rb_xb {
+		call program k_off
+		call script _p_gentype_single
+	}
+	if main.rb_stdp {
+		call program k_off
+		call script _p_gentype_single
+	}
+	if main.rb_score {
+		call program k_off
+		call script _p_gentype_multiple
+	}
+END
+
+PROGRAM k_on
+BEGIN
+	call main.gb_k.enable
+	call main.rb_knum.enable
+	if main.rb_knum {
+		call main.sp_k.enable
+	}
+	call main.rb_kobserved.enable
+END
+
+PROGRAM k_off
+BEGIN
+	call main.gb_k.disable
+	call main.rb_knum.disable
+	call main.sp_k.disable
+	call main.rb_kobserved.disable
+END
+
+
+INCLUDE _p_gentype_sc
+INCLUDE ifin
+INCLUDE _type_list_fd
+
+PROGRAM command
+BEGIN
+	put "predict "
+	put " " /program _p_gentype_output
+	INCLUDE _ifin_pr
+	beginoptions
+		option radio(main rb_pr rb_xb rb_stdp /*
+			*/ rb_score)
+		if main.rb_knum {
+			optionarg /hidedefault main.sp_k
+		}
+		option main.rb_kobserved
+		option main.ck_altwise
+		option main.ck_nooffset
+	endoptions
+END

@@ -1,0 +1,154 @@
+/*
+  mi impute nbreg
+
+*!  VERSION 1.1.0  04nov2014
+
+  keyword:  mi impute
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 520
+INCLUDE header
+
+HELP hlp1, view("help mi impute nbreg")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING _mi_ivars
+	create LIST   _mi_IVARS_LIST
+	create STRING bu_groupOptResults
+	setscale_hadj resource MI_IMPUTE_NBREG_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	_mi_ivars.setvalue char _dta[_mi_ivars]
+
+	_mi_IVARS_LIST.Arrdropall
+	_mi_ivars.tokenize _mi_IVARS_LIST
+	main.cb_ivar.repopulate
+
+	create DOUBLE _mi_M
+	create STRING _mi_M_STR
+	program check_M
+END
+
+PROGRAM check_M
+BEGIN
+	call _mi_M_STR.setvalue char _dta[_mi_M]
+	call _mi_M.setvalue class _mi_M_STR.value
+
+	if _mi_M.islt(1) {
+		call main.ck_add.seton
+	}
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	label(resource MI_IMPUTE_NBREG_DLG_TITLE)
+BEGIN
+  TEXT     tx_dv 	_lft	_topph	_vnwd	.,			///
+	label(resource LBL_IMPUTED_VARIABLE)
+  COMBOBOX cb_ivar	@ 	_ss	@	.,			///
+	label(resource LBL_IMPUTED_VARIABLE) contents(_mi_IVARS_LIST)	///
+	dropdown
+
+  TEXT     tx_iv	_vlx	_topph	160	.,			///
+	label(resource LBL_INDDEPVAR)
+  VARLIST  vl_iv	@	_ss	_vlwd	.,			///
+	fv								///
+	numeric								///
+	label(resource LBL_INDDEPVAR)
+
+  CHECKBOX ck_nocons	@	_ms	@	.,			///
+	label(resource LBL_NOCONSTANT)					///
+	option(noconstant)
+
+  DEFINE _x _lft
+  DEFINE _cx _iwd
+  DEFINE _y _ls
+  INCLUDE _mi_impute_opts
+
+
+  GROUPBOX gb_disper	_lft	_ls	_iwd	_ht2,			///
+	label(resource LBL_PARAMETERIZATION_OF_DISPERSION)
+  RADIO rb_mean		_ilft	_ss	_cwd2	., first		///
+	label(resource LBL_A_FUNCTION_OF_THE_EXPECTED_MEAN)
+  RADIO rb_cons		_lft2	@	@	., last			///
+	option("dispersion(constant)")					///
+	label(resource LBL_A_CONSTANT)
+
+  RADIO rb_expose 	_lft	_xls	_cwd3_2	., first		///
+	onclickon(main.vn_expose.enable)				///
+	onclickoff(main.vn_expose.disable)				///
+	label(resource LBL_EXPOSURE_VARIABLE)
+  RADIO rb_offset	_lft3_2	@	@	., last			///
+	onclickon(main.vn_offset.enable)				///
+	onclickoff(main.vn_offset.disable)				///
+	label(resource LBL_OFFSET_VARIABLE)
+
+  VARNAME vn_expose	_lft	_ss	@	.,			///
+	option(exposure)						///
+	numeric								///
+	label(resource LBL_EXPOSURE_VARIABLE)
+  VARNAME vn_offset	_lft3_2	@	@	.,			///
+	option(offset)							///
+	numeric								///
+	label(resource LBL_OFFSET_VARIABLE)
+
+  CHECKBOX ck_augment	_lft	_ls	_iwd	.,			///
+	option("augment")						///
+	onclickon("script weights_setLayout_fp")			///
+	onclickoff("script weights_setLayout_fpi")			///
+	label(resource LBL_PERFORM_AUGMENTED_REG_IN_PRESENCE_PERFECT_PRED)
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _mi_impute_uni_cond_boot
+END
+
+INCLUDE _mi_impute_opts_sc
+
+INCLUDE if
+INCLUDE weights_fpi
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _iwd
+  DEFINE _y _top
+  INCLUDE _mi_impute_rpt
+END
+
+INCLUDE max_ml
+
+DIALOG adv, tabtitle(resource LBL_ADVANCED)
+BEGIN
+  CHECKBOX ck_force	_lft	_top	_iwd	.,			///
+	option(force)							///
+	label(resource LBL_PROCEED_WITH_IMPUTATION_WHEN_MISSING_IMPUTED_VAL)
+END
+
+PROGRAM command
+BEGIN
+	put "mi impute nbreg "
+	varlist main.cb_ivar
+	if main.vl_iv {
+		put " " main.vl_iv
+	}
+	put " " /program if_output
+	put " " /program weights_output
+	beginoptions
+		option main.ck_nocons
+		INCLUDE _mi_impute_opts_main_pr
+		option main.rb_cons
+		optionarg main.vn_expose
+		optionarg main.vn_offset
+		INCLUDE _mi_impute_uni_cond_boot_pr
+		INCLUDE _mi_impute_rpt_pr
+		option adv.ck_force
+		put " " /program max_output
+	endoptions
+END

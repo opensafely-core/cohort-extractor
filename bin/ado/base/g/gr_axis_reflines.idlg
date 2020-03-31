@@ -1,0 +1,182 @@
+/*
+    gr_axis_reflines.idlg
+
+*!  VERSION 1.1.2  16jun2016
+
+    NOTE: (IMPORTANT)
+    	axisType MUST be set by the caller. This will either be "x" | "y" | "t"
+	--axisType.setstring--
+
+	// SCRIPTS and PROGRAMS for external use
+		* SCRIPT axis_setSecondAxis    
+	
+*/
+
+
+INCLUDE _std_small
+DEFINE _dlght 220
+INCLUDE header_gr_child
+
+DEFINE _clwd	15
+DEFINE _wd	130
+DEFINE _sep	+135
+DEFINE _wd2	120
+DEFINE _sep2	+125
+DEFINE _cbwd	120
+DEFINE _cbsep	+125
+
+
+SCRIPT axis_setSecondAxis
+BEGIN
+	isAxis2.settrue
+END
+
+SCRIPT POSTINIT
+BEGIN
+	create STRING _LBL_TMP
+
+	axisType.withvalue _LBL_TMP.format				///
+		"resource GR_AXIS_RELINES_CK_LINES_FMT" "@"
+
+	lines.ck_lines.setlabel class _LBL_TMP.value
+END
+
+SCRIPT lines_PREINIT
+BEGIN
+	create PBOOLEAN isAxis2
+END
+
+HELP hlp1, view("help added_line_options")
+RESET res1
+
+DIALOG lines, tabtitle(resource LBL_ADDITIONAL_LINES) title(resource GR_AXIS_REFLINES_DLG_TITLE)
+BEGIN
+  CHECKBOX ck_lines	_lft	_top	_iwd	.,		///
+	label(resource GR_AXIS_REFLINES_LINES_CK_LINES)	///
+	onclickon(script lines_on) onclickoff(script lines_off)
+  EDIT	   ed_values	@	_ss	@	.,		///
+  	label(resource GR_AXIS_REFLINES_LINES_ED_VALUES)
+
+  TEXT     tx_width	_ilft	_xls	_wd	.,		///
+	label(resource LBL_WIDTH) right
+  COMBOBOX cb_width	_sep	@	_cbwd	.,		///
+  	dropdown contents(linewidths) option(lwidth)
+
+  TEXT     tx_pattern	_ilft	_mls	_wd	.,		///
+	label(resource LBL_PATTERN) right
+  COMBOBOX cb_pattern	_sep	@	_cbwd	.,		///
+  	dropdownlist contents(linepatterns) option(lpattern)
+  	
+  TEXT     tx_clr	_ilft	_mls	_wd	.,		///
+	label(resource LBL_COLOR) right
+  COMBOBOX cb_clr	_sep	@	_cbwd	.,		///
+  	dropdownlist contents(colors) option(lcolor)		///
+  	onselchangelist(lines_cl_clr_sel)
+  COLOR    cl_clr	_cbsep	@	_clwd	., option(lcolor)
+
+  TEXT     tx_opacity	_ilft	_mls	_wd	.,		///
+	label(resource LBL_OPACITY) right
+  SPINNER  sp_opacity	_sep	@	_spwd	.,		///
+	default(100)						///
+	min(0)							///
+	max(100)
+
+  TEXT     tx_extend	_ilft	_mls	_wd	.,		///
+	label(resource GR_AXIS_REFLINES_LINES_TX_EXTEND) right
+  COMBOBOX cb_extend	_sep	@	_cbwd	.,		///
+  	dropdownlist contents(yesno) values(lines_cb_extend)
+END
+
+SCRIPT lines_on
+BEGIN
+	lines.ed_values.enable
+	lines.tx_width.enable
+	lines.cb_width.enable
+	lines.tx_pattern.enable
+	lines.cb_pattern.enable
+	lines.tx_clr.enable
+	lines.cb_clr.enable
+	lines.cl_clr.enable
+	lines.tx_opacity.enable
+	lines.sp_opacity.enable
+	lines.tx_extend.enable
+	lines.cb_extend.enable
+END
+
+SCRIPT lines_off
+BEGIN
+	lines.ed_values.disable
+	lines.tx_width.disable
+	lines.cb_width.disable
+	lines.tx_pattern.disable
+	lines.cb_pattern.disable
+	lines.tx_clr.disable
+	lines.cb_clr.disable
+	lines.cl_clr.disable
+	lines.tx_opacity.disable
+	lines.sp_opacity.disable
+	lines.tx_extend.disable
+	lines.cb_extend.disable
+END
+
+LIST lines_cl_clr_sel
+BEGIN
+	lines.cl_clr.hide
+	lines.cl_clr.show
+	lines.cl_clr.hide
+END
+
+LIST lines_cb_extend
+BEGIN
+	""
+	"extend"
+	"noextend"
+END
+
+PROGRAM lines_output
+BEGIN
+	
+	put lines.ed_values
+	beginoptions
+		optionarg /hidedefault lines.cb_width
+		optionarg /hidedefault lines.cb_pattern
+		if (lines.cb_clr.isneq("") | lines.sp_opacity.isneq(100)) {
+			put "lcolor("
+			if (lines.cb_clr.iseq("custom")) {
+				put `"""' lines.cl_clr
+				if (lines.sp_opacity.isneq(100)) {
+					put " %" lines.sp_opacity
+				}
+				put `"""'
+			}
+			else {
+				if (lines.cb_clr.isneq("")) {
+					put lines.cb_clr
+				}
+				if (lines.sp_opacity.isneq(100)) {
+					put "%" lines.sp_opacity
+				}
+			}
+			put ")"
+		}
+		put " " lines.cb_extend
+		if isAxis2 {
+			put " axis(2)"
+		}
+	endoptions
+END
+
+PROGRAM command
+BEGIN
+	if lines.ck_lines {
+		require lines.ed_values
+		if lines.ed_values | lines.cb_width | lines.cb_pattern 	///
+			| lines.cb_clr | lines.sp_opacity 		///
+			| lines.cb_extend 				///
+		{
+			put " " axisType "line("
+			put /program lines_output
+			put ") "
+		}
+	}
+END

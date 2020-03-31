@@ -1,0 +1,1110 @@
+/*
+ biplot
+
+*!  VERSION 2.1.4  22oct2019
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_xwide
+DEFINE _dlght 350
+INCLUDE header
+
+HELP hlp1, view("help biplot")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource BIPLOT_DLG_HSCALE
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)  label(resource BIPLOT_DLG_TITLE)
+BEGIN
+  TEXT tx_vars			_lft	_top	_vlwd	.,		///
+	label(resource LBL_VARIABLES)
+  VARLIST vl_vars		@	_ss	@	.,		///
+  	numeric								///
+	label(resource LBL_VARIABLES)
+  CHECKBOX ck_rowover		_lft	_ls	_vlwd	.,   		/// 
+	label(resource BIPLOT_MAIN_CK_ROWOVER)				///
+	onclickon(program main_rowover_on)				///
+        onclickoff(program main_rowover_off)
+
+  VARLIST  vl_rowover		@	_ss	@	.,		///
+        option(rowover)							///
+        label(resource BIPLOT_MAIN_VL_ROWOVER)
+
+  GROUPBOX gb_options		_lft	+35	_iwd	_ht19h,		///
+	label(resource LBL_OPTIONS)
+  RADIO rb_dim			_ilft	_ss	_cwd2	.,		///
+	label(resource LBL_PLOT_FIRST_SECOND_DIMENSIONS) first		///
+	onclickon(main.ed_dim.disable)
+  DEFINE y @y
+  RADIO rb_dim2			_ilft	_ss	_cwd2	.,		///
+	label(resource LBL_SPECIFY_OTHER_DIMENSIONS_PLOT) last		///
+	onclickon(main.ed_dim.enable)
+  EDIT ed_dim			_indent2 _ss	_en7wd	.,		///
+	label(resource LBL_TWO_DIMENSIONS_TO_PLOT) default("2  1") option(dim)
+  TEXT tx_dim			_en7sep	@	200	.,		///
+	label(resource LBL_TWO_DIMENSIONS_TO_PLOT)
+  RADIO rb_center		_ilft	_ls	_cwd2	.,		///
+	label(resource BIPLOT_MAIN_RB_CENTER) first
+  RADIO rb_std			@	_ss	@	.,		///
+	option(std)							///
+	label(resource BIPLOT_MAIN_RB_STD)  last
+
+  EDIT ed_alpha			@	_ls	_en7wd	., 		///
+	default(0.5) option(alpha) numonly
+  TEXT tx_alpha			_en7sep	@	200	., 		///
+	label(resource BIPLOT_MAIN_TX_ALPHA)
+
+  CHECKBOX ck_stretch		_ilft	_ls	_cwd1	.,		///
+	onclickon(script main_stretch_on)				///
+	onclickoff(script main_stretch_off)				///
+	label(resource BIPLOT_MAIN_CK_STRETCH)
+  EDIT ed_stretch		_indent2 _ss	_en7wd	., 		///
+	default(1) option(stretch) numonly
+  TEXT tx_stretch		_en7sep	@	150	., 		///
+	label(resource LBL_FACTOR)
+
+  CHECKBOX ck_mahalanobis	_lft2	y	_cwd2	.,		///
+	option(mahalanobis)						///
+	onclickon(script ck_mahalanobis_on)				///
+	onclickoff(script ck_mahalanobis_off)				///
+	label(resource BIPLOT_MAIN_CK_MAHALANOBIS)
+  CHECKBOX ck_xnegate		_lft2	_ms	_cwd2	.,		///
+	label(resource BIPLOT_MAIN_CK_XNEGATE)				///
+	option(xnegate)
+  CHECKBOX ck_ynegate		@	_ms	@	.,		///
+	label(resource BIPLOT_MAIN_CK_YNEGATE)				///
+	option(ynegate)
+  CHECKBOX ck_autoaspect	@	_ms	@	.,		///
+	option(autoaspect)						///
+	label(resource BIPLOT_MAIN_CK_AUTOASPECT)			///
+	onclickon(script main_autoaspect_on)				///
+	onclickoff(program main_autoaspect_off)
+  CHECKBOX ck_separate		@	_ms	@	.,		///
+	option(separate)						///
+	label(resource BIPLOT_MAIN_CK_SEPARATE)				///
+	onclickon(script main_separate_on)				///
+	onclickoff(script main_separate_off)
+
+  CHECKBOX ck_nograph		@	_ms	@	.,		///
+	label(resource LBL_SUPPRESS_GRAPH)				///
+	option(nograph) onclickon(script main_graph_off)		///
+	onclickoff(script main_graph_on)
+  CHECKBOX ck_table		@	_ms	@	.,		///
+	label(resource BIPLOT_MAIN_CK_TABLE)				///
+	option(table)
+END
+
+// Main program/scripts
+
+PROGRAM main_rowover_on
+BEGIN
+	call main.ck_separate.disable
+	call main.ck_nograph.disable
+	call main.vl_rowover.enable
+	call program rplot_areRowoverOptionsAllowed
+END
+
+PROGRAM main_rowover_off
+BEGIN
+	call main.ck_separate.enable
+	call main.ck_nograph.enable
+	call main.vl_rowover.disable
+	call program rplot_areRowoverOptionsAllowed
+END
+
+SCRIPT main_separate_on
+BEGIN
+	rplot.ck_norow.disable
+	cplot.ck_nocol.disable
+	script gr_legend_disable
+END
+
+SCRIPT main_separate_off
+BEGIN
+	rplot.ck_norow.enable
+	cplot.ck_nocol.enable
+	script gr_legend_enable
+END
+
+SCRIPT main_autoaspect_on
+BEGIN
+	overall.ck_aspect.disable
+        script overall_aspect_off
+END
+
+PROGRAM main_autoaspect_off
+BEGIN
+	call overall.ck_aspect.enable
+	if overall.ck_aspect {
+		call program overall_aspect_on
+	}
+END
+
+
+SCRIPT main_graph_on
+BEGIN
+	program rplot_enable
+	program cplot_enable
+	script gr_yaxis_enable
+	script gr_xaxis_enable
+	script gr_titles_enable
+	script gr_legend_enable
+	script gr_overall_enable
+END
+
+SCRIPT main_graph_off
+BEGIN
+	script rplot_disable
+	rplot.ck_norow.disable
+	script cplot_disable
+	cplot.ck_nocol.disable
+	script gr_yaxis_disable
+	script gr_xaxis_disable
+	script gr_titles_disable
+	script gr_legend_disable
+	script gr_overall_disable
+END
+
+SCRIPT norow_on
+BEGIN
+	cplot.ck_nocol.disable
+	script rplot_disable
+END
+
+SCRIPT norow_off
+BEGIN
+	cplot.ck_nocol.enable
+	program rplot_enable
+END
+ 
+SCRIPT nocol_on
+BEGIN
+	cplot.gb_nocol.disable
+	rplot.ck_norow.disable
+	script cplot_disable
+END
+
+SCRIPT nocol_off
+BEGIN
+	cplot.gb_nocol.enable
+	cplot.ck_negcol.enable
+	rplot.ck_norow.enable
+	program cplot_enable
+END
+
+SCRIPT negcol_on
+BEGIN
+	cplot.ck_nocol.disable
+	program negcol_enable
+END
+
+SCRIPT negcol_off
+BEGIN
+	cplot.ck_nocol.enable
+	program negcol_disable
+END
+
+SCRIPT ck_mahalanobis_on
+BEGIN
+	main.ed_alpha.disable
+	main.tx_alpha.disable
+END
+
+SCRIPT ck_mahalanobis_off
+BEGIN
+	main.ed_alpha.enable
+	main.tx_alpha.enable
+END
+
+SCRIPT main_stretch_on
+BEGIN
+	main.ed_stretch.enable
+	main.tx_stretch.enable
+END
+
+SCRIPT main_stretch_off
+BEGIN
+	main.ed_stretch.disable
+	main.tx_stretch.disable
+END
+
+INCLUDE ifin
+
+SCRIPT rplot_PREINIT
+BEGIN
+	create STRING rplot_markerResults 
+	create STRING rplot_labelResults
+
+	create DOUBLE rplot_sel_index
+	create STRING rplot_title
+	create STRING rplot_stmp
+	create DOUBLE rplot_dtmp
+	create STRING result_rowopts
+
+	create LIST rplot_rowover_list
+	create SVECTOR rplot_result_vec
+	create SVECTOR rplot_rowvec	
+	create STRING rplot_result
+	program rplot_setList
+END
+
+SCRIPT rplot_POSTINIT
+BEGIN
+	rplot.lb_rowopts.setvalue ""
+	program rplot_checkMarkerResults
+	program rplot_checkLabelResults
+END
+
+PROGRAM rplot_setList
+BEGIN
+	call rplot_dtmp.setvalue class rplot_rowvec.size
+	if rplot_dtmp.iseq(0) {
+		/* The list is not reset on subsequent dialog start-ups 
+		 * since the list is already present and in the correct state.
+		 */
+		call rplot_rowvec.store 1 "Row 1"
+		call rplot_rowvec.store 2 "Row 2"
+		call rplot_rowvec.store 3 "Row 3"
+		call rplot_rowvec.store 4 "Row 4"
+		call rplot_rowvec.store 5 "Row 5"
+		call rplot_rowvec.store 6 "Row 6"
+		call rplot_rowvec.store 7 "Row 7"
+		call rplot_rowvec.store 8 "Row 8"
+		call rplot_rowvec.store 9 "Row 9"
+		call rplot_rowvec.store 10 "Row 10"
+		call rplot_rowvec.store 11 "Row 11"
+		call rplot_rowvec.store 12 "Row 12"
+	}
+	call rplot_rowvec.copyToArray rplot_rowover_list
+END
+
+DIALOG rplot, tabtitle(resource LBL_TAB_ROWS) 
+BEGIN
+  GROUPBOX  gb_norow		_lft	_top	_cwd1	_ht13,		///
+	label(resource BIPLOT_RPLOT_GB_NOROW)
+  BUTTON bu_marker		_ilft	_ms	140	.,		///
+	label(resource LBL_MARKER_PROPERTIES_DLG_TITLE)			///
+	onpush(script rplot_show_marker_dialog)				///
+	tooltip(resource LBL_MARKER_PROPERTIES_FOR_ROWS)
+DEFINE y @y
+  BUTTON bu_mlabel		_ilft	_ls	140	.,		///
+	label(resource LBL_GB_LABEL_PROPERTIES)				///
+	onpush(script rplot_show_label_dialog)				///
+	tooltip(resource LBL_LABEL_PROPERTIES_FOR_ROWS)
+  CHECKBOX ck_name		_ilft	+35	_cwd1	.,		///
+	onclickon(script rplot_name_on)					///
+	onclickoff(script rplot_name_off)				///
+	label(resource BIPLOT_RPLOT_CK_NAME)
+  EDIT ed_name			_cksep	_ms	_vnwd	.,		///
+	label(resource BIPLOT_RPLOT_ED_NAME)				///
+	option(name)
+  TEXT tx_name			_vnsep	@	100	.,		///
+	label(resource LBL_NAME)
+  CHECKBOX ck_label		_lft	+55	_vlwd	.,   		/// 
+	label(resource BIPLOT_RPLOT_CK_LABEL)				///
+	onclickon(script rplot_ck_label_on)				///
+        onclickoff(script rplot_ck_label_off)
+  VARNAME  vn_label		+20	_ss	_vnwd	.,		///
+        option(rowlabel)						///
+        label(resource BIPLOT_RPLOT_VN_LABEL)
+  CHECKBOX ck_noLabel		_lft	_ls	_iwd	.,		///
+	option(nolabel)							///
+	label(resource BIPLOT_RPLOT_CK_NOLABEL)				///
+	onclickon(program rplot_check_nolabel)				///
+	onclickoff(program rplot_check_nolabel)
+  CHECKBOX  ck_norow		_lft	_ls	_iwd	.,		///
+	label(resource BIPLOT_RPLOT_CK_NOROW)				///
+	option(norow)							///
+	onclickon(script norow_on)					///
+	onclickoff(script norow_off)
+  CHECKBOX ck_gen               _lft2    _top     _cwd1    _ht13,	///
+        label(resource BIPLOT_RPLOT_CK_GEN)        			///
+        groupbox                                                	///
+        onclickon(script rplot_generate_on)                           	///
+        onclickoff(script rplot_generate_off)
+  TEXT tx_newx                  _ilft2   _ls     _cwd1   .,      	///
+        label(resource BIPLOT_RPLOT_TX_NEWX)
+  EDIT ed_newx                  _ilft2   _ss     _vnwd   .,      	///
+        label(resource BIPLOT_RPLOT_TX_NEWX) 				///
+        max(32)
+  TEXT tx_newy                  _ilft2  _ls      _cwd1	.,      	///
+        label(resource BIPLOT_RPLOT_TX_NEWY)
+  EDIT ed_newy                  _ilft2	_ss	_vnwd	.,      	///
+        label(resource BIPLOT_RPLOT_TX_NEWY)				///
+        max(32)
+
+  LISTBOX  lb_rowopts		_ilft    y	170	120,		///
+	contents(rplot_rowover_list)	                       		///
+	values(rplot_rowover_listvalues)                       		///
+	ondblclick(program rplot_list_action) nomemory       	  	///
+	tooltip(resource BIPLOT_RPLOT_LB_ROWOPTS)
+  BUTTON  bu_edit		+180    y       80      .,		///
+        label(resource LBL_BU_EDIT)					///
+        onpush(program rplot_list_action)				///
+        tooltip(resource LBL_TOOL_TIP_EDIT_ROW_SPEC_ELEMENTS)
+  TEXTBOX tb_note		_lft	330	_iwd	_tb2,		///
+        label(resource BIPLOT_RPLOT_TB_NOTE)
+END
+
+// rplot program/scripts
+
+PROGRAM rplot_areRowoverOptionsAllowed
+BEGIN
+	if main.ck_rowover {
+		call program rplot_rowoverShowOptions
+	}
+	else {
+		call program rplot_rowoverHideOptions
+	}
+END
+
+PROGRAM rplot_rowoverShowOptions
+BEGIN
+	call rplot.ck_norow.hide
+	call rplot.bu_marker.hide
+	call rplot.bu_mlabel.hide
+	call rplot.ck_name.hide
+	call rplot.ed_name.hide
+	call rplot.tx_name.hide
+	call rplot.lb_rowopts.show
+	call rplot.bu_edit.show
+	call rplot.tb_note.show
+END
+
+PROGRAM rplot_rowoverHideOptions
+BEGIN
+	call rplot.ck_norow.show
+	call rplot.bu_marker.show
+	call rplot.bu_mlabel.show
+	call rplot.ck_name.show
+	call rplot.ed_name.show
+	call rplot.tx_name.show
+	call rplot.lb_rowopts.hide
+	call rplot.bu_edit.hide
+	call rplot.tb_note.hide
+END
+
+SCRIPT rplot_generate_on
+BEGIN
+        rplot.ed_newx.enable
+        rplot.tx_newx.enable
+        rplot.ed_newy.enable
+        rplot.tx_newy.enable
+END
+
+SCRIPT rplot_generate_off
+BEGIN
+        rplot.ed_newx.disable
+        rplot.tx_newx.disable
+        rplot.ed_newy.disable
+        rplot.tx_newy.disable
+END
+
+PROGRAM  rplot_list_action
+BEGIN
+	call rplot_rowvec.findstr class rplot.lb_rowopts.value
+	call rplot_sel_index.setvalue class rplot_rowvec.position
+
+	call rplot_sel_index.withvalue rplot_title.setvalue "Row options (row @)"
+	
+	call rplot_sel_index.withvalue create CHILD biplot_rowopts AS row@opts, allowsubmit
+	call rplot_sel_index.withvalue row@opts.settitle class rplot_title.value
+	call rplot_sel_index.withvalue row@opts.setExitString rplot_result
+	call rplot_sel_index.withvalue row@opts.setExitAction "program rplot_rowover_check_result"
+	call rplot_sel_index.withvalue row@opts.setSubmitAction "script rplot_rowover_submit"
+	if (rplot.ck_noLabel) {
+		call rplot_sel_index.withvalue row@opts.callthru "script main_set_label_properties_off"
+	}
+	else {
+		call rplot_sel_index.withvalue row@opts.callthru "script main_set_label_properties_on"
+	}
+END
+
+PROGRAM rplot_rowover_check_result
+BEGIN
+	if rplot_result {
+		call rplot_sel_index.withvalue rplot_rowvec.store	///
+			class rplot_sel_index.value "Row @ *"
+		call rplot_stmp.setvalue "row"
+		call rplot_stmp.append class rplot_sel_index.value
+		call rplot_stmp.append "opts("
+		call rplot_stmp.append class rplot_result.value
+		call rplot_stmp.append ")"
+		call rplot_result_vec.store 				///
+			class rplot_sel_index.value class rplot_stmp.value		
+	}
+	else {
+		call rplot_sel_index.withvalue rplot_rowvec.store	///
+			class rplot_sel_index.value "Row @"
+		call rplot_result_vec.store 				///
+			class rplot_sel_index.value ""
+	}
+	call rplot_rowvec.copyToArray rplot_rowover_list
+	call rplot.lb_rowopts.repopulate
+END
+
+SCRIPT rplot_rowover_submit
+BEGIN
+	program  rplot_rowover_check_result
+	Submit
+END
+
+PROGRAM rplot_check_nolabel
+BEGIN
+	if !rplot.ck_noLabel & rplot.ck_noLabel.isenabled() {
+		call rplot.bu_mlabel.enable
+		call rplot.ck_label.enable
+		call program rplot_check_vn_label
+	}
+	else {
+		call rplot.bu_mlabel.disable
+		call rplot.ck_label.disable
+		call program rplot_check_vn_label
+	}
+END
+
+PROGRAM rplot_check_vn_label
+BEGIN
+	if rplot.ck_label & rplot.ck_label.isenabled() {
+		call rplot.vn_label.enable
+	}
+	else {
+		call rplot.vn_label.disable
+	}	
+END
+
+SCRIPT rplot_ck_label_on
+BEGIN
+	rplot.vn_label.enable
+END
+
+SCRIPT rplot_ck_label_off
+BEGIN
+	rplot.vn_label.disable
+END
+
+PROGRAM rplot_enable
+BEGIN
+	call rplot.ck_norow.enable
+	if !rplot.ck_norow {
+		call rplot.gb_norow.enable
+		call rplot.ck_noLabel.enable
+		call program rplot_check_nolabel
+		call rplot.ck_name.enable
+		if rplot.ck_name {
+			call rplot.ed_name.enable
+			call rplot.tx_name.enable
+		}
+		else {
+			call rplot.ed_name.disable
+			call rplot.tx_name.disable
+		}
+		call rplot.bu_marker.enable
+	}
+END
+
+SCRIPT rplot_disable
+BEGIN
+	rplot.gb_norow.disable
+	rplot.ck_noLabel.disable
+	program rplot_check_nolabel
+	rplot.ck_name.disable
+	rplot.tx_name.disable
+	rplot.ed_name.disable
+	rplot.bu_marker.disable			
+END
+SCRIPT rplot_name_on
+BEGIN
+	rplot.ed_name.enable
+	rplot.tx_name.enable
+END
+SCRIPT rplot_name_off
+BEGIN
+	rplot.ed_name.disable
+	rplot.tx_name.disable
+END
+
+// rplot buttons
+SCRIPT rplot_show_marker_dialog
+BEGIN
+	create CHILD gr_marker_nolabel_options AS rplot_marker, allowsubmit
+	rplot_marker.setExitString rplot_markerResults
+	rplot_marker.settitle resource LBL_MARKER_PROPERTIES_FOR_ROWS
+	rplot_marker.setExitAction "program rplot_checkMarkerResults"
+	rplot_marker.setSubmitAction "program rplot_markerSubmit"
+END
+PROGRAM rplot_checkMarkerResults
+BEGIN
+	if rplot_markerResults {
+		call rplot.bu_marker.modified_on
+	}
+	else {
+		call rplot.bu_marker.modified_off
+	}
+END
+PROGRAM rplot_markerSubmit
+BEGIN
+	call program rplot_checkMarkerResults
+	call Submit
+END
+
+SCRIPT rplot_show_label_dialog
+BEGIN
+	create CHILD biplot_marker_mlabel_options AS rplot_label, allowsubmit
+	rplot_label.setExitString rplot_labelResults
+	rplot_label.settitle resource LBL_LABEL_PROPERTIES_FOR_ROWS
+	rplot_label.setExitAction "program rplot_checkLabelResults"
+	rplot_label.setSubmitAction "program rplot_labelSubmit"
+END
+PROGRAM rplot_checkLabelResults
+BEGIN
+	if rplot_labelResults {
+		call rplot.bu_mlabel.modified_on
+	}
+	else {
+		call rplot.bu_mlabel.modified_off
+	}
+END
+PROGRAM rplot_labelSubmit
+BEGIN
+	call program rplot_checkLabelResults
+	call Submit
+END
+
+PROGRAM rowopts_output
+BEGIN
+	if rplot.ck_name {
+		require rplot.ed_name
+		optionarg rplot.ed_name
+	}
+	if rplot_markerResults & ! H(rplot.bu_marker) {
+		put " " rplot_markerResults " "	
+	}
+	if rplot_labelResults & ! H(rplot.bu_mlabel) {
+		put " " rplot_labelResults " "	
+	}
+	option rplot.ck_noLabel
+END
+
+
+PROGRAM rplot_output
+BEGIN
+	if ((rplot_markerResults & ! H(rplot.bu_marker)) | 	///
+	    (rplot_labelResults & ! H(rplot.bu_mlabel))  |	///
+	    rplot.ck_name | rplot.ck_noLabel)    		///
+	{
+                put " " "rowopts(
+                put /program rowopts_output
+                put ") "
+        }
+END
+
+SCRIPT cplot_PREINIT
+BEGIN
+	create STRING pcline1Results
+	create STRING pcline2Results
+	create STRING pcarrow1Results
+	create STRING pcarrow2Results
+	create STRING pcarrowlabel1Results
+	create STRING pcarrowlabel2Results
+END
+SCRIPT cplot_POSTINIT
+BEGIN
+	program checkPCline1Results
+	program checkPCline2Results
+	program checkPCarrow1Results
+	program checkPCarrow2Results
+	program checkPCarrowlabel1Results
+	program checkPCarrowlabel2Results
+END
+
+DIALOG cplot, tabtitle(resource LBL_COLUMNS)
+BEGIN
+
+  GROUPBOX  gb_nocol		_lft	_top	_cwd1	_ht17h,	      	///
+        label(resource BIPLOT_CPLOT_GB_NOCOL) 
+
+  DEFINE y @y 	
+
+  BUTTON bu_pcline1		_ilft	_ms	140	.,		///
+	label(resource LBL_GB_LINE_PROPERTIES)				///
+	onpush(script show_pcline1_dialog)				///
+	tooltip(resource BIPLOT_CPLOT_BU_PCLINE1)
+  BUTTON bu_pcarrow1		_ilft	_ls	140	.,		///
+	label(resource LBL_GB_ARROWHEAD_PROPERTIES)			///
+	onpush(script show_pcarrow1_dialog)				///
+	tooltip(resource BIPLOT_CPLOT_BU_PCARROW1)
+
+  CHECKBOX ck_noLabel		_ilft	+35	_cwd1	.,		///
+	label(resource BIPLOT_CPLOT_CK_NOLABEL)				///
+	default(1)							///
+	onclickon(program cplot_check_nolabel)				///
+	onclickoff(program cplot_check_nolabel)
+  BUTTON bu_pcarrowlabel1 	+20	_ms	120	.,		///
+	label(resource LBL_GB_LABEL_PROPERTIES)				///
+	onpush(script show_pcarrowlabel1_dialog)			///
+	tooltip(resource LBL_LABEL_PROPERTIES_FOR_COLUMNS)
+
+  CHECKBOX ck_name		_ilft	_ls	_cwd1	.,		///
+	onclickon(script cplot_name_on)					///
+	onclickoff(script cplot_name_off)				///
+	label(resource BIPLOT_CPLOT_CK_NAME)
+  EDIT ed_name			_cksep	_ss	_vnwd	.,		///
+	label(resource BIPLOT_CPLOT_ED_NAME)				///
+	option(name)
+  TEXT tx_name			_vnsep	@	100	.,		///
+	label(resource LBL_NAME)
+
+  CHECKBOX ck_negcol		_lft2	y	_cwd1	_ht17h,		///
+	groupbox label(resource BIPLOT_CPLOT_CK_NEGCOL)			///
+	option(negcol) onclickon(script negcol_on)			///
+	onclickoff(script negcol_off)
+
+  BUTTON bu_pcline2		_ilft2	_ms	140	.,		///
+	label(resource LBL_GB_LINE_PROPERTIES)				///
+	onpush(script show_pcline2_dialog)				///
+	tooltip(resource BIPLOT_CPLOT_CK_NOCOL)
+  BUTTON bu_pcarrow2		_ilft2	_ls	140	.,		///
+	label(resource LBL_GB_ARROWHEAD_PROPERTIES)			///
+	onpush(script show_pcarrow2_dialog)				///
+	tooltip(resource BIPLOT_CPLOT_BU_PCARROW2)
+
+  CHECKBOX ck_noLabel2		_ilft2	+35	_ibwd	.,		///
+	label(resource BIPLOT_CPLOT_CK_NOLABEL)				///
+	default(1)							///
+	onclickon(program cplot_check_nolabel2)				///
+	onclickoff(program cplot_check_nolabel2)
+  BUTTON bu_pcarrowlabel2 	+20	_ms	120	.,		///
+	label(resource LBL_GB_LABEL_PROPERTIES)				///
+	onpush(script show_pcarrowlabel2_dialog)			///
+	tooltip(resource BIPLOT_CPLOT_BU_PCARROWLABEL2)
+
+  CHECKBOX ck_name2		_ilft2	_ls	_ibwd	.,		///
+	onclickon(script cplot_name2_on)				///
+	onclickoff(script cplot_name2_off)				///
+	label(resource BIPLOT_CPLOT_CK_NAME)
+  EDIT ed_name2			_cksep	_ss	_vnwd	.,		///
+	label(resource BIPLOT_CPLOT_ED_NAME)				///
+	option(name)
+  TEXT tx_name2			_vnsep	@	100	.,		///
+	label(resource LBL_NAME)
+ 
+  CHECKBOX  ck_nocol		_lft    _xxls    _iwd   .,		///
+        label(resource BIPLOT_CPLOT_CK_NOCOL)                      	///
+	option(nocolumn)						///
+        onclickon(script nocol_on)                               	///
+	onclickoff(script nocol_off )
+END
+
+// cplot program/scripts
+PROGRAM cplot_check_nolabel
+BEGIN
+	if cplot.ck_noLabel & cplot.ck_noLabel.isenabled() {
+		call cplot.bu_pcarrowlabel1.enable
+	}
+	else {
+		call cplot.bu_pcarrowlabel1.disable
+	}
+END
+
+PROGRAM cplot_check_nolabel2
+BEGIN
+	if cplot.ck_noLabel2 & cplot.ck_noLabel2.isenabled() {
+		call cplot.bu_pcarrowlabel2.enable
+	}
+	else {
+		call cplot.bu_pcarrowlabel2.disable
+	}
+END
+
+PROGRAM cplot_enable
+BEGIN
+	call cplot.ck_nocol.enable
+	if !cplot.ck_nocol {
+		call cplot.gb_nocol.enable
+		call cplot.ck_noLabel.enable
+		call program cplot_check_nolabel
+		call cplot.ck_name.enable
+		if cplot.ck_name {
+			call script cplot_name_on
+		}
+        	else {
+                	call script cplot_name_off
+        	}
+		call cplot.bu_pcline1.enable
+		call cplot.bu_pcarrow1.enable
+		call cplot.bu_pcarrowlabel1.enable
+		call cplot.ck_negcol.enable
+		if cplot.ck_negcol {
+			call program negcol_enable
+		}
+	}
+END
+
+SCRIPT cplot_disable
+BEGIN
+	cplot.gb_nocol.disable
+	cplot.ck_noLabel.disable
+	program cplot_check_nolabel
+	cplot.ck_name.disable
+	cplot.ed_name.disable
+	cplot.tx_name.disable
+	cplot.bu_pcline1.disable
+	cplot.bu_pcarrow1.disable
+	cplot.bu_pcarrowlabel1.disable
+	cplot.ck_negcol.disable
+	cplot.ck_noLabel2.disable
+	program cplot_check_nolabel2
+	cplot.ck_name2.disable
+	cplot.ed_name2.disable
+	cplot.tx_name2.disable
+	cplot.bu_pcline2.disable
+	cplot.bu_pcarrow2.disable
+	cplot.bu_pcarrowlabel2.disable
+END
+
+PROGRAM negcol_disable
+BEGIN
+	if rplot.ck_norow {
+		call cplot.ck_nocol.disable
+	}
+	call cplot.ck_noLabel2.disable
+	call program cplot_check_nolabel2
+	call cplot.ck_name2.disable
+	call cplot.ed_name2.disable
+	call cplot.tx_name2.disable
+	call cplot.bu_pcline2.disable
+	call cplot.bu_pcarrow2.disable
+	call cplot.bu_pcarrowlabel2.disable
+END
+
+PROGRAM negcol_enable
+BEGIN
+	call cplot.ck_negcol.enable
+	call cplot.ck_noLabel2.enable
+	call program cplot_check_nolabel2
+	call cplot.ck_name2.enable
+	if cplot.ck_name2 {
+		call script cplot_name2_on
+	}
+	if !cplot.ck_name2 {
+		call script cplot_name2_off
+	}
+	call cplot.bu_pcline2.enable
+	call cplot.bu_pcarrow2.enable
+	call cplot.bu_pcarrowlabel2.enable
+END
+
+SCRIPT cplot_name_on
+BEGIN
+	cplot.ed_name.enable
+	cplot.tx_name.enable
+END
+SCRIPT cplot_name_off
+BEGIN
+	cplot.ed_name.disable
+	cplot.tx_name.disable
+END
+
+SCRIPT cplot_name2_on
+BEGIN
+	cplot.ed_name2.enable
+	cplot.tx_name2.enable
+END
+SCRIPT cplot_name2_off
+BEGIN
+	cplot.ed_name2.disable
+	cplot.tx_name2.disable
+END
+
+// Cplot buttons
+SCRIPT show_pcline1_dialog
+BEGIN
+	create CHILD gr_pcline_options AS pcline1, allowsubmit
+	pcline1.setExitString pcline1Results
+	pcline1.settitle resource BIPLOT_CPLOT_BU_PCLINE1
+	pcline1.setExitAction "program checkPCline1Results"
+	pcline1.setSubmitAction "program pcline1Submit"
+END
+PROGRAM checkPCline1Results
+BEGIN
+	if pcline1Results.iseq("") {
+		call cplot.bu_pcline1.modified_off
+	}
+	else {
+		call cplot.bu_pcline1.modified_on
+	}
+END
+PROGRAM pcline1Submit
+BEGIN
+	call program checkPCline1Results
+	call Submit
+END
+
+SCRIPT show_pcline2_dialog
+BEGIN
+	create CHILD gr_pcline_options AS pcline2, allowsubmit
+	pcline2.setExitString pcline2Results
+	pcline2.settitle resource BIPLOT_CPLOT_CK_NOCOL
+	pcline2.setExitAction "program checkPCline2Results"
+	pcline2.setSubmitAction "program pcline2Submit"
+END
+PROGRAM checkPCline2Results
+BEGIN
+	if pcline2Results.iseq("") {
+		call cplot.bu_pcline2.modified_off
+	}
+	else {
+		call cplot.bu_pcline2.modified_on
+	}
+END
+PROGRAM pcline2Submit
+BEGIN
+	call program checkPCline2Results
+	call Submit
+END
+
+SCRIPT show_pcarrow1_dialog
+BEGIN
+	create CHILD gr_pcarrow_nolabel_options AS pcarrow1, allowsubmit
+	pcarrow1.setExitString pcarrow1Results
+	pcarrow1.settitle resource BIPLOT_CPLOT_BU_PCARROW1
+	pcarrow1.setExitAction "program checkPCarrow1Results"
+	pcarrow1.setSubmitAction "program pcarrow1Submit"
+END
+PROGRAM checkPCarrow1Results
+BEGIN
+	if pcarrow1Results.iseq("") {
+		call cplot.bu_pcarrow1.modified_off
+	}
+	else {
+		call cplot.bu_pcarrow1.modified_on
+	}
+END
+PROGRAM pcarrow1Submit
+BEGIN
+	call program checkPCarrow1Results
+	call Submit
+END
+
+SCRIPT show_pcarrow2_dialog
+BEGIN
+	create CHILD gr_pcarrow_nolabel_options AS pcarrow2, allowsubmit
+	pcarrow2.setExitString pcarrow2Results
+	pcarrow2.settitle resource BIPLOT_CPLOT_BU_PCARROW2
+	pcarrow2.setExitAction "program checkPCarrow2Results"
+	pcarrow2.setSubmitAction "program pcarrow2Submit"
+END
+PROGRAM checkPCarrow2Results
+BEGIN
+	if pcarrow2Results.iseq("") {
+		call cplot.bu_pcarrow2.modified_off
+	}
+	else {
+		call cplot.bu_pcarrow2.modified_on
+	}
+END
+PROGRAM pcarrow2Submit
+BEGIN
+	call program checkPCarrow2Results
+	call Submit
+END
+
+SCRIPT show_pcarrowlabel1_dialog
+BEGIN
+	create CHILD gr_markerlabel_options AS pcarrowlabel1, allowsubmit
+	pcarrowlabel1.setExitString pcarrowlabel1Results
+	pcarrowlabel1.settitle resource LBL_LABEL_PROPERTIES_FOR_COLUMNS
+	pcarrowlabel1.setExitAction "program checkPCarrowlabel1Results"
+	pcarrowlabel1.setSubmitAction "program pcarrowlabel1Submit"
+END
+PROGRAM checkPCarrowlabel1Results
+BEGIN
+	if pcarrowlabel1Results.iseq("") {
+		call cplot.bu_pcarrowlabel1.modified_off
+	}
+	else {
+		call cplot.bu_pcarrowlabel1.modified_on
+	}
+END
+PROGRAM pcarrowlabel1Submit
+BEGIN
+	call program checkPCarrowlabel1Results
+	call Submit
+END
+
+SCRIPT show_pcarrowlabel2_dialog
+BEGIN
+	create CHILD gr_markerlabel_options AS pcarrowlabel2, allowsubmit
+	pcarrowlabel2.setExitString pcarrowlabel2Results
+	pcarrowlabel2.settitle resource BIPLOT_CPLOT_BU_PCARROWLABEL2
+	pcarrowlabel2.setExitAction "program checkPCarrowlabel2Results"
+	pcarrowlabel2.setSubmitAction "program pcarrowlabel2Submit"
+END
+PROGRAM checkPCarrowlabel2Results
+BEGIN
+	if pcarrowlabel2Results.iseq("") {
+		call cplot.bu_pcarrowlabel2.modified_off
+	}
+	else {
+		call cplot.bu_pcarrowlabel2.modified_on
+	}
+END
+PROGRAM pcarrowlabel2Submit
+BEGIN
+	call program checkPCarrowlabel2Results
+	call Submit
+END
+
+PROGRAM colopts_output
+BEGIN
+	if ! cplot.ck_noLabel {
+		put " nolabel "
+	}
+	if cplot.ck_name {
+		require cplot.ed_name
+		optionarg cplot.ed_name
+	}
+	if pcline1Results & ! H(cplot.bu_pcline1) {
+		put " " pcline1Results " "
+	}
+	if pcarrow1Results & ! H(cplot.bu_pcarrow1) {
+		put " " pcarrow1Results " "
+	}
+	if pcarrowlabel1Results & ! H(cplot.bu_pcarrowlabel1) {
+		put " " pcarrowlabel1Results " "
+	}
+END
+
+PROGRAM cplot_output
+BEGIN
+	if ((pcline1Results & ! H(cplot.bu_pcline1)) | 			///
+	    (pcarrow1Results & ! H(cplot.bu_pcarrow1)) | 		///
+	    (pcarrowlabel1Results & ! H(cplot.bu_pcarrowlabel1)) |	///
+	    ! cplot.ck_noLabel | cplot.ck_name)     			///
+	{
+		put " " "colopts(
+		put /program colopts_output
+		put ") "
+	}
+END
+
+PROGRAM negcolopts_output
+BEGIN
+	if ! cplot.ck_noLabel2 {
+		put " nolabel "
+	}
+	if cplot.ck_name2 {
+		require cplot.ed_name2
+		optionarg cplot.ed_name2
+	}
+	if pcline2Results & ! H(cplot.bu_pcline2) {
+		put " " pcline2Results " "
+	}
+	if pcarrow2Results & ! H(cplot.bu_pcarrow2) {
+		put " " pcarrow2Results " "
+	}
+	if pcarrowlabel2Results & ! H(cplot.bu_pcarrowlabel2) {
+		put " " pcarrowlabel2Results " "
+	}
+END
+
+PROGRAM negcol_output
+BEGIN
+	if ((pcline2Results & ! H(cplot.bu_pcline2)) |			///
+	    (pcarrow2Results & ! H(cplot.bu_pcarrow2)) | 		///
+	    (pcarrowlabel2Results & ! H(cplot.bu_pcarrowlabel2)) | 	///
+	    ! cplot.ck_noLabel2 | cplot.ck_name2)     			///
+	{
+		put " " "negcolopts("
+		put /program negcolopts_output
+		put ") "
+	}
+END
+
+PROGRAM rowover_output
+BEGIN
+	require main.vl_rowover
+	call rplot_result_vec.copyToString result_rowopts
+	put " " result_rowopts " "
+END
+
+PROGRAM rplot_generate_output
+BEGIN
+	if (rplot.ck_gen & rplot.ck_gen.isenabled()) {
+		require rplot.ed_newx
+		require rplot.ed_newy
+		put " " "generate("
+		put rplot.ed_newx " "
+		put rplot.ed_newy
+		put ") "
+	}
+END
+
+INCLUDE gr_yaxis
+INCLUDE gr_xaxis
+INCLUDE gr_titles
+INCLUDE gr_legend
+INCLUDE gr_overall
+
+PROGRAM norowLabel_output
+BEGIN
+	option rplot.ck_noLabel
+END
+
+PROGRAM command
+BEGIN
+	put "biplot "
+	varlist main.vl_vars
+	put /program ifin_output
+	beginoptions
+		option main.rb_std
+		if main.rb_dim2 {
+			optionarg main.ed_dim
+		}
+		optionarg /hidedefault main.ed_alpha
+		option main.ck_mahalanobis
+		optionarg main.ed_stretch
+		optionarg main.vl_rowover
+		option rplot.ck_norow
+		option cplot.ck_nocol
+		option cplot.ck_negcol
+		option main.ck_xnegate
+		option main.ck_ynegate
+		option main.ck_autoaspect
+		option main.ck_separate
+		option main.ck_nograph
+		option main.ck_table
+		optionarg rplot.vn_label
+		put " " /program rplot_generate_output
+		if ! main.ck_nograph {
+			if main.ck_rowover {
+				if rplot.ck_noLabel {
+					put " rowopts("
+					put /program norowLabel_output
+					put ") "
+				}
+				put " " /program rowover_output
+			}
+			else {
+				if ! rplot.ck_norow {
+					put " " /program rplot_output
+				}
+			}
+			if ! cplot.ck_nocol {
+				put " " /program cplot_output
+				put " " /program negcol_output
+			}
+			put " " /program gr_yaxis_output
+			put " " /program gr_xaxis_output
+			put " " /program gr_titles_output
+			put " " /program gr_legend_output
+			put " " /program gr_overall_output
+		}
+	endoptions
+END

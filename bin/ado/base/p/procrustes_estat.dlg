@@ -1,0 +1,200 @@
+/*
+	procrustes_estat
+
+*!  VERSION 1.1.1  02feb2015
+
+	***
+	USE EXTREME CARE WHEN CHANGING CONTROL NAMES. The names used
+	in this file have multiple external dependencies.
+*/
+
+VERSION 14
+
+INCLUDE _std_large
+INCLUDE header
+
+HELP hlp1, view("help procrustes postestimation")
+RESET res1
+
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource PROCRUSTES_ESTAT_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program parseMessage
+END
+
+PROGRAM parseMessage
+BEGIN
+	if __MESSAGE.contains("-compare-") {
+		call main.lb_subcmd.setvalue "compare"
+	}
+	if __MESSAGE.contains("-mvreg-") {
+		call main.lb_subcmd.setvalue "mvreg"
+	}
+	if __MESSAGE.contains("-summarize-") {
+		call main.lb_subcmd.setvalue "summarize"
+	}
+END
+
+
+DIALOG main, label(resource PROCRUSTES_ESTAT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_subcmd		_lft	_top	_iwd	.,		///
+  	label(resource LBL_REPORTS_STATISTICS_SUBCOMMAND)
+  LISTBOX  lb_subcmd		@	_ss	@	70,		///
+  	contents(main_subcommand_contents)				///
+  	values(main_subcommand_values)					///
+  	onselchangelist(main_subcommand_scripts)
+
+  DEFINE holdy 110
+
+  // Compare options
+  CHECKBOX ck_detail		_lft	holdy	_iwd	.,		///
+  	option(detail)							///
+  	label(resource PROCRUSTES_ESTAT_MAIN_CK_DETAIL)
+
+  // mvreg options
+  CHECKBOX ck_noconstant	_lft	holdy	_iwd	.,		///
+  	option(noconstant)						///
+  	label(resource LBL_NOCONSTANT)
+  CHECKBOX ck_corr		@	_ms	@	.,		///
+	label(resource PROCRUSTES_ESTAT_MAIN_CK_CORR)			///
+	option(corr)
+  CHECKBOX ck_notable		@	_xxls	@	.,		///
+	label(resource LBL_SUPPRESS_COEFFICIENT_TABLE)			///
+	option(notable)
+  COMBOBOX cb_level		_lft	_ms	_spwd	.,		///
+	dropdown							///
+	label(resource LBL_TX_LEVEL)					///
+	default(c(level))						///
+	contents(levels)						///
+	option(level)
+ 
+  TEXT     tx_level		_spsep	@	200	.,  		///
+	label(resource LBL_TX_LEVEL)
+
+  // Summarize options
+  CHECKBOX ck_labels		_lft	holdy	_iwd	.,		///
+  	label(resource LBL_DISPLAY_VARIABLE_LABELS)			///
+  	option(labels)
+  CHECKBOX ck_noheader		_lft	_ms	_iwd	.,		///
+	option(noheader)						///
+	label(resource PROCRUSTES_ESTAT_MAIN_CK_NOHEADER)
+  CHECKBOX ck_noweights		@	_ms	@	.,		///
+	option(noweights)						///
+	label(resource LBL_IGNORE_WEIGHTS)
+END
+
+LIST main_subcommand_contents
+BEGIN
+	resource PROCRUSTES_ESTAT_COMPARE
+	resource PROCRUSTES_ESTAT_MVREG
+	resource LBL_SUMMARIZE_ESTIMATION_SAMPLE
+END
+
+LIST main_subcommand_values
+BEGIN
+	compare
+	mvreg
+	summarize
+	vce
+END
+
+LIST main_subcommand_scripts
+BEGIN
+	script sel_compare
+	script sel_mvreg
+	script sel_summarize
+	script sel_vce
+END
+
+SCRIPT sel_compare
+BEGIN
+	script main_hide_all
+	main.ck_detail.show
+END
+
+SCRIPT sel_mvreg
+BEGIN
+	script main_hide_all
+	main.ck_noconstant.show
+	main.ck_corr.show
+	main.ck_noheader.show
+	main.ck_noheader.setposition . 160
+	main.ck_notable.show
+	main.cb_level.show
+	main.tx_level.show
+END
+
+SCRIPT sel_summarize
+BEGIN
+	script main_hide_all
+	script main_summ_on
+END
+
+SCRIPT sel_vce
+BEGIN
+	script main_hide_all
+	program vce_on
+END
+
+SCRIPT main_summ_on
+BEGIN
+	main.ck_labels.show
+	main.ck_noheader.show
+	main.ck_noheader.setposition . 135
+	main.ck_noweights.show
+END
+
+SCRIPT main_summ_off
+BEGIN
+	main.ck_labels.hide
+	main.ck_noheader.hide
+	main.ck_noweights.hide
+END
+
+SCRIPT main_hide_all
+BEGIN
+	main.ck_detail.hide
+	main.ck_noconstant.hide
+	main.ck_corr.hide
+	main.ck_noheader.hide
+	main.ck_notable.hide
+	main.cb_level.hide
+	main.tx_level.hide
+	program vce_off
+	script main_summ_off
+END
+
+PROGRAM vl_output
+BEGIN
+	put main.vl_spec
+END
+
+PROGRAM vl_eq_output
+BEGIN
+	put main.vl_eq
+END
+
+PROGRAM command
+BEGIN
+	put "estat "
+	put main.lb_subcmd
+	beginoptions
+		// Compare options
+		option main.ck_detail
+		// mvreg options
+		option main.ck_noconstant
+		option main.ck_corr
+		option main.ck_notable
+		optionarg /hidedefault main.cb_level
+		// Summarize options
+		option main.ck_labels
+		option main.ck_noheader
+		option main.ck_noweights
+	endoptions
+END

@@ -1,0 +1,736 @@
+/*
+  asmixlogit
+
+*!  VERSION 1.0.5  29nov2018
+
+  keyword:  eclass
+
+*/
+
+VERSION 15.0
+
+INCLUDE _std_xlarge
+DEFINE _dlght 420
+INCLUDE header
+
+HELP hlp1, view("help asmixlogit")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	script se_createAsSvyJknifeBstrapML
+	program svy_check_title
+	setscale_hadj resource ASMIXLOGIT_DLG_HSCALE
+
+	create STRING STMP
+	create STRING main_random_tmp
+	create STRING main_random_tmp2
+	create STRING main_random_childdlg
+	create STRING main_random_dlgname
+	create STRING main_random_child_result
+	create STRING main_random_cmd_output
+
+	create ARRAY main_random_list
+
+	create SVECTOR mainRANDOMCommandDisplayList
+	create SVECTOR mainRANDOMCommandList
+	create SVECTOR mainRANDOMCommandValues
+	create SVECTOR mainRANDOMStatusList
+	create SVECTOR mainRANDOMChildDialogList
+	//added
+	create SVECTOR mainRANDOMCorrelated
+	create DOUBLE correlated
+	create DOUBLE randCorr
+	create DOUBLE numCorr
+	create DOUBLE loopI
+	create DOUBLE corrI
+	create STRING stsI
+
+	create DOUBLE main_random_count
+	create DOUBLE main_random_position
+	create DOUBLE main_random_arraysize
+
+	main_random_count.setvalue 0
+	
+	main.bu_random_edit.disable
+	main.bu_random_disable.disable
+	main.bu_random_enable.disable
+END
+
+PROGRAM svy_check_title
+BEGIN
+	if __MESSAGE.contains("-svy-") {
+		call settitle resource ASMIXLOGIT_SVY_DLG_TITLE
+	}
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script sub_set_by_on
+	program se_setFinalInitState
+
+	mainRANDOMCommandDisplayList.copyToArray main_random_list
+	main.lb_random_build.repopulate
+	
+	script model2_gbcorr_disable
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)				///
+	title(resource ASMIXLOGIT_DLG_TITLE)
+BEGIN
+  TEXT tx_dv			_lft	_top	_vnwd	.,		///
+	label(resource LBL_DEPVAR)
+  VARNAME vn_dv			@ 	_ss	@	.,		///
+	numeric								///
+	label(resource LBL_DEPVAR)
+
+  TEXT tx_iv			_vlx	_top	160	.,		///
+	label(resource LBL_INDDEPVAR)
+  VARLIST vl_iv			@	_ss	_vlwd	.,		///
+	fv								///
+	allowcat							///
+	numeric								///
+	label(resource LBL_INDDEPVAR)
+
+  TEXT     tx_case		_lft	_ls	_vnwd	.,		///
+	label(resource LBL_TX_CASE)
+  DEFINE holdy @y
+  VARNAME  vn_case		@	_ss	@	.,		///
+	label(resource LBL_TX_CASE) option(case) numeric
+
+  TEXT     tx_casevars		_vlx	holdy	_vlwd	.,		///
+	label(resource LBL_VN_CASEVARS)
+  VARLIST  vl_casevars		@	_ss	_vlwd	.,		///
+	option(casevars)						///
+	fv								///
+	numeric								///
+	allowcat							///
+	label(resource LBL_VL_CASEVARS)
+
+  TEXT     tx_alternatives	_lft	_ls	_vnwd	.,		///
+	label(resource LBL_ALTERNATIVES_VAR)
+  VARNAME  vn_alternatives	@	_ss	@	.,		///
+	numeric								///
+	label(resource LBL_ALTERNATIVES_VAR)				///
+	option(alternatives)
+DEFINE holdy @y
+  CHECKBOX ck_noconstant	_vlx	holdy	_vlwd	.,		///
+	option(noconstant)						///
+	label(resource LBL_ALT_NOCONSTANT)
+
+  TEXT tx_random		_lft	_ls	_iwd	.,		///
+  	label(resource LBL_RANDOM_COEFFICIENTS)
+  LISTBOX lb_random_build	_lft	_ss	245	95,		///
+	contents(main_random_list)					///
+	ondblclick(program main_random_edit)				///
+	onselchange(program main_random_sel_changed)			///
+	nomemory
+  BUTTON bu_random_create	275	@	75	.,		///
+	onpush(program main_random_create)				///
+	label(resource LBL_BU_CREATE)
+  BUTTON bu_random_edit		@	_ms	@	.,		///
+	onpush(program main_random_edit)				///
+	label(resource LBL_BU_EDIT)
+  BUTTON bu_random_disable	@	_ms	@	.,		///
+	onpush(program main_random_disable)				///
+	label(resource LBL_BU_DISABLE)
+  BUTTON bu_random_enable	@	_ms	@	.,		///
+	onpush(program main_random_enable)				///
+	label(resource LBL_BU_ENABLE)
+  TEXTBOX tb_random_note	_lft	+35	370	20,		///
+  	label(resource ASMIXLOGIT_MAIN_TB_RANDOM_NOTE)
+  DEFINE _x _lft
+  DEFINE _y _xls
+  DEFINE _cx _lw80
+  DEFINE _bux _slw80
+  INCLUDE _constraints
+  
+  DEFINE _x _lft
+  DEFINE _xw _iwd
+//  INCLUDE _ck_collinear
+END
+
+INCLUDE _constraints_sc 
+
+PROGRAM main_random_create
+BEGIN
+	call correlated.setvalue 0
+	call main_random_count.setvalue class mainRANDOMChildDialogList.size
+	call main_random_count.increment
+	call main_random_tmp.setvalue "main_random_"
+	call main_random_tmp.append class main_random_count.value
+	call main_random_tmp.withvalue main_random_childdlg.setvalue @
+	call program main_show_random_child
+END
+
+PROGRAM main_random_edit
+BEGIN
+	call correlated.setvalue 0
+	call mainRANDOMCommandDisplayList.findstr class			///
+		main.lb_random_build.value
+	call main_random_position.setvalue class			///
+		mainRANDOMCommandDisplayList.position
+	call main_random_position.withvalue				///
+		main_random_childdlg.setvalue				///
+		class mainRANDOMChildDialogList.values[@]
+	call program main_show_random_child_edit
+END
+
+PROGRAM main_show_random_child
+BEGIN
+	call main_random_tmp.setvalue "asmixlogit_random_child AS "
+	call main_random_tmp.append class main_random_childdlg.value
+	call main_random_tmp.withvalue create CHILD @
+	call main_random_childdlg.withvalue @.setExitString		///
+		"main_random_child_result"
+	call main_random_childdlg.withvalue @.setExitAction		///
+		"program main_random_child_create_done"
+
+
+	call main_random_count.withvalue STMP.format			///
+		"resource LBL_RANDOM_COEFFICIENTS_FMT" "@" ""
+	call STMP.withvalue main_random_tmp.setvalue "@"
+	call main_random_childdlg.withvalue				///
+		main_random_tmp2.setvalue "@.settitle"
+	call main_random_tmp2.append `" ""'
+	call main_random_tmp2.append class main_random_tmp.value
+	call main_random_tmp2.append `"""'
+	call main_random_tmp2.withvalue @
+END
+
+PROGRAM main_show_random_child_edit
+BEGIN
+	call main_random_tmp.setvalue "asmixlogit_random_child AS "
+	call main_random_tmp.append class main_random_childdlg.value
+	call main_random_tmp.withvalue create CHILD @
+	call main_random_childdlg.withvalue @.setExitString		///
+		"main_random_child_result"
+	call main_random_childdlg.withvalue @.setExitAction		///
+		"program main_random_child_edit_done"
+
+	call main_random_position.withvalue				///
+		main_random_tmp.setvalue				///
+		class mainRANDOMCommandDisplayList.values[@]
+	call main_random_childdlg.withvalue				///
+		main_random_tmp2.setvalue "@.settitle"
+	call main_random_tmp2.append `" ""'
+	call main_random_tmp2.append class main_random_tmp.value
+	call main_random_tmp2.append `"""'
+	call main_random_tmp2.withvalue @
+END
+
+PROGRAM main_random_child_create_done
+BEGIN
+	call main_random_arraysize.setvalue class			///
+		mainRANDOMChildDialogList.size
+	call main_random_arraysize.increment
+
+	/* Store child dialog name */
+	call mainRANDOMChildDialogList.store class			///
+		main_random_arraysize.value class main_random_childdlg.value
+
+	/* Store listbox display specification string */
+	call main_random_arraysize.withvalue STMP.format		///
+		"resource LBL_RANDOM_COEFFICIENTS_FMT" "@" "" 
+	call STMP.withvalue						///
+		mainRANDOMCommandDisplayList.store class		///
+		main_random_arraysize.value "@"
+
+	/* Store child dialog result string */
+	call mainRANDOMCommandList.store class				///
+		main_random_arraysize.value				///
+		class main_random_child_result.value
+
+	//added
+	call mainRANDOMCorrelated.store class				///
+		main_random_arraysize.value				///
+		class correlated.value
+
+	/* Store child dialog result string for final command
+	   For disable/enable */
+	call mainRANDOMCommandValues.store class			///
+		main_random_arraysize.value				///
+		class main_random_child_result.value
+
+	/* Store disable/enable status */
+	call mainRANDOMStatusList.store class				///
+		main_random_arraysize.value "active"
+
+	call mainRANDOMCommandDisplayList.copyToArray main_random_list
+	call main.lb_random_build.repopulate
+	call STMP.withvalue main.lb_random_build.setvalue "@"
+
+	call program check_correlated
+END
+
+PROGRAM main_random_child_edit_done
+BEGIN
+	call mainRANDOMChildDialogList.findstr class			///
+		main_random_childdlg.value
+	call main_random_position.setvalue class			///
+		mainRANDOMChildDialogList.position
+	call main_random_position.withvalue main_random_tmp.setvalue	///
+		class mainRANDOMStatusList.values[@]
+
+	if main_random_tmp.iseq("active") {
+		call main_random_position.withvalue STMP.format		///
+			"resource LBL_RANDOM_COEFFICIENTS_FMT" "@" ""
+		call STMP.withvalue					///
+			mainRANDOMCommandDisplayList.store class	///
+			main_random_position.value "@"
+		call mainRANDOMCommandValues.store class		///
+			main_random_position.value class		///
+			main_random_child_result.value
+		call STMP.withvalue main_random_tmp2.setvalue "@"
+	}
+	else {
+		call main_random_position.withvalue STMP.format		///
+			"resource LBL_RANDOM_COEFFICIENTS_FMT" "@" ""
+			"resource LBL_PAREN_DISABLED"
+
+		call STMP.withvalue					///
+			main_random_tmp2.setvalue "@"
+
+		call STMP.withvalue					///
+			mainRANDOMCommandDisplayList.store		///
+			class main_random_position.value "@"
+	}
+
+
+	call mainRANDOMCommandList.store class				///
+		main_random_position.value class			///
+		main_random_child_result.value
+
+	//added
+	call mainRANDOMCorrelated.store class 				///
+		main_random_position.value class			///
+		correlated.value
+
+	call mainRANDOMCommandDisplayList.copyToArray main_random_list
+	call main.lb_random_build.repopulate
+	call main.lb_random_build.setvalue class main_random_tmp2.value
+
+	call program check_correlated
+END
+
+PROGRAM main_random_sel_changed
+BEGIN
+	call mainRANDOMCommandDisplayList.findstr class			///
+		main.lb_random_build.value
+	call main_random_position.setvalue class			///
+		mainRANDOMCommandDisplayList.position
+	call main_random_position.withvalue main_random_tmp.setvalue	///
+		class mainRANDOMStatusList.values[@]
+	if main_random_position {
+		call main.bu_random_edit.enable
+		call main_random_position.withvalue			///
+			main.tb_random_note.setlabel			///
+			class mainRANDOMCommandList.values[@]
+	}
+
+	if main_random_tmp.iseq("disable") {
+		call main.bu_random_enable.enable
+		call main.bu_random_disable.disable
+	}
+	if main_random_tmp.iseq("active") {
+		call main.bu_random_enable.disable
+		call main.bu_random_disable.enable
+	}
+END
+
+PROGRAM main_random_disable
+BEGIN
+	call mainRANDOMCommandDisplayList.findstr class			///
+		main.lb_random_build.value
+	call main_random_position.setvalue class			///
+		mainRANDOMCommandDisplayList.position
+
+	call main_random_tmp.setvalue class main.lb_random_build.value
+	call mainRANDOMStatusList.store class				///
+		main_random_position.value "disable"
+	call mainRANDOMCommandValues.store class main_random_position.value ""
+	call STMP.format "resource LBL_PAREN_DISABLED"
+	call main_random_tmp.append " "
+	call main_random_tmp.append class STMP.value
+	call main_random_tmp.withvalue STMP.setvalue "@"
+
+	call main_random_tmp.withvalue					///
+		mainRANDOMCommandDisplayList.store			///
+		class main_random_position.value "@"
+
+	call mainRANDOMCommandDisplayList.copyToArray main_random_list
+	call main.lb_random_build.repopulate
+	call main.lb_random_build.setvalue class STMP.value
+
+	call program check_correlated
+END
+
+PROGRAM main_random_enable
+BEGIN
+	call mainRANDOMCommandDisplayList.findstr class			///
+		main.lb_random_build.value
+	call main_random_position.setvalue class			///
+		mainRANDOMCommandDisplayList.position
+
+	call mainRANDOMStatusList.store class				///
+		main_random_position.value "active"
+	call main_random_position.withvalue				///
+		mainRANDOMCommandValues.store				///
+		class main_random_position.value class			///
+		mainRANDOMCommandList.values[@]
+
+	call main_random_position.withvalue STMP.format			///
+		"resource LBL_RANDOM_COEFFICIENTS_FMT" "@" ""
+	call STMP.withvalue						///
+		mainRANDOMCommandDisplayList.store			///
+		class main_random_position.value "@"
+
+	call mainRANDOMCommandDisplayList.copyToArray main_random_list
+	call main_random_position.withvalue				///
+		main_random_tmp2.setvalue class				///
+		mainRANDOMCommandDisplayList.values[@]
+	call main.lb_random_build.repopulate
+	call main.lb_random_build.setvalue class main_random_tmp2.value
+
+	call program check_correlated
+END
+
+PROGRAM check_correlated
+BEGIN
+	call randCorr.setvalue 0
+	call numCorr.setvalue class mainRANDOMCorrelated.size
+
+	call loopI.setvalue 1
+	while(loopI.isle(numCorr)) {
+		call loopI.withvalue corrI.setvalue			///
+			class mainRANDOMCorrelated.values[@]
+		call loopI.withvalue stsI.setvalue			///
+			class mainRANDOMStatusList.values[@]
+		if corrI.iseq(1) & stsI.iseq("active") {
+			call randCorr.setvalue 1
+			call numCorr.increment
+			call numCorr.withvalue loopI.setvalue @
+		}
+		else {
+			call loopI.increment
+		}
+	}
+	if randCorr.iseq(1) {
+		call script model2_gbcorr_enable
+	}
+	else {
+		call script model2_gbcorr_disable
+	}	
+END
+
+DIALOG model2, tabtitle(resource LBL_TAB_MODEL2)
+BEGIN
+  GROUPBOX gb_corr		_lft	_top	_iwd	_ht5h,		///
+  	label(resource ASMIXLOGIT_MODEL2_GB_CORR)
+  RADIO    rb_correlation	_indent	_ss	_ibwd	., first	///
+  	label(resource ASMIXLOGIT_MODEL2_RB_CORRELATION)
+  RADIO    rb_covariance	@	_ss	@	.,		///
+	option(corrmetric(covariance))					///
+	label(resource ASMIXLOGIT_MODEL2_RB_COVARIANCE)
+  RADIO	   rb_cholesky		@	_ss	@	., last		///
+	option(corrmetric(cholesky))					///
+	label(resource ASMIXLOGIT_MODEL2_RB_CHOLESKY)
+  CHECKBOX ck_basealt		_lft	_xls	_cwd1	.,		///
+	onclickon(script model2_basealt_on)				///
+	onclickoff(script model2_basealt_off)				///
+	label(resource LBL_NORMALIZED_LOCATION)
+  EDIT     ed_basealt		_indent2 _ss	_en14wd	.,		///
+	option(basealternative)						///
+	label(resource LBL_BASE_ALTERNATIVE)
+  TEXT     tx_basealt		_en14sep @	120	.,		///
+	label(resource LBL_BASE_ALTERNATIVE)
+
+  CHECKBOX ck_altwise		_lft	_ls	_cwd1	.,		///
+	option(altwise)							///
+	label(resource LBL_ALTERNATIVEWISE_DELETION)
+END
+
+SCRIPT model2_basealt_on
+BEGIN
+	model2.ed_basealt.enable
+	model2.tx_basealt.enable
+END
+
+SCRIPT model2_basealt_off
+BEGIN
+	model2.ed_basealt.disable
+	model2.tx_basealt.disable
+END
+
+SCRIPT model2_gbcorr_enable
+BEGIN
+	model2.gb_corr.enable
+	model2.rb_correlation.enable
+	model2.rb_covariance.enable
+	model2.rb_cholesky.enable
+END
+
+SCRIPT model2_gbcorr_disable
+BEGIN
+	model2.gb_corr.disable
+	model2.rb_correlation.disable
+	model2.rb_covariance.disable
+	model2.rb_cholesky.disable
+END
+
+INCLUDE sub_by_ifin_over_subpop
+INCLUDE weights_fpi
+INCLUDE se
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+	program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2b
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _nocnsreport
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+
+PROGRAM rpt_output
+BEGIN
+	optionarg /hidedefault rpt.sp_level
+	INCLUDE _nocnsreport_pr
+	INCLUDE _report_columns_pr
+	put " " rpt_bu_facvarsResults
+	put " " rpt_bu_fmtcoefResults
+END
+
+DIALOG int, tabtitle(resource LBL_TAB_INTEGRATION)
+BEGIN
+  GROUPBOX gb_intmethod		_lft		_top	_iwd	_ht9h,	///
+  	label(resource ASMIXLOGIT_INT_GB_INTMETHOD)
+  GROUPBOX gb_method		_ilft		_ms	_cwd2	_ht6,	///
+  	label(resource ASMIXLOGIT_INT_GB_METHOD)
+  DEFINE y @y
+  RADIO	   rb_hammersley	_indent		_ss	_inwd	.,first	///
+	option(hammersley)						///
+	onclickon(script int_random_off)				///
+	label(resource ASMIXLOGIT_INT_RB_HAMMERSLEY)	
+  RADIO    rb_halton		@		_ss	@	.,	///
+	option(halton)							///
+	onclickon(script int_random_off)				///
+	label(resource ASMIXLOGIT_INT_RB_HALTON)
+  RADIO	   rb_random		@		_ss	@	.,last	///
+	option(random)							///
+	onclickon(script int_random_on)					///
+	label(resource ASMIXLOGIT_INT_RB_RANDOM)
+  GROUPBOX gb_implement		275		y	_cwd1	_ht6,	///
+  	label(resource ASMIXLOGIT_INT_GB_IMPLEMENT)
+  RADIO	   rb_default		_indent		_ss	_inwd	.,first	///
+	option(NONE)							///
+	label(resource LBL_DEFAULT)
+  RADIO    rb_antithetics	@		_ss	@	.,	///
+	option(antithetics)						///
+	label(resource ASMIXLOGIT_INT_RB_ANTITHETICS)
+  RADIO    rb_mantithetics	@		_ss	@	.,last	///
+	option(mantithetics)						///
+	label(resource ASMIXLOGIT_INT_RB_MANTITHETICS)
+  CHECKBOX ck_intpoints		_ilft	_xxls	_ibwd		.,	///
+	onclickon(script int_intpoints_on)				///
+	onclickoff(script int_intpoints_off)				///
+	label(resource ASMIXLOGIT_INT_CK_INTPOINTS)
+  EDIT     ed_intpoints		_indent2 _ss	_en7wd		.,	///
+	numonly								///
+	option(intpoints)						///
+	label(resource LBL_POINTS)
+  TEXT     tx_intpoints		_en7sep	@	100		.,	///
+	label(resource LBL_POINTS)
+
+  CHECKBOX ck_intburn		_ilft	_ls	_ibwd		.,	///
+	onclickon(script int_intburn_on)				///
+	onclickoff(script int_intburn_off)				///
+	label(resource ASMIXLOGIT_INT_CK_INTBURN)
+DEFINE y @y
+  EDIT     ed_intburn		_indent2 _ss	_en7wd		.,	///
+	numonly								///
+	option(intburn)							///
+	label(resource LBL_INDEX)
+  TEXT     tx_intburn		_en7sep	@	100		.,	///
+	label(resource LBL_INDEX)
+
+  CHECKBOX ck_intseed		_ilft	y	_ibwd		.,	///
+	onclickon(script int_intseed_on)				///
+	onclickoff(script int_intseed_off)				///
+	label(resource LBL_SET_SEED_FOR_GEN_UNIFORM_SEQUENCE)
+  EDIT     ed_intseed		_indent2 _ss	_en7wd		.,	///
+	numonly								///
+	option(intseed)							///
+	label(resource LBL_SEED)
+  TEXT     tx_intseed		_en7sep	@	100		.,	///
+	label(resource LBL_SEED)
+
+  GROUPBOX gb_favor		_lft		_ls	_iwd	_ht2,	///
+  	label(resource AS_LBL_GB_FAVOR)
+  RADIO	   rb_speed		_ilft		_ss	_cwd3	.,first	///
+	option(NONE)							///
+	label(resource AS_LBL_SPEED)
+  RADIO    rb_space		_ilft2		@	@	.,last	///
+	option(favor(space))						///
+	label(resource AS_LBL_SPACE)
+END
+
+SCRIPT int_random_off
+BEGIN
+	int.ck_intburn.show
+	int.ed_intburn.show
+	int.tx_intburn.show
+	int.ck_intseed.hide
+	int.ed_intseed.hide
+	int.tx_intseed.hide
+END
+
+SCRIPT int_random_on
+BEGIN
+	int.ck_intseed.show
+	int.ed_intseed.show
+	int.tx_intseed.show
+	int.ck_intburn.hide
+	int.ed_intburn.hide
+	int.tx_intburn.hide
+END
+
+SCRIPT int_intburn_on
+BEGIN
+	int.ed_intburn.enable
+	int.tx_intburn.enable
+END
+
+SCRIPT int_intburn_off
+BEGIN
+	int.ed_intburn.disable
+	int.tx_intburn.disable
+END
+
+SCRIPT int_intseed_on
+BEGIN
+	int.ed_intseed.enable
+	int.tx_intseed.enable
+END
+
+SCRIPT int_intseed_off
+BEGIN
+	int.ed_intseed.disable
+	int.tx_intseed.disable
+END
+
+SCRIPT int_intpoints_on
+BEGIN
+	int.ed_intpoints.enable
+	int.tx_intpoints.enable
+END
+
+SCRIPT int_intpoints_off
+BEGIN
+	int.ed_intpoints.disable
+	int.tx_intpoints.disable
+END
+
+PROGRAM intmethod_output
+BEGIN
+	option radio (int rb_hammersley rb_halton rb_random)
+	beginoptions
+		option radio (int rb_antithetics rb_mantithetics)
+	endoptions
+END
+
+PROGRAM int_output
+BEGIN
+	if int.rb_halton | int.rb_random | int.rb_antithetics | 	///
+	   int.rb_mantithetics {
+		put "intmethod("
+		put /program intmethod_output
+		put ")"
+	}
+	if int.ck_intpoints {
+		require int.ed_intpoints
+		optionarg int.ed_intpoints
+	}
+	if int.ck_intburn {
+		require int.ed_intburn
+		optionarg int.ed_intburn
+	}
+	if int.ck_intseed {
+		require int.ed_intseed
+		optionarg int.ed_intseed
+	}
+	option int.rb_space
+END
+
+INCLUDE max_ml
+
+PROGRAM model_opts_output
+BEGIN
+	require main.vn_case
+	optionarg main.vn_case
+	if !main.ck_noconstant {
+		require main.vn_alternatives
+	}
+	if main.vl_casevars.isneq("") & main.ck_noconstant {
+		require main.vn_alternatives
+	}
+	optionarg main.vn_alternatives
+	call mainRANDOMCommandValues.copyToString		///
+		main_random_cmd_output
+	put " " main_random_cmd_output
+	optionarg main.vl_casevars
+	option main.ck_noconstant
+	INCLUDE _constraints_main_pr
+//	option main.ck_collinear
+	
+	option radio (model2 rb_covariance rb_cholesky)
+	if model2.ck_basealt {
+		require model2.ed_basealt
+	}
+	optionarg model2.ed_basealt
+	option model2.ck_altwise
+END
+
+PROGRAM command
+BEGIN
+	put /program by_output " "
+	put /program se_prefix_output " "
+	put "asmixlogit "
+	varlist main.vn_dv [main.vl_iv]
+	put " " /program ifin_output
+	put " " /program weights_output
+	beginoptions
+		put " " /program model_opts_output
+		put " " /program se_output
+		put " " /program rpt_output
+		put " " /program int_output
+		put " " /program max_output
+	endoptions
+END

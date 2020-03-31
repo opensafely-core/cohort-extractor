@@ -1,0 +1,374 @@
+/*
+	ca
+
+*!  VERSION 1.3.1  17apr2015
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 340
+INCLUDE header
+HELP hlp1, view("help ca")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource CA_DLG_HSCALE
+END
+
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL) label(resource CA_DLG_TITLE)
+BEGIN
+  GROUPBOX gb_rowspec           _lft    _top    _iwd    _ht12,		///
+	label(resource CA_MAIN_GB_ROWSPEC)
+  RADIO    rb_rowvar		_ilft	_ss	_ibwd	.,		///
+	label(resource CA_MAIN_RB_ROWVAR) first onclickon(script rowvar_on)
+  VARNAME  vn_rowvar		+20	_ss	_vnwd	.,		///
+  	numeric								///
+	label(resource CA_MAIN_RB_ROWVAR)
+
+  RADIO    rb_rowspec	        _ilft	+35	_ibwd	.,		///
+	label(resource CA_MAIN_RB_ROWSPEC)				///
+	last onclickon(script rowspec_on)
+  TEXT     tx_nrowvar		+20	_ss	_vnwd	.,		///
+	label(resource LBL_NEW_VARIABLE_NAME)
+DEFINE y @y
+  EDIT     vn_nrowspec		@	_ss	@	.,		///
+	label(resource LBL_NEW_VARIABLE_NAME)
+
+  TEXT     tx_nrowspec		_lft3_2	y	_comb3_2 .,		///
+	label(resource CA_MAIN_TX_NROWSPEC)
+  VARLIST  vl_nrowspec          @	_ss	@	.,		///
+  	numeric								///
+	label(resource CA_MAIN_TX_NROWSPEC)
+
+  GROUPBOX gb_colspec           _lft	+50	_iwd	_ht12,		///
+	label(resource LBL_COLUMN_SPECIFICATION)
+  RADIO    rb_colvar            _ilft	_ss	_ibwd	.,		///
+	label(resource CA_MAIN_RB_COLVAR) first 			///
+	onclickon(script colvar_on)
+  VARNAME  vn_colvar            +20	_ss	_vnwd	.,		///
+  	numeric								///
+	label(resource CA_MAIN_RB_COLVAR)
+
+  RADIO    rb_colspec           _ilft	+35	_iwd	.,		///
+	label(resource CA_MAIN_GB_ROWSPEC) 				///
+	last onclickon(script colspec_on)
+
+  TEXT     tx_ncolvar		+20	_ss	_vnwd	.,		///
+	label(resource LBL_NEW_VARIABLE_NAME)
+DEFINE y @y
+  EDIT     vn_ncolspec		@	_ss	@	.,		///
+	label(resource LBL_NEW_VARIABLE_NAME)
+
+  TEXT     tx_ncolspec		_lft3_2	y	_comb3_2 .,		///
+	label(resource CA_MAIN_TX_NROWSPEC)
+  VARLIST  vl_ncolspec		@	_ss	@	.,		///
+        numeric								///
+	label(resource CA_MAIN_TX_NROWSPEC)
+END
+
+SCRIPT model2_PREINIT
+BEGIN
+	create STRING matrixResult
+END
+
+DIALOG model2, tabtitle(resource LBL_TAB_MODEL2)
+BEGIN
+  BUTTON   bu_matinput   	_rj100	_top    100	.,		///
+	label(resource LBL_INPUT_MATRIX)				///
+	onpush(program show_matrix_input)				///
+	tooltip(resource LBL_INPUT_HAND)
+
+  SPINNER  sp_dim		_lft	_vss	_spwd	.,		///
+	default(2) min(1) max(100) option(dimensions)
+  TEXT     tx_dim		_spsep	@	200	.,		///
+	label(resource LBL_NUMBER_OF_DIMENSIONS)
+
+  GROUPBOX gb_normalize		_lft	+35	_iwd	_ht8,		///
+	label(resource LBL_NORMALIZATION_METHOD)
+  RADIO	rb_default		_ilft	_ss	_cwd1	.,		///
+	first label(resource LBL_SYMMETRIC_COORDINATES_DEFAULT) 	///
+	option(NONE)
+  DEFINE holdy @y
+  RADIO	rb_standard		@	_ss	@	., 		///
+	label(resource CA_MODEL2_RB_STANDARD)				///
+	option(normalize(standard))
+  RADIO	rb_row			@	_ss	@	., 		///
+	label(resource LBL_ROW_PRINCIPAL_COORDINATES)			///
+	option(normalize(row))
+  RADIO	rb_column		@	_ss	@	., 		///
+	label(resource LBL_COLUMN_PRINCIPAL_COORDINATES)		///
+	option(normalize(column))
+
+  RADIO	rb_principal		_lft2	holdy	_cwd2	., 		///
+	label(resource LBL_PRINCIPAL_COORDINATES)			///
+	option(normalize(principal))
+  RADIO	rb_power		@	_ss	+5 	.,		///
+	last label(resource LBL_POWER_O1_ROW_COORDINATES)		///
+  	onclickon(script ck_power_on)					///
+  	onclickoff(script ck_power_off)					///
+	option(NONE)
+  EDIT     ed_power	_indent2  _ss	_en7wd	.,			///
+	option(normalize)						///
+	label(resource LBL_POWER_NUMBER)
+  TEXT     tx_power	_spsep	@	_ckwd	.,			///
+	label("#")
+
+  TEXT     tx_rowsupp		_lft	+65	_cwd2	.,		///
+	label(resource LBL_MATRIX_OF_SUPPLEMENTARY_ROWS)
+  DEFINE holdy @y
+  COMBOBOX cb_rowsupp		@       _ss     _vnwd	.,		///
+	label(resource LBL_MATRIX_OF_SUPPLEMENTARY_ROWS)		///
+	dropdown option(rowsupp)					///
+	contents(matrix)
+  TEXT     tx_colsupp		_lft2	holdy	_cwd2	.,		///
+	label(resource LBL_MATRIX_OF_SUPPLEMENTARY_COLUMNS)
+  COMBOBOX cb_colsupp		@       _ss     _vnwd	.,		///
+	label(resource LBL_MATRIX_OF_SUPPLEMENTARY_COLUMNS)		///
+	dropdown option(colsupp)					///
+	contents(matrix)
+
+  TEXT     tx_rowname		_lft	_ls	_cwd2	.,		///
+	label(resource LBL_LABEL_OF_ROWS)
+  DEFINE holdy @y
+  EDIT     ed_rowname		@       _ss     _vnwd	.,		///
+	label(resource LBL_LABEL_OF_ROWS)				///
+	option(rowname) default(rowvar)
+
+  TEXT     tx_colname		_lft2	holdy	_cwd2	.,		///
+	label(resource LBL_LABEL_OF_COLUMNS)
+  EDIT     ed_colname		@       _ss     _vnwd	.,		///
+	label(resource LBL_LABEL_OF_COLUMNS)				///
+	option(colname) default(colvar)
+
+  CHECKBOX ck_missing		_lft	_ls	_iwd	.,		///
+	label(resource LBL_TREAT_MISSING_VALUES_AS_ORDINARY_VALUES)	///
+	option(missing)
+
+END
+
+PROGRAM show_matrix_input
+BEGIN
+	call create CHILD matrix_input
+	if ! _rc {
+		call matrix_input.setExitString matrixResult
+		call matrix_input.setExitAction "program getMatrixResult"
+		call matrix_input.callthru "isChildContext.settrue"
+	}
+END
+PROGRAM getMatrixResult
+BEGIN
+	call create ARRAY matrix_tempvals
+	call matrix_tempvals.Arrdropall
+	
+	call model2.cb_colsupp.withvalue matrix_tempvals.Arrpush "@"
+	call model2.cb_rowsupp.withvalue matrix_tempvals.Arrpush "@"
+
+	call model2.cb_colsupp.repopulate
+	call model2.cb_rowsupp.repopulate
+
+	call model2.cb_colsupp.setvalue class matrix_tempvals[1]
+	call model2.cb_rowsupp.setvalue class matrix_tempvals[2]
+END
+
+INCLUDE byifin
+
+INCLUDE weights_fai
+INCLUDE ca_codes
+
+DIALOG report, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  CHECKBOX ck_ddim		_lft	_top	_iwd	.,		///
+  	onclickon(script ck_ddim_on)					///
+  	onclickoff(script ck_ddim_off)					///
+	label(resource LBL_SPECIFY_NUMBER_SINGULAR_VALUES_DISPLAYED)
+
+  SPINNER  sp_ddim		+20	_ss	_spwd	.,		///
+	label(resource LBL_SINGULAR_VALUES)				///
+	min(1)								///
+	max(1000)							///
+	default(2)							///
+	option(ddimensions)
+  TEXT     tx_ddim		_spsep	@	_cksprb	.,		///
+	label(resource LBL_SINGULAR_VALUES)
+
+  CHECKBOX ck_norowpoints	_lft	_ls	_iwd	.,		///
+	label(resource CA_REPORT_CK_NOROWPOINTS)			///
+	option(norowpoints)
+  CHECKBOX ck_nocolpoints	@	_ms	@	.,		///
+	label(resource CA_REPORT_CK_NOCOLPOINTS)			///
+	option(nocolpoints)
+  CHECKBOX ck_compact		@	_ms	@	.,		///
+	label(resource LBL_DISPLAY_TABLES_IN_COMPACT_FORMAT)		///
+	option(compact)
+
+  GROUPBOX gb_plotopt		_lft	_ls	_iwd	_ht7,		///
+	label(resource LBL_PLOT_OPTIONS)
+  CHECKBOX ck_plot		_ilft	_ss	_ibwd	.,		///
+	label(resource LBL_PLOT_ROW_COLUMN_COORDINATES)			///
+	onclickon(program ck_maxlength_on)				///
+	onclickoff(program ck_maxlength_off)				///
+	option(plot)
+  CHECKBOX ck_maxlength		@	_ms	_ckwd	.,		///
+	label("")							///
+	onclickon(report.sp_maxlength.enable)				///
+	onclickoff(report.sp_maxlength.disable)
+  SPINNER  sp_maxlength		_cksep	@	_spwd	.,		///
+	label(resource LBL_NUMBER_OF_CHARACTERS)			///
+	min(1)								///
+	max(32)								///
+	default(12)							///
+	option(maxlength)
+  TEXT     tx_maxlength		_spsep	@	_cksprb	.,		///
+	label(resource LBL_NUMBER_PLOTTED_ROW_COLUMN_LAB_CHARACTERS)
+  TEXT     tx_note		_ilft	_ms	_irj40	.,		///
+	label(resource LBL_NOTE_ADD_POSTEST_PLOT_OPTIONS_CABIPLOT)
+  BUTTON   bu_cabiplot		_irj20	@	20	.,		///
+	label("..") onpush(view dialog cabiplot)			///
+	tooltip(resource CA_REPORT_BU_CABIPLOT)
+END
+
+SCRIPT rowvar_on
+BEGIN
+	main.vn_rowvar.enable
+	main.tx_nrowvar.disable
+	main.tx_nrowspec.disable
+	main.vn_nrowspec.disable
+	main.vl_nrowspec.disable
+	program check_if_crossing
+END
+
+SCRIPT rowspec_on
+BEGIN
+	main.vn_rowvar.disable
+	main.tx_nrowvar.enable
+	main.tx_nrowspec.enable
+	main.vn_nrowspec.enable
+	main.vl_nrowspec.enable
+	program check_if_crossing
+END
+
+SCRIPT colvar_on
+BEGIN
+	main.vn_colvar.enable
+	main.tx_ncolvar.disable
+	main.tx_ncolspec.disable
+	main.vn_ncolspec.disable
+	main.vl_ncolspec.disable
+	program check_if_crossing
+END
+
+SCRIPT colspec_on
+BEGIN
+	main.vn_colvar.disable
+	main.tx_ncolvar.enable
+	main.tx_ncolspec.enable
+	main.vn_ncolspec.enable
+	main.vl_ncolspec.enable
+	program check_if_crossing
+END
+
+PROGRAM check_if_crossing
+BEGIN
+	if main.rb_rowspec | main.rb_colspec {
+		call script ca_codes_enable
+	}
+	else {
+		call script ca_codes_disable
+	}
+END
+
+SCRIPT ck_ddim_on
+BEGIN
+	report.sp_ddim.enable
+	report.tx_ddim.enable
+END
+
+SCRIPT ck_ddim_off
+BEGIN
+	report.sp_ddim.disable
+	report.tx_ddim.disable
+END
+
+SCRIPT ck_power_on
+BEGIN
+	model2.ed_power.enable
+	model2.tx_power.enable
+END
+
+SCRIPT ck_power_off
+BEGIN
+	model2.ed_power.disable
+	model2.tx_power.disable
+END
+
+PROGRAM ck_maxlength_on
+BEGIN
+	call report.ck_maxlength.enable
+	call report.tx_maxlength.enable
+	if report.ck_maxlength {
+		call report.sp_maxlength.enable
+	}
+END
+
+PROGRAM ck_maxlength_off
+BEGIN
+	call report.ck_maxlength.disable
+	call report.tx_maxlength.disable
+	if report.ck_maxlength {
+		call report.sp_maxlength.disable
+	}
+END
+
+PROGRAM command
+BEGIN
+	put /program by_output " "
+	put "ca "
+	if main.rb_rowvar {
+		require main.vn_rowvar
+		put main.vn_rowvar
+	}
+	if main.rb_rowspec {
+		require main.vn_nrowspec main.vl_nrowspec
+		put "(" main.vn_nrowspec ": " main.vl_nrowspec ") "
+	}
+	if main.rb_colvar {
+		require main.vn_colvar
+		put " " main.vn_colvar
+	}
+	if main.rb_colspec {
+		require main.vn_ncolspec main.vl_ncolspec
+		put " (" main.vn_ncolspec ": " main.vl_ncolspec ") "
+	}
+	put " " /program ifin_output
+	put " " /program weights_output
+	beginoptions
+		optionarg /hidedefault model2.sp_dim
+		option radio(model2 rb_default rb_standard rb_row rb_column rb_principal rb_power)
+		if model2.rb_power {
+			require model2.ed_power
+			optionarg model2.ed_power
+		}
+		optionarg model2.cb_rowsupp
+		optionarg model2.cb_colsupp
+		optionarg /hidedefault model2.ed_rowname
+		optionarg /hidedefault model2.ed_colname
+		option model2.ck_missing
+		
+		put " " /program ca_codes_output
+
+		if report.ck_ddim {
+			optionarg report.sp_ddim
+		}
+		option report.ck_norowpoints
+		option report.ck_nocolpoints
+		option report.ck_compact
+		option report.ck_plot
+		if report.ck_maxlength {
+			optionarg /hidedefault report.sp_maxlength
+		}
+        endoptions
+END

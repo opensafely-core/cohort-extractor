@@ -1,0 +1,396 @@
+/*
+    gr_titles.idlg
+
+*!  VERSION 1.1.5  12dec2019
+    	
+	// SCRIPTS and PROGRAMS for external use
+	   * SCRIPT gr_titles_setByNote
+	   * SCRIPT gr_titles_disable
+	   * SCRIPT gr_titles_enable
+	   * SCRIPT gr_titles_setLegend_on
+	   * SCRIPT gr_titles_setByoptsContext_on
+	   * SCRIPT gr_titles_setByoptsContext_off
+	   * SCRIPT gr_titles_setByContext_on
+	   * SCRIPT gr_titles_setByContext_off
+	   * SCRIPT gr_titles_setByOutput_on	
+	   	// Same as gr_titles_setByContext_on but does not show the button
+	   	//   for subgraph options
+	   * SCRIPT gr_titles_setByOutput_off
+	   	// Same as gr_titles_setByContext_off but does not hide the button
+	   	//   for subgraph options. (it should already be off)
+	   
+*/
+
+SCRIPT gr_titles_setByNote
+BEGIN
+	create STRING sTMP
+        sTMP.format						/// 
+		"resource GR_TITLES_NOTE_FMT" 			///
+		"resource LBL_TAB_TITLES"
+				
+	titles.tx_note1.setlabel class sTMP.value
+// Note: the "Titles" tab on the main dialog can be used to affect the titles of the individual graphs.
+	titles.tx_note1.show
+END
+
+SCRIPT gr_titles_setByoptsContext_on
+BEGIN
+	titles_isByoptsContext.settrue
+	titles.bu_stitle_with_by.show
+END
+SCRIPT gr_titles_setByoptsContext_off
+BEGIN
+	titles_isByoptsContext.setfalse
+	titles.bu_stitle_with_by.hide
+END
+
+SCRIPT gr_titles_setByContext_on
+BEGIN
+	titles_isByContext.settrue
+	titles.bu_stitle_with_by.show
+END
+SCRIPT gr_titles_setByContext_off
+BEGIN
+	titles_isByContext.setfalse
+	titles.bu_stitle_with_by.hide
+END
+
+SCRIPT gr_titles_setByOutput_on
+BEGIN
+	titles_isByContext.settrue
+END
+SCRIPT gr_titles_setByOutput_off
+BEGIN
+	titles_isByContext.setfalse
+END
+
+SCRIPT gr_titles_setLegend_on
+BEGIN
+	titles_isLegendTitle.settrue
+END
+
+SCRIPT gr_titles_disable
+BEGIN
+	titles.tx_title.disable
+	titles.ed_title.disable
+	titles.bu_title.disable
+	titles.tx_stitle.disable
+	titles.ed_stitle.disable
+	titles.bu_stitle.disable
+	titles.tx_caption.disable
+	titles.ed_caption.disable
+	titles.bu_caption.disable
+	titles.tx_note.disable
+	titles.ed_note.disable
+	titles.bu_note.disable
+	titles.tx_note1.disable
+	titles.tx_note2.disable
+	titles.bu_stitle_with_by.disable
+END
+
+SCRIPT gr_titles_enable
+BEGIN
+	titles.tx_title.enable
+	titles.ed_title.enable
+	titles.bu_title.enable
+	titles.tx_stitle.enable
+	titles.ed_stitle.enable
+	titles.bu_stitle.enable
+	titles.tx_caption.enable
+	titles.ed_caption.enable
+	titles.bu_caption.enable
+	titles.tx_note.enable
+	titles.ed_note.enable
+	titles.bu_note.enable
+	titles.tx_note1.enable
+	titles.tx_note2.enable
+	titles.bu_stitle_with_by.enable
+END
+
+SCRIPT titles_PREINIT
+BEGIN
+	create BOOLEAN titles_isLegendTitle
+	create STRING titleResults
+	create STRING stitleResults
+	create STRING captionResults
+	create STRING noteResults
+	create STRING stitleByResults
+	create BOOLEAN titles_isByContext
+	create BOOLEAN titles_isByoptsContext
+	create BOOLEAN _gr_titles_hasOutput
+	titles.tx_note1.hide
+	titles.tx_note2.hide
+	titles.bu_stitle_with_by.hide
+END
+SCRIPT titles_POSTINIT
+BEGIN
+	program title_checkTitleResults
+	program stitle_checkTitleResults
+	program caption_checkTitleResults
+	program note_checkTitleResults
+	program stitle_by_checkTitleResults
+END
+
+DIALOG titles, tabtitle(resource LBL_TAB_TITLES)
+BEGIN
+  TEXT     tx_title	_lft	_top	_lw80	.,	///
+	label(resource LBL_TITLE)
+  EDIT	   ed_title	@	_ss	@	.,
+  BUTTON   bu_title	_slw80	@	80	.,	///
+	label(resource LBL_BU_PROPERTIES)		///
+	onpush(program get_title_options)		///
+	tooltip(resource LBL_TITLE_PROPERTIES)
+  	
+  TEXT     tx_stitle	_lft	_ls	_lw80	.,	///
+	label(resource LBL_SUBTITLE)
+  EDIT	   ed_stitle	@	_ss	@	.,
+  BUTTON   bu_stitle	_slw80	@	80	.,	///
+	label(resource LBL_BU_PROPERTIES)		///
+	onpush(program get_stitle_options)		///
+	tooltip(resource LBL_SUBTITLE_PROPERTIES)
+  	
+  TEXT     tx_caption	_lft	_ls	_lw80	.,	///
+	label(resource LBL_CAPTION)
+  EDIT	   ed_caption	@	_ss	@	.,
+  BUTTON   bu_caption	_slw80	@	80	.,	///
+	label(resource LBL_BU_PROPERTIES)		///
+	onpush(program get_caption_options)		///
+	tooltip(resource LBL_CAPTION_PROPERTIES)
+  	
+  TEXT     tx_note	_lft	_ls	_lw80	.,	///
+	label(resource LBL_NOTE)
+  EDIT	   ed_note	@	_ss	@	.,
+  BUTTON   bu_note	_slw80	@	80	.,	///
+	label(resource LBL_BU_PROPERTIES)		///
+	onpush(program get_note_options)		///
+	tooltip(resource LBL_NOTE_PROPERTIES)
+
+  BUTTON   bu_stitle_with_by _lft +35	180	.,	///
+	label(resource LBL_SUBGRAPH_TITLE_PROPERTIES)	///
+	onpush(program get_stitle_by_options)		///
+	tooltip(resource LBL_PROPERTIES_EACH_SUBGRAPH)
+  TEXT     tx_note1	_lft	@	_iwd	.,
+  TEXT     tx_note2	@	+15	@	.,
+END
+
+PROGRAM get_title_options
+BEGIN
+	call create CHILD gr_title_options AS title, allowsubmit
+	call title.setExitString titleResults
+	call title.settitle resource LBL_TITLE_PROPERTIES
+	call title.setExitAction "program title_checkTitleResults"
+	call title.setSubmitAction "program title_titleSubmit"
+	if titles_isLegendTitle {
+		call title.callthru "script gr_title_options_setLegend_on"
+	}
+END
+PROGRAM title_checkTitleResults
+BEGIN
+	if titleResults.iseq("") {
+		call titles.bu_title.modified_off
+	}
+	if ! titleResults.iseq("") {
+		call titles.bu_title.modified_on
+	}
+END
+PROGRAM title_titleSubmit
+BEGIN
+	call program title_checkTitleResults
+	call Submit
+END
+
+PROGRAM get_stitle_options
+BEGIN
+	call create CHILD gr_title_options AS stitle, allowsubmit
+	call stitle.setExitString stitleResults
+	call stitle.settitle resource LBL_SUBTITLE_PROPERTIES
+	call stitle.setExitAction "program stitle_checkTitleResults"
+	call stitle.setSubmitAction "program stitle_titleSubmit"
+	if titles_isLegendTitle {
+		call stitle.callthru "script gr_title_options_setLegend_on"
+	}
+END
+PROGRAM stitle_checkTitleResults
+BEGIN
+	if stitleResults.iseq("") {
+		call titles.bu_stitle.modified_off
+	}
+	if ! stitleResults.iseq("") {
+		call titles.bu_stitle.modified_on
+	}
+END
+PROGRAM stitle_titleSubmit
+BEGIN
+	call program stitle_checkTitleResults
+	call Submit
+END
+
+PROGRAM get_caption_options
+BEGIN
+	call create CHILD gr_title_options AS caption, allowsubmit
+	call caption.setExitString captionResults
+	call caption.settitle resource LBL_CAPTION_PROPERTIES
+	call caption.setExitAction "program caption_checkTitleResults"
+	call caption.setSubmitAction "program caption_titleSubmit"
+	if titles_isLegendTitle {
+		call caption.callthru "script gr_title_options_setLegend_on"
+	}
+END
+PROGRAM caption_checkTitleResults
+BEGIN
+	if captionResults.iseq("") {
+		call titles.bu_caption.modified_off
+	}
+	if ! captionResults.iseq("") {
+		call titles.bu_caption.modified_on
+	}
+END
+PROGRAM caption_titleSubmit
+BEGIN
+	call program caption_checkTitleResults
+	call Submit
+END
+
+PROGRAM get_note_options
+BEGIN
+	call create CHILD gr_title_options AS note, allowsubmit
+	call note.setExitString noteResults
+	call note.settitle resource LBL_NOTE_PROPERTIES
+	call note.setExitAction "program note_checkTitleResults"
+	call note.setSubmitAction "program note_titleSubmit"
+	if titles_isLegendTitle {
+		call note.callthru "script gr_title_options_setLegend_on"
+	}
+END
+PROGRAM note_checkTitleResults
+BEGIN
+	if noteResults.iseq("") {
+		call titles.bu_note.modified_off
+	}
+	if ! noteResults.iseq("") {
+		call titles.bu_note.modified_on
+	}
+END
+PROGRAM note_titleSubmit
+BEGIN
+	call program note_checkTitleResults
+	call Submit
+END
+
+PROGRAM get_stitle_by_options
+BEGIN
+	call create CHILD gr_title_options AS stitle_by, allowsubmit
+	call stitle_by.setExitString stitleByResults
+	call stitle_by.settitle resource LBL_SUBGRAPH_TITLE_PROPERTIES
+	call stitle_by.setExitAction "program stitle_by_checkTitleResults"
+	call stitle_by.setSubmitAction "program stitle_by_titleSubmit"
+END
+PROGRAM stitle_by_checkTitleResults
+BEGIN
+	if stitleByResults.iseq("") {
+		call titles.bu_stitle_with_by.setlabel resource LBL_SUBGRAPH_TITLE_PROPERTIES
+	}
+	if ! stitleByResults.iseq("") {
+		call titles.bu_stitle_with_by.setlabel resource GR_TITLE_LE_PROPERTIES 
+	}
+END
+PROGRAM stitle_by_titleSubmit
+BEGIN
+	call program stitle_by_checkTitleResults
+	call Submit
+END
+
+PROGRAM title_output_work
+BEGIN
+	put titles.ed_title
+	beginoptions
+		put titleResults
+	endoptions
+END
+PROGRAM stitle_output_work
+BEGIN
+	put titles.ed_stitle
+	beginoptions
+		put stitleResults
+	endoptions
+END
+PROGRAM caption_output_work
+BEGIN
+	put titles.ed_caption
+	beginoptions
+		put captionResults
+	endoptions
+END
+PROGRAM note_output_work
+BEGIN
+	put titles.ed_note
+	beginoptions
+		put noteResults
+	endoptions
+END
+PROGRAM stitle_by_output_work
+BEGIN
+	beginoptions
+		put stitleByResults
+	endoptions
+END
+
+PROGRAM gr_titles_output_wrk
+BEGIN
+	if ((titles.ed_title & titles.ed_title.isenabled()) 	///
+		| (titleResults.isneq("") & ! H(titles.bu_title))) {
+		put " title("
+		put /program title_output_work
+		put ") "
+		call _gr_titles_hasOutput.settrue
+	}
+	if ((titles.ed_stitle & titles.ed_stitle.isenabled()) 	///
+		| (stitleResults.isneq("") & ! H(titles.bu_stitle))) {
+		put " subtitle("
+		put /program stitle_output_work
+		put ") "
+		call _gr_titles_hasOutput.settrue
+	}
+	if ((titles.ed_caption & titles.ed_caption.isenabled())	///
+		| (captionResults.isneq("") & ! H(titles.bu_caption))) {
+		put " caption("
+		put /program caption_output_work
+		put ") "
+		call _gr_titles_hasOutput.settrue
+	}
+	if ((titles.ed_note & titles.ed_note.isenabled())	///
+		| (noteResults.isneq("") & ! H(titles.bu_note))) {
+		put " note("
+		put /program note_output_work
+		put ") "
+		call _gr_titles_hasOutput.settrue
+	}
+END
+
+PROGRAM gr_titles_output
+BEGIN
+	// check for output
+	call _gr_titles_hasOutput.setfalse
+	call program gr_titles_output_wrk
+	
+	if _gr_titles_hasOutput {
+		if titles_isByoptsContext | titles_isByContext {
+			if titles_isByoptsContext {
+				put " byopts("
+			}
+			else {
+				put " by(, "
+			}
+			put /program gr_titles_output_wrk
+			put ") "
+		}
+		else {
+			put /program gr_titles_output_wrk
+		}
+	}
+	if stitleByResults & ! H(titles.bu_stitle_with_by) {
+		put " subtitle("
+		put /program stitle_by_output_work
+		put ") "
+	}
+END

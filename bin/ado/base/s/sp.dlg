@@ -1,0 +1,2646 @@
+/*
+	sp.dlg
+
+*!  VERSION 1.1.11  03may2019
+
+*/
+
+VERSION 15.0
+SYNCHRONOUS_ONLY
+POSITION . . 710 570
+CANCEL can1, label(resource LBL_BU_CLOSE) target(dialog) uaction(on_close)
+HELP hlp1, view(help sp)
+RESET res1
+
+DEFINE _ss +20
+DEFINE _ms +25
+DEFINE _ls +30
+DEFINE _vnwd 120
+DEFINE _vnsep +135
+DEFINE _spwd 60
+DEFINE _spsep +65
+DEFINE _mid 410
+
+PROGRAM on_close
+BEGIN
+	call SaveState
+END
+
+SCRIPT PREINIT
+BEGIN
+	create STRING EstimateCmdString
+	create STRING SpsetString
+	create STRING tsstring
+	create STRING idstring
+	create STRING idvar
+	create STRING coordstring
+	create STRING cxstring
+	create STRING cystring
+	create STRING unitstring
+	create STRING shpstring
+	create STRING tmpstring
+	create BOOLEAN toset
+	create BOOLEAN toset2
+	create BOOLEAN toact
+	create DOUBLE rc
+	create STRING dlgname
+	create STRING GrmapTwOptResults
+	create STRING GrmapOptResults
+	create ARRAY sp_objname_list
+	create DOUBLE sp_des_error
+	create ARRAY sp_using_variables
+
+	dlgname.storeDialogClassName
+	toset.setfalse
+	toset2.setfalse
+	toact.setfalse
+
+	setscale_hadj resource SP_DLG_HSCALE
+
+	sp.fi_spshape2dta_shpfile.formatfilter				///
+		"{0} (*.shp, *.dbf)|*.shp;*.dbf|{1} (*.*)|*.*"		///
+		"resource ui_ex FILE_TYPE_SHP_FILES"			///
+		"resource ui_ex FILE_TYPE_ALL_FILES"
+
+	sp.fi_merge_using.formatfilter					///
+		"{0} (*.dta)|*.dta|{1} (*.*)|*.*"			///
+		"resource ui_ex FILE_TYPE_DTA"				///
+		"resource ui_ex FILE_TYPE_ALL_FILES"
+
+	sp.fi_matrix_save.formatfilter					///
+		"{0} (*.stswm)|*.stswm|{1} (*.*)|*.*"			///
+		"resource ui_ex FILE_TYPE_STSWM_FILES"			///
+		"resource ui_ex FILE_TYPE_ALL_FILES"
+
+	sp.fi_matrix_use.formatfilter					///
+		"{0} (*.stswm)|*.stswm|{1} (*.*)|*.*"			///
+		"resource ui_ex FILE_TYPE_STSWM_FILES"			///
+		"resource ui_ex FILE_TYPE_ALL_FILES"
+
+	sp.fi_matrix_export.formatfilter				///
+		"{0} (*.txt)|*.txt|{1} (*.*)|*.*"			///
+		"resource ui_ex FILE_TYPE_TXT_FILES"			///
+		"resource ui_ex FILE_TYPE_ALL_FILES"
+
+	sp.fi_matrix_import.formatfilter				///
+		"{0} (*.txt)|*.txt|{1} (*.*)|*.*"			///
+		"resource ui_ex FILE_TYPE_TXT_FILES"			///
+		"resource ui_ex FILE_TYPE_ALL_FILES"
+
+	program sp_load_spmatrix
+END
+
+SCRIPT POSTINIT
+BEGIN
+	sp.btn_1.seton
+	sp.cb_obj.repopulate
+	sp.tv_matrix_cmds.setvalue "create"
+
+	program set_status
+END
+
+PROGRAM ON_DOTPROMPT
+BEGIN
+	call program set_status
+END
+
+PROGRAM sp_load_spmatrix
+BEGIN
+	call sp_objname_list.Arrdropall
+
+	put "sp_wrk_dlg getmat "
+	put dlgname
+	put " sp_objname_list"
+	stata hidden immediate
+
+	call sp.cb_obj.repopulate
+END
+
+PROGRAM check_activate
+BEGIN
+	if !toact {
+		call toact.setfalse
+		put "capture grmap, status"
+		stata hidden immediate
+
+		call rc.setvalue c(rc)
+		if rc.iseq(0) {
+			call toact.settrue
+		}
+	}
+END
+
+PROGRAM set_status
+BEGIN
+	call sp.tx_sp_time1.hide
+	call sp.tx_sp_time2.hide
+	call sp.tx_graph_t.hide
+	call sp.ed_graph_t.hide
+	call toset.setfalse
+	call toset2.setfalse
+
+	call idstring.setvalue char _dta[sp__ID]
+	if idstring.equals("") {
+		call sp.tx_sp_data2.setlabel "none"
+		call sp.tx_sp_id2.setlabel "none"
+		call sp.tx_sp_coord2.setlabel "none"
+		call sp.tx_sp_shp2.setlabel "none"
+		call toset.setfalse
+		call toset2.setfalse
+	}
+	else {
+		call idvar.setvalue char _dta[sp__ID_var]
+		if idvar.equals("") {
+			call idstring.withvalue sp.tx_sp_id2.setlabel "@"
+		}
+		else {
+			call idstring.withvalue tmpstring.setvalue "@"
+			call tmpstring.append " (equal to "
+			call idvar.withvalue tmpstring.append "@"
+			call tmpstring.append ")"
+			call tmpstring.withvalue sp.tx_sp_id2.setlabel "@"
+		}
+		call tsstring.setvalue char _dta[_TStvar]
+		if tsstring.equals("") {
+			call sp.tx_sp_data2.setlabel "cross sectional"
+		}
+		else {
+			call sp.tx_sp_data2.setlabel "panel"
+			call sp.tx_sp_time1.show
+			call sp.tx_sp_time2.show
+			call tsstring.withvalue tmpstring.setvalue "@"
+			call tmpstring.append " (see xtset)"
+			call tmpstring.withvalue sp.tx_sp_time2.setlabel "@"
+			if sp.btn_2 {
+				call sp.tx_graph_t.show
+				call sp.ed_graph_t.show
+			}
+		}
+		call toset.settrue
+
+		call coordstring.setvalue char _dta[sp__coord_sys]
+		call cxstring.setvalue char _dta[sp__CX]
+		call cystring.setvalue char _dta[sp__CY]
+		if cxstring.equals("") | cystring.equals("") {
+			call sp.tx_sp_coord2.setlabel "none"
+		}
+		else {
+			if coordstring.equals("latlong") {
+				call cystring.withvalue tmpstring.setvalue "@"
+				call tmpstring.append ", "
+				call cxstring.withvalue tmpstring.append "@"
+				call tmpstring.append " (latitude-and-longitude"
+				call unitstring.setvalue char _dta[sp__coord_sys_dunit]
+				if !unitstring.equals("miles") {
+					call tmpstring.append ", kilometers)"
+				}
+				else {
+					call tmpstring.append ", miles)"
+				}
+			}
+			else {
+				call cxstring.withvalue tmpstring.setvalue "@"
+				call tmpstring.append ", "
+				call cystring.withvalue tmpstring.append "@"
+				call tmpstring.append " (planar)"
+			}
+
+			call tmpstring.withvalue sp.tx_sp_coord2.setlabel "@"
+		}
+
+		call shpstring.setvalue char _dta[sp__shp_dta]
+		if !shpstring.equals("") {
+			call shpstring.withvalue sp.tx_sp_shp2.setlabel "@"
+			call toset2.settrue
+		}
+		else {
+			call sp.tx_sp_shp2.setlabel "none"
+			call toset2.setfalse
+		}
+	}
+END
+
+DIALOG sp, title(resource SP_DLG_TITLE)
+BEGIN
+  RADIO btn_1			10	20	110	80, panebutton	///
+	first								///
+	onclickon(program OnBTN1)					///
+	tooltip(resource SP_SP_BTN_1_TIP)				///
+	label(resource LBL_SETUP)
+  RADIO btn_2			10	+80	110	80, panebutton	///
+	onclickon(program OnBTN2)					///
+	tooltip(resource SP_SP_BTN_2_TIP)				///
+	label(resource LBL_GRAPH)
+  RADIO btn_3			10	+80	110	80, panebutton	///
+	onclickon(program OnBTN3)					///
+	tooltip(resource SP_SP_BTN_3_TIP)				///
+	label(resource SP_LBL_SPATIAL_MATRICES)
+  RADIO btn_4			10	+80	110	80, panebutton	///
+	onclickon(program OnBTN4)					///
+	tooltip(resource SP_SP_BTN_4_TIP)				///
+	label(resource LBL_MODEL_NOCOLON)
+  RADIO btn_5			10	+80	110	80, panebutton	///
+	last								///
+	onclickon(program OnBTN5)					///
+	tooltip(resource LBL_UTILITIES)					///
+	label(resource LBL_UTILITIES)
+
+  BUTTON btn_spset		435	15	130	.,		///
+	onpush(program spset_query_dialog)				///
+	label(resource SP_LBL_DISPLAY_SP_SETTINGS)
+  BUTTON btn_modspset		570	15	130	.,		///
+	onpush(program spset_mod_dialog)				///
+	label(resource SP_LBL_MODIFY_SP_SETTINGS)
+  GROUPBOX gb_panel_box		130	35	570	460,		///
+	label("")
+  TEXT tx_general		140	60	550	.,		///
+	label(resource SP_LBL_DATA_NOT_SPSET1)
+  TEXTBOX tb_general +20 +20 -40 30,					///
+	label(resource SP_LBL_CLICK_TO_SPSET1)
+/* -------------------- Global controls -------------------- */
+  GROUPBOX gb_tab		140	@	550	500,		///
+	label("")
+  GROUPBOX gb_opts		140	@	550	.,		///
+	label(resource LBL_OPTIONS)
+  TEXTBOX tb_note		140	@	550	20,		///
+	label("")
+  TEXT tx_objname		140	@	200	.,		///
+	label(resource SP_LBL_SPATIAL_MATRIX_NAME_COLON)
+  EDIT ed_objname		@	@	_vnwd	.,		///
+	label(resource SP_LBL_SPATIAL_MATRIX_NAME)
+  TEXT tx_obj			140	@	200	.,		///
+	label(resource SP_LBL_SPATIAL_MATRIX_COLON)
+  COMBOBOX cb_obj		@	@	_vnwd	.,		///
+	dropdown							///
+	contents(sp_objname_list)					///
+	label(resource SP_LBL_SPATIAL_MATRIX)
+  TEXT tx_normalize		@	@	270	.,		///
+	label(resource SP_SP_TX_NORMALIZE)
+  COMBOBOX cb_normalize		@	@	180	.,		///
+	dropdownlist							///
+	contents(sp_normalize_list)					///
+	values(sp_normalize_values)					///
+	label(resource SP_SP_TX_NORMALIZE)
+  TEXT tx_id			150	@	_vnwd	.,		///
+	label(resource LBL_ID_VARIABLE)
+  VARNAME vn_id			150	@	_vnwd	.,		///
+	numeric								///
+	label(resource LBL_ID_VARIABLE)
+
+  TEXT tx_if			150	@	530	.,		///
+	label(resource LBL_IF_EXPRESSION)
+  EXP ex_if			@	@	@	.,		///
+	label(resource LBL_BU_CREATE)
+
+  CHECKBOX ck_in		@	@	@	.,		///
+	onclickon(program in_check_enable)				///
+	onclickoff(program in_check_enable)				///
+	label(resource LBL_USE_RANGE_OBS)
+  TEXT tx_from			@	@	35	.,		///
+	label(resource LBL_FROM) right
+  SPINNER sp_from		+40	@	_spwd	.,		///
+	min(1)								///
+	max(c(N))							///
+	default(1)
+  TEXT tx_to			_spsep	@	30	.,		///
+	label(resource LBL_TO) right
+  SPINNER sp_to			+35	@	_spwd	.,		///
+	min(1)								///
+	max(c(N))							///
+	default(c(N))
+
+/* -------------------- Load/Import Button -------------------- */
+  RADIO rb_translate		140	55	370	., first	///
+	onclickon(program import_show)					///
+	label(resource SP_SP_RB_TRANSLATE)
+  DEFINE sp_top @y
+  RADIO rb_spset		140	_ss	370	., last		///
+	onclickon(program import_show)					///
+	label(resource SP_SP_RB_SPSET)
+  BUTTON bu_xtset		580	_ss	110	.,		///
+	onpush(program xtset_open_dialog)				///
+	label(resource SP_LBL_PANEL_DATA)
+
+/* -------- spset -------- */
+  GROUPBOX gb_spset		140	105	550	245,		///
+	label("")
+  DEFINE holdyy @y
+  TEXT tx_spset_xcent		150	180	250	.,		///
+	label(resource SP_LBL_X_COORD_VARIABLE)
+  TEXT tx_spset_ycent		_mid	@	@	.,		///
+	label(resource SP_LBL_Y_COORD_VARIABLE)
+  VARNAME vn_spset_xcent	150	_ss	_vnwd	.,		///
+	numeric								///
+	label(resource SP_LBL_X_COORD_VARIABLE)
+  VARNAME vn_spset_ycent	_mid	@	_vnwd	.,		///
+	numeric								///
+	label(resource SP_LBL_Y_COORD_VARIABLE)
+  CHECKBOX ck_spset_latlong	150	+40	530	.,		///
+	onclickon("program spset_planar_on")				///
+	onclickoff("program spset_planar_on")				///
+	label(resource SP_LBL_SET_COORD_AS_LATLONG)
+  RADIO rb_spset_kilometers	165	_ms	@	., first	///
+	label(resource SP_LBL_RPT_DIST_AS_KILOMETERS)
+  RADIO rb_spset_miles		@	_ss	@	., last		///
+	label(resource SP_LBL_RPT_DIST_AS_MILES)
+  CHECKBOX ck_spset_nocoord	150	_ls	@	.,		///
+	onclickon(program spset_nocoord_on)				///
+	onclickoff(program spset_nocoord_on)				///
+	label(resource SP_SP_CK_SPSET_NOCOORD)
+  BUTTON bu_spset_linkshp	140	+45	180	.,		///
+	onpush(program splink_open_dialog)				///
+	label(resource SP_SP_BU_SPSET_LINKSP)
+
+/* -------- spshape2dta -------- */
+  GROUPBOX gb_translate		140	100	550	90,		///
+	label("")
+  RADIO rb_translate1		150	120	370	., first	///
+	onclickon(program import_show)					///
+	label(resource SP_SP_RB_TRANSLATE1)
+  DEFINE sptr_top @y
+  RADIO rb_translate2		@	_ss	370	.,		///
+	onclickon(program import_show)					///
+	label(resource SP_SP_RB_TRANSLATE2)
+  RADIO rb_translate3		@	_ss	370	., last		///
+	onclickon(program import_show)					///
+	label(resource SP_SP_RB_TRANSLATE3)
+
+  BUTTON bu_spshape2dta_unzip	570	sptr_top 110	.,		///
+	onpush(view dialog unzipfile)					///
+	label(resource SP_LBL_UNZIP_SHAPEFILE)
+  GROUPBOX gb_spshape2dta	140	200	550	170,		///
+	label("")
+  TEXT tx_spshape2dta_shpfile	150	220	530	.,		///
+	label(resource SP_SP_TX_SPSHAPE2DTA_SHAPEFILE)
+  FILE fi_spshape2dta_shpfile	@	_ss	@	.,		///
+	error(resource SP_SP_TX_SPSHAPE2DTA_SHAPEFILE)			///
+	label(resource LBL_BU_BROWSE)
+
+  CHECKBOX ck_spshape2dta_sav	150	285	510	.,		///
+	onclickon(sp.ed_spshape2dta_sav.enable)				///
+	onclickoff(sp.ed_spshape2dta_sav.disable)			///
+	label(resource SP_SP_CK_SPSHAPE2DTA_SAV)
+  EDIT ed_spshape2dta_sav	165	_ss	_vnwd	.,		///
+	label(resource SP_SP_CK_SPSHAPE2DTA_SAV)
+  CHECKBOX ck_spshape2dta_repl	150	_ls	510	.,		///
+	label(resource SP_SP_CK_SPSHAPE2DTA_REPL)
+
+/* -------- merge -------- */
+  GROUPBOX gb_merge		140	200	550	265,		///
+	label("")
+  TEXT tx_merge_keyvar		150	220	530	.,		///
+	label("ID variables (match variables):")
+//	label(resource SP_SP_TX_MERGE_KEYVAR)
+  VARLIST vl_merge_keyvar	@	_ss	200	.,		///
+	label(resource SP_SP_TX_MERGE_KEYVAR)
+
+  TEXT tx_merge_using		@	_ls	530	.,		///
+	label(resource LBL_FILENAME_OF_DATASET_ON_DISK)
+  FILE fi_merge_using		@	_ss	@	.,		///
+	error(resource LBL_FILENAME_OF_DATASET_ON_DISK)			///
+	defext(dta) label(resource LBL_BU_BROWSE)
+
+  TEXT tx_merge_keepusing	150	_ls	530	.,		///
+	label(resource SP_SP_TX_MERGE_KEEPUSING)
+  COMBOBOX cb_merge_keepusing  @	_ss	450	.,		///
+	append dropdown contents(sp_using_variables)			///
+	option(keepusing) label(resource SP_SP_TX_MERGE_KEEPUSING)
+  BUTTON bu_merge_keepusing	601	@	80	.,		///
+	label(resource LBL_POPULATE) onpush(program populate_merge_keepusing) ///
+	tooltip(resource LBL_POPULATE_COMBOBOX_VARLIST_DATASET_ON_DISK)
+
+  CHECKBOX ck_merge_nolabel	150	+30	530	.,		///
+	option(nolabel)	label(resource LBL_DO_NOT_COPY_VALUE_LABEL_DEF)
+  CHECKBOX ck_merge_nonotes	@	_ms	@	.,		///
+	label(resource LBL_DO_NOT_COPY_NOTES_FROM_DTA) option(nonotes)
+  TEXT tx_merge_keepres	@	_ms	@	.,		///
+	label(resource SP_SP_TX_MERGE_KEEPRES)
+  HLINK hl_merge_keepres	160	_ss	65	.,		///
+	right								///
+	onpush(view help merge)						///
+	label("help merge") // do not localize
+
+  GROUPBOX gb_spsetid		140	200	550	80,		///
+	label("")
+
+  BUTTON bu_set_submit		610	470	80	.,		///
+	onpush(program set_submit)					///
+	label(resource LBL_BU_SUBMIT)
+
+/* -------------------- Graph Button -------------------- */
+
+  BUTTON bu_grmap_install	140	100	120	.,		///
+	onpush(program graph_grmap_install)				///
+	label(resource SP_SP_BU_GRMAP_INSTALL)
+
+  RADIO btn_g1			140	sp_top	79	32, panebutton	///
+	onclickon(program graph_show)				///
+	first								///
+	label(resource LBL_TAB_MAIN)
+  RADIO btn_g2			+80	@	@	@, panebutton	///
+	last								///
+	onclickon(program graph_show)					///
+	label(resource SUB_BY_IFIN_OVER_SUBPOP_TABTITLE_IF_IN)
+
+  TEXT tx_graph_var		150	103	250	.,		///
+	label(resource LBL_VARIABLE)
+  DEFINE holdy @y
+  VARNAME vn_graph_var		@	_ss	_vnwd	.,		///
+	numeric								///
+	label(resource LBL_VARIABLE)
+
+  TEXT tx_graph_t		150	153	250	.,		///
+	label(resource SP_SP_TX_GRAPH_T)
+  EDIT ed_graph_t		@	_ss	_vnwd	.,		///
+	option(t)							///
+	label(resource SP_SP_TX_GRAPH_T)
+
+  BUTTON bu_graph_opt		140	230	150	.,		///
+	onpush(program graph_opt)					///
+	label(resource LBL_OPTIONS)
+  BUTTON bu_graph_tw_opt	+160	230	150	.,		///
+	onpush(program graph_tw_opt)					///
+	label(resource LBL_TWOWAY_OPTIONS)
+
+  BUTTON bu_graph_submit	610	470	80	.,		///
+	onpush(program graph_submit)					///
+	label(resource LBL_BU_SUBMIT)
+
+/* -------------------- Matrix Button -------------------- */
+
+  TEXT tx_matrix_cmds		140	sp_top	430	.,		///
+	label(resource LBL_COMMAND)
+  TREEVIEW tv_matrix_cmds	@	_ms	450	120,		///
+	collapse							///
+	contents(matrix_command_list)					///
+	values(matrix_command_values)					///
+	onselchange("program matrix_command_selchange")
+
+  RADIO btn_m1			140	202	79	32, panebutton	///
+	onclickon(program matrix_show)					///
+	first								///
+	label(resource LBL_TAB_MAIN)
+  RADIO btn_m2			+80	@	@	@, panebutton	///
+	last								///
+	onclickon(program matrix_show)					///
+	label(resource SUB_BY_IFIN_OVER_SUBPOP_TABTITLE_IF_IN)
+
+/* -------- spmat create -------- */
+  RADIO rb_contiguity		150	310	250	., first	///
+	onclickon(program matrix_create_selchange)			///
+	label(resource SP_SP_RB_CONTIGUITY)
+  RADIO rb_idistance		410	@	@	., last		///
+	onclickon(program matrix_create_selchange)			///
+	label(resource SP_SP_RB_IDISTANCE)
+  CHECKBOX ck_standard_repl	150	_ms	530	.,		///
+	option(replace)							///
+	label(resource SP_LBL_REPLACE_W_MATRIX_IF_IT_ALREADY_EXISTS)
+  CHECKBOX ck_create_rook	@	_ms	@	.,		///
+	option(rook)							///
+	label(resource SP_SP_CK_CREATE_ROOK)
+  DEFINE holdy @y
+  CHECKBOX ck_create_second	@	_ms	@	.,		///
+	onclickon(program sp_ck_create_second_check)			///
+	onclickoff(program sp_ck_create_second_check)			///
+	label(resource SP_SP_CK_CREATE_SECOND)
+  EDIT ed_create_second		165	_ms	_vnwd	.,		///
+	default(1)							///
+	numonly								///
+	label(resource SP_LBL_VALUE)
+  CHECKBOX ck_create_first	@	_ms	530	.,		///
+	option(first)							///
+	label(resource SP_SP_CK_CREATE_FIRST)
+  TEXT tx_create_second		+135	@	100	.,		///
+	label(resource SP_LBL_VALUE)
+  CHECKBOX ck_create_vtruncate	150	holdy	530	.,		///
+	onclickon(program sp_ck_create_vtruncate_check)			///
+	onclickoff(program sp_ck_create_vtruncate_check)		///
+	label(resource SP_SP_CK_CREATE_VTRUNCATE)
+  EDIT ed_create_vtruncate	165	_ms	_vnwd	.,		///
+	numonly								///
+	label(resource SP_LBL_UNITS)
+  TEXT tx_create_vtruncate	+135	@	100	.,		///
+	label(resource SP_LBL_UNITS)
+
+/* -------- spmat fromdata -------- */
+  TEXT tx_fdata_varlist		_mid	310	@	.,		///
+	label(resource LBL_VARIABLES)
+  VARLIST vl_fdata_varlist	@	_ss	440	.,		///
+	label(resource LBL_VARIABLES)
+  CHECKBOX ck_fdata_repl	150	_ls	530	.,		///
+	option(replace)							///
+	label(resource SP_LBL_REPLACE_W_MATRIX_IF_IT_ALREADY_EXISTS)
+  CHECKBOX ck_fdata_idistance	150	_ms	530	.,		///
+	option(idistance)						///
+	label(resource SP_SP_CK_FDATA_IDISTANCE)
+
+/* -------- spmat dir -------- */
+
+/* -------- spmat summarize -------- */
+  TEXT tx_summ_newvar		150	310	450	.,		///
+	label(resource SP_SP_TX_SUMM_NEWVAR)
+  EDIT ed_summ_newvar		@	_ss	_vnwd	.,		///
+	option(generate)						///
+	label(resource SP_SP_TX_SUMM_NEWVAR)
+
+/* -------- spmat drop -------- */
+  RADIO rb_matrix_drop_all	150	215	370	., first	///
+	onclickon(program matrix_drop_check)				///
+	label(resource SP_SP_RB_MATRIX_DROP_ALL)
+  RADIO rb_matrix_drop_spec	@	_ms	370	., last		///
+	onclickon(program matrix_drop_check)				///
+	label(resource SP_SP_RB_MATRIX_DROP_SPEC)
+
+/* -------- spmat copy -------- */
+  TEXT tx_copy_newmat		_mid	310	250	.,		///
+	label(resource LBL_NEW_NAME)
+  EDIT ed_copy_newmat		@	_ss	_vnwd	.,		///
+	label(resource LBL_NEW_NAME)
+
+/* -------- spmat save -------- */
+  TEXT tx_matrix_save		150	310	530	.,		///
+	label(resource LBL_FILENAME)
+  FILE fi_matrix_save		@	_ss	@	.,		///
+	save								///
+	error(resource LBL_FILENAME)					///
+	label(resource LBL_SAVE_AS)
+  CHECKBOX ck_matrix_sa_repl	150	_ls	530	.,		///
+	option(replace)							///
+	label(resource LBL_OVERWRITE_FILE_IF_IT_ALREADY_EXISTS)
+
+/* -------- spmat use -------- */
+  TEXT tx_matrix_use		150	310	530	.,		///
+	label(resource SP_SP_TX_MATRIX_USE)
+  FILE fi_matrix_use		@	_ss	@	.,		///
+	error(resource SP_SP_TX_MATRIX_USE)				///
+	label(resource LBL_BU_BROWSE)
+
+  CHECKBOX ck_matrix_use_repl	150	_ls	530	.,		///
+	option(replace)							///
+	label(resource SP_LBL_REPLACE_W_MATRIX_IF_IT_ALREADY_EXISTS)
+
+/* -------- spmat notes -------- */
+  RADIO rb_matrix_note_repl	150	310	370	., first	///
+	onclickon(sp.ed_matrix_note_repl.enable)			///
+	label(resource SP_SP_RB_MATRIX_NOTE_REPL)
+  RADIO rb_matrix_note_disp	@	+50	370	.,		///
+	onclickon(sp.ed_matrix_note_repl.disable)			///
+	label(resource SP_SP_RB_MATRIX_NOTE_DISP)
+  RADIO rb_matrix_note_drop	@	+50	370	., last		///
+	onclickon(sp.ed_matrix_note_repl.disable)			///
+	label(resource SP_SP_RB_MATRIX_NOTE_DROP)
+  EDIT ed_matrix_note_repl	@	+50	530	.,		///
+	label(resource SP_SP_RB_MATRIX_NOTE_REPL)
+
+/* -------- spmat export -------- */
+  TEXT tx_matrix_export		150	310	530	.,		///
+	label(resource LBL_FILENAME)
+  FILE fi_matrix_export		@	_ss	@	.,		///
+	save								///
+	error(resource LBL_FILENAME_OF_DATASET_ON_DISK)			///
+	label(resource LBL_SAVE_AS)
+  CHECKBOX ck_matrix_ex_repl	150	_ls	530	.,		///
+	option(replace)							///
+	label(resource LBL_OVERWRITE_FILE_IF_IT_ALREADY_EXISTS)
+
+/* -------- spmat import -------- */
+  TEXT tx_matrix_import		150	310	530	.,		///
+	label(resource SP_SP_TX_MATRIX_IMPORT)
+  FILE fi_matrix_import		@	_ss	@	.,		///
+	error(resource SP_SP_TX_MATRIX_IMPORT)				///
+	label(resource LBL_BU_BROWSE)
+  CHECKBOX ck_matrix_imp_repl	@	+35	@	.,		///
+	option(replace)							///
+	label(resource SP_LBL_REPLACE_W_MATRIX_IF_IT_ALREADY_EXISTS)
+
+  BUTTON bu_matrix_submit	610	470	80	.,		///
+	onpush(program matrix_submit)					///
+	label(resource LBL_BU_SUBMIT)
+
+/* -------------------- Estimate Button -------------------- */
+
+  TEXT tx_estimate_cmd		140	sp_top	430	.,		///
+	label(resource LBL_CHOOSE_ESTIMATION_COMMAND_PRESS_GO)
+  LISTBOX lb_estimate_cmds	@	_ss	350	150,		///
+	contents(estimate_command_list)					///
+	values(estimate_command_values)					///
+	ondblclick(program estimate_open_dialog)
+  BUTTON bu_estimate_go		+360	@	55	.,		///
+	onpush(program estimate_open_dialog)				///
+	label(resource LBL_GO_ARROW)
+  GROUPBOX gb_estimate_anal	140	+190	550	80,		///
+	label(resource SP_SP_GB_ESTIMATE_ANAL)
+  TEXT tx_estimate_post		150	_ss	430	.,		///
+	label(resource SP_SP_TX_ESTIMATE_POST)
+  BUTTON bu_estimate_post	@	_ls	120	.,		///
+	onpush(view dialog postest)					///
+	tooltip(resource SP_SP_GB_ESTIMATE_ANAL)			///
+	label(resource LBL_POSTESTIMATION)
+
+/* -------------------- Utilities Button -------------------- */
+  TEXT tx_util_cmds		140	sp_top	430	.,		///
+	label(resource LBL_COMMAND)
+  LISTBOX lb_util_cmds		@	_ss	350	90,		///
+	contents(util_command_list)					///
+	values(util_command_values)					///
+	onselchange(program util_command_changed)
+
+  RADIO btn_u1			140	167	79	32, panebutton	///
+	onclickon(program util_show)					///
+	first								///
+	label(resource LBL_TAB_MAIN)
+  RADIO btn_u2			+80	@	@	@, panebutton	///
+	last								///
+	onclickon(program util_show)					///
+	label(resource SUB_BY_IFIN_OVER_SUBPOP_TABTITLE_IF_IN)
+
+  BUTTON bu_util_submit		610	470	80	.,		///
+	onpush(program util_submit)					///
+	label(resource LBL_BU_SUBMIT)
+
+/* -------- spgenerate -------- */
+  TEXT tx_util_lag_var		_mid	215	_vnwd	.,		///
+	label(resource LBL_VARIABLE)
+  VARNAME vn_util_lag_var	@	235	@	.,		///
+	label(resource LBL_VARIABLE)
+  TEXT tx_util_lag_nvar		150	265	@	.,		///
+	label(resource LBL_NEW_VARIABLE_NAME)
+  EDIT ed_util_lag_nvar		@	_ss	@	.,		///
+	label(resource LBL_NEW_VARIABLE_NAME_NO_COLON)
+  TEXT tx_util_lag_type		_mid	265	@	.,		///
+	label(resource LBL_TX_VARIABLE_TYPE)
+  COMBOBOX cb_util_lag_type	@	_ss	@	.,		///
+	dropdownlist							///
+	contents(type)							///
+	onselchangelist(main_type_actions)				///
+	default(c(type))						///
+	label(resource LBL_TYPE)
+
+/* -------- spbalance -------- */
+  RADIO rb_balance_query	150	185	530	., first	///
+	label(resource SP_SP_RB_BALANCE_QUERY)
+  RADIO rb_balance_balance	150	_ss	530	., last		///
+	label(resource SP_LBL_SPBALANCE)
+
+/* -------- spdistance -------- */
+  TEXT tx_distance_id1		150	180	250	.,		///
+	label(resource SP_SP_TX_DISTANCE_ID1)
+  DEFINE holdy @y
+  EDIT ed_distance_id1		@	_ss	_vnwd	.,		///
+	label(resource SP_SP_TX_DISTANCE_ID1)
+
+  TEXT tx_distance_id2		_mid	holdy	250	.,		///
+	label(resource SP_SP_TX_DISTANCE_ID2)
+  EDIT ed_distance_id2		@	_ss	_vnwd	.,		///
+	label(resource SP_SP_TX_DISTANCE_ID2)
+
+/* -------------------- Status bar -------------------- */
+  TEXT tx_sp_data1		165	500	100	.,		///
+	right								///
+	label(resource SP_SP_TX_SP_DATA1)
+  TEXT tx_sp_data2		270	500	430	.,		///
+	label("none")
+  TEXT tx_sp_id1		165	517	100	.,		///
+	right								///
+	label(resource SP_SP_TX_SP_ID1)
+  TEXT tx_sp_id2		270	517	430	.,		///
+	label("none")
+  TEXT tx_sp_time1		420	517	100	.,		///
+	right								///
+	label(resource SP_SP_TX_SP_TIME1)
+  TEXT tx_sp_time2		525	517	430	.,		///
+	label("")
+  TEXT tx_sp_coord1		165	534	100	.,		///
+	right								///
+	label(resource SP_SP_TX_SP_COORD1)
+  TEXT tx_sp_coord2		270	534	430	.,		///
+	label("none")
+  TEXT tx_sp_shp1		165	551	100	.,		///
+	right								///
+	label(resource SP_SP_TX_SP_SHP1)
+  TEXT tx_sp_shp2		270	551	430	.,		///
+	label("none")
+END
+
+
+/* -------------------- Overall Dialog Control -------------------- */
+
+PROGRAM OnBTN1
+BEGIN
+	call program import_show
+	call script graph_hide
+	call script matrix_hide
+	call script estimate_hide
+	call script util_hide
+END
+
+PROGRAM OnBTN2
+BEGIN
+	call script import_hide
+	call program graph_show
+	call script matrix_hide
+	call script estimate_hide
+	call script util_hide
+END
+
+PROGRAM OnBTN3
+BEGIN
+	call script import_hide
+	call script graph_hide
+	call program matrix_show
+	call script estimate_hide
+	call script util_hide
+END
+
+PROGRAM OnBTN4
+BEGIN
+	call script import_hide
+	call script graph_hide
+	call script matrix_hide
+	call program estimate_show
+	call script util_hide
+END
+
+PROGRAM OnBTN5
+BEGIN
+	call script import_hide
+	call script graph_hide
+	call script matrix_hide
+	call script estimate_hide
+	call program util_show
+END
+
+INCLUDE _type_list_fd
+
+LIST sp_normalize_list
+BEGIN
+	resource SP_LBL_NORMALIZE_SPECTRAL
+	resource SP_LBL_NORMALIZE_MINMAX
+	resource SP_LBL_NORMALIZE_ROWSUM
+	resource SP_LBL_NORMALIZE_NONE
+END
+
+LIST sp_normalize_values
+BEGIN
+	spectral
+	minmax
+	row
+	none
+END
+
+PROGRAM in_check_enable
+BEGIN
+	if sp.ck_in {
+		call sp.tx_from.enable
+		call sp.sp_from.enable
+		call sp.tx_to.enable
+		call sp.sp_to.enable
+	}
+	else {
+		call sp.tx_from.disable
+		call sp.sp_from.disable
+		call sp.tx_to.disable
+		call sp.sp_to.disable
+	}
+END
+
+SCRIPT global_controls_hide
+BEGIN
+	sp.gb_tab.hide
+	sp.gb_opts.hide
+	sp.tb_note.hide
+	sp.tx_objname.hide
+	sp.ed_objname.hide
+	sp.tx_obj.hide
+	sp.cb_obj.hide
+	sp.tx_normalize.hide
+	sp.cb_normalize.hide
+	sp.tx_id.hide
+	sp.vn_id.hide
+	sp.tx_if.hide
+	sp.ex_if.hide
+	sp.ck_in.hide
+	sp.tx_from.hide
+	sp.sp_from.hide
+	sp.tx_to.hide
+	sp.sp_to.hide
+
+	sp.tx_id.enable
+	sp.vn_id.enable
+END
+
+/* -------------------- spset Button -------------------- */
+PROGRAM spset_query_dialog
+BEGIN
+	put "spset"
+	stata
+END
+
+PROGRAM spset_mod_dialog
+BEGIN
+	call create CHILD spset, allowsubmit
+	call spset.setExitString SpsetString
+	call spset.setOkAction "program dialogSpsetOk"
+	call spset.setSubmitAction "program dialogSpsetSubmit"
+END
+
+PROGRAM dialogSpsetOk
+BEGIN
+	put SpsetString
+	stata
+END
+
+PROGRAM dialogSpsetSubmit
+BEGIN
+	put SpsetString
+	stata
+END
+
+PROGRAM splink_open_dialog
+BEGIN
+	call create CHILD spset, allowsubmit
+	call spset.callthru "main.rb_linkshp.seton"
+	call spset.setExitString SpsetString
+	call spset.setOkAction "program dialogSplinkOk"
+	call spset.setSubmitAction "program dialogSplinkSubmit"
+END
+
+PROGRAM dialogSplinkOk
+BEGIN
+	put SpsetString
+	stata
+END
+
+
+PROGRAM dialogSplinkSubmit
+BEGIN
+	put SpsetString
+	stata
+END
+
+PROGRAM xtset_open_dialog
+BEGIN
+	call create CHILD spxtset
+END
+
+/* -------------------- Import Button -------------------- */
+PROGRAM import_show
+BEGIN
+	if sp.btn_1 {
+		call sp.gb_panel_box.setposition . . . 465
+		call sp.tx_general.hide
+		call sp.tb_general.hide
+		call sp.rb_spset.show
+		call sp.rb_translate.show
+		call sp.bu_set_submit.show
+		if sp.rb_translate {
+			call sp.rb_translate1.show
+			call sp.rb_translate2.show
+			call sp.rb_translate3.show
+
+			call script import_sptranslate_show
+		}
+		if sp.rb_spset {
+			call script import_set_show
+		}
+	}
+END
+
+SCRIPT import_hide
+BEGIN
+	sp.rb_translate.hide
+	sp.rb_spset.hide
+	sp.bu_set_submit.hide
+	script import_set_hide
+	script import_sptranslate_hide
+END
+
+SCRIPT import_set_show
+BEGIN
+	script global_controls_hide
+	script import_sptranslate_hide
+	script import_merge_hide
+
+	sp.tx_id.setposition 150 125
+	sp.vn_id.setposition 150 145
+
+	sp.bu_xtset.setposition 580 75
+	sp.bu_xtset.show
+	sp.gb_spset.show
+	sp.tx_id.show
+	sp.tx_id.setlabel resource LBL_ID_VARIABLE
+	sp.vn_id.show
+	sp.ck_spset_latlong.show
+	sp.rb_spset_kilometers.show
+	sp.rb_spset_miles.show
+	sp.ck_spset_nocoord.show
+	sp.tx_spset_xcent.show
+	sp.tx_spset_ycent.show
+	sp.vn_spset_xcent.show
+	sp.vn_spset_ycent.show
+	sp.bu_spset_linkshp.show
+
+	program spset_planar_on
+END
+
+SCRIPT import_set_hide
+BEGIN
+	sp.bu_xtset.hide
+	sp.gb_spset.hide
+	sp.ck_spset_latlong.hide
+	sp.rb_spset_kilometers.hide
+	sp.rb_spset_miles.hide
+	sp.ck_spset_nocoord.hide
+	sp.tx_spset_xcent.hide
+	sp.tx_spset_ycent.hide
+	sp.vn_spset_xcent.hide
+	sp.vn_spset_ycent.hide
+	sp.bu_spset_linkshp.hide
+END
+
+PROGRAM spset_planar_on
+BEGIN
+	if sp.ck_spset_latlong {
+		call sp.rb_spset_kilometers.enable
+		call sp.rb_spset_miles.enable
+		call sp.ck_spset_nocoord.disable
+	}
+	else {
+		call sp.rb_spset_kilometers.disable
+		call sp.rb_spset_miles.disable
+		call sp.ck_spset_nocoord.enable
+	}
+END
+
+PROGRAM spset_nocoord_on
+BEGIN
+	if sp.ck_spset_nocoord {
+		call sp.tx_spset_xcent.disable
+		call sp.tx_spset_ycent.disable
+		call sp.vn_spset_xcent.disable
+		call sp.vn_spset_ycent.disable
+		call sp.ck_spset_latlong.disable
+		call sp.rb_spset_kilometers.disable
+		call sp.rb_spset_miles.disable
+	}
+	else {
+		call sp.tx_spset_xcent.enable
+		call sp.tx_spset_ycent.enable
+		call sp.vn_spset_xcent.enable
+		call sp.vn_spset_ycent.enable
+		call sp.ck_spset_latlong.enable
+		call program spset_planar_on
+	}
+END
+
+SCRIPT import_sptranslate_show
+BEGIN
+	script global_controls_hide
+	script import_set_hide
+
+	sp.gb_translate.show
+	sp.rb_translate1.show
+	sp.rb_translate2.show
+	sp.rb_translate3.show
+
+	program sptranslate_show
+END
+
+SCRIPT import_sptranslate_hide
+BEGIN
+	sp.gb_translate.hide
+	sp.gb_spshape2dta.hide
+	sp.rb_translate1.hide
+	sp.rb_translate2.hide
+	sp.rb_translate3.hide
+
+	script sptranslate1_hide
+	script sptranslate2_hide
+	script sptranslate3_hide
+END
+
+PROGRAM sptranslate_show
+BEGIN
+	if sp.rb_translate1 {
+		call script sptranslate1_show
+		call script sptranslate2_hide
+		call script sptranslate3_hide
+	}
+	if sp.rb_translate2 {
+		call script sptranslate1_hide
+		call script sptranslate2_show
+		call script sptranslate3_hide
+	}
+	if sp.rb_translate3 {
+		call script sptranslate1_hide
+		call script sptranslate2_hide
+		call script sptranslate3_show
+	}
+END
+
+SCRIPT sptranslate1_show
+BEGIN
+	sp.gb_spshape2dta.show
+	sp.bu_spshape2dta_unzip.show
+	sp.tx_spshape2dta_shpfile.show
+	sp.fi_spshape2dta_shpfile.show
+	sp.ck_spshape2dta_sav.show
+	sp.ed_spshape2dta_sav.show
+	sp.ck_spshape2dta_repl.show
+END
+
+SCRIPT sptranslate2_show
+BEGIN
+	sp.bu_xtset.setposition 570 140
+	sp.bu_xtset.show
+	sp.gb_merge.show
+	sp.tx_merge_keyvar.show
+	sp.vl_merge_keyvar.show
+	sp.tx_merge_using.show
+	sp.fi_merge_using.show
+	sp.tx_merge_keepusing.show
+	sp.cb_merge_keepusing.show
+	sp.bu_merge_keepusing.show
+	sp.ck_merge_nolabel.show
+	sp.ck_merge_nonotes.show
+	sp.tx_merge_keepres.show
+	sp.hl_merge_keepres.show
+END
+
+SCRIPT sptranslate3_show
+BEGIN
+	sp.tx_id.setposition 150 220
+	sp.vn_id.setposition 150 240
+
+	sp.gb_spsetid.show
+	sp.tx_id.show
+	sp.vn_id.show
+	sp.tx_id.setlabel resource SP_LBL_NEW_ID_VARIABLE
+END
+
+SCRIPT sptranslate1_hide
+BEGIN
+	sp.bu_spshape2dta_unzip.hide
+	sp.gb_spshape2dta.hide
+	sp.tx_spshape2dta_shpfile.hide
+	sp.fi_spshape2dta_shpfile.hide
+	sp.ck_spshape2dta_sav.hide
+	sp.ed_spshape2dta_sav.hide
+	sp.ck_spshape2dta_repl.hide
+END
+
+SCRIPT sptranslate2_hide
+BEGIN
+	sp.gb_merge.hide
+	sp.tx_merge_keyvar.hide
+	sp.vl_merge_keyvar.hide
+	sp.tx_merge_using.hide
+	sp.fi_merge_using.hide
+	sp.tx_merge_keepusing.hide
+	sp.cb_merge_keepusing.hide
+	sp.bu_merge_keepusing.hide
+	sp.ck_merge_nolabel.hide
+	sp.ck_merge_nonotes.hide
+	sp.tx_merge_keepres.hide
+	sp.hl_merge_keepres.hide
+END
+
+SCRIPT sptranslate3_hide
+BEGIN
+	sp.gb_spsetid.hide
+	sp.tx_id.hide
+	sp.vn_id.hide
+END
+
+PROGRAM populate_merge_keepusing
+BEGIN
+	require sp.fi_merge_using
+	call sp_des_error.setvalue 0
+	put "sp_wrk_dlg getvars using "
+	put `"""'
+	put sp.fi_merge_using
+	put `"""'
+	put ", dlg("
+	put dlgname
+	put ")"
+	put " clist(sp.cb_merge_keepusing)"
+	stata hidden immediate
+
+	if sp_des_error {
+		stopbox stop resource LBL_MSGBOX_UNABLE_GET_VARIABLES_FROM_DTA_ON_DISK
+// Unable to get variables from dataset on disk.
+	}
+
+	call sp.cb_merge_keepusing.repopulate
+END
+
+PROGRAM set_submit
+BEGIN
+	if sp.btn_1 {
+		if sp.rb_spset {
+			require sp.vn_id
+			put "spset "
+			put sp.vn_id
+
+			if !sp.ck_spset_nocoord {
+				if sp.vn_spset_xcent |			///
+					sp.vn_spset_ycent |		///
+					sp.ck_spset_latlong {
+
+					require sp.vn_spset_xcent
+					require sp.vn_spset_ycent
+
+					put ", "
+					if sp.vn_spset_xcent |		///
+						sp.vn_spset_ycent {
+						put "coord("
+						put sp.vn_spset_xcent
+						put " "
+						put sp.vn_spset_ycent
+						put ")"
+					}
+
+					if sp.ck_spset_latlong {
+						put " coordsys(latlong"
+						if sp.rb_spset_miles {
+							put ", miles"
+						}
+						put ")"
+					}
+				}
+			}
+		}
+		else {
+			if sp.rb_translate1 {
+				require sp.fi_spshape2dta_shpfile
+				put "spshape2dta "
+				put sp.fi_spshape2dta_shpfile
+				if sp.ck_spshape2dta_repl | sp.ck_spshape2dta_sav {
+					put ", "
+					if sp.ck_spshape2dta_repl {
+						put " replace"
+					}
+					if sp.ck_spshape2dta_sav {
+						require sp.ed_spshape2dta_sav
+						put " saving("
+						put sp.ed_spshape2dta_sav
+						put ")"
+					}
+				}
+			}
+			if sp.rb_translate2 {
+				require sp.vl_merge_keyvar
+				require sp.fi_merge_using
+
+				put "capture spset"
+				stata hidden immediate
+
+				call rc.setvalue c(rc)
+				if rc.isneq(0) {
+					stopbox note "resource SP_MSGBOX_SP_SETTINGS_INVALID"
+					//The Sp settings are not valid.
+					put "spset"
+					stata
+					exit
+				}
+
+				put "merge"
+				if tsstring.equals("") {
+					put " 1:1"
+				}
+				else {
+					put " m:1"
+				}
+				put " " sp.vl_merge_keyvar
+				put " using"
+				put " " sp.fi_merge_using
+
+				put ", keep(match)"
+				if sp.cb_merge_keepusing {
+					put " keepusing(_ID _CX _CY"
+					put " " sp.cb_merge_keepusing
+					put ")"
+				}
+
+				if sp.ck_merge_nolabel {
+					put " nolabel"
+				}
+
+				if sp.ck_merge_nonotes {
+					put " nonotes"
+				}
+
+				put " nogenerate"
+			}
+			if sp.rb_translate3 {
+				if !shpstring.equals("") {
+					stopbox rusure "resource SP_MSGBOX_SHAPEFILE_AND_DATA_WOULD_BE_REPLACED"
+// Linked shapefile on disk and data in memory would be replaced. Do you wish to continue?
+					put "spset "
+					put sp.vn_id
+					put ", modify replace"
+				}
+				else {
+					put "spset "
+					put sp.vn_id
+					put ", modify"
+				}
+			}
+		}
+		stata
+	}
+END
+
+/* -------------------- Graph Button -------------------- */
+
+SCRIPT graph_main_show
+BEGIN
+	sp.gb_tab.setposition 140 83 550 140
+	sp.gb_tab.show
+	sp.tx_graph_var.show
+	sp.vn_graph_var.show
+
+	program graph_check_panel
+END
+
+PROGRAM graph_check_panel
+BEGIN
+	call tmpstring.setvalue char _dta[_TStvar]
+
+	if tmpstring.equals("") {
+		call sp.tx_graph_t.hide
+		call sp.ed_graph_t.hide
+	}
+	else {
+		call sp.tx_graph_t.show
+		call sp.ed_graph_t.show
+	}
+END
+
+SCRIPT graph_ifin_show
+BEGIN
+	sp.gb_tab.setposition 140 83 550 140
+	sp.tx_if.setposition 150 105
+	sp.ex_if.setposition 150 125
+	sp.ck_in.setposition 150 155
+	sp.tx_from.setposition 155 175
+	sp.sp_from.setposition 195 175
+	sp.tx_to.setposition 260 175
+	sp.sp_to.setposition 280 175
+
+	sp.tx_if.enable
+	sp.ex_if.enable
+	sp.ck_in.enable
+	program in_check_enable
+
+	sp.gb_tab.show
+	sp.tx_if.show
+	sp.ex_if.show
+	sp.ck_in.show
+	sp.tx_from.show
+	sp.sp_from.show
+	sp.tx_to.show
+	sp.sp_to.show
+	sp.tx_obj.hide
+	sp.cb_obj.hide
+END
+
+PROGRAM graph_show
+BEGIN
+	if sp.btn_2 {
+		call script global_controls_hide
+		call script graph_hide
+		call sp.gb_panel_box.setposition . . . 465
+		if toset & toset2 {
+			call sp.tx_general.hide
+			call sp.tb_general.hide
+			call program check_activate
+			if !toact {
+				call sp.tb_note.setposition 140 60 550 40
+				call sp.tb_note.setlabel resource SP_SP_TB_NOTE
+				call sp.bu_grmap_install.show
+				call sp.tb_note.show
+			}
+			else {
+				call sp.tb_note.hide
+				call sp.bu_grmap_install.hide
+				call sp.btn_g1.show
+				call sp.btn_g2.show
+				call sp.bu_graph_submit.show
+				call sp.bu_graph_opt.show
+				call sp.bu_graph_tw_opt.show
+				if sp.btn_g1 {
+					call script graph_main_show
+				}
+				if sp.btn_g2 {
+					call script graph_ifin_show
+				}
+			}
+		}
+		else {
+			call sp.tb_note.hide
+			call sp.tx_general.show
+			call sp.tb_general.show
+			if toset & !toset2 {
+				call sp.tx_general.setlabel resource SP_LBL_DATA_NOT_SPSET2
+				call sp.tb_general.setlabel resource SP_LBL_CLICK_TO_SPSET2
+			}
+			if !toset & !toset2 {
+				call sp.tx_general.setlabel resource SP_LBL_DATA_NOT_SPSET3
+				call sp.tb_general.setlabel resource SP_LBL_CLICK_TO_SPSET3
+			}
+		}
+	}
+END
+
+SCRIPT graph_hide
+BEGIN
+	sp.bu_grmap_install.hide
+	sp.bu_graph_submit.hide
+	sp.btn_g1.hide
+	sp.btn_g2.hide
+	sp.tx_graph_var.hide
+	sp.vn_graph_var.hide
+	sp.bu_graph_opt.hide
+	sp.bu_graph_tw_opt.hide
+	sp.tx_graph_t.hide
+	sp.ed_graph_t.hide
+END
+
+PROGRAM graph_grmap_install
+BEGIN
+	put "capture grmap, status"
+	stata hidden immediate
+
+	call rc.setvalue c(rc)
+	if rc.isneq(0) {
+		put "capture grmap, activate"
+		stata hidden immediate
+		call rc.setvalue c(rc)
+		if rc.isneq(0) {
+			stopbox stop "resource SP_MSGBOX_GRMAP_ACTIVATED_FAILED"
+// grmap activated unsuccessfully.
+		}
+	}
+
+	call sp.tb_note.hide
+	call sp.bu_grmap_install.hide
+	call sp.btn_g1.show
+	call sp.btn_g2.show
+	call sp.bu_graph_submit.show
+	call sp.bu_graph_opt.show
+	call sp.bu_graph_tw_opt.show
+	call script graph_main_show
+END
+
+PROGRAM graph_opt
+BEGIN
+	call create CHILD sp_grmap_opts AS GrmapOptDlg, allowsubmit
+	if ! _rc {
+		call GrmapOptDlg.setExitString GrmapOptResults
+		call GrmapOptDlg.setExitAction "program graph_get_OptResult"
+		call GrmapOptDlg.setSubmitAction "script graph_Opts_submit"
+	}
+END
+
+PROGRAM graph_get_OptResult
+BEGIN
+	call create STRING sTMP
+	call sTMP.setvalue resource LBL_OPTIONS
+	if GrmapOptResults.isneq("") {
+//		stopbox stop class GrmapOptResults.value
+		call sTMP.append " *"
+	}
+	else {
+		call sTMP.append "  "
+	}
+	call sp.bu_graph_opt.setlabel class sTMP.value
+END
+
+SCRIPT graph_Opts_submit
+BEGIN
+	program graph_submit
+	Submit
+END
+
+PROGRAM graph_tw_opt
+BEGIN
+	call create CHILD sp_grmap_tw_opts AS GrmapTwOptDlg, allowsubmit
+	if ! _rc {
+		call GrmapTwOptDlg.setExitString GrmapTwOptResults
+		call GrmapTwOptDlg.setExitAction "program graph_get_tw_OptResult"
+		call GrmapTwOptDlg.setSubmitAction "script graph_tw_Opts_submit"
+	}
+END
+
+PROGRAM graph_get_tw_OptResult
+BEGIN
+	call create STRING sTMP
+	call sTMP.setvalue resource SP_SP_BU_GRAPH_OPT
+	if GrmapTwOptResults {
+		call sTMP.append " *"
+	}
+	else {
+		call sTMP.append "  "
+	}
+	call sp.bu_graph_tw_opt.setlabel class sTMP.value
+	call script graph_tw_Opts_submit
+END
+
+SCRIPT graph_tw_Opts_submit
+BEGIN
+	program graph_submit
+	Submit
+END
+
+PROGRAM graph_submit
+BEGIN
+	if !sp.vn_graph_var {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format					///
+			"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT"	///
+			"resource LBL_TAB_MAIN"				///
+			"resource LBL_VN_VARIABLE"
+		stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Variable" must be filled in.
+	}
+	put "grmap "
+	put /hidden sp.vn_graph_var
+	put " " /program sp_ifin_output
+	beginoptions
+		if sp.ed_graph_t.isvisible() {
+			put /hidden " t(" sp.ed_graph_t ")"
+		}
+		put /hidden GrmapTwOptResults
+		put /hidden GrmapOptResults
+	endoptions
+	stata
+END
+
+/* -------------------- Matrix Button -------------------- */
+
+LIST matrix_command_list
+BEGIN
+	[0] resource SP_LBL_SPMATRIX_CREATE
+	[0] resource SP_LBL_SPMATRIX_FROMDATA
+	[0] resource SP_LBL_SPMATRIX_MANIPULATE
+	[1] resource SP_LBL_SPMATRIX_DIR
+	[1] resource SP_LBL_SPMATRIX_SUMMARIZE
+	[1] resource SP_LBL_SPMATRIX_DROP
+	[1] resource SP_LBL_SPMATRIX_COPY
+	[1] resource SP_LBL_SPMATRIX_USE
+	[1] resource SP_LBL_SPMATRIX_SAVE
+	[1] resource SP_LBL_SPMATRIX_NORMALIZE
+	[1] resource SP_LBL_SPMATRIX_NOTE
+	[0] resource SP_LBL_SPMATRIX_IMPORT_EXPORT
+	[1] resource SP_LBL_SPMATRIX_IMPORT
+	[1] resource SP_LBL_SPMATRIX_EXPORT
+END
+
+LIST matrix_command_values
+BEGIN
+	create
+	fromdata
+	""
+	dir
+	summarize
+	drop
+	copy
+	use
+	save
+	normalize
+	note
+	""
+	import
+	export
+END
+
+PROGRAM matrix_show
+BEGIN
+	if sp.btn_3 {
+		call script global_controls_hide
+		call sp.gb_panel_box.setposition . . . 465
+		if toset {
+			call sp.tx_general.hide
+			call sp.tb_general.hide
+			call sp.tx_matrix_cmds.show
+			call sp.tv_matrix_cmds.show
+			call sp.btn_m1.show
+			call sp.btn_m2.show
+			call sp.bu_matrix_submit.show
+			call program matrix_command_selchange
+		}
+		else {
+			call script matrix_hide
+			call sp.tx_general.show
+			call sp.tb_general.show
+			call sp.tx_general.setlabel resource SP_LBL_DATA_NOT_SPSET1
+			call sp.tb_general.setlabel resource SP_LBL_CLICK_TO_SPSET1
+		}
+	}
+END
+
+SCRIPT matrix_hide
+BEGIN
+	sp.tx_matrix_cmds.hide
+	sp.tv_matrix_cmds.hide
+	sp.bu_matrix_submit.hide
+	sp.btn_m1.hide
+	sp.btn_m2.hide
+	script matrix_command_hide
+END
+
+PROGRAM matrix_command_selchange
+BEGIN
+	if sp.btn_3 {
+		call script matrix_command_hide
+		call script global_controls_hide
+		call sp.bu_matrix_submit.enable
+		call sp.cb_obj.enable
+		if (sp.tv_matrix_cmds.iseq("create")) {
+			call sp.btn_m1.show
+			call sp.btn_m2.show
+			if sp.btn_m1 {
+				call script matrix_create_main_show
+			}
+			if sp.btn_m2 {
+				call script matrix_create_ifin_show
+			}
+		}
+		if (sp.tv_matrix_cmds.iseq("fromdata")) {
+			call sp.btn_m1.hide
+			call sp.btn_m2.hide
+			call script matrix_fdata_show
+		}
+		if (sp.tv_matrix_cmds.iseq("dir")) {
+			call sp.btn_m1.hide
+			call sp.btn_m2.hide
+		}
+		if (sp.tv_matrix_cmds.iseq("summarize")) {
+			call sp.btn_m1.hide
+			call sp.btn_m2.hide
+			call script matrix_summarize_show
+			call program sp_load_spmatrix
+		}
+		if (sp.tv_matrix_cmds.iseq("drop")) {
+			call sp.btn_m1.hide
+			call sp.btn_m2.hide
+			call script matrix_drop_show
+			call program sp_load_spmatrix
+		}
+		if (sp.tv_matrix_cmds.iseq("copy")) {
+			call sp.btn_m1.hide
+			call sp.btn_m2.hide
+			call script matrix_copy_show
+			call program sp_load_spmatrix
+		}
+		if (sp.tv_matrix_cmds.iseq("use")) {
+			call sp.btn_m1.hide
+			call sp.btn_m2.hide
+			call script matrix_use_show
+		}
+		if (sp.tv_matrix_cmds.iseq("save")) {
+			call sp.btn_m1.hide
+			call sp.btn_m2.hide
+			call script matrix_save_show
+			call program sp_load_spmatrix
+		}
+		if (sp.tv_matrix_cmds.iseq("normalize")) {
+			call sp.btn_m1.hide
+			call sp.btn_m2.hide
+			call script matrix_normalize_show
+			call program sp_load_spmatrix
+		}
+		if (sp.tv_matrix_cmds.iseq("note")) {
+			call sp.btn_m1.hide
+			call sp.btn_m2.hide
+			call script matrix_note_show
+			call program sp_load_spmatrix
+		}
+		if (sp.tv_matrix_cmds.iseq("import")) {
+			call sp.btn_m1.hide
+			call sp.btn_m2.hide
+			call script matrix_import_show
+		}
+		if (sp.tv_matrix_cmds.iseq("export")) {
+			call sp.btn_m1.hide
+			call sp.btn_m2.hide
+			call script matrix_export_show
+			call program sp_load_spmatrix
+		}
+		if (sp.tv_matrix_cmds.iseq("")) {
+			call sp.bu_matrix_submit.disable
+			call sp.btn_m1.hide
+			call sp.btn_m2.hide
+		}
+	}
+END
+
+SCRIPT matrix_command_hide
+BEGIN
+	script matrix_create_hide
+	script matrix_fdata_hide
+	script matrix_summarize_hide
+	script matrix_drop_hide
+	script matrix_copy_hide
+	script matrix_use_hide
+	script matrix_save_hide
+	script matrix_normalize_hide
+	script matrix_note_hide
+	script matrix_import_hide
+	script matrix_export_hide
+END
+
+SCRIPT matrix_ifin_show
+BEGIN
+	sp.gb_tab.setposition 140 230 550 235
+	sp.tx_if.setposition 150 250
+	sp.ex_if.setposition 150 270
+	sp.ck_in.setposition 150 300
+	sp.tx_from.setposition 155 320
+	sp.sp_from.setposition 195 320
+	sp.tx_to.setposition 260 320
+	sp.sp_to.setposition 280 320
+
+	sp.tx_if.enable
+	sp.ex_if.enable
+	sp.ck_in.enable
+	program in_check_enable
+
+	sp.gb_tab.show
+	sp.tx_if.show
+	sp.ex_if.show
+	sp.ck_in.show
+	sp.tx_from.show
+	sp.sp_from.show
+	sp.tx_to.show
+	sp.sp_to.show
+END
+
+PROGRAM sp_ifin_output
+BEGIN
+	if sp.ex_if {
+		put /hidden " " "if " sp.ex_if
+	}
+	if sp.ck_in {
+		put " " "in "
+		put /hidden sp.sp_from
+		put "/"
+		put /hidden sp.sp_to
+	}
+END
+
+SCRIPT matrix_create_main_show
+BEGIN
+	sp.gb_tab.setposition 140 230 550 235
+	sp.rb_contiguity.setposition 150 250
+	sp.rb_idistance.setposition 410 250
+	sp.tx_objname.setposition 150 280
+	sp.ed_objname.setposition 150 300
+	sp.tx_normalize.setposition 410 280
+	sp.cb_normalize.setposition 410 300
+	sp.ck_standard_repl.setposition 150 330
+	sp.ck_create_rook.setposition 150 355
+	sp.ck_create_second.setposition 150 380
+	sp.ed_create_second.setposition 165 405
+	sp.tx_create_second.setposition 295 405
+	sp.ck_create_first.setposition 150 430
+	sp.ck_create_vtruncate.setposition 150 355
+	sp.ed_create_vtruncate.setposition 165 380
+	sp.tx_create_vtruncate.setposition 295 380
+
+	sp.gb_tab.show
+	sp.rb_contiguity.show
+	sp.rb_idistance.show
+	sp.tx_objname.show
+	sp.ed_objname.show
+	sp.tx_normalize.show
+	sp.cb_normalize.show
+	sp.ck_standard_repl.show
+
+	program matrix_create_selchange
+END
+
+SCRIPT matrix_create_ifin_show
+BEGIN
+	script matrix_ifin_show
+END
+
+SCRIPT matrix_create_hide
+BEGIN
+	sp.ck_create_rook.hide
+	sp.ck_create_first.hide
+	sp.ck_create_second.hide
+	sp.ck_standard_repl.hide
+	sp.rb_contiguity.hide
+	sp.rb_idistance.hide
+	sp.ed_create_second.hide
+	sp.tx_create_second.hide
+	sp.ck_create_vtruncate.hide
+	sp.ed_create_vtruncate.hide
+	sp.tx_create_vtruncate.hide
+END
+
+PROGRAM sp_ck_create_second_check
+BEGIN
+	if sp.ck_create_second {
+		call sp.ed_create_second.enable
+		call sp.tx_create_second.enable
+		call sp.ck_create_first.enable
+	}
+	else {
+		call sp.ed_create_second.disable
+		call sp.tx_create_second.disable
+		call sp.ck_create_first.disable
+	}
+END
+
+PROGRAM sp_ck_create_vtruncate_check
+BEGIN
+	if sp.ck_create_vtruncate {
+		call sp.ed_create_vtruncate.enable
+		call sp.tx_create_vtruncate.enable
+	}
+	else {
+		call sp.ed_create_vtruncate.disable
+		call sp.tx_create_vtruncate.disable
+	}
+END
+
+SCRIPT matrix_create_selchange
+BEGIN
+	if sp.rb_contiguity.isvisible() & sp.rb_contiguity {
+		call sp.ck_create_rook.show
+		call sp.ck_create_first.show
+		call sp.ck_create_second.show
+		call sp.ed_create_second.show
+		call sp.tx_create_second.show
+		call program sp_ck_create_second_check
+		call sp.ck_create_vtruncate.hide
+		call sp.ed_create_vtruncate.hide
+		call sp.tx_create_vtruncate.hide
+	}
+	if sp.rb_idistance.isvisible() & sp.rb_idistance {
+		call sp.ck_create_rook.hide
+		call sp.ck_create_first.hide
+		call sp.ck_create_second.hide
+		call sp.ed_create_second.hide
+		call sp.tx_create_second.hide
+		call sp.ck_create_vtruncate.show
+		call sp.ed_create_vtruncate.show
+		call sp.tx_create_vtruncate.show
+		call program sp_ck_create_vtruncate_check
+	}
+END
+
+PROGRAM matrix_create_output
+BEGIN
+	if !sp.ed_objname {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format					///
+			"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT"	///
+			"resource LBL_TAB_MAIN"				///
+			"resource SP_LBL_SPATIAL_MATRIX_NAME"
+		stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Spatial weighting matrix name" must be filled in.
+	}
+	if sp.rb_contiguity {
+		put "spmatrix create contiguity "
+	}
+	else {
+		put "spmatrix create idistance "
+	}
+	put /hidden sp.ed_objname
+	put " " /program sp_ifin_output
+
+	beginoptions
+		if sp.rb_contiguity {
+			if sp.ck_create_rook {
+				put /hidden " rook"
+			}
+			if sp.ck_create_second {
+				if !sp.ed_create_second {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format				///
+			"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT"	///
+				"resource LBL_TAB_MAIN"			///
+				"resource SP_LBL_VALUE"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "value" must be filled in.
+				}
+				put /hidden " second(" sp.ed_create_second ")"
+
+				if sp.ck_create_first.isenabled() & !sp.ck_create_first {
+					put /hidden " first"
+				}
+			}
+		}
+		else {
+			if sp.ck_create_vtruncate {
+				if !sp.ed_create_vtruncate {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format				///
+			"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT"	///
+				"resource LBL_TAB_MAIN"			///
+				"resource SP_LBL_UNITS"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "units" must be filled in.
+				}
+				put /hidden " vtruncate(" sp.ed_create_vtruncate ")"
+			}
+		}
+
+		if sp.cb_normalize.isneq("spectral") {
+			put /hidden " normalize(" sp.cb_normalize ")"
+		}
+		if sp.ck_standard_repl {
+			put /hidden " replace"
+		}
+	endoptions
+END
+
+SCRIPT matrix_fdata_show
+BEGIN
+	sp.gb_tab.setposition 140 195 550 270
+	sp.tx_objname.setposition 150 215
+	sp.ed_objname.setposition 150 235
+	sp.tx_normalize.setposition 410 215
+	sp.cb_normalize.setposition 410 235
+	sp.tx_fdata_varlist.setposition 150 265
+	sp.vl_fdata_varlist.setposition 150 285
+	sp.ck_fdata_repl.setposition 150 320
+	sp.ck_fdata_idistance.setposition 150 345
+
+	sp.gb_tab.show
+	sp.tx_objname.show
+	sp.ed_objname.show
+	sp.tx_normalize.show
+	sp.cb_normalize.show
+	sp.tx_fdata_varlist.show
+	sp.vl_fdata_varlist.show
+	sp.ck_fdata_repl.show
+	sp.ck_fdata_idistance.show
+END
+
+SCRIPT matrix_fdata_hide
+BEGIN
+	sp.tx_fdata_varlist.hide
+	sp.vl_fdata_varlist.hide
+	sp.ck_fdata_repl.hide
+	sp.ck_fdata_idistance.hide
+END
+
+PROGRAM matrix_fdata_output
+BEGIN
+	require sp.ed_objname
+	require sp.vl_fdata_varlist
+	put "spmatrix fromdata "
+	put sp.ed_objname
+	put " = "
+	put sp.vl_fdata_varlist
+
+	beginoptions
+		option sp.ck_fdata_idistance
+		if sp.cb_normalize.isneq("spectral") {
+			put " normalize("
+			put sp.cb_normalize
+			put ")"
+		}
+		option sp.ck_fdata_repl
+	endoptions
+END
+
+SCRIPT matrix_normalize_show
+BEGIN
+	sp.gb_tab.setposition 140 195 550 270
+	sp.tx_obj.setposition 150 215
+	sp.cb_obj.setposition 150 235
+	sp.tx_normalize.setposition 410 215
+	sp.cb_normalize.setposition 410 235
+
+	sp.gb_tab.show
+	sp.tx_obj.show
+	sp.cb_obj.show
+	sp.tx_normalize.show
+	sp.cb_normalize.show
+END
+
+SCRIPT matrix_normalize_hide
+BEGIN
+END
+
+PROGRAM matrix_normalize_output
+BEGIN
+	require sp.cb_obj
+	put "spmatrix normalize "
+	put sp.cb_obj
+
+	beginoptions
+		if sp.cb_normalize.isneq("spectral") {
+			put " normalize("
+			put sp.cb_normalize
+			put ")"
+		}
+	endoptions
+END
+
+PROGRAM matrix_dir_output
+BEGIN
+	put "spmatrix dir"
+END
+
+SCRIPT matrix_summarize_show
+BEGIN
+	sp.gb_tab.setposition 140 195 550 270
+	sp.tx_obj.setposition 150 215
+	sp.cb_obj.setposition 150 235
+	sp.tx_summ_newvar.setposition 150 265
+	sp.ed_summ_newvar.setposition 150 285
+
+	sp.gb_tab.show
+	sp.tx_obj.show
+	sp.cb_obj.show
+	sp.tx_summ_newvar.show
+	sp.ed_summ_newvar.show
+END
+
+SCRIPT matrix_summarize_hide
+BEGIN
+	sp.tx_summ_newvar.hide
+	sp.ed_summ_newvar.hide
+END
+
+PROGRAM matrix_summarize_output
+BEGIN
+	require sp.cb_obj
+	put "spmatrix summarize "
+	put sp.cb_obj
+
+	beginoptions
+		optionarg sp.ed_summ_newvar
+	endoptions
+END
+
+SCRIPT matrix_drop_show
+BEGIN
+	sp.gb_tab.setposition 140 195 550 270
+	sp.cb_obj.setposition 165 265
+
+	sp.gb_tab.show
+	sp.cb_obj.show
+	sp.rb_matrix_drop_all.show
+	sp.rb_matrix_drop_spec.show
+
+	program matrix_drop_check
+END
+
+SCRIPT matrix_drop_hide
+BEGIN
+	sp.rb_matrix_drop_all.hide
+	sp.rb_matrix_drop_spec.hide
+END
+
+PROGRAM matrix_drop_output
+BEGIN
+	if sp.rb_matrix_drop_all {
+		put "spmatrix clear"
+	}
+	else {
+		require sp.cb_obj
+		put "spmatrix drop "
+		put sp.cb_obj
+	}
+END
+
+PROGRAM matrix_drop_check
+BEGIN
+	if sp.rb_matrix_drop_all {
+		call sp.cb_obj.disable
+	}
+	else {
+		call sp.cb_obj.enable
+	}
+END
+
+SCRIPT matrix_copy_show
+BEGIN
+	sp.gb_tab.setposition 140 195 550 270
+	sp.tx_obj.setposition 150 215
+	sp.cb_obj.setposition 150 235
+	sp.tx_copy_newmat.setposition 410 215
+	sp.ed_copy_newmat.setposition 410 235
+
+	sp.gb_tab.show
+	sp.tx_obj.show
+	sp.cb_obj.show
+	sp.tx_copy_newmat.show
+	sp.ed_copy_newmat.show
+END
+
+SCRIPT matrix_copy_hide
+BEGIN
+	sp.tx_copy_newmat.hide
+	sp.ed_copy_newmat.hide
+END
+
+PROGRAM matrix_copy_output
+BEGIN
+	require sp.cb_obj
+	require sp.ed_copy_newmat
+	put "spmatrix copy "
+	put sp.cb_obj
+	put " "
+	put sp.ed_copy_newmat
+END
+
+SCRIPT matrix_save_show
+BEGIN
+	sp.gb_tab.setposition 140 195 550 270
+	sp.tx_obj.setposition 150 215
+	sp.cb_obj.setposition 150 235
+	sp.tx_matrix_save.setposition 150 265
+	sp.fi_matrix_save.setposition 150 285
+	sp.ck_matrix_sa_repl.setposition 150 320
+
+	sp.gb_tab.show
+	sp.tx_obj.show
+	sp.cb_obj.show
+	sp.tx_matrix_save.show
+	sp.fi_matrix_save.show
+	sp.ck_matrix_sa_repl.show
+END
+
+SCRIPT matrix_save_hide
+BEGIN
+	sp.tx_matrix_save.hide
+	sp.fi_matrix_save.hide
+	sp.ck_matrix_sa_repl.hide
+END
+
+PROGRAM matrix_save_output
+BEGIN
+	require sp.cb_obj
+	require sp.fi_matrix_save
+	put "spmatrix save "
+	put sp.cb_obj
+	put " using "
+	put sp.fi_matrix_save
+
+	beginoptions
+		option sp.ck_matrix_sa_repl
+	endoptions
+END
+
+SCRIPT matrix_use_show
+BEGIN
+	sp.gb_tab.setposition 140 195 550 270
+	sp.tx_objname.setposition 150 215
+	sp.ed_objname.setposition 150 235
+	sp.tx_matrix_use.setposition 150 265
+	sp.fi_matrix_use.setposition 150 285
+	sp.ck_matrix_use_repl.setposition 150 320
+
+	sp.gb_tab.show
+	sp.tx_objname.show
+	sp.ed_objname.show
+	sp.tx_matrix_use.show
+	sp.fi_matrix_use.show
+	sp.ck_matrix_use_repl.show
+END
+
+SCRIPT matrix_use_hide
+BEGIN
+	sp.tx_matrix_use.hide
+	sp.fi_matrix_use.hide
+	sp.ck_matrix_use_repl.hide
+END
+
+PROGRAM matrix_use_output
+BEGIN
+	require sp.ed_objname
+	require sp.fi_matrix_use
+	put "spmatrix use "
+	put sp.ed_objname
+	put " using "
+	put sp.fi_matrix_use
+
+	beginoptions
+		option sp.ck_matrix_use_repl
+	endoptions
+END
+
+SCRIPT matrix_note_show
+BEGIN
+	sp.gb_tab.setposition 140 195 550 270
+	sp.tx_obj.setposition 150 215
+	sp.cb_obj.setposition 150 235
+	sp.rb_matrix_note_repl.setposition 150 270
+	sp.ed_matrix_note_repl.setposition 150 290
+	sp.rb_matrix_note_disp.setposition 150 315
+	sp.rb_matrix_note_drop.setposition 150 340
+
+	sp.gb_tab.show
+	sp.tx_obj.show
+	sp.cb_obj.show
+	sp.rb_matrix_note_repl.show
+	sp.rb_matrix_note_disp.show
+	sp.rb_matrix_note_drop.show
+	sp.ed_matrix_note_repl.show
+END
+
+SCRIPT matrix_note_hide
+BEGIN
+	sp.rb_matrix_note_repl.hide
+	sp.rb_matrix_note_disp.hide
+	sp.rb_matrix_note_drop.hide
+	sp.ed_matrix_note_repl.hide
+END
+
+PROGRAM matrix_note_output
+BEGIN
+	require sp.cb_obj
+	put "spmatrix note "
+	put sp.cb_obj
+	if sp.rb_matrix_note_repl {
+		require sp.ed_matrix_note_repl
+		put " : "
+		put sp.ed_matrix_note_repl
+	}
+	if sp.rb_matrix_note_drop {
+		put " : "
+	}
+END
+
+SCRIPT matrix_export_show
+BEGIN
+	sp.gb_tab.setposition 140 195 550 270
+	sp.tx_obj.setposition 150 215
+	sp.cb_obj.setposition 150 235
+	sp.tx_matrix_export.setposition 150 265
+	sp.fi_matrix_export.setposition 150 285
+	sp.ck_matrix_ex_repl.setposition 150 320
+
+	sp.gb_tab.show
+	sp.tx_obj.show
+	sp.cb_obj.show
+	sp.tx_matrix_export.show
+	sp.fi_matrix_export.show
+	sp.ck_matrix_ex_repl.show
+END
+
+SCRIPT matrix_export_hide
+BEGIN
+	sp.tx_matrix_export.hide
+	sp.fi_matrix_export.hide
+	sp.ck_matrix_ex_repl.hide
+END
+
+PROGRAM matrix_export_output
+BEGIN
+	require sp.cb_obj
+	require sp.fi_matrix_export
+	put "spmatrix export "
+	put sp.cb_obj
+	put " using "
+	put sp.fi_matrix_export
+
+	beginoptions
+		option sp.ck_matrix_ex_repl
+	endoptions
+END
+
+SCRIPT matrix_import_show
+BEGIN
+	sp.gb_tab.setposition 140 195 550 270
+	sp.tx_objname.setposition 150 215
+	sp.ed_objname.setposition 150 235
+	sp.tx_matrix_import.setposition 150 265
+	sp.fi_matrix_import.setposition 150 285
+	sp.ck_matrix_imp_repl.setposition 150 320
+
+	sp.gb_tab.show
+	sp.tx_objname.show
+	sp.ed_objname.show
+	sp.tx_matrix_import.show
+	sp.fi_matrix_import.show
+	sp.ck_matrix_imp_repl.show
+END
+
+SCRIPT matrix_import_hide
+BEGIN
+	sp.tx_matrix_import.hide
+	sp.fi_matrix_import.hide
+	sp.ck_matrix_imp_repl.hide
+END
+
+PROGRAM matrix_import_output
+BEGIN
+	require sp.ed_objname
+	require sp.fi_matrix_import
+	put "spmatrix import "
+	put sp.ed_objname
+	put " using "
+	put sp.fi_matrix_import
+
+	beginoptions
+		option sp.ck_matrix_imp_repl
+	endoptions
+END
+
+PROGRAM matrix_submit
+BEGIN
+	if sp.btn_3 {
+		if (sp.tv_matrix_cmds.iseq("create")) {
+			put " " /program matrix_create_output
+			stata
+		}
+		if (sp.tv_matrix_cmds.iseq("fromdata")) {
+			put " " /program matrix_fdata_output
+			stata
+		}
+		if (sp.tv_matrix_cmds.iseq("dir")) {
+			put " " /program matrix_dir_output
+			stata
+		}
+		if (sp.tv_matrix_cmds.iseq("summarize")) {
+			put " " /program matrix_summarize_output
+			stata
+		}
+		if (sp.tv_matrix_cmds.iseq("drop")) {
+			put " " /program matrix_drop_output
+			stata
+		}
+		if (sp.tv_matrix_cmds.iseq("copy")) {
+			put " " /program matrix_copy_output
+			stata
+		}
+		if (sp.tv_matrix_cmds.iseq("use")) {
+			put " " /program matrix_use_output
+			stata
+		}
+		if (sp.tv_matrix_cmds.iseq("save")) {
+			put " " /program matrix_save_output
+			stata
+		}
+		if (sp.tv_matrix_cmds.iseq("normalize")) {
+			put " " /program matrix_normalize_output
+			stata
+		}
+		if (sp.tv_matrix_cmds.iseq("note")) {
+			put " " /program matrix_note_output
+			stata
+		}
+		if (sp.tv_matrix_cmds.iseq("import")) {
+			put " " /program matrix_import_output
+			stata
+		}
+		if (sp.tv_matrix_cmds.iseq("export")) {
+			put " " /program matrix_export_output
+			stata
+		}
+	}
+END
+
+/* -------------------- Estimate Model Button -------------------- */
+LIST estimate_command_list
+BEGIN
+	resource SP_LBL_SPATIAL_AUTOREGRESSIVE_MODELS
+	resource SP_LBL_SPATIAL_AUTOREGRESSIVE_MODELS_ENDOGENOUS_COVARIATES
+	resource SP_LBL_SPATIAL_AUTOREGRESSIVE_MODELS_PANEL_DATA
+END
+
+LIST estimate_command_values
+BEGIN
+	spregress
+	spivregress
+	spxtregress
+END
+
+PROGRAM estimate_show
+BEGIN
+	if sp.btn_4 {
+		call script global_controls_hide
+		call sp.gb_panel_box.setposition . . . 465
+
+		if toset {
+			call sp.tx_general.hide
+			call sp.tb_general.hide
+			call sp.tx_estimate_cmd.show
+			call sp.lb_estimate_cmds.show
+			call sp.bu_estimate_go.show
+			call sp.gb_estimate_anal.show
+			call sp.tx_estimate_post.show
+			call sp.bu_estimate_post.show
+		}
+		else {
+			call script estimate_hide
+			call sp.tx_general.show
+			call sp.tb_general.show
+			call sp.tx_general.setlabel resource SP_LBL_DATA_NOT_SPSET1
+			call sp.tb_general.setlabel resource SP_LBL_CLICK_TO_SPSET1
+		}
+	}
+END
+
+SCRIPT estimate_hide
+BEGIN
+	sp.tx_estimate_cmd.hide
+	sp.lb_estimate_cmds.hide
+	sp.bu_estimate_go.hide
+	sp.gb_estimate_anal.hide
+	sp.tx_estimate_post.hide
+	sp.bu_estimate_post.hide
+END
+
+PROGRAM estimate_open_dialog
+BEGIN
+	call create STRING tmpSTR
+
+	call tmpSTR.setvalue class sp.lb_estimate_cmds.value
+	call tmpSTR.withvalue create CHILD @, allowsubmit
+	call tmpSTR.withvalue @.setExitString EstimateCmdString
+	call tmpSTR.withvalue @.setOkAction "program dialogECmdOk"
+	call tmpSTR.withvalue @.setSubmitAction "program dialogECmdSubmit"
+END
+
+PROGRAM dialogECmdOk
+BEGIN
+	put EstimateCmdString
+	stata
+END
+
+
+PROGRAM dialogECmdSubmit
+BEGIN
+	put EstimateCmdString
+	stata
+END
+
+/* -------------------- Utilities Button -------------------- */
+
+LIST util_command_list
+BEGIN
+	resource SP_LBL_SPGENERATE
+	resource SP_LBL_SPDISTANCE
+	resource SP_LBL_SPBALANCE
+END
+
+LIST util_command_values
+BEGIN
+	spgenerate
+	spdistance
+	spbalance
+END
+
+PROGRAM util_command_changed
+BEGIN
+	if sp.btn_5 {
+		call script util_command_hide
+		call script global_controls_hide
+		call sp.bu_util_submit.enable
+		if sp.lb_util_cmds.equals("spgenerate") {
+			call sp.btn_u1.show
+			call sp.btn_u2.show
+			if sp.btn_u1 {
+				call script util_spgenerate_show
+				call program sp_load_spmatrix
+			}
+			if sp.btn_u2 {
+				call script util_spgenerate_ifin_show
+			}
+		}
+		if sp.lb_util_cmds.equals("spdistance") {
+			call sp.btn_u1.hide
+			call sp.btn_u2.hide
+			call script util_spdistance_show
+		}
+		if sp.lb_util_cmds.equals("spbalance") {
+			call sp.btn_u1.hide
+			call sp.btn_u2.hide
+			call script util_spbalance_show
+		}
+	}
+END
+
+SCRIPT util_show
+BEGIN
+	if sp.btn_5 {
+		call script global_controls_hide
+		call sp.gb_panel_box.setposition . . . 465
+
+		call sp.cb_obj.enable
+		if toset {
+			call sp.tx_general.hide
+			call sp.tb_general.hide
+			call sp.tx_util_cmds.show
+			call sp.lb_util_cmds.show
+			call sp.btn_u1.show
+			call sp.btn_u2.show
+			call sp.bu_util_submit.show
+			call program util_command_changed
+		}
+		else {
+			call script util_hide
+			call sp.tx_general.show
+			call sp.tb_general.show
+			call sp.tx_general.setlabel resource SP_LBL_DATA_NOT_SPSET1
+			call sp.tb_general.setlabel resource SP_LBL_CLICK_TO_SPSET1
+		}
+	}
+END
+
+SCRIPT util_hide
+BEGIN
+	sp.tx_util_cmds.hide
+	sp.lb_util_cmds.hide
+	sp.btn_u1.hide
+	sp.btn_u2.hide
+	sp.bu_util_submit.hide
+	script util_command_hide
+END
+
+SCRIPT util_command_hide
+BEGIN
+	script util_spgenerate_hide
+	script util_spdistance_hide
+	script util_spbalance_hide
+END
+
+SCRIPT util_spgenerate_show
+BEGIN
+	script global_controls_hide
+	sp.gb_tab.setposition 140 195 550 270
+
+	sp.gb_tab.show
+	sp.tx_obj.show
+	sp.cb_obj.show
+	sp.tx_obj.setposition 150 215
+	sp.cb_obj.setposition 150 235
+
+	sp.tx_util_lag_var.show
+	sp.vn_util_lag_var.show
+	sp.tx_util_lag_nvar.show
+	sp.ed_util_lag_nvar.show
+	sp.tx_util_lag_type.show
+	sp.cb_util_lag_type.show
+	script util_spbalance_hide
+	script util_spdistance_hide
+END
+
+SCRIPT util_spgenerate_hide
+BEGIN
+	sp.tx_util_lag_var.hide
+	sp.vn_util_lag_var.hide
+	sp.tx_util_lag_nvar.hide
+	sp.ed_util_lag_nvar.hide
+	sp.tx_util_lag_type.hide
+	sp.cb_util_lag_type.hide
+END
+
+SCRIPT util_spgenerate_ifin_show
+BEGIN
+	sp.gb_tab.setposition 140 195 550 270
+	sp.tx_if.setposition 150 215
+	sp.ex_if.setposition 150 235
+	sp.ck_in.setposition 150 265
+	sp.tx_from.setposition 155 285
+	sp.sp_from.setposition 195 285
+	sp.tx_to.setposition 260 285
+	sp.sp_to.setposition 280 285
+
+	sp.tx_if.enable
+	sp.ex_if.enable
+	sp.ck_in.enable
+	program in_check_enable
+
+	sp.gb_tab.show
+	sp.tx_if.show
+	sp.ex_if.show
+	sp.ck_in.show
+	sp.tx_from.show
+	sp.sp_from.show
+	sp.tx_to.show
+	sp.sp_to.show
+	sp.tx_obj.hide
+	sp.cb_obj.hide
+END
+
+PROGRAM util_spgenerate_output
+BEGIN
+	if !sp.cb_obj {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format					///
+			"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT"	///
+			"resource LBL_TAB_MAIN"				///
+			"resource SP_LBL_SPATIAL_MATRIX"
+		stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Spatial weighting matrix" must be filled in.
+	}
+	if !sp.vn_util_lag_var {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format					///
+			"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT"	///
+			"resource LBL_TAB_MAIN"				///
+			"resource LBL_VN_VARIABLE"
+		stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Variable" must be filled in.
+	}
+	if !sp.ed_util_lag_nvar {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format					///
+			"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT"	///
+			"resource LBL_TAB_MAIN"				///
+			"resource LBL_NEW_VARIABLE_NAME_NO_COLON"
+		stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "New variable name" must be filled in.
+	}
+	put "spgenerate "
+	if sp.cb_util_lag_type.equals("double") {
+		put "double "
+	}
+	put /hidden sp.ed_util_lag_nvar
+	put " = "
+	put /hidden sp.cb_obj
+	put "*"
+	put /hidden sp.vn_util_lag_var
+	put " " /program sp_ifin_output
+END
+
+SCRIPT util_spdistance_show
+BEGIN
+	script global_controls_hide
+	script util_spbalance_hide
+	script util_spgenerate_hide
+
+	sp.gb_tab.setposition 140 160 550 305
+	sp.gb_tab.show
+
+	sp.tx_distance_id1.show
+	sp.tx_distance_id2.show
+	sp.ed_distance_id1.show
+	sp.ed_distance_id2.show
+END
+
+SCRIPT util_spdistance_hide
+BEGIN
+	sp.tx_distance_id1.hide
+	sp.tx_distance_id2.hide
+	sp.ed_distance_id1.hide
+	sp.ed_distance_id2.hide
+END
+
+PROGRAM util_spdistance_output
+BEGIN
+	put "spdistance "
+	require sp.ed_distance_id1
+	require sp.ed_distance_id2
+	put sp.ed_distance_id1
+	put " "
+	put sp.ed_distance_id2
+END
+
+SCRIPT util_spbalance_show
+BEGIN
+	script global_controls_hide
+	script util_spgenerate_hide
+	script util_spdistance_hide
+
+	sp.gb_tab.setposition 140 160 550 305
+	sp.gb_tab.show
+
+	sp.rb_balance_query.show
+	sp.rb_balance_balance.show
+END
+
+SCRIPT util_spbalance_hide
+BEGIN
+	sp.rb_balance_query.hide
+	sp.rb_balance_balance.hide
+END
+
+PROGRAM util_spbalance_output
+BEGIN
+	put "spbalance"
+	if sp.rb_balance_balance {
+		put ", balance"
+	}
+END
+
+PROGRAM util_submit
+BEGIN
+	if sp.btn_5 {
+		if sp.lb_util_cmds.equals("spgenerate") {
+			put " " /program util_spgenerate_output
+			stata
+		}
+		if sp.lb_util_cmds.equals("spdistance") {
+			put " " /program util_spdistance_output
+			stata
+		}
+		if sp.lb_util_cmds.equals("spbalance") {
+			put " " /program util_spbalance_output
+			stata
+		}
+	}
+END
+

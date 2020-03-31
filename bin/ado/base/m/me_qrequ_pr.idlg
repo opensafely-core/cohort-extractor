@@ -1,0 +1,225 @@
+/*
+    me_qrequ_pr.idlg
+
+*!  VERSION 1.0.2  19may2015
+
+*/ 
+
+PROGRAM main_equ_create
+BEGIN
+	call main_equ_count.setvalue class mainEQUChildDialogList.size
+	call main_equ_count.increment
+	call main_equ_tmp.setvalue "main_equ_"
+	call main_equ_tmp.append class main_equ_count.value
+	call main_equ_tmp.withvalue main_equ_childdlg.setvalue @
+	call program main_show_equ_child
+END
+
+PROGRAM main_equ_edit
+BEGIN
+	call mainEQUCommandDisplayList.findstr class			///
+		main.lb_equBuild.value
+	call main_equ_position.setvalue class				///
+		mainEQUCommandDisplayList.position
+	call main_equ_position.withvalue				///
+		main_equ_childdlg.setvalue				///
+		class mainEQUChildDialogList.values[@]
+	call program main_show_equ_child_edit
+END
+
+PROGRAM main_show_equ_child
+BEGIN
+	call main_equ_tmp.setvalue "me_equ_fixed AS "
+	call main_equ_tmp.append class main_equ_childdlg.value
+	call main_equ_tmp.withvalue create CHILD @
+	call main_equ_childdlg.withvalue @.setExitString		///
+		"main_equ_child_result"
+	call main_equ_childdlg.withvalue @.setExitAction		///
+		"program main_equ_child_create_done"
+
+	call main_equ_count.withvalue STMP.format			///
+		"resource LBL_EQUATION_FMT" "@" ""
+	call STMP.withvalue main_equ_tmp.setvalue "@"
+	call main_equ_childdlg.withvalue				///
+		main_equ_tmp2.setvalue "@.settitle"
+	call main_equ_tmp2.append `" ""'
+	call main_equ_tmp2.append class main_equ_tmp.value
+	call main_equ_tmp2.append `"""'
+	call main_equ_tmp2.withvalue @
+END
+
+PROGRAM main_show_equ_child_edit
+BEGIN
+	call main_equ_tmp.setvalue "me_equ_fixed AS "
+	call main_equ_tmp.append class main_equ_childdlg.value
+	call main_equ_tmp.withvalue create CHILD @
+	call main_equ_childdlg.withvalue @.setExitString		///
+		"main_equ_child_result"
+	call main_equ_childdlg.withvalue @.setExitAction		///
+		"program main_equ_child_edit_done"
+
+	call main_equ_position.withvalue				///
+		main_equ_tmp.setvalue					///
+		class mainEQUCommandDisplayList.values[@]
+	call main_equ_childdlg.withvalue				///
+		main_equ_tmp2.setvalue "@.settitle"
+	call main_equ_tmp2.append `" ""'
+	call main_equ_tmp2.append class main_equ_tmp.value
+	call main_equ_tmp2.append `"""'
+	call main_equ_tmp2.withvalue @
+END
+
+PROGRAM main_equ_child_create_done
+BEGIN
+	call main_equ_arraysize.setvalue class				///
+		mainEQUChildDialogList.size
+	call main_equ_arraysize.increment
+
+	/* Store child dialog name */
+	call mainEQUChildDialogList.store class			///
+		main_equ_arraysize.value class main_equ_childdlg.value
+
+	/* Store listbox display equation string */
+	call main_equ_arraysize.withvalue STMP.format			///
+		"resource LBL_EQUATION_FMT" "@" ""
+	call STMP.withvalue						///
+		mainEQUCommandDisplayList.store class			///
+		main_equ_arraysize.value "@"
+
+	/* Store child dialog result string */
+	call mainEQUCommandList.store class				///
+		main_equ_arraysize.value				///
+		class main_equ_child_result.value
+
+	/* Store child dialog result string for final command
+	   For disable/enable */
+	call mainEQUCommandValues.store class				///
+		main_equ_arraysize.value				///
+		class main_equ_child_result.value
+
+	/* Store disable/enable status */
+	call mainEQUStatusList.store class				///
+		main_equ_arraysize.value "active"
+
+	call mainEQUCommandDisplayList.copyToArray main_equ_list
+	call main.lb_equBuild.repopulate
+	call STMP.withvalue main.lb_equBuild.setvalue "@"
+END
+
+PROGRAM main_equ_child_edit_done
+BEGIN
+	call mainEQUChildDialogList.findstr class			///
+		main_equ_childdlg.value
+	call main_equ_position.setvalue class				///
+		mainEQUChildDialogList.position
+	call main_equ_position.withvalue main_equ_tmp.setvalue		///
+		class mainEQUStatusList.values[@]
+	if main_equ_tmp.iseq("active") {
+		call main_equ_position.withvalue STMP.format		///
+			"resource LBL_EQUATION_FMT" "@" ""
+		call STMP.withvalue					///
+			mainEQUCommandDisplayList.store class		///
+			main_equ_position.value "@"
+		call mainEQUCommandValues.store class			///
+			main_equ_position.value class			///
+			main_equ_child_result.value
+		call STMP.withvalue main_equ_tmp2.setvalue "@"
+	}
+	else {
+		call main_equ_position.withvalue STMP.format		///
+			"resource LBL_EQUATION_FMT" "@"			///
+			"resource LBL_PAREN_DISABLED"
+		call STMP.withvalue					///
+			main_equ_tmp2.setvalue "@"
+
+		call main_equ_tmp2.withvalue				///
+			mainEQUCommandDisplayList.store			///
+			class main_equ_position.value "@"
+	}
+
+	call mainEQUCommandList.store class				///
+		main_equ_position.value class				///
+		main_equ_child_result.value
+
+	call mainEQUCommandDisplayList.copyToArray main_equ_list
+	call main.lb_equBuild.repopulate
+	call main.lb_equBuild.setvalue class main_equ_tmp2.value
+END
+
+PROGRAM main_equ_sel_changed
+BEGIN
+	call mainEQUCommandDisplayList.findstr class			///
+		main.lb_equBuild.value
+	call main_equ_position.setvalue class				///
+		mainEQUCommandDisplayList.position
+	call main_equ_position.withvalue main_equ_tmp.setvalue	///
+		class mainEQUStatusList.values[@]
+	if main_equ_position {
+		call main.bu_equ_edit.enable
+		call main_equ_position.withvalue			///
+			main.tb_equ_note.setlabel			///
+			class mainEQUCommandList.values[@]
+	}
+
+	if main_equ_tmp.iseq("disable") {
+		call main.bu_equ_enable.enable
+		call main.bu_equ_disable.disable
+	}
+	if main_equ_tmp.iseq("active") {
+		call main.bu_equ_enable.disable
+		call main.bu_equ_disable.enable
+	}
+END
+
+PROGRAM main_equ_disable
+BEGIN
+	call mainEQUCommandDisplayList.findstr class			///
+		main.lb_equBuild.value
+	call main_equ_position.setvalue class				///
+		mainEQUCommandDisplayList.position
+
+	call main_equ_tmp.setvalue class main.lb_equBuild.value
+	call mainEQUStatusList.store class				///
+		main_equ_position.value "disable"
+	call mainEQUCommandValues.store class main_equ_position.value ""
+	call STMP.format "resource LBL_PAREN_DISABLED"
+	call main_equ_tmp.append " "
+	call main_equ_tmp.append class STMP.value
+	call main_equ_tmp.withvalue STMP.setvalue "@"
+
+	call main_equ_tmp.withvalue					///
+		mainEQUCommandDisplayList.store				///
+		class main_equ_position.value "@"
+
+	call mainEQUCommandDisplayList.copyToArray main_equ_list
+	call main.lb_equBuild.repopulate
+	call main.lb_equBuild.setvalue class STMP.value
+END
+
+PROGRAM main_equ_enable
+BEGIN
+	call mainEQUCommandDisplayList.findstr class			///
+		main.lb_equBuild.value
+	call main_equ_position.setvalue class				///
+		mainEQUCommandDisplayList.position
+
+	call mainEQUStatusList.store class				///
+		main_equ_position.value "active"
+	call main_equ_position.withvalue				///
+		mainEQUCommandValues.store				///
+		class main_equ_position.value class			///
+		mainEQUCommandList.values[@]
+
+	call main_equ_position.withvalue STMP.format			///
+		"resource LBL_EQUATION_FMT" "@" ""
+	call STMP.withvalue						///
+		mainEQUCommandDisplayList.store				///
+		class main_equ_position.value "@"
+
+	call mainEQUCommandDisplayList.copyToArray main_equ_list
+	call main_equ_position.withvalue				///
+		main_equ_tmp2.setvalue class				///
+		mainEQUCommandDisplayList.values[@]
+	call main.lb_equBuild.repopulate
+	call main.lb_equBuild.setvalue class main_equ_tmp2.value
+END

@@ -1,0 +1,403 @@
+/*
+	icd9
+	
+*! VERSION 1.0.4  06may2019
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+DEFINE _dlght 440
+INCLUDE header
+HELP hlp1, view("help icd9")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource ICD9_DLG_HSCALE
+END
+
+DIALOG main, label(resource ICD9_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  GROUPBOX gb_utilities		_lft	_top	_iwd	_ht11h,		///
+	label(resource LBL_UTILITIES)
+  RADIO rb_check		_ilft	_ss	_inwd	., first	///
+	onclickon("script main_check_on")				///
+	label(resource LBL_VERIFY_VARIABLE_CONTAINS_DEFINED_CODES)
+  RADIO rb_clean		@	_ss	@	.,		///
+	onclickon("script main_clean_on")				///
+	label(resource LBL_CLEAN_VARIABLE_VERIFY_FORMAT)
+  RADIO rb_generate		@	_ss	@	.,		///
+	onclickon("script main_generate_on")				///
+	label(resource LBL_GENERATE_VARIABLE_FROM_EXISTING_VARIABLE)
+  RADIO rb_lookup		@	_ss	@	.,		///
+	onclickon("script main_lookup_on")				///
+	label(resource LBL_DISPLAY_CODE_DESCRIPTIONS)
+  RADIO rb_search		@	_ss	@	.,		///
+	onclickon("script main_search_on")				///
+	label(resource ICD9_MAIN_RB_SEARCH)
+  RADIO rb_query		@	_ss	@	., last		///
+	onclickon("script main_query_on")				///
+	label(resource ICD9_MAIN_RB_QUERY)
+
+// check
+  TEXT tx_vn			_lft	+45	_iwd	.,		///
+	label(resource LBL_VARIABLE_NAME)
+  DEFINE holdy @y
+  VARNAME vn_vn			@	_ss	_vnwd	.,		///
+	label(resource LBL_VARIABLE_NAME)
+
+  RADIO	rb_diag			_lft	_ls	_cwd1	., first	///
+	label(resource LBL_DIAGNOSTIC_CODES)
+  RADIO rb_proc			_lft2	@	@	., last		///
+	label(resource LBL_PROCEDURE_CODES)
+
+  GROUPBOX gb_opt		_lft	_ls	_iwd	_ht11,		///
+	label(resource LBL_OPTIONS)
+
+  CHECKBOX ck_any		_ilft	_ss	_ibwd	.,		///
+	option(any)							///
+	label(resource LBL_VERIFY_FORMAT_ONLY)
+  CHECKBOX ck_list		@	_ms	@	.,		///
+	option(list)							///
+	label(resource LBL_LIST_INDIVIDUAL_INVALID_CODES)
+  CHECKBOX ck_gen		@	_ms	_ibwd	.,		///
+	clickon("main.ed_check_gen.enable")				///
+	clickoff("main.ed_check_gen.disable")				///
+ 	label(resource LBL_CREATE_A_NEW_VARIABLE_REASON_CODE_NOT_DEF)
+  EDIT ed_check_gen		_iilft _ss	_vnwd	.,		///
+	option(generate)						///
+	max(32)								///
+ 	label(resource LBL_CREATE_A_NEW_VARIABLE_REASON_CODE_NOT_DEF)
+
+// clean
+  CHECKBOX ck_dots		_ilft	-70	_ibwd	.,		///
+	option(dots)							///
+	label(resource LBL_INCLUDE_PERIODS_IN_FINAL_FORMAT)
+  CHECKBOX ck_pad		@	_ms	@	.,		///
+	option(pad)							///
+	label(resource LBL_ALIGN_CODES_VERTICALLY_IN_LISTINGS)
+
+// generate
+  TEXT tx_gen			_lft	holdy	_cwd1	.,		///
+	label(resource LBL_GENERATE_NEW_VARIABLE_NAME)
+  EDIT ed_gen			@	_ss	_vnwd	.,		///
+	max(32)								///
+	label(resource LBL_GENERATE_NEW_VARIABLE_NAME)
+  TEXT tx_gen_vn		_lft2	holdy	_cwd1	.,		///
+	label(resource LBL_FROM_EXISTING_VARIABLE_NAME)
+  VARNAME vn_gen_vn		@	_ss	_vnwd	.,		///
+	label(resource LBL_FROM_EXISTING_VARIABLE_NAME)
+
+  RADIO rb_main			_ilft	+80	_ibwd	., first	///
+	option(category)						///
+	label(resource LBL_GENERATE_NEW_VAR_THREE_CHAR_CODE)
+  RADIO  rb_desc		@	_ls	@	.,		///
+	option(description)						///
+	onclickon("script main_desc_on")				///
+	onclickoff("script main_desc_off")				///
+	label(resource LBL_GENERATE_NEW_VAR_CONTAINING_DESC_FROM)
+  CHECKBOX ck_long		_indent2 _ss	_inwd	.,		///
+	option(long)							///
+	label(resource LBL_PREPEND_CODE_TO_DESC)
+  CHECKBOX ck_end		@	_ss	@	.,		///
+	option(end)							///
+	label(resource LBL_APPEND_CODE_TO_DESC)
+  RADIO rb_rang			_ilft	_ls	_ibwd	., last		///
+	onclickon("main.ed_rang.enable")				///
+	onclickoff("main.ed_rang.disable")				///
+	label(resource LBL_GENERATE_INDICATOR_VAR_FROM_RANGE_LIST)
+  EDIT ed_rang			_iilft	_ss	_inwd	.,		///
+	option(range)							///
+	label(resource LBL_GENERATE_INDICATOR_VAR_FROM_RANGE_LIST)
+// lookup
+  TEXT tx_lookup		_lft	holdy	_iwd	.,		///
+	label(resource ICD9_MAIN_TX_LOOKUP)
+  EDIT ed_lookup		@	_ss	@	.,		///
+	label(resource ICD9_MAIN_TX_LOOKUP)
+
+  GROUPBOX gb_ex		_lft	+60	_iwd	_ht8,		///
+	label(resource LBL_EXAMPLES_NO_COLON)
+  TEXT tx_ex1			_indent	_ss	_cwd2	.,		///
+	label(resource ICD9_MAIN_TX_EX1)
+  TEXT tx_ex1a			_lft2	@	@	.,		///
+	label(resource ICD9_MAIN_TX_EX1A)
+  TEXT tx_ex2			_ilft	_ss	@	.,		///
+	label(resource ICD9_MAIN_TX_EX2)
+  TEXT tx_ex2a			_lft2	@	@	.,		///
+	label(resource ICD9_MAIN_TX_EX2A)
+  TEXT tx_ex3			_ilft	_ss	@	.,		///
+	label(resource ICD9_MAIN_TX_EX3)
+  TEXT tx_ex3a			_lft2	@	@	.,		///
+	label(resource ICD9_MAIN_TX_EX3A)
+  TEXT tx_ex4			_ilft	_ss	@	.,		///
+	label(resource ICD9_MAIN_TX_EX4)
+  TEXT tx_ex4a			_lft2	@	@	.,		///
+	label(resource ICD9_MAIN_TX_EX4A)	
+  	
+  	
+
+// search
+  TEXT tx_search		_lft	holdy	_iwd	.,		///
+	label(resource ICD9_MAIN_TX_SEARCH)
+  EDIT ed_search		@	_ss	@	.,		///
+	label(resource ICD9_MAIN_TX_SEARCH)
+  RADIO rb_and			_ilft	+80	_cwd2	., first	///
+	label(resource ICD9_MAIN_RB_AND)
+  RADIO rb_or			_lft2	@	@	., last		///
+	option(or)							///
+	label(resource ICD9_MAIN_RB_OR)
+// query
+  TEXTBOX tb_query		_lft	holdy	_iwd	.,		///
+	label(resource ICD9_MAIN_TB_QUERY)
+END
+
+SCRIPT main_hide_all
+BEGIN
+	main.tx_vn.hide
+	main.vn_vn.hide
+	main.rb_diag.hide
+	main.rb_proc.hide
+	main.gb_opt.hide
+	main.ck_any.hide
+	main.ck_list.hide
+	main.ck_gen.hide
+	main.ed_check_gen.hide
+	main.ck_dots.hide
+	main.ck_pad.hide
+	main.tx_gen_vn.hide
+	main.vn_gen_vn.hide
+	main.tx_gen.hide
+	main.ed_gen.hide
+	main.rb_main.hide
+	main.rb_desc.hide
+	main.ck_long.hide
+	main.ck_end.hide
+	main.rb_rang.hide
+	main.ed_rang.hide
+	main.tx_lookup.hide
+	main.ed_lookup.hide
+	main.gb_ex.hide	
+	main.tx_ex1.hide
+	main.tx_ex1a.hide
+	main.tx_ex2.hide
+	main.tx_ex2a.hide
+	main.tx_ex3.hide
+	main.tx_ex3a.hide
+	main.tx_ex4.hide
+	main.tx_ex4a.hide
+	main.tx_search.hide
+	main.ed_search.hide
+	main.rb_and.hide
+	main.rb_or.hide
+	main.tb_query.hide
+END
+
+SCRIPT main_check_on
+BEGIN
+	script main_hide_all
+	script ifin_enable
+
+	main.tx_vn.show
+	main.vn_vn.show
+	main.rb_diag.show
+	main.rb_proc.show
+	main.gb_opt.show
+	main.gb_opt.setposition . . . 120
+	main.ck_any.show
+	main.ck_list.show
+	main.ck_gen.show
+	main.ed_check_gen.show
+END
+
+SCRIPT main_clean_on
+BEGIN
+	script main_hide_all
+	script ifin_enable
+
+	main.tx_vn.show
+	main.vn_vn.show
+	main.rb_diag.show
+	main.rb_proc.show
+	main.gb_opt.show
+	main.gb_opt.setposition . . . 70
+	main.ck_dots.show
+	main.ck_pad.show
+END
+
+SCRIPT main_generate_on
+BEGIN
+	script main_hide_all
+	script ifin_enable
+
+	main.tx_gen_vn.show
+	main.vn_gen_vn.show
+	main.tx_gen.show
+	main.ed_gen.show
+	main.rb_diag.show
+	main.rb_proc.show
+	main.gb_opt.show
+	main.gb_opt.setposition . . . 170
+	main.rb_main.show
+	main.rb_desc.show
+	main.ck_long.show
+	main.ck_end.show
+	main.rb_rang.show
+	main.ed_rang.show
+END
+
+SCRIPT main_desc_on
+BEGIN
+	main.ck_long.enable
+	main.ck_end.enable
+END
+
+SCRIPT main_desc_off
+BEGIN
+	main.ck_long.disable
+	main.ck_end.disable
+END
+
+SCRIPT main_lookup_on
+BEGIN
+	script main_hide_all
+	script ifin_disable
+
+	main.tx_lookup.show
+	main.ed_lookup.show
+	main.rb_diag.show
+	main.rb_proc.show
+	main.gb_ex.show	
+	main.tx_ex1.show
+	main.tx_ex1a.show
+	main.tx_ex2.show
+	main.tx_ex2a.show
+	main.tx_ex3.show
+	main.tx_ex3a.show
+	main.tx_ex4.show
+	main.tx_ex4a.show
+END
+
+SCRIPT main_search_on
+BEGIN
+	script main_hide_all
+	script ifin_disable
+
+	main.tx_search.show
+	main.ed_search.show
+	main.rb_diag.show
+	main.rb_proc.show
+	main.gb_opt.show
+	main.gb_opt.setposition . . . 50
+	main.rb_and.show
+	main.rb_or.show
+
+END
+
+SCRIPT main_query_on
+BEGIN
+	script main_hide_all
+	script ifin_disable
+
+	main.rb_diag.show
+	main.rb_proc.show
+	main.tb_query.show
+END
+
+INCLUDE ifin
+
+PROGRAM command
+BEGIN
+	if main.rb_check {   
+		if main.rb_diag {
+			put "icd9 check "
+		}
+		if main.rb_proc {
+			put "icd9p check "
+		}
+		varlist main.vn_vn
+		put " " /program ifin_output
+		beginoptions
+			option main.ck_any
+			option main.ck_list
+			if main.ck_gen {
+				require main.ed_check_gen
+				optionarg main.ed_check_gen
+			}
+		endoptions
+	}
+	if main.rb_clean {
+		if main.rb_diag {
+			put "icd9 clean "
+		}
+		if main.rb_proc {
+			put "icd9p clean "
+		}
+		varlist main.vn_vn
+		put " " /program ifin_output
+		beginoptions
+			option main.ck_dots
+			option main.ck_pad
+		endoptions
+
+	}
+	if main.rb_generate {
+		if main.rb_diag {
+			put "icd9 generate "
+		}
+		if main.rb_proc {
+			put "icd9p generate "
+		}
+		require main.ed_gen
+		put main.ed_gen
+		put " "
+		put "= "
+		varlist main.vn_gen_vn
+		put " " /program ifin_output
+		beginoptions
+			option main.rb_main
+			option main.rb_desc
+			if main.rb_desc {
+				option main.ck_long
+				option main.ck_end
+			}
+			if main.rb_rang {
+				require main.ed_rang
+				optionarg main.ed_rang
+			}
+		endoptions
+	}
+	if main.rb_lookup {
+		if main.rb_diag {
+			put "icd9 lookup "
+		}
+		if main.rb_proc {
+			put "icd9p lookup "
+		}
+		require main.ed_lookup
+		put main.ed_lookup
+	}
+	if main.rb_search {
+		if main.rb_diag {
+			put "icd9 search "
+		}
+		if main.rb_proc {
+			put "icd9p search "
+		}
+		require main.ed_search
+		put main.ed_search
+		beginoptions
+			option main.rb_or
+		endoptions
+	}
+	if main.rb_query {
+		if main.rb_diag {
+			put "icd9 query"
+		}
+		if main.rb_proc {
+			put "icd9p query"
+		}
+	}
+END
+

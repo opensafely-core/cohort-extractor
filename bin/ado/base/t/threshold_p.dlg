@@ -1,0 +1,81 @@
+/*
+	predict (after threshold)
+
+*!  VERSION 1.0.1  19dec2016
+
+*/
+
+VERSION 15.0
+
+INCLUDE _std_medium
+INCLUDE header
+
+HELP hlp1, view("help threshold postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource THRESHOLD_P_DLG_HSCALE
+END
+
+DIALOG main, label(resource PREDICT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  INCLUDE  _p_gentype
+
+  GROUPBOX gb_opts		_lft	_ls	_iwd	_ht6,		///
+	label(resource LBL_PRODUCE)
+  RADIO    rb_xb		_indent	_ss	_inwd	., first	///
+	option(xb)							///
+	onclickon(program main_rb_xb_on)				///
+	label(resource LBL_LINEAR_PREDICTION)
+  RADIO    rb_stdp		@	_ss	@	.,		///
+	option(stdp)							///
+	onclickon(program main_rb_stdp_on)				///
+	label(resource LBL_STANDARD_ERROR_LINEAR_PREDICTION)
+  RADIO    rb_residuals		@	_ss	@	., last		///
+	option(residuals)						///
+	onclickon(program main_rb_residuals_on)				///
+	label(resource LBL_RESIDUALS)
+
+END
+PROGRAM main_rb_xb_on
+BEGIN
+	call opts.tx_dynamic.disable
+	call opts.ed_dynamic.disable
+END
+PROGRAM main_rb_stdp_on
+BEGIN
+	call opts.tx_dynamic.enable
+	call opts.ed_dynamic.enable
+END
+PROGRAM main_rb_residuals_on
+BEGIN
+	call opts.tx_dynamic.disable
+	call opts.ed_dynamic.disable
+END
+INCLUDE _p_gentype_sc
+INCLUDE ifin
+INCLUDE _type_list_fd
+
+DIALOG opts, tabtitle(resource LBL_OPTIONS)
+BEGIN
+  
+  TEXT tx_dynamic		_lft	_top	_iwd	.,		///
+	label(resource LBL_DYNAMIC_FORECASTS)
+  EDIT ed_dynamic		@	_ss	_cwd1	.,		///
+	option(dynamic)							///
+	label(resource LBL_DYNAMIC_FORECASTS)
+END
+
+PROGRAM command
+BEGIN
+	put "predict "
+	put " " /program _p_gentype_output
+	put " " /program ifin_output
+	beginoptions
+		option radio(main rb_xb rb_stdp rb_residuals)
+		if opts.ed_dynamic.isenabled() {
+			optionarg opts.ed_dynamic
+		}
+	endoptions
+END

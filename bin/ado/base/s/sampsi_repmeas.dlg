@@ -1,0 +1,477 @@
+/*
+ 	sampsi_repmeas
+
+*! VERSION 1.1.1  01dec2014 (deprecated)
+
+*/
+
+VERSION 8.0
+
+INCLUDE _std_large
+INCLUDE _ht390
+INCLUDE header
+
+HELP hlp1, view("help sampsi")
+RESET res1
+
+DEFINE _lft4_2   180
+DEFINE _lft4_3   290
+DEFINE _kindent  +65
+DEFINE _kindent2 +30
+
+DIALOG main, tabtitle("Main")						/*
+*/ label("sampsi - Sample size and power for means with repeated measures")
+BEGIN
+  GROUPBOX gb_input       _lft        _top       _iwd  _ht14,		/*
+		*/ label("Input")
+  RADIO    rb_mean2    _indent         _ss      _inwd       .,		/*
+		*/ first						/*
+		*/ clickon(program mean2_enable)			/*
+		*/ label("Two-sample comparison of means:")
+  DEFINE   _x @x
+  DEFINE   _cx @cx
+  TEXT     tx_mean2_1 _kindent         _ss    _cwd4_5       .,		/*
+		*/ right						/*
+		*/ label("Mean one:")
+  DEFINE   _x2 @x
+  EDIT     en_mean2_1  _lft4_2           @     _en7wd       .,		/*
+		*/ numonly						/*
+		*/ label("Mean one")
+  TEXT     tx_mean2_2  _lft4_3           @    _cwd4_5       .,		/*
+		*/ right						/*
+		*/ label("Mean two:")
+  EDIT     en_mean2_2  _lft4_4           @     _en7wd       .,		/*
+		*/ numonly						/*
+		*/ label("Mean two")
+  TEXT     tx_goto1         _x           @          0    _ht0,		/*
+		*/ label("")
+  TEXT     tx_sd1_2  _kindent2         _ms    _cwd3_5       .,		/*
+		*/ right 						/*
+		*/ label("Std. deviation one:")
+  EDIT     en_sd1_2    _lft4_2           @     _en7wd       .,   	/*
+		*/ option("sd1")					/*
+		*/ numonly default("1") 				/*
+		*/ label("Std. deviation one")
+  TEXT     tx_sd2          +75           @    _cwd3_5       .,		/*
+		*/ right 						/*
+		*/ label("Std. deviation two:")
+  EDIT     en_sd2      _lft4_4           @     _en7wd       .,   	/*
+		*/ option("sd2")					/*
+		*/ numonly 						/*
+		*/ default("1")						/*
+		*/ label("Std. deviation two")
+  RADIO    rb_mean1         _x         _ls        _cx       .,		/*
+		*/ last							/*
+		*/ clickon(program mean1_enable)			/*
+		*/ label("One-sample comparison of mean to hypothesized value:")
+  TEXT     tx_mean1_1 _kindent         _ss    _cwd4_5       .,		/*
+		*/ right						/*
+		*/ label("Hypothesized:")
+  EDIT     en_mean1_1  _lft4_2           @     _en7wd       .,		/*
+		*/ numonly						/*
+		*/ label("Hypothesized mean")
+  TEXT     tx_mean1_2  _lft4_3           @    _cwd4_5       .,		/*
+		*/ right						/*
+		*/ label("Postulated:")
+  EDIT     en_mean1_2  _lft4_4           @     _en7wd       .,		/*
+		*/ numonly						/*
+		*/ label("Postulated mean")
+  TEXT     tx_goto2         _x           @          0    _ht0,		/*
+		*/ label("")
+  TEXT     tx_sd1_1  _kindent2         _ms    _cwd3_5       .,		/*
+		*/ right 						/*
+		*/ label("Std. deviation one:")
+  EDIT     en_sd1_1    _lft4_2           @     _en7wd       .,   	/*
+		*/ option("sd1")					/*
+		*/ numonly default("1") 				/*
+		*/ label("Std. deviation one")
+END
+
+
+DIALOG opt, tabtitle("Options")
+BEGIN
+  GROUPBOX gb_output      _lft        _top      _cwd1    _ht4,		/*
+		*/ label("Output")
+  RADIO    rb_size        _indent      _ss      _inwd       .,		/*
+		*/ first						/*
+		*/ clickon(program power_off)				/*
+		*/ label("Compute sample size")
+  DEFINE   _y @y
+  RADIO    rb_power       @            _ss          @       .,		/*
+		*/ last 						/*
+		*/ clickon("program power_on")				/*
+		*/ label("Compute power")
+
+  GROUPBOX gb_samples     _lft          +45    _cwd1   _ht7h,		/*
+		*/ label("Sample-based calculations")
+  TEXT     tx_goto     _indent         _ms          0     _ht0,		/*
+		*/ label("")
+  DEFINE   _x @x
+  SPINNER  sp_n1        _cksep           @      _spwd        .,		/*
+		*/ option("n1")						/*
+		*/ min(1) default(100) max(1000000)			/*
+		*/ label("Sample one size")
+  TEXT     tx_n1        _spsep           @   _ckspr2b        .,		/*
+		*/ label("Sample one size")
+  DEFINE   _x2 @x
+  CHECKBOX ck_n2            _x         _ms      _ckwd        .,		/*
+		*/ clickon(script n2_on)				/*
+		*/ clickoff(script n2_off)				/*
+		*/ label("")
+  SPINNER  sp_n2        _cksep           @      _spwd        .,		/*
+		*/ option("n2")						/*
+		*/ min(1) default(100) max(1000000)			/*
+		*/ label("Sample two size")
+  TEXT     tx_n2        _spsep           @   _ckspr2b        .,		/*
+		*/ label("Sample two size")
+  EDIT     en_ratio         _x         _ms     _en7wd        .,		/*
+		*/ option("ratio")					/*
+		*/ numonly 						/*
+		*/ default("1") 					/*
+		*/ label("Ratio of sample sizes")
+  TEXT     tx_ratio    _en7sep           @    _en7r2b        .,		/*
+		*/ label("Ratio of sample sizes")
+
+  GROUPBOX gb_repmeas  _lft		+45	_iwd	_ht13h,		/*
+  		*/ label("Repeated measurements")
+  SPINNER  sp_pre       _ilft           _ss     _spwd        .,		/*
+		*/ option("pre")					/*
+		*/ min(0) default(0) max(1000000)			/*
+		*/ onchange(program check_prepost)			/*
+		*/ label("Baseline measurements")
+  TEXT     tx_pre       _spsep           @   _ckspr2         .,		/*
+		*/ label("Baseline measurements")
+DEFINE _y2 @y
+  SPINNER  sp_post      _ilft           _ms     _spwd        .,		/*
+		*/ option("post")					/*
+		*/ min(1) default(1) max(1000000)			/*
+		*/ onchange(program check_prepost)			/*
+		*/ label("Follow-up measurements")
+  TEXT     tx_post      _spsep           @   _ckspr2         .,		/*
+		*/ label("Follow-up measurements")
+  GROUPBOX gb_corrs      _lft2          _y2     _cwd2    _ht7h,		/*
+		*/ label("Correlations (between -1 and 1)")
+  EDIT     en_r0        _ilft2           _ms    _spwd        .,		/*
+		*/ numonly						/*
+		*/ option("r0")						/*
+		*/ default("0") 					/*
+		*/ label("Baseline measurements")
+  TEXT     tx_r0        _spsep           @   140             .,		/*
+		*/ label("Baseline measurements")
+  EDIT     en_r1        _ilft2           _ms    _spwd        .,		/*
+		*/ numonly						/*
+		*/ option("r1")						/*
+		*/ default("0") 					/*
+		*/ label("Follow-up measurements")
+  TEXT     tx_r1        _spsep           @   140             .,		/*
+		*/ label("Follow-up measurements")
+  EDIT     en_r01       _ilft2           _ms    _spwd        .,		/*
+		*/ numonly						/*
+		*/ option("r01")					/*
+		*/ default("0")						/*
+		*/ label("Baseline/follow-up")
+  TEXT     tx_r01       _spsep           @   140             .,		/*
+		*/ label("Baseline/follow-up")
+  COMBOBOX cb_method     _ilft          _xls   350          .,		/*
+		*/ option("method")					/*
+		*/ dropdownlist						/*
+		*/ contents("methodcont")  value("methodval")		/*
+		*/ label("")
+  TEXT     tx_method	+360            @	95	     .,		/*
+		*/ label("Analysis method")
+
+// Second column of controls ------------------------------------------------
+
+  EDIT     en_alpha      _lft2          _y     _en7wd        .,		/*
+		*/ option("alpha")					/*
+		*/ numonly						/*
+		*/  /*  default should be 100 - $S_level */		/*
+		*/ label("Significance level")
+  TEXT     tx_alpha    _en7sep           @     _en7r2     _ht0,		/*
+		*/ label("Significance level (alpha)")
+
+  EDIT     en_power      _lft2         _ms     _en7wd        .,		/*
+		*/ option("power")					/*
+		*/ numonly						/*
+		*/ default(".90") 					/*
+		*/ label("Power of the test")
+  TEXT     tx_power    _en7sep           @     _en7r2        .,		/*
+		*/ label("Power of the test")
+
+  COMBOBOX cb_side	_lft2		+45	_en14wd	.,		/*
+		*/ dropdownlist contents(sidecont) values(sideval)
+  TEXT     tx_side		_en14sep	@	100	.,	/*
+		*/ label("Type of test")
+
+END
+
+LIST sidecont
+BEGIN
+  Two-sided test
+  One-sided test
+END
+
+LIST sideval
+BEGIN
+ ""
+ onesided
+END
+
+LIST methodcont
+BEGIN
+  All methods
+  Post - follow-up mean only
+  Change - difference between follow-up and baseline mean
+  ANCOVA - correcting for the mean at baseline
+END
+
+LIST methodval
+BEGIN
+  ""
+  post
+  change
+  ancova
+END
+
+SCRIPT n2_on
+BEGIN
+  opt.sp_n2.enable
+  opt.en_ratio.disable
+  opt.tx_ratio.disable
+END
+
+SCRIPT n2_off
+BEGIN
+  opt.sp_n2.disable
+  opt.en_ratio.enable
+  opt.tx_ratio.enable
+END
+
+PROGRAM ratio_enable
+BEGIN
+  if !opt.ck_n2 | opt.rb_size {
+	if main.rb_mean2 {
+  		call gaction opt.en_ratio.enable
+  		call gaction opt.tx_ratio.enable
+	}
+  }
+END
+
+SCRIPT ratio_disable
+BEGIN
+  opt.en_ratio.disable
+  opt.tx_ratio.disable
+END
+
+PROGRAM PREINIT
+BEGIN
+	create BOOLEAN show_r01
+END
+
+PROGRAM opt_POSTINIT
+BEGIN
+	program check_prepost
+END
+
+PROGRAM check_prepost
+BEGIN
+	call show_r01.setfalse
+	call gaction opt.en_r0.disable
+	call gaction opt.tx_r0.disable
+	call gaction opt.cb_method.disable
+	call gaction opt.tx_method.disable
+	if opt.sp_pre.isgt(0) {
+		call show_r01.settrue
+		call gaction opt.cb_method.enable
+		call gaction opt.tx_method.enable
+		if opt.sp_pre.isgt(1) {
+			call gaction opt.en_r0.enable
+			call gaction opt.tx_r0.enable
+		}
+	}
+	if opt.sp_post.isgt(1) {
+		call gaction opt.en_r1.enable
+		call gaction opt.tx_r1.enable
+	}
+	else {
+		call gaction opt.en_r1.disable
+		call gaction opt.tx_r1.disable
+	}
+	if show_r01 {
+		call gaction opt.en_r01.enable
+		call gaction opt.tx_r01.enable
+	}
+	else {
+		call gaction opt.en_r01.disable
+		call gaction opt.tx_r01.disable
+	}
+	if H(opt.en_r0) & H(opt.en_r1) & H(opt.en_r01) {
+		call gaction opt.gb_corrs.disable
+	}
+	else {
+		call gaction opt.gb_corrs.enable
+	}
+END
+
+PROGRAM mean1_enable
+BEGIN
+  call gaction opt.ck_n2.disable
+  call gaction opt.sp_n2.disable
+  call gaction opt.tx_n2.disable
+  call script ratio_disable
+  call script mean1_enable_parts
+  call script mean2_disable_parts
+END
+
+
+PROGRAM mean2_enable
+BEGIN
+  if opt.rb_power {
+  	call gaction opt.ck_n2.enable
+	if opt.ck_n2 {
+		call gaction opt.sp_n2.enable
+	}
+	call gaction opt.tx_n2.enable
+  }
+  call program ratio_enable
+  call script mean1_disable_parts
+  call script mean2_enable_parts
+END
+
+SCRIPT mean1_enable_parts
+BEGIN
+  main.tx_mean1_1.enable
+  main.tx_mean1_2.enable
+  main.tx_sd1_1.enable
+  main.en_sd1_1.enable
+  main.en_mean1_2.enable
+  main.en_mean1_1.enable
+END
+
+SCRIPT mean1_disable_parts
+BEGIN
+  main.tx_mean1_1.disable
+  main.tx_mean1_2.disable
+  main.tx_sd1_1.disable
+  main.en_mean1_1.disable
+  main.en_mean1_2.disable
+  main.en_sd1_1.disable
+END
+
+SCRIPT mean2_enable_parts
+BEGIN
+  main.tx_mean2_1.enable
+  main.tx_mean2_2.enable
+  main.tx_sd1_2.enable
+  main.tx_sd2.enable
+  main.en_sd2.enable
+  main.en_sd1_2.enable
+  main.en_mean2_2.enable
+  main.en_mean2_1.enable
+END
+
+SCRIPT mean2_disable_parts
+BEGIN
+  main.tx_mean2_1.disable
+  main.tx_mean2_2.disable
+  main.tx_sd1_2.disable
+  main.tx_sd2.disable
+  main.en_mean2_1.disable
+  main.en_mean2_2.disable
+  main.en_sd1_2.disable
+  main.en_sd2.disable
+END
+
+PROGRAM power_on
+BEGIN
+  call gaction opt.en_power.disable
+  call gaction opt.tx_power.disable
+  call gaction opt.sp_n1.enable
+  call gaction opt.tx_n1.enable
+  if main.rb_mean2 {
+  	call gaction opt.ck_n2.enable
+	if opt.ck_n2 {
+		call opt.sp_n2.enable
+		call script ratio_disable
+	}
+	call gaction opt.tx_n2.enable
+	if ! opt.ck_n2 {
+		call program ratio_enable
+	}
+  }
+
+END
+
+PROGRAM power_off
+BEGIN
+  call opt.sp_n1.disable
+  call opt.sp_n2.disable
+  call opt.tx_n1.disable
+  call opt.tx_n2.disable
+  call opt.ck_n2.disable
+  if ! main.rb_mean2 {
+  	call script ratio_disable
+  }
+  if main.rb_mean2 {
+  	call program ratio_enable
+  }
+  call opt.en_power.enable
+  call opt.tx_power.enable
+END
+
+PROGRAM command
+BEGIN
+	put "sampsi "
+	if main.rb_mean1 {
+		require main.en_mean1_1
+		require main.en_mean1_2
+		put main.en_mean1_1 " " main.en_mean1_2
+ 	}
+	if main.rb_mean2 {
+		require main.en_mean2_1
+		require main.en_mean2_2
+		put main.en_mean2_1 " " main.en_mean2_2
+ 	}
+	beginoptions
+		if main.rb_mean1 {
+			require main.en_sd1_1
+			optionarg main.en_sd1_1
+		}
+		if main.rb_mean2 {
+			require main.en_sd1_2
+			require main.en_sd2
+			optionarg main.en_sd1_2
+			optionarg main.en_sd2
+		}
+		optionarg opt.en_alpha
+		if opt.rb_size {
+			optionarg /hidedefault opt.en_power
+		}
+		if opt.rb_power {
+			optionarg opt.sp_n1
+  			if opt.ck_n2 {
+				optionarg opt.sp_n2
+			}
+		}
+		optionarg /hidedefault opt.en_ratio
+		optionarg opt.sp_pre
+		optionarg opt.sp_post
+		if !H(opt.en_r0) {
+			require opt.en_r0
+			optionarg opt.en_r0
+		}
+		if !H(opt.en_r1) {
+			require opt.en_r1
+			optionarg opt.en_r1
+		}
+		if !H(opt.en_r01) {
+			require opt.en_r01
+			optionarg opt.en_r01
+		}
+		if main.rb_mean1 {
+			put " onesample "
+		}
+		put opt.cb_side
+		optionarg opt.cb_method
+	endoptions
+END

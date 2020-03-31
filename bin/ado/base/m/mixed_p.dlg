@@ -1,0 +1,158 @@
+/*
+	predict (after mixed)
+
+*!  VERSION 1.1.1  13jan2016
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 300
+INCLUDE header
+
+HELP hlp1, view("help mixed postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource MIXED_P_DLG_HSCALE
+END
+
+SCRIPT main_POSTINIT
+BEGIN
+	create STRING est_method
+	program check_estmethod
+END
+
+PROGRAM check_estmethod
+BEGIN
+	call est_method.setvalue e(method)
+	if est_method.equals("") {
+		call main.rb_scores.enable
+	}
+	if est_method.equals("ML") {
+		call main.rb_scores.enable
+	}
+	if est_method.equals("REML") {
+		call main.rb_scores.disable
+	}
+END
+
+DIALOG main, label(resource PREDICT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  INCLUDE  _p_gentype
+
+  GROUPBOX gb_opts		_lft	_ls	_iwd	_ht14,		///
+	label(resource LBL_PRODUCE)
+  RADIO rb_blups		_ilft	_ss	_inwd	., first	///
+	option(reffects)						///
+	onclickon(script main_blups_on)					///
+	label(resource MIXED_P_MAIN_RB_BLUPS)
+  RADIO rb_xb			@	_ss	_ibwd	.,		///
+	option(xb)							///
+	onclickon(script main_xb_on)					///
+	label(resource MIXED_P_MAIN_RB_XB)
+  RADIO rb_stdp			@	_ss	@	.,		///
+	option(stdp)							///
+	onclickon(script main_stdp_on)					///
+	label(resource MIXED_P_MAIN_RB_STDP)
+  RADIO rb_fitted		@	_ss	@	.,		///
+	option(fitted)							///
+	onclickon(script main_others_on)				///
+	label(resource LBL_FITTED_VALUES)
+  RADIO rb_residuals		@	_ss	@	.,		///
+	option(residuals)						///
+	onclickon(script main_others_on)				///
+	label(resource MIXED_P_MAIN_RB_RESIDUALS)
+  RADIO rb_rstandard		@	_ss	@	.,		///
+	option(rstandard)						///
+	onclickon(script main_others_on)				///
+	label(resource LBL_STANDARDIZED_RESIDUALS)
+  RADIO rb_scores		@	_ss	@	., last		///
+	option(scores)							///
+	onclickon(script main_scores_on)				///
+	label(resource LBL_PARAMETER_LEVEL_SCORES)
+  EDIT ed_reses			_lft	+45	_vnwd	.,		///
+	option(reses)							///
+	label(resource MIXED_P_MAIN_TX_RESES)
+  TEXT tx_reses			_vnsep	@	_ibwd	.,		///
+	label(resource MIXED_P_MAIN_TX_RESES)
+  COMBOBOX cb_relevel		_lft	_ls	_vnwd	.,		///
+	dropdown							///
+	contents(e(ivars))						///
+	option(relevel)							///
+	label(resource MIXED_P_MAIN_CB_RELEVEL)
+  TEXT tx_relevel		_vnsep	@	_ibwd	.,		///
+	label(resource MIXED_P_MAIN_CB_RELEVEL)
+END
+
+INCLUDE _p_gentype_sc
+INCLUDE ifin
+INCLUDE _type_list_fd
+
+SCRIPT main_xb_on
+BEGIN
+	script _p_gentype_single
+	script main_relevel_disable
+	script main_reses_disable
+END
+
+SCRIPT main_stdp_on
+BEGIN
+	script _p_gentype_single
+	script main_relevel_disable
+	script main_reses_disable
+END
+
+SCRIPT main_blups_on
+BEGIN
+	script _p_gentype_multiple
+	script main_relevel_enable
+	main.ed_reses.enable
+	main.tx_reses.enable
+END
+
+SCRIPT main_others_on
+BEGIN
+	script _p_gentype_single
+	script main_relevel_enable
+	script main_reses_disable
+END
+
+SCRIPT main_scores_on
+BEGIN
+	script _p_gentype_multiple
+	script main_relevel_disable
+	script main_reses_disable
+END
+
+SCRIPT main_reses_disable
+BEGIN
+	main.tx_reses.disable
+	main.ed_reses.disable
+END
+
+SCRIPT main_relevel_enable
+BEGIN
+	main.tx_relevel.enable
+	main.cb_relevel.enable
+END
+
+SCRIPT main_relevel_disable
+BEGIN
+	main.tx_relevel.disable
+	main.cb_relevel.disable
+END
+
+PROGRAM command
+BEGIN
+	put "predict "
+	put " " /program _p_gentype_output
+	put " " /program ifin_output
+	beginoptions
+		option radio(main rb_blups rb_xb rb_stdp rb_fitted rb_residuals rb_rstandard rb_scores)
+		optionarg main.cb_relevel
+		optionarg main.ed_reses
+	endoptions
+END

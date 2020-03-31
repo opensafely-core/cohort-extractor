@@ -1,0 +1,444 @@
+/*
+  mlexp.dlg
+
+*!  VERSION 1.1.7  29nov2018
+
+  keyword:  eclass
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 600
+INCLUDE header
+
+HELP hlp1, view("help mlexp")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING STMP
+	program parseMessage
+	script se_createAsSvyJknifeBstrapML
+	program svy_check_title
+	setscale_hadj resource MLEXP_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program check_bytab
+	program se_setFinalInitState
+	script max_setFromNotVisible
+END
+
+SCRIPT svy_is_on
+BEGIN
+	script max_setDefaultNoLog
+END
+
+SCRIPT svy_is_off
+BEGIN
+	script max_setDefaultLog
+END
+
+PROGRAM svy_check_title
+BEGIN
+	if __MESSAGE.contains("-svy-") {
+		call settitle resource MLEXP_SVY_DLG_TITLE
+	}
+END
+
+
+SCRIPT main_PREINIT
+BEGIN
+	create STRING main_detmp
+	create STRING main_detmp2
+	create STRING main_de_childdlg
+	create STRING main_de_child_result
+	create STRING main_de_cmd_output
+
+	create ARRAY main_derivative_list
+
+	create SVECTOR mainDECommandDisplayList
+	create SVECTOR mainDECommandList
+	create SVECTOR mainDECommandValues
+	create SVECTOR mainDEStatusList
+	create SVECTOR mainDEChildDialogList
+
+	create DOUBLE main_de_count
+	create DOUBLE main_de_position
+	create DOUBLE main_de_arraysize
+
+	main.bu_de_edit.disable
+	main.ck_debug.disable
+	main.bu_de_disable.disable
+	main.bu_de_enable.disable
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)				///
+	/// **** has svy title ****					///
+	title(resource MLEXP_DLG_TITLE)
+BEGIN
+  TEXT tx_subexpr		_lft	_top	_iwd	.,		///
+	label(resource LBL_STAR_SUBSTITUTABLE_EXPRESSION)
+  EXP ex_subexpr		@	_ss	@	.,		///
+	error(resource LBL_SUBSTITUTABLE_EXPRESSION_NO_COLON)		///
+	parameter							///
+	label(resource LBL_BU_CREATE)
+  GROUPBOX gb_opt		_lft	_ls	_iwd	400,		///
+	label(resource LBL_OPTIONS)
+  TEXT tx_vars			_ilft	_ss	_inwd	.,		///
+	label(resource LBL_VARIABLES)
+  VARLIST vl_vars		@	_ss	@	.,		///
+	option(variables)						///
+	label(resource LBL_VARIABLES)
+
+  TEXT tx_from			@	_ls	@	.,		///
+	label(resource LBL_TX_INITIAL_VALUES)
+  EDIT ed_from			@	_ss	@	.,		///
+	option(from)							///
+	label(resource LBL_TX_INITIAL_VALUES)
+
+  TEXT tx_deBuild		_ilft	_ls	_cwd3	.,		///
+	label(resource MLEXP_MAIN_TX_DEBUILD)
+  LISTBOX lb_deBuild		@	_ss	200	100,		///
+	contents(main_derivative_list) 					///
+	ondblclick(program main_de_edit)				///
+	onselchange(program main_de_sel_changed)			///
+	nomemory
+  BUTTON bu_de_new		+210	@	80	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program main_de_create)					///
+	tooltip(resource LBL_CREATE_DERIVATIVE)
+  BUTTON bu_de_edit		@	_ms	@	.,		///
+	label(resource LBL_BU_EDIT)					///
+	onpush(program main_de_edit)  					///
+	tooltip(resource LBL_EDIT_DERIVATIVE)
+  BUTTON bu_de_disable		@	_ms	@	.,		///
+	label(resource LBL_BU_DISABLE)					///
+	onpush(program main_de_disable)					///
+	tooltip(resource LBL_CLICK_TO_DISABLE_A_DERIVATIVE)
+  BUTTON bu_de_enable		@	_ms	@	.,		///
+	label(resource LBL_BU_ENABLE)					///
+	onpush(program main_de_enable)					///
+	tooltip(resource LBL_CLICK_ENABLE_PREVIOUSLY_DISABLED_DER)
+
+  TEXTBOX tb_de_note		_ilft	+40	_iwd	_tb2,		///
+	label(resource LBL_PRESS_CREATE_DEFINE_A_DERIVATIVE)
+
+  DEFINE _x _ilft
+  DEFINE _y +40
+  DEFINE _cx _lw100
+  DEFINE _bux _slw100
+  INCLUDE _constraints
+
+  DEFINE _x _ilft
+  DEFINE _xw _ibwd
+//  INCLUDE _ck_collinear
+  CHECKBOX ck_debug		_x	_ls	_xw	.,		///
+	option(debug)							///
+	label(resource MLEXP_MAIN_CK_DEBUG)
+  CHECKBOX ck_gradient		@	_ms	@	.,		///
+	option(gradient)						///
+	label(resource MLEXP_MAIN_CK_GRADIENT)
+
+  TEXT tx_note1			_lft	_xxls	_iwd	.,		///
+	center								///
+	label(resource LBL_NOTE_EXP_BIND_PARAMETERS_EST_CURLY_BRACES)
+  TEXT tx_note2			@	_ss	@	.,		///
+	center								///
+	label(resource MLEXP_MAIN_TX_NOTE2)
+  TEXT tx_note3			_lft	_ss	_iwd	.,		///
+	center								///
+	label(resource MLEXP_MAIN_TX_NOTE3)
+  TEXT tx_note4			@	_ss	_lw60	.,		///
+	right								///
+	label(resource MLEXP_MAIN_TX_NOTE4)
+  HLINK hl_ml			_slw60	@	60	.,		///
+	left								///
+	onpush(view help ml)						///
+	label(resource MLEXP_MAIN_HL_ML)
+END
+
+INCLUDE _constraints_sc
+
+PROGRAM main_de_create
+BEGIN
+	call main_de_count.setvalue class mainDEChildDialogList.size
+	call main_de_count.increment
+	call main_de_count.withvalue main_de_childdlg.setvalue		///
+		"main_derivative@"
+	call program main_show_de_child
+END
+
+PROGRAM main_de_edit
+BEGIN
+	call mainDECommandDisplayList.findstr class main.lb_deBuild.value
+	call main_de_position.setvalue class mainDECommandDisplayList.position
+	call main_de_position.withvalue main_de_childdlg.setvalue	///
+		class mainDEChildDialogList.values[@]
+
+	call program main_show_de_child_edit
+END
+
+PROGRAM main_show_de_child
+BEGIN
+	call main_de_childdlg.withvalue create CHILD mlexp_new_der AS @
+	call main_de_childdlg.withvalue @.setExitString "main_de_child_result"
+	call main_de_childdlg.withvalue @.setExitAction			///
+		"program main_de_child_done"
+
+
+	call main_de_count.withvalue STMP.format			///
+		"resource LBL_DERIVATIVE_FMT" "@" ""
+	call STMP.withvalue main_detmp.setvalue "@"
+	call main_de_childdlg.withvalue main_detmp2.setvalue "@.settitle"
+	call main_detmp2.append `" ""'
+	call main_detmp2.append class main_detmp.value
+	call main_detmp2.append `"""'
+	call main_detmp2.withvalue @
+END
+
+PROGRAM main_show_de_child_edit
+BEGIN
+	call main_de_childdlg.withvalue create CHILD mlexp_new_der AS @
+	call main_de_childdlg.withvalue @.setExitString "main_de_child_result"
+	call main_de_childdlg.withvalue @.setExitAction			///
+		"program main_de_child_done"
+
+	call main_de_position.withvalue main_detmp.setvalue		///
+		class mainDECommandDisplayList.values[@]
+	call main_de_childdlg.withvalue main_detmp2.setvalue "@.settitle"
+	call main_detmp2.append `" ""'
+	call main_detmp2.append class main_detmp.value
+	call main_detmp2.append `"""'
+	call main_detmp2.withvalue @
+END
+
+PROGRAM main_de_child_done
+BEGIN
+	call mainDEChildDialogList.findstr class main_de_childdlg.value
+	call main_de_position.setvalue class mainDEChildDialogList.position
+	if main_de_position {
+		call main_de_position.withvalue main_detmp.setvalue	///
+			class mainDEStatusList.values[@]
+		if main_detmp.iseq("active") {
+			call main_de_position.withvalue	STMP.format	///
+				"resource LBL_DERIVATIVE_FMT" "@" ""
+
+			call STMP.withvalue				///
+				mainDECommandDisplayList.store class	///
+				main_de_position.value "@"
+			call mainDECommandValues.store class		///
+				main_de_position.value class		///
+				main_de_child_result.value
+			call STMP.withvalue main_detmp2.setvalue "@"
+		}
+		else {
+			call main_de_position.withvalue STMP.format	///
+				"resource LBL_DERIVATIVE_FMT" "@"	///
+				"resource LBL_PAREN_DISABLED"
+			call STMP.withvalue				///
+				main_detmp2.setvalue "@"
+
+			call main_detmp2.withvalue			///
+				mainDECommandDisplayList.store		///
+				class main_de_position.value "@"
+		}
+
+		call mainDECommandList.store class			///
+			main_de_position.value class main_de_child_result.value
+
+		call mainDECommandDisplayList.copyToArray main_derivative_list
+		call main.lb_deBuild.repopulate
+		call main.lb_deBuild.setvalue class main_detmp2.value
+	}
+	else {
+		call main_de_arraysize.setvalue class mainDEChildDialogList.size
+		call main_de_arraysize.increment
+
+		/* Store child dialog name */
+		call mainDEChildDialogList.store class			///
+			main_de_arraysize.value class			///
+			main_de_childdlg.value
+
+		/* Store listbox display derivative string */
+		call main_de_arraysize.withvalue STMP.format		///
+			"resource LBL_DERIVATIVE_FMT" "@" ""
+		call STMP.withvalue					///
+			mainDECommandDisplayList.store class		///
+			main_de_arraysize.value "@"
+
+		/* Store child dialog result string */
+		call mainDECommandList.store class			///
+			main_de_arraysize.value class main_de_child_result.value
+
+		/* Store child dialog result string for final command
+		   For disable/enable */
+		call mainDECommandValues.store class			///
+			main_de_arraysize.value class main_de_child_result.value
+
+		/* Store disable/enable status */
+		call mainDEStatusList.store				///
+			class main_de_arraysize.value "active"
+
+		call mainDECommandDisplayList.copyToArray main_derivative_list
+		call main.lb_deBuild.repopulate
+		call STMP.withvalue main.lb_deBuild.setvalue "@"
+	}
+END
+
+PROGRAM main_de_sel_changed
+BEGIN
+	call mainDECommandDisplayList.findstr class main.lb_deBuild.value
+	call main_de_position.setvalue class mainDECommandDisplayList.position
+	call main_de_position.withvalue main_detmp.setvalue		///
+		class mainDEStatusList.values[@]
+	if main_de_position {
+		call main.bu_de_edit.enable
+		call main.ck_debug.enable
+		call main_de_position.withvalue				///
+			main.tb_de_note.setlabel			///
+			class mainDECommandList.values[@]
+	}
+
+	if main_detmp.iseq("disable") {
+		call main.bu_de_enable.enable
+		call main.bu_de_disable.disable
+	}
+	if main_detmp.iseq("active") {
+		call main.bu_de_enable.disable
+		call main.bu_de_disable.enable
+	}
+END
+
+PROGRAM main_de_disable
+BEGIN
+	call mainDECommandDisplayList.findstr class main.lb_deBuild.value
+	call main_de_position.setvalue class mainDECommandDisplayList.position
+
+	call main_detmp.setvalue class main.lb_deBuild.value
+	call mainDEStatusList.store class main_de_position.value "disable"
+	call mainDECommandValues.store class main_de_position.value ""
+
+	call STMP.format "resource LBL_PAREN_DISABLED"
+	call main_detmp.append " "
+	call main_detmp.append class STMP.value
+	call main_detmp.withvalue STMP.setvalue "@"
+
+	call main_detmp.withvalue mainDECommandDisplayList.store	///
+		class main_de_position.value "@"
+
+	call mainDECommandDisplayList.copyToArray main_derivative_list
+	call main.lb_deBuild.repopulate
+	call main.lb_deBuild.setvalue class STMP.value
+END
+
+PROGRAM main_de_enable
+BEGIN
+	call mainDECommandDisplayList.findstr class main.lb_deBuild.value
+	call main_de_position.setvalue class mainDECommandDisplayList.position
+
+	call mainDEStatusList.store class main_de_position.value "active"
+	call main_de_position.withvalue mainDECommandValues.store class	///
+		main_de_position.value class mainDECommandList.values[@]
+
+	call main_de_position.withvalue STMP.format			///
+			"resource LBL_DERIVATIVE_FMT" "@" ""
+	call STMP.withvalue mainDECommandDisplayList.store		///
+		class main_de_position.value "@"
+
+	call mainDECommandDisplayList.copyToArray main_derivative_list
+	call main_de_position.withvalue main_detmp2.setvalue class	///
+		mainDECommandDisplayList.values[@]
+	call main.lb_deBuild.repopulate
+	call main.lb_deBuild.setvalue class main_detmp2.value
+
+END
+
+PROGRAM main_lb_deBuild_output
+BEGIN
+	call mainDECommandValues.copyToString main_de_cmd_output
+
+	if main_de_cmd_output & main.lb_deBuild.isvisible() {
+		put main_de_cmd_output
+	}
+END
+
+INCLUDE byifin
+INCLUDE weights_fpai
+INCLUDE se
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2b
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  TEXT tx_title			_lft	+35	60	.,		///
+	label(resource LBL_TITLE)
+  EDIT ed_title			@	_ss	_cwd1	.,		///
+	option(title)							///
+	label(resource LBL_ED_TITLE)
+  TEXT tx_title2		@	_ls	60	.,		///
+	label(resource LBL_SUBTITLE)
+  EDIT ed_title2		@	_ss	_cwd1	.,		///
+	option(title2)							///
+	label(resource LBL_ED_SUBTITLE)
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+
+PROGRAM rpt_output
+BEGIN
+	optionarg /hidedefault rpt.sp_level
+	optionarg rpt.ed_title
+	optionarg rpt.ed_title2
+	INCLUDE _report_columns_pr
+	put " " rpt_bu_fmtcoefResults
+END
+
+
+INCLUDE max_ml
+
+PROGRAM command
+BEGIN
+	put /program by_output " "
+	put /program se_prefix_output " "
+	put "mlexp "
+	require main.ex_subexpr
+	put "("
+	put main.ex_subexpr
+	put ")"
+	put " " /program ifin_output
+	put " " /program weights_output
+	beginoptions
+		put " " /program main_lb_deBuild_output
+		optionarg main.vl_vars
+		optionarg main.ed_from
+		INCLUDE _constraints_main_pr
+//		option main.ck_collinear
+		option main.ck_debug
+		option main.ck_gradient
+		put " " /program se_output
+		put " " /program rpt_output
+		put " " /program max_output
+	endoptions
+END

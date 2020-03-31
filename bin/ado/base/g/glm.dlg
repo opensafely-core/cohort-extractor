@@ -1,0 +1,764 @@
+/*
+  glm
+
+*!  VERSION 1.4.5  29nov2018
+
+*/
+
+VERSION 15.0
+
+INCLUDE glm_header
+DEFINE _dlght 385
+INCLUDE header
+HELP hlp1, view("help glm")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	program parseMessage
+	script se_createAsSvyGLM
+	// prevents recursion
+	create BOOLEAN glm_check_recurse
+	program svy_check_title
+	setscale_hadj resource GLM_DLG_HSCALE
+END
+
+PROGRAM parseMessage
+BEGIN
+	if __MESSAGE.contains("__MI__") {
+		call script se_setMI_on
+	}
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program max_create_glm
+	program check_bytab
+	program se_setFinalInitState
+END
+
+PROGRAM check_bytab
+BEGIN
+	if ! __MESSAGE.contains("__MI__") {
+		call script sub_set_by_on
+	}
+END
+
+PROGRAM check_mlForSvy
+BEGIN
+	if glm_check_recurse {
+		// prevent recursion -- exit since we are entering this
+		// routine recursively
+		exit
+	}
+	// make sure to call 'call se_isReBuilding.setfalse' at the end of
+	// this PROGRAM
+	call glm_check_recurse.settrue
+	if ! max.rb_ml4glm {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format 					///
+			"resource GLM_MSGBOX_IRLS_CHANGED_TO_ML_NOT_ALLOWED_FMT" ///
+			"resource LBL_TAB_MAXIMIZATION" 		///
+			"resource LBL_MAXIMUM_LIKELIHOOD" 
+		stopbox stop "class _MSG_TMP.value"
+// On the "Maximization" tab,
+// "IRLS" optimization has been changed to "Maximum likelihood"
+// because IRLS is not allowed with "Survey" standard errors.
+
+		call max.rb_ml4glm.seton
+	}
+	call glm_check_recurse.setfalse
+END
+
+SCRIPT svy_is_on
+BEGIN
+	program check_mlForSvy
+	script max_svy_on
+END
+SCRIPT svy_is_off
+BEGIN
+	script max_svy_off
+END
+PROGRAM svy_check_title
+BEGIN
+	if __MESSAGE.contains("-svy-") {
+		call settitle resource GLM_SVY_DLG_TITLE
+	}
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)				///
+	title(resource GLM_DLG_TITLE) // has svy title
+BEGIN
+  TEXT tx_dv 		_lft	_top	_vnwd	.,			///
+	label(resource LBL_DEPVAR)
+  VARNAME vn_dv		@ 	_ss	@	.,			///
+	ts								///
+	numeric								///
+	label(resource LBL_DEPVAR)
+
+  TEXT tx_iv		_vlx	_top	160	.,			///
+	label(resource LBL_INDDEPVAR)
+  VARLIST vl_iv		@	_ss	_vlwd	.,			///
+	fv ts								///
+	allowcat							///
+	numeric								///
+	label(resource LBL_INDDEPVAR)
+  TEXT     tx_title1 _lft      _ls       irhwd     .,			/*
+		*/ label(resource LBL_FAMILY_AND)			/*
+  		*/
+  DEFINE y @y
+  TEXT     tx_title2 _lft      _ss       irhwd     .,			/*
+		*/ label(resource LBL_LINK_CHOICES)			/*
+		*/
+  /* Display the column lines and headings */
+  FRAME    fr_gaus   col1      y         cwd       tht
+  DEFINE y @y
+  TEXT     tx_gaus   chind     _ss       icwd      .,			/*
+		*/ center						/*
+		*/ label(resource LBL_GAUSSIAN)					/*
+		*/
+  DEFINE y2 @y
+  FRAME    fr_invg   icolskip  y         cwd       tht
+  DEFINE nbinc1  @x
+  TEXT     tx_invg1  chind     for       icwd      .,			/*
+		*/ center						/*
+		*/ label(resource LBL_INVERSE)				/*
+		*/
+  DEFINE xinv @x
+  FRAME    fr_bin    icolskip  y         cwd       tht
+  FRAME    fr_pois   colskip   y         @         tht
+  FRAME    fr_nbin   colskip   y         @         tht
+  DEFINE nbinc2  @x
+  TEXT     tx_nbin1  chind     for       icwd      .,			/*
+		*/ center						/*
+		*/ label(resource LBL_NEGATIVE)				/*
+		*/
+  FRAME    fr_gamm   icolskip  y         cwd       tht
+  TEXT     tx_invg2  xinv      y2        icwd      .,			/*
+		*/ center						/*
+		*/ label(resource LBL_GAUSSIAN)				/*
+		*/
+  TEXT     tx_bin    colskip   @         @         .,			/*
+		*/ center						/*
+		*/ label(resource LBL_BINOMIAL)				/*
+		*/
+  TEXT     tx_pois   colskip   @         @         .,			/*
+		*/ center						/*
+		*/ label(resource LBL_POISSON)				/*
+		*/
+  TEXT     tx_nbin2  colskip   @         @         .,			/*
+		*/ center						/*
+		*/ label(resource LBL_TX_BINOMIAL)			/*
+		*/
+  TEXT     tx_gamm   colskip   @         @         .,			/*
+		*/ center						/*
+		*/ label(resource LBL_GAMMA_UPPER)			/*
+		*/
+
+  /* Display the row lines and headings */
+  FRAME    fr_id     _lft      skip      twd       rht
+  TEXT     tx_id     ilft      for       irhwd     .,			/*
+		*/ right	      					/*
+		*/ label(resource LBL_IDENTITY)				/*
+		*/
+  DEFINE row1 @y
+
+  FRAME    fr_log    _lft      skip      twd       rht
+  TEXT     tx_log    ilft      for       irhwd     .,			/*
+		*/ right	      					/*
+		*/ label(resource LBL_LOG)				/*
+		*/
+  DEFINE row2 @y
+
+  FRAME    fr_logit  _lft      skip      twd       rht
+  TEXT     tx_logit  ilft      for       irhwd     .,			/*
+		*/ right	      					/*
+		*/ label(resource LBL_LOGIT)				/*
+		*/
+  DEFINE row3 @y
+
+  FRAME    fr_probit _lft      skip      twd       rht
+  TEXT     tx_probit ilft      for       irhwd     .,			/*
+		*/ right	      					/*
+		*/ label(resource LBL_PROBIT)				/*
+		*/
+  DEFINE row4 @y
+
+  FRAME    fr_clog   _lft      skip      twd       rht
+  TEXT     tx_clog   ilft      for       irhwd     .,			/*
+		*/ right	      					/*
+		*/ label(resource LBL_C_LOG_LOG)			/*
+		*/
+  DEFINE row5 @y
+
+  FRAME    fr_power  _lft      skip      twd       rht
+  TEXT     tx_power  ilft      for       irhwd     .,			/*
+		*/ right	      					/*
+		*/ label(resource GLM_LBL_POWER)				/*
+		*/
+  DEFINE row6 @y
+
+  FRAME    fr_odds   _lft      skip      twd       rht
+  TEXT     tx_odds   ilft      for       irhwd     .,			/*
+		*/ right	      					/*
+		*/ label(resource LBL_ODDS_POWER)			/*
+		*/
+  DEFINE row7 @y
+
+  FRAME    fr_nbinr  _lft      skip      twd       rht
+  TEXT     tx_nbinr  ilft      for       irhwd     .,			/*
+		*/ right	      					/*
+		*/ label(resource LBL_NEG_BINOM)			/*
+		*/
+  DEFINE row8 @y
+
+  FRAME    fr_loglog _lft      skip      twd       rht
+  TEXT     tx_loglog ilft      for       irhwd     .,			/*
+		*/ right	      					/*
+		*/ label(resource GLM_MAIN_TX_LOGLOG)			/*
+		*/
+  DEFINE row9 @y
+
+  FRAME    fr_logcom _lft      skip      twd       rht
+  TEXT     tx_logcom ilft      for       irhwd     .,			/*
+		*/ right	      					/*
+		*/ label(resource GLM_MAIN_TX_LOGCOM)			/*
+		*/
+  DEFINE row10 @y
+
+  /* Binomial options */
+  TEXT     tx_bin2   _lft      _ls       comb2     .,			/*
+		*/ label(resource LBL_BERNOULLI_TRIALS_N)		/*
+		*/ right						/*
+		*/
+  DEFINE xbin @x
+  DEFINE ybin @y
+  RADIO    rb_sp_n   colskip2  @         _rbwd     .,			/*
+		*/ clickon("script sp_n_on")				/*
+		*/ first						/*
+		*/
+  DEFINE x @x
+  SPINNER  sp_n      _rbsep    @         _spwd     .,			/*
+		*/ min(1)						/*
+		*/ max(1000000)						/*
+		*/ onchange("program sp_n_changed")			/*
+		*/ default(1)						/*
+		*/
+  TEXT     tx_sp_n   _spsep    @         cwd       .,			/*
+		*/ label(resource LBL_CONSTANT)				/*
+		*/
+  RADIO    rb_vn_n   colskip   @         _rbwd     .,			/*
+		*/ clickon("script vn_n_on")				/*
+		*/ last							/*
+		*/
+  VARNAME  vn_n      _rbsep    @         _vnwd     .,			/*
+		*/ label(resource LBL_VN_VARIABLE)			/*
+		*/
+  TEXT     tx_vn_n   _vnsep    @         cwd       .,			/*
+		*/ label(resource LBL_VN_VARIABLE)			/*
+		*/
+
+  /* Negative binomial option */
+  TEXT     tx_nbin3  xbin      ybin      comb2     .,			/*
+		*/ label(resource LBL_DISPERSION_PARAMETER)		/*
+		*/ right
+  RADIO    rb_en_k   colskip2  @         _rbwd     .,			/*
+		*/ clickon("script en_k_on")				/*
+		*/ first
+  EDIT     en_k      _rbsep    @         _en7wd    .,			/*
+		*/ label(resource LBL_DISPERSION_PARAMETER)		/*
+		*/ numonly
+  TEXT     tx_en_k  _spsep     @         comb2     .,			/*
+		*/ label(resource GLM_MAIN_TX_EN_K)
+  RADIO    rb_ml   +80     @        _rbwd      .,			/*
+		*/ clickon("script rb_ml_on")				/*
+		*/ last
+  TEXT     tx_ml   _rbsep      @         comb2     .,			/*
+		*/ label(resource GLM_MAIN_TX_ML)
+
+  /* numeric edit fields for [odds] power */
+  EDIT     en_power  rmx       row7      _spwd     .,			/*
+		*/ label(resource GLM_LBL_POWER)				/*
+		*/ numonly						/*
+		*/
+  TEXT     tx_power2 @         nss       rmwd      .,			/*
+		*/ label(resource GLM_LBL_POWER)				/*
+		*/
+  TEXT     tx_odds2  @         nvss      rmwd      .,			/*
+		*/ label(resource LBL_ODDS)				/*
+		*/
+
+  /* Now the radio buttons */
+  RADIO    rb_id_ga  rbcol1    row1      rbwd      .,			/*
+		*/ clickon("script none")				/*
+		*/ first						/*
+		*/ option("family(gaussian) link(identity)")		/*
+		*/
+  RADIO    rb_id_ig  colskip   @         rbwd      .,			/*
+		*/ clickon("script none")				/*
+		*/ option("family(igaussian) link(identity)")		/*
+		*/
+  DEFINE rbcol2 @x
+  RADIO    rb_id_bi  colskip   @         rbwd      .,			/*
+		*/ clickon("script binonly")				/*
+		*/ option("link(identity)")				/*
+		*/
+  DEFINE rbcol3 @x
+  RADIO    rb_id_po  colskip   @         rbwd      .,			/*
+		*/ clickon("script none")				/*
+		*/ option("family(poisson) link(identity)")		/*
+		*/
+  DEFINE rbcol4 @x
+  RADIO    rb_id_nb  colskip   @         rbwd      .,			/*
+		*/ clickon("script nbinonly")				/*
+		*/ option("link(identity)")				/*
+		*/
+  DEFINE rbcol5 @x
+  RADIO    rb_id_gm  colskip   @         rbwd      .,			/*
+		*/ clickon("script none")				/*
+		*/ option("family(gamma) link(identity)")		/*
+		*/
+  DEFINE rbcol6 @x
+
+  RADIO    rb_lg_ga  rbcol1    row2      rbwd      .,			/*
+		*/ clickon("script none")				/*
+		*/ option("family(gaussian) link(log)")			/*
+		*/
+  RADIO    rb_lg_ig  rbcol2    @         rbwd      .,			/*
+		*/ clickon("script none")				/*
+		*/ option("family(igaussian) link(log)")		/*
+		*/
+  RADIO    rb_lg_bi  rbcol3    @         rbwd      .,			/*
+		*/ clickon("script binonly")				/*
+		*/ option("link(log)")					/*
+		*/
+  RADIO    rb_lg_po  rbcol4    @         rbwd      .,			/*
+		*/ clickon("script none")				/*
+		*/ option("family(poisson) link(log)")			/*
+		*/
+  RADIO    rb_lg_nb  rbcol5    @         rbwd      .,			/*
+		*/ clickon("script nbinonly")				/*
+		*/ option("link(log)")				/*
+		*/
+  RADIO    rb_lg_gm  rbcol6    @         rbwd      .,			/*
+		*/ clickon("script none")				/*
+		*/ option("family(gamma) link(log)")			/*
+		*/
+
+  RADIO    rb_lt_bi  rbcol3    row3      rbwd      .,			/*
+		*/ clickon("script binonly")				/*
+		*/ option("link(logit)")				/*
+		*/
+
+  RADIO    rb_pr_bi  rbcol3    row4      rbwd      .,			/*
+		*/ clickon("script binonly")				/*
+		*/ option("link(probit)")				/*
+		*/
+
+  RADIO    rb_cl_bi  rbcol3    row5      rbwd      .,			/*
+		*/ clickon("script binonly")				/*
+		*/ option("link(cloglog)")				/*
+		*/
+
+  RADIO    rb_pw_ga  rbcol1    row6      rbwd      .,			/*
+		*/ clickon("script ponly")				/*
+		*/ option("family(gaussian)")				/*
+		*/
+  RADIO    rb_pw_ig  rbcol2    @         rbwd      .,			/*
+		*/ clickon("script ponly")				/*
+		*/ option("family(igaussian)")				/*
+		*/
+  RADIO    rb_pw_bi  rbcol3    @         rbwd      .,			/*
+		*/ clickon("script pbin")				/*
+		*/ option(NONE)						/*
+		*/
+  RADIO    rb_pw_po  rbcol4    @         rbwd      .,			/*
+		*/ clickon("script ponly")				/*
+		*/ option("family(poisson)")				/*
+		*/
+  RADIO    rb_pw_nb  rbcol5    @         rbwd      .,			/*
+		*/ clickon("script pnbin")				/*
+		*/ option(NONE)						/*
+		*/
+  RADIO    rb_pw_gm  rbcol6    @         rbwd      .,			/*
+		*/ clickon("script ponly")				/*
+		*/ option("family(gamma)")				/*
+		*/
+
+  RADIO    rb_op_bi  rbcol3    row7      rbwd      .,			/*
+		*/ clickon("script obin")				/*
+		*/ option(NONE)						/*
+		*/
+
+  RADIO    rb_nb_nb  rbcol5    row8      rbwd      .,			/*
+		*/ clickon("script nbinonly")				/*
+		*/ option("link(nbinomial)")				/*
+		*/
+
+  RADIO    rb_ll_bi  rbcol3    row9      rbwd      .,			/*
+		*/ clickon("script binonly")				/*
+		*/ option("link(loglog)")				/*
+		*/
+
+  RADIO    rb_lc_bi  rbcol3    row10     rbwd      .,			/*
+		*/ clickon("script binonly")				/*
+		*/ option("link(logc)")					/*
+		*/ last							/*
+		*/
+
+END
+
+SCRIPT none
+BEGIN
+	script poweroff
+	script binoff
+	script nbinoff
+END
+
+SCRIPT binonly
+BEGIN
+	script poweroff
+	script binon
+	script nbinoff
+END
+
+SCRIPT nbinonly
+BEGIN
+	script poweroff
+	script binoff
+	script nbinon
+END
+
+SCRIPT ponly
+BEGIN
+	script poweron
+	script binoff
+	script nbinoff
+END
+
+SCRIPT oonly
+BEGIN
+	script oddson
+	script binoff
+	script nbinoff
+END
+
+SCRIPT pbin
+BEGIN
+	script poweron
+	script binon
+	script nbinoff
+END
+
+SCRIPT pnbin
+BEGIN
+	script poweron
+	script binoff
+	script nbinon
+END
+
+SCRIPT obin
+BEGIN
+	script oddson
+	script binon
+	script nbinoff
+END
+
+SCRIPT binon
+BEGIN
+	main.tx_bin2.show
+	main.rb_sp_n.show
+	main.sp_n.show
+	main.tx_sp_n.show
+	main.rb_vn_n.show
+	main.vn_n.show
+	main.tx_vn_n.show
+	model2.ck_asis.enable
+END
+
+SCRIPT sp_n_on
+BEGIN
+	main.sp_n.enable
+	main.vn_n.disable
+END
+
+PROGRAM sp_n_changed
+BEGIN
+	if main.sp_n.iseq(1) {
+		call model2.ck_asis.enable
+	}
+	else {
+		call model2.ck_asis.disable
+	}
+END
+
+SCRIPT vn_n_on
+BEGIN
+	main.sp_n.disable
+	main.vn_n.enable
+END
+
+SCRIPT binoff
+BEGIN
+	main.tx_bin2.hide
+	main.rb_sp_n.hide
+	main.sp_n.hide
+	main.tx_sp_n.hide
+	main.rb_vn_n.hide
+	main.vn_n.hide
+	main.tx_vn_n.hide
+	model2.ck_asis.disable
+END
+
+SCRIPT nbinon
+BEGIN
+	main.tx_nbin3.show
+	main.en_k.show
+	main.rb_en_k.show
+	main.en_k.show
+	main.tx_en_k.show
+	main.rb_ml.show
+	main.tx_ml.show
+END
+
+SCRIPT nbinoff
+BEGIN
+	main.tx_nbin3.hide
+	main.en_k.hide
+	main.rb_en_k.hide
+	main.en_k.hide
+	main.tx_en_k.hide
+	main.rb_ml.hide
+	main.tx_ml.hide
+END
+
+SCRIPT poweron
+BEGIN
+	main.tx_odds2.hide
+	main.tx_power2.show
+	main.en_power.show
+	main.en_power.setlabel resource GLM_LBL_POWER
+END
+
+SCRIPT oddson
+BEGIN
+	main.tx_odds2.show
+	main.tx_power2.show
+	main.en_power.show
+	main.en_power.setlabel resource LBL_ODDS_POWER
+END
+
+SCRIPT poweroff
+BEGIN
+	main.tx_power2.hide
+	main.tx_odds2.hide
+	main.en_power.hide
+END
+
+DIALOG model2, tabtitle(resource LBL_TAB_MODEL2)
+BEGIN
+  GROUPBOX gb_opt    _lft      _top      _iwd      _ht20h,		/*
+		*/ label(resource LBL_OPTIONS)				/*
+		*/
+  CHECKBOX ck_nocons _ilft     _ms       _cwd2     .,			/*
+		*/ label(resource LBL_NOCONSTANT)			/*
+		*/ option("noconstant")					/*
+		*/
+  RADIO    rb_expose _ilft     _ls       _cwd4_1   .,			/*
+		*/ label(resource LBL_EXPOSURE_VARIABLE)		/*
+		*/ first						/*
+		*/ clickon("script expose")				/*
+		*/
+  RADIO    rb_offset _ilft4_2  @         @         .,			/*
+		*/ label(resource LBL_OFFSET_VARIABLE)			/*
+		*/ last							/*
+		*/ clickon("script offset")				/*
+		*/
+
+  VARNAME  vn_expose _ilft     _ss       @         .,			/*
+		*/ label(resource LBL_EXPOSURE_VARIABLE)		/*
+		*/ option("exposure")					/*
+		*/ numeric						/*
+		*/
+  VARNAME  vn_offset _ilft4_2  @         @         .,			/*
+		*/ label(resource LBL_OFFSET_VARIABLE)			/*
+		*/ option("offset")					/*
+		*/ numeric						/*
+		*/
+
+  DEFINE _x _ilft
+  DEFINE _y _ls
+  DEFINE _cx _ilw80
+  DEFINE _bux _islw80
+  INCLUDE _constraints
+
+  DEFINE _x _ilft
+  DEFINE _xw _ibwd
+//  INCLUDE _ck_collinear
+
+  CHECKBOX ck_asis		_ilft	_ls	_xw	.,		///
+	option("asis")							///
+	label(resource LBL_RETAIN_PERFECT_PREDICTOR_VARS)
+
+  TEXT     tx_init   _ilft     _ms       _cwd1     .,			/*
+		*/ label(resource LBL_INITIAL_MEAN_ESTIMATES_VARIABLE)	/*
+		*/
+  VARNAME  vn_mu     _ilft     _ss       _vnwd     .,			/*
+		*/ label(resource LBL_INITIAL_MEAN_ESTIMATES_VARIABLE)	/*
+		*/ option("mu")						/*
+		*/ numeric						/*
+		*/
+  TEXT     tx_note   _lft4_2   @        _comb4_3   .,			/*
+  		*/ label(resource LBL_NOTE_ADVANCED_OPT_HELP_WITH_CONVERGENCE)
+END
+
+SCRIPT model2_PREINIT
+BEGIN
+	create STRING __const_tab
+	__const_tab.setvalue "model2"
+END
+
+INCLUDE _constraints_sc 
+
+//SCRIPT collinear_disable
+//BEGIN
+//	model2.ck_collinear.disable
+//END
+
+//SCRIPT collinear_enable
+//BEGIN
+//	model2.ck_collinear.enable
+//END
+
+SCRIPT expose
+BEGIN
+  model2.vn_expose.enable
+  model2.vn_offset.disable
+END
+
+SCRIPT offset
+BEGIN
+  model2.vn_expose.disable
+  model2.vn_offset.enable
+END
+
+INCLUDE sub_by_ifin_over_subpop
+INCLUDE weights_fpai
+INCLUDE se
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+        program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  CHECKBOX ck_eform  _lft      _ls       _iwd      .,			/*
+		*/ label(resource LBL_REPORT_EXPONENTIATED_COEFFICIENTS)	/*
+		*/ option("eform")
+  DEFINE _x _lft
+  DEFINE _y _ms
+  DEFINE _cx _iwd
+  INCLUDE _nocnsreport
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+
+PROGRAM rpt_output
+BEGIN
+	optionarg /hidedefault rpt.sp_level
+	option rpt.ck_eform
+	INCLUDE _nocnsreport_pr
+	INCLUDE _report_columns_pr
+	put " " rpt_bu_facvarsResults
+	put " " rpt_bu_fmtcoefResults
+END
+
+INCLUDE max_glm
+
+PROGRAM command
+BEGIN
+	put /program by_output " "
+	put /program se_prefix_output " "
+	put "glm "
+	varlist main.vn_dv [main.vl_iv]
+	put " " /program ifin_output
+	put " " /program weights_output
+	beginoptions
+		if main.rb_id_bi | main.rb_lg_bi | main.rb_lt_bi /*
+			*/ | main.rb_pr_bi | main.rb_cl_bi | main.rb_pw_bi /*
+			*/ | main.rb_op_bi | main.rb_ll_bi | main.rb_lc_bi {
+			put "family(binomial"
+			if main.rb_sp_n {
+				put " " main.sp_n
+			}
+			if main.rb_vn_n & main.vn_n {
+				varlist main.vn_n
+			}
+			put ") "
+		}
+		if main.rb_id_nb | main.rb_lg_nb | main.rb_pw_nb /*
+			*/ | main.rb_nb_nb {
+			put "family(nbinomial"
+			if main.rb_en_k {
+				put " " main.rb_en_k
+			}
+			if main.rb_ml {
+				put " ml"
+			}
+			put ") "
+		}
+		option main.rb_id_ga main.rb_id_ig main.rb_id_bi /*
+			*/ main.rb_id_po main.rb_id_nb main.rb_id_gm
+		option main.rb_lg_ga main.rb_lg_ig main.rb_lg_bi /*
+			*/ main.rb_lg_po main.rb_lg_nb main.rb_lg_gm
+		option main.rb_lt_bi main.rb_pr_bi main.rb_cl_bi
+		option main.rb_pw_ga main.rb_pw_ig main.rb_pw_bi /*
+			*/ main.rb_pw_po main.rb_pw_nb main.rb_pw_gm
+		option main.rb_op_bi main.rb_nb_nb main.rb_ll_bi /*
+			*/ main.rb_lc_bi
+		if main.rb_pw_ga | main.rb_pw_ig | main.rb_pw_bi /*
+		*/ | main.rb_pw_po | main.rb_pw_nb | main.rb_pw_gm {
+			require main.en_power
+			put " link(power " main.en_power ")"
+		}
+		if main.rb_op_bi {
+			require main.en_power
+			put " link(opower " main.en_power ")"
+		}
+
+		option model2.ck_nocons
+		optionarg model2.vn_expose
+		optionarg model2.vn_offset
+		optionarg model2.cb_constr
+//		option model2.ck_collinear
+		optionarg model2.vn_mu
+		option model2.ck_asis
+
+		put " " /program se_output
+		put " " /program rpt_output
+		put " " /program max_glm_output
+	endoptions
+END

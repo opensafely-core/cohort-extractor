@@ -1,0 +1,1048 @@
+/*
+	table
+
+*! VERSION 1.2.3  20may2015
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE header
+HELP hlp1, view("help table")
+RESET res1
+
+
+SCRIPT PREINIT
+BEGIN
+	create STRING STMP
+	setscale_hadj resource TABLE_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	STMP.format "resource LBL_METHOD_PERCENTILE_#_FMT" "1"
+	STMP.withvalue main.sp_perc1.settooltip "@"
+	STMP.format "resource LBL_METHOD_VARIABLE_#_FMT" "1"
+	STMP.withvalue main.vn_mvar1.setlabel "@"
+	
+	STMP.format "resource LBL_METHOD_PERCENTILE_#_FMT" "2"
+	STMP.withvalue main.sp_perc2.settooltip "@"
+	STMP.format "resource LBL_METHOD_VARIABLE_#_FMT" "2"
+	STMP.withvalue main.vn_mvar2.setlabel "@"
+
+	STMP.format "resource LBL_METHOD_PERCENTILE_#_FMT" "3"
+	STMP.withvalue main.sp_perc3.settooltip "@"
+	STMP.format "resource LBL_METHOD_VARIABLE_#_FMT" "3"
+	STMP.withvalue main.vn_mvar3.setlabel "@"
+
+	STMP.format "resource LBL_METHOD_PERCENTILE_#_FMT" "4"
+	STMP.withvalue main.sp_perc4.settooltip "@"
+	STMP.format "resource LBL_METHOD_VARIABLE_#_FMT" "4"
+	STMP.withvalue main.vn_mvar4.setlabel "@"
+
+	STMP.format "resource LBL_METHOD_PERCENTILE_#_FMT" "5"
+	STMP.withvalue main.sp_perc5.settooltip "@"
+	STMP.format "resource LBL_METHOD_VARIABLE_#_FMT" "5"
+	STMP.withvalue main.vn_mvar5.setlabel "@"
+END
+
+
+DIALOG main, label(resource TABLE_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_rowvar      _lft     _top    _cwd1        .,		/*
+		*/ label(resource LBL_ROW_VARIABLE)
+  VARNAME  vn_rowvar      _lft      _ss    _vnwd        .,		/*
+		*/ label(resource LBL_ROW_VARIABLE)
+  CHECKBOX ck_by          _lft      _ls    _cwd1        .,		/*
+                */ clickon("gaction main.vl_by.enable")			/*
+                */ clickoff("gaction main.vl_by.disable")		/*
+		*/ label(resource TABLE_MAIN_CK_BY)
+  VARLIST  vl_by        _cksep      _ss    _inwd        .,		/*
+		*/ option("by")						/*
+		*/ label(resource TABLE_MAIN_CK_BY)
+  CHECKBOX ck_colvar     _lft2     _top    _cwd1     _ht7,		/*
+		*/ groupbox						/*
+		*/ clickon("program colvar_on")				/*
+		*/ clickoff("program colvar_off")			/*
+		*/ label(resource LBL_COLUMN_VARIABLE)
+  TEXT     tx_holds    _indent        @    0         _ht0,		/*
+		*/ label("")
+  DEFINE   x   @x
+  VARNAME  vn_colvar  _indent2      _ss    _vnwd        .,		/*
+		*/ label(resource LBL_COLUMN_VARIABLE)
+  CHECKBOX ck_scolvar        x      _ls      _cwd3      .,		/*
+		*/ clickon("program scolvar_on")			/*
+		*/ clickoff("program scolvar_off")			/*
+		*/ label(resource TABLE_MAIN_CK_SCOLVAR)
+  VARNAME  vn_scolvar _indent2      _ss    _vnwd        .,		/*
+		*/ label(resource TABLE_MAIN_CK_SCOLVAR)
+
+  TEXT     tx_goto        _lft     _xls        0     _ht0,
+  TEXT     tx_meth    _indent2        @    _cwd3        .,		/*
+		*/ center						/*
+		*/ label(resource LBL_STATISTICS)
+  TEXT     tx_perc       _lft2        @    _spwd /*?70 */ .,		/*
+		*/ center						/*
+		*/ label(resource LBL_PERCENTILE)
+  TEXT     tx_mvar      _spsep        @    _vnwd        .,		/*
+		*/ center 						/*
+		*/ label(resource LBL_VN_VARIABLE)
+  TEXT     tx_one         _lft      _ms    _ckwd  	.,		/*
+		*/ label("1:")
+  COMBOBOX cb_meth1   _indent2        @    _cwd3        .,         	/*
+		*/ dropdownlist /*
+		*/ onselchangelist("cont_script1")			/*
+		*/ contents("cont_txt")  value("cont_val")		/*
+		*/ label("")
+  SPINNER  sp_perc1      _lft2        @    _spwd        .,		/*
+		*/ min(1) default(50) max(99)
+  VARNAME  vn_mvar1     _spsep        @    _vnwd        .,		/*
+  		*/ numeric
+  TEXT     tx_two         _lft      _ms    _ckwd  	.,		/*
+		*/ label("2:")
+  COMBOBOX cb_meth2   _indent2        @    _cwd3        .,         	/*
+		*/ dropdownlist /*
+		*/ onselchangelist("cont_script2")			/*
+		*/ contents("cont_txt")  value("cont_val")		/*
+		*/ label("")
+  SPINNER  sp_perc2      _lft2        @    _spwd        .,		/*
+		*/ min(1) default(50) max(99)
+  VARNAME  vn_mvar2     _spsep       @    _vnwd        .,		/*
+  		*/ numeric
+  TEXT     tx_three       _lft      _ms    _ckwd  	.,		/*
+		*/ label("3:")
+  COMBOBOX cb_meth3   _indent2        @    _cwd3        .,         	/*
+		*/ dropdownlist /*
+		*/ onselchangelist("cont_script3")			/*
+		*/ contents("cont_txt")  value("cont_val")
+  SPINNER  sp_perc3      _lft2        @    _spwd        .,		/*
+		*/ min(1) default(50) max(99)	
+  VARNAME  vn_mvar3     _spsep        @    _vnwd        .,		/*
+  		*/ numeric
+  TEXT     tx_four        _lft      _ms    _ckwd  	.,		/*
+		*/ label("4:")
+  COMBOBOX cb_meth4   _indent2        @    _cwd3        .,         	/*
+		*/ dropdownlist /*
+		*/ onselchangelist("cont_script4")			/*
+		*/ contents("cont_txt")  value("cont_val")
+  SPINNER  sp_perc4      _lft2        @    _spwd        .,		/*
+		*/ min(1) default(50) max(99)
+  VARNAME  vn_mvar4     _spsep         @    _vnwd        .,		/*
+  		*/ numeric
+  TEXT     tx_five        _lft      _ms    _ckwd  	.,		/*
+		*/ label("5:")
+  COMBOBOX cb_meth5   _indent2        @    _cwd3        .,         	/*
+		*/ dropdownlist /*
+		*/ onselchangelist("cont_script5")			/*
+		*/ contents("cont_txt")  value("cont_val")
+  SPINNER  sp_perc5      _lft2        @    _spwd        .,		/*
+		*/ min(1) default(50) max(99)
+  VARNAME  vn_mvar5     _spsep        @    _vnwd        .,		/*
+  		*/ numeric
+END
+
+INCLUDE byifin
+INCLUDE weights_fpai
+
+DIALOG opt, tabtitle(resource LBL_OPTIONS)
+BEGIN
+  CHECKBOX ck_cell         _lft     _top   _ckwd         .,  		/*
+		*/ clickon("gaction opt.en_cell.enable")		/*
+		*/ clickoff("gaction opt.en_cell.disable")		/*
+		*/ label("")
+  EDIT     en_cell       _cksep        @  _en7wd         .,		/*
+		*/ option("cellwidth")					/*
+		*/ default("0")						/*
+		*/ numonly						/*
+		*/ label(resource LBL_CELL_WIDTH)
+  TEXT     tx_cell      _en7sep        @ _cken7r2        .,		/*
+		*/ label(resource LBL_CELL_WIDTH)
+  CHECKBOX ck_csep         _lft      _ms   _ckwd         .,  		/*
+		*/ clickon("gaction opt.en_csep.enable")		/*
+		*/ clickoff("gaction opt.en_csep.disable")		/*
+		*/ label("")
+  EDIT     en_csep       _cksep        @  _en7wd         .,		/*
+		*/ option("csepwidth")					/*
+		*/ default("0")						/*
+		*/ numonly						/*
+		*/ label(resource LBL_COLUMN_SEPARATION_WIDTH)
+  TEXT     tx_csep      _en7sep        @ _cken7r2        .,		/*
+		*/ label(resource LBL_COLUMN_SEPARATION_WIDTH)
+  CHECKBOX ck_stub         _lft      _ms   _ckwd         .,  		/*
+		*/ clickon("gaction opt.en_stub.enable")		/*
+		*/ clickoff("gaction opt.en_stub.disable")		/*
+		*/ label("")
+  EDIT     en_stub       _cksep        @  _en7wd         .,		/*
+		*/ option("stubwidth")					/*
+		*/ default("0")						/*
+		*/ numonly						/*
+		*/ label(resource LBL_STUB_WIDTH)
+  TEXT     tx_stub      _en7sep        @ _cken7r2        .,		/*
+		*/ label(resource LBL_STUB_WIDTH)
+  CHECKBOX ck_scsep        _lft      _ms   _ckwd         .,  		/*
+		*/ clickon("gaction opt.en_scsep.enable")		/*
+		*/ clickoff("gaction opt.en_scsep.disable")		/*
+		*/ label("")
+  EDIT     en_scsep      _cksep        @  _en7wd         .,		/*
+		*/ option("scsepwidth")					/*
+		*/ default("0")						/*
+		*/ numonly						/*
+		*/ label(resource TABLE_OPT_EN_SCSEP)
+  TEXT     tx_scsep     _en7sep        @ _cken7r2        .,		/*
+		*/ label(resource TABLE_OPT_EN_SCSEP)
+
+  TEXT     tx_alignment    _lft      _ls   _cwd1         .,		/*
+		*/ label(resource TABLE_OPT_TX_ALIGNMENT)
+  COMBOBOX cb_alignment       @      _ss     100         .,         	/*
+		*/ option(NONE)	 /* handled elsewhere */		/*
+		*/ dropdownlist						/*
+		*/ contents("align_txt")  value("align_val")		/*
+		*/ label("")
+  CHECKBOX ck_replace         @     _xls    _iwd     _ht2h,		/*
+		*/ groupbox						/*
+		*/ clickon("program replace_on")			/*
+		*/ clickoff("program replace_off")			/*
+		*/ option("replace") nomem				/*
+		*/ label(resource TABLE_OPT_CK_REPLACE)
+  CHECKBOX ck_name      _indent      _ms   _ckwd         .,		/*
+		*/ clickon("gaction opt.ed_name.enable")		/*
+		*/ clickoff("gaction opt.ed_name.disable")		/*
+		*/ label("")
+  EDIT     ed_name       _cksep        @  _en7wd         .,		/*
+		*/ label(resource TABLE_OPT_ED_NAME) option(name)
+  TEXT     tx_name      _en7sep        @     230         .,		/*
+		*/ label(resource TABLE_OPT_ED_NAME)
+
+  CHECKBOX ck_format       _lft      +45    _iwd         .,		///
+	onclickon(script format_on)					///
+	onclickoff(script format_off)					///
+	label(resource TABLE_OPT_CK_FORMAT)
+  EDIT     ed_format     _cksep      _ss     200         .,		///
+	option(format)							///
+	label(resource LBL_DISPLAY_FORMAT_NO_COLON)
+  BUTTON   bn_format       +205        @      80         .,		///
+	label(resource LBL_BU_CREATE) onpush(script opt_GetFormat)	///
+	tooltip(resource LBL_CREATE_DISPLAY_FORMAT)
+
+  CHECKBOX ck_cw          _lft2     _top   _cwd1         .,		/*
+		*/ option("cw")						/*
+		*/ label(resource TABLE_OPT_CK_CW)
+  CHECKBOX ck_row             @      _ms       @         .,		/*
+		*/ option("row")					/*
+		*/ label(resource TABLE_OPT_CK_ROW)
+  CHECKBOX ck_col             @      _ms       @         .,		/*
+		*/ option("col")					/*
+		*/ label(resource TABLE_OPT_CK_COL)
+  CHECKBOX ck_scol            @      _ms       @         .,		/*
+		*/ option("scol")					/*
+		*/ label(resource TABLE_OPT_CK_SCOL)
+  CHECKBOX ck_concise     _lft2      _ms   _cwd1         .,		/*
+		*/ option("concise")					/*
+		*/ label(resource TABLE_OPT_CK_CONCISE)
+  CHECKBOX ck_missing         @      _ms       @         .,		/*
+		*/ option("missing")					/*
+		*/ label(resource TABLE_OPT_CK_MISSING)
+END
+
+SCRIPT opt_GetFormat
+BEGIN
+	create STRING optFormat
+	create CHILD format_chooser
+	format_chooser.setExitString optFormat
+	format_chooser.setExitAction "opt.ed_format.setvalue class optFormat.value"
+END
+
+SCRIPT format_on
+BEGIN
+	opt.ed_format.enable
+	opt.bn_format.enable
+END
+
+SCRIPT format_off
+BEGIN
+	opt.ed_format.disable
+	opt.bn_format.disable
+END
+
+SCRIPT method1_none
+BEGIN
+  main.sp_perc1.disable
+  main.vn_mvar1.disable
+END
+
+SCRIPT method1_freq
+BEGIN
+  main.sp_perc1.disable
+  main.vn_mvar1.disable
+END
+
+SCRIPT method1_mean
+BEGIN
+  main.sp_perc1.disable
+  main.vn_mvar1.enable
+END
+
+SCRIPT method1_sd
+BEGIN
+  main.sp_perc1.disable
+  main.vn_mvar1.enable
+END
+
+SCRIPT method1_semean
+BEGIN
+  main.sp_perc1.disable
+  main.vn_mvar1.enable
+END
+
+SCRIPT method1_sebinomial
+BEGIN
+  main.sp_perc1.disable
+  main.vn_mvar1.enable
+END
+
+SCRIPT method1_sepoisson
+BEGIN
+  main.sp_perc1.disable
+  main.vn_mvar1.enable
+END
+
+SCRIPT method1_sum
+BEGIN
+  main.sp_perc1.disable
+  main.vn_mvar1.enable
+END
+
+SCRIPT method1_rowsum
+BEGIN
+  main.sp_perc1.disable
+  main.vn_mvar1.enable
+END
+
+SCRIPT method1_count
+BEGIN
+  main.sp_perc1.disable
+  main.vn_mvar1.enable
+END
+
+SCRIPT method1_max
+BEGIN
+  main.sp_perc1.disable
+  main.vn_mvar1.enable
+END
+
+SCRIPT method1_min
+BEGIN
+  main.sp_perc1.disable
+  main.vn_mvar1.enable
+END
+
+SCRIPT method1_median
+BEGIN
+  main.sp_perc1.disable
+  main.vn_mvar1.enable
+END
+
+SCRIPT method1_iqr
+BEGIN
+  main.sp_perc1.disable
+  main.vn_mvar1.enable
+END
+
+SCRIPT method1_p
+BEGIN
+  main.sp_perc1.enable
+  main.vn_mvar1.enable
+END
+
+SCRIPT method2_none
+BEGIN
+  main.sp_perc2.disable
+  main.vn_mvar2.disable
+END
+
+SCRIPT method2_freq
+BEGIN
+  main.sp_perc2.disable
+  main.vn_mvar2.disable
+END
+
+SCRIPT method2_mean
+BEGIN
+  main.sp_perc2.disable
+  main.vn_mvar2.enable
+END
+
+SCRIPT method2_sd
+BEGIN
+  main.sp_perc2.disable
+  main.vn_mvar2.enable
+END
+
+SCRIPT method2_semean
+BEGIN
+  main.sp_perc2.disable
+  main.vn_mvar2.enable
+END
+
+SCRIPT method2_sebinomial
+BEGIN
+  main.sp_perc2.disable
+  main.vn_mvar2.enable
+END
+
+SCRIPT method2_sepoisson
+BEGIN
+  main.sp_perc2.disable
+  main.vn_mvar2.enable
+END
+
+SCRIPT method2_sum
+BEGIN
+  main.sp_perc2.disable
+  main.vn_mvar2.enable
+END
+
+SCRIPT method2_rowsum
+BEGIN
+  main.sp_perc2.disable
+  main.vn_mvar2.enable
+END
+
+SCRIPT method2_count
+BEGIN
+  main.sp_perc2.disable
+  main.vn_mvar2.enable
+END
+
+SCRIPT method2_max
+BEGIN
+  main.sp_perc2.disable
+  main.vn_mvar2.enable
+END
+
+SCRIPT method2_min
+BEGIN
+  main.sp_perc2.disable
+  main.vn_mvar2.enable
+END
+
+SCRIPT method2_median
+BEGIN
+  main.sp_perc2.disable
+  main.vn_mvar2.enable
+END
+
+SCRIPT method2_iqr
+BEGIN
+  main.sp_perc2.disable
+  main.vn_mvar2.enable
+END
+
+SCRIPT method2_p
+BEGIN
+  main.sp_perc2.enable
+  main.vn_mvar2.enable
+END
+
+SCRIPT method3_none
+BEGIN
+  main.sp_perc3.disable
+  main.vn_mvar3.disable
+END
+
+SCRIPT method3_freq
+BEGIN
+  main.sp_perc3.disable
+  main.vn_mvar3.disable
+END
+
+SCRIPT method3_mean
+BEGIN
+  main.sp_perc3.disable
+  main.vn_mvar3.enable
+END
+
+SCRIPT method3_sd
+BEGIN
+  main.sp_perc3.disable
+  main.vn_mvar3.enable
+END
+
+SCRIPT method3_semean
+BEGIN
+  main.sp_perc3.disable
+  main.vn_mvar3.enable
+END
+
+SCRIPT method3_sebinomial
+BEGIN
+  main.sp_perc3.disable
+  main.vn_mvar3.enable
+END
+
+SCRIPT method3_sepoisson
+BEGIN
+  main.sp_perc3.disable
+  main.vn_mvar3.enable
+END
+
+SCRIPT method3_sum
+BEGIN
+  main.sp_perc3.disable
+  main.vn_mvar3.enable
+END
+
+SCRIPT method3_rowsum
+BEGIN
+  main.sp_perc3.disable
+  main.vn_mvar3.enable
+END
+
+SCRIPT method3_count
+BEGIN
+  main.sp_perc3.disable
+  main.vn_mvar3.enable
+END
+
+SCRIPT method3_max
+BEGIN
+  main.sp_perc3.disable
+  main.vn_mvar3.enable
+END
+
+SCRIPT method3_min
+BEGIN
+  main.sp_perc3.disable
+  main.vn_mvar3.enable
+END
+
+SCRIPT method3_median
+BEGIN
+  main.sp_perc3.disable
+  main.vn_mvar3.enable
+END
+
+SCRIPT method3_iqr
+BEGIN
+  main.sp_perc3.disable
+  main.vn_mvar3.enable
+END
+
+SCRIPT method3_p
+BEGIN
+  main.sp_perc3.enable
+  main.vn_mvar3.enable
+END
+
+SCRIPT method4_none
+BEGIN
+  main.sp_perc4.disable
+  main.vn_mvar4.disable
+END
+
+SCRIPT method4_freq
+BEGIN
+  main.sp_perc4.disable
+  main.vn_mvar4.disable
+END
+
+SCRIPT method4_mean
+BEGIN
+  main.sp_perc4.disable
+  main.vn_mvar4.enable
+END
+
+SCRIPT method4_sd
+BEGIN
+  main.sp_perc4.disable
+  main.vn_mvar4.enable
+END
+
+SCRIPT method4_semean
+BEGIN
+  main.sp_perc4.disable
+  main.vn_mvar4.enable
+END
+
+SCRIPT method4_sebinomial
+BEGIN
+  main.sp_perc4.disable
+  main.vn_mvar4.enable
+END
+
+SCRIPT method4_sepoisson
+BEGIN
+  main.sp_perc4.disable
+  main.vn_mvar4.enable
+END
+
+SCRIPT method4_sum
+BEGIN
+  main.sp_perc4.disable
+  main.vn_mvar4.enable
+END
+
+SCRIPT method4_rowsum
+BEGIN
+  main.sp_perc4.disable
+  main.vn_mvar4.enable
+END
+
+SCRIPT method4_count
+BEGIN
+  main.sp_perc4.disable
+  main.vn_mvar4.enable
+END
+
+SCRIPT method4_max
+BEGIN
+  main.sp_perc4.disable
+  main.vn_mvar4.enable
+END
+
+SCRIPT method4_min
+BEGIN
+  main.sp_perc4.disable
+  main.vn_mvar4.enable
+END
+
+SCRIPT method4_median
+BEGIN
+  main.sp_perc4.disable
+  main.vn_mvar4.enable
+END
+
+SCRIPT method4_iqr
+BEGIN
+  main.sp_perc4.disable
+  main.vn_mvar4.enable
+END
+
+SCRIPT method4_p
+BEGIN
+  main.sp_perc4.enable
+  main.vn_mvar4.enable
+END
+
+SCRIPT method5_none
+BEGIN
+  main.sp_perc5.disable
+  main.vn_mvar5.disable
+END
+
+SCRIPT method5_freq
+BEGIN
+  main.sp_perc5.disable
+  main.vn_mvar5.disable
+END
+
+SCRIPT method5_mean
+BEGIN
+  main.sp_perc5.disable
+  main.vn_mvar5.enable
+END
+
+SCRIPT method5_sd
+BEGIN
+  main.sp_perc5.disable
+  main.vn_mvar5.enable
+END
+
+SCRIPT method5_semean
+BEGIN
+  main.sp_perc5.disable
+  main.vn_mvar5.enable
+END
+
+SCRIPT method5_sebinomial
+BEGIN
+  main.sp_perc5.disable
+  main.vn_mvar5.enable
+END
+
+SCRIPT method5_sepoisson
+BEGIN
+  main.sp_perc5.disable
+  main.vn_mvar5.enable
+END
+
+SCRIPT method5_sum
+BEGIN
+  main.sp_perc5.disable
+  main.vn_mvar5.enable
+END
+
+SCRIPT method5_rowsum
+BEGIN
+  main.sp_perc5.disable
+  main.vn_mvar5.enable
+END
+
+SCRIPT method5_count
+BEGIN
+  main.sp_perc5.disable
+  main.vn_mvar5.enable
+END
+
+SCRIPT method5_max
+BEGIN
+  main.sp_perc5.disable
+  main.vn_mvar5.enable
+END
+
+SCRIPT method5_min
+BEGIN
+  main.sp_perc5.disable
+  main.vn_mvar5.enable
+END
+
+SCRIPT method5_median
+BEGIN
+  main.sp_perc5.disable
+  main.vn_mvar5.enable
+END
+
+SCRIPT method5_iqr
+BEGIN
+  main.sp_perc5.disable
+  main.vn_mvar5.enable
+END
+
+SCRIPT method5_p
+BEGIN
+  main.sp_perc5.enable
+  main.vn_mvar5.enable
+END
+
+
+LIST cont_txt
+BEGIN
+	resource LBL_NONE
+	resource LBL_FREQUENCY
+	resource LBL_MEAN
+	resource LBL_STANDARD_DEVIATION
+	resource LBL_STD_ERROR_OF_MEAN
+	resource LBL_STD_ERROR_OF_MEAN_BINOMIAL
+	resource LBL_STD_ERROR_OF_MEAN_POISSON
+	resource LBL_SUM
+	resource TABLE_RAW_SUM
+	resource LBL_COUNT_NONMISSING
+	resource LBL_MAXIMUM
+	resource LBL_MINIMUM
+	resource LBL_MEDIAN
+	resource LBL_INTERQUARTILE_RANGE
+	resource LBL_PERCENTILE
+END
+
+LIST cont_val
+BEGIN
+  ""
+  freq
+  mean
+  sd
+  semean
+  sebinomial
+  sepoisson
+  sum
+  rawsum
+  count
+  max
+  min
+  median
+  iqr
+  p
+END
+
+LIST cont_script1
+BEGIN
+  script method1_none
+  script method1_freq
+  script method1_mean
+  script method1_sd
+  script method1_semean
+  script method1_sebinomial
+  script method1_sepoisson
+  script method1_sum
+  script method1_rowsum
+  script method1_count
+  script method1_max
+  script method1_min
+  script method1_median
+  script method1_iqr
+  script method1_p
+END
+
+LIST cont_script2
+BEGIN
+  script method2_none
+  script method2_freq
+  script method2_mean
+  script method2_sd
+  script method2_semean
+  script method2_sebinomial
+  script method2_sepoisson
+  script method2_sum
+  script method2_rowsum
+  script method2_count
+  script method2_max
+  script method2_min
+  script method2_median
+  script method2_iqr
+  script method2_p
+END
+
+LIST cont_script3
+BEGIN
+  script method3_none
+  script method3_freq
+  script method3_mean
+  script method3_sd
+  script method3_semean
+  script method3_sebinomial
+  script method3_sepoisson
+  script method3_sum
+  script method3_rowsum
+  script method3_count
+  script method3_max
+  script method3_min
+  script method3_median
+  script method3_iqr
+  script method3_p
+END
+
+LIST cont_script4
+BEGIN
+  script method4_none
+  script method4_freq
+  script method4_mean
+  script method4_sd
+  script method4_semean
+  script method4_sebinomial
+  script method4_sepoisson
+  script method4_sum
+  script method4_rowsum
+  script method4_count
+  script method4_max
+  script method4_min
+  script method4_median
+  script method4_iqr
+  script method4_p
+END
+
+LIST cont_script5
+BEGIN
+  script method5_none
+  script method5_freq
+  script method5_mean
+  script method5_sd
+  script method5_semean
+  script method5_sebinomial
+  script method5_sepoisson
+  script method5_sum
+  script method5_rowsum
+  script method5_count
+  script method5_max
+  script method5_min
+  script method5_median
+  script method5_iqr
+  script method5_p
+END
+
+LIST align_txt
+BEGIN
+  resource TABLE_RIGHT
+  resource LBL_CENTER
+  resource TABLE_LEFT
+END
+
+LIST align_val
+BEGIN
+  ""
+  center
+  left
+END
+
+PROGRAM colvar_on
+BEGIN
+  call gaction main.ck_scolvar.enable
+  call gaction main.vn_colvar.enable
+  if main.ck_colvar {
+	call gaction opt.ck_csep.enable
+	call gaction opt.tx_csep.enable
+	call gaction opt.ck_col.enable
+	if opt.ck_csep {
+		call gaction opt.en_csep.enable
+	}
+  }
+  call program scolvar_on
+END
+
+PROGRAM colvar_off
+BEGIN
+  call gaction main.vn_colvar.disable
+  call gaction main.ck_scolvar.disable
+  call gaction main.vn_scolvar.disable
+  call gaction opt.ck_csep.disable
+  call gaction opt.tx_csep.disable
+  call gaction opt.ck_col.disable
+  call gaction opt.en_csep.disable
+  call program scolvar_off
+END
+
+PROGRAM scolvar_on
+BEGIN
+  if main.ck_scolvar {
+	call gaction main.vn_scolvar.enable
+	call gaction opt.ck_scsep.enable
+	call gaction opt.tx_scsep.enable
+	call gaction opt.ck_scol.enable
+	if opt.ck_scsep {
+		call gaction opt.en_scsep.enable
+	}
+  }
+END
+
+PROGRAM scolvar_off
+BEGIN
+  call gaction main.vn_scolvar.disable
+  call gaction opt.ck_scsep.disable
+  call gaction opt.tx_scsep.disable
+  call gaction opt.ck_scol.disable
+  call gaction opt.en_scsep.disable
+END
+
+PROGRAM replace_on
+BEGIN
+  call gaction opt.ck_name.enable
+  call gaction opt.tx_name.enable
+  if opt.ck_name {
+	call gaction opt.ed_name.enable
+  }
+END
+
+PROGRAM replace_off
+BEGIN
+  call gaction opt.ck_name.disable
+  call gaction opt.ed_name.disable
+  call gaction opt.tx_name.disable
+END
+
+
+
+PROGRAM command
+BEGIN
+	INCLUDE _by_pr
+	put "table "
+	varlist main.vn_rowvar
+        if main.ck_colvar {
+		varlist main.vn_colvar
+        	if main.ck_scolvar {
+			varlist main.vn_scolvar
+		}
+	}
+	INCLUDE _ifin_pr
+	INCLUDE _weights_pr
+	beginoptions
+		if (main.cb_meth1 | main.cb_meth2 | main.cb_meth3 | /*
+		*/ main.cb_meth4 | main.cb_meth5) {
+			put " contents("
+			if main.cb_meth1 {
+				put main.cb_meth1
+				if main.sp_perc1 {
+					put main.sp_perc1
+				}
+				require main.vn_mvar1
+				if main.vn_mvar1 {
+					put " " main.vn_mvar1
+				}
+				put " "
+			}
+			if main.cb_meth2 {
+				put " " main.cb_meth2
+				if main.sp_perc2 {
+					put main.sp_perc2
+				}
+				require main.vn_mvar2
+				if main.vn_mvar2 {
+					put " " main.vn_mvar2
+				}
+				put " "
+			}
+			if main.cb_meth3 {
+				put " " main.cb_meth3
+				if main.sp_perc3 {
+					put main.sp_perc3
+				}
+				require main.vn_mvar3
+				if main.vn_mvar3 {
+					put " " main.vn_mvar3
+				}
+				put " "
+			}
+			if main.cb_meth4 {
+				put " " main.cb_meth4
+				if main.sp_perc4 {
+					put main.sp_perc4
+				}
+				require main.vn_mvar4
+				if main.vn_mvar4 {
+					put " "  main.vn_mvar4
+				}
+				put " "
+			}
+			if main.cb_meth5 {
+				put " " main.cb_meth5
+				if main.sp_perc5 {
+					put main.sp_perc5
+				}
+				require main.vn_mvar5
+				if main.vn_mvar5 {
+					put " " main.vn_mvar5
+				}
+				put " "
+			}
+			put ")"
+		}
+
+		if main.ck_by {
+			require main.vl_by
+			optionarg main.vl_by    /* by(superrow) */
+		}
+		option opt.ck_cw		/* cw */
+		option opt.ck_row		/* row */
+		option opt.ck_col		/* col */
+		option opt.ck_scol		/* scol */
+		if opt.ck_format {
+			optionarg opt.ed_format	/* format(fmt) */
+		}
+		if opt.cb_alignment {
+			put " " opt.cb_alignment " "	/* center | left */
+		}
+		option opt.ck_concise		/* concise */
+		option opt.ck_missing 		/* missing */
+		option opt.ck_replace		/* replace */
+		if opt.ck_replace {
+			if opt.ck_name {
+				require opt.ed_name
+				optionarg opt.ed_name 	/* name(string) */
+			}
+		}
+		if opt.ck_cell {
+			require opt.en_cell
+			optionarg opt.en_cell	/* cellwidth(#) */
+		}
+		if opt.ck_csep {
+			require opt.en_csep
+			optionarg opt.en_csep	/* csepwidth(#) */
+		}
+		if opt.ck_scsep {
+			require opt.en_scsep
+			optionarg opt.en_scsep	/* scsepwidth(#) */
+		}
+		if opt.ck_stub {
+			require opt.en_stub
+			optionarg opt.en_stub	/* stubwidth(#) */
+		}
+	endoptions
+END

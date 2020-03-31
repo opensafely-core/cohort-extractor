@@ -1,0 +1,202 @@
+ /* _margins_contrast_at.dlg
+
+ *!  VERSION 1.1.3  30oct2019
+
+ */
+
+VERSION 14.0
+
+INCLUDE _std_small
+DEFINE _dlght 120
+DEFINE _dlgwd 525
+INCLUDE header
+HELP hlp1, view(help margins, contrast)
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING s_output
+	create STRING parent_name
+	parent_name.setvalue class PARENT._dlg_rsrcname
+	create DOUBLE is_pred
+	setscale_hadj resource _MARGINS_CONTRAST_AT_DLG_HSCALE
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	call program cb_contrast_changed_1
+END
+
+DIALOG main, title(resource _MARGINS_CONTRAST_AT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT tx_contrast		10	_top	235	.,		///
+	center								///
+	label(resource LBL_CONTRAST)
+  TEXT tx_base			255	@	80	.,		///
+	center								///
+	label(resource LBL_BASE)
+  TEXT tx_numlist		345	@	80	.,		///
+	center								///
+	label(resource LBL_NUMLIST)
+
+DEFINE x1   10
+DEFINE cx1  235
+
+DEFINE x2   255
+DEFINE cx2  85
+
+DEFINE x3   345
+DEFINE cx3  85
+
+DEFINE x4   435
+DEFINE cx4  85
+
+  COMBOBOX cb_con1		x1	_ss	cx1	.,		///
+	dropdown							///
+	onselchange(program cb_contrast_changed_1)			///
+	contents(con_list)						///
+	values(con_values)
+  COMBOBOX cb_base1		x2	@	cx2	.,		///
+	dropdown							///
+	contents(base_list)						///
+	values(base_values)
+  EDIT ed_num1			x3	@	cx3	.
+  BUTTON bu_add			x4	@	cx4	.,		///
+	onpush(program contrastAtOutput)				///
+	label(resource _MARGINS_CONTRAST_AT_MAIN_BU_ADD)
+  TEXT tx_customlist		_lft	_ls	_cwd1	.,		///
+	label(resource _MARGINS_CONTRAST_AT_MAIN_TX_CUSTOMLIST)
+  EDIT ed_customlist		@	_ss	505	.,		///
+	label(resource _MARGINS_CONTRAST_AT_MAIN_TX_CUSTOMLIST)
+END
+
+LIST base_list
+BEGIN
+	resource LBL_DEFAULT
+	resource LBL_FIRST
+	resource LBL_FREQUENT
+	resource LBL_LAST
+	resource LBL_NONE
+	0
+	1
+	2
+END
+
+LIST base_values
+BEGIN
+	""
+	first
+	frequent
+	last
+	none
+	0
+	1
+	2
+END
+
+LIST con_list
+BEGIN
+	resource _MARGINS_CONTRAST_AT_R
+	resource _MARGINS_CONTRAST_AT_A
+        resource _MARGINS_CONTRAST_AT_AR
+        resource _MARGINS_CONTRAST_AT_G
+        resource _MARGINS_CONTRAST_AT_H
+        resource _MARGINS_CONTRAST_AT_J
+        resource _MARGINS_CONTRAST_AT_P
+        resource _MARGINS_CONTRAST_AT_Q
+        resource _MARGINS_CONTRAST_AT_GW
+        resource _MARGINS_CONTRAST_AT_HW
+        resource _MARGINS_CONTRAST_AT_JW
+        resource _MARGINS_CONTRAST_AT_PW
+        resource _MARGINS_CONTRAST_AT_QW
+	resource LBL_CUSTOM
+END
+
+LIST con_values
+BEGIN
+	r
+	a
+	ar
+	g
+	h
+	j
+	p
+	q
+	gw
+	hw
+	jw
+	pw
+	qw
+	custom
+END
+
+PROGRAM cb_contrast_changed_1
+BEGIN
+	if (main.cb_con1.iseq("r"))  {
+		call main.cb_base1.enable
+		call main.ed_num1.disable
+		call main.bu_add.hide
+		call main.tx_customlist.hide
+		call main.ed_customlist.hide
+	}
+	if (main.cb_con1.iseq("custom"))  {
+		call main.cb_base1.disable
+		call main.ed_num1.enable
+		call main.bu_add.show
+		call main.tx_customlist.show
+		call main.ed_customlist.show
+	}
+	if (!main.cb_con1.iseq("r") & !main.cb_con1.iseq("custom"))  {
+		call main.cb_base1.disable
+		call main.ed_num1.disable
+		call main.bu_add.hide
+		call main.tx_customlist.hide
+		call main.ed_customlist.hide
+	}
+END
+
+PROGRAM contrastAtOutput
+BEGIN
+	if (main.ed_num1.isenabled() & !main.ed_num1.isnumlist()) {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format					///
+			"resource LBL_MSGBOX_INVALID_NUMLIST_SPECIFIED_FOR_FMT" ///
+			"resource LBL_NUMLIST"
+		stopbox stop "class _MSG_TMP.value"
+// An invalid numlist is specified for "Numlist".
+	}
+
+	call s_output.setvalue ""
+	call s_output.append "{_at "
+	call s_output.append class main.ed_num1.value
+	call s_output.append  "}"
+	call s_output.withvalue main.ed_customlist.smartinsert "@"
+END
+
+PROGRAM command
+BEGIN
+	if (main.cb_con1.iseq("custom"))  {
+		put main.ed_customlist
+	}
+	else {
+		if (main.cb_con1 & main.cb_con1.isenabled()) {
+			put main.cb_con1
+		}
+		if main.cb_base1 & main.cb_base1.isenabled() {
+			put "b("
+			put main.cb_base1
+			put ")"
+		}
+		call parent_name.withvalue is_pred.setvalue 		///
+			class @.is_pred.value
+
+		if is_pred {
+			put "._predict"
+		}
+		else {
+			put "._at"
+
+		}
+	}
+END
+

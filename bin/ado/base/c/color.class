@@ -1,0 +1,1021 @@
+/*                              color
+
+	Class for storing and managing colors
+
+	Note that .setting, but not .stylename and .snm returns a string
+	containing the rgb values, rather than the name.
+*/
+*! version 1.1.0  04nov2019
+
+version 8
+
+class {
+
+    instance:
+	rgb = "255 255 255"
+	opacity = 100
+	_type = .gditype.new, set(line)
+
+} , inherit(style)
+
+
+/* -------------------------------------------------------------------------*/
+/*
+	Usage:  .new [, style(name) rgb(#_r #_g #_b) hsb(#_hue #_sat #_bright) 	
+			color(clr_name) rgbhex(hexstring) type(line|...)
+			rgba(#_r #_g #_b #_a)] 
+
+	note, color(clr_name) is just a synonym for .setstyle.
+*/
+
+program define new
+
+	syntax [ , Style(passthru) * ]
+
+	if `"`options'"' != `""' {
+		.set , `options'
+	}
+
+	if `"`style'"' != "" {
+		.Super.new , `style'
+	}
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*
+	Usage:  just like .new
+*/
+program set
+
+	syntax [ , Color(string) HSB(numlist min=3 max=3) 		///
+		   HSV(numlist min=3 max=3)				///
+		   RGB(numlist integer min=3 max=3 >=0 <=255)		///
+		   CMYK(numlist integer min=4 max=4 >=0 <=255)		///
+		   RGBHex(string) Style(string) Type(string)		///
+		   RGBA(numlist integer min=4 max=4 >=0 <=255)]
+
+	if "`type'" != "" { 
+		._type.set `type' 
+	}
+
+	if "`rgb'" != "" {
+		.rgb = "`rgb'"
+		exit
+	}
+
+	if "`hsb'" != "" {
+		.sethsb `hsb'
+		exit
+	}
+
+	if "`hsv'" != "" {
+		.sethsb `hsv'
+		exit
+	}
+
+	if "`cmyk'" != "" {
+		.setcmyk `cmyk'
+		exit
+	}
+
+	if "`color'" != "" {
+		.setstyle , style(`color')
+		exit
+	}
+
+	if "`style'" != "" {
+		.setstyle , style(`style')
+		exit
+	}
+
+	if "`rgbhex'" != "" {
+		.setrgbhex "`rgbhex'"
+		exit
+	}
+
+	if "`rgba'" != "" {
+		.setrgba "`rgba'"
+		exit
+	}	
+end
+
+
+/* -------------------------------------------------------------------------*/
+/* Allow a series of 3 numbers (#_red, #_green, #_blue) in place 
+   of a stylename to mean "set the rgb value of the current style to these
+   values.  4 numbers imply CMYK. "hsb" or "hsv" followed by 3 numbers imply
+   hue, saturation, value encoding.
+
+   Usage:  .a.b.setstyle, style(#|stylename|scheme)
+
+*/
+program setstyle
+							// accept RGB numbers
+	capture syntax , Style(numlist min=3 max=3 integer >=0 <=255)	
+	if ! _rc {
+		.remake_as_copy
+		.rgb = "`style'"
+		exit
+	}
+							// accept CMYK numbers
+	capture syntax , Style(numlist min=4 max=4 >=0 <=255)	
+	if ! _rc {
+		.remake_as_copy
+		capture .setcmyk `style'
+		if (! _rc)  exit
+	}
+
+	syntax  [ , Style(string) ]	
+
+							// accept HSV numbers
+	gettoken type rest : style
+	if inlist("`type'", "hsv", "hsb", "HSV", "HSB") {
+		capture numlist "`rest'", min(3) max(3)
+		if ! _rc {
+			.remake_as_copy
+			capture .sethsb `rest'
+			if (! _rc)  exit
+		}
+	}
+						// Allow scheme to set value
+
+	local scheme_setting `.`c(curscm)'.style `.classname' `style''	
+	capture numlist "`scheme_setting'", min(3) max(3) integer	///
+		range(>=0 <=255)
+	if ! _rc {						// RGB
+		local rgb `r(numlist)'
+		.remake_as_copy
+		.rgb = `"`rgb'"'
+		exit						// Exit
+	}
+	capture numlist "`scheme_setting'", min(4) max(4) range(>=0 <=255)
+	if ! _rc {						// CMYK
+		local cmyk `r(numlist)'
+		.remake_as_copy
+		capture .setcmyk `r(numlist)'
+		if (! _rc) exit					// Exit
+	}
+							// accept HSV numbers
+	gettoken type rest : scheme_setting
+	if inlist("`type'", "hsv", "hsb", "HSV", "HSB") {
+		capture numlist "`rest'", min(3) max(3)
+		if ! _rc {
+			.remake_as_copy
+			capture .sethsb `rest'
+			if (! _rc)  exit
+		}
+	}
+							
+						// allow +/- for intensity
+	gettoken op num : style , parse("+-")
+	if "`op'" == "+" | "`op'" == "-" {
+		capture confirm number `num'
+		if !_rc {
+			.remake_as_copy			// OK to run twice
+			foreach v in `.rgb' {
+			 	local v = round(`v' * (1 `op' `num'/100), 1)
+				local v = max(0, min(255, int(`v')))
+				local rgb `rgb' `v'
+			}
+			.rgb = "`rgb'"
+			exit					// Exit
+		}
+	}
+
+							// *<#_inten>
+	gettoken op inten : style , parse("*% ")
+	capture confirm number `inten'	
+	if !_rc {
+		if `"`op'"' == `"*"' {
+			/* intensity only */
+			.remake_as_copy
+			.setintensity `inten'
+			exit						// Exit
+		}
+
+		if `"`op'"' == `"%"' {
+			/* opacity only */
+			.remake_as_copy
+			.setopacity `inten'
+			exit						// Exit
+		}
+	}
+	else {
+		/*both in the form *<#>%<#> or %<#>*<#> */ 
+		if `"`op'"' == `"*"' {
+			gettoken numinten rest : inten, parse("%")
+			gettoken op1 numopaci : rest ,  parse("% ")
+		}
+		else if `"`op'"' == `"%"' {
+			gettoken numopaci rest : inten, parse("*")
+			gettoken op2 numinten : rest ,  parse("* ")
+		}
+	
+		capture confirm number `numinten'
+		if !_rc {
+			capture confirm number `numopaci'
+			if !_rc {
+				.remake_as_copy
+				.setintensity `numinten'
+				.setopacity `numopaci'
+				exit				// Exit
+			}
+		}
+		
+	}
+	
+					// <style/scheme style/r g b>*<#_inten>	
+					// <style/scheme style/r g b>%<#>
+					// <style/scheme style/r g b>*<#>%<#>
+					// <style/scheme style/r g b>%<#>*<#>
+	gettoken prestyle rest : style , parse("*%")
+	gettoken op inten      : rest ,  parse("*% ")
+	capture confirm number `inten'	
+	if !_rc {
+		if `"`op'"' == `"*"' {
+			/* intensity only */
+			.setstyle , style(`prestyle')		// recurse
+			capture numlist "`prestyle'", min(3) max(3) integer
+			if (_rc) .remake_as_copy
+			.setintensity `inten'
+			exit						// Exit
+		}
+
+		if `"`op'"' == `"%"' {
+			/* opacity only */
+			.setstyle , style(`prestyle')		// recurse
+			capture numlist "`prestyle'", min(3) max(3) integer
+			if (_rc) .remake_as_copy
+			.setopacity `inten'
+			exit						// Exit
+		}
+	}
+	else {
+		/*both in the form *<#>%<#> or %<#>*<#> */ 
+		if `"`op'"' == `"*"' {
+			gettoken numinten rest : inten, parse("%")
+			gettoken op1 numopaci : rest ,  parse("% ")
+		}
+		else if `"`op'"' == `"%"' {
+			gettoken numopaci rest : inten, parse("*")
+			gettoken op2 numinten : rest ,  parse("* ")
+		}
+
+		capture confirm number `numinten'
+		if !_rc {
+			capture confirm number `numopaci'
+			if !_rc {
+				.setstyle , style(`prestyle')	// recurse
+				capture numlist "`prestyle'", min(3) max(3) integer
+				if (_rc) .remake_as_copy
+
+				.setintensity `numinten'
+				.setopacity `numopaci'
+				exit				// Exit
+			}
+		}
+		
+	}
+
+	gettoken prestyle rest : scheme_setting , parse("*%")
+	gettoken op inten      : rest ,  parse("*% ")
+	capture confirm number `inten'	
+	if !_rc {
+		if `"`op'"' == `"*"' {
+			/* intensity only */
+			.setstyle , style(`prestyle')		// recurse
+			capture numlist "`prestyle'", min(3) max(3) integer
+			if (_rc) .remake_as_copy
+			.setintensity `inten'
+			exit						// Exit
+		}
+
+		if `"`op'"' == `"%"' {
+			/* opacity only */
+			.setstyle , style(`prestyle')		// recurse
+			capture numlist "`prestyle'", min(3) max(3) integer
+			if (_rc) .remake_as_copy
+			.setopacity `inten'
+			exit						// Exit
+		}
+	}
+	else {
+		/*both in the form *<#>%<#> or %<#>*<#> */ 
+		if `"`op'"' == `"*"' {
+			gettoken numinten rest : inten, parse("%")
+			gettoken op1 numopaci : rest ,  parse("% ")
+		}	
+		else if `"`op'"' == `"%"' {
+			gettoken numopaci rest : inten, parse("*")
+			gettoken op2 numinten : rest ,  parse("* ")
+		}
+
+		capture confirm number `numinten'
+		if !_rc {
+			capture confirm number `numopaci'
+			if !_rc {
+				.setstyle , style(`prestyle')	// recurse
+				capture numlist "`prestyle'", min(3) max(3) integer
+				if (_rc) .remake_as_copy
+
+				.setintensity `numinten'
+				.setopacity `numopaci'
+				exit				// Exit
+			}
+		}
+		
+	}
+	
+	.Super.setstyle, style(`scheme_setting')     // let parent handle this
+end
+
+
+// ---------------------------------------------------------------------------
+//  Take over .setting and a string containing the RGB values rather than 
+//  the current stylename.
+//
+//	Usage:  .setting
+//
+//	Returns the current value of .rgb
+
+
+program setting
+	class exit "`.rgb'"
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*
+	Usage:  .setrgb #_r #_g #_b
+*/
+program define setrgb
+
+	numlist "`0'", integer min(3) max(3) range(>=0 <=255)
+	.rgb = "`r(numlist)'"
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*
+	Usage:  .sethsb #_r #_g #_b
+*/
+program define sethsb
+
+	numlist "`0'", min(3) max(3)
+
+	tokenize `0'
+	args h s v
+	
+	numlist `s', range(>=0 <=1)
+	numlist `v', range(>=0 <=1)
+
+	local h = mod(`h', 360)
+
+	._hsv2rgb `h' `s' `v'
+end
+
+
+
+/* -------------------------------------------------------------------------*/
+/*
+	Usage:  .setcmyk #_c #_m #_y #_k
+*/
+
+program define setcmyk
+	numlist "`0'", min(4) max(4) range(>=0 <=255)
+
+	local 0 `r(numlist)'
+	args c m y k
+
+	if `c' >= 0 & `c' <= 1 {
+		if `m' >= 0 & `m' <= 1 {
+			if `y' >= 0 & `y' <= 1 {
+				if `k' >= 0 & `k' <= 1 {
+					local c = int(`c' * 255)
+					local m = int(`m' * 255)
+					local y = int(`y' * 255)
+					local k = int(`k' * 255)
+				}
+			}
+		}
+	}
+
+							// check integer
+	numlist "`c' `m' `y' `k'", integer min(4) max(4) range(>=0 <=255)	
+
+	local r = cond(`c'+`k' < 255, 255 - (`c'+`k'), 0)
+	local g = cond(`m'+`k' < 255, 255 - (`m'+`k'), 0)
+	local b = cond(`y'+`k' < 255, 255 - (`y'+`k'), 0)
+
+	.rgb = "`r' `g' `b'"
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*
+	Usage:  .sethue [{+|-|*}]#_hue
+*/
+program define sethue
+
+	._rgb2hsv h s v
+
+	gettoken op chg : 0 , parse(" +-")
+
+	if "`op'" == "+" | "`op'" == "-" | "`op'" == "*" {
+		local h = `h' `op' `chg'
+	}
+	else	local h `0'
+	
+	local h = mod(`h', 360)
+
+	._hsv2rgb `h' `s' `v'
+
+
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*
+	Usage:  .setsat [{+|-|*}]#_saturation
+*/
+program define setsat
+
+	._rgb2hsv h s v
+
+	gettoken op chg : 0 , parse(" +-")
+
+	if "`op'" != "+" & "`op'" != "-" & "`op'" != "*" {
+		local s = min(1, max(0, `op'))
+	}
+	else {
+		local s = min(1, max(0, `s' `op' `chg'))
+	}
+
+	._hsv2rgb `h' `s' `v'
+
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*
+	Usage:  .setbright [{+|-|*}]#_brightness
+*/
+program define setbright
+
+	._rgb2hsv h s v
+
+	gettoken op chg : 0 , parse(" +-")
+
+	if "`op'" != "+" & "`op'" != "-" & "`op'" != "*" {
+		local v = min(1, max(0, `op'))
+	}
+	else {
+		local v = min(1, max(0, `v' `op' `chg'))
+	}
+
+	._hsv2rgb `h' `s' `v'
+end
+
+program define setvalue
+	.setbright `0'
+end
+
+// ---------------------------------------------------------------------------
+//  Return hue
+
+program hue
+	._rgb2hsv h s v
+	class exit = `h'
+end
+
+// ---------------------------------------------------------------------------
+//  Return HSB/HSV
+
+program hsv
+	._rgb2hsv h s v
+	class exit "`h' `s' `v'"
+end
+
+program hsb
+	._hsv
+end
+
+/* -------------------------------------------------------------------------*/
+/*
+	Usage:  .setrgbhex hex_string
+
+	where hex_string is of the form FFCC80, that is to say the
+	same type of color setting that HTML accepts.
+*/
+program define setrgbhex
+
+	forvalues i = 1(2)5 {
+		local s = bsubstr("`1'", `i', 2)
+		qui inten 16 `s'
+		local rgb `rgb' `r(ten)'
+	}
+
+	.setrgb `rgb'
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*
+	Usage:  .setcolor color_name
+
+	Sets the color using a color name.
+	Here just for backward compatibility.
+
+*/
+program define setcolor
+
+	local i `.colors.codeof "`1'"'
+	if `i' != 0 {
+		.setrgbhex `.cvals[`i']'
+	}
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*
+	Usage .setintensity #
+	
+	# is 0-25500
+
+	Maintains the ratio of each R,G,B and never sets any of the values
+	below 1 or above 255
+*/
+
+program setintensity100
+	args int
+
+	.setintensity `=`int'/100'
+end
+
+program setintensity0
+	args fint
+
+	confirm number `fint'
+
+	if `fint' == 1 {
+		exit
+	}
+
+	tokenize `.rgb'
+	args r g b
+
+	if `fint' > 1 {
+		local max = max(`r', `g', `b')
+		if `=round(`fint'*`max', 1)' > 255 {
+			local fint = 255 / `max'
+		}
+
+		local r = min(round(`r' * `fint', 1) , 255)
+		local g = min(round(`g' * `fint', 1) , 255)
+		local b = min(round(`b' * `fint', 1) , 255)
+	}
+	else {
+		local min = min(`r', `g', `b')
+		if `min' == 0 {
+			local min = min(`r', `g')
+		}
+		if `min' == 0 {
+			local min = min(`r', `b')
+		}
+		if `min' == 0 {
+			local min = min(`g', `b')
+		}
+		if `min' == 0 {
+			local min = max(`r', `g', `b')
+		}
+		if `=round(`fint'*`min', 1)' < 1 {
+			local fint = 1 / `min'
+		}
+		else {
+			local fint = round(`fint'*`min', 1) / `min'
+		}
+
+		local r = max(round(`r' * `fint', 1) , 0)
+		local g = max(round(`g' * `fint', 1) , 0)
+		local b = max(round(`b' * `fint', 1) , 0)
+	}
+
+	.rgb = "`r' `g' `b'"
+end
+
+program setintensity
+	args fint
+
+	if 0`.`c(curscm)'.system.naturally_white' {
+		colormult_nw `.rgb' `fint'
+	}
+	else {
+		colormult_nb `.rgb' `fint'
+	}
+
+	.rgb = "`r(color)'"
+end
+
+
+/* -------------------------------------------------------------------------*/
+/* 
+	Set this color to the appropriate GDI color registers
+*/
+
+program define setgdi
+
+	syntax [, Line Text Shade Background Foreground ]
+	local toset `line'`text'`shade'`background'`foreground'
+	if "`toset'" == "" { 
+		local toset `._type.setting' 
+	}
+
+	if "`.stylename'" == "none" { 
+		if ("`toset'" == "shade" | "`toset'" == "foreground" |	///
+		    "`toset'" == "background")  gdi shadepattern = none
+		else if ("`toset'" == "line")   gdi linedash = 0
+		gdi `toset'opacity = 0
+		gdi `toset'rgb = `.rgb'
+		exit 
+	}
+
+	if ("`toset'" == "shade" | "`toset'" == "line" | "`toset'" == "text") {	
+		gdi `toset'opacity = `.opacity'	
+	}
+	
+	if "`toset'" != "foreground" {		/* typical case */
+		gdi linedash =					// just in case
+		gdi `toset'rgb = `.rgb'
+		exit
+	}
+
+						/* set all but those
+						 * containing "ground" */
+	forvalues i = 0/`._type.codes.arrnels' {
+		if index("`_type.codes[`i']'", "ground") == 0) {
+			gdi `_type.codes[`i']'rgb = `.rgb'
+		}
+	}
+end
+
+
+/* -------------------------------------------------------------------------*/
+/* 
+	Set this color to the appropriate GDI color register and reset the pen
+*/
+
+program define setgdifull
+
+	syntax [, Line Text Shade Background Foreground ]
+
+	.setgdi `0'
+
+	local toset `line'`text'`shade'`background'`foreground'
+	if "`toset'" == "" { 
+		local toset `._type.setting' 
+	}
+
+	if "`toset'" == "line" | "`toset'" == "foreground" { 
+		gdi penchange 
+	}
+	if "`toset'" == "shade" | "`toset'" == "foreground" { 
+		gdi shadechange
+	}
+	if "`toset'" == "text" | "`toset'" == "foreground" { 
+		gdi textchange
+	}
+end
+
+
+
+
+/* -------------------------------------------------------------------------*/
+
+program define add_colorname
+
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*   Usage:  _rgb2hsv h_mac s_mac v_mac :				*/
+
+program define _rgb2hsv
+
+	args hmac smac vmac colon
+
+	tokenize `.rgb'
+	args r g b
+	local r = 0`r' / 255
+	local g = 0`g' / 255
+	local b = 0`b' / 255
+
+	local max = max(`r', `g', `b')
+	local min = min(`r', `g', `b')
+
+	local v = `max'
+	local s = (`max' - `min') / `max'
+
+	local dif = `max' - `min'
+	if `s' != 0  {
+		if `r' == `max' { 
+			local h =     (`g' - `b') / `dif' 
+		}
+		if `g' == `max' { 
+			local h = 2 + (`b' - `r') / `dif' 
+		}
+		if `b' == `max' { 
+			local h = 4 + (`r' - `g') / `dif' 
+		}
+
+		local h = `h' * 60
+		if `h' < 0 { 
+			local h = `h' + 360 
+		}
+	}
+	else	local h = .
+
+	c_local `hmac' = `h'
+	c_local `smac' = `s'
+	c_local `vmac' = string(`v', "%6.2f")
+
+end
+
+program define _hsv2rgb
+	args h s v
+
+	if `s' == 0 & `h' == . {
+		local r = int(`v' * 255)
+		local g = int(`v' * 255)
+		local b = int(`v' * 255)
+
+		.rgb = "`r' `g' `b'" 
+		exit						/* EXIT */
+	}
+
+	if `h' == 360 { 
+		local h = 0 
+	}
+
+	local h = `h' / 60
+	local i = int(`h')
+	local f = `h' - `i'
+	local p = `v' * (1 - `s')
+	local q = `v' * (1 - (`s' * `f'))
+	local t = `v' * (1 - (`s' * (1 - `f')))
+
+	if `i' == 0 {
+		local r = int(`v' * 255)
+		local g = int(`t' * 255)
+		local b = int(`p' * 255)
+	}
+	if `i' == 1 {
+		local r = int(`q' * 255)
+		local g = int(`v' * 255)
+		local b = int(`p' * 255)
+	}
+	if `i' == 2 {
+		local r = int(`p' * 255)
+		local g = int(`v' * 255)
+		local b = int(`t' * 255)
+	}
+	if `i' == 3 {
+		local r = int(`p' * 255)
+		local g = int(`q' * 255)
+		local b = int(`v' * 255)
+	}
+	if `i' == 4 {
+		local r = int(`t' * 255)
+		local g = int(`p' * 255)
+		local b = int(`v' * 255)
+	}
+	if `i' == 5 {
+		local r = int(`v' * 255)
+		local g = int(`p' * 255)
+		local b = int(`q' * 255)
+	}
+
+	.rgb = "`r' `g' `b'" 
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*
+	Places and manages dialog box for color.
+
+	Interacts with globals and subprograms in object.cls
+*/
+
+program define dialog_box
+
+	.popifcontains .dialog_box
+
+	syntax [, All Classmv Instancemv Dynamicmv Redraw Apply Name(string) ]
+
+	if "`all'`class'" != "" {
+		.Super.dialog_box `0'
+		exit
+	}
+
+	global T_Name `name'				/* just easier */
+	global T_SubNm `._restname'
+	global T_TopNm `._topname $T_Name'
+
+	global T_is_style = 1
+	if ! 0`.hasstyles' {
+		._populate_stylenames
+	}
+
+	local ctrlsize	`.dbstyle.ctrlsize'		/* control sizes */
+	local txtsize	`.dbstyle.txtsize'
+	local ysize	`.dbstyle.ysize'
+
+	local x0   = 3 * `.dbstyle.xgap'
+	local y    = 0
+	local xtxt = `x0' + `ctrlsize' + `.dbstyle.xgap'
+
+						/* place own style editor */
+	global T_percol 0
+	._place_controls_from x y ymax : ownstyle `x0' `y' 1000 `offset'
+	local y = `y' + `ysize' + 3 * `.dbstyle.yspace'
+
+	tokenize `.rgb'					/* fetch rgb and v */
+	args Red Green Blue
+	._rgb2hsv unused unused hsv_val
+	local hsv_val = 100 * `hsv_val'
+
+	global T_txt_rgb RGB values
+	window control static T_txt_rgb `=`.dbstyle.xgap'' `y'	 	/*
+		*/ `=`xtxt'+`txtsize'+`.dbstyle.xgap''			/*
+		*/ `=`y'+1*`ysize'+2*`.dbstyle.yspace'' blackframe
+	window control static T_txt_rgb `=`x'+3*`.dbstyle.xgap'' 	/*
+		*/ `=int(`y'-`ysize'/3)' `txtsize' 			/*
+		*/ `ysize'
+
+	local y = `y' + 2*`.dbstyle.yspace'
+
+
+							/* place controls */
+	foreach color in Red Green Blue {
+		global T_txt_`color' `color'
+		window control static T_txt_`color' `xtxt' `y' `txtsize' `ysize'
+		global T_v_`color'  ``color''
+		global T_hv_`color' ``color''
+		window control edit `x0' `y' `ctrlsize' `ysize' T_v_`color'
+		local y = `y' + `ysize' + `.dbstyle.yspace'
+	}
+
+	local y = `y' + `ysize' + `.dbstyle.yspace'
+
+	global T_txt_intensity Intensity
+	window control static T_txt_intensity `xtxt' `y' `txtsize' `ysize'
+	global T_v_intensity  `hsv_val'
+	global T_hv_intensity `hsv_val'
+	window control edit `x0' `y' `ctrlsize' `ysize' T_v_intensity
+
+
+							/* OK, cancel, apply */
+	local y = `y' + 2*`.dbstyle.yspace'
+	if "`apply'" != "" { 
+		global T_curobj `.objkey' 
+	}
+	._place_ok_cancel y : `.dbstyle.xspace' `y' "`apply'"	/* object.cls */
+
+							/* show the db */
+	local xsz = `xtxt' + `txtsize' + 3 * `.dbstyle.xgap' + 15
+	local ysz = `y' + `ysize' + 2 * `.dbstyle.yspace'
+	capture noisily window dialog "color" . . `xsz' `ysz'
+	local rc = _rc
+
+	/* --------------- process the results -------------------------- */
+
+
+	if `rc' == 3098 {			/* canceled */
+						/* possibly reset and redraw */
+		local rgb_was "`.rgb'"
+		.rgb = "${T_hv_Red} ${T_hv_Green} ${T_hv_Blue}"
+		if "$T_drawobj" != "" & "`.rgb'" != "`rgb_was'" { 
+			.${T_drawobj}.drawgraph 
+			global T_changed 0
+		}
+		._style_cleanup
+		exit 
+	}
+
+	._post_all
+
+	if "$T_drawobj" != "" & $T_changed { 
+		.${T_drawobj}.drawgraph 
+		global T_changed 0
+	}
+					/* run a sub-view dialog box if
+					 * requested */
+	local xpnd = `rc'-3000-$T_is_style
+
+	if `xpnd' == 0 & $T_is_style {
+		._copy_style_db
+	}
+
+	._style_cleanup
+end
+
+
+/* -------------------------------------------------------------------------*/
+
+program define _post_all
+
+	if ! `._set_changed' {
+		exit
+	}
+
+	._post_style			/* handle edits to own style, etc */
+
+	if ! 0$T_changed_p1 {
+		exit
+	}
+
+	foreach color in Red Green Blue {
+		if 0${T_v_`color'} != ${T_hv_`color'} {
+			local rgb_chg 1
+			global T_v_`color' = max(0, min(255, ${T_v_`color'}))
+		}
+	}
+
+	if 0`rgb_chg' { 
+		.setrgb $T_v_Red $T_v_Green $T_v_Blue
+		_gm_log $T_Name.setrgb $T_v_Red $T_v_Green $T_v_Blue
+	}
+
+	if 0$T_v_intensity != $T_hv_intensity {
+		global T_v_intensity = max(0, min(100, $T_v_intensity))
+		.setvalue $T_v_intensity
+		_gm_log $T_Name.setvalue $T_v_intensity
+	}
+end
+
+/*  Needed because color dialog box uses names rather than numbers
+    for the globals holdin the control results.
+*/
+program define _set_changed
+	global T_changed    0
+	global T_changed_p1 0
+
+	if `"${T_v1}"' != `"${T_hv1}"' { 
+		global T_changed 1
+	}
+
+	foreach j in Red Green Blue intensity {
+		if ${T_v_`j'} != ${T_hv_`j'} { 
+			global T_changed 1
+			global T_changed_p1 1
+			continue, break
+		}
+	}
+
+	class exit = $T_changed
+end
+
+
+
+// ---------------------------------------------------------------------------
+program _unabbrev
+
+	local 0 `", `0'"'
+	syntax [ , FG BG FOREGROUND BACKGROUND * ]
+
+	local opt `fg' `bg' `foreground' `background'
+
+	if "`opt'" == "" {
+		class exit `"`options'"'
+	}
+
+	if "`fg'`foreground'" != "" {
+	      class exit `"`.`c(curscm)'.style `.classname' scheme foreground'"'
+	}
+	class exit `"`.`c(curscm)'.style `.classname' scheme background'"'
+
+end
+
+program define setopacity
+	args a
+
+	.opacity = `a'
+end
+
+/* -------------------------------------------------------------------------*/
+/*
+	Usage:  .setrgba r g b a 
+
+	a must be between 0 - 100	
+*/
+program define setrgba
+	args r g b a
+
+	local alpha = `a'
+	if `a' < 0 || `a' > 100 {
+		local alpha = 100		
+	}
+	.rgb = "`r' `g' `b'" 
+	.setopacity `alpha'
+end
+

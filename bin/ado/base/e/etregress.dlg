@@ -1,0 +1,339 @@
+/*
+  etregress
+
+*!  VERSION 1.3.2  05feb2019
+
+  keyword:  eclass
+
+*/
+
+VERSION 15.0
+
+INCLUDE _std_large
+DEFINE _dlght 340
+INCLUDE header
+
+HELP hlp1, view("help etregress")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	program svy_check_title
+	script se_createAsSvyJknifeBstrapML
+	setscale_hadj resource ETREGRESS_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script sub_set_by_on
+	program se_setFinalInitState
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	if __MESSAGE.contains("-ml-") {
+		call main.rb_ml.seton
+	}
+	if __MESSAGE.contains("-2step-") {
+		call main.rb_2step.seton
+	}
+	if __MESSAGE.contains("-cfunc-") {
+		call main.rb_cfunc.seton
+	}
+END
+
+SCRIPT svy_is_on
+BEGIN
+	rpt.ck_first.disable
+	rpt.ck_lrmodel.disable
+	rpt.ck_hazard.disable
+	rpt.ed_hazard.disable
+END
+SCRIPT svy_is_off
+BEGIN
+	rpt.ck_first.enable
+	rpt.ck_lrmodel.enable
+	rpt.ck_hazard.enable
+	program rpt_ed_hazard
+	script max_enable
+END
+
+PROGRAM svy_check_title
+BEGIN
+	if __MESSAGE.contains("-svy-") {
+		call settitle resource ETREGRESS_SVY_DLG_TITLE
+	}
+END
+
+SCRIPT main_PREINIT
+BEGIN
+	script _constraints_main_setOptionalOn
+END
+
+DIALOG main, 								///
+	title(resource ETREGRESS_DLG_TITLE) /* has svy title */	///
+	tabtitle(resource LBL_TAB_MODEL)
+BEGIN
+  
+  GROUPBOX gb_est	_lft	_top	_iwd	_ht5h,			///
+  	label(resource LBL_ESTIMATOR)
+  RADIO rb_ml		_ilft	_ss	_inwd	., first		///
+  	onclickon(script main_ml_on)					///
+  	label(resource LBL_MAXIMUM_LIKELIHOOD_ESTIMATES)
+  RADIO	rb_2step	@	_ss	@	.,			///
+  	option(twostep)							///
+  	onclickon(script main_twostep_on)				///
+  	label(resource ETREGRESS_MAIN_RB_2STEP)
+  RADIO	rb_cfunc	@	_ss	@	., last			///
+  	option(cfunction)						///
+  	onclickon(script main_cfunction_on)				///
+  	label(resource ETREGRESS_MAIN_RB_CFUNC)
+  
+  TEXT tx_dv 		_lft	+45	_vnwd	.,			///
+	label(resource LBL_DEPVAR)
+  DEFINE holdy @y
+  VARNAME vn_dv		@ 	_ss	@	.,			///
+	ts								///
+	numeric								///
+	label(resource LBL_DEPVAR)
+
+  TEXT tx_iv		_vlx	holdy	160	.,			///
+	label(resource LBL_INDDEPVAR)
+  VARLIST vl_iv		@	_ss	_vlwd	.,			///
+	fv ts								///
+	allowcat							///
+	numeric								///
+	label(resource LBL_INDDEPVAR)
+
+  CHECKBOX ck_nocons @         _ms       @         .,			///
+  	option("noconstant")						///
+	label(resource LBL_NOCONSTANT)										
+
+  TEXT     tx_tdv    _lft      _ls       _vnwd     .,			///
+	label(resource LBL_TREATMENT_VARIABLE)	
+	
+  DEFINE y @y
+  VARNAME  vn_tdv    @         _ss       @         .,			///
+  	numeric	ts							///
+	label(resource LBL_TREATMENT_VARIABLE) 			
+		
+  TEXT     tx_tiv    _vlx      y         _vlwd     .,			///
+	label(resource LBL_TREATMENT_INDEPENDENT_VARIABLES)		
+	
+  VARLIST  vl_tiv    @         _ss       @         .,			///
+  	allowcat ts fv							///
+  	numeric								///
+	label(resource LBL_TREATMENT_INDEPENDENT_VARIABLES)
+	
+  CHECKBOX ck_tnocon @         _ms       @         .,			///
+  	option("noconstant")						///
+	label(resource LBL_SUPPRESS_TREATMENT_CONSTANT_TERM)	
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _lw80
+  DEFINE _bux _slw80
+  INCLUDE _constraints
+
+  DEFINE _x _lft
+  DEFINE _xw _iwd
+//  INCLUDE _ck_collinear
+
+  CHECKBOX ck_poutcomes		_lft	-50	_iwd	.,		///
+	option("poutcomes")						///
+	label(resource ETREGRESS_MAIN_CK_POUTCOMES)
+END
+
+SCRIPT main_ml_on
+BEGIN
+	main.tx_constr.show
+	main.cb_constr.show
+	main.bu_constr.show
+//	main.ck_collinear.show
+	main.ck_poutcomes.hide
+	script weights_setLayout_fpai
+	script weights_enable
+	script max_enable
+	script se_setTitleSeRobust
+	script se_switchToSvyJknifeBstrapML_et
+	script rpt_show
+	rpt.ck_lrmodel.enable
+	rpt.ck_nocnsreport.enable
+END
+
+SCRIPT main_twostep_on
+BEGIN
+	main.tx_constr.hide
+	main.cb_constr.hide
+	main.bu_constr.hide
+//	main.ck_collinear.hide
+	main.ck_poutcomes.hide
+	program weights_disable_fromSE
+	script max_disable
+	script se_setTitleSE
+	script se_switchToConventJknifeBstrap
+
+	rpt.ck_lrmodel.disable
+	rpt.ck_nocnsreport.disable
+	rpt.rb_report_columns_dflt.show
+	rpt.rb_report_columns_noci.show
+	rpt.rb_report_columns_nopv.show
+END
+
+SCRIPT main_cfunction_on
+BEGIN
+	main.tx_constr.hide
+	main.cb_constr.hide
+	main.bu_constr.hide
+//	main.ck_collinear.hide
+	main.ck_poutcomes.show
+	script weights_setLayout_fpai
+	script weights_enable
+	script max_enable
+	script max_technique_disable
+	script max_for_etregress_disable
+	max.ck_diff.disable
+	script se_setTitleSeRobust
+	script se_switchToJknifeBstrapRobust
+	script se_setDefaultRobust
+	script rpt_show
+	rpt.ck_lrmodel.disable
+	rpt.ck_nocnsreport.disable
+END
+
+INCLUDE _constraints_sc 
+INCLUDE sub_by_ifin_over_subpop
+INCLUDE weights
+INCLUDE se
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+        program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  CHECKBOX ck_first  _lft	_ls	_cwd1     .,			///
+  	option("first")							///
+	label(resource LBL_REPORT_FIRST_STEP_PROBIT_ESTIMATES)	
+	
+  CHECKBOX ck_hazard _lft       _ms	_iwd      .,			///
+  	onclickon(program rpt_ed_hazard)				///
+  	onclickoff(program rpt_ed_hazard)				///
+  	label(resource ETREGRESS_RPT_CK_HAZARD)
+	
+  EDIT     ed_hazard  25        _ms	_vnwd     .,			///
+  	max(32)								///
+  	option("hazard")						///
+	label(resource ETREGRESS_RPT_CK_HAZARD)		
+  	
+  CHECKBOX ck_lrmodel _lft     	_ms	_iwd      .,			///
+  	option("lrmodel")						///
+  	onclickon(script se_setRobust_off)				///
+  	onclickoff(script se_setRobust_on)				///
+	label(resource LBL_PERFORM_LIKELIHOOD_RATIO_MODEL_TEST_LRMODEL)	
+
+  DEFINE _x _lft
+  DEFINE _y _ms
+  DEFINE _cx _iwd
+  INCLUDE _nocnsreport
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+END
+
+SCRIPT rpt_show
+BEGIN
+	rpt.ck_lrmodel.show
+	rpt.ck_nocnsreport.show
+	rpt.rb_report_columns_dflt.show
+	rpt.rb_report_columns_noci.show
+	rpt.rb_report_columns_nopv.show
+END
+
+PROGRAM rpt_ed_hazard 
+BEGIN
+	if rpt.ck_hazard {
+		call rpt.ed_hazard.enable
+	}
+	if !rpt.ck_hazard {
+		call rpt.ed_hazard.disable
+	}
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+
+INCLUDE max_ml
+
+PROGRAM treat_opts
+BEGIN
+	require main.vn_tdv
+	put main.vn_tdv " "
+	put "= "
+	require main.vl_tiv
+	put main.vl_tiv
+	beginoptions
+		option main.ck_tnocon
+	endoptions
+END
+
+PROGRAM command
+BEGIN
+	put /program by_output " "
+	put /program se_prefix_output " "
+	put "etregress "
+	varlist main.vn_dv [main.vl_iv]
+	if !main.vl_iv & main.ck_nocons {
+		call create STRING _MSG_TMP
+                call _MSG_TMP.format					///
+			"resource LBL_MSGBOX_IS_SELECTED_WITHOUT_INDVARS_FMT" ///
+			"resource LBL_NOCONSTANT"
+		stopbox stop "class _MSG_TMP.value"
+// "Suppress constant term" is selected without independent variables.
+	}
+	put " " /program ifin_output
+	put " " /program weights_output
+	beginoptions
+		put "treat("
+		put /program treat_opts
+		put ")"
+		option main.rb_2step
+		option main.rb_cfunc
+		option main.ck_nocons
+		INCLUDE _constraints_main_pr
+//		option main.ck_collinear
+		option main.ck_poutcomes
+		put " " /program se_output
+		optionarg /hidedefault rpt.sp_level
+		option rpt.ck_first
+		option rpt.ck_lrmodel
+		if rpt.ck_hazard {
+			require rpt.ed_hazard
+			optionarg rpt.ed_hazard
+		}
+		INCLUDE _nocnsreport_pr
+		INCLUDE _report_columns_pr
+		put " " rpt_bu_facvarsResults
+		put " " rpt_bu_fmtcoefResults
+		put " " /program max_output
+	endoptions
+END

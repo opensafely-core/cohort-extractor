@@ -1,0 +1,94 @@
+/*
+  define_exp_child.dlg
+
+*!  VERSION 1.0.3  09may2017
+
+  keyword:  eclass
+
+*/
+
+VERSION 15.0
+
+INCLUDE _std_small
+DEFINE _dlght 120
+INCLUDE header
+
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource DEFINE_EXP_CHILD_DLG_HSCALE
+	create STRING undefined_params
+	create STRING exp_res
+	create STRING parent_name
+	create DOUBLE eqcounter
+	create DOUBLE isDefined
+	isDefined.setvalue 1
+
+	parent_name.setvalue class PARENT._dlg_rsrcname
+	parent_name.withvalue eqcounter.setvalue class @.eqcounter.value
+	
+	program set_params_list
+END
+
+PROGRAM set_params_list
+BEGIN
+	call undefined_params.setvalue ""
+	call undefined_params.append s(undefined_expr)
+	call undefined_params.tokenizeOnStr main_undefined_param_list " "
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	call main.cb_undefined_param.repopulate
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT tx_undefined_param	_lft	_top	_vlwd	.,		///
+	label("Expression name:")
+  COMBOBOX cb_undefined_param	@	_ss	@	.,		///
+	dropdown							///
+	contents("main_undefined_param_list")				///
+	label(resource LBL_NAME)
+  TEXT tx_reexp			@	_ls	255	.,		///
+	label(resource LBL_NONLINEAR_EXPRESSION)
+  EDIT ed_subexpr		@	_ss	@	.,		///
+	error(resource LBL_NONLINEAR_EXPRESSION)			///
+	label(resource LBL_BU_CREATE)
+  BUTTON bu_exp			_rj80	@	80	.,		///
+	onpush(program main_create_exp)					///
+	label(resource LBL_BU_CREATE)
+END
+
+LIST main_undefined_param_list
+BEGIN
+END
+
+PROGRAM main_create_exp
+BEGIN
+	call create CHILD menl_exp AS exp
+	call exp.setExitString exp_res
+	call exp.setExitAction "program main_exp_results"
+END
+
+PROGRAM main_exp_results
+BEGIN
+	call exp_res.withvalue main.ed_subexpr.setvalue "@"
+END
+
+PROGRAM define_output
+BEGIN
+	put main.cb_undefined_param ": "
+	put main.ed_subexpr
+END
+
+PROGRAM command
+BEGIN
+	call eqcounter.withvalue PARENT.callthru "eqcounter.setvalue @"
+	require main.cb_undefined_param
+	require main.ed_subexpr
+	put " define("
+	put /program define_output
+	put ")"
+END

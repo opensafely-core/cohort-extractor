@@ -1,0 +1,277 @@
+/*
+    irf_create.dlg
+
+*!  VERSION 1.1.3  30jun2017
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 320
+INCLUDE header
+
+HELP hlp1, view("help irf_create")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING e_cmd
+	e_cmd.setstring e(cmd)
+	setscale_hadj resource IRF_CREATE_DLG_HSCALE
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	call main.tx_order.disable
+	call main.cb_order.disable
+	call main.ck_smemory.disable
+	call script se_hide
+
+	if e_cmd.iseq("arima") {
+		call se.ck_nose.show
+	}
+	if e_cmd.iseq("arfima") {
+		call main.ck_smemory.enable
+		call se.ck_nose.show
+	}
+	if e_cmd.iseq("var") {
+		call main.tx_order.enable
+		call main.cb_order.enable
+		call script se_show
+	}
+	if e_cmd.iseq("svar") {
+		call script se_show
+	}
+	if e_cmd.iseq("vec") {
+	}
+END
+
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN) ///
+	label(resource IRF_CREATE_DLG_TITLE)
+BEGIN
+  DEFINE _x _xsetbu
+  DEFINE _y _top
+  INCLUDE _bu_irfset
+  DEFINE _y _ms
+  INCLUDE _bu_tsset
+
+  TEXT tx_irfname		_lft	_top	_cwd1	.,		///
+	label(resource IRF_CREATE_MAIN_TX_IRFNAME)
+  TEXT tx_irfname2		@	_vss	@	.,		///
+	label(resource IRF_CREATE_MAIN_TX_IRFNAME2)
+  EDIT ed_irfname		@	_ss	_vnwd	.,		///
+	label(resource IRF_CREATE_MAIN_TX_IRFNAME)
+
+  GROUPBOX gb_options		_lft	_ls	_iwd	_ht20,		///
+	label(resource LBL_OPTIONS)
+  CHECKBOX ck_replace		_ilft 	_ss	_cwd2	.,		///
+	option(replace)							///
+	nomemory							///
+	label(resource IRF_CREATE_MAIN_CK_REPLACE)
+  SPINNER sp_step		_lft2	@	_spwd	.,		///
+	option(step)							///
+	min(1)								///
+	max(500)							///
+	default(8)							///
+	label(resource IRF_CREATE_MAIN_SP_STEP)
+  TEXT tx_step			_spsep	@	_spr2	.,		///
+	label(resource IRF_CREATE_MAIN_SP_STEP)
+  TEXT tx_order			_ilft	_ls	_ibwd	., 		///
+	label(resource IRF_CREATE_MAIN_TX_ORDER)
+  COMBOBOX cb_order		@	_ss	@	., 		///
+	dropdown append 						///
+	option(order)							///
+	contents(ereturn endog)						///
+	label(resource IRF_CREATE_MAIN_TX_ORDER)
+
+  GROUPBOX gb_est		@	_ls	@	_ht6,		///
+	label(resource LBL_ESTIMATION_RESULTS)
+  RADIO rb_estdef		_iilft	_ss	_cwd0	., first	///
+	clickon(gaction main.cb_estimates.disable)			///
+	label(resource LBL_USE_ACTIVE_RESULTS)
+  RADIO rb_estimates		@	_ss	@	., last		///
+	clickon(gaction main.cb_estimates.enable)			///
+	label(resource LBL_USE_ALTERNATIVE_RESULTS)
+  COMBOBOX cb_estimates		_indent2 _ss	_vnwd	.,		///
+	dropdown							///
+	option(estimates)						///
+	contents(estimates) 						///
+	label(resource LBL_ALTERNATIVE_RESULTS)
+  CHECKBOX ck_smemory		_ilft 	_xls	_cwd2	.,		///
+	option(smemory)							///
+	label(resource IRF_CREATE_MAIN_CK_SMEMORY)
+END
+
+SCRIPT se_PREINIT
+BEGIN
+        se.fi_saving.formatfilter "{0} (*.dta)|*.dta|{1} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_DTA" "resource ui_ex FILE_TYPE_ALL_FILES"
+END
+
+DIALOG se, tabtitle(resource IRF_CREATE_TAB_SE)
+BEGIN
+  CHECKBOX ck_nose		_lft 	_top	_iwd	.,		///
+	option(nose)							///
+	label(resource LBL_DO_NOT_CALC_STANDARD_ERRORS)
+  RADIO rb_asymptot		_lft	_top	_iwd	., first	///
+	onclickon(program bootstrap_off)				///
+	label(resource IRF_CREATE_SE_RB_ASYMPTOT)
+  RADIO rb_nose			@	_ss	@	.,		///
+	option(nose) 							///
+	onclickon(program bootstrap_off)				///
+	label(resource LBL_DO_NOT_CALC_STANDARD_ERRORS)
+  RADIO rb_bs			@	_ss	@	.,		///
+	onclickon(program bootstrap_on)					///
+	option(bs)							///
+	label(resource IRF_CREATE_SE_RB_BS)
+  RADIO rb_bsp			@	_ss	@	., last		///
+	option(bsp)							///
+	onclickon(program bootstrap_on)					///
+	label(resource IRF_CREATE_SE_RB_BSP)
+
+  GROUPBOX gb_bootstrap		_ilft	_ms	_ibwd	_ht13,		///
+		label(resource LBL_BOOTSTRAP_OPTIONS)
+  CHECKBOX ck_nodots		_indent	_ss	_inwd	.,		///
+		option(nodots)						///
+		label(resource LBL_DO_NOT_DISPLAY_DOT_EACH_BOOT_REP)
+  SPINNER sp_reps		@	_ls	_spwd	.,		///
+		option(reps)						///
+		min(50) default(200) max(100000)			///
+		label(resource LBL_NUMBER_OF_BOOTSTRAP_REPLICATIONS)
+  DEFINE x @x
+  TEXT tx_reps			_spsep	@	_cksprb	.,		///
+		label(resource LBL_NUMBER_OF_BOOTSTRAP_REPLICATIONS)
+  CHECKBOX ck_saving		x 	_ls	_inwd	_ht4,		///
+	clickon(script saving_on)					///
+	clickoff(script saving_off)					///
+	label(resource LBL_SAVE_BOOTSTRAP_REPLICATIONS) groupbox
+  TEXT tx_saving		_indent	_ss	_inwd	.,		///
+	label(resource LBL_FILENAME)
+  FILE fi_saving		@	_ss	@	.,		///
+	save								///
+	defext(dta)							///
+	error(resource LBL_FILENAME_FOR_SAVING_REPLICATIONS)		///
+	label(resource LBL_BU_BROWSE)
+END
+
+SCRIPT se_hide
+BEGIN
+	se.ck_nose.hide
+	se.rb_asymptot.hide
+	se.rb_nose.hide
+	se.rb_bs.hide
+	se.rb_bsp.hide
+	se.gb_bootstrap.hide
+	se.ck_nodots.hide
+	se.sp_reps.hide
+	se.tx_reps.hide
+	se.ck_saving.hide
+	se.tx_saving.hide
+	se.fi_saving.hide
+END
+
+SCRIPT se_show
+BEGIN
+	se.ck_nose.hide
+	se.rb_asymptot.show
+	se.rb_nose.show
+	se.rb_bs.show
+	se.rb_bsp.show
+	se.gb_bootstrap.show
+	se.ck_nodots.show
+	se.sp_reps.show
+	se.tx_reps.show
+	se.ck_saving.show
+	se.tx_saving.show
+	se.fi_saving.show
+	program se_on
+END
+
+PROGRAM se_on
+BEGIN
+	call se.rb_asymptot.enable
+	call se.rb_bs.enable
+	call se.rb_nose.enable
+	call se.rb_bsp.enable
+	if se.rb_bs | se.rb_bsp {
+		call program bootstrap_on
+	}
+END
+
+PROGRAM se_off
+BEGIN
+	call se.rb_asymptot.disable
+	call se.rb_bs.disable
+	call se.rb_nose.disable
+	call se.rb_bsp.disable
+	call program bootstrap_off
+END
+
+SCRIPT saving_on
+BEGIN
+	se.fi_saving.enable
+	se.tx_saving.enable
+END
+
+SCRIPT saving_off
+BEGIN
+	se.fi_saving.disable
+	se.tx_saving.disable
+END
+
+PROGRAM bootstrap_on
+BEGIN
+	call se.gb_bootstrap.enable
+	call se.sp_reps.enable
+	call se.tx_reps.enable
+	call se.ck_nodots.enable
+	call se.ck_saving.enable
+	if se.ck_saving {
+		call script saving_on
+	}
+END
+
+PROGRAM bootstrap_off
+BEGIN
+	call se.gb_bootstrap.disable
+	call se.sp_reps.disable
+	call se.tx_reps.disable
+	call se.ck_nodots.disable
+	call se.ck_saving.disable
+	call script saving_off
+END
+
+PROGRAM command
+BEGIN
+	put "irf create "
+	require main.ed_irfname
+	put main.ed_irfname
+	beginoptions
+		option main.ck_replace
+		optionarg /hidedefault main.sp_step
+		optionarg main.cb_order
+		if main.rb_estimates {
+			require main.cb_estimates
+			optionarg main.cb_estimates
+		}
+		option main.ck_smemory
+		option se.ck_nose
+		option se.rb_nose
+		option se.rb_bs
+		option se.rb_bsp
+		option se.ck_nodots
+		optionarg /hidedefault se.sp_reps
+		if se.ck_saving & !D(se.ck_saving) {
+			require se.fi_saving
+			repfile se.fi_saving
+			put "bsaving("
+			put `"""'
+			put se.fi_saving
+			put `"""'
+			put ", replace"
+			put ")"
+		}
+	endoptions
+END

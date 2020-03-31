@@ -1,0 +1,564 @@
+/*
+  gr_ed_axis.dlg
+
+*!  VERSION 1.1.6  22mar2018
+
+*/
+
+VERSION 14.0
+MODAL
+
+INCLUDE _std_mlarge
+DEFINE _dlght 430
+INCLUDE header_gr_ed
+
+DEFINE _clwd	15
+DEFINE _wd	140
+DEFINE _sep	+145
+DEFINE _cbwd	130
+DEFINE _cbsep	+135
+
+SCRIPT PREINIT
+BEGIN
+	create STRING G
+	program setupGOBJECT
+	create STRING child__MESSAGE
+	
+	create STRING axisType
+	create STRING tmajor
+	create STRING tminor
+	create STRING tmp
+	create DOUBLE index
+	setscale_hadj resource GR_ED_AXIS_DLG_HSCALE
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	call major.tb_rule.setlabel resource LBL_AXIS_RULE_DETERMINES_TICKS_RELATIVE_POS
+// "The axis rule determines the number of ticks and their relative positions."
+	call minor.tb_rule.setlabel resource LBL_AXIS_RULE_DETERMINES_TICKS_RELATIVE_POS
+// "The axis rule determines the number of ticks and their relative positions."
+	call major.tb_gprop.setlabel resource GR_ED_AXIS_TB_GPROP
+//		"Global properties apply to all noncustom ticks and labels as well as all axis components that are unique. Individual ticks and labels may be customized using the button below."
+	call minor.tb_gprop.setlabel resource GR_ED_AXIS_TB_GPROP
+//		"Global properties apply to all noncustom ticks and labels as well as all axis components that are unique. Individual ticks and labels may be customized using the button below."
+
+	// dereference dlg_major
+	call G.withvalue tmajor.setvalue class @.dlg_major 	// -> major | majornl
+	// dereference dlg_minor
+	call G.withvalue tminor.setvalue class @.dlg_minor	// -> minor | minornl
+	if ! tmajor { // should not happen
+		stopbox stop "resource LBL_MSGBOX_UNEXPECTED_ERROR_OCCURRED_TMAJOR"
+// An unexpected error has occurred (tmajor is not defined).
+	}
+	if ! tminor { // should not happen
+		stopbox stop "resource LBL_MSGBOX_UNEXPECTED_ERROR_OCCURRED_TMINOR"
+// An unexpected error has occurred (tminor is not defined).
+	}
+END
+
+
+PROGRAM setupGOBJECT
+BEGIN
+	if ! __MESSAGE {
+		stopbox stop "resource LBL_MSGBOX_OBJECT_NOT_FOUND"
+// An unexpected error has occurred. Object not found.
+		exit 198
+	}
+	call G.setvalue class __MESSAGE.value
+END
+
+DIALOG major, title(resource GR_ED_AXIS_DLG_TITLE) tabtitle(resource LBL_TAB_MAJOR)
+BEGIN
+  GROUPBOX gb_rule	_lft	_top	_iwd	_ht13,		///
+	label(resource LBL_AXIS_RULE)
+  RADIO    rb_default	_ilft	_ss	180	.,		///
+	first							///
+	label(resource LBL_USE_EXISTING_RULE)			///
+	onclickon(program check_rule_type)			///
+	nomemory
+  RADIO    rb_suggest	@	_ss	@	.,		///
+	label(resource LBL_SUGGEST_#_TICKS)			///
+	onclickon(program check_rule_type)			///
+	nomemory
+  DEFINE y @y
+  RADIO    rb_delta	@	_ss	@	.,		///
+	label(resource LBL_RANGE_DELTA)				///
+	onclickon(program check_rule_type)			///
+	nomemory
+  RADIO    rb_minmax	@	_ss	@	.,		///
+	label(resource LBL_MIN_MAX)				///
+	onclickon(program check_rule_type)			///
+	nomemory
+  RADIO    rb_norule	@	_ss	@	.,		///
+	last							///
+	label(resource LBL_NONE)				///
+	onclickon(program check_rule_type)			///
+	nomemory
+
+  SPINNER  sp_suggest	200	y	_en7wd	.,		///
+	min(1) default(5) max(10000)
+  TEXT     tx_suggest	_en7sep @	100	.,		///
+	label(resource LBL_TICKS)
+
+  EDIT     ed_min	200	y	_en7wd	.,		///
+	label(resource LBL_MINIMUM_VALUE) numonly
+  TEXT     tx_min	_en7sep @	100	.,		///
+	label(resource LBL_MINIMUM_VALUE)
+  EDIT     ed_max	200	_ms	_en7wd	.,		///
+	label(resource LBL_MAXIMUM_VALUE) numonly
+  TEXT     tx_max	_en7sep @	100	.,		///
+	label(resource LBL_MAXIMUM_VALUE)
+  EDIT     ed_delta	200	_ms	_en7wd	.,		///
+	numonly							///
+	label(resource LBL_DELTA)
+  TEXT     tx_delta	_en7sep @	100	.,		///
+	label(resource LBL_DELTA)
+
+  TEXTBOX  tb_rule	_ilft	_xls	_ibwd	_tb1,
+
+
+  GROUPBOX gb_global	_lft	_xls	_iwd	_ht17,		///
+	label(resource LBL_GLOBAL_PROPERTIES)
+  BUTTON   bu_label	_ilft	_ms	110	.,		///
+	label(resource LBL_GB_LABEL_PROPERTIES)			///
+	tooltip(resource GR_ED_AXIS_MAJOR_BU_LABEL)		///
+	onpush(script show_label_dialog)
+  BUTTON   bu_tick	170	@	110	.,		///
+	label(resource LBL_TICK_PROPERTIES)			///
+	tooltip(resource GR_ED_AXIS_MAJOR_BU_TICK) 		///
+	onpush(script show_tick_dialog)
+
+  BUTTON   bu_scale	_ilft	_mls	110	.,		///
+	label(resource GR_ED_AXIS_MAJOR_BU_SCALE)		///
+	tooltip(resource GR_ED_AXIS_MAJOR_BU_SCALE_TIP)		///
+	onpush(script show_axis_scale_dialog)
+  BUTTON   bu_line	170	@	110	.,		///
+	label(resource GR_ED_AXIS_MAJOR_BU_LINE)		///
+	tooltip(resource GR_ED_AXIS_MAJOR_BU_LINE_TIP) 		///
+	onpush(script show_axis_line_dialog)
+
+  BUTTON   bu_grid	_ilft	_mls	110	.,		///
+	label(resource LBL_GRID_LINES)				///
+	tooltip(resource GR_ED_AXIS_MAJOR_BU_GRID)		///
+	onpush(script show_axis_grid_dialog)
+  BUTTON   bu_ref	170	@	110	.,		///
+	label(resource LBL_TAB_REFERENCE_LINE)					///
+	onpush(program show_axis_refline_dialog)		///
+	tooltip(resource GR_ED_AXIS_MAJOR_BU_REF)
+
+  BUTTON   bu_titles	_ilft	_mls	110	.,		///
+	label(resource LBL_BU_TITLE)				///
+	onpush(script show_axis_title_dialog)			///
+	tooltip(resource GR_ED_AXIS_MAJOR_BU_TITLES)
+
+  BUTTON   bu_advanced	170	@	110	.,		///
+	label(resource LBL_ADVANCED)				///
+	onpush(script show_axis_adv_dialog)			///
+	tooltip(resource GR_ED_AXIS_MAJOR_BU_ADVANCED)
+
+  TEXTBOX  tb_gprop	_ilft	+35	_ibwd	_tb3,
+
+  BUTTON   bu_addticks	_lft	+70	220	.,		///
+	label(resource GR_ED_AXIS_MAJOR_BU_ADDTICKS)		///
+	onpush(script show_axis_major_custom_dialog)		///
+	tooltip(resource GR_ED_AXIS_MAJOR_BU_ADDTICKS_TIP)
+
+END
+
+SCRIPT show_label_dialog
+BEGIN
+	create CHILD gr_ed_axis_label_major, allowsubmit
+	gr_ed_axis_label_major.settitle resource GR_ED_AXIS_AXIS_LABEL_PROPERTIES_MAJOR
+END
+
+SCRIPT show_tick_dialog
+BEGIN
+	create CHILD gr_ed_axis_tick_major, allowsubmit
+	gr_ed_axis_tick_major.settitle resource GR_ED_AXIS_AXIS_TICK_PROPERTIES_MAJOR
+END
+
+SCRIPT show_axis_scale_dialog
+BEGIN
+	create CHILD gr_ed_axis_scale, allowsubmit
+	gr_ed_axis_scale.settitle resource GR_ED_AXIS_AXIS_SCALE_PROPERTIES
+END
+
+SCRIPT show_axis_line_dialog
+BEGIN
+	create CHILD gr_ed_axis_line, allowsubmit
+	gr_ed_axis_line.settitle resource LBL_AXIS_LINE_PROPERTIES_DLG_TITLE
+END
+
+SCRIPT show_axis_grid_dialog
+BEGIN
+	create CHILD gr_ed_axis_grid_major, allowsubmit
+	gr_ed_axis_grid_major.settitle resource GR_ED_AXIS_AXIS_GRID_PROPERTIES_MAJOR
+END
+
+PROGRAM show_axis_refline_dialog
+BEGIN
+	call child__MESSAGE.setvalue ""
+
+	/* look at axis.position and if it is left or right we have a yaxis 
+	 * and if it is top or bottom we have an xaxis ...
+	 * 	if neither fall back on the name of the object
+	 */
+	call G.withvalue index.setvalue class @.position.styledex
+	call index.withvalue tmp.setvalue class .__STYLES.relative_posn[@]
+	if tmp.contains("left") | tmp.contains("right") {
+		call child__MESSAGE.setvalue "yaxis"
+		call axisType.setvalue "y"
+	}
+	else {
+		if tmp.contains("above") | tmp.contains("below") {
+			call child__MESSAGE.setvalue "xaxis"
+			call axisType.setvalue "x"
+		}
+		else {
+			/* did not resolve position */
+			if G.contains("xaxis") {
+				call child__MESSAGE.setvalue "xaxis"
+				call axisType.setvalue "x"
+			}
+			if G.contains("yaxis") {
+				call child__MESSAGE.setvalue "yaxis"
+				call axisType.setvalue "y"
+			}
+		}
+	}
+
+	call create STRING refline_result
+	call create CHILD gr_ed_axis_refline
+	call gr_ed_axis_refline.settitle resource GR_ED_AXIS_REFLINE_TAB_MAIN
+	call gr_ed_axis_refline.setExitAction "program get_refline_result"
+	call gr_ed_axis_refline.setExitString refline_result
+END
+PROGRAM get_refline_result
+BEGIN
+	if refline_result {
+		put "_gm_dlg_edits , "
+		put "object(" G ") "
+		put "cmd(" 
+			put "." G ".plotregion.add_log_refline "
+			put axisType " "
+			put "plotregion "
+			put refline_result
+		put ") "
+		stata hidden queue
+	}
+END
+
+SCRIPT show_axis_title_dialog
+BEGIN
+	child__MESSAGE.setvalue class G.value
+	child__MESSAGE.append ".title"
+	create CHILD gr_ed_textbox AS axisTitle, allowsubmit
+	axisTitle.settitle resource LBL_AXIS_TITLE_PROPERTIES
+END
+
+SCRIPT show_axis_adv_dialog
+BEGIN
+	create CHILD gr_ed_axis_advanced, allowsubmit
+	gr_ed_axis_advanced.settitle resource GR_ED_AXIS_ADVANCED_PROPERTIES
+END
+
+SCRIPT show_axis_major_custom_dialog
+BEGIN
+	child__MESSAGE.setvalue "__MAJOR__"
+	create CHILD gr_ed_axis_custom AS custom_major_dlg, allowsubmit
+	custom_major_dlg.settitle resource GR_ED_AXIS_ADD_CUST_IND_TICK_LABELS_MAJOR
+END
+
+PROGRAM check_rule_type
+BEGIN
+	if major.rb_default {
+		call major.sp_suggest.hide
+		call major.tx_suggest.hide
+		call major.ed_min.hide
+		call major.tx_min.hide
+		call major.ed_max.hide
+		call major.tx_max.hide
+		call major.ed_delta.hide
+		call major.tx_delta.hide
+	}
+	if major.rb_suggest {
+		call major.sp_suggest.show
+		call major.tx_suggest.show
+
+		call major.ed_min.hide
+		call major.tx_min.hide
+		call major.ed_max.hide
+		call major.tx_max.hide
+		call major.ed_delta.hide
+		call major.tx_delta.hide
+	}
+	if major.rb_delta {
+		call major.sp_suggest.hide
+		call major.tx_suggest.hide
+
+		call major.ed_min.show
+		call major.tx_min.show
+		call major.ed_max.show
+		call major.tx_max.show
+		call major.ed_delta.show
+		call major.tx_delta.show
+	}
+	if major.rb_minmax {
+		call major.sp_suggest.hide
+		call major.tx_suggest.hide
+		call major.ed_delta.hide
+		call major.tx_delta.hide
+
+		call major.ed_min.hide
+		call major.tx_min.hide
+		call major.ed_max.hide
+		call major.tx_max.hide
+	}
+	if major.rb_norule {
+		call major.sp_suggest.hide
+		call major.tx_suggest.hide
+		call major.ed_min.hide
+		call major.tx_min.hide
+		call major.ed_max.hide
+		call major.tx_max.hide
+		call major.ed_delta.hide
+		call major.tx_delta.hide
+	}
+END
+
+PROGRAM major_output
+BEGIN
+	put "cmd( _gm_edit ." G ".reset_rule "
+	if major.rb_suggest {
+		put major.sp_suggest
+		put ", "
+		put "tickset(" tmajor ") "
+		put "ruletype(suggest) "
+	}
+	if major.rb_delta {
+		require major.ed_min
+		require major.ed_max
+		require major.ed_delta
+		put major.ed_min " " major.ed_max " " major.ed_delta " "
+		put ", "
+		put "tickset(" tmajor ") "
+		put "ruletype(range) "
+	}
+	if major.rb_minmax {
+		put ", "
+		put "tickset(" tmajor ") "
+		put "ruletype(minmax) "
+	}
+	if major.rb_norule {
+		put ", "
+		put "tickset(" tmajor ") "
+		put "ruletype(none) "
+	}
+	put ") "
+END
+
+DIALOG minor, tabtitle(resource GR_ED_AXIS_TAB_MINOR)
+BEGIN
+  GROUPBOX gb_rule	_lft	_top	_iwd	_ht13,		///
+	label(resource LBL_AXIS_RULE)
+  RADIO    rb_default	_ilft	_ss	180	.,		///
+	first							///
+	label(resource LBL_USE_EXISTING_RULE)			///
+	onclickon(program check_minorRule_type)			///
+	nomemory
+  RADIO    rb_suggest	_ilft	_ss	195	.,		///
+	label(resource LBL_SUGGEST_#_BETWEEN_MAJOR_TICKS)	///
+	onclickon(program check_minorRule_type)			///
+	nomemory
+  DEFINE y @y
+  RADIO    rb_delta	@	_ss	@	.,		///
+	label(resource LBL_RANGE_DELTA)				///
+	onclickon(program check_minorRule_type)			///
+	nomemory
+  RADIO    rb_minmax	@	_ss	@	.,		///
+	label(resource LBL_MIN_MAX)				///
+	onclickon(program check_minorRule_type)			///
+	nomemory
+  RADIO    rb_norule	@	_ss	@	.,		///
+	last							///
+	label(resource LBL_NONE)				///
+	onclickon(program check_minorRule_type)			///
+	nomemory
+
+  SPINNER  sp_suggest	215	y	_en7wd	.,		///
+	min(1) default(10) max(10000)
+  TEXT     tx_suggest	_en7sep @	95	.,		///
+	label(resource LBL_TICKS)
+
+  EDIT     ed_min	215	y	_en7wd	.,		///
+	label(resource LBL_MINIMUM_VALUE) numonly
+  TEXT     tx_min	_en7sep @	95	.,		///
+	label(resource LBL_MINIMUM_VALUE)
+  EDIT     ed_max	215	_ms	_en7wd	.,		///
+	label(resource LBL_MAXIMUM_VALUE) numonly
+  TEXT     tx_max	_en7sep @	95	.,		///
+	label(resource LBL_MAXIMUM_VALUE)
+  EDIT     ed_delta	215	_ms	_en7wd	.,		///
+	numonly							///
+	label(resource LBL_DELTA)
+  TEXT     tx_delta	_en7sep @	95	.,		///
+	label(resource LBL_DELTA)
+
+  TEXTBOX  tb_rule	_ilft	_xls	_ibwd	_tb1,
+
+
+  GROUPBOX gb_global	_lft	_xls	_iwd	_ht11,		///
+	label(resource LBL_GLOBAL_PROPERTIES)
+  BUTTON   bu_label	_ilft	_ms	110	.,		///
+	label(resource LBL_GB_LABEL_PROPERTIES)			///
+	tooltip(resource GR_ED_AXIS_MAJOR_BU_LABEL)		///
+	onpush(script show_minor_label_dialog)
+  BUTTON   bu_tick	170	@	110	.,		///
+	label(resource LBL_TICK_PROPERTIES)			///
+	tooltip(resource GR_ED_AXIS_MAJOR_BU_TICK)		///
+	onpush(script show_minor_tick_dialog)
+
+  BUTTON   bu_grid	_ilft	_mls	110	.,		///
+	label(resource LBL_GRID_LINES)				///
+	tooltip(resource GR_ED_AXIS_MAJOR_BU_GRID)		///
+	onpush(script show_minor_grid_dialog)
+
+  TEXTBOX  tb_gprop	_ilft	+35	_ibwd	_tb3,
+
+
+  BUTTON   bu_addticks	_lft	+70	220	.,		///
+	label(resource GR_ED_AXIS_MAJOR_BU_ADDTICKS)		///
+	onpush(script show_axis_minor_custom_dialog)		///
+	tooltip(resource GR_ED_AXIS_MAJOR_BU_ADDTICKS_TIP)
+END
+
+SCRIPT show_minor_label_dialog
+BEGIN
+	create CHILD gr_ed_axis_label_minor, allowsubmit
+	gr_ed_axis_label_minor.settitle resource GR_ED_AXIS_AXIS_LABEL_PROPERTIES_MINOR
+END
+
+SCRIPT show_minor_tick_dialog
+BEGIN
+	create CHILD gr_ed_axis_tick_minor, allowsubmit
+	gr_ed_axis_tick_minor.settitle resource GR_ED_AXIS_AXIS_TICK_PROPERTIES_MINOR
+END
+
+SCRIPT show_minor_grid_dialog
+BEGIN
+	create CHILD gr_ed_axis_grid_minor, allowsubmit
+	gr_ed_axis_grid_minor.settitle resource GR_ED_AXIS_AXIS_GRID_PROPERTIES_MINOR
+END
+
+SCRIPT show_axis_minor_custom_dialog
+BEGIN
+	child__MESSAGE.setvalue "__MINOR__"
+	create CHILD gr_ed_axis_custom AS custom_minor_dlg, allowsubmit
+	custom_minor_dlg.settitle resource GR_ED_AXIS_ADD_CUST_IND_TICKS_LABELS_MINOR
+END
+
+PROGRAM check_minorRule_type
+BEGIN
+	if minor.rb_default {
+		call minor.sp_suggest.hide
+		call minor.tx_suggest.hide
+		call minor.ed_min.hide
+		call minor.tx_min.hide
+		call minor.ed_max.hide
+		call minor.tx_max.hide
+		call minor.ed_delta.hide
+		call minor.tx_delta.hide
+	}
+	if minor.rb_suggest {
+		call minor.sp_suggest.show
+		call minor.tx_suggest.show
+
+		call minor.ed_min.hide
+		call minor.tx_min.hide
+		call minor.ed_max.hide
+		call minor.tx_max.hide
+		call minor.ed_delta.hide
+		call minor.tx_delta.hide
+	}
+	if minor.rb_delta {
+		call minor.sp_suggest.hide
+		call minor.tx_suggest.hide
+
+		call minor.ed_min.show
+		call minor.tx_min.show
+		call minor.ed_max.show
+		call minor.tx_max.show
+		call minor.ed_delta.show
+		call minor.tx_delta.show
+	}
+	if minor.rb_minmax {
+		call minor.sp_suggest.hide
+		call minor.tx_suggest.hide
+		call minor.ed_delta.hide
+		call minor.tx_delta.hide
+
+		call minor.ed_min.hide
+		call minor.tx_min.hide
+		call minor.ed_max.hide
+		call minor.tx_max.hide
+	}
+	if minor.rb_norule {
+		call minor.sp_suggest.hide
+		call minor.tx_suggest.hide
+		call minor.ed_min.hide
+		call minor.tx_min.hide
+		call minor.ed_max.hide
+		call minor.tx_max.hide
+		call minor.ed_delta.hide
+		call minor.tx_delta.hide
+	}
+END
+
+PROGRAM minor_output
+BEGIN
+	put "cmd( _gm_edit ." G ".reset_rule "
+	if minor.rb_suggest {
+		put minor.sp_suggest
+		put ", "
+		put "tickset(" tminor ") "
+		put "ruletype(suggest_between) "
+	}
+	if minor.rb_delta {
+		require minor.ed_min
+		require minor.ed_max
+		require minor.ed_delta
+		put minor.ed_min " " minor.ed_max " " minor.ed_delta " "
+		put ", "
+		put "tickset(" tminor ") "
+		put "ruletype(range) "
+	}
+	if minor.rb_minmax {
+		put ", "
+		put "tickset(" tminor ") "
+		put "ruletype(minmax) "
+	}
+	if minor.rb_norule {
+		put ", "
+		put "tickset(" tminor ") "
+		put "ruletype(none) "
+	}
+	put ") "
+END
+
+PROGRAM command
+BEGIN
+	if ! major.rb_default | ! minor.rb_default {
+		put "_gm_dlg_edits"
+		beginoptions
+			put " object(" G ") "
+			if ! major.rb_default {
+				put " " /program major_output
+			}
+			if ! minor.rb_default {
+				put " " /program minor_output
+			}
+			put " epilog(_gedi toolbar axis " G ")"
+		endoptions
+	}
+END

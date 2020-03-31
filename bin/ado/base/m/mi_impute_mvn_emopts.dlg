@@ -1,0 +1,145 @@
+/*
+  mi impute mvn emopts
+
+*!  VERSION 1.1.4  03dec2019
+
+  keyword:  mi impute
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 305
+INCLUDE header
+
+HELP hlp1, view("help mi impute mvn")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING main_bu_initmatResults
+	setscale_hadj resource MI_IMPUTE_MVN_EMOPTS_DLG_HSCALE
+	
+        main.fi_savep.formatfilter "{0} (*.stptrace)|*.stptrace|{1} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_PTRACE_FILES" "resource ui_ex FILE_TYPE_ALL_FILES"
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	label(resource LBL_EM_OPTIONS)
+BEGIN
+  SPINNER sp_iterate	_lft	_top	_spwd	.,			///
+	default(100)							///
+	min(0)								///
+	max(10000)							///
+	option(iterate)							///
+	label(resource LBL_MAXIMUM_ITERATIONS)
+  TEXT tx_iterate	_spsep	@	_cwd1	.,			///
+	label(resource LBL_MAXIMUM_ITERATIONS)
+  EDIT ed_tolerance	_lft2	@	_spwd	.,			///
+	default(1e-5)							///
+	option(tolerance)						///
+	label(resource MI_IMPUTE_MVN_EMOPTS_MAIN_ED_TOLERANCE)
+  TEXT tx_tolerance	_spsep	@	_cwd1	.,			///
+	label(resource MI_IMPUTE_MVN_EMOPTS_MAIN_ED_TOLERANCE)
+
+  GROUPBOX gb_init	_lft	_ls	_iwd	_ht8,			///
+	label(resource MI_IMPUTE_MVN_EMOPTS_MAIN_GB_INIT)
+  RADIO	rb_ac		_indent	_ss	_inwd	., first		///
+	label(resource MI_IMPUTE_MVN_EMOPTS_MAIN_RB_AC)
+  RADIO	rb_cc		@	_ss	@	., 			///
+	option(init(cc))						///
+	label(resource MI_IMPUTE_MVN_EMOPTS_MAIN_RB_CC)
+  RADIO	rb_initmatlist	@	_ss	@	., last 		///
+	onclickon(main.bu_initmat.enable)				///
+	onclickoff(main.bu_initmat.disable)				///
+	label(resource MI_IMPUTE_MVN_EMOPTS_MAIN_RB_INITMATLIST)
+
+  BUTTON bu_initmat	_indent2 _ss	130	.,			///
+	onpush("program main_bu_initmat_getOpts")			///
+	label(resource LBL_INITIAL_MATRIX_OPTIONS)
+
+  CHECKBOX ck_nolog	_lft	+45	_iwd	.,			///
+	option(nolog)							///
+	label(resource MI_IMPUTE_MVN_EMOPTS_MAIN_CK_NOLOG)
+
+  CHECKBOX ck_savep	_lft	_ls	_iwd	_ht6h,			///
+	groupbox							///
+	onclickon(script main_savingp_on)				///
+	onclickoff(script main_savingp_off)				///
+	label(resource LBL_SAVE_PARAMETER_EST_FROM_EACH_ITERATION_TO_FILE)
+  TEXT tx_savep		_indent	_ss	_ibwd	.,			///
+	label(resource LBL_FILENAME)
+  FILE fi_savep		@	_ss	@	.,			///
+	label(resource LBL_BU_BROWSE)					///
+	option(saveptrace)						///
+	defext(stptrace)						///
+	save								///
+	error(resource LBL_FILENAME)
+  CHECKBOX ck_replacep	@	_ms	@	.,			///
+	option(replace)							///
+	label(resource LBL_OVERWRITE_FILE_IF_IT_ALREADY_EXISTS)
+END
+
+PROGRAM main_bu_initmat_getOpts
+BEGIN
+	call create CHILD mi_impute_mvn_initmatlist AS main_bu_initmat
+	call main_bu_initmat.setExitString main_bu_initmatResults
+	call main_bu_initmat.setExitAction "program main_bu_initmat_ckResults"
+END
+
+PROGRAM main_bu_initmat_ckResults
+BEGIN
+	if main_bu_initmatResults {
+		call main.bu_initmat.modified_on
+	}
+	else {
+		call main.bu_initmat.modified_off
+	}
+END
+
+SCRIPT main_savingp_on
+BEGIN
+	main.tx_savep.enable
+	main.fi_savep.enable
+	main.ck_replacep.enable
+END
+
+SCRIPT main_savingp_off
+BEGIN
+	main.tx_savep.disable
+	main.fi_savep.disable
+	main.ck_replacep.disable
+END
+
+PROGRAM main_savingp_output
+BEGIN
+        put `"""' main.fi_savep `"""'
+        beginoptions
+                option main.ck_replacep
+        endoptions
+END
+
+PROGRAM command
+BEGIN
+	optionarg /hidedefault main.sp_iterate
+	optionarg /hidedefault main.ed_tolerance
+	option main.ck_nolog
+
+	if main.rb_cc {
+		option main.rb_cc
+	}
+
+	if main.rb_initmatlist {
+		put " init("
+		put main_bu_initmatResults
+		put ")"
+	}
+
+	if main.ck_savep {
+		require main.fi_savep
+		put "saveptrace("
+		put /program main_savingp_output
+		put ") "
+	}
+END

@@ -1,0 +1,365 @@
+/*
+  sunflower.dlg
+
+*!  VERSION 2.1.2  04dec2019
+
+*/
+
+VERSION 14
+
+INCLUDE _std_wide
+DEFINE  _dlght 320
+INCLUDE header
+
+HELP hlp1, view("help sunflower")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING markerResults
+	setscale_hadj resource SUNFLOWER_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program checkMarkerResults
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN) title(resource SUNFLOWER_DLG_TITLE)
+BEGIN
+	TEXT	 tx_yvar	_lft	_top	_vnwd	.,	///
+		label(resource LBL_Y_VARIABLE)
+	VARNAME	 vn_yvar	@	_ss	@	.,	///
+		numeric						///
+		label(resource LBL_Y_VARIABLE)
+
+	TEXT	 tx_xvar	+155	_top	_vnwd	.,	///
+		label(resource LBL_X_VARIABLE)
+	VARNAME	 vn_xvar	@	_ss	@	.,	///
+		numeric						///
+		label(resource LBL_X_VARIABLE)
+
+	CHECKBOX ck_nograph	_lft	+35	_iwd	.,	///
+		label(resource SUNFLOWER_MAIN_CK_NOGRAPH) option(nograph) ///
+		onclickon(script graph_off) 			///
+		onclickoff(script graph_on)
+
+	CHECKBOX ck_notable	_lft	_ms	_iwd	.,	///
+		label(resource SUNFLOWER_MAIN_CK_NOTABLE)	///
+		option(notable)
+
+	BUTTON   bu_markers	_lft	_ls	120	.,	///
+		label(resource LBL_MARKER_PROPERTIES_DLG_TITLE)	///
+		onpush(script show_marker_options)
+END
+
+SCRIPT graph_on
+BEGIN
+	main.ck_notable.enable
+	main.bu_markers.enable
+	script opts_enable
+	script gr_addplots_enable
+	script gr_yaxis_enable
+	script gr_xaxis_enable
+	script gr_titles_enable
+	script gr_legend_enable
+	script gr_overall_enable
+	script gr_by_enable
+END
+
+SCRIPT graph_off
+BEGIN
+	main.ck_notable.disable
+	main.bu_markers.disable
+	script opts_disable
+	script gr_addplots_disable
+	script gr_yaxis_disable
+	script gr_xaxis_disable
+	script gr_titles_disable
+	script gr_legend_disable
+	script gr_overall_disable
+	script gr_by_disable
+END
+
+SCRIPT show_marker_options
+BEGIN
+	create CHILD gr_sunflower_markers AS markers, allowsubmit
+	markers.setExitString markerResults
+	markers.settitle resource LBL_MARKER_PROPERTIES_DLG_TITLE
+	markers.setExitAction "program main_checkMarkerResults"
+	markers.setSubmitAction "script main_markerSubmit"
+	markers.callthru "script  gr_marker_setWeightsOff"
+END
+PROGRAM main_checkMarkerResults
+BEGIN
+	if markerResults.iseq("") {
+		call main.bu_markers.modified_off
+	}
+	if ! markerResults.iseq("") {
+		call main.bu_markers.modified_on
+	}
+END
+SCRIPT main_markerSubmit
+BEGIN
+	program main_checkMarkerResults
+	Submit
+END
+
+
+INCLUDE ifin
+INCLUDE weights_f
+
+SCRIPT opts_PREINIT
+BEGIN
+	create STRING binResults
+	create STRING petalResults
+END
+SCRIPT opts_POSTINIT
+BEGIN
+	program checkBinResults
+	program checkPetalResults
+END
+
+DIALOG opts, tabtitle(resource SUNFLOWER_TAB_OPTS)
+BEGIN
+  GROUPBOX gb_bins	_lft	_top	_iwd	_ht16,		///
+	label(resource LBL_BINS)
+  TEXT     tx_binwd	_ilft	_ss	_cwd3	.,		///
+	label(resource SUNFLOWER_OPTS_TX_BINWD)
+DEFINE y @y
+  EDIT     ed_binwd	@	_ss	_vnwd	.,		///
+	option(binwidth) numonly
+
+  TEXT     tx_aspect	_ilft3_2 y	_cwd3	.,		///
+	label(resource SUNFLOWER_OPTS_TX_ASPECT)
+  EDIT     ed_aspect	@	_ss	_vnwd	.,		///
+	option(binar)
+	
+  BUTTON   bu_bins	_ilft3_3 @	120	.,		///
+	label(resource LBL_GB_BIN_PROPERTIES)			///
+	onpush(script show_bin_options)
+
+  SPINNER  sp_light	_ilft	_ls	_spwd	.,		///
+	min(1) default(3) max(1000000)				///
+	option(light)
+  TEXT     tx_light	_spsep	@	_sprb	.,		///
+	label(resource SUNFLOWER_OPTS_TX_LIGHT)
+
+  SPINNER  sp_dark	_ilft	_ls	_spwd	.,		///
+	min(1) default(13) max(1000000)				///
+	option(dark)
+  TEXT     tx_dark	_spsep	@	_sprb	.,		///
+	label(resource SUNFLOWER_OPTS_TX_DARK)
+
+  GROUPBOX gb_refbin   _ilft	_ls	_ibwd	_ht2,		///
+	label(resource SUNFLOWER_OPTS_GB_REFBIN)
+  TEXT     tx_xval	_iilft	_ss     80	.,		///
+	label(resource SUNFLOWER_OPTS_TX_XVAL) right
+  EDIT     ed_xval	+85	@	_vnwd	.,		///
+	option(xcenter) numonly
+
+  TEXT     tx_yval	+150	@	80	.,		///
+	label(resource SUNFLOWER_OPTS_TX_YVAL) right
+  EDIT     ed_yval	+85	@	_vnwd	.,		///
+  	option(ycenter) numonly
+
+  GROUPBOX gb_petals	_lft	_xxls	_iwd	_ht7,		///
+	label(resource SUNFLOWER_OPTS_GB_PETALS)
+  TEXT     tx_weight	_ilft	_ss	_vnwd	.,		///
+	label(resource SUNFLOWER_OPTS_TX_WEIGHT)
+DEFINE y @y
+  EDIT     ed_weight	@	_ss	@	.,		///
+	option(petalweight) numonly
+
+  TEXT     tx_length	_ilft3_2 y	_vnwd	.,		///
+	label(resource SUNFLOWER_OPTS_TX_LENGTH)
+  SPINNER  sp_length	@	_ss	_spwd	.,		///
+  	option(petallength) 					///
+  	default(100) min(1) max(100)
+
+  BUTTON   bu_petals	_ilft3_3 @	120	.,		///
+	label(resource LBL_GB_PETAL_PROPERTIES)			///
+	onpush(script show_petal_options)
+	
+  CHECKBOX ck_petals	_ilft	_ls	_comb3_1 .,		///
+	label(resource SUNFLOWER_OPTS_CK_PETALS)		///
+	option(flowersonly)					///
+	onclickon(script opts_petals_only_on)			///
+	onclickoff(program opts_petals_only_off)
+  CHECKBOX ck_nosingle	_ilft3_2 @	_comb3_2 .,		///
+	label(resource SUNFLOWER_OPTS_CK_NOSINGLE)		///
+	option(nosinglepetal)
+END
+
+SCRIPT opts_petals_only_on
+BEGIN
+	opts.bu_bins.disable
+END
+
+PROGRAM opts_petals_only_off
+BEGIN
+	if opts.ck_petals.isenabled() {
+		call opts.bu_bins.enable
+	}
+END
+
+SCRIPT show_bin_options
+BEGIN
+	create CHILD gr_sunflower_bins AS binOpts, allowsubmit
+	binOpts.settitle resource LBL_GB_BIN_PROPERTIES
+	binOpts.setExitAction "program checkBinResults"
+	binOpts.setSubmitAction "script binSubmit"
+	binOpts.setExitString binResults
+END
+PROGRAM checkBinResults
+BEGIN
+	if binResults {
+		call opts.bu_bins.modified_on
+	}
+	if ! binResults {
+		call opts.bu_bins.modified_off
+	}
+END
+SCRIPT binSubmit
+BEGIN
+	program checkBinResults
+	Submit
+END
+
+SCRIPT show_petal_options
+BEGIN
+	create CHILD gr_sunflower_petals AS petalOpts, allowsubmit
+	petalOpts.settitle resource LBL_GB_PETAL_PROPERTIES
+	petalOpts.setExitAction "program checkPetalResults"
+	petalOpts.setSubmitAction "script petalSubmit"
+	petalOpts.setExitString petalResults
+END
+PROGRAM checkPetalResults
+BEGIN
+	if petalResults {
+		call opts.bu_petals.modified_on
+	}
+	if ! petalResults {
+		call opts.bu_petals.modified_off
+	}
+END
+SCRIPT petalSubmit
+BEGIN
+	program checkPetalResults
+	Submit
+END
+
+SCRIPT opts_disable
+BEGIN
+	opts.gb_bins.disable
+	opts.tx_binwd.disable
+	opts.ed_binwd.disable
+	opts.tx_aspect.disable
+	opts.ed_aspect.disable
+	opts.bu_bins.disable
+	opts.sp_light.disable
+	opts.tx_light.disable
+	opts.tx_dark.disable
+	opts.sp_dark.disable
+	opts.gb_refbin.disable
+	opts.tx_xval.disable
+	opts.ed_xval.disable
+	opts.tx_yval.disable
+	opts.ed_yval.disable
+	opts.gb_petals.disable
+	opts.tx_weight.disable
+	opts.ed_weight.disable
+	opts.tx_length.disable
+	opts.sp_length.disable
+	opts.bu_petals.disable
+	opts.ck_petals.disable
+	opts.ck_nosingle.disable
+END
+
+SCRIPT opts_enable
+BEGIN
+	program opts_enable_wrk
+END
+PROGRAM opts_enable_wrk
+BEGIN
+	call opts.gb_bins.enable
+	call opts.tx_binwd.enable
+	call opts.ed_binwd.enable
+	call opts.tx_aspect.enable
+	call opts.ed_aspect.enable
+	
+	call opts.sp_light.enable
+	call opts.tx_light.enable
+	call opts.tx_dark.enable
+	call opts.sp_dark.enable
+	call opts.gb_refbin.enable
+	call opts.tx_xval.enable
+	call opts.ed_xval.enable
+	call opts.tx_yval.enable
+	call opts.ed_yval.enable
+	call opts.gb_petals.enable
+	call opts.tx_weight.enable
+	call opts.ed_weight.enable
+	call opts.tx_length.enable
+	call opts.sp_length.enable
+	call opts.bu_petals.enable
+	call opts.ck_petals.enable
+	if ! opts.ck_petals {
+		call opts.bu_bins.enable
+	}
+	call opts.ck_nosingle.enable
+END
+
+PROGRAM opts_output
+BEGIN
+	optionarg opts.ed_binwd
+	optionarg opts.ed_aspect
+	optionarg /hidedefault opts.sp_light
+	optionarg /hidedefault opts.sp_dark
+	optionarg opts.ed_xval
+	optionarg opts.ed_yval
+	optionarg opts.ed_weight
+	optionarg /hidedefault opts.sp_length
+	option opts.ck_petals
+	option opts.ck_nosingle
+	
+	if ! D(opts.bu_bins) & binResults {
+		put " " binResults
+	}
+	if ! D(opts.bu_petals) & petalResults {
+		put " " petalResults
+	}
+END
+
+INCLUDE gr_addplots
+INCLUDE gr_yaxis
+INCLUDE gr_xaxis
+INCLUDE gr_titles
+INCLUDE gr_legend
+INCLUDE gr_overall
+INCLUDE gr_by
+
+PROGRAM command
+BEGIN
+	put "sunflower"
+	varlist main.vn_yvar main.vn_xvar
+	put " " /program ifin_output
+	put " " /program weights_output
+	
+	beginoptions
+		option main.ck_nograph
+		option main.ck_notable
+
+		if markerResults & !D(main.bu_markers) {
+			put " " markerResults 
+		}
+		put " " /program opts_output
+		put " " /program gr_addplots_output
+		put " " /program gr_yaxis_output
+		put " " /program gr_xaxis_output
+		put " " /program gr_titles_output
+		put " " /program gr_legend_output
+		put " " /program gr_overall_output
+		put " " /program gr_by_output
+	endoptions
+END

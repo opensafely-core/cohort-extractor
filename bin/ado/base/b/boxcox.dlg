@@ -1,0 +1,163 @@
+/*
+  boxcox
+
+*!  VERSION 1.2.1  16may2015
+
+  keyword:  eclass
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE header
+HELP hlp1, view("help boxcox")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource BOXCOX_DLG_HSCALE
+END
+
+
+DIALOG main, label(resource BOXCOX_DLG_TITLE) tabtitle(resource LBL_TAB_MODEL)
+BEGIN
+  TEXT tx_dv 		_lft	_top	_vnwd	.,			///
+	label(resource LBL_DEPVAR)
+  VARNAME vn_dv		@ 	_ss	@	.,			///
+	ts								///
+	numeric								///
+	label(resource LBL_DEPVAR)
+
+  TEXT tx_iv		_vlx	_top	160	.,			///
+	label(resource LBL_INDDEPVAR)
+  VARLIST vl_iv		@	_ss	_vlwd	.,			///
+	ts								///
+	allowcat							///
+	numeric								///
+	label(resource LBL_INDDEPVAR)
+
+  CHECKBOX ck_nocon       @         _ms       @         .,		/*
+		*/ option("noconstant")					/*
+		*/ label(resource LBL_NOCONSTANT)
+
+  GROUPBOX gb_model       _lft      _ls       _iwd      _ht9,		/*
+		*/ label(resource BOXCOX_MAIN_GB_MODEL)
+  RADIO    rb_lhsonly     _indent   _ss       _cwd2     .,		/*
+		*/ first						/*
+		*/ label(resource BOXCOX_MAIN_RB_LHSONLY)		/*
+		*/ clickon("script n_off")				/*
+		*/ clickoff("script n_on")				/*
+		*/ option("model(lhsonly)")				/*
+		*/
+  RADIO    rb_rhsonly     _lft2     @         @         .,		/*
+		*/ option("model(rhsonly)")				/*
+		*/ label(resource BOXCOX_MAIN_RB_RHSONLY)
+  RADIO    rb_lambda      _ilft     _ss       @         .,		/*
+		*/ option("model(lambda)")				/*
+		*/ label(resource BOXCOX_MAIN_RB_LAMBDA)
+  RADIO    rb_theta       _lft2     @         @         .,		/*
+		*/ option("model(theta)")				/*
+		*/ last							/*
+		*/ label(resource BOXCOX_MAIN_RB_THETA)
+
+  TEXT     tx_notrans     _ilft     _ms       _ibwd     .,		/*
+		*/ label(resource BOXCOX_MAIN_TX_NOTRANS)
+  VARLIST  vl_notrans     @         _ss       @         .,		/*
+		*/ option("notrans")					/*
+		*/ numeric						/*
+		*/ label(resource BOXCOX_MAIN_TX_NOTRANS)
+END
+
+INCLUDE byifin
+INCLUDE weights_fi
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  GROUPBOX gb_tests       _lft      _xls     _iwd        _ht2,		/*
+  		*/ label(resource LBL_ADDITIONAL_TEST_STATISTICS)
+  CHECKBOX ck_lrtest      _ilft     _ss      _cwd2       .,		/*
+		*/ option("lrtest")					/*
+		*/ label(resource LBL_PERFORM_LIKELIHOOD_RATIO_TEST)
+  DEFINE _x _lft
+  DEFINE _y _xls
+  DEFINE _cx _iwd
+END
+
+DIALOG adv, label("") tabtitle(resource LBL_TAB_MAXIMIZATION)
+BEGIN
+  SPINNER  sp_iterate     _lft      _top     _spwd        .,		/*
+		*/ option("iterate")					/*
+		*/ label(resource LBL_MAXIMUM_ITERATIONS)		/*
+		*/ min(0) max(16000) default(c(maxiter))
+  TEXT     tx_iterate     _spsep    @        _sprb        .,		/*
+		*/ label(resource LBL_MAXIMUM_ITERATIONS)
+
+  CHECKBOX ck_nolog       _lft      _ls       @           .,		/*
+		*/ option("nolog")					/*
+		*/ label(resource BOXCOX_ADV_CK_NOLOG)
+  CHECKBOX ck_nologlr     @         _ms       @           .,		/*
+		*/ option("nologlr")					/*
+		*/ label(resource BOXCOX_ADV_CK_NOLOGLR)
+
+  TEXT     tx_from        _lft      _ls       _iwd        .,		/*
+		*/ label(resource BOXCOX_ADV_TX_FROM)
+  EDIT     ed_from        @         _ss       @           .,		/*
+		*/ option("from")					/*
+		*/ label(resource BOXCOX_ADV_TX_FROM)
+
+END
+
+
+SCRIPT n_on
+BEGIN
+  main.tx_notrans.enable
+  main.vl_notrans.enable
+END
+
+SCRIPT n_off
+BEGIN
+  main.tx_notrans.disable
+  main.vl_notrans.disable
+END
+
+PROGRAM command
+BEGIN
+	allowxi
+	INCLUDE _by_pr
+	put "boxcox "
+	varlist main.vn_dv [main.vl_iv]
+	if !main.vl_iv & main.ck_nocon {
+		call create STRING main_NOCONS_TMP
+		call main_NOCONS_TMP.format 				///
+			"resource LBL_MSGBOX_SELECTED_NO_INDVARS_FMT"  	///
+			"resource LBL_TAB_MODEL" 			///
+			"resource LBL_NOCONSTANT"
+		stopbox stop class main_NOCONS_TMP.value
+// On the "Model" tab, "Suppress constant term" is selected without independent variables.
+	}
+	if !main.vl_iv & (main.rb_rhsonly | main.rb_lambda | main.rb_theta) {
+		call create STRING _MSG_TMP
+                call _MSG_TMP.format "resource BOXCOX_MSGBOX_INDEP_VARIABLES"
+		stopbox stop "class _MSG_TMP.value"
+// "Independent variables" must be specified with this type of model.
+	}
+	INCLUDE _weights_pr
+	INCLUDE _ifin_pr
+	beginoptions
+		option radio(main rb_lhsonly rb_rhsonly rb_lambda rb_theta)
+		optionarg main.vl_notrans
+		option main.ck_nocon
+		optionarg /hidedefault rpt.sp_level
+		option rpt.ck_lrtest
+		optionarg /hidedefault adv.sp_iterate
+		option adv.ck_nolog
+		option adv.ck_nologlr
+		optionarg adv.ed_from
+	endoptions
+END

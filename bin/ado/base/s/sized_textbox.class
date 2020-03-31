@@ -1,0 +1,254 @@
+/*                              sized_textbox
+
+	Containing text where the with of the box is either declared or
+	computed from the stored text.
+
+	Note that changes to orientation MUST be made through .set so that
+	the stretch information for the view are correctly maintained.
+*/
+*! version 1.1.0  15mar2019
+
+version 8
+
+class {
+	double specified_textwidth		// impervious to .gph rel < 16
+	double specified_textheight
+
+	specified_textwidth16  = .gsize.new , style(-99)
+	specified_textheight16 = .gsize.new , style(-99)
+	
+	as_textbox	= .yesno.new , style(no)
+	always_sized	= .yesno.new , style(no)	// over-rides as_textbox
+} , inherit(textbox)
+
+
+
+/* -------------------------------------------------------------------------*/
+program new
+
+	.Super.new
+	.xstretch.set fixed
+
+	.set `0'
+end
+
+
+/* -------------------------------------------------------------------------*/
+program set
+
+//	syntax [ , TEXTWIDTH(real -99) TEXTHEIGHT(real -99)		///
+	syntax [ , TEXTWIDTH(string) TEXTHEIGHT(string)			///
+		   FORCESIzed * ]
+
+	.Super.set , `options'
+
+//	if `textwidth' != -99 {
+	if `"`textwidth'"' != `""' {
+		.specified_textwidth16.setstyle , style(`textwidth')
+	}
+	if `"`textheight'"' != `""' {
+		.specified_textheight16.setstyle , style(`textheight')
+	}
+	if ("`forcesized'" != "")  .always_sized.setstyle , style(yes)
+end
+
+/* -------------------------------------------------------------------------*/
+program xsize
+
+	if `.as_textbox.istrue' & ! `.always_sized.istrue' {
+		class exit .Super.xsize
+	}
+
+	if 0`.text.arrnels' == 0 {
+		class exit 0
+	}
+
+	if index("`.orientation.setting'", "horizontal") {
+		if `._has_specified_textwidth' {
+			local sz = `._specified_textwidth'
+		}
+		else {
+			local sz = `.textwidth'
+		}
+
+		if `.style.drawbox.istrue' {
+			local sz = `sz' + `.style.boxmargin.gmleft' + 	///
+				   `.style.boxmargin.gmright'
+		}
+	}
+	else {
+		if `._has_specified_textheight' {
+			local sz = `._specified_textheight'
+		}
+		else {
+			local sz = `.Super.xsize'
+		}
+	}
+
+	class exit = `sz'
+end
+
+
+program ysize
+
+	if `.as_textbox.istrue'  & ! `.always_sized.istrue' {
+		class exit .Super.ysize
+	}
+
+	if 0`.text.arrnels' == 0 {
+		class exit 0
+	}
+
+	if index("`.orientation.setting'", "vertical") {
+		if `._has_specified_textwidth' {
+			local sz = `._specified_textwidth'
+		}
+		else {
+			local sz = `.textwidth'
+		}
+
+		if `.style.drawbox.istrue' {
+			local sz = `sz' + `.style.boxmargin.gmleft' + 	///
+				   `.style.boxmargin.gmright'
+		}
+	}
+	else {
+		if `._has_specified_textheight' {
+			local sz = `._specified_textheight'
+		}
+		else {
+			local sz = `.Super.ysize'
+		}
+	}
+
+	class exit = `sz'
+end
+
+
+program textwidth
+
+	local tsz = `.style.size.gmval'
+	local width 0
+	forvalues i = 1/0`.text.arrnels' {
+		local tlen : _length `"`.text[`i']'"'
+		local width = max(`width', `tsz' * `tlen')
+	}
+
+	class exit = `width'
+end
+
+
+// ---------------------------------------------------------------------------
+// programs to allow both version 15 and prior gph files where specified
+// widths were recorded as doubles and version 16 and above files where
+// specified widths are a gsize.  No need to check graph version.
+
+program _has_specified_textwidth
+
+	class exit = (`.specified_textwidth16.val' >= 0 |		///
+		      `.specified_textwidth' < .)
+end
+
+
+program _specified_textwidth
+
+	if `.specified_textwidth16.val' >= 0 {
+		class exit = `.specified_textwidth16.gmval'
+	}
+	else if `.specified_textwidth' < . {
+		class exit = `.specified_textwidth'
+	}
+	else {
+		class exit = 0
+	}
+
+end
+
+
+program _has_specified_textheight
+
+	class exit = (`.specified_textheight16.val' >= 0 |		///
+		      `.specified_textheight' < .)
+end
+
+
+program _specified_textheight
+
+	if `.specified_textheight16.val' >= 0 {
+		class exit = `.specified_textheight16.gmval'
+	}
+	else if `.specified_textheight' < . {
+		class exit = `.specified_textheight'
+	}
+	else {
+		class exit = 0
+	}
+
+end
+
+
+// ---------------------------------------------------------------------------
+program swap_alignment
+	args hor_vert
+
+	if "`hor_vert'" == "horizontal" {
+		local prefix = cond(`.style.box_alignment.isnorth', "n",   ///
+				cond(`.style.box_alignment.issouth', "s" , ""))
+		if `.style.box_alignment.iseast' {
+			local edit box_alignment(`prefix'west)
+		}
+		else if `.style.box_alignment.iswest' {
+			local edit box_alignment(`prefix'east)
+		}
+	}
+	else {
+		local suffix = cond(`.style.box_alignment.iseast', "east",   ///
+			       cond(`.style.box_alignment.iswest', "west" , ""))
+		if `.style.box_alignment.isnorth' {
+			if "`suffix'" == "" {
+				local edit box_alignment(south)
+			}
+			else	local edit box_alignment(s`suffix')
+		}
+		else if `.style.box_alignment.issouth' {
+			if "`suffix'" == "" {
+				local edit box_alignment(north)
+			}
+			else	local edit box_alignment(n`suffix')
+		}
+	}
+
+	if "`edit'" != "" {
+		.style.ref = .textboxstyle.new , style(`.style.objkey') // sic
+
+		.style.editstyle `edit'  editcopy
+	}
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*  Use compass_draw to allow alignment of the sized textbox in an area that
+    is possibly larger than the size of the textbox.
+*/
+
+program draw
+
+	if 0`.text.arrnels' == 0 {
+		exit						/* Exit */
+	}
+
+	if `.as_textbox.istrue' & ! `.always_sized.istrue' {
+		.Super.draw `0'
+		exit
+	}
+
+	syntax [, * ]
+
+	.compass_draw , align(style.box_alignment) drawpgm(_super_draw)	///
+			margins(style.margin /*style.boxmargin*/) `options'
+end
+
+program _super_draw
+	.Super.draw `0'
+end
+

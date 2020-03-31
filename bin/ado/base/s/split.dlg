@@ -1,0 +1,226 @@
+/*
+  split
+
+*! VERSION 1.2.1  11mar2015
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+INCLUDE _ht280
+INCLUDE header
+
+HELP hlp1, view("help split")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource SPLIT_DLG_HSCALE
+END
+
+DIALOG main, label(resource SPLIT_DLG_TITLE) 				///
+	tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_var          _lft      _top      _iwd      .,		///
+	label(resource SPLIT_MAIN_TX_VAR)
+  VARNAME  vn_var          @         _ss       _vnwd     .,		///
+  	string								///
+	label(resource SPLIT_MAIN_TX_VAR)
+
+  GROUPBOX gb_opt          @         +35       _iwd      _ht17,		///
+	label(resource LBL_OPTIONS)
+  TEXT     tx_gener        _indent   _ss       _cwd2     .,		///
+	label(resource SPLIT_MAIN_TX_GENER)
+  EDIT     ed_gener        @         _ss       _vnwd     .,		///
+	label(resource SPLIT_MAIN_TX_GENER) 				///
+	option(generate) max(31)
+
+  CHECKBOX ck_parse        _ilft     _ls       _ibwd     .,		///
+	label(resource SPLIT_MAIN_CK_PARSE)				///
+	onclickon(script parse_on)					///
+	onclickoff(script parse_off)
+  EDIT     ed_parse        _indent2  _ss       _vnwd     .,		///
+	label(resource SPLIT_MAIN_CK_PARSE) option(parse)
+
+  CHECKBOX ck_limit        _ilft     _ls       _ibwd     .,		///
+	label(resource SPLIT_MAIN_CK_LIMIT)				///	
+	onclickon(script main_limit_on)					///
+	onclickoff(script main_limit_off)
+  SPINNER  sp_limit        _cksep    _ss       _spwd     .,		///
+	option(limit) min(1) max(100000) default(1)
+  TEXT     tx_limit        _spsep    @         _cksprb   .,		///
+	label(resource LBL_GB_VARIABLES)
+
+  CHECKBOX ck_notrim       _ilft     _ls       _ibwd     .,		///
+	option(notrim)							///
+	label(resource SPLIT_MAIN_CK_NOTRIM)
+ END
+
+ SCRIPT main_limit_on
+ BEGIN
+	main.sp_limit.enable
+	main.tx_limit.enable
+ END
+
+ SCRIPT main_limit_off
+ BEGIN
+	main.sp_limit.disable
+	main.tx_limit.disable
+ END
+
+ INCLUDE ifin
+
+ DIALOG destring, tabtitle(resource SPLIT_TAB_DESTRING)
+ BEGIN
+  BUTTON   bu_hlp          _xsetbu   _top     _setbuwd   .,		///
+	label(resource SPLIT_DESTRING_BU_HLP)				///
+	onpush(view help destring##|_new)
+
+  CHECKBOX ck_destring     _lft	     _ms      _iwd      _ht19h,		///
+	label(resource SPLIT_DESTRING_CK_DESTRING)			///
+	option(destring)						///
+	onclickon(program destring_on)					///
+	onclickoff(script destring_off)					///
+	groupbox
+  CHECKBOX ck_ignore		_indent	_ms	_ibwd	_ht8,		///
+	groupbox							///
+	onclickon(script destring_ignore_on)				///
+	onclickoff(script destring_ignore_off)				///
+	label(resource LBL_REMOVE_THESE_CHARACTERS)
+  EDIT ed_ignore		_indent2 _ms	_vnwd	.,		///
+	option(ignore)							///
+	label(resource LBL_REMOVE_THESE_CHARACTERS)
+  CHECKBOX ck_illegal		_iilft	_ls	_iibwd	.,		///
+	option(illegal)							///
+	label(resource DESTRING_MAIN_CK_ILLEGAL)			///
+	onclickon(program check_illegal)				///
+	onclickoff(program check_illegal)
+  CHECKBOX ck_asbytes		@	_ms	@	.,		///
+	option(asbytes)							///
+	label(resource DESTRING_MAIN_CK_ASBYTES)			///
+	onclickon(program check_illegal)				///
+	onclickoff(program check_illegal)
+  CHECKBOX ck_force        _ilft   +45      _ibwd     .,		///
+	label(resource LBL_CONVERT_NONNUMERIC_STRINGS_TO_MISSING_VAL)	///
+	option(force)
+  CHECKBOX ck_float        @         _ms       @         .,		///
+	label(resource LBL_GENERATE_NUMERIC_VARIABLES_AS_TYPE_FLOAT)	///
+	option(float)
+  CHECKBOX ck_percent      @         _ms       @         .,		///
+	option(percent)							///
+	label(resource LBL_CONVERT_PERCENT_VARIABLES_TO_FRACTIONAL_FORM)
+END
+
+SCRIPT parse_on
+BEGIN
+	main.ed_parse.enable
+	main.ck_notrim.enable
+END
+
+SCRIPT parse_off
+BEGIN
+	main.ed_parse.disable
+	main.ck_notrim.disable
+END
+
+PROGRAM destring_on
+BEGIN
+	call destring.ck_ignore.enable
+	if destring.ck_ignore {
+		call script destring_ignore_on
+	}
+	else {
+		call script destring_ignore_off
+	}
+	call destring.ck_force.enable
+	call destring.ck_float.enable
+	call destring.ck_percent.enable
+END
+
+SCRIPT destring_off
+BEGIN
+	destring.ck_ignore.disable
+	destring.ed_ignore.disable
+	destring.ck_force.disable
+	destring.ck_float.disable
+	destring.ck_percent.disable
+	destring.ck_asbytes.disable
+	destring.ck_illegal.disable
+END
+
+SCRIPT destring_ignore_on
+BEGIN
+	destring.ed_ignore.enable
+	program check_illegal
+END
+
+SCRIPT destring_ignore_off
+BEGIN
+	destring.ed_ignore.disable
+	program check_illegal
+END
+
+PROGRAM check_illegal
+BEGIN
+	if destring.ck_ignore.isenabled() & destring.ck_ignore {
+		if destring.ck_illegal {
+			call destring.ck_asbytes.disable
+		}
+		else {
+			call destring.ck_asbytes.enable
+		}
+
+		if destring.ck_asbytes {
+			call destring.ck_illegal.disable
+		}
+		else {
+			call destring.ck_illegal.enable
+		}
+	}
+	else {
+		call destring.ck_asbytes.disable
+		call destring.ck_illegal.disable
+	}
+END
+
+PROGRAM ignore_options
+BEGIN
+	put "`" 
+	put `"""' destring.ed_ignore `"""'
+	put "'" 
+	if destring.ck_asbytes | destring.ck_illegal {
+		put ","
+		option destring.ck_asbytes
+		option destring.ck_illegal
+	}
+END
+
+PROGRAM command
+BEGIN
+	put "split "
+	varlist main.vn_var
+	INCLUDE _ifin_pr
+	beginoptions
+		optionarg  main.ed_gener
+		if main.ck_parse {
+			require main.ed_parse
+			optionarg main.ed_parse
+		}
+		if main.ck_limit {
+			optionarg main.sp_limit
+		}
+		option main.ck_notrim
+		option destring.ck_destring
+		if destring.ck_destring {
+			if destring.ck_ignore {
+				put " ignore("
+				put " " /program ignore_options
+				put ")"
+			}
+			option destring.ck_force
+			option destring.ck_float
+			option destring.ck_percent
+		}
+	endoptions
+END

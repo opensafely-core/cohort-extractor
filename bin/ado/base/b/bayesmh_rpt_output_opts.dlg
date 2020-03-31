@@ -1,0 +1,205 @@
+/*
+    bayesmh rpt output options
+
+*!  VERSION 1.0.6  18dec2017
+
+*/
+VERSION 15.0
+
+INCLUDE _std_medium
+DEFINE _dlght 380
+INCLUDE header
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create ARRAY rpt_show_params_list
+	create STRING showparas_str
+	
+	create ARRAY rpt_showre_params_list
+	create STRING showreparas_str
+	
+	create STRING parent_name
+	create DOUBLE showre
+
+	parent_name.setvalue class PARENT._dlg_rsrcname
+	parent_name.withvalue showre.setvalue		///
+		class @.showre.value
+		
+	program check_reffects
+
+
+	setscale_hadj resource BAYESMH_RPT_OUTPUT_OPTS_DLG_HSCALE
+END
+
+PROGRAM	check_reffects
+BEGIN		
+	if showre {
+		call program show_reffects_enable
+	}
+	else {
+		call program show_reffects_disable
+	}
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	call main.cb_show.repopulate
+	call main.cb_showre.repopulate
+	
+	call main.rb_showallref.setlabel "resource BAYES_LBL_SHOWALLREF"
+	call main.rb_showselref.setlabel "resource BAYES_LBL_SHOWSELREF"
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	label(resource LBL_OUTPUT_REPORTING_OPTIONS)
+BEGIN
+  GROUPBOX gb_params		_lft	_top	_iwd	_ht9h,		///
+  	label(resource BAYES_RPT_OUTPUT_GB_PARAMS)
+  RADIO    rb_showall		_ilft	_ms	_ibwd	.,first		///
+  	onclickon(script show_off)					///
+  	label(resource BAYES_RPT_OUTPUT_RB_SHOW_ALL)
+  RADIO    rb_showsel		_ilft	_ss	_ibwd	.,		///
+  	option(show)							///
+  	onclickon(program show_on)					///
+  	label(resource BAYES_RPT_OUTPUT_RB_SHOW_SEL)						
+  RADIO    rb_noshowsel		_ilft	_ss	_ibwd	.,last		///
+  	option(noshow)							///
+  	onclickon(program show_on)					///
+  	label(resource BAYES_RPT_OUTPUT_RB_SUPPRESS_SEL)
+  COMBOBOX cb_show 		_indent	_ms	_iibwd	.,		///
+	dropdown							///
+	append								///
+	contents(rpt_show_params_list)					///
+	label(resource BAYES_LBL_MPARAMS_EXCLUDED_OUTPUT)
+
+  DEFINE rex _lft
+  DEFINE rey +50
+  DEFINE rewid _iwd
+  INCLUDE bayes_showreffects
+  
+  CHECKBOX ck_notable		_lft	+50	_iwd	.,		///
+	option(notable)							///
+	label(resource BAYES_LBL_SUPPRESS_ESTTABLE_OUTPUT)
+  CHECKBOX ck_noheader		_lft	_ms	_iwd	.,		///
+	option(noheader)						///
+	label(resource BAYES_LBL_SUPPRESS_HEADER_EST_OR_REPLAY)
+  TEXT	  tx_title		_lft 	_ls	_iwd	.,		///
+	label(resource BAYES_LBL_OPT_TITLE_TABLE_PARAMS_EST)
+  EDIT    ed_title		_lft	_ss	_iwd	.,		///
+	option(title)							///
+	label(resource BAYES_LBL_OPT_TITLE_TABLE_PARAMS_EST)
+END
+
+PROGRAM get_show_params
+BEGIN
+	call showparas_str.setvalue ""
+	call showparas_str.append s(params)
+	call showparas_str.append " "
+	call showparas_str.append s(eqnames)
+	call showparas_str.tokenizeOnStr rpt_show_params_list " "
+	call main.cb_show.repopulate
+END
+
+PROGRAM get_showre_params
+BEGIN
+	call showreparas_str.setvalue ""
+	call showreparas_str.append s(reparams)
+	call showreparas_str.tokenizeOnStr rpt_showre_params_list " "
+	call main.cb_showre.repopulate
+END
+
+PROGRAM show_on
+BEGIN
+	call program get_show_params
+	call main.cb_show.enable
+	call main.cb_show.repopulate
+END
+
+SCRIPT show_off
+BEGIN
+	main.cb_show.disable
+END
+
+PROGRAM show_reffects_check
+BEGIN
+	if main.rb_showallref.isenabled() & main.rb_showallref {
+		call main.cb_showre.disable
+	}
+	if main.rb_showselref.isenabled() & main.rb_showselref {
+		call main.cb_showre.enable
+		call program get_showre_params
+	}	
+END
+
+PROGRAM show_reffects_on
+BEGIN
+	if main.ck_showreffects.isenabled() & main.ck_showreffects {
+		call main.rb_showallref.enable
+		call main.rb_showselref.enable
+		call program show_reffects_check
+	}
+END
+
+PROGRAM show_reffects_off
+BEGIN
+	call main.rb_showallref.disable
+	call main.rb_showselref.disable
+	call main.cb_showre.disable	
+END
+
+PROGRAM show_reffects_enable
+BEGIN
+	call main.ck_showreffects.enable
+	if main.ck_showreffects {
+		call program show_reffects_on
+	}
+	else {
+		call program show_reffects_off
+	}
+END
+
+PROGRAM show_reffects_disable
+BEGIN
+	call main.ck_showreffects.disable
+	call main.rb_showallref.disable
+	call main.rb_showselref.disable
+	call main.cb_showre.disable
+END
+
+PROGRAM show_reffects_output
+BEGIN
+	if main.rb_showallref.isenabled() & main.rb_showallref {
+		option main.rb_showallref
+	}
+	
+	if main.rb_showselref.isenabled() & main.rb_showselref {
+		optionarg main.cb_showre
+	}
+END
+
+PROGRAM show_output
+BEGIN
+	put main.cb_show
+END
+
+PROGRAM command
+BEGIN
+	if main.cb_show.isenabled() & main.cb_show {
+		if main.rb_showsel {
+			put "show"
+		}
+		if main.rb_noshowsel {
+			put "noshow"
+		}
+		put "("
+		put /program show_output
+		put ")"
+	}
+
+	put " " /program show_reffects_output
+	option main.ck_notable
+	option main.ck_noheader
+	optionarg main.ed_title
+END
+

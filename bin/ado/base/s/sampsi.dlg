@@ -1,0 +1,474 @@
+/*
+ 	sampsi
+
+*! VERSION 1.1.1  02dec2014 (deprecated)
+
+*/
+
+VERSION 8.0
+
+INCLUDE _std_large
+INCLUDE _ht310
+INCLUDE header
+
+HELP hlp1, view("help sampsi")
+RESET res1
+
+DEFINE _lft4_2   180
+DEFINE _lft4_3   290
+DEFINE _kindent  +65
+DEFINE _kindent2 +30
+
+DIALOG main,								/*
+*/ label("sampsi - Sample size and power for means and proportions") 	/*
+		*/ tabtitle("Main")
+BEGIN
+  GROUPBOX gb_input       _lft        _top       _iwd  _ht24h,		/*
+		*/ label("Input")
+  RADIO    rb_mean2    _indent         _ss      _inwd       .,		/*
+		*/ first						/*
+		*/ clickon(program mean2_enable)			/*
+		*/ label("Two-sample comparison of means:")
+  DEFINE   _x @x
+  DEFINE   _cx @cx
+  TEXT     tx_mean2_1 _kindent         _ss    _cwd4_5       .,		/*
+		*/ right						/*
+		*/ label("Mean one:")
+  DEFINE   _x2 @x
+  EDIT     en_mean2_1  _lft4_2           @     _en7wd       .,		/*
+		*/ numonly						/*
+		*/ label("Mean one")
+  TEXT     tx_mean2_2  _lft4_3           @    _cwd4_5       .,		/*
+		*/ right						/*
+		*/ label("Mean two:")
+  EDIT     en_mean2_2  _lft4_4           @     _en7wd       .,		/*
+		*/ numonly						/*
+		*/ label("Mean two")
+  TEXT     tx_goto1         _x           @          0    _ht0,		/*
+		*/ label("")
+  TEXT     tx_sd1_2  _kindent2         _ms    _cwd3_5       .,		/*
+		*/ right 						/*
+		*/ label("Std. deviation one:")
+  EDIT     en_sd1_2    _lft4_2           @     _en7wd       .,   	/*
+		*/ option("sd1")					/*
+		*/ numonly default("1") 				/*
+		*/ label("Std. deviation one")
+  TEXT     tx_sd2          +75           @    _cwd3_5       .,		/*
+		*/ right 						/*
+		*/ label("Std. deviation two:")
+  EDIT     en_sd2      _lft4_4           @     _en7wd       .,   	/*
+		*/ option("sd2")					/*
+		*/ numonly 						/*
+		*/ default("1")						/*
+		*/ label("Std. deviation two")
+  RADIO    rb_mean1         _x         _ls        _cx       .,		/*
+		*/ clickon(program mean1_enable)			/*
+		*/ label("One-sample comparison of mean to hypothesized value:")
+  TEXT     tx_mean1_1 _kindent         _ss    _cwd4_5       .,		/*
+		*/ right						/*
+		*/ label("Hypothesized:")
+  EDIT     en_mean1_1  _lft4_2           @     _en7wd       .,		/*
+		*/ numonly						/*
+		*/ label("Hypothesized mean")
+  TEXT     tx_mean1_2  _lft4_3           @    _cwd4_5       .,		/*
+		*/ right						/*
+		*/ label("Postulated:")
+  EDIT     en_mean1_2  _lft4_4           @     _en7wd       .,		/*
+		*/ numonly						/*
+		*/ label("Postulated mean")
+  TEXT     tx_goto2         _x           @          0    _ht0,		/*
+		*/ label("")
+  TEXT     tx_sd1_1  _kindent2         _ms    _cwd3_5       .,		/*
+		*/ right 						/*
+		*/ label("Std. deviation one:")
+  EDIT     en_sd1_1    _lft4_2           @     _en7wd       .,   	/*
+		*/ option("sd1")					/*
+		*/ numonly default("1") 				/*
+		*/ label("Std. deviation one")
+  RADIO    rb_prop2         _x         _ls        _cx       .,		/*
+		*/ clickon(program prop2_enable)			/*
+*/ label("Two-sample comparison of proportions (values in [0,1]):")
+  TEXT     tx_prop2_1 _kindent         _ss    _cwd4_5       .,		/*
+		*/ right						/*
+		*/ label("Proportion one:")
+  EDIT     en_prop2_1  _lft4_2           @     _en7wd       .,		/*
+		*/ numonly						/*
+		*/ label("Proportion one")
+  TEXT     tx_prop2_2  _lft4_3           @    _cwd4_5       .,		/*
+		*/ right						/*
+		*/ label("Proportion two:")
+  EDIT     en_prop2_2  _lft4_4           @     _en7wd       .,		/*
+		*/ numonly						/*
+		*/ label("Proportion two")
+  RADIO    rb_prop1         _x         _ls        _cx       .,		/*
+		*/ last							/*
+		*/ clickon("script prop1_enable")			/*
+*/ label("One-sample comparison of proportions to hypothesized values (in [0,1]):")
+  TEXT     tx_prop1_1 _kindent         _ss    _cwd4_5       .,		/*
+		*/ right						/*
+		*/ label("Hypothesized:")
+  EDIT     en_prop1_1  _lft4_2           @     _en7wd       .,		/*
+		*/ numonly						/*
+		*/ label("Hypothesized mean")
+  TEXT     tx_prop1_2  _lft4_3           @    _cwd4_5       .,		/*
+		*/ right						/*
+		*/ label("Postulated:")
+  EDIT     en_prop1_2  _lft4_4           @     _en7wd       .,		/*
+		*/ numonly						/*
+		*/ label("Postulated")
+END
+
+
+DIALOG opt, tabtitle("Options")
+BEGIN
+
+  GROUPBOX gb_output      _lft        _top      _cwd1    _ht4,		/*
+		*/ label("Output")
+  RADIO    rb_size        _indent      _ss      _inwd       .,		/*
+		*/ first						/*
+		*/ clickon(program power_off)				/*
+		*/ label("Compute sample size")
+  DEFINE   _y @y
+  RADIO    rb_power       @            _ss          @       .,		/*
+		*/ last 						/*
+		*/ clickon("program power_on")				/*
+		*/ label("Compute power")
+
+  GROUPBOX gb_samples     _lft          +45    _cwd1   _ht7h,		/*
+		*/ label("Sample-based calculations")
+  TEXT     tx_goto     _indent         _ms          0     _ht0,		/*
+		*/ label("")
+  DEFINE   _x @x
+  SPINNER  sp_n1        _cksep           @      _spwd        .,		/*
+		*/ option("n1")						/*
+		*/ min(1) default(100) max(1000000)			/*
+		*/ label("Sample one size")
+  TEXT     tx_n1        _spsep           @   _ckspr2b        .,		/*
+		*/ label("Sample one size")
+  CHECKBOX ck_n2            _x         _ms      _ckwd        .,		/*
+		*/ clickon(script n2_on)				/*
+		*/ clickoff(script n2_off)				/*
+		*/ label("")
+  SPINNER  sp_n2        _cksep           @      _spwd        .,		/*
+		*/ option("n2")						/*
+		*/ min(1) default(100) max(1000000)			/*
+		*/ label("Sample two size")
+  TEXT     tx_n2        _spsep           @   _ckspr2b        .,		/*
+		*/ label("Sample two size")
+  EDIT     en_ratio         _x         _ms     _en7wd        .,		/*
+		*/ option("ratio")					/*
+		*/ numonly 						/*
+		*/ default("1") 					/*
+		*/ label("Ratio of sample sizes")
+  TEXT     tx_ratio    _en7sep           @    _en7r2b        .,		/*
+		*/ label("Ratio of sample sizes")
+
+  EDIT     en_alpha      _lft2          _y     _en7wd        .,		/*
+		*/ option("alpha")					/*
+		*/ numonly						/*
+		*/  /*  default should be 100 - $S_level */		/*
+		*/ label("Significance level")
+  TEXT     tx_alpha    _en7sep           @     _en7r2     _ht0,		/*
+		*/ label("Significance level (alpha)")
+  EDIT     en_power      _lft2         _ms     _en7wd        .,		/*
+		*/ option("power")					/*
+		*/ numonly						/*
+		*/ default(".90") 					/*
+		*/ label("Power of the test")
+  TEXT     tx_power    _en7sep           @     _en7r2        .,		/*
+		*/ label("Power of the test")
+
+  COMBOBOX cb_side	_lft2		+45	_en14wd	.,		/*
+		*/ dropdownlist contents(sidecont) values(sideval)
+  TEXT tx_side		_en14sep	@	100	.,		/*
+		*/ label("Type of test")
+  CHECKBOX ck_nocontinuity _lft2       _ls     _cwd1        .,		/*
+	  	*/ option(nocontinuity)					/*
+		*/ label("Do not use continuity correction")
+END
+
+LIST sidecont
+BEGIN
+  Two-sided test
+  One-sided test
+END
+
+LIST sideval
+BEGIN
+ ""
+ onesided
+END
+
+LIST methodcont
+BEGIN
+  All
+  Post
+  Change
+  ANCOVA
+END
+
+LIST methodval
+BEGIN
+  all
+  post
+  change
+  ancova
+END
+
+SCRIPT n2_on
+BEGIN
+  opt.sp_n2.enable
+  opt.en_ratio.disable
+  opt.tx_ratio.disable
+END
+
+SCRIPT n2_off
+BEGIN
+  opt.sp_n2.disable
+  opt.en_ratio.enable
+  opt.tx_ratio.enable
+END
+
+PROGRAM ratio_enable
+BEGIN
+  if !opt.ck_n2 | opt.rb_size {
+	if main.rb_mean2 | main.rb_prop2 {
+  		call gaction opt.en_ratio.enable
+  		call gaction opt.tx_ratio.enable
+	}
+  }
+END
+
+SCRIPT ratio_disable
+BEGIN
+  opt.en_ratio.disable
+  opt.tx_ratio.disable
+END
+
+SCRIPT prop1_enable
+BEGIN
+  opt.ck_n2.disable
+  opt.sp_n2.disable
+  opt.tx_n2.disable
+  script ratio_disable
+  script mean1_disable_parts
+  script mean2_disable_parts
+  script prop1_enable_parts
+  script prop2_disable_parts
+  opt.ck_nocontinuity.disable
+END
+
+PROGRAM prop2_enable
+BEGIN
+  if opt.rb_power {
+  	call opt.ck_n2.enable
+	if opt.ck_n2 {
+		call opt.sp_n2.enable
+	}
+	call opt.tx_n2.enable
+  }
+  call program ratio_enable
+  call script mean1_disable_parts
+  call script mean2_disable_parts
+  call script prop1_disable_parts
+  call script prop2_enable_parts
+  call opt.ck_nocontinuity.enable
+END
+
+PROGRAM mean1_enable
+BEGIN
+  call gaction opt.ck_n2.disable
+  call gaction opt.sp_n2.disable
+  call gaction opt.tx_n2.disable
+  call script ratio_disable
+  call script mean1_enable_parts
+  call script mean2_disable_parts
+  call script prop1_disable_parts
+  call script prop2_disable_parts
+  call opt.ck_nocontinuity.disable
+END
+
+
+PROGRAM mean2_enable
+BEGIN
+  if opt.rb_power {
+  	call gaction opt.ck_n2.enable
+	if opt.ck_n2 {
+		call gaction opt.sp_n2.enable
+	}
+	call gaction opt.tx_n2.enable
+  }
+  call program ratio_enable
+  call script mean1_disable_parts
+  call script mean2_enable_parts
+  call script prop1_disable_parts
+  call script prop2_disable_parts
+  call opt.ck_nocontinuity.disable
+END
+
+SCRIPT mean1_enable_parts
+BEGIN
+  main.tx_mean1_1.enable
+  main.tx_mean1_2.enable
+  main.tx_sd1_1.enable
+  main.en_sd1_1.enable
+  main.en_mean1_2.enable
+  main.en_mean1_1.enable
+END
+
+SCRIPT mean1_disable_parts
+BEGIN
+  main.tx_mean1_1.disable
+  main.tx_mean1_2.disable
+  main.tx_sd1_1.disable
+  main.en_mean1_1.disable
+  main.en_mean1_2.disable
+  main.en_sd1_1.disable
+END
+
+SCRIPT mean2_enable_parts
+BEGIN
+  main.tx_mean2_1.enable
+  main.tx_mean2_2.enable
+  main.tx_sd1_2.enable
+  main.tx_sd2.enable
+  main.en_sd2.enable
+  main.en_sd1_2.enable
+  main.en_mean2_2.enable
+  main.en_mean2_1.enable
+END
+
+SCRIPT mean2_disable_parts
+BEGIN
+  main.tx_mean2_1.disable
+  main.tx_mean2_2.disable
+  main.tx_sd1_2.disable
+  main.tx_sd2.disable
+  main.en_mean2_1.disable
+  main.en_mean2_2.disable
+  main.en_sd1_2.disable
+  main.en_sd2.disable
+END
+
+
+SCRIPT prop1_enable_parts
+BEGIN
+  main.tx_prop1_1.enable
+  main.tx_prop1_2.enable
+  main.en_prop1_2.enable
+  main.en_prop1_1.enable
+END
+
+SCRIPT prop1_disable_parts
+BEGIN
+  main.tx_prop1_1.disable
+  main.tx_prop1_2.disable
+  main.en_prop1_1.disable
+  main.en_prop1_2.disable
+END
+
+SCRIPT prop2_enable_parts
+BEGIN
+  main.tx_prop2_1.enable
+  main.tx_prop2_2.enable
+  main.en_prop2_2.enable
+  main.en_prop2_1.enable
+END
+
+SCRIPT prop2_disable_parts
+BEGIN
+  main.tx_prop2_1.disable
+  main.tx_prop2_2.disable
+  main.en_prop2_1.disable
+  main.en_prop2_2.disable
+END
+
+PROGRAM power_on
+BEGIN
+  call gaction opt.en_power.disable
+  call gaction opt.tx_power.disable
+  call gaction opt.sp_n1.enable
+  call gaction opt.tx_n1.enable
+  if main.rb_mean2 | main.rb_prop2 {
+  	call gaction opt.ck_n2.enable
+	if opt.ck_n2 {
+		call opt.sp_n2.enable
+		call script ratio_disable
+	}
+	call gaction opt.tx_n2.enable
+	if ! opt.ck_n2 {
+		call program ratio_enable
+	}
+  }
+
+END
+
+PROGRAM power_off
+BEGIN
+  call opt.sp_n1.disable
+  call opt.sp_n2.disable
+  call opt.tx_n1.disable
+  call opt.tx_n2.disable
+  call opt.ck_n2.disable
+  if ! main.rb_mean2 |  ! main.rb_prop2 {
+  	call script ratio_disable
+  }
+  if main.rb_mean2 | main.rb_prop2 {
+  	call program ratio_enable
+  }
+  call opt.en_power.enable
+  call opt.tx_power.enable
+END
+
+PROGRAM command
+BEGIN
+	put "sampsi "
+	if main.rb_mean1 {
+		require main.en_mean1_1
+		require main.en_mean1_2
+		put main.en_mean1_1 " " main.en_mean1_2
+ 	}
+	if main.rb_mean2 {
+		require main.en_mean2_1
+		require main.en_mean2_2
+		put main.en_mean2_1 " " main.en_mean2_2
+ 	}
+	if main.rb_prop1 {
+		require main.en_prop1_1
+		require main.en_prop1_2
+		put main.en_prop1_1 " " main.en_prop1_2
+ 	}
+	if main.rb_prop2 {
+		require main.en_prop2_1
+		require main.en_prop2_2
+		put main.en_prop2_1 " " main.en_prop2_2
+ 	}
+	beginoptions
+		if main.rb_mean1 {
+			require main.en_sd1_1
+			optionarg main.en_sd1_1
+		}
+		if main.rb_mean2 {
+			require main.en_sd1_2
+			require main.en_sd2
+			optionarg main.en_sd1_2
+			optionarg main.en_sd2
+		}
+		optionarg opt.en_alpha
+		if opt.rb_size {
+			optionarg /hidedefault opt.en_power
+		}
+		if opt.rb_power {
+			optionarg opt.sp_n1
+  			if opt.ck_n2 {
+				optionarg opt.sp_n2
+			}
+		}
+		optionarg /hidedefault opt.en_ratio
+		option opt.ck_nocontinuity
+		if main.rb_mean1 | main.rb_prop1 {
+			put " onesample "
+		}
+		put opt.cb_side
+	endoptions
+END

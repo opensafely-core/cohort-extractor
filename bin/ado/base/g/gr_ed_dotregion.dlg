@@ -1,0 +1,533 @@
+/*
+  gr_ed_dotregion.dlg
+
+*!  VERSION 1.1.1  03jun2015
+
+*/
+
+VERSION 10.0
+MODAL
+
+INCLUDE _std_medium
+DEFINE _dlght 400
+INCLUDE header_gr_ed
+
+DEFINE _clwd	15
+DEFINE _wd	120
+DEFINE _sep	+125
+DEFINE _wd2	110
+DEFINE _sep2	+115
+DEFINE _cbwd	130
+DEFINE _cbsep	+135
+
+DEFINE GBWD	_iwd
+
+SCRIPT PREINIT
+BEGIN
+	settitle resource GR_ED_DOTREGION_DLG_TITLE
+	create STRING G
+	create STRING GRAPH
+	create STRING MODE
+	create ARRAY  ARGS
+	create STRING barKey
+	program setupGOBJECT
+
+	create DOUBLE index
+	create STRING tmp
+	create STRING child__MESSAGE
+	create STRING unused
+
+// organization
+	create DOUBLE horizontal
+	create DOUBLE percentages
+	create DOUBLE include0
+	create DOUBLE missing
+	create DOUBLE reverse
+	create STRING varGap
+	create STRING groupGap
+	create STRING sgroupGap
+	create STRING outerGap
+	setscale_hadj resource GR_ED_DOTREGION_DLG_HSCALE
+	
+// advanced
+	create DOUBLE visible
+	create DOUBLE filled
+
+	program get_defaults
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program initialize_controls
+	program check_init_tab
+END
+
+PROGRAM check_init_tab
+BEGIN
+	if MODE.contains("MODE(") {
+		if MODE.contains("refline") {
+			call reflines.setactive
+		}
+	}
+END
+
+PROGRAM setupGOBJECT
+BEGIN
+	if ! __MESSAGE {
+		stopbox stop "resource LBL_MSGBOX_OBJECT_NOT_FOUND"
+// An unexpected error has occurred. Object not found.
+		exit 198
+	}
+	call __MESSAGE.tokenize ARGS
+	call G.setvalue class ARGS[1]
+	call MODE.setvalue class ARGS[2]
+	call GRAPH.setvalue class ._Gr_Global.edit_graph
+	call G.withvalue barKey.setvalue class @.bargraph.bargraph
+END
+
+DIALOG org, tabtitle(resource LBL_ORGANIZATION)
+BEGIN
+  GROUPBOX gb_orient	_lft	_top	GBWD	_ht2,		///
+	label(resource LBL_GB_ORIENTATION)
+  RADIO    rb_horiz	_ilft	_ss	120	., 		///
+	first							///
+	label(resource LBL_HORIZONTAL) nomemory
+  RADIO    rb_vert	+125	@	@	.,		///
+	last							///
+	label(resource LBL_VERTICAL) nomemory
+
+  CHECKBOX ck_percent	_lft	+45	_cwd1	.,		///
+	label(resource LBL_GRAPH_PERCENTAGES)
+DEFINE y @y
+
+  CHECKBOX ck_include0	@	_ms	@	.,		///
+	label(resource LBL_INCLUDE_ZERO_IN_SCALE)
+
+  CHECKBOX ck_reverse	@	_ms	@	.,		///
+	label(resource LBL_REVERSE_SCALE)
+
+  CHECKBOX ck_missing	@	_ms	@	.,		///
+	label(resource LBL_INCLUDE_MISSING_CATEGORIES)
+
+  BUTTON   bu_rotate	_rj120	y	120	.,		///
+	label(resource LBL_ROTATE_CATEGORIES)				///
+	onpush(program rotateCategories)			///
+	tooltip(resource LBL_CYCLE_THROUGH_OVER_CAT_INCLUDING_ONE_CAT_LEG)
+
+  BUTTON   bu_sort	_rj120	_ls	80	.,		///
+	label(resource GR_ED_DOTREGION_ORG_BU_SORT)		///
+	onpush(program sortBars)
+  CHECKBOX ck_desc	@	_ms	120	.,		///
+	label(resource LBL_SORT_DESCENDING)
+
+  GROUPBOX gb_gaps	_lft	+50	GBWD	_ht11,		///
+	label(resource LBL_SPACING)
+
+  TEXT     tx_varGap	_ilft	_ss	_wd	.,		///
+	label(resource LBL_VARIABLES) right
+  COMBOBOX cb_varGap	_sep	@	_cbwd	.,		///
+	dropdown 						///
+	contents(.__STYLES_LABEL.relsize) values(.__STYLES.relsize)
+
+  TEXT     tx_grpGap	_ilft	_mls	_wd	.,		///
+	label(resource LBL_CATEGORIES) right
+  COMBOBOX cb_grpGap	_sep	@	_cbwd	.,		///
+	dropdown 						///
+	contents(.__STYLES_LABEL.relsize) values(.__STYLES.relsize)
+
+  TEXT     tx_sgrpGap	_ilft	_mls	_wd	.,		///
+	label(resource LBL_SUPER_CATEGORIES) right
+  COMBOBOX cb_sgrpGap	_sep	@	_cbwd	.,		///
+	dropdown 						///
+	contents(.__STYLES_LABEL.relsize) values(.__STYLES.relsize)
+
+  TEXT     tx_outerGap	_ilft	_mls	_wd	.,		///
+	label(resource LBL_OUTER) right
+  COMBOBOX cb_outerGap	_sep	@	_cbwd	.,		///
+	dropdown 						///
+	contents(.__STYLES_LABEL.relsize) values(.__STYLES.relsize)
+
+  GROUPBOX gb_note	_lft	+45	_iwd	_ht3,		///
+	label(resource LBL_IMPORTANT_NOTE)
+  TEXTBOX  tb_note	_ilft	_ss	_ibwd	_tb2,		///
+	label(resource GR_ED_DOTREGION_ORG_TB_NOTE)
+END
+
+PROGRAM sortBars
+BEGIN
+	put "_gm_dlg_edits, "
+	put "object(" barKey ") "
+	put "cmd(_gm_edit "
+		put "." G ".GraphEdit, cmd(_set_sort_height "
+		if org.ck_desc {
+			put "0"
+		}
+		else {
+			put "1"
+		}			
+		put ")) "
+	stata hidden immediate
+END
+
+PROGRAM rotateCategories
+BEGIN
+	put "_gm_dlg_edits, "
+	put "object(" barKey ") "
+	put "cmd(_gm_edit "
+		put "." G ".GraphEdit, cmd(_set_rotate"		
+	put ")) "
+	stata hidden immediate
+END
+
+INCLUDE gr_ed_regions
+
+DIALOG reflines, tabtitle(resource LBL_TAB_REFERENCE_LINES)
+BEGIN
+  BUTTON   bu_href	_ilft	20	180	.,		///
+	label(resource LBL_ADD_HORIZONTAL_REFERENCE_LINE)	///
+	onpush(script show_hrefline_dialog)			///
+	tooltip(resource LBL_ADD_HORIZONTAL_REFERENCE_LINE_Y_AXIS)
+  BUTTON   bu_vref	_ilft	_ls	180	.,		///
+	label(resource LBL_ADD_VERTICAL_REFERENCE_LINE)		///
+	onpush(script show_vrefline_dialog)			///
+	tooltip(resource LBL_ADD_VERTICAL_REFERENCE_LINE_X_AXIS)
+END
+
+SCRIPT show_hrefline_dialog
+BEGIN
+	child__MESSAGE.setvalue "yaxis"
+	create STRING hrefline_result
+	create CHILD gr_ed_axis_refline AS gr_ed_h_refline
+	gr_ed_h_refline.settitle resource LBL_ADD_HORIZONTAL_REFERENCE_LINE
+	gr_ed_h_refline.setExitAction "program get_hrefline_result"
+	gr_ed_h_refline.setExitString hrefline_result
+END
+PROGRAM get_hrefline_result
+BEGIN
+	if hrefline_result {
+		put "_gm_dlg_edits , "
+		put "object(" G ") "
+		put "cmd(" 
+			put "." G ".add_log_refline "
+			put "y "
+			put `" "" "'
+			put hrefline_result
+		put ") "
+		stata hidden queue
+	}
+END
+
+SCRIPT show_vrefline_dialog
+BEGIN
+	child__MESSAGE.setvalue "xaxis"
+	create STRING vrefline_result
+	create CHILD gr_ed_axis_refline AS gr_ed_v_refline
+	gr_ed_v_refline.settitle resource LBL_ADD_VERTICAL_REFERENCE_LINE
+	gr_ed_v_refline.setExitAction "program get_vrefline_result"
+	gr_ed_v_refline.setExitString vrefline_result
+END
+PROGRAM get_vrefline_result
+BEGIN
+	if vrefline_result {
+		put "_gm_dlg_edits , "
+		put "object(" G ") "
+		put "cmd(" 
+			put "." G ".add_log_refline "
+			put "x "
+			put `" "" "'
+			put vrefline_result
+		put ") "
+		stata hidden queue
+	}
+END
+
+DIALOG adv, tabtitle(resource LBL_ADVANCED)
+BEGIN
+  CHECKBOX ck_hidden	_ilft	_top	_ibwd	.,		///
+	label(resource GR_ED_DOTREGION_ADV_CK_HIDDEN)		///
+	onclickon(adv.ck_collapse.enable)			///
+	onclickoff(adv.ck_collapse.disable)
+  CHECKBOX ck_collapse	@	_ms	@	.,		///
+	label(resource LBL_COLLAPSE_WHEN_HIDDEN)
+END
+
+PROGRAM get_defaults
+BEGIN
+// organization
+	call barKey.withvalue horizontal.setvalue class @.horizontal.istrue
+	if horizontal {
+		call org.rb_horiz.setdefault 1
+		call org.rb_vert.setdefault 0
+	}
+	else {
+		call org.rb_vert.setdefault 1
+		call org.rb_horiz.setdefault 0
+	}
+
+	call barKey.withvalue percentages.setvalue class @.percentages.istrue
+	if percentages {
+		call org.ck_percent.setdefault 1
+	}
+	else {
+		call org.ck_percent.setdefault 0
+	}
+
+	call barKey.withvalue include0.setvalue class @.include0.istrue
+	if include0 {
+		call org.ck_include0.setdefault 1
+	}
+	else {
+		call org.ck_include0.setdefault 0
+	}
+
+	call barKey.withvalue missing.setvalue class @.fill.istrue
+	if missing {
+		call org.ck_missing.setdefault 1
+	}
+	else {
+		call org.ck_missing.setdefault 0
+	}
+
+	call barKey.withvalue reverse.setvalue class @.reverse_scale.istrue
+	if reverse {
+		call org.ck_reverse.setdefault 1
+	}
+	else {
+		call org.ck_reverse.setdefault 0
+	}
+
+	call barKey.withvalue index.setvalue class @.graphstyle.gap.styledex
+	call index.withvalue varGap.setvalue class .__STYLES.relsize[@]
+	if ! varGap {
+		call barKey.withvalue varGap.setvalue class @.graphstyle.gap.val
+	}
+	call org.cb_varGap.setdefault class varGap.value
+
+	call barKey.withvalue index.setvalue class @.graphstyle.group_gap.styledex
+	call index.withvalue groupGap.setvalue class .__STYLES.relsize[@]
+	if ! groupGap {
+		call barKey.withvalue groupGap.setvalue class @.graphstyle.group_gap.val
+	}
+	call org.cb_grpGap.setdefault class groupGap.value
+
+	call barKey.withvalue index.setvalue class @.graphstyle.supgroup_gap.styledex
+	call index.withvalue sgroupGap.setvalue class .__STYLES.relsize[@]
+	if ! sgroupGap {
+		call barKey.withvalue sgroupGap.setvalue class @.graphstyle.supgroup_gap.val
+	}
+	call org.cb_sgrpGap.setdefault class sgroupGap.value
+
+	call barKey.withvalue index.setvalue class @.graphstyle.outer_gap.styledex
+	call index.withvalue outerGap.setvalue class .__STYLES.relsize[@]
+	if ! outerGap {
+		call barKey.withvalue outerGap.setvalue class @.graphstyle.outer_gap.val
+	}
+	call org.cb_outerGap.setdefault class outerGap.value
+
+
+// advanced
+	call G.withvalue visible.setvalue class @.draw_view.istrue
+	if visible {
+		call adv.ck_hidden.setdefault 0
+	}
+	else {
+		call adv.ck_hidden.setdefault 1
+	}
+
+	call G.withvalue filled.setvalue class @.fill_if_undrawn.istrue
+	if filled {
+		call adv.ck_collapse.setdefault 0
+	}
+	else {
+		call adv.ck_collapse.setdefault 1
+	}
+END
+
+
+PROGRAM initialize_controls
+BEGIN
+// organization
+	if horizontal.iseq(1) {
+		call org.rb_horiz.seton
+	}
+	else {
+		call org.rb_vert.seton
+	}
+
+	if percentages {
+		call org.ck_percent.seton
+	}
+	else {
+		call org.ck_percent.setoff
+	}
+
+	if include0 {
+		call org.ck_include0.seton
+	}
+	else {
+		call org.ck_include0.setoff
+	}
+
+	if missing {
+		call org.ck_missing.seton
+	}
+	else {
+		call org.ck_missing.setoff
+	}
+
+	if reverse {
+		call org.ck_reverse.seton
+	}
+	else {
+		call org.ck_reverse.setoff
+	}
+
+	call org.cb_varGap.setvalue class varGap.value
+	call org.cb_grpGap.setvalue class groupGap.value
+	call org.cb_sgrpGap.setvalue class sgroupGap.value
+	call org.cb_outerGap.setvalue class outerGap.value
+
+
+// advanced
+	if visible {
+		call adv.ck_hidden.setoff
+	}
+	else {
+		call adv.ck_hidden.seton
+	}
+
+	if filled {
+		call adv.ck_collapse.setoff
+	}
+	else {
+		call adv.ck_collapse.seton
+	}
+END
+
+PROGRAM org_output
+BEGIN
+	put "_gm_dlg_edits"
+	beginoptions
+		put " object(" barKey ") "
+
+		if org.rb_horiz & ! org.rb_horiz.isdefault() {
+			put "cmd(_gm_edit "
+			put "." G ".GraphEdit, cmd(_set_horizontal "
+			put "yes"			
+			put ")) "
+		}
+		if org.rb_vert & ! org.rb_vert.isdefault() {
+			put "cmd(_gm_edit "
+			put "." G ".GraphEdit, cmd(_set_horizontal "
+			put "no"			
+			put ")) "
+		}
+		if ! org.ck_percent.isdefault() {
+			put "cmd(_gm_edit "
+			put "." G ".GraphEdit, cmd(_set_percentages "
+			if org.ck_percent {
+				put "yes"			
+			}
+			else {
+				put "no"
+			}
+			put ")) "
+		}
+		if ! org.ck_include0.isdefault() {
+			put "cmd(_gm_edit "
+			put "." G ".GraphEdit, cmd(_set_include0 "
+			if org.ck_include0 {
+				put "yes"			
+			}
+			else {
+				put "no"
+			}
+			put ")) "
+		}
+		if ! org.ck_missing.isdefault() {
+			put "cmd(_gm_edit "
+			put "." G ".GraphEdit, cmd(_set_fill "
+			if org.ck_missing {
+				put "yes"			
+			}
+			else {
+				put "no"
+			}
+			put ")) "
+		}
+		if ! org.ck_reverse.isdefault() {
+			put "cmd(_gm_edit "
+			put "." G ".GraphEdit, cmd(_set_reverse_scale "
+			if org.ck_reverse {
+				put "yes"			
+			}
+			else {
+				put "no"
+			}
+			put ")) "
+		}
+		if ! org.cb_varGap.isdefault() {
+			put "cmd(_gm_edit "
+			put "." G ".GraphEdit, cmd(_set_graphstyle_remake "
+			put "gap " org.cb_varGap
+			put ")) "
+		}
+		if ! org.cb_grpGap.isdefault() {
+			put "cmd(_gm_edit "
+			put "." G ".GraphEdit, cmd(_set_graphstyle_remake "
+			put "group_gap " org.cb_grpGap
+			put ")) "
+		}
+		if ! org.cb_sgrpGap.isdefault() {
+			put "cmd(_gm_edit "
+			put "." G ".GraphEdit, cmd(_set_graphstyle_remake "
+			put "supgroup_gap " org.cb_sgrpGap
+			put ")) "
+		}
+		if ! org.cb_outerGap.isdefault() {
+			put "cmd(_gm_edit "
+			put "." G ".GraphEdit, cmd(_set_graphstyle_remake "
+			put "outer_gap " org.cb_outerGap
+			put ")) "
+		}
+
+		put " nodraw "
+	endoptions
+	stata hidden queue
+END
+
+PROGRAM command
+BEGIN
+	put "." GRAPH ".UndoBegin"
+	stata hidden queue
+
+	call program get_defaults
+	call program org_output		// has own output routine
+	put "_gm_dlg_edits"
+	beginoptions
+		put " object(" G ") "
+		put " " /program region_output
+
+		if ! adv.ck_hidden.isdefault() {
+			if adv.ck_hidden {
+				put " set(draw_view no) " 
+			}
+			else {
+				put " set(draw_view yes) " 
+			}
+		}
+		if ! adv.ck_collapse.isdefault() {
+			if adv.ck_collapse {
+				put " set(fill_if_undrawn no) " 
+			}
+			else {
+				put " set(fill_if_undrawn yes) " 
+			}
+		}
+		put " epilog(_gedi toolbar dotregion " G ")"
+	endoptions
+	stata hidden queue
+
+	put "." GRAPH ".UndoEnd " G
+	stata hidden queue
+END

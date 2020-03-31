@@ -1,0 +1,136 @@
+/*
+  menl_maxopts_child.dlg
+
+*!  VERSION 1.0.5  05jun2018
+
+  keyword:  eclass
+
+*/
+
+VERSION 15.0
+
+INCLUDE _std_xlarge
+DEFINE _dlght 350
+INCLUDE header
+
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource MENL_MAXOPTS_CHILD_DLG_HSCALE
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  SPINNER  sp_iter_i		_lft	_top	_spwd	.,		///
+	option(iterate)							///
+	min(0) max(5) default(c(maxiter))				///
+	label(resource LBL_MAXIMUM_ITERATIONS)
+  TEXT tx_iter_i		_spsep	@	_spr2	.,		///
+	label(resource LBL_MAXIMUM_ITERATIONS)
+
+  GROUPBOX gb_iter		_lft	_ls	_cwd2	_ht6,		///
+	label(resource LBL_ITERATION_LOG)
+  RADIO rb_log			_ilft	_ss	_inwd	., first	///
+	onclickon("program main_log_check")				///
+	label(resource LBL_SHOW_ITERATION_LOG)
+  RADIO rb_trace		@	_ss	@	.,		///
+	option(trace)							///
+	onclickon("program main_log_check")				///
+	label(resource MAX_ML_MAX_RB_TRACE)
+  RADIO rb_nolog		@	_ss	@	., last		///
+	option(nolog)							///
+	onclickon("program main_log_check")				///
+	label(resource LBL_SUPPRESS_ITERATION_LOG)
+
+  GROUPBOX gb_log		_lft	_xls	_iwd	_ht4,		///
+	label(resource LBL_ELEMENTS_DISPLAY_ITER_LOG)
+  CHECKBOX ck_trace		_indent	_ss	_cwd3_1	.,		///
+	option(trace)							///
+	label(resource LBL_PARAMETER)
+  DEFINE holdy @y
+  CHECKBOX ck_grad		@	_ss	@	.,		///
+	label(resource LBL_GRADIENT) option(gradient)
+  CHECKBOX ck_show		_ilft3_2 holdy	@	.,		///
+	option(showstep)						///
+	label(resource LBL_STEPS)
+  CHECKBOX ck_hess		@	_ss	@	.,		///
+	option("hessian")						///
+	label(resource LBL_MAX_ML_NEG_HESSIAN)
+  CHECKBOX ck_shownr		_ilft3_3 @	@	.,		///
+	option(showtolerance)						///
+	label(resource LBL_TOLERANCE)
+
+  GROUPBOX gb_tol		_lft	_xls	_iwd	_ht7h,		///
+	label(resource LBL_CONVERGENCE_TOLERANCE)
+  EDIT ed_tol			_ilft	_ss	_en7wd	.,		///
+	option(tolerance)						///
+	default(1e-6)							///
+	label(resource LBL_COEFFICIENT_VECTOR)
+  TEXT tx_tol			_en7sep	@	_en7r2b	.,		///
+	label(resource LBL_COEFFICIENT_VECTOR)
+  EDIT ed_nrtol			230	@	_en7wd	.,		///
+	option(nrtolerance)						///
+	default(1e-5)							///
+	label(resource LBL_HSG)
+  TEXT tx_nrtol			_en7sep	@	185	.,		///
+	label(resource LBL_HSG)
+  EDIT ed_ltol			_ilft	_ls	_en7wd	.,		///
+	option(ltolerance)						///
+	default(1e-7)							///
+	label(resource LBL_LOG_LIKELIHOOD)
+  TEXT tx_ltol			_en7sep	@	_en7r2b	.,		///
+	label(resource LBL_LOG_LIKELIHOOD)
+  CHECKBOX ck_nonrtol		_ilft	_ls	_ibwd	.,		///
+	onclickon(script nonrtol) onclickoff(script nrtol)		///
+	option(nonrtolerance)						///
+	label(resource LBL_DISABLE_HSG)
+END
+SCRIPT nonrtol
+BEGIN
+	main.ed_nrtol.disable
+	main.tx_nrtol.disable
+	main.ck_shownr.disable
+END
+
+SCRIPT nrtol
+BEGIN
+	main.ed_nrtol.enable
+	main.tx_nrtol.enable
+	main.ck_shownr.enable
+END
+
+PROGRAM main_log_check
+BEGIN
+	if main.rb_nolog {
+		call main.ck_trace.disable
+		call main.ck_grad.disable
+		call main.ck_show.disable
+		call main.ck_hess.disable
+		call main.ck_shownr.disable
+	}
+	else {
+		call main.ck_trace.enable
+		call main.ck_grad.enable
+		call main.ck_show.enable
+		call main.ck_hess.enable
+		call main.ck_shownr.enable
+	}
+END
+
+PROGRAM command
+BEGIN
+	optionarg /hidedefault main.sp_iter_i
+	option radio(main rb_nolog rb_trace)
+	option main.ck_trace
+	option main.ck_grad
+	option main.ck_show
+	option main.ck_hess
+	option main.ck_shownr
+
+	optionarg /hidedefault main.ed_tol
+	optionarg /hidedefault main.ed_ltol
+	optionarg /hidedefault main.ed_nrtol
+
+	option main.ck_nonrtol
+END

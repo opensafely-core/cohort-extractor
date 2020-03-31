@@ -1,0 +1,244 @@
+/*
+  jackknife
+
+*!  VERSION 2.3.3  08dec2016
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 320
+INCLUDE header
+HELP hlp1, view("help jackknife")
+RESET res1
+
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource JACKKNIFE_DLG_HSCALE
+END
+
+DIALOG main, label(resource JACKKNIFE_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  DEFINE _y _top
+  INCLUDE _cmd_exp_list
+
+  GROUPBOX gb_n      _lft      _xls     _iwd      _ht8,		/*
+*/ label(resource LBL_WHERE_ARE_NUMBER_OBS_USED_IN_CALC_STORED)/*
+		*/
+  RADIO    rb_empty  _indent   _ss       _inwd     .,			/*
+		*/ first						/*
+		*/ label(resource LBL_AUTOMATICALLY_DETERMINED_BY_JACKKNIFE)	/*
+		*/ clickon("gaction main.ed_n.disable")			/*
+		*/ option("NONE")					/*
+		*/
+  RADIO    rb_eclass @         _ss       @         .,			/*
+		*/ label(resource LBL_SAVED_IN_EN)			/*
+		*/ clickon("gaction main.ed_n.disable")			/*
+		*/ option("eclass")					/*
+		*/
+  RADIO    rb_rclass @         _ss       @         .,			/*
+		*/ label(resource LBL_SAVED_IN_RN)			/*
+		*/ clickon("gaction main.ed_n.disable")			/*
+		*/ option("rclass")					/*
+		*/
+  RADIO    rb_n      @         _ss       _cwd2     .,			/*
+		*/ last							/*
+		*/ label(resource LBL_USER_SPECIFIED_ALTERNATIVE)	/*
+		*/ clickon("gaction main.ed_n.enable")			/*
+		*/ option("NONE")					/*
+		*/
+  EDIT     ed_n      _lft2     @         @         .,			/*
+		*/ label(resource JACKKNIFE_MAIN_ED_N)			/*
+		*/ option("n")						/*
+		*/
+END
+
+INCLUDE ifin
+INCLUDE weights_fpi
+
+SCRIPT opt_PREINIT
+BEGIN
+        opt.fi_sav.formatfilter "{0} (*.dta)|*.dta|{1} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_DTA" "resource ui_ex FILE_TYPE_ALL_FILES"
+END
+
+DIALOG opt, tabtitle(resource LBL_OPTIONS)
+BEGIN
+  CHECKBOX ck_clust  _lft      _top      _iwd      _ht8,		/*
+		*/ label(resource LBL_CLUSTER_VARIABLES)		/*
+		*/ clickon("script opt_cl_on")				/*
+		*/ clickoff("script opt_cl_off")			/*
+		*/ groupbox						/*
+		*/
+  VARLIST  vl_clust  _indent   _ls       _inwd     .,			/*
+		*/ label(resource LBL_CLUSTER_VARIABLES)		/*
+		*/ option("cluster")					/*
+		*/
+  TEXT     tx_clid   @         _ls       _cwd3     .,			/*
+		*/ label(resource LBL_NEW_CLUSTER_ID_VARIABLE_OPTIONAL)	/*
+		*/
+  EDIT     ed_clid   @         _ss       _cwd3     .,			/*
+		*/ label(resource LBL_NEW_CLUSTER_ID_VARIABLE)		/*
+		*/ option("idcluster")					/*
+		*/
+
+  DEFINE _y _xls
+  INCLUDE _saving
+
+  CHECKBOX ck_keep   _lft      _xxls     _cwd3_1   .,			/*
+		*/ label(resource LBL_KEEP_PSEUDOVALUES)		/*
+		*/ option("keep")					/*
+		*/
+  CHECKBOX ck_mse    _lft3_2   @         _comb3_1  .,			/*
+		*/ label(resource LBL_USE_MSE_FORMULA_VARIANCE_ESTIMATION)	/*
+		*/ option("mse")					/*
+		*/
+END
+
+SCRIPT opt_cl_on
+BEGIN
+  opt.vl_clust.enable
+  opt.tx_clid.enable
+  opt.ed_clid.enable
+
+END
+
+SCRIPT opt_cl_off
+BEGIN
+  opt.vl_clust.disable
+  opt.tx_clid.disable
+  opt.ed_clid.disable
+
+END
+
+INCLUDE _saving_sc
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+
+	create STRING rpt_bu_eformResults
+	program rpt_bu_eform_ckResults
+		
+	create STRING rpt_bu_facvarsResults
+	program rpt_bu_facvars_ckResults
+
+	create STRING rpt_bu_repl_logResults
+	program rpt_bu_repl_log_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _xwd _cwd1
+  INCLUDE _coef_table_common
+
+  TEXT     tx_title  _lft      _ls       _iwd      .,			/*
+		*/ label(resource LBL_TITLE)				/*
+		*/
+  EDIT     ed_title  @         _ss       @         .,			/*
+		*/ label(resource LBL_TITLE)				/*
+		*/ option("title")					/*
+		*/
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_eform_opts_reporting
+  
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_replication_log_opts
+
+END
+
+INCLUDE _coef_table_common_report_pr
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE eform_option_reporting_pr
+INCLUDE factor_vars_reporting_pr
+INCLUDE replication_log_opts_child_pr
+
+PROGRAM rpt_output
+BEGIN
+	optionarg /hidedefault rpt.sp_level
+	optionarg rpt.ed_title
+	INCLUDE _report_columns_pr
+	put " " rpt_bu_facvarsResults
+	put " " rpt_bu_fmtcoefResults
+	put " " rpt_bu_eformResults
+	put " " rpt_bu_repl_logResults
+	put " " /program _coef_table_common_cmd
+END
+
+DIALOG adv, tabtitle(resource LBL_ADVANCED)
+BEGIN
+  CHECKBOX ck_nodrop _lft      _top      @         .,			/*
+		*/ label(resource LBL_DO_NOT_DROP_OBSERVATIONS)		/*
+		*/ option("nodrop")					/*
+		*/
+
+  TEXT     tx_reject @         _ls       _iwd      .,			/*
+		*/ label(resource LBL_IDENTIFY_INVALID_RESULTS)		/*
+		*/
+  EDIT     ed_reject @         _ss       @         .,			/*
+		*/ label(resource LBL_IDENTIFY_INVALID_RESULTS)			/*
+		*/ option("reject")					/*
+		*/
+END
+
+PROGRAM jknife_options
+BEGIN
+	beginoptions
+		option radio(main rb_empty rb_rclass rb_eclass rb_n)
+		if main.rb_n {
+			require main.ed_n
+			optionarg main.ed_n
+		}
+		if opt.ed_clid {
+			require opt.vl_clust
+		}
+		optionarg opt.vl_clust
+		optionarg opt.ed_clid
+		INCLUDE _saving_pr
+		option opt.ck_keep
+		option opt.ck_mse
+		put " " /program rpt_output
+		option adv.ck_nodrop
+		optionarg adv.ed_reject
+	endoptions
+END
+
+PROGRAM command
+BEGIN
+	put "jackknife "
+	option main.ck_b
+	option main.ck_se
+	put " "main.ed_explst
+	put " " /program ifin_output
+	put " " /program weights_output
+	put /program jknife_options
+	put " " " : "	/* end of prefix, begin command */
+	require main.vl_cmd
+	put main.vl_cmd
+END

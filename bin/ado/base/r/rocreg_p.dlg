@@ -1,0 +1,292 @@
+/*
+	predict (after rocreg)
+
+*!  VERSION 1.1.2  08mar2015
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+DEFINE _dlght 330
+INCLUDE header
+HELP hlp1, view("help rocreg postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING main_classvars
+	create STRING isML
+	create LIST CLASSVARS_LIST
+	isML.setvalue e(ml)
+	setscale_hadj resource ROCREG_P_DLG_HSCALE
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+        call script main_populate_combos
+	if isML.iseq("") {
+		call program boot_on
+	}
+	else {
+		call script boot_off
+	}
+END
+
+SCRIPT main_populate_combos
+BEGIN
+        main_classvars.setvalue e(classvars)
+
+        CLASSVARS_LIST.Arrdropall
+
+        main_classvars.tokenize CLASSVARS_LIST
+        main.cb_classvar.repopulate
+END
+
+PROGRAM ON_DOTPROMPT
+BEGIN
+        call script main_populate_combos
+        call main.cb_classvar.repopulate
+END
+
+DIALOG main, label(resource PREDICT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  INCLUDE  _p_gentype
+
+  GROUPBOX gb_opt 		_lft	_ls	_iwd	_ht17,		///
+	label(resource LBL_PRODUCE)
+  RADIO rb_auc			_indent _ss	_inwd	., first	///
+	option(auc)							///
+	onclickon("script main_auc_on")					///
+	label(resource ROCREG_P_MAIN_RB_AUC)
+  RADIO rb_roc			@	_ss	@	.,		///
+	option(roc)							///
+	onclickon("script main_roc_on")					///
+	label(resource ROCREG_P_MAIN_RB_ROC)
+  RADIO rb_invroc		@	_xxls	@	.,		///
+	option(invroc)							///
+	onclickon("script main_invroc_on")				///
+	label(resource ROCREG_P_MAIN_RB_INVROC)
+  RADIO rb_pauc			@	_xxls	@	., last		///
+	option(pauc)							///
+	onclickon("script main_pauc_on")				///
+label(resource ROCREG_P_MAIN_RB_PAUC)
+  VARNAME vn_at_roc		_iilft	-75	_vnwd	.,		///
+	option(at)							///
+	numeric								///
+	label(resource ROCREG_P_MAIN_TX_AT_ROC)
+  TEXT tx_at_roc		_vnsep	@	200	.,		///
+	label(resource ROCREG_P_MAIN_TX_AT_ROC)
+  VARNAME vn_at_invroc		_iilft	+50	_vnwd	.,		///
+  	numeric								///
+	option(at)							///
+	label(resource ROCREG_P_MAIN_TX_AT_ROC)
+  TEXT tx_at_invroc		_vnsep	@	200	.,		///
+	label(resource ROCREG_P_MAIN_TX_AT_ROC)
+  VARNAME vn_at_pauc		_iilft	+50	_vnwd	.,		///
+  	numeric								///
+	option(at)							///
+	label(resource ROCREG_P_MAIN_TX_AT_ROC)
+  TEXT tx_at_pauc		_vnsep	@	200	.,		///
+	label(resource ROCREG_P_MAIN_TX_AT_ROC)
+
+  TEXT tx_classvar		_lft	+45	_iwd	.,		///
+	label(resource ROCREG_P_MAIN_TX_CLASSVAR)
+  COMBOBOX cb_classvar		@	_ss	_vnwd	.,		///
+	option(classvar)						///
+	dropdown							///
+	contents(CLASSVARS_LIST)					///
+	label(resource ROCREG_P_MAIN_TX_CLASSVAR)
+END
+
+INCLUDE _p_gentype_sc
+INCLUDE _type_list_fd
+
+
+SCRIPT main_auc_on
+BEGIN
+	main.vn_at_roc.disable
+	main.tx_at_roc.disable
+	main.vn_at_invroc.disable
+	main.tx_at_invroc.disable
+	main.vn_at_pauc.disable
+	main.tx_at_pauc.disable
+	opt.sp_intpts.disable
+	opt.tx_intpts.disable
+END
+
+SCRIPT main_roc_on
+BEGIN
+	main.vn_at_roc.enable
+	main.tx_at_roc.enable
+	main.vn_at_invroc.disable
+	main.tx_at_invroc.disable
+	main.vn_at_pauc.disable
+	main.tx_at_pauc.disable
+	opt.sp_intpts.disable
+	opt.tx_intpts.disable
+END
+
+SCRIPT main_invroc_on
+BEGIN
+	main.vn_at_roc.disable
+	main.tx_at_roc.disable
+	main.vn_at_invroc.enable
+	main.tx_at_invroc.enable
+	main.vn_at_pauc.disable
+	main.tx_at_pauc.disable
+	opt.sp_intpts.disable
+	opt.tx_intpts.disable
+END
+
+SCRIPT main_pauc_on
+BEGIN
+	main.vn_at_roc.disable
+	main.tx_at_roc.disable
+	main.vn_at_invroc.disable
+	main.tx_at_invroc.disable
+	main.vn_at_pauc.enable
+	main.tx_at_pauc.enable
+	opt.sp_intpts.enable
+	opt.tx_intpts.enable
+END
+
+INCLUDE ifin
+
+SCRIPT opt_PREINIT
+BEGIN
+        opt.fi_bfile.formatfilter "{0} (*.dta)|*.dta|{1} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_DTA_FILES" "resource ui_ex FILE_TYPE_ALL_FILES"
+END
+
+DIALOG opt, tabtitle(resource LBL_OPTIONS)
+BEGIN
+  SPINNER sp_intpts		_lft	_top	_spwd	.,		///
+	option(intpts)							///
+	default(50)							///
+	min(0)								///
+	max(1000000)							///
+	label(resource ROCREG_P_OPT_SP_INTPTS)
+  TEXT tx_intpts		_spsep	@	300	.,		///
+	label(resource ROCREG_P_OPT_SP_INTPTS)
+
+  TEXT tx_se			_lft	_ls	_iwd	.,		///
+	label(resource ROCREG_P_OPT_TX_SE)
+  EDIT ed_se			@	_ss	_vnwd	.,		///
+	option(se)							///
+	label(resource ROCREG_P_OPT_TX_SE)
+
+  CHECKBOX ck_ci		_lft	_ls	_iwd	_ht4,		///
+	groupbox							///
+	onclickon("script opt_ci_on")					///
+	onclickoff("script opt_ci_off")					///
+	label(resource ROCREG_P_OPT_CK_CI)
+  TEXT tx_ci			_ilft	_ss	_inwd	.,		///
+	label(resource ROCREG_P_OPT_TX_CI)
+  EDIT ed_ci			@	_ss	_vnwd	.,		///
+	option(ci)							///
+	label(resource ROCREG_P_OPT_TX_CI)
+
+  DEFINE _x _lft2
+  DEFINE _cx _spr
+  DEFINE _y @
+  INCLUDE _sp_level
+
+  GROUPBOX gb_boot		_lft	+45	_iwd	_ht11,		///
+	label(resource LBL_BOOTSTRAP_OPTIONS)
+  TEXT tx_bfile			_indent	_ss	_inwd	.,		///
+        label(resource ROCREG_P_OPT_TX_BFILE)
+  FILE fi_bfile			@	_ss	@	.,		///
+        option("bfile")							///
+        defext(dta)							///
+        error(resource ROCREG_P_OPT_TX_BFILE) 				///
+        label(resource LBL_OPEN)
+  RADIO rb_btype_n		@	_ls	@	.,first		///
+	option(btype(n))						///
+	label(resource ROCREG_P_OPT_RB_BTYPE_N)
+  RADIO rb_btype_p		@	_ss	@	.,		///
+	option(btype(p))						///
+	label(resource ROCREG_P_OPT_RB_BTYPE_P)
+  RADIO rb_btype_bc		@	_ss	@	.,last		///
+	option(btype(bc))						///
+	label(resource ROCREG_P_OPT_TB_BTYPE_BC)
+END
+
+PROGRAM boot_on
+BEGIN
+	call opt.gb_boot.enable
+	call opt.tx_bfile.enable
+	call opt.fi_bfile.enable
+	call opt.rb_btype_n.enable
+	call opt.rb_btype_p.enable
+	call opt.rb_btype_bc.enable
+END
+
+SCRIPT boot_off
+BEGIN
+	opt.gb_boot.disable
+	opt.tx_bfile.disable
+	opt.fi_bfile.disable
+	opt.rb_btype_n.disable
+	opt.rb_btype_p.disable
+	opt.rb_btype_bc.disable
+END
+
+SCRIPT opt_ci_on
+BEGIN
+	opt.tx_ci.enable
+	opt.ed_ci.enable
+	opt.tx_level.enable
+	opt.sp_level.enable
+END
+
+SCRIPT opt_ci_off
+BEGIN
+	opt.tx_ci.disable
+	opt.ed_ci.disable
+	opt.tx_level.disable
+	opt.sp_level.disable
+END
+
+PROGRAM command
+BEGIN
+	put "predict "
+	put " " /program _p_gentype_output
+	put " " /program ifin_output
+	require main.cb_classvar
+	beginoptions
+		if main.rb_auc {
+			put " auc"
+		}
+		if main.rb_roc {
+			put " roc"
+			require main.vn_at_roc
+			optionarg main.vn_at_roc
+		}
+		if main.rb_invroc {
+			put " invroc"
+			require main.vn_at_invroc
+			optionarg main.vn_at_invroc
+		}
+		if main.rb_pauc {
+			put " pauc"
+			require main.vn_at_pauc
+			optionarg main.vn_at_pauc
+		}
+		require main.cb_classvar
+		optionarg main.cb_classvar
+
+		optionarg /hidedefault opt.sp_intpts
+		optionarg opt.ed_se
+		if opt.ck_ci {
+			require opt.ed_ci
+			optionarg opt.ed_ci
+			optionarg /hidedefault opt.sp_level
+		}
+		if opt.ed_se | opt.ck_ci {
+			require opt.fi_bfile
+			optionarg opt.fi_bfile
+			option radio (opt rb_btype_p rb_btype_bc)
+		}
+	endoptions
+END

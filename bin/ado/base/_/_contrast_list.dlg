@@ -1,0 +1,2124 @@
+ /* _contrast_list.dlg
+
+ *!  VERSION 1.1.4  30oct2019
+
+ */
+
+VERSION 14.0
+
+INCLUDE _std_xwide
+DEFINE _dlght 390
+INCLUDE header
+HELP hlp1, view(help contrast)
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING STMP
+	create STRING _MSG_TMP
+	create STRING s_output
+	create STRING s_local
+
+	create BOOLEAN b_isMainEffect
+	create BOOLEAN b_isCustom
+	b_isMainEffect.setfalse
+	b_isCustom.setfalse
+	setscale_hadj resource _CONTRAST_LIST_DLG_HSCALE
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	call program check_term
+
+
+	call STMP.format "resource LBL_VARIABLE_FMT" "1:" ""
+	call STMP.withvalue main.cb_fv1.setlabel "@"
+
+	call STMP.format "resource LBL_VARIABLE_FMT" "2:" ""
+	call STMP.withvalue main.cb_fv2.setlabel "@"
+	call STMP.withvalue main.cb_cont2.setlabel "@"
+
+	call STMP.format "resource LBL_VARIABLE_FMT" "3:" ""
+	call STMP.withvalue main.cb_fv3.setlabel "@"
+	call STMP.withvalue main.cb_cont3.setlabel "@"
+
+	call STMP.format "resource LBL_VARIABLE_FMT" "4:" ""
+	call STMP.withvalue main.cb_fv4.setlabel "@"
+	call STMP.withvalue main.cb_cont4.setlabel "@"
+
+	call STMP.format "resource LBL_VARIABLE_FMT" "5:" ""
+	call STMP.withvalue main.cb_fv5.setlabel "@"
+	call STMP.withvalue main.cb_cont5.setlabel "@"
+
+	call STMP.format "resource LBL_VARIABLE_FMT" "6:" ""
+	call STMP.withvalue main.cb_fv6.setlabel "@"
+	call STMP.withvalue main.cb_cont6.setlabel "@"
+
+	call STMP.format "resource LBL_MAIN_EFFECT"
+	call STMP.withvalue term_list.Arrpush "@"
+	call STMP.format "resource LBL_INTERACTION_2_WAY"
+	call STMP.withvalue term_list.Arrpush "@"
+	call STMP.format "resource LBL_#_WAY_FULL_FACTORIAL_FMT" "2"
+	call STMP.withvalue term_list.Arrpush "@"
+	call STMP.format "resource LBL_#_WAY_INTERACTION_FMT" "3"
+	call STMP.withvalue term_list.Arrpush "@"
+	call STMP.format "resource LBL_#_WAY_FULL_FACTORIAL_FMT" "3"
+	call STMP.withvalue term_list.Arrpush "@"
+	call STMP.format "resource LBL_#_WAY_INTERACTION_FMT" "4"
+	call STMP.withvalue term_list.Arrpush "@"
+	call STMP.format "resource LBL_#_WAY_FULL_FACTORIAL_FMT" "4"
+	call STMP.withvalue term_list.Arrpush "@"
+	call STMP.format "resource LBL_#_WAY_INTERACTION_FMT" "5"
+	call STMP.withvalue term_list.Arrpush "@"
+	call STMP.format "resource LBL_#_WAY_FULL_FACTORIAL_FMT" "5"
+	call STMP.withvalue term_list.Arrpush "@"
+	call STMP.format "resource LBL_#_WAY_INTERACTION_FMT" "6"
+	call STMP.withvalue term_list.Arrpush "@"
+	call STMP.format "resource LBL_#_WAY_FULL_FACTORIAL_FMT" "6"
+	call STMP.withvalue term_list.Arrpush "@"
+
+	call main.cb_term.repopulate
+	call STMP.format "resource LBL_MAIN_EFFECT"
+	call STMP.withvalue main.cb_term.setvalue "@"
+END
+
+DIALOG main, title(resource LBL_CREATE_CONTRAST_LIST) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT tx_term			_lft	_top	150	.,		///
+	label(resource _CONTRAST_LIST_MAIN_TX_TERM)
+  DEFINE holdy @y
+  COMBOBOX cb_term		@	_ss	@	.,		///
+	dropdownlist							///
+	onselchange(program check_term)					///
+	contents(term_list)						///
+	values(term_values)						///
+	label(resource _CONTRAST_LIST_MAIN_TX_TERM)
+  BUTTON bu_add			+160	@	140	.,		///
+	onpush(program contrastOutput)					///
+	label(resource _CONTRAST_LIST_MAIN_BU_ADD)
+
+  GROUPBOX gb_effects		_lft2	holdy	_cwd1	_ht6,		///
+	label(resource _CONTRAST_LIST_MAIN_GB_EFFECTS)
+  RADIO rb_interaction		_indent	_ss	110	., first	///
+	onclickon(program check_effects)				///
+	label(resource _CONTRAST_LIST_MAIN_RB_INTERACTIONS)
+  RADIO rb_conditional		@	_ss	@	.,		///
+	onclickon(program check_effects)				///
+	label(resource LBL_CONDITIONAL)
+  RADIO rb_nested		@	_ss	@	., last		///
+	onclickon(program check_effects)				///
+	label(resource _CONTRAST_LIST_MAIN_RB_NESTED)
+  SPINNER sp_var_num		+115	@	40	.,		///
+	onchange("program check_var_num")				///
+	default(0)
+  TEXT tx_var_num		+45	@	90	.,		///
+	label(resource _CONTRAST_LIST_MAIN_TX_VAR_NUM)
+
+  TEXT tx_cont			25	+45	20	.,		///
+	center								///
+	label(resource _CONTRAST_LIST_MAIN_TX_CONT)
+  TEXT tx_variables		45	@	115	.,		///
+	center								///
+	label(resource LBL_VN_VARIABLE)
+  TEXT tx_contrast		170	@	235	.,		///
+	center								///
+	label(resource LBL_CONTRAST)
+  TEXT tx_base			415	@	80	.,		///
+	center								///
+	label(resource LBL_BASE)
+  HLINK hl_numlist		505	@	120	.,		///
+	center								///
+	onpush(view help contrast##custom)				///
+	label(resource _CONTRAST_LIST_MAIN_HL_NUMLIST)
+
+DEFINE x1   10
+DEFINE cx1  10
+
+DEFINE x2   25
+DEFINE cx2  20
+
+DEFINE x3   45
+DEFINE cx3  115
+
+DEFINE x4   170
+DEFINE cx4  235
+
+DEFINE x5   415
+DEFINE cx5  80
+
+DEFINE x6   505
+DEFINE cx6  120
+
+  TEXT tx_fv1			x1	_ss	cx1	.,		///
+	label("1:")
+  COMBOBOX cb_fv1		x3	@	cx3	.,		///
+	dropdown							///
+	contents(margins_flist)
+
+  COMBOBOX cb_con1		x4	@	cx4	.,		///
+	dropdown							///
+	onselchange(program cb_contrast_changed_1)			///
+	contents(con_list)						///
+	values(con_values)
+  COMBOBOX cb_base1		x5	@	cx5	.,		///
+	dropdown							///
+	contents(base_list)						///
+	values(base_values)
+  EDIT ed_num1			x6	@	cx6	.,
+//
+  TEXT tx_fv2			x1	_ms	cx1	.,		///
+	label("2:")
+  CHECKBOX ck_cont2		x2	@	cx2	.,		///
+	onclickon(program check_continuous_2)				///
+	onclickoff(program check_continuous_2)				///
+	tooltip(resource LBL_CONTINUOUS)
+  COMBOBOX cb_fv2		x3	@	cx3	.,		///
+	dropdown							///
+	contents(margins_flist)
+  COMBOBOX cb_cont2		x3	@	cx3	.,		///
+	dropdown							///
+	contents(margins_clist)
+  COMBOBOX cb_con2		x4	@	cx4	.,		///
+	dropdown							///
+	onselchange(program cb_contrast_changed_2)			///
+	contents(con_list)						///
+	values(con_values)
+  COMBOBOX cb_base2		x5	@	cx5	.,		///
+	dropdown							///
+	contents(base_list)						///
+	values(base_values)
+  EDIT ed_num2			x6	@	cx6	.,
+//
+  TEXT tx_fv3			x1	_ms	cx1	.,		///
+	label("3:")
+  CHECKBOX ck_cont3		x2	@	cx2	.,		///
+	onclickon(program check_continuous_3)				///
+	onclickoff(program check_continuous_3)				///
+	tooltip(resource LBL_CONTINUOUS)
+  COMBOBOX cb_fv3		x3	@	cx3	.,		///
+	dropdown							///
+	contents(margins_flist)
+  COMBOBOX cb_cont3		x3	@	cx3	.,		///
+	dropdown							///
+	contents(margins_clist)
+  COMBOBOX cb_con3		x4	@	cx4	.,		///
+	dropdown							///
+	onselchange(program cb_contrast_changed_3)			///
+	contents(con_list)						///
+	values(con_values)
+  COMBOBOX cb_base3		x5	@	cx5	.,		///
+	dropdown							///
+	contents(base_list)						///
+	values(base_values)
+  EDIT ed_num3			x6	@	cx6	.,
+//
+  TEXT tx_fv4			x1	_ms	cx1	.,		///
+	label("4:")
+  CHECKBOX ck_cont4		x2	@	cx2	.,		///
+	onclickon(program check_continuous_4)				///
+	onclickoff(program check_continuous_4)				///
+	tooltip(resource LBL_CONTINUOUS)
+  COMBOBOX cb_fv4		x3	@	cx3	.,		///
+	dropdown							///
+	contents(margins_flist)
+  COMBOBOX cb_cont4		x3	@	cx3	.,		///
+	dropdown							///
+	contents(margins_clist)
+  COMBOBOX cb_con4		x4	@	cx4	.,		///
+	dropdown							///
+	onselchange(program cb_contrast_changed_4)			///
+	contents(con_list)						///
+	values(con_values)
+  COMBOBOX cb_base4		x5	@	cx5	.,		///
+	dropdown							///
+	contents(base_list)						///
+	values(base_values)
+  EDIT ed_num4			x6	@	cx6	.,
+//
+  TEXT tx_fv5			x1	_ms	cx1	.,		///
+	label("5:")
+  CHECKBOX ck_cont5		x2	@	cx2	.,		///
+	onclickon(program check_continuous_5)				///
+	onclickoff(program check_continuous_5)				///
+	tooltip(resource LBL_CONTINUOUS)
+  COMBOBOX cb_fv5		x3	@	cx3	.,		///
+	dropdown							///
+	contents(margins_flist)
+  COMBOBOX cb_cont5		x3	@	cx3	.,		///
+	dropdown							///
+	contents(margins_clist)
+  COMBOBOX cb_con5		x4	@	cx4	.,		///
+	dropdown							///
+	onselchange(program cb_contrast_changed_5)			///
+	contents(con_list)						///
+	values(con_values)
+  COMBOBOX cb_base5		x5	@	cx5	.,		///
+	dropdown							///
+	contents(base_list)						///
+	values(base_values)
+  EDIT ed_num5			x6	@	cx6	.,
+//
+  TEXT tx_fv6			x1	_ms	cx1	.,		///
+	label("6:")
+  CHECKBOX ck_cont6		x2	@	cx2	.,		///
+	onclickon(program check_continuous_6)				///
+	onclickoff(program check_continuous_6)				///
+	tooltip(resource LBL_CONTINUOUS)
+  COMBOBOX cb_fv6		x3	@	cx3	.,		///
+	dropdown							///
+	contents(margins_flist)
+  COMBOBOX cb_cont6		x3	@	cx3	.,		///
+	dropdown							///
+	contents(margins_clist)
+  COMBOBOX cb_con6		x4	@	cx4	.,		///
+	dropdown							///
+	onselchange(program cb_contrast_changed_6)			///
+	contents(con_list)						///
+	values(con_values)
+  COMBOBOX cb_base6		x5	@	cx5	.,		///
+	dropdown							///
+	contents(base_list)						///
+	values(base_values)
+  EDIT ed_num6			x6	@	cx6	.,
+
+  HLINK hl_custom_numlist	_lft	_ls	cx6	.,		///
+	onpush(view help contrast##custom)				///
+	label(resource _CONTRAST_LIST_MAIN_HL_NUMLIST)
+  EDIT ed_custom_numlist	@	_ss	_cwd1	.,		///
+	label(resource _CONTRAST_LIST_MAIN_HL_NUMLIST)
+  TEXT tx_contrastlist		_lft	_ls	cx6	.,		///
+	label(resource _CONTRAST_LIST_MAIN_TX_CONTRASTLIST)
+  EDIT ed_contrastlist		@	_ss	_iwd	.,		///
+	label(resource _CONTRAST_LIST_MAIN_TX_CONTRASTLIST)
+END
+
+LIST term_list
+BEGIN
+END
+LIST term_values
+BEGIN
+	/* used for branching output */
+	main-effect
+	2way-interaction
+	2way-fullfactorial
+	3way-interaction
+	3way-fullfactorial
+	4way-interaction
+	4way-fullfactorial
+	5way-interaction
+	5way-fullfactorial
+	6way-interaction
+	6way-fullfactorial
+	cmain-effect
+	c2way-interaction
+	c3way-interaction
+	c4way-interaction
+	c5way-interaction
+	c6way-interaction
+END
+
+LIST base_list
+BEGIN
+	resource LBL_DEFAULT
+	resource LBL_FIRST
+	resource LBL_FREQUENT
+	resource LBL_LAST
+	resource LBL_NONE
+	0
+	1
+	2
+END
+LIST base_values
+BEGIN
+	""
+	first
+	frequent
+	last
+	none
+	0
+	1
+	2
+END
+
+LIST con_list
+BEGIN
+	resource _CONTRAST_LIST_R
+        resource _CONTRAST_LIST_A
+        resource _CONTRAST_LIST_AR
+        resource _CONTRAST_LIST_G
+        resource _CONTRAST_LIST_H
+        resource _CONTRAST_LIST_J
+        resource _CONTRAST_LIST_P
+        resource _CONTRAST_LIST_Q
+        resource _CONTRAST_LIST_GW
+        resource _CONTRAST_LIST_HW
+        resource _CONTRAST_LIST_JW
+        resource _CONTRAST_LIST_PW
+        resource _CONTRAST_LIST_QW
+	resource LBL_CUSTOM
+END
+
+LIST con_values
+BEGIN
+      r
+      a
+      ar
+      g
+      h
+      j
+      p
+      q
+      gw
+      hw
+      jw
+      pw
+      qw
+      custom
+END
+
+PROGRAM hide_effects
+BEGIN
+	call main.gb_effects.hide
+	call main.rb_interaction.hide
+	call main.rb_conditional.hide
+	call main.rb_nested.hide
+	call main.sp_var_num.hide
+	call main.tx_var_num.hide
+END
+
+PROGRAM show_effects
+BEGIN
+	call main.gb_effects.show
+	call main.rb_interaction.show
+	call main.rb_conditional.show
+	call main.rb_nested.show
+	call program check_effects
+END
+
+PROGRAM hide_terms
+BEGIN
+	call main.tx_cont.hide
+	call main.tx_contrast.hide
+	call main.tx_base.hide
+	call main.hl_numlist.hide
+
+	call main.tx_fv1.hide
+	call main.cb_fv1.hide
+	call main.cb_con1.hide
+	call main.cb_base1.hide
+	call main.ed_num1.hide
+
+	call main.tx_fv2.hide
+	call main.ck_cont2.hide
+	call main.cb_fv2.hide
+	call main.cb_cont2.hide
+	call main.cb_con2.hide
+	call main.cb_base2.hide
+	call main.ed_num2.hide
+
+	call main.tx_fv3.hide
+	call main.ck_cont3.hide
+	call main.cb_fv3.hide
+	call main.cb_cont3.hide
+	call main.cb_con3.hide
+	call main.cb_base3.hide
+	call main.ed_num3.hide
+
+	call main.tx_fv4.hide
+	call main.ck_cont4.hide
+	call main.cb_fv4.hide
+	call main.cb_cont4.hide
+	call main.cb_con4.hide
+	call main.cb_base4.hide
+	call main.ed_num4.hide
+
+	call main.tx_fv5.hide
+	call main.ck_cont5.hide
+	call main.cb_fv5.hide
+	call main.cb_cont5.hide
+	call main.cb_con5.hide
+	call main.cb_base5.hide
+	call main.ed_num5.hide
+
+	call main.tx_fv6.hide
+	call main.ck_cont6.hide
+	call main.cb_fv6.hide
+	call main.cb_cont6.hide
+	call main.cb_con6.hide
+	call main.cb_base6.hide
+	call main.ed_num6.hide
+
+	call main.hl_custom_numlist.hide
+	call main.ed_custom_numlist.hide
+END
+
+PROGRAM check_term
+BEGIN
+	call program hide_terms
+	call program hide_effects
+
+	if (! main.cb_term.isvisible()) {
+		exit
+	}
+	
+	call main.tx_contrast.show
+	call main.tx_base.show
+	call main.hl_numlist.show
+
+	call main.tx_fv1.show
+	call main.cb_fv1.show
+	call main.cb_con1.show
+	call main.cb_base1.show
+	call main.ed_num1.show
+
+	if main.cb_term.startswith("2way")		///
+		| main.cb_term.startswith("3way")	///
+		| main.cb_term.startswith("4way")	///
+		| main.cb_term.startswith("5way")	///
+		| main.cb_term.startswith("6way")	///
+	{
+		call main.tx_cont.show
+		call main.tx_contrast.show
+		call main.tx_base.show
+		call main.hl_numlist.show
+		call main.sp_var_num.setrange 1 1
+		call main.tx_fv2.show
+		call main.ck_cont2.show
+		call main.hl_custom_numlist.hide
+		call main.ed_custom_numlist.hide
+		call program check_continuous_2
+		call program show_effects
+	}
+	if main.cb_term.startswith("3way")		///
+		| main.cb_term.startswith("4way")	///
+		| main.cb_term.startswith("5way")	///
+		| main.cb_term.startswith("6way")	///
+	{
+		call main.tx_cont.show
+		call main.tx_contrast.show
+		call main.tx_base.show
+		call main.hl_numlist.show
+		call main.sp_var_num.setrange 1 2
+		call main.tx_fv3.show
+		call main.ck_cont3.show
+		call main.hl_custom_numlist.hide
+		call main.ed_custom_numlist.hide
+		call program show_effects
+		call program check_continuous_3
+	}
+	if main.cb_term.startswith("4way")		///
+		| main.cb_term.startswith("5way")	///
+		| main.cb_term.startswith("6way")	///
+	{
+		call main.tx_cont.show
+		call main.tx_contrast.show
+		call main.tx_base.show
+		call main.hl_numlist.show
+		call main.sp_var_num.setrange 1 3
+		call main.tx_fv4.show
+		call main.ck_cont4.show
+		call main.hl_custom_numlist.hide
+		call main.ed_custom_numlist.hide
+		call program show_effects
+		call program check_continuous_4
+	}
+	if main.cb_term.startswith("5way")		///
+		| main.cb_term.startswith("6way")	///
+	{
+		call main.tx_cont.show
+		call main.tx_contrast.show
+		call main.tx_base.show
+		call main.hl_numlist.show
+		call main.sp_var_num.setrange 1 4
+		call main.tx_fv5.show
+		call main.ck_cont5.show
+		call main.hl_custom_numlist.hide
+		call main.ed_custom_numlist.hide
+		call program show_effects
+		call program check_continuous_5
+	}
+	if main.cb_term.startswith("6way")		///
+	{
+		call main.tx_cont.show
+		call main.tx_contrast.show
+		call main.tx_base.show
+		call main.hl_numlist.show
+		call main.sp_var_num.setrange 1 5
+		call main.tx_fv6.show
+		call main.ck_cont6.show
+		call main.hl_custom_numlist.hide
+		call main.ed_custom_numlist.hide
+		call program show_effects
+		call program check_continuous_6
+	}
+	if main.cb_term.startswith("cmain")		///
+		| main.cb_term.startswith("c2way")	///
+		| main.cb_term.startswith("c3way")	///
+		| main.cb_term.startswith("c4way")	///
+		| main.cb_term.startswith("c5way")	///
+		| main.cb_term.startswith("c6way")	///
+	{
+		call main.tx_cont.hide
+		call main.tx_contrast.hide
+		call main.tx_base.hide
+		call main.hl_numlist.hide
+		call main.tx_fv1.show
+		call main.cb_fv1.show
+		call main.cb_con1.hide
+		call main.cb_base1.hide
+		call main.ed_num1.hide
+		call main.hl_custom_numlist.show
+		call main.ed_custom_numlist.show
+		call program hide_effects
+	}
+	if main.cb_term.startswith("c2way")		///
+		| main.cb_term.startswith("c3way")	///
+		| main.cb_term.startswith("c4way")	///
+		| main.cb_term.startswith("c5way")	///
+		| main.cb_term.startswith("c6way")	///
+	{
+		call main.tx_cont.show
+		call main.tx_contrast.hide
+		call main.tx_base.hide
+		call main.hl_numlist.hide
+		call main.tx_fv2.show
+		call main.ck_cont2.show
+		call main.hl_custom_numlist.show
+		call main.ed_custom_numlist.show
+		call program check_continuous_2
+		call program hide_effects
+	}
+	if main.cb_term.startswith("c3way")		///
+		| main.cb_term.startswith("c4way")	///
+		| main.cb_term.startswith("c5way")	///
+		| main.cb_term.startswith("c6way")	///
+	{
+		call main.tx_cont.show
+		call main.tx_contrast.hide
+		call main.tx_base.hide
+		call main.hl_numlist.hide
+		call main.tx_fv3.show
+		call main.ck_cont3.show
+		call main.hl_custom_numlist.show
+		call main.ed_custom_numlist.show
+		call program check_continuous_3
+		call program hide_effects
+	}
+	if main.cb_term.startswith("c4way")		///
+		| main.cb_term.startswith("c5way")	///
+		| main.cb_term.startswith("c6way")	///
+	{
+		call main.tx_cont.show
+		call main.tx_contrast.hide
+		call main.tx_base.hide
+		call main.hl_numlist.hide
+		call main.tx_fv4.show
+		call main.ck_cont4.show
+		call main.hl_custom_numlist.show
+		call main.ed_custom_numlist.show
+		call program check_continuous_4
+		call program hide_effects
+	}
+	if main.cb_term.startswith("c5way")		///
+		| main.cb_term.startswith("c6way")	///
+	{
+		call main.tx_cont.show
+		call main.tx_contrast.hide
+		call main.tx_base.hide
+		call main.hl_numlist.hide
+		call main.tx_fv5.show
+		call main.ck_cont5.show
+		call main.hl_custom_numlist.show
+		call main.ed_custom_numlist.show
+		call program check_continuous_5
+		call program hide_effects
+	}
+	if main.cb_term.startswith("c6way")		///
+	{
+		call main.tx_cont.show
+		call main.tx_contrast.hide
+		call main.tx_base.hide
+		call main.hl_numlist.hide
+		call main.tx_fv6.show
+		call main.ck_cont6.show
+		call main.hl_custom_numlist.show
+		call main.ed_custom_numlist.show
+		call program check_continuous_6
+		call program hide_effects
+	}
+	call program check_effects
+END
+
+PROGRAM check_effects
+BEGIN
+	if main.rb_interaction.isvisible() {
+		if main.rb_interaction {
+			if main.cb_term.contains("interaction") {
+				call main.ck_cont2.enable
+				call main.ck_cont3.enable
+				call main.ck_cont4.enable
+				call main.ck_cont5.enable
+				call main.ck_cont6.enable
+			}
+			call main.sp_var_num.hide
+			call main.tx_var_num.hide
+			call main.cb_con1.enable
+			call main.cb_con2.enable
+			call main.cb_con3.enable
+			call main.cb_con4.enable
+			call main.cb_con5.enable
+			call main.cb_con6.enable
+			call program cb_contrast_changed_1
+			call program cb_contrast_changed_2
+			call program cb_contrast_changed_3
+			call program cb_contrast_changed_4
+			call program cb_contrast_changed_5
+			call program cb_contrast_changed_6
+		}
+		if main.rb_conditional {
+			call main.sp_var_num.show
+			call main.tx_var_num.show
+			call main.sp_var_num.setposition . 50 . .
+			call main.tx_var_num.setposition . 50 . .
+			call program check_var_num
+		}
+		if main.rb_nested {
+			call main.sp_var_num.show
+			call main.tx_var_num.show
+			call main.sp_var_num.setposition . 70 . .
+			call main.tx_var_num.setposition . 70 . .
+			call program check_var_num
+		}
+	}
+END
+
+PROGRAM check_var_num
+BEGIN
+	if main.cb_term.contains("fullfactorial") {
+		if main.sp_var_num.iseq(1)  {
+			call main.cb_con2.disable
+			call main.cb_base2.disable
+			call main.ed_num2.disable
+			call main.cb_con3.disable
+			call main.cb_base3.disable
+			call main.ed_num3.disable
+			call main.cb_con4.disable
+			call main.cb_base4.disable
+			call main.ed_num4.disable
+			call main.cb_con5.disable
+			call main.cb_base5.disable
+			call main.ed_num5.disable
+			call main.cb_con6.disable
+			call main.cb_base6.disable
+			call main.ed_num6.disable
+		}
+		if main.sp_var_num.iseq(2)  {
+			call main.cb_con2.enable
+			call program cb_contrast_changed_2
+			call main.cb_con3.disable
+			call main.cb_base3.disable
+			call main.ed_num3.disable
+			call main.cb_con4.disable
+			call main.cb_base4.disable
+			call main.ed_num4.disable
+			call main.cb_con5.disable
+			call main.cb_base5.disable
+			call main.ed_num5.disable
+			call main.cb_con6.disable
+			call main.cb_base6.disable
+			call main.ed_num6.disable
+		}
+		if main.sp_var_num.iseq(3)  {
+			call main.cb_con2.enable
+			call program cb_contrast_changed_2
+			call main.cb_con3.enable
+			call program cb_contrast_changed_3
+			call main.cb_con4.disable
+			call main.cb_base4.disable
+			call main.ed_num4.disable
+			call main.cb_con5.disable
+			call main.cb_base5.disable
+			call main.ed_num5.disable
+			call main.cb_con6.disable
+			call main.cb_base6.disable
+			call main.ed_num6.disable
+		}
+		if main.sp_var_num.iseq(4)  {
+			call main.cb_con2.enable
+			call program cb_contrast_changed_2
+			call main.cb_con3.enable
+			call program cb_contrast_changed_3
+			call main.cb_con4.enable
+			call program cb_contrast_changed_4
+			call main.cb_con5.disable
+			call main.cb_base5.disable
+			call main.ed_num5.disable
+			call main.cb_con6.disable
+			call main.cb_base6.disable
+			call main.ed_num6.disable
+		}
+		if main.sp_var_num.iseq(5)  {
+			call main.cb_con2.enable
+			call program cb_contrast_changed_2
+			call main.cb_con3.enable
+			call program cb_contrast_changed_3
+			call main.cb_con4.enable
+			call program cb_contrast_changed_4
+			call main.cb_con5.enable
+			call program cb_contrast_changed_5
+			call main.cb_con6.disable
+			call main.cb_base6.disable
+			call main.ed_num6.disable
+		}
+	}
+	else {
+		if main.sp_var_num.iseq(1)  {
+			call main.ck_cont2.setoff
+			call program cb_contrast_changed_2
+			call main.ck_cont2.disable
+			call main.cb_con2.disable
+			call main.cb_base2.disable
+			call main.ed_num2.disable
+			call main.ck_cont3.enable
+			call main.cb_con3.disable
+			call main.cb_base3.disable
+			call main.ed_num3.disable
+			call main.ck_cont4.enable
+			call main.cb_con4.disable
+			call main.cb_base4.disable
+			call main.ed_num4.disable
+			call main.ck_cont5.enable
+			call main.cb_con5.disable
+			call main.cb_base5.disable
+			call main.ed_num5.disable
+			call main.ck_cont6.enable
+			call main.cb_con6.disable
+			call main.cb_base6.disable
+			call main.ed_num6.disable
+		}
+		if main.sp_var_num.iseq(2)  {
+			call main.ck_cont2.setoff
+			call program cb_contrast_changed_2
+			call main.ck_cont2.disable
+			call main.cb_con2.enable
+			call program cb_contrast_changed_2
+			call main.ck_cont3.setoff
+			call program cb_contrast_changed_3
+			call main.ck_cont3.disable
+			call main.cb_con3.disable
+			call main.cb_base3.disable
+			call main.ed_num3.disable
+			call main.ck_cont4.enable
+			call main.cb_con4.disable
+			call main.cb_base4.disable
+			call main.ed_num4.disable
+			call main.ck_cont5.enable
+			call main.cb_con5.disable
+			call main.cb_base5.disable
+			call main.ed_num5.disable
+			call main.ck_cont6.enable
+			call main.cb_con6.disable
+			call main.cb_base6.disable
+			call main.ed_num6.disable
+		}
+		if main.sp_var_num.iseq(3)  {
+			call main.ck_cont2.enable
+			call main.cb_con2.enable
+			call program cb_contrast_changed_2
+			call main.ck_cont3.setoff
+			call program cb_contrast_changed_3
+			call main.ck_cont3.disable
+			call main.cb_con3.enable
+			call program cb_contrast_changed_3
+			call main.ck_cont4.setoff
+			call program cb_contrast_changed_4
+			call main.ck_cont4.disable
+			call main.cb_con4.disable
+			call main.cb_base4.disable
+			call main.ed_num4.disable
+			call main.ck_cont5.enable
+			call main.cb_con5.disable
+			call main.cb_base5.disable
+			call main.ed_num5.disable
+			call main.ck_cont6.enable
+			call main.cb_con6.disable
+			call main.cb_base6.disable
+			call main.ed_num6.disable
+		}
+		if main.sp_var_num.iseq(4)  {
+			call main.ck_cont2.enable
+			call main.cb_con2.enable
+			call program cb_contrast_changed_2
+			call main.ck_cont3.enable
+			call main.cb_con3.enable
+			call program cb_contrast_changed_3
+			call main.ck_cont4.setoff
+			call program cb_contrast_changed_4
+			call main.ck_cont4.disable
+			call main.cb_con4.enable
+			call program cb_contrast_changed_4
+			call main.ck_cont5.setoff
+			call program cb_contrast_changed_5
+			call main.ck_cont5.disable
+			call main.cb_con5.disable
+			call main.cb_base5.disable
+			call main.ed_num5.disable
+			call main.ck_cont6.enable
+			call main.cb_con6.disable
+			call main.cb_base6.disable
+			call main.ed_num6.disable
+		}
+		if main.sp_var_num.iseq(5)  {
+			call main.ck_cont2.enable
+			call main.cb_con2.enable
+			call program cb_contrast_changed_2
+			call main.ck_cont3.enable
+			call main.cb_con3.enable
+			call program cb_contrast_changed_3
+			call main.ck_cont4.enable
+			call main.cb_con4.enable
+			call program cb_contrast_changed_4
+			call main.ck_cont5.setoff
+			call program cb_contrast_changed_5
+			call main.ck_cont5.disable
+			call main.cb_con5.enable
+			call program cb_contrast_changed_5
+			call main.ck_cont6.setoff
+			call program cb_contrast_changed_6
+			call main.ck_cont6.disable
+			call main.cb_con6.disable
+			call main.cb_base6.disable
+			call main.ed_num6.disable
+		}
+	}
+END
+
+PROGRAM check_continuous_2
+BEGIN
+	if  main.cb_term.startswith("2way")	///
+		| main.cb_term.startswith("3way")	///
+		| main.cb_term.startswith("4way")	///
+		| main.cb_term.startswith("5way")	///
+		| main.cb_term.startswith("6way")	///
+	{
+		if main.cb_term.contains("fullfactorial") {
+			call main.ck_cont2.disable
+			call main.cb_cont2.hide
+			call main.cb_fv2.show
+			call main.cb_con2.show
+			call main.cb_base2.show
+			call main.ed_num2.show
+			call program cb_contrast_changed_2
+		}
+		else {
+			call main.ck_cont2.enable
+			if main.ck_cont2 {
+				call main.cb_fv2.hide
+				call main.cb_cont2.show
+				call main.cb_con2.hide
+				call main.cb_base2.hide
+				call main.ed_num2.hide
+			}
+			else {
+				call main.cb_cont2.hide
+				call main.cb_fv2.show
+				call main.cb_con2.show
+				call main.cb_base2.show
+				call main.ed_num2.show
+				call program cb_contrast_changed_2
+			}
+		}
+	}
+	else {
+		call main.ck_cont2.enable
+		if main.ck_cont2 {
+			call main.cb_fv2.hide
+			call main.cb_cont2.show
+			call main.cb_con2.hide
+			call main.cb_base2.hide
+			call main.ed_num2.hide
+		}
+		else {
+			call main.cb_cont2.hide
+			call main.cb_fv2.show
+			call main.cb_con2.show
+			call main.cb_con2.hide
+			call main.cb_base2.hide
+			call main.ed_num2.hide
+		}
+	}
+END
+
+PROGRAM check_continuous_3
+BEGIN
+	if  main.cb_term.startswith("2way")	///
+		| main.cb_term.startswith("3way")	///
+		| main.cb_term.startswith("4way")	///
+		| main.cb_term.startswith("5way")	///
+		| main.cb_term.startswith("6way")	///
+	{
+		if main.cb_term.contains("fullfactorial") {
+			call main.ck_cont3.disable
+			call main.cb_cont3.hide
+			call main.cb_fv3.show
+			call main.cb_con3.show
+			call main.cb_base3.show
+			call main.ed_num3.show
+			call program cb_contrast_changed_3
+		}
+		else {
+			call main.ck_cont3.enable
+			if main.ck_cont3 {
+				call main.cb_fv3.hide
+				call main.cb_cont3.show
+				call main.cb_con3.hide
+				call main.cb_base3.hide
+				call main.ed_num3.hide
+			}
+			else {
+				call main.cb_cont3.hide
+				call main.cb_fv3.show
+				call main.cb_con3.show
+				call main.cb_base3.show
+				call main.ed_num3.show
+				call program cb_contrast_changed_3
+			}
+		}
+	}
+	else {
+		call main.ck_cont3.enable
+		if main.ck_cont3 {
+			call main.cb_fv3.hide
+			call main.cb_cont3.show
+			call main.cb_con3.hide
+			call main.cb_base3.hide
+			call main.ed_num3.hide
+		}
+		else {
+			call main.cb_cont3.hide
+			call main.cb_fv3.show
+			call main.cb_con3.show
+			call main.cb_con3.hide
+			call main.cb_base3.hide
+			call main.ed_num3.hide
+		}
+	}
+END
+
+PROGRAM check_continuous_4
+BEGIN
+	if main.cb_term.startswith("2way")		///
+		| main.cb_term.startswith("3way")	///
+		| main.cb_term.startswith("4way")	///
+		| main.cb_term.startswith("5way")	///
+		| main.cb_term.startswith("6way")	///
+	{
+		if main.cb_term.contains("fullfactorial") {
+			call main.ck_cont4.disable
+			call main.cb_cont4.hide
+			call main.cb_fv4.show
+			call main.cb_con4.show
+			call main.cb_base4.show
+			call main.ed_num4.show
+			call program cb_contrast_changed_4
+		}
+		else {
+			call main.ck_cont4.enable
+			if main.ck_cont4 {
+				call main.cb_fv4.hide
+				call main.cb_cont4.show
+				call main.cb_con4.hide
+				call main.cb_base4.hide
+				call main.ed_num4.hide
+			}
+			else {
+				call main.cb_cont4.hide
+				call main.cb_fv4.show
+				call main.cb_con4.show
+				call main.cb_base4.show
+				call main.ed_num4.show
+				call program cb_contrast_changed_4
+			}
+		}
+	}
+	else {
+		call main.ck_cont4.enable
+		if main.ck_cont4 {
+			call main.cb_fv4.hide
+			call main.cb_cont4.show
+			call main.cb_con4.hide
+			call main.cb_base4.hide
+			call main.ed_num4.hide
+		}
+		else {
+			call main.cb_cont4.hide
+			call main.cb_fv4.show
+			call main.cb_con4.show
+			call main.cb_con4.hide
+			call main.cb_base4.hide
+			call main.ed_num4.hide
+		}
+	}
+END
+
+PROGRAM check_continuous_5
+BEGIN
+	if main.cb_term.startswith("2way")		///
+		| main.cb_term.startswith("3way")	///
+		| main.cb_term.startswith("4way")	///
+		| main.cb_term.startswith("5way")	///
+		| main.cb_term.startswith("6way")	///
+	{
+		if main.cb_term.contains("fullfactorial") {
+			call main.ck_cont5.disable
+			call main.cb_cont5.hide
+			call main.cb_fv5.show
+			call main.cb_con5.show
+			call main.cb_base5.show
+			call main.ed_num5.show
+			call program cb_contrast_changed_5
+		}
+		else {
+			call main.ck_cont5.enable
+			if main.ck_cont5 {
+				call main.cb_fv5.hide
+				call main.cb_cont5.show
+				call main.cb_con5.hide
+				call main.cb_base5.hide
+				call main.ed_num5.hide
+			}
+			else {
+				call main.cb_cont5.hide
+				call main.cb_fv5.show
+				call main.cb_con5.show
+				call main.cb_base5.show
+				call main.ed_num5.show
+				call program cb_contrast_changed_5
+			}
+		}
+	}
+	else {
+		call main.ck_cont5.enable
+		if main.ck_cont5 {
+			call main.cb_fv5.hide
+			call main.cb_cont5.show
+			call main.cb_con5.hide
+			call main.cb_base5.hide
+			call main.ed_num5.hide
+		}
+		else {
+			call main.cb_cont5.hide
+			call main.cb_fv5.show
+			call main.cb_con5.show
+			call main.cb_con5.hide
+			call main.cb_base5.hide
+			call main.ed_num5.hide
+		}
+	}
+END
+
+PROGRAM check_continuous_6
+BEGIN
+	if main.cb_term.startswith("2way")	///
+		| main.cb_term.startswith("3way")	///
+		| main.cb_term.startswith("4way")	///
+		| main.cb_term.startswith("5way")	///
+		| main.cb_term.startswith("6way")	///
+	{
+		if main.cb_term.contains("fullfactorial") {
+			call main.ck_cont6.disable
+			call main.cb_cont6.hide
+			call main.cb_fv6.show
+			call main.cb_con6.show
+			call main.cb_base6.show
+			call main.ed_num6.show
+			call program cb_contrast_changed_6
+		}
+		else {
+			call main.ck_cont5.enable
+			if main.ck_cont6 {
+				call main.cb_fv6.hide
+				call main.cb_cont6.show
+				call main.cb_con6.hide
+				call main.cb_base6.hide
+				call main.ed_num6.hide
+			}
+			else {
+				call main.cb_cont6.hide
+				call main.cb_fv6.show
+				call main.cb_con6.show
+				call main.cb_base6.show
+				call main.ed_num6.show
+				call program cb_contrast_changed_6
+			}
+		}
+	}
+	else {
+		call main.ck_cont6.enable
+		if main.ck_cont6 {
+			call main.cb_fv6.hide
+			call main.cb_cont6.show
+			call main.cb_con6.hide
+			call main.cb_base6.hide
+			call main.ed_num6.hide
+		}
+		else {
+			call main.cb_cont6.hide
+			call main.cb_fv6.show
+			call main.cb_con6.show
+			call main.cb_con6.hide
+			call main.cb_base6.hide
+			call main.ed_num6.hide
+		}
+	}
+END
+
+PROGRAM cb_contrast_changed_1
+BEGIN
+	if (main.cb_con1.iseq("r"))  {
+		call main.cb_base1.enable
+		call main.ed_num1.disable
+	}
+	if (main.cb_con1.iseq("custom"))  {
+		call main.cb_base1.disable
+		call main.ed_num1.enable
+	}
+	if (!main.cb_con1.iseq("r") & !main.cb_con1.iseq("custom"))  {
+		call main.cb_base1.disable
+		call main.ed_num1.disable
+	}
+END
+
+PROGRAM cb_contrast_changed_2
+BEGIN
+	if (main.cb_con2.iseq("r"))  {
+		call main.cb_base2.enable
+		call main.ed_num2.disable
+	}
+	if (main.cb_con2.iseq("custom"))  {
+		call main.ed_num2.enable
+		call main.cb_base2.disable
+	}
+	if (!main.cb_con2.iseq("r") & !main.cb_con2.iseq("custom"))  {
+		call main.cb_base2.disable
+		call main.ed_num2.disable
+	}
+END
+
+PROGRAM cb_contrast_changed_3
+BEGIN
+	if (main.cb_con3.iseq("r"))  {
+		call main.cb_base3.enable
+		call main.ed_num3.disable
+	}
+	if (main.cb_con3.iseq("custom"))  {
+		call main.ed_num3.enable
+		call main.cb_base3.disable
+	}
+	if (!main.cb_con3.iseq("r") & !main.cb_con3.iseq("custom"))  {
+		call main.cb_base3.disable
+		call main.ed_num3.disable
+	}
+END
+
+PROGRAM cb_contrast_changed_4
+BEGIN
+	if (main.cb_con4.iseq("r"))  {
+		call main.cb_base4.enable
+		call main.ed_num4.disable
+	}
+	if (main.cb_con4.iseq("custom"))  {
+		call main.ed_num4.enable
+		call main.cb_base4.disable
+	}
+	if (!main.cb_con4.iseq("r") & !main.cb_con4.iseq("custom"))  {
+		call main.cb_base4.disable
+		call main.ed_num4.disable
+	}
+END
+
+PROGRAM cb_contrast_changed_5
+BEGIN
+	if (main.cb_con5.iseq("r"))  {
+		call main.cb_base5.enable
+		call main.ed_num5.disable
+	}
+	if (main.cb_con5.iseq("custom"))  {
+		call main.ed_num5.enable
+		call main.cb_base5.disable
+	}
+	if (!main.cb_con5.iseq("r") & !main.cb_con5.iseq("custom"))  {
+		call main.cb_base5.disable
+		call main.ed_num5.disable
+	}
+END
+
+PROGRAM cb_contrast_changed_6
+BEGIN
+	if (main.cb_con6.iseq("r"))  {
+		call main.cb_base6.enable
+		call main.ed_num6.disable
+	}
+	if (main.cb_con6.iseq("custom"))  {
+		call main.ed_num6.enable
+		call main.cb_base6.disable
+	}
+	if (!main.cb_con6.iseq("r") & !main.cb_con6.iseq("custom"))  {
+		call main.cb_base6.disable
+		call main.ed_num6.disable
+	}
+END
+
+PROGRAM var1_output
+BEGIN
+	call s_local.setvalue ""
+	if b_isCustom {
+		require main.cb_fv1
+		call s_local.append class main.cb_fv1.value
+	}
+	else {
+		if (main.cb_con1.isenabled() &				///
+			main.cb_con1.iseq("custom")) {
+			call s_local.append "{"
+			require main.cb_fv1
+			call s_local.append class main.cb_fv1.value
+			require main.ed_num1
+			if (main.ed_num1.isenabled() & 			///
+				!main.ed_num1.isnumlist()) {
+				call _MSG_TMP.format			///
+					"resource _CONTRAST_LIST_MSGBOX_INVALID_CUSTOM_CONTRAST_FMT" "1"
+	 			stopbox stop "class _MSG_TMP.value"
+// There is an invalid "Custom Contrast" for Variable 1.
+			}
+			call s_local.append " "
+			call s_local.append class main.ed_num1.value
+			call s_local.append "}"
+		}
+		else {
+			if (main.cb_con1 & main.cb_con1.isenabled()) {
+				call s_local.append class		///
+					main.cb_con1.value
+			}
+			if main.cb_base1 & main.cb_base1.isenabled() {
+				call s_local.append "b("
+				call s_local.append class		///
+					main.cb_base1.value
+				call s_local.append ")"
+			}
+			if s_local {
+				call s_local.append "."
+			}
+			require main.cb_fv1
+			call s_local.append class main.cb_fv1.value
+		}
+	}
+	call s_output.append class s_local.value
+END
+
+PROGRAM var2_output
+BEGIN
+	call s_local.setvalue ""
+	if b_isCustom {
+		if main.ck_cont2 {
+			require main.cb_cont2
+			call s_local.append "c."
+			call s_local.append class main.cb_cont2.value
+		}
+		else {
+			require main.cb_fv2
+			call s_local.append class main.cb_fv2.value
+		}
+	}
+	else {
+		if main.ck_cont2 {
+			require main.cb_cont2
+			call s_local.append "c."
+			call s_local.append class main.cb_cont2.value
+		}
+		else {
+			if (main.cb_con2.isenabled() &			///
+				main.cb_con2.iseq("custom")) {
+				call s_local.append "{"
+				require main.cb_fv2
+				call s_local.append class main.cb_fv2.value
+				require main.ed_num2
+				if (main.ed_num2.isenabled() & 		///
+					!main.ed_num2.isnumlist()) {
+					call _MSG_TMP.format		///
+						"resource _CONTRAST_LIST_MSGBOX_INVALID_CUSTOM_CONTRAST_FMT" "2"
+		 			stopbox stop "class _MSG_TMP.value"
+// There is an invalid "Custom Contrast" for Variable 2.
+				}
+				call s_local.append " "
+				call s_local.append class main.ed_num2.value
+				call s_local.append "}"
+			}
+			else {
+				if (main.cb_con2 & main.cb_con2.isenabled()) {
+					call s_local.append class	///
+						main.cb_con2.value
+				}
+				if main.cb_base2 & main.cb_base2.isenabled() {
+					call s_local.append "b("
+					call s_local.append class	///
+						main.cb_base2.value
+					call s_local.append ")"
+				}
+				if s_local {
+					call s_local.append "."
+				}
+				require main.cb_fv2
+				call s_local.append class main.cb_fv2.value
+			}
+		}
+	}
+	call s_output.append class s_local.value
+END
+
+PROGRAM var3_output
+BEGIN
+	call s_local.setvalue ""
+	if b_isCustom {
+		if main.ck_cont3 {
+			require main.cb_cont3
+			call s_local.append "c."
+			call s_local.append class main.cb_cont3.value
+		}
+		else {
+			require main.cb_fv3
+			call s_local.append class main.cb_fv3.value
+		}
+	}
+	else {
+		if main.ck_cont3 {
+			require main.cb_cont3
+			call s_local.append "c."
+			call s_local.append class main.cb_cont3.value
+		}
+		else {
+			if (main.cb_con3.isenabled() &			///
+				main.cb_con3.iseq("custom")) {
+				call s_local.append "{"
+				require main.cb_fv3
+				call s_local.append class main.cb_fv3.value
+				require main.ed_num3
+				if (main.ed_num3.isenabled() & 		///
+					!main.ed_num3.isnumlist()) {
+					call _MSG_TMP.format		///
+						"resource _CONTRAST_LIST_MSGBOX_INVALID_CUSTOM_CONTRAST_FMT" "3"
+		 			stopbox stop "class _MSG_TMP.value"
+// There is an invalid "Custom Contrast" for Variable 3.
+				}
+				call s_local.append " "
+				call s_local.append class main.ed_num3.value
+				call s_local.append "}"
+			}
+			else {
+				if (main.cb_con3 & main.cb_con3.isenabled()) {
+					call s_local.append class	///
+						main.cb_con3.value
+				}
+				if main.cb_base3 & main.cb_base3.isenabled() {
+					call s_local.append "b("
+					call s_local.append class	///
+						main.cb_base3.value
+					call s_local.append ")"
+				}
+				if s_local {
+					call s_local.append "."
+				}
+				require main.cb_fv3
+				call s_local.append class main.cb_fv3.value
+			}
+		}
+	}
+	call s_output.append class s_local.value
+END
+
+PROGRAM var4_output
+BEGIN
+	call s_local.setvalue ""
+	if b_isCustom {
+		if main.ck_cont4 {
+			require main.cb_cont4
+			call s_local.append "c."
+			call s_local.append class main.cb_cont4.value
+		}
+		else {
+			require main.cb_fv4
+			call s_local.append class main.cb_fv4.value
+		}
+	}
+	else {
+		if main.ck_cont4 {
+			require main.cb_cont4
+			call s_local.append "c."
+			call s_local.append class main.cb_cont4.value
+		}
+		else {
+			if (main.cb_con4.isenabled() &			///
+				main.cb_con4.iseq("custom")) {
+				call s_local.append "{"
+				require main.cb_fv4
+				call s_local.append class main.cb_fv4.value
+				require main.ed_num4
+				if (main.ed_num4.isenabled() & 		///
+					!main.ed_num4.isnumlist()) {
+					call _MSG_TMP.format		///
+						"resource _CONTRAST_LIST_MSGBOX_INVALID_CUSTOM_CONTRAST_FMT" "4"
+		 			stopbox stop "class _MSG_TMP.value"
+// There is an invalid "Custom Contrast" for Variable 4.
+				}
+				call s_local.append " "
+				call s_local.append class main.ed_num4.value
+				call s_local.append "}"
+			}
+			else {
+				if (main.cb_con4 & main.cb_con4.isenabled()) {
+					call s_local.append class	///
+						main.cb_con4.value
+				}
+				if main.cb_base4 & main.cb_base4.isenabled() {
+					call s_local.append "b("
+					call s_local.append class	///
+						main.cb_base4.value
+					call s_local.append ")"
+				}
+				if s_local {
+					call s_local.append "."
+				}
+				require main.cb_fv4
+				call s_local.append class main.cb_fv4.value
+			}
+		}
+	}
+	call s_output.append class s_local.value
+END
+
+PROGRAM var5_output
+BEGIN
+	call s_local.setvalue ""
+	if b_isCustom {
+		if main.ck_cont5 {
+			require main.cb_cont5
+			call s_local.append "c."
+			call s_local.append class main.cb_cont5.value
+		}
+		else {
+			require main.cb_fv5
+			call s_local.append class main.cb_fv5.value
+		}
+	}
+	else {
+		if main.ck_cont5 {
+			require main.cb_cont5
+			call s_local.append "c."
+			call s_local.append class main.cb_cont5.value
+		}
+		else {
+			if (main.cb_con5.isenabled() &			///
+				main.cb_con5.iseq("custom")) {
+				call s_local.append "{"
+				require main.cb_fv5
+				call s_local.append class main.cb_fv5.value
+				require main.ed_num5
+				if (main.ed_num5.isenabled() & 		///
+					!main.ed_num5.isnumlist()) {
+					call _MSG_TMP.format		///
+						"resource _CONTRAST_LIST_MSGBOX_INVALID_CUSTOM_CONTRAST_FMT" "5"
+		 			stopbox stop "class _MSG_TMP.value"
+// There is an invalid "Custom Contrast" for Variable 5.
+				}
+				call s_local.append " "
+				call s_local.append class main.ed_num5.value
+				call s_local.append "}"
+			}
+			else {
+				if (main.cb_con5 & main.cb_con5.isenabled()) {
+					call s_local.append class	///
+						main.cb_con5.value
+				}
+				if main.cb_base5 & main.cb_base5.isenabled() {
+					call s_local.append "b("
+					call s_local.append class	///
+						main.cb_base5.value
+					call s_local.append ")"
+				}
+				if s_local {
+					call s_local.append "."
+				}
+				require main.cb_fv5
+				call s_local.append class main.cb_fv5.value
+			}
+		}
+	}
+	call s_output.append class s_local.value
+END
+
+PROGRAM var6_output
+BEGIN
+	call s_local.setvalue ""
+	if b_isCustom {
+		if main.ck_cont6 {
+			require main.cb_cont6
+			call s_local.append "c."
+			call s_local.append class main.cb_cont6.value
+		}
+		else {
+			require main.cb_fv6
+			call s_local.append class main.cb_fv6.value
+		}
+	}
+	else {
+		if main.ck_cont6 {
+			require main.cb_cont6
+			call s_local.append "c."
+			call s_local.append class main.cb_cont6.value
+		}
+		else {
+			if (main.cb_con6.isenabled() &			///
+				main.cb_con6.iseq("custom")) {
+				call s_local.append "{"
+				require main.cb_fv6
+				call s_local.append class main.cb_fv6.value
+				require main.ed_num6
+				if (main.ed_num6.isenabled() & 		///
+					!main.ed_num6.isnumlist()) {
+					call _MSG_TMP.format		///
+						"resource _CONTRAST_LIST_MSGBOX_INVALID_CUSTOM_CONTRAST_FMT" "6"
+		 			stopbox stop "class _MSG_TMP.value"
+// There is an invalid "Custom Contrast" for Variable 6.
+				}
+				call s_local.append " "
+				call s_local.append class main.ed_num6.value
+				call s_local.append "}"
+			}
+			else {
+				if (main.cb_con6 & main.cb_con6.isenabled()) {
+					call s_local.append class	///
+						main.cb_con6.value
+				}
+				if main.cb_base6 & main.cb_base6.isenabled() {
+					call s_local.append "b("
+					call s_local.append class	///
+						main.cb_base6.value
+					call s_local.append ")"
+				}
+				if s_local {
+					call s_local.append "."
+				}
+				require main.cb_fv6
+				call s_local.append class main.cb_fv6.value
+			}
+		}
+	}
+	call s_output.append class s_local.value
+END
+
+PROGRAM contrastOutput
+BEGIN
+	call s_output.setvalue ""
+	if main.cb_term.iseq("main-effect") {
+		call b_isMainEffect.settrue
+		put /program var1_output
+		call b_isMainEffect.setfalse
+	}
+	if main.cb_term.iseq("2way-interaction") {
+		put /program var1_output
+		if main.sp_var_num.isvisible() & main.sp_var_num.iseq(1) {
+			if main.rb_conditional {
+				call s_output.append "@"
+			}
+			else {
+				call s_output.append "|"
+			}
+		}
+		else {
+			call s_output.append "#"
+		}
+		put /program var2_output
+	}
+	if main.cb_term.iseq("2way-fullfactorial") {
+		put /program var1_output
+		if main.sp_var_num.isvisible() & main.sp_var_num.iseq(1) {
+			if main.rb_conditional {
+				call s_output.append "@"
+			}
+			else {
+				call s_output.append "|"
+			}
+		}
+		else {
+			call s_output.append "##"
+		}
+		put /program var2_output
+	}
+	if main.cb_term.iseq("3way-interaction") {
+		put /program var1_output
+		if main.sp_var_num.isvisible() & main.sp_var_num.iseq(1) {
+			if main.rb_conditional {
+				call s_output.append "@"
+			}
+			else {
+				call s_output.append "|"
+			}
+		}
+		else {
+			call s_output.append "#"
+		}
+		put /program var2_output
+		if main.sp_var_num.isvisible() & main.sp_var_num.iseq(2) {
+			if main.rb_conditional {
+				call s_output.append "@"
+			}
+			else {
+				call s_output.append "|"
+			}
+		}
+		else {
+			call s_output.append "#"
+		}
+		put /program var3_output
+	}
+	if main.cb_term.iseq("3way-fullfactorial") {
+		put /program var1_output
+		if main.sp_var_num.isvisible() & main.sp_var_num.iseq(1) {
+			if main.rb_conditional {
+				call s_output.append "@"
+			}
+			else {
+				call s_output.append "|"
+			}
+		}
+		else {
+			call s_output.append "##"
+		}
+		put /program var2_output
+		if main.sp_var_num.isvisible() & main.sp_var_num.iseq(2) {
+			if main.rb_conditional {
+				call s_output.append "@"
+			}
+			else {
+				call s_output.append "|"
+			}
+		}
+		else {
+			call s_output.append "##"
+		}
+		put /program var3_output
+	}
+	if main.cb_term.iseq("4way-interaction") {
+		put /program var1_output
+		if main.sp_var_num.isvisible() & main.sp_var_num.iseq(1) {
+			if main.rb_conditional {
+				call s_output.append "@"
+			}
+			else {
+				call s_output.append "|"
+			}
+		}
+		else {
+			call s_output.append "#"
+		}
+		put /program var2_output
+		if main.sp_var_num.isvisible() & main.sp_var_num.iseq(2) {
+			if main.rb_conditional {
+				call s_output.append "@"
+			}
+			else {
+				call s_output.append "|"
+			}
+		}
+		else {
+			call s_output.append "#"
+		}
+		put /program var3_output
+		if main.sp_var_num.isvisible() & main.sp_var_num.iseq(3) {
+			if main.rb_conditional {
+				call s_output.append "@"
+			}
+			else {
+				call s_output.append "|"
+			}
+		}
+		else {
+			call s_output.append "#"
+		}
+		put /program var4_output
+	}
+	if main.cb_term.iseq("4way-fullfactorial") {
+		put /program var1_output
+		if main.sp_var_num.isvisible() & main.sp_var_num.iseq(1) {
+			if main.rb_conditional {
+				call s_output.append "@"
+			}
+			else {
+				call s_output.append "|"
+			}
+		}
+		else {
+			call s_output.append "##"
+		}
+		put /program var2_output
+		if main.sp_var_num.isvisible() & main.sp_var_num.iseq(2) {
+			if main.rb_conditional {
+				call s_output.append "@"
+			}
+			else {
+				call s_output.append "|"
+			}
+		}
+		else {
+			call s_output.append "##"
+		}
+		put /program var3_output
+		if main.sp_var_num.isvisible() & main.sp_var_num.iseq(3) {
+			if main.rb_conditional {
+				call s_output.append "@"
+			}
+			else {
+				call s_output.append "|"
+			}
+		}
+		else {
+			call s_output.append "##"
+		}
+		put /program var4_output
+	}
+	if main.cb_term.iseq("5way-interaction") {
+		put /program var1_output
+		if main.sp_var_num.isvisible() & main.sp_var_num.iseq(1) {
+			if main.rb_conditional {
+				call s_output.append "@"
+			}
+			else {
+				call s_output.append "|"
+			}
+		}
+		else {
+			call s_output.append "#"
+		}
+		put /program var2_output
+		if main.sp_var_num.isvisible() & main.sp_var_num.iseq(2) {
+			if main.rb_conditional {
+				call s_output.append "@"
+			}
+			else {
+				call s_output.append "|"
+			}
+		}
+		else {
+			call s_output.append "#"
+		}
+		put /program var3_output
+		if main.sp_var_num.isvisible() & main.sp_var_num.iseq(3) {
+			if main.rb_conditional {
+				call s_output.append "@"
+			}
+			else {
+				call s_output.append "|"
+			}
+		}
+		else {
+			call s_output.append "#"
+		}
+		put /program var4_output
+		if main.sp_var_num.isvisible() & main.sp_var_num.iseq(4) {
+			if main.rb_conditional {
+				call s_output.append "@"
+			}
+			else {
+				call s_output.append "|"
+			}
+		}
+		else {
+			call s_output.append "#"
+		}
+		put /program var5_output
+	}
+	if main.cb_term.iseq("5way-fullfactorial") {
+		put /program var1_output
+		if main.sp_var_num.isvisible() & main.sp_var_num.iseq(1) {
+			if main.rb_conditional {
+				call s_output.append "@"
+			}
+			else {
+				call s_output.append "|"
+			}
+		}
+		else {
+			call s_output.append "##"
+		}
+		put /program var2_output
+		if main.sp_var_num.isvisible() & main.sp_var_num.iseq(2) {
+			if main.rb_conditional {
+				call s_output.append "@"
+			}
+			else {
+				call s_output.append "|"
+			}
+		}
+		else {
+			call s_output.append "##"
+		}
+		put /program var3_output
+		if main.sp_var_num.isvisible() & main.sp_var_num.iseq(3) {
+			if main.rb_conditional {
+				call s_output.append "@"
+			}
+			else {
+				call s_output.append "|"
+			}
+		}
+		else {
+			call s_output.append "##"
+		}
+		put /program var4_output
+		if main.sp_var_num.isvisible() & main.sp_var_num.iseq(4) {
+			if main.rb_conditional {
+				call s_output.append "@"
+			}
+			else {
+				call s_output.append "|"
+			}
+		}
+		else {
+			call s_output.append "##"
+		}
+		put /program var5_output
+	}
+	if main.cb_term.iseq("6way-interaction") {
+		put /program var1_output
+		if main.sp_var_num.isvisible() & main.sp_var_num.iseq(1) {
+			if main.rb_conditional {
+				call s_output.append "@"
+			}
+			else {
+				call s_output.append "|"
+			}
+		}
+		else {
+			call s_output.append "#"
+		}
+		put /program var2_output
+		if main.sp_var_num.isvisible() & main.sp_var_num.iseq(2) {
+			if main.rb_conditional {
+				call s_output.append "@"
+			}
+			else {
+				call s_output.append "|"
+			}
+		}
+		else {
+			call s_output.append "#"
+		}
+		put /program var3_output
+		if main.sp_var_num.isvisible() & main.sp_var_num.iseq(3) {
+			if main.rb_conditional {
+				call s_output.append "@"
+			}
+			else {
+				call s_output.append "|"
+			}
+		}
+		else {
+			call s_output.append "#"
+		}
+		put /program var4_output
+		if main.sp_var_num.isvisible() & main.sp_var_num.iseq(4) {
+			if main.rb_conditional {
+				call s_output.append "@"
+			}
+			else {
+				call s_output.append "|"
+			}
+		}
+		else {
+			call s_output.append "#"
+		}
+		put /program var5_output
+		if main.sp_var_num.isvisible() & main.sp_var_num.iseq(5) {
+			if main.rb_conditional {
+				call s_output.append "@"
+			}
+			else {
+				call s_output.append "|"
+			}
+		}
+		else {
+			call s_output.append "#"
+		}
+		put /program var6_output
+	}
+	if main.cb_term.iseq("6way-fullfactorial") {
+		put /program var1_output
+		if main.sp_var_num.isvisible() & main.sp_var_num.iseq(1) {
+			if main.rb_conditional {
+				call s_output.append "@"
+			}
+			else {
+				call s_output.append "|"
+			}
+		}
+		else {
+			call s_output.append "##"
+		}
+		put /program var2_output
+		if main.sp_var_num.isvisible() & main.sp_var_num.iseq(2) {
+			if main.rb_conditional {
+				call s_output.append "@"
+			}
+			else {
+				call s_output.append "|"
+			}
+		}
+		else {
+			call s_output.append "##"
+		}
+		put /program var3_output
+		if main.sp_var_num.isvisible() & main.sp_var_num.iseq(3) {
+			if main.rb_conditional {
+				call s_output.append "@"
+			}
+			else {
+				call s_output.append "|"
+			}
+		}
+		else {
+			call s_output.append "##"
+		}
+		put /program var4_output
+		if main.sp_var_num.isvisible() & main.sp_var_num.iseq(4) {
+			if main.rb_conditional {
+				call s_output.append "@"
+			}
+			else {
+				call s_output.append "|"
+			}
+		}
+		else {
+			call s_output.append "##"
+		}
+		put /program var5_output
+		if main.sp_var_num.isvisible() & main.sp_var_num.iseq(5) {
+			if main.rb_conditional {
+				call s_output.append "@"
+			}
+			else {
+				call s_output.append "|"
+			}
+		}
+		else {
+			call s_output.append "##"
+		}
+		put /program var6_output
+	}
+	if main.cb_term.iseq("cmain-effect") {
+		call b_isCustom.settrue
+		call s_output.append "{"
+		call b_isMainEffect.settrue
+		put /program var1_output
+		call s_output.append " "
+		call b_isMainEffect.setfalse
+		require main.ed_custom_numlist
+		call s_output.append class main.ed_custom_numlist.value
+		call s_output.append "}"
+		call b_isCustom.setfalse
+	}
+	if main.cb_term.iseq("c2way-interaction") {
+		call b_isCustom.settrue
+		call s_output.append "{"
+		put /program var1_output
+		call s_output.append "#"
+		put /program var2_output
+		require main.ed_custom_numlist
+		call s_output.append class " "
+		call s_output.append class main.ed_custom_numlist.value
+		call s_output.append "}"
+		call b_isCustom.setfalse
+	}
+	if main.cb_term.iseq("c3way-interaction") {
+		call b_isCustom.settrue
+		call s_output.append "{"
+		put /program var1_output
+		call s_output.append "#"
+		put /program var2_output
+		call s_output.append "#"
+		put /program var3_output
+		require main.ed_custom_numlist
+		call s_output.append class " "
+		call s_output.append class main.ed_custom_numlist.value
+		call s_output.append "}"
+		call b_isCustom.setfalse
+	}
+	if main.cb_term.iseq("c4way-interaction") {
+		call b_isCustom.settrue
+		call s_output.append "{"
+		put /program var1_output
+		call s_output.append "#"
+		put /program var2_output
+		call s_output.append "#"
+		put /program var3_output
+		call s_output.append "#"
+		put /program var4_output
+		call s_output.append "}"
+		require main.ed_custom_numlist
+		call s_output.append class " "
+		call s_output.append class main.ed_custom_numlist.value
+		call b_isCustom.setfalse
+	}
+	if main.cb_term.iseq("c5way-interaction") {
+		call b_isCustom.settrue
+		call s_output.append "{"
+		put /program var1_output
+		call s_output.append "#"
+		put /program var2_output
+		call s_output.append "#"
+		put /program var3_output
+		call s_output.append "#"
+		put /program var4_output
+		call s_output.append "#"
+		put /program var5_output
+		require main.ed_custom_numlist
+		call s_output.append class " "
+		call s_output.append class main.ed_custom_numlist.value
+		call s_output.append "}"
+		call b_isCustom.setfalse
+	}
+	if main.cb_term.iseq("c6way-interaction") {
+		call b_isCustom.settrue
+		call s_output.append "{"
+		put /program var1_output
+		call s_output.append "#"
+		put /program var2_output
+		call s_output.append "#"
+		put /program var3_output
+		call s_output.append "#"
+		put /program var4_output
+		call s_output.append "#"
+		put /program var5_output
+		call s_output.append "#"
+		put /program var6_output
+		require main.ed_custom_numlist
+		call s_output.append class " "
+		call s_output.append class main.ed_custom_numlist.value
+		call s_output.append "}"
+		call b_isCustom.setfalse
+	}
+	if (main.ed_custom_numlist.isvisible() &			///
+		!main.ed_custom_numlist.isnumlist()) {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format				/// 
+				"resource LBL_MSGBOX_THERE_IS_AN_INVALID_FMT" ///
+				"resource _CONTRAST_LIST_MAIN_HL_NUMLIST"
+			stopbox stop "class _MSG_TMP.value"
+// There is an invalid "Custom Contrast".
+	}
+        call s_output.withvalue main.ed_contrastlist.smartinsert "@"
+END
+
+PROGRAM command
+BEGIN
+	put main.ed_contrastlist
+END
+

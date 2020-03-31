@@ -1,0 +1,289 @@
+/*
+  gr_ed_hrule.dlg
+
+*!  VERSION 1.0.0  03jun2019
+
+*/
+
+VERSION 16.0
+MODAL
+
+INCLUDE _std_small
+DEFINE _dlght 190
+INCLUDE header_gr_ed
+
+DEFINE _clwd	15
+DEFINE _wd	120
+DEFINE _sep	+125
+DEFINE _cbwd	130
+DEFINE _cbsep	+135
+
+SCRIPT PREINIT
+BEGIN
+	settitle resource LBL_GB_LINE_PROPERTIES
+	create STRING G
+	program setupGOBJECT
+	
+	create DOUBLE plotCustomLabel
+	create DOUBLE plotCustomStyle
+
+	create DOUBLE index
+	create STRING color
+	create STRING rgb
+	create STRING opacity
+	create STRING width
+	create STRING pattern
+
+	create STRING margin
+	create STRING customMargin
+	create STRING customMarginDefault
+
+	create DOUBLE drawview
+
+	line.ck_hide.hide
+
+	create DOUBLE drawview
+	setscale_hadj resource GR_ED_LINE_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	line.ck_hide.show
+	program get_defaults
+	program initialize_controls
+END
+
+PROGRAM setupGOBJECT
+BEGIN
+	if ! __MESSAGE {
+		stopbox stop resource LBL_MSGBOX_OBJECT_NOT_FOUND
+// An unexpected error has occurred. Object not found.
+		exit 198
+	}
+	call G.setvalue class __MESSAGE.value
+END
+
+
+DIALOG line, tabtitle(resource LBL_LINE)
+BEGIN
+  TEXT     tx_clr	_ilft	_top	_wd	.,		///
+	label(resource LBL_COLOR) right
+  COMBOBOX cb_clr	_sep	@	_cbwd	.,		///
+	dropdownlist contents(_colors) 				///
+	onselchangelist(line_cl_clr_sel)
+  COLOR    cl_clr	_cbsep	@	_clwd	.,
+  TEXT     tx_opacity	_ilft	_mls	_wd	.,		///
+	label(resource LBL_OPACITY) right
+  SPINNER sp_opacity	_sep	@	_spwd	.,		///
+	default(100)						///
+	min(0)							///
+	max(100)
+  
+  TEXT     tx_width	_ilft	 _mls	_wd	.,		///
+	label(resource LBL_WIDTH) right
+  COMBOBOX cb_width	_sep	@	_cbwd	.,		///
+	dropdown 						///
+	contents(_linewidths)
+
+  TEXT     tx_pattern	_ilft	_mls	_wd	.,		///
+	label(resource LBL_PATTERN) right
+  COMBOBOX cb_pattern	_sep	@	_cbwd	.,		///
+	dropdownlist						///
+	contents(_linepatterns) 
+	
+  TEXT     tx_margin	_ilft	_mls	_wd	.,		///
+  	label(resource LBL_MARGIN) right
+  COMBOBOX cb_margin 	_sep	@	_cbwd	.,		///
+	dropdownlist contents(_margin)				///
+	onselchangelist(line_cb_margin_sel)			///
+	tooltip(resource GR_ED_REGIONS_OVERALL_CB_MARGIN)
+DEFINE x @x
+  BUTTON   bu_margin	_cbsep	@	_clwd	.,		///
+	label("..") 						///
+	tooltip(resource LBL_CUSTOM_MARGIN_NOT_DEFINED)		///
+	onpush(script line_showMarginDialog)
+
+  CHECKBOX ck_hide	x	_ls	_cbwd	.,		///
+	label(resource LBL_HIDE)
+END
+
+LIST line_cl_clr_sel
+BEGIN
+	line.cl_clr.show
+	line.cl_clr.hide
+END
+
+LIST line_cb_margin_sel
+BEGIN
+	line.bu_margin.show
+	line.bu_margin.hide
+END
+
+SCRIPT line_showMarginDialog
+BEGIN
+	create STRING MSG  // used by child dialog
+	MSG.setvalue class customMargin.value
+	create CHILD gr_margin_create AS regionMargin
+	regionMargin.setExitString customMargin
+	regionMargin.setExitAction "program line_checkCustomMargin"
+END
+PROGRAM line_checkCustomMargin
+BEGIN
+	if customMargin {
+		call customMargin.tokenize tmpArray
+		call tmp.setvalue "Custom margin "
+		call tmp.append "(Left:"
+		call tmp.append class tmpArray[1]
+		call tmp.append " Right:"
+		call tmp.append class tmpArray[2]
+		call tmp.append " Bottom:"
+		call tmp.append class tmpArray[3]
+		call tmp.append " Top:"
+		call tmp.append class tmpArray[4]
+		call tmp.append ")"
+		call tmp.withvalue line.bu_margin.settooltip "@"
+	}
+	else {
+		call line.bu_margin.settooltip resource LBL_CUSTOM_MARGIN_NOT_DEFINED
+	}
+END
+
+PROGRAM get_defaults
+BEGIN
+	call G.withvalue index.setvalue class @.style.linestyle.color.styledex
+	call index.withvalue color.setvalue class .__STYLES.color[@]
+	call line.cb_clr.setdefault class color.value
+	
+	call G.withvalue rgb.setvalue class @.style.linestyle.color.rgb
+	call line.cl_clr.setdefault class rgb.value
+
+	call G.withvalue opacity.setvalue class @.style.linestyle.color.opacity
+	call line.sp_opacity.setdefault class opacity.value
+
+	call G.withvalue index.setvalue class @.style.linestyle.width.styledex
+	call index.withvalue width.setvalue class .__STYLES.linewidth[@]
+	if ! width {
+		call G.withvalue width.setvalue class @.style.linestyle.width.val
+	}
+	call line.cb_width.setdefault class width.value
+
+	call G.withvalue index.setvalue class @.style.linestyle.pattern.styledex
+	call index.withvalue pattern.setvalue class .__STYLES.linepattern[@]
+	call line.cb_pattern.setdefault class pattern.value
+	
+	call G.withvalue index.setvalue class @.style.margin.styledex
+	call index.withvalue margin.setvalue class .__STYLES.margin[@]
+	call customMarginDefault.setvalue ""
+	if ! margin {
+		call G.withvalue margin.setvalue class @.style.margin.left
+		call margin.append " "
+		call G.withvalue margin.append class @.style.margin.right
+		call margin.append " "
+		call G.withvalue margin.append class @.style.margin.bottom
+		call margin.append " "
+		call G.withvalue margin.append class @.style.margin.top
+
+		call customMarginDefault.setvalue class margin.value
+		call program line_checkCustomMargin
+	}
+	call line.cb_margin.setdefault class margin.value
+
+
+	call G.withvalue drawview.setvalue class @.draw_view.istrue
+	if drawview {
+		call line.ck_hide.setdefault 0
+	}
+	else {
+		call line.ck_hide.setdefault 1
+	}
+END
+
+PROGRAM initialize_controls
+BEGIN
+	if color {
+		call line.cb_clr.setvalue class color.value
+	}
+	if ! color {
+		call line.cb_clr.setvalue "custom"
+	}
+	call line.cl_clr.setvalue class rgb.value
+	call line.sp_opacity.setvalue class opacity.value
+
+	call line.cb_width.setvalue class width.value
+	call line.cb_pattern.setvalue class pattern.value
+	
+	call line.cb_margin.setvalue class margin.value
+
+	if drawview {
+		call line.ck_hide.setoff
+	}
+	else {
+		call line.ck_hide.seton
+	}
+END
+
+
+PROGRAM line_output
+BEGIN
+	call program get_defaults
+
+	if ! line.cl_clr.isvisible() & ! line.cb_clr.isdefault() {
+		put "style(linestyle(color(" 
+		put line.cb_clr 
+		put "))) "
+	}
+	if line.cl_clr.isvisible() & ! line.cl_clr.isdefault() {
+		put "style(linestyle(color("  `"""'
+		put line.cl_clr
+		put `"""'
+		put "))) "
+	}
+	if ! line.sp_opacity.isdefault() {
+		put "style(linestyle(color("
+		put "%"
+		put line.sp_opacity
+		put "))) "
+	}
+	if ! line.cb_width.isdefault() {
+		put "style(linestyle(width("
+		put line.cb_width
+		put "))) "
+	}
+	if ! line.cb_pattern.isdefault() {
+		put "style(linestyle(pattern("
+		put line.cb_pattern
+		put "))) "
+	}
+	
+	if line.cb_margin.iseq("custom") {
+		if customMargin & customMargin.isneq(customMarginDefault) {
+			put "style(margin("
+			put customMargin
+			put ")) "
+		}
+	}
+	else {
+		if ! line.cb_margin.isdefault() {
+			put " style(margin(" line.cb_margin ")) "
+		}
+	}
+
+	if ! line.ck_hide.isdefault() & line.ck_hide.isvisible() {
+		if line.ck_hide {
+			put "set(draw_view no) "
+		}
+		else {
+			put "set(draw_view yes) "
+		}
+	}
+END
+
+PROGRAM command
+BEGIN
+	put "_gm_dlg_edits"
+	beginoptions
+		put " object(" G ") "
+		put " " /program line_output
+		put " epilog(_gedi toolbar hrule " G ")"
+	endoptions
+END

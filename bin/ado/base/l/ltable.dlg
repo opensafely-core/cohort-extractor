@@ -1,0 +1,347 @@
+/*
+    ltable.dlg
+
+*!  VERSION 2.1.3  22sep2015
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_xwide
+DEFINE _dlght 360
+INCLUDE header
+HELP hlp1, view("help ltable")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource LTABLE_DLG_HSCALE
+	
+        main.fi_sav.formatfilter "{0} (*.dta)|*.dta|{1} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_DTA" "resource ui_ex FILE_TYPE_ALL_FILES"
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script gr_plots_setDefaultConnected
+	script gr_plots_setNoMarkerLabel
+	script gr_ciplots_setDefaultSpike
+	script gr_ciplots_setNoMarkerLabel
+	gr_ciplots_outputCmd.setstring "ciopts"
+	gr_plots_outputCmd.setstring "plotopts"
+END
+
+DIALOG main, label(resource LTABLE_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_tvar   _lft      _top      _cwd4_1   .,		/*
+		*/ label(resource LBL_TIME_VARIABLE)
+
+  VARNAME  vn_tvar   @         _ss       _vnwd     .,		/*
+  		*/ numeric					/*
+		*/ label(resource LBL_TIME_VARIABLE)
+
+  TEXT     tx_dvar   _lft4_2   _top      _cwd4_1   .,		/*
+		*/ label(resource LBL_FAILURE_VARIABLE)
+
+  VARNAME  vn_dvar   @         _ss       _vnwd	   .,    	/*
+  		*/ numeric					/*
+		*/ label(resource LBL_FAILURE_VARIABLE)
+
+  GROUPBOX gb_output _lft      +35       _cwd1     _ht6,	/*
+		*/ label(resource LTABLE_MAIN_GB_OUTPUT)
+  RADIO    rb_table  _ilft     _ss       _inwd     .,		/*
+  		*/ label(resource LBL_TABLE) 			/*
+  		*/ onclickon(script main_rb_table_on) first
+  RADIO    rb_graph  @         _ss       @         .,		/*
+  		*/ label(resource LBL_GRAPH) 			/*
+  		*/ onclickon(program main_rb_graph_on) 		/*
+  		*/ option(graph notable)
+  RADIO    rb_both   @         _ss       @         .,		/*
+  		*/ label(resource LTABLE_MAIN_RB_BOTH) 		/*
+  		*/ onclickon(script main_rb_both_on) last	/*
+  		*/ option(graph)
+
+  GROUPBOX gb_funct  _lft      _xls      _cwd1     _ht7,	/*
+  		*/ label(resource LBL_FUNCTION_NO_COLON)
+  CHECKBOX ck_surv   _indent   _ss       _inwd     .,		/*
+		*/ option(survival)				/*
+		*/ label(resource LTABLE_MAIN_CK_SURV)		/*
+		*/ default(1)
+DEFINE   holdy @y
+  CHECKBOX ck_fail   @         _ms       @         .,		/*
+		*/ option(failure)				/*
+		*/ label(resource LTABLE_MAIN_CK_FAIL)
+  CHECKBOX ck_haz    @         _ms       @         .,		/*
+		*/ option(hazard)				/*
+		*/ label(resource LTABLE_MAIN_CK_HAZ)
+  RADIO    rb_surv   @         holdy     @         .,		/*
+  		*/ first option(survival) 			/*
+  		*/ label(resource LTABLE_MAIN_RB_SURV)
+  RADIO    rb_fail   @         _ss       @         .,		/*
+  		*/ last option(failure)				/*
+  		*/ label(resource LTABLE_MAIN_RB_FAIL)
+  CHECKBOX ck_ci   @         _ls       @         .,		/*
+		*/ option(ci)					/*
+		*/ onclickon(program ci_check)			/*
+		*/ onclickoff(program ci_check)			/*
+		*/ label(resource LTABLE_MAIN_CK_CI)
+
+  DEFINE _x _lft
+  DEFINE _y _xxls
+  DEFINE _cx _spr2
+  INCLUDE _sp_level
+
+  CHECKBOX ck_noadj  _lft      _ls       _cwd1     .,		/*
+		*/ option(noadjust)				/*
+		*/ label(resource LTABLE_MAIN_CK_NOADJ)
+
+  CHECKBOX ck_by     _lft2     _top      _cwd1     _ht11h,	/*
+  		*/ groupbox					/*
+  		*/ onclickon(program main_ck_by_on)		/*
+  		*/ onclickoff(program main_ck_by_off)		/*
+  		*/ label(resource LTABLE_MAIN_CK_BY)
+  TEXT     tx_by     _indent   _ms       _cwd3     .,		/*
+  		*/ label(resource LBL_VARIABLE)
+DEFINE holdx @x
+  VARNAME  vn_by     @         _ss       _vnwd     .,		/*
+  		*/ label(resource LBL_GROUPING_VARIABLE) option(by)
+  CHECKBOX ck_test   @         _ls       _cwd3 	   .,		/*
+  		*/ option(test)					/*
+  		*/ label(resource LTABLE_MAIN_CK_TEST)
+  TEXT     tx_test   _cksep    _vss      _cwd5     .,		/*
+  		*/ label(resource LTABLE_MAIN_TX_TEST)
+  CHECKBOX ck_over   holdx     _ms       _cwd3     .,		/*
+  		*/ label(resource LTABLE_MAIN_CK_OVER) 	/*
+  		*/ option(over) 				/*
+  		*/ onclickon(program main_overlay_check)	/*
+  		*/ onclickoff(program main_overlay_check)
+
+  GROUPBOX gb_opts   _lft2     _xls      _cwd1     _ht15,	/*
+  		*/ label(resource LTABLE_MAIN_GB_OPTS)
+  TEXT     tx_tvid   _indent   _ms       _inwd     .,		/*
+		*/ label(resource LTABLE_MAIN_TX_TVID)
+DEFINE width @xsize
+  VARNAME  vn_tvid   @         _ss       _vnwd     .,		/*
+		*/ option(tvid)					/*
+		*/ label(resource LTABLE_MAIN_VN_TVID)
+  TEXT     tx_int    @         _ls       width     .,		/*
+		*/ label(resource LTABLE_MAIN_TX_INT)
+  EDIT     ed_int    @         _ss       @         .,		/*
+		*/ option(intervals)				/*
+		*/ label(resource LTABLE_MAIN_TX_INT)
+  TEXT     tx_sav    @         _ls       @         .,		/*
+		*/ label(resource LTABLE_MAIN_TX_SAV)		/*
+		*/
+  FILE     fi_sav    @         _ss       @         .,			/*
+		*/ label(resource LBL_BU_BROWSE)			/*
+		*/ option("saving")					/*
+		*/ defext(dta)						/*
+		*/ save							/*
+		*/
+END
+
+PROGRAM main_overlay_check
+BEGIN
+	if ! main.ck_over.isenabled() {
+		exit
+	}
+	if main.ck_over & main.ck_over.isenabled() {
+		call script gr_plots_setMultiView_on
+		call script gr_ciplots_setMultiView_on
+		if ! main.rb_table {
+			call script gr_addplots_enable
+		}
+		call script main_byContext_off
+	}
+	else {
+		call script gr_plots_setMultiView_off
+		call script gr_ciplots_setMultiView_off
+		if ! main.rb_table {
+			call script gr_addplots_disable
+		}
+		if main.ck_by {
+			call script main_byContext_on
+		}
+	}
+END
+
+SCRIPT main_byContext_on
+BEGIN
+	script gr_legend_setByoptsContext_on
+	script gr_titles_setByoptsContext_on
+	script gr_yaxis_setByoptsContext_on
+	script gr_xaxis_setByoptsContext_on
+	script gr_overall_setByoptsContext_on
+END
+SCRIPT main_byContext_off
+BEGIN
+	script gr_legend_setByoptsContext_off
+	script gr_titles_setByoptsContext_off
+	script gr_yaxis_setByoptsContext_off
+	script gr_xaxis_setByoptsContext_off
+	script gr_overall_setByoptsContext_off
+END
+
+SCRIPT main_rb_table_on
+BEGIN
+	main.rb_surv.hide
+	main.rb_fail.hide
+	main.ck_ci.hide
+	main.ck_surv.show
+	main.ck_fail.show
+	main.ck_haz.show
+	main.ck_over.disable
+	script gr_plots_disable
+	script gr_addplots_disable
+	script gr_xaxis_disable
+	script gr_yaxis_disable
+	script gr_titles_disable
+	script gr_legend_disable
+	script gr_overall_disable
+	program ci_check
+	main.ck_by.setlabel resource LTABLE_GROUP_TABLES_BY_VALUES_OF_VARIABLE
+END
+
+PROGRAM main_rb_graph_on
+BEGIN
+	call program main_graph_common
+	call main.ck_by.setlabel resource LTABLE_GROUP_GRAPHS_BY_VALUES_OF_VARIABLE
+END
+
+SCRIPT main_rb_both_on
+BEGIN
+	program main_graph_common
+	main.ck_by.setlabel resource LTABLE_GROUP_GRAPHS_TABLES_BY_VALUES_OF_VARIABLE
+END
+
+PROGRAM main_graph_common
+BEGIN
+	call main.rb_surv.show
+	call main.rb_fail.show
+	call main.ck_ci.show
+	call main.ck_surv.hide
+	call main.ck_fail.hide
+	call main.ck_haz.hide
+	if main.ck_by {
+		call main.ck_over.enable
+		if main.ck_over.isenabled() & main.ck_over {
+			call script gr_addplots_enable
+		}
+		else {
+			call script gr_addplots_disable
+		}
+	}
+	else {
+		call script gr_addplots_enable
+	}
+	call script gr_plots_enable
+	call script gr_xaxis_enable
+	call script gr_yaxis_enable
+	call script gr_titles_enable
+	call script gr_legend_enable
+	call script gr_overall_enable
+	call program ci_check
+END
+
+PROGRAM ci_check
+BEGIN
+	if ( main.ck_ci &			///
+	    (main.rb_graph | main.rb_both)) {
+		call script gr_ciplots_enable
+	}
+	else {
+		call script gr_ciplots_disable
+	}
+END
+
+PROGRAM main_ck_by_on
+BEGIN
+	call main.tx_by.enable
+	call main.vn_by.enable
+	if main.rb_graph | main.rb_both {
+		call main.ck_over.enable
+		if main.rb_table & main.ck_over {
+			call script gr_addplots_enable
+		}
+		else {
+			call script gr_addplots_disable
+		}
+	}
+	call main.ck_test.enable
+	call main.tx_test.enable
+	call program main_overlay_check
+	call script gr_byopts_enable
+END
+
+PROGRAM main_ck_by_off
+BEGIN
+	call main.tx_by.disable
+	call main.vn_by.disable
+	call main.ck_over.disable
+	call main.ck_test.disable
+	call main.tx_test.disable
+	if main.rb_graph | main.rb_both {
+		call script gr_addplots_enable
+	}
+	call script gr_plots_setMultiView_off
+	call script gr_ciplots_setMultiView_off
+	call script main_byContext_off
+	call script gr_byopts_disable
+END
+
+INCLUDE ifin
+INCLUDE weights_f
+INCLUDE gr_plots
+INCLUDE gr_ciplots
+INCLUDE gr_addplots_2
+INCLUDE gr_yaxis
+INCLUDE gr_xaxis
+INCLUDE gr_titles
+INCLUDE gr_legend
+INCLUDE gr_overall
+INCLUDE gr_byopts
+
+PROGRAM command
+BEGIN
+	put "ltable "
+	varlist main.vn_tvar
+	varlist [main.vn_dvar]
+	put " " /program weights_output
+	put " " /program ifin_output
+	beginoptions
+		option main.ck_surv
+		option main.ck_fail
+		option main.ck_haz
+		option main.rb_graph
+		option main.rb_both
+		option main.rb_surv
+		option main.rb_fail
+		option main.ck_ci
+		INCLUDE _level_main_pr
+		if main.ck_by {
+			require main.vn_by
+			optionarg main.vn_by
+		}
+		option main.ck_noadj
+		option main.ck_test
+		option main.ck_over
+		optionarg main.vn_tvid
+		optionarg main.ed_int
+		if main.fi_sav {
+			repfile main.fi_sav
+			put `"saving(""'
+			put main.fi_sav
+			put `"", replace)"'
+		}
+
+		put " " /program gr_plots_output
+		put " " /program gr_ciplots_output
+		put " " /program gr_addplots_output
+		put " " /program gr_yaxis_output
+		put " " /program gr_xaxis_output
+		put " " /program gr_titles_output
+		put " " /program gr_legend_output
+		put " " /program gr_overall_output
+		put " " /program gr_byopts_output
+	endoptions
+END

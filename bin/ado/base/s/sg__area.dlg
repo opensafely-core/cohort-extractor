@@ -1,0 +1,322 @@
+/*
+  sg__area.dlg
+
+*!  VERSION 1.1.1  03jun2015
+
+*/
+
+VERSION 14.0
+MODAL
+
+INCLUDE _std_msmall
+DEFINE _dlght 220
+INCLUDE header_sem_ed
+
+DEFINE _clwd	15
+DEFINE _wd	90
+DEFINE _sep	+95
+DEFINE _wd2	120
+DEFINE _sep2	+125
+DEFINE _cbwd	110
+DEFINE _cbsep	+115
+
+INCLUDE sg__common_output		/* routines necessary for output */
+
+SCRIPT PREINIT
+BEGIN
+	script sg__common_output_init 	/* initialize output globals */
+
+	create STRING OBJ
+	program setupOBJECT
+
+	create STRING sTemp
+	create DOUBLE dTemp
+
+	program global_get_defaults
+	setscale_hadj resource SG__AREA_DLG_HSCALE
+END
+
+PROGRAM setupOBJECT
+BEGIN
+	if ! __MESSAGE {
+		stopbox stop resource LBL_MSGBOX_OBJECT_NOT_FOUND
+// An unexpected error has occurred. Object not found.
+		exit 198
+	}
+	call OBJ.setvalue class __MESSAGE.value
+END
+
+PROGRAM global_get_defaults
+BEGIN
+
+END
+
+SCRIPT area_PREINIT
+BEGIN
+	create STRING sAreaX
+	create STRING sAreaY
+	create STRING sAreaXpos
+	create STRING sAreaYpos
+	create STRING sAreaColor
+	create STRING sAreaUseLcolor
+	create STRING sAreaOwidth
+	create STRING sAreaOcolor
+
+	program area_get_defaults
+END
+
+SCRIPT area_POSTINIT
+BEGIN
+	program area_initialize_controls
+END
+
+PROGRAM area_get_defaults
+BEGIN
+	call sAreaX.setvalue class .__SEMG.dbsettings.xsize
+	call sAreaY.setvalue class .__SEMG.dbsettings.ysize
+	call sAreaX.withvalue area.cb_width.setdefault "@"
+	call sAreaY.withvalue area.cb_height.setdefault "@"
+
+	call sAreaXpos.setvalue class .__SEMG.dbsettings.x
+	call sAreaXpos.withvalue area.ed_xpos.setdefault "@"
+	call sAreaYpos.setvalue class .__SEMG.dbsettings.y
+	call sAreaYpos.withvalue area.ed_ypos.setdefault "@"
+
+	call sAreaColor.setvalue class .__SEMG.dbsettings.fillcolor
+	call sAreaColor.withvalue area.cb_color.setdefault "@"
+
+	call sAreaUseLcolor.setvalue class .__SEMG.dbsettings.uselineclr
+	if (sAreaUseLcolor.iseq("yes")) {
+		call area.ck_custom.setdefault 1
+	}
+	else {
+		call area.ck_custom.setdefault 0
+	}
+
+	call sAreaOwidth.setvalue class .__SEMG.dbsettings.line_width
+	call sAreaOwidth.withvalue area.cb_owidth.setdefault "@"
+
+	call sAreaOcolor.setvalue class .__SEMG.dbsettings.line_color
+	call sAreaOcolor.withvalue area.cb_ocolor.setdefault "@"
+END
+
+PROGRAM area_initialize_controls
+BEGIN
+	call area.cb_width.setvalue class sAreaX.value
+	call area.cb_height.setvalue class sAreaY.value
+	call area.ed_xpos.setvalue class sAreaXpos.value
+	call area.ed_ypos.setvalue class sAreaYpos.value
+	call area.cb_color.setvalue class sAreaColor.value
+	if (sAreaUseLcolor.iseq("yes")) {
+		call area.ck_custom.seton
+	}
+	else {
+		call area.ck_custom.setoff
+	}
+	call area.cb_owidth.setvalue class sAreaOwidth.value
+	call area.cb_ocolor.setvalue class sAreaOcolor.value
+END
+
+PROGRAM check_custom
+BEGIN
+	if area.ck_custom {
+		call area.tx_owidth.enable
+		call area.cb_owidth.enable
+		call area.tx_width_m.enable
+		call area.tx_ocolor.enable
+		call area.cb_ocolor.enable
+	}
+	else {
+		call area.tx_owidth.disable
+		call area.cb_owidth.disable
+		call area.tx_width_m.disable
+		call area.tx_ocolor.disable
+		call area.cb_ocolor.disable
+	}
+END
+
+DIALOG area, label(resource LBL_GB_AREA_PROPERTIES) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_size	_ilft	25	_wd	.,		///
+	label(resource LBL_SIZE) right 
+  COMBOBOX cb_width	_sep	@	70	., nomemory	///
+	dropdown contents(__SEM_STYLES_LABEL.size)		///
+	values(__SEM_STYLES.size)
+  TEXT     tx_x		+75	@	17	.,		///
+	label(resource LBL_X_LOWERCASE) center 
+  COMBOBOX cb_height	+20	@	70	., nomemory	///
+	dropdown contents(__SEM_STYLES_LABEL.size)		///
+	values(__SEM_STYLES.size)
+  TEXT     tx_size_m	+75	@	50	.,		///
+	label(resource LBL_PAREN_IN_PAREN)
+
+  TEXT     tx_xpos	_ilft	_mls	_wd	.,		///
+	label(resource SG__AREA_AREA_TX_XPOS) right 
+  EDIT     ed_xpos	_sep	@	70	., nomemory
+  TEXT     tx_ypos	+75	@	17	.,		///
+	label(resource LBL_Y_LOWERCASE) right 
+  EDIT     ed_ypos	+20	@	70	., nomemory
+  TEXT     tx_pos_m	+75	@	50	.,		///
+	label(resource LBL_PAREN_IN_PAREN)
+
+  TEXT     tx_color	_ilft	+35	_wd2	.,		///
+	label(resource LBL_COLOR) right
+  COMBOBOX cb_color	_sep2	@	_cbwd	., nomemory	///
+	dropdown contents(.__SEM_STYLES_LABEL.color)		///
+	values(.__SEM_STYLES.color)
+  TEXT     tx_color_m	_cbsep	@	110	., 		///
+	label(resource LBL_FILL_AND_OUTLINE)
+
+  CHECKBOX ck_custom	_lft	+30	_iwd	_ht5h,		///
+	groupbox label(resource LBL_CUSTOMIZE_OUTLINE)		///
+	onclickon(program check_custom)				///
+	onclickoff(program check_custom)
+
+  TEXT     tx_ocolor	_ilft	_ss	_wd2	.,		///
+	label(resource LBL_OUTLINE_COLOR) right
+  COMBOBOX cb_ocolor	_sep2	@	_cbwd	., nomemory	///
+	dropdown contents(.__SEM_STYLES_LABEL.color)		///
+	values(.__SEM_STYLES.color)
+
+  TEXT     tx_owidth	_ilft	_mls	_wd2	.,		///
+	label(resource LBL_OUTLINE_WIDTH) right
+  COMBOBOX cb_owidth	_sep2	@	_cbwd	., nomemory	///
+	dropdown contents(.__SEM_STYLES_LABEL.width)		///
+	values(.__SEM_STYLES.width)
+  TEXT     tx_width_m	_cbsep	@	50	.,		///
+	label(resource LBL_PT)
+END
+
+PROGRAM area_output
+BEGIN
+	call program area_get_defaults
+
+	if (!area.cb_width.isdefault()) {
+		call dTemp.setvalue class area.cb_width.value
+		call sTemp.setvalue class area.cb_width.value
+		if (!dTemp & dTemp.isneq(0) & sTemp.isneq("<multiple>")) {
+			call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_CONTAINS_A_NONNUMERIC_VALUE_FMT" ///
+				"resource LBL_TAB_SIZE" 
+			stopbox stop "class _MSG_TMP.value"
+// "Size" contains a nonnumeric value.
+		}
+		call sg__PARAM2.setvalue "SetSelected"
+		call sg__ARG_00.setvalue "size[1]"
+		call sg__ARG_01.setvalue class area.cb_width.value
+		put /program sg__do_output_sub
+	}
+	if (!area.cb_height.isdefault()) {
+		call dTemp.setvalue class area.cb_height.value
+		call sTemp.setvalue class area.cb_height.value
+		if (!dTemp & dTemp.isneq(0) & sTemp.isneq("<multiple>")) {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_CONTAINS_A_NONNUMERIC_VALUE_FMT" ///
+				"resource LBL_TAB_SIZE"
+                        stopbox stop "class _MSG_TMP.value"
+
+// "Size" contains a nonnumeric value.
+		}
+		call sg__PARAM2.setvalue "SetSelected"
+		call sg__ARG_00.setvalue "size[2]"
+		call sg__ARG_01.setvalue class area.cb_height.value
+		put /program sg__do_output_sub
+	}
+
+	if ! area.ed_xpos.isdefault() {
+		call dTemp.setvalue class area.ed_xpos.value
+		call sTemp.setvalue class area.ed_xpos.value
+		if (!dTemp & dTemp.isneq(0) & sTemp.isneq("<multiple>")) {
+			call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_POSITION_CONTAINS_A_NONNUMERIC_VALUE_FMT" ///
+				"resource LBL_X_LOWERCASE"
+			stopbox stop "class _MSG_TMP.value"
+// Position "x" contains a nonnumeric value.
+		}
+		call sg__PARAM2.setvalue "SetSelected"
+		call sg__ARG_00.setvalue "pos[1]"
+		call sg__ARG_01.setvalue class area.ed_xpos.value
+		put /program sg__do_output_sub
+	}
+
+	if ! area.ed_ypos.isdefault() {
+		call dTemp.setvalue class area.ed_ypos.value
+		call sTemp.setvalue class area.ed_ypos.value
+		if (!dTemp & dTemp.isneq(0) & sTemp.isneq("<multiple>")) {
+			call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_POSITION_CONTAINS_A_NONNUMERIC_VALUE_FMT" ///
+				"resource LBL_Y_LOWERCASE"
+                        stopbox stop "class _MSG_TMP.value"
+// Position "y" contains a nonnumeric value.
+		}
+		call sg__PARAM2.setvalue "SetSelected"
+		call sg__ARG_00.setvalue "pos[2]"
+		call sg__ARG_01.setvalue class area.ed_ypos.value
+		put /program sg__do_output_sub
+	}
+	
+
+	if (!area.cb_color.isdefault()) {
+		call sg__PARAM2.setvalue "SetStyleSelected"
+		call sg__ARG_00.setvalue "areastyle.fillcolor"
+		call sg__ARG_01.setvalue class area.cb_color.value
+		put /program sg__do_output_sub
+	
+		if (!area.ck_custom) {
+			call sg__PARAM2.setvalue "SetStyleSelected"
+			call sg__ARG_00.setvalue "areastyle.line.color"
+			call sg__ARG_01.setvalue class area.cb_color.value
+			put /program sg__do_output_sub
+		}
+	}
+
+	if (!area.ck_custom.isdefault()) {
+		call sg__PARAM2.setvalue "SetStyleSelected"
+		call sg__ARG_00.setvalue "areastyle.uselineclr"
+		if (area.ck_custom) {
+			call sg__ARG_01.setvalue "yes"
+		}
+		else {
+			call sg__ARG_01.setvalue "no"
+		}
+		put /program sg__do_output_sub
+	}
+
+	if (area.cb_ocolor.isenabled() & !area.cb_ocolor.isdefault()) {
+		call sg__PARAM2.setvalue "SetStyleSelected"
+		call sg__ARG_00.setvalue "areastyle.line.color"
+		call sg__ARG_01.setvalue class area.cb_ocolor.value
+		put /program sg__do_output_sub
+	}
+
+	if (area.cb_owidth.isenabled() & !area.cb_owidth.isdefault()) {
+		call sg__PARAM2.setvalue "SetStyleSelected"
+		call sg__ARG_00.setvalue "areastyle.line.width"
+		call sg__ARG_01.setvalue class area.cb_owidth.value
+		put /program sg__do_output_sub
+	}
+END
+
+PROGRAM command
+BEGIN
+	call program global_get_defaults
+	call sg__PARAM1.setvalue class OBJ.value
+	
+	call sg__PARAM2.setvalue "BeginSet"
+	call sg__DESCPT.setvalue "change area settings"
+	put /program sg__do_output_sub
+	
+	put /program area_output
+
+	call sg__PARAM2.setvalue "EndSet"
+	call sg__DESCPT.setvalue "change area settings"
+	put /program sg__do_output_sub
+
+	call sg__PARAM1.setvalue class OBJ.value
+	call sg__PARAM2.setvalue "Reselect"
+	put /program sg__do_output_sub
+END

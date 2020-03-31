@@ -1,0 +1,736 @@
+/*
+	factor_estat
+
+*!  VERSION 1.2.1 02feb2015
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE header
+
+HELP hlp1, view("help factor postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource FACTOR_ESTAT_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program parseMessage
+END
+
+PROGRAM parseMessage
+BEGIN
+	if __MESSAGE.contains("-anti-") {
+		call main.lb_subcmd.setvalue "anti"
+	}
+	if __MESSAGE.contains("-common-") {
+		call main.lb_subcmd.setvalue "common"
+	}
+	if __MESSAGE.contains("-factors-") {
+		call main.lb_subcmd.setvalue "factors"
+	}
+	if __MESSAGE.contains("-kmo-") {
+		call main.lb_subcmd.setvalue "kmo"
+	}
+	if __MESSAGE.contains("-residuals-") {
+		call main.lb_subcmd.setvalue "residuals"
+	}
+	if __MESSAGE.contains("-rotatecompare-") {
+		call main.lb_subcmd.setvalue "rotatecompare"
+	}
+	if __MESSAGE.contains("-smc-") {
+		call main.lb_subcmd.setvalue "smc"
+	}
+	if __MESSAGE.contains("-structure-") {
+		call main.lb_subcmd.setvalue "structure"
+	}
+	if __MESSAGE.contains("-summarize-") {
+		call main.lb_subcmd.setvalue "summarize"
+	}
+END
+
+
+DIALOG main, 								///
+	label(resource FACTOR_ESTAT_DLG_TITLE)	///
+	tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_subcmd		_lft	_top	_cwd1	.,		///
+  	label(resource LBL_REPORTS_STATISTICS_SUBCOMMAND)
+  LISTBOX  lb_subcmd		@	_ss	_iwd	70,		///
+  	contents(main_subcommand_contents)				///
+  	values(main_subcommand_values)					///
+  	onselchangelist(main_subcommand_scripts)
+
+  DEFINE holdy 110
+
+  // anti options
+  GROUPBOX gb_anti		_lft	holdy	_iwd	_ht6,		///
+  	label(resource LBL_CORRELATION_AND_COVARIANCE_MATRICES)
+  RADIO    rb_corr_cov		_ilft	_ss	_ibwd	.,		///
+  	first label(resource LBL_RPT_BOTH_CORRELATION_AND_COVARIANCE_MAT)
+  RADIO    rb_nocorr		@	_ss	@	.,		///
+  	label(resource LBL_RPT_ONLY_ANTI_IMAGE_COVARIANCE_MAT)		///
+  	option(nocorr)
+  RADIO    rb_nocov		@	_ss	@	.,		///
+	last option(nocov)						///
+	label(resource LBL_RPT_ONLY_ANTI_IMAGE_CORRELATION_MAT)
+  CHECKBOX ck_anti_format	_lft	_xls	_iwd	.,		///
+  	onclickon(script anti_format_on)				///
+  	onclickoff(script anti_format_off)				///
+	label(resource LBL_SPECIFY_THE_DISPLAY_FORMAT)
+  EDIT     en_anti_format	+20	_ss	200	.,		///
+	option(format) label(resource LBL_DISPLAY_FORMAT)
+  BUTTON   bn_anti_format	+205	@	80	.,		///
+	label(resource LBL_BU_CREATE)						///
+	onpush(script showAntiFormatDialog)				///
+	tooltip(resource LBL_CREATE_DISPLAY_FORMAT)
+
+  // common options
+  CHECKBOX ck_c_norotated	_lft	holdy	_iwd	.,		///
+	option(norotated)						///
+	label(resource FACTOR_ESTAT_MAIN_CK_C_NOROTATED)
+  CHECKBOX ck_common_format	@	_ms	@	.,		///
+  	onclickon(script common_format_on)				///
+  	onclickoff(script common_format_off)				///
+	label(resource LBL_SPECIFY_THE_DISPLAY_FORMAT)
+  EDIT     en_common_format	+20	_ss	200	.,		///
+	option(format) label(resource LBL_DISPLAY_FORMAT)
+  BUTTON   bn_common_format	+205	@	80	.,		///
+	label(resource LBL_BU_CREATE)						///
+	onpush(script showCommonFormatDialog)				///
+	tooltip(resource LBL_CREATE_DISPLAY_FORMAT)
+
+  // factors options
+  CHECKBOX ck_factors		_lft	holdy	_iwd	.,		///
+  	onclickon(script main_factors_enable)				///
+  	onclickoff(script main_factors_disable)				///
+  	label(resource FACTOR_ESTAT_MAIN_CK_FACTORS)
+  EDIT     en_factors	       _indent2	_ss	_en7wd	.,		///
+	option(factors) label(resource FACTOR_ESTAT_MAIN_EN_FACTORS)
+  TEXT     tx_factors		_en7sep	@	200	.,		///
+  	label(resource LBL_FACTORS)
+  CHECKBOX ck_detail		_lft	_ms	_iwd	.,		///
+	option(detail)							///
+	label(resource FACTOR_ESTAT_MAIN_CK_DETAIL)
+
+  // kmo options
+  CHECKBOX ck_novar		_lft	holdy	_iwd	.,		///
+  	label(resource LBL_DISPLAY_OVERALL_KMO_MEASURE_ONLY)			///
+  	option(novar)
+  CHECKBOX ck_kmo_format	@	_ms	@	.,		///
+  	onclickon(script kmo_format_on)					///
+  	onclickoff(script kmo_format_off)				///
+	label(resource LBL_SPECIFY_THE_DISPLAY_FORMAT)
+  EDIT     en_kmo_format	+20	_ss	200	.,		///
+	option(format) label(resource LBL_DISPLAY_FORMAT)
+  BUTTON   bn_kmo_format	+205	@	80	.,		///
+	label(resource LBL_BU_CREATE)						///
+	onpush(script showKmoFormatDialog)				///
+	tooltip(resource LBL_CREATE_DISPLAY_FORMAT)
+
+  // residuals options
+  CHECKBOX ck_fitted		_lft	holdy	_iwd	.,		///
+	option(fitted)							///
+	label(resource FACTOR_ESTAT_MAIN_CK_FITTED)
+  CHECKBOX ck_obs		@	_ms	@	.,		///
+  	label(resource FACTOR_ESTAT_MAIN_CK_OBS)			///
+  	option(obs)
+  CHECKBOX ck_sresiduals	@	_ms	@	.,		///
+	option(sresiduals)						///
+	label(resource FACTOR_ESTAT_MAIN_CK_SRESIDUALS)
+  CHECKBOX ck_res_format	@	_ms	@	.,		///
+  	onclickon(script res_format_on)					///
+  	onclickoff(script res_format_off)				///
+	label(resource LBL_SPECIFY_THE_DISPLAY_FORMAT)
+  EDIT     en_res_format	+20	_ss	200	.,		///
+	option(format) label(resource LBL_DISPLAY_FORMAT)
+  BUTTON   bn_res_format	+205	@	80	.,		///
+	label(resource LBL_BU_CREATE)						///
+	onpush(script showResFormatDialog)				///
+	tooltip(resource LBL_CREATE_DISPLAY_FORMAT)
+
+  // rotatecompare options
+  CHECKBOX ck_rc_format		_lft	holdy	_iwd	.,		///
+  	onclickon(script rc_format_on)					///
+  	onclickoff(script rc_format_off)				///
+	label(resource LBL_SPECIFY_THE_DISPLAY_FORMAT)
+  EDIT     en_rc_format		+20	_ss	200	.,		///
+	option(format) label(resource LBL_DISPLAY_FORMAT)
+  BUTTON   bn_rc_format		+205	@	80	.,		///
+	label(resource LBL_BU_CREATE)						///
+	onpush(script showRcFormatDialog)				///
+	tooltip(resource LBL_CREATE_DISPLAY_FORMAT)
+
+  // smc options
+  CHECKBOX ck_smc_format	_lft	holdy	_iwd	.,		///
+  	onclickon(script smc_format_on)					///
+  	onclickoff(script smc_format_off)				///
+	label(resource LBL_SPECIFY_THE_DISPLAY_FORMAT)
+  EDIT     en_smc_format	+20	_ss	200	.,		///
+	option(format) label(resource LBL_DISPLAY_FORMAT)
+  BUTTON   bn_smc_format	+205	@	80	.,		///
+	label(resource LBL_BU_CREATE)						///
+	onpush(script showSmcFormatDialog)				///
+	tooltip(resource LBL_CREATE_DISPLAY_FORMAT)
+
+  // structure options
+  CHECKBOX ck_norotated		_lft	holdy	_iwd	.,		///
+	option(norotated)						///
+	label(resource FACTOR_ESTAT_MAIN_CK_C_NOROTATED)
+  CHECKBOX ck_structure_format	@	_ms	@	.,		///
+  	onclickon(script structure_format_on)				///
+  	onclickoff(script structure_format_off)				///
+	label(resource LBL_SPECIFY_THE_DISPLAY_FORMAT)
+  EDIT     en_structure_format	+20	_ss	200	.,		///
+	option(format) label(resource LBL_DISPLAY_FORMAT)
+  BUTTON   bn_structure_format	+205	@	80	.,		///
+	label(resource LBL_BU_CREATE)						///
+	onpush(script showStructureFormatDialog)			///
+	tooltip(resource LBL_CREATE_DISPLAY_FORMAT)
+
+  // Summarize options
+  CHECKBOX ck_labels		_lft	holdy	_iwd	.,		///
+  	label(resource LBL_DISPLAY_VARIABLE_LABELS)			///
+  	option(labels)
+  CHECKBOX ck_noheader		@	_ms	@	.,		///
+	option(noheader)						///
+	label(resource LBL_SUPPRESS_HEADER)
+  CHECKBOX ck_noweights		@	_ms	@	.,		///
+	option(noweights)						///
+	label(resource LBL_IGNORE_WEIGHTS)
+END
+
+SCRIPT showAntiFormatDialog
+BEGIN
+	create STRING antiFormatString
+	create CHILD format_chooser
+	format_chooser.setExitString antiFormatString
+	format_chooser.setExitAction "main.en_anti_format.setvalue class antiFormatString.value"
+END
+
+SCRIPT showCommonFormatDialog
+BEGIN
+	create STRING commonFormatString
+	create CHILD format_chooser
+	format_chooser.setExitString commonFormatString
+	format_chooser.setExitAction "main.en_common_format.setvalue class commonFormatString.value"
+END
+
+SCRIPT showKmoFormatDialog
+BEGIN
+	create STRING kmoFormatString
+	create CHILD format_chooser
+	format_chooser.setExitString kmoFormatString
+	format_chooser.setExitAction "main.en_kmo_format.setvalue class kmoFormatString.value"
+END
+
+SCRIPT showResFormatDialog
+BEGIN
+	create STRING resFormatString
+	create CHILD format_chooser
+	format_chooser.setExitString resFormatString
+	format_chooser.setExitAction "main.en_res_format.setvalue class resFormatString.value"
+END
+
+SCRIPT showRcFormatDialog
+BEGIN
+	create STRING rcFormatString
+	create CHILD format_chooser
+	format_chooser.setExitString rcFormatString
+	format_chooser.setExitAction "main.en_rc_format.setvalue class rcFormatString.value"
+END
+
+SCRIPT showSmcFormatDialog
+BEGIN
+	create STRING smcFormatString
+	create CHILD format_chooser
+	format_chooser.setExitString smcFormatString
+	format_chooser.setExitAction "main.en_smc_format.setvalue class smcFormatString.value"
+END
+
+SCRIPT showStructureFormatDialog
+BEGIN
+	create STRING structureFormatString
+	create CHILD format_chooser
+	format_chooser.setExitString structureFormatString
+	format_chooser.setExitAction "main.en_structure_format.setvalue class structureFormatString.value"
+END
+
+LIST main_subcommand_contents
+BEGIN
+	resource LBL_ANTI_IMAGE_CORRELATION_COVARIANCE_MATRICES
+	resource FACTOR_ESTAT_COMMON
+	resource FACTOR_ESTAT_FACTORS 
+	resource LBL_KAISER_MEYER_OLKIN_MEASURE_SAMPLING_ADEQUACY
+        resource LBL_MATRIX_CORRELATION_COVARIANCE_RESIDUALS
+        resource FACTOR_ESTAT_ROTATECOMPARE
+        resource LBL_SQUARED_MULTIPLE_CORRELATIONS_BTW_EACH_VAR
+        resource FACTOR_ESTAT_STRUCTURE
+	resource FACTOR_ESTAT_SUMMARIZE_FACTOR_ONLY
+END
+
+LIST main_subcommand_values
+BEGIN
+	anti
+	common
+	factors
+	kmo
+	residuals
+	rotatecompare
+	smc
+	structure
+	summarize
+END
+
+LIST main_subcommand_scripts
+BEGIN
+	script sel_anti
+	script sel_common
+	script sel_factors
+	script sel_kmo
+	script sel_residuals
+	script sel_rotatecompare
+	script sel_smc
+	script sel_structure
+	script sel_summarize
+END
+
+SCRIPT sel_anti
+BEGIN
+	script anti_on
+	script common_off
+	script factors_off
+	script kmo_off
+	script structure_off
+	script residuals_off
+	script rc_off
+	script smc_off
+	script main_summ_off
+END
+
+SCRIPT sel_common
+BEGIN
+	script anti_off
+	script common_on
+	script factors_off
+	script kmo_off
+	script structure_off
+	script residuals_off
+	script rc_off
+	script smc_off
+	script main_summ_off
+END
+
+SCRIPT sel_factors
+BEGIN
+	script anti_off
+	script common_off
+	script factors_on
+	script kmo_off
+	script structure_off
+	script residuals_off
+	script rc_off
+	script smc_off
+	script main_summ_off
+END
+
+SCRIPT sel_kmo
+BEGIN
+	script anti_off
+	script common_off
+	script factors_off
+	script kmo_on
+	script structure_off
+	script residuals_off
+	script rc_off
+	script smc_off
+	script main_summ_off
+END
+
+SCRIPT sel_structure
+BEGIN
+	script anti_off
+	script common_off
+	script factors_off
+	script kmo_off
+	script structure_on
+	script residuals_off
+	script rc_off
+	script smc_off
+	script main_summ_off
+END
+
+SCRIPT sel_residuals
+BEGIN
+	script anti_off
+	script common_off
+	script factors_off
+	script kmo_off
+	script structure_off
+	script residuals_on
+	script rc_off
+	script smc_off
+	script main_summ_off
+END
+
+SCRIPT sel_rotatecompare
+BEGIN
+	script anti_off
+	script common_off
+	script factors_off
+	script kmo_off
+	script structure_off
+	script residuals_off
+	script rc_on
+	script smc_off
+	script main_summ_off
+END
+
+SCRIPT sel_smc
+BEGIN
+	script anti_off
+	script common_off
+	script factors_off
+	script kmo_off
+	script structure_off
+	script residuals_off
+	script rc_off
+	script smc_on
+	script main_summ_off
+END
+
+SCRIPT sel_summarize
+BEGIN
+	script anti_off
+	script common_off
+	script factors_off
+	script kmo_off
+	script structure_off
+	script residuals_off
+	script rc_off
+	script smc_off
+	script main_summ_on
+END
+
+SCRIPT anti_on
+BEGIN
+	main.gb_anti.show
+	main.rb_corr_cov.show
+	main.rb_nocorr.show
+	main.rb_nocov.show
+	main.ck_anti_format.show
+	main.en_anti_format.show
+	main.bn_anti_format.show
+END
+
+SCRIPT anti_off
+BEGIN
+	main.gb_anti.hide
+	main.rb_corr_cov.hide
+	main.rb_nocorr.hide
+	main.rb_nocov.hide
+	main.ck_anti_format.hide
+	main.en_anti_format.hide
+	main.bn_anti_format.hide
+END
+
+SCRIPT common_on
+BEGIN
+	main.ck_c_norotated.show
+	main.ck_common_format.show
+	main.en_common_format.show
+	main.bn_common_format.show
+END
+
+SCRIPT common_off
+BEGIN
+	main.ck_c_norotated.hide
+	main.ck_common_format.hide
+	main.en_common_format.hide
+	main.bn_common_format.hide
+END
+
+SCRIPT factors_on
+BEGIN
+	main.ck_factors.show
+	main.en_factors.show
+	main.tx_factors.show
+	main.ck_detail.show
+END
+
+SCRIPT factors_off
+BEGIN
+	main.ck_factors.hide
+	main.en_factors.hide
+	main.tx_factors.hide
+	main.ck_detail.hide
+END
+
+SCRIPT main_factors_enable
+BEGIN
+	main.en_factors.enable
+	main.tx_factors.enable
+END
+
+SCRIPT main_factors_disable
+BEGIN
+	main.en_factors.disable
+	main.tx_factors.disable
+END
+
+SCRIPT kmo_on
+BEGIN
+	main.ck_novar.show
+	main.ck_kmo_format.show
+	main.en_kmo_format.show
+	main.bn_kmo_format.show
+END
+
+SCRIPT kmo_off
+BEGIN
+	main.ck_novar.hide
+	main.ck_kmo_format.hide
+	main.en_kmo_format.hide
+	main.bn_kmo_format.hide
+END
+
+SCRIPT structure_on
+BEGIN
+	main.ck_norotated.show
+	main.ck_structure_format.show
+	main.en_structure_format.show
+	main.bn_structure_format.show
+END
+
+SCRIPT structure_off
+BEGIN
+	main.ck_norotated.hide
+	main.ck_structure_format.hide
+	main.en_structure_format.hide
+	main.bn_structure_format.hide
+END
+
+SCRIPT residuals_on
+BEGIN
+	main.ck_obs.show
+	main.ck_fitted.show
+	main.ck_sresiduals.show
+	main.ck_res_format.show
+	main.en_res_format.show
+	main.bn_res_format.show
+END
+
+SCRIPT residuals_off
+BEGIN
+	main.ck_obs.hide
+	main.ck_fitted.hide
+	main.ck_sresiduals.hide
+	main.ck_res_format.hide
+	main.en_res_format.hide
+	main.bn_res_format.hide
+END
+
+SCRIPT rc_on
+BEGIN
+	main.ck_rc_format.show
+	main.en_rc_format.show
+	main.bn_rc_format.show
+END
+
+SCRIPT rc_off
+BEGIN
+	main.ck_rc_format.hide
+	main.en_rc_format.hide
+	main.bn_rc_format.hide
+END
+
+SCRIPT smc_on
+BEGIN
+	main.ck_smc_format.show
+	main.en_smc_format.show
+	main.bn_smc_format.show
+END
+
+SCRIPT smc_off
+BEGIN
+	main.ck_smc_format.hide
+	main.en_smc_format.hide
+	main.bn_smc_format.hide
+END
+
+SCRIPT main_summ_on
+BEGIN
+	main.ck_labels.show
+	main.ck_noheader.show
+	main.ck_noweights.show
+END
+
+SCRIPT main_summ_off
+BEGIN
+	main.ck_labels.hide
+	main.ck_noheader.hide
+	main.ck_noweights.hide
+END
+
+SCRIPT anti_format_on
+BEGIN
+	main.en_anti_format.enable
+	main.bn_anti_format.enable
+END
+
+SCRIPT anti_format_off
+BEGIN
+	main.en_anti_format.disable
+	main.bn_anti_format.disable
+END
+
+SCRIPT common_format_on
+BEGIN
+	main.en_common_format.enable
+	main.bn_common_format.enable
+END
+
+SCRIPT common_format_off
+BEGIN
+	main.en_common_format.disable
+	main.bn_common_format.disable
+END
+
+SCRIPT kmo_format_on
+BEGIN
+	main.en_kmo_format.enable
+	main.bn_kmo_format.enable
+END
+
+SCRIPT kmo_format_off
+BEGIN
+	main.en_kmo_format.disable
+	main.bn_kmo_format.disable
+END
+
+SCRIPT structure_format_on
+BEGIN
+	main.en_structure_format.enable
+	main.bn_structure_format.enable
+END
+
+SCRIPT structure_format_off
+BEGIN
+	main.en_structure_format.disable
+	main.bn_structure_format.disable
+END
+
+SCRIPT res_format_on
+BEGIN
+	main.en_res_format.enable
+	main.bn_res_format.enable
+END
+
+SCRIPT res_format_off
+BEGIN
+	main.en_res_format.disable
+	main.bn_res_format.disable
+END
+
+SCRIPT rc_format_on
+BEGIN
+	main.en_rc_format.enable
+	main.bn_rc_format.enable
+END
+
+SCRIPT rc_format_off
+BEGIN
+	main.en_rc_format.disable
+	main.bn_rc_format.disable
+END
+
+SCRIPT smc_format_on
+BEGIN
+	main.en_smc_format.enable
+	main.bn_smc_format.enable
+END
+
+SCRIPT smc_format_off
+BEGIN
+	main.en_smc_format.disable
+	main.bn_smc_format.disable
+END
+
+PROGRAM vl_eq_output
+BEGIN
+	put main.vl_eq
+END
+
+PROGRAM command
+BEGIN
+	put "estat "
+	put main.lb_subcmd
+	beginoptions
+		// anti options
+		option main.rb_nocorr
+		option main.rb_nocov
+		if main.ck_anti_format {
+			require main.en_anti_format
+			optionarg main.en_anti_format
+		}
+
+  		// common options
+		option main.ck_c_norotated
+		if main.ck_common_format {
+			require main.en_common_format
+			optionarg main.en_common_format
+		}
+
+  		// factors options
+		if main.ck_factors {
+			require main.en_factors
+			optionarg main.en_factors
+		}
+		option main.ck_detail
+
+  		// kmo options
+		option main.ck_novar
+		if main.ck_kmo_format {
+			require main.en_kmo_format
+			optionarg main.en_kmo_format
+		}
+
+		// residuals options
+		option main.ck_fitted
+		option main.ck_obs
+		option main.ck_sresiduals
+		if main.ck_res_format {
+			require main.en_res_format
+			optionarg main.en_res_format
+		}
+
+		// rotatecompare options
+		if main.ck_rc_format {
+			require main.en_rc_format
+			optionarg main.en_rc_format
+		}
+
+		// smc options
+		if main.ck_smc_format {
+			require main.en_smc_format
+			optionarg main.en_smc_format
+		}
+
+  		// structure options
+		option main.ck_norotated
+		if main.ck_structure_format {
+			require main.en_structure_format
+			optionarg main.en_structure_format
+		}
+
+		// Summarize options
+		option main.ck_labels
+		option main.ck_noheader
+		option main.ck_noweights
+	endoptions
+END

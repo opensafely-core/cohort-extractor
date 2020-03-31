@@ -1,0 +1,126 @@
+/*
+	predict (after stcrreg)
+
+*!  VERSION 1.1.0  18nov2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_mlarge
+INCLUDE _ht330
+INCLUDE header
+
+HELP hlp1, view("help stcrreg postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource STCRREG_P_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script _p_gentype_setMedium
+END
+
+DIALOG main, label(resource PREDICT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  INCLUDE  _p_gentype
+
+  GROUPBOX gb_opts	_lft	_ls	_iwd	_ht20,			///
+	label(resource LBL_PRODUCE)
+  RADIO rb_shr		_indent	_ss	_inwd	., first		///
+	option(shr)							///
+	onclickon(script main_scores_off_nooffset_on)			///
+	label(resource STCRREG_P_MAIN_RB_SHR)
+  DEFINE y @y
+  RADIO rb_xb		@	_ss	@	.,			///
+	option(xb)							///
+	onclickon(script main_scores_off_nooffset_on)			///
+	label(resource LBL_LINEAR_PREDICTION)
+  RADIO rb_stdp		@	_ss	@	.,			///
+	option(stdp)							///
+	onclickon(script main_scores_off_nooffset_on)			///
+	label(resource LBL_STANDARD_ERROR_LINEAR_PREDICTION)
+  RADIO rb_basecif	@	_ss	@	.,			///
+	option(basecif)							///
+	onclickon(script main_all_off)					///
+	label(resource STCRREG_P_MAIN_RB_BASECIF)
+  RADIO rb_basecshazard	@	_ss	@	.,			///
+	option(basecshazard)						///
+	onclickon(script main_all_off)					///
+	label(resource STCRREG_P_MAIN_RB_BASECSHAZARD)
+  RADIO rb_kmcensor	@	_ss	@	.,			///
+	option(kmcensor)						///
+	onclickon(script main_all_off)					///
+	label(resource STCRREG_P_MAIN_RB_KMCENSOR)
+  RADIO rb_scores	@	_ss	@	.,			///
+	option(scores)							///
+	onclickon(script main_scores_on_partial_on)			///
+	label(resource STCRREG_P_MAIN_RB_SCORES)
+  RADIO	rb_esr		@	_ss	@	.,			///
+	option(esr)							///
+	onclickon(script main_scores_on_partial_on)			///
+	label(resource LBL_EFFICIENT_SCORE_RESIDUALS)
+  RADIO	rb_dfbeta	@	_ss	@	.,			///
+	option(dfbeta)							///
+	onclickon(script main_scores_on_partial_on)			///
+	label(resource LBL_DFBETA_MEASURES_OF_INFLUENCE)
+  RADIO	rb_schoenfeld	@	_ss	@	., last			///
+	option(schoenfeld)						///
+	onclickon(script main_scores_on)				///
+	label(resource LBL_SCHOENFELD_RESIDUALS)
+  CHECKBOX ck_nooffset	_lft	_xls	_cwd1	.,			///
+	option(nooffset)						///
+	label(resource LBL_IGNORE_OFFSET_VARIABLE)
+  CHECKBOX ck_partial	_lft2	@	@	.,			///
+	option(partial)							///
+	label(resource LBL_OBSERVATION_LEVEL_RESULTS)
+END
+
+INCLUDE _p_gentype_sc
+INCLUDE ifin
+INCLUDE _type_list_fd
+
+SCRIPT main_scores_off_nooffset_on
+BEGIN
+	script _p_gentype_single
+	main.ck_nooffset.enable
+	main.ck_partial.disable
+END
+
+SCRIPT main_all_off
+BEGIN
+	script _p_gentype_single
+	main.ck_nooffset.disable
+	main.ck_partial.disable
+END
+
+SCRIPT main_scores_on_partial_on
+BEGIN
+	script _p_gentype_scores_on
+	main.ck_nooffset.disable
+	main.ck_partial.enable
+END
+
+SCRIPT main_scores_on
+BEGIN
+	script _p_gentype_scores_on
+	main.ck_nooffset.disable
+	main.ck_partial.disable
+END
+
+PROGRAM command
+BEGIN
+	put "predict "
+	put " " /program _p_gentype_output
+	INCLUDE _ifin_pr
+	beginoptions
+		option radio(main rb_shr rb_xb rb_stdp rb_basecif	///
+			rb_basecshazard rb_kmcensor rb_scores rb_esr 	///
+			rb_dfbeta rb_schoenfeld)
+		option main.ck_partial
+	endoptions
+	INCLUDE _p_nooffset_pr
+END

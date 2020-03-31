@@ -1,0 +1,124 @@
+/*
+	rchart
+
+*!  VERSION 2.1.0  17nov2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_xlarge
+DEFINE _dlght 300
+INCLUDE header
+
+HELP hlp1, view("help rchart")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource RCHART_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script gr_plots_setDefaultConnected
+	script gr_ciplots_setDefaultLine
+	gr_ciplots_outputCmd.setstring "clopts"
+	gr_ciplots.settabtitle resource LBL_CONTROL_LIMITS
+END
+
+DIALOG main,label(resource RCHART_DLG_TITLE) 				///
+	tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_var         _lft       _top       _vlwd	   .,		///
+	label(resource LBL_VARIABLES)
+  VARLIST  vl_var         @          _ss        @          .,		///
+  	numeric								///
+	label(resource LBL_VARIABLES)
+
+  GROUPBOX gb_std         @          +35        @          _ht6h,	///
+	label(resource LBL_STANDARD_DEVIATION_OF_THE_PROCESS)
+
+  RADIO    rb_range       _indent    _ss        _inwd      .,		///
+	label(resource LBL_CALCULATE_STANDARD_DEVIATION_BASED_ON_RANGE)	///
+	first onclickon(script std_off)
+  RADIO    rb_std         @          _ss        @          .,		///
+	label(resource LBL_USE_USER_SPECIFIED_STANDARD_DEVIATION)	///
+	last onclickon(script std_on)
+  EDIT     en_std         _indent2   _ss        _en7wd     .,		///
+	label(resource LBL_STANDARD_DEVIATION) default(0) numonly option(std)
+  TEXT     tx_std         _en7sep    @          130        .,		///
+	label(resource LBL_STANDARD_DEVIATION)
+
+  CHECKBOX ck_nograph     _lft       +45        _iwd       .,		///
+	label(resource LBL_SUPPRESS_GRAPH) option(nograph)		///
+	onclickon(script graph_off) onclickoff(script graph_on)
+END
+
+SCRIPT std_on
+BEGIN
+        main.en_std.enable
+        main.tx_std.enable
+END
+
+SCRIPT std_off
+BEGIN
+        main.en_std.disable
+        main.tx_std.disable
+END
+
+SCRIPT graph_on
+BEGIN
+	script gr_plots_enable
+	script gr_ciplots_enable
+	script gr_addplots_enable
+	script gr_yaxis_enable
+	script gr_xaxis_enable
+	script gr_titles_enable
+	script gr_legend_enable
+	script gr_overall_enable
+END
+
+SCRIPT graph_off
+BEGIN
+	script gr_plots_disable
+	script gr_ciplots_disable
+	script gr_addplots_disable
+	script gr_yaxis_disable
+	script gr_xaxis_disable
+	script gr_titles_disable
+	script gr_legend_disable
+	script gr_overall_disable
+END
+
+INCLUDE ifin
+INCLUDE gr_plots
+INCLUDE gr_ciplots
+INCLUDE gr_addplots
+INCLUDE gr_yaxis
+INCLUDE gr_xaxis
+INCLUDE gr_titles
+INCLUDE gr_legend
+INCLUDE gr_overall
+
+PROGRAM command
+BEGIN
+        put "rchart "
+        varlist main.vl_var
+        INCLUDE _ifin_pr
+        beginoptions
+                if main.rb_std{
+			require main.en_std
+                	optionarg main.en_std
+                }
+                option main.ck_nograph
+		put " " /program gr_plots_output
+		put " " /program gr_ciplots_output
+		put " " /program gr_addplots_output
+		put " " /program gr_yaxis_output
+		put " " /program gr_xaxis_output
+		put " " /program gr_titles_output
+		put " " /program gr_legend_output
+		put " " /program gr_overall_output
+        endoptions
+END

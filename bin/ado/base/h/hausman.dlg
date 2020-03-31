@@ -1,0 +1,184 @@
+/*
+    hausman.dlg
+
+*!  VERSION 1.2.2  28feb2015
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE _ht350
+INCLUDE header
+HELP hlp1, view("help hausman")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource HAUSMAN_DLG_HSCALE
+END
+
+DIALOG main, label(resource HAUSMAN_DLG_TITLE) /*
+		*/ tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_ncon         _lft      _top       _cwd1     .,		/*
+  		*/label(resource HAUSMAN_MAIN_TX_NCON)
+  COMBOBOX cb_ncon         @         _ss        @         .,		/*
+  		*/label(resource HAUSMAN_MAIN_TX_NCON)			/*
+  		*/contents(estimates)					/*
+		*/dropdown
+
+  TEXT     tx_neff         _lft2     _top       _cwd1     .,		/*
+  		*/label(resource HAUSMAN_MAIN_TX_NEFF)			/*
+  		*/
+  COMBOBOX cb_neff         @         _ss        @         .,		/*
+  		*/label(resource HAUSMAN_MAIN_CB_NEFF)			/*
+ 		*/contents(estimates) dropdown
+
+  GROUPBOX gb_opt          _lft      _ls        _iwd      _ht25,	/*
+  		*/label(resource LBL_OPTIONS)
+  GROUPBOX gb_const        _indent   _ss        _cwd2     _ht4,		/*
+  		*/label(resource HAUSMAN_MAIN_GB_CONST)
+  DEFINE holdy @y
+  DEFINE   holdxi @x
+
+  RADIO    rb_noconst      _indent   _ss        _cwd4     .,		/*
+  		*/label(resource HAUSMAN_MAIN_RB_NOCONST)		/*
+  		*/option(NONE) first
+  RADIO    rb_const        @         _ss        _cwd4     .,		/*
+  		*/label(resource HAUSMAN_MAIN_RB_CONST)			/*
+  		*/option(constant) last
+
+  CHECKBOX ck_force        holdxi    +45        @         .,		/*
+  		*/label(resource HAUSMAN_MAIN_CK_FORCE)			/*
+  		*/option(force)
+  TEXT     tx_force        _indent2  _vss       _inwd     .,		/*
+  		*/label(resource HAUSMAN_MAIN_TX_FORCE)
+
+  CHECKBOX ck_df           holdxi    +35        _ckwd     .,		/*
+  		*/onclickon(main.sp_df.enable) onclickoff(main.sp_df.disable)
+  SPINNER  sp_df           _cksep    @          _spwd     .,		/*
+  		*/label(resource LBL_DEGREES_OF_FREEDOM)		/*
+  		*/option(df) min(1) default(1) max(c(N))
+  TEXT     tx_df           _spsep    @          _spr2b    .,		/*
+  		*/label(resource LBL_DEGREES_OF_FREEDOM)
+
+  GROUPBOX gb_alleqs       _lft2     holdy      _cwd2     _ht14,	/*
+  		*/label(resource HAUSMAN_MAIN_GB_ALLEQS)
+  RADIO    rb_1steq        _indent   _ss        _cwd4     .,		/*
+  		*/label(resource HAUSMAN_MAIN_RB_1STEQ) 		/*
+  		*/clickon(script eq_off)				/*
+  		*/option(NONE) first
+  RADIO    rb_alleqs       @         _ss        @         .,		/*
+  		*/label(resource HAUSMAN_MAIN_RB_ALLEQS) 		/*
+		*/clickon(script eq_off)				/*
+		*/option(alleqs)
+  RADIO    rb_skipeq       @         _ss        @         .,		/*
+  		*/label(resource HAUSMAN_MAIN_RB_SKIPEQ)		/*
+  		*/option(NONE)						/*
+  		*/clickon(script skipeq_on)
+  DEFINE holdx @x
+  EDIT     ed_skipeq       _indent2  _ss        _inwd     .,		/*
+  		*/label(resource HAUSMAN_MAIN_ED_SKIPEQ)		/*
+  		*/option(skipeqs)
+  RADIO    rb_eqs          holdx     _ms        _cwd4     .,		/*
+  		*/label(resource HAUSMAN_MAIN_RB_EQS) 			/*
+  		*/clickon(script eqs_on) last				/*
+		*/option(NONE)
+  EDIT     ed_eqs          _indent2  _ss        _inwd     .,		/*
+  		*/label(resource HAUSMAN_MAIN_ED_EQS)			/*
+  		*/option(equations)
+  TEXT     tx_eqs          @         _ss        @         .,		/*
+  		*/label(resource HAUSMAN_MAIN_TX_EQS)
+
+  CHECKBOX ck_sigma        holdxi    +35        _ibwd      _ht4,	/*
+  		*/ groupbox						/*
+  		*/ onclickon(script main_sigma_on)			/*
+  		*/ onclickoff(script main_sigma_off)			/*
+  		*/label(resource HAUSMAN_MAIN_CK_SIGMA)
+  RADIO	   rb_sigmamore	   _indent   _ss	_inwd	  .,		/*
+  		*/ first						/*
+  		*/ option(sigmamore)					/*
+  		*/ label(resource HAUSMAN_MAIN_RB_SIGMAMORE)
+  RADIO	   rb_sigmaless	   @	     _ss	@	  .,		/*
+  		*/ last							/*
+  		*/ option(sigmaless)					/*
+  		*/ label(resource HAUSMAN_MAIN_RB_SIGMALESS)
+END
+
+DIALOG adv, label(resource HAUSMAN_DLG_TITLE) tabtitle(resource LBL_ADVANCED)
+BEGIN
+  TEXT     tx_tcon         _lft      _top       _cwd2     .,		/*
+  		*/ label(resource HAUSMAN_ADV_TX_TCON)
+  TEXT     tx_teff         _lft2     @          _cwd2     .,		/*
+  		*/ label(resource HAUSMAN_ADV_TX_TEFF)
+  EDIT     ed_tcon         _lft      _ss        _cwd2     .,		/*
+		*/ option(tconsistent)
+  EDIT     ed_teff         _lft2     @          _cwd2     .,		/*
+		*/ option(tefficient)
+END
+
+SCRIPT main_sigma_on
+BEGIN
+	main.rb_sigmamore.enable
+	main.rb_sigmaless.enable
+END
+
+SCRIPT main_sigma_off
+BEGIN
+	main.rb_sigmamore.disable
+	main.rb_sigmaless.disable
+END
+
+SCRIPT skipeq_on
+BEGIN
+  main.ed_eqs.disable
+  main.ed_skipeq.enable
+END
+
+SCRIPT eqs_on
+BEGIN
+  main.ed_eqs.enable
+  main.ed_skipeq.disable
+END
+
+SCRIPT eq_off
+BEGIN
+  main.ed_eqs.disable
+  main.ed_skipeq.disable
+END
+
+PROGRAM command
+BEGIN
+	put "hausman "
+	require main.cb_ncon
+	put main.cb_ncon " "
+	if !main.cb_neff {
+		put ". "
+	}
+	if main.cb_neff {
+		put main.cb_neff
+	}
+	beginoptions
+		option radio(main rb_noconst rb_const)
+		option radio(main rb_1steq rb_alleqs rb_skipeq rb_eqs)
+		if main.rb_skipeq {
+			require main.ed_skipeq
+			optionarg main.ed_skipeq
+		}
+		if main.rb_eqs {
+			require main.ed_eqs
+			optionarg main.ed_eqs
+		}
+		option main.ck_force
+		optionarg main.sp_df
+		option main.rb_sigmamore
+		option main.rb_sigmaless
+		if adv.ed_tcon {
+			optionarg /quoted adv.ed_tcon
+		}
+		if adv.ed_teff {
+			optionarg /quoted adv.ed_teff
+		}
+	endoptions
+END

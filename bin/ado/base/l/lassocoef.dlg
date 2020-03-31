@@ -1,0 +1,643 @@
+/*
+  lassocoef.dlg
+
+*!  VERSION 1.0.3  17jun2019
+
+*/
+
+VERSION 16.0
+
+INCLUDE _std_large
+DEFINE _dlght 440
+INCLUDE header
+
+HELP hlp1, view("help lassocoef")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create ARRAY main_for_depvars
+	create STRING ecmd
+	ecmd.setvalue e(cmd)
+
+	create DOUBLE xfold
+	create DOUBLE resample
+	xfold.setvalue e(n_xfolds)
+	resample.setvalue e(n_resample)
+
+	create STRING s_depvars
+	create STRING STMP
+	create STRING main_spec_tmp
+	create STRING main_spec_tmp2
+	create STRING main_spec_childdlg
+	create STRING main_spec_dlgname
+	create STRING main_spec_child_result
+	create STRING main_spec_cmd_output
+
+	create ARRAY main_spec_list
+
+	create SVECTOR mainSPECCommandDisplayList
+	create SVECTOR mainSPECCommandList
+	create SVECTOR mainSPECCommandValues
+	create SVECTOR mainSPECStatusList
+	create SVECTOR mainSPECChildDialogList
+
+	create DOUBLE main_spec_count
+	create DOUBLE main_spec_position
+	create DOUBLE main_spec_arraysize
+
+	main.bu_spec_edit.disable
+	main.bu_spec_disable.disable
+	main.bu_spec_enable.disable
+
+	create STRING has_svy
+	program check_svy
+
+	setscale_hadj resource LASSOCOEF_DLG_HSCALE
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	call mainSPECCommandDisplayList.copyToArray main_spec_list
+	call main.lb_specBuild.repopulate
+	if main.rb_last {
+		call program check_cmd
+	}
+	call s_depvars.setvalue s(lasso_depvars)
+	call s_depvars.tokenizeOnStr main_for_depvars " "
+	call main.cb_for.repopulate
+END
+
+PROGRAM ON_DOTPROMPT
+BEGIN
+	call program check_cmd
+	call program build_depvars
+END
+
+DIALOG main, title(resource LASSOCOEF_DLG_TITLE)			///
+		tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  RADIO rb_all			_lft	_top	_iwd	., 		///
+	first								///
+	onclickon(program main_elist_changed)				///
+	label(resource LBL_RPT_MODELSEL_STATS_FOR_CURR_EST_RESULTS)
+  RADIO rb_last			@	_ss	@	., 		///
+	onclickon(program main_elist_changed)				///
+	label(resource LBL_RPT_MODELSEL_STATS_FOR_LAST_EST_RESULT)
+  RADIO rb_elist		@	_ss	@	., 		///
+	last								///
+	onclickon(program main_elist_changed)				///
+	label(resource LBL_RPT_MODELSEL_STATS_FOR_STORED_EST_RESULTS)
+
+  TEXT tx_spec			@	_ss	220	.,		///
+	label(resource LBL_SPECIFICATION)
+  LISTBOX lb_specBuild		@	_ss	@	160,		///
+	contents(main_spec_list)					///
+	ondblclick(program main_spec_edit)				///
+	onselchange(program main_spec_sel_changed)			///
+	nomemory
+  BUTTON bu_spec_create		240	@	80	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program main_spec_create)				///
+	tooltip(resource LBL_EDIT_SPECIFICATION)
+  BUTTON bu_spec_edit		@	_ms	@	.,		///
+	label(resource LBL_BU_EDIT)					///
+	onpush(program main_spec_edit)					///
+	tooltip(resource LBL_EDIT_SPECIFICATION)
+  BUTTON bu_spec_disable	@	_ms	@	.,		///
+	label(resource LBL_BU_DISABLE)					///
+	onpush(program main_spec_disable)				///
+	tooltip(resource LBL_CLICK_TO_DISABLE_A_SPECIFICATION)
+  BUTTON bu_spec_enable		@	_ms	@	.,		///
+	label(resource LBL_BU_ENABLE)					///
+	onpush(program main_spec_enable)				///
+	tooltip(resource LBL_CLICK_TO_ENABLE_PREV_DISABLED_SPEC)
+  TEXTBOX tb_spec_note		_lft	+90	_iwd	_tb2,		///
+	label(resource LBL_PRESS_CREATE_DEFINE_SPECIFICATION)
+
+  GROUPBOX gb_opts		_lft	+45	_iwd	_ht10,		///
+	label(resource LBL_OPTIONS)
+  TEXT tx_for			_ilft	_ss	_cwd2	.,		///
+	label(resource LBL_LASSO_FOR_VARIABLE)
+  COMBOBOX cb_for		@	_ss	_vnwd	.,		///
+	dropdown							///
+	contents(main_for_depvars)					///
+	label(resource LBL_LASSO_FOR_VARIABLE)
+  SPINNER sp_xfold		_ilft	 _ls	_spwd	.,		///
+	default(1)							///
+	option(xfold)							///
+	min(1)								///
+	max(e(n_xfolds))
+  TEXT tx_xfold			_spsep	 @	200	.,		///
+	label(resource LBL_LASSO_FOR_THE_#_CROSS_FIT_FOLD)
+  SPINNER sp_resample		_ilft	 _ls	_spwd	.,		///
+	default(1)							///
+	option(resample)						///
+	min(1)								///
+	max(e(n_resample))
+  TEXT tx_resample		_spsep	 @	200	.,		///
+	label(resource LBL_LASSO_FOR_THE_#_RESAMPLE)
+END
+
+PROGRAM check_cmd
+BEGIN
+	call ecmd.setvalue e(cmd)
+
+	// Options
+	call main.gb_opts.hide
+	call main.tx_for.hide
+	call main.cb_for.hide
+	call main.sp_xfold.hide
+	call main.tx_xfold.hide
+	call main.sp_resample.hide
+	call main.tx_resample.hide
+
+	if ecmd.contains("dsregress") | ecmd.contains("dslogit")	///
+		| ecmd.contains("dspoisson") {
+		call main.gb_opts.show
+		call main.tx_for.show
+		call main.cb_for.show
+	}
+	if ecmd.contains("poregress") | ecmd.contains("pologit")	///
+		| ecmd.contains("popoisson") | ecmd.contains("poivregress") {
+		call main.gb_opts.show
+		call main.tx_for.show
+		call main.cb_for.show
+	}
+	if ecmd.contains("xporegress") | ecmd.contains("xpologit")	///
+		| ecmd.contains("xpopoisson") | ecmd.contains("xpoivregress") {
+		call main.gb_opts.show
+		call main.tx_for.show
+		call main.cb_for.show
+		call main.sp_xfold.show
+		call main.tx_xfold.show
+		call main.sp_resample.show
+		call main.tx_resample.show
+	}
+END
+
+PROGRAM main_elist_changed
+BEGIN
+	if main.rb_elist {
+		call main.tx_spec.enable
+		call main.lb_specBuild.enable
+		call main.bu_spec_create.enable
+		call main.tb_spec_note.enable
+		call program main_spec_sel_changed
+	}
+	else {
+		call main.tx_spec.disable
+		call main.lb_specBuild.disable
+		call main.bu_spec_create.disable
+		call main.tb_spec_note.disable
+		call main.bu_spec_edit.disable
+		call main.bu_spec_disable.disable
+		call main.bu_spec_enable.disable
+	}
+  	if main.rb_last {
+		call main.gb_opts.enable
+		call main.tx_for.enable
+		call main.cb_for.enable
+		call main.sp_xfold.enable
+		call main.tx_xfold.enable
+		call main.sp_resample.enable
+		call main.tx_resample.enable
+	}
+	if main.rb_all {
+		call main.gb_opts.disable
+		call main.tx_for.disable
+		call main.cb_for.disable
+		call main.sp_xfold.disable
+		call main.tx_xfold.disable
+		call main.sp_resample.disable
+		call main.tx_resample.disable
+	}
+END
+
+PROGRAM build_depvars
+BEGIN
+	put "lasso_opts_wrk_dlg"
+	stata hidden immediate
+	call s_depvars.setvalue s(lasso_depvars)
+	call s_depvars.tokenizeOnStr main_for_depvars " "
+	call main.cb_for.repopulate
+END
+
+PROGRAM main_spec_create
+BEGIN
+	call main_spec_count.setvalue class mainSPECChildDialogList.size
+	call main_spec_count.increment
+	call main_spec_tmp.setvalue "main_spec_"
+	call main_spec_tmp.append class main_spec_count.value
+	call main_spec_tmp.withvalue main_spec_childdlg.setvalue @
+	call program main_show_spec_child
+END
+
+PROGRAM main_spec_edit
+BEGIN
+	call mainSPECCommandDisplayList.findstr class			///
+		main.lb_specBuild.value
+	call main_spec_position.setvalue class				///
+		mainSPECCommandDisplayList.position
+	call main_spec_position.withvalue				///
+		main_spec_childdlg.setvalue				///
+		class mainSPECChildDialogList.values[@]
+	call program main_show_spec_child_edit
+END
+
+PROGRAM main_show_spec_child
+BEGIN
+	call main_spec_tmp.setvalue "lassocoef_estspec_child AS "
+	call main_spec_tmp.append class main_spec_childdlg.value
+	call main_spec_tmp.withvalue create CHILD @
+	call main_spec_childdlg.withvalue @.setExitString		///
+		"main_spec_child_result"
+	call main_spec_childdlg.withvalue @.setExitAction		///
+		"program main_spec_child_create_done"
+
+	call main_spec_count.withvalue STMP.format			///
+		"resource LBL_SPECIFICATION_FMT" "@" ""
+	call STMP.withvalue main_spec_tmp.setvalue "@"
+	call main_spec_childdlg.withvalue				///
+		main_spec_tmp2.setvalue "@.settitle"
+	call main_spec_tmp2.append `" ""'
+	call main_spec_tmp2.append class main_spec_tmp.value
+	call main_spec_tmp2.append `"""'
+	call main_spec_tmp2.withvalue @
+END
+
+PROGRAM main_show_spec_child_edit
+BEGIN
+	call main_spec_tmp.setvalue "lassocoef_estspec_child AS "
+	call main_spec_tmp.append class main_spec_childdlg.value
+	call main_spec_tmp.withvalue create CHILD @
+	call main_spec_childdlg.withvalue @.setExitString		///
+		"main_spec_child_result"
+	call main_spec_childdlg.withvalue @.setExitAction		///
+		"program main_spec_child_edit_done"
+
+	call main_spec_position.withvalue				///
+		main_spec_tmp.setvalue					///
+		class mainSPECCommandDisplayList.values[@]
+	call main_spec_childdlg.withvalue				///
+		main_spec_tmp2.setvalue "@.settitle"
+	call main_spec_tmp2.append `" ""'
+	call main_spec_tmp2.append class main_spec_tmp.value
+	call main_spec_tmp2.append `"""'
+	call main_spec_tmp2.withvalue @
+END
+
+PROGRAM main_spec_child_create_done
+BEGIN
+	call main_spec_arraysize.setvalue class				///
+		mainSPECChildDialogList.size
+	call main_spec_arraysize.increment
+
+	/* Store child dialog name */
+	call mainSPECChildDialogList.store class			///
+		main_spec_arraysize.value class main_spec_childdlg.value
+
+	/* Store listbox display specification string */
+	call main_spec_arraysize.withvalue STMP.format			///
+		"resource LBL_SPECIFICATION_FMT" "@" ""
+
+	call STMP.withvalue						///
+		mainSPECCommandDisplayList.store class			///
+		main_spec_arraysize.value "@"
+
+	/* Store child dialog result string */
+	call mainSPECCommandList.store class				///
+		main_spec_arraysize.value				///
+		class main_spec_child_result.value
+
+	/* Store child dialog result string for final command
+	   For disable/enable */
+	call mainSPECCommandValues.store class				///
+		main_spec_arraysize.value				///
+		class main_spec_child_result.value
+
+	/* Store disable/enable status */
+	call mainSPECStatusList.store class				///
+		main_spec_arraysize.value "active"
+
+	call mainSPECCommandDisplayList.copyToArray main_spec_list
+	call main.lb_specBuild.repopulate
+	call STMP.withvalue main.lb_specBuild.setvalue "@"
+END
+
+PROGRAM main_spec_child_edit_done
+BEGIN
+	call mainSPECChildDialogList.findstr class			///
+		main_spec_childdlg.value
+	call main_spec_position.setvalue class				///
+		mainSPECChildDialogList.position
+	call main_spec_position.withvalue main_spec_tmp.setvalue	///
+		class mainSPECStatusList.values[@]
+	if main_spec_tmp.iseq("active") {
+		call main_spec_position.withvalue STMP.format		///
+			"resource LBL_SPECIFICATION_FMT" "@" ""
+		call STMP.withvalue					///
+			mainSPECCommandDisplayList.store class		///
+			main_spec_position.value "@"
+		call mainSPECCommandValues.store class			///
+			main_spec_position.value class			///
+			main_spec_child_result.value
+		call STMP.withvalue main_spec_tmp2.setvalue "@"
+	}
+	else {
+		call main_spec_position.withvalue STMP.format		///
+			"resource LBL_SPECIFICATION_FMT" "@"		///
+			"resource LBL_PAREN_DISABLED"
+		call STMP.withvalue					///
+			main_spec_tmp2.setvalue "@"
+
+		call STMP.withvalue					///
+			mainSPECCommandDisplayList.store		///
+			class main_spec_position.value "@"
+	}
+
+	call mainSPECCommandList.store class				///
+		main_spec_position.value class				///
+		main_spec_child_result.value
+
+	call mainSPECCommandDisplayList.copyToArray main_spec_list
+	call main.lb_specBuild.repopulate
+	call main.lb_specBuild.setvalue class main_spec_tmp2.value
+END
+
+PROGRAM main_spec_sel_changed
+BEGIN
+	call mainSPECCommandDisplayList.findstr class			///
+		main.lb_specBuild.value
+	call main_spec_position.setvalue class				///
+		mainSPECCommandDisplayList.position
+	call main_spec_position.withvalue main_spec_tmp.setvalue	///
+		class mainSPECStatusList.values[@]
+	if main_spec_position {
+		call main.bu_spec_edit.enable
+		call main_spec_position.withvalue			///
+			main.tb_spec_note.setlabel			///
+			class mainSPECCommandList.values[@]
+	}
+
+	if main_spec_tmp.iseq("disable") {
+		call main.bu_spec_enable.enable
+		call main.bu_spec_disable.disable
+	}
+	if main_spec_tmp.iseq("active") {
+		call main.bu_spec_enable.disable
+		call main.bu_spec_disable.enable
+	}
+END
+
+PROGRAM main_spec_disable
+BEGIN
+	call mainSPECCommandDisplayList.findstr class			///
+		main.lb_specBuild.value
+	call main_spec_position.setvalue class				///
+		mainSPECCommandDisplayList.position
+
+	call main_spec_tmp.setvalue class main.lb_specBuild.value
+	call mainSPECStatusList.store class				///
+		main_spec_position.value "disable"
+	call mainSPECCommandValues.store class main_spec_position.value ""
+	call STMP.format "resource LBL_PAREN_DISABLED"
+	call main_spec_tmp.append " "
+	call main_spec_tmp.append class STMP.value
+	call main_spec_tmp.withvalue STMP.setvalue "@"
+
+	call main_spec_tmp.withvalue					///
+		mainSPECCommandDisplayList.store			///
+		class main_spec_position.value "@"
+
+	call mainSPECCommandDisplayList.copyToArray main_spec_list
+	call main.lb_specBuild.repopulate
+	call main.lb_specBuild.setvalue class STMP.value
+END
+
+PROGRAM main_spec_enable
+BEGIN
+	call mainSPECCommandDisplayList.findstr class			///
+		main.lb_specBuild.value
+	call main_spec_position.setvalue class				///
+		mainSPECCommandDisplayList.position
+
+	call mainSPECStatusList.store class				///
+		main_spec_position.value "active"
+	call main_spec_position.withvalue				///
+		mainSPECCommandValues.store				///
+		class main_spec_position.value class			///
+		mainSPECCommandList.values[@]
+
+	call main_spec_position.withvalue STMP.format			///
+		"resource LBL_SPECIFICATION_FMT" "@" ""
+	call STMP.withvalue						///
+		mainSPECCommandDisplayList.store			///
+		class main_spec_position.value "@"
+
+	call mainSPECCommandDisplayList.copyToArray main_spec_list
+	call main_spec_position.withvalue				///
+		main_spec_tmp2.setvalue class				///
+		mainSPECCommandDisplayList.values[@]
+	call main.lb_specBuild.repopulate
+	call main.lb_specBuild.setvalue class main_spec_tmp2.value
+END
+
+DIALOG opts, tabtitle(resource LBL_OPTIONS)
+BEGIN
+  GROUPBOX gb_display		_lft	_top	_iwd	_ht17,		///
+	label(resource ESTIMATES_SELECTED_MAIN_TX_SORT1)
+  COMBOBOX cb_display		_ilft	_ss	_inwd	.,		///
+	dropdownlist							///
+	contents(opts_display_info_list)				///
+	values(opts_display_info_values)				///
+	onselchange("program opts_display_changed")
+  RADIO rb_display_stand	@	_ls	@	.,first		///
+	option(standardized)						///
+	label(resource LASSOCOEF_RB_DISPLAY_STAND)
+  RADIO rb_display_penal	@	_ss	@	.,		///
+	option(penalized)						///
+	label(resource LASSOCOEF_RB_DISPLAY_PENAL)
+  RADIO rb_display_post		@	_ss	@	.,last		///
+	option(postselection)						///
+	label(resource LASSOCOEF_RB_DISPLAY_POST)
+  CHECKBOX ck_display_eform	@	_ls	@	.,		///
+	option(eform)							///
+	label(resource LBL_REPORT_EXPONENTIATED_COEFFICIENTS)
+  TEXT tx_display_format	@	_ls	@	.,		///
+	label(resource TABLE_OPT_CK_FORMAT)
+  EDIT ed_display_format	@	_ss	_vnwd	.,		///
+	option(format)							///
+	label(resource LBL_DISPLAY_FORMAT)
+  BUTTON bn_format		_vnsep	@	80	.,		///
+	onpush(script opts_show_format)					///
+	tooltip(resource LBL_CREATE_DISPLAY_FORMAT)			///
+	label(resource LBL_BU_CREATE)
+
+  GROUPBOX gb_sort		_lft	+45	_iwd	_ht9,		///
+	label(resource ESTIMATES_SELECTED_MAIN_TX_SORT2)
+  COMBOBOX cb_sort		_ilft	_ss	_inwd	.,		///
+	dropdownlist							///
+	contents(opts_sort_list)					///
+	values(opts_sort_values)					///
+	onselchange("program opts_sort_changed")
+  RADIO rb_sort_stand		@	_ls	@	.,first		///
+	option(standardized)						///
+	label(resource LASSOCOEF_RB_SORT_STAND)
+  RADIO rb_sort_penal		@	_ss	@	.,		///
+	option(penalized)						///
+	label(resource LASSOCOEF_RB_SORT_PENAL)
+  RADIO rb_sort_post		@	_ss	@	.,last		///
+	option(postselection)						///
+	label(resource LASSOCOEF_RB_SORT_POST)
+  CHECKBOX ck_nofvlabel		_lft	+45	_iwd	.,		///
+	option(nofvlabel)						///
+	label(resource LBL_DISPLAY_FACTOR_VARIABLE_LEVEL_VALUES_RATHER)
+  CHECKBOX ck_nolstretch	@	_ms	@	.,		///
+	option(nolstretch)						///
+	label(resource LASSOKNOTS_MAIN_CK_NOLSTRETCH)
+END
+
+LIST opts_display_info_list
+BEGIN
+	resource LBL_INDICATE_SEL_VARS_X
+	resource LBL_INDICATE_SEL_VARS_X_UNAVAILABLE_U
+	resource LBL_DISPLAY_COEFF_VALS
+END
+
+LIST opts_display_info_values
+BEGIN
+	""
+	"u"
+	"coef"
+END
+
+LIST opts_sort_list
+BEGIN
+	resource LBL_ORDER_OF_VARS_AS_ORIGINALLY_SPECIFIED
+	resource LBL_ORDER_BY_NAMES_OF_VARS
+	resource LBL_ORDER_BY_ABS_VALS_OFF_COEFF_DESC_ORDER
+END
+
+LIST opts_sort_values
+BEGIN
+	""
+	"names"
+	"coef"
+END
+
+PROGRAM opts_display_changed
+BEGIN
+	if opts.cb_display.iseq("coef") {
+		call opts.rb_display_stand.show
+		call opts.rb_display_penal.show
+		call opts.rb_display_post.show
+		call opts.ck_display_eform.show
+		call opts.tx_display_format.show
+		call opts.ed_display_format.show
+		call opts.bn_format.show
+	}
+	else {
+		call opts.rb_display_stand.hide
+		call opts.rb_display_penal.hide
+		call opts.rb_display_post.hide
+		call opts.ck_display_eform.hide
+		call opts.tx_display_format.hide
+		call opts.ed_display_format.hide
+		call opts.bn_format.hide
+	}
+END
+
+PROGRAM opts_sort_changed
+BEGIN
+	if opts.cb_sort.iseq("coef") {
+		call opts.rb_sort_stand.show
+		call opts.rb_sort_penal.show
+		call opts.rb_sort_post.show
+	}
+	else {
+		call opts.rb_sort_stand.hide
+		call opts.rb_sort_penal.hide
+		call opts.rb_sort_post.hide
+	}
+END
+
+SCRIPT opts_show_format
+BEGIN
+	create STRING Format
+	create CHILD format_chooser
+	format_chooser.setExitString Format
+	format_chooser.setExitAction "opts.ed_display_format.setvalue class Format.value"
+END
+
+PROGRAM opts_output
+BEGIN
+	if opts.cb_display.iseq("u") {
+		put " display(u)"
+	}
+	if opts.cb_display.iseq("coef") {
+		put " display(coef"
+		if opts.rb_display_penal {
+			put ", penalized"
+		}
+		if opts.rb_display_post {
+			put ", post"
+		}
+		option opts.ck_display_eform
+		optionarg opts.ed_display_format
+		put ")"
+	}
+	if opts.cb_sort.iseq("names") {
+		put " sort(names)"
+	}
+	if opts.cb_sort.iseq("coef") {
+		put " sort(coef"
+		if opts.rb_sort_penal {
+			put ", penalized"
+		}
+		if opts.rb_sort_post {
+			put ", post"
+		}
+		put ")"
+	}
+	option opts.ck_nofvlabel
+	option opts.ck_nolstretch
+END
+
+PROGRAM command
+BEGIN
+	call mainSPECCommandValues.copyToString main_spec_cmd_output
+
+	put "lassocoef "
+
+	if main.rb_last {
+		if main.cb_for.isvisible() {
+			put "(."
+		}
+	}
+
+	if main.rb_all {
+		put "_all"
+	}
+	
+	if main.rb_elist {
+		if main_spec_cmd_output.iseq("") {
+			stopbox stop resource LBL_MSGBOX_SPECIFICATION_REQD
+		}
+		put main_spec_cmd_output
+	}
+	beginoptions
+		if main.cb_for.isvisible() & main.cb_for.isenabled() {
+			require main.cb_for
+			put " for("
+			put main.cb_for
+			put ")"
+			optionarg main.sp_xfold
+			optionarg main.sp_resample
+			if main.cb_for.isvisible() {
+				put ")"
+			}
+		}
+		put " " /program opts_output
+	endoptions
+END

@@ -1,0 +1,74 @@
+*! version 1.0.0  14sep2019
+version 16
+
+class fpcolumn_custom {
+
+	varname = ""
+	var_is_numeric = 1
+
+} , inherit(fpcolumn)
+
+program .new
+	syntax [ , Style(passthru) *]
+
+	if `"`style'"' == "" {
+		local style "style(scheme fpcustom)"
+	}
+
+	.labels = `"Custom"'
+
+	.Super.new , `macval(style)' `macval(options)'
+end
+
+program .set_custom_info
+	args varname label numeric vl
+	.varname = `"`varname'"'
+	if `"`label'"' != "" {
+		.labels = `"`"`label'"'"'
+	}
+	.var_is_numeric = `numeric'
+	if `numeric' {
+		if "`vl'" == "" {
+			// numeric variable with no value labels, so
+			// change the default style
+			.style.remake_as_copy
+			.style.itemtextstyle.editstyle style(fpbody) editcopy
+		}
+	}
+end
+
+program .content
+	args c_text COLON obs
+
+	local val `"`.serset.value `.varidx[1]' `obs''"'
+	if `.var_is_numeric' {
+		if "`val'" == "" {
+			local val "."
+		}
+	}
+	capture confirm number `val'
+	if c(rc) == 0 & `.var_is_numeric' {
+		capture mata: st_local("result", sprintf(`"`.mask'"', `val'))
+		if c(rc) {
+			di as err "invalid mask for column {bf:`.varname'}"
+			exit 198
+		}
+	}
+	else {
+		local result `"`val'"'
+	}
+
+	c_local `c_text' `"`result'"'
+end
+
+program .fill_varidx
+	.varidx[1] = `.serset.seriesof `.varname''
+	.GetFormat format : _custom
+	.formats[1] = `"`format'"'
+end
+
+program .BrowserName
+	class exit "`.varname' column"
+end
+
+exit

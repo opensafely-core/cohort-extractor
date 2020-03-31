@@ -1,0 +1,722 @@
+/*
+    bayesstats ess
+
+*!  VERSION 1.1.4  22oct2019
+
+*/
+
+VERSION 14.0
+SYNCHRONOUS_ONLY
+
+INCLUDE _std_large
+DEFINE _dlght 590
+INCLUDE header
+
+HELP hlp1, view("help bayesstats ess")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource BAYESSTATS_ESS_DLG_HSCALE
+
+	create STRING sTMP
+	create STRING main_build_tmp
+	create STRING main_build_tmp2
+	create STRING main_build_childdlg
+	create STRING main_build_child_result
+	create DOUBLE main_build_position
+	
+	create ARRAY main_paraspecess_list
+	create SVECTOR mainParaspecCommandDisplayList
+	create SVECTOR mainParaspecCommandList
+	create SVECTOR mainParaspecCommandValues
+	create SVECTOR mainParaspecStatusList
+	create SVECTOR mainParaspecChildDialogList
+	create DOUBLE main_paraspec_count
+	create DOUBLE main_paraspec_arraysize
+	create STRING main_paraspec_output
+	
+	create STRING main_pred_tmp
+	create STRING main_pred_tmp2
+	create STRING main_pred_childdlg
+	create STRING main_pred_child_result
+	create DOUBLE main_pred_position
+	
+	create ARRAY main_predspec_list
+	create SVECTOR mainPredspecCommandDisplayList
+	create SVECTOR mainPredspecCommandList
+	create SVECTOR mainPredspecCommandValues
+	create SVECTOR mainPredspecStatusList
+	create SVECTOR mainPredspecChildDialogList
+	create DOUBLE main_predspec_count
+	create DOUBLE main_predspec_arraysize
+	create STRING main_predspec_output
+	
+	create STRING cmdName
+	create STRING cmdStr
+	create STRING cmdPrefix
+	
+	cmdName.setvalue e(cmd)
+	cmdStr.setvalue e(cmdline)
+	cmdPrefix.setvalue e(prefix)
+	
+	main.bu_paraspec_edit.disable
+	main.bu_paraspec_disable.disable
+	main.bu_paraspec_enable.disable
+	
+	main.bu_predspec_edit.disable
+	main.bu_predspec_disable.disable
+	main.bu_predspec_enable.disable
+	
+	main.fi_use.formatfilter "{0} (*.dta)|*.dta|{1} (*.*)|*.*" ///
+			"resource ui_ex FILE_TYPE_DTA" "resource ui_ex FILE_TYPE_ALL_FILES"
+	
+	program check_reffects
+END
+
+PROGRAM	check_reffects
+BEGIN
+	call sTMP.setvalue ""
+	call sTMP.append s(reparams)
+	
+	if sTMP.iseq("") {
+		call program show_reffects_disable
+		if cmdName.equals("bayesmh") & !cmdStr.equals("") {
+			put "bayesmh_parse_params "
+			put cmdStr
+			stata hidden immediate	
+		}
+		if cmdPrefix.equals("bayes") & !cmdStr.equals("") {
+			put "bayes_parse_params "
+			put cmdStr
+			stata hidden immediate	
+		}
+		call sTMP.setvalue ""
+		call sTMP.append s(reparams)
+	
+		if sTMP.iseq("") {
+			call program show_reffects_disable
+		}
+		else {
+			call program show_reffects_enable
+		}
+	}
+	else {
+		call program show_reffects_enable
+	}
+END
+
+PROGRAM check_predict
+BEGIN
+	if !cmdName.equals("bayesmh") | cmdStr.equals("") | cmdPrefix.equals("bayes") {
+		call main.rb_predict.hide
+		
+		call main.gb_syntax.setposition . . . 250
+		call main.gb_opt.setposition . 275
+		call main.gb_chains.setposition . 295
+		call main.rb_chain_all.setposition . 315
+		call main.rb_chain_nlist.setposition . 335
+		call main.cb_chains.setposition . 355
+		call main.ck_sepchains.setposition . 385
+		
+		call main.ck_showreffects.setposition . 425
+		call main.rb_showallref.setposition . 445 
+		call main.rb_showselref.setposition . 465
+		call main.cb_showre.setposition . 485
+	}
+	else {
+		call main.rb_predict.show
+		
+		call main.gb_syntax.setposition . . . 290
+		call main.gb_opt.setposition . 315
+		call main.gb_chains.setposition . 335
+		call main.rb_chain_all.setposition . 355
+		call main.rb_chain_nlist.setposition . 375
+		call main.cb_chains.setposition . 395
+		call main.ck_sepchains.setposition . 425
+		
+		call main.ck_showreffects.setposition . 465
+		call main.rb_showallref.setposition . 485 
+		call main.rb_showselref.setposition . 505
+		call main.cb_showre.setposition . 525
+	}
+END
+
+SCRIPT POSTINIT
+BEGIN
+	mainParaspecCommandDisplayList.copyToArray main_paraspecess_list
+	main.lb_paraspecBuild.repopulate
+	
+	mainPredspecCommandDisplayList.copyToArray main_predspec_list
+	main.lb_predspecBuild.repopulate
+	
+	main.rb_showallref.setlabel "resource BAYESSTATS_ESS_LABEL_SHOWALLREF"
+	main.rb_showselref.setlabel "resource BAYESSTATS_ESS_LABEL_SHOWSELREF"
+	
+	create STRING bu_facvarsResults
+	program bu_facvars_ckResults
+	program bu_facvars_check
+	program check_predict
+ 	program check_nchains
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	title(resource BAYESSTATS_ESS_TITLE)		
+BEGIN
+  GROUPBOX gb_syntax		_lft	_top	_iwd	290,		///
+	label(resource LBL_SYNTAX)
+  RADIO  rb_all			_ilft	_ss	_ibwd	.,		///
+	first								///
+	onclickon(script main_parasyntax_all)				///
+	label(resource BAYESSTATS_ESS_MAIN_RB_ALL)
+  RADIO rb_selected		@	_ss	@	.,		///
+	onclickon(script main_parasyntax_selected)			///
+	label(resource BAYES_ESS_LBL_RB_SELECTED)
+  RADIO rb_predict		@	_ss	@	.,		///
+	last								///
+	onclickon(script main_parasyntax_pred)				///
+	label(resource BAYESSTATS_ESS_MAIN_RB_PREDICT)
+	
+  GROUPBOX gb_paraspec		_iilft	+20	_iibwd	_ht12,		///
+	label("")
+  LISTBOX lb_paraspecBuild	_indent	_ms	245	95,		///
+	contents(main_paraspecess_list)					///
+	ondblclick(program main_paraspec_edit)				///
+	onselchange(program main_paraspec_sel_changed)			///
+	nomemory							///
+	label(resource BAYES_ESS_LBL_RB_SELECTED)
+  BUTTON bu_paraspec_create	295	@	80	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program main_paraspec_create)
+  BUTTON bu_paraspec_edit	@	_ms	@	.,		///
+	label(resource LBL_BU_EDIT)					///
+	onpush(program main_paraspec_edit)
+  BUTTON bu_paraspec_disable	@	_ms	@	.,		///
+	label(resource LBL_BU_DISABLE)					///
+	onpush(program main_paraspec_disable)
+  BUTTON bu_paraspec_enable	@	_ms	@	.,		///
+	label(resource LBL_BU_ENABLE)					///
+	onpush(program main_paraspec_enable)
+  TEXTBOX tb_paraspec_note	40	+25	370	20,		///
+	label(resource LBL_PRESS_CREATE_DEFINE_SPECIFICATION)
+
+  DEFINE usex _ilft
+  DEFINE usey 95
+  DEFINE usew _ibwd	
+  INCLUDE bayes_predfile  
+	
+  GROUPBOX gb_predspec		_iilft	_ms _iibwd	_ht12,		///
+	label("")
+	
+  DEFINE resy _ms
+  INCLUDE bayesstats_predspec
+
+  GROUPBOX gb_opt		_lft	+50	_iwd	260,		///
+	label(resource LBL_OPTIONS)
+
+  DEFINE chain_x _ilft
+  DEFINE chain_y +25
+  DEFINE chain_w _ibwd
+  INCLUDE bayes_chains_opts
+	
+  DEFINE rex _ilft
+  DEFINE rey +40
+  DEFINE rewid _ibwd
+  INCLUDE bayes_showreffects
+END
+
+PROGRAM show_reffects_check
+BEGIN
+	if main.rb_showallref.isenabled() & main.rb_showallref {
+		call main.cb_showre.disable
+	}
+	if main.rb_showselref.isenabled() & main.rb_showselref {
+		call main.cb_showre.enable
+		call program get_showre_params
+	}	
+END
+
+PROGRAM show_reffects_on
+BEGIN
+	if main.ck_showreffects.isenabled() & main.ck_showreffects {
+		call main.rb_showallref.enable
+		call main.rb_showselref.enable
+		call program show_reffects_check
+	}
+END
+
+PROGRAM show_reffects_off
+BEGIN
+	call main.rb_showallref.disable
+	call main.rb_showselref.disable
+	call main.cb_showre.disable	
+END
+
+PROGRAM show_reffects_enable
+BEGIN
+	call main.ck_showreffects.enable
+	if main.ck_showreffects {
+		call program show_reffects_on
+	}
+	else {
+		call program show_reffects_off
+	}
+END
+
+PROGRAM show_reffects_disable
+BEGIN
+	call main.ck_showreffects.disable
+	call main.rb_showallref.disable
+	call main.rb_showselref.disable
+	call main.cb_showre.disable
+END
+
+PROGRAM show_reffects_output
+BEGIN
+	if main.rb_showallref.isenabled() & main.rb_showallref {
+		option main.rb_showallref
+	}
+	
+	if main.rb_showselref.isenabled() & main.rb_showselref {
+		optionarg main.cb_showre
+	}
+END
+
+PROGRAM bu_facvars_check
+BEGIN
+	if main.rb_predict {
+		call rpt.bu_facvars.disable
+	}
+	else {
+		call rpt.bu_facvars.enable
+	}
+END
+
+PROGRAM bu_facvars_getOpts
+BEGIN
+	call create CHILD factor_vars_reporting AS bu_facvars
+	call bu_facvars.setExitString bu_facvarsResults
+	call bu_facvars.setExitAction "program bu_facvars_ckResults"
+END
+
+PROGRAM bu_facvars_ckResults
+BEGIN
+	if bu_facvarsResults {
+		call rpt.bu_facvars.modified_on
+	}
+	else {
+		call rpt.bu_facvars.modified_off
+	}
+END
+
+SCRIPT main_paraspec_show
+BEGIN
+	main.gb_paraspec.show
+	main.lb_paraspecBuild.show
+	main.bu_paraspec_create.show
+	main.bu_paraspec_edit.show
+	main.bu_paraspec_disable.show
+	main.bu_paraspec_enable.show
+	main.tb_paraspec_note.show
+END
+
+SCRIPT main_paraspec_hide
+BEGIN
+	main.gb_paraspec.hide
+	main.lb_paraspecBuild.hide
+	main.bu_paraspec_create.hide
+	main.bu_paraspec_edit.hide
+	main.bu_paraspec_disable.hide
+	main.bu_paraspec_enable.hide
+	main.tb_paraspec_note.hide
+END
+
+SCRIPT main_predspec_show
+BEGIN
+	main.gb_predspec.show
+	main.lb_predspecBuild.show
+	main.bu_predspec_create.show
+	main.bu_predspec_edit.show
+	main.bu_predspec_disable.show
+	main.bu_predspec_enable.show
+	main.tb_predspec_note.show
+	main.tx_use.show
+	main.fi_use.show
+END
+
+SCRIPT main_predspec_hide
+BEGIN
+	main.gb_predspec.hide
+	main.lb_predspecBuild.hide
+	main.bu_predspec_create.hide
+	main.bu_predspec_edit.hide
+	main.bu_predspec_disable.hide
+	main.bu_predspec_enable.hide
+	main.tb_predspec_note.hide
+	main.tx_use.hide
+	main.fi_use.hide
+END
+
+SCRIPT main_parasyntax_all
+BEGIN
+	main.gb_paraspec.disable
+	main.lb_paraspecBuild.disable
+	main.bu_paraspec_create.disable
+	main.bu_paraspec_edit.disable
+	main.bu_paraspec_disable.disable
+	main.bu_paraspec_enable.disable
+	main.tb_paraspec_note.disable
+	script main_paraspec_show
+	script main_predspec_hide
+	program bu_facvars_check
+END
+
+SCRIPT main_parasyntax_selected
+BEGIN
+	main.gb_paraspec.enable
+	main.lb_paraspecBuild.enable
+	main.bu_paraspec_create.enable
+	main.bu_paraspec_edit.disable
+	main.bu_paraspec_disable.disable
+	main.bu_paraspec_enable.disable
+	main.tb_paraspec_note.enable
+	script main_paraspec_show
+	script main_predspec_hide
+	program show_reffects_disable
+	program main_paraspec_sel_changed
+	program bu_facvars_check
+END
+
+SCRIPT main_parasyntax_pred
+BEGIN
+	main.gb_predspec.enable
+	main.lb_predspecBuild.disable
+	main.bu_predspec_edit.disable
+	main.bu_predspec_disable.disable
+	main.bu_predspec_enable.disable
+	script main_paraspec_hide
+	script main_predspec_show
+	program main_file_change
+	program show_reffects_disable
+	program main_predspec_sel_changed
+	program bu_facvars_check
+END
+
+PROGRAM main_file_change
+BEGIN
+	if !main.fi_use.equals("") {
+		call main.lb_predspecBuild.enable
+		call main.bu_predspec_create.enable
+		call main.tb_predspec_note.enable
+	}
+	else {
+		call main.lb_predspecBuild.disable
+		call main.bu_predspec_create.disable
+		call main.tb_predspec_note.disable
+	}
+END
+
+PROGRAM main_paraspec_create
+BEGIN
+	call main_paraspec_count.setvalue class mainParaspecChildDialogList.size
+	call main_paraspec_count.increment
+	call main_build_tmp.setvalue "main_paraspec_"
+	call main_build_tmp.append class main_paraspec_count.value
+	call main_build_tmp.withvalue main_build_childdlg.setvalue @
+	call program main_show_paraspec_child
+END
+
+PROGRAM main_paraspec_edit
+BEGIN
+	call mainParaspecCommandDisplayList.findstr class		///
+		main.lb_paraspecBuild.value
+	call main_build_position.setvalue class				///
+		mainParaspecCommandDisplayList.position
+	call main_build_position.withvalue				///
+		main_build_childdlg.setvalue				///
+		class mainParaspecChildDialogList.values[@]
+	call program main_show_paraspec_child_edit
+END
+
+PROGRAM main_show_paraspec_child
+BEGIN
+	call main_build_tmp.setvalue "bayesstats_ess_paraspec AS "
+	call main_build_tmp.append class main_build_childdlg.value
+	call main_build_tmp.withvalue create CHILD @
+	call main_build_childdlg.withvalue @.setExitString		///
+		"main_build_child_result"
+	call main_build_childdlg.withvalue @.setExitAction		///
+		"program main_paraspec_child_create_done"
+
+	call main_paraspec_count.withvalue				///
+		sTMP.format "resource LBL_SPECIFICATION_FMT" "@" ""
+
+	call main_build_childdlg.withvalue				///
+		main_build_tmp2.setvalue "@.settitle"
+	call main_build_tmp2.append `" ""'
+	call main_build_tmp2.append class sTMP.value
+	call main_build_tmp2.append `"""'
+	call main_build_tmp2.withvalue @
+END
+
+PROGRAM main_show_paraspec_child_edit
+BEGIN
+	call main_build_tmp.setvalue "bayesstats_ess_paraspec AS "
+	call main_build_tmp.append class main_build_childdlg.value
+	call main_build_tmp.withvalue create CHILD @
+	call main_build_childdlg.withvalue @.setExitString		///
+		"main_build_child_result"
+	call main_build_childdlg.withvalue @.setExitAction		///
+		"program main_paraspec_child_edit_done"
+
+	call main_build_position.withvalue				///
+		main_build_tmp.setvalue					///
+		class mainParaspecCommandDisplayList.values[@]
+	call main_build_childdlg.withvalue				///
+		main_build_tmp2.setvalue "@.settitle"
+	call main_build_tmp2.append `" ""'
+	call main_build_tmp2.append class main_build_tmp.value
+	call main_build_tmp2.append `"""'
+	call main_build_tmp2.withvalue @
+END
+
+PROGRAM main_paraspec_child_create_done
+BEGIN
+	call main_paraspec_arraysize.setvalue class			///
+		mainParaspecChildDialogList.size
+	call main_paraspec_arraysize.increment
+
+	/* Store child dialog name */
+	call mainParaspecChildDialogList.store class			///
+		main_paraspec_arraysize.value class main_build_childdlg.value
+
+	call main_paraspec_arraysize.withvalue				///
+		sTMP.format "resource LBL_SPECIFICATION_FMT" "@" ""
+
+	/* Store listbox display equation string */
+	call sTMP.withvalue						///
+		mainParaspecCommandDisplayList.store class		///
+		main_paraspec_arraysize.value "@"
+
+	/* Store child dialog result string */
+	call mainParaspecCommandList.store class			///
+		main_paraspec_arraysize.value				///
+		class main_build_child_result.value
+
+
+	/* Store child dialog result string for final command
+	   For disable/enable */
+	call mainParaspecCommandValues.store class			///
+		main_paraspec_arraysize.value				///
+		class main_build_child_result.value
+
+	/* Store disable/enable status */
+	call mainParaspecStatusList.store class				///
+		main_paraspec_arraysize.value "active"
+
+	call mainParaspecCommandDisplayList.copyToArray main_paraspecess_list
+	call main.lb_paraspecBuild.repopulate
+	call sTMP.withvalue main.lb_paraspecBuild.setvalue "@"
+END
+
+PROGRAM main_paraspec_child_edit_done
+BEGIN
+	call mainParaspecChildDialogList.findstr class			///
+		main_build_childdlg.value
+	call main_build_position.setvalue class				///
+		mainParaspecChildDialogList.position
+	call main_build_position.withvalue main_build_tmp.setvalue	///
+		class mainParaspecStatusList.values[@]
+	if main_build_tmp.iseq("active") {
+
+		call main_build_position.withvalue			///
+			sTMP.format "resource LBL_SPECIFICATION_FMT" "@" ""
+
+		call sTMP.withvalue					///
+			mainParaspecCommandDisplayList.store class	///
+			main_build_position.value "@"
+		call mainParaspecCommandValues.store class		///
+			main_build_position.value class			///
+			main_build_child_result.value
+
+		call sTMP.withvalue					///
+			main_build_tmp2.setvalue "@"
+	}
+	else {
+		call main_build_position.withvalue			///
+			sTMP.format "resource LBL_SPECIFICATION_FMT" "@" "resource LBL_PAREN_DISABLED"
+
+		call sTMP.withvalue					///
+			main_build_tmp2.setvalue "@"
+
+		call main_build_tmp2.withvalue				///
+			mainParaspecCommandDisplayList.store		///
+			class main_build_position.value "@"
+	}
+
+	call mainParaspecCommandList.store class			///
+		main_build_position.value class				///
+		main_build_child_result.value
+
+	call mainParaspecCommandDisplayList.copyToArray main_paraspecess_list
+	call main.lb_paraspecBuild.repopulate
+	call main.lb_paraspecBuild.setvalue class main_build_tmp2.value
+END
+
+PROGRAM main_paraspec_sel_changed
+BEGIN
+	call mainParaspecCommandDisplayList.findstr class		///
+		main.lb_paraspecBuild.value
+	call main_build_position.setvalue class				///
+		mainParaspecCommandDisplayList.position
+	call main_build_position.withvalue main_build_tmp.setvalue	///
+		class mainParaspecStatusList.values[@]
+	if main_build_position {
+		call main.bu_paraspec_edit.enable
+
+		call main_build_position.withvalue			///
+			main.tb_paraspec_note.setlabel			///
+		class mainParaspecCommandList.values[@]
+	}
+
+	if main_build_tmp.iseq("disable") & main.lb_paraspecBuild.isenabled() {
+		call main.bu_paraspec_enable.enable
+		call main.bu_paraspec_disable.disable
+	}
+	if main_build_tmp.iseq("active") & main.lb_paraspecBuild.isenabled() {
+		call main.bu_paraspec_enable.disable
+		call main.bu_paraspec_disable.enable
+	}
+END
+
+PROGRAM main_paraspec_disable
+BEGIN
+	call mainParaspecCommandDisplayList.findstr class		///
+		main.lb_paraspecBuild.value
+	call main_build_position.setvalue class				///
+		mainParaspecCommandDisplayList.position
+
+	call main_build_tmp.setvalue class main.lb_paraspecBuild.value
+	call mainParaspecStatusList.store class				///
+		main_build_position.value "disable"
+	call mainParaspecCommandValues.store class main_build_position.value ""
+
+	call main_build_position.withvalue				///
+		sTMP.format "resource LBL_SPECIFICATION_FMT" "@" "resource LBL_PAREN_DISABLED"
+
+	call sTMP.withvalue						///
+		mainParaspecCommandDisplayList.store			///
+		class main_build_position.value "@"
+
+	call mainParaspecCommandDisplayList.copyToArray main_paraspecess_list
+	call sTMP.withvalue main_build_tmp2.setvalue "@"
+	call main.lb_paraspecBuild.repopulate
+	call main.lb_paraspecBuild.setvalue class main_build_tmp2.value
+END
+
+PROGRAM main_paraspec_enable
+BEGIN
+	call mainParaspecCommandDisplayList.findstr class		///
+		main.lb_paraspecBuild.value
+	call main_build_position.setvalue class				///
+		mainParaspecCommandDisplayList.position
+
+	call mainParaspecStatusList.store class				///
+		main_build_position.value "active"
+	call main_build_position.withvalue				///
+		mainParaspecCommandValues.store				///
+		class main_build_position.value class			///
+		mainParaspecCommandList.values[@]
+
+	call main_build_position.withvalue				///
+		sTMP.format "resource LBL_SPECIFICATION_FMT" "@" ""
+
+	call sTMP.withvalue						///
+		mainParaspecCommandDisplayList.store			///
+		class main_build_position.value "@"
+
+
+	call mainParaspecCommandDisplayList.copyToArray main_paraspecess_list
+	call main_build_position.withvalue				///
+		main_build_tmp2.setvalue class				///
+		mainParaspecCommandDisplayList.values[@]
+	call main.lb_paraspecBuild.repopulate
+	call main.lb_paraspecBuild.setvalue class main_build_tmp2.value
+END
+
+INCLUDE bayesstats_predspec_sc
+
+INCLUDE bayes_chains_opts_sc
+
+SCRIPT chains_move_hide
+BEGIN
+	main.gb_chains.hide
+	main.rb_chain_all.hide
+	main.rb_chain_nlist.hide
+	main.cb_chains.hide
+	main.ck_sepchains.hide 
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  SPINNER  sp_skip		_lft	_top	_en14wd	.,		///
+	option(skip)							///
+	min(0) max(e(mcmcsize))						///
+	default(0)
+  TEXT 	   tx_skip		_en14sep @	300	.,		///
+	label(resource BAYES_LBL_TX_SKIP)
+  CHECKBOX ck_nolegend		_lft	+35	_iwd	.,		///
+	option(nolegend)						///
+	label(resource LBL_SUP_TABLE_LEGEND)
+	
+  BUTTON bu_facvars		_lft	_ls	200	.,		///
+	onpush("program bu_facvars_getOpts")				///
+	label(resource FACTOR_VARS_REPORTING_DLG_TITLE)
+END
+
+DIALOG adv, tabtitle(resource LBL_ADVANCED)
+BEGIN
+  DEFINE advy _top 
+  INCLUDE bayesmh_advanced
+END
+
+INCLUDE bayesmh_advanced_sc
+
+PROGRAM command
+BEGIN
+	put "bayesstats ess"
+	if main.rb_all {
+		put " _all"
+	}
+	if main.rb_selected {
+		call mainParaspecCommandValues.copyToString main_paraspec_output
+		if main_paraspec_output.equals("") {
+			require main.lb_paraspecBuild
+		}
+		put " " main_paraspec_output	
+	}
+	if main.rb_predict {
+		call mainPredspecCommandValues.copyToString main_predspec_output
+		if main_predspec_output.equals("") {
+			stopbox stop resource BAYESSTATS_MSGBOX_PREDICTION_MUST_BE_SPECIFIED
+//stopbox stop "Prediction specifications must be specified."
+		}
+		put " " main_predspec_output
+		
+		require main.fi_use
+		
+		put " using "
+		put main.fi_use
+	}
+	beginoptions
+		optionarg /hidedefault rpt.sp_skip
+		put " " /program show_reffects_output
+		put " " /program chains_output
+		option rpt.ck_nolegend
+		if main.rb_all | main.rb_selected {
+			put " " bu_facvarsResults
+		}
+		put " " /program advanced_output
+	endoptions
+END
+

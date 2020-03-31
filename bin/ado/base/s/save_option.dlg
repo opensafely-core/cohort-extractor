@@ -1,0 +1,127 @@
+/*
+    save_option.dlg
+
+*!  VERSION 1.2.3  14mar2015
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_mlarge
+DEFINE _dlght 230
+INCLUDE header
+HELP hlp1, view("help save")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource SAVE_OPTION_DLG_HSCALE
+	
+        main.fi_using.formatfilter "{0} (*.dta)|*.dta|{1} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_DTA" "resource ui_ex FILE_TYPE_ALL_FILES"
+END
+
+DIALOG main,label(resource SAVE_OPTION_DLG_TITLE)  tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  GROUPBOX gb_using		_lft	_top	_iwd	_ht4,		///
+	label(resource SAVE_OPTION_MAIN_GB_USING)
+
+  TEXT tx_using			_ilft	_ss	_ibwd	.,		///
+	label(resource LBL_FILENAME)
+
+  FILE fi_using			@	_ss	@	.,		///
+	defext(dta)							///
+	default(c(filename))						///
+	error(resource LBL_FILENAME_OF_DATASET_ON_DISK)			///
+	label(resource LBL_BU_BROWSE) save
+
+  GROUPBOX gb_opt		_lft	+45	_iwd	_ht9h,		///
+	label(resource LBL_OPTIONS)
+
+  CHECKBOX ck_nolabel		_ilft	_ss	_ibwd	.,		///
+	option(nolabel)							///
+	onclickon(program main_nolabel_on)				///
+	onclickoff(program main_nolabel_off)				///
+	label(resource LBL_OMIT_VALUE_LABELS_FROM_THE_SAVED_DATASET)
+
+  CHECKBOX ck_orphans		@	_ms	@	.,		///
+	option(orphans)							///
+	onclickon(program main_orphans_on)				///
+	onclickoff(program main_orphans_off)				///
+	label(resource SAVE_OPTION_MAIN_CK_ORPHANS)
+
+  CHECKBOX ck_saveold		@	_ms	@	.,		///
+	option(saveold)							///
+	onclickon(program main_saveold_on)				///
+	onclickoff(program main_saveold_off)				///
+	label(resource SAVE_OPTION_MAIN_CK_SAVEOLD)
+  SPINNER sp_version		_iilft	_ss	_spwd	.,		///
+	option(version)							///
+	min(11)								///
+	max(14)								///
+	default(14)							///
+	label(resource SAVE_OPTION_MAIN_TX_VERSION)
+  TEXT tx_version		_spsep	@	200	.,		///
+	label(resource SAVE_OPTION_MAIN_TX_VERSION)
+END
+PROGRAM main_nolabel_on
+BEGIN
+	call main.ck_orphans.disable
+END
+
+PROGRAM main_nolabel_off
+BEGIN
+	if main.ck_saveold {
+		call program main_saveold_on
+	}
+	else {
+		call main.ck_orphans.enable
+	}
+END
+
+PROGRAM main_orphans_on
+BEGIN
+	call main.ck_nolabel.disable
+	call main.ck_saveold.disable
+END
+
+PROGRAM main_orphans_off
+BEGIN
+	call main.ck_nolabel.enable
+	call main.ck_saveold.enable
+END
+
+PROGRAM main_saveold_on
+BEGIN
+	call main.sp_version.enable
+	call main.tx_version.enable
+	call main.ck_orphans.disable
+END
+
+PROGRAM main_saveold_off
+BEGIN
+	call main.sp_version.disable
+	call main.tx_version.disable
+	if !main.ck_nolabel {
+		call main.ck_orphans.enable
+	}
+END
+
+PROGRAM command
+BEGIN
+	require main.fi_using
+	repfile main.fi_using
+	if !main.ck_saveold {
+		put "save "
+	}
+	if main.ck_saveold {
+		put "saveold "
+	}
+	put `"""' main.fi_using `"""'
+	beginoptions
+		put "replace "
+		option main.ck_nolabel
+		option main.ck_orphans
+		optionarg /hidedefault main.sp_version
+	endoptions
+END

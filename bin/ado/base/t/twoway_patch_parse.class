@@ -1,0 +1,120 @@
+//				twoway_patch_parse
+//
+//  Parser for 2D patch plots.  
+//  Works with twoway.ado
+
+*! version 1.0.1  16jun2011
+
+class {
+    instance:
+    	plevels	= .numstyle.new, style(scheme contours)
+
+} , inherit(twoway_zyx2view_parse)
+
+
+// ---------------------------------------------------------------------------
+
+program parse
+	.must_create_serset = 1
+	.viewtype = "patch"
+
+	.Super.parse `0'
+
+	local 0 , `.options'
+	_parse combop 0 : 0 , option(PLEVels)	rightmost
+
+	syntax [, PLEVels(integer `.plevels.val') * ]
+
+	.plevels.val = `plevels'
+	.options     = `"`options'"'
+
+end
+
+
+
+// ---------------------------------------------------------------------------
+//	Creates a new serset and the view and returns its reference.
+//	Assumes that the data in memory is the same as when parse was called.
+//
+//	varname in touse(varname) option should restrict the sample to both
+//	plot-specific and graph-wide if and in
+//
+//	Additional options to the .serset.new command may be specified, but
+//	this is unlikely to be necessary.
+//
+//	If must_create_serset == 1, then this command MUST be used, 
+//	otherwise the serset may be created by other means.
+//
+//	Instead of created the contour serset at the time of drawing,
+//         we create it here.
+//
+
+program log_create_serset
+
+	syntax , LOG(name) SERSETNAME(string) [ TOUSE(passthru) * ]
+
+	.log_touse , log(`log') `touse'
+
+	local rest `.varlist'
+	gettoken z rest : rest
+	gettoken y rest : rest
+	gettoken x rest : rest
+
+
+	if "`.ccuts'" == "" {
+		tempvar touse1
+		qui gen byte `touse1' = 1
+		.full_touseopt `touse1' , `touse'
+		qui sum `z' if `touse1'
+		local diff = (r(max) - r(min)) / `.plevels.val'
+
+		forvalues i = 1/`=0`.plevels.val'-1' {
+			local cuts `cuts' `=r(min)+`i'*`diff''
+		}
+		.ccuts = "`cuts'"
+	}
+	else {
+		.plevels.val = `:word count `.ccuts'' + 1
+	}
+
+	.`log'.Arrpush __NOLOG__ quietly twoway__patch_serset ,		///
+		z(`z') x(`x') y(`y')	  				///
+		sersetname(`sersetname') touse(\`touse1')		///
+		cuts(`.ccuts') weight(`.wtype'`.wtexp')
+
+	.`log'.Arrpush LogMapping .`sersetname'	// make _fr_runlog place 
+						// mapping statement into 
+						// permanent log.
+
+	.wtype = ""			// so .Super.log_create_view will
+	.wtexp = ""			// not try to add weight to serset
+end
+
+
+// ---------------------------------------------------------------------------
+//	Pushes onto the specified log any post-creation commands implied by 
+//	the parsed syntax that must be applied to the created view.
+
+program log_edits
+	args log view i
+
+	.Super.log_edits `log' `view' `i'
+
+	.`log'.Arrpush .`view'.drop_base.setstyle , style(no)
+	.`log'.Arrpush .`view'.numkeys = 0
+
+	local edits `"`edits' levels("`.plevels.val'")"'
+
+	if `"`edits'"' != `""' {
+		.`log'.Arrpush .`view'.style.editstyle `edits' editcopy
+	}
+
+	local i 0
+	foreach cut in `.ccuts' {
+		.`log'.Arrpush .`view'.style.ccuts[`++i'] = `cut'
+	}
+
+	.`log'.Arrpush .`view'.style.reset 
+
+end
+

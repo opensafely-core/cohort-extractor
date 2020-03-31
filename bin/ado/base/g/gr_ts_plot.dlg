@@ -1,0 +1,865 @@
+/*
+    gr_ts_plot.dlg
+
+*!  VERSION 1.1.3  14nov2019
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_mlarge
+DEFINE _dlght 280
+INCLUDE header_gr_child
+
+HELP hlp1, view("help tsline")
+RESET res1
+
+/* To be called from the parent dialog box...
+ */
+SCRIPT y2SetHidden_true
+BEGIN
+	main.ck_y2.hide
+END
+
+SCRIPT PREINIT
+BEGIN
+	create STRING lineMarkerWeights
+	create STRING rlineMarkerWeights
+
+	create STRING lineResults
+	create STRING markerResults
+	create STRING areaResults
+	create STRING barResults
+	create STRING spikeResults
+
+	create STRING rlineResults
+	create STRING rmarkerResults
+	create STRING rareaResults
+	create STRING rbarResults
+	create STRING rspikeResults
+	setscale_hadj resource GR_TS_PLOT_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program checkLineResults
+	program checkMarkerResults
+	program checkAreaResults
+	program checkBarResults
+	program checkSpikeResults
+
+	program checkRLineResults
+	program checkRMarkerResults
+	program checkRAreaResults
+	program checkRBarResults
+	program checkRSpikeResults
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN) title(resource GR_TS_PLOT_DLG_TITLE)
+BEGIN
+  GROUPBOX gb_category		_lft	_top	_iwd	_ht4h,	///
+	label(resource LBL_CHOOSE_PLOT_CATEGORY_AND_TYPE)
+  RADIO	   rb_line		_ilft	+22	_cwd1	.,	///
+	first							///
+	onclickon(script main_tsline_on)			///
+	label(resource GR_TS_PLOT_MAIN_RB_LINE)
+  RADIO	   rb_rline		@	+20	@	.,	///
+	last							///
+	onclickon(script main_tsrline_on)			///
+	label(resource GR_TS_PLOT_MAIN_RB_RLINE)
+
+  GROUPBOX gb_type		_lft	+45	_iwd	_ht14,	///
+	label(resource LBL_PLOT_TYPE)
+
+  TEXT 	   tx_yvar1		_ilft	_ms	_vnwd	.,	///
+	label(resource LBL_Y_VARIABLE)
+  VARNAME  vn_yvar1		@	_ss	@	.,	///
+  	numeric							///
+	label(resource LBL_Y_VARIABLE)
+  DEFINE y2 @y
+  TEXT 	   tx_yvar2		_ilft	_ls	_vnwd	.,	///
+	label(resource LBL_Y2_VARIABLE)
+  VARNAME  vn_yvar2		@	_ss	@	.,	///
+  	numeric							///
+	label(resource LBL_Y2_VARIABLE)
+
+  CHECKBOX ck_y2		165	y2	200	.,	///
+	label(resource LBL_ADD_SECOND_Y_AXIS_ON_RIGHT)		///
+	option(yaxis(2))
+
+  TEXT	   tx_recast		_lft2	30	160	.,	///
+	label(resource GR_TS_PLOT_MAIN_TX_RECAST)
+  COMBOBOX cb_recast_line	@	_ss	@	.,	///
+	dropdownlist 						///
+	contents(main_tsline) values(main_tsline_values)	///
+	onselchangelist(main_tsline_sel)
+  COMBOBOX cb_recast_rline	@	@	@	.,	///
+	dropdownlist 						///
+	contents(main_tsrline) values(main_tsrline_values)	///
+	onselchangelist(main_tsrline_sel)
+ // **
+  BUTTON   bu_scatter		_ilft	180	120	.,	///
+	label(resource LBL_MARKER_PROPERTIES_DLG_TITLE)		///
+	onpush(script show_marker_dialog)			///
+	tooltip(resource LBL_MARKER_SYMBOL_LABEL_PROPERTIES)
+  BUTTON   bu_line		_ilft	@	120	.,	///
+	label(resource LBL_GB_LINE_PROPERTIES)			///
+	onpush(script show_line_dialog)
+  BUTTON   bu_area		_ilft	@	120	.,	///
+	label(resource LBL_GB_AREA_PROPERTIES)			///
+	onpush(script show_area_dialog)
+  BUTTON   bu_bar		_ilft	@	120	.,	///
+	label(resource LBL_GB_BAR_PROPERTIES)			///
+	onpush(script show_bar_dialog)
+  BUTTON   bu_spike		_ilft	@	120	.,	///
+	label(resource LBL_SPIKE_PROPERTIES)			///
+	onpush(script show_spike_dialog)
+
+ // **
+  BUTTON   bu_rline		_ilft	+50	120	.,	///
+	label(resource LBL_GB_LINE_PROPERTIES)			///
+	onpush(script show_rline_dialog)
+  BUTTON   bu_rscatter		_ilft	@	120	.,	///
+	label(resource LBL_MARKER_PROPERTIES_DLG_TITLE)		///
+	onpush(script show_rmarker_dialog)			///
+	tooltip(resource LBL_MARKER_SYMBOL_LABEL_PROPERTIES)
+  BUTTON   bu_rarea		_ilft	@	120	.,	///
+	label(resource LBL_GB_AREA_PROPERTIES)			///
+	onpush(script show_rarea_dialog)
+  BUTTON   bu_rbar		_ilft	@	120	.,	///
+	label(resource LBL_GB_BAR_PROPERTIES)			///
+	onpush(script show_rbar_dialog)
+  BUTTON   bu_rspike		_ilft	@	120	.,	///
+	label(resource LBL_SPIKE_PROPERTIES)			///
+	onpush(script show_rspike_dialog)
+  COMBOBOX cb_rcap_size		165	@	120	.,	///
+	dropdown 						///
+	contents(symbolsizes) option(msize)
+  TEXT     tx_rcap_size		+125	@	120	.,	///
+	label(resource LBL_CAP_SIZE)
+END
+
+INCLUDE ifin
+
+LIST main_tsline
+BEGIN
+	resource LBL_LINE_PLOT
+	resource LBL_SCATTER
+	resource LBL_CONNECTED
+	resource LBL_AREA
+	resource LBL_BAR
+	resource LBL_SPIKE
+	resource LBL_DROPLINE
+END
+LIST main_tsline_values
+BEGIN
+	""
+	scatter
+	connected
+	area
+	bar
+	spike
+	dropline
+END
+LIST main_tsline_sel
+BEGIN
+	program tsline_line_sel
+	program tsline_scatter_sel
+	program tsline_connected_sel
+	program tsline_area_sel
+	program tsline_bar_sel
+	program tsline_spike_sel
+	program tsline_dropline_sel
+END
+
+LIST main_tsrline
+BEGIN
+	resource LBL_RANGE_LINE
+	resource LBL_RANGE_SCATTER
+	resource LBL_RANGE_CONNECT
+	resource LBL_RANGE_AREA
+	resource LBL_RANGE_BAR
+	resource LBL_RANGE_SPIKE
+	resource LBL_RANGE_SPIKE_WITH_CAP
+	resource LBL_RANGE_SPIKE_WITH_SYMBOL
+END
+LIST main_tsrline_values
+BEGIN
+	""
+	rscatter
+	rconnected
+	rarea
+	rbar
+	rspike
+	rcap
+	rcapsym
+END
+LIST main_tsrline_sel
+BEGIN
+	program tsline_rline_sel
+	program tsline_rscatter_sel
+	program tsline_rconnected_sel
+	program tsline_rarea_sel
+	program tsline_rbar_sel
+	program tsline_rspike_sel
+	program tsline_rspike_cap_sel
+	program tsline_rspike_capsym_sel
+END
+
+SCRIPT main_tsline_on
+BEGIN
+	main.cb_recast_line.show
+	main.cb_recast_rline.hide
+	main.tx_yvar2.hide
+	main.vn_yvar2.hide
+	main.tx_yvar1.setlabel resource LBL_Y_VARIABLE
+	main.vn_yvar1.setlabel resource LBL_Y_VARIABLE
+	main.cb_recast_line.forceselchange
+END
+
+SCRIPT main_tsrline_on
+BEGIN
+	main.cb_recast_line.hide
+	main.cb_recast_rline.show
+	main.tx_yvar2.show
+	main.vn_yvar2.show
+	main.tx_yvar1.setlabel resource LBL_Y1_VARIABLE
+	main.vn_yvar1.setlabel resource LBL_Y1_VARIABLE
+	main.cb_recast_rline.forceselchange
+END
+
+SCRIPT main_tsline_hideButtons
+BEGIN
+	main.bu_scatter.hide
+	main.bu_line.hide
+	main.bu_area.hide
+	main.bu_bar.hide
+	main.bu_spike.hide
+END
+SCRIPT main_tsrline_hideButtons
+BEGIN
+	main.bu_rline.hide
+	main.bu_rscatter.hide
+	main.bu_rarea.hide
+	main.bu_rbar.hide
+	main.bu_rspike.hide
+	main.cb_rcap_size.hide
+	main.tx_rcap_size.hide
+END
+
+PROGRAM tsline_line_sel
+BEGIN
+	if main.rb_line {
+		call script main_tsrline_hideButtons
+		call main.bu_scatter.hide
+		call main.bu_area.hide
+		call main.bu_bar.hide
+		call main.bu_spike.hide
+		call main.bu_line.show
+		call main.gb_type.setlabel resource LBL_PLOT_TYPE_LINE_PLOT
+	}
+END
+
+PROGRAM tsline_scatter_sel
+BEGIN
+	if main.rb_line {
+		call script main_tsrline_hideButtons
+		call main.bu_line.hide
+		call main.bu_area.hide
+		call main.bu_bar.hide
+		call main.bu_spike.hide
+		call main.bu_scatter.show
+		call main.bu_scatter.setposition 20 .
+		call main.gb_type.setlabel resource LBL_PLOT_TYPE_SCATTERPLOT
+	}
+END
+
+PROGRAM tsline_connected_sel
+BEGIN
+	if main.rb_line {
+		call script main_tsrline_hideButtons
+		call main.bu_area.hide
+		call main.bu_bar.hide
+		call main.bu_spike.hide
+		call main.bu_line.show
+		call main.bu_scatter.show
+		call main.bu_scatter.setposition 165 .
+		call main.gb_type.setlabel resource LBL_PLOT_TYPE_CONNECTED_LINE_PLOT
+	}
+END
+
+PROGRAM tsline_area_sel
+BEGIN
+	if main.rb_line {
+		call script main_tsrline_hideButtons
+		call main.bu_line.hide
+		call main.bu_scatter.hide
+		call main.bu_bar.hide
+		call main.bu_spike.hide
+		call main.bu_area.show
+		call main.gb_type.setlabel resource LBL_PLOT_TYPE_LINE_PLOT_WITH_SHADING
+	}
+END
+
+PROGRAM tsline_bar_sel
+BEGIN
+	if main.rb_line {
+		call script main_tsrline_hideButtons
+		call main.bu_line.hide
+		call main.bu_scatter.hide
+		call main.bu_area.hide
+		call main.bu_spike.hide
+		call main.bu_bar.show
+		call main.gb_type.setlabel resource LBL_PLOT_TYPE_BAR_PLOT
+	}
+END
+
+PROGRAM tsline_spike_sel
+BEGIN
+	if main.rb_line {
+		call script main_tsrline_hideButtons
+		call main.bu_line.hide
+		call main.bu_scatter.hide
+		call main.bu_area.hide
+		call main.bu_bar.hide
+		call main.bu_spike.show
+		call main.gb_type.setlabel resource LBL_PLOT_TYPE_SPIKE_PLOT
+	}
+END
+
+PROGRAM tsline_dropline_sel
+BEGIN
+	if main.rb_line {
+		call script main_tsrline_hideButtons
+		call main.bu_line.hide
+		call main.bu_area.hide
+		call main.bu_bar.hide
+		call main.bu_spike.show
+		call main.bu_scatter.show
+		call main.bu_scatter.setposition 165 .
+		call main.gb_type.setlabel resource LBL_PLOT_TYPE_DROPLINE_PLOT
+	}
+END
+
+PROGRAM tsline_rline_sel
+BEGIN
+	if main.rb_rline {
+		call script main_tsline_hideButtons
+		call main.bu_rscatter.hide
+		call main.bu_rarea.hide
+		call main.bu_rbar.hide
+		call main.bu_rspike.hide
+		call main.cb_rcap_size.hide
+		call main.tx_rcap_size.hide
+		call main.bu_rline.show
+		call main.gb_type.setlabel resource LBL_PLOT_TYPE_RANGE_LINES
+	}
+END
+
+PROGRAM tsline_rscatter_sel
+BEGIN
+	if main.rb_rline {
+		call script main_tsline_hideButtons
+		call main.bu_rline.hide
+		call main.bu_rarea.hide
+		call main.bu_rbar.hide
+		call main.bu_rspike.hide
+		call main.cb_rcap_size.hide
+		call main.tx_rcap_size.hide
+		call main.bu_rscatter.show
+		call main.bu_rscatter.setposition 20 .
+		call main.gb_type.setlabel resource LBL_PLOT_TYPE_RANGE_MARKERS
+	}
+END
+
+PROGRAM tsline_rconnected_sel
+BEGIN
+	if main.rb_rline {
+		call script main_tsline_hideButtons
+		call main.bu_rarea.hide
+		call main.bu_rbar.hide
+		call main.bu_rspike.hide
+		call main.cb_rcap_size.hide
+		call main.tx_rcap_size.hide
+		call main.bu_rline.show
+		call main.bu_rscatter.show
+		call main.bu_rscatter.setposition 165 .
+		call main.gb_type.setlabel resource LBL_PLOT_TYPE_RANGE_LINES_MARKERS
+	}
+END
+
+PROGRAM tsline_rarea_sel
+BEGIN
+	if main.rb_rline {
+		call script main_tsline_hideButtons
+		call main.bu_rline.hide
+		call main.bu_rscatter.hide
+		call main.bu_rbar.hide
+		call main.bu_rspike.hide
+		call main.cb_rcap_size.hide
+		call main.tx_rcap_size.hide
+		call main.bu_rarea.show
+		call main.gb_type.setlabel resource LBL_PLOT_TYPE_RANGE_AREA_SHADING
+	}
+END
+
+PROGRAM tsline_rbar_sel
+BEGIN
+	if main.rb_rline {
+		call script main_tsline_hideButtons
+		call main.bu_rline.hide
+		call main.bu_rscatter.hide
+		call main.bu_rarea.hide
+		call main.bu_rspike.hide
+		call main.cb_rcap_size.hide
+		call main.tx_rcap_size.hide
+		call main.bu_rbar.show
+		call main.gb_type.setlabel resource LBL_PLOT_TYPE_RANGE_BARS
+	}
+END
+
+PROGRAM tsline_rspike_sel
+BEGIN
+	if main.rb_rline {
+		call script main_tsline_hideButtons
+		call main.bu_rline.hide
+		call main.bu_rscatter.hide
+		call main.bu_rarea.hide
+		call main.bu_rbar.hide
+		call main.cb_rcap_size.hide
+		call main.tx_rcap_size.hide
+		call main.bu_rspike.show
+		call main.gb_type.setlabel resource LBL_PLOT_TYPE_RANGE_SPIKES
+	}
+END
+
+PROGRAM tsline_rspike_cap_sel
+BEGIN
+	if main.rb_rline {
+		call script main_tsline_hideButtons
+		call main.bu_rline.hide
+		call main.bu_rscatter.hide
+		call main.bu_rarea.hide
+		call main.bu_rbar.hide
+		call main.bu_rspike.show
+		call main.cb_rcap_size.show
+		call main.tx_rcap_size.show
+		call main.gb_type.setlabel resource LBL_PLOT_TYPE_RANGE_CAPPED_SPIKES
+	}
+END
+
+PROGRAM tsline_rspike_capsym_sel
+BEGIN
+	if main.rb_rline {
+		call script main_tsline_hideButtons
+		call main.bu_rline.hide
+		call main.bu_rarea.hide
+		call main.bu_rbar.hide
+		call main.cb_rcap_size.hide
+		call main.tx_rcap_size.hide
+		call main.bu_rspike.show
+		call main.bu_rscatter.show
+		call main.bu_rscatter.setposition 165 .
+		call main.gb_type.setlabel resource LBL_PLOT_TYPE_RANGE_SPIKES_CAPPED_WITH_SYMBOLS
+	}
+END
+
+SCRIPT show_line_dialog
+BEGIN
+	create CHILD gr_line_options AS line, allowsubmit
+	line.setExitString lineResults
+	line.settitle resource LBL_GB_LINE_PROPERTIES
+	line.setExitAction "program checkLineResults"
+	line.setSubmitAction "script lineSubmit"
+END
+PROGRAM checkLineResults
+BEGIN
+	if lineResults {
+		call main.bu_line.modified_on
+	}
+	else {
+		call main.bu_line.modified_off
+	}
+END
+SCRIPT lineSubmit
+BEGIN
+	program checkLineResults
+	Submit
+END
+
+SCRIPT show_marker_dialog
+BEGIN
+	create CHILD gr_marker_options AS marker, allowsubmit
+	marker.setExitString markerResults
+	marker.settitle resource LBL_MARKER_PROPERTIES_DLG_TITLE
+	marker.setExitAction "program checkMarkerResults"
+	marker.setSubmitAction "script markerSubmit"
+END
+PROGRAM checkMarkerResults
+BEGIN
+	if markerResults {
+		call main.bu_scatter.modified_on
+	}
+	else {
+		call main.bu_scatter.modified_off
+	}
+END
+SCRIPT markerSubmit
+BEGIN
+	program checkMarkerResults
+	Submit
+END
+
+SCRIPT show_area_dialog
+BEGIN
+	create CHILD gr_area_options AS area, allowsubmit
+	area.setExitString areaResults
+	area.settitle resource LBL_GB_AREA_PROPERTIES
+	area.setExitAction "program checkAreaResults"
+	area.setSubmitAction "script areaSubmit"
+END
+PROGRAM checkAreaResults
+BEGIN
+	if areaResults {
+		call main.bu_area.modified_on
+	}
+	else {
+		call main.bu_area.modified_off
+	}
+END
+SCRIPT areaSubmit
+BEGIN
+	program checkAreaResults
+	Submit
+END
+
+SCRIPT show_bar_dialog
+BEGIN
+	create CHILD gr_bar_options AS bar, allowsubmit
+	bar.setExitString barResults
+	bar.settitle resource LBL_GB_BAR_PROPERTIES
+	bar.setExitAction "program checkBarResults"
+	bar.setSubmitAction "script barSubmit"
+END
+PROGRAM checkBarResults
+BEGIN
+	if barResults {
+		call main.bu_bar.modified_on
+	}
+	else {
+		call main.bu_bar.modified_off
+	}
+END
+SCRIPT barSubmit
+BEGIN
+	program checkBarResults
+	Submit
+END
+
+SCRIPT show_spike_dialog
+BEGIN
+	create CHILD gr_spike_options AS spike, allowsubmit
+	spike.setExitString spikeResults
+	spike.settitle resource LBL_SPIKE_PROPERTIES
+	spike.setExitAction "program checkSpikeResults"
+	spike.setSubmitAction "script spikeSubmit"
+END
+PROGRAM checkSpikeResults
+BEGIN
+	if spikeResults {
+		call main.bu_spike.modified_on
+	}
+	else {
+		call main.bu_spike.modified_off
+	}
+END
+SCRIPT spikeSubmit
+BEGIN
+	program checkSpikeResults
+	Submit
+END
+
+SCRIPT show_rline_dialog
+BEGIN
+	create CHILD gr_line_options AS rline, allowsubmit
+	rline.setExitString rlineResults
+	rline.settitle resource LBL_GB_LINE_PROPERTIES
+	rline.setExitAction "program checkRLineResults"
+	rline.setSubmitAction "script rlineSubmit"
+END
+PROGRAM checkRLineResults
+BEGIN
+	if rlineResults {
+		call main.bu_rline.modified_on
+	}
+	else {
+		call main.bu_rline.modified_off
+	}
+END
+SCRIPT rlineSubmit
+BEGIN
+	program checkRLineResults
+	Submit
+END
+
+SCRIPT show_rmarker_dialog
+BEGIN
+	create CHILD gr_marker_options AS rmarker, allowsubmit
+	rmarker.setExitString rmarkerResults
+	rmarker.settitle resource LBL_MARKER_PROPERTIES_DLG_TITLE
+	rmarker.setExitAction "program checkRMarkerResults"
+	rmarker.setSubmitAction "script rmarkerSubmit"
+END
+PROGRAM checkRMarkerResults
+BEGIN
+	if rmarkerResults {
+		call main.bu_rscatter.modified_on
+	}
+	else {
+		call main.bu_rscatter.modified_off
+	}
+END
+SCRIPT rmarkerSubmit
+BEGIN
+	program checkRMarkerResults
+	Submit
+END
+
+SCRIPT show_rarea_dialog
+BEGIN
+	create CHILD gr_rarea_options AS rarea, allowsubmit
+	rarea.setExitString rareaResults
+	rarea.settitle resource LBL_GB_AREA_PROPERTIES
+	rarea.setExitAction "program checkRAreaResults"
+	rarea.setSubmitAction "script rareaSubmit"
+END
+PROGRAM checkRAreaResults
+BEGIN
+	if rareaResults {
+		call main.bu_rarea.modified_on
+	}
+	else {
+		call main.bu_rarea.modified_off
+	}
+END
+SCRIPT rareaSubmit
+BEGIN
+	program checkRAreaResults
+	Submit
+END
+
+SCRIPT show_rbar_dialog
+BEGIN
+	create CHILD gr_rbar_options AS rbar, allowsubmit
+	rbar.setExitString rbarResults
+	rbar.settitle resource LBL_GB_BAR_PROPERTIES
+	rbar.setExitAction "program checkRBarResults"
+	rbar.setSubmitAction "script rbarSubmit"
+END
+PROGRAM checkRBarResults
+BEGIN
+	if rbarResults {
+		call main.bu_rbar.modified_on
+	}
+	else {
+		call main.bu_rbar.modified_off
+	}
+END
+SCRIPT rbarSubmit
+BEGIN
+	program checkRBarResults
+	Submit
+END
+
+SCRIPT show_rspike_dialog
+BEGIN
+	create CHILD gr_rspike_options AS rspike, allowsubmit
+	rspike.setExitString rspikeResults
+	rspike.settitle resource LBL_SPIKE_PROPERTIES
+	rspike.setExitAction "program checkRSpikeResults"
+	rspike.setSubmitAction "script rspikeSubmit"
+END
+PROGRAM checkRSpikeResults
+BEGIN
+	if rspikeResults {
+		call main.bu_rspike.modified_on
+	}
+	else {
+		call main.bu_rspike.modified_off
+	}
+END
+SCRIPT rspikeSubmit
+BEGIN
+	program checkRSpikeResults
+	Submit
+END
+
+PROGRAM get_display_cmd
+BEGIN
+	call PARENT.callthru `"tsbuild_CMD.setstring "(""'
+	if main.rb_line {
+		call PARENT.callthru `"tsbuild_CMD.append "tsline ""'
+		call main.vn_yvar1.withvalue PARENT.callthru `"tsbuild_CMD.append "@""'
+	}
+	else {
+		call PARENT.callthru `"tsbuild_CMD.append "tsrline ""'
+		call main.vn_yvar1.withvalue PARENT.callthru `"tsbuild_CMD.append "@""'
+		call PARENT.callthru `"tsbuild_CMD.append " ""'
+		call main.vn_yvar2.withvalue PARENT.callthru `"tsbuild_CMD.append "@""'
+	}
+
+	if sub.ex_if {
+		call script get_cmd_if_args
+	}
+	if sub.ck_in {
+		call script get_cmd_in_args
+	}
+	if main.rb_line {
+		if !H(main.bu_scatter) & lineMarkerWeights {
+			call lineMarkerWeights.withvalue PARENT.callthru `"tsbuild_CMD.append " @""'
+		}
+		if main.cb_recast_line				///
+			| (lineResults & !H(main.bu_line))	///
+			| (markerResults & !H(main.bu_scatter))	///
+			| (areaResults 	& !H(main.bu_area))	///
+			| (barResults & !H(main.bu_bar))	///
+			| (spikeResults	& !H(main.bu_spike))	///
+		{
+			call PARENT.callthru `"tsbuild_CMD.append ",""'
+			if main.cb_recast_line 	{
+				call main.cb_recast_line.withvalue PARENT.callthru `"tsbuild_CMD.append " recast(@)""'
+			}
+			if ((lineResults & !H(main.bu_line))		///
+				| (markerResults & !H(main.bu_scatter))	///
+				| (areaResults 	& !H(main.bu_area))	///
+				| (barResults & !H(main.bu_bar))	///
+				| (spikeResults	& !H(main.bu_spike)))	///
+			{
+				call PARENT.callthru `"tsbuild_CMD.append " ...""'
+			}
+		}
+	}
+	else {
+		if !H(main.bu_rscatter) & rlineMarkerWeights {
+			call rlineMarkerWeights.withvalue PARENT.callthru `"tsbuild_CMD.append " @""'
+		}
+		if main.cb_recast_rline					///
+			| (rlineResults & !H(main.bu_rline))		///
+			| (rmarkerResults & !H(main.bu_rscatter))	///
+			| (rareaResults  & !H(main.bu_rarea))		///
+			| (rbarResults & !H(main.bu_rbar))		///
+			| (rspikeResults & !H(main.bu_rspike))		///
+		{
+			call PARENT.callthru `"tsbuild_CMD.append ",""'
+			if main.cb_recast_rline 	{
+				call main.cb_recast_rline.withvalue PARENT.callthru `"tsbuild_CMD.append " recast(@)""'
+			}
+			if ((rlineResults & !H(main.bu_rline))		///
+				| (rmarkerResults & !H(main.bu_rscatter)) ///
+				| (rareaResults & !H(main.bu_rarea))	///
+				| (rbarResults & !H(main.bu_rbar))	///
+				| (rspikeResults & !H(main.bu_rspike))	///
+				| (main.cb_rcap_size 	///
+					& !H(main.cb_rcap_size))    )	///
+			{
+				call PARENT.callthru `"tsbuild_CMD.append " ...""'
+			}
+		}
+	}
+	call PARENT.callthru `"tsbuild_CMD.append ")""'
+END
+
+SCRIPT get_cmd_if_args
+BEGIN
+	PARENT.callthru `"tsbuild_CMD.append "  if ""'
+	sub.ex_if.withvalue PARENT.callthru `"tsbuild_CMD.append "@""'
+END
+SCRIPT get_cmd_in_args
+BEGIN
+	PARENT.callthru `"tsbuild_CMD.append "  in ""'
+	sub.sp_from.withvalue PARENT.callthru `"tsbuild_CMD.append "@""'
+	PARENT.callthru `"tsbuild_CMD.append "/""'
+	sub.sp_to.withvalue PARENT.callthru `"tsbuild_CMD.append "@""'
+END
+
+PROGRAM tsline_output_wrk
+BEGIN
+	varlist main.vn_yvar1
+	put " " /program ifin_output
+	if !H(main.bu_scatter) & lineMarkerWeights {
+		put " " lineMarkerWeights
+	}
+	beginoptions
+		if main.cb_recast_line {
+			put "recast(" main.cb_recast_line ") "
+		}
+		option main.ck_y2
+		if !H(main.bu_line) & lineResults {
+			put " " lineResults
+		}
+		if !H(main.bu_scatter) & markerResults {
+			put " " markerResults
+		}
+		if !H(main.bu_area) & areaResults {
+			put " " areaResults
+		}
+		if !H(main.bu_bar) & barResults {
+			put " " barResults
+		}
+		if !H(main.bu_spike) & spikeResults {
+			put " " spikeResults
+		}
+	endoptions
+END
+
+PROGRAM tsrline_output_wrk
+BEGIN
+	varlist  main.vn_yvar1 main.vn_yvar2
+	put " " /program ifin_output
+	if !H(main.bu_rscatter) & rlineMarkerWeights {
+		put " " rlineMarkerWeights
+	}
+	beginoptions
+		if main.cb_recast_rline {
+			put "recast(" main.cb_recast_rline ") "
+		}
+		option main.ck_y2
+		if !H(main.bu_rline) & rlineResults {
+			put " " rlineResults
+		}
+		if !H(main.bu_rscatter) & rmarkerResults {
+			put " " rmarkerResults
+		}
+		if !H(main.bu_rarea) & rareaResults {
+			put " " rareaResults
+		}
+		if !H(main.bu_rbar) & rbarResults {
+			put " " rbarResults
+		}
+		if !H(main.bu_rspike) & rspikeResults {
+			put " " rspikeResults
+		}
+		optionarg /hidedefault main.cb_rcap_size
+	endoptions
+END
+
+PROGRAM command
+BEGIN
+	if main.rb_line {
+		put " (tsline "
+		put /program tsline_output_wrk
+		put ") "
+	}
+	else {
+		put " (tsrline "
+		put /program tsrline_output_wrk
+		put ") "
+	}
+	call program get_display_cmd
+	if main.ck_y2.isvisible() & main.ck_y2 {
+		call PARENT.callthru "tsbuild_isY2Set.settrue"
+	}
+	else {
+		call PARENT.callthru "tsbuild_isY2Set.setfalse"
+	}
+END

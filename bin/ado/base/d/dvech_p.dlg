@@ -1,0 +1,94 @@
+/*
+	predict (after dvech)
+
+*!  VERSION 1.1.3  1may2017 (deprecated)
+
+*/
+
+VERSION 11.0
+
+INCLUDE _std_medium
+INCLUDE header
+HELP hlp1, view("help dvech postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource DVECH_P_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script _p_gentype_multiple
+	script _p_gentype_setMedium
+END
+
+DIALOG main, label("predict - Prediction after estimation") tabtitle("Main")
+BEGIN
+  INCLUDE  _p_gentype
+
+  GROUPBOX gb_opt	_lft	_ls	_iwd	_ht7,			///
+	label("Produce:")
+  RADIO rb_xb		_ilft	_ss	_inwd	., first		///
+	option(xb)							///
+	onclickon(script main_rb_xb)					///
+	label("Linear prediction of the dependent variables")
+  RADIO rb_residuals	@	_ss	@	.,			///
+	option(residuals)						///
+	onclickon(script main_rb_residuals)				///
+	label("Residuals")
+  RADIO rb_variance	@	_ss	@	., last			///
+	option(variance)						///
+	onclickon(script main_rb_variance)				///
+	label("Standardized residuals")
+END
+
+SCRIPT main_rb_xb
+BEGIN
+	opts.tx_dynamic.enable
+	opts.ed_dynamic.enable
+END
+
+SCRIPT main_rb_residuals
+BEGIN
+	opts.tx_dynamic.disable
+	opts.ed_dynamic.disable
+END
+
+SCRIPT main_rb_variance
+BEGIN
+	opts.tx_dynamic.enable
+	opts.ed_dynamic.enable
+END
+
+INCLUDE ifin
+
+DIALOG opts, tabtitle("Options")
+BEGIN
+  TEXT tx_equation	_lft	_top	_iwd	.,			///
+	label("Name of equations for predictions:")
+  EDIT ed_equation	@	_ss	@	.,			///
+	option(equation)						///
+	label("Name of equations for predictions")
+  
+  TEXT tx_dynamic	@	_ls	@	.,			///
+	label("Dynamic forecasts:")
+  EDIT ed_dynamic	@	_ss	@	.,			///
+	option(dynamic)							///
+	label("Dynamic forecasts")
+END
+
+INCLUDE _p_gentype_sc
+INCLUDE _type_list_fd
+
+PROGRAM command
+BEGIN
+	put "predict "
+	put " " /program _p_gentype_output
+	INCLUDE _ifin_pr
+	beginoptions
+		option radio(main rb_xb rb_residuals rb_variance)
+		optionarg opts.ed_equation
+		optionarg opts.ed_dynamic
+	endoptions
+END

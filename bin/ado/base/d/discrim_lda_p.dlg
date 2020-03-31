@@ -1,0 +1,462 @@
+/*
+	predict (after discrim lda)
+
+*!  VERSION 1.1.0  23sep2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_wide
+INCLUDE _ht300
+INCLUDE header
+
+HELP hlp1, view("help discrim lda postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING tiesSpecification
+	tiesSpecification.setvalue e(ties)
+	setscale_hadj resource DISCRIM_LDA_P_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	opt.cb_ties.setvalue class tiesSpecification.value
+	opt.cb_ties.setdefault class tiesSpecification.value
+END
+
+DIALOG main, label(resource PREDICT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT tx_vars		_lft	_top	_vlwd	.,		///
+	label(resource LBL_NEW_VARIABLE_NAMES_STUB)
+  EDIT ed_vars		@	_ss	@	.,		///
+	label(resource LBL_NEW_VARIABLE_NAMES_STUB)
+  TEXT tx_var		_lft	_top	@	.,		///
+	label(resource LBL_NEW_VARIABLE_NAME)
+  EDIT ed_var		@	_ss	_vnwd	.,		///
+	label(resource LBL_NEW_VARIABLE_NAME) max(32)
+
+  TEXT tx_type		_vlsep	_top	_vlr	.,		///
+	label(resource LBL_NEW_VARIABLE_TYPE)
+  COMBOBOX cb_type	@	_ss	@	.,		///
+	dropdownlist						///
+	contents(type) default(c(type))				///
+	label(resource LBL_TYPE)
+
+  GROUPBOX gb_opts	_lft	_ls	_iwd	_ht16,		///
+	label(resource LBL_PRODUCE)
+  RADIO rb_class	_ilft	_ss	_ibwd	.,		///
+	first							///
+  	option(classification)					///
+	onclickon(program classification_on)			///
+	label(resource LBL_GROUP_MEMBERSHIP_CLASSIFICATION)
+  RADIO rb_pr		@	_ss	@	.,		///
+  	option(pr)						///
+	clickon(program pr_on)					///
+	label(resource LBL_PROBABILITY_OF_GROUP_MEMBERSHIP_PR)
+  RADIO rb_mahal	@	_ss	@	.,		///
+  	option(mahalanobis)					///
+	clickon(program mahalanobis_on)				///
+label(resource LBL_MAHALANOBIS_SQUARED_DISTANCE_BETWEEN_OBS)
+  RADIO rb_dscore	@	_ss	@	.,		///
+  	option(dscore)						///
+	clickon(script dscore_on)				///
+	label(resource DISCRIM_LDA_P_MAIN_RB_DSCORE)
+  RADIO rb_clscore	@	_ss	@	.,		///
+  	option(clscore)						///
+	clickon(program clscore_on)				///
+	label(resource LBL_GROUP_CLASSIFICATION_FUNCTION_SCORE)
+  RADIO rb_looclass	@	_ss	@	.,		///
+  	option(looclass)					///
+	clickon(program looclass_on)				///
+	label(resource LBL_LEAVE_ONE_OUT_GROUP_MEMBERSHIP_CLASS_LOOCLASS)
+  RADIO rb_loopr	@	_ss	@	.,		///
+  	option(loopr)						///
+	clickon(program loopr_on)				///
+	label(resource LBL_LEAVE_ONE_OUT_PROBABILITY_GROUP_MEM_LOOPR)
+  RADIO rb_loomahal	@	_ss	@	.,		///
+	last							///
+  	option(loomahal)					///
+	clickon(program loomahal_on)				///
+label(resource LBL_LEAVE_ONE_OUT_MAHALANOBIS_SQ_DIS_LOOMAHAL)
+
+  CHECKBOX ck_groupvar	_lft	_xls	_ckwd	.,		///
+	onclickon(program group_on)				///
+	onclickoff(program group_off)				///
+	label("")
+  SPINNER sp_groupvar	_cksep	@	_spwd	.,		///
+	option(group)						///
+	default(1)						///
+	min(1)							///
+	max(e(N_groups))					///
+	label(resource LBL_GROUP)
+  TEXT tx_groupvar	_spsep	@	300	.,		///
+	label(resource LBL_GROUP_STATISTIC_IS_TO_BE_CALCULATED)
+END
+
+INCLUDE ifin
+INCLUDE _type_list_fd
+
+PROGRAM classification_on
+BEGIN
+	call main.ck_groupvar.disable
+	call main.sp_groupvar.disable
+	call main.tx_groupvar.disable
+
+	call opt.gb_priors.enable
+	call opt.rb_priordefault.enable
+	call opt.rb_equal.enable
+	call opt.rb_proportional.enable
+	call opt.rb_matrix.enable
+	if opt.rb_matrix {
+		call opt.cb_matname.enable
+	}
+
+	call opt.tx_ties.enable
+	call opt.cb_ties.enable
+
+	call script onevar
+END
+
+PROGRAM pr_on
+BEGIN
+	call main.ck_groupvar.enable
+	call main.tx_groupvar.enable
+	if main.ck_groupvar {
+		call main.sp_groupvar.enable
+	}
+
+	call opt.gb_priors.enable
+	call opt.rb_priordefault.enable
+	call opt.rb_equal.enable
+	call opt.rb_proportional.enable
+	call opt.rb_matrix.enable
+	if opt.rb_matrix {
+		call opt.cb_matname.enable
+	}
+
+	call opt.tx_ties.disable
+	call opt.cb_ties.disable
+
+	if main.ck_groupvar {
+		call script onevar
+	}
+	else {
+		call script manyvars
+	}
+END
+
+PROGRAM mahalanobis_on
+BEGIN
+	call main.ck_groupvar.enable
+	call main.tx_groupvar.enable
+	if main.ck_groupvar {
+		call main.sp_groupvar.enable
+	}
+
+	call opt.gb_priors.enable
+	call opt.rb_priordefault.enable
+	call opt.rb_equal.enable
+	call opt.rb_proportional.enable
+	call opt.rb_matrix.enable
+	if opt.rb_matrix {
+		call opt.cb_matname.enable
+	}
+
+	call opt.tx_ties.disable
+	call opt.cb_ties.disable
+
+	if main.ck_groupvar {
+		call script onevar
+	}
+	else {
+		call script manyvars
+	}
+END
+
+SCRIPT dscore_on
+BEGIN
+	main.ck_groupvar.disable
+	main.sp_groupvar.disable
+	main.tx_groupvar.disable
+
+	opt.gb_priors.disable
+	opt.rb_priordefault.disable
+	opt.rb_equal.disable
+	opt.rb_proportional.disable
+	opt.rb_matrix.disable
+	opt.cb_matname.disable
+
+	opt.tx_ties.disable
+	opt.cb_ties.disable
+
+	script manyvars
+END
+
+PROGRAM clscore_on
+BEGIN
+	call main.ck_groupvar.enable
+	call main.tx_groupvar.enable
+	if main.ck_groupvar {
+		call main.sp_groupvar.enable
+	}
+
+	call opt.gb_priors.enable
+	call opt.rb_priordefault.enable
+	call opt.rb_equal.enable
+	call opt.rb_proportional.enable
+	call opt.rb_matrix.enable
+	if opt.rb_matrix {
+		call opt.cb_matname.enable
+	}
+
+	call opt.tx_ties.disable
+	call opt.cb_ties.disable
+
+	if main.ck_groupvar {
+		call script onevar
+	}
+	else {
+		call script manyvars
+	}
+END
+
+PROGRAM looclass_on
+BEGIN
+	call main.ck_groupvar.disable
+	call main.sp_groupvar.disable
+	call main.tx_groupvar.disable
+
+	call opt.gb_priors.enable
+	call opt.rb_priordefault.enable
+	call opt.rb_equal.enable
+	call opt.rb_proportional.enable
+	call opt.rb_matrix.enable
+	if opt.rb_matrix {
+		call opt.cb_matname.enable
+	}
+
+	call opt.tx_ties.enable
+	call opt.cb_ties.enable
+
+	call script onevar
+END
+
+PROGRAM loopr_on
+BEGIN
+	call main.ck_groupvar.enable
+	call main.tx_groupvar.enable
+	if main.ck_groupvar {
+		call main.sp_groupvar.enable
+	}
+
+	call opt.gb_priors.enable
+	call opt.rb_priordefault.enable
+	call opt.rb_equal.enable
+	call opt.rb_proportional.enable
+	call opt.rb_matrix.enable
+	if opt.rb_matrix {
+		call opt.cb_matname.enable
+	}
+
+	call opt.tx_ties.disable
+	call opt.cb_ties.disable
+
+	if main.ck_groupvar {
+		call script onevar
+	}
+	else {
+		call script manyvars
+	}
+END
+
+PROGRAM loomahal_on
+BEGIN
+	call main.ck_groupvar.enable
+	call main.tx_groupvar.enable
+	if main.ck_groupvar {
+		call main.sp_groupvar.enable
+	}
+
+	call opt.gb_priors.enable
+	call opt.rb_priordefault.enable
+	call opt.rb_equal.enable
+	call opt.rb_proportional.enable
+	call opt.rb_matrix.enable
+	if opt.rb_matrix {
+		call opt.cb_matname.enable
+	}
+
+	call opt.tx_ties.disable
+	call opt.cb_ties.disable
+
+	if main.ck_groupvar {
+		call script onevar
+	}
+	else {
+		call script manyvars
+	}
+END
+
+PROGRAM group_on
+BEGIN
+	call main.sp_groupvar.enable
+
+	if main.rb_class | main.rb_looclass {
+		call script onevar
+	}
+
+	if main.rb_dscore {
+		call script manyvars
+	}
+
+	if main.rb_pr | main.rb_mahal | main.rb_clscore |	///
+	   main.rb_loopr | main.rb_loomahal {
+		call script onevar
+	}
+END
+
+PROGRAM group_off
+BEGIN
+	call main.sp_groupvar.disable
+
+	if main.rb_class | main.rb_looclass {
+		call script onevar
+	}
+
+	if main.rb_dscore {
+		call script manyvars
+	}
+
+	if main.rb_pr | main.rb_mahal | main.rb_clscore |	///
+	   main.rb_loopr | main.rb_loomahal {
+		call script manyvars
+	}
+END
+
+SCRIPT manyvars
+BEGIN
+	main.tx_vars.show
+	main.ed_vars.show
+	main.tx_var.hide
+	main.ed_var.hide
+END
+
+SCRIPT onevar
+BEGIN
+	main.tx_vars.hide
+	main.ed_vars.hide
+	main.tx_var.show
+	main.ed_var.show
+END
+
+DIALOG opt, tabtitle(resource LBL_OPTIONS)
+BEGIN
+  GROUPBOX gb_priors	_lft	_top	_iwd	_ht10h,			///
+	label(resource LBL_GROUP_PRIOR_PROBABILITIES)
+
+  RADIO rb_priordefault	_indent	_ss	_ibwd	.,			///
+	first								///
+	option(NONE)							///
+	onclickon(opt.cb_matname.disable)				///
+	label(resource LBL_USE_DEFAULT_DEFINED_ESTIMATION_COMMAND)
+
+  RADIO rb_equal	@	_ss	@	.,			///
+	option(equal)							///
+	onclickon(opt.cb_matname.disable)				///
+	label(resource LBL_EQUAL_PRIOR_PROBABILITIES)
+
+  RADIO rb_proportional	@	_ss	@	.,			///
+	option(proportional)						///
+	onclickon(opt.cb_matname.disable)				///
+	label(resource LBL_GROUP_SIZE_PROPORTIONAL_PRIOR_PROB)
+
+  RADIO rb_matrix	@	_ss	@	.,			///
+	last								///
+	onclickon(opt.cb_matname.enable)				///
+	label(resource LBL_MATRIX_MATRIX_EXPRESSION_CONTAINING_GROUP)
+  COMBOBOX cb_matname	_rbsep	_ss	200	60,			///
+	dropdown							///
+	label(resource LBL_MATRIX_MATRIX_EXPRESSION_CONTAINING_GROUP)	///
+	contents(vector)
+
+  TEXT tx_ties		_lft	_xls	_iwd	.,			///
+	label(resource LBL_TIES_GROUP_CLASSIFICATION)
+  COMBOBOX cb_ties	@	_ss	@	.,			///
+	dropdownlist							///
+	option(ties)							///
+	contents(main_ties_contents)					///
+	values(main_ties_values)					///
+	label(resource LBL_TIES_GROUP_CLASSIFICATION)
+END
+
+LIST main_ties_contents
+BEGIN
+	resource LBL_PRODUCE_A_MISSING_VALUE
+	resource LBL_ARE_BROKEN_RANDOMLY
+	resource LBL_ARE_SET_TO_THE_FIRST_TIED_GROUP
+END
+
+LIST main_ties_values
+BEGIN
+	missing
+	random
+	first
+END
+
+PROGRAM opt_priors_output
+BEGIN
+	if opt.rb_equal.isenabled() & opt.rb_equal {
+		put "priors(equal)"
+	}
+	if opt.rb_proportional.isenabled() & opt.rb_proportional {
+		put "priors(proportional)"
+	}
+	if opt.rb_matrix.isenabled() & opt.rb_matrix {
+		require opt.cb_matname
+		put "priors("
+		put opt.cb_matname
+		put ")"
+	}
+END
+
+PROGRAM command
+BEGIN
+	put "predict "
+
+	if ! main.cb_type.isdefault() {
+		put main.cb_type " " "("
+	}
+
+	if main.rb_class | main.rb_looclass {
+		require main.ed_var
+		put main.ed_var
+	}
+
+	if main.ck_groupvar & main.ck_groupvar.isenabled() {
+		require main.sp_groupvar
+		require main.ed_var
+		put main.ed_var
+	}
+
+	if main.rb_dscore | main.rb_pr | main.rb_mahal | main.rb_clscore | ///
+	   main.rb_loopr | main.rb_loomahal {
+		require main.ed_vars
+		put main.ed_vars
+	}
+
+	if ! main.cb_type.isdefault() {
+		put ") "
+	}
+
+	INCLUDE _ifin_pr
+	beginoptions
+		option radio(main rb_class rb_pr rb_mahal rb_dscore	///
+				  rb_clscore rb_looclass rb_loopr rb_loomahal)
+		optionarg main.sp_groupvar
+		put " " /program opt_priors_output
+		optionarg /hidedefault opt.cb_ties
+	endoptions
+END

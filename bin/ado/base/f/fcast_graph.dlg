@@ -1,0 +1,126 @@
+/*
+    fcast_graph.dlg
+
+*!  VERSION 2.1.0  30sep2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_wide
+DEFINE _dlght 250
+INCLUDE header
+
+HELP hlp1, view("help fcast_graph")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource FCAST_GRAPH_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	gr_plots.settabtitle resource FCAST_GRAPH_FORECAST_PLOT
+	script gr_plots_setDefaultLine
+	gr_plots2.settabtitle resource FCAST_GRAPH_OBSERVED_PLOT
+	gr_plots2_outputCmd.setstring "obopts"
+	script gr_plots2_setDefaultLine
+
+	script gr_yaxis_setByoptsContext_on
+	script gr_taxis_setByoptsContext_on
+	script gr_titles_setByoptsContext_on
+	script gr_legend_setByoptsContext_on
+	script gr_overall_setByoptsContext_on
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN) ///
+    label(resource FCAST_GRAPH_DLG_TITLE)
+BEGIN
+  TEXT     tx_dv		_lft	_top	_iwd	.,		///
+	label(resource FCAST_GRAPH_MAIN_TX_DV)
+  VARLIST  vl_dv		@	_ss	@	.,		///
+  	numeric								///
+	label(resource LBL_GB_VARIABLES)
+
+  GROUPBOX gb_opts		_lft	+35	@	_ht8,		///
+	label(resource LBL_COMMON_OPTIONS)
+
+  CHECKBOX ck_differences	_ilft	_ms	_ibwd	.,		///
+	onclickon(script main_differences_on)				///
+	onclickoff(script main_differences_off)				///
+	option(differences)						///
+	label(resource FCAST_GRAPH_MAIN_CK_DIFFERENCES)
+  CHECKBOX ck_noci		_ilft	_ms	_ibwd	.,		///
+	onclickon(program noci_check)					///
+	onclickoff(program noci_check)					///
+	option(noci)							///
+	label(resource FCAST_GRAPH_MAIN_CK_NOCI)
+
+  CHECKBOX ck_observed		_ilft	_ms	_ibwd	.,          	///
+	option(observed)						///
+	onclickon(script gr_plots2_enable)				///
+	onclickoff(script gr_plots2_disable)				///
+	label(resource FCAST_GRAPH_MAIN_CK_OBSERVED)
+END
+
+PROGRAM noci_check
+BEGIN
+	if main.ck_noci | main.ck_differences {
+		call script gr_ciplots_disable
+	}
+	if ! (main.ck_noci | main.ck_differences) {
+		call script gr_ciplots_enable
+	}
+END
+
+SCRIPT main_differences_on
+BEGIN
+	main.ck_noci.disable
+	program noci_check
+END
+
+SCRIPT main_differences_off
+BEGIN
+	main.ck_noci.enable
+	program noci_check
+END
+
+INCLUDE ifin
+
+INCLUDE gr_plots
+INCLUDE gr_ciplots
+INCLUDE gr_plots2
+INCLUDE gr_yaxis
+INCLUDE gr_taxis
+INCLUDE gr_titles
+INCLUDE gr_legend
+INCLUDE gr_overall
+
+PROGRAM varfcast_graph_output
+BEGIN
+	varlist main.vl_dv
+	INCLUDE _ifin_pr
+	beginoptions
+		// entry for cilines not included intentionally because it
+		//   is a command line utility.
+		option main.ck_differences
+		option main.ck_noci
+        	option main.ck_observed
+
+		put " " /program gr_plots_output
+		put " " /program gr_ciplots_output
+		put " " /program gr_plots2_output
+		put " " /program gr_yaxis_output
+		put " " /program gr_taxis_output
+		put " " /program gr_titles_output
+		put " " /program gr_legend_output
+		put " " /program gr_overall_output
+	endoptions
+END
+
+PROGRAM command
+BEGIN
+	put "fcast graph "
+	put /program varfcast_graph_output
+END

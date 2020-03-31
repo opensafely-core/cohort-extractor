@@ -1,0 +1,304 @@
+/*
+ roccomp 
+
+*!  VERSION 2.1.2  03dec2019
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_wide
+DEFINE _dlght 310
+INCLUDE header
+
+HELP hlp1, view("help roccomp")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource ROCCOMP_DLG_HSCALE
+END
+
+SCRIPT main_PREINIT
+BEGIN
+	create STRING lineOptionResults
+	create STRING matrixResult
+END
+
+SCRIPT main_POSTINIT
+BEGIN
+	gr_line_options.settabtitle resource LBL_TAB_REFERENCE_LINE
+	gr_line_options_optionName.setstring "rlopts"
+	script gr_plots_setMultiView_on
+	script gr_plots_setDefaultConnected
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	label(resource ROCCOMP_DLG_TITLE)
+BEGIN
+  TEXT     tx_varr		_lft	_top	_vnwd	.,		///
+	label(resource LBL_REFERENCE_VARIABLE)
+  TEXT     tx_varc		_lft4_2	@	_cwd4_1	.,		///
+	label(resource LBL_CLASSIFICATION_VARIABLE)	
+  TEXT     tx_varc2		_lft4_3	@	_cwd1	.,		///
+	label(resource ROCCOMP_MAIN_TX_VARC2)
+  
+  VARNAME  vn_varr		_lft	_ss	_vnwd	., 		/// 
+  	numeric								///
+	label(resource LBL_REFERENCE_VARIABLE)
+  VARNAME  vn_varc		_lft4_2	@	_vnwd	.,		/// 
+  	numeric								///
+	label(resource LBL_CLASSIFICATION_VARIABLE)	
+
+  VARLIST  vl_varc2		_lft4_3	@	_cwd1	.,		///
+  	numeric								///
+	label(resource LBL_REFERENCE_VARIABLE)
+  GROUPBOX gb_opt		_lft	_ls	_iwd	_ht21,		///
+	label(resource LBL_OPTIONS)
+  CHECKBOX ck_by		_indent	_ss	_cwd2	.,		///
+	label(resource ROCCOMP_MAIN_CK_BY)				///
+	clickon(program main_by_on)					///
+	clickoff(script main_by_off)
+  DEFINE _x @x
+  DEFINE _y @y
+  VARNAME  vn_by		_indent2 _ss	_vnwd	.,		///
+	option("by")							///
+	label(resource ROCCOMP_MAIN_CK_BY)
+  CHECKBOX ck_test		_lft2	_y	_cwd2	.,		///
+	label(resource LBL_USE_CONTRAST_MATRIX_FOR_COMPARING_ROC_AREAS)	///
+	onclickon(script ck_test_on)					///
+	onclickoff(script ck_test_off)
+  COMBOBOX cb_test		_indent2 _ss	_vnwd	.,		///
+	dropdownlist							///
+	contents(matrix)						///
+	option("test")							///
+	label(resource LBL_CONTRAST_MATRIX_FOR_COMPARING_ROC_AREAS)
+  BUTTON   bu_matinput    	_vnsep	@	100	.,		///
+	label(resource LBL_INPUT_MATRIX) onpush(program show_matrix_input) ///
+	tooltip(resource LBL_INPUT_HAND)
+
+  CHECKBOX ck_graph		_ilft	+35	_cwd1	.,		///
+	clickon(program main_graph_on)					///
+	clickoff("script main_graph_off")				///
+	label(resource LBL_GRAPH_THE_ROC_CURVE)				///
+	option("graph")
+  CHECKBOX ck_noref		_indent	_ls	_cwd2	 .,		///
+	label(resource LBL_SUPPRESS_PLOTTING_45_DEGREE_REF_LINE)	///
+	clickon("script main_refline_options_disable")			///
+	clickoff("program main_refline_options_enable")			///
+	option("norefline")
+  CHECKBOX ck_sep		@	_ss	@	.,		///	
+	label(resource LBL_PLACE_EACH_ROC_CURVE_ON_ITS_OWN_GRAPH)	///
+	option("separate")
+  CHECKBOX ck_summ		@	_ss	@	.,		///
+	label(resource LBL_REPORT_AREA_UNDER_ROC_CURVE)			///
+	option("summary")
+  CHECKBOX ck_binorm		_x	_ls	_cwd2	.,		///	
+	label(resource LBL_ESTIMATE_USING_BINORMAL_DISTRIBUTION)	///
+	clickon(program main_binorm_enable)				///
+	clickoff(script main_binorm_disable)				///
+	option("binormal")						
+  BUTTON bu_line_options	_lft4_3	@	160	.,		///
+	label(resource LBL_BINORMAL_FIT_LINE_PROPERTIES)		///
+	onpush(script show_line_dialog)
+  DEFINE _y _ls
+  DEFINE _cx _sprb
+  INCLUDE _sp_level
+END
+
+// Main scripts/programs
+PROGRAM show_matrix_input
+BEGIN
+	call create CHILD matrix_input
+	if ! _rc {
+		call matrix_input.setExitString matrixResult
+		call matrix_input.setExitAction "program getMatrixResult"
+		call matrix_input.callthru "isChildContext.settrue"
+	}
+END
+PROGRAM getMatrixResult
+BEGIN
+	call main.cb_test.repopulate
+	call main.cb_test.setvalue class matrixResult.value
+END
+
+SCRIPT ck_test_on
+BEGIN
+	main.cb_test.enable
+	main.bu_matinput.enable
+END
+SCRIPT ck_test_off
+BEGIN
+	main.cb_test.disable
+	main.bu_matinput.disable
+END
+
+PROGRAM main_by_on
+BEGIN
+	call main.vn_by.enable
+	if main.ck_graph {
+		call main.ck_sep.enable
+	}
+END
+
+SCRIPT main_by_off
+BEGIN
+	main.vn_by.disable
+	main.ck_sep.disable
+END
+
+PROGRAM main_graph_on
+BEGIN
+	call main.ck_noref.enable
+	if main.ck_noref {
+		call script gr_line_options_disable
+	}
+	else {
+		call script gr_line_options_enable
+	}	
+	if main.ck_binorm {
+		call main.bu_line_options.enable
+	}
+	else {
+		call main.bu_line_options.disable
+	}	
+	call main.ck_summ.enable
+	if main.ck_by {
+    		call main.ck_sep.enable
+    	}
+	call script gr_plots_enable
+	call script gr_yaxis_enable
+	call script gr_xaxis_enable
+	call script gr_titles_enable
+	call script gr_legend_enable
+	call script gr_overall_enable
+END
+
+SCRIPT main_graph_off
+BEGIN
+	main.ck_noref.disable
+	main.ck_sep.disable
+	main.ck_summ.disable
+	main.bu_line_options.disable
+	
+	script gr_line_options_disable
+	script gr_plots_disable
+	script gr_yaxis_disable
+	script gr_xaxis_disable
+	script gr_titles_disable
+	script gr_legend_disable
+	script gr_overall_disable
+END
+
+SCRIPT main_refline_options_disable
+BEGIN
+	script gr_line_options_disable
+END
+
+PROGRAM main_refline_options_enable
+BEGIN
+	if main.ck_graph {
+		call script gr_line_options_enable
+	}
+END
+
+PROGRAM main_binorm_enable
+BEGIN
+	if main.ck_graph {
+		call main.bu_line_options.enable
+	}
+END
+SCRIPT main_binorm_disable
+BEGIN
+	main.bu_line_options.disable
+END
+
+// Main Buttons
+SCRIPT show_line_dialog
+BEGIN
+	create CHILD gr_plots AS lineOptions, allowsubmit
+	lineOptions.setExitString lineOptionResults
+	lineOptions.settitle resource LBL_BINORMAL_FIT_LINE_PROPERTIES
+	lineOptions.setExitAction "program checkLineOptionResults"
+	lineOptions.setSubmitAction "program lineOptionSubmit"
+	lineOptions.callthru "script gr_plots_setDefaultLine"
+	lineOptions.callthru "script gr_plots_setMultiView_on"
+	lineOptions.callthru `"gr_plots_outputCmdStub.setstring "line""'
+END
+
+PROGRAM checkLineOptionResults
+BEGIN
+	if lineOptionResults.iseq("") {
+		call main.bu_line_options.modified_off
+	}
+	if ! lineOptionResults.iseq("") {
+		call main.bu_line_options.modified_on
+	}
+END
+PROGRAM lineOptionSubmit
+BEGIN
+	call program checkLineOptionResults
+	call Submit
+END
+
+INCLUDE ifin
+INCLUDE weights_f
+
+INCLUDE gr_plots
+INCLUDE gr_line_options
+INCLUDE gr_yaxis
+INCLUDE gr_xaxis
+INCLUDE gr_titles
+INCLUDE gr_legend
+INCLUDE gr_overall
+
+PROGRAM command
+BEGIN
+	put "roccomp "
+	varlist main.vn_varr
+	varlist main.vn_varc
+	if main.vl_varc2 {
+		varlist main.vl_varc2
+	}
+	put " " /program ifin_output	
+	put " " /program weights_output	
+	beginoptions
+		if ! main.vl_varc2 & ! main.ck_by {
+			call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource ROCCOMP_MSGBOX_EITHER_USE_FMT" ///
+				"resource LBL_TAB_MAIN" 		///
+				"resource ROCCOMP_MAIN_CK_BY" 		///
+				"resource ROCCOMP_MAIN_TX_VARC2"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, either use "Split into groups by variable"
+// or fill in "Additional classification variables".
+		}
+		if main.ck_by {
+			require main.vn_by
+			optionarg main.vn_by
+		}
+		if main.ck_test {
+			require main.cb_test
+			optionarg main.cb_test
+		}
+		option main.ck_graph
+		option main.ck_binorm
+		INCLUDE _level_main_pr
+		if main.ck_graph {
+			option main.ck_noref
+			option main.ck_sep
+			option main.ck_summ
+			if lineOptionResults & ! H(main.bu_line_options) {
+				put " " lineOptionResults " "
+			}
+			put " " /program gr_plots_output
+			put " " /program gr_line_options_output
+			put " " /program gr_yaxis_output
+			put " " /program gr_xaxis_output
+			put " " /program gr_titles_output
+			put " " /program gr_legend_output
+			put " " /program gr_overall_output
+		}
+	endoptions
+END

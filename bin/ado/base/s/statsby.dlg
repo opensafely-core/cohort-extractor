@@ -1,0 +1,230 @@
+/*
+  statsby
+
+*!  VERSION 2.1.5  08dec2016
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE header
+
+HELP hlp1, view("help statsby")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource STATSBY_DLG_HSCALE
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)	///
+	label(resource STATSBY_DLG_TITLE)
+BEGIN
+  DEFINE _y _top
+  INCLUDE _cmd_exp_list
+
+  TEXT     tx_byopt	_lft	_xls	_cwd1	.,			///
+	label(resource STATSBY_MAIN_TX_BYOPT)
+  VARLIST  vl_byopt	@	_ss	_vlwd	.,			///
+	label(resource LBL_GROUP_VARIABLES) option(by)
+  CHECKBOX ck_missing	@	_ls	_iwd	.,			///
+	label(resource STATSBY_MAIN_CK_MISSING)				///
+	option(NONE)
+END
+
+SCRIPT opt_PREINIT
+BEGIN
+        opt.fi_sav.formatfilter "{0} (*.dta)|*.dta|{1} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_DTA" "resource ui_ex FILE_TYPE_ALL_FILES"
+END
+
+DIALOG opt, tabtitle(resource LBL_OPTIONS)
+BEGIN
+  RADIO    rb_default	_lft	_top	_iwd	_ht8,			///
+	first label(resource LBL_REPLACE_DATA_IF_NOT_MODIFIED) option(NONE)	///
+	onclickon(script opt_save_off)
+
+  DEFINE holdx @x
+  RADIO    rb_clear	@	_ss	@	., 			///
+	option(clear)							///
+	label(resource LBL_REPLACE_DATA_EVEN_IF_MODIFIED)		///
+	onclickon(script opt_save_off)
+
+  RADIO    rb_sav	@	_ss	@ 	.,			///
+	last label(resource LBL_SAVE_RESULTS_FILE)			///
+	onclickon(program opt_save_on)
+
+  GROUPBOX gb_save	_lft	_ms	_iwd	_ht10, label(resource LBL_SAVE)
+
+  TEXT     tx_sav	_indent	_ss	_ibwd	.,			///
+  	label(resource LBL_FILENAME)
+  FILE     fi_sav	@	_ss	@	.,			///
+	label(resource LBL_BU_BROWSE)					///
+	option(saving)							///
+	defext(dta)							///
+	save								///
+	error(resource LBL_FILENAME_TO_SAVE)
+  CHECKBOX ck_double	@	_ls	_cwd2	.,			///
+	label(resource LBL_SAVE_STATISTICS_DOUBLE_PRECISION)		///
+	option(double)
+  CHECKBOX ck_every	_ilft	_ms	_ckwd	.,			///
+	onclickon(script opt_every_on)					///
+	onclickoff(script opt_every_off)
+  SPINNER  sp_every	_cksep	@	_spwd	.,			///
+	label(resource LBL_SAVE_EVERY_#)				///
+	min(1)								///
+	max(10000)							///
+	default(1)							///
+	option(every)
+  TEXT     tx_every	_spsep	@	_cksprb	.,			///
+	label(resource LBL_SAVE_RESULTS_FILE_EVERY_#TH_REP)
+
+  CHECKBOX ck_total	_lft	+45	_iwd	.,			///
+	label(resource STATSBY_MAIN_CK_TOTAL)				///
+	option(total)
+  CHECKBOX ck_subset 	@	_ms	@ 	.,			///
+	label(resource STATSBY_MAIN_CK_SUBSET)				///
+	option(subset)
+END
+
+PROGRAM opt_save_on
+BEGIN
+	call opt.gb_save.enable
+	call opt.fi_sav.enable
+	call opt.ck_double.enable
+	call opt.ck_every.enable
+	call opt.tx_every.enable
+	call opt.tx_sav.enable
+	if opt.ck_every {
+		call opt.sp_every.enable
+	}
+END
+
+SCRIPT opt_save_off
+BEGIN
+	opt.gb_save.disable
+	opt.fi_sav.disable
+	opt.ck_double.disable
+	opt.sp_every.disable
+	opt.tx_every.disable
+	opt.ck_every.disable
+	opt.tx_sav.disable
+END
+
+SCRIPT opt_every_on
+BEGIN
+	opt.sp_every.enable
+END
+
+SCRIPT opt_every_off
+BEGIN
+	opt.sp_every.disable
+END
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_repl_logResults
+	program rpt_bu_repl_log_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  CHECKBOX ck_nolegend 	_lft	_top	_iwd   	.,			///
+	label(resource LBL_SUPPRESS_TABLE_LEGEND)			///
+	onclickon(program check_legend)					///
+	onclickoff(program check_legend)				///
+	option(nolegend)
+  CHECKBOX ck_verbose 	@	_ms	@ 	.,			///
+	label(resource LBL_DISPLAY_FULL_TABLE_LEGEND) option(verbose)
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_replication_log_opts
+END
+
+INCLUDE replication_log_opts_child_pr
+
+PROGRAM rpt_output
+BEGIN
+	option rpt.ck_nolegend
+	option rpt.ck_verbose
+	put " " rpt_bu_repl_logResults
+END
+
+DIALOG adv, tabtitle(resource LBL_ADVANCED)
+BEGIN
+  TEXT     tx_basepop	_lft	_top	_iwd	.,			///
+  	label(resource STATSBY_RPT_RB_BASEPOP)
+  EXP	   ex_basepop	@	_ss	@	.,			///
+  	label(resource LBL_BU_CREATE) option(basepop)
+
+  CHECKBOX ck_force 	@	_ls	@ 	.,			///
+	label(resource STATSBY_RPT_CK_FORCE)				///
+	option(force)
+  CHECKBOX ck_forcedrop	@	_ms	@	.,			///
+  	option(forcedrop)						///
+  	label(resource STATSBY_RPT_CK_FORCEDROP)
+END
+
+PROGRAM check_legend
+BEGIN
+	if rpt.ck_nolegend {
+		call gaction rpt.ck_verbose.disable
+	}
+	if !rpt.ck_nolegend {
+		call gaction rpt.ck_verbose.enable
+	}
+END
+
+PROGRAM statsby_by_options
+BEGIN
+	varlist main.vl_byopt
+END
+
+PROGRAM statsby_options
+BEGIN
+	put "statsby "
+	option main.ck_b
+	option main.ck_se
+	put " " main.ed_explst
+	beginoptions
+		put "by("
+		put /program statsby_by_options
+		if main.ck_missing {
+			put ", missing"
+		}
+		put ") "
+		option opt.rb_clear
+		if opt.rb_sav {
+			require opt.fi_sav
+			repfile opt.fi_sav
+			put `"saving("'
+			put opt.fi_sav
+			put `", "'
+			optionarg opt.sp_every
+			option opt.ck_double
+			put "replace)"
+		}
+		if opt.rb_default {
+			stopbox rusure resource LBL_MSGBOX_COMMAND_WILL_REPLACE_YOUR_DATA_IN_MEMORY
+// This command will replace your data in memory. Do you wish to continue?
+			put " clear"
+		}
+		option opt.ck_total
+		option opt.ck_subset
+
+		put " " /program rpt_output
+		optionarg adv.ex_basepop
+		option adv.ck_force
+		option adv.ck_forcedrop
+	endoptions
+END
+
+PROGRAM command
+BEGIN
+	require main.vl_cmd
+	put /program statsby_options
+	put " " " : "	/* end of prefix, begin command */
+		put main.vl_cmd
+END

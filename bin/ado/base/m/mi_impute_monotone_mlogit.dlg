@@ -1,0 +1,195 @@
+/*
+  mi impute mlogit
+
+*!  VERSION 1.1.0  22oct2014
+
+  keyword:  mi impute
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 400
+INCLUDE header
+
+HELP hlp1, view("help mi impute mlogit")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	program  parseMessage
+	create STRING _mi_ivars
+	create LIST   _mi_IVARS_LIST
+	setscale_hadj resource MI_IMPUTE_MONOTONE_MLOGIT_DLG_HSCALE
+END
+
+PROGRAM parseMessage
+BEGIN
+	if __MESSAGE.contains("__MONO__") {
+		call script main_mono_on
+	}
+	if __MESSAGE.contains("__MONO_CUST__") {
+		call script main_mono_custom_on
+	}
+	if __MESSAGE.contains("__CHAIN__") {
+		call script main_chain_on
+	}
+END
+
+SCRIPT POSTINIT
+BEGIN
+	_mi_ivars.setvalue char _dta[_mi_ivars]
+
+	_mi_IVARS_LIST.Arrdropall
+	_mi_ivars.tokenize _mi_IVARS_LIST
+	main.cb_ivar.repopulate
+	main.cb_ivars.repopulate
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)	///
+	label("")
+BEGIN
+  TEXT     tx_ivar	_lft	_topph	_vnwd	.,			///
+	label(resource LBL_IMPUTED_VARIABLE)
+  COMBOBOX cb_ivar	@ 	_ss	@	.,			///
+	dropdown							///
+	contents(_mi_IVARS_LIST)					///
+	label(resource LBL_IMPUTED_VARIABLE)
+  COMBOBOX cb_ivars	@ 	@	480	.,			///
+	append								///
+	dropdown							///
+	contents(_mi_IVARS_LIST)					///
+	label(resource LBL_IMPUTED_VARIABLE)
+
+  TEXT     tx_iv	_vlx	_topph	160	.,			///
+	label(resource LBL_INDDEPVAR)
+  VARLIST  vl_iv	@	_ss	_vlwd	.,			///
+	fv								///
+	numeric								///
+	label(resource LBL_INDDEPVAR)
+
+  DEFINE _x _lft
+  DEFINE _cx _iwd
+  DEFINE _y _ls
+  INCLUDE _mi_impute_chained_cust_opts
+  
+  CHECKBOX ck_nocons	@	_ms	@	.,			///
+	label(resource LBL_NOCONSTANT)					///
+	option(noconstant)
+
+  EDIT ed_base		_lft	_ls	_spwd	.,			///
+	numonly								///
+	option(baseoutcome)						///
+	label(resource LBL_BASE_OUTCOME)
+  TEXT tx_base		_spsep	@	_cwd1	.,			///
+	label(resource LBL_BASE_OUTCOME_OPTIONAL)
+
+  DEFINE _x _lft
+  DEFINE _cx _iwd
+  DEFINE _y _ls
+  INCLUDE _mi_impute_uni_aug_cond_boot
+
+  DEFINE _x _lft
+  DEFINE _cx _iwd
+  DEFINE _y _ms
+  INCLUDE _mi_impute_uvspec_opts
+END
+
+INCLUDE _mi_impute_chained_cust_opts_sc
+
+SCRIPT main_mono_on
+BEGIN
+	script main_chain_hide
+	script main_mono_custom_off
+	main.ck_nocons.setposition 10 70 400 .
+	main.ed_base.setposition . 100
+	main.tx_base.setposition . 100
+	main.ck_augment.setposition . 130
+	main.tx_cond.setposition . 160
+	main.ex_cond.setposition . 180
+	main.ck_bootstrap.setposition . 210
+	main.ck_ascont.setposition . 235
+	main.ck_noisily.setposition . 260
+END
+
+SCRIPT main_mono_custom_on
+BEGIN
+	script main_chain_hide
+	main.ck_nocons.setposition 150 60 260 .
+	main.ed_base.setposition . 90
+	main.tx_base.setposition . 90
+	main.ck_augment.setposition . 120
+	main.tx_cond.setposition . 150
+	main.ex_cond.setposition . 170
+	main.ck_bootstrap.setposition . 200
+	main.ck_ascont.setposition . 225
+	main.ck_noisily.setposition . 250
+	main.tx_iv.show
+	main.vl_iv.show
+	main.cb_ivars.hide
+	main.cb_ivar.show
+END
+
+SCRIPT main_mono_custom_off
+BEGIN
+	main.tx_iv.hide
+	main.vl_iv.hide
+	main.cb_ivar.hide
+	main.cb_ivars.show
+	main.tx_ivar.setlabel resource LBL_IMPUTED_VARIABLES
+END
+
+SCRIPT main_chain_on
+BEGIN
+	script main_chain_show
+	script main_mono_custom_off
+	main.ck_nocons.setposition 10 180 400 .
+	main.ed_base.setposition . 210
+	main.tx_base.setposition . 210
+	main.ck_augment.setposition . 240
+	main.tx_cond.setposition . 270
+	main.ex_cond.setposition . 290
+	main.ck_bootstrap.setposition . 320
+	main.ck_noisily.setposition . 345
+	main.ck_ascont.setposition . 370
+END
+
+INCLUDE if
+INCLUDE max_ml
+
+PROGRAM command_output
+BEGIN
+	if main.vl_iv.isvisible() {
+		put "mlogit"
+		varlist main.cb_ivar
+		if main.vl_iv {
+			put " " main.vl_iv
+		}
+	}
+	else {
+		put "mlogit"
+		if main.cb_ivar.isvisible() {
+			varlist main.cb_ivar
+		}
+	}
+	put " " /program if_output
+	beginoptions
+		put " " /program  main_chained_output
+		option main.ck_nocons
+		optionarg /hidedefault main.ed_base
+		INCLUDE _mi_impute_uni_aug_cond_boot_pr
+		INCLUDE _mi_impute_uvspec_opts_pr
+		put " " /program max_output
+	endoptions
+END
+
+PROGRAM command
+BEGIN
+	put " ("
+	put /program command_output
+	put ") "
+	if main.cb_ivars.isvisible() {
+		varlist main.cb_ivars
+	}
+END

@@ -1,0 +1,505 @@
+/*
+  me_equ_nofixed.dlg
+
+*!  VERSION 1.1.5  14feb2020
+
+  keyword:  eclass
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_small
+DEFINE _dlght 490
+INCLUDE header
+
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING parent_name
+	create DOUBLE allow_fweight
+	create DOUBLE allow_pweight
+	create DOUBLE allow_iweight
+
+	parent_name.setvalue class PARENT._dlg_rsrcname
+	parent_name.withvalue allow_fweight.setvalue			///
+		class @.allow_fweights.value
+	parent_name.withvalue allow_pweight.setvalue			///
+		class @.allow_pweights.value
+	parent_name.withvalue allow_iweight.setvalue			///
+		class @.allow_iweights.value
+	setscale_hadj resource ME_EQU_NOFIXED_DLG_HSCALE
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	if allow_fweight & !main.ck_pweight &!main.ck_iweight {
+		call main.ck_fweight.enable
+		if main.ck_fweight {
+			call main.vn_fweight.enable
+			call main.ck_pweight.disable
+			call main.vn_pweight.disable
+			call main.ck_iweight.disable
+			call main.vn_iweight.disable
+		}
+		else {
+			call main.vn_fweight.disable
+		}
+	}
+	else {
+		call main.ck_fweight.disable
+		call main.vn_fweight.disable
+	}
+
+	if allow_pweight & !main.ck_fweight & !main.ck_iweight {
+		call main.ck_pweight.enable
+		if main.ck_pweight {
+			call main.vn_pweight.enable
+			call main.ck_fweight.disable
+			call main.vn_fweight.disable
+			call main.ck_iweight.disable
+			call main.vn_iweight.disable
+		}
+		else {
+			call main.vn_pweight.disable
+		}
+	}
+	else {
+		call main.ck_pweight.disable
+		call main.vn_pweight.disable
+	}
+
+	if allow_iweight & !main.ck_fweight & !main.ck_pweight {
+		call main.ck_iweight.enable
+		if main.ck_iweight {
+			call main.vn_iweight.enable
+			call main.ck_fweight.disable
+			call main.vn_fweight.disable
+			call main.ck_pweight.disable
+			call main.vn_pweight.disable
+		}
+		else {
+			call main.vn_iweight.disable
+		}
+	}
+	else {
+		call main.ck_iweight.disable
+		call main.vn_iweight.disable
+	}
+END
+
+DIALOG main, label("")
+BEGIN
+	TEXT	tx_level		_lft	_top	_iwd	.,	///
+		label(resource LBL_LEVEL_VARIABLE_FOR_EQUATION)
+	VARNAME	vn_level		@	_ss	_vnwd	.,	///
+		label(resource LBL_LEVEL_VARIABLE_FOR_EQUATION)
+
+	GROUPBOX gb_random_coef		@	_ls	_iwd	_ht7,	///
+		label(resource LBL_RANDOM_COEFFICIENTS, nocolon)
+	RADIO	rb_independent		_indent	_ss	_inwd	.,	///
+		first							///
+		onclickon(script main_independent_on)			///
+		label(resource LBL_INDEPENDENT_VARIABLES)
+	RADIO	rb_factor		@	_ss	250	.,	///
+		last							///
+		onclickon(script main_factor_on)			///
+		label(resource LBL_CROSSED_EFFECTS_FACTOR_GROUP_VAR)
+	BUTTON bu_factor		+260	@	20	.,	///
+		onpush("view help j_cfactor")				///
+		label(resource LBL_?) 
+
+	VARLIST vl_independent		_ilft _ms	_ibwd	.,	///
+		fv ts							///
+		label(resource LBL_INDEPENDENT_VARIABLES)
+	VARNAME vn_factor		@	@	_vnwd	.,	///
+		label(resource LBL_CROSSED_EFFECTS_FACTOR_GROUP_VAR)
+
+	GROUPBOX gb_cov_structure	_lft	_xls	_iwd	_ht13,	///
+		label(resource LBL_VARIANCE_COVARIANCE_STRUCTURE_OF_RE)
+	RADIO	rb_ind			20	_ss	_cwd2	.,	///
+		first							///
+		label(resource LBL_INDEPENDENT_LOWERCASE)
+	RADIO	rb_exc			_lft2	@	@	.,	///
+		label(resource LBL_EXCHANGEABLE_LOWERCASE)
+	RADIO	rb_ide			20	_ss	@	.,	///
+		label(resource LBL_IDENTITY_LOWERCASE)
+	RADIO   rb_uns			_lft2	@	@	.,	///
+		label(resource LBL_UNSTRUCTURED_LOWERCASE)
+	RADIO	rb_fix			20	_ss	@	.,	///
+		onclickon(program main_fix_on)				///
+		onclickoff(script main_fix_off)				///
+		label(resource LBL_FIXED)
+	COMBOBOX cb_fix			30	 _ss	120	.,	///
+		contents(matrix)					///
+		dropdown						///
+		label(resource LBL_MATRIX_LOWERCASE)
+	BUTTON	bu_fix			+130	@	100	.,	///
+		onpush(program adv_show_user_metric_fix)		///
+		tooltip(resource LBL_INPUT_HAND)			///
+		label(resource LBL_INPUT_MATRIX)
+	RADIO	rb_pat			20	_ms	@	.,	///
+		last							///
+		onclickon(program main_pat_on)				///
+		onclickoff(script main_pat_off)				///
+		label(resource LBL_PATTERN_LOWERCASE)
+	COMBOBOX cb_pat			30	 _ss	120	.,	///
+		contents(matrix)					///
+		dropdown						///
+		label(resource LBL_MATRIX_LOWERCASE)
+	BUTTON	bu_pat			+130	@	100	.,	///
+		onpush(program adv_show_user_metric_pat)		///
+		tooltip(resource LBL_INPUT_HAND)			///
+		label(resource LBL_INPUT_MATRIX)
+
+	CHECKBOX ck_noconstant		_lft	_xls	_iwd	.,	///
+		option(noconstant)					///
+		label(resource LBL_SUPPRESS_CONSTANT_TERM_FROM_RE_EQUATION)
+		
+	CHECKBOX ck_fweight		@	_ms	_iwd	.,	///
+		onclickon(script main_fweight_on)			///
+		onclickoff(program main_fweight_off)			///
+		label(resource LBL_FREQUENCY_WEIGHTS)
+	VARNAME	vn_fweight		_indent2 _ss	_vnwd	.,	///
+		option(fweight)						///
+		error(resource LBL_FREQUENCY_WEIGHTS)			///
+
+	CHECKBOX ck_pweight		_lft	_ms	_iwd	.,	///
+		onclickon(script main_pweight_on)			///
+		onclickoff(program main_pweight_off)			///
+		label(resource LBL_SAMPLING_WEIGHTS)
+	VARNAME	vn_pweight		_indent2 _ss	_vnwd	.,	///
+		option(pweight)						///
+		error(resource LBL_SAMPLING_WEIGHTS)			///
+		label(resource LBL_BU_CREATE)
+	CHECKBOX ck_iweight		_lft	_ms	_iwd	.,	///
+		onclickon(script main_iweight_on)			///
+		onclickoff(program main_iweight_off)			///
+		label(resource LBL_IMPORTANCE_WEIGHTS)
+	VARNAME	vn_iweight		_indent2 _ss	_vnwd	.,	///
+		option(iweight)						///
+		error(resource LBL_IMPORTANCE_WEIGHTS)			///
+		label(resource LBL_BU_CREATE)
+END
+
+SCRIPT main_independent_on
+BEGIN
+	main.vl_independent.show
+	main.vn_factor.hide
+	program main_option_enable
+END
+
+SCRIPT main_factor_on
+BEGIN
+	main.vl_independent.hide
+	main.vn_factor.show
+	script main_option_disable
+END
+
+PROGRAM main_fix_on
+BEGIN
+	if main.rb_independent {
+		call main.cb_fix.enable
+		call main.bu_fix.enable
+	}
+	else {
+		call main.cb_fix.disable
+		call main.bu_fix.disable
+	}
+END
+
+SCRIPT main_fix_off
+BEGIN
+	main.cb_fix.disable
+	main.bu_fix.disable
+END
+
+PROGRAM main_pat_on
+BEGIN
+	if main.rb_independent {
+		call main.cb_pat.enable
+		call main.bu_pat.enable
+	}
+	else {
+		call main.cb_pat.disable
+		call main.bu_pat.disable
+	}
+END
+
+SCRIPT main_pat_off
+BEGIN
+	main.cb_pat.disable
+	main.bu_pat.disable
+END
+
+SCRIPT main_fweight_on
+BEGIN
+	main.vn_fweight.enable
+	main.ck_pweight.disable
+	main.ck_iweight.disable
+END
+
+PROGRAM main_fweight_off
+BEGIN
+	call main.vn_fweight.disable
+	if allow_pweight {
+		call main.ck_pweight.enable
+	}
+	if allow_iweight {
+		call main.ck_iweight.enable
+	}
+END
+
+SCRIPT main_pweight_on
+BEGIN
+	main.vn_pweight.enable
+	main.ck_fweight.disable
+	main.ck_iweight.disable
+END
+
+PROGRAM main_pweight_off
+BEGIN
+	call main.vn_pweight.disable
+	if allow_fweight {
+		call main.ck_fweight.enable
+	}
+	if allow_iweight {
+		call main.ck_iweight.enable
+	}
+END
+
+SCRIPT main_iweight_on
+BEGIN
+	main.vn_iweight.enable
+	main.ck_fweight.disable
+	main.ck_pweight.disable
+END
+
+PROGRAM main_iweight_off
+BEGIN
+	call main.vn_iweight.disable
+	if allow_fweight {
+		call main.ck_fweight.enable
+	}
+	if allow_pweight {
+		call main.ck_pweight.enable
+	}
+END
+
+PROGRAM main_option_enable
+BEGIN
+	call main.gb_cov_structure.enable
+	call main.rb_ind.enable
+	call main.rb_exc.enable
+	call main.rb_ide.enable
+	call main.rb_uns.enable
+	call main.rb_fix.enable
+	if main.rb_fix {
+		call main.cb_fix.enable
+		call main.bu_fix.enable
+	}
+	
+	call main.rb_pat.enable
+	if main.rb_pat {
+		call main.cb_pat.enable
+		call main.bu_pat.enable
+	}
+	call main.ck_noconstant.enable
+	
+	call main.ck_fweight.enable
+	call main.ck_pweight.enable
+	call main.ck_iweight.enable
+	if main.ck_fweight & main.ck_fweight.isenabled() {
+		call main.vn_fweight.enable
+		call main.ck_pweight.disable
+		call main.vn_pweight.disable
+		call main.ck_iweight.disable
+		call main.vn_iweight.disable
+	}
+	if main.ck_pweight & main.ck_pweight.isenabled() {
+		call main.vn_pweight.enable
+		call main.ck_fweight.disable
+		call main.vn_fweight.disable
+		call main.ck_iweight.disable
+		call main.vn_iweight.disable
+	}
+	if main.ck_iweight & main.ck_iweight.isenabled() {
+		call main.vn_iweight.enable
+		call main.ck_fweight.disable
+		call main.vn_fweight.disable
+		call main.ck_pweight.disable
+		call main.vn_pweight.disable
+	}
+END
+
+SCRIPT main_option_disable
+BEGIN
+	main.gb_cov_structure.disable
+	main.rb_ind.disable
+	main.rb_exc.disable
+	main.rb_ide.disable
+	main.rb_uns.disable
+	main.rb_fix.disable
+	main.cb_fix.disable
+	main.bu_fix.disable
+	main.rb_pat.disable
+	main.cb_pat.disable
+	main.bu_pat.disable
+	main.ck_noconstant.disable
+	
+	main.ck_fweight.disable
+	main.vn_fweight.disable
+	main.ck_pweight.disable
+	main.vn_pweight.disable
+	main.ck_iweight.disable
+	main.vn_iweight.disable
+END
+
+PROGRAM main_cov_output
+BEGIN
+	if main.rb_ide {
+		put "covariance(identity)"
+	}
+	if main.rb_uns {
+		put "covariance(unstructured)"
+	}
+	if main.rb_exc {
+		put "covariance(exchangeable)"
+	}
+	if main.rb_fix {
+		require main.cb_fix
+		put "covariance(fixed("
+		put main.cb_fix
+		put "))"
+	}
+	if main.rb_pat {
+		require main.cb_pat
+		put "covariance(pattern("
+		put main.cb_pat
+		put "))"
+	}
+END
+
+PROGRAM adv_show_user_metric_fix
+BEGIN
+	call create STRING UserMetricResultFix
+	call create CHILD matrix_input AS UserMetricFix
+	if ! _rc {
+		call UserMetricFix.setExitString UserMetricResultFix
+		call UserMetricFix.setExitAction "program adv_getUserMetricResultFix"
+		call UserMetricFix.callthru "isChildContext.settrue"
+	}
+END
+
+PROGRAM adv_getUserMetricResultFix
+BEGIN
+	call main.cb_fix.repopulate
+	call main.cb_fix.setvalue class UserMetricResultFix.value
+END
+
+PROGRAM adv_show_user_metric_pat
+BEGIN
+	call create STRING UserMetricResultPat
+	call create CHILD matrix_input AS UserMetricPat
+	if ! _rc {
+		call UserMetricPat.setExitString UserMetricResultPat
+		call UserMetricPat.setExitAction "program adv_getUserMetricResultPat"
+		call UserMetricPat.callthru "isChildContext.settrue"
+	}
+END
+
+PROGRAM adv_getUserMetricResultPat
+BEGIN
+	call main.cb_pat.repopulate
+	call main.cb_pat.setvalue class UserMetricResultPat.value
+END
+
+PROGRAM command
+BEGIN
+	put " " "|| "
+	if main.vn_level {
+		put main.vn_level ": "
+	}
+	if !main.vn_level {
+		put "_all: "
+	}
+
+	if main.rb_independent {
+		varlist [main.vl_independent]
+		beginoptions
+			put " " /program main_cov_output
+			option main.ck_noconstant
+		endoptions
+	}
+	if main.rb_factor {
+		require main.vn_factor
+		put "R."
+		put main.vn_factor
+		/*beginoptions
+			put " " /program main_cov_output
+			option main.ck_noconstant
+		endoptions*/
+	}
+	
+	beginoptions
+	  if main.rb_independent {
+	    if main.rb_exc | main.rb_ide | main.rb_uns | 	///
+		main.rb_fix | main.rb_pat | main.ck_noconstant {
+               if main.ck_fweight & main.vn_fweight.isenabled() {
+			require main.vn_fweight
+			call main.vn_fweight.withvalue PARENT.callthru  ///
+				`"fweights_cmd.setvalue " fweight(@)""'
+			call PARENT.callthru  `"pweights_cmd.setvalue """'
+			call PARENT.callthru `"iweights_cmd.setvalue """'
+               }
+	       if main.ck_pweight & main.vn_pweight.isenabled() {
+			require main.vn_pweight
+			call main.vn_pweight.withvalue PARENT.callthru  ///
+				`"pweights_cmd.setvalue " pweight(@)""'
+			call PARENT.callthru `"fweights_cmd.setvalue """'
+			call PARENT.callthru `"iweights_cmd.setvalue """'
+	       }
+	       if main.ck_iweight & main.vn_iweight.isenabled() {
+			require main.vn_iweight
+			call main.vn_iweight.withvalue PARENT.callthru  ///
+				`"iweights_cmd.setvalue " iweight(@)""'
+			call PARENT.callthru `"fweights_cmd.setvalue """'
+			call PARENT.callthru `"pweights_cmd.setvalue """'
+	       }
+            }
+	    else {
+	       if main.ck_fweight {
+			require main.vn_fweight
+			call main.vn_fweight.withvalue PARENT.callthru  ///
+				`"fweights_cmd.setvalue ", fweight(@)""'
+			call PARENT.callthru  `"pweights_cmd.setvalue """'
+			call PARENT.callthru  `"iweights_cmd.setvalue """'
+	       }
+	       if main.ck_pweight {
+			require main.vn_pweight
+			call main.vn_pweight.withvalue PARENT.callthru 	///
+				`"pweights_cmd.setvalue ", pweight(@)""'
+			call PARENT.callthru `"fweights_cmd.setvalue """'
+			call PARENT.callthru  `"iweights_cmd.setvalue """'
+               }
+	       if main.ck_iweight {
+			require main.vn_iweight
+			call main.vn_iweight.withvalue PARENT.callthru 	///
+				`"iweights_cmd.setvalue ", iweight(@)""'
+			call PARENT.callthru `"fweights_cmd.setvalue """'
+			call PARENT.callthru `"pweights_cmd.setvalue """'
+               }
+            }
+	  }
+		
+	if main.rb_factor {
+		call PARENT.callthru 				///
+			`"fweights_cmd.setvalue """'
+		call PARENT.callthru 				///
+			`"pweights_cmd.setvalue """'
+		call PARENT.callthru 				///
+			`"iweights_cmd.setvalue """'
+	}
+	endoptions
+END

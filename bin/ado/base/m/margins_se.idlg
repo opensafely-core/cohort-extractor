@@ -1,0 +1,165 @@
+/*
+  margins_se.idlg
+
+*!  VERSION 1.0.3  18mar2019
+
+*/
+
+DIALOG se, tabtitle(resource LBL_SE)
+BEGIN
+  TEXT tx_type			_lft	_top	_iwd	.,		///
+	label(resource SE_TX_TYPE)
+  LISTBOX lb_vcetype		_lft	_ss	225	75,		///
+	option(vce)							///
+	contents(se_type_default_list)					///
+	values(se_type_default_values)					///
+	onselchange(program se_type_actions)
+
+  SPINNER sp_reps		_lft2	+100	_spwd	.,		///
+	option(reps)							///
+	default(50)							///
+	min(2)								///
+	max(1000000)
+  TEXT tx_reps			_spsep @	200	.,		///
+	label(resource LBL_REPLICATIONS)
+  DEFINE holdy @y
+  EDIT ed_seed			_lft	@	_spwd	., 		///
+	numonly								///
+	option(seed)
+  TEXT tx_seed			_spsep @	150	.,		///
+	label(resource LBL_RANDOM_NUMBER_SEED_NO_COLON)
+
+  CHECKBOX ck_nose		_lft	120	_iwd	.,              ///
+	option(nose)                                                    ///
+	label(resource MARGINS_SE_CK_NOSE)
+
+   TEXTBOX tx_note1		_lft	holdy	_cwd1	_tb4,
+END
+
+LIST se_type_default_list
+BEGIN
+	resource MARGINS_DELTA_METHOD_DEFAULT
+	resource LBL_UNCONDITIONAL
+END
+
+LIST se_type_default_values
+BEGIN
+	""
+	unconditional
+END
+
+LIST se_type_bootstrap_list
+BEGIN
+	resource SE_LBL_DFLT_STD_ERRORS
+	resource SE_LBL_NONE
+	resource SE_LBL_BOOTSTRAP
+END
+
+LIST se_type_bootstrap_values
+BEGIN
+	"none"
+	"none"
+	bootstrap
+END
+
+LIST se_type_series_list
+BEGIN
+	resource MARGINS_DELTA_METHOD_DEFAULT
+	resource LBL_UNCONDITIONAL
+	resource SE_LBL_BOOTSTRAP
+END
+
+LIST se_type_series_values
+BEGIN
+	""
+	unconditional
+	bootstrap
+END
+
+PROGRAM se_type_actions
+BEGIN
+	call script se_hide_all
+	if se.lb_vcetype.iseq("bootstrap") {
+		call script se_bootstrap_show
+	}
+	else {
+		call se.ck_nose.show
+	}
+
+	if se.lb_vcetype.iseq("none") {
+		call se.ck_nose.hide
+		call se.tx_note1.show
+		call se.tx_note1.formatlabel				///
+                        "resource SE_TX_NOTE1_DFLT_FMT"			///
+                        "resource SE_LBL_NONE"
+	}
+END
+
+SCRIPT se_hide_all
+BEGIN
+	script se_bootstrap_hide
+	se.ck_nose.hide
+	se.tx_note1.hide
+END
+
+SCRIPT se_hasBootstrap
+BEGIN
+	se.lb_vcetype.setcontentslist "se_type_bootstrap_list" 
+	se.lb_vcetype.setvalueslist "se_type_bootstrap_values" 
+	se.lb_vcetype.repopulate
+END
+
+SCRIPT se_noBootstrap
+BEGIN
+	se.lb_vcetype.setcontentslist "se_type_default_list" 
+	se.lb_vcetype.setvalueslist "se_type_default_values" 
+	se.lb_vcetype.repopulate
+END
+
+SCRIPT se_seriesBootstrap
+BEGIN
+	se.lb_vcetype.setcontentslist "se_type_series_list" 
+	se.lb_vcetype.setvalueslist "se_type_series_values" 
+	se.lb_vcetype.repopulate
+END
+
+SCRIPT se_bootstrap_show
+BEGIN
+	se.sp_reps.show
+	se.tx_reps.show
+	se.ed_seed.show
+	se.tx_seed.show
+END
+
+SCRIPT se_bootstrap_hide
+BEGIN
+	se.sp_reps.hide
+	se.tx_reps.hide
+	se.ed_seed.hide
+	se.tx_seed.hide
+END
+
+PROGRAM se_output
+BEGIN
+	if se.lb_vcetype.iseq("bootstrap") {
+		put " vce(bootstrap"
+		if (!se.sp_reps.isdefault()  ///
+			| se.ed_seed) {
+			put ", "
+			optionarg /hidedefault se.sp_reps
+			optionarg se.ed_seed
+		}
+		put ")"
+	}
+	else {
+		if !se.lb_vcetype.iseq("none") {
+			if se.ck_nose {
+				option se.ck_nose
+			}
+			else {
+				optionarg se.lb_vcetype
+			}
+		}
+	}
+END
+

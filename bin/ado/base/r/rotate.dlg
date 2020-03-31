@@ -1,0 +1,1116 @@
+/*
+	rotate
+
+*!  VERSION 1.2.2  12may2017
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 360
+INCLUDE header
+
+HELP hlp1, view("help rotate")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource ROTATE_DLG_HSCALE
+END
+
+SCRIPT main_PREINIT
+BEGIN
+	create STRING matrixResult
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	label(resource ROTATE_DLG_TITLE)
+BEGIN
+  BUTTON   bu_matinput   	_rj100	_top    100	.,		///
+	label(resource LBL_INPUT_MATRIX) onpush(program show_matrix_input) ///
+	tooltip(resource LBL_INPUT_HAND)
+
+  GROUPBOX gb_method		_lft	_ss	_iwd	190,		///
+	label(resource LBL_ROTATION_METHOD)
+  RADIO    rb_ortho		_indent	_ss	_comb3_2	.,	///
+  	first								///
+	label(resource LBL_ORTHOGONAL_ROTATION)				///
+	onclickon("script ortho_on")
+
+  COMBOBOX lb_ortho		40       _ss     _comb3_4	.,	///
+	label(resource LBL_ROTATION_METHOD) dropdownlist		///
+	contents(main_ortho_contents)					///
+	values(main_ortho_values)					///
+	onselchangelist(main_ortho_scripts)
+
+  RADIO    rb_oblique		_ilft	+55	_comb3_2	.,	///
+  	last								///
+	label(resource LBL_OBLIQUE_ROTATION)				///
+	onclickon("script oblique_on")
+
+  COMBOBOX lb_oblique		40       _ss     _comb3_4	.,	///
+	label(resource LBL_ROTATION_METHOD) dropdownlist		///
+	contents(main_oblique_contents)					///
+	values(main_oblique_values)					///
+	onselchangelist(main_oblique_scripts)
+
+// for promax power only
+  EDIT     en_propow		_lft3_3	145	_en7wd		.,	///
+	numonly default(3)						///
+	label(resource LBL_PROMAX_POWER)
+  TEXT     tx_propow		_en7sep	@	80		.,	///
+	label(resource LBL_PROMAX_POWER)
+
+// for oblimin only
+  TEXT     tx_oblimin_or	_lft3_3	50	_cwd3_2		.,	///
+	label(resource LBL_USE_GAMMA_EQUAL_NUMBER)
+  EDIT     en_oblimin_or	_lft3_3	_ss	_en7wd		.,	///
+	numonly default(0)						///
+	label(resource LBL_OBLIMIN_CRITERION)
+  TEXT     tx_obliminnum_or	_en7sep	@	80		.,	///
+	label("#")
+
+  TEXT     tx_oblimin_ob	_lft3_3	125	_cwd3_2		.,	///
+	label(resource LBL_USE_GAMMA_EQUAL_NUMBER)
+  EDIT     en_oblimin_ob	_lft3_3	_ss	_en7wd		.,	///
+	numonly default(0)						///
+	label(resource LBL_OBLIMIN_CRITERION)
+  TEXT     tx_obliminnum_ob	_en7sep	@	80		.,	///
+	label("#")
+
+// for cf only
+  TEXT     tx_cf_or		_lft3_3	50	_cwd3_2		.,	///
+	label(resource LBL_USE_KAPPA_EQUAL_NUMBER)
+  EDIT     en_cf_or		_lft3_3	_ss	_en7wd		.,	///
+	numonly 							///
+	label(resource LBL_KAPPA_VALUE)
+  TEXT     tx_cfnum_or		_en7sep	@	80		.,	///
+	label(resource LBL_0_LT_EQUAL_NUMBER_LT_EQUAL_1)
+
+  TEXT     tx_cf_ob		_lft3_3	125	_cwd3_2		.,	///
+	label(resource LBL_USE_KAPPA_EQUAL_NUMBER)
+  EDIT     en_cf_ob		_lft3_3	_ss	_en7wd		.,	///
+	numonly 							///
+	label(resource LBL_KAPPA_VALUE)
+  TEXT     tx_cfnum_ob		_en7sep	@	80		.,	///
+	label(resource LBL_0_LT_EQUAL_NUMBER_LT_EQUAL_1)
+
+// for target only
+  TEXT     tx_target_or		_lft3_3	50	_cwd3_2		.,	///
+	label(resource LBL_ROTATE_TOWARD_MATRIX_TG_PARENS)
+  COMBOBOX cb_target_or		@       _ss     _vnwd		.,	///
+	label(resource LBL_MATRIX_TG)					///
+	dropdown 							///
+	contents(matrix)
+  TEXT     tx_target_ob		_lft3_3	125	_cwd3_2		.,	///
+	label(resource LBL_ROTATE_TOWARD_MATRIX_TG_PARENS)
+  COMBOBOX cb_target_ob		@       _ss     _vnwd		.,	///
+	label(resource LBL_MATRIX_TG)					///
+	dropdown 							///
+	contents(matrix)
+
+// for partial only
+  TEXT     tx_partial_or	_lft3_3	50	_cwd3_2		.,	///
+	label(resource LBL_ROTATE_TOWARD_MATRIX_TG_PARENS)
+  COMBOBOX cb_partial_or	@       _ss     _vnwd		.,	///
+	label(resource LBL_MATRIX_TG)					///
+	dropdown 							///
+	contents(matrix)
+  TEXT     tx_weighted_or	@	_ms	_cwd3_2		.,	///
+	label(resource LBL_WEIGHTED_MATRIX_W)
+  COMBOBOX cb_weighted_or	@       _ss     _vnwd		.,	///
+	label(resource LBL_MATRIX_W)					///
+	dropdown 							///
+	contents(matrix)
+
+  TEXT     tx_partial_ob	_lft3_3	125	_cwd3_2		.,	///
+	label(resource LBL_ROTATE_TOWARD_MATRIX_TG)
+  COMBOBOX cb_partial_ob	@       _ss     _vnwd		.,	///
+	label(resource LBL_MATRIX_TG)					///
+	dropdown 							///
+	contents(matrix)
+  TEXT     tx_weighted_ob	@	_ms	_cwd3_2		.,	///
+	label(resource LBL_WEIGHTED_MATRIX_W)
+  COMBOBOX cb_weighted_ob	@       _ss     _vnwd		.,	///
+	label(resource LBL_MATRIX_W)					///
+	dropdown 							///
+	contents(matrix)
+
+// other options
+  GROUPBOX gb_opt		_lft	230	_iwd		_ht9,	///
+	label(resource LBL_OPTION)
+  CHECKBOX ck_clear		_ilft	_ss	_ibwd		.,	///
+	option(clear)							///
+  	onclickon(program ck_clear_on)					///
+  	onclickoff(program ck_clear_off)				///
+	label(resource ROTATE_MAIN_CK_CLEAR)
+  CHECKBOX ck_kaiser		@	_ms	@		.,	///
+	option(kaiser)							///
+	label(resource LBL_APPLY_KAISER_NORMALIZATION)
+  CHECKBOX ck_factors		_ilft	_ms	_iwd		.,	///
+  	onclickon(script ck_factors_on)					///
+  	onclickoff(script ck_factors_off)				///
+	label(resource ROTATE_MAIN_CK_FACTORS)
+  SPINNER  sp_factors		_cksep	_ss	_spwd		.,	///
+	min(1) default(1) max(10000)					///
+	option(factors)							///
+	label(resource ROTATE_MAIN_SP_FACTORS)
+  TEXT     tx_factors		_spsep	@	_cksprb		.,	///
+	label("#")
+END
+
+PROGRAM show_matrix_input
+BEGIN
+	call create CHILD matrix_input
+	if ! _rc {
+		call matrix_input.setExitString matrixResult
+		call matrix_input.setExitAction "program getMatrixResult"
+		call matrix_input.callthru "isChildContext.settrue"
+	}
+END
+PROGRAM getMatrixResult
+BEGIN
+	call create ARRAY matrix_tempvals
+	call matrix_tempvals.Arrdropall
+	
+	call main.cb_target_or.withvalue matrix_tempvals.Arrpush "@"
+	call main.cb_target_ob.withvalue matrix_tempvals.Arrpush "@"
+	call main.cb_partial_or.withvalue matrix_tempvals.Arrpush "@"
+	call main.cb_weighted_or.withvalue matrix_tempvals.Arrpush "@"
+	call main.cb_partial_ob.withvalue matrix_tempvals.Arrpush "@"
+	call main.cb_weighted_ob.withvalue matrix_tempvals.Arrpush "@"
+
+	call main.cb_target_or.repopulate
+	call main.cb_target_ob.repopulate
+	call main.cb_partial_or.repopulate
+	call main.cb_weighted_or.repopulate
+	call main.cb_partial_ob.repopulate
+	call main.cb_weighted_ob.repopulate
+
+	call main.cb_target_or.setvalue class matrix_tempvals[1]
+	call main.cb_target_ob.setvalue class matrix_tempvals[2]
+	call main.cb_partial_or.setvalue class matrix_tempvals[3]
+	call main.cb_weighted_or.setvalue class matrix_tempvals[4]
+	call main.cb_partial_ob.setvalue class matrix_tempvals[5]
+	call main.cb_weighted_ob.setvalue class matrix_tempvals[6]
+	
+	call script rotate_opts_reloadMatrix
+END
+
+SCRIPT ck_factors_on
+BEGIN
+	main.sp_factors.enable
+	main.tx_factors.enable
+END
+
+SCRIPT ck_factors_off
+BEGIN
+	main.sp_factors.disable
+	main.tx_factors.disable
+END
+
+PROGRAM ck_clear_on
+BEGIN
+	if main.rb_ortho {
+		call program desel_ortho
+		call main.lb_ortho.disable
+	}
+	if main.rb_oblique {
+		call program desel_oblique
+		call main.lb_oblique.disable
+	}
+	call main.gb_method.disable
+	call main.rb_ortho.disable
+	call main.rb_oblique.disable
+	call main.ck_kaiser.disable
+	call main.ck_factors.disable
+	if main.ck_factors {
+		call main.sp_factors.disable
+		call main.tx_factors.disable
+	}
+	call report.ck_blanks.disable
+	if report.ck_blanks {
+		call report.en_blanks.disable
+		call report.tx_blanks.disable
+	}
+	call report.ck_detail.disable
+	if report.ck_detail {
+		call report.ck_format.disable
+		if report.ck_format {
+			call report.en_format.disable
+		}
+		call report.ck_noloading.disable
+		call report.ck_norotation.disable
+	}
+	if !(main.rb_ortho & main.lb_ortho.equals("")) {
+		call script rotate_opt_opts_disable
+	}
+END
+
+PROGRAM ck_clear_off
+BEGIN
+	if main.rb_ortho {
+		call main.lb_ortho.enable
+		if main.lb_ortho.equals("oblimin") {
+			call main.tx_oblimin_or.show
+			call main.en_oblimin_or.show
+			call main.tx_obliminnum_or.show
+		}
+		if main.lb_ortho.equals("cf") {
+			call main.tx_cf_or.show
+			call main.en_cf_or.show
+			call main.tx_cfnum_or.show
+		}
+		if main.lb_ortho.equals("target") {
+			call main.tx_target_or.show
+			call main.cb_target_or.show
+		}
+		if main.lb_ortho.equals("partial") {
+			call main.tx_partial_or.show
+			call main.cb_partial_or.show
+			call main.tx_weighted_or.show
+			call main.cb_weighted_or.show
+		}
+	}
+	if main.rb_oblique {
+		call main.lb_oblique.enable
+		if main.lb_oblique.equals("promax") {
+			call main.tx_propow.show
+			call main.en_propow.show
+		}
+		if main.lb_oblique.equals("oblimin") {
+			call main.tx_oblimin_ob.show
+			call main.en_oblimin_ob.show
+			call main.tx_obliminnum_ob.show
+		}
+		if main.lb_oblique.equals("cf") {
+			call main.tx_cf_ob.show
+			call main.en_cf_ob.show
+			call main.tx_cfnum_ob.show
+		}
+		if main.lb_oblique.equals("target") {
+			call main.tx_target_ob.show
+			call main.cb_target_ob.show
+		}
+		if main.lb_oblique.equals("partial") {
+			call main.tx_partial_ob.show
+			call main.cb_partial_ob.show
+			call main.tx_weighted_ob.show
+			call main.cb_weighted_ob.show
+		}
+	}
+	call main.gb_method.enable
+	call main.rb_ortho.enable
+	call main.rb_oblique.enable
+	call main.ck_kaiser.enable
+	call main.ck_factors.enable
+	if main.ck_factors {
+		call main.sp_factors.enable
+		call main.tx_factors.enable
+	}
+	call report.ck_blanks.enable
+	if report.ck_blanks {
+		call report.en_blanks.enable
+		call report.tx_blanks.enable
+	}
+	call report.ck_detail.enable
+	if report.ck_detail {
+		call report.ck_format.enable
+		if report.ck_format {
+			call report.en_format.enable
+		}
+		call report.ck_noloading.enable
+		call report.ck_norotation.enable
+	}
+	if !(main.rb_ortho & main.lb_ortho.equals("")) {
+		call script rotate_opt_opts_enable
+	}
+END
+
+SCRIPT POSTINIT
+BEGIN
+	main.tx_propow.hide
+	main.en_propow.hide
+
+	main.tx_oblimin_or.hide
+	main.en_oblimin_or.hide
+	main.tx_obliminnum_or.hide
+	main.tx_oblimin_ob.hide
+	main.en_oblimin_ob.hide
+	main.tx_obliminnum_ob.hide
+
+	main.tx_cf_or.hide
+	main.en_cf_or.hide
+	main.tx_cfnum_or.hide
+	main.tx_cf_ob.hide
+	main.en_cf_ob.hide
+	main.tx_cfnum_ob.hide
+
+	main.tx_target_or.hide
+	main.cb_target_or.hide
+	main.tx_target_ob.hide
+	main.cb_target_ob.hide
+
+	main.tx_partial_or.hide
+	main.cb_partial_or.hide
+	main.tx_weighted_or.hide
+	main.cb_weighted_or.hide
+	main.tx_partial_ob.hide
+	main.cb_partial_ob.hide
+	main.tx_weighted_ob.hide
+	main.cb_weighted_ob.hide
+	script rotate_opt_opts_disable
+END
+
+LIST main_ortho_contents
+BEGIN
+	resource LBL_VARIMAX_DEFAULT
+	resource LBL_VARIMAX_VIA_THE_GPF_ALGORITHM
+	resource LBL_QUARTIMAX
+	resource LBL_EQUAMAX
+	resource LBL_PARSIMAX
+	resource LBL_MINIMUM_ENTROPY
+	resource LBL_COMREYS_TANDEM_1_PRINCIPLE
+	resource LBL_COMREYS_TANDEM_2_PRINCIPLE
+	resource LBL_OBLIMIN
+	resource LBL_CRAWFORD_FERGUSON_FAMILY
+	resource LBL_BENTLERS_INVARIANT_PATTERN_SIMPLICITY
+	resource LBL_OBLIMAX
+	resource LBL_QUARTIMIN
+	resource LBL_ROTATE_TOWARD_MATRIX_TG
+	resource LBL_ROTATE_TOWARD_MATRIX_TG_WEIGHTED_BY_MATRIX_W
+END
+
+LIST main_ortho_values
+BEGIN
+	""
+	vgpf
+	quartimax
+	equamax
+	parsimax
+	entropy
+	tandem1
+	tandem2
+	oblimin
+	cf
+	bentler
+	oblimax
+	quartimin
+	target
+	partial
+END
+
+LIST main_ortho_scripts
+BEGIN
+	program varimax_on
+	program vgpf_on
+	program quartimax_on
+	program equamax_on
+	program parsimax_on
+	program entropy_on
+	program tandem1_on
+	program tandem2_on
+	program oblimin_on
+	program cf_on
+	program bentler_on
+	program oblimax_on
+	program quartimin_on
+	program target_on
+	program partial_on
+END
+
+LIST main_oblique_contents
+BEGIN
+	resource LBL_PROMAX
+	resource LBL_OBLIMIN
+	resource LBL_CRAWFORD_FERGUSON_FAMILY
+	resource LBL_BENTLERS_INVARIANT_PATTERN_SIMPLICITY
+	resource LBL_OBLIMAX
+	resource LBL_QUARTIMIN
+	resource LBL_ROTATE_TOWARD_MATRIX_TG
+	resource LBL_ROTATE_TOWARD_MATRIX_TG_WEIGHTED_BY_MATRIX_W
+END
+
+LIST main_oblique_values
+BEGIN
+	promax
+	oblimin
+	cf
+	bentler
+	oblimax
+	quartimin
+	target
+	partial
+END
+
+LIST main_oblique_scripts
+BEGIN
+	program promax_on
+	program oblimin_on
+	program cf_on
+	program bentler_on
+	program oblimax_on
+	program quartimin_on
+	program target_on
+	program partial_on
+END
+
+PROGRAM check_for_matrix
+BEGIN
+	if ((main.cb_target_or.isenabled() &		///
+		main.cb_target_or.isvisible())		///
+	   | (main.cb_partial_or.isenabled() &		///
+		main.cb_partial_or.isvisible())		///
+	   | (main.cb_weighted_or.isenabled() &		///
+	   	main.cb_weighted_or.isvisible())	///
+	   | (main.cb_target_ob.isenabled() &		///
+	   	main.cb_target_ob.isvisible())		///
+	   | (main.cb_partial_ob.isenabled() &		///
+	   	main.cb_partial_ob.isvisible())		///
+	   | (main.cb_weighted_ob.isenabled() &		///
+	   	main.cb_weighted_ob.isvisible()))	///
+	{
+		call main.bu_matinput.show
+	}
+	else {
+		call main.bu_matinput.hide
+	}
+END
+
+PROGRAM varimax_on
+BEGIN
+	call main.tx_oblimin_or.hide
+	call main.en_oblimin_or.hide
+	call main.tx_obliminnum_or.hide
+	call main.tx_cf_or.hide
+	call main.en_cf_or.hide
+	call main.tx_cfnum_or.hide
+	call main.tx_target_or.hide
+	call main.cb_target_or.hide
+	call main.tx_partial_or.hide
+	call main.cb_partial_or.hide
+	call main.tx_weighted_or.hide
+	call main.cb_weighted_or.hide
+	call script rotate_opt_opts_disable
+	call program check_for_matrix
+END
+
+PROGRAM vgpf_on
+BEGIN
+	call main.tx_oblimin_or.hide
+	call main.en_oblimin_or.hide
+	call main.tx_obliminnum_or.hide
+	call main.tx_cf_or.hide
+	call main.en_cf_or.hide
+	call main.tx_cfnum_or.hide
+	call main.tx_target_or.hide
+	call main.cb_target_or.hide
+	call main.tx_partial_or.hide
+	call main.cb_partial_or.hide
+	call main.tx_weighted_or.hide
+	call main.cb_weighted_or.hide
+	call script rotate_opt_opts_enable
+	call program check_for_matrix
+END
+
+PROGRAM quartimax_on
+BEGIN
+	call main.tx_oblimin_or.hide
+	call main.en_oblimin_or.hide
+	call main.tx_obliminnum_or.hide
+	call main.tx_cf_or.hide
+	call main.en_cf_or.hide
+	call main.tx_cfnum_or.hide
+	call main.tx_target_or.hide
+	call main.cb_target_or.hide
+	call main.tx_partial_or.hide
+	call main.cb_partial_or.hide
+	call main.tx_weighted_or.hide
+	call main.cb_weighted_or.hide
+	call script rotate_opt_opts_enable
+	call program check_for_matrix
+END
+
+PROGRAM equamax_on
+BEGIN
+	call main.tx_oblimin_or.hide
+	call main.en_oblimin_or.hide
+	call main.tx_obliminnum_or.hide
+	call main.tx_cf_or.hide
+	call main.en_cf_or.hide
+	call main.tx_cfnum_or.hide
+	call main.tx_target_or.hide
+	call main.cb_target_or.hide
+	call main.tx_partial_or.hide
+	call main.cb_partial_or.hide
+	call main.tx_weighted_or.hide
+	call main.cb_weighted_or.hide
+	call script rotate_opt_opts_enable
+	call program check_for_matrix
+END
+
+PROGRAM parsimax_on
+BEGIN
+	call main.tx_oblimin_or.hide
+	call main.en_oblimin_or.hide
+	call main.tx_obliminnum_or.hide
+	call main.tx_cf_or.hide
+	call main.en_cf_or.hide
+	call main.tx_cfnum_or.hide
+	call main.tx_target_or.hide
+	call main.cb_target_or.hide
+	call main.tx_partial_or.hide
+	call main.cb_partial_or.hide
+	call main.tx_weighted_or.hide
+	call main.cb_weighted_or.hide
+	call script rotate_opt_opts_enable
+	call program check_for_matrix
+END
+
+PROGRAM entropy_on
+BEGIN
+	call main.tx_oblimin_or.hide
+	call main.en_oblimin_or.hide
+	call main.tx_obliminnum_or.hide
+	call main.tx_cf_or.hide
+	call main.en_cf_or.hide
+	call main.tx_cfnum_or.hide
+	call main.tx_target_or.hide
+	call main.cb_target_or.hide
+	call main.tx_partial_or.hide
+	call main.cb_partial_or.hide
+	call main.tx_weighted_or.hide
+	call main.cb_weighted_or.hide
+	call script rotate_opt_opts_enable
+	call program check_for_matrix
+END
+
+PROGRAM tandem1_on
+BEGIN
+	call main.tx_oblimin_or.hide
+	call main.en_oblimin_or.hide
+	call main.tx_obliminnum_or.hide
+	call main.tx_cf_or.hide
+	call main.en_cf_or.hide
+	call main.tx_cfnum_or.hide
+	call main.tx_target_or.hide
+	call main.cb_target_or.hide
+	call main.tx_partial_or.hide
+	call main.cb_partial_or.hide
+	call main.tx_weighted_or.hide
+	call main.cb_weighted_or.hide
+	call script rotate_opt_opts_enable
+	call program check_for_matrix
+END
+
+PROGRAM tandem2_on
+BEGIN
+	call main.tx_oblimin_or.hide
+	call main.en_oblimin_or.hide
+	call main.tx_obliminnum_or.hide
+	call main.tx_cf_or.hide
+	call main.en_cf_or.hide
+	call main.tx_cfnum_or.hide
+	call main.tx_target_or.hide
+	call main.cb_target_or.hide
+	call main.tx_partial_or.hide
+	call main.cb_partial_or.hide
+	call main.tx_weighted_or.hide
+	call main.cb_weighted_or.hide
+	call script rotate_opt_opts_enable
+	call program check_for_matrix
+END
+
+PROGRAM promax_on
+BEGIN
+	call main.tx_propow.show
+	call main.en_propow.show
+	call main.tx_oblimin_ob.hide
+	call main.en_oblimin_ob.hide
+	call main.tx_obliminnum_ob.hide
+	call main.tx_cf_ob.hide
+	call main.en_cf_ob.hide
+	call main.tx_cfnum_ob.hide
+	call main.tx_target_ob.hide
+	call main.cb_target_ob.hide
+	call main.tx_partial_ob.hide
+	call main.cb_partial_ob.hide
+	call main.tx_weighted_ob.hide
+	call main.cb_weighted_ob.hide
+	call script rotate_opt_opts_enable
+	call program check_for_matrix
+END
+
+PROGRAM oblimin_on
+BEGIN
+	call main.tx_propow.hide
+	call main.en_propow.hide
+	if main.lb_ortho.equals("oblimin") & !H(main.lb_ortho) {
+		call main.tx_oblimin_or.show
+		call main.en_oblimin_or.show
+		call main.tx_obliminnum_or.show
+	}
+	if main.lb_oblique.equals("oblimin") & !H(main.lb_oblique) {
+		call main.tx_oblimin_ob.show
+		call main.en_oblimin_ob.show
+		call main.tx_obliminnum_ob.show
+	}
+	call main.tx_cf_or.hide
+	call main.en_cf_or.hide
+	call main.tx_cfnum_or.hide
+	call main.tx_cf_ob.hide
+	call main.en_cf_ob.hide
+	call main.tx_cfnum_ob.hide
+	call main.tx_target_or.hide
+	call main.cb_target_or.hide
+	call main.tx_target_ob.hide
+	call main.cb_target_ob.hide
+	call main.tx_partial_or.hide
+	call main.cb_partial_or.hide
+	call main.tx_weighted_or.hide
+	call main.cb_weighted_or.hide
+	call main.tx_partial_ob.hide
+	call main.cb_partial_ob.hide
+	call main.tx_weighted_ob.hide
+	call main.cb_weighted_ob.hide
+	call script rotate_opt_opts_enable
+	call program check_for_matrix
+END
+
+PROGRAM cf_on
+BEGIN
+	call main.tx_propow.hide
+	call main.en_propow.hide
+	call main.tx_oblimin_or.hide
+	call main.en_oblimin_or.hide
+	call main.tx_obliminnum_or.hide
+	call main.tx_oblimin_ob.hide
+	call main.en_oblimin_ob.hide
+	call main.tx_obliminnum_ob.hide
+	if main.lb_ortho.equals("cf") & !H(main.lb_ortho) {
+		call main.tx_cf_or.show
+		call main.en_cf_or.show
+		call main.tx_cfnum_or.show
+	}
+	if main.lb_oblique.equals("cf") & !H(main.lb_oblique) {
+		call main.tx_cf_ob.show
+		call main.en_cf_ob.show
+		call main.tx_cfnum_ob.show
+	}
+	call main.tx_target_or.hide
+	call main.cb_target_or.hide
+	call main.tx_target_ob.hide
+	call main.cb_target_ob.hide
+	call main.tx_partial_or.hide
+	call main.cb_partial_or.hide
+	call main.tx_weighted_or.hide
+	call main.cb_weighted_or.hide
+	call main.tx_partial_ob.hide
+	call main.cb_partial_ob.hide
+	call main.tx_weighted_ob.hide
+	call main.cb_weighted_ob.hide
+	call script rotate_opt_opts_enable
+	call program check_for_matrix
+END
+
+PROGRAM bentler_on
+BEGIN
+	call main.tx_propow.hide
+	call main.en_propow.hide
+	call main.tx_oblimin_or.hide
+	call main.en_oblimin_or.hide
+	call main.tx_obliminnum_or.hide
+	call main.tx_oblimin_ob.hide
+	call main.en_oblimin_ob.hide
+	call main.tx_obliminnum_ob.hide
+	call main.tx_cf_or.hide
+	call main.en_cf_or.hide
+	call main.tx_cfnum_or.hide
+	call main.tx_cf_ob.hide
+	call main.en_cf_ob.hide
+	call main.tx_cfnum_ob.hide
+	call main.tx_target_or.hide
+	call main.cb_target_or.hide
+	call main.tx_target_ob.hide
+	call main.cb_target_ob.hide
+	call main.tx_partial_or.hide
+	call main.cb_partial_or.hide
+	call main.tx_weighted_or.hide
+	call main.cb_weighted_or.hide
+	call main.tx_partial_ob.hide
+	call main.cb_partial_ob.hide
+	call main.tx_weighted_ob.hide
+	call main.cb_weighted_ob.hide
+	call script rotate_opt_opts_enable
+	call program check_for_matrix
+END
+
+PROGRAM oblimax_on
+BEGIN
+	call main.tx_propow.hide
+	call main.en_propow.hide
+	call main.tx_oblimin_or.hide
+	call main.en_oblimin_or.hide
+	call main.tx_obliminnum_or.hide
+	call main.tx_oblimin_ob.hide
+	call main.en_oblimin_ob.hide
+	call main.tx_obliminnum_ob.hide
+	call main.tx_cf_or.hide
+	call main.en_cf_or.hide
+	call main.tx_cfnum_or.hide
+	call main.tx_cf_ob.hide
+	call main.en_cf_ob.hide
+	call main.tx_cfnum_ob.hide
+	call main.tx_target_or.hide
+	call main.cb_target_or.hide
+	call main.tx_target_ob.hide
+	call main.cb_target_ob.hide
+	call main.tx_partial_or.hide
+	call main.cb_partial_or.hide
+	call main.tx_weighted_or.hide
+	call main.cb_weighted_or.hide
+	call main.tx_partial_ob.hide
+	call main.cb_partial_ob.hide
+	call main.tx_weighted_ob.hide
+	call main.cb_weighted_ob.hide
+	call script rotate_opt_opts_enable
+	call program check_for_matrix
+END
+
+PROGRAM quartimin_on
+BEGIN
+	call main.tx_propow.hide
+	call main.en_propow.hide
+	call main.tx_oblimin_or.hide
+	call main.en_oblimin_or.hide
+	call main.tx_obliminnum_or.hide
+	call main.tx_oblimin_ob.hide
+	call main.en_oblimin_ob.hide
+	call main.tx_obliminnum_ob.hide
+	call main.tx_cf_or.hide
+	call main.en_cf_or.hide
+	call main.tx_cfnum_or.hide
+	call main.tx_cf_ob.hide
+	call main.en_cf_ob.hide
+	call main.tx_cfnum_ob.hide
+	call main.tx_target_or.hide
+	call main.cb_target_or.hide
+	call main.tx_target_ob.hide
+	call main.cb_target_ob.hide
+	call main.tx_partial_or.hide
+	call main.cb_partial_or.hide
+	call main.tx_weighted_or.hide
+	call main.cb_weighted_or.hide
+	call main.tx_partial_ob.hide
+	call main.cb_partial_ob.hide
+	call main.tx_weighted_ob.hide
+	call main.cb_weighted_ob.hide
+	call script rotate_opt_opts_enable
+	call program check_for_matrix
+END
+
+PROGRAM target_on
+BEGIN
+	call main.tx_propow.hide
+	call main.en_propow.hide
+	call main.tx_oblimin_or.hide
+	call main.en_oblimin_or.hide
+	call main.tx_obliminnum_or.hide
+	call main.tx_oblimin_ob.hide
+	call main.en_oblimin_ob.hide
+	call main.tx_obliminnum_ob.hide
+	call main.tx_cf_or.hide
+	call main.en_cf_or.hide
+	call main.tx_cfnum_or.hide
+	call main.tx_cf_ob.hide
+	call main.en_cf_ob.hide
+	call main.tx_cfnum_ob.hide
+	if main.lb_ortho.equals("target") & !H(main.lb_ortho) {
+		call main.tx_target_or.show
+		call main.cb_target_or.show
+	}
+	if main.lb_oblique.equals("target") & !H(main.lb_oblique) {
+		call main.tx_target_ob.show
+		call main.cb_target_ob.show
+	}
+	call main.tx_partial_or.hide
+	call main.cb_partial_or.hide
+	call main.tx_weighted_or.hide
+	call main.cb_weighted_or.hide
+	call main.tx_partial_ob.hide
+	call main.cb_partial_ob.hide
+	call main.tx_weighted_ob.hide
+	call main.cb_weighted_ob.hide
+	call script rotate_opt_opts_enable
+	call program check_for_matrix
+END
+
+PROGRAM partial_on
+BEGIN
+	call main.tx_propow.hide
+	call main.en_propow.hide
+	call main.tx_oblimin_or.hide
+	call main.en_oblimin_or.hide
+	call main.tx_obliminnum_or.hide
+	call main.tx_oblimin_ob.hide
+	call main.en_oblimin_ob.hide
+	call main.tx_obliminnum_ob.hide
+	call main.tx_cf_or.hide
+	call main.en_cf_or.hide
+	call main.tx_cfnum_or.hide
+	call main.tx_cf_ob.hide
+	call main.en_cf_ob.hide
+	call main.tx_cfnum_ob.hide
+	call main.tx_target_or.hide
+	call main.cb_target_or.hide
+	call main.tx_target_ob.hide
+	call main.cb_target_ob.hide
+	if main.lb_ortho.equals("partial") & !H(main.lb_ortho) {
+		call main.tx_partial_or.show
+		call main.cb_partial_or.show
+		call main.tx_weighted_or.show
+		call main.cb_weighted_or.show
+	}
+	if main.lb_oblique.equals("partial") & !H(main.lb_oblique) {
+		call main.tx_partial_ob.show
+		call main.cb_partial_ob.show
+		call main.tx_weighted_ob.show
+		call main.cb_weighted_ob.show
+	}
+	call script rotate_opt_opts_enable
+	call program check_for_matrix
+END
+
+DIALOG report, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  CHECKBOX ck_blanks		_lft	_top	_iwd	.,		///
+  	onclickon(script ck_blanks_on)					///
+  	onclickoff(script ck_blanks_off)				///
+	label(resource ROTATE_REPORT_CK_BLANKS)
+  EDIT     en_blanks	       _indent2	_ss	_en7wd	.,		///
+	option(blanks) default(0)					///
+	label(resource LBL_BLANKS_VALUE)
+  TEXT     tx_blanks		_spsep	@	_cksprb	.,		///
+	label("#")
+
+  CHECKBOX ck_detail		_lft	_ls	_iwd	_ht10,		///
+	label(resource ROTATE_REPORT_CK_DETAIL) groupbox		///
+	option(detail)							///
+	onclickon(program detail_on)					///
+	onclickoff(program detail_off)
+
+  CHECKBOX ck_format	       _indent	_ss	_ibwd	.,		///
+  	onclickon(script format_on)					///
+  	onclickoff(script format_off)					///
+	label(resource LBL_OVERRIDE_DISPLAY_FORMAT_FOR_MATRICES)
+  EDIT     en_format		+20	_ss	200	.,		///
+	option(format)							///
+	label(resource LBL_DISPLAY_FORMAT_FOR_MATRICES)
+  BUTTON   bu_format		+205	@	80	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(script showFormatDialog)					///
+	tooltip(resource LBL_CREATE_DISPLAY_FORMAT)
+
+  CHECKBOX ck_noloading		_ilft	_ls	_ibwd	.,		///
+	option(noloading)						///
+	label(resource LBL_SUPPRESS_DISPLAY_OF_ROTATED_LOADINGS)
+  CHECKBOX ck_norotation	@	_ms	@	.,		///
+	option(norotation)						///
+	label(resource LBL_SUPPRESS_DISPLAY_OF_ROTATION_MATRIX)
+END
+
+SCRIPT showFormatDialog
+BEGIN
+	create STRING formatString
+	create CHILD format_chooser
+	format_chooser.setExitString formatString
+	format_chooser.setExitAction "report.en_format.setvalue class formatString.value"
+END
+
+SCRIPT format_on
+BEGIN
+  	report.en_format.enable
+  	report.bu_format.enable
+END
+
+SCRIPT format_off
+BEGIN
+  	report.en_format.disable
+	report.bu_format.disable
+END
+
+
+PROGRAM detail_on
+BEGIN
+	call report.ck_format.enable
+	if report.ck_format {
+		call report.en_format.enable
+	}
+	call report.ck_noloading.enable
+	call report.ck_norotation.enable
+END
+
+PROGRAM detail_off
+BEGIN
+	call report.ck_format.disable
+	if report.ck_format {
+		call report.en_format.disable
+	}
+	call report.ck_noloading.disable
+	call report.ck_norotation.disable
+END
+
+SCRIPT ck_blanks_on
+BEGIN
+	report.en_blanks.enable
+	report.tx_blanks.enable
+END
+
+SCRIPT ck_blanks_off
+BEGIN
+	report.en_blanks.disable
+	report.tx_blanks.disable
+END
+
+SCRIPT ortho_on
+BEGIN
+	program desel_oblique
+	main.lb_oblique.disable
+	main.lb_ortho.enable
+	main.lb_ortho.withvalue main.lb_ortho.setvalue "@"
+	program check_for_matrix
+END
+
+PROGRAM desel_oblique
+BEGIN
+if main.lb_oblique.equals("promax") {
+	call main.tx_propow.hide
+	call main.en_propow.hide
+}
+if main.lb_oblique.equals("oblimin") {
+	call main.tx_oblimin_ob.hide
+	call main.en_oblimin_ob.hide
+	call main.tx_obliminnum_ob.hide
+}
+if main.lb_oblique.equals("cf") {
+	call main.tx_cf_ob.hide
+	call main.en_cf_ob.hide
+	call main.tx_cfnum_ob.hide
+}
+if main.lb_oblique.equals("target") {
+	call main.tx_target_ob.hide
+	call main.cb_target_ob.hide
+}
+if main.lb_oblique.equals("partial") {
+	call main.tx_partial_ob.hide
+	call main.cb_partial_ob.hide
+	call main.tx_weighted_ob.hide
+	call main.cb_weighted_ob.hide
+}
+END
+
+SCRIPT oblique_on
+BEGIN
+	program desel_ortho
+	main.lb_oblique.enable
+	main.lb_ortho.disable
+	main.lb_oblique.withvalue main.lb_oblique.setvalue "@"
+	program check_for_matrix
+END
+
+PROGRAM desel_ortho
+BEGIN
+if main.lb_ortho.equals("oblimin") {
+	call main.tx_oblimin_or.hide
+	call main.en_oblimin_or.hide
+	call main.tx_obliminnum_or.hide
+}
+if main.lb_ortho.equals("cf") {
+	call main.tx_cf_or.hide
+	call main.en_cf_or.hide
+	call main.tx_cfnum_or.hide
+}
+if main.lb_ortho.equals("target") {
+	call main.tx_target_or.hide
+	call main.cb_target_or.hide
+}
+if main.lb_ortho.equals("partial") {
+	call main.tx_partial_or.hide
+	call main.cb_partial_or.hide
+	call main.tx_weighted_or.hide
+	call main.cb_weighted_or.hide
+}
+END
+
+INCLUDE rotate_opt_opts
+
+PROGRAM command
+BEGIN
+	put "rotate "
+	beginoptions
+		if main.rb_ortho {
+			put main.lb_ortho
+			if main.lb_ortho.equals("oblimin") {
+				put "(" main.en_oblimin_or ") "
+			}
+			if main.lb_ortho.equals("cf") {
+				require main.en_cf_or
+				put "(" main.en_cf_or ") "
+			}
+			if main.lb_ortho.equals("target") {
+				require main.cb_target_or
+				put "(" main.cb_target_or ") "
+			}
+			if main.lb_ortho.equals("partial") {
+				require main.cb_partial_or main.cb_weighted_or
+				put "(" main.cb_partial_or " " main.cb_weighted_or ") "
+			}
+		}
+		if main.lb_oblique {
+			put main.lb_oblique
+			if main.lb_oblique.equals("promax") {
+				put "(" main.en_propow ") "
+			}
+			if main.lb_oblique.equals("oblimin") {
+				put "(" main.en_oblimin_ob ") "
+			}
+			if main.lb_oblique.equals("cf") {
+				require main.en_cf_ob
+				put "(" main.en_cf_ob ") "
+			}
+			if main.lb_oblique.equals("target") {
+				require main.cb_target_ob
+				put "(" main.cb_target_ob ") "
+			}
+			if main.lb_oblique.equals("partial") {
+				require main.cb_partial_ob main.cb_weighted_ob
+				put "(" main.cb_partial_ob " " main.cb_weighted_ob ") "
+			}
+		}
+		if main.rb_oblique & !H(main.rb_oblique) {
+			put " " "oblique "
+		}
+		option main.ck_clear
+		option main.ck_kaiser
+		if main.sp_factors {
+			require main.sp_factors
+			optionarg main.sp_factors
+		}
+
+		if report.ck_detail {
+			option report.ck_detail
+		}
+		if report.ck_format {
+			require report.en_format
+			optionarg report.en_format
+		}
+		if report.ck_blanks {
+			require report.en_blanks
+			optionarg report.en_blanks
+		}
+		option report.ck_noloading
+		option report.ck_norotation
+		put " " /program rotate_opt_opts_output
+	endoptions
+END

@@ -1,0 +1,156 @@
+/*
+  rocfit
+
+*!  VERSION 1.2.1  27mar2017
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE _ht330
+INCLUDE header
+
+HELP hlp1, view("help rocfit")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        script se_createAsML
+        setscale_hadj resource ROCFIT_DLG_HSCALE
+END
+
+DIALOG main, label(resource ROCFIT_DLG_TITLE) 	/*
+		*/ tabtitle(resource LBL_TAB_MODEL)
+BEGIN
+  TEXT     tx_varr         _lft      _top      _vnwd     .,		/*
+		*/label(resource LBL_REFERENCE_VARIABLE)
+  TEXT     tx_varc         _vlx      @         _cwd1     .,		/*
+  		*/label(resource LBL_CLASSIFICATION_VARIABLE)		/*
+  		*/
+  VARNAME  vn_varr         _lft      _ss       _vnwd     .,             /*
+  		*/numeric						/*
+  		*/label(resource LBL_REFERENCE_VARIABLE)
+  VARNAME  vn_varc         _vlx      @         @         .,		/*
+  		*/numeric						/*
+  		*/label(resource LBL_CLASSIFICATION_VARIABLE)
+  GROUPBOX gb_opt          _lft      _xls      _iwd      _ht12,         /*
+  		*/label(resource LBL_OPTIONS)
+  CHECKBOX ck_cont         _indent   _ss       _ibwd     .,		/*
+  		*/ clickon("program cont_on")				/*
+  		*/ clickoff("script cont_off")				/*
+		*/ label(resource ROCFIT_MAIN_CK_CONT)
+DEFINE holdx1 @x
+  RADIO    rb_cont         _indent2  _ms       _rbwd     .,		/*
+  		*/label("")/*
+  		*/clickon("program cont1_on")				/*
+		*/first
+DEFINE holdx2 @x
+  SPINNER  sp_cont         _rbsep    @         _spwd     .,		/*
+  		*/label(resource LBL_NUMBER_OF_GROUPS)			/*
+  		*/min(1) max(10000000) default(1)			/*
+		*/option("continuous")
+  TEXT     tx_cont         _spsep    @         _cwd0     .,		/*
+  		*/label(resource LBL_NUMBER_OF_GROUPS)
+  RADIO    rb_cont2        holdx2    _ms       @         .,		/*
+  		*/label(resource ROCFIT_MAIN_RB_CONT2)			/*
+  		*/option("continuous(.)")				/*
+		*/clickon("script cont2_on")				/*
+		*/last
+  CHECKBOX ck_gener        holdx1    _ls       _ibwd     .,		/*  		
+		*/label(resource ROCFIT_MAIN_CK_GENER)			/*
+  		*/ clickon(gaction main.ed_gener.enable)		/*
+		*/ clickoff(gaction main.ed_gener.disable)
+  EDIT     ed_gener        _indent2  _ss       _vnwd     .,		/*
+		*/label(resource ROCFIT_MAIN_CK_GENER)			/*
+		*/option("generate")					/*
+  		*/max(32)
+END
+
+INCLUDE ifin
+INCLUDE weights_f
+INCLUDE se
+
+
+SCRIPT POSTINIT
+BEGIN
+	script se_setRobust_off
+	script se_setTitleSE
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _y 20
+  DEFINE _cx _sprb
+  INCLUDE _sp_level
+END
+
+INCLUDE max_ml
+
+PROGRAM cont_on
+BEGIN
+	call gaction main.rb_cont.enable
+	if main.rb_cont {
+    		call program cont1_on
+	}
+	call gaction main.tx_cont.enable
+	call gaction main.rb_cont2.enable
+	if main.rb_cont2 {
+		call script cont2_on
+	}
+END
+
+SCRIPT cont_off
+  BEGIN
+    main.rb_cont.disable
+    main.rb_cont2.disable
+    script cont2_on
+    main.tx_cont.disable
+END
+
+PROGRAM cont1_on
+BEGIN
+	if main.ck_cont {
+		call gaction main.sp_cont.enable
+		call gaction main.ck_gener.enable
+		if main.ck_gener {
+			call gaction main.ed_gener.enable
+		}
+	}
+END
+
+SCRIPT cont2_on
+  BEGIN
+    main.sp_cont.disable
+    main.ck_gener.disable
+    main.ed_gener.disable
+  END
+
+PROGRAM command
+BEGIN
+	put "rocfit "
+	varlist main.vn_varr
+	varlist main.vn_varc
+	INCLUDE _weights_pr
+	INCLUDE _ifin_pr
+	beginoptions
+		if main.ck_cont {
+			if main.rb_cont {
+				optionarg main.sp_cont
+				if main.ck_gener {
+					require main.ed_gener
+					optionarg main.ed_gener
+				}
+			}
+			if main.rb_cont2 {
+				option main.rb_cont2
+			}
+		}
+	endoptions
+	beginoptions
+		put " " /program se_output
+		optionarg /hidedefault rpt.sp_level
+		put " " /program max_output
+	endoptions
+END

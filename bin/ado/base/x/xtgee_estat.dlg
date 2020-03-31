@@ -1,0 +1,197 @@
+/*
+	xtgee_estat
+
+*!  VERSION 1.2.1  02feb2015
+
+	***
+	USE EXTREME CARE WHEN CHANGING CONTROL NAMES. The names used
+	in this file have multiple external dependencies.
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 400	//dialog length for bootstrap options
+INCLUDE header
+
+HELP hlp1, view("help xtgee postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create BOOLEAN has_FactorVars
+	has_FactorVars.settrue
+	program sum_bu_facvars_ckResults
+	program vce_bu_facvars_ckResults
+	setscale_hadj resource XTGEE_ESTAT_DLG_HSCALE
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	call program parseMessage
+END
+
+PROGRAM parseMessage
+BEGIN
+	if __MESSAGE.contains("-wcorrelation-") {
+		call main.lb_subcmd.setvalue "wcorrelation"
+	}
+	if __MESSAGE.contains("-summarize-") {
+		call main.lb_subcmd.setvalue "summarize"
+	}
+	if __MESSAGE.contains("-vce-") {
+		call main.lb_subcmd.setvalue "vce"
+	}
+	if __MESSAGE.contains("-bootstrap-") {
+		call main.lb_subcmd.setvalue "bootstrap"
+	}
+END
+
+
+DIALOG main, label(resource XTGEE_ESTAT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_subcmd		_lft	_top	_iwd	.,		///
+  	label(resource LBL_REPORTS_STATISTICS_SUBCOMMAND)
+  LISTBOX  lb_subcmd		@	_ss	@	70,		///
+  	contents(main_subcommand_contents)				///
+  	values(main_subcommand_values)					///
+  	onselchangelist(main_subcommand_scripts)
+
+  DEFINE holdy 110
+
+  // wcorrelation
+  CHECKBOX ck_compact		_lft	holdy	_iwd	.,		///
+  	option(compact)							///
+  	label(resource XTGEE_ESTAT_MAIN_CK_COMPACT)
+  CHECKBOX ck_format_1		_lft	_ms	_iwd	.,		///
+  	label(resource LBL_OVERRIDE_DISPLAY_FORMAT) 			///
+  	onclickon(script main_format_on)				///
+  	onclickoff(script main_format_off)
+  EDIT     ed_format_1		+20	_ss	200	.,		///
+  	option(format) label(resource LBL_DISPLAY_FORMAT_NO_COLON)
+  BUTTON   bn_format_1		+205	@      	80	.,		///
+	label(resource LBL_BU_CREATE) onpush(script main_GetFormat)	///
+	tooltip(resource LBL_CREATE_DISPLAY_FORMAT)
+
+  INCLUDE estat_sum
+  INCLUDE estat_vce
+  INCLUDE _estat_bootstrap
+END
+
+SCRIPT main_GetFormat
+BEGIN
+	create STRING mainFormat
+	create CHILD format_chooser
+	format_chooser.setExitString mainFormat
+	format_chooser.setExitAction "main.ed_format_1.setvalue class mainFormat.value"
+END
+
+INCLUDE estat_sum_pr
+INCLUDE _estat_bootstrap_pr
+INCLUDE estat_vce_pr
+
+SCRIPT main_group_on
+BEGIN
+	main.sp_group.enable
+	main.tx_group.enable
+END
+SCRIPT main_group_off
+BEGIN
+	main.sp_group.disable
+	main.tx_group.disable
+END
+
+LIST main_subcommand_contents
+BEGIN
+	resource XTGEE_ESTAT_EST_MATRIX_WITHIN_GROUP_CORR
+	resource LBL_SUMMARIZE_ESTIMATION_SAMPLE
+	resource LBL_COVARIANCE_MATRIX_ESTIMATES
+END
+
+LIST main_subcommand_values
+BEGIN
+	wcorrelation
+	summarize
+	vce
+END
+
+LIST main_subcommand_scripts
+BEGIN
+	script sel_wcorrelation
+	script sel_summarize
+	script sel_vce
+END
+
+SCRIPT sel_wcorrelation
+BEGIN
+	script main_hide_all
+	main.ck_compact.show
+	main.ck_format_1.show
+	main.ed_format_1.show
+	main.bn_format_1.show
+END
+
+SCRIPT sel_summarize
+BEGIN
+	script main_hide_all
+	program main_summ_on
+END
+
+SCRIPT sel_vce
+BEGIN
+	script main_hide_all
+	program vce_on
+END
+
+SCRIPT main_hide_all  // MUST BE IMPLEMENTED FOR BOOTSTRAP
+BEGIN
+	main.ck_compact.hide
+	main.ck_format_1.hide
+	main.ed_format_1.hide
+	main.bn_format_1.hide
+	script main_summ_off
+	program vce_off
+	script main_bootstrap_hide
+END
+
+SCRIPT main_format_on
+BEGIN
+	main.ed_format_1.enable
+	main.bn_format_1.enable
+END
+SCRIPT main_format_off
+BEGIN
+	main.ed_format_1.disable
+	main.bn_format_1.disable
+END
+
+PROGRAM vl_output
+BEGIN
+	put main.vl_spec
+END
+
+PROGRAM vl_eq_output
+BEGIN
+	put main.vl_eq
+END
+
+
+PROGRAM command
+BEGIN
+	put "estat "
+	put main.lb_subcmd
+	put " " /program summarize_output
+	beginoptions
+		// wcorrelation
+  		option main.ck_compact
+		if main.ck_format_1 {
+			require main.ed_format_1
+			optionarg main.ed_format_1
+		}
+		// Summarize options
+		put " " /program summarize_opts_output
+
+		put " " /program vce_output
+		put " " /program bootstrap_output
+	endoptions
+END

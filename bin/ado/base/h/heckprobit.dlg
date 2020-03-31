@@ -1,0 +1,138 @@
+/*
+  heckprobit
+
+*! VERSION 1.2.1  05feb2019
+
+  keyword:  eclass
+
+*/
+
+VERSION 15.0
+
+INCLUDE _std_xlarge
+DEFINE _dlght 330
+INCLUDE header
+HELP hlp1, view("help heckprobit")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	script se_createAsSvyJknifeBstrapML
+	program svy_check_title
+	setscale_hadj resource HECKPROBIT_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script sub_set_by_on
+	program se_setFinalInitState
+END
+
+SCRIPT svy_is_on
+BEGIN
+	rpt.gb_tests.disable
+	rpt.ck_lrmodel.disable
+	script max_setDefaultNoLog
+END
+SCRIPT svy_is_off
+BEGIN
+	rpt.gb_tests.enable
+	rpt.ck_lrmodel.enable
+	script max_setDefaultLog
+END
+PROGRAM svy_check_title
+BEGIN
+	if __MESSAGE.contains("-svy-") {
+		call settitle resource HECKPROBIT_SVY_DLG_TITLE
+	}
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)			///
+	/// **** has svy title ****				///
+	title(resource HECKPROBIT_DLG_TITLE)
+BEGIN
+  INCLUDE heckman_model
+END
+
+INCLUDE heckman_model_sc
+
+INCLUDE sub_by_ifin_over_subpop
+INCLUDE weights_fpi
+INCLUDE se
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+        program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2b
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  CHECKBOX ck_first  _lft      _ls      _cwd1      .,			///
+	option("first")							///
+	label(resource LBL_REPORT_FIRST_STEP_PROBIT_ESTIMATES)
+  GROUPBOX gb_tests  _lft      _ls    _iwd       _ht2,			///
+	label(resource LBL_ADDITIONAL_TEST_STATISTICS)
+  CHECKBOX ck_lrmodel _ilft     _ss      _cwd2      .,			///
+	option("lrmodel")						///
+	onclickon(script se_setRobust_off)				///
+  	onclickoff(script se_setRobust_on)				///
+  	label(resource LBL_PERFORM_LIKELIHOOD_RATIO_MODEL_TEST_LRMODEL)
+
+  DEFINE _x _lft
+  DEFINE _y _xls
+  DEFINE _cx _iwd
+  INCLUDE _nocnsreport
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+
+PROGRAM rpt_output
+BEGIN
+	optionarg /hidedefault rpt.sp_level
+	option rpt.ck_first
+	option rpt.ck_lrmodel
+	INCLUDE _nocnsreport_pr
+	INCLUDE _report_columns_pr
+	put " " rpt_bu_facvarsResults
+	put " " rpt_bu_fmtcoefResults
+END
+
+INCLUDE max_ml
+
+PROGRAM command
+BEGIN
+	put /program by_output " "
+	put /program se_prefix_output " "
+	put "heckprobit "
+	put " " /program heckman_model_output
+	put " " /program ifin_output
+	put " " /program weights_output
+	beginoptions
+		put " " /program heckman_model_opts_output
+		put " " /program se_output
+		put " " /program rpt_output
+		put " " /program max_output
+	endoptions
+END

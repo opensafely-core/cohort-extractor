@@ -1,0 +1,204 @@
+/*
+  icc
+
+*!  VERSION 1.1.2  21mar2017
+
+  keyword:  rclass
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 325
+INCLUDE header
+
+HELP hlp1, view("help icc")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create DOUBLE val
+	setscale_hadj resource ICC_DLG_HSCALE
+END
+
+DIALOG main, label(resource ICC_DLG_TITLE)				///
+	tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  GROUPBOX gb_type		_lft	_top	_iwd	_ht6,		///
+	label(resource ICC_MAIN_GB_TYPE)
+  RADIO rb_onewayrandom		_ilft	_ss	_inwd	., first	///
+	onclickon(script main_onewayrandom_on)				///
+	label(resource ICC_MAIN_RB_ONEWAYRANDOM)
+  RADIO rb_twowayrandom		@	_ss	@	.,		///
+	onclickon(script main_twowayrandom_on)				///
+	label(resource ICC_MAIN_RB_TWOWAYRANDOM)
+  RADIO rb_twowaymix		@	_ss	@	., last		///
+	onclickon(script main_twowaymix_on)				///
+	label(resource ICC_MAIN_RB_TWOWAYMIX)
+  TEXT tx_dvar			_lft	+40	_vnwd	.,		///
+	label(resource LBL_DEPVAR)
+  DEFINE holdy @y
+  VARNAME vn_dvarlist		@	_ss	@	.,		///
+  	numeric								///
+	label(resource LBL_DEPVAR)
+  TEXT tx_targetvar		_lft3_2	holdy	@	.,		///
+	label(resource ICC_MAIN_TX_TARGETVAR)
+  VARNAME vn_targetvarlist	@	_ss	@	.,		///
+  	numeric								///
+	label(resource ICC_MAIN_TX_TARGETVAR)
+  TEXT tx_ratervar		_lft3_3	holdy	@	.,		///
+	label(resource ICC_MAIN_TX_RATERVAR)
+  VARNAME vn_ratervarlist	@	_ss	@	.,		///
+  	numeric								///
+	label(resource ICC_MAIN_TX_RATERVAR)
+  GROUPBOX gb_opts		_lft	_ls	_iwd	_ht5,		///
+	label(resource LBL_OPTIONS)
+  GROUPBOX gb_agreement		_ilft	_ms	_inwd	_ht4,		///
+	label(resource ICC_MAIN_GB_AGREEMENT)
+
+  RADIO rb_rand_absolute	_indent	_ss	@	., first	///
+	option(absolute)						///
+	label(resource ICC_MAIN_RB_RAND_ABSOLUTE)
+  DEFINE holdy @y
+  RADIO rb_rand_consistency	@	_ss	@	., last		///
+	option(consistency)						///
+	label(resource ICC_MAIN_RB_RAND_CONSISTENCY)
+
+  RADIO rb_mixed_consistency	@	holdy	_inwd	., first	///
+	option(consistency)						///
+	label(resource ICC_MAIN_RB_MIXED_CONSISTENCY)
+  RADIO rb_mixed_absolute	@	_ss	@	., last		///
+	option(absolute)						///
+	label(resource ICC_MAIN_RB_MIXED_ABSOLUTE)
+  TEXT tx_testvalue		_ilft	_xls	_inwd	.,		///
+	label(resource ICC_MAIN_TX_TESTVALUE)
+  EDIT ed_testvalue		+20	@	_en7wd	.,		///
+	option(testvalue) numonly default(0)				///
+	label(resource ICC_MAIN_TX_TESTVALUE)
+END
+
+SCRIPT main_onewayrandom_on
+BEGIN
+	main.tx_ratervar.hide
+	main.vn_ratervarlist.hide
+	
+	main.gb_agreement.hide
+	main.rb_rand_absolute.hide
+	main.rb_rand_consistency.hide
+	main.rb_mixed_consistency.hide
+	main.rb_mixed_absolute.hide
+
+	main.gb_opts.setposition . 165 . 70
+	main.tx_testvalue.setposition . 185
+	main.ed_testvalue.setposition . 205
+END
+
+SCRIPT main_twowayrandom_on
+BEGIN
+	main.tx_ratervar.show
+	main.vn_ratervarlist.show
+	
+	main.gb_agreement.show
+	main.rb_rand_absolute.show
+	main.rb_rand_consistency.show
+	main.rb_mixed_consistency.hide
+	main.rb_mixed_absolute.hide
+
+	main.gb_opts.setposition . 165 . 150
+	main.tx_testvalue.setposition . 265
+	main.ed_testvalue.setposition . 285
+END
+
+SCRIPT main_twowaymix_on
+BEGIN
+	main.tx_ratervar.show
+	main.vn_ratervarlist.show
+	
+	main.gb_agreement.show
+	main.rb_rand_absolute.hide
+	main.rb_rand_consistency.hide
+	main.rb_mixed_consistency.show
+	main.rb_mixed_absolute.show
+
+	main.gb_opts.setposition . 165 . 150
+	main.tx_testvalue.setposition . 265
+	main.ed_testvalue.setposition . 285
+END
+
+INCLUDE byifin
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE   _x  _lft
+  DEFINE   _cx _spr
+  DEFINE   _y  _top
+  INCLUDE  _sp_level
+
+  CHECKBOX ck_format		_lft	_ls	_iwd	.,		///
+	onclickon(script rpt_format_on)					///
+	onclickoff(script rpt_format_off)				///
+	label(resource ICC_MAIN_RPT_CK_FORMAT)
+  EDIT en_format		+20	_ss	200	.,		///
+	option(format)							///
+	label(resource ICC_MAIN_RPT_CK_FORMAT)
+  BUTTON bu_format		+205	@	80	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(script rpt_showFormatDialog)				///
+	tooltip(resource LBL_CREATE_DISPLAY_FORMAT)
+END
+
+
+SCRIPT rpt_showFormatDialog
+BEGIN
+	create STRING formatString
+	create CHILD format_chooser
+	format_chooser.setExitString formatString
+	format_chooser.setExitAction "rpt.en_format.setvalue class formatString.value"
+END
+
+SCRIPT rpt_format_on
+BEGIN
+	rpt.en_format.enable
+	rpt.bu_format.enable
+END
+
+SCRIPT rpt_format_off
+BEGIN
+	rpt.en_format.disable
+	rpt.bu_format.disable
+END
+
+PROGRAM command
+BEGIN
+	put " " /program by_output
+	put "icc "
+	require main.vn_dvarlist
+	varlist [main.vn_dvarlist]
+	require main.vn_targetvarlist
+	varlist [main.vn_targetvarlist]
+	require main.vn_ratervarlist
+	varlist [main.vn_ratervarlist]
+	put " " /program ifin_output
+	beginoptions
+		if main.rb_twowaymix {
+			put "mixed "
+		}
+
+		call val.setvalue class main.ed_testvalue.value
+		if (val.islt(0) | val.isge(1)) {
+			stopbox stop resource ICC_MSGBOX_INVALID_NULL_HYPOTH_TEST_VALUE
+// Invalid null hypothesis test value.  Number must be >= 0 and < 1.
+		}
+
+		option radio(main rb_mixed_consistency rb_mixed_absolute)
+		option radio(main rb_rand_consistency rb_rand_absolute)
+
+		optionarg /hidedefault main.ed_testvalue
+		optionarg /hidedefault rpt.sp_level
+		if rpt.ck_format {
+			require rpt.en_format
+			optionarg rpt.en_format
+		}
+	endoptions
+END

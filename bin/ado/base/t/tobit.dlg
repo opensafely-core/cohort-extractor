@@ -1,0 +1,169 @@
+/*
+  tobit
+
+*!  VERSION 1.3.6  29nov2018
+
+  keyword:  eclass
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 385
+INCLUDE header
+
+HELP hlp1, view("help tobit")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	script se_createAsSvyInternalML
+	program svy_check_title
+	setscale_hadj resource TOBIT_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script max_setDefaultNoLog
+	script se_setJknifeBstrap_on
+	script sub_set_by_on
+	program se_setFinalInitState
+END
+
+SCRIPT svy_is_on
+BEGIN
+	//
+END
+SCRIPT svy_is_off
+BEGIN
+	//
+END
+PROGRAM svy_check_title
+BEGIN
+	if __MESSAGE.contains("-svy-") {
+		call settitle resource TOBIT_DLG_SVY_TITLE
+	}
+END
+
+DIALOG main, 								///
+	title(resource TOBIT_DLG_TITLE) /* has svy title */		///
+	tabtitle(resource LBL_TAB_MODEL)
+BEGIN
+  TEXT tx_dv 			_lft	_top	_vnwd	.,		///
+	label(resource LBL_DEPVAR)
+  VARNAME vn_dv			@ 	_ss	@	.,		///
+	ts								///
+	numeric								///
+	label(resource LBL_DEPVAR)
+
+  TEXT tx_iv			_vlx	_top	160	.,		///
+	label(resource LBL_INDDEPVAR)
+  VARLIST vl_iv			@	_ss	_vlwd	.,		///
+	fv ts								///
+	allowcat							///
+	numeric								///
+	label(resource LBL_INDDEPVAR)
+  CHECKBOX ck_nocons		@	_ms	@	.,		///
+	label(resource LBL_NOCONSTANT)					///
+	option(noconstant)
+
+  DEFINE yval _ls
+  INCLUDE censor_ul_ll
+
+  GROUPBOX gb_options		_lft	_xxls	_iwd	_ht9,		///
+	label(resource LBL_OPTIONS)
+
+  TEXT tx_offset		_ilft	_ss	_ibwd	.,		///
+	label(resource LBL_OFFSET_VARIABLE)
+
+  VARNAME  vn_offset		@	_ss	_vnwd	.,		///
+	option("offset")						///
+	numeric								///
+	label(resource LBL_OFFSET_VARIABLE)
+
+  DEFINE _x _ilft
+  DEFINE _y _ms
+  DEFINE _cx _ilw80
+  DEFINE _bux _islw80
+  INCLUDE _constraints
+
+  DEFINE _x _ilft
+  DEFINE _xw _iwd
+//  INCLUDE _ck_collinear
+END
+
+INCLUDE _constraints_sc
+INCLUDE censor_ul_ll_pr
+
+INCLUDE sub_by_ifin_over_subpop
+INCLUDE weights_fpai
+INCLUDE se
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+	program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2b
+  DEFINE _y 20
+  INCLUDE _sp_level
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _nocnsreport
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+
+PROGRAM rpt_output
+BEGIN
+	optionarg /hidedefault rpt.sp_level
+	INCLUDE _nocnsreport_pr
+	put " " rpt_bu_facvarsResults
+	put " " rpt_bu_fmtcoefResults
+END
+
+INCLUDE max_ml
+
+PROGRAM command
+BEGIN
+	put /program by_output " "
+	put /program se_prefix_output " "
+	put "tobit "
+	varlist main.vn_dv [main.vl_iv]
+	put " " /program ifin_output
+	put " " /program weights_output
+	beginoptions
+		option main.ck_nocons
+		optionarg main.vn_offset
+		INCLUDE _constraints_main_pr
+//		option main.ck_collinear
+
+		put " " /program censor_ul_ll_output
+		put " " /program se_output
+		put " " /program rpt_output
+		put " " /program max_output
+	endoptions
+END

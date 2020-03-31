@@ -1,0 +1,288 @@
+/*
+  threshold
+
+*! VERSION 1.0.8  12may2017
+
+  keyword:  eclass
+
+*/
+
+VERSION 15.0
+
+INCLUDE _std_large
+DEFINE _dlght 430
+INCLUDE header
+HELP hlp1, view("help threshold")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	script se_createAsRobustOIM
+	setscale_hadj resource THRESHOLD_DLG_HSCALE
+	create STRING __const_tab
+        __const_tab.setvalue "adv"
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script sub_set_by_on
+	program se_setFinalInitState
+END
+
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL) 				///
+title(resource THRESHOLD_DLG_TITLE)
+BEGIN
+
+  DEFINE _x _xsetbu
+  DEFINE _y _top
+  INCLUDE _bu_tsset
+
+  GROUPBOX gb_threshold		_lft	_ss	_iwd	_ht17h,		///
+  	label(resource LBL_THRESHOLD_SPECIFICATION)
+  RADIO rb_nthresholds		_ilft	_ss	_ibwd	., first	///
+	onclickon("script main_nthresholds_on")				///
+	label(resource LBL_THRESHOLD_SPECIFY)
+  RADIO rb_optthresh		@	_ss	@	., last		///
+	onclickon("script main_optthres_on")				///
+	label(resource LBL_THRESHOLD_CHOOSE_USING_AIC_BIC_HQIC)
+  SPINNER sp_nthresholds	_iilft	_ls	_spwd	.,		///
+	min(1)								///
+	max(10000000)							///
+	default(1)							///
+	option(nthresholds)						///
+	label(resource THRESHOLD_MAIN_TX_THRESHNUM)
+  TEXT tx_nthresholds		_spsep	@	200	.,		///
+  	label(resource THRESHOLD_MAIN_TX_THRESHNUM)
+  SPINNER sp_optthresh		_iilft	_ls	_spwd	.,		///
+	min(1)								///
+	max(10000000)							///
+	default(1)							///
+	option(optthresh)						///
+	label(resource THRESHOLD_MAIN_TX_MAX_THRESHNUM)
+  TEXT tx_optthresh		_spsep	@	200	.,		///
+  	label(resource THRESHOLD_MAIN_TX_MAX_THRESHNUM)
+  COMBOBOX cb_ictype		_iilft	_ms	250	.,		///
+	dropdownlist							///
+	default(bic)							///
+	contents("main_ictype_list")					///
+	values("main_ictype_values")
+  TEXT tx_threshvar		_ilft	_ls	_vnwd	.,		///
+	label(resource THRESHOLD_MAIN_TX_THRESHVAR)
+  VARNAME vn_threshvar		@	_ss	@	.,		///
+	ts								///
+	option(threshvar)						///
+	label(resource THRESHOLD_MAIN_TX_THRESHVAR)
+  SPINNER sp_trim		_vlx	@	_spwd	.,		///
+	min(1)								///
+	max(49)								///
+	default(10)							///
+	option(trim)							///
+	label(resource THRESHOLD_MAIN_TX_TRIM)
+  TEXT tx_trim			_spsep	@	240	.,		///
+  	label(resource THRESHOLD_MAIN_TX_TRIM)
+  GROUPBOX gb_regression	_lft	+45	_iwd	_ht14,		///
+  	label(resource LBL_REGRESSION_SPECIFICATION)
+  TEXT tx_dv			_ilft	_ss	_vnwd	.,		///
+	label(resource LBL_DEPVAR)
+  DEFINE holdy @y
+  VARNAME vn_dv			@	_ss	@	.,		///
+	ts								///
+	label(resource LBL_DEPVAR)
+  TEXT tx_iv			_vlx	holdy	150	.,		///
+	label(resource LBL_INDDEPVAR)
+  VARLIST vl_iv			@	_ss	_ivlwd	.,		///
+	fv ts								///
+	allowcat							///
+	label(resource LBL_INDDEPVAR)
+  TEXT tx_regionvars		_ilft	_ls	_inwd	.,		///
+	label(resource THRESHOLD_MAIN_TX_REGIONVARS)  
+  VARLIST vl_regionvars		@	_ss	_ibwd	.,		///
+	fv ts								///
+	allowcat							///
+	option(regionvars)						///
+	label(resource THRESHOLD_MAIN_TX_REGIONVARS)
+  CHECKBOX ck_consinvar		_ilft	_ls	_iibwd	.,		///
+	option(consinvariant)						///
+	onclickon(main.ck_nocons.disable)				///
+	onclickoff(main.ck_nocons.enable)				///
+	label(resource THRESHOLD_MAIN_CK_CONSINVAR)
+  CHECKBOX ck_nocons		_ilft	_ms	_iibwd	.,		///
+	option(noconstant)						///
+	onclickon(main.ck_consinvar.disable)				///
+	onclickoff(main.ck_consinvar.enable)				///
+	label(resource THRESHOLD_MAIN_CK_NOCONS)
+END
+
+LIST main_ictype_list
+BEGIN
+	resource LBL_BAYESIAN_INFORMATION_CRITERION
+	resource LBL_AKAIKE_INFORMATION_CRITERION
+	resource LBL_HANNAN_QUINN_INFORMATION_CRITERION
+END
+
+LIST main_ictype_values
+BEGIN
+	bic
+	aic
+	hqic
+END
+
+SCRIPT main_nthresholds_on
+BEGIN
+	main.sp_nthresholds.enable
+	main.tx_nthresholds.enable
+	main.sp_optthresh.disable
+	main.tx_optthresh.disable
+	main.cb_ictype.disable
+END
+
+SCRIPT main_optthres_on
+BEGIN
+	main.sp_nthresholds.disable
+	main.tx_nthresholds.disable
+	main.sp_optthresh.enable
+	main.tx_optthresh.enable
+	main.cb_ictype.enable
+END
+
+INCLUDE sub_by_ifin_over_subpop
+INCLUDE se
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+	program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2b
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _nocnsreport
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+
+  GROUPBOX gb_displ		_lft	_ls	_iwd	_ht5,		///
+	label(resource _OUTPUT_REPS_GB_DISPL)
+  CHECKBOX ck_nodots		_indent	_ss	_inwd	.,		///
+	option("nodots")						///
+	onclickon("rpt.sp_dots.disable")				///
+	onclickoff("rpt.sp_dots.enable")				///
+	label(resource LBL_SUPPRESS_REPLICATION_DOTS)
+  DEFINE holdx @x
+  SPINNER sp_dots		@	_ls	_spwd	.,		///
+	option(dots)							///
+	min(1)
+  TEXT tx_dots			_spsep	@	_sprb	.,		///
+	label(resource LBL_DISPLAY_DOTS_EVERY_#_REPS)
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+
+PROGRAM rpt_output
+BEGIN
+	optionarg /hidedefault rpt.sp_level
+	INCLUDE _nocnsreport_pr
+	put " " rpt_bu_facvarsResults
+	put " " rpt_bu_fmtcoefResults
+	option rpt.ck_nodots
+	optionarg /hidedefault rpt.sp_dots
+END
+
+DIALOG adv, tabtitle(resource LBL_ADVANCED)
+BEGIN
+  CHECKBOX ck_ssrs		_lft	_top	_iwd	_ht4,		///
+	groupbox							///
+	onclickon("script adv_ssrs_on")					///
+	onclickoff("script adv_ssrs_off")				///
+	label(resource THRESHOLD_ADV_CK_SSRS)
+  TEXT tx_ssrs			_ilft	_ss	_inwd	.,		///
+  	label(resource LBL_THRESHOLD_NEW_VAR_NAME)
+  EDIT ed_ssrs			@	_ss	@	.,		///
+	option(ssrs)							///
+	label(resource LBL_THRESHOLD_NEW_VAR_NAME)
+
+  DEFINE _x _lft
+  DEFINE _y +45
+  DEFINE _cx _lw80
+  DEFINE _bux _slw80
+  INCLUDE _constraints
+END
+
+INCLUDE _constraints_sc
+
+SCRIPT adv_ssrs_on
+BEGIN
+	adv.tx_ssrs.enable
+	adv.ed_ssrs.enable
+END
+
+SCRIPT adv_ssrs_off
+BEGIN
+	adv.tx_ssrs.disable
+	adv.ed_ssrs.disable
+END
+
+PROGRAM adv_output
+BEGIN
+	if adv.ck_ssrs {
+		require adv.ed_ssrs
+		optionarg adv.ed_ssrs
+	}
+	optionarg adv.cb_constr
+END
+
+PROGRAM optthresh_output
+BEGIN
+	require main.sp_optthresh
+	put "optthresh("
+	put main.sp_optthresh
+	if !main.cb_ictype.iseq("bic") {
+		put ","
+		put main.cb_ictype
+	}
+	put ")"
+END
+
+PROGRAM command
+BEGIN
+	put /program by_output " "
+	put /program se_prefix_output " "
+	put "threshold "
+	varlist main.vn_dv [main.vl_iv]
+	put " " /program ifin_output
+	beginoptions
+		if main.rb_nthresholds {
+			optionarg /hidedefault main.sp_nthresholds
+		}
+  		if main.rb_optthresh {
+			put /program optthresh_output
+
+		}
+		require main.vn_threshvar
+		optionarg main.vn_threshvar
+		optionarg /hidedefault main.sp_trim
+		optionarg main.vl_regionvars
+		option main.ck_consinvar
+		option main.ck_nocons
+		put " " /program se_output
+		put " " /program rpt_output
+		put " " /program adv_output
+	endoptions
+END

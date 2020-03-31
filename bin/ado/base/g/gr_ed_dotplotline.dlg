@@ -1,0 +1,1042 @@
+/*
+  gr_ed_dotplotline.dlg
+
+*!  VERSION 1.1.5  31jul2017
+
+*/
+
+VERSION 14.0
+MODAL
+
+INCLUDE _std_vsmall
+DEFINE _dlght 400
+INCLUDE header_gr_ed
+
+DEFINE _clwd	15
+DEFINE _wd	120
+DEFINE _sep	+125
+DEFINE _wd2	110
+DEFINE _sep2	+115
+DEFINE _cbwd	120
+DEFINE _cbsep	+125
+
+SCRIPT PREINIT
+BEGIN
+	settitle resource GR_ED_DOTPLOTLINE_DLG_TITLE
+	create DOUBLE d_tmp
+	create STRING G
+	create STRING J
+	create STRING style
+	create STRING Gstyle
+	program setupGOBJECT
+
+	create DOUBLE index
+	create STRING dottype
+
+// dots
+	create DOUBLE delta
+	create STRING dotSym
+	create STRING dotSize
+	create STRING dotColor
+	create STRING dotRGB
+	create STRING dotOpacity
+	create STRING dotSymAngle
+	create STRING dotLColor
+	create STRING dotLRGB
+	create STRING dotLOpacity
+	create STRING dotLWidth
+	create STRING dotLAlign
+	program dot_get_defaults
+
+// line
+	create STRING lineColor
+	create STRING lineRGB
+	create STRING lineOpacity
+	create STRING lineWidth
+	create STRING linePattern
+	program line_get_defaults
+
+// rectangle
+	create STRING rectColor
+	create STRING rectRGB
+	create STRING rectOpacity
+	create STRING rectInt
+	create STRING rectWidth
+	create STRING rectPatn
+	create STRING rectLAlign
+	create STRING rectLColor
+	create STRING rectLRGB
+	create STRING rectLOpacity
+	program rect_get_defaults
+// adv
+	create DOUBLE drawview
+	program get_defaults
+	setscale_hadj resource GR_ED_DOTPLOTLINE_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program initialize_controls
+	program dot_initialize
+	program line_initialize_controls
+	program rect_initialize_controls
+
+	program type_change
+END
+
+PROGRAM setupGOBJECT
+BEGIN
+	if ! __MESSAGE {
+		stopbox stop "resource LBL_MSGBOX_OBJECT_NOT_FOUND"
+// An unexpected error has occurred. Object not found.
+		exit 198
+	}
+	call G.setvalue class __MESSAGE.value
+	call __MESSAGE.tokenize ARGS
+	call G.setvalue class ARGS[1]
+	call J.setvalue class ARGS[2]
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_type	_ilft	_top	_wd	.,		///
+	label(resource GR_ED_DOTPLOTLINE_MAIN_TX_TYPE) right
+  COMBOBOX cb_type	_sep	@	_cbwd	.,		///
+	dropdownlist 						///
+	contents(.__STYLES_LABEL.dottypestyle)			///
+	values(.__STYLES.dottypestyle)				///
+	onselchange(program type_change)
+  GROUPBOX gb_prop	_lft	_ls	_iwd	340,
+ 
+ // dots
+  TEXT     tx_delta	_ilft	_ss	_wd	.,		///
+	label(resource GR_ED_DOTPLOTLINE_MAIN_TX_DELTA) right
+DEFINE YTOP @y
+  EDIT     ed_delta	_sep	@	_cbwd	.,		///
+	numonly
+
+  TEXT     tx_dotSym	_ilft	_mls	_wd	.,		///
+	label(resource LBL_SYMBOL) right
+  COMBOBOX cb_dotSym	_sep	@	_cbwd	.,		///
+	dropdownlist contents(_symbols)
+
+  TEXT     tx_dotSize	_ilft	_mls	_wd	.,		///
+	label(resource LBL_SIZE) right
+  COMBOBOX cb_dotSize	_sep	@	_cbwd	.,		///
+	dropdown contents(_symbolsizes)
+
+  TEXT     tx_dotClr	_ilft	_mls	_wd	.,		///
+ 	label(resource LBL_COLOR) right
+  COMBOBOX cb_dotClr	_sep	@	_cbwd	.,		///
+ 	dropdownlist contents(_colors) 				///
+ 	onselchangelist(dot_cl_clr_sel)
+  COLOR    cl_dotClr	_cbsep	@	_clwd	.,
+  TEXT     tx_dotOpacity _ilft	_mls	_wd	.,		///
+	label(resource LBL_OPACITY) right
+  SPINNER sp_dotOpacity	_sep	@	_spwd	.,		///
+	default(100)						///
+	min(0)							///
+	max(100)
+
+  TEXT     tx_msymangle	_ilft	_mls	_wd	.,		///
+	label(resource LBL_SYMBOL_ANGLE) right
+  COMBOBOX cb_msymangle	_sep	@	_cbwd	.,		///
+	option(msangle) dropdownlist contents(angles)
+
+  CHECKBOX ck_outline	_ilft	_ls	_ibwd	_ht10h,		///
+	groupbox						///
+	label(resource LBL_DIFFERENT_OUTLINE_COLOR)		///
+	onclickon(script dot_outline_on)			///
+	onclickoff(script dot_outline_off) nomemory
+  
+  TEXT     tx_dotLClr	_iilft	_ss	_wd2	.,		///
+	label(resource LBL_OUTLINE_COLOR) right
+  COMBOBOX cb_dotLClr	_sep2	@	_cbwd	.,		///
+	dropdownlist contents(_colors) 				///
+	onselchangelist(dot_cl_rectLClr_sel)
+  COLOR    cl_dotLClr	_cbsep	@	_clwd	.,
+  TEXT     tx_dotLOpacity _iilft _mls	_wd2	.,		///
+	label(resource LBL_OUTLINE_OPACITY) right
+  SPINNER sp_dotLOpacity _sep2	@	_spwd	.,		///
+	default(100)						///
+	min(0)							///
+	max(100)
+  TEXT     tx_dotLWidth	_iilft	_mls	_wd2	.,		///
+	label(resource LBL_OUTLINE_WIDTH) right
+  COMBOBOX cb_dotLWidth	_sep2	@	_cbwd	.,		///
+	dropdown 						///
+	contents(_linewidths)
+   TEXT     tx_lalign	_iilft	_mls	_wd2	.,		///
+      label(resource LBL_OUTLINE_ALIGNMENT) right
+   COMBOBOX cb_lalign	_sep2	@	_cbwd	.,		///
+      dropdownlist option(lalign)				///
+      contents(alignstroke)
+
+// line
+  TEXT     tx_lineClr	_ilft	YTOP	_wd	.,		///
+	label(resource LBL_COLOR) right
+  COMBOBOX cb_lineClr	_sep	@	_cbwd	.,		///
+	dropdownlist contents(_colors) 				///
+	onselchangelist(line_cl_clr_sel)
+  COLOR    cl_lineClr	_cbsep	@	_clwd	.,
+  TEXT     tx_lineOpacity _ilft	_mls	_wd	.,		///
+	label(resource LBL_OPACITY) right
+  SPINNER sp_lineOpacity _sep	@	_spwd	.,		///
+	default(100)						///
+	min(0)							///
+	max(100)
+  
+  TEXT     tx_lineWidth	_ilft	 _mls	_wd	.,		///
+	label(resource LBL_WIDTH) right
+  COMBOBOX cb_lineWidth	_sep	@	_cbwd	.,		///
+	dropdown 						///
+	contents(_linewidths)
+
+  TEXT     tx_linePatn	_ilft	_mls	_wd	.,		///
+	label(resource LBL_PATTERN) right
+  COMBOBOX cb_linePatn	_sep	@	_cbwd	.,		///
+	dropdownlist						///
+	contents(_linepatterns)
+
+// rectangle
+  TEXT     tx_rectClr	_ilft	YTOP	_wd	.,		///
+	label(resource LBL_COLOR) right
+  COMBOBOX cb_rectClr	_sep	@	_cbwd	.,		///
+	dropdownlist contents(_colors) 				///
+	onselchangelist(rect_cl_rectClr_sel)
+  COLOR    cl_rectClr	_cbsep	@	_clwd	.,
+  TEXT     tx_rectOpacity _ilft	_mls	_wd	.,		///
+	label(resource LBL_OPACITY) right
+  SPINNER sp_rectOpacity _sep	@	_spwd	.,		///
+	default(100)						///
+	min(0)							///
+	max(100)
+
+  TEXT     tx_rectInt	_ilft	_mls	_wd	.,		///
+	label(resource LBL_FILL_INTENSITY) right
+  COMBOBOX cb_rectInt	_sep	@	_cbwd	.,		///
+	dropdown contents(_intensity)
+  
+  TEXT     tx_rectWidth	_ilft	 _mls	_wd	.,		///
+	label(resource LBL_OUTLINE_WIDTH) right
+  COMBOBOX cb_rectWidth	_sep	@	_cbwd	.,		///
+	dropdown 						///
+	contents(_linewidths)
+
+  TEXT     tx_rectPatn	_ilft	_mls	_wd	.,		///
+	label(resource LBL_OUTLINE_PATTERN) right
+  COMBOBOX cb_rectPatn	_sep	@	_cbwd	.,		///
+	dropdownlist						///
+	contents(_linepatterns)
+
+   TEXT     tx_rectlalign _ilft	_mls	_wd	.,		///
+      label(resource LBL_OUTLINE_ALIGNMENT) right
+   COMBOBOX cb_rectlalign _sep	@	_cbwd	.,		///
+      dropdownlist option(lalign)				///
+      contents(alignstroke)
+
+
+  CHECKBOX ck_rectOutLn	_ilft	_ls	_ibwd	_ht5,		///
+	groupbox						///
+	label(resource LBL_DIFFERENT_OUTLINE_COLOR)		///
+	onclickon(script rect_outline_on)			///
+	onclickoff(script rect_outline_off) nomemory
+
+  TEXT     tx_rectLClr	_iilft	_ss	_wd2	.,		///
+	label(resource LBL_OUTLINE_COLOR) right
+  COMBOBOX cb_rectLClr	_sep2	@	_cbwd	.,		///
+	dropdownlist contents(_colors) 				///
+	onselchangelist(rect_cl_lclr_sel)
+  COLOR    cl_rectLClr	_cbsep	@	_clwd	.,
+  TEXT     tx_rectLOpacity _iilft _mls	_wd2	.,		///
+	label(resource LBL_OUTLINE_OPACITY) right
+  SPINNER sp_rectLOpacity  _sep2 @	_spwd	.,		///
+	default(100)						///
+	min(0)							///
+	max(100)
+END
+
+LIST dot_cl_clr_sel
+BEGIN
+	main.cl_dotClr.show
+	main.cl_dotClr.hide
+END
+
+LIST dot_cl_rectLClr_sel
+BEGIN
+	main.cl_dotLClr.show
+	main.cl_dotLClr.hide
+END
+
+LIST line_cl_clr_sel
+BEGIN
+	main.cl_lineClr.show
+	main.cl_lineClr.hide
+END
+
+LIST rect_cl_lclr_sel
+BEGIN
+	main.cl_rectLClr.show
+	main.cl_rectLClr.hide
+END
+
+
+SCRIPT dot_outline_on
+BEGIN
+	main.tx_dotLClr.enable
+	main.cb_dotLClr.enable
+	main.cl_dotLClr.enable
+	main.tx_dotLOpacity.enable
+	main.sp_dotLOpacity.enable
+	main.tx_dotLWidth.enable
+	main.cb_dotLWidth.enable
+	main.tx_lalign.enable
+	main.cb_lalign.enable
+END
+
+SCRIPT dot_outline_off
+BEGIN
+	main.tx_dotLClr.disable
+	main.cb_dotLClr.disable
+	main.cl_dotLClr.disable
+	main.tx_dotLOpacity.disable
+	main.sp_dotLOpacity.disable
+	main.tx_dotLWidth.disable
+	main.cb_dotLWidth.disable
+	main.tx_lalign.disable
+	main.cb_lalign.disable
+END
+
+SCRIPT rect_outline_on
+BEGIN
+	main.tx_rectLClr.enable
+	main.cb_rectLClr.enable
+	main.cl_rectLClr.enable
+	main.tx_rectLOpacity.enable
+	main.sp_rectLOpacity.enable
+END
+
+SCRIPT rect_outline_off
+BEGIN
+	main.tx_rectLClr.disable
+	main.cb_rectLClr.disable
+	main.cl_rectLClr.disable
+	main.tx_rectLOpacity.disable
+	main.sp_rectLOpacity.disable
+END
+
+
+PROGRAM type_change
+BEGIN
+	if main.cb_type.isEqualIgnoreCase("Dot") {
+		call main.gb_prop.setlabel resource LBL_DOT_PROPERTIES
+
+		call main.tx_delta.show
+		call main.ed_delta.show
+		call main.tx_dotSym.show
+		call main.cb_dotSym.show
+		call main.tx_dotSize.show
+		call main.cb_dotSize.show
+		call main.tx_dotClr.show
+		call main.cb_dotClr.show
+		call main.cb_dotClr.forceselchange
+		call main.tx_dotOpacity.show
+		call main.sp_dotOpacity.show
+		call main.tx_msymangle.show
+		call main.cb_msymangle.show
+		call main.ck_outline.show
+		call main.tx_dotLClr.show
+		call main.cb_dotLClr.show
+		call main.cb_dotLClr.forceselchange
+		call main.tx_dotLOpacity.show
+		call main.sp_dotLOpacity.show
+		call main.tx_dotLWidth.show
+		call main.cb_dotLWidth.show
+		call main.tx_lalign.show
+		call main.cb_lalign.show
+
+		call main.tx_lineClr.hide
+		call main.cb_lineClr.hide
+		call main.cl_lineClr.hide
+		call main.tx_lineOpacity.hide
+		call main.sp_lineOpacity.hide
+		call main.tx_lineWidth.hide
+		call main.cb_lineWidth.hide
+		call main.tx_linePatn.hide
+		call main.cb_linePatn.hide
+
+		call main.tx_rectClr.hide
+		call main.cb_rectClr.hide
+		call main.cl_rectClr.hide
+		call main.tx_rectOpacity.hide
+		call main.sp_rectOpacity.hide
+		call main.tx_rectInt.hide
+		call main.cb_rectInt.hide
+		call main.tx_rectWidth.hide
+		call main.cb_rectWidth.hide
+		call main.tx_rectPatn.hide
+		call main.cb_rectPatn.hide
+		call main.tx_rectlalign.hide
+		call main.cb_rectlalign.hide
+		call main.ck_rectOutLn.hide
+		call main.tx_rectLClr.hide
+		call main.cb_rectLClr.hide
+		call main.cl_rectLClr.hide
+		call main.tx_rectLOpacity.hide
+		call main.sp_rectLOpacity.hide
+
+		call main.gb_prop.setposition . . . 330
+	}
+	if main.cb_type.isEqualIgnoreCase("Line") {
+		call main.gb_prop.setlabel resource LBL_GB_LINE_PROPERTIES
+
+		call main.tx_delta.hide
+		call main.ed_delta.hide
+		call main.tx_dotSym.hide
+		call main.cb_dotSym.hide
+		call main.tx_dotSize.hide
+		call main.cb_dotSize.hide
+		call main.tx_dotClr.hide
+		call main.cb_dotClr.hide
+		call main.cl_dotClr.hide
+		call main.tx_dotOpacity.hide
+		call main.sp_dotOpacity.hide
+		call main.tx_msymangle.hide
+		call main.cb_msymangle.hide
+		call main.ck_outline.hide
+		call main.tx_dotLClr.hide
+		call main.cb_dotLClr.hide
+		call main.cl_dotLClr.hide
+		call main.tx_dotLOpacity.hide
+		call main.sp_dotLOpacity.hide
+		call main.tx_dotLWidth.hide
+		call main.cb_dotLWidth.hide
+		call main.tx_lalign.hide
+		call main.cb_lalign.hide
+
+		call main.tx_lineClr.show
+		call main.cb_lineClr.show
+		call main.cb_lineClr.forceselchange
+		call main.tx_lineOpacity.show
+		call main.sp_lineOpacity.show
+		call main.tx_lineWidth.show
+		call main.cb_lineWidth.show
+		call main.tx_linePatn.show
+		call main.cb_linePatn.show
+
+		call main.tx_rectClr.hide
+		call main.cb_rectClr.hide
+		call main.cl_rectClr.hide
+		call main.tx_rectOpacity.hide
+		call main.sp_rectOpacity.hide
+		call main.tx_rectInt.hide
+		call main.cb_rectInt.hide
+		call main.tx_rectWidth.hide
+		call main.cb_rectWidth.hide
+		call main.tx_rectPatn.hide
+		call main.cb_rectPatn.hide
+		call main.tx_rectlalign.hide
+		call main.cb_rectlalign.hide
+		call main.ck_rectOutLn.hide
+		call main.tx_rectLClr.hide
+		call main.cb_rectLClr.hide
+		call main.cl_rectLClr.hide
+		call main.tx_rectLOpacity.hide
+		call main.sp_rectLOpacity.hide
+
+		call main.gb_prop.setposition . . . 140
+
+	}
+	if main.cb_type.isEqualIgnoreCase("Rectangle") {
+		call main.gb_prop.setlabel resource LBL_RECTANGLE_PROPERTIES
+
+		call main.tx_delta.hide
+		call main.ed_delta.hide
+		call main.tx_dotSym.hide
+		call main.cb_dotSym.hide
+		call main.tx_dotSize.hide
+		call main.cb_dotSize.hide
+		call main.tx_dotClr.hide
+		call main.cb_dotClr.hide
+		call main.cl_dotClr.hide
+		call main.tx_dotOpacity.hide
+		call main.sp_dotOpacity.hide
+		call main.tx_msymangle.hide
+		call main.cb_msymangle.hide
+		call main.ck_outline.hide
+		call main.tx_dotLClr.hide
+		call main.cb_dotLClr.hide
+		call main.cl_dotLClr.hide
+		call main.tx_dotLOpacity.hide
+		call main.sp_dotLOpacity.hide
+		call main.tx_dotLWidth.hide
+		call main.cb_dotLWidth.hide
+		call main.tx_lalign.hide
+		call main.cb_lalign.hide
+
+		call main.tx_lineClr.hide
+		call main.cb_lineClr.hide
+		call main.cl_lineClr.hide
+		call main.tx_lineOpacity.hide
+		call main.sp_lineOpacity.hide
+		call main.tx_lineWidth.hide
+		call main.cb_lineWidth.hide
+		call main.tx_linePatn.hide
+		call main.cb_linePatn.hide
+
+		call main.tx_rectClr.show
+		call main.cb_rectClr.show
+		call main.cb_rectClr.forceselchange
+		call main.tx_rectOpacity.show
+		call main.sp_rectOpacity.show
+		call main.tx_rectInt.show
+		call main.cb_rectInt.show
+		call main.tx_rectWidth.show
+		call main.cb_rectWidth.show
+		call main.tx_rectPatn.show
+		call main.cb_rectPatn.show
+		call main.tx_rectlalign.show
+		call main.cb_rectlalign.show
+		call main.ck_rectOutLn.show
+		call main.tx_rectLClr.show
+		call main.cb_rectLClr.show
+		call main.cb_rectLClr.forceselchange
+		call main.tx_rectLOpacity.show
+		call main.sp_rectLOpacity.show
+
+		call main.gb_prop.setposition . . . 280
+	}
+END
+
+PROGRAM dot_get_defaults
+BEGIN
+	call G.withvalue delta.setvalue class @.delta
+	call main.ed_delta.setdefault class delta.value
+
+	call G.withvalue index.setvalue class @.grstyle.dots_ptstyle.symbol.styledex
+	call index.withvalue dotSym.setvalue class .__STYLES.symbol[@]
+	call main.cb_dotSym.setdefault class dotSym.value
+
+	call G.withvalue index.setvalue class @.grstyle.dots_ptstyle.size.styledex
+	call index.withvalue dotSize.setvalue class .__STYLES.symbolsize[@]
+	if ! dotSize {
+		call G.withvalue dotSize.setvalue class @.grstyle.dots_ptstyle.size.val
+	}
+	call main.cb_dotSize.setdefault class dotSize.value
+
+	call G.withvalue index.setvalue class @.grstyle.dots_ptstyle.fillcolor.styledex
+	call index.withvalue dotColor.setvalue class .__STYLES.color[@]
+	call main.cb_dotClr.setdefault class dotColor.value
+	call G.withvalue dotRGB.setvalue class @.grstyle.dots_ptstyle.fillcolor.rgb
+	call main.cl_dotClr.setdefault class dotRGB.value
+
+	call G.withvalue dotOpacity.setvalue class @.grstyle.dots_ptstyle.fillcolor.opacity
+	call main.sp_dotOpacity.setdefault class dotOpacity.value
+
+	call G.withvalue index.setvalue class @.grstyle.dots_ptstyle.symangle.styledex
+	call index.withvalue dotSymAngle.setvalue class .__STYLES.anglestyle[@]
+	call main.cb_msymangle.setdefault class dotSymAngle.value
+
+	call G.withvalue index.setvalue class @.grstyle.dots_ptstyle.linestyle.color.styledex
+	call index.withvalue dotLColor.setvalue class .__STYLES.color[@]
+	call main.cb_dotLClr.setdefault class dotLColor.value
+	call G.withvalue dotLRGB.setvalue class @.grstyle.dots_ptstyle.linestyle.color.rgb
+	call main.cl_dotLClr.setdefault class dotLRGB.value
+	call G.withvalue dotLOpacity.setvalue class @.grstyle.dots_ptstyle.linestyle.color.opacity
+	call main.sp_dotLOpacity.setdefault class dotLOpacity.value
+
+	call G.withvalue index.setvalue class @.grstyle.dots_ptstyle.linestyle.width.styledex
+	call index.withvalue dotLWidth.setvalue class .__STYLES.linewidth[@]
+	if ! dotLWidth {
+		call G.withvalue dotLWidth.setvalue class @.grstyle.dots_ptstyle.linestyle.width.val
+	}
+	call main.cb_dotLWidth.setdefault class dotLWidth.value
+
+	call G.withvalue index.setvalue class @.grstyle.dots_ptstyle.linestyle.align.styledex
+	call index.withvalue dotLAlign.setvalue class .__STYLES.alignstroke[@]
+	call main.cb_lalign.setdefault class dotLAlign.value
+END
+
+PROGRAM dot_initialize
+BEGIN
+	call main.ed_delta.setvalue class delta.value
+	call main.cb_dotSym.setvalue class dotSym.value
+	call main.cb_dotSize.setvalue class dotSize.value
+	call main.cb_msymangle.setvalue class dotSymAngle.value
+
+	if dotColor {
+		call main.cb_dotClr.setvalue class dotColor.value
+	}
+	else {
+		call main.cb_dotClr.setvalue "custom"
+	}
+	call main.cl_dotClr.setvalue class dotRGB.value
+
+	if dotLColor {
+		call main.cb_dotLClr.setvalue class dotLColor.value
+	}
+	else {
+		call main.cb_dotLClr.setvalue "custom"
+	}
+	call main.cl_dotLClr.setvalue class dotLRGB.value
+	call main.sp_dotLOpacity.setvalue class dotLOpacity.value
+
+	call main.cb_dotLWidth.setvalue class dotLWidth.value
+	call main.cb_lalign.setvalue class dotLAlign.value
+	
+	if dotRGB.isneq(dotLRGB) {
+		call main.ck_outline.seton
+	}
+	else {
+		call main.ck_outline.setoff
+	}
+END
+
+PROGRAM line_get_defaults
+BEGIN
+	call G.withvalue index.setvalue class @.grstyle.dot_linestyle.color.styledex
+	call index.withvalue lineColor.setvalue class .__STYLES.color[@]
+	call main.cb_lineClr.setdefault class lineColor.value
+	call G.withvalue lineRGB.setvalue class @.grstyle.dot_linestyle.color.rgb
+	call main.cl_lineClr.setdefault class lineRGB.value
+
+	call G.withvalue index.setvalue class @.grstyle.dot_linestyle.width.styledex
+	call index.withvalue lineWidth.setvalue class .__STYLES.linewidth[@]
+	if ! lineWidth {
+		call G.withvalue lineWidth.setvalue class @.grstyle.dot_linestyle.width.val
+	}
+	call main.cb_lineWidth.setdefault class lineWidth.value
+END
+
+PROGRAM line_initialize_controls
+BEGIN
+	call main.cb_lineClr.setvalue class lineColor.value
+	call main.cl_lineClr.setvalue class lineRGB.value
+	call main.cb_lineWidth.setvalue class lineWidth.value
+END
+
+PROGRAM rect_get_defaults
+BEGIN
+	call G.withvalue index.setvalue class @.grstyle.dot_areastyle.shadestyle.color.styledex
+	call index.withvalue rectColor.setvalue class .__STYLES.color[@]
+	call main.cb_rectClr.setdefault class rectColor.value
+	call G.withvalue rectRGB.setvalue class @.grstyle.dot_areastyle.shadestyle.color.rgb
+	call main.cl_rectClr.setdefault class rectRGB.value
+
+	call G.withvalue rectOpacity.setvalue class @.grstyle.dot_areastyle.shadestyle.color.opacity
+	call main.sp_rectOpacity.setdefault class rectOpacity.value
+
+	call G.withvalue index.setvalue  class @.grstyle.dot_areastyle.shadestyle.intensity.styledex
+	call index.withvalue rectInt.setvalue class .__STYLES.intensity[@]
+	if ! rectInt {
+		call G.withvalue rectInt.setvalue class @.grstyle.dot_areastyle.shadestyle.intensity.val
+	}
+	call main.cb_rectInt.setdefault class rectInt.value
+
+	call G.withvalue index.setvalue class @.grstyle.dot_areastyle.linestyle.color.styledex
+	call index.withvalue rectLColor.setvalue class .__STYLES.color[@]
+	call main.cb_rectLClr.setdefault class rectLColor.value
+	call G.withvalue rectLRGB.setvalue class @.grstyle.dot_areastyle.linestyle.color.rgb
+	call main.cl_rectLClr.setdefault class rectLRGB.value
+
+	call G.withvalue rectLOpacity.setvalue class @.grstyle.dot_areastyle.linestyle.color.opacity
+	call main.sp_rectLOpacity.setdefault class rectLOpacity.value
+
+	call G.withvalue index.setvalue class @.grstyle.dot_areastyle.linestyle.width.styledex
+	call index.withvalue rectWidth.setvalue class .__STYLES.linewidth[@]
+	if ! rectWidth {
+		call G.withvalue rectWidth.setvalue class @.grstyle.dot_areastyle.linestyle.width.val
+	}
+	call main.cb_rectWidth.setdefault class rectWidth.value
+
+	call G.withvalue index.setvalue class @.grstyle.dot_areastyle.linestyle.pattern.styledex
+	call index.withvalue rectPatn.setvalue class .__STYLES.linepattern[@]
+	call main.cb_rectPatn.setdefault class rectPatn.value
+
+	call G.withvalue index.setvalue class @.grstyle.dot_areastyle.linestyle.align.styledex
+	call index.withvalue rectLAlign.setvalue class .__STYLES.alignstroke[@]
+	call main.cb_rectlalign.setdefault class rectLAlign.value
+END
+
+PROGRAM rect_initialize_controls
+BEGIN
+	if rectColor {
+		call main.cb_rectClr.setvalue class rectColor.value
+	}
+	else {
+		call main.cb_rectClr.setvalue "custom"
+	}
+	call main.cl_rectClr.setvalue class rectRGB.value
+	call main.sp_rectOpacity.setvalue class rectOpacity.value
+	
+	call main.cb_rectInt.setvalue class rectInt.value
+
+	if rectRGB.isneq(rectLRGB) {
+		call main.ck_rectOutLn.seton
+	}
+	else {
+		call main.ck_rectOutLn.setoff
+	}
+
+	if rectLColor {
+		call main.cb_rectLClr.setvalue class rectLColor.value
+	}
+	else {
+		call main.cb_rectLClr.setvalue "custom"
+	}
+	call main.cl_rectLClr.setvalue class rectLRGB.value
+	call main.sp_rectLOpacity.setvalue class rectLOpacity.value
+
+	call main.cb_rectWidth.setvalue class rectWidth.value
+	call main.cb_rectPatn.setvalue class rectPatn.value
+	call main.cb_rectlalign.setvalue class rectLAlign.value
+END
+
+DIALOG adv, tabtitle(resource LBL_ADVANCED)
+BEGIN
+  CHECKBOX ck_hide	_lft	_top	_iwd	.,		///
+	label(resource GR_ED_DOTPLOTLINE_ADV_CK_HIDE)
+END
+
+PROGRAM get_defaults
+BEGIN
+	call G.withvalue index.setvalue class @.grstyle.dottype.styledex
+	call index.withvalue dottype.setvalue class .__STYLES.dottypestyle[@]
+	call main.cb_type.setdefault class dottype.value
+
+	call G.withvalue drawview.setvalue class @.draw_view.istrue
+	if drawview {
+		call adv.ck_hide.setdefault 0
+	}
+	else {
+		call adv.ck_hide.setdefault 1
+	}
+END
+
+PROGRAM initialize_controls
+BEGIN
+	call main.cb_type.setvalue class dottype.value
+
+	if drawview {
+		call adv.ck_hide.setoff
+	}
+	else {
+		call adv.ck_hide.seton
+	}
+END
+
+PROGRAM command
+BEGIN
+	call program get_defaults
+
+	put "_gm_dlg_edits"
+	beginoptions
+		put " object(" G ") "
+		if ! main.cb_type.isdefault() {
+			put "cmd(_gm_edit "
+			put "." G ".grstyle.editstyle dottype(" 
+			put main.cb_type 
+			put ") editcopy)"
+		}
+
+		if main.cb_type.isEqualIgnoreCase("Dot") {
+	// dots
+			call program dot_get_defaults
+			if ! main.ed_delta.isdefault() {
+				put "set(delta "
+				put main.ed_delta
+				put ") "
+			}
+			if ! main.cb_dotSym.isdefault() {
+				put "cmd(_gm_edit "
+					put "." G ".grstyle.editstyle "
+					put "dots_ptstyle(symbol(" main.cb_dotSym ")) editcopy"
+				put ") "
+			}
+			if ! main.cb_dotSize.isdefault() {
+				put "cmd(_gm_edit "
+					put "." G ".grstyle.editstyle "
+					put "dots_ptstyle(size(" main.cb_dotSize ")) editcopy"
+				put ") "
+			}
+
+			if ! main.cl_dotClr.isvisible() & ! main.cb_dotClr.isdefault() {
+				put "cmd(_gm_edit "
+					put "." G ".grstyle.editstyle "
+					put "dots_ptstyle(fillcolor(" main.cb_dotClr  ")) editcopy"
+				put ") "
+			}
+			if main.cl_dotClr.isvisible() & ! main.cl_dotClr.isdefault() {
+				put "cmd(_gm_edit "
+					put "." G ".grstyle.editstyle "
+					put "dots_ptstyle(fillcolor(" 
+					put `"""'
+					put main.cl_dotClr 
+					put `"""'
+					put ")) editcopy"
+				put ") "
+			}
+			if ! main.sp_dotOpacity.isdefault() {
+				put "cmd(_gm_edit "
+					put "." G ".grstyle.editstyle "
+					put "dots_ptstyle(fillcolor(" 
+					put "%"
+					put main.sp_dotOpacity
+					put ")) editcopy"
+				put ") "
+			}
+			if ! main.cb_msymangle.isdefault() {
+				put "cmd(_gm_edit "
+					put "." G ".grstyle.editstyle "
+					put "dots_ptstyle(symangle(" main.cb_msymangle ")) editcopy"
+				put ") "
+			}
+			if ! main.ck_outline & main.cb_dotClr.isneq(dotLColor) {
+				if ! main.cl_dotClr.isvisible() {
+					put "cmd(_gm_edit "
+						put "." G ".grstyle.editstyle "
+						put "dots_ptstyle(linestyle(color(" main.cb_dotClr  "))) editcopy"
+					put ") "
+				}
+				if main.cl_dotClr.isvisible() & main.cl_dotClr.isneq(dotLRGB) {
+					put "cmd(_gm_edit "
+						put "." G ".grstyle.editstyle "
+						put "dots_ptstyle(linestyle(color(" 
+						put `"""'
+						put main.cl_dotClr
+						put `"""'
+						put "))) editcopy"
+					put ") "
+				}
+			}
+			call dotLOpacity.withvalue d_tmp.setvalue @
+			if ! main.ck_outline & main.sp_dotOpacity.isneq(d_tmp) {
+				put "cmd(_gm_edit "
+					put "." G ".grstyle.editstyle "
+					put "dots_ptstyle(linestyle(color(" 
+					put "%"
+					put main.sp_dotOpacity
+					put "))) editcopy"
+				put ") "
+			}
+
+			if main.cb_dotLClr & main.ck_outline {
+			    if ! main.cl_dotLClr.isvisible() & ! main.cb_dotLClr.isdefault(){
+				put "cmd(_gm_edit "
+					put "." G ".grstyle.editstyle "
+					put "dots_ptstyle(linestyle(color(" main.cb_dotLClr  "))) editcopy"
+				put ") "
+			    }
+			    if main.cl_dotLClr.isvisible() & ! main.cl_dotLClr.isdefault() {
+				put "cmd(_gm_edit "
+					put "." G ".grstyle.editstyle "
+					put "dots_ptstyle(linestyle(color(" 
+					put `"""'
+					put main.cl_dotLClr
+					put `"""'
+					put "))) editcopy"
+				put ") "
+			    }
+			}
+			if ! main.sp_dotLOpacity.isdefault() & main.ck_outline {
+				put "cmd(_gm_edit "
+					put "." G ".grstyle.editstyle "
+					put "dots_ptstyle(linestyle(color(" 
+					put "%"
+					put main.sp_dotLOpacity
+					put "))) editcopy"
+				put ") "
+			}
+			if ! main.cb_dotLWidth.isdefault() & main.ck_outline {
+				put "cmd(_gm_edit "
+					put "." G ".grstyle.editstyle "
+					put "dots_ptstyle(linestyle(width(" 
+					put main.cb_dotLWidth 
+					put "))) editcopy"
+				put ") "
+			}
+			if ! main.cb_lalign.isdefault() & main.ck_outline {
+				put "cmd(_gm_edit "
+					put "." G ".grstyle.editstyle "
+					put "dots_ptstyle(linestyle(align(" 
+					put main.cb_lalign
+					put "))) editcopy"
+				put ") "
+			}
+		}
+		if main.cb_type.isEqualIgnoreCase("Line") {
+	// line
+			call program line_get_defaults
+			if ! main.cl_lineClr.isvisible() & ! main.cb_lineClr.isdefault() {
+				put "cmd(_gm_edit "
+					put "." G ".grstyle.editstyle "
+					put "dot_linestyle(color(" main.cb_lineClr ")) editcopy"
+				put ") "
+			}
+			if main.cl_lineClr.isvisible() & ! main.cl_lineClr.isdefault() {
+				put "cmd(_gm_edit "
+					put "." G ".grstyle.editstyle "
+					put "dot_linestyle(color(" 
+					put `"""'
+					put main.cl_lineClr
+					put `"""'
+					put ")) editcopy"
+				put ") "
+			}
+			if ! main.sp_lineOpacity.isdefault() {
+				put "cmd(_gm_edit "
+					put "." G ".grstyle.editstyle "
+					put "dot_linestyle(color("
+					put "%" 
+					put main.sp_lineOpacity ")) editcopy"
+				put ") "
+			}
+			if ! main.cb_lineWidth.isdefault() {
+				put "cmd(_gm_edit "
+					put "." G ".grstyle.editstyle "
+					put "dot_linestyle(width(" main.cb_lineWidth ")) editcopy"
+				put ") "
+			}
+			if ! main.cb_linePatn.isdefault() {
+				put "cmd(_gm_edit "
+					put "." G ".grstyle.editstyle "
+					put "dot_linestyle(pattern(" main.cb_linePatn ")) editcopy"
+				put ") "
+			}
+		}
+		if main.cb_type.isEqualIgnoreCase("Rectangle") {
+	// rectangle
+			call program rect_get_defaults
+			if ! main.cl_rectClr.isvisible() & ! main.cb_rectClr.isdefault() {
+				put "cmd(_gm_edit "
+					put "." G ".grstyle.editstyle "
+					put "dot_areastyle(shadestyle(color(" main.cb_rectClr  "))) editcopy"
+				put ") "
+			}
+			if main.cl_rectClr.isvisible() & ! main.cl_rectClr.isdefault() {
+				put "cmd(_gm_edit "
+					put "." G ".grstyle.editstyle "
+					put "dot_areastyle(shadestyle(color(" 
+					put `"""'
+					put main.cl_rectClr 
+					put `"""'
+					put "))) editcopy"
+				put ") "
+			}
+			if ! main.sp_rectOpacity.isdefault() {
+				put "cmd(_gm_edit "
+					put "." G ".grstyle.editstyle "
+					put "dot_areastyle(shadestyle(color(" 
+					put "%"
+					put main.sp_rectOpacity
+					put "))) editcopy"
+				put ") "
+			}
+			if ! main.ck_rectOutLn & main.cb_rectClr.isneq(dotLColor) {
+				if ! main.cl_rectClr.isvisible() {
+					put "cmd(_gm_edit "
+						put "." G ".grstyle.editstyle "
+						put "dot_areastyle(linestyle(color(" main.cb_rectClr  "))) editcopy"
+					put ") "
+				}
+				if main.cl_rectClr.isvisible() & main.cl_rectClr.isneq(dotLRGB) {
+					put "cmd(_gm_edit "
+						put "." G ".grstyle.editstyle "
+						put "dot_areastyle(linestyle(color(" 
+						put `"""'
+						put main.cl_rectClr
+						put `"""'
+						put "))) editcopy"
+					put ") "
+				}
+			}
+			call rectLOpacity.withvalue d_tmp.setvalue @
+			if ! main.ck_rectOutLn & main.sp_rectOpacity.isneq(d_tmp) {
+				put "cmd(_gm_edit "
+					put "." G ".grstyle.editstyle "
+					put "dot_areastyle(linestyle(color(" 
+					put "%"
+					put main.sp_rectOpacity
+					put "))) editcopy"
+				put ") "
+			}
+
+			if main.cb_rectLClr & main.ck_rectOutLn {
+			    if ! main.cl_rectLClr.isvisible() & ! main.cb_rectLClr.isdefault(){
+				put "cmd(_gm_edit "
+					put "." G ".grstyle.editstyle "
+					put "dot_areastyle(linestyle(color(" main.cb_rectLClr  "))) editcopy"
+				put ") "
+			    }
+			    if main.cl_rectLClr.isvisible() & ! main.cl_rectLClr.isdefault() {
+				put "cmd(_gm_edit "
+					put "." G ".grstyle.editstyle "
+					put "dot_areastyle(linestyle(color(" 
+					put `"""'
+					put main.cl_rectLClr
+					put `"""'
+					put "))) editcopy"
+				put ") "
+			    }
+			}
+			if ! main.sp_rectLOpacity.isdefault() & main.ck_rectOutLn {
+				put "cmd(_gm_edit "
+					put "." G ".grstyle.editstyle "
+					put "dot_areastyle(linestyle(color(" 
+					put "%"
+					put  main.sp_rectLOpacity  "))) editcopy"
+				put ") "
+
+			}
+
+			if ! main.cb_rectInt.isdefault() & main.cb_rectInt {
+				put "cmd(_gm_edit "
+					put "." G ".grstyle.editstyle "
+					put "dot_areastyle(shadestyle(intensity(" 
+					put main.cb_rectInt  
+					put "))) editcopy"
+				put ") "
+			}
+			if ! main.cb_rectWidth.isdefault() & main.cb_rectWidth {
+				put "cmd(_gm_edit "
+					put "." G ".grstyle.editstyle "
+					put "dot_areastyle(linestyle(width(" 
+					put main.cb_rectWidth  
+					put "))) editcopy"
+				put ") "
+			}
+			if ! main.cb_rectPatn.isdefault() & main.cb_rectPatn {
+				put "cmd(_gm_edit "
+					put "." G ".grstyle.editstyle "
+					put "dot_areastyle(linestyle(pattern(" 
+					put main.cb_rectPatn  
+					put "))) editcopy"
+				put ") "
+			}
+			if ! main.cb_rectlalign.isdefault() & 		///
+					main.cb_rectlalign {
+				put "cmd(_gm_edit "
+					put "." G ".grstyle.editstyle "
+					put "dot_areastyle(linestyle(align(" 
+					put main.cb_rectlalign
+					put "))) editcopy"
+				put ") "
+			}
+		}
+
+		if ! adv.ck_hide.isdefault() {
+			if adv.ck_hide {
+				put "set(draw_view no) "
+			}
+			else {
+				put "set(draw_view yes) "
+			}
+		}
+
+		if J {
+			put " jindex(" J ") "
+		}
+
+		put " epilog(_gedi toolbar dotplotline " G " " J ")"
+	endoptions
+END

@@ -1,0 +1,367 @@
+/*
+	sqrtlasso.dlg
+
+*!  VERSION 1.0.7  04dec2019
+
+*/
+
+VERSION 16.0
+
+INCLUDE _std_xlarge
+DEFINE _dlght 420
+INCLUDE header
+
+HELP hlp1, view("help sqrtlasso")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource SQRTLASSO_DLG_HSCALE
+
+	create DOUBLE dtmp
+	create STRING _MSG_TMP
+END
+
+SCRIPT POSTINIT
+BEGIN
+	settitle  resource "SQRTLASSO_DLG_TITLE"
+	program main_selection_change
+END
+
+SCRIPT main_PREINIT
+BEGIN
+	create STRING bu_main_cvoptsResults
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)				///
+	title("")
+BEGIN
+  TEXT tx_depvar		_lft	_top	_vnwd	.,		///
+  	label(resource LBL_DEPVAR)
+  VARNAME vn_depvar		@	_ss	@	.,		///
+	numeric								///
+	label(resource LBL_DEPVAR)
+
+  TEXT tx_alwaysvars		_lft	_ls	_iwd	.,		///
+	label(resource LBL_VARIABLES_ALWAYS_INCLUDED_OPTIONAL)
+  VARLIST vl_alwaysvars		@	_ss	@ 	.,		///
+	fv								///
+	numeric								///
+  	label(resource LBL_VARIABLES_ALWAYS_INCLUDED_OPTIONAL)
+  TEXT tx_othervars		_lft	_ls	_iwd	.,		///
+	label(resource LBL_VARIABLES_TO_INCLUDE_OR_EXCLUDE)
+  VARLIST vl_othervars		@	_ss	@ 	.,		///
+	fv nobase							///
+	numeric								///
+  	label(resource LBL_VARIABLES_TO_INCLUDE_OR_EXCLUDE)
+  CHECKBOX ck_nocons		_lft	_ms	_iwd	.,		///
+	option("noconstant")						///
+	label(resource LBL_NOCONSTANT)
+
+  GROUPBOX gb_opts		_lft	_ls	_iwd	_ht18h,		///
+	label(resource LBL_OPTIONS)
+
+  GROUPBOX gb_selection		_ilft	_ss	_ibwd	_ht10,		///
+	label(resource LBL_SELECTION_METHOD_FOR_LAMBDA)
+  RADIO rb_selection_cv		_iilft	_ms	240	., first	///
+	onclickon("program main_selection_change")			///
+	label(resource LBL_CROSS_VALIDATION)
+  RADIO rb_selection_plugin_het	@	_ms	@	.,		///
+	option(selection(plugin, heteroskedastic))			///
+	onclickon("program main_selection_change")			///
+	label(resource LBL_PLUGIN_HETEROSKEDASTIC_FORMULA)
+  RADIO rb_selection_plugin_hom	@	_ms	@	.,		///
+	option(selection(plugin, homoskedastic))			///
+	onclickon("program main_selection_change")			///
+	label(resource LBL_PLUGIN_HOMOSKEDASTIC_FORMULA)
+  RADIO rb_selection_none	@	_ms	@	., last		///
+	onclickon("program main_selection_change")			///
+	option("selection(none)")					///
+	label(resource LBL_DO_NOT_SEL_LAMBDA)
+  BUTTON bu_cv_opts		+250	-80	110	.,		///
+	onpush(program main_show_cv_opts)				///
+	tooltip(resource LBL_CROSS_VALIDATION_OPTS)			///
+	label(resource LBL_CV_OPTIONS)
+
+  TEXT tx_offset		_ilft	+125	_vnwd	.,		///
+	label(resource LBL_OFFSET_VARIABLE)
+  DEFINE holdy2 @y
+  VARNAME vn_offset		@	_ss	@	.,		///
+	option(offset)							///
+	numeric								///
+	label(resource LBL_OFFSET_VARIABLE)
+END
+
+PROGRAM main_selection_change
+BEGIN
+	if main.rb_selection_cv {
+		call main.bu_cv_opts.enable
+		call opt.ed_cvtolerance.enable
+		call opt.tx_cvtolerance.enable
+	}
+	else {
+		call main.bu_cv_opts.disable
+		call opt.ed_cvtolerance.disable
+		call opt.tx_cvtolerance.disable
+	}
+
+	if main.rb_selection_plugin_het | main.rb_selection_plugin_hom	///
+		| main.rb_selection_none {
+		call script weights_setLayout_fi
+		call opt.ed_rseed.disable
+		call opt.tx_rseed.disable
+	}
+	else {
+		call script weights_setLayout_i
+		call opt.ed_rseed.enable
+		call opt.tx_rseed.enable
+	}
+	if main.rb_selection_plugin_het | main.rb_selection_plugin_hom {
+		call opt.ck_grid.disable
+		call script opt_grid_off
+		call opt.ed_stop.disable
+		call opt.tx_stop.disable
+	}
+	else {
+		call opt.ed_stop.enable
+		call opt.tx_stop.enable
+		call opt.ck_grid.enable
+		if opt.ck_grid {
+			call program opt_grid_on
+		}
+	}
+END
+
+PROGRAM main_show_cv_opts
+BEGIN
+	call create CHILD lasso_cvopts_child AS cv
+	call cv.setExitString bu_main_cvoptsResults
+	call cv.setExitAction "program bu_main_cv_opts_ckResults"
+END
+
+PROGRAM bu_main_cv_opts_ckResults
+BEGIN
+	if bu_main_cvoptsResults {
+		call main.bu_cv_opts.modified_on
+	}
+	else {
+		call main.bu_cv_opts.modified_off
+	}
+END
+
+INCLUDE ifin
+INCLUDE weights_fi
+
+SCRIPT opt_PREINIT
+BEGIN
+	create STRING bu_opt_mat_inputResult
+END
+
+DIALOG opt, tabtitle(resource LBL_TAB_OPTIMIZATION)			///
+	title("")
+BEGIN
+  GROUPBOX gb_log		_lft	_top	_cwd1	_ht3h,		///
+	label(resource LBL_ITERATION_LOG)
+  RADIO rb_log			_indent	_ss	_inwd	., first	///
+	option(log)							///
+	label(resource LBL_SHOW_LOG)
+  DEFINE holdy @y
+  RADIO rb_nolog		@	_ss	@	., last		///
+	option(nolog)							///
+	label(resource LBL_SUPPRESS_LOG)
+  EDIT ed_rseed			_lft2	holdy	_spwd	.,		///
+	numonly								///
+	option(rseed)							///
+	label(resource LBL_RANDOM_NUMBER_SEED_NO_COLON)
+  TEXT tx_rseed			_spsep	@	150	.,		///
+	label(resource LBL_RANDOM_NUMBER_SEED_NO_COLON)
+
+  CHECKBOX ck_grid		_lft	+55	_iwd	_ht13,		///
+	groupbox							///
+	onclickon("program opt_grid_on")				///
+	onclickoff("script opt_grid_off")				///
+	label(resource LBL_SPECIFY_LAMBDA)
+  SPINNER sp_grid		_ilft	_ss	_spwd	.,		///
+	min(1)								///
+	max(300)							///
+	default(100)							///
+	label(resource LBL_SPECIFY_NUMLIST)
+  TEXT tx_grid		_spsep	@	350	.,		///
+	label(resource LBL_NUM_OF_LAMBDA_PTS_FOR_GRID)
+  RADIO rb_grid_default	_ilft	_ls	_ibwd	., first	///
+	onclickon("program opt_grid_on")				///
+	label(resource LBL_USE_DEFAULT_RATIO_OF_MINTOMAX)
+  RADIO rb_grid_ratio		_ilft	_ss	@	., 		///
+	onclickon("program opt_grid_on")				///
+	label(resource LBL_RATIO_OF_MINTOMAX)
+  RADIO rb_grid_min		_ilft	+40	@	., last		///
+	onclickon("program opt_grid_on")				///
+	label(resource LBL_MINIMUM)
+  EDIT ed_grid_ratio		_iilft	-20	_spwd	.,		///
+	option(ratio)							///
+	label(resource LBL_SPECIFY_NUMLIST)
+  EDIT ed_grid_min		_iilft	+40	_spwd	.,		///
+	option(min)							///
+	label(resource LBL_SPECIFY_NUMLIST)
+
+  EDIT ed_stop			_lft	+45	_spwd	.,		///
+	default(1e-5)							///
+	option(stop)							///
+	label(resource LBL_STOPPING_TOLERANCE_FOR_ITERATIONS_OVER_LAMBDA)
+  TEXT tx_stop			_spsep	@	300	.,		///
+	label(resource LBL_STOPPING_TOLERANCE_FOR_ITERATIONS_OVER_LAMBDA)
+
+  EDIT ed_cvtolerance		_lft	_ls	_spwd	.,		///
+	default(1e-3)							///
+	option(cvtolerance)						///
+	label(resource LBL_TOLERANCE_FOR_IDENTIFYING_CV_MINIMUM)
+  TEXT tx_cvtolerance		_spsep	@	300	.,		///
+	label(resource LBL_TOLERANCE_FOR_IDENTIFYING_CV_MINIMUM)
+
+  RADIO rb_tolerance		_lft	_ls	_cwd2	., first	///
+	onclickon("program opt_tolerance_changed")			///
+	label(resource LBL_COEFFICIENT_VECTOR_TOLERANCE)
+  RADIO rb_dtolerance		_lft2	@	@	., last		///
+	onclickon("program opt_tolerance_changed")			///
+	label(resource LBL_DEVIANCE_TOLERANCE)
+  EDIT ed_tolerance		_ilft	_ss	_spwd	.,		///
+	default(1e-7)							///
+	option(tolerance)						///
+	label(resource LBL_COEFFICIENT_VECTOR_TOLERANCE)
+  EDIT ed_dtolerance		_ilft2	@	@	.,		///
+	option(dtolerance)						///
+	label(resource LBL_DEVIANCE_TOLERANCE)
+END
+
+PROGRAM opt_tolerance_changed
+BEGIN
+	call opt.ed_tolerance.disable
+	call opt.ed_dtolerance.disable
+	if opt.rb_tolerance {
+		call opt.ed_tolerance.enable
+	}
+	if opt.rb_dtolerance {
+		call opt.ed_dtolerance.enable
+	}
+END
+
+PROGRAM opt_grid_on
+BEGIN
+	if opt.ck_grid {
+		call opt.sp_grid.enable
+		call opt.tx_grid.enable
+		call opt.rb_grid_default.enable
+		call opt.rb_grid_ratio.enable
+		call opt.rb_grid_min.enable
+		if opt.rb_grid_ratio {
+			call opt.ed_grid_ratio.enable
+		}
+		else {
+			call opt.ed_grid_ratio.disable
+		}
+		if opt.rb_grid_min {
+			call opt.ed_grid_min.enable
+		}
+		else {
+			call opt.ed_grid_min.disable
+		}
+	}
+END
+
+SCRIPT opt_grid_off
+BEGIN
+	opt.sp_grid.disable
+	opt.tx_grid.disable
+	opt.rb_grid_default.disable
+	opt.rb_grid_ratio.disable
+	opt.rb_grid_min.disable
+	opt.ed_grid_ratio.disable
+	opt.ed_grid_min.disable
+END
+
+PROGRAM grid_cmd_output
+BEGIN
+	put opt.sp_grid
+
+	if opt.rb_grid_ratio | opt.rb_grid_min {
+		put ", "
+		if opt.rb_grid_ratio {
+			require opt.ed_grid_ratio
+			optionarg opt.ed_grid_ratio
+		}
+		if opt.ed_grid_min {
+			require opt.ed_grid_min
+			optionarg opt.ed_grid_min
+		}
+	}
+END
+
+PROGRAM opt_output
+BEGIN
+	option opt.rb_nolog
+	optionarg opt.ed_rseed
+
+	if opt.ck_grid & opt.ck_grid.isenabled() {
+		put " grid("
+		put /program grid_cmd_output
+		put ")"
+	}
+
+	optionarg /hidedefault opt.ed_stop
+
+	optionarg /hidedefault opt.ed_tolerance
+	if opt.rb_dtolerance {
+		require opt.ed_dtolerance
+		optionarg opt.ed_dtolerance
+	}
+
+	if opt.ed_cvtolerance.isneq("1e-3") {
+		call opt.ed_cvtolerance..withvalue dtmp.setvalue @
+		if dtmp.islt(0) | dtmp.isgt(1000) {
+			call _MSG_TMP.format                            ///
+		"resource LBL_MSGBOX_INVALID_TOLERANCE_FMT"             ///
+		"resource LBL_TOLERANCE_FOR_IDENTIFYING_CV_MINIMUM"     ///
+			"0" "1000"
+			stopbox stop class _MSG_TMP.value
+		}
+		optionarg /hidedefault opt.ed_cvtolerance
+	}
+END
+
+PROGRAM command
+BEGIN
+	require main.vn_depvar
+	require main.vl_othervars
+
+	put "sqrtlasso "
+
+	put " " main.vn_depvar
+	if main.vl_alwaysvars {
+		put " (" main.vl_alwaysvars ")"
+	}
+	put " "  main.vl_othervars
+	put " " /program ifin_output
+	put " " /program weights_output
+	beginoptions
+		option main.ck_nocons
+		if bu_main_cvoptsResults & main.rb_selection_cv {
+			put " selection(cv, "
+			if bu_main_cvoptsResults {
+				put ", "
+				put bu_main_cvoptsResults
+			}
+			put ")"
+		}
+		option main.rb_selection_plugin_het
+		option main.rb_selection_plugin_hom
+		option main.rb_selection_none
+		optionarg main.vn_offset
+		put " " /program opt_output
+	endoptions
+END
+
+
+//END
+
+
+

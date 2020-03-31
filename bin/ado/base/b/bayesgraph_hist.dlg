@@ -1,0 +1,286 @@
+/*
+  bayesgraph_hist.dlg 
+
+*!  VERSION 1.0.9  03mar2020
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_wide
+DEFINE _dlght 300
+INCLUDE header
+
+HELP hlp1, view("help histogram##options")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create BOOLEAN hasParen
+	
+	setscale_hadj resource BAYESGRAPH_HIST_DLG_HSCALE
+END
+
+SCRIPT main_PREINIT
+BEGIN
+	create STRING barOptionResults
+	create STRING markerLabelOptionResults
+END
+SCRIPT main_POSTINIT
+BEGIN
+	program checkBarOptionResults
+	program checkMarkerLabelOptionResults
+	program parse_message
+END
+
+PROGRAM parse_message
+BEGIN
+	if __MESSAGE.contains("paren") {
+		call hasParen.settrue
+	}
+	else {
+		call hasParen.setfalse
+	}
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				/// 
+	title(resource BAYESGRAPH_HIST_TITLE)
+BEGIN
+  GROUPBOX gb_data		_lft	_top	_iwd	_ht4h,		///
+	label(resource LBL_DATA)
+  
+  RADIO	   rb_contin		_ilft	_ms	180	.,		///
+	first onclickon(program main_contin_on)				///
+	label(resource HISTOGRAM_MAIN_RB_CONTIN)
+  RADIO    rb_discrete		@	_ss	@	.,		///
+	last option("discrete") 					///
+	onclickon(script main_discrete_on)				///
+	label(resource HISTOGRAM_MAIN_RB_DISCRETE)
+
+  GROUPBOX gb_bins		_lft	+45	_cwd1	_ht8,		///
+	label(resource LBL_BINS)
+  DEFINE gp2 @y
+  CHECKBOX ck_bin		_ilft	_ms	_ckwd	.,		///
+	onclickon(program main_bin_check)				///
+	onclickoff(program main_bin_check)
+  SPINNER  sp_bin		_cksep	@	_spwd	.,		///
+	min(1)	max(1000000) default(10) option(bin)
+  TEXT     tx_bin		_spsep	@	_ckspr2b .,		///
+	label(resource LBL_NUMBER_OF_BINS)
+
+  CHECKBOX ck_width		_ilft	_ms	_ckwd	.,		///
+	onclickon(program main_width_check)				///
+	onclickoff(program main_width_check)
+  EDIT     en_width		_cksep	@	_en7wd	.,		///
+	numonly	option(width)	label(resource LBL_WIDTH_OF_BINS)
+  TEXT     tx_width		_spsep	@	_cken7r2b .,		///
+	label(resource LBL_WIDTH_OF_BINS)
+
+  CHECKBOX ck_start		_ilft	_ms	_ckwd	.,		///
+	onclickon(program main_start_check)				///
+	onclickoff(program main_start_check)
+  EDIT     en_start		_cksep	@	_en7wd	.,		///
+	numonly	option(start) label(resource LBL_LOWER_LIMIT_OF_FIRST_BIN)
+  TEXT     tx_start		_spsep	@	_cken7r2b .,		///
+	label(resource LBL_LOWER_LIMIT_OF_FIRST_BIN)
+
+  
+  GROUPBOX gb_yaxis		_lft2	gp2	_cwd1	_ht8,		///
+	label(resource LBL_TAB_Y_AXIS)
+  RADIO    rb_den		_ilft2	_ss	_inwd	.,		///
+	label(resource LBL_DENSITY) first
+  RADIO    rb_frac		@	_ss	@	.,		///
+	label(resource LBL_FRACTION) option(fraction)
+  RADIO    rb_freq		@	_ss	@	.,		///
+	label(resource LBL_FREQUENCY) option(frequency)
+  RADIO    rb_perc		@	_ss	@	.,		///
+	label(resource LBL_PERCENT) last option(percent)
+  
+  BUTTON bu_bar_options		_lft	+45	120	.,		///
+	label(resource LBL_GB_BAR_PROPERTIES)				///
+	onpush(script show_bar_dialog)
+
+  CHECKBOX ck_addlab		_lft2	@	_cwd1	.,		///
+	onclickon(program main_addlab_check)				///
+	onclickoff(program main_addlab_check)				///
+	label(resource LBL_ADD_HEIGHT_LABELS_TO_BARS)			///
+	option(addlabel)
+  BUTTON bu_markerlabel_options +20	_ss	150	.,		///
+	label(resource LBL_GB_BAR_LABEL_PROPERTIES)			///
+	onpush(script show_markerlabel_dialog)
+  CHECKBOX ck_binrescale	_lft	_ms	_iwd	.,		///
+	option(binrescale)						///
+	label(resource HISTOGRAM_MAIN_CK_BINRESCALE)
+END
+
+// Main scripts/programs
+PROGRAM main_contin_on
+BEGIN
+	if ! D(main.rb_contin) {
+		call main.ck_bin.enable
+		call main.tx_bin.enable
+		call program main_bin_check
+	}
+	call main.en_start.setlabel resource LBL_LOWER_LIMIT_OF_FIRST_BIN
+	call main.tx_start.setlabel resource LBL_LOWER_LIMIT_OF_FIRST_BIN
+END
+
+SCRIPT main_discrete_on
+BEGIN
+	main.ck_bin.disable
+	main.tx_bin.disable
+	program main_bin_check
+	main.en_start.setlabel resource LBL_THEORETICAL_MINIMUM_VALUE
+	main.tx_start.setlabel resource LBL_THEORETICAL_MINIMUM_VALUE
+END
+
+PROGRAM main_bin_check
+BEGIN
+	if !H(main.ck_bin) & main.ck_bin {
+		call main.sp_bin.enable
+	}
+	if H(main.ck_bin) | !main.ck_bin {
+		call main.sp_bin.disable
+	}
+END
+
+PROGRAM main_width_check
+BEGIN
+	if !H(main.ck_width) & main.ck_width {
+		call gaction main.en_width.enable
+	}
+	if H(main.ck_width) | !main.ck_width {
+		call gaction main.en_width.disable
+	}
+END
+
+PROGRAM main_start_check
+BEGIN
+	if !H(main.ck_start) & main.ck_start {
+		call gaction main.en_start.enable
+	}
+	if H(main.ck_start) | !main.ck_start {
+		call gaction main.en_start.disable
+	}
+END
+
+PROGRAM main_addlab_check
+BEGIN
+	if !H(main.ck_addlab) & main.ck_addlab {
+		call gaction main.bu_markerlabel_options.enable
+	}
+	if H(main.ck_addlab) | !main.ck_addlab {
+		call gaction main.bu_markerlabel_options.disable
+	}
+END
+
+// Main buttons
+SCRIPT show_bar_dialog
+BEGIN
+	create CHILD gr_bar_options AS barOptions, allowsubmit
+	barOptions.setExitString barOptionResults
+	barOptions.settitle resource LBL_GB_BAR_PROPERTIES
+	barOptions.setExitAction "program checkBarOptionResults"
+	barOptions.setSubmitAction "program barOptionSubmit"
+	barOptions.callthru "script gr_bar_setHistogramOn"
+END
+
+PROGRAM checkBarOptionResults
+BEGIN
+	if barOptionResults.iseq("") {
+		call main.bu_bar_options.modified_off
+	}
+	if ! barOptionResults.iseq("") {
+		call main.bu_bar_options.modified_on
+	}
+END
+PROGRAM barOptionSubmit
+BEGIN
+	call program checkBarOptionResults
+	call Submit
+END
+
+SCRIPT show_markerlabel_dialog
+BEGIN
+	create CHILD gr_markerlabel_options AS markerLabelOptions, allowsubmit
+	markerLabelOptions.setExitString markerLabelOptionResults
+	markerLabelOptions.settitle resource LBL_GB_BAR_LABEL_PROPERTIES
+	markerLabelOptions.setExitAction "program checkMarkerLabelOptionResults"
+	markerLabelOptions.setSubmitAction "program markerLabelOptionSubmit"
+END
+
+PROGRAM checkMarkerLabelOptionResults
+BEGIN
+	if markerLabelOptionResults.iseq("") {
+		call main.bu_markerlabel_options.modified_off
+	}
+	if ! markerLabelOptionResults.iseq("") {
+		call main.bu_markerlabel_options.modified_on
+	}
+END
+PROGRAM markerLabelOptionSubmit
+BEGIN
+	call program checkMarkerLabelOptionResults
+	call Submit
+END
+
+INCLUDE _kernel_function_list
+INCLUDE gr_hist_density_plots
+INCLUDE gr_addplots
+INCLUDE gr_yaxis
+INCLUDE gr_xaxis
+INCLUDE gr_titles
+INCLUDE gr_legend
+INCLUDE gr_overall
+
+PROGRAM command
+BEGIN	
+	if hasParen {
+		put " histopts("
+	}
+
+	option main.rb_discrete
+	optionarg main.sp_bin
+	if main.ck_width {
+		if main.ck_bin & !H(main.ck_bin) {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format					///
+		"resource LBL_MSGBOX_ON_TAB_MAY_NOT_COMBINED_FMT" 	///
+		"resource LBL_TAB_MAIN" 				///
+		"resource LBL_NUMBER_OF_BINS"  				///
+		"resource LBL_WIDTH_OF_BINS"
+		
+		stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Number of bins" and "Width of bins" may not be combined.
+		}
+		require main.en_width
+		optionarg main.en_width
+	}
+	if main.ck_start {
+		require main.en_start
+		optionarg main.en_start
+	}
+	option main.rb_freq
+	option main.rb_frac
+	option main.rb_perc
+	if barOptionResults & ! H(main.bu_bar_options) {
+		put " " barOptionResults " "
+	}
+	option main.ck_addlab
+	if markerLabelOptionResults & ! H(main.bu_markerlabel_options) {
+		put " addlabopts(" markerLabelOptionResults ") "
+	}
+	option main.ck_binrescale
+
+	put " " /program gr_hist_density_plots_output
+	put " " /program gr_addplots_output
+	put " " /program gr_yaxis_output
+	put " " /program gr_xaxis_output
+	put " " /program gr_titles_output
+	put " " /program gr_legend_output
+	put " " /program gr_overall_output
+
+	if hasParen {
+		put ")"
+	}
+END

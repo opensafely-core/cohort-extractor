@@ -1,0 +1,190 @@
+/*
+  cpoisson
+
+*!  VERSION 1.0.2  29nov2018
+
+  keyword:  eclass
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 380
+INCLUDE header
+
+HELP hlp1, view("help cpoisson")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	program parseMessage
+	script se_createAsSvyInternalML
+	program svy_check_title
+	setscale_hadj resource CPOISSON_DLG_HSCALE
+END
+
+PROGRAM parseMessage
+BEGIN
+	if __MESSAGE.contains("__MI__") {
+		call script se_setMI_on
+	}
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script max_setFromNotVisible
+	program check_bytab
+	program se_setFinalInitState
+END
+
+PROGRAM check_bytab
+BEGIN
+	if ! __MESSAGE.contains("__MI__") {
+		call script sub_set_by_on
+	}
+END
+
+SCRIPT svy_is_on
+BEGIN
+	script max_setDefaultNoLog
+END
+SCRIPT svy_is_off
+BEGIN
+	script max_setDefaultLog
+END
+PROGRAM svy_check_title
+BEGIN
+	if __MESSAGE.contains("-svy-") {
+		call settitle resource CPOISSON_SVY_DLG_TITLE
+	}
+END
+
+DIALOG main, 								///
+	title(resource CPOISSON_DLG_TITLE) /* has svy title */		///
+	tabtitle(resource LBL_TAB_MODEL)
+BEGIN
+  TEXT tx_dv 			_lft	_top	_vnwd	.,		///
+	label(resource LBL_DEPVAR)
+  VARNAME vn_dv			@ 	_ss	@	.,		///
+	ts								///
+	numeric								///
+	label(resource LBL_DEPVAR)
+
+  TEXT tx_iv			_vlx	_top	160	.,		///
+	label(resource LBL_INDDEPVAR)
+  VARLIST vl_iv			@	_ss	_vlwd	.,		///
+	fv ts								///
+	allowcat							///
+	numeric								///
+	label(resource LBL_INDDEPVAR)
+
+  CHECKBOX ck_nocons		@	_ms	@	.,		///
+	option("noconstant")						///
+	label(resource LBL_NOCONSTANT)
+
+  DEFINE yval _ls
+  INCLUDE censor_ul_ll
+
+  GROUPBOX gb_option		_lft	_xls	_iwd	_ht10,		///
+	label(resource LBL_OPTIONS)
+
+  TEXT tx_exposure		_ilft	_ss	_cwd2	.,		///
+	label(resource LBL_EXPOSURE_VARIABLE)
+  DEFINE holdy @y
+  VARNAME vn_exposure		@	_ss	_vnwd	.,		///
+	option("exposure")						///
+	numeric								///
+	label(resource LBL_EXPOSURE_VARIABLE)
+  TEXT tx_offset		_lft3_2	holdy	_cwd2	.,		///
+	label(resource LBL_OFFSET_VARIABLE)
+  VARNAME vn_offset		@	_ss	_vnwd	.,		///
+	option("offset")						///
+	numeric								///
+	label(resource LBL_OFFSET_VARIABLE)
+
+  DEFINE _x _ilft
+  DEFINE _y _ls
+  DEFINE _cx _ilw80
+  DEFINE _bux _islw80
+  INCLUDE _constraints
+
+  DEFINE _x _ilft
+  DEFINE _xw _ibwd
+//  INCLUDE _ck_collinear
+END
+
+INCLUDE _constraints_sc 
+INCLUDE censor_ul_ll_pr
+INCLUDE sub_by_ifin_over_subpop
+INCLUDE weights_fpi
+INCLUDE se
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+	program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2b
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  CHECKBOX ck_irr		_lft	_ss	_cwd2	.,		///
+	option("irr")							///
+	label(resource LBL_REPORT_INCIDENCE_RATE_RATIOS)
+
+  DEFINE _x _lft
+  DEFINE _y _xls
+  DEFINE _cx _iwd
+  INCLUDE _nocnsreport
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+
+INCLUDE max_ml
+
+PROGRAM command
+BEGIN
+	put /program by_output " "
+	put /program se_prefix_output " "
+	put "cpoisson "
+	varlist main.vn_dv [main.vl_iv]
+	put " " /program ifin_output
+	put " " /program weights_output
+	beginoptions
+		optionarg main.vn_exposure
+		option main.ck_nocons
+		optionarg main.vn_offset
+		optionarg main.cb_constr
+//		option main.ck_collinear
+		put " " /program se_output
+		optionarg /hidedefault rpt.sp_level
+		option rpt.ck_irr
+		INCLUDE _nocnsreport_pr
+		INCLUDE _report_columns_pr
+		put " " rpt_bu_facvarsResults
+		put " " rpt_bu_fmtcoefResults
+		put " " /program censor_ul_ll_output
+		put " " /program max_output
+	endoptions
+END

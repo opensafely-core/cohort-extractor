@@ -1,0 +1,74 @@
+/*
+  _constraints_sc.idlg
+
+*!  VERSION 1.1.1  20sep2014
+
+  To be included within a DIALOG.
+  
+  NOTE:
+  	To use this include file with dialog tabs other than those named
+  	-main-, you must do the following in an initialization script...
+ 
+		create STRING __const_tab
+		__const_tab.setvalue "<theTabName>"
+
+	The PROGRAMs '_constraints_enable' and '_constraints_disable' require
+	'__const_tab' even if the dialog tab is named -main-.
+
+	// SCRIPTS and PROGRAMS for external use
+	
+		* SCRIPT  _constraints_main_setRequiredOn
+		* SCRIPT  _constraints_main_setOptionalOn
+		* PROGRAM _constraints_enable
+		* PROGRAM _constraints_disable
+
+*/
+
+SCRIPT show_constraint_dialog
+BEGIN
+	create CHILD constraint_child
+	create STRING constraint_results
+	constraint_child.setExitString constraint_results
+	constraint_child.setExitAction "program get_constraint_results"
+END
+PROGRAM get_constraint_results
+BEGIN
+	call create BOOLEAN __const_flag
+	call __const_flag.storeClsObjectExists __const_tab.value
+	if ! __const_flag {
+		call create STRING __const_tab
+		call __const_tab.setvalue "main"
+	}
+	else {
+		if ! __const_tab {
+			call __const_tab.setvalue "main"
+		}
+	}
+	call __const_tab.withvalue @.cb_constr.repopulate
+END
+
+PROGRAM _constraints_disable
+BEGIN
+	call __const_tab.withvalue @.tx_constr.disable
+	call __const_tab.withvalue @.cb_constr.disable
+	call __const_tab.withvalue @.bu_constr.disable
+END
+
+PROGRAM _constraints_enable
+BEGIN
+	call __const_tab.withvalue @.tx_constr.enable
+	call __const_tab.withvalue @.cb_constr.enable
+	call __const_tab.withvalue @.bu_constr.enable
+END
+
+SCRIPT _constraints_main_setRequiredOn
+BEGIN
+	main.tx_constr.setlabel resource _CONSTRAINTS_TX_CONSTR_REQ
+END
+
+SCRIPT _constraints_main_setOptionalOn
+BEGIN
+	main.tx_constr.setlabel resource LBL_CONSTRAINTS_OPTIONAL
+END
+
+// END: _constraints_sc.idlg

@@ -1,0 +1,330 @@
+/*
+  irt_hybrid
+
+*!  VERSION 1.1.4  16apr2018
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+DEFINE _dlght 200
+INCLUDE header
+
+HELP hlp1, view("help irt hybrid")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING STMP
+	create STRING main_model_tmp
+	create STRING main_model_tmp2
+	create STRING main_model_childdlg
+	create STRING main_model_child_result
+	create STRING main_model_cmd_output
+
+	create ARRAY main_model_list
+
+	create SVECTOR mainMODELCommandDisplayList
+	create SVECTOR mainMODELCommandList
+	create SVECTOR mainMODELCommandValues
+	create SVECTOR mainMODELStatusList
+	create SVECTOR mainMODELChildDialogList
+
+	create DOUBLE main_model_count
+	create DOUBLE main_model_position
+	create DOUBLE main_model_arraysize
+	create DOUBLE main_model_tmpcount
+
+	main.bu_model_edit.disable
+	main.bu_model_disable.disable
+	main.bu_model_enable.disable
+	setscale_hadj resource IRT_HYBRID_DLG_HSCALE
+
+	program parseMessage
+END
+
+PROGRAM parseMessage
+BEGIN
+	call create STRING group_var
+	call create STRING parent_name
+
+	if __MESSAGE.contains("groupvar") {
+		call parent_name.setvalue class PARENT._dlg_rsrcname
+		call parent_name.withvalue group_var.setvalue		///
+			class @.group_var.value
+	}
+	else {
+		call group_var.setvalue ""
+	}
+END
+
+SCRIPT POSTINIT
+BEGIN
+	mainMODELCommandDisplayList.copyToArray main_model_list
+	main.lb_modelBuild.repopulate
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)				///
+	label(resource IRT_HYBRID_DLG_TITLE)
+BEGIN
+  GROUPBOX gb_re		_lft	_top	_iwd	_ht14,		///
+	label(resource IRT_HYBRID_MAIN_GB_RE)
+  TEXT	tx_equ			_indent	_ss	220	.,		///
+	label(resource IRT_HYBRID_MAIN_TX_EQU)
+
+  LISTBOX lb_modelBuild		@	_ss	@	95,		///
+	contents(main_model_list)					///
+	ondblclick(program main_model_edit)				///
+	onselchange(program main_model_sel_changed)			///
+	nomemory
+  BUTTON bu_model_create	250	@	80	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program main_model_create)				///
+	tooltip(resource IRT_HYBRID_MAIN_BU_MODEL_CREATE)
+  BUTTON bu_model_edit		@	_ms	@	.,		///
+	label(resource LBL_BU_EDIT)					///
+	onpush(program main_model_edit)					///
+	tooltip(resource IRT_HYBRID_MAIN_BU_MODEL_EDIT)
+  BUTTON bu_model_disable	@	_ms	@	.,		///
+	label(resource LBL_BU_DISABLE)					///
+	onpush(program main_model_disable)				///
+	tooltip(resource IRT_HYBRID_MAIN_BU_MODEL_DISABLE)
+  BUTTON bu_model_enable		@	_ms	@	.,	///
+	label(resource LBL_BU_ENABLE)					///
+	onpush(program main_model_enable)				///
+	tooltip(resource IRT_HYBRID_MAIN_BU_MODEL_ENABLE)
+  TEXTBOX tb_model_note		20	+25	370	25,		///
+	label(resource IRT_HYBRID_MAIN_TB_MODEL_NOTE)
+END
+
+PROGRAM main_model_create
+BEGIN
+	call main_model_count.setvalue class mainMODELChildDialogList.size
+	call main_model_count.increment
+	call main_model_tmp.setvalue "main_equ_"
+	call main_model_tmp.append class main_model_count.value
+	call main_model_tmp.withvalue main_model_childdlg.setvalue @
+	call program main_show_equ_child
+END
+
+PROGRAM main_model_edit
+BEGIN
+	call mainMODELCommandDisplayList.findstr class			///
+		main.lb_modelBuild.value
+	call main_model_position.setvalue class				///
+		mainMODELCommandDisplayList.position
+	call main_model_position.withvalue				///
+		main_model_childdlg.setvalue				///
+		class mainMODELChildDialogList.values[@]
+	call program main_show_equ_child_edit
+END
+
+PROGRAM main_show_equ_child
+BEGIN
+	call main_model_tmp.setvalue "irt_hybrid_sub AS "
+	call main_model_tmp.append class main_model_childdlg.value
+	call main_model_tmp.withvalue create CHILD @
+	call main_model_childdlg.withvalue @.setExitString		///
+		"main_model_child_result"
+	call main_model_childdlg.withvalue @.setExitAction		///
+		"program main_equ_child_create_done"
+
+	call main_model_count.withvalue STMP.format			///
+		"resource LBL_SUBMODEL_FMT" "@" ""
+	call STMP.withvalue main_model_tmp.setvalue "@"
+	call main_model_childdlg.withvalue				///
+		main_model_tmp2.setvalue "@.settitle"
+	call main_model_tmp2.append `" ""'
+	call main_model_tmp2.append class main_model_tmp.value
+	call main_model_tmp2.append `"""'
+	call main_model_tmp2.withvalue @
+END
+
+PROGRAM main_show_equ_child_edit
+BEGIN
+	call main_model_tmp.setvalue "irt_hybrid_sub AS "
+	call main_model_tmp.append class main_model_childdlg.value
+	call main_model_tmp.withvalue create CHILD @
+	call main_model_childdlg.withvalue @.setExitString		///
+		"main_model_child_result"
+	call main_model_childdlg.withvalue @.setExitAction		///
+		"program main_equ_child_edit_done"
+
+	call main_model_position.withvalue				///
+		main_model_tmp.setvalue					///
+		class mainMODELCommandDisplayList.values[@]
+	call main_model_childdlg.withvalue				///
+		main_model_tmp2.setvalue "@.settitle"
+	call main_model_tmp2.append `" ""'
+	call main_model_tmp2.append class main_model_tmp.value
+	call main_model_tmp2.append `"""'
+	call main_model_tmp2.withvalue @
+END
+
+PROGRAM main_equ_child_create_done
+BEGIN
+	call main_model_arraysize.setvalue class			///
+		mainMODELChildDialogList.size
+	call main_model_arraysize.increment
+
+	/* Store child dialog name */
+	call mainMODELChildDialogList.store class			///
+		main_model_arraysize.value class main_model_childdlg.value
+
+	/* Store listbox display equation string */
+	call main_model_arraysize.withvalue STMP.format			///
+		"resource LBL_SUBMODEL_FMT" "@" ""
+	call STMP.withvalue						///
+		mainMODELCommandDisplayList.store class			///
+		main_model_arraysize.value "@"
+
+	/* Store child dialog result string */
+	call mainMODELCommandList.store class				///
+		main_model_arraysize.value				///
+		class main_model_child_result.value
+
+	/* Store child dialog result string for final command
+	   For disable/enable */
+	call mainMODELCommandValues.store class				///
+		main_model_arraysize.value				///
+		class main_model_child_result.value
+
+	/* Store disable/enable status */
+	call mainMODELStatusList.store class				///
+		main_model_arraysize.value "active"
+
+	call mainMODELCommandDisplayList.copyToArray main_model_list
+	call main.lb_modelBuild.repopulate
+	call STMP.withvalue main.lb_modelBuild.setvalue "@"
+END
+
+PROGRAM main_equ_child_edit_done
+BEGIN
+	call mainMODELChildDialogList.findstr class			///
+		main_model_childdlg.value
+	call main_model_position.setvalue class				///
+		mainMODELChildDialogList.position
+	call main_model_position.withvalue main_model_tmp.setvalue	///
+		class mainMODELStatusList.values[@]
+	if main_model_tmp.iseq("active") {
+		call main_model_position.withvalue STMP.format		///
+			"resource LBL_SUBMODEL_FMT" "@" ""
+		call STMP.withvalue					///
+			mainMODELCommandDisplayList.store class		///
+			main_model_position.value "@"
+		call mainMODELCommandValues.store class			///
+			main_model_position.value class			///
+			main_model_child_result.value
+			
+		call STMP.withvalue main_model_tmp2.setvalue "@"
+	}
+	else {
+		call main_model_position.withvalue STMP.format		///
+			"resource LBL_SUBMODEL_FMT" "@"		///
+			"resource LBL_PAREN_DISABLED"
+
+		call STMP.withvalue main_model_tmp2.setvalue "@"
+
+		call STMP.withvalue					///
+			mainMODELCommandDisplayList.store		///
+			class main_model_position.value "@"
+	}
+
+	call mainMODELCommandList.store class				///
+		main_model_position.value class				///
+		main_model_child_result.value
+
+	call mainMODELCommandDisplayList.copyToArray main_model_list
+	call main.lb_modelBuild.repopulate
+	call main.lb_modelBuild.setvalue class main_model_tmp2.value
+END
+
+PROGRAM main_model_sel_changed
+BEGIN
+	call mainMODELCommandDisplayList.findstr class			///
+		main.lb_modelBuild.value
+	call main_model_position.setvalue class				///
+		mainMODELCommandDisplayList.position
+	call main_model_position.withvalue main_model_tmp.setvalue	///
+		class mainMODELStatusList.values[@]
+	if main_model_position {
+		call main.bu_model_edit.enable
+
+		call main_model_position.withvalue			///
+			main.tb_model_note.setlabel			///
+		class mainMODELCommandList.values[@]
+	}
+
+	if main_model_tmp.iseq("disable") {
+		call main.bu_model_enable.enable
+		call main.bu_model_disable.disable
+	}
+	if main_model_tmp.iseq("active") {
+		call main.bu_model_enable.disable
+		call main.bu_model_disable.enable
+	}
+END
+
+PROGRAM main_model_disable
+BEGIN
+	call mainMODELCommandDisplayList.findstr class			///
+		main.lb_modelBuild.value
+	call main_model_position.setvalue class				///
+		mainMODELCommandDisplayList.position
+
+	call main_model_tmp.setvalue class main.lb_modelBuild.value
+	call mainMODELStatusList.store class				///
+		main_model_position.value "disable"
+	call mainMODELCommandValues.store class main_model_position.value ""
+
+	call STMP.format "resource LBL_PAREN_DISABLED"
+	call main_model_tmp.append " "
+	call main_model_tmp.append class STMP.value
+	call main_model_tmp.withvalue STMP.setvalue "@"
+
+	call main_model_tmp.withvalue					///
+		mainMODELCommandDisplayList.store			///
+		class main_model_position.value "@"
+
+	call mainMODELCommandDisplayList.copyToArray main_model_list
+	call main.lb_modelBuild.repopulate
+	call main.lb_modelBuild.setvalue class main_model_tmp2.value
+	call main.lb_modelBuild.setvalue class STMP.value
+END
+
+PROGRAM main_model_enable
+BEGIN
+	call mainMODELCommandDisplayList.findstr class			///
+		main.lb_modelBuild.value
+	call main_model_position.setvalue class				///
+		mainMODELCommandDisplayList.position
+
+	call mainMODELStatusList.store class				///
+		main_model_position.value "active"
+	call main_model_position.withvalue				///
+		mainMODELCommandValues.store				///
+		class main_model_position.value class			///
+		mainMODELCommandList.values[@]
+
+	call main_model_position.withvalue STMP.format			///
+			"resource LBL_SUBMODEL_FMT" "@" ""
+	call STMP.withvalue						///
+		mainMODELCommandDisplayList.store			///
+		class main_model_position.value "@"
+
+	call mainMODELCommandDisplayList.copyToArray main_model_list
+	call main_model_position.withvalue				///
+		main_model_tmp2.setvalue class				///
+		mainMODELCommandDisplayList.values[@]
+	call main.lb_modelBuild.repopulate
+	call main.lb_modelBuild.setvalue class main_model_tmp2.value
+END
+
+PROGRAM	command
+BEGIN
+	call mainMODELCommandValues.copyToString main_model_cmd_output
+	if main_model_cmd_output {
+		put main_model_cmd_output
+	}
+END

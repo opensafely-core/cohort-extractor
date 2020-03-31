@@ -1,0 +1,177 @@
+/*
+ contract
+
+*! VERSION 1.3.0  19sep2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_mlarge
+INCLUDE _ht380
+INCLUDE header
+HELP hlp1, view("help contract")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource CONTRACT_DLG_HSCALE
+END
+
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)						///
+	label(resource CONTRACT_DLG_TITLE)
+
+BEGIN
+  TEXT     tx_var            _lft      _top      _iwd      .,		///
+		label(resource LBL_VARIABLES)
+  VARLIST  vl_var            @         _ss       _iwd      .,		///
+  		label(resource LBL_VARIABLES)
+END
+
+INCLUDE ifin
+INCLUDE weights_f
+
+DIALOG opt, tabtitle(resource LBL_OPTIONS)
+BEGIN
+  TEXT     tx_freq           _lft      _top      _cwd2     .,		///
+  		label(resource CONTRACT_OPT_TX_FREQ)
+  EDIT     ed_freq           @         _ss       _vnwd     .,		///
+  		label(resource CONTRACT_OPT_TX_FREQ)			///
+  		max(32)							///
+  		option("freq")						///
+  		default(_freq)
+
+  CHECKBOX ck_cfreq          @         _ls       _iwd     .,		///
+  		label(resource CONTRACT_OPT_CK_CFREQ)		///
+  		onclickon(opt.ed_cfreq.enable)				///
+  		onclickoff(opt.ed_cfreq.disable)
+  EDIT     ed_cfreq          +20       _ss       _vnwd     .,		///
+  		label(resource CONTRACT_OPT_ED_CFREQ)			///
+  		option(cfreq)
+
+  GROUPBOX gb_percent        _lft      _ls       _iwd      _ht17,	///
+	label(resource CONTRACT_OPT_GB_PERCENT)
+  CHECKBOX ck_percent        _ilft     _ss       _ibwd     .,		///
+  		label(resource CONTRACT_OPT_CK_PERCENT)			///
+  		onclickon(program opt_percent_on)			///
+  		onclickoff(program opt_percent_off)
+  EDIT     ed_percent        +20       _ss       _vnwd     .,		///
+  		label(resource CONTRACT_OPT_ED_PERCENT)				///
+  		option(percent)
+
+  CHECKBOX ck_cpercent       _ilft     _ls       _ibwd     .,		///
+  		label(resource CONTRACT_OPT_CK_CPERCENT)		///
+  		onclickon(program opt_cpercent_on)			///
+  		onclickoff(program opt_cpercent_off)
+  EDIT     ed_cpercent       +20       _ss       _vnwd     .,		///
+  		label(resource CONTRACT_OPT_ED_CPERCENT)			///
+  		option(cpercent)
+
+  CHECKBOX ck_float          _ilft     _ls       _ibwd     .,		///
+  		label(resource CONTRACT_OPT_CK_FLOAT)			///
+  		option(float)
+  CHECKBOX ck_format         @         _ms       @         .,		///
+		onclickon(program opt_ck_format_check)			///
+		onclickoff(program opt_ck_format_check)			///
+  		label(resource CONTRACT_OPT_CK_FORMAT)
+  EDIT     ed_format         +20       _ss       200       .,		///
+  		label(resource CONTRACT_OPT_ED_FORMAT)			///
+  		option(format)
+  BUTTON   bu_format         +205      @         80        .,		///
+	label(resource LBL_BU_CREATE)						///
+	onpush(script showFormatDialog)					///
+	tooltip(resource LBL_CREATE_DISPLAY_FORMAT)
+
+  CHECKBOX ck_zero           _lft      _xxls     _iwd      .,		///
+  		label(resource CONTRACT_OPT_CK_ZERO)			///
+  		option("zero")
+  CHECKBOX ck_nomiss         @         _ms       @         .,		///
+  		label(resource CONTRACT_OPT_CK_NOMISS)			///
+  		option("nomiss")
+END
+
+SCRIPT showFormatDialog
+BEGIN
+	create STRING formatString
+	create CHILD format_chooser
+	format_chooser.setExitString formatString
+	format_chooser.setExitAction "opt.ed_format.setvalue class formatString.value"
+END
+
+PROGRAM opt_ck_format_check
+BEGIN
+	if opt.ck_format & opt.ck_format.isenabled() {
+		call opt.ed_format.enable
+		call opt.bu_format.enable
+	}
+	else {
+		call opt.ed_format.disable
+		call opt.bu_format.disable
+	}
+END
+
+PROGRAM opt_percent_on
+BEGIN
+	call opt.ed_percent.enable
+	call opt.ck_float.enable
+	call opt.ck_format.enable
+	call program opt_ck_format_check
+END
+
+PROGRAM opt_cpercent_on
+BEGIN
+	call opt.ed_cpercent.enable
+	call opt.ck_float.enable
+	call opt.ck_format.enable
+	call program opt_ck_format_check
+END
+
+PROGRAM opt_percent_off
+BEGIN
+	call opt.ed_percent.disable
+	if ! opt.ck_cpercent {
+		call opt.ck_float.disable
+		call opt.ck_format.disable
+		call opt.ed_format.disable
+		call opt.bu_format.disable
+	}
+END
+
+PROGRAM opt_cpercent_off
+BEGIN
+	call opt.ed_cpercent.disable
+	if ! opt.ck_percent {
+		call opt.ck_float.disable
+		call opt.ck_format.disable
+		call opt.ed_format.disable
+		call opt.bu_format.disable
+	}
+END
+
+PROGRAM command
+BEGIN
+	put "contract "
+	varlist main.vl_var
+	INCLUDE _weights_pr
+	INCLUDE _ifin_pr
+	beginoptions
+		optionarg /hidedefault opt.ed_freq
+  		if opt.ck_cfreq {
+			require opt.ed_cfreq
+			optionarg opt.ed_cfreq
+		}
+  		if opt.ck_percent {
+			require opt.ed_percent
+			optionarg opt.ed_percent
+		}
+  		if opt.ck_cpercent {
+			require opt.ed_cpercent
+			optionarg opt.ed_cpercent
+		}
+		option opt.ck_float
+		optionarg opt.ed_format
+		option opt.ck_zero
+		option opt.ck_nomiss
+	endoptions
+END

@@ -1,0 +1,227 @@
+/*
+  bootstrap
+
+*!  VERSION 2.2.4  08dec2016
+
+  keyword:  eclass
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 380
+INCLUDE header
+HELP hlp1, view("help bootstrap")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource BOOTSTRAP_DLG_HSCALE
+END
+
+DIALOG main, label(resource BOOTSTRAP_DLG_TITLE) 			///
+	tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  SPINNER  sp_reps	_lft2	_top	80	.,			///
+	label(resource LBL_REPLICATIONS)				///
+	min(2) max(10000000) default(50)				///
+	option(reps)
+  TEXT     tx_reps	+85	@	_spr2	.,			///
+	label(resource LBL_REPLICATIONS)
+
+  DEFINE _y +5
+  INCLUDE _cmd_exp_list
+END
+
+SCRIPT opt_PREINIT
+BEGIN
+        opt.fi_sav.formatfilter "{0} (*.dta)|*.dta|{1} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_DTA" "resource ui_ex FILE_TYPE_ALL_FILES"
+END
+
+DIALOG opt, tabtitle(resource LBL_OPTIONS)
+BEGIN
+  GROUPBOX gb_design	_lft	_top	_iwd	_ht9,			///
+	label(resource BOOTSTRAP_OPT_GB_DESIGN)
+
+  TEXT tx_strata	_indent	_ss	_cwd2	.,			///
+	label(resource LBL_STRATA_VARIABLES)
+
+  DEFINE x @x
+  DEFINE y @y
+  VARLIST  vl_strata	@	_ss	_cwd4	.,			///
+	label(resource LBL_STRATA_VARIABLES)				///
+	option(strata)
+  CHECKBOX ck_size	x	_xls	_ckwd	.,			///
+	onclickon(opt.sp_size.enable)					///
+	onclickoff(opt.sp_size.disable)
+  SPINNER  sp_size	_cksep	@	_spwd	.,			///
+	label(resource LBL_SAMPLE_SIZE)					///
+	min(1) max(c(N)) default(c(N))					///
+	option(size)
+  TEXT     tx_size	_spsep	@	_spr2b	.,			///
+	label(resource LBL_SAMPLE_SIZE)
+
+  TEXT  tx_clust	_lft2	y	_cwd2	.,			///
+	label(resource LBL_CLUSTERED_VARIABLES)
+  VARLIST  vl_clust	@	_ss	_cwd2	.,			///
+	label(resource LBL_CLUSTERED_VARIABLES)				///
+	option(cluster)
+
+  TEXT     tx_clid	@	_ms	@	.,			///
+	label(resource LBL_NEW_CLUSTER_ID_VARIABLE_OPTIONAL)
+  EDIT     ed_clid	@	_ss	@	.,			///
+	label(resource LBL_NEW_CLUSTER_ID_VARIABLE)			///
+	option(idcluster)
+
+  DEFINE _y _xxls
+  INCLUDE _saving
+
+  CHECKBOX ck_bca	_lft	+45	_iwd	.,			///
+	label(resource BOOTSTRAP_OPT_CK_BCA)				///
+	option(bca)
+  CHECKBOX ck_ties	@	_ms	@	.,			///
+	label(resource LBL_ADJUST_BC_BCA_CONFIDENCE_INTERVALS_TIES)	///
+	option(ties)
+  CHECKBOX ck_mse	@	_ms	@	.,			///
+	label(resource LBL_USE_MSE_FORMULA_VARIANCE_ESTIMATION)		///
+	option(mse)
+END
+
+INCLUDE _saving_sc
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_facvarsResults
+        program rpt_bu_facvars_ckResults
+        
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+
+	create STRING rpt_bu_eformResults
+	program rpt_bu_eform_ckResults
+
+	create STRING rpt_bu_repl_logResults
+	program rpt_bu_repl_log_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+
+  DEFINE _x _lft
+  DEFINE _cx _spr2
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _xwd _cwd1
+  INCLUDE _coef_table_common
+
+  TEXT     tx_title	_lft	_ls	_iwd	.,			///
+	label(resource LBL_TITLE)
+  EDIT     ed_title	@	_ss	@	.,			///
+	label(resource LBL_TITLE)					///
+	option(title)
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+  
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_eform_opts_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @ 
+  INCLUDE _bu_replication_log_opts
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE _coef_table_common_report_pr
+INCLUDE eform_option_reporting_pr
+INCLUDE factor_vars_reporting_pr
+INCLUDE replication_log_opts_child_pr
+
+PROGRAM rpt_output
+BEGIN
+	optionarg /hidedefault rpt.sp_level
+	optionarg rpt.ed_title
+	put " " rpt_bu_facvarsResults
+	put " " rpt_bu_fmtcoefResults
+	put " " rpt_bu_eformResults
+	put " " rpt_bu_repl_logResults
+	INCLUDE _report_columns_pr
+END
+
+DIALOG adv, tabtitle(resource LBL_ADVANCED)
+BEGIN
+  CHECKBOX ck_nodrop	_lft	_top	_iwd	.,			///
+	label(resource LBL_DO_NOT_DROP_OBSERVATIONS)			///
+	option(nodrop)
+  CHECKBOX ck_nowarn	@	_ms	_iwd	.,			///
+	label(resource LBL_DO_NOT_WARN_WHEN_ESAMPLE_NOT_SET)		///
+	option(nowarn)
+  CHECKBOX ck_force	@	_ms	_iwd	.,			///
+	label(resource LBL_DO_NOT_CHECK_WEIGHTS_SVY_COMMANDS)		///
+	option(force)
+
+  TEXT     tx_reject	@	_ls	@	.,			///
+	label(resource LBL_IDENTIFY_INVALID_RESULTS)
+  EDIT     ed_reject	@	_ss	@	.,			///
+	label(resource LBL_IDENTIFY_INVALID_RESULTS)			///
+	option(reject)
+
+  TEXT     tx_seed	@	_ls	@	.,			///
+	label(resource LBL_RANDOM_NUMBER_SEED)
+  EDIT     ed_seed	@	_ss	_en14wd	.,			///
+	label(resource LBL_RANDOM_NUMBER_SEED)				///
+	option(seed)
+END
+
+PROGRAM bs_options
+BEGIN
+	put "bootstrap "
+	option main.ck_b
+	option main.ck_se
+	put " " main.ed_explst
+	beginoptions
+		optionarg main.sp_reps
+		optionarg opt.vl_strata
+		optionarg opt.sp_size
+		if opt.ed_clid {
+			require opt.vl_clust
+		}
+		optionarg opt.vl_clust
+		optionarg opt.ed_clid
+		INCLUDE _saving_pr
+		option opt.ck_bca
+		option opt.ck_ties
+		option opt.ck_mse
+		put /program _coef_table_common_cmd
+		put " " /program rpt_output
+		option adv.ck_nodrop
+		option adv.ck_nowarn
+		option adv.ck_force
+		optionarg adv.ed_reject
+		optionarg adv.ed_seed
+	endoptions
+END
+
+PROGRAM command
+BEGIN
+	put /program bs_options
+	put " " ": "	/* end of prefix, begin command */
+		require main.vl_cmd
+		put main.vl_cmd
+END

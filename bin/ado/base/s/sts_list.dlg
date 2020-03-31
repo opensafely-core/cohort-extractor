@@ -1,0 +1,263 @@
+/*
+  sts_list.dlg
+
+*!  VERSION 2.1.2  14mar2015
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 390
+INCLUDE header
+
+HELP hlp1, view("help sts_list")
+RESET res1
+
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource STS_LIST_DLG_HSCALE
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN) ///
+		label(resource STS_LIST_DLG_TITLE)
+BEGIN
+  DEFINE _x _xsetbu
+  DEFINE _y _top
+  INCLUDE _bu_stset
+
+  GROUPBOX gb_estimates      _lft      _ss       _iwd      _ht6,	///
+  		label(resource LBL_FUNCTION_NO_COLON)
+  RADIO    rb_kaplan         _ilft     _ss       _ibwd     .,		///
+  		first							///
+ 		option(NONE)						///
+ 		onclickon(program main_adjvar_enable)			///
+ 		label(resource STS_LIST_MAIN_RB_KAPLAN)
+  RADIO    rb_failure        @         _ss       @         .,		///
+   		option(failure)						///
+   		onclickon(program main_adjvar_enable)			///
+   		label(resource STS_LIST_MAIN_RB_FAILURE)
+  RADIO    rb_cumhaz             @         _ss       @         .,	///
+   		last     						///
+ 		option(cumhaz)						///
+ 		onclickon(script main_adjvar_disable)			///
+ 		label(resource STS_LIST_MAIN_RB_CUMHAZ)
+
+  GROUPBOX gb_by             _lft      +45       _iwd      _ht13,	///
+ 		label(resource LBL_CALCULATION)
+
+  CHECKBOX ck_byvar          _ilft     _ms       _inwd     .,		///
+ 		onclickon(program main_by_on)				///
+ 		onclickoff(program main_by_off)				///
+ 		label(resource LBL_SEPARATE_ON_DIFF_GROUPS_OF_SP_VAR_BY_VAR)
+  VARLIST  vl_byvar          @         _ss       @         .,		///
+ 		option(by)						///
+ 		label(resource LBL_SEPARATE_ON_DIFF_GROUPS_OF_SP_VAR)
+
+  CHECKBOX ck_adjvar         _ilft     _ls       _ibwd     .,		///
+  		onclickon(program main_adjvar_on)			///
+  		onclickoff(program main_adjvar_off)			///
+   		label(resource LBL_ADJUST_THE_ESTIMATES_TO_ZERO_VALUES_OF_ADJ_VAR)
+  VARLIST  vl_adjvar         @         _ss       @         .,		///
+ 		option(adjustfor)					///
+ 		numeric							///
+ 		label(resource LBL_ADJUST_THE_ESTIMATES_TO_ZERO_VALUES_OF_ADJ_VAR)
+
+  CHECKBOX ck_strvar         @         _ls       @         .,		///
+  		onclickon(script main_strvar_on)			///
+  		onclickoff(program main_strvar_off)			///
+ 		label(resource LBL_STRATIFY_ON_GROUPING_VARIABLES)
+END
+
+PROGRAM main_adjvar_enable
+BEGIN
+	call main.ck_adjvar.enable
+	if main.ck_adjvar {
+		call program main_adjvar_on
+	}
+END
+
+SCRIPT main_adjvar_disable
+BEGIN
+	main.ck_adjvar.disable
+	program main_adjvar_off
+END
+
+PROGRAM main_by_on
+BEGIN
+	call main.vl_byvar.enable
+	if main.ck_adjvar {
+		call main.ck_strvar.enable
+	}
+	call opt.ck_compare.enable
+END
+
+PROGRAM main_by_off
+BEGIN
+	call main.vl_byvar.disable
+	call main.ck_strvar.disable
+	if ! (main.ck_byvar | main.ck_strvar) {
+		call opt.ck_compare.disable
+	}
+END
+
+PROGRAM main_adjvar_on
+BEGIN
+	call main.vl_adjvar.enable
+	if main.ck_byvar {
+		call main.ck_strvar.enable
+	}
+	if main.ck_strvar {
+		call opt.ck_compare.enable
+	}
+END
+
+PROGRAM main_adjvar_off
+BEGIN
+	call main.vl_adjvar.disable
+	call main.ck_strvar.disable
+	if ! (main.ck_byvar | (main.ck_strvar & ! D(main.ck_strvar))) {
+		call opt.ck_compare.disable
+	}
+END
+
+SCRIPT main_strvar_on
+BEGIN
+	opt.ck_compare.enable
+END
+
+PROGRAM main_strvar_off
+BEGIN
+	if ! main.ck_byvar {
+		call opt.ck_compare.disable
+	}
+END
+
+INCLUDE ifin
+
+SCRIPT opt_PREINIT
+BEGIN
+       opt.fi_sav.formatfilter "{0} (*.dta)|*.dta|{1} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_DTA" "resource ui_ex FILE_TYPE_ALL_FILES"
+END
+
+DIALOG opt, label("")  tabtitle(resource LBL_OPTIONS)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr
+  DEFINE _y _top
+  INCLUDE _sp_level
+  GROUPBOX gb_at             _lft      _ls       _iwd      _ht11,	///
+ 		label(resource STS_LIST_OPT_GB_AT)
+  RADIO    rb_unique         _ilft     _ss       _ibwd     .,		///
+  		label(resource STS_LIST_OPT_RB_UNIQUE)			///
+ 		first							///
+ 		onclickon(script unique_off)
+  RADIO    rb_sptime         _ilft     _ss       _ibwd     .,		///
+ 		onclickon(script values_disable)			///
+ 		label(resource STS_LIST_OPT_RB_SPTIME)
+  RADIO    rb_values         _ilft     +45       _ibwd     .,		///
+ 		last							///
+ 		onclickon(script spt_disable)				///
+ 		label(resource STS_LIST_OPT_RB_VALUES)
+  EDIT     ed_values         _indent2  _ss       _inwd     .,		///
+ 		label(resource STS_LIST_OPT_ED_VALUES)			///
+ 		option(at)
+  SPINNER  sp_sptime         @         -45       _spwd     .,		///
+ 		min(2)							///
+ 		max(100000)						///
+ 		default(10)						///
+ 		option(at)
+  TEXT     tx_sptime         _spsep    @         _rbsprb   .,		///
+ 		label(resource STS_LIST_OPT_TX_SPTIME)
+
+  GROUPBOX gb_enter          _lft      +95       _iwd      _ht4,	///
+ 		label(resource STS_LIST_OPT_GB_ENTER)
+  RADIO    rb_noenter        _ilft     _ss       _ibwd     .,		///
+ 		label(resource STS_LIST_OPT_RB_NOENTER)			///
+ 		first							///
+ 		option(NONE)
+  RADIO    rb_enter          @         _ss       @         .,		///
+ 		label(resource STS_LIST_OPT_RB_ENTER)			///
+ 		last							///
+ 		option(enter)
+  CHECKBOX ck_noshow         _lft      +45       _cwd1     .,		///
+ 		label(resource LBL_DO_NOT_SHOW_ST_SETTING_INFORMATION)	///
+ 		option(noshow)
+  CHECKBOX ck_compare        @         _ms       _iwd      .,		///
+ 		option(compare)						///
+ 		label(resource STS_LIST_OPT_CK_COMPARE)
+
+  TEXT     tx_sav            @         _ls       @         .,		///
+		label(resource STS_LIST_OPT_TX_SAV)
+  FILE     fi_sav            @         _ss       @         .,		///
+		label(resource LBL_BU_BROWSE)				///
+		option("saving")					///
+		defext(dta)						///
+		save
+END
+
+SCRIPT unique_off
+BEGIN
+	opt.sp_sptime.disable
+	opt.tx_sptime.disable
+	opt.ed_values.disable
+	opt.ck_compare.disable
+END
+
+SCRIPT values_disable
+BEGIN
+	opt.sp_sptime.enable
+	opt.tx_sptime.enable
+	opt.ed_values.disable
+END
+
+SCRIPT spt_disable
+BEGIN
+	opt.sp_sptime.disable
+	opt.tx_sptime.disable
+	opt.ed_values.enable
+END
+
+PROGRAM command
+BEGIN
+	if main.ck_byvar {
+		require main.vl_byvar
+	}
+	if main.ck_adjvar {
+		require main.vl_adjvar
+	}
+	if opt.rb_values {
+		require opt.ed_values
+	}
+	put "sts list "
+	INCLUDE _ifin_pr
+	beginoptions
+		if main.ck_strvar.isenabled() & main.ck_strvar {
+			call main.vl_byvar.setoption "strata"
+		}
+		else {
+			call main.vl_byvar.setoption "by"
+		}
+		optionarg main.vl_byvar
+		optionarg main.vl_adjvar
+		option radio(main rb_kaplan rb_failure rb_cumhaz)
+		if opt.rb_sptime {
+			optionarg opt.sp_sptime
+		}
+		if opt.rb_values {
+			optionarg opt.ed_values
+		}
+		option opt.ck_compare
+		option radio(opt rb_noenter rb_enter)
+		INCLUDE _level_opt_pr
+		option opt.ck_noshow
+		if opt.fi_sav {
+			repfile opt.fi_sav
+			put `"saving(""'
+			put opt.fi_sav
+			put `"", replace)"'
+		}
+	endoptions
+END

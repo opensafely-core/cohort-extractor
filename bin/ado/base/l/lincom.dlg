@@ -1,0 +1,137 @@
+/*
+  lincom
+
+*! VERSION 2.1.5  01dec2019
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+DEFINE _dlght 280
+INCLUDE header
+
+HELP hlp1, view("help lincom")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource LINCOM_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	create STRING bu_fmtcoefResults
+	program bu_fmtcoef_ckResults
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	call create STRING edfmethod
+	call edfmethod.setvalue e(dfmethod)
+
+	if (edfmethod.iseq("")) {
+		call main.ck_small.disable
+	}
+	else {
+		call main.ck_small.enable
+	}
+END
+
+DIALOG main, label(resource LINCOM_DLG_TITLE) 			///
+	tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_exp    _lft      _top      _iwd      .,		///
+	label(resource LBL_LINEAR_EXPRESSION)
+  EXP     ex_exp     @         _ss       @         .,		///
+	error(resource LBL_LINEAR_EXPRESSION)			///
+	label(resource LBL_BU_CREATE)
+
+  CHECKBOX ck_eform  @         _xls      @         _ht10h,	///
+	label(resource LBL_EXPONENTIATE_COEFFICIENTS_NO_COLON)	///
+	onclickon(script eform_on)				///
+	onclickoff(script eform_off)				///
+	groupbox
+  DEFINE y @y
+  DEFINE cy @cy
+  RADIO    rb_eform  _indent   _ms       _inwd     .,		///
+	label(resource LINCOM_MAIN_RB_EFORM)			///
+	first							///
+	option(eform)
+  RADIO    rb_or     @         _ss       @         .,		///
+	label(resource LBL_ODDS_RATIO)				///
+	option(or)
+  RADIO    rb_hr     @         _ss       @         .,		///
+	label(resource LBL_HAZARD_RATIO)			///
+	option(hr)
+  RADIO    rb_irr    @         _ss       @         .,		///
+	label(resource LBL_INCIDENCE_RATE_RATIO)		///
+	option(irr)
+  RADIO    rb_rrr    @         _ss       @         .,		///
+	label(resource LBL_RELATIVE_RISK_RATIO)			///
+	last							///
+	option(rrr)
+
+  DEFINE _x _lft
+  DEFINE _cx _spr
+  DEFINE _y _xxls
+  INCLUDE _sp_level
+
+  BUTTON bu_fmtcoef   _lft2      @       130    .,		///
+	onpush("program bu_fmtcoef_getOpts")			///
+	label(resource LBL_SET_TABLE_FORMATS)
+
+  CHECKBOX ck_small		_lft	_ls	_iwd	.,		///
+	option(small)							///
+	label(resource LBL_SMALL_SAMPLE_ADJUSTED_TEST)
+END
+
+SCRIPT eform_on
+BEGIN
+	main.rb_or.enable
+	main.rb_hr.enable
+	main.rb_irr.enable
+	main.rb_rrr.enable
+	main.rb_eform.enable
+END
+
+SCRIPT eform_off
+BEGIN
+	main.rb_or.disable
+	main.rb_hr.disable
+	main.rb_irr.disable
+	main.rb_rrr.disable
+	main.rb_eform.disable
+END
+
+PROGRAM bu_fmtcoef_getOpts
+BEGIN
+	call create CHILD fmt_coef_table_reporting AS bu_fmtcoef
+	call bu_fmtcoef.setExitString bu_fmtcoefResults
+	call bu_fmtcoef.setExitAction "program bu_fmtcoef_ckResults"
+END
+
+PROGRAM bu_fmtcoef_ckResults
+BEGIN
+	if bu_fmtcoefResults {
+		call main.bu_fmtcoef.modified_on
+	}
+	else {
+		call main.bu_fmtcoef.modified_off
+	}
+END
+
+PROGRAM command
+BEGIN
+	put "lincom "
+	require main.ex_exp
+	put main.ex_exp
+	beginoptions
+		if main.ck_eform {
+			option radio(main rb_eform rb_or rb_hr rb_irr rb_rrr)
+		}
+		INCLUDE _level_main_pr
+		put " " bu_fmtcoefResults
+		option main.ck_small
+	endoptions
+END

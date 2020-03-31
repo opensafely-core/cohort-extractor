@@ -1,0 +1,154 @@
+/*
+	bayesmh_muleqsd
+
+*!  VERSION 1.0.0  10feb2016
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_xlarge
+DEFINE _dlght 320
+INCLUDE header
+
+HELP hlp1, view("help bayesmh")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource BAYESMH_MULEQSD_DLG_HSCALE	
+	create DOUBLE distr_layout
+	distr_layout.setvalue 4
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL) 				///
+	label(resource BAYESMH_LST_ITEM_MULTIEQ_DISTRIBUTIONS)
+BEGIN
+  GROUPBOX gb_model		_lft	_top	_iwd	_ht9,		///
+	label(resource BAYESMH_MULEQS_MAIN_GB_MODEL)
+  TEXT 	   tx_eqname		_ilft	_ss	_ibwd	.,		///
+	label(resource LBL_EQUATION_NAME_OPTIONAL)
+  DEFINE holddv @y
+  EDIT	   ed_eqname		@	_ss	150	.,		///
+	label(resource LBL_EQUATION_NAME)
+  TEXT	   tx_unidv		_ilft	_ms	150	.,		///
+	label(resource LBL_DEPVAR)
+  DEFINE holdy @y
+  VARNAME  vn_unidv		@	_ss	@	.,		///
+	numeric								///
+	allowts								///
+	label(resource LBL_DEPVAR)
+	
+  INCLUDE bayesmh_distribution
+END
+
+INCLUDE bayesmh_distribution_pr
+
+PROGRAM main_distr_change
+BEGIN
+	call program main_distr_hide
+	call main.gb_distr.setlabel resource LBL_DISTRIBUTION
+	call main.lb_distr.hide
+	call main.lb_distr_all.hide
+	call main.lb_distr_distr.show
+	call main.gb_distr.setposition . 150 . 135
+	call main.lb_distr_distr.setposition . 170 290 105
+	if main.lb_distr_distr.equals("dexponential") {
+		call main.tx_dexpbeta.show
+		call main.ed_dexpbeta.show
+		call main.bu_dexpbeta.show
+		call main.tx_dexpbeta.setposition 315 165 220 .
+		call main.ed_dexpbeta.setposition 315 185 140 .
+		call main.bu_dexpbeta.setposition 455 185 75 .
+	}
+	
+	if main.lb_distr_distr.equals("dbernoulli") {
+		call main.tx_dberp.show 
+		call main.ed_dberp.show
+		call main.bu_dberp.show
+		call main.tx_dberp.setposition 315 165 220 .
+		call main.ed_dberp.setposition 315 185 140 .
+		call main.bu_dberp.setposition 455 185 75 .
+	}
+	if main.lb_distr_distr.equals("dbinomial") {
+		call main.tx_dbinop.show 
+		call main.ed_dbinop.show
+		call main.bu_dbinop.show
+		call main.tx_dbinon.show 
+		call main.ed_dbinon.show
+		call main.bu_dbinon.show 
+		call main.tx_dbinop.setposition 315 165 220 .
+		call main.ed_dbinop.setposition 315 185 140 .
+		call main.bu_dbinop.setposition 455 185 75 .
+		call main.tx_dbinon.setposition 315 210 220 .
+		call main.ed_dbinon.setposition 315 230 140 .
+		call main.bu_dbinon.setposition 455 230 75 .
+	}
+	if main.lb_distr_distr.equals("dpoisson") {
+		call main.tx_dpoimu.show 
+		call main.ed_dpoimu.show
+		call main.bu_dpoimu.show
+		call main.tx_dpoimu.setposition 315 165 220 .
+		call main.ed_dpoimu.setposition 315 185 140 .
+		call main.bu_dpoimu.setposition 455 185 75 .
+	}
+END
+
+INCLUDE ifin
+INCLUDE weights_f
+
+PROGRAM muleqsd_distr_output
+BEGIN
+	put "likelihood("
+	if main.lb_distr_distr.equals("dexponential") {
+		require main.ed_dexpbeta
+		put "dexponential("
+		put main.ed_dexpbeta
+		put ")"
+	}
+	if main.lb_distr_distr.equals("dbernoulli") {
+		require main.ed_dberp
+		put "dbernoulli("
+		put main.ed_dberp
+		put ")"
+	}
+	if main.lb_distr_distr.equals("dbinomial") {
+		require main.ed_dbinop
+		require main.ed_dbinon
+		put "dbinomial("
+		put main.ed_dbinop
+		put ","
+		put main.ed_dbinon
+		put ")"
+	}
+	if main.lb_distr_distr.equals("dpoisson") {
+		require main.ed_dpoimu
+		put "dpoisson("
+		put main.ed_dpoimu
+		put ")"
+	}
+	put ")"
+END
+
+PROGRAM muleqsd_output
+BEGIN
+	require main.vn_unidv 
+	if main.ed_eqname {
+		put main.ed_eqname 
+		put ":"
+	}
+	varlist main.vn_unidv
+	put " " /program ifin_output
+	put " " /program weights_output
+	beginoptions
+		put " " /program muleqsd_distr_output
+	endoptions
+END
+
+PROGRAM command
+BEGIN
+	put "("
+	put /program muleqsd_output
+	put ")"
+END
+

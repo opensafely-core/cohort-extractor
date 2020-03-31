@@ -1,0 +1,125 @@
+/*
+	predict (after ivprobit)
+
+*!  VERSION 1.2.5  09may2017
+
+*/
+
+VERSION 15.0
+
+INCLUDE _std_large  // ** set POSTINIT to match
+INCLUDE header
+
+HELP hlp1, view("help ivprobit postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	main.ed_twostep.hide
+	setscale_hadj resource IVPROBIT_P_DLG_HSCALE
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	call script _p_gentype_setLarge
+	if main.ed_twostep.iseq("twostep") {
+		// hide options that are not allowed
+		call main.rb_p.hide
+		call main.rb_score.hide
+		call main.gb_opt.hide
+		call main.rb_p_default.hide
+		call main.rb_rules.hide
+		call main.rb_asif.hide
+		call main.gb_opts.setposition . . . 70
+	}
+	if ! main.ed_twostep.iseq("twostep") {
+		// hide options that are not allowed
+		call main.rb_p.show
+		call main.rb_score.show
+		call main.gb_opt.show
+		call main.rb_p_default.show
+		call main.rb_rules.show
+		call main.rb_asif.show
+		call main.gb_opts.setposition . . . 110
+	}
+END
+
+DIALOG main, label(resource PREDICT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  EDIT     ed_twostep 0 0 0 0, default(e(method)) nomemory
+  INCLUDE  _p_gentype
+
+  GROUPBOX gb_opts           _lft      _ls       _iwd      _ht8,	///
+		label(resource LBL_PRODUCE)
+
+  RADIO    rb_xb             _indent   _ss       _inwd     ., first	///
+		option(xb)						///
+		onclickon(script main_opt_p_off)			///
+		label(resource LBL_LINEAR_PREDICTION)
+  RADIO    rb_stdp           @         _ss       @         ., 		///
+		option(stdp)						///
+		onclickon(script main_opt_p_off)			///
+		label(resource LBL_STANDARD_ERROR_LINEAR_PREDICTION)
+  RADIO    rb_p              @         _ss       @         .,		///
+		onclickon(script main_opt_p_on)				///
+		label(resource LBL_PROBABILITY_OF_A_POSITIVE_OUTCOME)
+  RADIO    rb_score          @         _ss       @         ., last	///
+		option(scores)						///
+		onclickon(script main_scores_on)			///
+		label(resource LBL_EQUATION_LEVEL_SCORES)
+
+  GROUPBOX gb_opt            _lft      +45       _iwd      _ht6,	///
+		label(resource LBL_OPTIONS)
+  RADIO    rb_p_default      _ilft     _ss       _inwd     ., first	///
+		option(p)						///
+		label(resource LBL_PRODUCE_MISSING_OBS_EXCLUDED_BY_RULES)
+  RADIO    rb_rules          @         _ss       @         .,		///
+		option(rules)						///
+		label(resource LBL_USE_ANY_MODEL_IDENTIFYING_RULES_WHEN_MAKING_PRED)
+  RADIO    rb_asif           @         _ss       @         ., last	///
+		option(asif)						///
+		label(resource LBL_IGNORE_RULES_EXCLUSION_CRITERIA_MAKING_PRED)
+END
+
+SCRIPT main_opt_p_off
+BEGIN
+	main.gb_opt.disable
+	main.rb_p_default.disable
+	main.rb_rules.disable
+	main.rb_asif.disable
+	script _p_gentype_single
+END
+
+SCRIPT main_scores_on
+BEGIN
+	script main_opt_p_off
+	script _p_gentype_multiple
+END
+
+SCRIPT main_opt_p_on
+BEGIN
+	main.gb_opt.enable
+	main.rb_p_default.enable
+	main.rb_rules.enable
+	main.rb_asif.enable
+	script _p_gentype_single
+END
+
+INCLUDE _p_gentype_sc
+INCLUDE ifin
+INCLUDE _type_list_fd
+
+PROGRAM command
+BEGIN
+	put "predict "
+	put " " /program _p_gentype_output
+	INCLUDE _ifin_pr
+	beginoptions
+		option main.rb_xb
+		option main.rb_stdp
+		option main.rb_score
+		option main.rb_p_default
+		option main.rb_rules
+		option main.rb_asif
+	endoptions
+END

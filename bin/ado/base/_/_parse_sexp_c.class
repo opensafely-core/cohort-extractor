@@ -1,0 +1,175 @@
+*! version 2.0.1  13apr2014
+
+// This class is used in conjunction with _parse_sexp.ado
+// lc stands for linear combination
+// this class is used to keep track of linear combinations of
+// parameters, so that a lc defined in a previous equation can
+// be referred to as simply {xb:} in a subsequent equation and
+// so that derivatives can be defined w.r.t. {xb:}
+
+class _parse_sexp_c {
+	double	lccounter = 0
+	array	lcnames		// l.c. names -- e.g. xb
+	array	lcelems		// varlist -- e.g. gear turn head
+	array	lcparms		// params -- e.g. xb_gear xb_turn xb_head
+	array   lccons		// _cons
+}
+
+// Adds name and varlist; sets param names = . and are to be updated later
+program lcadd
+
+	.lccounter = `=`.lccounter' + 1'
+	.lcnames.Arrpush  "`1'"
+	local vlist `"`2'"'
+	local vcons _cons
+	local vcons : list vlist & vcons
+	if "`vcons'" == "_cons" {
+		.lccons.Arrpush 1
+		local vlist : list vlist - vcons
+		local vlist : list clean vlist
+	}
+	else {
+		.lccons.Arrpush 0
+	}
+	.lcelems.Arrpush  "`vlist'"
+	
+	local j : word count `vlist'
+	forvalues i = 1/`j' {
+		local dots "`dots' ."
+	}
+	local dots : list retokenize dots
+
+	.lcparms.Arrpush "`dots'"
+end
+
+// Adds parameter to list
+// order of params in array is same as order
+// of variables in lcelems varlist
+program lcparmadd
+
+	args lincom var param
+	
+	local index = `.lcnames.arrindexof `"`lincom'"''
+
+	if "`var'" == "_cons" {
+		.lccons[`index'] = "1"
+		exit
+	}
+	
+	local vlist `.lcelems[`index']'
+	if "`vlist'" == "" {
+		/* parameter 					*/
+		local newplist `param'
+	}
+	else {
+		local vpos : list posof "`var'" in vlist
+	
+		local plist `.lcparms[`index']'
+		local newplist
+		forvalues i = 1/`=`vpos'-1' {
+			local p : word `i' of `plist'
+			local newplist `newplist' `p'
+		}
+		local newplist `newplist' `param'
+		local stop : word count `plist'
+		forvalues i = `=`vpos'+1'/`stop' {
+			local newplist `newplist' `:word `i' of `plist''
+		}
+	}
+	.lcparms[`index'] = "`newplist'"
+end
+
+program islcconsonly
+
+	args lincom
+	
+	local i = `.lcnames.arrindexof `"`lincom'"''
+
+	if !`i' {
+		local cons = 0
+	}
+	else {
+		local cons = `.lccons[`i']'
+		if `cons' {
+			local vlist `"`.lcelems[`i']'"'
+			local kv : list sizeof vlist
+			local cons = (`kv'==0)
+		}
+	}
+	class exit `cons'
+end
+
+program islcin
+
+	local i = `.lcnames.arrindexof `"`0'"''
+	if `i' {
+		local return 1
+	}
+	else {
+		local return 0
+	}
+	
+	class exit `return'
+end
+
+program isvarinlc
+	args lc var
+
+	local isin = 0
+	if "`var'" == "_cons" {
+		local i = `.lcnames.arrindexof `"`lc'"''
+		local isin = `.lccons[`i']'
+	}
+	else {
+		local vars `.lcvarfetch `lc''
+		/* put in matrix stripe form				*/
+		_parse_sexp_matrix_form `var'
+		local var `s(parameters)'
+	
+		while `"`vars'"' != "" {
+			gettoken vari vars : vars, bind
+			/* put in matrix stripe form			*/
+			_parse_sexp_matrix_form `vari'
+			local vari `s(parameters)'
+			if "`var'" == "`vari'" {
+				local isin = 1
+				continue, break
+			}
+		}
+	}
+	class exit `isin'
+end
+
+program lcvarfetch
+
+	local i = `.lcnames.arrindexof `"`0'"''
+	class exit "`.lcelems[`i']'"
+end
+
+program lcconst
+
+	local i = `.lcnames.arrindexof `"`0'"''
+	class exit `.lccons[`i']'
+end
+
+program lcparmfetch
+
+	local i = `.lcnames.arrindexof `"`0'"''
+	local plist "`.lcparms[`i']'"
+	if `.lccons[`i']' {
+		local plist `"`plist' `.lcnames[`i']':_cons"'
+	}
+	class exit "`plist'"
+end
+
+program lcnamesfetch
+
+	local i = `.lcnames.arrnels'
+	forvalues j = 1/`i' {
+		local names `names' `.lcnames[`j']'
+	}
+
+	class exit "`names'"
+end
+
+exit

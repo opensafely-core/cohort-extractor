@@ -1,0 +1,265 @@
+/*
+  prais
+
+*!  VERSION 1.3.0  11nov2014
+
+  keyword:  eclass
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE header
+
+HELP hlp1, view("help prais")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	script se_createAsOLS
+	script se_setBias_on
+	setscale_hadj resource PRAIS_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script se_setJknifeBstrap_off
+END
+
+DIALOG main, label(resource PRAIS_DLG_TITLE) tabtitle(resource LBL_TAB_MODEL)
+BEGIN
+  DEFINE _x _xsetbu
+  DEFINE _y _top
+  INCLUDE _bu_tsset
+
+  TEXT tx_dv 		_lft	_topph	_vnwd	.,			///
+	label(resource LBL_DEPVAR)
+  VARNAME vn_dv		@ 	_ss	@	.,			///
+	ts								///
+	numeric								///
+	label(resource LBL_DEPVAR)
+
+  TEXT tx_iv		_vlx	_topph	160	.,			///
+	label(resource LBL_INDDEPVAR)
+  VARLIST vl_iv		@	_ss	_vlwd	.,			///
+	fv ts								///
+	numeric								///
+	allowcat							///
+	label(resource LBL_INDDEPVAR)
+  GROUPBOX gb_output _lft      _ls       _iwd      _ht18,		/*
+		*/ label(resource LBL_OPTIONS)				/*
+		*/
+
+  GROUPBOX gb_rho    _ilft     _ms       _ibwd     _ht6,		/*
+		*/ label(resource LBL_METHOD_TO_COMPUTE_AUTOCORRELATION) /*
+		*/
+  RADIO    rb_reg    _indent   _ss       _cwd3     .,			/*
+		*/ label(resource PRAIS_MAIN_RB_REG)			/*
+		*/ first						/*
+		*/ option("rhotype(regress)")				/*
+		*/
+DEFINE y @y
+  RADIO    rb_freg   @         _ss       @         .,			/*
+		*/ label(resource PRAIS_MAIN_RB_FREG)			/*
+		*/ option("rhotype(freg)")				/*
+		*/
+  RADIO    rb_tscorr @         _ss       @         .,			/*
+		*/ label(resource LBL_AUTOCORRELATION_OF_RESIDUALS)	/*
+		*/ option("rhotype(tscorr)")				/*
+		*/
+  RADIO    rb_dw     _lft2     y         @         .,			/*
+		*/ label(resource LBL_BASED_ON_DURBIN_WATSON)		/*
+		*/ option("rhotype(dw)")				/*
+		*/
+  RADIO    rb_theil  @         _ss       @         .,			/*
+		*/ label(resource LBL_ADJUSTED_AUTOCORRELATION)		/*
+		*/ option("rhotype(theil)")				/*
+		*/
+  RADIO    rb_nagar  @         _ss       @         .,			/*
+		*/ label(resource LBL_ADJUSTED_DURBIN_WATSON)		/*
+		*/ last							/*
+		*/ option("rhotype(nagar)")				/*
+		*/
+  CHECKBOX ck_corc   _ilft     _xls      _cwd2     .,			/*
+		*/ label(resource PRAIS_MAIN_CK_CORC)			/*
+		*/ option("corc")					/*
+		*/
+DEFINE y @y
+  CHECKBOX ck_sse    @         _ms       @         .,			/*
+		*/ label(resource PRAIS_MAIN_CK_SSQ)			/*
+		*/ option("ssesearch")					/*
+		*/ onclickon("main.ck_two.disable")			/*
+		*/ onclickoff("main.ck_two.enable")			/*
+		*/
+  CHECKBOX ck_two    @         _ms       @         .,			/*
+		*/ label(resource PRAIS_MAIN_CK_TWO)			/*
+		*/ option("twostep")					/*
+		*/ onclickon("main.ck_sse.disable")			/*
+		*/ onclickoff("main.ck_sse.enable")			/*
+		*/
+  CHECKBOX ck_nocons _lft2      y        @         .,			/*
+		*/ label(resource LBL_NOCONSTANT)			/*
+		*/ option("noconstant")					/*
+		*/
+  CHECKBOX ck_hascon @         _ms       @         .,			/*
+		*/ label(resource LBL_HAS_USER_SUPPLIED_CONSTANT)	/*
+		*/ option("hascons")					/*
+		*/
+  CHECKBOX ck_space  @         _ms       @         .,			/*
+		*/ label(resource LBL_CONSERVE_MEMORY_DURING_ESTIMATION) /*
+		*/ option("savespace")					/*
+		*/
+END
+
+INCLUDE byifin
+INCLUDE se
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+        program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2b
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  CHECKBOX ck_nodw   _lft       _ls       _iwd     .,			///
+		label(resource PRAIS_RPT_CK_NODW) 			///
+		option("nodw")
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+
+PROGRAM rpt_output
+BEGIN
+	optionarg /hidedefault rpt.sp_level
+	option rpt.ck_nodw
+	INCLUDE _report_columns_pr
+	put " " rpt_bu_facvarsResults
+	put " " rpt_bu_fmtcoefResults
+END
+
+DIALOG max, tabtitle(resource LBL_TAB_OPTIMIZATION)
+BEGIN
+  BUTTON   bu_hlp    _xsetbu	_top     _setbuwd  .,			/*
+  		*/label(resource LBL_HELP_MAXIMIZE)			/*
+  		*/onpush(script max_hlp)
+
+  SPINNER  sp_iter   _lft       _top     _spwd     .,			/*
+		*/ label(resource LBL_MAXIMUM_ITERATIONS)		/*
+		*/ min(1)						/*
+		*/ max(16000)						/*
+		*/ default(c(maxiter))					/*
+		*/ option("iterate")					/*
+		*/
+  TEXT     tx_iter   _spsep    @         _spr2b    .,			/*
+		*/ label(resource LBL_MAXIMUM_ITERATIONS)		/*
+		*/
+
+  GROUPBOX gb_log    _lft      _ls       _cwd1  _ht6,			/*
+		*/ label(resource LBL_ITERATION_LOG)			/*
+		*/
+  DEFINE holdy @y
+  DEFINE cx @cx
+  DEFINE cy @cy
+  RADIO	   rb_default _indent  _ss       _inwd	   .,			/*
+  		*/ label(resource LBL_DEFAULT)				/*
+  		*/ first						/*
+		*/ option(NONE)
+  RADIO	   rb_nolog  @         _ss       @	   .,			/*
+  		*/ label(resource LBL_SUPPRESS_LOG)			/*
+  		*/ middle						/*
+  		*/ option(nolog)
+  RADIO	   rb_log    @         _ss       @	   .,			/*
+  		*/ label(resource LBL_SHOW_LOG)				/*
+		*/ option(log)						/*
+		*/ last
+
+  GROUPBOX gb_tol    _lft2     holdy     cx        cy,			/*
+		*/ label(resource LBL_CONVERG_TOLERANCE)		/*
+		*/
+  EDIT     ed_tol    _ilft2    _ms       _en7wd    .,			/*
+		*/ label(resource LBL_COEFFICIENT_VECTOR)		/*
+		*/ option("tolerance")					/*
+		*/
+  TEXT     tx_tol    _en7sep   @         _en7r2b   .,			/*
+		*/ label(resource LBL_COEFFICIENT_VECTOR)		/*
+		*/
+END
+
+SCRIPT max_hlp
+BEGIN
+	view help maximize##|_new
+END
+
+PROGRAM disable_max
+BEGIN
+	call gaction max.sp_iter.disable
+	call gaction max.tx_iter.disable
+	call gaction max.gb_tol.disable
+	call gaction max.ed_tol.disable
+	call gaction max.tx_tol.disable
+	call gaction max.ed_ltol.disable
+	call gaction max.tx_ltol.disable
+END
+
+PROGRAM enable_max
+BEGIN
+	call gaction max.sp_iter.enable
+	call gaction max.tx_iter.enable
+	call gaction max.gb_tol.enable
+	call gaction max.ed_tol.enable
+	call gaction max.tx_tol.enable
+	call gaction max.ed_ltol.enable
+	call gaction max.tx_ltol.enable
+END
+
+PROGRAM max_output
+BEGIN
+	if !H(max.rb_default) {
+		option radio (max rb_default rb_nolog rb_log)
+	}
+	optionarg /hidedefault max.sp_iter
+	optionarg max.ed_tol
+END
+
+PROGRAM command
+BEGIN
+	put " " /program by_output
+	put "prais "
+	varlist main.vn_dv [main.vl_iv]
+	put " " /program ifin_output
+	beginoptions
+		option radio(main rb_reg rb_freg rb_tscorr rb_dw rb_theil rb_nagar)
+		option main.ck_corc
+		option main.ck_sse
+		option main.ck_two
+		option main.ck_nocons
+		option main.ck_hascon
+		option main.ck_space
+		put " " /program se_output
+		put " " /program rpt_output
+		put /program max_output
+	endoptions
+END

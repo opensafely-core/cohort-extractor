@@ -1,0 +1,142 @@
+/*
+	xcorr
+
+*!  VERSION 2.1.0  22dec2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_mlarge
+DEFINE _dlght 300
+INCLUDE header
+
+HELP hlp1, view("help xcorr")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource XCORR_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script gr_plots_setDefaultDropline
+END
+
+DIALOG	main, tabtitle(resource LBL_TAB_MAIN)			///
+	label(resource XCORR_DLG_TITLE)
+BEGIN
+  DEFINE _x _xsetbu
+  DEFINE _y _top
+  INCLUDE _bu_tsset
+
+  TEXT	   tx_yvar	_lft	_top	_vnwd	.,		///
+	label(resource LBL_Y_VARIABLE)
+  VARNAME  vn_yvar	@	_ss	_vnwd	.,		///
+  	numeric							///
+	label(resource LBL_Y_VARIABLE)
+
+  TEXT     tx_xvar	_lft3_2	_top	_vnwd	.,		///
+	label(resource LBL_X_VARIABLE)
+  VARNAME  vn_xvar	@	_ss	_vnwd	.,		///
+  	numeric							///
+	label(resource LBL_X_VARIABLE)
+
+  GROUPBOX gb_opts	_lft	+35	_iwd	_ht13,		///
+	label(resource LBL_OPTIONS)
+  CHECKBOX ck_generate	_ilft	_ss	_inwd	.,		///
+	onclickon(script gen_on)				///
+	onclickoff(script gen_off)				///
+	label(resource XCORR_MAIN_CK_GENERATE)	
+  EDIT	   ed_generate	_indent2 _ss	_vnwd	.,		///
+	max(32) option(generate)				///
+	label(resource LBL_NEW_VARIABLE_NAME_NO_COLON)
+  TEXT     tx_generate	_vnsep	@	120	.,		///
+	label(resource LBL_NEW_VARIABLE_NAME_NO_COLON)
+
+  CHECKBOX ck_table	_ilft	_ls	_ibwd	.,		///
+	label(resource XCORR_MAIN_CK_TABLE)			///
+	onclickon(script graph_off) onclickoff(script graph_on)	option(table)
+
+  CHECKBOX ck_noplot	@	_ms	@	.,		///
+	label(resource XCORR_MAIN_CK_NOPLOT) option(noplot)
+
+  CHECKBOX ck_lags	@	_ls	_ckwd	.,		///
+	onclickon(main.sp_lags.enable) onclickoff(main.sp_lags.disable)
+  SPINNER  sp_lags	_rbsep	@	_spwd	.,		///
+	min(1) max(10000) default(1) option(lags)
+  TEXT     tx_lags	_spsep	@	_cksprb	.,		///
+	label(resource XCORR_MAIN_TX_LAGS)
+END
+
+SCRIPT gen_on
+BEGIN
+	main.ed_generate.enable
+	main.tx_generate.enable
+END
+
+SCRIPT gen_off
+BEGIN
+	main.ed_generate.disable
+	main.tx_generate.disable
+END
+
+SCRIPT graph_off
+BEGIN
+	main.ck_noplot.enable
+	script gr_plots_disable
+	script gr_addplots_disable
+	script gr_yaxis_disable
+	script gr_xaxis_disable
+	script gr_titles_disable
+	script gr_legend_disable
+	script gr_overall_disable
+END
+
+SCRIPT graph_on
+BEGIN
+	main.ck_noplot.disable
+	script gr_plots_enable
+	script gr_addplots_enable
+	script gr_yaxis_enable
+	script gr_xaxis_enable
+	script gr_titles_enable
+	script gr_legend_enable
+	script gr_overall_enable
+END
+
+INCLUDE ifin
+INCLUDE gr_plots
+INCLUDE gr_addplots
+INCLUDE gr_yaxis
+INCLUDE gr_xaxis
+INCLUDE gr_titles
+INCLUDE gr_legend
+INCLUDE gr_overall
+
+PROGRAM command
+BEGIN
+	put "xcorr "
+	varlist main.vn_xvar
+	varlist main.vn_yvar
+  	put " " /program ifin_output
+	beginoptions
+		if main.ck_generate {
+			require main.ed_generate
+			optionarg main.ed_generate
+		}
+		option main.ck_table
+		option main.ck_noplot
+		if main.ck_lags{
+			optionarg main.sp_lags
+		}
+		put " " /program gr_plots_output
+		put " " /program gr_addplots_output
+		put " " /program gr_yaxis_output
+		put " " /program gr_xaxis_output
+		put " " /program gr_titles_output
+		put " " /program gr_legend_output
+		put " " /program gr_overall_output
+	endoptions
+END

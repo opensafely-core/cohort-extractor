@@ -1,0 +1,264 @@
+/*
+  var
+
+*!  VERSION 1.2.1  02may2017
+
+  keyword:  eclass
+*/
+
+VERSION 14.0
+
+INCLUDE _std_xlarge
+INCLUDE _ht260
+INCLUDE header
+
+HELP hlp1, view("help var")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource VAR_DLG_HSCALE
+END
+
+DIALOG main, label(resource VAR_DLG_TITLE)				/*
+		*/ tabtitle(resource LBL_TAB_MODEL)
+BEGIN
+  DEFINE _x _xsetbu
+  DEFINE _y _top
+  INCLUDE _bu_tsset
+
+  TEXT     tx_dv             _lft      _topph    129       .,		/*
+		*/ label(resource LBL_DEPENDENT_VARIABLES)
+  VARLIST  vl_dv             @         _ss       _iwd      .,		/*
+  		*/ numeric						/*
+		*/ label(resource LBL_DEPENDENT_VARIABLES) ts
+  CHECKBOX ck_nocons         _lft      _ms       _cwd1     .,		/*
+		*/ label(resource LBL_SUPPRESS_THE_CONSTANT_TERM)	/*
+		*/ option("noconstant")
+
+  GROUPBOX gb_lags           _lft      _ls       _iwd      _ht5,	/*
+		*/ label(resource LBL_LAGS)
+  RADIO    rb_lags1          _ilft     _ss       _rbvnr4c  ., first	/*
+		*/ clickon("script one2n")				/*
+		*/ label(resource VAR_MAIN_RB_LAGS1)
+  DEFINE holdy @y
+  SPINNER  sp_lags1          _indent2  _ms       _spwd     .,		/*
+		*/ min(1) max(c(N)) default(2)				/*
+		*/ label(resource VAR_MAIN_RB_LAGS1)
+  RADIO    rb_lags2          _lft2     holdy     _rbvnr4c  ., last	/*
+		*/ clickon("script laglist")				/*
+		*/ label(resource VAR_MAIN_RB_LAGS2)
+  EDIT     ed_lags2          _indent2  _ms       _vnwd     .,		/*
+		*/ option("lags")					/*
+		*/ label(resource VAR_MAIN_ED_LAGS2)
+
+  CHECKBOX ck_exog           _lft      _xxls     _cwd1     .,		/*
+		*/ label(resource LBL_EXOGENOUS_VARIABLES)		/*
+		*/ onclickon(gaction main.vl_exog.enable)		/*
+		*/ onclickoff(gaction main.vl_exog.disable)
+  VARLIST  vl_exog           _indent2  _ss       _ibwd     ., 		/*
+		*/ label(resource LBL_EXOGENOUS_VARIABLES) ts		/*
+		*/ numeric						/*
+		*/ option("exog")
+
+END
+
+SCRIPT one2n
+BEGIN
+	main.sp_lags1.enable
+	main.ed_lags2.disable
+END
+
+SCRIPT laglist
+BEGIN
+	main.ed_lags2.enable
+	main.sp_lags1.disable
+END
+
+
+DIALOG opt, tabtitle(resource LBL_TAB_MODEL2)
+BEGIN
+  /* column 1 */
+  CHECKBOX ck_constr         _lft      _top      _cwd1     _ht15h,	/*
+		*/ groupbox						/*
+		*/ label(resource LBL_CONSTRAINTS)			/*
+		*/ onclickon(program constr_on)				/*
+		*/ onclickoff(script constr_off)
+  COMBOBOX cb_constr         _indent   _ms       _cwd3     .,		/*
+		*/ append						/*
+		*/ dropdown						/*
+		*/ contents(constraint)					/*
+		*/ label(resource LBL_CONSTRAINTS)			/*
+		*/ option("constraints")
+  RADIO    rb_sure           @         _ls       _cwd3     ., first	/*
+  		*/ label(resource VAR_OPT_RB_SURE)			/*
+  		*/ onclickon(program sure)
+  CHECKBOX ck_nolog          _indent2  _ss       _cwd5     .,		/*
+  		*/ label(resource VAR_OPT_CK_NOLOG)			/*
+  		*/ option(nolog)
+  DEFINE holdy @y
+  DEFINE holdx @x
+  SPINNER  sp_iter           @         _ms       _spwd     .,		/*
+		*/ label(resource VAR_OPT_SP_ITER)			/*
+		*/ min(1)						/*
+		*/ max(1600)						/*
+		*/ default(1600)					/*
+		*/ option("iterate")
+  TEXT     tx_sep            _spsep    @         150       .,		/*
+		*/ label(resource LBL_MAXIMUM_ITERATIONS)
+  EDIT	   ed_tol            holdx     _ms       _en7wd    .,		/*
+		*/ option("tolerance")					/*
+		*/ default(.000001)					/*
+		*/ numonly						/*
+		*/ label(resource LBL_CONVERG_TOLERANCE)
+  TEXT     tx_tol            _en7sep   @         150       .,		/*
+		*/ label(resource LBL_CONVERG_TOLERANCE)
+  RADIO    rb_noisure        _ilft     _ls       _cwd3     ., last	/*
+  		*/ label(resource VAR_OPT_RB_NOISURE)			/*
+  		*/ onclickon(script noisure)				/*
+  		*/ option(noisure)
+
+  GROUPBOX gb_adv    _lft      +35       _iwd      _ht2,		/*
+  		*/ label(resource LBL_ADVANCED)
+  CHECKBOX ck_nobigf _ilft     _ss       _ibwd     .,			/*
+  		*/ label(resource VAR_OPT_CK_NOBIGF)			/*
+  		*/ option(nobigf)
+
+  /* column 2 */
+  CHECKBOX ck_dfk            _lft2     _top      _cwd1     .,		/*
+		*/ label(resource VAR_OPT_CK_DFK)			/*
+		*/ option(dfk)
+  CHECKBOX ck_small          @         _ms       @         .,		/*
+  		*/ label(resource VAR_OPT_CK_SMALL)			/*
+  		*/ option(small)
+END
+
+INCLUDE byifin
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  GROUPBOX gb_tests  _lft      _ls       _iwd      _ht2,		/*
+  		*/ label(resource LBL_ADDITIONAL_TEST_STATISTICS)
+  CHECKBOX ck_luts   _ilft     _ss       _inwd     .,			/*
+  		*/ option(lutstats)					/*
+  		*/ label(resource VAR_RPT_CK_LUTS)
+
+  DEFINE _x _lft
+  DEFINE _y _xls
+  DEFINE _cx _iwd
+  INCLUDE _nocnsreport
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ms
+  DEFINE _cx _iwd
+  INCLUDE _vsquish
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+
+PROGRAM constr_on
+BEGIN
+	call gaction opt.cb_constr.enable
+	call gaction opt.rb_sure.enable
+	call gaction opt.rb_noisure.enable
+	if opt.rb_sure {
+		call gaction opt.ck_nolog.enable
+		call gaction opt.sp_iter.enable
+		call gaction opt.tx_sep.enable
+		call gaction opt.ed_tol.enable
+		call gaction opt.tx_tol.enable
+	}
+END
+
+SCRIPT constr_off
+BEGIN
+	opt.cb_constr.disable
+	opt.rb_sure.disable
+	opt.ck_nolog.disable
+	opt.sp_iter.disable
+	opt.tx_sep.disable
+	opt.ed_tol.disable
+	opt.tx_tol.disable
+	opt.rb_noisure.disable
+END
+
+PROGRAM sure
+BEGIN
+	if opt.ck_constr {
+		call gaction opt.ck_nolog.enable
+		call gaction opt.sp_iter.enable
+		call gaction opt.tx_sep.enable
+		call gaction opt.ed_tol.enable
+		call gaction opt.tx_tol.enable
+	}
+END
+
+SCRIPT noisure
+BEGIN
+	opt.ck_nolog.disable
+	opt.sp_iter.disable
+	opt.tx_sep.disable
+	opt.ed_tol.disable
+	opt.tx_tol.disable
+END
+
+PROGRAM command
+BEGIN
+	INCLUDE _by_pr
+	put "var"
+	varlist main.vl_dv
+	INCLUDE _ifin_pr
+	beginoptions
+		option main.ck_nocons
+		if main.rb_lags1 {
+			put "lags(1/"
+			put main.sp_lags1
+			put ") "
+		}
+		if main.rb_lags2 {
+			require main.ed_lags2
+			optionarg main.ed_lags2
+		}
+		if main.ck_exog {
+			require main.vl_exog
+			optionarg main.vl_exog
+		}
+		if opt.ck_constr {
+		require opt.cb_constr
+			optionarg opt.cb_constr
+		}
+		option opt.ck_nobigf
+		option opt.rb_noisure
+		optionarg /hidedefault opt.sp_iter
+		optionarg /hidedefault opt.ed_tol
+		option opt.ck_nolog
+		option opt.ck_small
+		option opt.ck_dfk
+		optionarg /hidedefault rpt.sp_level
+		option rpt.ck_luts
+		INCLUDE _nocnsreport_pr
+		INCLUDE _report_columns_pr
+		INCLUDE _vsquish_pr
+		put " " rpt_bu_fmtcoefResults
+	endoptions
+END

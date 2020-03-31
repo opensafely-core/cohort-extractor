@@ -1,0 +1,183 @@
+/*
+  gmsopts -- graph options for a reference line
+
+*!  VERSION 1.1.2  21dec2014 (deprecated)
+
+*/
+
+DIALOG msopts, tabtitle("Spline")
+BEGIN
+  CHECKBOX ck_mspline	     _lft      _top	 _gwd1     _ht15,	///
+	label("Add a median spline smooth plot")			///
+	onclickon(program gmsopts_check)				///
+	onclickoff(program gmsopts_check)				///
+	option(mspline) groupbox
+
+  TEXT     tx_ccol	     _igft     _ms       _txwd     .,		///
+	label("Color:") right
+  COMBOBOX cb_ccol	     _txsep    @         _tcr4gi   .,		///
+	option(lcolor) dropdownlist					///
+  	contents(colors) onselchangelist(msopts_color_ccol)
+  COLOR    cl_ccol	     _tcr4gisep @        _colorwd  .,		///
+	option(lcolor)
+
+  TEXT     tx_clwidth	     _igft4_2  @         _txwd     .,		///
+	label("Width:") right
+  COMBOBOX cb_clwidth	     _txsep    @         _txr4gi   .,		///
+	dropdownlist contents(linewidths) option(lwidth)
+
+  TEXT     tx_conn	     _igft     _ls       _txwd     .,		///
+	label("Type:") right
+  COMBOBOX cb_conn	     _txsep    @         _txr4gi   .,   	///
+	option(connect) dropdownlist contents(connecttypes)
+
+  TEXT     tx_clpat	     _igft4_2  @         _txwd     .,		///
+	label("Pattern:") right
+  COMBOBOX cb_clpat	     _txsep    @         _txr4gi   .,		///
+	dropdownlist contents(linepatterns) option(lpattern)
+
+  GROUPBOX gb_meth	     _igft     +35       _gwd2     _ht5h,	///
+	label("Smoothing options")
+  CHECKBOX ck_bands	     _indent   _ms       _ckwd     .,		///
+	onclickon(program gmsopts_bands_check)				///
+	onclickoff(program gmsopts_bands_check)
+  DEFINE x @x
+  SPINNER  sp_bands	     _cksep    @         _spwd     .,		///
+	label("Number of cross-median knots")				///
+	min(3) max(200) default(literal 3) option(bands)
+  TEXT     tx_bands	     _spsep    @         _ckspr2bb .,		///
+	label("Number of cross-median knots")
+
+  CHECKBOX ck_n		     x         _ms       _ckwd     .,		///
+	onclickon(program gmsopts_n_check)				///
+	onclickoff(program gmsopts_n_check)
+  SPINNER  sp_n		     _cksep    @         _spwd     .,		///
+	label("Number of points between knots")				///
+	min(1) max(1000) default(literal 10) option(n)
+  TEXT     tx_n		     _spsep    @         _ckspr2bb .,		///
+	label("Number of points between knots")
+END
+
+LIST msopts_color_ccol
+BEGIN
+	msopts.cl_ccol.hide
+	msopts.cl_ccol.show
+	msopts.cl_ccol.hide
+END
+
+PROGRAM gmsopts_bands_check
+BEGIN
+	if !H(msopts.ck_bands) & msopts.ck_bands {
+		call gaction msopts.sp_bands.enable
+	}
+	if H(msopts.ck_bands) | ! msopts.ck_bands {
+		call gaction msopts.sp_bands.disable
+	}
+END
+
+PROGRAM gmsopts_n_check
+BEGIN
+	if !H(msopts.ck_n) & msopts.ck_n {
+		call gaction msopts.sp_n.enable
+	}
+	if H(msopts.ck_n) | ! msopts.ck_n {
+		call gaction msopts.sp_n.disable
+	}
+END
+
+SCRIPT gmsopts_disable
+BEGIN
+	msopts.ck_mspline.disable
+	program gmsopts_check
+END
+
+SCRIPT gmsopts_enable
+BEGIN
+	msopts.ck_mspline.enable
+	program gmsopts_check
+END
+
+PROGRAM gmsopts_check
+BEGIN
+	if !H(msopts.ck_mspline) & msopts.ck_mspline {
+		// line options
+		call gaction msopts.tx_ccol.enable
+		call gaction msopts.cb_ccol.enable
+		call gaction msopts.cl_ccol.enable
+		call gaction msopts.tx_clwidth.enable
+		call gaction msopts.cb_clwidth.enable
+		call gaction msopts.tx_clpat.enable
+		call gaction msopts.cb_clpat.enable
+		call gaction msopts.tx_conn.enable
+		call gaction msopts.cb_conn.enable
+		// smoothing options
+		call gaction msopts.gb_meth.enable
+		call gaction msopts.ck_bands.enable
+		call program gmsopts_bands_check
+		call gaction msopts.tx_bands.enable
+		call gaction msopts.ck_n.enable
+		call program gmsopts_n_check
+		call gaction msopts.tx_n.enable
+	}
+	if H(msopts.ck_mspline) | ! msopts.ck_mspline {
+		// line options
+		call gaction msopts.tx_ccol.disable
+		call gaction msopts.cb_ccol.disable
+		call gaction msopts.cl_ccol.disable
+		call gaction msopts.tx_clwidth.disable
+		call gaction msopts.cb_clwidth.disable
+		call gaction msopts.tx_clpat.disable
+		call gaction msopts.cb_clpat.disable
+		call gaction msopts.tx_conn.disable
+		call gaction msopts.cb_conn.disable
+		// smoothing options
+		call gaction msopts.gb_meth.disable
+		call gaction msopts.ck_bands.disable
+		call program gmsopts_bands_check
+		call gaction msopts.tx_bands.disable
+		call gaction msopts.ck_n.disable
+		call program gmsopts_n_check
+		call gaction msopts.tx_n.disable
+	}
+END
+
+PROGRAM gmsopts_options
+BEGIN
+	if msopts.ck_bands {
+		optionarg msopts.sp_bands
+	}
+	if msopts.ck_n {
+		optionarg msopts.sp_n
+	}
+
+	if H(msopts.cl_ccol) {
+		optionarg /hidedefault msopts.cb_ccol
+	}
+	if !H(msopts.cl_ccol) {
+		optionarg /quoted msopts.cl_ccol
+	}
+	optionarg /hidedefault msopts.cb_clwidth
+	optionarg /hidedefault msopts.cb_clpat
+	optionarg /hidedefault msopts.cb_conn
+END
+
+PROGRAM gmsopts_output
+BEGIN
+	option msopts.ck_mspline
+	if msopts.ck_mspline	 & ///
+	   !H(msopts.ck_mspline) & ///
+	   ( msopts.ck_bands	 | ///
+	     msopts.ck_n     	 | ///
+	     msopts.ck_bands	 | ///
+	     msopts.cb_ccol	 | ///
+	     !H(msopts.cl_ccol)	 | ///
+	     msopts.cb_clwidth	 | ///
+	     msopts.cb_clpat	 | ///
+	     msopts.cb_conn	 ///
+	   ) {
+		put " " "msopts("
+		put /program gmsopts_options
+		put ")"
+	}
+END
+/* end */

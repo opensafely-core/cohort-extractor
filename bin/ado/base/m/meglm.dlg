@@ -1,0 +1,635 @@
+/*
+  meglm
+
+*!  VERSION 1.3.4  28nov2018
+
+*/
+
+VERSION 15.0
+
+INCLUDE glm_header
+DEFINE _dlght 470
+INCLUDE header
+
+HELP hlp1, view("help meglm")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING STMP
+	script se_setMI_on
+	script se_createAsSvyOIMClRobust
+	program svy_check_title
+
+	create STRING main_equ_tmp
+	create STRING main_equ_tmp2
+	create STRING main_equ_childdlg
+	create STRING main_equ_dlgname
+	create STRING main_equ_child_result
+	create STRING main_equ_cmd_output
+	create STRING main_equ_cmd_last
+
+	create ARRAY main_equ_list
+	create ARRAY main_equ_toklist
+
+	create SVECTOR mainEQUCommandDisplayList
+	create SVECTOR mainEQUCommandList
+	create SVECTOR mainEQUCommandValues
+	create SVECTOR mainEQUStatusList
+	create SVECTOR mainEQUChildDialogList
+
+	create DOUBLE main_equ_count
+	create DOUBLE main_equ_position
+	create DOUBLE main_equ_arraysize
+	create DOUBLE main_equ_tmpcount
+
+	main.bu_equ_edit.disable
+	main.bu_equ_disable.disable
+	main.bu_equ_enable.disable
+
+	create BOOLEAN allow_fweights
+	create BOOLEAN allow_pweights
+	create BOOLEAN allow_iweights
+	
+	create SVECTOR mainEQUCommandList_wgt
+	create SVECTOR mainEQUCommandValues_wgt
+	create STRING fweights_cmd
+	create STRING pweights_cmd
+	create STRING iweights_cmd
+	create STRING main_equ_child_result_wgt
+
+	allow_fweights.settrue
+	allow_pweights.settrue
+	allow_iweights.settrue
+	setscale_hadj resource MEGLM_DLG_HSCALE
+END
+
+PROGRAM svy_check_title
+BEGIN
+	if __MESSAGE.contains("-svy-") {
+		call settitle resource MEGLM_DLG_TITLE_SVY
+	}
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	call program check_bytab
+	call se_hasOPG.settrue
+END
+
+SCRIPT POSTINIT
+BEGIN
+	mainEQUCommandDisplayList.copyToArray main_equ_list
+	main.lb_equBuild.repopulate
+END
+
+PROGRAM check_bytab
+BEGIN
+	if !__MESSAGE.contains("__MI__") {
+		call script sub_set_by_on
+	}
+END
+
+SCRIPT svy_is_on
+BEGIN
+	allow_fweights.setfalse
+	allow_pweights.setfalse
+	allow_iweights.setfalse
+	script max_setDefaultNoLog
+	program main_equ_sel_changed
+END
+SCRIPT svy_is_off
+BEGIN
+	allow_fweights.settrue
+	allow_pweights.settrue
+	allow_iweights.settrue
+	script max_setDefaultLog
+	program main_equ_sel_changed
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)			///
+	label(resource MEGLM_DLG_TITLE)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _y _top
+  INCLUDE me_dviv
+
+  DEFINE _x _lft
+  DEFINE _y +35
+  INCLUDE me_equ
+
+  DEFINE tht 169
+  DEFINE twd 562
+
+  TEXT tx_title1		_lft	+55	irhwd	.,		///
+	label(resource LBL_FAMILY_AND)
+  DEFINE trow1 @y
+
+  TEXT tx_title2		_lft	_ss	irhwd	.,		///
+	label(resource LBL_LINK_CHOICES)
+  /* Display the column lines and headings */
+  FRAME fr_gaus			col1	trow1	cwd	tht
+  DEFINE frame_y @y
+  TEXT tx_gaus			chind	_ss	icwd	.,		///
+	center								///
+	label(resource LBL_GAUSSIAN)
+  DEFINE text_y @y
+
+  FRAME fr_bern			icolskip frame_y	cwd	tht
+  TEXT tx_bern			chind	text_y	icwd	.,		///
+	center								///
+	label(resource MEGLM_MAIN_TX_BERN)
+
+  FRAME fr_bin			icolskip frame_y	cwd	tht
+  TEXT tx_bin			chind	text_y	icwd	.,		///
+	center								///
+	label(resource LBL_BINOMIAL)
+
+  FRAME fr_gamm			icolskip frame_y	cwd	tht
+  TEXT tx_gamm			chind	text_y	icwd	.,		///
+	center								///
+	label(resource LBL_GAMMA_UPPER)
+
+  FRAME fr_nbin			icolskip frame_y	cwd	tht
+  TEXT tx_nbin1			chind	+3	icwd	.,		///
+	center								///
+	label(resource LBL_NEGATIVE)
+  TEXT tx_nbin2			@	text_y	@	.,		///
+	center								///
+	label(resource LBL_TX_BINOMIAL)
+
+  FRAME fr_ord			icolskip frame_y cwd	tht
+  TEXT tx_ord			chind	text_y	icwd	.,		///
+	center								///
+	label(resource MEGLM_MAIN_TX_ORD)
+
+  FRAME fr_pois			icolskip	frame_y	cwd	tht
+  TEXT tx_pois			chind	text_y	icwd	.,		///
+	center								///
+	label(resource LBL_POISSON)
+
+  /* Display the row lines and headings */
+  FRAME fr_id			_lft	skip	twd	rht
+  TEXT tx_id			ilft	for	irhwd	.,		///
+	right								///
+	label(resource LBL_IDENTITY)
+  DEFINE row1 @y
+
+  FRAME fr_log			_lft	skip	twd	rht
+  TEXT tx_log			ilft	for	irhwd	.,		///
+	right								///
+	label(resource LBL_LOG)
+  DEFINE row2 @y
+
+  FRAME fr_logit		_lft	skip	twd	rht
+  TEXT tx_logit			ilft	for	irhwd	.,		///
+	right								///
+	label(resource LBL_LOGIT)
+  DEFINE row3 @y
+
+  FRAME fr_probit		_lft	skip	twd	rht
+  TEXT tx_probit		ilft	for	irhwd	.,		///
+	right								///
+	label(resource LBL_PROBIT)
+  DEFINE row4 @y
+
+  FRAME fr_clog			_lft	skip	twd	rht
+  TEXT tx_clog			ilft	for	irhwd	.,		///
+	right								///
+	label(resource LBL_C_LOG_LOG)
+  DEFINE row5 @y
+
+  // +66
+  DEFINE col1 136
+  DEFINE col2 202
+  DEFINE col3 268
+  DEFINE col4 334
+  DEFINE col5 400
+  DEFINE col6 466
+  DEFINE col7 532
+
+  /* Cells */
+  RADIO rb_id_ga		col1	row1	rbwd	., first	///
+	onclickon("script main_hide_all_options")			///
+	option("family(gaussian) link(identity)")
+  RADIO rb_log_ga		col1	row2	rbwd	.,		///
+	onclickon("script main_hide_all_options")			///
+	option("family(gaussian) link(log)")
+  RADIO rb_log_gam		col4	row2	rbwd	.,		///
+	onclickon("script main_hide_all_options")			///
+	option("family(gamma) link(log)")
+  RADIO rb_log_nb		col5	row2	rbwd	.,		///
+	onclickon("script main_show_nbinomial_options")			///
+	option("link(log)")
+  RADIO rb_log_po		col7	row2	rbwd	.,		///
+	onclickon("script main_show_poisson_options")			///
+	option("family(poisson) link(log)")
+  RADIO rb_lo_be		col2	row3	rbwd	.,		///
+	onclickon("script main_hide_all_options")			///
+	option("family(bernoulli) link(logit)")
+  RADIO rb_lo_bi		col3	row3	rbwd	.,		///
+	onclickon("script main_show_binomial_options")			///
+	option("link(logit)")
+  RADIO rb_lo_or		col6	row3	rbwd	.,		///
+	onclickon("script main_hide_all_options")			///
+	option("family(ordinal) link(logit)")
+  RADIO rb_pr_be		col2	row4	rbwd	.,		///
+	onclickon("script main_hide_all_options")			///
+	option("family(bernoulli) link(probit)")
+  RADIO rb_pr_bi		col3	row4	rbwd	.,		///
+	onclickon("script main_show_binomial_options")			///
+	option("link(probit)")
+  RADIO rb_pr_or		col6	row4	rbwd	.,		///
+	onclickon("script main_hide_all_options")			///
+	option("family(ordinal) link(probit)")
+  RADIO rb_cl_be		col2	row5	rbwd	.,		///
+	onclickon("script main_hide_all_options")			///
+	option("family(bernoulli) link(cloglog)")
+  RADIO rb_cl_bi		col3	row5	rbwd	.,		///
+	onclickon("script main_show_binomial_options")			///
+	option("link(cloglog)")
+  RADIO rb_cl_or		col6	row5	rbwd	., last		///
+	onclickon("script main_hide_all_options")			///
+	option("family(ordinal) link(cloglog)")
+
+  /* Binomial options */
+  TEXT tx_bin2			_lft	_ls	comb2	.,		///
+	right								///
+	label(resource LBL_BERNOULLI_TRIALS_N)
+  DEFINE xbin @x
+  DEFINE ybin @y
+  RADIO rb_sp_n			colskip2 @	_rbwd	., first	///
+	onclickon("script main_sp_n_on")
+  DEFINE x @x
+  SPINNER sp_n			_rbsep	@	_spwd	.,		///
+	min(1)								///
+	max(1000000)							///
+	default(1)
+  TEXT tx_sp_n			_spsep	@	cwd	.,		///
+	label(resource LBL_CONSTANT_COLON)
+  RADIO rb_vn_n			colskip	@	_rbwd	., last		///
+	onclickon("script main_vn_n_on")
+  VARNAME vn_n			_rbsep	@	_vnwd	.,		///
+	label(resource LBL_VN_VARIABLE)
+  TEXT tx_vn_n			_vnsep	@	cwd	.,		///
+	label(resource LBL_VN_VARIABLE)
+
+  /* Negative binomial option */
+  TEXT tx_nbin3			xbin	ybin	comb2	.,		///
+	right								///
+	label(resource LBL_DISPERSION_PARAMETER)
+  RADIO rb_mean			140	@	60	., first	///
+	label(resource LBL_MEAN)
+  RADIO rb_constant		+70	@	80	., last		///
+	label(resource LBL_CONSTANT)
+END
+
+SCRIPT main_hide_all_options
+BEGIN
+	program check_fixedeffects
+	main.tx_bin2.hide
+	main.sp_n.hide
+	main.rb_sp_n.hide
+	main.tx_sp_n.hide
+	main.rb_vn_n.hide
+	main.vn_n.hide
+	main.tx_vn_n.hide
+	main.tx_nbin3.hide
+	main.rb_mean.hide
+	main.rb_constant.hide
+	model2.rb_expose.disable
+	model2.vn_expose.disable
+	model2.rb_offset.seton
+	program check_nocons
+END
+
+PROGRAM check_nocons
+BEGIN
+	if main.rb_lo_or | main.rb_pr_or | main.rb_cl_or {
+		call model2.ck_nocons.disable
+	}
+	else {
+		call model2.ck_nocons.enable
+	}
+END
+
+SCRIPT main_show_binomial_options
+BEGIN
+	script main_hide_all_options
+	main.tx_bin2.show
+	main.rb_sp_n.show
+	main.sp_n.show
+	main.tx_sp_n.show
+	main.rb_vn_n.show
+	main.vn_n.show
+	main.tx_vn_n.show
+END
+
+SCRIPT main_show_nbinomial_options
+BEGIN
+	script main_hide_all_options
+	main.tx_nbin3.show
+	main.rb_mean.show
+	main.rb_constant.show
+	model2.rb_expose.enable
+	model2.vn_expose.enable
+	model2.rb_expose.seton
+END
+
+SCRIPT main_show_poisson_options
+BEGIN
+	script main_hide_all_options
+	model2.rb_expose.enable
+	model2.vn_expose.enable
+	model2.rb_expose.seton
+END
+
+SCRIPT main_sp_n_on
+BEGIN
+	main.sp_n.enable
+	main.tx_sp_n.enable
+	main.vn_n.disable
+	main.tx_vn_n.disable
+END
+
+SCRIPT main_vn_n_on
+BEGIN
+	main.sp_n.disable
+	main.tx_sp_n.disable
+	main.vn_n.enable
+	main.tx_vn_n.enable
+END
+
+SCRIPT model2_PREINIT
+BEGIN
+	create STRING __const_tab
+	__const_tab.setvalue "model2"
+END
+
+DIALOG model2, tabtitle(resource LBL_TAB_MODEL2)			///
+	label(resource MEGLM_DLG_TITLE)
+BEGIN
+  GROUPBOX gb_options		_lft	_top	_iwd	_ht15,		///
+	label(resource LBL_OPTIONS)
+  CHECKBOX ck_nocons		_indent	_ss	_inwd	.,		///
+	option(noconstant)						///
+	label(resource LBL_NOCONSTANT)
+
+  RADIO rb_expose		@	_ls	_cwd4_1   ., first	///
+	clickon("script model2_expose_on")				///
+	label(resource LBL_EXPOSURE_VARIABLE)
+
+  RADIO rb_offset		_ilft4_2 @	@	., last		///
+	clickon("script model2_offset_on")				///
+	label(resource LBL_OFFSET_VARIABLE)
+
+  VARNAME vn_expose		_ilft	_ss	_vnwd	.,		///
+	option("exposure")						///
+	numeric								///
+	label(resource LBL_EXPOSURE_VARIABLE)
+  VARNAME vn_offset		_ilft4_2 @	@	.,		///
+	option("offset")						///
+	numeric								///
+	label(resource LBL_OFFSET_VARIABLE)
+
+  DEFINE _x _ilft
+  DEFINE _y _ls
+  DEFINE _cx _ilw80
+  DEFINE _bux _islw80
+  INCLUDE _constraints
+
+//  CHECKBOX ck_collinear		20	_ls	_ibwd	.,	///
+//	option(collinear)						///
+//	label(resource LBL_KEEP_COLLINEAR_VARIABLES)
+
+  CHECKBOX ck_asis		_ilft	_ms	_ibwd	.,		///
+	option("asis")							///
+	label(resource LBL_RETAIN_PERFECT_PREDICTOR_VARS)
+END
+
+SCRIPT model2_expose_on
+BEGIN
+	model2.vn_expose.enable
+	model2.vn_offset.disable
+END
+
+SCRIPT model2_offset_on
+BEGIN
+	model2.vn_expose.disable
+	model2.vn_offset.enable
+END
+
+PROGRAM model2_output
+BEGIN
+	optionarg model2.cb_constr
+//	option model2.ck_collinear
+	option model2.ck_asis
+END
+
+PROGRAM fe_opts_output
+BEGIN
+	option model2.ck_nocons
+	optionarg model2.vn_expose
+	optionarg model2.vn_offset
+END
+
+INCLUDE me_equ_pr
+INCLUDE _constraints_sc
+
+INCLUDE sub_by_ifin_over_subpop
+INCLUDE weights_fpi
+INCLUDE se
+
+PROGRAM fpweights_disable_fromSE
+BEGIN
+	// SE tab calls this routine to prevent call backs to that tab
+	call allow_fweights.setfalse
+	call allow_pweights.setfalse
+	call allow_iweights.setfalse
+END
+
+PROGRAM fpweights_enable_fromSE
+BEGIN
+	// SE tab calls this routine to prevent call backs to that tab
+	call allow_fweights.settrue
+	call allow_pweights.settrue
+	call allow_iweights.settrue
+END
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+	program rpt_bu_facvars_ckResults
+	program check_fixedeffects
+END
+
+PROGRAM check_fixedeffects
+BEGIN
+	call rpt.ck_eform.disable
+	call rpt.ck_irr.disable
+	call rpt.ck_or.disable
+
+	if main.rb_cl_be | main.rb_cl_bi | main.rb_cl_or | 		///
+		main.rb_log_ga | main.rb_log_gam {
+		call rpt.ck_eform.enable
+	}
+	if main.rb_log_nb | main.rb_log_po {
+		call rpt.ck_irr.enable
+	}
+
+	if main.rb_lo_be | main.rb_lo_bi | main.rb_lo_or {
+		call rpt.ck_or.enable
+	}
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+	DEFINE _x _lft
+	DEFINE _cx _spr2
+	DEFINE _y _top
+	INCLUDE _sp_level
+
+	GROUPBOX gb_rpt_method		_lft	_ls	_iwd	_ht6,	///
+		label(resource MEGLM_RPT_GB_RPT_METHOD)
+	CHECKBOX ck_eform		_ilft	_ss	_inwd	.,	///
+		option(eform)						///
+		label(resource MEGLM_RPT_CK_EFORM)
+	CHECKBOX ck_irr			@	_ss	@	.,	///
+		option(irr)						///
+		label(resource LBL_REPORT_FIXED_EFFECTS_COEF_AS_INC_RATE_RATIO)
+	CHECKBOX ck_or			@	_ss	@	.,	///
+		option(or)						///
+		label(resource LBL_REPORT_FIXED_EFFECTS_COEF_AS_ODDS_RATIOS)
+	DEFINE _x _lft
+	DEFINE _y _xls
+	DEFINE _cx _iwd
+	INCLUDE _nocnsreport
+
+	DEFINE _x _lft
+	DEFINE _y _ls
+	DEFINE _cx _iwd
+	INCLUDE _report_columns
+
+	CHECKBOX ck_notable		@	_ms	@	.,	///
+		option(notable)						///
+		label(resource LBL_SUPPRESS_COEFFICIENT_TABLE)
+	CHECKBOX ck_noheader		@	_ms	@	.,	///
+		option(noheader)					///
+		label(resource LBL_SUPPRESS_OUTPUT_HEADER)
+	CHECKBOX ck_nogroup		@	_ms	@	.,	///
+		option(nogroup)						///
+		label(resource LBL_SUPPRESS_TABLE_SUMMARIZING_GROUPS)
+
+	DEFINE _x _lft
+	DEFINE _y _ls
+	INCLUDE _bu_factor_vars_reporting
+
+	DEFINE _x _lft2
+	DEFINE _y  @
+	INCLUDE _bu_coef_table_reporting
+END
+
+PROGRAM rpt_output
+BEGIN
+	optionarg /hidedefault rpt.sp_level
+	option rpt.ck_eform
+	option rpt.ck_irr
+	option rpt.ck_or
+	option rpt.ck_nocnsreport
+	INCLUDE _report_columns_pr
+	option rpt.ck_notable
+	option rpt.ck_noheader
+	option rpt.ck_nogroup
+	put " " rpt_bu_facvarsResults
+	put " " rpt_bu_fmtcoefResults
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+INCLUDE me_integration
+INCLUDE max_ml
+
+PROGRAM	command
+BEGIN
+	if allow_fweights | allow_pweights | allow_iweights {
+			
+		call mainEQUCommandValues_wgt.copyToString main_equ_cmd_output
+	}
+	else {
+		call mainEQUCommandValues.copyToString main_equ_cmd_output
+	}
+	call main_equ_cmd_output.tokenizeOnStr main_equ_toklist "||"
+	call main_equ_tmpcount.storeClsArraySize main_equ_toklist
+	call main_equ_tmpcount.withvalue main_equ_cmd_last.setvalue class main_equ_toklist[@]
+
+	put /program by_output " "
+	put /program se_prefix_output " "
+	put "meglm "
+	varlist main.vn_dv [main.vl_iv]
+	put " " /program ifin_output
+	put " " /program weights_output
+
+	if main_equ_cmd_last.contains(",") {
+		beginoptions
+			put " " /program fe_opts_output
+			put " " main_equ_cmd_output
+		endoptions
+	}
+	else {
+		if main_equ_cmd_output {
+			if model2.ck_nocons | model2.vn_expose |	///
+				model2.vn_offset {
+				put ","
+			}
+			if model2.ck_nocons {
+				put " noconstant"
+			}
+			if model2.vn_expose & model2.vn_expose.isenabled() {
+				put " exposure("
+				put model2.vn_expose
+				put ")"
+			}
+			if model2.vn_offset & model2.vn_offset.isenabled() {
+				put " offset("
+				put model2.vn_offset
+				put ")"
+			}
+			put " " main_equ_cmd_output
+		}
+		else {
+			beginoptions
+				put " " /program fe_opts_output
+			endoptions
+		}
+	}
+	beginoptions
+		if main.rb_lo_bi | main.rb_pr_bi | main.rb_cl_bi {
+			put "family(binomial"
+			if main.rb_sp_n {
+				if main.sp_n.isneq(1) {
+					put " " main.sp_n
+				}
+			}
+			if main.rb_vn_n {
+				require main.vn_n
+				put  " " main.vn_n
+			}
+			put ")"
+		}
+		if main.rb_log_nb {
+			put "family(nbinomial"
+			if main.rb_constant {
+				put " constant"
+			}
+			put ")"
+		}
+		option radio(main rb_id_ga rb_log_ga rb_log_gam rb_log_nb rb_log_po rb_lo_be rb_lo_bi rb_lo_or rb_pr_be rb_pr_bi rb_pr_or rb_cl_be rb_cl_bi rb_cl_or)
+		put " " /program model2_output
+		put " " /program me_int_output
+		put " " /program se_output
+		put " " /program rpt_output
+		put " " /program max_output
+	endoptions
+END

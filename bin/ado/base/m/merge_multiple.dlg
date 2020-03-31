@@ -1,0 +1,163 @@
+/*
+    merge_multiple.dlg
+
+*!  VERSION 1.1.3  19may2015
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 350
+INCLUDE header
+
+HELP hlp1, view("help merge")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource MERGE_MULTIPLE_DLG_HSCALE
+	
+        main.fi_filename.formatfilter "{0} (*.dta)|*.dta|{1} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_DTA_FILES" "resource ui_ex FILE_TYPE_ALL_FILES"
+END
+
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN) 				///
+	label(resource MERGE_MULTIPLE_DLG_TITLE)
+BEGIN
+  GROUPBOX gb_type	_lft	_top	_iwd	_ht6,			///
+  	label(resource LBL_TYPE_OF_MERGE)
+  RADIO    rb_1_to_1	_ilft	_ss	_inwd	.,			///
+	first								///
+	label(resource LBL_ONE_TO_ONE_KEY_VARIABLES)			///
+	onclickon(script main_1to1_on) option(unique)
+  RADIO    rb_m_to_1	@	_ss	@	.,			///
+	onclickon(script main_mto1_on) option(uniqusing)		///
+	label(resource LBL_MANY_TO_ONE_KEY_VAR_UNIQUE_KEY_FOR_DATA_ON_DISK)
+  RADIO    rb_1_to_1_ob	@	_ss	@	.,			///
+	last								///
+	label(resource LBL_ONE_TO_ONE_BY_OBSERVATION)			///
+	onclickon(script main_1_to_1_ob_on)
+  GROUPBOX gb_merge	_lft	_xls	_iwd	_ht19h,			///
+	label(resource MERGE_MULTIPLE_MAIN_GB_MERGE)
+  TEXT     tx_browse	_ilft	_ss	_ibwd	.,			///
+	label(resource MERGE_MULTIPLE_MAIN_TX_BROWSE)
+  FILE     fi_filename  @       _ss	@	.,			///
+	error(resource MERGE_MULTIPLE_MAIN_TX_BROWSE)			///
+	defext(dta) label(resource LBL_BU_BROWSE)
+  BUTTON   bu_dtaadd    @	_ms	_cwd3_2	.,			///
+	label(resource LBL_SELECT_ADDITIONAL_FILE) onpush(program main_dta_add)
+
+  TEXT     tx_include	@	_ls	_cwd1	.,			///
+	label(resource LBL_LIST_FILES_ON_DISK)
+  EDIT     ed_multiple	@	_ss    _ibwd	.,			///
+	label(resource LBL_LIST_FILES_ON_DISK)
+
+
+  TEXT     tx_var	@	_ls	@	.,			///
+	label(resource MERGE_MULTIPLE_MAIN_TX_VAR)
+  VARLIST  vl_varlist	@	_ss	@	.,			///
+	label(resource LBL_KEY_VARIABLES)
+  CHECKBOX  ck_sort	@	_ls	@	.,			///
+	label(resource MERGE_MULTIPLE_MAIN_CK_SORT) option(sort)	///
+	onclickon(program main_sort_on)					///
+	onclickoff(program main_sort_off)
+END
+
+SCRIPT main_1to1_on
+BEGIN
+	main.tx_var.show
+	main.ck_sort.show
+	main.vl_varlist.show
+END
+
+SCRIPT main_1tom_on
+BEGIN
+	main.tx_var.show
+	main.ck_sort.hide
+	main.vl_varlist.show
+END
+
+SCRIPT main_mto1_on
+BEGIN
+	main.tx_var.show
+	main.ck_sort.hide
+	main.vl_varlist.show
+END
+
+SCRIPT main_1_to_1_ob_on
+BEGIN
+	main.tx_var.hide
+	main.ck_sort.hide
+	main.vl_varlist.hide
+END
+
+DIALOG opt, tabtitle(resource LBL_OPTIONS)
+BEGIN
+  TEXT      tx_keep	_lft	_top	_iwd	.,			///
+	label(resource MERGE_MULTIPLE_OPT_TX_KEEP)
+  VARLIST   vl_keep	_lft	_ss	_iwd	.,			///
+	option(keep) label(resource MERGE_MULTIPLE_OPT_VL_KEEP)
+  TEXT      tx_merge	_lft	_ls	_iwd	.,			///
+	label(resource MERGE_MULTIPLE_OPT_TX_MERGE)
+  EDIT      ed_merge	_lft	_ss	_vnwd	.,			///
+	max(32)	option(_merge) default("_merge")			///
+	label(resource MERGE_MULTIPLE_OPT_TX_MERGE)
+  CHECKBOX  ck_nolabel	_lft	_ls	_iwd	.,			///
+	option(nolabel)	label(resource MERGE_MULTIPLE_OPT_CK_NOLABEL)
+  DEFINE    _y @y
+  CHECKBOX ck_nonotes	@	_ms	@	.,			///
+	label(resource MERGE_MULTIPLE_OPT_CK_NONOTES) option(nonotes)
+  CHECKBOX  ck_nokeep	@	_ms	@	.,			///
+	option(nokeep) label(resource MERGE_MULTIPLE_OPT_CK_NOKEEP)
+  CHECKBOX ck_nosummary	@	_ms	@	.,			///
+	option(nosummary) label(resource MERGE_MULTIPLE_OPT_CK_NOSUMMARY)
+END
+
+PROGRAM main_dta_add
+BEGIN
+	if main.fi_filename {
+		call script main_add
+	}
+END
+
+SCRIPT main_add
+BEGIN
+	  main.fi_filename.withvalue main.ed_multiple.smartinsert `""@""'
+	  main.fi_filename.setvalue ""
+END
+
+PROGRAM command
+BEGIN
+	if ! main.ed_multiple & ! main.fi_filename {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format 					///
+			"resource LBL_MSGBOX_DTA_ON_DISK_REQUIRED_FMT" 	///
+			"resource LBL_TAB_MAIN"
+		stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, A dataset on disk must be selected.
+	}
+	put "merge "
+	if main.rb_1_to_1 | main.rb_m_to_1 {
+		require main.vl_varlist
+		put " " main.vl_varlist
+	}
+	put " " "using "
+	put main.ed_multiple " "
+	if main.fi_filename {
+		put `"""'
+		put main.fi_filename
+		put `"""' " "
+	}
+	beginoptions
+		option radio(main rb_1_to_1 rb_m_to_1)
+		option main.ck_sort
+		optionarg opt.vl_keep
+		option opt.ck_nolabel
+		option opt.ck_nonotes
+		option opt.ck_nokeep
+		option opt.ck_nosummary
+		optionarg /hidedefault opt.ed_merge
+	endoptions
+END

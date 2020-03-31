@@ -1,0 +1,79 @@
+/*
+	predict (after _nlogit)
+
+*!  VERSION 1.3.0  22dec2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE header
+
+HELP hlp1, view("help _nlogit postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource _NLOGIT_P_DLG_HSCALE
+END
+
+DIALOG main, label(resource PREDICT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  INCLUDE  _p_gentype
+
+  GROUPBOX gb_opts           _lft      _xls      _iwd      _ht16h,	/*
+		*/ label(resource LBL_PRODUCE)
+  RADIO    rb_p              _indent   _ss       _inwd     ., first	/*
+		*/ label(resource _NLOGIT_P_MAIN_RB_P)
+  RADIO    rb_xb             @         _ss       @         .,		/*
+		*/ label(resource _NLOGIT_P_MAIN_RB_XB)
+  RADIO    rb_condp          @         _ss       @         .,		/*
+		*/ label(resource _NLOGIT_P_MAIN_RB_CONDP)
+  RADIO    rb_iv             @         _ss       @         ., last	/*
+		*/ label(resource _NLOGIT_P_MAIN_RB_IV)
+
+  GROUPBOX gb_number         @         _ls       @         _ht4h,	/*
+		*/ label(resource _NLOGIT_P_MAIN_GB_NUMBER)
+  RADIO    rb_bottom         _indent   _ss       _inwd     ., first	/*
+		*/ clickon("gaction main.sp_number.disable")		/*
+		*/ label(resource _NLOGIT_P_MAIN_RB_BOTTOM)
+  RADIO    rb_number         @         _ms       _rbwd     ., last	/*
+		*/ clickon("gaction main.sp_number.enable")		/*
+		*/ label("")
+  SPINNER  sp_number         _rbsep    @         _spwd     .,		/*
+		*/ min(1) max(100) default(1)				/*
+		*/ label(resource _NLOGIT_P_MAIN_SP_NUMBER)
+END
+
+INCLUDE _p_gentype_sc
+INCLUDE ifin
+INCLUDE _type_list_fd
+
+PROGRAM command
+BEGIN
+	put "predict "
+	put " " /program _p_gentype_output
+	INCLUDE _ifin_pr
+	beginoptions
+		if main.rb_p {
+			put "p"
+		}
+		if main.rb_xb {
+			put "xb"
+		}
+		if main.rb_condp {
+			put "condp"
+		}
+		if main.rb_iv {
+			put "iv"
+		}
+
+		if main.rb_bottom {
+			put "b"
+		}
+		if main.rb_number {
+			put main.sp_number
+		}
+	endoptions
+END

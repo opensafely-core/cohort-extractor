@@ -1,0 +1,364 @@
+/*
+  ucm
+
+*!  VERSION 1.1.3  29nov2018
+
+  keyword:  eclass
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_wide
+DEFINE _dlght 425
+INCLUDE header
+
+HELP hlp1, view("help ucm")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING STMP
+	script se_createAsRobustOIM
+	create DOUBLE pi
+	create DOUBLE val
+	pi.setvalue c(pi)
+	setscale_hadj resource UCM_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program se_setFinalInitState
+	script max_nonrtolerance_hide
+	program main_cycle_off
+
+	STMP.format "resource UCM_MAIN_CK_CYCLE_#_FMT" "1"
+	STMP.withvalue main.ck_cycle1.setlabel "@"
+	STMP.format "resource UCM_MAIN_CK_CYCLE_#_FMT" "2"
+	STMP.withvalue main.ck_cycle2.setlabel "@"
+	STMP.format "resource UCM_MAIN_CK_CYCLE_#_FMT" "3"
+	STMP.withvalue main.ck_cycle3.setlabel "@"
+END
+
+DIALOG main, label(resource UCM_DLG_TITLE) tabtitle(resource LBL_TAB_MODEL)
+BEGIN
+  DEFINE _x _xsetbu
+  DEFINE _y _top
+  INCLUDE _bu_tsset
+  TEXT tx_dv 			_lft	_ss	_vnwd	.,		///
+	label(resource LBL_DEPVAR)
+  DEFINE holdy @y
+  VARNAME vn_dv			@ 	_ss	@	.,		///
+	ts								///
+	numeric								///
+	label(resource LBL_DEPVAR)
+  TEXT tx_iv			_vlx	holdy	160	.,		///
+	label(resource LBL_INDDEPVAR)
+  VARLIST vl_iv			@	_ss	_vlwd	.,		///
+	fv								///
+	allowcat							///
+	numeric								///
+	label(resource LBL_INDDEPVAR)
+
+  TEXT tx_model			_lft	_xls	_cwd1	.,		///
+	label(resource UCM_MAIN_TX_MODEL)
+  DEFINE holdy @y
+  COMBOBOX cb_model		@	_ss	_cwd1	.,		///
+	option(model)							///
+	dropdownlist							///
+	contents(main_model_list)					///
+	values(main_model_values)					///
+	label(resource UCM_MAIN_CB_MODEL)
+
+  CHECKBOX ck_seasonal		_lft2	holdy	250	.,		///
+	onclickon("script main_seasonal_on")				///
+	onclickoff("script main_seasonal_off")				///
+	label(resource UCM_MAIN_CK_SEASONAL)
+  SPINNER sp_seasonal		_ilft2	_ss	_spwd	.,		///
+	option(seasonal)						///
+	default(1)							///
+	min(1)								///
+	max(c(N))
+  TEXT tx_seasonal		_en7sep	@	120	.,		///
+	label(resource UCM_MAIN_TX_SEASONAL)
+
+  CHECKBOX ck_cycle1		_lft	_xls	_iwd	_ht2,		///
+	groupbox							///
+	onclickon("script main_cycle1_on") 				///
+	onclickoff("script main_cycle1_off")
+  SPINNER sp_cycle1		_ilft	_ss	_spwd	.,		///
+	default(1)							///
+	min(1)								///
+	max(3)
+  TEXT tx_cycle1		_en7sep	@	200	.,		///
+	label(resource LBL_ORDER)
+  EDIT ed_freq_cycle1		_lft2	@	_spwd	.,		///
+	numonly								///
+	option(frequency)						///
+	label(resource UCM_MAIN_ED_FREQ_CYCLE)	
+  TEXT tx_freq_cycle1		+65 	@	200	.,		///
+	label(resource UCM_MAIN_ED_FREQ_CYCLE)
+  
+  CHECKBOX ck_cycle2		_lft	_xxls	_iwd	_ht2,		///
+	groupbox							///
+	onclickon("script main_cycle2_on") 				///
+	onclickoff("script main_cycle2_off")
+  SPINNER sp_cycle2		_ilft	_ss	_spwd	.,		///
+	default(1)							///
+	min(1)								///
+	max(3)
+  TEXT tx_cycle2		_en7sep	@	200	.,		///
+	label(resource LBL_ORDER)
+  EDIT ed_freq_cycle2		_lft2	@	_spwd	.,		///
+	numonly								///
+	option(frequency)						///
+	label(resource UCM_MAIN_ED_FREQ_CYCLE)	
+  TEXT tx_freq_cycle2		+65 	@	200	.,		///
+	label(resource UCM_MAIN_ED_FREQ_CYCLE)
+  
+  CHECKBOX ck_cycle3		_lft	_xxls	_iwd	_ht2,		///
+	groupbox							///
+	onclickon("script main_cycle3_on") 				///
+	onclickoff("script main_cycle3_off")
+  SPINNER sp_cycle3		_ilft	_ss	_spwd	.,		///
+	default(1)							///
+	min(1)								///
+	max(3)
+  TEXT tx_cycle3		_en7sep	@	200	.,		///
+	label(resource LBL_ORDER)
+  EDIT ed_freq_cycle3		_lft2	@	_spwd	.,		///
+	numonly								///
+	option(frequency)						///
+	label(resource UCM_MAIN_ED_FREQ_CYCLE)	
+  TEXT tx_freq_cycle3		+65 	@	200	.,		///
+	label(resource UCM_MAIN_ED_FREQ_CYCLE)
+
+  DEFINE _x _lft
+  DEFINE _y _xls
+  DEFINE _cx _lw80
+  DEFINE _bux _slw80
+  INCLUDE _constraints
+
+  DEFINE _x _lft
+  DEFINE _xw _ibwd
+//  INCLUDE _ck_collinear
+END
+
+LIST main_model_list
+BEGIN
+	resource UCM_RANDOM_WALK_MODEL 
+        resource UCM_NO_TREND_IDI_COMPONENT
+        resource UCM_NO_TREND_COMP_BUT_INCLUDE_IDI_COMP
+        resource UCM_DETERMINISTIC_CONSTANT_WITH_IDI_COMP
+        resource UCM_LOCAL_LEVEL_MODEL
+        resource UCM_DETERMINISTIC_TREND_MODEL
+        resource UCM_LOCAL_LEVEL_MODEL_WITH_DET_TREND
+        resource UCM_RANDOM_WALK_WITH_DRIFT_MODEL
+        resource UCM_LOCAL_LINEAR_TREND_MODEL
+        resource UCM_SMOOTH_TREND_MODEL
+	resource UCM_RANDOM_TREND_MODEL
+END
+
+LIST main_model_values
+BEGIN
+	""
+	none
+	ntrend
+	dconstant
+	llevel
+	dtrend
+	lldtrend
+	rwdrift
+	lltrend
+	strend
+	rtrend
+END
+
+SCRIPT main_seasonal_on
+BEGIN
+	main.sp_seasonal.enable
+	main.tx_seasonal.enable
+END
+
+SCRIPT main_seasonal_off
+BEGIN
+	main.sp_seasonal.disable
+	main.tx_seasonal.disable
+END
+
+SCRIPT main_cycle1_on
+BEGIN
+	main.sp_cycle1.enable
+	main.tx_cycle1.enable
+	main.ed_freq_cycle1.enable
+	main.tx_freq_cycle1.enable
+END
+
+SCRIPT main_cycle1_off
+BEGIN
+	main.sp_cycle1.disable
+	main.tx_cycle1.disable
+	main.ed_freq_cycle1.disable
+	main.tx_freq_cycle1.disable
+END
+
+SCRIPT main_cycle2_on
+BEGIN
+	main.sp_cycle2.enable
+	main.tx_cycle2.enable
+	main.ed_freq_cycle2.enable
+	main.tx_freq_cycle2.enable
+END
+
+SCRIPT main_cycle2_off
+BEGIN
+	main.sp_cycle2.disable
+	main.tx_cycle2.disable
+	main.ed_freq_cycle2.disable
+	main.tx_freq_cycle2.disable
+END
+
+SCRIPT main_cycle3_on
+BEGIN
+	main.sp_cycle3.enable
+	main.tx_cycle3.enable
+	main.ed_freq_cycle3.enable
+	main.tx_freq_cycle3.enable
+END
+
+SCRIPT main_cycle3_off
+BEGIN
+	main.sp_cycle3.disable
+	main.tx_cycle3.disable
+	main.ed_freq_cycle3.disable
+	main.tx_freq_cycle3.disable
+END
+
+INCLUDE byifin
+INCLUDE se
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+        program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _nocnsreport
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+
+INCLUDE max_ml
+
+PROGRAM main_cycle1_output
+BEGIN
+	put main.sp_cycle1
+	if main.ed_freq_cycle1 {
+		call val.setvalue class main.ed_freq_cycle1.value
+		if val.islt(0) | val.isgt(pi) {
+			call STMP.format				/// 
+				"resource UCM_MSGBOX_INVALID_INITIAL_CYCLE_FREQUENCY_FMT" "1"
+			stopbox stop "class STMP.value"
+// Invalid "Initial value for cycle frequency" value for "Cycle 1".
+// Value must be between 0 and pi.
+		}
+		put ","
+		optionarg main.ed_freq_cycle1
+	}
+END
+
+PROGRAM main_cycle2_output
+BEGIN
+	put main.sp_cycle2
+	if main.ed_freq_cycle2 {
+		call val.setvalue class main.ed_freq_cycle2.value
+		if val.islt(0) | val.isgt(pi) {
+			call STMP.format 				///
+				"resource UCM_MSGBOX_INVALID_INITIAL_CYCLE_FREQUENCY_FMT" "2"
+			stopbox stop "class STMP.value"
+// Invalid "Initial value for cycle frequency" value for "Cycle 2".
+// Value must be between 0 and pi.
+		}
+		put ","
+		optionarg main.ed_freq_cycle2
+	}
+END
+
+PROGRAM main_cycle3_output
+BEGIN
+	put main.sp_cycle3
+	if main.ed_freq_cycle3 {
+		call val.setvalue class main.ed_freq_cycle3.value
+		if val.islt(0) | val.isgt(pi) {
+			call STMP.format				/// 
+				"resource UCM_MSGBOX_INVALID_INITIAL_CYCLE_FREQUENCY_FMT" "3"
+			stopbox stop "class STMP.value"
+// Invalid "Initial value for cycle frequency" value for "Cycle 3".
+// Value must be between 0 and pi.
+		}
+		put ","
+		optionarg main.ed_freq_cycle3
+	}
+END
+
+PROGRAM command
+BEGIN
+	INCLUDE _by_pr
+	put "ucm "
+	varlist main.vn_dv [main.vl_iv]
+	INCLUDE _ifin_pr
+	beginoptions
+		optionarg main.cb_model
+		optionarg main.sp_seasonal
+		if main.ck_cycle1 {
+			put "cycle("
+			put /program main_cycle1_output
+			put ") "
+		}
+		if main.ck_cycle2 {
+			put "cycle("
+			put /program main_cycle2_output
+			put ") "
+		}
+		if main.ck_cycle3 {
+			put "cycle("
+			put /program main_cycle3_output
+			put ") "
+		}
+		INCLUDE _constraints_main_pr
+//		option main.ck_collinear
+		put " " /program se_output
+		put " " /program max_output
+		optionarg /hidedefault rpt.sp_level
+		INCLUDE _nocnsreport_pr
+		INCLUDE _report_columns_pr
+		put " " rpt_bu_facvarsResults
+		put " " rpt_bu_fmtcoefResults
+	endoptions
+END

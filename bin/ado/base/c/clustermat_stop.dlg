@@ -1,0 +1,104 @@
+/*
+  clustermat stop
+
+*!  VERSION 1.3.0  09sep2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+INCLUDE _ht290
+INCLUDE header
+HELP hlp1, view("help cluster_stop")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING oldCluster // < stata 10 cluster results
+	create STRING newCluster
+	create LIST  clusters
+	program getClusters
+	setscale_hadj resource CLUSTERMAT_STOP_DLG_HSCALE
+END
+
+PROGRAM getClusters
+BEGIN
+	call oldCluster.setvalue char _dta[_cl]
+	call newCluster.setvalue char _dta[_cluster_objects]
+	if newCluster {
+		call newCluster.tokenize clusters
+	}
+	else {
+		call oldCluster.tokenize clusters
+	}
+	call main.lb_clname.repopulate
+END
+
+DIALOG main, label(resource CLUSTERMAT_STOP_DLG_TITLE) /*
+		*/ tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_clname    _lft      _top      _cwd3_1   .,		/*
+		*/ label(resource LBL_CLUSTER_ANALYSIS)
+  LISTBOX  lb_clname    @         _ss       @         _ht17,		/*
+		*/ contents(clusters)					/*
+		*/ label(resource LBL_CLUSTER_ANALYSIS)
+
+  GROUPBOX gb_rule      _lft3_2   _top      _comb3_1  _ht4,		/*
+		*/ label(resource LBL_STOPPING_RULE)
+  RADIO    rb_calinski  _indent   _ss       _inwd     ., first		/*
+		*/ option("rule(calinski)")				/*
+		*/ label(resource LBL_CALINSKI_HARABASZ_PSEUDO_F_INDEX)
+  RADIO    rb_duda      @         _ss       @         ., last		/*
+		*/ option("rule(duda)")					/*
+		*/ label(resource LBL_DUDA_HART_JE_INDEX)
+
+  GROUPBOX gb_options   _lft3_2   _xls      _comb3_1  _ht11,		/*
+		*/ label(resource LBL_OPTIONS)
+  CHECKBOX ck_groups    _indent   _ss       _inwd     .,		/*
+		*/ clickon("gaction main.sp_groups.enable")		/*
+		*/ clickoff("gaction main.sp_groups.disable")		/*
+		*/ label(resource LBL_COMPUTE_GROUPS_UP_TO)
+  DEFINE   holdx @x
+  DEFINE   holdcx @cx
+  TEXT     tx_groups    _indent2  _vss      _inwd     .,		/*
+		*/ label(resource LBL_HIERARCHICAL_CLUSTERING_ONLY)
+  SPINNER  sp_groups    @         _ms       _spwd     .,		/*
+		*/ min(2) max(100000) default(15)			/*
+		*/ label(resource LBL_COMPUTE_GROUPS_UP_TO)
+  TEXT     tx_matrix    holdx     _ls       holdcx    .,		/*
+		*/ label(resource LBL_SAVE_RESULTS_IN_MATRIX)
+  EDIT     ed_matrix    @         _ss       _vnwd     .,		/*
+		*/ option(matrix)					/*
+		*/ max(32)						/*
+		*/ label(resource LBL_SAVE_RESULTS_IN_MATRIX)
+  TEXT     tx_variables _lft      _xls      _iwd      .,		/*
+	*/ label(resource CLUSTERMAT_STOP_TX_VARIABLES)
+  VARLIST  vl_variables @         _ss       _iwd      .,		/*
+		*/ label(resource LBL_COMPUTE_STOPPING_RULE_USING_VARIABLES) /*
+		*/ option(variables)					    /*
+		*/ numeric
+END
+
+
+PROGRAM command
+BEGIN
+	require main.vl_variables
+	put "clustermat stop " main.lb_clname
+	beginoptions
+		option radio(main rb_calinski rb_duda)
+		optionarg main.vl_variables
+		if main.ck_groups {
+			put "groups("
+			if main.rb_calinski {
+				put "2"
+			}
+			if main.rb_duda {
+				put "1"
+			}
+			put "/" main.sp_groups ") "
+		}
+		optionarg main.ed_matrix
+	endoptions
+END
+

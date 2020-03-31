@@ -1,0 +1,716 @@
+/*
+    gr_axis_tick_label_options.dlg
+
+*!  VERSION 1.1.5  02jul2019
+    	
+	// SCRIPTS and PROGRAMS for external use
+		* SCRIPT axis_setSecondAxis
+		* SCRIPT axis_setRuleMajor
+		* SCRIPT axis_setRuleMinor
+
+*/
+VERSION 15.0
+
+INCLUDE _std_medium
+DEFINE _dlght 300
+INCLUDE header_gr_child
+
+DEFINE _clwd	15
+DEFINE _wd	140
+DEFINE _sep	+145
+DEFINE _wd2	130
+DEFINE _sep2	+135
+DEFINE _cbwd	120
+DEFINE _cbsep	+125
+
+DEFINE _wd3	210
+DEFINE _sep3	+215
+DEFINE _cbwd2	80
+DEFINE _cbsep2	+85
+
+HELP hlp1, view("help axis_label_options")
+RESET res1
+
+SCRIPT axis_setRuleMajor
+BEGIN
+	ruleType.setvalue "major"
+	rule.bu_custom.settooltip resource GR_AXIS_TICK_LABEL_OPTIONS_TOOLTIP
+END
+
+SCRIPT axis_setRuleMinor
+BEGIN
+	ruleType.setvalue "minor"
+	rule.bu_custom.settooltip resource GR_AXIS_TICK_LABEL_OPTIONS_TOOLTIP
+	rule.rb_suggest.setlabel resource LBL_SUGGEST_#_BETWEEN_MAJOR_TICKS
+END
+
+SCRIPT PREINIT
+BEGIN
+	create PBOOLEAN isAxis2
+	create PSTRING  ruleType
+	setscale_hadj resource GR_AXIS_TICK_LABEL_OPTIONS_DLG_HSCALE
+END
+PROGRAM PREINIT_PROGRAM
+BEGIN
+	if ruleType.iseq("minor") {
+		call script axis_setRuleMinor
+	}
+	else {
+		call script axis_setRuleMajor
+	}
+END
+
+SCRIPT axis_setSecondAxis
+BEGIN
+	isAxis2.settrue
+END
+
+SCRIPT axis_GetFormat
+BEGIN
+	create STRING labelFormat
+	create CHILD format_chooser
+	format_chooser.setExitString labelFormat
+	format_chooser.setExitAction "labels.ed_lformat.setvalue class labelFormat.value"
+END
+
+SCRIPT rule_PREINIT
+BEGIN
+	rule.tb_rule.setlabel	///
+		resource LBL_AXIS_RULE_DETERMINES_TICKS_RELATIVE_POS
+END
+
+DIALOG rule, title(resource GR_AXIS_TICK_LABEL_OPTIONS_DLG_TITLE) tabtitle(resource LBL_RULE)
+BEGIN
+  GROUPBOX gb_rule	_lft	_top	_iwd	_ht16,		///
+	label(resource LBL_AXIS_RULE)
+  RADIO    rb_default	_ilft	_ss	220	.,		///
+	first							///
+	label(resource GR_AXIS_TICK_LABEL_OPTIONS_RULE_RB_DEFAULT) ///
+	onclickon(program check_rule_type)
+  RADIO    rb_suggest	@	_ss	@	.,		///
+	label(resource LBL_SUGGEST_#_TICKS)			///
+	onclickon(program check_rule_type)
+  DEFINE y @y
+  RADIO    rb_delta	@	_ss	@	.,		///
+	label(resource LBL_RANGE_DELTA)				///
+	onclickon(program check_rule_type)
+  RADIO    rb_minmax	@	_ss	120	.,		///
+	label(resource LBL_MIN_MAX)				///
+	onclickon(program check_rule_type)
+  RADIO    rb_custom	@	_ss	@	.,		///
+	label(resource LBL_CUSTOM)				///
+	onclickon(program check_rule_type)
+  RADIO    rb_norule	@	_ss	@	.,		///
+	last							///
+	label(resource LBL_NONE)				///
+	onclickon(program check_rule_type)
+
+  SPINNER  sp_suggest	230	y	_en7wd	.,		///
+	min(1) default(5) max(10000)
+  TEXT     tx_suggest	_en7sep @	100	.,		///
+	label(resource LBL_TICKS)
+
+  EDIT     ed_min	230	y	_en7wd	.,		///
+	label(resource LBL_MINIMUM_VALUE) numonly
+  TEXT     tx_min	_en7sep @	100	.,		///
+	label(resource LBL_MINIMUM_VALUE)
+  EDIT     ed_max	230	_ms	_en7wd	.,		///
+	label(resource LBL_MAXIMUM_VALUE) numonly
+  TEXT     tx_max	_en7sep @	100	.,		///
+	label(resource LBL_MAXIMUM_VALUE)
+  EDIT     ed_delta	230	_ms	_en7wd	.,		///
+	numonly							///
+	label(resource LBL_DELTA)
+  TEXT     tx_delta	_en7sep @	100	.,		///
+	label(resource LBL_DELTA)
+
+  TEXT     tx_custom	140	@	240	.,		///
+  	label(resource GR_AXIS_TICK_LABEL_OPTIONS_RULE_TX_CUSTOM)
+  EDIT	   ed_custom	@	_ss	@	., 		///
+	error(resource GR_AXIS_TICK_LABEL_OPTIONS_RULE_TX_CUSTOM)
+  BUTTON   bu_custom	+245	@	15	.,		///
+  	label(resource LBL_?)  					///
+  	onpush(program show_rule_help)
+
+  TEXTBOX  tb_rule	_ilft	+40	_ibwd	_tb2,
+END
+
+PROGRAM show_rule_help
+BEGIN
+	if ruleType.iseq("minor") {
+		call view help minor_tick_rule##|_new
+	}
+	else {
+		call view help major_tick_rule##|_new
+	}
+END
+
+PROGRAM check_rule_type
+BEGIN
+	if rule.rb_default {
+		call rule.sp_suggest.hide
+		call rule.tx_suggest.hide
+		call rule.ed_min.hide
+		call rule.tx_min.hide
+		call rule.ed_max.hide
+		call rule.tx_max.hide
+		call rule.ed_delta.hide
+		call rule.tx_delta.hide
+
+		call rule.tx_custom.hide
+		call rule.ed_custom.hide
+		call rule.bu_custom.hide
+	}
+	if rule.rb_suggest {
+		call rule.sp_suggest.show
+		call rule.tx_suggest.show
+
+		call rule.ed_min.hide
+		call rule.tx_min.hide
+		call rule.ed_max.hide
+		call rule.tx_max.hide
+		call rule.ed_delta.hide
+		call rule.tx_delta.hide
+
+		call rule.tx_custom.hide
+		call rule.ed_custom.hide
+		call rule.bu_custom.hide
+	}
+	if rule.rb_delta {
+		call rule.sp_suggest.hide
+		call rule.tx_suggest.hide
+
+		call rule.tx_custom.hide
+		call rule.ed_custom.hide
+		call rule.bu_custom.hide
+
+		call rule.ed_min.show
+		call rule.tx_min.show
+		call rule.ed_max.show
+		call rule.tx_max.show
+		call rule.ed_delta.show
+		call rule.tx_delta.show
+	}
+	if rule.rb_minmax {
+		call rule.sp_suggest.hide
+		call rule.tx_suggest.hide
+		call rule.ed_delta.hide
+		call rule.tx_delta.hide
+
+		call rule.ed_min.hide
+		call rule.tx_min.hide
+		call rule.ed_max.hide
+		call rule.tx_max.hide
+
+		call rule.tx_custom.hide
+		call rule.ed_custom.hide
+		call rule.bu_custom.hide
+	}
+	if rule.rb_custom {
+		call rule.sp_suggest.hide
+		call rule.tx_suggest.hide
+		call rule.ed_delta.hide
+		call rule.tx_delta.hide
+
+		call rule.ed_min.hide
+		call rule.tx_min.hide
+		call rule.ed_max.hide
+		call rule.tx_max.hide
+		
+		call rule.tx_custom.show
+		call rule.ed_custom.show
+		call rule.bu_custom.show
+	}
+	if rule.rb_norule {
+		call rule.sp_suggest.hide
+		call rule.tx_suggest.hide
+		call rule.ed_min.hide
+		call rule.tx_min.hide
+		call rule.ed_max.hide
+		call rule.tx_max.hide
+		call rule.ed_delta.hide
+		call rule.tx_delta.hide
+		call rule.tx_custom.hide
+		call rule.ed_custom.hide
+		call rule.bu_custom.hide
+	}
+END
+
+PROGRAM rule_output
+BEGIN
+	if rule.rb_suggest {
+		if ruleType.iseq("minor") {
+			put "##" rule.sp_suggest
+		}
+		else {
+			put "#" rule.sp_suggest
+		}
+	}
+	if rule.rb_delta {
+		require rule.ed_min
+		require rule.ed_max
+		require rule.ed_delta
+		put rule.ed_min "(" rule.ed_delta ")" rule.ed_max 
+	}
+	if rule.rb_minmax {
+		put "minmax"
+	}
+	if rule.rb_norule {
+		put "none"
+	}
+	if rule.rb_custom {
+		require rule.ed_custom
+		put rule.ed_custom
+	}
+END
+
+DIALOG labels, tabtitle(resource LBL_LABELS)
+BEGIN
+  GROUPBOX tx_labels	_lft	_top	_iwd	_ht24h,		///
+	label(resource LBL_LABELS)
+
+  TEXT     tx_lshow	_ilft	_ss	_wd	.,		///
+  	label(resource LBL_SHOW_LABELS) right
+  COMBOBOX cb_lshow	_sep	@	_cbwd	.,		///
+	dropdownlist contents(yesno) values(labels_cb_lshow)	///
+	onselchangelist(labels_lshow_sel)
+	
+  TEXT     tx_lclr	_ilft	_mls	_wd	.,		///
+	label(resource LBL_COLOR) right
+  COMBOBOX cb_lclr	_sep	@	_cbwd	.,		///
+	dropdownlist contents(colors) option(labcolor)		///
+	onselchangelist(labels_cl_lclr_sel)
+  COLOR    cl_lclr	_cbsep	@	_clwd	., option(labcolor)
+  TEXT     tx_lopacity	_ilft	_mls	_wd	.,		///
+	label(resource LBL_OPACITY) right
+  SPINNER sp_lopacity	_sep	@	_spwd	.,		///
+	default(100)						///
+	min(0)							///
+	max(100)
+
+  TEXT     tx_lsize	_ilft	_mls	_wd	.,		///
+	label(resource LBL_SIZE) right
+  COMBOBOX cb_lsize	_sep	@	_cbwd	.,		///
+	dropdown contents(textsizes) option(labsize)
+
+  TEXT     tx_langle	_ilft	_mls	_wd	.,		///
+	label(resource LBL_ANGLE) right
+  COMBOBOX cb_langle	_sep	@	_cbwd	.,		///
+	dropdown contents(angles) option(angle)
+
+  TEXT     tx_lgap	_ilft	_mls	_wd	.,		///
+	label(resource LBL_LABEL_GAP) right
+  COMBOBOX     cb_lgap	_sep	@	_cbwd	.,		///
+	option(labgap) dropdown contents(textsizes)
+
+  TEXT     tx_lformat	_ilft	_mls	_wd	.,		///
+	label(resource LBL_FORMAT) right
+  DEFINE y @y
+  EDIT     ed_lformat	_sep	@	_cbwd	.,		///
+	option(format)
+  BUTTON   bu_lformat   _cbsep	@	_clwd	.,		///
+	label(..) onpush(script axis_GetFormat)			///
+	tooltip(resource LBL_CREATE_DISPLAY_FORMAT)
+	
+  CHECKBOX ck_vlabel	_ilft	_ls	_ibwd	.,		///
+	label(resource LBL_USE_VALUE_LABELS)			///
+	option(valuelabel)
+
+  CHECKBOX ck_alternate	_ilft	_ms	_ibwd	.,		///
+	label(resource LBL_ALT_SPACING_ADJACENT_LABELS)		///
+	option(alternate)
+END
+
+//** labels
+LIST labels_cl_lclr_sel
+BEGIN
+	labels.cl_lclr.hide
+	labels.cl_lclr.show
+	labels.cl_lclr.hide
+END
+
+LIST labels_cb_lshow
+BEGIN
+	""
+	"labels"
+	"nolabels"
+END
+
+LIST labels_lshow_sel
+BEGIN
+	script labels_label_enable
+	script labels_label_enable
+	script labels_label_disable
+END
+SCRIPT labels_label_enable
+BEGIN
+	labels.tx_lsize.enable
+	labels.cb_lsize.enable
+	labels.tx_lclr.enable
+	labels.cb_lclr.enable
+	labels.cl_lclr.enable
+	labels.tx_lopacity.enable
+	labels.sp_lopacity.enable
+	labels.tx_langle.enable
+	labels.cb_langle.enable
+	labels.tx_lformat.enable
+	labels.ed_lformat.enable
+	labels.bu_lformat.enable
+	labels.tx_lgap.enable
+	labels.cb_lgap.enable
+	labels.ck_vlabel.enable
+	labels.ck_alternate.enable
+END
+SCRIPT labels_label_disable
+BEGIN
+	labels.tx_lsize.disable
+	labels.cb_lsize.disable
+	labels.tx_lclr.disable
+	labels.cb_lclr.disable
+	labels.cl_lclr.disable
+	labels.tx_lopacity.disable
+	labels.sp_lopacity.disable
+	labels.tx_langle.disable
+	labels.cb_langle.disable
+	labels.tx_lformat.disable
+	labels.ed_lformat.disable
+	labels.bu_lformat.disable
+	labels.tx_lgap.disable
+	labels.cb_lgap.disable
+	labels.ck_vlabel.disable
+	labels.ck_alternate.disable
+END
+
+PROGRAM labels_output
+BEGIN
+	put " " labels.cb_lshow " "
+	optionarg /hidedefault labels.cb_lsize
+	if (labels.cb_lclr.isneq("") | labels.sp_lopacity.isneq(100)) {
+		put "labcolor("
+		if (labels.cb_lclr.iseq("custom")) {
+			put `"""' labels.cl_lclr
+			if (labels.sp_lopacity.isneq(100)) {
+				put " %" labels.sp_lopacity
+			}
+			put `"""'
+		}
+		else {
+			if (labels.cb_lclr.isneq("")) {
+				put labels.cb_lclr
+			}
+			if (labels.sp_lopacity.isneq(100)) {
+				put "%" labels.sp_lopacity
+			}
+		}
+		put ")"
+	}
+	optionarg /hidedefault labels.cb_langle
+	optionarg labels.ed_lformat
+	optionarg labels.cb_lgap
+	option labels.ck_vlabel
+	option labels.ck_alternate
+END
+
+//--
+
+DIALOG ticks, tabtitle(resource LBL_TICKS)
+BEGIN  
+  GROUPBOX tx_tick	_lft	_top	_iwd	_ht16h,		///
+	label(resource LBL_TICKS)
+
+  TEXT     tx_tshow	_ilft	_ss	_wd	.,		///
+  	label(resource LBL_SHOW_TICKS) right
+  COMBOBOX cb_tshow	_sep	@	_cbwd	.,		///
+	dropdownlist contents(yesno) values(ticks_cb_tshow)	///
+	onselchangelist(ticks_tshow_sel)
+
+  TEXT     tx_tclr	_ilft	_mls	_wd	.,		///
+	label(resource LBL_COLOR) right
+  COMBOBOX cb_tclr	_sep	@	_cbwd	.,		///
+	dropdownlist contents(colors) option(tlcolor)		///
+	onselchangelist(ticks_cl_tclr_sel)
+  COLOR    cl_tclr	_cbsep	@	_clwd	., option(tlcolor)
+  TEXT     tx_topacity	_ilft	_mls	_wd	.,		///
+	label(resource LBL_OPACITY) right
+  SPINNER sp_topacity	_sep	@	_spwd	.,		///
+	default(100)						///
+	min(0)							///
+	max(100)
+
+  TEXT     tx_tlength	_ilft	_mls	_wd	.,		///
+	label(resource LBL_LENGTH) right
+  COMBOBOX cb_tlength	_sep	@	_cbwd	.,		///
+	label(resource LBL_LENGTH) option(tlength) dropdown 	///
+	contents(textsizes)
+
+  TEXT     tx_twidth	_ilft	_mls	_wd	.,		///
+	label(resource LBL_WIDTH) right
+  COMBOBOX cb_twidth	_sep	@	_cbwd	.,		///
+	dropdown 						///
+	label(resource LBL_WIDTH) option(tlwidth) 		///
+	contents(linewidths)
+  
+  TEXT     tx_tpos	_ilft	_mls	_wd	.,		///
+	label(resource LBL_PLACEMENT) right
+  COMBOBOX cb_tpos	_sep	@	_cbwd	.,		///
+	dropdownlist contents(tickpos) option(tposition)
+
+END
+
+LIST ticks_cl_tclr_sel
+BEGIN
+	ticks.cl_tclr.hide
+	ticks.cl_tclr.show
+	ticks.cl_tclr.hide
+END
+
+LIST ticks_cb_tshow
+BEGIN
+	""
+	"ticks"
+	"noticks"
+END
+
+LIST ticks_tshow_sel
+BEGIN
+	script ticks_tick_enable
+	script ticks_tick_enable
+	script ticks_tick_disable
+END
+SCRIPT ticks_tick_enable
+BEGIN
+	ticks.tx_tpos.enable	
+	ticks.cb_tpos.enable
+	ticks.tx_tclr.enable
+	ticks.cb_tclr.enable
+	ticks.cl_tclr.enable
+	ticks.tx_topacity.enable
+	ticks.sp_topacity.enable
+	ticks.tx_tlength.enable
+	ticks.cb_tlength.enable
+	ticks.tx_twidth.enable
+	ticks.cb_twidth.enable
+END
+SCRIPT ticks_tick_disable
+BEGIN
+	ticks.tx_tpos.disable	
+	ticks.cb_tpos.disable
+	ticks.tx_tclr.disable
+	ticks.cb_tclr.disable
+	ticks.cl_tclr.disable
+	ticks.tx_topacity.disable
+	ticks.sp_topacity.disable
+	ticks.tx_tlength.disable
+	ticks.cb_tlength.disable
+	ticks.tx_twidth.disable
+	ticks.cb_twidth.disable	
+END
+
+PROGRAM ticks_output
+BEGIN
+	put ticks.cb_tshow " "
+	if (ticks.cb_tclr.isneq("") | ticks.sp_topacity.isneq(100)) {
+		put "tlcolor("
+		if (ticks.cb_tclr.iseq("custom")) {
+			put `"""' ticks.cl_tclr
+			if (ticks.sp_topacity.isneq(100)) {
+				put " %" ticks.sp_topacity
+			}
+			put `"""'
+		}
+		else {
+			if (ticks.cb_tclr.isneq("")) {
+				put ticks.cb_tclr
+			}
+			if (ticks.sp_topacity.isneq(100)) {
+				put "%" ticks.sp_topacity
+			}
+		}
+		put ")"
+	}
+	optionarg ticks.cb_tlength
+	optionarg ticks.cb_twidth
+	optionarg /hidedefault ticks.cb_tpos
+END
+//--
+
+DIALOG grid, tabtitle(resource LBL_GRID)
+BEGIN
+  GROUPBOX tx_grid	_lft	_top	_iwd	_ht25h,		///
+	label(resource LBL_GRID_LINES)
+	
+  TEXT     tx_gshow	_ilft	_ss	_wd	.,		///
+  	label(resource LBL_SHOW_GRID) right
+  COMBOBOX cb_gshow	_sep	@	_cbwd	.,		///
+	dropdownlist contents(yesno) values(grid_cb_gshow)	///
+	onselchangelist(grid_gshow_sel)
+
+  TEXT     tx_gclr	_ilft	_mls	_wd	.,		///
+	label(resource LBL_COLOR)	right
+  COMBOBOX cb_gclr	_sep	@	_cbwd	.,		///
+	dropdownlist contents(colors) option(glcolor)		///
+	onselchangelist(grid_cl_gclr_sel)
+  COLOR    cl_gclr	_cbsep	@	_clwd	., option(glcolor)
+  TEXT     tx_gopacity	_ilft	_mls	_wd	.,		///
+	label(resource LBL_OPACITY) right
+  SPINNER sp_gopacity	_sep	@	_spwd	.,		///
+	default(100)						///
+	min(0)							///
+	max(100)
+
+  TEXT     tx_gwidth	_ilft	_mls	_wd	.,		///
+	label(resource LBL_WIDTH)	right
+  COMBOBOX cb_gwidth	_sep	@	_cbwd	.,		///
+	dropdown contents(linewidths) option(glwidth)
+  
+  TEXT     tx_gpattern	_ilft	_mls	_wd	.,		///
+	label(resource LBL_PATTERN) right	
+  COMBOBOX cb_gpattern	_sep	@	_cbwd	.,		///
+	dropdownlist contents(linepatterns) option(glpattern)
+
+  GROUPBOX gb_adv	_ilft	_ls	_ibwd	_ht8,		///
+	label(resource LBL_ADVANCED)
+  TEXT     tx_gmin	_iilft	_ss	_wd3	.,		///
+  	label(resource GR_AXIS_TICK_LABEL_OPTIONS_GRID_GB_ADV) right
+  COMBOBOX cb_gmin	_sep3	@	_cbwd2	.,		///
+	dropdownlist contents(yesno) values(grid_min)
+	
+  TEXT     tx_gmax	_iilft	_mls	_wd3	.,		///
+  	label(resource GR_AXIS_TICK_LABEL_OPTIONS_GRID_TX_GMAX) right
+  COMBOBOX cb_gmax	_sep3	@	_cbwd2	.,		///
+	dropdownlist contents(yesno) values(grid_max)
+	
+  TEXT     tx_gextend	_iilft	_mls	_wd3	.,		///
+  	label(resource GR_AXIS_TICK_LABEL_OPTIONS_GRID_TX_GEXTEND) right
+  COMBOBOX cb_gextend	_sep3	@	_cbwd2	.,		///
+	dropdownlist contents(yesno) values(grid_gextend)
+END
+
+LIST grid_min
+BEGIN
+	""
+	"gmin"
+	"nogmin"
+END
+
+LIST grid_max
+BEGIN
+	""
+	"gmax"
+	"nogmax"
+END
+
+LIST grid_gextend
+BEGIN
+	""
+	"gextend"
+	"nogextend"
+END
+
+LIST grid_cl_gclr_sel
+BEGIN
+	grid.cl_gclr.hide
+	grid.cl_gclr.show
+	grid.cl_gclr.hide
+END
+
+LIST grid_cb_gshow
+BEGIN
+	""
+	"grid"
+	"nogrid"
+END
+
+LIST grid_gshow_sel
+BEGIN
+	script grid_grid_enable
+	script grid_grid_enable
+	script grid_grid_disable
+END
+SCRIPT grid_grid_enable
+BEGIN
+	grid.tx_gwidth.enable
+	grid.cb_gwidth.enable
+	grid.tx_gclr.enable
+	grid.cb_gclr.enable
+	grid.cl_gclr.enable
+	grid.tx_gopacity.enable
+	grid.sp_gopacity.enable
+	grid.tx_gpattern.enable
+	grid.cb_gpattern.enable
+	grid.gb_adv.enable
+	grid.cb_gmin.enable
+	grid.cb_gmax.enable
+	grid.cb_gextend.enable
+END
+SCRIPT grid_grid_disable
+BEGIN
+	grid.tx_gwidth.disable
+	grid.cb_gwidth.disable
+	grid.tx_gclr.disable
+	grid.cb_gclr.disable
+	grid.cl_gclr.disable
+	grid.sp_gopacity.disable
+	grid.tx_gpattern.disable
+	grid.cb_gpattern.disable
+	grid.gb_adv.disable
+	grid.cb_gmin.disable
+	grid.cb_gmax.disable
+	grid.cb_gextend.disable
+END
+
+PROGRAM grid_output
+BEGIN
+	put " " grid.cb_gshow " "
+	optionarg /hidedefault grid.cb_gwidth
+	if (grid.cb_gclr.isneq("") | grid.sp_gopacity.isneq(100)) {
+		put " glcolor("
+		if (grid.cb_gclr.iseq("custom")) {
+			put `"""' grid.cl_gclr
+			if (grid.sp_gopacity.isneq(100)) {
+				put " %" grid.sp_gopacity
+			}
+			put `"""'
+		}
+		else {
+			if (grid.cb_gclr.isneq("")) {
+				put grid.cb_gclr
+			}
+			if (grid.sp_gopacity.isneq(100)) {
+				put "%" grid.sp_gopacity
+			}
+		}
+		put ")"
+	}
+	optionarg /hidedefault grid.cb_gpattern
+	put " " grid.cb_gmin
+	put " " grid.cb_gmax
+	put " " grid.cb_gextend
+END
+//--
+
+PROGRAM command
+BEGIN
+	if ! rule.rb_default 						///
+		|labels.cb_lshow | labels.cb_lsize | labels.cb_lclr 	///
+		| labels.sp_lopacity.isneq(100) | labels.cb_langle 	///
+		| labels.ed_lformat | labels.cb_lgap			///
+		| labels.ck_vlabel | labels.ck_alternate		///
+		| ticks.cb_tshow | ticks.cb_tpos | ticks.cb_tclr 	///
+		| ticks.sp_topacity.isneq(100) | ticks.cb_tlength 	///
+		| ticks.cb_twidth					///
+		| grid.cb_gshow | grid.cb_gwidth | grid.cb_gclr 	///
+		| grid.sp_gopacity.isneq(100) | grid.cb_gpattern	///
+		| grid.cb_gmin | grid.cb_gmax | grid.cb_gextend 	///
+	{
+		put " " /program rule_output
+		beginoptions
+			put " " /program labels_output
+			put " " /program ticks_output
+			put " " /program grid_output
+			if isAxis2 {
+				put " axis(2)"
+			}
+		endoptions
+	}
+END

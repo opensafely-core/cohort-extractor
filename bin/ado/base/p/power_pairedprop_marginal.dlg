@@ -1,0 +1,860 @@
+/*
+	power paired-proportions, marginal proportions
+
+*!  VERSION 1.1.4  14mar2017
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_xwide
+DEFINE _dlght 480
+INCLUDE header
+
+HELP hlp1, view("help power pairedproportions")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING graph_res
+	create STRING standdev_res
+	create STRING numContents
+	create STRING stok
+	create ARRAY tmp
+	create BOOLEAN containsNumlist
+	create BOOLEAN containsNumlist_p1
+	create BOOLEAN containsNumlist_p2
+	create BOOLEAN child_hasNumlist
+	create STRING child_dlgName
+
+	child_hasNumlist.setfalse
+	child_dlgName.setvalue "Power_Pariedprop"
+
+	program table_create4Pairedprop_marginal
+	setscale_hadj resource POWER_PAIREDPROP_MARGINAL_DLG_HSCALE
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	label(resource POWER_PAIREDPROP_MARGINAL_DLG_TITLE)
+BEGIN
+  INCLUDE power_compute
+  DEFINE errpos _ls
+  INCLUDE power_errorprob
+  DEFINE sspos +45
+  INCLUDE power_onesampsize
+
+  GROUPBOX gb_effect_size	_lft	+45	_iwd	_ht11,		///
+	label(resource LBL_EFFECT_SIZE)
+  GROUPBOX gb_prop		_indent	_ss	355	_ht8,		///
+	label(resource POWER_PAIREDPROP_MARGINAL_MAIN_GB_PROP)
+  DEFINE holdyz @y
+  EDIT ed_p1_other		_indent	_ss	_en14wd	.,		///
+  	onchange(program check_for_numlist)				///
+	label(resource POWER_LBL_SUCCESS_PROPORTION_AT_OCCASION_1)	///
+	tooltip(resource POWER_PAIREDPROP_MARGINAL_MAIN_ED_P1_OTHER)
+  TEXT tx_p1_other		_en14sep @	200	.,		///
+	label("*")
+  COMBOBOX cb_p1_other		+10	 @	200	.,		///
+	dropdownlist							///
+	contents("main_p1_list")					///
+	values("main_p1_values")					///
+	onselchange("program main_p1_other_changed")			///
+	label("")
+  EDIT ed_p2_other		_iilft	_ls	_en14wd	.,		///
+  	onchange(program check_for_numlist)				///
+	label("")
+  TEXT tx_p2_other		_en14sep @	8	.,		///
+	label("*")
+  COMBOBOX cb_p2_other		+10	 @	200	.,		///
+	dropdownlist							///
+	contents("main_effect_list")					///
+	values("main_effect_values")					///
+	onselchange("program main_p2_other_changed")			///
+	label(resource LBL_STAR_ALTERNATIVE_DIFFERENCE)
+  EDIT ed_corr			_iilft	_ls	_en14wd	.,		///
+  	onchange(program check_for_numlist)				///
+	option(corr)							///
+	tooltip(resource LBL_CORRELATION_BETWEEN_PAIRED_OBSERVATIONS)	///
+	label(resource LBL_CORRELATION_NO_COLON)
+  TEXT tx_corr			_en14sep @	200	.,		///
+	label(resource LBL_STAR_CORRELATION)
+
+  TEXT tx_report_effect		+230	holdyz	150	.,		///
+	label(resource LBL_REPORT_EFFECT_SIZE_AS)
+  COMBOBOX cb_report_effect	@	 _ss	@	.,		///
+	dropdownlist							///
+	option(effect)							///
+	contents("main_report_effect_list")				///
+	values("main_report_effect_values")				///
+	label(resource LBL_REPORT_EFFECT_SIZE_AS)
+  DEFINE ypos +115
+  INCLUDE power_test_maincommon
+END
+
+LIST main_compute_list
+BEGIN
+	resource LBL_SAMPLE_SIZE
+	resource PSS_LBL_POWER
+END
+
+LIST main_compute_values
+BEGIN
+	sampsi
+	power
+END
+
+INCLUDE _power_list
+
+LIST main_p1_list
+BEGIN
+	resource POWER_LBL_SUCCESS_PROPORTION_AT_OCCASION_1
+	resource POWER_LBL_DIFFERENCE
+	resource LBL_RATIO_NO_COLON
+	resource LBL_RELATIVE_RISK
+	resource LBL_ODDS_RATIO
+END
+
+LIST main_p1_values
+BEGIN
+	"p1"
+	"diff"
+	"ratio"
+	"rrisk"
+	"oratio"
+END
+
+LIST main_effect_list
+BEGIN
+	resource POWER_LBL_SUCCESS_PROPORTION_AT_OCCASION_2
+	resource POWER_LBL_DIFFERENCE
+	resource LBL_RATIO_NO_COLON
+	resource LBL_RELATIVE_RISK
+	resource LBL_ODDS_RATIO
+END
+
+LIST main_effect_values
+BEGIN
+	"p2"
+	"diff"
+	"ratio"
+	"rrisk"
+	"oratio"
+END
+
+LIST main_diff_list
+BEGIN
+	resource LBL_RATIO_NO_COLON
+	resource LBL_RELATIVE_RISK
+END
+
+LIST main_diff_values
+BEGIN
+	"ratio"
+	"rrisk"
+END
+
+LIST main_ratio_list
+BEGIN
+	resource POWER_LBL_DIFFERENCE
+	resource LBL_ODDS_RATIO
+END
+
+LIST main_ratio_values
+BEGIN
+	"diff"
+	"oratio"
+END
+
+LIST main_rrisk_list
+BEGIN
+	resource POWER_LBL_DIFFERENCE
+	resource LBL_ODDS_RATIO
+END
+
+LIST main_rrisk_values
+BEGIN
+	"diff"
+	"oratio"
+END
+
+LIST main_oratio_list
+BEGIN
+	resource LBL_RATIO_NO_COLON
+	resource LBL_RELATIVE_RISK
+END
+
+LIST main_oratio_values
+BEGIN
+	"ratio"
+	"rrisk"
+END
+
+LIST main_report_effect_list
+BEGIN
+	resource POWER_PAIREDPROP_MARGINAL_DIFF
+	resource POWER_PAIREDPROP_MARGINAL_RATIO
+	resource POWER_PAIREDPROP_MARGINAL_RR
+	resource LBL_ODDS_RATIO
+END
+
+LIST main_report_effect_values
+BEGIN
+	"diff"
+	"ratio"
+	"rrisk"
+	"oratio"
+END
+
+PROGRAM main_compute_changed
+BEGIN
+	if main.cb_compute.iseq("sampsi") {
+		call program main_sampsi_on
+	}
+	if main.cb_compute.iseq("power") {
+		call program main_power_on
+	}
+	call program check_for_numlist
+END
+
+PROGRAM main_sampsi_on
+BEGIN
+	call main.ed_power.show
+	call main.ed_beta.show
+	call main.tx_power_beta_power.show
+	call main.cb_power_beta.show
+	call main.ed_n.hide
+	call main.tx_n.hide
+	call main.ck_nfrac.show
+	call main.ed_p1_other.show
+	call main.tx_p1_other.show
+	call main.cb_p1_other.show
+	call main.ed_p2_other.show
+	call main.tx_p2_other.show
+	call main.cb_p2_other.show
+	call script power_test_maincommon_hide_dir
+	call program main_power_beta_changed
+	call program power_iteration_tab_check
+END
+
+PROGRAM main_power_on
+BEGIN
+	call main.ed_power.hide
+	call main.ed_beta.hide
+	call main.tx_power_beta_power.hide
+	call main.cb_power_beta.hide
+	call main.ed_n.show
+	call main.tx_n.show
+	call main.ck_nfrac.hide
+	call main.ed_p1_other.show
+	call main.tx_p1_other.show
+	call main.cb_p1_other.show
+	call main.ed_p2_other.show
+	call main.tx_p2_other.show
+	call main.cb_p2_other.show
+
+	call script power_test_maincommon_hide_dir
+	call program power_iteration_tab_check
+END
+
+INCLUDE power_errorprob_pr
+INCLUDE power_twosampsi_pr
+
+PROGRAM main_p1_other_changed
+BEGIN
+	if main.cb_p1_other.iseq("p1") {
+		call main.ed_p1_other.settooltip 			///
+			resource POWER_PAIREDPROP_MARGINAL_PROP_SUC_OCC_1_COL_MARG
+		call main.ed_p1_other.setlabel 				///
+			resource POWER_LBL_SUCCESS_PROPORTION_AT_OCCASION_1
+		call main.cb_p2_other.setcontentslist main_effect_list
+		call main.cb_p2_other.setvalueslist main_effect_values
+		call main.cb_p2_other.repopulate
+		call main.cb_p2_other.setvalue "p2"
+	}
+	if main.cb_p1_other.iseq("diff") {
+		call main.ed_p1_other.settooltip 			///
+			resource POWER_PAIREDPROP_MARGINAL_DIFF_BTW_MAR_PROP_P1
+		call main.ed_p1_other.setlabel 				///
+			resource LBL_DIFFERENCE_BETWEEN_MARGINAL_PROPORTIONS
+		call main.cb_p2_other.setcontentslist main_diff_list
+		call main.cb_p2_other.setvalueslist main_diff_values
+		call main.cb_p2_other.repopulate
+		call main.cb_p2_other.setvalue "ratio"
+	}
+	if main.cb_p1_other.iseq("ratio") {
+		call main.ed_p1_other.settooltip 			///
+			resource POWER_PAIREDPROP_MARGINAL_DIFF_RATIO_OF_MARG_PROP
+		call main.ed_p1_other.setlabel 				///
+			resource LBL_RATIO_OF_MARGINAL_PROPORTIONS
+		call main.cb_p2_other.setcontentslist main_ratio_list
+		call main.cb_p2_other.setvalueslist main_ratio_values
+		call main.cb_p2_other.repopulate
+		call main.cb_p2_other.setvalue "diff"
+	}	
+	if main.cb_p1_other.iseq("rrisk") {
+		call main.ed_p1_other.settooltip 			///
+			resource POWER_PAIREDPROP_MARGINAL_RR
+		call main.ed_p1_other.setlabel 				///
+			resource LBL_RELATIVE_RISK
+		call main.cb_p2_other.setcontentslist main_rrisk_list
+		call main.cb_p2_other.setvalueslist main_rrisk_values
+		call main.cb_p2_other.repopulate
+		call main.cb_p2_other.setvalue "diff"
+	}
+	if main.cb_p1_other.iseq("oratio") {
+		call main.ed_p1_other.settooltip			///
+			resource POWER_PAIREDPROP_MARGINAL_OR_TIP
+		call main.ed_p1_other.setlabel resource LBL_ODDS_RATIO
+		call main.cb_p2_other.setcontentslist main_oratio_list
+		call main.cb_p2_other.setvalueslist main_oratio_values
+		call main.cb_p2_other.repopulate
+		call main.cb_p2_other.setvalue "ratio"
+	}
+	call program check_for_numlist
+	call program main_effect_change
+	call program table_create4Pairedprop_marginal	
+END
+
+PROGRAM main_p2_other_changed
+BEGIN
+	if main.cb_p2_other.iseq("p2") {
+		call main.ed_p2_other.settooltip 			///
+			resource POWER_PAIREDPROP_MARGINAL_PROP_SUC_OCC_2_COL_MARG
+		call main.ed_p2_other.setlabel 				///
+			resource POWER_LBL_SUCCESS_PROPORTION_AT_OCCASION_2
+	}
+	if main.cb_p2_other.iseq("diff") {
+		call main.ed_p2_other.settooltip			///
+			resource POWER_PAIREDPROP_MARGINAL_DIFF_BTW_MAR_PROP_P1
+		call main.ed_p2_other.setlabel				///
+			resource LBL_DIFFERENCE_BETWEEN_MARGINAL_PROPORTIONS
+	}
+	if main.cb_p2_other.iseq("ratio") {
+		call main.ed_p2_other.settooltip			///
+			resource POWER_PAIREDPROP_MARGINAL_DIFF_RATIO_OF_MARG_PROP
+		call main.ed_p2_other.setlabel 				///
+			resource LBL_RATIO_OF_MARGINAL_PROPORTIONS
+	}
+	if main.cb_p2_other.iseq("rrisk") {
+		call main.ed_p2_other.settooltip 			///
+			resource POWER_PAIREDPROP_MARGINAL_RR
+		call main.ed_p2_other.setlabel 				///
+			resource LBL_RELATIVE_RISK
+	}
+	if main.cb_p2_other.iseq("oratio") {
+		call main.ed_p2_other.settooltip 			///
+			resource POWER_PAIREDPROP_MARGINAL_OR_TIP
+		call main.ed_p2_other.setlabel 				///
+			resource LBL_ODDS_RATIO
+	}
+	call program check_for_numlist
+	call program main_effect_change
+	call program table_create4Pairedprop_marginal	
+END
+
+PROGRAM main_effect_change
+BEGIN
+	if main.cb_p1_other.iseq("p1") & main.cb_p2_other.iseq("p2") {
+		call main.cb_report_effect.setvalue "diff"
+		call main.cb_report_effect.setdefault "diff"
+	}
+	if main.cb_p1_other.iseq("p1") & main.cb_p2_other.iseq("diff") {
+		call main.cb_report_effect.setvalue "diff"
+		call main.cb_report_effect.setdefault "diff"
+	}
+	if main.cb_p1_other.iseq("p1") & main.cb_p2_other.iseq("ratio") {
+		call main.cb_report_effect.setvalue "ratio"
+		call main.cb_report_effect.setdefault "ratio"
+	}
+	if main.cb_p1_other.iseq("p1") & main.cb_p2_other.iseq("rrisk") {
+		call main.cb_report_effect.setvalue "rrisk"
+		call main.cb_report_effect.setdefault "rrisk"
+	}
+	if main.cb_p1_other.iseq("p1") & main.cb_p2_other.iseq("oratio") {
+		call main.cb_report_effect.setvalue "oratio"
+		call main.cb_report_effect.setdefault "oratio"
+	}
+	if main.cb_p1_other.iseq("diff") & main.cb_p2_other.iseq("ratio") {
+		call main.cb_report_effect.setvalue "diff"
+		call main.cb_report_effect.setdefault "diff"
+	}
+	if main.cb_p1_other.iseq("diff") & main.cb_p2_other.iseq("rrisk") {
+		call main.cb_report_effect.setvalue "diff"
+		call main.cb_report_effect.setdefault "diff"
+	}
+	if main.cb_p1_other.iseq("ratio") & main.cb_p2_other.iseq("diff") {
+		call main.cb_report_effect.setvalue "diff"
+		call main.cb_report_effect.setdefault "diff"
+	}
+	if main.cb_p1_other.iseq("ratio") & main.cb_p2_other.iseq("oratio") {
+		call main.cb_report_effect.setvalue "diff"
+		call main.cb_report_effect.setdefault "diff"
+	}
+	if main.cb_p1_other.iseq("rrisk") & main.cb_p2_other.iseq("diff") {
+		call main.cb_report_effect.setvalue "diff"
+		call main.cb_report_effect.setdefault "diff"
+	}
+	if main.cb_p1_other.iseq("rrisk") & main.cb_p2_other.iseq("oratio") {
+		call main.cb_report_effect.setvalue "diff"
+		call main.cb_report_effect.setdefault "diff"
+	}
+	if main.cb_p1_other.iseq("oratio") & main.cb_p2_other.iseq("ratio") {
+		call main.cb_report_effect.setvalue "diff"
+		call main.cb_report_effect.setdefault "diff"
+	}
+	if main.cb_p1_other.iseq("oratio") & main.cb_p2_other.iseq("rrisk") {
+		call main.cb_report_effect.setvalue "diff"
+		call main.cb_report_effect.setdefault "diff"
+	}
+END
+
+PROGRAM main_power_beta_table
+BEGIN
+	call program table_create4Pairedprop_marginal
+END
+
+PROGRAM check_for_numlist
+BEGIN
+	call containsNumlist.setfalse
+	call containsNumlist_p1.setfalse
+	call containsNumlist_p2.setfalse
+
+	if main.ed_p1_other {
+		call numContents.setvalue class main.ed_p1_other.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+			call containsNumlist_p1.settrue
+		}
+	}
+
+	if main.ed_p2_other {
+		call numContents.setvalue class main.ed_p2_other.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+			call containsNumlist_p2.settrue
+		}
+	}
+
+	if main.ed_alpha {
+		call numContents.setvalue class main.ed_alpha.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_power & main.ed_power.isvisible() {
+		call numContents.setvalue class main.ed_power.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_beta & main.ed_beta.isvisible() {
+		call numContents.setvalue class main.ed_beta.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_n & main.ed_n.isvisible() {
+		call numContents.setvalue class main.ed_n.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_corr {
+		call numContents.setvalue class main.ed_corr.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if containsNumlist {
+		call main.ck_parallel.enable
+	}
+	else {
+		call main.ck_parallel.disable
+	}
+END
+
+PROGRAM power_iteration_tab_check
+BEGIN
+	call script power_iteration_enable
+	if main.cb_compute.iseq("power") {
+		call script power_iteration_disable
+	}
+	else {
+		if main.cb_oneside.iseq("onesided") {
+			call script power_iteration_disable
+		}
+		if main.cb_compute.endswith("sampsi") {
+			call script power_iteration_is_sampsi
+		}
+		if main.cb_compute.iseq("effect") {
+			call script power_iteration_is_effect
+		}
+	}
+END
+
+INCLUDE power_test_maincommon_pr
+INCLUDE power_table_opts
+INCLUDE power_graph
+INCLUDE power_iteration
+
+PROGRAM command
+BEGIN
+	put "power pairedproportions "
+
+	require main.ed_corr
+
+	if main.cb_compute.iseq("sampsi") | main.cb_compute.iseq("power") {
+		require main.ed_p1_other
+		if !main.ed_p1_other.isnumlist() {
+			if main.cb_p1_other.iseq("p1") {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 					///
+					"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+					"resource LBL_TAB_MAIN"				///
+					"resource POWER_LBL_SUCCESS_PROPORTION_AT_OCCASION_1"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Success proportion at occasion 1".
+			}
+			if main.cb_p1_other.iseq("diff") {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format					///
+					"resource LBL_MSGBOX_INVALID_NUMLIST_BETWEEN_MARGINAL_PROP_FMT" ///
+					"resource LBL_TAB_MAIN"				///
+			       		"resource POWER_LBL_DIFFERENCE"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Difference" between marginal proportions.
+			}
+			if main.cb_p1_other.iseq("ratio") {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 					///
+					"resource LBL_MSGBOX_INVALID_NUMLIST_OF_MARGINAL_PROP_FMT" ///
+					"resource LBL_TAB_MAIN"				///
+					"resource LBL_RATIO_NO_COLON" 
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Ratio" of marginal proportions.
+			}
+			if main.cb_p1_other.iseq("rrisk") {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 					///
+					"resource LBL_MSGBOX_INVALID_NUMLIST_OF_MARGINAL_PROP_FMT" ///
+					"resource LBL_TAB_MAIN"				///
+					"resource LBL_RELATIVE_RISK" 
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Relative risk" of marginal proportions.
+			}
+			if main.cb_p1_other.iseq("oratio") {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 					///
+					"resource LBL_MSGBOX_INVALID_NUMLIST_OF_MARGINAL_PROP_FMT" ///
+					"resource LBL_TAB_MAIN"				///
+					"resource LBL_ODDS_RATIO"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Odds ratio" of marginal proportions.
+			}
+		}
+		if main.cb_p1_other.iseq("p1") {
+			if !(main.ed_p1_other.isNumlistGT(0) & main.ed_p1_other.isNumlistLT(1)) {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 					///
+					"resource LBL_MSGBOX_ON_TAB_GT_0_LT_1_FMT" 	///
+					"resource LBL_TAB_MAIN"				///
+					"resource POWER_LBL_SUCCESS_PROPORTION_AT_OCCASION_1"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Success proportion at occasion 1" must be in (0,1).
+			}
+		}
+		if main.cb_p1_other.iseq("diff") {
+			if !(main.ed_p1_other.isNumlistGT(-1) & main.ed_p1_other.isNumlistLT(1)) {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 					///
+					"resource POWER_MSGBOX_DIFF_BETWEEN_MARGINAL_PROP_1_AND_1" ///
+					"resource LBL_TAB_MAIN"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Difference" between marginal proportions must be between -1 and 1.
+			}
+		}
+		if main.cb_p1_other.iseq("ratio") {
+			if !main.ed_p1_other.isNumlistGT(0) {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 					///
+					"resource LBL_MSGBOX_MARGINAL_PROP_GREATER_THAN_0_FMT"	///
+					"resource LBL_TAB_MAIN"				///
+					"resource LBL_RATIO_NO_COLON"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Ratio" of marginal proportions must be greater than 0.
+			}
+		}
+		if main.cb_p1_other.iseq("rrisk") {
+			if !main.ed_p1_other.isNumlistGT(0) {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 					///
+					"resource LBL_MSGBOX_MARGINAL_PROP_GREATER_THAN_0_FMT" 	///
+					"resource LBL_TAB_MAIN"				///
+					"resource LBL_RELATIVE_RISK"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Relative risk" of marginal proportions must be greater than 0.
+			}
+		}
+		if main.cb_p1_other.iseq("oratio") {
+			if !main.ed_p1_other.isNumlistGT(0) {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 					///
+					"resource LBL_MSGBOX_MARGINAL_PROP_GREATER_THAN_0_FMT" 	///
+					"resource LBL_TAB_MAIN"				///
+					"resource LBL_ODDS_RATIO"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Odds ratio" of marginal proportions must be greater than 0.
+			}
+		}
+		if containsNumlist_p1 & main.cb_p1_other.iseq("p1") {
+			put "("
+			put main.ed_p1_other
+			put ")"
+		}
+		if !containsNumlist_p1 & main.cb_p1_other.iseq("p1") {
+			put main.ed_p1_other
+		}
+	}
+
+	if main.cb_compute.endswith("sampsi")  | main.cb_compute.iseq("power") {
+		require main.ed_p2_other
+	}
+
+	if main.cb_p2_other.iseq("p2") & main.cb_p2_other.isvisible() {
+		if !main.ed_p2_other.isnumlist() {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 					///
+					"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+					"resource LBL_TAB_MAIN"				///
+					"resource POWER_LBL_SUCCESS_PROPORTION_AT_OCCASION_2"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Success proportion at occasion 2".
+		}
+		if !(main.ed_p2_other.isNumlistGT(0) & main.ed_p2_other.isNumlistLT(1)) {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format 					///
+				"resource LBL_MSGBOX_ON_TAB_GT_0_LT_1_FMT" 	///
+				"resource LBL_TAB_MAIN"				///
+				"resource POWER_LBL_SUCCESS_PROPORTION_AT_OCCASION_2"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Success proportion at occasion 2" must be in (0,1).
+		}
+		if containsNumlist_p2 {
+			put " ("
+			put main.ed_p2_other
+			put ")"
+		}
+		else {
+			put " " main.ed_p2_other	
+		}
+	}
+
+	if main.cb_compute.iseq("power") {
+		require main.ed_n
+	}
+
+	beginoptions
+		optionarg main.ed_corr
+		if !main.ed_corr.isnumlist() {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 					///
+					"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+					"resource LBL_TAB_MAIN"				///
+					"resource LBL_CORRELATION_NO_COLON"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Correlation".
+		}
+		if !(main.ed_corr.isNumlistGE(-1) & main.ed_corr.isNumlistLE(1)) {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format 					///
+				"resource LBL_MSGBOX_ON_TAB_BETWEEN_NEG_1_AND_1_FMT" ///
+				"resource LBL_TAB_MAIN"				///
+				"resource LBL_CORRELATION_NO_COLON"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Correlation" must be between -1 and 1.
+		}
+		if main.cb_p1_other.iseq("diff") &			///
+			main.cb_p1_other.isvisible(){
+			put " diff(" main.ed_p1_other ")"
+		}
+		if main.cb_p1_other.iseq("ratio") &			///
+			main.cb_p1_other.isvisible(){
+			put " ratio(" main.ed_p1_other ")"
+		}
+		if main.cb_p1_other.iseq("rrisk") &			///
+			main.cb_p1_other.isvisible(){
+			put " rrisk(" main.ed_p1_other ")"
+		}
+		if main.cb_p1_other.iseq("oratio") &			///
+			main.cb_p1_other.isvisible(){
+			put " oratio(" main.ed_p1_other ")"
+		}
+		
+		if main.cb_p2_other.iseq("diff") &			///
+			main.cb_p2_other.isvisible(){
+			if !main.ed_p2_other.isnumlist() {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 					///
+					"resource LBL_MSGBOX_INVALID_NUMLIST_BETWEEN_MARGINAL_PROP_FMT" ///
+					"resource LBL_TAB_MAIN"				///
+					"resource POWER_LBL_DIFFERENCE"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Difference" between marginal proportions.
+			}
+			if !(main.ed_p2_other.isNumlistGT(-1) & main.ed_p2_other.isNumlistLT(1)) {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 					///
+					"resource POWER_MSGBOX_DIFF_BETWEEN_MARGINAL_PROP_1_AND_1" ///
+					"resource LBL_TAB_MAIN"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Difference" between marginal proportions must be between -1 and 1.
+			}
+			put " diff(" main.ed_p2_other ")"
+		}
+		if main.cb_p2_other.iseq("ratio") &			///
+			main.cb_p2_other.isvisible(){
+			if !main.ed_p2_other.isnumlist() {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 					///
+					"resource LBL_MSGBOX_INVALID_NUMLIST_OF_MARGINAL_PROP_FMT" ///
+					"resource LBL_TAB_MAIN"				///
+					"resource LBL_RATIO_NO_COLON"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Ratio" of marginal proportions.
+			}
+			if !main.ed_p2_other.isNumlistGT(0) {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 					///
+					"resource LBL_MSGBOX_MARGINAL_PROP_GREATER_THAN_0_FMT" 	///
+					"resource LBL_TAB_MAIN"				///
+					"resource LBL_RATIO_NO_COLON"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Ratio" of marginal proportions must be greater than 0.
+			}
+			put " ratio(" main.ed_p2_other ")"
+		}
+		if main.cb_p2_other.iseq("rrisk") &			///
+			main.cb_p2_other.isvisible(){
+			if !main.ed_p2_other.isnumlist() {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 					///
+					"resource LBL_MSGBOX_INVALID_NUMLIST_OF_MARGINAL_PROP_FMT" ///
+					"resource LBL_TAB_MAIN"				///
+					"resource LBL_RELATIVE_RISK"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Relative risk" of marginal proportions.
+			}
+			if !main.ed_p2_other.isNumlistGT(0) {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 					///
+					"resource LBL_MSGBOX_MARGINAL_PROP_GREATER_THAN_0_FMT" 	///
+					"resource LBL_TAB_MAIN"				///
+					"resource LBL_RELATIVE_RISK"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Relative risk" of marginal proportions must be greater than 0.
+			}
+			put " rrisk(" main.ed_p2_other ")"
+		}
+		if main.cb_p2_other.iseq("oratio") &			///
+			main.cb_p2_other.isvisible(){
+			if !main.ed_p2_other.isnumlist() {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 					///
+					"resource LBL_MSGBOX_INVALID_NUMLIST_OF_MARGINAL_PROP_FMT" ///
+					"resource LBL_TAB_MAIN"				///
+					"resource LBL_ODDS_RATIO"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Odds ratio" of marginal proportions.
+			}
+			if !main.ed_p2_other.isNumlistGT(0) {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 					///
+					"resource LBL_MSGBOX_MARGINAL_PROP_GREATER_THAN_0_FMT" 	///
+					"resource LBL_TAB_MAIN"				///
+					"resource LBL_ODDS_RATIO"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Odds ratio" of marginal proportions must be greater than 0.
+			}
+			put " oratio(" main.ed_p2_other ")"
+		}
+		
+		optionarg /hidedefault main.cb_report_effect
+
+		if main.ed_n & main.ed_n.isvisible() {
+			if !main.ed_n.isnumlist() {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 					///
+					"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+					"resource LBL_TAB_MAIN"				///
+					"resource LBL_SAMPLE_SIZE"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Sample size".
+			}
+			if !main.ed_n.isNumlistGT(0) {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 					///
+					"resource LBL_MSGBOX_ON_TAB_GREATER_THAN_0_FMT" ///
+					"resource LBL_TAB_MAIN"				///
+					"resource LBL_SAMPLE_SIZE"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Sample size" must be greater than 0.
+			}
+			optionarg main.ed_n
+		}
+
+		option main.ck_nfrac
+
+		put " " /program power_errorprob_output
+		put " " /program power_test_maincommon_output
+		put " " /program power_table_opts_output
+		put " " /program power_graph_output
+		put " " /program power_iteration_output
+	endoptions
+END

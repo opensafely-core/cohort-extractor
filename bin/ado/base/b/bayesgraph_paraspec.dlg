@@ -1,0 +1,159 @@
+/*
+  bayesgraph_paraspec.dlg
+
+*!  VERSION 1.1.1  15apr2019
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 120
+INCLUDE header
+
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource BAYESGRAPH_PARASPEC_DLG_HSCALE
+
+	create ARRAY paras_list
+	create STRING paras_str
+	create STRING paras_tmp
+	
+	create STRING parent_name
+	create DOUBLE paras_sel
+
+	create STRING dlgname
+	dlgname.storeDialogClassName
+
+	create STRING cmdName
+	create STRING cmdStr
+	create STRING cmdPrefix
+	
+	cmdStr.setvalue ""
+	cmdName.setvalue ""
+	cmdPrefix.setvalue ""
+	cmdName.setvalue e(cmd)
+	cmdStr.setvalue e(cmdline)
+	cmdPrefix.setvalue e(prefix)
+	
+	paras_sel.setvalue 1 
+	parent_name.setvalue class PARENT._dlg_rsrcname
+	parent_name.withvalue paras_sel.setvalue		///
+		class @.paras_sel.value
+		
+	program paras_init
+END
+
+PROGRAM paras_init
+BEGIN
+	call paras_list.Arrdropall
+	
+	if cmdName.equals("bayesmh") & !cmdStr.equals("") {
+		put "bayesmh_parse_params "
+		put cmdStr
+		stata hidden immediate
+	}
+	if cmdPrefix.equals("bayes") & !cmdStr.equals("") {
+		put "bayes_parse_params "
+		put cmdStr
+		stata hidden immediate
+	}
+	
+	if paras_sel.iseq(2) {
+		put "bayesmh_wrk_dlg " 
+		put dlgname
+		put " paras_list"
+		put `" "s(eqnames) s(postparams)""'
+		put " 0"
+		stata hidden immediate
+	}
+	else {
+		put "bayesmh_wrk_dlg " 
+		put dlgname
+		put " paras_list"
+		put `" "s(postparams)""'
+		put " 0"
+		stata hidden immediate
+	}
+	call main.cb_paras.repopulate
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program check_paras_sel
+END
+
+PROGRAM check_paras_sel
+BEGIN
+	if paras_sel.iseq(1) {
+		call main.rb_selected.setlabel resource BAYES_LBL_SELECT_MODEL_PARAMETER
+	}
+	else {
+		call main.rb_selected.setlabel resource BAYES_LBL_SELECT_MODEL_PARAMETERS
+	}
+END
+
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  RADIO rb_selected		_lft	_top	_iwd	.,		///
+	first								///
+	onclickon(program main_subexp_change)				///
+	label(resource BAYES_LBL_SELECT_MODEL_PARAMETERS)
+  RADIO rb_function		@	_ss	@	.,		///
+	last								///
+	onclickon(program main_subexp_change)				///
+	label(resource BAYESGRAPH_PARASPEC_MAIN_RB_FUNCTION)
+	
+  TEXT tx_subexp		_lft	+30	_iwd	.,		///
+	label(resource BAYES_LBL_PARAMETER_SPEC_C)
+  HLINK hl_subexp		425	@	65	.,		///
+	right								///
+	label(resource LBL_PAREN_EXAMPLES_PAREN) 			///
+	onpush(view help bayesian_postestimation##functions)
+  COMBOBOX  cb_paras		_lft	_ss	_iwd	.,		///
+	dropdown append							///
+	contents(paras_list)						///
+	label(resource BAYES_LBL_PARAMETER_SPEC)
+  EXP  ex_subexp		@	@	@	.,		///
+	label(resource LBL_BU_CREATE)					///
+	bayes 								///
+	error(resource BAYES_LBL_PARAMETER_SPEC)
+END
+
+PROGRAM main_subexp_change
+BEGIN
+	if main.rb_selected {
+		call main.tx_subexp.setlabel resource BAYES_LBL_PARAMETER_SPEC_C
+		call main.hl_subexp.hide
+		call main.cb_paras.show 
+		call main.ex_subexp.hide
+	}
+	if main.rb_function {
+		call main.tx_subexp.setlabel resource BAYES_LBL_FUNCTION_SPEC_C
+		call main.hl_subexp.show
+		call main.cb_paras.hide 
+		call main.ex_subexp.show
+	}
+END
+
+PROGRAM main_function_output
+BEGIN
+	put main.ex_subexp
+END
+
+PROGRAM command
+BEGIN
+	if main.rb_selected {
+		require main.cb_paras
+		put main.cb_paras
+	}
+	else {
+		require main.ex_subexp
+		put "("
+		put "" /program main_function_output
+		put ")"
+	}
+END

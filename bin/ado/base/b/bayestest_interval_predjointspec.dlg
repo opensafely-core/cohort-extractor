@@ -1,0 +1,153 @@
+/*
+    bayestest_interval_predjointspec
+
+*!  VERSION 1.0.2  03apr2019
+
+*/
+
+VERSION 16.0
+SYNCHRONOUS_ONLY
+
+INCLUDE _std_large
+DEFINE _dlght 290
+INCLUDE header
+
+HELP hlp1, view("help bayestest interval")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource BAYESTEST_INTERVAL_PREDJOINTSPEC_DLG_HSCALE
+
+	create STRING exp_res
+	create STRING parent_name
+	create STRING estfile
+	
+	main.tx_intvalues.setposition . 80
+	main.rb_int.setposition . 110
+	main.rb_single.setposition . 160
+	main.tx_lower.setposition . 135
+	main.ed_lower.setposition . 135
+	main.cb_lower.setposition . 135
+	main.tx_theta.setposition . 135
+	main.cb_upper.setposition . 135
+	main.ed_upper.setposition . 135
+	main.tx_upper.setposition . 135 
+	main.tx_equal.setposition . 185
+	main.ed_equal.setposition . 185
+	
+	parent_name.setvalue class PARENT._dlg_rsrcname
+	parent_name.withvalue estfile.setvalue class @.main.fi_use.value
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	title(resource BAYESTEST_INTERVAL_JOINT_TITLE)				
+BEGIN
+  GROUPBOX gb_intspec		_lft	_top	_iwd	_ht23,		///
+	label(resource BAYES_LBL_GB_INTSPEC)
+	
+  TEXT tx_predexp		_ilft	_ms	@	.,		///
+	label(resource BAYES_LBL_TEST_PREDICTIONS, colon)
+  HLINK hl_predspec		415 	@	65	.,		///
+	right								///
+	onpush(view help bayesian_postestimation##functions)		///
+	label(resource LBL_PAREN_EXAMPLES_PAREN)
+  EDIT   ed_predspec		_ilft	_ss	379	.,		///
+	error(resource BAYES_LBL_RB_PARAEXP)				///
+	label(resource LBL_BU_CREATE)
+  BUTTON bu_predspec		400 	@ 	80 	.,		///
+    onpush(program main_predexp_exp)					///
+	label(resource LBL_BU_CREATE)	
+ 
+  INCLUDE bayestest_interval_testspec
+	
+  TEXT tx_label			_ilft 	220	_ibwd	.,		///
+	label(resource BAYES_LBL_TX_LABEL)
+  EDIT ed_label			@	_ss  	@ 	.,		///
+	label(resource BAYES_LBL_TX_LABEL)
+END
+
+INCLUDE bayestest_interval_testspec_sc
+
+PROGRAM check_intvalues
+BEGIN
+	if main.rb_int {
+		call script main_int_enable
+	}
+	else {
+		call script main_int_disable
+	}
+END
+
+PROGRAM main_predexp_exp
+BEGIN
+	call create CHILD bayestest_interval_predspec AS exp
+	call exp.settitle resource BAYES_LBL_TEST_PREDICTIONS
+	call exp.setExitString exp_res
+	call exp.setExitAction "program main_predexp_results"
+END
+
+PROGRAM main_predexp_results
+BEGIN
+	call exp_res.withvalue main.ed_predspec.setvalue "@"
+END
+
+PROGRAM command
+BEGIN
+	put "("
+	if main.ed_label {
+		put main.ed_label
+		put ":"
+	}
+	require main.ed_predspec
+	put main.ed_predspec
+	
+	if main.rb_single {
+		require main.ed_equal
+		if main.ed_equal {
+			put " == "
+			put main.ed_equal
+		}
+	}
+	beginoptions
+		if main.rb_int {
+			call create DOUBLE lvalue
+			call create DOUBLE uvalue
+			call lvalue.setvalue class main.ed_lower.value
+			call uvalue.setvalue class main.ed_upper.value
+			if main.ed_lower.equals("") & main.ed_upper.equals("") {
+	stopbox stop resource BAYES_MSGBOX_ONE_UPPER_LOWER_SPECIFIED
+// At least one of lower value or upper value must be specified.
+			}
+			if main.ed_lower & main.ed_upper {
+				if main.ed_lower.iseq(".") & main.ed_upper.iseq(".") {
+	stopbox stop resource BAYES_MSGBOX_ONE_UPPER_LOWER_SPECIFIED
+// At least one of lower value or upper value must be specified.		
+				}
+				if main.ed_lower.isneq(".") & main.ed_upper.isneq(".") { 
+					if lvalue.isNumlistGE(uvalue) {
+	stopbox stop resource BAYES_MSGBOX_LOWER_MUST_BE_LESSTHAN_UPPER
+// Lower value must be less than upper value.
+					}
+				}
+			}
+			if main.ed_lower & main.ed_lower.isneq(".") {
+				put " lower("
+				put main.ed_lower
+				if main.cb_lower.equals("<=") {
+					put ", inclusive"
+				}
+				put ")"
+			}
+			if main.ed_upper & main.ed_upper.isneq(".") {
+				put " upper("
+				put main.ed_upper 
+				if main.cb_upper.equals("<=") {
+					put ", inclusive"
+				}
+				put ")"
+			}
+		}
+		put ")"
+	endoptions
+END

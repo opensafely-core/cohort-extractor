@@ -1,0 +1,226 @@
+/*
+  bayespredict_funcspec.dlg
+
+*!  VERSION 1.0.4  03apr2019
+
+*/
+
+VERSION 16.0
+
+INCLUDE _std_large
+DEFINE _dlght 470
+INCLUDE header
+
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource BAYESPREDICT_FUNCSPEC_DLG_HSCALE
+	
+	create STRING exp_res
+	create STRING depvars
+	create ARRAY tmp
+	create ARRAY tmpvalue
+	create SVECTOR tmpvec
+	create DOUBLE tmpsize
+	create DOUBLE loop
+	
+	depvars.setvalue e(depvars)
+	depvars.tokenize tmp
+	tmpvec.copyFromArray tmp
+	tmpsize.setvalue class tmpvec.size
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	call main.cb_funcout.setcontentslist tmp
+	call main.cb_funcout.repopulate
+	call main.cb_funcout2.setcontentslist tmp
+	call main.cb_funcout2.repopulate
+	
+	call tmpvalue.Arrdropall
+	call loop.setvalue 1
+	while (loop.isle(tmpsize)) {
+		call loop.withvalue tmpvalue.Arrpush "@"
+		call loop.increment
+	}
+	call main.cb_funcout.setvalueslist tmpvalue
+	call main.cb_funcout.setvalue 1
+	call main.cb_funcout2.setvalueslist tmpvalue
+	call main.cb_funcout2.setvalue 1
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT tx_function		_lft	_top	_iwd	.,		///
+	label(resource BAYESPREDICT_FUNCSPEC_MAIN_TX_FUNCTION)
+  COMBOBOX cb_function		@	_ss	180	.,		///
+	dropdownlist							///
+	contents("main_function_list")					///
+	values("main_function_values")					///
+	onselchange("program main_funcexp_show")			///
+	label(resource BAYESPREDICT_FUNCSPEC_MAIN_TX_FUNCTION)
+	
+  DEFINE resy +30
+  INCLUDE bayes_funcspec
+END
+
+LIST main_function_list
+BEGIN
+	resource BAYESPREDICT_FUNCSPEC_LBL_MATA_FUNCTION
+	resource BAYESPREDICT_FUNCSPEC_LBL_STATA_PROGRAM
+END
+
+LIST main_function_values
+BEGIN
+	"func"
+	"prog"
+END
+
+PROGRAM main_funcexp_show
+BEGIN
+	if main.cb_function.equals("func") {
+		call main.gb_function.setposition . . . 275
+		call main.tx_function_name.setlabel resource BAYES_LBL_FUNCTION_NAME
+		call main.tx_function_note.show 
+		call main.hl_function_note.show
+		call main.gb_progopt.hide 
+		call main.tx_extravar.hide 
+		call main.vl_extravar.hide 
+		call main.tx_passthru.hide 
+		call main.ed_passthru.hide
+		
+		call main.gb_args.setposition . 215
+		call main.tx_arg.setposition . 260
+		call main.ck_arg2.setposition . 285
+		call main.tx_funcout.setposition . 240
+		call main.cb_funcout.setposition . 260
+		call main.cb_funcout2.setposition . 285
+		call main.tx_functype.setposition . 240
+		call main.cb_functype.setposition . 260
+		call main.cb_functype2.setposition . 285
+	}
+	else {
+		call main.gb_function.setposition . . . 390
+		call main.tx_function_name.setlabel resource GMM_MAIN_TX_PROG_N
+		call main.tx_function_note.hide 
+		call main.hl_function_note.hide
+		call main.gb_progopt.show 
+		call main.tx_extravar.show 
+		call main.vl_extravar.show 
+		call main.tx_passthru.show 
+		call main.ed_passthru.show
+		
+		call main.gb_args.setposition . 185
+		call main.tx_arg.setposition . 230
+		call main.ck_arg2.setposition . 255
+		call main.tx_funcout.setposition . 210
+		call main.cb_funcout.setposition . 230
+		call main.cb_funcout2.setposition . 255
+		call main.tx_functype.setposition . 210
+		call main.cb_functype.setposition . 230
+		call main.cb_functype2.setposition . 255
+	}
+	call program main_arg2_change
+END
+
+LIST main_function_type_list
+BEGIN
+	resource BAYES_LBL_SIMULATED_VALUES
+	resource LBL_RESIDUALS
+	resource BAYES_LBL_EXPECTED_VALUES
+END
+
+LIST main_function_type_values
+BEGIN
+	"obs"
+	"res"
+	"mu"
+END
+
+PROGRAM main_arg2_change
+BEGIN
+	if main.ck_arg2 {
+		call main.cb_funcout2.enable 
+		call main.cb_functype2.enable 
+	}
+	else {
+		call main.cb_funcout2.disable 
+		call main.cb_functype2.disable	
+	}
+END 
+
+PROGRAM main_function_output
+BEGIN
+	require main.cb_funcout
+	if main.cb_functype.iseq("obs") {
+		put "{_ysim"
+		put main.cb_funcout
+		put "}"
+	}
+	if main.cb_functype.iseq("mu") {
+		put "{_mu"
+		put main.cb_funcout
+		put "}"
+	}
+	if main.cb_functype.iseq("res") {
+		put "{_resid"
+		put main.cb_funcout
+		put "}"		
+	}
+	if main.ck_arg2 {
+		require main.cb_funcout2
+		put ", "
+		if main.cb_functype2.iseq("obs") {
+			put "{_ysim"
+			put main.cb_funcout2
+			put "}"
+		}
+		if main.cb_functype2.iseq("mu") {
+			put "{_mu"
+			put main.cb_funcout2
+			put "}"
+		}
+		if main.cb_functype2.iseq("res") {
+			put "{_resid"
+			put main.cb_funcout2
+			put "}"		
+		}	
+	}
+END
+
+PROGRAM command
+BEGIN
+	put "("
+	require main.ed_function_name
+	if main.ed_funclbl {
+		put main.ed_funclbl
+		put ": "
+	}
+	put "@"
+	if main.cb_function.iseq("func") {
+		put main.ed_function_name
+		put "("
+		put /program main_function_output
+		put ")"
+	}
+	if main.cb_function.iseq("prog") {
+		put main.ed_function_name
+		put " " /program main_function_output
+		
+		if main.vl_extravar | main.ed_passthru {
+			put ", "
+			if main.vl_extravar {
+				put " extravars("
+				put main.vl_extravar
+				put ")"
+			}
+			if main.ed_passthru {
+				put " passthruopts("
+				put main.ed_passthru
+				put ")"				
+			}
+		}
+	}
+	put ")"
+END

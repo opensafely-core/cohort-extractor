@@ -1,0 +1,148 @@
+/*
+	predict (after nbreg)
+
+*!  VERSION 2.1.1  17apr2015
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium  // ** set POSTINIT to match
+DEFINE _dlght 310
+INCLUDE header
+
+HELP hlp1, view("help nbreg postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource NBREG_P_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script _p_gentype_setMedium
+END
+
+DIALOG main, label(resource PREDICT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  INCLUDE  _p_gentype
+
+  GROUPBOX gb_opts           _lft      _ls       _iwd      _ht19,	/*
+		*/ label(resource LBL_PRODUCE)
+  RADIO    rb_n              _indent   _ss       _inwd     ., first	/*
+		*/ option(n)						/*
+		*/ onclickon(script _p_gentype_score_off)		/*
+		*/ label(resource LBL_NUMBER_OF_EVENTS)
+  RADIO    rb_ir             @         _ss       @         .,		/*
+		*/ option(ir)						/*
+		*/ onclickon(script _p_gentype_score_off)		/*
+		*/ label(resource LBL_INCIDENCE_RATE)
+  RADIO    rb_pr_n           @         _ss       @         .,		/*
+		*/ onclickon(script main_pr_n_on)			/*
+		*/ onclickoff(script main_pr_n_off)			/*
+		*/ label(resource LBL_PROBABILITY_OF_Y_EQUAL_N)
+  RADIO    rb_pr_a_b       @         +45       @         .,		/*
+		*/ onclickon(script main_pr_a_b_on)			/*
+		*/ onclickoff(script main_pr_a_b_off)			/*
+		*/ label(resource LBL_PROBABILITY_OF_A_Y_B)
+  RADIO    rb_xb             @         +45       @         .,		/*
+		*/ option(xb)						/*
+		*/ onclickon(script _p_gentype_score_off)		/*
+		*/ label(resource LBL_LINEAR_PREDICTION)
+  RADIO    rb_stdp           @         _ss       @         .,		/*
+		*/ option(stdp)						/*
+		*/ onclickon(script _p_gentype_score_off)		/*
+		*/ label(resource LBL_STANDARD_ERROR_LINEAR_PREDICTION)
+  RADIO    rb_score          @         _ss       @         ., last	/*
+		*/ option(score)					/*
+		*/ onclickon(script _p_gentype_scores_on)		/*
+		*/ label(resource LBL_EQUATION_LEVEL_SCORES)
+  EDIT      ed_pr_n          _indent2  -110      _en7wd    .,		/*
+		*/ option(pr)						/*
+		*/ label(resource LBL_PROBABILITY_OF_Y_EQUAL_N)
+
+DEFINE x @x
+  TEXT      tx_pr_n          _en7sep   @         50        .,		/*
+		*/ label("n") // equation; do not localize
+
+  EDIT      ed_pr_a         x         +45       _en7wd    .,		/*
+		*/ label(resource LBL_PROBABILITY_A_Y)
+  TEXT      tx_pr_a         _en7sep   @         50        .,		/*
+		*/ label("a") // equation; do not localize
+
+  EDIT      ed_pr_b         +55       @        _en7wd     .,		/*
+		*/ label(resource LBL_PROBABILITY_Y_B)
+  TEXT      tx_pr_b         _en7sep   @        50         .,		/*
+		*/ label("b") // equation; do not localize
+
+  CHECKBOX ck_nooffset       _lft      +100     _iwd       .,		/*
+		*/ option(nooffset)					/*
+		*/ label(resource LBL_IGNORE_OFFSET_VARIABLE)
+END
+
+SCRIPT main_pr_n_on
+BEGIN
+	script _p_gentype_score_off
+	main.ed_pr_n.enable
+	main.tx_pr_n.enable
+END
+
+SCRIPT main_pr_n_off
+BEGIN
+	script _p_gentype_score_off
+	main.ed_pr_n.disable
+	main.tx_pr_n.disable
+END
+
+SCRIPT main_pr_a_b_on
+BEGIN
+	script _p_gentype_score_off
+	main.ed_pr_a.enable
+	main.tx_pr_a.enable
+	main.ed_pr_b.enable
+	main.tx_pr_b.enable
+END
+
+SCRIPT main_pr_a_b_off
+BEGIN
+	script _p_gentype_score_off
+	main.ed_pr_a.disable
+	main.tx_pr_a.disable
+	main.ed_pr_b.disable
+	main.tx_pr_b.disable
+END
+
+INCLUDE _p_gentype_sc
+INCLUDE ifin
+
+INCLUDE _type_list_fd
+
+PROGRAM main_ed_pr_a_b_output
+BEGIN
+	put "pr("
+	put main.ed_pr_a
+	put ","
+	put main.ed_pr_b
+	put ")"
+END
+
+PROGRAM command
+BEGIN
+	put "predict "
+	put " " /program _p_gentype_output
+	INCLUDE _ifin_pr
+	beginoptions
+		option radio(main rb_n rb_ir rb_xb rb_stdp rb_score)
+		if main.rb_pr_n {
+			require main.ed_pr_n
+			optionarg main.ed_pr_n
+		}
+		if main.rb_pr_a_b {
+			require main.ed_pr_a
+			require main.ed_pr_b
+			put " " /program main_ed_pr_a_b_output
+		}
+		option main.ck_nooffset
+	endoptions
+END

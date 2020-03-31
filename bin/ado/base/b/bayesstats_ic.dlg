@@ -1,0 +1,89 @@
+/*
+    bayesstats ic
+
+*!  VERSION 1.0.9  25feb2019
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 420
+INCLUDE header
+
+HELP hlp1, view("help bayesstats ic")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource BAYESSTATS_IC_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program check_nchains
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	title(resource BAYESSTATS_IC_TITLE)				
+BEGIN
+  TEXT     tx_modelspec1	_lft	_top	_iwd	.,		///
+	label(resource BAYESSTATS_IC_MAIN_TX_MODELSPEC1)
+  COMBOBOX cb_modelspec		@	_ss	@	_ht8, 		///
+	append								///
+	contents(estimates)
+
+  GROUPBOX gb_opt		_lft	_vs8	_iwd	_ht22,		///
+	label(resource LBL_OPTIONS)
+  TEXT 	   tx_basemodel		_ilft	_ss	_ibwd	.,		///
+	label(resource BAYESSTATS_IC_MAIN_TX_BASEMODEL)
+  COMBOBOX cb_basemodel		_ilft	_ss	_ibwd	.,		///
+	dropdown							///
+	option(basemodel)						///
+	contents(estimates)						///
+	default("")							///
+	label(resource BAYESSTATS_IC_MAIN_TX_BASEMODEL)
+  CHECKBOX ck_bayesfactor	@	_ls	@	.,		///
+	option(bayesfactor)						///
+	label(resource BAYESSTATS_IC_MAIN_CK_BAYESFACTOR)
+  CHECKBOX ck_diconly		@	_ms	@	.,		///
+	option(diconly)							///
+	label(resource BAYESSTATS_IC_MAIN_CK_DICONLY)
+
+  DEFINE chain_x _ilft 
+  DEFINE chain_y _ls
+  DEFINE chain_w _ibwd
+  INCLUDE bayes_chains_opts
+END
+
+INCLUDE bayes_chains_opts_sc
+
+DIALOG adv, tabtitle(resource LBL_ADVANCED)
+BEGIN
+  GROUPBOX gb_marglm		_lft	_top	_iwd	_ht5,		///
+	label(resource BAYES_LBL_ADV_GB_MARGLM)
+  RADIO  rb_laplace		_ilft	_ms	_ibwd	.,		///
+	first								///
+	label(resource BAYES_LBL_ADV_RB_LAPLACE)
+  RADIO rb_hmean		@	_ms	@	.,		///
+	last								///
+	label(resource BAYES_LBL_ADV_RB_HMEAN)
+END
+
+PROGRAM command
+BEGIN
+	put "bayesstats ic"
+	if main.cb_modelspec {
+		put " " main.cb_modelspec
+	}
+	beginoptions
+		optionarg main.cb_basemodel
+		option main.ck_bayesfactor
+		option main.ck_diconly
+		if adv.rb_hmean {
+			put " marglmethod(hmean)"
+		}
+		put " " /program chains_output
+	endoptions
+END
+

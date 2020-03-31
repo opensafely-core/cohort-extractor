@@ -1,0 +1,1124 @@
+/*
+    gr_ciplots.idlg
+
+*!  VERSION 1.1.6  11dec2019
+
+	// SCRIPTS and PROGRAMS for external use
+		* SCRIPT  gr_ciplots_enable
+		* SCRIPT  gr_ciplots_disable
+		* PROGRAM gr_ciplots_output
+		* gr_ciplots.settabtitle TABTITLE
+		* gr_ciplots_outputCmd.setstring OUTPUT_STRING
+			// examples
+				gr_ciplots_outputCmd.setstring ""
+				gr_ciplots_outputCmd.setstring "ciopts"
+					-- This is the default
+
+		* SCRIPT  gr_ciplots_setMultiView_on
+		* SCRIPT  gr_ciplots_setMultiView_off
+
+		* gr_ciplots_outputCmdPrefix.setstring OUTPUT_PREFIX
+		  Note... This is to be used with gr_ciplots_setMultiView_on
+			// examples
+				gr_ciplots_outputCmdPrefix.setstring "ciopts"
+				gr_ciplots_outputCmdPrefix.setstring "ci"
+					-- This is the default
+
+		* gr_ciplots_outputCmdSuffix.setstring OUTPUT_SUFFIX
+		  Note... This is to be used with gr_ciplots_setMultiView_on
+			// examples
+				gr_ciplots_outputCmdSuffix.setstring ""
+				gr_ciplots_outputCmdSuffix.setstring "opts"
+					-- This is the default
+
+		* SCRIPT gr_ciplots_setDefaultArea
+		* SCRIPT gr_ciplots_setDefaultBar
+		* SCRIPT gr_ciplots_setDefaultSpike
+		* SCRIPT gr_ciplots_setDefaultSpikec
+		* SCRIPT gr_ciplots_setDefaultSpikes
+		* SCRIPT gr_ciplots_setDefaultScatter  // this is the default
+		* SCRIPT gr_ciplots_setDefaultLine
+		* SCRIPT gr_ciplots_setDefaultConnected
+
+		**Scripts to limit plots with gr_ciplots_setMultiView_on
+			* SCRIPT gr_ciplots_setLimit_1
+			* SCRIPT gr_ciplots_setLimit_2
+			* SCRIPT gr_ciplots_setLimit_3
+			* SCRIPT gr_ciplots_setLimit_4
+			* SCRIPT gr_ciplots_setLimit_5
+			* SCRIPT gr_ciplots_setLimit_6
+			* SCRIPT gr_ciplots_setLimit_7
+			* SCRIPT gr_ciplots_setLimit_8  //The default
+
+		* SCRIPT gr_ciplots_setNoMarkerLabel
+*/
+
+SCRIPT gr_ciplots_PREINIT
+BEGIN
+	create STRING gr_ciplots_STMP
+	create DOUBLE  gr_ciplots_plotLimit
+	gr_ciplots_plotLimit.setvalue 8
+	create BOOLEAN gr_ciplots_hasOutput
+	create BOOLEAN gr_ciplots_isMultiViewOn
+	create STRING gr_ciplots_outputCmd		// * Public *
+	gr_ciplots_outputCmd.setstring "ciopts"
+	
+	create STRING gr_ciplots_savedValues
+
+	create STRING gr_ciplots_defaultType
+	gr_ciplots_defaultType.setstring "area"		// Default is area
+	
+	create STRING gr_ciplots_outputCmdPrefix
+	gr_ciplots_outputCmdPrefix.setstring "ci"
+	
+	create STRING gr_ciplots_outputCmdSuffix
+	gr_ciplots_outputCmdSuffix.setstring "opts"
+	
+	create STRING gr_ciplots_lineResults
+	create STRING gr_ciplots_markerResults
+	create STRING gr_ciplots_areaResults
+	create STRING gr_ciplots_barResults
+	create STRING gr_ciplots_spikeResults
+
+	script gr_ciplots_setupMultiPlot
+	script gr_ciplots_setMultiView_off	// This is the default mode
+
+	create BOOLEAN gr_ciplots_noMLabel
+	gr_ciplots_noMLabel.setfalse
+END
+
+SCRIPT gr_ciplots_setupMultiPlot
+BEGIN
+	create STRING gr_ciplots_result_1
+	create STRING gr_ciplots_result_2
+	create STRING gr_ciplots_result_3
+	create STRING gr_ciplots_result_4
+	create STRING gr_ciplots_result_5
+	create STRING gr_ciplots_result_6
+	create STRING gr_ciplots_result_7
+	create STRING gr_ciplots_result_8
+END
+
+SCRIPT gr_ciplots_POSTINIT
+BEGIN
+	program gr_ciplots_checkLineResults
+	program gr_ciplots_checkMarkerResults
+	program gr_ciplots_checkAreaResults
+	program gr_ciplots_checkBarResults
+	program gr_ciplots_checkSpikeResults
+
+	program gr_ciplots_rebuildPlotsList
+
+	create STRING STMP
+	STMP.format "resource LBL_PLOT_FMT" "1" ""
+	STMP.withvalue gr_ciplot_plots.Arrpush "@"
+	STMP.format "resource LBL_PLOT_FMT" "2" ""
+	STMP.withvalue gr_ciplot_plots.Arrpush "@"
+	STMP.format "resource LBL_PLOT_FMT" "3" ""
+	STMP.withvalue gr_ciplot_plots.Arrpush "@"
+	STMP.format "resource LBL_PLOT_FMT" "4" ""
+	STMP.withvalue gr_ciplot_plots.Arrpush "@"
+	STMP.format "resource LBL_PLOT_FMT" "5" ""
+	STMP.withvalue gr_ciplot_plots.Arrpush "@"
+	STMP.format "resource LBL_PLOT_FMT" "6" ""
+	STMP.withvalue gr_ciplot_plots.Arrpush "@"
+	STMP.format "resource LBL_PLOT_FMT" "7" ""
+	STMP.withvalue gr_ciplot_plots.Arrpush "@"
+	STMP.format "resource LBL_PLOT_FMT" "8" ""
+	STMP.withvalue gr_ciplot_plots.Arrpush "@"
+	gr_ciplots.lb_plot.repopulate
+END
+
+SCRIPT gr_ciplots_setMultiView_off
+BEGIN
+	gr_ciplots_isMultiViewOn.setfalse
+	gr_ciplots.tx_ciplot_type.show
+	gr_ciplots.lb_ciplot_type.show
+	gr_ciplots.cb_range_cap_size.hide
+	gr_ciplots.tx_range_cap_size.hide
+	gr_ciplots.lb_ciplot_type.withvalue gr_ciplots.lb_ciplot_type.setvalue "@"
+
+	gr_ciplots.tx_plot.hide
+	gr_ciplots.lb_plot.hide
+	gr_ciplots.bu_edit.hide
+	gr_ciplots.tb_note.hide
+END
+
+SCRIPT gr_ciplots_setMultiView_on
+BEGIN
+	gr_ciplots_isMultiViewOn.settrue
+	gr_ciplots.tx_ciplot_type.hide
+	gr_ciplots.lb_ciplot_type.hide
+	gr_ciplots.bu_line.hide
+	gr_ciplots.bu_marker.hide
+	gr_ciplots.bu_area.hide
+	gr_ciplots.bu_bar.hide
+	gr_ciplots.bu_spike.hide
+	gr_ciplots.cb_range_cap_size.hide
+	gr_ciplots.tx_range_cap_size.hide
+
+	gr_ciplots.tx_plot.show
+	gr_ciplots.lb_plot.show
+	gr_ciplots.bu_edit.show
+	gr_ciplots.tb_note.show
+END
+
+SCRIPT gr_ciplots_setLimit_1
+BEGIN
+	gr_ciplots_plotLimit.setvalue 1
+	program gr_ciplots_rebuildPlotsList
+END
+SCRIPT gr_ciplots_setLimit_2
+BEGIN
+	gr_ciplots_plotLimit.setvalue 2
+	program gr_ciplots_rebuildPlotsList
+END
+SCRIPT gr_ciplots_setLimit_3
+BEGIN
+	gr_ciplots_plotLimit.setvalue 3
+	program gr_ciplots_rebuildPlotsList
+END
+SCRIPT gr_ciplots_setLimit_4
+BEGIN
+	gr_ciplots_plotLimit.setvalue 4
+	program gr_ciplots_rebuildPlotsList
+END
+SCRIPT gr_ciplots_setLimit_5
+BEGIN
+	gr_ciplots_plotLimit.setvalue 5
+	program gr_ciplots_rebuildPlotsList
+END
+SCRIPT gr_ciplots_setLimit_6
+BEGIN
+	gr_ciplots_plotLimit.setvalue 6
+	program gr_ciplots_rebuildPlotsList
+END
+SCRIPT gr_ciplots_setLimit_7
+BEGIN
+	gr_ciplots_plotLimit.setvalue 7
+	program gr_ciplots_rebuildPlotsList
+END
+SCRIPT gr_ciplots_setLimit_8
+BEGIN
+	gr_ciplots_plotLimit.setvalue 8
+	program gr_ciplots_rebuildPlotsList
+END
+
+SCRIPT gr_ciplots_setNoMarkerLabel
+BEGIN
+	gr_ciplots_noMLabel.settrue
+END
+
+//**** Name is used externally... DO NOT CHANGE
+DIALOG gr_ciplots, tabtitle(resource LBL_CI_PLOT)
+BEGIN
+  TEXT     tx_ciplot_type	_lft	_top	_iwd	.,
+  LISTBOX  lb_ciplot_type	@	_ss	155	135,	///
+	contents(gr_ciplots_plotType)				///
+	values(gr_ciplots_plotType_values)			///
+	onselchangelist(gr_ciplots_plotType_sel)
+
+  DEFINE y @y
+  
+  BUTTON bu_area		175	y	120	.,      ///
+	label(resource LBL_GB_AREA_PROPERTIES)			///
+	onpush(script gr_ciplots_showAreaDialog)
+  
+  BUTTON bu_bar			@	@	@	.,	///
+	label(resource LBL_GB_BAR_PROPERTIES)			///
+	onpush(script gr_ciplots_showBarDialog)
+  
+  BUTTON bu_spike		@	@	@	.,      ///
+	label(resource LBL_SPIKE_PROPERTIES)			///
+	onpush(script gr_ciplots_showSpikeDialog)
+
+  COMBOBOX cb_range_cap_size	@	+35	120	.,	///
+	dropdown						///
+	contents(symbolsizes) option(msize)
+
+  TEXT tx_range_cap_size	+125	@	120	.,	///
+        label(resource LBL_CAP_SIZE)
+
+  BUTTON bu_line 		175	y	@	.,	///
+	label(resource LBL_GB_LINE_PROPERTIES)			///
+	onpush(script gr_ciplots_showLineDialog)
+
+  BUTTON bu_marker 		@ 	@	@	.,	///
+	label(resource LBL_MARKER_PROPERTIES_DLG_TITLE)		///
+	onpush(program gr_ciplots_showMarkerDialog)		///
+	tooltip(resource LBL_MARKER_SYMBOL_LABEL_PROPERTIES)
+
+//**MultiView on
+  TEXT tx_plot			_lft	_top	_vnwd	.,	///
+	label(resource LBL_SELECT_PLOT)
+  LISTBOX lb_plot		@	_ss	_vnwd	135,	///
+	contents(gr_ciplot_plots)				///
+	values(gr_ciplot_plots_values)				///
+	ondblclick(program gr_ciplot_plots_event)
+  BUTTON  bu_edit		_vnsep	@	80	.,	///
+	label(resource LBL_BU_EDIT)				///
+	tooltip(resource LBL_EDIT_SELECTED_PLOT)		///
+	onpush(program gr_ciplot_plots_event)
+  TEXTBOX tb_note		_lft	175	_iwd	_tb3,	///
+	label(resource LBL_PLOT_SHOWN_HERE_NOT_NEC_REFLECT_NUMB_ACT)
+END
+
+//** Lists
+
+LIST gr_ciplots_plotType
+BEGIN
+	resource LBL_DEFAULT
+        resource LBL_RANGE_AREA
+        resource LBL_RANGE_BAR
+        resource LBL_RANGE_SPIKE
+        resource LBL_RANGE_SPIKE_WITH_CAP
+        resource LBL_RANGE_SPIKE_WITH_SYMBOL
+        resource LBL_RANGE_SCATTER
+        resource LBL_RANGE_LINE
+	resource LBL_RANGE_CONNECT
+END
+LIST gr_ciplots_plotType_values
+BEGIN
+	""
+	"rarea"
+	"rbar"
+	"rspike"
+	"rcap"
+	"rcapsym"
+	"rscatter"
+	"rline"
+	"rconnected"
+END
+LIST gr_ciplots_plotType_sel
+BEGIN
+	program gr_ciplots_default_sel
+	program gr_ciplots_area_sel
+	program gr_ciplots_bar_sel
+	program gr_ciplots_spike_sel
+	program gr_ciplots_rcap_sel
+	program gr_ciplots_rcapsym_sel
+	program gr_ciplots_scatter_sel
+	program gr_ciplots_line_sel
+	program gr_ciplots_connected_sel
+END
+
+LIST gr_ciplot_plots
+BEGIN
+END
+
+LIST gr_ciplot_plots_values
+BEGIN
+	"plot1"
+	"plot2"
+	"plot3"
+	"plot4"
+	"plot5"
+	"plot6"
+	"plot7"
+	"plot8"
+END
+
+PROGRAM gr_ciplot_plots_event
+BEGIN
+	if gr_ciplots.lb_plot.iseq("plot1") {
+		call program gr_ciplots_plot1_sel
+	}
+	if gr_ciplots.lb_plot.iseq("plot2") {
+		call program gr_ciplots_plot2_sel
+	}
+	if gr_ciplots.lb_plot.iseq("plot3") {
+		call program gr_ciplots_plot3_sel
+	}
+	if gr_ciplots.lb_plot.iseq("plot4") {
+		call program gr_ciplots_plot4_sel
+	}
+	if gr_ciplots.lb_plot.iseq("plot5") {
+		call program gr_ciplots_plot5_sel
+	}
+	if gr_ciplots.lb_plot.iseq("plot6") {
+		call program gr_ciplots_plot6_sel
+	}
+	if gr_ciplots.lb_plot.iseq("plot7") {
+		call program gr_ciplots_plot7_sel
+	}
+	if gr_ciplots.lb_plot.iseq("plot8") {
+		call program gr_ciplots_plot8_sel
+	}
+END
+
+
+//** Set Default scripts
+SCRIPT gr_ciplots_setDefaultArea
+BEGIN
+        gr_ciplots_defaultType.setstring "area"
+	script gr_ciplots_resetType
+END
+
+SCRIPT gr_ciplots_setDefaultBar
+BEGIN
+        gr_ciplots_defaultType.setstring "bar"
+	script gr_ciplots_resetType
+END
+
+SCRIPT gr_ciplots_setDefaultSpike
+BEGIN
+        gr_ciplots_defaultType.setstring "spike"
+	script gr_ciplots_resetType
+END
+
+SCRIPT gr_ciplots_setDefaultSpikec
+BEGIN
+        gr_ciplots_defaultType.setstring "rcap"
+	script gr_ciplots_resetType
+END
+
+SCRIPT gr_ciplots_setDefaultSpikes
+BEGIN
+        gr_ciplots_defaultType.setstring "rcapsym"
+	script gr_ciplots_resetType
+END
+
+SCRIPT gr_ciplots_setDefaultScatter
+BEGIN
+        gr_ciplots_defaultType.setstring "scatter"
+	script gr_ciplots_resetType
+END
+
+SCRIPT gr_ciplots_setDefaultLine
+BEGIN
+        gr_ciplots_defaultType.setstring "line"
+	script gr_ciplots_resetType
+END
+
+SCRIPT gr_ciplots_setDefaultConnected
+BEGIN
+        gr_ciplots_defaultType.setstring "connect"
+	script gr_ciplots_resetType
+END
+
+SCRIPT gr_ciplots_resetType
+BEGIN
+	gr_ciplots.lb_ciplot_type.withvalue gr_ciplots.lb_ciplot_type.setvalue "@"
+END
+
+//** Start selection scripts
+PROGRAM gr_ciplots_default_sel
+BEGIN
+	if gr_ciplots_defaultType.iseq("area") {
+		call program gr_ciplots_area_sel
+	}
+	if gr_ciplots_defaultType.iseq("bar") {
+		call program gr_ciplots_bar_sel
+	}
+	if gr_ciplots_defaultType.iseq("spike") {
+		call program gr_ciplots_spike_sel
+	}
+	if gr_ciplots_defaultType.iseq("rcap") {
+		call program gr_ciplots_rcap_sel
+	}
+	if gr_ciplots_defaultType.iseq("rcapsym") {
+		call program gr_ciplots_rcapsym_sel
+	}
+	if gr_ciplots_defaultType.iseq("scatter") {
+		call program gr_ciplots_scatter_sel
+	}
+	if gr_ciplots_defaultType.iseq("line") {
+		call program gr_ciplots_line_sel
+	}
+	if gr_ciplots_defaultType.iseq("connect") {
+		call program gr_ciplots_connected_sel
+	}
+END
+
+PROGRAM gr_ciplots_area_sel
+BEGIN
+	if gr_ciplots.lb_ciplot_type.isvisible() {
+		call gr_ciplots.tx_ciplot_type.setlabel resource LBL_PLOT_TYPE_RANGE_AREA_SHADING
+		call gr_ciplots.bu_line.hide
+		call gr_ciplots.bu_marker.hide
+		call gr_ciplots.bu_area.show
+		call gr_ciplots.bu_bar.hide
+		call gr_ciplots.bu_spike.hide
+	       	call gr_ciplots.cb_range_cap_size.hide
+       		call gr_ciplots.tx_range_cap_size.hide
+	}
+END
+
+PROGRAM gr_ciplots_bar_sel
+BEGIN
+	if gr_ciplots.lb_ciplot_type.isvisible() {
+		call gr_ciplots.tx_ciplot_type.setlabel resource LBL_PLOT_TYPE_RANGE_BARS
+		call gr_ciplots.bu_line.hide
+		call gr_ciplots.bu_marker.hide
+		call gr_ciplots.bu_area.hide
+		call gr_ciplots.bu_bar.show
+		call gr_ciplots.bu_spike.hide
+	       	call gr_ciplots.cb_range_cap_size.hide
+       		call gr_ciplots.tx_range_cap_size.hide
+	}
+END
+
+PROGRAM gr_ciplots_spike_sel
+BEGIN
+	if gr_ciplots.lb_ciplot_type.isvisible() {
+		call gr_ciplots.tx_ciplot_type.setlabel resource LBL_PLOT_TYPE_RANGE_SPIKES
+		call gr_ciplots.bu_line.hide
+		call gr_ciplots.bu_marker.hide
+		call gr_ciplots.bu_area.hide
+		call gr_ciplots.bu_bar.hide
+		call gr_ciplots.bu_spike.show
+	       	call gr_ciplots.cb_range_cap_size.hide
+       		call gr_ciplots.tx_range_cap_size.hide
+	}
+END
+
+PROGRAM gr_ciplots_rcap_sel
+BEGIN
+	if gr_ciplots.lb_ciplot_type.isvisible() {
+		call gr_ciplots.tx_ciplot_type.setlabel resource LBL_PLOT_TYPE_RANGE_CAPPED_SPIKES
+		call gr_ciplots.bu_line.hide
+		call gr_ciplots.bu_marker.hide
+		call gr_ciplots.bu_area.hide
+		call gr_ciplots.bu_bar.hide
+		call gr_ciplots.bu_spike.show
+	       	call gr_ciplots.cb_range_cap_size.show
+       		call gr_ciplots.tx_range_cap_size.show
+	}
+END
+
+PROGRAM gr_ciplots_rcapsym_sel
+BEGIN
+	if gr_ciplots.lb_ciplot_type.isvisible() {
+		call gr_ciplots.tx_ciplot_type.setlabel resource LBL_PLOT_TYPE_RANGE_SPIKES_CAPPED_WITH_SYMBOLS
+		call gr_ciplots.bu_line.hide
+		call gr_ciplots.bu_marker.show
+		call gr_ciplots.bu_marker.setposition 175 60
+		call gr_ciplots.bu_area.hide
+		call gr_ciplots.bu_bar.hide
+		call gr_ciplots.bu_spike.show
+	       	call gr_ciplots.cb_range_cap_size.hide
+       		call gr_ciplots.tx_range_cap_size.hide
+	}
+END
+
+PROGRAM gr_ciplots_scatter_sel
+BEGIN
+	if gr_ciplots.lb_ciplot_type.isvisible() {
+		call gr_ciplots.tx_ciplot_type.setlabel resource LBL_PLOT_TYPE_RANGE_MARKERS
+		call gr_ciplots.bu_line.hide
+		call gr_ciplots.bu_marker.show
+		call gr_ciplots.bu_marker.setposition 175 30
+		call gr_ciplots.bu_area.hide
+		call gr_ciplots.bu_bar.hide
+		call gr_ciplots.bu_spike.hide
+	       	call gr_ciplots.cb_range_cap_size.hide
+       		call gr_ciplots.tx_range_cap_size.hide
+	}
+END
+
+PROGRAM gr_ciplots_line_sel
+BEGIN
+	if gr_ciplots.lb_ciplot_type.isvisible() {
+		call gr_ciplots.tx_ciplot_type.setlabel resource LBL_PLOT_TYPE_RANGE_LINES
+		call gr_ciplots.bu_line.show
+		call gr_ciplots.bu_marker.hide
+		call gr_ciplots.bu_area.hide
+		call gr_ciplots.bu_bar.hide
+		call gr_ciplots.bu_spike.hide
+	       	call gr_ciplots.cb_range_cap_size.hide
+       		call gr_ciplots.tx_range_cap_size.hide
+	}
+END
+
+PROGRAM gr_ciplots_connected_sel
+BEGIN
+	if gr_ciplots.lb_ciplot_type.isvisible() {
+		call gr_ciplots.tx_ciplot_type.setlabel resource LBL_PLOT_TYPE_RANGE_LINES_MARKERS
+		call gr_ciplots.bu_line.show
+		call gr_ciplots.bu_marker.show
+		call gr_ciplots.bu_marker.setposition 175 60
+		call gr_ciplots.bu_area.hide
+		call gr_ciplots.bu_bar.hide
+		call gr_ciplots.bu_spike.hide
+	       	call gr_ciplots.cb_range_cap_size.hide
+       		call gr_ciplots.tx_range_cap_size.hide
+	}
+END
+
+
+//** Buttons for child dialogs
+//** MultiView off
+SCRIPT gr_ciplots_showLineDialog
+BEGIN
+	create CHILD gr_line_options AS gr_ciplots_lineDLG, allowsubmit
+	gr_ciplots_lineDLG.setExitString gr_ciplots_lineResults
+	gr_ciplots_lineDLG.settitle resource LBL_GB_LINE_PROPERTIES
+	gr_ciplots_lineDLG.setExitAction "program gr_ciplots_checkLineResults"
+	gr_ciplots_lineDLG.setSubmitAction "program gr_ciplots_lineSubmit"
+END
+PROGRAM gr_ciplots_checkLineResults
+BEGIN
+	if gr_ciplots_lineResults.iseq("") {
+		call gr_ciplots.bu_line.modified_off
+	}
+	if ! gr_ciplots_lineResults.iseq("") {
+		call gr_ciplots.bu_line.modified_on
+
+	}
+END
+PROGRAM gr_ciplots_lineSubmit
+BEGIN
+	call program gr_ciplots_checkLineResults
+	call Submit
+END
+
+PROGRAM gr_ciplots_showMarkerDialog
+BEGIN
+	if gr_ciplots_noMLabel {
+		call create CHILD gr_marker_nolabel_options AS gr_ciplots_markerDLG, allowsubmit
+	}
+	else {
+		call create CHILD gr_marker_options AS gr_ciplots_markerDLG, allowsubmit
+	}	
+	call gr_ciplots_markerDLG.setExitString gr_ciplots_markerResults
+	call gr_ciplots_markerDLG.settitle resource LBL_MARKER_PROPERTIES_DLG_TITLE
+	call gr_ciplots_markerDLG.setExitAction "program gr_ciplots_checkMarkerResults"
+	call gr_ciplots_markerDLG.setSubmitAction "program gr_ciplots_markerSubmit"
+END
+PROGRAM gr_ciplots_checkMarkerResults
+BEGIN
+	if gr_ciplots_markerResults.iseq("") {
+		call gr_ciplots.bu_marker.modified_off
+	}
+	else {
+		call gr_ciplots.bu_marker.modified_on
+	}
+END
+PROGRAM gr_ciplots_markerSubmit
+BEGIN
+	call program gr_ciplots_checkMarkerResults
+	call Submit
+END
+
+SCRIPT gr_ciplots_showAreaDialog
+BEGIN
+        create CHILD gr_area_options AS gr_ciplots_areaDLG, allowsubmit
+        gr_ciplots_areaDLG.setExitString gr_ciplots_areaResults
+        gr_ciplots_areaDLG.settitle resource LBL_GB_AREA_PROPERTIES
+        gr_ciplots_areaDLG.setExitAction "program gr_ciplots_checkAreaResults"
+        gr_ciplots_areaDLG.setSubmitAction "program gr_ciplots_areaSubmit"
+END
+PROGRAM gr_ciplots_checkAreaResults
+BEGIN
+	if gr_ciplots_areaResults.iseq("") {
+		call gr_ciplots.bu_area.modified_off
+	}
+	if ! gr_ciplots_areaResults.iseq("") {
+		call gr_ciplots.bu_area.modified_on
+	}
+END
+PROGRAM gr_ciplots_areaSubmit
+BEGIN
+	call program gr_ciplots_checkAreaResults
+	call Submit
+END
+
+SCRIPT gr_ciplots_showBarDialog
+BEGIN
+	create CHILD gr_bar_options AS gr_ciplots_barDLG, allowsubmit
+	gr_ciplots_barDLG.setExitString gr_ciplots_barResults
+	gr_ciplots_barDLG.settitle resource LBL_GB_BAR_PROPERTIES
+	gr_ciplots_barDLG.setExitAction "program gr_ciplots_checkBarResults"
+	gr_ciplots_barDLG.setSubmitAction "program gr_ciplots_barSubmit"
+END
+PROGRAM gr_ciplots_checkBarResults
+BEGIN
+	if gr_ciplots_barResults.iseq("") {
+		call gr_ciplots.bu_bar.modified_off
+	}
+	if ! gr_ciplots_barResults.iseq("") {
+		call gr_ciplots.bu_bar.modified_on
+	}
+END
+PROGRAM gr_ciplots_barSubmit
+BEGIN
+	call program gr_ciplots_checkBarResults
+	call Submit
+END
+
+SCRIPT gr_ciplots_showSpikeDialog
+BEGIN
+	create CHILD gr_spike_options AS gr_ciplots_spikeDLG, allowsubmit
+	gr_ciplots_spikeDLG.setExitString gr_ciplots_spikeResults
+	gr_ciplots_spikeDLG.settitle resource LBL_SPIKE_PROPERTIES
+	gr_ciplots_spikeDLG.setExitAction "program gr_ciplots_checkSpikeResults"
+	gr_ciplots_spikeDLG.setSubmitAction "program gr_ciplots_spikeSubmit"
+END
+PROGRAM gr_ciplots_checkSpikeResults
+BEGIN
+	if gr_ciplots_spikeResults.iseq("") {
+		call gr_ciplots.bu_spike.modified_off
+	}
+	if ! gr_ciplots_spikeResults.iseq("") {
+		call gr_ciplots.bu_spike.modified_on
+	}
+END
+PROGRAM gr_ciplots_spikeSubmit
+BEGIN
+	call program gr_ciplots_checkSpikeResults
+	call Submit
+END
+
+
+PROGRAM gr_ciplots_plot1_sel
+BEGIN
+	call create CHILD gr_ciplots AS gr_ciplots_plot1, allowsubmit
+	call gr_ciplots_STMP.format "resource LBL_PLOT_FMT" "1" ""
+	call gr_ciplots_STMP.withvalue gr_ciplots_plot1.settitle "@"
+	call gr_ciplots_plot1.setExitString gr_ciplots_result_1
+	
+	call gr_ciplots_plot1.setExitAction "program gr_ciplots_rebuildPlotsList"
+	call gr_ciplots_plot1.setSubmitAction "program gr_ciplots_plot1_submit"
+	call gr_ciplots_defaultType.withvalue 		///
+		gr_ciplots_plot1.callthru `"gr_ciplots_defaultType.setstring "@""'
+	call gr_ciplots_plot1.callthru "script gr_ciplots_resetType"
+	call gr_ciplots_plot1.callthru `"gr_ciplots_outputCmd.setstring """'
+	if gr_ciplots_noMLabel {
+		call gr_ciplots_plot1.callthru "script gr_ciplots_setNoMarkerLabel"
+	}
+END
+
+PROGRAM gr_ciplots_plot1_submit
+BEGIN
+	call program gr_ciplots_rebuildPlotsList
+	call Submit
+END
+
+PROGRAM gr_ciplots_plot2_sel
+BEGIN
+	call create CHILD gr_ciplots AS gr_ciplots_plot2, allowsubmit
+	call gr_ciplots_STMP.format "resource LBL_PLOT_FMT" "2" ""
+	call gr_ciplots_STMP.withvalue gr_ciplots_plot2.settitle "@"
+	call gr_ciplots_plot2.setExitString gr_ciplots_result_2
+	call gr_ciplots_plot2.setExitAction "program gr_ciplots_rebuildPlotsList"
+	call gr_ciplots_plot2.setSubmitAction "program gr_ciplots_plot2_submit"
+	call gr_ciplots_defaultType.withvalue 		///
+		gr_ciplots_plot2.callthru `"gr_ciplots_defaultType.setstring "@""'
+	call gr_ciplots_plot2.callthru "script gr_ciplots_resetType"
+	call gr_ciplots_plot2.callthru `"gr_ciplots_outputCmd.setstring """'
+	if gr_ciplots_noMLabel {
+		call gr_ciplots_plot2.callthru "script gr_ciplots_setNoMarkerLabel"
+	}
+END
+
+PROGRAM gr_ciplots_plot2_submit
+BEGIN
+	call program gr_ciplots_rebuildPlotsList
+	call Submit
+END
+
+
+PROGRAM gr_ciplots_plot3_sel
+BEGIN
+	call create CHILD gr_ciplots AS gr_ciplots_plot3, allowsubmit
+	call gr_ciplots_STMP.format "resource LBL_PLOT_FMT" "3" ""
+	call gr_ciplots_STMP.withvalue gr_ciplots_plot3.settitle "@"
+	call gr_ciplots_plot3.setExitString gr_ciplots_result_3
+	call gr_ciplots_plot3.setExitAction "program gr_ciplots_rebuildPlotsList"
+	call gr_ciplots_plot3.setSubmitAction "program gr_ciplots_plot3_submit"
+	call gr_ciplots_defaultType.withvalue 		///
+		gr_ciplots_plot3.callthru `"gr_ciplots_defaultType.setstring "@""'
+	call gr_ciplots_plot3.callthru "script gr_ciplots_resetType"
+	call gr_ciplots_plot3.callthru `"gr_ciplots_outputCmd.setstring """'
+	if gr_ciplots_noMLabel {
+		call gr_ciplots_plot3.callthru "script gr_ciplots_setNoMarkerLabel"
+	}
+END
+
+PROGRAM gr_ciplots_plot3_submit
+BEGIN
+	call program gr_ciplots_rebuildPlotsList
+	call Submit
+END
+
+PROGRAM gr_ciplots_plot4_sel
+BEGIN
+	call create CHILD gr_ciplots AS gr_ciplots_plot4, allowsubmit
+	call gr_ciplots_STMP.format "resource LBL_PLOT_FMT" "4" ""
+	call gr_ciplots_STMP.withvalue gr_ciplots_plot4.settitle "@"
+	call gr_ciplots_plot4.setExitString gr_ciplots_result_4
+	call gr_ciplots_plot4.setExitAction "program gr_ciplots_rebuildPlotsList"
+	call gr_ciplots_plot4.setSubmitAction "program gr_ciplots_plot4_submit"
+	call gr_ciplots_defaultType.withvalue 		///
+		gr_ciplots_plot4.callthru `"gr_ciplots_defaultType.setstring "@""'
+	call gr_ciplots_plot4.callthru "script gr_ciplots_resetType"
+	call gr_ciplots_plot4.callthru `"gr_ciplots_outputCmd.setstring """'
+	if gr_ciplots_noMLabel {
+		call gr_ciplots_plot4.callthru "script gr_ciplots_setNoMarkerLabel"
+	}
+END
+
+PROGRAM gr_ciplots_plot4_submit
+BEGIN
+	call program gr_ciplots_rebuildPlotsList
+	call Submit
+END
+
+PROGRAM gr_ciplots_plot5_sel
+BEGIN
+	call create CHILD gr_ciplots AS gr_ciplots_plot5, allowsubmit
+	call gr_ciplots_STMP.format "resource LBL_PLOT_FMT" "5" ""
+	call gr_ciplots_STMP.withvalue gr_ciplots_plot5.settitle "@"
+	call gr_ciplots_plot5.setExitString gr_ciplots_result_5
+	call gr_ciplots_plot5.setExitAction "program gr_ciplots_rebuildPlotsList"
+	call gr_ciplots_plot5.setSubmitAction "program gr_ciplots_plot5_submit"
+	call gr_ciplots_defaultType.withvalue 		///
+		gr_ciplots_plot5.callthru `"gr_ciplots_defaultType.setstring "@""'
+	call gr_ciplots_plot5.callthru "script gr_ciplots_resetType"
+	call gr_ciplots_plot5.callthru `"gr_ciplots_outputCmd.setstring """'
+	if gr_ciplots_noMLabel {
+		call gr_ciplots_plot5.callthru "script gr_ciplots_setNoMarkerLabel"
+	}
+END
+
+PROGRAM gr_ciplots_plot5_submit
+BEGIN
+	call program gr_ciplots_rebuildPlotsList
+	call Submit
+END
+
+PROGRAM gr_ciplots_plot6_sel
+BEGIN
+	call create CHILD gr_ciplots AS gr_ciplots_plot6, allowsubmit
+	call gr_ciplots_STMP.format "resource LBL_PLOT_FMT" "6" ""
+	call gr_ciplots_STMP.withvalue gr_ciplots_plot6.settitle "@"
+	call gr_ciplots_plot6.setExitString gr_ciplots_result_6
+	call gr_ciplots_plot6.setExitAction "program gr_ciplots_rebuildPlotsList"
+	call gr_ciplots_plot6.setSubmitAction "program gr_ciplots_plot6_submit"
+	call gr_ciplots_defaultType.withvalue 		///
+		gr_ciplots_plot6.callthru `"gr_ciplots_defaultType.setstring "@""'
+	call gr_ciplots_plot6.callthru "script gr_ciplots_resetType"
+	call gr_ciplots_plot6.callthru `"gr_ciplots_outputCmd.setstring """'
+	if gr_ciplots_noMLabel {
+		call gr_ciplots_plot6.callthru "script gr_ciplots_setNoMarkerLabel"
+	}
+END
+
+PROGRAM gr_ciplots_plot6_submit
+BEGIN
+	call program gr_ciplots_rebuildPlotsList
+	call Submit
+END
+
+PROGRAM gr_ciplots_plot7_sel
+BEGIN
+	call create CHILD gr_ciplots AS gr_ciplots_plot7, allowsubmit
+	call gr_ciplots_STMP.format "resource LBL_PLOT_FMT" "7" ""
+	call gr_ciplots_STMP.withvalue gr_ciplots_plot7.settitle "@"
+	call gr_ciplots_plot7.setExitString gr_ciplots_result_7
+	call gr_ciplots_plot7.setExitAction "program gr_ciplots_rebuildPlotsList"
+	call gr_ciplots_plot7.setSubmitAction "program gr_ciplots_plot7_submit"
+	call gr_ciplots_defaultType.withvalue 		///
+		gr_ciplots_plot7.callthru `"gr_ciplots_defaultType.setstring "@""'
+	call gr_ciplots_plot7.callthru "script gr_ciplots_resetType"
+	call gr_ciplots_plot7.callthru `"gr_ciplots_outputCmd.setstring """'
+	if gr_ciplots_noMLabel {
+		call gr_ciplots_plot7.callthru "script gr_ciplots_setNoMarkerLabel"
+	}
+END
+
+PROGRAM gr_ciplots_plot7_submit
+BEGIN
+	call program gr_ciplots_rebuildPlotsList
+	call Submit
+END
+
+PROGRAM gr_ciplots_plot8_sel
+BEGIN
+	call create CHILD gr_ciplots AS gr_ciplots_plot8, allowsubmit
+	call gr_ciplots_STMP.format "resource LBL_PLOT_FMT" "8" ""
+	call gr_ciplots_STMP.withvalue gr_ciplots_plot8.settitle "@"
+	call gr_ciplots_plot8.setExitString gr_ciplots_result_8
+	call gr_ciplots_plot8.setExitAction "program gr_ciplots_rebuildPlotsList"
+	call gr_ciplots_plot8.setSubmitAction "program gr_ciplots_plot8_submit"
+	call gr_ciplots_defaultType.withvalue 		///
+		gr_ciplots_plot8.callthru `"gr_ciplots_defaultType.setstring "@""'
+	call gr_ciplots_plot8.callthru "script gr_ciplots_resetType"
+	call gr_ciplots_plot8.callthru `"gr_ciplots_outputCmd.setstring """'
+	if gr_ciplots_noMLabel {
+		call gr_ciplots_plot8.callthru "script gr_ciplots_setNoMarkerLabel"
+	}
+END
+
+PROGRAM gr_ciplots_plot8_submit
+BEGIN
+	call program gr_ciplots_rebuildPlotsList
+	call Submit
+END
+
+PROGRAM gr_ciplots_rebuildPlotsList
+BEGIN
+	call gr_ciplots.lb_plot.withvalue gr_ciplots_savedValues.setstring "@"
+	call gr_ciplots.lb_plot.clearlist
+	call gr_ciplot_plots.Arrdropall
+
+	if ! gr_ciplots_result_1 {
+		call gr_ciplots_STMP.format "resource LBL_PLOT_FMT" ///
+			"1" ""
+		call gr_ciplots_STMP.withvalue gr_ciplot_plots.Arrpush "@"
+	}
+	if gr_ciplots_result_1 {
+		call gr_ciplots_STMP.format "resource LBL_PLOT_FMT" ///
+			"1" "*"
+		call gr_ciplots_STMP.withvalue gr_ciplot_plots.Arrpush "@"
+	}
+	if gr_ciplots_plotLimit.iseq(1) {
+		call gr_ciplots.lb_plot.repopulate
+		call gr_ciplots_savedValues.withvalue			///
+			gr_ciplots.lb_plot.setvalue "@"		
+		exit
+	}
+	if ! gr_ciplots_result_2 {
+		call gr_ciplots_STMP.format "resource LBL_PLOT_FMT" ///
+			"2" ""
+		call gr_ciplots_STMP.withvalue gr_ciplot_plots.Arrpush "@"
+	}
+	if gr_ciplots_result_2 {
+		call gr_ciplots_STMP.format "resource LBL_PLOT_FMT" ///
+			"2" "*"
+		call gr_ciplots_STMP.withvalue gr_ciplot_plots.Arrpush "@"
+	}
+	if gr_ciplots_plotLimit.iseq(2) {
+		call gr_ciplots.lb_plot.repopulate
+		call gr_ciplots_savedValues.withvalue			///
+			gr_ciplots.lb_plot.setvalue "@"
+		exit
+	}
+	if ! gr_ciplots_result_3 {
+		call gr_ciplots_STMP.format "resource LBL_PLOT_FMT" ///
+			"3" ""
+		call gr_ciplots_STMP.withvalue gr_ciplot_plots.Arrpush "@"
+	}
+	if gr_ciplots_result_3 {
+		call gr_ciplots_STMP.format "resource LBL_PLOT_FMT" ///
+			"3" "*"
+		call gr_ciplots_STMP.withvalue gr_ciplot_plots.Arrpush "@"
+	}
+	if gr_ciplots_plotLimit.iseq(3) {
+		call gr_ciplots.lb_plot.repopulate
+		call gr_ciplots_savedValues.withvalue			///
+			gr_ciplots.lb_plot.setvalue "@"
+		exit
+	}
+	if ! gr_ciplots_result_4 {
+		call gr_ciplots_STMP.format "resource LBL_PLOT_FMT" ///
+			"4" ""
+		call gr_ciplots_STMP.withvalue gr_ciplot_plots.Arrpush "@"
+	}
+	if gr_ciplots_result_4 {
+		call gr_ciplots_STMP.format "resource LBL_PLOT_FMT" ///
+			"4" "*"
+		call gr_ciplots_STMP.withvalue gr_ciplot_plots.Arrpush "@"
+	}
+	if gr_ciplots_plotLimit.iseq(4) {
+		call gr_ciplots.lb_plot.repopulate
+		call gr_ciplots_savedValues.withvalue			///
+			gr_ciplots.lb_plot.setvalue "@"
+		exit
+	}
+	if ! gr_ciplots_result_5 {
+		call gr_ciplots_STMP.format "resource LBL_PLOT_FMT" ///
+			"5" ""
+		call gr_ciplots_STMP.withvalue gr_ciplot_plots.Arrpush "@"
+	}
+	if gr_ciplots_result_5 {
+		call gr_ciplots_STMP.format "resource LBL_PLOT_FMT" ///
+			"5" "*"
+		call gr_ciplots_STMP.withvalue gr_ciplot_plots.Arrpush "@"
+	}
+	if gr_ciplots_plotLimit.iseq(5) {
+		call gr_ciplots.lb_plot.repopulate
+		call gr_ciplots_savedValues.withvalue			///
+			gr_ciplots.lb_plot.setvalue "@"
+		exit
+	}
+	if ! gr_ciplots_result_6 {
+		call gr_ciplots_STMP.format "resource LBL_PLOT_FMT" ///
+			"6" ""
+		call gr_ciplots_STMP.withvalue gr_ciplot_plots.Arrpush "@"
+	}
+	if gr_ciplots_result_6 {
+		call gr_ciplots_STMP.format "resource LBL_PLOT_FMT" ///
+			"6" "*"
+		call gr_ciplots_STMP.withvalue gr_ciplot_plots.Arrpush "@"
+	}
+	if gr_ciplots_plotLimit.iseq(6) {
+		call gr_ciplots.lb_plot.repopulate
+		call gr_ciplots_savedValues.withvalue			///
+			gr_ciplots.lb_plot.setvalue "@"
+		exit
+	}
+	if ! gr_ciplots_result_7 {
+		call gr_ciplots_STMP.format "resource LBL_PLOT_FMT" ///
+			"7" ""
+		call gr_ciplots_STMP.withvalue gr_ciplot_plots.Arrpush "@"
+	}
+	if gr_ciplots_result_7 {
+		call gr_ciplots_STMP.format "resource LBL_PLOT_FMT" ///
+			"7" "*"
+		call gr_ciplots_STMP.withvalue gr_ciplot_plots.Arrpush "@"
+	}
+	if gr_ciplots_plotLimit.iseq(7) {
+		call gr_ciplots.lb_plot.repopulate
+		call gr_ciplots_savedValues.withvalue			///
+			gr_ciplots.lb_plot.setvalue "@"
+		exit
+	}
+	if ! gr_ciplots_result_8 {
+		call gr_ciplots_STMP.format "resource LBL_PLOT_FMT" ///
+			"8" ""
+		call gr_ciplots_STMP.withvalue gr_ciplot_plots.Arrpush "@"
+	}
+	if gr_ciplots_result_8 {
+		call gr_ciplots_STMP.format "resource LBL_PLOT_FMT" ///
+			"8" "*"
+		call gr_ciplots_STMP.withvalue gr_ciplot_plots.Arrpush "@"
+	}
+	if gr_ciplots_plotLimit.iseq(8) {
+		call gr_ciplots.lb_plot.repopulate
+		call gr_ciplots_savedValues.withvalue			///
+			gr_ciplots.lb_plot.setvalue "@"
+		exit
+	}
+END
+
+SCRIPT gr_ciplots_enable
+BEGIN
+	gr_ciplots.tx_ciplot_type.enable
+	gr_ciplots.lb_ciplot_type.enable
+	gr_ciplots.bu_line.enable
+	gr_ciplots.bu_marker.enable
+	gr_ciplots.bu_area.enable
+	gr_ciplots.bu_bar.enable
+	gr_ciplots.bu_spike.enable
+	gr_ciplots.cb_range_cap_size.enable
+	gr_ciplots.tx_range_cap_size.enable
+	
+	gr_ciplots.tx_plot.enable
+	gr_ciplots.lb_plot.enable
+	gr_ciplots.bu_edit.enable
+	gr_ciplots.tb_note.enable
+END
+
+SCRIPT gr_ciplots_disable
+BEGIN
+	gr_ciplots.tx_ciplot_type.disable
+	gr_ciplots.lb_ciplot_type.disable
+	gr_ciplots.bu_line.disable
+	gr_ciplots.bu_marker.disable
+	gr_ciplots.bu_area.disable
+	gr_ciplots.bu_bar.disable
+	gr_ciplots.bu_spike.disable
+	gr_ciplots.cb_range_cap_size.disable
+	gr_ciplots.tx_range_cap_size.disable
+
+	gr_ciplots.tx_plot.disable
+	gr_ciplots.lb_plot.disable
+	gr_ciplots.bu_edit.disable
+	gr_ciplots.tb_note.disable
+END
+
+PROGRAM gr_ciplots_single_output
+BEGIN
+	if ! gr_ciplots.lb_ciplot_type.isdefault() {
+		put "recast(" gr_ciplots.lb_ciplot_type ") "
+	}
+	if gr_ciplots_lineResults | gr_ciplots_markerResults | 	///
+	   gr_ciplots_areaResults | 				///
+	   gr_ciplots_barResults | gr_ciplots_spikeResults   |	///
+ 	   gr_ciplots.cb_range_cap_size				///		
+	{
+		if ! H(gr_ciplots.bu_marker) {
+			put " " gr_ciplots_markerResults " "
+		}
+		if ! H(gr_ciplots.bu_line) {
+			put " " gr_ciplots_lineResults " "
+		}
+		if ! H(gr_ciplots.bu_area) {
+			put " " gr_ciplots_areaResults " "
+		}
+		if ! H(gr_ciplots.bu_bar) {
+			put " " gr_ciplots_barResults " "
+		}
+		if ! H(gr_ciplots.bu_spike) {
+			put " " gr_ciplots_spikeResults " "
+			optionarg /hidedefault gr_ciplots.cb_range_cap_size
+		}
+	}
+END
+
+PROGRAM gr_ciplots_output
+BEGIN
+	if ! gr_ciplots.lb_ciplot_type.isenabled() {
+		exit
+	}
+	if ! gr_ciplots_isMultiViewOn {
+		call gr_ciplots_hasOutput.setfalse
+		if ( gr_ciplots_outputCmd			 &	///
+		   ( gr_ciplots.lb_ciplot_type		 	 |	///
+		   gr_ciplots_lineResults | gr_ciplots_markerResults | 	///
+		   gr_ciplots_areaResults | 				///
+		   gr_ciplots_barResults | gr_ciplots_spikeResults) )	///
+		{
+			put gr_ciplots_outputCmd "("
+			call gr_ciplots_hasOutput.settrue
+		}
+		put /program gr_ciplots_single_output
+		if gr_ciplots_hasOutput {
+			put ") "
+		}
+	}
+
+	if gr_ciplots_isMultiViewOn {
+		if gr_ciplots_result_1 {
+			put gr_ciplots_outputCmdPrefix 	///
+				"1" gr_ciplots_outputCmdSuffix
+			put "(" gr_ciplots_result_1 ") "
+		}
+		if gr_ciplots_result_2 {
+			put gr_ciplots_outputCmdPrefix 	///
+				"2" gr_ciplots_outputCmdSuffix
+			put "(" gr_ciplots_result_2 ") "
+		}
+		if gr_ciplots_result_3 {
+			put gr_ciplots_outputCmdPrefix 	///
+				"3" gr_ciplots_outputCmdSuffix
+			put "(" gr_ciplots_result_3 ") "
+		}
+		if gr_ciplots_result_4 {
+			put gr_ciplots_outputCmdPrefix 	///
+				"4" gr_ciplots_outputCmdSuffix
+			put "(" gr_ciplots_result_4 ") "
+		}
+		if gr_ciplots_result_5 {
+			put gr_ciplots_outputCmdPrefix 	///
+				"5" gr_ciplots_outputCmdSuffix
+			put "(" gr_ciplots_result_5 ") "
+		}
+		if gr_ciplots_result_6 {
+			put gr_ciplots_outputCmdPrefix 	///
+				"6" gr_ciplots_outputCmdSuffix
+			put "(" gr_ciplots_result_6 ") "
+		}
+		if gr_ciplots_result_7 {
+			put gr_ciplots_outputCmdPrefix 	///
+				"7" gr_ciplots_outputCmdSuffix
+			put "(" gr_ciplots_result_7 ") "
+		}
+		if gr_ciplots_result_8 {
+			put gr_ciplots_outputCmdPrefix 	///
+				"8" gr_ciplots_outputCmdSuffix
+			put "(" gr_ciplots_result_8 ") "
+		}
+	}
+END

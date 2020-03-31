@@ -1,0 +1,315 @@
+/*
+	sqrtlasso_opts_child.dlg
+
+*!  VERSION 1.0.7  04dec2019
+
+*/
+
+VERSION 16.0
+
+INCLUDE _std_xlarge
+DEFINE _dlght 480
+INCLUDE header
+
+HELP hlp1, view("help sqrtlasso")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource SQRTLASSO_OPTS_CHILD_DLG_HSCALE
+
+	create DOUBLE dtmp
+	create STRING _MSG_TMP
+	create STRING lassovars
+	lassovars.setvalue s(undefined)
+END
+
+SCRIPT POSTINIT
+BEGIN
+	lassovars.tokenizeOnStr main_lasso_vars_list " "
+	main.cb_lasso_vars.repopulate
+	program parse_message
+END
+
+PROGRAM parse_message
+BEGIN
+	if __MESSAGE.iseq("") {
+		call main.rb_all_vars.hide
+		call main.rb_vars.seton
+	}
+END
+
+SCRIPT main_PREINIT
+BEGIN
+	create STRING bu_main_cvoptsResults
+END
+
+DIALOG main
+BEGIN
+  RADIO rb_all_vars		_lft	_top	_iwd	., first	///
+	onclickon("program main_vars_changed")				///
+	label(resource LBL_LASSO_FOR_ALL_VARS)
+  RADIO rb_vars			@	_ss	@	., last		///
+	onclickon("program main_vars_changed")				///
+	label(resource LBL_LASSO_FOR_VARS)
+  COMBOBOX cb_lasso_vars	_ilft	_ss	_ibwd 	.,		///
+	dropdown							///
+	append								///
+	contents("main_lasso_vars_list")				///
+	error(resource LBL_LASSO_FOR_VARS)
+
+  GROUPBOX gb_selection		_lft	_ls	_iwd	_ht7,		///
+	label(resource LBL_SELECTION_METHOD_FOR_LAMBDA)
+  RADIO rb_selection_plugin_het	_ilft	_ss	380	., first	///
+	option(selection(plugin))					///
+	onclickon("program main_selection_changed")			///
+	label(resource LBL_PLUGIN_HETEROSKEDASTIC_FORMULA_LM)
+  RADIO rb_selection_plugin_hom	@	_ms	@	.,		///
+	option(selection(plugin, homoskedastic))			///
+	onclickon("program main_selection_changed")			///
+	label(resource LBL_PLUGIN_HOMOSKEDASTIC_FORMULA_LM)
+  RADIO rb_selection_cv		@	_ms	380	., last		///
+	onclickon("program main_selection_changed")			///
+	label(resource LBL_CROSS_VALIDATION)
+  BUTTON bu_cv_opts		+400	-5	110	.,		///
+	onpush(program main_show_cv_opts)				///
+	tooltip("Cross-validation options")				///
+	label(resource LBL_CV_OPTIONS) 
+
+  CHECKBOX ck_grid		_lft	+45	_iwd	_ht13,		///
+	groupbox							///
+	onclickon("program main_grid_on")				///
+	onclickoff("script main_grid_off")				///
+	label(resource LBL_SPECIFY_LAMBDA)
+  SPINNER sp_grid		_ilft	_ss	_spwd	.,		///
+	min(1)								///
+	max(300)							///
+	default(100)							///
+	label(resource LBL_SPECIFY_NUMLIST)
+  TEXT tx_grid			_spsep	@	350	.,		///
+	label(resource LBL_NUM_OF_GRID_PTS_FOR_GRID)
+  RADIO rb_grid_default		_ilft	_ls	_ibwd	., first	///
+	onclickon("program main_grid_on")				///
+	label(resource LBL_DEFAULT_RATIO_OF_MINTOMAX)
+  RADIO rb_grid_ratio		_ilft	_ss	@	., 		///
+	onclickon("program main_grid_on")				///
+	label(resource LBL_RATIO_OF_MINTOMAX)
+  RADIO rb_grid_min		_ilft	+40	@	., last		///
+	onclickon("program main_grid_on")				///
+	label(resource LBL_MINIMUM)
+  EDIT ed_grid_ratio		_iilft	-20	_spwd	.,		///
+	option(ratio)							///
+	label(resource LBL_SPECIFY_NUMLIST)
+  EDIT ed_grid_min		_iilft	+40	_spwd	.,		///
+	option(min)							///
+	label(resource LBL_SPECIFY_NUMLIST)
+
+  EDIT ed_stop			_lft	+45	_spwd	.,		///
+	default(1e-5)							///
+	option(stop)							///
+	label(resource LBL_STOPPING_TOLERANCE_FOR_ITERATIONS_OVER_LAMBDA)
+  TEXT tx_stop			_spsep	@	300	.,		///
+	label(resource LBL_STOPPING_TOLERANCE_FOR_ITERATIONS_OVER_LAMBDA)
+  EDIT ed_cvtolerance		_lft	_ls	_spwd	.,		///
+	default(1e-3)							///
+	option(cvtolerance)						///
+	label(resource LBL_TOLERANCE_FOR_IDENTIFYING_CV_MINIMUM)
+  TEXT tx_cvtolerance		_spsep	@	300	.,		///
+	label(resource LBL_TOLERANCE_FOR_IDENTIFYING_CV_MINIMUM)
+  RADIO rb_tolerance		_lft	_ls	_cwd1	., first	///
+	onclickon("program main_tolerance_changed")			///
+	label(resource LBL_COEFFICIENT_VECTOR_TOLERANCE)
+  RADIO rb_dtolerance		_lft2	@	@	., last		///
+	onclickon("program main_tolerance_changed")			///
+	label(resource LBL_DEVIANCE_TOLERANCE)
+  EDIT ed_tolerance		_ilft	_ss	_spwd	.,		///
+	default(1e-7)							///
+	option(tolerance)						///
+	label(resource LBL_COEFFICIENT_VECTOR_TOLERANCE)
+  EDIT ed_dtolerance		_ilft2	@	@	.,		///
+	option(dtolerance)						///
+	label(resource LBL_DEVIANCE_TOLERANCE)
+END
+
+LIST main_lasso_vars_list
+BEGIN
+END
+
+PROGRAM main_vars_changed
+BEGIN
+	if main.rb_all_vars {
+		call main.cb_lasso_vars.disable
+	}
+	else {
+		call main.cb_lasso_vars.enable
+	}
+END
+
+PROGRAM main_selection_changed
+BEGIN
+	call main.ed_stop.disable
+	call main.tx_stop.disable
+	call main.ed_cvtolerance.disable
+	call main.tx_cvtolerance.disable
+
+	if main.rb_selection_cv {
+		call main.bu_cv_opts.enable
+		call main.ed_stop.enable
+		call main.tx_stop.enable
+		call main.ed_cvtolerance.enable
+		call main.tx_cvtolerance.enable
+	}
+	else {
+		call main.bu_cv_opts.disable
+	}
+END
+
+PROGRAM main_show_cv_opts
+BEGIN
+	call create CHILD lasso_cvopts_child AS cv
+	call cv.setExitString bu_main_cvoptsResults
+	call cv.setExitAction "program bu_main_cv_opts_ckResults"
+END
+
+PROGRAM bu_main_cv_opts_ckResults
+BEGIN
+	if bu_main_cvoptsResults {
+		call main.bu_cv_opts.modified_on
+//		call main.bu_cv_opts.formatlabel "resource LBL_CV_OPTIONS" " *"
+	}
+	else {
+		call main.bu_cv_opts.modified_off
+//		call main.bu_cv_opts.formatlabel "resource LBL_CV_OPTIONS" "  "
+	}
+END
+
+PROGRAM main_grid_on
+BEGIN
+	if main.ck_grid {
+		call main.sp_grid.enable
+		call main.tx_grid.enable
+		call main.rb_grid_default.enable
+		call main.rb_grid_ratio.enable
+		call main.rb_grid_min.enable
+		if main.rb_grid_ratio {
+			call main.ed_grid_ratio.enable
+		}
+		else {
+			call main.ed_grid_ratio.disable
+		}
+		if main.rb_grid_min {
+			call main.ed_grid_min.enable
+		}
+		else {
+			call main.ed_grid_min.disable
+		}
+	}
+END
+
+SCRIPT main_grid_off
+BEGIN
+	main.sp_grid.disable
+	main.tx_grid.disable
+	main.rb_grid_default.disable
+	main.rb_grid_ratio.disable
+	main.rb_grid_min.disable
+	main.ed_grid_ratio.disable
+	main.ed_grid_min.disable
+END
+
+PROGRAM main_tolerance_changed
+BEGIN
+	call main.ed_tolerance.disable
+	call main.ed_dtolerance.disable
+	if main.rb_tolerance {
+		call main.ed_tolerance.enable
+	}
+	if main.rb_dtolerance {
+		call main.ed_dtolerance.enable
+	}
+END
+
+PROGRAM grid_cmd_output
+BEGIN
+	put main.sp_grid
+
+	if main.rb_grid_ratio | main.rb_grid_min {
+		put ", "
+		if main.rb_grid_ratio {
+			require main.ed_grid_ratio
+			optionarg main.ed_grid_ratio
+		}
+		if main.ed_grid_min {
+			require main.ed_grid_min
+			optionarg main.ed_grid_min
+		}
+	}
+END
+
+PROGRAM command
+BEGIN
+	if main.rb_tolerance {
+		require main.ed_tolerance
+	}
+	if main.rb_dtolerance {
+		require main.ed_dtolerance
+	}
+	put " sqrtlasso("
+	if main.rb_vars {
+		require main.cb_lasso_vars
+		put main.cb_lasso_vars
+		call main.cb_lasso_vars.withvalue PARENT.callthru	///
+			`"definedVarsOfInterenst.append "@ ""'
+	}
+	else {
+		put "_all"
+	}
+
+	if (main.rb_selection_plugin_het				///
+		| main.rb_selection_plugin_hom 				///
+		| main.ck_grid 						///
+		| main.ed_stop.isneq("1e-5")   				///
+		| main.ed_cvtolerance.isneq("1e-3") 			///
+		| (main.rb_tolerance & main.ed_tolerance.isneq("1e-7")) ///
+		| (main.rb_dtolerance & main.ed_dtolerance.isneq(""))) {
+		put ", "
+		option main.rb_selection_plugin_hom
+		option main.rb_selection_plugin_het
+		if main.rb_selection_cv {
+			put " selection(cv, "
+			put bu_main_cvoptsResults
+			put ")"
+		}
+
+		if main.ck_grid {
+			put " grid("
+			put /program grid_cmd_output
+			put ")"
+		}
+		optionarg /hidedefault main.ed_stop
+		if main.rb_tolerance {
+			optionarg /hidedefault main.ed_tolerance
+		}
+		if main.rb_dtolerance {
+			optionarg /hidedefault main.ed_dtolerance
+		}
+		if main.ed_cvtolerance.isneq("1e-3") {
+			call main.ed_cvtolerance..withvalue dtmp.setvalue @
+			if dtmp.islt(0) | dtmp.isgt(1000) {
+			call _MSG_TMP.format				///
+		"resource LBL_MSGBOX_INVALID_TOLERANCE_FMT"		///
+		"resource LBL_TOLERANCE_FOR_IDENTIFYING_CV_MINIMUM"	///
+				"0" "1000"
+				stopbox stop class _MSG_TMP.value
+			}
+			optionarg /hidedefault main.ed_cvtolerance
+		}
+	}
+	put ")"
+END
+
+
+//END
+
+
+

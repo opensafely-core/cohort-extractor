@@ -1,0 +1,321 @@
+/*
+  spset -- set spatial data
+
+*!  VERSION 1.1.1  01may2017
+
+*/
+
+VERSION 15.0
+SYNCHRONOUS_ONLY
+INCLUDE _std_medium
+DEFINE _dlght 320
+INCLUDE header
+
+HELP hlp1, view("help spset")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource SPSET_DLG_HSCALE
+
+	create STRING dlgname
+	create STRING shpstring
+	create ARRAY main_shpdata_list
+	
+	dlgname.storeDialogClassName
+	shpstring.setvalue char _dta[sp__shp_dta]
+END
+
+SCRIPT POSTINIT
+BEGIN
+	main.cb_shpfile.repopulate
+END
+
+PROGRAM main_load_shpdata
+BEGIN	
+	call main_shpdata_list.Arrdropall
+	
+	put "sp_wrk_dlg getshp " 
+	put dlgname
+	put " main_shpdata_list"
+	put " 1"
+	stata hidden immediate
+	
+	call main.cb_shpfile.repopulate
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN) 				///
+	label(resource SPSET_DLG_TITLE)
+BEGIN
+	RADIO rb_modid		_lft	_top	_iwd	., first	///
+		clickon(program id_on)					///
+		clickoff(program id_on)					///
+		label(resource SPSET_MAIN_RB_MODID)
+	RADIO rb_modcsys	@	_ms	@	.,		///
+		clickon(program csys_on)				///
+		clickoff(program csys_on)				///
+		label(resource SPSET_MAIN_RB_MODCSYS)	
+	RADIO rb_modcoord	@	_ms	@	.,		///
+		clickon(program coord_on)				///
+		clickoff(program coord_on)				///
+		label(resource SPSET_MAIN_RB_MODCOORD)
+	RADIO rb_dropcoord	@	_ms	@	.,		///
+		clickon(program dropc_on)				///
+		label(resource SPSET_MAIN_RB_DROPCOORD)	
+	RADIO rb_dropshp	@	_ms	@	.,		///
+		clickon(program drops_on)				///
+		label(resource SPSET_MAIN_RB_DROPSHP)
+	RADIO rb_linkshp	@	_ms	@	.,		///
+		clickon(program linkshp_on)				///
+		clickoff(program linkshp_on)				///
+		label(resource SPSET_MAIN_RB_LINKSHP)
+	RADIO rb_clear		@	_ms	@	., last		///
+		clickon(program clear_on)				///
+		label(resource SPSET_MAIN_RB_CLEAR)
+		
+	GROUPBOX gb_setting	@	+30	@	_ht9,		///
+		label(resource FVSET_GB_SET)
+	TEXT	tx_id		_ilft	_ms	_ibwd	.,		///
+		label(resource LBL_ID_VARIABLE)
+	DEFINE holdy @y
+	VARNAME	vn_id		@	_ss	_vnwd	.,		///
+		numeric							///
+		label(resource LBL_ID_VARIABLE)
+
+	TEXT	tx_cx		_ilft	holdy	150	.,		///
+		label(resource SP_LBL_X_COORD_VARIABLE)
+	VARNAME	vn_cx		@	_ss	_vnwd	.,		///
+		numeric							///
+		label(resource SP_LBL_X_COORD_VARIABLE)
+	TEXT	tx_cy		_lft2	holdy	150	.,		///
+		label(resource SP_LBL_Y_COORD_VARIABLE)
+	VARNAME	vn_cy		@	_ss	_vnwd	.,		///
+		numeric							///
+		label(resource SP_LBL_Y_COORD_VARIABLE)
+	
+	RADIO 	rb_planar	_ilft	holdy	_ibwd	., first	///
+		onclickon(program csys_check)				///
+		onclickoff(program csys_check)				///
+		label(resource SP_LBL_SET_COORD_AS_PLANAR)		
+	RADIO 	rb_latlong	@	_ss	@	., last		///
+		onclickon(program csys_check)				///
+		onclickoff(program csys_check)				///
+		label(resource SP_LBL_SET_COORD_AS_LATLONG)
+	RADIO   rb_kilometers	+15	_ms	@	., first	///
+		label(resource SP_LBL_RPT_DIST_AS_KILOMETERS)
+	RADIO   rb_miles	@	_ss	@	., last		///
+		label(resource SP_LBL_RPT_DIST_AS_MILES)
+		
+	TEXT tx_shpfile		_ilft	holdy	_ibwd	.,		///
+		label(resource SPSET_MAIN_TX_SHAPEFILE)
+	COMBOBOX cb_shpfile	@	_ss	@	.,		///
+		dropdown						///
+		contents(main_shpdata_list)				///
+		label(resource SPSET_MAIN_TX_SHAPEFILE)
+	CHECKBOX ck_drop	@	_ls	@	.,		///
+		label(resource SPSET_MAIN_CK_DROP)
+END
+
+SCRIPT id_show 
+BEGIN
+	main.vn_id.show
+	main.tx_id.show
+END
+
+SCRIPT id_hide
+BEGIN
+	main.vn_id.hide
+	main.tx_id.hide
+END
+
+PROGRAM id_on
+BEGIN
+	if main.rb_modid {
+		call main.gb_setting.show
+		call script id_show
+	}
+	else {
+		call script id_hide
+	}
+END
+
+SCRIPT coord_show
+BEGIN
+	main.vn_cx.show 
+	main.tx_cx.show 
+	main.vn_cy.show 
+	main.tx_cy.show
+END
+
+SCRIPT coord_hide
+BEGIN
+	main.vn_cx.hide 
+	main.tx_cx.hide 
+	main.vn_cy.hide 
+	main.tx_cy.hide
+END
+
+PROGRAM coord_on
+BEGIN
+	if main.rb_modcoord {
+		call main.gb_setting.show
+		call script coord_show
+	}
+	else {
+		call script coord_hide
+	}
+END
+
+PROGRAM dropc_on 
+BEGIN
+	call main.gb_setting.hide 
+	call script id_hide
+	call script coord_hide
+	call script csys_hide
+	call script linkshp_hide
+END
+
+SCRIPT csys_show
+BEGIN
+	main.rb_planar.show
+	main.rb_latlong.show 
+	main.rb_kilometers.show
+	main.rb_miles.show
+END
+
+SCRIPT csys_hide
+BEGIN
+	main.rb_planar.hide
+	main.rb_latlong.hide 
+	main.rb_kilometers.hide
+	main.rb_miles.hide
+END
+
+PROGRAM csys_check
+BEGIN
+	if main.rb_latlong {
+		call main.rb_kilometers.enable
+		call main.rb_miles.enable
+	}
+	if main.rb_planar {
+		call main.rb_kilometers.disable
+		call main.rb_miles.disable
+	}
+END
+
+PROGRAM csys_on
+BEGIN
+	if main.rb_modcsys {
+		call main.gb_setting.show
+		call script csys_show
+		call program csys_check
+	}
+	else {
+		call script csys_hide
+	}
+END
+
+PROGRAM drops_on 
+BEGIN
+	call main.gb_setting.hide 
+	call script id_hide
+	call script coord_hide
+	call script csys_hide
+	call script linkshp_hide
+END
+
+SCRIPT linkshp_show
+BEGIN
+	main.tx_shpfile.show 
+	main.cb_shpfile.show
+	main.ck_drop.show
+END
+
+SCRIPT linkshp_hide
+BEGIN
+	main.tx_shpfile.hide 
+	main.cb_shpfile.hide
+	main.ck_drop.hide
+END
+
+PROGRAM linkshp_on
+BEGIN
+	if main.rb_linkshp {
+		call main.gb_setting.show
+		call script linkshp_show
+		call program main_load_shpdata
+	}
+	else {
+		call script linkshp_hide
+	}
+END
+
+PROGRAM clear_on 
+BEGIN
+	call main.gb_setting.hide 
+	call script id_hide
+	call script coord_hide
+	call script csys_hide
+	call script linkshp_hide
+END
+
+PROGRAM command
+BEGIN
+	if main.rb_modid {
+		require main.vn_id
+		if !shpstring.equals("") {
+			stopbox rusure "resource SP_MSGBOX_SHAPEFILE_AND_DATA_WOULD_BE_REPLACED"
+// Linked shapefile on disk and data in memory would be replaced. Do you wish to continue?
+			put "spset "
+			put main.vn_id
+			put ", modify replace"
+		}
+		else {
+			put "spset "
+			put main.vn_id
+			put ", modify"
+		}
+	}
+	if main.rb_modcoord {
+		require main.vn_cx
+		require main.vn_cy
+		put "spset, modify"
+		put " coord("
+		put main.vn_cx
+		put " "
+		put main.vn_cy
+		put ")"
+	}
+	if main.rb_dropcoord {
+		put "spset, modify nocoord"
+	}
+	if main.rb_modcsys {
+		put "spset, modify "
+		if main.rb_latlong {
+			put " coordsys(latlong"
+			if main.rb_miles {
+				put ", miles"
+			}
+			put ")"
+		}
+		if main.rb_planar {
+			put " coordsys(planar)"
+		}
+	}
+	if main.rb_dropshp {
+		put "spset, modify noshpfile"
+	}
+	if main.rb_linkshp {
+		require main.cb_shpfile
+		put "spset, modify"
+		put " shpfile("
+		put main.cb_shpfile
+		put ")"
+		if main.ck_drop {
+			put " drop"
+		}
+	}
+	if main.rb_clear {
+		put "spset, clear"
+	}
+END

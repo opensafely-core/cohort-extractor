@@ -1,0 +1,332 @@
+/*
+  sg__variables_convert.dlg
+
+*!  VERSION 1.1.3  03jun2015
+
+*/
+
+VERSION 14.0
+MODAL
+
+INCLUDE _std_msmall
+DEFINE _dlght 230
+INCLUDE header_sem_ed
+
+DEFINE _clwd	15
+DEFINE _wd	160
+DEFINE _sep	+165
+DEFINE _wd2	120
+DEFINE _sep2	+125
+DEFINE _cbwd	100
+DEFINE _cbsep	+105
+
+INCLUDE sg__common_output		/* routines necessary for output */
+
+SCRIPT PREINIT
+BEGIN
+	script sg__common_output_init 	/* initialize output globals */
+
+	create STRING OBJ
+	program setupOBJECT
+
+	create STRING sTemp
+	create DOUBLE dTemp
+	create DOUBLE nSelected 
+	create BOOLEAN bLatent		/* latent only 		*/
+	create BOOLEAN bObserved	/* observed only 	*/
+	create BOOLEAN bML		/* multi-level 		*/
+	create BOOLEAN bGLM		/* GLM			*/
+	create BOOLEAN bExogenous	/* exogenous only 	*/
+	create BOOLEAN bEndogenous	/* endogenous only	*/
+	create BOOLEAN bGSEM		/* gsem mode enabled 	*/
+
+	program global_get_defaults
+	setscale_hadj resource SG__VARIABLES_CONVERT_DLG_HSCALE
+END
+
+PROGRAM setupOBJECT
+BEGIN
+	if ! __MESSAGE {
+		stopbox stop resource LBL_MSGBOX_OBJECT_NOT_FOUND
+// An unexpected error has occurred. Object not found.
+		exit 198
+	}
+	call OBJ.setvalue class __MESSAGE.value
+END
+
+PROGRAM global_get_defaults
+BEGIN
+	call nSelected.setvalue class .__SEMG.dbsettings.n_selected
+	if (!nSelected) {
+		call nSelected.setvalue 0
+	}
+
+	call bLatent.setfalse
+	call bObserved.setfalse
+	call sTemp.setvalue class .__SEMG.dbsettings.type
+	// 1=observed, 2=latent, <multiple>
+	if (sTemp.iseq("1")) { 
+		call bObserved.settrue
+	}
+	if (sTemp.iseq("2")) {
+		call bLatent.settrue
+	}
+	
+
+	call sTemp.setvalue class .__SEMG.dbsettings.isml
+	call bML.setfalse
+	if (sTemp.iseq("1")) {
+		call bML.settrue
+	}
+	
+	call sTemp.setvalue class .__SEMG.dbsettings.isglm
+	call bGLM.setfalse
+	if (sTemp.iseq("1")) {
+		call bGLM.settrue
+	}
+
+	call bExogenous.setfalse
+	call bEndogenous.setfalse
+	call sTemp.setvalue class .__SEMG.dbsettings.isexog
+	// 1=exogenous, 0=endogenous, <multiple>
+	if (sTemp.iseq("1")) { 
+		call bExogenous.settrue
+	}
+	if (sTemp.iseq("0")) {
+		call bEndogenous.settrue
+	}
+
+	call bGSEM.setfalse
+	call sTemp.setvalue class .__SEMG.dbsettings.estmode
+	if (sTemp.iseq("1")) { 
+		call bGSEM.settrue
+	}
+END
+
+SCRIPT adv_PREINIT
+BEGIN
+	create STRING sAdvVarname
+	create STRING sAdvLname
+	create STRING sAdvLabel
+
+	create LIST convertList
+
+	program adv_get_defaults
+END
+
+SCRIPT adv_POSTINIT
+BEGIN
+	program adv_initialize_controls
+END
+
+PROGRAM adv_get_defaults
+BEGIN
+	call sAdvVarname.setvalue class .__SEMG.dbsettings.varname
+	call sAdvVarname.withvalue adv.vn_var.setdefault "@"
+
+	call sAdvLname.setvalue class .__SEMG.dbsettings.lname
+	call sAdvLname.withvalue adv.ed_lname.setdefault "@"
+
+	call sAdvLabel.setvalue class .__SEMG.dbsettings.label
+	call sAdvLabel.withvalue adv.ed_label.setdefault "@"
+END
+
+PROGRAM adv_initialize_controls
+BEGIN
+	call program adv_setupConvertList
+
+	call adv.vn_var.setvalue class sAdvVarname.value
+	call adv.ed_lname.setvalue class sAdvLname.value
+	call adv.ed_label.setvalue class sAdvLabel.value
+END
+
+PROGRAM adv_setupConvertList
+BEGIN
+	// We match on these strings so if they are updated you must update all
+
+	call convertList.Arrdropall
+	call convertList.ArrpushR resource dlg SG__VARIABLES_CONVERT_SELECT_NEW_TYPE
+	if (bLatent | (bObserved & bGLM)) {
+		call convertList.ArrpushR resource dlg SG__VARIABLES_CONVERT_LINEAR_OBSERVED
+	}
+	if ((bLatent | bObserved) & !bGLM & bGSEM) {
+		call convertList.ArrpushR resource dlg SG__VARIABLES_CONVERT_GENERALIZED_RESPONSE
+	}
+	if bObserved | bML {
+		call convertList.ArrpushR resource dlg SG__VARIABLES_CONVERT_LATENT
+	}
+	if ((bLatent | bObserved) & !bML & bGSEM) {
+		call convertList.ArrpushR resource dlg SG__VARIABLES_CONVERT_MULTILEVEL_LATENT
+	}
+	call adv.cb_convert.repopulate
+	call adv.cb_convert.setvalue "<Select new type>"
+END
+
+PROGRAM on_convert_change
+BEGIN
+	if adv.cb_convert.iseq("<Select new type>") {
+		call adv.tx_label.hide
+		call adv.ed_label.hide
+		call adv.tx_var.hide
+		call adv.vn_var.hide
+		call adv.tx_lname.hide
+		call adv.ed_lname.hide
+	}
+	if adv.cb_convert.iseq("Linear observed") {
+		call adv.tx_label.show
+		call adv.ed_label.show
+		call adv.tx_var.show
+		call adv.vn_var.show
+		call adv.tx_lname.hide
+		call adv.ed_lname.hide
+
+		if nSelected.isgt(1) {
+			call adv.tx_var.disable
+			call adv.vn_var.disable
+		}
+		else {
+			call adv.tx_var.enable
+			call adv.vn_var.enable
+		}
+	}
+	if adv.cb_convert.iseq("Generalized response") {
+		call adv.tx_label.show
+		call adv.ed_label.show
+		call adv.tx_var.show
+		call adv.vn_var.show
+		call adv.tx_lname.hide
+		call adv.ed_lname.hide
+
+		if nSelected.isgt(1) {
+			call adv.tx_var.disable
+			call adv.vn_var.disable
+		}
+		else {
+			call adv.tx_var.enable
+			call adv.vn_var.enable
+		}
+	}
+	if adv.cb_convert.iseq("Latent") {
+		call adv.tx_label.show
+		call adv.ed_label.show
+		call adv.tx_var.hide
+		call adv.vn_var.hide
+		call adv.tx_lname.show
+		call adv.ed_lname.show
+		
+		if nSelected.isgt(1) {
+			call adv.tx_lname.disable
+			call adv.ed_lname.disable
+		}
+		else {
+			call adv.tx_lname.enable
+			call adv.ed_lname.enable
+		}
+	}
+	if adv.cb_convert.iseq("Multilevel latent") {
+		call adv.tx_label.hide
+		call adv.ed_label.hide
+		call adv.tx_var.hide
+		call adv.vn_var.hide
+		call adv.tx_lname.hide
+		call adv.ed_lname.hide
+	}
+END
+
+DIALOG adv, tabtitle(resource LBL_ADVANCED) label(resource SG__VARIABLES_CONVERT_DLG_TITLE)
+BEGIN
+  TEXT     tx_convert	_lft	_top	150	.,		///
+	label(resource SG__VARIABLES_CONVERT_ADV_TX_CONVERT)
+  COMBOBOX cb_convert	@	_ss	@	.,		///
+	contents(convertList) dropdownlist			///
+	onselchange(program on_convert_change)
+
+  TEXT     tx_var	_lft	_ls	_vnwd	.,		///
+	label(resource LBL_VARIABLE)
+DEFINE y @y
+  VARNAME  vn_var	@	_ss	@	., nomemory
+
+  TEXT     tx_lname	_lft	y	@	.,		///
+	label(resource LBL_NAME)
+  EDIT     ed_lname	@	_ss	@	., nomemory  
+
+  TEXT     tx_label	_vlx	y	_vlwd	.,		///
+	label(resource LBL_LABEL)
+  EDIT     ed_label	@	_ss	@	., nomemory
+
+END
+
+PROGRAM adv_output
+BEGIN
+	call program adv_get_defaults
+	
+	if (!H(adv.ed_label) & !adv.ed_label.isdefault()) {
+		call sg__PARAM2.setvalue "SetSelected"
+		call sg__ARG_00.setvalue "label"
+		call sg__ARG_01.setvalue class adv.ed_label.value
+		put /program sg__do_output_sub
+	}
+	
+	if (!H(adv.vn_var) & adv.vn_var) {
+		call sg__PARAM2.setvalue "SetSelected"
+		call sg__ARG_00.setvalue "varname"
+		call sg__ARG_01.setvalue class adv.vn_var.value
+		put /program sg__do_output_sub
+	}
+	
+	if (!H(adv.ed_lname) & adv.ed_lname) {
+		call sg__PARAM2.setvalue "SetSelected"
+		call sg__ARG_00.setvalue "name"
+		call sg__ARG_01.setvalue class adv.ed_lname.value
+		put /program sg__do_output_sub
+	}
+
+	/* must be last */
+	if adv.cb_convert.iseq("Linear observed") {
+		/* must be last */
+		call sg__PARAM2.setvalue "ConvertType"
+		call sg__ARG_00.setvalue "observed"
+		put /program sg__do_output_arg0_sub
+	}
+	if adv.cb_convert.iseq("Generalized response") {
+		/* must be last */
+		call sg__PARAM2.setvalue "ConvertType"
+		call sg__ARG_00.setvalue "glm"
+		put /program sg__do_output_arg0_sub
+	}
+	if adv.cb_convert.iseq("Latent") {
+		/* must be last */
+		call sg__PARAM2.setvalue "ConvertType"
+		call sg__ARG_00.setvalue "latent"
+		put /program sg__do_output_arg0_sub
+	}
+	if adv.cb_convert.iseq("Multilevel latent") {
+		/* must be last */
+		call sg__PARAM2.setvalue "ConvertType"
+		call sg__ARG_00.setvalue "mllatent"
+		put /program sg__do_output_arg0_sub
+	}
+END
+
+/*****************************************************************************/
+
+PROGRAM command
+BEGIN
+	call program global_get_defaults
+
+	call sg__PARAM1.setvalue class OBJ.value
+	
+	call sg__PARAM2.setvalue "BeginSet"
+	call sg__DESCPT.setvalue "change variable type"
+	put /program sg__do_output_sub
+	
+	put /program adv_output
+
+	call sg__PARAM2.setvalue "EndSet"
+	call sg__DESCPT.setvalue "change variable type"
+	put /program sg__do_output_sub
+
+	call sg__PARAM1.setvalue class OBJ.value
+	call sg__PARAM2.setvalue "Reselect"
+	put /program sg__do_output_sub
+END

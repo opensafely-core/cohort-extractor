@@ -1,0 +1,165 @@
+/*
+	insobs
+
+*!	VERSION 1.1.0  03nov2014
+
+** This dialog box may be called internally by the Data Editor
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_small
+DEFINE _dlght 215
+INCLUDE header
+
+HELP hlp1, view("help insobs")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create ARRAY  ARGS
+	create STRING INSPOS
+	create DOUBLE INBOUND
+	create STRING NOBS
+	create DOUBLE _NOBS
+	setscale_hadj resource INSOBS_DLG_HSCALE
+END
+
+PROGRAM ON_DOTPROMPT
+BEGIN
+	call program BASIC_CHECK
+	call main.sp_pos.setrange 1 c(N)
+END
+
+PROGRAM BASIC_CHECK
+BEGIN
+	call _NOBS.setvalue c(N)
+	if _NOBS.isgt(0) | __MESSAGE.iseq("add") {
+		call script main_position_show
+	}
+	else {
+		call script main_position_hide
+	}
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	call _NOBS.setvalue c(N)
+	if _NOBS.isgt(0) & __MESSAGE.isneq("add") {
+		if __MESSAGE {
+			call __MESSAGE.tokenize ARGS
+			call INBOUND.setvalue class ARGS[1]
+			call NOBS.setvalue class ARGS[2]
+			call INSPOS.setvalue class ARGS[3]
+
+			if (INBOUND.iseq(1) & _NOBS.isgt(0)) {
+				call main.sp_pos.setvalue class INSPOS.value
+				call script main_position_show
+				call main.cb_newpos.setvalue "before"
+			}
+			else {
+				call main.sp_nobs.setvalue class NOBS.value
+				call main.cb_newpos.setvalue ""
+				call script main_position_show
+			}
+		}
+		else {
+			call script main_position_show
+		}
+	}
+	else {
+		call script main_position_hide
+	}
+END
+
+LIST insert_list
+BEGIN
+	resource INSOBS_AT_END_OF_THE_DTA
+	resource INSOBS_BEFORE_SPECIFIED_OBS
+	resource INSOBS_AFTER_SPECIFIED_OBS
+END
+
+LIST insert_list_values
+BEGIN
+	""
+	"before"
+	"after"
+END
+
+PROGRAM check_list
+BEGIN
+	if main.cb_newpos.iseq("") {
+		call main.sp_pos.hide
+	}
+	else {
+		call main.sp_pos.show
+	}
+END
+
+DIALOG main, label(resource INSOBS_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT tx_nobs			_lft	_top	_iwd	.,		///
+	label(resource INSOBS_MAIN_TX_NOBS)
+  SPINNER sp_nobs		_lft	_ss	_en14wd	.,		///
+  	min(1)								///
+  	max(2000000000)							///
+	label(resource INSOBS_MAIN_SP_NOBS)
+	
+  TEXT     tx_newpos		_lft	_ls	200	.,		///
+	label(resource INSOBS_MAIN_TX_NEWPOS)
+  COMBOBOX cb_newpos		@	_ss	@	.,		///
+	contents(insert_list) values(insert_list_values) dropdownlist	///
+	onselchange(program check_list)
+  SPINNER  sp_pos		+215	@	_en14wd	.,		///
+	min(1)								///
+	max(c(N))							///
+	default(1)
+
+
+  TEXT    tx_note		_lft	-10	_iwd	.,		///
+  	label(resource INSOBS_MAIN_TX_NOTE)
+
+END
+
+SCRIPT main_position_show
+BEGIN
+	main.tx_newpos.show
+	main.cb_newpos.show
+	program check_list
+
+	main.tx_note.hide
+END
+
+SCRIPT main_position_hide
+BEGIN
+	main.tx_newpos.hide
+	main.cb_newpos.hide
+	main.sp_pos.hide
+
+	main.tx_note.show
+END
+
+PROGRAM newpos_output
+BEGIN
+	put main.cb_newpos
+	put "("
+	put /program newpos_output_wrk
+	put ") "
+END
+
+PROGRAM newpos_output_wrk
+BEGIN
+	put main.sp_pos
+END
+
+PROGRAM command
+BEGIN
+	put "insobs "
+	put main.sp_nobs
+	beginoptions
+		if main.cb_newpos & !H(main.cb_newpos) {
+			put /program newpos_output
+		}
+	endoptions
+END

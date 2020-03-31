@@ -1,0 +1,1744 @@
+/*
+  margins.dlg
+
+*!  VERSION 1.2.9  20feb2020
+
+  keyword:  eclass
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_xwide /* DO NOT CHANGE WIDTH UNLESS YOU CHANGE -setposition- */
+DEFINE _dlght 600
+INCLUDE header
+
+HELP hlp1, view("help margins")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	
+	create STRING e_cmd
+	create STRING cm_char
+	create STRING STMP
+	create STRING contrastListString
+	script at_PREINIT
+
+	create STRING main_pred_tmp
+	create STRING main_pred_tmp2
+	create STRING main_pred_childdlg
+	create STRING main_pred_dlgname
+	create STRING main_pred_child_result
+	create STRING main_pred_cmd_output
+
+	create ARRAY main_pred_list
+
+	create SVECTOR mainPREDCommandDisplayList
+	create SVECTOR mainPREDCommandList
+	create SVECTOR mainPREDCommandValues
+	create SVECTOR mainPREDStatusList
+	create SVECTOR mainPREDChildDialogList
+
+	create DOUBLE main_pred_count
+	create DOUBLE main_pred_position
+	create DOUBLE main_pred_arraysize
+
+	main.bu_pred_edit.disable
+	main.bu_pred_disable.disable
+	main.bu_pred_enable.disable
+	setscale_hadj resource MARGINS_DLG_HSCALE
+END
+
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	if __MESSAGE.contains("-meffect-") {
+		call main.ck_marg_eff.seton
+	}
+	if __MESSAGE.contains("-contrast-") {
+		call con.ck_contrast.seton
+	}
+	if __MESSAGE.contains("-pwcompare-") {
+		call pw.ck_pwcompare.seton
+	}
+
+	call e_cmd.setvalue e(cmd)
+	if e_cmd.iseq("npregress") {
+		call script se_hasBootstrap
+		call script rpt_citype_show
+        }
+        else {
+		call script se_noBootstrap
+		call script rpt_citype_hide
+        }
+
+	call cm_char.setvalue char _dta[_cm_caseid]
+	if cm_char.isneq("") {
+		call program adv_cm_show
+	}
+	else {
+		call script adv_cm_hide
+	}
+END
+
+SCRIPT POSTINIT
+BEGIN
+	ATCommandDisplayList.copyToArray at_list
+	at.lb_atBuild.repopulate
+
+	mainPREDCommandDisplayList.copyToArray main_pred_list
+	main.lb_predBuild.repopulate
+END
+
+PROGRAM ON_DOTPROMPT
+BEGIN
+	call main.cb_marlist.repopulate
+	call main.cb_marg_eff.repopulate
+	call within.cb_within.repopulate
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+title(resource MARGINS_DLG_TITLE)
+BEGIN
+  TEXT tx_marlist	_lft	_top	_iwd	.,			///
+	label(resource MARGINS_MAIN_TX_MARLIST)
+  COMBOBOX cb_marlist	@	_ss	_iwd	.,			///
+	append								///
+	dropdown							///
+	contents(margins_mlist)						///
+	label(resource MARGINS_MAIN_TX_MARLIST)
+  BUTTON  bu_contrastlist _slw20	@	20	.,		///
+	onpush(script showContrastListDialog)				///
+	tooltip(resource LBL_CREATE_CONTRAST_LIST)			///
+        label("...")
+  CHECKBOX ck_grand	_lft	_ls	_iwd	.,			///
+	option(grand)							///
+	label(resource MARGINS_MAIN_CK_GRAND)
+
+  GROUPBOX gb_sel_resp	@	_ls	_iwd	_ht24,			///
+	label(resource MARGINS_MAIN_GB_SEL_RESP)
+  RADIO rb_default	_indent	_ss	_iibwd	., first		///
+	label(resource MARGINS_MAIN_RB_DEFAULT)
+  RADIO rb_predict	@	_ss	@	., 			///
+	onclickon(program main_predict_on)				///
+	onclickoff(script main_predict_off)				///
+	label(resource MARGINS_MAIN_RB_PREDICT)
+
+  DEFINE holdx @x
+  RADIO rb_exp		_ilft	+180	_ibwd	., last 		///
+	onclickon(main.ed_exp.enable)					///
+	onclickoff(main.ed_exp.disable)					///
+	label(resource MARGINS_MAIN_RB_EXP)
+  EDIT ed_exp		holdx	_ss	@	.,			///
+	option(expression)						///
+	label(resource MARGINS_MAIN_RB_EXP)
+
+  TEXT tx_pred			_iilft	-180	220	.,		///
+	label(resource LBL_PREDICTION_COLON)
+
+  LISTBOX lb_predBuild		@	_ss	@	100,		///
+	contents(main_pred_list)					///
+	ondblclick(program main_pred_edit)				///
+	onselchange(program main_pred_sel_changed)			///
+	nomemory
+  BUTTON bu_pred_create		260	@	80	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program main_pred_create)				///
+	tooltip(resource MARGINS_MAIN_BU_PRED_CREATE)
+  BUTTON bu_pred_edit		@	_ms	@	.,		///
+	label(resource LBL_BU_EDIT)					///
+	onpush(program main_pred_edit)					///
+	tooltip(resource MARGINS_MAIN_BU_PRED_EDIT)
+  BUTTON bu_pred_disable	@	_ms	@	.,		///
+	label(resource LBL_BU_DISABLE)					///
+	onpush(program main_pred_disable)				///
+	tooltip(resource MARGINS_MAIN_BU_PRED_DISABLE)
+  BUTTON bu_pred_enable		@	_ms	@	.,		///
+	label(resource LBL_BU_ENABLE)					///
+	onpush(program main_pred_enable)				///
+	tooltip(resource MARGINS_MAIN_BU_PRED_ENABLE)
+  TEXTBOX tb_pred_note		_iilft	+30	_iibwd	_tb2,		///
+	label(resource MARGINS_MAIN_TB_PRED_NOTE)
+
+  CHECKBOX ck_marg_eff	_lft	+100	_iwd	_ht15h,			///
+	groupbox							///
+	onclickon(script main_marg_eff_on)				///
+	onclickoff(script main_marg_eff_off)				///
+	label(resource MARGINS_MAIN_CK_MARG_EFF)
+  RADIO rb_dydx		_indent	_ss	_inwd	., first 		///
+	label(resource MARGINS_MAIN_RB_DYDX)
+  RADIO rb_eyex		@	_ss	@	.,			///
+	label(resource MARGINS_MAIN_RB_EYEX)
+  RADIO rb_dyex		@	_ss	@	.,			///
+	label(resource MARGINS_MAIN_RB_DYEX)
+  RADIO rb_eydx		@	_ss	@	., last			///
+	label(resource MARGINS_MAIN_RB_EYDX)
+  TEXT tx_marg_eff	@	_ms	@	.,			///
+	label(resource LBL_VARIABLES)
+  COMBOBOX cb_marg_eff	@	_ss	_ibwd	.,			///
+	append								///
+	dropdown							///
+	contents(margins_atlist)					///
+	label(resource LBL_VARIABLES)
+  CHECKBOX ck_contin	_ilft	_ls	@	.,			///
+	option(continuous)						///
+	label(resource MARGINS_MAIN_CK_CONTIN)
+END
+
+SCRIPT main_marg_eff_on
+BEGIN
+	main.rb_dydx.enable
+	main.rb_eyex.enable
+	main.rb_dyex.enable
+	main.rb_eydx.enable
+	main.tx_marg_eff.enable
+	main.cb_marg_eff.enable
+	main.ck_contin.enable
+END
+
+SCRIPT main_marg_eff_off
+BEGIN
+	main.rb_dydx.disable
+	main.rb_eyex.disable
+	main.rb_dyex.disable
+	main.rb_eydx.disable
+	main.tx_marg_eff.disable
+	main.cb_marg_eff.disable
+	main.ck_contin.disable
+END
+
+PROGRAM main_predict_on
+BEGIN
+	call main.tx_pred.enable
+	call main.lb_predBuild.enable
+	call main.bu_pred_create.enable
+	call main.tb_pred_note.enable
+	call main_pred_count.setvalue class mainPREDChildDialogList.size
+	if (main_pred_count.isneq(0)) {
+		call main.bu_pred_edit.enable
+	}
+END
+
+SCRIPT main_predict_off
+BEGIN
+	main.tx_pred.disable
+	main.lb_predBuild.disable
+	main.bu_pred_create.disable
+	main.bu_pred_edit.disable
+	main.bu_pred_disable.disable
+	main.bu_pred_enable.disable
+	main.tb_pred_note.disable
+END
+
+PROGRAM main_pred_create
+BEGIN
+	call main_pred_count.setvalue class mainPREDChildDialogList.size
+	call main_pred_count.increment
+	call main_pred_tmp.setvalue "main_pred_"
+	call main_pred_tmp.append class main_pred_count.value
+	call main_pred_tmp.withvalue main_pred_childdlg.setvalue @
+	call program main_show_pred_child
+END
+
+PROGRAM main_pred_edit
+BEGIN
+	call mainPREDCommandDisplayList.findstr class			///
+		main.lb_predBuild.value
+	call main_pred_position.setvalue class				///
+		mainPREDCommandDisplayList.position
+	call main_pred_position.withvalue				///
+		main_pred_childdlg.setvalue				///
+		class mainPREDChildDialogList.values[@]
+	call program main_show_pred_child_edit
+END
+
+PROGRAM main_show_pred_child
+BEGIN
+	call main_pred_tmp.setvalue "margins_predict AS "
+	call main_pred_tmp.append class main_pred_childdlg.value
+	call main_pred_tmp.withvalue create CHILD @
+	call main_pred_childdlg.withvalue @.setExitString		///
+		"main_pred_child_result"
+	call main_pred_childdlg.withvalue @.setExitAction		///
+		"program main_pred_child_create_done"
+
+	call main_pred_count.withvalue STMP.format			///
+		"resource LBL_PREDICTION_FMT" "@" ""
+	call STMP.withvalue main_pred_tmp.setvalue "@"
+	call main_pred_childdlg.withvalue				///
+		main_pred_tmp2.setvalue "@.settitle"
+	call main_pred_tmp2.append `" ""'
+	call main_pred_tmp2.append class main_pred_tmp.value
+	call main_pred_tmp2.append `"""'
+	call main_pred_tmp2.withvalue @
+END
+
+PROGRAM main_show_pred_child_edit
+BEGIN
+	call main_pred_tmp.setvalue "margins_predict AS "
+	call main_pred_tmp.append class main_pred_childdlg.value
+	call main_pred_tmp.withvalue create CHILD @
+	call main_pred_childdlg.withvalue @.setExitString		///
+		"main_pred_child_result"
+	call main_pred_childdlg.withvalue @.setExitAction		///
+		"program main_pred_child_edit_done"
+
+	call main_pred_position.withvalue				///
+		main_pred_tmp.setvalue					///
+		class mainPREDCommandDisplayList.values[@]
+	call main_pred_childdlg.withvalue				///
+		main_pred_tmp2.setvalue "@.settitle"
+	call main_pred_tmp2.append `" ""'
+	call main_pred_tmp2.append class main_pred_tmp.value
+	call main_pred_tmp2.append `"""'
+	call main_pred_tmp2.withvalue @
+END
+
+PROGRAM main_pred_child_create_done
+BEGIN
+	call main_pred_arraysize.setvalue class				///
+		mainPREDChildDialogList.size
+	call main_pred_arraysize.increment
+
+	/* Store child dialog name */
+	call mainPREDChildDialogList.store class			///
+		main_pred_arraysize.value class main_pred_childdlg.value
+
+	/* Store listbox display prediction string */
+	call main_pred_arraysize.withvalue STMP.format			///
+		"resource LBL_PREDICTION_FMT" "@" ""
+	call STMP.withvalue						///
+		mainPREDCommandDisplayList.store class			///
+		main_pred_arraysize.value "@"
+
+	/* Store child dialog result string */
+	call mainPREDCommandList.store class				///
+		main_pred_arraysize.value				///
+		class main_pred_child_result.value
+
+	/* Store child dialog result string for final command
+	   For disable/enable */
+	call mainPREDCommandValues.store class				///
+		main_pred_arraysize.value				///
+		class main_pred_child_result.value
+
+	/* Store disable/enable status */
+	call mainPREDStatusList.store class				///
+		main_pred_arraysize.value "active"
+
+	call mainPREDCommandDisplayList.copyToArray main_pred_list
+	call main.lb_predBuild.repopulate
+	call STMP.withvalue main.lb_predBuild.setvalue "@"
+END
+
+PROGRAM main_pred_child_edit_done
+BEGIN
+	call mainPREDChildDialogList.findstr class			///
+		main_pred_childdlg.value
+	call main_pred_position.setvalue class				///
+		mainPREDChildDialogList.position
+	call main_pred_position.withvalue main_pred_tmp.setvalue	///
+		class mainPREDStatusList.values[@]
+	if main_pred_tmp.iseq("active") {
+		call main_pred_position.withvalue STMP.format		///
+			"resource LBL_PREDICTION_FMT" "@" ""
+		call STMP.withvalue					///
+			mainPREDCommandDisplayList.store class		///
+			main_pred_position.value "@"
+		call mainPREDCommandValues.store class			///
+			main_pred_position.value class			///
+			main_pred_child_result.value
+		call STMP.withvalue					///
+			main_pred_tmp2.setvalue "@"
+	}
+	else {
+		call main_pred_position.withvalue STMP.format		///
+			"resource LBL_PREDICTION_FMT" "@"		///
+			"resource LBL_PAREN_DISABLED"
+
+		call STMP.withvalue					///
+			main_pred_tmp2.setvalue "@"
+
+		call main_pred_tmp2.withvalue				///
+			mainPREDCommandDisplayList.store		///
+			class main_pred_position.value "@"
+	}
+
+	call mainPREDCommandList.store class				///
+		main_pred_position.value class				///
+		main_pred_child_result.value
+
+	call mainPREDCommandDisplayList.copyToArray main_pred_list
+	call main.lb_predBuild.repopulate
+	call main.lb_predBuild.setvalue class main_pred_tmp2.value
+END
+
+PROGRAM main_pred_sel_changed
+BEGIN
+	call mainPREDCommandDisplayList.findstr class			///
+		main.lb_predBuild.value
+	call main_pred_position.setvalue class				///
+		mainPREDCommandDisplayList.position
+	call main_pred_position.withvalue main_pred_tmp.setvalue	///
+		class mainPREDStatusList.values[@]
+	if main_pred_position {
+		call main.bu_pred_edit.enable
+		call main_pred_position.withvalue			///
+			main.tb_pred_note.setlabel			///
+			class mainPREDCommandList.values[@]
+	}
+
+	if main_pred_tmp.iseq("disable") {
+		call main.bu_pred_enable.enable
+		call main.bu_pred_disable.disable
+	}
+	if main_pred_tmp.iseq("active") {
+		call main.bu_pred_enable.disable
+		call main.bu_pred_disable.enable
+	}
+END
+
+PROGRAM main_pred_disable
+BEGIN
+	call mainPREDCommandDisplayList.findstr class			///
+		main.lb_predBuild.value
+	call main_pred_position.setvalue class				///
+		mainPREDCommandDisplayList.position
+
+	call main_pred_tmp.setvalue class main.lb_predBuild.value
+	call mainPREDStatusList.store class				///
+		main_pred_position.value "disable"
+	call mainPREDCommandValues.store class main_pred_position.value ""
+
+	call STMP.format "resource LBL_PAREN_DISABLED"
+	call main_pred_tmp.append " "
+	call main_pred_tmp.append class STMP.value
+	call main_pred_tmp.withvalue STMP.setvalue "@"
+
+	call main_pred_tmp.withvalue					///
+		mainPREDCommandDisplayList.store			///
+		class main_pred_position.value "@"
+
+	call mainPREDCommandDisplayList.copyToArray main_pred_list
+	call main.lb_predBuild.repopulate
+	call main.lb_predBuild.setvalue class STMP.value
+END
+
+PROGRAM main_pred_enable
+BEGIN
+	call mainPREDCommandDisplayList.findstr class			///
+		main.lb_predBuild.value
+	call main_pred_position.setvalue class				///
+		mainPREDCommandDisplayList.position
+
+	call mainPREDStatusList.store class				///
+		main_pred_position.value "active"
+	call main_pred_position.withvalue				///
+		mainPREDCommandValues.store				///
+		class main_pred_position.value class			///
+		mainPREDCommandList.values[@]
+
+	call main_pred_position.withvalue STMP.format			///
+		"resource LBL_PREDICTION_FMT" "@" ""
+	call STMP.withvalue						///
+		mainPREDCommandDisplayList.store			///
+		class main_pred_position.value "@"
+
+	call mainPREDCommandDisplayList.copyToArray main_pred_list
+	call main_pred_position.withvalue				///
+		main_pred_tmp2.setvalue class				///
+		mainPREDCommandDisplayList.values[@]
+	call main.lb_predBuild.repopulate
+	call main.lb_predBuild.setvalue class main_pred_tmp2.value
+END
+
+SCRIPT showContrastListDialog
+BEGIN
+	create CHILD _contrast_list
+	_contrast_list.setExitString contrastListString
+	_contrast_list.setExitAction "main.cb_marlist.setvalue class contrastListString.value"
+END
+
+SCRIPT at_PREINIT
+BEGIN
+	create STRING at_tmp
+	create STRING at_tmp2
+	create STRING at_childdlg
+	create STRING at_child_result
+	create STRING at_cmd_output
+
+	create ARRAY at_list
+
+	create SVECTOR ATCommandDisplayList
+	create SVECTOR ATCommandList
+	create SVECTOR ATCommandValues
+	create SVECTOR ATStatusList
+	create SVECTOR ATChildDialogList
+
+	create DOUBLE at_count
+	create DOUBLE at_position
+	create DOUBLE at_arraysize
+
+	at.bu_at_edit.disable
+	at.bu_at_disable.disable
+	at.bu_at_enable.disable
+END
+
+DIALOG at, tabtitle(resource MARGINS_TAB_AT)
+BEGIN
+  RADIO rb_default	_lft	_top	_iwd	., first		///
+	label(resource MARGINS_AT_RB_DEFAULT)
+  RADIO rb_atmeans	@	_ss	@	., last			///
+	option(atmeans)							///
+	label(resource MARGINS_AT_RB_ATMEANS)
+  CHECKBOX ck_atbal	@	_ms	@	.,			///
+	option(asbalanced)						///
+	onclickon("script adv_emptycell_on")				///
+	onclickoff("script adv_emptycell_off")				///
+	label(resource MARGINS_AT_CK_ATBAL)
+  TEXT tx_atbal		_cksep	_vss	_inwd	.,			///
+	label(resource MARGINS_AT_TX_ATBAL)
+
+  TEXT tx_atBuild	_lft	_xls	@	.,			///
+	label(resource MARGINS_AT_TX_ATBUILD)
+  DEFINE holdy @y
+  LISTBOX lb_atBuild	@	_ss	200	95,			///
+	contents(at_list) 						///
+	ondblclick(program at_edit)					///
+	onselchange(program at_sel_changed)				///
+	nomemory
+  BUTTON bu_at_new	+210	@	80	.,			///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program at_create)
+  BUTTON bu_at_edit	@	_ms	@	.,			///
+	label(resource LBL_BU_EDIT)					///
+	onpush(program at_edit)
+  BUTTON bu_at_disable	@	_ms	@	.,			///
+	label(resource LBL_BU_DISABLE)					///
+	onpush(program at_disable)					///
+	tooltip(resource MARGINS_AT_BU_AT_DISABLE)
+  BUTTON bu_at_enable	@	_ms	@	.,			///
+	label(resource LBL_BU_ENABLE)					///
+	onpush(program at_enable)					///
+	tooltip(resource MARGINS_AT_BU_AT_ENABLE)
+  TEXTBOX tb_at_note	_lft	+25	_iibwd	_tb2,			///
+	label(resource MARGINS_AT_TB_AT_NOTE)
+END
+
+PROGRAM at_create
+BEGIN
+	call at_count.setvalue class ATChildDialogList.size
+	call at_count.increment
+	call at_count.withvalue at_childdlg.setvalue "at@"
+	call program at_show_at_child
+END
+
+PROGRAM at_edit
+BEGIN
+	call ATCommandDisplayList.findstr class at.lb_atBuild.value
+	call at_position.setvalue class ATCommandDisplayList.position
+	call at_position.withvalue at_childdlg.setvalue			///
+		class ATChildDialogList.values[@]
+
+	call program at_show_at_child_edit
+END
+
+PROGRAM at_show_at_child
+BEGIN
+	call at_childdlg.withvalue create CHILD margins_at AS @
+	call at_childdlg.withvalue @.setExitString "at_child_result"
+	call at_childdlg.withvalue @.setExitAction "program at_create_child_done"
+
+	call at_count.withvalue STMP.format			///
+		"resource LBL_SPECIFICATION_FMT" "@" ""
+	call STMP.withvalue at_tmp.setvalue "@"
+	call at_childdlg.withvalue				///
+		at_tmp2.setvalue "@.settitle"
+	call at_tmp2.append `" ""'
+	call at_tmp2.append class at_tmp.value
+	call at_tmp2.append `"""'
+	call at_tmp2.withvalue @
+END
+
+PROGRAM at_show_at_child_edit
+BEGIN
+	call at_childdlg.withvalue create CHILD margins_at AS @
+	call at_childdlg.withvalue @.setExitString "at_child_result"
+	call at_childdlg.withvalue @.setExitAction "program at_edit_child_done"
+
+	call at_position.withvalue at_tmp.setvalue			///
+		class ATCommandDisplayList.values[@]
+	call at_childdlg.withvalue at_tmp2.setvalue "@.settitle"
+	call at_tmp2.append `" ""'
+	call at_tmp2.append class at_tmp.value
+	call at_tmp2.append `"""'
+	call at_tmp2.withvalue @
+END
+
+PROGRAM at_create_child_done
+BEGIN
+	call at_arraysize.setvalue class ATChildDialogList.size
+	call at_arraysize.increment
+
+	/* Store child dialog name */
+	call ATChildDialogList.store class at_arraysize.value class	///
+		at_childdlg.value
+
+	/* Store listbox display equation string */
+	call at_arraysize.withvalue STMP.format				///
+			"resource LBL_SPECIFICATION_FMT" "@" ""
+	call STMP.withvalue ATCommandDisplayList.store class		///
+		at_arraysize.value "@"
+
+		/* Store child dialog result string */
+	call ATCommandList.store class at_arraysize.value 		///
+		class at_child_result.value
+
+	/* Store child dialog result string for final command
+	   For disable/enable */
+	call ATCommandValues.store class at_arraysize.value class 	///
+		at_child_result.value
+
+	/* Store disable/enable status */
+	call ATStatusList.store	class at_arraysize.value "active"
+
+	call ATCommandDisplayList.copyToArray at_list
+	call at.lb_atBuild.repopulate
+	call STMP.withvalue at.lb_atBuild.setvalue "@"
+END
+
+PROGRAM at_edit_child_done
+BEGIN
+	call ATChildDialogList.findstr class at_childdlg.value
+	call at_position.setvalue class ATChildDialogList.position
+	call at_position.withvalue at_tmp.setvalue			///
+		class ATStatusList.values[@]
+	if at_tmp.iseq("active") {
+		call at_position.withvalue STMP.format			///
+			"resource LBL_SPECIFICATION_FMT" "@" ""
+		call STMP.withvalue					///
+		ATCommandDisplayList.store class			///
+			at_position.value "@"
+		call ATCommandValues.store class			///
+			at_position.value class				///
+			at_child_result.value
+		call STMP.withvalue					///
+			at_tmp2.setvalue "@"
+	}
+	else {
+		call at_position.withvalue STMP.format			///
+			"resource LBL_SPECIFICATION_FMT" "@"		///
+			"resource LBL_PAREN_DISABLED"
+	
+		call STMP.withvalue at_tmp2.setvalue "@"
+	
+		call at_tmp2.withvalueATCommandDisplayList.store	///
+				class at_position.value "@"
+	}
+		
+	call ATCommandList.store class					///
+		at_position.value class 				///
+		at_child_result.value
+
+	call ATCommandDisplayList.copyToArray at_list
+	call at.lb_atBuild.repopulate
+	call at.lb_atBuild.setvalue class at_tmp2.value
+END
+
+PROGRAM at_sel_changed
+BEGIN
+	call ATCommandDisplayList.findstr class at.lb_atBuild.value
+	call at_position.setvalue class 				///
+		ATCommandDisplayList.position
+	call at_position.withvalue at_tmp.setvalue			///
+		class ATStatusList.values[@]
+	if at_position {
+		call at.bu_at_edit.enable
+		call at_position.withvalue				///
+			at.tb_at_note.setlabel				///
+			class ATCommandList.values[@]
+	}
+
+	if at_tmp.iseq("disable") {
+		call at.bu_at_enable.enable
+		call at.bu_at_disable.disable
+	}
+	if at_tmp.iseq("active") {
+		call at.bu_at_enable.disable
+		call at.bu_at_disable.enable
+	}
+END
+
+PROGRAM at_disable
+BEGIN
+	call ATCommandDisplayList.findstr class at.lb_atBuild.value
+	call at_position.setvalue class					///
+		ATCommandDisplayList.position
+
+	call at_tmp.setvalue class at.lb_atBuild.value
+	call ATStatusList.store class at_position.value "disable"
+	call ATCommandValues.store class at_position.value ""
+	call at_tmp.withvalue ATCommandDisplayList.store		///
+		class at_position.value "@ (disabled)"
+
+	call ATCommandDisplayList.copyToArray at_list
+	call at_tmp.withvalue at_tmp2.setvalue "@ (disabled)"
+	call at.lb_atBuild.repopulate
+	call at.lb_atBuild.setvalue class at_tmp2.value
+END
+
+PROGRAM at_enable
+BEGIN
+	call ATCommandDisplayList.findstr class at.lb_atBuild.value
+	call at_position.setvalue class 				///
+		ATCommandDisplayList.position
+
+	call ATStatusList.store class at_position.value "active"
+	call at_position.withvalue ATCommandValues.store 		///
+		class at_position.value class 				///
+		ATCommandList.values[@]
+
+	call at_position.withvalue STMP.format				///
+		"resource LBL_SPECIFICATION_FMT" "@" ""
+	call STMP.withvalue						///
+		ATCommandDisplayList.store				///
+	class at_position.value "@"
+	call ATCommandDisplayList.copyToArray at_list
+	call at_position.withvalue at_tmp2.setvalue class		///
+		ATCommandDisplayList.values[@]
+	call at.lb_atBuild.repopulate
+	call at.lb_atBuild.setvalue class at_tmp2.value
+END
+
+PROGRAM at_lb_atBuild_output
+BEGIN
+	call ATCommandValues.copyToString at_cmd_output
+	call at_arraysize.setvalue class ATStatusList.size
+
+	if at_cmd_output {
+		put at_cmd_output
+	}
+END
+
+SCRIPT sub_PREINIT
+BEGIN
+	create STRING sub_OverString
+END
+
+DIALOG sub, tabtitle(resource LBL_IF_IN_OVER)
+BEGIN
+  CHECKBOX ck_over	_lft	_top	_iwd	_ht4h,			///
+	groupbox							///
+	onclickon(program _sub_over_on)					///
+	onclickoff(program _sub_over_off)				///
+	label(resource MARGINS_SUB_CK_OVER)
+
+  TEXT tx_over		_ilft	_ss	_ivlwd	.,			///
+	label(resource LBL_GROUP_VARIABLES)
+  VARLIST vl_over	@	_ss	_ibwd	.,			///
+	option(over)							///
+	numeric								///
+	label(resource LBL_GROUP_VARIABLES)
+  BUTTON  bu_contrastoverlist	_slw40	@	20	.,		///
+	onpush(script showContrastListOverDialog)			///
+	tooltip(resource LBL_CREATE_CONTRAST_LIST)			///
+        label("...")
+
+  CHECKBOX ck_subpop	_lft	+45	_iwd	_ht9h,			///
+	groupbox							///
+	onclickon(program _sub_subpop_on)				///
+	onclickoff(script _sub_subpop_off)				///
+	label(resource LBL_SUBPOPULATION_ESTIMATION)
+  RADIO rb_subpop	_ilft	_ss	_ibwd	., first		///
+	onclickon(program sub_subpop_enable)				///
+	onclickoff(sub.vn_subpop.disable)				///
+	label(resource LBL_INDICATOR_VARIABLE)
+  VARNAME vn_subpop	_indent	_ss	_cwd3_2	.,			///
+	option(subpop)							///
+	numeric								///
+	label(resource LBL_INDICATOR_VARIABLE)
+  RADIO rb_subif	_ilft	_ls	_ibwd	., last			///
+	onclickon(program sub_subpop_enable)				///
+	onclickoff(sub.ex_subif.disable)				///
+	label(resource LBL_IF_EXPRESSION)
+  EXP ex_subif		_indent	_ss	-10	.,			///
+	error(resource MARGINS_SUB_EX_SUBIF)				///
+	label(resource LBL_BU_CREATE)
+
+  GROUPBOX gb_ifin	_lft	+45	_iwd	_ht7h,			///
+	label(resource LBL_RESTRICT_OBS)
+  TEXT tx_if		_ilft	_ss	_ibwd	.,			///
+	label(resource LBL_IF_EXPRESSION)
+  EXP ex_if		@	_ss	_ibwd	.,			///
+	label(resource LBL_BU_CREATE)
+
+  CHECKBOX ck_in	_ilft	_ms	100	.,			///
+	label(resource LBL_OBS_IN_RANGE)				///
+	onclickon(script _sub_in_on)					///
+	onclickoff(script _sub_in_off)
+  SPINNER sp_from	+105	@	_spwd	.,			///
+	min(1)								///
+	max(c(N))							///
+	default(1)
+  TEXT tx_to		_spsep	@	30	.,			///
+	label(resource LBL_TO)						///
+	right
+  SPINNER sp_to		+35	@	_spwd	.,			///
+	min(1)								///
+	max(c(N))							///
+	default(c(N))
+END
+
+PROGRAM _sub_over_on
+BEGIN
+	call sub.tx_over.enable
+	call sub.vl_over.enable
+	if con.ck_contrast {
+		call sub.bu_contrastoverlist.enable
+		call con.ck_overjoint.enable
+	}
+END
+
+PROGRAM _sub_over_off
+BEGIN
+	call sub.tx_over.disable
+	call sub.vl_over.disable
+	if con.ck_contrast {
+		call sub.bu_contrastoverlist.disable
+		call con.ck_overjoint.disable
+	}
+END
+
+PROGRAM _sub_subpop_on
+BEGIN
+	call sub.rb_subpop.enable
+	call sub.rb_subif.enable
+	if sub.rb_subpop {
+		call sub.vn_subpop.enable
+	}
+	if sub.rb_subif {
+		call sub.ex_subif.enable
+	}
+END
+
+SCRIPT _sub_subpop_off
+BEGIN
+	sub.rb_subpop.disable
+	sub.rb_subif.disable
+	sub.vn_subpop.disable
+	sub.ex_subif.disable
+END
+
+PROGRAM sub_subpop_enable
+BEGIN
+	if sub.ck_subpop {
+		if sub.rb_subpop {
+			call sub.vn_subpop.enable
+		}
+		if sub.rb_subif {
+			call sub.ex_subif.enable
+		}
+	}
+END
+
+SCRIPT showContrastListOverDialog
+BEGIN
+	create CHILD _margins_contrast_ow, message("-over-")
+	_margins_contrast_ow.setExitString sub_OverString
+	_margins_contrast_ow.setExitAction "sub.vl_over.setvalue class sub_OverString.value"
+END
+
+SCRIPT within_PREINIT
+BEGIN
+	create STRING within_WithinString
+END
+
+DIALOG within, tabtitle(resource LBL_WITHIN)
+BEGIN
+  CHECKBOX ck_within	_lft	_top	_iwd	_ht4h,			///
+	groupbox							///
+	onclickon(program within_on)					///
+	onclickoff(program within_off)					///
+	label(resource MARGINS_WITHIN_CK_WITHIN)
+  TEXT tx_within	_indent	_ss	_inwd	.,			///
+	label(resource MARGINS_WITHIN_TX_WITHIN)
+  COMBOBOX cb_within	@	_ss	@	.,			///
+	append								///
+	dropdown							///
+	contents(margins_flist)						///
+	option(within)							///
+	label(resource MARGINS_WITHIN_TX_WITHIN)
+  BUTTON  bu_contrastwithinlist	_slw40	@	20	.,		///
+	onpush(script showContrastListWithinDialog)			///
+	tooltip(resource LBL_CREATE_CONTRAST_LIST)			///
+        label("...")
+END
+
+PROGRAM within_on
+BEGIN
+	call within.tx_within.enable
+	call within.cb_within.enable
+	if con.ck_contrast {
+		call within.bu_contrastwithinlist.enable
+		call con.ck_withinjoint.enable
+	}
+END
+
+PROGRAM within_off
+BEGIN
+	call within.tx_within.disable
+	call within.cb_within.disable
+	if con.ck_contrast {
+		call within.bu_contrastwithinlist.disable
+		call con.ck_withinjoint.disable
+	}
+	
+END
+
+SCRIPT showContrastListWithinDialog
+BEGIN
+	create CHILD _margins_contrast_ow, message("-within-")
+	_margins_contrast_ow.setExitString within_WithinString
+	_margins_contrast_ow.setExitAction "within.cb_within.setvalue class within_WithinString.value"
+END
+
+SCRIPT con_PREINIT
+BEGIN
+	create STRING con_AtString
+	create DOUBLE is_pred
+END
+
+DIALOG con, tabtitle(resource LBL_CONTRAST)
+BEGIN
+  CHECKBOX ck_contrast		_lft	_top	_iwd	585,		///
+	groupbox							///
+	onclickon(program con_contrast_on)				///
+	onclickoff(program con_contrast_off)				///
+	label(resource MARGINS_CON_CK_CONTRAST)
+  CHECKBOX ck_overall		_ilft	_ms	_inwd	.,		///
+	option("overall")						///
+	label(resource MARGINS_CON_CK_OVERALL)
+  CHECKBOX ck_lincom		@	_ms	@	.,		///
+	option("lincom")						///
+	label(resource LBL_TREAT_USER_DEFINED_CONTRASTS_AS_LINEAR)
+  CHECKBOX ck_predcontrast	@	_ms	@	.,		///
+	option("predcontrast")						///
+	onclickon("script con_predcontrast_on")				///
+	onclickoff("script con_predcontrast_off")			///
+	label(resource MARGINS_CON_CK_PREDCONTRAST)
+  TEXT tx_predcontrastlist	@	_ss	_cwd1	.,		///
+	label(resource LBL_USING_THE_OP_CONTRAST_OPERATOR)
+  EDIT ed_predcontrastlist	@	_ss	_lw40	.,		///
+	default("r._predict")						///
+	option(predict)							///
+	label(resource LBL_USING_THE_OP_CONTRAST_OPERATOR)
+  BUTTON  bu_predcontrastlist	_slw40	@	20	.,		///
+	onpush(script showContrastListPredDialog)			///
+	tooltip(resource MARGINS_CON_BU_PREDCONTRASTLINE)		///
+        label("...")
+  CHECKBOX ck_atcontrast	_ilft	_ms	_ibwd	.,		///
+	option("atcontrast")						///
+	onclickon("script con_atcontrast_on")				///
+	onclickoff("script con_atcontrast_off")				///
+	label(resource MARGINS_CON_CK_ATCONTRAST)
+  TEXT tx_contrastlist		@	_ss	_cwd1	.,		///
+	label(resource LBL_USING_THE_OP_CONTRAST_OPERATOR)
+  EDIT ed_atcontrastlist	@	_ss	_lw40	.,		///
+	default("r._at")						///
+	label(resource LBL_USING_THE_OP_CONTRAST_OPERATOR)
+  BUTTON  bu_atcontrastlist	_slw40	@	20	.,		///
+	onpush(script showContrastListAtDialog)				///
+	tooltip(resource MARGINS_CON_BU_ATCONTRASTLIST)			///
+        label("...")
+  CHECKBOX ck_predictjoint	_ilft	_ls	_ibwd	.,		///
+ 	option("predictjoint")						///
+ 	onclickon("script con_predictjoint_on")				///
+ 	onclickoff("program con_predictjoint_off")			///
+label(resource MARGINS_CON_CK_PREDICTJOINT)
+  CHECKBOX ck_atjoint		@	_ms	@	.,		///
+ 	option("atjoint")						///
+ 	onclickon("script con_atjoint_on")				///
+ 	onclickoff("program con_atjoint_off")				///
+	label(resource MARGINS_CON_CK_ATJOINT)
+  CHECKBOX ck_overjoint		_ilft	_ms	_ibwd	.,		///
+	option("overjoint")						///
+	label(resource MARGINS_CON_CK_OVERJOINT)
+  CHECKBOX ck_withinjoint	@	_ms	@	.,		///
+	option("withinjoint")						///
+	label(resource MARGINS_CON_CK_WITHINJOINT)
+  CHECKBOX ck_marginswithin	@	_ms	@	.,		///
+	option("marginswithin")						///
+	label(resource MARGINS_CON_CK_MARGINSWITHIN)
+  RADIO rb_noeffects		_ilft	_ls	_ibwd	., first	///
+	onclickon("script con_effects_off")				///
+	option("noeffects")						///
+	label(resource LBL_SUPPRESS_EFFECTS_TABLES)
+  RADIO rb_effects		@	_ss	@	., last		///
+	onclickon("script con_effects_on")				///
+	label(resource LBL_EFFECTS_TABLES)
+  CHECKBOX ck_cieffects		_indent	_ss	_inwd	.,		///
+	option("cieffects")						///
+	label(resource LBL_SHOW_EFFECTS_TABLE_WITH_CI)
+  CHECKBOX ck_pveffects		@	_ss	@	.,		///
+	option("pveffects")						///
+	label(resource LBL_SHOW_EFFECTS_TABLE_WITH_P_VALUES)
+  CHECKBOX ck_effects		@	_ss	@	.,		///
+	option("effects")						///
+	label(resource LBL_SHOW_EFFECTS_TABLE_WITH_CI_AND_P_VALUES)
+  GROUPBOX gb_wald		_ilft	_ls	_ibwd	_ht9h,		///
+	label(resource LBL_WALD_TEST)
+  RADIO rb_wald			_indent	_ss	_inwd	., first	///
+	onclickon("program con_wald_on")				///
+	onclickoff("program con_wald_off")				///
+	label(resource LBL_SHOW_TABLE_OF_WALD_TESTS)
+  RADIO rb_nowald		@	_ss	@	., last		///
+	option("nowald")						///
+	label(resource LBL_SUPPRESS_TABLE_OF_WALD_TESTS)
+  CHECKBOX ck_noatlevels 	@	_ls	@	.,		///
+	option("noatlevels")						///
+	label(resource LBL_REPORT_ONLY_OVERALL_WALD_TEST_FOR_TERMS)
+  CHECKBOX ck_nosvyadjust 	@	_ms	@	.,		///
+	option("nosvyadjust")						///
+	label(resource LBL_COMPUTE_UNADJUSTED_WALD_TEST_SURVEY_RESULTS)
+END
+
+SCRIPT con_effects_on
+BEGIN
+	con.ck_cieffects.enable
+	con.ck_pveffects.enable
+	con.ck_effects.enable
+END
+
+SCRIPT con_effects_off
+BEGIN
+	con.ck_cieffects.disable
+	con.ck_pveffects.disable
+	con.ck_effects.disable
+END
+
+PROGRAM con_contrast_on
+BEGIN
+	call main.cb_marlist.setposition . . 605 .
+	call main.bu_contrastlist.show
+	call con.ck_overall.enable
+	call con.ck_lincom.enable
+	call con.ck_predictjoint.enable
+	call con.ck_atjoint.enable
+	call con.ck_predcontrast.enable
+	if con.ck_predcontrast {
+		call script con_predcontrast_on
+	}
+	call con.ck_atcontrast.enable
+	if con.ck_atcontrast {
+		call script con_atcontrast_on
+	}
+	call sub.bu_contrastoverlist.show
+	if sub.ck_over {
+		call program _sub_over_on
+	}
+	else {
+		call program _sub_over_off
+	}
+	call sub.vl_over.setposition . . 585 .
+	call within.bu_contrastwithinlist.show
+	if within.ck_within {
+		call program within_on
+	}
+	else {
+		call program within_off
+	}
+	call within.cb_within.setposition . . 585 .
+	call con.ck_marginswithin.enable
+	call con.gb_wald.enable
+	call con.rb_wald.enable
+	call con.rb_nowald.enable
+	if con.rb_wald {
+		call program con_wald_on
+	}
+	else {
+		call program con_wald_off
+	}
+	call con.rb_noeffects.enable
+	call con.rb_effects.enable
+	if con.rb_noeffects {
+		call script con_effects_off
+	}
+	else {
+		call script con_effects_on
+	}
+	call con.gb_wald.enable
+	call con.rb_wald.enable
+	call con.rb_nowald.enable
+
+	call pw.ck_pwcompare.disable
+END
+
+PROGRAM con_contrast_off
+BEGIN
+	call main.cb_marlist.setposition . . 630 .
+	call main.bu_contrastlist.hide
+	call sub.bu_contrastoverlist.hide
+	call sub.vl_over.setposition . . 615 .
+	call within.bu_contrastwithinlist.hide
+	call within.cb_within.setposition . . 615 .
+
+	call con.ck_overall.disable
+	call con.ck_lincom.disable
+	call con.ck_predcontrast.disable
+	call con.tx_predcontrastlist.disable
+	call con.ed_predcontrastlist.disable
+	call con.bu_predcontrastlist.disable
+	call con.ck_predictjoint.disable
+	call con.ck_atjoint.disable
+	call con.ck_atcontrast.disable
+	call con.tx_contrastlist.disable
+	call con.ed_atcontrastlist.disable
+	call con.bu_atcontrastlist.disable
+	call con.ck_overjoint.disable
+	call con.ck_withinjoint.disable
+	call con.ck_marginswithin.disable
+	call con.gb_wald.disable
+	call con.rb_wald.disable
+	call con.rb_nowald.disable
+	call con.ck_noatlevels.disable
+	call con.ck_nosvyadjust.disable
+	call con.rb_noeffects.disable
+	call con.rb_effects.disable
+	call con.ck_cieffects.disable
+	call con.ck_pveffects.disable
+	call con.ck_effects.disable
+	call pw.ck_pwcompare.enable
+	if pw.ck_pwcompare {
+		call program pw_pwcompare_on
+	}
+END
+
+SCRIPT con_atjoint_on
+BEGIN
+	con.ck_atcontrast.disable
+	script con_atcontrast_off
+END
+
+PROGRAM con_atjoint_off
+BEGIN
+	if (con.ck_contrast) {
+		call con.ck_atcontrast.enable
+		if con.ck_atcontrast {
+			call script con_atcontrast_on
+		}
+		else {
+			call script con_atcontrast_off
+		}
+	}
+END
+
+SCRIPT con_atcontrast_on
+BEGIN
+	con.tx_contrastlist.enable
+	con.ed_atcontrastlist.enable
+	con.bu_atcontrastlist.enable
+END
+
+SCRIPT con_atcontrast_off
+BEGIN
+	con.tx_contrastlist.disable
+	con.ed_atcontrastlist.disable
+	con.bu_atcontrastlist.disable
+END
+
+SCRIPT con_predcontrast_on
+BEGIN
+	con.tx_predcontrastlist.enable
+	con.ed_predcontrastlist.enable
+	con.bu_predcontrastlist.enable
+END
+
+SCRIPT con_predcontrast_off
+BEGIN
+	con.tx_predcontrastlist.disable
+	con.ed_predcontrastlist.disable
+	con.bu_predcontrastlist.disable
+END
+	
+PROGRAM con_wald_on
+BEGIN
+	if (con.ck_contrast) {
+		call con.ck_noatlevels.enable
+		call con.ck_nosvyadjust.enable
+	}
+END
+
+PROGRAM con_wald_off
+BEGIN
+	call con.ck_noatlevels.disable
+	call con.ck_nosvyadjust.disable
+END
+
+SCRIPT showContrastListPredDialog
+BEGIN
+	is_pred.setvalue 1
+	create CHILD _margins_contrast_at
+	_margins_contrast_at.setExitString con_AtString
+	_margins_contrast_at.setExitAction "con.ed_predcontrastlist.setvalue class con_AtString.value"
+END
+
+SCRIPT showContrastListAtDialog
+BEGIN
+	is_pred.setvalue 0
+	create CHILD _margins_contrast_at
+	_margins_contrast_at.setExitString con_AtString
+	_margins_contrast_at.setExitAction "con.ed_atcontrastlist.setvalue class con_AtString.value"
+END
+
+PROGRAM con_options_output
+BEGIN
+	option con.ck_overall
+	option con.ck_lincom
+	if con.ck_predcontrast {
+		optionarg con.ed_predcontrastlist
+	}
+	option con.ck_predictjoint
+	option con.ck_atjoint
+	if con.ck_atcontrast {
+		put " atcontrast"
+		if con.ed_atcontrastlist {
+			put "("
+			put con.ed_atcontrastlist
+			put ")"
+		}
+	}
+
+	option con.ck_overjoint
+	option con.ck_withinjoint
+	option con.ck_marginswithin
+	option con.rb_nowald
+	if con.rb_nowald {
+		option con.ck_noatlevels
+		option con.ck_nosvyadjust
+	}
+	if (con.rb_effects & !con.ck_cieffects &			///
+		!con.ck_pveffects & !con.ck_effects) {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format 					///
+			"resource LBL_MSGBOX_EFFECTS_TABLE_FMT" 	///
+			"resource LBL_CONTRAST"
+		stopbox stop "class _MSG_TMP.value"
+// You must specify an "Effects table" on the "Contrast" tab.
+	}
+	if (con.rb_effects) {
+		option con.ck_cieffects
+		option con.ck_pveffects
+		option con.ck_effects
+	}
+END
+
+DIALOG pw, tabtitle(resource MARGINS_TAB_PW)
+BEGIN
+  CHECKBOX ck_pwcompare		_lft	_top	_iwd	_ht18h,		///
+	groupbox							///
+	onclickon(program pw_pwcompare_on)				///
+	onclickoff(program pw_pwcompare_off)				///
+	label(resource MARGINS_PW_CK_PWCOMPARE)
+  
+  CHECKBOX ck_table		_indent	_ms	_inwd	_ht12,		///
+	groupbox							///
+	onclickon(script pw_table_on)					///
+	onclickoff(script pw_table_off)					///
+	label(resource MARGINS_PW_CK_TABLE)
+
+  CHECKBOX ck_cieffects		_indent	_ss	_inwd	.,		///
+	option("cieffects")						///
+	label(resource MARGINS_PW_CK_CIEFFECTS)
+  CHECKBOX ck_pveffects		@	_ms	@	.,		///
+	option("pveffects")						///
+	label(resource LBL_SHOW_EFFECTS_TABLE_WITH_P_VALUES)
+  CHECKBOX ck_effects		@	_ms	@	.,		///
+	option("effects")						///
+	label(resource LBL_SHOW_EFFECTS_TABLE_WITH_CI_AND_P_VALUES)
+  CHECKBOX ck_cimargins		@	_ms	@	.,		///
+	option("cimargins")						///
+	label(resource LBL_SHOW_TABLES_OF_MARGINS_CI)
+  CHECKBOX ck_groups		@	_ms	@	.,		///
+	option("groups")						///
+	label(resource LBL_SHOW_TABLE_MARGINS_AND_GROUP_CODES)
+
+  CHECKBOX ck_sort		_ilft	_xls	@	.,		///
+	option("sort")							///
+	label(resource LBL_SORT_MARGINS_DIFFERENCES_IN_EACH_TERM)
+END
+
+SCRIPT pw_table_on
+BEGIN
+	pw.ck_cieffects.enable
+	pw.ck_pveffects.enable
+	pw.ck_effects.enable
+	pw.ck_cimargins.enable
+	pw.ck_groups.enable
+END
+
+SCRIPT pw_table_off
+BEGIN
+	pw.ck_cieffects.disable
+	pw.ck_pveffects.disable
+	pw.ck_effects.disable
+	pw.ck_cimargins.disable
+	pw.ck_groups.disable
+END
+
+PROGRAM pw_pwcompare_on
+BEGIN
+	call pw.ck_table.enable
+	if pw.ck_table {
+		call script pw_table_on
+	}
+	else {
+		call script pw_table_off
+	}
+	call pw.ck_sort.enable
+	call con.ck_contrast.disable
+END
+
+PROGRAM pw_pwcompare_off
+BEGIN
+	call pw.ck_table.disable
+	call pw.ck_cieffects.disable
+	call pw.ck_pveffects.disable
+	call pw.ck_effects.disable
+	call pw.ck_cimargins.disable
+	call pw.ck_groups.disable
+	call pw.ck_sort.disable
+	call con.ck_contrast.enable
+END
+
+PROGRAM pw_options_output
+BEGIN
+	if (pw.ck_table & !pw.ck_cimargins & !pw.ck_cieffects &		///
+		!pw.ck_pveffects & !pw.ck_effects & !pw.ck_groups) {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format					/// 
+			"resource LBL_MSGBOX_YOU_MUST_SPECIFY_AN_ON_TAB_FMT" ///
+			"resource LBL_ADDITIONAL_TABLE" 		///
+			"resource MARGINS_TAB_PW"
+		stopbox stop "class _MSG_TMP.value"
+// You must specify an "Additional table" on the "Pairwise comparisons" tab.
+	}
+	if (pw.ck_table) {
+		option pw.ck_cieffects
+		option pw.ck_pveffects
+		option pw.ck_effects
+		option pw.ck_cimargins
+		option pw.ck_groups
+	}
+	option pw.ck_sort
+END
+
+INCLUDE weights
+
+INCLUDE margins_se
+
+PROGRAM se_set_sub_label
+BEGIN
+	if se.lb_vcetype.iseq("unconditional") {
+		call sub.ck_over.setlabel resource MARGINS_ESTIMATE_MARGINS_EACH_SUBPOP
+	}
+	else {
+		call sub.ck_over.setlabel resource MARGINS_SUB_CK_OVER
+	}
+END
+
+SCRIPT adv_PREINIT
+BEGIN
+	create STRING outcomes
+	create ARRAY adv_outcome_list
+
+	outcomes.setvalue e(alteqs)
+	outcomes.tokenizeOnStr adv_outcome_list " "
+
+	adv.cb_outcomes.repopulate
+	adv.cb_alternatives.repopulate
+END
+
+DIALOG adv, tabtitle(resource LBL_ADVANCED)
+BEGIN
+  CHECKBOX ck_noweights		_lft	_top	_iwd	.,		///
+	option(noweights)						///
+	label(resource MARGINS_ADV_CK_NOWEIGHTS)
+  CHECKBOX ck_noesample		@	_ms	@	.,		///
+	option(noesample)						///
+	label(resource MARGINS_ADV_CK_NOESAMPLE)
+  GROUPBOX gb_emptycell		@	_ls	@	_ht4,		///
+	label(resource LBL_TREATMENT_OF_EMPTY_CELLS_BALANCED_FACTORS)
+  RADIO rb_strict		_indent	_ss	_inwd	., first	///
+	option(emptycells(strict))					///
+	label(resource LBL_DECLARE_MARGINS_INVOLVING_EMPTY_AS_NOT_ESTIMABLE)
+  RADIO rb_reweight		@	_ss	@	., last		///
+	option(emptycells(reweight))					///
+	label(resource LBL_REWEIGHT_NONEMPTY_CELLS_ACCOUNT_EMPTY_CELLS)
+  TEXT tx_estimtolerance	_lft	_xls	_iwd	.,		///
+	label(resource MARGINS_ADV_TX_ESTIMTOLERANCE)
+  EDIT ed_estimtolerance	@	_ss	_vnwd	.,		///
+	option(estimtolerance)						///
+	default("1e-5")							///
+	label(resource MARGINS_ADV_TX_ESTIMTOLERANCE)
+  CHECKBOX ck_noestim		_lft	_ls	_iwd	.,		///
+	option(noestimcheck)						///
+	label(resource LBL_SUPPRESS_ESTIMABILITY_CHECKS)
+  CHECKBOX ck_force		@	_ms	@	.,		///
+	option(force)							///
+	label(resource MARGINS_ADV_CK_FORCE)
+  CHECKBOX ck_nochain		@	_ms	@	.,		///
+	option(nochainrule)						///
+	label(resource MARGINS_ADV_CK_NOCHAIN)
+
+  TEXT tx_outcome		_lft	_ls	_iwd	.,		///
+	label(resource LBL_OUTCOMES, colon)
+  COMBOBOX cb_outcomes		@	_ss	_cwd1	.,		///
+	dropdown							///
+	append								///
+	contents(adv_outcome_list)					///
+	label(resource LBL_OUTCOMES, colon)
+  CHECKBOX ck_altsubpop		@	_ss	300	.,		///
+	label(resource LBL_UNBALANCED_DATA)
+
+  TEXT tx_alternatives		_lft	_ls	_iwd	.,		///
+	label(resource LBL_CHG_AT_ALT)
+  COMBOBOX cb_alternatives	@	_ss	_cwd1	.,		///
+	option(alternative)						///
+	dropdown							///
+	append								///
+	contents(adv_outcome_list)					///
+	label(resource LBL_CHG_AT_ALT)
+  CHECKBOX ck_alt_simul		@	_ss	300	.,		///
+	onclickon(script adv_alt_simul_on)				///
+	onclickoff(script adv_alt_simul_off)				///
+	label(resource LBL_CHG_ALL_ALT_SIMUL)
+END
+
+SCRIPT adv_emptycell_on
+BEGIN
+	adv.gb_emptycell.enable
+	adv.rb_strict.enable
+	adv.rb_reweight.enable
+END
+
+SCRIPT adv_emptycell_off
+BEGIN
+	adv.gb_emptycell.disable
+	adv.rb_strict.disable
+	adv.rb_reweight.disable
+END
+
+PROGRAM adv_cm_show
+BEGIN
+	call adv.tx_outcome.show
+	call adv.cb_outcomes.show
+	call adv.ck_altsubpop.show
+	call adv.tx_alternatives.show
+	call adv.cb_alternatives.show
+	call adv.ck_alt_simul.show
+END
+
+SCRIPT adv_cm_hide
+BEGIN
+	adv.tx_outcome.hide
+	adv.cb_outcomes.hide
+	adv.ck_altsubpop.hide
+	adv.tx_alternatives.hide
+	adv.cb_alternatives.hide
+	adv.ck_alt_simul.hide
+END
+
+SCRIPT adv_alt_simul_on
+BEGIN
+	adv.tx_alternatives.disable
+	adv.cb_alternatives.disable
+END
+
+SCRIPT adv_alt_simul_off
+BEGIN
+	adv.tx_alternatives.enable
+	adv.cb_alternatives.enable
+END
+
+PROGRAM adv_output
+BEGIN
+	option adv.ck_noweights
+	option adv.ck_noesample
+	option adv.rb_reweight
+	optionarg /hidedefault adv.ed_estimtolerance
+	option adv.ck_noestim
+	option adv.ck_force
+	option adv.ck_nochain
+
+        if adv.cb_outcomes {
+		put " outcomes("
+		put  adv.cb_outcomes
+		if adv.ck_altsubpop {
+			put ", altsubpop"
+		}
+		put ")"
+        }
+
+	if adv.ck_alt_simul {
+		put " alternatives(simultaneous)"
+	}
+	else {
+		if adv.cb_alternatives {
+			optionarg adv.cb_alternatives
+		}
+	}
+
+END
+
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE   _x  _lft
+  DEFINE   _cx _spr
+  DEFINE   _y  _top
+  INCLUDE  _sp_level
+
+  TEXT tx_mcompare		_lft	_ls	_cwd1	.,		///
+	label(resource LBL_MULTIPLE_COMPARISONS)
+  COMBOBOX cb_mcompare		@	_ss	@	.,		///
+	dropdownlist							///
+	contents(rpt_mcompare_list)					///
+	values(rpt_mcompare_values)					///
+	option("mcompare")						///
+	label(resource LBL_MULTIPLE_COMPARISONS)
+
+  CHECKBOX ck_noatleg		_lft	_ms	_iwd	.,		///
+	option(noatlegend)						///
+	label(resource MARGINS_RPT_CK_NOATLEG)
+  CHECKBOX ck_post		@	_ms	@	.,		///
+	option(post)							///
+	label(resource LBL_POST_MARGINS_AND_VCE_ESTIMATION_RESULTS)
+
+  CHECKBOX ck_vsquish		@	_ms	@	.,		///
+	option(vsquish)							///
+	label(resource LBL_SUPPRESS_BLANK_LINES)
+
+  CHECKBOX ck_nofvlabel		_lft	_ms	_iwd	.,		///
+	option(nofvlabel)						///
+	label(resource LBL_DISPLAY_FACTOR_VARIABLE_LEVEL_VALUES_RATHER)
+  SPINNER sp_fvwrap		@	_ls	_spwd	.,		///
+  	min(1) max(c(N)) default(1) 					///
+	option(fvwrap)							///
+	label(resource LBL_TRUNCATE_LONG_VALUE_LABELS_AFTER_#_LINES)
+  TEXT tx_wrap			_spsep	@	300	.,		///
+	label(resource LBL_TRUNCATE_LONG_VALUE_LABELS_AFTER_#_LINES)
+
+  GROUPBOX gb_wrap		_lft	_ls	_iwd	_ht5h,		///
+	label(resource LBL_WRAPPING_OF_LONG_VALUE_LABELS)
+  RADIO rb_default		_ilft	_ss	_inwd	., first	///
+	label(resource LBL_DEFAULT_WRAPPING)
+  RADIO rb_fvwraponword		@	_ss	@	.,		///
+	option(fvwrapon(word))						///
+	label(resource LBL_WRAP_ON_WORD_BOUNDARIES)
+  RADIO rb_fvwraponwidth	@	_ss	@	., last		///
+	option(fvwrapon(width))						///
+	label(resource LBL_WRAP_ON_CHARACTERS)
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _xls 
+  INCLUDE _bu_coef_table_reporting
+
+  TEXT tx_citype		_lft	_ls	_cwd1	.,		///
+	label(resource LBL_CONFIDENCE_INTERVAL_TYPE)
+  COMBOBOX cb_citype		@	_ss	@	.,		///
+	dropdownlist							///
+	contents(citype_list)						///
+	values(citype_values)						///
+	option(citype)							///
+	default(percentile)						///
+	label(resource LBL_CONFIDENCE_INTERVAL_TYPE)
+
+END
+
+LIST citype_list
+BEGIN
+	resource LBL_PERCENTILE
+	resource SE_TX_BIAS
+	resource LBL_NORMAL
+END
+
+LIST citype_values
+BEGIN
+	percentile
+	bc
+	normal
+END
+
+SCRIPT rpt_citype_show
+BEGIN
+	rpt.tx_citype.show
+	rpt.cb_citype.show
+END
+
+SCRIPT rpt_citype_hide
+BEGIN
+	rpt.tx_citype.hide
+	rpt.cb_citype.hide
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+
+LIST rpt_mcompare_list
+BEGIN
+	resource LBL_DO_NOT_ADJUST_FOR_MULTIPLE_COMPARISONS
+	resource LBL_BONFERRONIS_METHOD
+	resource LBL_BONFERRONIS_METHOD_ADJUST_ACROSS_ALL_TERMS
+	resource LBL_SIDAKS_METHOD
+	resource LBL_SIDAKS_METHOD_ADJUST_ACROSS_ALL_TERMS
+	resource LBL_SCHEFFES_METHOD
+END
+
+LIST rpt_mcompare_values
+BEGIN
+	""
+	bonferroni
+	"bonferroni adjustall"
+	sidak
+	"sidak adjustall"
+	scheffe
+END
+
+PROGRAM rpt_output
+BEGIN
+	optionarg /hidedefault rpt.sp_level
+	optionarg rpt.cb_mcompare
+	option rpt.ck_noatleg
+	option rpt.ck_post
+	option rpt.ck_vsquish
+	option rpt.ck_nofvlabel
+	optionarg /hidedefault rpt.sp_fvwrap
+	option radio(rpt rb_fvwraponword rb_fvwraponwidth)
+	INCLUDE _report_columns_pr
+	put " " rpt_bu_fmtcoefResults
+	optionarg /hidedefault rpt.cb_citype
+END
+
+PROGRAM command
+BEGIN
+	put "margins "
+	put main.cb_marlist
+
+	ifexp sub.ex_if
+	if sub.ck_in {
+		inrange sub.sp_from sub.sp_to
+	}
+	put " " /program weights_output
+	beginoptions
+		option main.ck_grand
+		if main.rb_predict {
+			call mainPREDCommandValues.copyToString		///
+				main_pred_cmd_output
+			if main_pred_cmd_output.iseq("") {
+				stopbox stop resource LBL_MSGBOX_SPECIFICATION_NOT_DEFINED
+// Prediction not defined. Please enter a prediction before proceeding.
+			}
+			put main_pred_cmd_output
+
+		}
+		if main.rb_exp {
+			require main.ed_exp
+			optionarg main.ed_exp
+		}
+  		if main.ck_marg_eff {
+			require main.cb_marg_eff
+			if main.rb_dydx {
+				put " dydx("
+				put main.cb_marg_eff
+				put ")"
+			}
+			if main.rb_eyex {
+				put " eyex("
+				put main.cb_marg_eff
+				put ")"
+			}
+			if main.rb_dyex {
+				put " dyex("
+				put main.cb_marg_eff
+				put ")"
+			}
+			if main.rb_eydx {
+				put " eydx("
+				put main.cb_marg_eff
+				put ")"
+			}
+			option main.ck_contin
+		}
+		put " " /program at_lb_atBuild_output
+		option at.rb_atmeans
+		option at.ck_atbal
+
+		if sub.ck_over {
+			require sub.vl_over
+			optionarg sub.vl_over
+		}
+
+		if sub.ck_subpop {
+			if sub.rb_subpop {
+				require sub.vn_subpop
+				optionarg sub.vn_subpop
+			}
+			if sub.rb_subif {
+				require sub.ex_subif
+				put " subpop(if "
+				put sub.ex_subif
+				put ")"
+			}
+		}
+		if within.ck_within {
+			require within.cb_within
+			optionarg within.cb_within
+		}
+
+		put " " /program se_output
+		put " " /program adv_output
+		put " " /program rpt_output
+
+		if con.ck_contrast {
+			put " contrast"
+			if con.ck_overall | con.ck_lincom | 		///
+			con.ck_predcontrast |				///
+			con.ck_atcontrast |				///
+			con.ck_predictjoint |				///
+			con.ck_atjoint |				///
+			con.ck_overjoint | 				///
+			con.ck_withinjoint |				///
+			con.ck_marginswithin |				///
+			con.rb_nowald |					///
+			con.rb_effects | con.ck_cieffects |		///
+			con.ck_pveffects | con.ck_effects {
+				put "("
+				put /program con_options_output
+				put ")"
+			}
+		}
+
+		if pw.ck_pwcompare {
+			put " pwcompare"
+			if pw.ck_table | pw.ck_cimargins |		///
+				pw.ck_groups | pw.ck_sort |		///
+				pw.ck_cieffects |			///
+				pw.ck_pveffects | pw.ck_effects {
+				put "("
+				put /program pw_options_output
+				put ")"
+			}
+		}
+	endoptions
+END

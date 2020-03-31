@@ -1,0 +1,207 @@
+/*
+    gr_legend_placement.dlg
+    
+*!  VERSION 1.1.0  15oct2014
+    	
+	// SCRIPTS and PROGRAMS for external use
+		* SCRIPT gr_legend_placement_setByOn
+		* SCRIPT gr_legend_placement_setByOff
+		* SCRIPT gr_legend_set_clegend
+		* SCRIPT gr_legend_set_plegend
+*/
+
+VERSION 14.0
+
+INCLUDE _std_mlarge
+INCLUDE header_gr_child
+
+HELP hlp1, view("help legend_options")
+RESET res1
+
+SCRIPT gr_legend_placement_setByOn
+BEGIN
+	isByOn.settrue
+	main.ck_ring0.hide
+	main.ck_span.setposition . 105
+	main.tx_span.setposition . 120
+	main.ck_hole.show
+	main.ed_at.show
+	main.tx_at.show
+	program main_hole_check
+END
+
+SCRIPT gr_legend_placement_setByOff
+BEGIN
+	isByOn.setfalse
+	main.ck_ring0.show
+	main.ck_span.setposition . 85
+	main.tx_span.setposition . 100
+	main.ck_hole.hide
+	main.ed_at.hide
+	main.tx_at.hide
+	program span_check
+END
+
+SCRIPT gr_legend_set_clegend
+BEGIN
+	isClegend.settrue
+	isPlegend.setfalse
+END
+
+SCRIPT gr_legend_set_plegend
+BEGIN
+	isPlegend.settrue
+	isClegend.setfalse
+END
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource GR_LEGEND_PLACEMENT_DLG_HSCALE
+END
+
+PROGRAM PREINIT_PROGRAM
+BEGIN
+	call create PBOOLEAN isPlegend
+	call create PBOOLEAN isClegend
+
+	call create PBOOLEAN isByOn
+	if isByOn {
+		call script gr_legend_placement_setByOn
+	}
+	else {
+		call script gr_legend_placement_setByOff
+	}
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script gr_titles_setLegend_on		
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT		tx_position	_lft	_top	150	.,	///
+	label(resource LBL_POSITION)
+  COMBOBOX	cb_position	@	_ss	_vnwd	.,	///
+	dropdownlist 						///
+	contents(clockpos) option(position) 			///
+	onselchange(program check_pos)
+  
+  CHECKBOX	ck_ring0	_lft	_ls	_iwd	.,	///
+	option(ring(0)) 					///
+	label(resource GR_LEGEND_PLACEMENT_MAIN_CK_RING0)	///
+	onclickon(program span_check)				///
+	onclickoff(program span_check)
+  DEFINE y @y
+  CHECKBOX	ck_span		@	_ms	@	.,	///
+	option(span) 						///
+	onclickon(main.ck_ring0.disable)			///
+	onclickoff(main.ck_ring0.enable)			///
+	label(resource GR_LEGEND_PLACEMENT_MAIN_CK_SPAN)
+  TEXT		tx_span		+20	_vss	-20	.,	///
+	label(resource GR_LEGEND_PLACEMENT_MAIN_TX_SPAN)
+
+  CHECKBOX ck_hole		_lft	y	_iwd	.,	///
+	onclickon(program main_hole_check)			///
+	onclickoff(program main_hole_check)			///
+	label(resource GR_LEGEND_PLACEMENT_MAIN_CK_HOLE)
+  EDIT     ed_at		+20	_ss	80	.,	///
+	label(resource LBL_HOLE) option(at)
+  TEXT     tx_at		+85	@	100	.,	///
+	label(resource LBL_HOLE)
+END
+
+PROGRAM span_check
+BEGIN
+	if main.ck_ring0 {
+		call main.ck_span.disable
+		call main.tx_span.disable
+	}
+	else {
+		call main.ck_span.enable
+		call main.tx_span.enable
+	}
+END
+
+SCRIPT main_hole_check
+BEGIN
+	if main.ck_hole {
+		call main.ed_at.enable
+		call main.tx_at.enable
+		call main.ck_span.disable
+		call main.tx_span.disable
+	}
+	else {
+		call main.ed_at.disable
+		call main.tx_at.disable
+		call main.ck_span.enable
+		call main.tx_span.enable
+	}
+END
+
+PROGRAM check_pos
+BEGIN
+	if main.cb_position.iseq("0") {
+		call main.ck_ring0.hide
+		call main.ck_span.hide
+		call main.tx_span.hide
+	}
+	if ! main.cb_position.iseq("0") {
+		if ! isByOn {
+			call main.ck_ring0.show
+		}
+		call main.ck_span.show
+		call main.tx_span.show
+	}
+END
+
+PROGRAM main_output
+BEGIN
+	optionarg /hidedefault main.cb_position
+	if (!isPlegend & !isClegend) {
+		call PARENT.callthru "legendPlacementAtResults.setstring"
+		if main.ck_hole {
+			require main.ed_at
+			call main.ed_at.withvalue PARENT.callthru `"legendPlacementAtResults.setstring "at(@)""'
+		}
+		if main.ck_ring0.isvisible() & main.ck_ring0 {
+			call PARENT.callthru `"legendPlacementRingResults.setstring "ring(0)""'
+		}
+		else {
+			call PARENT.callthru "legendPlacementRingResults.setstring"
+		}
+	}
+	if (isPlegend) {
+		call PARENT.callthru "plegendPlacementAtResults.setstring"
+		if main.ck_hole {
+			require main.ed_at
+			call main.ed_at.withvalue PARENT.callthru `"plegendPlacementAtResults.setstring "at(@)""'
+		}
+		if main.ck_ring0.isvisible() & main.ck_ring0 {
+			call PARENT.callthru `"plegendPlacementRingResults.setstring "ring(0)""'
+		}
+		else {
+			call PARENT.callthru "plegendPlacementRingResults.setstring"
+		}
+	}
+	if (isClegend) {
+		call PARENT.callthru "clegendPlacementAtResults.setstring"
+		if main.ck_hole {
+			require main.ed_at
+			call main.ed_at.withvalue PARENT.callthru `"clegendPlacementAtResults.setstring "at(@)""'
+		}
+		if main.ck_ring0.isvisible() & main.ck_ring0 {
+			call PARENT.callthru `"clegendPlacementRingResults.setstring "ring(0)""'
+		}
+		else {
+			call PARENT.callthru "clegendPlacementRingResults.setstring"
+		}
+	}
+
+	option main.ck_span
+END
+
+PROGRAM command
+BEGIN
+	put " " /program main_output
+END

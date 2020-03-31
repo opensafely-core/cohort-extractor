@@ -1,0 +1,595 @@
+/*				scale
+
+	Manages a scale transformation so the gdi can be set to accept values
+	in a scale from .curmin to .curmax along dimension .dimension.
+
+	Note, stores both a .max/.min and a .curmax/.curmin.  The former are
+	somewhat permanent, perhaps coming from the scale of a series set
+	(.serset), the latter are more transient, in that when they are set
+        through .curset only the values of .max or .min are checked for
+        relative size while the existing .curmin and .curmax are ignored.
+        .curset also does NOT affect the "permanent" .max and .min.  This is
+        often used for axis re-settings.  
+	
+*/
+*! version 1.2.1  21nov2019
+
+version 10
+
+class {
+	min		=  1e300			// "permanent"
+	max		= -1e300			// "permanent"
+	curmin		=  1e300			// "temporary"
+	curmax		= -1e300			// "temporary"
+	size		= 5				// 
+	reverse		= .yesno.new, style(no)		// reverse the scale
+	transform	= .transformstyle.new, style(linear)
+	dimension	= .dimension.new, set(x)
+
+	axes		= ""				// list of axis keys
+	views		= ""				// list of view keys
+
+	array series					// refs to added sers
+					// series is deprecated, plotregions
+					// can reset scales from their views
+					// using plotregion.reset_scales
+	_format		= ""				// settable format 
+
+	class gditransform gdi
+}, inherit(mapping)
+
+
+/* -------------------------------------------------------------------------*/
+
+program define new
+
+	if `"`0'"' != `""' {
+		.set `0'
+	}
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*
+	Usage:  just like .new
+*/
+program define set
+
+	syntax [ , MIN(real 1e300) MAX(real -1e300) Size(real -9999) 	/*
+		*/ CURMIN(real 1e300) CURMAX(real -1e300)		/*
+		*/ Dimension(string) REVERSE ]
+
+	if `min'  != 1e300 { 
+		.min    = `min' 
+		.curmin = `min'
+	}
+	if `max'  != -1e300 { 
+		.max    = `max' 
+		.curmax = `max'
+	}
+	if `curmin'  != 1e300 { 
+		.curmin = `curmin'
+	}
+	if `curmax'  != -1e300 { 
+		.curmax = `curmax'
+	}
+	if `size' != -9999 { 
+		.size = `size' 
+	}
+
+	if "`dimension'" != "" { 
+		.dimension.set `dimension' 
+	}
+
+	if "`reverse'" != "" {
+		.reverse.set_true
+	}
+end
+
+
+/* -------------------------------------------------------------------------*/
+/* Usage:  add_axis axis_objkey
+
+	Adds the axis objkey to the list of axes.  Maintaining this list
+	allows scales to easily update their current range from the axes.
+*/
+
+program add_axis
+	args axkey
+
+	local axes `.axes'
+	local axes : list axes | axkey
+	.axes = "`axes'"
+end
+
+// ---------------------------------------------------------------------------
+// Look for a time format in the axes attached to this scale.
+
+program get_time_format, rclass
+	foreach axis in `.axes' {
+		.`axis'.get_time_format
+		if ("`r(fmt)'" != "") continue, break
+	}
+	return add
+	class exit "`return(fmt)'"
+end
+
+/* -------------------------------------------------------------------------*/
+/* Usage:  add_view view_objkey
+
+	Adds the view objkey to the list of views.  Maintaining this list
+	allows scales to easily update their current range from the views.
+	Currently this facility is only used by a very few views.
+*/
+
+program add_view
+	args viewkey
+
+	local views `.views'
+	local views : list views | viewkey
+	.views = "`views'"
+end
+
+
+/* -------------------------------------------------------------------------*/
+/* Usage:  setgdi size
+
+   Sets the gdi transform using the scale's range and transform and the
+   specified size.
+*/
+program define setgdi
+
+	local ord `.dimension.setting'
+
+	if "`.transform.stylename'" == "log" {
+		local min = cond(`.curmin' > 0 , ln(`.curmin') , -750)
+		local max = cond(`.curmax' > 0 , ln(`.curmax') , -749)
+		gdi `ord'transform = ln
+	}
+	else if "`.transform.stylename'" == "atanh" {
+		if `.curmin' <= -1 {
+			local min = atanh(-1+c(epsfloat))
+		}
+		else if `.curmin' >= 1 {
+			local min = atanh(1-c(epsfloat))
+		}
+		else {
+			local min = atanh(`.curmin')
+		}
+		if `.curmax' <= -1 {
+			local max = atanh(-1+c(epsfloat))
+		}
+		else if `.curmax' >= 1 {
+			local max = atanh(1-c(epsfloat))
+		}
+		else {
+			local max = atanh(`.curmax')
+		}
+		gdi `ord'transform = atanh
+	}
+	else if "`.transform.stylename'" == "logit" {
+		if `.curmin' <= 0 {
+			local min = logit(c(epsfloat))
+		}
+		else if `.curmin' >= 1 {
+			local min = logit(1-c(epsfloat))
+		}
+		else {
+			local min = logit(`.curmin')
+		}
+		if `.curmax' <= 0 {
+			local max = logit(c(epsfloat))
+		}
+		else if `.curmax' >= 1 {
+			local max = logit(1-c(epsfloat))
+		}
+		else {
+			local max = logit(`.curmax')
+		}
+		gdi `ord'transform = logit
+	}
+	else if "`.transform.stylename'" == "log1m" {
+		if `.curmin' >= 1 {
+			local max = log1m(1-c(epsfloat))
+		}
+		else {
+			local max = log1m(`.curmin')
+		}
+		if `.curmax' >= 1 {
+			local min = log1m(1-c(epsfloat))
+		}
+		else {
+			local min = log1m(`.curmax')
+		}
+		gdi `ord'transform = log1m
+	}
+	else  {
+		local min = `.curmin'
+		local max = `.curmax'
+		gdi `ord'transform = linear
+	}
+
+	if "`1'" != "" { 
+		.size = `1' 
+	}
+	if `.reverse.istrue' {
+		.gdi.rescale `ord' `.size' `max' `min'
+		gdi `ord'bounds = `.curmax' `.curmin'
+	}
+	else {
+		.gdi.rescale `ord' `.size' `min' `max'
+		gdi `ord'bounds = `.curmin' `.curmax'
+	}
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*  Possibly expand the range (limits) of a scale using the maximum and
+    minimum of the referenced series
+
+    Usage:   .add_series series_set series_id [ series_ref ]
+
+*/
+
+program define addseries
+	args serset serid ser_ref
+
+	serset `serset'
+
+	local mm : serset min `serid'
+	if `mm' < `.min' { 
+		.min = `mm' 
+		if `mm' < `.curmin' { 
+			.curmin = `mm' 
+		}
+	}
+
+	local mm : serset max `serid'
+	if `mm' > `.max'  & `mm' < . { 
+		.max = `mm' 
+		if `mm' > `.curmax' { 
+			.curmax = `mm' 
+		}
+	}
+
+	if "`ser_ref'" == "" { 
+		exit						/* EXIT */
+	}
+
+	local i = `.series.arrnels' + 1
+	.series[`i'] = ._scale_series.new `serset' `serid' `ser_ref'
+
+
+end
+
+program define addmin
+	args min
+
+	if `min' < `.min' { 
+		.min = `min' 
+		if `min' < `.curmin' { 
+			.curmin = `min' 
+		}
+	}
+end
+
+program define addmax
+	args max
+
+	if `max' > `.max' { 
+		.max = `max' 
+		if `max' > `.curmax' { 
+			.curmax = `max' 
+		}
+	}
+end
+
+/* -------------------------------------------------------------------------*/
+program define curset
+
+	args min max
+
+	.curmin = cond(`min' < `.min' , `min' , `.min')
+	.curmax = cond(`max' > `.max' , `max' , `.max')
+end
+
+
+/* -------------------------------------------------------------------------*/
+program define addcur
+
+	args min max
+
+	.curmin = cond(`min' < `.curmin' , `min' , `.curmin')
+	.curmax = cond(`max' > `.curmax' , `max' , `.curmax')
+end
+
+
+/* -------------------------------------------------------------------------*/
+program define resetcur
+
+	args min max
+
+	.curmin = .min
+	.curmax = .max
+end
+
+/* -------------------------------------------------------------------------*/
+program set_transform
+	args trans
+
+	.transform.setstyle , style(`trans')
+
+	foreach axis in `.axes' {
+		.`axis'.set_transform
+		.`axis'.set_transform
+	}
+end
+
+/* -------------------------------------------------------------------------*/
+program define setfmt
+	._format = "`1'"
+end
+
+/* -------------------------------------------------------------------------*/
+/* Rests the current max and min from the list of axes, Does nothing if the
+   list of axes is empty.  
+   
+   Also checks any registered views -- added just for fixed-width bar views and
+   since most views do not register themselves, will not be affected by views
+   that have changed to a bar view from another viewtype.
+*/
+
+program reset_from_axes
+	
+	if "`.axes'" == "" {
+		exit
+	}
+
+	.curmin	= .min
+	.curmax	= .max
+
+	foreach axis in `.axes' {
+		.curmin = min(`.curmin', 0`.`axis'.overallmin')
+		.curmax = max(`.curmax', 0`.`axis'.overallmax')
+	}
+
+	local ord `.dimension.setting'
+	foreach view in `.views' {
+		local m = `.`view'.min_range `ord''
+		if `m' < . {
+			.curmin = min(`.curmin', `m')
+		}
+		local m = `.`view'.max_range `ord''
+		if `m' < . {
+			.curmax = max(`.curmax', `m')
+		}
+	}
+
+	if `.curmin' == `.curmax' {
+		if `.curmin' == 0 {
+			.curmin = `.curmin' - 1e-6
+			.curmax = `.curmax' + 1e-6
+		}
+		else {
+			.curmin = `.curmin' - 1e-6*`.curmin'
+			.curmax = `.curmax' + 1e-6*`.curmax'
+		}
+	}
+end
+
+/* -------------------------------------------------------------------------*/
+/* Adds the views extended min and max to the permanent min and max.  
+*/
+program add_views
+
+	local ord `.dimension.setting'
+	foreach view in `.views' {
+		local m = `.`view'.min_range `ord''
+		if `m' < . {
+			.min = min(`.min', `m')
+		}
+		local m = `.`view'.max_range `ord''
+		if `m' < . {
+			.max = max(`.max', `m')
+		}
+	}
+end
+
+
+// ---------------------------------------------------------------------------
+// Given a position in the natural metric of the scale, return a position in
+// the size metric, assuming that the size-metric position of curmin (curmax, 
+// if reversed) is 0; i.e., returns a position offset.
+// Rarely needed, because the GDI is typically already set to handle the
+// scale.  Can be useful when trying to compute sizes and positions.
+
+program pos_in_size_metric
+	args pos
+
+	if "`.transform.snm'" == "linear" {
+		local min `.curmin'
+		local max `.curmax'
+	}
+	else if "`.transform.snm'" == "log" {
+		local pos = ln(`pos')
+		local min = ln(`.curmin')
+		local max = ln(`.curmax')
+	}
+	else if "`.transform.snm'" == "atanh" {
+		local pos = atanh(`pos')
+		local min = atanh(`.curmin')
+		local max = atanh(`.curmax')
+	}
+	else if "`.transform.snm'" == "logit" {
+		local pos = logit(`pos')
+		local min = logit(`.curmin')
+		local max = logit(`.curmax')
+	}
+	else if "`.transform.snm'" == "log1m" {
+		local pos = log1m(`pos')
+		local min = log1m(`.curmax')
+		local max = log1m(`.curmin')
+	}
+	else {
+		di in white "scale.class:  note, unknown transform"
+	}
+
+	local sm_pos = (`pos' - `min') * `.size' / (`max' - `min')
+
+	if `.reverse.istrue' {
+		local sm_pos = `.size' - `sm_pos'
+	}
+
+	class exit = `sm_pos'
+end
+
+// ---------------------------------------------------------------------------
+// inverse of pos_in_size_metric
+// Given a position in the size metric, returns the value in the natural
+// metric of the scale.
+
+program pos_in_natural_metric
+	args sm_pos
+
+	if `.reverse.istrue' {
+		local sm_pos = `.size' - `sm_pos'
+	}
+
+	if "`.transform.snm'" == "linear" {
+		local min `.curmin'
+		local max `.curmax'
+		local func
+	}
+	else if "`.transform.snm'" == "log" {		
+		local min ln(`.curmin')
+		local max ln(`.curmax')
+		local func exp
+	}
+	else if "`.transform.snm'" == "atanh" {		
+		local min atanh(`.curmin')
+		local max atanh(`.curmax')
+		local func tanh
+	}
+	else if "`.transform.snm'" == "logit" {		
+		local min logit(`.curmin')
+		local max logit(`.curmax')
+		local func invlogit
+	}
+	else if "`.transform.snm'" == "log1m" {		
+		local min log1m(`.curmax')
+		local max log1m(`.curmin')
+		local func -expm1
+	}
+	else {
+		di in white "scale.class:  note, unknown transform"
+	}
+
+	local pos = `func'(`min' + `sm_pos' / `.size' * (`max' - `min'))
+
+	class exit = `pos'
+end
+
+
+// ---------------------------------------------------------------------------
+// Returns a multiplier to convert lengths in the size metric into lengths
+// in the natural metric.
+
+
+program natural_mult
+	args sm_len
+
+	class exit = (`.curmax' - `.curmin') / `.size'
+end
+
+
+// ---------------------------------------------------------------------------
+// Returns a multiplier to convert lengths in the size metric into lengths
+// in the natural metric; or if the transform is logs, to the linear log
+// metric.
+
+
+program ln_natural_mult
+	args sm_len
+
+	local size = `.size'
+	if `size' == 0 {
+		local size 1
+	}
+	if "`.transform.snm'" == "linear" {
+		class exit = (`.curmax' - `.curmin') / `size'
+	}
+	else if "`.transform.snm'" == "log" {		
+		class exit = (ln(`.curmax') - ln(`.curmin')) / `size'
+	}
+	else if "`.transform.snm'" == "atanh" {		
+		if `.curmin' <= -1 {
+			local min = atanh(-1+c(epsfloat))
+		}
+		else if `.curmin' >= 1 {
+			local min = atanh(1-c(epsfloat))
+		}
+		else {
+			local min = atanh(`.curmin')
+		}
+		if `.curmax' <= -1 {
+			local max = atanh(-1+c(epsfloat))
+		}
+		else if `.curmax' >= 1 {
+			local max = atanh(1-c(epsfloat))
+		}
+		else {
+			local max = atanh(`.curmax')
+		}
+		class exit = (`max' - `min') / `size'
+	}
+	else if "`.transform.snm'" == "logit" {		
+		if `.curmin' <= 0 {
+			local min = logit(c(epsfloat))
+		}
+		else if `.curmin' >= 1 {
+			local min = logit(1-c(epsfloat))
+		}
+		else {
+			local min = logit(`.curmin')
+		}
+		if `.curmax' <= 0 {
+			local max = logit(c(epsfloat))
+		}
+		else if `.curmax' >= 1 {
+			local max = logit(1-c(epsfloat))
+		}
+		else {
+			local max = logit(`.curmax')
+		}
+		class exit = (`max' - `min') / `size'
+	}
+	else if "`.transform.snm'" == "log1m" {		
+		if `.curmin' >= 1 {
+			local max = log1m(1-c(epsfloat))
+		}
+		else {
+			local max = log1m(`.curmin')
+		}
+		if `.curmax' >= 1 {
+			local min = log1m(1-c(epsfloat))
+		}
+		else {
+			local min = log1m(`.curmax')
+		}
+		class exit = (`max' - `min') / `size'
+	}
+	else {
+		di in white "scale.class:  note, unknown transform"
+	}
+end
+
+
+
+/* -------------------------------------------------------------------------*/
+/* resets to initial values						*/
+program define reinit
+	.min		=  1e300			/* "permanent" */
+	.max		= -1e300			/* "permanent" */
+	.curmin		=  1e300			/* "temporary" */
+	.curmax		= -1e300			/* "temporary" */
+end

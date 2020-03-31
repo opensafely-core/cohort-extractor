@@ -1,0 +1,271 @@
+/*
+  fp
+
+*!  VERSION 1.1.1  13may2017
+
+  keyword:  eclass
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_wide
+DEFINE _dlght 320
+INCLUDE header
+HELP hlp1, view("help fp")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource FP_DLG_HSCALE
+END
+
+
+DIALOG main, label(resource FP_DLG_TITLE)		///
+	tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT tx_dv			_lft	_top	_vnwd	.,		///
+	label(resource LBL_VARIABLE)
+  VARNAME vn_dv			@	_ss	_vnwd	.,		///
+	numeric								///
+	label(resource LBL_VARIABLE)
+  TEXT tx_cmd			_vlx	_top 	430	.,		///
+	label(resource FP_MAIN_TX_CMD)
+  EDIT ed_cmd			@ 	_ss	_vlwd	.,		///
+	label(resource LBL_STATA_COMMAND_TO_RUN)
+  RADIO rb_pwrs_dim		_lft	_ls	_iwd	., first	///
+	onclickon("script main_pwrs_dim")				///
+	label(resource FP_MAIN_RB_PWRS_DIM)
+  RADIO rb_fp_specify		@	+100	@	., last		///
+	onclickon("script main_fp_specify")				///
+	label(resource FP_MAIN_RB_FP_SPECIFY)
+  TEXT tx_powers		_indent	-80	_ibwd	.,		///
+  	label(resource FP_MAIN_RB_TX_POWERS)
+  EDIT ed_powers		@	_ss	@ 	.,		///
+	option("powers")						///
+	default(-2, -1, -0.5, 0, 0.5, 1, 2, 3)				///
+  	label(resource FP_MAIN_RB_TX_POWERS)
+  EDIT ed_dimension		@	_ls	_spwd 	.,		///
+	option("dimension")						///
+	default(2)							///
+	label(resource FP_MAIN_ED_DIMENSION)
+  TEXT tx_dimension		_spsep	@	_cwd1	.,		///
+	label(resource FP_MAIN_ED_DIMENSION)
+  EDIT ed_fp_specify		_ilft	+50	_ibwd 	.,		///
+	option("fp")							///
+	label(resource FP_MAIN_ED_FP_SPECIFY)
+END
+
+SCRIPT main_pwrs_dim
+BEGIN
+	main.tx_powers.enable
+	main.ed_powers.enable
+	main.tx_dimension.enable
+	main.ed_dimension.enable
+	main.ed_fp_specify.disable
+END
+
+SCRIPT main_fp_specify
+BEGIN
+	main.tx_powers.disable
+	main.ed_powers.disable
+	main.tx_dimension.disable
+	main.ed_dimension.disable
+	main.ed_fp_specify.enable
+END
+
+DIALOG opt, tabtitle(resource LBL_OPTIONS)
+BEGIN
+  CHECKBOX ck_classic			_lft	_top	_iwd	.,	///
+	option(classic)							///
+	onclickon(script opt_classic_on)				///
+	onclickoff(script opt_classic_off)				///
+	label(resource FP_MAIN_CK_CLASSIC)
+  CHECKBOX ck_replace			@	_ms	@	.,	///
+	option(replace)							///
+	label(resource LBL_REPLACE_EXISTING_FRACTIONAL_POLYNOMIAL_VAR)
+  CHECKBOX ck_all			@	_ms	@	.,	///
+	option(all)							///
+	label(resource FP_OPT_CK_ALL)
+
+  GROUPBOX gb_scale_opts		@	_ls	_cwd2	_ht5h,	///
+	label(resource LBL_SCALING_OF_TERM)
+  DEFINE holdy2 @y
+  RADIO rb_scale_default		_indent	_ss	_inwd	.,	///
+	first								///
+	label(resource LBL_USE_VARIABLE_TERM_AS_IS)
+  RADIO rb_scale_specify		@	_ss	190	.,	///
+	option(scale)							///
+	onclickon("opt.ed_scale_specify.enable")			///
+	onclickoff("opt.ed_scale_specify.disable")			///
+	label(resource LBL_USE_TERM_A_B_SPECIFY_TERMS)
+  RADIO rb_scale			_ilft	_ss	@	.,	///
+	last								///
+	option(scale)							///
+	onclickon("script opt_scale_on")				///
+	onclickoff("script opt_scale_off")				///
+	label(resource LBL_CHOOSE_A_B_AUTOMATICALLY)
+  EDIT ed_scale_specify			+195	-20	 _spwd	.,	///
+	option("scale")							///
+	label(resource LBL_USE_TERM_A_B_SPECIFY_TERMS)
+
+  GROUPBOX gb_center_opts		_lft2	holdy2	_cwd2	_ht5h,	///
+	label(resource LBL_CENTERING_REPORTING_FRACTIONAL_POLYNOMIAL)
+  RADIO rb_center_default		_indent	_ss	_inwd	.,	///
+	first								///
+	label(resource LBL_REPORT_UNCENTERED_RESULTS)
+DEFINE cx @cx
+  RADIO rb_center_specify		@	_ss	210	.,	///
+	onclickon("opt.ed_center_specify.enable")			///
+	onclickoff("opt.ed_center_specify.disable")			///
+	label(resource LBL_REPORT_CENTERED_ON_C_RESULTS)
+  RADIO rb_center			@	_ss	cx	.,	///
+	last								///
+	option(center)							///
+	label(resource LBL_CHOOSE_C_AS_MEAN_OF_SCALED_TERM)
+  EDIT ed_center_specify		+195	-20	 _spwd	.,	///
+	option("center")						///
+	label(resource LBL_REPORT_CENTERED_ON_C_RESULTS)
+
+  GROUPBOX gb_zero_opts			_lft	_xxxls	_iwd	_ht5h,	///
+	label(resource LBL_TREATMENT_OF_SCALED_TERM_VALUES)
+  RADIO rb_zero_default			_indent	_ss	_inwd	.,	///
+	first								///
+	label(resource LBL_ISSUE_ERROR_MESSAGE)
+  RADIO rb_zero				@	_ss	@	.,	///
+	last								///
+	onclickon("opt.ck_catzero.enable")				///
+	onclickoff("opt.ck_catzero.disable")				///
+	option(zero)							///
+	label(resource LBL_SET_TERM_ZERO_SCALED_TERM)
+  CHECKBOX ck_catzero			_indent	_ss	@	.,	///
+	option(catzero)							///
+	label(resource LBL_INCLUDE_TERM_AMONG_FRACTIONAL_POLYNOMIAL_VAR)
+END
+
+SCRIPT opt_classic_on
+BEGIN
+	opt.rb_scale_default.disable
+	opt.rb_scale_specify.disable
+	opt.rb_scale.disable
+	opt.ed_scale_specify.disable
+
+	opt.rb_center_default.disable
+	opt.rb_center_specify.disable
+	opt.rb_center.disable
+	opt.ed_center_specify.disable
+  
+	opt.rb_zero_default.disable
+	opt.rb_zero.disable
+	opt.ck_catzero.disable
+END
+
+SCRIPT opt_classic_off
+BEGIN
+	opt.rb_scale_default.enable
+	opt.rb_scale_specify.enable
+	opt.rb_scale.enable
+	opt.ed_scale_specify.enable
+
+	opt.rb_center_default.enable
+	opt.rb_center_specify.enable
+	opt.rb_center.enable
+	opt.ed_center_specify.enable
+
+	opt.rb_zero_default.enable
+	opt.rb_zero.enable
+	opt.ck_catzero.enable
+END
+
+SCRIPT opt_scale_on
+BEGIN
+	opt.rb_zero_default.disable
+	opt.rb_zero.disable
+	opt.ck_catzero.disable
+END
+
+SCRIPT opt_scale_off
+BEGIN
+	opt.rb_zero_default.enable
+	opt.rb_zero.enable
+	opt.ck_catzero.enable
+END
+
+PROGRAM opt_output
+BEGIN
+	option opt.ck_classic
+	option opt.ck_replace
+	option opt.ck_all
+
+	if opt.rb_scale_specify {
+		require opt.ed_scale_specify
+		optionarg opt.ed_scale_specify
+	}
+	option opt.rb_scale
+
+	if opt.rb_center_specify {
+		require opt.ed_center_specify
+		optionarg opt.ed_center_specify
+	}
+	option opt.rb_center
+
+	option radio(opt rb_zero)
+	option opt.ck_catzero
+END
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_facvarsResults
+	program rpt_bu_facvars_ckResults
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2b
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  CHECKBOX ck_nocompare			_lft	_ls	_iwd	.,	///
+	option(nocompare)						///
+	label(resource FP_RPT_CK_NOCOMPARE)
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+
+PROGRAM rpt_output
+BEGIN
+	optionarg /hidedefault rpt.sp_level
+	option rpt.ck_nocompare
+	put " " rpt_bu_facvarsResults
+	put " " rpt_bu_fmtcoefResults
+END
+
+PROGRAM command
+BEGIN
+	require main.vn_dv
+	require main.ed_cmd
+	if main.rb_fp_specify {
+		require main.ed_fp_specify
+	}
+
+	put "fp <" main.vn_dv ">, "
+	optionarg /hidedefault main.ed_powers
+	optionarg /hidedefault main.ed_dimension
+	optionarg main.ed_fp_specify
+	put /program " " opt_output
+	put /program " " rpt_output
+	put ": "
+	put main.ed_cmd
+END

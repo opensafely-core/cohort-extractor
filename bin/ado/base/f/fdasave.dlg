@@ -1,0 +1,83 @@
+/*
+  fdasave
+
+*! VERSION 1.2.2  02dec2014 (deprecated)
+
+*/
+
+VERSION 9.0
+
+INCLUDE _std_large
+INCLUDE _ht300
+INCLUDE header
+
+HELP hlp1, view("help fdasave")
+RESET res1
+
+DIALOG main, label("fdasave - Export FDA data (SAS XPORT)")		///
+		tabtitle("Main")
+BEGIN
+  TEXT     tx_var      _lft        _top      _iwd        .,		///
+	label("Variables:  (leave empty for all variables)")
+  VARLIST  vl_var      @           _ss       @           .,		///
+	label("Variables")
+
+  TEXT     tx_file     @           _ms       @           .,		///
+	label("Save file as:")
+  FILE     fi_file     @           _ss       @           .,		///
+	error("Save file as")						///
+	label("Save As...")						///
+	filter(SAS XPORT (*.xpt)|*.xpt|All Files (*.*)|*.*)		///
+	save
+
+  GROUPBOX gb_options  @           _ls       @           _ht14h,	///
+	label("Options")
+
+  CHECKBOX ck_rename   _indent     _ms       _inwd       .,		///
+	option(rename)							///
+	default(1)							///
+	label("Rename variables and value labels to meet SAS XPORT restrictions")
+
+  CHECKBOX ck_replace  @           _ms       @         .,		///
+	label("Overwrite files if they already exist")			///
+	option(replace)
+
+  RADIO    rb_xpf      @           _ls       @           .,		///
+	label(`"Save value labels in " formats.xpf ""') 		///
+	option("vallabfile(xpf)")					///
+	first
+  RADIO    rb_sascode  @           _ss       @           .,		///
+	label("Save value labels in a SAS command file")		///
+ 	option("vallabfile(sascode)")
+  RADIO    rb_both     @           _ss       @           .,		///
+	option("vallabfile(both)")					///
+	label(`"Save value labels in " formats.xpf " and in a SAS command file"')
+  RADIO    rb_none     @           _ss       @           .,		///
+	label("Do not save value labels")				///
+	option("vallabfile(none)")					///
+	last
+END
+
+INCLUDE ifin
+
+PROGRAM command
+BEGIN
+	put "fdasave "
+	if main.vl_var {
+		varlist [main.vl_var]
+		put " using "
+	}
+		put `"""'
+	require main.fi_file
+	put main.fi_file `"" "'
+
+	INCLUDE _ifin_pr
+
+	beginoptions
+		option main.ck_rename
+		option main.ck_replace
+		option main.rb_sascode
+		option main.rb_both
+		option main.rb_none
+	endoptions
+END

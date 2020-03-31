@@ -1,0 +1,123 @@
+/*
+  dfuller.dlg
+
+*! VERSION 1.3.0  19sep2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+INCLUDE _ht230
+INCLUDE header
+HELP hlp1, view("help dfuller")
+RESET res1
+
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource DFULLER_DLG_HSCALE
+END
+
+
+DIALOG main, label(resource DFULLER_DLG_TITLE) /*
+		*/ tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  DEFINE _x _xsetbu
+  DEFINE _y _top
+  INCLUDE _bu_tsset
+
+  TEXT	 	tx_var		_lft	_top	 _cwd2  .,      	/*
+              		*/   label(resource LBL_VARIABLE)
+
+  VARNAME 	vn_var		@	_ss	 _vnwd	.,      	/*
+              		*/   label(resource LBL_VARIABLE)				/*
+              		*/   numeric					/*
+			*/   allowts
+
+  GROUPBOX 	gb_opts 	@       _ls      _iwd	_ht13,		/*
+		        */   label(resource LBL_OPTIONS)
+
+  CHECKBOX	ck_noconstant   _indent _ss      _inwd  .,      	/*
+                        */ label(resource LBL_SUPPRESS_CONSTANT_TERM_IN_REGRESSION)/*
+			*/ option(noconstant)				/*
+			*/ onclickon(script noconstant_on)		/*
+			*/ onclickoff(script noconstant_off)
+
+  CHECKBOX	ck_trend        @       _ms      @      .,      	/*
+                        */ label(resource LBL_INCLUDE_TREND_TERM_IN_REGRESSION)	/*
+			*/ option(trend)				/*
+			*/ onclickon(script trend_on)			/*
+			*/ onclickoff(script trend_off)
+
+  CHECKBOX      ck_drift        @       _ms      @      .,		/*
+  			*/ label(resource DFULLER_MAIN_CK_DRIFT)	/*
+  			*/ option(drift)				/*
+  			*/ onclickon(script drift_on)			/*
+  			*/ onclickoff(script drift_off)
+
+  CHECKBOX	ck_regress      @       _ms      @      .,    	        /*
+                        */ label(resource LBL_DISPLAY_REGRESSION_TABLE)		/*
+			*/ option(regress)
+
+  SPINNER   	sp_lags   	@	_ls	 _spwd	.,	        /*
+  		        */   min(0) max(1000)	                        /*
+  		        */   label(resource LBL_LAGGED_DIFFERENCES)		/*
+  		        */   default(0)					/*
+			*/   option(lags)
+
+  TEXT      	tx_lags 	_spsep  @        _sprb  .,	        /*
+       	                */   label(resource LBL_LAGGED_DIFFERENCES)
+END
+
+SCRIPT noconstant_on
+BEGIN
+	main.ck_drift.disable
+	main.ck_trend.disable
+END
+
+SCRIPT noconstant_off
+BEGIN
+	main.ck_drift.enable
+	main.ck_trend.enable
+END
+
+SCRIPT drift_on
+BEGIN
+	main.ck_noconstant.disable
+	main.ck_trend.disable
+END
+
+SCRIPT drift_off
+BEGIN
+	main.ck_noconstant.enable
+	main.ck_trend.enable
+END
+
+SCRIPT trend_on
+BEGIN
+	main.ck_noconstant.disable
+	main.ck_drift.disable
+END
+
+SCRIPT trend_off
+BEGIN
+	main.ck_noconstant.enable
+	main.ck_drift.enable
+END
+
+INCLUDE ifin
+
+PROGRAM command
+BEGIN
+	put "dfuller "
+	varlist main.vn_var
+	INCLUDE _ifin_pr
+	beginoptions
+		option main.ck_noconstant
+		option main.ck_trend
+		option main.ck_drift
+		option main.ck_regress
+		optionarg main.sp_lags
+	endoptions
+END

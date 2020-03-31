@@ -1,0 +1,433 @@
+/*
+    marginsplot.dlg
+
+*!  VERSION 1.1.6  01dec2019
+
+*/
+
+VERSION 14.0
+INCLUDE _std_wide
+DEFINE _dlght 340
+INCLUDE header
+
+HELP hlp1, view("help marginsplot")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create ARRAY main_dim_variables
+	create STRING main_e_cmd
+	create STRING main_e_cmd2
+	create STRING main_e_marg_dims
+	create STRING main_r_cmd
+	create STRING main_r_cmd2
+	create STRING main_r_marg_dims
+
+	main_e_cmd.setstring e(cmd)
+	main_e_cmd2.setstring e(cmd2)
+	main_e_marg_dims.setstring e(marg_dims)
+
+	main_r_cmd.setstring r(cmd)
+	main_r_cmd2.setstring r(cmd2)
+	main_r_marg_dims.setstring r(marg_dims)
+
+	create STRING bu_xdimOptResults
+	create STRING bu_pdimOptResults
+	create STRING bu_bdimOptResults
+	create STRING bu_gdimOptResults
+	setscale_hadj resource MARGINSPLOT_DLG_HSCALE
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	if main_e_cmd.iseq("margins") | main_e_cmd2.iseq("margins") {
+		if main_e_marg_dims.isneq("") {
+			call main_e_marg_dims.tokenize main_dim_variables
+			call main.cb_xdimension.repopulate
+			call main.cb_plotdimension.repopulate
+			call main.cb_bydimension.repopulate
+			call main.cb_graphdimension.repopulate
+		}
+	}
+
+	if main_r_cmd.iseq("margins") | main_r_cmd2.iseq("margins") {
+		if main_r_marg_dims.isneq("") {
+			call main_r_marg_dims.tokenize main_dim_variables
+			call main.cb_xdimension.repopulate
+			call main.cb_plotdimension.repopulate
+			call main.cb_bydimension.repopulate
+			call main.cb_graphdimension.repopulate
+		}
+	}
+	call script gr_overall_setName_off
+	call program gr_ciopts_set_defaults
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	label(resource MARGINSPLOT_DLG_TITLE)
+BEGIN
+  GROUPBOX gb_dimension		_lft	_top	_iwd	_ht20,		///
+	label(resource LBL_DIMENSIONS)
+  TEXT tx_xdimension		_ilft	_ss	_inwd	.,		///
+	label(resource MARGINSPLOT_MAIN_TX_XDIMENSION)
+  DEFINE hold_xs @xsize
+  COMBOBOX cb_xdimension	@	_ss	_lw100	.,		///
+	append								///
+	dropdown							///
+	nomemory							///
+	contents(main_dim_variables)					///
+	label(resource MARGINSPLOT_MAIN_TX_XDIMENSION)
+  BUTTON  bu_xdimension		_slw100	@	_buwd	.,		///
+	onpush(script showXDimOptsDialog)				///
+	tooltip(resource LBL_DIMENSION_OPTIONS)				///
+	label(resource LBL_OPTIONS)
+
+  TEXT tx_plotdimension		_ilft	_ls	hold_xs	.,		///
+	label(resource MARGINSPLOT_MAIN_TX_PLOTDIMENSION)
+  COMBOBOX cb_plotdimension	@	_ss	_lw100	.,		///
+	append								///
+	dropdown							///
+	nomemory							///
+	contents(main_dim_variables)					///
+	label(resource MARGINSPLOT_MAIN_TX_PLOTDIMENSION)
+  BUTTON  bu_plotdimension	_slw100	@	_buwd	.,		///
+	onpush(script showPDimOptsDialog)				///
+	tooltip(resource LBL_DIMENSION_OPTIONS)				///
+	label(resource LBL_OPTIONS)
+
+  TEXT tx_bydimension		_ilft	_ls	hold_xs	.,		///
+	label(resource MARGINSPLOT_MAIN_TX_BYDIMENSION)
+  COMBOBOX cb_bydimension	@	_ss	_lw100	.,		///
+	append								///
+	dropdown							///
+	nomemory							///
+	contents(main_dim_variables)					///
+	label(resource MARGINSPLOT_MAIN_TX_BYDIMENSION)
+  BUTTON  bu_bydimension	_slw100	@	_buwd	.,		///
+	onpush(script showBDimOptsDialog)				///
+	tooltip(resource LBL_DIMENSION_OPTIONS)				///
+	label(resource LBL_OPTIONS)
+
+  TEXT tx_graphdimension	_ilft	_ls	hold_xs	.,		///
+	label(resource MARGINSPLOT_MAIN_TX_GRAPHDIMENSION)
+  COMBOBOX cb_graphdimension	@	_ss	_lw100	.,		///
+	append								///
+	dropdown							///
+	nomemory							///
+	contents(main_dim_variables)					///
+	label(resource MARGINSPLOT_MAIN_TX_GRAPHDIMENSION)
+  BUTTON  bu_graphdimension	_slw100	@	_buwd	.,		///
+	onpush(script showGDimOptsDialog)				///
+	tooltip(resource LBL_DIMENSION_OPTIONS)				///
+	label(resource LBL_OPTIONS)
+
+  CHECKBOX ck_horizontal	_lft	_xxls	_cwd1	.,		///
+	option(horizontal)						///
+	label(resource MARGINSPLOT_MAIN_CK_HORIZONTAL)
+  DEFINE hold_y @y
+  CHECKBOX ck_noci		@	_ms	@	.,		///
+	option(noci)							///
+	onclickon(script gr_ciopts_disable)				///
+	onclickoff(script gr_ciopts_enable)				///
+	label(resource MARGINSPLOT_MAIN_CK_NOCI)
+  CHECKBOX ck_derivlabels	@	_ms	@	.,		///
+	option(derivlabels)						///
+	label(resource MARGINSPLOT_MAIN_CK_DERIVLABELS)
+  CHECKBOX ck_name		_lft2	hold_y	_cwd1	_ht4h,		///
+	groupbox							///
+	onclickon(script main_name_on)					///
+	onclickoff(script main_name_off)				///
+	label(resource LBL_NAME_OF_GRAPH_OR_STUB_IF_MULT_GRAPHS)
+  EDIT ed_name			_ilft2	_ss	_inwd	.,		///
+	label(resource LBL_NEW_NAME_NO_COLON)
+  CHECKBOX ck_replace		@	_ms	@	.,		///
+	option(replace)							///
+	nomemory							///
+	label(resource LBL_REPLACE_GRAPH_ALREADY_EXISTS_IN_MEMORY)
+END
+
+SCRIPT showXDimOptsDialog
+BEGIN
+	create CHILD marginsplot_dimopts AS xdim, allowsubmit
+	xdim.settitle resource LBL_X_DIMENSION_LABEL
+	xdim.setExitString bu_xdimOptResults
+	xdim.setExitAction "program main_xdim_ckResults"
+	xdim.setSubmitAction "script main_xdim_submit"
+END
+
+PROGRAM main_xdim_ckResults
+BEGIN
+	if bu_xdimOptResults {
+		call main.bu_xdimension.modified_on
+	}
+	else {
+		call main.bu_xdimension.modified_off
+	}
+END
+
+SCRIPT main_xdim_submit
+BEGIN
+	program main_xdim_ckResults
+	Submit
+END
+
+SCRIPT showPDimOptsDialog
+BEGIN
+	create CHILD marginsplot_dimopts AS pdim, allowsubmit
+	pdim.settitle resource MARGINSPLOT_PLOT_DIMENSION_LABEL
+	pdim.setExitString bu_pdimOptResults
+	pdim.setExitAction "program main_pdim_ckResults"
+	pdim.setSubmitAction "script main_pdim_submit"
+END
+
+PROGRAM main_pdim_ckResults
+BEGIN
+	if bu_pdimOptResults {
+		call main.bu_plotdimension.modified_on
+	}
+	else {
+		call main.bu_plotdimension.modified_off
+	}
+END
+
+SCRIPT main_pdim_submit
+BEGIN
+	program main_pdim_ckResults
+	Submit
+END
+
+SCRIPT showBDimOptsDialog
+BEGIN
+	create CHILD marginsplot_dimopts AS bdim, allowsubmit
+	bdim.settitle resource LBL_BY_DIMENSION_LABEL
+	bdim.setExitString bu_bdimOptResults
+	bdim.setExitAction "program main_bdim_ckResults"
+	bdim.setSubmitAction "script main_bdim_submit"
+END
+
+PROGRAM main_bdim_ckResults
+BEGIN
+	if bu_bdimOptResults {
+		call main.bu_bydimension.modified_on
+	}
+	else {
+		call main.bu_bydimension.modified_off
+	}
+END
+
+SCRIPT main_bdim_submit
+BEGIN
+	program main_bdim_ckResults
+	Submit
+END
+
+SCRIPT showGDimOptsDialog
+BEGIN
+	create CHILD marginsplot_dimopts AS gdim, allowsubmit
+	gdim.settitle resource LBL_GRAPH_DIMENSION_LABEL
+	gdim.setExitString bu_gdimOptResults
+	gdim.setExitAction "program main_gdim_ckResults"
+	gdim.setSubmitAction "script main_gdim_submit"
+END
+
+PROGRAM main_gdim_ckResults
+BEGIN
+	if bu_gdimOptResults {
+		call main.bu_graphdimension.modified_on
+	}
+	else {
+		call main.bu_graphdimension.modified_off
+	}
+END
+
+SCRIPT main_gdim_submit
+BEGIN
+	program main_gdim_ckResults
+	Submit
+END
+
+SCRIPT main_name_on
+BEGIN
+	main.ed_name.enable
+	main.ck_replace.enable
+END
+
+SCRIPT main_name_off
+BEGIN
+	main.ed_name.disable
+	main.ck_replace.disable
+END
+
+DIALOG labels, tabtitle(resource LBL_LABELS)
+BEGIN
+  CHECKBOX ck_allxlabels	_lft	_top	_iwd	.,		///
+	option(allxlabels)						///
+	label(resource MARGINSPLOT_LABELS_CK_ALLXLABELS)
+  CHECKBOX ck_nolabels		@	_ms	@	.,		///
+	option(nolabels)						///
+	label(resource LBL_LABEL_GROUPS_THEIR_VALUES_NOT_THEIR_LABELS)
+  CHECKBOX ck_allsimplelabels	@	_ms	@	.,		///
+	option(allsimplelabels)						///
+	onclickon("labels.ck_nosimplelabels.disable")			///
+	onclickoff("labels.ck_nosimplelabels.enable")			///
+	label(resource LBL_FORGO_VAR_NAME_AND_EQUAL_SIGNS_IN_ALL_LABELS)
+  CHECKBOX ck_nosimplelabels	@	_ms	@	.,		///
+	option(nosimplelabels)						///
+	onclickon("labels.ck_allsimplelabels.disable")			///
+	onclickoff("labels.ck_allsimplelabels.enable")			///
+	label(resource LBL_INCLUDE_VAR_NAME_AND_EQUAL_SIGN_IN_ALL_LAB)
+  CHECKBOX ck_separator		@	_ls	350	_ht2,		///
+	groupbox							///
+	onclickon("script labels_separator_on")				///
+	onclickoff("script labels_separator_off")			///
+	label(resource LBL_SEPARATOR_FOR_LABELS_WHEN_MULTI_VAR_ARE_SPEC)
+  EDIT ed_separator		_indent	_ss	_inwd	.,		///
+	option(separator)						///
+	label(resource LBL_SEPARATOR_FOR_LABELS_WHEN_MULTI_VAR_ARE_SPEC)
+  CHECKBOX ck_noseparator	_lft	_xls	_iwd	.,		///
+	onclickon("labels.ck_separator.disable")			///
+	onclickoff("labels.ck_separator.enable")			///
+	option(noseparator)						///
+	label(resource LBL_DO_NOT_USE_SEPARATOR_BETWEEN_LABELS)
+END
+
+SCRIPT labels_separator_on
+BEGIN
+	labels.ed_separator.enable
+	labels.ck_noseparator.disable
+END
+
+SCRIPT labels_separator_off
+BEGIN
+	labels.ed_separator.disable
+	labels.ck_noseparator.enable
+END
+
+INCLUDE gr_plotopts
+INCLUDE gr_ciopts
+
+DIALOG pair, tabtitle(resource MARGINSPLOT_TAB_PAIR)
+BEGIN
+  CHECKBOX ck_unique		_lft	_top	_iwd	.,		///
+	option(unique)							///
+	label(resource MARGINSPLOT_PAIR_CK_UNIQUE)
+  CHECKBOX ck_csort		@	_ms	@	.,		///
+	option(csort)							///
+	label(resource MARGINSPLOT_PAIR_CK_CSORT)
+END
+
+INCLUDE gr_addplots_2
+INCLUDE gr_yaxis
+INCLUDE gr_xaxis
+INCLUDE gr_titles
+INCLUDE gr_legend
+INCLUDE gr_overall
+INCLUDE gr_byopts
+
+PROGRAM name_output
+BEGIN
+	put main.ed_name
+	if main.ck_replace {
+		put ", replace"
+	}
+END
+
+PROGRAM xdimension_output
+BEGIN
+	if bu_xdimOptResults {
+		put main.cb_xdimension
+		put ", " bu_xdimOptResults
+	}
+	else {
+		put main.cb_xdimension
+	}
+END
+
+PROGRAM plotdimension_output
+BEGIN
+	if bu_pdimOptResults {
+		put main.cb_plotdimension
+		put ", " bu_pdimOptResults
+	}
+	else {
+		put main.cb_plotdimension
+	}
+END
+
+PROGRAM bydimension_output
+BEGIN
+	if bu_bdimOptResults {
+		put main.cb_bydimension
+		put ", " bu_bdimOptResults
+	}
+	else {
+		put main.cb_bydimension
+	}
+END
+
+PROGRAM graphdimension_output
+BEGIN
+	if bu_gdimOptResults {
+		put main.cb_graphdimension
+		put ", " bu_gdimOptResults
+	}
+	else {
+		put main.cb_graphdimension
+	}
+END
+
+PROGRAM command
+BEGIN
+	put "marginsplot"
+	beginoptions
+		if main.cb_xdimension | bu_xdimOptResults {
+			put " xdimension("
+			put /program xdimension_output
+			put ")"
+		}
+		if main.cb_plotdimension | bu_pdimOptResults {
+			put " plotdimension("
+			put /program plotdimension_output
+			put ")"
+		}
+		if main.cb_bydimension | bu_bdimOptResults {
+			put " bydimension("
+			put /program bydimension_output
+			put ")"
+		}
+		if main.cb_graphdimension | bu_gdimOptResults {
+			put " graphdimension("
+			put /program graphdimension_output
+			put ")"
+		}
+		option main.ck_horizontal
+		option main.ck_noci
+		option main.ck_derivlabels
+		if main.ck_name {
+			require main.ed_name
+			put " name("
+			put /program name_output
+			put ")"
+		}
+		option labels.ck_allxlabels
+		option labels.ck_nolabels
+		option labels.ck_allsimplelabels
+		option labels.ck_nosimplelabels
+		if labels.ck_separator {
+			optionarg labels.ed_separator
+			require labels.ed_separator
+		}
+		option labels.ck_noseparator
+		option pair.ck_unique
+		option pair.ck_csort
+		put " " /program gr_plotopts_output
+		put " " /program gr_ciopts_output
+		put " " /program gr_addplots_output
+		put " " /program gr_yaxis_output
+		put " " /program gr_xaxis_output
+		put " " /program gr_titles_output
+		put " " /program gr_legend_output
+		put " " /program gr_overall_output
+		put " " /program gr_byopts_output
+	endoptions
+END

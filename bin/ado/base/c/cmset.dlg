@@ -1,0 +1,603 @@
+/*
+	cmset.dlg
+
+*! VERSION 1.0.4  24apr2019
+
+*/
+
+VERSION 16.0
+
+INCLUDE _std_large
+DEFINE _dlght 400
+INCLUDE header
+HELP hlp1, view("help cmset")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource CMSET_DLG_HSCALE
+	create STRING STMP
+END
+
+SCRIPT POSTINIT
+BEGIN
+	main.ck_altvar.seton
+	main.ck_panel_altvar.seton
+	STMP.setvalue  "resource LBL_ALTERNATIVES_VAR"
+	STMP.append ":"
+	STMP.withvalue main.ck_altvar.setlabel "@"
+	STMP.withvalue main.ck_panel_altvar.setlabel "@"
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	label(resource CMSET_DLG_TITLE)
+BEGIN
+  RADIO rb_cross		_lft	_top	_inwd	., first	///
+	onclickon(script main_cross_on)					///
+	label(resource CMSET_MAIN_RB_CROSS)
+  RADIO rb_panel		@	_ss	@	.,		///
+	onclickon(script main_panel_on)					///
+	label(resource CMSET_MAIN_RB_PANEL)
+  RADIO rb_clear		@	_ss	@	., last		///
+	onclickon(script main_clear_on)					///
+	label(resource CMSET_MAIN_RB_CLEAR)
+
+// cross
+  TEXT tx_id_var		_lft	_ls	_cwd2	.,		///
+	label(resource LBL_CASE_ID_VARIABLE)
+  DEFINE holdy @y
+  VARNAME vn_id_var		@	_ss	_vnwd	.,		///
+	numeric								///
+	label(resource LBL_CASE_ID_VARIABLE)
+  CHECKBOX ck_altvar		_lft2	holdy	_cwd2	.,		///
+	clickon("script main_altvar_on")				///
+	clickoff("script main_altvar_off")				///
+	label(resource LBL_ALTERNATIVES_VAR)
+  VARNAME vn_altvar		@	_ss	_vnwd	.,		///
+	label(resource LBL_ALTERNATIVES_VAR)
+   
+  CHECKBOX ck_force		_lft	_ls	_ibwd	.,		///
+	option(force)							///
+	label(resource CMSET_MAIN_CK_FORCE)
+
+  TEXT tx_panel_id_var		_lft	holdy	_cwd2	.,		///
+	label(resource LBL_PANEL_ID_VARIABLE)
+  VARNAME vn_panel_id_var	@	_ss	_vnwd	.,		///
+	default(char _dta[iis])						///
+	nomemory							///
+	numeric								///
+	label(resource LBL_PANEL_ID_VARIABLE)
+  TEXT tx_time_var		_lft3_2	holdy	_cwd2	.,		///
+	label(resource LBL_TIME_VARIABLE)
+  VARNAME vn_time_var		@	_ss	_vnwd	.,		///
+	default(char _dta[tis])						///
+	nomemory							///
+	numeric								///
+	label(resource LBL_TIME_VARIABLE)
+  CHECKBOX ck_panel_altvar	_lft3_3	holdy	_cwd2	.,		///
+	clickon("script main_panel_altvar_on")				///
+	clickoff("script main_panel_altvar_off")			///
+	label(resource LBL_ALTERNATIVES_VAR)
+  VARNAME vn_panel_altvar	@	_ss	_vnwd	.,		///
+	label(resource LBL_ALTERNATIVES_VAR)
+
+  GROUPBOX gb_format		_lft	_ls	_iwd	_ht14,		///
+	label(resource XTSET_GB_FORMAT)
+  RADIO rb_none			_ilft	_ss	_cwd2	., first	///
+	onclickon(program format_check)					///
+	option(NONE)							///
+	label(resource XTSET_RB_NONE)
+  RADIO rb_time			_ilft	_ss	_cwd2	.,		///
+	onclickon(program format_check) 				///
+	option(clocktime)						///
+	label(resource XTSET_RB_TIME)
+DEFINE y @y
+  RADIO rb_day			@	_ss	@	.,		///
+	onclickon(program format_check)					///
+	option(daily)							///
+	label(resource XTSET_RB_DAY)
+  RADIO rb_week			@	_ss	@	.,		///
+	onclickon(program format_check)					///
+	option(weekly)							///
+	label(resource LBL_WEEKLY)
+  RADIO rb_month		@	_ss	@	.,		///
+	onclickon(program format_check)					///
+	option(monthly)							///
+	label(resource LBL_MONTHLY)
+  RADIO rb_quart		_lft2	y	@	.,		///
+	onclickon(program format_check)					///
+	option(quarterly)						///
+	label(resource LBL_QUARTERLY)
+  RADIO rb_half			@	_ss	@	.,		///
+	onclickon(program format_check)					///
+	option(halfyearly)						///
+	label(resource XTSET_ED_HALF)
+  RADIO rb_year			@	_ss	@	.,		///
+	onclickon(program format_check)					///
+	option(yearly)							///
+	label(resource XTSET_BU_YEAR)
+  RADIO rb_gen			@	_ss	@	., last		///
+	onclickon(program format_check)					///
+	option(generic)							///
+	label(resource XTSET_RB_GEN)
+
+  EDIT ed_format		_ilft	+35	_lw120	.,		///
+	option(format)							///
+	nomemory							///
+	label(resource LBL_CUSTOM_FORMAT)
+  BUTTON bu_format		_slw120	@	100	.,		///
+	onpush(program showFormatDialog)				///
+	label(resource XTSET_BU_FORMAT)
+
+  GROUPBOX gb_delta		_lft	+45	_iwd	_ht3,		///
+	label(resource XTSET_DELTA_GB_DELTA)
+
+  TEXT     tx_value		_ilft	_ms	60	.,		///
+	label(resource XTSET_DELTA_TX_VALUE) right
+  SPINNER  sp_value		+65	@	_spwd	.,		///
+	min(1) max(10000000) default(1)
+
+  TEXT tx_unit			_spsep	@	90	.,		///
+	label(resource XTSET_DELTA_TX_UNIT) right
+  COMBOBOX cb_time		+95	@	_vnwd	.,		///
+	dropdownlist contents(clockList) values(clockValues)
+  COMBOBOX cb_day		@	@	@	.,		///
+	dropdownlist contents(dayList)
+  COMBOBOX cb_week		@	@	@	.,		///
+	dropdownlist contents(weekList)
+  COMBOBOX cb_month		@	@	@	.,		///
+	dropdownlist contents(monthList)
+  COMBOBOX cb_quarterly		@	@	@	.,		///
+	dropdownlist contents(quarterlyList)
+  COMBOBOX cb_half		@	@	@	.,		///
+	dropdownlist contents(halfList)
+  COMBOBOX cb_year		@	@	@	.,		///
+	dropdownlist contents(yearList)
+  COMBOBOX cb_generic		@	@	@	.,		///
+	dropdownlist contents(genericList)
+
+  CHECKBOX ck_panel_force	_lft	+45	_ibwd	.,		///
+	option(force)							///
+	label(resource CMSET_MAIN_CK_FORCE)
+END
+
+SCRIPT main_hide_all
+BEGIN
+	main.tx_id_var.hide
+	main.vn_id_var.hide
+	main.ck_altvar.hide
+	main.vn_altvar.hide
+	main.ck_force.hide
+	main.tx_panel_id_var.hide
+	main.vn_panel_id_var.hide
+	main.tx_time_var.hide
+	main.vn_time_var.hide
+	main.ck_panel_altvar.hide
+	main.vn_panel_altvar.hide
+	main.ck_panel_force.hide
+
+	main.gb_format.hide
+	main.rb_none.hide
+	main.rb_time.hide
+	main.rb_day.hide
+	main.rb_week.hide
+	main.rb_month.hide
+	main.rb_quart.hide
+	main.rb_half.hide
+	main.rb_year.hide
+	main.rb_gen.hide
+	main.ed_format.hide
+	main.bu_format.hide
+
+	main.gb_delta.hide
+	main.tx_value.hide
+	main.sp_value.hide
+	main.tx_unit.hide
+	main.cb_time.hide
+	main.cb_day.hide
+	main.cb_week.hide
+	main.cb_month.hide
+	main.cb_quarterly.hide
+	main.cb_half.hide
+	main.cb_year.hide
+	main.cb_generic.hide
+END
+
+SCRIPT main_cross_on
+BEGIN
+	script main_hide_all
+
+	main.tx_id_var.show
+	main.vn_id_var.show
+	main.ck_altvar.show
+	main.vn_altvar.show
+	main.ck_force.show
+END
+
+SCRIPT main_panel_on
+BEGIN
+	script main_hide_all
+
+	main.tx_panel_id_var.show
+	main.vn_panel_id_var.show
+	main.tx_time_var.show
+	main.vn_time_var.show
+	main.ck_panel_altvar.show
+	main.vn_panel_altvar.show
+	main.ck_panel_force.show
+
+	main.gb_format.show
+	main.rb_none.show
+	main.rb_time.show
+	main.rb_day.show
+	main.rb_week.show
+	main.rb_month.show
+	main.rb_quart.show
+	main.rb_half.show
+	main.rb_year.show
+	main.rb_gen.show
+	main.ed_format.show
+	main.bu_format.show
+
+	main.gb_delta.show
+	main.tx_value.show
+	main.sp_value.show
+	main.tx_unit.show
+	program format_check
+END
+
+SCRIPT main_clear_on
+BEGIN
+	script main_hide_all
+END
+
+SCRIPT main_altvar_on
+BEGIN
+	main.vn_altvar.enable
+	main.ck_force.enable
+END
+
+SCRIPT main_altvar_off
+BEGIN
+	main.vn_altvar.disable
+	main.ck_force.disable
+END
+
+SCRIPT main_panel_altvar_on
+BEGIN
+	main.vn_panel_altvar.enable
+	main.ck_panel_force.enable
+	main.gb_format.enable
+	main.rb_none.enable
+	main.rb_time.enable
+	main.rb_day.enable
+	main.rb_week.enable
+	main.rb_month.enable
+	main.rb_quart.enable
+	main.rb_half.enable
+	main.rb_year.enable
+	main.rb_gen.enable
+	main.ed_format.enable
+	main.bu_format.enable
+	script delta_on
+END
+
+SCRIPT main_panel_altvar_off
+BEGIN
+	main.vn_panel_altvar.disable
+	main.ck_panel_force.disable
+	main.gb_format.disable
+	main.rb_none.disable
+	main.rb_time.disable
+	main.rb_day.disable
+	main.rb_week.disable
+	main.rb_month.disable
+	main.rb_quart.disable
+	main.rb_half.disable
+	main.rb_year.disable
+	main.rb_gen.disable
+	main.ed_format.disable
+	main.bu_format.disable
+	script delta_off
+END
+
+PROGRAM check_time_var
+BEGIN
+	if main.vn_t {
+		call main.ck_t.seton
+		call program time_check
+	}
+END
+
+PROGRAM time_check
+BEGIN
+	if main.ck_t.isvisible() {
+		if main.ck_t  {
+			call main.vn_t.enable
+			call program format_on
+		}
+		else {
+			call main.vn_t.disable
+			call program format_off
+		}
+	}
+	else {
+		call main.vn_t.enable
+		call program format_on
+	}
+END
+
+PROGRAM showFormatDialog
+BEGIN
+	call create STRING formatString
+	call create CHILD format_chooser
+	call format_chooser.setExitString formatString
+	call format_chooser.setExitAction "main.ed_format.setvalue class formatString.value"
+	if main.rb_time {
+		call format_chooser.callthru "script setFormatClock"
+	}
+	if main.rb_day {
+		call format_chooser.callthru "script setFormatDaily"
+	}
+	if main.rb_week {
+		call format_chooser.callthru "script setFormatWeekly"
+	}
+	if main.rb_month {
+		call format_chooser.callthru "script setFormatMonthly"
+	}
+	if main.rb_quart {
+		call format_chooser.callthru "script setFormatQuarterly"
+	}
+	if main.rb_half {
+		call format_chooser.callthru "script setFormatHalfYear"
+	}
+	if main.rb_year {
+		call format_chooser.callthru "script setFormatAnnual"
+	}
+	if main.rb_year {
+		call format_chooser.callthru "script setFormatAnnual"
+	}
+END
+
+PROGRAM format_check
+BEGIN
+	if main.rb_panel {
+		call script deltaHideLists
+		if main.rb_none {
+			call main.ed_format.disable
+			call main.bu_format.disable
+			call main.ed_format.setvalue ""
+			call main.cb_generic.show
+		}
+		if main.rb_time {
+			call main.ed_format.enable
+			call main.bu_format.enable
+			call main.ed_format.setvalue "%tc"
+			call main.ed_format.setdefault "%tc"
+			call main.cb_time.show
+		}
+		if main.rb_day {
+			call main.ed_format.enable
+			call main.bu_format.enable
+			call main.ed_format.setvalue "%td"
+			call main.ed_format.setdefault "%td"
+			call main.cb_day.show
+		}
+		if main.rb_week {
+			call main.ed_format.enable
+			call main.bu_format.enable
+			call main.ed_format.setvalue "%tw"
+			call main.ed_format.setdefault "%tw"
+			call main.cb_week.show
+		}
+		if main.rb_month {
+			call main.ed_format.enable
+			call main.bu_format.enable
+			call main.ed_format.setvalue "%tm"
+			call main.ed_format.setdefault "%tm"
+			call main.cb_month.show
+		}
+		if main.rb_quart {
+			call main.ed_format.enable
+			call main.bu_format.enable
+			call main.ed_format.setvalue "%tq"
+			call main.ed_format.setdefault "%tq"
+			call main.cb_quarterly.show
+		}
+		if main.rb_half {
+			call main.ed_format.enable
+			call main.bu_format.enable
+			call main.ed_format.setvalue "%th"
+			call main.ed_format.setdefault "%th"
+			call main.cb_half.show
+		}
+		if main.rb_year {
+			call main.ed_format.enable
+			call main.bu_format.enable
+			call main.ed_format.setvalue "%ty"
+			call main.ed_format.setdefault "%ty"
+			call main.cb_year.show
+		}
+		if main.rb_gen {
+			call main.ed_format.disable
+			call main.bu_format.disable
+			call main.ed_format.setvalue "%tg"
+			call main.ed_format.setdefault "%tg"
+			call main.cb_generic.show
+		}
+	}
+END
+
+SCRIPT deltaHideLists
+BEGIN
+	main.cb_generic.hide
+	main.cb_time.hide
+	main.cb_day.hide
+	main.cb_week.hide
+	main.cb_month.hide
+	main.cb_quarterly.hide
+	main.cb_half.hide
+	main.cb_year.hide
+END
+
+LIST clockList
+BEGIN
+	resource XTSET_MILLISECONDS 
+	resource XTSET_SECONDS
+	resource XTSET_MINUTES
+	resource XTSET_HOURS
+	resource XTSET_DAYS
+	resource XTSET_WEEKS
+END
+
+LIST clockValues
+BEGIN
+	""
+	seconds
+	minutes
+	hours
+	days
+	weeks
+END
+
+LIST dayList
+BEGIN
+	resource XTSET_DAYS
+END
+
+LIST weekList
+BEGIN
+	resource XTSET_WEEKS
+END
+
+LIST monthList
+BEGIN
+	resource XTSET_MONTHS
+END
+
+LIST quarterlyList
+BEGIN
+	resource XTSET_QUARTER_YEARS
+END
+
+LIST halfList
+BEGIN
+	resource XTSET_HALF_YEARS
+END
+
+LIST yearList
+BEGIN
+	resource XTSET_YEARS
+END
+
+LIST genericList
+BEGIN
+	resource XTSET_TIME_UNIT
+END
+
+SCRIPT delta_on
+BEGIN
+	main.tx_value.enable
+	main.sp_value.enable
+	main.tx_unit.enable
+	main.cb_time.enable
+	main.cb_day.enable
+	main.cb_week.enable
+	main.cb_month.enable
+	main.cb_quarterly.enable
+	main.cb_half.enable
+	main.cb_year.enable
+	main.cb_generic.enable
+	main.gb_delta.enable
+END
+
+SCRIPT delta_off
+BEGIN
+	main.tx_value.disable
+	main.sp_value.disable
+	main.tx_unit.disable
+	main.cb_time.disable
+	main.cb_time.disable
+	main.cb_day.disable
+	main.cb_week.disable
+	main.cb_month.disable
+	main.cb_quarterly.disable
+	main.cb_half.disable
+	main.cb_year.disable
+	main.cb_generic.disable
+	main.gb_delta.disable
+END
+
+PROGRAM delta_output
+BEGIN
+	put main.sp_value
+	put " " main.cb_time
+END
+
+PROGRAM tsset_options
+BEGIN
+	if main.ed_format & main.ed_format.isenabled()			///
+		& ! main.ed_format.isdefault() {
+		optionarg main.ed_format
+	}
+	else {
+		option radio(main					///
+			rb_none rb_time rb_day rb_week rb_month		///
+			rb_quart rb_half rb_year rb_gen)
+	}
+
+	if ( ! main.sp_value.isdefault()				///
+		| (main.cb_time.isvisible() & main.cb_time)) {
+		put " delta("
+		put /program delta_output
+		put ") "
+	}
+
+END
+
+PROGRAM command
+BEGIN
+	if main.rb_cross {
+		require main.vn_id_var
+		put "cmset "
+		put main.vn_id_var
+		if main.ck_altvar {
+			require main.vn_altvar
+			put " " main.vn_altvar
+			beginoptions
+				option main.ck_force
+			endoptions
+		}
+		else {
+			beginoptions
+				put " noalternatives"
+				option main.ck_force
+			endoptions
+		} 
+	}	
+	if main.rb_panel {
+		require main.vn_panel_id_var
+		require main.vn_time_var
+		put "cmset "
+		put main.vn_panel_id_var
+		put " " main.vn_time_var
+		if main.ck_panel_altvar {
+			require main.vn_panel_altvar
+			put " " main.vn_panel_altvar
+			beginoptions
+				put " " /program tsset_options
+				option main.ck_panel_force
+			endoptions
+		}
+		else {
+			beginoptions
+				put " noalternatives"
+				put " " /program tsset_options
+				option main.ck_panel_force
+			endoptions
+		} 
+	}	
+	if main.rb_clear {
+		put "cmset, clear"
+	}
+END

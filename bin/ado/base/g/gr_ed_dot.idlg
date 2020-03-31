@@ -1,0 +1,145 @@
+/*
+  gr_ed_dot.idlg
+
+*!  VERSION 1.1.3  22jul2017
+
+*/
+
+SCRIPT dots_PREINIT
+BEGIN
+	create STRING color
+	create STRING rgb
+	create STRING opacity
+	create STRING size
+	create STRING symbol
+	create STRING symbol_angle
+	program dots_get_defaults
+END
+
+SCRIPT dots_POSTINIT
+BEGIN
+	program dots_initialize_controls
+END
+
+DIALOG dots, tabtitle(resource GR_ED_DOT_TAB_DOTS)
+BEGIN
+  GROUPBOX gb_dots	_lft	_top	_iwd	_ht14,		///
+	label(resource LBL_DOT_PROPERTIES)
+  TEXT     tx_size	_ilft	_ss	_wd	.,		///
+	label(resource LBL_SIZE) right
+  COMBOBOX cb_size	_sep	@	_cbwd	.,		///
+	dropdown						///
+	contents(_symbolsizes)
+  
+  TEXT     tx_symbol	_ilft	_mls	_wd	.,		///
+	label(resource LBL_SYMBOL) right
+  COMBOBOX cb_symbol	_sep	@	_cbwd	.,		///
+	dropdownlist 						///
+	contents(_symbols)
+
+  TEXT     tx_clr	_ilft	_mls	_wd	.,		///
+	label(resource LBL_COLOR) right
+  COMBOBOX cb_clr	_sep	@	_cbwd	.,		///
+	dropdownlist contents(_colors) 				///
+	onselchangelist(dots_cl_clr_sel)
+  COLOR    cl_clr	_cbsep	@	_clwd	.,
+  TEXT     tx_opacity	_ilft	_mls	_wd	.,		///
+	label(resource LBL_OPACITY) right
+  SPINNER sp_opacity	_sep	@	_spwd	.,		///
+	default(100)						///
+	min(0)							///
+	max(100)
+  TEXT     tx_msymangle	_ilft	_mls	_wd	.,		///
+	label(resource LBL_SYMBOL_ANGLE) right
+  COMBOBOX cb_msymangle	_sep	@	_cbwd	.,		///
+	option(msangle) dropdown contents(angles)
+END
+
+LIST dots_cl_clr_sel
+BEGIN
+	dots.cl_clr.show
+	dots.cl_clr.hide
+END
+
+PROGRAM dots_get_defaults
+BEGIN
+	call G.withvalue index.setvalue class @.style.dots.size.styledex
+	call index.withvalue size.setstring class .__STYLES.symbolsize[@]
+	if ! size {
+		call G.withvalue size.setstring class @.style.dots.size.val
+	}
+	call dots.cb_size.setdefault class size.value
+
+	call G.withvalue index.setvalue class @.style.dots.symbol.styledex
+	call index.withvalue symbol.setstring class .__STYLES.symbol[@]
+	call dots.cb_symbol.setdefault class symbol.value
+
+	call G.withvalue index.setvalue class @.style.dots.linestyle.color.styledex
+	call index.withvalue color.setvalue class .__STYLES.color[@]
+	call dots.cb_clr.setdefault class color.value
+
+	call G.withvalue rgb.setvalue class @.style.dots.linestyle.color.rgb
+	call dots.cl_clr.setdefault class rgb.value
+
+	call G.withvalue opacity.setvalue class @.style.dots.linestyle.color.opacity
+	call dots.sp_opacity.setdefault class opacity.value
+
+	call G.withvalue index.setvalue class @.style.dots.symangle.styledex
+	call index.withvalue symangle.setstring class .__STYLES.anglestyle[@]
+	call dots.cb_msymangle.setdefault class symbol_angle.value
+END
+
+PROGRAM dots_initialize_controls
+BEGIN
+	call dots.cb_size.setvalue class size.value
+	call dots.cb_symbol.setvalue class symbol.value
+	call dots.cb_msymangle.setvalue class symbol_angle.value
+	
+	if color {
+		call color.withvalue dots.cb_clr.setvalue "@"
+	}
+	if ! color {
+		call dots.cb_clr.setvalue "custom"
+	}
+	call dots.cl_clr.setvalue class rgb.value
+	call dots.sp_opacity.setvalue class opacity.value
+END
+
+PROGRAM dot_output
+BEGIN
+	if ! dots.cb_size.isdefault() {
+		put "style(dots(size("
+		put dots.cb_size
+		put "))) "
+	}
+	if ! dots.cb_symbol.isdefault() {
+		put "style(dots(symbol("
+		put dots.cb_symbol
+		put "))) "
+	}
+
+	if ! dots.cb_msymangle.isdefault() {
+		put "style(dots(symangle("
+		put dots.cb_msymangle
+		put "))) "
+	}
+
+	if ! dots.cl_clr.isvisible() & ! dots.cb_clr.isdefault() {
+		put "style(dots(linestyle(color(" 
+		put dots.cb_clr 
+		put ")))) "
+	}
+	if dots.cl_clr.isvisible() & ! dots.cl_clr.isdefault() {
+		put "style(dots(linestyle(color("  `"""'
+		put dots.cl_clr
+		put `"""'
+		put ")))) "
+	}
+	if ! dots.sp_opacity.isdefault() {
+		put "style(dots(linestyle(color("  `"""'
+		put "%"
+		put dots.sp_opacity
+		put `"""'
+		put ")))) "
+	}
+END

@@ -1,0 +1,428 @@
+/*
+
+*!  VERSION 1.2.6  12apr2019
+
+*/
+
+VERSION 15.0
+
+INCLUDE _std_mlarge
+DEFINE _dlght 470
+INCLUDE header
+
+HELP hlp1, view("help prtest")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource PRTEST_DLG_HSCALE
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	if __MESSAGE.iseq("-one-") {
+		call main.rb_prtest1.seton
+	}
+	if __MESSAGE.iseq("-two-") {
+		call main.rb_prtest2.seton
+	}
+	if __MESSAGE.iseq("-by-") {
+		call main.rb_prtestby.seton
+	}
+END
+
+DIALOG main, label(resource PRTEST_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+	GROUPBOX	gb_prtest	_lft	_top	_iwd	_ht10,	///
+		label(resource PRTEST_MAIN_GB_PRTEST)
+	RADIO		rb_prtest1	_indent	_ss	_ibwd	.,	///
+		first							///
+		onclickon("program main_prtest1_on")			///
+		label(resource LBL_ONE_SAMPLE)
+	RADIO		rb_prtest1clst	@	_ss	@	.,	///
+		onclickon("program main_prtest1clst_on")		///
+		label(resource LBL_ONE_SAMPLE_ADJUST_CLUSTERING)	
+	RADIO		rb_prtestby	@	_ss	@	.,	///
+		onclickon("program main_prtestby_on")			///
+		label(resource PRTEST_MAIN_RB_PRTESTBY)
+	RADIO		rb_prtestbyclst	@	_ss	@	.,	///
+		onclickon("program main_prtestbyclst_on")		///
+		label(resource LBL_TWO_SAMPLE_GROUPS_ADJUST_CLUSTERING)
+	RADIO		rb_prtest2	@	_ss	@	.,	///
+		last							///
+		onclickon("program main_prtest2_on")			///
+		label(resource LBL_TWO_SAMPLE_USING_VARIABLES)
+	
+	GROUPBOX	gb_group	_lft	_xls	_iwd	_ht28,	///
+		label(resource PRTEST_MAIN_GB_GROUP)
+	
+	/* One-sample test of proportion */
+	TEXT     	tx_var    	_indent _ss     _cwd1	.,	///
+		label(resource LBL_VARIABLE)				
+	DEFINE	holdx @x
+	DEFINE	holdy @y
+	VARNAME  	vn_var    	@       _ss     _vnwd   .,	///
+		numeric							///
+		label(resource LBL_VARIABLE)			
+	
+	TEXT     	tx_val    	_lft2   holdy	_cwd2   .,	///
+		label(resource LBL_HYPOTHESIZED_PROPORTION_COLON)
+	EDIT     	en_val    	@       _ss     _vnwd	.,	///
+		numonly							///
+		label(resource LBL_HYPOTHESIZED_PROPORTION_COLON)
+
+	/* Adjust for clustering test of proportion */
+	TEXT     	tx_cvar   	_ilft	_ls	_cwd1	.,	///
+		label(resource LBL_CLUSTER_VARIABLE)
+	DEFINE holdy2 @y
+	VARNAME  	vn_cvar   	@       _ss     _vnwd   .,	///
+		numeric							///
+		option(cluster)						///
+		label(resource LBL_CLUSTER_VARIABLE)
+
+	GROUPBOX	gb_intcorr	_ilft	_ls	_ibwd	_ht11h,	///
+		label(resource LBL_INTRACLASS_CORR)
+	RADIO		rb_two_ic	_indent	_ss	_cwd2	.,	///
+		first							///
+		onclickon(program main_common_ic_on)			///
+		onclickoff(program main_group_ic_on)			///
+		label(resource LBL_COMMON_INTRACLASS_CORRELATION)
+	RADIO		rb_two_gic	@	+45	@	.,	///
+		last							///
+		onclickon(program main_group_ic_on)			///
+		onclickoff(program main_common_ic_on)			///
+		label(resource LBL_GROUP_INTRACLASS_CORRELATION)
+	EDIT		ed_two_ic	_indent	-25	_en14wd	.,	///
+		option(rho)						///
+		numonly							///
+		label(resource LBL_COMMON_INTRACLASS_CORRELATION)
+	DEFINE	holdx2 @x
+	EDIT		ed_two_ic1	holdx2	+45	_en14wd	.,	///
+		option(rho1) numonly					///
+		label(resource LBL_GROUP_INTRACLASS_CORRELATION_GROUP1)
+	TEXT		tx_two_ic1	_en14sep @	80	.,	///
+		label(resource LBL_GROUP1)
+	EDIT		ed_two_ic2	holdx2	_ms	_en14wd	.,	///
+		option(rho2) numonly					///
+		label(resource LBL_GROUP_INTRACLASS_CORRELATION_GROUP2)
+	TEXT		tx_two_ic2	_en14sep @	80	.,	///
+		label(resource LBL_GROUP2)	
+
+	TEXT		tx_intcorr	_lft2	holdy2	_cwd2	.,	///
+		label(resource LBL_INTRACLASS_CORRELATION)
+	EDIT		ed_intcorr	@	_ss	_vnwd	.,	///
+		option(rho)						///
+		numonly							///
+		label(resource LBL_INTRACLASS_CORRELATION)
+
+
+	/* Two-sample test of proportions */
+	TEXT     	tx_var1   	holdx	holdy	_cwd1	.,	///
+		label(resource LBL_FIRST_VARIABLE)				
+	VARNAME  	vn_var1   	@       _ss     _vnwd   .,	///
+		numeric							///
+		label(resource LBL_FIRST_VARIABLE)			///
+	
+	TEXT     	tx_var2   	_lft2	holdy	_cwd2	.,	///
+		label(resource LBL_SECOND_VARIABLE)				
+	VARNAME  	vn_var2   	@	_ss	_vnwd	.,	///
+		numeric							///
+		label(resource LBL_SECOND_VARIABLE)	
+	
+	/* Two-group proportion test */ 
+	TEXT     	tx_gvar    	holdx	holdy	_cwd1	.,	///
+		label(resource LBL_VARIABLE_NAME)			
+	VARNAME  	vn_gvar    	@       _ss     _vnwd   .,	///
+		numeric							///
+		label(resource LBL_VARIABLE_NAME)				
+	
+	TEXT     	tx_byopt	_lft2	holdy 	_cwd2	.,	///
+		label(resource LBL_GROUP_VARIABLE_NAME)				
+	VARNAME  	vn_byopt	@	_ss	_vnwd	.,	///
+		numeric							///
+		label(resource LBL_GROUP_VARIABLE_NAME)
+
+	DEFINE _x holdx
+	DEFINE _cx _cwd2
+	DEFINE _y _xls
+  	INCLUDE _sp_level
+END
+
+INCLUDE byifin
+
+PROGRAM main_prtest1_on
+BEGIN
+	call script main_prtest1_show
+	call script main_prtest2_hide
+	call script main_prtestby_hide
+	call script main_prtestclst_hide
+	call script main_prtestbyclst_hide
+	call main.sp_level.setposition . 230
+	call main.tx_level.setposition . 230
+	call main.gb_group.setlabel resource PRTEST_MAIN_GB_GROUP
+END
+
+PROGRAM main_prtest1clst_on
+BEGIN
+	call script main_prtest1_show
+	call script main_prtest2_hide
+	call script main_prtestby_hide
+	call script main_prtestbyclst_hide
+	call script main_prtestclst_show
+	call main.sp_level.setposition . 280
+	call main.tx_level.setposition . 280
+	call main.gb_group.setlabel resource PRTEST_MAIN_GB_GROUP
+END
+
+PROGRAM main_prtest2_on
+BEGIN
+	call script main_prtest1_hide
+	call script main_prtest2_show
+	call script main_prtestby_hide
+	call script main_prtestclst_hide
+	call script main_prtestbyclst_hide
+	call main.sp_level.setposition . 230
+	call main.tx_level.setposition . 230
+	call main.gb_group.setlabel resource PRTEST_TWO_SAMPLE_TEST_PROP_VAR
+END
+
+PROGRAM main_prtestby_on
+BEGIN
+	call script main_prtest1_hide
+	call script main_prtest2_hide
+	call script main_prtestby_show
+	call script main_prtestclst_hide
+	call script main_prtestbyclst_hide
+	call main.sp_level.setposition . 230
+	call main.tx_level.setposition . 230
+	call main.gb_group.setlabel resource PRTEST_TWO_SAMPLE_PROP_TEST_USING_GROUPS
+END
+
+PROGRAM main_prtestbyclst_on
+BEGIN
+	call script main_prtest1_hide
+	call script main_prtest2_hide
+	call script main_prtestby_show
+	call script main_prtestclst_hide
+	call script main_prtestbyclst_show
+	call main.sp_level.setposition . 425
+	call main.tx_level.setposition . 425
+	call main.gb_group.setlabel resource PRTEST_TWO_SAMPLE_PROP_TEST_USING_GROUPS
+
+END
+
+SCRIPT main_prtest1_show
+BEGIN
+	main.tx_var.show
+	main.vn_var.show
+	main.tx_val.show
+	main.en_val.show
+	main.sp_level.setvalue "95"
+END
+
+SCRIPT main_prtest1_hide
+BEGIN
+	main.tx_var.hide
+	main.vn_var.hide
+	main.tx_val.hide
+	main.en_val.hide
+END
+
+SCRIPT main_prtest2_show
+BEGIN
+	main.tx_var1.show
+	main.vn_var1.show
+	main.tx_var2.show
+	main.vn_var2.show
+	main.sp_level.setvalue "95"
+END
+
+SCRIPT main_prtest2_hide
+BEGIN
+	main.tx_var1.hide
+	main.vn_var1.hide
+	main.tx_var2.hide
+	main.vn_var2.hide
+END
+
+SCRIPT main_prtestby_show
+BEGIN
+	main.tx_gvar.show
+	main.vn_gvar.show
+	main.tx_byopt.show
+	main.vn_byopt.show
+	main.sp_level.setvalue "95"
+END
+
+SCRIPT main_prtestby_hide
+BEGIN
+	main.tx_gvar.hide
+	main.vn_gvar.hide
+	main.tx_byopt.hide
+	main.vn_byopt.hide
+END
+
+SCRIPT main_prtestclst_show
+BEGIN
+	main.tx_cvar.show
+	main.vn_cvar.show
+	main.tx_intcorr.show
+	main.ed_intcorr.show
+	main.sp_level.setvalue "95"
+END
+
+SCRIPT main_prtestclst_hide
+BEGIN
+	main.tx_cvar.hide
+	main.vn_cvar.hide
+	main.tx_intcorr.hide
+	main.ed_intcorr.hide
+END
+
+SCRIPT main_prtestbyclst_show
+BEGIN
+	main.tx_cvar.show
+	main.vn_cvar.show
+	main.gb_intcorr.show
+	main.rb_two_ic.show
+	main.rb_two_gic.show
+	main.ed_two_ic.show
+	main.ed_two_ic1.show
+	main.tx_two_ic1.show
+	main.ed_two_ic2.show
+	main.tx_two_ic2.show
+	main.sp_level.setvalue "95"
+END
+
+SCRIPT main_prtestbyclst_hide
+BEGIN
+	main.tx_cvar.hide
+	main.vn_cvar.hide
+	main.gb_intcorr.hide
+	main.rb_two_ic.hide
+	main.rb_two_gic.hide
+	main.ed_two_ic.hide
+	main.ed_two_ic1.hide
+	main.tx_two_ic1.hide
+	main.ed_two_ic2.hide
+	main.tx_two_ic2.hide
+END
+
+PROGRAM main_common_ic_on
+BEGIN
+	call main.ed_two_ic.enable
+	call main.ed_two_ic1.disable
+	call main.tx_two_ic1.disable
+	call main.ed_two_ic2.disable
+	call main.tx_two_ic2.disable
+END
+
+PROGRAM main_group_ic_on
+BEGIN
+	call main.ed_two_ic.disable
+	call main.ed_two_ic1.enable
+	call main.tx_two_ic1.enable
+	call main.ed_two_ic2.enable
+	call main.tx_two_ic2.enable
+END
+
+PROGRAM main_by_group_opt
+BEGIN
+	varlist main.vn_byopt
+END
+
+PROGRAM command
+BEGIN
+	INCLUDE _by_pr
+	put "prtest "
+	if main.rb_prtest1 {
+		varlist main.vn_var
+		put "== "
+		require main.en_val
+		put main.en_val
+	}
+	if main.rb_prtest1clst {
+		varlist main.vn_var
+		put "== "
+		require main.en_val
+		put main.en_val
+	}
+	if main.rb_prtest2 {
+		varlist main.vn_var1
+		put "== "
+		varlist main.vn_var2
+	}
+	if main.rb_prtestby {
+		varlist main.vn_gvar
+	}
+	if main.rb_prtestbyclst {
+		varlist main.vn_gvar
+	}
+	INCLUDE _ifin_pr
+	
+	beginoptions
+		if main.rb_prtest1clst {
+			require main.vn_cvar
+			require main.ed_intcorr
+			optionarg main.vn_cvar
+			if !main.ed_intcorr.isNumlistInRange(-1,1) {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 			///
+					"resource LBL_MSGBOX_BETWEEN_NEG_1_AND_1_FMT"	///
+					"resource LBL_INTRACLASS_CORRELATION"
+				stopbox stop "class _MSG_TMP.value"
+// "Intraclass correlation" must be between -1 and 1.
+			}
+			optionarg main.ed_intcorr
+		}
+		if main.rb_prtestby {
+			put "by("
+			put /program main_by_group_opt
+			put ")"
+		}
+		if main.rb_prtestbyclst {
+			put "by("
+			put /program main_by_group_opt
+			put ")"
+			require main.vn_cvar
+			optionarg main.vn_cvar
+			if main.rb_two_ic {
+				require main.ed_two_ic
+				if !main.ed_two_ic.isNumlistInRange(-1,1) {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 			///
+					"resource LBL_MSGBOX_BETWEEN_NEG_1_AND_1_FMT"	///
+					"resource LBL_COMMON_INTRACLASS_CORRELATION"
+					
+				stopbox stop "class _MSG_TMP.value"
+// "Common intraclass correlation" must be between -1 and 1.
+				}
+				optionarg main.ed_two_ic
+			}
+			if main.rb_two_gic {
+				require main.ed_two_ic1
+				require main.ed_two_ic2
+				if !main.ed_two_ic1.isNumlistInRange(-1,1) {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 			///
+					"resource LBL_MSGBOX_BETWEEN_NEG_1_AND_1_FMT"	///
+					"resource LBL_GROUP_INTRACLASS_CORRELATION_GROUP1"
+				stopbox stop "class _MSG_TMP.value"
+// "Intraclass correlation for group1" must be between -1 and 1.
+				}
+				optionarg main.ed_two_ic1
+				if !main.ed_two_ic2.isNumlistInRange(-1,1) {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 			///
+					"resource LBL_MSGBOX_BETWEEN_NEG_1_AND_1_FMT"	///
+					"resource LBL_GROUP_INTRACLASS_CORRELATION_GROUP2"
+				stopbox stop "class _MSG_TMP.value"
+// "Intraclass correlation for group2" must be between -1 and 1.
+				}
+				optionarg main.ed_two_ic2
+			}
+		}
+		INCLUDE _level_main_pr
+	endoptions
+END
+

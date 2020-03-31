@@ -1,0 +1,720 @@
+/*
+	irt graph icc
+
+*!  VERSION 1.1.7  01dec2019
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 430
+INCLUDE header
+
+HELP hlp1, view("help irtgraph icc")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN	
+	create STRING	STMP
+	create STRING	BlocLinePropResults
+	create STRING	PlocLinePropResults
+	
+	create STRING main_icc_tmp
+	create STRING main_icc_tmp2
+	create STRING main_icc_childdlg
+	create STRING main_icc_child_result
+	create STRING main_icc_cmd_output
+	
+	create ARRAY main_icc_list  //display list
+	create ARRAY main_icc_cmdlist
+	create ARRAY main_icc_cmdvalueslist
+	create ARRAY main_icc_statuslist
+	create ARRAY main_icc_childdlglist
+	create ARRAY main_icc_itemlist
+	create ARRAY main_icc_editlist
+
+	create SVECTOR mainICCCommandDisplayVec
+	create SVECTOR mainICCCommandVec
+	create SVECTOR mainICCCommandValuesVec
+	create SVECTOR mainICCStatusVec
+	create SVECTOR mainICCChildDialogVec
+	create SVECTOR mainICCItemVec
+	create SVECTOR mainICCItemVecOrig
+	create SVECTOR mainICCEditVec
+
+	create DOUBLE main_icc_count
+	create DOUBLE main_icc_position
+	create DOUBLE main_icc_arraysize
+	create DOUBLE main_icc_tmpcount
+	
+	create STRING strI
+	create STRING strItems
+	create DOUBLE main_item_count
+	create DOUBLE loopI
+	create STRING selItems
+	create STRING selItemsEdit
+
+	main.bu_icc_edit.disable
+	main.bu_icc_disable.disable
+	main.bu_icc_enable.disable
+	main.bu_icc_clear.disable
+	program builder_SETUP
+	setscale_hadj resource IRT_GRAPH_ICC_BUILD_ALL_DLG_HSCALE
+END
+
+PROGRAM builder_INIT
+BEGIN
+	call main_icc_list.Arrdropall
+	call main_icc_cmdlist.Arrdropall
+	call main_icc_cmdvalueslist.Arrdropall
+	call main_icc_statuslist.Arrdropall
+	call main_icc_childdlglist.Arrdropall
+	call main_icc_itemlist.Arrdropall
+	call main_icc_editlist.Arrdropall
+	call mainICCCommandDisplayVec.dropall
+	call mainICCCommandVec.dropall
+	call mainICCCommandValuesVec.dropall
+	call mainICCStatusVec.dropall
+	call mainICCChildDialogVec.dropall
+	call mainICCItemVec.dropall
+	call mainICCEditVec.dropall
+END
+
+PROGRAM builder_SETUP
+BEGIN
+	call program builder_INIT
+	call main_item_count.setvalue e(k_dv)
+	call strItems.setvalue e(item_list)
+	
+	call strItems.tokenize main_icc_itemlist
+	call mainICCItemVecOrig.copyFromArray main_icc_itemlist
+	
+	call loopI.setvalue 1
+	while(loopI.isle(main_item_count)) {
+		call loopI.withvalue strI.format 		///
+			"resource LBL_CURVE_FMT" "@" ""
+		call strI.withvalue main_icc_list.Arrpush @
+		
+		call strI.setvalue "main_equ_"
+		call strI.append class loopI.value
+		call strI.withvalue main_icc_childdlglist.Arrpush @
+		
+		call strI.setvalue "("
+		call loopI.withvalue				///
+			strI.append				///
+			class mainICCItemVecOrig.values[@]
+		call strI.append ")"
+		call strI.withvalue main_icc_cmdlist.Arrpush @
+
+		call strI.setvalue "("
+		call loopI.withvalue				///
+			strI.append				///
+			class mainICCItemVecOrig.values[@]
+		call strI.append ")"
+		call strI.withvalue main_icc_cmdvalueslist.Arrpush @		
+		
+		call main_icc_statuslist.Arrpush "active"
+		call main_icc_editlist.Arrpush "0"
+		call loopI.increment
+	}
+	call mainICCCommandDisplayVec.copyFromArray main_icc_list
+	call mainICCCommandVec.copyFromArray main_icc_cmdlist
+	call mainICCCommandValuesVec.copyFromArray main_icc_cmdvalueslist
+	call mainICCStatusVec.copyFromArray main_icc_statuslist
+	call mainICCChildDialogVec.copyFromArray main_icc_childdlglist
+	call mainICCEditVec.copyFromArray main_icc_editlist
+	call mainICCItemVec.copyFromArray main_icc_itemlist
+	
+	call main.lb_iccBuild.repopulate
+END
+
+SCRIPT POSTINIT
+BEGIN
+	mainICCCommandDisplayVec.copyToArray main_icc_list
+	main.lb_iccBuild.repopulate
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN) 				///
+	label(resource IRT_GRAPH_ICC_BUILD_ALL_DLG_TITLE)
+BEGIN
+  GROUPBOX gb_re		_lft	_top	_iwd	_ht17h,		///
+	label(resource IRT_GRAPH_ICC_BUILD_ALL_MAIN_GB_RE)
+
+  LISTBOX lb_iccBuild		_ilft	_ms	250	145,		///
+	contents(main_icc_list)						///
+	ondblclick(program main_model_edit)				///
+	onselchange(program main_model_sel_changed)			///
+	nomemory
+  BUTTON bu_icc_create		280	@	80	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program main_model_create)				///
+	tooltip(resource IRT_GRAPH_ICC_BUILD_ALL_MAIN_BU_ICC_CREATE)
+  BUTTON bu_icc_edit		@	_ms	@	.,		///
+	label(resource LBL_BU_EDIT)					///
+	onpush(program main_model_edit)					///
+	tooltip(resource IRT_GRAPH_ICC_BUILD_ALL_MAIN_BU_ICC_EDIT)
+  BUTTON bu_icc_disable	@	_ms	@	.,			///
+	label(resource LBL_BU_DISABLE)					///
+	onpush(program main_model_disable)				///
+	tooltip(resource IRT_GRAPH_ICC_BUILD_ALL_MAIN_BU_ICC_DISABLE)
+  BUTTON bu_icc_enable		@	_ms	@	.,		///
+	label(resource LBL_BU_ENABLE)					///
+	onpush(program main_model_enable)				///
+	tooltip(resource IRT_GRAPH_ICC_BUILD_ALL_MAIN_BU_ICC_ENABLE)
+  BUTTON bu_icc_clear		@	_ms	@	.,		///
+	label(resource IRT_GRAPH_ICC_BUILD_ALL_MAIN_BU_ICC_CLEAR)	///
+	onpush(program main_model_clear)				///
+	tooltip(resource IRT_GRAPH_ICC_BUILD_ALL_MAIN_BU_ICC_CLEAR_TIP)
+  BUTTON bu_icc_addall		@	_ms	@	.,		///
+	label(resource IRT_GRAPH_ICC_BUILD_ALL_MAIN_BU_ICC_ADDALL)	///
+	onpush(program main_model_addall)				///
+	tooltip(resource IRT_GRAPH_ICC_BUILD_ALL_MAIN_BU_ICC_ADDALL_TIP)
+  TEXTBOX tb_icc_note		20	+30	370	20,		///
+	label(resource IRT_GRAPH_ICC_BUILD_ALL_MAIN_TB_ICC_ADDALL)
+
+  GROUPBOX gb_options		_lft	+40	_iwd	_ht16,		///
+	label(resource LBL_OPTIONS)
+  CHECKBOX ck_bloc		_ilft	_ms	_ibwd	.,		///
+	onclickon(main.btn_bloc.enable)					///
+	onclickoff(main.btn_bloc.disable)				///
+	label(resource IRT_GRAPH_ICC_BUILD_ALL_MAIN_CK_BLOC)
+  BUTTON   btn_bloc		+20	_ms	_en14wd	.,		///
+	onpush(program main_bloc_lineprop)				///
+	label(resource LBL_GB_LINE_PROPERTIES)
+  CHECKBOX ck_ploc		_ilft	_ms	_ibwd	.,		///
+	onclickon(main.btn_ploc.enable)					///
+	onclickoff(main.btn_ploc.disable)				///
+	label(resource IRT_GRAPH_ICC_BUILD_ALL_MAIN_CK_PLOC)
+  BUTTON   btn_ploc		+20	_ms	_en14wd	.,		///
+	onpush(program main_ploc_lineprop)				///
+	label(resource LBL_GB_LINE_PROPERTIES)
+  CHECKBOX ck_range		_ilft	_ms	_ibwd	.,		///
+	onclickon(program main_range_on)				///
+	onclickoff(program main_range_off)				///
+	label(resource IRT_GRAPH_ICC_BUILD_ALL_MAIN_CK_RANGE)
+  EDIT   ed_from		+20	_ms	_en14wd	.,		///
+	numonly								///
+	label(resource LBL_RANGE_OF_THETA)
+  TEXT	tx_range		_en14sep @	50	.,		///
+	label(resource LBL_TO_LOWERCASE)
+  EDIT   ed_to			180	@	_en14wd	.,		///
+	numonly								///
+	label(resource LBL_RANGE_OF_THETA)
+END
+
+PROGRAM main_model_create
+BEGIN
+	call selItemsEdit.setvalue "0"
+	call main_icc_count.setvalue class mainICCChildDialogVec.size
+	call main_icc_count.increment
+	call main_icc_tmp.setvalue "main_equ_"
+	call main_icc_tmp.append class main_icc_count.value
+	call main_icc_tmp.withvalue main_icc_childdlg.setvalue @
+	call program main_show_equ_child
+END
+
+PROGRAM main_model_edit
+BEGIN
+	call selItemsEdit.setvalue "1"
+	call mainICCCommandDisplayVec.findstr class			///
+		main.lb_iccBuild.value
+	call main_icc_position.setvalue class				///
+		mainICCCommandDisplayVec.position
+	call main_icc_position.withvalue				///
+		main_icc_childdlg.setvalue				///
+		class mainICCChildDialogVec.values[@]
+	call program main_show_equ_child_edit
+END
+
+PROGRAM main_show_equ_child
+BEGIN
+	call main_icc_tmp.setvalue "irt_graph_icc_build_sub AS "
+	call main_icc_tmp.append class main_icc_childdlg.value
+	call main_icc_tmp.withvalue create CHILD @
+	call main_icc_childdlg.withvalue @.setExitString		///
+		"main_icc_child_result"
+	call main_icc_childdlg.withvalue @.setExitAction		///
+		"program main_equ_child_create_done"
+
+	call main_icc_count.withvalue STMP.format			///
+		"resource LBL_CURVE_FMT" "@" ""
+	call STMP.withvalue main_icc_tmp.setvalue "@"
+	call main_icc_childdlg.withvalue				///
+		main_icc_tmp2.setvalue "@.settitle"
+	call main_icc_tmp2.append `" ""'
+	call main_icc_tmp2.append class main_icc_tmp.value
+	call main_icc_tmp2.append `"""'
+	call main_icc_tmp2.withvalue @
+END
+
+PROGRAM main_show_equ_child_edit
+BEGIN
+	call main_icc_tmp.setvalue "irt_graph_icc_build_sub AS "
+	call main_icc_tmp.append class main_icc_childdlg.value
+	call main_icc_tmp.withvalue create CHILD @
+	call main_icc_childdlg.withvalue @.setExitString		///
+		"main_icc_child_result"
+	call main_icc_childdlg.withvalue @.setExitAction		///
+		"program main_equ_child_edit_done"
+
+	call main_icc_position.withvalue				///
+		main_icc_tmp.setvalue					///
+		class mainICCCommandDisplayVec.values[@]
+	call main_icc_childdlg.withvalue				///
+		main_icc_tmp2.setvalue "@.settitle"
+	call main_icc_tmp2.append `" ""'
+	call main_icc_tmp2.append class main_icc_tmp.value
+	call main_icc_tmp2.append `"""'
+	call main_icc_tmp2.withvalue @
+END
+
+PROGRAM main_equ_child_create_done
+BEGIN
+	call main_icc_arraysize.setvalue class			///
+		mainICCChildDialogVec.size
+	call main_icc_arraysize.increment
+
+	/* Store child dialog name */
+	call mainICCChildDialogVec.store class			///
+		main_icc_arraysize.value class main_icc_childdlg.value
+
+	/* Store listbox display equation string */
+	call main_icc_arraysize.withvalue STMP.format			///
+		"resource LBL_CURVE_FMT" "@" ""
+	call STMP.withvalue						///
+		mainICCCommandDisplayVec.store class			///
+		main_icc_arraysize.value "@"
+
+	/* Store child dialog result string */
+	call mainICCCommandVec.store class				///
+		main_icc_arraysize.value				///
+		class main_icc_child_result.value
+
+	/* Store child dialog result string for final command
+	   For disable/enable */
+	call mainICCCommandValuesVec.store class			///
+		main_icc_arraysize.value				///
+		class main_icc_child_result.value
+
+	/* Store disable/enable status */
+	call mainICCStatusVec.store class				///
+		main_icc_arraysize.value "active"
+		
+	call mainICCEditVec.store class					///
+		main_icc_arraysize.value "1"
+		
+	call mainICCItemVec.store class					///
+		main_icc_arraysize.value				///
+		class selItems.value
+
+	call mainICCCommandVec.copyToArray main_icc_cmdlist
+	call mainICCCommandValuesVec.copyToArray main_icc_cmdvalueslist
+	call mainICCChildDialogVec.copyToArray main_icc_childdlglist
+	call mainICCStatusVec.copyToArray main_icc_statuslist
+	call mainICCEditVec.copyToArray main_icc_editlist
+	call mainICCItemVec.copyToArray main_icc_itemlist
+	
+	call mainICCCommandDisplayVec.copyToArray main_icc_list
+	call main.lb_iccBuild.repopulate
+	call STMP.withvalue main.lb_iccBuild.setvalue "@"
+END
+
+PROGRAM main_equ_child_edit_done
+BEGIN
+	call mainICCChildDialogVec.findstr class			///
+		main_icc_childdlg.value
+	call main_icc_position.setvalue class				///
+		mainICCChildDialogVec.position
+	call main_icc_position.withvalue main_icc_tmp.setvalue		///
+		class mainICCStatusVec.values[@]
+	if main_icc_tmp.iseq("active") {
+		call main_icc_position.withvalue STMP.format		///
+			"resource LBL_CURVE_FMT" "@" ""
+		call STMP.withvalue					///
+			mainICCCommandDisplayVec.store class		///
+			main_icc_position.value "@"
+		call mainICCCommandValuesVec.store class		///
+			main_icc_position.value class			///
+			main_icc_child_result.value
+			
+		call STMP.withvalue main_icc_tmp2.setvalue "@"
+	}
+	else {
+		call main_icc_position.withvalue STMP.format		///
+			"resource LBL_CURVE_FMT" "@"			///
+			"resource LBL_PAREN_DISABLED"
+
+		call STMP.withvalue main_icc_tmp2.setvalue "@"
+
+		main_icc_tmp2.withvalue					///
+			mainICCCommandDisplayVec.store			///
+			class main_icc_position.value "@"
+	}
+
+	call mainICCCommandVec.store class				///
+		main_icc_position.value class				///
+		main_icc_child_result.value
+		
+	call mainICCEditVec.store class					///
+		main_icc_position.value "1"
+		
+	call mainICCItemVec.store class					///
+		main_icc_position.value					///
+		class selItems.value
+
+	call mainICCCommandVec.copyToArray main_icc_cmdlist
+	call mainICCCommandValuesVec.copyToArray main_icc_cmdvalueslist
+	call mainICCEditVec.copyToArray main_icc_editlist
+	call mainICCItemVec.copyToArray main_icc_itemlist	
+	
+	call mainICCCommandDisplayVec.copyToArray main_icc_list
+	call main.lb_iccBuild.repopulate
+	call main.lb_iccBuild.setvalue class main_icc_tmp2.value
+END
+
+PROGRAM main_model_sel_changed
+BEGIN
+	call mainICCCommandDisplayVec.findstr class			///
+		main.lb_iccBuild.value
+	call main_icc_position.setvalue class				///
+		mainICCCommandDisplayVec.position
+	call main_icc_position.withvalue main_icc_tmp.setvalue		///
+		class mainICCStatusVec.values[@]
+	if main_icc_position {
+		call main.bu_icc_edit.enable
+
+		call main_icc_position.withvalue			///
+			main.tb_icc_note.setlabel			///
+		class mainICCCommandVec.values[@]
+		
+		call main_icc_position.withvalue			///
+			selItems.setvalue				///
+		class mainICCItemVec.values[@]
+		
+		call main_icc_position.withvalue			///
+			selItemsEdit.setvalue				///
+		class mainICCEditVec.values[@]
+	}
+
+	if main_icc_tmp.iseq("disable") {
+		call main.bu_icc_enable.enable
+		call main.bu_icc_disable.disable
+	}
+	if main_icc_tmp.iseq("active") {
+		call main.bu_icc_enable.disable
+		call main.bu_icc_disable.enable
+	}
+	if main_icc_tmp.isneq("") {
+		call main.bu_icc_clear.enable
+	}
+END
+
+PROGRAM main_model_disable
+BEGIN
+	call mainICCCommandDisplayVec.findstr class			///
+		main.lb_iccBuild.value
+	call main_icc_position.setvalue class				///
+		mainICCCommandDisplayVec.position
+
+	call main_icc_tmp.setvalue class main.lb_iccBuild.value
+	call mainICCStatusVec.store class				///
+		main_icc_position.value "disable"
+	call mainICCCommandValuesVec.store class main_icc_position.value ""
+	
+	call main_icc_tmp.withvalue					///
+		mainICCCommandDisplayVec.store				///
+		class main_icc_position.value "@ (disabled)"
+	
+	call mainICCStatusVec.copyToArray main_icc_statuslist
+	call mainICCCommandValuesVec.copyToArray main_icc_cmdvalueslist
+	
+	call mainICCCommandDisplayVec.copyToArray main_icc_list
+	call main_icc_tmp.withvalue main_icc_tmp2.setvalue		///
+		"@ (disabled)"
+	call main.lb_iccBuild.repopulate
+	call main.lb_iccBuild.setvalue class main_icc_tmp2.value
+END
+
+PROGRAM main_model_enable
+BEGIN
+	call mainICCCommandDisplayVec.findstr class			///
+		main.lb_iccBuild.value
+	call main_icc_position.setvalue class				///
+		mainICCCommandDisplayVec.position
+
+	call mainICCStatusVec.store class				///
+		main_icc_position.value "active"
+	call main_icc_position.withvalue				///
+		mainICCCommandValuesVec.store				///
+		class main_icc_position.value class			///
+		mainICCCommandVec.values[@]
+
+	call main_icc_position.withvalue STMP.format			///
+			"resource LBL_CURVE_FMT" "@" ""
+	call STMP.withvalue						///
+		mainICCCommandDisplayVec.store				///
+		class main_icc_position.value "@"
+
+	call mainICCStatusVec.copyToArray main_icc_statuslist
+	call mainICCCommandValuesVec.copyToArray main_icc_cmdvalueslist
+	
+	call mainICCCommandDisplayVec.copyToArray main_icc_list
+	call main_icc_position.withvalue				///
+		main_icc_tmp2.setvalue class				///
+		mainICCCommandDisplayVec.values[@]
+	call main.lb_iccBuild.repopulate
+	call main.lb_iccBuild.setvalue class main_icc_tmp2.value
+END
+
+PROGRAM main_model_clear
+BEGIN
+	call mainICCCommandDisplayVec.dropall
+	call mainICCCommandVec.dropall
+	call mainICCCommandValuesVec.dropall
+	call mainICCStatusVec.dropall
+	call mainICCChildDialogVec.dropall
+	call mainICCItemVec.dropall
+	call mainICCEditVec.dropall
+	call main_icc_list.Arrdropall
+	call main_icc_cmdlist.Arrdropall
+	call main_icc_cmdvalueslist.Arrdropall
+	call main_icc_statuslist.Arrdropall
+	call main_icc_childdlglist.Arrdropall
+	call main_icc_itemlist.Arrdropall
+	call main_icc_editlist.Arrdropall
+	
+	call main.lb_iccBuild.clearlist
+	call main.lb_iccBuild.repopulate
+	call main.tb_icc_note.setlabel resource IRT_GRAPH_ICC_BUILD_CREATE_ADD_AN_ICC_CURVE
+	call main.bu_icc_clear.disable
+	call main.bu_icc_create.enable
+	call main.bu_icc_edit.disable
+	call main.bu_icc_enable.disable
+	call main.bu_icc_disable.disable
+END
+
+PROGRAM main_model_addall
+BEGIN
+	call main_icc_count.setvalue class mainICCChildDialogVec.size
+	call loopI.setvalue 1
+	call strI.setvalue e(cmd2)
+	if strI.isneq("irt") {
+		call main_item_count.setvalue 0
+	}
+
+	
+	while(loopI.isle(main_item_count)) {
+		call main_icc_count.increment
+		call main_icc_count.withvalue 			///
+			strI.format "resource LBL_CURVE_FMT" "@" ""
+		call strI.withvalue main_icc_list.Arrpush @
+		
+		call strI.setvalue "main_equ_"
+		call strI.append class main_icc_count.value
+		call strI.withvalue main_icc_childdlglist.Arrpush @
+		
+		call strI.setvalue "("
+		call loopI.withvalue				///
+			strI.append				///
+			class mainICCItemVecOrig.values[@]
+		call strI.append ")"
+		call strI.withvalue main_icc_cmdlist.Arrpush @
+
+		call strI.setvalue "("
+		call loopI.withvalue				///
+			strI.append				///
+			class mainICCItemVecOrig.values[@]
+		call strI.append ")"
+		call strI.withvalue main_icc_cmdvalueslist.Arrpush @
+
+		call loopI.withvalue				///
+			strI.setvalue				///
+			class mainICCItemVecOrig.values[@]
+		call strI.withvalue main_icc_itemlist.Arrpush @		
+		
+		call main_icc_statuslist.Arrpush "active"
+		call main_icc_editlist.Arrpush "0"
+		call loopI.increment
+	}
+	
+	call mainICCCommandDisplayVec.copyFromArray main_icc_list
+	call mainICCCommandVec.copyFromArray main_icc_cmdvalueslist
+	call mainICCCommandValuesVec.copyFromArray main_icc_cmdvalueslist
+	call mainICCStatusVec.copyFromArray main_icc_statuslist
+	call mainICCChildDialogVec.copyFromArray main_icc_childdlglist
+	call mainICCEditVec.copyFromArray main_icc_editlist
+	call mainICCItemVec.copyFromArray main_icc_itemlist
+	
+	call main.lb_iccBuild.repopulate
+END
+
+PROGRAM main_bloc_lineprop
+BEGIN
+	call create CHILD gr_line_options AS BlocLinePropDlg
+	if ! _rc {
+		call BlocLinePropDlg.setExitString BlocLinePropResults
+		call BlocLinePropDlg.setExitAction "program graph_get_BlocLinePropResults"
+	}
+END
+
+PROGRAM graph_get_BlocLinePropResults
+BEGIN
+	if BlocLinePropResults {
+		call main.btn_bloc.modified_on
+	}
+	else {
+		call main.btn_bloc.modified_off
+	}
+END
+
+PROGRAM main_ploc_lineprop
+BEGIN
+	call create CHILD gr_line_options AS PlocLinePropDlg
+	if ! _rc {
+		call PlocLinePropDlg.setExitString PlocLinePropResults
+		call PlocLinePropDlg.setExitAction "program graph_get_PlocLinePropResults"
+	}
+END
+
+PROGRAM graph_get_PlocLinePropResults
+BEGIN
+	if PlocLinePropResults {
+		call main.btn_ploc.modified_on
+	}
+	else {
+		call main.btn_ploc.modified_off
+	}
+END
+
+PROGRAM main_range_on
+BEGIN
+	call main.ed_from.enable
+	call main.tx_range.enable
+	call main.ed_to.enable
+END
+
+PROGRAM main_range_off
+BEGIN
+	call main.ed_from.disable
+	call main.tx_range.disable
+	call main.ed_to.disable
+END
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+END
+
+INCLUDE gr_addplots_2
+INCLUDE gr_yaxis
+INCLUDE gr_xaxis
+INCLUDE gr_titles
+INCLUDE gr_legend
+INCLUDE gr_overall
+
+SCRIPT dataopt_PREINIT
+BEGIN
+        dataopt.fi_save.formatfilter "{0} (*.dta)|*.dta|{1} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_DTA" "resource ui_ex FILE_TYPE_ALL_FILES"
+END
+
+DIALOG dataopt, tabtitle(resource LBL_DATA)
+BEGIN
+  SPINNER sp_n				_lft	_top	_en14wd	.,	///
+	default(300) min(1) max(10000000)				///
+	option(n)							///
+	label(resource IRT_GRAPH_ICC_BUILD_ALL_DATAOPT_SP_N) 
+  TEXT    tx_n				_en14sep @	300	.,	///
+	label(resource IRT_GRAPH_ICC_BUILD_ALL_DATAOPT_SP_N) 
+
+  CHECKBOX ck_save			_lft	+40	_iwd	_ht5,	///
+	groupbox							///
+	onclickon(script dataopt_save_on)				///
+	onclickoff(script dataopt_save_off)				///
+	label(resource LBL_SAVE_PLOT_DATA_AS_DATASET)
+  FILE	fi_save				_ilft	_ss	_ibwd	.,	///
+	option(saving)							///
+	defext(dta)							///
+	save								///
+	error(resource IRT_GRAPH_ICC_BUILD_ALL_DATAOPT_FI_SAVE)		///
+	label(resource LBL_BU_BROWSE)
+  CHECKBOX ck_repdta			@	_ms	@	.,	///
+	label(resource LBL_OVERWRITE_FILE_IF_IT_ALREADY_EXISTS)
+END
+
+SCRIPT dataopt_save_on
+BEGIN
+	dataopt.fi_save.enable
+	dataopt.ck_repdta.enable
+END
+
+SCRIPT dataopt_save_off
+BEGIN
+	dataopt.fi_save.disable
+	dataopt.ck_repdta.disable
+END
+
+PROGRAM command
+BEGIN
+	call mainICCCommandValuesVec.copyToString main_icc_cmd_output
+	if main_icc_cmd_output.iseq("") {
+stopbox stop "resource IRT_GRAPH_MSGBOX_ITEMS_REQUIRED_TO_CREATE_CURVES"
+// "Items" must be specified to create curves.
+	}
+	
+	put "irtgraph icc "
+	if main_icc_cmd_output {
+		put main_icc_cmd_output
+	}
+	put ", bcc"
+	
+	if main.ck_bloc {
+		put " blocation"
+		if BlocLinePropResults {
+			put "("
+			put BlocLinePropResults
+			put ")"
+		}
+	}
+	if main.ck_ploc {
+		put " plocation" 
+		if PlocLinePropResults {
+			put "("
+			put PlocLinePropResults
+			put ")"				
+		}
+	}
+	if main.ck_range {
+		require main.ed_from
+		require main.ed_to
+		put " range("
+		put main.ed_from
+		put " "
+		put main.ed_to
+		put ")"
+	}
+	
+	put " " /program gr_addplots_output
+	put " " /program gr_yaxis_output
+	put " " /program gr_xaxis_output
+	put " " /program gr_titles_output
+	put " " /program gr_legend_output
+	put " " /program gr_overall_output
+	
+	if !dataopt.sp_n.isdefault() {
+		put " n("
+		put dataopt.sp_n
+		put ")"
+	}
+	
+	if dataopt.ck_save {
+		require dataopt.fi_save
+		put `"data("'
+		put dataopt.fi_save
+		if dataopt.ck_repdta {
+			put `", replace"'
+		}
+		put `")"'
+	}
+END

@@ -1,0 +1,200 @@
+*! version 1.1.1  16mar2019
+version 16
+
+class {
+
+    instance:
+	sztype	= .sizetype.new, style(relative)
+
+}, inherit(numstyle)
+
+
+
+// ---------------------------------------------------------------------------
+// Allows #pt, #in, #cm, and #rs to set values in points, inches, centimeters.
+// and relative sizes (percent of the size of the graph).
+// Just # sets the value in percentage of smaller of graph dimension.
+
+program setstyle
+
+	syntax [ , Style(string) ]
+
+	if "`style'" == "" {
+		exit
+	}
+
+
+	local style `style'					// trim
+
+	capture confirm number `number'
+
+	if ! _rc {
+		.sztype.setstyle , style(relative)		// # is relative
+	}
+	else {							// find suffix
+
+		local endnum = strlen("`style'") - 2
+
+		local suffix = substr("`style'", -2, .)
+		local number = substr("`style'",  1, `endnum')
+
+		capture confirm number `suffix'
+
+		if _rc {
+
+			capture confirm number `number'
+
+			if !_rc {
+
+				if ("`suffix'" == "in") {
+					.sztype.setstyle , style(inches)
+					local style `number'
+				}
+				else if ("`suffix'" == "cm") {
+					.sztype.setstyle , style(cms)
+					local style `number'
+				}
+				else if ("`suffix'" == "pt") {
+					.sztype.setstyle , style(points)
+					local style `number'
+				}
+				else if ("`suffix'" == "rs") {
+					.sztype.setstyle , style(relative)
+					local style `number'
+				}
+			}
+
+		}
+
+		// if ! _rc no, suffix found, standard style name or #
+	}
+
+	.Super.setstyle , style(`style')
+
+end
+
+
+// ---------------------------------------------------------------------------
+// Returns the size scaled by the current setting of the graph metric.
+// 
+// Also provides support for fixed sizes.  This rather crazily depends on
+// pulling information from the current graph itself via its name that is
+// stored in the global graph workspace class.
+
+program gmval
+
+	local graph `._Gr_Global.current_graph'
+
+	if (! 0`.`graph'.style.fixed_sizes.istrue' & 			///
+	      "`.sztype.setting'" == "relative") {
+
+		class exit = 0`.val' * 0`._Gr_Cglobal.gmetric_mult'
+	}
+	else {
+		local sztype "`.sztype.setting'"
+
+		if "`sztype'" == "relative" {
+			// Based on medium (3.8194) implying 11 pts at 4 inches
+
+			local inches = 4 * `.val' / 100
+		} 
+		else if "`sztype'" == "points" {
+			local inches = `.val' / 72
+		}
+		else if "`sztype'" == "cms" {
+			local inches = `.val' / 2.54
+		}
+		else {
+			local inches = `.val'
+		}
+
+		local mindim = min( 0`.`graph'.style.declared_ysize.val',   ///
+				    0`.`graph'.style.declared_xsize.val' )
+		if `mindim' < .0001 {	
+			local mindim = 1
+		}
+
+		class exit = 100 * 0`inches' *				///
+			     0`._Gr_Cglobal.gmetric_mult' / `mindim'
+	}
+end
+
+// ---------------------------------------------------------------------------
+// Return the size in printer points.
+// For relative sztype, this is true only for a 4" tall graph.
+
+program pts
+
+	
+	local sz = 0
+	local sztype "`.sztype.setting'"
+
+	if "`sztype'" == "points" {
+		local sz = `.val'
+	}
+	else if "`sztype'" == "cms" {
+		local sz = `.val' * 72 / 2.54
+	}
+	else if "`sztype'" == "inches" {
+		local sz = `.val' * 72
+	}
+	else if "`sztype'" == "relative" {
+		local sz = 4 * `.val' * 72  / 100 
+			// Based on medium (3.8194) implying 11 pts at 4 inches
+	} 
+
+	class exit = `sz'
+end
+
+
+// ---------------------------------------------------------------------------
+// Return the size in inches.  
+// For relative sztype, this is true only for a 4" tall graph.
+
+program inches
+
+	local sz = 0
+	local sztype "`.sztype.setting'"
+
+	if "`sztype'" == "inches" {
+		local sz = `.val' 
+	}
+	else if "`sztype'" == "points" {
+		local sz = `.val' / 72
+	}
+	else if "`sztype'" == "cms" {
+		local sz = `.val' / 2.54 
+	}
+	else if "`sztype'" == "relative" {
+		local sz = 4 * `.val' / 100 
+			// Based on medium (3.8194) implying 11 pts at 4 inches
+	} 
+
+	class exit = `sz'
+end
+
+
+// ---------------------------------------------------------------------------
+// Return the style setting in a form that can be sent supplied as the style
+// in the style() option.
+
+program stylesetting
+
+	local sztype "`.sztype.setting'"
+
+	if "`sztype'" == "inches" {
+		class exit "`.val'in"
+	}
+	else if "`sztype'" == "points" {
+		class exit "`.val'pt"
+	}
+	else if "`sztype'" == "cms" {
+		class exit "`.val'cm"
+	}
+	else if "`sztype'" == "relative" {
+		class exit "`.val'rs"
+	} 
+
+	class exit "`.val'"
+
+end

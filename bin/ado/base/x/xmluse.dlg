@@ -1,0 +1,140 @@
+/*
+  xmluse
+
+*! VERSION 1.1.2 14mar2015
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+INCLUDE _ht320
+INCLUDE header
+
+HELP hlp1, view("help xmlsave")
+RESET res1
+
+DEFINE _hvwd 131
+DEFINE _hvsep +135
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource XMLUSE_DLG_HSCALE
+	
+        main.fi_file.formatfilter "{0} (*.xml)|*.xml|{1} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_XML" "resource ui_ex FILE_TYPE_ALL_FILES"
+END
+
+DIALOG main, label(resource XMLUSE_DLG_TITLE)				///
+		tabtitle(resource LBL_TAB_MAIN)
+
+BEGIN
+  TEXT     tx_file	_lft        _top      _iwd        .,		///
+		label(resource XMLUSE_MAIN_TX_FILE)
+  FILE     fi_file	@           _ss       @           .,		///
+		error(resource XMLUSE_MAIN_FI_FILE)			///
+		label(resource LBL_BU_BROWSE)
+
+  GROUPBOX gb_options	@	    _ls       @           _ht21,	///
+		label(resource LBL_OPTIONS)
+  GROUPBOX gb_doctype	_indent     _ms	      _cwd2       _ht6,		///
+		label(resource XMLUSE_MAIN_GB_DOCTYPE)
+  DEFINE x @x
+  DEFINE y @y
+  RADIO    rb_unknown	_indent     _ss       _inwd       .,		///
+  		onclickon(script dta_on)				///
+  		label(resource XMLUSE_MAIN_RB_UNKNOWN)			///
+  		option("asdf")						///
+  		first
+  RADIO    rb_dta	@           _ss       @		  .,		///
+  		onclickon(script dta_on)				///
+  		label(resource XMLUSE_MAIN_RB_DTA)			///
+  		option("doctype(dta)")
+  RADIO    rb_excel	@     	    _ss       @	          .,		///
+  		onclickon(script excel_on)				///
+  		label(resource XMLUSE_MAIN_RB_EXCEL)			///
+  		option("doctype(excel)")				///
+		last
+  TEXT	   tx_sheet	x	    _xls      _cwd2	  .,		///
+  		label(resource XMLUSE_MAIN_TX_SHEET)
+  EDIT 	   ed_sheet     @	    _ss	      @		  .,		///
+  		option("sheet")
+
+  TEXT	   tx_cells	@	    _ms	      @	  	  .,		///
+  		label(resource XMLUSE_MAIN_TX_CELLS)
+  EDIT 	   ed_cells     @	    _ss	      @		  .,		///
+  		option("cells")
+  TEXT	   tx_cells2	@	    _ss	      _ibwd 	  .,		///
+  		label(resource XMLUSE_MAIN_TX_CELLS2)
+
+  CHECKBOX ck_datestring _lft2	    y         _cwd2	  ., 		///
+  		label(resource XMLUSE_MAIN_CK_DATESTRING)		///
+		option(datestring)
+  CHECKBOX ck_allstring @	    _ms       @	 	  ., 		///
+  		label(resource XMLUSE_MAIN_CK_ALLSTRING)		///
+		option(allstring)
+  CHECKBOX ck_firstrow  @	    _ms       @	 	  ., 		///
+  		label(resource XMLUSE_MAIN_CK_FIRSTROW)			///
+		option(firstrow)
+  CHECKBOX ck_missing	@	    _ms       @	 	  ., 		///
+  		label(resource XMLUSE_MAIN_CK_MISSING) 			///
+		option(missing)
+  CHECKBOX ck_nocompress @	    _ms       @	 	  ., 		///
+  		label(resource XMLUSE_MAIN_CK_NOCOMPRESS)		///
+		option(nocompress)
+  CHECKBOX ck_clear	@	    _ms       @	 	  ., 		///
+  		label(resource LBL_REPLACE_DATA_IN_MEMORY) 		///
+		option(clear)
+END
+
+SCRIPT dta_on
+BEGIN
+	main.ck_datestring.disable
+	main.ck_allstring.disable
+	main.ck_missing.disable
+	main.ck_nocompress.disable
+	main.ck_firstrow.disable
+	main.tx_sheet.disable
+	main.tx_cells.disable
+	main.ed_sheet.disable
+	main.ed_cells.disable
+	main.tx_cells2.disable
+END
+
+SCRIPT excel_on
+BEGIN
+	main.ck_datestring.enable
+	main.ck_allstring.enable
+	main.ck_missing.enable
+	main.ck_nocompress.enable
+	main.ck_firstrow.enable
+	main.tx_sheet.enable
+	main.tx_cells.enable
+	main.ed_sheet.enable
+	main.ed_cells.enable
+	main.tx_cells2.enable
+END
+
+PROGRAM command
+BEGIN
+	put "xmluse "
+	require main.fi_file
+	put `"""'
+	put main.fi_file
+	put `"" "'
+
+	beginoptions
+		option main.rb_dta
+		option main.rb_excel
+		if main.rb_excel | main.rb_unknown {
+			optionarg main.ed_sheet
+			optionarg main.ed_cells
+			option main.ck_firstrow
+			option main.ck_allstring
+			option main.ck_datestring
+			option main.ck_missing
+			option main.ck_nocompress
+		}
+		option main.ck_clear
+	endoptions
+END

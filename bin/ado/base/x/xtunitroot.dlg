@@ -1,0 +1,429 @@
+/*
+	xtunitroot
+
+*!  VERSION 1.1.1  24mar2017
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_mlarge
+DEFINE _dlght 310
+INCLUDE header
+HELP hlp1, view("help xtunitroot")
+RESET res1
+
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource XTUNITROOT_DLG_HSCALE
+END
+
+SCRIPT show_xtset
+BEGIN
+	create CHILD xtset
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN) label(resource XTUNITROOT_DLG_TITLE)
+BEGIN
+  BUTTON	bu_xtset	_xsetbu	_top	_setbuwd .,	///
+	onpush(script show_xtset)				///
+	label(resource LBL_BU_PANEL_SETTINGS)
+
+  TEXT		tx_test		_lft	30	_vnwd	.,	///
+	label(resource XTUNITROOT_MAIN_TX_TEST)
+  COMBOBOX	cb_test		@	_ss	@	.,	///
+	dropdownlist contents(test_list) values(test_values)	///
+	onselchangelist(test_onsel)
+
+  TEXT		tx_var		_lft2	30	_vnwd	.,	///
+	label(resource LBL_VARIABLE)
+  VARNAME	vn_var		@	_ss	@	.,	///
+	ts							///
+	numeric							///
+	label(resource LBL_VARIABLE)
+
+  RADIO		rb_dfuller	_lft	_xls	_iwd	.,	///
+	first 							///
+	option(dfuller)						///
+	onclickon(program fisher_on)				///
+	label(resource XTUNITROOT_MAIN_RB_DFULLER)
+DEFINE opty @y
+  RADIO		rb_pperron	@	_ss	@	.,	///
+	last 							///
+	option(pperron)						///
+	onclickon(program fisher_on)				///
+	label(resource XTUNITROOT_MAIN_RB_PPERRON)
+
+  CHECKBOX	ck_trend	_lft	opty	_iwd	.,	///
+	label(resource XTUNITROOT_MAIN_CK_TREND) option(trend)
+  CHECKBOX	ck_nocons	@	_ms	@	.,	///
+	onclickon(program check_nocons)				///
+	onclickoff(program check_nocons)			///
+	label(resource LBL_PANEL_SPECIFIC_MEANS) option(noconstant)
+  CHECKBOX	ck_robust	@	_ms	@	.,	///
+	onclickon(program check_robust)				///
+	onclickoff(program check_robust)			///
+	label(resource XTUNITROOT_MAIN_CK_ROBUST) option(robust)
+  CHECKBOX	ck_demean	@	_ms	@	.,	///
+	label(resource LBL_SUBTRACT_CROSS_SECTIONAL_MEANS) option(demean)
+  CHECKBOX	ck_drift	@	@	@	.,	///
+	label(resource XTUNITROOT_MAIN_CK_DRIFT)		///
+	option(drift)						///
+	onclickon(program check_drift)				///
+	onclickoff(program check_drift)
+  CHECKBOX	ck_altt		@	@	@	.,	///
+	label(resource XTUNITROOT_MAIN_CK_ALTT) 		///
+	option(altt)
+  SPINNER	sp_lags		@	@	_en7wd	.,	///
+	default(0) option(lags)
+  TEXT   	tx_lags		_en7sep @	120	.,	///
+	label(resource LBL_LAGGED_DIFFERENCES)
+DEFINE holdy @y
+  CHECKBOX	ck_prew_lags	_lft	_ms	_iwd	.,	///
+	label(resource XTUNITROOT_MAIN_CK_PREW_LAGS)		///
+	onclickon(script prew_lags_on)				///
+	onclickoff(script prew_lags_off)
+  SPINNER	sp_prew_lags	+20	_ss	_en7wd	.,	///
+	default(1) option(lags)
+  TEXT   	tx_prew_lags	_en7sep @	120	.,	///
+	label(resource LBL_NUMBER_OF_LAGS)
+
+  GROUPBOX	gb_lagspec	_lft	holdy	_iwd	_ht3,	///
+	label(resource XTUNITROOT_MAIN_GB_LAGSPEC)
+  TEXT 		tx_lagspec	_ilft	_ms	130	.,	///
+	label(resource XTUNITROOT_MAIN_TX_LAGSPEC) right
+  EDIT		ed_lagspec	+135	@	150	.,	///
+	option(lags)
+
+  GROUPBOX	gb_kspec	_lft	+45	_iwd	_ht3,	///
+	label(resource XTUNITROOT_MAIN_GB_KSPEC)
+  TEXT 		tx_kspec	_ilft	_ms	130	.,	///
+	label(resource XTUNITROOT_MAIN_TX_KSPEC) right
+  EDIT		ed_kspec	+135	@	150	.,	///
+	option(kernel)
+END
+
+LIST test_list
+BEGIN
+	resource XTUNITROOT_LEVIN_LIN_CHU
+        resource XTUNITROOT_HARRIS_TZAVALIS
+        resource XTUNITROOT_BREITUNG
+        resource XTUNITROOT_IM_PESARAN_SHIN
+        resource XTUNITROOT_FISHER_TYPE
+        resource XTUNITROOT_HADRI_LM_STATIONARITY
+END
+
+LIST test_values
+BEGIN
+	llc
+	ht
+	breitung
+	ips
+	fisher
+	hadri
+END
+
+LIST test_onsel
+BEGIN
+	script llc_on
+	script ht_on
+	script breitung_on
+	script ips_on
+	program fisher_on
+	script hadri_on
+END
+
+SCRIPT llc_on
+BEGIN
+	main.ck_trend.show
+	main.ck_trend.enable
+	main.ck_trend.setposition . 90
+	main.ck_nocons.show
+	main.ck_nocons.enable
+	main.ck_nocons.setposition . 115
+	main.ck_demean.show
+	main.ck_demean.setposition . 140
+
+	main.gb_lagspec.show
+	main.tx_lagspec.show
+	main.ed_lagspec.show
+	main.gb_lagspec.setposition . 165
+	main.tx_lagspec.setposition . 190
+	main.ed_lagspec.setposition . 190
+	main.gb_kspec.show
+	main.tx_kspec.show
+	main.ed_kspec.show
+	main.gb_kspec.enable
+	main.tx_kspec.enable
+	main.ed_kspec.enable
+	main.gb_kspec.setposition . 235
+	main.tx_kspec.setposition . 260
+	main.ed_kspec.setposition . 260
+	
+	program check_nocons
+
+	main.ck_robust.hide
+	main.ck_prew_lags.hide
+	main.sp_prew_lags.hide
+	main.tx_prew_lags.hide
+	main.rb_dfuller.hide
+	main.rb_pperron.hide
+	main.ck_drift.hide
+	main.ck_altt.hide
+	main.sp_lags.hide
+	main.tx_lags.hide
+END
+
+SCRIPT ht_on
+BEGIN
+	main.ck_trend.show
+	main.ck_trend.enable
+	main.ck_trend.setposition . 90
+	main.ck_nocons.show
+	main.ck_nocons.enable
+	main.ck_nocons.setposition . 115
+	main.ck_demean.show
+	main.ck_demean.setposition . 140
+	main.ck_altt.show
+
+	program check_nocons
+
+	main.rb_dfuller.hide
+	main.rb_pperron.hide
+	main.ck_robust.hide
+	main.gb_lagspec.hide
+	main.tx_lagspec.hide
+	main.ed_lagspec.hide
+	main.gb_kspec.hide
+	main.tx_kspec.hide
+	main.ed_kspec.hide
+
+	main.ck_prew_lags.hide
+	main.sp_prew_lags.hide
+	main.tx_prew_lags.hide
+
+	main.ck_drift.hide
+	main.sp_lags.hide
+	main.tx_lags.hide
+END
+
+SCRIPT breitung_on
+BEGIN
+	main.ck_trend.show
+	main.ck_trend.enable
+	main.ck_trend.setposition . 90
+	main.ck_nocons.show
+	main.ck_nocons.enable
+	main.ck_nocons.setposition . 115
+	main.ck_demean.show
+	main.ck_demean.setposition . 140
+	main.ck_robust.show
+	main.ck_robust.setposition . 165
+	
+	main.ck_prew_lags.show
+	main.sp_prew_lags.show
+	main.tx_prew_lags.show
+	
+	program check_nocons
+
+	main.rb_dfuller.hide
+	main.rb_pperron.hide
+	main.gb_lagspec.hide
+	main.tx_lagspec.hide
+	main.ed_lagspec.hide
+	main.gb_kspec.hide
+	main.tx_kspec.hide
+	main.ed_kspec.hide
+
+	main.ck_drift.hide
+	main.ck_altt.hide
+	main.sp_lags.hide
+	main.tx_lags.hide
+END
+
+SCRIPT ips_on
+BEGIN
+	main.ck_trend.show
+	main.ck_trend.enable
+	main.ck_trend.setposition . 90
+	main.ck_demean.show
+	main.ck_demean.setposition . 115
+
+	main.gb_lagspec.show
+	main.tx_lagspec.show
+	main.ed_lagspec.show
+	main.gb_lagspec.setposition . 140
+	main.tx_lagspec.setposition . 165
+	main.ed_lagspec.setposition . 165
+
+	main.rb_dfuller.hide
+	main.rb_pperron.hide
+	main.ck_nocons.hide
+	main.ck_robust.hide
+	main.ck_prew_lags.hide
+	main.sp_prew_lags.hide
+	main.tx_prew_lags.hide
+	main.gb_kspec.hide
+	main.tx_kspec.hide
+	main.ed_kspec.hide
+
+	main.ck_drift.hide
+	main.ck_altt.hide
+	main.sp_lags.hide
+	main.tx_lags.hide
+	
+	program check_nocons
+END
+
+PROGRAM fisher_on
+BEGIN
+	if ! main.cb_test.iseq("fisher") {
+		exit
+	}
+	call main.rb_dfuller.show
+	call main.rb_pperron.show
+	call main.ck_trend.show
+	call main.ck_trend.setposition . 140
+	call main.ck_drift.show
+	call main.ck_drift.setposition . 165
+	call main.ck_demean.show
+	call main.ck_demean.setposition . 190
+	call main.sp_lags.show
+	call main.sp_lags.setposition . 215
+	call main.tx_lags.show
+	call main.tx_lags.setposition . 215
+	
+	if main.rb_dfuller {
+		call main.ck_drift.enable
+	}
+	else {
+		call main.ck_drift.disable
+	}
+	
+	call program check_nocons
+	call program check_drift
+
+	call main.ck_altt.hide
+	call main.ck_robust.hide
+	call main.gb_lagspec.hide
+	call main.tx_lagspec.hide
+	call main.ed_lagspec.hide
+	call main.ck_prew_lags.hide
+	call main.sp_prew_lags.hide
+	call main.tx_prew_lags.hide
+	call main.gb_kspec.hide
+	call main.tx_kspec.hide
+	call main.ed_kspec.hide
+	call main.ck_nocons.hide
+
+END
+
+SCRIPT hadri_on
+BEGIN
+	main.ck_trend.show
+	main.ck_trend.enable
+	main.ck_trend.setposition . 90
+	main.ck_demean.show
+	main.ck_demean.setposition . 115
+	main.ck_robust.show
+	main.ck_robust.setposition . 140
+	main.gb_kspec.show
+	main.tx_kspec.show
+	main.ed_kspec.show
+	main.gb_kspec.setposition . 165
+	main.tx_kspec.setposition . 190
+	main.ed_kspec.setposition . 190
+
+	program check_nocons
+
+	main.gb_lagspec.hide
+	main.tx_lagspec.hide
+	main.ed_lagspec.hide
+
+	main.rb_dfuller.hide
+	main.rb_pperron.hide
+	main.ck_nocons.hide
+	main.ck_prew_lags.hide
+	main.sp_prew_lags.hide
+	main.tx_prew_lags.hide
+
+	main.ck_drift.hide
+	main.ck_altt.hide
+	main.sp_lags.hide
+	main.tx_lags.hide
+	
+	program check_robust
+END
+
+PROGRAM check_nocons
+BEGIN
+	if main.ck_nocons & main.ck_nocons.isvisible() {
+		call main.ck_trend.disable
+	}
+	else {
+		call main.ck_trend.enable
+	}	
+END
+
+PROGRAM check_drift
+BEGIN
+	if main.ck_drift & main.ck_drift.isenabled() {
+		call main.ck_nocons.disable
+		call main.ck_trend.disable
+	}
+	else {
+		call main.ck_nocons.enable
+		call main.ck_trend.enable
+	}
+END
+
+PROGRAM check_robust
+BEGIN
+	if main.ck_robust & main.ck_robust.isvisible() {
+		call main.gb_kspec.disable
+		call main.tx_kspec.disable
+		call main.ed_kspec.disable
+	}
+	else {
+		call main.gb_kspec.enable
+		call main.tx_kspec.enable
+		call main.ed_kspec.enable	
+	}
+END
+
+SCRIPT prew_lags_on
+BEGIN
+	main.sp_prew_lags.enable
+	main.tx_prew_lags.enable
+END
+
+SCRIPT prew_lags_off
+BEGIN
+	main.sp_prew_lags.disable
+	main.tx_prew_lags.disable
+END
+
+INCLUDE ifin
+
+PROGRAM command
+BEGIN
+	put "xtunitroot "
+	put main.cb_test " "
+	varlist main.vn_var
+	put " " /program ifin_output
+	beginoptions
+		option main.rb_dfuller
+		option main.rb_pperron
+		option main.ck_trend
+		option main.ck_nocons
+		option main.ck_drift
+		option main.ck_altt
+		option main.ck_demean
+		option main.ck_robust
+		optionarg main.sp_lags
+		optionarg main.sp_prew_lags
+		optionarg main.ed_lagspec
+		optionarg main.ed_kspec
+	endoptions
+END

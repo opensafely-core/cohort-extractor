@@ -1,0 +1,111 @@
+/*
+	predict (after arima)
+
+*!  VERSION 1.2.4  09may2017
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE header
+HELP hlp1, view("help arima postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource ARIMA_P_DLG_HSCALE
+END
+
+DIALOG main, label(resource PREDICT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  INCLUDE  _p_gentype
+
+  GROUPBOX gb_opt        _lft      _ls     _iwd    _ht12, label(resource LBL_PRODUCE)
+  RADIO    rb_xb      _indent      _ss    _inwd        ., first /*
+		*/ option(xb)					/*
+	    */ label(resource LBL_VALUES_MEAN_EQUATION_DIFFERENCED)
+  RADIO    rb_stdp          @      _ss        @        ., 	/*
+ 		*/ option(stdp)					/*
+		*/ label(resource LBL_STANDARD_ERROR_LINEAR_PREDICTION)
+  RADIO    rb_y             @      _ss        @        .,	/*
+		*/ option(y)					/*
+		*/ label(resource LBL_VALUES_MEAN_EQUATION_UNDIFFERENCED)
+  RADIO    rb_mse           @      _ss        @        .,	/*
+		*/ option(mse)					/*
+		*/ label(resource ARIMA_P_MAIN_RB_MSE)
+  RADIO    rb_resid         @      _ss        @        .,	/*
+		*/ option(residuals)				/*
+		*/ label(resource LBL_RESIDUALS_PREDICTED_INNOVATIONS)
+  RADIO    rb_yresid        @      _ss        @        ., last	/*
+		*/ option(yresiduals)				/*
+ 		*/ label(resource LBL_RESIDUALS_PREDICTED_INNOVATIONS_Y)
+
+END
+
+INCLUDE ifin
+
+DIALOG opt, tabtitle(resource LBL_OPTIONS)
+BEGIN
+  GROUPBOX gb_stepdyn    _lft     _top     _iwd     _ht8,	/*
+		*/ label(resource LBL_ONE_STEP_DYNAMIC)
+  RADIO    rb_onestep _indent      _ss    _inwd        ., first	/*
+		*/ clickon("gaction opt.ed_dyn2.disable")	/*
+		*/ label(resource LBL_ONE_STEP_PREDICTION)
+  RADIO    rb_dyn1          @      _ss        @        .,	/*
+		*/ clickon("gaction opt.ed_dyn2.disable")	/*
+    */ label(resource LBL_SWITCH_DYNAMIC_PREDICTIONS)
+  RADIO    rb_dyn2          @      _ss        @        ., last	/*
+		*/ clickon("gaction opt.ed_dyn2.enable")	/*
+		*/ label(resource LBL_SWITCH_DYNAMIC_PREDICTIONS_TIME)
+  EDIT     ed_dyn2   _indent2      _ss  _en14wd        .,	/*
+		*/ label(resource LBL_SWITCH_DYNAMIC_PREDICTIONS_TIME)
+
+  GROUPBOX gb_disturb    _lft     _xls     _iwd     _ht8h,	/*
+		*/ label(resource LBL_ARMA_COMPONENT)
+  RADIO    rb_arma    _indent      _ss    _inwd        ., first /*
+		*/ option(NONE)  /* default */			/*
+		*/ clickon("gaction opt.ed_t0.disable")		/*
+*/ label(resource LBL_INCLUDE_ARMA_COMPONENT)
+  RADIO    rb_t0            @      _ss        @        .,	/*
+		*/ option(NONE)	 /* handled another way	*/	/*
+		*/ clickon("gaction opt.ed_t0.enable")		/*
+*/ label(resource LBL_ARMA_COMPONENT_ASSUME_ZERO)
+  DEFINE   hldx  @x
+  DEFINE   hldcx @cx
+  EDIT     ed_t0     _indent2      _ss  _en14wd        .,	/*
+		*/ option(t0)					/*
+*/ label(resource LBL_ARMA_COMPONENT_ASSUME_ZERO)
+  RADIO    rb_struct     hldx      _ms    hldcx        ., last	/*
+		*/ option(structural)				/*
+		*/ clickon("gaction opt.ed_t0.disable")		/*
+	*/ label(resource LBL_STRUCTURAL_COMPONENT)
+END
+
+INCLUDE _p_gentype_sc
+INCLUDE _type_list_fd
+
+PROGRAM command
+BEGIN
+	put "predict "
+	put " " /program _p_gentype_output
+	INCLUDE _ifin_pr
+	beginoptions
+		option radio(main rb_xb rb_y rb_mse rb_resid rb_yresid rb_stdp)
+
+		if opt.rb_dyn1 {
+			put "dynamic(.) "
+		}
+		if opt.rb_dyn2 {
+			require opt.ed_dyn2
+			put "dynamic(" opt.ed_dyn2 ") "
+		}
+
+		option radio(opt rb_arma rb_struct rb_t0)
+
+		if opt.rb_t0 {
+			require opt.ed_t0
+			optionarg opt.ed_t0
+		}
+	endoptions
+END

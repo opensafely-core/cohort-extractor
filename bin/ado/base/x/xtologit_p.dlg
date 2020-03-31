@@ -1,0 +1,285 @@
+/*
+	predict (after xtologit)
+
+*!  VERSION 1.1.3  20mar2019
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_mlarge
+DEFINE _dlght 260
+INCLUDE header
+
+HELP hlp1, view("help xtologit postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource XTOLOGIT_P_DLG_HSCALE
+        create STRING STMP
+        create DOUBLE k_cat
+        create DOUBLE k
+        k.setvalue e(k_cat)
+        create ARRAY main_outcome_k_list
+        program gen_k_list
+        
+	k_cat.setvalue e(k_cat)
+	main.tx_vars1.formatlabel					///
+		"resource LBL_NEW_#_VAR_NAMES_FMT" "e(k_cat)"
+		
+	main.tx_vars2.formatlabel					///
+		"resource LBL_NEW_#_VAR_NAMES_FMT" "e(k_cat)"	
+END
+
+PROGRAM gen_k_list
+BEGIN
+	call create DOUBLE count
+	call create STRING num
+	call count.setvalue 1
+
+	if (k.isgt(1000)) {
+		call k.setvalue 0
+	}
+
+	while(count.isle(k)) {
+		call num.setvalue "#"
+		call num.append class count.value
+		call num.withvalue main_outcome_k_list.Arrpush @
+		call count.increment
+	}
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script _p_gentype_setMedium
+END
+
+DIALOG main, label(resource PREDICT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+//  INCLUDE  _p_gentype
+
+  TEXT     tx_var		_lft	_top	@	.,		///
+  	label(resource LBL_NEW_VARIABLE_NAME)
+  EDIT     ed_var		@	_ss	_vnwd	.,		///
+  	label(resource LBL_NEW_VARIABLE_NAME) max(32)
+  TEXT     tx_vars1		_lft	_top	_vlwd	.,		///
+  	label(resource LBL_NEW_#_VAR_NAMES_FMT)
+  EDIT     ed_vars1		@	_ss	@	.,		///
+  	label(resource LBL_NEW_#_VAR_NAMES_FMT)
+  TEXT     tx_vars2		_lft	_top	_vlwd	.,		///
+  	label(resource LBL_NEW_#_VAR_NAMES_FMT)
+  EDIT     ed_vars2		@	_ss	@	.,		///
+  	label(resource LBL_NEW_#_VAR_NAMES_FMT)
+  TEXT     tx_var1            _lft      _top      @         .,		///
+      	label(resource LBL_NEW_VARIABLE_NAME)
+  EDIT     ed_var1            @         _ss       _vnwd     .,		///
+    	label(resource LBL_NEW_VARIABLE_NAME) max(32)
+  TEXT     tx_type		_vlsep	_top	_vlr	.,		///
+    	label(resource LBL_NEW_VARIABLE_TYPE)
+  COMBOBOX cb_type		@	_ss	@	.,		///
+    	dropdownlist							///
+    	contents(type) default(c(type))					///
+  	label(resource LBL_TYPE)
+  	
+  GROUPBOX gb_opts		_lft	_ls	_iwd	_ht7h,		///
+	label(resource LBL_PRODUCE)
+
+  RADIO    rb_xb		_indent	_ss	_inwd	., first	///
+	option(xb)							///
+	onclickon(script oneon_xb)					///
+	label(resource LBL_LINEAR_PREDICTION)
+  RADIO    rb_pr		@	_ss	@	.,		///
+	option(pr)							///
+	onclickon(script manyon_pr)					///
+	label(resource LBL_MARGINAL_PREDICTED_PROBABILITIES)
+  RADIO    rb_pu0		@	_ss	@	.,		///
+	option(pu0)							///
+	onclickon(script manyon_pu0)					///
+	label(resource XTOLOGIT_P_MAIN_RB_PU0)
+  RADIO    rb_stdp		@	_ss	@	., last		///
+	option(stdp)							///
+	onclickon(script oneon_stdp)					///
+	label(resource LBL_STANDARD_ERROR_LINEAR_PREDICTION)
+
+  CHECKBOX ck_outcome 		_lft	 _xls	250	.,		///
+  	onclickon(main.cb_outcome.enable)				///
+  	onclickoff(main.cb_outcome.disable)				///
+  	label(resource XTOLOGIT_P_MAIN_TX_OUTCOME)
+  COMBOBOX cb_outcome		_indent		_ss	@	.,	///
+  	option(outcome)							///
+  	default(#1)							///
+  	dropdown							///
+  	contents(main_outcome_k_list)					///
+	label(resource XTOLOGIT_P_MAIN_TX_OUTCOME)
+	
+  CHECKBOX ck_nooffset		@	_ls	_iwd	.,		///
+	option(nooffset)						///
+	label(resource LBL_IGNORE_OFFSET_VARIABLE)
+END
+
+INCLUDE _p_gentype_sc
+INCLUDE ifin
+INCLUDE _type_list_fd
+
+SCRIPT oneon_xb
+BEGIN
+	script onevar_xb
+	main.cb_outcome.disable
+	main.ck_outcome.disable
+END
+
+SCRIPT onevar_xb
+BEGIN
+	main.tx_var.show
+	main.ed_var.show
+	main.tx_vars1.hide
+	main.ed_vars1.hide
+	main.tx_vars2.hide
+	main.ed_vars2.hide
+	main.tx_var1.hide
+	main.ed_var1.hide	
+END
+
+SCRIPT manyon_pr
+BEGIN
+	script manyvars_pr
+	main.cb_outcome.enable
+	main.ck_outcome.enable
+END
+
+SCRIPT manyvars_pr
+BEGIN
+	main.tx_vars1.show
+	main.ed_vars1.show
+	main.tx_var.hide
+	main.ed_var.hide
+	main.tx_vars2.hide
+	main.ed_vars2.hide
+	main.tx_var1.hide
+	main.ed_var1.hide	
+END
+
+SCRIPT manyon_pu0
+BEGIN
+	script manyvars_pu0
+	main.cb_outcome.enable
+	main.ck_outcome.enable
+END
+
+SCRIPT manyvars_pu0
+BEGIN
+	main.tx_vars2.show
+	main.ed_vars2.show
+	main.tx_vars1.hide
+	main.ed_vars1.hide
+	main.tx_var.hide
+	main.ed_var.hide
+	main.tx_var1.hide
+	main.ed_var1.hide	
+END
+
+SCRIPT oneon_stdp
+BEGIN
+	script onevar_stdp
+	main.cb_outcome.disable
+	main.ck_outcome.disable
+END
+
+SCRIPT onevar_stdp
+BEGIN
+	main.tx_var1.show
+	main.ed_var1.show
+	main.tx_var.hide
+	main.ed_var.hide
+	main.tx_vars1.hide
+	main.ed_vars1.hide
+	main.tx_vars2.hide
+	main.ed_vars2.hide	
+END
+
+
+PROGRAM command
+BEGIN
+	put "predict "
+	if main.cb_type.isdefault() {
+		if main.rb_xb  {
+			require main.ed_var
+			put main.ed_var " "		
+		}
+		
+		if main.rb_pr {
+			call create ARRAY tmpArray
+			call create STRING tmpStr
+			call create DOUBLE tmpSize
+			call main.ed_vars1.withvalue tmpStr.setvalue @
+			call tmpStr.tokenizeOnStr tmpArray " "
+			call tmpSize.storeClsArraySize tmpArray
+							
+			if  tmpSize.iseq(0) {			
+				call create STRING _MSG_TMP
+				call STMP.format					///
+					"resource LBL_NEW_#_VAR_NAMES_FMT" "e(k_cat)" 
+				call STMP.withvalue _MSG_TMP.format			///
+					"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT" "Main" "@"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Specify 5 new variable names or variables stub*" must be filled in.
+			}		
+			require main.ed_vars1
+			put main.ed_vars1 " "
+		}
+		
+		if main.rb_pu0 {
+			call create ARRAY tmpArray
+			call create STRING tmpStr
+			call create DOUBLE tmpSize
+			call main.ed_vars2.withvalue tmpStr.setvalue @
+			call tmpStr.tokenizeOnStr tmpArray " "
+			call tmpSize.storeClsArraySize tmpArray
+									
+			if  tmpSize.iseq(0) {			
+				call create STRING _MSG_TMP
+				call STMP.format					///
+					"resource LBL_NEW_#_VAR_NAMES_FMT" "e(k_cat)" 
+				call STMP.withvalue _MSG_TMP.format			///
+					"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT" "Main" "@"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Specify 5 new variable names or variables stub*" must be filled in.
+			}		
+			require main.ed_vars2
+			put main.ed_vars2 " "
+		}
+		
+		if main.rb_stdp  {
+			require main.ed_var1
+			put main.ed_var1 " "		
+		}			
+	}
+			
+	if ! main.cb_type.isdefault() {
+		put main.cb_type " " "("
+		if main.rb_xb {
+			require main.ed_var
+			put main.ed_var
+		}
+		if main.rb_pr {
+			require main.ed_vars1
+			put main.ed_vars1
+		}		
+		if main.rb_pu0 {
+			require main.ed_vars2
+			put main.ed_vars2
+		}	
+		if main.rb_stdp {
+			require main.ed_var1
+			put main.ed_var1
+		}
+		put ") "
+	}
+	INCLUDE _ifin_pr
+	beginoptions
+		option radio(main rb_xb rb_pr rb_pu0 rb_stdp)
+		optionarg main.cb_outcome
+		option main.ck_nooffset
+	endoptions
+END

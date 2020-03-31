@@ -1,0 +1,143 @@
+/*
+ aroots_graph.dlg
+
+*!  VERSION 1.1.3  18oct2019
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 340
+INCLUDE header
+
+HELP hlp1, view("help estat_aroots")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING polCircleResults
+	setscale_hadj resource AROOTS_GRAPH_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script gr_plots_setDefaultScatter
+	gr_line_options.settabtitle resource LBL_REFERENCE_UNIT_CIRCLE
+	gr_line_options_optionName.setstring "rlopts"
+	program grid_checkPolCircleResults
+END
+
+DIALOG grid, label(resource AROOTS_GRAPH_DLG_TITLE) tabtitle(resource LBL_GRID)
+BEGIN
+  RADIO rb_default		_lft	_top	_iwd	.,		///
+	first								///
+	label(resource LBL_USE_DEFAULT_POLAR_GRID_CIRCLES)
+  RADIO rb_nogrid		@	_ss	@	.,		///
+	label(resource LBL_SUPPRESS_POLAR_GRID_CIRCLES)
+  RADIO rb_pgrid		@	_ss	@	.,		///
+	last 								///
+	onclickon(script grid_pgrid_on)					///
+	onclickoff(script grid_pgrid_off)				///
+	label(resource LBL_OVERRIDE_DEFAULT_RADII_POLAR_GRID_CIRCLES)
+  EDIT ed_pgrid			_indent2 _ss 	_vnwd	.,		///
+	numonly								///
+	error(resource LBL_RADII_POLAR_GRID_CIRCLES)
+  TEXT tx_pgrid			_vnsep	@	120	.,		///
+	label(resource LBL_RADII)
+
+  BUTTON bu_pol_circle		_iilft _ls	140	.,		///
+	onpush(script grid_show_pol_circle_dialog)			///
+	label(resource LBL_POLAR_GRID_CIRCLES)				///
+	tooltip(resource LBL_POLAR_GRID_CIRCLE_PROPERTIES)
+END
+
+SCRIPT grid_pgrid_on
+BEGIN
+	grid.ed_pgrid.enable
+	grid.tx_pgrid.enable
+	grid.bu_pol_circle.enable
+END
+
+SCRIPT grid_pgrid_off
+BEGIN
+	grid.ed_pgrid.disable
+	grid.tx_pgrid.disable
+	grid.bu_pol_circle.disable
+END
+
+SCRIPT grid_show_pol_circle_dialog
+BEGIN
+	create CHILD gr_line_options AS polCircle, allowsubmit
+	polCircle.setExitString polCircleResults
+	polCircle.settitle resource LBL_POLAR_GRID_CIRCLE_PROPERTIES
+	polCircle.setExitAction "program grid_checkPolCircleResults"
+	polCircle.setSubmitAction "program grid_polCircleSubmit"
+END
+
+PROGRAM grid_checkPolCircleResults
+BEGIN
+	if polCircleResults {
+		call grid.bu_pol_circle.modified_on
+	}
+	else {
+		call grid.bu_pol_circle.modified_off
+	}
+END
+
+PROGRAM grid_polCircleSubmit
+BEGIN
+	call program grid_checkPolCircleResults
+	call Submit
+END
+
+PROGRAM grid_clean
+BEGIN
+	put grid.ed_pgrid
+	if polCircleResults {
+		put ", " polCircleResults
+	}
+END
+
+PROGRAM grid_output
+BEGIN
+
+	if grid.rb_nogrid {
+		put " nogrid"
+	}
+	if grid.rb_pgrid {
+		if !polCircleResults & !grid.ed_pgrid {
+			call create STRING _MSG_TMP
+	                call _MSG_TMP.format 				///
+			"resource AROOTS_GRAPH_MSGBOX_RADII_POLAR_FMT"	///
+				"resource LBL_GRID" 			///
+				"resource LBL_RADII"			///
+				"resource LBL_POLAR_GRID_CIRCLES"
+			stopbox stop "class _MSG_TMP.value"
+// On "Grid" tab you must specify either "Radii" or "Polar grid circles".
+		}
+		put " pgrid("
+			put /program grid_clean
+		put ")"
+	}
+END
+
+INCLUDE gr_plots
+INCLUDE gr_line_options
+INCLUDE gr_yaxis
+INCLUDE gr_xaxis
+INCLUDE gr_titles
+INCLUDE gr_legend
+INCLUDE gr_overall
+
+PROGRAM command
+BEGIN
+	put " " /program grid_output
+	put " " /program gr_plots_output
+	put " " /program gr_line_options_output
+	put " " /program gr_yaxis_output
+	put " " /program gr_xaxis_output
+	put " " /program gr_titles_output
+	put " " /program gr_legend_output
+	put " " /program gr_overall_output
+END

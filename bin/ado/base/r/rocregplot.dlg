@@ -1,0 +1,1839 @@
+/*
+	rocregplot
+
+*!  VERSION 1.1.5  03dec2019
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_xlarge
+DEFINE _dlght 340
+INCLUDE header
+
+HELP hlp1, view("help rocregplot")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING STMP
+	create STRING STMP2
+	create STRING main_classvars
+	create STRING isML
+	create STRING isProbit
+	create STRING isRoccov
+	create STRING isNobootstrap
+	create LIST CLASSVARS_LIST
+	isML.setvalue e(ml)
+	isProbit.setvalue e(probit)
+	isRoccov.setvalue e(roccov)
+	isNobootstrap.setvalue e(nobootstrap)
+	setscale_hadj resource ROCREGPLOT_DLG_HSCALE
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+        call script main_populate_combos
+	call gr_line_options.settabtitle resource LBL_TAB_REFERENCE_LINE
+	call gr_line_options_optionName.setstring "rlopts"
+	call program main_check_roc
+
+	/* nonparametric */
+	if isML.iseq("") & isProbit.iseq("") {
+		call script boot_options_on
+		call script probit_options_off
+	}
+	/* parametric analysis using bootstrap */
+	if isML.iseq("") & isProbit.iseq("probit") {
+		call script boot_options_on
+		call script probit_options_on
+	}
+	/* parametric analysis using maximum likelihood */
+	if isML.iseq("ml") & isProbit.iseq("probit") {
+		call script boot_options_off
+		call script probit_options_on
+	}
+	
+	if isRoccov.iseq("") {
+		call script main_at_off
+		call script scatter_on
+	}
+	else {
+		call script main_at_on
+		call script scatter_off
+	}
+
+	if isNobootstrap.iseq("nobootstrap") {
+		call script boot_options_off
+	}
+	else {
+		call script boot_options_on
+	}
+	call program build_main_curveList
+END
+
+PROGRAM build_main_curveList
+BEGIN
+	call create STRING STMPi
+	call create DOUBLE i
+
+	call i.setvalue 1
+	while (i.isle(8)) {
+		call STMPi.setvalue class i.value
+		if i.iseq(1) {
+			call STMP.format "resource LBL_CURVE_FMT"	///
+				"class STMPi.value"			///
+				"resource LBL_PAREN_REQUIRED"
+			call STMP.withvalue main_curveList.Arrpush "@"
+			call STMP.format "resource LBL_CURVE_FMT"	///
+				"class STMPi.value" ""
+			call STMP.withvalue curve_curveList.Arrpush "@"
+			call STMP2.format "resource LBL_PLOT_FMT"	///
+				"class STMPi.value" ""
+			call STMP2.withvalue scatter_plotList.Arrpush "@"
+		}
+		else {
+			call STMP.format "resource LBL_CURVE_FMT"	///
+				"class STMPi.value" ""
+			call STMP2.format "resource LBL_PLOT_FMT"	///
+				"class STMPi.value" ""
+			call STMP.withvalue main_curveList.Arrpush "@"
+			call STMP.withvalue curve_curveList.Arrpush "@"
+			call STMP2.withvalue scatter_plotList.Arrpush "@"
+		}
+		call i.increment
+	}
+	call main.lb_at.repopulate 
+	call curve.lb_curve.repopulate 
+	call scatter.lb_scatter.repopulate 
+END
+
+SCRIPT main_populate_combos
+BEGIN
+        main_classvars.setvalue e(classvars)
+
+        CLASSVARS_LIST.Arrdropall
+
+        main_classvars.tokenize CLASSVARS_LIST
+        main.cb_classvars.repopulate
+END
+
+PROGRAM ON_DOTPROMPT
+BEGIN
+        call script main_populate_combos
+        call main.cb_classvars.repopulate
+END
+
+SCRIPT boot_options_on
+BEGIN
+	boot.tx_bfile.enable
+	boot.fi_bfile.enable
+	boot.gb_ci.enable
+	boot.rb_btype_n.enable
+	boot.rb_btype_p.enable
+	boot.rb_btype_bc.enable
+END
+
+SCRIPT boot_options_off
+BEGIN
+	boot.tx_bfile.disable
+	boot.fi_bfile.disable
+	boot.gb_ci.disable
+	boot.rb_btype_n.disable
+	boot.rb_btype_p.disable
+	boot.rb_btype_bc.disable
+END
+
+SCRIPT probit_options_on
+BEGIN
+	main.ck_roc.enable
+	main.ck_invroc.enable
+	program main_check_roc
+	main.tx_level.enable
+	main.sp_level.enable
+	script curve_on
+END
+
+SCRIPT probit_options_off
+BEGIN
+	main.ck_roc.disable
+	main.ed_roc.disable
+	main.ck_invroc.disable
+	main.ed_invroc.disable
+	main.tx_level.disable
+	main.sp_level.disable
+	script curve_off
+END
+
+SCRIPT main_PREINIT
+BEGIN
+	create STRING main_at1Results
+	create STRING main_at2Results
+	create STRING main_at3Results
+	create STRING main_at4Results
+	create STRING main_at5Results
+	create STRING main_at6Results
+	create STRING main_at7Results
+	create STRING main_at8Results
+	create STRING main_at9Results
+	create STRING main_at10Results
+	create STRING main_atOutput
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	title(resource ROCREGPLOT_DLG_TITLE)
+BEGIN
+  TEXT tx_atcurve		_lft	_top	_cwd3	.,		///
+	label(resource LBL_CURVES)
+  LISTBOX lb_at			@	_ss	200	95,		///
+	contents(main_curveList)					///
+	values(main_curveList_values)					///
+	onselchange(program main_curveList_sel)				///
+	label("")
+  BUTTON bu_edit_1		+210	@	80	.,		///
+	label(resource LBL_BU_EDIT)					///
+	onpush(program show_atDialog)
+  BUTTON bu_edit_2		@	@	@	.,		///
+	label(resource LBL_BU_EDIT)					///
+	onpush(program show_atDialog)
+  BUTTON bu_edit_3		@	@	@	.,		///
+	label(resource LBL_BU_EDIT)					///
+	onpush(program show_atDialog)
+  BUTTON bu_edit_4		@	@	@	.,		///
+	label(resource LBL_BU_EDIT)					///
+	onpush(program show_atDialog)
+  BUTTON bu_edit_5		@	@	@	.,		///
+	label(resource LBL_BU_EDIT)					///
+	onpush(program show_atDialog)
+  BUTTON bu_edit_6		@	@	@	.,		///
+	label(resource LBL_BU_EDIT)					///
+	onpush(program show_atDialog)
+  BUTTON bu_edit_7		@	@	@	.,		///
+	label(resource LBL_BU_EDIT)					///
+	onpush(program show_atDialog)
+  BUTTON bu_edit_8		@	@	@	.,		///
+	label(resource LBL_BU_EDIT)					///
+	onpush(program show_atDialog)
+  BUTTON bu_edit_9		@	@	@	.,		///
+	label(resource LBL_BU_EDIT)					///
+	onpush(program show_atDialog)
+  BUTTON bu_edit_10		@	@	@	.,		///
+	label(resource LBL_BU_EDIT)					///
+	onpush(program show_atDialog)
+
+  TEXT tx_classvars		_lft	+115	_iwd	.,		///
+	label(resource ROCREGPLOT_MAIN_TX_CLASSVARS)
+  DEFINE holdy @y
+  COMBOBOX cb_classvars		@	_ss	@	.,		///
+	option(classvars)						///
+	dropdown							///
+	append								///
+	contents(CLASSVARS_LIST)					///
+	label(resource ROCREGPLOT_MAIN_TX_CLASSVARS)
+
+  CHECKBOX ck_roc		_lft	_ls	_iwd	.,		///
+	onclickon(program main_check_roc)				///
+	onclickoff(program main_check_roc)				///
+	label(resource LBL_ESTIMATE_ROC_FOR_GIVEN_FALSE_POSITIVE_RATES)
+  DEFINE holdy @y
+  EDIT ed_roc			+20	_ss	_vnwd	.,		///
+	option(roc)							///
+	label(resource LBL_ESTIMATE_ROC_FOR_GIVEN_FALSE_POSITIVE_RATES)
+  CHECKBOX ck_invroc		_lft	_ls	_iwd	.,		///
+	onclickon(program main_check_roc)				///
+	onclickoff(program main_check_roc)				///
+	label(resource LBL_ESTIMATE_FALSE_POSITIVE_RATES_FOR_GIVEN_ROC_VALUES)
+  EDIT ed_invroc		+20	_ss	_vnwd	.,		///
+	option(invroc)							///
+	label(resource LBL_ESTIMATE_FALSE_POSITIVE_RATES_FOR_GIVEN_ROC_VALUES)
+
+  DEFINE _x _lft
+  DEFINE _cx _spr2b
+  DEFINE _y +35
+  INCLUDE _sp_level
+
+  CHECKBOX ck_norefline		_lft2	@	_cwd1	.,		///
+	option(norefline)						///
+	onclickon("script gr_line_options_disable")			///
+	onclickoff("script gr_line_options_enable")			///
+	label(resource LBL_SUPPRESS_PLOTTING_THE_REFERENCE_LINE)
+END
+
+PROGRAM main_check_roc
+BEGIN
+	if main.ck_roc {
+		call main.ed_roc.enable
+		call main.ck_invroc.disable
+		call main.ed_invroc.disable
+	}
+	else {
+		call main.ck_invroc.enable
+		call main.ed_roc.disable
+	}
+	if main.ck_invroc {
+		call main.ck_roc.disable
+		call main.ed_roc.disable
+		call main.ed_invroc.enable
+	}
+	else {
+		call main.ck_roc.enable
+		call main.ed_invroc.disable
+	}
+	if (main.ck_roc | main.ck_invroc) {
+		call main.sp_level.enable
+	}
+	else {
+		call main.sp_level.disable
+	}
+END
+
+SCRIPT main_at_off
+BEGIN
+	main.tx_atcurve.disable
+	main.lb_at.disable
+	main.bu_edit_1.disable
+	main.bu_edit_2.disable
+	main.bu_edit_3.disable
+	main.bu_edit_4.disable
+	main.bu_edit_5.disable
+	main.bu_edit_6.disable
+	main.bu_edit_7.disable
+	main.bu_edit_8.disable
+	main.bu_edit_9.disable
+	main.bu_edit_10.disable
+END
+
+SCRIPT main_at_on
+BEGIN
+	main.tx_atcurve.enable
+	main.lb_at.enable
+	main.bu_edit_1.enable
+	main.bu_edit_2.enable
+	main.bu_edit_3.enable
+	main.bu_edit_4.enable
+	main.bu_edit_5.enable
+	main.bu_edit_6.enable
+	main.bu_edit_7.enable
+	main.bu_edit_8.enable
+	main.bu_edit_9.enable
+	main.bu_edit_10.enable
+END
+
+LIST main_curveList
+BEGIN
+END
+
+LIST main_curveList_values
+BEGIN
+	curve1
+	curve2
+	curve3
+	curve4
+	curve5
+	curve6
+	curve7
+	curve8
+	curve9
+	curve10
+END
+
+SCRIPT main_hide_buttons
+BEGIN
+	main.bu_edit_1.hide
+	main.bu_edit_2.hide
+	main.bu_edit_3.hide
+	main.bu_edit_4.hide
+	main.bu_edit_5.hide
+	main.bu_edit_6.hide
+	main.bu_edit_7.hide
+	main.bu_edit_8.hide
+	main.bu_edit_9.hide
+	main.bu_edit_10.hide
+END
+
+PROGRAM main_curveList_sel
+BEGIN
+	call script main_hide_buttons
+	if main.lb_at.iseq("curve1") {
+		call main.bu_edit_1.show
+	}
+	if main.lb_at.iseq("curve2") {
+		call main.bu_edit_2.show
+	}
+	if main.lb_at.iseq("curve3") {
+		call main.bu_edit_3.show
+	}
+	if main.lb_at.iseq("curve4") {
+		call main.bu_edit_4.show
+	}
+	if main.lb_at.iseq("curve5") {
+		call main.bu_edit_5.show
+	}
+	if main.lb_at.iseq("curve6") {
+		call main.bu_edit_6.show
+	}
+	if main.lb_at.iseq("curve7") {
+		call main.bu_edit_7.show
+	}
+	if main.lb_at.iseq("curve8") {
+		call main.bu_edit_8.show
+	}
+	if main.lb_at.iseq("curve9") {
+		call main.bu_edit_9.show
+	}
+	if main.lb_at.iseq("curve10") {
+		call main.bu_edit_10.show
+	}
+END
+
+PROGRAM show_atDialog
+BEGIN
+	if main.lb_at.iseq("curve1") {
+		call create CHILD rocregplot_at AS atDLG_1, allowsubmit
+		call STMP.format "resource LBL_CURVE_FMT" "1" "resource LBL_COVARIATE_LOWERCASE"
+		call STMP.withvalue atDLG_1.settitle "@"
+		call atDLG_1.setExitString main_at1Results
+		call atDLG_1.setExitAction "program checkEditResults"
+		call atDLG_1.setSubmitAction "program EditSubmit"
+	}
+	if main.lb_at.iseq("curve2") {
+		call create CHILD rocregplot_at AS atDLG_2, allowsubmit
+		call STMP.format "resource LBL_CURVE_FMT" "2" "resource LBL_COVARIATE_LOWERCASE"
+		call STMP.withvalue atDLG_2.settitle "@"
+		call atDLG_2.setExitString main_at2Results
+		call atDLG_2.setExitAction "program checkEditResults"
+		call atDLG_2.setSubmitAction "program EditSubmit"
+	}
+	if main.lb_at.iseq("curve3") {
+		call create CHILD rocregplot_at AS atDLG_3, allowsubmit
+		call STMP.format "resource LBL_CURVE_FMT" "3"		///
+			"resource LBL_COVARIATE_LOWERCASE"
+		call STMP.withvalue atDLG_3.settitle "@"
+		call atDLG_3.setExitString main_at3Results
+		call atDLG_3.setExitAction "program checkEditResults"
+		call atDLG_3.setSubmitAction "program EditSubmit"
+	}
+	if main.lb_at.iseq("curve4") {
+		call create CHILD rocregplot_at AS atDLG_4, allowsubmit
+		call STMP.format "resource LBL_CURVE_FMT" "4"		///
+			"resource LBL_COVARIATE_LOWERCASE"
+		call STMP.withvalue atDLG_4.settitle "@"
+		call atDLG_4.setExitString main_at4Results
+		call atDLG_4.setExitAction "program checkEditResults"
+		call atDLG_4.setSubmitAction "program EditSubmit"
+	}
+	if main.lb_at.iseq("curve5") {
+		call create CHILD rocregplot_at AS atDLG_5, allowsubmit
+		call STMP.format "resource LBL_CURVE_FMT" "5"		///
+			"resource LBL_COVARIATE_LOWERCASE"
+		call STMP.withvalue atDLG_5.settitle "@"
+		call atDLG_5.setExitString main_at5Results
+		call atDLG_5.setExitAction "program checkEditResults"
+		call atDLG_5.setSubmitAction "program EditSubmit"
+	}
+	if main.lb_at.iseq("curve6") {
+		call create CHILD rocregplot_at AS atDLG_6, allowsubmit
+		call STMP.format "resource LBL_CURVE_FMT" "6"		///
+			"resource LBL_COVARIATE_LOWERCASE"
+		call STMP.withvalue atDLG_6.settitle "@"
+		call atDLG_6.setExitString main_at6Results
+		call atDLG_6.setExitAction "program checkEditResults"
+		call atDLG_6.setSubmitAction "program EditSubmit"
+	}
+	if main.lb_at.iseq("curve7") {
+		call create CHILD rocregplot_at AS atDLG_7, allowsubmit
+		call STMP.format "resource LBL_CURVE_FMT" "7"		///
+			"resource LBL_COVARIATE_LOWERCASE"
+		call STMP.withvalue atDLG_7.settitle "@"
+		call atDLG_7.setExitString main_at7Results
+		call atDLG_7.setExitAction "program checkEditResults"
+		call atDLG_7.setSubmitAction "program EditSubmit"
+	}
+	if main.lb_at.iseq("curve8") {
+		call create CHILD rocregplot_at AS atDLG_8, allowsubmit
+		call STMP.format "resource LBL_CURVE_FMT" "8"		///
+			"resource LBL_COVARIATE_LOWERCASE"
+		call STMP.withvalue atDLG_8.settitle "@"
+		call atDLG_8.setExitString main_at8Results
+		call atDLG_8.setExitAction "program checkEditResults"
+		call atDLG_8.setSubmitAction "program EditSubmit"
+	}
+	if main.lb_at.iseq("curve9") {
+		call create CHILD rocregplot_at AS atDLG_9, allowsubmit
+		call STMP.format "resource LBL_CURVE_FMT" "9"		///
+			"resource LBL_COVARIATE_LOWERCASE"
+		call STMP.withvalue atDLG_9.settitle "@"
+		call atDLG_9.setExitString main_at9Results
+		call atDLG_9.setExitAction "program checkEditResults"
+		call atDLG_9.setSubmitAction "program EditSubmit"
+	}
+	if main.lb_at.iseq("curve10") {
+		call create CHILD rocregplot_at AS atDLG_10, allowsubmit
+		call STMP.format "resource LBL_CURVE_FMT" "10"		///
+			"resource LBL_COVARIATE_LOWERCASE"
+		call STMP.withvalue atDLG_10.settitle "@"
+		call atDLG_10.setExitString main_at10Results
+		call atDLG_10.setExitAction "program checkEditResults"
+		call atDLG_10.setSubmitAction "program EditSubmit"
+	}
+END
+
+PROGRAM checkEditResults
+BEGIN
+	if main.lb_at.iseq("curve1") {
+		if main_at1Results.iseq("") {
+			call main.bu_edit_1.modified_off
+		}
+		else {
+			call main.bu_edit_1.modified_on
+		}
+	}
+	if main.lb_at.iseq("curve2") {
+		if main_at2Results.iseq("") {
+			call main.bu_edit_2.modified_off
+		}
+		else {
+			call main.bu_edit_2.modified_on
+		}
+	}
+	if main.lb_at.iseq("curve3") {
+		if main_at3Results.iseq("") {
+			call main.bu_edit_3.modified_off
+		}
+		else {
+			call main.bu_edit_3.modified_on
+		}
+	}
+	if main.lb_at.iseq("curve4") {
+		if main_at4Results.iseq("") {
+			call main.bu_edit_4.modified_off
+		}
+		else {
+			call main.bu_edit_4.modified_on
+		}
+	}
+	if main.lb_at.iseq("curve5") {
+		if main_at5Results.iseq("") {
+			call main.bu_edit_5.modified_off
+		}
+		else {
+			call main.bu_edit_5.modified_on
+		}
+	}
+	if main.lb_at.iseq("curve6") {
+		if main_at6Results.iseq("") {
+			call main.bu_edit_6.modified_off
+		}
+		else {
+			call main.bu_edit_6.modified_on
+		}
+	}
+	if main.lb_at.iseq("curve7") {
+		if main_at7Results.iseq("") {
+			call main.bu_edit_7.modified_off
+		}
+		else {
+			call main.bu_edit_7.modified_on
+		}
+	}
+	if main.lb_at.iseq("curve8") {
+		if main_at8Results.iseq("") {
+			call main.bu_edit_8.modified_off
+		}
+		else {
+			call main.bu_edit_8.modified_on
+		}
+	}
+	if main.lb_at.iseq("curve9") {
+		if main_at9Results.iseq("") {
+			call main.bu_edit_9.modified_off
+		}
+		else {
+			call main.bu_edit_9.modified_on
+		}
+	}
+	if main.lb_at.iseq("curve10") {
+		if main_at10Results.iseq("") {
+			call main.bu_edit_10.modified_off
+		}
+		else {
+			call main.bu_edit_10.modified_on
+		}
+	}
+END
+
+PROGRAM EditSubmit
+BEGIN
+	call program checkEditResults
+	call Submit
+END
+
+PROGRAM at_output
+BEGIN
+	if (main_at1Results) {
+		call main_atOutput.append " at1("
+		call main_atOutput.append class	main_at1Results.value
+		call main_atOutput.append ")"
+	}
+	if (main_at2Results) {
+		call main_atOutput.append " at2("
+		call main_atOutput.append class	main_at2Results.value
+		call main_atOutput.append ")"
+	}
+	if (main_at3Results) {
+		call main_atOutput.append " at3("
+		call main_atOutput.append class	main_at3Results.value
+		call main_atOutput.append ")"
+	}
+	if (main_at4Results) {
+		call main_atOutput.append " at4("
+		call main_atOutput.append class	main_at4Results.value
+		call main_atOutput.append ")"
+	}
+	if (main_at5Results) {
+		call main_atOutput.append " at5("
+		call main_atOutput.append class	main_at5Results.value
+		call main_atOutput.append ")"
+	}
+	if (main_at6Results) {
+		call main_atOutput.append " at6("
+		call main_atOutput.append class	main_at6Results.value
+		call main_atOutput.append ")"
+	}
+	if (main_at7Results) {
+		call main_atOutput.append " at7("
+		call main_atOutput.append class	main_at7Results.value
+		call main_atOutput.append ")"
+	}
+	if (main_at8Results) {
+		call main_atOutput.append " at8("
+		call main_atOutput.append class	main_at8Results.value
+		call main_atOutput.append ")"
+	}
+	if (main_at9Results) {
+		call main_atOutput.append " at9("
+		call main_atOutput.append class	main_at9Results.value
+		call main_atOutput.append ")"
+	}
+	if (main_at10Results) {
+		call main_atOutput.append " at10("
+		call main_atOutput.append class	main_at10Results.value
+		call main_atOutput.append ")"
+	}
+END
+
+PROGRAM main_at_output
+BEGIN
+	if (scatter.lb_scatter.isenabled() & (scatter_scat1Results |	///
+		scatter_scat2Results |					///
+		scatter_scat3Results | scatter_scat4Results |		///
+		scatter_scat5Results | scatter_scat6Results |		///
+		scatter_scat7Results | scatter_scat8Results)) {
+		stopbox stop resource ROCREGPLOT_MSGBOX_COMBINED_WITH
+// at#() options can not be combined with the plot#ops() options.	
+	}
+	call main_atOutput.setvalue ""
+	if (!main_at1Results & main.lb_at.isenabled()) {
+		call create STRING _MSG_TMP
+		call STMP.format "resource LBL_CURVE_FMT" "1" ""
+                call STMP.withvalue _MSG_TMP.format			///
+			"resource LBL_MSGBOX_REQUIRED_FMT" 		///
+			"@"
+		stopbox stop "class _MSG_TMP.value"
+// "Curve 1" must be filled in.	
+	}
+
+	if (main_at1Results | main_at2Results | main_at3Results |	///
+		main_at4Results | main_at5Results | main_at6Results |	///
+		main_at7Results | main_at8Results | main_at9Results |	///
+		main_at10Results) {
+		call program at_output
+	}
+
+	put main_atOutput
+END
+
+SCRIPT boot_PREINIT
+BEGIN
+        boot.fi_bfile.formatfilter "{0} (*.dta)|*.dta|{1} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_DTA_FILES" "resource ui_ex FILE_TYPE_ALL_FILES"
+END
+
+DIALOG boot, tabtitle(resource SE_LBL_BOOTSTRAP)
+BEGIN
+  TEXT tx_bfile			_lft	_top	_iwd	.,		///
+        label(resource ROCREGPLOT_BOOT_TX_BFILE)
+  FILE fi_bfile			@	_ss	@	.,		///
+	option("bfile")							///
+	defext(dta)							///
+	error(resource ROCREGPLOT_BOOT_TX_BFILE)	///
+	label(resource LBL_OPEN)
+
+  GROUPBOX gb_ci		_lft	_ls	_iwd	_ht2,		///
+	label(resource LBL_CONFIDENCE_INTERVALS)
+  RADIO rb_btype_n		_ilft	_ss   	_cwd3_2	.,first		///
+	option(btype(n))						///
+	label(resource LBL_NORMAL)
+  RADIO rb_btype_p		_ilft3_2 @	@	.,		///
+	option(btype(p))						///
+	label(resource LBL_PERCENTILE)
+  RADIO rb_btype_bc		_ilft3_3 @	@	.,last		///
+	option(btype(bc))						///
+	label(resource ROCREGPLOT_BOOT_RB_BTYPE_BC)
+END
+
+SCRIPT boot_off
+BEGIN
+	boot.tx_bfile.disable
+	boot.fi_bfile.disable
+	boot.rb_btype_n.disable
+	boot.rb_btype_p.disable
+	boot.rb_btype_bc.disable
+END
+
+SCRIPT curve_PREINIT
+BEGIN
+	create STRING curve_conn1Results
+	create STRING curve_conn2Results
+	create STRING curve_conn3Results
+	create STRING curve_conn4Results
+	create STRING curve_conn5Results
+	create STRING curve_conn6Results
+	create STRING curve_conn7Results
+	create STRING curve_conn8Results
+	create STRING curve_connm1Results
+	create STRING curve_connm2Results
+	create STRING curve_connm3Results
+	create STRING curve_connm4Results
+	create STRING curve_connm5Results
+	create STRING curve_connm6Results
+	create STRING curve_connm7Results
+	create STRING curve_connm8Results
+	create STRING curve_connectOutput
+END
+
+DIALOG curve, tabtitle(resource ROCREGPLOT_TAB_CURVE)
+BEGIN
+  TEXT tx_curve			_lft	_top	_vnwd	.,		///
+	label(resource ROCREGPLOT_CURVE_TX_CURVE)
+  LISTBOX lb_curve		@	_ss	_vnwd	135,		///
+	contents(curve_curveList)					///
+	values(curve_curveList_values)					///
+	onselchange(program curve_curveList_sel)
+  DEFINE y @y
+  BUTTON bu_conn_1		_vnsep	y	@	.,		///
+	label(resource LBL_GB_LINE_PROPERTIES)				///
+	onpush(program curve_showLineDialog)
+  BUTTON bu_conn_2		@	@	@	.,		///
+	label(resource LBL_GB_LINE_PROPERTIES)				///
+	onpush(program curve_showLineDialog)
+  BUTTON bu_conn_3		@	@	@	.,		///
+	label(resource LBL_GB_LINE_PROPERTIES)				///
+	onpush(program curve_showLineDialog)
+  BUTTON bu_conn_4		@	@	@	.,		///
+	label(resource LBL_GB_LINE_PROPERTIES)				///
+	onpush(program curve_showLineDialog)
+  BUTTON bu_conn_5		@	@	@	.,		///
+	label(resource LBL_GB_LINE_PROPERTIES)				///
+	onpush(program curve_showLineDialog)
+  BUTTON bu_conn_6		@	@	@	.,		///
+	label(resource LBL_GB_LINE_PROPERTIES)				///
+	onpush(program curve_showLineDialog)
+  BUTTON bu_conn_7		@	@	@	.,		///
+	label(resource LBL_GB_LINE_PROPERTIES)				///
+	onpush(program curve_showLineDialog)
+  BUTTON bu_conn_8		@	@	@	.,		///
+	label(resource LBL_GB_LINE_PROPERTIES)				///
+	onpush(program curve_showLineDialog)
+
+  BUTTON bu_connm_1		@	_ls	@	.,		///
+	label(resource LBL_MARKER_PROPERTIES_DLG_TITLE)			///
+	onpush(program curve_showMarkerDialog)				///
+	tooltip(resource LBL_MARKER_SYMBOL_LABEL_PROPERTIES)
+  BUTTON bu_connm_2		@	@	@	.,		///
+	label(resource LBL_MARKER_PROPERTIES_DLG_TITLE)			///
+	onpush(program curve_showMarkerDialog)				///
+	tooltip(resource LBL_MARKER_SYMBOL_LABEL_PROPERTIES)
+  BUTTON bu_connm_3		@	@	@	.,		///
+	label(resource LBL_MARKER_PROPERTIES_DLG_TITLE)			///
+	onpush(program curve_showMarkerDialog)				///
+	tooltip(resource LBL_MARKER_SYMBOL_LABEL_PROPERTIES)
+  BUTTON bu_connm_4		@	@	@	.,		///
+	label(resource LBL_MARKER_PROPERTIES_DLG_TITLE)			///
+	onpush(program curve_showMarkerDialog)				///
+	tooltip(resource LBL_MARKER_SYMBOL_LABEL_PROPERTIES)
+  BUTTON bu_connm_5		@	@	@	.,		///
+	label(resource LBL_MARKER_PROPERTIES_DLG_TITLE)			///
+	onpush(program curve_showMarkerDialog)				///
+	tooltip(resource LBL_MARKER_SYMBOL_LABEL_PROPERTIES)
+  BUTTON bu_connm_6		@	@	@	.,		///
+	label(resource LBL_MARKER_PROPERTIES_DLG_TITLE)			///
+	onpush(program curve_showMarkerDialog)				///
+	tooltip(resource LBL_MARKER_SYMBOL_LABEL_PROPERTIES)
+  BUTTON bu_connm_7		@	@	@	.,		///
+	label(resource LBL_MARKER_PROPERTIES_DLG_TITLE)			///
+	onpush(program curve_showMarkerDialog)				///
+	tooltip(resource LBL_MARKER_SYMBOL_LABEL_PROPERTIES)
+  BUTTON bu_connm_8		@	@	@	.,		///
+	label(resource LBL_MARKER_PROPERTIES_DLG_TITLE)			///
+	onpush(program curve_showMarkerDialog)				///
+	tooltip(resource LBL_MARKER_SYMBOL_LABEL_PROPERTIES)
+
+  TEXTBOX tb_curve_note		_lft	180	_iwd	_tb3,		///
+	label(resource ROCREGPLOT_CURVE_TB_CURVE_NOTE)
+END
+
+SCRIPT curve_on
+BEGIN
+	curve.tx_curve.enable
+	curve.lb_curve.enable
+	curve.bu_conn_1.enable
+	curve.bu_conn_2.enable
+	curve.bu_conn_3.enable
+	curve.bu_conn_4.enable
+	curve.bu_conn_5.enable
+	curve.bu_conn_6.enable
+	curve.bu_conn_7.enable
+	curve.bu_conn_8.enable
+	curve.bu_connm_1.enable
+	curve.bu_connm_2.enable
+	curve.bu_connm_3.enable
+	curve.bu_connm_4.enable
+	curve.bu_connm_5.enable
+	curve.bu_connm_6.enable
+	curve.bu_connm_7.enable
+	curve.bu_connm_8.enable
+	curve.tb_curve_note.enable
+END
+
+SCRIPT curve_off
+BEGIN
+	curve.tx_curve.disable
+	curve.lb_curve.disable
+	curve.bu_conn_1.disable
+	curve.bu_conn_2.disable
+	curve.bu_conn_3.disable
+	curve.bu_conn_4.disable
+	curve.bu_conn_5.disable
+	curve.bu_conn_6.disable
+	curve.bu_conn_7.disable
+	curve.bu_conn_8.disable
+	curve.bu_connm_1.disable
+	curve.bu_connm_2.disable
+	curve.bu_connm_3.disable
+	curve.bu_connm_4.disable
+	curve.bu_connm_5.disable
+	curve.bu_connm_6.disable
+	curve.bu_connm_7.disable
+	curve.bu_connm_8.disable
+	curve.tb_curve_note.disable
+END
+
+/* line#opts */
+LIST curve_curveList
+BEGIN
+END
+
+LIST curve_curveList_values
+BEGIN
+	"curve1"
+	"curve2"
+	"curve3"
+	"curve4"
+	"curve5"
+	"curve6"
+	"curve7"
+	"curve8"
+END
+
+SCRIPT curve_hide_buttons
+BEGIN
+	curve.bu_conn_1.hide
+	curve.bu_conn_2.hide
+	curve.bu_conn_3.hide
+	curve.bu_conn_4.hide
+	curve.bu_conn_5.hide
+	curve.bu_conn_6.hide
+	curve.bu_conn_7.hide
+	curve.bu_conn_8.hide
+	curve.bu_connm_1.hide
+	curve.bu_connm_2.hide
+	curve.bu_connm_3.hide
+	curve.bu_connm_4.hide
+	curve.bu_connm_5.hide
+	curve.bu_connm_6.hide
+	curve.bu_connm_7.hide
+	curve.bu_connm_8.hide
+END
+
+PROGRAM curve_curveList_sel
+BEGIN
+	call script curve_hide_buttons
+	if curve.lb_curve.iseq("curve1") {
+		call curve.bu_conn_1.show
+		call curve.bu_connm_1.show
+	}
+	if curve.lb_curve.iseq("curve2") {
+		call curve.bu_conn_2.show
+		call curve.bu_connm_2.show
+	}
+	if curve.lb_curve.iseq("curve3") {
+		call curve.bu_conn_3.show
+		call curve.bu_connm_3.show
+	}
+	if curve.lb_curve.iseq("curve4") {
+		call curve.bu_conn_4.show
+		call curve.bu_connm_4.show
+	}
+	if curve.lb_curve.iseq("curve5") {
+		call curve.bu_conn_5.show
+		call curve.bu_connm_5.show
+	}
+	if curve.lb_curve.iseq("curve6") {
+		call curve.bu_conn_6.show
+		call curve.bu_connm_6.show
+	}
+	if curve.lb_curve.iseq("curve7") {
+		call curve.bu_conn_7.show
+		call curve.bu_connm_7.show
+	}
+	if curve.lb_curve.iseq("curve8") {
+		call curve.bu_conn_8.show
+		call curve.bu_connm_8.show
+	}
+END
+
+PROGRAM curve_showLineDialog
+BEGIN
+	if curve.lb_curve.iseq("curve1") {
+		call create CHILD gr_line_options AS			///
+			curve_connDLG_1, allowsubmit
+		call STMP.format "resource LBL_CURVE_FMT" "1"		///
+			"resource LBL_LINE_PROPERTIES_LOWERCASE"
+		call STMP.withvalue curve_connDLG_1.settitle "@"
+		call curve_connDLG_1.setExitString			///
+			curve_conn1Results
+		call curve_connDLG_1.setExitAction			///
+			"program curve_checkLineResults"
+		call curve_connDLG_1.setSubmitAction			///
+			"program curve_LineSubmit"
+	}
+	if curve.lb_curve.iseq("curve2") {
+		call create CHILD gr_line_options AS			///
+			curve_connDLG_2, allowsubmit
+		call STMP.format "resource LBL_CURVE_FMT" "2"		///
+			"resource LBL_LINE_PROPERTIES_LOWERCASE"
+		call STMP.withvalue curve_connDLG_2.settitle "@"
+		call curve_connDLG_2.setExitString			///
+			curve_conn2Results
+		call curve_connDLG_2.setExitAction			///
+			"program curve_checkLineResults"
+		call curve_connDLG_2.setSubmitAction			///
+			"program curve_LineSubmit"
+	}
+	if curve.lb_curve.iseq("curve3") {
+		call create CHILD gr_line_options AS			///
+			curve_connDLG_3, allowsubmit
+		call STMP.format "resource LBL_CURVE_FMT" "3"		///
+			"resource LBL_LINE_PROPERTIES_LOWERCASE"
+		call STMP.withvalue curve_connDLG_3.settitle "@"
+		call curve_connDLG_3.setExitString			///
+			curve_conn3Results
+		call curve_connDLG_3.setExitAction			///
+			"program curve_checkLineResults"
+		call curve_connDLG_3.setSubmitAction			///
+			"program curve_LineSubmit"
+	}
+	if curve.lb_curve.iseq("curve4") {
+		call create CHILD gr_line_options AS			///
+			curve_connDLG_4, allowsubmit
+		call STMP.format "resource LBL_CURVE_FMT" "4"		///
+			"resource LBL_LINE_PROPERTIES_LOWERCASE"
+		call STMP.withvalue curve_connDLG_4.settitle "@"
+		call curve_connDLG_4.setExitString			///
+			curve_conn4Results
+		call curve_connDLG_4.setExitAction			///
+			"program curve_checkLineResults"
+		call curve_connDLG_4.setSubmitAction			///
+			"program curve_LineSubmit"
+	}
+	if curve.lb_curve.iseq("curve5") {
+		call create CHILD gr_line_options AS			///
+			curve_connDLG_5, allowsubmit
+		call STMP.format "resource LBL_CURVE_FMT" "5"		///
+			"resource LBL_LINE_PROPERTIES_LOWERCASE"
+		call STMP.withvalue curve_connDLG_5.settitle "@"
+		call curve_connDLG_5.setExitString			///
+			curve_conn5Results
+		call curve_connDLG_5.setExitAction			///
+			"program curve_checkLineResults"
+		call curve_connDLG_5.setSubmitAction			///
+			"program curve_LineSubmit"
+	}
+	if curve.lb_curve.iseq("curve6") {
+		call create CHILD gr_line_options AS			///
+			curve_connDLG_6, allowsubmit
+		call STMP.format "resource LBL_CURVE_FMT" "6"		///
+			"resource LBL_LINE_PROPERTIES_LOWERCASE"
+		call STMP.withvalue curve_connDLG_6.settitle "@"
+		call curve_connDLG_6.setExitString			///
+			curve_conn6Results
+		call curve_connDLG_6.setExitAction			///
+			"program curve_checkLineResults"
+		call curve_connDLG_6.setSubmitAction			///
+			"program curve_LineSubmit"
+	}
+	if curve.lb_curve.iseq("curve7") {
+		call create CHILD gr_line_options AS			///
+			curve_connDLG_7, allowsubmit
+		call STMP.format "resource LBL_CURVE_FMT" "7"		///
+			"resource LBL_LINE_PROPERTIES_LOWERCASE"
+		call STMP.withvalue curve_connDLG_7.settitle "@"
+		call curve_connDLG_7.setExitString			///
+			curve_conn7Results
+		call curve_connDLG_7.setExitAction			///
+			"program curve_checkLineResults"
+		call curve_connDLG_7.setSubmitAction			///
+			"program curve_LineSubmit"
+	}
+	if curve.lb_curve.iseq("curve8") {
+		call create CHILD gr_line_options AS			///
+			curve_connDLG_8, allowsubmit
+		call STMP.format "resource LBL_CURVE_FMT" "8"		///
+			"resource LBL_LINE_PROPERTIES_LOWERCASE"
+		call STMP.withvalue curve_connDLG_8.settitle "@"
+		call curve_connDLG_8.setExitString			///
+			curve_conn8Results
+		call curve_connDLG_8.setExitAction			///
+			"program curve_checkLineResults"
+		call curve_connDLG_8.setSubmitAction			///
+			"program curve_LineSubmit"
+	}
+END
+
+PROGRAM curve_checkLineResults
+BEGIN
+	if curve.lb_curve.iseq("curve1") {
+		if curve_conn1Results.iseq("") {
+			call curve.bu_conn_1.modified_off
+		}
+		else {
+			call curve.bu_conn_1.modified_on
+		}
+	}
+	if curve.lb_curve.iseq("curve2") {
+		if curve_conn2Results.iseq("") {
+			call curve.bu_conn_2.modified_off
+		}
+		else {
+			call curve.bu_conn_2.modified_on
+		}
+	}
+	if curve.lb_curve.iseq("curve3") {
+		if curve_conn3Results.iseq("") {
+			call curve.bu_conn_3.modified_off
+		}
+		else {
+			call curve.bu_conn_3.modified_on
+		}
+	}
+	if curve.lb_curve.iseq("curve4") {
+		if curve_conn4Results.iseq("") {
+			call curve.bu_conn_4.modified_off
+		}
+		else {
+			call curve.bu_conn_4.modified_on
+		}
+	}
+	if curve.lb_curve.iseq("curve5") {
+		if curve_conn5Results.iseq("") {
+			call curve.bu_conn_5.modified_off
+		}
+		else {
+			call curve.bu_conn_5.modified_on
+		}
+	}
+	if curve.lb_curve.iseq("curve6") {
+		if curve_conn6Results.iseq("") {
+			call curve.bu_conn_6.modified_off
+		}
+		else {
+			call curve.bu_conn_6.modified_off
+		}
+	}
+	if curve.lb_curve.iseq("curve7") {
+		if curve_conn7Results.iseq("") {
+			call curve.bu_conn_7.modified_off
+		}
+		else {
+			call curve.bu_conn_7.modified_on
+		}
+	}
+	if curve.lb_curve.iseq("curve8") {
+		if curve_conn8Results.iseq("") {
+			call curve.bu_conn_8.modified_off
+		}
+		else {
+			call curve.bu_conn_8.modified_off
+		}
+	}
+END
+
+PROGRAM curve_LineSubmit
+BEGIN
+	call program curve_checkLineResults
+	call Submit
+END
+
+PROGRAM curve_showMarkerDialog
+BEGIN
+	if curve.lb_curve.iseq("curve1") {
+		call create CHILD gr_marker_options AS			///
+			curve_connmDLG_1, allowsubmit
+		call STMP.format "resource LBL_CURVE_FMT" "1"		///
+			"resource LBL_MARKER_PROPERTIES_LOWERCASE"
+		call STMP.withvalue curve_connmDLG_1.settitle "@"
+		call curve_connmDLG_1.setExitString			///
+			curve_connm1Results
+		call curve_connmDLG_1.setExitAction			///
+			"program curve_lcheckMarkerResults"
+		call curve_connmDLG_1.setSubmitAction			///
+			"program curve_lMarkerSubmit"
+	}
+	if curve.lb_curve.iseq("curve2") {
+		call create CHILD gr_marker_options AS			///
+			curve_connmDLG_2, allowsubmit
+		call STMP.format "resource LBL_CURVE_FMT" "2"		///
+			"resource LBL_MARKER_PROPERTIES_LOWERCASE"
+		call STMP.withvalue curve_connmDLG_2.settitle "@"
+		call curve_connmDLG_2.setExitString			///
+			curve_connm2Results
+		call curve_connmDLG_2.setExitAction			///
+			"program curve_lcheckMarkerResults"
+		call curve_connmDLG_2.setSubmitAction			///
+			"program curve_lMarkerSubmit"
+	}
+	if curve.lb_curve.iseq("curve3") {
+		call create CHILD gr_marker_options AS			///
+			curve_connmDLG_3, allowsubmit
+		call STMP.format "resource LBL_CURVE_FMT" "3"		///
+			"resource LBL_MARKER_PROPERTIES_LOWERCASE"
+		call STMP.withvalue curve_connmDLG_3.settitle "@"
+		call curve_connmDLG_3.setExitString			///
+			curve_connm3Results
+		call curve_connmDLG_3.setExitAction			///
+			"program curve_lcheckMarkerResults"
+		call curve_connmDLG_3.setSubmitAction			///
+			"program curve_lMarkerSubmit"
+	}
+	if curve.lb_curve.iseq("curve4") {
+		call create CHILD gr_marker_options AS			///
+			curve_connmDLG_4, allowsubmit
+		call STMP.format "resource LBL_CURVE_FMT" "4"		///
+			"resource LBL_MARKER_PROPERTIES_LOWERCASE"
+		call STMP.withvalue curve_connmDLG_4.settitle "@"
+		call curve_connmDLG_4.setExitString			///
+			curve_connm4Results
+		call curve_connmDLG_4.setExitAction			///
+			"program curve_lcheckMarkerResults"
+		call curve_connmDLG_4.setSubmitAction			///
+			"program curve_lMarkerSubmit"
+	}
+	if curve.lb_curve.iseq("curve5") {
+		call create CHILD gr_marker_options AS			///
+			curve_connmDLG_5, allowsubmit
+		call STMP.format "resource LBL_CURVE_FMT" "5"		///
+			"resource LBL_MARKER_PROPERTIES_LOWERCASE"
+		call STMP.withvalue curve_connmDLG_5.settitle "@"
+		call curve_connmDLG_5.setExitString			///
+			curve_connm5Results
+		call curve_connmDLG_5.setExitAction			///
+			"program curve_lcheckMarkerResults"
+		call curve_connmDLG_5.setSubmitAction			///
+			"program curve_lMarkerSubmit"
+	}
+	if curve.lb_curve.iseq("curve6") {
+		call create CHILD gr_marker_options AS			///
+			curve_connmDLG_6, allowsubmit
+		call STMP.format "resource LBL_CURVE_FMT" "6"		///
+			"resource LBL_MARKER_PROPERTIES_LOWERCASE"
+		call STMP.withvalue curve_connmDLG_6.settitle "@"
+		call curve_connmDLG_6.setExitString			///
+			curve_connm6Results
+		call curve_connmDLG_6.setExitAction			///
+			"program curve_lcheckMarkerResults"
+		call curve_connmDLG_6.setSubmitAction			///
+			"program curve_lMarkerSubmit"
+	}
+	if curve.lb_curve.iseq("curve7") {
+		call create CHILD gr_marker_options AS			///
+			curve_connmDLG_7, allowsubmit
+		call STMP.format "resource LBL_CURVE_FMT" "7"		///
+			"resource LBL_MARKER_PROPERTIES_LOWERCASE"
+		call STMP.withvalue curve_connmDLG_7.settitle "@"
+		call curve_connmDLG_7.setExitString			///
+			curve_connm7Results
+		call curve_connmDLG_7.setExitAction			///
+			"program curve_lcheckMarkerResults"
+		call curve_connmDLG_7.setSubmitAction			///
+			"program curve_lMarkerSubmit"
+	}
+	if curve.lb_curve.iseq("curve8") {
+		call create CHILD gr_marker_options AS			///
+			curve_connmDLG_8, allowsubmit
+		call STMP.format "resource LBL_CURVE_FMT" "8"		///
+			"resource LBL_MARKER_PROPERTIES_LOWERCASE"
+		call STMP.withvalue curve_connmDLG_8.settitle "@"
+		call curve_connmDLG_8.setExitString			///
+			curve_connm8Results
+		call curve_connmDLG_8.setExitAction			///
+			"program curve_lcheckMarkerResults"
+		call curve_connmDLG_8.setSubmitAction			///
+			"program curve_lMarkerSubmit"
+	}
+END
+
+PROGRAM curve_lcheckMarkerResults
+BEGIN
+
+	if curve.lb_curve.iseq("curve1") {
+		if curve_connm1Results.iseq("") {
+			call curve.bu_connm_1.modified_off
+		}
+		else {
+			call curve.bu_connm_1.modified_on
+		}
+	}
+	if curve.lb_curve.iseq("curve2") {
+		if curve_connm2Results.iseq("") {
+			call curve.bu_connm_2.modified_off
+		}
+		else {
+			call curve.bu_connm_2.modified_on
+		}
+	}
+	if curve.lb_curve.iseq("curve3") {
+		if curve_connm3Results.iseq("") {
+			call curve.bu_connm_3.modified_off
+		}
+		else {
+			call curve.bu_connm_3.modified_on
+		}
+	}
+	if curve.lb_curve.iseq("curve4") {
+		if curve_connm4Results.iseq("") {
+			call curve.bu_connm_4.modified_off
+		}
+		else {
+			call curve.bu_connm_4.modified_on
+		}
+	}
+	if curve.lb_curve.iseq("curve5") {
+		if curve_connm5Results.iseq("") {
+			call curve.bu_connm_5.modified_off
+		}
+		else {
+			call curve.bu_connm_5.modified_on
+		}
+	}
+	if curve.lb_curve.iseq("curve6") {
+		if curve_connm6Results.iseq("") {
+			call curve.bu_connm_6.modified_off
+		}
+		else {
+			call curve.bu_connm_6.modified_on
+		}
+	}
+	if curve.lb_curve.iseq("curve7") {
+		if curve_connm7Results.iseq("") {
+			call curve.bu_connm_7.modified_off
+		}
+		else {
+			call curve.bu_connm_7.modified_on
+		}
+	}
+	if curve.lb_curve.iseq("curve8") {
+		if curve_connm8Results.iseq("") {
+			call curve.bu_connm_8.modified_off
+		}
+		else {
+			call curve.bu_connm_8.modified_on
+		}
+	}
+END
+
+PROGRAM curve_lMarkerSubmit
+BEGIN
+	call program curve_lcheckMarkerResults
+	call Submit
+END
+
+PROGRAM curve_connect_output
+BEGIN
+	if (curve_conn1Results | curve_connm1Results) {
+		call curve_connectOutput.append " line1opts("
+		call curve_connectOutput.append class			///
+			curve_conn1Results.value
+		if (curve_conn1Results & curve_connm1Results) {
+			call curve_connectOutput.append " "
+		}
+		call curve_connectOutput.append class			///
+			curve_connm1Results.value
+		call curve_connectOutput.append ")"
+	}
+	if (curve_conn2Results | curve_connm2Results) {
+		call curve_connectOutput.append " line2opts("
+		call curve_connectOutput.append class			///
+			curve_conn2Results.value
+		if (curve_conn2Results & curve_connm2Results) {
+			call curve_connectOutput.append " "
+		}
+		call curve_connectOutput.append class			///
+			curve_connm2Results.value
+		call curve_connectOutput.append ")"
+	}
+	if (curve_conn3Results | curve_connm3Results) {
+		call curve_connectOutput.append " line3opts("
+		call curve_connectOutput.append class			///
+			curve_conn3Results.value
+		if (curve_conn3Results & curve_connm3Results) {
+			call curve_connectOutput.append " "
+		}
+		call curve_connectOutput.append class			///
+			curve_connm3Results.value
+		call curve_connectOutput.append ")"
+	}
+	if (curve_conn4Results | curve_connm4Results) {
+		call curve_connectOutput.append " line4opts("
+		call curve_connectOutput.append class			///
+			curve_conn4Results.value
+		if (curve_conn4Results & curve_connm4Results) {
+			call curve_connectOutput.append " "
+		}
+		call curve_connectOutput.append class			///
+			curve_connm4Results.value
+		call curve_connectOutput.append ")"
+	}
+	if (curve_conn5Results | curve_connm5Results) {
+		call curve_connectOutput.append " line5opts("
+		call curve_connectOutput.append class			///
+			curve_conn5Results.value
+		if (curve_conn5Results & curve_connm5Results) {
+			call curve_connectOutput.append " "
+		}
+		call curve_connectOutput.append class			///
+			curve_connm5Results.value
+		call curve_connectOutput.append ")"
+	}
+	if (curve_conn6Results | curve_connm6Results) {
+		call curve_connectOutput.append " line6opts("
+		call curve_connectOutput.append class			///
+			curve_conn6Results.value
+		if (curve_conn6Results & curve_connm6Results) {
+			call curve_connectOutput.append " "
+		}
+		call curve_connectOutput.append class			///
+			curve_connm6Results.value
+		call curve_connectOutput.append ")"
+	}
+	if (curve_conn7Results | curve_connm7Results) {
+		call curve_connectOutput.append " line7opts("
+		call curve_connectOutput.append class			///
+			curve_conn7Results.value
+		if (curve_conn7Results & curve_connm7Results) {
+			call curve_connectOutput.append " "
+		}
+		call curve_connectOutput.append class			///
+			curve_connm7Results.value
+		call curve_connectOutput.append ")"
+	}
+	if (curve_conn8Results | curve_connm8Results) {
+		call curve_connectOutput.append " line8opts("
+		call curve_connectOutput.append class			///
+			curve_conn8Results.value
+		if (curve_conn8Results & curve_connm8Results) {
+			call curve_connectOutput.append " "
+		}
+		call curve_connectOutput.append class			///
+			curve_connm8Results.value
+		call curve_connectOutput.append ")"
+	}
+END
+
+PROGRAM curve_output
+BEGIN
+	call curve_connectOutput.setvalue ""
+
+	if (curve_conn1Results | curve_conn2Results |			///
+		curve_conn3Results | curve_conn4Results |		///
+		curve_conn5Results | curve_conn6Results |		///
+		curve_conn7Results | curve_conn8Results |		///
+		curve_connm1Results | curve_connm2Results |		///
+		curve_connm3Results | curve_connm4Results |		///
+		curve_connm5Results | curve_connm6Results |		///
+		curve_connm7Results | curve_connm8Results) {
+		call program curve_connect_output
+	}
+
+	put curve_connectOutput
+END
+
+SCRIPT scatter_PREINIT
+BEGIN
+	create STRING scatter_scat1Results
+	create STRING scatter_scat2Results
+	create STRING scatter_scat3Results
+	create STRING scatter_scat4Results
+	create STRING scatter_scat5Results
+	create STRING scatter_scat6Results
+	create STRING scatter_scat7Results
+	create STRING scatter_scat8Results
+	create STRING scatter_scatterOutput
+END
+
+DIALOG scatter, tabtitle(resource LBL_SCATTER)
+BEGIN
+  TEXT tx_scatter		_lft	_top	_vnwd	.,		///
+	label(resource LBL_SELECT_PLOT)
+  LISTBOX lb_scatter		@	_ss	_vnwd	135,		///
+	contents(scatter_plotList)					///
+	values(scatter_plotList_values)					///
+	onselchange(program scatter_plotList_sel)
+  DEFINE y @y
+
+  BUTTON bu_scat_1		_vnsep	y	@	.,		///
+	label(resource LBL_MARKER_PROPERTIES_DLG_TITLE)			///
+	onpush(program scatter_showMarkerDialog)			///
+	tooltip(resource LBL_MARKER_SYMBOL_LABEL_PROPERTIES)
+  BUTTON bu_scat_2		@	@	@	.,		///
+	label(resource LBL_MARKER_PROPERTIES_DLG_TITLE)			///
+	onpush(program scatter_showMarkerDialog)			///
+	tooltip(resource LBL_MARKER_SYMBOL_LABEL_PROPERTIES)
+  BUTTON bu_scat_3		@	@	@	.,		///
+	label(resource LBL_MARKER_PROPERTIES_DLG_TITLE)			///
+	onpush(program scatter_showMarkerDialog)			///
+	tooltip(resource LBL_MARKER_SYMBOL_LABEL_PROPERTIES)
+  BUTTON bu_scat_4		@	@	@	.,		///
+	label(resource LBL_MARKER_PROPERTIES_DLG_TITLE)			///
+	onpush(program scatter_showMarkerDialog)			///
+	tooltip(resource LBL_MARKER_SYMBOL_LABEL_PROPERTIES)
+  BUTTON bu_scat_5		@	@	@	.,		///
+	label(resource LBL_MARKER_PROPERTIES_DLG_TITLE)			///
+	onpush(program scatter_showMarkerDialog)			///
+	tooltip(resource LBL_MARKER_SYMBOL_LABEL_PROPERTIES)
+  BUTTON bu_scat_6		@	@	@	.,		///
+	label(resource LBL_MARKER_PROPERTIES_DLG_TITLE)			///
+	onpush(program scatter_showMarkerDialog)			///
+	tooltip(resource LBL_MARKER_SYMBOL_LABEL_PROPERTIES)
+  BUTTON bu_scat_7		@	@	@	.,		///
+	label(resource LBL_MARKER_PROPERTIES_DLG_TITLE)			///
+	onpush(program scatter_showMarkerDialog)			///
+	tooltip(resource LBL_MARKER_SYMBOL_LABEL_PROPERTIES)
+  BUTTON bu_scat_8		@	@	@	.,		///
+	label(resource LBL_MARKER_PROPERTIES_DLG_TITLE)			///
+	onpush(program scatter_showMarkerDialog)			///
+	tooltip(resource LBL_MARKER_SYMBOL_LABEL_PROPERTIES)
+
+  TEXTBOX tb_scatter_note		_lft	180	_iwd	_tb3,	///
+	label(resource LBL_PLOT_SHOWN_HERE_NOT_NEC_REFLECT_NUMB_ACT)
+END
+
+SCRIPT scatter_on
+BEGIN
+	scatter.tx_scatter.enable
+	scatter.lb_scatter.enable
+	scatter.bu_scat_1.enable
+	scatter.bu_scat_2.enable
+	scatter.bu_scat_3.enable
+	scatter.bu_scat_4.enable
+	scatter.bu_scat_5.enable
+	scatter.bu_scat_6.enable
+	scatter.bu_scat_7.enable
+	scatter.bu_scat_8.enable
+	scatter.tb_scatter_note.enable
+END
+
+SCRIPT scatter_off
+BEGIN
+	scatter.tx_scatter.disable
+	scatter.lb_scatter.disable
+	scatter.bu_scat_1.disable
+	scatter.bu_scat_2.disable
+	scatter.bu_scat_3.disable
+	scatter.bu_scat_4.disable
+	scatter.bu_scat_5.disable
+	scatter.bu_scat_6.disable
+	scatter.bu_scat_7.disable
+	scatter.bu_scat_8.disable
+	scatter.tb_scatter_note.disable
+END
+
+/* plote#opt */
+LIST scatter_plotList
+BEGIN
+END
+
+LIST scatter_plotList_values
+BEGIN
+	"plot1"
+	"plot2"
+	"plot3"
+	"plot4"
+	"plot5"
+	"plot6"
+	"plot7"
+	"plot8"
+END
+
+SCRIPT scatter_hide_buttons
+BEGIN
+	scatter.bu_scat_1.hide
+	scatter.bu_scat_2.hide
+	scatter.bu_scat_3.hide
+	scatter.bu_scat_4.hide
+	scatter.bu_scat_5.hide
+	scatter.bu_scat_6.hide
+	scatter.bu_scat_7.hide
+	scatter.bu_scat_8.hide
+END
+
+PROGRAM scatter_plotList_sel
+BEGIN
+	call script scatter_hide_buttons
+	if scatter.lb_scatter.iseq("plot1") {
+		call scatter.bu_scat_1.show
+	}
+	if scatter.lb_scatter.iseq("plot2") {
+		call scatter.bu_scat_2.show
+	}
+	if scatter.lb_scatter.iseq("plot3") {
+		call scatter.bu_scat_3.show
+	}
+	if scatter.lb_scatter.iseq("plot4") {
+		call scatter.bu_scat_4.show
+	}
+	if scatter.lb_scatter.iseq("plot5") {
+		call scatter.bu_scat_5.show
+	}
+	if scatter.lb_scatter.iseq("plot6") {
+		call scatter.bu_scat_6.show
+	}
+	if scatter.lb_scatter.iseq("plot7") {
+		call scatter.bu_scat_7.show
+	}
+	if scatter.lb_scatter.iseq("plot8") {
+		call scatter.bu_scat_8.show
+	}
+END
+
+PROGRAM scatter_showMarkerDialog
+BEGIN
+	if scatter.lb_scatter.iseq("plot1") {
+		call create CHILD gr_marker_options AS			///
+			scatter_scatDLG_1, allowsubmit
+		call STMP.format "resource LBL_PLOT_FMT" "1"		///
+			"resource LBL_MARKER_PROPERTIES_LOWERCASE"
+		call STMP.withvalue scatter_scatDLG_1.settitle "@"
+		call scatter_scatDLG_1.setExitString			///
+			scatter_scat1Results
+		call scatter_scatDLG_1.setExitAction			///
+			"program scatter_checkMarkerResults"
+		call scatter_scatDLG_1.setSubmitAction			///
+			"program scatter_MarkerSubmit"
+	}
+	if scatter.lb_scatter.iseq("plot2") {
+		call create CHILD gr_marker_options AS			///
+			scatter_scatDLG_2, allowsubmit
+		call STMP.format "resource LBL_PLOT_FMT" "2"		///
+			"resource LBL_MARKER_PROPERTIES_LOWERCASE"
+		call STMP.withvalue scatter_scatDLG_2.settitle "@"
+		call scatter_scatDLG_2.setExitString			///
+			scatter_scat2Results
+		call scatter_scatDLG_2.setExitAction			///
+			"program scatter_checkMarkerResults"
+		call scatter_scatDLG_2.setSubmitAction			///
+			"program scatter_MarkerSubmit"
+	}
+	if scatter.lb_scatter.iseq("plot3") {
+		call create CHILD gr_marker_options AS			///
+			scatter_scatDLG_3, allowsubmit
+		call STMP.format "resource LBL_PLOT_FMT" "3"		///
+			"resource LBL_MARKER_PROPERTIES_LOWERCASE"
+		call STMP.withvalue scatter_scatDLG_3.settitle "@"
+		call scatter_scatDLG_3.setExitString			///
+			scatter_scat3Results
+		call scatter_scatDLG_3.setExitAction			///
+			"program scatter_checkMarkerResults"
+		call scatter_scatDLG_3.setSubmitAction			///
+			"program scatter_MarkerSubmit"
+	}
+	if scatter.lb_scatter.iseq("plot4") {
+		call create CHILD gr_marker_options AS			///
+			scatter_scatDLG_4, allowsubmit
+		call STMP.format "resource LBL_PLOT_FMT" "4"		///
+			"resource LBL_MARKER_PROPERTIES_LOWERCASE"
+		call STMP.withvalue scatter_scatDLG_4.settitle "@"
+		call scatter_scatDLG_4.setExitString			///
+			scatter_scat4Results
+		call scatter_scatDLG_4.setExitAction			///
+			"program scatter_checkMarkerResults"
+		call scatter_scatDLG_4.setSubmitAction			///
+			"program scatter_MarkerSubmit"
+	}
+	if scatter.lb_scatter.iseq("plot5") {
+		call create CHILD gr_marker_options AS			///
+			scatter_scatDLG_5, allowsubmit
+		call STMP.format "resource LBL_PLOT_FMT" "5"		///
+			"resource LBL_MARKER_PROPERTIES_LOWERCASE"
+		call STMP.withvalue scatter_scatDLG_5.settitle "@"
+		call scatter_scatDLG_5.setExitString			///
+			scatter_scat5Results
+		call scatter_scatDLG_5.setExitAction			///
+			"program scatter_checkMarkerResults"
+		call scatter_scatDLG_5.setSubmitAction			///
+			"program scatter_MarkerSubmit"
+	}
+	if scatter.lb_scatter.iseq("plot6") {
+		call create CHILD gr_marker_options AS			///
+			scatter_scatDLG_6, allowsubmit
+		call STMP.format "resource LBL_PLOT_FMT" "6"		///
+			"resource LBL_MARKER_PROPERTIES_LOWERCASE"
+		call STMP.withvalue scatter_scatDLG_6.settitle "@"
+		call scatter_scatDLG_6.setExitString			///
+			scatter_scat6Results
+		call scatter_scatDLG_6.setExitAction			///
+			"program scatter_checkMarkerResults"
+		call scatter_scatDLG_6.setSubmitAction			///
+			"program scatter_MarkerSubmit"
+	}
+	if scatter.lb_scatter.iseq("plot7") {
+		call create CHILD gr_marker_options AS			///
+			scatter_scatDLG_7, allowsubmit
+		call STMP.format "resource LBL_PLOT_FMT" "7"		///
+			"resource LBL_MARKER_PROPERTIES_LOWERCASE"
+		call STMP.withvalue scatter_scatDLG_7.settitle "@"
+		call scatter_scatDLG_7.setExitString			///
+			scatter_scat7Results
+		call scatter_scatDLG_7.setExitAction			///
+			"program scatter_checkMarkerResults"
+		call scatter_scatDLG_7.setSubmitAction			///
+			"program scatter_MarkerSubmit"
+	}
+	if scatter.lb_scatter.iseq("plot8") {
+		call create CHILD gr_marker_options AS			///
+			scatter_scatDLG_8, allowsubmit
+		call STMP.format "resource LBL_PLOT_FMT" "8"		///
+			"resource LBL_MARKER_PROPERTIES_LOWERCASE"
+		call STMP.withvalue scatter_scatDLG_8.settitle "@"
+		call scatter_scatDLG_8.setExitString			///
+			scatter_scat8Results
+		call scatter_scatDLG_8.setExitAction			///
+			"program scatter_checkMarkerResults"
+		call scatter_scatDLG_8.setSubmitAction			///
+			"program scatter_MarkerSubmit"
+	}
+END
+
+PROGRAM scatter_checkMarkerResults
+BEGIN
+	if scatter.lb_scatter.iseq("plot") {
+		if scatter_scatdResults.iseq("") {
+			call scatter.bu_scat_d.modified_off
+		}
+		else {
+			call scatter.bu_scat_d.modified_on
+		}
+	}
+	if scatter.lb_scatter.iseq("plot1") {
+		if scatter_scat1Results.iseq("") {
+			call scatter.bu_scat_1.modified_off
+		}
+		else {
+			call scatter.bu_scat_1.modified_on
+		}
+	}
+	if scatter.lb_scatter.iseq("plot2") {
+		if scatter_scat2Results.iseq("") {
+			call scatter.bu_scat_2.modified_off
+		}
+		else {
+			call scatter.bu_scat_2.modified_on
+		}
+	}
+	if scatter.lb_scatter.iseq("plot3") {
+		if scatter_scat3Results.iseq("") {
+			call scatter.bu_scat_3.modified_off
+		}
+		else {
+			call scatter.bu_scat_3.modified_on
+		}
+	}
+	if scatter.lb_scatter.iseq("plot4") {
+		if scatter_scat4Results.iseq("") {
+			call scatter.bu_scat_4.modified_off
+		}
+		else {
+			call scatter.bu_scat_4.modified_on
+		}
+	}
+	if scatter.lb_scatter.iseq("plot5") {
+		if scatter_scat5Results.iseq("") {
+			call scatter.bu_scat_5.modified_off
+		}
+		else {
+			call scatter.bu_scat_5.modified_on
+		}
+	}
+	if scatter.lb_scatter.iseq("plot6") {
+		if scatter_scat6Results.iseq("") {
+			call scatter.bu_scat_6.modified_off
+		}
+		else {
+			call scatter.bu_scat_6.modified_on
+		}
+	}
+	if scatter.lb_scatter.iseq("plot7") {
+		if scatter_scat7Results.iseq("") {
+			call scatter.bu_scat_7.modified_off
+		}
+		else {
+			call scatter.bu_scat_7.modified_on
+		}
+	}
+	if scatter.lb_scatter.iseq("plot8") {
+		if scatter_scat8Results.iseq("") {
+			call scatter.bu_scat_8.modified_off
+		}
+		else {
+			call scatter.bu_scat_8.modified_on
+		}
+	}
+END
+
+PROGRAM scatter_MarkerSubmit
+BEGIN
+	call program scatter_checkMarkerResults
+	call Submit
+END
+
+PROGRAM scatter_scatter_output
+BEGIN
+	if (scatter_scat1Results) {
+		call scatter_scatterOutput.append " plot1opts("
+		call scatter_scatterOutput.append class			///
+			scatter_scat1Results.value
+		call scatter_scatterOutput.append ")"
+	}
+	if (scatter_scat2Results) {
+		call scatter_scatterOutput.append " plot2opts("
+		call scatter_scatterOutput.append class			///
+			scatter_scat2Results.value
+		call scatter_scatterOutput.append ")"
+	}
+	if (scatter_scat3Results) {
+		call scatter_scatterOutput.append " plot3opts("
+		call scatter_scatterOutput.append class			///
+			scatter_scat3Results.value
+		call scatter_scatterOutput.append ")"
+	}
+	if (scatter_scat4Results) {
+		call scatter_scatterOutput.append " plot4opts("
+		call scatter_scatterOutput.append class			///
+			scatter_scat4Results.value
+		call scatter_scatterOutput.append ")"
+	}
+	if (scatter_scat5Results) {
+		call scatter_scatterOutput.append " plot5opts("
+		call scatter_scatterOutput.append class			///
+			scatter_scat5Results.value
+		call scatter_scatterOutput.append ")"
+	}
+	if (scatter_scat6Results) {
+		call scatter_scatterOutput.append " plot6opts("
+		call scatter_scatterOutput.append class			///
+			scatter_scat6Results.value
+		call scatter_scatterOutput.append ")"
+	}
+	if (scatter_scat7Results) {
+		call scatter_scatterOutput.append " plot7opts("
+		call scatter_scatterOutput.append class			///
+			scatter_scat7Results.value
+		call scatter_scatterOutput.append ")"
+	}
+	if (scatter_scat8Results) {
+		call scatter_scatterOutput.append " plot8opts("
+		call scatter_scatterOutput.append class			///
+			scatter_scat8Results.value
+		call scatter_scatterOutput.append ")"
+	}
+END
+
+PROGRAM scatter_output
+BEGIN
+	call scatter_scatterOutput.setvalue ""
+
+	if (scatter_scat1Results | scatter_scat2Results |		///
+		scatter_scat3Results | scatter_scat4Results |		///
+		scatter_scat5Results | scatter_scat6Results |		///
+		scatter_scat7Results | scatter_scat8Results) {
+		call program scatter_scatter_output
+	}
+
+	put scatter_scatterOutput
+END
+
+INCLUDE gr_line_options
+INCLUDE gr_yaxis
+INCLUDE gr_xaxis
+INCLUDE gr_titles
+INCLUDE gr_legend
+INCLUDE gr_overall
+
+PROGRAM command
+BEGIN
+	put "rocregplot "
+	beginoptions
+		put " " /program main_at_output
+		optionarg main.cb_classvars
+		if main.ck_roc {
+			require main.ed_roc
+			if !main.ed_roc.isnumlist() {
+				call create STRING _MSG_TMP
+	                        call _MSG_TMP.format				///
+				"resource LBL_MSGBOX_ON_TAB_THERE_IS_AN_INVALID_FMT" ///
+				"resource LBL_TAB_MAIN" 			///
+				"resource LBL_NUMLIST" 				///
+				"resource LBL_ESTIMATE_ROC_FOR_GIVEN_FALSE_POSITIVE_RATES"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab there is an invalid "Numlist" for "Estimate ROC for given false-positive rates".
+			}
+			optionarg main.ed_roc
+		}
+		if main.ck_invroc {
+			require main.ed_invroc
+			if !main.ed_invroc.isnumlist() {
+                               call create STRING _MSG_TMP
+                                call _MSG_TMP.format				/// 
+				"resource LBL_MSGBOX_ON_TAB_THERE_IS_AN_INVALID_FMT" ///
+                                "resource LBL_TAB_MAIN" 			///
+                                "resource LBL_NUMLIST" 				///
+                                "resource LBL_ESTIMATE_FALSE_POSITIVE_RATES_FOR_GIVEN_ROC_VALUES"
+                                stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab there is an invalid "Numlist" for "Estimate false-positive rate for given ROC values".
+			}
+			optionarg main.ed_invroc
+		}
+		option main.ck_norefline
+		optionarg /hidedefault main.sp_level
+		optionarg boot.fi_bfile
+		option radio (boot rb_btype_p rb_btype_bc)
+		put " " /program curve_output
+		put " " /program scatter_output
+		put " " /program gr_line_options_output
+		put " " /program gr_yaxis_output
+		put " " /program gr_xaxis_output
+		put " " /program gr_titles_output
+		put " " /program gr_legend_output
+		put " " /program gr_overall_output
+	endoptions
+END

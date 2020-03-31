@@ -1,0 +1,368 @@
+/*
+	power rsquared, all coefficients
+
+*!  VERSION 1.1.4  14mar2017
+
+*/
+
+VERSION 15.0
+
+INCLUDE _std_xlarge
+DEFINE _dlght 485
+INCLUDE header
+
+HELP hlp1, view("help power rsquared")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING graph_res
+	create STRING numContents
+	create STRING stok
+	create ARRAY tmp
+	create BOOLEAN containsNumlist
+	create BOOLEAN containsNumlist_tested
+	program table_create4Rsquaredall
+	setscale_hadj resource POWER_RSQUARED_ALL_DLG_HSCALE
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	label(resource POWER_RSQUARED_ALL_DLG_TITLE)
+BEGIN
+  INCLUDE power_compute
+  DEFINE errpos _ls
+  INCLUDE power_errorprob
+
+  DEFINE sspos +40
+  INCLUDE power_onesampsize
+
+  GROUPBOX gb_effect_size	_lft		+40	_iwd	_ht5,	///
+	label(resource LBL_EFFECT_SIZE)
+  GROUPBOX gb_effect_size2	@		@	@	_ht2,	///
+	label(resource LBL_EFFECT_SIZE)
+  EDIT ed_tested		_ilft		_ss	_en14wd	.,	///
+	onchange(program check_for_numlist)				///
+	tooltip(resource POWER_RSQUARED_ALL_MAIN_ED_TESTED_TIP)		///
+	label("")
+  TEXT tx_tested		_en14sep	@	_lw150	.,	///
+	label(resource POWER_RSQUARED_ALL_MAIN_TX_TESTED)
+  EDIT ed_tcvr			_ilft		_ls	_en14wd	.,	///
+  	default(1)							///
+	option(ntested)							///
+	onchange(program check_for_numlist)				///
+	label("")
+  TEXT tx_tcvr			_en14sep	@	_lw150	.,	///
+	label(resource LBL_STAR_NUMBER_OF_TESTED_COVARIATES)
+  CHECKBOX ck_parallel		_lft		_xls	_iwd	.,	///
+	option(parallel)						///
+	label(resource LBL_TREAT_NUMBER_LISTS_IN_STARRED_OPTIONS_AS_PARALLEL)
+END
+
+LIST main_compute_list
+BEGIN
+	resource LBL_SAMPLE_SIZE
+	resource PSS_LBL_POWER
+	resource POWER_RSQUARED_ALL_EFFECT_SIZE_AND_TARGET_RSQUARED
+END
+
+LIST main_compute_values
+BEGIN
+	sampsi
+	power
+	effect
+END
+
+PROGRAM main_compute_changed
+BEGIN
+	if main.cb_compute.iseq("sampsi") {
+		call program main_sampsi_on
+	}
+	if main.cb_compute.iseq("power") {
+		call program main_power_on
+	}
+	if main.cb_compute.iseq("effect") {
+		call program main_effect_on
+	}
+END
+
+PROGRAM main_sampsi_on
+BEGIN
+	call main.ed_power.show
+	call main.ed_beta.show
+	call main.tx_power_beta_power.show
+	call main.cb_power_beta.show
+	call main.ed_n.hide
+	call main.tx_n.hide
+	call main.ck_nfrac.show
+	call program main_effect_show
+	call program main_power_beta_changed
+	call program check_for_numlist
+	call program power_iteration_tab_check
+END
+
+PROGRAM main_power_on
+BEGIN
+	call main.ed_power.hide
+	call main.ed_beta.hide
+	call main.tx_power_beta_power.hide
+	call main.cb_power_beta.hide
+	call main.ed_n.show
+	call main.tx_n.show
+	call main.ck_nfrac.hide
+	call program main_effect_show
+	call program check_for_numlist
+	call program power_iteration_tab_check
+END
+
+PROGRAM main_effect_on
+BEGIN
+	call main.ed_power.show
+	call main.ed_beta.show
+	call main.tx_power_beta_power.show
+	call main.cb_power_beta.show
+	call main.ed_n.show
+	call main.tx_n.show
+	call main.ck_nfrac.hide
+	call program main_effect_hide
+	call program main_power_beta_changed
+	call program check_for_numlist
+	call program power_iteration_tab_check
+END
+
+
+PROGRAM main_power_beta_table
+BEGIN
+	call program table_create4Rsquaredall
+END
+
+PROGRAM main_effect_show
+BEGIN
+	call main.gb_effect_size.show
+	call main.gb_effect_size2.hide
+	call main.ed_tested.show
+	call main.tx_tested.show
+	call main.ed_tcvr.setposition . 230
+	call main.tx_tcvr.setposition . 230
+	call main.ck_parallel.setposition . 270
+END
+
+PROGRAM main_effect_hide
+BEGIN
+	call main.gb_effect_size.hide
+	call main.gb_effect_size2.show
+	call main.ed_tested.hide
+	call main.tx_tested.hide
+	call main.ed_tcvr.setposition . 200
+	call main.tx_tcvr.setposition . 200
+	call main.ck_parallel.setposition . 240
+END
+
+PROGRAM check_for_numlist
+BEGIN
+	call containsNumlist.setfalse
+	call containsNumlist_tested.setfalse
+
+	if main.ed_tested {
+		call numContents.setvalue class main.ed_tested.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+			call containsNumlist_tested.settrue
+		}
+	}
+	if main.ed_alpha {
+		call numContents.setvalue class main.ed_alpha.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+	if main.ed_power & main.ed_power.isvisible() {
+		call numContents.setvalue class main.ed_power.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+	if main.ed_beta & main.ed_beta.isvisible() {
+		call numContents.setvalue class main.ed_beta.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+	if main.ed_n & main.ed_n.isvisible() {
+		call numContents.setvalue class main.ed_n.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+	if main.ed_tcvr {
+		call numContents.setvalue class main.ed_tcvr.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+	
+	if containsNumlist {
+		call main.ck_parallel.enable
+	}
+	else {
+		call main.ck_parallel.disable
+	}
+	call program table_create4Rsquaredall
+END
+
+PROGRAM power_iteration_tab_check
+BEGIN
+	call script power_iteration_enable
+	if main.cb_compute.iseq("power") {
+		call script power_iteration_disable
+	}
+	else {
+		if main.cb_compute.iseq("sampsi") {
+			call script power_iteration_is_sampsi
+		}
+		if main.cb_compute.iseq("effect") {
+			call script power_iteration_is_rsquared
+		}
+	}
+END
+
+INCLUDE _power_list
+INCLUDE power_errorprob_pr
+INCLUDE power_table_opts
+INCLUDE power_graph
+INCLUDE power_iteration
+INCLUDE power_test_maincommon_pr
+
+PROGRAM	command
+BEGIN
+	put "power rsquared "
+	if main.ed_tested.isvisible() {
+		if !main.ed_tested {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT" ///
+				"resource LBL_TAB_MAIN" 		///
+				"resource POWER_RSQUARED_ALL_MAIN_ED_TESTED"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "R-squared of tested model" must be filled in.
+		}
+		if !main.ed_tested.isnumlist() {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format 					///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource LBL_TAB_MAIN"				///
+				"resource POWER_RSQUARED_ALL_MAIN_ED_TESTED"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "R-squared of tested model".
+		}
+		if !(main.ed_tested.isNumlistGT(0) & 				///
+			main.ed_tested.isNumlistLT(1)) {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format 					///
+				"resource LBL_MSGBOX_ON_TAB_BETWEEN_0_AND_1_FMT" ///
+				"resource LBL_TAB_MAIN"				///
+				"resource POWER_RSQUARED_ALL_MAIN_ED_TESTED"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "R-squared of tested model" must be between 0 and 1.
+		}
+		if containsNumlist_tested {
+			put "("
+			put main.ed_tested
+			put ")"
+		}
+		else {
+			put main.ed_tested
+		}
+	}
+	if main.cb_compute.iseq("power") | main.cb_compute.iseq("effect") {
+		require main.ed_n
+	}
+	
+	beginoptions
+		if main.ed_n & main.ed_n.isvisible() {
+			if !main.ed_n.isnumlist() {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 					///
+					"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+					"resource LBL_TAB_MAIN"				///
+					"resource LBL_SAMPLE_SIZE"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Sample size".
+			}
+			if !main.ed_n.isNumlistGT(0) {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format			/// 
+					"resource LBL_MSGBOX_ON_TAB_GREATER_THAN_0_FMT" ///
+					"resource LBL_TAB_MAIN"		///
+					"resource LBL_SAMPLE_SIZE"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Sample size" must be greater than 0.
+			}
+			optionarg main.ed_n
+		}
+		option main.ck_nfrac
+		
+		put " " /program power_errorprob_output
+		
+		if main.ed_tcvr {
+			if !main.ed_tcvr.isnumlist() {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 					///
+					"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+					"resource LBL_TAB_MAIN"				///
+					"resource LBL_NUMBER_OF_TESTED_COVARIATES"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Number of tested covariates".
+			}
+			if !main.ed_tcvr.isNumlistGT(0) {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format			/// 
+					"resource LBL_MSGBOX_ON_TAB_GREATER_THAN_0_FMT" ///
+					"resource LBL_TAB_MAIN"		///
+					"resource LBL_NUMBER_OF_TESTED_COVARIATES"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Number of tested covariates" must be greater than 0.
+			}
+			optionarg /hidedefault main.ed_tcvr
+		}
+		option main.ck_parallel
+		put " " /program power_table_opts_output
+		put " " /program power_graph_output
+		put " " /program power_iteration_output
+	endoptions
+END

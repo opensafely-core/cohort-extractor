@@ -1,0 +1,397 @@
+/*
+    predict after streg
+
+*!  VERSION 1.1.4  27jun2017
+
+*/
+
+
+VERSION 11.0
+
+INCLUDE _std_large
+INCLUDE _ht340
+INCLUDE header
+
+HELP hlp1, view("help streg postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource STREG_P_DLG_HSCALE
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN	
+	call create STRING predict_sub
+	call create STRING e_shared
+	call create STRING isSvy
+	
+	call predict_sub.setvalue e(predict_sub)
+	call e_shared.setvalue e(shared)
+	call isSvy.setvalue e(prefix)
+
+	if(predict_sub.iseq("gomper_p")					///
+		| predict_sub.iseq("weibul_p") 				///
+		| predict_sub.iseq("ereg_p")) {
+		if(predict_sub.iseq("gomper_p")) {
+			call program main_gompertz_hr_setup
+		}
+		else {
+			call program main_hr_setup
+		}
+	}
+	if(predict_sub.iseq("lnorma_p")					///
+		| predict_sub.iseq("llogis_p")				///
+		| predict_sub.iseq("gamma_p")) {
+			call program main_nohr_setup
+	}
+	if(predict_sub.iseq("gomphet_ip") 				///
+		| predict_sub.iseq("weibhet_ip")			///
+		| predict_sub.iseq("ereghet_ip")			///
+		| predict_sub.iseq("gomphet_gp")			///
+		| predict_sub.iseq("weibhet_gp")			///
+		| predict_sub.iseq("ereghet_gp")			///
+		| predict_sub.iseq("streghet1_p")) {
+		call program main_frailty_hr_setup
+	}
+	if(predict_sub.iseq("lnormhet_ip")				///
+		| predict_sub.iseq("lloghet_ip")			///
+		| predict_sub.iseq("gamhet_ip")				///
+		| predict_sub.iseq("lnormhet_gp")			///
+		| predict_sub.iseq("lloghet_gp")			///
+		| predict_sub.iseq("gamhet_gp")) {
+		call program main_frailty_nohr_setup
+	}
+
+	if e_shared {
+		call main.rb_unconditional.seton
+	}
+	else {
+		call main.rb_alpha1.seton
+	}
+END
+
+DIALOG main, label(resource PREDICT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  INCLUDE  _p_gentype
+
+  GROUPBOX gb_opts	_lft	_ls	_iwd	170,			///
+	label(resource LBL_PRODUCE)
+  RADIO rb_medtime	_indent	_ss	_cwd1	., first		///
+	option(median time)						///
+	onclickon(program main_oos_off_partial_off)			///
+	label(resource LBL_MEDIAN_SURVIVAL_TIME)
+  DEFINE holdy @y
+  RADIO rb_medlntime	@	_ss	@	.,			///
+	option(median lntime)						///
+	onclickon(program main_oos_off_partial_off)			///
+	label(resource LBL_MEDIAN_LN_SURVIVAL_TIME)
+  RADIO rb_meantime	@	_ss	@	.,			///
+	option(mean time)						///
+	onclickon(program main_oos_off_partial_off)			///
+	label(resource LBL_MEAN_SURVIVAL_TIME)
+  RADIO rb_meanlntime	@	_ss	@	.,			///
+	option(mean lntime)						///
+	onclickon(program main_oos_off_partial_off)			///
+	label(resource LBL_MEAN_LN_SURVIVAL_TIME)
+  RADIO rb_xb		@	_ss	@ 	.,			///
+	option(xb)							///
+	onclickon(program main_oos_off_partial_off)			///
+	label(resource LBL_LINEAR_PREDICTION)
+  RADIO rb_hazard	@	_ss	@	.,			///
+	option(hazard)							///
+	onclickon(program main_oos_off_partial_off)			///
+	label(resource LBL_HAZARD)
+  RADIO rb_hr		@	_ss	@	.,			///
+	option(hr)							///
+	onclickon(program main_oos_off_partial_off)			///
+	label(resource LBL_HAZARD_RATIO)
+  RADIO rb_stdp		_lft2	holdy	@	.,			///
+	option(stdp)							///
+	onclickon(program main_oos_off_partial_off)			///
+	label(resource LBL_STD_ERROR_LINEAR_PREDICTION)
+  RADIO rb_surv		@	_ss	@	.,			///
+	option(surv)							///
+	onclickon(program main_oos_off_partial_off)			///
+	label(resource STREG_P_MAIN_RB_SURV)
+  RADIO rb_csurv	@	_ss	@	.,			///
+	option(csurv)							///
+	onclickon(program main_oos_on_partial_off)			///
+	label(resource STREG_P_MAIN_RB_CSURV)
+  RADIO rb_csnell	@ 	_ss	@	.,			///
+	option(csnell)							///
+	onclickon(program main_oos_on_partial_on)			///
+	label(resource LBL_COX_SNELL_RESIDUALS)
+  RADIO rb_mgale	@	_ss	@	.,			///
+	option(mgale)							///
+	onclickon(program main_oos_on_partial_on)			///
+	label(resource LBL_MARTINGALE_LIKE_RESIDUALS)
+  RADIO rb_deviance	@	_ss	@	., last			///
+	option(deviance)						///
+	onclickon(program main_oos_on_partial_on)			///
+	label(resource LBL_DEVIANCE_RESIDUALS)
+  RADIO rb_alpha1	_lft	240	_iwd	., first		///
+	option(alpha1)							///
+	label(resource STREG_P_MAIN_RB_ALPHA1)
+  RADIO rb_unconditional @	_ss	_iwd	., last			///
+	option(unconditional)						///
+	label(resource STREG_P_MAIN_RB_UNCONDITIONAL)
+  CHECKBOX ck_scores	_lft	_ms	_cwd1	.,			///
+	option(scores)							///
+	onclickon(program main_scores_on)				///
+	onclickoff(program main_scores_off)				///
+	label(resource LBL_CALCULATE_EQUATION_LEVEL_SCORE_VARIABLES)
+  CHECKBOX ck_nooffset	_lft2	@	_cwd1	.,			///
+	option(nooffset)						///
+	label(resource LBL_IGNORE_OFFSET_VARIABLE)
+  CHECKBOX ck_oos	_lft	_ms	_cwd1	.,			///
+	option(oos)							///
+	label(resource LBL_CALCULATE_EQUATION_LEVEL_SCORE_VARIABLES)
+  CHECKBOX ck_partial	_lft2	@	_cwd1	.,			///
+	option(partial)							///
+	label(resource LBL_OBSERVATION_LEVEL_RESULTS)
+END
+PROGRAM main_gompertz_hr_setup
+BEGIN
+	call program main_check_for_svy
+	call main.gb_opts.setposition . . . 150 
+	call main.rb_meantime.hide
+	call main.rb_meanlntime.hide
+	call main.rb_xb.setposition 20 120
+	call main.rb_hazard.setposition 20 140
+	call main.rb_hr.setposition 20 160
+	call main.rb_stdp.setposition 20 180
+	call main.rb_surv.setposition 260 80
+	call main.rb_csurv.setposition 260 100
+	call main.rb_csnell.setposition 260 120
+	call main.rb_mgale.setposition 260 140
+	call main.rb_deviance.setposition 260 160
+	call main.rb_alpha1.hide
+	call main.rb_unconditional.hide
+	call main.ck_scores.setposition 10 220
+	call main.ck_nooffset.setposition 260 220
+	call main.ck_oos.setposition 10 245
+	call main.ck_partial.setposition 260 245
+END
+
+PROGRAM main_hr_setup
+BEGIN
+	call program main_check_for_svy
+	call main.rb_alpha1.hide
+	call main.rb_unconditional.hide
+	call main.ck_scores.setposition 10 240
+	call main.ck_nooffset.setposition 260 240
+	call main.ck_oos.setposition 10 265
+	call main.ck_partial.setposition 260 265
+END
+
+PROGRAM main_nohr_setup
+BEGIN
+	call program main_check_for_svy
+	call main.rb_hr.hide
+	call main.rb_alpha1.hide
+	call main.rb_unconditional.hide
+	call main.gb_opts.setposition . . . 150 
+	call main.ck_scores.setposition 10 220
+	call main.ck_nooffset.setposition 260 220
+	call main.ck_oos.setposition 10 245
+	call main.ck_partial.setposition 260 245
+END
+
+PROGRAM main_frailty_hr_setup
+BEGIN
+	call program main_check_for_svy
+
+	call program main_check_eshared
+	call main.rb_alpha1.show
+	call main.rb_unconditional.show
+END
+
+PROGRAM main_frailty_nohr_setup
+BEGIN
+	call program main_check_for_svy
+	call main.rb_hr.hide
+	call main.gb_opts.setposition . . . 150
+	call main.rb_alpha1.setposition 10 220
+	call main.rb_unconditional.setposition 10 240
+	call main.ck_scores.setposition 10 270
+	call main.ck_nooffset.setposition 260 270
+	call main.ck_oos.setposition 10 295
+	call main.ck_partial.setposition 260 295
+
+	call program main_check_eshared
+	call main.rb_alpha1.show
+	call main.rb_unconditional.show
+END
+
+PROGRAM main_check_eshared
+BEGIN
+	if e_shared {
+		call main.ck_scores.disable
+		call program main_scores_off
+	}
+	else {
+		call main.ck_scores.enable
+		if main.ck_scores {
+			call program main_scores_on
+		}
+	}		
+END
+
+PROGRAM main_check_for_svy
+BEGIN
+	if(isSvy.iseq("svy")) {
+		call main.rb_mgale.hide
+		call main.rb_deviance.hide
+		call main.rb_csnell.hide
+		call main.ck_partial.hide
+		call main.rb_csurv.setposition . 120
+		if(main.rb_mgale | main.rb_deviance | main.rb_csnell) {
+			call main.rb_medtime.seton
+		}
+	}
+	else {
+		call main.rb_mgale.show
+		call main.rb_deviance.show
+		call main.rb_csnell.show
+		call main.ck_partial.show
+ 		call main.rb_csurv.setposition . 120
+	}
+END
+
+PROGRAM main_scores_on
+BEGIN
+	call main.rb_medtime.disable
+	call main.rb_medlntime.disable
+	call main.rb_meantime.disable
+	call main.rb_meanlntime.disable
+	call main.rb_hazard.disable
+	call main.rb_hr.disable
+	call main.rb_xb.disable
+	call main.rb_stdp.disable
+	call main.rb_surv.disable
+	call main.rb_csnell.disable
+	call main.rb_mgale.disable
+	call main.rb_deviance.disable
+	call main.rb_csurv.disable
+
+	call main.ck_oos.disable
+	call main.ck_partial.disable
+	call main.ck_nooffset.disable
+	call script _p_gentype_multiple
+	call script _p_gentype_scores_on
+	if(main.rb_alpha1.isvisible()) {
+		call main.rb_alpha1.disable
+		call main.rb_unconditional.disable
+	}
+END
+
+PROGRAM main_scores_off
+BEGIN
+	call main.rb_medtime.enable
+	call main.rb_medlntime.enable
+	call main.rb_meantime.enable
+	call main.rb_meanlntime.enable
+	call main.rb_hazard.enable
+	call main.rb_hr.enable
+	call main.rb_xb.enable
+	call main.rb_stdp.enable
+	call main.rb_surv.enable
+	call main.rb_csnell.enable
+	call main.rb_mgale.enable
+	call main.rb_deviance.enable
+	call main.rb_csurv.enable
+
+	call script _p_gentype_single
+	call main.ck_nooffset.enable
+	if(main.rb_alpha1.isvisible()) {
+		call main.rb_alpha1.enable
+		call main.rb_unconditional.enable
+	}
+END
+
+PROGRAM main_oos_off_partial_off
+BEGIN
+	if(!main.ck_scores) {
+		call main.ck_oos.disable
+		call main.ck_partial.disable
+	}
+END
+
+PROGRAM main_oos_on_partial_off
+BEGIN
+	if(!main.ck_scores) {
+		call main.ck_oos.enable
+		call main.ck_partial.disable
+	}
+END
+
+PROGRAM main_oos_on_partial_on
+BEGIN
+	if(!main.ck_scores) {
+		call main.ck_oos.enable
+		call main.ck_partial.enable
+	}
+END
+
+INCLUDE _p_gentype_sc
+INCLUDE ifin
+INCLUDE _type_list_fd
+
+PROGRAM check_meantime
+BEGIN
+	if main.rb_alpha1.isvisible() & main.rb_unconditional.isvisible() {
+		if main.rb_unconditional {
+			if main.rb_meantime { 
+				call create STRING _MSG_TMP
+	                        call _MSG_TMP.format				/// 
+					"resource STREG_P_MSGBOX_REQUIRED_TO_USE_STAT_FMT" ///
+					"resource STREG_P_MAIN_RB_ALPHA1" 	///
+					"resource LBL_MEDIAN_LN_SURVIVAL_TIME" 
+				stopbox stop "class _MSG_TMP.value"
+
+// "Make prediction conditional on frailty value of 1" must be selected to use the "Mean survival time" statistic.
+			}
+			if main.rb_meanlntime { 
+                                call create STRING _MSG_TMP
+                                call _MSG_TMP.format				/// 
+					"resource STREG_P_MSGBOX_REQUIRED_TO_USE_STAT_FMT" ///
+					"resource STREG_P_MAIN_RB_ALPHA1" 	///
+					"resource LBL_MEDIAN_LN_SURVIVAL_TIME"
+                                stopbox stop "class _MSG_TMP.value"
+
+// "Make prediction conditional on frailty value of 1" must be selected to use the "Mean ln(survival time)" statistic.
+			}
+			if main.rb_hr {
+                                call create STRING _MSG_TMP
+                                call _MSG_TMP.format				/// 
+					"resource STREG_P_MSGBOX_REQUIRED_TO_USE_STAT_FMT" ///
+					"resource STREG_P_MAIN_RB_ALPHA1" 	///
+					"resource LBL_HAZARD_RATIO"
+                                stopbox stop "class _MSG_TMP.value"
+
+// "Make prediction conditional on frailty value of 1" must be selected to use the "Hazard ratio" statistic.
+			}
+		}
+	}
+END
+
+PROGRAM command
+BEGIN
+	put "predict "
+	put " " /program _p_gentype_output
+	INCLUDE _ifin_pr
+	beginoptions
+		put /program check_meantime
+		option radio(main rb_medtime rb_medlntime rb_meantime	///
+				 rb_meanlntime rb_hazard rb_hr rb_xb	///
+				 rb_stdp rb_surv rb_csnell rb_mgale	///
+				 rb_deviance rb_csurv)
+		option radio(main rb_alpha1 rb_unconditional)
+		option main.ck_scores
+		option main.ck_oos
+		option main.ck_nooffset
+		option main.ck_partial
+	endoptions
+END
+

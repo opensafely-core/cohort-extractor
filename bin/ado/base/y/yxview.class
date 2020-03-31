@@ -1,0 +1,1880 @@
+/*                                 yxview
+
+	Base class for data views that have an x variable, a single y variable 
+	and possibly a weight variable
+*/
+*! version 1.3.4  20feb2020
+
+version 8
+
+class {
+	type	= .yxtype.new,	     style(scatter)
+	style	= .seriesstyle.new
+
+	draw_view       = .yesno.new, style(yes)
+	fill_if_undrawn = .yesno.new, style(no)
+
+//	add_plotregion	= .yesno.new, style(no)
+	conf_interval	= .yesno.new, style(no)
+	ci_of_expected	= .yesno.new, style(yes)
+	addview		= .xyaddviews.new, style(none)
+
+	// class serset serset			-- declared dynamically
+	double xvar				// x variable id
+	double yvar				// y variable id
+	double lvar				// label variable id
+	double wvar				// weight variable id
+	double pvar				// position var, rarely used
+
+	scale_by_max	= 0
+
+	numkeys		= 1			// number of keys for the view
+
+	plotregion	= ""			// string key of plotregion
+						// may be empty
+
+	delegate_draw	= ""			// a delegate drawing program
+
+
+				// type specific info //
+
+						// scatter and connected views
+	obs_styles	= {}			// custom observation styles
+	obs_labels	= {}			// custom observation labels
+	double jitterseed
+	jitter		= 0			// jitter amount, gmetric
+
+						// bar, spike, dropline, dot
+	base		= (.)
+	drawn_base	= (.)
+	bar_drop_to	= .ordstyle.new    , style(x)
+
+						// bar views
+	bar_size	= 1
+	bar_gap		= 0
+	bartype		= .yxbartype_g.new , style(fixed)
+
+						// dotplot views
+	dots_extend	= .yesno.new , style(yes)
+	num_dots	= 75
+
+						// area view
+	drop_base	= .yesno.new , style(yes)
+
+						// Editor variables
+	object_found_dialog	= ""
+} , inherit(subview)
+
+
+/* -------------------------------------------------------------------------*/
+program new
+
+	.addview.setstyle , style(none)
+	.jitterseed = `gdi(newjitterseed)'
+	.grid_dragable = 0
+	if `"`0'"' != `""' {
+		.set `0'
+	}
+end
+
+
+program set
+
+	syntax [, Serset(string) Xvariable(string) Yvariable(string)	///
+		  Lvariable(string) Wvariable(string) Pvariable(string)	///
+		  STyle(string) Type(string) PLOTRegion(string) ]
+
+	if "`serset'" != "" { 
+		if "`.Local.serset.isa'" == "" {
+			.Declare serset = .`serset'.ref
+		}
+		else {
+			.serset.ref = .`serset'.ref 
+		}
+	}
+	if "`plotregion'" != "" { 
+		.plotregion = `"`.`plotregion'.objkey'"'
+	}
+
+						// set the x, y and maybe l 
+						// and w variable ids 
+	foreach v in xvariable yvariable lvariable wvariable pvariable {
+		if "``v''" != "" {
+			local att = bsubstr("`v'", 1, 4)
+			capture confirm integer number ``v''
+			if _rc {
+				local varid = `.serset.seriesof ``v'''
+				if 0`varid' {
+					.`att' = `varid'
+				}
+				else {
+				    di in white `"``v'' not found in serset"'
+				}
+			}
+			else	.`att' = ``v''
+		}
+	}
+
+	if `"`style'"' != `""' {
+		.style.setstyle , style(`style')
+	}
+
+	if "`type'" != "" { 
+		.type.setstyle, style(`type')
+	}
+end
+
+/* -------------------------------------------------------------------------*/
+/*
+	Returns the value of x, y for the specified observation
+
+	Usage:  .X #_obs
+*/
+
+program X
+	.serset.set
+
+	class exit = serset(`.xvar', `1')
+end
+
+program Y
+	.serset.set
+
+	class exit = serset(`.yvar', `1')
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*
+	Returns minimum and maximum sizes
+*/
+
+program ranges , rclass
+
+	capture return scalar xmin = `.serset.sers[`.xvar'].min'
+	capture return scalar xmax = `.serset.sers[`.xvar'].max'
+	capture return scalar ymin = `.serset.sers[`.yvar'].min'
+	capture return scalar ymax = `.serset.sers[`.yvar'].max'
+
+	if "`.bar_drop_to.stylename'" == "y" {
+		capture local xmin = return(ymin)
+		capture local xmax = return(ymax)
+
+		capture return scalar ymin = return(xmin)
+		capture return scalar ymax = return(xmax)
+		capture return scalar xmin = `xmin'
+		capture return scalar xmax = `xmax'
+	}
+
+/*
+	if `.base' < . {
+		local ord = cond("`.bar_drop_to.snm"=="y", "x", "y")
+
+		capture return scalar `ord'min = min(return(`ord'min) , `.base')
+		capture return scalar `ord'max = max(return(`ord'max) , `.base')
+	}
+*/
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*
+	Returns the label of the specified dimension variable, or if that is 
+	blank the name of the <dim>variable.  Optionally, returns only the name.
+
+	Note will work for dim = "z" for zyxview_g.class.
+*/
+
+program dimtitle
+
+	gettoken dim 0 : 0
+
+	syntax [ , Nameonly Keynum(integer 1) ]		// keynum ignored
+
+	if "`dim'" != "z" & "`.bar_drop_to.stylename'" == "y" {
+		local dim = cond("`dim'" == "x" , "y", "x")
+	}
+
+	if ! `.Local.serset.isofclass serset' {
+		exit
+	}
+
+	if "`nameonly'" == "" {
+		class exit `"`.serset.sers[`.`dim'var'].label_or_name'"'
+	}
+
+	class exit `"`.serset.sers[`.`dim'var'].name'"'
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*
+	Returns the format of the specified dimension variable.
+*/
+
+program dimformat
+
+	gettoken dim 0 : 0
+	syntax
+
+	if ! `.Local.serset.isofclass serset' {
+		exit
+	}
+
+	if "`dim'" != "z" & "`.bar_drop_to.stylename'" == "y" {
+		local dim = cond("`dim'" == "x" , "y", "x")
+	}
+
+	class exit `"`.serset.sers[`.`dim'var'].format'"'
+end
+
+/* -------------------------------------------------------------------------*/
+/*
+	Returns the key of series to be used for value labels in the specified
+	dimension.
+*/
+
+program dim_value_label_series
+	gettoken dim 0 : 0
+	syntax
+
+	if "`dim'" != "z" & "`.bar_drop_to.stylename'" == "y" {
+		local dim = cond("`dim'" == "x", "y", "x")
+	}
+	class exit "`.serset.sers[`.`dim'var'].objkey'"
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*
+	Returns a key object of the view
+*/
+program newkey
+
+	if `.numkeys' == 0 {
+		class exit ""
+	}
+
+	syntax [anything] [ , Position(passthru) ]
+							// anything ignored
+
+	class exit .yxkey_g.new , view(`.objkey') `position'
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*
+	Returns a label for the view.  In this case based on the y variable.
+	Note, supports the -NAMEonly- option to ignore variable labels and 
+	return only the variable name of the y series.
+*/
+program label
+	local dim = cond("`.bar_drop_to.stylename'" == "x" , "y" , "x")
+	class exit `"`.dimtitle `dim' `0''"'
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*
+	Assumes an appropriate scale has already been set.
+*/
+program draw
+
+	if ! `.draw_view.istrue' { 
+		exit						/* EXIT */
+	}
+
+	if "`.delegate_draw'" != "" {
+		yxview_`.delegate_draw'_draw
+		exit
+	}
+
+	.serset.set
+
+	yxview_`.type.stylename'_draw			// may be an ado file
+end
+
+program yxview_scatter_draw
+	._draw_points
+end
+
+program yxview_line_draw
+	.style.line.setgdifull
+	._draw_line
+end
+
+program yxview_connected_draw
+	.style.line.setgdifull
+	._draw_line
+	._draw_points
+end
+
+program _draw_points
+	args nolabs
+
+	if 0`.lvar' & "`nolabs'" == "" {			// labeled
+		if "`.style.marker.symbol.setting'"  == "none"	&	///
+		   "`.style.label.position.setting'" == "0"	&	///
+		    `.obs_labels.arrnels' == 0			&	///
+		    `.obs_styles.arrnels' == 0			&	///
+		    `.pvar' >= . {
+			.style.label.setgdifull				// text
+			if 0`.serset.sers[`.lvar'].vlabs.dynamicmv.arrnels' {
+				gdi extscatterlabel `.serset.id'	///
+					`.xvar' `.yvar' `.lvar'		///
+					`.serset.sers[`.lvar'].vlabs.objkey'
+			}
+			else {
+				if "`.serset.sers[`.lvar'].type.setting'" ///
+					== "numeric" {
+				    local fmt `"`.style.label.format'"'
+				    capture confirm numeric format `fmt'
+				    if c(rc) {
+					local fmt `.serset.sers[`.lvar'].format'
+				    }
+				}
+				gdi extscattervalue `.serset.id' `.xvar'  ///
+					`.yvar' `.lvar' `fmt'
+			}
+
+			gdi update
+		}
+		else {
+			._draw_labeled_points "" ""
+		}
+
+		exit							// Exit
+	}
+
+	if 0`.wvar' {						// weighted
+		._draw_weighted_points
+		exit
+	}
+
+	if `.obs_labels.arrnels' > 0 | `.obs_styles.arrnels' > 0 {
+		._draw_labeled_points "" "`nolabs'"		// customs
+//		_draw_styled_points
+		exit							// Exit
+	}
+
+								// "normal"
+	if "`.style.marker.backsymbol.setting'" != "none" {
+		.style.marker.setgdifull,  backing
+		gdi jitterseed = `.jitterseed'
+		gdi gm_jitter  = `.jitter'
+		gdi scatter `.serset.id' `.xvar' `.yvar'
+		gdi gm_jitter  = 0
+	}
+
+	if 0`.style.marker.drawn' {
+		.style.marker.setgdifull
+		gdi jitterseed = `.jitterseed'
+		gdi gm_jitter  = `.jitter'
+		gdi scatter `.serset.id' `.xvar' `.yvar'
+		gdi gm_jitter  = 0
+	}
+
+end
+
+program _draw_line
+
+	if "`.style.connect.stylename'" == "none" {
+		exit
+	}
+	gdi scatterline_connect_type    = `.style.connect.stylename'
+	gdi scatterline_connect_missing = `.style.connect_missings.stylename'
+	gdi scatterline `.serset.id' `.xvar' `.yvar'
+	gdi update
+end
+
+program _draw_labeled_points
+	args labonly nolabel
+
+	.style.marker.setgdifull				// symbols 
+	.style.label.setgdifull					// text
+
+	if ("`labonly'" != "")  local drawn 0
+	else                    local drawn `.style.marker.drawn'
+
+	local dostr 0
+	if 0`.serset.sers[`.lvar'].vlabs.dynamicmv.arrnels' {
+		local labarr serset.sers[`.lvar']
+		local dolbl 1
+	}
+	else {
+		local dolbl 0
+		local fmt `"`.style.label.format'"'
+		if `"`fmt'"' != "" {
+			if "`.serset.sers[`.lvar'].type.setting'" == "string" {
+				capture confirm string format `fmt'
+				if c(rc) {
+					local fmt
+				}
+			}
+			else {
+				capture confirm numeric format `fmt'
+				if c(rc) {
+					local fmt
+				}
+			}
+		}
+		if `"`fmt'"' == "" {
+			local fmt `.serset.sers[`.lvar'].format'
+		}
+
+		if "`.serset.sers[`.lvar'].type.setting'" == "string" {
+			local dostr 1
+		}
+	}
+
+	local gpos = 0`.style.label.position.setting'
+	if `gpos' == 0 {
+		local shift 0
+	}
+	else {
+		local shift  = `.style.marker.size.gmval' / 2 + 	///
+			       `.style.label.textgap.gmval'
+	}
+	local shift_default `shift'
+	local angle    `.style.label.position.angle'
+	local xshift = `shift' * cos(`angle')
+	local yshift = `shift' * sin(`angle')
+
+	forvalues j = 1/`:serset N' {
+
+		local x = serset(`.xvar', `j')
+		local y = serset(`.yvar', `j')
+
+		if `x' >= . | `y' >= . {
+			continue				// Continue
+		}
+
+		if `.pvar' < .  {			// custom position
+			local pos = serset(`.pvar', `j')
+			local lab					///
+		    `"`._get_label `dolbl' `dostr' "`fmt'" `j' `labarr''"'
+			if `"`lab'"' != `""' {
+				if `pos' >= . {
+					local pos `gpos'
+				}
+				_draw_point `j' `x' `y' `pos' `drawn' `lab'
+				continue			// Continue
+			}
+		}
+
+		if "`.obs_styles[`j'].isa'" != "" {		// set custom
+			.obs_styles[`j'].marker.setgdifull	// symbols 
+			.obs_styles[`j'].label.setgdifull	// text
+			local shift  = `.obs_styles[`j'].marker.size.gmval'  ///
+					/ 2 + `.style.label.textgap.gmval'
+			local angle    `.obs_styles[`j'].label.position.angle'
+			local xshift = `shift' * cos(`angle')
+			local yshift = `shift' * sin(`angle')
+		}
+
+		if `drawn' {				// draw point
+			gdi point  `x' `y'
+		}
+		else {
+			gdi moveto `x' `y'
+		}
+
+		if "`nolabel'" == "" {
+		  gdi gm_rmoveto `xshift' `yshift'	// offset for labels
+
+		  if "`.obs_labels[`j'].isa'" == "" {
+		    if `dolbl' {
+			gdi extctext `.`labarr'.value_label `=serset(`.lvar',`j')''
+		    }
+		    else {
+			if `dostr' {
+			    local lab : di `fmt' `"`=strserset(`.lvar',`j')'"'
+			    local lab `lab'				// sic
+			    gdi extctext `lab'
+			}
+			else {
+			    gdi extctext `=string(`=serset(`.lvar',`j')',"`fmt'")'
+			}
+		    }
+		  }
+		  else {
+		    gdi extctext `.obs_labels[`j']'
+		  }
+		}
+
+		if "`.obs_styles[`j'].isa'" != "" {		// Reset default
+			.style.marker.setgdifull
+			.style.label.setgdifull
+			local angle `.style.label.position.angle'
+			local shift `shift_default'
+			local xshift = `shift' * cos(`angle')
+			local yshift = `shift' * sin(`angle')
+		}
+	}
+
+end
+
+program _get_label
+	args dolbl dostr fmt j labarr
+
+	if "`.obs_labels[`j'].isa'" == "string" {
+		class exit `"`.obs_labels[`j']'"'
+	}
+
+	if `dolbl' {
+		class exit `"`.`labarr'.value_label `=serset(`.lvar',`j')''"'
+	}
+	else {
+		if `dostr' {
+			local lab : di `fmt' `"`=strserset(`.lvar',`j')'"'
+			local lab `lab'					// sic
+			class exit `"`lab'"'
+		}
+		else {
+			class exit `"`=string(`=serset(`.lvar',`j')',"`fmt'")'"'
+		}
+	}
+end
+
+// ----------------------------------------------------------------------------
+// Set the default label for the jth point to _Gr_Global, the GUI may use it.
+
+program SetGlobalLabelJ
+	args j
+
+	if "`.obs_labels[`j'].isa'" != "" {
+		._Gr_Global.label_of_index = `"`.obs_labels[`j']'"'
+		exit							// Exit
+	}
+
+	local dostr 0
+	if 0`.serset.sers[`.lvar'].vlabs.dynamicmv.arrnels' {
+		local labarr serset.sers[`.lvar']
+		local dolbl 1
+	}
+	else {
+		local dolbl 0
+		local fmt `.serset.sers[`.lvar'].format'
+
+		if "`.serset.sers[`.lvar'].type.setting'" == "string" {
+			local dostr 1
+		}
+					// consider allow a fmt from style
+	}
+
+	.serset.set
+	._Gr_Global.label_of_index =					///
+		`"`._get_label `dolbl' `dostr' "`fmt'" `j' `labarr''"'
+end
+
+
+				// _draw_labeled_points could use always
+				// _draw_point but it is more efficient as is
+
+program _draw_point
+	gettoken j     0     : 0
+	gettoken x     0     : 0
+	gettoken y     0     : 0
+	gettoken pos   0     : 0
+	gettoken drawn label : 0
+
+	if `x' >= . | `y' >= . {
+		exit
+	}
+
+	if ("`drawn'" == "")  local drawn 1
+
+	if "`.obs_styles[`j'].isa'" != "" {		// set custom
+		.obs_styles[`j'].marker.setgdifull
+		.obs_styles[`j'].label.setgdifull
+		local pos    `.obs_styles[`j'].label.position.setting'
+		local angle  `.obs_styles[`j'].label.position.angle'
+	}
+	else {
+		capture noisily {
+			if `pos' < . {
+				local holdpos = `.style.label.position.setting'
+				.style.label.position.setstyle , style(`pos')
+			}
+			else {
+				local pos    `.style.label.position.setting'
+			}
+
+			.style.marker.setgdifull		// symbols 
+			.style.label.setgdifull			// text
+			local angle  `.style.label.position.angle'
+		}
+		local rc = _rc
+		if "`holdpos'" != "" {
+			.style.label.position.setstyle , style(`holdpos')
+		}
+		if `rc' {
+			exit `rc'
+		}
+	}
+
+	if 0`pos' == 0 {
+		local shift 0
+	}
+	else {
+		if "`.obs_styles[`j'].isa'" == "" {
+		    local shift  = `.style.marker.size.gmval' / 2 + ///
+				   `.style.label.textgap.gmval'
+		}
+		else {
+		    local shift  = `.obs_styles[`j'].marker.size.gmval' /2 + ///
+				   `.obs_styles[`j'].label.textgap.gmval'
+		}
+	}
+	local xshift = `shift' * cos(`angle')
+	local yshift = `shift' * sin(`angle')
+
+						
+	if (`drawn') {					// draw point
+		gdi point  `x' `y'				
+	}
+	else {
+		gdi moveto `x' `y'				
+	}
+
+	if `"`label'"' == `""' {
+		exit
+	}
+
+	gdi gm_rmoveto `xshift' `yshift'		// offset for labels
+
+	local label `label'
+	gdi extctext  `label'
+
+	if "`.obs_styles[`j'].isa'" != "" {		// reset default
+		.style.marker.setgdifull
+		.style.label.setgdifull	
+	}
+end
+
+
+
+program _draw_weighted_points
+	if (! 0`.style.marker.drawn')  exit
+
+	if 0`.serset[`.wvar'].min' < 0 {
+		di as error "negative weights not allowed, plot ignored"
+		exit
+	}
+
+	local wtseries serset.sers[`.wvar']
+
+	local max = 0`.`.`.plotregion'.graphs[1]'.style.max_wted_symsize.gmval'
+	local max = cond(`max' , `max', 10)
+
+	if `.scale_by_max' == 0 {
+		local scale = 1.5 / sqrt(`.`wtseries'.min')
+	}
+	else {
+		local scale = 1 / sqrt(`.`wtseries'.max')
+	}
+							// 1.5 std symsize
+
+	if `scale' * sqrt(`.`wtseries'.max') > `max' {
+		local scale = `max' / sqrt(`.`wtseries'.max')
+	}
+
+	.style.marker.setgdifull
+	gdi jitterseed = `.jitterseed'
+	gdi gm_jitter  = `.jitter'
+	gdi scatterweight `.serset.id' `.xvar' `.yvar' `.wvar' `scale'
+	gdi gm_jitter = 0
+
+end
+
+// ---------------------------------------------------------------------------
+//  Currently unique to bar views (and to a lesser extent spike, dropline, and
+//  dot).  Returns the minimum/maximum point (in the metric of ord) that the 
+//  view will attempt to draw to.
+
+program min_range
+	args ord
+
+	class exit "`.minmax_range `ord' min'"
+end
+
+program max_range
+	args ord
+
+	class exit "`.minmax_range `ord' max'"
+end
+
+program minmax_range
+	args ord minmax
+
+	if "`ord'" != "`.bar_drop_to.stylename'" {
+		class exit "`.base'"
+	}
+
+	if "`.type.stylename'" == "rbar" |			///
+	  ("`.type.stylename'" == "bar" & "`.bartype.stylename'" == "fixed") {
+
+	    local series serset.sers[`.xvar']
+
+	    local op = cond("`minmax'" == "min" , "-" , "+")
+	    class exit "`=`.serset.sers[`.xvar'].`minmax'' `op' `.bar_size'/2'"
+	}
+
+	class exit "."
+
+
+end
+
+program register_with_scale
+
+	if "`.plotregion.isa'" == "" {
+		exit
+	}
+
+	if `.base' < . {
+		local ord = cond("`.bar_drop_to.stylename'" == "x", "y", "x")
+		.`.plotregion'.`ord'scale.add_view `.objkey'
+	}
+
+/* delete
+	if "`.type.stylename'" != "bar" {
+		class exit (.)
+	}
+	if "`.bartype.stylename'" != "fixed" {
+		class exit (.)
+	}
+*/
+
+	local ord `.bar_drop_to.stylename'
+	.`.plotregion'.`ord'scale.add_view `.objkey'
+end
+
+
+// ---------------------------------------------------------------------------
+program next_default_series
+	class exit = `.`.`.plotregion'.graphs[1]'.n_views' + 1
+end
+
+
+// ---------------------------------------------------------------------------
+//  Set the type of the view, recreate the object if necessary.
+
+program _set_type
+	args type
+
+	if "`type'" == "`.type.setting'" {
+		exit
+	}
+
+	.type.setstyle, style(`type')
+
+	tempname pnm				// direct tie into twoway
+	capture cutil which twoway_`1'_parse 
+	if _rc {				// default parser
+		.`pnm' = .twoway_yxview_parse.new 
+	}
+	else {					// custom parser
+		.`pnm' = .twoway_`type'_parse.new 
+	}
+	if "`.`pnm'.isa'" == "" {
+		di as error "`1' not supported"
+		exit 198
+	}
+
+	if "`.classname'" == "`.`pnm'.viewclass'" {	// same class
+		exit					// we're done
+	}
+
+	if "`.classname'" == "y2xview_g" & "`.`pnm'.viewclass'" == "yxview" {
+		exit					// lesser class
+	}
+
+	if "`.`.plotregion'.isa'" == "" { 		// impossible
+		di as error "cannot retype/reclass, plotregion not stored"
+		exit 198
+	}
+
+	tempname self serset			// find and "delete" ourself 
+	.`self' = .ref				// dangerous, keep ref to self
+	.`serset' = .serset.ref			// so names still resolve
+	local preg `.`self'.plotregion'
+	// could hold a tempstyle and loop if "`.stylename'" == ""
+	forvalues i = 1/0`.`preg'.dynamicmv.arrnels' {
+		if "`.`preg'.dynamicmv[`i'].uname'" == "`.uname'" {
+			_cls nameof `.`preg'.objkey' dynamicmv[`i']
+			local name `r(name)'
+			.`preg'.`name'.ref = NULLKEY
+			continue, break
+		}
+	}
+
+	if "`name'" == "" {				// impossible
+		di as error "cannot retype, view not found"
+		exit 198
+	}
+
+							// create new view
+	tempname log
+	.`log' = {}
+	.`pnm'.viewtype = "`type'"
+	.`pnm'.log_create_view , log(`log') name(`name')		  ///
+		plotregion(`.`preg'.objkey') serset(`serset')		  ///
+		yvar(`.`self'.yvar') xvar(`.`self'.xvar') 		  ///
+		wvar(`.`self'.wvar') style(`.style.stylename')
+	_fr_runlog `log' , nologging
+
+/*
+	.`pobj`i''.log_create_view , log(`log') view(`j')	 ///
+		name(plot`++plotid') plotregion(`plreg`i'')	 ///
+		serset(sersets[`serset`i'']) seriesid(`++serid')
+*/
+/*
+	.`preg'.Declare `name' = .`pnm'.log_create_view,	 	///
+		yvar(`.`self'.yvar') xvar(`.`self'.xvar') 		///
+		wvar(`.`self'.wvar') style(`.style.stylename')		///
+		serset(`serset') plotregion(`.`preg'.objkey')
+*/
+
+/*
+	.`preg'.`name'._set_to_active_context		// dangerous
+*/
+
+end
+
+
+/* -------------------------------------------------------------------------*/
+/* add a xyview based on the current setting of .addview.
+   May use T_Name containing the full name of the xyview if view does not
+   hold plotregion and plotregion graph.
+*/
+
+program _set_addview
+	gettoken xytype options : 0 , parse(" ,")
+
+	if "`xytype'" == "none" {
+		exit
+	}
+
+	.addview.setstyle , style(none)			/* always none */
+
+	if "`.`.plotregion'.graphs[1]'" == "" {
+		._last_xyandplotreg graph plotregion : $T_Name 	/* get names */
+		if "`plotregion'" != "" & "`graph'" != "" {
+			.set , plotregion(`plotregion') 
+			.`plotregion'.set , graph(`graph')
+		}
+		else {
+			di in white "graph or plotregion not defined for view"
+			exit 198
+		}
+	}
+
+	if "`.Local.serset.isa'" == "" {
+	     di in white "cannot add view, view does not reference its serset"
+	     exit
+	}
+
+	if "`xytype'" == "median_bands" | "`xytype'" == "splined_medians" {
+		._run_derived `xytype' `options'
+		exit						/* EXIT */
+	}
+
+	preserve					/* use the serset */
+	.Local.serset.set
+	drop _all
+	serset use
+							/* add view */
+	._run_`xytype' `.serset.sers[`.xvar'].name' 			/*
+		*/     `.serset.sers[`.yvar'].name' `options'
+end
+
+
+/* -------------------------------------------------------------------------*/
+program _last_xyandplotreg
+	args xymac plregmac colon rest
+
+	if "`0'" != "nogscope" {
+		local name gscope
+	}
+
+	gettoken tok rest : rest , parse(" .") 
+	while "`rest'" != "" {
+		if 0`.`name'.isofclass graph_g' {
+			local graph `name'
+		}
+		if 0`.`name'.isofclass plotregion' {
+			local plotregion `name'
+		}
+		if "`tok'" != "." {
+			local name `name'.`tok'
+		}
+		gettoken tok rest : rest , parse(" .") 
+	}
+	local last `tok'			/* assumes no trailing .'s */
+
+	c_local `xymac' `graph'
+	c_local `plregmac' `plotregion'
+
+end
+
+/* -------------------------------------------------------------------------*/
+program _run_derived
+	gettoken xytype options : 0 , parse(" ,")
+
+	if "`xytype'" == "median_bands" {
+		local type median_bands
+	}
+	else	local type spline
+
+	tempname derived
+	.`derived' = .derived_serset.new , base(`.serset.objkey')	///
+		      type(`type')  x(`.xvar') y(`.yvar') `options'
+	.`derived'.set
+	.`derived'.sort 2
+
+	.`.`.plotregion'.graphs[1]'.addplots line 			///
+		`.serset.nameof `.yvar'' `.serset.nameof `.xvar'' , 	///
+		useplotregion(`.`.plotregion'.objkey')			///
+		serset(`.`derived'.objkey'.ref) nologging notitling
+end
+
+// ----------------------------------------------------------------------------
+// Determine if a position is in/on the view
+
+program at_pos
+	.object_found_dialog = ""
+
+	if (! `.draw_view.istrue')  class exit = 0
+	if (0`.locked')		    class exit = 0
+
+	.serset.set
+
+	class exit = 0`._at_pos_`.type.stylename' `0''
+end
+
+program _at_pos_scatter
+	class exit = `._at_markers `0''
+end
+
+program _at_pos_line
+	args y x ymult xmult gmult
+
+	if (`._at_points `y' `x' `ymult' `xmult' .9')	    class exit = 1
+	if (`._at_lines  `y' `x' `ymult' `xmult' `gmult'')  class exit = 1
+	class exit = 0
+end
+
+program _at_pos_connected
+	local found `._at_markers `0''
+	if (! `found') {
+		local found `._at_lines `0''
+	}
+
+	if ("`.object_found_dialog'" != "markerlabel") .object_found_dialog = ""
+	class exit = `found'
+end
+
+program _at_pos_area
+	args y x ymult xmult gmult
+
+	if (0`._at_area `y' `x'') {
+		.object_found_dialog = "area"
+		class exit = 1
+	}
+
+	if (`._at_pos_line `0'') {
+		.object_found_dialog = "area"
+		class exit = 1
+	}
+
+	class exit = 0
+end
+
+program _at_pos_bar
+	class exit = `.at__barlike `0''
+end
+
+program _at_bar_wrk		// bartype==obs and spanning treated like fixed
+	args yp xp ymult xmult gmult dropx base
+
+	local found 0
+	if `dropx' {
+		local d = max(`.bar_size' / 2, .45*`xmult')
+		forvalues j = 1/`:serset N' {
+			local x = serset(`.xvar', `j')
+		        if (`x' >= . | `=serset(`.yvar', `j')' >= .) continue
+			if sign(`yp' - `base') != 			///
+			   sign(`yp' - `=serset(`.yvar', `j')') {
+				if `xp' >= `x'-`d' & `xp' <= `x'+`d' {
+					local found `j'
+					continue, break
+				}
+			}
+		}
+	}
+	else {
+		local d = max(`.bar_size' / 2, .45*`ymult')
+		forvalues j = 1/`:serset N' {
+			local y = serset(`.xvar', `j')
+		        if (`y' >= . | `=serset(`.yvar', `j')' >= .) continue
+			if sign(`xp' - `base') !=			///
+			   sign(`xp' - `=serset(`.yvar', `j')') {
+				if `yp' >= `y'-`d' & `yp' <= `y'+`d' {
+					local found `j'
+					continue, break
+				}
+			}
+		}
+	}
+
+	class exit = `found'
+end
+
+program _at_pos_spike
+	class exit = `.at__barlike `0''
+end
+
+program _at_spike_wrk
+	args yp xp ymult xmult gmult dropx base
+
+	local found 0
+
+	if `dropx' {
+		local halo = max(`gmult'*`.style.line.width.val'/2, .8)*`xmult'
+		forvalues j = 1/`:serset N' {
+		    local x = serset(`.xvar', `j')
+		    if (`x' >= . | `=serset(`.yvar', `j')' >= .) continue
+		    if sign(`yp'-`base') != sign(`yp'-`=serset(`.yvar', `j')') {
+			if `xp' >= `x'-`halo' & `xp' <= `x'+`halo' {
+			    local found `j'
+			    continue, break
+			}
+		    }
+		}
+	}
+	else {
+		local halo = max(`gmult'*`.style.line.width.val'/2, .8)*`ymult'
+		forvalues j = 1/`:serset N' {
+		    local y = serset(`.xvar', `j')
+		    if (`y' >= . | `=serset(`.yvar', `j')' >= .) continue
+		    if sign(`xp'-`base') != sign(`xp'-`=serset(`.yvar', `j')') {
+			if `yp' >= `y'-`halo' & `yp' <= `y'+`halo' {
+			    local found `j'
+			    continue, break
+			}
+		    }
+		}
+	}
+
+	if (`found')  .object_found_dialog = "spike"
+
+	class exit = `found'
+end
+
+
+program _at_pos_dropline
+	local found `._at_markers `0''
+	if (! `found') {
+		local found 0`.at__barlike `0' spike'
+	}
+
+	if ("`.object_found_dialog'" != "markerlabel") .object_found_dialog = ""
+	class exit `found'
+end
+
+program _at_pos_dot		// consider catching clicks in the dot lines
+	local found `._at_markers `0''
+	if (! `found') {
+		local found 0`.at__barlike `0' spike'
+	}
+
+	.object_found_dialog = ""
+	class exit = `found'
+end
+
+program _at_markers
+	args y x ymult xmult gmult yvar xvar
+
+	if "`yvar'" == "" {
+		local yvar "`.yvar'"
+		local xvar "`.xvar'"
+	}
+
+	local sz = max(`gmult'*`.style.marker.size.val', .9)
+
+	if (0`._at_points `y' `x' `ymult' `xmult' `sz' `yvar' `xvar'')	{
+	    if (0`.style.marker.drawn') {
+		.object_found_dialog = "scatter"
+		class exit = 1
+	    }
+	}
+
+	if 0`.lvar' {
+		class exit =						///
+		     `._at_labels `y' `x' `ymult' `xmult' `gmult' `yvar' `xvar''
+	}
+
+	if `.obs_labels.arrnels' > 0 {
+		class exit =						///
+		     `._at_labels `y' `x' `ymult' `xmult' `gmult' `yvar' `xvar''
+	}
+
+	class exit = 0
+end
+
+program _scale_trans_code
+	// NOTE: this program maps the transform names to the 0-based
+	// version of the codes used to transform the x/y scales -- the
+	// actual -gdi- codes are 1-based
+	args name
+	if `"`name'"' == "log" {
+		class exit = 1
+	}
+	else if `"`name'"' == "atanh" {
+		class exit = 2
+	}
+	else if `"`name'"' == "logit" {
+		class exit = 3
+	}
+	else if `"`name'"' == "log1m" {
+		class exit = 4
+	}
+	else {	// linear
+		class exit = 0
+	}
+end
+
+program _yscale_trans_code
+	class exit = `._scale_trans_code `.`.plotregion'.yscale.transform.snm''
+end
+
+program _xscale_trans_code
+	class exit = `._scale_trans_code `.`.plotregion'.xscale.transform.snm''
+end
+
+program _yscale_trans_func
+	local func `.`.plotregion'.yscale.transform.snm''
+	if "`func'" != "linear" {
+		class exit = "`func'"
+	}
+	else {
+		class exit = ""
+	}
+end
+
+program _xscale_trans_func
+	local func `.`.plotregion'.xscale.transform.snm''
+	if "`func'" != "linear" {
+		class exit = "`func'"
+	}
+	else {
+		class exit = ""
+	}
+end
+
+program _at_points
+	args y x ymult xmult sz yvar xvar
+
+	if (`.jitter' & ! `.lvar')  class exit = 0
+
+	if "`yvar'" == "" {
+		local yvar "`.yvar'"
+		local xvar "`.xvar'"
+	}
+
+	local yhalo = `sz' * `ymult' 
+	local xhalo = `sz' * `xmult' 
+
+	local yln = `._yscale_trans_code'
+	local xln = `._xscale_trans_code'
+
+	if "`.bar_drop_to.stylename'" == "x" {
+		local yvar `yvar'
+		local xvar `xvar'
+	}
+	else {
+		local yvar `xvar'
+		local xvar `yvar'
+	}
+
+	class exit =							///
+	   `.serset.at_points `yvar' `xvar' `y' `x' `yhalo' `xhalo' `yln' `xln''
+end
+
+program _at_lines
+	args y x ymult xmult gmult two
+
+	local yscale = `xmult' / `ymult'
+	local cmiss 0`.style.connect_missings.istrue'
+	local halo = max(`gmult'*`.style.line.width.val', 1.1) * `xmult'
+	local yln = `._yscale_trans_code'
+	local xln = `._xscale_trans_code'
+
+	if "`.bar_drop_to.stylename'" == "x" {
+		local yvar `.y`two'var'
+		local xvar `.xvar'
+	}
+	else {
+		local yvar `.xvar'
+		local xvar `.y`two'var'
+	}
+
+	local ctype `.style.connect.onlines_code'
+
+	local found = `.serset.at_lines `yvar' `xvar' `y' `x' `halo' `yscale' `cmiss' `yln' `xln' `ctype''
+
+	if (0`found') .object_found_dialog = "line"
+
+	class exit = 0`found'
+end
+
+program _at_area
+	args y x yvar xvar
+
+	if "`yvar'" == "" {
+		local yvar "`.yvar'"
+		local xvar "`.xvar'"
+	}
+
+	if "`.bar_drop_to.stylename'" == "y" {
+		local yvar `xvar'
+		local xvar `yvar'
+	}
+
+	local cmiss 0`.style.connect_missings.istrue'
+	local yln = `._yscale_trans_code'
+	local xln = `._xscale_trans_code'
+
+	class exit =							///
+    `.serset.at_area `yvar' `xvar' `y' `x' `.drawn_base' `cmiss' `yln' `xln''
+end
+
+program at__barlike
+	args y x ymult xmult gmult proxy_type
+							// find our base point
+	local dropx = "`.bar_drop_to.stylename'" == "x"
+
+	if `dropx' {
+		local min = `.`.plotregion'.yscale.curmin'
+		local max = `.`.plotregion'.yscale.curmax'
+	}
+	else {
+		local min = `.`.plotregion'.xscale.curmin'
+		local max = `.`.plotregion'.xscale.curmax'
+	}
+
+	if `.base' < . {
+		local base `.base'
+	}
+	else {
+		if `min' <= 0 & `max' >= 0 {  
+			local base 0
+		}
+		else {
+			local base = cond(`max' < 0 , `max' , `min')
+		}
+	}
+
+	.serset.set					// just in case
+
+	if "`proxy_type'" == "" {
+		local found = 0`._at_`.type.stylename'_wrk `0' `dropx' `base''
+	}
+	else {
+		local found = 0`._at_`proxy_type'_wrk `y' `x' `ymult' `xmult' `gmult' `dropx' `base''
+	}
+
+	if (`found')  ._Gr_Global.serset_index = `found'
+	class exit = `found'
+end
+
+program _at_labels
+	args yp xp ymult xmult gmult yvar xvar
+
+	local fsz   = 0`.style.label.textstyle.size.val' * `gmult'
+	local hfctr   0`.style.label.horizontal.shift_factor		///
+			`.style.label.horizontal_setting''
+	local vfctr   0`.style.label.vertical.shift_factor		///
+			`.style.label.vertical_setting''
+
+
+	local ylog = `._yscale_trans_code'
+	local yfunc = `._yscale_trans_func'
+	local xlog = `._xscale_trans_code'
+	local xfunc = `._xscale_trans_func'
+
+	if (`ylog')  local yp = `yfunc'(`yp')
+	if (`xlog')  local xp = `xfunc'(`xp')
+
+							// handle reverse scale
+	local x_plus  = cond(`.`.plotregion'.xscale.reverse.istrue', "-", "+")
+	local y_plus  = cond(`.`.plotregion'.yscale.reverse.istrue', "-", "+")
+	local yfctr `"cond("`y_plus'" == "+", \`vfctr', cond(\`vfctr' == 0, 1, cond(\`vfctr' == 1, 0, .5)))"'
+	local xfctr `"cond("`x_plus'" == "+", \`hfctr', cond(\`hfctr' == 0, 1, cond(\`hfctr' == 1, 0, .5)))"'
+
+	local dostr 0
+	if 0`.serset.sers[`.lvar'].vlabs.dynamicmv.arrnels' {
+		local labarr serset.sers[`.lvar']
+		local dolbl 1
+	}
+	else {
+		local dolbl 0
+		local fmt `.serset.sers[`.lvar'].format'
+
+		if "`.serset.sers[`.lvar'].type.setting'" == "string" {
+			local dostr 1
+		}
+					// consider allow a fmt from style
+	}
+
+	local shift = cond(! 0`.style.label.position.setting', 0, 	///
+			   `.style.marker.size.val' / 2 +		///
+			   `.style.label.textgap.val') * `gmult'
+	local posangle `.style.label.position.angle'
+	local xshift = `shift' * cos(`posangle') * `xmult'
+	local yshift = `shift' * sin(`posangle') * `ymult'
+
+	local fsz_default    `fsz'		// In case of custom obs
+	local hfctr_default  `hfctr'
+	local vfctr_default  `vfctr'
+	local xshift_default `xshift'
+	local yshift_default `yshift'
+	local posangle_default `posangle'
+
+	local found 0
+	forvalues j = 1/`:serset N' {
+
+		local x = serset(`xvar', `j')
+		local y = serset(`yvar', `j')
+
+		if (`ylog')  local y = `yfunc'(`y')
+		if (`xlog')  local x = `xfunc'(`x')
+
+		if `x' >= . | `y' >= . {
+			continue				// Continue
+		}
+
+		if `.pvar' < . & "`.obs_styles[`j'].isa'" == "" {
+							// custom position
+		    capture noisily {
+			local holdpos = `.style.label.position.setting'
+			local pos = serset(`.pvar', `j')
+			if `pos' < . {
+				.style.label.position.setstyle , style(`pos')
+			}
+			local shift = cond(! 0`pos', 0,			    ///
+					   `.style.marker.size.val' / 2 + ///
+					   `.style.label.textgap.val') *  ///
+					   `gmult'
+			local posangle `.style.label.position.angle'
+			local xshift = `shift' * cos(`posangle') * `xmult'
+			local yshift = `shift' * sin(`posangle') * `ymult'
+			local hfctr 0`.style.label.horizontal.shift_factor ///
+				`.style.label.horizontal_setting''
+			local vfctr 0`.style.label.vertical.shift_factor   ///
+				`.style.label.vertical_setting''
+		    }
+		    if "`holdpos'" != "" {
+			.style.label.position.setstyle , style(`holdpos')
+		    }
+		}
+
+		if "`.obs_styles[`j'].isa'" != "" {		// set custom
+			local sty_j "obs_styles[`j']"
+			local fsz   0`.`sty_j'.label.textstyle.size.val'*`gmult'
+			local shift  = `gmult' * (`.`sty_j'.marker.size.val' ///
+					/ 2 + `.`sty_j'.label.textgap.val')
+			local posangle `.`sty_j'.label.position.angle'
+			local xshift = `shift' * cos(`posangle') * `xmult'
+			local yshift = `shift' * sin(`posangle') * `ymult'
+			local hfctr 0`.`sty_j'.label.horizontal.shift_factor ///
+				`.`sty_j'.label.horizontal_setting''
+			local vfctr 0`.`sty_j'.label.vertical.shift_factor   ///
+				`.`sty_j'.label.vertical_setting''
+		}
+
+		local y =  `y' `y_plus' `yshift'
+		local x =  `x' `x_plus' `xshift'
+
+		local lab `"`._get_label `dolbl' `dostr' "`fmt'" `j' `labarr''"'
+
+		local ysz = `fsz' * `ymult'
+		local xsz = `:_length `"`lab'"'' * `fsz' * `xmult'
+
+		local yf = `yfctr'
+		local xf = `xfctr'
+		local ymin = `y' -    `yf'  * `ysz'
+		local ymax = `y' + (1-`yf') * `ysz'
+		local xmin = `x' -    `xf'  * `xsz'
+		local xmax = `x' + (1-`xf') * `xsz'
+
+		if `yp' >= `ymin' & `yp' <= `ymax' {
+			if `xp' >= `xmin' & `xp' <= `xmax' {
+				local found `j' 
+				continue, break
+			}
+		}
+
+		if "`.obs_styles[`j'].isa'" != "" {		// Reset default
+			local fsz `fsz_default'
+			local hfctr `hfctr_default'
+			local vfctr `vfctr_default'
+			local xshift `xshift_default'
+			local yshift `yshift_default'
+			local posangle `posangle_default'
+		}
+	}
+
+	if (0`found') {
+		.object_found_dialog = "markerlabel"
+		._Gr_Global.serset_index = `found'
+	}
+
+	class exit = (`found' > 0)
+end
+
+/* -------------------------------------------------------------------------*/
+/* member programs to create new views
+   most could just become simple addplots of the appropriate type.
+*/
+
+program _run_regression_line
+	gettoken x 0 : 0 , parse(" ,")
+	gettoken y 0 : 0 , parse(" ,")
+
+	syntax [ , ATobs POINTs(integer 300) ]
+
+	qui regress `y' `x'
+
+	if "`atobs'" == "" {
+		summarize `x' , meanonly
+		drop _all
+		qui set obs `points'
+		qui gen `x' = r(min) + (_n-1)*(r(max) - r(min)) / (`points' -1)
+	}
+	else {
+		drop `y'
+	}
+
+	._add_regression `x' `y'
+
+end
+
+program _run_quadratic_regression
+	gettoken x 0 : 0 , parse(" ,")
+	gettoken y 0 : 0 , parse(" ,")
+
+	syntax [ , ATobs POINTs(integer 300) ]
+
+	tempname x2
+	gen double `x2' = `x'*`x'
+	qui regress `y' `x' `x2'
+
+	if "`atobs'" == "" {
+		summarize `x' , meanonly
+		drop _all
+		qui set obs `points'
+		qui gen `x' = r(min) + (_n-1)*(r(max) - r(min)) / (`points' - 1)
+		qui gen double `x2' = `x'*`x'
+	}
+	else {
+		drop `y'
+	}
+
+	._add_regression `x' `y'
+end
+
+program _run_fractional_polynomial
+	gettoken x options : 0       , parse(" ,")
+	gettoken y options : options , parse(" ,")
+
+	qui fracpoly regress `y' `x' `options'
+
+	_add_regression `x' `y' fracpred
+end
+
+program _add_regression
+	args x y predict
+
+
+	if "`predict'" == "" {
+		local predict predict
+	}
+
+	tempname yhat
+	qui `predict' `yhat'
+
+	if `.conf_interval.isfalse' {
+		.`.`.plotregion'.graphs[1]'.addplots line `yhat' `x' ,	  ///
+			sort(`x') useplotregion(`.`.plotregion'.objkey')  ///
+			nologging notitling
+		exit
+	}
+
+	if `.ci_of_expected.istrue' | "`predict'" == "fracpred" {
+		local se_method stdp
+	}
+	else	local se_method stdf
+
+	tempname se min max
+	qui `predict' `se' , `se_method'
+	qui gen `min' = `yhat' - invttail(e(df_r), ((100-c(level))/200)) * `se'
+	qui gen `max' = `yhat' + invttail(e(df_r), ((100-c(level))/200)) * `se'
+	label variable `min' "`c(level)'% CI"
+	label variable `max' "`c(level)'% CI"
+
+//	local lstyle  p`.`.`.plotregion'.plot1.next_default_series'
+	local cistyle ci
+
+	.`.`.plotregion'.graphs[1]'.addplots 				///
+		rarea `min' `max' `x' , sort(`x') pstyle(`cistyle') ||	///
+		line `yhat' `x', sort(`x') 				///
+		useplotregion(`.`.plotregion'.objkey')			///
+		nologging notitling
+//	.`.`.plotregion'.graphs[1]'.addplots line `yhat' `min' `max' `x' , ///
+//		sort(`x')  useplotregion(`.`.plotregion'.objkey') 	   ///
+//		pstyle(. `cistyle' `cistyle') nologging notitling
+end
+
+
+program _run_ksm_mean
+	gettoken x options : 0       , parse(" ,")
+	gettoken y options : options , parse(" ,")
+
+	tempname yhat
+	ksm `y' `x' , gen(`yhat') nograph , `options'
+	label variable `yhat' "ksm, mean `options'"
+
+	.`.`.plotregion'.graphs[1]'.addplots line `yhat' `x' , sort(`x')  ///
+		useplotregion(`.`.plotregion'.objkey') nologging notitling
+end
+
+program _run_ksm_line
+	gettoken x options : 0       , parse(" ,")
+	gettoken y options : options , parse(" ,")
+
+	tempname yhat
+	ksm `y' `x' , gen(`yhat') line nograph , `options'
+	label variable `yhat' "ksm, line `options'"
+
+	.`.`.plotregion'.graphs[1]'.addplots line `yhat' `x' , sort(`x')  ///
+		useplotregion(`.`.plotregion'.objkey') nologging notitling
+end
+
+program _run_ksm_lowess
+	gettoken x options : 0       , parse(" ,")
+	gettoken y options : options , parse(" ,")
+
+	tempname yhat
+	ksm `y' `x' , gen(`yhat') lowess nograph , `options'
+	label variable `yhat' "ksm, lowess `options'"
+
+	.`.`.plotregion'.graphs[1]'.addplots line `yhat' `x' , sort(`x')  ///
+		useplotregion(`.`.plotregion'.objkey') nologging notitling
+end
+
+/*  now uses _run_derived
+program _run_median_bands
+	args x y
+
+	.`.`.plotregion'.graphs[1]'.addview `y' `x' , c(m) s(i) sort(`x') ///
+		name(median_bands) plotregion(`.`.plotregion'.objkey') nolog
+end
+
+program _run_splined_medians
+	args x y
+
+	.`.`.plotregion'.graphs[1]'.addview `y' `x' , c(s) s(i) sort(`x')  ///
+		name(splined_medians) plotregion(`.`.plotregion'.objkey') nolog
+end
+*/
+
+
+//  ---------------------------------------------------------------------------
+//  Set the right-click menu for yxviews
+
+program SetRightMenu
+
+	local editobj "`._Gr_Global.edit_object'"
+	local j 0`._Gr_Global.serset_index'
+
+	if (`j' == 0)  exit					// Exit
+
+	local dlg "`.dialog'"
+	if (strpos("`dlg'", "area"))  exit			// Exit
+	if (strpos("`dlg'", "line"))			///
+		if ("`dlg'" != "dropline") exit			// Exit
+
+	if ("`dlg'" == "connected" | "`dlg'" == "dot")  local dlg "scatter"
+
+	local cmd "_gedi showdialog gr_ed_`dlg' `editobj' `j'"
+	
+	// menu resource -- "Observation properties"
+	_gedi rightmenu add 7 OBJECT_OBSPROPERTIES CMD "`cmd'"
+
+	.Super(as_custom_ed).SetRightMenu
+
+end
+
+
+//  ---------------------------------------------------------------------------
+//  Edit the custom style of an observation/point.  Create the custom style
+//  if it does not already exist.
+
+program EditCustomStyle
+
+	syntax  [ , j(integer -99999) style(string asis) ]
+
+	.serset.set
+
+	if (`"`style'"' == `""')	     exit			// Exit
+	if (`j'==-99999 | `j' >`:serset N')  exit			// Exit
+
+	if `.objspecific_index `j'' {
+		.Super(as_custom_ed).EditCustomStyle `0'
+		exit
+	}
+					
+	if "`.obs_styles[`j'].isa'" == "" {	// Create style if needed
+	  if "`.style.snm'" == "" {
+	    .obs_styles[`j'] = .`.style.classname'.new , style(`.style.objkey')
+	  }
+	  else {
+	    .obs_styles[`j'] = .`.style.classname'.new , style(`.style.snm')
+	  }
+	  if `.pvar' < .  {				// custom position
+		local posedit "label(position(`=serset(`.pvar', `j')'))"
+	  }
+	}
+
+	.obs_styles[`j'].editstyle `style' `posedit' editcopy
+
+end
+
+
+//  ---------------------------------------------------------------------------
+//  Edit the custom label of an observation/point.  Create the custom label
+//  if it does not already exist.
+
+program EditCustomLabel
+
+	syntax  [ , j(integer -1) label(string asis) ]
+
+	if (`j'< 1 | `j' >`:serset N')  exit				// Exit
+
+	.obs_labels[`j'] = `"`label'"'
+end
+
+
+//  ---------------------------------------------------------------------------
+//  Set an observation as a custom observation and optionally override the
+//  label for the observation.
+
+program SetCustom
+	args j label
+
+	if (`j' > `:serset N')  exit
+
+	if "`.style.snm'" == "" {
+	    .obs_styles[`j'] = .`.style.classname'.new , style(`.style.objkey')
+	}
+	else {
+	    .obs_styles[`j'] = .`.style.classname'.new , style(`.style.snm')
+	}
+
+	if `.pvar' < .  {				// custom position
+		local posedit "label(position(`=serset(`.pvar', `j')'))"
+		.obs_styles[`j'].editstyle `posedit' editcopy
+	}
+
+	if `"`label'"' != `""' {
+	    .obs_labels[`j'] = `"`label'"'
+	}
+
+end
+
+
+//  ---------------------------------------------------------------------------
+//  Set a custom label on an observation or change an existing custom label
+
+program SetCustomLabel
+	args j label
+
+	.obs_labels[`j'] = `"`label'"'
+end
+
+//  ---------------------------------------------------------------------------
+//  Interface to editor GUI that allows the plot type to be changed.
+
+program SetType
+	args setting
+
+        .type.setstyle, style(`setting')
+	if "`._Gr_Global.edit_graph'" != "" {
+	    .`._Gr_Global.edit_graph'._set_cts_toolbar `._Gr_Global.edit_object'
+	}
+end
+
+
+//  ---------------------------------------------------------------------------
+//  Does the view have a custom style or label at the currently selected point?
+//  If so, returns the index, if not returns "".
+
+program SelectedCustomIndex
+	local j = 0`._Gr_Global.serset_index'
+
+	if `.objspecific_index `j'' {
+		class exit = `.objspecific_index `j''
+	}
+
+	if ("`.object_found_dialog'" == "")  local dlg "`._dialog'" 
+	else				     local dlg "`.object_found_dialog'"
+	if "`dlg'" == "line" | "`dlg'" == "area" {
+		class exit ""
+	}
+
+	if 0`j' {
+		if "`.obs_styles[`j'].isa'" == "" {
+			if "`.obs_labels[`j'].isa'" == "" {
+				local j ""
+			}
+		}
+	}
+
+	if (0`j' == 0)  local j ""
+
+	class exit "`j'"
+end
+
+
+// ---------------------------------------------------------------------------
+// Sort the serset on the x variable.  
+
+program SortOnX
+
+	if `.obs_labels.arrnels' > 0 | `.obs_styles.arrnels' > 0 {
+	      di as text "Note: may not sort plots with custom styles or labels"
+	      exit
+	}
+
+	.serset._set_sortorder `.serset.nameof `.xvar''
+end
+
+
+// ---------------------------------------------------------------------------
+// command logged by parse to allow connect() option to over-ride type.
+
+program _maybe_override_type
+	if "`.type.stylename'" == "scatter" {
+		.type.setstyle , style(connected)
+	}
+end
+
+
+// ---------------------------------------------------------------------------
+// Set the extents to the graphics editor.
+
+program gedi_extent
+	args yvar xvar
+
+	if "`yvar'" == "" {
+		local yvar `.yvar'
+		local xvar `.xvar'
+	}
+	if "`.bar_drop_to.stylename'" == "y" {
+		local hvar `yvar'
+		local yvar `xvar'
+		local xvar `hvar'
+	}
+
+	if "`.type.stylename'"=="scatter" |				///
+	   "`.type.stylename'"=="connected" | "`.type.stylename'"=="dropline" {
+	    local sz  = `.style.marker.size.gmval' *			///
+	    	`.`.plotregion'.drawn_gmult' * `.`.plotregion'.drawn_gbeta'
+	}
+	else local sz = 0
+
+	_gedi extent "" "" 0 0 0 0 
+if ("$grdebug"!="") di in white `"_gedi extent "" "" 0 0 0 0"'
+
+	_gedi ytransform `.`.plotregion'.yscale.transform.stylename'
+	_gedi xtransform `.`.plotregion'.xscale.transform.stylename'
+	
+	if "`.object_found_dialog'" == "markerlabel" {
+	    local cust_dex "`.SelectedCustomIndex'"
+
+	    if ("`cust_dex'" == "" )	local style style
+	    else			local style "obs_styles[`cust_dex']"
+
+	    local shift = cond(0`.`style'.label.position.setting', 	  ///
+				(`.`style'.marker.size.val' / 2 +	  ///
+				`.`style'.label.textstyle.size.val' / 2 + ///
+				`.`style'.label.textgap.val') * `gmult'	  ///
+				`.`.plotregion'.drawn_gmult' *		  ///
+				`.`.plotregion'.drawn_gbeta', 		  ///
+			       0)
+	    if `.pvar' < . & "`cust_dex'" == "" {		// indiv pos
+		_gedi mlabelextent 2 `.serset.id' `xvar' `yvar' 	///
+			`.`.plotregion'.ScaleTransforms' `shift' `.pvar'
+if ("$grdebug"!="") di in white "_gedi mlabelextent 2 `.serset.id' `xvar' `yvar' `.`.plotregion'.ScaleTransforms' `shift' `.pvar'"
+	    }
+	    else {						// all same pos
+	    							// or custom
+		local posangle `.`style'.label.position.angle'
+		local xshift = `shift' * cos(`posangle')
+		local yshift = `shift' * sin(`posangle')
+		_gedi mlabelextent 1 `.serset.id' `xvar' `yvar' 	///
+			`.`.plotregion'.ScaleTransforms'		///
+			`xshift' `yshift' `cust_dex'
+if ("$grdebug"!="") di in white "_gedi mlabelextent 1 `.serset.id' `xvar' `yvar' `.`.plotregion'.ScaleTransforms' `xshift' `yshift' `cust_dex'"
+	    }
+	}
+	else {
+	    _gedi plotextent 1 `.type.stylename' `.serset.id'		///
+	    		`xvar' `yvar' 					///
+			`.`.plotregion'.ScaleTransforms' `sz'		///
+			`.SelectedCustomIndex'
+
+if ("$grdebug"!="") di in white "_gedi plotextent 1 `.type.stylename' `.serset.id' `xvar' `yvar' `.`.plotregion'.ScaleTransforms' `sz' `.SelectedCustomIndex'"
+	}
+
+    class exit = 1
+end
+
+// ---------------------------------------------------------------------------
+// Return the dialog type for the view/plot.  Note, dialog
+// files have "gr_ed_" prefixed to this returned value.
+
+program dialog
+	if "`.object_found_dialog'" == "" {
+		local dlg "`._dialog'" 
+	}
+	else {
+		local dlg "`.object_found_dialog'"
+	}
+
+	if 0`.lvar' {
+		if (0`._Gr_Global.serset_index')			///
+			.SetGlobalLabelJ `._Gr_Global.serset_index'
+	}
+
+	class exit "`dlg'"
+end
+
+
+// ---------------------------------------------------------------------------
+// Return the appropriate default dialog type for the view/plot.
+
+program _dialog
+
+	local type "`.type.stylename'"
+
+	if "`type'" == "rcapsym" {
+		class exit "dropline"
+	}
+	if "`type'" == "pccapsym" {
+		class exit "dropline"
+	}
+
+	class exit "`type'"
+end

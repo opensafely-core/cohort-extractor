@@ -1,0 +1,179 @@
+/*
+	stem
+
+*!  VERSION 1.2.2  10mar2015
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+DEFINE _dlght 290
+INCLUDE header
+
+HELP hlp1, view("help stem")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource STEM_DLG_HSCALE
+END
+
+DIALOG main, label(resource STEM_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_var        _lft     _top     _iwd        .,		/*
+		*/ label(resource LBL_VARIABLE)
+  VARNAME  vn_var           @      _ss    _vnwd        .,		/*
+  		*/ numeric						/*
+		*/ label(resource LBL_VARIABLE)
+
+  CHECKBOX ck_prune      _lft 	   _ls     _iwd	       .,		/*
+		*/ option("prune")					/*
+  		*/ label(resource STEM_MAIN_CK_PRUNE)
+  CHECKBOX ck_truncate	 _lft     _ls    _ckwd        .,		/*
+		*/ label("")						/*
+		*/ clickon("program main_truncate_on")			/*
+		*/ clickoff("program main_truncate_off")
+  EDIT ed_truncate    _cksep        @    _spwd        .,		/*
+		*/ option("truncate")					/*
+		*/ numonly						/*
+		*/ default(1)
+  TEXT     tx_truncate    _spsep        @   _ckspr        .,		/*
+		*/ label(resource STEM_MAIN_TX_TRUNCATE)
+
+  CHECKBOX ck_round         _lft      _ls    _ckwd        .,		/*
+		*/ label("")						/*
+		*/ clickon("program main_round_on")			/*
+		*/ clickoff("program main_round_off")
+  EDIT ed_round    _cksep        @    _spwd        .,			/*
+		*/ option("round")					/*
+		*/ numonly						/*
+		*/ default(1)
+  TEXT     tx_round    _spsep        @   _ckspr        .,		/*
+		*/ label(resource STEM_MAIN_TX_ROUND)
+
+  CHECKBOX ck_digits     _lft      _ls    _ckwd        .,		/*
+		*/ label("")						/*
+		*/ clickon("gaction main.sp_digits.enable")		/*
+		*/ clickoff("gaction main.sp_digits.disable")
+  SPINNER  sp_digits   _cksep        @    _spwd        .,		/*
+		*/ option("digits")					/*
+		*/ label(resource STEM_MAIN_SP_DIGITS)			/*
+		*/ min(1) 						/*
+		*/ max(10000)
+  TEXT     tx_digits   _spsep        @   _ckspr        .,		/*
+		*/ label(resource STEM_MAIN_SP_DIGITS)
+
+  GROUPBOX gb_lines      _lft      _ls     _iwd     _ht7,		/*
+		*/ label(resource STEM_MAIN_GB_LINES)
+  RADIO    rb_default _indent      _ss    _inwd        .,		/*
+  		*/ first						/*
+		*/ label(resource STEM_MAIN_RB_DEFAULT)			/*
+		*/ clickon("script clickon_default")
+  RADIO    rb_lines         @      _ms    _rbwd        .,		/*
+		*/ label("") 						/*
+		*/ clickon("script clickon_lines")
+  DEFINE   holdx @x
+  SPINNER  sp_lines  _indent2        @    _spwd	       .,		/*
+		*/ option("lines")					/*
+  		*/ label(resource LBL_LINES)				/*
+		*/ min(1) 						/*
+		*/ max(10000) default(10)
+  TEXT     tx_lines    _spsep	     @    _rbsprb      .,		/*
+		*/ label(resource LBL_LINES)
+
+  RADIO    rb_width     holdx      _ms    _rbwd        .,		/*
+  		*/ last							/*
+		*/ label("")						/*
+		*/ clickon("script clickon_width")
+  SPINNER  sp_width  _indent2        @    _spwd	       .,		/*
+		*/ option("width")					/*
+  		*/ label(resource LBL_LINES)				/*
+		*/ min(1) 						/*
+		*/ max(10000)
+  TEXT     tx_width    _spsep	     @    _rbsprb      .,		/*
+		*/ label(resource STEM_MAIN_TX_WIDTH)
+
+END
+
+INCLUDE byifin
+
+PROGRAM main_truncate_on
+BEGIN
+	call main.ck_truncate.enable
+	call main.ed_truncate.enable
+	call main.tx_truncate.enable
+	call main.ck_round.disable
+	call main.ed_round.disable
+	call main.tx_round.disable
+END
+
+PROGRAM main_truncate_off
+BEGIN
+	call main.ck_truncate.enable
+	call main.ed_truncate.disable
+	call main.tx_truncate.disable
+	call main.ck_round.enable
+END
+
+PROGRAM main_round_on
+BEGIN
+	call main.ck_truncate.disable
+	call main.ed_truncate.disable
+	call main.tx_truncate.disable
+	call main.ck_round.enable
+	call main.ed_round.enable
+	call main.tx_round.enable
+END
+
+PROGRAM main_round_off
+BEGIN
+	call main.ck_round.enable
+	call main.ed_round.disable
+	call main.tx_round.disable
+	call main.ck_truncate.enable
+END
+
+SCRIPT clickon_default
+BEGIN
+	main.sp_lines.disable
+	main.sp_width.disable
+END
+
+SCRIPT clickon_lines
+BEGIN
+	main.sp_lines.enable
+	main.sp_width.disable
+END
+
+SCRIPT clickon_width
+BEGIN
+	main.sp_width.enable
+	main.sp_lines.disable
+END
+
+PROGRAM command
+BEGIN
+	put " " /program by_output
+	put "stem "
+	varlist main.vn_var
+	put " " /program ifin_output
+	beginoptions
+		if main.ck_truncate {
+			optionarg /hidedefault main.ed_truncate
+		}
+		if main.ck_round {
+			optionarg main.ed_round
+		}
+		if main.ck_digits {
+			optionarg main.sp_digits
+		}
+		if main.rb_lines {
+			optionarg main.sp_lines
+		}
+		if main.rb_width {
+			optionarg main.sp_width
+		}
+		option main.ck_prune
+	endoptions
+END

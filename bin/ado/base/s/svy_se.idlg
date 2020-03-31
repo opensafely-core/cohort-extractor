@@ -1,0 +1,314 @@
+/*
+  svy_se.idlg -- standard include dialog for -svy, vce()- options
+		 used by -svyset-, -svy: tabulate oneway-, and
+		 -svy: tabulate twoway-
+
+*! VERSION 1.4.3  02may2017
+
+	// SCRIPTS and PROGRAMS for external use
+
+		* SCRIPT svy_se_IS_SVYSET
+		* PROGRAM svy_se_output
+		* PROGRAM svy_prefix_output
+
+	NOTE: calling 'PROGRAM svy_prefix_output' requires that
+	'PROGRAM subpop_output' has been defined.
+
+*/
+
+DIALOG svy_se, tabtitle(resource LBL_SE)
+BEGIN
+  TEXT     tx_vce	_lft	_top	_iwd	.,		///
+	label(resource SVY_SE_TX_VCE)
+  LISTBOX  lb_vce	@	_ss	225	80,		///
+  	default(char _dta[_svy_vce])				///
+	contents(svy_se_contents)				///
+	values(svy_se_values)					///
+	onselchangelist(svy_se_change)				///
+	option(vce) nomem
+DEFINE holdy @y
+
+  TEXT     tx_hadamard	_lft	+90	_vnwd	.,		///
+	label(resource LBL_HADAMARD_MATRIX)
+DEFINE holdy2 @y
+  TEXT     tx_bsn	_lft	@  	_iwd   	.,		///
+	label(resource LBL_BOOTSTRAP_MEAN_WEIGHT_ADJUSTMENT)
+  EDIT     ed_hadamard	@	_ss	_vnwd    .,		///
+	label(resource LBL_HADAMARD_MATRIX)			///
+	option(hadamard)
+  EDIT     ed_bsn	@	@	@    	.,		///
+  	numonly							///
+	label(resource LBL_BOOTSTRAP_MEAN_WEIGHT_ADJUSTMENT)	///
+	option(bsn)
+  TEXT     tx_fay	@	_ls	_iwd	.,		///
+	label(resource LBL_FAYS_ADJUSTMENT)
+  EDIT     ed_fay	@	_ss	_vnwd	.,		///
+  	numonly							///
+	label(resource LBL_FAYS_ADJUSTMENT)			///
+	option(fay)
+
+  GROUPBOX gb_singleu	_lft    holdy2  _iwd    _ht8,		///
+	label(resource SVY_SE_SVY_SE_GB_SINGLEU)
+  RADIO    rb_missing	_ilft	_ss	_inwd	.,		///
+  	first							///
+	label(resource SVY_SE_SVY_SE_RB_MISSING)		///
+  	option(singleunit(missing))
+  RADIO    rb_certainty	@	_ss	@	.,		///
+	label(resource SVY_SE_SVY_SE_RB_CERTAINTY)		///
+  	option(singleunit(certainty))
+  RADIO    rb_scaled	@	_ss	@	.,		///
+	label(resource SVY_SE_SVY_SE_RB_SCALED)			///
+  	option(singleunit(scaled))
+  RADIO    rb_centered	@	_ss	@	.,		///
+	label(resource SVY_SE_SVY_SE_RB_CENTERED)		///
+  	last							///
+  	option(singleunit(centered))
+
+  EDIT     en_dof	_lft2	holdy	_en7wd	.,		///
+	label(resource LBL_DESIGN_DEGREES_OF_FREEDOM)		///
+	numonly							///
+	option(dof)
+  TEXT     tx_dof		_en7sep	@	_en7r	.,	///
+	label(resource LBL_DESIGN_DEGREES_OF_FREEDOM)
+
+  CHECKBOX ck_mse	_lft2	_ls	_cwd1	.,		///
+	label(resource LBL_USE_MSE_FORMULA) option(mse)
+  CHECKBOX ck_nodots	@	_ms	@	.,		///
+	label(resource LBL_SUPPRESS_REPLICATION_DOTS) option(nodots)
+END
+
+SCRIPT svy_se_clear
+BEGIN
+	script svy_se_linearized
+	svy_se.lb_vce.setvalue "linearized"
+	svy_se.en_dof.setvalue ""
+	svy_se.ck_mse.setoff
+	svy_se.ck_nodots.setoff
+	svy_se.ed_bsn.setvalue ""
+	svy_se.ed_hadamard.setvalue ""
+	svy_se.ed_fay.setvalue ""
+END
+
+SCRIPT svy_se_PREINIT
+BEGIN
+	create BOOLEAN is_svyset
+	create STRING se_svyvcetype
+	create STRING svy_se_mse
+	svy_se_mse.setstring char _dta[_svy_mse]
+	svy_se.ck_mse.hide
+	svy_se.ck_nodots.hide
+	svy_se.tx_bsn.hide
+	svy_se.ed_bsn.hide
+	svy_se.tx_hadamard.hide
+	svy_se.ed_hadamard.hide
+	svy_se.tx_fay.hide
+	svy_se.ed_fay.hide
+	svy_se.gb_singleu.hide
+	svy_se.rb_missing.hide
+	svy_se.rb_certainty.hide
+	svy_se.rb_scaled.hide
+	svy_se.rb_centered.hide
+END
+
+SCRIPT svy_se_POSTINIT
+BEGIN
+	program svy_se_check_mse
+END
+
+PROGRAM svy_se_check_mse
+BEGIN
+	if svy_se_mse.equals("mse") {
+		call svy_se.ck_mse.seton
+	}
+END
+
+SCRIPT svy_se_IS_SVYSET
+BEGIN
+	is_svyset.settrue
+	svy_se.lb_vce.withvalue svy_se.lb_vce.setvalue "@"
+	svy_se.gb_singleu.show
+	svy_se.rb_missing.show
+	svy_se.rb_certainty.show
+	svy_se.rb_scaled.show
+	svy_se.rb_centered.show
+END
+
+LIST svy_se_contents
+BEGIN
+	resource SE_LBL_LINEARIZED
+	resource SE_LBL_BOOTSTRAP
+	resource SE_LBL_BRR
+	resource SE_LBL_JACKKNIFE
+	resource SE_LBL_SDR
+END
+
+LIST svy_se_values
+BEGIN
+	linearized
+	bootstrap
+	brr
+	jackknife
+	sdr
+END
+
+LIST svy_se_change
+BEGIN
+	script svy_se_linearized
+	program svy_se_bootstrap
+	program svy_se_brr
+	program svy_se_jackknife
+	program svy_se_sdr
+END
+
+SCRIPT svy_se_linearized
+BEGIN
+	se_svyvcetype.setstring resource SE_LBL_LINEARIZED
+	svy_se.ck_mse.hide
+	svy_se.tx_bsn.hide
+	svy_se.ed_bsn.hide
+	svy_se.ck_nodots.hide
+	svy_se.tx_hadamard.hide
+	svy_se.ed_hadamard.hide
+	svy_se.tx_fay.hide
+	svy_se.ed_fay.hide
+END
+
+PROGRAM svy_se_bootstrap
+BEGIN
+	call se_svyvcetype.setstring resource SE_LBL_BOOTSTRAP
+	call svy_se.ck_mse.show
+	if !is_svyset {
+		call svy_se.ck_nodots.show
+		call svy_se.tx_bsn.show
+		call svy_se.ed_bsn.show
+		call svy_se.tx_hadamard.hide
+		call svy_se.ed_hadamard.hide
+		call svy_se.tx_fay.hide
+		call svy_se.ed_fay.hide
+	}
+	if is_svyset {
+		call svy_se.ck_nodots.hide
+		call svy_se.tx_bsn.hide
+		call svy_se.ed_bsn.hide
+		call svy_se.tx_hadamard.hide
+		call svy_se.ed_hadamard.hide
+		call svy_se.tx_fay.hide
+		call svy_se.ed_fay.hide
+	}
+END
+
+PROGRAM svy_se_brr
+BEGIN
+	call se_svyvcetype.setstring resource SE_LBL_BRR
+	call svy_se.ck_mse.show
+	if !is_svyset {
+		call svy_se.ck_nodots.show
+		call svy_se.tx_bsn.hide
+		call svy_se.ed_bsn.hide
+		call svy_se.tx_hadamard.show
+		call svy_se.ed_hadamard.show
+		call svy_se.tx_fay.show
+		call svy_se.ed_fay.show
+	}
+	if is_svyset {
+		call svy_se.ck_nodots.hide
+		call svy_se.tx_bsn.hide
+		call svy_se.ed_bsn.hide
+		call svy_se.tx_hadamard.hide
+		call svy_se.ed_hadamard.hide
+		call svy_se.tx_fay.hide
+		call svy_se.ed_fay.hide
+	}
+END
+
+PROGRAM svy_se_jackknife
+BEGIN
+	call se_svyvcetype.setstring resource SE_LBL_JACKKNIFE
+	call svy_se.ck_mse.show
+	if !is_svyset {
+		call svy_se.ck_nodots.show
+		call svy_se.tx_bsn.hide
+		call svy_se.ed_bsn.hide
+		call svy_se.tx_hadamard.hide
+		call svy_se.ed_hadamard.hide
+		call svy_se.tx_fay.hide
+		call svy_se.ed_fay.hide
+	}
+	if is_svyset {
+		call svy_se.ck_nodots.hide
+		call svy_se.tx_bsn.hide
+		call svy_se.ed_bsn.hide
+		call svy_se.tx_hadamard.hide
+		call svy_se.ed_hadamard.hide
+		call svy_se.tx_fay.hide
+		call svy_se.ed_fay.hide
+	}
+END
+
+PROGRAM svy_se_sdr
+BEGIN
+	call se_svyvcetype.setstring resource SE_LBL_SDR
+	call svy_se.ck_mse.show
+	if !is_svyset {
+		call svy_se.ck_nodots.show
+		call svy_se.tx_bsn.hide
+		call svy_se.ed_bsn.hide
+		call svy_se.tx_hadamard.hide
+		call svy_se.ed_hadamard.hide
+		call svy_se.tx_fay.hide
+		call svy_se.ed_fay.hide
+	}
+	if is_svyset {
+		call svy_se.ck_nodots.hide
+		call svy_se.tx_bsn.hide
+		call svy_se.ed_bsn.hide
+		call svy_se.tx_hadamard.hide
+		call svy_se.ed_hadamard.hide
+		call svy_se.tx_fay.hide
+		call svy_se.ed_fay.hide
+	}
+END
+
+PROGRAM svy_se_output
+BEGIN
+	optionarg svy_se.lb_vce
+	optionarg svy_se.en_dof
+	option svy_se.ck_mse
+	option svy_se.ck_nodots
+	optionarg svy_se.ed_bsn
+	optionarg svy_se.ed_hadamard
+	optionarg svy_se.ed_fay
+	option svy_se.rb_missing
+	option svy_se.rb_certainty
+	option svy_se.rb_scaled
+	option svy_se.rb_centered
+END
+
+PROGRAM svy_prefix_output
+BEGIN
+	put "svy "
+	if se_svyvcetype.equals(resource SE_LBL_LINEARIZED) {
+		put " linearized"
+	}
+	if se_svyvcetype.equals(resource SE_LBL_BRR) {
+		put " brr"
+	}
+	if se_svyvcetype.equals(resource SE_LBL_BOOTSTRAP) {
+		put " bootstrap"
+	}
+	if se_svyvcetype.equals(resource SE_LBL_JACKKNIFE) {
+		put " jackknife"
+	}
+	if se_svyvcetype.equals(resource SE_LBL_SDR) {
+		put " sdr"
+	}
+	beginoptions
+		put /program subpop_output
+		optionarg svy_se.en_dof
+		option svy_se.ck_mse
+		option svy_se.ck_nodots
+		optionarg svy_se.ed_bsn
+		optionarg svy_se.ed_hadamard
+		optionarg svy_se.ed_fay
+	endoptions
+END

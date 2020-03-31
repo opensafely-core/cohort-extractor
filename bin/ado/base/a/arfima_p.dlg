@@ -1,0 +1,112 @@
+/*
+	predict (after arfima)
+
+*!  VERSION 1.1.1  04nov2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+INCLUDE header
+
+HELP hlp1, view("help arfima postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource ARFIMA_P_DLG_HSCALE
+END
+
+
+SCRIPT POSTINIT
+BEGIN
+	script _p_gentype_setMedium
+END
+
+DIALOG main, label(resource PREDICT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  INCLUDE  _p_gentype
+
+  GROUPBOX gb_opts		_lft	_ls	_iwd	_ht8,		///
+	label(resource LBL_PRODUCE)
+  RADIO rb_xb			_indent	_ss	_inwd	., first	///
+	option(xb)							///
+	onclickon("script main_xb_on")					///
+	onclickoff("script main_xb_off")				///
+	label(resource LBL_PREDICTED_VALUES)
+  RADIO rb_residuals		@	_ss	@	.,		///
+	option(residuals)						///
+	onclickon("script main_res_on")					///
+	onclickoff("script main_res_off")				///
+	label(resource ARFIMA_P_MAIN_RB_RESIDUALS)
+  RADIO rb_rstandard		@	_ss	@	.,		///
+	option(rstandard)						///
+	label(resource ARFIMA_P_MAIN_RB_RSTANDARD)
+  RADIO rb_fdifference		@	_ss	@	.,last		///
+	option(fdifference)						///
+	label(resource ARFIMA_P_MAIN_RB_FDIFFERENCE)
+END
+
+SCRIPT main_xb_on
+BEGIN
+	opts.tx_rmse.enable
+	opts.ed_rmse.enable
+	opts.tx_dynamic.enable
+	opts.ed_dynamic.enable
+END
+
+SCRIPT main_xb_off
+BEGIN
+	opts.tx_rmse.disable
+	opts.ed_rmse.disable
+	opts.tx_dynamic.disable
+	opts.ed_dynamic.disable
+END
+
+SCRIPT main_res_on
+BEGIN
+	opts.tx_rmse.enable
+	opts.ed_rmse.enable
+END
+
+SCRIPT main_res_off
+BEGIN
+	opts.tx_rmse.disable
+	opts.ed_rmse.disable
+END
+
+INCLUDE _p_gentype_sc
+INCLUDE ifin
+INCLUDE _type_list_fd
+
+DIALOG opts, tabtitle(resource LBL_OPTIONS)
+BEGIN
+  TEXT tx_rmse			_lft	_top	_iwd	.,		///
+	label(resource LBL_STORE_ROOT_MEAN_SE_PREDICTED_STAT_NEW_VAR)
+  EDIT ed_rmse			@	_ss	@	.,		///
+	option(rmse)							///
+	label(resource LBL_STORE_ROOT_MEAN_SE_PREDICTED_STAT_NEW_VAR)
+
+  TEXT tx_dynamic		@	_ls	_vnwd	.,		///
+	label(resource LBL_DYNAMIC_FORECASTS)
+  EDIT ed_dynamic		@	_ss	_cwd1	.,		///
+	option(dynamic)							///
+	label(resource LBL_DYNAMIC_FORECASTS)
+END
+
+PROGRAM command
+BEGIN
+	put "predict "
+	put " " /program _p_gentype_output
+	put " " /program ifin_output
+	beginoptions
+	       option radio(main rb_xb rb_residuals rb_rstandard rb_fdifference)
+		if opts.ed_rmse.isenabled() {
+			optionarg opts.ed_rmse
+		}
+		if opts.ed_dynamic.isenabled() {
+			optionarg opts.ed_dynamic
+		}
+	endoptions
+END

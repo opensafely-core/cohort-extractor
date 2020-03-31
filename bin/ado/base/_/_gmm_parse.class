@@ -1,0 +1,96 @@
+*! version 1.0.2  28sep2012
+
+// lc stands for linear combination
+// this class is used to keep track of linear combinations of
+// parameters, so that a lc defined in a previous equation can
+// be referred to as simply {xb:} in a subsequent equation and
+// so that derivatives can be defined w.r.t. {xb:}
+
+class _gmm_parse {
+	double	lccounter = 0
+	array	lcnames		// l.c. names -- e.g. xb
+	array	lcelems		// varlist -- e.g. gear turn head
+	array	lcparms		// params -- e.g. xb_gear xb_turn xb_head
+}
+
+// Adds name and varlist; sets param names = . and are to be updated later
+program lcadd
+
+	.lccounter = `=`.lccounter' + 1'
+	.lcnames.Arrpush  "`1'"
+	.lcelems.Arrpush  "`2'"
+	
+	local j : word count `2'
+	local dots "."
+	forvalues i = 2/`j' {
+		local dots "`dots' ."
+	}
+	.lcparms.Arrpush "`dots'"
+
+end
+
+// Adds parameter to list
+// order of params in array is same as order
+// of variables in lcelems varlist
+program lcparmadd
+
+	args lincom var param
+	
+	local index = `.lcnames.arrindexof `"`lincom'"''
+	
+	local vlist `.lcelems[`index']'
+	local vpos : list posof "`var'" in vlist
+	
+	local plist `.lcparms[`index']'
+	local newplist
+	forvalues i = 1/`=`vpos'-1' {
+		local newplist `newplist' `:word `i' of `plist''
+	}
+	local newplist `newplist' `param'
+	local stop : word count `plist'
+	forvalues i = `=`vpos'+1'/`stop' {
+		local newplist `newplist' `:word `i' of `plist''
+	}
+	.lcparms[`index'] = "`newplist'"
+	
+end
+
+program isin
+
+	local i = `.lcnames.arrindexof `"`0'"''
+	if `i' {
+		local return 1
+	}
+	else {
+		local return 0
+	}
+	
+	class exit `return'
+
+end
+
+program lcvarfetch
+
+	local i = `.lcnames.arrindexof `"`0'"''
+	class exit "`.lcelems[`i']'"
+
+end
+
+program lcparmfetch
+
+	local i = `.lcnames.arrindexof `"`0'"''
+	class exit "`.lcparms[`i']'"
+
+end
+
+program lcnamesfetch
+
+	local i = `.lcnames.arrnels'
+	forvalues j = 1/`i' {
+		local names `names' `.lcnames[`j']'
+	}
+
+	class exit "`names'"
+
+end
+

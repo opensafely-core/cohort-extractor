@@ -1,0 +1,80 @@
+/*
+    mi_add
+
+*!  VERSION 1.1.2  14mar2015
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_mlarge
+INCLUDE _ht200
+INCLUDE header
+
+HELP hlp1, view("help mi_add")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource MI_ADD_DLG_HSCALE
+	
+        main.fi_filename.formatfilter "{0} (*.dta)|*.dta|{1} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_DTA_FILES" "resource ui_ex FILE_TYPE_ALL_FILES"
+END
+
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	label(resource MI_ADD_DLG_TITLE)
+BEGIN
+  TEXT tx_var		_lft	_top	_iwd	.,			///
+	label(resource LBL_KEY_VARIABLES_MATCH_VARIABLES)
+  VARLIST vl_varlist	@	_ss	@	.,			///
+  	numeric								///
+	label(resource LBL_KEY_VARIABLES)
+  TEXT tx_filename	@	_ls	@	.,			///
+	label(resource LBL_FILENAME_OF_DATASET_ON_DISK)
+  FILE fi_filename	@	_ss	@	.,			///
+	error(resource LBL_FILENAME_OF_DATASET_ON_DISK)			///
+	defext(dta) label(resource LBL_BU_BROWSE)
+
+  CHECKBOX ck_assert	@	+35	@	_ht4,			///
+	groupbox							///
+	onclickon("script main_ck_assert_on")				///
+	onclickoff("script main_ck_assert_off")				///
+	label(resource MI_ADD_MAIN_CK_ASSERT)
+  RADIO rb_master	_indent	_ss	_inwd	., first		///
+	option(assert(master))						///
+	label(resource MI_ADD_MAIN_RB_MASTER)
+  RADIO rb_match	@	_ss	@	., last			///
+	option(assert(match))						///
+	label(resource MI_ADD_MAIN_RB_MATCH)
+END
+
+SCRIPT main_ck_assert_on
+BEGIN
+	main.rb_master.enable
+	main.rb_match.enable
+END
+
+SCRIPT main_ck_assert_off
+BEGIN
+	main.rb_master.disable
+	main.rb_match.disable
+END
+
+PROGRAM command
+BEGIN
+	require main.vl_varlist
+	require main.fi_filename
+	put "mi add " main.vl_varlist
+
+	put " " "using "
+	put `"""'
+	put main.fi_filename
+	put `"""'
+	beginoptions
+		if main.ck_assert {
+			option radio(main rb_master rb_match)
+		}
+	endoptions
+END

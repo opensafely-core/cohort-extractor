@@ -1,0 +1,377 @@
+/*
+	This class is to be used to manage axes scales and labels
+	when a one-to-one aspect ratio per unit is critical.
+	An aspect ratio may be requested, but that aspect ratio
+	is not guaranteed. The only guarantee is that units on
+	each scale will have a one-to-one aspect ratio.
+
+
+******
+program getAspectAdjustedScales, sclass
+	   Routine for obtaining the axis scale and labels when
+	   an aspect ratio of one-to-one between the axes scales
+	   must be maintained.
+
+		   Returned in s:
+			minNatY		// the min value of Y natscale
+			maxNatY		// the max value of Y natscale
+			minNatX		// the min value of X natscale
+			maxNatX		// the max value of X natscale
+
+			aspectratio 	// the value of the real aspect ratio
+			yscale 		// the yscale option
+			ylabel 		// the ylabel option
+			xscale 		// the xscale option
+			xlabel 		// the xlabel option
+			scales 	// yscale xscale ylabel xlabel options combined
+
+
+	syntax , xmin(real) xmax(real) ymin(real) ymax(real)
+
+******
+program getRealRange, sclass
+	   Routine used for obtaining a natscale which is guaranteed to
+	   encompass the data.
+
+		   Returned in s:
+			min 	// the minimum value
+			max	// the maximum value
+			delta 	// the delta (value between labels)
+
+
+	args actualMin actualMax
+
+******
+program setPreferredLabelCount --> args number
+	// Routine for setting the preferred number of ticks and labels
+	// The default value is 4
+
+******
+program setPreferredAspect --> args aspect
+	// Routine for setting the preferred aspect ratio
+	// The default value is 1
+
+******
+program setShowAspectTrue
+	// Causes .getAspectAdjustedScales to display the actual aspect ratio
+
+******
+program setShowAspectFalse
+	// Causes .getAspectAdjustedScales to NOT display the actual
+	//    aspect ratio
+
+******
+program setDebugOn
+	// Causes .getRealRange and .getAspectAdjustedScales to display
+	//    debug info
+
+******
+program setDebugOff
+	// Causes .getRealRange and .getAspectAdjustedScales to NOT display
+	//    debug info
+******
+
+******
+program setAutoAspectTrue
+	// Causes .getAspectAdjustedScales to automatically find the best
+	//    aspect ratio based on the range of the data
+
+******
+program setAutoAspectFalse
+	// Causes .getAspectAdjustedScales to NOT automatically find the best
+	//    aspect ratio based on the range of the data. Instead the
+	//    preferred aspect ratio is used.
+
+******
+
+*/
+
+*! version 1.0.1  01jun2013
+
+version 9.0
+
+class aspect_axis_toolkit {
+    double labelCnt = 4
+    double aspect_ratio = 1
+    double show_aspect = 0
+    double debug = 0
+    double auto_aspect = 0
+}
+
+/******* Begin public methods *******/
+
+program setPreferredLabelCount
+	args number
+	.labelCnt = `number'
+end
+
+program setPreferredAspect
+	args aspect
+	.aspect_ratio = `aspect'
+end
+
+program setShowAspectTrue
+	.show_aspect = 1
+end
+
+program setShowAspectFalse
+	.show_aspect = 0
+end
+
+program setDebugOn
+	.debug = 1
+end
+
+program setDebugOff
+	.debug = 0
+end
+
+program setAutoAspectTrue
+	.auto_aspect = 1
+end
+
+program setAutoAspectFalse
+	.auto_aspect = 0
+end
+
+program getAspectAdjustedScales, sclass
+	/*
+	   Routine for obtaining the axis scale and labels when
+	   an aspect ratio of one-to-one between the axes scales
+	   must be maintained.
+
+		   Returned in s:
+			minNatY		// the min value of Y natscale
+			maxNatY		// the max value of Y natscale
+			minNatX		// the min value of X natscale
+			maxNatX		// the max value of X natscale
+
+			aspectratio 	// the value of the real aspect ratio
+			yscale 		// the yscale option
+			ylabel 		// the ylabel option
+			xscale 		// the xscale option
+			xlabel 		// the xlabel option
+			scales 	// yscale xscale ylabel xlabel options combined
+
+	*/
+	syntax , xmin(real) xmax(real) ymin(real) ymax(real)
+
+	if `.debug' {
+		display as text "xmin: " as result " `xmin'"
+		display as text "xmax: " as result " `xmax'"
+		display as text "ymin: " as result " `ymin'"
+		display as text "ymax: " as result " `ymax'"
+	}
+
+	if `.auto_aspect' {
+
+		getRealRange `xmin' `xmax'
+		local maxNatX `s(max)'
+		local minNatX `s(min)'
+		local deltaNatX `s(delta)'
+
+		getRealRange `ymin' `ymax'
+		local maxNatY `s(max)'
+		local minNatY `s(min)'
+		local deltaNatY `s(delta)'
+
+		local yscale `"yscale(range(`minNatY' `maxNatY'))"'
+		local ylabel `"ylabel(`minNatY'(`deltaNatY')`maxNatY')"'
+		local xscale `"xscale(range(`minNatX' `maxNatX'))"'
+		local xlabel `"xlabel(`minNatX'(`deltaNatX')`maxNatX')"'
+		local aspect = (`maxNatY'-`minNatY')/(`maxNatX'-`minNatX')
+	}
+	else {
+
+		local x_diff = `xmax' - `xmin'
+		local y_diff = `ymax' - `ymin'
+		if `.debug' {
+			display as text "y_diff: " as result " `y_diff'"
+			display as text "x_diff: " as result " `x_diff'"
+		}
+
+		/*
+		   If the requested aspect ratio is greater than the aspect
+		   ratio of the data (ie the requested plot is too narrow),
+		   then the natscale is primarily based on the x-axis.
+
+		   If the requested aspect ratio is less than the aspect
+		   ratio of the data (ie the requested plot is too short),
+		   then the natscale is primarily based on the y-axis.
+		*/
+		if `.aspect_ratio' >= `=`y_diff'/`x_diff'' {
+			getRealRange `xmin' `xmax'
+			local maxNatX `s(max)'
+			local minNatX `s(min)'
+			local deltaNatX `s(delta)'
+
+			gdi natscale `=(`minNatX' * `.aspect_ratio')' 	///
+				`=(`maxNatX' * `.aspect_ratio')'  `.labelCnt'
+			local maxNatY `r(max)'
+			local minNatY `r(min)'
+			local deltaNatY `r(delta)'
+
+			_balanceAxisWithData, min(`ymin') max(`ymax')	///
+				minNat(`minNatY') maxNat(`maxNatY')	///
+				deltaNat(`deltaNatY')
+			local minNatY `s(minNat)'
+			local maxNatY `s(maxNat)'
+		}
+		else {
+			getRealRange `ymin' `ymax'
+			local maxNatY `s(max)'
+			local minNatY `s(min)'
+			local deltaNatY `s(delta)'
+
+			gdi natscale `=(`minNatY' /`.aspect_ratio')' 	///
+				`=(`maxNatY' /`.aspect_ratio')'  `.labelCnt'
+			local maxNatX `r(max)'
+			local minNatX `r(min)'
+			local deltaNatX `r(delta)'
+
+			_balanceAxisWithData, min(`xmin') max(`xmax')	///
+				minNat(`minNatX') maxNat(`maxNatX')	///
+				deltaNat(`deltaNatX')
+			local minNatX `s(minNat)'
+			local maxNatX `s(maxNat)'
+		}
+
+		// adjust the scales and labels
+		local yscale `"yscale(range(`minNatY' `maxNatY'))"'
+		local ylabel `"ylabel(`minNatY'(`deltaNatY')`maxNatY')"'
+		local xscale `"xscale(range(`minNatX' `maxNatX'))"'
+		local xlabel `"xlabel(`minNatX'(`deltaNatX')`maxNatX')"'
+
+		// override the requested aspect with that of the axes scales
+		local aspect = (`maxNatY'-`minNatY') / (`maxNatX'-`minNatX')
+	}
+
+	if `.debug'  {
+		display as text "yscale: " as result " `yscale'"
+		display as text "ylabel: " as result " `ylabel'"
+		display as text "xscale: " as result " `xscale'"
+		display as text "xlabel: " as result " `xlabel'"
+		display as text "requested aspect: " as result " `.aspect_ratio'"
+		display as text "real aspect: " as result " `aspect'"
+	}
+
+	if `.show_aspect' {
+		display
+		display as text "Aspect ratio: " _continue
+		display as result `aspect'
+	}
+
+	sreturn local minNatY `minNatY'
+	sreturn local maxNatY `maxNatY'
+	sreturn local minNatX `minNatX'
+	sreturn local maxNatX `maxNatX'
+
+	sreturn local aspectratio `aspect'
+	sreturn local yscale `yscale'
+	sreturn local ylabel `ylabel'
+	sreturn local xscale `xscale'
+	sreturn local xlabel `xlabel'
+	sreturn local scales `yscale' `xscale' `ylabel' `xlabel'
+
+end
+
+program getRealRange, sclass
+	/*
+	   Routine used for obtaining a natscale which is guaranteed to
+	   encompass the data.
+
+		   Returned in s:
+			min 	// the minimum value
+			max	// the maximum value
+			delta 	// the delta (value between labels)
+
+	*/
+	args actualMin actualMax
+
+	local adjustmentFactor = .01
+	gdi natscale `actualMin' `actualMax' `.labelCnt'
+	local maxNat `r(max)'
+	local minNat `r(min)'
+	local deltaNat `r(delta)'
+
+	local max `actualMax'
+	local min `actualMin'
+	local i = 1
+	while (`actualMax' > `maxNat' | `actualMin' < `minNat') {
+		local adjust = (`max' - `min') * `adjustmentFactor'
+		if `actualMax' > `maxNat' {
+			local max = `max' + `adjust'
+		}
+		if `actualMin' < `minNat' {
+			local min = `min' - `adjust'
+		}
+		local i = `i' + 1
+		gdi natscale `min' `max' `.labelCnt'
+		local maxNat `r(max)'
+		local minNat `r(min)'
+		local deltaNat `r(delta)'
+	}
+	if `.debug' {
+		display as text "----> getRealRange ------"
+		display as text "min: " as result " `minNat'"
+		display as text "max: " as result " `maxNat'"
+		display as text "delta: " as result " `deltaNat'"
+		display as text "count: " as result " `i'"
+		display as text "----- getRealRange <-----"
+	}
+	sreturn local min `minNat'
+	sreturn local max `maxNat'
+	sreturn local delta `deltaNat'
+end
+
+/******* End public methods *******/
+
+/* Internal routine */
+program _balanceAxisWithData, sclass
+	syntax , min(real) max(real) minNat(real) maxNat(real) deltaNat(real)
+	// Adjust the x-axis to fit the data
+	if `maxNat' <= `max' {
+		// move AXIS right/up and then back left/down
+		// --- data will appear to decrease, increase, and then center
+		while `minNat' < `min' {
+			local maxNat = `maxNat' + `deltaNat'
+			local minNat = `minNat' + `deltaNat'
+		}
+
+		local count = 0
+		while `maxNat' > `max' {
+			local count = `count' + 1
+			local maxNat = `maxNat' - `deltaNat'
+			local minNat = `minNat' - `deltaNat'
+		}
+		// use ceil function to prevent changing the degree of units
+		local offsetFactor = ceil(`count' / 2)
+		local maxNat = `maxNat' + (`deltaNat' * `offsetFactor')
+		local minNat = `minNat' + (`deltaNat' * `offsetFactor')
+	}
+	else {
+		// The handles the most typical case where the data is already
+		//    inside the axis range, and only needs to be centered.
+		// This also handles the case where the data is initially less
+		//    than the minimum value of the axis.
+
+		// move AXIS left/down and then back right/up
+		// --- data will appear to increase, decrease, and then center
+		while `maxNat' > `max' {
+			local maxNat = `maxNat' - `deltaNat'
+			local minNat = `minNat' - `deltaNat'
+		}
+		local count = 0			
+		while `minNat' < `min' {
+			local count = `count' + 1
+			local maxNat = `maxNat' + `deltaNat'
+			local minNat = `minNat' + `deltaNat'
+		}
+		// use floor function to prevent changing the degree of units
+		local offsetFactor = floor(`count' / 2)
+		local maxNat = `maxNat' - (`deltaNat' * `offsetFactor')
+		local minNat = `minNat' - (`deltaNat' * `offsetFactor')
+	}
+	sreturn local maxNat `maxNat'
+	sreturn local minNat `minNat'
+end

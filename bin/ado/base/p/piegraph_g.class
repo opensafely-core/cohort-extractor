@@ -1,0 +1,813 @@
+//				piegraph_g
+//
+//	class for pie graphs
+
+*! version 1.2.0  06jul2017
+
+version 8
+
+class {
+    class:
+    	graphfamily	= "bar"
+
+    instance:
+
+    	piegraphstyle      style
+
+	radius		= 0
+
+	array piestyles
+	array explodes
+
+	array ptext
+	array boxpos
+
+	array plabel
+	array plab_dex
+	array plab_radius
+	array plab_gap
+
+//	pieslices	= {}				// objects to render
+
+	_remake		= 1
+
+} , inherit(graph_g)
+
+
+
+
+// ----------------------------------------------------------------------------
+// Uses .new from graph.cls
+//
+//	Usage:  .new statlist [if] [in] [wt] [, omit_opts graph_opts 
+//					        pie_opts]
+
+program new , sortpreserve
+
+	capture syntax [anything(id=varlist equalok)] [if] [in] [aw fw pw] ///
+		       [ , STYle(string) READLOG(passthru) * ]
+
+	if `"`style'"' == `""' {
+		local style scheme piegraph
+	}
+
+	.Super.new , style(`style')
+
+
+	if `"`readlog'"' != `""' {
+		local 0 `"ForceACmd_1 `0'"'		// sic , for expand
+		local vlparse "anything(id=varlist equalok)"
+	}
+	else	local vlparse "varlist(numeric ts default=none)"
+
+							// parse command
+
+	local ignored_opts noDRAW NAME(string) 				///
+		SCHeme(passthru) COPYSCHeme REFSCHeme 			///
+		XSIZe(passthru)  YSIZe(passthru)			///
+		FXSIZe(passthru) FYSIZe(passthru) SAVing(string asis)	///
+		PLAY(string asis)
+
+	syntax [`vlparse'] [if] [in] [aw fw pw] [ ,			///
+		CW OVER(varlist) MISSing SORT SORT1(varname) DEScending	///
+		ALLCategories BYIF(string asis) READLOG(passthru)	///
+		`ignored_opts' * ]
+
+	if ("`over'" == "")  local allcategories
+	if ("`weight'" == "pweight")  local weight iweight
+
+							// syntax errors
+	if `:list sizeof varlist' > 1 & "`over'" != "" {
+		di as error "option over() invalid with more than one variable"
+		exit 198
+	}
+	if "`sort'" != "" & "`sort1'" != "" {
+		di as error "may not combine sort and sort()"
+		exit 198
+	}
+
+
+	if "`readlog'" == "" {
+
+		if "`varlist'" == "" & "`over'" != "" {		// counts
+			tempvar freq
+			qui gen byte `freq' = 1
+			label variable `freq' frequency
+			local varlist `freq'
+		}
+
+		marksample touse , novarlist			// sample
+ 		if (`"`byif'"' != `""')  qui replace `touse' = 0 if ! (`byif')
+
+		tempvar total angle label			// pie vars
+
+		if "`over'" != "" {				// over data
+			markout `touse' `varlist'
+			if ("`missing'" == "")  markout `touse' `over' , strok
+
+			gettoken unused exp : exp , parse("=")
+			if "`weight'" == "aweight" {		// care only 
+			    tempvar wvar			// for labels
+			    qui gen double `wvar' = `exp'  if `touse'
+			    sum `wvar' , meanonly
+			    qui replace `wvar' = `wvar' / r(mean)
+			    local wtexp "(`wvar')"
+			}
+			else {
+			    local wtexp = cond("`exp'" == "" , "1" , "(`exp')")
+			}
+
+			sort `over'
+			qui by `over' : gen `total' =			///
+					sum(`touse'*`varlist'*`wtexp')
+			qui by `over' : replace `total' = . if _n != _N
+			qui by `over' : replace `touse' = min(sum(`touse'), 99)
+			qui by `over' : replace `touse' = 0 if _n != _N
+
+			if "`allcategories'" != "" {
+			    qui replace `total' = 0 if !`touse'
+			    qui by `over' : replace `touse' = 1 if _n == _N
+			    if ("`missing'"=="")  markout `touse' `over' , strok
+			    if `"`if'"' != `""' & `"`byif'"' != `""' {	// by
+				tempvar touse0
+				mark `touse0' `if'
+				qui by `over' : replace `touse0' = sum(`touse0')
+				qui by `over' : replace `touse' = 0 if !`touse0'
+			    }
+			}
+
+			qui egen `label' = group(`over') if `touse' ,	///
+				missing lname(_pie_lbl_)
+		}
+		else {						// varlist data
+			if ("`cw'" != "")  markout `touse' `varlist'
+
+			local K : list sizeof varlist
+			if _N <= `K' {				// add obs
+				preserve
+				qui set obs `K'
+			}
+
+			capture label drop _T_pielbl
+			qui gen float `total' = .
+			local k 0
+			foreach var of local varlist {
+								// data
+				sum `var' [`weight'`exp'] if `touse' , meanonly
+				if "`weight'" == "aweight" {
+					local tot `r(sum)' * `r(N)' / `r(sum_w)'
+				}
+				else	local tot `r(sum)'
+				qui replace `total' = `tot' in `++k'
+								// labels
+				capture local lab : variable label `var'
+				local ts = _rc
+				if (`ts' | "`lab'" == "") local lab `var'
+				label define _T_pielbl `k' `"`lab'"', add
+			}
+			qui replace `touse' = _n <= `K'
+
+			qui gen `label' = _n
+			label values `label' _T_pielbl
+		}
+
+		capture assert `total' >= 0
+		if _rc {
+			di as error "sum for a pie wedge is negative"
+			exit 459
+		}
+
+		sum `total' if `touse' , meanonly
+		qui gen `angle' = 360 * `total' / `r(sum)'
+
+		if (`r(sum)' == 0 | `r(sum)' >= .) {
+			di as error "sum of pie wedges is not positive"
+//			exit 459
+		}
+
+		local op = cond("`descending'" == "" , "" , "-")
+		if ("`sort'"  != "")  gsort `op'`total'
+		if ("`sort1'" != "")  gsort `op'`sort1'
+
+		local ifspec if `touse'
+	}
+
+                        // let graph_g.new handle readlog etc.  it is given all
+                        // the variables that need to be in the serset, most 
+			// also retained as options so .makegraph can find them.
+
+        .parse_sersets `total' `angle' `label' `ifspec' , 		///
+			labels `readlog' `options'
+
+end
+
+
+// ----------------------------------------------------------------------------
+//  Creates a bargraph given an existing sersets array.
+//
+//	Usage:  .makegraph , graph_options pie_opts
+
+program makegraph
+
+	syntax [ , STYLE(passthru) Intensity(string) LIne(string)	///
+		   ANGle0(string) NOCLockwise CLockwise			///
+		   BNDOPTIONS(string) PCYCle(real -999) * ]
+	local origopts `"`options'"'
+
+							// style edits
+	if `"`intensity'"' != `""' {
+		local edits `"`edits' intensity(`intensity')"'
+	}
+	if `"`angle0'"' != `""' {
+		local edits `"`edits' angle0(`angle0')"'
+	}
+	if "`noclockwise'" != "" {
+		local edits `"`edits' clockwise(no)"'
+	}
+	if "`clockwise'" != "" {
+		local edits `"`edits' clockwise(yes)"'
+	}
+	if `"`line'"' != `""' {
+		local 0 `", `line'"'
+		syntax [, LColor(string) LWidth(string) LSTYle(string) ///
+			LAlign(string)]
+		if (`"`lcolor'"' != `""')  local lcolor `"color(`lcolor')"'
+		if (`"`lwidth'"' != `""')  local lwidth `"width(`lwidth')"'
+		if (`"`lalign'"' != `""')  local lalign `"align(`lalign')"'
+		local line_eds `"linestyle(`lstyle' `lcolor' `lwidth' `lalign')"'
+		local edits `"`edits' `line_eds'"'
+	}
+	if `pcycle' != -999 {
+		local edits `"`edits' pcycle(`pcycle')"'
+	}
+	else {
+		if missing(`.style.pcycle.val') {
+			.style.editstyle				///
+			    pcycle(`.`c(curscm)'.numstyle.pcycle') editcopy
+		}
+		local pcycle `.style.pcycle.val'
+	}
+
+	if ( `"`edits'"' != `""' )  .style.editstyle `edits' editcopy
+
+	.sersets[1].set					// create pie styles
+	forvalues i=1/0`:serset N' {
+		local i_pstyle = mod(`i'-1, 0`pcycle')+1
+		.piestyles[`i'] = .areastyle.new, style(scheme p`i_pstyle'pie)
+		.SetIntensity `i' `intensity'
+		.piestyles[`i'].Declare pie_linestyle = .style.linestyle.ref
+	}
+
+							// "plotregion"
+	.insert (plotregion1 = .plotregion.new, autosquare100		///
+				style(scheme piegraph)) new
+
+					// add the view to be drawn it redirects
+					// drawing pies below to makepie
+	.plotregion1.insert piegraph = .pieview.new ,			///
+		piegraph(`.objkey') xstretch(free) ystretch(free)
+
+	.ParsePies   , `origopts'				// piestyles
+	.ParsePtext  , `r(rest)'				// pie text
+	.ParsePlabel , `r(rest)'
+
+	tempname log					// logged edits
+	.`log' = {}
+	_fr_legend_parse_and_log `log'    `r(rest)'		// legend
+	.parse_and_log_titles    `log' "" `r(rest)'		// titles
+	_fr_area_parse_and_log   `log' "" GRAPHRegion ,	`r(rest)'
+	_fr_area_parse_and_log   `log' plotregion1 PLOTRegion ,	`r(rest)'
+	_fr_merged_implicit `log' BGColor ".bgcolor.setstyle , style(X)" , ///
+		`r(rest)'
+	local 0 `", `r(rest)'"'
+	syntax [, CLEGend(string) PLEGend(string) FAKE_OPT_FOR_BETTER_MSG ]
+	
+	_fr_runlog `log' , nologging
+
+	.plotregion1.Declare pieslices  = {}
+	.plotregion1.Declare pietext  = {}
+	.plotregion1.Declare pielabel = {}
+
+	.makepie
+end
+
+program SetIntensity
+	gettoken i intensity : 0
+
+	if (`.style.intensity.val' ==				///
+	    `.piestyles[`i'].shadestyle.intensity.val')		///
+		exit						// Exit
+
+	local intensity `intensity'				// sic
+	if `"`intensity'"' == `""' {
+		local intensity `.style.intensity.snm'
+	}
+	if `"`intensity'"' == `""' {
+		local intensity `.style.intensity.val'
+	}
+
+	.piestyles[`i'].editstyle shadestyle(intensity(`intensity')) editcopy
+end
+
+
+// ----------------------------------------------------------------------------
+program ParsePies , rclass
+	
+	syntax [ , Pie(string asis) * ]
+
+	while `"`pie'"' != `""' {
+		._parse_pie `pie'
+
+		local 0 `", `options'"'
+		syntax [ , Pie(string asis) * ]
+	}
+
+	return local rest `"`options'"'
+end
+
+program _parse_pie
+
+ 	syntax anything(name=wedges id=pie) [ , Color(string) 		///
+		EXPLODE EXPLODE1(string) ]
+
+							// which wedges
+	if `"`wedges'"' == "_all" {
+		.sersets[1].set
+		local wedges "1/`:serset N'"
+	}
+	capture numlist `"`wedges'"' , integer range(>0)
+	if _rc {
+		di as error `"invalid wedge numbers in pie(), `wedges'"'
+		exit 198
+	}
+	local wedges "`r(numlist)'"
+
+							// create and apply
+	foreach dex of local wedges {
+	    if `dex' > `:serset N' {
+	    	di in green "(`dex' exceeds number of pie wedges, ignored)"
+		continue
+	    }
+
+	    if "`.piestyles[`dex'].isa'" == "" {		// safety
+		.piestyles[`dex'] = .areastyle.new, style(scheme p`dex')
+		.SetIntensity `dex'
+	    }
+
+	    if `"`color'"' != `""' {				// color
+		.piestyles[`dex'].editstyle shadestyle(color(`color')) editcopy
+	    }
+
+	    if "`explode'`explode1'" != "" {			// explosion
+		if ("`.style.explode_gap.stylename'" == "") {
+			local expstyle `.style.explode_gap.stylename'
+		}
+		else {
+			local expstyle `.style.explode_gap.val'
+		}
+		.explodes[`dex'].ref = .gsize.new , style(`expstyle')
+
+		if `"`explode1'"' != `""' {				
+			.explodes[`dex'].setstyle , style(`explode1')
+		}
+	    }
+	}
+end
+
+
+program ParsePlabel , rclass
+	
+	syntax [ , PLabel(string asis) * ]
+
+	while `"`plabel'"' != `""' {
+		._parse_plabel `plabel'
+
+		local 0 `", `options'"'
+		syntax [ , PLabel(string asis) * ]
+	}
+
+	return local rest `"`options'"'
+end
+
+program _parse_plabel
+
+	syntax [ anything(name=who_what) ] [ , POSition(string) GAP(string) ///
+		 FORmat(string) TSTYle(string) * ]
+
+	gettoken who what : who_what
+
+	local all = "`who'" == "_all"			// who to label
+	if (`all')  local dex 0
+	else	    local dex `who'
+	capture confirm integer number `dex'
+	if _rc {
+		di as error "invalid pie # in plabel(), `dex'"
+		exit 198
+	}
+
+	gettoken unused : what , qed(quoted)		// what to show
+	if (`quoted')	local labtype text		
+	else		local labtype `what'
+
+	if `"`tstyle'"' == `""' {			// style info
+		local tstyle `.style.pielabel_style.stylename'
+	}
+	if `"`position'"' == `""' {
+		local position `.style.pielabel_pos.stylename'
+	}
+	if `"`format'"' == `""' {
+		local format `.style.pielabel_format'
+	}
+	if `"`gap'"' == `""' {
+		local gap `.style.pielabel_gap.val'
+	}
+	else {
+		tempname gapstyle
+		.`gapstyle' = .gsize.new, style(`.style.pielabel_gap.val')
+		.`gapstyle'.setstyle , style(`gap')
+		local gap `.`gapstyle'.val'
+	}
+
+							// create textbox(s)
+	if `all' {
+	    .sersets[1].set
+	    forvalues dex = 1/0`:serset N' {
+		.MakePlabel "`dex'" "`labtype'" `"`format'"' `"`position'"' ///
+			   `"`gap'"' `"`what'"' `"`tstyle'"' `"`options'"' 1
+	    }
+	}
+	else {
+		.MakePlabel "`dex'" "`labtype'" `"`format'"' `"`position'"' ///
+			   `"`gap'"' `"`what'"' `"`tstyle'"' `"`options'"'
+	}
+
+end
+
+/*
+program _parse_pie_full
+
+ 	syntax anything(name=wedges id=pie) [ , Color(string) 		///
+		EXPLODE EXPLODE1(string) Label(string asis) ]
+
+							// which wedges
+	if `"`wedges'"' == "_all" {
+		.sersets[1].set
+		local wedges "1/`:serset N'"
+	}
+	capture numlist `"`wedges'"' , integer range(>0)
+	if _rc {
+		di as error `"invalid wedge numbers in pie(), `wedges'"'
+		exit 198
+	}
+	local wedges "`r(numlist)'"
+
+							// label() suboption
+	if `"`label'"' != `""' {
+		local 0 `"`label'"'
+		syntax anything(name=lbl id=label) [ , POSition(string)	///
+			GAP(string) FORmat(string) TSTYle(string) * ]
+
+		gettoken unused : lbl , qed(quoted)		// what to show
+		if (`quoted')	local labtype text		
+		else		local labtype `lbl'
+
+		if `"`tstyle'"' == `""' {			// style info
+			local tstyle `.style.pielabel_style.stylename'
+		}
+		if `"`position'"' == `""' {
+			local position `.style.pielabel_pos.stylename'
+		}
+		if `"`format'"' == `""' {
+			local format `.style.pielabel_format'
+		}
+		if `"`gap'"' == `""' {
+			local gap `.style.pielabel_gap.val'
+		}
+		else {
+			tempname gapstyle
+			.`gapstyle' = .gsize.new,			///
+				      style(`.style.pielabel_gap.val')
+			.`gapstyle'.setstyle , style(`gap')
+			local gap `.`gapstyle'.val'
+		}
+	}
+
+							// create and apply
+	foreach dex of local wedges {
+	    if `dex' > `:serset N' {
+	    	di in green "(`dex' exceeds number of pie wedges, ignored)"
+		continue
+	    }
+
+	    if "`.piestyles[`dex'].isa'" == "" {		// safety
+		.piestyles[`dex'] = .areastyle.new, style(scheme p`dex')
+		.SetIntensity `dex'
+	    }
+
+	    if `"`color'"' != `""' {				// color
+		.piestyles[`dex'].editstyle shadestyle(color(`color')) editcopy
+	    }
+
+	    if "`explode'`explode1'" != "" {			// explosion
+		if ("`.style.explode_gap.stylename'" == "") {
+			local expstyle `.style.explode_gap.stylename'
+		}
+		else {
+			local expstyle `.style.explode_gap.val'
+		}
+		.explodes[`dex'].ref = .gsize.new , style(`expstyle')
+
+		if `"`explode1'"' != `""' {				
+			.explodes[`dex'].setstyle , style(`explode1')
+		}
+	    }
+
+	    if `"`label'"' != `""' {				// label
+		.MakePlabel "`dex'" "`labtype'" `"`format'"' `"`position'"' ///
+			   `"`gap'"' `"`what'"' `"`tstyle'"' `"`options'"'
+	    }
+	}
+end
+*/
+
+program MakePlabel
+	gettoken dex     0 : 0
+	gettoken labtype 0 : 0
+	gettoken format  0 : 0
+	gettoken pos     0 : 0
+	gettoken gap     0 : 0
+	gettoken mtext   0 : 0
+	gettoken tstyle  0 : 0
+	gettoken txt_opts 0 : 0
+	gettoken sharesty 0 : 0
+
+	.sersets[1].set
+	if `dex' > `:serset N' {
+		di in green "`dex' larger than number of pie wedges, ignored"
+		exit
+	}
+
+	if (serset(2,`dex') == 0)  exit
+
+
+	local il = 0`.plabel.arrnels' + 1		// new label index
+
+	if "`labtype'" != "text" {			// label text
+		local 0 , `labtype'
+		syntax [ , SUM PERcent NAme None * ]
+		local labtype `sum' `percent' `name' `none' `options'
+		if "`labtype'" == "name"         {
+			local idex = serset(3,`dex')
+			local mtext `"`.sersets[1].sers[3].value_label `idex''"'
+		}
+		else if "`labtype'" == "sum"     {
+			local mtext = string(serset(1,`dex') , "`format'")
+		}
+		else if "`labtype'" == "percent" {
+			local mtext = string(100 * serset(2, `dex') / 360,  ///
+				"`format'") + "%"
+		}
+		else if "`labtype'" == "none"    {
+			exit
+		}
+		else {
+			di as error `"not a plabel() type , `labtype'"'
+			exit 198
+		}
+	}
+							// radius and gap
+	.plab_gap[`il'] = `gap'
+	if "`pos'" == "inside" {
+		.plab_radius[`il'] = 2 / 3
+	}
+	else if "`pos'" == "outside" {
+		.plab_radius[`il'] = 1
+	}
+	else {
+		di as error `"invalid position(), `pos'"'
+		exit 198
+	}
+							// create textbox
+
+	.plabel[`il']   = .pos_textbox.new , mtextq(`"`mtext'"')	///
+			   forcesized style(`tstyle')
+	.plab_dex[`il'] = `dex'
+
+	if 0`sharesty' {
+		if (`il' > 1) {
+			.plabel[`il'].style.ref = .plabel[1].style.ref
+			local txt_opts ""
+		}
+		.plabel[`il'].already_custom = 0
+	}
+
+	tempname log
+	.`log' = {}
+	_fr_sztextbox_parse_and_log `log' plabel[`il'] , `txt_opts'
+	local 0 `", `r(rest)'"'
+	syntax [, FAKE_OPT_FOR_BETTER_MSG ]
+
+	_fr_runlog `log' , nologging
+end
+
+
+program ParsePtext , rclass
+	
+	syntax [ , PText(string asis) * ]
+
+	while `"`ptext'"' != `""' {
+		._parse_ptext `ptext'
+
+		local 0 `", `options'"'
+		syntax [ , PText(string asis) * ]
+	}
+
+	return local rest `"`options'"'
+end
+
+program _parse_ptext
+
+	syntax [ anything(name=triplets) ] [ , TSTYle(string) * ]
+
+	if `"`tstyle'"' == `""' {
+		local tstyle "scheme text_option"
+	}
+
+							// create the textboxes
+	tempname log
+	gettoken angle  triplets : triplets
+	gettoken radius triplets : triplets
+
+	while `"`radius'"' != `""' {
+		capture numlist "`angle' `radius'" , max(2) min(2)
+		if _rc {
+			di as error `"invalid point, `angle' `radius'"'
+			exit 198
+		}
+
+		gettoken txtq triplets : triplets , quotes	// text
+		gettoken txt           : txtq
+		while `"`txtq'"' != `""' & `"`txtq'"' != `"`txt'"' {
+			local mtext `"`mtext' `txtq'"'
+			gettoken txtq triplets : triplets , quotes
+			gettoken txt           : txtq
+		}
+
+		local i_b = 0`.ptext.arrnels' + 1
+		.ptext[`i_b'] = .pos_textbox.new , mtextq(`"`mtext'"')	///
+				     forcesized style(`tstyle')
+		.boxpos[`i_b'] = "`angle' `radius'"
+		local mtext
+
+		.`log' = {}
+		_fr_sztextbox_parse_and_log `log' ptext[`i_b'] , `options'
+		local 0 `", `r(rest)'"'
+		syntax [, FAKE_OPT_FOR_BETTER_MSG ]
+
+		_fr_runlog `log' , nologging
+
+		local    angle `txt'
+		gettoken radius triplets : triplets
+	}
+end
+
+
+// ----------------------------------------------------------------------------
+// Returns the mid-point (in radians) of the supplied wedge index.
+
+program MidAngle
+	args dex
+
+	local angle0 `.style.angle0.val'
+	local op = cond(`.style.clockwise.istrue' , "-" , "+")
+	forvalues i=1/0`=`dex'-1' {
+		local angle0 = `angle0' `op' serset(2, `i')
+	}
+
+	class exit = 2 * _pi * (`angle0' `op' serset(2, `dex') / 2) / 360
+end
+
+
+// ----------------------------------------------------------------------------
+// Creates pie slices and places them in the plotregion.  If already created
+// just repositions.
+
+program makepie
+
+	.sersets[1].set
+
+	if (! `._remake')  {
+		exit			// already created
+	}
+
+	._remake = 0
+
+	local radius0 = 50
+	.radius = .Radius `radius0'
+
+	local x0 = 0
+	local y0 = 0
+
+	if (`.style.clockwise.isfalse') local clock "counterclockwise"
+
+	local n_pie = 0
+	local angle0 `.style.angle0.val'
+	local op = cond(`.style.clockwise.istrue' , "-" , "+")
+
+	forvalues i=1/0`:serset N' {
+
+		if (`=serset(2 , `i')' <= 0) continue
+		local angle = `angle0' `op' serset(2 , `i')
+
+		if (`angle0'+`angle' >= .)  continue
+
+		if "`.style.linestyle.color.stylename'" == "none" {
+			local color "`.piestyles[`i'].shadestyle.color.snm'"
+			if "`color'" == "" {
+			    local color "`.piestyles[`i'].shadestyle.color.rgb'"
+			}
+			.piestyles[`i'].editstyle linestyle(width(vvvthin) ///
+			    color(`color')) editcopy
+		}
+		else {
+			.piestyles[`i'].linestyle.remake_as_copy
+			.piestyles[`i'].linestyle.ref = .style.linestyle.ref
+		}
+
+		.plotregion1.pieslices[`++n_pie'] = .pieslice_g.new	///
+				  `x0' `y0' `.radius' `angle' `angle0' 	///
+				  0`.explodes[`i'].val' , `clock'
+
+		.plotregion1.pieslices[`n_pie'].style.ref = .piestyles[`i'].ref
+
+		local angle0 `angle'
+	}
+
+	.PositionPtext   `x0' `y0'
+	.PositionPlabels `x0' `y0'
+
+end
+  
+
+program Radius
+	args base
+
+	class exit `base' - 0`.MaxExplode'
+end
+
+program MaxExplode
+
+	forvalues i = 1/0`.explodes.arrnels' {
+		local max = max(0`max' , 0`.explodes[`i'].gmval')
+	}
+
+	class exit = `max'
+end
+
+
+program MakePtext
+	args x0 y0
+
+	forvalues i = 1/0`.ptext.arrnels' {
+		tokenize `.boxpos[`i']'
+		local angle = 2 * _pi * `1' / 360
+		local y = `y0' + sin(`angle') * `2'
+		local x = `x0' + cos(`angle') * `2'
+
+		.ptext[`i'].setpos , xpos(`x') ypos(`y')
+		.ptext[`i'].draw
+	}
+end
+
+
+program PositionPtext
+	args x0 y0
+
+	forvalues i = 1/0`.ptext.arrnels' {
+		tokenize `.boxpos[`i']'
+		local angle = 2 * _pi * `1' / 360
+		local y = `y0' + sin(`angle') * `2'
+		local x = `x0' + cos(`angle') * `2'
+
+		.ptext[`i'].setpos , xpos(`x') ypos(`y')
+		.plotregion1.pietext[`i'].ref = .ptext[`i'].ref
+	}
+end
+
+program PositionPlabels
+	args x0 y0
+
+	forvalues i = 1/0`.plabel.arrnels' {
+		local dex `.plab_dex[`i']'
+		local radius = `.radius'*`.plab_radius[`i']' +		///
+			0`.plab_gap[`i']' + 0`.explodes[`dex'].gmval'
+		local angle `.MidAngle `dex''
+
+		local y = `y0' + sin(`angle') * `radius'
+		local x = `x0' + cos(`angle') * `radius'
+
+		.plabel[`i'].setpos , xpos(`x') ypos(`y')
+		.plotregion1.pielabel[`i'].ref = .plabel[`i'].ref
+	}
+end
+

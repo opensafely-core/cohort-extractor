@@ -1,0 +1,171 @@
+/*
+	_min_mds.idlg
+
+*!  VERSION 1.1.1  07mar2015
+
+  This file is included by mds.dlg, mdslong.dlg, and mdsmat.dlg.
+
+*/
+
+DIALOG min, label("") tabtitle(resource _MIN_MDS_TAB_MIN)
+BEGIN
+  GROUPBOX gb_init	_lft	_top	_cwd1		_ht13h,		///
+	label(resource _MIN_MDS_MIN_GB_INIT)
+DEFINE holdy @y
+  RADIO rb_classical	_ilft	_ss	_inwd		.,		///
+	first								///
+	option(classical)						///
+	onclickon(script min_classical_on)				///
+	label(resource _MIN_MDS_MIN_RB_CLASSICAL)
+
+  RADIO rb_random	@	_ms	@		.,		///
+	option(random)							///
+	onclickon(script min_random_on)					///
+	label(resource _MIN_MDS_MIN_RB_RANDOM)
+  EDIT ed_seed		_indent	_ss	_en7wd		.,		///
+	option(random)							///
+	label(resource LBL_SEED)
+  TEXT tx_seed		_en7sep	@	50		.,		///
+	label(resource LBL_SEED)
+
+  RADIO rb_from		_ilft	_ms	_cwd3		.,		///
+	last								///
+	option(from)							///
+	onclickon(script min_from_on)					///
+	label(resource _MIN_MDS_MIN_RB_FROM)
+  COMBOBOX cb_matname	_rbsep	_ss	_cwd5	60,			///
+	dropdown							///
+	label(resource _MIN_MDS_MIN_CB_MATNAME)				///
+	contents(matrix)
+  CHECKBOX ck_copy	@	_ms	@	.,			///
+	option(copy)							///
+	label(resource LBL_IGNORE_NAMING_CONFLICTS)
+
+  CHECKBOX ck_nolog	_lft	_xls	_iwd	.,			///
+	option(nolog)							///
+	onclickon(script min_nolog_on)					///
+	onclickoff(program min_nolog_off)				///
+	label(resource LBL_SUPPRESS_THE_ITERATION_LOG)
+
+  CHECKBOX ck_trace	@	_ms	@	.,			///
+	option(trace)							///
+	label(resource _MIN_MDS_MIN_CK_TRACE)
+
+  CHECKBOX ck_gradient	@	_ms	@	.,			///
+	option(gradient)						///
+	label(resource _MIN_MDS_MIN_CK_GRADIENT)
+
+  GROUPBOX gb_convtol	_lft2	holdy	_cwd1	_ht6,			///
+	label(resource LBL_CONVERGENCE_TOLERANCE)
+  EDIT ed_tol		_ilft2	_ms	_en7wd	.,			///
+	label(resource _MIN_MDS_MIN_ED_TOL)				///
+	option(tolerance)						///
+	default(1e-4)
+  TEXT tx_tol		_en7sep	@	_en7r2b	.,			///
+	label(resource _MIN_MDS_MIN_ED_TOL)
+  EDIT ed_ltol		_ilft2	_ls	_en7wd	.,			///
+	label(resource _MIN_MDS_MIN_ED_LTOL)				///
+	option(ltolerance)						///
+	default(1e-8)
+  TEXT tx_ltol		_en7sep	@	_en7r2b	.,			///
+	label(resource _MIN_MDS_MIN_ED_LTOL)
+
+  SPINNER sp_iter	_lft2	_xxls	_spwd	.,			///
+	label(resource LBL_MAXIMUM_ITERATIONS)				///
+	option(iterate)							///
+	min(0)								///
+	max(16000)							///
+	default(1000)
+  TEXT tx_iter		_spsep	@	_spr2	.,			///
+	label(resource LBL_MAXIMUM_ITERATIONS)
+
+  CHECKBOX ck_protect	_lft2	_ls	_cwd1	.,			///
+	onclickon(min.sp_protect.enable)				///
+	onclickoff(min.sp_protect.disable)				///
+	label(resource LBL_PROTECT_OPTIMIZATIONS)
+  SPINNER sp_protect	_cksep	_ss	_spwd	.,			///
+	min(1)								///
+	default(1)							///
+	max(100000)							///
+	option(protect)							///
+	label(resource LBL_PROTECT_OPTIMIZATIONS)
+END
+
+SCRIPT min_classical_on
+BEGIN
+	min.ed_seed.disable
+	min.tx_seed.disable
+	min.cb_matname.disable
+	min.ck_copy.disable
+END
+
+SCRIPT min_random_on
+BEGIN
+	min.ed_seed.enable
+	min.tx_seed.enable
+	min.cb_matname.disable
+	min.ck_copy.disable
+END
+
+SCRIPT min_from_on
+BEGIN
+	min.ed_seed.disable
+	min.tx_seed.disable
+	min.cb_matname.enable
+	min.ck_copy.enable
+END
+
+SCRIPT min_nolog_on
+BEGIN
+	min.ck_trace.disable
+	min.ck_gradient.disable
+END
+
+PROGRAM min_nolog_off
+BEGIN
+	if min.ck_nolog.isenabled() {
+		call min.ck_trace.enable
+		call min.ck_gradient.enable
+	}
+END
+
+PROGRAM initialize_output
+BEGIN
+	if min.rb_random {
+		if min.ed_seed {
+			optionarg min.ed_seed
+		}
+		else {
+			option min.rb_random
+		}
+	}
+	if min.rb_from {
+		put "from("
+		put min.cb_matname
+		put ")"
+		if min.ck_copy {
+			put ", "
+			put "copy"
+		}
+	}
+END
+
+PROGRAM min_output
+BEGIN
+	if !min.rb_classical {
+		if main.rb_modern | main.rb_nonmetric {
+			put " initialize("
+			put /program initialize_output
+			put ")"
+		}
+	}
+
+	optionarg /hidedefault min.ed_tol
+	optionarg /hidedefault min.ed_ltol
+	optionarg /hidedefault min.sp_iter
+	optionarg /hidedefault min.sp_protect
+	option min.ck_nolog
+	option min.ck_trace
+	option min.ck_gradient
+END
+

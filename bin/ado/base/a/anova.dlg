@@ -1,0 +1,146 @@
+/*
+    anova.dlg
+
+*!  VERSION 2.1.0  04sep2014
+
+    keyword:  eclass
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE _ht310
+INCLUDE header
+HELP hlp1, view("help anova")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource ANOVA_DLG_HSCALE
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)						///
+	label(resource ANOVA_DLG_TITLE)
+BEGIN
+  TEXT tx_dv		_lft	_top	_iwd	.,			///
+	label(resource LBL_DEPVAR)
+  VARNAME vn_dv		@	_ss	_vnwd	.,			///
+  	numeric								///
+	label(resource LBL_DEPVAR)
+
+  BUTTON bu_examples	_lft4_4	_ms	_cwd4_1	.,			///
+	push("script main_examples")					///
+	label(resource LBL_BU_EXAMPLES)
+  TEXT tx_terms		_lft	+5	_vlwd	.,			///
+	label(resource LBL_MODEL)
+  VARLIST vl_terms	@	_ss	_iwd	.,			///
+	fvanova								///
+	numeric								///
+	label(resource LBL_MODEL)
+
+  CHECKBOX ck_repeated	@	_ls	@	.,			///
+	onclickon(script rep_on)					///
+	onclickoff(script rep_off)					///
+	label(resource ANOVA_MAIN_CK_REPEATED)
+  VARLIST vl_repeated	_indent2 _ss	_inwd	.,			///
+	option(repeated)						///
+	numeric								///
+	label(resource ANOVA_MAIN_CK_REPEATED)
+
+  GROUPBOX gb_ss	_lft	_ls	_cwd1	_ht4,			///
+	label(resource ANOVA_MAIN_GB_SS)
+  RADIO rb_partial	_indent	_ss	_inwd	., first		///
+	label(resource ANOVA_MAIN_RB_PARTIAL)
+  RADIO rb_seq		@	_ss	@	., last			///
+	option(sequential)						///
+	label(resource ANOVA_MAIN_RB_SEQ)
+
+  CHECKBOX ck_noconst	_lft	_xls	_iwd	.,			///
+	option(noconstant)						///
+	label(resource LBL_NOCONSTANT)
+  CHECKBOX ck_dropempty	_lft	_ms	@	.,			///
+	option(dropemptycells)						///
+	label(resource LBL_DROP_EMPTY_CELLS_DESIGN_MATRIX)
+END
+
+DIALOG adv, tabtitle(resource LBL_TAB_ADV_MODEL)
+BEGIN
+  GROUPBOX gb_advrep	_lft	_top	_iwd	_ht15,			///
+	label(resource ANOVA_ADV_MODEL_GB_ADVREP)
+
+  TEXT tx_bse		_ilft	_ss	_ibwd	.,			///
+	label(resource ANOVA_ADV_MODEL_TX_BSE)
+  VARLIST vl_bse	@	_ss	@	.,			///
+	option(bse)							///
+	numeric								///
+	label(resource ANOVA_ADV_MODEL_TX_BSE)
+
+  TEXT tx_bseunit	@	_ls	@ 	.,			///
+	label(resource ANOVA_ADV_MODEL_TX_BSEUNIT)
+  VARNAME vn_bseunit	@	_ss	_vnwd	.,			///
+	option(bseunit)							///
+	numeric								///
+	label(resource ANOVA_ADV_MODEL_TX_BSEUNIT)
+
+  TEXT tx_grouping	@	_ls	_ibwd	.,			///
+	label(resource ANOVA_ADV_MODEL_TX_GROUPING)
+  VARNAME vn_grouping	@	_ss	_vnwd	.,			///
+	option(grouping)						///
+	label(resource ANOVA_ADV_MODEL_TX_GROUPING)
+END
+
+
+INCLUDE byifin
+INCLUDE weights_fa
+
+SCRIPT main_examples
+BEGIN
+	view help anova_example##|_new
+END
+
+SCRIPT rep_on
+BEGIN
+	main.vl_repeated.enable
+	adv.gb_advrep.enable
+	adv.tx_bse.enable
+	adv.vl_bse.enable
+	adv.tx_bseunit.enable
+	adv.vn_bseunit.enable
+	adv.tx_grouping.enable
+	adv.vn_grouping.enable
+END
+
+SCRIPT rep_off
+BEGIN
+	main.vl_repeated.disable
+	adv.gb_advrep.disable
+	adv.tx_bse.disable
+	adv.vl_bse.disable
+	adv.tx_bseunit.disable
+	adv.vn_bseunit.disable
+	adv.tx_grouping.disable
+	adv.vn_grouping.disable
+END
+
+
+PROGRAM command
+BEGIN
+	INCLUDE _by_pr
+	put "anova "
+	varlist main.vn_dv [main.vl_terms]
+	INCLUDE _weights_pr
+	INCLUDE _ifin_pr
+	beginoptions
+		if main.ck_repeated {
+			require main.vl_repeated
+			optionarg main.vl_repeated
+		}
+		option radio(main rb_seq)
+		option main.ck_noconst
+		option main.ck_dropempty
+		optionarg adv.vl_bse
+		optionarg adv.vn_bseunit
+		optionarg adv.vn_grouping
+	endoptions
+END

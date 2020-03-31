@@ -1,0 +1,129 @@
+/*
+   clustermat_common.idlg include file for the -clustermat-
+
+*! VERSION 1.0.4  24oct2014
+
+*/
+
+DIALOG main, label() tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  BUTTON   bu_matinput	_rj100	_top    100	 .,		///
+	label(resource LBL_INPUT_MATRIX) 			///
+	onpush(program show_matrix_input)			///
+	tooltip(resource LBL_INPUT_HAND)
+
+  TEXT     tx_mat	_lft	_top	_vnwd	.,		///
+	label(resource CLUSTERMAT_COMMON_MAIN_TX_MAT)
+  DEFINE   holdy @y
+  COMBOBOX cb_mat	@	_ss	@	.,		///
+	label(resource CLUSTERMAT_COMMON_MAIN_TX_MAT)		///
+	dropdown						///
+	contents(matrix)
+
+  TEXT     tx_shape	_lft	_ls	_comb4_1 .,		///
+	label(resource LBL_STORAGE_SHAPE)
+  COMBOBOX cb_shape	@	_ss	@	.,		///
+	label(resource LBL_STORAGE_SHAPE)			///
+	dropdownlist						///
+	contents(main_shape_words)				///
+	value(main_shape_values)				///
+	option(shape)
+  
+  GROUPBOX gb_data	_lft	+35	_iwd	 _ht4,		///
+	label(resource LBL_DATA)
+  RADIO    rb_add	_ilft	_ss	_ibwd	., first	///
+	option(add)						///
+	onclickon(script ifin_enable)				///
+	label(resource CLUSTERMAT_COMMON_MAIN_RB_ADD)
+  RADIO    rb_clear	@	_ss	@	., last		///
+	option(clear)						///
+	onclickon(script ifin_disable)				///
+	label(resource CLUSTERMAT_COMMON_MAIN_RB_CLEAR)
+
+  CHECKBOX ck_labelvar	_lft	+45	_iwd	.,		///
+	label(resource CLUSTERMAT_COMMON_MAIN_CK_LABELVAR)		///
+	onclickon(main.ed_labelvar.enable)			///
+	onclickoff(main.ed_labelvar.disable)
+  EDIT     ed_labelvar	@	_ss	_vnwd	.,		///
+	max(32)							///
+	option(labelvar)					///
+	label(resource CLUSTERMAT_COMMON_MAIN_CK_LABELVAR)
+
+  TEXT     tx_name	_lft	_ls	_iwd	.,		///
+	label(resource LBL_NAME_THIS_CLUSTER_ANALYSIS)
+  EDIT     ed_name	@	_ss	_vnwd	.,		///
+	max(32)							///
+	option(name)						///
+	label(resource LBL_NAME_THIS_CLUSTER_ANALYSIS)
+END
+
+PROGRAM show_matrix_input
+BEGIN
+	call create CHILD matrix_input
+	if ! _rc {
+		call matrix_input.setExitString matrixResult
+		call matrix_input.setExitAction "program getMatrixResult"
+		call matrix_input.callthru "isChildContext.settrue"
+	}
+END
+PROGRAM getMatrixResult
+BEGIN
+	call main.cb_mat.repopulate
+	call matrixResult.withvalue main.cb_mat.setvalue "@"
+END
+
+LIST main_shape_words
+BEGIN
+	resource CLUSTERMAT_COMMON_LIST_SHAPE_WORDS_FULL
+	resource LBL_VECTOR_ROWWISE_LOWER_TRIANGLE_DIAGONAL
+	resource LBL_VECTOR_ROWWISE_STRICT_LOWER_TRIANGLE
+	resource LBL_VECTOR_ROWWISE_UPPER_TRIANGLE_DIAGONAL
+	resource LBL_VECTOR_ROWWISE_STRICT_UPPER_TRIANGLE
+END
+
+LIST main_shape_values
+BEGIN
+	full
+	lower
+	llower
+	upper
+	uupper
+END
+
+INCLUDE ifin
+
+DIALOG adv, tabtitle(resource LBL_ADVANCED)
+BEGIN
+  CHECKBOX ck_force	_lft	_top	_iwd	.,		///
+	option(force)						///
+	label(resource CLUSTERMAT_COMMON_ADV_CK_FORCE)
+
+  TEXT     tx_gen	@	_ls	@	.,		///
+	label(resource LBL_PREFIX_GEN_VARIABLE_EMPTY_DEFAULT)
+  EDIT     ed_gen	@	_ss	_vnwd	.,		///
+	max(28)							///
+	option(generate)					///
+	label(resource LBL_PREFIX_FOR_GENERATED_VARIABLES)
+END
+
+
+PROGRAM clustermat_common_output
+BEGIN
+	require main.cb_mat
+	put main.cb_mat
+	put " " /program ifin_output
+
+	beginoptions
+		optionarg main.cb_shape
+		option main.rb_add
+		option main.rb_clear
+		if main.ck_labelvar {
+			require main.ed_labelvar
+		}
+		optionarg main.ed_labelvar
+		optionarg main.ed_name
+		option adv.ck_force
+		optionarg adv.ed_gen
+	endoptions
+END
+

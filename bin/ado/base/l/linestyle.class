@@ -1,0 +1,140 @@
+/*				linestyle				*/
+*! version 1.2.0  04nov2019
+
+version 8
+
+class {
+
+    instance:
+	width     = .linewidth.new,   /* style(medium) */
+	color 	  = .color.new,       type(line) /* style(white) */
+	pattern   = .linepattern.new, /* style(solid) */
+	align     = .alignstroke.new, /* style(inside) */
+
+}, inherit(style)
+
+
+/* -------------------------------------------------------------------------*/
+/* see .set								    */
+
+program define new
+
+	syntax [ , Style(string) * ]
+	if "`style'" != "" {
+		.setstyle, style(scheme)
+	}
+	
+	.Super.new , `.set `0''
+end
+
+program define set
+
+	syntax [,	Color(string)			///
+			Pattern(passthru)		///
+			Width(real `.width.val')	///
+			Align(passthru)			///
+			*				///
+	]
+
+	if "`color'" != "" {
+		.color.setopts , `color'
+	}
+
+	if `width' != `.width.val' {
+		.width.val = `width'
+	}
+
+	if "`pattern'" != "" { 
+		.pattern.set , `pattern' 
+	}
+
+	if "`align'" != "" { 
+		.align.set , `align' 
+	}
+
+	class exit `"`options'"'
+
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*
+	Usage:  .patterned_line 
+*/
+program patterned_line
+
+	class exit = ! ("`.pattern.snm'"  == "blank" | 	///
+			"`.pattern.snm'"  == "solid" )
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*
+	Usage:  .blank_line 
+*/
+program blank_line
+
+	class exit = ("`.snm'" == "none" | "`.pattern.snm'" == "blank" | ///
+		      "`.width.snm'" == "none" | "`.color.snm'" == "none")
+end
+
+
+/* -------------------------------------------------------------------------*/
+/* 
+	Set this line style to the GDI
+*/
+
+program define setgdi
+
+	.color.setgdi , line
+	if ("`.color.stylename'" != "none") {
+		gdi gm_linewidth = `.width.gmval'
+		.pattern.setgdi
+	}
+	else {
+		gdi gm_linewidth = 0
+	}
+	.align.setgdi
+end
+
+
+/* -------------------------------------------------------------------------*/
+/* 
+	Set this line style to the GDI and reset the pen
+*/
+
+program define setgdifull
+
+	.setgdi
+	gdi penchange
+end
+
+
+
+/* -------------------------------------------------------------------------*/
+/* 
+	Set this line style to the GDI, allowing over-ride of color, width, or
+	pattern.
+
+	This is a low level call assumes the color, pattern, and/or width are
+	values to be directly set to the GDI, does NOT accept stylenames or
+	use schemes.
+
+	"Cheats" by assuming it knows how to set colors and patterns.
+*/
+
+program define setgdifullspecial
+
+	syntax [, Color(string) Pattern(string asis) Width(string) ]
+
+	.setgdi
+
+	if (`"`color'"' != `""')    gdi linergb = `color'
+	if (`"`width'"' != `""')    gdi gm_linewidth = `width'
+	if (`"`pattern'"' != `""') {
+		if (`"`pattern'"' == `""""') gdi linedash = 
+		else			     gdi linedash = `pattern'
+	}
+
+	gdi penchange
+end

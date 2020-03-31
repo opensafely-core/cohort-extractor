@@ -1,0 +1,823 @@
+/*
+	matrix input
+
+*!  VERSION 1.5.3  03jun2015
+
+*/
+
+VERSION 14.0
+SYNCHRONOUS_ONLY
+DEFINE _dlgwd 740
+DEFINE _dlght 540
+INCLUDE header
+
+HELP hlp1, view("help matrix_define")
+RESET res1
+
+DEFINE lbwd    60
+DEFINE lbsep  +65
+DEFINE lbtx    55
+DEFINE txsep  +60
+DEFINE mawd   120
+DEFINE masep +160
+
+DEFINE lft     10
+DEFINE ttop    10
+DEFINE top     85
+DEFINE ss     +20
+DEFINE ms     +25
+DEFINE wid     39
+DEFINE sep    +40
+
+SCRIPT PREINIT
+BEGIN
+	create STRING cmd
+	create STRING dlgName
+	dlgName.setvalue class _dlg_rsrcname	
+	create PBOOLEAN isChild
+
+	create STRING loadMatName
+	create DOUBLE rowCount	// loaded by ado code 
+	create DOUBLE colCount	// loaded by ado code
+
+	// used to prevent normal event handler from executing while loading
+	create BOOLEAN isLoading
+	create BOOLEAN isSyncOk
+	create BOOLEAN addingConstant
+	create BOOLEAN loadingMatName
+	program main_size_changed // initialize the layout
+
+	isLoading.settrue
+
+	create BOOLEAN isChildContext	// to be set by parent dialog 
+	setscale_hadj resource MATRIX_INPUT_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	isLoading.setfalse
+	program main_editbox_setlabels
+END
+
+PROGRAM main_editbox_setlabels
+BEGIN
+	call create STRING STMP
+	call create STRING STMPi
+	call create STRING STMPj
+	call create STRING STMP_final
+	call create DOUBLE i
+	call create DOUBLE j
+
+	call i.setvalue 1
+	while (i.isle(18)) {
+		call j.setvalue 1
+		while (j.isle(18)) {
+			call STMPi.setvalue class i.value
+			call STMPj.setvalue class j.value
+			call STMP_final.setvalue `"main.ed_r"'
+			call STMPi.withvalue STMP_final.append "@"
+			call STMP_final.append "c"
+			call STMPj.withvalue STMP_final.append "@.setlabel"
+
+			call STMP.format				///
+			"resource LBL_ROW_#_COL_#_FMT"			///
+				"class STMPi.value"			///
+				"class STMPj.value"
+			call STMP_final.append `" ""'
+			call STMP_final.append class STMP.value
+			call STMP_final.append `"""'
+			call STMP_final.withvalue @
+			call j.increment
+		}
+		call i.increment
+	}
+END
+
+PROGRAM main_size_changed
+BEGIN
+	if ! isLoading & !loadingMatName {
+		put "matrix_input__dlg setLayout , "
+		put "clsname(" dlgName ") "
+		put "rows(" main.sp_rows ") "
+		put "cols(" main.sp_cols ") "
+		put /on main.ck_sym
+		stata hidden immediate
+		call program main_cell_changed
+	}
+END
+
+PROGRAM main_sym_changed
+BEGIN
+    if ! isLoading {
+	if main.ck_sym {
+		call main.sp_cols.hide
+		call main.tx_cols.hide
+		call main.tx_rows.setlabel			///
+			"resource MATRIX_INPUT_ROWS_AND_COLUMNS"
+		call main.tx_rows.setposition . . 180 .
+		
+		if !loadingMatName {
+
+			call  isSyncOk.settrue
+			put "matrix_input__dlg isChangeSyncOk, " //calls back to showOverrideBox where isSyncOk is reset.
+			put "clsname(" dlgName ") "
+			stata hidden immediate
+			if isSyncOk {
+				call program main_size_changed
+				call program main_cell_changed
+			}
+			if ! isSyncOk {
+				call main.ck_sym.setoff
+			}
+		}
+	}
+	if ! main.ck_sym {
+		call main.sp_cols.show
+		call main.tx_cols.show
+		call main.tx_rows.setlabel "resource LBL_TAB_ROWS"
+		call main.tx_rows.setposition . . 60 .
+		call program main_size_changed
+	}
+    }
+END
+
+PROGRAM main_cell_changed
+BEGIN
+	if !addingConstant & !loadingMatName {
+		if main.ck_sym {
+			put "matrix_input__dlg syncUpper , "
+			put "clsname(" dlgName ") "
+			put "size(" main.sp_rows ") "
+			stata hidden immediate
+		}
+	}
+END
+
+PROGRAM showOverrideBox
+BEGIN
+	call isSyncOk.setfalse
+	stopbox rusure 	"resource MATRIX_INPUT_MSGBOX"
+// Values exist in the upper triangle that are not symmetric with the lower triangle.
+// By default Stata will replace values in the upper triangle. Ok to proceed?"
+	call isSyncOk.settrue
+END
+
+SCRIPT showGetMatrixDialog
+BEGIN
+	create CHILD matrix_input_get_matname
+	matrix_input_get_matname.setExitString loadMatName
+	matrix_input_get_matname.setExitAction "program getMatNameResult"
+END
+PROGRAM getMatNameResult
+BEGIN
+	call create DOUBLE maxCols
+	call create DOUBLE maxRows	
+	call maxCols.setvalue class main.sp_cols.max
+	call maxRows.setvalue class main.sp_rows.max
+
+	call loadingMatName.settrue
+	put "matrix_input__dlg "
+	put "loadMatrix , "
+	put "clsname(" dlgName ") "
+	put "matrix(" loadMatName ") "
+	put "rmax(" maxRows ") "
+	put "cmax(" maxCols ") "
+
+	stata hidden immediate
+	call loadingMatName.setfalse
+
+	call program main_size_changed
+
+	/* rowCount and colCount set by matrix_input__dlg loadMatrix */	
+	if rowCount.isgt(maxRows) & colCount.isgt(maxCols) {
+		stopbox stop 				///
+		"resource MATRIX_INPUT_MSGBOX_MATRIX_TOO_LONG_TO_DIS_OM_ROWS_COL"
+// The matrix is too large to display. Some rows and columns have been omitted.
+	}
+	else {
+		if rowCount.isgt(maxRows) {
+	stopbox stop "resource MATRIX_INPUT_MSGBOX_MATRIX_TOO_LONG_TO_DIS_OM_ROWS"
+// The matrix is too large to display. Some rows have been omitted.
+		}
+		else {
+			if colCount.isgt(maxCols) {
+	stopbox stop "resource MATRIX_INPUT_MSGBOX_MATRIX_TOO_LONG_TO_DIS_OM_COLS"
+// The matrix is too large to display. Some columns have been omitted.
+			}
+		}
+	}
+END
+
+SCRIPT showConstantDialog
+BEGIN
+	create STRING constantResult
+	create CHILD matrix_input_set_constant
+	matrix_input_set_constant.setExitString constantResult
+	matrix_input_set_constant.setExitAction "program getConstantResult"
+END
+PROGRAM getConstantResult
+BEGIN
+	call create STRING constType
+	call create STRING constValue
+	call create ARRAY tmpArray
+	call constantResult.tokenize tmpArray
+	call constType.setvalue class tmpArray[1]
+	call constValue.setvalue class tmpArray[2]
+	
+	call addingConstant.settrue
+	put "matrix_input__dlg "
+	put constType ", "
+	put "clsname(" dlgName ") "
+	put "rows(" main.sp_rows ") "
+	if (main.ck_sym) {
+		put "cols(" main.sp_rows ") "
+	}
+	if (!main.ck_sym) {
+		put "cols(" main.sp_cols ") "
+	}
+	put "value(" constValue ") "
+	stata hidden immediate
+	call addingConstant.setfalse
+END
+
+DIALOG main, label(resource MATRIX_INPUT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_name   lft   ttop  mawd  .,				///
+	label(resource LBL_CREATE_MATRIX_NAMED)
+
+  EDIT     ed_name   @     ss    mawd  .,				///
+	max(32) label(resource LBL_CREATE_MATRIX_NAMED)
+
+  CHECKBOX ck_sym    @     +30   155   ., 				///
+  	label(resource MATRIX_INPUT_MAIN_CK_SYM)			///
+  	onclickon(program main_sym_changed)				///
+  	onclickoff(program main_sym_changed) option(symmetric)
+
+  SPINNER  sp_rows   masep 30    lbwd  ., min(1) default(3) max(18)	///
+  	onchange(program main_size_changed)
+  TEXT     tx_rows   lbsep @     lbtx  ., label(resource LBL_TAB_ROWS)
+
+  SPINNER  sp_cols   txsep 30    lbwd  ., min(1) default(3) max(18)	///
+  	onchange(program main_size_changed)
+  TEXT     tx_cols   lbsep @     lbtx  ., label(resource LBL_COLUMNS)
+
+  BUTTON   bu_fill   620   ttop  110   .,				///
+	label(resource MATRIX_INPUT_MAIN_BU_FILL)			///
+	onpush(script showConstantDialog)				///
+	tooltip(resource MATRIX_INPUT_MAIN_BU_FILL_TOOLTIP)
+
+  BUTTON   bu_fillM  @     +25   110   .,				///
+	label(resource MATRIX_INPUT_MAIN_BU_FILLM)			///
+	onpush(script showGetMatrixDialog)				///
+	tooltip(resource MATRIX_INPUT_MAIN_BU_FILLM_TOOLTIP)	
+
+  EDIT     ed_r1c1   lft   top   wid   ., numonly
+  EDIT     ed_r1c2   sep   @     @     ., numonly
+  EDIT     ed_r1c3   sep   @     @     ., numonly
+  EDIT     ed_r1c4   sep   @     @     ., numonly
+  EDIT     ed_r1c5   sep   @     @     ., numonly
+  EDIT     ed_r1c6   sep   @     @     ., numonly
+  EDIT     ed_r1c7   sep   @     @     ., numonly
+  EDIT     ed_r1c8   sep   @     @     ., numonly
+  EDIT     ed_r1c9   sep   @     @     ., numonly
+  EDIT     ed_r1c10  sep   @     @     ., numonly
+  EDIT     ed_r1c11  sep   @     @     ., numonly
+  EDIT     ed_r1c12  sep   @     @     ., numonly
+  EDIT     ed_r1c13  sep   @     @     ., numonly
+  EDIT     ed_r1c14  sep   @     @     ., numonly
+  EDIT     ed_r1c15  sep   @     @     ., numonly
+  EDIT     ed_r1c16  sep   @     @     ., numonly
+  EDIT     ed_r1c17  sep   @     @     ., numonly
+  EDIT     ed_r1c18  sep   @     @     ., numonly
+
+  EDIT     ed_r2c1   lft   ms    @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r2c2   sep   @     @     ., numonly
+  EDIT     ed_r2c3   sep   @     @     ., numonly
+  EDIT     ed_r2c4   sep   @     @     ., numonly
+  EDIT     ed_r2c5   sep   @     @     ., numonly
+  EDIT     ed_r2c6   sep   @     @     ., numonly
+  EDIT     ed_r2c7   sep   @     @     ., numonly
+  EDIT     ed_r2c8   sep   @     @     ., numonly
+  EDIT     ed_r2c9   sep   @     @     ., numonly
+  EDIT     ed_r2c10  sep   @     @     ., numonly
+  EDIT     ed_r2c11  sep   @     @     ., numonly
+  EDIT     ed_r2c12  sep   @     @     ., numonly
+  EDIT     ed_r2c13  sep   @     @     ., numonly
+  EDIT     ed_r2c14  sep   @     @     ., numonly
+  EDIT     ed_r2c15  sep   @     @     ., numonly
+  EDIT     ed_r2c16  sep   @     @     ., numonly
+  EDIT     ed_r2c17  sep   @     @     ., numonly
+  EDIT     ed_r2c18  sep   @     @     ., numonly
+
+  EDIT     ed_r3c1   lft   ms    @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r3c2   sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r3c3   sep   @     @     ., numonly
+  EDIT     ed_r3c4   sep   @     @     ., numonly
+  EDIT     ed_r3c5   sep   @     @     ., numonly
+  EDIT     ed_r3c6   sep   @     @     ., numonly
+  EDIT     ed_r3c7   sep   @     @     ., numonly
+  EDIT     ed_r3c8   sep   @     @     ., numonly
+  EDIT     ed_r3c9   sep   @     @     ., numonly
+  EDIT     ed_r3c10  sep   @     @     ., numonly
+  EDIT     ed_r3c11  sep   @     @     ., numonly
+  EDIT     ed_r3c12  sep   @     @     ., numonly
+  EDIT     ed_r3c13  sep   @     @     ., numonly
+  EDIT     ed_r3c14  sep   @     @     ., numonly
+  EDIT     ed_r3c15  sep   @     @     ., numonly
+  EDIT     ed_r3c16  sep   @     @     ., numonly
+  EDIT     ed_r3c17  sep   @     @     ., numonly
+  EDIT     ed_r3c18  sep   @     @     ., numonly
+
+  EDIT     ed_r4c1   lft   ms    @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r4c2   sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r4c3   sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r4c4   sep   @     @     ., numonly
+  EDIT     ed_r4c5   sep   @     @     ., numonly
+  EDIT     ed_r4c6   sep   @     @     ., numonly
+  EDIT     ed_r4c7   sep   @     @     ., numonly
+  EDIT     ed_r4c8   sep   @     @     ., numonly
+  EDIT     ed_r4c9   sep   @     @     ., numonly
+  EDIT     ed_r4c10  sep   @     @     ., numonly
+  EDIT     ed_r4c11  sep   @     @     ., numonly
+  EDIT     ed_r4c12  sep   @     @     ., numonly
+  EDIT     ed_r4c13  sep   @     @     ., numonly
+  EDIT     ed_r4c14  sep   @     @     ., numonly
+  EDIT     ed_r4c15  sep   @     @     ., numonly
+  EDIT     ed_r4c16  sep   @     @     ., numonly
+  EDIT     ed_r4c17  sep   @     @     ., numonly
+  EDIT     ed_r4c18  sep   @     @     ., numonly
+
+  EDIT     ed_r5c1   lft   ms    @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r5c2   sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r5c3   sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r5c4   sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r5c5   sep   @     @     ., numonly
+  EDIT     ed_r5c6   sep   @     @     ., numonly
+  EDIT     ed_r5c7   sep   @     @     ., numonly
+  EDIT     ed_r5c8   sep   @     @     ., numonly
+  EDIT     ed_r5c9   sep   @     @     ., numonly
+  EDIT     ed_r5c10  sep   @     @     ., numonly
+  EDIT     ed_r5c11  sep   @     @     ., numonly
+  EDIT     ed_r5c12  sep   @     @     ., numonly
+  EDIT     ed_r5c13  sep   @     @     ., numonly
+  EDIT     ed_r5c14  sep   @     @     ., numonly
+  EDIT     ed_r5c15  sep   @     @     ., numonly
+  EDIT     ed_r5c16  sep   @     @     ., numonly
+  EDIT     ed_r5c17  sep   @     @     ., numonly
+  EDIT     ed_r5c18  sep   @     @     ., numonly
+
+  EDIT     ed_r6c1   lft   ms    @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r6c2   sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r6c3   sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r6c4   sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r6c5   sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r6c6   sep   @     @     ., numonly
+  EDIT     ed_r6c7   sep   @     @     ., numonly
+  EDIT     ed_r6c8   sep   @     @     ., numonly
+  EDIT     ed_r6c9   sep   @     @     ., numonly
+  EDIT     ed_r6c10  sep   @     @     ., numonly
+  EDIT     ed_r6c11  sep   @     @     ., numonly
+  EDIT     ed_r6c12  sep   @     @     ., numonly
+  EDIT     ed_r6c13  sep   @     @     ., numonly
+  EDIT     ed_r6c14  sep   @     @     ., numonly
+  EDIT     ed_r6c15  sep   @     @     ., numonly
+  EDIT     ed_r6c16  sep   @     @     ., numonly
+  EDIT     ed_r6c17  sep   @     @     ., numonly
+  EDIT     ed_r6c18  sep   @     @     ., numonly
+
+  EDIT     ed_r7c1   lft   ms    @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r7c2   sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r7c3   sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r7c4   sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r7c5   sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r7c6   sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r7c7   sep   @     @     ., numonly
+  EDIT     ed_r7c8   sep   @     @     ., numonly
+  EDIT     ed_r7c9   sep   @     @     ., numonly
+  EDIT     ed_r7c10  sep   @     @     ., numonly
+  EDIT     ed_r7c11  sep   @     @     ., numonly
+  EDIT     ed_r7c12  sep   @     @     ., numonly
+  EDIT     ed_r7c13  sep   @     @     ., numonly
+  EDIT     ed_r7c14  sep   @     @     ., numonly
+  EDIT     ed_r7c15  sep   @     @     ., numonly
+  EDIT     ed_r7c16  sep   @     @     ., numonly
+  EDIT     ed_r7c17  sep   @     @     ., numonly
+  EDIT     ed_r7c18  sep   @     @     ., numonly
+
+  EDIT     ed_r8c1   lft   ms    @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r8c2   sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r8c3   sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r8c4   sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r8c5   sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r8c6   sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r8c7   sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r8c8   sep   @     @     ., numonly
+  EDIT     ed_r8c9   sep   @     @     ., numonly
+  EDIT     ed_r8c10  sep   @     @     ., numonly
+  EDIT     ed_r8c11  sep   @     @     ., numonly
+  EDIT     ed_r8c12  sep   @     @     ., numonly
+  EDIT     ed_r8c13  sep   @     @     ., numonly
+  EDIT     ed_r8c14  sep   @     @     ., numonly
+  EDIT     ed_r8c15  sep   @     @     ., numonly
+  EDIT     ed_r8c16  sep   @     @     ., numonly
+  EDIT     ed_r8c17  sep   @     @     ., numonly
+  EDIT     ed_r8c18  sep   @     @     ., numonly
+
+  EDIT     ed_r9c1   lft   ms    @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r9c2   sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r9c3   sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r9c4   sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r9c5   sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r9c6   sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r9c7   sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r9c8   sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r9c9   sep   @     @     ., numonly
+  EDIT     ed_r9c10  sep   @     @     ., numonly
+  EDIT     ed_r9c11  sep   @     @     ., numonly
+  EDIT     ed_r9c12  sep   @     @     ., numonly
+  EDIT     ed_r9c13  sep   @     @     ., numonly
+  EDIT     ed_r9c14  sep   @     @     ., numonly
+  EDIT     ed_r9c15  sep   @     @     ., numonly
+  EDIT     ed_r9c16  sep   @     @     ., numonly
+  EDIT     ed_r9c17  sep   @     @     ., numonly
+  EDIT     ed_r9c18  sep   @     @     ., numonly
+
+  EDIT     ed_r10c1  lft   ms    @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r10c2  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r10c3  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r10c4  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r10c5  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r10c6  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r10c7  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r10c8  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r10c9  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r10c10 sep   @     @     ., numonly
+  EDIT     ed_r10c11  sep   @     @     ., numonly
+  EDIT     ed_r10c12  sep   @     @     ., numonly
+  EDIT     ed_r10c13  sep   @     @     ., numonly
+  EDIT     ed_r10c14  sep   @     @     ., numonly
+  EDIT     ed_r10c15  sep   @     @     ., numonly
+  EDIT     ed_r10c16  sep   @     @     ., numonly
+  EDIT     ed_r10c17  sep   @     @     ., numonly
+  EDIT     ed_r10c18  sep   @     @     ., numonly
+
+  EDIT     ed_r11c1  lft   ms    @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r11c2  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r11c3  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r11c4  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r11c5  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r11c6  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r11c7  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r11c8  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r11c9  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r11c10 sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r11c11  sep   @     @     ., numonly
+  EDIT     ed_r11c12  sep   @     @     ., numonly
+  EDIT     ed_r11c13  sep   @     @     ., numonly
+  EDIT     ed_r11c14  sep   @     @     ., numonly
+  EDIT     ed_r11c15  sep   @     @     ., numonly
+  EDIT     ed_r11c16  sep   @     @     ., numonly
+  EDIT     ed_r11c17  sep   @     @     ., numonly
+  EDIT     ed_r11c18  sep   @     @     ., numonly
+
+  EDIT     ed_r12c1  lft   ms    @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r12c2  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r12c3  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r12c4  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r12c5  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r12c6  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r12c7  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r12c8  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r12c9  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r12c10 sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r12c11  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r12c12  sep   @     @     ., numonly
+  EDIT     ed_r12c13  sep   @     @     ., numonly
+  EDIT     ed_r12c14  sep   @     @     ., numonly
+  EDIT     ed_r12c15  sep   @     @     ., numonly
+  EDIT     ed_r12c16  sep   @     @     ., numonly
+  EDIT     ed_r12c17  sep   @     @     ., numonly
+  EDIT     ed_r12c18  sep   @     @     ., numonly
+
+  EDIT     ed_r13c1  lft   ms    @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r13c2  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r13c3  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r13c4  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r13c5  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r13c6  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r13c7  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r13c8  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r13c9  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r13c10 sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r13c11  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r13c12  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r13c13  sep   @     @     ., numonly
+  EDIT     ed_r13c14  sep   @     @     ., numonly
+  EDIT     ed_r13c15  sep   @     @     ., numonly
+  EDIT     ed_r13c16  sep   @     @     ., numonly
+  EDIT     ed_r13c17  sep   @     @     ., numonly
+  EDIT     ed_r13c18  sep   @     @     ., numonly
+
+  EDIT     ed_r14c1  lft   ms    @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r14c2  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r14c3  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r14c4  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r14c5  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r14c6  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r14c7  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r14c8  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r14c9  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r14c10 sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r14c11  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r14c12  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r14c13  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r14c14  sep   @     @     ., numonly
+  EDIT     ed_r14c15  sep   @     @     ., numonly
+  EDIT     ed_r14c16  sep   @     @     ., numonly
+  EDIT     ed_r14c17  sep   @     @     ., numonly
+  EDIT     ed_r14c18  sep   @     @     ., numonly
+
+  EDIT     ed_r15c1  lft   ms    @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r15c2  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r15c3  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r15c4  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r15c5  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r15c6  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r15c7  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r15c8  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r15c9  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r15c10 sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r15c11  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r15c12  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r15c13  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r15c14  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r15c15  sep   @     @     ., numonly
+  EDIT     ed_r15c16  sep   @     @     ., numonly
+  EDIT     ed_r15c17  sep   @     @     ., numonly
+  EDIT     ed_r15c18  sep   @     @     ., numonly
+
+  EDIT     ed_r16c1  lft   ms    @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r16c2  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r16c3  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r16c4  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r16c5  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r16c6  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r16c7  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r16c8  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r16c9  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r16c10 sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r16c11  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r16c12  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r16c13  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r16c14  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r16c15  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r16c16  sep   @     @     ., numonly
+  EDIT     ed_r16c17  sep   @     @     ., numonly
+  EDIT     ed_r16c18  sep   @     @     ., numonly
+
+  EDIT     ed_r17c1  lft   ms    @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r17c2  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r17c3  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r17c4  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r17c5  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r17c6  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r17c7  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r17c8  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r17c9  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r17c10 sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r17c11  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r17c12  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r17c13  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r17c14  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r17c15  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r17c16  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r17c17  sep   @     @     ., numonly
+  EDIT     ed_r17c18  sep   @     @     ., numonly
+
+  EDIT     ed_r18c1  lft   ms    @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r18c2  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r18c3  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r18c4  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r18c5  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r18c6  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r18c7  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r18c8  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r18c9  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r18c10 sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r18c11  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r18c12  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r18c13  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r18c14  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r18c15  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r18c16  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r18c17  sep   @     @     ., numonly			///
+	onchange(program main_cell_changed)
+  EDIT     ed_r18c18  sep   @     @     ., numonly
+END
+
+PROGRAM validate
+BEGIN
+	// this is just a template... the actual program is built dynamically
+END
+
+PROGRAM build_validate_program
+BEGIN
+	put "matrix_input__dlg generateValidateProgram, "
+	put "clsname(" dlgName ") "
+	put "rows(" main.sp_rows ") "
+	if (main.ck_sym) {
+		put "cols(" main.sp_rows ") "
+	}
+	if (!main.ck_sym) {
+		put "cols(" main.sp_cols ") "
+	}
+	stata hidden immediate
+END
+
+PROGRAM command
+BEGIN
+	require main.ed_name
+	call program build_validate_program
+	put /program validate
+	call program getcommand
+	put "matrix input " main.ed_name " " "= ("
+	put cmd
+	put ")"
+	
+	if isChildContext {
+		stata hidden immediate
+
+		if _rc {
+			stopbox stop resource MATRIX_INPUT_MSGBOX_ERROR_OCCURRED_WHILE_CREATING_MATRIX
+// An error occurred while creating the matrix.
+// Perhaps an invalid name was specified.
+		}
+		put main.ed_name // pass the name back to the parent
+	}
+END
+
+PROGRAM getcommand
+BEGIN
+	put "matrix_input__dlg generateCommand, "
+	put "clsname(" dlgName ") "
+	put "rows(" main.sp_rows ") "
+	if (main.ck_sym) {
+		put "cols(" main.sp_rows ") "
+	}
+	if (!main.ck_sym) {
+		put "cols(" main.sp_cols ") "
+	}
+	stata hidden immediate
+END

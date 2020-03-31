@@ -1,0 +1,346 @@
+/*
+   lca_pred_spec.dlg
+
+*!  VERSION 1.0.1  21mar2017
+
+*/
+
+VERSION 15.0
+
+INCLUDE _std_medium
+DEFINE _dlght 145
+INCLUDE header
+
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	 setscale_hadj resource LCA_PRED_SPEC_DLG_HSCALE
+
+	create STRING STMP
+	create DOUBLE rc
+	create STRING parent_name
+	create STRING clsspec
+
+	create STRING main_pred_tmp
+	create STRING main_pred_tmp2
+	create STRING main_pred_tmp3
+	create STRING main_pred_childdlg
+	create STRING main_pred_dlgname
+	create STRING main_pred_child_result
+	create STRING main_pred_cmd_output
+
+	create ARRAY main_pred_list
+
+	create SVECTOR mainPREDCommandDisplayList
+	create SVECTOR mainPREDCommandList
+	create SVECTOR mainPREDCommandValues
+	create SVECTOR mainPREDStatusList
+	create SVECTOR mainPREDChildDialogList
+
+	create DOUBLE main_pred_count
+	create DOUBLE main_pred_position
+	create DOUBLE main_pred_arraysize
+
+	main.bu_pred_edit.disable
+	main.bu_pred_disable.disable
+	main.bu_pred_enable.disable
+	
+	parent_name.setvalue class PARENT._dlg_rsrcname
+	parent_name.withvalue clsspec.setvalue			///
+		class @.sClassSpecResult.value
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	call program main_pred_sel_changed
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	label(resource LCA_PRED_SPEC_DLG_TITLE)
+//**	label("Class predictor specification")
+BEGIN
+  LISTBOX lb_pred_Build		_lft	_top	220	95,		///
+	contents(main_pred_list)					///
+	ondblclick(program main_pred_edit)				///
+	onselchange(program main_pred_sel_changed)			///
+	nomemory
+  BUTTON bu_pred_create		240	@	80	.,		///
+	onpush(program main_pred_create)				///
+	tooltip(resource LBL_CREATE_SPECIFICATION)			///
+	label(resource LBL_BU_CREATE)
+  BUTTON bu_pred_edit		@	_ms	@	.,		///
+	onpush(program main_pred_edit)					///
+	tooltip(resource LBL_EDIT_SPECIFICATION)			///
+	label(resource LBL_BU_EDIT)
+  BUTTON bu_pred_disable	@	_ms	@	.,		///
+	onpush(program main_pred_disable)				///
+	tooltip(resource LBL_CLICK_TO_DISABLE_A_SPECIFICATION)		///
+	label(resource LBL_BU_DISABLE)
+  BUTTON bu_pred_enable		@	_ms	@	.,		///
+	onpush(program main_pred_enable)				///
+	tooltip(resource LBL_CLICK_TO_ENABLE_PREV_DISABLED_SPEC)	///
+	label(resource LBL_BU_ENABLE)
+  TEXTBOX tb_pred_note		_lft	+25	300	_tb1,		///
+	label(resource LBL_PRESS_CREATE_DEFINE_SPECIFICATION)
+END
+
+PROGRAM create_lcsspecs_pred_list 
+BEGIN	
+	put  "gsem_lcspecs"
+	put  ", lcpaths "
+	put  clsspec
+	stata hidden immediate
+END
+
+PROGRAM main_pred_create
+BEGIN
+	call main_pred_count.setvalue class mainPREDChildDialogList.size
+	call main_pred_count.increment
+	call main_pred_tmp.setvalue "main_pred_"
+	call main_pred_tmp.append class main_pred_count.value
+	call main_pred_tmp.withvalue main_pred_childdlg.setvalue @
+	call program main_show_pred_child
+END
+
+PROGRAM main_pred_edit
+BEGIN
+	call mainPREDCommandDisplayList.findstr class			///
+		main.lb_pred_Build.value
+	call main_pred_position.setvalue class				///
+		mainPREDCommandDisplayList.position
+	call main_pred_position.withvalue				///
+		main_pred_childdlg.setvalue				///
+		class mainPREDChildDialogList.values[@]
+	call program main_show_pred_child_edit
+END
+
+PROGRAM main_show_pred_child
+BEGIN
+	call rc.setvalue 0
+	call program create_lcsspecs_pred_list 
+	if rc.isneq(0) {
+		exit
+	}
+	call main_pred_tmp.setvalue "lca_pred_child AS "
+	call main_pred_tmp.append class main_pred_childdlg.value
+	call main_pred_tmp.withvalue create CHILD @
+	call main_pred_childdlg.withvalue @.setExitString		///
+		"main_pred_child_result"
+	call main_pred_childdlg.withvalue @.setExitAction		///
+		"program main_pred_child_create_done"
+
+
+	call STMP.format "resource LBL_SPECIFICATION"
+	call STMP.append " "
+	call main_pred_count.withvalue STMP.append "@"
+	call STMP.withvalue main_pred_tmp.setvalue "@"
+	call main_pred_childdlg.withvalue				///
+		main_pred_tmp2.setvalue "@.settitle"
+	call main_pred_tmp2.append `" ""'
+	call main_pred_tmp2.append class main_pred_tmp.value
+	call main_pred_tmp2.append `"""'
+	call main_pred_tmp2.withvalue @
+END
+
+PROGRAM main_show_pred_child_edit
+BEGIN
+	call rc.setvalue 0
+	call program create_lcsspecs_pred_list 
+	if rc.isneq(0) {
+		exit
+	}
+	call main_pred_tmp.setvalue "lca_pred_child AS "
+	call main_pred_tmp.append class main_pred_childdlg.value
+	call main_pred_tmp.withvalue create CHILD @
+	call main_pred_childdlg.withvalue @.setExitString		///
+		"main_pred_child_result"
+	call main_pred_childdlg.withvalue @.setExitAction		///
+		"program main_pred_child_edit_done"
+
+	call main_pred_position.withvalue				///
+		main_pred_tmp.setvalue					///
+		class mainPREDCommandDisplayList.values[@]
+	call main_pred_childdlg.withvalue				///
+		main_pred_tmp2.setvalue "@.settitle"
+	call main_pred_tmp2.append `" ""'
+	call main_pred_tmp2.append class main_pred_tmp.value
+	call main_pred_tmp2.append `"""'
+	call main_pred_tmp2.withvalue @
+END
+
+PROGRAM main_pred_child_create_done
+BEGIN
+	call main_pred_arraysize.setvalue class			///
+		mainPREDChildDialogList.size
+	call main_pred_arraysize.increment
+
+	// Store child dialog name
+	call mainPREDChildDialogList.store class			///
+		main_pred_arraysize.value class main_pred_childdlg.value
+
+	// Store listbox display equation string
+	call STMP.format "resource LBL_SPECIFICATION"
+	call STMP.append " "
+	call main_pred_arraysize.withvalue STMP.append "@"
+
+	call STMP.withvalue						///
+		mainPREDCommandDisplayList.store class			///
+		main_pred_arraysize.value "@"
+
+	// Store child dialog result string
+	call mainPREDCommandList.store class				///
+		main_pred_arraysize.value				///
+		class main_pred_child_result.value
+
+	// Store child dialog result string for final command
+	//   For disable/enable
+	call main_pred_tmp.setvalue "("
+	call main_pred_tmp.append class main_pred_child_result.value
+	call main_pred_tmp.append ")"
+	call mainPREDCommandValues.store class				///
+		main_pred_arraysize.value				///
+		class main_pred_tmp.value
+
+	// Store disable/enable status
+	call mainPREDStatusList.store class				///
+		main_pred_arraysize.value "active"
+
+	call mainPREDCommandDisplayList.copyToArray main_pred_list
+	call main.lb_pred_Build.repopulate
+	call STMP.withvalue main.lb_pred_Build.setvalue "@"
+END
+
+PROGRAM main_pred_child_edit_done
+BEGIN
+	call mainPREDChildDialogList.findstr class			///
+		main_pred_childdlg.value
+	call main_pred_position.setvalue class				///
+		mainPREDChildDialogList.position
+	call main_pred_position.withvalue main_pred_tmp.setvalue	///
+		class mainPREDStatusList.values[@]
+	if main_pred_tmp.iseq("active") {
+		call STMP.format "resource LBL_SPECIFICATION"
+		call STMP.append " "
+		call main_pred_position.withvalue STMP.append "@"
+		call STMP.withvalue					///
+			mainPREDCommandDisplayList.store class		///
+			main_pred_position.value "@"
+		call main_pred_tmp3.setvalue "("
+		call main_pred_tmp3.append class main_pred_child_result.value
+		call main_pred_tmp3.append ")"
+		call mainPREDCommandValues.store class			///
+			main_pred_position.value class			///
+			main_pred_tmp3.value
+		call STMP.withvalue main_pred_tmp2.setvalue "@"
+	}
+	else {
+		call STMP.format "resource LBL_SPECIFICATION"
+		call STMP.append " "
+		call main_pred_position.withvalue STMP.append "@"
+		call STMP.append " "
+		call STMP.append "resource LBL_PAREN_DISABLED"
+		call STMP.withvalue					///
+			main_pred_tmp2.setvalue "@"
+
+		call STMP.withvalue					///
+			mainPREDCommandDisplayList.store		///
+			class main_pred_position.value "@"
+	}
+
+	call mainPREDCommandList.store class				///
+		main_pred_position.value class				///
+		main_pred_child_result.value
+
+	call mainPREDCommandDisplayList.copyToArray main_pred_list
+	call main.lb_pred_Build.repopulate
+	call main.lb_pred_Build.setvalue class main_pred_tmp2.value
+END
+
+PROGRAM main_pred_sel_changed
+BEGIN
+	call mainPREDCommandDisplayList.findstr class			///
+		main.lb_pred_Build.value
+	call main_pred_position.setvalue class				///
+		mainPREDCommandDisplayList.position
+	call main_pred_position.withvalue main_pred_tmp.setvalue	///
+		class mainPREDStatusList.values[@]
+	if main_pred_position {
+		call main.bu_pred_edit.enable
+		call main_pred_position.withvalue			///
+			main.tb_pred_note.setlabel			///
+			class mainPREDCommandList.values[@]
+	}
+
+	if main_pred_tmp.iseq("disable") {
+		call main.bu_pred_enable.enable
+		call main.bu_pred_disable.disable
+	}
+	if main_pred_tmp.iseq("active") {
+		call main.bu_pred_enable.disable
+		call main.bu_pred_disable.enable
+	}
+END
+
+PROGRAM main_pred_disable
+BEGIN
+	call mainPREDCommandDisplayList.findstr class			///
+		main.lb_pred_Build.value
+	call main_pred_position.setvalue class				///
+		mainPREDCommandDisplayList.position
+
+	call main_pred_tmp.setvalue class main.lb_pred_Build.value
+	call mainPREDStatusList.store class				///
+		main_pred_position.value "disable"
+	call mainPREDCommandValues.store class main_pred_position.value ""
+	call STMP.format "resource LBL_PAREN_DISABLED"
+	call main_pred_tmp.append " "
+	call main_pred_tmp.append class STMP.value
+	call main_pred_tmp.withvalue STMP.setvalue "@"
+
+	call main_pred_tmp.withvalue					///
+		mainPREDCommandDisplayList.store			///
+		class main_pred_position.value "@"
+
+	call mainPREDCommandDisplayList.copyToArray main_pred_list
+	call main.lb_pred_Build.repopulate
+	call main.lb_pred_Build.setvalue class STMP.value
+END
+
+PROGRAM main_pred_enable
+BEGIN
+	call mainPREDCommandDisplayList.findstr class			///
+		main.lb_pred_Build.value
+	call main_pred_position.setvalue class				///
+		mainPREDCommandDisplayList.position
+
+	call mainPREDStatusList.store class				///
+		main_pred_position.value "active"
+	call main_pred_tmp3.setvalue "("
+	call main_pred_position.withvalue main_pred_tmp3.append class	///
+		mainPREDCommandList.values[@]
+	call main_pred_tmp3.append ")"
+	call mainPREDCommandValues.store				///
+		class main_pred_position.value class			///
+		main_pred_tmp3.value
+
+	call STMP.format "resource LBL_SPECIFICATION"
+	call STMP.append " "
+	call main_pred_position.withvalue STMP.append "@"
+	call STMP.withvalue						///
+		mainPREDCommandDisplayList.store			///
+		class main_pred_position.value "@"
+
+	call mainPREDCommandDisplayList.copyToArray main_pred_list
+	call main_pred_position.withvalue				///
+		main_pred_tmp2.setvalue class				///
+		mainPREDCommandDisplayList.values[@]
+	call main.lb_pred_Build.repopulate
+	call main.lb_pred_Build.setvalue class main_pred_tmp2.value
+END
+
+PROGRAM command
+BEGIN
+	call mainPREDCommandValues.copyToString main_pred_cmd_output
+	put main_pred_cmd_output
+END

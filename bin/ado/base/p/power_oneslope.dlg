@@ -1,0 +1,639 @@
+/*
+	power oneslope
+
+*!  VERSION 1.2.3  14mar2017
+
+*/
+
+VERSION 15.0
+
+INCLUDE _std_xwide
+DEFINE _dlght 485
+INCLUDE header
+
+HELP hlp1, view("help power oneslope")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING graph_res
+	create STRING numContents
+	create STRING stok
+	create ARRAY tmp
+	create BOOLEAN containsNumlist
+	create BOOLEAN containsNumlist_null
+	create BOOLEAN containsNumlist_ba_diff
+
+	program table_create4Oneslope
+	setscale_hadj resource POWER_ONESLOPE_DLG_HSCALE
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	label(resource POWER_ONESLOPE_DLG_TITLE)
+BEGIN
+  INCLUDE power_compute
+  DEFINE errpos _ls
+  INCLUDE power_errorprob
+
+  DEFINE sspos +40
+  INCLUDE power_onesampsize
+
+  GROUPBOX gb_effect_size	_lft		+40	_iwd	_ht15,	///
+	label(resource LBL_EFFECT_SIZE)
+  GROUPBOX gb_slopes		_indent		_ss	_cwd4	_ht12,	///
+	label(resource LBL_SLOPES)
+  DEFINE holdy @y
+  EDIT ed_null			_indent		_ss	_en14wd	.,	///
+	onchange(program check_for_numlist)				///
+	tooltip(resource POWER_ONESLOPE_MAIN_ED_NULL_TIP)		///
+	label("")
+  TEXT tx_null			_en14sep	@	100	.,	///
+	label(resource LBL_STAR_NULL)
+  EDIT ed_ba_diff		_iilft		_ls	_en14wd	.,	///
+	option(diff)							///
+	onchange(program check_for_numlist)				///
+	label("")
+  TEXT tx_ba_diff		_en14sep	@	8	.,	///
+	label("*")
+  COMBOBOX cb_ba_diff		_indent		@	100	.,	///
+	dropdownlist							///
+	contents("main_effect_list")					///
+	values("main_effect_values")					///
+	onselchange("program main_ba_diff_changed")			///
+	label("")
+  GROUPBOX gb_std		305		holdy	_cwd0	_ht12,	///
+	label(resource POWER_ONESLOPE_MAIN_GB_STD)
+  EDIT ed_sdx			_indent		_ss	_en14wd	.,	///
+	option(sdx)							///
+	default(1)							///
+  	onchange(program check_for_numlist)				///
+  	tooltip(resource POWER_ONESLOPE_MAIN_ED_SDX_TIP)		///
+	label("")
+  TEXT tx_sdx			_en14sep	@	180	.,	///
+	label(resource POWER_ONESLOPE_MAIN_TX_SDX)
+  RADIO rb_sd			315		_ls	_cwd2	.,first	///
+	onclickon(script main_sd_on)					///
+	label(resource LBL_STANDARD_DEVIATION)
+  RADIO rb_corr			315		_xxls	_cwd2	.,last	///
+	onclickon(script main_corr_on)					///
+	label(resource POWER_ONESLOPE_MAIN_RB_CORR)
+  EDIT ed_sderror		330		-30	_en14wd	.,	///
+	option(sderror)							///
+	default(1)							///
+  	onchange(program check_for_numlist)				///
+  	tooltip(resource POWER_ONESLOPE_MAIN_ED_SDERROR_TIP)		///
+	label("")
+  EDIT ed_sdy			330		@	_en14wd	.,	///
+	option(sdy)							///
+  	onchange(program check_for_numlist)				///
+  	tooltip(resource POWER_ONESLOPE_MAIN_ED_SDY_TIP)		///
+	label("")
+  TEXT tx_sderror		_en14sep	@	8	.,	///
+	label("* ")
+  COMBOBOX cb_sd		465		@	150	.,	///
+  	dropdownlist							///
+  	contents("main_sd_list")					///
+  	values("main_sd_values")					///
+  	onselchange(program main_sd_changed)
+  EDIT ed_corr			330		_xxls	_en14wd	.,	///
+	option(corr)							///
+  	onchange(program check_for_numlist)				///
+  	tooltip(resource POWER_ONESLOPE_MAIN_ED_CORR_TIP)		///
+	label("")
+  TEXT tx_corr			_en14sep	@	170	.,	///
+	label(resource LBL_STAR_CORRELATION)
+  DEFINE ypos +45
+  INCLUDE power_test_maincommon
+END
+
+LIST main_compute_list
+BEGIN
+	resource LBL_SAMPLE_SIZE
+	resource PSS_LBL_POWER
+	resource POWER_ONESLOPE_EFFECT_SIZE_AND_TARGET_SLOPE
+END
+
+LIST main_compute_values
+BEGIN
+	sampsi
+	power
+	effect
+END
+
+LIST main_effect_list
+BEGIN
+	resource POWER_LBL_ALTERNATIVE
+	resource POWER_LBL_DIFFERENCE
+END
+
+LIST main_effect_values
+BEGIN
+	"ba"
+	"diff"
+END
+
+LIST main_sd_list
+BEGIN
+	"Error term"
+	"Outcome"
+END
+
+LIST main_sd_values
+BEGIN
+	"sderror"
+	"sdy"
+END
+SCRIPT main_sd_on
+BEGIN
+	main.ed_sderror.enable
+	main.ed_sdy.enable
+	main.cb_sd.enable
+	program main_sd_changed
+	main.ed_corr.disable
+	program table_create4Oneslope
+END
+
+SCRIPT main_corr_on
+BEGIN
+	main.ed_corr.enable
+	main.ed_sderror.disable
+	main.ed_sdy.disable
+	main.cb_sd.disable
+	program table_create4Oneslope
+END
+PROGRAM main_sd_changed
+BEGIN
+	if main.cb_sd.iseq("sderror") {
+		call program main_sderror_on
+	}
+	if main.cb_sd.iseq("sdy") {
+		call program main_sdy_on
+	}
+END
+PROGRAM main_sderror_on
+BEGIN
+	call main.ed_sderror.show
+	call main.ed_sdy.hide
+	call program table_create4Oneslope
+END
+PROGRAM main_sdy_on
+BEGIN
+	call main.ed_sderror.hide
+	call main.ed_sdy.show
+	call program table_create4Oneslope
+END
+
+PROGRAM main_compute_changed
+BEGIN
+	if main.cb_compute.iseq("sampsi") {
+		call program main_sampsi_on
+	}
+	if main.cb_compute.iseq("power") {
+		call program main_power_on
+	}
+	if main.cb_compute.iseq("effect") {
+		call program main_effect_on
+	}
+END
+
+PROGRAM main_sampsi_on
+BEGIN
+	call main.ed_power.show
+	call main.ed_beta.show
+	call main.tx_power_beta_power.show
+	call main.cb_power_beta.show
+	call main.ed_n.hide
+	call main.tx_n.hide
+	call main.ck_nfrac.show
+	call main.ed_ba_diff.show
+	call main.tx_ba_diff.show
+	call main.cb_ba_diff.show
+	call script power_test_maincommon_hide_dir
+	call program main_power_beta_changed
+	call program check_for_numlist
+	call program power_iteration_tab_check
+END
+
+PROGRAM main_power_on
+BEGIN
+	call main.ed_power.hide
+	call main.ed_beta.hide
+	call main.tx_power_beta_power.hide
+	call main.cb_power_beta.hide
+	call main.ed_n.show
+	call main.tx_n.show
+	call main.ck_nfrac.hide
+	call main.ed_ba_diff.show
+	call main.tx_ba_diff.show
+	call main.cb_ba_diff.show
+	call script power_test_maincommon_hide_dir
+	call program check_for_numlist
+	call program power_iteration_tab_check
+END
+
+PROGRAM main_effect_on
+BEGIN
+	call main.ed_power.show
+	call main.ed_beta.show
+	call main.tx_power_beta_power.show
+	call main.cb_power_beta.show
+	call main.ed_n.show
+	call main.tx_n.show
+	call main.ck_nfrac.hide
+	call main.ed_ba_diff.hide
+	call main.tx_ba_diff.hide
+	call main.cb_ba_diff.hide
+	call script power_test_maincommon_show_dir
+	call program main_power_beta_changed
+	call program check_for_numlist
+	call program power_iteration_tab_check
+END
+
+PROGRAM main_ba_diff_changed
+BEGIN
+	if main.cb_ba_diff.iseq("ba") {
+		call main.ed_ba_diff.settooltip resource POWER_ONESLOPE_ALT_SLOPE_BA
+	}
+	else {
+		call main.ed_ba_diff.settooltip resource POWER_ONESLOPE_SLOPE_DIFF_BA_B0
+	}
+	call program check_for_numlist
+	call program table_create4Oneslope
+END
+
+PROGRAM main_power_beta_table
+BEGIN
+	call program table_create4Oneslope
+END
+
+PROGRAM check_for_numlist
+BEGIN
+	call containsNumlist.setfalse
+	call containsNumlist_null.setfalse
+	call containsNumlist_ba_diff.setfalse
+
+	if main.ed_null {
+		call numContents.setvalue class main.ed_null.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+			call containsNumlist_null.settrue
+		}
+	}
+	if main.ed_ba_diff & main.ed_ba_diff.isvisible() {
+		call numContents.setvalue class main.ed_ba_diff.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+			call containsNumlist_ba_diff.settrue
+		}
+	}
+	if main.ed_alpha {
+		call numContents.setvalue class main.ed_alpha.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+	if main.ed_power & main.ed_power.isvisible() {
+		call numContents.setvalue class main.ed_power.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+	if main.ed_beta & main.ed_beta.isvisible() {
+		call numContents.setvalue class main.ed_beta.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+	if main.ed_n & main.ed_n.isvisible() {
+		call numContents.setvalue class main.ed_n.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}	
+	if main.ed_sdx {
+		call numContents.setvalue class main.ed_sdx.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}	
+	if main.ed_sderror & main.ed_sderror.isvisible() & main.ed_sderror.isenabled(){
+		call numContents.setvalue class main.ed_sderror.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+	if main.ed_sdy & main.ed_sdy.isvisible() & main.ed_sdy.isenabled(){
+		call numContents.setvalue class main.ed_sdy.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+	if main.ed_corr & main.ed_corr.isenabled(){
+		call numContents.setvalue class main.ed_corr.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+	if containsNumlist {
+		call main.ck_parallel.enable
+	}
+	else {
+		call main.ck_parallel.disable
+	}
+	call program table_create4Oneslope
+END
+
+PROGRAM power_iteration_tab_check
+BEGIN
+	call script power_iteration_enable
+	if main.cb_compute.iseq("power") {
+		call script power_iteration_disable
+	}
+	else {
+		if main.cb_oneside.iseq("onesided") {
+			call script power_iteration_disable
+		}
+		if main.cb_compute.iseq("sampsi") {
+			call script power_iteration_is_sampsi
+		}
+		if main.cb_compute.iseq("effect") {
+			call script power_iteration_is_slope
+		}
+	}
+END
+
+INCLUDE _power_list
+INCLUDE power_errorprob_pr
+INCLUDE power_table_opts
+INCLUDE power_graph
+INCLUDE power_iteration
+INCLUDE power_test_maincommon_pr
+
+PROGRAM	command
+BEGIN
+	put "power oneslope "
+	if !main.ed_null {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format 					///
+			"resource POWER_MSGBOX_SLOPE_REQUIRED_FMT" 	///
+			"resource LBL_TAB_MAIN" 			///
+			"resource LBL_NULL"
+		stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Null" slope must be filled in.
+	}
+	if !main.ed_null.isnumlist() {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format 					///
+			"resource LBL_MSGBOX_INVALID_NUMLIST_FOR_SLOPE_FMT" ///
+			"resource LBL_TAB_MAIN" 			///
+			"resource LBL_NULL"
+		stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Null" slope.
+	}
+	if containsNumlist_null {
+		put "("
+		put main.ed_null
+		put ")"
+	}
+	else {
+		put main.ed_null
+	}
+
+	if main.cb_compute.iseq("sampsi") | main.cb_compute.iseq("power") {
+		if !main.ed_ba_diff {
+			if main.cb_ba_diff.iseq("ba") {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format 					///
+			"resource POWER_MSGBOX_SLOPE_REQUIRED_FMT" 	///
+			"resource LBL_TAB_MAIN" 			///
+			"resource POWER_LBL_ALTERNATIVE"
+		stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Alternative" slope must be filled in.
+			}
+			else {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format 					///
+			"resource POWER_MSGBOX_BETWEEN_SLOPES_FMT" 	///
+			"resource LBL_TAB_MAIN" 			///
+			"resource POWER_LBL_DIFFERENCE"
+		stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Difference" between slopes must be filled in.
+			}
+		}
+	}
+
+	if main.cb_compute.iseq("power") | main.cb_compute.iseq("effect") {
+		require main.ed_n
+	}
+
+	if main.cb_ba_diff.iseq("ba") & main.cb_ba_diff.isvisible() {
+		if !main.ed_ba_diff.isnumlist() {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format 					///
+			"resource LBL_MSGBOX_INVALID_NUMLIST_FOR_SLOPE_FMT" ///
+			"resource LBL_TAB_MAIN" 			///
+			"resource POWER_LBL_ALTERNATIVE"
+		stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Alternative" slope.
+		}
+		if containsNumlist_ba_diff {
+			put " ("
+			put main.ed_ba_diff
+			put ")"
+		}
+		else {
+			put " " main.ed_ba_diff
+		}
+	}
+	beginoptions
+		if main.cb_ba_diff.iseq("diff") & main.cb_ba_diff.isvisible() {
+			if !main.ed_ba_diff.isnumlist() {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format 					///
+				"resource LBL_MSGBOX_INVALID_NUMLIST_BETWEEN_SLOPES_FMT" ///
+				"resource LBL_TAB_MAIN" 			///
+				"resource POWER_LBL_DIFFERENCE"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Difference" between slopes.
+			}
+			optionarg main.ed_ba_diff
+		}
+		if main.ed_n & main.ed_n.isvisible() {
+			if !main.ed_n.isnumlist() {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 					///
+					"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+					"resource LBL_TAB_MAIN"				///
+					"resource LBL_SAMPLE_SIZE"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Sample size".
+			}
+			if !main.ed_n.isNumlistGT(0) {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 					///
+					"resource LBL_MSGBOX_ON_TAB_GREATER_THAN_0_FMT" ///
+					"resource LBL_TAB_MAIN"				///
+					"resource LBL_SAMPLE_SIZE"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Sample size" must be greater than 0.
+			}
+			optionarg main.ed_n
+		}
+		option main.ck_nfrac
+		
+		put " " /program power_errorprob_output
+		
+		if main.ed_sdx {
+			if !main.ed_sdx.isnumlist() {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource POWER_COX_MAIN_ED_SD"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Standard deviation of covariate of interest".
+			}
+			if !main.ed_sdx.isNumlistGT(0) {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format				///
+				"resource LBL_MSGBOX_ON_TAB_GREATER_THAN_0_FMT"	///
+				"resource LBL_TAB_MAIN"			///
+				"resource POWER_COX_MAIN_ED_SD"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Standard deviation of covariate of interest" must be greater than 0.
+			}
+			optionarg /hidedefault main.ed_sdx
+		}
+		if main.ed_sderror & main.ed_sderror.isenabled() & 	///
+		main.ed_sderror.isvisible() {
+			if !main.ed_sderror.isnumlist() {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT"	///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_STANDARD_DEVIATION_OF_ERROR_TERM"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Standard deviation of error term".
+			}
+			if !main.ed_sderror.isNumlistGT(0) {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format				///
+				"resource LBL_MSGBOX_ON_TAB_GREATER_THAN_0_FMT"	///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_STANDARD_DEVIATION_OF_ERROR_TERM"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Standard deviation of error term" must be greater than 0.
+			}
+			optionarg /hidedefault main.ed_sderror
+		}
+		if main.ed_sdy & main.ed_sdy.isenabled() & 		///
+		main.ed_sdy.isvisible() {
+			if !main.ed_sdy.isnumlist() {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT"	///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_STANDARD_DEVIATION_OF_Y"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Standard deviation of dependent variable".
+			}
+			if !main.ed_sdy.isNumlistGT(0) {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format				///
+				"resource LBL_MSGBOX_ON_TAB_GREATER_THAN_0_FMT"	///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_STANDARD_DEVIATION_OF_Y"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Standard deviation of dependent variable" must be greater than 0.				
+			}
+			optionarg main.ed_sdy
+		}
+		if main.ed_corr & main.ed_corr.isenabled() {
+			if !main.ed_corr.isnumlist() {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT"	///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_CORR_BETWEEN_Y_AND_X"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Correlation between dependent variable and covariate".
+			}
+			if !(main.ed_corr.isNumlistGT(-1) 		///
+			    & main.ed_corr.isNumlistLT(1))		///
+			{
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format				///
+				"resource LBL_MSGBOX_ON_TAB_BETWEEN_NEG_1_AND_1_FMT"	///
+				"resource LBL_TAB_MAIN"							///
+				"resource LBL_CORR_BETWEEN_Y_AND_X"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Correlation between dependent variable and covariate" must be between -1 and 1.				
+			}
+			optionarg main.ed_corr
+		}
+		put " " /program power_test_maincommon_output
+		put " " /program power_table_opts_output
+		put " " /program power_graph_output
+		put " " /program power_iteration_output
+	endoptions
+END

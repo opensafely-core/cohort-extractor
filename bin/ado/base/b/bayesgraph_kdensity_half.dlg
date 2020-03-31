@@ -1,0 +1,156 @@
+/*
+    bayesgraph_kdensity_half.dlg 
+
+*!  VERSION 1.0.2  15mar2015
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_wide
+DEFINE _dlgwd 650  // _dlgwd 650 is minimum size due to number of tabs (MAC)
+DEFINE _dlght 310
+INCLUDE header
+
+HELP hlp1, view("help kdensity##options")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource BAYESGRAPH_KDENSITY_HALF_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	gr_plots.settabtitle resource KDENSITY_KERNEL_PLOT
+	script gr_plots_setDefaultLine
+END
+
+DIALOG main, label("") 						///
+	tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT tx_kernel		_lft	_top	_cwd3_1 .,	///
+	label(resource LBL_KERNEL_FUNCTION)
+  COMBOBOX cb_kernel 		@	_ss	_vnwd	.,	///
+	label(resource LBL_KERNEL_FUNCTION)			///	
+	dropdownlist						///
+	contents(kernel_function)				///
+	values(kernel_function_val)				///	
+	option(kernel)					
+
+  TEXT tx_width			_lft3_2 _top	_cwd3_1	.,	///
+	label(resource KDENSITY_MAIN_TX_WIDTH)
+  EDIT en_width			@	_ss	_en14wd	.,	///
+	label(resource LBL_HALFWIDTH_OF_THE_KERNEL)		///
+	numonly							///
+	option(bwidth)
+
+  CHECKBOX ck_n			_lft	+35	_iwd	_ht10,	///
+	groupbox						///
+	onclickoff(script main_ck_n_off)			///
+	onclickon(program main_ck_n_on)				///
+	label(resource LBL_OVERRIDE_DEFAULT_GRID_EVAL_POINTS)
+  RADIO rb_n			_ilft	_ms	400	.,	///
+	onclickon(program main_rb_n_on) first			///
+	label(resource LBL_ESTIMATE_DENSITY_SPECIFIED_NUMBER_EVAL_POINTS)
+  RADIO rb_at			@	+50	@	.,	///
+	onclickon(program main_rb_at_on) last			///
+	label(resource LBL_ESTIMATE_DENSITY_USING_VALUES_SPECIFIED_BY_VAR)
+  VARNAME vn_at			_indent2 +20	_vnwd	.,	///
+	option(at)						///
+	numeric							///
+	label(resource LBL_ESTIMATE_DENSITY_USING_VALUES_SPECIFIED_BY_VAR) 
+  SPINNER sp_n			@	-50	_spwd	.,	///
+	min(1)							///
+	max(10000000)						///
+	default(50)						///
+	option(n)
+END
+
+INCLUDE _kernel_function_list
+
+SCRIPT main_ck_n_off
+BEGIN
+	main.rb_at.disable
+	main.rb_n.disable
+	main.vn_at.disable
+	main.sp_n.disable
+END
+
+PROGRAM main_ck_n_on
+BEGIN
+	call main.rb_at.enable
+	call main.rb_n.enable
+	if main.rb_n {
+		call main.sp_n.enable
+	}
+	if main.rb_at {
+		call main.vn_at.enable
+	}
+END
+
+PROGRAM main_rb_n_on
+BEGIN
+	if main.ck_n { // must check due to initialization order
+		call main.vn_at.disable
+		call main.sp_n.enable
+	}
+END
+
+PROGRAM main_rb_at_on
+BEGIN
+	if main.ck_n { // must check due to initialization order
+		call main.vn_at.enable
+		call main.sp_n.disable
+	}
+END
+
+SCRIPT graph_off
+BEGIN
+	script gr_plots_disable
+	script gr_addplots_disable
+	script gr_titles_disable
+	script gr_yaxis_disable
+	script gr_xaxis_disable
+	script gr_legend_disable
+	script gr_overall_disable
+END
+
+SCRIPT graph_on
+BEGIN
+	script gr_plots_enable
+	script gr_addplots_enable
+	script gr_titles_enable
+	script gr_yaxis_enable
+	script gr_xaxis_enable
+	script gr_legend_enable
+	script gr_overall_enable
+END
+
+INCLUDE gr_plots
+
+INCLUDE gr_addplots
+INCLUDE gr_yaxis
+INCLUDE gr_xaxis
+INCLUDE gr_titles
+INCLUDE gr_legend
+INCLUDE gr_overall
+
+PROGRAM command
+BEGIN
+	optionarg /hidedefault main.cb_kernel
+	optionarg main.en_width
+	optionarg main.sp_n
+	if main.rb_at {
+		require main.vn_at
+		optionarg main.vn_at
+	}
+	
+	put " " /program gr_plots_output
+	put " " /program gr_addplots_output
+	put " " /program gr_yaxis_output
+	put " " /program gr_xaxis_output
+	put " " /program gr_titles_output
+	put " " /program gr_legend_output
+	put " " /program gr_overall_output
+END

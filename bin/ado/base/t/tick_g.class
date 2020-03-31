@@ -1,0 +1,103 @@
+//                                 tick_g
+//
+//  View for a specific axis tick and label.
+    
+*! version 1.1.1  01feb2012
+
+version 8
+
+class {
+	value			= 0			// location on axis
+	label			= ""			// label for tick
+
+	class tickstyle		style
+	class anglestyle	angle
+} , inherit(subview)
+
+
+// ----------------------------------------------------------------------------
+//	Usage:  .tick_g.new value ["label"] , style(name) angle(anglestylename)
+
+program new
+	syntax anything(id="value and label") [ , style(string)		///
+		angle(string) ]
+
+	gettoken val lab  : anything
+	gettoken lab rest : lab
+	local rest `rest'
+	if `"`reset'"' != `""' {
+		di as error `"`rest' not allowed"'
+		exit 198
+	}
+	.value = `val'
+	.label = `"`lab'"'
+
+	if `"`style'"' == `""' {
+		local style scheme
+	}
+	if `"`angle'"' == `""' {
+		local angle scheme
+	}
+
+	.style.setstyle , style(`style')
+	.angle.setstyle , style(`angle')
+end
+
+
+// ----------------------------------------------------------------------------
+//	Usage:  .draw ord z0 pos
+//
+//	where:
+//		ord  -- is "x" or "y"
+//		z0   -- is the position of the axis line in the opposite
+//			dimension of ord
+//		pos  -- is "above", "below", "left", or "right"
+
+program draw
+	args ord z0 pos
+
+							// set the style 
+	.style.setgdifull , angle(`.angle.val') posdefault(`pos')
+
+	if "`pos'" == "above" | "`pos'" == "right" {	// directions reversed
+		local plus  -
+		local minus +
+	}
+	else {						// directions normal
+		local plus  +
+		local minus -
+	}
+
+	local z1 = `z0' `minus' `.style.tick0'		// draw tick
+	local z2 = `z1' `plus'  `.style.length.gmval'
+
+	.style.linestyle.setgdifull
+	if "`ord'" == "y" {
+		gdi line `z1' `.value' `z2' `.value'
+	}
+	else {
+		gdi line `.value' `z1' `.value' `z2'
+	}
+
+	if ! 0`.style.show_labels.istrue' {
+		exit						// Exit
+	}
+
+							// draw text
+	if `"`.label'"' == `""' {
+		local lab `.value'				// no format
+	}
+	else {
+		local lab `.label'
+	}
+
+	local z = `z1' `minus' 0`.style.textgap.gmval'
+
+	if "`ord'" == "y" {
+		gdi exttext `z' `.value' `lab'
+	}
+	else {
+		gdi exttext `.value' `z' `lab'
+	}
+
+end

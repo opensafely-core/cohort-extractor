@@ -1,0 +1,153 @@
+/*
+  arch, aarch() saarch() [garch()]
+
+*!  VERSION 1.2.3  29nov2018
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_wide
+INCLUDE header
+
+HELP hlp1, view("help arch")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource SAARCH_DLG_HSCALE
+END
+
+SCRIPT main_PREINIT
+BEGIN
+	script _constraints_main_setOptionalOn
+END
+
+DIALOG main, label(resource SAARCH_DLG_TITLE) tabtitle(resource LBL_TAB_MODEL)
+BEGIN
+  DEFINE _x _xsetbu
+  DEFINE _y _top
+  INCLUDE _bu_tsset
+  INCLUDE _dviv_ts4set
+  
+  CHECKBOX ck_nocons @         _ms       @         .,			/*
+		*/ label(resource LBL_NOCONSTANT)			/*
+		*/ option("noconstant")					/*
+		*/    
+
+  GROUPBOX gb_model  _lft      _ms       _iwd      _ht11,		/*
+  		*/ label(resource LBL_MAIN_MODEL_SPECIFICATION)		/*
+		*/
+  RADIO    rb_arch1  _ilft     _ss       _cwd2     .,			/*
+		*/ label(resource LBL_MAXIMUM_LAGS)			/*
+		*/ clickon("script archlist_off")			/*
+		*/ first						/*
+		*/
+DEFINE y1 @y		
+  SPINNER  sp_arch1  _indent4  _ms       _spwd     .,			/*
+		*/ label(resource LBL_ARCH_MAXIMUM_LAG)			/*
+		*/ min(1)						/*
+		*/ max(c(N))						/*
+		*/ default("1")						/*
+		*/
+  DEFINE x @x
+  TEXT     tx_arch1  _spsep    @         _rbspr2b  .,			/*
+		*/ label(resource LBL_ARCH_MAXIMUM_LAG)			/*
+		*/
+  SPINNER  sp_arch1b x         _ls       _spwd     .,			/*
+		*/ label(resource SAARCH_MAIN_SP_ARCH1B)		/*
+		*/ min(1)						/*
+		*/ max(c(N))						/*
+		*/ default("1")						/*
+		*/
+  DEFINE y @y
+  CHECKBOX ck_garch1 _nindent2 _ls       _ckwd     .,			/*
+		*/ clickon("script garchon")				/*
+		*/ clickoff("script garchoff")				/*
+		*/
+  DEFINE y2 @y
+  SPINNER  sp_garch1 _cksep    @         _spwd     .,			/*
+		*/ label(resource LBL_GARCH_MAXIMUM_LAG)		/*
+		*/ min(1)						/*
+		*/ max(c(N))						/*
+		*/ default("1")						/*
+		*/
+  TEXT     tx_arch1b _spsep    y         _ckspr2b  .,			/*
+		*/ label(resource SAARCH_MAIN_SP_ARCH1B)		/*
+		*/
+  TEXT     tx_garch1 @         y2        _ckspr2b  .,			/*
+		*/ label(resource LBL_GARCH_MAXIMUM_LAG)		/*
+		*/
+  RADIO    rb_arch2  _lft2     y1        _cwd2     .,			/*
+		*/ label(resource LBL_SUPPLY_LIST_OF_LAGS)		/*
+		*/ clickon("script archlist_on")			/*
+		*/ last							/*
+		*/
+		
+  EDIT     ed_arch2  _indent2  _ms       _vnwd     .,			/*
+		*/ label(resource LBL_ARCH_LAGS)			/*
+		*/ option("arch")					/*
+		*/
+DEFINE x @x		
+  TEXT     tx_arch2  _vnsep    @         100       .,			/*
+		*/ label(resource LBL_ARCH_LAGS)			/*
+		*/
+
+  EDIT     ed_arch2b x         _ls       _vnwd     .,			/*
+		*/ label(resource SAARCH_MAIN_ED_ARCH2B)					/*
+		*/ option("saarch")					/*
+		*/
+  TEXT     tx_arch2b _vnsep    @         110       .,			/*
+		*/ label(resource SAARCH_MAIN_ED_ARCH2B)					/*
+		*/
+		
+  EDIT     ed_garch2 x         _ls       _vnwd     .,			/*
+		*/ label(resource LBL_GARCH_LAGS)			/*
+		*/ option("garch")					/*
+		*/
+  TEXT     tx_garch2 _vnsep    @         100       .,			/*
+		*/ label(resource LBL_GARCH_LAGS)			/*
+		*/
+
+  DEFINE _x _lft
+  DEFINE _y +45
+  DEFINE _cx _lw80
+  DEFINE _bux _slw80
+  INCLUDE _constraints
+  
+  DEFINE _x _lft
+  DEFINE _xw _iwd
+//  INCLUDE _ck_collinear
+END
+
+INCLUDE _constraints_sc 
+INCLUDE _arch3_sc
+
+INCLUDE arch_common
+
+PROGRAM command
+BEGIN
+	allowxi
+	put /program by_output " "
+	put "arch "
+	varlist main.vn_dv [main.vl_iv]
+	beginoptions
+		option main.ck_nocons
+		if main.rb_arch1 {
+			put "arch(1/" main.sp_arch1 ") "
+			put "saarch(1/" main.sp_arch1b ") "
+			if main.ck_garch1 {
+				put "garch(1/" main.sp_garch1 ") "
+			}
+		}
+		if main.rb_arch2 {
+			optionarg main.ed_arch2
+			optionarg main.ed_arch2b
+			optionarg main.ed_garch2
+		}
+		INCLUDE _constraints_main_pr	
+//		option main.ck_collinear
+	endoptions
+	INCLUDE _arch_common_pr
+END
+

@@ -1,0 +1,315 @@
+*! version 2.0.0  16dec2013
+
+version 14
+
+class _factorvar {
+	instance:
+		array labels
+
+}, inherit(_numericvar)
+
+
+program .destructor
+	.Super.destructor
+        if ("`.varname'"!="") cap label drop `.varname'
+end
+
+program .oncopy
+        if ("`.`.oncopy_src'.varname'"=="") exit
+
+	/* .varname is a copy of .oncopy_src.varname 			*/
+	.varname = ""
+
+	cap drop `.name'
+	qui egen long `.name' = group(`.`.oncopy_src'.varname'), label
+	local l : variable label `.`.oncopy_src'.varname'
+	if "`l'" != "" {
+		label variable `.varname' `"`l'"'
+	}
+end
+
+program ._set
+	syntax varname [if][in] [, stub(string) ]
+
+        if "`.varname'" != "" {
+		cap drop `.varname'
+		cap label drop `.varname'
+		cap
+	}
+	.labels.Arrdropall
+
+	/* check for # categories 					*/
+	._tabulate `varlist' `if'`in'
+
+	.exp = "`varlist'"
+	cap drop `.name'
+	qui egen long `.name' = group(`varlist') `if'`in', label
+
+	/* generate syntactic labels that can be used in table display 	*/
+	if "`stub'" == "" {
+		local stub `.exp'
+	}
+	if _caller() < 11 {
+		_labels2names `.varname' `if'`in', stub(`stub') noint
+		local labels `"`s(names)'"'
+	}
+	else {
+		_labels2eqnames `.varname' `if'`in', stub(`stub')
+		local labels `"`r(eqlist)'"'
+	}
+	cap
+	foreach lab of local labels {
+		.labels.Arrpush "`lab'"
+	}
+end
+
+program .isvalid
+	if (!`.Super.isvalid') class exit 0
+
+	cap confirm long variable `.varname'
+	if (_rc) class exit 0
+
+	cap label list `.varname'
+	if (_rc) class exit 0
+
+	if (`.labels.arrnels'!=r(k)) class exit 0
+
+	class exit 1
+end
+
+program .variable 
+	class exit "`.exp'"
+end
+
+program .summary
+	if (!`.isvalid') exit
+
+	.Super.summary
+	tabulate `.varname'
+	di
+	label list `.varname'
+	di 
+	di "labels: `.strlabels'"
+end
+
+program .k
+	class exit .labels.arrnels
+end
+
+program .strlabels
+
+	forvalues i=1/`.k' {
+		local labs `labs' `.labels[`i']'
+	}
+	local labs : list retokenize labs
+
+	class exit `"`labs'"'
+end
+
+program .eretpost, eclass
+	syntax, [ label(string) index(integer -1) ]
+
+	if ("`label'"=="") local label fac
+
+	if (`index'<0) local index
+	else local u _
+
+	ereturn local `label'var`index' `.variable'
+	ereturn scalar k_`label'`index' = `.k'
+
+	forvalues i=`.k'(-1)1 {
+		local lev: label `.varname' `i'
+		ereturn local `label'`index'`u'`i' `"`lev'"'
+
+	}
+	ereturn local `label'eqs`index' `"`.strlabels'"'
+end
+
+program .eretget, sortpreserve
+	local vv : display "version " string(_caller()) ":"
+	syntax, [ touse(varname) label(string) index(integer -1) force ]
+
+	.labels.Arrdropall
+	if `.ref_n' == 1 {
+		.Super.destructor
+	}	
+	else {
+		.varname = ""
+	}
+	if ("`label'"=="") local label fac
+	if "`touse'" == "" {
+		tempvar touse
+		qui gen byte `touse' = 1
+	}
+	
+	`vv' ///
+	._eretget, touse(`touse') label(`label') index(`index') `force' 
+
+	if `r(k_label)' == 0 {
+		di as error "{p}the factor labels used in the "      ///
+		 "estimation sample do not match those in variable " ///
+		"`e(`label'var`ind')'{p_end}"
+
+		exit 322
+	}
+	else if "`force'"!="" & `r(k_mxlabel)'> e(k_`label'`ind') {
+		/* undocumented option 					*/
+		di in gr "{p 0 6 2}note: there are more than "       ///
+		 "`=e(k_`label'`ind')' factor levels in the data{p_end}"
+	}
+	else if `r(k_nomatch)' > 0 {
+		di in gr "{p 0 6 2}note: some observations have factor " ///
+		 "levels that are not in the fitted model{p_end}"
+	}
+	qui count if `touse'
+	if r(N) == 0 {
+		di as err "excluded all observations"
+		exit 2000
+	}
+end
+
+program ._eretget, rclass
+	local vv : display "version " string(_caller()) ":"
+	syntax, touse(varname) label(string) [ index(integer -1) ///
+		bylist(varlist) n(name) force ]
+
+	if `index' >= 0 {
+		local ind `index'
+		local u _
+	}
+	if "`touse'" != "" {
+		local iff if `touse'
+	}
+	qui count if `touse'
+	if (r(N)==0) error 2000
+
+	if "`force'" != "" {
+		`vv' ///
+		._set `e(`label'var`ind')' if `touse'
+		local factor1 `.varname'
+	}
+	else {
+		tempname factor
+		`vv' ///
+		.`factor' = .`.classname'.new  `e(`label'var`ind')' if `touse'
+		local factor1 `.`factor'.varname'
+		qui gen long `.name' = .
+	}
+	.labels.Arrdropall
+
+	qui label list `factor1'
+	local k_label = r(k)
+	return local k_mxlabel = `k_label'
+	sort `bylist' `factor1'
+	if "`n'" != "" {
+		if "`bylist'" == "" {
+			/* programmer error: should not happen		*/
+			di as err "_factorvar._eretget: option n() " ///
+			 "requires option bylist()"
+			exit 198
+		}
+		cap drop `n'
+		qui by `bylist': gen long `n' = sum(`touse')
+	}
+	forvalues j=1/`=e(k_`label'`ind')' {
+		local labdef `labdef' `j' `"`e(`label'`ind'`u'`j')'"'
+		/* syntactic labels */
+		local eqj : word `j' of `e(`label'eqs`ind')' 
+		.labels.Arrpush "`eqj'"
+	}
+	local k_nomatch = 0
+	if "`force'" != "" {
+		/* undocumented option 					*/
+		if `k_label' > e(k_`label'`ind') {
+			local k_nomatch = `k_label'-e(k_`label'`ind')
+
+			forvalues i=`k_label'(-1)`=`e(k_`label`ind'')'+1' {
+				qui replace `touse' = 0 if `.varname'==`i'
+				qui replace `.varname' = . if `.varname'==`i'
+			}
+			local k_label = e(k_`label'`ind')
+		}
+		local k_nomatch = e(k_`label'`ind') - `k_label'
+		numlist "1/`k_label'"
+		local indnew `r(numlist)'
+		local indold `r(numlist)'
+	}
+	else {
+		local k = 0
+		local bmes = 1
+
+		forvalues i=1/`k_label' {
+			local fi : label `factor1' `i'
+			local found = 0
+			forvalues j=1/`=e(k_`label'`ind')' {
+				if `"`e(`label'`ind'`u'`j')'"' == `"`fi'"' {
+					qui replace `.varname' = `j' ///
+						if `factor1'==`i'
+					local found = 1
+					local indold `indold' `j'
+					local indnew `indnew' `++k'
+
+					continue, break
+				}
+			}
+			if `found' == 0 {
+				local `++k_nomatch'
+
+				qui replace `touse' = 0 if `factor1' == `i' 
+			}
+		}
+		local k_label = `k'
+	}
+	return local k_nomatch = `k_nomatch'
+	return local k_label = `k_label'
+
+	qui replace `.varname' = . if !`touse'
+	.exp = "`e(`label'var`ind')'"
+	cap label drop `.varname'
+	qui label define `.varname' `labdef'
+	qui label values `.varname' `.varname'
+	qui label variable `.varname' "egen group(`.exp')"
+
+	return local label `label'
+	return local indold `indold'
+	return local indnew `indnew'
+end
+
+program ._tabulate, rclass 
+	syntax varname [if] [fw], [ matcell(name) matrow(name) ]
+
+	if ("`matrow'" != "") local matrow matrow(`matrow')
+	if ("`matcell'" != "") local matcell matcell(`matcell')
+
+	cap tab `varlist' `if' [`weight'`exp'], `matcell' `matrow'
+	if _rc == 134 {
+		di as err "{p}exceeded the limits of {bf:tabulate} when " ///
+		 "tabulating the number of categories in variable "       ///
+		 "`varlist'; you probably misspecified the variable; "    ///
+		 "see help {help limits}{p_end}"
+		exit 134
+	}
+	else if _rc {
+		local rc = _rc
+		di as err "{p}tabulate failed when attempting to count " ///
+		 "the number of categories in variable `varlist'{p_end}"
+		exit `rc'
+	}
+	/* number of factor levels limited to maximum matrix size 	*/
+	if "`c(flavor)'" == "Small" {
+		local limit = 40
+	}
+	else {
+		if (c(SE) | c(MP)) local limit = 11000
+		else local limit = 800
+	}
+
+	if r(r) > `limit' {
+		di as err "{p}variable `varlist' has " r(r) " categories; " ///
+		 "this exceeds the limit of `limit' for factors"
+		exit 134 
+	}
+	return add
+end
+
+exit

@@ -1,0 +1,342 @@
+/*
+  dfactor
+
+*!  VERSION 1.2.1   18may2015
+
+  keyword:  eclass
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 550
+INCLUDE header
+
+HELP hlp1, view("help dfactor")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	script se_createAsRobustOIM
+	setscale_hadj resource DFACTOR_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program se_setFinalInitState
+	script max_nonrtolerance_hide
+END
+
+DIALOG main, label(resource DFACTOR_DLG_TITLE) tabtitle(resource LBL_TAB_MODEL)
+BEGIN
+  DEFINE _x _xsetbu
+  DEFINE _y _top
+  INCLUDE _bu_tsset
+  GROUPBOX gb_obs_eqs	_lft	_ss	_iwd	_ht19h,			///
+	label(resource LBL_OBSERVATION_EQUATIONS)
+  TEXT tx_obs_dep	_indent	_ss	_inwd	.,			///
+	label(resource LBL_DEPENDENT_VARIABLES)
+  VARLIST vl_obs_dep	@	_ss	@	.,			///
+	allowcat							///
+	ts 								///
+	numeric								///
+	label(resource LBL_DEPENDENT_VARIABLES)
+  TEXT tx_obs_exog	@	_ls	@	.,			///
+	label(resource LBL_EXOGENOUS_VARIABLES)
+  VARLIST vl_obs_exog	@	_ss	@	.,			///
+	allowcat							///
+	ts fv 								///
+	numeric								///
+	label(resource LBL_EXOGENOUS_VARIABLES)
+  TEXT tx_obs_ars	@	_ls	_cwd1	.,			///
+	label(resource DFACTOR_MAIN_TX_OBS_ARS)
+  DEFINE holdy @y
+  COMBOBOX cb_obs_ars	@	_ss	@	.,			///
+	dropdownlist							///
+	contents(arstructure_list)					///
+	values(arstructure_values)					///
+	option(arstructure)						///
+	label(resource DFACTOR_MAIN_CB_OBS_ARS)
+  TEXT tx_obs_ar	_lft2	holdy	_cwd2	.,			///
+	label(resource DFACTOR_MAIN_TX_OBS_AR)
+  EDIT ed_obs_ar	@	_ss	_cwd6	.,			///
+	option(ar)							///
+	label(resource LBL_AR_LAGS)
+  TEXT tx_obs_covs	_ilft	_ls	_cwd1	.,			///
+	label(resource LBL_COVARIANCE_STRUCTURE)
+  COMBOBOX cb_obs_covs	@	_ss	@	.,			///
+	dropdownlist							///
+	contents(ocovstructure_list)					///
+	values(ocovstructure_values)					///
+	option(covstructure)						///
+	label(resource DFACTOR_MAIN_CB_OBS_COVS)
+  CHECKBOX ck_obs_nocon	_lft2	@	_cwd1	.,			///
+	option("noconstant")						///
+	label(resource LBL_NOCONSTANT)
+
+  CHECKBOX ck_fac_eqs	_lft	+45	_iwd	_ht19h,			///
+	groupbox							///
+	onclickon(script main_ck_fac_eqs_on)				///
+	onclickoff(script main_ck_fac_eqs_off)				///
+	label(resource LBL_UNOBSERVED_FACTORS)
+  TEXT tx_fac_eqs	_indent	_ss	_inwd	.,			///
+	label(resource LBL_UNOBSERVED_FACTORS)
+  EDIT ed_fac_eqs	@	_ss	@	.,			///
+	label(resource LBL_UNOBSERVED_FACTORS)
+  TEXT tx_fac_exog	@	_ls	@	.,			///
+	label(resource DFACTOR_MAIN_TX_FAC_EXOG)
+  VARLIST vl_fac_exog	@	_ss	@	.,			///
+	allowcat							///
+	ts fv								///
+	numeric								///
+	label(resource DFACTOR_MAIN_TX_FAC_EXOG)
+  TEXT tx_fac_ars	@	_ls	_cwd1	.,			///
+	label(resource DFACTOR_MAIN_TX_OBS_ARS)
+  DEFINE holdy @y
+  COMBOBOX cb_fac_ars	@	_ss	@	.,			///
+	dropdownlist							///
+	contents(arstructure_list)					///
+	values(arstructure_values)					///
+	option(arstructure)						///
+	label(resource DFACTOR_MAIN_CB_OBS_ARS)
+  TEXT tx_fac_ar	_lft2	holdy	_cwd2	.,			///
+	label(resource DFACTOR_MAIN_TX_OBS_AR)
+  EDIT ed_fac_ar	@	_ss	_cwd6	.,			///
+	option(ar)							///
+	label(resource LBL_AR_LAGS)
+  TEXT tx_fac_covs	_ilft	_ls	_cwd1	.,			///
+	label(resource LBL_COVARIANCE_STRUCTURE)
+  COMBOBOX cb_fac_covs	@	_ss	@	.,			///
+	dropdownlist							///
+	contents(covstructure_list)					///
+	values(covstructure_values)					///
+	option(covstructure)						///
+	label(resource DFACTOR_MAIN_CB_OBS_COVS)
+
+  TEXT     tx_constr 	_lft	_xls	_lw80	.,			///
+	label(resource LBL_CONSTRAINTS_OPTIONAL)
+  COMBOBOX cb_constr 	@	_ss	@	.,			///
+	append								///
+	dropdown							///
+	contents(constraint)						///
+	label(resource LBL_CONSTRAINTS)					///
+	option(constraints)
+  BUTTON   bu_constr	_slw80	@	80	.,			///
+	label(resource LBL_MANAGE)					///
+	onpush(script show_constraint_dialog)
+END
+
+LIST arstructure_list
+BEGIN
+	resource LBL_DIAGONAL_MATRIX
+	resource DFACTOR_LOWER_TRIANGULAR_MATRIX
+	resource DFACTOR_GENERAL_MATRIX
+END
+
+LIST arstructure_values
+BEGIN
+	""
+	ltriangular
+	general
+END
+
+LIST ocovstructure_list
+BEGIN
+	resource LBL_DIAGONAL_MATRIX
+	resource LBL_IDENTITY_MATRIX
+	resource LBL_DIAGONAL_SCALAR_MATRIX
+	resource LBL_SYMMETRIC_POSITIVE_DEFINITE_MATRIX
+END
+
+LIST ocovstructure_values
+BEGIN
+	""
+	identity
+	dscalar
+	unstructured
+END
+
+LIST covstructure_list
+BEGIN
+	resource LBL_IDENTITY_MATRIX
+	resource LBL_DIAGONAL_SCALAR_MATRIX
+	resource LBL_DIAGONAL_MATRIX
+	resource LBL_SYMMETRIC_POSITIVE_DEFINITE_MATRIX
+END
+
+LIST covstructure_values
+BEGIN
+	""
+	dscalar
+	diagonal
+	unstructured
+END
+
+SCRIPT main_ck_fac_eqs_on
+BEGIN
+	main.tx_fac_eqs.enable
+	main.ed_fac_eqs.enable
+	main.tx_fac_exog.enable
+	main.vl_fac_exog.enable
+	main.tx_fac_ars.enable
+	main.cb_fac_ars.enable
+	main.tx_fac_ar.enable
+	main.ed_fac_ar.enable
+	main.tx_fac_covs.enable
+	main.cb_fac_covs.enable
+END
+
+SCRIPT main_ck_fac_eqs_off
+BEGIN
+	main.tx_fac_eqs.disable
+	main.ed_fac_eqs.disable
+	main.tx_fac_exog.disable
+	main.vl_fac_exog.disable
+	main.tx_fac_ars.disable
+	main.cb_fac_ars.disable
+	main.tx_fac_ar.disable
+	main.ed_fac_ar.disable
+	main.tx_fac_covs.disable
+	main.cb_fac_covs.disable
+END
+
+INCLUDE _constraints_sc
+INCLUDE byifin
+INCLUDE se
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+        program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _nocnsreport
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+
+INCLUDE max_ml
+
+DIALOG adv, tabtitle(resource LBL_ADVANCED)
+BEGIN
+  TEXT tx_method	_lft	_top	360	.,			///
+		label(resource LBL_METHOD_CALCULATING_LOG_LIKELIHOOD)
+  DEFINE holdy @y
+  COMBOBOX cb_method	@	_ss	@	.,			///
+	dropdownlist							///
+	contents(method_list)						///
+	values(method_values)						///
+	option(method)							///
+	label(resource LBL_METHOD_CALCULATING_LOG_LIKELIHOOD)
+END
+
+LIST method_list
+BEGIN
+	resource LBL_STATIONARY_KALMAN_FILT_DIFFUSE_DE_JONG_KALMAN
+	resource LBL_STATIONARY_DIFFUSE_DE_JONG_KALMAN_FILTERS
+END
+
+LIST method_values
+BEGIN
+	""
+	dejong
+END
+
+PROGRAM obs_output
+BEGIN
+	varlist main.vl_obs_dep
+	put " ="
+	varlist [main.vl_obs_exog]
+	beginoptions
+		optionarg main.cb_obs_ars
+		if (main.ed_obs_ar & !main.ed_obs_ar.isnumlist()) {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format 					///
+				"resource DFACTOR_MSGBOX_INVALID_NUMLIST_FMT" 	///
+ 				"resource LBL_AR_LAGS" 				///
+				"resource LBL_OBSERVATION_EQUATIONS"
+			stopbox stop "class _MSG_TMP.value"
+// There is an invalid numlist in "List of AR lags" for "Observation equations:".
+		}
+		optionarg main.ed_obs_ar
+		optionarg main.cb_obs_covs
+		option main.ck_obs_nocon
+	endoptions
+END
+
+PROGRAM fac_output
+BEGIN
+	put main.ed_fac_eqs
+	put " ="
+	varlist [main.vl_fac_exog]
+	beginoptions
+		optionarg main.cb_fac_ars
+		if (main.ed_fac_ar & !main.ed_fac_ar.isnumlist()) {
+			call create STRING _MSG_TMP
+                        call _MSG_TMP.format 					///
+                        	"resource DFACTOR_MSGBOX_INVALID_NUMLIST_FMT"	///
+		 		"resource LBL_AR_LAGS"				///
+				"resource LBL_UNOBSERVED_FACTORS"
+			stopbox stop "class _MSG_TMP.value"
+// There is an invalid numlist in "List of AR lags" for "Unobserved factors:".
+		}
+		optionarg main.ed_fac_ar
+		optionarg main.cb_fac_covs
+	endoptions
+END
+
+PROGRAM command
+BEGIN
+	INCLUDE _by_pr
+	put "dfactor "
+	put " ("
+	put /program obs_output
+	put ")"
+	if main.ck_fac_eqs {
+		require main.ed_fac_eqs
+		put " ("
+		put /program fac_output
+		put ")"
+	}
+
+	INCLUDE _ifin_pr
+	beginoptions
+		INCLUDE _constraints_main_pr
+		put " " /program se_output
+		put " " /program max_output
+		optionarg /hidedefault rpt.sp_level
+		INCLUDE _nocnsreport_pr
+		INCLUDE _report_columns_pr
+		put " " rpt_bu_facvarsResults
+		put " " rpt_bu_fmtcoefResults
+		optionarg adv.cb_method
+	endoptions
+END

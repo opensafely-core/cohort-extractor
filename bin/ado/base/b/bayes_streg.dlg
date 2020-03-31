@@ -1,0 +1,430 @@
+/*
+  bayes streg
+
+*!  VERSION 1.0.11  29may2019
+
+*/
+
+VERSION 15.0
+
+INCLUDE _std_wide
+DEFINE _dlght 670
+INCLUDE header
+
+HELP hlp1, view("help bayes_streg")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource BAYES_STREG_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script prior_gibbs_hide
+	program check_distribution
+	program prior_show_normal_default
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)				///
+	title(resource BAYES_STREG_DLG_TITLE)
+BEGIN
+  DEFINE _x _xsetbu
+  DEFINE _y _top
+  BUTTON   bu_stset 	_x	_y	_setbuwd  .,			///
+	onpush(program model_st_setting)				///
+	label(resource LBL_SURVIVAL_SETTINGS)				///
+	tooltip(resource LBL_DECLARE_DATA_TO_BE_SURVIVAL_TIME_DATA)
+
+  TEXT tx_iv			_lft	_topph	_cwd1		.,	///
+	label(resource LBL_INDDEPVAR)
+
+  VARLIST vl_iv			_lft	_ss	_iwd		.,	///
+	fv								///
+	numeric								///
+	label(resource LBL_INDDEPVAR) 
+
+  CHECKBOX ck_nocons		@	_ls	@		.,	///
+	label(resource LBL_NOCONSTANT) option(noconstant)
+
+  DEFINE y _ls
+  INCLUDE st_distribution
+
+  GROUPBOX gb_opts		_lft	_xls	_iwd		325,	///
+	label(resource LBL_OPTIONS)
+  CHECKBOX ck_frailty		_ilft	_ms	_inwd		_ht1h,	///
+	groupbox							///
+	onclickon(script frailty_on)					///
+	onclickoff(script frailty_off)					///
+	label(resource STREG_MAIN_CK_FRAILTY)
+
+  RADIO    rb_fgamma		_iilft	_ss	_cwd2		.,first	///
+	option(frailty(gamma))						///
+	label(resource LBL_GAMMA_UPPER)
+  RADIO    rb_figaus		_lft2	@	@		.,last	///			
+	option(frailty(invgaussian))					///
+	label(resource LBL_INVERSE_GAUSSIAN)
+  CHECKBOX ck_strata		_ilft	_xls	_cwd1		_ht2,	///
+	groupbox							///
+	onclickon(program main_check_strata)				///
+	onclickoff(program main_strata_off)				///
+	label(resource LBL_STRATA_ID_VARIABLE)
+  DEFINE y @y
+  VARNAME vn_strata		_iilft	_ss	_vnwd		.,	///
+	option("strata")						///
+	label(resource LBL_STRATA_ID_VARIABLE)
+
+  TEXT tx_offset		_ilft2 y	@		.,	///
+	label(resource LBL_OFFSET_VARIABLE)
+  VARNAME vn_offset		@	_ss	@		.,	///
+	option(offset)							///
+	numeric								///
+	label(resource LBL_OFFSET_VARIABLE)
+
+  TEXT tx_shared		_ilft	_xls	_cwd2		.,	///
+	label(resource LBL_SHARED_FRAILTY_ID_VARIABLE)
+  VARNAME vn_shared		@	_ss	_cwd3_2		.,	///
+	option(shared)							///
+	label(resource LBL_SHARED_FRAILTY_ID_VARIABLE)
+
+  CHECKBOX ck_anc		_ilft	_ls	_ibwd		_ht2,	///
+	groupbox							///
+	onclickon(script anc_on)					///
+	onclickoff(script anc_off)					///
+	label(resource LBL_IND_VAR_TO_MODEL_FIRST_ANCILLARY_PARAM)	
+  VARLIST vl_anc		_iilft	_ss	_inwd		.,	///
+	fv numeric							///
+	option("ancillary") 						///
+	label(resource LBL_IND_VAR_TO_MODEL_FIRST_ANCILLARY_PARAM)
+  CHECKBOX ck_anc2		_ilft	_xls	_ibwd		_ht2,	///
+	groupbox							///
+	onclickon(script anc2_on)					///
+	onclickoff(script anc2_off)					///
+	label(resource LBL_IND_VAR_TO_MODEL_SECOND_ANCILLARY_PARAM)
+  VARLIST vl_anc2		_iilft	_ss	_inwd		.,	///
+	option("anc2") fv						///
+	numeric								///
+	label(resource LBL_IND_VAR_TO_MODEL_SECOND_ANCILLARY_PARAM)
+//  CHECKBOX ck_collinear		_ilft	_xls	_cwd1		., ///
+//	option("collinear")						///
+//	label(resource _CK_COLLINEAR_CK_COLLINEAR)
+
+END
+
+PROGRAM model_st_setting
+BEGIN
+	call create STRING model_stResults
+	call create CHILD stset AS bayes_streg_st, allowsubmit
+	call bayes_streg_st.setExitString model_stResults
+	call bayes_streg_st.setExitAction "program model_st_submit"
+	call bayes_streg_st.setSubmitAction "program model_st_submit"
+END
+
+PROGRAM model_st_submit
+BEGIN
+	put model_stResults
+	stata
+END
+
+SCRIPT frailty_on
+BEGIN
+	main.rb_fgamma.enable
+	main.rb_figaus.enable
+	program check_distribution
+END
+
+SCRIPT frailty_off
+BEGIN
+	main.rb_fgamma.disable
+	main.rb_figaus.disable
+	main.ck_strata.enable
+	program check_distribution
+END
+
+PROGRAM check_distribution
+BEGIN
+	if main.rb_exp {
+		call script main_exp_on
+	}
+	if main.rb_weib {
+		call script main_weib_on
+	}
+	if main.rb_exp_time {
+		call script main_exp_time_on
+	}
+	if main.rb_weib_time {
+		call script main_weib_time_on
+	}
+	if main.rb_gomp {
+		call script main_gomp_on
+	}
+	if main.rb_logn {
+		call script main_logn_on
+	}
+	if main.rb_logl {
+		call script main_logl_on
+	}
+	if main.rb_gamma {
+		call script main_gamma_on
+	}
+END
+
+SCRIPT main_exp_on
+BEGIN
+	script st_rpt_coef_hr_on
+	main.ck_anc.disable
+	main.vl_anc.disable
+	main.ck_anc2.disable
+	main.vl_anc2.disable
+	program main_check_strata
+	program main_check_shared
+	program main_check_anc
+	script prior_normal
+END
+
+SCRIPT main_exp_time_on
+BEGIN
+	script st_rpt_coef_tr_on
+	main.ck_anc.disable
+	main.vl_anc.disable
+	main.ck_anc2.disable
+	main.vl_anc2.disable
+	program main_check_strata
+	program main_check_shared
+	program main_check_anc
+	script prior_normal
+END
+
+SCRIPT main_weib_on
+BEGIN
+	script st_rpt_coef_hr_on
+	main.ck_anc.enable
+	main.vl_anc.enable
+	main.ck_anc2.disable
+	main.vl_anc2.disable
+	program main_check_strata
+	program main_check_shared
+	program main_check_anc
+	script prior_normal_loganc_param
+END
+
+SCRIPT main_weib_time_on
+BEGIN
+	script st_rpt_coef_tr_on
+	main.ck_anc.enable
+	main.vl_anc.enable
+	main.ck_anc2.disable
+	main.vl_anc2.disable
+	program main_check_strata
+	program main_check_shared
+	program main_check_anc
+	script prior_normal_loganc_param
+END
+
+SCRIPT main_gomp_on
+BEGIN
+	script st_rpt_coef_hr_on	
+	main.ck_anc.enable
+	main.vl_anc.enable
+	main.ck_anc2.disable
+	main.vl_anc2.disable
+	program main_check_strata
+	program main_check_shared
+	program main_check_anc
+	script prior_normal_anc_param
+END
+
+SCRIPT main_logn_on
+BEGIN
+	script st_rpt_coef_tr_on	
+	main.ck_anc.enable
+	main.vl_anc.enable
+	main.ck_anc2.disable
+	main.vl_anc2.disable
+	program main_check_strata
+	program main_check_shared
+	program main_check_anc
+	script prior_normal_loganc_param
+END
+
+SCRIPT main_logl_on
+BEGIN
+	script st_rpt_coef_tr_on	
+	main.ck_anc.enable
+	main.vl_anc.enable
+	main.ck_anc2.disable
+	main.vl_anc2.disable
+	program main_check_strata
+	program main_check_shared
+	program main_check_anc
+	script prior_normal_loganc_param
+END
+
+SCRIPT main_gamma_on
+BEGIN
+	script st_rpt_coef_tr_on	
+	program main_check_strata
+	program main_check_shared
+	program main_check_anc
+	script prior_normal_anc_params
+END
+
+PROGRAM main_check_shared
+BEGIN
+	if main.ck_frailty & ! main.rb_gamma {
+		call main.tx_shared.enable
+		call main.vn_shared.enable
+	}
+	else {
+		call main.tx_shared.disable
+		call main.vn_shared.disable
+	}
+END
+
+PROGRAM main_check_strata
+BEGIN
+	if main.ck_strata & ! main.ck_frailty {
+		call main.vn_strata.enable
+		call script st_rpt_coef_on 
+		call main.ck_anc.disable
+		call main.vl_anc.disable
+		call main.ck_anc2.disable
+		call main.vl_anc2.disable
+	}
+	else {
+		call program main_strata_off
+	}
+	if main.ck_frailty {
+		call main.ck_strata.disable
+		call main.vn_strata.disable
+	}
+END
+
+PROGRAM main_strata_off
+BEGIN
+	call main.vn_strata.disable
+	call program check_distribution
+END
+
+PROGRAM main_check_anc
+BEGIN
+	if main.ck_frailty {
+		call main.ck_anc.disable
+		call main.vl_anc.disable
+		call main.ck_anc2.disable
+		call main.vl_anc2.disable
+	}
+	else {
+		call main.ck_anc.enable
+		if main.ck_anc {
+			call main.vl_anc.enable
+		}
+		else {
+			call main.vl_anc.disable
+		}
+		call main.ck_anc2.enable
+		if main.ck_anc2 {
+			call main.vl_anc2.enable
+		}
+		else {
+			call main.vl_anc2.disable
+		}
+	}
+END
+
+SCRIPT anc_on
+BEGIN
+	main.vl_anc.enable
+	script st_rpt_coef_on
+END
+
+SCRIPT anc_off
+BEGIN
+	main.vl_anc.disable
+	program check_distribution
+END
+
+SCRIPT anc2_on
+BEGIN
+	main.vl_anc2.enable
+	script st_rpt_coef_on
+END
+
+SCRIPT anc2_off
+BEGIN
+	main.vl_anc2.disable
+	program check_distribution
+END
+
+INCLUDE ifin
+INCLUDE bayes_priors
+INCLUDE bayes_simulation
+INCLUDE bayes_blocking
+INCLUDE bayes_initialization
+INCLUDE bayes_adaptation
+INCLUDE bayes_st_reporting
+INCLUDE bayes_advanced
+
+PROGRAM bayes_opts_output
+BEGIN
+	beginoptions
+		put " " /program bayes_priors_output
+		put " " /program bayes_simulation_output
+		put " " /program bayes_blocking_output
+		put " " /program bayes_init_output
+		put " " /program bayes_adaptation_output
+		put " " /program bayes_st_reporting_output
+		put " " /program bayes_advanced_output
+	endoptions
+END
+
+PROGRAM bayes_build_parse 
+BEGIN
+	put "streg "
+	varlist [main.vl_iv]
+	
+	beginoptions
+		option main.ck_nocons
+		option radio(main rb_exp rb_exp_time rb_weib 		///
+			rb_weib_time rb_gomp rb_logn rb_logl rb_gamma)
+		if main.ck_frailty {
+			option radio(main rb_fgamma rb_figaus)
+		}
+		optionarg main.vn_strata
+		optionarg main.vn_offset
+		optionarg main.vn_shared
+		optionarg main.vl_anc
+		optionarg main.vl_anc2
+//		option main.ck_collinear
+	endoptions
+END
+
+PROGRAM ecommand_output
+BEGIN
+	put "streg "
+	varlist [main.vl_iv]
+	put " " /program ifin_output
+	beginoptions
+		option main.ck_nocons
+		option radio(main rb_exp rb_exp_time rb_weib 		///
+			rb_weib_time rb_gomp rb_logn rb_logl rb_gamma)
+		if main.ck_frailty {
+			option radio(main rb_fgamma rb_figaus)
+		}
+		optionarg main.vn_strata
+		optionarg main.vn_offset
+		optionarg main.vn_shared
+		optionarg main.vl_anc
+		optionarg main.vl_anc2
+//		option main.ck_collinear
+		option rpt.ck_noshow
+	endoptions
+END
+
+PROGRAM command
+BEGIN
+	put "bayes"
+	put /program bayes_opts_output
+	put " : "
+	put /program ecommand_output
+END

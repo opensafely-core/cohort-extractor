@@ -1,0 +1,162 @@
+/*
+    gr_irf_ograph_plot.dlg
+
+*!  VERSION 1.1.1  27mar2017
+
+*/
+
+VERSION 14.0
+SYNCHRONOUS_ONLY
+
+INCLUDE _std_mlarge
+DEFINE _dlght 270
+INCLUDE header_gr_child
+
+HELP hlp1, view("help irf_ograph")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create BOOLEAN isGettingIRF
+	create BOOLEAN isGettingIRFVars
+	create BOOLEAN isLoading
+	create STRING  this
+	this.setvalue class _dlg_rsrcname
+	isLoading.settrue
+	isGettingIRF.setfalse
+	isGettingIRFVars.setfalse
+	setscale_hadj resource GR_IRF_OGRAPH_PLOT_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	isLoading.setfalse
+	script gr_plots_setDefaultLine
+	script gr_ciplots_setDefaultArea
+	program main_get_irf
+END
+
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  // set IRF active file
+  DEFINE _x _xsetbu
+  DEFINE _y _top
+  INCLUDE _bu_irfset
+
+  TEXT     tx_irf		_lft	_ls	_cwd3_1	.,		///
+	label(resource LBL_IRF_RESULT_SET)
+  DEFINE Y @y
+  COMBOBOX cb_irf		@	_ss	@	.,		///
+	label(resource LBL_IRF_RESULT_SET)	dropdownlist		///
+	contents(irf_list1) onselchange(program main_update_vars1)
+
+  TEXT     tx_imp		_lft3_2	Y	_cwd3_1	.,		///
+	label(resource LBL_IMPULSE)
+  COMBOBOX cb_imp		@	_ss	@	.,		///
+	label(resource LBL_IMPULSE)					///
+	contents(impulse_list1) dropdown
+
+  TEXT     tx_res		_lft3_3	Y	_cwd3_1	.,		///
+	label(resource LBL_RESPONSE)
+  COMBOBOX cb_res		@	_ss	@	.,		///
+	label(resource LBL_RESPONSE)					///
+	contents(response_list1) dropdown				///
+							
+  TEXT     tx_stats		_lft	_ls	_iwd	.,		///
+		label(resource LBL_TX_STATISTIC)
+  COMBOBOX cb_stats		@	_ss	@	.,		///
+	dropdown							///
+	contents(irf_stat_contents)					///
+	values(irf_stat_values)						///
+	label(resource LBL_STATISTIC)
+  CHECKBOX ck_ci		_lft	_ls	_iwd	.,		///
+	option(ci) 							///
+	onclickon(script gr_ciplots_enable)				///
+	onclickoff(script gr_ciplots_disable)				///
+	label(resource GR_IRF_OGRAPH_PLOT_MAIN_CK_CI)
+
+  GROUPBOX gb_note		_lft	+35	_iwd	_ht5h,
+  TEXTBOX  tb_note		_indent	_ss	_inwd	_tb2,		///
+	label(resource LBL_REFRESH_IRF_SELECTION_ANY_TIME_ACT_IRF_FILE)
+
+  BUTTON   bu_refresh		_irj100	+35	100	.,		///
+	label(resource LBL_REFRESH)					///
+	onpush(program main_get_irf)					///
+	tooltip(resource LBL_REFRESH_IRF_DATA)
+END
+
+PROGRAM main_get_irf
+BEGIN
+	put "_get_irf, "
+	put "dialogcls(" this ") "
+	put "busyflag(isGettingIRF) "
+	put "control(main.cb_irf)"
+	put "irfvalues("
+		put /hidden main.cb_irf
+	put ") "
+	stata hidden
+	call program main_update_vars1
+END
+
+
+PROGRAM main_update_vars1
+BEGIN
+	if ! isGettingIRF & ! isLoading & ! isGettingIRFVars {
+		put "_set_irf_vars, "
+		put "dialogcls(" this ") "
+		put "irfname("
+			put /hidden main.cb_irf
+		put ") "
+		put "impulsetarget(main.cb_imp) "
+		put "responsetarget(main.cb_res) "
+		put "impulsevalue(" main.cb_imp ") "
+		put "responsevalue(" main.cb_res ") "
+		put "list(main.cb_irf) "
+		put "busyflag(isGettingIRFVars)"
+		stata hidden
+	}
+END
+
+INCLUDE irf_stat_list		// lists for statistics
+
+PROGRAM irf_spec_output
+BEGIN
+	require main.cb_irf
+	require main.cb_imp
+	require main.cb_res
+	require main.cb_stats
+	put main.cb_irf " "
+	put main.cb_imp " "
+	put main.cb_res " "
+	put main.cb_stats
+	beginoptions
+		option main.ck_ci
+		put " " /program gr_plots_output
+		put " " /program gr_ciplots_output
+	endoptions
+END
+
+INCLUDE gr_plots
+INCLUDE gr_ciplots
+
+PROGRAM command
+BEGIN
+	put "("
+	put /program irf_spec_output
+	put ") "
+	
+	call PARENT.callthru `"build_CMD.setstring "(""'
+	call main.cb_irf.withvalue PARENT.callthru `"build_CMD.append "@ ""'
+	call main.cb_imp.withvalue PARENT.callthru `"build_CMD.append "@ ""'
+	call main.cb_res.withvalue PARENT.callthru `"build_CMD.append "@ ""'
+	call main.cb_stats.withvalue PARENT.callthru `"build_CMD.append "@""'
+	if main.ck_ci {
+		call PARENT.callthru `"build_CMD.append ",""'
+	}
+	
+	if main.ck_ci {
+		call PARENT.callthru `"build_CMD.append " ci""'
+	}
+	call PARENT.callthru `"build_CMD.append ")""'
+END

@@ -1,0 +1,350 @@
+/*
+  contrast.dlg
+
+*!  VERSION 1.1.3  28nov2017
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 450
+INCLUDE header
+
+HELP hlp1, view("help contrast")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING contrastListString
+	create DOUBLE e_k_eq
+	e_k_eq.setvalue e(k_eq)
+	setscale_hadj resource CONTRAST_DLG_HSCALE
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	call create DOUBLE e_k_eq
+	call e_k_eq.setvalue e(k_eq)
+/*
+	if (e_k_eq.isgt(1)) {
+		call script equ_enable_equation
+	}
+	else {
+		call script equ_disable_equation
+	}
+*/
+
+	call create STRING prefix
+	call prefix.setvalue e(prefix)
+	if (prefix.iseq("svy")) {
+		call rpt.ck_nosvyadjust.enable
+	}
+	else {
+		call rpt.ck_nosvyadjust.disable
+	}
+
+	call create STRING edfmethod
+	call edfmethod.setvalue e(dfmethod)
+
+	if (edfmethod.iseq("")) {
+		call main.ck_small.disable
+	}
+	else {
+		call main.ck_small.enable
+	}
+END
+
+PROGRAM ON_DOTPROMPT
+BEGIN
+	call main.cb_contrastlist.repopulate
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+title(resource CONTRAST_DLG_TITLE)
+BEGIN
+  TEXT tx_contrastlist		_lft	_top	_cwd1	.,		///
+	label(resource CONTRAST_MAIN_TX_CONTRASTLIST)
+  COMBOBOX cb_contrastlist	@	_ss	_lw20	.,		///
+	append								///
+	dropdown							///
+	contents(margins_mlist)						///
+	label(resource CONTRAST_MAIN_TX_CONTRASTLIST)
+  BUTTON  bu_contrastlist	_slw20	@	20	.,		///
+	onpush(script showContrastListDialog)				///
+	tooltip(resource LBL_CREATE_CONTRAST_LIST)			///
+        label(resource LBL_DOTS)
+
+  GROUPBOX gb_opts		_lft	_ls	_iwd	_ht9h,		///
+	label(resource LBL_OPTIONS)
+  CHECKBOX ck_overall		_indent	_ms	_inwd	.,		///
+	option("overall")						///
+	label(resource CONTRAST_MAIN_CK_OVERALL)
+  CHECKBOX ck_asobserved 	@	_ms	@	.,		///
+	option("asobserved")						///
+	label(resource LBL_TREAT_ALL_FACTOR_VARIABLES_AS_OBSERVED)
+  CHECKBOX ck_lincom		@	_ms	@	.,		///
+	option("lincom")						///
+	label(resource LBL_TREAT_USER_DEFINED_CONTRASTS_AS_LINEAR)
+  CHECKBOX ck_small		@	_ms	@	.,		///
+	option(small)							///
+	onclickon("script main_small_on")				///
+	onclickoff("script main_small_off")				///
+	label(resource LBL_SMALL_SAMPLE_ADJUSTED_TEST)
+END
+
+DIALOG equ, tabtitle(resource LBL_EQUATIONS)
+BEGIN
+  CHECKBOX ck_equation		_lft	_top	250	_ht4,		///
+	groupbox							///
+	onclickon("script equ_equation_on")				///
+	onclickoff("script equ_equation_off")				///
+	label(resource LBL_EQUATION)
+  TEXT tx_equation		_indent	_ss	_cwd1	.,		///
+	label(resource LBL_EQUATION_SPECIFICATION)
+  COMBOBOX cb_equation		@	_ss	@	.,		///
+	dropdown							///
+	contents(ereturn eqnames)					///
+	option("equation")						///
+	label(resource LBL_EQUATION_SPECIFICATION)
+  CHECKBOX ck_atequations 	_lft	_xls	_ibwd	.,		///
+	option("atequations")						///
+	label(resource CONTRAST_EQU_CK_ATEQUATIONS)
+END
+
+SCRIPT equ_enable_equation
+BEGIN
+	equ.ck_equation.enable
+END
+
+SCRIPT equ_disable_equation
+BEGIN
+	equ.ck_equation.disable
+END
+
+SCRIPT equ_equation_on
+BEGIN
+	equ.tx_equation.enable
+	equ.cb_equation.enable
+	equ.ck_atequations.disable
+END
+
+SCRIPT equ_equation_off
+BEGIN
+	equ.tx_equation.disable
+	equ.cb_equation.disable
+	equ.ck_atequations.enable
+END
+
+DIALOG adv, tabtitle(resource LBL_ADVANCED)
+BEGIN
+  GROUPBOX gb_emptycell		_lft	_top	_iwd	_ht4,		///
+	label(resource LBL_TREATMENT_OF_EMPTY_CELLS_BALANCED_FACTORS)
+  RADIO rb_strict		_indent	_ss	_inwd	., first	///
+	option(emptycells(strict))					///
+	label(resource CONTRAST_ADV_RB_STRICT)
+  RADIO rb_reweight		@	_ss	@	., last		///
+	option(emptycells(reweight))					///
+	label(resource LBL_REWEIGHT_NONEMPTY_CELLS_ACCOUNT_EMPTY_CELLS)
+
+  CHECKBOX ck_noestimcheck	_lft	_xls	_iwd	.,		///
+	option("noestimcheck")						///
+	label(resource LBL_SUPPRESS_ESTIMABILITY_CHECKS)
+END
+
+SCRIPT showContrastListDialog
+BEGIN
+        create CHILD _contrast_list
+        _contrast_list.setExitString contrastListString
+        _contrast_list.setExitAction "main.cb_contrastlist.setvalue class contrastListString.value"
+END
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+
+	create STRING rpt_bu_eformResults
+	program rpt_bu_eform_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2b
+  DEFINE _y _top
+  INCLUDE _sp_level
+  
+  TEXT tx_mcompare		_lft	_ms	280	.,		///
+	label(resource LBL_MULTIPLE_COMPARISONS)
+  COMBOBOX cb_mcompare		@	_ss	@	.,		///
+	dropdownlist							///
+	contents(rpt_mcompare_list)					///
+	values(rpt_mcompare_values)					///
+	option("mcompare")						///
+	label(resource LBL_MULTIPLE_COMPARISONS)
+
+  RADIO rb_noeffects		_lft	_ls	_iwd	., first	///
+	onclickon("script rpt_effects_off")				///
+	option("noeffects")						///
+	label(resource LBL_SUPPRESS_EFFECTS_TABLES)
+  RADIO rb_effects		@	_ss	@	., last		///
+	onclickon("script rpt_effects_on")				///
+	label(resource LBL_EFFECTS_TABLES)
+  CHECKBOX ck_cieffects		_indent	_ss	_inwd	.,		///
+	option("cieffects")						///
+	label(resource LBL_SHOW_EFFECTS_TABLE_WITH_CI)
+  CHECKBOX ck_pveffects		@	_ss	@	.,		///
+	option("pveffects")						///
+	label(resource LBL_SHOW_EFFECTS_TABLE_WITH_P_VALUES)
+  CHECKBOX ck_effects		@	_ss	@	.,		///
+	option("effects")						///
+	label(resource LBL_SHOW_EFFECTS_TABLE_WITH_CI_AND_P_VALUES)
+
+  GROUPBOX gb_wald		_lft	_ls	_iwd	_ht9h,		///
+	label(resource LBL_WALD_TEST)
+  RADIO rb_wald			_indent	_ss	_inwd	., first	///
+	label(resource LBL_SHOW_TABLE_OF_WALD_TESTS)
+  RADIO rb_nowald		@	_ss	@	., last		///
+	option("nowald")						///
+	onclickon("script rpt_nowald_on")				///
+	onclickoff("script rpt_nowald_off")				///
+	label(resource LBL_SUPPRESS_TABLE_OF_WALD_TESTS)
+  CHECKBOX ck_noatlevels 	@	_ls	_ibwd	.,		///
+	option("noatlevels")						///
+	label(resource LBL_REPORT_ONLY_OVERALL_WALD_TEST_FOR_TERMS)
+  CHECKBOX ck_nosvyadjust 	@	_ms	@	.,		///
+	option("nosvyadjust")						///
+	label(resource LBL_COMPUTE_UNADJUSTED_WALD_TEST_SURVEY_RESULTS)
+
+  CHECKBOX ck_sort		_lft	_xls	_iwd	.,		///
+	option("sort")							///
+	label(resource CONTRAST_RPT_CK_SORT)
+  CHECKBOX ck_post		@	_ms	@	.,		///
+	option("post")							///
+	label(resource CONTRAST_RPT_CK_POST)
+
+  DEFINE _x _lft
+  DEFINE _y _ms
+  DEFINE _cx _iwd
+  INCLUDE _vsquish
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_coef_table_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_eform_opts_reporting
+
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE eform_option_reporting_pr
+
+LIST rpt_mcompare_list
+BEGIN
+	resource LBL_DO_NOT_ADJUST_FOR_MULTIPLE_COMPARISONS
+	resource LBL_BONFERRONIS_METHOD
+	resource LBL_BONFERRONIS_METHOD_ADJUST_ACROSS_ALL_TERMS
+	resource LBL_SIDAKS_METHOD
+	resource LBL_SIDAKS_METHOD_ADJUST_ACROSS_ALL_TERMS
+	resource LBL_SCHEFFES_METHOD
+END
+
+LIST rpt_mcompare_values
+BEGIN
+	""
+	bonferroni
+	"bonferroni adjustall"
+	sidak
+	"sidak adjustall"
+	scheffe
+END
+
+SCRIPT rpt_nowald_on
+BEGIN
+	rpt.ck_noatlevels.disable
+	rpt.ck_nosvyadjust.disable
+END
+
+SCRIPT rpt_nowald_off
+BEGIN
+	rpt.ck_noatlevels.enable
+	program rpt_enable_nosvyadjust
+END
+
+PROGRAM rpt_enable_nosvyadjust
+BEGIN
+	if (prefix.iseq("svy")) {
+		call rpt.ck_nosvyadjust.enable
+	}
+END
+
+SCRIPT rpt_effects_on
+BEGIN
+	rpt.ck_cieffects.enable
+	rpt.ck_pveffects.enable
+	rpt.ck_effects.enable
+END
+
+SCRIPT rpt_effects_off
+BEGIN
+	rpt.ck_cieffects.disable
+	rpt.ck_pveffects.disable
+	rpt.ck_effects.disable
+END
+
+PROGRAM rpt_output
+BEGIN
+	optionarg /hidedefault rpt.sp_level
+
+	optionarg rpt.cb_mcompare
+
+	if (rpt.rb_effects & !rpt.ck_cieffects &			///
+		!rpt.ck_pveffects & !rpt.ck_effects) {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format 					///
+			"resource LBL_MSGBOX_EFFECTS_TABLE_FMT" 	///
+			"resource LBL_TAB_REPORTING"
+		stopbox stop "class _MSG_TMP.value"
+// You must specify an "Effects table" on the "Reporting" tab.
+	}
+	if (rpt.rb_effects) {
+		option rpt.ck_cieffects
+		option rpt.ck_pveffects
+		option rpt.ck_effects
+	}
+
+	option rpt.rb_nowald
+	option rpt.ck_noatlevels
+	option rpt.ck_nosvyadjust
+
+	option rpt.ck_sort
+	option rpt.ck_post
+	INCLUDE _vsquish_pr
+	put " " rpt_bu_fmtcoefResults
+	put " " rpt_bu_eformResults
+END
+
+PROGRAM command
+BEGIN
+	put "contrast "
+	require main.cb_contrastlist
+	put main.cb_contrastlist
+	beginoptions
+		option main.ck_asobserved
+		option main.ck_overall
+		option main.ck_lincom
+		option main.ck_small
+		if equ.ck_equation {
+			require equ.cb_equation
+			optionarg equ.cb_equation
+		}
+		option equ.ck_atequations
+		option adv.rb_reweight
+		option adv.ck_noestimcheck
+		put " " /program rpt_output
+	endoptions
+END
+

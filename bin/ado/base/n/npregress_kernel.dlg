@@ -1,0 +1,508 @@
+/*
+  npregress
+
+*!  VERSION 1.1.4  30jan2020
+
+*/
+
+VERSION 15.0
+SYNCHRONOUS_ONLY
+INCLUDE _std_large
+DEFINE _dlght 500
+INCLUDE header
+
+HELP hlp1, view("help npregress")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource NPREGRESS_DLG_HSCALE
+
+	create DOUBLE err
+	create STRING STMP
+	create STRING bwidth_res
+	create STRING meanbwidth_res
+	create STRING derivbwidth_res
+	create DOUBLE bwidth_coef
+
+	script se_createAsNPREGRESS
+END
+
+SCRIPT POSTINIT
+BEGIN
+	max.ck_grad.disable
+	max.ck_hess.disable
+	max.ck_shownr.disable
+	max.ed_nrtol.disable
+	max.tx_nrtol.disable
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)				///
+	title(resource NPREGRESS_DLG_TITLE)
+BEGIN
+  GROUPBOX gb_estimator		_lft	_top	_iwd	_ht12h,		///
+	label(resource LBL_KERNEL_ESTIMATOR)
+
+  RADIO rb_linear		_ilft	_ss	_cwd3	., first	///
+	label(resource LBL_LINEAR)
+  RADIO rb_constant		_ilft2	@	@	., last		///
+	option("estimator(constant)")					///
+	label(resource LBL_CONSTANT)
+
+  TEXT tx_kernel		_ilft	_ls	_ibwd	.,		///
+	label(resource NPREGRESS_MAIN_TX_KERNEL)
+  COMBOBOX cb_kernel		@	_ss	_cwd1	.,		///
+	option(kernel)							///
+	default(epanechnikov)						///
+	dropdownlist							///
+	contents(main_kernel_list)					///
+	values(main_kernel_values)					///
+	label(resource NPREGRESS_MAIN_TX_KERNEL)
+  TEXT tx_dkernel		_ilft	_ls	_ibwd	.,		///
+	label(resource NPREGRESS_MAIN_TX_DKERNEL)
+  COMBOBOX cb_dkernel		@	_ss	_cwd1	.,		///
+	option(dkernel)							///
+	default(liracine)						///
+	dropdownlist							///
+	contents(main_dkernel_list)					///
+	values(main_dkernel_values)					///
+	label(resource NPREGRESS_MAIN_TX_DKERNEL)
+  TEXT tx_dv 			_lft	_xls	_vnwd	.,		///
+	label(resource LBL_DEPVAR)
+  VARNAME vn_dv			@	_ss	@	.,		///
+	ts								///
+	numeric								///
+	label(resource LBL_DEPVAR)
+
+  TEXT tx_iv			_vlx	-20	160	.,		///
+	label(resource LBL_INDDEPVAR)
+  VARLIST vl_iv			@	_ss	_vlwd	.,		///
+	fv								///
+	allowcat							///
+	numeric								///
+	label(resource LBL_INDDEPVAR)
+
+  GROUPBOX gb_opts		_lft	_ls	_iwd	_ht23h,		///
+	label(resource LBL_OPTIONS)
+
+  CHECKBOX ck_predict		_ilft	_ss	_ibwd	_ht9,		///
+	groupbox							///
+	onclickon(script main_predict_on)				///
+	onclickoff(script main_predict_off)				///
+	label(resource LBL_STORE_PREDICTED_VALUES)
+  TEXT tx_predict		_iilft	_ss	_inwd	.,		///
+	label(resource LBL_NEW_VARIABLE_NAMES_STUB)
+  EDIT ed_predict		@	_ss	@	.,		///
+	label(resource LBL_NEW_VARIABLE_NAMES_STUB)
+	
+  CHECKBOX ck_preplace		@	_ls	@	.,		///
+	option("replace")						///
+	label(resource LBL_REPLACE_VARIABLES_IF_THEY_EXIST)
+  CHECKBOX ck_pnoderivatives	@	_ms	@	.,		///
+	option("noderivatives")						///
+	label(resource LBL_SUPPRESS_DERIVATIVE_COMPUTATION)
+  CHECKBOX ck_noderivatives	_ilft	_xls	_ibwd	.,		///
+	option("noderivatives")						///
+	label(resource LBL_SUPPRESS_DERIVATIVE_COMPUTATION)
+  CHECKBOX ck_imaic		@	_ms	@	.,		///
+	option("imaic")							///
+	label(resource NPREGRESS_MAIN_CK_IMAIC)
+  TEXT tx_unidentsample		@	_ls	200	.,		///
+	label(resource NPREGRESS_MAIN_TX_UNIDENTSAMPLE)
+  EDIT ed_unidentsample		@	_ss	_vnwd	.,		///
+	option(unidentsample)						///
+	label(resource NPREGRESS_MAIN_TX_UNIDENTSAMPLE)
+END
+	
+LIST main_kernel_list
+BEGIN
+	resource LBL_EPANECHNIKOV 
+	resource LBL_TRIANGLE
+	resource LBL_ALTERNATIVE_EPANECHNIKOV
+	resource LBL_BIWEIGHT
+	resource LBL_COSINE_TRACE
+	resource LBL_GAUSSIAN
+	resource LBL_PARZEN
+	resource LBL_RECTANGLE
+END
+
+LIST main_kernel_values
+BEGIN
+	epanechnikov
+	triangle
+	epan2
+	biweight
+	cosine
+	gaussian
+	parzen
+	rectangle
+END
+
+LIST main_dkernel_list
+BEGIN
+	resource LBL_LI_RACINE
+	resource LBL_CELL_MEANS	
+END
+
+LIST main_dkernel_values
+BEGIN
+	liracine
+	cellmean
+END
+
+SCRIPT main_predict_on
+BEGIN
+	main.tx_predict.enable
+	main.ed_predict.enable
+	main.ck_preplace.enable
+	main.ck_pnoderivatives.enable
+END
+
+SCRIPT main_predict_off
+BEGIN
+	main.tx_predict.disable
+	main.ed_predict.disable
+	main.ck_preplace.disable
+	main.ck_pnoderivatives.disable
+END
+
+DIALOG band, tabtitle(resource LBL_TAB_BANDWIDTH)
+BEGIN
+  TEXT tx_bwidth		_lft	_top	400	.,		///
+	label(resource LBL_BANDWIDTH_COLON)
+  EDIT ed_bwidth		@	_ss	@	.,		///
+	option(bwidth)							///
+	label(resource LBL_BANDWIDTH_COLON)
+  BUTTON bu_bwidth		+404	@	_buwd	.,		///
+	onpush(program band_show_bwidth_dlg)				///
+	label(resource LBL_BU_CREATE)
+
+  TEXT tx_meanbwidth		_lft	_ls	400	.,		///
+	label(resource LBL_MEAN_FUNCTION)
+  EDIT ed_meanbwidth		@	_ss	@	.,		///
+	option(meanbwidth)						///
+	label(resource LBL_MEAN_FUNCTION)
+  BUTTON bu_meanbwidth		+404	@	_buwd	.,		///
+	onpush(program band_show_meanbwidth_dlg)			///
+	label(resource LBL_BU_CREATE)
+
+  TEXT tx_derivbwidth		_lft	_ls	400	.,		///
+	label(resource LBL_MEAN_EFFECTS)
+  EDIT ed_derivbwidth		@	_ss	@	.,		///
+	option(derivbwidth)						///
+	label(resource LBL_MEAN_EFFECTS)
+  BUTTON bu_derivbwidth		+404	@	_buwd	.,		///
+	onpush(program band_show_derivbwidth_dlg)			///
+	label(resource LBL_BU_CREATE)
+
+END
+
+PROGRAM create_vlist_for_child
+BEGIN
+	if main.vl_iv.iseq("") {
+		call err.setvalue 1
+		require main.vl_iv
+		exit
+	}
+	put "npregress_wrk_dlg "
+	put main.vl_iv
+	stata hidden immediate
+END
+
+PROGRAM band_show_bwidth_dlg
+BEGIN
+	call err.setvalue 0
+	call program create_vlist_for_child
+	if err.isneq(0) {
+		exit
+	}
+	call bwidth_coef.setvalue 1
+	call create CHILD npregress_spec_child AS bwidth
+	call bwidth.setExitString bwidth_res
+	call bwidth.setExitAction "program band_bwidth_append"
+	call bwidth.settitle resource LBL_KERNEL_HALF_WIDTH_SPECIFICATION
+END
+
+PROGRAM band_bwidth_append
+BEGIN
+	call STMP.setvalue class band.ed_bwidth.value
+	call bwidth_res.withvalue STMP.append " @"
+	call STMP.withvalue band.ed_bwidth.setvalue "@"
+END
+
+PROGRAM band_show_meanbwidth_dlg
+BEGIN
+	call err.setvalue 0
+	call program create_vlist_for_child
+	if err.isneq(0) {
+		exit
+	}
+	call bwidth_coef.setvalue 2
+	call create CHILD npregress_spec_child AS meanbwidth
+	call meanbwidth.setExitString meanbwidth_res
+	call meanbwidth.setExitAction "program band_meanbwidth_append"
+	call meanbwidth.settitle resource LBL_MEAN_FUNCTION_SPECIFICATION
+END
+
+PROGRAM band_meanbwidth_append
+BEGIN
+	call STMP.setvalue class band.ed_meanbwidth.value
+	call meanbwidth_res.withvalue STMP.append " @"
+	call STMP.withvalue band.ed_meanbwidth.setvalue "@"
+END
+
+PROGRAM band_show_derivbwidth_dlg
+BEGIN
+	call err.setvalue 0
+	call program create_vlist_for_child
+	if err.isneq(0) {
+		exit
+	}
+	call bwidth_coef.setvalue 3
+	call create CHILD npregress_spec_child AS derivbwidth
+	call derivbwidth.setExitString derivbwidth_res
+	call derivbwidth.setExitAction "program band_derivbwidth_append"
+	call derivbwidth.settitle ""
+	call derivbwidth.settitle resource LBL_MEAN_EFFECT_SPECIFICATION
+END
+
+PROGRAM band_derivbwidth_append
+BEGIN
+	call STMP.setvalue class band.ed_derivbwidth.value
+	call derivbwidth_res.withvalue STMP.append " @"
+	call STMP.withvalue band.ed_derivbwidth.setvalue "@"
+END
+
+PROGRAM band_output
+BEGIN
+	optionarg band.ed_bwidth
+	optionarg band.ed_meanbwidth
+	optionarg band.ed_derivbwidth
+END
+
+
+INCLUDE byifin
+INCLUDE se
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+	program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2b
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  DEFINE _x _lft
+  DEFINE _y _xls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+
+  TEXT tx_citype		_lft	_ls	_cwd1	.,		///
+	label(resource LBL_CONFIDENCE_INTERVAL_TYPE)
+  COMBOBOX cb_citype		@	_ss	@	.,		///
+	dropdownlist							///
+	contents(citype_list)						///
+	values(citype_values)						///
+	option(citype)							///
+	default(percentile)						///
+	label(resource LBL_CONFIDENCE_INTERVAL_TYPE)
+END
+
+
+LIST citype_list
+BEGIN
+	resource LBL_PERCENTILE
+	resource SE_TX_BIAS
+	resource LBL_NORMAL
+END
+
+LIST citype_values
+BEGIN
+	percentile
+	bc
+	normal
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+
+PROGRAM rpt_output
+BEGIN
+	optionarg /hidedefault rpt.sp_level
+	INCLUDE _report_columns_pr
+	put " " rpt_bu_facvarsResults
+	put " " rpt_bu_fmtcoefResults
+	optionarg /hidedefault rpt.cb_citype
+END
+
+DIALOG max, tabtitle(resource LBL_TAB_MAXIMIZATION)
+BEGIN
+  BUTTON   bu_hlp		_xsetbu	_top	_setbuwd	.,	///
+	label(resource LBL_HELP_MAXIMIZE)				///
+	onpush(script max_hlp)
+
+  COMBOBOX cb_tech		_lft	_ms	120		.,	///
+	dropdownlist option(technique)					///
+	contents(max_technique_con) values(max_technique_val)		///
+	onselchangelist(robust_label_list)
+  DEFINE holdy @y
+  TEXT     tx_tech		+125	@	140		., 	///
+	label(resource LBL_OPTIMIZATION_TECHNIQUE)
+  SPINNER  sp_iter		280	holdy	_spwd		.,	///
+	label(resource LBL_MAXIMUM_ITERATIONS) option(iterate)		///
+	min(0) max(16000) default(c(maxiter))
+  TEXT     tx_iter		_spsep	@	145		.,	///
+	label(resource LBL_MAXIMUM_ITERATIONS)
+
+  GROUPBOX gb_ilog		_lft	_ls	_cwd4_1		_ht4,	///
+	label(resource LBL_ITERATION_LOG)
+  DEFINE holdy @y
+
+  RADIO	   rb_log		_indent	_ss	_inwd		.,	///
+	label(resource LBL_SHOW) first option(log)			///
+	onclickon(program max_logging_check)
+  RADIO	   rb_nolog  		@	_ss	@		.,	///
+	label(resource LBL_SUPPRESS) last option(nolog)			///
+	onclickon(program max_logging_check)
+  GROUPBOX gb_log		_lft4_2	holdy	_comb4_1	 _ht4,	///
+	label(resource LBL_ELEMENTS_DISPLAY_ITER_LOG)
+  CHECKBOX ck_trace		_indent	_ss	_cwd4_2		.,	///
+	label(resource LBL_PARAMETER) option(trace)
+  DEFINE holdy @y
+  CHECKBOX ck_grad		@	_ss	@		.,	///
+	label(resource LBL_GRADIENT) option(gradient)
+  CHECKBOX ck_show		_ilft4_3 holdy	@		.,	///
+	label(resource LBL_STEPS) option(showstep)
+  CHECKBOX ck_hess		@	_ss	@		.,	///
+	label(resource LBL_MAX_ML_NEG_HESSIAN) option("hessian")
+  CHECKBOX ck_shownr            _ilft4_4  @         @         .,	///
+  	label(resource LBL_TOLERANCE) option(showtolerance)
+  GROUPBOX gb_tol		_lft	_xls	_iwd		_ht5,	///
+	label(resource LBL_CONVERGENCE_TOLERANCE)
+  EDIT     ed_tol		_ilft	_ss	_en7wd		.,	///
+	label(resource LBL_COEFFICIENT_VECTOR) option(tolerance) default(1e-4)
+  TEXT     tx_tol		_en7sep	@	_en7r2b		.,	///
+	label(resource LBL_COEFFICIENT_VECTOR)
+  EDIT     ed_nrtol		230	@	_en7wd		.,	///
+	label(resource LBL_HSG) option(nrtolerance) default(1e-5)
+  TEXT     tx_nrtol		_en7sep	@	185		.,	///
+	label(resource LBL_HSG)
+  EDIT     ed_ltol		_ilft	_ls	_en7wd		.,	///
+	label(resource LBL_LOG_LIKELIHOOD) option(ltolerance) default(1e-5)
+  TEXT     tx_ltol		_en7sep	@	_en7r2b		.,	///
+	label(resource LBL_LOG_LIKELIHOOD)
+
+  TEXT     tx_from		_lft	_xls	_iwd		.,	///
+	label(resource LBL_INITIAL_VALUES_HELP_MAXIMIZE)
+  EDIT     ed_from		_lft	_ss	_iwd		.,	///
+	option(from)							///
+	label(resource LBL_INITIAL_VALUES)
+END
+
+SCRIPT max_hlp
+BEGIN
+        view help maximize##|_new
+END
+PROGRAM max_logging_check
+BEGIN
+	if (!H(max.rb_log) & max.rb_log) {
+		call max.ck_trace.enable
+		call max.ck_show.enable
+		call max.ck_shownr.enable
+		call max.gb_log.enable
+	}
+	if (!H(max.rb_log) & max.rb_nolog) {
+		call max.ck_trace.disable
+		call max.ck_grad.disable
+		call max.ck_hess.disable
+		call max.ck_show.disable
+		call max.ck_shownr.disable
+		call max.gb_log.disable
+	}
+END
+LIST max_technique_con
+BEGIN
+	resource LBL_DEFAULT
+END
+LIST max_technique_val
+BEGIN
+	""
+END
+LIST robust_label_list
+BEGIN
+	program max_set_DefaultOIM
+END
+PROGRAM max_set_DefaultOIM
+BEGIN
+	call create BOOLEAN max_tmpBOOL
+	call max_tmpBOOL.storeClsObjectExists se_hasOIM
+	if max_tmpBOOL {
+		if se_hasOIM {
+			call script se_setDefaultOIM
+		}
+		if se_hasIOIM {
+			call script se_setDefaultIOIM
+		}
+	}
+END
+PROGRAM max_output
+BEGIN
+	optionarg /hidedefault max.cb_tech
+	optionarg /hidedefault max.sp_iter
+	option max.rb_nolog
+	option max.ck_trace
+	option max.ck_show
+	optionarg /hidedefault max.ed_tol
+	optionarg /hidedefault max.ed_ltol
+	optionarg max.ed_from
+END
+
+PROGRAM predict_output
+BEGIN
+	require main.ed_predict
+	put main.ed_predict
+	beginoptions
+		option main.ck_preplace
+		option main.ck_pnoderivatives
+	endoptions
+END
+
+PROGRAM command
+BEGIN
+	put /program by_output " "
+	put "npregress kernel "
+	varlist main.vn_dv main.vl_iv
+	put " " /program ifin_output
+	beginoptions
+		option main.rb_constant
+		optionarg /hidedefault main.cb_kernel
+		optionarg /hidedefault main.cb_dkernel
+		if main.ck_predict {
+			put " predict("
+			put /program predict_output
+			put ")"
+		}
+		put " " /program band_output
+		option main.ck_noderivatives
+		option main.ck_imaic
+  		optionarg main.ed_unidentsample
+		put " " /program se_output
+		put " " /program rpt_output
+		put " " /program max_output
+	endoptions
+END

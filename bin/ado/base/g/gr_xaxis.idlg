@@ -1,0 +1,382 @@
+/*
+    gr_xaxis.idlg
+
+*!  VERSION 1.1.3  12dec2019
+
+	// SCRIPTS and PROGRAMS for external use
+	   * SCRIPT gr_xaxis_disable
+	   * SCRIPT gr_xaxis_enable
+	   * SCRIPT gr_xaxis_setByoptsContext_on
+	   * SCRIPT gr_xaxis_setByoptsContext_off
+	   * SCRIPT gr_xaxis_setByContext_on
+	   * SCRIPT gr_xaxis_setByContext_off
+
+*** 	This tab is very closely related to gr_taxis and somewhat closely
+***	related gr_yaxis. Any changes should be reflected in those files.
+*/
+
+SCRIPT gr_xaxis_disable
+BEGIN
+	xaxis.ck_noscale.disable
+	xaxis.tx_title.disable
+	xaxis.ed_title.disable
+	xaxis.bu_title.disable
+	xaxis.bu_majorTick.disable
+	xaxis.bu_minorTick.disable
+	xaxis.bu_axisLine.disable
+	xaxis.bu_scale.disable
+	xaxis.bu_refLines.disable
+	xaxis.bu_adv.disable
+	xaxis.ck_alt.disable
+END
+
+SCRIPT gr_xaxis_enable
+BEGIN
+	program gr_xaxis_enable_wrk
+END
+PROGRAM gr_xaxis_enable_wrk
+BEGIN
+	call xaxis.ck_noscale.enable
+	call xaxis.bu_majorTick.enable
+	call xaxis.bu_minorTick.enable
+	call xaxis.bu_scale.enable
+	call xaxis.bu_refLines.enable
+	call xaxis.bu_adv.enable
+	if ! xaxis.ck_noscale {
+		call xaxis.tx_title.enable
+		call xaxis.ed_title.enable
+		call xaxis.bu_title.enable
+		call xaxis.bu_axisLine.enable
+		call xaxis.ck_alt.enable
+	}
+END
+
+SCRIPT gr_xaxis_setByoptsContext_on
+BEGIN
+	xaxis.bu_adv.show
+	gr_xaxis_advanedByopts_on.settrue
+END
+SCRIPT gr_xaxis_setByoptsContext_off
+BEGIN
+	xaxis.bu_adv.hide
+	gr_xaxis_advanedByopts_on.setfalse
+END
+SCRIPT gr_xaxis_setByContext_on
+BEGIN
+	xaxis.bu_adv.show
+	gr_xaxis_advanedBy_on.settrue
+END
+SCRIPT gr_xaxis_setByContext_off
+BEGIN
+	xaxis.bu_adv.hide
+	gr_xaxis_advanedBy_on.setfalse
+END
+
+SCRIPT xaxis_PREINIT
+BEGIN
+	create STRING xaxisTitleResults
+	create STRING xaxisLabelResults
+	create STRING xaxisMinorLabelResults
+	create STRING xaxisLineResults
+	create STRING xaxisScaleResults
+	create STRING xaxisReflineResults
+	create STRING xaxisByAdvResults
+
+	create BOOLEAN gr_xaxis_advanedBy_on
+	create BOOLEAN gr_xaxis_advanedByopts_on
+	xaxis.bu_adv.hide
+END
+SCRIPT xaxis_POSTINIT
+BEGIN
+	program xaxis_checkTitleResults
+	program xaxis_checkLabelResults
+	program xaxis_checkMinorLabelResults
+	program xaxis_checkLineResults
+	program xaxis_checkScaleResults
+	program xaxis_checkReflineResults
+	program xaxis_checkByAdvResults
+END
+
+DIALOG xaxis, tabtitle(resource LBL_TAB_X_AXIS)
+BEGIN
+
+  TEXT     tx_title	_lft	_top	_iwd	.,		///
+	label(resource LBL_TITLE)
+  EDIT	   ed_title	@	_ss	_lw80	.,
+  BUTTON   bu_title	_slw80	@	80	.,		///
+  	label(resource LBL_BU_PROPERTIES)			///
+	onpush(program get_xaxis_title_options)	
+
+  BUTTON   bu_majorTick	_lft	_xls	165	.,		///
+  	label(resource LBL_MAJOR_TICK_LABEL_PROPERTIES)		///
+	onpush(program get_xaxis_label_options)	
+
+  BUTTON   bu_minorTick	+190	@	@	.,		///
+  	label(resource LBL_MINOR_TICK_LABEL_PROPERTIES)		///
+	onpush(program get_xaxis_mlabel_options)
+
+  BUTTON   bu_axisLine	_lft	_mls	@	.,		///
+  	label(resource LBL_AXIS_LINE_PROPERTIES_DLG_TITLE)	///
+	onpush(program get_xaxis_line)
+
+  BUTTON   bu_scale	+190	@	@	.,		///
+  	label(resource GR_ED_AXIS_AXIS_SCALE_PROPERTIES)	///
+	onpush(program get_xaxis_scale_options)			///
+
+  BUTTON   bu_refLines	_lft	_mls	@	.,		///
+  	label(resource LBL_TAB_REFERENCE_LINES)			///
+	onpush(program get_xaxis_refline)
+
+  BUTTON   bu_adv	+190	@	@	.,		///
+  	label(resource LBL_BU_SUBGRAPH_AXES)			///
+	onpush(program xaxis_get_advanced_sub)			///
+	tooltip(resource GR_XAXIS_XAXIS_BU_ADV)
+
+  CHECKBOX ck_noscale	_lft	_ls	_iwd	.,		///
+	label(resource LBL_HIDE_AXIS) 				///
+	onclickoff(program xaxis_noscale_off)			///
+	onclickon(script xaxis_noscale_on)
+
+  CHECKBOX ck_alt	_lft	_ms	_iwd	.,		///
+	label(resource LBL_PLACE_AXIS_OPPOSITE_SIDE)		///
+	option(alt)
+END
+
+SCRIPT xaxis_noscale_on
+BEGIN
+	xaxis.tx_title.disable
+	xaxis.ed_title.disable
+	xaxis.bu_title.disable
+	xaxis.bu_axisLine.disable
+	xaxis.ck_alt.disable
+END
+PROGRAM xaxis_noscale_off
+BEGIN
+	if xaxis.ck_noscale.isenabled() {
+		call xaxis.tx_title.enable
+		call xaxis.ed_title.enable
+		call xaxis.bu_title.enable
+		call xaxis.bu_axisLine.enable
+		call xaxis.ck_alt.enable
+	}
+END
+
+PROGRAM get_xaxis_title_options
+BEGIN
+	call create CHILD gr_axis_title_options AS xtitle, allowsubmit
+	call xtitle.setExitString xaxisTitleResults
+	call xtitle.settitle resource GR_XAXIS_TITLE_PROPERTIES
+	call xtitle.setExitAction "program xaxis_checkTitleResults"
+	call xtitle.setSubmitAction "program xaxis_titleSubmit"
+	call xtitle.callthru `"titleOption.setstring "xtitle""'
+	call xtitle.callthru `"scaleOption.setstring "xscale""'
+END
+PROGRAM xaxis_checkTitleResults
+BEGIN
+	if xaxisTitleResults.iseq("") {
+		call xaxis.bu_title.modified_off
+	}
+	else {
+		call xaxis.bu_title.modified_on
+	}
+END
+PROGRAM xaxis_titleSubmit
+BEGIN
+	call program xaxis_checkTitleResults
+	call Submit
+END
+
+PROGRAM get_xaxis_label_options
+BEGIN
+	call create CHILD gr_axis_tick_label_options AS xlabel, allowsubmit
+	call xlabel.setExitString xaxisLabelResults
+	call xlabel.settitle resource GR_XAXIS_MAJOR_TICKS
+	call xlabel.setExitAction "program xaxis_checkLabelResults"
+	call xlabel.setSubmitAction "program xaxis_labelSubmit"
+	call xlabel.callthru "script axis_setRuleMajor"
+END
+PROGRAM xaxis_checkLabelResults
+BEGIN
+	if xaxisLabelResults.iseq("") {
+		call xaxis.bu_majorTick.modified_off
+	}
+	else {
+		call xaxis.bu_majorTick.modified_on
+	}
+END
+PROGRAM xaxis_labelSubmit
+BEGIN
+	call program xaxis_checkLabelResults
+	call Submit
+END
+
+PROGRAM get_xaxis_mlabel_options
+BEGIN
+	call create CHILD gr_axis_tick_label_options AS xmlabel, allowsubmit
+	call xmlabel.setExitString xaxisMinorLabelResults
+	call xmlabel.settitle resource GR_XAXIS_MINOR_TICKS
+	call xmlabel.setExitAction "program xaxis_checkMinorLabelResults"
+	call xmlabel.setSubmitAction "program xaxis_mlabelSubmit"
+	call xmlabel.callthru "script axis_setRuleMinor"
+END
+PROGRAM xaxis_checkMinorLabelResults
+BEGIN
+	if xaxisMinorLabelResults.iseq("") {
+		call xaxis.bu_minorTick.modified_off
+	}
+	else {
+		call xaxis.bu_minorTick.modified_on
+	}
+END
+PROGRAM xaxis_mlabelSubmit
+BEGIN
+	call program xaxis_checkMinorLabelResults
+	call Submit
+END
+
+PROGRAM get_xaxis_line
+BEGIN
+	call create CHILD gr_axis_line_options AS xlines, allowsubmit
+	call xlines.setExitString xaxisLineResults
+	call xlines.settitle resource GR_XAXIS_LINE_PROPERTIES
+	call xlines.setExitAction "program xaxis_checkLineResults"
+	call xlines.setSubmitAction "program xaxis_lineSubmit"
+END
+PROGRAM xaxis_checkLineResults
+BEGIN
+	if xaxisLineResults.iseq("") {
+		call xaxis.bu_axisLine.modified_off
+	}
+	else {
+		call xaxis.bu_axisLine.modified_on
+	}
+END
+PROGRAM xaxis_lineSubmit
+BEGIN
+	call program xaxis_checkLineResults
+	call Submit
+END
+
+PROGRAM get_xaxis_scale_options
+BEGIN
+	call create CHILD gr_axis_scale_options AS xscale, allowsubmit
+	call xscale.setExitString xaxisScaleResults
+	call xscale.settitle resource GR_XAXIS_SCALE_PROPERTIES
+	call xscale.setExitAction "program xaxis_checkScaleResults"
+	call xscale.setSubmitAction "program xaxis_scaleSubmit"
+END
+PROGRAM xaxis_checkScaleResults
+BEGIN
+	if xaxisScaleResults.iseq("") {
+		call xaxis.bu_scale.modified_off
+	}
+	else {
+		call xaxis.bu_scale.modified_on
+	}
+END
+PROGRAM xaxis_scaleSubmit
+BEGIN
+	call program xaxis_checkScaleResults
+	call Submit
+END
+
+PROGRAM get_xaxis_refline
+BEGIN
+	call create CHILD gr_xaxis_reflines AS xReflines, allowsubmit
+	call xReflines.setExitString xaxisReflineResults
+	call xReflines.settitle resource GR_XAXIS_REFERENCE_LINES
+	call xReflines.setExitAction "program xaxis_checkReflineResults"
+	call xReflines.setSubmitAction "program xaxis_reflineSubmit"
+END
+PROGRAM xaxis_checkReflineResults
+BEGIN
+	if xaxisReflineResults.iseq("") {
+		call xaxis.bu_refLines.modified_off
+	}
+	else {
+		call xaxis.bu_refLines.modified_on
+	}
+END
+PROGRAM xaxis_reflineSubmit
+BEGIN
+	call program xaxis_checkReflineResults
+	call Submit
+END
+
+PROGRAM xaxis_get_advanced_sub
+BEGIN
+	call create CHILD gr_by_axis_advanced AS xaxis_by_adv, allowsubmit
+	call xaxis_by_adv.setExitString xaxisByAdvResults
+	call xaxis_by_adv.settitle resource GR_XAXIS_AXIS_PROPERTIES_SUBGRAPHS
+	call xaxis_by_adv.setExitAction "program xaxis_checkByAdvResults"
+	call xaxis_by_adv.setSubmitAction "program xaxis_byAdvSubmit"
+	call xaxis_by_adv.callthru "script setAxis_x"
+END
+PROGRAM xaxis_checkByAdvResults
+BEGIN
+	if xaxisByAdvResults {
+		call xaxis.bu_adv.modified_on
+	}
+	else {
+		call xaxis.bu_adv.modified_off
+	}
+END
+PROGRAM xaxis_byAdvSubmit
+BEGIN
+	call program xaxis_checkByAdvResults
+	call Submit
+END
+
+PROGRAM xaxis_title_output
+BEGIN
+	put xaxis.ed_title
+END
+
+PROGRAM gr_xaxis_output
+BEGIN
+	if ! xaxis.ck_noscale & xaxis.ck_noscale.isenabled() {
+		if xaxis.ed_title {
+			put " xtitle("
+			put /program xaxis_title_output
+			put ") "
+		}
+		put " " xaxisTitleResults " "
+	}
+	if xaxis.ck_noscale {
+		put " xscale(off) "
+	}
+
+	if xaxisScaleResults.isneq("") {
+		put " xscale(" xaxisScaleResults ") "
+	}
+	
+	if xaxisLineResults.isneq("") {
+		put " xscale(" xaxisLineResults ") "
+	}
+
+	put " " xaxisReflineResults " "
+	if xaxisLabelResults {
+		put " xlabel("
+		put xaxisLabelResults
+		put ") "
+	}
+	if xaxisMinorLabelResults {
+		put " xmtick("
+		put xaxisMinorLabelResults
+		put ") "
+	}
+
+	if !H(xaxis.bu_adv) & xaxisByAdvResults {
+		if gr_xaxis_advanedByopts_on {
+			put " byopts("
+		}
+		else {
+			put " by(, "
+		}
+		put xaxisByAdvResults
+		put ") "
+	}
+	if xaxis.ck_alt {
+		put " xscale(alt) "
+	}
+END

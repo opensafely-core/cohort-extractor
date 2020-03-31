@@ -1,0 +1,1758 @@
+/*
+	bayesmh prior
+
+*!  VERSION 1.1.5  16apr2019
+*/
+
+VERSION 14.0
+
+INCLUDE _std_xlarge
+DEFINE _dlght 460
+INCLUDE header
+
+HELP hlp1, view("help bayesmh##priorspec")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource BAYESMH_PRIOR_DLG_HSCALE
+
+	create STRING parent_name
+	create DOUBLE prior_layout
+	create ARRAY main_paraspec_list
+	create STRING paraspec_str
+	create DOUBLE nparas2
+	create DOUBLE is_dirichlet
+	create DOUBLE prior_mode
+	create DOUBLE prior_count
+	
+	prior_mode.setvalue 1
+	prior_count.setvalue 0
+	parent_name.setvalue class PARENT._dlg_rsrcname
+	parent_name.withvalue prior_mode.setvalue		///
+		class @.prior_mode.value
+	parent_name.withvalue prior_count.setvalue		///
+		class @.main_prior_arraysize.value
+
+	nparas2.setvalue 0
+	is_dirichlet.setvalue 0
+	program set_params_list
+END
+
+PROGRAM set_params_list
+BEGIN
+	if prior_mode.equals(1) {
+		call paraspec_str.setvalue ""
+		call paraspec_str.append s(eqnames)
+		call paraspec_str.append " "
+		call paraspec_str.append s(params)
+		call paraspec_str.tokenizeOnStr main_paraspec_list " "		
+	}
+	else {
+		/*if prior_count.equals(0) {
+			call paraspec_str.setvalue ""
+			call paraspec_str.append s(eqnames)
+			call paraspec_str.append " "
+			call paraspec_str.append s(params)
+		}
+		else {
+			call paraspec_str.setvalue ""
+			call paraspec_str.append s(equndefined)
+			call paraspec_str.append " "
+			call paraspec_str.append s(undefined)
+		}*/
+		call paraspec_str.setvalue ""
+		call paraspec_str.append s(equndefined)
+		call paraspec_str.append " "
+		call paraspec_str.append s(undefined)
+		call paraspec_str.tokenizeOnStr main_paraspec_list " "
+	}
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	call main.cb_paraspec.repopulate
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL) 				///
+	title(resource BAYES_PRIOR_TITLE)
+BEGIN
+  TEXT  tx_paraspec		_lft     _top	_iwd	.,		///
+	label(resource BAYES_PRIOR_MAIN_TX_PARASPEC)
+  COMBOBOX  cb_paraspec		@	_ss	@	.,		///
+	dropdown							///
+	append								///
+	content("main_paraspec_list")					///
+	label(resource BAYES_PRIOR_MAIN_TX_PARASPEC)
+  TEXT  tx_prior 		_lft	+30	_iwd	.,		///
+	label(resource BAYES_PRIOR_MAIN_TX_PRIOR)
+  LISTBOX lb_prior		@	_ss	325	365,		///
+	default(normal)							///
+	onselchange(program main_prior_change)				///
+	contents(bayes_prior)						///
+	values(bayes_prior_values)
+  DEFINE x1 340
+  DEFINE x2 470
+  DEFINE edwd 130
+  DEFINE buwd 70
+  DEFINE txwd 200
+  TEXT  tx_normalmu		x1	-5	txwd	.,		///
+	label(resource LBL_MEAN_COLON)
+  DEFINE holdy @y
+  EDIT   ed_normalmu		@	_ss	edwd	.,		///
+	label(resource LBL_MEAN_COLON)
+  BUTTON bu_normalmu		x2	@	buwd	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program prior_show_normalmu)
+  TEXT  tx_normalvar		x1	_ls	txwd	.,		///
+	label(resource LBL_VARIANCE)
+  EDIT   ed_normalvar		@	_ss	edwd	.,		///
+	label(resource LBL_VARIANCE)
+  BUTTON bu_normalvar		x2	@	buwd	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program prior_show_normalvar)
+	
+  TEXT  tx_tmean		x1	holdy	txwd	.,		///
+	label(resource LBL_MEAN_COLON)
+  EDIT   ed_tmean		@	_ss	edwd	.,		///
+	label(resource LBL_MEAN_COLON)
+  BUTTON bu_tmean		x2	@	buwd	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program prior_show_tmean)
+  TEXT  tx_tscal		x1	_ls	txwd	.,		///
+	label(resource BAYES_PRIOR_LBL_SQUARED_SCALE)
+  EDIT   ed_tscal		@	_ss	edwd	.,		///
+	label(resource BAYES_PRIOR_LBL_SQUARED_SCALE)
+  BUTTON bu_tscal		x2	@	buwd	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program prior_show_tscal)
+  TEXT  tx_tdf			x1	_ls	txwd	.,		///
+	label(resource BAYES_PRIOR_LBL_DEGREES_OF_FREEDOM)
+  EDIT   ed_tdf			@	_ss	edwd	.,		///
+	label(resource BAYES_PRIOR_LBL_DEGREES_OF_FREEDOM)
+  BUTTON bu_tdf			x2	@	buwd	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program prior_show_tdf)
+	
+  TEXT  tx_lnnormalmu		x1	holdy	txwd	.,		///
+	label(resource LBL_MEAN_COLON)
+  EDIT   ed_lnnormalmu		@	_ss	edwd	.,		///
+	label(resource LBL_MEAN_COLON)
+  BUTTON bu_lnnormalmu		x2	@	buwd	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program prior_show_lnnormalmu)
+  TEXT  tx_lnnormalvar		x1	_ls	txwd	.,		///
+	label(resource LBL_VARIANCE)
+  EDIT   ed_lnnormalvar		@	_ss	edwd	.,		///
+	label(resource LBL_VARIANCE)
+  BUTTON bu_lnnormalvar		x2	@	buwd	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program prior_show_lnnormalvar)
+	
+  TEXT  tx_uniforma		x1	holdy	txwd	.,		///
+	label(resource BAYES_PRIOR_MAIN_TX_UNIFORMA)
+  EDIT   ed_uniforma		@	_ss	edwd	.,		///
+	label(resource BAYES_PRIOR_MAIN_TX_UNIFORMA)
+  BUTTON bu_uniforma		x2	@	buwd	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program prior_show_uniforma)
+  TEXT  tx_uniformb		x1	_ls	txwd	.,		///
+	label(resource BAYES_PRIOR_MAIN_TX_UNIFORMB)
+  EDIT   ed_uniformb		@	_ss	edwd	.,		///
+	label(resource BAYES_PRIOR_MAIN_TX_UNIFORMB)
+  BUTTON bu_uniformb		x2	@	buwd	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program prior_show_uniformb)
+	
+  TEXT  tx_gammaa		x1	holdy	txwd	.,		///
+	label(resource BAYES_PRIOR_LBL_SHAPE)
+  EDIT   ed_gammaa		@	_ss	edwd	.,		///
+	label(resource BAYES_PRIOR_LBL_SHAPE)
+  BUTTON bu_gammaa		x2	@	buwd	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program prior_show_gammaa)
+
+  TEXT  tx_gammab		x1	_ls	txwd	.,		///
+	label(resource BAYES_PRIOR_LBL_SCALE)
+  EDIT   ed_gammab		@	_ss	edwd	.,		///
+	label(resource BAYES_PRIOR_LBL_SCALE)
+  BUTTON bu_gammab		x2	@	buwd	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program prior_show_gammab)
+	
+  TEXT  tx_igammaa		x1     holdy	txwd	.,		///
+	label(resource BAYES_PRIOR_LBL_SHAPE)
+  EDIT   ed_igammaa		@	_ss	edwd	.,		///
+	label(resource BAYES_PRIOR_LBL_SHAPE)
+  BUTTON bu_igammaa		x2	@	buwd	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program prior_show_igammaa)
+
+  TEXT  tx_igammab		x1     _ls	txwd	.,		///
+	label(resource BAYES_PRIOR_LBL_SCALE)
+  EDIT   ed_igammab		@	_ss	edwd	.,		///
+	label(resource BAYES_PRIOR_LBL_SCALE)
+  BUTTON bu_igammab		x2	@	buwd	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program prior_show_igammab)
+	
+  TEXT  tx_explambda		x1	holdy	txwd	.,		///
+	label(resource BAYES_PRIOR_LBL_SCALE)
+  EDIT   ed_explambda		@	_ss	edwd	.,		///
+	label(resource BAYES_PRIOR_LBL_SCALE)
+  BUTTON bu_explambda		x2	@	buwd	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program prior_show_explambda)
+	
+  TEXT  tx_lapmean		x1	holdy	txwd	.,		///
+	label(resource LBL_MEAN_COLON)
+  EDIT   ed_lapmean		@	_ss	edwd	.,		///
+	label(resource LBL_MEAN_COLON)
+  BUTTON bu_lapmean		x2	@	buwd	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program prior_show_lapmean)
+  TEXT  tx_lapscal		x1	_ls	txwd	.,		///
+	label(resource BAYES_PRIOR_LBL_SCALE)
+  EDIT   ed_lapscal		@	_ss	edwd	.,		///
+	label(resource BAYES_PRIOR_LBL_SCALE)
+  BUTTON bu_lapscal		x2	@	buwd	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program prior_show_lapscal)
+	
+  TEXT  tx_cauloc		x1	holdy	txwd	.,		///
+	label(resource BAYES_PRIOR_LBL_LOCATION)
+  EDIT   ed_cauloc		@	_ss	edwd	.,		///
+	label(resource BAYES_PRIOR_LBL_LOCATION)
+  BUTTON bu_cauloc		x2	@	buwd	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program prior_show_cauloc)
+  TEXT  tx_causcal		x1	_ls	txwd	.,		///
+	label(resource BAYES_PRIOR_LBL_SCALE)
+  EDIT   ed_causcal		@	_ss	edwd	.,		///
+	label(resource BAYES_PRIOR_LBL_SCALE)
+  BUTTON bu_causcal		x2	@	buwd	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program prior_show_causcal)
+	
+  TEXT  tx_betaa		x1	holdy	txwd	.,		///
+	label(resource BAYES_PRIOR_LBL_SHAPE_A)
+  EDIT   ed_betaa		@	_ss	edwd	.,		///
+	label(resource BAYES_PRIOR_LBL_SHAPE_A)
+  BUTTON bu_betaa		x2	@	buwd	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program prior_show_betaa)
+
+  TEXT  tx_betab		x1	_ls	txwd	.,		///
+	label(resource BAYES_PRIOR_LBL_SHAPE_B)
+  EDIT   ed_betab		@	_ss	edwd	.,		///
+	label(resource BAYES_PRIOR_LBL_SHAPE_B)
+  BUTTON bu_betab		x2	@	buwd	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program prior_show_betab)
+	
+  TEXT  tx_chisqdf		x1	holdy	txwd	.,		///
+	label(resource BAYES_PRIOR_LBL_DEGREES_OF_FREEDOM)
+  EDIT   ed_chisqdf		@	_ss	edwd	.,		///
+	label(resource BAYES_PRIOR_LBL_DEGREES_OF_FREEDOM)
+  BUTTON bu_chisqdf		x2	@	buwd	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program prior_show_chisqdf)
+	
+  TEXT  tx_paretoa		x1	holdy	txwd	.,		///
+	label(resource BAYES_PRIOR_LBL_SHAPE)
+  EDIT   ed_paretoa		@	_ss	edwd	.,		///
+	label(resource BAYES_PRIOR_LBL_SHAPE)
+  BUTTON bu_paretoa		x2	@	buwd	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program prior_show_paretoa)
+	
+  TEXT  tx_paretob		x1	_ls	txwd	.,		///
+	label(resource BAYES_PRIOR_LBL_SCALE)
+  EDIT   ed_paretob		@	_ss	edwd	.,		///
+	label(resource BAYES_PRIOR_LBL_SCALE)
+  BUTTON bu_paretob		x2	@	buwd	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program prior_show_paretob)
+	
+  TEXT  tx_mvnormald		x1	holdy	txwd	.,		///
+	label(resource BAYES_PRIOR_LBL_DIMENSION)
+  SPINNER  sp_mvnormald		@	_ss	@	.,		///
+	min(2) max(100000)						///
+	default(2)
+
+  TEXT  tx_mvnormalmu		x1	_ls	edwd	.,		///
+	label(resource LBL_MEAN_COLON)
+  EDIT  ed_mvnormalmu		@	_ss	@	.,		///
+	label(resource LBL_MEAN_COLON)
+  BUTTON bu_mvnormalmu		x2 	@	buwd	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program prior_show_mvnormalmu)
+
+  TEXT  tx_mvnormalsig		x1	_ls	edwd	.,		///
+	label(resource BAYES_PRIOR_LBL_COVARIANCE_MATRIX)
+  EDIT  ed_mvnormalsig		@	_ss	@	.,		///
+	label(resource BAYES_PRIOR_LBL_COVARIANCE_MATRIX)
+  BUTTON bu_mvnormalsig		x2 	@	buwd	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program prior_show_mvnormalsig)
+	
+  TEXT  tx_zellnersgd		x1	holdy	txwd	.,		///
+	label(resource BAYES_PRIOR_LBL_DIMENSION)
+  SPINNER sp_zellnersgd		@	_ss	@	.,		///
+	min(2) max(100000)						///
+	default(2)
+
+  TEXT  tx_zellnersgg		x1	_ls	txwd	.,		///
+	label(resource BAYES_PRIOR_LBL_DEGREES_OF_FREEDOM)
+  EDIT  ed_zellnersgg		@	_ss	edwd	.,		///
+ 	label(resource BAYES_PRIOR_LBL_DEGREES_OF_FREEDOM)
+  BUTTON bu_zellnersgg		x2 	@	buwd	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program prior_show_zellnersgg)
+
+  TEXT  tx_zellnersgmu		x1	_ls	txwd	.,		///
+	label(resource LBL_MEAN_COLON)
+  EDIT  ed_zellnersgmu		@	_ss	edwd	.,		///
+	label(resource LBL_MEAN_COLON)
+  BUTTON bu_zellnersgmu		x2 	@	buwd	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program prior_show_zellnersgmu)
+
+  TEXT  tx_zellnersgvar		x1	_ls	txwd	.,		///
+	label(resource LBL_VARIANCE)
+  EDIT  ed_zellnersgvar		@	_ss	edwd	.,		///
+	label(resource LBL_VARIANCE)
+  BUTTON bu_zellnersgvar	x2 	@	buwd	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program prior_show_zellnersgvar)
+	
+  TEXT  tx_dirichletd		x1	holdy txwd	.,		///
+	label(resource BAYES_PRIOR_LBL_DIMENSION)
+  SPINNER  sp_dirichletd		@	_ss	@	.,	///
+	min(2) max(100000)						///
+	default(2)
+
+  TEXT  tx_dirichleta		x1	_ls	txwd	.,		///
+	label(resource BAYES_PRIOR_LBL_SHAPE)
+  EDIT  ed_dirichleta		@	_ss	edwd	.,		///
+	label(resource BAYES_PRIOR_LBL_SHAPE)
+  BUTTON bu_dirichleta		x2 	@	buwd	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program prior_show_dirichleta)
+
+  TEXT  tx_wishartd		x1	holdy	txwd	.,		///
+	label(resource BAYES_PRIOR_LBL_DIMENSION)
+  SPINNER  sp_wishartd		@	_ss	txwd	.,		///
+	min(2) max(100000)						///
+	default(2)
+
+  TEXT  tx_wishartdf		x1	_ls	txwd	.,		///
+	label(resource BAYES_PRIOR_LBL_DEGREES_OF_FREEDOM)
+  EDIT   ed_wishartdf		@	_ss	edwd	.,		///
+ 	label(resource BAYES_PRIOR_LBL_DEGREES_OF_FREEDOM)
+  BUTTON bu_wishartdf		x2 	@	buwd	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program prior_show_wishartdf)
+
+  TEXT  tx_wishartsig		x1	_ls	txwd	.,		///
+	label(resource BAYES_PRIOR_LBL_COVARIANCE_MATRIX)
+  EDIT  ed_wishartsig		@	_ss	edwd	.,		///
+	label(resource BAYES_PRIOR_LBL_COVARIANCE_MATRIX)
+  BUTTON bu_wishartsig		x2 	@	buwd	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program prior_show_wishartsig)
+
+  TEXT  tx_iwishartd		x1	holdy	txwd	.,		///
+	label(resource BAYES_PRIOR_LBL_DIMENSION)
+  SPINNER  sp_iwishartd		@	_ss	@	.,		///
+	min(2) max(100000)						///
+	default(2)
+
+  TEXT  tx_iwishartdf		x1	_ls	txwd	.,		///
+	label(resource BAYES_PRIOR_LBL_DEGREES_OF_FREEDOM)
+  EDIT   ed_iwishartdf		@	_ss	edwd	.,		///
+ 	label(resource BAYES_PRIOR_LBL_DEGREES_OF_FREEDOM)
+  BUTTON bu_iwishartdf		x2 	@	buwd	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program prior_show_iwishartdf)
+
+  TEXT  tx_iwishartsig		x1	_ls	txwd	.,		///
+	label(resource BAYES_PRIOR_LBL_COVARIANCE_MATRIX)
+  EDIT  ed_iwishartsig		@	_ss	edwd	.,		///
+	label(resource BAYES_PRIOR_LBL_COVARIANCE_MATRIX)
+  BUTTON bu_iwishartsig		x2 	@	buwd	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program prior_show_iwishartsig)
+
+  TEXT  tx_jeffreysd		x1	holdy	txwd	.,		///
+	label(resource BAYES_PRIOR_LBL_DIMENSION)
+  SPINNER  sp_jeffreysd		@	_ss	@	.,		///
+	min(2) max(100000)						///
+	default(2)						
+
+  TEXT  tx_bernoullip		x1	holdy	txwd	.,		///
+	label(resource BAYES_PRIOR_LBL_SUCCESS_PROBABILITY)
+  EDIT   ed_bernoullip		@	_ss	edwd	.,		///
+ 	label(resource BAYES_PRIOR_LBL_SUCCESS_PROBABILITY)
+  BUTTON bu_bernoullip		x2	@	buwd	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program prior_show_bernoullip)
+	
+  TEXT  tx_geometricp		x1	holdy	txwd	.,		///
+	label(resource BAYES_PRIOR_LBL_SUCCESS_PROBABILITY)
+  EDIT   ed_geometricp		@	_ss	edwd	.,		///
+ 	label(resource BAYES_PRIOR_LBL_SUCCESS_PROBABILITY)
+  BUTTON bu_geometricp		x2	@	buwd	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program prior_show_geometricp)
+
+  TEXT  tx_discreted		x1	holdy	txwd	.,		///
+	label(resource BAYES_PRIOR_MAIN_TX_DISCRETED)
+  SPINNER  sp_discreted		@	_ss	@	.,		///
+	min(2) max(100000)						///
+	default(2)
+
+  TEXT  tx_discretep		x1	_ls	txwd	.,		///
+	label(resource BAYES_PRIOR_MAIN_TX_DISCRETEP)
+  EDIT  ed_discretep		@	_ss	edwd	.,		///
+	label(resource BAYES_PRIOR_MAIN_TX_DISCRETEP)
+  BUTTON bu_discretep		x2 	@	buwd	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program prior_show_discretep)
+
+  TEXT  tx_poissonmu		x1	holdy	txwd	.,		///
+	label(resource LBL_MEAN_COLON)
+  EDIT   ed_poissonmu		@	_ss	edwd	.,		///
+ 	label(resource LBL_MEAN_COLON)
+  BUTTON bu_poissonmu		x2	@	buwd	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program prior_show_poissonmu)
+	
+  TEXT  tx_densityf		x1	holdy	txwd	.,		///
+	label(resource BAYES_PRIOR_MAIN_TX_DENSITYF)
+  EDIT  ed_densityf		@	_ss	edwd	.,		///
+ 	label(resource BAYES_PRIOR_MAIN_TX_DENSITYF)
+  BUTTON bu_densityf		x2	@	buwd	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program prior_show_densityf)
+	
+  TEXT  tx_logdensityf		x1	holdy	txwd	.,		///
+	label(resource BAYES_PRIOR_MAIN_TX_LOGDENSITYF)
+  EDIT   ed_logdensityf		@	_ss	edwd	.,		///
+ 	label(resource BAYES_PRIOR_MAIN_TX_LOGDENSITYF)
+  BUTTON bu_logdensityf		x2	@	buwd	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program prior_show_logdensityf)
+END
+
+LIST bayes_prior
+BEGIN
+  resource BAYES_PRIOR_LST_UNIVARIATE_CONTINUOUS
+	resource BAYES_PRIOR_LST_NORMAL_DISTRIBUTION
+	resource BAYES_PRIOR_LST_T_DISTRIBUTION
+	resource BAYES_PRIOR_LST_LOGNORMAL_DISTRIBUTION
+	resource BAYES_PRIOR_LST_UNIFORM_DISTRIBUTION
+	resource BAYES_PRIOR_LST_GAMMA_DISTRIBUTION
+	resource BAYES_PRIOR_LST_INVERSE_GAMMA_DISTRIBUTION
+	resource BAYES_PRIOR_LST_EXPONENTIAL_DISTRIBUTION
+	resource BAYES_PRIOR_LST_LAPLACE_DISTRIBUTION
+	resource BAYES_PRIOR_LST_CAUCHY_DISTRIBUTION
+	resource BAYES_PRIOR_LST_BETA_DISTRIBUTION
+	resource BAYES_PRIOR_LST_CHI-SQUARED_DISTRIBUTION
+	resource BAYES_PRIOR_LST_PARETO_DISTRIBUTION
+	resource BAYES_PRIOR_LST_JEFFREYS_PRIOR_FOR_VARIANCE_OF_NORMAL_DISTRIBUTION
+  resource BAYES_PRIOR_LST_MULTIVARIATE_CONTINUOUS
+	resource BAYES_PRIOR_LST_MULTIVARIATE_NORMAL_DISTRIBUTION
+	resource BAYES_PRIOR_LST_MULTIVARIATE_NORMAL_DISTRIBUTION_W_ZERO_MEAN
+	resource BAYES_PRIOR_LST_ZELLNERS_G-PRIOR
+	resource BAYES_PRIOR_LST_ZELLNERS_G-PRIOR_W_ZERO_MEAN
+	resource BAYES_PRIOR_LST_DIRICHLET_DISTRIBUTION
+	resource BAYES_PRIOR_LST_WISHART_DISTRIBUTION
+	resource BAYES_PRIOR_LST_INVERSE_WISHART_DISTRIBUTION
+	resource BAYES_PRIOR_LST_JEFFREYS_PRIOR_FOR_COVARIANCE_OF_MULTIVARIATE_NORMAL
+  resource BAYES_PRIOR_LST_DISCRETE
+	resource BAYES_PRIOR_LST_BERNOULLI_DISTRIBUTION
+	resource BAYES_PRIOR_LST_GEOMETRIC_DISTRIBUTION
+	resource BAYES_PRIOR_LST_DISCRETE_INDEX_DISTRIBUTION
+	resource BAYES_PRIOR_LST_POISSON_DISTRIBUTION
+  resource BAYES_PRIOR_LST_GENERIC
+	resource BAYES_PRIOR_LST_FLAT_PRIOR_W_DENSITY_1
+	resource BAYES_PRIOR_LST_GENERIC_DENSITY
+	resource BAYES_PRIOR_LST_GENERIC_LOG_DENSITY
+END
+
+LIST bayes_prior_values
+BEGIN
+	""
+	normal
+	t
+	lognormal
+	uniform
+	gamma
+	igamma
+	exponential
+	laplace
+	cauchy
+	beta
+	chisquared
+	pareto
+	jeffreys
+	""
+	mvnormal
+	mvnormal0
+	zellnersg
+	zellnersg0
+	dirichlet
+	wishart
+	iwishart
+	jeffreysd
+	""
+	bernoulli
+	geometric
+	index
+	poisson
+	""
+	flat
+	density
+	logdensity
+END
+
+PROGRAM prior_show_normalmu
+BEGIN
+	call prior_layout.setvalue 1
+	call create STRING NormalmuResult
+	call create CHILD bayesmh_priorspec AS Normalmuspec
+	if ! _rc {
+		call Normalmuspec.setExitString NormalmuResult
+		call Normalmuspec.setExitAction "program prior_getNormalmuResult"
+	}
+END
+
+PROGRAM prior_getNormalmuResult
+BEGIN
+	call main.ed_normalmu.setvalue class NormalmuResult.value
+END
+
+PROGRAM prior_show_normalvar
+BEGIN
+	call prior_layout.setvalue 1
+	call create STRING NormalvarResult
+	call create CHILD bayesmh_priorspec AS Normalvarspec
+	if ! _rc {
+		call Normalvarspec.setExitString NormalvarResult
+		call Normalvarspec.setExitAction "program prior_getNormalvarResult"
+	}
+END
+
+PROGRAM prior_getNormalvarResult
+BEGIN
+	call main.ed_normalvar.setvalue class NormalvarResult.value
+END
+
+PROGRAM prior_show_tmean
+BEGIN
+	call prior_layout.setvalue 1
+	call create STRING TmeanResult
+	call create CHILD bayesmh_priorspec AS Tmeanspec
+	if ! _rc {
+		call Tmeanspec.setExitString TmeanResult
+		call Tmeanspec.setExitAction "program prior_getTmeanResult"
+	}
+END
+
+PROGRAM prior_getTmeanResult
+BEGIN
+	call main.ed_tmean.setvalue class TmeanResult.value
+END
+
+PROGRAM prior_show_tscal
+BEGIN
+	call prior_layout.setvalue 1
+	call create STRING TscalResult
+	call create CHILD bayesmh_priorspec AS Tscalspec
+	if ! _rc {
+		call Tscalspec.setExitString TscalResult
+		call Tscalspec.setExitAction "program prior_getTscalResult"
+	}
+END
+
+PROGRAM prior_getTscalResult
+BEGIN
+	call main.ed_tscal.setvalue class TscalResult.value
+END
+
+PROGRAM prior_show_tdf
+BEGIN
+	call prior_layout.setvalue 1
+	call create STRING TdfResult
+	call create CHILD bayesmh_priorspec AS Tdfspec
+	if ! _rc {
+		call Tdfspec.setExitString TdfResult
+		call Tdfspec.setExitAction "program prior_getTdfResult"
+	}
+END
+
+PROGRAM prior_getTdfResult
+BEGIN
+	call main.ed_tdf.setvalue class TdfResult.value
+END
+
+PROGRAM prior_show_lnnormalmu
+BEGIN
+	call prior_layout.setvalue 1
+	call create STRING LnNormalmuResult
+	call create CHILD bayesmh_priorspec AS LnNormalmuspec
+	if ! _rc {
+		call LnNormalmuspec.setExitString LnNormalmuResult
+		call LnNormalmuspec.setExitAction "program prior_getLnNormalmuResult"
+	}
+END
+
+PROGRAM prior_getLnNormalmuResult
+BEGIN
+	call main.ed_lnnormalmu.setvalue class LnNormalmuResult.value
+END
+
+PROGRAM prior_show_lnnormalvar
+BEGIN
+	call prior_layout.setvalue 1
+	call create STRING LnNormalvarResult
+	call create CHILD bayesmh_priorspec AS LnNormalvarspec
+	if ! _rc {
+		call LnNormalvarspec.setExitString LnNormalvarResult
+		call LnNormalvarspec.setExitAction "program prior_getLnNormalvarResult"
+	}
+END
+
+PROGRAM prior_getLnNormalvarResult
+BEGIN
+	call main.ed_lnnormalvar.setvalue class LnNormalvarResult.value
+END
+
+PROGRAM prior_show_uniforma
+BEGIN
+	call prior_layout.setvalue 1
+	call create STRING UniformaResult
+	call create CHILD bayesmh_priorspec AS Uniformaspec
+	if ! _rc {
+		call Uniformaspec.setExitString UniformaResult
+		call Uniformaspec.setExitAction "program prior_getUniformaResult"
+	}
+END
+
+PROGRAM prior_getUniformaResult
+BEGIN
+	call main.ed_uniforma.setvalue class UniformaResult.value
+END
+
+PROGRAM prior_show_uniformb
+BEGIN
+	call prior_layout.setvalue 1
+	call create STRING UniformbResult
+	call create CHILD bayesmh_priorspec AS Uniformbspec
+	if ! _rc {
+		call Uniformbspec.setExitString UniformbResult
+		call Uniformbspec.setExitAction "program prior_getUniformbResult"
+	}
+END
+
+PROGRAM prior_getUniformbResult
+BEGIN
+	call main.ed_uniformb.setvalue class UniformbResult.value
+END
+
+PROGRAM prior_show_gammaa
+BEGIN
+	call prior_layout.setvalue 1
+	call create STRING GammaaResult
+	call create CHILD bayesmh_priorspec AS Gammaaspec
+	if ! _rc {
+		call Gammaaspec.setExitString GammaaResult
+		call Gammaaspec.setExitAction "program prior_getGammaaResult"
+	}
+END
+
+PROGRAM prior_getGammaaResult
+BEGIN
+	call main.ed_gammaa.setvalue class GammaaResult.value
+END
+
+PROGRAM prior_show_gammab
+BEGIN
+	call prior_layout.setvalue 1
+	call create STRING GammabResult
+	call create CHILD bayesmh_priorspec AS Gammabspec
+	if ! _rc {
+		call Gammabspec.setExitString GammabResult
+		call Gammabspec.setExitAction "program prior_getGammabResult"
+	}
+END
+
+PROGRAM prior_getGammabResult
+BEGIN
+	call main.ed_gammab.setvalue class GammabResult.value
+END
+
+PROGRAM prior_show_igammaa
+BEGIN
+	call prior_layout.setvalue 1
+	call create STRING IGammaaResult
+	call create CHILD bayesmh_priorspec AS IGammaaspec
+	if ! _rc {
+		call IGammaaspec.setExitString IGammaaResult
+		call IGammaaspec.setExitAction "program prior_getIGammaaResult"
+	}
+END
+
+PROGRAM prior_getIGammaaResult
+BEGIN
+	call main.ed_igammaa.setvalue class IGammaaResult.value
+END
+
+PROGRAM prior_show_igammab
+BEGIN
+	call prior_layout.setvalue 1
+	call create STRING IGammabResult
+	call create CHILD bayesmh_priorspec AS IGammabspec
+	if ! _rc {
+		call IGammabspec.setExitString IGammabResult
+		call IGammabspec.setExitAction "program prior_getIGammabResult"
+	}
+END
+
+PROGRAM prior_getIGammabResult
+BEGIN
+	call main.ed_igammab.setvalue class IGammabResult.value
+END
+
+PROGRAM prior_show_explambda
+BEGIN
+	call prior_layout.setvalue 1
+	call create STRING ExplambdaResult
+	call create CHILD bayesmh_priorspec AS Explambdaspec
+	if ! _rc {
+		call Explambdaspec.setExitString ExplambdaResult
+		call Explambdaspec.setExitAction "program prior_getExplambdaResult"
+	}
+END
+
+PROGRAM prior_getExplambdaResult
+BEGIN
+	call main.ed_explambda.setvalue class ExplambdaResult.value
+END
+
+PROGRAM prior_show_lapmean
+BEGIN
+	call prior_layout.setvalue 1
+	call create STRING LapmeanResult
+	call create CHILD bayesmh_priorspec AS Lapmeanspec
+	if ! _rc {
+		call Lapmeanspec.setExitString LapmeanResult
+		call Lapmeanspec.setExitAction "program prior_getLapmeanResult"
+	}
+END
+
+PROGRAM prior_getLapmeanResult
+BEGIN
+	call main.ed_lapmean.setvalue class LapmeanResult.value
+END
+
+PROGRAM prior_show_lapscal
+BEGIN
+	call prior_layout.setvalue 1
+	call create STRING LapscalResult
+	call create CHILD bayesmh_priorspec AS Lapscalspec
+	if ! _rc {
+		call Lapscalspec.setExitString LapscalResult
+		call Lapscalspec.setExitAction "program prior_getLapscalResult"
+	}
+END
+
+PROGRAM prior_getLapscalResult
+BEGIN
+	call main.ed_lapscal.setvalue class LapscalResult.value
+END
+
+PROGRAM prior_show_cauloc
+BEGIN
+	call prior_layout.setvalue 1
+	call create STRING CaulocResult
+	call create CHILD bayesmh_priorspec AS Caulocspec
+	if ! _rc {
+		call Caulocspec.setExitString CaulocResult
+		call Caulocspec.setExitAction "program prior_getCaulocResult"
+	}
+END
+
+PROGRAM prior_getCaulocResult
+BEGIN
+	call main.ed_cauloc.setvalue class CaulocResult.value
+END
+
+PROGRAM prior_show_causcal
+BEGIN
+	call prior_layout.setvalue 1
+	call create STRING CauscalResult
+	call create CHILD bayesmh_priorspec AS Causcalspec
+	if ! _rc {
+		call Causcalspec.setExitString CauscalResult
+		call Causcalspec.setExitAction "program prior_getCauscalResult"
+	}
+END
+
+PROGRAM prior_getCauscalResult
+BEGIN
+	call main.ed_causcal.setvalue class CauscalResult.value
+END
+
+PROGRAM prior_show_betaa
+BEGIN
+	call prior_layout.setvalue 1
+	call create STRING BetaaResult
+	call create CHILD bayesmh_priorspec AS Betaaspec
+	if ! _rc {
+		call Betaaspec.setExitString BetaaResult
+		call Betaaspec.setExitAction "program prior_getBetaaResult"
+	}
+END
+
+PROGRAM prior_getBetaaResult
+BEGIN
+	call main.ed_betaa.setvalue class BetaaResult.value
+END
+
+PROGRAM prior_show_betab
+BEGIN
+	call prior_layout.setvalue 1
+	call create STRING BetabResult
+	call create CHILD bayesmh_priorspec AS Betabspec
+	if ! _rc {
+		call Betabspec.setExitString BetabResult
+		call Betabspec.setExitAction "program prior_getBetabResult"
+	}
+END
+
+PROGRAM prior_getBetabResult
+BEGIN
+	call main.ed_betab.setvalue class BetabResult.value
+END
+
+PROGRAM prior_show_chisqdf
+BEGIN
+	call prior_layout.setvalue 1
+	call create STRING ChisqResult
+	call create CHILD bayesmh_priorspec AS Chisqspec
+	if ! _rc {
+		call Chisqspec.setExitString ChisqResult
+		call Chisqspec.setExitAction "program prior_getChisqResult"
+	}
+END
+
+PROGRAM prior_getChisqResult
+BEGIN
+	call main.ed_chisqdf.setvalue class ChisqResult.value
+END
+
+PROGRAM prior_show_paretoa
+BEGIN
+	call prior_layout.setvalue 1
+	call create STRING ParetoaResult
+	call create CHILD bayesmh_priorspec AS Paretoaspec
+	if ! _rc {
+		call Paretoaspec.setExitString ParetoaResult
+		call Paretoaspec.setExitAction "program prior_getParetoaResult"
+	}
+END
+
+PROGRAM prior_getParetoaResult
+BEGIN
+	call main.ed_paretoa.setvalue class ParetoaResult.value
+END
+
+PROGRAM prior_show_paretob
+BEGIN
+	call prior_layout.setvalue 1
+	call create STRING ParetobResult
+	call create CHILD bayesmh_priorspec AS Paretobspec
+	if ! _rc {
+		call Paretobspec.setExitString ParetobResult
+		call Paretobspec.setExitAction "program prior_getParetobResult"
+	}
+END
+
+PROGRAM prior_getParetobResult
+BEGIN
+	call main.ed_paretob.setvalue class ParetobResult.value
+END
+
+PROGRAM prior_show_mvnormalmu
+BEGIN
+	require main.sp_mvnormald
+	call prior_layout.setvalue 2
+	call nparas2.setvalue class main.sp_mvnormald.value
+	call create STRING MvnormalmuResult
+	call create CHILD bayesmh_priorspec AS Mvnormalmuspec
+	if ! _rc {
+		call Mvnormalmuspec.setExitString MvnormalmuResult
+		call Mvnormalmuspec.setExitAction "program main_getMvnormalmuResult"
+	}
+END
+
+PROGRAM main_getMvnormalmuResult
+BEGIN
+	call main.ed_mvnormalmu.setvalue class MvnormalmuResult.value
+END
+
+PROGRAM prior_show_mvnormalsig
+BEGIN
+	require main.sp_mvnormald
+	call prior_layout.setvalue 3
+	call nparas2.setvalue class main.sp_mvnormald.value
+	call create STRING MvnormalsigResult
+	call create CHILD bayesmh_priorspec AS Mvnormalsigspec
+	if ! _rc {
+		call Mvnormalsigspec.setExitString MvnormalsigResult
+		call Mvnormalsigspec.setExitAction "program main_getMvnormalsigResult"
+	}
+END
+
+PROGRAM main_getMvnormalsigResult
+BEGIN
+	call main.ed_mvnormalsig.setvalue class MvnormalsigResult.value
+END
+
+PROGRAM prior_show_zellnersgg
+BEGIN
+	call prior_layout.setvalue 1
+	call create STRING ZellnersggResult
+	call create CHILD bayesmh_priorspec AS Zellnersggspec
+	if ! _rc {
+		call Zellnersggspec.setExitString ZellnersggResult
+		call Zellnersggspec.setExitAction "program main_getZellnersggResult"
+	}
+END
+
+PROGRAM main_getZellnersggResult
+BEGIN
+	call main.ed_zellnersgg.setvalue class ZellnersggResult.value
+END
+
+PROGRAM prior_show_zellnersgmu
+BEGIN
+	require main.sp_zellnersgd
+	call prior_layout.setvalue 2
+	call nparas2.setvalue class main.sp_zellnersgd.value
+	call create STRING ZellnersgMuResult
+	call create CHILD bayesmh_priorspec AS ZellnersgMuspec
+	if ! _rc {
+		call ZellnersgMuspec.setExitString ZellnersgMuResult
+		call ZellnersgMuspec.setExitAction "program main_getZellnersgMuResult"
+	}
+END
+
+PROGRAM main_getZellnersgMuResult
+BEGIN
+	call main.ed_zellnersgmu.setvalue class ZellnersgMuResult.value
+END
+
+PROGRAM prior_show_zellnersgvar
+BEGIN
+	call prior_layout.setvalue 4
+	call create STRING ZellnersgVarResult
+	call create CHILD bayesmh_priorspec AS ZellnersgVarspec
+	if ! _rc {
+		call ZellnersgVarspec.setExitString ZellnersgVarResult
+		call ZellnersgVarspec.setExitAction "program main_getZellnersgVarResult"
+	}
+END
+
+PROGRAM main_getZellnersgVarResult
+BEGIN
+	call main.ed_zellnersgvar.setvalue class ZellnersgVarResult.value
+END
+
+PROGRAM prior_show_dirichleta
+BEGIN
+	require main.sp_dirichletd
+	call prior_layout.setvalue 5
+	call nparas2.setvalue class main.sp_dirichletd.value
+	call is_dirichlet.setvalue 1
+	call create STRING DirichletaResult
+	call create CHILD bayesmh_priorspec AS Dirichletaspec
+	if ! _rc {
+		call Dirichletaspec.setExitString DirichletaResult
+		call Dirichletaspec.setExitAction "program main_getDirichletaResult"
+	}
+END
+
+PROGRAM main_getDirichletaResult
+BEGIN
+	call main.ed_dirichleta.setvalue class DirichletaResult.value
+END
+
+PROGRAM prior_show_wishartdf
+BEGIN
+	call prior_layout.setvalue 1
+	call create STRING WishartdfResult
+	call create CHILD bayesmh_priorspec AS Wishartdfspec
+	if ! _rc {
+		call Wishartdfspec.setExitString WishartdfResult
+		call Wishartdfspec.setExitAction "program main_getWishartdfResult"
+	}
+END
+
+PROGRAM main_getWishartdfResult
+BEGIN
+	call main.ed_wishartdf.setvalue class WishartdfResult.value
+END
+
+PROGRAM prior_show_wishartsig
+BEGIN
+	require main.sp_wishartd
+	call prior_layout.setvalue 3
+	call create STRING WishartsigResult
+	call create CHILD bayesmh_priorspec AS Wishartsigspec
+	if ! _rc {
+		call Wishartsigspec.setExitString WishartsigResult
+		call Wishartsigspec.setExitAction "program main_getWishartsigResult"
+	}
+END
+
+PROGRAM main_getWishartsigResult
+BEGIN
+	call main.ed_wishartsig.setvalue class WishartsigResult.value
+END
+
+PROGRAM prior_show_iwishartdf
+BEGIN
+	call prior_layout.setvalue 1
+	call create STRING IWishartdfResult
+	call create CHILD bayesmh_priorspec AS IWishartdfspec
+	if ! _rc {
+		call IWishartdfspec.setExitString IWishartdfResult
+		call IWishartdfspec.setExitAction "program main_getIWishartdfResult"
+	}
+END
+
+PROGRAM main_getIWishartdfResult
+BEGIN
+	call main.ed_iwishartdf.setvalue class IWishartdfResult.value
+END
+
+PROGRAM prior_show_iwishartsig
+BEGIN
+	require main.sp_iwishartd
+	call prior_layout.setvalue 3
+	call create STRING IWishartsigResult
+	call create CHILD bayesmh_priorspec AS IWishartsigspec
+	if ! _rc {
+		call IWishartsigspec.setExitString IWishartsigResult
+		call IWishartsigspec.setExitAction "program main_getIWishartsigResult"
+	}
+END
+
+PROGRAM main_getIWishartsigResult
+BEGIN
+	call main.ed_iwishartsig.setvalue class IWishartsigResult.value
+END
+
+PROGRAM prior_show_discretep
+BEGIN
+	require main.sp_discreted
+	call prior_layout.setvalue 5
+	call nparas2.setvalue class main.sp_discreted.value
+	call is_dirichlet.setvalue 0
+	call create STRING DiscretepResult
+	call create CHILD bayesmh_priorspec AS Discretepspec
+	if ! _rc {
+		call Discretepspec.setExitString DiscretepResult
+		call Discretepspec.setExitAction "program main_getDiscretepResult"
+	}
+END
+
+PROGRAM main_getDiscretepResult
+BEGIN
+	call main.ed_discretep.setvalue class DiscretepResult.value
+END
+
+PROGRAM prior_show_bernoullip
+BEGIN
+	call prior_layout.setvalue 1
+	call create STRING BernoullipResult
+	call create CHILD bayesmh_priorspec AS Bernoullipspec
+	if ! _rc {
+		call Bernoullipspec.setExitString BernoullipResult
+		call Bernoullipspec.setExitAction "program prior_getBernoullipResult"
+	}
+END
+
+PROGRAM prior_getBernoullipResult
+BEGIN
+	call main.ed_bernoullip.setvalue class BernoullipResult.value
+END
+
+PROGRAM prior_show_geometricp
+BEGIN
+	call prior_layout.setvalue 1
+	call create STRING GeometricpResult
+	call create CHILD bayesmh_priorspec AS Geometricpspec
+	if ! _rc {
+		call Geometricpspec.setExitString GeometricpResult
+		call Geometricpspec.setExitAction "program prior_getGeometricpResult"
+	}
+END
+
+PROGRAM prior_getGeometricpResult
+BEGIN
+	call main.ed_geometricp.setvalue class GeometricpResult.value
+END
+
+PROGRAM prior_show_poissonmu
+BEGIN
+	call prior_layout.setvalue 1
+	call create STRING PoissonmuResult
+	call create CHILD bayesmh_priorspec AS Poissonmuspec
+	if ! _rc {
+		call Poissonmuspec.setExitString PoissonmuResult
+		call Poissonmuspec.setExitAction "program prior_getPoissonmuResult"
+	}
+END
+
+PROGRAM prior_getPoissonmuResult
+BEGIN
+	call main.ed_poissonmu.setvalue class PoissonmuResult.value
+END
+
+PROGRAM prior_show_densityf
+BEGIN
+	call prior_layout.setvalue 6
+	call create STRING DensityfResult
+	call create CHILD bayesmh_priorspec AS Densityfspec
+	if ! _rc {
+		call Densityfspec.setExitString DensityfResult
+		call Densityfspec.setExitAction "program prior_getDensityfResult"
+	}
+END
+
+PROGRAM prior_getDensityfResult
+BEGIN
+	call main.ed_densityf.setvalue class DensityfResult.value
+END
+
+PROGRAM prior_show_logdensityf
+BEGIN
+	call prior_layout.setvalue 6
+	call create STRING LogDensityfResult
+	call create CHILD bayesmh_priorspec AS LogDensityfspec
+	if ! _rc {
+		call LogDensityfspec.setExitString LogDensityfResult
+		call LogDensityfspec.setExitAction "program prior_getLogDensityfResult"
+	}
+END
+
+PROGRAM prior_getLogDensityfResult
+BEGIN
+	call main.ed_logdensityf.setvalue class LogDensityfResult.value
+END
+
+PROGRAM main_prior_change
+BEGIN
+	call main.tx_normalmu.hide 
+	call main.ed_normalmu.hide
+	call main.bu_normalmu.hide
+	call main.tx_normalvar.hide 
+	call main.ed_normalvar.hide
+	call main.bu_normalvar.hide
+	call main.tx_tmean.hide 
+	call main.ed_tmean.hide 
+	call main.bu_tmean.hide
+	call main.tx_tscal.hide 
+	call main.ed_tscal.hide 
+	call main.bu_tscal.hide
+	call main.tx_tdf.hide 
+	call main.ed_tdf.hide 
+	call main.bu_tdf.hide
+	call main.tx_lnnormalmu.hide 
+	call main.ed_lnnormalmu.hide
+	call main.bu_lnnormalmu.hide
+	call main.tx_lnnormalvar.hide 
+	call main.ed_lnnormalvar.hide
+	call main.bu_lnnormalvar.hide	
+	call main.tx_uniforma.hide 
+	call main.ed_uniforma.hide
+	call main.bu_uniforma.hide
+	call main.tx_uniformb.hide 
+	call main.ed_uniformb.hide
+	call main.bu_uniformb.hide
+	call main.tx_gammaa.hide 
+	call main.ed_gammaa.hide
+	call main.bu_gammaa.hide
+	call main.tx_gammab.hide 
+	call main.ed_gammab.hide
+	call main.bu_gammab.hide
+	call main.tx_igammaa.hide 
+	call main.ed_igammaa.hide
+	call main.bu_igammaa.hide
+	call main.tx_igammab.hide 
+	call main.ed_igammab.hide
+	call main.bu_igammab.hide
+	call main.tx_explambda.hide 
+	call main.ed_explambda.hide
+	call main.bu_explambda.hide
+	call main.tx_lapmean.hide 
+	call main.ed_lapmean.hide 
+	call main.bu_lapmean.hide
+	call main.tx_lapscal.hide 
+	call main.ed_lapscal.hide 
+	call main.bu_lapscal.hide
+	call main.tx_cauloc.hide 
+	call main.ed_cauloc.hide 
+	call main.bu_cauloc.hide
+	call main.tx_causcal.hide 
+	call main.ed_causcal.hide 
+	call main.bu_causcal.hide
+	call main.tx_betaa.hide 
+	call main.ed_betaa.hide
+	call main.bu_betaa.hide
+	call main.tx_betab.hide 
+	call main.ed_betab.hide
+	call main.bu_betab.hide
+	call main.tx_chisqdf.hide 
+	call main.ed_chisqdf.hide 
+	call main.bu_chisqdf.hide
+	call main.tx_paretoa.hide 
+	call main.ed_paretoa.hide
+	call main.bu_paretoa.hide
+	call main.tx_paretob.hide 
+	call main.ed_paretob.hide
+	call main.bu_paretob.hide
+	call main.tx_mvnormald.hide 
+	call main.sp_mvnormald.hide 
+	call main.tx_mvnormalmu.hide 
+	call main.ed_mvnormalmu.hide 
+	call main.bu_mvnormalmu.hide
+	call main.tx_mvnormalsig.hide 
+	call main.ed_mvnormalsig.hide
+	call main.bu_mvnormalsig.hide
+	call main.tx_zellnersgd.hide
+	call main.sp_zellnersgd.hide 
+	call main.tx_zellnersgg.hide 
+	call main.ed_zellnersgg.hide
+	call main.bu_zellnersgg.hide
+	call main.tx_zellnersgmu.hide 
+	call main.ed_zellnersgmu.hide 
+	call main.bu_zellnersgmu.hide
+	call main.tx_zellnersgvar.hide 
+	call main.ed_zellnersgvar.hide 
+	call main.bu_zellnersgvar.hide
+	call main.tx_dirichletd.hide 
+	call main.sp_dirichletd.hide
+	call main.tx_dirichleta.hide 
+	call main.ed_dirichleta.hide 
+	call main.bu_dirichleta.hide
+	call main.tx_wishartd.hide
+	call main.sp_wishartd.hide
+	call main.tx_wishartdf.hide
+	call main.ed_wishartdf.hide
+	call main.bu_wishartdf.hide
+	call main.tx_wishartsig.hide
+	call main.ed_wishartsig.hide
+	call main.bu_wishartsig.hide
+	call main.tx_iwishartd.hide
+	call main.sp_iwishartd.hide
+	call main.tx_iwishartdf.hide
+	call main.ed_iwishartdf.hide
+	call main.bu_iwishartdf.hide
+	call main.tx_iwishartsig.hide
+	call main.ed_iwishartsig.hide
+	call main.bu_iwishartsig.hide
+	call main.tx_jeffreysd.hide 
+	call main.sp_jeffreysd.hide
+	call main.tx_bernoullip.hide
+	call main.ed_bernoullip.hide
+	call main.bu_bernoullip.hide
+	call main.tx_geometricp.hide
+	call main.ed_geometricp.hide
+	call main.bu_geometricp.hide
+	call main.tx_discreted.hide 
+	call main.sp_discreted.hide
+	call main.tx_discretep.hide 
+	call main.ed_discretep.hide 
+	call main.bu_discretep.hide
+	call main.tx_poissonmu.hide
+	call main.ed_poissonmu.hide
+	call main.bu_poissonmu.hide
+	call main.tx_densityf.hide
+	call main.ed_densityf.hide
+	call main.bu_densityf.hide
+	call main.tx_logdensityf.hide
+	call main.ed_logdensityf.hide
+	call main.bu_logdensityf.hide
+	
+	if main.lb_prior.equals("normal") {
+		call main.tx_normalmu.show 
+		call main.ed_normalmu.show
+		call main.bu_normalmu.show
+		call main.tx_normalvar.show 
+		call main.ed_normalvar.show
+		call main.bu_normalvar.show
+	}
+	if main.lb_prior.equals("t") {
+		call main.tx_tmean.show 
+		call main.ed_tmean.show
+		call main.bu_tmean.show
+		call main.tx_tscal.show 
+		call main.ed_tscal.show
+		call main.bu_tscal.show
+		call main.tx_tdf.show 
+		call main.ed_tdf.show
+		call main.bu_tdf.show
+	}
+	if main.lb_prior.equals("lognormal") {
+		call main.tx_lnnormalmu.show 
+		call main.ed_lnnormalmu.show 
+		call main.bu_lnnormalmu.show
+		call main.tx_lnnormalvar.show 
+		call main.ed_lnnormalvar.show
+		call main.bu_lnnormalvar.show
+	}
+	if main.lb_prior.equals("uniform") {
+		call main.tx_uniforma.show 
+		call main.ed_uniforma.show 
+		call main.bu_uniforma.show
+		call main.tx_uniformb.show 
+		call main.ed_uniformb.show
+		call main.bu_uniformb.show
+	}
+	if main.lb_prior.equals("gamma") {
+		call main.tx_gammaa.show 
+		call main.ed_gammaa.show 
+		call main.bu_gammaa.show
+		call main.tx_gammab.show 
+		call main.ed_gammab.show
+		call main.bu_gammab.show
+	}
+	if main.lb_prior.equals("igamma") {
+		call main.tx_igammaa.show 
+		call main.ed_igammaa.show
+		call main.bu_igammaa.show
+		call main.tx_igammab.show 
+		call main.ed_igammab.show
+		call main.bu_igammab.show
+	}
+	if main.lb_prior.equals("exponential") {
+		call main.tx_explambda.show 
+		call main.ed_explambda.show
+		call main.bu_explambda.show
+	}
+	if main.lb_prior.equals("laplace") {
+		call main.tx_lapmean.show 
+		call main.ed_lapmean.show
+		call main.bu_lapmean.show
+		call main.tx_lapscal.show 
+		call main.ed_lapscal.show
+		call main.bu_lapscal.show
+	}
+	if main.lb_prior.equals("cauchy") {
+		call main.tx_cauloc.show 
+		call main.ed_cauloc.show
+		call main.bu_cauloc.show
+		call main.tx_causcal.show 
+		call main.ed_causcal.show
+		call main.bu_causcal.show
+	}
+	if main.lb_prior.equals("beta") {
+		call main.tx_betaa.show 
+		call main.ed_betaa.show
+		call main.bu_betaa.show
+		call main.tx_betab.show 
+		call main.ed_betab.show
+		call main.bu_betab.show
+	}
+	if main.lb_prior.equals("chisquared") {
+		call main.tx_chisqdf.show 
+		call main.ed_chisqdf.show
+		call main.bu_chisqdf.show
+	}
+	if main.lb_prior.equals("pareto") {
+		call main.tx_paretoa.show 
+		call main.ed_paretoa.show 
+		call main.bu_paretoa.show
+		call main.tx_paretob.show 
+		call main.ed_paretob.show
+		call main.bu_paretob.show
+	}
+	if main.lb_prior.equals("mvnormal") {
+		call main.tx_mvnormald.show 
+		call main.sp_mvnormald.show 
+		call main.tx_mvnormalmu.show 
+		call main.ed_mvnormalmu.show
+		call main.bu_mvnormalmu.show
+		call main.tx_mvnormalsig.show 
+		call main.ed_mvnormalsig.show
+		call main.bu_mvnormalsig.show
+		call main.tx_mvnormalmu.setposition . 125
+		call main.ed_mvnormalmu.setposition . 145
+		call main.bu_mvnormalmu.setposition . 145
+		call main.tx_mvnormalsig.setposition . 175
+		call main.ed_mvnormalsig.setposition . 195
+		call main.bu_mvnormalsig.setposition . 195
+	}
+	if main.lb_prior.equals("mvnormal0") {
+		call main.tx_mvnormald.show 
+		call main.sp_mvnormald.show 
+		call main.tx_mvnormalsig.show 
+		call main.ed_mvnormalsig.show
+		call main.bu_mvnormalsig.show
+		call main.tx_mvnormalsig.setposition . 125
+		call main.ed_mvnormalsig.setposition . 145
+		call main.bu_mvnormalsig.setposition . 145
+	}
+	if main.lb_prior.equals("zellnersg") {
+		call main.tx_zellnersgd.show
+		call main.sp_zellnersgd.show 
+		call main.tx_zellnersgg.show 
+		call main.ed_zellnersgg.show
+		call main.bu_zellnersgg.show
+		call main.tx_zellnersgmu.show 
+		call main.ed_zellnersgmu.show 
+		call main.bu_zellnersgmu.show
+		call main.tx_zellnersgvar.show 
+		call main.ed_zellnersgvar.show 
+		call main.bu_zellnersgvar.show 
+		call main.tx_zellnersgvar.setposition . 225
+		call main.ed_zellnersgvar.setposition . 245
+		call main.bu_zellnersgvar.setposition . 245
+	}
+	if main.lb_prior.equals("zellnersg0") {
+		call main.tx_zellnersgd.show
+		call main.sp_zellnersgd.show
+		call main.tx_zellnersgg.show 
+		call main.ed_zellnersgg.show
+		call main.bu_zellnersgg.show
+		call main.tx_zellnersgvar.show 
+		call main.ed_zellnersgvar.show 
+		call main.bu_zellnersgvar.show 
+		call main.tx_zellnersgvar.setposition . 175
+		call main.ed_zellnersgvar.setposition . 195
+		call main.bu_zellnersgvar.setposition . 195
+	}
+	if main.lb_prior.equals("dirichlet") {
+		call main.tx_dirichletd.show 
+		call main.sp_dirichletd.show
+		call main.tx_dirichleta.show 
+		call main.ed_dirichleta.show 
+		call main.bu_dirichleta.show
+	}
+	if main.lb_prior.equals("wishart") {
+		call main.tx_wishartd.show
+		call main.sp_wishartd.show
+		call main.tx_wishartdf.show
+		call main.ed_wishartdf.show
+		call main.bu_wishartdf.show
+		call main.tx_wishartsig.show
+		call main.ed_wishartsig.show
+		call main.bu_wishartsig.show
+	}
+	if main.lb_prior.equals("iwishart") {
+		call main.tx_iwishartd.show
+		call main.sp_iwishartd.show
+		call main.tx_iwishartdf.show
+		call main.ed_iwishartdf.show
+		call main.bu_iwishartdf.show
+		call main.tx_iwishartsig.show
+		call main.ed_iwishartsig.show
+		call main.bu_iwishartsig.show
+	}
+	if main.lb_prior.equals("jeffreysd") {
+		call main.tx_jeffreysd.show 
+		call main.sp_jeffreysd.show
+	}
+	if main.lb_prior.equals("bernoulli") {
+		call main.tx_bernoullip.show
+		call main.ed_bernoullip.show
+		call main.bu_bernoullip.show
+	}
+	if main.lb_prior.equals("geometric") {
+		call main.tx_geometricp.show
+		call main.ed_geometricp.show
+		call main.bu_geometricp.show
+	}
+	if main.lb_prior.equals("index") {
+		call main.tx_discreted.show 
+		call main.sp_discreted.show
+		call main.tx_discretep.show 
+		call main.ed_discretep.show 
+		call main.bu_discretep.show
+	}
+	if main.lb_prior.equals("poisson") {
+		call main.tx_poissonmu.show
+		call main.ed_poissonmu.show
+		call main.bu_poissonmu.show
+	}
+	if main.lb_prior.equals("density") {
+		call main.tx_densityf.show
+		call main.ed_densityf.show
+		call main.bu_densityf.show
+	}
+	if main.lb_prior.equals("logdensity") {
+		call main.tx_logdensityf.show
+		call main.ed_logdensityf.show
+		call main.bu_logdensityf.show
+	}
+END
+
+PROGRAM main_priorspec_output
+BEGIN
+	if main.lb_prior.equals("normal") {
+		require main.ed_normalmu
+		require main.ed_normalvar
+		put "normal("
+		put main.ed_normalmu
+		put ","
+		put main.ed_normalvar
+		put ")"
+	}
+	if main.lb_prior.equals("t") {
+		require main.ed_tmean
+		require main.ed_tscal
+		require main.ed_tdf
+		put "t("
+		put main.ed_tmean
+		put ","
+		put main.ed_tscal
+		put ","
+		put main.ed_tdf
+		put ")"
+	}
+	if main.lb_prior.equals("lognormal") {
+		require main.ed_lnnormalmu
+		require main.ed_lnnormalvar
+		put "lognormal("
+		put main.ed_lnnormalmu
+		put ","
+		put main.ed_lnnormalvar
+		put ")"
+	}
+	if main.lb_prior.equals("uniform") {
+		require main.ed_uniforma 
+		require main.ed_uniformb
+		put "uniform("
+		put main.ed_uniforma
+		put ","
+		put main.ed_uniformb
+		put ")"
+	}
+	if main.lb_prior.equals("gamma") {
+		require main.ed_gammaa
+		require main.ed_gammab
+		put "gamma("
+		put main.ed_gammaa
+		put ","
+		put main.ed_gammab
+		put ")"	
+	}
+	if main.lb_prior.equals("igamma") {
+		require main.ed_igammaa 
+		require main.ed_igammab
+		put "igamma("
+		put main.ed_igammaa
+		put ","
+		put main.ed_igammab
+		put ")"			
+	}
+	if main.lb_prior.equals("exponential") {
+		require main.ed_explambda
+		put "exponential("
+		put main.ed_explambda
+		put ")"			
+	}
+	if main.lb_prior.equals("laplace") {
+		require main.ed_lapmean
+		require main.ed_lapscal
+		put "laplace("
+		put main.ed_lapmean
+		put ","
+		put main.ed_lapscal
+		put ")"
+	}
+	if main.lb_prior.equals("cauchy") {
+		require main.ed_cauloc
+		require main.ed_causcal
+		put "cauchy("
+		put main.ed_cauloc
+		put ","
+		put main.ed_causcal
+		put ")"
+	}
+	if main.lb_prior.equals("beta") {
+		require main.ed_betaa
+		require main.ed_betab
+		put "beta("
+		put main.ed_betaa
+		put ","
+		put main.ed_betab
+		put ")"			
+	}
+	if main.lb_prior.equals("chisquared") {
+		require main.ed_chisqdf
+		put "chisquared("
+		put main.ed_chisqdf
+		put ")"			
+	}
+	if main.lb_prior.equals("pareto") {
+		require main.ed_paretoa
+		require main.ed_paretob
+		put "pareto("
+		put main.ed_paretoa
+		put ","
+		put main.ed_paretob
+		put ")"	
+	}
+	if main.lb_prior.equals("jeffreys") {
+		put "jeffreys"
+	}
+	if main.lb_prior.equals("mvnormal") {
+		require main.sp_mvnormald
+		require main.ed_mvnormalmu
+		require main.ed_mvnormalsig
+		put "mvnormal("
+		put main.sp_mvnormald
+		put ","
+		put main.ed_mvnormalmu
+		put ","
+		put main.ed_mvnormalsig
+		put ")"
+	}
+	if main.lb_prior.equals("mvnormal0") {
+		require main.sp_mvnormald
+		require main.ed_mvnormalsig
+		put "mvnormal0("
+		put main.sp_mvnormald
+		put ","
+		put main.ed_mvnormalsig
+		put ")"
+	}
+	if main.lb_prior.equals("zellnersg") {
+		require main.sp_zellnersgd
+		require main.ed_zellnersgg
+		require main.ed_zellnersgmu
+		require main.ed_zellnersgvar
+		put "zellnersg("
+		put main.sp_zellnersgd
+		put ","
+		put main.ed_zellnersgg
+		put ","
+		put main.ed_zellnersgmu
+		put ","
+		put main.ed_zellnersgvar
+		put ")"		
+	}
+	if main.lb_prior.equals("zellnersg0") {
+		require main.sp_zellnersgd
+		require main.ed_zellnersgg
+		require main.ed_zellnersgvar
+		put "zellnersg0("
+		put main.sp_zellnersgd
+		put ","
+		put main.ed_zellnersgg
+		put ","
+		put main.ed_zellnersgvar
+		put ")"	
+	}
+	if main.lb_prior.equals("dirichlet") {
+		require main.ed_dirichleta
+		put "dirichlet("
+		put main.ed_dirichleta
+		put ")"
+	}
+	if main.lb_prior.equals("wishart") {
+		require main.sp_wishartd
+		require main.ed_wishartdf
+		require main.ed_wishartsig
+		put "wishart("
+		put main.sp_wishartd
+		put ","
+		put main.ed_wishartdf
+		put ","
+		put main.ed_wishartsig
+		put ")"
+	}
+	if main.lb_prior.equals("iwishart") {
+		require main.sp_iwishartd
+		require main.ed_iwishartdf
+		require main.ed_iwishartsig
+		put "iwishart("
+		put main.sp_iwishartd
+		put ","
+		put main.ed_iwishartdf
+		put ","
+		put main.ed_iwishartsig
+		put ")"
+	}
+	if main.lb_prior.equals("jeffreysd") {
+		require main.sp_jeffreysd
+		put "jeffreys("
+		put main.sp_jeffreysd
+		put ")"
+	}
+	if main.lb_prior.equals("bernoulli") {
+		require main.ed_bernoullip
+		put "bernoulli("
+		put main.ed_bernoullip
+		put ")"
+	}
+	if main.lb_prior.equals("geometric") {
+		require main.ed_geometricp
+		put "geometric("
+		put main.ed_geometricp
+		put ")"
+	}
+	if main.lb_prior.equals("index") {
+		require main.ed_discretep
+		put "index("
+		put main.ed_discretep
+		put ")"
+	}
+	if main.lb_prior.equals("poisson") {
+		require main.ed_poissonmu
+		put "poisson("
+		put main.ed_poissonmu
+		put ")"
+	}
+	if main.lb_prior.equals("density") {
+		require main.ed_densityf
+		put "density("
+		put main.ed_densityf
+		put ")"
+	}
+	if main.lb_prior.equals("logdensity") {
+		require main.ed_logdensityf
+		put "logdensity("
+		put main.ed_logdensityf
+		put ")"
+	}
+	if main.lb_prior.equals("flat") {
+		put "flat"
+	}
+END
+
+PROGRAM main_paraspec_output
+BEGIN
+	put main.cb_paraspec
+END
+
+PROGRAM command
+BEGIN
+	require main.cb_paraspec
+	put "prior("
+	put "" /program main_paraspec_output
+	
+	if main.lb_prior.equals("") {
+		stopbox stop resource BAYES_PRIOR_MSGBOX_PRIOR_REQUIRED
+// A prior distribution must be specified.
+	}
+	put ","
+	put " " /program main_priorspec_output
+	put ")"
+END

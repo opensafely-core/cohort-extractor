@@ -1,0 +1,1234 @@
+/*
+	power logrank
+
+*!  VERSION 1.1.6  17may2017
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_wide
+DEFINE _dlght 475
+INCLUDE header
+
+HELP hlp1, view("help power logrank")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING graph_res
+	create STRING numContents
+	create STRING stok
+	create ARRAY tmp
+	create BOOLEAN containsNumlist
+	create BOOLEAN containsNumlist_surv1
+	create BOOLEAN containsNumlist_surv2
+	
+	iter.tx_init.setlabel resource POWER_LOGRANK_INITIAL_VALUE_FOR_EFFECT_SIZE
+	program table_create4Logrank
+	setscale_hadj resource POWER_LOGRANK_DLG_HSCALE
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+  label(resource POWER_LOGRANK_DLG_TITLE)
+BEGIN
+  INCLUDE power_compute
+  DEFINE errpos _ls
+  INCLUDE power_errorprob
+  DEFINE sspos +45
+  INCLUDE power_twosampsi
+
+  GROUPBOX gb_effect_size	_lft	200	_iwd	_ht8h,		///
+	label(resource LBL_EFFECT_SIZE)
+  GROUPBOX gb_effect_size2	@	@	@	_ht4h,		///
+	label(resource LBL_EFFECT_SIZE)
+  TEXT 	tx_spec			_indent	_ss	_cwd1	.,		///
+	label(resource LBL_SPECIFY)
+  DEFINE holdy @y
+  COMBOBOX cb_effect_size 	_ilft	_ls	230	_ht5h, 		///
+  	dropdownlist							///
+	contents("main_esize_list")					///
+	values("main_esize_values")					///
+	onselchange("program main_esize_changed")			///
+	label(resource LBL_EFFECT_SIZE)
+  EDIT	ed_hr			_ilft	_ls	_en14wd	.,		///
+	option(hratio)							///
+  	default(0.5)							///
+	onchange(program check_for_numlist)				///
+  	tooltip(resource POWER_LOGRANK_MAIN_ED_HR_TIP) 			///
+  	label(resource POWER_LOGRANK_MAIN_ED_HR)
+  DEFINE holdx @x
+  TEXT	tx_hr			_en14sep @	120	.,		///
+  	label(resource POWER_LOGRANK_MAIN_TX_HR)
+  EDIT	ed_lnhr			holdx	@	_en14wd	.,		///
+  	option(lnhratio)						///
+	onchange(program check_for_numlist)				///
+  	tooltip(resource POWER_LOGRANK_MAIN_ED_LNHR_TIP) 		///
+  	label(resource POWER_LOGRANK_MAIN_ED_LNHR)
+  TEXT	tx_lnhr			_en14sep @	135	.,		///
+  	label(resource POWER_LOGRANK_MAIN_TX_LNHR)
+  TEXT	tx_report_effect	_lft2	holdy	150	.,		///
+	label(resource LBL_REPORT_EFFECT_SIZE_AS)
+  COMBOBOX cb_report_effect	@	 _ss	120	.,		///
+	dropdownlist							///
+	option(effect)							///
+	contents("main_esize_rpt_list")					///
+	values("main_esize_rpt_values")					///
+	label(resource LBL_REPORT_EFFECT_SIZE_AS)
+  CHECKBOX ck_scho		_lft	+150	_iwd	.,		///
+	option(schoenfeld)						///
+	onclickon(program main_scho_check)				///
+	onclickoff(program main_scho_check)				///
+	label(resource POWER_LOGRANK_MAIN_CK_SCHO)
+
+  TEXT  tx_oneside		_lft	@	_cwd1	.,		///
+	label(resource LBL_SIDES)
+  DEFINE test_y @y
+  COMBOBOX cb_oneside		@	_ss	_en14wd	.,		///
+	dropdownlist							///
+	contents(sides)							///
+	values(sides_values)
+
+  TEXT  tx_direction		_lft2 	test_y	_cwd1	.,		///
+	label(resource LBL_DIRECTION_OF_THE_EFFECT)
+  COMBOBOX cb_direction		@	_ss	_en14wd	.,		///
+	option(direction)						///
+	dropdownlist contents(directions) values(directions_values)
+  CHECKBOX ck_parallel		_lft	_ls	_iwd	.,		///
+	option(parallel)						///
+	label(resource LBL_TREAT_NUMBER_LISTS_IN_STARRED_OPTIONS_AS_PARALLEL)
+END
+
+LIST main_compute_list
+BEGIN
+	resource LBL_SAMPLE_SIZE
+	resource PSS_LBL_POWER
+	resource LBL_EFFECT_SIZE
+END
+
+LIST main_compute_values
+BEGIN
+	"sampsi"
+	"power"
+	"effect"
+END
+
+LIST main_esize_list
+BEGIN
+	resource LBL_HAZARD_RATIO
+	resource LBL_LOG_HAZARD_RATIO
+END
+
+LIST main_esize_values
+BEGIN
+	"hratio"
+	"lnhratio"
+END
+
+LIST main_esize_rpt_list
+BEGIN
+	resource LBL_HAZARD_RATIO
+        resource LBL_LOG_HAZARD_RATIO
+END
+
+LIST main_esize_rpt_values
+BEGIN
+	"hratio"
+	"lnhratio"
+END
+
+LIST directions
+BEGIN
+	resource LBL_EFFECT_DIRECTION_LOWER
+	resource LBL_EFFECT_DIRECTION_UPPER
+END
+
+LIST directions_values
+BEGIN
+	""
+	upper
+END
+
+LIST sides
+BEGIN
+	resource LBL_TWO_SIDED_TEST
+	resource LBL_ONE_SIDED_TEST
+END
+
+LIST sides_values
+BEGIN
+	""
+	onesided
+END
+
+PROGRAM main_compute_changed
+BEGIN
+	if main.cb_compute.iseq("sampsi") {
+		call program main_sampsi_on
+	}
+	if main.cb_compute.iseq("power") {
+		call program main_power_on
+	}
+	if main.cb_compute.iseq("effect") {
+		call program main_effect_on
+	}
+END
+
+PROGRAM main_sampsi_on
+BEGIN
+	call script main_sampsi_hide_all
+	call main.gb_sample_size.setposition . . . 75
+	call main.ck_nfrac.setposition . 170
+	call main.tx_sampsi.hide
+	call main.cb_sampsi.hide
+	call main.ed_nratio.show
+	call main.tx_nratio.show
+	call main.ed_power.show
+	call main.ed_beta.show
+	call main.tx_power_beta_power.show
+	call main.cb_power_beta.show
+	call cens.ed_wdprob.show
+	call cens.tx_wdprob.show
+	call main.tx_direction.hide
+	call main.cb_direction.hide
+	call program main_power_beta_changed
+	call program main_move_effect_size
+	call program main_move_main_opts
+	call program check_for_numlist
+	call program cens_admin_check
+	call program power_iteration_tab_check
+END
+
+PROGRAM main_power_on
+BEGIN
+	call script main_sampsi_hide_all
+	call main.gb_sample_size.setposition . . . 95
+	call main.ck_nfrac.setposition . 190
+	call main.tx_sampsi.show
+	call main.cb_sampsi.show
+	call main.ed_power.hide
+	call main.ed_beta.hide
+	call main.tx_power_beta_power.hide
+	call main.cb_power_beta.hide
+	call cens.ed_wdprob.hide
+	call cens.tx_wdprob.hide
+	call main.tx_direction.hide
+	call main.cb_direction.hide
+	call program main_sampsi_changed
+	call program main_move_effect_size
+	call program main_move_main_opts
+	call program check_for_numlist
+	call program cens_admin_check
+	call program power_iteration_tab_check
+END
+
+PROGRAM main_effect_on
+BEGIN
+	call script main_sampsi_hide_all
+	call main.gb_sample_size.setposition . . . 95
+	call main.ck_nfrac.setposition . 190
+	call main.tx_sampsi.show
+	call main.cb_sampsi.show
+	call main.ed_power.show
+	call main.ed_beta.show
+	call main.tx_power_beta_power.show
+	call main.cb_power_beta.show
+	call cens.rb_survival.seton
+	call cens.ed_wdprob.hide
+	call cens.tx_wdprob.hide
+	call main.tx_direction.show
+	call main.cb_direction.show
+	call program main_power_beta_changed
+	call program main_sampsi_changed
+	call program main_move_effect_size
+	call program main_move_main_opts
+	call program check_for_numlist
+	call program cens_admin_check
+	call program power_iteration_tab_check
+END
+
+PROGRAM main_esize_changed
+BEGIN
+	if main.cb_effect_size.iseq("hratio") {
+		call program main_hratio_on
+	}
+	if main.cb_effect_size.iseq("lnhratio") {
+		call program main_lnhratio_on
+	}
+	call program table_create4Logrank
+END
+
+PROGRAM main_hratio_on
+BEGIN
+	call main.ed_hr.show
+	call main.tx_hr.show
+	call main.ed_lnhr.hide
+	call main.tx_lnhr.hide
+
+	if main.cb_compute.iseq("sampsi") {
+		call main.ed_hr.setposition . 285
+		call main.tx_hr.setposition . 285
+	}
+	if main.cb_compute.iseq("power") {
+		call main.ed_hr.setposition . 305
+		call main.tx_hr.setposition . 305
+	}
+END
+
+PROGRAM main_lnhratio_on
+BEGIN
+	call main.ed_hr.hide
+	call main.tx_hr.hide
+	call main.ed_lnhr.show
+	call main.tx_lnhr.show
+
+	if main.cb_compute.iseq("sampsi") {
+		call main.ed_lnhr.setposition . 285
+		call main.tx_lnhr.setposition . 285
+	}
+
+	if main.cb_compute.iseq("power") {
+		call main.ed_lnhr.setposition . 305
+		call main.tx_lnhr.setposition . 305
+	}
+END
+
+PROGRAM main_power_beta_table
+BEGIN
+	call program table_create4Logrank
+END
+
+PROGRAM main_move_effect_size
+BEGIN
+	if main.cb_compute.iseq("sampsi") {
+		call program main_effect_size_show
+		call main.gb_effect_size.setposition . 210
+		call main.tx_spec.setposition . 230
+		call main.cb_effect_size.setposition . 250
+		call main.tx_report_effect.setposition 260 230
+		call main.cb_report_effect.setposition 260 250
+	}	
+	if main.cb_compute.iseq("power") {
+		call program main_effect_size_show
+		call main.gb_effect_size.setposition . 230
+		call main.tx_spec.setposition . 250
+		call main.cb_effect_size.setposition . 270
+		call main.tx_report_effect.setposition 260 250
+		call main.cb_report_effect.setposition 260 270
+	}
+	if main.cb_compute.iseq("effect") {
+		call program main_effect_size_hide
+		call main.gb_effect_size2.setposition . 230
+		call main.tx_report_effect.setposition 20 250
+		call main.cb_report_effect.setposition 20 270
+	}
+END
+
+PROGRAM main_effect_size_show
+BEGIN
+	call main.gb_effect_size.show
+	call main.gb_effect_size2.hide
+	call main.tx_spec.show
+	call main.cb_effect_size.show
+	call program main_esize_changed
+END
+
+PROGRAM main_effect_size_hide
+BEGIN
+	call main.gb_effect_size.hide
+	call main.gb_effect_size2.show
+	call main.tx_spec.hide
+	call main.cb_effect_size.hide
+	call main.ed_hr.hide
+	call main.tx_hr.hide
+	call main.ed_lnhr.hide
+	call main.tx_lnhr.hide
+END
+
+PROGRAM main_move_main_opts
+BEGIN
+	if main.cb_compute.iseq("sampsi") {
+		call main.ck_scho.setposition .	340
+		call main.tx_oneside.setposition . 365
+		call main.cb_oneside.setposition . 385
+		call main.tx_direction.setposition . 365
+		call main.cb_direction.setposition . 385
+		call main.ck_parallel.setposition  . 420
+	}
+
+	if main.cb_compute.iseq("power") {
+		call main.ck_scho.setposition .	360
+		call main.tx_oneside.setposition . 385
+		call main.cb_oneside.setposition . 405
+		call main.tx_direction.setposition . 385
+		call main.cb_direction.setposition . 405
+		call main.ck_parallel.setposition  . 440
+	}
+
+	if main.cb_compute.iseq("effect") {
+		call main.ck_scho.setposition .	320
+		call main.tx_oneside.setposition . 345
+		call main.cb_oneside.setposition . 365
+		call main.tx_direction.setposition . 345
+		call main.cb_direction.setposition . 365
+		call main.ck_parallel.setposition  . 400
+	}
+END
+
+PROGRAM main_scho_check
+BEGIN
+	if main.ck_scho {
+		call main.cb_report_effect.setvalue "lnhratio"
+		call main.cb_report_effect.setdefault "lnhratio"
+	}
+	else {
+		call main.cb_report_effect.setvalue "hratio"
+		call main.cb_report_effect.setdefault "hratio"
+	}
+END
+
+DIALOG cens, tabtitle(resource POWER_LOGRANK_TAB_CENS)
+BEGIN
+  CHECKBOX ck_admin	_lft	_top	_iwd	_ht19h,			///
+	groupbox							///
+	onclickon(program cens_admin_check)				///
+	onclickoff(program cens_admin_check)				///
+	tooltip("")							///
+	label(resource POWER_LOGRANK_CENS_CK_ADMIN)
+  RADIO rb_survival	_ilft	_ss	_ibwd	.,			///
+ 	first								///
+ 	onclickon(program cens_check_admin_type)			///
+	label(resource POWER_LOGRANK_CENS_RB_SURVIVAL)
+  RADIO rb_simpson		_ilft	_ss	_ibwd	.,		///
+	onclickon(program cens_check_admin_type)			///
+	label(resource POWER_LOGRANK_CENS_RB_SIMPSON)
+  RADIO rb_st1			_ilft	_ss	_ibwd	.,		///
+	last								///
+	onclickon(program cens_check_admin_type)			///
+	label(resource POWER_LOGRANK_CENS_RB_ST1)
+
+  GROUPBOX gb_survival	_ilft	_ls	_ibwd	_ht5,			///
+	label("")
+  DEFINE holdy @y
+  EDIT ed_s1		50	_ss	_en14wd	.,			///
+	onchange(program check_for_numlist)				///
+	tooltip(resource POWER_LOGRANK_CENS_ED_S1)	///
+	label(resource LBL_SURVIVAL_PROBABILITY_IN_CONTROL_GROUP)
+  TEXT tx_s1		_en14sep @	250	.,			///
+	label(resource POWER_LOGRANK_CENS_TX_S1)
+  CHECKBOX ck_s2	_iilft	_ms	_ckwd	.,			///
+	onclickon(program cens_s2_check)				///
+	onclickoff(program cens_s2_check)
+  EDIT ed_s2		_cksep	@	_en14wd	.,			///
+	onchange(program check_for_numlist)				///
+	tooltip(resource POWER_LOGRANK_CENS_ED_S2) ///
+	label(resource LBL_SURVIVAL_PROBABILITY_IN_EXPERIMENTAL_GROUP)
+  TEXT tx_s2		_en14sep @	250	.,			///
+	label(resource POWER_LOGRANK_CENS_TX_S2)
+
+  GROUPBOX gb_simpson	_ilft	holdy	_ibwd	_ht14,			///
+	label(resource LBL_SURVIVAL_PROBABILITY_IN_CONTROL_GROUP)
+  RADIO	rb_three	_iilft	_ss	_ibwd	.,			///
+  	first								///
+  	onclickon(program cens_simpson_enable)				///
+  	label(resource POWER_LOGRANK_CENS_RB_THREE)
+  RADIO	rb_mat		@	_ms	@	.,			///
+  	last								///
+  	onclickon(program cens_simpson_enable)				///
+  	label(resource POWER_LOGRANK_CENS_RB_MAT)
+  EDIT ed_simpson1	50	_ss	_en14wd	.,			///
+	label(resource POWER_LOGRANK_CENS_ED_SIMPSON1)
+  TEXT tx_simpson1		_en14sep @	_comb3_1 .,		///
+	label(resource POWER_LOGRANK_CENS_ED_SIMPSON1)
+
+  EDIT ed_simpson2	50	_ms	_en14wd	.,			///
+	label(resource POWER_LOGRANK_CENS_ED_SIMPSON2)
+  TEXT tx_simpson2	_en14sep @	_comb3_1 .,			///
+	label(resource POWER_LOGRANK_CENS_ED_SIMPSON2)
+
+  EDIT ed_simpson3	50	_ms	_en14wd	.,			///
+	label(resource POWER_LOGRANK_CENS_ED_SIMPSON3)
+  TEXT tx_simpson3	_en14sep @	_comb3_1 .,			///
+	label(resource POWER_LOGRANK_CENS_ED_SIMPSON3)
+
+  COMBOBOX cb_simpmat	50	@	_en14wd	.,			///
+	dropdown							///
+	option(simpson)							///
+	contents(vector)						///
+	label(resource POWER_LOGRANK_CENS_CB_SIMPMAT)
+  BUTTON bu_simpmat	_en14sep @	120	.,			///
+	label(resource LBL_INPUT_MATRIX)				///
+	onpush(program show_simpmat_matrix)				///
+	tooltip(resource POWER_LOGRANK_CENS_BU_SIMPMAT)
+
+  GROUPBOX gb_st1	_ilft	holdy	_ibwd	_ht5,			///
+	label("")
+  VARNAME  vn_controlvar 35	_ss	_en14wd	.,			///
+  	numeric								///
+	label(resource POWER_LOGRANK_CENS_VN_CONTROLVAR)
+  TEXT tx_controlvar	_en14sep @	_comb3_1 .,			///
+	label(resource POWER_LOGRANK_CENS_VN_CONTROLVAR)
+
+  VARNAME vn_timepoint	35	_ms	_en14wd	.,			///
+  	numeric								///
+	label(resource POWER_LOGRANK_CENS_VN_TIMEPOINT)
+  TEXT tx_timepoint	_en14sep @	_comb3_1 .,			///
+	label(resource POWER_LOGRANK_CENS_VN_TIMEPOINT)
+
+  EDIT ed_wdprob	_lft	+155	_en14wd	.,			///
+  	default(0)							///
+	option(wdprob)							///
+	onchange(program check_for_numlist)				///
+	tooltip(resource POWER_LOGRANK_CENS_ED_WDPROB_TIP) ///
+	label(resource POWER_LOGRANK_CENS_ED_WDPROB)
+  TEXT tx_wdprob	_en14sep @	_iwd	.,			///
+	label(resource POWER_LOGRANK_CENS_TX_WDPROB)
+END
+
+PROGRAM cens_admin_check
+BEGIN
+	if cens.ck_admin.isenabled() & cens.ck_admin {
+		if main.cb_compute.iseq("effect") {
+			call cens.rb_survival.enable
+			call cens.rb_simpson.disable
+			call cens.rb_st1.disable
+			
+		}
+		else {
+			call cens.rb_survival.enable
+			call cens.rb_simpson.enable
+			call cens.rb_st1.enable
+		}
+
+		if cens.rb_survival.isenabled() & cens.rb_survival {
+			call program cens_survival_enable
+		}
+		if cens.rb_simpson.isenabled() & cens.rb_simpson {
+			call program cens_simpson_enable
+		}
+		if cens.rb_st1.isenabled() & cens.rb_st1 {
+			call program cens_st1_enable 
+		}
+	}
+	else {
+		call cens.rb_survival.disable
+		call cens.rb_simpson.disable
+		call cens.rb_st1.disable
+		call script cens_survival_disable
+		call script cens_simpson_disable
+		call script cens_st1_disable
+	}
+	call program table_create4Logrank
+	call program cens_s2_check_main
+	call program power_iteration_tab_check
+END
+
+PROGRAM cens_s2_check
+BEGIN
+	if cens.ck_s2.isenabled() & cens.ck_s2 {
+		call cens.ed_s2.enable
+		call cens.tx_s2.enable
+	}
+	else {
+		call cens.ed_s2.disable
+		call cens.tx_s2.disable
+	}
+	call program cens_s2_check_main
+END
+
+PROGRAM  cens_s2_check_main
+BEGIN
+	if cens.ck_s2.isvisible() & cens.ck_s2.isenabled() & cens.ck_s2 {
+		call main.ed_hr.disable
+		call main.tx_hr.disable
+		call main.ed_lnhr.disable
+		call main.tx_lnhr.disable		
+	}
+	else {
+		call main.ed_hr.enable
+		call main.tx_hr.enable
+		call main.ed_lnhr.enable
+		call main.tx_lnhr.enable
+	}
+END
+
+PROGRAM cens_check_admin_type
+BEGIN
+	if cens.rb_survival {
+		call program cens_survival_on
+		call script cens_simpson_off
+		call script cens_st1_off
+	}
+
+	if cens.rb_simpson {
+		call script cens_survival_off
+		call program cens_simpson_on
+		call script cens_st1_off
+	}
+
+	if cens.rb_st1 {
+		call script cens_survival_off
+		call script cens_simpson_off
+		call program cens_st1_on
+	}
+	call program table_create4Logrank
+	call program cens_s2_check_main
+END
+
+PROGRAM cens_survival_on
+BEGIN
+	call cens.ck_admin.setposition . . . 180
+	call cens.ed_wdprob.setposition . 205
+	call cens.tx_wdprob.setposition . 205
+	call cens.gb_survival.show
+	call cens.ed_s1.show
+	call cens.tx_s1.show
+	call cens.ck_s2.show
+	call cens.ed_s2.show
+	call cens.tx_s2.show
+	
+	if cens.rb_survival.isenabled() {
+		call program cens_survival_enable
+	}
+	else {
+		call script cens_survival_disable
+	}
+END
+
+SCRIPT cens_survival_off
+BEGIN
+	cens.gb_survival.hide
+	cens.ed_s1.hide
+	cens.tx_s1.hide
+	cens.ck_s2.hide
+	cens.ed_s2.hide
+	cens.tx_s2.hide
+END
+
+PROGRAM cens_survival_enable
+BEGIN
+	call cens.gb_survival.enable
+	call cens.ed_s1.enable
+	call cens.tx_s1.enable 
+	
+	if main.cb_compute.iseq("effect") {
+		call cens.ck_s2.disable
+	}
+	else {
+		call cens.ck_s2.enable
+	}
+	
+	call program cens_s2_check
+END
+
+SCRIPT cens_survival_disable
+BEGIN
+	cens.gb_survival.disable
+	cens.ed_s1.disable
+	cens.tx_s1.disable
+	cens.ck_s2.disable
+	cens.ed_s2.disable
+	cens.tx_s2.disable	
+END
+
+PROGRAM cens_simpson_on
+BEGIN
+	call cens.ck_admin.setposition . . . 275
+	call cens.ed_wdprob.setposition . 300
+	call cens.tx_wdprob.setposition . 300
+	call cens.gb_simpson.show
+	call cens.rb_three.show
+	call cens.rb_mat.show
+	call cens.ed_simpson1.show
+	call cens.tx_simpson1.show
+	call cens.ed_simpson2.show
+	call cens.tx_simpson2.show
+	call cens.ed_simpson3.show
+	call cens.tx_simpson3.show
+	call cens.cb_simpmat.show
+	call cens.bu_simpmat.show
+
+	call cens.rb_three.setposition . 120
+	call cens.ed_simpson1.setposition . 140
+	call cens.tx_simpson1.setposition . 140
+	call cens.ed_simpson2.setposition . 165
+	call cens.tx_simpson2.setposition . 165
+	call cens.ed_simpson3.setposition . 190
+	call cens.tx_simpson3.setposition . 190
+
+	call cens.rb_mat.setposition . 215
+	call cens.cb_simpmat.setposition . 235
+	call cens.bu_simpmat.setposition . 235	
+
+	if cens.rb_simpson.isenabled() {
+		call program cens_simpson_enable
+	}
+	else {
+		call script cens_simpson_disable
+	}
+END
+
+SCRIPT cens_simpson_off
+BEGIN
+	cens.gb_simpson.hide
+	cens.rb_three.hide
+	cens.rb_mat.hide
+	cens.ed_simpson1.hide
+	cens.tx_simpson1.hide
+	cens.ed_simpson2.hide
+	cens.tx_simpson2.hide
+	cens.ed_simpson3.hide
+	cens.tx_simpson3.hide
+	cens.cb_simpmat.hide
+	cens.bu_simpmat.hide
+END
+
+PROGRAM  cens_simpson_enable
+BEGIN
+	call cens.gb_simpson.enable
+	call cens.rb_three.enable
+	call cens.rb_mat.enable
+	if cens.rb_three {
+		call cens.ed_simpson1.enable
+		call cens.tx_simpson1.enable
+		call cens.ed_simpson2.enable
+		call cens.tx_simpson2.enable
+		call cens.ed_simpson3.enable
+		call cens.tx_simpson3.enable
+		call cens.cb_simpmat.disable
+		call cens.bu_simpmat.disable
+	}
+	else {
+		call cens.ed_simpson1.disable
+		call cens.tx_simpson1.disable
+		call cens.ed_simpson2.disable
+		call cens.tx_simpson2.disable
+		call cens.ed_simpson3.disable
+		call cens.tx_simpson3.disable
+		call cens.cb_simpmat.enable
+		call cens.bu_simpmat.enable
+	}
+END
+
+SCRIPT cens_simpson_disable
+BEGIN
+	cens.gb_simpson.disable
+	cens.rb_three.disable
+	cens.rb_mat.disable
+	cens.ed_simpson1.disable
+	cens.tx_simpson1.disable
+	cens.ed_simpson2.disable
+	cens.tx_simpson2.disable
+	cens.ed_simpson3.disable
+	cens.tx_simpson3.disable
+	cens.cb_simpmat.disable
+	cens.bu_simpmat.disable	
+END
+
+PROGRAM cens_st1_on
+BEGIN
+	call cens.ck_admin.setposition . . . 180
+	call cens.ed_wdprob.setposition . 205
+	call cens.tx_wdprob.setposition . 205
+	call cens.gb_st1.show
+	call cens.tx_controlvar.show
+	call cens.vn_controlvar.show
+	call cens.tx_timepoint.show
+	call cens.vn_timepoint.show
+	
+	if cens.rb_st1.isenabled() {
+		call program cens_st1_enable
+	}
+	else {
+		call script cens_st1_disable
+	}
+END
+
+SCRIPT cens_st1_off
+BEGIN
+	cens.gb_st1.hide
+	cens.tx_controlvar.hide
+	cens.vn_controlvar.hide
+	cens.tx_timepoint.hide
+	cens.vn_timepoint.hide
+END
+
+PROGRAM cens_st1_enable
+BEGIN
+	call cens.tx_controlvar.enable
+	call cens.vn_controlvar.enable
+	call cens.tx_timepoint.enable
+	call cens.vn_timepoint.enable
+END
+
+SCRIPT cens_st1_disable
+BEGIN
+	cens.tx_controlvar.disable
+	cens.vn_controlvar.disable
+	cens.tx_timepoint.disable
+	cens.vn_timepoint.disable	
+END
+
+PROGRAM show_simpmat_matrix
+BEGIN
+	call create STRING EsimpsonMatResult
+	call create CHILD matrix_input AS EsimpsonMat
+	if ! _rc {
+		call EsimpsonMat.setExitString EsimpsonMatResult
+		call EsimpsonMat.setExitAction "program main_getSimpsonMatResult"
+		call EsimpsonMat.callthru "isChildContext.settrue"
+	}
+END
+
+PROGRAM main_getSimpsonMatResult
+BEGIN
+	call cens.cb_simpmat.repopulate
+	call cens.cb_simpmat.setvalue class EsimpsonMatResult.value
+END
+
+PROGRAM check_for_numlist
+BEGIN
+	call containsNumlist.setfalse
+	call containsNumlist_surv1.setfalse
+	call containsNumlist_surv2.setfalse
+
+	if main.ed_alpha {
+		call numContents.setvalue class main.ed_alpha.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_power.isvisible() {
+		call numContents.setvalue class main.ed_power.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_beta.isvisible() {
+		call numContents.setvalue class main.ed_beta.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_nratio.isvisible() {
+		call numContents.setvalue class main.ed_nratio.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+		call program table_create4Logrank
+	}
+
+	if main.ed_n1.isvisible() {
+		call numContents.setvalue class main.ed_n1.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_n2.isvisible() {
+		call numContents.setvalue class main.ed_n2.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_sampsi_n.isvisible() {
+		call numContents.setvalue class main.ed_sampsi_n.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_sampsi_nratio.isvisible() {
+		call numContents.setvalue class main.ed_sampsi_nratio.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+		call program table_create4Logrank
+	}
+
+	if main.ed_sampsi_n1.isvisible() {
+		call numContents.setvalue class main.ed_sampsi_n1.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_sampsi_n2.isvisible() {
+		call numContents.setvalue class main.ed_sampsi_n2.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_hr.isvisible() & main.ed_hr.isenabled() {
+		call numContents.setvalue class main.ed_hr.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist_surv1.settrue
+			call containsNumlist.settrue
+		}		
+	}
+
+	if main.ed_lnhr.isvisible() & main.ed_lnhr.isenabled() {
+		call numContents.setvalue class main.ed_lnhr.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist_surv1.settrue
+			call containsNumlist.settrue
+		}		
+	}
+
+	if cens.ed_s1.isvisible() & cens.ed_s1.isenabled() {
+		call numContents.setvalue class cens.ed_s1.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist_surv1.settrue
+			call containsNumlist.settrue
+		}
+		call program table_create4Logrank
+	}
+
+	if cens.ed_s2.isvisible() & cens.ed_s2.isenabled() {
+		call numContents.setvalue class cens.ed_s2.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist_surv2.settrue
+			call containsNumlist.settrue
+		}
+	}
+
+	if cens.ed_wdprob.isvisible() {
+		call numContents.setvalue class cens.ed_wdprob.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}	
+		call program table_create4Logrank
+	}
+
+	if containsNumlist {
+		call main.ck_parallel.enable
+	}
+	else {
+		call main.ck_parallel.disable
+	}
+END
+
+PROGRAM power_iteration_tab_check
+BEGIN
+	call script power_iteration_enable
+	if main.cb_compute.iseq("sampsi") | main.cb_compute.iseq("power") {
+		call script power_iteration_disable
+	}
+	else {
+		if !cens.ck_admin {
+			call script power_iteration_disable
+		}
+	}
+END
+
+INCLUDE _power_list
+INCLUDE power_errorprob_pr
+INCLUDE power_twosampsi_pr
+INCLUDE power_table_opts
+INCLUDE power_graph
+INCLUDE power_iteration
+
+PROGRAM power_test_maincommon_output
+BEGIN
+	optionarg /hidedefault main.cb_direction
+	put main.cb_oneside
+	option main.ck_parallel
+END
+
+PROGRAM power_censor_output
+BEGIN
+	if cens.ck_admin & cens.rb_simpson {
+		if cens.rb_three {
+			require cens.ed_simpson1 
+			require cens.ed_simpson2
+			require cens.ed_simpson3
+		
+			if cens.ed_simpson1.isNumlistLE(0) | cens.ed_simpson1.isNumlistGE(1) {
+		call create STRING _MSG_TMP
+                call _MSG_TMP.format 					///
+			"resource LBL_MSGBOX_ON_TAB_GT_0_LT_1_FMT" 	///
+			"resource POWER_LOGRANK_TAB_CENS"		///
+			"resource POWER_LOGRANK_CENS_ED_SIMPSON1" 
+		stopbox stop "class _MSG_TMP.value"
+// On the "Censoring" tab, "At the follow-up time, S1(f)" must be in (0,1).
+			}
+			
+			if cens.ed_simpson2.isNumlistLE(0) | cens.ed_simpson2.isNumlistGE(1) {
+		call create STRING _MSG_TMP
+                call _MSG_TMP.format 					///
+			"resource LBL_MSGBOX_ON_TAB_GT_0_LT_1_FMT" 	///
+			"resource POWER_LOGRANK_TAB_CENS"		///
+			"resource POWER_LOGRANK_CENS_ED_SIMPSON2"
+		stopbox stop "class _MSG_TMP.value"
+// On the "Censoring" tab, "At the average follow-up time, S1(f+r/2)" must be in (0,1).
+			}
+			
+			if cens.ed_simpson3.isNumlistLE(0) | cens.ed_simpson3.isNumlistGE(1) {
+                call create STRING _MSG_TMP
+                call _MSG_TMP.format 					///
+			"resource LBL_MSGBOX_ON_TAB_GT_0_LT_1_FMT" 	///
+			"resource POWER_LOGRANK_TAB_CENS"		///
+			"resource POWER_LOGRANK_CENS_ED_SIMPSON3"
+		 stopbox stop "class _MSG_TMP.value"
+// On the "Censoring" tab, "At the end of the study, S1(T)" must be in (0,1).
+
+			}
+			
+			put " simpson(" 
+			put cens.ed_simpson1 " "
+			put cens.ed_simpson2 " "
+			put cens.ed_simpson3
+			put ")"
+		}
+		if cens.rb_mat {
+			require cens.cb_simpmat
+			put " simpson(" 
+			put cens.cb_simpmat
+			put ")"
+		}
+	}
+
+	if cens.ck_admin & cens.rb_st1 {
+		require cens.vn_controlvar
+		require cens.vn_timepoint 
+
+		put " st1("
+		put cens.vn_controlvar " "
+		put cens.vn_timepoint 
+		put ")"
+	}
+
+	if cens.ed_wdprob.isvisible() {
+		if !cens.ed_wdprob.isnumlist() {
+			call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource POWER_LOGRANK_TAB_CENS"	///
+				"resource LBL_PROPORTION_OF_WITHDRAWS"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Censoring" tab, an invalid numlist is specified for "Proportion of withdrawals".
+		}
+		
+		if cens.ed_wdprob.isNumlistLT(0) | cens.ed_wdprob.isNumlistGE(1) {
+			call create STRING _MSG_TMP
+                        call _MSG_TMP.format				/// 
+				"resource LBL_MSGBOX_ON_TAB_GE_0_LT_1_FMT" ///
+				"resource POWER_LOGRANK_TAB_CENS"	///
+				"resource LBL_PROPORTION_OF_WITHDRAWS" 
+			stopbox stop "class _MSG_TMP.value"
+// On the "Censoring" tab, "Proportion of withdrawals" must be in [0,1).
+		}		
+		optionarg /hidedefault cens.ed_wdprob
+	}
+END
+
+PROGRAM command
+BEGIN
+	put "power logrank "
+
+	if cens.ed_s1.isvisible() & cens.ed_s1.isenabled() {
+		require cens.ed_s1
+		
+		if !cens.ed_s1.isnumlist() {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource POWER_LOGRANK_TAB_CENS"	///
+				"resource POWER_LOGRANK_CONTROL_GR_SURV_PROB"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Censoring" tab, an invalid numlist is specified for 
+// "Control group survival probability".
+		}
+		
+		if cens.ed_s1.isNumlistLE(0) | cens.ed_s1.isNumlistGE(1) {
+			call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_GT_0_LT_1_FMT" ///
+				"resource POWER_LOGRANK_TAB_CENS"	///
+				"resource POWER_LOGRANK_CONTROL_GR_SURV_PROB"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Censoring" tab, "Control group survival probability" must be in (0,1).
+		}
+		
+		if containsNumlist_surv1 {
+			put "("
+			put cens.ed_s1
+			put ")"
+		}
+		else {
+			put cens.ed_s1
+		}
+	}
+
+	if cens.ed_s2.isvisible() & cens.ed_s2.isenabled() {
+		require cens.ed_s2
+
+		if !cens.ed_s2.isnumlist() {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource POWER_LOGRANK_TAB_CENS"	///
+				"resource POWER_LOGRANK_EXP_GR_SURV_PROB"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Censoring" tab, an invalid numlist is specified for 
+// "Experimental group survival probability".
+		}
+		
+		if cens.ed_s2.isNumlistLE(0) | cens.ed_s2.isNumlistGE(1) {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format					/// 
+				"resource LBL_MSGBOX_ON_TAB_GT_0_LT_1_FMT" 	///
+				"resource POWER_LOGRANK_TAB_CENS"		///
+				"resource POWER_LOGRANK_EXP_GR_SURV_PROB"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Censoring" tab, "Experimental group survival probability" must be in (0,1).
+		}
+
+		if containsNumlist_surv2 {
+			put " ("
+			put cens.ed_s2
+			put ")"
+		}
+		else {
+			put " " cens.ed_s2
+		}
+	}
+
+	beginoptions
+		if main.cb_effect_size.iseq("hratio") {
+			require main.ed_hr 
+
+			if main.ed_hr.isenabled() & !main.ed_hr.isnumlist() {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_HAZARD_RATIO"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Hazard ratio".
+			}	
+			optionarg /hidedefault main.ed_hr
+		}
+
+		if main.cb_effect_size.iseq("lnhratio") {
+			require main.ed_lnhr 
+
+			if main.ed_lnhr.isenabled() & !main.ed_lnhr.isnumlist() {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_LOG_HAZARD_RATIO"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Log hazard-ratio".
+			}	
+			optionarg main.ed_lnhr
+		}
+
+		option main.ck_scho
+		optionarg /hidedefault main.cb_report_effect
+		put " " /program power_errorprob_output
+		put " " /program power_twosampsi_output
+		put " " /program power_test_maincommon_output
+		put " " /program power_censor_output
+		put " " /program power_table_opts_output
+		put " " /program power_graph_output
+		put " " /program power_iteration_output
+	endoptions
+END
+

@@ -1,0 +1,164 @@
+/*
+  rreg
+
+*!  VERSION 1.2.0  16nov2014
+
+  keyword:  eclass
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE header
+
+HELP hlp1, view("help rreg")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	program parseMessage
+	setscale_hadj resource RREG_DLG_HSCALE
+END
+
+PROGRAM parseMessage
+BEGIN
+	if __MESSAGE.contains("__MI__") {
+		call script byifin_set_by_off
+	}
+END
+
+DIALOG main, label(resource RREG_DLG_TITLE) tabtitle(resource LBL_TAB_MODEL)
+BEGIN
+
+  TEXT tx_dv 		_lft	_top	_vnwd	.,			///
+	label(resource LBL_DEPVAR)
+  VARNAME vn_dv		@ 	_ss	@	.,			///
+  	numeric								///
+	ts								///
+	label(resource LBL_DEPVAR)
+
+  TEXT tx_iv		_vlx	_top	160	.,			///
+	label(resource LBL_INDDEPVAR)
+  VARLIST vl_iv		@	_ss	_vlwd	.,			///
+	fv ts								///
+	allowcat							///
+	numeric								///
+	label(resource LBL_INDDEPVAR)
+
+  GROUPBOX gb_opts   _lft      _xls      _iwd      _ht3,		/*
+		*/ label(resource LBL_OPTIONS)				/*
+		*/
+
+  EDIT     en_tune   _ilft     _ms       _en7wd   .,			/*
+		*/ label(resource RREG_MAIN_EN_TUNE)			/*
+		*/ numonly						/*
+		*/ default(7)						/*
+		*/ option("tune")					/*
+		*/
+  TEXT     tx_tune   _spsep    @        _cwd2     .,			/*
+		*/ label(resource RREG_MAIN_EN_TUNE)			/*
+		*/
+END
+
+INCLUDE byifin
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+	program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2b
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  GROUPBOX gb_genvar _lft      _ls       _iwd      _ht4h,		/*
+  		*/ label(resource LBL_GEN_NEW_VARIABLES)
+  TEXT     tx_genwt  _ilft     _ss       _inwd     .,			/*
+		*/ label(resource LBL_WEIGHT_VARIABLE)			/*
+		*/
+  EDIT     ed_genwt  @         _ss       _vnwd     .,			/*
+		*/ label(resource LBL_WEIGHT_VARIABLE)			/*
+		*/ max(32)						/*
+		*/ option("genwt")
+
+  DEFINE _x _lft
+  DEFINE _y _xxls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+
+PROGRAM rpt_output
+BEGIN
+	optionarg /hidedefault rpt.sp_level
+	optionarg rpt.ed_genwt
+	INCLUDE _report_columns_pr
+	put " " rpt_bu_facvarsResults
+	put " " rpt_bu_fmtcoefResults
+END
+
+DIALOG max, tabtitle(resource LBL_TAB_OPTIMIZATION)
+BEGIN
+  SPINNER  sp_iter   _lft      _top      _spwd     .,			/*
+		*/ label(resource RREG_MAX_SP_ITER)			/*
+		*/ min(1)						/*
+		*/ max(10000)						/*
+		*/ default(1000)					/*
+		*/ option("iterate")					/*
+		*/
+  TEXT     tx_iter   _spsep    @         _spr2b    .,			/*
+		*/ label(resource LBL_MAXIMUM_ITERATIONS)		/*
+		*/
+
+  EDIT     en_tol    _lft      _ls       _spwd     .,			/*
+		*/ label(resource LBL_CONVERGENCE_CRITERION)		/*
+		*/ numonly						/*
+		*/ default(0.01)					/*
+		*/ option("tolerance")					/*
+		*/
+  TEXT     tx_tol    _spsep    @         _cwd2     .,			/*
+		*/ label(resource LBL_CONVERGENCE_CRITERION)		/*
+		*/
+  CHECKBOX ck_nolog  _lft      _ls       _cwd1     .,			/*
+		*/ label(resource LBL_SUPPRESS_ITERATION_LOG)		/*
+		*/ option("nolog")					/*
+		*/
+  CHECKBOX ck_graph  @         _ms       @         .,			/*
+		*/ label(resource RREG_MAX_CK_GRAPH)			/*
+		*/ option("graph")					/*
+		*/
+END
+
+PROGRAM command
+BEGIN
+	INCLUDE _by_pr
+	put "rreg "
+	varlist main.vn_dv [main.vl_iv]
+	INCLUDE _ifin_pr
+	beginoptions
+		optionarg /hidedefault main.en_tune
+		optionarg /hidedefault max.sp_iter
+		optionarg /hidedefault max.en_tol
+		option max.ck_nolog
+		option max.ck_graph
+		put " " /program rpt_output
+	endoptions
+END
+

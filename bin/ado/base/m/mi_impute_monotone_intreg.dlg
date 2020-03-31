@@ -1,0 +1,197 @@
+/*
+  mi impute intreg
+
+*!  VERSION 1.1.1  03jun2015
+
+  keyword:  mi impute
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 450
+INCLUDE header
+
+HELP hlp1, view("help mi impute intreg")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	program  parseMessage
+	setscale_hadj resource MI_IMPUTE_MONOTONE_INTREG_DLG_HSCALE
+END
+
+PROGRAM parseMessage
+BEGIN
+	if __MESSAGE.contains("__MONO__") {
+		call script main_mono_on
+	}
+	if __MESSAGE.contains("__MONO_CUST__") {
+		call script main_mono_custom_on
+	}
+	if __MESSAGE.contains("__CHAIN__") {
+		call script main_chain_on
+	}
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)	///
+	label("")
+BEGIN
+   TEXT tx_newname	_lft	_topph	170	.,			///
+	label(resource LBL_NEW_EXISTING_IMPUTED_VARIABLE)
+  EDIT ed_newname	@	_ss	_vnwd	.,			///
+	label(resource LBL_NEW_EXISTING_IMPUTED_VARIABLE)
+
+  TEXT     tx_iv	+180	_topph	300	.,			///
+	label(resource LBL_INDDEPVAR)
+  VARLIST  vl_iv	@	_ss	300	.,			///
+	fv								///
+	numeric								///
+	label(resource LBL_INDDEPVAR)
+
+  GROUPBOX gb_censor		_lft	_ls	_iwd	_ht4h,		///
+	label(resource LBL_BOTH_CENSORING_LIMITS_MUST_BE_SPECIFIED)
+  TEXT tx_ll			_indent	_ss	_cwd2	.,		///
+	label(resource LBL_LOWER_INTERVAL_CENSORING_LIMIT)
+  DEFINE y @y
+  VARNAME vn_ll			@	_ss	_vnwd	.,		///
+	option("ll")							///
+	numeric								///
+	label(resource LBL_LOWER_INTERVAL_CENSORING_LIMIT)
+  TEXT tx_ul			+220	y	_cwd2	.,		///
+	label(resource LBL_UPPER_INTERVAL_CENSORING_LIMIT)
+  VARNAME vn_ul			@	_ss	_vnwd	.,		///
+	option("ul")							///
+	numeric								///
+	label(resource LBL_UPPER_INTERVAL_CENSORING_LIMIT)
+
+  DEFINE _x _lft
+  DEFINE _cx _iwd
+  DEFINE _y _xxls
+  INCLUDE _mi_impute_chained_cust_opts
+
+  CHECKBOX ck_nocons	@	_ms	@	.,			///
+	label(resource LBL_NOCONSTANT)					///
+	option(noconstant)
+
+  TEXT tx_offset	_lft	_xls	_cwd2	.,			///
+	label(resource LBL_OFFSET_VARIABLE_OPTIONAL)
+  VARNAME vn_offset	@	_ss	_vnwd	.,			///
+	option(offset)							///
+	numeric								///
+	label(resource LBL_OFFSET_VARIABLE)
+  
+  DEFINE _x _lft
+  DEFINE _cx _iwd
+  DEFINE _y _ls
+  INCLUDE _mi_impute_uni_cond_boot
+  
+  DEFINE _x _lft
+  DEFINE _cx _iwd
+  DEFINE _y _ms
+  INCLUDE _mi_impute_noisily
+END
+
+INCLUDE _mi_impute_chained_cust_opts_sc
+
+SCRIPT main_mono_on
+BEGIN
+	script main_chain_hide
+	script main_mono_custom_off
+	main.ck_nocons.setposition 10 155 400 .
+	main.tx_offset.setposition . 185
+	main.vn_offset.setposition . 205
+	main.tx_cond.setposition . 235
+	main.ex_cond.setposition . 255
+	main.ck_bootstrap.setposition . 285
+	main.ck_noisily.setposition . 310
+END
+
+SCRIPT main_mono_custom_on
+BEGIN
+	script main_chain_hide
+	main.ck_nocons.setposition 190 60 260 .
+	main.gb_censor.setposition . 90
+	main.tx_ll.setposition . 110
+	main.vn_ll.setposition . 130
+	main.tx_ul.setposition . 110
+	main.vn_ul.setposition . 130
+	main.tx_offset.setposition . 175
+	main.vn_offset.setposition . 195
+	main.tx_cond.setposition . 225
+	main.ex_cond.setposition . 245
+	main.ck_bootstrap.setposition . 275
+	main.ck_noisily.setposition . 300
+	main.tx_iv.show
+	main.vl_iv.show
+END
+
+SCRIPT main_mono_custom_off
+BEGIN
+	main.tx_iv.hide
+	main.vl_iv.hide
+END
+
+SCRIPT main_chain_on
+BEGIN
+	script main_chain_show
+	script main_mono_custom_off
+	main.ck_nocons.setposition 10 270 400 .
+	main.tx_offset.setposition . 300
+	main.vn_offset.setposition . 320
+	main.tx_cond.setposition . 350
+	main.ex_cond.setposition . 370
+	main.ck_bootstrap.setposition . 400
+	main.ck_noisily.setposition . 425
+END
+
+INCLUDE if
+INCLUDE max_ml
+
+PROGRAM command_output
+BEGIN
+	require main.ed_newname
+	if ! main.ed_newname.isvalidname() {
+		stopbox stop resource LBL_MSGBOX_VAR_NAME_INVALID
+// The variable name you specified is invalid.
+	}
+
+	if main.vl_iv.isvisible() {
+		put "intreg "
+		put main.ed_newname
+		if main.vl_iv {
+			put " " main.vl_iv
+		}
+	}
+	else {
+		put "intreg "
+	}
+	put " " /program if_output
+	beginoptions
+		if ! (main.vn_ll | main.vn_ul) {
+			stopbox stop resource MI_IMPUTE_INTREG_MSGBOX_LOWER_UPPER_INTERVAL_CENSORING
+// Both "Lower" and "Upper" interval-censoring limits must be specified.
+		}
+		require main.vn_ll
+		require main.vn_ul
+		optionarg main.vn_ll
+		optionarg main.vn_ul
+		put " " /program  main_chained_output
+		option main.ck_nocons
+		optionarg main.vn_offset
+		INCLUDE _mi_impute_uni_cond_boot_pr
+		option main.ck_noisily
+		put " " /program max_output
+	endoptions
+END
+
+PROGRAM command
+BEGIN
+	put " ("
+	put /program command_output
+	put ") "
+	if !main.vl_iv.isvisible() {
+		put main.ed_newname
+	}
+END

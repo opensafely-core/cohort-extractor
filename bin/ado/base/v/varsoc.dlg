@@ -1,0 +1,108 @@
+/*
+  varsoc
+
+*!  VERSION 1.3.1  18may2017
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE header
+HELP hlp1, view("help varsoc")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource VARSOC_DLG_HSCALE
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	label(resource VARSOC_DLG_TITLE)
+BEGIN
+  DEFINE _x _xsetbu
+  DEFINE _y _top
+  INCLUDE _bu_tsset
+  TEXT     tx_depv         _lft      _topph     _comb3_2   .,		///
+	label(resource LBL_DEPENDENT_VARIABLES)
+  VARLIST  vl_depv         @         _ss        _iwd       .,		///
+  	numeric								///
+	label(resource LBL_DEPENDENT_VARIABLES)
+
+  GROUPBOX gb_options      @         _ls        @          _ht16,	///
+  	label(resource LBL_OPTIONS)
+
+  SPINNER  sp_maxl         _ilft     _ss        _spwd      .,		///
+	label(resource VARSOC_MAIN_SP_MAXL) option(maxlag)		///
+	min(1) max(10000000) default(4) 
+  TEXT     tx_maxl         _spsep    @          _sprb      .,		///
+	label(resource VARSOC_MAIN_SP_MAXL)
+
+  CHECKBOX ck_exog         _ilft     _ls        _cwd2      .,		///
+	label(resource LBL_EXOGENOUS_VARIABLES)				///
+	onclickon(program exog_on) onclickoff(program exog_off)
+  VARLIST  vl_exog         @         _ss        @          .,		///
+	label(resource LBL_EXOGENOUS_VARIABLES) option(exog) numeric
+
+  TEXT     tx_cons         _lft2     -20        @          .,		///
+	label(resource VARSOC_MAIN_TX_CONS)
+  COMBOBOX cb_cons         @         _ss        @          .,		///
+	label(resource VARSOC_MAIN_TX_CONS)				///
+	option(constraints) contents(constraints) dropdown append
+
+  CHECKBOX ck_nocon        _ilft     _ls        _ibwd      .,		///
+	label(resource LBL_NOCONSTANT) option(noconstant)		///
+	onclickon(program nocon_on) onclickoff(program addcon_on)
+  CHECKBOX ck_lut          _ilft     _ms        _ibwd      .,		///
+	label(resource VARSOC_MAIN_CK_LUT)				///
+	onclickon(program lut_on)					///
+	onclickoff(program rmlut_on) 					///
+	option(lutstats)
+
+  SPINNER  sp_sep          _lft2     _ls        _spwd      .,		///
+	label(resource LBL_SEPARATOR_EVERY_N_LINES)			///
+	min(0) max(10000000) default(0) option(separator)
+  TEXT     tx_sep          _spsep    @          _spr2b     .,		///
+	label(resource LBL_SEPARATOR_EVERY_N_LINES)
+
+  DEFINE _x _ilft
+  DEFINE _y @
+  DEFINE _cx _spr2b
+  INCLUDE _sp_level
+END
+
+INCLUDE byifin
+
+PROGRAM exog_on
+BEGIN
+	call main.vl_exog.enable
+	call main.tx_cons.enable
+	call main.cb_cons.enable
+END
+
+PROGRAM exog_off
+BEGIN
+	call main.vl_exog.disable
+	call main.tx_cons.disable
+	call main.cb_cons.disable
+END
+
+PROGRAM command
+BEGIN
+	INCLUDE _by_pr
+	put "varsoc "
+	varlist main.vl_depv
+	INCLUDE _ifin_pr
+	beginoptions
+		optionarg /hidedefault main.sp_maxl
+		if main.ck_exog {
+			require main.vl_exog
+			optionarg main.vl_exog
+		}
+		optionarg main.cb_cons
+		option main.ck_nocon
+		option main.ck_lut
+		INCLUDE _level_main_pr
+		optionarg /hidedefault main.sp_sep
+	endoptions
+END

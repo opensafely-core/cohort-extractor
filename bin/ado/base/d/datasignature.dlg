@@ -1,0 +1,224 @@
+/*
+	datasignature
+
+*!  VERSION 2.1.3  14mar2015
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+DEFINE _dlght 300
+INCLUDE header
+HELP hlp1, view("help datasignature")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource DATASIGNATURE_DLG_HSCALE
+	
+        main.fi_save.formatfilter "{0} (*.dtasig)|*.dtasig|{1} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_DTASIG_FILE" "resource ui_ex FILE_TYPE_ALL_FILES"
+		
+        main.fi_using.formatfilter "{0} (*.dtasig)|*.dtasig|{1} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_DTASIG_FILE" "resource ui_ex FILE_TYPE_ALL_FILES"
+END
+
+
+DIALOG main, label(resource DATASIGNATURE_DLG_TITLE) ///
+	tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  GROUPBOX gb_mode	_lft	_top	_iwd	_ht8,		///
+	label(resource LBL_ACTION)
+  RADIO   rb_display	_ilft	_ss	_ibwd	.,		///
+	first 							///
+	label(resource DATASIGNATURE_MAIN_RB_DISPLAY)		///
+	onclickon(script sel_set)
+  RADIO   rb_confirm	@	_ss	@	.,		///
+	label(resource DATASIGNATURE_MAIN_RB_CONFIRM)		///
+	onclickon(script sel_confirm) option(confirm)
+  RADIO   rb_report	@	_ss	@	.,		///
+	label(resource DATASIGNATURE_MAIN_RB_REPORT)		///
+	onclickon(script sel_report) option(report)
+  RADIO   rb_clear	@	_ss	@	.,		///
+	last							///
+	label(resource DATASIGNATURE_MAIN_RB_CLEAR)		///
+	onclickon(script sel_clear) option(clear)
+
+
+// controls for -datasignature- and -datasignature set-
+  CHECKBOX ck_set	_lft	_xls	_iwd	.,		///
+	option(set)						///
+	onclickon(program set_on)				///
+	onclickoff(script set_off)				///
+	label(resource DATASIGNATURE_MAIN_CK_SET)
+DEFINE holdy @y
+  CHECKBOX ck_reset	@	_ms	@	.,		///
+	option(reset)						///
+	label(resource DATASIGNATURE_MAIN_CK_RESET)
+  CHECKBOX ck_save	@	_ls	@	_ht6h,		///
+	groupbox						///
+	onclickon(script main_save_on)				///
+	onclickoff(script main_save_off)			///
+	label(resource DATASIGNATURE_MAIN_CK_SAVE)
+  TEXT tx_save		_indent	_ss	_ibwd	.,		///
+	label(resource LBL_FILENAME)
+  FILE fi_save		@	_ss	@	.,		///
+	label(resource LBL_BU_BROWSE)				///
+	option(saving)						///
+	defext(dtasig)						///
+	save							///
+	error(resource LBL_FILENAME)
+  CHECKBOX ck_replace	@	_ms	@	.,		///
+	option(replace)						///
+	label(resource LBL_OVERWRITE_FILE_IF_IT_ALREADY_EXISTS)
+
+// controls for -datasignature confirm-
+  CHECKBOX ck_strict	_lft	holdy	_iwd	.,		///
+	option(strict)						///
+	label(resource DATASIGNATURE_MAIN_CK_STICK)
+
+// controls for -datasignature confirm- and -datasignature report-
+  GROUPBOX gb_using	_lft	_ms	@	_ht7,		///
+	label("")
+  RADIO rb_default	_ilft	_ss	_ibwd	.,		///
+	first							///
+	option(NONE)						///
+	onclickon(main.fi_using.disable)			///
+	label(resource DATASIGNATURE_MAIN_RB_DEFAULT)
+  RADIO rb_using	@	_ms	@	.,		///
+	last							///
+	option(NONE)						///
+	onclickon(main.fi_using.enable)				///
+	label(resource DATASIGNATURE_MAIN_RB_USING)
+  FILE fi_using		_indent2 _ss	_inwd	.,		///
+	label(resource LBL_BU_BROWSE)				///
+	defext(dtasig)						///
+	error(resource BSTAT_MAIN_TX_USING)
+END
+
+
+SCRIPT main_hide_all
+BEGIN
+	main.ck_set.hide
+	main.ck_reset.hide
+	main.ck_save.hide
+	main.tx_save.hide
+	main.fi_save.hide
+	main.ck_replace.hide
+	main.ck_strict.hide
+	main.gb_using.hide
+	main.rb_default.hide
+	main.rb_using.hide
+	main.fi_using.hide
+END
+
+SCRIPT sel_set
+BEGIN
+	script main_hide_all
+	main.ck_set.show
+	main.ck_reset.show
+	main.ck_save.show
+	main.tx_save.show
+	main.fi_save.show
+	main.ck_replace.show
+END
+
+SCRIPT sel_confirm
+BEGIN
+	script main_hide_all
+	main.ck_strict.show
+	main.gb_using.show
+	main.rb_default.show
+	main.rb_using.show
+	main.fi_using.show
+	main.gb_using.setposition . 155
+	main.rb_default.setposition . 175
+	main.rb_using.setposition . 195
+	main.fi_using.setposition . 215
+	
+END
+
+SCRIPT sel_report
+BEGIN
+	script main_hide_all
+	main.gb_using.show
+	main.rb_default.show
+	main.rb_using.show
+	main.fi_using.show
+	main.gb_using.setposition . 135
+	main.rb_default.setposition . 155
+	main.rb_using.setposition . 175
+	main.fi_using.setposition . 195
+END
+
+SCRIPT sel_clear
+BEGIN
+	script main_hide_all
+END
+
+PROGRAM set_on
+BEGIN
+	call main.ck_reset.enable
+	call main.ck_save.enable
+	if main.ck_save {
+		call main.tx_save.enable
+		call main.fi_save.enable
+		call main.ck_replace.enable
+	}
+END
+
+SCRIPT set_off
+BEGIN
+	main.ck_reset.disable
+	main.ck_save.disable
+	main.tx_save.disable
+	main.fi_save.disable
+	main.ck_replace.disable
+END
+
+SCRIPT main_save_on
+BEGIN
+	main.tx_save.enable
+	main.fi_save.enable
+	main.ck_replace.enable
+END
+
+SCRIPT main_save_off
+BEGIN
+	main.tx_save.disable
+	main.fi_save.disable
+	main.ck_replace.disable
+END
+
+PROGRAM saving_output
+BEGIN
+	put `"""' main.fi_save `"""'
+	beginoptions
+		option main.ck_replace
+	endoptions
+END
+
+PROGRAM command
+BEGIN
+	put "datasignature "
+	option main.rb_confirm
+	option main.rb_report
+	option main.rb_clear
+	option main.ck_set
+	if main.rb_using & main.rb_using.isvisible() {
+		require main.fi_using
+		put " using "
+		put `"""' main.fi_using `"""'
+	}
+	beginoptions
+		if main.ck_save & main.ck_save.isvisible() {
+			require main.fi_save
+			put "saving("
+			put /program saving_output
+			put ") "
+		}
+		option main.ck_reset
+		option main.ck_strict
+	endoptions
+END

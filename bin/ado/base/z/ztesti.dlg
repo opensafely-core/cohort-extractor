@@ -1,0 +1,275 @@
+/*
+  ztesti
+
+*! VERSION 1.1.2  11dec2017
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+DEFINE _dlght 300
+INCLUDE header
+
+HELP hlp1, view("help ztesti")
+RESET res1
+
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource ZTESTI_DLG_HSCALE
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	if __MESSAGE.iseq("-one-") {
+		call main.rb_ztesti1.seton
+	}
+	if __MESSAGE.iseq("-two-") {
+		call main.rb_ztesti2.seton
+	}
+END
+
+DIALOG main,								///
+	label(resource ZTESTI_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+	GROUPBOX	gb_ztesti	_lft	_top	_iwd	_ht4,	///
+		label(resource ZTESTI_MAIN_GB_ZTESTI)
+	RADIO		rb_ztesti1	_indent	_ss	_ibwd	.,	///
+		first							///
+		onclickon("program main_ztesti1_on")			///
+		label(resource LBL_ONE_SAMPLE)
+	RADIO		rb_ztesti2	@	_ss	@	.,	///
+		last							///
+		onclickon("program main_ztesti2_on")			///
+		label(resource LBL_TWO_SAMPLE)
+
+	GROUPBOX	gb_group	_lft	_xls	_iwd	_ht22,	///
+		label(resource ZTESTI_MAIN_GB_GROUP)
+
+	/* One-sample mean-comparison z test calculator */
+	SPINNER	sp_obs			_indent	_ls	_spwd	.,	///
+		min(1) max(1000000000) default(1)			///
+		label(resource LBL_SAMPLE_SIZE)
+	DEFINE	holdx @x
+	DEFINE	holdy @y
+	TEXT  	tx_obs			_spsep	@	_cwd2	.,	///
+		label(resource LBL_SAMPLE_SIZE)
+	EDIT	en_mean			holdx	_ls	_en7wd	.,	///
+		numonly							///
+		label(resource LBL_SAMPLE_MEAN)
+	TEXT	tx_mean			_en7sep	@	_cwd2	.,	///
+		label(resource LBL_SAMPLE_MEAN)
+	EDIT	en_sd			holdx	_ls	_en7wd	.,	///
+		numonly							///
+		label(resource ZTESTI_MAIN_EN_SD)
+	TEXT	tx_sd			_en7sep	@	_cwd2	.,	///
+		label(resource ZTESTI_MAIN_EN_SD)
+	EDIT	en_cval			holdx	_ls	_en7wd	.,	///
+		numonly							///
+		label(resource ZTESTI_MAIN_EN_CVAL)
+	TEXT	tx_cval			_en7sep	@	_cwd2	.,	///
+		label(resource ZTESTI_MAIN_EN_CVAL)
+
+	/* Two-sample mean-comparison test calculator */
+	DEFINE _cwd3_01 126
+	DEFINE _cwd3_02 126
+	DEFINE _cwd3_03 126
+	DEFINE _cwd3_1 115
+	DEFINE _cwd3_2 110
+	DEFINE _cwd3_3 96
+	DEFINE _lft3_02 150
+	DEFINE _lft3_03 274
+	DEFINE _ilft3_2 158
+	DEFINE _ilft3_3 283
+
+	DEFINE _iwd 380
+
+	FRAME fr_sam1		_lft3_02	holdy	_cwd3_02 _ht8,	///
+		label("")
+	FRAME fr_sam2		_lft3_03	@	_cwd3_03 @,	///
+		label("")
+	TEXT tx_sam1		_ilft3_2	@	_cwd3_2	.,	///
+		center							///
+		label(resource LBL_SAMPLE_1)
+	TEXT tx_sam2		_ilft3_3	@	_cwd3_2	.,	///
+		center							///
+		label(resource LBL_SAMPLE_2)
+
+	FRAME	fr_rows		holdx		_ss	_iwd	_ht6,	///
+		label("")
+	TEXT	tx_size		_indent		_indent	_cwd3_1	.,	///
+		label(resource LBL_SIZE_NOCOLON)
+	DEFINE holdx1 @x
+	SPINNER	sp_size1	_ilft3_2	@	_cwd3_2	.,	///
+		min(1) max(1000000000) default(1)			///
+		label(resource LBL_SIZE_FOR_SAMPLE_1)
+	SPINNER	sp_size2	_ilft3_3	@	_cwd3_2	.,	///
+		min(1) max(1000000000)	default(1)			///
+		label(resource LBL_SIZE_FOR_SAMPLE_2)
+	TEXT	tx_cmean	holdx1		_ms	_cwd3_1	.,	///
+		label(resource LBL_MEAN)
+	EDIT	en_mean1	_ilft3_2	@	_cwd3_2	.,	///
+		numonly							///
+		label(resource LBL_MEAN_FOR_SAMPLE_1)
+	EDIT	en_mean2	_ilft3_3	@	_cwd3_2	.,	///
+		numonly							///
+		label(resource LBL_MEAN_FOR_SAMPLE_2)
+	TEXT	tx_csd		holdx1		_ms	_cwd3_1	.,	///
+		label(resource ZTESTI_MAIN_TX_CSD)
+	EDIT	en_sd1		_ilft3_2	@	_cwd3_2	.,	///
+		numonly							///
+		label(resource ZTESTI_MAIN_EN_SD)
+	EDIT	en_sd2		_ilft3_3	@	_cwd3_2	.,	///
+		numonly							///
+		label(resource ZTESTI_MAIN_EN_SD)
+
+	DEFINE _x holdx
+	DEFINE _cx _cwd2
+	DEFINE _y _xls
+	INCLUDE _sp_level
+END
+
+PROGRAM main_ztesti1_on
+BEGIN
+	call script main_ztesti1_show
+	call script main_ztesti2_hide
+	call main.sp_level.setposition . 240
+	call main.tx_level.setposition . 240
+	call main.gb_group.setlabel resource ZTESTI_ONE_SAMPLE_MEAN_COMPAR_Z_TEST_CALC
+END
+
+PROGRAM main_ztesti2_on
+BEGIN
+	call script main_ztesti1_hide
+	call script main_ztesti2_show
+	call main.sp_level.setposition . 245
+	call main.tx_level.setposition . 245
+	call main.gb_group.setlabel resource ZTESTI_TWO_SAMPLE_MEAN_COMPAR_Z_TEST_CALC
+END
+
+SCRIPT main_ztesti1_show
+BEGIN
+	main.sp_obs.show
+	main.tx_obs.show
+	main.en_mean.show
+	main.tx_mean.show
+	main.en_sd.show
+	main.tx_sd.show
+	main.en_cval.show
+	main.tx_cval.show
+	main.sp_level.setvalue "95"
+END
+
+SCRIPT main_ztesti1_hide
+BEGIN
+	main.sp_obs.hide
+	main.tx_obs.hide
+	main.en_mean.hide
+	main.tx_mean.hide
+	main.en_sd.hide
+	main.tx_sd.hide
+	main.en_cval.hide
+	main.tx_cval.hide
+END
+
+SCRIPT main_ztesti2_show
+BEGIN
+	main.fr_sam1.show
+	main.fr_sam2.show
+	main.tx_sam1.show
+	main.tx_sam2.show
+	main.fr_rows.show
+	main.tx_size.show
+	main.sp_size1.show
+	main.sp_size2.show
+	main.tx_cmean.show
+	main.en_mean1.show
+	main.en_mean2.show
+	main.tx_csd.show
+	main.en_sd1.show
+	main.en_sd2.show
+	main.sp_level.setvalue "95"
+END
+
+SCRIPT main_ztesti2_hide
+BEGIN
+	main.fr_sam1.hide
+	main.fr_sam2.hide
+	main.tx_sam1.hide
+	main.tx_sam2.hide
+	main.fr_rows.hide
+	main.tx_size.hide
+	main.sp_size1.hide
+	main.sp_size2.hide
+	main.tx_cmean.hide
+	main.en_mean1.hide
+	main.en_mean2.hide
+	main.tx_csd.hide
+	main.en_sd1.hide
+	main.en_sd2.hide
+END
+
+PROGRAM command
+BEGIN
+	if main.rb_ztesti1 {
+		require main.en_mean
+		require main.en_sd
+		require main.en_cval
+		if !main.en_sd.isNumlistGT(0) {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format				/// 
+				"resource LBL_MSGBOX_GREATER_THAN_0_FMT" ///
+				"resource ZTESTI_MAIN_EN_SD"
+			stopbox stop "class _MSG_TMP.value"
+// "Population standard deviation" must be greater than 0.
+		}
+		put "ztesti "
+		put main.sp_obs
+		put " "
+		put main.en_mean
+		put " "
+		put main.en_sd
+		put " "
+		put main.en_cval
+	}
+
+	if main.rb_ztesti2 {
+		require main.en_mean1 main.en_sd1
+		require main.en_mean2 main.en_sd2
+		if !main.en_sd1.isNumlistGT(0) {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_GREATER_THAN_0_FMT" ///
+				"resource ZTESTI_MAIN_EN_SD"
+			stopbox stop "class _MSG_TMP.value"
+// "Population standard deviation" must be greater than 0.
+		}
+		if !main.en_sd2.isNumlistGT(0) {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_GREATER_THAN_0_FMT" ///
+				"resource ZTESTI_MAIN_EN_SD"
+			stopbox stop "class _MSG_TMP.value"
+// "Population standard deviation" must be greater than 0.
+		}
+		put "ztesti "
+		put main.sp_size1
+		put " "
+		put main.en_mean1
+		put " "
+		put main.en_sd1
+		put " "
+		put main.sp_size2
+		put " "
+		put main.en_mean2
+		put " "
+		put main.en_sd2
+	}
+
+	beginoptions
+		INCLUDE _level_main_pr
+	endoptions
+END
+
+

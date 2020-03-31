@@ -1,0 +1,97 @@
+/*
+  fdause
+
+*! VERSION 1.1.2 02dec2014 (deprecated)
+
+*/
+
+VERSION 8.0
+
+INCLUDE _std_medium
+INCLUDE _ht250
+INCLUDE header
+
+HELP hlp1, view("help fdasave")
+RESET res1
+
+DIALOG main, label("fdause - Import FDA data (SAS XPORT)")		///
+		tabtitle("Main")
+
+BEGIN
+  TEXT     tx_file     _lft        _top      _iwd        .,		///
+		label("Filename:")
+  FILE     fi_file     @           _ss       @           .,		///
+		error("Filename")					///
+		label("Browse...")					///
+		filter(SAS XPORT (*.xpt)|*.xpt|All Files (*.*)|*.*)
+		
+  GROUPBOX gb_options  @           +35      @           _ht10h,		///
+		label("Options")
+		
+  CHECKBOX ck_clear    _indent     _ms       _inwd       .,		///
+  		label("Replace data in memory")				///  
+		option(clear) 		
+  CHECKBOX ck_novallab @           _ms       @           .,		///
+  		option(novallabels) 					///
+  		label(`"Ignore accompanying "formats.xpf" file if it exists"')
+  CHECKBOX ck_member   @           _ms       @           .,		///
+  		label(`"" *.xpt " file has multiple members"')		///
+  		onclickon(script member_on)				///
+  		onclickoff(script member_off)
+
+  EDIT     ed_member   +20         _ms       _vnwd       .,		///
+  		label("Member")						///
+  		option(member)
+  TEXT     tx_member   _vnsep      @         _vnwd       .,		///
+  		label("Member")
+  		
+  BUTTON   bu_describe _lft        _xxls     130         .,		///
+  		label("Describe FDA data")				///
+  		onpush(program fdadescribe)
+END  	
+
+SCRIPT member_on
+BEGIN
+	main.tx_member.enable
+	main.ed_member.enable
+END
+
+SCRIPT member_off
+BEGIN
+	main.tx_member.disable
+	main.ed_member.disable
+END
+
+PROGRAM get_filename // trim the string
+BEGIN
+	put main.fi_file
+END
+
+PROGRAM fdadescribe
+BEGIN
+	if !main.fi_file {
+		stopbox stop `""Filename" must be filled in"'
+	}
+	put "fdadescribe " 
+	put `"""' /program get_filename `"""'
+	if main.ck_member {
+		require main.ed_member
+		optionarg main.ed_member
+	}
+	stata
+END
+
+PROGRAM command
+BEGIN
+	put "fdause "
+	require main.fi_file
+	put `"""' /program get_filename `"""'
+	beginoptions
+		option main.ck_clear
+		option main.ck_novallab
+		if main.ck_member {
+			require main.ed_member
+			optionarg main.ed_member
+		}
+	endoptions
+END

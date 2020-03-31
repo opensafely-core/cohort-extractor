@@ -1,0 +1,567 @@
+/*
+	predict (after menl)
+
+*!  VERSION 1.0.5  18jun2019
+
+*/
+
+VERSION 15.0
+
+INCLUDE _std_large
+DEFINE _dlght 440
+INCLUDE header
+
+HELP hlp1, view("help menl postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+             setscale_hadj resource MENL_P_DLG_HSCALE
+	
+	create STRING sTMP
+	create STRING main_build_tmp
+	create STRING main_build_tmp2
+	create STRING main_build_childdlg
+	create STRING main_build_child_result
+	create DOUBLE main_build_position
+	
+	create ARRAY main_paraspecsum_list
+	create SVECTOR mainParaspecCommandDisplayList
+	create SVECTOR mainParaspecCommandList
+	create SVECTOR mainParaspecCommandValues
+	create SVECTOR mainParaspecStatusList
+	create SVECTOR mainParaspecChildDialogList
+	create DOUBLE main_paraspec_count
+	create DOUBLE main_paraspec_arraysize
+	create STRING main_paraspec_output
+	
+	main.bu_paraspec_edit.disable
+	main.bu_paraspec_disable.disable
+	main.bu_paraspec_enable.disable
+END
+
+DIALOG main, label(resource PREDICT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  INCLUDE  _p_gentype
+
+  GROUPBOX gb_paraspec		_lft	@	350	_ht12,		///
+	label(resource MENL_P_MAIN_GB_PARASPEC)
+  LISTBOX lb_paraspecBuild	_indent	_ms	245	95,		///
+	contents(main_paraspecsum_list)					///
+	ondblclick(program main_paraspec_edit)				///
+	onselchange(program main_paraspec_sel_changed)			///
+	nomemory
+  BUTTON bu_paraspec_create	270	@	80	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program main_paraspec_create)
+  BUTTON bu_paraspec_edit	@	_ms	@	.,		///
+	label(resource LBL_BU_EDIT)					///
+	onpush(program main_paraspec_edit)
+  BUTTON bu_paraspec_disable	@	_ms	@	.,		///
+	label(resource LBL_BU_DISABLE)					///
+	onpush(program main_paraspec_disable)
+  BUTTON bu_paraspec_enable	@	_ms	@	.,		///
+	label(resource LBL_BU_ENABLE)					///
+	onpush(program main_paraspec_enable)
+  TEXTBOX tb_paraspec_note	_ilft	+25	235	20,		///
+	label(resource LBL_PRESS_CREATE_DEFINE_SPECIFICATION)
+	
+  GROUPBOX gb_opts		_lft	_ls	_iwd	_ht12,		///
+	label(resource LBL_PRODUCE)
+  RADIO rb_yhat			_ilft	_ss	_inwd	., first	///
+	option(yhat)							///
+	onclickon(script main_others_on)				///
+	label(resource MENL_P_MAIN_RB_YHAT)
+  RADIO rb_specp		@	_ss	_ibwd	.,		///
+	onclickon(script main_specp_on)					///
+	label(resource MENL_P_MAIN_RB_SPECP)
+  RADIO rb_allp			@	_ss	@	., 		///
+	option(parameters)						///
+	onclickon(script main_allp_on)					///
+	label(resource MENL_P_MAIN_RB_ALLP)
+  RADIO rb_blups		@	_ss	@	., 		///
+	option(reffects)						///
+	onclickon(script main_blups_on)					///
+	label(resource MENL_P_MAIN_RB_BLUPS)
+  RADIO rb_residuals		@	_ss	@	.,		///
+	option(residuals)						///
+	onclickon(script main_others_on)				///
+	label(resource MENL_P_MAIN_RB_RESIDUALS)
+  RADIO rb_rstandard		@	_ss	@	., last		///
+	option(rstandard)						///
+	onclickon(script main_others_on)				///
+	label(resource LBL_STANDARDIZED_RESIDUALS)
+
+  EDIT ed_reses			_lft	_ls	_vnwd	.,		///
+	option(reses)							///
+	label(resource MENL_P_MAIN_TX_RESES)
+  TEXT tx_reses			_vnsep	@	340	.,		///
+  	label(resource MENL_P_MAIN_TX_RESES)
+  CHECKBOX ck_fixedonly		_lft	_ls	_ibwd	.,		///
+	option(fixedonly)						///
+	onclickon(program main_fixedonly_on)				///
+	onclickoff(program main_fixedonly_on)				///
+	label(resource MENL_P_MAIN_CK_FIXEDONLY)
+  COMBOBOX cb_relevel		_lft	_ls	_vnwd	.,		///
+	onselchange(program main_relevel_change)			///
+	dropdown							///
+	contents(e(ivars))						///
+	option(relevel)							///
+	label(resource MIXED_P_MAIN_CB_RELEVEL)
+  TEXT tx_relevel		_vnsep	@	340	.,		///
+	label(resource MIXED_P_MAIN_CB_RELEVEL)
+END
+
+INCLUDE _p_gentype_sc
+INCLUDE ifin
+INCLUDE _type_list_fd
+
+SCRIPT main_blups_on
+BEGIN
+	script main_paraspec_hide
+	main.ed_var.show 
+	main.tx_var.show
+	script _p_gentype_multiple
+	main.tx_type.setposition 370 . . .
+	main.cb_type.setposition 370 . . .
+	main.ed_var.setposition . . 350 .
+	main.ed_var.setlabel resource LBL_NEW_VARIABLE_NAMES_STUB 
+	main.ed_reses.enable
+	main.tx_reses.enable
+	main.ck_fixedonly.disable
+	program main_fixedonly_on
+END
+
+SCRIPT main_others_on
+BEGIN
+	script main_paraspec_hide
+	main.ed_var.show 
+	main.tx_var.show
+	main.tx_type.setposition 370 . . .
+	main.cb_type.setposition 370 . . .
+	main.ed_var.setlabel resource LBL_NEW_VARIABLE_NAMES
+	script _p_gentype_single
+	script main_reses_disable
+	main.ck_fixedonly.enable
+	program main_fixedonly_on
+END
+
+SCRIPT main_specp_on
+BEGIN
+	script main_paraspec_show
+	main.ed_var.hide 
+	main.tx_var.hide
+	main.tx_type.setposition 370 . . .
+	main.cb_type.setposition 370 . . .
+	script main_reses_disable
+	main.ck_fixedonly.enable
+END
+
+SCRIPT main_allp_on
+BEGIN
+	script main_paraspec_hide
+	main.ed_var.show 
+	main.tx_var.show
+	script _p_gentype_multiple
+	main.tx_type.setposition 370 . . .
+	main.cb_type.setposition 370 . . .
+	main.ed_var.setposition . . 350 .
+	script main_reses_disable
+	main.ck_fixedonly.enable
+	main.tx_var.setlabel resource LBL_NEW_VARIABLE_NAMES_STUB
+	main.ed_var.setlabel resource LBL_NEW_VARIABLE_NAMES_STUB
+	program main_fixedonly_on
+END
+
+SCRIPT main_reses_disable
+BEGIN
+	main.tx_reses.disable
+	main.ed_reses.disable
+END
+
+SCRIPT main_paraspec_show
+BEGIN
+	main.gb_paraspec.show 
+	main.lb_paraspecBuild.show 
+	main.bu_paraspec_create.show 
+	main.bu_paraspec_disable.show
+	main.bu_paraspec_edit.show 
+	main.bu_paraspec_enable.show 
+	main.tb_paraspec_note.show
+	
+	main.gb_paraspec.setposition . 10
+	main.lb_paraspecBuild.setposition . 35
+	main.bu_paraspec_create.setposition . 35
+	main.bu_paraspec_edit.setposition . 60
+	main.bu_paraspec_enable.setposition . 85
+	main.bu_paraspec_disable.setposition . 110
+	main.tb_paraspec_note.setposition . 135
+	
+	main.gb_opts.setposition . 175
+	main.rb_yhat.setposition . 195
+	main.rb_specp.setposition . 215
+	main.rb_allp.setposition . 235
+	main.rb_blups.setposition . 255
+	main.rb_residuals.setposition . 275 
+	main.rb_rstandard.setposition . 295 
+	
+	main.ed_reses.setposition . 345
+	main.tx_reses.setposition . 345
+	main.ck_fixedonly.setposition . 375
+	main.cb_relevel.setposition . 405
+	main.tx_relevel.setposition . 405
+END 
+
+SCRIPT main_paraspec_hide
+BEGIN
+	main.gb_paraspec.hide 
+	main.lb_paraspecBuild.hide 
+	main.bu_paraspec_create.hide 
+	main.bu_paraspec_disable.hide
+	main.bu_paraspec_edit.hide 
+	main.bu_paraspec_enable.hide 
+	main.tb_paraspec_note.hide
+	
+	main.gb_opts.setposition . 65
+	main.rb_yhat.setposition . 85
+	main.rb_specp.setposition . 105
+	main.rb_allp.setposition . 125
+	main.rb_blups.setposition . 145
+	main.rb_residuals.setposition . 165 
+	main.rb_rstandard.setposition . 185 
+	
+	main.ed_reses.setposition . 235
+	main.tx_reses.setposition . 235
+	main.ck_fixedonly.setposition . 265
+	main.cb_relevel.setposition . 295
+	main.tx_relevel.setposition . 295
+END
+
+PROGRAM main_fixedonly_on
+BEGIN
+	if main.ck_fixedonly.isenabled() & main.ck_fixedonly {
+		call opt.sp_iter.disable
+		call opt.tx_iter.disable
+		call opt.ed_tol.disable
+		call opt.tx_tol.disable
+		call main.cb_relevel.disable
+		call main.tx_relevel.disable
+		call opt.ed_nrtolerance.disable
+		call opt.ck_nonrtolerance.disable
+	}
+	else {
+		call opt.sp_iter.enable
+		call opt.tx_iter.enable
+		call opt.ed_tol.enable
+		call opt.tx_tol.enable
+		call main.cb_relevel.enable
+		call main.tx_relevel.enable
+		call opt.ed_nrtolerance.enable
+		call opt.ck_nonrtolerance.enable
+	}
+END
+
+PROGRAM main_relevel_change
+BEGIN
+	if main.cb_relevel.isenabled() & main.cb_relevel {
+		call main.ck_fixedonly.disable
+	}
+	else {
+		call main.ck_fixedonly.enable
+	}
+	call program main_fixedonly_on
+END
+
+PROGRAM main_paraspec_create
+BEGIN
+	call main_paraspec_count.setvalue class mainParaspecChildDialogList.size
+	call main_paraspec_count.increment
+	call main_build_tmp.setvalue "main_paraspec_"
+	call main_build_tmp.append class main_paraspec_count.value
+	call main_build_tmp.withvalue main_build_childdlg.setvalue @
+	call program main_show_paraspec_child
+END
+
+PROGRAM main_paraspec_edit
+BEGIN
+	call mainParaspecCommandDisplayList.findstr class		///
+		main.lb_paraspecBuild.value
+	call main_build_position.setvalue class				///
+		mainParaspecCommandDisplayList.position
+	call main_build_position.withvalue				///
+		main_build_childdlg.setvalue				///
+		class mainParaspecChildDialogList.values[@]
+	call program main_show_paraspec_child_edit
+END
+
+PROGRAM main_show_paraspec_child
+BEGIN
+	call main_build_tmp.setvalue "menl_p_paraspec AS "
+	call main_build_tmp.append class main_build_childdlg.value
+	call main_build_tmp.withvalue create CHILD @
+	call main_build_childdlg.withvalue @.setExitString		///
+		"main_build_child_result"
+	call main_build_childdlg.withvalue @.setExitAction		///
+		"program main_paraspec_child_create_done"
+
+	call main_paraspec_count.withvalue				///
+		sTMP.format "resource LBL_SPECIFICATION_FMT" "@" ""
+
+	call main_build_childdlg.withvalue				///
+		main_build_tmp2.setvalue "@.settitle"
+	call main_build_tmp2.append `" ""'
+	call main_build_tmp2.append class sTMP.value
+	call main_build_tmp2.append `"""'
+	call main_build_tmp2.withvalue @
+END
+
+PROGRAM main_show_paraspec_child_edit
+BEGIN
+	call main_build_tmp.setvalue "menl_p_paraspec AS "
+	call main_build_tmp.append class main_build_childdlg.value
+	call main_build_tmp.withvalue create CHILD @
+	call main_build_childdlg.withvalue @.setExitString		///
+		"main_build_child_result"
+	call main_build_childdlg.withvalue @.setExitAction		///
+		"program main_paraspec_child_edit_done"
+
+	call main_build_position.withvalue				///
+		main_build_tmp.setvalue					///
+		class mainParaspecCommandDisplayList.values[@]
+	call main_build_childdlg.withvalue				///
+		main_build_tmp2.setvalue "@.settitle"
+	call main_build_tmp2.append `" ""'
+	call main_build_tmp2.append class main_build_tmp.value
+	call main_build_tmp2.append `"""'
+	call main_build_tmp2.withvalue @
+END
+
+PROGRAM main_paraspec_child_create_done
+BEGIN
+	call main_paraspec_arraysize.setvalue class			///
+		mainParaspecChildDialogList.size
+	call main_paraspec_arraysize.increment
+
+	/* Store child dialog name */
+	call mainParaspecChildDialogList.store class			///
+		main_paraspec_arraysize.value class main_build_childdlg.value
+
+	call main_paraspec_arraysize.withvalue				///
+		sTMP.format "resource LBL_SPECIFICATION_FMT" "@" ""
+
+	/* Store listbox display equation string */
+	call sTMP.withvalue						///
+		mainParaspecCommandDisplayList.store class		///
+		main_paraspec_arraysize.value "@"
+
+	/* Store child dialog result string */
+	call mainParaspecCommandList.store class			///
+		main_paraspec_arraysize.value				///
+		class main_build_child_result.value
+
+
+	/* Store child dialog result string for final command
+	   For disable/enable */
+	call mainParaspecCommandValues.store class			///
+		main_paraspec_arraysize.value				///
+		class main_build_child_result.value
+
+	/* Store disable/enable status */
+	call mainParaspecStatusList.store class				///
+		main_paraspec_arraysize.value "active"
+
+	call mainParaspecCommandDisplayList.copyToArray main_paraspecsum_list
+	call main.lb_paraspecBuild.repopulate
+	call sTMP.withvalue						///
+		main.lb_paraspecBuild.setvalue "@"
+END
+
+PROGRAM main_paraspec_child_edit_done
+BEGIN
+	call mainParaspecChildDialogList.findstr class			///
+		main_build_childdlg.value
+	call main_build_position.setvalue class				///
+		mainParaspecChildDialogList.position
+	call main_build_position.withvalue main_build_tmp.setvalue	///
+		class mainParaspecStatusList.values[@]
+	if main_build_tmp.iseq("active") {
+	
+		call main_build_position.withvalue			///
+			sTMP.format "resource LBL_SPECIFICATION_FMT" "@" ""
+	
+		call sTMP.withvalue					///
+			mainParaspecCommandDisplayList.store class	///
+			main_build_position.value "@"
+
+		call mainParaspecCommandValues.store class		///
+			main_build_position.value class			///
+			main_build_child_result.value
+
+		call sTMP.withvalue					///
+			main_build_tmp2.setvalue "@"
+	}
+	else {
+		call main_build_position.withvalue			///
+			sTMP.format "resource LBL_SPECIFICATION_FMT" "@" "resource LBL_PAREN_DISABLED"
+
+		call sTMP.withvalue					///
+			mainParaspecCommandDisplayList.store		///
+			class main_build_position.value "@"
+			
+		call sTMP.withvalue					///
+			main_build_tmp2.setvalue "@"
+	}
+
+	call mainParaspecCommandList.store class			///
+		main_build_position.value class				///
+		main_build_child_result.value
+
+	call mainParaspecCommandDisplayList.copyToArray main_paraspecsum_list
+	call main.lb_paraspecBuild.repopulate
+	call main.lb_paraspecBuild.setvalue class main_build_tmp2.value
+END
+
+PROGRAM main_paraspec_sel_changed
+BEGIN
+	call mainParaspecCommandDisplayList.findstr class		///
+		main.lb_paraspecBuild.value
+	call main_build_position.setvalue class				///
+		mainParaspecCommandDisplayList.position
+	call main_build_position.withvalue main_build_tmp.setvalue	///
+		class mainParaspecStatusList.values[@]
+	if main_build_position {
+		call main.bu_paraspec_edit.enable
+
+		call main_build_position.withvalue			///
+			main.tb_paraspec_note.setlabel			///
+		class mainParaspecCommandList.values[@]
+	}
+
+	if main_build_tmp.iseq("disable") & main.lb_paraspecBuild.isenabled() {
+		call main.bu_paraspec_enable.enable
+		call main.bu_paraspec_disable.disable
+	}
+	if main_build_tmp.iseq("active") & main.lb_paraspecBuild.isenabled() {
+		call main.bu_paraspec_enable.disable
+		call main.bu_paraspec_disable.enable
+	}
+END
+
+PROGRAM main_paraspec_disable
+BEGIN
+	call mainParaspecCommandDisplayList.findstr class		///
+		main.lb_paraspecBuild.value
+	call main_build_position.setvalue class				///
+		mainParaspecCommandDisplayList.position
+
+	call main_build_tmp.setvalue class main.lb_paraspecBuild.value
+	call mainParaspecStatusList.store class				///
+		main_build_position.value "disable"
+	call mainParaspecCommandValues.store class main_build_position.value ""
+
+	call main_build_position.withvalue				///
+		sTMP.format "resource LBL_SPECIFICATION_FMT" "@" "resource LBL_PAREN_DISABLED"
+
+	call sTMP.withvalue						///
+		mainParaspecCommandDisplayList.store			///
+		class main_build_position.value "@"
+
+	call mainParaspecCommandDisplayList.copyToArray main_paraspecsum_list
+	call sTMP.withvalue main_build_tmp2.setvalue "@"
+	
+	call main.lb_paraspecBuild.repopulate
+	call main.lb_paraspecBuild.setvalue class main_build_tmp2.value
+END
+
+PROGRAM main_paraspec_enable
+BEGIN
+	call mainParaspecCommandDisplayList.findstr class		///
+		main.lb_paraspecBuild.value
+	call main_build_position.setvalue class				///
+		mainParaspecCommandDisplayList.position
+
+	call mainParaspecStatusList.store class				///
+		main_build_position.value "active"
+	call main_build_position.withvalue				///
+		mainParaspecCommandValues.store				///
+		class main_build_position.value class			///
+		mainParaspecCommandList.values[@]
+
+	call main_build_position.withvalue				///
+		sTMP.format "resource LBL_SPECIFICATION_FMT" "@" ""
+
+	call sTMP.withvalue						///
+		mainParaspecCommandDisplayList.store			///
+		class main_build_position.value "@"
+
+	call mainParaspecCommandDisplayList.copyToArray main_paraspecsum_list
+
+	call main_build_position.withvalue				///
+		main_build_tmp2.setvalue class				///
+		mainParaspecCommandDisplayList.values[@]
+	call main.lb_paraspecBuild.repopulate
+	call main.lb_paraspecBuild.setvalue class main_build_tmp2.value
+END
+
+DIALOG opt, tabtitle(resource LBL_OPTIONS)
+BEGIN
+  SPINNER sp_iter		_lft	_top	_en7wd	.,		///
+	min(1)								///
+	default(10)							///
+	option(iterate)							///
+	label(resource MENL_MAIN_TX_ITERATE)
+  TEXT tx_iter			_en7sep	@	_iwd	.,		///
+  	label(resource MENL_MAIN_TX_ITERATE)
+  EDIT ed_tol			_lft	_ls	_en7wd	.,		///
+	default(1e-6)							///
+	option(tolerance)						///
+	label(resource MENL_MAIN_TX_TOLERANCE)
+  TEXT tx_tol			_en7sep	@	_iwd	.,		///
+	label(resource MENL_MAIN_TX_TOLERANCE)
+  EDIT ed_nrtolerance		_lft	_ls	_en7wd 	.,		///
+	default(1e-5)							///
+	option(nrtolerance)						///
+	label(resource LBL_SCALED_GRADIENT_FOR_RM)
+  TEXT tx_nrtolerance		+65	@	395	.,		///
+	label(resource LBL_SCALED_GRADIENT_FOR_RM)
+  CHECKBOX ck_nonrtolerance	_lft	_ls	@	.,		///
+	onclickon("opt.ed_nrtolerance.disable")			///
+	onclickoff("opt.ed_nrtolerance.enable")			///
+	option(nonrtolerance)						///
+	label(resource LBL_DISABLE_SCALED_GRADIENT)
+END
+
+PROGRAM command
+BEGIN
+	put "predict "
+	if main.rb_specp {
+		if ! main.cb_type.isdefault() {
+			put main.cb_type " "
+		}
+		call mainParaspecCommandValues.copyToString main_paraspec_output
+		if main_paraspec_output.equals("") {		
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format 					///
+				"resource LBL_MSGBOX_ON_TAB_MUST_BE_SPECIFIED_FMT" ///
+				"resource LBL_TAB_MAIN" 			///
+				"resource MENL_P_MAIN_GB_PARASPEC"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "New variable names for parameters" must be specified.
+		}
+		put main_paraspec_output	
+	}
+	else {
+		put " " /program _p_gentype_output
+	}
+	put " " /program ifin_output
+	beginoptions
+		option radio(main rb_yhat rb_allp rb_blups rb_residuals rb_rstandard)
+		optionarg main.cb_relevel
+		option main.ck_fixedonly
+		optionarg main.ed_reses
+		optionarg /hidedefault opt.sp_iter
+		optionarg /hidedefault opt.ed_tol
+		optionarg /hidedefault opt.ed_nrtolerance
+		option opt.ck_nonrtolerance
+	endoptions
+END

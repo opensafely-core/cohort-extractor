@@ -1,0 +1,118 @@
+/*
+  power_table_add_spec.dlg
+
+*!  VERSION 1.1.2  21apr2017
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_xlarge
+DEFINE _dlght 100
+INCLUDE header
+
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING parent_name
+	create STRING add_selected
+	create STRING add_selected_values
+	create STRING tmp_label
+	create STRING tmp_width
+	create STRING tmp_format
+
+	tmp_label.setvalue ""
+	parent_name.setvalue class PARENT._dlg_rsrcname
+	parent_name.withvalue add_selected.setvalue			///
+		class @.selected_add.value
+	parent_name.withvalue add_selected_values.setvalue		///
+		class @.selected_add_values.value
+
+	create STRING STMP
+	add_selected.withvalue STMP.format "resource POWER_TABLE_ADD_SPEC_TITLE_FMT" "@"
+	main.settitle class STMP.value
+	
+	setscale_hadj resource POWER_TABLE_ADD_SPEC_DLG_HSCALE
+END
+
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN) label(resource LBL_FORMAT_TABLE_COLUMN)
+BEGIN
+  TEXT tx_label		_lft	_top	_vnwd	.,			///
+	label(resource LBL_LABEL)
+  EDIT ed_label		55	@	_vnwd	.,			///
+	label(resource LBL_LABEL)
+
+  TEXT tx_width		_lft	_ls	_vnwd	.,			///
+	label(resource LBL_WIDTH)
+  SPINNER sp_width	55	@	_spwd	.,			///
+	min(1) max(30) default(9)					///
+	label(resource LBL_WIDTH)
+
+  TEXT tx_fmt		_lft	_ls	_vnwd	.,			///
+	label(resource LBL_FORMAT)
+  EDIT ed_fmt		55	@	_vnwd	.,			///
+	label(resource LBL_FORMAT)
+  BUTTON bu_format	_vnsep	@	15	.,			///
+	label(..) onpush(script labels_GetFormat)			///
+	tooltip(resource LBL_CREATE_DISPLAY_FORMAT)
+END
+
+SCRIPT labels_GetFormat
+BEGIN
+	create STRING labelFormat
+	create CHILD format_chooser
+	format_chooser.setExitString labelFormat
+	format_chooser.setExitAction "main.ed_fmt.setvalue class labelFormat.value"
+END
+
+PROGRAM command
+BEGIN
+	if main.ed_label {
+		put "label: "
+		put main.ed_label
+		put "   "
+		call tmp_label.append class add_selected_values.value
+		call tmp_label.append `":"'
+		call main.ed_label.withvalue tmp_label.append `""@""'
+		call tmp_label.withvalue PARENT.callthru		///
+			`"labelAddResult.setvalue `"@"'"'
+	}
+	else {
+		call tmp_label.append class add_selected_values.value
+		call tmp_label.withvalue PARENT.callthru		///
+			`"labelAddResult.setvalue "@""'
+	}
+
+	if main.sp_width.isneq(9) {
+		put "width: "
+		put main.sp_width
+		put "   "
+		call tmp_width.append class add_selected_values.value
+		call tmp_width.append `" "'
+		call main.sp_width.withvalue tmp_width.append `""@""'
+		call tmp_width.withvalue PARENT.callthru		///
+			`"widthAddResult.setvalue `"@"'"'
+	}
+	else {
+		call PARENT.callthru					///
+			`"widthAddResult.setvalue """'
+	}
+
+	if main.ed_fmt {
+		put "format: "
+		put main.ed_fmt
+		put "   "
+		call tmp_format.append class add_selected_values.value
+		call tmp_format.append `" "'
+		call main.ed_fmt.withvalue tmp_format.append `""@""'
+		call tmp_format.withvalue PARENT.callthru		///
+			`"formatAddResult.setvalue `"@"'"'
+	}
+	else {
+		call PARENT.callthru					///
+			`"formatAddResult.setvalue """'
+	}
+END
+

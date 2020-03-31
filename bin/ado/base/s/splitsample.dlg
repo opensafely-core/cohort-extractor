@@ -1,0 +1,175 @@
+/*
+	splitsample.dlg
+
+*!  VERSION 1.0.2  09may2019
+
+*/
+
+VERSION 16.0
+
+INCLUDE _std_medium
+DEFINE _dlght 420
+INCLUDE header
+
+HELP hlp1, view("help splitsample")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource SPLITSAMPLE_DLG_HSCALE
+	create STRING _MSG_TMP
+END
+
+SCRIPT POSTINIT
+BEGIN
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	label(resource SPLITSAMPLE_DLG_TITLE)
+BEGIN
+  GROUPBOX gb_generate		_lft	_top	_iwd	_ht4,		///
+	label(resource SPLITSAMPLE_MAIN_GB_GENERATE)
+  EDIT ed_generate		_ilft	_ss	_vnwd	.,		///
+	label(resource SPLITSAMPLE_MAIN_GB_GENERATE)
+  CHECKBOX ck_replace		@	_ms	300	.,		///
+	option(replace)							///
+	label(resource LBL_REPLACE_ANY_VAR_WITH_ABOVE_NAME)
+  GROUPBOX gb_opts		_lft	+45	_iwd	_ht26h,		///
+	label(resource LBL_OPTIONS)
+  RADIO	rb_nsplit		_ilft	_ss	_iwd	., first	///
+	onclickon("main.sp_nsplit.enable")				///
+	onclickoff("main.sp_nsplit.disable")				///
+	label(resource SPLITSAMPLE_MAIN_RB_NSPLIT)
+  RADIO	rb_split		@	+45	@	., last		///
+	onclickon("main.ed_split.enable")				///
+	onclickoff("main.ed_split.disable")				///
+	label(resource SPLITSAMPLE_MAIN_RB_SPLIT)
+  SPINNER sp_nsplit		_iilft	-25	_spwd	.,		///
+	min(2)								///
+	max(c(N))							///
+	default(2)							///
+	option(nsplit)							///
+	label(resource SPLITSAMPLE_MAIN_RB_NSPLIT)
+  EDIT ed_split			@	+45	_vnwd	.,		///
+	option(split)							///
+	label(resource SPLITSAMPLE_MAIN_RB_SPLIT)
+  CHECKBOX ck_rround		_ilft	_ls	_ibwd	.,		///
+	option(rround)							///
+	label(resource SPLITSAMPLE_MAIN_CK_RROUND)
+  TEXT tx_values		@	_ls	@	.,		///
+	label(resource SPLITSAMPLE_MAIN_TX_VALUES)
+  EDIT ed_values		@	_ss	_vnwd	.,		///
+	option(values)							///
+	label(resource SPLITSAMPLE_MAIN_TX_VALUES)
+  TEXT tx_cluster		@	_ls	_ibwd	.,		///
+	label(resource SPLITSAMPLE_MAIN_TX_CLUSTER)
+  VARNAME vn_cluster		@	_ss	_vnwd	.,		///
+	option(cluster)							///
+	label(resource SPLITSAMPLE_MAIN_TX_CLUSTER)
+  TEXT tx_balance		@	_ls	_ibwd	.,		///
+	label(resource SPLITSAMPLE_MAIN_TX_BALANCE)
+  VARLIST vl_balance		@	_ss	@	.,		///
+	option(balance)							///
+	label(resource SPLITSAMPLE_MAIN_TX_BALANCE)
+END
+
+INCLUDE ifin
+
+DIALOG adv, tabtitle(resource LBL_ADVANCED)
+BEGIN
+  CHECKBOX ck_vars		_lft	_top	_iwd	_ht6,		///
+	groupbox							///
+	onclickon(script adv_vars_on)					///
+	onclickoff(script adv_vars_off)					///
+	label(resource SPLITSAMPLE_ADV_CK_VARS)
+  TEXT tx_vars			_ilft	_ss	_ibwd	.,		///
+	label(resource LBL_VARIABLES)
+  VARLIST vl_vars		@	_ss	@	.,		///
+	label(resource LBL_VARIABLES)
+  CHECKBOX ck_strok		@	_ms	@	.,		///
+	option(strok)							///
+	label(resource SPLITSAMPLE_ADV_CK_STROK)
+  EDIT ed_rseed			_lft	+45	_spwd	.,		///
+	numonly								///
+	option(rseed)							///
+	label(resource LBL_RANDOM_NUMBER_SEED_NO_COLON)
+  TEXT tx_rseed			_spsep	@	150	.,		///
+	label(resource LBL_RANDOM_NUMBER_SEED_NO_COLON)
+  CHECKBOX ck_show		_lft	_ls	_iwd	.,		///
+	onclickon(adv.ck_percent.enable)				///
+	onclickoff(adv.ck_percent.disable)				///
+	option(show)							///
+	label(resource SPLITSAMPLE_ADV_CK_SHOW)
+  CHECKBOX ck_percent		@	_ms	@	.,		///
+	option(percent)							///
+	label(resource SPLITSAMPLE_ADV_CK_PERCENT)
+END
+
+SCRIPT adv_vars_on
+BEGIN
+	adv.tx_vars.enable
+	adv.vl_vars.enable
+	adv.ck_strok.enable
+END
+
+SCRIPT adv_vars_off
+BEGIN
+	adv.tx_vars.disable
+	adv.vl_vars.disable
+	adv.ck_strok.disable
+END
+
+PROGRAM adv_output
+BEGIN
+	option adv.ck_strok.
+  	optionarg adv.ed_rseed
+  	option adv.ck_show
+ 	option adv.ck_percent
+END
+
+PROGRAM generate_output
+BEGIN
+	put main.ed_generate
+	beginoptions
+		option main.ck_replace
+	endoptions
+END
+
+PROGRAM command
+BEGIN
+	put "splitsample "
+	varlist [adv.vl_vars]
+	put " " /program ifin_output
+	beginoptions
+		require main.ed_generate
+		put " generate("
+			put /program generate_output
+		put ")"
+		optionarg /hidedefault main.sp_nsplit
+		if main.rb_split {
+			if !main.ed_split.isnumlist() |			///
+			main.ed_split.isNumlistLT(0) {
+				call _MSG_TMP.format			///
+		"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT"	///
+		"resource LBL_TAB_MAIN"					///
+		"resource SPLITSAMPLE_MAIN_RB_SPLIT"
+				stopbox stop "class _MSG_TMP.value"
+			}
+			optionarg main.ed_split
+		}
+
+		option main.ck_rround
+		if main.ed_values & (!main.ed_values.isnumlist()	///
+			| main.ed_values.isNumlistLT(0)) {
+                        call _MSG_TMP.format				///
+		"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT"	///
+		"resource LBL_TAB_MAIN"					///
+		"resource SPLITSAMPLE_MAIN_TX_VALUES"
+			stopbox stop "class _MSG_TMP.value"
+		}
+		optionarg main.ed_values
+		optionarg main.vn_cluster
+		optionarg main.vl_balance
+		put " " /program adv_output
+	endoptions
+END

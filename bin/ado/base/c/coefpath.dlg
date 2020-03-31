@@ -1,0 +1,411 @@
+/*
+  coefpath
+
+*!  VERSION 1.0.4  23oct2019
+
+*/
+
+VERSION 16.0
+
+INCLUDE _std_wide
+DEFINE _dlght 300
+INCLUDE header
+
+HELP hlp1, view("help coefpath")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource COEFPATH_DLG_HSCALE
+END
+
+SCRIPT main_PREINIT
+BEGIN
+	create STRING lineOptionResults
+	create STRING lineOptAllResults
+	create STRING monoOptAllResults
+	
+	program check_status
+END
+
+SCRIPT main_POSTINIT
+BEGIN
+	program checkLineOptionResults
+	program checkLineOptAllResults
+	program checkMonoOptAllResults
+	
+	dataopt.fi_save.formatfilter "{0} (*.dta)|*.dta|{1} (*.*)|*.*" ///
+	"resource ui_ex FILE_TYPE_DTA" "resource ui_ex FILE_TYPE_ALL_FILES"
+END
+
+PROGRAM main_POSTINIT_PROGRAM
+BEGIN
+	call main.cb_xunits.setvalue "l1norm"
+	call main.cb_xunits.setdefault "l1norm"
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				/// 
+	label(resource COEFPATH_DLG_TITLE)
+BEGIN
+	INCLUDE lassogph_opts
+	
+  CHECKBOX ck_rawcoefs	_lft	+35	_iwd	.,			///
+	option(rawcoefs)						///
+	label(resource COEFPATH_MAIN_CK_RAWCOEF)
+END
+
+LIST xaxis_units
+BEGIN
+	resource LASSOGPH_LBL_L1NORM_OF_STANDARDIZED
+	resource LASSOGPH_LBL_L1NORM_OF_UNSTANDARDIZED
+	resource LASSOGPH_LBL_LOG_OF_LAMBDA
+	resource LASSOGPH_LBL_NEGATIVE_LOG_OF_LAMBDA
+END
+
+LIST xaxis_units_val
+BEGIN
+	l1norm
+	l1normraw
+	lnlambda
+	rlnlambda
+END
+
+INCLUDE lassogph_opts_sc
+
+DIALOG refline, tabtitle(resource LBL_TAB_REFERENCE_LINE)
+BEGIN	
+  RADIO	   rb_refline		_lft	_top	_iwd	.,		///
+	first onclickon(refline.bu_refline_opt.enable)			///
+	label(resource COEFPATH_REFLINE_RB_REFLINE)
+  RADIO    rb_norefline		@	+50	@	.,		///
+	last 								///
+	onclickon(refline.bu_refline_opt.disable) 			///
+	label(resource LBL_SUPPRESS_PLOTTING_THE_REFERENCE_LINE)
+  BUTTON bu_refline_opt 	_iilft	-25	170	.,		///
+	onpush(script show_refline_dialog)				///
+	label(resource LBL_REFLINE_PROP)
+END
+
+SCRIPT show_refline_dialog
+BEGIN
+	create CHILD gr_line_options AS lineOptions, allowsubmit
+	lineOptions.setExitString lineOptionResults
+	lineOptions.setExitAction "program checkLineOptionResults"
+	lineOptions.setSubmitAction "program lineOptionSubmit"
+END
+
+PROGRAM checkLineOptionResults
+BEGIN
+	if lineOptionResults.iseq("") {
+		call refline.bu_refline_opt.modified_off
+	}
+	if !lineOptionResults.iseq("") {
+		call refline.bu_refline_opt.modified_on
+	}
+END
+PROGRAM lineOptionSubmit
+BEGIN
+	call program checkLineOptionResults
+	call Submit
+END
+
+PROGRAM path_PREINIT_PROGRAM
+BEGIN
+	call create STRING STMP
+	call create STRING STMP2
+	call create STRING pathdlg
+	call create STRING pathdlgResults
+	call create STRING snpaths
+	call create DOUBLE npaths
+	call create DOUBLE loop
+	call create ARRAY path_dfltList
+	call create ARRAY path_dfltValList
+	call create DOUBLE path_pos
+	
+	call create SVECTOR path_DefaultVec
+	call create SVECTOR path_DisplayVec
+	call create SVECTOR path_ResultVec
+	
+	call npaths.setvalue e(k_allvars)
+	call snpaths.setvalue e(k_allvars)
+	
+	if npaths.islt(100) {
+		call path_dfltList.Arrdropall
+		call path_dfltValList.Arrdropall
+		call loop.setvalue 1
+		while (loop.isle(npaths)) {
+			call loop.withvalue STMP.format "resource COEFPATH_PATH_FMT" "@"
+			call STMP.withvalue path_dfltList.Arrpush "@"
+			call path_dfltValList.Arrpush ""
+			call loop.increment
+		}
+		
+		call path.lb_indpath.setcontentslist path_dfltList
+		call path_DefaultVec.copyFromArray path_dfltList
+		call loop.setvalue class path_DefaultVec.size
+		call path_DisplayVec.copyFromArray path_dfltList
+		call path_ResultVec.copyFromArray path_dfltValList
+	}
+END
+
+PROGRAM path_POSTINIT_PROGRAM
+BEGIN
+	if npaths.isgt(100) & snpaths.isgt(100) {
+		call path.rb_mono.seton
+		call path.rb_indpath.disable
+		call path.rb_allpath.disable
+	}
+	else {
+		call path.rb_indpath.seton
+		call path.rb_indpath.enable
+		call path.rb_allpath.enable
+	}
+END
+
+DIALOG path, tabtitle(resource COEFPATH_PATH_TAB_TITLE)
+BEGIN
+  RADIO    rb_indpath	_lft	_top	_iwd	.,		///
+	first							///
+	onclickon(program path_check_mode)			///
+	label(resource COEFPATH_PATH_RB_INDPATH)
+
+  RADIO    rb_allpath	@	+160	@	.,		///
+	onclickon(program path_check_mode)			///
+	label("Customize all path properties")
+	
+  RADIO    rb_mono		@	+60	@	.,		///
+	last							///
+	onclickon(program path_check_mode)			///
+	label(resource COEFPATH_PATH_RB_ALLPATH)
+	
+  LISTBOX  lb_indpath	_iilft	-195	150	120,		///
+ 	contents(path_dfltList)					///
+	ondblclick(program path_check_selection)
+  BUTTON   bu_indpath	+160	@	60	.,		///
+	label(resource LBL_BU_EDIT)				///
+	tooltip(resource LBL_CLICK_EDIT_PROP_OF_SELECTED_ITEM) ///
+	onpush(program path_check_selection)
+	
+  BUTTON   bu_allpath	_iilft	+160	150	.,		///
+	onpush(script path_show_allpath)			///
+	label(resource LBL_PATH_PROPERTIES)
+
+  BUTTON   bu_mono		_iilft	+60	150	.,	///
+	onpush(script path_show_mono)				///
+	label(resource LBL_PATH_PROPERTIES)
+END
+
+PROGRAM path_check_selection
+BEGIN
+	call path_DisplayVec.findstr class path.lb_indpath.value
+	call path_pos.setvalue class path_DisplayVec.position
+	call path_pos.withvalue pathdlg.setvalue "path@"
+
+	call pathdlg.withvalue create CHILD gr_line_options AS @, allowsubmit	
+	call pathdlg.withvalue @.setExitString pathdlgResults
+	call pathdlg.withvalue @.setExitAction "program path_rebuild_list"
+	call pathdlg.withvalue @.setSubmitAction "program path_submit"
+	call path_pos.withvalue STMP.format "resource COEFPATH_PATH_NUM_FMT" "@" "resource LBL_PROPERTIES_LOWERCASE"
+	call pathdlg.withvalue @.settitle class STMP.value
+END
+
+PROGRAM path_submit
+BEGIN
+	call program path_rebuild_list
+	call Submit
+END
+
+PROGRAM path_rebuild_list
+BEGIN
+	if pathdlgResults.isneq("") {
+		call path_pos.withvalue STMP.setvalue class  	///
+			path_DefaultVec.values[@]
+		
+		call STMP.withvalue				///
+			path_DisplayVec.store			///
+			class path_pos.value "@ *"
+			
+		call STMP.withvalue STMP2.setvalue "@ *"
+		call path_DisplayVec.copyToArray path_dfltList
+		call path.lb_indpath.setvalue class STMP2.value
+		
+		call STMP.setvalue "line"
+		call path_pos.withvalue STMP.append "@"
+		call STMP.append "opts("
+		call pathdlgResults.withvalue STMP.append "@"
+		call STMP.append ")"
+		
+		call STMP.withvalue				///
+			path_ResultVec.store			///
+			class path_pos.value "@"		
+	}
+	else {
+		call path_pos.withvalue STMP.setvalue class  	///
+			path_DefaultVec.values[@]
+		
+		call STMP.withvalue				///
+			path_DisplayVec.store			///
+			class path_pos.value "@"
+
+		call path_DisplayVec.copyToArray path_dfltList
+		call path.lb_indpath.setvalue class STMP.value
+	}
+	call path.lb_indpath.repopulate
+END
+
+PROGRAM path_check_mode
+BEGIN
+	if path.rb_allpath.isenabled() {
+		if path.rb_allpath {
+			call path.bu_allpath.enable
+			call path.lb_indpath.disable
+			call path.bu_indpath.disable
+			call path.bu_mono.disable
+		}
+		if path.rb_indpath {
+			call path.bu_allpath.disable
+			call path.lb_indpath.enable
+			call path.bu_indpath.enable
+			call path.bu_mono.disable
+		}
+		if path.rb_mono {
+			call path.bu_allpath.disable
+			call path.lb_indpath.disable
+			call path.bu_indpath.disable
+			call path.bu_mono.enable			
+		}
+	}
+	else {
+		call path.bu_allpath.disable
+		call path.lb_indpath.disable
+		call path.bu_indpath.disable
+		call path.lb_indpath.disable
+		call path.bu_indpath.disable
+	}
+END
+
+SCRIPT path_show_allpath
+BEGIN
+	create CHILD gr_line_options AS lineAllOptions, allowsubmit
+	lineAllOptions.setExitString lineOptAllResults
+	lineAllOptions.setExitAction "program checkLineOptAllResults"
+	lineAllOptions.setSubmitAction "program lineOptAllSubmit"
+	STMP.format "resource COEFPATH_PATH_PROPERTIES_FMT" " "
+	lineAllOptions.settitle class STMP.value
+END
+
+PROGRAM checkLineOptAllResults
+BEGIN
+	if lineOptAllResults.iseq("") {
+		call path.bu_allpath.modified_off
+	}
+	if !lineOptAllResults.iseq("") {
+		call path.bu_allpath.modified_on
+	}
+END
+PROGRAM lineOptAllSubmit
+BEGIN
+	call program checkLineOptAllResults
+	call Submit
+END
+
+SCRIPT path_show_mono
+BEGIN
+	create CHILD gr_line_options AS monoAllOptions, allowsubmit
+	monoAllOptions.setExitString monoOptAllResults
+	monoAllOptions.setExitAction "program checkMonoOptAllResults"
+	monoAllOptions.setSubmitAction "program monoOptAllSubmit"
+	STMP.format "resource COEFPATH_PATH_PROPERTIES_FMT" " "
+	monoAllOptions.settitle class STMP.value
+END
+
+PROGRAM checkMonoOptAllResults
+BEGIN
+	if monoOptAllResults.iseq("") {
+		call path.bu_mono.modified_off
+	}
+	if !monoOptAllResults.iseq("") {
+		call path.bu_mono.modified_on
+	}
+END
+PROGRAM monoOptAllSubmit
+BEGIN
+	call program checkMonoOptAllResults
+	call Submit
+END
+
+DIALOG dataopt, tabtitle(resource LBL_DATA)
+BEGIN
+  GROUPBOX ck_save			_lft	_top	_iwd	_ht5,	///
+	label(resource LBL_SAVE_PLOT_DATA_AS_DATASET)
+  FILE	fi_save				_ilft	_ms	_ibwd	.,	///
+	option(saving)							///
+	defext(dta)							///
+	save								///
+	error(resource IRT_GRAPH_CCC_FI_SAVE)				///
+	label(resource LBL_BU_BROWSE)
+  CHECKBOX ck_repdta			@	_ms	@	.,	///
+	label(resource LBL_OVERWRITE_FILE_IF_IT_ALREADY_EXISTS)
+END
+
+INCLUDE gr_yaxis
+INCLUDE gr_xaxis
+INCLUDE gr_titles
+INCLUDE gr_legend
+INCLUDE gr_overall
+
+PROGRAM command
+BEGIN
+	put "coefpath"
+	beginoptions
+		put " " /program lassogph_opts_output
+		
+		option main.ck_rawcoefs
+		
+		if refline.rb_norefline {
+			put " norefline"
+		}
+		if refline.rb_refline & !lineOptionResults.iseq("") {
+			put " rlopts(" 
+			put lineOptionResults
+			put ")"
+		}
+		
+		if path.rb_allpath {
+			if !lineOptAllResults.iseq("") {
+				put " lineopts("
+				put lineOptAllResults
+				put ")"
+			}
+		}
+		if path.rb_indpath {
+			call path_ResultVec.copyToString pathdlgResults
+			if !pathdlgResults.iseq("") {
+				put " " pathdlgResults
+			}
+		}
+		if path.rb_mono {
+			put " mono"
+			if !monoOptAllResults.iseq("") {
+				put " monoopts("
+				put monoOptAllResults
+				put ")"
+			}			
+		}
+		
+		if dataopt.fi_save {
+			put `" data("'
+			put dataopt.fi_save
+			if dataopt.ck_repdta {
+				put `", replace"'
+			}
+			put `")"'
+		}
+	
+		put " " /program gr_yaxis_output
+		put " " /program gr_xaxis_output
+		put " " /program gr_titles_output
+		put " " /program gr_legend_output
+		put " " /program gr_overall_output
+	endoptions
+END

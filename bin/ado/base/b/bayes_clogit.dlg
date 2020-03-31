@@ -1,0 +1,122 @@
+/*
+  bayes clogit
+
+*!  VERSION 1.0.6  29may2019
+
+  keyword:  eclass
+
+*/
+
+VERSION 15.0
+
+INCLUDE _std_wide
+DEFINE _dlght 500
+INCLUDE header
+
+HELP hlp1, view("help bayes_clogit")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource BAYES_CLOGIT_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script prior_gibbs_hide
+	script rpt_coef_or_on
+	program prior_show_normal_default
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)				///
+	title(resource BAYES_CLOGIT_DLG_TITLE)
+BEGIN
+  TEXT tx_dv 		_lft	_top	_vnwd	.,			///
+	label(resource LBL_DEPVAR)
+  VARNAME vn_dv		@ 	_ss	@	.,			///
+  	numeric								///
+	label(resource LBL_DEPVAR)
+
+  TEXT tx_iv		_vlx	_top	160	.,			///
+	label(resource LBL_INDDEPVAR)
+  VARLIST vl_iv		@	_ss	_vlwd	.,			///
+	fv								///
+	allowcat							///
+	numeric								///
+	label(resource LBL_INDDEPVAR)
+  TEXT     tx_group	_lft	_ls	_iwd	.,			///
+	label(resource LBL_GROUP_VARIABLE)
+  VARNAME  vn_group	_lft	_ss	_vnwd	.,			///
+	label(resource LBL_GROUP_VARIABLE)				///
+	option("group")	
+
+  GROUPBOX gb_opt	_lft	+30	_iwd	_ht6,			///
+	label(resource LBL_OPTIONS)
+
+  TEXT     tx_offset	_ilft	_ms	_cwd2	.,			///
+	label(resource LBL_OFFSET_VARIABLE)
+  VARNAME  vn_offset	@	_ss	_vnwd	.,			///
+	label(resource LBL_OFFSET_VARIABLE)				///
+	option("offset")						///
+	numeric	
+  DEFINE _x _ilft
+  DEFINE _xw _cwd1
+//  INCLUDE _ck_collinear
+END
+
+INCLUDE ifin
+INCLUDE weights_f
+INCLUDE bayes_priors
+INCLUDE bayes_simulation
+INCLUDE bayes_blocking
+INCLUDE bayes_initialization
+INCLUDE bayes_adaptation
+INCLUDE bayes_reporting
+INCLUDE bayes_advanced
+
+PROGRAM bayes_opts_output
+BEGIN
+	beginoptions
+		put " " /program bayes_priors_output
+		put " " /program bayes_simulation_output
+		put " " /program bayes_blocking_output
+		put " " /program bayes_init_output
+		put " " /program bayes_adaptation_output
+		put " " /program bayes_reporting_output
+		put " " /program bayes_advanced_output
+	endoptions
+END
+
+PROGRAM bayes_build_parse 
+BEGIN
+	put "clogit "
+	varlist main.vn_dv [main.vl_iv]
+	beginoptions
+		require main.vn_group
+		optionarg main.vn_group
+		optionarg main.vn_offset
+//		option main.ck_collinear
+	endoptions
+END
+
+PROGRAM ecommand_output
+BEGIN
+	put "clogit "
+	varlist main.vn_dv [main.vl_iv]
+	put " " /program ifin_output
+	put " " /program weights_output
+	beginoptions
+		require main.vn_group
+		optionarg main.vn_group
+		optionarg main.vn_offset
+//		option main.ck_collinear
+	endoptions
+END
+
+PROGRAM command
+BEGIN
+	put "bayes"
+	put /program bayes_opts_output
+	put " : "
+	put /program ecommand_output
+END

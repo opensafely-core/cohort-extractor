@@ -1,0 +1,191 @@
+/*
+   tssmooth exponential
+
+*! VERSION 1.1.0  16dec2014
+
+*/
+
+VERSION 14.0
+INCLUDE _std_large
+INCLUDE _ht350
+INCLUDE header
+HELP hlp1, view("help tssmooth_exponential")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource TSSMOOTH_EXPONENTIAL_DLG_HSCALE
+END
+
+DIALOG main, label(resource TSSMOOTH_EXPONENTIAL_DLG_TITLE)/*
+		*/ tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  /*--+----1----+----2----+----3----+----4----+----5----+----6----+----7----+*/
+
+  DEFINE _x _xsetbu
+  DEFINE _y _top
+  INCLUDE _bu_tsset
+
+  TEXT     tx_gener    _lft	 _ms	   _cwd3_1   .,			/*
+  		*/label(resource TSSMOOTH_EXPONENTIAL_MAIN_TX_GENER)
+
+  TEXT     tx_exp      _lft3_2	 @	   _comb3_1  .,			/*
+  		*/label(resource TSSMOOTH_EXPONENTIAL_MAIN_TX_EXP)
+
+  EDIT     ed_gener    _lft      _ss	   _vnwd     .,			/*
+  		*/label(resource TSSMOOTH_EXPONENTIAL_MAIN_TX_GENER)
+
+  TEXT     tx_equals   _eqxpos	 @	   _eqwd     .,			/*
+  		*/center						/*
+  		*/label("=")
+
+  EXP      ex_exp      _lft3_2	 @	   _comb3_1  .,			/*
+  		*/label(resource LBL_BU_CREATE)				/*
+  		*/error(resource TSSMOOTH_EXPONENTIAL_MAIN_TX_EXP)
+
+
+DEFINE _x _lft
+DEFINE _y _ls
+DEFINE _cx _cwd1
+INCLUDE _type
+DEFINE holdy1 @y
+
+  CHECKBOX ck_replace  _lft3_2   holdy1	   _cwd2     .,			/*
+		*/ option(replace) nomem				/*
+		*/ label(resource TSSMOOTH_EXPONENTIAL_MAIN_CK_REPLACE)
+
+
+  GROUPBOX gb_opts     _lft      +35       _iwd	     _ht16h,		/*
+		*/ label(resource LBL_OPTIONS)
+
+  RADIO    rb_parms1   _ilft     _ss       _cwd2     .,			/*
+  		*/ label(resource TSSMOOTH_EXPONENTIAL_MAIN_RB_PARMS1)	/*
+		*/ clickon(gaction main.ed_parms.disable)		/*
+		*/ first
+
+  DEFINE holdy2 @y
+
+  TEXT     tx_next1    _indent2  _vss      _inwd     .,			/*
+  		*/label(resource TSSMOOTH_EXPONENTIAL_MAIN_TX_NEXT1)
+  TEXT     tx_next1a   @         _vss      @         .,			/*
+  		*/label(resource TSSMOOTH_EXPONENTIAL_MAIN_TX_NEXT1A)
+
+  RADIO    rb_parms2   _lft4_3   holdy2    _cwd2     .,			/*
+  		*/ label(resource TSSMOOTH_EXPONENTIAL_MAIN_RB_PARMS2)	/*
+		*/ clickon(gaction main.ed_parms.enable)		/*
+		*/ last
+
+  TEXT     tx_next2    _indent2  _vss      _cwd4     .,			/*
+  		*/label(resource TSSMOOTH_EXPONENTIAL_MAIN_TX_NEXT2)
+
+  EDIT     ed_parms    @         _ss	   _en7wd    .,	numonly		/*
+  		*/ option(parms)					/*
+  		*/ error(resource TSSMOOTH_EXPONENTIAL_MAIN_ED_PARMS)
+
+  CHECKBOX ck_samp0    _ilft     _ms       _cwd2     .,			/*
+		*/ label(resource TSSMOOTH_EXPONENTIAL_MAIN_CK_SAMP0)	/*
+		*/ clickon(script main_samp0_on)			/*
+  		*/ clickoff(script main_samp0_off)
+
+  DEFINE holdy3 @y
+
+  TEXT     tx_next3    _indent2  _vss      _inwd     .,			/*
+  		*/label(resource TSSMOOTH_EXPONENTIAL_MAIN_TX_NEXT3)
+
+  SPINNER  sp_samp0    @         _ss	   _spwd     .,			/*
+  		*/ option(samp0)					/*
+		*/ min(2)						/*
+		*/ max(c(N))						/*
+		*/ default(2)						/*
+		*/
+
+  CHECKBOX ck_for2     _ilft     _ms       _cwd2     .,			/*
+  		*/ label(resource TSSMOOTH_EXPONENTIAL_MAIN_CK_FOR2)	/*
+		*/ clickon(gaction main.sp_for.enable)			/*
+		*/
+
+  SPINNER  sp_for      _indent2  _ss	   _spwd     .,			/*
+  		*/ option(forecast)					/*
+		*/ min(1)						/*
+		*/ max(500)						/*
+		*/ default(1)						/*
+		*/
+
+
+  CHECKBOX ck_s0       _ilft4_3  holdy3	   _cwd2    .,			/*
+		*/ label(resource TSSMOOTH_EXPONENTIAL_MAIN_CK_S0)	/*
+		*/ clickon(script main_s0_on)				/*
+  		*/ clickoff(script main_s0_off)
+
+  EDIT 	   ed_s01      _indent2  _ss       _spwd     ., numonly		/*
+		*/ label(resource TSSMOOTH_EXPONENTIAL_MAIN_ED_S01)	/*
+  		*/ option(s0)
+
+END
+
+
+INCLUDE ifin
+INCLUDE _type_list_fd
+
+SCRIPT main_samp0_on
+BEGIN
+	gaction main.ck_s0.disable
+	gaction main.sp_samp0.enable
+
+END
+
+SCRIPT main_samp0_off
+BEGIN
+	gaction main.sp_samp0.disable
+	gaction main.ck_s0.enable
+END
+
+SCRIPT main_s0_on
+BEGIN
+	gaction main.ck_samp0.disable
+	gaction main.tx_next3.disable
+	gaction main.ed_s01.enable
+END
+
+SCRIPT main_s0_off
+BEGIN
+	gaction main.ed_s01.disable
+	gaction main.ck_samp0.enable
+	gaction main.tx_next3.enable
+END
+
+
+PROGRAM command
+BEGIN
+	put "tssmooth exponential "
+	INCLUDE _type_pr
+	require main.ed_gener
+	put main.ed_gener
+	put " "
+	put "= "
+	require main.ex_exp
+	put main.ex_exp
+	INCLUDE _ifin_pr
+	beginoptions
+		if main.rb_parms2 {
+			require main.ed_parms
+			optionarg main.ed_parms
+		}
+		if main.ck_samp0 {
+			optionarg main.sp_samp0
+		}
+		if main.ck_s0 {
+		   	require main.ed_s01
+			optionarg main.ed_s01
+		}
+		if main.ck_for2 {
+			optionarg main.sp_for
+		}
+		option main.ck_replace
+	endoptions
+
+END
+
+
+
+

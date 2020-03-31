@@ -1,0 +1,196 @@
+/*
+  lasso_toolbox_p.idlg
+
+  INCLUDE file for lasso, elasticnet, and sqrtlasso prediction
+
+*!  VERSION 1.0.2  30jul2019
+
+*/
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	call script main_poisson_hide
+	call script main_linear_hide
+	call script main_logit_hide
+
+	call e_model.setvalue e(model)
+
+	if e_model.iseq("linear") {
+		call script main_linear_show
+	}
+	if (e_model.iseq("logit") | e_model.iseq("probit")) {
+		call script main_logit_show
+	}
+	if (e_model.iseq("poisson")) {
+		call script main_poisson_show
+	}
+	if e_model.iseq("") {
+		call script main_linear_show
+	}
+END
+
+DIALOG main, label(resource PREDICT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  INCLUDE  _p_gentype
+
+  GROUPBOX gb_produce			_lft	_ls	_iwd	_ht11h,	///
+	label(resource LBL_PRODUCE)
+  RADIO rb_poisson_n_pen		_ilft	_ss	_ibwd	.,	///
+	first								///
+	option("n penalized")						///
+	onclickon(program main_stat_changed)				///
+	label(resource LASSO_TOOLBOX_P_RB_POISSON_N_PEN)
+  DEFINE gb_top @y
+  RADIO rb_poisson_n_post		@	_ss	@	.,	///
+	option("n postselection")					///
+	onclickon(program main_stat_changed)				///
+	label(resource LASSO_TOOLBOX_P_RB_POISSON_N_POST)
+  RADIO rb_poisson_ir_pen		@	_ss	@	.,	///
+	option("ir penalized")						///
+	onclickon(program main_stat_changed)				///
+	label(resource LASSO_TOOLBOX_P_RB_POISSON_IR_PEN)
+  RADIO rb_poisson_ir_post		@	_ss	@	.,	///
+	option("ir postselection")					///
+	onclickon(program main_stat_changed)				///
+	label(resource LASSO_TOOLBOX_P_RB_POISSON_IR_POST)
+  RADIO rb_poisson_xb_pen		@	_ss	@	.,	///
+	option("xb penalized")						///
+	onclickon(program main_stat_changed)				///
+	label(resource LBL_LINEAR_PREDICTION_XB_USING_PENALIZED_COEFF)
+  RADIO rb_poisson_xb_post		@	_ss	@	.,	///
+	last								///
+	option("xb postselection")					///
+	onclickon(program main_stat_changed)				///
+	label(resource LBL_LINEAR_PREDICTION_XB_USING_POSTSEL_COEFF)
+  RADIO rb_logit_pr_pen			_ilft	gb_top	_ibwd	.,	///
+	first								///
+	option("pr penalized")						///
+	onclickon(program main_stat_changed)				///
+	label(resource LASSO_TOOLBOX_P_RB_LOGIT_PR_PEN)
+  RADIO rb_logit_pr_post		@	_ss	@	.,	///
+	option("pr postselection")					///
+	onclickon(program main_stat_changed)				///
+	label(resource LASSO_TOOLBOX_P_RB_LOGIT_PR_POST)
+  RADIO rb_logit_xb_pen			@	_ss	@	.,	///
+	option("xb penalized")						///
+	onclickon(program main_stat_changed)				///
+	label(resource LBL_LINEAR_PREDICTION_XB_USING_PENALIZED_COEFF)
+  RADIO rb_logit_xb_post		@	_ss	@	.,	///
+	last								///
+	option("xb postselection")					///
+	onclickon(program main_stat_changed)				///
+	label(resource LBL_LINEAR_PREDICTION_XB_USING_POSTSEL_COEFF)
+
+  RADIO rb_linear_xb_pen		@	gb_top	@	.,	///
+	first								///
+	option("xb penalized")						///
+	onclickon(program main_stat_changed)				///
+	label(resource LBL_LINEAR_PREDICTION_XB_USING_PENALIZED_COEFF)
+  RADIO rb_linear_xb_post		@	_ss	@	.,	///
+	last								///
+	option("xb postselection")					///
+	onclickon(program main_stat_changed)				///
+	label(resource LBL_LINEAR_PREDICTION_XB_USING_POSTSEL_COEFF)
+
+  CHECKBOX ck_nooffset			_lft	_xls	_iwd	.,	///
+	option(nooffset)						///
+	label(resource LBL_IGNORE_OFFSET_VARIABLE)
+
+  CHECKBOX ck_poisson_nooffset		@	225	@	.,	///
+	option(nooffset)						///
+	label(resource LBL_IGNORE_OFFSET_OR_EXPOSURE_VARIABLE)
+END
+
+SCRIPT main_poisson_show
+BEGIN
+	main.gb_produce.setposition . . . 145
+	main.rb_poisson_n_pen.show
+	main.rb_poisson_n_post.show
+	main.rb_poisson_ir_pen.show
+	main.rb_poisson_ir_post.show
+	main.rb_poisson_xb_pen.show
+	main.rb_poisson_xb_post.show
+	main.ck_poisson_nooffset.show
+END
+
+SCRIPT main_poisson_hide
+BEGIN
+	main.rb_poisson_n_pen.hide
+	main.rb_poisson_n_post.hide
+	main.rb_poisson_ir_pen.hide
+	main.rb_poisson_ir_post.hide
+	main.rb_poisson_xb_pen.hide
+	main.rb_poisson_xb_post.hide
+	main.ck_poisson_nooffset.hide
+END
+
+SCRIPT main_logit_show
+BEGIN
+	main.gb_produce.setposition . . . 105
+	main.rb_logit_pr_pen.show
+	main.rb_logit_pr_post.show
+	main.rb_logit_xb_pen.show
+	main.rb_logit_xb_post.show
+	main.ck_nooffset.show
+	main.ck_nooffset.setposition . 180
+END
+
+SCRIPT main_logit_hide
+BEGIN
+	main.rb_logit_pr_pen.hide
+	main.rb_logit_pr_post.hide
+	main.rb_logit_xb_pen.hide
+	main.rb_logit_xb_post.hide
+	main.ck_nooffset.hide
+END
+
+SCRIPT main_linear_show
+BEGIN
+	main.gb_produce.setposition . . . 65
+	main.rb_linear_xb_pen.show
+	main.rb_linear_xb_post.show
+	main.ck_nooffset.show
+END
+
+SCRIPT main_linear_hide
+BEGIN
+	main.rb_linear_xb_pen.hide
+	main.rb_linear_xb_post.hide
+	main.ck_nooffset.hide
+END
+
+
+INCLUDE _p_gentype_sc
+INCLUDE ifin
+INCLUDE _type_list_fd
+
+PROGRAM main_stat_changed
+BEGIN
+//not used yet
+END
+
+PROGRAM command
+BEGIN
+	put "predict "
+	put " " /program _p_gentype_output
+	put " " /program ifin_output
+	beginoptions
+		if (e_model.iseq("poisson")) {
+			option radio(main rb_poisson_n_pen 		///
+				rb_poisson_n_post rb_poisson_ir_pen	///
+				rb_poisson_ir_post rb_poisson_xb_pen	///
+				rb_poisson_xb_post)
+		}
+		if (e_model.iseq("logit") | e_model.iseq("probit")) {
+			option radio(main rb_logit_pr_pen 		///
+				rb_logit_pr_post rb_logit_xb_pen	///
+				rb_logit_xb_post)
+		}
+		if (e_model.iseq("linear") | e_model.iseq("")) {
+			option radio(main rb_linear_xb_pen		///
+				rb_linear_xb_post)
+		}
+		option main.ck_nooffset
+		option main.ck_poisson_nooffset
+	endoptions
+END

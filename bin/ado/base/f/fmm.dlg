@@ -1,0 +1,770 @@
+/*
+  fmm
+
+*!  VERSION 1.0.6  29nov2018
+
+*/
+
+VERSION 15.0
+
+INCLUDE _std_xlarge
+DEFINE _dlght 600
+INCLUDE header
+
+HELP hlp1, view("help fmm")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING STMP
+
+	create STRING main_model_tmp
+	create STRING main_model_tmp2
+	create STRING main_model_childdlg
+	create STRING main_model_child_result
+	create STRING main_model_output
+
+	create ARRAY main_model_list
+
+	create SVECTOR mainMODELCommandDisplayList
+	create SVECTOR mainMODELCommandList
+	create SVECTOR mainMODELCommandValues
+	create SVECTOR mainMODELStatusList
+	create SVECTOR mainMODELChildDialogList
+
+	create DOUBLE main_model_count
+	create DOUBLE main_model_position
+	create DOUBLE main_model_arraysize
+	
+	//add
+	create DOUBLE lcprob
+	create SVECTOR mainMODELLcprob
+	create DOUBLE modelLcprob
+	create DOUBLE numLcprob
+	create DOUBLE loopI
+	create DOUBLE lcpI
+	create STRING stsI
+	create DOUBLE firstnoLcprob
+
+	main.bu_model_edit.disable
+	main.bu_model_disable.disable
+	main.bu_model_enable.disable
+
+	script se_createAsLCASvyLinearized
+	program svy_check_title
+	setscale_hadj resource FMM_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script sub_set_by_on
+	script standard_model_con
+	program main_familink_check
+	program check_syntax
+
+	program se_setFinalInitState
+
+	mainMODELCommandDisplayList.copyToArray main_model_list
+	main.lb_modelBuild.repopulate
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	if __MESSAGE.contains("-standard-") {
+		call main.rb_standard.seton
+	}
+	if __MESSAGE.contains("-hybrid-") {
+		call main.rb_hybrid.seton
+	}
+	if __MESSAGE.contains("-betareg-") {
+		call main.cb_cmd.setvalue "betareg"
+	}
+	if __MESSAGE.contains("-cloglog-") {
+		call main.cb_cmd.setvalue "cloglog"
+	}
+	if __MESSAGE.contains("-glm-") {
+		call main.cb_cmd.setvalue "glm"
+	}
+	if __MESSAGE.contains("-intreg-") {
+		call main.cb_cmd.setvalue "intreg"
+	}
+	if __MESSAGE.contains("-ivregress-") {
+		call main.cb_cmd.setvalue "ivregress"
+	}
+	if __MESSAGE.contains("-logit-") {
+		call main.cb_cmd.setvalue "logit"
+	}
+	if __MESSAGE.contains("-mlogit-") {
+		call main.cb_cmd.setvalue "mlogit"
+	}
+	if __MESSAGE.contains("-nbreg-") {
+		call main.cb_cmd.setvalue "nbreg"
+	}
+	if __MESSAGE.contains("-ologit-") {
+		call main.cb_cmd.setvalue "ologit"
+	}
+	if __MESSAGE.contains("-oprobit-") {
+		call main.cb_cmd.setvalue "oprobit"
+	}
+	if __MESSAGE.contains("-poisson-") {
+		call main.cb_cmd.setvalue "poisson"
+	}
+	if __MESSAGE.contains("-probit-") {
+		call main.cb_cmd.setvalue "probit"
+	}
+	if __MESSAGE.contains("-regress-") {
+		call main.cb_cmd.setvalue "regress"
+	}
+	if __MESSAGE.contains("-streg-") {
+		call main.cb_cmd.setvalue "streg"
+	}
+	if __MESSAGE.contains("-tobit-") {
+		call main.cb_cmd.setvalue "tobit"
+	}
+	if __MESSAGE.contains("-tpoisson-") {
+		call main.cb_cmd.setvalue "tpoisson"
+	}
+	if __MESSAGE.contains("-truncreg-") {
+		call main.cb_cmd.setvalue "truncreg"
+	}
+END
+
+PROGRAM svy_check_title
+BEGIN
+	if __MESSAGE.contains("-svy-") {
+		call settitle resource FMM_SVY_DLG_TITLE
+	}
+END
+SCRIPT svy_is_on
+BEGIN
+END
+SCRIPT svy_is_off
+BEGIN
+END
+
+PROGRAM check_syntax
+BEGIN
+	if main.rb_standard {
+		call script main_standard_on
+	}
+	if main.rb_hybrid {
+		call script main_hybrid_on
+	}
+END
+
+DIALOG main, label(resource FMM_DLG_TITLE)				///
+	tabtitle(resource LBL_TAB_MODEL)
+BEGIN
+  GROUPBOX gb_syntax		_lft	_top	_iwd	_ht1h,		///
+	label(resource LBL_SYNTAX)
+  RADIO rb_standard		_ilft	_ss	_cwd1	.,first		///
+	onclickon(script main_standard_on)				///
+	label(resource LBL_STANDARD)
+  RADIO rb_hybrid		_ilft2	@	_cwd2	.,last		///
+	onclickon(script main_hybrid_on)				///
+	label(resource LBL_HYBRID)
+
+DEFINE ystart 60
+
+//Standard
+  TEXT tx_clsnum		_lft2	ystart	_cwd6	.,		///
+  	label(resource LBL_NUMBER_CLASS_MODELS)
+  SPINNER sp_clsnum		@	_ss	_spwd	.,		///
+	min(1) max(10)							///
+	default(2)							///
+	label(resource LBL_NUMBER_CLASS_MODELS)
+INCLUDE fmm_models
+
+//Hybrid
+  TEXT tx_mixmodel		_lft	ystart	_cwd2	.,		///
+  	label(resource LBL_MIXTURES_OF_MODELS)
+  LISTBOX lb_modelBuild		@	_ss	300	145,		///
+	contents(main_model_list)					///
+	ondblclick(program main_model_edit)				///
+	onselchange(program main_model_sel_changed)			///
+	nomemory
+  BUTTON bu_model_create	325	@	75	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program main_model_create)
+  BUTTON bu_model_edit		@	_ls	@	.,		///
+	label(resource LBL_BU_EDIT)					///
+	onpush(program main_model_edit)
+  BUTTON bu_model_disable	@	_ls	@	.,		///
+	label(resource LBL_BU_DISABLE)					///
+	onpush(program main_model_disable)
+  BUTTON bu_model_enable	@	_ls	@	.,		///
+	label(resource LBL_BU_ENABLE)					///
+	onpush(program main_model_enable)
+  TEXTBOX tb_model_note		_lft	+65	_ibwd	20,		///
+  	label(resource LBL_PRESS_CREATE_DEFINE_MODEL)
+
+//Options
+DEFINE opty 360
+  GROUPBOX gb_opt		_lft	opty	_iwd	_ht18,		///
+	label(resource LBL_OPTIONS)
+
+  COMBOBOX cb_lcin		_ilft	_ss	200	.,		///
+	dropdown append	default(none)					///
+	contents(main_lcin_con) value(main_lcin_val)			///
+	option(lcinvariant)						///
+	label(resource LBL_PARAMETERS_EQUAL_ACROSS_CLASSES_NOCOLON)
+  TEXT tx_lcin			+210	@	_cwd2	.,		///
+  	label(resource LBL_PARAMETERS_EQUAL_ACROSS_CLASSES_NOCOLON)
+
+  TEXT tx_lcprob		_ilft	_ls	_vlwd	.,		///
+  	label(resource LBL_INDEP_VAR_CLASS_PROB)
+  VARLIST vl_lcprob		@	_ss	_ibwd	.,		///
+	fv								///
+	allowcat							///
+	numeric								///
+	option(lcprob)							///
+	label(resource LBL_INDEP_VAR_CLASS_PROB)
+
+  TEXT tx_lclabel		_ilft	_ls	_cwd2	.,		///
+  	label(resource LBL_NAME_CATEGORICAL_LATENT_VAR)
+  TEXT tx_lcbase		_ilft2	@	_cwd3	.,		///
+  	label(resource LBL_BASE_LATENT_CLASS)
+  EDIT ed_lclabel		_ilft	_ss	200	.,		///
+	option(lclabel)							///
+	default("Class")						///
+	label(resource LBL_NAME_CATEGORICAL_LATENT_VAR)
+  EDIT ed_lcbase		_ilft2	@	_en7wd		.,	///
+	option(lcbase)							///
+	default(1) numonly						///
+	label(resource LBL_BASE_LATENT_CLASS)
+
+  DEFINE _x _ilft
+  DEFINE _y _ls
+  DEFINE _cx _ilw80
+  DEFINE _bux _islw80
+  INCLUDE _constraints
+  
+  DEFINE _x _ilft
+  DEFINE _xw _ibwd
+//  INCLUDE _ck_collinear
+END
+
+INCLUDE fmm_models_pr
+
+LIST main_lcin_con
+BEGIN
+//	Intercepts and cutpoints
+	resource LBL_PARAM_LST_ITEM_INTERCEPTS_CUTPOINTS
+//	Fixed coefficients
+	resource LBL_PARAM_LST_ITEM_FIXED_COEF
+//	Covariances of errors
+	resource LBL_PARAM_LST_ITEM_COVARIANCES_OF_ERRORS
+//	Scaling parameters
+	resource LBL_PARAM_LST_ITEM_SCALING_PARAMS
+//	All the above
+	resource LBL_ALL_OF_THE_ABOVE
+//	None of the above
+	resource LBL_NONE_OF_THE_ABOVE
+END
+
+LIST main_lcin_val
+BEGIN
+	cons
+	coef
+	errvar
+	scale
+	all
+	none
+END
+
+SCRIPT main_standard_on
+BEGIN
+	main.tx_clsnum.show
+	main.sp_clsnum.show
+	main.tx_cmds.show
+	main.cb_cmd.show
+	program main_model_show_all
+	main.tx_mixmodel.hide
+	main.lb_modelBuild.hide
+	main.bu_model_create.hide
+	main.bu_model_edit.hide
+	main.bu_model_disable.hide
+	main.bu_model_enable.hide
+	main.tb_model_note.hide
+	script main_lcprob_enable
+	main.ed_lcbase.setvalue 1
+	main.ed_lcbase.setdefault 1
+END
+
+SCRIPT main_hybrid_on
+BEGIN
+	main.tx_clsnum.hide
+	main.sp_clsnum.hide
+	main.tx_cmds.hide
+	main.cb_cmd.hide
+	script main_model_hide_all
+	main.tx_mixmodel.show
+	main.lb_modelBuild.show
+	main.bu_model_create.show
+	main.bu_model_edit.show
+	main.bu_model_disable.show
+	main.bu_model_enable.show
+	main.tb_model_note.show
+	program check_lcprob
+END
+
+SCRIPT main_lcprob_disable
+BEGIN
+	main.tx_lcprob.disable
+	main.vl_lcprob.disable
+END
+
+SCRIPT main_lcprob_enable
+BEGIN
+	main.tx_lcprob.enable
+	main.vl_lcprob.enable
+END
+
+PROGRAM main_model_create
+BEGIN
+	call lcprob.setvalue 0
+	call main_model_count.setvalue class mainMODELChildDialogList.size
+	call main_model_count.increment
+	call main_model_tmp.setvalue "main_model_"
+	call main_model_tmp.append class main_model_count.value
+	call main_model_tmp.withvalue main_model_childdlg.setvalue @
+	call program main_show_model_child
+END
+
+PROGRAM main_model_edit
+BEGIN
+	call lcprob.setvalue 0
+	call mainMODELCommandDisplayList.findstr class			///
+		main.lb_modelBuild.value
+	call main_model_position.setvalue class				///
+		mainMODELCommandDisplayList.position
+	call main_model_position.withvalue				///
+		main_model_childdlg.setvalue				///
+		class mainMODELChildDialogList.values[@]
+	call program main_show_model_child_edit
+END
+
+PROGRAM main_show_model_child
+BEGIN
+	call main_model_tmp.setvalue "fmm_model_child AS "
+	call main_model_tmp.append class main_model_childdlg.value
+	call main_model_tmp.withvalue create CHILD @
+	call main_model_childdlg.withvalue @.setExitString		///
+		"main_model_child_result"
+	call main_model_childdlg.withvalue @.setExitAction		///
+		"program main_model_child_create_done"
+
+	call main_model_count.withvalue STMP.format			///
+		"resource LBL_MODEL_FMT" "@" ""
+	call STMP.withvalue main_model_tmp.setvalue "@"
+	call main_model_childdlg.withvalue				///
+		main_model_tmp2.setvalue "@.settitle"
+	call main_model_tmp2.append `" ""'
+	call main_model_tmp2.append class main_model_tmp.value
+	call main_model_tmp2.append `"""'
+	call main_model_tmp2.withvalue @
+END
+
+PROGRAM main_show_model_child_edit
+BEGIN
+	call main_model_tmp.setvalue "fmm_model_child AS "
+	call main_model_tmp.append class main_model_childdlg.value
+	call main_model_tmp.withvalue create CHILD @
+	call main_model_childdlg.withvalue @.setExitString		///
+		"main_model_child_result"
+	call main_model_childdlg.withvalue @.setExitAction		///
+		"program main_model_child_edit_done"
+
+	call main_model_position.withvalue				///
+		main_model_tmp.setvalue					///
+		class mainMODELCommandDisplayList.values[@]
+	call main_model_childdlg.withvalue				///
+		main_model_tmp2.setvalue "@.settitle"
+	call main_model_tmp2.append `" ""'
+	call main_model_tmp2.append class main_model_tmp.value
+	call main_model_tmp2.append `"""'
+	call main_model_tmp2.withvalue @
+END
+
+PROGRAM main_model_child_create_done
+BEGIN
+	call main_model_arraysize.setvalue class			///
+		mainMODELChildDialogList.size
+	call main_model_arraysize.increment
+
+	/* Store child dialog name */
+	call mainMODELChildDialogList.store class			///
+		main_model_arraysize.value class main_model_childdlg.value
+
+	/* Store listbox display model string */
+	call main_model_arraysize.withvalue STMP.format			///
+		"resource LBL_MODEL_FMT" "@" ""
+	call STMP.withvalue						///
+		mainMODELCommandDisplayList.store class			///
+		main_model_arraysize.value "@"
+
+	/* Store child dialog result string */
+	call mainMODELCommandList.store class				///
+		main_model_arraysize.value				///
+		class main_model_child_result.value
+	
+	//add
+	call mainMODELLcprob.store class				///
+		main_model_arraysize.value				///
+		class lcprob.value
+
+	/* Store child dialog result string for final command
+	   For disable/enable */
+	call mainMODELCommandValues.store class				///
+		main_model_arraysize.value				///
+		class main_model_child_result.value
+
+	/* Store disable/enable status */
+	call mainMODELStatusList.store class				///
+		main_model_arraysize.value "active"
+
+	call mainMODELCommandDisplayList.copyToArray main_model_list
+	call main.lb_modelBuild.repopulate
+	call STMP.withvalue main.lb_modelBuild.setvalue "@"
+	
+	call program check_lcprob
+END
+
+PROGRAM main_model_child_edit_done
+BEGIN
+	call mainMODELChildDialogList.findstr class			///
+		main_model_childdlg.value
+	call main_model_position.setvalue class				///
+		mainMODELChildDialogList.position
+	call main_model_position.withvalue main_model_tmp.setvalue	///
+		class mainMODELStatusList.values[@]
+	if main_model_tmp.iseq("active") {
+		call main_model_position.withvalue STMP.format		///
+			"resource LBL_MODEL_FMT" "@" ""
+		call STMP.withvalue					///
+			mainMODELCommandDisplayList.store class		///
+			main_model_position.value "@"
+		call mainMODELCommandValues.store class			///
+			main_model_position.value class			///
+			main_model_child_result.value
+			
+		call STMP.withvalue main_model_tmp2.setvalue "@"
+	}
+	else {
+
+
+		call main_model_position.withvalue STMP.format		///
+			"resource LBL_MODEL_FMT" "@"			///
+			"resource LBL_PAREN_DISABLED"
+		call STMP.withvalue					///
+			main_model_tmp2.setvalue "@"
+
+		call main_model_tmp2.withvalue				///
+			mainMODELCommandDisplayList.store		///
+			class main_model_position.value "@"
+	}
+
+	call mainMODELCommandList.store class				///
+		main_model_position.value class				///
+		main_model_child_result.value
+	//added
+	call mainMODELLcprob.store class 				///
+		main_model_position.value class				///
+		lcprob.value
+	
+	call mainMODELCommandDisplayList.copyToArray main_model_list
+	call main.lb_modelBuild.repopulate
+	call main.lb_modelBuild.setvalue class main_model_tmp2.value
+	
+	call program check_lcprob
+END
+
+PROGRAM main_model_sel_changed
+BEGIN
+	call mainMODELCommandDisplayList.findstr class			///
+		main.lb_modelBuild.value
+	call main_model_position.setvalue class				///
+		mainMODELCommandDisplayList.position
+	call main_model_position.withvalue main_model_tmp.setvalue	///
+		class mainMODELStatusList.values[@]
+	if main_model_position {
+		call main.bu_model_edit.enable
+
+		call main_model_position.withvalue			///
+			main.tb_model_note.setlabel			///
+		class mainMODELCommandList.values[@]
+	}
+
+	if main_model_tmp.iseq("disable") {
+		call main.bu_model_enable.enable
+		call main.bu_model_disable.disable
+	}
+	if main_model_tmp.iseq("active") {
+		call main.bu_model_enable.disable
+		call main.bu_model_disable.enable
+	}
+END
+
+PROGRAM main_model_disable
+BEGIN
+	call mainMODELCommandDisplayList.findstr class			///
+		main.lb_modelBuild.value
+	call main_model_position.setvalue class				///
+		mainMODELCommandDisplayList.position
+
+	call main_model_tmp.setvalue class main.lb_modelBuild.value
+	call mainMODELStatusList.store class				///
+		main_model_position.value "disable"
+	call mainMODELCommandValues.store class main_model_position.value ""
+	
+
+
+	call STMP.format "resource LBL_PAREN_DISABLED"
+	call main_model_tmp.append " "
+	call main_model_tmp.append class STMP.value
+	call main_model_tmp.withvalue STMP.setvalue "@"
+
+	call main_model_tmp.withvalue					///
+		mainMODELCommandDisplayList.store			///
+		class main_model_position.value "@"
+
+	call mainMODELCommandDisplayList.copyToArray main_model_list
+	call main.lb_modelBuild.repopulate
+	call main.lb_modelBuild.setvalue class STMP.value
+	call program check_lcprob
+END
+
+PROGRAM main_model_enable
+BEGIN
+	call mainMODELCommandDisplayList.findstr class			///
+		main.lb_modelBuild.value
+	call main_model_position.setvalue class				///
+		mainMODELCommandDisplayList.position
+
+	call mainMODELStatusList.store class				///
+		main_model_position.value "active"
+	call main_model_position.withvalue				///
+		mainMODELCommandValues.store				///
+		class main_model_position.value class			///
+		mainMODELCommandList.values[@]
+
+
+	call main_model_position.withvalue STMP.format			///
+		"resource LBL_MODEL_FMT" "@" ""
+
+	call STMP.withvalue						///
+		mainMODELCommandDisplayList.store			///
+		class main_model_position.value "@"
+
+	call mainMODELCommandDisplayList.copyToArray main_model_list
+	call main_model_position.withvalue				///
+		main_model_tmp2.setvalue class				///
+		mainMODELCommandDisplayList.values[@]
+	call main.lb_modelBuild.repopulate
+	call main.lb_modelBuild.setvalue class main_model_tmp2.value
+	call program check_lcprob
+END
+
+PROGRAM check_lcprob
+BEGIN
+	call modelLcprob.setvalue 0
+	call numLcprob.setvalue class mainMODELLcprob.size
+	
+	call firstnoLcprob.setvalue 0
+	
+	call loopI.setvalue 1
+	while(loopI.isle(numLcprob)) {
+		call loopI.withvalue lcpI.setvalue 		///
+			class mainMODELLcprob.values[@]
+		call loopI.withvalue stsI.setvalue 		///
+			class mainMODELStatusList.values[@]
+		if lcpI.iseq(1) & stsI.iseq("active") {
+			call modelLcprob.setvalue 1
+//			call numLcprob.increment
+//			call numLcprob.withvalue loopI.setvalue @
+		}
+		else {
+			if lcpI.iseq(0) & stsI.iseq("active") {
+				if firstnoLcprob.iseq(0) {
+					call loopI.withvalue 	///
+					firstnoLcprob.setvalue @
+				}
+			}
+		}
+		call loopI.increment
+	}
+	
+	if modelLcprob.iseq(1) {
+		call script main_lcprob_disable
+	}
+	else {
+		call script main_lcprob_enable
+	}
+	if firstnoLcprob.isneq(0) {
+		call firstnoLcprob.withvalue main.ed_lcbase.setvalue @
+		call firstnoLcprob.withvalue main.ed_lcbase.setdefault @
+	}
+	else {
+		call main.ed_lcbase.setvalue 1
+		call main.ed_lcbase.setdefault 1
+	}
+	
+END
+
+INCLUDE _constraints_sc
+
+INCLUDE sub_by_ifin_over_subpop
+INCLUDE weights_fpi
+INCLUDE se
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+	program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2b
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  CHECKBOX ck_nocnsreport	_lft	_ls	_iwd	.,		///
+	option(nocnsreport)						///
+	label(resource LBL_DO_NOT_DISPLAY_CONSTRAINTS)
+  CHECKBOX ck_noheader		@	_ms	@	.,		///
+	option(noheader)						///
+	label(resource LBL_DO_NOT_DISPLAY_HEADER_ABOVE_PARAMETER_TABLE)
+  CHECKBOX ck_nodvheader	@	_ms	@	.,		///
+	option(nodvheader)						///
+	label(resource SG__GESTOPTIONS_RPT_CK_NODVHEADER)
+  CHECKBOX ck_notable		@	_ms	@	.,		///
+	option(notable)							///
+	label(resource SG__GESTOPTIONS_RPT_CK_NOTABLE)
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+
+PROGRAM rpt_output
+BEGIN
+	optionarg /hidedefault rpt.sp_level
+	option rpt.ck_nocnsreport
+	option rpt.ck_noheader
+	option rpt.ck_nodvheader
+	option rpt.ck_notable
+	put " " rpt_bu_facvarsResults
+	put " " rpt_bu_fmtcoefResults
+END
+
+INCLUDE lca_maximization
+
+PROGRAM fmm_opts_output
+BEGIN
+	beginoptions
+		optionarg /hidedefault main.cb_lcin
+		optionarg main.vl_lcprob
+		optionarg /hidedefault main.ed_lcbase
+		optionarg /hidedefault main.ed_lclabel
+		INCLUDE _constraints_main_pr
+//		option main.ck_collinear
+		put " " /program se_output
+		put " " /program rpt_output
+		put " " /program max_output
+	endoptions
+END
+
+PROGRAM fmm_standard_output
+BEGIN
+	put main.cb_cmd
+	if main.cb_cmd.iseq("betareg") {
+		put " " /program betareg_output
+	}
+	if main.cb_cmd.iseq("cloglog") {
+		put " " /program cloglog_output
+	}
+	if main.cb_cmd.iseq("glm") {
+		put " " /program glm_output
+	}
+	if main.cb_cmd.iseq("intreg") {
+		put " " /program intreg_output
+	}
+	if main.cb_cmd.iseq("ivregress") {
+		put " " /program ivregress_output
+	}
+	if main.cb_cmd.iseq("logit") {
+		put " " /program logit_output
+	}
+	if main.cb_cmd.iseq("mlogit") {
+		put " " /program mlogit_output
+	}
+	if main.cb_cmd.iseq("nbreg") {
+		put " " /program nbreg_output
+	}
+	if main.cb_cmd.iseq("ologit") {
+		put " " /program ologit_output
+	}
+	if main.cb_cmd.iseq("oprobit") {
+		put " " /program oprobit_output
+	}
+	if main.cb_cmd.iseq("poisson") {
+		put " " /program poisson_output
+	}
+	if main.cb_cmd.iseq("probit") {
+		put " " /program probit_output
+	}
+	if main.cb_cmd.iseq("regress") {
+		put " " /program regress_output
+	}
+	if main.cb_cmd.iseq("streg") {
+		put " " /program streg_output
+	}
+	if main.cb_cmd.iseq("tobit") {
+		put " " /program tobit_output
+	}
+	if main.cb_cmd.iseq("tpoisson") {
+		put " " /program tpoisson_output
+	}
+	if main.cb_cmd.iseq("truncreg") {
+		put " " /program tobit_output
+	}	
+END
+
+PROGRAM fmm_hybrid_output
+BEGIN
+	call mainMODELCommandValues.copyToString main_model_output
+	put " " main_model_output
+END
+
+PROGRAM command
+BEGIN
+	put /program by_output " "
+	put /program se_prefix_output " "
+	put "fmm"
+	
+	if main.sp_clsnum.isvisible() {
+		put " " main.sp_clsnum
+	}
+	put " " /program ifin_output
+	put " " /program weights_output
+	put " " /program fmm_opts_output
+	put " : "
+	if main.rb_standard {
+		put /program fmm_standard_output
+	}
+	if main.rb_hybrid {
+		put /program fmm_hybrid_output
+	}
+
+END

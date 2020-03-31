@@ -1,0 +1,68 @@
+*! version 1.0.0  05jan2019
+
+version 16
+
+class {
+
+	msca_y		= "_meta_se"
+	msca_x		= "_meta_es"
+	msca_opts	= ""
+
+}, inherit(twoway_yxview_parse)
+
+program .parse
+	.must_create_serset = 1
+	.viewtype = "scatter"
+	.n = 1
+
+	syntax [anything] [if] [in] [,		///
+		metric(passthru)		///
+		method(passthru)		///
+		*				///
+	]
+	twoway__meta_funnel_gen `anything', `metric' `method'
+	local metric metric(`r(metric)')
+	local method method(`r(method)')
+	.msca_opts = "`metric' `method'"
+	.msca_y		= "`r(y)'"
+	.msca_x		= "`r(x)'"
+
+	.Super.parse `.msca_y' `.msca_x' `if' `in', `options'
+end
+
+program log_create_serset
+
+	syntax , LOG(name) SERSETNAME(string) [ TOUSE(passthru) * ]
+
+	local nolog  .`log'.Arrpush __NOLOG__
+
+	.log_touse , log(`log') `touse'
+
+	// make the data
+	`nolog' tempname y
+	`nolog' twoway__meta_funnel_gen `.msca_y' `.msca_x'	///
+		if \`touse1',					///
+		`.msca_opts'					///
+		generate(\`y')					///
+		// blank
+
+	// no weights to remove
+
+	.`log'.Arrpush				///
+		.`sersetname' = .serset.new	///
+			\`y' `.varlist'		///
+			if \`touse1',		///
+			nocount			///
+			`.omitmethod'		///
+			`options'
+
+	.`log'.Arrpush .`sersetname'.sers[1].name = "y"
+
+	// fix .varlist
+	local varlist `"`.varlist'"'
+	local varlist : subinstr local varlist "`.msca_y'" "y"
+	.varlist = "`varlist'"
+
+end
+
+exit

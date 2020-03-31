@@ -1,0 +1,171 @@
+/*
+  stcox_estat_phtest
+
+*!  VERSION 2.1.0  20nov2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 280
+INCLUDE header_gr_child
+HELP hlp1, view("help estat phtest")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource STCOX_ESTAT_PHTEST_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	gr_plots.settabtitle resource LBL_SCATTERPLOT
+	gr_line_options.settabtitle resource LBL_SMOOTHED_LINE
+	gr_line_options_optionName.setstring "lineopts"
+END
+
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	label(resource STCOX_ESTAT_PHTEST_DLG_TITLE)
+BEGIN
+  GROUPBOX gb_time         _lft      _top      _iwd        _ht8h,	///
+		label(resource STCOX_ESTAT_PHTEST_MAIN_GB_TIME)
+  RADIO    rb_none         _indent   _ss       _cwd3_3     .,		///
+		label(resource STCOX_ESTAT_PHTEST_MAIN_RB_NONE)		///
+		first option(NONE) onclickon(script time_off)
+  DEFINE holdx @x
+  RADIO    rb_km           _lft3_2   @         _comb3_3    .,		///
+		label(resource STCOX_ESTAT_PHTEST_MAIN_RB_KM)		///
+		option(km) onclickon(script time_off)
+  RADIO    rb_log          holdx     _ss       _cwd3_3     .,		///
+		label(resource STCOX_ESTAT_PHTEST_MAIN_RB_LOG)		///
+		option(log) onclickon(script time_off)
+  RADIO    rb_rank         _lft3_2   @         _comb3_3    .,		///
+		label(resource STCOX_ESTAT_PHTEST_MAIN_RB_RANK)		///
+		option(rank) onclickon(script time_off)
+  RADIO    rb_time	   holdx     _ss       _expifwd    .,		///
+ 		last option(NONE) onclickon(script time_on)		///
+		label(resource STCOX_ESTAT_PHTEST_MAIN_RB_TIME)
+
+  VARNAME  vn_time         _indent2  _ss       _vnwd       .,		///
+  		option(time)						///
+  		numeric							///
+		label(resource STCOX_ESTAT_PHTEST_MAIN_RB_TIME)
+
+  CHECKBOX ck_plot         _lft      _xxls     _ibwd       _ht6h,	///
+		groupbox						///
+  		onclickon(script graph_on)				///
+  		onclickoff(script graph_off)				///
+		label(resource STCOX_ESTAT_PHTEST_MAIN_CK_PLOT)
+  VARNAME  vn_plot         _indent   _ms       _vnwd       .,		///
+  		option(plot)						///
+  		numeric							///
+		label(resource LBL_COVARIATE)
+  DEFINE x @x
+  TEXT     tx_plot         _vnsep    @         _cken7r2b   .,		///
+		label(resource LBL_COVARIATE)
+
+  CHECKBOX ck_bwidth       x         +35       _ckwd       .,		///
+		onclickon(program bwidth_check)				///
+		onclickoff(program bwidth_check)
+  EDIT     en_bwidth       _cksep    @         _en7wd      .,		///
+		label(resource STCOX_ESTAT_PHTEST_MAIN_EN_BWIDTH)	///
+		default("literal 0.8")					///
+		numonly							///
+		option(bwidth)
+  TEXT     tx_bwidth       _en7sep   @         250         .,		///
+		label(resource STCOX_ESTAT_PHTEST_MAIN_EN_BWIDTH)
+
+  CHECKBOX ck_detail       _lft      +50       _ibwd       .,		///
+  		option(detail)						///
+		label(resource STCOX_ESTAT_PHTEST_MAIN_CK_DETAIL)
+END
+
+PROGRAM bwidth_check
+BEGIN
+	if main.ck_bwidth {
+		call gaction main.en_bwidth.enable
+	}
+	if !main.ck_bwidth {
+		call gaction main.en_bwidth.disable
+	}
+END
+
+SCRIPT graph_on
+BEGIN
+	main.ck_detail.disable
+	main.vn_plot.enable
+	main.tx_plot.enable
+	main.ck_bwidth.enable
+	program bwidth_check
+	main.tx_bwidth.enable
+
+	script gr_plots_enable
+	script gr_line_options_enable
+	script gr_xaxis_enable
+	script gr_yaxis_enable
+	script gr_titles_enable
+	script gr_legend_enable
+	script gr_overall_enable
+END
+
+SCRIPT graph_off
+BEGIN
+	main.ck_detail.enable
+	main.vn_plot.disable
+	main.tx_plot.disable
+	main.ck_bwidth.disable
+	main.en_bwidth.disable
+	main.tx_bwidth.disable
+
+	script gr_plots_disable
+	script gr_line_options_disable
+	script gr_xaxis_disable
+	script gr_yaxis_disable
+	script gr_titles_disable
+	script gr_legend_disable
+	script gr_overall_disable
+END
+
+SCRIPT time_on
+BEGIN
+	main.vn_time.enable
+END
+
+SCRIPT time_off
+BEGIN
+	main.vn_time.disable
+END
+
+INCLUDE gr_plots
+INCLUDE gr_line_options
+INCLUDE gr_yaxis
+INCLUDE gr_xaxis
+INCLUDE gr_titles
+INCLUDE gr_legend
+INCLUDE gr_overall
+
+PROGRAM command
+BEGIN
+	option radio(main rb_none rb_km rb_log rb_rank rb_time)
+	if main.rb_time {
+		require main.vn_time
+		optionarg main.vn_time
+	}
+	if main.ck_plot{
+		require main.vn_plot
+		optionarg main.vn_plot
+	}
+	option main.ck_detail
+	if main.ck_bwidth {
+		optionarg main.en_bwidth
+	}
+
+	put " " /program gr_plots_output
+	put " " /program gr_line_options_output
+	put " " /program gr_yaxis_output
+	put " " /program gr_xaxis_output
+	put " " /program gr_titles_output
+	put " " /program gr_overall_output
+END

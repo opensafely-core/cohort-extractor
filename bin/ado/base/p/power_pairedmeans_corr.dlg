@@ -1,0 +1,842 @@
+/*
+	power pairedmeans, corr()
+
+*!  VERSION 1.1.7  14mar2017
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_xwide
+DEFINE _dlght 535
+INCLUDE header
+
+HELP hlp1, view("help power pairedmeans")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING tmpstr
+	create STRING graph_res
+	create STRING numContents
+	create STRING stok
+	create ARRAY tmp
+	create BOOLEAN containsNumlist
+	create BOOLEAN containsNumlist_pre
+	create BOOLEAN containsNumlist_post
+	create BOOLEAN containsNumlist_effect_pre
+
+	program table_create4Pairedmeans_corr
+	setscale_hadj resource POWER_PAIREDMEANS_CORR_DLG_HSCALE
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	if __MESSAGE.iseq("ttest") {
+		call main.ck_knownsd.setoff
+		call main.ck_knownsd.disable
+	}
+	if __MESSAGE.iseq("ztest") {
+		call main.ck_knownsd.seton
+		call main.ck_knownsd.disable
+	}
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	label(resource POWER_PAIREDMEANS_CORR_DLG_TITLE)
+BEGIN
+  INCLUDE power_compute
+  DEFINE errpos _ls
+  INCLUDE power_errorprob
+  DEFINE sspos +40
+  INCLUDE power_onesampsize
+
+  GROUPBOX gb_effect_size	_lft	+40	_iwd	_ht19,		///
+	label(resource LBL_EFFECT_SIZE)
+  GROUPBOX gb_means		_indent	_ss	_cwd1	_ht16,		///
+	label(resource LBL_MEANS)
+  DEFINE holdy2 @y
+  EDIT ed_nulldiff		_indent	_ss	_en14wd	.,		///
+	onchange(program check_for_numlist)				///
+	default(0)							///
+	option(nulldiff)						///
+	tooltip(resource LBL_NULL_DIFFERENCE)				///
+	label(resource LBL_NULL_DIFFERENCE)
+  TEXT tx_nulldiff		_en14sep @	100	.,		///
+	label(resource LBL_STAR_NULL_DIFFERENCE)
+  TEXT tx_specify_effect	_iilft	_ls	235	.,		///
+	label(resource LBL_SPECIFY_EFFECT_AS_ALTERNATIVE)
+  EDIT ed_effect_pre		@	@	_en14wd	.,		///
+	onchange(program check_for_numlist)				///
+	tooltip(resource LBL_ALTERNATIVE_PRETREATMENT_MEAN_MA1)		///
+	label(resource LBL_PRETREATMENT)
+  TEXT tx_effect_pre		_en14sep @	100	.,		///
+	label(resource LBL_STAR_PRETREATMENT)
+  COMBOBOX cb_specify_effect	_iilft	 _ss	235	.,		///
+	dropdownlist							///
+	contents("main_effect_list")					///
+	values("main_effect_values")					///
+	onselchange("program main_effect_changed")			///
+	label(resource LBL_SPECIFY_EFFECT_AS_ALTERNATIVE)
+  EDIT ed_pre			_iilft	_ls	_en14wd	.,		///
+	onchange(program check_for_numlist)				///
+	tooltip(resource LBL_ALTERNATIVE_PRETREATMENT_MEAN_MA1)		///
+	label(resource LBL_PRETREATMENT)
+  TEXT tx_pre			_en14sep @	100	.,		///
+	label(resource LBL_STAR_PRETREATMENT)
+  EDIT ed_post			_iilft	_ms	_en14wd	.,		///
+	onchange(program check_for_numlist)				///
+	tooltip(resource LBL_ALTERNATIVE_POSTTREATMENT_MEAN_MA2)	///
+	label(resource LBL_POSTTREATMENT)
+  TEXT tx_post			_en14sep @	100	.,		///
+	label(resource LBL_STAR_POSTTREATMENT)
+  EDIT ed_altdiff		_iilft	_ls	_en14wd	.,		///
+	onchange(program check_for_numlist)				///
+	option(altdiff)							///
+	tooltip(resource LBL_ALTERNATIVE_DIFFERENCE_MA2_MA1)		///
+	label(resource POWER_LBL_DIFFERENCE)
+  TEXT tx_altdiff		_en14sep @	100	.,		///
+	label(resource LBL_STAR_DIFFERENCE)
+
+  GROUPBOX gb_std		_lft2	holdy2	_cwd2	_ht16,		///
+	label(resource LBL_CORRELATION_AND_STANDARD_DEVIATIONS)
+  EDIT ed_corr			_ilft2	_ss	_en14wd	.,		///
+	onchange(program check_for_numlist)				///
+	option(corr)							///
+	tooltip(resource LBL_CORRELATION_BETWEEN_PAIRED_OBSERVATIONS)	///
+	label(resource LBL_CORRELATION_NO_COLON)
+  TEXT tx_corr			_en14sep @	100	.,		///
+	label(resource LBL_STAR_CORRELATION)
+  RADIO rb_std_common		_ilft2	_ls	200	., first	///
+	onclickon("program main_std_common_on")				///
+	onclickoff("script main_std_common_off")			///
+	label(resource LBL_COMMON_STANDARD_DEVIATION)
+  RADIO rb_std_group		_ilft2	+40	@	., last		///
+	onclickon("program main_std_group_on")				///
+	onclickoff("script main_std_group_off")				///
+	label(resource LBL_GROUP_STANDARD_DEVIATIONS)
+  EDIT ed_sd			_iilft2	-20	_en14wd	.,		///
+  	onchange(program check_for_numlist)				///
+	default(1)							///
+	option(sd)							///
+	label(resource LBL_COMMON_VALUE)
+  TEXT tx_sd			_en14sep @	95	.,		///
+	label(resource LBL_STAR_COMMON_VALUE)
+  EDIT ed_sd1			_iilft2	+40	_en14wd	.,		///
+  	onchange(program check_for_numlist)				///
+	option(sd1)							///
+	label(resource LBL_PRETREATMENT)
+  TEXT tx_sd1			_en14sep @	95	.,		///
+	label(resource LBL_STAR_PRETREATMENT)
+  EDIT ed_sd2			_iilft2	_ms	_en14wd	.,		///
+  	onchange(program check_for_numlist)				///
+	option(sd2)							///
+	label(resource LBL_POSTTREATMENT)
+  TEXT tx_sd2			_en14sep @	95	.,		///
+	label(resource LBL_STAR_POSTTREATMENT)
+  CHECKBOX ck_knownsd		_ilft2	_ls	225	.,		///
+	option(knownsd)							///
+	onclickon("program power_iteration_tab_check")			///
+	onclickoff("program power_iteration_tab_check")			///
+	label(resource LBL_ASSUME_A_KNOWN_STANDARD_DEVIATION)
+  TEXT tx_fpc			_lft	+45	_iwd	.,		///
+	label(resource LBL_STAR_FINITE_POPULATION_CORRECTION)
+  COMBOBOX cb_fpc		@	_ss	160	.,		///
+	dropdownlist							///
+	contents("main_fpc_list")					///
+	values("main_fpc_values")					///
+	onselchange("program main_fpc_changed")				///
+	label(resource LBL_FINITE_POPULATION_CORRECTION)
+  EDIT ed_fpc			+170	@	_en14wd	.,		///
+	option(fpc)							///
+	onchange(program check_for_numlist)				///
+	label(resource LBL_FINITE_POPULATION_CORRECTION)
+
+  DEFINE ypos _ls
+  INCLUDE power_test_maincommon
+END
+
+LIST main_compute_list
+BEGIN
+	resource LBL_SAMPLE_SIZE
+	resource PSS_LBL_POWER
+	resource LBL_EFFECT_SIZE_AND_TARGET_MEAN_DIFFERENCE
+END
+
+LIST main_compute_values
+BEGIN
+	sampsi
+	power
+	effect
+END
+
+LIST main_effect_list
+BEGIN
+	resource LBL_PRE_AND_POSTTREATMENT_MEANS
+	resource LBL_PRETREATMENT_MEANS_AND_DIFFERENCE
+	resource POWER_LBL_DIFFERENCE
+END
+
+LIST main_effect_values
+BEGIN
+	"pre_post"
+	"pre_altdiff"
+	"altdiff"
+END
+
+PROGRAM main_compute_changed
+BEGIN
+	if main.cb_compute.iseq("sampsi") {
+		call program main_sampsi_on
+	}
+	if main.cb_compute.iseq("power") {
+		call program main_power_on
+	}
+	if main.cb_compute.iseq("effect") {
+		call program main_effect_on
+	}
+END
+
+PROGRAM main_sampsi_on
+BEGIN
+	call main.ed_power.show
+	call main.ed_beta.show
+	call main.tx_power_beta_power.show
+	call main.cb_power_beta.show
+	call main.ed_n.hide
+	call main.tx_n.hide
+	call main.ck_nfrac.show
+	call main.ed_effect_pre.hide
+	call main.tx_effect_pre.hide
+	call main.tx_specify_effect.show
+	call main.cb_specify_effect.show
+	call program main_effect_changed
+
+	call script power_test_maincommon_hide_dir
+	call program main_power_beta_changed
+	call program check_for_numlist
+	call program power_iteration_tab_check
+END
+
+PROGRAM main_power_on
+BEGIN
+	call main.ed_power.hide
+	call main.ed_beta.hide
+	call main.tx_power_beta_power.hide
+	call main.cb_power_beta.hide
+	call main.ed_n.show
+	call main.tx_n.show
+	call main.ck_nfrac.hide
+	call main.ed_effect_pre.hide
+	call main.tx_effect_pre.hide
+	call main.tx_specify_effect.show
+	call main.cb_specify_effect.show
+	call program main_effect_changed
+
+	call script power_test_maincommon_hide_dir
+	call program check_for_numlist
+	call program power_iteration_tab_check
+END
+
+PROGRAM main_effect_on
+BEGIN
+	call main.ed_power.show
+	call main.ed_beta.show
+	call main.tx_power_beta_power.show
+	call main.cb_power_beta.show
+	call main.ed_n.show
+	call main.tx_n.show
+	call main.ck_nfrac.hide
+	call main.ed_effect_pre.show
+	call main.tx_effect_pre.show
+	call main.tx_specify_effect.hide
+	call main.cb_specify_effect.hide
+	call main.ed_pre.hide
+	call main.tx_pre.hide
+	call main.ed_post.hide
+	call main.tx_post.hide
+	call main.ed_altdiff.hide
+	call main.tx_altdiff.hide
+
+	call script power_test_maincommon_show_dir
+	call program main_power_beta_changed
+	call program check_for_numlist
+	call program power_iteration_tab_check
+END
+
+PROGRAM main_effect_changed
+BEGIN
+	if main.cb_specify_effect.iseq("pre_post") {
+		call main.ed_pre.show
+		call main.tx_pre.show
+		call main.ed_post.show
+		call main.tx_post.show
+		call main.ed_altdiff.hide
+		call main.tx_altdiff.hide
+	}
+	if main.cb_specify_effect.iseq("pre_altdiff") {
+		call main.ed_pre.show
+		call main.tx_pre.show
+		call main.ed_post.hide
+		call main.tx_post.hide
+		call main.ed_altdiff.show
+		call main.tx_altdiff.show
+		call main.ed_altdiff.setposition . 325
+		call main.tx_altdiff.setposition . 325
+	}
+	if main.cb_specify_effect.iseq("altdiff") {
+		call main.ed_pre.hide
+		call main.tx_pre.hide
+		call main.ed_post.hide
+		call main.tx_post.hide
+		call main.ed_altdiff.show
+		call main.tx_altdiff.show
+		call main.ed_altdiff.setposition . 300
+		call main.tx_altdiff.setposition . 300
+	}
+	call program check_for_numlist
+END
+
+PROGRAM main_std_common_on
+BEGIN
+	call main.ed_sd.enable
+	call main.tx_sd.enable
+	call program check_for_numlist
+END
+
+SCRIPT main_std_common_off
+BEGIN
+	main.ed_sd.disable
+	main.tx_sd.disable
+	program check_for_numlist
+END
+
+PROGRAM main_std_group_on
+BEGIN
+	call main.ed_sd1.enable
+	call main.tx_sd1.enable
+	call main.ed_sd2.enable
+	call main.tx_sd2.enable
+	call program check_for_numlist
+END
+
+SCRIPT main_std_group_off
+BEGIN
+	main.ed_sd1.disable
+	main.tx_sd1.disable
+	main.ed_sd2.disable
+	main.tx_sd2.disable
+	program check_for_numlist
+END
+
+PROGRAM main_fpc_changed
+BEGIN
+	if main.cb_fpc.iseq("none") {
+		call main.ed_fpc.hide
+	}
+	else {
+		call main.ed_fpc.show
+	}
+	call program check_for_numlist
+	call program table_create4Pairedmeans_corr
+	call program power_iteration_tab_check
+END
+
+PROGRAM main_power_beta_table
+BEGIN
+	call program table_create4Pairedmeans_corr
+END
+
+PROGRAM check_for_numlist
+BEGIN
+	call containsNumlist.setfalse
+	call containsNumlist_pre.setfalse
+	call containsNumlist_post.setfalse
+	call containsNumlist_effect_pre.setfalse
+
+	if main.ed_nulldiff {
+		call numContents.setvalue class main.ed_nulldiff.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_effect_pre & main.ed_effect_pre.isvisible() {
+		call numContents.setvalue class main.ed_effect_pre.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+			call containsNumlist_effect_pre.settrue
+		}
+	}
+
+	if main.ed_pre & main.ed_pre.isvisible() {
+		call numContents.setvalue class main.ed_pre.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+			call containsNumlist_pre.settrue
+		}
+		call program table_create4Pairedmeans_corr
+	}
+
+	if main.ed_post & main.ed_post.isvisible() {
+		call numContents.setvalue class main.ed_post.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+			call containsNumlist_post.settrue
+		}
+	}
+
+	if main.ed_altdiff & main.ed_altdiff.isvisible() {
+		call numContents.setvalue class main.ed_altdiff.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+		call program table_create4Pairedmeans_corr
+	}
+
+	if main.ed_alpha {
+		call numContents.setvalue class main.ed_alpha.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_power & main.ed_power.isvisible() {
+		call numContents.setvalue class main.ed_power.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_beta & main.ed_beta.isvisible() {
+		call numContents.setvalue class main.ed_beta.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_n & main.ed_n.isvisible() {
+		call numContents.setvalue class main.ed_n.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+	
+	if main.ed_corr {
+		call numContents.setvalue class main.ed_corr.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_sd & main.ed_sd.isenabled() {
+		call numContents.setvalue class main.ed_sd.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+		call program table_create4Pairedmeans_corr
+	}
+
+	if main.ed_sd1 & main.ed_sd1.isenabled() {
+		call numContents.setvalue class main.ed_sd1.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+		call program table_create4Pairedmeans_corr
+	}
+
+	if main.ed_sd2 & main.ed_sd2.isenabled() {
+		call numContents.setvalue class main.ed_sd2.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_fpc & main.ed_fpc.isvisible() {
+		call numContents.setvalue class main.ed_fpc.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if containsNumlist {
+		call main.ck_parallel.enable
+	}
+	else {
+		call main.ck_parallel.disable
+	}
+END
+
+PROGRAM power_iteration_tab_check
+BEGIN
+	call script power_iteration_enable
+	if main.cb_compute.iseq("power") {
+		call script power_iteration_disable
+	}
+	else {
+		if main.cb_compute.endswith("sampsi") {
+			call script power_iteration_is_sampsi
+			if main.cb_oneside.iseq("onesided") & main.ck_knownsd & main.cb_fpc.iseq("none") {
+				call script power_iteration_disable
+			}
+		}
+		if main.cb_compute.iseq("effect") {
+			call script power_iteration_is_effect
+			if main.cb_oneside.iseq("onesided") & main.ck_knownsd {
+				call script power_iteration_disable
+			}
+		}
+
+	}
+END
+
+INCLUDE _power_list
+INCLUDE power_errorprob_pr
+INCLUDE power_test_maincommon_pr
+INCLUDE power_table_opts
+INCLUDE power_graph
+INCLUDE power_iteration
+
+PROGRAM command
+BEGIN
+	put "power pairedmeans "
+
+	require main.ed_corr
+
+	if main.cb_compute.iseq("power") | main.cb_compute.iseq("effect") {
+		require main.ed_n
+	}
+
+	if main.cb_specify_effect.iseq("pre_post") {
+		require main.ed_pre
+		require main.ed_post
+	}
+	if main.cb_specify_effect.iseq("pre_altdiff") {
+		require main.ed_pre
+		require main.ed_altdiff
+	}
+	if main.cb_specify_effect.iseq("altdiff") {
+		require main.ed_altdiff
+	}
+
+	if main.ed_effect_pre.isvisible() {
+		if containsNumlist_effect_pre {
+			put "("
+			put  main.ed_effect_pre
+			put ")"
+		} 
+		else {
+			put main.ed_effect_pre
+		}
+	}
+
+	if main.ed_pre & main.ed_pre.isvisible() {
+		if !main.ed_pre.isnumlist() {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_INVALID_NUMLIST_FOR_MEAN_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_PRETREATMENT" 
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Pretreatment" mean.
+		}
+		if containsNumlist_pre {
+			put "("
+			put main.ed_pre
+			put ")"
+		} 
+		else {
+			put " " main.ed_pre
+		}
+	}
+
+	if main.ed_post & main.ed_post.isvisible() {
+		if !main.ed_post.isnumlist() {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_INVALID_NUMLIST_FOR_MEAN_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_POSTTREATMENT"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Posttreatment" mean.
+		}
+		if containsNumlist_post {
+			put " ("
+			put main.ed_post
+			put ")"
+		}
+		else {
+			put " " main.ed_post
+		}
+	}
+
+	beginoptions
+		optionarg main.ed_corr
+		if !main.ed_corr.isnumlist() {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_CORRELATION_NO_COLON"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Correlation".
+		}
+		if !(main.ed_corr.isNumlistGT(-1) & main.ed_corr.isNumlistLT(1)) {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format				///
+				"resource LBL_MSGBOX_ON_TAB_BETWEEN_NEG_1_AND_1_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_CORRELATION_NO_COLON"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Correlation" must be between -1 and 1.
+		}
+		optionarg /hidedefault main.ed_nulldiff
+		if !main.ed_nulldiff.isnumlist() {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_NULL_DIFFERENCE"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Null difference".
+		}
+		if main.ed_altdiff & main.ed_altdiff.isvisible() {
+			if !main.ed_altdiff.isnumlist() {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource POWER_LBL_DIFFERENCE"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Difference".
+			}
+			optionarg main.ed_altdiff
+		}
+		if main.ed_n & main.ed_n.isvisible() {
+			if !main.ed_n.isnumlist() {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_SAMPLE_SIZE"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Sample size".
+			}
+			if !main.ed_n.isNumlistGT(0) {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 					///
+					"resource LBL_MSGBOX_ON_TAB_GREATER_THAN_0_FMT"	///
+					"resource LBL_TAB_MAIN"				///
+					"resource LBL_SAMPLE_SIZE"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Sample size" must be greater than 0.
+			}
+			optionarg main.ed_n
+		}
+		option main.ck_nfrac
+
+		put " " /program power_errorprob_output
+
+		if main.rb_std_common & main.ed_sd {
+			if !main.ed_sd.isnumlist() {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 					///
+					"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+					"resource LBL_TAB_MAIN"				///
+					"resource LBL_COMMON_STANDARD_DEVIATION" 
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Common standard deviation".
+			}
+			if !main.ed_sd.isNumlistGT(0) {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 					///
+					"resource LBL_MSGBOX_ON_TAB_GREATER_THAN_0_FMT" ///
+					"resource LBL_TAB_MAIN"				///
+					"resource LBL_COMMON_STANDARD_DEVIATION"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Common standard deviation" must be greater than 0.
+			}
+			optionarg /hidedefault main.ed_sd
+		}
+		if main.rb_std_group {
+			optionarg main.ed_sd1
+			optionarg main.ed_sd2
+			if !main.ed_sd1.isnumlist() {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 						///
+					"resource LBL_MSGBOX_INVALID_NUMLIST_FOR_STANDARD_DEVIATION_FMT" ///
+					"resource LBL_TAB_MAIN"					///
+					"resource LBL_PRETREATMENT"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Pretreatment" standard deviation.
+			}
+			if !main.ed_sd1.isNumlistGT(0) {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 						///
+					"resource LBL_MSGBOX_STANDARD_DEVIATION_GREATER_THAN_0_FMT" ///
+					"resource LBL_TAB_MAIN"					///
+					"resource LBL_PRETREATMENT"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Pretreatment" standard deviation must be greater than 0.
+			}
+			if !main.ed_sd2.isnumlist() {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 						///
+					"resource LBL_MSGBOX_INVALID_NUMLIST_FOR_STANDARD_DEVIATION_FMT" ///
+					"resource LBL_TAB_MAIN"					///
+					"resource LBL_POSTTREATMENT"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Posttreatment" standard deviation.
+			}
+			if !main.ed_sd2.isNumlistGT(0) {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 						 ///
+					"resource LBL_MSGBOX_STANDARD_DEVIATION_GREATER_THAN_0_FMT" ///
+					"resource LBL_TAB_MAIN"					///
+					"resource LBL_POSTTREATMENT"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Posttreatment" standard deviation must be greater than 0.
+			}
+		}
+
+		if main.ck_knownsd {
+			put " knownsd"
+		}
+
+		if main.cb_fpc.iseq("pop_size") |			///
+			main.cb_fpc.iseq("sample_rate") {
+			require main.ed_fpc
+			if main.cb_fpc.iseq("pop_size") {
+				if !main.ed_fpc.isnumlist() {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 					///
+					"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+					"resource LBL_TAB_MAIN"				///
+					"resource LBL_POPULATION_SIZE"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Population size".
+				}
+				if !main.ed_fpc.isNumlistGT(0) {
+					call create STRING _MSG_TMP
+					call _MSG_TMP.format					///
+						"resource LBL_MSGBOX_ON_TAB_GREATER_THAN_0_FMT" ///
+						"resource LBL_TAB_MAIN"				///
+						"resource LBL_POPULATION_SIZE" 
+					stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Population size" must be greater than 0.
+				}
+			}
+			if main.cb_fpc.iseq("sample_rate") {
+				if !main.ed_fpc.isnumlist() {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 					///
+					"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+					"resource LBL_TAB_MAIN"				///
+					"resource LBL_SAMPLING_RATE"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Sampling rate".
+				}
+				if !(main.ed_fpc.isNumlistGE(0) & main.ed_fpc.isNumlistLE(1)) {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format				///
+					"resource LBL_MSGBOX_ON_TAB_GE_0_LE_1_FMT" ///
+					"resource LBL_TAB_MAIN"			///
+					"resource LBL_SAMPLING_RATE"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Sampling rate" must be in [0,1].
+				}
+			}
+			optionarg main.ed_fpc
+		}
+
+		put " " /program power_test_maincommon_output
+		put " " /program power_table_opts_output
+		put " " /program power_graph_output
+		put " " /program power_iteration_output
+	endoptions
+END
+

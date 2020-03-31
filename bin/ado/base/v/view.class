@@ -1,0 +1,111 @@
+/* 				view
+	Base class for all graphics objects that are renderable.
+
+	Reserved attributes:  .xsize and .ysize
+
+	Many of the member programs will be redefined by subclasses.
+
+	All child classes that inherit from view, if they have a custom .new
+	member program, should in general call this new, or, importantly, if
+	they have a .set, it should call .Super.set (and .new should not call
+	.Super.new in such cases).
+
+        Child classes MUST be able to provide declared size information (in
+        GUs) by either declaring a .xsize and .ysize numeric attribute or
+        providing .xsize and .ysize member programs.  If the child view is
+        always free or shared stretchable in a dimension, it is not required to
+        implement the size in that dimension and/or it may return anything.
+
+	Child classes may declare a margin class (to be named margin) and
+	view will handle the impact of this margin on extent computations.
+	The margin may also be declared in a style in which case the name must
+	be .style.margin.  Note that it is still the responsibility of the
+	view to handle any margins when it is drawn, probably using some form
+	of .<margin>.setgdi.
+
+	Child classes may declare a style instance (whose classtype is any
+	class derived from style.cls).  Processing of the style(stylenm)
+	options to .new and .set will be handled here.
+
+	Complex views may need to provide their own .extent member program.
+
+		.Super.new [, size and stretch options (or all extra opts) ]
+*/
+*! version 1.0.0  30jul2002
+
+version 8
+
+class {
+    instance:
+			/* size of object, possibly very dynamic numbers   */
+	double xsize_ren = 0			/* rendered x size	   */
+	double ysize_ren = 0			/* rendered y size	   */
+
+	// x and ystretch inherited from anyview_g
+}, inherit(anyview_g)
+
+
+/* -------------------------------------------------------------------------*/
+program define xsize
+    di in white "warning, class `.classname':  view does not implement xsize"
+
+    class exit = 0
+end
+
+program define ysize
+    di in white "warning, class `.classname':  view does not implement ysize"
+
+    class exit = 0
+end
+
+
+
+/* -------------------------------------------------------------------------*/
+/*  Returns the computed x or y extent of a view from the view's declared
+    size in GUs and the currently set GU size.
+
+	Usage:  .extent {x|y}				
+*/
+program define extent
+	args ord
+
+	if "`.draw_view.istrue'" == "" {
+		local drawn 1
+	}
+	else {
+		local drawn = 0`.draw_view.istrue'
+		if ! `drawn' {
+			local drawn 0`.fill_if_undrawn.istrue'
+		}
+	}
+	if ! `drawn' | 0`.not_drawn' {
+		class exit 0
+	}
+
+	if "`.Local.margin.isa'" == "class" {		/* child may define */
+		local marname margin
+	}
+	else if "`.Local.style.margin.isa'" == "class" {
+		local marname style.margin
+	}
+						/* size is stored in GUs */
+
+	if "`marname'" == ""  {
+		class exit = 0`.`ord'size'
+	}
+	
+	if "`ord'" == "x" {
+		class exit = 0`.`ord'size' + 0`.`marname'.gmright' +	///
+			     0`.`marname'.gmleft'
+	}
+	class exit = 0`.`ord'size' + 0`.`marname'.gmtop' +		///
+		     0`.`marname'.gmbottom'
+
+end
+
+
+/* -------------------------------------------------------------------------*/
+program define draw
+	di in white "class `.classname':  view does not implement draw"
+end
+

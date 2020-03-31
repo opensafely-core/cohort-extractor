@@ -1,0 +1,511 @@
+/*
+  estimates table
+
+*!  VERSION 1.3.2  02apr2019
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE _ht320
+INCLUDE header
+HELP hlp1, view("help estimates table")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource ESTIMATES_TABLE_DLG_HSCALE
+END
+
+
+DIALOG main, label(resource ESTIMATES_TABLE_DLG_TITLE)	/*
+	*/ tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_name         _lft      _top       _iwd     .,		/*
+  		*/label(resource ESTIMATES_TABLE_MAIN_TX_NAME)
+  COMBOBOX cb_name         @         _ss        @        .,		/*
+  		*/label(resource ESTIMATES_TABLE_MAIN_CB_NAME)		/*
+  		*/dropdown append contents(estimates)
+  GROUPBOX gb_opt          @         _xls        @        _ht12h,	/*
+  		*/label(resource ESTIMATES_TABLE_MAIN_GB_OPT)
+  CHECKBOX ck_chi2         _ilft     _ss        _cwd3    .,		/*
+  		*/label(resource ESTIMATES_TABLE_MAIN_CK_CHI2) option(chi2)
+  DEFINE holdy @y
+  CHECKBOX ck_df           @         _ss        @        .,		/*
+  		*/label(resource ESTIMATES_TABLE_MAIN_CK_DF) option(df)
+  CHECKBOX ck_nobs         @         _ss        @        .,		/*
+  		*/label(resource LBL_NUMBER_OF_OBSERVATIONS) option(N)
+  CHECKBOX ck_aic          _lft2     holdy      @        .,		/*
+  		*/label(resource ESTIMATES_TABLE_MAIN_CK_AIC) option(aic)
+  CHECKBOX ck_bic          @         _ss        @        .,		/*
+  		*/label(resource ESTIMATES_TABLE_MAIN_CK_BIC) option(bic)
+  CHECKBOX ck_rank         @         _ss        @        .,		/*
+  		*/label(resource ESTIMATES_TABLE_MAIN_CK_RANK) option(rank)
+  TEXT     tx_rank         _cksep    _vss       _inwd    .,		/*
+  		*/label(resource ESTIMATES_TABLE_MAIN_TX_RANK)
+  TEXT     tx_stats2       _ilft     _ms        _ibwd    .,		/*
+  	*/label(resource ESTIMATES_TABLE_MAIN_TX_STATS2)
+  EDIT     ed_stats        _ilft     _ss        @        .,		/*
+  	*/label(resource ESTIMATES_TABLE_MAIN_ED_STATS)/*
+  		*/option(stats)
+  CHECKBOX ck_star         _lft      _xxls       _iwd      .,		/*
+  	*/label(resource ESTIMATES_TABLE_MAIN_CK_STAR)	/*
+  	*/clickon(program star_on) clickoff(program star_off)		/*
+	*/option(star)
+  TEXT     tx_star         _indent2  _ss        _inwd    .,		/*
+*/label(resource ESTIMATES_TABLE_MAIN_TX_STAR)
+  EDIT     ed_star         @         _ss        @        .,		/*
+  	*/label(resource ESTIMATES_TABLE_MAIN_CK_STAR)	/*
+  		*/default(".05 .01 .001") option("star")
+END
+
+DIALOG opt, label("") /*
+		*/ tabtitle(resource LBL_OPTIONS)
+BEGIN
+  /*--+----1----+----2----+----3----+----4----+----5----+----6----+----7----+*/
+  CHECKBOX ck_keep         _lft      _top       _iwd     .,		/*
+  	*/label(resource ESTIMATES_TABLE_OPT_CK_KEEP)			/*
+  	*/clickon(script keep_on) clickoff(script keep_off)
+  VARLIST  vl_keep         @         _ss        @        .,		/*
+  	*/label(resource ESTIMATES_TABLE_OPT_CK_KEEP)			/*
+  	*/numeric							/*
+  	*/option(keep)
+  TEXT     tx_keep         @         _ss        @        .,		/*
+*/label(resource ESTIMATES_TABLE_OPT_TX_KEEP)
+  TEXT     tx_keep2        @         _vss       @        .,		/*
+  */label(resource ESTIMATES_TABLE_OPT_TX_KEEP2)
+  CHECKBOX ck_drop         @         _ms        @        .,		/*
+  */label(resource ESTIMATES_TABLE_OPT_CK_DROP)				/*
+  		*/clickon(script drop_on) clickoff(script drop_off)
+  VARLIST  vl_drop         @         _ss        @        .,		/*
+  		*/label(resource ESTIMATES_TABLE_OPT_CK_DROP)			/*
+  		*/numeric						/*
+  		*/option(drop)
+  TEXT     tx_drop         @         _ss        @        .,		/*
+*/label(resource ESTIMATES_TABLE_OPT_TX_DROP)
+  GROUPBOX gb_match        @         _ls        @        _ht8,		/*
+  		*/label(resource ESTIMATES_TABLE_OPT_GB_MATCH)
+  RADIO    rb_mat1         _ilft     _ss        _ibwd    .,		/*
+  		*/label(resource ESTIMATES_TABLE_OPT_RB_MAT1) option(NONE)	/*
+  		*/clickon(script opt_mat3_off) first
+  RADIO    rb_mat2         @         _ss        @        .,		/*
+  	*/label(resource ESTIMATES_TABLE_OPT_RB_MAT2)	/*
+  		*/option("equations(1)") clickon(script opt_mat3_off)
+  RADIO    rb_mat3         @         _ss        @        .,		/*
+  		*/label(resource ESTIMATES_TABLE_OPT_RB_MAT3)			/*
+  		*/clickon(script opt_mat3_on) option(NONE) last
+  EDIT     ed_mat3         _indent2  _ss        _edifwd .,		/*
+  		*/label(resource ESTIMATES_TABLE_OPT_RB_MAT3) option(equations)
+  BUTTON   bu_mat3         _edifsep  @          _buwd    .,		/*
+  		*/label(resource LBL_HELP) onpush("view help est_table_equations##|_new")
+END
+
+SCRIPT bfmt_get
+BEGIN
+	create STRING bfmtResult
+	create CHILD format_chooser
+	format_chooser.setExitString bfmtResult
+	format_chooser.setExitAction "nopt.ed_b.setvalue class bfmtResult.value"
+END
+
+SCRIPT sefmt_get
+BEGIN
+	create STRING sefmtResult
+	create CHILD format_chooser
+	format_chooser.setExitString sefmtResult
+	format_chooser.setExitAction "nopt.ed_se.setvalue class sefmtResult.value"
+END
+
+SCRIPT tfmt_get
+BEGIN
+	create STRING tfmtResult
+	create CHILD format_chooser
+	format_chooser.setExitString tfmtResult
+	format_chooser.setExitAction "nopt.ed_t.setvalue class tfmtResult.value"
+END
+
+SCRIPT pfmt_get
+BEGIN
+	create STRING pfmtResult
+	create CHILD format_chooser
+	format_chooser.setExitString pfmtResult
+	format_chooser.setExitAction "nopt.ed_p.setvalue class pfmtResult.value"
+END
+
+SCRIPT stfmt_get
+BEGIN
+	create STRING stfmtResult
+	create CHILD format_chooser
+	format_chooser.setExitString stfmtResult
+	format_chooser.setExitAction "nopt.ed_stfmt.setvalue class stfmtResult.value"
+END
+
+DIALOG nopt, label("") tabtitle(resource ESTIMATES_TABLE_TAB_NOPT)
+BEGIN
+  TEXT     tx_b            _lft      _top       _cken7r2 .,		/*
+  		*/label(resource LBL_COEFFICIENTS)
+  EDIT     ed_b            +20 	     _ss        _en14wd  .,		/*
+  		*/label(resource ESTIMATES_TABLE_NOPT_ED_B)			/*
+  		*/option(b)
+  BUTTON   bu_bfmt         _en14sep  @          65       .,		/*
+		*/label(resource LBL_BU_FORMAT) onpush(script bfmt_get)		/*
+		*/tooltip(resource LBL_CREATE_DISPLAY_FORMAT)
+  
+  CHECKBOX ck_se           _lft     _ls        _cken7r2 .,		/*
+  		*/label(resource ESTIMATES_TABLE_NOPT_CK_SE)			/*
+  		*/clickon(script se_on) clickoff(script se_off) option(se)
+  EDIT     ed_se           +20      _ss        _en14wd  .,		/*
+  		*/label(resource LBL_STANDARD_ERRORS)				/*
+  		*/option(se)
+  BUTTON   bu_sefmt        _en14sep @          65       .,		/*
+		*/label(resource LBL_BU_FORMAT) onpush(script sefmt_get)		/*
+		*/tooltip(resource LBL_CREATE_DISPLAY_FORMAT)
+
+  CHECKBOX ck_t            _lft     _ls        _cken7r2 .,		/*
+  		*/label(resource ESTIMATES_TABLE_NOPT_CK_T)			/*
+  		*/clickon(script t_on) clickoff(script t_off) option(t)
+  EDIT     ed_t            +20      _ss        _en14wd  .,		/*
+  		*/label(resource ESTIMATES_TABLE_NOPT_ED_T)				/*
+  		*/option(t)
+  BUTTON   bu_tfmt         _en14sep  @         65       .,		/*
+		*/label(resource LBL_BU_FORMAT) onpush(script tfmt_get)		/*
+		*/tooltip(resource LBL_CREATE_DISPLAY_FORMAT)
+
+  CHECKBOX ck_p            _lft     _ls        _cken7r2 .,		/*
+  		*/label(resource ESTIMATES_TABLE_NOPT_CK_P)				/*
+  		*/clickon(script p_on) clickoff(script p_off) option(p)
+  EDIT     ed_p            +20      _ss        _en14wd  .,		/*
+  		*/label(resource ESTIMATES_TABLE_NOPT_ED_P)				/*
+  		*/option(p)
+  BUTTON   bu_pfmt         _en14sep  @         65       .,		/*
+		*/label(resource LBL_BU_FORMAT) onpush(script pfmt_get)		/*
+		*/tooltip(resource LBL_CREATE_DISPLAY_FORMAT)
+
+  TEXT     tx_stfmt        _lft     _ls        _cken7r2 .,		/*
+  		*/label(resource ESTIMATES_TABLE_TX_STFMT)
+  EDIT     ed_stfmt        +20      _ss        _en14wd  .,		/*
+  		*/label(resource ESTIMATES_TABLE_TX_STFMT)				/*
+  		*/option(stfmt)
+  BUTTON   bu_stfmt2       _en14sep  @         65       .,		/*
+		*/label(resource LBL_BU_FORMAT) onpush(script stfmt_get)		/*
+		*/tooltip(resource LBL_CREATE_DISPLAY_FORMAT)
+END
+
+DIALOG opt2, label("") /*
+		*/ tabtitle(resource ESTIMATES_TABLE_TAB_OPT2)
+BEGIN
+  /*--+----1----+----2----+----3----+----4----+----5----+----6----+----7----+*/
+  SPINNER  sp_varw         _lft      _top       _spwd    .,		/*
+  		*/label(resource ESTIMATES_TABLE_OPT2_SP_VARW)/*
+  		*/default(12) min(1) max(80) option(varwidth)
+  TEXT     tx_varw         _spsep    @          _spr     .,		/*
+  */label(resource ESTIMATES_TABLE_OPT2_TX_VARW)
+  SPINNER  sp_modw         _lft      _ls        _spwd    .,		/*
+  		*/label(resource ESTIMATES_TABLE_OPT2_SP_MODW)		/*
+  		*/default(12) min(1) max(80) option(modelwidth)
+  TEXT     tx_modw         _spsep    @          _spr     .,		/*
+  		*/label(resource ESTIMATES_TABLE_OPT2_TX_MODW)
+  CHECKBOX ck_eform        _lft      _ls        _iwd     .,		/*
+  		*/label(resource ESTIMATES_TABLE_OPT2_CK_EFORM)/*
+  		*/option(eform)
+  CHECKBOX ck_varlabel        @         _ms        _iwd     .,		/*
+  	*/label(resource ESTIMATES_TABLE_OPT2_CK_VARLABEL)	/*
+  		*/option(varlabel)
+  CHECKBOX ck_newpanel     @         _ms        _iwd     .,		/*
+*/label(resource ESTIMATES_TABLE_OPT2_CK_NEWPANEL)/*
+		*/option(newpanel)
+  GROUPBOX gb_style        @         _ls        @        _ht6,		/*
+  		*/label(resource ESTIMATES_TABLE_OPT2_GB_STYLE)		/*
+		*/
+  RADIO    rb_onel         _indent   _ss        _ibwd    .,		/*
+*/label(resource ESTIMATES_TABLE_OPT2_RB_ONEL) /*
+  		*/first option("style(oneline)")
+  RADIO    rb_col          @         _ss        @        .,		/*
+*/label(resource ESTIMATES_TABLE_OPT2_RB_COL)/*
+  		*/option("style(columns)")
+  RADIO    rb_nol          @         _ss        @        .,		/*
+  		*/label(resource ESTIMATES_TABLE_OPT2_RB_NOL)			/*
+  		*/option("style(nolines)") last
+  CHECKBOX ck_coded        _lft      _xls       _iwd     .,		/*
+  		*/label(resource ESTIMATES_TABLE_OPT2_CK_CODED) option(coded) 	/*
+  		*/onclickon(script opt2_coded_on) 			/*
+		*/onclickoff(program opt2_coded_off)
+END
+
+SCRIPT opt2_coded_on
+BEGIN
+	opt2.rb_nol.disable
+	opt2.rb_col.disable
+	opt2.rb_onel.disable
+	opt2.gb_style.disable
+	opt2.ck_newpanel.disable
+	opt2.ck_varlabel.disable
+	opt2.ck_eform.disable
+	opt2.tx_modw.disable
+	opt2.sp_modw.disable
+	opt2.tx_varw.disable
+	opt2.sp_varw.disable
+	nopt.tx_b.disable
+	nopt.ed_b.disable
+	nopt.bu_bfmt.disable
+	nopt.ck_se.disable
+	nopt.ed_se.disable
+	nopt.bu_sefmt.disable
+	nopt.ck_t.disable
+	nopt.ed_t.disable
+	nopt.bu_tfmt.disable
+	nopt.ck_p.disable
+	nopt.ed_p.disable
+	nopt.bu_pfmt.disable
+	nopt.tx_stfmt.disable
+	nopt.ed_stfmt.disable
+	nopt.bu_stfmt2.disable
+	main.ed_star.disable
+	main.tx_star.disable
+	main.ck_star.disable
+END
+
+PROGRAM opt2_coded_off
+BEGIN
+	call gaction opt2.rb_nol.enable
+	call gaction opt2.rb_col.enable
+	call gaction opt2.rb_onel.enable
+	call gaction opt2.gb_style.enable
+	call gaction opt2.ck_newpanel.enable
+	call gaction opt2.ck_varlabel.enable
+	call gaction opt2.ck_eform.enable
+	call gaction opt2.tx_modw.enable
+	call gaction opt2.sp_modw.enable
+	call gaction opt2.tx_varw.enable
+	call gaction opt2.sp_varw.enable
+	call gaction nopt.tx_b.enable
+	call gaction nopt.ed_b.enable
+	call gaction nopt.bu_bfmt.enable
+	call gaction nopt.ck_se.enable
+	if nopt.ck_se {
+		call gaction nopt.ed_se.enable
+		call gaction nopt.bu_sefmt.enable
+	}
+	call gaction nopt.ck_t.enable
+	if nopt.ck_t {
+		call gaction nopt.ed_t.enable
+		call gaction nopt.bu_tfmt.enable
+	}
+	call gaction nopt.ck_p.enable
+	if nopt.ck_p {
+		call gaction nopt.ed_p.enable
+		call gaction nopt.bu_pfmt.enable
+	}
+	call gaction nopt.tx_stfmt.enable
+	call gaction nopt.ed_stfmt.enable
+	call gaction nopt.bu_stfmt2.enable
+	call gaction main.tx_star.enable
+	call gaction main.ck_star.enable
+	if main.ck_star {
+		call gaction main.ed_star.enable
+	}
+END
+
+SCRIPT opt_mat3_off
+BEGIN
+	opt.ed_mat3.disable
+	opt.bu_mat3.disable
+END
+
+SCRIPT opt_mat3_on
+BEGIN
+	opt.ed_mat3.enable
+	opt.bu_mat3.enable
+END
+
+PROGRAM star_on
+BEGIN
+	call main.ed_star.enable
+	if nopt.ck_se {
+		call script se_off
+	}
+	call nopt.ck_se.disable
+	if nopt.ck_t {
+		call script t_off
+	}
+	call nopt.ck_t.disable
+	if nopt.ck_p {
+		call script p_off
+	}
+	call nopt.ck_p.disable
+END
+
+PROGRAM star_off
+BEGIN
+	call main.ed_star.disable
+	call nopt.ck_se.enable
+	if nopt.ck_se {
+		call script se_on
+	}
+	call nopt.ck_t.enable
+	if nopt.ck_t {
+		call script t_on
+	}
+	call nopt.ck_p.enable
+	if nopt.ck_p {
+		call script p_on
+	}
+END
+
+SCRIPT keep_on
+BEGIN
+	opt.vl_keep.enable
+END
+
+SCRIPT keep_off
+BEGIN
+	opt.vl_keep.disable
+END
+
+SCRIPT drop_on
+BEGIN
+	opt.vl_drop.enable
+END
+
+SCRIPT drop_off
+BEGIN
+	opt.vl_drop.disable
+END
+
+SCRIPT se_on
+BEGIN
+	nopt.ed_se.enable
+	nopt.bu_sefmt.enable
+END
+
+SCRIPT se_off
+BEGIN
+	nopt.ed_se.disable
+	nopt.bu_sefmt.disable
+END
+
+SCRIPT t_on
+BEGIN
+	nopt.ed_t.enable
+	nopt.bu_tfmt.enable
+END
+
+SCRIPT t_off
+BEGIN
+	nopt.ed_t.disable
+	nopt.bu_tfmt.disable
+END
+
+SCRIPT p_on
+BEGIN
+	nopt.ed_p.enable
+	nopt.bu_pfmt.enable
+END
+
+SCRIPT p_off
+BEGIN
+	nopt.ed_p.disable
+	nopt.bu_pfmt.disable
+END
+
+
+PROGRAM additional_stats_output
+BEGIN
+	option main.ck_chi2
+	option main.ck_df
+	option main.ck_nobs
+	option main.ck_aic
+	option main.ck_bic
+	option main.ck_rank
+	put main.ed_stats
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _y _top
+  INCLUDE _bu_factor_vars_reporting
+
+END
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_facvarsResults
+        program rpt_bu_facvars_ckResults
+END
+
+INCLUDE factor_vars_reporting_pr
+
+PROGRAM command
+BEGIN
+	put "estimates table "
+	put main.cb_name
+	beginoptions
+		if main.ck_chi2 | main.ck_df | main.ck_nobs | 	///
+			main.ck_aic | main.ck_bic |		///
+			main.ck_rank | main.ed_stats  {
+			put " stats("
+			put /program additional_stats_output
+			put ") "
+		}
+		if main.ck_star{
+			put "star"
+			if main.ed_star {
+				put "(" main.ed_star ") "
+			}
+		}
+		if opt.ck_keep {
+			require opt.vl_keep
+			optionarg opt.vl_keep
+		}
+		if opt.ck_drop {
+			require opt.vl_drop
+			optionarg opt.vl_drop
+		}
+		if !opt2.ck_coded {
+			option radio (opt rb_mat1 rb_mat2 rb_mat3)
+		}
+		if opt.rb_mat3 {
+			optionarg opt.ed_mat3
+		}
+		optionarg /hidedefault nopt.ed_b
+		if nopt.ck_se{
+			if !default(nopt.ed_se) {
+				put " se(" nopt.ed_se ") "
+			}
+			if default(nopt.ed_se) {
+				put " se"
+			}
+		}
+		if nopt.ck_t{
+			if !default(nopt.ed_t) {
+				put " t(" nopt.ed_t ") "
+			}
+			if default(nopt.ed_t) {
+				put " t"
+			}
+		}
+		if nopt.ck_p{
+			if !default(nopt.ed_p) {
+				put " p(" nopt.ed_p ") "
+			}
+			if default(nopt.ed_p) {
+				put " p"
+			}
+
+		}
+		optionarg /hidedefault nopt.ed_stfmt
+		option opt2.ck_eform
+		optionarg /hidedefault opt2.sp_varw
+		optionarg /hidedefault opt2.sp_modw
+		option opt2.ck_varlabel
+		if !opt2.ck_coded {
+			option radio(opt2 rb_col rb_nol)
+		}
+		option opt2.ck_newpanel
+		option opt2.ck_coded
+		put " " rpt_bu_facvarsResults
+	endoptions
+
+END

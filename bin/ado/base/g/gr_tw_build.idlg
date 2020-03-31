@@ -1,0 +1,597 @@
+/*
+  gr_tw_build.idlg
+
+*!  VERSION 1.2.4  03jun2015
+
+    NOTE: (IMPORTANT)
+    	The name of this dialog tab must not be changed due to 
+    	external dependencies.
+    	
+	// SCRIPTS and PROGRAMS for external use
+		* SCRIPT gr_tw_build_setTabToAddplots
+		* SCRIPT gr_tw_build_setTabToAddplots_2 // see note with definition
+		* SCRIPT gr_tw_build_disable
+		* SCRIPT gr_tw_build_enable
+		* PROGRAM gr_tw_build_output
+*/
+
+SCRIPT gr_tw_build_setTabToAddplots
+BEGIN
+	build.settabtitle resource GR_TW_BUILD_BUILD_ADD_PLOTS
+	build_plotsRequired.setfalse
+	build_isAddPlot.settrue
+	build_outputCmd.setstring "addplot"
+	build_show_y2_on_first.settrue
+	build.rb_default.show
+	build.rb_below.show
+END
+
+/* Special version that does not allow checkbox for placing second y-axis
+ * on the right on any plot. Commands that use -graph addplot-
+ * internally should call this version.
+ */
+SCRIPT gr_tw_build_setTabToAddplots_2
+BEGIN
+	build.settabtitle resource GR_TW_BUILD_BUILD_ADD_PLOTS
+	build_plotsRequired.setfalse
+	build_isAddPlot.settrue
+	build_outputCmd.setstring "addplot"
+	build_hide_y2_always.settrue
+	build.rb_default.show
+	build.rb_below.show
+END
+
+SCRIPT gr_tw_build_disable
+BEGIN
+	program gr_tw_build_disable_wrk
+END
+PROGRAM gr_tw_build_disable_wrk
+BEGIN
+	call build.tx_plots.disable
+	call build.lb_plots.disable
+	call build.bu_new.disable
+	
+// Save the previous state when this tab is disabled.
+
+	if D(build.bu_edit) {
+		call build_isEditOn.setfalse
+	}
+	if ! D(build.bu_edit) {
+		call build_isEditOn.settrue
+	}
+	call build.bu_edit.disable
+	
+	if D(build.bu_disable) {
+		call build_isDisableOn.setfalse
+	}
+	if ! D(build.bu_disable) {
+		call build_isDisableOn.settrue
+	}
+	call build.bu_disable.disable
+
+	if D(build.bu_enable) {
+		call build_isEnableOn.setfalse
+	}
+	if ! D(build.bu_enable) {
+		call build_isEnableOn.settrue
+	}
+	call build.bu_enable.disable
+	
+	if D(build.bu_up) {
+		call build_isUpOn.setfalse
+	}
+	if ! D(build.bu_up) {
+		call build_isUpOn.settrue
+	}
+	call build.bu_up.disable
+	
+	if D(build.bu_down) {
+		call build_isDownOn.setfalse
+	}
+	if ! D(build.bu_down) {
+		call build_isDownOn.settrue
+	}
+	call build.bu_down.disable
+
+	call build.tb_note.disable
+	call build.rb_default.disable
+	call build.rb_below.disable
+	call build_isFullyDisabled.settrue
+END
+
+SCRIPT gr_tw_build_enable
+BEGIN
+	program gr_tw_build_enable_wrk
+END
+PROGRAM gr_tw_build_enable_wrk
+BEGIN
+	call build.tx_plots.enable
+	call build.lb_plots.enable
+	call build.bu_new.enable
+	if build_isEditOn {
+		call build.bu_edit.enable
+	}
+	if build_isDisableOn {
+		call build.bu_disable.enable
+	}
+	if build_isEnableOn {
+		call build.bu_enable.enable
+	}
+	if build_isUpOn {
+		call build.bu_up.enable
+	}
+	if build_isDownOn {
+		call build.bu_down.enable
+	}
+	call build.tb_note.enable
+	call build.rb_default.enable
+	call build.rb_below.enable
+	call build_isFullyDisabled.setfalse
+END
+
+SCRIPT build_PREINIT
+BEGIN
+	create STRING build_STMP
+	create STRING build_result
+	create STRING build_CMD 	// Public
+	create STRING build_outputCmd
+	create STRING build_childdlg
+	create STRING build_tmp
+	create STRING build_tmp2
+	create STRING build_value
+	create STRING build_cmd_output
+	create STRING build_Y2set_vals
+	
+	create BOOLEAN build_plotsRequired
+	create BOOLEAN build_isEditOn
+	create BOOLEAN build_isDisableOn
+	create BOOLEAN build_isEnableOn
+	create BOOLEAN build_isUpOn
+	create BOOLEAN build_isDownOn
+	create BOOLEAN build_isFullyDisabled
+	create BOOLEAN build_show_y2_on_first
+	create BOOLEAN build_hide_y2_always
+	create BOOLEAN build_isY2Set 	//Public
+	create BOOLEAN build_isAddPlot
+	build_plotsRequired.settrue
+	build_isAddPlot.setfalse
+	build_show_y2_on_first.setfalse
+
+	create ARRAY  build_plots
+	
+	create SVECTOR build_plots_vec
+	create SVECTOR build_plot_values_vec
+	create SVECTOR buildPlotCommandList
+	create SVECTOR buildPlotCommandValues
+	create SVECTOR buildPlotCommandDisplayList
+	create SVECTOR buildPlotStatusList
+	create SVECTOR buildChildDialogList
+	create SVECTOR buildY2set
+
+	create DOUBLE build_plotcount
+	create DOUBLE build_position
+	create DOUBLE build_position_hold
+	create DOUBLE build_position_hold2
+	create DOUBLE build_size
+	
+	build.bu_edit.disable
+	build.bu_disable.disable
+	build.bu_enable.disable
+	build.bu_up.disable
+	build.bu_down.disable
+
+	build.rb_default.hide
+	build.rb_below.hide
+END
+
+SCRIPT build_POSTINIT
+BEGIN
+	build.bu_new.setfocus
+	program build_check_y2_and_set_ytab
+	program build_handle_ok
+END
+
+/***
+PROGRAM build_POSTINIT_PROGRAM is defined by gr_addplots wrapper
+DO NOT DEFINE HERE
+****/
+
+DIALOG build, title(resource GR_TW_BUILD_BUILD_DLG_TITLE) tabtitle(resource LBL_PLOTS)
+BEGIN
+  TEXT     tx_plots	10	10	130	.,		///
+	label(resource GR_TW_BUILD_BUILD_TX_PLOTS)
+  
+  LISTBOX  lb_plots	@	+20	@	175,		///
+  	contents(build_plots) 					///
+  	ondblclick(program build_edit_plot)			///
+  	onselchange(program build_plot_sel_changed)		///
+  	nomemory
+  BUTTON   bu_new	+140	@	100	.,		///
+  	label(resource LBL_BU_CREATE)				///
+  	onpush(program build_create_new)			///
+  	tooltip(resource LBL_CLICK_CREATE_NEW_PLOT)
+  BUTTON   bu_edit	@	+23	@	.,		///
+  	label(resource LBL_BU_EDIT)				///
+  	onpush(program build_edit_plot)  			///
+  	tooltip(resource LBL_CLICK_EDIT_EXISTING_PLOT)
+  BUTTON   bu_disable	@	+28	@	.,		///
+  	label(resource LBL_BU_DISABLE)				///
+  	onpush(program build_disable_sel)			///
+  	tooltip(resource LBL_CLICK_DISABLE_PLOT)
+  BUTTON   bu_enable	@	+23	@	.,		///
+  	label(resource LBL_BU_ENABLE)				///
+  	onpush(program build_enable_sel)			///
+  	tooltip(resource LBL_CLICK_ENABLE_PREVIOUSLY_DISABLED_PLOT)
+  BUTTON   bu_up	@	+28	@	.,		///
+	label(resource GR_TW_BUILD_BUILD_BU_UP)			///
+	onpush(program build_move_up)				///
+	tooltip(resource GR_TW_BUILD_BUILD_BU_UP_TOOLTIP)
+  BUTTON   bu_down	@	+23	@	.,		///
+	label(resource GR_TW_BUILD_BUILD_BU_DOWN)		///
+	onpush(program build_move_down)				///
+	tooltip(resource GR_TW_BUILD_BUILD_BU_DOWN_TOOLTIP)
+  TEXTBOX  tb_note	_lft	+60	_iwd	_tb2,		///
+	label(resource GR_TW_BUILD_BUILD_TB_NOTE)
+  RADIO    rb_default	@	_xls	_iwd	., first	///
+	label(resource GR_TW_BUILD_BUILD_RB_DEFAULT)
+  RADIO    rb_below	@	_ss	@	., last		///
+	label(resource GR_TW_BUILD_BUILD_RB_BELOW)
+END
+
+PROGRAM build_handle_ok
+BEGIN
+	call build_size.setvalue class build_plots_vec.size
+	if build_size {
+		call build_plots_vec.copyToArray build_plots	
+		call build.lb_plots.repopulate
+		call build.bu_edit.enable
+	}
+END
+
+PROGRAM build_create_new
+BEGIN
+	call build_plotcount.setvalue class buildChildDialogList.size
+	call build_plotcount.increment
+	call build_plotcount.withvalue build_childdlg.setvalue "build_plot@"
+	call program build_show_child
+END
+
+PROGRAM build_edit_plot
+BEGIN
+	call build_plots_vec.findstr class build.lb_plots.value
+	call build_position.setvalue class build_plots_vec.position
+	call build_position.withvalue build_childdlg.setvalue		///
+		class buildChildDialogList.values[@]
+
+	call program build_show_child_edit	
+END
+
+PROGRAM build_show_child
+BEGIN
+	call build_childdlg.withvalue create CHILD gr_tw_plot AS @, allowsubmit
+	call build_childdlg.withvalue @.setExitString "build_result"
+	call build_childdlg.withvalue @.setExitAction "program build_plot_done"
+	
+	call build_childdlg.withvalue @.setSubmitAction 		///
+		"program build_plot_submit_done"
+
+	call build_plotcount.withvalue build_STMP.format		///
+		"resource LBL_PLOT_FMT" "@" ""
+	call build_STMP.withvalue build_tmp.setvalue "@"
+	call build_childdlg.withvalue build_tmp2.setvalue "@.settitle"
+	call build_tmp2.append `" ""'
+	call build_tmp2.append class build_tmp.value
+	call build_tmp2.append `"""'
+	call build_tmp2.withvalue @
+
+	if (build_hide_y2_always | 					///
+		(build_plotcount.iseq(1) & ! build_show_y2_on_first))	///
+	{
+		call build_childdlg.withvalue @.callthru 		///
+			"script y2SetHidden_true"
+	}
+END
+
+PROGRAM build_show_child_edit
+BEGIN
+	call build_childdlg.withvalue create CHILD gr_tw_plot AS @, allowsubmit
+	call build_childdlg.withvalue @.setExitString "build_result"
+	call build_childdlg.withvalue @.setExitAction "program build_plot_done"
+	
+	call build_childdlg.withvalue @.setSubmitAction 		///
+		"program build_plot_submit_done"
+	call build_position.withvalue build_tmp.setvalue		///
+			class build_plots_vec.values[@]
+	call build_childdlg.withvalue build_tmp2.setvalue "@.settitle"
+	call build_tmp2.append `" ""'
+	call build_tmp2.append class build_tmp.value
+	call build_tmp2.append `"""'
+	call build_tmp2.withvalue @
+
+	if (build_hide_y2_always | 					///
+		(build_position.iseq(1) & ! build_show_y2_on_first))	///
+	{
+		call build_childdlg.withvalue @.callthru 		///
+			"script y2SetHidden_true"
+	}
+END
+
+PROGRAM build_plot_done
+BEGIN
+	call buildChildDialogList.findstr class build_childdlg.value
+	call build_position.setvalue class buildChildDialogList.position
+	if build_position {
+		call buildPlotCommandList.store 			///
+			class build_position.value class build_result.value
+	
+		call build_position.withvalue build_tmp.setvalue	///
+		class buildPlotStatusList.values[@]
+		if  build_tmp.isneq("disable") {
+			call buildPlotCommandValues.store 		///
+			class build_position.value class build_result.value
+		}
+		call buildPlotCommandDisplayList.store 			///
+			class build_position.value class build_CMD.value
+		if build_isY2Set {
+			call buildY2set.store class build_position.value "show"
+		}
+		else {
+			call buildY2set.store class build_position.value ""
+		}     	
+	
+		call build_value.setvalue class build.lb_plots.value
+		call build.lb_plots.repopulate
+		call build_value.withvalue build.lb_plots.setvalue "@" 
+	}
+	else {
+		call build_size.setvalue class buildChildDialogList.size
+		call build_size.increment
+     	
+		call buildChildDialogList.store 			///
+			class build_size.value class build_childdlg.value
+			
+		call buildPlotCommandList.store 			///
+			class build_size.value class build_result.value
+     	
+     		call buildPlotCommandValues.store 			///
+			class build_size.value class build_result.value
+
+		call buildPlotCommandDisplayList.store 			///
+			class build_size.value class build_CMD.value
+
+		call buildPlotStatusList.store 				///
+			class build_size.value "active"
+
+		call build_size.withvalue build_STMP.format 		///
+			"resource LBL_PLOT_FMT" "@" ""
+		call build_STMP.withvalue build_plots_vec.store 	///
+			class build_size.value  "@"
+
+		call build_STMP.withvalue build_plot_values_vec.store	///
+			class build_size.value  "@"
+		if build_isY2Set {
+			call buildY2set.store class build_size.value  "show"
+		}
+		else {
+			call buildY2set.store class build_size.value  ""
+		}	
+		call build_plots_vec.copyToArray build_plots	
+		call build.lb_plots.repopulate
+		call build_STMP.withvalue build.lb_plots.setvalue "@" 
+		call build.bu_edit.enable
+	}
+	call buildY2set.copyToString build_Y2set_vals
+	if build_Y2set_vals {
+		call script gr_yaxis_showY2_2
+	}
+	else {
+		call script gr_yaxis_hideY2_2
+	}
+	
+END
+
+PROGRAM build_plot_submit_done
+BEGIN
+	call program build_plot_done
+	call Submit
+END
+
+PROGRAM build_plot_sel_changed
+BEGIN
+	call build_plots_vec.findstr class build.lb_plots.value
+	call build_position.setvalue class build_plots_vec.position
+	if build_position {
+		call build_position.withvalue build.tb_note.setlabel	///
+			class buildPlotCommandDisplayList.values[@]
+	}
+
+	call build_size.setvalue class build_plots_vec.size
+	if build_position.iseq(1) {
+		if build_size.iseq(build_position) {
+			call build.bu_up.disable
+			call build.bu_down.disable
+		}
+		else {
+			call build.bu_up.disable
+			call build.bu_down.enable
+		}
+	}
+	if build_position.isgt(1) {
+		if build_size.iseq(build_position) {
+			call build.bu_up.enable
+			call build.bu_down.disable
+		}
+		else {
+			call build.bu_up.enable
+			call build.bu_down.enable
+		}
+	}
+	
+	call build_position.withvalue build_tmp.setvalue		///
+		class buildPlotStatusList.values[@]
+
+	if  build_tmp.iseq("disable") {
+		call build.bu_enable.enable
+		call build.bu_disable.disable
+	}
+	if  build_tmp.iseq("active") {
+		call build.bu_enable.disable
+		call build.bu_disable.enable
+	}
+	
+END
+
+PROGRAM build_disable_sel
+BEGIN
+	call build_plots_vec.findstr class build.lb_plots.value
+	call build_position_hold.setvalue class build_plots_vec.position
+	call build_tmp2.setvalue class build.lb_plots.value
+    	call buildPlotStatusList.store 					///
+		class build_position_hold.value "disable"
+
+	call build_STMP.format "resource LBL_PAREN_DISABLED"
+	call build_tmp2.append " "
+	call build_tmp2.append class build_STMP.value
+	call build_tmp2.withvalue build_STMP.setvalue "@"
+
+    	call build_tmp2.withvalue build_plots_vec.store			///
+		class build_position_hold.value "@"
+
+	call build_plots_vec.copyToArray build_plots	
+	call build_tmp2.withvalue build_value.setvalue "@"
+	call build.lb_plots.repopulate
+	call build.lb_plots.setvalue class build_STMP.value
+    	call buildPlotCommandValues.store class build_position_hold.value ""
+END
+
+PROGRAM build_enable_sel
+BEGIN
+	/* build_enable*/
+	call build_plots_vec.findstr class build.lb_plots.value
+	call build_position_hold.setvalue class build_plots_vec.position
+    	call buildPlotStatusList.store 					///
+		class build_position_hold.value "active"
+    	call build_position_hold.withvalue build_plots_vec.store	///
+		class build_position_hold.value 			///
+		class build_plot_values_vec.values[@]
+	call build_position_hold.withvalue build_value.setvalue 	///
+		class build_plot_values_vec.values[@]
+	call build_plots_vec.copyToArray build_plots	
+	call build.lb_plots.repopulate
+	call build_value.withvalue build.lb_plots.setvalue "@" 
+    	call build_position_hold.withvalue buildPlotCommandValues.store ///
+		class build_position_hold.value 			///
+		class buildPlotCommandList.values[@]
+END
+
+PROGRAM build_move_up
+BEGIN
+	call build_plots_vec.findstr class build.lb_plots.value
+	call build_position_hold.setvalue class build_plots_vec.position
+	call build_position_hold2.setvalue class build_plots_vec.position
+	call build_position_hold2.decrement
+    	call buildChildDialogList.swap 					///
+    		class build_position_hold.value 			///
+		class build_position_hold2.value
+    	call buildPlotCommandList.swap 					///
+    		class build_position_hold.value 			///
+		class build_position_hold2.value
+    	call buildPlotCommandValues.swap 				///
+    		class build_position_hold.value 			///
+		class build_position_hold2.value
+    	call buildPlotCommandDisplayList.swap 				///
+    		class build_position_hold.value 			///
+		class build_position_hold2.value
+    	call buildPlotStatusList.swap 					///
+    		class build_position_hold.value 			///
+		class build_position_hold2.value
+    	call build_plots_vec.swap 					///
+    		class build_position_hold.value 			///
+		class build_position_hold2.value
+    	call build_plot_values_vec.swap 				///
+    		class build_position_hold.value 			///
+		class build_position_hold2.value
+    	call buildY2set.swap 						///
+    		class build_position_hold.value 			///
+		class build_position_hold2.value
+	call build_plots_vec.copyToArray build_plots	
+	call build_value.setvalue class build.lb_plots.value
+	call build.lb_plots.repopulate
+	call build_value.withvalue build.lb_plots.setvalue "@" 
+END
+
+PROGRAM build_move_down
+BEGIN
+	call build_plots_vec.findstr class build.lb_plots.value
+	call build_position_hold.setvalue class build_plots_vec.position
+	call build_position_hold2.setvalue class build_plots_vec.position
+	call build_position_hold2.increment
+    	call buildChildDialogList.swap 					///
+    		class build_position_hold.value 			///
+		class build_position_hold2.value
+    	call buildPlotCommandList.swap 					///
+    		class build_position_hold.value 			///
+		class build_position_hold2.value
+    	call buildPlotCommandValues.swap 				///
+    		class build_position_hold.value 			///
+		class build_position_hold2.value
+    	call buildPlotCommandDisplayList.swap 				///
+    		class build_position_hold.value 			///
+		class build_position_hold2.value
+    	call buildPlotStatusList.swap 					///
+    		class build_position_hold.value				///
+		class build_position_hold2.value
+    	call build_plots_vec.swap 					///
+    		class build_position_hold.value				///
+		class build_position_hold2.value
+    	call build_plot_values_vec.swap 				///
+    		class build_position_hold.value 			///
+		class build_position_hold2.value
+    	call buildY2set.swap 						///
+    		class build_position_hold.value 			///
+		class build_position_hold2.value
+	call build_plots_vec.copyToArray build_plots	
+	call build_value.setvalue class build.lb_plots.value
+	call build.lb_plots.repopulate
+	call build_value.withvalue build.lb_plots.setvalue "@" 
+END
+
+PROGRAM gr_tw_build_output
+BEGIN
+	call buildPlotCommandValues.copyToString build_cmd_output
+
+	if ! build_isFullyDisabled {
+		call build_size.setvalue class buildPlotStatusList.size
+		if build_cmd_output.iseq("") & build_plotsRequired 	///
+		& build_size.iseq(0) {
+			call create STRING _MSG_TMP
+                        call _MSG_TMP.format "resource LBL_MSGBOX_PLOTS_NOT_DEFINED"
+                        stopbox stop "class _MSG_TMP.value"
+// Plots not defined. Please create a plot before proceeding.
+		}
+		if build_cmd_output.iseq("") & build_size.isgt(0) 	///
+		& build_plotsRequired {
+			call create STRING _MSG_TMP
+                        call _MSG_TMP.format "resource LBL_MSGBOX_ALL_PLOTS_DISABLED"
+			stopbox stop "class _MSG_TMP.value"
+// All plots are disabled. 
+// Either define a new plot or enable an existing plot before proceeding.
+		}
+
+		if build_cmd_output {
+			put build_outputCmd
+			if build_outputCmd {
+				put "("
+			}
+			put build_cmd_output
+			if build_isAddPlot {
+				if build.rb_below {
+					put ", below"
+				}	
+			}
+			if build_outputCmd {
+				put ") "
+			}
+		}
+	}
+END

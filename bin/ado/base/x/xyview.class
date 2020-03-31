@@ -1,0 +1,481 @@
+/*                                 xyview
+
+	Base class for data views that have an x variable, a y variable and
+	possibly a weight variable
+*/
+*! version 1.0.2  18feb2015
+
+version 8
+
+class {
+	type	= .yxtype.new, style(scatter)
+	style	= .seriesstyle.new
+
+	draw_view       = .yesno.new, style(yes)
+	fill_if_undrawn = .yesno.new, style(no)
+
+	add_plotregion	= .yesno.new, style(no)
+	conf_interval	= .yesno.new, style(no)
+	ci_of_expected	= .yesno.new, style(yes)
+	addview		= .xyaddviews.new, style(none)
+
+	/* class serset serset			-- declared dynamically */
+	double xvar				/* x variable id	*/
+	double yvar				/* y variable id	*/
+	double yvar2				/* second y var id	*/
+	double wvar				/* weight variable id	*/
+
+	/* class plotregion plotregion		-- may be declared */
+
+} , inherit(subview)
+
+
+/* -------------------------------------------------------------------------*/
+program define new
+
+	.addview.setstyle , style(none)
+	if `"`0'"' != `""' {
+		.set `0'
+	}
+end
+
+
+program define set
+
+	syntax [,  Serset(string) Xvariable(string)			/*
+		*/ Yvariable(string) Yvar2(string) Wvariable(string)	/*
+		*/ STyle(string) Type(string) PLOTRegion(string) ]
+
+	if "`serset'"  != "" { 
+		if "`.Local.serset.isa'" == "" {
+			.Declare serset = .`serset'.ref
+		}
+		else {
+			.serset.ref = .`serset'.ref 
+		}
+	}
+	if "`plotregion'"  != "" { 
+		if "`.Local.plotregion.isa'" == "" {
+			.Declare plotregion = .`plotregion'.ref
+		}
+		else {
+			.plotregion.ref = .`plotregion'.ref 
+		}
+	}
+
+						/* set the x, y and maybe w 
+						 * variable ids */
+	foreach v in xvariable yvariable yvar2 wvariable {
+		if "``v''" != "" {
+			if "`v'" == "yvar2" {
+				local att `v'
+			}
+			else	local att = bsubstr("`v'", 1, 4)
+			capture confirm integer number ``v''
+			if _rc {
+				local varid = `.serset.seriesof ``v'''
+				if 0`varid' {
+					.`att' = `varid'
+				}
+				else {
+				    di in white `"``v'' not found in serset""'
+				}
+			}
+			else	.`att' = ``v''
+		}
+	}
+
+	if `"`style'"' != `""' {
+		.style.setstyle , style(`style')
+	}
+
+	if "`type'" != "" { 
+		.type.setstyle, style(`type')
+	}
+end
+
+/* -------------------------------------------------------------------------*/
+/*
+	Returns the value of x, y for the specified observation
+
+	Usage:  .X #_obs
+*/
+
+program X
+	.serset.set
+
+	class exit = serset(`.xvar', `1')
+end
+
+program Y
+	.serset.set
+
+	class exit = serset(`.yvar', `1')
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*
+	Returns minimum and maximum sizes
+*/
+
+program ranges , rclass
+
+	capture return scalar xmin = `.serset.sers[`.xvar'].min'
+	capture return scalar xmax = `.serset.sers[`.xvar'].max'
+	capture return scalar ymin = `.serset.sers[`.yvar'].min'
+	capture return scalar ymax = `.serset.sers[`.yvar'].max'
+	if 0`.serset.sers[`.yvar2'].min' < 0`.serset.sers[`.yvar'].min' {
+		class exit = `.serset.sers[`.yvar2'].min'
+	}
+	if 0`.serset.sers[`.yvar2'].max' > 0`.serset.sers[`.yvar'].max' {
+		class exit = `.serset.sers[`.yvar2'].max'
+	}
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*
+	Returns the label of the specified dimension variable, or if that is 
+	blank the name of the xvariable.  Optionally, returns only the name.
+*/
+
+program dimtitle
+
+	gettoken dim 0 : 0
+
+	syntax [ , Nameonly ]
+
+	if ! `.Local.serset.isofclass serset' {
+		exit
+	}
+
+	if "`nameonly'" == "" {
+		class exit `"`.serset.sers[`.`dim'var'].label_or_name'"'
+	}
+
+	class exit `"`.serset.sers[`.`dim'var'].name'"'
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*
+	Assumes an appropriate scale has already been set.
+*/
+program define draw
+
+	if ! `.draw_view.istrue' { 
+		exit						/* EXIT */
+	}
+
+	if bsubstr("`.type.stylename'",1,5) == "range" {
+		._draw_range
+		exit
+	}
+
+	if "`.type.stylename'" == "bar" {	/* handle x-y bars	*/
+		._draw_bar
+		exit
+	}
+
+						/* draw lines if requested */
+	if "`.type.stylename'" == "connected" | "`.type.stylename'" == "line" {
+		.style.line.setgdifull
+		gdi scatterline `.serset.id' `.xvar' `.yvar'
+		gdi update
+	}
+
+	if "`.type.stylename'" == "line" { 
+		exit 
+	}
+
+						/* draw markers at points 
+						 * if requested */
+	if "`.style.marker.backsymbol.setting'" != "none" {
+		.style.marker.setgdifull,  backing
+		gdi scatter `.serset.id' `.xvar' `.yvar'
+	}
+
+	if "`.style.marker.symbol.setting'" != "none" {
+		.style.marker.setgdifull
+		gdi scatter `.serset.id' `.xvar' `.yvar'
+	}
+end
+
+
+/* -------------------------------------------------------------------------*/
+program define _draw_range
+
+	.style.area.setgdifull
+
+	.serset.set					/* set the id */
+
+	forvalues j = 1/`:serset N' {
+		local x = serset(`.xvar', `j')
+		gdi line `x' `=serset(`.yvar',`j')' `x' `=serset(`.yvar2',`j')'
+	}
+
+	if "`.type.stylename'" == "range" { 
+		exit						/* EXIT */
+	}
+
+	local delta = (`.style.marker.size.gmval'/2) * `gdi(gbeta)'	///
+		      / `gdi(xbeta)'
+
+	forvalues j = 1/`:serset N' {
+		local x  = serset(`.xvar', `j')
+		local x1 = `x' - `delta'
+		local x2 = `x' + `delta'
+
+		local y = serset(`.yvar',`j')
+		gdi line `x1' `y' `x2' `y'
+
+		local y = serset(`.yvar2',`j')
+		gdi line `x1' `y' `x2' `y'
+	}
+	
+end
+
+/* -------------------------------------------------------------------------*/
+program define _draw_bar
+	di in green "I don't know how to draw bars yet"
+end
+
+
+/* -------------------------------------------------------------------------*/
+/* add an xyview based on the current setting of .addview.
+   Relies on T_Name containing the full name of the xyview
+*/
+
+program _set_addview
+	gettoken xytype options : 0 , parse(" ,")
+
+	if "`xytype'" == "none" {
+		exit
+	}
+
+	.addview.setstyle , style(none)			/* always none */
+
+	if "`.plotregion.graphs[1]'" == "" {
+		._last_xyandplotreg graph plotregion : $T_Name 	/* get names */
+		if "`plotregion'" != "" & "`graph'" != "" {
+			.set , plotregion(`plotregion') 
+			.`plotregion'.set , graph(`graph')
+		}
+		else {
+			di in white "graph or plotregion not defined for view"
+			exit 198
+		}
+	}
+
+	if 0`.add_plotregion.istrue' {
+		local plotregion new
+	}
+
+	if "`.Local.serset.isa'" == "" {
+	     di in white "cannot add view, view does not reference its serset"
+	     exit
+	}
+
+	if "`xytype'" == "median_bands" | "`xytype'" == "splined_medians" {
+		._run_derived `xytype' `options'
+		exit						/* EXIT */
+	}
+
+	preserve					/* use the serset */
+	.Local.serset.set
+	drop _all
+	serset use
+							/* add view */
+	._run_`xytype' `.serset.sers[`.xvar'].name' 			/*
+		*/     `.serset.sers[`.yvar'].name' `options'
+end
+
+
+/* -------------------------------------------------------------------------*/
+program define _last_xyandplotreg
+	args xymac plregmac colon rest
+
+	if "`0'" != "nogscope" {
+		local name gscope
+	}
+
+	gettoken tok rest : rest , parse(" .") 
+	while "`rest'" != "" {
+		if 0`.`name'.isofclass xy_graph_g' {
+			local graph `name'
+		}
+		if 0`.`name'.isofclass plotregion' {
+			local plotregion `name'
+		}
+		if "`tok'" != "." {
+			local name `name'.`tok'
+		}
+		gettoken tok rest : rest , parse(" .") 
+	}
+	local last `tok'			/* assumes no trailing .'s */
+
+	c_local `xymac' `graph'
+	c_local `plregmac' `plotregion'
+
+end
+
+/* -------------------------------------------------------------------------*/
+program _run_derived
+	gettoken xytype options : 0 , parse(" ,")
+
+	if "`xytype'" == "median_bands" {
+		local type median_bands
+	}
+	else	local type spline
+
+	tempname derived
+	.`derived' = .derived_serset.new , base(`.serset.objkey')	/*
+		*/ type(`type')  x(`.xvar') y(`.yvar') `options'
+	.`derived'.set
+	.`derived'.sort 2
+
+	.`.plotregion.graphs[1]'.addview ignored , c(l) s(i) 		/*
+		*/ name(median_bands) plotregion(`.plotregion.objkey') /*
+		*/ serset(`.`derived'.objkey') nolog
+end
+
+/* -------------------------------------------------------------------------*/
+/* member programs to create new views
+*/
+
+program _run_regression_line
+	gettoken x 0 : 0 , parse(" ,")
+	gettoken y 0 : 0 , parse(" ,")
+
+	syntax [ , POINTs(integer 300) ]
+
+	qui regress `y' `x'
+
+	summarize `x' , meanonly
+	drop _all
+	qui set obs `points'
+	qui gen `x' = r(min) + (_n-1)*(r(max) - r(min)) / (`points' -1)
+
+	._add_regression `x' `y'
+
+end
+
+program _run_quadratic_regression
+	gettoken x 0 : 0 , parse(" ,")
+	gettoken y 0 : 0 , parse(" ,")
+
+	syntax [ , POINTs(integer 300) ]
+
+	tempname x2
+	gen double `x2' = `x'*`x'
+	qui regress `y' `x' `x2'
+
+	summarize `x' , meanonly
+	drop _all
+	qui set obs `points'
+	qui gen `x' = r(min) + (_n-1)*(r(max) - r(min)) / (`points' - 1)
+	qui gen double `x2' = `x'*`x'
+
+	._add_regression `x' `y'
+end
+
+program _run_fractional_polynomial
+	gettoken x options : 0       , parse(" ,")
+	gettoken y options : options , parse(" ,")
+
+	qui fracpoly regress `y' `x' `options'
+
+	_add_regression `x' `y' fracpred
+end
+
+program define _add_regression
+	args x y predict
+
+
+	if "`predict'" == "" {
+		local predict predict
+	}
+
+	tempname yhat
+	qui `predict' `yhat'
+
+	if `.conf_interval.isfalse' {
+		.`.plotregion.graphs[1]'.addview `yhat' `x' , c(l) s(i) ///
+			name(regression) sort(`x')			///
+			plotregion(`.plotregion.objkey') nolog
+		exit
+	}
+
+	if `.ci_of_expected.istrue' | "`predict'" == "fracpred" {
+		local se_method stdp
+	}
+	else	local se_method stdf
+
+	tempname se min max
+	qui `predict' `se' , `se_method'
+	qui gen `min' = `yhat' - invttail(e(df_r), ((100-c(level))/200)) * `se'
+	qui gen `max' = `yhat' + invttail(e(df_r), ((100-c(level))/200)) * `se'
+	label variable `min' "lower CI"
+	label variable `max' "upper CI"
+
+	local stynum = `.`.plotregion.graphs[1]'.next_default_series'
+	local cistyle p`=`stynum'+1'
+	.`.plotregion.graphs[1]'.addview `yhat' `min' `max' `x' , 	///
+		c(lll) s(iii) sort(`x') name(regress_ci) 		///
+		plotregion(`.plotregion.objkey') 			///
+		style(p`stynum' `cistyle' `cistyle') nolog
+end
+
+
+program _run_ksm_mean
+	gettoken x options : 0       , parse(" ,")
+	gettoken y options : options , parse(" ,")
+
+	tempname yhat
+	ksm `y' `x' , gen(`yhat') nograph , `options'
+	label variable `yhat' "ksm, mean `options'"
+
+	.`.plotregion.graphs[1]'.addview `yhat' `x' , c(l) s(i) sort(`x')  ///
+		name(mean_smooth) plotregion(`.plotregion.objkey') nolog
+end
+
+program _run_ksm_line
+	gettoken x options : 0       , parse(" ,")
+	gettoken y options : options , parse(" ,")
+
+	tempname yhat
+	ksm `y' `x' , gen(`yhat') line nograph , `options'
+	label variable `yhat' "ksm, line `options'"
+
+	.`.plotregion.graphs[1]'.addview `yhat' `x' , c(l) s(i) sort(`x')  ///
+		name(line_smooth) plotregion(`.plotregion.objkey') nolog
+end
+
+program _run_ksm_lowess
+	gettoken x options : 0       , parse(" ,")
+	gettoken y options : options , parse(" ,")
+
+	tempname yhat
+	ksm `y' `x' , gen(`yhat') lowess nograph , `options'
+	label variable `yhat' "ksm, lowess `options'"
+
+	.`.plotregion.graphs[1]'.addview `yhat' `x' , c(l) s(i) sort(`x') ///
+		name(lowess) plotregion(`.plotregion.objkey') nolog
+end
+
+/*  now uses _run_derived
+program _run_median_bands
+	args x y
+
+	.`.plotregion.graphs[1]'.addview `y' `x' , c(m) s(i) sort(`x')	///
+		name(median_bands) plotregion(`.plotregion.objkey') nolog
+end
+
+program _run_splined_medians
+	args x y
+
+	.`.plotregion.graphs[1]'.addview `y' `x' , c(s) s(i) sort(`x')  ///
+		name(splined_medians) plotregion(`plotregion') nolog
+end
+*/

@@ -1,0 +1,189 @@
+/*
+	predict (after stcox)
+
+*!  VERSION 1.2.0  18nov2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE _ht290
+INCLUDE header
+
+HELP hlp1, view("help stcox postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource STCOX_P_DLG_HSCALE
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN	
+	call create STRING isSvy
+	call isSvy.setvalue e(prefix)
+
+	if(isSvy.iseq("svy")) {
+		call main.rb_mgale.hide
+		call main.rb_csnell.hide
+		call main.rb_deviance.hide
+		call main.rb_ldisplace.hide
+		call main.rb_lmax.hide
+		call main.rb_dfbeta.hide
+		call main.rb_schoenfeld.hide
+		call main.rb_scaledsch.hide
+		call main.rb_effects.setposition . 80
+		call main.rb_scores.setposition . 100
+	}
+	else {
+		call main.rb_mgale.show
+		call main.rb_csnell.show
+		call main.rb_deviance.show
+		call main.rb_ldisplace.show
+		call main.rb_lmax.show
+		call main.rb_dfbeta.show
+		call main.rb_schoenfeld.show
+		call main.rb_scaledsch.show
+  		call main.rb_effects.setposition . 140
+		call main.rb_scores.setposition . 160
+	}
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script _p_gentype_setMedium
+END
+
+DIALOG main, label(resource PREDICT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  INCLUDE  _p_gentype
+
+  GROUPBOX gb_opts	_lft	_ls	_iwd	_ht16,			///
+	label(resource LBL_PRODUCE)
+  RADIO rb_hr		_indent	_ss	_cwd1	., first		///
+	option(hr)							///
+	onclickon(script main_scores_off_nooffset_on)			///
+	label(resource STCOX_P_MAIN_RB_HR)
+  DEFINE y @y
+  RADIO rb_xb		@	_ss	@	.,			///
+	option(xb)							///
+	onclickon(script main_scores_off_nooffset_on)			///
+	label(resource LBL_LINEAR_PREDICTION)
+  RADIO rb_stdp		@	_ss	@	.,			///
+	option(stdp)							///
+	onclickon(script main_scores_off_nooffset_on)			///
+	label(resource LBL_STANDARD_ERROR_LINEAR_PREDICTION)
+  RADIO rb_basesurv	@	_ss	@	.,			///
+	option(basesurv)						///
+	onclickon(script main_all_off)					///
+	label(resource STCOX_P_MAIN_RB_BASESURV)
+  RADIO rb_basechazard	@	_ss	@	.,			///
+	option(basechazard)						///
+	onclickon(script main_all_off)					///
+	label(resource STCOX_P_MAIN_RB_BASECHAZARD)
+  RADIO rb_basehc	@	_ss	@	.,			///
+	option(basehc)							///
+	onclickon(script main_all_off)					///
+	label(resource STCOX_P_MAIN_RB_BASEHC)
+  RADIO rb_mgale	@	_ss	@	.,			///
+	option(mgale)							///
+	onclickon(script main_scores_off_partial_on)			///
+	label(resource STCOX_P_MAIN_RB_MGALE)
+  RADIO rb_csnell	@	_ss	@	.,			///
+	option(csnell)							///
+	onclickon(script main_scores_off_partial_on)			///
+	label(resource LBL_COX_SNELL_RESIDUALS)
+  RADIO rb_deviance	_lft2	y	@	.,			///
+	option(deviance)						///
+	onclickon(script main_scores_off_partial_on)			///
+	label(resource LBL_DEVIANCE_RESIDUALS)
+  RADIO rb_ldisplace	@ 	_ss	@	.,			///
+	option(ldisplace)						///
+	onclickon(script main_scores_off_partial_on)			///
+	label(resource STCOX_P_MAIN_RB_LDISPLACE)
+  RADIO rb_lmax		@ 	_ss	@	.,			///
+	option(lmax)							///
+	onclickon(script main_scores_off_partial_on)			///
+	label(resource STCOX_P_MAIN_RB_LMAX)
+  RADIO rb_effects	@	_ss	@ 	.,			///
+	option(effects)							///
+	onclickon(script main_all_off)					///
+	label(resource STCOX_P_MAIN_RB_EFFECTS)
+  RADIO rb_scores	@	_ss	@	.,			///
+	option(scores)							///
+	onclickon(script main_scores_on_partial_on)			///
+	label(resource LBL_EFFICIENT_SCORE_RESIDUALS)
+  RADIO	rb_dfbeta	@	_ss	@	.,			///
+	option(dfbeta)							///
+	onclickon(script main_scores_on_partial_on)			///
+	label(resource LBL_DFBETA_MEASURES_OF_INFLUENCE)
+  RADIO	rb_schoenfeld	@	_ss	@	.,			///
+	option(schoenfeld)						///
+	onclickon(script main_scores_on)				///
+	label(resource LBL_SCHOENFELD_RESIDUALS)
+  RADIO	rb_scaledsch	@	_ss	@	., last			///
+	option(scaledsch)						///
+	onclickon(script main_scores_on)				///
+	label(resource STCOX_P_MAIN_RB_SCALEDSCH)
+  CHECKBOX ck_nooffset	_lft	_xls	@	.,			///
+	option(nooffset)						///
+	label(resource LBL_IGNORE_OFFSET_VARIABLE)
+  CHECKBOX ck_partial	_lft2	@	@	.,			///
+	option(partial)							///
+	label(resource LBL_OBSERVATION_LEVEL_RESULTS)
+END
+
+INCLUDE _p_gentype_sc
+INCLUDE ifin
+INCLUDE _type_list_fd
+
+SCRIPT main_scores_off_nooffset_on
+BEGIN
+	script _p_gentype_single
+	main.ck_nooffset.enable
+	main.ck_partial.disable
+END
+
+SCRIPT main_scores_off_partial_on
+BEGIN
+	script _p_gentype_single
+	main.ck_nooffset.disable
+	main.ck_partial.enable
+END
+
+SCRIPT main_all_off
+BEGIN
+	script _p_gentype_single
+	main.ck_nooffset.disable
+	main.ck_partial.disable
+END
+
+SCRIPT main_scores_on_partial_on
+BEGIN
+	script _p_gentype_scores_on
+	main.ck_nooffset.disable
+	main.ck_partial.enable
+END
+
+SCRIPT main_scores_on
+BEGIN
+	script _p_gentype_scores_on
+	main.ck_nooffset.disable
+	main.ck_partial.disable
+END
+
+PROGRAM command
+BEGIN
+	put "predict "
+	put " " /program _p_gentype_output
+	INCLUDE _ifin_pr
+	beginoptions
+		option radio(main rb_hr rb_xb rb_stdp rb_basesurv	///
+			rb_basechazard rb_basehc rb_mgale rb_csnell	///
+			rb_deviance rb_ldisplace rb_lmax rb_effects	///
+			rb_scores rb_dfbeta rb_schoenfeld rb_scaledsch)
+		option main.ck_partial
+	endoptions
+	INCLUDE _p_nooffset_pr
+END

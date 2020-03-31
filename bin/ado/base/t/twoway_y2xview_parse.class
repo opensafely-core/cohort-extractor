@@ -1,0 +1,151 @@
+//                                 twoway_y2xview_parse
+//
+//   A parser for y2xviews.  Works with twoway.ado.
+//   Uses twoway_yxview_parse to do most of the work.
+
+*! version 1.0.2  05may2005
+
+version 8
+
+class {
+	drop_to		= .ordstyle.new , style(x)	// horiz vs. vert
+
+	barwidth = -1					// for rbar and rbarm
+} , inherit(twoway_yxview_parse)
+
+
+// ---------------------------------------------------------------------------
+
+program new
+	.viewclass = "y2xview_g"
+end
+
+
+// ---------------------------------------------------------------------------
+
+program parse
+
+	if "`.viewtype'" == "" {
+		.viewtype = "rspike"
+	}
+
+	.Super.parse `0'
+
+	if `.varcheck' | ! `.allow_anything' {
+		_clsarr2list mlablist : labvars		// check number of vars
+		local vlist `.varlist'			// allow marker labels
+		local vlist : list vlist - mlablist
+		if `:word count `vlist'' > 3 | `:word count `vlist'' < 3 {
+			di in smcl "{error}{p 0 8}`.viewtype' requires 3 " ///
+				"variables: `.varlist'{p_end}"
+			if (`:word count `vlist'' > 3)  exit 103
+			else				exit 102
+		}
+	}
+
+	.n = 1
+
+							// general y2x options
+	local 0 `", `.options'"'
+	syntax [ , HORizontal VERTical * ]
+
+	.options = `"`options'"'
+
+	if `:word count `horizontal' `vertical'' > 1 {
+		di as error "may not combine options horizontal and vertical"
+		exit 198
+	}
+
+	if "`horizontal'" != "" {
+		.drop_to.setstyle , style(y)
+	}
+	if "`vertical'" != "" {
+		.drop_to.setstyle , style(x)
+	}
+
+							// rbar options
+	if "`.viewtype'" == "rbar" | "`.viewtype'" == "rbarm" {
+		local 0 `", `.options'"'
+		_parse combop 0 : 0 , option(BARWidth)   rightmost
+		syntax [ , MWidth BARWidth(real -1) * ]
+
+		.barwidth = `barwidth'
+		if "`mwidth'" != "" {
+			.viewtype = "rbarm"
+		}
+		.options = `"`options'"'
+	}
+	
+end
+
+// ---------------------------------------------------------------------------
+program log_create_view
+	syntax [, YBvar(passthru) XVariable(passthru) VIEW(integer 1)	///
+		  SERSET(string) * ]
+
+	if `view' != 1 {
+		di as error "may not specify more that one `.viewtype'"	///
+			" per plot"
+		exit 198
+	}
+
+	tokenize `.varlist'
+
+	if `"`ybvar'"' == `""' {
+		local ybvar ybvar(\`.`serset'.seriesof ``=`view'+1''')
+	}
+	if `"`xvariable'"' == `""' {
+		local xvariable xvariable(\`.`serset'.seriesof ``=`view'+2''')
+	}
+
+	.Super.log_create_view  , `macval(ybvar)' `macval(xvariable)'	///
+		view(`view') serset(`serset') `macval(options)'
+
+end
+
+// ---------------------------------------------------------------------------
+//  Pushes onto the specified log any post-creation commands implied by 
+//  the parsed syntax that must be applied to the created view.
+
+program log_edits
+	args log view i novlabel
+
+	.Super.log_edits `log' `view' `i'
+
+	.`log'.Arrpush .`view'.bar_drop_to.setstyle , style(`.drop_to.snm')
+
+							// a few settings for 
+	local i = `i' + 1				// second y variable
+
+	if `"`.plotsettings[`i']'"' != `""' {
+		local 0 `", `.plotsettings[`i']'"'
+		syntax [ , YVARLABEL(string asis)  YVARFORMAT(string) * ]
+
+		if "`novlabel'" == "" {
+		    if `"`yvarlabel'"' != `""' {
+		    	local yvarlabel `yvarlabel'		// sic
+			.`log'.Arrpush					 ///
+			    .`view'.serset.sers[\`.`view'.y2var'].label = ///
+			    `"`yvarlabel'"'
+		    }
+		}
+		if `"`yvarformat'"' != `""' {
+			.`log'.Arrpush					  ///
+			    .`view'.serset.sers[\`.`view'.y2var'].format = ///
+			    `"`yvarformat'"'
+		}
+
+	}
+
+	if `.barwidth' != -1 {
+		.`log'.Arrpush .`view'.bar_size = `.barwidth'
+		if "`.viewtype'" == "rbarm" {
+			.`log'.Arrpush .`view'.style.editstyle		///
+				marker(size(`.barwidth')) editcopy
+		}
+	}
+
+	if "`.viewtype'" == "rbar" | "`.viewtype'" == "rbarm" {
+		.`log'.Arrpush .`view'.register_with_scale
+	}
+end

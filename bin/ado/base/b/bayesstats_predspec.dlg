@@ -1,0 +1,669 @@
+/*
+  bayesstats_predspec.dlg
+
+*!  VERSION 1.0.6  03apr2019
+
+*/
+
+VERSION 16.0
+
+INCLUDE _std_large
+DEFINE _dlght 410
+INCLUDE header
+
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource BAYESSTATS_PREDSPEC_DLG_HSCALE
+	
+	create DOUBLE is_pp
+	create STRING exp_res
+	create ARRAY tmp
+	create ARRAY tmpvalue
+	create ARRAY tmppred
+	create STRING parent_name
+	create STRING estfile
+	create STRING simout
+	create STRING simoutvalue
+	create STRING simname
+	create STRING funcname
+	create ARRAY main_compute_list
+	create ARRAY main_compute_values
+	create ARRAY main_predout_list
+	create ARRAY main_predout_values
+	
+	is_pp.setvalue 0
+	parent_name.setvalue class PARENT._dlg_rsrcname
+	
+	main.gb_progopt.hide 
+	main.tx_extravar.hide 
+	main.vl_extravar.hide 
+	main.tx_passthru.hide 
+	main.ed_passthru.hide
+	
+	program stat_init
+END
+
+PROGRAM stat_init
+BEGIN
+	call main_compute_list.Arrdropall
+	call main_compute_values.Arrdropall
+	call main_predout_list.Arrdropall
+	call main_predout_values.Arrdropall
+	
+	call parent_name.withvalue estfile.setvalue class @.main.fi_use.value
+	
+	put "capture _bayespredict estrestore "
+	put estfile
+	stata hidden immediate
+	
+	call simout.setvalue s(savedOutcomes)
+	call simoutvalue.setvalue s(savedIndOutcomes)
+	call simname.setvalue s(ysimvars)
+	call funcname.setvalue s(predfnames)
+	
+	call simout.tokenize tmp
+	call simoutvalue.tokenize tmpvalue
+	
+	call main.cb_obsout.setcontentslist tmp
+	call main.cb_resout.setcontentslist tmp
+	call main.cb_muout.setcontentslist tmp
+	call main.cb_funcout.setcontentslist tmp
+	call main.cb_funcout2.setcontentslist tmp
+	call main.cb_obsout.setvalueslist tmpvalue
+	call main.cb_resout.setvalueslist tmpvalue
+	call main.cb_muout.setvalueslist tmpvalue
+	call main.cb_funcout.setvalueslist tmpvalue
+	call main.cb_funcout2.setvalueslist tmpvalue
+	
+	if !funcname.equals("") {
+		call funcname.tokenize tmppred
+		call main.cb_predict.setcontentslist tmppred
+		call main.cb_predict.setvalueslist tmppred
+	}
+	else {
+		call main_predout_list.ArrpushR resource LBL_PAREN_NONE_PAREN
+		call main_predout_values.Arrpush "(none)"
+	}
+	
+	if !simout.equals(""){
+		if parent_name.equals("bayesstats_ppvalues_dlg") {
+			call main_compute_list.ArrpushR resource BAYES_LBL_REPLICATED_OUTCOMES
+			call main_compute_list.ArrpushR resource LBL_RESIDUALS
+			
+			call main_compute_values.Arrpush "obs"
+			call main_compute_values.Arrpush "res"
+		}
+		else {
+			call main_compute_list.ArrpushR resource BAYES_LBL_SIMULATED_OUTCOMES
+			call main_compute_list.ArrpushR resource LBL_RESIDUALS
+				call main_compute_list.ArrpushR resource BAYES_LBL_EXPECTED_VALUES
+
+			call main_compute_values.Arrpush "obs"
+			call main_compute_values.Arrpush "res"
+			call main_compute_values.Arrpush "mu"
+		}
+		
+		call main.rb_function.enable
+		
+		if !funcname.equals("") {
+			call main_compute_list.ArrpushR resource BAYES_LBL_OTHER_PREDICTIONS
+			call main_compute_values.Arrpush "func"
+		}
+	}
+	else {
+		if !funcname.equals("") {
+			call main_compute_list.ArrpushR resource BAYES_LBL_OTHER_PREDICTIONS
+			call main_compute_values.Arrpush "func"
+			call main.rb_function.disable
+		}
+	}
+	
+	call main.cb_compute.repopulate
+	call main.cb_obsout.repopulate
+	call main.cb_resout.repopulate
+	call main.cb_muout.repopulate
+	call main.cb_funcout.repopulate
+	call main.cb_funcout2.repopulate
+	call main.cb_predict.repopulate
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN	
+	if parent_name.equals("bayesstats_summary_dlg") {
+		call main.gb_stat.setlabel resource BAYESSTATS_PREDSPEC_MAIN_GB_STAT
+		call main.tx_compute.setlabel resource BAYESSTATS_PREDSPEC_MAIN_TX_COMPUTE
+		call main.rb_yrspec.setlabel resource BAYES_LBL_SIMULATED_OUTCOME_RESIDUALS
+		call main.rb_yrexprspec.setlabel resource BAYES_LBL_EXPRESSION_OF_SIMULATED_OUTCOME_RESIDUALS
+		call main.rb_function.setlabel resource BAYES_LBL_FUNCTION_OF_SIMULATED_OUTCOME_RESIDUALS
+		call is_pp.setvalue 0
+	}
+	
+	if parent_name.equals("bayesstats_ess_dlg") {
+		call main.gb_stat.setlabel resource BAYESSTATS_PREDSPEC_MAIN_GB_STAT2
+		call main.tx_compute.setlabel resource BAYESSTATS_PREDSPEC_MAIN_TX_COMPUTE
+		call main.rb_yrspec.setlabel resource BAYES_LBL_SIMULATED_OUTCOME_RESIDUALS
+		call main.rb_yrexprspec.setlabel resource BAYES_LBL_EXPRESSION_OF_SIMULATED_OUTCOME_RESIDUALS
+		call main.rb_function.setlabel resource BAYES_LBL_FUNCTION_OF_SIMULATED_OUTCOME_RESIDUALS
+		call is_pp.setvalue 0
+	}
+	
+	if parent_name.equals("bayesstats_ppvalues_dlg") {
+		call main.gb_stat.setlabel resource BAYESSTATS_PREDSPEC_MAIN_GB_STAT3
+		call main.tx_compute.setlabel resource BAYESSTATS_PREDSPEC_MAIN_TX_COMPUTE2
+		call main.rb_yrspec.setlabel resource BAYES_LBL_REPLICATED_OUTCOME_RESIDUALS
+		call main.rb_yrexprspec.setlabel resource BAYES_LBL_EXPRESSION_OF_REPLICATED_OUTCOME_RESIDUALS
+		call main.rb_function.setlabel resource BAYES_LBL_FUNCTION_OF_REPLICATED_OUTCOME_RESIDUALS
+		call is_pp.setvalue 1
+	}
+	
+	if parent_name.equals("bayesgraph_dlg") {
+		call main.gb_stat.setlabel resource BAYESGRAPH_PREDSPEC_MAIN_GB_STAT
+		call main.tx_compute.setlabel resource BAYESGRAPH_PREDSPEC_MAIN_TX_COMPUTE
+		call main.rb_yrspec.setlabel resource BAYES_LBL_SIMULATED_OUTCOME_RESIDUALS
+		call main.rb_yrexprspec.setlabel resource BAYES_LBL_EXPRESSION_OF_SIMULATED_OUTCOME_RESIDUALS
+		call main.rb_function.setlabel resource BAYES_LBL_FUNCTION_OF_SIMULATED_OUTCOME_RESIDUALS
+		call is_pp.setvalue 0
+	}
+
+	call program main_select_changed
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  GROUPBOX gb_stat		_lft	_top	_iwd	_ht6,		///
+	label(resource BAYESSTATS_PREDSPEC_MAIN_GB_STAT)
+  RADIO rb_yrspec		_ilft	_ss	_ibwd	.,		///
+	first								///
+	onclickon(program main_select_changed)				///
+	label(resource BAYES_LBL_SIMULATED_OUTCOME_RESIDUALS)
+  RADIO rb_yrexprspec	@	_ss	_ibwd	.,			///
+	onclickon(program main_select_changed)				///
+	label(resource BAYES_LBL_EXPRESSION_OF_SIMULATED_OUTCOME_RESIDUALS)
+  RADIO rb_function		@	_ss	@	.,		///
+	onclickon(program main_select_changed)				///
+	last								///
+	label(resource BAYES_LBL_FUNCTION_OF_SIMULATED_OUTCOME_RESIDUALS)
+	
+  TEXT tx_compute		_lft	+40	_iwd	.,		///
+	label(resource BAYESSTATS_PREDSPEC_MAIN_TX_COMPUTE)
+  DEFINE holdx2 @x
+  DEFINE holdy2 @y
+  COMBOBOX cb_compute		@	_ss	300	.,		///
+	dropdownlist							///
+	contents("main_compute_list")					///
+	values("main_compute_values")					///
+	onselchange("program main_compute_show")			///
+	label(resource BAYESSTATS_PREDSPEC_MAIN_TX_COMPUTE)
+	
+  GROUPBOX gb_spec		_lft	+30	_iwd	195,		///
+	label("")
+  DEFINE resx _ilft 
+  DEFINE resy 180
+  DEFINE resw _ibwd
+  DEFINE resw2 _iibwd
+  INCLUDE bayes_ysimspec
+  
+  DEFINE resx _ilft 
+  DEFINE resy 180
+  INCLUDE bayes_muspec
+  
+  DEFINE resx _ilft 
+  DEFINE resy 180
+  INCLUDE bayes_residspec
+	
+  TEXT tx_predict		_ilft	180	_ibwd	.,		///
+	label(resource LBL_PREDICTION_COLON)
+  COMBOBOX	cb_predict	@	_ss	_en14wd	.,		///
+	dropdownlist							///
+	contents("main_predout_list")					///
+	values("main_predout_values")					///
+	label(resource LBL_PREDICTION_COLON)
+	
+  TEXT 	tx_lbl			holdx2 	holdy2	_iwd	.,		///
+	label(resource BAYES_LBL_LABEL_OPTIONAL)
+  EDIT	ed_lbl			@ 	_ss	_en14wd	.,		///
+	label(resource BAYES_LBL_LABEL_OPTIONAL)
+	
+  TEXT 	tx_exp			holdx2 _ls	400	.,		///
+	label(resource LBL_EXPRESSION)
+  EDIT ed_exp			@	_ss	@	.,		///
+	error(resource LBL_EXPRESSION)						///
+	label(resource LBL_BU_CREATE)
+  BUTTON bu_exp			_rj80	@	80	.,		///
+	onpush(program main_create_exp)					///
+	label(resource LBL_BU_CREATE)
+	
+  DEFINE resy -70
+  INCLUDE bayes_funcspec
+END
+
+LIST main_function_type_list
+BEGIN
+	resource BAYES_LBL_SIMULATED_VALUES
+	resource LBL_RESIDUALS
+	resource BAYES_LBL_EXPECTED_VALUES
+END
+
+LIST main_function_type_values
+BEGIN
+	"obs"
+	"res"
+	"mu"
+END
+
+SCRIPT main_allobs_enable
+BEGIN
+	main.hl_selobs.enable
+	main.ed_selobs.enable
+END
+
+SCRIPT main_allobs_disable
+BEGIN
+	main.hl_selobs.disable
+	main.ed_selobs.disable
+END
+
+SCRIPT main_obs_show
+BEGIN
+	main.tx_obsout.show 
+	main.cb_obsout.show
+	main.gb_obs.show 
+	main.rb_allobs.show
+	main.rb_selobs.show
+	main.ed_selobs.show 
+	main.hl_selobs.show
+END
+
+SCRIPT main_obs_hide
+BEGIN
+	main.tx_obsout.hide 
+	main.cb_obsout.hide
+	main.gb_obs.hide 
+	main.rb_allobs.hide
+	main.rb_selobs.hide
+	main.ed_selobs.hide 
+	main.hl_selobs.hide
+END
+
+SCRIPT main_allmu_enable
+BEGIN
+	main.hl_selmu.enable
+	main.ed_selmu.enable
+END
+
+SCRIPT main_allmu_disable
+BEGIN
+	main.hl_selmu.disable
+	main.ed_selmu.disable
+END
+
+SCRIPT main_mu_show
+BEGIN
+	main.tx_muout.show 
+	main.cb_muout.show
+	main.gb_mu.show 
+	main.rb_allmu.show
+	main.rb_selmu.show
+	main.ed_selmu.show 
+	main.hl_selmu.show
+END
+
+SCRIPT main_mu_hide
+BEGIN
+	main.tx_muout.hide 
+	main.cb_muout.hide
+	main.gb_mu.hide 
+	main.rb_allmu.hide
+	main.rb_selmu.hide
+	main.ed_selmu.hide 
+	main.hl_selmu.hide
+END
+
+SCRIPT main_allres_enable
+BEGIN
+	main.hl_selres.enable
+	main.ed_selres.enable
+END
+
+SCRIPT main_allres_disable
+BEGIN
+	main.hl_selres.disable
+	main.ed_selres.disable
+END
+
+SCRIPT main_res_show
+BEGIN
+	main.tx_resout.show 
+	main.cb_resout.show
+	main.gb_res.show 
+	main.rb_allres.show
+	main.rb_selres.show
+	main.ed_selres.show 
+	main.hl_selres.show
+END
+
+SCRIPT main_res_hide
+BEGIN
+	main.tx_resout.hide 
+	main.cb_resout.hide
+	main.gb_res.hide 
+	main.rb_allres.hide
+	main.rb_selres.hide
+	main.ed_selres.hide 
+	main.hl_selres.hide
+END
+
+SCRIPT main_func_show
+BEGIN
+	main.tx_predict.show 
+	main.cb_predict.show
+END
+
+SCRIPT main_func_hide
+BEGIN
+	main.tx_predict.hide 
+	main.cb_predict.hide
+END
+
+PROGRAM main_compute_show
+BEGIN
+	call main.tx_compute.show
+	call main.cb_compute.show
+	call main.gb_spec.show
+	if main.cb_compute.iseq("obs") | main.cb_compute.iseq("") {
+		call script main_obs_show
+		call script main_mu_hide
+		call script main_res_hide
+		call script main_func_hide
+	}
+	if main.cb_compute.iseq("mu") {
+		call script main_obs_hide
+		call script main_mu_show
+		call script main_res_hide
+		call script main_func_hide
+	}
+	if main.cb_compute.iseq("res") {
+		call script main_obs_hide
+		call script main_mu_hide
+		call script main_res_show
+		call script main_func_hide
+	}
+	if main.cb_compute.iseq("func") {
+		call script main_obs_hide
+		call script main_mu_hide
+		call script main_res_hide
+		call script main_func_show
+	}
+END
+
+PROGRAM main_compute_hide
+BEGIN
+	call main.tx_compute.hide
+	call main.cb_compute.hide
+	call main.gb_spec.hide
+	call script main_obs_hide
+	call script main_mu_hide
+	call script main_res_hide
+	call script main_func_hide
+END
+
+SCRIPT main_exp_show
+BEGIN
+	main.tx_exp.show 
+	main.ed_exp.show
+	main.bu_exp.show
+	main.tx_lbl.show 
+	main.ed_lbl.show
+END
+
+SCRIPT main_exp_hide
+BEGIN
+	main.tx_exp.hide 
+	main.ed_exp.hide
+	main.bu_exp.hide
+	main.tx_lbl.hide 
+	main.ed_lbl.hide
+END
+
+SCRIPT main_funcexp_show
+BEGIN
+	main.gb_function.show
+	main.gb_function.setposition . . . 270
+
+	main.tx_function_name.show 
+	main.ed_function_name.show
+	main.tx_function_note.show
+	main.hl_function_note.show
+	main.gb_args.show
+	main.tx_arg.show 
+	main.ck_arg2.show
+	main.tx_funcout.show 
+	main.cb_funcout.show
+	main.cb_funcout2.show 
+	main.tx_functype.show 
+	main.cb_functype.show 
+	main.cb_functype2.show
+	main.tx_funclbl.show 
+	main.ed_funclbl.show
+	program main_arg2_change
+END
+
+SCRIPT main_funcexp_hide
+BEGIN
+	main.gb_function.hide
+	main.tx_function_name.hide 
+	main.ed_function_name.hide
+	main.tx_function_note.hide
+	main.hl_function_note.hide
+	main.gb_args.hide
+	main.tx_arg.hide 
+	main.ck_arg2.hide
+	main.tx_funcout.hide 
+	main.cb_funcout.hide
+	main.cb_funcout2.hide 
+	main.tx_functype.hide 
+	main.cb_functype.hide
+	main.cb_functype2.hide
+	main.tx_funclbl.hide 
+	main.ed_funclbl.hide
+END
+
+PROGRAM main_arg2_change
+BEGIN
+	if main.ck_arg2 {
+		call main.cb_funcout2.enable 
+		call main.cb_functype2.enable 
+	}
+	else {
+		call main.cb_funcout2.disable 
+		call main.cb_functype2.disable	
+	}
+END 
+
+PROGRAM main_yrspec_show
+BEGIN
+	call program main_compute_show
+	call script main_exp_hide
+	call script main_funcexp_hide
+END
+
+PROGRAM main_yrexprspec_show
+BEGIN
+	call program main_compute_hide
+	call script main_exp_show
+	call script main_funcexp_hide
+END
+
+PROGRAM main_function_show
+BEGIN
+	call program main_compute_hide
+	call script main_exp_hide
+	call script main_funcexp_show
+END
+
+PROGRAM main_select_changed
+BEGIN
+	if main.rb_yrspec {
+		call program main_yrspec_show
+	}
+	if main.rb_yrexprspec {
+		call program main_yrexprspec_show
+	}
+	if main.rb_function {
+		call program main_function_show
+	}
+END
+
+PROGRAM main_create_exp
+BEGIN
+	call create CHILD bayesstats_exp AS exp
+	call exp.setExitString exp_res
+	call exp.setExitAction "program main_exp_results"
+END
+
+PROGRAM main_exp_results
+BEGIN
+	call exp_res.withvalue main.ed_exp.setvalue "@"
+END
+
+PROGRAM main_expre_output
+BEGIN
+	require main.ed_exp
+	if main.ed_lbl {
+		put main.ed_lbl
+		put ":"
+	}
+	put main.ed_exp
+END
+
+PROGRAM main_function_output
+BEGIN
+	require main.cb_funcout
+	if main.cb_functype.iseq("obs") {
+		put "{_ysim"
+		put main.cb_funcout
+		put "}"
+	}
+	if main.cb_functype.iseq("mu") {
+		put "{_mu"
+		put main.cb_funcout
+		put "}"
+	}
+	if main.cb_functype.iseq("res") {
+		put "{_resid"
+		put main.cb_funcout
+		put "}"		
+	}
+	if main.ck_arg2 {
+		require main.cb_funcout2
+		put ", "
+		if main.cb_functype2.iseq("obs") {
+			put "{_ysim"
+			put main.cb_funcout2
+			put "}"
+		}
+		if main.cb_functype2.iseq("mu") {
+			put "{_mu"
+			put main.cb_funcout2
+			put "}"
+		}
+		if main.cb_functype2.iseq("res") {
+			put "{_resid"
+			put main.cb_funcout2
+			put "}"		
+		}	
+	}
+END
+
+PROGRAM command
+BEGIN
+	if main.rb_yrspec {
+		if main.cb_compute.iseq("obs") {
+			require main.cb_obsout
+			if main.rb_allobs {
+				put "{_ysim"
+				put main.cb_obsout
+				put "}"
+			}
+			if main.rb_selobs {
+				require main.ed_selobs
+				if !main.ed_selobs.isnumlist() {
+					stopbox stop "BAYES_MESSAGEBOX_INVALID_NUMLIST_SPECIFIED_FOR_SELECTED_OBS"
+//stopbox stop "An invalid numlist is specified for the selected observations"					
+				}
+				put "{_ysim"
+				put main.cb_obsout
+				put "["
+				put main.ed_selobs
+				put "]}"
+			}
+		}
+		if main.cb_compute.iseq("mu") {
+			require main.cb_muout
+			if main.rb_allmu {
+				put "{_mu"
+				put main.cb_muout
+				put "}"
+			}
+			if main.rb_selmu {
+				require main.ed_selmu
+				if !main.ed_selmu.isnumlist() {
+					stopbox stop "BAYES_MESSAGEBOX_INVALID_NUMLIST_SPECIFIED_FOR_SELECTED_EXP"
+//stopbox stop "An invalid numlist is specified for the selected expected values"					
+				}
+				put "{_mu"
+				put main.cb_muout
+				put "["
+				put main.ed_selmu
+				put "]}"
+			}
+		}
+		if main.cb_compute.iseq("res") {
+			require main.cb_resout
+			if main.rb_allres {
+				put "{_resid"
+				put main.cb_resout
+				put "}"
+			}
+			if main.rb_selres {
+				require main.ed_selres
+				if !main.ed_selres.isnumlist() {
+					stopbox stop "BAYES_MESSAGEBOX_INVALID_NUMLIST_SPECIFIED_FOR_SELECTED_RES"
+//stopbox stop "An invalid numlist is specified for the selected residuals"					
+				}
+				put "{_resid"
+				put main.cb_resout
+				put "["
+				put main.ed_selres
+				put "]}"
+			}
+		}
+		if main.cb_compute.iseq("func") {
+			require main.cb_predict
+			put "{"
+			put main.cb_predict
+			put "}"
+		}
+	}
+	if main.rb_yrexprspec {
+		put "("
+		put /program main_expre_output
+		put ")"		
+	}
+	if main.rb_function {
+		require main.ed_function_name
+		put "("
+		if main.ed_funclbl {
+			put main.ed_funclbl
+			put ": "
+		}
+		put "@"
+		put main.ed_function_name
+		put "("
+		put /program main_function_output
+		put ")"
+		put ")"
+	}
+END

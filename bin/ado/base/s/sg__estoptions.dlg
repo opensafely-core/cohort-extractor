@@ -1,0 +1,784 @@
+/*
+	sg__estoptions
+
+*!  VERSION 1.2.9  03dec2019
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 380
+POSITION . . _dlgwd _dlght
+
+HELP hlp1, view("help sem")
+
+OK ok1, label(resource LBL_BU_OK)
+CANCEL can1, label(resource LBL_BU_CANCEL)
+MODAL
+
+RESET res1
+INCLUDE levels_list
+
+SCRIPT PREINIT
+BEGIN
+	create STRING STMP
+	create STRING OBJ
+	program setupOBJECT
+
+	script se_createAsSEM_ML
+	
+	create STRING CMD_PREFIX
+	create STRING CMD_COVSTRUCT
+	create STRING CMD_SUFFIXOPT
+
+	create STRING SSD_MARKER
+	create STRING SSD_GROUPVAR
+	create STRING SG_LEVEL
+	program setupDialog
+	setscale_hadj resource SG__ESTOPTIONS_DLG_HSCALE
+END
+
+PROGRAM setupOBJECT
+BEGIN
+	if ! __MESSAGE {
+		stopbox stop resource LBL_MSGBOX_OBJECT_NOT_FOUND
+// An unexpected error has occurred. Object not found.
+		exit 198
+	}
+	call OBJ.setvalue class __MESSAGE.value
+END
+
+PROGRAM setupDialog
+BEGIN
+	call CMD_PREFIX.setvalue class __SEMG.dbsettings.cmd
+	call CMD_COVSTRUCT.setvalue class __SEMG.dbsettings.covstruct
+	call CMD_SUFFIXOPT.setvalue class __SEMG.dbsettings.options
+	
+	call SG_LEVEL.setvalue class __SEMG.dbsettings.level
+
+	call SSD_MARKER.setvalue  ""
+	call SSD_MARKER.setvalue char _dta[ssd_marker]
+	call SSD_GROUPVAR.setvalue ""
+	call SSD_GROUPVAR.setvalue char _dta[ssd_groupvar]
+
+	if SSD_MARKER.iseq("SSD") {
+		if SSD_GROUPVAR.isneq("_group") {
+			call group.rb_group.enable
+			if group.rb_group {
+				call script group_group_on
+			}
+			else {
+				call script group_group_off
+			}
+			call SSD_GROUPVAR.withvalue group.vn_group.insert "@"
+		}
+		else {
+			call group.rb_group.disable
+			call script group_group_off
+		}
+		call group.gb_ssd.enable
+		call group.tx_select.enable
+		call group.ed_select.enable
+		call group.ck_forcecorr.enable
+		call script ifin_disable
+	}
+	else {
+		call group.gb_ssd.disable
+		call group.tx_select.disable
+		call group.ed_select.disable
+		call group.ck_forcecorr.disable
+		call script ifin_enable
+	}
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL) label(resource SG__ESTOPTIONS_TAB_MAIN)
+BEGIN
+  GROUPBOX gb_method		_lft	_top	_iwd	_ht6,		///
+	label(resource LBL_METHOD_NO_COLON)
+  RADIO rb_ml			_indent	_ss	_inwd	., first	///
+	onclickon("program main_ml_on")					///
+	label(resource LBL_MAXIMUM_LIKELIHOOD)
+  RADIO rb_mlmv			@	_ss	@	.,		///
+	option(method(mlmv))						///
+	onclickon("program main_mlmv_on")				///
+	label(resource SG__ESTOPTIONS_MAIN_RB_MLMV)
+  RADIO rb_adf			@	_ss	@	., last		///
+	option(method(adf))						///
+	onclickon("program main_adf_on")				///
+	label(resource SG__ESTOPTIONS_MAIN_RB_ADF)
+END
+
+PROGRAM main_ml_on
+BEGIN
+	call script se_createAsSEM_ML
+	call adv.ck_allmissing.disable
+END
+
+PROGRAM main_mlmv_on
+BEGIN
+	call script se_createAsSEM_MLMV
+	call adv.ck_allmissing.enable
+END
+
+PROGRAM main_adf_on
+BEGIN
+	call script se_createAsSEM_ADF
+	call adv.ck_allmissing.disable
+END
+
+PROGRAM model_output
+BEGIN
+	option radio(main rb_mlmv rb_adf)
+END
+
+DIALOG group, label(resource SG__ESTOPTIONS_TAB_MAIN) tabtitle(resource LBL_GROUP)
+BEGIN
+  RADIO rb_nogroup		_lft	_top	_iwd	., first	///
+	onclickon(script group_group_off)				///
+	label(resource SG__ESTOPTIONS_GROUP_RB_NOGROUP)
+  RADIO rb_group		@	_ss	@	., last		///
+	onclickon(program group_group_on)				///
+	label(resource SG__ESTOPTIONS_GROUP_RB_GROUP)
+  TEXT tx_group			_lft	_ss	_vnwd	.,		///
+	label(resource LBL_GROUP_VARIABLE)
+  VARNAME vn_group		@	_ss	@	.,		///
+	nomemory							///
+	option(group)							///
+	numeric								///
+	label(resource LBL_GROUP_VARIABLE)
+  TEXT tx_type			_cwd3_0	-20	_lft3_03	.,	///
+	label(resource LBL_PARAMETERS_EQUAL_ACROSS_GROUPS)
+  COMBOBOX cb_ginvariant	@	_ss	@	.,		///
+	option(ginvariant)						///
+	dropdown							///
+	append								///
+	contents(group_ginvariant_list)					///
+	values(group_ginvariant_values)					///
+	label(resource LBL_PARAMETERS_EQUAL_ACROSS_GROUPS)
+
+  GROUPBOX gb_ssd		_lft	+45	_iwd	_ht7,		///
+	label(resource SG__ESTOPTIONS_GROUP_GB_SSD)
+  TEXT tx_select		_indent	_ss	_inwd	.,		///
+	label(resource SG__ESTOPTIONS_GROUP_TX_SELECT)
+  EDIT ed_select		@	_ss	@	.,		///
+	option(select)							///
+	label(resource SG__ESTOPTIONS_GROUP_TX_SELECT)
+  CHECKBOX ck_forcecorr		@	_ls	_inwd	.,		///
+	option(forcecorrelations)					///
+	label(resource SG__ESTOPTIONS_GROUP_CK_FORCECORR)
+END
+
+PROGRAM group_group_on
+BEGIN
+	call group.tx_group.enable
+	if SSD_MARKER.isneq("SSD") {
+		call group.vn_group.enable
+	}
+	call group.tx_type.enable
+	call group.cb_ginvariant.enable
+END
+
+SCRIPT group_group_off
+BEGIN
+	group.tx_group.disable
+	group.vn_group.disable
+	group.tx_type.disable
+	group.cb_ginvariant.disable
+END
+
+LIST group_ginvariant_list
+BEGIN
+	resource LBL_STRUCTURAL_COEFFICIENTS
+	resource LBL_STRUCTURAL_INTERCEPTS
+	resource LBL_MEASUREMENT_COEFFICIENTS
+	resource LBL_MEASUREMENT_INTERCEPTS
+	resource LBL_COVARIANCES_OF_STRUCTURAL_ERRORS
+	resource LBL_COVARIANCES_OF_MEASUREMENT_ERRORS
+	resource SG__ESTOPTIONS_COV_BETWEEN_STRUCT_MEASUREMENT_ERRORS
+	resource LBL_MEANS_EXOGENOUS_VARIABLES
+	resource LBL_COVARIANCES_OF_EXOGENOUS_VARIABLES
+	resource LBL_ALL_OF_THE_ABOVE
+	resource LBL_NONE_OF_THE_ABOVE
+END
+
+LIST group_ginvariant_values
+BEGIN
+	scoef
+	scons
+	mcoef
+	mcons
+	serrvar
+	merrvar
+	smerrcov
+	meanex
+	covex
+	all
+	none
+END
+
+PROGRAM group_output
+BEGIN
+	if group.rb_group {
+		put /hidden " " "group(" group.vn_group ")"
+		optionarg group.cb_ginvariant
+	}
+	if group.ed_select.isenabled() {
+		optionarg group.ed_select
+		option group.ck_forcecorr
+	}
+END
+
+INCLUDE sub_by_ifin_over_subpop
+INCLUDE weights_fpi
+INCLUDE se
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	rpt.sp_level.setvalue class SG_LEVEL.value
+	rpt.sp_level.setdefault class SG_LEVEL.value
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2b
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  CHECKBOX ck_standardized	_lft	_ls	_iwd	.,		///
+	option(standardized)						///
+	label(resource SG__ESTOPTIONS_RPT_CK_STANDARDIZED)
+
+  DEFINE _x _lft
+  DEFINE _y _ms
+  DEFINE _cx _iwd
+  INCLUDE _nocnsreport
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  CHECKBOX ck_nodescribe	@	_ms	@	.,		///
+	option(nodescribe)						///
+	label(resource SG__ESTOPTIONS_RPT_CK_NODESCRIBE)
+  CHECKBOX ck_noheader		@	_ms	@	.,		///
+	option(noheader)						///
+	label(resource SG__ESTOPTIONS_RPT_CK_NOHEADER)
+  CHECKBOX ck_nofootnote	@	_ms	@	.,		///
+	option(nofootnote)						///
+	label(resource SG__ESTOPTIONS_RPT_CK_NOFOOTNOTE)
+  CHECKBOX ck_notable		@	_ms	@	.,		///
+	option(notable)							///
+	label(resource SG__ESTOPTIONS_RPT_CK_NOTABLE)
+  CHECKBOX ck_showginvariant	@	_ms	@	.,		///
+	option(showginvariant)						///
+	label(resource SG__ESTOPTIONS_RPT_CK_SHOWGINVARIANT)
+  SPINNER sp_fvwrap		@	_ls	_spwd	.,		///
+	option(fvwrap)							///
+	default(0)							///
+	min(0)								///
+	max(10)								///
+	label(resource SG__ESTOPTIONS_RPT_SP_FVWRAP)
+  TEXT tx_fvwrap			_spsep	@	300	.,	///
+	label(resource SG__ESTOPTIONS_RPT_SP_FVWRAP)
+END
+
+PROGRAM rpt_output
+BEGIN
+	optionarg /hidedefault rpt.sp_level
+	option rpt.ck_standardized
+	INCLUDE _nocnsreport_pr
+	INCLUDE _report_columns_pr
+	option rpt.ck_nodescribe
+	option rpt.ck_noheader
+	option rpt.ck_nofootnote
+	option rpt.ck_notable
+	option rpt.ck_showginvariant
+	optionarg /hidedefault rpt.sp_fvwrap
+END
+
+INCLUDE max_ml
+
+SCRIPT adv_PREINIT
+BEGIN
+	/* covstructure */
+	create STRING adv_covs_tmp
+	create STRING adv_covs_tmp2
+	create STRING adv_covs_childdlg
+	create STRING adv_covs_child_result
+	create STRING adv_covs_cmd_output
+	
+	create STRING adv_bu_satoptsResults
+	create STRING adv_bu_baseoptsResults
+
+	create ARRAY adv_covs_list
+
+	create SVECTOR advCOVSCommandDisplayList
+	create SVECTOR advCOVSCommandList
+	create SVECTOR advCOVSCommandValues
+	create SVECTOR advCOVSStatusList
+	create SVECTOR advCOVSChildDialogList
+
+	create DOUBLE adv_covs_count
+	create DOUBLE adv_covs_position
+	create DOUBLE adv_covs_arraysize
+
+	adv.bu_covs_edit.disable
+	adv.bu_covs_disable.disable
+	adv.bu_covs_enable.disable
+END
+
+SCRIPT adv_POSTINIT
+BEGIN
+	program adv_bu_satopts_ckResults	
+	program adv_bu_baseopts_ckResults
+
+        advCOVSCommandDisplayList.copyToArray adv_covs_list
+        adv.lb_covsBuild.repopulate
+END
+
+/* covariance restriction list box */
+PROGRAM adv_covs_create
+BEGIN
+	call adv_covs_count.setvalue class advCOVSChildDialogList.size
+	call adv_covs_count.increment
+	call adv_covs_count.withvalue adv_covs_childdlg.setvalue	///
+		"adv_covs@"
+	call program adv_show_covs_child
+END
+
+PROGRAM adv_covs_edit
+BEGIN
+	call advCOVSCommandDisplayList.findstr class adv.lb_covsBuild.value
+	call adv_covs_position.setvalue class 				///
+		advCOVSCommandDisplayList.position
+	call adv_covs_position.withvalue adv_covs_childdlg.setvalue	///
+		class advCOVSChildDialogList.values[@]
+
+	call program adv_show_covs_child_edit
+END
+
+PROGRAM adv_show_covs_child
+BEGIN
+	call adv_covs_childdlg.withvalue create CHILD sg__opts_newcovs AS @
+	call adv_covs_childdlg.withvalue @.setExitString 		///
+		"adv_covs_child_result"
+	call adv_covs_childdlg.withvalue @.setExitAction		///
+		"program adv_covs_child_done"
+
+	call adv_covs_count.withvalue STMP.format			///
+		"resource LBL_COVARIANCE_STRUCTURE_FMT" "@" ""
+	call STMP.withvalue adv_covs_tmp.setvalue "@"
+	call adv_covs_childdlg.withvalue adv_covs_tmp2.setvalue "@.settitle"
+	call adv_covs_tmp2.append `" ""'
+	call adv_covs_tmp2.append class adv_covs_tmp.value
+	call adv_covs_tmp2.append `"""'
+	call adv_covs_tmp2.withvalue @
+END
+
+PROGRAM adv_show_covs_child_edit
+BEGIN
+	call adv_covs_childdlg.withvalue create CHILD sg__opts_newcovs AS @
+	call adv_covs_childdlg.withvalue @.setExitString 		///
+		"adv_covs_child_result"
+	call adv_covs_childdlg.withvalue @.setExitAction		///
+		"program adv_covs_child_done"
+
+	call adv_covs_position.withvalue adv_covs_tmp.setvalue		///
+		class advCOVSCommandDisplayList.values[@]
+	call adv_covs_childdlg.withvalue adv_covs_tmp2.setvalue "@.settitle"
+	call adv_covs_tmp2.append `" ""'
+	call adv_covs_tmp2.append class adv_covs_tmp.value
+	call adv_covs_tmp2.append `"""'
+	call adv_covs_tmp2.withvalue @
+END
+
+PROGRAM adv_covs_child_done
+BEGIN
+	call advCOVSChildDialogList.findstr class adv_covs_childdlg.value
+	call adv_covs_position.setvalue class advCOVSChildDialogList.position
+	if adv_covs_position {
+		call adv_covs_position.withvalue adv_covs_tmp.setvalue ///
+			class advCOVSStatusList.values[@]
+		if adv_covs_tmp.iseq("active") {
+			call adv_covs_position.withvalue STMP.format	///
+				"resource LBL_COVARIANCE_STRUCTURE_FMT" "@" ""
+			call STMP.withvalue				///
+				advCOVSCommandDisplayList.store class	///
+				adv_covs_position.value			///
+				"@"
+			call advCOVSCommandValues.store class		///
+				adv_covs_position.value class		///
+				adv_covs_child_result.value
+			call STMP.withvalue				///
+				adv_covs_tmp2.setvalue			///
+				"@"
+		}
+		else {
+			call adv_covs_position.withvalue STMP.format	///
+			"resource LBL_COVARIANCE_STRUCTURE_FMT" "@"	///
+				"resource LBL_PAREN_DISABLED"
+			call STMP.withvalue				///
+				adv_covs_tmp2.setvalue			///
+				"@"
+
+			call adv_covs_tmp2.withvalue			///
+				advCOVSCommandDisplayList.store		///
+				class adv_covs_position.value "@"
+		}
+
+		call advCOVSCommandList.store class			///
+			adv_covs_position.value class 			///
+			adv_covs_child_result.value
+
+		call advCOVSCommandDisplayList.copyToArray adv_covs_list
+		call adv.lb_covsBuild.repopulate
+		call adv.lb_covsBuild.setvalue class adv_covs_tmp2.value
+	}
+	else {
+		call adv_covs_arraysize.setvalue class 			///
+			advCOVSChildDialogList.size
+		call adv_covs_arraysize.increment
+
+		/* Store child dialog name */
+		call advCOVSChildDialogList.store class			///
+			adv_covs_arraysize.value class			///
+			adv_covs_childdlg.value
+
+		/* Store listbox display covariance restriction string */
+		call adv_covs_arraysize.withvalue STMP.format		///
+			"resource LBL_COVARIANCE_STRUCTURE_FMT" "@" ""
+		call STMP.withvalue					///
+			advCOVSCommandDisplayList.store class		///
+			adv_covs_arraysize.value "@"
+
+		/* Store child dialog result string */
+		call advCOVSCommandList.store class			///
+			adv_covs_arraysize.value 			///
+			class adv_covs_child_result.value
+
+		/* Store child dialog result string for final command
+		   For disable/enable */
+		call advCOVSCommandValues.store class			///
+			adv_covs_arraysize.value class 			///
+			adv_covs_child_result.value
+
+		/* Store disable/enable status */
+		call advCOVSStatusList.store				///
+			class adv_covs_arraysize.value "active"
+
+		call advCOVSCommandDisplayList.copyToArray adv_covs_list
+		call adv.lb_covsBuild.repopulate
+		call STMP.withvalue					///
+			adv.lb_covsBuild.setvalue "@"
+	}
+END
+
+PROGRAM adv_covs_sel_changed
+BEGIN
+	call advCOVSCommandDisplayList.findstr class adv.lb_covsBuild.value
+	call adv_covs_position.setvalue class 				///
+		advCOVSCommandDisplayList.position
+	call adv_covs_position.withvalue adv_covs_tmp.setvalue		///
+		class advCOVSStatusList.values[@]
+	if adv_covs_position {
+		call adv.bu_covs_edit.enable
+		call adv_covs_position.withvalue			///
+			adv.tb_covs_note.setlabel			///
+			class advCOVSCommandList.values[@]
+	}
+
+	if adv_covs_tmp.iseq("disable") {
+		call adv.bu_covs_enable.enable
+		call adv.bu_covs_disable.disable
+	}
+	if adv_covs_tmp.iseq("active") {
+		call adv.bu_covs_enable.disable
+		call adv.bu_covs_disable.enable
+	}
+END
+
+PROGRAM adv_covs_disable
+BEGIN
+	call advCOVSCommandDisplayList.findstr class adv.lb_covsBuild.value
+	call adv_covs_position.setvalue class				///
+		advCOVSCommandDisplayList.position
+
+	call adv_covs_tmp.setvalue class adv.lb_covsBuild.value
+	call advCOVSStatusList.store class adv_covs_position.value "disable"
+	call advCOVSCommandValues.store class adv_covs_position.value ""
+
+	call STMP.format "resource LBL_PAREN_DISABLED"
+	call adv_covs_tmp.append " "
+	call adv_covs_tmp.append class STMP.value
+	call adv_covs_tmp.withvalue STMP.setvalue "@"
+
+	call adv_covs_tmp.withvalue advCOVSCommandDisplayList.store	///
+		class adv_covs_position.value "@"
+
+	call advCOVSCommandDisplayList.copyToArray adv_covs_list
+	call adv.lb_covsBuild.repopulate
+	call adv.lb_covsBuild.setvalue class STMP.value
+END
+
+PROGRAM adv_covs_enable
+BEGIN
+	call advCOVSCommandDisplayList.findstr class adv.lb_covsBuild.value
+	call adv_covs_position.setvalue class 				///
+		advCOVSCommandDisplayList.position
+
+	call advCOVSStatusList.store class adv_covs_position.value "active"
+	call adv_covs_position.withvalue advCOVSCommandValues.store	///
+		class adv_covs_position.value class 			///
+		advCOVSCommandList.values[@]
+
+	call adv_covs_position.withvalue STMP.format			///
+		"resource LBL_COVARIANCE_STRUCTURE_FMT" "@" ""
+
+	call STMP.withvalue						///
+		advCOVSCommandDisplayList.store				///
+		class adv_covs_position.value "@"
+
+	call advCOVSCommandDisplayList.copyToArray adv_covs_list
+	call adv_covs_position.withvalue adv_covs_tmp2.setvalue class	///
+		advCOVSCommandDisplayList.values[@]
+	call adv.lb_covsBuild.repopulate
+	call adv.lb_covsBuild.setvalue class adv_covs_tmp2.value
+END
+
+PROGRAM adv_lb_covsBuild_output
+BEGIN
+	call advCOVSCommandValues.copyToString adv_covs_cmd_output
+	call adv_covs_arraysize.setvalue class advCOVSStatusList.size
+	if adv_covs_cmd_output & adv.lb_covsBuild.isvisible() {
+		put adv_covs_cmd_output
+	}
+END
+
+PROGRAM adv_show_satopts_maxml
+BEGIN
+	call create CHILD max_ml AS adv_bu_satopts
+	call adv_bu_satopts.setExitString adv_bu_satoptsResults
+	call adv_bu_satopts.setExitAction "program adv_bu_satopts_ckResults"
+END
+
+PROGRAM adv_bu_satopts_ckResults
+BEGIN
+	if adv_bu_satoptsResults {
+		call adv.bu_satopts.modified_on
+	}
+	else {
+		call adv.bu_satopts.modified_off
+	}
+END
+
+PROGRAM adv_show_baseopts_maxml
+BEGIN
+	call create CHILD max_ml AS adv_bu_baseopts
+	call adv_bu_baseopts.setExitString adv_bu_baseoptsResults
+	call adv_bu_baseopts.setExitAction "program adv_bu_baseopts_ckResults"
+END
+
+PROGRAM adv_bu_baseopts_ckResults
+BEGIN
+	if adv_bu_baseoptsResults {
+		call adv.bu_baseopts.modified_on
+	}
+	else {
+		call adv.bu_baseopts.modified_off
+	}
+END
+
+SCRIPT adv_nomeans_on
+BEGIN
+	adv.ck_nocons.disable
+END
+
+SCRIPT adv_nomeans_off
+BEGIN
+	adv.ck_nocons.enable
+END
+
+DIALOG adv, tabtitle(resource LBL_ADVANCED)
+BEGIN
+  TEXT tx_covsBuild		_lft	_top	_iwd	.,		///
+	label(resource LBL_COVARIANCE_STRUCTURE)
+  LISTBOX lb_covsBuild		@	_ss	200	95,		///
+	contents(adv_covs_list) 					///
+	ondblclick(program adv_covs_edit)				///
+	onselchange(program adv_covs_sel_changed)			///
+	nomemory
+  BUTTON bu_covs_new		+210	@	80	.,		///
+	onpush(program adv_covs_create)					///
+	tooltip(resource SG__ESTOPTIONS_ADV_BU_COVS_NEW)		///
+	label(resource LBL_BU_CREATE)
+  BUTTON bu_covs_edit		@	_ms	@	.,		///
+	onpush(program adv_covs_edit)  					///
+	tooltip(resource SG__ESTOPTIONS_ADV_BU_COVS_EDIT)		///
+	label(resource LBL_BU_EDIT)
+  BUTTON bu_covs_disable	@	_ms	@	.,		///
+	onpush(program adv_covs_disable)				///
+	tooltip(resource SG__ESTOPTIONS_ADV_BU_COVS_DISABLE)		///
+	label(resource LBL_BU_DISABLE)
+  BUTTON bu_covs_enable		@	_ms	@	.,		///
+	onpush(program adv_covs_enable)					///
+	tooltip(resource SG__ESTOPTIONS_ADV_BU_COVS_ENABLE)		///
+	label(resource LBL_BU_ENABLE)
+  TEXTBOX tb_covs_note		_lft	+25	_iwd	_tb2,		///
+	label(resource SG__ESTOPTIONS_ADV_TB_COVS_NOTE)
+  CHECKBOX ck_nomeans		_lft	_ls	_cwd1	.,		///
+	option(nomeans)							///
+	onclickon("script adv_nomeans_on")				///
+	onclickoff("script adv_nomeans_off")				///
+	label(resource SG__ESTOPTIONS_ADV_CK_NOMEANS)
+  CHECKBOX ck_noanchor		_lft2	@	@	.,		///
+	option(noanchor)						///
+	label(resource SG__ESTOPTIONS_ADV_CK_NOANCHOR)
+  CHECKBOX ck_nocons		_lft	_ms	_cwd1	.,		///
+	option(nocons)							///
+	label(resource SG__ESTOPTIONS_ADV_CK_NOCONS)
+  CHECKBOX ck_noestimate	_lft2	@	@	.,		///
+	option(noestimate)						///
+	label(resource SG__ESTOPTIONS_ADV_CK_NOESTIMATE)
+
+  GROUPBOX gb_advanced		_lft	_ls	_iwd	_ht13,		///
+	label(resource LBL_ADVANCED_OPTIONS)
+  CHECKBOX ck_allmissing	_indent	_ss	_inwd	.,		///
+	option(allmissing)						///
+	label(resource SG__ESTOPTIONS_ADV_CK_ALLMISSING)
+  CHECKBOX ck_noxconditional	@	_ms	@	.,		///
+	option(noxconditional)						///
+	label(resource SG__ESTOPTIONS_ADV_CK_NOXCONDITIONAL)
+  CHECKBOX ck_nm1		@	_ms	@	.,		///
+	option(nm1)							///
+	label(resource SG__ESTOPTIONS_ADV_CK_NM1)
+  CHECKBOX ck_noivstart		@	_ms	@	.,		///
+	option(noivstart)						///
+	label(resource SG__ESTOPTIONS_ADV_CK_NOIVSTART)
+  BUTTON bu_satopts		@	_ls	200	.,		///
+	onpush(program adv_show_satopts_maxml)				///
+	tooltip(resource SG__ESTOPTIONS_ADV_BU_SATOPTS_TOOLTIP)	///
+	label(resource SG__ESTOPTIONS_ADV_BU_SATOPTS)
+  BUTTON bu_baseopts		_lft2	@	200	.,		///
+	onpush(program adv_show_baseopts_maxml)				///
+	tooltip(resource SG__ESTOPTIONS_ADV_BU_BASEOPTS_TOOLTIP)	///
+	label(resource SG__ESTOPTIONS_ADV_BU_BASEOPTS)
+END
+
+PROGRAM adv_output
+BEGIN
+	put " " /program adv_lb_covsBuild_output
+
+	option adv.ck_nomeans
+	option adv.ck_nocons
+	option adv.ck_noanchor
+	option adv.ck_noestimate
+	
+	option adv.ck_allmissing
+	option adv.ck_noxconditional
+	option adv.ck_nm1
+	option adv.ck_noivstart
+	if adv_bu_satoptsResults {
+		put " satopts(" adv_bu_satoptsResults ")"
+	}
+
+	if adv_bu_baseoptsResults {
+		put " baseopts(" adv_bu_baseoptsResults ")"
+	}
+END
+
+PROGRAM __command
+BEGIN
+	put "mata: sg__global.signal("
+	put `"""' OBJ `"""'		// "SEM_1"
+	put ", " 			// ,
+	put `"""' "EstOptions" `"""'	// "EstOptions"
+	put ", "
+
+	// put out compound quotes
+	put "`" `"""'
+
+	put /program se_prefix_output
+	put ","
+	put " " /program ifin_output
+	put " " /program weights_output
+	put ","
+	put " " /program group_output
+	put " " /program model_output
+	put " " /program se_output
+	put " " /program rpt_output
+	put " " /program max_output
+	put " " /program adv_output
+
+	// put out compound quotes
+	put `"""' "'"
+
+	put ", " 			// ,
+	put `"""' `"""'			// ""
+	put ")"
+
+	stata hidden queue
+END
+
+PROGRAM command
+BEGIN
+	// external error checking
+	if se.ck_svy {
+		call se_svyset.setstring char _dta[_svy_version]
+		if se_svyset.equals("") {
+			call se_STMP.format				///
+				"resource SE_MSGBOX_SVY_SETTINGS_REQUIRED_FMT" ///
+				"resource LBL_SURVEY_SETTINGS"		///
+				"resource SE_TITLE_SE_ROBUST"
+			stopbox stop "class se_STMP.value"
+// Survey estimation commands require survey settings. See "Survey settings" on the "SE/Robust" tab.
+		}
+	}
+	if se_vcetype.equals(resource LBL_CLUSTERED_ROBUST)		///
+		| se_vcetype.equals(resource SE_LBL_CLUSTER) {
+		require se.vn_cluster
+	}
+
+	if weights.rb_none.isvisible() & weights.rb_none.isenabled() {
+		if ! weights.rb_none {
+			require weights.vl_wgt
+		}
+	}
+
+	put "_ondot_block"
+	stata hidden queue
+
+	put "capture noisily {"
+	stata hidden queue
+
+	put /program se_prefix_output " "
+
+	put CMD_PREFIX
+
+	put " " /program ifin_output
+	put " " /program weights_output
+	beginoptions
+		put " " CMD_COVSTRUCT
+		put " " /program group_output
+		put " " /program model_output
+		put " " /program se_output
+		put " " /program rpt_output
+		put " " /program max_output
+		put " " /program adv_output
+		put " " CMD_SUFFIXOPT
+	endoptions
+	stata
+
+	put "}"
+	stata hidden queue
+	
+	put "local sg__rc = _rc"
+	stata hidden queue
+	
+	put /program __command
+
+	put "_ondot_unblock"
+	stata hidden queue
+END

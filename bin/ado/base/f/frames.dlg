@@ -1,0 +1,178 @@
+/*
+  frames
+
+*!  VERSION 1.0.3  17apr2019
+
+*/
+
+VERSION 16.0
+
+INCLUDE _std_mlarge
+POSITION . . _dlgwd 370
+CANCEL can1, label(resource LBL_BU_CLOSE)
+
+HELP hlp1, view("help frames") 
+RESET res1
+
+PROGRAM ON_DOTPROMPT
+BEGIN
+	call program setup
+END
+
+PROGRAM setup
+BEGIN
+	call main.lb_frames.repopulate
+	call main.cb_active.repopulate
+
+	call main.lb_frames.setvalue c(frame)
+	call main.cb_active.setvalue c(frame)
+END
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource FRAMES_DLG_HSCALE
+	
+	create BOOLEAN loading
+	loading.settrue
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program setup
+
+	loading.setfalse
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	title(resource FRAMES_DLG_TITLE)
+BEGIN
+	TEXT		tx_active	_lft	_top	150	.,	///
+	label(resource FRAMES_LBL_CURRENT_FRAME)
+
+	COMBOBOX	cb_active	@	_ss	@	.,	///
+	dropdownlist contents(frames) onselchange(program switch_cb)
+
+	GROUPBOX	gb_frames	_lft	_xls	_iwd	290,	///
+	label(resource FRAMES_GB_MANAGE_FRAMES)
+	
+	LISTBOX		lb_frames	_ilft	_ms	240	210,	///
+	contents(frames) onselchange(program check_frames)
+	
+	BUTTON		bu_create	+250	@	110	.,	///
+	label(resource LBL_BU_CREATE) onpush(program create_frame)
+	
+	BUTTON		bu_switch	@	_ms	@	.,	///
+	label(resource LBL_BU_SWITCH_TO)				///
+	tooltip(resource FRAMES_BU_SWITCH_TOOLTIP)			///
+	onpush(program  switch_lb)
+
+	BUTTON		bu_rename	@	_ms	@	.,	///
+	label(resource LBL_BU_RENAME)					///
+	onpush(program  rename_frame)
+	
+	BUTTON		bu_copy		@	_ms	@	.,	///
+	label(resource LBL_BU_COPY)					///
+	tooltip(resource FRAMES_LBL_MAKE_A_COPY)			///
+	onpush(program  copy_frame)
+
+	BUTTON		bu_put		@	_ms	@	.,	///
+	label(resource LBL_BU_PUT_SUBSET)				///
+	tooltip(resource FRAMES_LBL_COPY_VARS_OBS)			///
+	onpush(program  put_frame)
+
+	BUTTON		bu_drop		@	_ms	@	.,	///
+	label(resource LBL_DROP) onpush(program  drop_frame)
+	
+	BUTTON		bu_reset	@	_xls	@	.,	///
+	label(resource LBL_BU_RESET)					///
+	onpush(program  reset_frame)
+	TEXTBOX		tb_note		_ilft	310	_ibwd	_tb2,	///
+	label(resource FRAMES_NOTE_UNSAVED_DATA)
+END
+
+PROGRAM check_frames
+BEGIN
+	call create STRING tmp
+	call tmp.setvalue c(frame)
+	if (tmp.iseq(main.lb_frames)) {
+		call main.bu_put.enable
+		call main.bu_drop.disable
+		call main.bu_switch.disable
+	}
+	else {
+		call main.bu_put.disable
+		call main.bu_drop.enable
+		call main.bu_switch.enable
+	}
+END
+
+PROGRAM create_frame
+BEGIN
+	call create CHILD frames_create
+END
+
+PROGRAM rename_frame
+BEGIN
+	call create CHILD frames_rename
+	call main.lb_frames.withvalue frames_rename.callthru `"main.cb_source.setvalue "@""'
+END
+
+PROGRAM copy_frame
+BEGIN
+	call create CHILD frames_copy
+	call main.lb_frames.withvalue frames_copy.callthru `"main.cb_source.setvalue "@""'
+END
+
+PROGRAM put_frame
+BEGIN
+	call create CHILD frames_put
+END
+
+PROGRAM drop_frame
+BEGIN
+
+	call create STRING _MSG_TMP
+	call main.lb_frames.withvalue					  ///
+		_MSG_TMP.format "resource FRAMES_MSGBOX_DROP_FMT" `""@""' ///
+		"resource LBL_AREYOUSURE_MSG"
+	stopbox rusure "class _MSG_TMP.value"
+// stopbox rusure "This will drop frame {0}." "Are you sure that wish to continue?"
+	put "frame drop "
+	put main.lb_frames
+	stata
+END
+
+PROGRAM reset_frame
+BEGIN
+	
+	call create STRING _MSG_TMP
+	call _MSG_TMP.format						///
+		"resource FRAMES_MSGBOX_RESET_FMT"			///
+		"resource LBL_AREYOUSURE_MSG"
+	stopbox rusure "class _MSG_TMP.value"
+//stopbox rusure "This will destroy the data in all frames." "Are you sure that wish to continue?"	
+	put "frames reset"
+	stata
+END
+
+PROGRAM switch_lb
+BEGIN
+	call create STRING tmp
+	call tmp.setvalue c(frame)
+	if (tmp.isneq(main.lb_frames)) {
+		put "frame change "
+		put main.lb_frames
+		stata
+	}
+END
+
+PROGRAM switch_cb
+BEGIN
+	call create STRING tmp
+	call tmp.setvalue c(frame)
+	if (!loading & tmp.isneq(main.cb_active)) {
+		put "frame change "
+		put main.cb_active
+		stata
+	}
+END

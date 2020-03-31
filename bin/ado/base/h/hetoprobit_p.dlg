@@ -1,0 +1,349 @@
+/*
+	predict (after hetoprobit)
+
+*!  VERSION 1.0.4  19mar2019
+
+*/
+
+VERSION 16.0
+
+INCLUDE _std_large
+INCLUDE header
+
+HELP hlp1, view("help hetoprobit postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource HETOPROBIT_P_DLG_HSCALE
+	create ARRAY tmpArray
+	create STRING tmpStr
+	create DOUBLE tmpSize
+	create STRING STMP
+	create DOUBLE k_cat
+	create DOUBLE k_scores
+
+	k_cat.setvalue e(k_cat)
+	main.tx_vars.formatlabel					///
+		"resource LBL_NEW_#_VAR_NAMES_FMT" "e(k_cat)"
+
+	k_scores.setvalue e(k_scores)
+	main.tx_eq_vars.formatlabel					///
+		"resource LBL_NEW_#_VAR_NAMES_FMT" "e(k_scores)"
+END
+
+
+DIALOG main, label(resource PREDICT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_vars		_lft	_top	_vlwd	.,		///
+	label(resource LBL_NEW_#_VAR_NAMES_FMT)
+  EDIT     ed_vars		@	_ss	@	.,		///
+	label(resource LBL_NEW_#_VAR_NAMES_FMT)
+  TEXT     tx_eq_vars		_lft	_top	_vlwd	.,		///
+	label(resource LBL_NEW_VARIABLE_NAMES_STUB)
+  EDIT     ed_eq_vars		@	_ss	@	.,		///
+	label(resource LBL_NEW_VARIABLE_NAMES_STUB)
+  TEXT     tx_var		_lft	_top	@	.,		///
+	label(resource LBL_NEW_VARIABLE_NAME)
+  EDIT     ed_var		@	_ss	_vnwd	.,		///
+	label(resource LBL_NEW_VARIABLE_NAME) max(32)
+  TEXT     tx_var1            _lft      _top      @         .,		///
+    	label(resource LBL_NEW_VARIABLE_NAME)
+  EDIT     ed_var1            @         _ss       _vnwd     .,		///
+  	label(resource LBL_NEW_VARIABLE_NAME) max(32)
+  TEXT     tx_var2            _lft      _top      @         .,		///
+    	label(resource LBL_NEW_VARIABLE_NAME)
+  EDIT     ed_var2            @         _ss       _vnwd     .,		///
+  	label(resource LBL_NEW_VARIABLE_NAME) max(32)
+  TEXT     tx_var3            _lft      _top      @         .,		///
+    	label(resource LBL_NEW_VARIABLE_NAME)
+  EDIT     ed_var3            @         _ss       _vnwd     .,		////
+	label(resource LBL_NEW_VARIABLE_NAME) max(32)
+  TEXT     tx_type		_vlsep	_top	_vlr	.,		///
+	label(resource LBL_NEW_VARIABLE_TYPE)
+  COMBOBOX cb_type		@	_ss	@	.,		///
+	dropdownlist							///
+	contents(type) default(c(type))					///
+	label(resource LBL_TYPE)
+
+  GROUPBOX gb_opts		_lft	_ls	_iwd	_ht16h,		///
+	label(resource LBL_PRODUCE)
+  RADIO    rb_p_all		_ilft	_ss	_ibwd	., first	///
+	option(pr)							///
+	clickon("script manyon")					///
+	label(resource LBL_PROBABILITIES_FOR_ALL_OUTCOMES)
+  RADIO    rb_p			@	_ss	@	.,		///
+	option(pr)							///
+	clickon("script oneon_p")					///
+	label(resource LBL_PROBABILITY_FOR_A_SPECIFIC_OUTCOME)
+  TEXT     tx_outcome		_indent2 _ss	_inwd	.,		///
+	label(resource LBL_FOR_OUTCOME_VALUE_DEPVAR)
+  COMBOBOX cb_outcome		@	_ss	_vlr	.,		///
+	dropdownlist							///
+	contents(ereturn depvar_outcomes) 				///
+	label(resource LBL_FOR_OUTCOME_VALUE_DEPVAR)
+
+  RADIO    rb_xb		_ilft	_ms	_ibwd	.,		///
+	option(xb)							///
+	clickon("script oneon_xb")					///
+	label(resource LBL_LINEAR_PREDICTION_XB)
+  RADIO    rb_stdp		@	_ss	@	.,		///
+	option(stdp)							///
+	clickon("script oneon_stdp")					///
+	label(resource LBL_STANDARD_ERROR_OF_LINEAR_PREDICTION)
+  RADIO    rb_sigma		@	_ss	@	., 		///
+	option(sigma)							///
+	clickon("script oneon_sigma")					///
+	label(resource LBL_STANDARD_DEVIATION_OF_ERROR_TERM)
+  RADIO    rb_score		@	_ss	@	., last		///
+	option(scores)							///
+	clickon("script score_on")					///
+	label(resource LBL_EQUATION_LEVEL_SCORES)
+  INCLUDE  _p_nooffset
+END
+
+
+INCLUDE _p_gentype_sc
+INCLUDE ifin
+INCLUDE _type_list_fd
+
+
+SCRIPT score_on
+BEGIN
+	script manyeqon
+END
+
+SCRIPT manyon
+BEGIN
+	script manyvars
+	script eqoff
+END
+
+SCRIPT manyeqon
+BEGIN
+	script manyeqvars
+	script eqoff
+END
+
+SCRIPT oneon
+BEGIN
+	script onevar
+	script eqoff
+END
+
+SCRIPT oneon_p
+BEGIN
+	script onevar
+	script eqon
+END
+
+SCRIPT oneon_xb
+BEGIN
+	script onevar_xb
+	script eqoff
+END
+
+SCRIPT oneon_stdp
+BEGIN
+	script onevar_stdp
+	script eqoff
+END
+
+SCRIPT oneon_sigma
+BEGIN
+	script onevar_sigma
+	script eqoff
+END
+
+SCRIPT manyvars
+BEGIN
+	main.tx_vars.show
+	main.ed_vars.show
+	main.tx_eq_vars.hide
+	main.ed_eq_vars.hide
+	main.tx_var.hide
+	main.ed_var.hide
+	main.tx_var1.hide
+	main.ed_var1.hide
+	main.tx_var2.hide
+	main.ed_var2.hide
+	main.tx_var3.hide
+	main.ed_var3.hide
+END
+
+SCRIPT manyeqvars
+BEGIN
+	main.tx_eq_vars.show
+	main.ed_eq_vars.show
+	main.tx_vars.hide
+	main.ed_vars.hide
+	main.tx_var.hide
+	main.ed_var.hide
+	main.tx_var1.hide
+	main.ed_var1.hide
+	main.tx_var2.hide
+	main.ed_var2.hide
+	main.tx_var3.hide
+	main.ed_var3.hide
+END
+
+SCRIPT onevar
+BEGIN
+	main.tx_vars.hide
+	main.ed_vars.hide
+	main.tx_eq_vars.hide
+	main.ed_eq_vars.hide
+	main.tx_var.show
+	main.ed_var.show
+	main.tx_var1.hide
+	main.ed_var1.hide
+	main.tx_var2.hide
+	main.ed_var2.hide
+	main.tx_var3.hide
+	main.ed_var3.hide
+END
+
+SCRIPT onevar_xb
+BEGIN
+	main.tx_vars.hide
+	main.ed_vars.hide
+	main.tx_eq_vars.hide
+	main.ed_eq_vars.hide
+	main.tx_var.hide
+	main.ed_var.hide
+	main.tx_var2.hide
+	main.ed_var2.hide
+	main.tx_var3.hide
+	main.ed_var3.hide
+	main.tx_var1.show
+	main.ed_var1.show	
+END
+
+SCRIPT onevar_stdp
+BEGIN
+	main.tx_vars.hide
+	main.ed_vars.hide
+	main.tx_eq_vars.hide
+	main.ed_eq_vars.hide
+	main.tx_var.hide
+	main.ed_var.hide
+	main.tx_var1.hide
+	main.ed_var1.hide
+	main.tx_var2.show
+	main.ed_var2.show
+	main.tx_var3.hide
+	main.ed_var3.hide	
+END
+
+SCRIPT onevar_sigma
+BEGIN
+	main.tx_vars.hide
+	main.ed_vars.hide
+	main.tx_eq_vars.hide
+	main.ed_eq_vars.hide
+	main.tx_var.hide
+	main.ed_var.hide
+	main.tx_var1.hide
+	main.ed_var1.hide
+	main.tx_var2.hide
+	main.ed_var2.hide
+	main.tx_var3.show
+	main.ed_var3.show	
+END
+
+SCRIPT eqon
+BEGIN
+	main.tx_outcome.enable
+	main.cb_outcome.enable
+END
+
+SCRIPT eqoff
+BEGIN
+	main.tx_outcome.disable
+	main.cb_outcome.disable
+END
+
+
+PROGRAM command
+BEGIN
+	put "predict "
+	if main.cb_type.isdefault() {
+		if main.rb_p_all {
+			call create ARRAY tmpArray
+			call create STRING tmpStr
+			call create DOUBLE tmpSize
+			call main.ed_vars.withvalue tmpStr.setvalue @
+			call tmpStr.tokenizeOnStr tmpArray " "
+			call tmpSize.storeClsArraySize tmpArray
+				
+			if  tmpSize.iseq(0) {			
+				call create STRING _MSG_TMP
+				call STMP.format					///
+					"resource LBL_NEW_#_VAR_NAMES_FMT" "e(k_cat)" 
+				call STMP.withvalue _MSG_TMP.format			///
+					"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT" "Main" "@"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Specify 5 new variable names or variables stub*" must be filled in.
+			}
+		
+			require main.ed_vars
+			put main.ed_vars " "
+		}	
+		if main.rb_score {
+			require main.ed_eq_vars
+			put main.ed_eq_vars " "
+		}
+		if main.rb_p  {
+			require main.ed_var
+			put main.ed_var " "				
+		}
+		if main.rb_xb  {
+			require main.ed_var1
+			put main.ed_var1 " "		
+		}
+		if main.rb_stdp  {
+			require main.ed_var2
+			put main.ed_var2 " "
+		}
+		if main.rb_sigma  {
+			require main.ed_var3
+			put main.ed_var3 " "				
+		}
+	}
+	if ! main.cb_type.isdefault() {
+		put main.cb_type " " "("
+		if main.rb_p_all {
+			require main.ed_vars
+			put main.ed_vars
+		}
+		if main.rb_score {
+			//require main.ed_eq_vars
+			put main.ed_eq_vars
+		}		
+		if main.rb_xb {
+			require main.ed_var1
+			put main.ed_var1
+		}
+		if main.rb_stdp {
+			require main.ed_var2
+			put main.ed_var2
+		}
+		if main.rb_sigma {
+			require main.ed_var3
+			put main.ed_var3
+		}
+		put ") "
+	}
+
+	put " " /program ifin_output
+	beginoptions
+		if main.rb_p {
+			put "outcome("
+			require main.cb_outcome
+			put main.cb_outcome
+			put ") "
+		}
+		option radio(main rb_p_all rb_p rb_xb rb_stdp rb_score rb_sigma)
+		option main.ck_nooffset
+	endoptions
+END

@@ -1,0 +1,1092 @@
+/*
+	power twoway 
+
+*!  VERSION 1.1.5  18dec2017
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_xwide
+DEFINE _dlght 520
+INCLUDE header
+
+HELP hlp1, view("help power twoway")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING numContents
+	create STRING stok
+	create ARRAY tmp
+	create BOOLEAN containsNumlist
+	create DOUBLE nrows
+	create DOUBLE ncols
+	create STRING dlgName
+	create DOUBLE tmp_nrows 
+	create DOUBLE tmp_ncols
+	create BOOLEAN hasMat
+	create BOOLEAN hasCellm
+	create BOOLEAN hasCells
+	create STRING tmp_cmeans
+	
+	dlgName.setvalue class _dlg_rsrcname
+	program table_create4Twoway
+	setscale_hadj resource POWER_TWOWAY_DLG_HSCALE
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	label(resource POWER_TWOWAY_DLG_TITLE)
+BEGIN
+  INCLUDE power_compute
+  DEFINE errpos _ls
+  INCLUDE power_errorprob
+  DEFINE sspos +45
+  INCLUDE power_twowaysampsi
+
+  GROUPBOX gb_effect_size	_lft	200	_iwd	_ht14h,		///
+	label(resource LBL_EFFECT_SIZE)
+  TEXT 	tx_means		_indent	_ss	_cwd1	.,		///
+	label(resource LBL_SPECIFY)
+  COMBOBOX cb_meanspec		@	+35	310	.,		///
+  	dropdownlist							///
+	contents("main_means_list")					///
+	values("main_means_values")					///
+	onselchange("program main_means_changed")			///
+  	label(resource LBL_SPECIFY)
+  EDIT	ed_cmeannum		_ilft	_xls	_en14wd	.,		///
+  	onchange(program power_twoway_dim_check)			///
+  	label(resource LBL_ALTERNATIVE_CELL_MEANS)			///
+  	tooltip(resource POWER_TWOWAY_MAIN_ED_CMEANNUM)
+  EDIT	ed_vareffect		@	@	@	.,		///
+  	option(vareffect)						///
+  	onchange(program check_for_numlist)				///
+  	label(resource LBL_VARIANCE_EXPLAINED_BY_TESTED_EFFECT)		///
+  	tooltip(resource LBL_VARIANCE_EXPLAINED_BY_TESTED_EFFECT_VAREFFECT)
+  EDIT	ed_varrow		@	@	@	.,		///
+  	option(varrow)							///
+  	onchange(program check_for_numlist)				///
+  	label(resource POWER_TWOWAY_MAIN_ED_VARARROW)			///
+  	tooltip(resource POWER_TWOWAY_MAIN_ED_VARARROW_TOOLTIP)
+  EDIT	ed_varcol		@	@	@	.,		///
+  	option(varcol)							///
+  	onchange(program check_for_numlist)				///
+  	label(resource POWER_TWOWAY_MAIN_ED_VARCOL)			///
+  	tooltip(resource POWER_TWOWAY_MAIN_ED_VARCOL_TOOLTIP)
+  EDIT	ed_varrowcol		@	@	@	.,		///
+  	option(varrowcol)						///
+  	onchange(program check_for_numlist)				///
+  	label(resource POWER_TWOWAY_MAIN_ED_VARROWCOL) 			///
+  	tooltip(resource POWER_TWOWAY_MAIN_ED_VARROWCOL_TOOLTIP)
+  TEXT	tx_cmeannum		_en14sep @	_cwd1	.,		///
+  	label(resource LBL_ALTERNATIVE_CELL_MEANS)
+  TEXT	tx_vareffect		@	@	@	.,		///
+  	label(resource LBL_STAR_EFFECT_VARIANCE)
+  TEXT	tx_varrow		@	@	@	.,		///
+  	label(resource POWER_TWOWAY_MAIN_TX_VARROW)
+  TEXT	tx_varcol		@	@	@	.,		///
+  	label(resource POWER_TWOWAY_MAIN_TX_VARCOL)
+  TEXT	tx_varrowcol		@	@	300	.,		///
+  	label(resource POWER_TWOWAY_MAIN_TX_VARROWCOL)
+  COMBOBOX cb_meanmat		_ilft	@	_en14wd	.,		///
+	label(resource LBL_ALTERNATIVE_CELL_MEANS)			///
+	contents(matrix)						///
+	onselchange(program power_twoway_dim_check)			///
+	dropdown
+  BUTTON bu_meanmat		_en14sep @	120	.,		///
+	label(resource LBL_INPUT_MATRIX)				///
+	onpush(program show_cmeans_matrix)				///
+	tooltip(resource LBL_INPUT_GROUP_MEANS_AS_MATRIX_BY_HAND)
+  COMBOBOX cb_factor		_lft2	@	_en14wd	.,		///
+  	dropdownlist							///
+  	option(factor)							///
+  	default(row)							///
+  	onselchange(program table_create4Twoway)			///
+	contents("main_factor_list")					///
+	values("main_factor_values")					///
+  	label(resource LBL_TESTED_EFFECT)
+  TEXT	tx_factor		_en14sep @	165	.,		///
+  	label(resource LBL_TESTED_EFFECT)  
+  EDIT	ed_varerror		_ilft	_ls	_en14wd	.,		///
+  	default(1)							///
+  	option(varerror)						///
+  	onchange(program check_for_numlist)				///
+  	label(resource LBL_ERROR_WITHIN_CELL_VARIANCE)			///
+  	tooltip(resource POWER_TWOWAY_MAIN_ED_VARERROR)
+  SPINNER sp_nrows		@	@	@	.,		///
+  	min(2)								///
+  	option(nrows)							///
+  	onchange(program power_twoway_dim_check)			///
+  	label(resource POWER_TWOWAY_MAIN_SP_NROWS)			///
+  	tooltip(resource POWER_TWOWAY_MAIN_SP_NROWS_TOOLTIP)
+  TEXT	tx_varerror		_en14sep @	170	.,		///
+  	label(resource POWER_TWOWAY_MAIN_TX_VARERROR)
+  TEXT	tx_nrows		@ 	@	@	.,		///
+  	label(resource LBL_NUMBER_OF_ROWS)
+  SPINNER sp_ncols		_lft2	@	_en14wd	.,		///
+  	min(2)								///
+  	option(ncols)							///
+  	onchange(program power_twoway_dim_check)			///
+  	label(resource POWER_TWOWAY_MAIN_SP_NCOLS)			///
+  	tooltip(resource POWER_TWOWAY_MAIN_SP_NCOLS_TOOLTIP)
+  TEXT	tx_ncols		_en14sep @	150	.,		///
+  	label(resource LBL_NUMBER_OF_COLUMNS)
+  CHECKBOX ck_showmat		_lft	_ls	_iwd	.,		///
+  	option(showmatrices)						///
+  	label(resource POWER_TWOWAY_MAIN_CK_SHOWMAT)
+  CHECKBOX ck_showmeans		_lft	_ls	_iwd	.,		///
+  	option(showmeans)						///
+  	onclickon(program table_create4Twoway)				///
+  	onclickoff(program table_create4Twoway)				///
+  	label(resource LBL_DISPLAY_CELL_MEANS_IN_DEFAULT_TABLE)
+  CHECKBOX ck_showcells		_lft2	_ls	_iwd	.,		///
+  	option(showcellsizes)						///
+  	onclickon(program table_create4Twoway)				///
+  	onclickoff(program table_create4Twoway)				///
+  	label(resource POWER_TWOWAY_MAIN_CK_SHOWCELLS)
+  CHECKBOX ck_parallel		_lft	_ls	_iwd	.,		///
+	option(parallel)						///
+	label(resource LBL_TREAT_NUMBER_LISTS_IN_STARRED_OPTIONS_AS_PARALLEL)
+END
+
+LIST main_compute_list
+BEGIN
+	resource LBL_SAMPLE_SIZE
+	resource PSS_LBL_POWER
+	resource POWER_TWOWAY_EFFECT_SIZE_TARGET_EFFECT_VARIANCE
+END
+
+LIST main_compute_values
+BEGIN
+	tot_sampsi
+	power
+	effect
+END
+
+LIST main_factor_list
+BEGIN
+	resource POWER_TWOWAY_LBL_ROW
+	resource POWER_TWOWAY_LBL_COLUMN
+	resource POWER_TWOWAY_LBL_ROW_COLUMN
+END
+
+LIST main_factor_values
+BEGIN
+	row
+	column
+	rowcol
+END
+
+INCLUDE _power_list
+
+LIST main_means_list
+BEGIN
+	resource LBL_ALTERNATIVE_CELL_MEANS
+	resource LBL_ALTERNATIVE_CELL_MEANS_MATRIX
+	resource LBL_VARIANCE_EXPLAINED_BY_TESTED_EFFECT
+	resource POWER_TWOWAY_VARIANCE_EXPLAINED_ROW_EFFECT
+	resource POWER_TWOWAY_VARIANCE_EXPLAINED_COLUMN_EFFECT
+	resource POWER_TWOWAY_VARIANCE_EXPLAINED_ROW_COL_INTERACTION
+END
+
+LIST main_means_values
+BEGIN
+	"cmeans"
+	"cmeansmat"
+	"vareffect"
+	"varrow"
+	"varcol"
+	"varrowcol"
+END
+
+PROGRAM main_compute_changed
+BEGIN
+	if main.cb_compute.iseq("tot_sampsi") {
+		call program main_tot_sampsi_on
+	}
+	if main.cb_compute.iseq("power") {
+		call program main_power_on
+	}
+	if main.cb_compute.iseq("effect") {
+		call program main_effect_on
+	}
+	call program check_for_numlist
+END
+
+PROGRAM main_tot_sampsi_on
+BEGIN
+	call script main_sampsi_hide_all
+	call main.gb_sample_size.setposition . . . 95
+	call main.ck_nfrac.setposition . 190
+	call main.tx_sampsi.show
+	call main.cb_sampsi.hide
+	call main.cb_grw.show
+	call main.ed_power.show
+	call main.ed_beta.show
+	call main.tx_power_beta_power.show
+	call main.cb_power_beta.show
+	call program main_grw_changed
+	call program main_move_effect_size
+	call program main_means_changed 
+	call program main_move_main_opts
+	call program main_power_beta_changed
+	call program power_iteration_tab_check
+END
+
+PROGRAM main_power_on
+BEGIN
+	call script main_sampsi_hide_all
+	call main.gb_sample_size.setposition . . . 95
+	call main.ck_nfrac.setposition . 190
+	call main.tx_sampsi.show
+	call main.cb_sampsi.show
+	call main.ed_power.hide
+	call main.ed_beta.hide
+	call main.tx_power_beta_power.hide
+	call main.cb_power_beta.hide
+	call program main_move_effect_size
+	call program main_means_changed 
+	call program main_sampsi_changed
+	call program main_move_main_opts
+	call program power_iteration_tab_check
+END
+
+PROGRAM main_effect_on
+BEGIN
+	call script main_sampsi_hide_all
+	call main.gb_sample_size.setposition . . . 95
+	call main.ck_nfrac.setposition . 190
+	call main.tx_sampsi.show
+	call main.cb_sampsi.show
+	call main.ed_power.show
+	call main.ed_beta.show
+	call main.tx_power_beta_power.show
+	call main.cb_power_beta.show
+	call program main_sampsi_changed
+	call program main_move_effect_size
+	call program main_means_changed 
+	call program main_move_main_opts
+	call program main_power_beta_changed
+	call program power_iteration_tab_check
+
+	call program power_twoway_dim_check
+END
+
+PROGRAM main_means_changed
+BEGIN
+	if main.cb_meanspec.isvisible() {
+		if main.cb_meanspec.iseq("cmeans") {
+			call program main_cmeans_on
+		}
+		if main.cb_meanspec.iseq("cmeansmat") {
+			call program main_cmeansmat_on
+		}
+		if main.cb_meanspec.iseq("vareffect") {
+			call program main_vareffect_on
+		}
+		if main.cb_meanspec.iseq("varrow") {
+			call program main_varrow_on
+		}
+		if main.cb_meanspec.iseq("varcol") {
+			call program main_varcol_on
+		}
+		if main.cb_meanspec.iseq("varrowcol") {
+			call program main_varrowcol_on
+		}
+		call program power_twoway_dim_check
+		call program check_for_numlist
+	}
+END
+
+PROGRAM main_cmeans_on
+BEGIN
+	call main.ed_cmeannum.show
+	call main.tx_cmeannum.show
+	call main.cb_meanmat.hide
+	call main.bu_meanmat.hide
+	call main.ed_vareffect.hide
+	call main.tx_vareffect.hide
+	call main.ed_varrow.hide
+	call main.tx_varrow.hide
+	call main.ed_varcol.hide
+	call main.tx_varcol.hide
+	call main.ed_varrowcol.hide
+	call main.tx_varrowcol.hide
+	call main.cb_factor.show
+	call main.tx_factor.show
+	call main.sp_nrows.hide
+	call main.tx_nrows.hide
+	call main.sp_ncols.hide
+	call main.tx_ncols.hide
+	call main.ed_varerror.show
+	call main.tx_varerror.show
+	
+	call main.cb_factor.setposition 335 320
+	call main.tx_factor.setposition 460 320
+	call main.ed_varerror.setposition 20 380
+	call main.tx_varerror.setposition 145 380
+	
+	if main.cb_compute.iseq("power") | main.cb_compute.iseq("effect") {
+		call main.ed_varerror.setposition . 350
+		call main.tx_varerror.setposition . 350
+		call main.cb_sampsi.show
+		call program main_sampsi_changed
+	} 
+	if main.cb_compute.iseq("tot_sampsi") {
+		call main.ed_varerror.setposition . 350
+		call main.tx_varerror.setposition . 350	
+	}
+	call main.cb_grw.enable
+	call main.ed_grw.enable
+	call main.cb_grw_mat.enable
+	call main.bu_grw_mat.enable
+	call main.tx_grw.enable
+END
+
+PROGRAM main_cmeansmat_on
+BEGIN
+	call main.ed_cmeannum.hide
+	call main.tx_cmeannum.hide
+	call main.cb_meanmat.show
+	call main.bu_meanmat.show
+	call main.ed_vareffect.hide
+	call main.tx_vareffect.hide
+	call main.ed_varrow.hide
+	call main.tx_varrow.hide
+	call main.ed_varcol.hide
+	call main.tx_varcol.hide
+	call main.ed_varrowcol.hide
+	call main.tx_varrowcol.hide
+	call main.cb_factor.show
+	call main.tx_factor.show
+	call main.sp_nrows.hide
+	call main.tx_nrows.hide
+	call main.sp_ncols.hide
+	call main.tx_ncols.hide
+	call main.ed_varerror.show
+	call main.tx_varerror.show
+
+	call main.cb_factor.setposition 335 320
+	call main.tx_factor.setposition 460 320
+	call main.ed_varerror.setposition 20 380
+	call main.tx_varerror.setposition 145 380
+
+	if main.cb_compute.iseq("power") | main.cb_compute.iseq("effect") {
+		call main.ed_varerror.setposition . 350
+		call main.tx_varerror.setposition . 350
+		call main.cb_sampsi.show
+		call program main_sampsi_changed
+	} 
+	if main.cb_compute.iseq("tot_sampsi") {
+		call main.ed_varerror.setposition . 350
+		call main.tx_varerror.setposition . 350	
+	}
+	call main.cb_grw.enable
+	call main.ed_grw.enable
+	call main.cb_grw_mat.enable
+	call main.bu_grw_mat.enable
+	call main.tx_grw.enable
+END
+
+PROGRAM main_vareffect_on
+BEGIN
+	call main.ed_cmeannum.hide
+	call main.tx_cmeannum.hide
+	call main.cb_meanmat.hide
+	call main.bu_meanmat.hide
+	call main.ed_vareffect.show
+	call main.tx_vareffect.show
+	call main.ed_varrow.hide
+	call main.tx_varrow.hide
+	call main.ed_varcol.hide
+	call main.tx_varcol.hide
+	call main.ed_varrowcol.hide
+	call main.tx_varrowcol.hide
+	call main.cb_factor.show
+	call main.tx_factor.show
+	call main.ed_varerror.show
+	call main.tx_varerror.show
+	call main.sp_nrows.show
+	call main.tx_nrows.show
+	call main.sp_ncols.show
+	call main.tx_ncols.show
+	
+	call main.cb_factor.setposition 20 320
+	call main.tx_factor.setposition 145 320
+	call main.sp_nrows.setposition . 350
+	call main.tx_nrows.setposition . 350
+	call main.sp_ncols.setposition . 350
+	call main.tx_ncols.setposition . 350
+	call main.ed_vareffect.setposition 20 380
+	call main.tx_vareffect.setposition 145 380
+	call main.ed_varerror.setposition 335 380
+	call main.tx_varerror.setposition 460 380
+	
+	if main.cb_compute.iseq("power") | main.cb_compute.iseq("effect") {
+		call main.cb_sampsi.show
+	} 
+	if main.cb_compute.iseq("tot_sampsi") {	
+		call main.cb_grw.enable
+		call main.ed_grw.enable
+		call main.cb_grw_mat.enable
+		call main.bu_grw_mat.enable
+		call main.tx_grw.enable
+	}
+END
+
+PROGRAM main_varrow_on
+BEGIN
+	call main.ed_cmeannum.hide
+	call main.tx_cmeannum.hide
+	call main.cb_meanmat.hide
+	call main.bu_meanmat.hide
+	call main.ed_vareffect.hide
+	call main.tx_vareffect.hide
+	call main.ed_varrow.show
+	call main.tx_varrow.show
+	call main.ed_varcol.hide
+	call main.tx_varcol.hide
+	call main.ed_varrowcol.hide
+	call main.tx_varrowcol.hide
+	call main.cb_factor.hide
+	call main.tx_factor.hide
+	call main.ed_varerror.show
+	call main.tx_varerror.show
+	call main.sp_nrows.show
+	call main.tx_nrows.show
+	call main.sp_ncols.show
+	call main.tx_ncols.show
+
+	call main.sp_nrows.setposition . 320
+	call main.tx_nrows.setposition . 320
+	call main.sp_ncols.setposition . 320
+	call main.tx_ncols.setposition . 320
+	call main.ed_varerror.setposition 20 380
+	call main.tx_varerror.setposition 145 380
+
+	if main.cb_compute.iseq("power") | main.cb_compute.iseq("effect") {
+
+		call main.cb_sampsi.show
+	} 
+	if main.cb_compute.iseq("tot_sampsi") {
+		call main.cb_grw.enable
+		call main.ed_grw.enable
+		call main.cb_grw_mat.enable
+		call main.bu_grw_mat.enable
+		call main.tx_grw.enable
+	}
+END
+
+PROGRAM main_varcol_on
+BEGIN
+	call main.ed_cmeannum.hide
+	call main.tx_cmeannum.hide
+	call main.cb_meanmat.hide
+	call main.bu_meanmat.hide
+	call main.ed_vareffect.hide
+	call main.tx_vareffect.hide
+	call main.ed_varrow.hide
+	call main.tx_varrow.hide
+	call main.ed_varcol.show
+	call main.tx_varcol.show
+	call main.ed_varrowcol.hide
+	call main.tx_varrowcol.hide
+	call main.cb_factor.hide
+	call main.tx_factor.hide
+	call main.ed_varerror.show
+	call main.tx_varerror.show
+	call main.sp_nrows.show
+	call main.tx_nrows.show
+	call main.sp_ncols.show
+	call main.tx_ncols.show
+	
+	call main.sp_nrows.setposition . 320
+	call main.tx_nrows.setposition . 320
+	call main.sp_ncols.setposition . 320
+	call main.tx_ncols.setposition . 320
+	call main.ed_varerror.setposition 20 380
+	call main.tx_varerror.setposition 145 380
+
+	if main.cb_compute.iseq("power") | main.cb_compute.iseq("effect") {
+		call main.cb_sampsi.show
+	} 
+	if main.cb_compute.iseq("tot_sampsi") {
+		call main.cb_grw.enable
+		call main.ed_grw.enable
+		call main.cb_grw_mat.enable
+		call main.bu_grw_mat.enable
+		call main.tx_grw.enable
+	}
+END
+
+PROGRAM main_varrowcol_on
+BEGIN
+	call main.ed_cmeannum.hide
+	call main.tx_cmeannum.hide
+	call main.cb_meanmat.hide
+	call main.bu_meanmat.hide
+	call main.ed_vareffect.hide
+	call main.tx_vareffect.hide
+	call main.ed_varrow.hide
+	call main.tx_varrow.hide
+	call main.ed_varcol.hide
+	call main.tx_varcol.hide
+	call main.ed_varrowcol.show
+	call main.tx_varrowcol.show
+	call main.cb_factor.hide
+	call main.tx_factor.hide
+	call main.ed_varerror.show
+	call main.tx_varerror.show
+	call main.sp_nrows.show
+	call main.tx_nrows.show
+	call main.sp_ncols.show
+	call main.tx_ncols.show
+	
+	call main.sp_nrows.setposition . 320
+	call main.tx_nrows.setposition . 320
+	call main.sp_ncols.setposition . 320
+	call main.tx_ncols.setposition . 320
+	call main.ed_varerror.setposition 20 380
+	call main.tx_varerror.setposition 145 380
+
+	if main.cb_compute.iseq("power") | main.cb_compute.iseq("effect") {
+		call main.cb_sampsi.show
+	} 
+	if main.cb_compute.iseq("tot_sampsi") {	
+		call main.cb_grw.enable
+		call main.ed_grw.enable
+		call main.cb_grw_mat.enable
+		call main.bu_grw_mat.enable
+		call main.tx_grw.enable
+	}
+END
+
+INCLUDE power_errorprob_pr
+INCLUDE power_twowaysampsi_pr
+
+PROGRAM main_power_beta_table
+BEGIN
+	call program table_create4Twoway
+END
+
+PROGRAM main_move_effect_size
+BEGIN
+	if main.cb_compute.iseq("tot_sampsi") {
+		call main.gb_effect_size.setposition . 240
+		call main.tx_means.show
+		call main.cb_meanspec.show
+		call main.cb_grw.setposition . 165
+		call main.tx_means.setposition . 260
+		call main.cb_meanspec.setposition . 280
+		call main.ed_cmeannum.setposition . 320
+		call main.tx_cmeannum.setposition . 320
+		call main.ed_varrow.setposition . 350
+		call main.tx_varrow.setposition . 350
+		call main.ed_varcol.setposition . 350
+		call main.tx_varcol.setposition . 350
+		call main.ed_varrowcol.setposition . 350
+		call main.tx_varrowcol.setposition . 350
+		call main.cb_meanmat.setposition . 320
+		call main.bu_meanmat.setposition . 320
+	}
+	if main.cb_compute.iseq("power") {
+		call main.gb_effect_size.setposition . 240
+		call main.tx_means.show
+		call main.cb_meanspec.show
+		call main.tx_means.setposition . 260
+		call main.cb_meanspec.setposition . 280
+		call main.ed_cmeannum.setposition . 320
+		call main.tx_cmeannum.setposition . 320
+		call main.ed_varrow.setposition . 350
+		call main.tx_varrow.setposition . 350
+		call main.ed_varcol.setposition . 350
+		call main.tx_varcol.setposition . 350
+		call main.ed_varrowcol.setposition . 350
+		call main.tx_varrowcol.setposition . 350
+		call main.cb_meanmat.setposition . 320
+		call main.bu_meanmat.setposition . 320
+	}	
+	if main.cb_compute.iseq("effect") {
+		call main.gb_effect_size.setposition . 240
+		call main.tx_means.hide
+		call main.cb_meanspec.hide
+		call main.ed_cmeannum.hide
+		call main.tx_cmeannum.hide
+		call main.cb_meanmat.hide
+		call main.bu_meanmat.hide
+		call main.ed_vareffect.hide
+		call main.tx_vareffect.hide
+		call main.ed_varrow.hide
+		call main.tx_varrow.hide
+		call main.ed_varcol.hide
+		call main.tx_varcol.hide
+		call main.ed_varrowcol.hide
+		call main.tx_varrowcol.hide
+		call main.cb_factor.show
+		call main.tx_factor.show
+		call main.sp_nrows.show
+		call main.tx_nrows.show
+		call main.sp_ncols.show
+		call main.tx_ncols.show
+		call main.ed_varerror.show
+		call main.tx_varerror.show
+		call main.cb_factor.setposition 20 265
+		call main.tx_factor.setposition 145 265
+		call main.sp_nrows.setposition 20 295
+		call main.tx_nrows.setposition 145 295
+		call main.sp_ncols.setposition 335 295
+		call main.tx_ncols.setposition 460 295
+		call main.ed_varerror.setposition 20 325
+		call main.tx_varerror.setposition 145 325
+	}
+END
+
+PROGRAM main_move_main_opts
+BEGIN
+	call main.ck_showmat.setposition . 430
+	call main.ck_showmeans.setposition . 455
+	call main.ck_showcells.setposition . 455
+	call main.ck_parallel.setposition  . 480
+END
+
+PROGRAM check_for_numlist
+BEGIN
+	call containsNumlist.setfalse
+
+	if main.ed_alpha {
+		call numContents.setvalue class main.ed_alpha.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_power.isvisible() {
+		call numContents.setvalue class main.ed_power.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_beta.isvisible() {
+		call numContents.setvalue class main.ed_beta.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_sampsi_n.isvisible() {
+		call numContents.setvalue class main.ed_sampsi_n.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+	
+	if main.ed_sampsi_npc.isvisible() {
+		call numContents.setvalue class main.ed_sampsi_npc.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_vareffect.isvisible() {
+		call numContents.setvalue class main.ed_vareffect.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+	
+	if main.ed_varrow.isvisible() {
+		call numContents.setvalue class main.ed_varrow.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+	
+	if main.ed_varcol.isvisible() {
+		call numContents.setvalue class main.ed_varcol.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_varrowcol.isvisible() {
+		call numContents.setvalue class main.ed_varrowcol.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+	
+	if main.ed_varerror.isvisible() {
+		call numContents.setvalue class main.ed_varerror.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+		call program table_create4Twoway
+	}
+
+	if containsNumlist {
+		call main.ck_parallel.enable
+	}
+	else {
+		call main.ck_parallel.disable
+	}
+END
+
+PROGRAM power_iteration_tab_check
+BEGIN
+	call script power_iteration_enable
+	if main.cb_compute.iseq("power") {
+		call script power_iteration_disable
+	}
+	else {
+		if main.cb_compute.endswith("sampsi") {
+			call script power_iteration_is_sampsi
+		}
+		if main.cb_compute.iseq("effect") {
+			call script power_iteration_is_effect
+		}
+	}
+END
+
+PROGRAM show_cmeans_matrix
+BEGIN
+	call create STRING CmeansMatResult
+	call create CHILD matrix_input AS CmeansMat
+	if ! _rc {
+		call CmeansMat.setExitString CmeansMatResult
+		call CmeansMat.setExitAction "program main_getCmeansMatResult"
+		call CmeansMat.callthru "isChildContext.settrue"
+	}
+END
+
+PROGRAM main_getCmeansMatResult
+BEGIN
+	call main.cb_meanmat.repopulate
+	call main.cb_meanmat.setvalue class CmeansMatResult.value
+END
+
+PROGRAM power_twoway_dim_check
+BEGIN
+	call hasMat.setfalse
+	call hasCellm.setfalse
+	call hasCells.setfalse
+	if main.ed_cmeannum.isvisible() & main.ed_cmeannum.isneq(tmp_cmeans) {
+		if main.ed_cmeannum {
+			put "power_anova_dim ptwoway, "
+			put "clsname(" dlgName ") "
+			put "ctrlname(""ed_cmeannum"") "
+			put "is_mat(0) "
+			stata hidden immediate	
+			call nrows.setvalue r(nrowscount)
+			call ncols.setvalue r(ncolscount)
+		}
+	}
+	if main.cb_meanmat.isvisible() & main.cb_meanmat.isneq(tmp_cmeans) {
+		if main.cb_meanmat {
+			put "power_anova_dim ptwoway, "
+			put "clsname(" dlgName ") "
+			put "ctrlname(""cb_meanmat"") "
+			put "is_mat(1) "
+			stata hidden immediate	
+			call nrows.setvalue r(nrowscount)
+			call ncols.setvalue r(ncolscount)
+		}
+	}
+	if main.sp_nrows.isvisible() & main.sp_nrows.isneq(tmp_nrows) {
+		call main.sp_nrows.withvalue nrows.setvalue @
+	}
+	if main.sp_nrows.isvisible() & main.sp_nrows.iseq(tmp_nrows) {
+		call tmp_nrows.withvalue nrows.setvalue @
+	}
+	if main.sp_ncols.isvisible() & main.sp_ncols.isneq(tmp_ncols) {
+		call main.sp_ncols.withvalue ncols.setvalue @
+	}
+	if main.sp_ncols.isvisible() & main.sp_ncols.iseq(tmp_ncols) {
+		call tmp_ncols.withvalue ncols.setvalue @
+	}
+	if main.ed_cmeannum.isvisible() & main.ed_cmeannum {
+		call hasMat.settrue
+		call hasCellm.settrue
+	}
+	if main.cb_meanmat.isvisible() & main.cb_meanmat {
+		call hasMat.settrue
+		call hasCellm.settrue
+	}
+	if main.ed_grw.isvisible() & main.ed_grw.isneq("1") {
+		call hasMat.settrue
+		call hasCells.settrue
+	}
+	if main.cb_grw_mat.isvisible() & main.cb_grw_mat {
+		call hasMat.settrue
+		call hasCells.settrue
+	}
+	if hasMat {
+		call main.ck_showmat.enable
+	}
+	else {
+		call main.ck_showmat.disable
+	}
+	if hasCellm {
+		call main.ck_showmeans.enable
+	}
+	else {
+		call main.ck_showmeans.disable
+	}
+	if hasCells {
+		call main.ck_showcells.enable
+	}
+	else {
+		call main.ck_showcells.disable
+	}
+	call program table_create4Twoway
+END
+
+INCLUDE power_table_opts
+INCLUDE power_graph
+INCLUDE power_iteration
+
+PROGRAM command
+BEGIN
+	call tmp_cmeans.setvalue ""
+	call tmp_nrows.setvalue 0
+	call tmp_ncols.setvalue 0
+	if main.ed_cmeannum.isvisible() & main.ed_cmeannum {
+		call main.ed_cmeannum.withvalue tmp_cmeans.setvalue "@"
+	}
+	if main.cb_meanmat.isvisible() & main.cb_meanmat {
+		call main.cb_meanmat.withvalue tmp_cmeans.setvalue "@"
+	}
+	if main.sp_nrows.isvisible() & main.sp_nrows {
+		call main.sp_nrows.withvalue tmp_nrows.setvalue @
+	}
+	if main.sp_ncols.isvisible() & main.sp_ncols {
+		call main.sp_ncols.withvalue tmp_ncols.setvalue @
+	}
+	call nrows.withvalue tmp_nrows.setvalue @
+	call ncols.withvalue tmp_ncols.setvalue @
+	put "power twoway"
+
+	if main.cb_meanspec.iseq("cmeans") {
+		require main.ed_cmeannum
+		put " " main.ed_cmeannum
+	}
+	
+	if main.cb_meanspec.iseq("cmeansmat") {
+		require main.cb_meanmat
+		put " " main.cb_meanmat
+	}
+
+	if main.cb_meanspec.isvisible() & main.cb_meanspec.iseq("vareffect") {
+		require main.ed_vareffect
+		if !main.ed_vareffect.isnumlist() {
+			call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_VARIANCE_EXPLAINED_BY_TESTED_EFFECT"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for 
+// "Variance explained by tested effect".
+		}
+		if !main.ed_vareffect.isNumlistGT(0) {
+			call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_GREATER_THAN_0_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_VARIANCE_EXPLAINED_BY_TESTED_EFFECT"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Variance explained by tested effect" must be greater than 0.
+		}
+		require main.sp_nrows
+		require main.sp_ncols
+	}
+
+	if main.cb_meanspec.isvisible() & main.cb_meanspec.iseq("varrow") {
+		require main.ed_varrow
+		if !main.ed_varrow.isnumlist() {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource POWER_TWOWAY_VARIANCE_EXPLAINED_ROW_EFFECT"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for 
+// "Variance explained by row factor effect".
+		}
+		if !main.ed_varrow.isNumlistGT(0) {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_GREATER_THAN_0_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource POWER_TWOWAY_VARIANCE_EXPLAINED_ROW_EFFECT"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Variance explained by row factor effect" must be greater than 0.
+		}
+		require main.sp_nrows
+		require main.sp_ncols
+	}
+
+	if main.cb_meanspec.isvisible() & main.cb_meanspec.iseq("varcol") {
+		require main.ed_varcol
+		if !main.ed_varcol.isnumlist() {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource POWER_TWOWAY_VARIANCE_EXPLAINED_COLUMN_EFFECT"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for 
+// "Variance explained by column factor effect".
+		}
+		if !main.ed_varcol.isNumlistGT(0) {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_GREATER_THAN_0_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource POWER_TWOWAY_VARIANCE_EXPLAINED_COLUMN_EFFECT"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Variance explained by column factor effect" must be greater than 0.
+		}
+	}
+	
+	if main.cb_meanspec.isvisible() & main.cb_meanspec.iseq("varrowcol") {
+		require main.ed_varrowcol
+		if !main.ed_varrowcol.isnumlist() {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource POWER_TWOWAY_VARIANCE_EXPLAINED_ROW_COL_INTERACTION"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for 
+// "Variance explained by row-column interaction effect".
+		}
+		if !main.ed_varrowcol.isNumlistGT(0) {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_GREATER_THAN_0_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource POWER_TWOWAY_VARIANCE_EXPLAINED_ROW_COL_INTERACTION"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Variance explained by row-column interaction effect" 
+// must be greater than 0.
+		}	
+	}
+	
+	if main.ed_varerror.isvisible() {
+		require main.ed_varerror
+		if !main.ed_varerror.isnumlist() {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_ERROR_VARIANCE"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Error variance".
+		}
+		if !main.ed_varerror.isNumlistGT(0) {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_GREATER_THAN_0_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_ERROR_VARIANCE"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Error variance" must be greater than 0.
+		}
+	}
+
+	beginoptions
+		optionarg main.ed_vareffect
+		optionarg main.ed_varrow
+		optionarg main.ed_varcol
+		optionarg main.ed_varrowcol
+		optionarg /hidedefault main.ed_varerror
+		
+		if main.cb_compute.iseq("tot_sampsi") | main.cb_compute.iseq("power") {
+			if main.cb_meanspec.isneq("vareffect") {
+				optionarg /hidedefault main.cb_factor
+			}
+			else {
+				optionarg main.cb_factor
+			}
+		}
+		
+		if main.cb_compute.iseq("effect") {
+			optionarg main.cb_factor
+			require main.sp_nrows
+			require main.sp_ncols
+		}
+		
+		optionarg main.sp_nrows
+		optionarg main.sp_ncols
+		put " " /program power_errorprob_output
+		put " " /program power_twowaydsampsi_output
+		option main.ck_showmat
+		option main.ck_showmeans
+		option main.ck_showcells
+		option main.ck_parallel
+		put " " /program power_table_opts_output
+		put " " /program power_graph_output
+		put " " /program power_iteration_output
+	endoptions
+END

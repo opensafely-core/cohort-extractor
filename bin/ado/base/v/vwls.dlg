@@ -1,0 +1,122 @@
+/*
+  vwls	
+
+*! VERSION 1.1.1  20may2015
+
+  keyword:  eclass
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE header
+
+HELP hlp1, view("help vwls")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource VWLS_DLG_HSCALE
+END
+
+DIALOG main, label(resource VWLS_DLG_TITLE) tabtitle(resource LBL_TAB_MODEL)
+BEGIN
+  TEXT tx_dv 		_lft	_top	_vnwd	.,			///
+	label(resource LBL_DEPVAR)
+  VARNAME vn_dv		@ 	_ss	@	.,			///
+  	numeric								///
+	label(resource LBL_DEPVAR)
+
+  TEXT tx_iv		_vlx	_top	160	.,			///
+	label(resource LBL_INDDEPVAR)
+  VARLIST vl_iv		@	_ss	_vlwd	.,			///
+	fv 								///
+	allowcat							///
+	numeric								///
+	label(resource LBL_INDDEPVAR)
+
+  CHECKBOX ck_nocons @         _ms       @         .,			/*
+		*/ label(resource LBL_NOCONSTANT)			/*
+		*/ option("noconstant")					/*
+		*/
+
+  CHECKBOX ck_sd     _lft      _ls       _iwd      .,			/*
+ */ label(resource VWLS_MAIN_CK_SD) /*
+		*/ clickon("gaction main.vn_sd.enable")			/*
+		*/ clickoff("gaction main.vn_sd.disable")		/*
+		*/
+  VARNAME  vn_sd     _cksep    _ss       _vnwd     .,			/*
+		*/ label(resource VWLS_MAIN_VN_SD)			/*
+		*/ option(sd)						/*
+		*/ numeric						/*
+		*/
+END
+
+INCLUDE byifin
+INCLUDE weights_f
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+        program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2b
+  DEFINE _y 20
+  INCLUDE _sp_level
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+
+PROGRAM rpt_output
+BEGIN
+	optionarg /hidedefault rpt.sp_level
+	INCLUDE _report_columns_pr
+	put " " rpt_bu_facvarsResults
+	put " " rpt_bu_fmtcoefResults
+END
+
+PROGRAM command
+BEGIN
+	INCLUDE _by_pr
+	put "vwls "
+	varlist main.vn_dv 
+	varlist main.vl_iv
+	INCLUDE _weights_pr
+	INCLUDE _ifin_pr
+	beginoptions
+		option main.ck_nocons
+		if main.ck_sd {
+		  if !main.vn_sd {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format				///
+				"resource VWLS_MSGBOX_IS_SELECTED_NOT_FILLED_IN_FMT" ///
+				"resource VWLS_MAIN_VN_SD"
+			stopbox stop "class _MSG_TMP.value"
+// "Conditional std. deviation variable" is selected, but has not been filled in.
+		  }
+		  optionarg main.vn_sd			
+		}
+		put " " /program rpt_output
+	endoptions
+END

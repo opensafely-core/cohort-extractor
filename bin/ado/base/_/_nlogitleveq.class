@@ -1,0 +1,380 @@
+*! version 2.0.3  29apr2019
+
+version 14
+
+class _nlogitleveq {
+	instance:
+		/* level in hierarchy					*/
+		double level
+
+		_numericvar choice
+		double rum
+
+		/* string of variable to sort by			*/
+		string bylist
+
+		/* number of children in each branch			*/
+		_matrix nbranch
+		/* alternative indicies for each child			*/
+		_matrix altidx
+}, inherit(_altdepmodel)
+
+program .oncopy
+
+	di as err "_nlogitleveq.oncopy not implemented"
+	exit 498
+end
+
+program ._set 
+	syntax varlist(min=1 numeric fv) [fw iw pw], touse(varname)          ///
+		level(integer) const(passthru) altern(name)                  ///
+		case(passthru) [ BYAltvars(passthru) bylist(varlist)         ///
+		base(passthru) wtobj(passthru) rum COLlinear altparent(name) ///
+		noTAU noWARN ]
+
+	qui findfile _nlogitmodel_macros.ado
+	qui include `"`r(fn)'"'
+
+	if `.version' >= 16 {
+		/* free parameters for tau 	 			*/
+		.mversion = `NLOGIT_VERSION_CM_BASE'
+	}
+	if "`tau'" == "" {
+		/* not the main equation; strip out depvar to generate	*/
+		/*  choice variable below				*/
+		gettoken dep varlist : varlist
+
+		assert "`varlist'" == ""
+	}
+	if `.mversion' >= `NLOGIT_VERSION_CM_BASE' {
+		local gropt ancgroup(`altern')
+	}
+	.Super._set `varlist' [`weight'`exp'], touse(`touse') `byaltvars' ///
+		nochkbav altern(`altern') `case' `base' `const'           ///
+		bylist(`bylist') `wtobj' `collinear' `gropt'
+
+	local m = `.altern.k'
+	local alt `.altern.varname'
+	local case `.case.varname'
+	.bylist = `"`bylist'"'
+	.rum = ("`rum'"!="")
+	.level = `level'
+
+	if `level' == 1 {
+		sort `case' `alt'
+		local m1 = 1
+		mat `.nbranch.name' = J(1,1,`m')
+		mat colnames `.nbranch.matname' = root
+		local altmat `.altidx.name'
+		mat `altmat' = J(1,`m',0)
+		forvalues j=1/`m' {
+			mat `altmat'[1,`j'] = `j'
+		}
+		mat colnames `altmat' = `.altern.strlabels'
+	}
+	else if "`altparent'" == "" {
+		/* programmer error 					*/
+		di as err "_nlogitleveq.set, altparent() required for " ///
+		 "levels > 1"
+		exit 499
+	}
+	else {	
+		cap local ok = `.`altparent'.isofclass _alternvar'
+		if (_rc) local ok = 0
+		if !`ok' {
+			/* should not happen 				*/
+			di as err "_nlogitleveq.set, altparent() is not an "///
+			 "object of class _alternvar" 
+			exit 499
+		}
+		local altp `.`altparent'.varname'
+		/* check for alternative in two two parent nodes	*/
+		tempvar check
+		sort `alt' `altp'
+		qui by `alt' (`altp'): gen byte `check' = ///
+			(`altp'[_n]!=`altp'[_n-1]) if `touse'
+		qui by `alt' (`altp'): replace `check' = sum(`check')
+		cap by `alt' (`altp'): assert `check'[_N]<=1
+		if _rc {
+			di as err "{p}at least one alternative of " ///
+			 "{bf:`.altern.variable'} is contained in " ///
+			 "multiple alternatives of " ///
+			 "{bf:`.`altparent'.variable'}; this is not " ///
+			 "allowed{p_end}"
+			exit 459
+		} 
+		sort `case' `bylist' `alt'
+		local m1 = `.`altparent'.k'
+		local altp `.`altparent'.varname'
+		local brmat `.nbranch.name'
+		local altmat `.altidx.name'
+		mat `brmat' = J(1,`m1',.)
+		tempname tm
+		forvalues j=1/`m1' {	
+			qui tab `alt' if `touse' & `altp'==`j', matrow(`tm')
+			local r = r(r)
+			if `r'==1 & "`warn'"=="" {
+				/* degenerate branch 			*/
+				._degenmsg `j' `altparent'
+			}
+			mat `brmat'[1,`j'] = `r'
+			mat `altmat' = (nullmat(`altmat'),`tm'')
+			qui mat drop `tm'
+		}
+		local colnames
+		forvalues j=1/`.altidx.cols' {
+			local k = `altmat'[1,`j']
+			local colnames `colnames' `.altern.labels[`k']'
+		}
+		mat colnames `altmat' = `colnames'
+		mat rownames `altmat' = r1
+	}
+	if "`tau'" == "" {
+		forvalues j=1/`m' {
+			local labi `.altern.labels[`j']'
+			/* inclusion/dissimilarity parameters for level i */
+			.anc.Arrpush "`labi'_tau"
+		}
+		.choice = ._numericvar.new
+		qui by `case' `bylist' `.altern.varname' : ///
+			egen byte `.choice.name' = total(`dep') if `touse'
+
+		if "`rum'" == "" {
+			forvalues i=1/`.bavars.arrnels' {
+				._bycountdif `.bavars[`i']', ///
+					bylist(`case' `.altern.varname')
+				if r(k) > 0 {
+/*****************************************************************************/
+	di as err "{p}variable {bf:`.bavars[`i']'} varies within the "      ///
+	 "alternatives identified by variable {bf:`.altern.variable'}; the " ///
+	 "nonnormalized model requires variables specified in a level "     ///
+	 "equation to be constant within each alternative of that level{p_end}"
+/*****************************************************************************/
+					exit 459
+				}
+			}
+		}
+	}
+	else {
+		.choice = ._numericvar.new byte `.dep' if `touse'		
+	}
+end
+
+program .initest, rclass
+	syntax, bba(name) [ bas(name) trace noWARN]
+
+	if ("`trace'"!="") local cap cap noi
+	else local cap cap
+
+	if `.kvars'+`.kbavars'+`.const' == 0 {
+		return local collin = 0
+		exit
+	}
+
+	local wtype `.wtype'
+	if "`wtype'" != "" {
+		if ("`wtype'"=="pweight") local wtype iweight
+		local wopt [`wtype'=`.weight.varname']
+	}
+	local model `.strvars' `.strtvars'
+	/* compute expected rank					*/
+	local kb = 0
+	foreach exp in `model' {
+		_ms_parse_parts `exp'
+
+		local kb = `kb' + !r(omit)
+	} 
+	local bylist `.case.varname' `.bylist' `.altern.varname'
+
+	preserve
+	tempvar touse
+	qui bysort `bylist': gen byte `touse' = cond(_n==_N,`.touse',0)
+
+	`cap' clogit `.choice.varname' `model' `wopt' if `touse', ///
+		group(`.case.varname') iter(50) tol(0.0001)
+
+	tempname b1
+	mat `b1' = e(b)
+	local kbacoef = `.kbacoef'
+	local kascoef = `.kascoef, noconstant'
+
+	local collin = e(rank)<`kb'
+	if "`warn'"=="" & `collin' {
+		di in gr "{p 0 7}note: the model specified for level "    ///
+		 "`.level' has collinear variables; convergence may not " ///
+		 "be achieved{p_end}"
+	}
+	local k0 = 0
+	if `kascoef' & "`bas'"!="" {
+		/* alternative-specific variables			*/
+		mat `bas' = `b1'[1,1..`kascoef']
+		local k0 = `kascoef'
+		local names `.asstripe'
+		mat colnames `bas' = `names'
+	}	
+	/* by-alternative variables					*/
+	if `kbacoef' {
+		mat `bba' = J(1,`kbacoef',0)
+		local idba `.idbacoef.matname'
+		local ij = 0
+		local rows = rowsof(`idba')
+		local cols = colsof(`idba')
+		forvalues i=1/`rows' {
+			forvalues j=1/`cols' {
+				local k = `idba'[`i',`j']
+				if `k' {
+					/* not base alternative		*/
+					local `++ij'
+					if (`k' > 0) {
+						/* identified		*/
+						local k = `k' + `k0'
+						mat `bba'[1,`ij'] = `b1'[1,`k']
+					}
+				}
+			}
+		}
+		local names `.bastripe'
+		mat colnames `bba' = `names'
+	}
+	return local collin = `collin'
+end
+
+program .eretpost, eclass
+	syntax [ varname(default=none) ], [ index(integer -1) * ]
+
+	local choice `varlist'
+	if `index' >= 0 {
+		if (`:list posof "nocase" in options'==0) ///
+			local options `options' nocase
+	}
+
+	.Super.eretpost, index(`index') nostats `options' 
+
+	if `.kvars'+`.kbavars'+`.const'==0 & `index'>=0 {
+		ereturn local const`index'
+	}
+	if "`choice'" == "" {
+		._alternstats `.choice.varname', type(binary)
+	}
+	else {
+		._alternstats `choice', type(binary)
+	}
+	tempname mat
+	mat `mat' = r(stats)
+
+	if (`index'>=0) ereturn matrix stats`index' = `mat'
+	else  ereturn matrix stats = `mat'
+
+	if (`index' < 0) exit 
+
+	mat `mat' = `.nbranch.name' 
+	ereturn mat k_branch`index' = `mat'
+	mat `mat' = `.altidx.name' 
+	ereturn mat altidx`index' = `mat'
+end
+
+program .eretget
+	syntax, touse(varname) [ index(integer -1) case(string) ///
+		altern(string) bylist(string) * ]
+
+	if `index' >= 0 {
+		.level = `index'
+
+		if "`case'" == "" {
+			/* programmer error 				*/
+			di as err "_nlogitleveq.eretget: case() required " ///
+			 "with index() option"
+			exit 198
+		}
+		local indopt index(`index')
+	}
+	else local index
+
+	.Super.eretget, touse(`touse') `indopt' case(`case') ///
+		altern(`altern') `options'
+
+	if `.mversion' > 1 {
+		if `.version' < 16 {
+			.version = 16	// CM family, free parameters
+		}
+	}
+	else if `.version' > 15.1 {
+		.version = 15.1		// AS family
+	}
+
+	if ("`e(rum)'"!="") .rum = (e(rum)!=0)
+	else .rum = 0
+
+	.bylist = `"`bylist'"'
+	.choice = ._numericvar.new
+
+	/* depvar does not need to exist for predict			*/
+	cap confirm variable `e(depvar)'
+	if (_rc == 0) {
+		if "`index'" != "" {
+			/* choice indicator for level i */
+			qui sort `.case.varname' `bylist' `.altern.varname'
+			qui by `.case.varname' `bylist' `.altern.varname': ///
+				egen byte `.choice.name' = ///
+					total(`e(depvar)') if `touse'
+		}
+		else {
+			qui gen byte `.choice.name' = `.dep' if `touse'
+		}
+	}
+	
+	if "`index'" != "" {
+		mat `.nbranch.name' = e(k_branch`index')
+		mat `.altidx.name' = e(altidx`index')
+		if (`.altidx.cols' != `.altern.k') error 322
+
+		forvalues j=1/`.altern.k' {
+			local labi `.altern.labels[`j']'
+			/* inclusion/dissimilarity parameters for level i */
+			.anc.Arrpush "`labi'_tau"
+		}
+	}
+end
+
+program .summary
+	di as txt _n "_nlogitleveq class:"
+	di as txt "level = `.level'"
+
+	.Super.summary `0'
+end
+
+program ._degenmsg
+	args j parent
+
+	qui findfile _nlogitmodel_macros.ado
+	qui include `"`r(fn)'"'
+	
+	local labi `.`parent'.labels[`j']'
+	local lev = `.level'-1
+	if `.mversion' < `NLOGIT_VERSION_CM_BASE' {
+		local parm "[`labi'_tau]_cons"
+	}
+	else {
+		local group `.`parent'.exp'
+		if strlen("`group'") {
+			local parm "[/`group']`labi'_tau"
+		}
+		else {
+			local parm "[/]`labi'_tau"
+		}
+	}
+	if `.rum' {
+		di as txt "{p 0 7 2}note: branch `j' of level `lev' is "  ///
+		 "degenerate and the associated dissimilarity parameter " ///
+		 "{bf:`parm'} is not defined; see help "                   ///
+		"{help nlogit##degen_tau:nlogit} for details{p_end}"
+	}
+	else {
+		di as txt "{p 0 7 2}note: branch `j' of level `lev' is " ///
+		 "degenerate and the associated inclusive-valued "       ///
+		 "parameter {bf:`parm'} is not identifiable; see "       ///
+		 "help {help nlogit##degen_tau:nlogit} for details{p_end}"
+	} 
+end
+
+exit

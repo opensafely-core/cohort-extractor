@@ -1,0 +1,105 @@
+/*
+	irt_graph_tcc_theta
+
+*!  VERSION 1.1.3  01dec2019
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+DEFINE _dlght 200
+INCLUDE header
+
+HELP hlp1, view("help irtgraph tcc")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN	
+	create STRING	ThetaLinePropResults
+	create STRING	STMP
+	setscale_hadj resource IRT_GRAPH_TCC_THETA_DLG_HSCALE
+
+	STMP.append "resource LBL_GROUP"
+	STMP.append ":"
+	STMP.withvalue main.tx_group.setlabel "@"
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	label(resource IRT_GRAPH_TCC_THETA_DLG_TITLE)
+BEGIN
+  GROUPBOX gb_theta			_lft	_top	_iwd	_ht15,	///
+	label(resource IRT_GRAPH_TCC_THETA_MAIN_GB_THETA)
+  EDIT	   ed_theta			_ilft	_ms	_en14wd .,	///
+	label(resource IRT_GRAPH_TCC_THETA_MAIN_ED_THETA)
+  TEXT	   tx_theta			_en14sep @	200	.,	///
+	label(resource IRT_GRAPH_TCC_THETA_MAIN_ED_THETA)
+  BUTTON   btn_theta			_ilft	_ls	_en14wd	.,	///
+	onpush(program main_thetalineprop)				///
+	label(resource LBL_GB_LINE_PROPERTIES)
+  CHECKBOX ck_tnoxlines			_ilft	_ms	_ibwd	.,	///
+	option(noxlines)						///
+	label(resource IRT_GRAPH_TCC_THETA_MAIN_CK_TNOXLINES)
+  CHECKBOX ck_tnoylines			_ilft	_ms	_ibwd	.,	///
+	option(noylines)						///
+	label(resource IRT_GRAPH_TCC_THETA_MAIN_CK_TNOYLINES)
+
+  TEXT	tx_group			_ilft	_ls	_iwd	.,	///
+	label("")
+  COMBOBOX cb_group			@	_ss	_vnwd	.,	///
+	dropdown							///
+	contents(e(group_levels))					///
+	label("")
+END
+
+PROGRAM main_thetalineprop
+BEGIN
+	call create CHILD gr_line_options AS ThetaLinePropDlg
+	if ! _rc {
+		call ThetaLinePropDlg.setExitString ThetaLinePropResults
+		call ThetaLinePropDlg.setExitAction "program graph_get_ThetaLinePropResults"
+	}
+END
+
+PROGRAM graph_get_ThetaLinePropResults
+BEGIN
+	if ThetaLinePropResults {
+		call main.btn_theta.modified_on
+	}
+	else {
+		call main.btn_theta.modified_off
+	}
+END
+
+PROGRAM command
+BEGIN
+	require main.ed_theta
+	if !main.ed_theta.isnumlist() {
+		call create STRING _MSG_TMP
+                call _MSG_TMP.format 					///
+	"resource IRT_GRAPH_TCC_SCORE_MSGBOX_MUST_BE_NUMLIST_FMT" 	///
+			"resource IRT_GRAPH_TCC_THETA_MAIN_ED_THETA"
+		stopbox stop "class _MSG_TMP.value"
+// "Theta" must be numlist.
+	}
+	put " thetalines("
+
+	if main.cb_group {
+		put main.cb_group
+		put ":"
+	}
+
+	put main.ed_theta
+	if ThetaLinePropResults | main.ck_tnoxlines | main.ck_tnoylines {
+		put ","
+	}
+	if ThetaLinePropResults {
+		put " " ThetaLinePropResults
+	}
+	if main.ck_tnoxlines {
+		put " noxlines"
+	}
+	if main.ck_tnoylines {
+		put " noylines"
+	}
+	put ")"
+END

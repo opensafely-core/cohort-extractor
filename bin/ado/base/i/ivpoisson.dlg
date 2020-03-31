@@ -1,0 +1,735 @@
+/*
+  ivpoisson
+
+*!  VERSION 1.1.2  20feb2020
+
+  keyword:  eclass
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_xlarge
+DEFINE _dlght 455
+INCLUDE header
+
+HELP hlp1, view("help ivpoisson")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	script se_createAsIVPOISSON
+	setscale_hadj resource IVPOISSON_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script sub_set_by_on
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)				///
+	title(resource IVPOISSON_DLG_TITLE)
+BEGIN
+  GROUPBOX gb_method	_lft	_top	_iwd	_ht2,			///
+	label(resource LBL_ESTIMATION_METHOD)
+  RADIO	   rb_gmm	_indent	_ss	_cwd2	.,			///
+	first								///
+	onclickon(program main_gmm_on)					///
+	label(resource LBL_GENERALIZED_METHOD_OF_MOMENTS_GMM)
+  RADIO	   rb_cfunc	_lft2	@	@	.,			///
+	last								///
+	onclickon(program main_cfunc_on)				///
+	label(resource IVPOISSON_MAIN_RB_CFUNC)
+
+  TEXT tx_dv		_lft	_xls	_vnwd	.,			///
+	label(resource LBL_DEPVAR)
+  DEFINE holdy @y
+  VARNAME vn_dv		@	_ss	@	.,			///
+	ts								///
+	numeric								///
+	label(resource LBL_DEPVAR)
+
+  TEXT tx_iv		_vlx	holdy	160	.,			///
+	label(resource LBL_INDDEPVAR)
+  VARLIST vl_iv		@	_ss	_vlwd	.,			///
+	fv ts								///
+	allowcat							///
+	numeric								///
+	label(resource LBL_INDDEPVAR)
+  TEXT     tx_vars2	_lft	_ls	_iwd	.,			///
+	label(resource LBL_ENDOGENOUS_VARIABLES)
+  VARLIST  vl_vars2	@	_ss	@	.,			///
+	label(resource LBL_ENDOGENOUS_VARIABLES)			///
+	numeric								///
+	allowcat ts
+
+  TEXT     tx_ivars	@	_ls	@	.,			///
+	label(resource LBL_INSTRUMENTAL_VARIABLES)
+  VARLIST  vl_ivars	@	_ss	@	.,			///
+	label(resource LBL_INSTRUMENTAL_VARIABLES)			///
+	numeric								///
+	allowcat ts fv
+
+  GROUPBOX gb_error	_lft	_ls	_iwd	_ht2,			///
+	label(resource LBL_ERRORS)
+  RADIO	   rb_add	_indent	_ss	_cwd2	.,			///
+	first								///
+	option(additive)						///
+	label(resource IVPOISSON_MAIN_RB_ADD)
+  RADIO	   rb_multip	_lft2	@	@	.,			///
+	last								///
+	option(multiplicative)						///
+	label(resource IVPOISSON_MAIN_RB_MULTIP)
+
+  GROUPBOX gb_opts	_lft	_xls	_iwd	_ht13h,			///
+	label(resource LBL_OPTIONS)
+  CHECKBOX ck_nocons	_indent	_ss	_inwd	.,			///
+	option(noconstant)						///
+	label(resource LBL_NOCONSTANT)
+  RADIO	   rb_expo	@	_ms	_cwd2	.,			///
+	first								///
+	onclickon(script main_expo_on)					///
+	label(resource LBL_EXPOSURE_VARIABLE)
+  DEFINE holdy2 @y
+  VARNAME  vn_expo	@	_ss	_vnwd	.,			///
+	option(exposure)						///
+	label(resource LBL_EXPOSURE_VARIABLE)
+  RADIO	   rb_offset	_lft2	holdy2	_cwd2	.,			///
+	last								///
+	onclickon(script main_offset_on)				///
+	label(resource LBL_OFFSET_VARIABLE)
+  VARNAME  vn_offset	@	_ss	_vnwd	.,			///
+	option(offset)							///
+	label(resource LBL_OFFSET_VARIABLE)
+
+  GROUPBOX gb_estimator	_ilft	_ls	510	_ht2h,			///
+	label(resource IVPOISSON_MAIN_GB_ESTIMATOR)
+
+  RADIO rb_twostep	_indent	_ss	_vnwd	.,			///
+	first								///
+	option(twostep)							///
+	onclickon(program main_onestep_off)				///
+	label(resource LBL_2STEP)
+
+  RADIO rb_onestep	_lft3_2	@	@	.,			///
+	option(onestep)							///
+	onclickon(program main_onestep_on)				///
+	label(resource LBL_ONE_STEP)
+
+  RADIO rb_igmm		_lft3_3	@	@	.,			///
+	last								///
+	option(igmm)							///
+	onclickon(script main_igmm_on)					///
+	onclickoff(script main_igmm_off)				///
+	label(resource LBL_ITERATIVE)
+END
+
+PROGRAM main_gmm_on
+BEGIN
+	call main.gb_error.show
+	call main.rb_add.show
+	call main.rb_multip.show
+
+	call main.gb_opts.setposition . 280
+	call main.ck_nocons.setposition . 300
+	call main.rb_expo.setposition . 325
+	call main.rb_offset.setposition . 325
+	call main.vn_expo.setposition . 345
+	call main.vn_offset.setposition . 345
+	call main.gb_estimator.setposition . 375
+	call main.rb_twostep.setposition . 395
+	call main.rb_onestep.setposition . 395
+	call main.rb_igmm.setposition . 395
+
+	call main.rb_twostep.seton
+
+	call program wgt_matrix_iwmtype_on
+END
+
+PROGRAM main_cfunc_on
+BEGIN
+	call main.gb_error.hide
+	call main.rb_add.hide
+	call main.rb_multip.hide
+
+	call main.gb_opts.setposition . 220
+	call main.ck_nocons.setposition . 240
+	call main.rb_expo.setposition . 265
+	call main.rb_offset.setposition . 265
+	call main.vn_expo.setposition . 285
+	call main.vn_offset.setposition . 285
+	call main.gb_estimator.setposition . 315
+	call main.rb_twostep.setposition . 335
+	call main.rb_onestep.setposition . 335
+	call main.rb_igmm.setposition . 335
+
+	call main.rb_onestep.seton
+
+	call program wgt_matrix_iwmtype_on
+END
+
+SCRIPT main_igmm_on
+BEGIN
+	opt.sp_iter.enable
+	opt.tx_iter.enable
+	opt.gb_conv.enable
+	opt.ed_param.enable
+	opt.tx_param.enable
+	opt.ed_wm.enable
+	opt.tx_wm.enable
+	program main_onestep_off
+END
+
+SCRIPT main_igmm_off
+BEGIN
+	opt.sp_iter.disable
+	opt.tx_iter.disable
+	opt.gb_conv.disable
+	opt.ed_param.disable
+	opt.tx_param.disable
+	opt.ed_wm.disable
+	opt.tx_wm.disable
+END
+
+SCRIPT main_expo_on
+BEGIN
+	main.vn_expo.enable
+	main.vn_offset.disable
+END
+
+SCRIPT main_offset_on
+BEGIN
+	main.vn_expo.disable
+	main.vn_offset.enable
+END
+
+PROGRAM main_onestep_on
+BEGIN
+	call wgt_matrix.ck_wm.disable
+	call script wgt_matrix_wmtype_off
+END
+
+PROGRAM main_onestep_off
+BEGIN
+	call wgt_matrix.ck_wm.enable
+	if wgt_matrix.ck_wm {
+		call program wgt_matrix_wmtype_on
+	}
+END
+
+INCLUDE sub_by_ifin_over_subpop
+INCLUDE weights_fpai
+
+DIALOG wgt_matrix, tabtitle(resource LBL_TAB_WEIGHT_MATRIX)
+BEGIN
+  CHECKBOX ck_wm	_lft	_top	_iwd	_ht10h,			///
+	groupbox							///
+        label(resource LBL_SPECIFY_WEIGHTING_MATRIX)			///
+	onclickon(program wgt_matrix_wmtype_on)				///
+	onclickoff(script wgt_matrix_wmtype_off)
+  TEXT tx_wmtype	_ilft	_ss	_cwd3	.,			///
+	label(resource LBL_WEIGHTING_MATRIX_TYPE)
+  DEFINE holdy @y
+  LISTBOX lb_wmtype	@	_ss	_cwd3	55,			///
+        contents(wmtype_list)						///
+        values(wmtype_values)						///
+        option(wmatrix)							///
+        onselchangelist(wmtype_actions)
+
+  CHECKBOX ck_center	_ilft	115	_cwd3	.,			///
+	option(center)							///
+	label(resource LBL_CENTER_SAMPLE_MOMENTS)
+
+  TEXT tx_cluster	_lft2	holdy	@	.,			///
+        label(resource LBL_CLUSTER_VARIABLE)
+  DEFINE holdy @y
+  VARNAME vn_cluster	@	_ss	_vnwd	.,			///
+	label(resource LBL_CLUSTER_VARIABLE)				///
+	option(cluster)
+
+  CHECKBOX ck_iwm	_lft	153	_iwd	_ht11,			///
+	groupbox							///
+	onclickon(program wgt_matrix_iwmtype_on)			///
+	onclickoff(script wgt_matrix_iwmtype_off)			///
+	label(resource IVPOISSON_WGT_MATRIX_CK_IWM)
+
+  RADIO rb_iwm_un	_ilft	_ss	_inwd	., first		///
+	option(unadjusted)						///
+	label(resource IVPOISSON_WGT_MATRIX_RB_IWM_UN)
+  RADIO rb_iwm_id	@	_ss	@	.,			///
+	option(identity)						///
+	label(resource LBL_USE_IDENTITY_MATRIX)
+  RADIO rb_iwm_inp	@	_ss	@	., last			///
+	label(resource LBL_USE_MATRIX)					///
+	onclickon(program wm_rb_iwm_inp_on)				///
+	onclickoff(program wm_rb_iwm_inp_off)
+  COMBOBOX cb_iwm_inp	_indent2 _ss	190	.,			///
+	label(resource LBL_USE_MATRIX)					///
+	contents(matrix)						///
+	dropdown
+  BUTTON bu_iwm_inp	+195	@	100	.,			///
+	label(resource LBL_INPUT_MATRIX)				///
+	onpush(program wm_show_matrix_input)				///
+	tooltip(resource LBL_INPUT_HAND)
+
+  CHECKBOX ck_indep	_ilft	_ls	_cwd3	.,			///
+	option(independent)						///
+	label(resource IVPOISSON_WGT_MATRIX_CK_INDEP)
+END
+
+PROGRAM wgt_matrix_wmtype_on
+BEGIN
+	if wgt_matrix.ck_wm.isenabled() {
+		call wgt_matrix.tx_wmtype.enable
+		call wgt_matrix.lb_wmtype.enable
+		call wgt_matrix.ck_center.enable
+		call wgt_matrix.tx_cluster.enable
+		call wgt_matrix.vn_cluster.enable
+		call program wm_check_type
+	}
+END
+
+SCRIPT wgt_matrix_wmtype_off
+BEGIN
+	wgt_matrix.tx_wmtype.disable
+	wgt_matrix.lb_wmtype.disable
+	wgt_matrix.ck_center.disable
+	wgt_matrix.tx_cluster.disable
+	wgt_matrix.vn_cluster.disable
+	script se_setDefaultRobust
+END
+
+PROGRAM wm_check_type
+BEGIN
+	if wgt_matrix.ck_wm {
+		if wgt_matrix.lb_wmtype.iseq("robust") {
+			call script se_setDefaultRobust
+		}
+		if wgt_matrix.lb_wmtype.iseq("cluster") {
+			call script se_setDefaultClusteredRobust
+		}
+		if wgt_matrix.lb_wmtype.iseq("unadjusted") {
+			call script se_setDefaultUnadjusted
+		}
+	}
+	else {
+		call script se_setDefaultRobust
+	}
+END
+
+SCRIPT wgt_matrix_hide_all
+BEGIN
+	wgt_matrix.tx_cluster.hide
+	wgt_matrix.vn_cluster.hide
+	program wm_check_type
+END
+
+LIST wmtype_list
+BEGIN
+	resource LBL_ROBUST
+	resource LBL_CLUSTERED_ROBUST
+	resource LBL_UNADJUSTED
+END
+
+LIST wmtype_values
+BEGIN
+	robust
+	cluster
+	unadjusted
+END
+
+LIST wmtype_actions
+BEGIN
+	script wgt_matrix_hide_all
+	script wgt_matrix_cluster_on
+	script wgt_matrix_hide_all
+END
+
+SCRIPT wgt_matrix_cluster_on
+BEGIN
+	wgt_matrix.tx_cluster.show
+	wgt_matrix.vn_cluster.show
+	program wm_check_type
+END
+
+LIST initwmtype_list
+BEGIN
+	resource LBL_IDENTITY
+	resource LBL_UNADJUSTED
+	resource IVPOISSON_USER_DEFINED_MATRIX
+END
+
+PROGRAM wgt_matrix_iwmtype_on
+BEGIN
+	if wgt_matrix.ck_iwm.isenabled() {
+		call wgt_matrix.rb_iwm_id.enable
+		call wgt_matrix.rb_iwm_un.enable
+		call wgt_matrix.rb_iwm_inp.enable
+		if wgt_matrix.rb_iwm_inp {
+			call wgt_matrix.cb_iwm_inp.enable
+			call wgt_matrix.bu_iwm_inp.enable
+			call wgt_matrix.ck_indep.disable
+		}
+		if wgt_matrix.rb_iwm_un & main.rb_cfunc {
+			call wgt_matrix.ck_indep.enable
+		}
+		if main.rb_gmm {
+			call wgt_matrix.ck_indep.disable
+		}
+	}
+		
+END
+
+SCRIPT wgt_matrix_iwmtype_off
+BEGIN
+	wgt_matrix.rb_iwm_id.disable
+	wgt_matrix.rb_iwm_un.disable
+	wgt_matrix.rb_iwm_inp.disable
+	wgt_matrix.cb_iwm_inp.disable
+	wgt_matrix.bu_iwm_inp.disable
+	wgt_matrix.ck_indep.disable
+END
+
+PROGRAM wm_rb_iwm_inp_on
+BEGIN
+	call wgt_matrix.cb_iwm_inp.enable
+	call wgt_matrix.bu_iwm_inp.enable
+	if wgt_matrix.ck_iwm {
+		call wgt_matrix.ck_indep.disable
+	}
+END
+
+PROGRAM wm_rb_iwm_inp_off
+BEGIN
+	call wgt_matrix.cb_iwm_inp.disable
+	call wgt_matrix.bu_iwm_inp.disable
+	if wgt_matrix.ck_iwm & !main.rb_gmm {
+		call wgt_matrix.ck_indep.enable
+	}
+END
+
+PROGRAM wm_show_matrix_input
+BEGIN
+	call create STRING MatrixInputResult
+	call create CHILD matrix_input AS MatrixInput
+	if ! _rc {
+		call MatrixInput.setExitString MatrixInputResult
+		call MatrixInput.setExitAction "program wm_getMatrixInputResult"
+		call MatrixInput.callthru "isChildContext.settrue"
+	}
+END
+
+PROGRAM wm_getMatrixInputResult
+BEGIN
+	call wgt_matrix.cb_iwm_inp.repopulate
+	call wgt_matrix.cb_iwm_inp.setvalue class MatrixInputResult.value
+END
+
+INCLUDE se
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+        program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2b
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  CHECKBOX ck_irr	_lft	_ls	_iwd	.,			///
+	label(resource LBL_REPORT_INCIDENCE_RATE_RATIOS) option(irr)
+
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE factor_vars_reporting_pr
+INCLUDE fmt_coef_table_reporting_pr
+
+DIALOG opt, tabtitle(resource LBL_TAB_OPTIMIZATION)
+BEGIN
+  TEXT tx_from		_lft	_top	_iwd	.,			///
+	label(resource LBL_TX_INITIAL_VALUES)
+  EDIT ed_from		_lft	_ss	_iwd	.,			///
+	label(resource LBL_TX_INITIAL_VALUES)				///
+	option(from)
+  GROUPBOX gb_gmm	_lft	_ls	_iwd	_ht10,			///
+	label(resource LBL_ITERATIVE_OPTIONS)
+  SPINNER sp_iter	_indent	_ms	_spwd	.,			///
+	label(resource LBL_MAXIMUM_ITERATIONS)				///
+	min(0)								///
+	max(16000)							///
+	default(16000)							///
+	option(igmmiterate)
+  TEXT tx_iter		_spsep	@	400	.,			///
+	label(resource LBL_MAXIMUM_ITERATIONS)
+
+  GROUPBOX gb_conv	_ilft	_ls	_ibwd	_ht3,			///
+	label(resource LBL_CONVERGENCE_TOLERANCE)
+  EDIT ed_param		_iilft	_ms	_en7wd	.,			///
+	label(resource LBL_PARAMETER_ESTIMATES)				///
+	option(igmmeps)							///
+	default(1e-6)
+  TEXT tx_param		_en7sep	@	_en7r2b	.,			///
+	label(resource LBL_PARAMETER_ESTIMATES)
+  EDIT ed_wm		_ilft2	@	_en7wd	.,			///
+	label(resource LBL_WEIGHTING_MATRIX_ESTIMATES)			///
+	option(igmmweps)						///
+	default(1e-6)
+  TEXT tx_wm		_en7sep	@	150	.,			///
+	label(resource LBL_WEIGHTING_MATRIX_ESTIMATES)
+
+  GROUPBOX gb_opti_opts	_lft	+60	_iwd	_ht20h,			///
+	label(resource LBL_OPTIMIZATION_OPTIONS)
+
+  COMBOBOX cb_tech	_indent	_ms	200	.,			///
+	dropdownlist							///
+	option(technique)						///
+	contents(technique_list)					///
+	values(technique_val_list)
+  TEXT tx_tech		+205	@	140	.,			///
+	label(resource LBL_TECHNIQUE)
+
+  SPINNER sp_iter_i	_ilft2	@	_spwd	.,			///
+	label(resource LBL_MAXIMUM_ITERATIONS)				///
+	option(conv_maxiter)						///
+	min(0)								///
+	max(16000)							///
+	default(300)
+  TEXT tx_iter_i	_spsep	@	_spr2b	.,			///
+	label(resource LBL_MAXIMUM_ITERATIONS)
+
+  GROUPBOX gb_tol	_ilft	_ls	_ibwd	_ht6,			///
+	label(resource LBL_TOLERANCE)
+  EDIT ed_ptol		_indent	_ms	_en7wd	.,			///
+	option(conv_ptol)						///
+	default(1e-6)							///
+	label(resource LBL_PARAMETER)
+  DEFINE holdy @y
+  TEXT tx_ptol		_en7sep	@	_cwd3_1	.,			///
+	label(resource LBL_PARAMETER)
+  EDIT ed_vtol		_ilft2	holdy	_en7wd	.,			///
+	option(conv_vtol)						///
+	default(1e-7)							///
+	label(resource LBL_GRADIENT)
+  TEXT tx_vtol		_en7sep	@	_cwd3_1	.,			///
+	label(resource LBL_GRADIENT)
+  EDIT ed_nrtol		_iilft	_ls	_en7wd	.,			///
+	option(conv_nrtol)						///
+	default(1e-5)							///
+	label(resource LBL_SCALED_HESSIAN)
+  TEXT tx_nrtol		_en7sep	@	_cwd3_1	.,			///
+	label(resource LBL_SCALED_HESSIAN)
+  TEXT tx_tracel	_ilft	_xls	@	.,			///
+	label(resource LBL_TRACE_LEVEL)
+  COMBOBOX cb_tracel	@	_ss	200	.,			///
+	dropdownlist							///
+	option(tracelevel)						///
+	contents(tracelevel_list)					///
+	values(tracelevel_val_list)
+  CHECKBOX ck_logs	@	+35	_iwd	.,			///
+	option(nolog)							///
+	label(resource IVPOISSON_OPT_CK_LOGS)
+END
+
+LIST technique_list
+BEGIN
+	resource LBL_GAUSS_NEWTON
+	resource LBL_MODIFIED_NEWTON_RAPHSON
+	resource LBL_DAVIDON_FLETCHER_POWELL
+	resource LBL_BROYDEN_FLETCHER_GOLDFARB_SHANNO
+END
+
+LIST technique_val_list
+BEGIN
+	""
+	"nr"
+	"dfp"
+	"bfgs"
+END
+
+LIST tracelevel_list
+BEGIN
+	resource LBL_NOTHING
+	resource LBL_FUNCTION_VALUE
+	resource LBL_PREVIOUS_CONVERGENCE_VALUES
+	resource LBL_PREVIOUS_PARAMETER_VALUES
+	resource LBL_PREVIOUS_STEPPING_INFORMATION
+	resource LBL_PREVIOUS_GRADIENT_VECTOR
+	resource LBL_PREVIOUS_HESSIAN_MATRIX
+END
+
+LIST tracelevel_val_list
+BEGIN
+	""
+	"value"
+	"tolerance"
+	"params"
+	"step"
+	"gradient"
+	"hessian"
+END
+
+PROGRAM command_sub
+BEGIN
+	if main.rb_gmm {
+		if main.vl_vars2 & !main.vl_ivars {
+			call create STRING _MSG_TMP
+                	call _MSG_TMP.format				/// 
+				"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT" ///
+				"resource LBL_TAB_MODEL" 		///
+				"resource LBL_INSTRUMENTAL_VARIABLES_NO_COLON"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Model" tab, "Instrumental variables" must be filled in.
+		}
+		if !main.vl_vars2 & main.vl_ivars {
+			call create STRING _MSG_TMP
+	                call _MSG_TMP.format				/// 
+				"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT" ///
+				"resource LBL_TAB_MODEL" 		///
+				"resource LBL_ENDOGENOUS_VARIABLES_NO_COLON"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Model" tab, "Endogenous variables" must be filled in.
+		}
+	}
+	if main.rb_cfunc {
+		require main.vl_vars2
+		require main.vl_ivars
+	}
+	if main.vl_vars2 & main.vl_ivars {
+		varlist main.vl_vars2
+		put "="
+		varlist main.vl_ivars
+	}
+END
+
+PROGRAM main_output
+BEGIN
+	if main.rb_gmm {
+		option main.rb_multip
+	}
+	option main.ck_nocons
+	optionarg main.vn_expo
+	optionarg main.vn_offset
+	if main.rb_gmm {
+		option main.rb_onestep
+		option main.rb_igmm
+	}
+	if main.rb_cfunc {
+		option main.rb_twostep
+		option main.rb_igmm
+	}
+END
+
+PROGRAM wmatrix_output
+BEGIN
+	put wgt_matrix.lb_wmtype
+	if wgt_matrix.lb_wmtype.iseq("cluster") {
+		varlist wgt_matrix.vn_cluster
+	}
+END
+
+PROGRAM wmatrix_init_output
+BEGIN
+	if wgt_matrix.rb_iwm_un {
+		option wgt_matrix.rb_iwm_un
+	}
+	if wgt_matrix.rb_iwm_id {
+		option wgt_matrix.rb_iwm_id
+	}
+	if wgt_matrix.rb_iwm_inp {
+		require wgt_matrix.cb_iwm_inp
+		put wgt_matrix.cb_iwm_inp
+	}
+	beginoptions
+		option wgt_matrix.ck_indep
+	endoptions
+END
+
+PROGRAM wgt_matrix_output
+BEGIN
+	if wgt_matrix.ck_wm {
+		put " wmatrix("
+		put /program wmatrix_output
+		put ") "
+	}
+	option wgt_matrix.ck_center
+	if wgt_matrix.ck_iwm {
+		put " winitial("
+		put /program wmatrix_init_output
+		put ") "
+	}
+END
+
+PROGRAM rpt_output
+BEGIN
+	optionarg /hidedefault rpt.sp_level
+	option rpt.ck_irr
+	INCLUDE _report_columns_pr	
+	put " " rpt_bu_facvarsResults
+	put " " rpt_bu_fmtcoefResults
+END
+
+PROGRAM opt_output
+BEGIN
+	optionarg opt.ed_from
+	if main.rb_igmm {
+		optionarg /hidedefault opt.sp_iter
+		optionarg /hidedefault opt.ed_param
+		optionarg /hidedefault opt.ed_wm
+	}
+	optionarg /hidedefault opt.cb_tech
+	optionarg /hidedefault opt.sp_iter_i
+	optionarg /hidedefault opt.ed_ptol
+	optionarg /hidedefault opt.ed_vtol
+	optionarg /hidedefault opt.ed_nrtol
+	optionarg /hidedefault opt.cb_tracel
+	option opt.ck_logs
+END
+
+PROGRAM command
+BEGIN
+	put /program by_output " "
+	put /program se_prefix_output " "
+	put "ivpoisson "
+	if main.rb_gmm {
+		put "gmm "
+	}
+	if main.rb_cfunc {
+		put "cfunction "
+	}
+	varlist main.vn_dv [main.vl_iv]
+	if main.vl_vars2 {
+		put "("
+	}
+	put /program command_sub
+	if main.vl_vars2 {
+		put ")"
+	}
+	put " " /program ifin_output
+	put " " /program weights_output
+	beginoptions
+		put " " /program main_output
+		put " " /program wgt_matrix_output
+		put " " /program se_output
+		put " " /program rpt_output
+		put " " /program opt_output
+	endoptions
+END

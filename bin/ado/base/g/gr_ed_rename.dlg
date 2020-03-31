@@ -1,0 +1,102 @@
+/*
+    gr_ed_rename.dlg
+
+*!  VERSION 1.2.2  03jun2015
+
+*/
+
+VERSION 14.0
+MODAL
+
+INCLUDE _std_vsmall
+DEFINE _dlght 150
+POSITION . . _dlgwd _dlght
+
+OK ok1, label(resource LBL_BU_OK) target(stata hidden)
+CANCEL can1, label(resource LBL_BU_CANCEL)
+
+DEFINE _clwd	15
+DEFINE _wd	120
+DEFINE _sep	+125
+DEFINE _cbwd	140
+DEFINE _cbsep	+145
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource GR_ED_RENAME_DLG_HSCALE
+END
+
+PROGRAM PREINIT_PROGRAM
+BEGIN
+	call create DOUBLE retcode
+	call create STRING this_name
+	call this_name.storeDialogClassName
+	if __MESSAGE {
+		call main.cb_current.setdefault class __MESSAGE.value
+		call main.cb_current.disable
+	}
+	else {
+		call main.cb_current.enable
+	}
+END
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	if __MESSAGE {
+		call main.cb_current.setvalue class __MESSAGE.value
+	}
+END
+
+
+DIALOG main, label(resource LBL_RENAME_GRAPH)
+BEGIN
+  GROUPBOX gb_rename	_lft	_top	_iwd	_ht9,	///
+	label(resource LBL_RENAME_GRAPH)
+
+  TEXT 	   tx_current	_ilft	_ms	_wd	.,	///
+	label(resource LBL_CURRENT_NAME) right
+  COMBOBOX cb_current	_sep	@	_cbwd	.,	///
+	dropdownlist					///
+	contents(graphs) nomemory
+
+  TEXT     tx_new	_ilft	_ls	_wd	.,	///
+	label(resource LBL_NEW_NAME) right
+  EDIT     ed_new	_sep	@	_cbwd	.,	///
+	label(resource LBL_NEW_NAME) nomemory
+
+  CHECKBOX ck_replace	_ilft	+35	_ibwd	.,	///
+	option(replace) nomemory			///
+	label(resource GR_ED_RENAME_MAIN_CK_REPLACE)  		
+END
+
+PROGRAM subcommand_output
+BEGIN
+	put "graph rename "
+	put /hidden main.cb_current
+	put " " main.ed_new
+	beginoptions
+		option main.ck_replace
+	endoptions
+END
+
+PROGRAM command
+BEGIN
+	call retcode.setvalue 0
+
+	require main.ed_new
+	put "gr_ed_capture, command("
+		put /program subcommand_output
+	put ") "
+	put " clsrc(" this_name ".retcode.value) "
+	stata hidden immediate
+	
+	if retcode {
+		if retcode.iseq(110) {	
+			stopbox stop "resource GR_ED_RENAME_MSGBOX_NEW_GRAPH_NAME_ALREADY_EXISTS"
+// Error renaming graph. New graph name already exists.
+		}
+		else {
+			stopbox stop "resource GR_ED_RENAME_MSGBOX_INVALID_NAME_SPECIFIED"
+// Error renaming graph. An invalid name may have been specified.
+		}
+	}
+END

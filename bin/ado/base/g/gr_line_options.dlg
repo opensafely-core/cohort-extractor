@@ -1,0 +1,154 @@
+/*
+    gr_line_options.dlg
+    
+*!  VERSION 1.1.2  14jul2016
+
+	// SCRIPTS and PROGRAMS for external use
+		* SCRIPT  gr_line_setOptionsTo_cl
+		* SCRIPT  gr_line_setOptionsTo_bl
+
+*/
+
+VERSION 15.0
+
+INCLUDE _std_vsmall
+DEFINE _dlght 200
+INCLUDE header_gr_child
+
+DEFINE _clwd	15
+DEFINE _wd	140
+DEFINE _sep	+145
+DEFINE _cbwd	130
+DEFINE _cbsep	+135
+
+HELP hlp1, view("help cline_options")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource GR_LINE_OPTIONS_DLG_HSCALE
+END
+
+SCRIPT gr_line_setOptionsTo_cl
+BEGIN
+	main.cb_clr.setoption clcolor
+	main.cl_clr.setoption clcolor
+	main.cb_width.setoption clwidth
+	main.cb_pattern.setoption clpattern
+	clColorSet.settrue
+END
+
+SCRIPT gr_line_setOptionsTo_bl
+BEGIN
+	main.cb_clr.setoption blcolor
+	main.cl_clr.setoption blcolor
+	main.cb_width.setoption blwidth
+	main.cb_pattern.setoption blpattern
+	blColorSet.settrue
+END
+
+PROGRAM main_PREINIT_PROGRAM
+BEGIN
+	call create PBOOLEAN blColorSet
+	call create PBOOLEAN clColorSet
+	if blColorSet {
+		call script gr_line_setOptionsTo_bl
+	}
+	if clColorSet {
+		call script gr_line_setOptionsTo_cl
+	}
+END
+
+DIALOG main, label(resource LBL_GB_LINE_PROPERTIES)
+BEGIN
+  TEXT     tx_clr	_lft	20	_wd	.,		///
+	label(resource LBL_COLOR) right
+  COMBOBOX cb_clr	_sep	@	_cbwd	.,		///
+	dropdownlist contents(colors) option(lcolor)		///
+	onselchangelist(main_cl_clr_sel)
+  COLOR    cl_clr	_cbsep	@	_clwd	., option(lcolor)
+  TEXT     tx_opacity	_lft	_mls	_wd	.,		///
+	label(resource LBL_OPACITY) right
+  SPINNER sp_opacity	_sep	@	_spwd	.,		///
+	default(100)						///
+	min(0)							///
+	max(100)
+  TEXT     tx_width	_lft	 _mls	_wd	.,		///
+	label(resource LBL_WIDTH) right
+  COMBOBOX cb_width	_sep	@	_cbwd	.,		///
+	dropdown option(lwidth)					///
+	contents(linewidths)
+
+  TEXT     tx_pattern	_lft	_mls	_wd	.,		///
+	label(resource LBL_PATTERN) right
+  COMBOBOX cb_pattern	_sep	@	_cbwd	.,		///
+	dropdownlist option(lpattern)				///
+	contents(linepatterns) 	
+	
+  TEXT     tx_type	_lft	_mls	_wd	.,		///
+	label(resource LBL_CONNECTING_METHOD) right
+  COMBOBOX cb_type	_sep	@	_cbwd	.,		///
+	dropdownlist option(connect)				///
+	contents(connecttypes)
+
+  TEXT     tx_cmiss	_lft	_mls	_wd	.,		///
+	label(resource LBL_TX_MISSING_VALUES) right
+  COMBOBOX cb_cmiss	_sep	@	_cbwd	.,		///
+	dropdownlist 						///
+	option(cmissing)					///
+	contents(cmiss_contents) 	 			///
+	values(cmiss_values)
+END
+
+LIST main_cl_clr_sel
+BEGIN
+	main.cl_clr.hide
+	main.cl_clr.show
+	main.cl_clr.hide
+END
+
+LIST cmiss_contents
+BEGIN
+	resource LBL_DEFAULT
+	resource LBL_FILL
+	resource LBL_NO_FILL
+END
+
+LIST cmiss_values
+BEGIN
+	""
+	y
+	n
+END
+
+PROGRAM main_lcolor_output
+BEGIN
+	if (main.cb_clr.isneq("") | main.sp_opacity.isneq(100)) {
+		put "lcolor("
+		if (main.cb_clr.iseq("custom")) {
+			put `"""' main.cl_clr
+			if (main.sp_opacity.isneq(100)) {
+				put " %" main.sp_opacity
+			}
+			put `"""'
+		}
+		else {
+			if (main.cb_clr.isneq("")) {
+				put main.cb_clr
+			}
+			if (main.sp_opacity.isneq(100)) {
+				put "%" main.sp_opacity
+			}
+		}
+		put ")"
+	}
+END
+
+PROGRAM command
+BEGIN
+	put " " /program main_lcolor_output
+	optionarg /hidedefault main.cb_width
+	optionarg /hidedefault main.cb_pattern
+	optionarg /hidedefault main.cb_type
+	optionarg /hidedefault main.cb_cmiss
+END

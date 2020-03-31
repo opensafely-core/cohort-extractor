@@ -1,0 +1,1093 @@
+/*
+    p3_opts.idlg
+
+*!  VERSION 1.0.2  21dec2014 (deprecated)
+
+    // SCRIPTS and PROGRAMS for external use
+	* PROGRAM p3_opts_recast_output
+	* PROGRAM p3_opts_output (synonym for p3_opts_recast_output)
+	* PROGRAM p3_opts_common_output
+	* PROGRAM p3_opts_ci_output
+	* PROGRAM p3_opts_cl_output
+	* PROGRAM p3_opts_mv_output
+	* PROGRAM p3_opts_ob_output
+	* PROGRAM p3_opts_special_output (* SET p3_opts_specialOutput first)
+
+	* SCRIPT p3_opts_setTabtitleCi
+
+	* SCRIPT p3_opts_enable
+	* SCRIPT p3_opts_disable
+
+	*** One of the following MUST be called by any dialog
+	    that uses this tab. The call MUST be made from the
+	    callers PREINIT script.
+		* SCRIPT p3_opts_createAsNoRange
+		* SCRIPT p3_opts_createAsRange
+
+	** In addition on of the following should be called by the
+	   callers PREINIT script to set the default text.
+		* SCRIPT p3_opts_setDefaultScatter
+		* SCRIPT p3_opts_setDefaultLine
+		* SCRIPT p3_opts_setDefaultConnected
+		* SCRIPT p3_opts_setDefaultArea
+		* SCRIPT p3_opts_setDefaultBar
+		* SCRIPT p3_opts_setDefaultSpike
+		* SCRIPT p3_opts_setDefaultDropline
+
+		* SCRIPT p3_opts_setDefaultRarea
+		* SCRIPT p3_opts_setDefaultRbar
+		* SCRIPT p3_opts_setDefaultRspike
+		* SCRIPT p3_opts_setDefaultRcap
+		* SCRIPT p3_opts_setDefaultRcapsym
+		* SCRIPT p3_opts_setDefaultRline
+		* SCRIPT p3_opts_setDefaultRconnected
+		* SCRIPT p3_opts_setDefaultRscatter
+*/
+
+SCRIPT p3_opts_PREINIT
+BEGIN
+	// This STRING is used globally.
+	// DO NOT change its name without updating all files
+	create STRING p3_opts_specialOutput
+END
+
+DEFINE vnwd  130
+DEFINE vnsep +150
+
+DIALOG p3_opts, tabtitle("Plot")
+BEGIN
+  TEXT     tx_type		_lft	_top	200	.,	///
+	label("Plot type:")
+  LISTBOX  cb_type		@	_ss	180	315,	///
+	contents(p3_opts_graph_type)				///
+	values(p3_opts_graph_type_val)				///
+	onselchangelist(p3_opts_change)
+
+/**** BEGIN -- Scatter options ****/
+  GROUPBOX gb_marker		200	120	550	_ht11,	///
+	label("Markers")
+
+  TEXT     tx_msymbol		210	140	65	.,	///
+	label("Symbol:") right
+  COMBOBOX cb_msymbol		280	140	99	.,	///
+	option(msymbol)						///
+	dropdownlist						///
+	contents(symbols)
+
+  TEXT     tx_mcolor		392	140	65	.,	///
+	label("Color:") right
+  COMBOBOX cb_mcolor		462	140	82	.,	///
+	option(mcolor)						///
+	dropdownlist						///
+	contents(colors)					///
+	onselchangelist(p3_opts_color_mcolor)
+  COLOR    cl_mcolor		+85	140	_btwd	.,	///
+	option(mcolor)
+
+  TEXT     tx_msize		570	140	65	.,	///
+	label("Size:") right
+  COMBOBOX cb_msize		+70	140	99	.,	///
+	option(msize)						///
+	dropdownlist 						///
+	contents(symbolsizes)
+
+  CHECKBOX ck_mlabel		210	170	530	85,	///
+	label("Marker labels") groupbox				///
+	onclickon(script p3_opts_mlabel_1_enable)		///
+	onclickoff(script p3_opts_mlabel_1_disable)
+
+  TEXT     tx_mlabel		220	195	58	.,	///
+	label("Variable:") right
+
+  VARNAME  vn_mlabel		+63	195	99	.,	///
+	label("Marker labels variable") option(mlabel)
+
+  TEXT     tx_mlsize		220	225	58	.,	///
+	label("Size:") right
+  COMBOBOX cb_mlsize		+63	225	99	.,	///
+	option(mlabsize) 					///
+	dropdownlist						///
+	contents(textsizes)
+
+  TEXT     tx_mlcolor		399	195	58	.,	///
+	label("Color:") right
+  COMBOBOX cb_mlcolor		+63	195	82	.,	///
+	option(mlabcolor)					///
+	dropdownlist						///
+	contents(colors)					///
+	onselchangelist(p3_opts_color_mlcolor)
+  COLOR    cl_mlcolor		+85	195	_btwd	.,	///
+	option(mlabcolor)
+
+  TEXT     tx_mlposition	399	225	58	.,	///
+	label("Position:") right
+  COMBOBOX cb_mlposition	+63	225	99	.,	///
+	option(mlabposition) 					///
+	dropdownlist						///
+	contents(clockpos)
+
+  TEXT     tx_orientation	570	170	65	.,	///
+	label("Orientation:") right
+  COMBOBOX cb_orientation	+70	170	99	.,	///
+	contents(p3_opts_orientation_contents)			///
+	values(p3_opts_orientation_values)			///
+	dropdownlist
+/**** END   -- Scatter options  ****/
+
+/**** BEGIN -- Line options  ****/
+  GROUPBOX gb_line		200	25	550	80,	///
+  		label("Lines")
+  TEXT     tx_clcolor		210	45	65	.,	///
+	label("Line color:") 					///
+	right
+  COMBOBOX cb_clcolor		+70	45	82	.,	///
+	option(lcolor)						///
+	dropdownlist						///
+	contents(colors) 					///
+	onselchangelist(p3_opts_color_clcolor)
+  COLOR    cl_clcolor		+85	45	_btwd	.,	///
+	option(lcolor)
+
+  TEXT     tx_connect		210	75	65	.,	///
+	label("Type:") right
+  COMBOBOX cb_connect		+70	75	99	.,	///
+	option(connect)						///
+	dropdownlist 						///
+	contents(connecttypes)
+
+  TEXT     tx_clwidth		392	45	65	.,	///
+  		label("Width:") right
+  COMBOBOX cb_clwidth		+70	45	99	.,	///
+	dropdownlist						///
+	contents(linewidths)					///
+	option(lwidth)
+
+  TEXT     tx_clpattern		392	75	65	.,	///
+	label("Pattern:") right
+  COMBOBOX cb_clpattern		+70	75	99	.,	///
+	dropdownlist 						///
+ 	contents(linepatterns)					///
+	option(lpattern)
+/**** END   -- Line options ****/
+
+/**** BEGIN -- Area options ****/
+  GROUPBOX gb_common		200	265	550	80,	///
+	label("Area")
+
+  TEXT     tx_blcolor		210	285	65	.,	///
+	label("Line color:") 					///
+	right
+
+  COMBOBOX cb_blcolor		+70	285	82	.,	///
+	option(lcolor)						///
+	dropdownlist						///
+	contents(colors) 					///
+	onselchangelist(p3_opts_color_blcolor)
+  COLOR    cl_blcolor		+85	285	_btwd	.,	///
+	option(lcolor)
+
+  TEXT     tx_bfcolor		210	315	65	.,	///
+	label("Fill color:") 					///
+	right
+  COMBOBOX cb_bfcolor		+70 	315	82	.,	///
+	option(fcolor)						///
+	dropdownlist						///
+	contents(colors) 					///
+	onselchangelist(p3_opts_color_bfcolor)
+  COLOR    cl_bfcolor		+85	315	_btwd	.,	///
+	option(fcolor)
+
+  TEXT     tx_blwidth		392	285	65	.,	///
+	label("Line width:") right
+  COMBOBOX cb_blwidth		+70	285	99	.,	///
+	dropdownlist						///
+	contents(linewidths)					///
+	option(lwidth)
+
+  TEXT     tx_blpattern		392	315	65	.,	///
+	label("Ln. pattern:") right
+  TEXT     tx_barwidth		392	315	65	.,	///
+	label("Bar width:") right
+  COMBOBOX cb_blpattern		+70	315	99	.,	///
+	dropdownlist 						///
+	contents(linepatterns)					///
+	option(lpattern)
+  EDIT     en_barwidth		@	315	99	.,	///
+	label("Baseline") default(1) numonly option(barwidth)
+
+  TEXT     tx_base		570	285	65	.,	///
+	label("Baseline:") right
+  EDIT     en_base		+70	285	99	.,	///
+	label("Baseline") default(0) numonly option(base)
+/**** END   -- Area options ****/
+END
+
+LIST p3_opts_orientation_contents
+BEGIN
+	Default
+	Horizontal
+	Vertical
+END
+
+LIST p3_opts_orientation_values
+BEGIN
+	""
+	horizontal
+	vertical
+END
+
+LIST p3_opts_color_mcolor
+BEGIN
+	p3_opts.cl_mcolor.hide
+	p3_opts.cl_mcolor.show
+	p3_opts.cl_mcolor.hide
+END
+
+LIST p3_opts_color_mlcolor
+BEGIN
+	p3_opts.cl_mlcolor.hide
+	p3_opts.cl_mlcolor.show
+	p3_opts.cl_mlcolor.hide
+END
+
+LIST p3_opts_color_clcolor
+BEGIN
+	p3_opts.cl_clcolor.hide
+	p3_opts.cl_clcolor.show
+	p3_opts.cl_clcolor.hide
+END
+
+LIST p3_opts_color_bfcolor
+BEGIN
+	p3_opts.cl_bfcolor.hide
+	p3_opts.cl_bfcolor.show
+	p3_opts.cl_bfcolor.hide
+END
+
+LIST p3_opts_color_blcolor
+BEGIN
+	p3_opts.cl_blcolor.hide
+	p3_opts.cl_blcolor.show
+	p3_opts.cl_blcolor.hide
+END
+
+///***** Scatter 1
+SCRIPT p3_opts_scatter_setLayout_1
+BEGIN
+	p3_opts.gb_marker.setposition		200 25  550 140
+	p3_opts.tx_msymbol.setposition		210 45  65  .
+	p3_opts.cb_msymbol.setposition		280 45  99  .
+	p3_opts.tx_mcolor.setposition		392 45  65  .
+	p3_opts.cb_mcolor.setposition		462 45  82  .
+	p3_opts.cl_mcolor.setposition		547 45  .   .
+	p3_opts.tx_msize.setposition		570 45  65  .
+	p3_opts.cb_msize.setposition		640 45  99  .
+
+	p3_opts.ck_mlabel.setposition		210 75  530 85
+	p3_opts.tx_mlabel.setposition		220 100 58  .
+	p3_opts.vn_mlabel.setposition		283 100 99  .
+	p3_opts.tx_mlsize.setposition		220 130 58  .
+	p3_opts.cb_mlsize.setposition		283 130 99  .
+	p3_opts.tx_mlcolor.setposition		399 100 58  .
+	p3_opts.cb_mlcolor.setposition		462 100 82  .
+	p3_opts.cl_mlcolor.setposition		547 100 .   .
+	p3_opts.tx_mlposition.setposition	399 130 58  .
+	p3_opts.cb_mlposition.setposition	462 130 99  .
+END
+
+///***** Scatter 2
+SCRIPT p3_opts_scatter_setLayout_2
+BEGIN
+	p3_opts.gb_marker.setposition		200 110 550 140
+	p3_opts.tx_msymbol.setposition		210 130 65  .
+	p3_opts.cb_msymbol.setposition		280 130 99  .
+	p3_opts.tx_mcolor.setposition		392 130 65  .
+	p3_opts.cb_mcolor.setposition		462 130 82  .
+	p3_opts.cl_mcolor.setposition		547 130 .   .
+	p3_opts.tx_msize.setposition		570 130 65  .
+	p3_opts.cb_msize.setposition		640 130 99  .
+
+	p3_opts.ck_mlabel.setposition		210 160 530 85
+	p3_opts.tx_mlabel.setposition		220 185 58  .
+	p3_opts.vn_mlabel.setposition		283 185 99  .
+	p3_opts.tx_mlsize.setposition		220 215 58  .
+	p3_opts.cb_mlsize.setposition		283 215 99  .
+	p3_opts.tx_mlcolor.setposition		399 185 58  .
+	p3_opts.cb_mlcolor.setposition		462 185 82  .
+	p3_opts.cl_mlcolor.setposition		547 185 .   .
+	p3_opts.tx_mlposition.setposition	399 215 58  .
+	p3_opts.cb_mlposition.setposition	462 215 99  .
+END
+
+///***** Scatter 3
+SCRIPT p3_opts_scatter_setLayout_3
+BEGIN
+	p3_opts.gb_marker.setposition		200 25  550 165
+	p3_opts.tx_msymbol.setposition		210 45  65  .
+	p3_opts.cb_msymbol.setposition		280 45  99  .
+	p3_opts.tx_mcolor.setposition		392 45  65  .
+	p3_opts.cb_mcolor.setposition		462 45  82  .
+	p3_opts.cl_mcolor.setposition		547 45  .   .
+	p3_opts.tx_msize.setposition		570 45  65  .
+	p3_opts.cb_msize.setposition		640 45  99  .
+	p3_opts.tx_orientation.setposition	570 75  65  .
+	p3_opts.cb_orientation.setposition	640 75  99  .
+	p3_opts.ck_mlabel.setposition		210 100 530 85
+	p3_opts.tx_mlabel.setposition		220 125 58  .
+	p3_opts.vn_mlabel.setposition		283 125 99  .
+	p3_opts.tx_mlsize.setposition		220 155 58  .
+	p3_opts.cb_mlsize.setposition		283 155 99  .
+	p3_opts.tx_mlcolor.setposition		399 125 58  .
+	p3_opts.cb_mlcolor.setposition		462 125 82  .
+	p3_opts.cl_mlcolor.setposition		547 125 .   .
+	p3_opts.tx_mlposition.setposition	399 155 58  .
+	p3_opts.cb_mlposition.setposition	462 155 99  .
+END
+
+SCRIPT p3_opts_scatter_show
+BEGIN
+	p3_opts.gb_marker.show
+	p3_opts.tx_msymbol.show
+	p3_opts.cb_msymbol.show
+	p3_opts.tx_mcolor.show
+	p3_opts.cb_mcolor.show
+	p3_opts.cb_mcolor.withvalue p3_opts.cb_mcolor.setvalue "@"
+	p3_opts.tx_msize.show
+	p3_opts.cb_msize.show
+	p3_opts.ck_mlabel.show
+	p3_opts.tx_mlabel.show
+	p3_opts.vn_mlabel.show
+	p3_opts.tx_mlsize.show
+	p3_opts.cb_mlsize.show
+	p3_opts.tx_mlcolor.show
+	p3_opts.cb_mlcolor.show
+	p3_opts.cb_mlcolor.withvalue p3_opts.cb_mlcolor.setvalue "@"
+	p3_opts.tx_mlposition.show
+	p3_opts.cb_mlposition.show
+END
+
+SCRIPT p3_opts_mlabel_1_enable
+BEGIN
+	p3_opts.tx_mlabel.enable
+	p3_opts.vn_mlabel.enable
+	p3_opts.tx_mlsize.enable
+	p3_opts.cb_mlsize.enable
+	p3_opts.tx_mlcolor.enable
+	p3_opts.cb_mlcolor.enable
+	p3_opts.cl_mlcolor.enable
+	p3_opts.tx_mlposition.enable
+	p3_opts.cb_mlposition.enable
+END
+
+SCRIPT p3_opts_mlabel_1_disable
+BEGIN
+	p3_opts.tx_mlabel.disable
+	p3_opts.vn_mlabel.disable
+	p3_opts.tx_mlsize.disable
+	p3_opts.cb_mlsize.disable
+	p3_opts.tx_mlcolor.disable
+	p3_opts.cb_mlcolor.disable
+	p3_opts.cl_mlcolor.disable
+	p3_opts.tx_mlposition.disable
+	p3_opts.cb_mlposition.disable
+END
+
+///** Lines
+SCRIPT p3_opts_line_setLayout_1
+BEGIN
+	p3_opts.gb_line.setposition		200 25  550 80
+	p3_opts.tx_clcolor.setposition		210 45  65  .
+	p3_opts.cb_clcolor.setposition		280 45  82  .
+	p3_opts.cl_clcolor.setposition		365 45  .   .
+	p3_opts.tx_connect.setposition		210 75  65  .
+	p3_opts.cb_connect.setposition		280 75  99  .
+	p3_opts.tx_clwidth.setposition		392 45  65  .
+	p3_opts.cb_clwidth.setposition		462 45  99  .
+	p3_opts.tx_clpattern.setposition	392 75  65  .
+	p3_opts.cb_clpattern.setposition    	462 75  99  .
+END
+
+SCRIPT p3_opts_line_show
+BEGIN
+	p3_opts.gb_line.show
+	p3_opts.tx_clcolor.show
+	p3_opts.cb_clcolor.show
+	p3_opts.cb_clcolor.withvalue p3_opts.cb_clcolor.setvalue "@"
+	p3_opts.tx_clpattern.show
+	p3_opts.cb_clpattern.show
+	p3_opts.tx_clwidth.show
+	p3_opts.cb_clwidth.show
+	p3_opts.tx_connect.show
+	p3_opts.cb_connect.show
+	p3_opts.gb_line.setlabel "Lines"
+END
+
+
+SCRIPT p3_opts_orientation_show
+BEGIN
+	p3_opts.tx_orientation.show
+	p3_opts.cb_orientation.show
+END
+
+SCRIPT p3_opts_orientation_hide
+BEGIN
+	p3_opts.tx_orientation.hide
+	p3_opts.cb_orientation.hide
+END
+
+/* Common opts for area, bar, spike, and dropline */
+SCRIPT p3_opts_common_area_opts_setpos
+BEGIN
+	p3_opts.gb_common.setposition		200 25   550 80
+	p3_opts.tx_blcolor.setposition		210 45   65 .
+	p3_opts.cb_blcolor.setposition		280 45   82 .
+	p3_opts.cl_blcolor.setposition		365 45   .  .
+
+	p3_opts.tx_bfcolor.setposition		210 75   65 .
+	p3_opts.cb_bfcolor.setposition		280 75   82 .
+	p3_opts.cl_bfcolor.setposition		365 75   .  .
+	p3_opts.tx_blwidth.setposition		392 45   65 .
+	p3_opts.cb_blwidth.setposition		462 45   99 .
+	p3_opts.tx_blpattern.setposition	392 75   65 .
+	p3_opts.tx_barwidth.setposition		392 75   65 .
+	p3_opts.cb_blpattern.setposition	462 75   99 .
+	p3_opts.en_barwidth.setposition		462 75   99 .
+	p3_opts.tx_base.setposition		570 45   65 .
+	p3_opts.en_base.setposition		640 45   99 .
+	p3_opts.tx_orientation.setposition	570 75   65 .
+	p3_opts.cb_orientation.setposition	640 75   99 .
+END
+
+/* Common opts for area, bar, spike, and dropline */
+SCRIPT p3_opts_common_area_opts_show
+BEGIN
+	p3_opts.gb_common.show
+	p3_opts.tx_blcolor.show
+	p3_opts.cb_blcolor.show
+	p3_opts.cb_blcolor.withvalue p3_opts.cb_blcolor.setvalue "@"
+	p3_opts.tx_blwidth.show
+	p3_opts.cb_blwidth.show
+	script p3_opts_orientation_show
+END
+
+/* Common opts for area, bar, spike, and dropline */
+SCRIPT p3_opts_area_opts_show
+BEGIN
+	script p3_opts_common_area_opts_show
+	script p3_opts_common_area_opts_setpos
+	p3_opts.tx_base.show
+	p3_opts.en_base.show
+	p3_opts.tx_blpattern.show
+	p3_opts.cb_blpattern.show
+	p3_opts.tx_bfcolor.show
+	p3_opts.cb_bfcolor.show
+	p3_opts.cb_bfcolor.withvalue p3_opts.cb_bfcolor.setvalue "@"
+END
+
+SCRIPT p3_opts_bar_opts_show
+BEGIN
+	script p3_opts_common_area_opts_show
+	script p3_opts_common_area_opts_setpos
+	p3_opts.tx_base.show
+	p3_opts.en_base.show
+	p3_opts.tx_bfcolor.show
+	p3_opts.cb_bfcolor.show
+	p3_opts.cb_bfcolor.withvalue p3_opts.cb_bfcolor.setvalue "@"
+	p3_opts.tx_barwidth.show
+	p3_opts.en_barwidth.show
+END
+
+SCRIPT p3_opts_spike_drop_opts_show
+BEGIN
+	script p3_opts_common_area_opts_show
+	script p3_opts_common_area_opts_setpos
+	p3_opts.tx_base.show
+	p3_opts.en_base.show
+	p3_opts.tx_blpattern.show
+	p3_opts.cb_blpattern.show
+END
+
+SCRIPT p3_opts_range_area_opts_show
+BEGIN
+	script p3_opts_common_area_opts_show
+	script p3_opts_common_area_opts_setpos
+	p3_opts.tx_blpattern.show
+	p3_opts.cb_blpattern.show
+	p3_opts.tx_bfcolor.show
+	p3_opts.cb_bfcolor.show
+	p3_opts.cb_bfcolor.withvalue p3_opts.cb_bfcolor.setvalue "@"
+END
+
+SCRIPT p3_opts_range_bar_opts_show
+BEGIN
+	script p3_opts_common_area_opts_show
+	script p3_opts_common_area_opts_setpos
+	p3_opts.tx_bfcolor.show
+	p3_opts.cb_bfcolor.show
+	p3_opts.cb_bfcolor.withvalue p3_opts.cb_bfcolor.setvalue "@"
+	p3_opts.tx_barwidth.show
+	p3_opts.en_barwidth.show
+END
+
+SCRIPT p3_opts_rng_spike_drop_opts_show
+BEGIN
+	script p3_opts_common_area_opts_show
+	script p3_opts_common_area_opts_setpos
+	p3_opts.tx_blpattern.show
+	p3_opts.cb_blpattern.show
+END
+
+SCRIPT p3_opts_rng_cap_show
+BEGIN
+	script p3_opts_common_area_opts_show
+	script p3_opts_common_area_opts_setpos
+	p3_opts.tx_msize.setposition	570 45 65  .
+	p3_opts.cb_msize.setposition	640 45 99  .
+
+	p3_opts.tx_msize.show
+	p3_opts.cb_msize.show
+END
+
+SCRIPT p3_opts_range_line_opts_show
+BEGIN
+	script p3_opts_common_area_opts_show
+	script p3_opts_common_area_opts_setpos
+	p3_opts.tx_connect.setposition	210 75 65  .
+	p3_opts.cb_connect.setposition	280 75 99  .
+	p3_opts.tx_blpattern.show
+	p3_opts.cb_blpattern.show
+	p3_opts.tx_connect.show
+	p3_opts.cb_connect.show
+	script p3_opts_orientation_show
+END
+
+SCRIPT p3_opts_scatter_opts_hide
+BEGIN
+	p3_opts.gb_marker.hide
+	p3_opts.tx_msymbol.hide
+	p3_opts.cb_msymbol.hide
+	p3_opts.tx_mcolor.hide
+	p3_opts.cb_mcolor.hide
+	p3_opts.cl_mcolor.hide
+	p3_opts.tx_msize.hide
+	p3_opts.cb_msize.hide
+	p3_opts.ck_mlabel.hide
+	p3_opts.tx_mlabel.hide
+	p3_opts.vn_mlabel.hide
+	p3_opts.tx_mlsize.hide
+	p3_opts.cb_mlsize.hide
+	p3_opts.tx_mlcolor.hide
+	p3_opts.cb_mlcolor.hide
+	p3_opts.cl_mlcolor.hide
+	p3_opts.tx_mlposition.hide
+	p3_opts.cb_mlposition.hide
+	p3_opts.tx_orientation.hide
+	p3_opts.cb_orientation.hide
+END
+
+SCRIPT p3_opts_line_opts_hide
+BEGIN
+	p3_opts.gb_line.hide
+	p3_opts.tx_clcolor.hide
+	p3_opts.cb_clcolor.hide
+	p3_opts.cl_clcolor.hide
+	p3_opts.tx_clpattern.hide
+	p3_opts.cb_clpattern.hide
+	p3_opts.tx_clwidth.hide
+	p3_opts.cb_clwidth.hide
+	p3_opts.tx_connect.hide
+	p3_opts.cb_connect.hide
+END
+
+SCRIPT p3_opts_hide_all
+BEGIN
+	script p3_opts_scatter_opts_hide
+	script p3_opts_line_opts_hide
+	p3_opts.tx_clwidth.hide
+	p3_opts.cb_clwidth.hide
+	p3_opts.tx_clpattern.hide
+	p3_opts.cb_clpattern.hide
+	p3_opts.gb_common.hide
+	p3_opts.tx_blcolor.hide
+	p3_opts.cb_blcolor.hide
+	p3_opts.cl_blcolor.hide
+	p3_opts.tx_blwidth.hide
+	p3_opts.cb_blwidth.hide
+	p3_opts.tx_blpattern.hide
+	p3_opts.cb_blpattern.hide
+	p3_opts.tx_bfcolor.hide
+	p3_opts.cb_bfcolor.hide
+	p3_opts.cl_bfcolor.hide
+	p3_opts.tx_barwidth.hide
+	p3_opts.en_barwidth.hide
+	p3_opts.tx_base.hide
+	p3_opts.en_base.hide
+END
+
+SCRIPT p3_opts_do_none
+BEGIN
+	script p3_opts_hide_all
+	program p3_opts_check_default
+END
+
+SCRIPT p3_opts_do_line
+BEGIN
+	p3_opts.tx_type.setlabel "Plot type: (Line)"
+	script p3_opts_hide_all
+
+	script p3_opts_line_setLayout_1
+	script p3_opts_line_show
+END
+
+SCRIPT p3_opts_do_scatter
+BEGIN
+	p3_opts.tx_type.setlabel "Plot type: (Scatter)"
+	script p3_opts_hide_all
+
+	script p3_opts_scatter_setLayout_1
+	script p3_opts_scatter_show
+	p3_opts.gb_marker.setlabel "Markers"
+END
+
+SCRIPT p3_opts_do_connected
+BEGIN
+	p3_opts.tx_type.setlabel "Plot type: (Connected)"
+	script p3_opts_hide_all
+
+	script p3_opts_line_setLayout_1
+	script p3_opts_line_show
+	script p3_opts_scatter_setLayout_2
+	script p3_opts_scatter_show
+	p3_opts.gb_marker.setlabel "Markers"
+END
+
+SCRIPT p3_opts_do_area
+BEGIN
+	p3_opts.tx_type.setlabel "Plot type: (Area)"
+	script p3_opts_hide_all
+
+	script p3_opts_area_opts_show
+	p3_opts.gb_common.setlabel "Area"
+END
+
+SCRIPT p3_opts_do_bar
+BEGIN
+	p3_opts.tx_type.setlabel "Plot type: (Bar)"
+	script p3_opts_hide_all
+	script p3_opts_bar_opts_show
+	p3_opts.gb_common.setlabel "Bars"
+END
+
+SCRIPT p3_opts_do_spike
+BEGIN
+	p3_opts.tx_type.setlabel "Plot type: (Spike)"
+	script p3_opts_hide_all
+
+	script p3_opts_spike_drop_opts_show
+	p3_opts.gb_common.setlabel "Spikes"
+END
+
+SCRIPT p3_opts_do_dropline
+BEGIN
+	p3_opts.tx_type.setlabel "Plot type: (Dropline)"
+	script p3_opts_hide_all
+
+	script p3_opts_scatter_setLayout_2
+	script p3_opts_scatter_show
+	script p3_opts_spike_drop_opts_show
+	p3_opts.gb_common.setlabel "Droplines"
+	p3_opts.gb_marker.setlabel "Markers"
+END
+
+SCRIPT p3_opts_do_rarea
+BEGIN
+	p3_opts.tx_type.setlabel "Plot type: (Range area)"
+
+	script p3_opts_hide_all
+
+	script p3_opts_range_area_opts_show
+	p3_opts.gb_common.setlabel "Range area"
+END
+
+SCRIPT p3_opts_do_rbar
+BEGIN
+	p3_opts.tx_type.setlabel "Plot type: (Range bar)"
+
+	script p3_opts_hide_all
+
+	script p3_opts_range_bar_opts_show
+	p3_opts.gb_common.setlabel "Range bars"
+END
+
+SCRIPT p3_opts_do_rspike
+BEGIN
+	p3_opts.tx_type.setlabel "Plot type: (Range spike)"
+
+	script p3_opts_hide_all
+
+	script p3_opts_rng_spike_drop_opts_show
+	p3_opts.gb_common.setlabel "Range spikes"
+END
+
+SCRIPT p3_opts_do_rspike_cap
+BEGIN
+	p3_opts.tx_type.setlabel "Plot type: (Range spike w/cap)"
+
+	script p3_opts_hide_all
+
+	script p3_opts_rng_spike_drop_opts_show
+	script p3_opts_rng_cap_show
+	p3_opts.gb_common.setlabel "Range spike with caps"
+END
+
+SCRIPT p3_opts_do_rspike_capsym
+BEGIN
+	p3_opts.tx_type.setlabel "Plot type: (Range spike w/sym.)"
+
+	script p3_opts_hide_all
+
+	script p3_opts_rng_spike_drop_opts_show
+	script p3_opts_scatter_setLayout_2
+	script p3_opts_scatter_show
+	p3_opts.gb_common.setlabel "Range spikes"
+	p3_opts.gb_marker.setlabel "Markers"
+END
+
+SCRIPT p3_opts_do_rline
+BEGIN
+	p3_opts.tx_type.setlabel "Plot type: (Range line)"
+
+	script p3_opts_hide_all
+
+	script p3_opts_range_line_opts_show
+	p3_opts.gb_common.setlabel "Range lines"
+END
+
+SCRIPT p3_opts_do_rconnected
+BEGIN
+	p3_opts.tx_type.setlabel "Plot type: (Range connected)"
+
+	script p3_opts_hide_all
+
+	script p3_opts_range_line_opts_show
+	script p3_opts_scatter_setLayout_2
+	script p3_opts_scatter_show
+	p3_opts.gb_common.setlabel "Range lines"
+END
+
+SCRIPT p3_opts_do_rscatter
+BEGIN
+	p3_opts.tx_type.setlabel "Plot type: (Range scatter)"
+
+	script p3_opts_hide_all
+
+	script p3_opts_scatter_setLayout_3
+	script p3_opts_scatter_show
+	script p3_opts_orientation_show
+	p3_opts.gb_marker.setlabel "Range scatter (markers)"
+END
+
+PROGRAM p3_opts_line_opts
+BEGIN
+	if !Hcc(p3_opts.cb_clcolor) {
+		optionarg /hidedefault p3_opts.cb_clcolor
+	}
+	if Hcc(p3_opts.cb_clcolor) {
+		optionarg /quoted p3_opts.cl_clcolor
+	}
+	optionarg p3_opts.cb_clpattern
+	optionarg p3_opts.cb_clwidth
+	optionarg p3_opts.cb_connect
+END
+
+PROGRAM p3_opts_scatter_opts
+BEGIN
+	optionarg p3_opts.cb_msymbol
+	if !Hcc(p3_opts.cb_mcolor) {
+		optionarg /hidedefault p3_opts.cb_mcolor
+	}
+	if Hcc(p3_opts.cb_mcolor) {
+		optionarg /quoted p3_opts.cl_mcolor
+	}
+	optionarg p3_opts.cb_msize
+	if p3_opts.ck_mlabel {
+		require p3_opts.vn_mlabel
+		optionarg p3_opts.vn_mlabel
+		optionarg p3_opts.cb_mlsize
+		if !Hcc(p3_opts.cb_mlcolor) {
+			optionarg /hidedefault p3_opts.cb_mlcolor
+		}
+		if Hcc(p3_opts.cb_mlcolor) {
+			optionarg /quoted p3_opts.cl_mlcolor
+		}
+		optionarg p3_opts.cb_mlposition
+	}
+END
+
+/* Common opts for area, bar, spike, and dropline */
+PROGRAM p3_opts_common_area_opts
+BEGIN
+	if !Hcc(p3_opts.cb_blcolor) {
+		optionarg /hidedefault p3_opts.cb_blcolor
+	}
+	if Hcc(p3_opts.cb_blcolor) {
+		optionarg /quoted p3_opts.cl_blcolor
+	}
+  	optionarg p3_opts.cb_blwidth
+  	optionarg /hidedefault p3_opts.en_base
+
+	put p3_opts.cb_orientation " "
+
+	// bfcolor is used with area and bar
+	if !Hcc(p3_opts.cb_bfcolor) {
+		optionarg /hidedefault p3_opts.cb_bfcolor
+	}
+	if Hcc(p3_opts.cb_bfcolor) {
+		optionarg /quoted p3_opts.cl_bfcolor
+	}
+
+	// blpattern is used with area
+	optionarg p3_opts.cb_blpattern
+
+	// barwidth is used with bar
+	optionarg /hidedefault p3_opts.en_barwidth
+END
+
+PROGRAM p3_opts_plotoptions
+BEGIN
+	put /program p3_opts_line_opts " "
+	put /program p3_opts_common_area_opts " "
+	put /program p3_opts_scatter_opts " "
+END
+
+PROGRAM p3_opts_output
+BEGIN
+	put /program p3_opts_recast_output
+END
+
+PROGRAM p3_opts_recast_output
+BEGIN
+	if p3_opts.cb_type & !D(p3_opts.cb_type) {
+		put "recast(" p3_opts.cb_type ") "
+		put /program p3_opts_plotoptions
+	}
+END
+
+PROGRAM p3_opts_common_output
+BEGIN
+	put p3_opts.cb_type " "
+
+	beginoptions
+		put /program p3_opts_plotoptions
+	endoptions
+END
+
+PROGRAM p3_opts_ci_output
+BEGIN
+	if p3_opts.cb_type & !D(p3_opts.cb_type) {
+		put "ciopts("
+		put /program p3_opts_recast_output
+		put ") "
+	}
+END
+
+PROGRAM p3_opts_cl_output
+BEGIN
+	if p3_opts.cb_type & !D(p3_opts.cb_type) {
+		put "clopts("
+		put /program p3_opts_recast_output
+		put ") "
+	}
+END
+
+PROGRAM p3_opts_mv_output
+BEGIN
+	if p3_opts.cb_type & !D(p3_opts.cb_type) {
+		put "mvopts("
+		put /program p3_opts_recast_output
+		put ") "
+	}
+END
+
+PROGRAM p3_opts_ob_output
+BEGIN
+	if p3_opts.cb_type & !D(p3_opts.cb_type) {
+		put "obopts("
+		put /program p3_opts_recast_output
+		put ") "
+	}
+END
+
+PROGRAM p3_opts_special_output
+BEGIN
+	if p3_opts.cb_type & !D(p3_opts.cb_type) {
+		put p3_opts_specialOutput "("
+		put /program p3_opts_recast_output
+		put ") "
+	}
+END
+
+SCRIPT p3_opts_setup
+BEGIN
+	create ARRAY	p3_opts_graph_type
+	create ARRAY	p3_opts_graph_type_val
+	create ARRAY	p3_opts_change
+	create STRING	p3_opts_default
+END
+
+SCRIPT p3_opts_createAsNoRange
+BEGIN
+	script p3_opts_setup
+	p3_opts_graph_type.Arrpush <Default>
+	p3_opts_graph_type.Arrpush Scatter
+	p3_opts_graph_type.Arrpush Line
+	p3_opts_graph_type.Arrpush Connected
+	p3_opts_graph_type.Arrpush Area
+	p3_opts_graph_type.Arrpush Bar
+	p3_opts_graph_type.Arrpush Spike
+	p3_opts_graph_type.Arrpush Dropline
+
+	p3_opts_graph_type_val.Arrpush ""
+	p3_opts_graph_type_val.Arrpush scatter
+	p3_opts_graph_type_val.Arrpush line
+	p3_opts_graph_type_val.Arrpush connected
+	p3_opts_graph_type_val.Arrpush area
+	p3_opts_graph_type_val.Arrpush bar
+	p3_opts_graph_type_val.Arrpush spike
+	p3_opts_graph_type_val.Arrpush dropline
+
+	p3_opts_change.Arrpush script p3_opts_do_none
+	p3_opts_change.Arrpush script p3_opts_do_scatter
+	p3_opts_change.Arrpush script p3_opts_do_line
+	p3_opts_change.Arrpush script p3_opts_do_connected
+	p3_opts_change.Arrpush script p3_opts_do_area
+	p3_opts_change.Arrpush script p3_opts_do_bar
+	p3_opts_change.Arrpush script p3_opts_do_spike
+	p3_opts_change.Arrpush script p3_opts_do_dropline
+END
+
+SCRIPT p3_opts_createAsRange
+BEGIN
+	script p3_opts_setup
+	p3_opts_graph_type.Arrpush <Default>
+	p3_opts_graph_type.Arrpush Range area
+	p3_opts_graph_type.Arrpush Range bar
+	p3_opts_graph_type.Arrpush Range spike
+	p3_opts_graph_type.Arrpush Range spike w/cap
+	p3_opts_graph_type.Arrpush Range spike w/symbol
+	p3_opts_graph_type.Arrpush Range line
+	p3_opts_graph_type.Arrpush Range connected
+	p3_opts_graph_type.Arrpush Range scatter
+
+	p3_opts_graph_type_val.Arrpush ""
+	p3_opts_graph_type_val.Arrpush rarea
+	p3_opts_graph_type_val.Arrpush rbar
+	p3_opts_graph_type_val.Arrpush rspike
+	p3_opts_graph_type_val.Arrpush rcap
+	p3_opts_graph_type_val.Arrpush rcapsym
+	p3_opts_graph_type_val.Arrpush rline
+	p3_opts_graph_type_val.Arrpush rconnected
+	p3_opts_graph_type_val.Arrpush rscatter
+
+	p3_opts_change.Arrpush script p3_opts_do_none
+	p3_opts_change.Arrpush script p3_opts_do_rarea
+	p3_opts_change.Arrpush script p3_opts_do_rbar
+	p3_opts_change.Arrpush script p3_opts_do_rspike
+	p3_opts_change.Arrpush script p3_opts_do_rspike_cap
+	p3_opts_change.Arrpush script p3_opts_do_rspike_capsym
+	p3_opts_change.Arrpush script p3_opts_do_rline
+	p3_opts_change.Arrpush script p3_opts_do_rconnected
+	p3_opts_change.Arrpush script p3_opts_do_rscatter
+END
+
+//--- scripts for setting default
+SCRIPT p3_opts_setDefaultScatter
+BEGIN
+	p3_opts_default.setstring "Plot type: (Scatter w/defaults)"
+END
+SCRIPT p3_opts_setDefaultLine
+BEGIN
+	p3_opts_default.setstring "Plot type: (Line w/defaults)"
+END
+SCRIPT p3_opts_setDefaultConnected
+BEGIN
+	p3_opts_default.setstring "Plot type: (Connected w/defaults)"
+END
+SCRIPT p3_opts_setDefaultArea
+BEGIN
+	p3_opts_default.setstring "Plot type: (Area w/defaults)"
+END
+SCRIPT p3_opts_setDefaultBar
+BEGIN
+	p3_opts_default.setstring "Plot type: (Bar w/defaults)"
+END
+SCRIPT p3_opts_setDefaultSpike
+BEGIN
+	p3_opts_default.setstring "Plot type: (Spike w/defaults)"
+END
+SCRIPT p3_opts_setDefaultDropline
+BEGIN
+	p3_opts_default.setstring "Plot type: (Dropline w/defaults)"
+END
+SCRIPT p3_opts_setDefaultRarea
+BEGIN
+	p3_opts_default.setstring "Plot type: (Range area w/defaults)"
+END
+SCRIPT p3_opts_setDefaultRbar
+BEGIN
+	p3_opts_default.setstring "Plot type: (Range bar w/defaults)"
+END
+SCRIPT p3_opts_setDefaultRspike
+BEGIN
+	p3_opts_default.setstring "Plot type: (Range spike w/defaults)"
+END
+SCRIPT p3_opts_setDefaultRcap
+BEGIN
+	p3_opts_default.setstring "Plot type: (Range cap w/defaults)"
+END
+SCRIPT p3_opts_setDefaultRcapsym
+BEGIN
+	p3_opts_default.setstring "Plot type: (Range capped symbols w/defaults)"
+END
+SCRIPT p3_opts_setDefaultRline
+BEGIN
+	p3_opts_default.setstring "Plot type: (Range line w/defaults)"
+END
+SCRIPT p3_opts_setDefaultRconnected
+BEGIN
+	p3_opts_default.setstring "Plot type: (Range connected w/defaults)"
+END
+SCRIPT p3_opts_setDefaultRscatter
+BEGIN
+	p3_opts_default.setstring "Plot type: (Range scatter w/defaults)"
+END
+//---
+
+PROGRAM p3_opts_check_default
+BEGIN
+	if ! (p3_opts_default.equals("")) {
+		call p3_opts_default.withvalue p3_opts.tx_type.setlabel "@"
+	}
+	if (p3_opts_default.equals("")) {
+		call p3_opts.tx_type.setlabel "Plot type: (Default)"
+	}
+END
+
+SCRIPT p3_opts_disable
+BEGIN
+	p3_opts.tx_type.disable
+	p3_opts.cb_type.disable
+	script p3_opts_do_none
+END
+
+SCRIPT p3_opts_enable
+BEGIN
+	p3_opts.tx_type.enable
+	p3_opts.cb_type.enable
+	p3_opts.cb_type.withvalue p3_opts.cb_type.setvalue "@"
+END
+
+SCRIPT p3_opts_setTabtitleCi
+BEGIN
+	p3_opts.settabtitle "CI plot"
+END

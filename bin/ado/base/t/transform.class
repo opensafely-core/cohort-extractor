@@ -1,0 +1,144 @@
+/*                              transform
+
+	Class for managing a base transform that is used repeatedly as
+	the basis for other transforms.
+*/
+*! version 1.2.0  20nov2019
+
+version 8
+
+class {
+	alpha	  = 0
+	beta	  = 1
+	transform = .transformstyle.new, style(linear)
+	dimension = .dimension.new, set(x)
+}, inherit(mapping)
+
+
+/* -------------------------------------------------------------------------*/
+program define new
+
+	if `"`0'"' != `""' {
+		.set `0'
+	}
+end
+
+program define set
+	syntax , [ DIMension(string) ]
+
+	if "`dimension'" != "" {
+		.dimension.set `dimension'
+	}
+end
+
+
+/* -------------------------------------------------------------------------*/
+/* Fetch current linear transform from the GDI layer's translation
+*/
+program define get_from_gdi
+
+	.alpha = `gdi(`.dimension.setting'alpha)'
+	.beta  = `gdi(`.dimension.setting'beta)'
+	.transform.setstyle , style(`gdi(`.dimension.setting'transform)')
+end
+
+
+/* -------------------------------------------------------------------------*/
+/* Translate the graphing area and set the result to the GDI, do NOT update 
+   the stored transform.  The supplied number should be in the scale of the
+   range.  
+*/
+
+program define translate
+
+	capture confirm number `1'
+	if _rc {
+		di in red "transform.translate requires a numeric argument"
+	}
+	gdi `.dimension.setting'alpha = `.alpha' + `.beta' * `1'
+end
+
+
+/* -------------------------------------------------------------------------*/
+/* Translate the graphing area, set the result to the GDI,  AND update the
+ * stored alpha.
+*/
+
+program define translate_permanent
+
+	capture confirm number `1'
+	if _rc {
+		di in red "transform.translate requires a numeric argument"
+	}
+	.alpha = `.alpha' + `.beta' * `1'
+	gdi `.dimension.setting'alpha = `.alpha'
+end
+
+/*--------------------------------------------------------------------------*/
+/*  Resets the graphing area transform to the current settings for this 
+    transform.
+*/
+program define reset
+	gdi `.dimension.setting'alpha	  = `.alpha'
+	gdi `.dimension.setting'beta	  = `.beta'
+	gdi `.dimension.setting'transform = `.transform.stylename'
+end
+
+
+/* -------------------------------------------------------------------------*/
+/* Rescale the graphing area from the stored transform and set the result 
+   to the GDI, do NOT update the stored transform.  
+
+   Usage:  rescale size_inches range_min range_max
+
+   Maps range_max - range_min onto the size.  Assumes that the graphing area
+   has already been translated s.t. range_min will plot at 0.
+*/
+
+program define rescale
+	args size min max null
+
+	gdi `.dimension.setting'alpha = .alpha
+	gdi `.dimension.setting'beta  = .beta
+
+	.gditransform.rescale `.dimension.setting' `size' `min' `max'
+end
+
+// ----------------------------------------------------------------------------
+// Transform a supplied value.
+
+program trans
+	if "`.transform.stylename'" == "ln" {
+		class exit = ln(`1')
+	}
+	else if "`.transform.stylename'" == "atanh" {
+		class exit = atanh(`1')
+	}
+	else if "`.transform.stylename'" == "logit" {
+		class exit = logit(`1')
+	}
+	else if "`.transform.stylename'" == "log1m" {
+		class exit = log1m(`1')
+	}
+
+	class exit = `1'
+end
+
+// ----------------------------------------------------------------------------
+// Return a the GDI metric location for a supplied location in the local metric.
+// ?? does this need to handle logs?
+
+program to_gdi_pos
+	class exit = `1' * `.beta' + `.alpha'
+end
+
+
+// ----------------------------------------------------------------------------
+// Return a the GDI metric size/distance for a supplied size in the local 
+// metric.
+// ?? does this need to handle logs?
+
+program to_gdi_size
+	class exit = `1' * `.beta' 
+end
+

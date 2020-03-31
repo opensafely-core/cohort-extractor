@@ -1,0 +1,121 @@
+/*
+    joinby.dlg
+
+*!  VERSION 1.2.3  12apr2019
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE _ht310
+INCLUDE header
+
+HELP hlp1, view("help joinby")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource JOINBY_DLG_HSCALE
+	
+        main.fi_using.formatfilter "{0} (*.dta)|*.dta|{1} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_DTA_FILES" "resource ui_ex FILE_TYPE_ALL_FILES"
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)	///
+	label(resource JOINBY_DLG_TITLE)
+BEGIN
+  GROUPBOX gb_using       _lft     _top     _iwd        _ht4h,		///
+	label(resource JOINBY_MAIN_GB_USING)
+  TEXT     tx_using       _ilft    _ss      _inwd       .,		///
+	label(resource LBL_FILENAME_OF_DATASET_ON_DISK)
+  FILE     fi_using       @        _ss      @           .,		///
+	label(resource LBL_BU_BROWSE)                            	///
+	defext(dta)							///
+	error(resource LBL_FILENAME_OF_DATASET_ON_DISK)
+
+  TEXT     tx_joinvar     _lft     _xxls    _iwd        .,		///
+	label(resource JOINBY_MAIN_TX_JOINVAR)
+  VARLIST  vl_joinvar     @        _ss      @           .,		///
+	label(resource JOINBY_MAIN_VL_JOINVAR)
+
+  TEXT     tx_note2       @          _ms      @           .,		///
+	label(resource JOINBY_MAIN_TX_NOTE2)
+END
+
+DIALOG opt,tabtitle(resource LBL_OPTIONS)
+BEGIN
+  GROUPBOX gb_update      _lft     _top     _iwd        _ht6,		///
+	label(resource JOINBY_OPT_GB_UPDATE)
+  RADIO    rb_updefault   _indent  _ss      _ibwd       .,		///
+	first  option(NONE) label(resource JOINBY_OPT_RB_UPDEFAULT)
+  RADIO    rb_update      @        _ss      @           .,		///
+	option(update) nomemory 					///
+	label(resource JOINBY_OPT_RB_UPDATE)
+  RADIO    rb_replace     @        _ss      @           .,		///
+	last nomemory option(update replace)				///
+	label(resource JOINBY_OPT_RB_REPLACE)
+
+  GROUPBOX gb_name        _lft     _xls     _iwd        _ht8,		///
+	label(resource JOINBY_OPT_GB_NAME)
+  DEFINE holdy @y
+  RADIO    rb_unmatchdef  _indent  _ss      _cwd1       .,		///
+	label(resource JOINBY_OPT_RB_UNMATCHDEF) first option(none)				///
+	onclickon(script mark_off)
+  RADIO    rb_both        @        _ss      @           .,		///
+	label(resource JOINBY_OPT_RB_BOTH)				///
+	option(both)							///
+	onclickon(script mark_on)
+  RADIO    rb_master      @        _ss      @           .,		///
+	label(resource JOINBY_OPT_RB_MASTER) option(master)		///
+	onclickon(script mark_on)
+  RADIO    rb_using       @        _ss      @           .,		///
+	label(resource JOINBY_OPT_RB_USING) option(using) 		///
+	last onclickon(script mark_on)
+
+  TEXT     tx_merge       _lft     _xls     _iwd        .,		///
+	label(resource JOINBY_OPT_TX_MERGE)
+  EDIT     ed_merge       _lft     _ss      _vnwd       .,		///
+	max(32) option("_merge") default("_merge")			///
+	label(resource JOINBY_OPT_TX_MERGE)
+  CHECKBOX ck_nolabel     _lft     _ls      _iwd        .,		///
+	option(nolabel)							///
+	label(resource JOINBY_OPT_CK_NOLABEL)
+END
+
+SCRIPT mark_off
+BEGIN
+	opt.ed_merge.disable
+END
+
+SCRIPT mark_on
+BEGIN
+	opt.ed_merge.enable
+END
+
+PROGRAM unmatched_output
+BEGIN
+	option radio (opt rb_unmatchdef rb_both rb_master rb_using)
+END
+
+PROGRAM command
+BEGIN
+	require main.fi_using
+	put "joinby "
+	put main.vl_joinvar " "
+	put "using "
+	put `"""'
+	put main.fi_using
+	put `"""'
+	beginoptions
+		option radio(opt rb_updefault rb_update rb_replace)
+		put "unmatched("
+		put /program unmatched_output
+		put ") "
+
+		if !opt.rb_unmatchdef {
+			optionarg opt.ed_merge
+		}
+		option opt.ck_nolabel
+	endoptions
+END

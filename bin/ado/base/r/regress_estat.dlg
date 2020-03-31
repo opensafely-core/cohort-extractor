@@ -1,0 +1,1014 @@
+/*
+	regress_estat
+
+*!  VERSION 1.3.6  03dec2019
+
+	***
+	USE EXTREME CARE WHEN CHANGING CONTROL NAMES. The names used
+	in this file have multiple external dependencies.
+*/
+
+VERSION 13.0
+SYNCHRONOUS_ONLY
+INCLUDE _std_large
+DEFINE _dlght 460	//dialog length for bootstrap options
+INCLUDE header
+
+HELP hlp1, view("help regress postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING STMP
+	create STRING spmats
+	create STRING sbcusum_graph_res
+	create BOOLEAN has_FactorVars
+	create ARRAY sp_objname_list
+	create STRING is_sp
+	has_FactorVars.settrue
+	program sum_bu_facvars_ckResults
+	program vce_bu_facvars_ckResults
+	setscale_hadj resource REGRESS_ESTAT_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program parseMessage
+	program check_sbcusum_graph_res
+	
+	program load_spmatrix
+END
+
+PROGRAM load_spmatrix
+BEGIN
+	call is_sp.setvalue char _dta[sp__ID]
+	if is_sp.isneq("") {
+		put "qui spmatrix dir"
+		stata hidden immediate
+		call spmats.setvalue r(names)
+		call spmats.tokenizeOnStr sp_objname_list " "
+		call main.cb_errorlag1.repopulate
+		call main.cb_errorlag2.repopulate
+		call main.cb_errorlag3.repopulate
+	}
+END
+
+PROGRAM ON_DOTPROMPT
+BEGIN
+	call program load_spmatrix
+END
+
+PROGRAM parseMessage
+BEGIN
+	if __MESSAGE.contains("-hettest-") {
+		call main.lb_subcmd.setvalue "hettest"
+	}
+	if __MESSAGE.contains("-imtest-") {
+		call main.lb_subcmd.setvalue "imtest"
+	}
+	if __MESSAGE.contains("-moran-") {
+		call main.lb_subcmd.setvalue "moran"
+	}
+	if __MESSAGE.contains("-ovtest-") {
+		call main.lb_subcmd.setvalue "ovtest"
+	}
+	if __MESSAGE.contains("-szroeter-") {
+		call main.lb_subcmd.setvalue "szroeter"
+	}
+	if __MESSAGE.contains("-vif-") {
+		call main.lb_subcmd.setvalue "vif"
+	}
+	if __MESSAGE.contains("-esize-") {
+		call main.lb_subcmd.setvalue "esize"
+	}
+	if __MESSAGE.contains("-sbcusum-") {
+		call main.lb_subcmd.setvalue "sbcusum"
+	}
+	if __MESSAGE.contains("-sbsingle-") {
+		call main.lb_subcmd.setvalue "sbsingle"
+	}
+	if __MESSAGE.contains("-sbknown-") {
+		call main.lb_subcmd.setvalue "sbknown"
+	}
+	if __MESSAGE.contains("-archlm-") {
+		call main.lb_subcmd.setvalue "archlm"
+	}
+	if __MESSAGE.contains("-bgodfrey-") {
+		call main.lb_subcmd.setvalue "bgodfrey"
+	}
+	if __MESSAGE.contains("-durbinalt-") {
+		call main.lb_subcmd.setvalue "durbinalt"
+	}
+	if __MESSAGE.contains("-dwatson-") {
+		call main.lb_subcmd.setvalue "dwatson"
+	}
+	if __MESSAGE.contains("-ic-") {
+		call main.lb_subcmd.setvalue "ic"
+	}
+	if __MESSAGE.contains("-summarize-") {
+		call main.lb_subcmd.setvalue "summarize"
+	}
+	if __MESSAGE.contains("-vce-") {
+		call main.lb_subcmd.setvalue "vce"
+	}
+	if __MESSAGE.contains("-bootstrap-") {
+		call main.lb_subcmd.setvalue "bootstrap"
+	}
+END
+
+
+DIALOG main, label(resource REGRESS_ESTAT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_subcmd		_lft	_top	_iwd	.,		///
+  	label(resource LBL_REPORTS_STATISTICS_SUBCOMMAND)
+  LISTBOX  lb_subcmd		@	_ss	@	70,		///
+  	contents(main_subcommand_contents)				///
+  	values(main_subcommand_values)					///
+  	onselchangelist(main_subcommand_scripts)
+
+  DEFINE holdy 110
+
+  // hettest options
+  COMBOBOX cb_test		_lft	holdy	200	.,		///
+	dropdownlist 							///
+	contents(hettest_test)						///
+	values(hettest_test_values)					///
+	onselchangelist(hettest_test_sel)
+  TEXT     tx_test		+205	@	200	.,		///
+	label(resource LBL_TEST_TO_COMPUTE)
+  GROUPBOX gb_fit		_lft	_ls	_iwd	_ht6h,		///
+  	label(resource LBL_TESTS_FOR_HETEROSKEDASTICITY)
+  RADIO    rb_fit		_ilft	_ss	_ibwd	.,		///
+  	first label(resource LBL_USE_FITTED_VALUES_OF_REGRESSION)	///
+  	onclickon(main.vl_var.disable)
+  RADIO    rb_var		@	_ss	@	.,		///
+  	last label(resource LBL_USE_THE_FOLLOWING_VARIABLES)		///
+  	onclickon(main.vl_var.enable)
+  VARLIST  vl_var		_indent2 _ss	_inwd	.,		///
+  	numeric								///
+	label(resource LBL_USE_THE_FOLLOWING_VARIABLES)
+
+  CHECKBOX ck_rhs		_lft	_xxls	_iwd	.,		///
+	option(rhs)							///
+	label(resource LBL_USE_RHS_VARIABLES_TEST)
+
+  CHECKBOX ck_mtest    		_lft	_ls	_iwd	_ht4,		///
+	label(resource LBL_PERFORM_MULTIPLE_TESTING)  groupbox		///
+	onclickon(script main_adjustment_on)				///
+	onclickoff(script main_adjustment_off)
+  TEXT     tx_adjustment	_ilft	_ss	_inwd	.,		///
+  	label(resource LBL_P_VALUE_ADJUSTMENT)
+  COMBOBOX cb_adjustment	@	_ss     160	.,		///
+	label(resource LBL_MULTIPLE_TESTING_ADJUSTMENT)			///
+	dropdownlist 							///
+	contents(adjustment_methods)					///
+	values(adjustment_values)
+
+  // imtest options
+  CHECKBOX ck_preserve		_lft	holdy	_ibwd	.,		///
+	option(preserve)						///
+	label(resource LBL_PRESERVE_RESTORE_ORIG_DATA_AUXILIARY_REG)
+  CHECKBOX ck_white		@	_ms	@	.,		///
+	option(white)							///
+	label(resource LBL_PERFORM_WHITES_ORIG_HETERO_TEST)
+
+  // moran options
+  TEXT tx_errorlag1		@	holdy	200	.,		///
+  	label(resource LBL_SPATIAL_ERROR_LAG1)
+  COMBOBOX cb_errorlag1		@	_ss	@	.,		///
+	option(errorlag)						///
+	dropdown 							///
+	contents(sp_objname_list)					///
+	label(resource LBL_SPATIAL_ERROR_LAG1)
+  TEXT tx_errorlag2		@	_ls	@	.,		///
+  	label(resource LBL_SPATIAL_ERROR_LAG2)
+  COMBOBOX cb_errorlag2		@	_ss	@	.,		///
+	option(errorlag)						///
+	dropdown 							///
+	contents(sp_objname_list)					///
+	label(resource LBL_SPATIAL_ERROR_LAG2)
+  TEXT tx_errorlag3		@	_ls	@	.,		///
+	label(resource LBL_SPATIAL_ERROR_LAG3)
+  COMBOBOX cb_errorlag3		_lft	_ss	@	.,		///
+	option(errorlag)						///
+	dropdown 							///
+	contents(sp_objname_list)					///
+	label(resource LBL_SPATIAL_ERROR_LAG3)
+
+  // ovtest options - reuse rhs
+
+  // szroeter options - reuse hettest options
+  GROUPBOX gb_mtest    		_lft	_ls	_iwd	_ht4,		///
+	label(resource LBL_MULTIPLE_TESTING)
+
+  // vif
+  CHECKBOX ck_vif_uncentered	_lft	holdy	_iwd	.,		///
+	option(uncentered)						///
+	label(resource LBL_COMPUTE_UNCENTERED_VARIANCE_INFLATION_FAC)
+  // esize
+  RADIO rb_esize_eta		_lft	holdy	_iwd	., first	///
+	label(resource LBL_REPORT_ETA_SQUARED)
+  RADIO rb_esize_epsilon	@	_ss	@	.,		///
+	option(epsilon)							///
+	label(resource LBL_REPORT_EPSILON_SQUARED)
+  RADIO rb_esize_omega		@	_ss	@	., last		///
+	option(omega)							///
+	label(resource LBL_REPORT_OMEGA_SQUARED)
+  DEFINE   _x  _lft
+  DEFINE   _cx _spr
+  DEFINE   _y  _ls
+  INCLUDE  _sp_level
+
+  // time-series, sbcusum
+  
+  RADIO rb_sbcusum_recur	_lft	holdy	_iwd	., first	///
+  	label(resource REGRESS_ESTAT_MAIN_RB_SBCUMSUM_RECUR)
+  RADIO rb_sbcusum_ols		@	_ss	_iwd	., last		///
+	option(ols)							///
+	label(resource REGRESS_ESTAT_MAIN_RB_SBCUMSUM_OLS)
+  TEXT tx_sbcusum_gen		_lft	_ls	_iwd	.,		///
+  	label(resource REGRESS_ESTAT_MAIN_TX_SBCUMSUM_GEN)
+  EDIT ed_sbcusum_gen		@	_ss	_vnwd	.,		///
+	option(generate)						///
+	label(resource REGRESS_ESTAT_MAIN_TX_SBCUMSUM_GEN)
+
+  BUTTON bu_sbcusum_graph	@	_ls	180	.,		///
+	onpush(program main_show_sbcusum_graph_dlg)			///
+	label(resource LBL_GRAPH_OPTIONS)
+
+  // time-series, sbsingle 
+  TEXT tx_sbsingle_breakvars	_lft	holdy	_iwd	.,		///
+  	label(resource REGRESS_ESTAT_BREAK_VARIABLES)
+  VARLIST vl_sbsingle_breakvars	@	_ss	_iwd	.,		///
+	ts								///
+  	numeric								///
+	label(resource REGRESS_ESTAT_BREAK_VARIABLES)
+  CHECKBOX ck_sbsingle_cons	_ilft	_ms	_cwd1	.,		///
+	option(constant)						///
+	label(resource LBL_INCLUDE_CONSTANT)
+  RADIO rb_sbsingle_trim	_lft	_ls	_iwd	., first	///
+	onclickon("script main_sbsingle_trim_on")			///
+  	label(resource REGRESS_ESTAT_MAIN_RB_SBSINGLE_TRIM)
+  RADIO rb_sbsingle_lrtrim	@	+45	@	., last		///
+	onclickon("script main_sbsingle_lrtrim_on")			///
+  	label(resource REGRESS_ESTAT_MAIN_RB_SBSINGLE_LRTRIM)
+  SPINNER sp_trim		_indent2 -20	_spwd	.,		///
+	default(15) min(1) max(49)					///
+	option(trim)
+  SPINNER sp_ltrim		@	+45	@	.,		///
+	min(1) max(99)							///
+	option(ltrim)
+  SPINNER sp_rtrim		_lft2	@	@	.,		///
+	min(1) max(99)							///
+	option(rtrim)
+
+  CHECKBOX ck_sbsingle_swald	_lft	_ls	_cwd1	.,		///
+	option(swald)							///
+	label(resource REGRESS_ESTAT_MAIN_CK_SBSINGLE_SWALD)
+  DEFINE yy @y
+  CHECKBOX ck_sbsingle_awald	@	_ms	@	.,		///
+	option(awald)							///
+	label(resource REGRESS_ESTAT_MAIN_CK_SBSINGLE_AWALD)
+  CHECKBOX ck_sbsingle_ewald	@	_ms	@	.,		///
+	option(ewald)							///
+	label(resource REGRESS_ESTAT_MAIN_CK_SBSINGLE_EWALD)
+  CHECKBOX ck_sbsingle_slr	_lft2	yy	@	.,		///
+	option(slr)							///
+	label(resource REGRESS_ESTAT_MAIN_CK_SBSINGLE_SLR)
+  CHECKBOX ck_sbsingle_alr	@	_ms	@	.,		///
+	option(alr)							///
+	label(resource REGRESS_ESTAT_MAIN_CK_SBSINGLE_ALR)
+  CHECKBOX ck_sbsingle_elr	@	_ms	@	.,		///
+	option(elr)							///
+	label(resource REGRESS_ESTAT_MAIN_CK_SBSINGLE_ELR)
+  CHECKBOX ck_sbsingle_all	_lft	_ms	@	.,		///
+	option(all)							///
+	onclickon("script main_sbsingle_all_on")			///
+	onclickoff("script main_sbsingle_all_off")			///
+	label(resource REGRESS_ESTAT_MAIN_CK_SBSINGLE_ALL)
+  TEXT tx_sbsingle_gen		_lft	_ls	_iwd	.,		///
+	label(resource REGRESS_ESTAT_MAIN_TX_SBSINGLE_GEN)
+  EDIT ed_sbsingle_gen		@	_ss	_iwd	.,		///
+	option(generate)						///
+	label(resource REGRESS_ESTAT_MAIN_TX_SBSINGLE_GEN)
+  CHECKBOX ck_sbsingle_nodots	@	_ms	@	.,		///
+	option(nodots)							///
+	label(resource REGRESS_ESTAT_MAIN_CK_SBSINGLE_NODOTS)
+
+  // time-series, sbknown
+  TEXT tx_sbknown_break		_lft	holdy	_iwd	.,		///
+	label(resource REGRESS_ESTAT_MAIN_TX_SBKNOWN_BREAK)
+  EDIT ed_sbknown_break		@	_ss	_iwd	.,		///
+	option(break)							///
+	label(resource REGRESS_ESTAT_MAIN_TX_SBKNOWN_BREAK)
+  TEXT tx_sbknown_breakvars	_lft	_ls	_iwd	.,		///
+  	label(resource REGRESS_ESTAT_BREAK_VARIABLES)
+  VARLIST vl_sbknown_breakvars	@	_ss	_iwd	.,		///
+	ts								///
+  	numeric								///
+	label(resource REGRESS_ESTAT_BREAK_VARIABLES)
+  CHECKBOX ck_sbknown_cons	_ilft	_ms	_cwd1	.,		///
+	option(constant)						///
+	label(resource LBL_INCLUDE_CONSTANT)
+  RADIO rb_sbknown_wald		_lft	_ls	_iwd	., first	///
+	option("")							///
+  	label(resource LBL_WALD_TEST)
+  RADIO rb_sbknown_lr		@	_ss	@	., last		///
+	option(lr)							///
+  	label(resource REGRESS_ESTAT_MAIN_RB_SBKNOWN_LR)
+
+  // time-series, archlm
+  CHECKBOX ck_lags		_lft	holdy	_iwd	.,		///
+	onclickon(main.ed_numlist.enable)				///
+	onclickoff(main.ed_numlist.disable)				///
+	label(resource REGRESS_ESTAT_MAIN_CK_LAGS)
+  EDIT     ed_numlist	       _indent2	_ss	_ibwd	.,		///
+	option(lags)							///
+	label(resource REGRESS_ESTAT_MAIN_ED_NUMLIST)
+  CHECKBOX ck_force		_lft	_ms	_iwd	.,		///
+	option(force)							///
+	label(resource REGRESS_ESTAT_MAIN_CK_FORCE)
+
+  // time-series, bgodfrey
+  CHECKBOX ck_nomiss0		_lft	_ms	@	.,		///
+	option(nomiss0)							///
+	label(resource REGRESS_ESTAT_MAIN_CK_NOMISS0)
+  GROUPBOX gb_pvalue		_lft	_ls	_iwd	_ht6,		///
+  	label(resource REGRESS_ESTAT_MAIN_GB_PVALUE)
+  RADIO    rb_default_dist	_ilft	_ss	_ibwd	.,		///
+  	first label(resource REGRESS_ESTAT_MAIN_RB_DEFAULT_DIST)
+  RADIO    rb_small		@	_ss	@	.,		///
+	option(small) 							///
+	label(resource REGRESS_ESTAT_MAIN_RB_SMALL)
+  // time-series, durbinalt
+  RADIO    rb_robust		@	_ss	@	.,		///
+	option(robust)	last						///
+	label(resource REGRESS_ESTAT_MAIN_RB_ROBUST)
+
+  // time-series, dwatson
+  TEXT     tx_dwatsonnote	_lft	holdy	_iwd	.,		///
+  	label(resource REGRESS_ESTAT_MAIN_TX_DWATSONNOTE)
+
+  // Information criteria
+  CHECKBOX ck_n			_lft	holdy	_iwd	.,		///
+	onclickon(main.sp_n.enable)					///
+	onclickoff(main.sp_n.disable)					///
+	label(resource LBL_NUMBER_OBSERVATIONS_CALCULATING_BIC)
+  SPINNER sp_n			_indent2 _ss	_spwd	.,		///
+	default(e(N)) min(1) max(e(N))					///
+	option(n)
+
+  INCLUDE estat_sum
+  INCLUDE estat_vce
+  INCLUDE _estat_bootstrap
+END
+
+INCLUDE estat_sum_pr
+INCLUDE _estat_bootstrap_pr
+INCLUDE estat_vce_pr
+
+LIST hettest_test
+BEGIN
+	resource LBL_BREUSCH_PAGAN_COOK_WEISBERG
+	resource LBL_NR2_VERSION_SCORE_TEST
+	resource LBL_F_STATISTIC
+END
+LIST hettest_test_values
+BEGIN
+	""
+	"iid"
+	"fstat"	
+END
+LIST hettest_test_sel
+BEGIN
+	program mtest_allowed
+	program mtest_disallowed
+END
+
+PROGRAM mtest_allowed
+BEGIN
+	call main.ck_mtest.enable
+	if main.ck_mtest {
+		call script main_adjustment_on
+	}
+END
+PROGRAM mtest_disallowed
+BEGIN
+	call main.ck_mtest.disable
+	call script main_adjustment_off
+END
+
+SCRIPT main_group_on
+BEGIN
+	main.sp_group.enable
+	main.tx_group.enable
+END
+SCRIPT main_group_off
+BEGIN
+	main.sp_group.disable
+	main.tx_group.disable
+END
+
+LIST adjustment_methods
+BEGIN
+	resource LBL_NONE
+	resource LBL_BONFERRONI_ADJUSTMENT
+	resource LBL_HOLM_ADJUSTMENT
+	resource LBL_SIDAK_ADJUSTMENT
+END
+
+LIST adjustment_values
+BEGIN
+	mtest
+	mtest(bonferroni)
+	mtest(holm)
+	mtest(sidak)
+END
+
+LIST main_subcommand_contents
+BEGIN
+	resource LBL_TEST_FOR_HETEROSKEDASTICITY_HETTEST
+	resource LBL_INFORMATION_MATRIX_TEST_IMTEST
+	resource REGRESS_ESTAT_MORAN
+	resource LBL_RAMSEY_REGRESSION_SPEC_ERROR_OMITTED_VAR
+	resource LBL_SZROETERS_RANK_TEST_HETEROSKEDASTICITY
+	resource LBL_VARIANCE_INFLATION_FACTORS_INDEP_VARS
+	resource LBL_EFFECT_SIZES_ESIZE
+	resource REGRESS_ESTAT_SBCUMSUM
+	resource REGRESS_ESTAT_SBSINGLE
+	resource REGRESS_ESTAT_SBKNOWN
+	resource REGRESS_ESTAT_ARCHLM
+	resource REGRESS_ESTAT_BGODFREY
+	resource REGRESS_ESTAT_DURBINALT
+	resource REGRESS_ESTAT_DWATSON
+	resource LBL_INFORMATION_CRITERIA
+	resource LBL_SUMMARIZE_ESTIMATION_SAMPLE
+	resource LBL_COVARIANCE_MATRIX_ESTIMATES
+END
+
+LIST main_subcommand_values
+BEGIN
+	hettest
+	imtest
+	moran
+	ovtest
+	szroeter
+	vif
+	esize
+	sbcusum
+	sbsingle
+	sbknown
+	archlm
+	bgodfrey
+	durbinalt
+	dwatson
+	ic
+	summarize
+	vce
+END
+
+LIST main_subcommand_scripts
+BEGIN
+	script sel_hettest
+	script sel_imtest
+	script sel_moran
+	script sel_ovtest
+	script sel_szroeter
+	script sel_vif
+	script sel_esize
+	script sel_sbcusum
+	script sel_sbsingle
+	script sel_sbknown
+	script sel_archlm
+	script sel_bgodfrey
+	script sel_durbinalt
+	script sel_dwatson
+	script sel_ic
+	script sel_summarize
+	script sel_vce
+END
+
+SCRIPT sel_hettest
+BEGIN
+	script main_hide_all
+	program hettest_on
+END
+
+SCRIPT sel_imtest
+BEGIN
+	script main_hide_all
+	script imtest_on
+END
+
+SCRIPT sel_moran
+BEGIN
+	script main_hide_all
+
+	main.tx_errorlag1.show
+	main.cb_errorlag1.show
+	main.tx_errorlag2.show
+	main.cb_errorlag2.show
+	main.tx_errorlag3.show
+	main.cb_errorlag3.show
+END
+
+SCRIPT sel_ovtest
+BEGIN
+	script main_hide_all
+	script ovtest_on
+END
+
+SCRIPT sel_szroeter
+BEGIN
+	script main_hide_all
+	script szroeter_on
+END
+
+SCRIPT sel_vif
+BEGIN
+	script main_hide_all
+	main.ck_vif_uncentered.show
+END
+
+SCRIPT sel_esize
+BEGIN
+	script main_hide_all
+	main.rb_esize_eta.show
+	main.rb_esize_epsilon.show
+	main.rb_esize_omega.show
+	main.sp_level.show
+	main.tx_level.show
+	main.sp_level.setposition . 180
+	main.tx_level.setposition . 180
+END
+
+SCRIPT sel_sbcusum
+BEGIN
+	script main_hide_all
+	script sbcusum_on
+END
+
+SCRIPT sel_sbsingle
+BEGIN
+	script main_hide_all
+	script sbsingle_on
+END
+
+SCRIPT sel_sbknown
+BEGIN
+	script main_hide_all
+	script sbknown_on
+END
+
+SCRIPT sel_archlm
+BEGIN
+	script main_hide_all
+	script archlm_on
+END
+
+SCRIPT sel_bgodfrey
+BEGIN
+	script main_hide_all
+	program bgodfrey_on
+END
+
+SCRIPT sel_durbinalt
+BEGIN
+	script main_hide_all
+	script durbinalt_on
+END
+
+SCRIPT sel_dwatson
+BEGIN
+	script main_hide_all
+	main.tx_dwatsonnote.show
+END
+
+SCRIPT sel_ic
+BEGIN
+	script main_hide_all
+	main.ck_n.show
+	main.sp_n.show
+END
+
+SCRIPT sel_summarize
+BEGIN
+	script main_hide_all
+	program main_summ_on
+END
+
+SCRIPT sel_vce
+BEGIN
+	script main_hide_all
+	program vce_on
+END
+
+PROGRAM hettest_on
+BEGIN
+	call main.cb_test.show
+	call main.tx_test.show
+	
+	call main.gb_fit.setposition . 140
+	call main.rb_fit.setposition . 160
+	call main.rb_var.setposition . 180
+	call main.vl_var.setposition . 200
+	call main.gb_fit.show
+	call main.rb_fit.show
+	call main.rb_var.show
+	call main.vl_var.show
+	call main.ck_rhs.setposition . 250 . .
+	call main.ck_rhs.show
+	call main.ck_mtest.show
+	call main.tx_adjustment.setposition . 300 
+	call main.cb_adjustment.setposition . 320 
+	call main.tx_adjustment.show
+	call main.cb_adjustment.show
+	if ! main.ck_mtest {
+		call script main_adjustment_off
+	}
+END
+
+SCRIPT imtest_on
+BEGIN
+	main.ck_preserve.show
+	main.ck_white.show
+END
+
+SCRIPT ovtest_on
+BEGIN
+	main.ck_rhs.setposition . 110 . .
+	main.ck_rhs.show
+END
+
+SCRIPT szroeter_on
+BEGIN
+	main.gb_fit.setposition . 110
+	main.rb_fit.setposition . 130
+	main.rb_var.setposition . 150
+	main.vl_var.setposition . 170
+	main.gb_fit.show
+	main.rb_fit.show
+	main.rb_var.show
+	main.vl_var.show
+	main.ck_rhs.setposition . 220 . .
+	main.ck_rhs.show
+	main.gb_mtest.setposition . 250 . .
+	main.gb_mtest.show
+	main.tx_adjustment.setposition . 270 
+	main.cb_adjustment.setposition . 290 
+	main.tx_adjustment.show
+	main.cb_adjustment.show
+	script main_adjustment_on
+END
+
+SCRIPT main_adjustment_on
+BEGIN
+	main.cb_adjustment.enable
+	main.tx_adjustment.enable
+END
+
+SCRIPT main_adjustment_off
+BEGIN
+	main.cb_adjustment.disable
+	main.tx_adjustment.disable
+END
+
+SCRIPT sbcusum_on
+BEGIN
+	main.rb_sbcusum_recur.show
+	main.rb_sbcusum_ols.show
+	main.tx_sbcusum_gen.show
+	main.ed_sbcusum_gen.show
+	main.bu_sbcusum_graph.show
+	main.sp_level.show
+	main.tx_level.show
+	main.sp_level.setposition . 240
+	main.tx_level.setposition . 240
+END
+
+SCRIPT sbsingle_on
+BEGIN
+	main.tx_sbsingle_breakvars.show
+	main.vl_sbsingle_breakvars.show
+	main.ck_sbsingle_cons.show
+	main.rb_sbsingle_trim.show
+	main.rb_sbsingle_lrtrim.show
+	main.sp_trim.show
+	main.sp_ltrim.show
+	main.sp_rtrim.show
+	main.ck_sbsingle_swald.show
+	main.ck_sbsingle_awald.show
+	main.ck_sbsingle_ewald.show
+	main.ck_sbsingle_slr.show
+	main.ck_sbsingle_alr.show
+	main.ck_sbsingle_elr.show
+	main.ck_sbsingle_all.show
+	main.tx_sbsingle_gen.show
+	main.ed_sbsingle_gen.show
+	main.ck_sbsingle_nodots.show
+END
+
+SCRIPT main_sbsingle_trim_on
+BEGIN
+	main.sp_trim.enable
+	main.sp_ltrim.disable
+	main.sp_rtrim.disable
+END
+
+SCRIPT main_sbsingle_lrtrim_on
+BEGIN
+	main.sp_trim.disable
+	main.sp_ltrim.enable
+	main.sp_rtrim.enable
+END
+
+SCRIPT main_sbsingle_all_on
+BEGIN
+	main.ck_sbsingle_swald.disable
+	main.ck_sbsingle_awald.disable
+	main.ck_sbsingle_ewald.disable
+	main.ck_sbsingle_slr.disable
+	main.ck_sbsingle_alr.disable
+	main.ck_sbsingle_elr.disable
+END
+
+SCRIPT main_sbsingle_all_off
+BEGIN
+	main.ck_sbsingle_swald.enable
+	main.ck_sbsingle_awald.enable
+	main.ck_sbsingle_ewald.enable
+	main.ck_sbsingle_slr.enable
+	main.ck_sbsingle_alr.enable
+	main.ck_sbsingle_elr.enable
+END
+
+SCRIPT sbknown_on
+BEGIN
+	main.tx_sbknown_break.show
+	main.ed_sbknown_break.show
+	main.tx_sbknown_breakvars.show
+	main.vl_sbknown_breakvars.show
+	main.ck_sbknown_cons.show
+	main.rb_sbknown_wald.show
+	main.rb_sbknown_lr.show
+END
+
+SCRIPT archlm_on
+BEGIN
+	main.ck_lags.show
+	main.ed_numlist.show
+	main.ck_force.setposition . 160 . .
+	main.ck_force.setlabel resource REGRESS_ESTAT_MAIN_CK_FORCE
+	main.ck_force.show
+END
+
+PROGRAM bgodfrey_on
+BEGIN
+	call main.ck_lags.show
+	call main.ed_numlist.show
+	call main.ck_nomiss0.setposition . 160 . .
+	call main.gb_pvalue.setposition . 185 . 70
+	call main.rb_default_dist.setposition . 205 . .
+	call main.rb_small.setposition . 225 . .
+	call main.ck_nomiss0.show
+	call main.gb_pvalue.show
+	call main.rb_default_dist.show
+	call main.rb_small.show
+	if main.rb_robust {
+		call main.rb_default_dist.seton
+	}
+END
+
+SCRIPT durbinalt_on
+BEGIN
+	main.ck_lags.show
+	main.ed_numlist.show
+	main.ck_nomiss0.setposition . 160 . .
+	main.ck_force.setposition . 185 . .
+	main.gb_pvalue.setposition . 210 . 90
+	main.rb_default_dist.setposition . 230 . .
+	main.rb_small.setposition . 250 . .
+	main.rb_robust.setposition . 270 . .
+	main.ck_nomiss0.show
+	main.gb_pvalue.show
+	main.rb_default_dist.show
+	main.rb_robust.show
+	main.rb_small.show
+	main.ck_force.setlabel resource REGRESS_ESTAT_ROBUST_AFTER_NEWEY
+	main.ck_force.show
+END
+
+SCRIPT main_hide_all  // MUST BE IMPLEMENTED FOR BOOTSTRAP
+BEGIN
+	main.cb_test.hide
+	main.tx_test.hide
+	main.gb_fit.hide
+	main.rb_fit.hide
+	main.rb_var.hide
+	main.vl_var.hide
+	main.ck_rhs.hide
+	main.ck_mtest.hide
+	main.gb_mtest.hide
+	main.tx_adjustment.hide
+	main.cb_adjustment.hide
+	main.ck_preserve.hide
+	main.gb_pvalue.hide
+	main.tx_errorlag1.hide
+	main.cb_errorlag1.hide
+	main.tx_errorlag2.hide
+	main.cb_errorlag2.hide
+	main.tx_errorlag3.hide
+	main.cb_errorlag3.hide
+	main.ck_white.hide
+	main.ck_vif_uncentered.hide
+	main.rb_esize_eta.hide
+	main.rb_esize_epsilon.hide
+	main.rb_esize_omega.hide
+	main.sp_level.hide
+	main.tx_level.hide
+	main.ck_lags.hide
+	main.ed_numlist.hide
+	main.ck_force.hide
+	main.ck_nomiss0.hide
+	main.rb_default_dist.hide
+	main.rb_small.hide
+	main.rb_robust.hide
+	main.tx_dwatsonnote.hide
+	main.ck_n.hide
+	main.sp_n.hide
+	main.rb_sbcusum_recur.hide
+	main.rb_sbcusum_ols.hide
+	main.tx_sbcusum_gen.hide
+	main.ed_sbcusum_gen.hide
+	main.bu_sbcusum_graph.hide
+	main.tx_sbsingle_breakvars.hide
+	main.vl_sbsingle_breakvars.hide
+	main.ck_sbsingle_cons.hide
+	main.rb_sbsingle_trim.hide
+	main.rb_sbsingle_lrtrim.hide
+	main.sp_trim.hide
+	main.sp_ltrim.hide
+	main.sp_rtrim.hide
+	main.ck_sbsingle_swald.hide
+	main.ck_sbsingle_awald.hide
+	main.ck_sbsingle_ewald.hide
+	main.ck_sbsingle_slr.hide
+	main.ck_sbsingle_alr.hide
+	main.ck_sbsingle_elr.hide
+	main.ck_sbsingle_all.hide
+	main.tx_sbsingle_gen.hide
+	main.ed_sbsingle_gen.hide
+	main.ck_sbsingle_nodots.hide
+	main.tx_sbknown_break.hide
+	main.ed_sbknown_break.hide
+	main.tx_sbknown_breakvars.hide
+	main.vl_sbknown_breakvars.hide
+	main.ck_sbknown_cons.hide
+	main.rb_sbknown_wald.hide
+	main.rb_sbknown_lr.hide
+	script main_summ_off
+	program vce_off
+	script main_bootstrap_hide
+END
+
+PROGRAM main_show_sbcusum_graph_dlg
+BEGIN
+	call create CHILD sbcusum_graph AS graph_opt, allowsubmit
+	call graph_opt.setExitString sbcusum_graph_res
+	call graph_opt.setExitAction "program check_sbcusum_graph_res"
+	call graph_opt.setSubmitAction "program graph_sbcusum_Submit"
+END
+
+PROGRAM check_sbcusum_graph_res
+BEGIN
+	if sbcusum_graph_res.iseq("") {
+		call main.bu_sbcusum_graph.modified_off
+	}
+	else {
+		call main.bu_sbcusum_graph.modified_on
+	}
+END
+
+PROGRAM graph_sbcusum_Submit
+BEGIN
+	call program check_sbcusum_graph_res
+	call Submit
+END
+
+PROGRAM vl_output
+BEGIN
+	put main.vl_spec
+END
+
+PROGRAM vl_eq_output
+BEGIN
+	put main.vl_eq
+END
+
+PROGRAM breakvars_output
+BEGIN
+	put main.vl_sbsingle_breakvars
+	if main.ck_sbsingle_cons {
+		put ", constant"
+	}
+END
+
+PROGRAM known_breakvars_output
+BEGIN
+	put main.vl_sbknown_breakvars
+	if main.ck_sbknown_cons {
+		put ", constant"
+	}
+END
+
+PROGRAM command
+BEGIN
+	put "estat "
+	put main.lb_subcmd
+	put " " /program summarize_output
+	if main.rb_var & main.rb_var.isvisible() {
+		varlist main.vl_var
+	}
+	beginoptions
+		// non-basic options
+		if main.lb_subcmd.iseq("hettest") {
+			put " " main.cb_test
+		}
+		// moran options
+		optionarg main.cb_errorlag1
+		optionarg main.cb_errorlag2
+		optionarg main.cb_errorlag3
+		option main.ck_rhs
+		if main.lb_subcmd.iseq("hettest") 			///
+		   |	( main.lb_subcmd.iseq("szroeter") 		///
+			  & ! main.cb_adjustment.iseq("mtest")		///
+			) 						///
+		{
+			put " " main.cb_adjustment
+		}
+		option main.ck_preserve
+		option main.ck_white
+		option main.ck_vif_uncentered
+		option main.rb_esize_epsilon
+		option main.rb_esize_omega
+		optionarg /hidedefault main.sp_level
+		// sbcusum options
+		if main.lb_subcmd.iseq("sbcusum") {
+			option main.rb_sbcusum_ols
+			optionarg main.ed_sbcusum_gen
+			if sbcusum_graph_res {
+				put sbcusum_graph_res
+			}
+		}
+		if main.lb_subcmd.iseq("sbsingle") {
+			// sbsingle options
+			if main.vl_sbsingle_breakvars | main.ck_sbsingle_cons {
+				put " breakvars("
+				put /program breakvars_output
+				put ")"
+			}
+			optionarg /hidedefault main.sp_trim
+			if main.rb_sbsingle_lrtrim {
+				optionarg main.sp_ltrim
+				optionarg main.sp_rtrim
+			}
+			option main.ck_sbsingle_swald
+			option main.ck_sbsingle_awald
+			option main.ck_sbsingle_ewald
+			option main.ck_sbsingle_slr
+			option main.ck_sbsingle_alr
+			option main.ck_sbsingle_elr
+			option main.ck_sbsingle_all
+			optionarg main.ed_sbsingle_gen
+			option main.ck_sbsingle_nodots
+		}
+
+		// sbknown options
+
+		optionarg main.ed_sbknown_break
+		if main.vl_sbknown_breakvars | main.ck_sbknown_cons {
+			put " breakvars("
+			put /program known_breakvars_output
+			put ")"
+		}
+		option main.rb_sbknown_lr
+
+		// time-series options
+		if main.ck_lags {
+			require main.ed_numlist
+			optionarg main.ed_numlist
+		}
+		option main.ck_nomiss0
+		option main.rb_robust
+		option main.rb_small
+		option main.ck_force
+
+		// ic options
+		optionarg main.sp_n
+
+		// Summarize options
+		put " " /program summarize_opts_output
+		put " " /program vce_output
+		put " " /program bootstrap_output
+	endoptions
+END

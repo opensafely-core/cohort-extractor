@@ -1,0 +1,213 @@
+/*
+  xtregar
+
+*!  VERSION 1.1.0  14may2019
+
+  keyword:  eclass
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE header
+
+HELP hlp1, view("help xtregar")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource XTREGAR_DLG_HSCALE
+END
+
+SCRIPT show_xtset
+BEGIN
+	create STRING note
+	note.setvalue resource XTREGAR_TIME_VAR_REQ_FOR_THIS_COMMAND
+	note.withvalue create CHILD xtset, message(`""-timeRequired-" `"@"'"')
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)				///
+	label(resource XTREGAR_DLG_TITLE)
+BEGIN
+  BUTTON   bu_xtset	_xsetbu	_top	_setbuwd .,			///
+	onpush(script show_xtset)					///
+	label(resource LBL_BU_PANEL_SETTINGS)
+
+  TEXT tx_dv 		_lft	_topph	_vnwd	.,			///
+	label(resource LBL_DEPVAR)
+  VARNAME vn_dv		@ 	_ss	@	.,			///
+	ts								///
+	numeric								///
+	label(resource LBL_DEPVAR)
+
+  TEXT tx_iv		_vlx	_topph	160	.,			///
+	label(resource LBL_INDDEPVAR)
+  VARLIST vl_iv		@	_ss	_vlwd	.,			///
+	fv ts								///
+	allowcat							///
+	numeric								///
+	label(resource LBL_INDDEPVAR)
+
+  GROUPBOX gb_model  _lft      _ls       _iwd      _ht2,		/*
+		*/ label(resource XTREGAR_MAIN_GB_MODEL)		/*
+		*/
+  RADIO    rb_re     _indent   _ss       _cwd2       .,			/*
+		*/ label(resource XTREGAR_MAIN_RB_RE)			/*
+		*/ first						/*
+		*/ option("re")						/*
+		*/ onclickon(script weights_disable)
+  RADIO    rb_fe     _lft2     @         @           .,			/*
+		*/ label(resource LBL_FIXED_EFFECTS_HYPHEN)		/*
+		*/ last							/*
+		*/ option("fe")						/*
+		*/ onclickon(script weights_enable)
+
+  GROUPBOX gb_rhotype _lft     _xls      _iwd      _ht8h,		/*
+		*/ label(resource LBL_METHOD_TO_COMPUTE_AUTOCORRELATION)/*
+		*/
+  RADIO    rb_dw     _indent   _ss       _cwd2     .,			/*
+		*/ label(resource LBL_BASED_ON_DURBIN_WATSON)		/*
+		*/ clickon("script rhotypeon")				/*
+		*/ first						/*
+		*/ option("rhotype(dw)")				/*
+		*/
+  DEFINE y @y
+  RADIO    rb_reg    @         _ss       @         .,			/*
+		*/ label(resource XTREGAR_MAIN_RB_REG)			/*
+		*/ clickon("script rhotypeon")				/*
+		*/ option("rhotype(regress)")				/*
+		*/
+  RADIO    rb_freg   @         _ss       @         .,			/*
+		*/ label(resource XTREGAR_MAIN_RB_FREG)			/*
+		*/ clickon("script rhotypeon")				/*
+		*/ option("rhotype(freg)")				/*
+		*/
+  RADIO    rb_tscorr @         _ss       @         .,			/*
+		*/ label(resource LBL_AUTOCORRELATION_OF_RESIDUALS)	/*
+		*/ clickon("script rhotypeon")				/*
+		*/ option("rhotype(tscorr)")				/*
+		*/
+  RADIO    rb_theil  _lft2     y         @         .,			/*
+		*/ label(resource LBL_ADJUSTED_AUTOCORRELATION)		/*
+		*/ clickon("script rhotypeon")				/*
+		*/ option("rhotype(theil)")				/*
+		*/
+  RADIO    rb_nagar  @         _ss       @         .,			/*
+		*/ label(resource LBL_ADJUSTED_DURBIN_WATSON)		/*
+		*/ clickon("script rhotypeon")				/*
+		*/ option("rhotype(nagar)")				/*
+		*/
+  RADIO    rb_onestep @        _ss       @         .,			/*
+		*/ label(resource LBL_ONE_STEP)				/*
+		*/ clickon("program rhofon")				/*
+		*/ option("rhotype(onestep)")				/*
+		*/
+  RADIO    rb_rhof    @        _ss       _rbwd     .,			/*
+		*/ label("")						/*
+		*/ clickon("program rhofon")				/*
+		*/ last							/*
+		*/ option(NONE)						/*
+		*/
+  EDIT     en_rhof   _rbsep    @         _en7wd    .,			/*
+		*/ label(resource XTREGAR_MAIN_EN_RHOF)			/*
+		*/ numonly						/*
+		*/ option("rhof")					/*
+		*/
+  TEXT     tx_rhof   _en7sep   @         _rben7r2b .,			/*
+		*/ label(resource XTREGAR_MAIN_EN_RHOF)			/*
+		*/
+
+  CHECKBOX ck_twostep _lft     _xxls     _cwd2     .,			/*
+		*/ label(resource XTREGAR_MAIN_CK_TWOSTEP)		/*
+		*/ option("twostep")					/*
+		*/
+END
+
+
+SCRIPT rhotypeon
+BEGIN
+	gaction main.ck_twostep.enable
+	gaction main.en_rhof.disable
+END
+
+PROGRAM rhofon
+BEGIN
+	call main.ck_twostep.disable
+	if main.rb_rhof {
+		call main.en_rhof.enable
+		exit
+	}
+	call main.en_rhof.disable
+END
+
+INCLUDE byifin
+INCLUDE weights_fa
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+        program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2b
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  GROUPBOX gb_tests  _lft      _xls     _iwd      _ht2,			/*
+  		*/ label(resource LBL_ADDITIONAL_TEST_STATISTICS)
+  CHECKBOX ck_lbi    _ilft     _ss       _cwd2      .,			/*
+		*/ label(resource XTREGAR_RPT_CK_LBI)			/*
+		*/ option("lbi")					/*
+		*/
+
+  DEFINE _x _lft
+  DEFINE _y _xls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+
+PROGRAM rpt_output
+BEGIN
+	optionarg /hidedefault rpt.sp_level
+	option rpt.ck_lbi
+	INCLUDE _report_columns_pr
+	put " " rpt_bu_facvarsResults
+	put " " rpt_bu_fmtcoefResults
+END
+
+PROGRAM command
+BEGIN
+	INCLUDE _by_pr
+	put "xtregar "
+	varlist main.vn_dv [main.vl_iv]
+	INCLUDE _ifin_pr
+	INCLUDE _weights_pr
+	beginoptions
+		option radio(main rb_re rb_fe)
+		option radio(main rb_dw rb_reg rb_freg rb_tscorr rb_theil /*
+		*/ rb_nagar rb_onestep rb_rhof)
+		option main.ck_twostep
+		if main.rb_rhof {
+			require main.en_rhof
+			optionarg main.en_rhof
+		}
+		put " " /program rpt_output
+	endoptions
+END

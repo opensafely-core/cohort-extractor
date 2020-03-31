@@ -1,0 +1,85 @@
+/*
+  bayes_prior_iwishart.dlg
+
+*!  VERSION 1.0.4  09mar2017
+
+  keyword:  eclass
+
+*/
+
+VERSION 15.0
+
+INCLUDE _std_medium
+DEFINE _dlght 200
+INCLUDE header
+
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING _MSG_TMP
+	setscale_hadj resource BAYES_PRIOR_IWISHART_DLG_HSCALE
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	
+END
+
+DIALOG main, label("")
+BEGIN
+  TEXT tx_level			_lft	_top	_iwd	.,		///
+  	label(resource LBL_LEVEL_VARIABLE)
+  COMBOBOX cb_level		@	_ss	_vnwd	.,		///
+	dropdown							///
+	contents(iwishart_relevel_list)					///
+	label(resource LBL_LEVEL_VARIABLE)
+
+  GROUPBOX gb_iwishart		_lft	_ls	_iwd	_ht9,		///
+  	label(resource BAYES_PRIOR_IWISH_GB_IWISHART)
+  TEXT tx_degree		_ilft	_ss	_ibwd	.,		///
+  	label(resource LBL_DEGREES_OF_FREEDOM_COLON)
+  EDIT ed_iwishart		_ilft	_ss	_en7wd	.,		///
+  	numonly								///
+	default(.)							///	
+	label(resource LBL_DEGREES_OF_FREEDOM_COLON)			///	
+	tooltip(resource BAYES_PRIOR_ED_IWISHART_TOOLTIP)
+
+  TEXT tx_matrix		_ilft	_ms	_ibwd	.,		///
+  	label(resource LBL_SCALE_MATRIX)
+  COMBOBOX cb_iwishart		_ilft	_ss	100	.,		///
+	dropdown							///
+	contents(matrix)						///
+	label(resource LBL_SCALE_MATRIX)				///
+	tooltip(resource BAYES_PRIOR_CB_IWISHART_TOOLTIP)
+
+END
+
+PROGRAM command
+BEGIN
+	require main.cb_level
+
+	if main.ed_iwishart.isle(0) & main.ed_iwishart.isneq(".")	///
+	 & main.ed_iwishart.isneq("") {
+call _MSG_TMP.format							///
+"resource LBL_MSGBOX_BAYES_PRIOR_NOT_POSITIVE_FMT"				///
+"resource BAYES_PRIOR_ED_IWISHART_TOOLTIP"	 
+	 	stopbox stop "class _MSG_TMP.value"
+// stopbox stop `"Degrees of freedom of the default inverse-Wishart prior must be a positive number."'
+	}
+	put "iwishartprior("
+	if main.ed_iwishart.iseq("") {
+		put "."
+	}
+	else {
+		put main.ed_iwishart
+	}
+	if main.cb_iwishart.isneq("") {
+		put " " main.cb_iwishart
+	}
+	put " , relevel("
+	put main.cb_level 
+	put ")" 
+
+	put ")"
+END

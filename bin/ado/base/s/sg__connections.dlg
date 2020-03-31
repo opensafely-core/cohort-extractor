@@ -1,0 +1,270 @@
+/*
+  sg__connections.dlg
+
+*!  VERSION 1.1.1  03jun2015
+
+*/
+
+VERSION 14.0
+MODAL
+
+INCLUDE _std_msmall
+DEFINE _dlght 230
+INCLUDE header_sem_ed
+
+DEFINE _clwd	15
+DEFINE _wd	140
+DEFINE _sep	+145
+DEFINE _wd2	110
+DEFINE _sep2	+115
+DEFINE _cbwd	100
+DEFINE _cbsep	+105
+
+INCLUDE sg__common_output		/* routines necessary for output */
+
+SCRIPT PREINIT
+BEGIN
+	script sg__common_output_init 	/* initialize output globals */
+
+	create STRING OBJ
+	program setupOBJECT
+
+	create STRING sTemp
+	create DOUBLE dTemp
+
+	program global_get_defaults
+	setscale_hadj resource SG__CONNECTIONS_DLG_HSCALE
+END
+
+PROGRAM setupOBJECT
+BEGIN
+	if ! __MESSAGE {
+		stopbox stop resource LBL_MSGBOX_OBJECT_NOT_FOUND
+// An unexpected error has occurred. Object not found.
+		exit 198
+	}
+	call OBJ.setvalue class __MESSAGE.value
+END
+
+PROGRAM global_get_defaults
+BEGIN
+
+END
+
+SCRIPT conn_PREINIT
+BEGIN
+	create STRING sAngleFrom
+	create STRING sAngleTo
+	create STRING sCns
+	create STRING sIni
+
+	program conn_get_defaults
+END
+
+SCRIPT conn_POSTINIT
+BEGIN
+	program conn_initialize_controls
+END
+
+PROGRAM conn_get_defaults
+BEGIN
+	call sAngleFrom.setvalue class .__SEMG.dbsettings.fromangle
+	call sAngleFrom.withvalue conn.cb_from.setdefault "@"
+
+	call sAngleTo.setvalue class .__SEMG.dbsettings.toangle
+	call sAngleTo.withvalue conn.cb_to.setdefault "@"
+
+	call sCns.setvalue class .__SEMG.dbsettings.cns
+	call sCns.withvalue conn.ed_cns.setdefault "@"
+
+	call sIni.setvalue class .__SEMG.dbsettings.ini
+	call sIni.withvalue conn.ed_ini.setdefault "@"
+END
+
+PROGRAM conn_initialize_controls
+BEGIN
+	call conn.cb_from.setvalue class sAngleFrom.value
+	call conn.cb_to.setvalue class sAngleTo.value
+	call conn.ed_cns.setvalue class sCns.value
+	call conn.ed_ini.setvalue class sIni.value
+END
+
+DIALOG conn, label(resource SG__CONNECTIONS_TAB_CONN) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  GROUPBOX gb_angle	_lft	_top	_iwd	_ht5h,		///
+	label(resource SG__CONNECTIONS_CONN_GB_ANGLE)
+  TEXT     tx_from	_ilft	_ss	_wd	.,		///
+	label(resource SG__CONNECTIONS_CONN_TX_FROM) right
+  COMBOBOX cb_from	_sep	@	_cbwd	., nomemory	///
+	dropdown						///
+	contents(.__SEM_STYLES_LABEL.angle)			///
+	values(.__SEM_STYLES.angle)
+  TEXT     tx_from_m	_cbsep	@	50	.,		///
+	label(resource LBL_DEG)
+
+  TEXT     tx_to	_ilft	_ls	_wd	.,		///
+	label(resource SG__CONNECTIONS_CONN_TX_TO) right
+  COMBOBOX cb_to	_sep	@	_cbwd	., nomemory	///
+	dropdown						///
+	contents(.__SEM_STYLES_LABEL.angle)			///
+	values(.__SEM_STYLES.angle)
+  TEXT     tx_to_m	_cbsep	@	50	.,		///
+	label(resource LBL_DEG)
+
+  TEXT     tx_cns	_ilft	+50	_wd	.,		///
+	label(resource SG__CONNECTIONS_CONN_TX_CNS) right
+  EDIT     ed_cns	_sep	@	_cbwd	., nomemory
+  BUTTON   bu_cns	_cbsep	@	_clwd	.,		///
+	label("?") onpush(view help sg__constraints##|_new)
+
+  TEXT     tx_ini	_ilft	_ls	_wd	.,		///
+	label(resource SG__CONNECTIONS_CONN_TX_INI) right
+  EDIT     ed_ini	_sep	@	_cbwd	., nomemory
+  BUTTON   bu_ini	_cbsep	@	_clwd	.,		///
+	label("?") onpush(view help sg__initialvalues##|_new)
+END
+
+PROGRAM conn_output
+BEGIN
+	call program conn_get_defaults
+
+	if ! conn.cb_from.isdefault() {
+		call dTemp.setvalue class conn.cb_from.value
+		call sTemp.setvalue class conn.cb_from.value
+		if (!dTemp & dTemp.isneq(0) & sTemp.isneq("<multiple>")) {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_CONTAINS_A_NONNUMERIC_VALUE_FMT" ///
+				"resource LBL_TAB_MAIN" 		///
+				"resource SG__CONNECTIONS_CONN_TX_FROM"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "From variable" contains a nonnumeric value.
+		}
+		call sg__PARAM2.setvalue "SetStyleSelected"
+		call sg__ARG_00.setvalue "edgestyle.fromangle"
+		call sg__ARG_01.setvalue class conn.cb_from.value
+		put /program sg__do_output_sub
+	}
+
+	if ! conn.cb_to.isdefault() {
+		call dTemp.setvalue class conn.cb_to.value
+		call sTemp.setvalue class conn.cb_to.value
+		if (!dTemp & dTemp.isneq(0) & sTemp.isneq("<multiple>")) {
+			call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_CONTAINS_A_NONNUMERIC_VALUE_FMT" ///
+				"resource LBL_TAB_MAIN" 		///
+				"resource SG__CONNECTIONS_CONN_TX_TO"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "To variable" contains a nonnumeric value.
+		}
+		call sg__PARAM2.setvalue "SetStyleSelected"
+		call sg__ARG_00.setvalue "edgestyle.toangle"
+		call sg__ARG_01.setvalue class conn.cb_to.value
+		put /program sg__do_output_sub
+	}
+
+	if ! conn.ed_cns.isdefault() {
+		call sg__PARAM2.setvalue "SetSelected"
+		call sg__ARG_00.setvalue "cns"
+		call sg__ARG_01.setvalue class conn.ed_cns.value
+		put /program sg__do_output_sub
+	}
+
+	if ! conn.ed_ini.isdefault() {
+		call dTemp.setvalue class conn.ed_ini.value
+		call sTemp.setvalue class conn.ed_ini.value
+		if (!dTemp & dTemp.isneq(0) & sTemp & sTemp.isneq("<multiple>")) {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_CONTAINS_A_NONNUMERIC_VALUE_FMT" ///
+				"resource LBL_TAB_MAIN" 		///
+				"resource SG__CONNECTIONS_CONN_TX_INI"
+                        stopbox stop "class _MSG_TMP.value"
+
+// On the "Main" tab, "Initial value" contains a nonnumeric value.
+		}
+		call sg__PARAM2.setvalue "SetSelected"
+		call sg__ARG_00.setvalue "ini"
+		call sg__ARG_01.setvalue class conn.ed_ini.value
+		put /program sg__do_output_sub
+	}
+END
+
+/*****************************************************************************/
+
+SCRIPT prop_custom_on
+BEGIN
+	prop.bu_propset.enable
+	prop.bu_propclear.enable
+END
+
+SCRIPT prop_custom_off
+BEGIN
+	prop.bu_propset.disable
+	prop.bu_propclear.disable
+END
+
+DIALOG prop, tabtitle(resource LBL_APPEARANCE_NO_COLON)
+BEGIN
+  TEXTBOX tb_n1			_lft	_top	_iwd	105,		///
+	label(resource SG__CONNECTIONS_PROP_TB_N1)
+
+  CHECKBOX ck_custom		_lft	+110	_iwd	_ht6,		///
+	nomemory							///
+	onclickon(script prop_custom_on)				///
+	onclickoff(script prop_custom_off)				///
+	groupbox label(resource SG__CONNECTIONS_PROP_CK_CUSTOM)
+
+  BUTTON  bu_propset 		+20	_ms	160	.,		///
+	label(resource LBL_SET_CUSTOM_APPEARANCE)			///
+	onpush(program do_prop_selected)	
+  BUTTON  bu_propclear 		@	 _mls	160	.,		///
+	label(resource LBL_CLEAR_CUSTOM_APPEARANCE)			///
+	onpush(program do_prop_clear)
+END
+
+PROGRAM do_prop_selected
+BEGIN
+	call sg__PARAM1.setvalue class OBJ.value
+	call sg__PARAM2.setvalue "LaunchDlg"
+	call sg__ARG_00.setvalue "connections_prop"
+	call sg__ARG_01.setvalue "selected"
+	put /program sg__do_output_sub
+END
+
+PROGRAM do_prop_clear
+BEGIN
+	call sg__PARAM1.setvalue class OBJ.value
+	call sg__PARAM2.setvalue "ClearStylesSelected"
+	call sg__ARG_00.setvalue "connections_prop"
+	call sg__ARG_01.setvalue "selected"
+	put /program sg__do_output_sub
+END
+
+/*****************************************************************************/
+
+PROGRAM command
+BEGIN
+	call program global_get_defaults
+	call sg__PARAM1.setvalue class OBJ.value
+	
+	call sg__PARAM2.setvalue "BeginSet"
+	call sg__DESCPT.setvalue "change connection settings"
+	put /program sg__do_output_sub
+	
+	put /program conn_output
+
+	call sg__PARAM2.setvalue "EndSet"
+	call sg__DESCPT.setvalue "change connection settings"
+	put /program sg__do_output_sub
+
+	call sg__PARAM1.setvalue class OBJ.value
+	call sg__PARAM2.setvalue "UpdateDlg"
+	call sg__ARG_00.setvalue "connections"
+	put /program sg__do_output_sub
+
+	call sg__PARAM1.setvalue class OBJ.value
+	call sg__PARAM2.setvalue "Reselect"
+	put /program sg__do_output_sub
+END

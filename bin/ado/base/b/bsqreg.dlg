@@ -1,0 +1,110 @@
+/*
+  bsqreg
+
+*!  VERSION 1.1.1  05oct2016
+
+  keyword:  eclass
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+INCLUDE header
+HELP hlp1, view("help bsqreg")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	program parseMessage
+	setscale_hadj resource BSQREG_DLG_HSCALE
+END
+
+PROGRAM parseMessage
+BEGIN
+	if __MESSAGE.contains("__MI__") {
+		call script byifin_set_by_off
+	}
+END
+
+DIALOG main, label(resource BSQREG_DLG_TITLE)				/*
+		*/ tabtitle(resource LBL_TAB_MODEL)
+BEGIN
+  TEXT tx_dv			_lft	_top	_vnwd	.,		///
+	label(resource LBL_DEPVAR)
+  VARNAME vn_dv			@	_ss	@	.,		///
+	numeric								///
+	label(resource LBL_DEPVAR)
+
+  TEXT tx_iv			_vlx	_top	160	.,		///
+	label(resource LBL_INDDEPVAR)
+  VARLIST vl_iv			@	_ss	_vlwd	.,		///
+	numeric fv							///
+	allowcat							///
+	label(resource LBL_INDDEPVAR)
+
+  SPINNER sp_quantile		_lft	_xls	_spwd	.,		///
+	min(1)								///
+	max(100)							///
+	default(50)							///
+	option("quantile")						///
+	label(resource LBL_QUANTILE_TO_ESTIMATE)
+
+  TEXT tx_quantile		_spsep	@	_spr	.,		///
+	label(resource LBL_QUANTILE_TO_ESTIMATE)
+
+  SPINNER sp_reps		_lft	_ls	_spwd	.,		///
+	option("reps")							///
+	min(1)								///
+	max(100000)							///
+	default(20)							///
+	label(resource LBL_BOOTSTRAP_REPLICATIONS)
+
+  TEXT tx_reps			_spsep	@	_sprb	.,		///
+	label(resource LBL_BOOTSTRAP_REPLICATIONS)
+END
+
+INCLUDE byifin
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+	program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr
+  DEFINE _y 20
+  INCLUDE _sp_level
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE factor_vars_reporting_pr
+INCLUDE fmt_coef_table_reporting_pr
+
+PROGRAM command
+BEGIN
+	put /program by_output " "
+	put "bsqreg "
+	varlist main.vn_dv [main.vl_iv]
+	put " " /program ifin_output
+	beginoptions
+		optionarg main.sp_quantile
+		optionarg main.sp_reps
+		optionarg /hidedefault rpt.sp_level
+		put " " rpt_bu_facvarsResults
+		put " " rpt_bu_fmtcoefResults
+	endoptions
+END
+

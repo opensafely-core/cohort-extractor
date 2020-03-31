@@ -1,0 +1,2317 @@
+/*
+  menl.dlg
+
+*!  VERSION 2.0.8  02dec2019
+
+*/
+
+VERSION 15.0
+SYNCHRONOUS_ONLY
+INCLUDE _std_large
+DEFINE _dlght 510
+INCLUDE header
+
+HELP hlp1, view("help menl")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource MENL_DLG_HSCALE
+	create STRING _MSG_TMP
+	create STRING _MSG_TMP2
+	create STRING STMP
+	create STRING ErrorMsg
+	create STRING undefined_params
+	create STRING undefined_params_str
+	create STRING defined_params
+	create STRING defined_params
+	create STRING undefined_re_1
+	create STRING undefined_re_2
+	create STRING undefined_re_3
+	create STRING re_1
+	create STRING re_2
+	create STRING re_3
+	create STRING max_k_str
+	create STRING exp_res
+	create STRING initial_res
+	create STRING s_tsvar
+	s_tsvar.setvalue char _dta[_TStvar]
+
+	create STRING main_param_tmp
+	create STRING main_param_tmp2
+	create STRING main_param_childdlg
+	create STRING main_param_child_result
+	create STRING main_param_cmd_output
+
+	create ARRAY main_param_list
+
+	create SVECTOR mainPARAMCommandDisplayList
+	create SVECTOR mainPARAMCommandList
+	create SVECTOR mainPARAMCommandValues
+	create SVECTOR mainPARAMStatusList
+	create SVECTOR mainPARAMChildDialogList
+	create SVECTOR mainPARAMHasNoError
+
+	create DOUBLE main_param_count
+	create DOUBLE main_param_position
+	create DOUBLE main_param_arraysize
+
+	main.bu_param_edit.disable
+	main.bu_param_disable.disable
+	main.bu_param_enable.disable
+
+	create STRING main_cov_tmp
+	create STRING main_cov_tmp2
+	create STRING main_cov_childdlg
+	create STRING main_cov_child_result
+	create STRING main_cov_cmd_output
+
+	create ARRAY main_cov_list
+
+	create SVECTOR mainCOVCommandDisplayList
+	create SVECTOR mainCOVCommandList
+	create SVECTOR mainCOVCommandValues
+	create SVECTOR mainCOVStatusList
+	create SVECTOR mainCOVChildDialogList
+	create SVECTOR mainCOVHasNoError
+
+	create DOUBLE main_cov_count
+	create DOUBLE main_cov_position
+	create DOUBLE main_cov_arraysize
+
+	main.bu_cov_edit.disable
+	main.bu_cov_disable.disable
+	main.bu_cov_enable.disable
+
+	create DOUBLE eqcounter
+	create STRING kpath
+	create DOUBLE dkpath
+	create DOUBLE missing
+	create STRING hasTS
+	create DOUBLE dhasTS
+	create STRING ts_recur
+	missing.setvalue .
+	dkpath.setvalue 0
+	dhasTS.setvalue  0
+	ts_recur.setvalue ""
+	
+	create DOUBLE isDefined
+	isDefined.setvalue 0
+END
+
+SCRIPT POSTINIT
+BEGIN
+	mainPARAMCommandDisplayList.copyToArray main_param_list
+	main.lb_param_build.repopulate
+
+	mainCOVCommandDisplayList.copyToArray main_cov_list
+	main.lb_cov_build.repopulate
+
+	program menl_bu_inivals_ckResults
+	eqcounter.setvalue 0
+	script ts_disable
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)	///
+	label(resource MENL_DLG_TITLE)
+BEGIN
+
+  GROUPBOX gb_est_method	_lft	_top	_inwd	_ht2,		///
+	label(resource LBL_ESTIMATION_METHOD)
+  RADIO rb_mle			_indent _ss	_cwd2	., first	///
+	onclickon("script main_mle_on")					///
+	label(resource LBL_MAXIMUM_LIKELIHOOD_ML)
+  RADIO rb_reml			+220	@	240	., last		///
+	option(reml)							///
+	onclickon("script main_reml_on")				///
+	label(resource LBL_RESTRICTED_MAXIMUM_LIKELIHOOD)
+
+  TEXT tx_dv			_lft	_xls	_vnwd	.,		///
+	label(resource LBL_DEPVAR)
+  DEFINE holdy @y
+  VARNAME vn_dv			@	_ss	@	.,		///
+	numeric								///
+	label(resource LBL_DEPVAR)
+  TEXT tx_subexpr		_vlx	holdy	255	.,		///
+	label(resource LBL_NONLINEAR_EXPRESSION)
+  EDIT ed_subexpr		@	_ss	@	.,		///
+	error(resource LBL_NONLINEAR_EXPRESSION)			///
+	label(resource LBL_BU_CREATE)
+  BUTTON bu_exp			_rj80	@	80	.,		///
+	onpush(program main_create_exp)					///
+	label(resource LBL_BU_CREATE)
+
+  GROUPBOX gb_opts		_lft	+35	_iwd	365,		///
+	label(resource LBL_OPTIONS)
+  TEXT tx_param			_ilft	_ss	300	.,		///
+	label(resource LBL_DEFINE_FUNCTIONS_OF_MODEL_PARAMETERS)
+
+  LISTBOX lb_param_build	@	_ss	200	95,		///
+	contents(main_param_list)					///
+	ondblclick(program main_param_edit)				///
+	onselchange(program main_param_sel_changed)			///
+	nomemory
+  BUTTON bu_param_new		+210	@	80	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program main_param_create)				///
+	tooltip(resource LBL_CREATE_FUNCTION)
+  BUTTON bu_param_edit		@	_ms	@	.,		///
+	label(resource LBL_BU_EDIT)					///
+	onpush(program main_param_edit)					///
+	tooltip(resource LBL_EDIT_FUNCTION)
+  BUTTON bu_param_disable	@	_ms	@	.,		///
+	label(resource LBL_BU_DISABLE)					///
+	onpush(program main_param_disable)				///
+	tooltip(resource LBL_DISABLE_FUNCTION)
+  BUTTON bu_param_enable	@	_ms	@	.,		///
+	label(resource LBL_BU_ENABLE)					///
+	onpush(program main_param_enable)				///
+	tooltip(resource LBL_ENABLE_FUNCTION)
+  TEXTBOX tb_param_note		_ilft	+25	_ibwd	_tb2,		///
+	label(resource LBL_NOTE_FUNCTION)
+
+  TEXT tx_cov			_ilft	+35	300	.,		///
+	label(resource LBL_RANDOM_EFFECTS_COVARIANCE_STRUCTURE)
+  LISTBOX lb_cov_build		@	_ss	200	95,		///
+	contents(main_cov_list)						///
+	ondblclick(program main_cov_edit)				///
+	onselchange(program main_cov_sel_changed)			///
+	nomemory
+  BUTTON bu_cov_new		+210	@	80	.,		///
+	onpush(program main_cov_create)					///
+	tooltip(resource LBL_CREATE_SPECIFICATION)			///
+	label(resource LBL_BU_CREATE)
+  BUTTON bu_cov_edit		@	_ms	@	.,		///
+	onpush(program main_cov_edit)					///
+	tooltip(resource LBL_EDIT_SPECIFICATION)			///
+	label(resource LBL_BU_EDIT)
+  BUTTON bu_cov_disable		@	_ms	@	.,		///
+	onpush(program main_cov_disable)				///
+	tooltip(resource LBL_CLICK_TO_DISABLE_A_SPECIFICATION)		///
+	label(resource LBL_BU_DISABLE)
+  BUTTON bu_cov_enable		@	_ms	@	.,		///
+	onpush(program main_cov_enable)					///
+	tooltip(resource LBL_CLICK_TO_ENABLE_A_SPECIFICATION)		///
+	label(resource LBL_BU_ENABLE)
+  TEXTBOX tb_cov_note		_ilft	+25	_ibwd	_tb2,		///
+	label(resource LBL_NOTE_COVARIANCE_STRUCTURE)
+
+  BUTTON bu_initial		_ilft	_xls	160	.,		///
+	onpush(program main_show_initial_dlg)				///
+	label(resource LBL_INITIAL_VALUES)
+END
+
+SCRIPT main_mle_on
+BEGIN
+END
+
+SCRIPT main_reml_on
+BEGIN
+END
+
+PROGRAM main_create_exp
+BEGIN
+	call create CHILD menl_exp AS exp
+	call exp.setExitString exp_res
+	call exp.setExitAction "program main_exp_results"
+END
+
+PROGRAM main_exp_results
+BEGIN
+	call exp_res.withvalue main.ed_subexpr.setvalue "@"
+	call ErrorMsg.setvalue ""
+	put "menl_dlg_parse, hint(param_create) "
+	put `"eq(""'
+	put main.vn_dv
+	put " = "
+	put main.ed_subexpr
+	put `"") "'
+	put `"defines(""'
+	put " " /program main_lb_param_build_output
+	put `"")"'
+	stata hidden immediate
+	call kpath.setvalue s(kpath)
+	call kpath.withvalue dkpath.setvalue @
+	call ts_recur.setvalue s(tsrecur)
+	call hasTS.setvalue s(hasts)
+	call hasTS.withvalue dhasTS.setvalue @
+	if (dkpath.iseq(0)) {
+		call max.bu_pnls_opts.disable
+		call max.bu_lme_opts.disable
+		call max.ed_nrtol.enable
+		call max.tx_nrtol.enable
+		call max.ck_nonrtol.enable
+	}
+	else {
+		call max.bu_pnls_opts.enable
+		call max.bu_lme_opts.enable
+		call max.ed_nrtol.disable
+		call max.tx_nrtol.disable
+		call max.ck_nonrtol.disable
+	}
+	if dhasTS {
+		call program ts_enable
+	}
+	else {
+		call script ts_disable
+	}
+END
+
+// parameter expression
+PROGRAM main_param_create
+BEGIN
+	call ErrorMsg.setvalue ""
+	require main.vn_dv
+	require main.ed_subexpr
+	put "menl_dlg_parse, hint(param_create) "
+	put `"eq(""'
+	put main.vn_dv
+	put " = "
+	put main.ed_subexpr
+	put `"") "'
+	put `"defines(""'
+	put " " /program main_lb_param_build_output
+	put `"")"'
+	stata hidden immediate
+	call ErrorMsg.setvalue s(errmsg)
+	call ts_recur.setvalue s(tsrecur)
+	call hasTS.setvalue s(hasts)
+	call hasTS.withvalue dhasTS.setvalue @
+	if ErrorMsg.isneq("") {
+		call _MSG_TMP.format					///
+	 	"resource LBL_INVALID_SYNTAX_IN_FMT"	 		///
+		"resource LBL_NONLINEAR_EXPRESSION" 
+	 	stopbox stop "class _MSG_TMP.value" "class ErrorMsg.value"
+
+//		stopbox stop `"Invalid syntax in "Nonlinear expression""' class ErrorMsg.value
+	}
+	call undefined_params.setvalue ""
+	call defined_params.setvalue ""
+	call undefined_params.append s(undefined_expr)
+	call defined_params.append s(expressions)
+	call defined_params.append s(linear_comb)
+	if undefined_params.iseq("") {
+		if defined_params.isneq("") {
+			stopbox stop resource MENL_MSGBOX_ALL_NAMED_EXPRESSIONS_DEFINED
+//			stopbox stop "All named expression defined"
+		}
+		else {
+			call _MSG_TMP.format				///
+			"resource LBL_MSGBOX_MENL_MISSING_SPECIFICATION_FMT" ///
+				"<eqname>:" "resource LBL_NONLINEAR_EXPRESSION" 
+			stopbox stop "resource LBL_NO_NAME_EXPRESSION_SPECIFIED" "class _MSG_TMP.value"
+			
+	//		stopbox stop 					///
+	//		"No expression specifications of the form {<eqname>:} found in the 'Nonlinear expression'. To specify functions of model parameters, you must include at least one specification {<eqname>:} with your own name <eqname> in 'Nonlinear expression'."
+		}
+	}	
+	call main_param_count.setvalue class mainPARAMChildDialogList.size
+	call main_param_count.increment
+	call main_param_count.withvalue main_param_childdlg.setvalue	///
+		"main_param@"
+	if dhasTS {
+		call program ts_enable
+	}
+	else {
+		call script ts_disable
+	}
+	call program main_show_param_child
+END
+
+PROGRAM main_param_edit
+BEGIN
+	call mainPARAMCommandDisplayList.findstr class main.lb_param_build.value
+	call main_param_position.setvalue class				///
+		mainPARAMCommandDisplayList.position
+	call main_param_position.withvalue main_param_childdlg.setvalue	///
+		class mainPARAMChildDialogList.values[@]
+
+	call program main_show_param_child_edit
+END
+
+PROGRAM main_show_param_child
+BEGIN
+	call main_param_childdlg.withvalue create CHILD define_exp_child AS @
+	call main_param_childdlg.withvalue @.setExitString		///
+		"main_param_child_result"
+	call main_param_childdlg.withvalue @.setExitAction		///
+		"program main_param_child_done"
+
+	call main_param_count.withvalue STMP.format			///
+		"resource LBL_EXPRESSION_FMT" "@" ""
+	call STMP.withvalue main_param_tmp.setvalue "@"
+	call main_param_childdlg.withvalue main_param_tmp2.setvalue "@.settitle"
+	call main_param_tmp2.append `" ""'
+	call main_param_tmp2.append class main_param_tmp.value
+	call main_param_tmp2.append `"""'
+	call main_param_tmp2.withvalue @
+END
+
+PROGRAM main_show_param_child_edit
+BEGIN
+	call main_param_childdlg.withvalue create CHILD define_exp_child AS @
+	call main_param_childdlg.withvalue @.setExitString		///
+		"main_param_child_result"
+	call main_param_childdlg.withvalue @.setExitAction		///
+		"program main_param_child_done"
+
+	call main_param_position.withvalue main_param_tmp.setvalue	///
+		class mainPARAMCommandDisplayList.values[@]
+	call main_param_childdlg.withvalue main_param_tmp2.setvalue "@.settitle"
+	call main_param_tmp2.append `" ""'
+	call main_param_tmp2.append class main_param_tmp.value
+	call main_param_tmp2.append `"""'
+	call main_param_tmp2.withvalue @
+END
+
+PROGRAM main_param_child_done
+BEGIN
+	call mainPARAMChildDialogList.findstr class main_param_childdlg.value
+	call main_param_position.setvalue class				///
+		mainPARAMChildDialogList.position
+	if main_param_position {
+		call main_param_position.withvalue main_param_tmp.setvalue ///
+			class mainPARAMStatusList.values[@]
+		if main_param_tmp.iseq("active") {
+			call main_param_position.withvalue STMP.format	///
+				"resource LBL_EXPRESSION_FMT" "@" ""
+			call STMP.withvalue				///
+				mainPARAMCommandDisplayList.store class	///
+				main_param_position.value "@"
+			call mainPARAMCommandValues.store class		///
+				main_param_position.value class		///
+				main_param_child_result.value
+			call STMP.withvalue				///
+				main_param_tmp2.setvalue "@"
+		}
+		else {
+			call main_param_position.withvalue STMP.format	///
+				"resource LBL_EXPRESSION_FMT" "@"	///
+				"resource LBL_PAREN_DISABLED"
+			call STMP.withvalue				///
+				main_param_tmp2.setvalue "@"
+
+			call main_param_tmp2.withvalue			///
+				mainPARAMCommandDisplayList.store	///
+				class main_param_position.value "@"
+		}
+
+		call mainPARAMCommandList.store class			///
+			main_param_position.value class			///
+			main_param_child_result.value
+
+		call mainPARAMCommandDisplayList.copyToArray main_param_list
+		call main.lb_param_build.repopulate
+		call main.lb_param_build.setvalue class main_param_tmp2.value
+	}
+	else {
+		call main_param_arraysize.setvalue class		///
+			mainPARAMChildDialogList.size
+		call main_param_arraysize.increment
+
+		/* Store child dialog name */
+		call mainPARAMChildDialogList.store class		///
+			main_param_arraysize.value class		///
+			main_param_childdlg.value
+
+		call main_param_arraysize.withvalue STMP.format		///
+			"resource LBL_EXPRESSION_FMT" "@" ""
+		call STMP.withvalue					///
+			mainPARAMCommandDisplayList.store class		///
+			main_param_arraysize.value "@"
+
+		/* Store child dialog result string */
+		call mainPARAMCommandList.store class			///
+			main_param_arraysize.value			///
+			class main_param_child_result.value
+
+		/* Store child dialog result string for final command
+		   For disable/enable */
+		call mainPARAMCommandValues.store class			///
+			main_param_arraysize.value class		///
+			main_param_child_result.value
+
+		/* Store disable/enable status */
+		call mainPARAMStatusList.store				///
+			class main_param_arraysize.value "active"
+
+		call mainPARAMCommandDisplayList.copyToArray main_param_list
+		call main.lb_param_build.repopulate
+		call STMP.withvalue main.lb_param_build.setvalue "@"
+	}
+END
+
+PROGRAM main_param_sel_changed
+BEGIN
+	call mainPARAMCommandDisplayList.findstr class main.lb_param_build.value
+	call main_param_position.setvalue class				///
+		mainPARAMCommandDisplayList.position
+	call main_param_position.withvalue main_param_tmp.setvalue	///
+		class mainPARAMStatusList.values[@]
+	if main_param_position {
+		call main.bu_param_edit.enable
+		call main_param_position.withvalue			///
+			main.tb_param_note.setlabel			///
+			class mainPARAMCommandList.values[@]
+	}
+
+	if main_param_tmp.iseq("disable") {
+		call main.bu_param_enable.enable
+		call main.bu_param_disable.disable
+	}
+	if main_param_tmp.iseq("active") {
+		call main.bu_param_enable.disable
+		call main.bu_param_disable.enable
+	}
+END
+
+PROGRAM main_param_disable
+BEGIN
+	call mainPARAMCommandDisplayList.findstr class main.lb_param_build.value
+	call main_param_position.setvalue class				///
+		mainPARAMCommandDisplayList.position
+
+	call main_param_tmp.setvalue class main.lb_param_build.value
+	call mainPARAMStatusList.store class main_param_position.value "disable"
+	call mainPARAMCommandValues.store class main_param_position.value ""
+	call STMP.format "resource LBL_PAREN_DISABLED"
+	call main_param_tmp.append " "
+	call main_param_tmp.append class STMP.value
+	call main_param_tmp.withvalue STMP.setvalue "@"
+	call main_param_tmp.withvalue mainPARAMCommandDisplayList.store	///
+		class main_param_position.value "@"
+
+	call mainPARAMCommandDisplayList.copyToArray main_param_list
+	call main.lb_param_build.repopulate
+	call main.lb_param_build.setvalue class STMP.value
+END
+
+PROGRAM main_param_enable
+BEGIN
+	call mainPARAMCommandDisplayList.findstr class main.lb_param_build.value
+	call main_param_position.setvalue class				///
+		mainPARAMCommandDisplayList.position
+
+	call mainPARAMStatusList.store class main_param_position.value "active"
+	call main_param_position.withvalue mainPARAMCommandValues.store	///
+		class main_param_position.value class			///
+		mainPARAMCommandList.values[@]
+
+	call main_param_position.withvalue STMP.format			///
+		"resource LBL_EXPRESSION_FMT" "@" ""
+	call STMP.withvalue						///
+		mainPARAMCommandDisplayList.store			///
+		class main_param_position.value "@"
+
+	call mainPARAMCommandDisplayList.copyToArray main_param_list
+	call main_param_position.withvalue main_param_tmp2.setvalue	///
+		class mainPARAMCommandDisplayList.values[@]
+	call main.lb_param_build.repopulate
+	call main.lb_param_build.setvalue class main_param_tmp2.value
+END
+
+PROGRAM main_lb_param_build_output
+BEGIN
+	call mainPARAMCommandValues.copyToString main_param_cmd_output
+	call main_param_arraysize.setvalue class mainPARAMStatusList.size
+	if main_param_cmd_output  {
+		put main_param_cmd_output
+	}
+END
+
+// covariance specification
+PROGRAM main_cov_create
+BEGIN
+	call ErrorMsg.setvalue ""
+	require main.vn_dv
+	require main.ed_subexpr
+	put "menl_dlg_parse, hint(cov_create) "
+	put `"eq(""'
+	put main.vn_dv
+	put " = "
+	put main.ed_subexpr
+	put `"") "'
+	put `"defines(""'
+	put " " /program main_lb_param_build_output
+	put `"") "'
+	if ts.vn_tsvar {
+		optionarg ts.vn_tsvar
+	}
+	put " tsinit("
+	put " " /program ts_lb_time_build_output
+	put ")"
+	option ts.ck_tsmissing
+	put " covs("
+	put " " /program main_lb_cov_build_output
+	put ") " 
+	stata hidden immediate
+	call ErrorMsg.setvalue s(errmsg)
+	call ts_recur.setvalue s(tsrecur)
+	call hasTS.setvalue s(hasts)
+	call hasTS.withvalue dhasTS.setvalue @
+	if ErrorMsg.isneq("") {	
+	 	stopbox stop "resource LBL_INVALID_SYNTAX" "class ErrorMsg.value"
+//		stopbox stop `"Invalid syntax"' class ErrorMsg.value
+	}
+	call undefined_re_1.setvalue s(undef_RE_1)
+	call undefined_re_2.setvalue s(undef_RE_2)
+	call undefined_re_3.setvalue s(undef_RE_3)
+	call re_1.setvalue s(RE_1)
+	call re_2.setvalue s(RE_2)
+	call re_3.setvalue s(RE_3)
+	call max_k_str.setvalue s(kpath)
+
+	if undefined_re_1.iseq("") &  undefined_re_2.iseq("") & undefined_re_3.iseq(""){
+		if !re_1.contains(" ") & re_1.isneq("") {
+			stopbox stop resource MENL_MSGBOX_ONE_RANDOM_VAR_DEFINED 
+//			stopbox stop "Only one random variable defined" "The default covariance structure is identity" 
+		}
+		if re_1.iseq("") {
+			stopbox stop resource MENL_MSGBOX_NO_RANDOM_EFFECT_DEFINED
+//			stopbox stop "No random effect defined" "You must include at least one random effect in your model" 
+		}
+		if re_1.isneq("") {
+			stopbox stop resource MENL_MSGBOX_ALL_COV_STRUCTS_DEFINED
+
+			stopbox stop "You already defined covariance structures for all hierarchical levels that contain multiple random effects"
+
+		}
+	}
+
+	call main_cov_count.setvalue class mainCOVChildDialogList.size
+	call main_cov_count.increment
+	call main_cov_count.withvalue main_cov_childdlg.setvalue	///
+		"main_cov@"
+	if dhasTS {
+		call program ts_enable
+	}
+	else {
+		call script ts_disable
+	}
+	call program main_show_cov_child
+END
+
+PROGRAM main_cov_edit
+BEGIN
+	call mainCOVCommandDisplayList.findstr class main.lb_cov_build.value
+	call main_cov_position.setvalue class				///
+		mainCOVCommandDisplayList.position
+	call main_cov_position.withvalue main_cov_childdlg.setvalue	///
+		class mainCOVChildDialogList.values[@]
+
+	call program main_show_cov_child_edit
+END
+
+PROGRAM main_show_cov_child
+BEGIN
+	call main_cov_childdlg.withvalue create CHILD menl_cov_child AS @
+	call main_cov_childdlg.withvalue @.setExitString		///
+		"main_cov_child_result"
+	call main_cov_childdlg.withvalue @.setExitAction		///
+		"program main_cov_child_done"
+
+	call main_cov_count.withvalue STMP.format			///
+		"resource LBL_SPECIFICATION_FMT" "@" ""
+	call STMP.withvalue main_cov_tmp.setvalue "@"
+	call main_cov_childdlg.withvalue main_cov_tmp2.setvalue "@.settitle"
+	call main_cov_tmp2.append `" ""'
+	call main_cov_tmp2.append class main_cov_tmp.value
+	call main_cov_tmp2.append `"""'
+	call main_cov_tmp2.withvalue @
+END
+
+PROGRAM main_show_cov_child_edit
+BEGIN
+	call main_cov_childdlg.withvalue create CHILD menl_cov_child AS @
+	call main_cov_childdlg.withvalue @.setExitString		///
+		"main_cov_child_result"
+	call main_cov_childdlg.withvalue @.setExitAction		///
+		"program main_cov_child_done"
+
+	call main_cov_position.withvalue main_cov_tmp.setvalue	///
+		class mainCOVCommandDisplayList.values[@]
+	call main_cov_childdlg.withvalue main_cov_tmp2.setvalue "@.settitle"
+	call main_cov_tmp2.append `" ""'
+	call main_cov_tmp2.append class main_cov_tmp.value
+	call main_cov_tmp2.append `"""'
+	call main_cov_tmp2.withvalue @
+END
+
+PROGRAM main_cov_child_done
+BEGIN
+	call mainCOVChildDialogList.findstr class main_cov_childdlg.value
+	call main_cov_position.setvalue class				///
+		mainCOVChildDialogList.position
+	if main_cov_position {
+		call main_cov_position.withvalue main_cov_tmp.setvalue ///
+			class mainCOVStatusList.values[@]
+		if main_cov_tmp.iseq("active") {
+			call main_cov_position.withvalue STMP.format	///
+				"resource LBL_SPECIFICATION_FMT" "@" ""
+			call STMP.withvalue				///
+				mainCOVCommandDisplayList.store class	///
+				main_cov_position.value "@"
+			call mainCOVCommandValues.store class		///
+				main_cov_position.value class		///
+				main_cov_child_result.value
+			call STMP.withvalue				///
+				main_cov_tmp2.setvalue "@"
+		}
+		else {
+			call main_cov_position.withvalue STMP.format	///
+				"resource LBL_SPECIFICATION_FMT" "@"	///
+				"resource LBL_PAREN_DISABLED"
+			call STMP.withvalue				///
+				main_cov_tmp2.setvalue "@"
+
+			call main_cov_tmp2.withvalue			///
+				mainCOVCommandDisplayList.store	///
+				class main_cov_position.value "@"
+		}
+
+		call mainCOVCommandList.store class			///
+			main_cov_position.value class			///
+			main_cov_child_result.value
+
+		call mainCOVCommandDisplayList.copyToArray main_cov_list
+		call main.lb_cov_build.repopulate
+		call main.lb_cov_build.setvalue class main_cov_tmp2.value
+	}
+	else {
+		call main_cov_arraysize.setvalue class		///
+			mainCOVChildDialogList.size
+		call main_cov_arraysize.increment
+
+		/* Store child dialog name */
+		call mainCOVChildDialogList.store class		///
+			main_cov_arraysize.value class		///
+			main_cov_childdlg.value
+
+		call main_cov_arraysize.withvalue STMP.format		///
+			"resource LBL_SPECIFICATION_FMT" "@" ""
+		call STMP.withvalue					///
+			mainCOVCommandDisplayList.store class		///
+			main_cov_arraysize.value "@"
+
+		/* Store child dialog result string */
+		call mainCOVCommandList.store class			///
+			main_cov_arraysize.value			///
+			class main_cov_child_result.value
+
+		/* Store child dialog result string for final command
+		   For disable/enable */
+		call mainCOVCommandValues.store class			///
+			main_cov_arraysize.value class		///
+			main_cov_child_result.value
+
+		/* Store disable/enable status */
+		call mainCOVStatusList.store				///
+			class main_cov_arraysize.value "active"
+
+		call mainCOVCommandDisplayList.copyToArray main_cov_list
+		call main.lb_cov_build.repopulate
+		call STMP.withvalue main.lb_cov_build.setvalue "@"
+	}
+
+
+END
+
+PROGRAM main_cov_sel_changed
+BEGIN
+	call mainCOVCommandDisplayList.findstr class main.lb_cov_build.value
+	call main_cov_position.setvalue class				///
+		mainCOVCommandDisplayList.position
+	call main_cov_position.withvalue main_cov_tmp.setvalue	///
+		class mainCOVStatusList.values[@]
+	if main_cov_position {
+		call main.bu_cov_edit.enable
+		call main_cov_position.withvalue			///
+			main.tb_cov_note.setlabel			///
+			class mainCOVCommandList.values[@]
+	}
+
+	if main_cov_tmp.iseq("disable") {
+		call main.bu_cov_enable.enable
+		call main.bu_cov_disable.disable
+	}
+	if main_cov_tmp.iseq("active") {
+		call main.bu_cov_enable.disable
+		call main.bu_cov_disable.enable
+	}
+END
+
+PROGRAM main_cov_disable
+BEGIN
+	call mainCOVCommandDisplayList.findstr class main.lb_cov_build.value
+	call main_cov_position.setvalue class				///
+		mainCOVCommandDisplayList.position
+
+	call main_cov_tmp.setvalue class main.lb_cov_build.value
+	call mainCOVStatusList.store class main_cov_position.value "disable"
+	call mainCOVCommandValues.store class main_cov_position.value ""
+	call STMP.format "resource LBL_PAREN_DISABLED"
+	call main_cov_tmp.append " "
+	call main_cov_tmp.append class STMP.value
+	call main_cov_tmp.withvalue STMP.setvalue "@"
+
+	call main_cov_tmp.withvalue mainCOVCommandDisplayList.store	///
+		class main_cov_position.value "@"
+
+	call mainCOVCommandDisplayList.copyToArray main_cov_list
+	call main.lb_cov_build.repopulate
+	call main.lb_cov_build.setvalue class STMP.value
+END
+
+PROGRAM main_cov_enable
+BEGIN
+	call mainCOVCommandDisplayList.findstr class main.lb_cov_build.value
+	call main_cov_position.setvalue class				///
+		mainCOVCommandDisplayList.position
+
+	call mainCOVStatusList.store class main_cov_position.value "active"
+	call main_cov_position.withvalue mainCOVCommandValues.store	///
+		class main_cov_position.value class			///
+		mainCOVCommandList.values[@]
+
+	call main_cov_position.withvalue STMP.format			///
+		"resource LBL_SPECIFICATION_FMT" "@" ""
+	call STMP.withvalue						///
+		mainCOVCommandDisplayList.store			///
+		class main_cov_position.value "@"
+
+	call mainCOVCommandDisplayList.copyToArray main_cov_list
+	call main_cov_position.withvalue main_cov_tmp2.setvalue	///
+		class mainCOVCommandDisplayList.values[@]
+	call main.lb_cov_build.repopulate
+	call main.lb_cov_build.setvalue class main_cov_tmp2.value
+END
+
+PROGRAM main_lb_cov_build_output
+BEGIN
+	call mainCOVCommandValues.copyToString main_cov_cmd_output
+	call main_cov_arraysize.setvalue class mainCOVStatusList.size
+	if main_cov_cmd_output  {
+		put main_cov_cmd_output
+	}
+END
+
+// Init child
+PROGRAM main_show_initial_dlg
+BEGIN
+	call ErrorMsg.setvalue ""
+	require main.vn_dv
+	require main.ed_subexpr
+	put "menl_dlg_parse, hint(initial) "
+	put `"eq(""' 
+	put main.vn_dv
+	put " = "
+	put main.ed_subexpr
+	put `"") "' 
+	put `"defines(""'
+	put " " /program main_lb_param_build_output
+	put `"") "' 
+	put `"covs(""' 
+	put " " /program main_lb_cov_build_output
+	put `"") "' 
+	put `"rescov(""' 
+	put " " /program resid_output
+	put `"") "' 
+	stata hidden immediate
+	call ErrorMsg.setvalue s(errmsg)
+	call ts_recur.setvalue s(tsrecur)
+	call hasTS.setvalue s(hasts)
+	call hasTS.withvalue dhasTS.setvalue @
+	if ErrorMsg.isneq("") {
+		stopbox stop "resource LBL_INVALID_SYNTAX" "class ErrorMsg.value"
+//		stopbox stop `"Invalid syntax"' class ErrorMsg.value
+	}
+
+	call create CHILD menl_init_child AS initial
+	call initial.setExitString initial_res
+	call initial.setExitAction "program menl_bu_inivals_ckResults"
+	if dhasTS {
+		call program ts_enable
+	}
+	else {
+		call script ts_disable
+	}
+END
+PROGRAM menl_bu_inivals_ckResults
+BEGIN
+	if initial_res {
+		call main.bu_initial.modified_on
+	}
+	else {
+		call main.bu_initial.modified_off
+	}
+END
+
+INCLUDE ifin
+
+DIALOG resid, tabtitle(resource LBL_RESIDUALS)
+BEGIN
+//rescov
+  CHECKBOX ck_rescov		_lft	_top	_iwd	_ht9,		///
+	groupbox							///
+	onclickon("program resid_rescov_on")				///
+	onclickoff("program resid_rescov_off")				///
+	label(resource MENL_RESID_CK_RESCOV)
+  TEXT tx_rescov		_indent	_ss	_vnwd	.,		///
+	label(resource LBL_TYPE_COLON)
+  DEFINE holdy @y
+  COMBOBOX cb_rescov		@	_ss	135	.,		///
+	dropdownlist							///
+	contents(resid_rescov_contents)					///
+	values(resid_rescov_values)					///
+	onselchange(program resid_rescov_changed)			///
+	label(resource LBL_TYPE_COLON)
+  TEXT tx_rescov_index		_lft3_2	holdy	_cwd3_2	.,		///
+  	label(resource LBL_INDEX_VARIABLE)
+  VARNAME vn_rescov_index		@	_ss	_vnwd	.,	///
+	option(index)							///
+	numeric								///
+	label(resource LBL_INDEX_VARIABLE)
+  SPINNER sp_rescov_order	_ilft	_ls	_spwd	.,		///
+	default(1)							///
+	min(1)								///
+	max(50)								///
+	label(resource LBL_ORDER)
+  TEXT tx_rescov_order		_spsep	@	_vnwd	.,		///
+	label(resource LBL_ORDER)
+  TEXT tx_rescov_t		180	holdy	@	.,		///
+	label(resource LBL_TIME_VARIABLE)
+  VARNAME vn_rescov_t		@	_ss	_vnwd	.,		///
+	numeric								///
+	option(t)							///
+	label(resource LBL_TIME_VARIABLE)
+  TEXT tx_rescov_by		320	holdy	@	.,		///
+	label(resource LBL_BY_VARIABLE)
+  DEFINE holdy @y
+  VARNAME vn_rescov_by		@	_ss	_vnwd	.,		///
+	option(by)							///
+	label(resource LBL_BY_VARIABLE)
+  TEXT tx_rescov_group		320	_ls	165	.,		///
+	label(resource LBL_LOWEST_LEVEL_GROUP_VARIABLE)
+  VARNAME vn_rescov_group	@	_ss	_vnwd	.,		///
+	option(group)							///
+	tooltip(resource MENL_RESID_VN_RESCOV_GROUP_TOOLTIP)		///
+	label(resource LBL_LOWEST_LEVEL_GROUP_VARIABLE)
+
+//resvar
+  CHECKBOX ck_resvar		_lft	+40	_iwd	_ht10,		///
+	groupbox							///
+	onclickon("script resid_resvar_on")				///
+	onclickoff("script resid_resvar_off")				///
+	label(resource MENL_RESID_CK_RESVAR)
+  TEXT tx_resvar		_indent	_ss	_vnwd	.,		///
+	label(resource LBL_TYPE_COLON)
+  DEFINE holdy @y
+  COMBOBOX cb_resvar		@	_ss	135	.,		///
+	dropdownlist							///
+	contents(resid_resvar_contents)					///
+	values(resid_resvar_values)					///
+	onselchange(program resid_resvar_changed)			///
+	label(resource LBL_TYPE_COLON)
+  TEXT tx_resvar_var		180	holdy	_cwd3_2	.,		///
+  	label(resource LBL_VARIANCE_VARIABLE)
+  VARNAME vn_resvar_var		@	_ss	_vnwd	.,		///
+	numeric								///
+	label(resource LBL_VARIANCE_VARIABLE)
+  TEXT tx_resvar_index		180	holdy	@	.,		///
+	label(resource LBL_INDEX_VARIABLE)
+  VARNAME vn_resvar_index	@	_ss	_vnwd	.,		///
+	numeric								///
+	option(index)							///
+	label(resource LBL_INDEX_VARIABLE)
+  TEXT tx_resvar_strata		320	holdy	_vnwd	.,		///
+  	label(resource LBL_STRATA_VARIABLE)
+  VARNAME vn_resvar_strata		@	_ss	_vnwd	.,	///
+	option(strata)							///
+	label(resource LBL_BY_VARIABLE)
+  TEXT tx_resvar_group		320	holdy	165	.,		///
+	label(resource LBL_LOWEST_LEVEL_GROUP_VARIABLE)
+  VARNAME vn_resvar_group	@	_ss	_vnwd	.,		///
+	option(group)							///
+	label(resource LBL_LOWEST_LEVEL_GROUP_VARIABLE)
+  CHECKBOX ck_resvar_nocons	_ilft	_ls	_cwd1	.,		///
+	option(noconstant)						///
+	label(resource LBL_SUPPRESS_THE_CONSTANT_TERM)
+  TEXTBOX tb_resvar_yhat	_ilft	_ms	_ibwd	.,		///
+	label(resource MENL_RESID_TB_YHAT)
+
+//rescorr
+  CHECKBOX ck_rescorr		_lft	+45	_iwd	_ht9,		///
+	groupbox							///
+	onclickon("script resid_rescorr_on")				///
+	onclickoff("script resid_rescorr_off")				///
+	label(resource MENL_RESID_CK_RESCORR)
+  TEXT tx_rescorr		_indent	_ss	_vnwd	.,		///
+	label(resource LBL_TYPE_COLON)
+  DEFINE holdy @y
+  COMBOBOX cb_rescorr		@	_ss	135	.,		///
+	dropdownlist							///
+	contents(resid_rescorr_contents)				///
+	values(resid_rescorr_values)					///
+	onselchange(program resid_rescorr_changed)			///
+	label(resource LBL_TYPE_COLON)
+  SPINNER sp_rescorr_order	_ilft	_ls	_spwd	.,		///
+	default(1)							///
+	min(1)								///
+	max(50)								///
+	label(resource LBL_ORDER)
+  TEXT tx_rescorr_order		_spsep	@	_vnwd	.,		///
+	label(resource LBL_ORDER)
+  TEXT tx_rescorr_t		180	holdy	@	.,		///
+	label(resource LBL_TIME_VARIABLE)
+  VARNAME vn_rescorr_t		@	_ss	@	.,		///
+	numeric								///
+	option(t)							///
+	label(resource LBL_TIME_VARIABLE)
+  TEXT tx_rescorr_index		180	holdy	@	.,		///
+	label(resource LBL_INDEX_VARIABLE)
+  VARNAME vn_rescorr_index	@	_ss	@	.,		///
+	numeric								///
+	option(index)							///
+	label(resource LBL_INDEX_VARIABLE)
+  TEXT tx_rescorr_by		320	holdy	@	.,		///
+	label(resource LBL_BY_VARIABLE)
+  VARNAME vn_rescorr_by		@	_ss	_vnwd	.,		///
+	option(by)							///
+	label(resource LBL_BY_VARIABLE)
+  TEXT tx_rescorr_group		320	_ls	165	.,		///
+	label(resource LBL_LOWEST_LEVEL_GROUP_VARIABLE)
+  VARNAME vn_rescorr_group	@	_ss	_vnwd	.,		///
+	option(group)							///
+	tooltip(resource MENL_RESID_VN_RESCORR_GROUP_TOOLTIP)		///	
+	label(resource LBL_LOWEST_LEVEL_GROUP_VARIABLE)
+END
+
+LIST resid_rescov_contents
+BEGIN
+	resource LBL_IDENTITY
+	resource LBL_INDEPENDENT
+	resource LBL_EXCHANGEABLE
+	resource LBL_AUTOREGRESSIVE
+	resource LBL_MOVING_AVERAGE
+	resource LBL_CONTINUOUS_TIME_AR
+	resource LBL_TOEPLITZ			
+	resource LBL_BANDED			
+	resource LBL_UNSTRUCTURED
+END
+
+LIST resid_rescov_values
+BEGIN
+	"identity"
+	"independent"
+	"exchangeable"
+	"ar"
+	"ma"
+	"ctar1"
+	"toeplitz"
+	"banded"
+	"unstructured"
+END
+
+PROGRAM resid_rescov_on
+BEGIN
+	call resid.tx_rescov.enable
+	call resid.cb_rescov.enable
+	call resid.tx_rescov_index.enable
+	call resid.vn_rescov_index.enable
+	call resid.tx_rescov_by.enable
+	call resid.vn_rescov_by.enable
+	call resid.tx_rescov_t.enable
+	call resid.vn_rescov_t.enable
+	call resid.sp_rescov_order.enable
+	call resid.tx_rescov_order.enable
+	call resid.tx_rescov_group.enable
+	call resid.vn_rescov_group.enable
+
+  	call resid.ck_resvar.disable
+	call resid.ck_rescorr.disable
+	if resid.ck_resvar {
+		call script resid_resvar_off
+	}
+
+	if resid.ck_rescorr {
+		call script resid_rescorr_off
+	}
+	call program resid_check_max
+END
+
+PROGRAM resid_rescov_off
+BEGIN
+	call resid.tx_rescov.disable
+	call resid.cb_rescov.disable
+	call resid.tx_rescov_index.disable
+	call resid.vn_rescov_index.disable
+	call resid.tx_rescov_by.disable
+	call resid.vn_rescov_by.disable
+	call resid.tx_rescov_t.disable
+	call resid.vn_rescov_t.disable
+	call resid.sp_rescov_order.disable
+	call resid.tx_rescov_order.disable
+	call resid.tx_rescov_group.disable
+	call resid.vn_rescov_group.disable
+
+  	call resid.ck_resvar.enable
+	call resid.ck_rescorr.enable
+
+	if resid.ck_resvar {
+		call script resid_resvar_on
+	}
+
+	if resid.ck_rescorr {
+		call script resid_rescorr_on
+	}
+	call program resid_check_max
+END
+
+SCRIPT resid_rescov_hide_all
+BEGIN
+	resid.tx_rescov_index.hide
+	resid.vn_rescov_index.hide
+	resid.tx_rescov_by.hide
+	resid.vn_rescov_by.hide
+	resid.tx_rescov_t.hide
+	resid.vn_rescov_t.hide
+	resid.sp_rescov_order.hide
+	resid.tx_rescov_order.hide
+	resid.tx_rescov_group.hide
+	resid.vn_rescov_group.hide
+END
+
+PROGRAM resid_rescov_changed
+BEGIN
+	call script resid_rescov_hide_all
+
+	if resid.cb_rescov.iseq("identity") {
+		call resid.tx_rescov_by.show
+		call resid.vn_rescov_by.show
+		call resid.tx_rescov_by.setposition 180 30
+		call resid.vn_rescov_by.setposition 180 50
+	}
+	if resid.cb_rescov.iseq("exchangeable") {
+		call resid.tx_rescov_by.show
+		call resid.vn_rescov_by.show
+		call resid.vn_rescov_by.show
+		call resid.tx_rescov_by.setposition 180 30
+		call resid.vn_rescov_by.setposition 180 50
+		call resid.tx_rescov_group.show
+		call resid.vn_rescov_group.show
+		call resid.tx_rescov_group.setposition 320 30
+		call resid.vn_rescov_group.setposition 320 50
+	}
+	if resid.cb_rescov.iseq("independent") {
+		call resid.tx_rescov_index.show
+		call resid.vn_rescov_index.show
+		call resid.tx_rescov_group.show
+		call resid.vn_rescov_group.show
+		call resid.tx_rescov_group.setposition 320 30
+		call resid.vn_rescov_group.setposition 320 50
+	}
+	if resid.cb_rescov.iseq("ar") {
+		call resid.tx_rescov_by.show
+		call resid.vn_rescov_by.show
+		call resid.tx_rescov_by.setposition 320 30
+		call resid.vn_rescov_by.setposition 320 50
+		call resid.tx_rescov_t.show
+		call resid.vn_rescov_t.show
+		call resid.vn_rescov_t.show
+		call resid.sp_rescov_order.show
+		call resid.tx_rescov_order.show
+		call resid.tx_rescov_group.show
+		call resid.vn_rescov_group.show
+		call resid.tx_rescov_group.setposition 320 75
+		call resid.vn_rescov_group.setposition 320 95
+	}
+	if resid.cb_rescov.iseq("ma") {
+		call resid.tx_rescov_by.show
+		call resid.vn_rescov_by.show
+		call resid.tx_rescov_by.setposition 320 30
+		call resid.vn_rescov_by.setposition 320 50
+		call resid.tx_rescov_t.show
+		call resid.vn_rescov_t.show
+		call resid.sp_rescov_order.show
+		call resid.tx_rescov_order.show
+		call resid.tx_rescov_group.show
+		call resid.vn_rescov_group.show
+		call resid.tx_rescov_group.setposition 320 75
+		call resid.vn_rescov_group.setposition 320 95
+	}
+	if resid.cb_rescov.iseq("ctar1") {
+		call resid.tx_rescov_by.show
+		call resid.vn_rescov_by.show
+		call resid.tx_rescov_by.setposition 320 30
+		call resid.vn_rescov_by.setposition 320 50
+		call resid.tx_rescov_t.show
+		call resid.vn_rescov_t.show
+		call resid.tx_rescov_group.show
+		call resid.vn_rescov_group.show
+		call resid.tx_rescov_group.setposition 320 75
+		call resid.vn_rescov_group.setposition 320 95
+	}
+	if resid.cb_rescov.iseq("toeplitz") {
+		call resid.tx_rescov_by.show
+		call resid.vn_rescov_by.show
+		call resid.sp_rescov_order.show
+		call resid.tx_rescov_order.show
+		call resid.tx_rescov_t.show
+		call resid.vn_rescov_t.show
+		call resid.tx_rescov_group.show
+		call resid.vn_rescov_group.show
+		call resid.tx_rescov_by.setposition 320 30
+		call resid.vn_rescov_by.setposition 320 50
+		call resid.tx_rescov_group.setposition 320 75
+		call resid.vn_rescov_group.setposition 320 96
+	}
+	if resid.cb_rescov.iseq("banded") {
+		call resid.tx_rescov_index.show
+		call resid.vn_rescov_index.show
+		call resid.sp_rescov_order.show
+		call resid.tx_rescov_order.show
+		call resid.tx_rescov_group.show
+		call resid.vn_rescov_group.show
+		call resid.tx_rescov_group.setposition 320 30
+		call resid.vn_rescov_group.setposition 320 50
+	}
+	if resid.cb_rescov.iseq("unstructured") {
+		call resid.tx_rescov_index.show
+		call resid.vn_rescov_index.show
+		call resid.tx_rescov_group.show
+		call resid.vn_rescov_group.show
+		call resid.tx_rescov_group.setposition 320 30
+		call resid.vn_rescov_group.setposition 320 50
+	}
+
+	call program resid_check_max
+END
+
+LIST resid_resvar_contents
+BEGIN
+	resource LBL_IDENTITY
+	resource LBL_LINEAR
+	resource MENL_LBL_POWER
+	resource LBL_EXPONENTIAL
+	resource LBL_DISTINCT
+END
+
+LIST resid_resvar_values
+BEGIN
+	"identity"
+	"linear"
+	"power"
+	"exponential"
+	"distinct"
+END
+
+SCRIPT resid_resvar_on
+BEGIN
+	resid.tx_resvar.enable
+	resid.cb_resvar.enable
+	resid.tx_resvar_strata.enable
+	resid.vn_resvar_strata.enable
+	resid.tx_resvar_var.enable
+	resid.vn_resvar_var.enable
+	resid.ck_resvar_nocons.enable
+	resid.tb_resvar_yhat.enable
+	resid.tx_resvar_index.enable
+	resid.vn_resvar_index.enable
+	resid.tx_resvar_group.enable
+	resid.vn_resvar_group.enable
+	program resid_check_max
+END
+
+SCRIPT resid_resvar_off
+BEGIN
+	resid.tx_resvar.disable
+	resid.cb_resvar.disable
+	resid.tx_resvar_strata.disable
+	resid.vn_resvar_strata.disable
+	resid.tx_resvar_var.disable
+	resid.vn_resvar_var.disable
+	resid.ck_resvar_nocons.disable
+	resid.tb_resvar_yhat.disable
+	resid.tx_resvar_index.disable
+	resid.vn_resvar_index.disable
+	resid.tx_resvar_group.disable
+	resid.vn_resvar_group.disable
+	program resid_check_max
+END
+
+SCRIPT resid_resvar_hide_all
+BEGIN
+	resid.tx_resvar_strata.hide
+	resid.vn_resvar_strata.hide
+	resid.tx_resvar_var.hide
+	resid.vn_resvar_var.hide
+	resid.ck_resvar_nocons.hide
+	resid.tb_resvar_yhat.hide
+	resid.tx_resvar_index.hide
+	resid.vn_resvar_index.hide
+	resid.tx_resvar_group.hide
+	resid.vn_resvar_group.hide
+END
+
+PROGRAM resid_resvar_changed
+BEGIN
+	call script resid_resvar_hide_all
+	if resid.cb_resvar.iseq("identity") {
+	}
+	if resid.cb_resvar.iseq("linear") {
+		call resid.tx_resvar_var.show
+		call resid.vn_resvar_var.show
+		call resid.vn_resvar_var.setvalue ""
+	}
+	if resid.cb_resvar.iseq("power") {
+		call resid.tx_resvar_strata.show
+		call resid.vn_resvar_strata.show
+		call resid.tx_resvar_var.show
+		call resid.vn_resvar_var.show
+		call resid.vn_resvar_var.setvalue "_yhat"
+		call resid.ck_resvar_nocons.show
+		call resid.tb_resvar_yhat.show
+	}
+	if resid.cb_resvar.iseq("exponential") {
+		call resid.tx_resvar_strata.show
+		call resid.vn_resvar_strata.show
+		call resid.tx_resvar_var.show
+		call resid.vn_resvar_var.show
+		call resid.vn_resvar_var.setvalue "_yhat"
+		call resid.tb_resvar_yhat.show
+	}
+	if resid.cb_resvar.iseq("distinct") {
+		call resid.tx_resvar_index.show
+		call resid.vn_resvar_index.show
+		call resid.tx_resvar_group.show
+		call resid.vn_resvar_group.show
+	}
+	call program resid_check_max
+END
+
+LIST resid_rescorr_contents
+BEGIN
+	resource LBL_IDENTITY
+	resource LBL_EXCHANGEABLE
+	resource LBL_AUTOREGRESSIVE
+	resource LBL_MOVING_AVERAGE
+	resource LBL_CONTINUOUS_TIME_AR
+	resource LBL_TOEPLITZ			
+	resource LBL_BANDED			
+	resource LBL_UNSTRUCTURED
+END
+
+LIST resid_rescorr_values
+BEGIN
+	"identity"
+	"exchangeable"
+	"ar"
+	"ma"
+	"ctar1"
+	"toeplitz"
+	"banded"
+	"unstructured"
+END
+
+SCRIPT resid_rescorr_on
+BEGIN
+	resid.tx_rescorr.enable
+	resid.cb_rescorr.enable
+	resid.tx_rescorr_by.enable
+	resid.vn_rescorr_by.enable
+	resid.tx_rescorr_t.enable
+	resid.vn_rescorr_t.enable
+	resid.sp_rescorr_order.enable
+	resid.tx_rescorr_order.enable
+	resid.tx_rescorr_group.enable
+	resid.vn_rescorr_group.enable
+	resid.tx_rescorr_index.enable
+	resid.vn_rescorr_index.enable
+	program resid_check_max
+END
+
+SCRIPT resid_rescorr_off
+BEGIN
+	resid.tx_rescorr.disable
+	resid.cb_rescorr.disable
+	resid.tx_rescorr_by.disable
+	resid.vn_rescorr_by.disable
+	resid.tx_rescorr_t.disable
+	resid.vn_rescorr_t.disable
+	resid.sp_rescorr_order.disable
+	resid.tx_rescorr_order.disable
+	resid.tx_rescorr_group.disable
+	resid.vn_rescorr_group.disable
+	resid.tx_rescorr_index.disable
+	resid.vn_rescorr_index.disable
+	program resid_check_max
+END
+
+SCRIPT resid_rescorr_hide_all
+BEGIN
+	resid.tx_rescorr_by.hide
+	resid.vn_rescorr_by.hide
+	resid.tx_rescorr_t.hide
+	resid.vn_rescorr_t.hide
+	resid.sp_rescorr_order.hide
+	resid.tx_rescorr_order.hide
+	resid.tx_rescorr_index.hide
+	resid.vn_rescorr_index.hide
+	resid.tx_rescorr_group.hide
+	resid.vn_rescorr_group.hide
+END
+
+PROGRAM resid_rescorr_changed
+BEGIN
+	call script resid_rescorr_hide_all
+	if resid.cb_rescorr.iseq("identity") {
+	}
+	if resid.cb_rescorr.iseq("ar") {
+		call resid.tx_rescorr_by.show
+		call resid.vn_rescorr_by.show
+		call resid.tx_rescorr_by.setposition 320 300
+		call resid.vn_rescorr_by.setposition 320 320
+		call resid.tx_rescorr_t.show
+		call resid.vn_rescorr_t.show
+		call resid.vn_rescorr_t.show
+		call resid.sp_rescorr_order.show
+		call resid.tx_rescorr_order.show
+		call resid.tx_rescorr_group.show
+		call resid.vn_rescorr_group.show
+		call resid.tx_rescorr_group.setposition 320 350
+		call resid.vn_rescorr_group.setposition 320 370
+	}
+	if resid.cb_rescorr.iseq("ma") {
+		call resid.tx_rescorr_by.show
+		call resid.vn_rescorr_by.show
+		call resid.tx_rescorr_by.setposition 320 300
+		call resid.vn_rescorr_by.setposition 320 320
+		call resid.tx_rescorr_t.show
+		call resid.vn_rescorr_t.show
+		call resid.sp_rescorr_order.show
+		call resid.tx_rescorr_order.show
+		call resid.tx_rescorr_group.show
+		call resid.vn_rescorr_group.show
+		call resid.tx_rescorr_group.setposition 320 350
+		call resid.vn_rescorr_group.setposition 320 370
+	}
+	if resid.cb_rescorr.iseq("ctar1") {
+		call resid.tx_rescorr_by.show
+		call resid.vn_rescorr_by.show
+		call resid.tx_rescorr_by.setposition 320 300
+		call resid.vn_rescorr_by.setposition 320 320
+		call resid.tx_rescorr_t.show
+		call resid.vn_rescorr_t.show
+		call resid.tx_rescorr_group.show
+		call resid.vn_rescorr_group.show
+		call resid.tx_rescorr_group.setposition 320 350
+		call resid.vn_rescorr_group.setposition 320 370
+	}
+	if resid.cb_rescorr.iseq("exchangeable") {
+		call resid.tx_rescorr_by.show
+		call resid.vn_rescorr_by.show
+		call resid.tx_rescorr_by.setposition 180 300
+		call resid.vn_rescorr_by.setposition 180 320
+		call resid.tx_rescorr_group.show
+		call resid.vn_rescorr_group.show
+		call resid.tx_rescorr_group.setposition 320 300
+		call resid.vn_rescorr_group.setposition 320 320
+	}
+	if resid.cb_rescorr.iseq("toeplitz") {
+		call resid.tx_rescorr_by.show
+		call resid.vn_rescorr_by.show
+		call resid.sp_rescorr_order.show
+		call resid.tx_rescorr_order.show
+		call resid.tx_rescorr_t.show
+		call resid.vn_rescorr_t.show
+		call resid.tx_rescorr_group.show
+		call resid.vn_rescorr_group.show
+		call resid.tx_rescorr_by.setposition 320 300
+		call resid.vn_rescorr_by.setposition 320 320
+		call resid.tx_rescorr_group.setposition 320 350
+		call resid.vn_rescorr_group.setposition 320 370
+	}
+	if resid.cb_rescorr.iseq("banded") {
+		call resid.sp_rescorr_order.show
+		call resid.tx_rescorr_order.show
+		call resid.tx_rescorr_index.show
+		call resid.vn_rescorr_index.show
+		call resid.tx_rescorr_group.show
+		call resid.vn_rescorr_group.show
+		call resid.tx_rescorr_group.setposition 320 300
+		call resid.vn_rescorr_group.setposition 320 320
+	}
+	if resid.cb_rescorr.iseq("unstructured") {
+		call resid.tx_rescorr_index.show
+		call resid.vn_rescorr_index.show
+		call resid.tx_rescorr_group.show
+		call resid.vn_rescorr_group.show
+		call resid.tx_rescorr_group.setposition 320 300
+		call resid.vn_rescorr_group.setposition 320 320
+	}
+	call program resid_check_max
+END
+
+PROGRAM rescov_output
+BEGIN
+	put resid.cb_rescov
+	if resid.cb_rescov.iseq("ar") |					///
+		resid.cb_rescov.iseq("ma") |				///
+		resid.cb_rescov.iseq("toeplitz") |			///
+		resid.cb_rescov.iseq("ctar1") {	
+		require resid.vn_rescov_t
+	}
+	if resid.cb_rescov.iseq("independent") | 			///
+		resid.cb_rescov.iseq("banded") |			///
+		resid.cb_rescov.iseq("unstructured") {
+		require resid.vn_rescov_index
+		if (dkpath.iseq(0)) {
+			require resid.vn_rescov_group
+		}
+	}
+	if (resid.sp_rescov_order.isvisible()) {
+		if resid.sp_rescov_order.isneq(1) {
+			put " " resid.sp_rescov_order
+		}
+	}
+	beginoptions
+		optionarg resid.vn_rescov_t
+		optionarg resid.vn_rescov_by
+		optionarg resid.vn_rescov_index
+		optionarg resid.vn_rescov_group
+	endoptions
+END
+
+PROGRAM resvar_output
+BEGIN
+	put resid.cb_resvar
+	if resid.cb_resvar.iseq("linear") |				///
+		resid.cb_resvar.iseq("power") |				///
+		resid.cb_resvar.iseq("exponential") {	
+		require resid.vn_resvar_var
+		put " " resid.vn_resvar_var
+	}
+	if resid.cb_resvar.iseq("distinct") {
+		require resid.vn_resvar_index
+		if (dkpath.iseq(0)) {
+			require resid.vn_resvar_group
+		}
+	}
+	beginoptions
+		optionarg resid.vn_resvar_strata
+		option resid.ck_resvar_nocons
+		optionarg resid.vn_resvar_index
+		optionarg resid.vn_resvar_group
+	endoptions
+END
+
+PROGRAM rescorr_output
+BEGIN
+	put resid.cb_rescorr
+	if resid.cb_rescorr.iseq("ar") |				///
+		resid.cb_rescorr.iseq("ma") |				///
+		resid.cb_rescorr.iseq("toeplitz") |			///
+		resid.cb_rescorr.iseq("ctar1") {	
+		require resid.vn_rescorr_t
+	}
+	if (resid.sp_rescorr_order.isvisible()) {
+		if resid.sp_rescorr_order.isneq(1) {
+			put " " resid.sp_rescorr_order
+		}
+	}
+	if resid.cb_rescorr.iseq("unstructured") |			///
+		resid.cb_rescorr.iseq("banded") {
+		require resid.vn_rescorr_index
+		if (dkpath.iseq(0)) {
+			require resid.vn_rescorr_group
+		}
+	}
+	beginoptions
+		optionarg resid.vn_rescorr_t
+		optionarg resid.vn_rescorr_by
+		optionarg resid.vn_rescorr_group
+		optionarg resid.vn_rescorr_index
+	endoptions
+
+END
+
+PROGRAM resid_check_max
+BEGIN
+	if ((resid.cb_rescov.iseq("identity") & resid.ck_rescov) |	///
+		(resid.cb_resvar.iseq("identity") & resid.ck_resvar	///
+		& resid.cb_rescorr.iseq("identity") & resid.ck_rescorr)) {
+		call max.bu_pnls_opts.disable
+		call max.bu_lme_opts.disable
+		call max.ed_nrtol.enable
+		call max.tx_nrtol.enable
+		call max.ck_nonrtol.enable
+	}
+	else {
+		call max.bu_pnls_opts.enable
+		call max.bu_lme_opts.enable
+		call max.ed_nrtol.disable
+		call max.tx_nrtol.disable
+		call max.ck_nonrtol.disable
+	}
+END
+
+PROGRAM resid_output
+BEGIN
+	if resid.ck_rescov {
+		put " rescovariance("
+		put /program rescov_output
+		put ")"
+	}
+	if resid.ck_resvar {
+		put " resvariance("
+		put /program resvar_output
+		put ")"
+	}
+	if resid.ck_rescorr {
+		put " rescorrelation("
+		put /program rescorr_output
+		put ")"
+	}
+END
+
+SCRIPT ts_PREINIT
+BEGIN
+	create STRING ts_time_tmp
+	create STRING ts_time_tmp2
+	create STRING ts_time_childdlg
+	create STRING ts_time_child_result
+	create STRING ts_time_cmd_output
+
+	create ARRAY ts_time_list
+
+	create SVECTOR tsTIMECommandDisplayList
+	create SVECTOR tsTIMECommandList
+	create SVECTOR tsTIMECommandValues
+	create SVECTOR tsTIMEStatusList
+	create SVECTOR tsTIMEChildDialogList
+	create SVECTOR tsTIMEHasNoError
+
+	create DOUBLE ts_time_count
+	create DOUBLE ts_time_position
+	create DOUBLE ts_time_arraysize
+
+	ts.bu_time_edit.disable
+	ts.bu_time_disable.disable
+	ts.bu_time_enable.disable
+
+	create STRING ts_tsvar_res
+	ts_tsvar_res.setvalue ""
+END
+
+SCRIPT ts_POSTINIT
+BEGIN
+	tsTIMECommandDisplayList.copyToArray ts_time_list
+	ts.lb_time_build.repopulate
+END
+
+
+DIALOG ts, tabtitle(resource LBL_TIME_SERIES)
+BEGIN
+  TEXT tx_tsvar				_lft	_top	_vnwd	.,	///
+	label(resource LBL_TIME_VARIABLE)
+  VARNAME vn_tsvar			@	_ss	@	.,	///
+	option(tsorder)							///
+	numeric								///
+	label(resource LBL_TIME_VARIABLE)
+
+  TEXT tx_time				_lft	_ls	_iwd	.,	///
+	label (resource MENL_TS_TX_INITIAL_COND)	
+  LISTBOX lb_time_build			@	_ss	200	95,	///
+	contents(ts_time_list)					///
+	ondblclick(program main_time_edit)				///
+	onselchange(program ts_time_sel_changed)			///
+	nomemory
+  BUTTON bu_time_new			+210	@	80	.,	///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program ts_time_create)					///
+	tooltip(resource LBL_CREATE_FUNCTION)
+  BUTTON bu_time_edit			@	_ms	@	.,	///
+	label(resource LBL_BU_EDIT)					///
+	onpush(program ts_time_edit)					///
+	tooltip(resource LBL_EDIT_FUNCTION)
+  BUTTON bu_time_disable		@	_ms	@	.,	///
+	label(resource LBL_BU_DISABLE)					///
+	onpush(program ts_time_disable)					///
+	tooltip(resource LBL_DISABLE_FUNCTION)
+  BUTTON bu_time_enable			@	_ms	@	.,	///
+	label(resource LBL_BU_ENABLE)					///
+	onpush(program ts_time_enable)					///
+	tooltip(resource LBL_ENABLE_FUNCTION)
+  TEXTBOX tb_time_note			_lft	+25	_ibwd	_tb2,	///
+	label(resource MENL_TS_TIME_NOTE)
+  CHECKBOX ck_tsmissing			_lft	_xls	_iwd	.,	///
+	option(tsmissing)						///
+	label(resource LBL_KEEP_OBS_OF_MISSING_DEPVARS)
+  TEXT tx_tsmissing			_lft	_ss	_iwd	.,	///
+	label(resource LBL_DEPVAR_NOTE)
+END
+
+PROGRAM ts_enable
+BEGIN
+	call ts.tx_tsvar.enable
+	call ts.vn_tsvar.enable
+
+	if ts_recur.iseq("") {
+		call ts.tx_time.disable
+		call ts.lb_time_build.disable
+		call ts.bu_time_new.disable
+		call ts.tb_time_note.disable
+	}
+	else {
+		call ts.tx_time.enable
+		call ts.lb_time_build.enable
+		call ts.bu_time_new.enable
+		call ts.tb_time_note.enable
+		call ts_time_count.setvalue class tsTIMEChildDialogList.size
+		if ts_time_count.isgt(0) {
+			call program ts_time_sel_changed
+		}
+		else {
+			call ts.bu_time_edit.disable
+			call ts.bu_time_disable.disable
+			call ts.bu_time_enable.disable
+		}
+		call ts.ck_tsmissing.enable
+		call ts.tx_tsmissing.enable
+	}
+	call rpt.ck_notsshow.enable
+END
+
+SCRIPT ts_disable
+BEGIN
+	ts.tx_tsvar.disable
+	ts.vn_tsvar.disable
+	ts.tx_time.disable
+	ts.lb_time_build.disable
+	ts.bu_time_new.disable
+	ts.bu_time_edit.disable
+	ts.bu_time_disable.disable
+	ts.bu_time_enable.disable
+	ts.tb_time_note.disable
+	ts.ck_tsmissing.disable
+	ts.tx_tsmissing.disable
+	rpt.ck_notsshow.disable
+END
+
+// time expression
+PROGRAM ts_time_create
+BEGIN
+	call ts_time_count.setvalue class tsTIMEChildDialogList.size
+	call ts_time_count.increment
+	call ts_time_count.withvalue ts_time_childdlg.setvalue		///
+		"ts_time@"
+	call ErrorMsg.setvalue ""
+	require main.vn_dv
+	require main.ed_subexpr
+	put "menl_dlg_parse, hint(tsinit_create) "
+	put `"eq(""' 
+	put main.vn_dv
+	put " = "
+	put main.ed_subexpr
+	put `"") "' 
+	put `"defines(""'
+	put " " /program main_lb_param_build_output
+	put `"") "' 
+	put `"covs(""' 
+	put " " /program main_lb_cov_build_output
+	put `"") "' 
+	put `"rescov(""' 
+	put " " /program resid_output
+	put `"") "' 
+	if ts.vn_tsvar {
+		optionarg ts.vn_tsvar
+	}
+	stata hidden immediate
+	call ErrorMsg.setvalue s(errmsg)
+	call ts_recur.setvalue s(tsrecur)
+	call hasTS.setvalue s(hasts)
+	call hasTS.withvalue dhasTS.setvalue @
+	if ErrorMsg.isneq("") {
+		stopbox stop "resource LBL_INVALID_SYNTAX" "class ErrorMsg.value"
+	}
+	call program ts_show_time_child
+END
+
+PROGRAM ts_time_edit
+BEGIN
+	call tsTIMECommandDisplayList.findstr class ts.lb_time_build.value
+	call ts_time_position.setvalue class				///
+		tsTIMECommandDisplayList.position
+	call ts_time_position.withvalue ts_time_childdlg.setvalue	///
+		class tsTIMEChildDialogList.values[@]
+
+	call program ts_show_time_child_edit
+END
+
+PROGRAM ts_show_time_child
+BEGIN
+	call ts_time_childdlg.withvalue create CHILD menl_tsinit_child AS @
+	call ts_time_childdlg.withvalue @.setExitString			///
+		"ts_time_child_result"
+	call ts_time_childdlg.withvalue @.setExitAction			///
+		"program ts_time_child_done"
+
+	call ts_time_count.withvalue STMP.format			///
+		"resource LBL_INITIAL_CONDITION_FMT" "@" ""
+	call STMP.withvalue ts_time_tmp.setvalue "@"
+	call ts_time_childdlg.withvalue ts_time_tmp2.setvalue "@.settitle"
+	call ts_time_tmp2.append `" ""'
+	call ts_time_tmp2.append class ts_time_tmp.value
+	call ts_time_tmp2.append `"""'
+	call ts_time_tmp2.withvalue @
+END
+
+PROGRAM ts_show_time_child_edit
+BEGIN
+	call ts_time_childdlg.withvalue create CHILD menl_tsinit_child AS @
+	call ts_time_childdlg.withvalue @.setExitString			///
+		"ts_time_child_result"
+	call ts_time_childdlg.withvalue @.setExitAction			///
+		"program ts_time_child_done"
+
+	call ts_time_position.withvalue ts_time_tmp.setvalue		///
+		class tsTIMECommandDisplayList.values[@]
+	call ts_time_childdlg.withvalue ts_time_tmp2.setvalue "@.settitle"
+	call ts_time_tmp2.append `" ""'
+	call ts_time_tmp2.append class ts_time_tmp.value
+	call ts_time_tmp2.append `"""'
+	call ts_time_tmp2.withvalue @
+END
+
+PROGRAM ts_time_child_done
+BEGIN
+	call tsTIMEChildDialogList.findstr class ts_time_childdlg.value
+	call ts_time_position.setvalue class				///
+		tsTIMEChildDialogList.position
+	if ts_time_position {
+		call ts_time_position.withvalue ts_time_tmp.setvalue	///
+			class tsTIMEStatusList.values[@]
+		if ts_time_tmp.iseq("active") {
+			call ts_time_position.withvalue STMP.format	///
+				"resource LBL_INITIAL_CONDITION_FMT" "@" ""
+			call STMP.withvalue				///
+				tsTIMECommandDisplayList.store class	///
+				ts_time_position.value "@"
+			call tsTIMECommandValues.store class		///
+				ts_time_position.value class		///
+				ts_time_child_result.value
+			call STMP.withvalue				///
+				ts_time_tmp2.setvalue "@"
+		}
+		else {
+			call ts_time_position.withvalue STMP.format	///
+				"resource LBL_INITIAL_CONDITION_FMT" "@" ""
+				"resource LBL_PAREN_DISABLED"
+			call STMP.withvalue				///
+				ts_time_tmp2.setvalue "@"
+
+			call ts_time_tmp2.withvalue			///
+				tsTIMECommandDisplayList.store		///
+				class ts_time_position.value "@"
+		}
+
+		call tsTIMECommandList.store class			///
+			ts_time_position.value class			///
+			ts_time_child_result.value
+
+		call tsTIMECommandDisplayList.copyToArray ts_time_list
+		call ts.lb_time_build.repopulate
+		call ts.lb_time_build.setvalue class ts_time_tmp2.value
+	}
+	else {
+		call ts_time_arraysize.setvalue class			///
+			tsTIMEChildDialogList.size
+		call ts_time_arraysize.increment
+
+		/* Store child dialog name */
+		call tsTIMEChildDialogList.store class			///
+			ts_time_arraysize.value class			///
+			ts_time_childdlg.value
+
+		call ts_time_arraysize.withvalue STMP.format		///
+			"resource LBL_INITIAL_CONDITION_FMT" "@" ""
+		call STMP.withvalue					///
+			tsTIMECommandDisplayList.store class		///
+			ts_time_arraysize.value "@"
+
+		/* Store child dialog result string */
+		call tsTIMECommandList.store class			///
+			ts_time_arraysize.value				///
+			class ts_time_child_result.value
+
+		/* Store child dialog result string for final command
+		   For disable/enable */
+		call tsTIMECommandValues.store class			///
+			ts_time_arraysize.value class			///
+			ts_time_child_result.value
+
+		/* Store disable/enable status */
+		call tsTIMEStatusList.store				///
+			class ts_time_arraysize.value "active"
+
+		call tsTIMECommandDisplayList.copyToArray ts_time_list
+		call ts.lb_time_build.repopulate
+		call STMP.withvalue ts.lb_time_build.setvalue "@"
+	}
+END
+
+PROGRAM ts_time_sel_changed
+BEGIN
+	call tsTIMECommandDisplayList.findstr class ts.lb_time_build.value
+	call ts_time_position.setvalue class				///
+		tsTIMECommandDisplayList.position
+	call ts_time_position.withvalue ts_time_tmp.setvalue		///
+		class tsTIMEStatusList.values[@]
+	if ts_time_position {
+		call ts.bu_time_edit.enable
+		call ts_time_position.withvalue				///
+			ts.tb_time_note.setlabel			///
+			class tsTIMECommandList.values[@]
+	}
+
+	if ts_time_tmp.iseq("disable") {
+		call ts.bu_time_enable.enable
+		call ts.bu_time_disable.disable
+	}
+	if ts_time_tmp.iseq("active") {
+		call ts.bu_time_enable.disable
+		call ts.bu_time_disable.enable
+	}
+END
+
+PROGRAM ts_time_disable
+BEGIN
+	call tsTIMECommandDisplayList.findstr class ts.lb_time_build.value
+	call ts_time_position.setvalue class				///
+		tsTIMECommandDisplayList.position
+
+	call ts_time_tmp.setvalue class ts.lb_time_build.value
+	call tsTIMEStatusList.store class ts_time_position.value "disable"
+	call tsTIMECommandValues.store class ts_time_position.value ""
+	call STMP.format "resource LBL_PAREN_DISABLED"
+	call ts_time_tmp.append " "
+	call ts_time_tmp.append class STMP.value
+	call ts_time_tmp.withvalue STMP.setvalue "@"
+	call ts_time_tmp.withvalue tsTIMECommandDisplayList.store	///
+		class ts_time_position.value "@"
+
+	call tsTIMECommandDisplayList.copyToArray ts_time_list
+	call ts.lb_time_build.repopulate
+	call ts.lb_time_build.setvalue class STMP.value
+END
+
+PROGRAM ts_time_enable
+BEGIN
+	call tsTIMECommandDisplayList.findstr class ts.lb_time_build.value
+	call ts_time_position.setvalue class				///
+		tsTIMECommandDisplayList.position
+
+	call tsTIMEStatusList.store class ts_time_position.value "active"
+	call ts_time_position.withvalue tsTIMECommandValues.store	///
+		class ts_time_position.value class			///
+		tsTIMECommandList.values[@]
+
+	call ts_time_position.withvalue STMP.format			///
+		"resource LBL_INITIAL_CONDITION_FMT" "@" ""
+	call STMP.withvalue						///
+		tsTIMECommandDisplayList.store				///
+		class ts_time_position.value "@"
+
+	call tsTIMECommandDisplayList.copyToArray ts_time_list
+	call ts_time_position.withvalue ts_time_tmp2.setvalue		///
+		class tsTIMECommandDisplayList.values[@]
+	call ts.lb_time_build.repopulate
+	call ts.lb_time_build.setvalue class ts_time_tmp2.value
+END
+
+PROGRAM ts_lb_time_build_output
+BEGIN
+	call tsTIMECommandValues.copyToString ts_time_cmd_output
+	call ts_time_arraysize.setvalue class tsTIMEStatusList.size
+	if ts_time_cmd_output  {
+		put ts_time_cmd_output
+	}
+END
+
+PROGRAM ts_output
+BEGIN
+	if s_tsvar & ts.vn_tsvar {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format					///
+			"resource MENL_MSGBOX_TSVAR_WITH_TSSET"		///
+			"resource LBL_TIME_SERIES"
+		stopbox stop "class _MSG_TMP.value" 	
+// `"You cannot specify Time variable on the "Time series" tab when data are already tsset."'
+	}
+	if ts.vn_tsvar {
+		require ts.vn_tsvar
+		optionarg ts.vn_tsvar
+	}
+	put " " /program ts_lb_time_build_output
+	option ts.ck_tsmissing
+END
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+	program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  RADIO rb_variance		_lft	_ls	_iwd    .,first		///
+	option(variance)						///
+	onclickon(program rpt_check_options)				///
+	onclickoff(program rpt_check_options)				///
+	label(resource LBL_VARIANCE_COMPONENTS)
+  RADIO rb_stddev		@	_ss	@	.,last		///
+	option(stddeviations)						///
+	onclickon(program rpt_check_options)				///
+	onclickoff(program rpt_check_options)				///
+	label(resource LBL_SHOW_VARIANCE_COMPONENTS_AS_STANDARD_DEV_CORR)
+
+  CHECKBOX ck_noretable		_lft	_ls	_iwd	.,		///
+	option(noretable)						///
+	onclickon(program rpt_check_options)				///
+	onclickoff(program rpt_check_options)				///
+	label(resource LBL_SUPPRESS_RANDOM_EFFECTS_TABLE)
+  CHECKBOX ck_nofetable		@	_ms	@	.,		///
+	option(nofetable)						///
+	onclickon(program rpt_check_options)				///
+	onclickoff(program rpt_check_options)				///
+	label(resource LBL_SUPPRESS_FIXED_EFFECTS_TABLE)
+
+  CHECKBOX ck_estmetric		@	_ms	@	.,		///
+	option(estmetric)						///
+	onclickon(script rpt_estmetric_on)				///
+	onclickoff(script rpt_estmetric_off)				///
+	label(resource LBL_REPORT_PARAMETER_EST_IN_EST_METRIC)
+
+  CHECKBOX ck_nolegend		@	_ms	@	.,		///
+	option(nolegend)						///
+	label(resource MENL_RPT_CK_NOLEGEND)
+
+  CHECKBOX ck_noheader		@	_ms	@	.,		///
+	option(noheader)						///
+	label(resource LBL_SUPPRESS_OUTPUT_HEADER)
+
+  CHECKBOX ck_nogroup		@	_ms	@	.,		///
+	option(nogroup)							///
+	label(resource LBL_SUPPRESS_TABLE_SUMMARIZING_GROUPS)
+
+  CHECKBOX ck_nstderr		@	_ms	@	.,		///
+	option(nostderr)						///
+	label(resource LBL_DO_NOT_PERFORM_LR_TEST_COMPARING_TO_REGRESSION)
+
+  CHECKBOX ck_lrtest		@	_ms	@	.,		///
+	option(lrtest)							///
+	label(resource LBL_PERFORM_LR_TEST_AGAINST_NL_REGRESSION)
+
+  CHECKBOX ck_notsshow		@	_ms	@	.,		///
+	option(notsshow)						///
+	label(resource LBL_DO_NOT_SHOW_TS_SETTING)
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y  @
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+
+PROGRAM rpt_check_options
+BEGIN
+	call rpt.ck_estmetric.enable
+	if rpt.rb_stddev | rpt.ck_noretable | rpt.ck_nofetable {
+		call rpt.ck_estmetric.disable
+	}
+	if !rpt.rb_stddev & !rpt.ck_noretable. & !rpt.ck_nofetable  {
+		call rpt.ck_estmetric.enable
+	}
+END
+
+SCRIPT rpt_estmetric_on
+BEGIN
+	rpt.rb_variance.disable
+	rpt.rb_stddev.disable
+	rpt.ck_noretable.disable
+	rpt.ck_nofetable.disable
+END
+
+SCRIPT rpt_estmetric_off
+BEGIN
+	rpt.rb_variance.enable
+	rpt.rb_stddev.enable
+	rpt.ck_noretable.enable
+	rpt.ck_nofetable.enable
+END
+
+PROGRAM rpt_output
+BEGIN
+	optionarg /hidedefault rpt.sp_level
+	option rpt.rb_stddev
+	option rpt.ck_noretable
+	option rpt.ck_nofetable
+	option rpt.ck_estmetric
+	option rpt.ck_nolegend
+	option rpt.ck_noheader
+	option rpt.ck_nogroup
+	option rpt.ck_nstderr
+	option rpt.ck_lrtest
+	option rpt.ck_notsshow
+	INCLUDE _report_columns_pr
+	put " " rpt_bu_facvarsResults
+	put " " rpt_bu_fmtcoefResults
+END
+
+DIALOG em, tabtitle(resource LBL_EM_OPTIONS)
+BEGIN
+  SPINNER sp_emiter		_lft	_top	_spwd	.,		///
+	option(emiter)							///
+	min(0) max(16000) default(25)					///
+	label(resource LBL_NUMBER_OF_EM_ITERATIONS)
+  TEXT tx_emiter		_spsep	@	_spr	.,		///
+	label(resource LBL_NUMBER_OF_EM_ITERATIONS)
+
+  EDIT ed_emtol			_lft	_ls	_spwd	.,		///
+	default(1e-10)							///
+	option(emtolerance)						///
+	label(resource LBL_EM_CONVERGENCE_TOLERANCE)
+  TEXT tx_emtol			_spsep	@	_en7r	.,		///
+  	label(resource LBL_EM_CONVERGENCE_TOLERANCE)
+
+  CHECKBOX ck_emlog		_lft	_ls	_iwd	.,		///
+	option(emlog)							///
+	label(resource LBL_SHOW_EM_ITERATION_LOG)
+END
+
+PROGRAM em_output
+BEGIN
+	optionarg /hidedefault em.sp_emiter
+	optionarg /hidedefault em.ed_emtol
+	option em.ck_emlog
+END
+
+SCRIPT max_POSTINIT
+BEGIN
+	create STRING max_bu_pnls_Results
+	program max_bu_pnls_ckResults
+
+	create STRING max_bu_lme_Results
+	program max_bu_lme_ckResults
+END
+
+DIALOG max, tabtitle(resource LBL_TAB_MAXIMIZATION)
+BEGIN
+  SPINNER  sp_iter_i		_lft	_top	_spwd	.,		///
+	option(iterate)							///
+	min(0) max(16000) default(c(maxiter))				///
+	label(resource LBL_MAXIMUM_ITERATIONS)
+  TEXT tx_iter_i		_spsep	@	_spr2	.,		///
+	label(resource LBL_MAXIMUM_ITERATIONS)
+
+  GROUPBOX gb_iter		_lft	_ls	_cwd2	_ht4,		///
+	label(resource LBL_ITERATION_LOG)
+  RADIO rb_log			_ilft	_ss	_inwd	., first	///
+	label(resource LBL_SHOW_ITERATION_LOG)
+  RADIO rb_nolog		@	_ss	@	., last		///
+	option(nolog)							///
+	label(resource LBL_SUPPRESS_ITERATION_LOG)
+
+  GROUPBOX gb_tol		_lft	_xls	_iwd	_ht7,		///
+	label(resource LBL_CONVERGENCE_TOLERANCE)
+  EDIT ed_tol			_ilft	_ss	_en7wd	.,		///
+	option(tolerance)						///
+	default(1e-6)							///
+	label(resource LBL_PARAMETER_VECTOR)
+  TEXT tx_tol			_en7sep	@	185	.,		///
+  	label(resource LBL_PARAMETER_VECTOR)
+  EDIT ed_ltol			_ilft2	@	_en7wd	.,		///
+	option(ltolerance)						///
+	default(1e-7)							///
+	label(resource LBL_LOG_LIKELIHOOD)
+  TEXT tx_ltol			_en7sep	@	_en7r2b	.,		///
+	label(resource LBL_LOG_LIKELIHOOD)
+  EDIT ed_nrtol			_ilft	_ms	_en7wd	.,		///
+	option(nrtolerance)						///
+	default(1e-5)							///
+	label(resource LBL_HSG)
+  TEXT tx_nrtol			_en7sep	@	185	.,		///
+	label(resource LBL_HSG)
+  CHECKBOX ck_nonrtol		_ilft	_ls	_ibwd	.,		///
+	onclickon(script nonrtol) onclickoff(script nrtol)		///
+	option(nonrtolerance)						///
+	label(resource LBL_DISABLE_HSG)
+
+  BUTTON bu_pnls_opts		_lft	_xls	120	.,		///
+	onpush(script max_show_pnls_maxopts_dlg)			///
+	label(resource LBL_PNLS_OPTIMIZATION)
+  BUTTON bu_lme_opts		_lft2	@	@	.,		///
+	onpush(script max_show_lme_maxopts_dlg)				///
+	label(resource LBL_LME_OPTIMIZATION)
+END
+
+SCRIPT nonrtol
+BEGIN
+	max.ed_nrtol.disable
+	max.tx_nrtol.disable
+END
+
+SCRIPT nrtol
+BEGIN
+	max.ed_nrtol.enable
+	max.tx_nrtol.enable
+END
+
+SCRIPT max_show_pnls_maxopts_dlg
+BEGIN
+	create CHILD menl_maxopts_child AS max_pnls
+	max_pnls.setExitString max_bu_pnls_Results
+	max_pnls.settitle resource LBL_PNLS_OPTIMIZATION
+	max_pnls.setExitAction "program max_bu_pnls_ckResults"
+END
+
+PROGRAM max_bu_pnls_ckResults
+BEGIN
+	if max_bu_pnls_Results {
+		call max.bu_pnls_opts.modified_on
+	}
+	else {
+		call max.bu_pnls_opts.modified_off
+	}
+END
+
+SCRIPT max_show_lme_maxopts_dlg
+BEGIN
+	create CHILD menl_maxopts_child AS max_lme
+	max_lme.setExitString max_bu_lme_Results
+	max_lme.settitle resource LBL_LME_OPTIMIZATION
+	max_lme.setExitAction "program max_bu_lme_ckResults"
+END
+
+PROGRAM max_bu_lme_ckResults
+BEGIN
+	if max_bu_lme_Results {
+		call max.bu_lme_opts.modified_on
+	}
+	else {
+		call max.bu_lme_opts.modified_off
+	}
+END
+
+PROGRAM max_output
+BEGIN
+	optionarg /hidedefault max.sp_iter_i
+	option radio(max rb_nolog)
+	optionarg /hidedefault max.ed_tol
+	optionarg /hidedefault max.ed_ltol
+	optionarg /hidedefault max.ed_nrtol
+	option max.ck_nonrtol
+
+	if max_bu_pnls_Results {
+		put " pnlsopts(" max_bu_pnls_Results ")"
+	}
+	if max_bu_lme_Results {
+		put " lmeopts(" max_bu_lme_Results ")"
+	}
+END
+
+PROGRAM command
+BEGIN
+	call tsTIMECommandValues.copyToString ts_time_cmd_output
+
+	call ErrorMsg.setvalue ""
+	require main.vn_dv
+	require main.ed_subexpr
+	put "menl_dlg_parse, hint(run) "
+	put `"eq(""' 
+	put main.vn_dv
+	put " = "
+	put main.ed_subexpr
+	put `"") "'
+	put `"defines(""' 
+	put " " /program main_lb_param_build_output
+	put `"") "'
+	if ts.vn_tsvar {
+		optionarg ts.vn_tsvar
+	}
+	put " tsinit("
+	put " " /program ts_lb_time_build_output
+	put ")"
+	option ts.ck_tsmissing
+
+	stata hidden immediate
+	call ErrorMsg.setvalue s(errmsg)
+	call ts_recur.setvalue s(tsrecur)
+	call hasTS.setvalue s(hasts)
+	call hasTS.withvalue dhasTS.setvalue @
+
+	if ErrorMsg.isneq("") {
+		stopbox stop "resource LBL_INVALID_SYNTAX" ///
+			"class ErrorMsg.value"
+//		stopbox stop `"Invalid syntax"' class ErrorMsg.value
+	}
+	call ErrorMsg.setvalue s(message)
+	if ErrorMsg.isneq("") {
+//
+		stopbox rusure "Time-Series Query" ///
+			"class ErrorMsg.value"
+	}
+
+	call undefined_params.setvalue ""
+	call undefined_params.append s(undefined_expr)
+	if undefined_params {
+		call undefined_params.withvalue undefined_params_str.format ///
+			"resource LBL_UNDEFINED_FMT" "@"
+		stopbox stop class undefined_params_str.value
+	}
+
+	call kpath.setvalue s(kpath)
+	call kpath.withvalue dkpath.setvalue @
+	if (dkpath.iseq(missing)) {
+		call dkpath.setvalue 0
+	}
+
+	put "menl "
+	put main.vn_dv
+	put " = "
+	put main.ed_subexpr
+	put " " /program ifin_output
+	beginoptions
+		option main.rb_reml
+		put " " /program main_lb_param_build_output
+		put " " /program main_lb_cov_build_output
+		put " " initial_res
+		put " " /program ts_output
+		put " " /program resid_output
+		put " " /program rpt_output
+		put " " /program em_output
+		put " " /program max_output
+	endoptions
+END
+

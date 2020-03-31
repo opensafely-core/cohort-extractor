@@ -1,0 +1,181 @@
+/*
+	candisc
+
+*! VERSION 1.1.0  09sep2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_mlarge
+DEFINE _dlght 380
+INCLUDE header
+
+HELP hlp1, view("help candisc")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource CANDISC_DLG_HSCALE
+END
+
+
+DIALOG main, label(resource CANDISC_DLG_TITLE)	///
+	tabtitle(resource LBL_TAB_MODEL)
+BEGIN
+  TEXT tx_var		_lft	_top	_vlwd	.,		///
+	label(resource LBL_VARIABLES)
+  VARLIST vl_var	@	_ss	_vlwd	.,		///
+  	numeric							///
+	allowcat label(resource LBL_VARIABLES)
+
+  TEXT     tx_group	_vnx	_top	_vnwd	.,		///
+	label(resource LBL_GROUP_VARIABLE)
+  VARNAME vn_group	@	_ss	_vnwd	.,		///
+	option(group)						///
+	numeric							///
+	label(resource LBL_GROUP_VARIABLE)
+
+  GROUPBOX gb_priors	_lft	_ls	_iwd	_ht17,		///
+	label(resource LBL_GROUP_PRIOR_PROBABILITIES)
+
+  RADIO rb_equal	_indent	_ss	_ibwd	.,		///
+	first							///
+	onclickon(script main_rb_equal_on)			///
+	label(resource LBL_EQUAL_PRIOR_PROBABILITIES)
+
+  RADIO rb_proportional	@	_ss	@	.,		///
+	onclickon(script main_rb_proportional_on)		///
+	label(resource LBL_GROUP_SIZE_PROPORTIONAL_PRIOR_PROB)
+
+  RADIO rb_matname	@	_ss	@	.,		///
+	onclickon(script main_rb_matname_on)			///
+	label(resource CANDISC_MAIN_RB_MATNAME)
+  LISTBOX lb_matname	_rbsep	_ss	200	60,		///
+	label(resource LBL_VECTOR_CONTAINING_COEFFICIENTS_MODEL)   ///
+	contents(vector)
+
+  RADIO rb_matexp	_ilft	+65	_ibwd	.,		///
+	last							///
+	onclickon(script main_rb_matexp_on)			///
+	label(resource CANDISC_MAIN_RB_MATEXP)
+  EDIT ed_matexp	_rbsep	_ss	200	.,		///
+	label(resource CANDISC_MAIN_RB_MATEXP)
+
+  GROUPBOX gb_ties	_lft	+45	_iwd	_ht6,		///
+	label(resource LBL_TIES_GROUP_CLASSIFICATION)
+
+  RADIO rb_missing	_indent	_ss	_ibwd	.,		///
+	first							///
+	label(resource LBL_PRODUCE_A_MISSING_VALUE)
+
+  RADIO rb_random	@	_ss	@	.,		///
+	label(resource LBL_ARE_BROKEN_RANDOMLY)
+
+  RADIO rb_first	@	_ss	@	.,		///
+	last							///
+	label(resource LBL_ARE_SET_TO_THE_FIRST_TIED_GROUP)
+END
+
+SCRIPT main_rb_equal_on
+BEGIN
+	main.ed_matexp.disable
+	main.lb_matname.disable
+END
+
+SCRIPT main_rb_proportional_on
+BEGIN
+	main.ed_matexp.disable
+	main.lb_matname.disable
+END
+
+SCRIPT main_rb_matname_on
+BEGIN
+	main.lb_matname.enable
+	main.ed_matexp.disable
+END
+
+SCRIPT main_rb_matexp_on
+BEGIN
+	main.ed_matexp.enable
+	main.lb_matname.disable
+END
+
+PROGRAM main_priors_output
+BEGIN
+	if main.rb_proportional {
+		put "priors(proportional)"
+	}
+	if main.rb_matname {
+		put "priors("
+		put main.lb_matname
+		put ")"
+	}
+	if main.rb_matexp {
+		put "priors("
+		put main.ed_matexp
+		put ")"
+	}
+END
+
+PROGRAM main_ties_output
+BEGIN
+	if main.rb_random {
+		put "ties(random)"
+	}
+	if main.rb_first {
+		put "ties(first)"
+	}
+END
+
+INCLUDE ifin
+INCLUDE weights_f
+
+DIALOG rpt, label("") tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  CHECKBOX ck_notable	_lft	_top	_iwd	.,		///
+	option(notable)						///
+	label(resource LBL_SUPPRESS_RESUBSTITUTION_CLAS_TABLE)
+
+  CHECKBOX ck_lootable	@	_ms	@	.,		///
+	option(lootable)					///
+	label(resource CANDISC_RPT_CK_LOOTABLE)
+
+  CHECKBOX ck_nostats	@	_ms	@	.,		///
+	option(nostats)						///
+	label(resource CANDISC_RPT_CK_NOSTATS)
+
+  CHECKBOX ck_nocoef	@	_ms	+5	.,		///
+	option(nocoef)						///
+	label(resource CANDISC_RPT_CK_NOCOEF)
+
+  CHECKBOX ck_nostruct	@	_ms	@	.,		///
+	option(nostruct)					///
+	label(resource CANDISC_RPT_CK_NOSTRUCT)
+
+  CHECKBOX ck_nomeans	@	_ms	@	.,		///
+	option(nomeans)						///
+	label(resource CANDISC_RPT_CK_NOMEANS)
+
+END
+
+PROGRAM command
+BEGIN
+	allowxi
+	put "candisc "
+	varlist [main.vl_var]
+	INCLUDE _ifin_pr
+	put " " /program weights_output
+	beginoptions
+		require main.vn_group
+		optionarg main.vn_group
+		put " " /program main_priors_output
+		put " " /program main_ties_output
+		option rpt.ck_notable
+		option rpt.ck_lootable
+		option rpt.ck_nostats
+		option rpt.ck_nocoef
+		option rpt.ck_nostruct
+		option rpt.ck_nomeans
+	endoptions
+END

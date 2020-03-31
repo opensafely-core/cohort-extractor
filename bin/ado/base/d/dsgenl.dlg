@@ -1,0 +1,479 @@
+/*
+  dsgenl
+
+  VERSION 1.0.6  23sep2019
+
+*/
+
+VERSION 16.0
+
+INCLUDE _std_large
+DEFINE _dlght 510
+INCLUDE header
+
+HELP hlp1, view("help dsgenl")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING STMP
+
+	create STRING main_state_tmp
+	create STRING main_state_tmp2
+	create STRING main_state_childdlg
+	create STRING main_state_dlgname
+	create STRING main_state_child_result
+	create STRING main_state_cmd_output
+
+	create ARRAY main_state_list
+
+	create SVECTOR mainSTATECommandDisplayList
+	create SVECTOR mainSTATECommandList
+	create SVECTOR mainSTATECommandValues
+	create SVECTOR mainSTATEStatusList
+	create SVECTOR mainSTATEChildDialogList
+
+	create DOUBLE main_state_count
+	create DOUBLE main_state_position
+	create DOUBLE main_state_arraysize
+
+	main.bu_state_edit.disable
+	main.bu_state_disable.disable
+	main.bu_state_enable.disable
+
+	script se_createAsRobustOIM
+	setscale_hadj resource DSGENL_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	create STRING bu_fmtcoefResults
+	program bu_fmtcoef_ckResults
+
+	program se_setFinalInitState
+	script max_nonrtolerance_hide
+
+	mainSTATECommandDisplayList.copyToArray main_state_list
+	main.lb_state_build.repopulate
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	label(resource DSGENL_DLG_TITLE)
+BEGIN
+  DEFINE _x _xsetbu
+  DEFINE _y _top
+  INCLUDE _bu_tsset
+
+  TEXT tx_state				_lft	_ss	220	.,	///
+	label(resource LBL_EQUATION)	
+  LISTBOX lb_state_build		@	_ss	@	100,	///
+	contents(main_state_list)					///
+	ondblclick(program main_state_edit)				///
+	onselchange(program main_state_sel_changed)			///
+	nomemory
+  BUTTON bu_state_create		240	@	80	.,	///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program main_state_create)				///
+	tooltip(resource LBL_CREATE_EQUATION)
+  BUTTON bu_state_edit			@	_ms	@	.,	///
+	label(resource LBL_BU_EDIT)					///
+	onpush(program main_state_edit)					///
+	tooltip(resource LBL_EDIT_EQUATION)
+  BUTTON bu_state_disable		@	_ms	@	.,	///
+	label(resource LBL_BU_DISABLE)					///
+	onpush(program main_state_disable)				///
+	tooltip(resource LBL_CLICK_TO_DISABLE_AN_EQUATION)
+  BUTTON bu_state_enable		@	_ms	@	.,	///
+	label(resource LBL_BU_ENABLE)					///
+	onpush(program main_state_enable)				///
+	tooltip(resource LBL_CLICK_TO_ENABLE_PREVIOUSLY_DISABLED_EQ)
+  TEXTBOX tb_state_note			_lft	_ls	_iwd	_tb2,	///
+	label(resource LBL_PRESS_CREATE_TO_DEFINE_EQUATION)
+  TEXT tx_observed			_lft	_xls	_iwd	.,	///
+	label(resource LBL_OBSERVED_CONTROL_VARIABLES, colon)
+  VARLIST vl_observed			@	_ss	@	.,	///
+	numeric								///
+	option(observed) 						///
+	label(resource LBL_OBSERVED_CONTROL_VARIABLES)
+  TEXT tx_unobserved			@	_ls	_cwd1	.,	///
+	label(resource LBL_UNOBSERVED_CONTROL_NAMES)	
+  DEFINE holdy @y
+  EDIT ed_unobserved			@	_ss	@	.,	///
+	option(unobserved)						///
+	label(resource LBL_UNOBSERVED_CONTROL_NAMES)
+  TEXT tx_exostate			_lft2	holdy	@	.,	///
+	label(resource LBL_EXOGENOUS_STATE_NAMES)
+  EDIT ed_exostate			@	_ss	@	.,	///
+	option(exostate)						///
+	label(resource LBL_EXOGENOUS_STATE_NAMES)
+  TEXT tx_endostate			_lft	_ls	@	.,	///
+	label(resource LBL_ENDOGENOUS_STATE_NAMES)
+  EDIT ed_endostate			@	_ss	@	.,	///
+	option(endostate)						///
+	label(resource LBL_ENDOGENOUS_STATE_NAMES)
+
+  GROUPBOX gb_opts			_lft	+35	_iwd	_ht11h,	///
+	label(resource LBL_OPTIONS)
+  DEFINE _x _ilft
+  DEFINE _y _ss
+  DEFINE _cx _ilw80
+  DEFINE _bux _islw80
+  INCLUDE _constraints
+
+  CHECKBOX ck_linearapprox 		_ilft	_ls	_ibwd	.,	///
+	option(linearapprox)						///
+	label(resource LBL_DONOT_LOG_LINEARIZE)
+  CHECKBOX ck_noidencheck		_ilft	_ms	_ibwd	.,	///
+	option(noidencheck)						///
+	label(resource DSGE_MAIN_CK_NOIDENCHECK)
+  CHECKBOX ck_solve			@	_ms	@	.,	///
+	option(solve)							///
+	label(resource DSGE_MAIN_CK_SOLVE)
+END
+
+PROGRAM main_state_create
+BEGIN
+	call main_state_count.setvalue class mainSTATEChildDialogList.size
+	call main_state_count.increment
+	call main_state_tmp.setvalue "main_state_"
+	call main_state_tmp.append class main_state_count.value
+	call main_state_tmp.withvalue main_state_childdlg.setvalue @
+	call program main_show_state_child
+END
+
+PROGRAM main_state_edit
+BEGIN
+	call mainSTATECommandDisplayList.findstr class			///
+		main.lb_state_build.value
+	call main_state_position.setvalue class				///
+		mainSTATECommandDisplayList.position
+	call main_state_position.withvalue				///
+		main_state_childdlg.setvalue				///
+		class mainSTATEChildDialogList.values[@]
+	call program main_show_state_child_edit
+END
+
+PROGRAM main_show_state_child
+BEGIN
+	call main_state_tmp.setvalue "dsgenl_child AS "
+	call main_state_tmp.append class main_state_childdlg.value
+	call main_state_tmp.withvalue create CHILD @
+	call main_state_childdlg.withvalue @.setExitString		///
+		"main_state_child_result"
+	call main_state_childdlg.withvalue @.setExitAction		///
+		"program main_state_child_create_done"
+
+
+	call main_state_count.withvalue STMP.format			///
+		"resource LBL_EQUATION_FMT" "@" ""
+	call STMP.withvalue main_state_tmp.setvalue "@"
+	call main_state_childdlg.withvalue				///
+		main_state_tmp2.setvalue "@.settitle"
+	call main_state_tmp2.append `" ""'
+	call main_state_tmp2.append class main_state_tmp.value
+	call main_state_tmp2.append `"""'
+	call main_state_tmp2.withvalue @
+END
+
+PROGRAM main_show_state_child_edit
+BEGIN
+	call main_state_tmp.setvalue "dsgenl_child AS "
+	call main_state_tmp.append class main_state_childdlg.value
+	call main_state_tmp.withvalue create CHILD @
+	call main_state_childdlg.withvalue @.setExitString		///
+		"main_state_child_result"
+	call main_state_childdlg.withvalue @.setExitAction		///
+		"program main_state_child_edit_done"
+
+	call main_state_position.withvalue				///
+		main_state_tmp.setvalue					///
+		class mainSTATECommandDisplayList.values[@]
+	call main_state_childdlg.withvalue				///
+		main_state_tmp2.setvalue "@.settitle"
+	call main_state_tmp2.append `" ""'
+	call main_state_tmp2.append class main_state_tmp.value
+	call main_state_tmp2.append `"""'
+	call main_state_tmp2.withvalue @
+END
+
+PROGRAM main_state_child_create_done
+BEGIN
+	call main_state_arraysize.setvalue class			///
+		mainSTATEChildDialogList.size
+	call main_state_arraysize.increment
+
+	/* Store child dialog name */
+	call mainSTATEChildDialogList.store class			///
+		main_state_arraysize.value class main_state_childdlg.value
+
+	/* Store listbox display specification string */
+	call main_state_arraysize.withvalue STMP.format			///
+		"resource LBL_EQUATION_FMT" "@" ""
+
+	call STMP.withvalue						///
+		mainSTATECommandDisplayList.store class			///
+		main_state_arraysize.value "@"
+
+	/* Store child dialog result string */
+	call mainSTATECommandList.store class				///
+		main_state_arraysize.value				///
+		class main_state_child_result.value
+
+	/* Store child dialog result string for final command
+	   For disable/enable */
+	call mainSTATECommandValues.store class				///
+		main_state_arraysize.value				///
+		class main_state_child_result.value
+
+	/* Store disable/enable status */
+	call mainSTATEStatusList.store class				///
+		main_state_arraysize.value "active"
+
+	call mainSTATECommandDisplayList.copyToArray main_state_list
+	call main.lb_state_build.repopulate
+	call STMP.withvalue main.lb_state_build.setvalue "@"
+END
+
+PROGRAM main_state_child_edit_done
+BEGIN
+	call mainSTATEChildDialogList.findstr class			///
+		main_state_childdlg.value
+	call main_state_position.setvalue class				///
+		mainSTATEChildDialogList.position
+	call main_state_position.withvalue main_state_tmp.setvalue	///
+		class mainSTATEStatusList.values[@]
+	if main_state_tmp.iseq("active") {
+		call main_state_position.withvalue STMP.format		///
+			"resource LBL_EQUATION_FMT" "@" ""
+		call STMP.withvalue					///
+			mainSTATECommandDisplayList.store class		///
+			main_state_position.value "@"
+		call mainSTATECommandValues.store class			///
+			main_state_position.value class			///
+			main_state_child_result.value
+		call STMP.withvalue main_state_tmp2.setvalue "@"
+	}
+	else {
+		call main_state_position.withvalue STMP.format		///
+			"resource LBL_EQUATION_FMT" "@"		///
+			"resource LBL_PAREN_DISABLED"
+		call STMP.withvalue					///
+			main_state_tmp2.setvalue "@"
+
+		call STMP.withvalue					///
+			mainSTATECommandDisplayList.store		///
+			class main_state_position.value "@"
+	}
+
+	call mainSTATECommandList.store class				///
+		main_state_position.value class				///
+		main_state_child_result.value
+
+	call mainSTATECommandDisplayList.copyToArray main_state_list
+	call main.lb_state_build.repopulate
+	call main.lb_state_build.setvalue class main_state_tmp2.value
+END
+
+PROGRAM main_state_sel_changed
+BEGIN
+	call mainSTATECommandDisplayList.findstr class			///
+		main.lb_state_build.value
+	call main_state_position.setvalue class				///
+		mainSTATECommandDisplayList.position
+	call main_state_position.withvalue main_state_tmp.setvalue	///
+		class mainSTATEStatusList.values[@]
+	if main_state_position {
+		call main.bu_state_edit.enable
+		call main_state_position.withvalue			///
+			main.tb_state_note.setlabel			///
+			class mainSTATECommandList.values[@]
+	}
+
+	if main_state_tmp.iseq("disable") {
+		call main.bu_state_enable.enable
+		call main.bu_state_disable.disable
+	}
+	if main_state_tmp.iseq("active") {
+		call main.bu_state_enable.disable
+		call main.bu_state_disable.enable
+	}
+END
+
+PROGRAM main_state_disable
+BEGIN
+	call mainSTATECommandDisplayList.findstr class			///
+		main.lb_state_build.value
+	call main_state_position.setvalue class				///
+		mainSTATECommandDisplayList.position
+
+	call main_state_tmp.setvalue class main.lb_state_build.value
+	call mainSTATEStatusList.store class				///
+		main_state_position.value "disable"
+	call mainSTATECommandValues.store class main_state_position.value ""
+	call STMP.format "resource LBL_PAREN_DISABLED"
+	call main_state_tmp.append " "
+	call main_state_tmp.append class STMP.value
+	call main_state_tmp.withvalue STMP.setvalue "@"
+
+	call main_state_tmp.withvalue					///
+		mainSTATECommandDisplayList.store			///
+		class main_state_position.value "@"
+
+	call mainSTATECommandDisplayList.copyToArray main_state_list
+	call main.lb_state_build.repopulate
+	call main.lb_state_build.setvalue class STMP.value
+END
+
+PROGRAM main_state_enable
+BEGIN
+	call mainSTATECommandDisplayList.findstr class			///
+		main.lb_state_build.value
+	call main_state_position.setvalue class				///
+		mainSTATECommandDisplayList.position
+
+	call mainSTATEStatusList.store class				///
+		main_state_position.value "active"
+	call main_state_position.withvalue				///
+		mainSTATECommandValues.store				///
+		class main_state_position.value class			///
+		mainSTATECommandList.values[@]
+
+	call main_state_position.withvalue STMP.format			///
+		"resource LBL_EQUATION_FMT" "@" ""
+	call STMP.withvalue						///
+		mainSTATECommandDisplayList.store			///
+		class main_state_position.value "@"
+
+	call mainSTATECommandDisplayList.copyToArray main_state_list
+	call main_state_position.withvalue				///
+		main_state_tmp2.setvalue class				///
+		mainSTATECommandDisplayList.values[@]
+	call main.lb_state_build.repopulate
+	call main.lb_state_build.setvalue class main_state_tmp2.value
+END
+
+PROGRAM main_lb_state_build_output
+BEGIN
+	call mainSTATECommandValues.copyToString main_state_cmd_output
+	call main_state_arraysize.setvalue class mainSTATEStatusList.size
+	if main_state_cmd_output.iseq("") & main_state_arraysize.iseq(0) & ///
+		main.lb_state_build.isvisible() {
+		stopbox stop resource LBL_MSGBOX_STATE_EQUATION_NOT_DEFINED
+//		stopbox stop "State equation not defined. Please enter an equation before proceeding."
+        }
+	if main_state_cmd_output.iseq("") & main_state_arraysize.isgt(0) &   ///
+		main.lb_state_build.isvisible() {
+		stopbox stop resource LBL_MSGBOX_ALL_STATE_EQUATIONS_ARE_DISABLED
+//		stopbox stop "All state equations are disabled." "\nEither define a new equation or enable an existing equation before proceeding."
+	}
+	if main_state_cmd_output & main.lb_state_build.isvisible() {
+		put main_state_cmd_output
+	}
+END
+
+
+INCLUDE _constraints_sc
+
+INCLUDE ifin
+INCLUDE se
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE   _x  _lft
+  DEFINE   _cx _spr
+  DEFINE   _y  _top
+  INCLUDE  _sp_level
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _nocnsreport
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_coef_table_reporting
+END
+
+PROGRAM rpt_output
+BEGIN
+	optionarg /hidedefault rpt.sp_level
+	INCLUDE _nocnsreport_pr
+	INCLUDE _report_columns_pr
+	put " " rpt_bu_fmtcoefResults
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+
+INCLUDE max_ml
+
+DIALOG adv, tabtitle(resource LBL_ADVANCED)
+BEGIN
+  CHECKBOX ck_nodemean			_lft	_top	_iwd	.,	///
+	option(nodemean)						///
+	label(resource LBL_ADV_CK_NODEMEAN)
+  CHECKBOX ck_post			@	_ms	@	.,	///
+	option(post)							///
+	label(resource LBL_ADV_CK_POST)
+  GROUPBOX gb_tolerance			@	_ls	_iwd	_ht2,	///
+	label(resource LBL_DIAGNOSTICS_TOLERANCES)
+  EDIT ed_idtolerance			_ilft	_ss	_en7wd	.,	///
+	option(idtolerance)						///
+	default(1e-6)							///
+	label(resource LBL_IDENTIFICATION)
+  TEXT tx_idtolerance			_en7sep	@	_en7r2b	.,	///
+	label(resource LBL_IDENTIFICATION)
+  EDIT ed_steady			_lft4_03 @	_en7wd	., 	///
+	option(steadytolerance)						///
+	default(1e-17)							///
+	label(resource DSGE_ADV_CK_STEADY)
+  TEXT tx_steady			_en7sep	@	_en7r2	.,	///
+	label(resource DSGE_ADV_CK_STEADY)
+  TEXT tx_steadyinit			_lft	+45	_iwd	.,	///
+	label(resource DSGE_ADV_ED_STEADYINIT)
+  EDIT ed_steadyinit			@	_ss	@	.,	///
+	option(steadyinit)						///
+	label(resource DSGE_ADV_ED_STEADYINIT)
+END
+
+PROGRAM adv_output
+BEGIN
+	option adv.ck_nodemean
+	option adv.ck_post
+	optionarg /hidedefault adv.ed_idtolerance
+	optionarg /hidedefault adv.ed_steady
+	optionarg adv.ed_steadyinit
+END
+
+PROGRAM command
+BEGIN
+	put "dsgenl"
+	put " " /program main_lb_state_build_output
+	put " " /program ifin_output
+	beginoptions
+
+		optionarg main.ed_unobserved
+		optionarg main.vl_observed
+		optionarg main.ed_exostate
+		optionarg main.ed_endostate
+		INCLUDE _constraints_main_pr
+		option main.ck_linearapprox
+		option main.ck_noidencheck
+		option main.ck_solve
+		put " " /program se_output
+		put " " /program rpt_output
+		put " " /program max_output
+		put " " /program adv_output
+	endoptions
+END
+

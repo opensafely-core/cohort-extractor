@@ -1,0 +1,152 @@
+*! version 1.2.0  21jan2019
+version 8
+
+class {
+
+    instance:
+	symbol		 = .symbol.new , style(circle) 
+	linestyle        = .linestyle.new
+	fillcolor        = .color.new
+	size		 = .symbolsize.new , style(medium) 
+	angle		 = .anglestyle.new
+	symangle	 = .anglestyle.new
+
+	backsymbol 	 = .symbol.new , style(none)
+	backline         = .linestyle.new
+	backcolor        = .color.new
+	backsize   	 = .symbolsize.new , style(medium) 
+	backangle	 = .anglestyle.new
+	backsymangle	 = .anglestyle.new
+
+} , inherit(style)
+
+
+/* -------------------------------------------------------------------------*/
+/*
+	Usage:  .new style(name)
+*/
+program define new
+
+	syntax [, Style(string) * ]
+
+	if "`style'" == "" {					/* defaults */
+		.setstyle, style(scheme)
+	}
+	.setstyle `0'
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*
+	Usage:  .set fillcolor(color_setting) linestyle(line_setting) 
+		     symbol(symbol_name) size(size_setting)
+
+	Returns unconsumed options in r(sresult).
+*/
+
+program define set
+
+	syntax [, Fillcolor(string) Linestyle(string) SYMbol(string)	///
+		  Size(string) * ]
+
+
+	if "`fillcolor'" != "" {
+		.fillcolor.set , `fillcolor'
+	}
+
+	if "`linestyle'" != "" {
+		.linestyle.set , `linestyle'
+	}
+
+	if "`symbol'" != "" {
+		.symbol.setstyle , style(`symbol')
+	}
+
+	if "`size'" != "" {
+		.size.setstyle , style(`size')
+	}
+
+	class exit `"`options'"'
+end
+
+
+// ---------------------------------------------------------------------------
+// Returns 1 if the symbol/line/fill style implies that something is to be 
+// drawn, 0 otherwise.
+
+program drawn
+	class exit =    "`.symbol.snm'" != "none"    &			///
+		      (	"`.fillcolor.snm'" != "none" |			///
+			( "`.linestyle.snm'"         != "none" & 	///
+			  "`.linestyle.color.snm'"   != "none" &	///
+			  "`.linestyle.pattern.snm'" != "blank") )
+end
+
+
+/* -------------------------------------------------------------------------*/
+/* 
+	Set this symbol to the GDI
+*/
+
+program define setgdi
+
+	syntax [ , Backingsymbol ]
+
+	if "`backingsymbol'" != "" {
+		.backline.setgdi
+
+		local symbol `.backsymbol.stylename'
+		local symbol : subinstr local symbol "_hollow" "" ,	///
+			       count(local ct)
+
+		gdi symbol = `symbol'
+		gdi gm_symbolsize = `.backsize.gmval'
+
+		gdi shadepattern = pattern10
+		gdi shadelevel   = 100
+		gdi shadeopacity = 100
+
+		if 0`ct' {
+			gdi shadepattern = none
+		}
+		else {
+			.backcolor.setgdi, shade
+		}
+		gdi symbolangle = `.backsymangle.val'
+
+		exit
+	}
+
+	.linestyle.setgdi
+
+	local symbol `.symbol.stylename'
+	local symbol : subinstr local symbol "_hollow" "" , count(local ct)
+
+	gdi symbol = `symbol'
+	gdi gm_symbolsize = `.size.gmval'
+
+	gdi shadepattern = pattern10
+	gdi shadelevel   = 100
+	gdi shadeopacity = 100
+	if 0`ct' {
+		gdi shadepattern = none
+	}
+	else {
+		.fillcolor.setgdi, shade
+	}
+	gdi symbolangle = `.symangle.val'
+end
+
+
+/* -------------------------------------------------------------------------*/
+/* 
+	Set this symbol to the GDI and reset the pen
+*/
+
+program define setgdifull
+
+	.setgdi `0'
+	gdi penchange
+	gdi shadechange
+end
+

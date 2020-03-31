@@ -1,0 +1,857 @@
+/*
+  bayes_me_priors.idlg - bayes me priors tab
+
+*!  VERSION 1.0.6  03may2017
+
+    // SCRIPTS and PROGRAMS for external use
+	* SCRIPT  prior_iwishart_enable
+	* SCRIPT  prior_iwishart_disable
+	* SCRIPT  prior_flat_show
+	* SCRIPT  prior_flat_hide
+	* SCRIPT  prior_normal_logover_param
+	* SCRIPT  prior_normal_logscale_param
+	* SCRIPT  prior_normal_loganc_param
+	* SCRIPT  prior_normal
+
+*/
+
+SCRIPT prior_PREINIT
+BEGIN
+	create STRING _MSG_TMP
+	create STRING STMP
+	create STRING EstimateCmdString
+	create STRING tempEstimateCmdString
+
+	create STRING prior_build_tmp
+	create STRING prior_build_tmp2
+	create STRING prior_build_childdlg
+	create STRING prior_build_child_result
+	create DOUBLE prior_build_position
+
+//add
+	create STRING iwish_build_tmp
+	create STRING iwish_build_tmp2
+	create STRING iwish_build_childdlg
+	create STRING iwish_build_child_result
+	create DOUBLE iwish_build_position
+
+	create STRING dlgname
+	dlgname.storeDialogClassName
+
+	create ARRAY prior_prior_list
+	create SVECTOR priorPriorCommandDisplayList
+	create SVECTOR priorPriorCommandList
+	create SVECTOR priorPriorCommandValues
+	create SVECTOR priorPriorStatusList
+	create SVECTOR priorPriorChildDialogList
+	create SVECTOR priorPriorChildDialogNameList
+	create DOUBLE prior_prior_count
+	create DOUBLE prior_prior_arraysize
+	create STRING prior_prior_output
+
+//add
+	create ARRAY prior_iwish_list
+	create SVECTOR priorIwishCommandDisplayList
+	create SVECTOR priorIwishCommandList
+	create SVECTOR priorIwishCommandValues
+	create SVECTOR priorIwishStatusList
+	create SVECTOR priorIwishChildDialogList
+	create SVECTOR priorIwishChildDialogNameList
+	create DOUBLE prior_iwish_count
+	create DOUBLE prior_iwish_arraysize
+	create STRING prior_iwish_output
+
+	create STRING BAYES_PARSE_PARAMS
+	create STRING BAYES_PARSE_PARAMS_ERROR
+	create STRING BAYES_PARSE_PARAMS_RESULT
+	
+	create DOUBLE prior_layout
+
+	create STRING prior_paras_str
+	create DOUBLE prior_mode
+	create STRING priorparam
+	create STRING build_STMP
+
+	prior.bu_prior_edit.disable
+	prior.bu_prior_disable.disable
+	prior.bu_prior_enable.disable
+//add	
+	create STRING iwish_STMP
+	prior.bu_iwish_edit.disable
+	prior.bu_iwish_disable.disable
+	prior.bu_iwish_enable.disable
+
+	prior_mode.setvalue 0
+
+
+END
+
+DIALOG prior, tabtitle(resource LBL_TAB_PRIORS)
+BEGIN
+  GROUPBOX gb_dftprior		_lft	_top	_iwd	_ht17,		///
+  	label(resource BAYES_LBL_DEFAULT_PRIORS)
+  TEXT     tx_normal		_ilft	_ss	_ibwd	.,		///
+  	label(resource BAYES_LBL_NORMAL_PRIOR_COEF)
+  EDIT	   ed_normal		_ilft	_ss	_spwd	.,		///
+  	option(normalprior) numonly					///
+  	default(100) 							///
+  	tooltip(resource BAYES_PRIOR_ED_NORMAL_TOOLTIP)			///
+  	label(resource LBL_STANDARD_DEVIATION)
+  TEXT     tx_stdv		_en7sep	@	200	.,		///
+	label(resource LBL_STANDARD_DEVIATION)
+  TEXT    tx_igamma		_ilft	_ms	_ibwd	.,		///
+  	label(resource BAYES_LBL_IGAMMAPRIOR_VARIANCE_COMP)
+  DEFINE holdy @y
+  EDIT     ed_igamma		_ilft	_ss	_en7wd	.,		///
+	option(igammaprior)						///
+	default(0.01) numonly						///
+	tooltip(resource BAYES_PRIOR_TOOLTIP_SHAPE_IGAMMAPRIOR)		///
+	label(resource BAYES_LBL_IGAMMAPRIOR_VARIANCE)
+  TEXT     tx_shape		_en7sep	@	200	.,		///
+  	label(resource BAYES_LBL_SHAPE)
+  EDIT     ed_igamma2		_ilft	_ms	_en7wd	.,		///
+	option(igammaprior)						///
+	default(0.01) numonly						///
+	tooltip(resource BAYES_PRIOR_TOOLTIP_SCALE_IGAMMAPRIOR)		///
+	label(resource BAYES_LBL_IGAMMAPRIOR_VARIANCE)
+  TEXT     tx_scale		_en7sep	@	200	.,		///
+	label(resource BAYES_LBL_SCALE)
+  TEXTBOX tb_iwishartnote	_ilft	+35	_ibwd	_tb2,		///
+  	label(resource BAYES_PRIORS_TB_IWISHARTNOTE)
+  TEXT     tx_flat		_ilft	_ls	_ibwd	.,		///
+  	label(resource BAYES_PRIOR_TX_FLAT)
+  GROUPBOX gb_iwish		_lft	+35	_iwd	_ht14,		///
+  	label(resource BAYES_PRIOR_GB_IWISH_PRIOR)
+	
+  TEXT tx_cusiwish		_ilft	_ss	_cwd2	.,		///
+  	label(resource BAYES_PRIOR_LBL_CUS_PRIORS_RE)
+	
+DEFINE y @y
+  LISTBOX lb_iwishBuild		@	_ss	220	95,		///
+	contents(prior_iwish_list)					///
+	ondblclick(program prior_iwish_edit)				///
+	onselchange(program prior_iwish_sel_changed)			///
+	nomemory
+  BUTTON bu_iwish_create	250	@	75	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program prior_iwish_create)
+  BUTTON bu_iwish_edit		@	_ms	@	.,		///
+	label(resource LBL_BU_EDIT)					///
+	onpush(program prior_iwish_edit)
+  BUTTON bu_iwish_disable	@	_ms	@	.,		///
+	label(resource LBL_BU_DISABLE)					///
+	onpush(program prior_iwish_disable)
+  BUTTON bu_iwish_enable	@	_ms	@	.,		///
+	label(resource LBL_BU_ENABLE)					///
+	onpush(program prior_iwish_enable)
+  TEXTBOX tb_iwish_note		20	+30	370	20,		///
+  	label(resource BAYES_TB_IWISH_NOTE)
+  TEXT tx_comiwish		_ilft2	y	_cwd3	.,		///
+  	label(resource BAYES_LBL_COM_DFT_PRIORS_RE)
+  EDIT ed_iwishart		_ilft2	_ss	_en7wd	.,		///
+	numonly								///
+	default(.)							///
+	label(resource BAYES_LBL_COM_DFT_PRIORS_RE)			///
+	tooltip(resource BAYES_PRIOR_ED_IWISHART_TOOLTIP)	
+  TEXT tx_degree		_en7sep	@	200	.,		///
+  	label(resource BAYES_LBL_DEGREES_FREEDOM)	
+  COMBOBOX cb_iwishart		_ilft2	_ms	100	.,		///
+	dropdown							///
+	contents(matrix)						///
+	label(resource BAYES_LBL_COM_DFT_PRIORS_RE)			///
+	tooltip(resource BAYES_PRIOR_CB_IWISHART_TOOLTIP)	
+  TEXT tx_matrix		+105	@	150	.,		///
+  	label(resource BAYES_LBL_SCALE_MATRIX)
+  GROUPBOX gb_prior		_lft	+110	_iwd	_ht12,		///
+  	label(resource BAYES_LBL_CUS_PRIORS_MODEL_PARAMS)
+  LISTBOX lb_priorBuild		_indent	_ss	220	95,		///
+	contents(prior_prior_list)					///
+	ondblclick(program prior_prior_edit)				///
+	onselchange(program prior_prior_sel_changed)			///
+	nomemory
+  BUTTON bu_prior_create	250	@	75	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program prior_prior_create)
+  BUTTON bu_prior_edit		@	_ms	@	.,		///
+	label(resource LBL_BU_EDIT)					///
+	onpush(program prior_prior_edit)
+  BUTTON bu_prior_disable	@	_ms	@	.,		///
+	label(resource LBL_BU_DISABLE)					///
+	onpush(program prior_prior_disable)
+  BUTTON bu_prior_enable	@	_ms	@	.,		///
+	label(resource LBL_BU_ENABLE)					///
+	onpush(program prior_prior_enable)
+  TEXTBOX tb_prior_note		20	+30	370	20,		///
+	label(resource BAYES_LBL_PRESS_CREATE_TO_DEFINE_A_PRIOR_DIST)
+  CHECKBOX ck_dryrun		_lft	+35	_iwd	.,		///
+	option(dryrun)							///
+	onclickon(block.ck_blocksummary.disable)			///
+	onclickoff(block.ck_blocksummary.enable)			///
+	label(resource BAYES_LBL_SHOW_MSUM_WITHOUT_EST)
+
+END
+
+
+PROGRAM prior_prior_create
+BEGIN
+	call prior_mode.setvalue 0
+	call prior_prior_count.setvalue class priorPriorChildDialogList.size
+	call prior_prior_count.increment
+	call prior_build_tmp.setvalue "prior_prior_"
+	call prior_build_tmp.append class prior_prior_count.value
+	call prior_build_tmp.withvalue prior_build_childdlg.setvalue @
+	call program prior_show_prior_child
+END
+
+PROGRAM prior_prior_edit
+BEGIN
+	call prior_mode.setvalue 1
+	call priorPriorCommandDisplayList.findstr class			///
+		prior.lb_priorBuild.value
+	call prior_build_position.setvalue class			///
+		priorPriorCommandDisplayList.position
+	call prior_build_position.withvalue				///
+		prior_build_childdlg.setvalue				///
+		class priorPriorChildDialogList.values[@]
+	call program prior_show_prior_child_edit
+END
+
+PROGRAM prior_show_prior_child
+BEGIN
+	call priorPriorCommandValues.copyToString prior_prior_output
+	put "capture bayes_parse_params "
+	if !prior_prior_output.equals("") {
+		put "," prior_prior_output
+	}
+	put " : " 
+	put /program bayes_build_parse
+	stata hidden immediate
+
+	call BAYES_PARSE_PARAMS_ERROR.setvalue ""
+	call BAYES_PARSE_PARAMS_RESULT.setvalue ""
+	call BAYES_PARSE_PARAMS_RESULT.setvalue s(params)
+	if BAYES_PARSE_PARAMS_RESULT.iseq("") {
+		call BAYES_PARSE_PARAMS_ERROR.setvalue resource BAYES_MSGBOX_ERRORS_IN_SPECIFICATION
+	stopbox stop "class BAYES_PARSE_PARAMS_ERROR.value"
+// Errors in model specification.
+	}
+
+	call prior_build_tmp.setvalue "bayes_prior AS "
+	call prior_build_tmp.append class prior_build_childdlg.value
+	call prior_build_tmp.withvalue create CHILD @
+	call prior_build_childdlg.withvalue @.setExitString		///
+		"prior_build_child_result"
+	call prior_build_childdlg.withvalue @.setExitAction		///
+		"program prior_prior_child_create_done"
+
+	call prior_prior_count.withvalue				///
+		build_STMP.format "resource BAYES_LBL_PRIOR_FMT" "@" ""
+	call prior_build_childdlg.withvalue				///
+		prior_build_tmp2.setvalue "@.settitle"
+	call prior_build_tmp2.append `" ""'
+	call prior_build_tmp2.append class build_STMP.value
+	call prior_build_tmp2.append `"""'
+	call prior_build_tmp2.withvalue @
+END
+
+PROGRAM prior_show_prior_child_edit
+BEGIN
+	call priorPriorCommandValues.copyToString prior_prior_output
+	put "capture bayes_parse_params "
+	if !prior_prior_output.equals("") {
+		put "," prior_prior_output
+	}
+	put " : " 
+	put /program bayes_build_parse
+	stata hidden immediate
+
+	call prior_build_tmp.setvalue "bayes_prior AS "
+	call prior_build_tmp.append class prior_build_childdlg.value
+	call prior_build_tmp.withvalue create CHILD @
+	call prior_build_childdlg.withvalue @.setExitString		///
+		"prior_build_child_result"
+	call prior_build_childdlg.withvalue @.setExitAction		///
+		"program prior_prior_child_edit_done"
+
+	call prior_build_position.withvalue				///
+		prior_build_tmp.setvalue				///
+		class priorPriorCommandDisplayList.values[@]
+	call prior_build_childdlg.withvalue				///
+		prior_build_tmp2.setvalue "@.settitle"
+	call prior_build_tmp2.append `" ""'
+	call prior_build_tmp2.append class prior_build_tmp.value
+	call prior_build_tmp2.append `"""'
+	call prior_build_tmp2.withvalue @
+END
+
+PROGRAM prior_prior_child_create_done
+BEGIN
+	call prior_prior_arraysize.setvalue class			///
+		priorPriorChildDialogList.size
+	call prior_prior_arraysize.increment
+
+	/* Store child dialog name */
+	call priorPriorChildDialogList.store class			///
+		prior_prior_arraysize.value class prior_build_childdlg.value
+
+	/* Store listbox display prior string */
+	call prior_prior_arraysize.withvalue				///
+		build_STMP.format "resource BAYES_LBL_PRIOR_FMT" "@" ""
+		
+	call build_STMP.withvalue					///
+		priorPriorCommandDisplayList.store class		///
+		prior_prior_arraysize.value "@"
+
+	/* Store child dialog result string */
+	call priorPriorCommandList.store class				///
+		prior_prior_arraysize.value				///
+		class prior_build_child_result.value
+
+
+	/* Store child dialog result string for final command
+	   For disable/enable */
+	call priorPriorCommandValues.store class			///
+		prior_prior_arraysize.value				///
+		class prior_build_child_result.value
+
+	/* Store disable/enable status */
+	call priorPriorStatusList.store class				///
+		prior_prior_arraysize.value "active"
+
+	call priorPriorCommandDisplayList.copyToArray prior_prior_list
+	call prior.lb_priorBuild.repopulate
+	call build_STMP.withvalue					///
+		prior.lb_priorBuild.setvalue "@"
+END
+
+PROGRAM prior_prior_child_edit_done
+BEGIN	
+	call priorPriorChildDialogList.findstr class			///
+		prior_build_childdlg.value
+	call prior_build_position.setvalue class			///
+		priorPriorChildDialogList.position
+	call prior_build_position.withvalue prior_build_tmp.setvalue	///
+		class priorPriorStatusList.values[@]
+	if prior_build_tmp.iseq("active") {
+		call prior_build_position.withvalue			///
+			build_STMP.format "resource BAYES_LBL_PRIOR_FMT" "@" ""
+		
+		call build_STMP.withvalue				///
+			priorPriorCommandDisplayList.store class	///
+			prior_build_position.value "@"
+		call priorPriorCommandValues.store class		///
+			prior_build_position.value class		///
+			prior_build_child_result.value
+
+		call build_STMP.withvalue				///
+			prior_build_tmp2.setvalue "@"
+	}
+	else {
+		call prior_build_position.withvalue build_STMP.format	///
+			"resource BAYES_LBL_PRIOR_FMT" "@"		///
+			"resource LBL_PAREN_DISABLED"
+		call build_STMP.withvalue				///
+			prior_build_tmp2.setvalue "@"
+
+		call prior_build_tmp2.withvalue				///
+			priorPriorCommandDisplayList.store		///
+			class prior_build_position.value "@"
+	}
+
+	call priorPriorCommandList.store class				///
+		prior_build_position.value class			///
+		prior_build_child_result.value
+
+	call priorPriorCommandDisplayList.copyToArray prior_prior_list
+	call prior.lb_priorBuild.repopulate
+	call prior.lb_priorBuild.setvalue class prior_build_tmp2.value
+END
+
+PROGRAM prior_prior_sel_changed
+BEGIN
+	call priorPriorCommandDisplayList.findstr class			///
+		prior.lb_priorBuild.value
+	call prior_build_position.setvalue class			///
+		priorPriorCommandDisplayList.position
+	call prior_build_position.withvalue prior_build_tmp.setvalue	///
+		class priorPriorStatusList.values[@]
+	if prior_build_position {
+		call prior.bu_prior_edit.enable
+
+		call prior_build_position.withvalue			///
+			prior.tb_prior_note.setlabel			///
+		class priorPriorCommandList.values[@]
+	}
+
+	if prior_build_tmp.iseq("disable") {
+		call prior.bu_prior_enable.enable
+		call prior.bu_prior_disable.disable
+	}
+	if prior_build_tmp.iseq("active") {
+		call prior.bu_prior_enable.disable
+		call prior.bu_prior_disable.enable
+	}
+END
+
+PROGRAM prior_prior_disable
+BEGIN
+	call priorPriorCommandDisplayList.findstr class			///
+		prior.lb_priorBuild.value
+	call prior_build_position.setvalue class			///
+		priorPriorCommandDisplayList.position
+
+	call prior_build_tmp.setvalue class prior.lb_priorBuild.value
+	call priorPriorStatusList.store class				///
+		prior_build_position.value "disable"
+	call priorPriorCommandValues.store class prior_build_position.value ""
+
+	call build_STMP.format "resource LBL_PAREN_DISABLED"
+	call prior_build_tmp.append " "
+	call prior_build_tmp.append class build_STMP.value
+	
+	call prior_build_tmp.withvalue					///
+		priorPriorCommandDisplayList.store			///
+		class prior_build_position.value "@"
+
+	call priorPriorCommandDisplayList.copyToArray prior_prior_list
+	call prior_build_tmp.withvalue prior_build_tmp2.setvalue "@"
+	call prior.lb_priorBuild.repopulate
+	call prior.lb_priorBuild.setvalue class prior_build_tmp2.value
+END
+
+PROGRAM prior_prior_enable
+BEGIN
+	call priorPriorCommandDisplayList.findstr class			///
+		prior.lb_priorBuild.value
+	call prior_build_position.setvalue class			///
+		priorPriorCommandDisplayList.position
+
+	call priorPriorStatusList.store class				///
+		prior_build_position.value "active"
+	call prior_build_position.withvalue				///
+		priorPriorCommandValues.store				///
+		class prior_build_position.value class			///
+		priorPriorCommandList.values[@]
+
+	call prior_build_position.withvalue				///
+		build_STMP.format "resource BAYES_LBL_PRIOR_FMT" "@" ""
+		
+	call build_STMP.withvalue					///
+		priorPriorCommandDisplayList.store			///
+		class prior_build_position.value "@"
+
+	call priorPriorCommandDisplayList.copyToArray prior_prior_list
+	call prior_build_position.withvalue				///
+		prior_build_tmp2.setvalue class				///
+		priorPriorCommandDisplayList.values[@]
+	call prior.lb_priorBuild.repopulate
+	call prior.lb_priorBuild.setvalue class prior_build_tmp2.value
+END
+
+//add
+PROGRAM prior_iwish_create
+BEGIN
+	
+	call prior_iwish_count.setvalue class priorIwishChildDialogList.size
+	call prior_iwish_count.increment
+	call iwish_build_tmp.setvalue "prior_iwish_"
+	call iwish_build_tmp.append class prior_iwish_count.value
+	call iwish_build_tmp.withvalue iwish_build_childdlg.setvalue @
+	call program prior_show_iwish_child
+END
+
+PROGRAM prior_iwish_edit
+BEGIN
+	
+	call priorIwishCommandDisplayList.findstr class			///
+		prior.lb_iwishBuild.value
+	call iwish_build_position.setvalue class			///
+		priorIwishCommandDisplayList.position
+	call iwish_build_position.withvalue				///
+		iwish_build_childdlg.setvalue				///
+		class priorIwishChildDialogList.values[@]
+	call program prior_show_iwish_child_edit
+END
+
+PROGRAM prior_show_iwish_child
+BEGIN
+	
+	call iwish_build_tmp.setvalue "bayes_prior_iwishart AS "
+	call iwish_build_tmp.append class iwish_build_childdlg.value
+	call iwish_build_tmp.withvalue create CHILD @
+	call iwish_build_childdlg.withvalue @.setExitString		///
+		"iwish_build_child_result"
+	call iwish_build_childdlg.withvalue @.setExitAction		///
+		"program prior_iwish_child_create_done"
+
+	call prior_iwish_count.withvalue				///
+		iwish_STMP.format "resource BAYES_LBL_IWISHPRIOR_FMT" "@" ""
+	call iwish_build_childdlg.withvalue				///
+		iwish_build_tmp2.setvalue "@.settitle"
+	call iwish_build_tmp2.append `" ""'
+	call iwish_build_tmp2.append class iwish_STMP.value
+	call iwish_build_tmp2.append `"""'
+	call iwish_build_tmp2.withvalue @
+END
+
+PROGRAM prior_show_iwish_child_edit
+BEGIN
+
+	call iwish_build_tmp.setvalue "bayes_prior_iwishart AS "
+	call iwish_build_tmp.append class iwish_build_childdlg.value
+	call iwish_build_tmp.withvalue create CHILD @
+	call iwish_build_childdlg.withvalue @.setExitString		///
+		"iwish_build_child_result"
+	call iwish_build_childdlg.withvalue @.setExitAction		///
+		"program prior_iwish_child_edit_done"
+
+	call iwish_build_position.withvalue				///
+		iwish_build_tmp.setvalue				///
+		class priorIwishCommandDisplayList.values[@]
+	call iwish_build_childdlg.withvalue				///
+		iwish_build_tmp2.setvalue "@.settitle"
+	call iwish_build_tmp2.append `" ""'
+	call iwish_build_tmp2.append class iwish_build_tmp.value
+	call iwish_build_tmp2.append `"""'
+	call iwish_build_tmp2.withvalue @
+END
+
+PROGRAM prior_iwish_child_create_done
+BEGIN
+	call prior_iwish_arraysize.setvalue class			///
+		priorIwishChildDialogList.size
+	call prior_iwish_arraysize.increment
+
+	/* Store child dialog name */
+	call priorIwishChildDialogList.store class			///
+		prior_iwish_arraysize.value class iwish_build_childdlg.value
+
+	/* Store listbox display prior string */
+	call prior_iwish_arraysize.withvalue				///
+		iwish_STMP.format "resource BAYES_LBL_IWISHPRIOR_FMT" "@" ""
+				
+	call iwish_STMP.withvalue					///
+		priorIwishCommandDisplayList.store class		///
+		prior_iwish_arraysize.value "@"
+
+	/* Store child dialog result string */
+	call priorIwishCommandList.store class				///
+		prior_iwish_arraysize.value				///
+		class iwish_build_child_result.value
+
+
+	/* Store child dialog result string for final command
+	   For disable/enable */
+	call priorIwishCommandValues.store class			///
+		prior_iwish_arraysize.value				///
+		class iwish_build_child_result.value
+
+	/* Store disable/enable status */
+	call priorIwishStatusList.store class				///
+		prior_iwish_arraysize.value "active"
+
+	call priorIwishCommandDisplayList.copyToArray prior_iwish_list
+	call prior.lb_iwishBuild.repopulate
+	call iwish_STMP.withvalue					///
+		prior.lb_iwishBuild.setvalue "@"
+END
+
+PROGRAM prior_iwish_child_edit_done
+BEGIN	
+	call priorIwishChildDialogList.findstr class			///
+		iwish_build_childdlg.value
+	call iwish_build_position.setvalue class			///
+		priorIwishChildDialogList.position
+	call iwish_build_position.withvalue iwish_build_tmp.setvalue	///
+		class priorIwishStatusList.values[@]
+	if iwish_build_tmp.iseq("active") {
+		call iwish_build_position.withvalue			///
+			iwish_STMP.format "resource BAYES_LBL_IWISHPRIOR_FMT" "@" ""
+				
+		call iwish_STMP.withvalue				///
+			priorIwishCommandDisplayList.store class	///
+			iwish_build_position.value "@"
+		call priorIwishCommandValues.store class		///
+			iwish_build_position.value class		///
+			iwish_build_child_result.value
+
+		call iwish_STMP.withvalue				///
+			iwish_build_tmp2.setvalue "@"
+	}
+	else {
+		call iwish_build_position.withvalue iwish_STMP.format	///
+			"resource BAYES_LBL_IWISHPRIOR_FMT" "@"		///
+			"resource LBL_PAREN_DISABLED"	
+		call iwish_STMP.withvalue				///
+			iwish_build_tmp2.setvalue "@"
+
+		call iwish_build_tmp2.withvalue				///
+			priorIwishCommandDisplayList.store		///
+			class iwish_build_position.value "@"
+	}
+
+	call priorIwishCommandList.store class				///
+		iwish_build_position.value class			///
+		iwish_build_child_result.value
+
+	call priorIwishCommandDisplayList.copyToArray prior_iwish_list
+	call prior.lb_iwishBuild.repopulate
+	call prior.lb_iwishBuild.setvalue class iwish_build_tmp2.value
+END
+
+PROGRAM prior_iwish_sel_changed
+BEGIN
+	call priorIwishCommandDisplayList.findstr class			///
+		prior.lb_iwishBuild.value
+	call iwish_build_position.setvalue class			///
+		priorIwishCommandDisplayList.position
+	call iwish_build_position.withvalue iwish_build_tmp.setvalue	///
+		class priorIwishStatusList.values[@]
+	if iwish_build_position {
+		call prior.bu_iwish_edit.enable
+
+		call iwish_build_position.withvalue			///
+			prior.tb_iwish_note.setlabel			///
+		class priorIwishCommandList.values[@]
+	}
+
+	if iwish_build_tmp.iseq("disable") {
+		call prior.bu_iwish_enable.enable
+		call prior.bu_iwish_disable.disable
+	}
+	if iwish_build_tmp.iseq("active") {
+		call prior.bu_iwish_enable.disable
+		call prior.bu_iwish_disable.enable
+	}
+END
+
+PROGRAM prior_iwish_disable
+BEGIN
+	call priorIwishCommandDisplayList.findstr class			///
+		prior.lb_iwishBuild.value
+	call iwish_build_position.setvalue class			///
+		priorIwishCommandDisplayList.position
+
+	call iwish_build_tmp.setvalue class prior.lb_iwishBuild.value
+	call priorIwishStatusList.store class				///
+		iwish_build_position.value "disable"
+	call priorIwishCommandValues.store class iwish_build_position.value ""
+
+	call iwish_STMP.format "resource LBL_PAREN_DISABLED"
+	call iwish_build_tmp.append " "
+	call iwish_build_tmp.append class iwish_STMP.value
+	
+	call iwish_build_tmp.withvalue					///
+		priorIwishCommandDisplayList.store			///
+		class iwish_build_position.value "@"
+
+	call priorIwishCommandDisplayList.copyToArray prior_iwish_list
+	call iwish_build_tmp.withvalue iwish_build_tmp2.setvalue "@"
+	call prior.lb_iwishBuild.repopulate
+	call prior.lb_iwishBuild.setvalue class iwish_build_tmp2.value
+END
+
+PROGRAM prior_iwish_enable
+BEGIN
+	call priorIwishCommandDisplayList.findstr class			///
+		prior.lb_iwishBuild.value
+	call iwish_build_position.setvalue class			///
+		priorIwishCommandDisplayList.position
+
+	call priorIwishStatusList.store class				///
+		iwish_build_position.value "active"
+	call iwish_build_position.withvalue				///
+		priorIwishCommandValues.store				///
+		class iwish_build_position.value class			///
+		priorIwishCommandList.values[@]
+
+	call iwish_build_position.withvalue				///
+		iwish_STMP.format "resource BAYES_LBL_IWISHPRIOR_FMT" "@" ""
+		
+	call iwish_STMP.withvalue					///
+		priorIwishCommandDisplayList.store			///
+		class iwish_build_position.value "@"
+
+	call priorIwishCommandDisplayList.copyToArray prior_iwish_list
+	call iwish_build_position.withvalue				///
+		iwish_build_tmp2.setvalue class				///
+		priorIwishCommandDisplayList.values[@]
+	call prior.lb_iwishBuild.repopulate
+	call prior.lb_iwishBuild.setvalue class iwish_build_tmp2.value
+END
+//add end
+
+SCRIPT prior_iwishart_enable
+BEGIN
+	prior.tx_cusiwish.enable
+	prior.lb_iwishBuild.enable
+	prior.bu_iwish_create.enable
+	prior.tb_iwish_note.enable
+	prior.tx_comiwish.enable
+	prior.ed_iwishart.enable
+	prior.tx_degree.enable
+	prior.cb_iwishart.enable
+	prior.tx_matrix.enable
+END
+SCRIPT prior_iwishart_disable
+BEGIN
+	prior.tx_cusiwish.disable
+	prior.lb_iwishBuild.disable
+	prior.bu_iwish_create.disable
+	prior.bu_iwish_edit.disable
+	prior.bu_iwish_disable.disable
+	prior.bu_iwish_enable.disable
+	prior.tb_iwish_note.disable
+	prior.tx_comiwish.disable
+	prior.ed_iwishart.disable
+	prior.tx_degree.disable
+	prior.cb_iwishart.disable
+	prior.tx_matrix.disable
+END
+
+SCRIPT prior_normal_logover_param
+BEGIN
+	prior.tx_normal.setlabel "resource BAYES_PRIOR_TX_NORMAL_LOGOVER"
+	prior.ed_normal.settooltip "resource BAYES_PRIOR_ED_NORMAL_TOOLTIP_LOGOVER"
+END
+
+SCRIPT prior_normal_logscale_param
+BEGIN
+	prior.tx_normal.setlabel "BAYES_PRIOR_TX_NORMAL_LOGSCALE"
+	prior.ed_normal.settooltip "resource BAYES_PRIOR_ED_NORMAL_TOOLTIP_LOGSCALE"
+END
+
+SCRIPT prior_normal_loganc_param
+BEGIN
+	prior.tx_normal.setlabel "resource BAYES_PRIOR_TX_NORMAL_LOGANC"
+	prior.ed_normal.settooltip "resource BAYES_PRIOR_ED_NORMAL_TOOLTIP_LOGANC"
+END
+
+SCRIPT prior_normal
+BEGIN
+	prior.tx_normal.setlabel "resource BAYES_PRIOR_TX_NORMAL"
+	prior.ed_normal.settooltip "resource BAYES_PRIOR_ED_NORMAL_TOOLTIP"
+END
+
+SCRIPT prior_flat_hide
+BEGIN
+	prior.tx_flat.hide
+END
+
+SCRIPT prior_flat_show
+BEGIN
+	prior.tx_flat.show
+END
+
+PROGRAM prior_prioropt_output
+BEGIN
+	call priorPriorCommandValues.copyToString prior_prior_output
+	put " " prior_prior_output
+END
+
+PROGRAM prior_igamma_output
+BEGIN
+	if prior.ed_igamma & prior.ed_igamma2 {
+		if prior.ed_igamma.isneq(".") | prior.ed_igamma2.isneq("."){
+			if prior.ed_igamma.isle(0) 			///
+			& prior.ed_igamma.isneq(".") {
+call _MSG_TMP.format							///
+"resource LBL_MSGBOX_BAYES_NOT_POSITIVE_FMT"				///
+"resource LBL_TAB_PRIORS"						///
+"resource BAYES_PRIOR_TOOLTIP_SHAPE_IGAMMAPRIOR"			
+		stopbox stop "class _MSG_TMP.value"		
+//stopbox stop On the "Priors" tab, "shape of the default inverse-gamma prior for variance" must be positive number.
+			}
+			if prior.ed_igamma2.isle(0) 			///
+			& prior.ed_igamma2.isneq(".") {
+call _MSG_TMP.format							///
+"resource LBL_MSGBOX_BAYES_NOT_POSITIVE_FMT"				///
+"resource LBL_TAB_PRIORS"						///
+"resource BAYES_PRIOR_TOOLTIP_SCALE_IGAMMAPRIOR"			
+		stopbox stop "class _MSG_TMP.value"		
+//stopbox stop On the "Priors" tab, "scale of the default inverse-gamma prior for variance" must be positive number.
+			}
+			if ! (prior.ed_igamma.isdefault() 		///
+			& prior.ed_igamma2.isdefault()) {
+				put "igammaprior("
+				put prior.ed_igamma
+				put " "
+				put prior.ed_igamma2
+				put ")"
+			}
+		}
+	}
+	else {
+		if prior.ed_igamma & prior.ed_igamma.isneq(".") {
+			if prior.ed_igamma.isle(0) {
+call _MSG_TMP.format			///
+"resource LBL_MSGBOX_BAYES_NOT_POSITIVE_FMT"		///
+"resource LBL_TAB_PRIORS"						///
+"resource BAYES_PRIOR_TOOLTIP_SHAPE_IGAMMAPRIOR"			
+		stopbox stop "class _MSG_TMP.value"
+		
+//stopbox stop On the "Priors" tab, "shape of the default inverse-gamma prior for variance" must be positive number.
+			}
+			put "igammaprior("
+			put prior.ed_igamma
+			put " .)"
+		}
+		if prior.ed_igamma2 & prior.ed_igamma2.isneq("."){
+			if prior.ed_igamma2.isle(0) {
+call _MSG_TMP.format							///
+"resource LBL_MSGBOX_BAYES_NOT_POSITIVE_FMT"				///
+"resource LBL_TAB_PRIORS"						///
+"resource BAYES_PRIOR_TOOLTIP_SCALE_IGAMMAPRIOR"			
+		stopbox stop "class _MSG_TMP.value"		
+//stopbox stop On the "Priors" tab, "scale of the default inverse-gamma prior for variance" must be positive number.
+			}
+			put "igammaprior(. "
+			put prior.ed_igamma2
+			put ")"
+		}
+	}
+END
+
+PROGRAM prior_cus_iwishart_output
+BEGIN
+	call priorIwishCommandValues.copyToString prior_iwish_output
+	put " " prior_iwish_output
+END
+
+PROGRAM prior_com_iwishart_output
+BEGIN
+	if prior.ed_iwishart.isneq("") & prior.ed_iwishart.isneq(".") 	///
+	 | prior.cb_iwishart.isneq("") {
+		if prior.ed_iwishart.isle(0) 				///
+		 & prior.ed_iwishart.isneq(".")				///
+		 & prior.ed_iwishart.isneq("") {
+call _MSG_TMP.format							///
+"resource LBL_MSGBOX_BAYES_NOT_POSITIVE_FMT"				///
+"resource LBL_TAB_PRIORS"						///
+"resource BAYES_PRIOR_ED_IWISHART_TOOLTIP"			
+		stopbox stop "class _MSG_TMP.value"
+//stopbox stop `On the "Priors" tab,"Degrees of freedom of the default inverse-Wishart prior" must be positive number.
+		}
+		put "iwishartprior("
+		if prior.ed_iwishart.iseq("") {
+			put "."
+		}
+		else {
+			put prior.ed_iwishart
+		}
+		if prior.cb_iwishart.isneq("") {
+			put " " prior.cb_iwishart
+		}
+		put ")"
+	}
+END
+
+PROGRAM bayes_priors_output
+BEGIN
+	optionarg /hidedefault prior.ed_normal
+	put " " /program prior_igamma_output
+	put " " /program prior_com_iwishart_output
+	put " " /program prior_cus_iwishart_output
+	put " " /program prior_prioropt_output
+	option prior.ck_dryrun
+END

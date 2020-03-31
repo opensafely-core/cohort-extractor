@@ -1,0 +1,280 @@
+/*
+	predict (after dfactor)
+
+*!  VERSION 1.1.1  01oct2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+INCLUDE header
+HELP hlp1, view("help dfactor postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource DFACTOR_P_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script _p_gentype_multiple
+	script _p_gentype_setMedium
+END
+
+DIALOG main, label(resource PREDICT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  INCLUDE  _p_gentype
+
+  GROUPBOX gb_opt	_lft	_ls	_iwd	_ht12,			///
+	label(resource LBL_PRODUCE)
+  RADIO rb_y		_indent	_ss	_inwd 	., first		///
+	option(y)							///
+	onclickon(program main_y_on)					///
+	label(resource LBL_DEPVAR)
+  RADIO rb_xb		@	_ss	@	.,			///
+	option(xb)							///
+	onclickon(program main_xb_on)					///
+	label(resource DFACTOR_P_MAIN_RB_XB)
+  RADIO rb_xbf		@	_ss	@	.,			///
+	option(xbf)							///
+	onclickon(program main_xbf_on)					///
+	label(resource DFACTOR_P_MAIN_RB_XBF)
+  RADIO rb_factors	@	_ss	@	.,			///
+	option(factors)							///
+	onclickon(program main_factors_on)				///
+	label(resource LBL_UNOBSERVED_FACTORS)
+  RADIO rb_residuals	@	_ss	@	.,			///
+	option(residuals)						///
+	onclickon(program main_residuals_on)				///
+	label(resource LBL_RESIDUALS)
+  RADIO rb_innovations	@	_ss	@	., last			///
+	option(innovations)						///
+	onclickon(program main_innovations_on)				///
+	label(resource DFACTOR_P_MAIN_RB_INNOVATIONS)
+END
+
+PROGRAM main_y_on
+BEGIN
+	call opts.tx_equation.enable
+	call opts.cb_equation.enable
+	call opts.tx_rmse.enable
+	call opts.ed_rmse.enable
+	call opts.tx_dynamic.enable
+	call opts.ed_dynamic.enable
+	call adv.ck_smethod.enable
+
+	if adv.ck_smethod {
+		call adv.rb_onestep.enable
+		call adv.rb_smooth.enable
+		call adv.rb_filter.disable
+	}
+END
+
+PROGRAM main_xb_on
+BEGIN
+	call opts.tx_equation.enable
+	call opts.cb_equation.enable
+	call opts.tx_rmse.disable
+	call opts.ed_rmse.disable
+	call opts.tx_dynamic.enable
+	call opts.ed_dynamic.enable
+	call adv.ck_smethod.disable
+	call adv.rb_onestep.disable
+	call adv.rb_smooth.disable
+	call adv.rb_filter.disable
+END
+
+PROGRAM main_xbf_on
+BEGIN
+	call opts.tx_equation.enable
+	call opts.cb_equation.enable
+	call opts.tx_rmse.disable
+	call opts.ed_rmse.disable
+	call opts.tx_dynamic.disable
+	call opts.ed_dynamic.disable
+	call adv.ck_smethod.enable
+	if adv.ck_smethod {
+		call adv.rb_onestep.enable
+		call adv.rb_smooth.enable
+		call adv.rb_filter.disable
+	}
+END
+
+PROGRAM main_factors_on
+BEGIN
+	call opts.tx_equation.enable
+	call opts.cb_equation.enable
+	call opts.tx_rmse.enable
+	call opts.ed_rmse.enable
+	call opts.tx_dynamic.enable
+	call opts.ed_dynamic.enable
+	call adv.ck_smethod.enable
+
+	if adv.ck_smethod {
+		call adv.rb_onestep.enable
+		call adv.rb_smooth.enable
+		call adv.rb_filter.enable
+	}
+END
+
+PROGRAM main_residuals_on
+BEGIN
+	call opts.tx_equation.enable
+	call opts.cb_equation.enable
+	call opts.tx_rmse.disable
+	call opts.ed_rmse.disable
+	call opts.tx_dynamic.enable
+	call opts.ed_dynamic.enable
+	call adv.ck_smethod.enable
+
+	if adv.ck_smethod {
+		call adv.rb_onestep.enable
+		call adv.rb_smooth.enable
+		call adv.rb_filter.enable
+	}
+END
+
+PROGRAM main_innovations_on
+BEGIN
+	call opts.tx_equation.enable
+	call opts.cb_equation.enable
+	call opts.tx_rmse.disable
+	call opts.ed_rmse.disable
+	call opts.tx_dynamic.disable
+	call opts.ed_dynamic.disable
+	call adv.ck_smethod.enable
+
+	if adv.ck_smethod {
+		call adv.rb_onestep.enable
+		call adv.rb_smooth.enable
+		call adv.rb_filter.disable
+	}
+END
+
+INCLUDE ifin
+
+DIALOG opts, tabtitle(resource LBL_OPTIONS)
+BEGIN
+  TEXT tx_equation	_lft	_top	_iwd	.,			///
+	label(resource LBL_NAME_OF_EQUATIONS_FOR_PREDICTIONS)
+  COMBOBOX cb_equation	@	_ss	@	.,			///
+	dropdown							///
+	contents(e(eqnames))						///
+	option(equation)						///
+	label(resource LBL_NAME_OF_EQUATIONS_FOR_PREDICTIONS)
+
+  TEXT tx_rmse		@	_ls	@	.,			///
+	label(resource LBL_STORE_ROOT_MEAN_SE_PREDICTED_STAT_NEW_VAR)
+  EDIT ed_rmse		@	_ss	@	.,			///
+	option(rmse)							///
+	label(resource LBL_STORE_ROOT_MEAN_SE_PREDICTED_STAT_NEW_VAR)
+
+  TEXT tx_dynamic	@	_ls	_vnwd	.,			///
+	label(resource LBL_DYNAMIC_FORECASTS)
+  EDIT ed_dynamic	@	_ss	_cwd1	.,			///
+	option(dynamic)							///
+	label(resource LBL_DYNAMIC_FORECASTS)
+END
+
+DIALOG adv, tabtitle(resource LBL_ADVANCED)
+BEGIN
+  CHECKBOX ck_smethod	_lft	_top	_iwd	_ht6,			///
+	groupbox							///
+	onclickon(program adv_ck_smethod_on)				///
+	onclickoff(script adv_ck_smethod_off)				///
+	label(resource LBL_METHOD_PREDICTING_UNOBSERVED_STATES)
+  RADIO rb_onestep	_indent	_ss	_inwd	., first		///
+	option(smethod(onestep))					///
+	label(resource LBL_PREDICT_USING_PAST_INFORMATION)
+  RADIO rb_smooth	@	_ss	@	., 			///
+	option(smethod(smooth))						///
+	onclickon(program adv_rb_smooth_on)				///
+	onclickoff(program adv_rb_smooth_off)				///
+	label(resource LBL_PREDICT_USING_ALL_SAMPLE_INFORMATION)
+  RADIO rb_filter	@	_ss	@	., last			///
+	option(smethod(filter))						///
+	onclickon(program adv_rb_filter_on)				///
+	onclickoff(program adv_rb_filter_off)				///
+	label(resource LBL_PREDICT_USING_PAST_CONTEMPORANEOUS_INFO)
+END
+
+PROGRAM adv_ck_smethod_on
+BEGIN
+	call adv.rb_onestep.enable
+	call adv.rb_smooth.enable
+	if adv.rb_smooth {
+		call program adv_rb_smooth_on
+	}
+	if main.rb_factors | main.rb_residuals {
+		call adv.rb_filter.enable
+		if adv.rb_filter {
+			call program adv_rb_filter_on
+		}
+	}
+END
+
+SCRIPT adv_ck_smethod_off
+BEGIN
+	adv.rb_onestep.disable
+	adv.rb_filter.disable
+	adv.rb_smooth.disable
+	program adv_rb_smooth_off
+END
+
+PROGRAM adv_rb_smooth_on
+BEGIN
+	if adv.rb_smooth.isenabled() {
+		call opts.tx_dynamic.disable
+		call opts.ed_dynamic.disable
+	}
+END
+
+PROGRAM adv_rb_smooth_off
+BEGIN
+	if main.rb_y | main.rb_factors | main.rb_residuals {
+		call opts.tx_dynamic.enable
+		call opts.ed_dynamic.enable
+	}
+END
+
+PROGRAM adv_rb_filter_on
+BEGIN
+	if adv.rb_filter.isenabled() {
+		call opts.tx_dynamic.disable
+		call opts.ed_dynamic.disable
+	}
+END
+
+PROGRAM adv_rb_filter_off
+BEGIN
+	if main.rb_y | main.rb_factors | main.rb_residuals {
+		call opts.tx_dynamic.enable
+		call opts.ed_dynamic.enable
+	}
+END
+
+INCLUDE _p_gentype_sc
+INCLUDE _type_list_fd
+
+PROGRAM command
+BEGIN
+	put "predict "
+	put " " /program _p_gentype_output
+	INCLUDE _ifin_pr
+	beginoptions
+		option radio(main rb_y rb_xb rb_xbf rb_factors 		///
+			rb_residuals rb_innovations)
+		optionarg opts.cb_equation
+		optionarg opts.ed_rmse
+		if opts.ed_dynamic.isenabled() {
+			optionarg opts.ed_dynamic
+		}
+		if adv.ck_smethod {
+			option adv.rb_onestep
+			option adv.rb_smooth
+			option adv.rb_filter
+		}
+	endoptions
+END

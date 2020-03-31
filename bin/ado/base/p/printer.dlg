@@ -1,0 +1,123 @@
+/*
+    printer.dlg
+
+*!  VERSION 1.1.0  10nov2014
+
+*/
+
+VERSION 14.0 UNIX
+
+INCLUDE _std_large
+INCLUDE header
+
+HELP hlp1, view("help printer")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource PRINTER_DLG_HSCALE
+END
+
+
+DIALOG main, label(resource PRINTER_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  GROUPBOX gb_printer    _lft     _top     _iwd    _ht4h,		/*
+		*/ label(resource PRINTER_MAIN_GB_PRINTER)
+  RADIO    rb_new     _indent      _ss    _cwd3        .,		/*
+		*/ first						/*
+		*/ onclickon(script onclickon_new)			/*
+		*/ label(resource PRINTER_MAIN_RB_NEW)
+  DEFINE holdx @x
+  DEFINE holdy @y
+  EDIT     ed_new    _indent2      _ss    _inwd        .,		/*
+		*/ error(resource PRINTER_MAIN_RB_NEW)			/*
+		*/ label(resource PRINTER_MAIN_ED_NEW)			/*
+		*/ max(32)						/*
+		*/
+  RADIO    rb_exists    _lft2    holdy    _cwd3        .,		/*
+		*/ last							/*
+		*/ onclickon(script onclickon_exists)			/*
+		*/ label(resource PRINTER_MAIN_RB_EXISTS)
+  COMBOBOX cb_exists _indent2      _ss    _inwd        .,		/*
+		*/ dropdownlist						/*
+		*/ error(resource PRINTER_MAIN_CB_EXISTS)		/*
+		*/ onselchange(script onselchange_exists)  		/*
+		*/ contents(list printers)				/*
+		*/
+
+  TEXT     tx_cmd        _lft     _xls _comb3_1        .,		/*
+  		*/ label(resource PRINTER_MAIN_TX_CMD)
+  DEFINE holdy @y
+  EDIT	   ed_cmd    _indent2      _ss    _inwd        .,		/*
+  		*/ nomemory 						/*
+		*/ default("")						/*
+		*/ option(0)						/*
+  		*/ label(resource PRINTER_MAIN_ED_CMD)
+
+  TEXT     tx_type    _lft3_3    holdy  _cwd3_1        .,		/*
+  		*/ label(resource PRINTER_MAIN_TX_TYPE)
+  COMBOBOX cb_type   _indent2      _ss    _inwd	       .,		/*
+  		*/ dropdownlist						/*
+		*/ contents(type_contents)				/*
+		*/ /*values(type_values)*/				/*
+		*/ label(resource PRINTER_MAIN_TX_TYPE)			/*
+		*/
+
+  GROUPBOX gb_note       _lft    _xxls     _iwd     _ht3,		/*
+  		*/ label(resource LBL_NOTE_NO_COLON)
+  TEXT     tx_note1   _indent      _ss    _inwd        .,		/*
+		*/ label(resource PRINTER_MAIN_TX_NOTE1)
+  TEXT     tx_note2         @     _vss        @        .,		/*
+		*/ label(resource PRINTER_MAIN_TX_NOTE2)
+
+END
+
+LIST type_contents
+BEGIN
+  ps
+  txt
+END
+
+LIST type_values
+/* Because cb_type.setprinterfmt sets the value, it assumes this list will
+ * always have 'ps' first, followed by 'txt'.
+ */
+BEGIN
+  ps
+  txt
+END
+
+
+SCRIPT onclickon_new
+BEGIN
+  main.ed_new.enable
+  main.cb_exists.disable
+  main.ed_cmd.setvalue ""
+END
+
+SCRIPT onclickon_exists
+BEGIN
+  main.ed_new.disable
+  main.cb_exists.enable
+  main.cb_exists.withvalue main.cb_exists.setvalue "@"
+END
+
+SCRIPT onselchange_exists
+BEGIN
+  action withvalue main.ed_cmd.setprintercmd @
+  action withvalue main.cb_type.setprinterfmt @
+END
+
+PROGRAM command
+BEGIN
+	put "printer define "
+	if main.rb_new {
+		require main.ed_new
+		put main.ed_new
+	}
+	if main.rb_exists {
+		put main.cb_exists
+	}
+	put " " main.cb_type
+	put " " `"""' main.ed_cmd `"""'
+END

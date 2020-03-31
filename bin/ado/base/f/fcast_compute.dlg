@@ -1,0 +1,219 @@
+/*
+    fcast_compute.dlg
+
+*!  VERSION 1.1.3  14mar2015
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE header
+
+HELP hlp1, view("help fcast_compute")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource FCAST_COMPUTE_DLG_HSCALE
+END
+
+
+DIALOG main, label(resource FCAST_COMPUTE_DLG_TITLE)	///
+		tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  DEFINE _x _xsetbu
+  DEFINE _y _top
+  INCLUDE _bu_tsset
+
+  TEXT     tx_prefix       _lft      25        _vnwd     .,		///
+  		label(resource LBL_PREFIX)
+  EDIT     ed_prefix       @         _ss       @         .,		///
+  		label(resource LBL_PREFIX)
+  SPINNER  sp_step         _lft2     @         _spwd     .,		///
+		option(step) min(1) max(500) default(1)			///
+		label(resource FCAST_COMPUTE_MAIN_SP_STEP)
+  TEXT     tx_step         _spsep    @         _spr2     .,		///
+		label(resource FCAST_COMPUTE_MAIN_SP_STEP)
+
+
+
+  GROUPBOX gb_dynamic      _lft      +35       _cwd1     _ht8h,		///
+		label(resource LBL_DYNAMIC_FORECASTS)
+  DEFINE holdy @y
+  RADIO    rb_dyndefault   _ilft     _ms       _inwd     ., first	///
+		onclickon(script dyn_off)				///
+		label(resource FCAST_COMPUTE_MAIN_RB_DYNDEFAULT)
+  RADIO    rb_dynamic      @         _ss       @         ., last	///
+		onclickon(script dyn_on)				///
+		label(resource FCAST_COMPUTE_MAIN_RB_DYNAMIC)
+  EDIT	   ed_dynamic      _indent2  _ss       _en14wd   .,		///
+		option(dynamic)						///
+  		label(resource FCAST_COMPUTE_MAIN_RB_DYNAMIC)
+  TEXT     tx_dynamic      @         _ss       _cwd6     .,		///
+		label(resource FCAST_COMPUTE_MAIN_TX_DYNAMIC)
+
+  GROUPBOX  gb_est         _lft2     holdy     _cwd1     _ht8h,		///
+  		label(resource LBL_ESTIMATION_RESULTS)
+  RADIO     rb_estdef      _ilft2    _ms       _cwd3     ., first	///
+		onclickon(gaction main.cb_estimates.disable)		///
+		label(resource LBL_USE_ACTIVE_RESULTS)
+  RADIO     rb_estimates   @         _ss       @         ., last	///
+		onclickon(gaction main.cb_estimates.enable)		///
+		label(resource LBL_USE_ALTERNATIVE_RESULTS)
+  COMBOBOX  cb_estimates   _indent2  _ss       _vnwd     ., dropdown	///
+		option(estimates) contents(estimates) 			///
+		label(resource LBL_ALTERNATIVE_RESULTS)
+
+  CHECKBOX  ck_replace     _lft      +65       _iwd      ., 		///
+  		option(replace)						///
+  		label(resource FCAST_COMPUTE_MAIN_CK_REPLACE)
+
+  CHECKBOX  ck_diff        _lft      _ms       @         ., 		///
+  		option(differences)					///
+  		label(resource FCAST_COMPUTE_MAIN_CK_DIFF)
+  TEXT      tx_note        _indent2  _vss      _inwd     .,		///
+  		label(resource FCAST_COMPUTE_MAIN_TX_NOTE)
+END
+
+SCRIPT dyn_on
+BEGIN
+	main.ed_dynamic.enable
+	main.tx_dynamic.enable
+END
+
+SCRIPT dyn_off
+BEGIN
+	main.ed_dynamic.disable
+	main.tx_dynamic.disable
+END
+
+SCRIPT std_err_PREINIT
+BEGIN
+        std_err.fi_saving.formatfilter "{0} (*.dta)|*.dta|{1} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_DTA" "resource ui_ex FILE_TYPE_ALL_FILES"
+END
+
+DIALOG std_err, tabtitle(resource FCAST_COMPUTE_TAB_STD_ERR)
+BEGIN
+  RADIO    rb_asymptot       _lft      _top      _iwd      ., first	///
+		clickon(program bootstrap_off)				///
+		option(NONE) label(resource FCAST_COMPUTE_STD_ERR_RB_ASYMPTOT)
+  RADIO    rb_nose           @         _ss       @         .,		///
+		clickon(program bootstrap_off)				///
+		option(nose) label(resource FCAST_COMPUTE_STD_ERR_RB_NOSE)
+  RADIO    rb_bs             @         _ss       @         .,		///
+		clickon(program bootstrap_on)				///
+		option(bs) label(resource FCAST_COMPUTE_STD_ERR_RB_BS)
+  RADIO    rb_bsp            @         _ss       @         ., last	///
+		clickon(program bootstrap_on)				///
+		option(bsp) label(resource FCAST_COMPUTE_STD_ERR_RB_BSP)
+
+  GROUPBOX gb_bootstrap      _lft      _ms       _iwd      _ht16,	///
+		label(resource LBL_BOOTSTRAP_OPTIONS)
+  CHECKBOX ck_bscentile      _ilft     _ss       _ibwd     .,		///
+		option(bscentile)					///
+		label(resource FCAST_COMPUTE_STD_ERR_GB_BSCENTILE)
+
+  SPINNER  sp_reps           @         _ls       _spwd     .,		///
+		option(reps)						///
+		min(50) default(200) max(100000)			///
+		label(resource LBL_NUMBER_OF_BOOTSTRAP_REPLICATIONS)
+  TEXT     tx_reps           _spsep    @         _sprb     .,		///
+		label(resource LBL_NUMBER_OF_BOOTSTRAP_REPLICATIONS)
+
+  CHECKBOX ck_nodots         _ilft     _ls       _ibwd     .,		///
+		option(nodots)						///
+		label(resource LBL_DO_NOT_DISPLAY_DOT_EACH_BOOT_REP)
+  CHECKBOX ck_saving         @         _ls       @         _ht4,	///
+		clickon(script saving_on)				///
+		clickoff(script saving_off)				///
+		label(resource LBL_SAVE_BOOTSTRAP_REPLICATIONS) groupbox
+  TEXT     tx_saving         _indent   _ss       _inwd     .,		///
+  		label(resource LBL_FILENAME)
+  FILE     fi_saving         @         _ss       @         ., save	///
+		label(resource LBL_BU_BROWSE)				///
+		defext(dta)						///
+		error(resource LBL_FILENAME_FOR_SAVING_REPLICATIONS)
+END
+
+SCRIPT saving_on
+BEGIN
+	std_err.fi_saving.enable
+	std_err.tx_saving.enable
+END
+
+SCRIPT saving_off
+BEGIN
+	std_err.fi_saving.disable
+	std_err.tx_saving.disable
+END
+PROGRAM bootstrap_on
+BEGIN
+	call gaction std_err.gb_bootstrap.enable
+	call gaction std_err.sp_reps.enable
+	call gaction std_err.tx_reps.enable
+	call gaction std_err.ck_nodots.enable
+	call gaction std_err.ck_bscentile.enable
+	call gaction std_err.ck_saving.enable
+	if std_err.ck_saving {
+		call script saving_on
+	}
+END
+
+PROGRAM bootstrap_off
+BEGIN
+	call gaction std_err.gb_bootstrap.disable
+	call gaction std_err.sp_reps.disable
+	call gaction std_err.tx_reps.disable
+	call gaction std_err.ck_nodots.disable
+	call gaction std_err.ck_bscentile.disable
+	call gaction std_err.ck_saving.disable
+	call script saving_off
+END
+
+PROGRAM std_err_output
+BEGIN
+	option radio(std_err rb_asymptot rb_bs rb_nose rb_bsp)
+	option std_err.ck_bscentile
+	optionarg /hidedefault std_err.sp_reps
+	option std_err.ck_nodots
+	if (!H(std_err.ck_saving)&(std_err.ck_saving)) {
+		require std_err.fi_saving
+		repfile std_err.fi_saving
+		put "saving("
+		put `"""'
+		put std_err.fi_saving
+		put `"""'
+		put ", replace)"
+	}
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _y _top
+  DEFINE _cx _spr
+  INCLUDE _sp_level
+END
+
+PROGRAM command
+BEGIN
+	require main.ed_prefix
+	put "fcast compute " main.ed_prefix
+	beginoptions
+		optionarg /hidedefault main.sp_step
+		if main.rb_dynamic {
+			require main.ed_dynamic
+			optionarg main.ed_dynamic
+		}
+		if main.rb_estimates {
+			require main.cb_estimates
+			optionarg main.cb_estimates
+		}
+		option main.ck_replace
+		option main.ck_diff
+		put " " /program std_err_output
+		optionarg /hidedefault rpt.sp_level
+	endoptions
+END

@@ -1,0 +1,6 @@
+*! version 1.0.0  04apr2019
+
+local NLOGIT_VERSION_AS_BASE	1
+local NLOGIT_VERSION_CM_BASE	2
+
+exit

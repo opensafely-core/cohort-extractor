@@ -1,0 +1,1181 @@
+/*                                style
+
+	Base class for all styles.
+
+	Reserved attribute names:  .proxy
+
+	NOTES:
+
+	1.  ALL styles MUST run .Super.new if they implement their 
+	    own .new program 
+
+	2.  Styles may designate a proxy style that will be used in place
+            of the classname when named styles are to be looked up.  The name
+            of the proxy must be stored in the attribute .proxy.  In this way
+            a derived style need not create a whole new set of named styles
+            but may inherit them from its super style.
+
+	3.  Composite styles (styles that contain other styles) should not be 
+            initialized to named styles using the style(name) option in class
+            declarations.  Instead, if this is required, initialize them in a
+            .new program for the class.  Primitive styles (styles that contain
+	    just their own attribute or set of attributes) can be initialized
+	    in a class declaration.
+
+	    Highly technical explanation.  When an instance is created, the
+	    attributes are copied and the named style will have the right
+	    values, but they will be copies not references.  Changes to the
+	    style will NOT be reflected in other copies of the named style.
+	    This cannot be fixed by internally clone1-ing styles because the
+	    .styledex MUST be a copy and not a references or ALL styles will
+	    change the index when any one does.
+
+	4.  Styles contain only other styles and double or string attributes.
+
+            Styles are scheme specific and there may be multiple schemes in
+            play at any time.  The definitions of the styles for any scheme
+            are kept in the scheme under the stylenames (.classname of the
+            style object) in the arrays __STYLES.classname, _styles, and
+            _refs.  __STYLES.classname holds the names of the globally defined
+            named styles, _style holds the names of any named styles added to
+            the scheme, and _refs holds references to prototype instances for
+            the named styles.  These arrays are all aligned _style has a
+	    placeholder at the last element of __STYLES.classname.
+
+	analogs of some of the add and delete programs from codes would be nice.
+*/
+*! version 1.3.0  29jan2019
+
+version 8
+
+class {
+    instance:
+	double styledex 		/* index into styles if a named style */
+	from_scheme = 0			/* 1 if name from the scheme */
+} , inherit(object)
+
+
+/* -------------------------------------------------------------------------*/
+/*
+	Usage:  .styleclass.new [ , style(named_style) force ]
+
+	see setstyle below for syntax
+*/
+/* internal
+program new
+
+	.setstyle `0' 
+end
+*/
+
+/* -------------------------------------------------------------------------*/
+/*
+	Usage:  .stylename
+
+	Returns the name of the style for the current object
+*/
+
+/* internal
+program define stylename
+
+	if "`.styledex'" != "" {
+		if `.styledex' > 0`.__STYLES.`.classname'.arrnels'  {
+		      class exit .`c(curscm)'.`.classname'._styles[`.styledex']
+		}
+		else {
+		      class exit .__STYLES.`.classname'[`.styledex']
+		}
+	}
+	class exit `""'
+end
+
+program define setting 
+
+	if "`.styledex'" != "" {
+		if `.styledex' > 0`.__STYLES.`.classname'.arrnels'  {
+		      class exit .`c(curscm)'.`.classname'._styles[`.styledex']
+		}
+		else {
+		      class exit .__STYLES.`.classname'[`.styledex']
+		}
+	}
+	class exit `""'
+end
+
+program define snm
+
+	if "`.styledex'" != "" {
+		if `.styledex' > 0`.__STYLES.`.classname'.arrnels'  {
+		      class exit .`c(curscm)'.`.classname'._styles[`.styledex']
+		}
+		else {
+		      class exit .__STYLES.`.classname'[`.styledex']
+		}
+	}
+	class exit `""'
+end
+*/
+
+
+/* -------------------------------------------------------------------------*/
+/* Does everything necessary to turn the current object into one that matches 
+   the style named in the option style(name) and if necessary to initialize 
+   the style from disk.  This means that attribute of the current style 
+   will be made to refer to the same attributes as those in the named style
+   (assignment by reference).  Note that the current object may contain
+   attributes not in the style and these are unaffected by .setstyle.  The
+   named style may also contain attributes that are not in the current object,
+   these cases are mentioned, but allowed.
+
+   Reads the named style from disk, if necessary.  
+
+   Usage:  .a.b.setstyle, style(stylename)
+
+   stylename may take one of four forms
+
+   	1.  the name of a named style for the current object's class
+
+	2.  "scheme" to get the current scheme's default named style for 
+	     the object's class.
+
+	3.  "scheme schemeid" to get the scheme's named style for schemeid
+	     within the object's class.
+
+	4.  The absolute name or objkey of an existing style whether named or
+	    not
+
+*/
+/* internal
+program setstyle
+
+	syntax  [ , Style(string) FORCE ]
+// di in white "setstyle  .classname :`.classname':  style :`style':"
+
+	if "`style'" == "" { 
+		exit						/* EXIT */
+	}
+	local style0 `style'
+
+	local style `._unabbrev `style''
+// di in white ":`style':"
+
+	local clsnm = cond("`.proxy'"=="", "`.classname'", "`.proxy'")
+
+						/* possibly declare current 
+						 * style in current scheme */
+	if "`.`c(curscm)'.`.classname'._styles.isa'" != "array" {   
+		capture {
+			if "`.`c(curscm)'.`.classname'.isa'" == "" {
+				.`c(curscm)'.Declare `.classname' = .null.new 
+			}
+			.`c(curscm)'.`.classname'.Declare _styles = {}
+			.`c(curscm)'.`.classname'.Declare _refs   = {}
+		}
+		if _rc {
+			di in white in smcl "{txt}{p 0 8} (note:  could "   /*
+			*/ "not create styles for class `.classname' in "   /*
+			*/ "the current scheme){p_end}"
+			exit					/* EXIT */
+		}
+	}
+
+/* 
+	if "`.proxy'" != "" {
+		if "`.`c(curscm)'.`clsnm'._styles.isa'" != "array" {   
+			capture {
+			    if "`.`c(curscm)'.`clsnm'.isa'" == "" {
+				.`c(curscm)'.Declare `clsnm' = .null.new 
+			    }
+			    .`c(curscm)'.`clsnm'.Declare _styles = {}
+			    .`c(curscm)'.`clsnm'.Declare _refs   = {}
+			}
+		}
+		if _rc {
+			di in white in smcl "{txt}{p 0 8} (note:  could "   /*
+			*/ "not create styles for class `clsnm' in "   /*
+			*/ "the current scheme){p_end}"
+			exit					/* EXIT */
+		}
+	}
+*/
+
+	local styles `c(curscm)'.`.classname'._styles
+	local refs `c(curscm)'.`.classname'._refs
+
+					/* Read names for this style from 
+					 * graphics environment if this is 
+					 * first style of this type  */
+	if 0`.`styles'.arrnels' == 0 { 
+		._populate_stylenames 
+	}
+
+					/* make current object refer to
+					   named style */
+
+							/* Handle scheme */
+	local style `.`c(curscm)'.style `clsnm' `style''	
+
+	local i 0`.__STYLES.`.classname'.arrindexof "`style'"'
+	if ! `i' {
+		local i 0`.`styles'.arrindexof "`style'"'
+	}
+
+/* not safe with multiple schemes
+	if `i' == 0`.styledex' 
+		if "`.`refs'[`i'].objkey'" != ""  { 
+			exit					// Exit
+		}
+	}  
+*/
+
+	if `i' {
+		if "`.`refs'[`i'].isa'" == "" {
+			._read_style `style' `i'
+		}
+		._restyle `i'
+
+		exit						// Exit
+	}
+	else if 0`.`style'.isofclass style' {
+		.Restyle `style'
+		exit						// Exit
+	}
+
+	di in white in smcl "{txt}{p 0 8} (note:  named style `style' not " /*
+	    */ "{txt}found for style `.classname', default attributes used)" /*
+	    */ "{p_end}"
+
+	if `"`style0'"' != `"scheme"' {
+		.setstyle , style(scheme)		// try scheme
+	}
+
+	/* take default values if named style not found */
+
+end
+*/
+
+/* internal
+program _unabbrev
+	class exit `"`0'"'			// inherits may do more
+end
+*/
+
+/* -------------------------------------------------------------------------*/
+/* Invokes setstyle and logs the editing command to either the current
+   profile or the named object (must be a full name, not a key), whichever 
+   is appropriate.    
+
+   Usage:  .a.b.setstyle, style(stylename) object(obj_name)
+*/
+
+program define logsetstyle
+
+	syntax  , Style(string) Object(string)
+
+	.setstyle, style(`style')			/* make the change */
+
+	._splitname first rest holder last : `object'
+
+						/* push onto object log */
+
+	if ! 0`.`holder'.isofclass style' | 0`.`holder'.styledex' == 0 {
+		.`first'.__LOG.Arrpush `rest'.setstyle , style(`style')
+
+		exit						/* EXIT */
+	}
+						/* push onto scheme log */
+						/* expects class.style to
+						 * already be in scheme */
+
+	.`c(curscm)'.__LOG.Arrpush 					     /*
+	   */ .styles.`.`holder'.classname'.`.`holder'.stylename'.setstyle , /*
+	   */ style(`style')
+
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*  Returns 1 if _styles has a list of named styles and 0 otherwise	    */
+
+program define hasstyles
+
+	class exit = 0`.`c(curscm)'.`.classname'._styles.arrnels' != 0
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*  Returns 1 if _styles has a list of named styles and the object's style
+ *  index points to one of these named styles; returns 0 otherwise	    */
+
+program define namedstyle
+
+	if 0`.styledex' <= 0 {
+		class exit = 0
+	}
+
+	if 0`.styledex' <= 0`.__STYLES.`.classname'.arrnels' {
+		class exit = 1
+	}
+
+	class exit = "`.`c(curscm)'.`.classname'._styles[`.styledex']'" != ""
+
+end
+
+// --------------------------------------------------------------------------
+// Returns 1 if the style is a leaf style (contains no nested styles), 
+// returns 0 otherwise
+
+program isleaf
+
+	local leaf 1
+	forvalues i = 1/0`.instancemv.arrnels' {
+		if `.instancemv[`i'].isofclass style' {
+			local leaf 0
+			continue, break
+		}
+	}
+
+	class exit = `leaf'
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*  Returns a list of the stylenames. 	 				    */
+
+program define stylelist
+
+	_clsarr2list list1 : .__STYLES.`.classname'
+	_clsarr2list list2 : .`c(curscm)'.`.classname'._styles
+
+	gettoken _placeholder list2 : list2
+	local list1 `list1' `list2'
+	local list1 : subinstr local list1 "  " " " , all
+
+	class exit `"`list1'"'
+end
+
+
+// ---------------------------------------------------------------------------
+// Returns 1 if the specified name is among the named styles for this style, 0
+// otherwise.
+
+program is_named
+	class exit = 0`.__STYLES.`.classname'.arrindexof "`1'"'
+end
+
+
+/* -------------------------------------------------------------------------*/
+/* 	Usage: .set_styledex stylename					*/
+
+program define set_styledex
+
+	if 0`.`c(curscm)'.`.classname'._styles.arrnels' == 0 { 
+		._populate_stylenames 
+	}
+
+	.styledex = 0`.__STYLES.`.classname'.arrindexof "`1'"'
+	if ! 0`.styledex' {
+		.styledex = 0`.`c(curscm)'.`.classname'._styles.arrindexof "`1'"'
+	}
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*  Adds the current object to the named styles.  Makes the current style one
+    of the newly created named styles.  Each object from the style is added to
+    the new style by reference.
+
+	Usage: .add_style stylename					
+*/
+program define add_style
+	args name
+
+	capture confirm name `name'
+	if _rc {
+		di in red `"invalid style name, `name'"'
+		exit
+	}
+
+	local dex = `.`c(curscm)'.`.classname'._styles.arrnels' + 1
+	.styledex = `dex'
+	.`c(curscm)'.`.classname'._styles[`dex'] = "`name'"
+
+	local refs `.`c(curscm)'.`.classname'._refs.objkey'
+							/* empty named style */
+	.`refs'[`dex'] = .null.new		
+
+	foreach attrib_arr in instancemv dynamicmv {
+		forvalues i = 1/0`.`attrib_arr'.arrnels' {
+			_cls nameoflocal `attrib_arr'[`i']
+			local attrib `r(name)'
+			if "`attrib'" == "styledex" { 
+				continue 
+			}
+			if "`attrib'" == "from_scheme" { 
+				continue 
+			}
+			if "`attrib'" == "proxy"  { 
+				continue 
+			}
+
+			.`refs'[`dex'].Declare `attrib' = .`attrib'.ref
+		}
+	}
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*  Remakes the current style as a "copy" of itself.  A new reference to each
+    attribute is created, but, if the attribute is a style, the reference 
+    is to the existing named style for the attribute.  if style_name is
+    specified, the new copy is inserted into the named styles and given the
+    index of that named style, otherwise, its index is set to 0.
+
+	Usage: .remake_as_copy [style_name]
+
+    Currently ignores request if the current style is already an unnamed style
+    (styledex==0) and no new stylename has been specified, can see no reason
+    for wanting such a copy.
+*/
+
+program define remake_as_copy
+
+	args stylename force
+
+	if "`stylename'" != "" {
+	    if 0`.`c(curscm)'.`.classname'._styles.arrindexof `stylename'' {
+		di in red "`stylename' already defined for `.classname'"
+		exit 4017
+	    }
+	}
+
+	if "`stylename'" == "" & 0`.styledex' == 0 & "`force'" == "" {
+		exit
+	}
+
+	foreach attrib_arr in instancemv dynamicmv {
+	    forvalues i = 1/0`.`attrib_arr'.arrnels' {
+		_cls nameoflocal `attrib_arr'[`i']
+		local attrib `r(name)'
+		if "`attrib'" == "styledex" { 
+			continue 
+		}
+		if "`attrib'" == "from_scheme" { 
+			continue 
+		}
+		if "`attrib'" == "proxy" { 
+			continue 
+		}
+
+		if `.`attrib'.isofclass style' { 
+		    local setting `.`attrib'.snm'
+		    if "`setting'" == "" {
+			local setting `.`attrib'.setting'
+		    }
+		    capture .`attrib'.ref = .`.`attrib'.classname'.new ,  ///
+					    style(`setting')
+		}
+		else if "`.`attrib'.isa'" == "double" {
+		    capture .`attrib'.ref = .`attrib'.copy
+		}
+		else if "`.`attrib'.isa'" == "string" {
+		    capture .`attrib'.ref = .`attrib'.copy
+		}
+
+	    }
+	}
+
+	if "`stylename'" == "" {
+		.styledex = 0
+	}
+	else	.add_style `stylename'
+
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*  Invokes remake_as_copy and logs the command to either the current
+    profile or the named object (must be a full name, not a key), whichever 
+    is appropriate.    
+
+	Usage: .log_remake object_name [style_name]
+
+    Currently ignores request if the current style is already an unnamed style
+    (styledex==0) and no new stylename has been specified, can see no reason
+    for wanting such a copy.
+*/
+
+program define log_remake
+
+	args object style
+
+	if "`stylename'" == "" & `.styledex' == 0 {
+		exit
+	}
+
+	remake_as_copy `style'
+
+	._splitname first rest holder last : `object'
+	if "`style'" == "" {
+		.`first'.__LOG.Arrpush `rest'._remake_as_copy
+		exit						/* EXIT */
+	}
+
+					/* track new style in scheme */
+	._declare_in_scheme `style'
+	.`holder'._declare_in_scheme `.`holder'.stylename'
+
+	.`c(curscm)'.__LOG.Arrpush .makestyle_scm, class(`.classname') /*
+		*/ style(`style') holdclass(`.`holder'.classname') 	 /*
+		*/ holdstyle(`.`holder'.stylename') attribnm(`last')
+end
+
+
+/* -------------------------------------------------------------------------*/
+/* Read the list of stylenames for this style by using stypop to find all
+ * files named <style_classname>-<stylename>.style.  The <stylenames> form the
+ * list.  The name are put in an array under __STYLES.<style_classname>.
+*/
+
+program _populate_stylenames
+
+	local clsnm = cond("`.proxy'"=="", "`.classname'", "`.proxy'")
+
+	stypop populate __STYLES `clsnm'
+	local top 0`.__STYLES.`clsnm'.arrnels'
+
+	if "`.proxy'" != "" {
+		if "`.__STYLES.`.classname'.isa'" == "" {
+			.__STYLES.Declare `.classname' = {}
+			.__STYLES.`.classname'.ref = .__STYLES.`clsnm'.ref
+		}
+	}
+
+	if `top' > 0 {
+		.`c(curscm)'.`.classname'._styles[`top'] = "_placeholder"
+	}
+
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*  Create a style object by dynamically adding attributes to a null class
+    instance where these attributes are defined by a file on disk.
+	
+	Usage:  _read_style stylename dex
+
+	where:  style_name is the name of the style to read
+	        dex is the index in the _refs array where the read style is to
+		be placed
+  
+*/
+
+program define _read_style
+
+	args style_name dex
+
+// di in white "   _read_style .classname :`.classname': style_name :`style_name':"
+	local is_meta 0					// p#[stub] styles
+	local style_part `style_name'
+	if bsubstr(`"`style_name'"', 1, 1) == "p" {		
+		if bsubstr("`style_name'", 2, 1) >= "0" & 		///
+		   bsubstr("`style_name'", 2, 1) <= "9" {
+			local is_meta 1
+			if bsubstr("`style_name'", 3, 1) >= "0" & 	///
+		   	   bsubstr("`style_name'", 3, 1) <= "9" {
+			    local meta_dex = bsubstr("`style_name'", 2, 2)
+			    local style_part `"p#`=bsubstr("`style_name'",4,.)'"'
+			}
+			else {
+			    local meta_dex = bsubstr("`style_name'", 2, 1)
+			    local style_part `"p#`=bsubstr("`style_name'",3,.)'"'
+			}
+		}
+	}
+
+	tempname file						// open file
+	local clsnm = cond("`.proxy'"=="", "`.classname'", "`.proxy'")
+	
+	if "`c(adoarchive)'" == "1" {
+		tempfile tfile
+		
+		capture _stfilearchive find `clsnm'-`style_part'.style
+		if _rc {					/* take default */
+			exit 
+		}					
+
+		if(`r(arvpos)'>=0) {
+			capture _stfilearchive extract `r(arvname)' "`tfile'"
+			if _rc==0 {
+				capture file open `file' using `"`tfile'"' , read text
+			}
+		}
+		else {
+			capture file open `file' using `"`r(arvfn)'"' , read text		
+		}
+		
+	}
+	else {
+		capture findfile `clsnm'-`style_part'.style
+		capture file open `file' using `"`r(fn)'"' , read text
+	}
+	
+	if _rc {					/* take default */
+		exit 
+	}					
+
+	local refs `.`c(curscm)'.`.classname'._refs.objkey'
+
+					/* null class to hold attributes */
+	.`refs'[`dex'] = .null.new
+
+	file read `file' line					// read file
+	while r(eof) == 0 {
+// di in white `"   line :`line':"'
+	    gettoken cmd        rest : line , quotes
+	    gettoken attrib     rest : rest , quotes
+	    gettoken value      rest : rest , quotes
+	    gettoken scheme_id  rest : rest , quotes
+
+	    if (`is_meta') {
+		local value     : subinstr local value     "#" "`meta_dex'", all
+		local scheme_id : subinstr local scheme_id "#" "`meta_dex'", all
+	    }
+
+	    if `"`cmd'"' == `"set"' {
+		local isa `.`attrib'.isa'
+
+		if "`isa'" == "" {			// not in style, Declare
+		    capture confirm number `value'
+		    if _rc {
+			gettoken valstrip : value	//  quoted ?
+			local len      : length local value
+			local lenstrip : length local valstrip
+			if (`len'-`lenstrip') == 2 | (`len'-`lenstrip') == 4 {
+				local isa string
+			}
+		    }
+		    else	local isa double
+
+		    if 0`c(cls_style_strict)' | "`isa'" == "" {
+
+		    			// consider option c(cls_style_strict)
+			di_g in white in smcl `"{p 0 8}{txt} (note:  "'	   ///
+		    	`"{txt}attribute `attrib' from style definition "' ///
+			`"{txt}`.classname'/`style_name' is not a "'	   ///
+			`"{txt}member attribute of `.classname'){p_end}"'
+
+				// Only #'s and strings can be declared from a
+				// set, must use declare subcommand for styles
+				// (styles need the style classname)
+
+			file read `file' line
+			continue				// Continue
+		    }
+		}
+
+		if 0`.`attrib'.isofclass style' {
+		    	if "`value'" == "" { 
+				local value scheme 
+			}
+			.`refs'[`dex'].Declare `attrib' = .`attrib'.new,  /*
+				*/ style(`value' `scheme_id')
+		}
+		else if "`isa'" == "string" {
+			.`refs'[`dex'].Declare `attrib' = `value'
+		}
+		else if "`isa'" == "double" {
+			.`refs'[`dex'].Declare `attrib' = `value'
+		}
+		else {
+		  di in white "invalid line in style file `clsnm'/`style_name':"
+		  di in white `"`line'"'
+		}
+	    }
+	    else if ! (`"`cmd'"' == `"*"' | `"`cmd'"' == `"//"'       | ///
+	    	       `"`cmd'"' == `""'  | `"`cmd'"' == `"sequence"' |	///
+		       `"`cmd'"' == `"label"' | `"`cmd'"' == `"*!"') {
+		di in white "invalid line in style file `clsnm'-`style_name':"
+		di in white `"`line'"'
+	    }
+
+	    file read `file' line
+	}
+	file close `file'
+
+end
+
+
+/* -------------------------------------------------------------------------*/
+/* Sets all of the attributes of the current object to refer to those in the
+   named style at the specified index.  That is, all attributes common to the
+   object and style are assigned to the object by reference.  If
+   c(cls_style_strict) == 0, then any attributes in the named style that do
+   not exist in the current object are .Declare'ed in the current object.
+*/
+
+/* internal
+program define _restyle
+	args dex
+
+// di in white "_ restyle scheme :`c(curscm)': class :`.classname': dex=`dex'"
+	.styledex = `dex'
+
+	local nmd_style `.`c(curscm)'.`.classname'._refs[`dex'].objkey'
+
+	forvalues i = 1/0`.`nmd_style'.dynamicmv.arrnels' {
+		class nameof `nmd_style' .dynamicmv[`i']
+		._reset_attrib `nmd_style' `r(name)'
+	}
+
+end
+*/
+
+
+// ---------------------------------------------------------------------------
+//  Sets all the attributes of the current object to refer to those in the
+//  specified style.  That is, all attributes common to the object and style 
+//  are assigned to the object by reference.  If c(cls_style_strict) == 0, then 
+//  any attributes in the source style that do not exist in the current 
+//  object are .Declare'ed in the current object.
+
+program restyle
+	args src
+
+	forvalues i = 1/0`.`src'.dynamicmv.arrnels' {
+		class nameof `src' .dynamicmv[`i']
+		._reset_attrib `src' `r(name)'
+	}
+
+	forvalues i = 1/0`.`src'.instancemv.arrnels' {
+		class nameof `src' .instancemv[`i']
+		._reset_attrib `src' `r(name)'
+	}
+
+	.styledex = .`src'.styledex
+end
+
+/* internal
+program _reset_attrib
+	args src attrib
+
+	if ("`attrib'" == "styledex" | "`attrib'" == "from_scheme" ) exit
+
+	if "`.Local.`attrib'.isa'" == "" {
+	    if ! 0`c(cls_style_strict)' {
+		capture .Declare `attrib' = .`src'.`attrib'.ref
+		local rc = _rc
+	    }
+	    else	local rc 1
+	}
+	else {
+		capture .`attrib'.ref = .`src'.`attrib'.ref
+		local rc = _rc
+	}
+
+	if 0`.`attrib'_hasset' {
+		._Set_Attrib `attrib'
+	}
+
+	if `rc' {
+		di in white "(note: in _restyle `attrib' could not " /*
+			*/ "be assigned to `.classname'.)"
+	}
+end
+*/
+
+program _Set_Attrib
+	args attrib
+
+	._set_`attrib' `.`attrib'.stylename' , force
+
+end
+
+
+// ---------------------------------------------------------------------------
+//  Like restyle, but picks up attributes by value.
+
+program RestyleVal
+	args src
+
+	forvalues i = 1/0`.`src'.dynamicmv.arrnels' {
+		class nameof `src' .dynamicmv[`i']
+		._reset_attrib_val `src' `r(name)'
+	}
+
+	forvalues i = 1/0`.`src'.instancemv.arrnels' {
+		class nameof `src' .instancemv[`i']
+		._reset_attrib_val `src' `r(name)'
+	}
+
+	.styledex = 0
+end
+
+program _reset_attrib_val
+	args src attrib
+
+	if ("`attrib'" == "styledex" | "`attrib'" == "from_scheme" ) exit
+
+	if "`.Local.`attrib'.isa'" == "" {
+	    if ( ! 0`c(cls_style_strict)' )  local lhs ".Declare `attrib'"
+	    else			     local rc 1
+	}
+	else	local lhs ".`attrib'.ref"
+
+	
+	if 0`.`src'.`attrib'.isofclass style' {
+	    if "`.`src'.`attrib'.snm'" != "" {
+		capture `lhs' = .`attrib'.new , style(`.`src'.`attrib'.snm')
+		local rc = _rc
+	    }
+	    else {
+		.`attrib'.ref = .`attrib'.new
+		capture .`attrib'.RestyleVal `.`src'.`attrib'.objkey'
+		local rc = _rc
+	    }
+	}
+	else {
+		local isa `.`src'.`attrib'.isa'
+
+		if "`isa'" == "string" {
+			capture `lhs' =  `"`.`src'.`attrib''"'
+			local rc = _rc
+		}
+		else if "`isa'" == "double" {
+			capture `lhs' = `.`src'.`attrib''
+			local rc = _rc
+		}
+		else {
+			di in white "invalid attribute in RestyleVal
+		}
+	}
+
+	if 0`.`attrib'_hasset' {
+		._set_`attrib' `.`attrib'.stylename' , force
+	}
+
+	if 0`rc' {
+		di in white "(note: in RestyleVal `attrib' could not "	///
+			    "be assigned to `.classname')"
+	}
+end
+
+// ---------------------------------------------------------------------------
+// Restyles by reference if the source style is named, by value otherwise.
+
+program Restyle
+	args src
+
+	local i 0`.__STYLES.`.classname'.arrindexof "`.`src'.stylename'"'
+	if ! `i' {
+		local i 0`.`styles'.arrindexof "`.`src'.stylename'"'
+	}
+
+	if ( `i' )  ._restyle `i'
+	else        .RestyleVal `src'
+end
+
+// ---------------------------------------------------------------------------
+// Recursively parses:  
+//
+//      [ stylename        attrib1(snm) attrib2(snm subattrib(snm ...)) ...  ]
+//                               or
+//      [ style(stylename) attrib1(snm) attrib2(snm subattrib(snm ...)) ...  ]
+//
+//  sets the current style to stylename (if specified) and recursively sets all
+//  specified substyles/attributes.
+// 
+//  If option editcopy is specified, then a copy of the style is made before
+//  the edits are applied to the unamed copy of the style.  If
+//  editcopyname(newname) is specified, then the copy is given the name
+//  newname.  Either of these options imply that unnamed copies will be made
+//  recursively as any edits are made to contained attributes.  Note, if 
+//  ONLY a stylename is specified and there are no recursive changes to that 
+//  style, then editcopy and editcopyname are ignored and we just become 
+//  the named style.
+//
+//  option section() is for the editor and specifies that any edits are to be
+//  preserved in the preferences under the specified section name.  option
+//  key() is used internally to track key names for these preferences.
+//
+//  consider adding permissive option and only then allowing named styles
+//  that don't exist to become the defaults.
+
+program editstyle
+
+	local 0 , `0'
+	syntax [ , Style(passthru) EDITCOPY EDITCOPYNAME(name)		///
+		   section(name) key(string) PREF * ]
+
+	if "`section'" != "" {
+		local stylepref _gedi pref "`section'" "`key'" `"`style'"'
+		local optpref   _gedi pref "`section'" "`key'" `"\`options'"'
+		local optnpref  _gedi pref "`section'" "`key'" `"\`\`opt''"'
+		local namepref  _gedi pref "`section'" "`key'" `"\`name'"'
+		local schpref  _gedi pref "`section'" "`key'" `"scheme \`name'"'
+	}
+
+	if `"`style'"' != "" {				// style(name) found
+		.setstyle, `style'
+		`stylepref'
+		if ("$grdebug"!=""&"`section'"!="") di in white `"`stylepref'"'
+	}
+
+							// any x() opts left?
+	local unused : subinstr local options "(" "" , count(local ct)
+	if ! `ct' & `"`options'"' != `""' {		// just setting self
+		if "`editcopy'`editcopyname'" != "" & 0`.styledex' {
+			.remake_as_copy `editcopyname'
+		}
+		.setstyle, style(`options')
+		`optpref'
+		if ("$grdebug"!=""&"`section'"!="") di in white `"`optpref'"'
+		exit						// Exit
+	}
+
+	gettoken name options : options			// process [stylename] 
+	local unused : subinstr local name "(" "" , count(local ct)
+	if ! `ct' {
+		if "`name'" == "editcopy" {		// special case ?
+			local options `options' `name'
+		}
+		else if "`name'" == "scheme" {
+			gettoken name options : options
+			.setstyle, style(scheme `name')
+			`schpref'
+			if ("$grdebug"!=""&"`section'"!="") di in white `"`schpref'"'
+		}
+		else {
+			.setstyle, style(`name')
+			`namepref'
+			if ("$grdebug"!=""&"`section'"!="") di in white `"`namepref'"'
+		}
+	}
+	else	local options `name' `options'
+
+							// possibly make copy
+	if "`editcopy'`editcopyname'" != "" {
+		if `"`options'"' != `""' & 0`.styledex' {
+			.remake_as_copy `editcopyname'
+		}
+		local cpy editcopy
+	}
+
+	if `"`options'"' == `""' {
+		exit						// We're done
+	}
+
+	foreach attrib_arr in instancemv dynamicmv {
+	    forvalues i = 1/0`.`attrib_arr'.arrnels' {	// [ attrib(style) ...
+		_cls nameoflocal `attrib_arr'[`i']
+		local opt `r(name)'
+		if ! ("`opt'" == "styledex" || "`opt'" == "from_scheme") {
+			local found 1
+			while `found' {
+				local 0 , `options'
+				syntax [, `opt'(string) * ]
+
+				if `"``opt''"' != `""' {
+					local found 1
+
+					if "`.`opt'.isa'" == "double" {
+					    .`opt' = ``opt''
+					    `optnpref'
+if ("$grdebug"!=""&"`section'"!="") di in white `"`optnpref'"'
+					}
+					else if "`.`opt'.isa'" == "string" {
+					    .`opt' = `"``opt''"'
+					    `optnpref'
+if ("$grdebug"!=""&"`section'"!="") di in white `"`optnpref'"'
+					}
+					else {
+if "`section'" != "" {
+	local popt "section(`section') key(`key'.`opt')"
+}
+					   .`opt'.editstyle ``opt'' `cpy' `popt'
+					   if 0`.`opt'_hasset' {
+					        capture ._set_`opt'	///
+						   `.`opt'.stylename' , force
+					   }
+					}
+				}
+				else {
+					local found 0
+				}
+			}
+		}
+	    }
+	}
+	if `"`options'"' != `""' {
+		di as error "option(s) `options' not allowed"
+		exit 198
+	}
+end
+
+// ---------------------------------------------------------------------------
+// Recursively traverses the style and returns a string that when run through
+// .editstyle would recreate the style all the way down the terminal leaves.
+
+program get_editstyle
+
+	foreach attrib_arr in instancemv dynamicmv {
+	    forvalues i = 1/0`.`attrib_arr'.arrnels' {
+		_cls nameoflocal `attrib_arr'[`i']
+		local attrib `r(name)'
+
+		if "`attrib'" == "styledex" { 
+			continue 
+		}
+		if "`attrib'" == "from_scheme" { 
+			continue 
+		}
+		if "`attrib'" == "proxy" { 
+			continue 
+		}
+
+		if `.`attrib'.isofclass style' { 
+		    if `.`attrib'.isleaf' {
+			local setting `.`attrib'.snm'
+			if "`setting'" == "" {
+			    local setting `.`attrib'.setting'
+			}
+			local edits `"`edits' `attrib'(`setting')"'
+		    }
+		    else {
+		    	local edits					///
+			      `"`edits' `attrib'(`.`attrib'.get_editstyle')"'
+		    }
+		}
+		else if "`.`attrib'.isa'" == "double" {
+		    capture .`attrib'.ref = .`attrib'.copy
+		    local edits `"`edits' `attrib'(`.`attrib'')"'
+		}
+		else if "`.`attrib'.isa'" == "string" {
+		    local edits `"`edits' `attrib'(`"``attrib''"')"'
+		}
+
+	    }
+	}
+
+	class exit `"`edits'"'
+
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*
+	for a.b.c.d
+
+		fmac = "a"
+		rmac = ".b.c.d"
+		hmac = "a.b.c
+
+	array references a[1].b.c[4].d are bound with their preceding name.
+
+*/
+program define _splitname
+	args fmac rmac hmac lmac colon rest
+
+	gettoken test : rest , parse(" .")
+	if "`test'" == "" {
+		c_local `fmac'
+		c_local `rmac'
+		c_local `hmac'
+		exit
+	}
+
+	while "`tok'" == "" | "`tok'" == "." {
+		gettoken tok rest : rest , parse(" .")
+		if "`tok'" != "." {
+			local first `tok'
+		}
+	}
+
+	local holder `first'
+	gettoken tok nm : rest , parse(" .") 
+	while "`nm'" != "" {
+		if "`tok'" != "." {
+			local holder `holder'.`tok'
+		}
+		gettoken tok nm : nm , parse(" .") 
+	}
+	local last `tok'			/* assumes no trailing .'s */
+
+	c_local `fmac' `first'
+	c_local `rmac' `rest'
+	c_local `hmac' `holder'
+	c_local `lmac' `last'
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*  Declares the style in the style list (really a class) of the current 
+    scheme.
+*/
+program define _declare_in_scheme
+	args style
+
+	if "`.`c(curscm)'.styles.`.classname'.`style'.isa'" == "" {
+		if "`.`c(curscm)'.styles.`.classname'.isa'" == "" {
+			.`c(curscm)'.styles.Declare `.classname' = .null.new
+		}
+
+		.`c(curscm)'.styles.`.classname'.Declare		/*
+			*/ `style' = .`.classname'.new, style(`style')
+	}
+end
+
+program setmyfun
+	capture di "hi"
+end
+
+
+// ------------------------------------------------------------------------
+// Set settings to any stored in the specified preferences section.  
+
+program ReadPrefs
+	args section key
+
+	local remade 0
+
+	forvalues i = 1/0`.instancemv.arrnels' {	// [ attrib(style) ...
+		_cls nameoflocal instancemv[`i']
+		local opt `r(name)'
+		if ("`opt'" == "styledex" || "`opt'" == "from_scheme") continue
+
+
+
+// di in white `"_gedi(pref `section' `key'.`opt') :`_gedi(pref `section' `key'.`opt')':"'
+		local setting `"`_gedi(pref `section' `key'.`opt')'"'
+
+		if `"`setting'"' != `""' {
+
+			if ! `remade' {
+				.remake_as_copy
+				local remade 1
+			}
+
+			if "`.`opt'.isa'" == "double" {
+				.`opt' = `setting'
+			}
+			else if "`.`opt'.isa'" == "string" {
+				.`opt' = `"`setting'"'
+			}
+			else if `.`opt'.isofclass style' {
+				.`opt'.setstyle, style(`setting')
+
+				if 0`.`opt'_hasset' {
+				  capture ._set_`opt' `.`opt'.stylename' , force
+				}
+			}
+		}
+
+		if `.`opt'.isofclass style' {
+			if ! `.`opt'.isleaf' {
+				if (! `remade')  .remake_as_copy
+				.`opt'.ReadPrefs `section' `key'.`opt'
+			}
+		}
+
+	}
+end

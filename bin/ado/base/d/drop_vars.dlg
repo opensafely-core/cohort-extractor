@@ -1,0 +1,78 @@
+/*
+    drop
+
+*!  VERSION 2.1.1  03jun2015
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+INCLUDE header
+HELP hlp1, view("help drop")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource DROP_VARS_DLG_HSCALE
+END
+
+
+DIALOG main, label(resource DROP_VARS_DLG_TITLE)			///
+	tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  GROUPBOX gb_type		_lft	_top	_iwd	_ht4,		///
+  	label(resource DROP_VARS_MAIN_GB_TYPE)
+  RADIO    rb_keep		_indent	_ss	_inwd	.,		///
+  	label(resource DROP_VARS_MAIN_RB_KEEP) first					///
+  	onclickon(script main_keep_on)
+  RADIO    rb_drop		@	_ss	@	.,		///
+  	label(resource DROP_VARS_MAIN_RB_DROP) last					///
+  	onclickon(program main_drop_on)
+
+  TEXT     tx_vars		_lft	_xls	_iwd	.,		///
+  	label(resource DROP_VARS_MAIN_TX_VARS)
+  VARLIST  vl_vars		@	_ss	@	.,		///
+  	label(resource DROP_VARS_MAIN_TX_VARS)
+  CHECKBOX ck_all		@	_ls	@	.,		///
+  	label(resource DROP_VARS_MAIN_CK_ALL) 					///
+  	onclickon(main.vl_vars.disable)					///
+  	onclickoff(main.vl_vars.enable)
+END
+
+SCRIPT main_keep_on
+BEGIN
+	main.tx_vars.setlabel resource DROP_VARS_MAIN_TX_VARS
+	main.vl_vars.setlabel resource DROP_VARS_MAIN_TX_VARS
+	main.vl_vars.enable
+	main.ck_all.hide
+END
+
+PROGRAM main_drop_on
+BEGIN
+	call main.tx_vars.setlabel resource DROP_VARS_VARIABLES_TO_DROP
+	call main.vl_vars.setlabel resource DROP_VARS_VARIABLES_TO_DROP
+	call main.ck_all.show
+	if main.ck_all {
+		call main.vl_vars.disable
+	}
+END
+
+PROGRAM command
+BEGIN
+	if main.rb_keep {
+		put "keep "
+	}
+	if main.rb_drop {
+		put "drop "
+	}
+	if main.rb_drop & main.ck_all {
+		stopbox rusure resource DROP_VARS_MSGBOX_DROP_ALL_CONTINUE
+// This will drop all variables. Do you wish to continue?
+		put "_all"
+		exit
+	}
+
+	require main.vl_vars
+	put main.vl_vars
+END

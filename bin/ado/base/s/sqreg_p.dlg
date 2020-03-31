@@ -1,0 +1,91 @@
+/*
+	predict (after sqreg)
+
+*!  VERSION 1.2.0  18nov2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE _ht290
+INCLUDE header
+
+HELP hlp1, view("help sqreg postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource SQREG_P_DLG_HSCALE
+END
+
+DIALOG main, label(resource PREDICT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  INCLUDE  _p_gentype
+
+  GROUPBOX gb_opts           _lft      _ls       _iwd      _ht19,	/*
+		*/ label(resource LBL_PRODUCE)
+  RADIO    rb_xb             _ilft     _ss       _cwd2     ., first	/*
+		*/ option(xb)						/*
+		*/ clickon("script off2")				/*
+		*/ label(resource LBL_FITTED_VALUES_XB)
+  DEFINE   holdy@y
+  RADIO    rb_stdp           @         _ss       @         .,		/*
+		*/ option(stdp)						/*
+		*/ clickon("script off2")				/*
+		*/ label(resource LBL_STANDARD_ERROR_OF_THE_DIFFERENCE)
+  RADIO    rb_stddp          @         _ss       @         ., 		/*
+		*/ option(stddp)					/*
+		*/ clickon("script on2")				/*
+		*/ label(resource LBL_STANDARD_ERROR_OF_THE_DIFFERENCE)
+  RADIO    rb_residuals      @         _ss       @         ., last	/*
+		*/ option(residuals)					/*
+		*/ clickon("script off2")				/*
+		*/ label(resource LBL_RESIDUALS)
+
+  TEXT     tx_equation1      _lft2     holdy     @         .,		/*
+		*/ label(resource LBL_EQUATION_DEPENDENT_VARIABLE)
+  LISTBOX  lb_equation1      @         _ss       @         _ht4,	/*
+		*/ contents(ereturn eqnames)				/*
+		*/ label(resource LBL_EQUATION_DEPENDENT_VARIABLE)
+  TEXT     tx_equation2      @         _vs4      @         .,		/*
+		*/ label(resource SQREG_P_MAIN_TX_EQUATION2)
+  LISTBOX  lb_equation2      @         _ss       @         _ht4,	/*
+		*/ contents(ereturn eqnames)				/*
+		*/ label(resource SQREG_P_MAIN_TX_EQUATION2)
+END
+
+INCLUDE _p_gentype_sc
+INCLUDE ifin
+INCLUDE _type_list_fd
+
+SCRIPT off2
+BEGIN
+  main.tx_equation2.disable
+  main.lb_equation2.disable
+END
+
+SCRIPT on2
+BEGIN
+  main.tx_equation2.enable
+  main.lb_equation2.enable
+END
+
+
+PROGRAM command
+BEGIN
+	put "predict "
+	put " " /program _p_gentype_output
+	INCLUDE _ifin_pr
+	beginoptions
+		put "equation("
+		require main.lb_equation1
+		put main.lb_equation1
+		if main.rb_stddp {
+			require main.lb_equation2
+			put ", " main.lb_equation2
+		}
+		put ") "
+		option radio(main rb_xb rb_stdp rb_residuals rb_stddp)
+	endoptions
+END

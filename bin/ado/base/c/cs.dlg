@@ -1,0 +1,186 @@
+/*
+    cs.dlg
+
+*!  VERSION 1.3.1  01jul2015
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE _ht340
+INCLUDE header
+HELP hlp1, view("help cs")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource CS_DLG_HSCALE
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	if __MESSAGE.iseq("-exact-") {
+		call opt.ck_exact.seton
+	}
+END
+
+DIALOG main, label(resource CS_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  INCLUDE  _epitab_vars
+END
+
+INCLUDE ifin
+INCLUDE weights_f
+
+DIALOG opt, label(resource CS_DLG_TITLE) tabtitle(resource LBL_OPTIONS)
+BEGIN
+  CHECKBOX ck_byopt	_lft	_top	_cwd1	.,		///
+	label(resource LBL_STRATIFY_ON_VARIABLES)		///
+	onclickon(program byopt_on)				///
+	onclickoff(script byopt_off)
+  VARLIST  vn_byopt	_indent2 _ss	_inwd	.,		///
+	label(resource LBL_STRATIFY_ON_VARIABLES)
+
+  INCLUDE  _epitab_stdopts
+
+  CHECKBOX ck_rd	_lft	_ms	_iwd	.,		///
+	option(rd) label(resource CS_OPT_CK_RD)
+
+
+  CHECKBOX ck_bin	_lft2	_top	_cwd1	.,		///
+	label(resource LBL_NUMBER_OF_SUBJECTS_VARIABLE)		///
+	onclickon(opt.vn_bin.enable)				///
+	onclickoff(opt.vn_bin.disable)
+  VARNAME  vn_bin	_indent2 _ss	_vnwd	.,		///
+  	numeric							///
+	option(binomial) label(resource LBL_NUMBER_OF_SUBJECTS_VARIABLE)
+
+  CHECKBOX ck_or	_lft2	_xls	_cwd1	.,		///
+	option(or) label(resource LBL_REPORT_ODDS_RATIOS)	///
+	onclickon(script or_on)  				///
+	onclickoff(script or_off)
+  CHECKBOX ck_woolf	@	_ms	@	.,		///
+	option(woolf) label(resource LBL_WOOLF_APPROXIMATION)
+
+  CHECKBOX ck_exact	_lft2	_ms	@	.,		///
+	option(exact) label(resource LBL_FISHERS_EXACT_P)
+
+  DEFINE _x _lft2
+  DEFINE _y  _ls
+  DEFINE _cx _spr2
+  INCLUDE _sp_level
+END
+
+PROGRAM byopt_on
+BEGIN
+	call opt.vn_byopt.enable
+	call opt.rb_mstd.enable
+	call opt.rb_istd.enable
+	call opt.rb_estd.enable
+	call opt.rb_vstd.enable
+	call opt.ck_nocrude.enable
+	call opt.ck_missing.enable
+	call opt.ck_pool.enable
+	call opt.ck_nohom.enable
+	if !opt.rb_mstd {
+		call opt.ck_rd.enable
+	}
+	if opt.rb_vstd {
+		call opt.vn_vstd.enable
+	}
+END
+
+SCRIPT byopt_off
+BEGIN
+	opt.vn_byopt.disable
+	opt.rb_mstd.disable
+	opt.rb_istd.disable
+	opt.rb_estd.disable
+	opt.rb_vstd.disable
+	opt.ck_nocrude.disable
+	opt.ck_missing.disable
+	opt.ck_pool.disable
+	opt.ck_nohom.disable
+	opt.ck_rd.disable
+	opt.vn_vstd.disable
+END
+
+SCRIPT mstd_on
+BEGIN
+	opt.ck_rd.disable
+	opt.vn_vstd.disable
+END
+
+SCRIPT estd_on
+BEGIN
+	opt.ck_rd.enable
+	opt.vn_vstd.disable
+END
+
+SCRIPT istd_on
+BEGIN
+	opt.ck_rd.enable
+	opt.vn_vstd.disable
+END
+
+SCRIPT vstd_on
+BEGIN
+	opt.ck_rd.enable
+	opt.vn_vstd.enable
+END
+
+SCRIPT or_on
+BEGIN
+	opt.ck_woolf.enable
+END
+
+SCRIPT or_off
+BEGIN
+	opt.ck_woolf.disable
+END
+
+PROGRAM cs_by_var_output
+BEGIN
+	put opt.vn_byopt
+	if opt.ck_missing {
+		put ", " 
+		option opt.ck_missing
+	}
+END
+
+
+PROGRAM command
+BEGIN
+	put "cs "
+	varlist main.vn_varcase
+	varlist main.vn_varexp
+	INCLUDE _weights_pr
+	INCLUDE _ifin_pr
+	beginoptions
+		if opt.ck_byopt {
+			require opt.vn_byopt
+			put "by("
+			put /program cs_by_var_output
+			put ") "
+		}
+		if opt.ck_byopt {
+			option radio(opt rb_mstd rb_istd rb_estd rb_vstd)
+		}
+		if opt.rb_vstd {
+			optionarg opt.vn_vstd
+		}
+		option opt.ck_pool
+		option opt.ck_nocrude
+		option opt.ck_nohom
+		option opt.ck_rd
+
+		if opt.ck_bin {
+			optionarg opt.vn_bin
+		}
+		option opt.ck_or
+		option opt.ck_woolf
+		option opt.ck_exact
+		INCLUDE _level_opt_pr
+	endoptions
+END

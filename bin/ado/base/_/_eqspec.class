@@ -1,0 +1,350 @@
+*! version 1.3.0  07mar2019
+version 9.2
+
+class {
+
+instance:
+	double	n_depvars
+	double	needequal
+	double	needvarlist
+
+	string	wtypes
+
+	string	name
+	string	depvars
+	double	hasequal
+	string	indepvars
+	string	other_markvars
+	double	nocons
+	double	nocons_ignore
+	string	offset
+	double	exposure
+	double	freeparm
+	string	if
+	string	in
+	string	wgt
+	string	options
+}
+
+// user interface routines --------------------------------------------------
+
+program new
+	syntax [,					///
+		NUMDEPvars(numlist integer >=0 max=1)	///
+		NEEDEQUAL				///
+		noNEEDVARLIST				///
+		WTYPES(string)				///
+		IGNORENOCONS				///
+	]
+
+	.n_depvars	= 1
+	if `:list sizeof numdepvars' {
+		.n_depvars = `numdepvars'
+	}
+	.needequal	= ("`needequal'" != "")
+	.needvarlist	= ("`needvarlist'" == "")
+	.nocons_ignore	= ("`ignorenocons'" != "")
+	.wtypes		= "`wtypes'"
+end
+
+program parse
+	_on_colon_parse `0'
+	local ol `s(before)'
+	if `:list sizeof ol' {
+		local OPTLIST	`"`.`ol'.dumpoptions'"'
+		local OPTNAMES	`"`.`ol'.dumpnames'"'
+		local NOCONS constant noconstant
+		if `"`:list NOCONS & OPTNAMES'"' == "" {
+			local NOCONS noCONStant
+		}
+		else	local NOCONS
+	}
+	local 0 `"`s(after)'"'
+	if `"`.wtypes'"' != "" {
+		local wgt "[`.wtypes']"
+	}
+	syntax [anything(equalok)] [if] [in] `wgt' [, `OPTLIST' `NOCONS' *]
+	local HOLDIF `"`if'"'
+	local HOLDIN `"`in'"'
+	if "`wgt'" != "" & "`weight'" != "" {
+		local HOLDWGT `"[`weight'`exp']"'
+	}
+
+	// parse for:
+	// 	[NAME:]
+	gettoken NAME REST : anything, parse(":")
+	if trim("`NAME'") == ":" {
+		di as err "nothing found where equation name expected"
+		exit 198
+	}
+	if `:list sizeof REST' {
+		if strpos(`"`NAME'"', ":") {
+			capture _msparse `NAME'
+			if c(rc) {
+				di as err ///
+				"{bf:`NAME'} invalid equation specification"
+				exit 198
+			}
+		}
+		else {
+			._confirm_eqname `NAME'
+		}
+		local NAME : list retok NAME
+		gettoken COLON anything : REST, parse(":")
+	}
+	else {
+		local NAME
+	}
+
+	// parse for:
+	// 	<DEPVARS> = [<INDEPVARS>]
+	// 	<DEPVAR> [<INDEPVARS>]
+	// 	= <INDEPVARS>
+	gettoken DEPVARS REST : anything, parse("=") bind
+	if "`DEPVARS'" == "=" {
+		local REST : copy local anything
+		local DEPVARS
+	}
+	if (`:length local DEPVARS' == 0 & `.n_depvars') {
+		di as err "nothing found where depvar expected"
+		exit 198
+	}
+	if `"`REST'"' == "" {
+		if 0`.needequal' {
+			if `.needvarlist' ///
+			 | (`:length local DEPVARS' != 0 & `.n_depvars') {
+				di as err	///
+"equal sign required to separate depvars from indepvars"
+				exit 198
+			}
+		}
+		local DEPVARS
+		local n_deps : list sizeof anything
+		if `n_deps' != 0 | `.needvarlist' {
+			if `n_deps' < `.n_depvars' {
+				// too few depvars
+				error 102
+			}
+			forval j = 1/`.n_depvars' {
+				gettoken YY anything : anything
+				local DEPVARS `DEPVARS' `YY'
+			}
+			local INDEPVARS : list retok anything
+		}
+		loca hasequal 0
+	}
+	else {
+		gettoken EQ INDEPVARS : REST, parse("=") bind
+		local hasequal 1
+	}
+	if `:list sizeof DEPVARS' {
+		_fv_check_depvar `DEPVARS'
+		tsunab DEPVARS : `DEPVARS'
+	}
+	if `:list sizeof INDEPVARS' {
+		fvunab INDEPVARS : `INDEPVARS'
+	}
+
+	// special case options
+	if inlist("noconstant", "`noconstant'", "`constant'") {
+		if "`INDEPVARS'" == "" & ! `.nocons_ignore' {
+			di as err ///
+"independent variables are required when option noconstant is specified"
+			exit 102
+		}
+		if "`NOCONS'" != "" {
+			local options `options' noconstant
+		}
+		local NOCONS 1
+	}
+	else	local NOCONS 0
+	if `"`offset'`exposure'"' != "" {
+		._check_offset, `offset' `exposure'
+		local OFFSET "`s(offset)'"
+		local EXPOSURE = ("`exposure'" != "")
+		local OTHER `s(offset)'
+	}
+	else	local EXPOSURE 0
+	local FREEPARM = `"`freeparm'"' != ""
+
+	// rebuild the list of options
+	local OPTIONS
+	local SPACE
+	foreach OPTNAME of local OPTNAMES {
+		if `"``OPTNAME''"' != "" {
+			local OPTIONS `"`OPTIONS'`SPACE'``OPTNAME''"'
+			local SPACE " "
+		}
+	}
+	if `"`options'"' != "" {
+		local OPTIONS `"`OPTIONS'`SPACE'`options'"'
+	}
+
+	.name		= `"`NAME'"'
+	.depvars	= `"`DEPVARS'"'
+	.hasequal	= `hasequal'
+	.indepvars	= `"`:list retok INDEPVARS'"'
+	.other_markvars	= `"`:list retok OTHER'"'
+	.nocons		= `NOCONS'
+	.if		= `"`HOLDIF'"'
+	.in		= `"`HOLDIN'"'
+	.wgt		= `"`HOLDWGT'"'
+	.offset		= `"`OFFSET'"'
+	.exposure	= `EXPOSURE'
+	.freeparm	= `FREEPARM'
+	.options	= `"`OPTIONS'"'
+end
+
+program item, sclass
+	args item
+	._check_eq_item_name item, `item'
+	local value `"`.`item''"'
+	sreturn local value `"`value'"'
+	class exit `"`value'"'
+end
+
+program markout
+	syntax name(name=touse id="mark variable") [, ALLDEPSMISsing]
+	confirm variable `touse', exact
+	if "`alldepsmissing'" == "" {
+		markout `touse'	`.item depvars' `.item indepvars'
+		markout `touse' `.item other', strok
+	}
+	else {
+		markout `touse' `.item indepvars'
+		markout `touse' `.item other', strok
+		tempname touse2
+		gen byte `touse2' = 0
+		local xvars `.item depvars'
+		foreach xvar of local xvars {
+			quietly replace `touse2' = 1 if !missing(`xvar')
+		}
+		quietly replace `touse' = 0 if `touse2' == 0
+	}
+end
+
+program rmcoll
+	local vv : di "version " string(_caller()) ":"
+	syntax [if] [, noCONStant]
+	local xvars `.item indepvars'
+	local wgt `.item wgt'
+	if 0`.item nocons' {
+		local nocons noconstant
+	}
+	else	local nocons `constant'
+	if `:list sizeof xvars' {
+		if _caller() < 11 {
+			_rmcollright `xvars' `if' `wgt', `nocons'
+		}
+		else {
+			version 11: _rmcoll `xvars' `if' `wgt', `nocons'
+		}
+		local kept `r(varlist)'
+		if !`:list xvars == kept' {
+			.indepvars = `"`kept'"'
+		}
+	}
+end
+
+program rebuild, sclass
+	syntax [, EQual]
+
+	local name	`"`.item name'"'
+	if `:list sizeof name' {
+		local name `"`name': "'
+	}
+	local dv	`"`.item depvars'"'
+	local iv	`"`.item indepvars'"'
+	if `:list sizeof equal' | 0`.hasequal' {
+		local eq " ="
+	}
+	if `:list sizeof dv' | `:list sizeof eq' {
+		if `:list sizeof iv' {
+			local iv `" `iv'"'
+		}
+	}
+	local if	`"`.item if'"'
+	if `:list sizeof if' {
+		local if `" `if'"'
+	}
+	local in	`"`.item in'"'
+	if `:list sizeof in' {
+		local in `" `in'"'
+	}
+	local wgt	`"`.item wgt'"'
+	if `:list sizeof wgt' {
+		local wgt `" `wgt'"'
+	}
+	local opts	`"`.item options'"'
+	if `:list sizeof opts' {
+		local cm ", "
+	}
+
+	local eq `"`name'`dv'`eq'`iv'`if'`in'`wgt'`cm'`opts'"'
+	sreturn local eq `"`eq'"'
+	sreturn local comma "`cm'"
+	class exit `"`eq'"'
+end
+
+// private routines ---------------------------------------------------------
+
+program _confirm_eqname
+	capture confirm number `0'
+	if (! c(rc)) exit
+
+	local hasdot = strpos(`"`0'"',".")
+	if `hasdot' {
+		syntax varname(ts)
+		exit
+	}
+	capture syntax name(id="equation name")
+	if (! c(rc)) exit
+
+	local hold0 : copy local 0
+	local 0 `"_`0'"'
+	capture syntax name(id="equation name")
+	if (! c(rc)) exit
+
+	local 0 : copy local hold0
+	syntax name(id="equation name")
+end
+
+program _check_eq_item_name
+	capture syntax name(name=c_item)				///
+		[, NAME DEPvars INDEPvars IF IN WGT OTHER NOCONS	///
+			OFFset EXPosure FREEParm OPTions		///
+		]
+	if c(rc) error 198
+	if `:list sizeof other' {
+		local other other_markvars
+	}
+	local item	`name'		///
+			`depvars'	///
+			`indepvars'	///
+			`if'		///
+			`in'		///
+			`wgt'		///
+			`other'		///
+			`nocons'	///
+			`offset'	///
+			`exposure'	///
+			`freeparm'	///
+			`options'
+	if `:list sizeof item' != 1 {
+		error 198
+	}
+	c_local `c_item' `item'
+end
+
+program _check_offset, sclass
+	// abbreviations are not necessary since this routine is only called
+	// if the specific option has already been found by -syntax- as a
+	// 'passthru' option
+	syntax [, OFFSET(varname numeric ts) EXPOSURE(varname numeric ts)]
+	if `:length local offset' & `:length local exposure' {
+		opts_exclusive "offset() exposure()"
+	}
+	sreturn local offset `offset' `exposure'
+end
+
+exit

@@ -1,0 +1,237 @@
+/*
+  mkspline
+
+*! VERSION 2.1.1  14feb2019
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE _ht340
+INCLUDE header
+
+HELP hlp1, view("help mkspline")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource MKSPLINE_DLG_HSCALE
+END
+
+
+DIALOG main, label(resource MKSPLINE_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  /*--+----1----+----2----+----3----+----4----+----5----+----6----+----7----+*/
+  TEXT tx_oldvar	_lft	_top	_iwd	.,			///
+	label(resource MKSPLINE_MAIN_TX_OLDVAR)
+  VARNAME vn_oldvar	@	_ss	_vnwd	.,			///
+  	numeric								///
+	label(resource MKSPLINE_MAIN_TX_OLDVAR)
+  GROUPBOX gb_spl	@	_ls	_iwd	_ht23h,			///
+	label(resource MKSPLINE_MAIN_GB_SPL)
+  RADIO rb_var		_indent	_ss	_ibwd	.,			///
+	label(resource MKSPLINE_MAIN_RB_VAR)				///
+	clickon("script var_on") first
+  DEFINE holdx @x
+  EDIT ed_var		_indent2 _ss	_inwd	.,			///
+	label(resource MKSPLINE_MAIN_RB_VAR)
+  EDIT ed_var2		@	_ms	@	.,			///
+	label(resource MKSPLINE_MAIN_RB_VAR)
+  EDIT ed_var3		@	_ms	@	.,			///
+	label(resource MKSPLINE_MAIN_RB_VAR)
+  TEXT tx_var		@	_ss	_inwd	.,			///
+	label(resource MKSPLINE_MAIN_TX_VAR)
+  TEXT tx_var2		@	_vss	@	.,			///
+	label(resource MKSPLINE_MAIN_TX_VAR2)
+  RADIO rb_stub		holdx	_ls	_ibwd	.,			///
+	clickon("script stub_on")					///
+	label(resource MKSPLINE_MAIN_RB_STUB)
+  EDIT ed_stub		_indent2 _ss	_en14wd	.,			///
+	max(31)								///
+	label(resource MKSPLINE_MAIN_ED_STUB)
+  SPINNER sp_stub	_en14sep @	_spwd	.,			///
+	min(2) max(1000000000) default(2)				///
+	label(resource LBL_NUM_KNOTS)
+
+  RADIO rb_stub2	holdx	_ls	_ibwd	.,			///
+	label(resource MKSPLINE_MAIN_RB_STUB2)				///
+ 	clickon("program stub2_on") last
+  EDIT ed_stub2		_indent2 _ss	_en14wd	.,			///
+	max(31)								///
+  	label(resource MKSPLINE_MAIN_RB_STUB2)
+END
+
+INCLUDE ifin
+INCLUDE weights_f
+
+DIALOG opt, label("") tabtitle(resource LBL_OPTIONS)
+BEGIN
+  /*--+----1----+----2----+----3----+----4----+----5----+----6----+----7----+*/
+  GROUPBOX gb_marg		_lft	_top	_iwd	_ht4,		///
+	label(resource MKSPLINE_OPT_GB_MARG)
+  RADIO rb_nomarg		_indent	_ss	_inwd	.,		///
+	option(NONE) first						///
+	label(resource MKSPLINE_OPT_RB_NOMARG)
+  RADIO rb_marg			@	_ss	@	.,		///
+	option(marginal) last						///
+label(resource MKSPLINE_OPT_RB_MARG)
+  CHECKBOX ck_displayknots	_lft	_xls	_iwd	.,		///
+	option(displayknots)						///
+	label(resource MKSPLINE_OPT_CK_DISPLAYKNOTS)
+  CHECKBOX ck_pctile		_lft	_ms	_iwd	.,		///
+	option(pctile)							///
+	label(resource MKSPLINE_OPT_CK_PCTILE)
+
+  GROUPBOX gb_knots		_lft	_ls	_iwd	_ht6,		///
+	label(resource MKSPLINE_OPT_GB_KNOTS)
+  RADIO rb_nknots		_indent	_ss	_rbwd	.,		///
+	label("")							///
+	option(NONE)							///
+	onclickon(program nknots_on)					///
+	first
+  SPINNER sp_nknots		_rbsep	@	_spwd	.,		///
+	label(resource MKSPLINE_OPT_SP_NKNOTS)				///
+	option(nknots)							///
+	default(5)							///
+	min(3)								///
+	max(7)
+DEFINE holdx @x
+  TEXT tx_nknots		_spsep	@	150	.,		///
+	label(resource MKSPLINE_OPT_SP_NKNOTS)
+  RADIO rb_knots		_ilft	_ss	_ibwd	.,		///
+	label(resource MKSPLINE_OPT_RB_KNOTS)				///
+	option(NONE)							///
+	onclickon(script nknots_off)					///
+	last
+  EDIT ed_knots			holdx	_ss	_en14wd	.,		///
+	label(resource MKSPLINE_OPT_RB_KNOTS)				///
+	option(knots)
+END
+
+SCRIPT var_on
+BEGIN
+	main.ed_var.enable
+	main.ed_var2.enable
+	main.ed_var3.enable
+	main.tx_var.enable
+	main.tx_var2.enable
+	main.ed_stub.disable
+	main.sp_stub.disable
+	main.ed_stub2.disable
+	script weights_disable
+	opt.gb_marg.enable
+	opt.rb_nomarg.enable
+	opt.rb_marg.enable
+	opt.ck_pctile.disable
+	opt.gb_knots.disable
+	opt.rb_nknots.disable
+	opt.sp_nknots.disable
+	opt.tx_nknots.disable
+	opt.rb_knots.disable
+	opt.ed_knots.disable
+END
+
+SCRIPT stub_on
+BEGIN
+	main.ed_var.disable
+	main.ed_var2.disable
+	main.ed_var3.disable
+	main.tx_var.disable
+	main.tx_var2.disable
+	main.ed_stub.enable
+	main.sp_stub.enable
+	main.ed_stub2.disable
+	script weights_enable
+	opt.gb_marg.enable
+	opt.rb_nomarg.enable
+	opt.rb_marg.enable
+	opt.ck_pctile.enable
+	opt.gb_knots.disable
+	opt.rb_nknots.disable
+	opt.sp_nknots.disable
+	opt.tx_nknots.disable
+	opt.rb_knots.disable
+	opt.ed_knots.disable
+END
+
+PROGRAM stub2_on
+BEGIN
+	call main.ed_var.disable
+	call main.ed_var2.disable
+	call main.ed_var3.disable
+	call main.tx_var.disable
+	call main.tx_var2.disable
+	call main.ed_stub.disable
+	call main.sp_stub.disable
+	call main.ed_stub2.enable
+	call script weights_enable
+	call opt.gb_marg.disable
+	call opt.rb_nomarg.disable
+	call opt.rb_marg.disable
+	call opt.ck_pctile.disable
+	call opt.gb_knots.enable
+	call opt.rb_nknots.enable
+	if opt.rb_nknots {
+		call opt.sp_nknots.enable
+	}
+	call opt.tx_nknots.enable
+	call opt.rb_knots.enable
+	if opt.rb_knots {
+		call opt.ed_knots.enable
+	}
+END
+
+PROGRAM nknots_on
+BEGIN
+	if opt.rb_nknots.isenabled() {
+		call opt.sp_nknots.enable
+	}
+	call opt.ed_knots.disable
+END
+
+SCRIPT nknots_off
+BEGIN
+	opt.ed_knots.enable
+	opt.sp_nknots.disable
+END
+
+PROGRAM command
+BEGIN
+	put "mkspline "
+	if main.rb_var {
+		if !(main.ed_var | main.ed_var2 | main.ed_var3) {
+			require main.ed_var
+		}
+		put main.ed_var
+		put " "
+		put main.ed_var2
+		put " "
+		put main.ed_var3
+	}
+	if main.rb_stub {
+		require main.ed_stub
+		put main.ed_stub " "
+		put main.sp_stub " "
+	}
+	if main.rb_stub2 {
+		put main.ed_stub2 " "
+	}
+	put "="
+	varlist main.vn_oldvar
+	INCLUDE _ifin_pr
+	put /program weights_output
+	beginoptions
+		option radio(opt rb_nomarg rb_marg)
+		if main.rb_stub {
+			option opt.ck_pctile
+		}
+		if main.rb_stub2 {
+			put " cubic"
+			optionarg /hidedefault opt.sp_nknots
+			optionarg opt.ed_knots
+		}
+		option opt.ck_displayknots
+	endoptions
+END
+

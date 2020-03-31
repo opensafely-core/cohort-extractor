@@ -1,0 +1,166 @@
+/*
+  bayes zioprobit
+
+*! VERSION 1.0.6  29may2019
+
+  keyword:  eclass
+
+*/
+
+VERSION 15.0
+
+INCLUDE _std_wide
+DEFINE _dlght 670
+INCLUDE header
+
+HELP hlp1, view("help bayes_zioprobit")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource BAYES_ZIOPROBIT_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script prior_gibbs_hide
+	script rpt_coef_on
+	program prior_show_normalflat_default
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)				///
+	title(resource BAYES_ZIOPROBIT_DLG_TITLE)
+BEGIN
+  TEXT tx_dv			_lft	_topph	_vnwd	.,		///
+	label(resource LBL_DEPVAR)
+  VARNAME vn_dv			@	_ss	@	.,		///
+	label(resource LBL_DEPVAR)
+
+  TEXT tx_iv			_vlx	_topph	160	.,		///
+	label(resource LBL_INDDEPVAR)
+  VARLIST vl_iv			@	_ss	_vlwd	.,		///
+	fv								///
+	allowcat							///
+	label(resource LBL_INDDEPVAR)
+
+  GROUPBOX gb_inflate_spec	_lft	_ls	_iwd	_ht11,		///
+  	label(resource LBL_INFLATE_MODEL)
+  RADIO rb_inflate		_ilft	_ss	_vnwd	.,first		///
+	onclickon(script consoff)					///
+	default(1)							///
+	label(resource LBL_INFLATE_VAR)
+  RADIO rb_cons			_vlx	@	_vlwd	.,last		///
+	onclickon(script conson)					///
+	option(_cons)							///
+	label(resource ZIOPROBIT_MAIN_RB_CONS)
+  VARLIST vl_inflate		_ilft	_ss	_ibwd	.,		///
+	numeric								///
+	allowcat fv							///
+	label(resource LBL_INFLATE_VAR)
+  CHECKBOX ck_infnocon		@	_ms	@	.,		///
+	option(noconstant)						///
+	label(resource LBL_SUPPRESS_INFLATION_CONSTANT_TERM)
+  TEXT tx_infoff		_ilft	_ms	_cwd2	.,		///
+	label(resource LBL_OFFSET_VARIABLE)
+  VARNAME vn_infoff		_ilft	_ss	_vnwd	.,		///
+	option(offset)							///
+	label(resource LBL_OFFSET_VARIABLE)
+
+  GROUPBOX gb_opt		_lft	_xls	_iwd	_ht5,		///
+	label(resource LBL_OPTIONS)
+  TEXT tx_offset		_ilft	_ms	_cwd2	.,		///
+	label(resource LBL_OFFSET_VARIABLE)
+  VARNAME vn_offset		_ilft	_ss	_vnwd	.,		///
+	numeric								///
+	option(offset)							///
+	label(resource LBL_OFFSET_VARIABLE)
+  DEFINE _x _ilft
+  DEFINE _xw _cwd1
+//  INCLUDE _ck_collinear
+END
+
+SCRIPT conson
+BEGIN
+	main.vl_inflate.disable
+	main.tx_infoff.disable
+	main.vn_infoff.disable
+	main.ck_infnocon.disable
+END
+
+SCRIPT consoff
+BEGIN
+	main.vl_inflate.enable
+	main.tx_infoff.enable
+	main.vn_infoff.enable
+	main.ck_infnocon.enable
+END
+
+INCLUDE ifin
+INCLUDE weights_f
+INCLUDE bayes_priors
+INCLUDE bayes_simulation
+INCLUDE bayes_blocking
+INCLUDE bayes_initialization
+INCLUDE bayes_adaptation
+INCLUDE bayes_reporting
+INCLUDE bayes_advanced
+
+PROGRAM bayes_opts_output
+BEGIN
+	beginoptions
+		put " " /program bayes_priors_output
+		put " " /program bayes_simulation_output
+		put " " /program bayes_blocking_output
+		put " " /program bayes_init_output
+		put " " /program bayes_adaptation_output
+		put " " /program bayes_reporting_output
+		put " " /program bayes_advanced_output
+	endoptions
+END
+
+PROGRAM bayes_build_parse 
+BEGIN
+	put "zioprobit "
+	varlist main.vn_dv [main.vl_iv]
+	beginoptions
+		put "inflate("
+		put /program zioprobit_inflate_output
+		put ")"
+		optionarg main.vn_offset
+//		option main.ck_collinear
+	endoptions
+END
+
+PROGRAM zioprobit_inflate_output
+BEGIN
+	option main.rb_cons
+	require main.vl_inflate
+	put main.vl_inflate
+	beginoptions
+		optionarg main.vn_infoff
+		option main.ck_infnocon
+	endoptions
+END
+
+PROGRAM ecommand_output
+BEGIN
+	put "zioprobit "
+	varlist main.vn_dv [main.vl_iv]
+	put " " /program ifin_output
+	put " " /program weights_output
+	beginoptions
+		put "inflate("
+		put /program zioprobit_inflate_output
+		put ")"
+		optionarg main.vn_offset
+//		option main.ck_collinear
+	endoptions
+END
+
+PROGRAM command
+BEGIN
+	put "bayes"
+	put /program bayes_opts_output
+	put " : "
+	put /program ecommand_output
+END

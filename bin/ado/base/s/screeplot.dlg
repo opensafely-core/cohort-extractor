@@ -1,0 +1,330 @@
+/*
+    screeplot.dlg
+
+*!  VERSION 2.1.2  03dec2019
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 300
+INCLUDE header
+
+HELP hlp1, view("help screeplot")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource SCREEPLOT_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script gr_plots_setDefaultConnected
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	label(resource SCREEPLOT_DLG_TITLE)
+BEGIN
+  GROUPBOX gb_eigen          _lft      _top      _iwd      _ht6h,	///
+  		label(resource SCREEPLOT_MAIN_GB_EIGEN)
+  RADIO    rb_none           _indent   _ss       _inwd     .,		///
+  		first							///
+  		onclickon(program main_eigen_off)			///
+  		label(resource SCREEPLOT_MAIN_RB_NONE)
+  RADIO    rb_eigen          @         _ss       @         .,		///
+  		last							///
+  		onclickon(script main_eigen_on)				///
+  		label(resource SCREEPLOT_MAIN_RB_EIGEN)
+
+  COMBOBOX cb_eigen          +20       _ss       _vnwd     .,		///
+  		dropdown						///
+  		contents(vector)					///
+  		label(resource SCREEPLOT_MAIN_CB_EIGEN)
+  TEXT     tx_eigen          _vnsep    @         _cwd2     .,		///
+  		label(resource SCREEPLOT_MAIN_TX_EIGEN)
+
+  CHECKBOX ck_neigen         _lft     +45        _iwd     _ht2h,	///
+  		groupbox						///
+  		onclickon(script main_neigen_on)			///
+  		onclickoff(script main_neigen_off)			///
+  		label(resource SCREEPLOT_MAIN_CK_NEIGEN)
+  DEFINE holdy @y
+  SPINNER  sp_neigen         _indent   _ms       _spwd     .,		///
+  		default(5) min(2) option(neigen)
+  TEXT     tx_neigen         _spsep    @         200       .,		///
+  		label(resource SCREEPLOT_MAIN_TX_NEIGEN)
+END
+
+SCRIPT mean_PREINIT
+BEGIN
+	create STRING mean_lineResults
+END
+
+DIALOG mean, tabtitle(resource LBL_MEAN) 
+BEGIN
+  CHECKBOX ck_mean           _lft     _top      _iwd     _ht2h,		///
+  		groupbox option(mean)					///
+  		onclickon(script meanlopts_enable)			///
+  		onclickoff(script meanlopts_disable)			///
+  		label(resource SCREEPLOT_MEAN_CK_MEAN)
+
+  BUTTON   bu_line 	     _indent  _ms	 120	   .,		///
+  		label(resource LBL_GB_LINE_PROPERTIES)			///
+  		onpush(script opts_showLineDialog)
+END
+
+SCRIPT ci_PREINIT
+BEGIN
+	create STRING ci_plot_result
+END
+
+DIALOG ci, tabtitle(resource LBL_CI)
+BEGIN
+  CHECKBOX ck_ci             _lft     _top       _iwd     _ht23,	///
+  		groupbox 						///
+  		onclickoff(script ci_opts_disable)			///
+  		onclickon(script ci_opts_enable)			///
+  		option(ci)						///
+  		label(resource SCREEPLOT_CI_CK_CI)
+  		
+  GROUPBOX gb_cimethod       _indent  _ss        _inwd    _ht6,
+  RADIO    rb_asymptotic     _indent  _ss        _inwd     .,		///
+  		onclickon(program ci_bootstrap_check)			///
+  		first option(asymptotic)				///
+  		label(resource SCREEPLOT_CI_RB_ASYMPTOTIC)
+  RADIO    rb_heteroskedastic @       _ss        @         .,		///
+  		onclickon(program ci_bootstrap_check)			///
+  		option(heteroskedastic)					///
+  		label(resource SCREEPLOT_CI_RB_HETEROSKEDASTIC)
+  RADIO    rb_homoskedastic  @        _ss        @         .,		///
+  		onclickon(program ci_bootstrap_check)			///
+  		last option(homoskedastic)				///
+  		label(resource SCREEPLOT_CI_RB_HOMOSKEDASTIC)
+
+  BUTTON   bu_ci             _ilft    _xls       120       .,		///
+		label(resource SCREEPLOT_CI_BU_CI)			///
+		onpush(script ci_show_ciplot)
+
+  CHECKBOX ck_table          _ilft    _ls        _ibwd     .,		///
+  		option(table)						///
+  		label(resource SCREEPLOT_CI_CK_TABLE)
+
+  DEFINE _x _ilft
+  DEFINE _cx 200
+  DEFINE _y _ms
+  INCLUDE _sp_level
+
+  SPINNER  sp_reps           _ilft     _ms        _spwd     .,		///
+  		default(200) min(1) max(1000000) option(reps)		///
+  		label(resource SCREEPLOT_CI_SP_REPS)
+  TEXT     tx_reps           _spsep    @          200       .,		///
+  		label(resource SCREEPLOT_CI_SP_REPS)
+
+  SPINNER  sp_seed           _ilft    _ms        _spwd     .,		///
+  		default(0) min(0) max(1000000)	option(seed)		///
+  		label(resource SCREEPLOT_CI_SP_SEED)
+  TEXT     tx_seed           _spsep   @          200       .,		///
+  		label(resource SCREEPLOT_CI_SP_SEED)
+END
+
+SCRIPT ci_show_ciplot
+BEGIN
+	create CHILD gr_ciplots, allowsubmit
+	gr_ciplots.settitle resource SCREEPLOT_CI_BU_CI
+	gr_ciplots.setExitString ci_plot_result
+	gr_ciplots.setOkAction "program check_ci_plot_result"
+	gr_ciplots.setSubmitAction "program ci_plot_submit"
+	gr_ciplots.callthru "script gr_ciplots_setDefaultArea"
+	gr_ciplots.callthru  `"gr_ciplots_outputCmd.setstring """'
+END
+PROGRAM check_ci_plot_result
+BEGIN
+	if ci_plot_result {
+		call ci.bu_ci.modified_on
+	}
+	else {
+		call ci.bu_ci.modified_off
+	}
+END
+PROGRAM ci_plot_submit
+BEGIN
+	call program check_ci_plot_result
+	call Submit
+END
+
+INCLUDE gr_plots
+INCLUDE gr_addplots
+INCLUDE gr_yaxis
+INCLUDE gr_xaxis
+INCLUDE gr_titles
+INCLUDE gr_legend
+INCLUDE gr_overall
+
+SCRIPT main_neigen_on
+BEGIN
+	main.sp_neigen.enable
+	main.tx_neigen.enable
+END
+
+SCRIPT main_neigen_off
+BEGIN
+	main.sp_neigen.disable
+	main.tx_neigen.disable
+END
+
+SCRIPT opts_showLineDialog
+BEGIN
+	create CHILD gr_line_options AS gr_plots_lineDLG, allowsubmit
+	gr_plots_lineDLG.setExitString mean_lineResults
+	gr_plots_lineDLG.settitle resource LBL_GB_LINE_PROPERTIES
+	gr_plots_lineDLG.setExitAction "program mean_checkLineResults"
+	gr_plots_lineDLG.setSubmitAction "program mean_lineSubmit"
+END
+
+PROGRAM mean_checkLineResults
+BEGIN
+	if mean_lineResults {
+		call mean.bu_line.modified_on
+	}
+	else {
+		call mean.bu_line.modified_off
+	}
+END
+
+PROGRAM mean_lineSubmit
+BEGIN
+	call program mean_checkLineResults
+	call Submit
+END
+
+SCRIPT meanlopts_disable
+BEGIN
+	mean.bu_line.disable
+END
+
+SCRIPT meanlopts_enable
+BEGIN
+	mean.bu_line.enable
+END
+
+SCRIPT main_eigen_on
+BEGIN
+	main.tx_eigen.enable
+	main.cb_eigen.enable
+	ci.ck_ci.disable
+	script ci_opts_disable
+END
+
+PROGRAM main_eigen_off
+BEGIN
+	call main.tx_eigen.disable
+	call main.cb_eigen.disable
+	call ci.ck_ci.enable
+	if ci.ck_ci {
+		call script ci_opts_enable
+	}
+END
+
+PROGRAM ci_bootstrap_check
+BEGIN
+	if ci.rb_heteroskedastic | ci.rb_homoskedastic {
+		call ci.sp_reps.enable
+		call ci.tx_reps.enable
+		call ci.sp_seed.enable
+		call ci.tx_seed.enable
+	}
+	if ci.rb_asymptotic {
+		call ci.sp_reps.disable
+		call ci.tx_reps.disable
+		call ci.sp_seed.disable
+		call ci.tx_seed.disable
+	}
+END
+
+SCRIPT ci_opts_disable
+BEGIN
+	ci.rb_asymptotic.disable
+	ci.rb_heteroskedastic.disable
+	ci.rb_homoskedastic.disable
+	ci.bu_ci.disable
+	ci.ck_table.disable
+	ci.sp_level.disable
+	ci.tx_level.disable
+	ci.sp_reps.disable
+	ci.tx_reps.disable
+	ci.sp_seed.disable
+	ci.tx_seed.disable
+END
+
+SCRIPT ci_opts_enable
+BEGIN
+	ci.rb_asymptotic.enable
+	ci.rb_heteroskedastic.enable
+	ci.rb_homoskedastic.enable
+	ci.bu_ci.enable
+	ci.ck_table.enable
+	ci.sp_level.enable
+	ci.tx_level.enable
+	program ci_bootstrap_check
+END
+
+PROGRAM ci_opts_output
+BEGIN
+	option ci.rb_heteroskedastic
+	option ci.rb_homoskedastic
+	put " " ci_plot_result " "
+	option ci.ck_table
+	optionarg /hidedefault ci.sp_level
+	optionarg /hidedefault ci.sp_reps
+	optionarg /hidedefault ci.sp_seed
+END
+
+PROGRAM command
+BEGIN
+	put "screeplot "
+	if main.rb_eigen {
+		require main.cb_eigen
+		put main.cb_eigen " "
+	}
+	beginoptions
+		optionarg main.sp_neigen
+		option mean.ck_mean
+		
+		if !H(mean.bu_line) & mean_lineResults {
+			put "meanlopts("
+			put mean_lineResults
+			put ") "
+		}
+		
+		put " " /program gr_plots_output
+		
+		if ci.ck_ci & ci.ck_ci.isenabled() {
+			if (ci.rb_heteroskedastic | ci.rb_homoskedastic	///
+				| ci.ck_table 				///
+				| (! ci.sp_level.isdefault() 		///
+					& ci.sp_level.isenabled())	///
+				| (! ci.sp_reps.isdefault() 		///
+					& ci.sp_reps.isenabled())	///
+				| (! ci.sp_seed.isdefault() 		///
+					& ci.sp_seed.isenabled())	///
+				| ci_plot_result)			///
+			{
+				put "ci("
+				put /program ci_opts_output
+				put ") "
+			}
+			else {
+				option ci.ck_ci
+			}
+		}
+
+		put " " /program gr_addplots_output
+		put " " /program gr_yaxis_output
+		put " " /program gr_xaxis_output
+		put " " /program gr_titles_output
+		put " " /program gr_legend_output
+		put " " /program gr_overall_output
+	endoptions
+END

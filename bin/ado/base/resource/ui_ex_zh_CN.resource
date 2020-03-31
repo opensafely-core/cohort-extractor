@@ -1,0 +1,1808 @@
+##.  6 Jan 2020 (auto-generated)
+
+#Shows up on various message boxes.
+CHK_DO_NOT_SHOW_THIS_MESSAGE_AGAIN = 不要显示此消息
+#Title for file dialog to select a file
+DLG_TITLE_BROWSE = 浏览
+#Title for color picker dialog
+DLG_TITLE_COLOR = 颜色
+#Title for file dialog to open a file
+DLG_TITLE_OPEN = 打开
+#Title for file dialog to save a file
+DLG_TITLE_SAVE = 保存
+DOEDIT_MSGBOX_FILE_CHANGED1.MAC = 磁盘上的文件已更改。如果您重新加载，您的更改将会丢失。您要立即重新加载此文件吗？
+DOEDIT_MSGBOX_FILE_CHANGED2.MAC = 磁盘上的文件已更改。您要立即重新加载此文件吗？
+DOEDIT_MSGBOX_FILE_CHANGED3.MAC = 磁盘上的文件已更改。您要立即重新加载此文件吗？点击“自动”按钮，以后对此文件的更改将被自动重新加载。
+DOEDIT_MSGBOX_FILE_CHANGED_BTN_AUTO.MAC = 自动
+DOEDIT_MSGBOX_FILE_UPDATED.MAC = 文件已更新
+DOEDIT_MSGBOX_INSERT_NOT_UTF8_ENCODING = 在插入文件之前，当前文档必须为UTF-8编码。
+DOEDIT_MSGBOX_NOT_UTF8_ENCODING_FMT = 当前文档以UTF-8编码。您必须选择一个编码将文档"{0}"转换为UTF-8。
+ENCODINGS_DLG_HEADER_ALIASES = 别名
+#Encoding here refers to a text encoding, for example, utf-8, iso-8859-1, etc.
+ENCODINGS_DLG_HEADER_ENCODING = 编码
+ENCODINGS_DLG_HEADER_NAME = 名称
+#Encoding here refers to a text encoding, for example, utf-8, iso-8859-1, etc.
+ENCODINGS_DLG_LBL_FILTER = 过滤编码
+#Encoding here refers to a text encoding, for example, utf-8, iso-8859-1, etc.
+ENCODINGS_DLG_LBL_SELECT_ENCODING = 选择当前编码：
+ENCODINGS_DLG_MSG_FMT = 使用"{0}"编码将文本转换为UTF-8。
+ENCODINGS_DLG_TITLE = 转换为UTF-8
+ENCODINGS_MSGBOX_ALREADY_UTF8_1 = 文本已经是UTF-8格式。
+ENCODINGS_MSGBOX_ALREADY_UTF8_2 = 无需转换。
+IMPORT_SUBSET_TITLE_IMPORT_SAS = import sas - 导入SAS文件
+IMPORT_SUBSET_TITLE_IMPORT_SASXPORT8 = import sasxport8 - 导入SAS XPORT V8文件
+IMPORT_SUBSET_TITLE_IMPORT_SPSS = import spss - 导入SPSS文件
+IMPORT_SUBSET_TITLE_IMPORT_USE = use - 加载Stata数据集
+LBL_IF_EXPRESSION = if：(表达式)
+LBL_INCORRECT_FILE_TYPE = 文件类型不正确。
+LBL_INVALID_OBSERVATION_RANGE = 观测值范围无效。
+LBL_LABEL = 标签
+LBL_NAME = 名称
+LBL_NAMES_IN_FILE = 文件中的变量名称：
+LBL_NAMES_TO_IMPORT = 要导入的变量名称：
+LBL_NAMES_TO_LOAD = 要加载的名称: (置空表示所有变量)
+LBL_NOT_DEFINED = <未定义>
+LBL_REPORT_EMPTY = 没有项目显示。
+LBL_SAS_VALUE_LABEL_FILENAME = SAS值标签文件名： (*.sas7bcat文件)
+LBL_TOO_MANY_NAMES_SPECIFIED = 指定的变量名称过多。
+LBL_UNABLE_TO_ALLOCATE_MEMORY_FOR_COMMAND = 无法为命令分配内存。
+LBL_UNABLE_TO_OPEN_FILE_FOR_READING = 无法打开文件进行读取。
+LBL_UNABLE_TO_PARSE_FILE_ON_DISK = 无法解析磁盘上的文件
+LBL_USE_RANGE_OBS = 使用指定范围内的观测
+LBL_VARIABLES_IN_DATASET = 数据集中的变量：
+LBL_VARIABLES_TO_LOAD = 要加载的变量: (置空表示所有变量)
+MSGBOX_MAPPED_DRIVE_WARNING.WIN = 您好像在映射的网络驱动器上运行Stata。如果遇到错误，请改用UNC路径。
+POWER_NODE_HYPOTHESIS_TYPE = 假设检验
+PREFS_DOEDIT_CHK_INDENT_USING_SPACES = 使用空格缩进
+PREFS_DOEDIT_PROJ_LBL_RESTORE_LAYOUT_N_SIZE.WIN = 恢复项目管理器布局和大小
+PREFS_DOEDIT_RAD_UNIX_EOL = Unix/Mac("\\n")
+PREFS_DOEDIT_RAD_WINDOWS_EOL = Windows("\\r\\n")
+
+##(TAG). Button
+BTN_ADD = 添加
+#Allow lossy conversion when converting text from Clipboard to ASCII
+BTN_ALLOW_LOSSY_CONVERSION = 允许有损转换
+BTN_APPLY = 应用
+BTN_BROWSE = 浏览...
+BTN_CANCEL = 取消
+BTN_CHANGE = 更改
+BTN_CHANGE_TO_EDIT_MODE = 切换到编辑模式
+BTN_CHOOSE = 选择
+BTN_CLOSE = 关闭
+BTN_CLOSE_WINDOW = 关闭窗口
+BTN_CREATE = 创建...
+BTN_DATA = 数据
+BTN_DELETE = 删除
+BTN_DISCARD = 丢弃
+BTN_DISCARD_CHANGES = 放弃更改
+#Go to line
+BTN_DOEDIT_GO = 前往
+BTN_DONT_APPLY = 不要应用
+BTN_DONT_SAVE = 不要保存
+BTN_DROP = 删除
+BTN_DROP_NOTE = 删除备注
+BTN_EXIT_WITHOUT_SAVING = 退出而不保存
+BTN_FONT = 字体...
+BTN_KEEP = 保留
+#Keep existing file extension .{existing_file_extension}
+BTN_KEEP_EXTENSION_FMT = 保留 .{0}
+BTN_MODIFY = 更改
+BTN_MOVE_TO_TRASH = 移动到回收站
+BTN_NEW = 新建
+BTN_NO = 否
+#Normalize line endings
+BTN_NORMALIZE = 标准化
+BTN_OK = 确定
+BTN_OPEN = 打开
+BTN_OPEN_IN_DOFILE_EDITOR = 在do文件编辑器中打开
+BTN_PASTE = 粘贴
+BTN_PRINT.UNIX = 打印
+BTN_PROJECT_SHOW_HIDE_PROPERTIES_TIP.MAC = 显示/隐藏属性
+BTN_REMOVE = 删除
+BTN_REMOVE_FROM_PROJECT = 从项目中删除
+BTN_RENAME = 重命名
+BTN_REPLACE = 替换
+BTN_RESTORE = 恢复
+BTN_REVIEW_CHANGES = 复查更改...
+BTN_SAVE = 保存
+BTN_USE = 使用
+#Use new file extension .{new_file_extension}
+BTN_USE_EXTENSION_FMT = 使用 .{0}
+BTN_VARIABLE_NAMES = 变量名
+BTN_YES = 是
+
+##(TAG). MsgBox
+ALERT_ADMINISTRATOR_PRIVELAGES_REQUIRED = 执行此任务需要管理员权限。
+ALERT_BUSY_EXIT_CONFIRM = 退出Stata... \n您确定吗？
+ALERT_CLIPBOARD_WONT_ACCEPT_DATA = 剪贴板无法容纳您所尝试复制的数据量！
+ALERT_CLOSE_GRAPH_EDITOR_BEFORE_EXIT = 退出Stata之前您必须关闭图形编辑器。
+ALERT_INPUT_OUTPUT_FILENAMES_MUST_NOT_BE_BLANK = 输入和输出文件名不能为空白！
+ALERT_UNABLE_TO_EXIT_STATA = 无法退出Stata！
+BATCH_MSGBOX_CONTINUE_JOB_CONFIRM = 您希望批处理作业继续吗？
+#“{filename}” has been canceled.
+BATCH_MSGBOX_FILE_HAS_BEEN_CANCELED_FMT = "{0}"已取消。
+#“{filename}” has completed.
+BATCH_MSGBOX_FILE_HAS_COMPLETED_FMT = "{0}"已完成。
+#“{filename}” has been interrupted.
+BATCH_MSGBOX_FILE_HAS_INTERRUPTED_FMT = "{0}"已中断。
+#Output has been saved in the file “{filename}”.
+BATCH_MSGBOX_OUTPUT_SAVED_TO_FILE_FMT = 输出已保存在文件"{0}"中。
+EXIT_MSGBOX_PLEASE_EXIT_STATA_BEFORE_WIN.WIN = 请在退出Windows之前退出Stata。
+#Value {number} already exists.
+LABEL_MSGBOX_VALUE_EXISTS_MSGFMT = 值"{0}"已存在。
+LOG_MSGBOX_ALREADY_SUSPENDED = 日志已暂停。
+LOG_MSGBOX_LOGGING_ALREADY_ON = 日志已开启。
+LOG_MSGBOX_LOGGING_NOT_SUSPENDED = 日志没有挂起。
+LOG_MSGBOX_NO_LOG_TO_CLOSE = 没有日志要关闭。
+LOG_MSGBOX_NO_LOG_TO_RESUME = 没有日志要恢复。
+LOG_MSGBOX_NO_LOG_TO_SUSPEND = 没有日志要挂起。
+MSGBOX_ARE_YOU_SURE_CLOSE_WINDOW = 您确定要关闭该窗口吗？
+MSGBOX_CONFIRM_REPLACE = 您要替换它吗？
+MSGBOX_CONFIRM_SAVE_CHANGES = 您要保存所做的更改吗？
+MSGBOX_CONFIRM_SAVE_CHANGES_FMT = 您是否要保存对"{0}"所做的更改？
+MSGBOX_CONTROL_IS_INVALID = "{0}"无效。
+#“{string}” could not be found.
+MSGBOX_COULD_NOT_BE_FOUND_FMT = 找不到"{0}"。
+MSGBOX_DATA_FRAME_HAVE_CHANGED = 内存中的数据框已更改。
+MSGBOX_DATA_FRAME_HAVE_CHANGED_SAVE_EXIT_NOTE = 在退出之前请保存或清除未保存的数据框。请使用"frames dir"命令来确定哪些数据框未保存。
+MSGBOX_DATA_HAVE_CHANGED = 内存中的数据已更改。
+MSGBOX_DATA_HAVE_CHANGED_CONFIRM_EXIT_2 = 您要在退出之前保存更改吗？
+MSGBOX_DATA_HAVE_CHANGED_CONFIRM_EXIT_2.MAC = 您要在退出之前保存更改吗？
+MSGBOX_DATA_HAVE_CHANGED_CONFIRM_LOSE_DATA_2 = 您要继续并丢失未保存的数据吗？
+MSGBOX_DATA_HAVE_CHANGED_CONFIRM_SAVE_2 = 在继续之前，您是否要保存对数据所做的更改？
+MSGBOX_DATA_IN_MEMORY_CONFIRM_REPLACE_1 = 内存中的数据。
+MSGBOX_DATA_IN_MEMORY_CONFIRM_REPLACE_2 = 您要继续并更换内存中的数据吗？
+#The directory “{string}” could not be created.
+MSGBOX_DIRECTORY_COULD_NOT_BE_CREATED_FMT = 无法创建目录"{0}"。
+#“{string}” already exists as a directory and cannot be replaced.
+MSGBOX_DIR_EXISTS_CANT_BE_REPLACED_FMT = 目录"{0}"已存在，无法替换。
+#The document “{string}” could not be opened.
+MSGBOX_DOCUMENT_COULD_NOT_BE_OPENED_FMT = 无法打开文档"{0}"。
+#Error: {number or string}
+MSGBOX_ERROR_FMT = 错误：{0}
+MSGBOX_FILE_ALREADY_EXISTS_CONFIRM_REPLACE = 目标目录中已存在相同名称的文件或文件夹。替换它将覆盖其当前内容。
+#“{filename}” already exists. Do you want to replace it?
+MSGBOX_FILE_ALREADY_EXISTS_CONFIRM_REPLACE_FMT = "{0}"已存在。您要替换它吗？
+#The file “{string}” may already exist or you do not have permission to rename it.
+MSGBOX_FILE_EXISTS_CANT_RENAME_FMT = 文件"{0}"可能已存在，或者您没有重命名的权限。
+MSGBOX_FILE_NOT_FOUND = 文件未找到。
+MSGBOX_LOSE_UNSAVED_CHANGES = 您要继续并舍弃未保存的更改吗？
+MSGBOX_PROBLEM_SAVING_TO_DISK = 保存到磁盘时出现问题。
+MSGBOX_RENAME_OR_ERASE_EXISTING_DIR_TRY_AGAIN = 请重命名或删除现有目录，然后重试。
+MSGBOX_RESET_FILETYPES_CONFIRM.WIN = 您要重置与Stata(.dta，.do，.gph，.smcl)相关联的文件类型吗？
+MSGBOX_RESET_FILETYPES_FAIL.WIN = 重置文件关联时出错。
+MSGBOX_RESET_FILETYPES_SUCCESS.WIN = 文件关联已重置。
+#{number} tabs are open in this window. Do you want to close the window anyway?
+MSGBOX_TABS_ARE_OPEN_CONFIRM_CLOSE_MSGFMT = {0}个选项卡在此窗口中打开。您要继续关闭窗口吗？
+MSGBOX_UNABLE_TO_OPEN_FILE_FOR_WRITING = 无法打开文件进行写入。
+MSGBOX_UNABLE_TO_RENAME_FILE = 无法重命名文件！
+#Unable to write the file “{string}”.
+MSGBOX_UNABLE_TO_WRITE_FILE_FMT = 无法写入文件"{0}"。
+MSGBOX_UNABLE_TO_WRITE_TO_FILE = 无法写入文件。
+PREFS_MSGBOX_CONFIRM_RESTORE_PREFS = 您确定要将所有首选项设置恢复为默认值吗？
+PREFS_MSGBOX_CONFIRM_RESTORE_WINDOW_PREFS = 您确定要将窗口首选项设置恢复为默认值吗？
+PREFS_MSGBOX_RESTORE_PREFS = Stata所有设定和窗口首选项将会被恢复为出厂设置。
+PREFS_MSGBOX_RESTORE_WINDOW_PREFS = 可视化窗口所有设定和位置都将恢复为出厂设置。
+#Are you sure you want to delete the preference set named “{string}”?
+PREFS_SAVE_MSGBOX_DELETE_SET_MSGFMT = 您确定要删除名为"{0}"的首选项设置吗？
+#Are you sure you want to replace the preference set named “{string}”?
+PREFS_SAVE_MSGBOX_REPLACE_SET_MSGFMT = 您确定要替换名为"{0}"的首选项设置吗？
+PREFS_SAVE_MSGBOX_TOO_MANY_DUPLICATES = 当前设置的副本太多，或者保存到磁盘时出现问题。
+PREFS_SAVE_MSGBOX_UNABLE_OPEN_SET = 无法打开首选项设置！
+PREFS_SAVE_MSGBOX_UNABLE_RENAME_SET = 无法重命名首选项设置！
+PREFS_SAVE_MSGBOX_UNABLE_SAVE_SET = 无法保存首选项设置！
+PREFS_SAVE_MSGBOX_WRITE_ERROR = 保存到磁盘时出现问题。
+PREFS_SYNTAX_MSGBOX_CONFIRM_DELETE_THEME = 您确定要删除所选的主题吗？
+#Are you sure you want to delete the theme named “{string}”?
+PREFS_SYNTAX_MSGBOX_DELETE_THEME_MSGFMT = 您确定要删除名为"{0}"的主题吗？
+PREFS_SYNTAX_MSGBOX_TOO_MANY_DUPLICATES = 当前主题的副本太多，或者保存到磁盘时出现问题。
+PREFS_SYNTAX_MSGBOX_UNABLE_DUPLICATE_DEFAULT_THEME = 无法复制默认主题！
+PREFS_SYNTAX_MSGBOX_UNABLE_DUPLICATE_THEME = 无法复制主题！
+PREFS_SYNTAX_MSGBOX_UNABLE_RENAME_THEME = 无法重命名主题！
+PREFS_SYNTAX_MSGBOX_WRITE_ERROR = 保存到磁盘时出现问题。
+#Are you sure you want to change the extension from “.{old_file_extension}” to “.{new_file_extension}”?
+PROJECT_MSGBOX_CHANGE_EXTENSION_MSGFMT = 您确定要将扩展名从".{0}"更改为".{1}"吗？
+PROJMAN_MSGBOX_CONFIRM_OPEN_FILES_IN_DO_FILE_EDITOR = 您要在Do文件编辑器中打开它们吗？
+PROJMAN_MSGBOX_CONFIRM_OPEN_IN_DO_FILE_EDITOR = 您要在Do文件编辑器中打开它吗？
+#Are you sure you want to remove the file “{string}” from the project?
+PROJMAN_MSGBOX_CONFIRM_REMOVE_FILE_FMT = 您确定要从项目中删除文件"{0}"吗？
+#Are you sure you want to remove the group “{string}” and all of its files from the project?
+PROJMAN_MSGBOX_CONFIRM_REMOVE_GROUP_FMT = 您确定要从项目中删除组"{0}"及其中所有的文件吗？
+#Are you sure you want to remove the {number} selected items from the project?
+PROJMAN_MSGBOX_CONFIRM_REMOVE_SELECTED_ITEMS_FMT = 您确定要从项目中删除{0}个选定的项目吗？
+PROJMAN_MSGBOX_CONFIRM_RENAME_PROJECT_1 = 您确定给项目重命名吗？
+PROJMAN_MSGBOX_CONFIRM_RENAME_PROJECT_2 = 重命名项目将导致项目文件被重命名以及所有更改被保存。
+#The project “{string}” has been changed.
+PROJMAN_MSGBOX_CONFIRM_SAVE_CHANGES_FMT = 项目"{0}"已更改。
+PROJMAN_MSGBOX_DOCUMENT_MAY_OPEN_IN_DIFFERENT_APP = 如果您进行此更改，您的文档可能会在其他应用程序中打开。
+#Do you want to move the files in group “{string}” to the Trash, or only remove the references to them?
+PROJMAN_MSGBOX_MOVE_FILES_IN_GROUP_TO_TRASH_OR_REMOVE_REFERENCES_FMT = 您要将组"{0}"中的文件移至垃圾箱，或是仅删除对其的引用？
+#Do you want to move the file “{string}” to the Trash, or only remove the reference to it?
+PROJMAN_MSGBOX_MOVE_FILE_TO_TRASH_OR_REMOVE_REFERENCE_FMT = 您要将文件"{0}"移动到垃圾桶，还是仅删除对其的引用？
+#Do you want to move the {number} selected files to the Trash, or only remove the references to them?
+PROJMAN_MSGBOX_MOVE_SELECTED_FILES_TO_TRASH_OR_REMOVE_REFERENCES_FMT = 您要将选定的{0}个文件移至垃圾桶，还是仅删除对它们的引用？
+#There were {number} files that had no applications associated with them.
+PROJMAN_MSGBOX_NO_APPS_ASSOCIATED_FMT = 有{0}个文件没有应用程序与它们相关联。
+#There is no application associated with the file “{string}”.
+PROJMAN_MSGBOX_NO_APP_ASSOCIATED_FMT = 没有与文件"{0}"相关联的应用程序。
+PROJMAN_MSGBOX_PROJECT_ALREADY_OPEN = 项目已经打开！
+#The project at “{string}” cannot be replaced while it is open.
+PROJMAN_MSGBOX_PROJECT_CANNOT_BE_REPLACED_WHILE_OPEN = "{0}"处的项目在打开时无法替换。
+#The file “{string}” no longer exists and cannot be opened.
+RECENT_MSGBOX_FILE_NO_LONGER_EXISTS_CANT_BE_OPENED_FMT = 文件"{0}"已不存在，无法打开。
+REGISTER_MSGBOX_REGISTER_AT_URL = 您可以稍后在www.stata.com/register注册。
+REGISTER_MSGBOX_REGISTER_COPY = 您要立即注册您的Stata吗？\n\n注册您的Stata软件很重要。作为Stata的注册用户，如果您有任何问题，您将获得技术帮助。如果您需要支持，我们将很乐意为您提供帮助。
+#Replace existing file “{filename}”?
+SAVE_MSGBOX_OVERWRITE_EXISTING_FILE_MSGFMT = 替换现有文件"{0}"？
+#The SEM diagram “{string}” has been changed but not saved.
+SEM_MSGBOX_CHANGED_BUT_NOT_SAVED_FMT = SEM路径图"{0}"已更改。
+#{number} SEM diagrams are open in this window. Do you want to close the window anyway?
+SEM_MSGBOX_TABS_ARE_OPEN_CONFIRM_CLOSE_MSGFMT = {0}个SEM路径图在此窗口中打开。您要继续关闭窗口吗？
+STINIT_MSGBOX_INCONSISTENT = 序列号，注册码和授权不一致！
+SYNTAX_MSGBOX_UNABLE_TO_CREATE_THEME = 无法创建语法高亮主题。
+TERMINAL_MSGBOX_CANT_BE_INSTALLED = 无法安装终端实用程序。
+TERMINAL_MSGBOX_ENTER_COMMAND_TO_LAUNCH_CONSOLE_VERSION_FMT = 在终端上输入命令"{0}"启动Stata控制台版本。
+TERMINAL_MSGBOX_UTILITY_INSTALLED = 终端实用程序已安装。
+#It has been at least {number} days since you last checked for updates.
+UPDATE_MSGBOX_DAYS_SINCE_LAST_CHECKED_UPDATES_FMT = 距离上次更新检查已经至少{0}天。
+#It has been at least {number} days since you last checked for updates. Would you like to check now?
+UPDATE_MSGBOX_DAYS_SINCE_LAST_CHECKED_UPDATES_FMT.WIN = 距离上次更新检查已经至少{0}天。您要现在检查更新吗？
+UPDATE_MSGBOX_WOULD_YOU_LIKE_TO_CHECK_NOW = 您要现在检查更新吗？
+VARIABLES_MSGBOX_CONFIRM_CHANGE_ORDER_1 = 本操作会改变变量在数据集中的顺序。
+VARIABLES_MSGBOX_CONFIRM_CHANGE_ORDER_2 = 您确定要更改变量在数据集中的顺序吗？
+VARIABLES_MSGBOX_CONFIRM_DATA_PRECISION_LOST = 如果继续数据精度将丢失。您还要继续吗？
+#Are you sure you want to drop {number} variables?
+VARIABLES_MSGBOX_CONFIRM_DROP_VARS_MSGFMT = 您确定要删除{0}个变量吗？
+#Are you sure you want to drop variable “{variable_name}”?
+VARIABLES_MSGBOX_CONFIRM_DROP_VAR_MSGFMT = 您确定要删除变量"{0}"吗？
+#Are you sure you want to keep {number} variables?
+VARIABLES_MSGBOX_CONFIRM_KEEP_VARS_MSGFMT = 您确定仅保留{0}个变量吗？
+#Are you sure you want to keep variable “{variable_name}”?
+VARIABLES_MSGBOX_CONFIRM_KEEP_VAR_MSGFMT = 您确定仅保留变量"{0}"吗？
+VARIABLES_MSGBOX_INVALID_FORMAT_SPEC = 无效的格式。
+VARIABLES_MSGBOX_INVALID_LABEL_NAME = 指定的标签名称无效。
+VARIABLES_MSGBOX_INVALID_LABEL_NAME_RESERVED_MSGFMT = 指定的标签名称无效。 "{0}"是保留字。
+VARIABLES_MSGBOX_INVALID_NUMERIC_TYPE = 无效的数值类型。
+VARIABLES_MSGBOX_INVALID_STRING_TYPE = 无效的字符串类型。
+VARIABLES_MSGBOX_INVALID_VARNAME = 无效的变量名。
+VARIABLES_MSGBOX_NUMERIC_FORMAT_REQ = 数值变量需要使用数值格式。
+VARIABLES_MSGBOX_OTHER_VARS_DROPPED = 所有其他变量将会被删除。
+VARIABLES_MSGBOX_POSSIBLE_LOSS_OF_DATA = 数据可能丢失。
+VARIABLES_MSGBOX_STRING_FORMAT_REQ = 字符串变量需要使用字符串格式。
+VARIABLES_MSGBOX_VARNAME_EXISTS = 变量名已存在。
+#“{string}” is a reserved word.
+VARIABLES_MSGBOX_VARNAME_RESERVED_WORD_MSGFMT = "{0}"是保留字。
+VARIABLES_MSGBOX_VARS_MUST_BE_NUMERIC_OR_STRING = 变量必须全部是数值型或字符串型。
+VARIABLES_MSGBOX_VAR_ORDER_MATCHES_DATA_1 = 变量顺序已经与数据集相匹配。
+VARIABLES_MSGBOX_VAR_ORDER_MATCHES_DATA_2 = 无需任何操作。
+
+##(TAG). Results/Viewer Output
+WININFO_OUTPUT_CHK_BOLD = 粗体
+WININFO_OUTPUT_CHK_UNDERLINE = 下划线
+WININFO_OUTPUT_LBL_COLOR_SCHEME = 颜色方案：
+WININFO_OUTPUT_LBL_COMMAND = 命令：
+WININFO_OUTPUT_LBL_ERROR = 错误：
+WININFO_OUTPUT_LBL_FONT_SIZE = 字体大小：
+WININFO_OUTPUT_LBL_HILITE = 高亮：
+WININFO_OUTPUT_LBL_LINK = 链接：
+WININFO_OUTPUT_LBL_RESULTS = 结果：
+WININFO_OUTPUT_LBL_SCALE = 尺寸：
+WININFO_OUTPUT_LBL_STANDARD = 标准：
+WININFO_PROJECT_TITLE_FONT_AND_COLORS.MAC = Stata字体和颜色
+
+##(TAG). Results/Viewer Project
+WININFO_PROJECT_CHK_PRINT_LOGO = 打印徽标
+WININFO_PROJECT_LBL_HEADER = 页眉：
+WININFO_PROJECT_LBL_PROJECT = 项目：
+WININFO_PROJECT_LBL_USER = 用户：
+WININFO_PROJECT_TITLE_HEADERS_AND_FOOTERS.MAC = Stata页眉和页脚
+
+##(TAG). announcement-popup
+ANNOUNCEMENT_POPUP_LBL_DISABLE_FUTURE_ANN = 取消未来公告
+#This is a button. Be careful with width (not too wide)
+ANNOUNCEMENT_POPUP_LBL_DONT_SHOW = 不再显示
+ANNOUNCEMENT_POPUP_LBL_REMIND_DAY_1 = 1天后提醒我
+ANNOUNCEMENT_POPUP_LBL_REMIND_DAY_3 = 3天后提醒我
+ANNOUNCEMENT_POPUP_LBL_REMIND_DAY_7 = 7天后提醒我
+#This is a button. Be careful with width (not too wide)
+ANNOUNCEMENT_POPUP_LBL_REMIND_LATER = 稍后提醒我
+ANNOUNCEMENT_POPUP_LBL_REMIND_NEXT_START = 下次启动Stata时提醒我
+ANNOUNCEMENT_POPUP_TITLE = Stata公告
+#(Update for st16)URL for localized content; TO BE FILLED IN BY STATACORP ONLY
+ANNOUNCEMENT_POPUP_URL = https://www.stata.com/news-st16/text-zh-CN.html
+
+##(TAG). applescript
+SCRIPT_ERR_COMMAND_RESULTED_IN_NON_ZERO_RETURN_CODE = 命令返回非零值。
+SCRIPT_ERR_COMMAND_TOO_LONG = 命令太长。
+SCRIPT_ERR_COULD_NOT_FIND_VALUE_LABEL = 找不到值标签。
+SCRIPT_ERR_INVALID_RETURN_TYPE = 无效的返回类型。
+SCRIPT_ERR_NOT_ALLOWED_WHEN_USING_DOCOMMAND = 在使用DoCommand时，-program define-和-input-禁止使用。
+#obsStart and obsEnd must be between 1 and {number}
+SCRIPT_ERR_OBSTART_AND_OBSEND_OUT_OF_RANGE_FMT = obsStart和obsEnd必须介于1和{0}之间。
+SCRIPT_ERR_UNABLE_TO_ALLOCATE_MEMORY_FOR_MATRIX = 无法为矩阵分配内存。
+SCRIPT_ERR_UNABLE_TO_ALLOCATE_MEMORY_FOR_MATRIX_NAMES = 无法为矩阵名称分配内存。
+#unable to find matrix “{string}”
+SCRIPT_ERR_UNABLE_TO_FIND_MATRIX_FMT = 无法找到矩阵"{0}"
+SCRIPT_ERR_UNRECOGNIZED_SCALAR_NAME = 无法识别的标量名称。
+#variable index out of bounds (must be between 1 and {number}).
+SCRIPT_ERR_VARIABLE_INDEX_OUT_OF_BOUNDS_FMT = 变量索引越界(必须在1和{0}之间)。
+#variable {string} not found.
+SCRIPT_ERR_VARIABLE_NOT_FOUND_FMT = 找不到变量{0}。
+SCRIPT_ERR_VARIABLE_TYPE_IS_NOT_STRL = 变量类型不是strL。
+SCRIPT_ERR_VARIABLE_TYPE_IS_NUMERIC_REQUESTED_STRING = 变量是数值型，但您请求字符串型。
+SCRIPT_ERR_VARIABLE_TYPE_IS_STRING_REQUESTED_NUMERIC = 变量是字符串型，但您请求数值型。
+
+##(TAG). button
+BTN_NEW_TAB_TIP.UNIX = 打开新标签页
+
+##(TAG). data editor
+DATA_EDITOR_MSGBOX_APPLY_CHANGE_TO_PREVIOUS_CELL_1 = 要应用更改到上一单元格吗？
+DATA_EDITOR_MSGBOX_APPLY_CHANGE_TO_PREVIOUS_CELL_2 = 对上一单元格的更改尚未应用。您现在要应用这些更改吗？
+DATA_EDITOR_MSGBOX_BIG_PRINT_FMT.WIN = 您即将打印{0}页。\n是否继续？
+DATA_EDITOR_MSGBOX_CANNOT_PASTE_INTO_SELECTION_1 = 您不能将数据粘贴到所选区域。
+DATA_EDITOR_MSGBOX_CANNOT_PASTE_INTO_SELECTION_2 = 请单击您要粘贴的区域的左上角单元格。
+DATA_EDITOR_MSGBOX_CHAR_MODIFIED = 数据集属性已修改。
+DATA_EDITOR_MSGBOX_CHAR_MODIFIED_DETAIL = 列宽已被存储为数据集属性。修改列宽会将数据集标记为已更改状态。
+DATA_EDITOR_MSGBOX_CLIPBOARD_DATA_NOT_VALID = 无效的剪贴板数据。
+#currently only implemented on Windows
+DATA_EDITOR_MSGBOX_CONFIRM_CHANGE_MODE_REQUEST_1 = 请求改变模式。
+#currently only implemented on Windows
+DATA_EDITOR_MSGBOX_CONFIRM_CHANGE_MODE_REQUEST_BROWSE_2 = 您目前处于编辑模式。您想切换到浏览模式吗？
+#currently only implemented on Windows
+DATA_EDITOR_MSGBOX_CONFIRM_CHANGE_MODE_REQUEST_EDIT_2 = 您目前处于浏览模式。您想切换到编辑模式吗？
+DATA_EDITOR_MSGBOX_CONFIRM_CHANGE_MODE_TO_EDIT_1 = 您即将从浏览模式切换为编辑模式。
+DATA_EDITOR_MSGBOX_CONFIRM_CHANGE_MODE_TO_EDIT_2 = 您确定要切换到编辑模式吗？
+DATA_EDITOR_MSGBOX_CONFIRM_DROP_ALL_1 = 这将会删除整个数据集。
+DATA_EDITOR_MSGBOX_CONFIRM_DROP_ALL_2 = 您确定要继续吗？
+DATA_EDITOR_MSGBOX_CONFIRM_DROP_OBS = 你确定要删除1个观测吗？
+#Are you sure you want to drop {number} observations?
+DATA_EDITOR_MSGBOX_CONFIRM_DROP_OBS_FMT = 您确定要删除{0}个观测吗？
+#Are you sure you want to drop {number} variables?
+DATA_EDITOR_MSGBOX_CONFIRM_DROP_VARS_FMT = 您确定要删除{0}个变量吗？
+#Are you sure you want to drop variable “{variable_name}”?
+DATA_EDITOR_MSGBOX_CONFIRM_DROP_VAR_FMT = 您确定要删除变量"{0}"吗？
+DATA_EDITOR_MSGBOX_CONFIRM_KEEP_OBS = 您确定要保留1个观测吗？
+#Are you sure you want to keep {number} observations?
+DATA_EDITOR_MSGBOX_CONFIRM_KEEP_OBS_FMT = 您确定要保留{0}个观测吗？
+#Are you sure you want to keep {number} variables and {number} observations?
+DATA_EDITOR_MSGBOX_CONFIRM_KEEP_VARS_AND_OBS_FMT = 您确定要保留{0}个变量和{1}个观测吗？
+#Are you sure you want to keep {number} variables?
+DATA_EDITOR_MSGBOX_CONFIRM_KEEP_VARS_FMT = 您确定要保留{0}个变量吗？
+#Are you sure you want to keep variable “{variable_name}”?
+DATA_EDITOR_MSGBOX_CONFIRM_KEEP_VAR_FMT = 您确定要保留变量"{0}"吗？
+DATA_EDITOR_MSGBOX_CONFIRM_PASTE_WHILE_FILTERED_1 = 在观测被过滤时您正尝试粘贴操作。
+DATA_EDITOR_MSGBOX_CONFIRM_PASTE_WHILE_FILTERED_2 = 您确定要继续吗？
+DATA_EDITOR_MSGBOX_CONFIRM_TREAT_FIRST_ROW_AS_VARNAMES_OR_DATA_1 = 剪贴板上的第一行包含可用作有效变量名称的值。
+DATA_EDITOR_MSGBOX_CONFIRM_TREAT_FIRST_ROW_AS_VARNAMES_OR_DATA_2 = 您要将第一行作为变量名还是数据？
+DATA_EDITOR_MSGBOX_ERROR_PASTING_DATA = 从剪贴板粘贴数据时出错。
+DATA_EDITOR_MSGBOX_ERROR_PASTING_NEW_VARIABLE = 创建新变量时出错。
+DATA_EDITOR_MSGBOX_ERROR_PROCESS_COMMAND_1 = 处理来自数据编辑器命令时发生错误。
+DATA_EDITOR_MSGBOX_ERROR_PROCESS_COMMAND_2 = 详细信息请查看结果窗口。
+DATA_EDITOR_MSGBOX_LOSSY_UTF8_CONVERSION_WARNING_1 = 在不丢失信息的前提下，剪贴板上的某些文本无法转换为UTF-8。
+DATA_EDITOR_MSGBOX_LOSSY_UTF8_CONVERSION_WARNING_2 = 您要转换文本吗？某些字符可能被删除或更改。例如，某些字符可能会丢失其重音或被问号替代。
+DATA_EDITOR_MSGBOX_NO_MEMORY_TO_ADD_OBS = 内存不足，无法添加更多观测。
+DATA_EDITOR_MSGBOX_NO_MEMORY_TO_ADD_VAR = 内存不足，无法创建新变量。
+DATA_EDITOR_MSGBOX_PASTE_CORRUPT = 发生错误。剪贴板已损坏。
+DATA_EDITOR_MSGBOX_PASTE_MISMATCH_WARNING_1 = 您正尝试粘贴数据到不匹配的数据类型。
+#The newline characters (\n) create new lines in the text.
+DATA_EDITOR_MSGBOX_PASTE_MISMATCH_WARNING_2 = 当数据不匹配时Stata会：\n\n  •将数字字符串转换为数字\n  •使用显示格式将数字转换为字符串\n  •忽略非数字字符串\n\n您是否要继续？
+DATA_EDITOR_MSGBOX_PASTE_OPERATION_ABORTED = 粘贴操作已中止。
+DATA_EDITOR_MSGBOX_PASTE_PROBLEM_RENAMING_VARS = 命名一个或多个变量时出现问题。
+DATA_EDITOR_MSGBOX_PASTE_TOO_MANY_VARS_1 = 您尝试粘贴的变量太多。
+DATA_EDITOR_MSGBOX_PASTE_TOO_MANY_VARS_2 = 详细信息请查看"help memory"。
+DATA_EDITOR_MSGBOX_PASTING_STRING_INTO_NUMERIC_VARS = 您尝试将一个或多个字符串值粘贴到数值变量中。这些单元格的内容（如果有）将保持不变。
+DATA_EDITOR_MSGBOX_SEE_RESULTS_WINDOW_FOR_DETAILS = 详细信息请查看结果窗口。
+DATA_EDITOR_MSGBOX_TYPE_MISMATCH_NUMERIC = 类型不匹配。
+#“{string}” is a numeric variable.
+DATA_EDITOR_MSGBOX_TYPE_MISMATCH_NUMERIC_FMT = "{0}"是一个数值变量。
+
+##(TAG). data editor filter
+DEFILTER_DLG_LBL_APPLY = 应用过滤条件
+DEFILTER_DLG_LBL_BY_OBS = 使用观测标号
+DEFILTER_DLG_LBL_CREATE_EXPRESSION_TIP = 创建表达式
+DEFILTER_DLG_LBL_EXAMPLES = 示例：
+DEFILTER_DLG_LBL_FILTER_BY_EXP = 通过表达式过滤：
+DEFILTER_DLG_LBL_FILTER_BY_OBS = 通过观测过滤
+DEFILTER_DLG_LBL_FROM = 从：
+DEFILTER_DLG_LBL_REMOVE = 删除过滤条件
+DEFILTER_DLG_LBL_TITLE = 过滤观测
+DEFILTER_DLG_LBL_TO = 至：
+DEFILTER_DLG_LBL_USE_LIVE_FILTER = 启用实时过滤
+DEFILTER_DLG_LBL_USE_LIVE_FILTER_TIP = 数据更改时，自动重新过滤
+DEFILTER_DLG_USE_IN_RANGE = 使用范围限定条件：
+FILTER_MSGBOX_EXPRESSION_ERROR = 表达式错误。
+FILTER_MSGBOX_EXPRESSION_ERROR_FMT = "{0}"是无效的表达式。
+FILTER_MSGBOX_INRANGE_ERROR = "使用范围限定条件"指定有误。
+#{maximum_number_of_obs}
+FILTER_MSGBOX_INVALID_RANGE = 观测值标号必须介于1和{0}之间。
+
+##(TAG). doedit
+DOEDIT_BOOKMARK_NOT_FOUND_BEGINNING.UNIX = 已经达到文档的开始处。书签未找到。
+DOEDIT_BOOKMARK_NOT_FOUND_END.UNIX = 已经到达文档的结尾处。书签未找到。
+DOEDIT_CHK_ALWAYS_NORMALIZE = 不要再提示此消息(始终标准化)
+DOEDIT_CHK_DONT_WARN_CLOSE_MULT_DOCS = 关闭多个文档时不要提示
+DOEDIT_CHK_PRINT_SYNTAX_HIGHLIGHTING = 打印语法高亮
+DOEDIT_FIND_BTN_FIND_NEXT = 查找下一个
+DOEDIT_FIND_BTN_FIND_PREV = 查找上一个
+DOEDIT_FIND_BTN_REPLACE = 替换
+DOEDIT_FIND_BTN_REPLACE_ALL = 替换全部
+DOEDIT_FIND_CHK_MATCH_CASE = 区分大小写
+DOEDIT_FIND_CHK_MATCH_WHOLE_WORD = 全词匹配
+DOEDIT_FIND_CHK_REGULAR_EXPRESSION = 正则表达式
+DOEDIT_FIND_CHK_REPLACE_ALL_IN_SEL = 在选择范围内全部替换
+DOEDIT_FIND_CHK_WRAP_SEARCHES = 循环搜索
+DOEDIT_FIND_LBL_DIRECTION.WIN = 方向
+DOEDIT_FIND_LBL_FINDWHAT = 查找目标：
+DOEDIT_FIND_LBL_REPLACEWHAT = 替换内容：
+DOEDIT_FIND_RAD_DOWN.WIN = 向下
+DOEDIT_FIND_RAD_UP.WIN = 向上
+DOEDIT_FIND_TITLE_FIND = 找
+DOEDIT_FIND_TITLE_REPLACE = 替换
+#This is appended to filename when a file has been converted to use UTF-8 character encoding (e.g. "my_dofile.do" --> "my_dofile_[Converted].do")
+DOEDIT_LBL_CONVERTED = Converted
+#Insert absolute path of file that is drag and dropped onto Do-file Editor
+DOEDIT_LBL_INSERT_ABSOLUTE_PATH = 插入绝对路径
+#Insert contents of file that is drag and dropped onto Do-file Editor
+DOEDIT_LBL_INSERT_CONTENTS = 插入内容
+#Insert filename of file that is drag and dropped onto Do-file Editor
+DOEDIT_LBL_INSERT_FILENAME_ONLY = 仅插入文件名
+#Insert relative path of file that is drag and dropped onto Do-file Editor
+DOEDIT_LBL_INSERT_RELATIVE_PATH = 插入相对路径
+DOEDIT_LBL_LINE_ENDINGS = 行尾结束符：
+#Line number (1 - {number}):
+DOEDIT_LBL_LINE_NUMBER_FMT = 行号(1-{0})：
+#Open file that is drag and dropped onto Do-file Editor in new editor window
+DOEDIT_LBL_OPEN_IN_NEW_DO_FILE_EDITOR = 在新do文件编辑器中打开
+#Open file that is drag and dropped onto Do-file Editor in Stata
+DOEDIT_LBL_OPEN_IN_STATA = 在Stata中打开
+#The do-file “{string}” has been changed.
+DOEDIT_MSGBOX_CHANGED_BUT_NOT_SAVED_FMT = do文件"{0}"已更改。
+#{number} documents are open in this window
+DOEDIT_MSGBOX_DOCUMENTS_ARE_OPEN_CLOSE_ANYWAY_MSGFMT = {0}个文档在此窗口中打开。您要关闭窗口吗？
+DOEDIT_MSGBOX_DOCUMENTS_WITH_UNSAVED_CHANGES_REVIEW_CHANGES = 如果您不审核文档，所有更改都会丢失。
+#You have {number} documents with unsaved changes. Do you want to review these changes before closing the window?
+DOEDIT_MSGBOX_DOCUMENTS_WITH_UNSAVED_CHANGES_REVIEW_CHANGES_FMT = 您有{0}个文档包含未保存的更改。您要在关闭窗口之前查看这些更改吗？
+DOEDIT_MSGBOX_INVALID_VALUE = 您输入的值无效。
+DOEDIT_MSGBOX_LINE_ENDINGS_ARE_INCONSISTENT_1 = 文件中的行尾结束符不一致。
+DOEDIT_MSGBOX_LINE_ENDINGS_ARE_INCONSISTENT_2 = 您要在保存前标准化行尾吗？
+DOEDIT_MSGBOX_NOT_UTF8_ENCODING_1 = 该文档不是以UTF-8编码的！
+DOEDIT_MSGBOX_NOT_UTF8_ENCODING_2 = 您要用以下编码将文档转换为UTF-8格式吗？
+DOEDIT_MSGBOX_UNABLE_TO_PREVIEW_DOCUMENT_1 = 无法预览文档！
+DOEDIT_MSGBOX_UNABLE_TO_PREVIEW_DOCUMENT_2 = 文档必须先保存才能浏览器中预览。
+DOEDIT_PROJECT_LBL_ADD_NEW_PROJ = 添加新项目
+DOEDIT_PROJECT_MSGBOX_CLOSE_EXISTING_PROJECT = 关闭现有项目？\n要创建新项目，必须关闭当前项目。您要继续吗？
+DOEDIT_PROJECT_MSGBOX_FAILED_TO_OPEN_INVALID_1 = 无法打开项目。
+DOEDIT_PROJECT_MSGBOX_FAILED_TO_OPEN_INVALID_2 = 无效的项目文件。
+DOEDIT_PROJECT_MSGBOX_FILE_ALREADY_EXIST_ADD_QUESTION_FMT.WIN = "{0}"已存在。您要将该文件添加到项目中吗？
+DOEDIT_PROJECT_MSGBOX_FILE_RENAME_NOT_SHOWN_FILTER = 文件已重命名，但由于当前筛选操作而未显示。
+DOEDIT_PROJECT_MSGBOX_ITEM_ADD_NOT_SHOWN_FILTER = 项目已添加，但由于当前筛选操作而未显示。
+DOEDIT_PROJECT_MSGBOX_PROJECT_CHANGE_EXT_1 = 更改扩展名？
+DOEDIT_PROJECT_MSGBOX_PROJECT_CHANGE_EXT_2 = 如果更改文件扩展名，该文件可能无法使用。您确定要更改吗？
+DOEDIT_PROJECT_MSGBOX_PROJECT_FILE_ALREADY_EXISTS_FMT.WIN = 文件"{0}"已存在。\n请选择其他名称。
+DOEDIT_PROJECT_MSGBOX_PROJECT_FILE_ALREADY_IN_GROUP_FMT.WIN = "{0}"将不会被添加，因为它已在组中。
+DOEDIT_PROJECT_MSGBOX_PROJECT_MODIFIED_SAVE = 项目已修改。
+DOEDIT_PROJECT_MSGBOX_PROJECT_MODIFIED_SAVE_NEW_1.WIN = 项目已修改。
+DOEDIT_PROJECT_MSGBOX_PROJECT_MODIFIED_SAVE_NEW_2.WIN = 在打开新项目之前要保存当前项目所做的更改吗？
+DOEDIT_PROJECT_MSGBOX_PROJECT_RENAME_AUTOSAVE = 重命名项目将使项目文件被重命名，并导致所有当前更改被保存。您要继续吗？
+DOEDIT_PROJECT_MSGBOX_PROJECT_RENAME_FILE_FAIL_FMT.WIN = 无法重命名文件。\n"{0}"可能已存在，或者您没有重命名该文件的权限。
+DOEDIT_PROJECT_MSGBOX_RELINK_NOT_SHOWN_FILTER = 项目已重新链接，但由于当前筛选操作而未显示。
+DOEDIT_TITLE_GO_TO_LINE = 转到行
+
+##(TAG). encoding
+ENCODING_CHINESE_1 = 中文(GBK)
+ENCODING_CHINESE_2 = 中文(GB 18030)
+ENCODING_CHINESE_3 = 简体中文(GB 2312)
+ENCODING_CHINESE_4 = 繁体中文(Big 5)
+ENCODING_CYRILLIC_WINDOWS = 西里尔文(Windows)
+ENCODING_JAPANESE_1 = 日文(ISO 2022-JP)
+ENCODING_JAPANESE_2 = 日文(Shift JIS)
+ENCODING_KOREAN_1 = 韩文(ISO 2022-KR)
+ENCODING_WESTERN_ISO_LATIN_1 = 西文(ISO Latin 1)
+ENCODING_WESTERN_ISO_LATIN_9 = 西文(ISO Latin 9)
+ENCODING_WESTERN_MAC_OS_ROMAN = 西文(Mac OS Roman)
+ENCODING_WESTERN_WINDOWS_LATIN_1 = 西文(Windows Latin 1)
+
+##(TAG). expression builder
+EXP_BUILDER_MSGBOX_ONLY_ONE_EXP_BUILDER_MAY_BE_OPEN = 一次只能打开一个表达式构建器。
+EXP_BUILDER_MSGBOX_UNABLE_TO_CREATE_DIALOG = 无法创建表达式构建器对话框。
+#Categories: {string}
+EXP_LBL_CATEGORIES_FMT = 类别：{0}
+EXP_LBL_CATEGORY = 类别：
+EXP_TITLE_EXPRESSION_BUILDER = 表达式构建器
+
+##(TAG). file types
+FILE_TYPE_ADO = ado文件
+FILE_TYPE_ADO_FILES = ado文件
+FILE_TYPE_ALL_FILES = 全部文件
+FILE_TYPE_ALL_STATA_FILES = 所有Stata文件
+FILE_TYPE_CSV_FILES = 逗号分隔值文件
+FILE_TYPE_DBF = dBase
+FILE_TYPE_DICT = 字典
+FILE_TYPE_DICT_FILES = 字典文件
+FILE_TYPE_DO = do文件
+FILE_TYPE_DO_FILES = do文件
+FILE_TYPE_DTA = Stata数据
+FILE_TYPE_DTASIG_FILE = Stata数据签名文件
+FILE_TYPE_DTA_12 = Stata 12/11数据
+FILE_TYPE_DTA_13 = Stata 13数据
+FILE_TYPE_DTA_FILES = Stata数据文件
+FILE_TYPE_EMF = 增强型图元文件
+FILE_TYPE_EPS = EPS
+FILE_TYPE_EPS_TIFF_PREVIEW = 带TIFF预览的EPS文件
+FILE_TYPE_EXCEL_FILES = Excel文件
+FILE_TYPE_GIF = GIF
+FILE_TYPE_GPH = Stata图形
+FILE_TYPE_GPH_ASIS = Stata As-is图形
+FILE_TYPE_GPH_FILES = Stata图形
+FILE_TYPE_GREC = Stata图形记录文件
+FILE_TYPE_GREC_FILES = Stata图形记录文件
+FILE_TYPE_HAVER_FILE = Haver
+FILE_TYPE_IRF_FILES = IRF文件
+FILE_TYPE_JPEG = JPEG
+FILE_TYPE_JPEG_HIGH_QUALITY = JPEG - 高品质
+FILE_TYPE_JPEG_MAX_QUALITY = JPEG - 最高品质
+FILE_TYPE_LOG = 日志
+FILE_TYPE_LOG_FILES = 日志文件
+FILE_TYPE_MARKDOWN = 降价文件
+FILE_TYPE_MARKDOWN_FILES = 降价文件
+FILE_TYPE_MATA = Mata文件
+FILE_TYPE_MATA_FILES = Mata文件
+FILE_TYPE_PDF = PDF
+FILE_TYPE_PNG = PNG
+FILE_TYPE_PS = PostScript
+FILE_TYPE_PTRACE_FILES = ptrace文件
+FILE_TYPE_PYTHON = Python文件
+FILE_TYPE_PYTHON_FILES = Python文件
+FILE_TYPE_RAW_FILES = Raw文件
+FILE_TYPE_RC = Stata首选项
+FILE_TYPE_SAS_FILES = SAS文件
+FILE_TYPE_SAS_XPORT_V8_FILES = SAS XPORT V8文件
+FILE_TYPE_SHP_FILES = 形状文件
+FILE_TYPE_SMCL = 格式化日志
+FILE_TYPE_SMCL_FILES = 格式化日志
+FILE_TYPE_SPSS_FILES = SPSS文件
+FILE_TYPE_STBCAL = 业务日历文件
+FILE_TYPE_STBCAL_FILES = 业务日历文件
+FILE_TYPE_STER_FILE = Stata估计文件
+FILE_TYPE_STHLP = Stata帮助文件
+FILE_TYPE_STHLP_FILES = 帮助文件
+FILE_TYPE_STPR = Stata项目文件
+FILE_TYPE_STPR_FILES = Stata项目文件
+FILE_TYPE_STSEM = SEM路径图
+FILE_TYPE_STSEM_FILES = SEM路径图
+FILE_TYPE_STSWM_FILES = Stata空间加权矩阵
+FILE_TYPE_SVG = SVG
+FILE_TYPE_TIFF = TIFF
+FILE_TYPE_TXT = 文本文件
+FILE_TYPE_TXT_FILES = 文本文件
+FILE_TYPE_WINDOWS_METAFILE = Windows图元文件
+FILE_TYPE_XLSX_FILE = Excel工作簿
+FILE_TYPE_XLS_FILE = Excel 97-2003工作簿
+FILE_TYPE_XML = XML
+FILE_TYPE_XPT_FILE = SAS XPORT
+FILE_TYPE_ZIP_FILES = Zip压缩文件
+
+##(TAG). format
+FORMAT_CHK_ACCOUNT_LEAPSEC = 考虑闰秒
+FORMAT_CHK_CUSTOMIZE_FORMAT = 自定义格式
+FORMAT_CHK_PAD_W_ZEROS = 位数不足前面补零
+FORMAT_CHK_USE_COMMAS_OUTPUT = 输出数值时使用逗号作为千位分隔符
+FORMAT_CHK_USE_EUROPEAN_COMMAS = 使用欧洲逗号/小数点格式
+FORMAT_JUSTIFICATION_LEFT = 左对齐
+FORMAT_JUSTIFICATION_RIGHT = 右对齐
+FORMAT_LBL_CALENDAR = 日历：
+FORMAT_LBL_DIGITS_RT_OF_DECIMAL = 小数位数：
+FORMAT_LBL_FORMAT_PROPERTIES = 格式属性
+FORMAT_LBL_JUSTIFICATION = 对齐：
+FORMAT_LBL_NUMERIC_TYPE = 格式类型
+FORMAT_LBL_SAMPLES = 示例：
+FORMAT_LBL_TOTAL_DIGITS = 总位数：
+FORMAT_LBL_TYPE_OF_DATA = 数据类型：
+FORMAT_RAD_EXPONENTIAL_NUM = 科学计数
+FORMAT_RAD_FIXED_NUM = 固定格式
+FORMAT_RAD_GENERAL_NUM = 一般格式
+FORMAT_TITLE = 创建格式
+FORMAT_TYPELIST_ANNUAL = 年度
+FORMAT_TYPELIST_BIANNUAL = 半年
+FORMAT_TYPELIST_BUSINESS_DATE = 业务日期
+FORMAT_TYPELIST_CLOCK = 时钟
+FORMAT_TYPELIST_DAILY = 日度
+FORMAT_TYPELIST_MONTHLY = 月度
+FORMAT_TYPELIST_NUMERIC = 数值
+FORMAT_TYPELIST_QUARTERLY = 季度
+FORMAT_TYPELIST_WEEKLY = 周
+
+##(TAG). fred
+FRED_API_CHK_KEY = 永久存储密钥
+FRED_API_KEY_EMPTY = FRED密钥不能为空。
+FRED_API_KEY_INVALID = 指定的密钥无效。
+FRED_API_LBL_KEY = FRED密钥：
+FRED_API_LBL_NOTE = 想了解如何获取FRED密钥的信息，请访问：
+FRED_API_TITLE = 设置FRED密钥
+FRED_BTN_SEARCH = 搜索
+FRED_IMPORT_BTN_SET_VINTAGE_DATE = 设置历史发布日期...
+FRED_IMPORT_CHK_FIRST_OBS = 仅导入每个观测日期的初始值
+FRED_IMPORT_CHK_IMPORT_NEW_OBS = 仅导入新的和修订的观测值
+FRED_IMPORT_CHK_LONGFMT_OBS = 导入长格式数据
+FRED_IMPORT_CHK_SUPPRESS_SUMRPT = 不输出序列汇总报告
+FRED_IMPORT_LBL_AGGREGATION = 聚合
+FRED_IMPORT_LBL_METHOD = 方法：
+FRED_IMPORT_LBL_OBS_DATE_RANGE = 观测日期范围
+FRED_IMPORT_LBL_SERIES = 导入序列：
+FRED_IMPORT_LBL_TOTAL = 总数：
+FRED_IMPORT_SELECT_FREQ_ANNUAL = 年度
+FRED_IMPORT_SELECT_FREQ_BIWEEKLY = 每两周
+FRED_IMPORT_SELECT_FREQ_BIWK_ENDMON = 每两周，周一结束
+FRED_IMPORT_SELECT_FREQ_BIWK_ENDWED = 每两周，周三结束
+FRED_IMPORT_SELECT_FREQ_CHOOSE = 请选择一个
+FRED_IMPORT_SELECT_FREQ_DAILY = 日度
+FRED_IMPORT_SELECT_FREQ_MONTHLY = 月度
+FRED_IMPORT_SELECT_FREQ_QUARTERLY = 季度
+FRED_IMPORT_SELECT_FREQ_SEMIANNUAL = 半年
+FRED_IMPORT_SELECT_FREQ_WEEKLY = 每周
+FRED_IMPORT_SELECT_FREQ_WK_ENDFRI = 每周，周五结束
+FRED_IMPORT_SELECT_FREQ_WK_ENDMON = 每周，周一结束
+FRED_IMPORT_SELECT_FREQ_WK_ENDSAT = 每周，周六结束
+FRED_IMPORT_SELECT_FREQ_WK_ENDSUN = 每周，周日结束
+FRED_IMPORT_SELECT_FREQ_WK_ENDTHUR = 每周，周四结束
+FRED_IMPORT_SELECT_FREQ_WK_ENDTUE = 每周，周二结束
+FRED_IMPORT_SELECT_FREQ_WK_ENDWED = 每周，周三结束
+FRED_IMPORT_SELECT_METHOD_AVG = 平均
+FRED_IMPORT_SELECT_METHOD_CHOOSE = 请选择一个
+FRED_IMPORT_SELECT_METHOD_ENDOFPERIOD = 期末
+FRED_IMPORT_SELECT_METHOD_SUM = 求和
+FRED_IMPORT_VINTAGE_CHOOSE_DATES = 选择日期：
+FRED_IMPORT_VINTAGE_SELECTED_DATES = 所选日期：
+FRED_IMPORT_VINTAGE_SELECT_ADD_NEW_DATE = 添加新日期...
+FRED_IMPORT_VINTAGE_TITLE = 设置历史发布日期
+FRED_LBL_END_DATE = 结束：
+FRED_LBL_FREQ = 频率：
+FRED_LBL_START_DATE = 开始：
+FRED_MAIN_BTN_ADD = 添加
+FRED_MAIN_BTN_ADD_FILTERS = 添加到过滤标签列表
+FRED_MAIN_BTN_DESCRIBE = 描述
+FRED_MAIN_BTN_IMPORT = 导入
+FRED_MAIN_COL_LBL_DATE = 日期
+FRED_MAIN_COL_LBL_ID = ID
+FRED_MAIN_COL_LBL_LAST_UPDATED = 最近更新
+FRED_MAIN_COL_LBL_NAME = 名称
+FRED_MAIN_COL_LBL_TITLE = 标题
+FRED_MAIN_COMMUNICATION_ERROR = 连接服务器出错
+FRED_MAIN_CONNECTION_TIMEOUT = 连接超时
+#Only visible with error condition
+FRED_MAIN_FRED_KEY_INVALID = (存储的密钥无效)
+FRED_MAIN_LBL_DATE = 日期：
+FRED_MAIN_LBL_FILTERS = 过滤标签：
+FRED_MAIN_LBL_KEYWORDS = 关键词：
+FRED_MAIN_LBL_SERIES_IMPORT = 导入序列：
+FRED_MAIN_LBL_SORTBY = 排序：
+FRED_MAIN_LBL_TAGS = 标签：
+FRED_MAIN_RAD_SEARCH_FULL_TEXT = 全文
+FRED_MAIN_RAD_SEARCH_SERIESID = 序列ID
+FRED_MAIN_SELECT_BROWSE_CATEGORY = 按类别浏览
+FRED_MAIN_SELECT_BROWSE_RELEASE = 按发布源浏览
+FRED_MAIN_SELECT_BROWSE_SOURCE = 按数据来源浏览
+FRED_MAIN_SELECT_SEARCH_FRED = 搜索FRED
+FRED_MAIN_SELECT_SEARCH_RLS_DATE = 按发布日期搜索
+FRED_MAIN_SERIES_ORDER_FREQ = 频率
+FRED_MAIN_SERIES_ORDER_ID = ID
+FRED_MAIN_SERIES_ORDER_OBSEND = 观测结束日期
+FRED_MAIN_SERIES_ORDER_OBSSTRT = 观测起始日期
+FRED_MAIN_SERIES_ORDER_POPULARITY = 访问频率
+FRED_MAIN_SERIES_ORDER_SEASADJ = 季节调整
+FRED_MAIN_SERIES_ORDER_TITLE = 标题
+FRED_MAIN_SERIES_ORDER_UNITS = 单位
+FRED_MAIN_SERIES_ORDER_UPDATED = 最近更新
+FRED_MAIN_SORT_ORDER_ASCEND = 升序
+FRED_MAIN_SORT_ORDER_DESCEND = 降序
+FRED_MSGBOX_INVALID_AGGR_FREQ = 聚合方法和聚合频率必须同时指定。
+FRED_MSGBOX_INVALID_DATE = 指定的日期无效。
+FRED_MSGBOX_INVALID_SPECIFIED_FMT = 指定的"{0}"无效。
+FRED_SERIES_BTN_DESCRIBE = 描述
+FRED_SERIES_COL_LBL_REALEND = 实时结束日期
+FRED_SERIES_COL_LBL_REALSTART = 实时起始日期
+FRED_SERIES_LBL_DATERANGE = 日期范围：
+FRED_SERIES_LBL_ID = 序列ID：
+FRED_SERIES_LBL_LAST_UPDATED = 最近更新：
+FRED_SERIES_LBL_NOTES = 注释：
+FRED_SERIES_LBL_REALTIME_PERIOD = 实时日期
+FRED_SERIES_LBL_RELEASE = 发布源：
+FRED_SERIES_LBL_SEASONAL_ADJ = 季节调整：
+FRED_SERIES_LBL_SOURCE = 数据来源：
+FRED_SERIES_LBL_TITLE = 标题：
+FRED_SERIES_LBL_UNITS = 单位：
+FRED_SERIES_LBL_VINTAGE = 历史发布日期：
+FRED_SERIES_TITLE = 序列：
+FRED_TITLE = 导入美联储经济数据(FRED)
+
+##(TAG). graph
+GRAPH_BTN_PAUSE_RECORDING_TIP = 暂停记录
+GRAPH_BTN_START_RECORDING_TIP = 开始记录
+GRAPH_BTN_STOP_RECORDING_TIP = 停止记录
+GRAPH_BTN_UNPAUSE_RECORDING_TIP = 恢复记录
+GRAPH_CHK_DONT_WARN_CLOSE_MULT_DOCS = 关闭多个图形时不要提示
+GRAPH_CHK_PRINT_HEADER = 打印页眉
+GRAPH_CHK_PRINT_LOGO = 打印徽标
+GRAPH_CST_LBL_NOTE = 注意：
+GRAPH_LBL_HORIZONTAL = 水平
+GRAPH_LBL_HORIZONTAL_SCALE = 水平缩放
+GRAPH_LBL_LEFT = 左边
+GRAPH_LBL_LEFT_MARGIN = 左边距
+GRAPH_LBL_MAGNIFICATIONS = 放大率(%)：
+GRAPH_LBL_OUTPUT_COLOR = 输出颜色
+GRAPH_LBL_OUTPUT_COLOR1 = 输出颜色：
+GRAPH_LBL_OVERALL = 总体
+GRAPH_LBL_OVERALL_SCALE = 总体缩放
+GRAPH_LBL_RECORDING_NAME = 记录名称：
+GRAPH_LBL_TOP = 顶部
+GRAPH_LBL_TOP_MARGIN = 上边距
+GRAPH_LBL_VERTICAL = 垂直
+GRAPH_LBL_VERTICAL_SCALE = 垂直缩放
+GRAPH_MSGBOX_CHANGED_BUT_NOT_SAVED = 图形已被更改。
+GRAPH_MSGBOX_CONFIRM_DISCARD_RECORDING = 您确定要停止并放弃记录吗？
+#Could not save enhanced metafile “{string}”! (for EMF files)
+GRAPH_MSGBOX_COULD_NOT_SAVE_EMF_MSGFMT.WIN = 无法保存增强型图元文件"{0}"！
+#Could not save graph “{string}”!
+GRAPH_MSGBOX_COULD_NOT_SAVE_GRAPH_MSGFMT = 无法保存图形"{0}"！
+#Could not save metafile “{string}”! (for WMF files)
+GRAPH_MSGBOX_COULD_NOT_SAVE_WMF_MSGFMT.WIN = 无法保存图元文件"{0}"！
+GRAPH_MSGBOX_EDIT_SCALE_OUT_OF_RANGE = "缩放"超出范围。\n缩放值必须大于0且小于100。
+#An error occurred while saving the graph recording “{string}”!
+GRAPH_MSGBOX_ERROR_SAVING_RECORDING_FMT = 保存图形记录"{0}"时出错！
+#{number} graphs are open in this window. Do you want to close the window anyway?
+GRAPH_MSGBOX_GRAPHS_ARE_OPEN_CONFIRM_CLOSE_MSGFMT = {0}个图形在此窗口中打开。 您要继续关闭窗口吗？
+GRAPH_MSGBOX_GRAPH_EDITOR_CANNOT_BE_STARTED_STATA_BUSY = 无法启动图编辑器，因为Stata此时正忙。
+GRAPH_MSGBOX_NOT_LIVE_GRAPH_CANNOT_EDIT = 这不是"实时"图形，因此无法编辑。
+#“{number}” out of range.
+GRAPH_MSGBOX_OUT_OF_RANGE_FMT_1 = "{0}"超出范围。
+#Value must be greater than {number} and less than {number}.
+GRAPH_MSGBOX_OUT_OF_RANGE_FMT_2 = 该值必须大于{0}且小于{1}。
+GRAPH_MSGBOX_RECORDING_ALREADY_EXISTS_FMT = 名为"{0}"的记录已存在。
+GRAPH_MSGBOX_RECORDING_HAS_NOT_BEEN_SAVED = 记录未保存。
+GRAPH_MSGBOX_UNABLE_TO_REPLAY_GRAPH = 无法回放图形。
+GRAPH_RAD_FIT_TO_PAGE = 适合页面
+GRAPH_RAD_USE_MARGINS = 使用边距(英寸)：
+GRAPH_RECORDING_BROWSE_TIP = 将记录保存到指定位置(记录将不会出现在播放菜单的播放列表中)。
+GRAPH_TITLE_SAVE_GRAPH_RECORDING = 保存图形记录
+
+##(TAG). import ODBC
+ODBC_DATA_SOURCES = <ODBC数据源还未配置>
+ODBC_SELECT_ONE = <请选择数据源>
+
+##(TAG). import delimited
+IMPORT_DELIMITED_BTN_SET_RANGE = 设置范围...
+IMPORT_DELIMITED_BTN_SHOW_NEXT_TIP = 显示下一组列
+IMPORT_DELIMITED_BTN_SHOW_PREVIOUS_TIP = 显示上一组列
+#combobox entry
+IMPORT_DELIMITED_CASE_LOWER = 小写
+#combobox entry
+IMPORT_DELIMITED_CASE_PRESERVE = 保留
+#combobox entry
+IMPORT_DELIMITED_CASE_UPPER = 大写
+IMPORT_DELIMITED_CHK_FIRST = 起始：
+IMPORT_DELIMITED_CHK_LAST = 结束：
+IMPORT_DELIMITED_CHK_MULTI_CHAR_DELIMITER = 使用多个字符作为分隔符
+IMPORT_DELIMITED_CHK_SEQ_DELIMITERS = 连续分隔符视为一个处理
+#combobox entry
+IMPORT_DELIMITED_DATATYPE_DEFAULT = 默认值
+#combobox entry
+IMPORT_DELIMITED_DATATYPE_DOUBLE = 导入为双精度
+#combobox entry
+IMPORT_DELIMITED_DATATYPE_FLOAT = 导入为单精度
+#combobox entry
+IMPORT_DELIMITED_DELIMITER_AUTO = 自动
+#combobox entry
+IMPORT_DELIMITED_DELIMITER_COMMA = 逗号
+#combobox entry
+IMPORT_DELIMITED_DELIMITER_CUSTOM = 自定义
+#combobox entry
+IMPORT_DELIMITED_DELIMITER_SPACE = 空格
+#combobox entry
+IMPORT_DELIMITED_DELIMITER_TAB = 制表符
+#combobox entry
+IMPORT_DELIMITED_DELIMITER_WSPACE = 空白字符
+#Menu item for filtering file types in file dialog
+IMPORT_DELIMITED_FILE_FORMAT_POPUP_ALL_FILES = 全部文件
+#Menu item for filtering file types in file dialog
+IMPORT_DELIMITED_FILE_FORMAT_POPUP_TEXT_FILES = 文本文件
+IMPORT_DELIMITED_FILE_MSG1 = 无法打开"{0}"。
+IMPORT_DELIMITED_LBL_COLS = 列
+#A decimal separator is typically a comma or a period depending on the locale
+IMPORT_DELIMITED_LBL_DECIMAL_SEP = 小数分隔符：
+IMPORT_DELIMITED_LBL_DELIMITER = 分隔符：
+IMPORT_DELIMITED_LBL_FILE_FORMAT = 文件格式：
+IMPORT_DELIMITED_LBL_FILE_TO_IMPORT = 导入文件：
+IMPORT_DELIMITED_LBL_FP_PRECISION = 浮点精度：
+#A grouping separator is typically a comma or a period depending on the locale
+IMPORT_DELIMITED_LBL_GROUP_SEP = 组分隔符：
+IMPORT_DELIMITED_LBL_LOCALE = 区域：
+IMPORT_DELIMITED_LBL_MAX_QUOTED_ROWS = 引号内允许的最大行数：
+IMPORT_DELIMITED_LBL_NUMERIC_PARSING_RULE = 数字解析规则
+IMPORT_DELIMITED_LBL_PREVIEW = 预览：
+IMPORT_DELIMITED_LBL_QUOTE_BINDING = 绑定双引号：
+IMPORT_DELIMITED_LBL_QUOTE_STRIPPING = 删除双引号：
+IMPORT_DELIMITED_LBL_ROWS = 行
+#Show columns {from_column}-{to_column} of {number_of_columns}
+IMPORT_DELIMITED_LBL_SHOWING_COLUMNS_RANGE_FMT = 显示{0}-{1}/{1}列
+IMPORT_DELIMITED_LBL_TEXT_ENCODING = 文本编码：
+IMPORT_DELIMITED_LBL_TO_CHANGE_DATA = 要更改列的数据类型，请右键单击所选列，然后选择适当的类型。<br>注意：将字符串型数据导入为数值型可能会导致数据丢失。
+IMPORT_DELIMITED_LBL_TYPE = 类型
+IMPORT_DELIMITED_LBL_UNABLE_CREATE_PREVIEW = 无法创建预览！
+IMPORT_DELIMITED_LBL_USE_FIRST_ROW = 使用第一行作为变量名：
+IMPORT_DELIMITED_LBL_USE_LOCALE_PARSING = 根据区域设置解析数字
+IMPORT_DELIMITED_LBL_VARIABLE = 变量
+IMPORT_DELIMITED_LBL_VARIABLE_CASE = 变量名大小写：
+#combobox entry
+IMPORT_DELIMITED_QBIND_LOOSE = 宽松
+#combobox entry
+IMPORT_DELIMITED_QBIND_OFF = 忽略
+#combobox entry
+IMPORT_DELIMITED_QBIND_STRICT = 严格
+#This entry uses HTML markup.
+IMPORT_DELIMITED_QBIND_TIP = <DL><DT>宽松<DD>双引号绑定令牌，但令牌不能跨越多行。 <DT>严格<DD>双引号绑定令牌，即使令牌跨越多行。 <DT>忽略<DD>不使用双引号来绑定单个令牌。
+IMPORT_DELIMITED_QBIND_TIP.MAC = •宽松：双引号绑定令牌，但令牌不能跨越多行。\n•严格：双引号绑定令牌，即使令牌跨越多行。\n•忽略：不使用双引号来绑定单个令牌。
+IMPORT_DELIMITED_RELOAD_PREVIEW_TIP = 重新加载预览
+#combobox entry
+IMPORT_DELIMITED_SELECT_ALWAYS = 总是
+#combobox entry
+IMPORT_DELIMITED_SELECT_AUTO = 自动
+#combobox entry
+IMPORT_DELIMITED_SELECT_CUSTOM = 自定义
+#combobox entry
+IMPORT_DELIMITED_SELECT_NEVER = 从不
+IMPORT_DELIMITED_TITLE = import delimited - 导入带分隔符的文本数据
+IMPORT_DELIMITED_TITLE_SET_RANGES = 设置行和列范围
+IMPORT_DELIMITED_TOO_MANY_COLS_MSG = 有太多列要处理。请尝试限制范围。\n\n另请参阅-help maxvar-以确定您是否可以增加最大变量数。
+
+##(TAG). import excel
+IMPORT_EXCEL_BTN_EDIT_CELL_RANGE_TIP = 编辑单元格范围
+IMPORT_EXCEL_BTN_NEXT_COL_TIP = 显示下一组列
+IMPORT_EXCEL_BTN_PREVIOUS_COL_TIP = 显示上一组列
+#combobox entry
+IMPORT_EXCEL_CASE_LOWER = 小写
+#combobox entry
+IMPORT_EXCEL_CASE_PRESERVE = 保留
+#combobox entry
+IMPORT_EXCEL_CASE_UPPER = 大写
+IMPORT_EXCEL_CELL_RANGE_LBL_COLUMN = 列：
+IMPORT_EXCEL_CELL_RANGE_LBL_LOWER_RIGHT_CELL = 右下单元格
+IMPORT_EXCEL_CELL_RANGE_LBL_ROW = 行：
+IMPORT_EXCEL_CELL_RANGE_LBL_UPPER_LEFT_CELL = 左上单元格
+IMPORT_EXCEL_CELL_RANGE_MSGBOX_LEFT_COL_OUT_OF_RANGE = 起始列超出范围。
+#Choose a value between “{string}” and “{string}” inclusive.
+IMPORT_EXCEL_CELL_RANGE_MSGBOX_LEFT_COL_OUT_OF_RANGE_FMT = 请选择一个介于"{0}"和"{1}"之间的值。
+IMPORT_EXCEL_CELL_RANGE_MSGBOX_LEFT_GREATER_THAN_RIGHT = 起始列不能大于结束列。
+#“{string}” greater than “{string}”.
+IMPORT_EXCEL_CELL_RANGE_MSGBOX_LEFT_GREATER_THAN_RIGHT_FMT = "{0}"大于"{1}"。
+#For the lower-right cell, “{string}” is not a valid column.
+IMPORT_EXCEL_CELL_RANGE_MSGBOX_LOWER_RIGHT_NOT_VALID_COL_FMT = 对于右下单元格而言，"{0}"不是有效的列。
+#For the lower-right cell, “{string}” is not a valid row.
+IMPORT_EXCEL_CELL_RANGE_MSGBOX_LOWER_RIGHT_NOT_VALID_ROW_FMT = 对于右下单元格而言，"{0}"不是有效的行。
+IMPORT_EXCEL_CELL_RANGE_MSGBOX_LOWER_ROW_OUT_OF_RANGE = 结束行超出范围。
+#Choose a value between {number} and {number} inclusive.
+IMPORT_EXCEL_CELL_RANGE_MSGBOX_LOWER_ROW_OUT_OF_RANGE_FMT = 请选择介于{0}和{1}之间的值。
+IMPORT_EXCEL_CELL_RANGE_MSGBOX_RIGHT_COL_OUT_OF_RANGE = 结束列超出范围。
+#Choose a value between “{string}” and “{string}” inclusive.
+IMPORT_EXCEL_CELL_RANGE_MSGBOX_RIGHT_COL_OUT_OF_RANGE_FMT = 请选择一个介于"{0}"和"{1}"之间的值。
+IMPORT_EXCEL_CELL_RANGE_MSGBOX_UPPER_GREATER_THAN_LOWER = 起始行不能大于结束行。
+#“{string}” greater than “{string}”.
+IMPORT_EXCEL_CELL_RANGE_MSGBOX_UPPER_GREATER_THAN_LOWER_FMT = "{0}"大于"{1}"。
+#For the upper-left cell, “{string}” is not a valid column.
+IMPORT_EXCEL_CELL_RANGE_MSGBOX_UPPER_LEFT_NOT_VALID_COL_FMT = 对于左上单元格而言，"{0}"不是有效的列。
+#For the upper-left cell, “{string}” is not a valid row.
+IMPORT_EXCEL_CELL_RANGE_MSGBOX_UPPER_LEFT_NOT_VALID_ROW_FMT = 对于左上单元格而言，"{0}"不是有效的行。
+IMPORT_EXCEL_CELL_RANGE_MSGBOX_UPPER_ROW_OUT_OF_RANGE = 起始行超出范围。
+#Choose a value between {number} and {number} inclusive.
+IMPORT_EXCEL_CELL_RANGE_MSGBOX_UPPER_ROW_OUT_OF_RANGE_FMT = 请选择一个介于{0}和{1}之间的值。
+IMPORT_EXCEL_CELL_RANGE_TITLE_EDIT_CELL_RANGE = 编辑单元格范围
+IMPORT_EXCEL_CHK_IMPORT_FIRST_ROW_AS_VARNAMES = 将第一行作为变量名
+IMPORT_EXCEL_LBL_CELL_RANGE = 单元格范围：
+IMPORT_EXCEL_LBL_EXCEL_FILE = Excel文件：
+IMPORT_EXCEL_LBL_IMPORT_ALL_DATA_AS_STRINGS = 将所有数据导入为字符串类型
+IMPORT_EXCEL_LBL_PREVIEW = 预览：
+IMPORT_EXCEL_LBL_PREVIEW_LOADING = 预览:(正在加载电子表格...)
+IMPORT_EXCEL_LBL_PREVIEW_LOADING_PREVIEW = 预览:(正在加载预览...)
+#Preview: (showing columns {start_row}-{end_row} of {total_rows})
+IMPORT_EXCEL_LBL_PREVIEW_SHOWING_COLS_FMT = 预览:(显示{0}-{1}/{2}列)
+#Preview: (showing rows {start_row}-{end_row} of {total_rows})
+IMPORT_EXCEL_LBL_PREVIEW_SHOWING_ROWS_FMT = 预览:(显示{0}-{1}/{2}行)
+IMPORT_EXCEL_LBL_VARIABLE_CASE = 变量名大小写：
+IMPORT_EXCEL_LBL_WORKSHEET = 工作表：
+IMPORT_EXCEL_MSGBOX_FILE_NOT_SELECTED = 请选择要导入的Excel文件。
+IMPORT_EXCEL_MSGBOX_FILE_TOO_LARGE = 您尝试打开的文件太大。
+#The maximum size allowed for *.xlsx files is {number} megabytes.
+IMPORT_EXCEL_MSGBOX_FILE_TOO_LARGE_FMT = 可处理的*.xlsx文件最大为{0}MB。
+IMPORT_EXCEL_MSGBOX_NOT_SUPPORTED_PLATFORM = 此平台不支持导入Excel。
+IMPORT_EXCEL_MSGBOX_UNABLE_TO_CONVERT_FILENAME_1 = 无法将文件转换为Stata可以处理的格式。
+IMPORT_EXCEL_MSGBOX_UNABLE_TO_CONVERT_FILENAME_2 = 请重命名该文件。
+IMPORT_EXCEL_MSGBOX_VALID_FILE_NOT_SELECTED = 请选择有效的Excel文件。
+IMPORT_EXCEL_MSGBOX_WORKBOOK_NOT_SELECTED = 请选择工作簿。
+IMPORT_EXCEL_TITLE_IMPORT_EXCEL = import excel - 导入Excel文件
+
+##(TAG). import haver
+#combobox entry
+IMPORT_HAVER_AGGREGATION_FORCE.WIN = 强制
+#combobox entry
+IMPORT_HAVER_AGGREGATION_RELAX.WIN = 宽松
+#combobox entry
+IMPORT_HAVER_AGGREGATION_STRICT.WIN = 严格
+IMPORT_HAVER_BTN_LOAD.WIN = 导入
+IMPORT_HAVER_BTN_OPTIONS.WIN = 选项...
+#combobox entry
+IMPORT_HAVER_CASE_LOWER.WIN = 小写
+#combobox entry
+IMPORT_HAVER_CASE_UPPER.WIN = 大写
+IMPORT_HAVER_LBL_DIRECTORY.WIN = Haver数据集所在目录：
+IMPORT_HAVER_LBL_HAVER_FILE.WIN = Haver文件：
+IMPORT_HAVER_LBL_SERIES_INFO.WIN = 序列信息：
+IMPORT_HAVER_LBL_SERIES_INFO_FILTERING.WIN = 序列信息：(过滤中...)
+IMPORT_HAVER_LBL_SERIES_INFO_LOADING.WIN = 序列信息：(导入中...)
+IMPORT_HAVER_LBL_SERIES_INFO_SORTING.WIN = 序列信息：(排序中...)
+IMPORT_HAVER_MSGBOX_DLLFUNCT_NOT_FOUND.WIN = 在DLXAPI.DLL中找不到对话框所需的函数。请与Haver Analytics联系咨询如何安装此DLL的最新版本。
+IMPORT_HAVER_MSGBOX_DLL_NOT_FOUND.WIN = 在此系统上找不到DLXAPI.DLL。请与Haver Analytics联系咨询如何安装此DLL的最新版本。
+IMPORT_HAVER_MSGBOX_INVALID_DATE_RANGE_END_START.WIN = 日期范围无效。\n结束日期必须大于开始日期。
+IMPORT_HAVER_MSGBOX_INVALID_DATE_RANGE_FREQ.WIN = 日期范围无效。\n日期必须和序列频率一致。
+IMPORT_HAVER_MSGBOX_INVALID_MISSING_VALUE.WIN = 缺失值无效。
+IMPORT_HAVER_MSGBOX_INVALID_START_DATE.WIN = 开始日期无效。
+IMPORT_HAVER_MSGBOX_INVALID_TIME_VAR_1.WIN = 时间变量名无效。
+IMPORT_HAVER_MSGBOX_INVALID_TIME_VAR_2.WIN = 时间变量名是保留字。
+IMPORT_HAVER_MSGBOX_SERIES_NOT_SELECTED.WIN = 请选择一个Haver序列。
+IMPORT_HAVER_MSGBOX_TOO_MANY_SERIES.WIN = 指定的序列过多。
+IMPORT_HAVER_OPTIONS_CHK_WITHIN_DATE.WIN = 在日期范围内(不包含起始和结束日期)
+IMPORT_HAVER_OPTIONS_LBL_AGGREGATION.WIN = 聚合方法：
+IMPORT_HAVER_OPTIONS_LBL_DATE_RANGE.WIN = 日期范围
+IMPORT_HAVER_OPTIONS_LBL_END_DATE.WIN = 结束日期：
+IMPORT_HAVER_OPTIONS_LBL_MISSING_VALUES.WIN = 缺失值：
+IMPORT_HAVER_OPTIONS_LBL_START_DATE.WIN = 开始日期：
+IMPORT_HAVER_OPTIONS_LBL_TIME_VAR.WIN = 时间变量名称：
+IMPORT_HAVER_OPTIONS_LBL_VARIABLE_CASE.WIN = 变量名大小写：
+IMPORT_HAVER_OPTIONS_TITLE.WIN = Haver选项
+IMPORT_HAVER_TITLE.WIN = 导入Haver
+IMPORT_LBL_FILTER.WIN = 过滤：
+
+##(TAG). keyword search
+KEYWORD_SRCH_LBL_KEYWORDS = 关键词：
+KEYWORD_SRCH_RAD_SEARCH_ALL = 搜索全部
+KEYWORD_SRCH_RAD_SEARCH_DOCS = 搜索文档和常见问题
+KEYWORD_SRCH_RAD_SEARCH_NET = 搜索网络资源
+KEYWORD_SRCH_TITLE = 关键词搜索
+
+##(TAG). label
+LABEL_BTN_ADD_VALUE = 添加值
+LABEL_BTN_CREATE_LABEL = 创建值标签
+LABEL_BTN_DROP_LABEL = 删除值标签
+LABEL_BTN_EDIT_LABEL = 编辑值标签
+LABEL_BTN_EDIT_VALUE = 编辑值
+LABEL_BTN_REMOVE_VALUE = 删除值
+LABEL_HEADER_LABEL = 标签
+LABEL_HEADER_VALUE = 值
+LABEL_HEADER_VALUE_LABELS = 值标签
+LABEL_LBL_ADD_VALUE = 添加值
+LABEL_LBL_CREATE_LABEL = 创建值标签
+LABEL_LBL_EDIT_LABEL = 编辑值标签
+LABEL_LBL_EDIT_VALUE = 编辑值
+LABEL_LBL_LABEL = 标签：
+LABEL_LBL_LABEL_NAME = 标签名称：
+LABEL_LBL_LABEL_NAME_HINT = <输入新标签名>
+LABEL_LBL_NOTE_CHANGES_NOT_APPLIED_UNTIL_OK = 注意： 在单击"确定"按钮之前，更改不会应用于数据集。
+LABEL_LBL_VALUE = 值：
+LABEL_MANAGE_VALUE_LABELS_TITLE = 管理值标签
+LABEL_MSGBOX_APPLY_CHANGE_BEFORE_CHANGING_SELECTION = 您要在变更选择之前应用此更改吗？
+LABEL_MSGBOX_APPLY_CHANGE_BEFORE_CONTINUING = 在继续之前您要应用此更改吗？
+#Are you sure you want to drop the label “{label_name}”?
+LABEL_MSGBOX_CONFIRM_DROP_LABEL_MSGFMT = 您确定要删除标签"{0}"吗？
+LABEL_MSGBOX_CONFIRM_MODIFY_LABEL = 您要修改现有标签吗？
+LABEL_MSGBOX_CONFIRM_MODIFY_VALUE = 您是否要覆盖现有值？
+#Are you sure you want to remove the label for value {number}?
+LABEL_MSGBOX_CONFIRM_REMOVE_LABEL_MSGFMT = 您确定要删除值"{0}"的标签吗？
+LABEL_MSGBOX_CONFIRM_REPLACE_LABEL = 您要替换现有标签吗？
+LABEL_MSGBOX_ENTER_UNIQUE_VALUE = 请输入一个唯一的值。
+LABEL_MSGBOX_INVALID_VALUE = 您输入的值无效。
+#The label name “{label_name}” is already defined.
+LABEL_MSGBOX_LABEL_NAME_ALREADY_DEFINE_MSGFMT = 标签名称"{0}"已定义。
+LABEL_MSGBOX_LABEL_NAME_CANNOT_CONTAIN_SPACES = 标签名称不能包含空格。
+LABEL_MSGBOX_LABEL_NAME_EMPTY = 标签名称必须填写。
+#The label name “{label_name}” is not a valid name.
+LABEL_MSGBOX_LABEL_NAME_NOT_VALID_MSGFMT = 标签名称"{0}"无效。
+LABEL_MSGBOX_NO_LABELS_DEFINED = 必须至少定义一个值标签。
+LABEL_MSGBOX_ONLY_INTEGERS_OR_MISSVAL_ALLOWED = 只允许输入整数或扩展缺失值。
+LABEL_MSGBOX_SELECT_VALUE_MODIFIED = 所选值已被更改。
+
+##(TAG). license
+LICENSE_MSGBOX_INVALID_LICENSE = 您的许可证无效。
+LICENSE_MSGBOX_REINITIALIZE_STATA = 请重新初始化Stata。
+#Your Stata license will expire on {date}.
+LIC_LBL_LICENSE_WILL_EXPIRE_FMT = 您的Stata许可证将会在{0}到期。
+LIC_RAD_DONT_SHOW_AGAIN = 不要再提示我
+LIC_RAD_REMIND_IN_7_DAYS = 7天后再提醒我
+LIC_RAD_SEE_RENEWAL_OPTIONS = 查看续签选项
+LIC_TITLE_STATA_LICENSE_NOTICE = Stata许可证通知
+
+##(TAG). log
+LOG_LBL_LOG_FILE_EXISTS = 日志文件已存在
+LOG_LBL_SELECT_ACTION = 选择对当前日志的操作
+LOG_OPTIONS_TITLE = 日志选项
+LOG_RAD_APPEND_EXISTING = 附加到现有文件
+LOG_RAD_CLOSE = 关闭日志文件
+LOG_RAD_OVERWRITE = 替换现有文件
+LOG_RAD_RESUME = 恢复暂停的日志文件
+LOG_RAD_SUSPEND = 暂停日志文件
+LOG_RAD_VIEW_EXISTING = 查看现有文件(只读)
+LOG_RAD_VIEW_SNAPSHOT = 查看日志文件的快照
+LOG_TITLE_APPEND_TO_LOG = 附加到日志
+LOG_TITLE_BEGIN_LOGGING = 开始记录Stata输出
+LOG_TITLE_CREATE_NEW_LOG = 创建新日志
+LOG_TITLE_LOG_OPTIONS = Stata日志选项
+
+##(TAG). lookup
+LOOKUP_LBL_COMMAND = 命令：
+LOOKUP_LBL_FILE_OR_URL = 文件或URL：
+LOOKUP_LBL_SEARCH_FOR = 搜索：
+LOOKUP_LBL_SITE_URL_OR_FOLDER = 网站网址(或文件夹)：
+LOOKUP_TITLE_CHOOSE_DOWNLOAD_SITE = 选择下载网站
+LOOKUP_TITLE_CHOOSE_FILE_TO_VIEW = 选择要查看的文件
+LOOKUP_TITLE_CHOOSE_OFFICIAL_UPDATE_SITE = 选择官方更新网站
+LOOKUP_TITLE_SEARCH_INSTALLED_PROGRAMS = 搜索已安装的命令
+LOOKUP_TITLE_STATA_COMMAND = Stata命令
+
+##(TAG). notes
+BTN_SUBMIT = 提交
+NOTES_BTN_RENUMBER = 重新编号
+NOTES_COL_NOTES = 注释
+NOTES_LBL_ENTER_NEW_NOTE = <在下方输入新注释>
+NOTES_LBL_ENTER_TS = 注释中任何地方输入时间戳时在时间戳的前后加空格。
+#Are you sure you want to drop {number} notes?
+NOTES_MSGBOX_CONFIRM_DROP_NOTES_MSGFMT = 您确定要删除{0}个注释吗？
+#Are you sure you want to drop note “{note number}”?
+NOTES_MSGBOX_CONFIRM_DROP_NOTE_MSGFMT = 您确定要删除注释"{0}"吗？
+NOTES_TITLE_DEFINE_NOTES = 定义注释
+NOTES_TITLE_NOTES_FOR_DATA = 数据注释
+#Notes for {variable_name}
+NOTES_TITLE_NOTES_FOR_FMT = {0}的注释
+
+##(TAG). open dialog
+OPEN_LBL_ENCODING = 编码：
+OPEN_LBL_FILE_FORMAT = 文件格式：
+OPEN_TITLE_CHOOSE_A_DIRECTORY = 选择目录
+OPEN_TITLE_CHOOSE_A_DO_FILE = 选择do文件
+OPEN_TITLE_CHOOSE_A_FILE = 选择文件
+OPEN_TITLE_INSERT_FILE = 插入文件
+OPEN_TITLE_OPEN_PREFERENCES.UNIX = 打开首选项
+
+##(TAG). paste special
+PASTE_SPECIAL_BTN_NEXT_COL_TIP = 显示下一组列
+PASTE_SPECIAL_BTN_PREVIOUS_COL_TIP = 显示上一组列
+PASTE_SPECIAL_CHK_FIRST_ROW_AS_VARNAMES = 将第一行作为变量名
+PASTE_SPECIAL_CHK_FIRST_ROW_AS_VARNAMES_TIP = 让第一行成为变量名。如果第一行无法形成有效的变量名称，则此选项将不可用。
+PASTE_SPECIAL_CHK_QUOTES_BIND_TOKENS = 双引号绑定令牌
+PASTE_SPECIAL_CHK_QUOTES_BIND_TOKENS_TIP = 如果分隔符嵌入在带引号的字符串中，则该选项有用。例如："Lastname，Firstname"以制表符进行分隔。
+PASTE_SPECIAL_CHK_SEQ_DELIMS_AS_ONE = 连续分隔符视为一个处理
+PASTE_SPECIAL_CHK_SEQ_DELIMS_AS_ONE_TIP = 如果分隔符是连续的但应该被视为一个，则该选项有用。例如，'1,,3'默认情形下生成'1 . 3'。使用此选项将生成"1 3"，两个令牌之间的缺失值将被忽略。
+PASTE_SPECIAL_CHK_STRIP_QUOTES = 去掉双引号
+PASTE_SPECIAL_CHK_STRIP_QUOTES_TIP = 从字符串中删除引号。如果字符串中的引号是起绑定作用，此选项可能有用。
+PASTE_SPECIAL_LBL_DELIMITER = 分隔符
+PASTE_SPECIAL_LBL_PREVIEW = 预览：
+PASTE_SPECIAL_LBL_PREVIEW_LOADING = 预览:(正在加载预览...)
+#Preview: (showing columns {start_row}-{end_row} of {total_rows})
+PASTE_SPECIAL_LBL_PREVIEW_SHOWING_COLS_FMT = 预览:(显示{0}-{1}/{2}列)
+#Preview: (showing first {number} rows)
+PASTE_SPECIAL_LBL_PREVIEW_SHOWING_FIRST_ROWS_FMT = 预览:(显示前{0}行)
+#Preview: (showing rows {start_row}-{end_row} of {total_rows})
+PASTE_SPECIAL_LBL_PREVIEW_SHOWING_ROWS_FMT = 预览:(显示{0}-{1}/{2}行)
+PASTE_SPECIAL_MSGBOX_CLIPBOARD_DATA_NOT_VALID_1 = 剪贴板数据无效。
+PASTE_SPECIAL_MSGBOX_CLIPBOARD_DATA_NOT_VALID_2 = 这通常是因为数据不规则所造成的。您可以尝试使用不同的分隔符，并确保正确地复制了数据。
+PASTE_SPECIAL_MSGBOX_DELIMITER_CLIPBOARD_LOCKED_1.WIN = 剪贴板已锁定。
+PASTE_SPECIAL_MSGBOX_DELIMITER_CLIPBOARD_LOCKED_2.WIN = 当此对话框打开时，剪贴板将保持锁定，并且无法访问其他应用程序。
+PASTE_SPECIAL_MSGBOX_DELIMITER_MUST_BE_SPECIFIED_1 = 必须指定分隔符。
+PASTE_SPECIAL_MSGBOX_DELIMITER_MUST_BE_SPECIFIED_2 = 请选择分隔符，然后重试。
+PASTE_SPECIAL_MSGBOX_UNABLE_TO_ALLOCATE_MEMORY_WIDTH = 由于宽度过大，无法分配足够内存。
+PASTE_SPECIAL_RAD_COMMA = 逗号
+PASTE_SPECIAL_RAD_TAB = 制表符
+PASTE_SPECIAL_RAD_TAB_SPACE = 空格
+PASTE_SPECIAL_RAD_USER_SPECIFIED = 用户指定
+PASTE_SPECIAL_RAD_WHITESPACE = 空白字符
+PASTE_SPECIAL_TITLE_PASTE_SPECIAL = 选择性粘贴
+
+##(TAG). power
+POWER_LBL_CI_ONEMEAN = 单样本均值的置信区间
+POWER_LBL_CI_ONEVAR_SD = 单样本标准差的置信区间
+POWER_LBL_CI_ONEVAR_VAR = 单样本方差的置信区间
+POWER_LBL_CI_PAIREDMEANS = 两个配对样本均值差的置信区间
+POWER_LBL_CI_PAIREDMEANS_CORR = 两个配对样本均值差的置信区间，指定配对观测值之间的相关系数
+POWER_LBL_CI_PAIREDMEANS_SDDIF = 两个配对样本均值差的置信区间，指定均值差的标准差
+POWER_LBL_CI_TWOMEANS = 两个样本均值差的置信区间
+POWER_LBL_CMH = 分层2×2列联表的Cochran-Mantel-Haenszel关联检验
+POWER_LBL_COX = Cox模型中比较斜率和基准值的检验
+POWER_LBL_EXPONENTIAL = 两个独立样本风险率指数检验
+POWER_LBL_FILTER_METHODS_HINT = 过滤方法
+POWER_LBL_LOGRANK = 两个样本存活率的对数秩检验
+POWER_LBL_LOGRANK_CLUSTER = 随机整群设计中两个样本存活率的对数秩检验
+POWER_LBL_MCC = 1：M匹配病例对照研究中的关联检验
+POWER_LBL_NO_METHODS_FILTERED = 没有匹配的方法
+POWER_LBL_ONECORR = 比较相关系数和基准值的Fisher Z检验
+POWER_LBL_ONEMEAN = 比较均值和基准值的检验
+POWER_LBL_ONEMEAN_CLUSTER = 随机整群设计中比较均值和基准值的检验
+POWER_LBL_ONEMEAN_TTEST = 比较均值和基准值的t检验
+POWER_LBL_ONEMEAN_ZTEST = 比较均值和基准值的Z检验
+POWER_LBL_ONEPROP_BINOM = 比较比例和基准值的二项式检验
+POWER_LBL_ONEPROP_CLUSTER = 随机整群设计中比较比例和基准值的Wald检验
+POWER_LBL_ONEPROP_SCORE = 比较比例和基准值的得分检验
+POWER_LBL_ONEPROP_WALD = 比较比例和基准值的Wald检验
+POWER_LBL_ONESLOPE = 简单线性回归中比较斜率和基准值的检验
+POWER_LBL_ONEVAR_SD = 比较标准偏差和基准值的卡方检验
+POWER_LBL_ONEVAR_VAR = 比较方差和基准值的卡方检验
+POWER_LBL_ONEWAY_ANOVA = 单因素方差分析
+POWER_LBL_PAIREDMEANS_CORR = 两个配对样本均值检验，指定配对观测值之间的相关系数
+POWER_LBL_PAIREDMEANS_CORR_T = 两个配对样本均值t检验，指定配对观测值之间的相关系数
+POWER_LBL_PAIREDMEANS_CORR_Z = 两个配对样本均值Z检验，指定配对观测值之间的相关系数
+POWER_LBL_PAIREDMEANS_SDDIFF = 两个配对样本均值检验，指定均值差的标准差
+POWER_LBL_PAIREDMEANS_SDDIFF_T = 两个配对样本均值t检验，指定均值差的标准差
+POWER_LBL_PAIREDMEANS_SDDIFF_Z = 两个配对样本均值Z检验，指定均值差的标准差
+POWER_LBL_PAIREDPROP_DISCORD = 两个配对样本比例的McNemar检验，指定不一致比例
+POWER_LBL_PAIREDPROP_MARGINAL = 两个配对样本比例的McNemar检验，指定边际比例
+POWER_LBL_PCORR = 多元线性回归中比较偏相关系数和基准值的检验
+POWER_LBL_REPEATED_ANOVA = 重复测量方差分析
+POWER_LBL_RSQUARED_ALL = 多元线性回归所有系数的R平方检验
+POWER_LBL_RSQUARED_SUBSET = 多元线性回归部分系数的R平方检验
+POWER_LBL_TREE_PANE = 方法分类：
+POWER_LBL_TREND = JX2列联表响应概率的Cochran-Armitage线性趋势检验
+POWER_LBL_TWOCORR = 两个独立样本相关系数的Fisher Z检验
+POWER_LBL_TWOMEANS = 两个独立样本均值检验
+POWER_LBL_TWOMEANS_CLUSTER = 随机整群设计中两个独立样本均值检验
+POWER_LBL_TWOMEANS_TTEST = 两个独立样本均值的t检验
+POWER_LBL_TWOMEANS_ZTEST = 两个独立样本均值的Z检验
+POWER_LBL_TWOPROP_CHI2 = 两个独立样本比例的卡方检验
+POWER_LBL_TWOPROP_CLUSTER = 随机整群设计两个独立样本比例的卡方检验
+POWER_LBL_TWOPROP_FISHER = 两个独立样本比例的Fisher精确检验
+POWER_LBL_TWOPROP_LRCHI2 = 两个独立样本比例的似然比检验
+POWER_LBL_TWOVAR_SD = 两个独立样本标准偏差的F检验
+POWER_LBL_TWOVAR_VAR = 两个独立样本方差的F检验
+POWER_LBL_TWOWAY_ANOVA = 双因素方差分析
+POWER_NODE_ANOVA = 方差分析
+POWER_NODE_ANOVA_MEANS = 方差分析(均值)
+POWER_NODE_ANOVA_MULTI_MEANS = 方差分析(多个均值)
+POWER_NODE_BINARY = 二元
+POWER_NODE_BINOMIAL_TEST = 二项式检验
+POWER_NODE_CHI2_TESTS = 卡方检验
+POWER_NODE_CLUSTER_RANDOMIZED_DESIGN = 随机整群设计
+POWER_NODE_CLUSTER_SAMPLES = 整群样本
+POWER_NODE_COCHRAN_ARMITAGE_TREND_TEST = Cochran-Armitage趋势检验
+POWER_NODE_COCHRAN_MANTEL_HAENSZEL_TEST = Cochran-Mantel-Haenszel检验
+POWER_NODE_CONFIDENCE_INTERVAL = 置信区间
+POWER_NODE_CONTINGENCY_TABLES = 交互表
+POWER_NODE_CONTINUOUS = 连续
+POWER_NODE_CORRELATION = 相关
+POWER_NODE_CORRELATIONS = 相关
+POWER_NODE_COX_MODEL = Cox模型
+POWER_NODE_DEPENDENT_SAMPLES = 非独立样本
+POWER_NODE_EXACT_TESTS = 精确检验
+POWER_NODE_EXPONENTIAL_TEST = 指数检验
+POWER_NODE_EXP_HAZARD_RATES = 指数风险率
+POWER_NODE_FISHERS_EXACT_TEST = Fisher精确检验
+POWER_NODE_FISHERS_TEST = Fisher检验
+POWER_NODE_FISHERS_Z_TEST = Fisher Z检验
+POWER_NODE_F_TESTS = F检验
+POWER_NODE_HAZARD_RATES = 风险率
+POWER_NODE_INDEPENDENT = 独立
+POWER_NODE_IND_SAMPLES = 独立样本
+POWER_NODE_LIKELIHOOD_RATIO_TEST = 似然比检验
+POWER_NODE_LINEAR_REGRESSION = 线性回归
+POWER_NODE_LINEAR_TREND_J2_CA_TEST = Jx2列联表线性趋势，Cochran-Armitage检验
+POWER_NODE_LINEAR_TREND_PROP_J2 = Jx2列联表比例线性趋势
+POWER_NODE_LOGRANK_TEST = 对数秩检验
+POWER_NODE_MCC_DATA = 匹配病例对照数据
+POWER_NODE_MCNEMARS_TEST = McNemar检验
+POWER_NODE_MEAN = 均值
+POWER_NODE_MEANS = 均值
+POWER_NODE_MULTIPLE_LINEAR_REGRESSION = 多元线性回归
+POWER_NODE_MULTIPLE_SAMPLES = 多个样本
+POWER_NODE_ODDS_RATIO = 优势比
+POWER_NODE_ONEWAY = 单因素
+POWER_NODE_ONE_CORRELATION = 单样本相关
+POWER_NODE_ONE_MEAN = 单样本均值
+POWER_NODE_ONE_PROP = 单样本比例
+POWER_NODE_ONE_REGRESSION_SLOPE_COX = 单样本回归斜率，Cox模型
+POWER_NODE_ONE_SAMPLE = 单个样本
+POWER_NODE_ONE_STD_DEV = 单样本标准偏差
+POWER_NODE_ONE_VARIANCE = 单样本方差
+POWER_NODE_OUTCOME = 结果
+POWER_NODE_PAIRED = 配对
+POWER_NODE_PAIRED_MATCHED_SAMPLES = 配对/匹配样本
+POWER_NODE_PAIRED_SAMPLES = 配对样本
+POWER_NODE_PARTIAL_CORRELATION_TEST = 偏相关检验
+POWER_NODE_PEARSONS_CHI2_TEST = Pearson卡方检验
+POWER_NODE_POPULATION_PARAM = 总体参数
+POWER_NODE_PROPORTION = 比例
+POWER_NODE_PROPORTIONS = 比例
+POWER_NODE_REGRESSION = 回归
+POWER_NODE_REGRESSION_SLOPE = 回归斜率
+POWER_NODE_REGRESSION_SLOPES = 回归斜率
+POWER_NODE_REPEATED_MEASURES = 重复测量
+POWER_NODE_REPEATED_MEASURES_ANOVA = 重复测量方差分析
+POWER_NODE_RSQUARED = R平方
+POWER_NODE_RSQUARED_TEST = R平方检验
+POWER_NODE_SAMPLE = 样本
+POWER_NODE_SCORE_TEST = 得分检验
+POWER_NODE_SIMPLE_LINEAR_REGRESSION = 简单线性回归
+POWER_NODE_STD_DEV = 标准偏差
+POWER_NODE_STD_DEVS = 标准偏差
+POWER_NODE_STRATIFIED_2x2 = 分层2x2表
+POWER_NODE_STRATIFIED_2x2_CMH_TEST = 分层2×2表，Cochran-Mantel-Haenszel检验
+POWER_NODE_SURVIVAL = 生存
+POWER_NODE_SURVIVAL_RATES = 生存率
+POWER_NODE_SURVIVAL_RATES_LRTEST = 存活率，对数秩检验
+POWER_NODE_TWOWAY = 双因素
+POWER_NODE_TWO_CORRELATIONS = 两个样本相关
+POWER_NODE_TWO_EXP_HAZ_RATES = 两个样本指数风险率
+POWER_NODE_TWO_IND_CORRELATIONS = 两个独立样本相关
+POWER_NODE_TWO_IND_MEANS = 两个独立样本均值
+POWER_NODE_TWO_IND_PROP = 两个独立样本比例
+POWER_NODE_TWO_IND_SAMPLES = 两个独立样本
+POWER_NODE_TWO_IND_STD_DEVS = 两个独立样本标准偏差
+POWER_NODE_TWO_IND_VARIANCES = 两个独立样本方差
+POWER_NODE_TWO_PAIRED_MEANS = 两个配对样本均值
+POWER_NODE_TWO_PAIRED_PROP = 两个配对样本比例
+POWER_NODE_TWO_PAIRED_SAMPLES = 两个配对样本
+POWER_NODE_TWO_PAIRED_SAMPLES_MCNEMARS_TEST = 两个配对样本，McNemar检验
+POWER_NODE_TWO_PROPORTIONS_LRTEST = 两个样本比例，似然比检验
+POWER_NODE_TWO_PROPORTIONS_PEARSONS_TEST = 两个样本比例，皮尔逊检验
+POWER_NODE_TWO_SAMPLES = 两个样本
+POWER_NODE_TWO_STD_DEV = 两个样本标准偏差
+POWER_NODE_TWO_SURVIVAL_RATES_LRTEST = 两个样本生存率，对数秩检验
+POWER_NODE_TWO_VARIANCES = 两个样本方差
+POWER_NODE_T_TEST = t检验
+POWER_NODE_VARIANCE = 方差
+POWER_NODE_VARIANCES = 方差
+POWER_NODE_WALD_TEST = Wald检验
+POWER_NODE_Z_TEST = Z检验
+POWER_TITLE = 效能和样本容量分析
+
+##(TAG). prefs
+PREFS_CHK_ALLOW_KEYB_NAV = 允许键盘导航
+PREFS_CHK_ALLOW_KEYB_NAV_TIP = 允许使用光标键和空格键进行键盘导航和输入
+#Bold text style
+PREFS_CHK_BOLD = 粗体
+PREFS_CHK_BOLD_TIP = 粗体文本样式
+#Italics text style
+PREFS_CHK_ITALICS = 斜体
+PREFS_CHK_ITALICS_TIP = 斜体文本样式
+PREFS_CHK_OPEN_IN_MAIN_WINDOW = 在Stata主窗口中打开选项卡
+PREFS_CHK_OPEN_IN_TABS = 在新标签页而不是在新窗口中打开文件
+PREFS_CHK_OPEN_TABS_IN_MAIN_WINDOW = 在主Stata窗口中打开标签页
+PREFS_CHK_TAB_TO_MAIN = 在主Stata窗口中打开标签页
+PREFS_CHK_UNDERLINE = 下划线
+PREFS_CMD_CHK_USE_SYNTAX_HIGHLIGHTING = 使用语法高亮
+PREFS_CMD_CHK_USE_SYNTAX_HIGHLIGHTING_TIP = 应用基于语法的格式来显示命令窗口中的内容
+PREFS_DOEDIT_BACKUP_INTERVAL_TIP = 设置定期自动保存的时间间隔
+#Can shorten to 'Reset defaults' or 'Restore defaults' if translation is too long for button
+PREFS_DOEDIT_BTN_RESTORE_DEFAULTS.WIN = 恢复出厂设置
+PREFS_DOEDIT_CHK_AUTOCOMPLETION = 自动完成已有文本
+PREFS_DOEDIT_CHK_AUTOSAVE = 在运行之前始终保存
+PREFS_DOEDIT_CHK_AUTOSAVE_TIP = 执行do文件之前自动保存
+PREFS_DOEDIT_CHK_AUTO_INDENT = 自动缩进
+PREFS_DOEDIT_CHK_AUTO_INDENT_TIP = 使用上一行缩进量自动缩进新行
+PREFS_DOEDIT_CHK_AUTO_INSERT_BRACES_QUOTES = 自动插入结束括号和引号
+PREFS_DOEDIT_CHK_BOOKMARKS = 书签
+PREFS_DOEDIT_CHK_BOOKMARKS_TIP = 显示书签
+PREFS_DOEDIT_CHK_CODE_FOLDING = 代码折叠
+PREFS_DOEDIT_CHK_CODE_FOLDING_TIP = 显示代码折叠
+PREFS_DOEDIT_CHK_HIGHLIGHT_CURRENT_LINE = 高亮显示当前行
+PREFS_DOEDIT_CHK_HIGHLIGHT_CURRENT_LINE_TIP = 使用背景颜色高亮显示当前行
+PREFS_DOEDIT_CHK_INDENT_GUIDE = 缩进指南
+PREFS_DOEDIT_CHK_INDENT_GUIDE_TIP = 用虚垂直线显示缩进指南
+PREFS_DOEDIT_CHK_LINE_NUMBERS = 行号
+PREFS_DOEDIT_CHK_LINE_NUMBERS_TIP = 显示行号
+PREFS_DOEDIT_CHK_NORMALIZE = 标准化
+PREFS_DOEDIT_CHK_OPEN_DOFILE_IN_EDITOR.MAC = 在do文件编辑器中编辑从Finder中打开的do文件
+PREFS_DOEDIT_CHK_OPEN_DOFILE_IN_EDITOR.WIN = 从Windows中打开do文件时编辑而不是执行它们。
+PREFS_DOEDIT_CHK_OPEN_DOFILE_IN_EDITOR_TIP.MAC = 在do文件编辑器中打开从Finder中启动的do文件而不执行它们。 Stata.do将仍然在Stata中执行。
+PREFS_DOEDIT_CHK_PAGE_GUIDE = 页面指​​南
+PREFS_DOEDIT_CHK_PAGE_GUIDE.WIN = 显示页面指南的列：
+PREFS_DOEDIT_CHK_PAGE_GUIDE_TIP = 在指定的列位置用垂直线显示页面指南
+PREFS_DOEDIT_CHK_PROMPT_LINE_ENDINGS = 打开具有不一致行尾结束符的文件时提示
+PREFS_DOEDIT_CHK_PROMPT_NOT_UTF8 = 打开非UTF-8编码的文件时提示
+PREFS_DOEDIT_CHK_SYNTAX_HIGHLIGHTING = 语法高亮显示
+PREFS_DOEDIT_CHK_SYNTAX_HIGHLIGHTING_TIP = 应用基于语法的格式来显示do文件编辑器中的内容
+PREFS_DOEDIT_CHK_WRAP_LINES = 自动换行
+PREFS_DOEDIT_CHK_WRAP_LINES_TIP = 文本在到达编辑器窗口宽度的地方自动换行，从而使长行的文本在不需要水平滚动的情况下依然可见
+#Display visual indicator for wrapped lines
+PREFS_DOEDIT_CHK_WRAP_VISUAL = 显示换行指示标记
+PREFS_DOEDIT_LBL_ATTRIBUTES = 属性：
+PREFS_DOEDIT_LBL_AT_COLUMN = 列：
+PREFS_DOEDIT_LBL_BACKGROUND.WIN = 背景：
+PREFS_DOEDIT_LBL_BACKGROUND_COLOR = 背景颜色：
+PREFS_DOEDIT_LBL_BACKUP_DOCS = 备份更改的文档：
+PREFS_DOEDIT_LBL_CURSOR_COLOR = 光标颜色：
+PREFS_DOEDIT_LBL_FONT_PROP.WIN = 字体属性
+PREFS_DOEDIT_LBL_INDENTATION = 缩进
+PREFS_DOEDIT_LBL_LINE_ENDINGS = 行尾结束符
+PREFS_DOEDIT_LBL_LINE_ENDINGS_NORMALIZE_TXT = 在保存含Unix和Windows行尾结束符的新文件时标准化行尾。
+PREFS_DOEDIT_LBL_OPEN_AND_SAVE = 打开和保存
+PREFS_DOEDIT_LBL_PRINTING = 打印
+PREFS_DOEDIT_LBL_SAMPLE_TEXT.WIN = 示例文本
+PREFS_DOEDIT_LBL_SPACES_PER_TAB = 空格/制表符
+PREFS_DOEDIT_LBL_TEXT.WIN = 文本：
+PREFS_DOEDIT_LBL_TEXT_COLOR = 文本颜色：
+PREFS_DOEDIT_POPUP_EVERY_15_SECS = 每15秒
+PREFS_DOEDIT_POPUP_EVERY_30_SECS = 每30秒
+PREFS_DOEDIT_POPUP_EVERY_5_MINUTES = 每5分钟
+PREFS_DOEDIT_POPUP_EVERY_MINUTE = 每1分钟
+PREFS_DOEDIT_POPUP_EVERY_NEVER = 从不
+PREFS_DOEDIT_PROJ_CHK_EXCLUDE_DOT.WIN = 排除以"."开头的文件和目录。
+PREFS_DOEDIT_PROJ_LBL_ADD_DIR.WIN = 添加目录
+PREFS_DOEDIT_PROJ_LBL_LAYOUT_N_SIZE.WIN = 布局和大小
+PREFS_DOEDIT_TAB_ADVANCED = 高级
+PREFS_DOEDIT_TAB_AUTOCOMPLETION = 自动完成
+PREFS_DOEDIT_TAB_COLORS = 颜色
+PREFS_DOEDIT_TAB_DISPLAY = 显示
+PREFS_DOEDIT_TAB_EDITOR_FONT.WIN = 编辑器字体
+PREFS_DOEDIT_TAB_GENERAL = 常规
+PREFS_DOEDIT_TAB_INDENTATION = 缩进
+PREFS_DOEDIT_TAB_PROJ_MANAGER.WIN = 项目管理器
+PREFS_DOEDIT_TAB_SYNTAX_BOOKMARKS = 书签
+PREFS_DOEDIT_TAB_SYNTAX_CODE_FOLDING = 代码折叠
+PREFS_DOEDIT_TAB_SYNTAX_HILIGHT = 语法高亮显示
+PREFS_DOEDIT_TAB_SYNTAX_LINE_NUMBERS = 行号
+PREFS_DOEDIT_TAB_WINDOWING = 窗口
+PREFS_DOEDIT_TITLE = do文件编辑器首选项
+PREFS_EDIT_CHK_ALLOW_TYPING_TO_BEGIN_EDITING = 允许通过输入来启动对所选单元格的编辑
+PREFS_EDIT_CHK_COPY_VALUE_LABELS = 当复制数据到剪贴板时复制值标签而不是值
+PREFS_EDIT_CHK_COPY_VALUE_LABELS_TIP = 当复制数据到剪贴板时复制值标签而不是值
+PREFS_EDIT_CHK_DISABLE_GRADIENTS.UNIX = 禁用视觉渐变(提高性能)
+PREFS_EDIT_CHK_INCLUDE_VARNAMES = 复制数据到剪贴板时包含变量名
+PREFS_EDIT_CHK_PRINT_COLOR = 使用彩色打印
+PREFS_EDIT_CHK_PRINT_GRID = 打印网格线
+PREFS_EDIT_CHK_PROMPT_BEFORE_APPLY = 使用鼠标导航对单元格应用更改时提示
+PREFS_EDIT_CHK_PROMPT_BEFORE_APPLY_TIP = 在变更到另外的单元格之前提示用户将更改应用于当前选定的单元格
+PREFS_EDIT_CHK_PROMPT_LEAVING_BROWSE = 离开浏览模式时提示
+PREFS_EDIT_CHK_PROMPT_LEAVING_BROWSE_TIP = 离开浏览模式进入编辑模式之前提示
+PREFS_EDIT_CHK_PROMPT_PASTE_FILTERED = 当观测被过滤时执行粘贴操作要提示
+PREFS_EDIT_COLOR_STRINGS_TIP = 字符串显示颜色
+PREFS_EDIT_COLOR_VALUE_LABELS_TIP = 值标签显示颜色
+PREFS_EDIT_LBL_STRINGS = 字符串
+PREFS_EDIT_LBL_STRINGS.UNIX = 字符串：
+PREFS_EDIT_LBL_TEXT_COLORS.UNIX = 文本颜色：
+PREFS_EDIT_LBL_VALUE_LABELS = 值标签
+PREFS_EDIT_LBL_VALUE_LABELS.UNIX = 值标签：
+PREFS_GENERAL_LBL_BLUE.WIN = 蓝色
+PREFS_GENERAL_LBL_DARK.WIN = 深色
+PREFS_GENERAL_LBL_LIGHT.WIN = 浅色
+PREFS_GENERAL_LBL_LIGHT_GRAY.WIN = 浅灰
+PREFS_GEN_BTN_PDF_HELP = 帮助...
+PREFS_GEN_CHK_ANIMATE_DOCK = 忙时显示浮动图标状态
+PREFS_GEN_CHK_ANIMATE_DOCK_TIP = 当Stata忙时，在停靠栏显示浮动图标状态
+PREFS_GEN_CHK_BOUNCE_ICON = 连续回弹图标
+PREFS_GEN_CHK_BRING_ALL_TO_FRONT = 激活时将所有窗口置于前端
+PREFS_GEN_CHK_BRING_ALL_TO_FRONT_TIP = 置顶Stata时，将所有打开的Stata窗口置于前面
+PREFS_GEN_CHK_CONFIRM_KEYWORD_SEARCH = 当运用关键字搜索未知的帮助文件时进行确认
+PREFS_GEN_CHK_CONFIRM_KEYWORD_SEARCH_TIP = 当找不到帮助文件时，提示用户对帮助条目执行关键字搜索
+PREFS_GEN_CHK_INCLUDE_BITMAP = 除了PDF图像之外，还包括位图图像
+PREFS_GEN_CHK_INCLUDE_BITMAP_TIP = 将图像复制到剪贴板时，除了复制PDF图像还要包含图像的位图
+PREFS_GEN_CHK_NOTIFY_USER_WHEN_DONE = Stata运行完成后通知用户
+PREFS_GEN_CHK_NOTIFY_USER_WHEN_DONE_TIP = 通过回弹停靠栏中的Stata图标来通知用户命令已处理完毕
+PREFS_GEN_CHK_OVERWRITE_DATA = 保存时替换现有数据
+PREFS_GEN_CHK_OVERWRITE_DATA_TIP = 从文件菜单中选择保存后，替换现有数据文件时不再提示
+PREFS_GEN_CHK_PLAY_SOUND = 提示时播放声音
+PREFS_GEN_CHK_SHOW_CWD_AS_TEXT = 显示当前工作目录为文本
+PREFS_GEN_CHK_SMOOTH_FONTS = 平滑字体(反锯齿文本)
+PREFS_GEN_CHK_SMOOTH_FONTS_TIP = 在结果，浏览器和数据编辑窗口中使用字体平滑
+PREFS_GEN_CHK_START_IN_LAST_CWD = 从上一次会话的当前工作目录中启动
+PREFS_GEN_CHK_START_IN_LAST_CWD_TIP = 除非Stata在打开Finder中的Stata文件时启动，否则一直从上一次会话的当前工作目录中启动
+PREFS_GEN_CHK_USE_ACCESSIBILITY_PDF_DOCS = 使用辅助功能控制面板关闭文档
+PREFS_GEN_LBL_PDF_DOCUMENTATION = PDF文档:
+PREFS_GEN_LBL_RESULTS_WINDOW.UNIX = 结果窗口：
+PREFS_GEN_LBL_RES_COM_WINDOW.UNIX = 结果和命令窗口：
+PREFS_GEN_LBL_REVIEW_WINDOW.UNIX = 历史窗口：
+PREFS_GEN_LBL_SAVE_OPTIONS.UNIX = 保存选项：
+PREFS_GEN_LBL_TABLE_COPY_OPTIONS.UNIX = 表格复制选项：
+PREFS_GEN_LBL_WHEN_COPYING_IMAGES = 复制图像时：
+PREFS_GEN_LBL_WINDOW_OPTIONS.UNIX = 窗口选项：
+PREFS_GEN_RAD_BOTTOM.UNIX = 底端
+PREFS_GEN_RAD_COMBINED_LAYOUT.UNIX = 组合布局
+PREFS_GEN_RAD_LEFT.UNIX = 左边
+PREFS_GEN_RAD_RIGHT.UNIX = 右边
+PREFS_GEN_RAD_TOP.UNIX = 顶端
+PREFS_GEN_RAD_WIDE_LAYOUT.UNIX = 宽布局
+PREFS_GPH_CHK_KEEP_GRAPH_LIST_VISIBLE = 保持图形以列表形式显示在窗口中
+PREFS_GPH_CHK_KEEP_GRAPH_LIST_VISIBLE_TIP = 即使窗口中只有一个图形，也始终以列表形式显示图形
+PREFS_GPH_CHK_PRINT_LOGO = 打印徽标
+#Might not need localizing
+PREFS_GPH_LBL_CLIP_EMF.WIN = 增强型图元文件(EMF)
+PREFS_GPH_LBL_CLIP_FORMAT.WIN = 剪贴板格式
+#Might not need localizing
+PREFS_GPH_LBL_CLIP_WMF.WIN = Windows图元文件(WMF)
+PREFS_GPH_LBL_MAGNIFICATIONS = 放大率(%)
+PREFS_GPH_LBL_MAG_HORIZONTAL = 水平
+PREFS_GPH_LBL_MAG_OVERALL = 总体
+PREFS_GPH_LBL_MAG_VERTICAL = 垂直
+#{0}=Change scheme/size, {1}=Graphics
+PREFS_GPH_LBL_NOTE_CHANGING_SCHEME_FMT = 注意：更改的方案将应用于未来的图形，而不会应用于当前图形。要重置当前图形的方案，请从"{1}"菜单中选择"{0}"。
+PREFS_GPH_LBL_OUTPUT_COLOR = 颜色映射：
+PREFS_GPH_LBL_RESOLUTION = 分辨率(dpi)
+PREFS_GPH_LBL_SCHEME = 方案：
+PREFS_GPH_LBL_WINDOW.UNIX = 窗口：
+PREFS_GPH_LBL_XDIM = X维
+PREFS_GPH_LBL_YDIM = Y维
+PREFS_GPH_PS_PRINTER_FONT.UNIX = Postscript打印机字体：
+PREFS_GRAPHPREFS_TITLE.WIN = 图形首选项
+PREFS_GRAPH_TAB_CLIPBOARD = 剪贴板
+PREFS_GRAPH_TAB_PRINTER = 打印机
+PREFS_GRAPH_TAB_WINDOW = 窗口
+#Results and Viewer background color
+PREFS_LBL_BACKGROUND = 背景：
+#Results and Viewer background color
+PREFS_LBL_BACKGROUND.WIN = 背景
+PREFS_LBL_BEHAVIOR.WIN = 行为
+PREFS_LBL_COLORS.WIN = 颜色
+PREFS_LBL_COLOR_SCHEME = 颜色方案：
+PREFS_LBL_COLOR_SCHEME.WIN = 整体颜色方案：
+PREFS_LBL_COLOR_SCHEME_NOTE.WIN = 注意：更改整体方案将同时改变其他颜色设置。
+PREFS_LBL_DISPLAY = 显示
+PREFS_LBL_EDIT_AUTOCOMPLETION_NOOFCHARS = 个字符后开始自动完成
+#SMCL tag error color
+PREFS_LBL_ERROR = 错误：
+#SMCL tag error color
+PREFS_LBL_ERROR.WIN = 错误
+#Font name
+PREFS_LBL_FONT = 字体：
+PREFS_LBL_FONT_NAME = 名称：
+PREFS_LBL_FONT_NOCOLON = 字体
+#Font name
+PREFS_LBL_FONT_SIZE = 大小：
+#Font name
+PREFS_LBL_FONT_STYLE = 字体样式：
+#SMCL tag hilite color
+PREFS_LBL_HILITE = 高亮：
+#SMCL tag hilite color
+PREFS_LBL_HILITE.WIN = 高亮
+#SMCL tag input color
+PREFS_LBL_INPUT = 输入：
+#SMCL tag input color
+PREFS_LBL_INPUT.WIN = 输入
+#Results and Viewer line gap
+PREFS_LBL_LINE_GAP = 行距：
+#Results and Viewer line gap
+PREFS_LBL_LINE_GAP.WIN = 行距
+#SMCL tag link color
+PREFS_LBL_LINK = 链接：
+#SMCL tag link color
+PREFS_LBL_LINK.WIN = 链接
+PREFS_LBL_MARGINS = 边距(英寸)
+PREFS_LBL_MARGINS_BOTTOM = 下
+PREFS_LBL_MARGINS_LEFT = 右
+PREFS_LBL_MARGINS_RIGHT = 左
+PREFS_LBL_MARGINS_TOP = 上
+#Size of scrollback buffer in KB. Changing the buffer size requires a restart of Stata to take effect.
+PREFS_LBL_REQUIRES_RESTART = KB (需要重新启动Stata)
+#SMCL tag results color
+PREFS_LBL_RESULTS = 结果：
+#SMCL tag results color
+PREFS_LBL_RESULTS.WIN = 结果
+#Results scrollback buffer size
+PREFS_LBL_SCROLLBACK_BUFFER_SIZE = 回滚缓冲区大小：
+PREFS_LBL_SCROLLBACK_BUFFER_SIZE.WIN = 回滚缓冲区大小(KB) (重新启动后生效)
+#Font size
+PREFS_LBL_SIZE = 大小：
+#SMCL tag standard color
+PREFS_LBL_STANDARD = 标准：
+#SMCL tag standard color
+PREFS_LBL_STANDARD.WIN = 标准
+PREFS_LBL_WINDOWING = 窗口
+PREFS_LIST_ITEM_DATAEDITOR = 数据编辑器
+PREFS_LIST_ITEM_GENERAL.WIN = 常规
+PREFS_LIST_ITEM_INTERNET = 互联网
+PREFS_LIST_ITEM_RESULTS = 结果
+PREFS_LIST_ITEM_VIEWER = 浏览器
+PREFS_MSGBOX_UNABLE_TO_SAVE_PREFS_SET = 无法保存首选项设置！
+PREFS_NET_CHK_CONNECT_PROXY_SERVER = 通过代理服务器连接
+PREFS_NET_CHK_ENABLE_AUTO_UPDATE_CHECK = 启用自动更新检查
+PREFS_NET_CHK_PROMPT_UPDATE_CHECK = 在检查更新之前始终提示
+PREFS_NET_CHK_USE_AUTH = 认证代理服务器
+PREFS_NET_LBL_CHECK_EVERY = 每隔：
+PREFS_NET_LBL_CHECK_INTERVAL.WIN = 自动检查间隔时间(天)
+PREFS_NET_LBL_DAYS = 天
+PREFS_NET_LBL_HTTP_SERVER = HTTP代理主机：
+PREFS_NET_LBL_PASSWORD = 密码：
+PREFS_NET_LBL_PORT = 端口：
+PREFS_NET_LBL_USERNAME = 用户名：
+PREFS_PRINTER_TITLE = 打印机首选项
+PREFS_PROJ_CHK_OPEN_NO_EXT_DOEDIT = 在do文件编辑器中打开没有扩展名的文件
+PREFS_PROJ_CHK_OPEN_NO_EXT_DOEDIT_TIP = 双击没有扩展名的文件时在do文件编辑器中打开
+PREFS_PROJ_CHK_OPEN_UNKNOWN_EXT_DOEDIT = 在do文件编辑器中打开具有未知扩展名的文件
+PREFS_PROJ_CHK_OPEN_UNKNOWN_EXT_DOEDIT_TIP = 双击具有未知扩展名的文件时在do文件编辑器中打开
+PREFS_PROJ_CHK_RUN_INSTEAD_OPEN = 在do文件编辑器中运行do文件而不是打开它们
+PREFS_PROJ_LBL_DOUBLE_CLICK_OPTIONS = 双击选项
+PREFS_PROJ_RAD_OPEN_NONSTATA_DEFAULT_APP = 在其默认应用程序中打开所有非Stata文本文件
+PREFS_PROJ_RAD_OPEN_NONSTATA_DEFAULT_APP_TIP = 双击所有非Stata纯文本文件时在其默认应用程序中打开
+PREFS_PROJ_RAD_OPEN_NONSTATA_DOEDIT = 在do文件编辑器中打开所有非Stata文本文件
+PREFS_PROJ_RAD_OPEN_NONSTATA_DOEDIT_TIP = 双击所有非Stata纯文本文件时在do文件编辑器中打开
+PREFS_SAVE_BTN_ADD_TIP = 添加或替换当前设置到已保存的首选项
+PREFS_SAVE_BTN_APPLY = 应用
+PREFS_SAVE_BTN_APPLY_TIP = 将所选保存的首选项应用于当前设置
+PREFS_SAVE_BTN_DELETE_TIP = 删除所选的已保存首选项
+PREFS_SAVE_COL_PREFS_NAME = 首选项名称
+PREFS_SAVE_LBL_NAME = 首选项设置名称：
+PREFS_SAVE_MSGBOX_CONFIRM_DELETE_SET = 您确定要删除所选的首选项设置吗？
+PREFS_SAVE_MSGBOX_NAME_RESERVED.WIN = 该名称是保留字。\n您必须选择其他名称。
+PREFS_SAVE_MSGBOX_NAME_USED.WIN = 该名称已被使用。\n请先删除现有名称，或选择其他名称。
+PREFS_SAVE_POPUP_ADD_NEW_SETTINGS = 添加新设置
+PREFS_SAVE_POPUP_REPLACE_WITH_CURRENT = 替换为当前设置
+PREFS_SAVE_TITLE = 定义新的首选项设置
+PREFS_SYNTAX_COLOR_BACKGROUND_TIP = 编辑器背景颜色
+PREFS_SYNTAX_COLOR_BOOKMARK_FILL_TIP = 书签填充颜色
+PREFS_SYNTAX_COLOR_BOOKMARK_LINE_TIP = 书签轮廓颜色
+PREFS_SYNTAX_COLOR_CURRENT_LINE_TIP = 当前行高亮显示颜色
+PREFS_SYNTAX_COLOR_CURSOR_TIP = 文本光标颜色
+PREFS_SYNTAX_COLOR_FOLDING_BACKGROUND_TIP = 代码折叠丝带背景颜色
+PREFS_SYNTAX_COLOR_FOLDING_FILL_TIP = 代码折叠符号填充颜色
+PREFS_SYNTAX_COLOR_FOLDING_LINE_TIP = 代码折叠符号轮廓颜色
+PREFS_SYNTAX_COLOR_FOREGROUND_TIP = 文本前景色
+PREFS_SYNTAX_COLOR_HIGHLIGHT_TIP = 代码折叠丝带高亮颜色
+PREFS_SYNTAX_COLOR_INDENT_GUIDE_TIP = 缩进指南颜色
+PREFS_SYNTAX_COLOR_INVISIBLES_TIP = 隐形字符颜色
+PREFS_SYNTAX_COLOR_MATCHES_TIP = 查找过程中匹配文本的背景颜色
+PREFS_SYNTAX_COLOR_NUMBERS_BACKGROUND_TIP = 行号区背景颜色
+PREFS_SYNTAX_COLOR_NUMBERS_TIP = 行号颜色
+PREFS_SYNTAX_COLOR_PAGE_GUIDE_TIP = 页面指​​南颜色
+PREFS_SYNTAX_COLOR_SELECTION_TIP = 所选文本颜色
+PREFS_SYNTAX_COL_COLOR_SCHEME = 配色方案
+PREFS_SYNTAX_COL_TEXT_STYLES = 文本样式
+PREFS_SYNTAX_GRP_DISPLAY_ITEMS = 显示项
+PREFS_SYNTAX_GRP_TEXT_STYLES = 文本样式
+#Background color
+PREFS_SYNTAX_LBL_BACKGROUND = 背景
+PREFS_SYNTAX_LBL_BLOCK_QUOTE = 块引用
+PREFS_SYNTAX_LBL_BRACE_MATCHING = 匹配的括号
+PREFS_SYNTAX_LBL_CHARACTERS = 字符
+PREFS_SYNTAX_LBL_CLASS_NAMES = 类名
+PREFS_SYNTAX_LBL_CODE = 代码
+PREFS_SYNTAX_LBL_COLOR = 颜色
+PREFS_SYNTAX_LBL_COMMENTS = 注释
+PREFS_SYNTAX_LBL_COMPOUND_STRINGS = 复合字符串
+#Current line highlight color
+PREFS_SYNTAX_LBL_CURRENT_LINE = 当前行
+#Text cursor color
+PREFS_SYNTAX_LBL_CURSOR = 光标
+PREFS_SYNTAX_LBL_DECORATORS = 装饰器
+#Syntax highlighting for dyndoc dynamic tags
+PREFS_SYNTAX_LBL_DYNTAGS = 动态标签
+PREFS_SYNTAX_LBL_EMPHASIS = 强调内容
+#Bookmarks or code folding indicator fill color
+PREFS_SYNTAX_LBL_FILL = 填充
+#Foreground color
+PREFS_SYNTAX_LBL_FOREGROUND = 前景
+PREFS_SYNTAX_LBL_FUNCTIONS = 函数
+PREFS_SYNTAX_LBL_FUNCTION_DEFINITIONS = 函数定义
+PREFS_SYNTAX_LBL_GENERAL = 常规
+PREFS_SYNTAX_LBL_HEADER = 标题
+#Highlight color
+PREFS_SYNTAX_LBL_HIGHLIGHT = 高亮
+PREFS_SYNTAX_LBL_HORIZONTAL_RULE = 水平分隔线
+PREFS_SYNTAX_LBL_IDENTIFIERS = 标示符
+#Indentation guide line color
+PREFS_SYNTAX_LBL_INDENT_GUIDE = 缩进指南
+PREFS_SYNTAX_LBL_KEYWORDS = 关键词
+#Bookmarks or code folding indicator line color
+PREFS_SYNTAX_LBL_LINE = 线条
+PREFS_SYNTAX_LBL_LINK = 链接
+PREFS_SYNTAX_LBL_MACROS = 宏
+#Matched text color when finding text
+PREFS_SYNTAX_LBL_MATCHES = 匹配项
+PREFS_SYNTAX_LBL_NUMBERS = 数字
+PREFS_SYNTAX_LBL_OPERATORS = 操作符
+PREFS_SYNTAX_LBL_ORDERED_LIST_ITEM = 有序列表项
+#Page guide line color
+PREFS_SYNTAX_LBL_PAGE_GUIDE = 页面指​​南
+PREFS_SYNTAX_LBL_PLAIN_TEXT = 纯文本
+#Text selection color
+PREFS_SYNTAX_LBL_SELECTION = 选择
+PREFS_SYNTAX_LBL_STRINGS = 字符串
+PREFS_SYNTAX_LBL_STRONG = 着重内容
+PREFS_SYNTAX_LBL_TRIPLE_QUOTES = 三引号
+PREFS_SYNTAX_LBL_UNMATCHED_BRACES = 不匹配的括号
+PREFS_SYNTAX_LBL_UNORDERED_LIST_ITEM = 无序列表项
+PREFS_SYNTAX_LBL_WHITE_SPACE = 空白
+PREFS_SYNTAX_LBL_WHITE_SPACE_TIP = 空白指示符颜色
+PREFS_TB_GENERAL.MAC = 常规
+PREFS_TB_INTERNET.MAC = 互联网
+PREFS_TB_SAVED.MAC = 保存的首选项
+PREFS_TB_SYNTAX.MAC = 语法高亮显示
+PREFS_TB_WINDOWS.MAC = 窗口
+PREFS_VIEWER_CHK_RESIZE_WITH_INCREMENTS.UNIX = 根据字符宽度和高度调整窗口大小
+PREFS_WINDOWS_COL_WINDOW = 窗口
+
+##(TAG). print
+PRINT_BTN_PREFS.WIN = 设置...
+PRINT_CHK_FIT_TO_PAGE = 调整到页面大小
+PRINT_CHK_PRINT_HEADER = 打印页眉
+PRINT_CHK_PRINT_HEADER_AND_FOOTER.MAC = 打印页眉和页脚
+PRINT_CHK_PRINT_LINE_NUMBERS = 打印行号
+PRINT_CHK_PRINT_LOGO = 打印徽标
+PRINT_LBL_HEADER = 页眉：
+PRINT_LBL_NAME = 名称：
+PRINT_LBL_PRINTING.WIN = 打印
+PRINT_LBL_PRINTING_IN_PROGRESS.WIN = 正在打印。
+PRINT_LBL_PROJECT = 项目：
+PRINT_LBL_SENDING.WIN = 发送到打印机。
+PRINT_SETTINGS_TITLE.WIN = 打印设置
+PRN_CHK_CENTER_GRAPH.UNIX = 图形居中
+PRN_CHK_MAINTAIN_ASPECT_RATIO.UNIX = 保持宽高比
+PRN_CHK_PRINT_SELECTION.UNIX = 打印所选内容
+PRN_CHK_PRINT_TO_FILE.UNIX = 打印到文件
+PRN_CHK_REPLACE_FILE.UNIX = 替换现有文件
+PRN_LBL_FILENAME.UNIX = 文件名：
+PRN_LBL_GRAPH_SIZE.UNIX = 图形大小(英寸)
+PRN_LBL_HEIGHT.UNIX = 高度：
+PRN_LBL_ORIENTATION.UNIX = 方向：
+PRN_LBL_PAGE_CONTROL.UNIX = 页面控制：
+#Page {number}
+PRN_LBL_PAGE_NUM_FMT.MAC = 页面{0}
+PRN_LBL_PAGE_SIZE.UNIX = 页面大小：
+PRN_LBL_PRINTER.UNIX = 打印机：
+PRN_LBL_PRINTING_TO_FILES.UNIX = 打印到文件：
+PRN_LBL_WIDTH.UNIX = 宽度：
+#Document orientation when printing
+PRN_POPUP_LANDSCAPE.UNIX = 横向
+#Document orientation when printing
+PRN_POPUP_PORTRAIT.UNIX = 纵向
+PRN_RAD_CUSTOM_INCHES.UNIX = 自定义(英寸)
+PRN_TITLE_PRINT.UNIX = 打印
+PRN_TITLE_PRINT_GRAPH.UNIX = 打印图形
+PRN_TITLE_PRINT_TO_FILE.UNIX = 打印到文件
+
+##(TAG). programmable dialog
+PDIALOG_BTN_COPY_TIP = 复制命令到剪贴板
+#Open help for dialog in Viewer
+PDIALOG_BTN_HELP_TIP = 帮助
+#Reset dialog to defaults
+PDIALOG_BTN_RESET_TIP = 重置
+PDIALOG_MSGBOX_CANNOT_RESET_WHILE_BUSY_1 = 当Stata忙时，对话框不能被重置。
+PDIALOG_MSGBOX_CANNOT_RESET_WHILE_BUSY_2 = 请在Stata处理完当前命令后重试。
+#“{string}” must be filled in.
+PDIALOG_MSGBOX_CONTROL_MUST_BE_FILLED_IN_FMT = "{0}"必须填写。
+PDIALOG_MSGBOX_DIALOG_NOT_FOR_OS = 对话框不适合当前操作系统。
+PDIALOG_MSGBOX_DIALOG_REQUIRES_ATTENTION_1 = 对话框需要引起您的注意。
+PDIALOG_MSGBOX_DIALOG_REQUIRES_ATTENTION_2 = 您继续操作之前必须先关闭该对话框。
+#The “{string}” dialog requires your attention.
+PDIALOG_MSGBOX_DIALOG_REQUIRES_ATTENTION_FMT_1 = "{0}"对话框需要引起您的注意。
+#You must close that dialog before you can proceed. Either press “{string}” on that dialog or close it before proceeding.
+PDIALOG_MSGBOX_DIALOG_REQUIRES_ATTENTION_FMT_2 = 在继续操作之前必须先关闭该对话框。您可以按对话框上的"{0}"按钮或直接关闭它。
+PDIALOG_MSGBOX_FEATURE_NOT_SUPPORTED = 此操作系统不支持该功能。
+#On the “{string}” tab, a required field is not filled in.
+PDIALOG_MSGBOX_FIELD_NOT_FILLED_IN = 一个必填项为空。
+PDIALOG_MSGBOX_INSUFFICIENT_RESOURCES = 资源不足，无法打开对话框。
+#VERSION: {string} invalid operating system.
+PDIALOG_MSGBOX_INVALID_OS_FMT = 版本：{0} 无效的操作系统。
+PDIALOG_MSGBOX_REQUIRES_PERFORMED_ESTIMATION = 在执行此操作前，您必须运行过一次估计。
+PDIALOG_MSGBOX_REQUIRES_PERFORMED_GEN_SEM_ESTIMATION = 在执行此操作前，您必须运行过一次广义SEM估计。
+PDIALOG_MSGBOX_REQUIRES_PERFORMED_SEM_ESTIMATION = 在执行此操作前，您必须运行过一次SEM估计。
+PDIALOG_MSGBOX_STATA_BUSY_1 = 当Stata忙时，您所请求的对话框将无法使用。
+PDIALOG_MSGBOX_STATA_BUSY_2 = 请在Stata处理完当前命令后重试。
+PDIALOG_MSGBOX_STATA_BUSY_CANNOT_PERFORM = Stata正忙，无法执行您请求的操作。
+#On the “{string}” tab, “{string}” must be filled in.
+PDIALOG_MSGBOX_TAB_CONTROL_MUST_BE_FILLED_IN_FMT = 在"{0}"选项卡上，"{1}"必须填写。
+#On the “{string}” tab, a required field is not filled in.
+PDIALOG_MSGBOX_TAB_FIELD_NOT_FILLED_IN_FMT = 在"{0}"选项卡上，一个必填项为空。
+PDIALOG_MSGBOX_TOO_MANY_DIALOGS_1 = 打开的对话框太多。
+PDIALOG_MSGBOX_TOO_MANY_DIALOGS_2 = 打开新对话框之前请关闭一个或多个对话框。有关详细信息，请参阅help maxdb。
+#Unable to open “{string}” dialog.
+PDIALOG_MSGBOX_UNABLE_TO_OPEN_DIALOG_FMT = 无法打开"{0}"对话框。
+PDIALOG_MSGBOX_WAIT_UNTIL_STATA_NOT_BUSY = 等待Stata完成当前命令，并确保所有"more"提示已被清除。
+
+##(TAG). projman
+PROJMAN_CHK_EXCLUDE_HIDDEN_FILES_AND_DIRS = 排除以"."开头的文件/目录。
+PROJMAN_LBL_NEW_GROUP = 新组
+#New group {number}
+PROJMAN_LBL_NEW_GROUP_FMT = 新组{0}
+PROJMAN_TITLE_ADD_DIRECTORY = 添加目录
+PROJMAN_TITLE_ADD_EXISTING_FILES = 添加现有文件
+PROJMAN_TITLE_CHOOSE_FILE_AND_LOCATION = 选择文件和位置
+
+##(TAG). save
+SAVE_TITLE_SAVE_DATA = 保存数据
+SAVE_TITLE_SAVE_GRAPH = 保存图形
+SAVE_TITLE_SAVE_PROJECT_AS = 项目另存为
+
+##(TAG). sem builder
+SEM_CHK_DONT_WARN_CLOSE_MULT_DOCS = 关闭多个SEM路径图时不要提示
+#You have {number} SEM diagrams with unsaved changes.
+SEM_MSGBOX_DIAGRAMS_WITH_UNSAVED_CHANGES_CONFIRM_QUIT_FMT = {0}个SEM路径图包含未保存的更改。
+SEM_MSGBOX_DIAGRAM_WITH_UNSAVED_CHANGES_CONFIRM_QUIT = 一个SEM路径图包含未保存的更改。
+SEM_MSGBOX_INVALID_NAME = 指定的名称无效。
+SEM_MSGBOX_INVALID_VARNAME = 您输入的变量名无效。
+SEM_TITLE_ADD_TEXT = 添加文本
+SEM_TITLE_MODIFY_TEXT = 修改文本
+SEM_TITLE_SAVE_SEM_PATH_DIAGRAM = 保存SEM路径图
+
+##(TAG). snapshot
+SNAPSHOT_LBL_SNAPSHOT_ADD = 添加快照
+#Snapshot {number} -- default name for new snapshot
+SNAPSHOT_LBL_SNAPSHOT_FMT = 快照{0}
+#Label for snapshot {number}
+SNAPSHOT_LBL_SNAPSHOT_LABEL_FMT = 快照{0}的标签：
+SNAPSHOT_LBL_SNAPSHOT_MODIFY = 修改快照的标签
+SNAPSHOT_MSGBOX_CONFIRM_REMOVE_SNAPSHOTS = 您确定要删除快照吗？
+#You are about to remove {number} snapshots.
+SNAPSHOT_MSGBOX_CONFIRM_REMOVE_SNAPSHOTS_FMT = 您即将删除{0}个快照。
+SNAPSHOT_MSGBOX_CONFIRM_REMOVE_SNAPSHOT_1 = 您即将删除1个快照。
+SNAPSHOT_MSGBOX_CONFIRM_REMOVE_SNAPSHOT_2 = 您确定要删除快照吗？
+SNAPSHOT_MSGBOX_CONFIRM_RESTORE_SNAPSHOT = 您确定要还原快照吗？
+#You are about to restore your data to snapshot {number}.
+SNAPSHOT_MSGBOX_CONFIRM_RESTORE_SNAPSHOT_FMT = 您即将还原数据到快照{0}。
+
+##(TAG). string format
+STRING_FORMAT_CHK_CUSTOMIZE_FORMAT = 自定义格式
+STRING_FORMAT_LBL_FORMAT_PROPERTIES = 格式属性
+STRING_FORMAT_LBL_JUSTIFICATION = 对齐：
+STRING_FORMAT_LBL_TOTAL_CHARACTERS = 总字符数：
+STRING_FORMAT_TITLE = 创建格式
+
+##(TAG). table copy options
+TABLE_COPY_LBL_VERTICAL_BARS = 竖线
+TABLE_COPY_RAD_REMOVE_ALL = 全部删除
+TABLE_COPY_RAD_REMOVE_NONE = 不删除
+TABLE_COPY_RAD_SMART_REMOVE = 智能删除
+TABLE_COPY_TITLE = 表格复制选项
+
+##(TAG). translate
+TRANSLATE_BTN_TRANSLATE = 转换
+TRANSLATE_LBL_CHARACTERS = 字符
+TRANSLATE_LBL_INPUT_FILE = 输入文件：
+TRANSLATE_LBL_LINE_WIDTH = 行宽：
+TRANSLATE_LBL_OUTPUT_FILE = 输出文件：
+#Line width must be between {lower range} and {upper range}
+TRANSLATE_MSGBOX_LINE_WIDTH_RANGE_FMT = 行宽必须介于{0}和{1}之间
+TRANSLATE_TITLE = 转换文件
+
+##(TAG). unix
+MSGBOX_NO_PS_PRINTER_DEFINED_1.UNIX = PostScript打印机未定义。
+MSGBOX_NO_PS_PRINTER_DEFINED_2.UNIX = 请使用print命令输出到文本打印机。
+
+##(TAG). update
+UPDATE_CHK_ALWAYS_PROMPT_BEFORE_CHECK = 在检查更新之前始终提示
+UPDATE_MSGBOX_CHANGES_TO_DATA_NOT_SAVED_1 = 您所做的数据更改尚未保存。
+UPDATE_MSGBOX_CHANGES_TO_DATA_NOT_SAVED_2 = 在继续更新之前请保存或清除您的数据。正在中止更新...
+UPDATE_MSGBOX_MULTIPLE_INSTANCES_RUNNING_FMT = 检测到另一个"{0}"实例在运行。应用此更新之前，所有的"{0}"实例必须关闭。请关闭所有其他的Stata实例，然后重试。
+UPDATE_MSGBOX_NETWORK_SHARE.WIN = Stata正从网络共享运行。\n如果继续，此网络共享中使用Stata的其他用户可能会丢失工作。建议您在继续前登录主机并检查现有连接。您还要继续吗？
+UPDATE_MSGBOX_START_ADMIN_TOOLS.WIN = 有可用的更新。\nStata需要关闭并启动Stata管理工具以执行更新。您要继续吗？
+UPDATE_MSGBOX_UPDATE_AVAILABLE_1 = 有可用的更新。
+UPDATE_MSGBOX_UPDATE_AVAILABLE_2 = 更新期间需要关闭Stata。您要继续吗？
+UPDATE_MSGBOX_UPDATE_INSTALLED = 更新已成功安装。
+#Click “{string}” to close Stata and launch the updated version.
+UPDATE_MSGBOX_UPDATE_INSTALLED_FMT = 单击"{0}"关闭Stata并启动更新的版本。
+UPDATE_PROMPT_TITLE = 检查更新
+#Check in {number} days
+UPDATE_RAD_CHECK_IN_DAYS_FMT = {0}天内检查更新
+UPDATE_RAD_CHECK_NEXT_LAUNCH = 下次启动Stata时检查更新
+UPDATE_RAD_CHECK_NOW = 立即检查更新
+UPDATE_RAD_DISABLE_CHECK = 禁止自动更新检查
+
+##(TAG). variable manager
+VARMANAGER_MSGBOX_APPLY_CHANGE_BEFORE_CHANGING_SELECTION = 您要在变更选择之前应用此更改吗？
+VARMANAGER_MSGBOX_CONFIRM_APPLY_CHANGES = 您要应用更改吗？
+VARMANAGER_MSGBOX_ONE_OR_MORE_VARS_MODIFIED = 一个或多个变量属性已修改。为了防止丢失，这些更改必须立即应用。
+
+##(TAG). varlist control
+VARLIST_CREATE_TS_VAR_TIP = 创建时间序列变量
+VARLIST_CREATE_WITH_FACTOR_OR_TS_VARS_TIP = 创建含因子或时间序列变量的变量组
+VARLIST_CREATE_WITH_FACTOR_VARS_TIP = 创建含因子变量的变量组
+VARLIST_CREATE_WITH_TS_VARS_TIP = 创建含时间序列变量的变量组
+
+##(TAG). viewer
+VIEWER_CHK_DONT_WARN_CLOSE_MULT_DOCS = 关闭多个浏览器时不要提示
+#About to execute the following command:\n\n{string}
+VIEWER_MSGBOX_CONFIRM_EXECUTE_COMMAND_FMT_1 = 要运行以下命令：\n\n{0}
+#Click “OK” to continue, or “Cancel” to abort.
+VIEWER_MSGBOX_CONFIRM_EXECUTE_COMMAND_FMT_2 = 单击"{0}"继续，或单击"{1}"中止。
+VIEWER_MSGBOX_CONFIRM_UNINSTALL_PACKAGE = 卸载程序包？
+VIEWER_MSGBOX_COULD_NOT_FIND_PDF_READER = 找不到有效的PDF阅读器。
+#For details, see {url}.
+VIEWER_MSGBOX_FOR_DETAILS_SEE = 有关详细信息，请参阅{0}。
+VIEWER_MSGBOX_HELP_SYSTEM_BUSY_1 = 帮助系统正忙。
+VIEWER_MSGBOX_HELP_SYSTEM_BUSY_2 = 请稍后重试您的请求。
+#No entries found for search on “{string}”.
+VIEWER_MSGBOX_NO_ENTRIES_FOUND_FMT = 找不到匹配"{0}"的条目。
+VIEWER_MSGBOX_PDF_READER_REQUIRED = 需要PDF阅读器才能查看Stata的完整文档。
+VIEWER_MSGBOX_STATA_BUSY_1 = Stata正忙，无法处理您的请求，或者在结果窗口中有--more--提示。
+VIEWER_MSGBOX_STATA_BUSY_2 = 请稍后再次尝试您的请求，或在结果窗口中清除--more--提示。
+VIEWER_MSGBOX_STATA_BUSY_EDITING_GRAPH = 编辑Stata图形时无法执行此任务。

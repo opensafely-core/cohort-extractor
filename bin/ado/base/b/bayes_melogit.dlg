@@ -1,0 +1,325 @@
+/*
+  bayes melogit
+
+*!  VERSION 1.0.6  28may2019
+
+  keyword:  eclass
+
+*/
+
+VERSION 15.0
+
+INCLUDE _std_xwide
+DEFINE _dlght 670
+INCLUDE header
+
+HELP hlp1, view("help bayes_melogit")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING STMP
+
+	create STRING main_equ_tmp
+	create STRING main_equ_tmp2
+	create STRING main_equ_childdlg
+	create STRING main_equ_dlgname
+	create STRING main_equ_child_result
+	create STRING main_equ_cmd_output
+	create STRING main_equ_cmd_last
+
+	create ARRAY main_equ_list
+	create ARRAY main_equ_toklist
+
+	create SVECTOR mainEQUCommandDisplayList
+	create SVECTOR mainEQUCommandList
+	create SVECTOR mainEQUCommandValues
+	create SVECTOR mainEQUStatusList
+	create SVECTOR mainEQUChildDialogList
+
+	create DOUBLE main_equ_count
+	create DOUBLE main_equ_position
+	create DOUBLE main_equ_arraysize
+	create DOUBLE main_equ_tmpcount
+
+	main.bu_equ_edit.disable
+	main.bu_equ_disable.disable
+	main.bu_equ_enable.disable
+
+	create DOUBLE unstructured
+	create SVECTOR mainEQUUnstructured
+	create DOUBLE numUns
+	create DOUBLE loopI
+	create DOUBLE priorUns
+	create DOUBLE unsI
+	create STRING stsI
+
+	create DOUBLE numRe
+	numRe.setvalue 0
+	create STRING restubs
+	create STRING strRe1
+	create STRING strRe2
+
+	create SVECTOR mainEQULevelvar
+	create STRING iwishart_levelvar
+	create STRING iwishart_relevel
+	create ARRAY iwishart_relevel_list
+	create DOUBLE numRelevel
+	create STRING relevelI
+
+	create STRING cmdname
+	cmdname.setvalue "melogit"
+
+	setscale_hadj resource BAYES_MELOGIT_DLG_HSCALE
+
+END
+	
+SCRIPT POSTINIT
+BEGIN
+	script prior_iwishart_disable
+	script prior_flat_hide
+	script simulation_restubs_disable
+	script rpt_coef_or_on
+
+	mainEQUCommandDisplayList.copyToArray main_equ_list
+	main.lb_equBuild.repopulate
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)				///
+	title(resource BAYES_MELOGIT_DLG_TITLE)
+BEGIN
+  GROUPBOX gb_fe		_lft	_top	_iwd	_ht10h,		///
+	label(resource LBL_FIXED_EFFECTS_MODEL)
+  DEFINE _x _indent
+  DEFINE _y _ss
+  INCLUDE me_dviv
+
+  CHECKBOX ck_nocons		@	_ms	@	.,		///
+	option(noconstant)						///
+	label(resource LBL_NOCONSTANT)
+
+  TEXT     tx_offset		_ilft	_ss	_cwd2	.,		///
+	label(resource LBL_OFFSET_VARIABLE)
+
+  VARNAME  vn_offset		_ilft	_ss	_vnwd	.,		///
+	option(offset)							///
+	label(resource LBL_OFFSET_VARIABLE)
+
+  DEFINE _x _lft
+  DEFINE _y +35
+  INCLUDE me_equ
+
+  GROUPBOX gb_opts		_lft	+40	_iwd	_ht11,		///
+	label(resource LBL_OPTIONS)
+
+  CHECKBOX ck_binomial		_ilft	_ms	_ibwd	_ht4,		///
+	groupbox							///
+	onclickon(program binomial_on)					///
+	onclickoff(script binomial_off)					///
+	label(resource LBL_BINOMIAL_TRIALS_PER_OBSERVATION)
+  RADIO    rb_variable		30	_ss	210	.,		///
+	first								///
+	option(binomial)						///
+	onclickon(program binomial_on)					///
+	label(resource LBL_VARIABLE)
+  RADIO    rb_fixed		_lft2	@	@	.,		///
+	last								///
+	option(binomial)						///
+	onclickon(program binomial_on)					///
+	label(resource LBL_FIXED_NUMBER)
+  VARNAME  vn_binomial		40	_ss	_vnwd	.,		///
+	option(binomial)						///
+	numeric								///
+	label(resource LBL_VARIABLE)
+  SPINNER  sp_binomial		_ilft2	@	_spwd	.,		///
+	option(binomial) min(1) max(10000)				///
+	label(resource LBL_FIXED_NUMBER)
+
+//  CHECKBOX ck_collinear		_ilft	+45	_ibwd	.,	///
+//	option(collinear)						///
+//	label(resource LBL_KEEP_COLLINEAR_VARIABLES)
+  CHECKBOX ck_asis		_ilft	+45	_ibwd	.,		///
+	option("asis")							///
+	label(resource LBL_RETAIN_PERFECT_PREDICTOR_VARS)
+END
+
+PROGRAM binomial_on
+BEGIN
+	if main.ck_binomial {
+		call main.rb_fixed.enable
+		if main.rb_fixed {
+			call main.sp_binomial.enable
+		}
+		else {
+			call main.sp_binomial.disable
+		}
+		call main.rb_variable.enable
+		if main.rb_variable {
+			call main.vn_binomial.enable
+		}
+		else {
+			call main.vn_binomial.disable
+		}
+	}
+	else {
+		call script binomial_off
+	}
+END
+
+SCRIPT binomial_off
+BEGIN
+	main.rb_fixed.disable
+	main.rb_variable.disable
+	main.sp_binomial.disable
+	main.vn_binomial.disable
+END
+
+PROGRAM	fe_opt_output
+BEGIN
+	option main.ck_nocons
+	optionarg main.vn_offset
+END
+
+INCLUDE bayes_me_equ_pr
+
+INCLUDE ifin
+INCLUDE weights_f
+INCLUDE bayes_me_priors
+INCLUDE bayes_me_simulation
+INCLUDE bayes_blocking
+INCLUDE bayes_initialization
+INCLUDE bayes_adaptation
+INCLUDE bayes_me_reporting
+INCLUDE bayes_advanced
+
+PROGRAM bayes_opts_output
+BEGIN
+	beginoptions
+		put " " /program bayes_priors_output
+		put " " /program bayes_simulation_output
+		put " " /program bayes_blocking_output
+		put " " /program bayes_init_output
+		put " " /program bayes_adaptation_output
+		put " " /program bayes_reporting_output
+		put " " /program bayes_advanced_output
+	endoptions
+END
+
+PROGRAM bayes_build_parse 
+BEGIN
+	call mainEQUCommandValues.copyToString main_equ_cmd_output
+	call main_equ_cmd_output.tokenizeOnStr main_equ_toklist "||"
+	call main_equ_tmpcount.storeClsArraySize main_equ_toklist
+	call main_equ_tmpcount.withvalue main_equ_cmd_last.setvalue class main_equ_toklist[@]	
+	
+	put "melogit "
+	varlist main.vn_dv [main.vl_iv]
+
+	if main_equ_cmd_last.contains(",") {
+		beginoptions
+			put " " /program fe_opt_output
+			put " " main_equ_cmd_output
+		endoptions
+	}
+	else {
+		if main_equ_cmd_output {
+			if main.ck_nocons | main.vn_offset {
+				put ","
+			}
+			if main.ck_nocons {
+				put " noconstant"
+			}
+			if main.vn_offset {
+				put " offset("
+				put main.vn_offset
+				put ")"
+			}
+			put " " main_equ_cmd_output
+		}
+		else {
+			beginoptions
+				put " " /program fe_opt_output
+			endoptions
+		}
+	}
+
+	beginoptions
+		if main.ck_binomial {
+			if main.rb_variable {
+				require main.vn_binomial
+				optionarg main.vn_binomial
+			}
+			if main.rb_fixed {
+				require main.sp_binomial
+				optionarg main.sp_binomial
+			}
+		}
+	endoptions
+
+END
+
+PROGRAM ecommand_output
+BEGIN
+	
+	call mainEQUCommandValues.copyToString main_equ_cmd_output
+	
+	call main_equ_cmd_output.tokenizeOnStr main_equ_toklist "||"
+	call main_equ_tmpcount.storeClsArraySize main_equ_toklist
+	call main_equ_tmpcount.withvalue main_equ_cmd_last.setvalue class main_equ_toklist[@]
+
+	put "melogit "
+	varlist main.vn_dv [main.vl_iv]
+	put " " /program ifin_output
+	put " " /program weights_output
+
+	if main_equ_cmd_last.contains(",") {
+		beginoptions
+			put " " /program fe_opt_output
+			put " " main_equ_cmd_output
+		endoptions
+	}
+	else {
+		if main_equ_cmd_output {
+			if main.ck_nocons | main.vn_offset {
+				put ","
+			}
+			if main.ck_nocons {
+				put " noconstant"
+			}
+			if main.vn_offset {
+				put " offset("
+				put main.vn_offset
+				put ")"
+			}
+			put " " main_equ_cmd_output
+		}
+		else {
+			beginoptions
+				put " " /program fe_opt_output
+			endoptions
+		}
+	}
+
+	beginoptions
+		if main.ck_binomial {
+			if main.rb_variable {
+				require main.vn_binomial
+				optionarg main.vn_binomial
+			}
+			if main.rb_fixed {
+				require main.sp_binomial
+				optionarg main.sp_binomial
+			}
+		}
+//		option main.ck_collinear
+		option main.ck_asis
+	endoptions
+END
+
+PROGRAM command
+BEGIN
+	put "bayes"
+	put /program bayes_opts_output
+	put " : "
+	put /program ecommand_output
+END

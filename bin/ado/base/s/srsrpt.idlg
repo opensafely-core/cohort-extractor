@@ -1,0 +1,63 @@
+/*
+  srsrpt.idlg  Used with mean and total
+
+*! VERSION 1.2.4  12dec2019
+
+*/
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+        create STRING rpt_bu_facvarsResults
+        program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2b
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  CHECKBOX ck_noheader		_lft    _ls       _iwd      .,		///
+	label(resource LBL_SUPPRESS_TABLE_HEADER)			///
+	option(noheader)
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+END
+
+PROGRAM rpt_bu_fmtcoef_getOpts
+BEGIN
+	call create CHILD fmt_coef_table_reporting AS rpt_bu_fmtcoef,	///
+		message("-cformat_only-")
+	call rpt_bu_fmtcoef.setExitString rpt_bu_fmtcoefResults
+	call rpt_bu_fmtcoef.setExitAction "program rpt_bu_fmtcoef_ckResults"
+END
+
+PROGRAM rpt_bu_fmtcoef_ckResults
+BEGIN
+	if rpt_bu_fmtcoefResults {
+		call rpt.bu_fmtcoef.modified_on
+	}
+	else {
+		call rpt.bu_fmtcoef.modified_off
+	}
+END
+
+INCLUDE factor_vars_reporting_pr
+
+PROGRAM srsrpt_output
+BEGIN
+	optionarg /hidedefault rpt.sp_level
+	option rpt.ck_noheader
+	put " " rpt_bu_fmtcoefResults
+	put " " rpt_bu_facvarsResults
+END
+

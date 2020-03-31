@@ -1,0 +1,384 @@
+/*                              scheme
+	Class for schemes
+
+*/
+*! version 1.1.0  10sep2019
+
+version 8
+
+class {
+	scheme_name = ""
+	array __LOG				/* allows logging	  */
+} , inherit(object)
+
+
+
+/* -------------------------------------------------------------------------*/
+/*
+	Usage:  .scheme.new , scheme(scheme_name)
+*/
+program define new
+
+	syntax [, READLOG(string) Scheme(passthru) CLEAR ]
+
+	if ("`clear'" != "")  exit				// Exit
+
+	if "`readlog'" != "" {
+		if 0$T_useschemes {
+			set curscm `.objkey'
+		}
+		.runfromfile `readlog'
+		exit						// Exit
+	}
+
+	.setscheme , `scheme'
+	.__LOG.Arrpush .setscheme , scheme(`.scheme_name')		///
+				    naturallywhite(`.system.naturally_white')
+end
+
+/* -------------------------------------------------------------------------*/
+/*
+	Usage:  .scheme.style style_classname {"scheme" | <style>} [id]
+
+	The style "scheme p[#][stub]" has a special meaning.  It matches
+	the following named styles in order:
+
+		p#stub
+		pstub
+		p#
+		p
+
+	If <style> is not found in the scheme, just returns <style>.
+*/
+program style
+
+	gettoken class  0 : 0
+	gettoken style id : 0
+	local id `id'						// sic
+
+	if "`style'" != "scheme" {
+		class exit `"`style' `id'"'
+/*
+		if `"`id'"' != `""' {
+		   di in white in smcl "{txt}{p 0 8} (note, `style' `id' "  /*
+		   */ "not a legal stylename for style `.classname', "      /*
+		   */ "default attributes used) {p_end}"
+		   class exit ""
+		}
+		class exit `"`style'"'
+*/
+	}
+
+	if bsubstr("`id'", 1, 1) != "p" {		/* handle normal case */
+		local stl `.`class'.`id''
+		if `"`stl'"' != `""' {
+			class exit `"`stl'"'
+		}
+		if `"`id'"' == `""' {
+			local stl `.`class'._default'
+			if `"`stl'"' != `""' {
+				class exit `"`stl'"'
+			}
+		}
+	}
+	else {						/* handle p#stub */
+		local end = substr("`id'", 2, .)
+		local stub `end'
+		while 1 {
+			gettoken nchar end : end , parse(1234567890)
+
+			capture confirm integer number `nchar'
+			if ! _rc {
+				local num `num'`nchar'
+				local stub `end'
+			}
+			else	continue, break
+		}
+
+		local stl `.`class'.p`num'`stub''
+		if `"`stl'"' != `""' {
+			class exit `"`stl'"'
+		}
+
+		local stl `.`class'.p`stub''
+		if `"`stl'"' != `""' {
+			class exit `"`stl'"'
+		}
+
+		local stl `.`class'.p`num''
+		if `"`stl'"' != `""' { 
+			class exit `"`stl'"'
+		}
+
+		local stl `.`class'.p'
+		if `"`stl'"' != `""' { 
+			class exit `"`stl'"'
+		}
+
+		local stl `.`class'.`id''	// assume p part of name
+		if `"`stl'"' != `""' { 
+			class exit `"`stl'"'
+		}
+
+	}
+
+	di in white in smcl "{txt}{p 0 8} (note:  `._mapcl `class'' `id' "  ///
+	    	"{txt}not found in scheme, default attributes used){p_end}"
+/*
+	di in white in smcl "{txt}{p 0 8} (note:  `class' `id' "	///
+	    	"not found in scheme, assuming `id'){p_end}"
+	class exit `"`id'"'
+*/
+
+end
+
+program _mapcl
+	if (`"`0'"' == `"seriesstyle"') class exit "pstyle"
+
+	class exit `"`0'"'
+end
+
+
+/* -------------------------------------------------------------------------*/
+/* turn the current scheme into one that matches the definition of the
+   specified scheme in the file named by the scheme option and set the 
+   name to be the file name.
+*/
+program define setscheme
+
+	syntax [ , Scheme(string) NATURALLYWHITE(integer 1) ]
+
+	tempname file
+	if "`c(adoarchive)'" == "1" {
+		tempfile tfile
+	
+		capture _stfilearchive find scheme-`scheme'.scheme
+		if (_rc) capture _stfilearchive find `scheme'.scheme
+		
+		if _rc == 0{ 
+			if(`r(arvpos)'>=0) {
+				capture _stfilearchive extract `r(arvname)' "`tfile'"
+				if _rc==0 {
+					capture file open `file' using `"`tfile'"' , read text
+				}
+	
+			}
+			else {
+				capture file open `file' using `"`r(arvfn)'"' , read text
+			}
+		}
+	}
+	else {
+		capture findfile scheme-`scheme'.scheme
+		if (_rc) capture findfile `scheme'.scheme
+		capture file open `file' using `"`r(fn)'"' , read text
+	}
+	
+	if _rc { 
+		local default = cond(`naturallywhite' , "s2color" , "s1rcolor")
+		di in white in green 					///
+			"(note: scheme `scheme' not found, using `default')"
+		capture noisily .setscheme , scheme(`default')
+		if _rc {
+			di in white as result 				///
+			   "(note: default scheme `scheme' not found, ignored)"
+		}
+		exit
+	}
+	
+	file read `file' line
+	while r(eof) == 0 {
+		local line : subinstr local line "`=char(009)'" " " , all
+		tokenize `"`line'"'
+		args style id stylename
+
+		if `"`style'"' == `"#include"' {
+			.setscheme , scheme(`id')		// #include
+			file read `file' line
+			continue
+		}
+
+		if `"`style'"' != `"*"' & `"`style'"' != `"//"' & 	///
+		   `"`style'"' != `""'  & `"`style'"' != `"*!"' &	///
+		   `"`style'"' != `"sequence"' & `"`style'"' != `"label"' {
+
+			if "`.Local.`style'.isa'" == "" {
+				capture .Declare `style' = .null.new
+				if _rc { 
+					._badline `line' 
+				}
+			}
+
+			if "`stylename'" == "" { 
+				local stylename `id'
+				local id _default 
+			}
+
+			if "`.Local.`style'.`id'.isa'" == "" {
+				capture .`style'.Declare `id' = "`stylename'"
+				if _rc { 
+					._badline `line' 
+				}
+			}
+			else {
+				.`style'.`id' = "`stylename'"
+			}
+//			else	._dupline `line'
+		}
+
+		file read `file' line
+	}
+	file close `file'
+
+	.scheme_name = "`scheme'"
+
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*  Declares an instance of a named style and associates it with the scheme
+    c(curscm) if the named style does not already exist in the scheme.
+    Used when replaying a scheme from a log.
+*/
+
+program define decl_style
+	args stylecls stylenm
+
+	local dex 0`.`stylecls'._styles.arrindexof `stylenm''
+	if "`.`stylecls'._refs[`dex'].isa'" != "" {
+		exit						/* EXIT */
+	}
+
+	tempname tstyle				/* it will remain in _refs */
+	capture noisily {
+		.`tstyle' = .Global.`stylecls'.new, style(`stylenm')
+	}
+	local rc = _rc
+	exit `rc'
+
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*  Edits a named style in the current scheme.
+*/
+
+program define style_edit
+
+	local prse : display _char(1)
+	gettoken stylecls  0 : 0
+	gettoken style     0 : 0
+	gettoken attrib      : 0 , parse(`prse')
+
+	tempname tstyle			/* edits will remain in the _refs */
+	capture noisily  {
+		.`tstyle' = .Global.`stylecls'.new , style(`style')
+		.`tstyle'.`attrib'`edit'
+	}
+	local rc = _rc
+	exit `rc'
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*  Declares a copy of the named style in the named style class in the scheme.
+    Pushes a copy of this declaration onto the scheme log.
+*/
+program define declare_style
+	args styleclass stylenm
+
+						/* declare class if needed */
+	if "`.`styleclass'.isa'" == "" {
+		.Declare `styleclass' = .Global.null.new
+		.__LOG.Arrpush .styles.Declare `styleclass' = .Global.null.new
+	}
+
+						/* declare style if needed */
+	if "`.`styleclass'.`stylenm'.isa'" == "" {
+		.`styleclass'.Declare					/*
+		     */ `stylenm' = .Global.`styleclass'.new, style(`stylenm')
+		.__LOG.Arrpush .`styleclass'.Declare			/*
+		     */ `stylenm' = .Global.`styleclass'.new, style(`stylenm')
+	}
+end
+
+program define _badline
+	di as error `"invalid line in scheme `.scheme_name',"'
+	di `"`0'"'
+	exit 9999
+end
+
+program define _dupline
+	di as error `"duplicate definition in scheme `.scheme_name',"'
+	di `"`0'"'
+	exit 9999
+end
+
+
+// ---------------------------------------------------------------------------
+
+program list_styles
+	args class style fh
+
+	if "`class'" == "." {
+		._list_by_style `style' `fh'
+	}
+	else {
+		if "`style'" == "." {
+			._list_all_styles_for_class `class' `fh'
+		}
+		else {
+			if index("`style'", "#") == 0 {
+				._list1 `class' `style'
+			}
+			else	._list_numbered `class' `style'
+		}
+	}
+
+end
+
+program _list_by_style
+	args style fh
+
+	forvalues i = 1/0`.dynamicmv.arrnels' {
+		class nameoflocal dynamicmv[`i']
+		if "`style'" == "." {
+			_list_all_styles_for_class `r(name)' `fh'
+		}
+		else {
+			if index("`style'", "#") == 0 {
+				._list1 `r(name)' `style'
+			}
+			else	._list_numbered `r(name)' `style'
+		}
+	}
+end
+
+program _list_all_styles_for_class 
+	args class fh
+
+	forvalues i = 1/0`.`class'.dynamicmv.arrnels' {
+		class nameoflocal `class'.dynamicmv[`i']
+		._list1 `class' dynamicmv[`i']		
+	}
+end
+
+program _list_numbered
+	args class style fh
+
+	gettoken pre   rest : style , parse(#)
+	gettoken pound ext  : rest , parse(#)
+
+	forvalues i = 1/15 {
+		._list1 `class' `pre'`i'`ext'
+	}
+end
+
+program _list1
+	args class style fh
+
+	if `"`.`class'.`style''"' == `""'  exit
+
+	di `"`class' `style' `.`class'.`style''"'
+end
+

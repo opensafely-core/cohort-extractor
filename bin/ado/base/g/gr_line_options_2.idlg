@@ -1,0 +1,145 @@
+/*
+  gr_line_options_2.idlg 
+  	-- graph options for a reference line and other line plot graphs
+  	-- This is a complete tab
+
+*!  VERSION 1.0.0  15apr2019
+	*****
+	    DO NOT change the name of this tab (line_options_2). The name is called
+	    from other files to alter the tab title.
+	*****
+
+	SCRIPTS and PROGRAMS for external use
+		* SCRIPT gr_line_options_2_disable
+		* SCRIPT gr_line_options_2_enable
+		* PROGRAM gr_line_options_2_output
+		* gr_line_options_2.settabtitle "SOME TITLE"
+		* gr_line_options_2_optionName.setstring "THE OPTION NAME TO OUTPUT"
+*/
+
+SCRIPT gr_line_options_2_PREINIT
+BEGIN
+	create STRING gr_line_options_2_optionName
+END
+
+DEFINE _clwd	15
+DEFINE _wd	140
+DEFINE _sep	+145
+DEFINE _cbwd	130
+DEFINE _cbsep	+135
+
+DIALOG gr_line_options_2, tabtitle(resource LBL_LINE_OPTIONS)
+BEGIN
+  TEXT     tx_clr	_lft	20	_wd	.,		///
+	label(resource LBL_COLOR) right
+  COMBOBOX cb_clr	_sep	@	_cbwd	.,		///
+	dropdownlist contents(colors) option(lcolor)		///
+	onselchangelist(line_options_2_cl_clr_sel)
+  COLOR    cl_clr	_cbsep	@	_clwd	., option(lcolor)
+  TEXT     tx_opacity	_lft	_mls	_wd	.,		///
+	label(resource LBL_OPACITY) right
+  SPINNER sp_opacity	_sep	@	_spwd	.,		///
+	default(100)						///
+	min(0)							///
+	max(100)
+
+  TEXT     tx_width	_lft	 _mls	_wd	.,		///
+	label(resource LBL_WIDTH) right
+  COMBOBOX cb_width	_sep	@	_cbwd	.,		///
+	dropdown option(lwidth)					///
+	contents(linewidths)
+
+  TEXT     tx_pattern	_lft	_mls	_wd	.,		///
+	label(resource LBL_PATTERN) right
+  COMBOBOX cb_pattern	_sep	@	_cbwd	.,		///
+	dropdownlist option(lpattern)				///
+	contents(linepatterns) 	
+	
+  TEXT     tx_type	_lft	_mls	_wd	.,		///
+	label(resource LBL_CONNECTING_METHOD) right
+  COMBOBOX cb_type	_sep	@	_cbwd	.,		///
+	dropdownlist option(connect)				///
+	contents(connecttypes)
+END
+
+SCRIPT gr_line_options_2_disable
+BEGIN
+	gr_line_options_2.tx_clr.disable
+	gr_line_options_2.cb_clr.disable
+	gr_line_options_2.cl_clr.disable
+	gr_line_options_2.tx_opacity.disable
+	gr_line_options_2.sp_opacity.disable
+	gr_line_options_2.tx_width.disable
+	gr_line_options_2.cb_width.disable
+	gr_line_options_2.tx_pattern.disable
+	gr_line_options_2.cb_pattern.disable	
+	gr_line_options_2.tx_type.disable
+	gr_line_options_2.cb_type.disable
+END
+
+SCRIPT gr_line_options_2_enable
+BEGIN
+	gr_line_options_2.tx_clr.enable
+	gr_line_options_2.cb_clr.enable
+	gr_line_options_2.cl_clr.enable
+	gr_line_options_2.tx_opacity.enable
+	gr_line_options_2.sp_opacity.enable
+	gr_line_options_2.tx_width.enable
+	gr_line_options_2.cb_width.enable
+	gr_line_options_2.tx_pattern.enable
+	gr_line_options_2.cb_pattern.enable	
+	gr_line_options_2.tx_type.enable
+	gr_line_options_2.cb_type.enable
+END
+
+LIST line_options_2_cl_clr_sel
+BEGIN
+	gr_line_options_2.cl_clr.hide
+	gr_line_options_2.cl_clr.show
+	gr_line_options_2.cl_clr.hide
+END
+
+PROGRAM line_options_2_output_wrk
+BEGIN
+	if (gr_line_options_2.cb_clr.isneq("") | gr_line_options_2.sp_opacity.isneq(100)) {
+		put "lcolor("
+		if (gr_line_options_2.cb_clr.iseq("custom")) {
+			put `"""' main.cl_clr
+			if (gr_line_options_2.sp_opacity.isneq(100)) {
+				put " %" gr_line_options_2.sp_opacity
+			}
+			put `"""'
+		}
+		else {
+			if (gr_line_options_2.cb_clr.isneq("")) {
+				put gr_line_options_2.cb_clr
+			}
+			if (gr_line_options_2.sp_opacity.isneq(100)) {
+				put "%" gr_line_options_2.sp_opacity
+			}
+		}
+		put ")"
+	}
+	optionarg /hidedefault gr_line_options_2.cb_width
+	optionarg /hidedefault gr_line_options_2.cb_pattern
+	optionarg /hidedefault gr_line_options_2.cb_type
+END
+
+PROGRAM gr_line_options_2_output
+BEGIN
+	if ! gr_line_options_2.tx_clr.isenabled() {
+		exit
+	}
+	if gr_line_options_2.cb_clr | gr_line_options_2.cb_width 		///
+		| gr_line_options_2.sp_opacity.isneq(100)			///
+		| gr_line_options_2.cb_pattern | gr_line_options_2.cb_type 	///
+	{
+		if gr_line_options_2_optionName {
+			put gr_line_options_2_optionName "("
+		}
+		put /program line_options_2_output_wrk
+		if gr_line_options_2_optionName {
+			put ") "
+		}
+	}
+END

@@ -1,0 +1,110 @@
+//                                 twoway_ipoint_parse
+//
+//   A parser for adding immediate points.  Works with twoway.ado.
+
+*! version 1.0.1  08feb2019
+
+version 8
+
+class {
+	ptlist = ""
+} , inherit(twoway_bar_parse)
+
+
+// ---------------------------------------------------------------------------
+
+program parse
+	.must_create_serset = 1
+
+	.viewtype = "scatter"
+	.allow_anything = 1				// side signal
+	.n = 1						// number of plots
+
+	.Super.parse `0'
+
+	if `"`.wtype'"' != "" {
+		di as error "weights not allowed"
+		exit 198
+	}
+
+
+							// process points
+	local pts `"`.anything'"'
+	gettoken y pts : pts
+	gettoken x pts : pts
+
+	while `"`x'"' != `""' {
+		capture numlist "`x' `y'" , max(2) min(2)	// x-y point
+		if _rc {
+			di as error `"invalid point, `x' `y'"'
+			exit 198
+		}
+							// optional position
+		gettoken pos pts : pts , match(pfnd) quotes
+		if "`pfnd'" != "" {
+			capture numlist "`pos'" , max(1) min(1) range(>=0 <=12)
+			if _rc {
+				di as error `"invalid position, `pos'"'
+				exit 198
+			}
+			gettoken txtq pts : pts , quotes
+			.posnm = "position"
+		}
+		else {
+			local txtq `"`pos'"'
+			local pos .
+		}
+
+		gettoken txt : txtq			// optional text label
+		if `"`txt'"' == `"`txtq'"' {
+			local ynxt `txt'
+			local txt
+		}
+		else {
+			.labvars[1] = "label"
+			gettoken ynxt pts : pts
+		}
+
+		local ptlist `"`ptlist' `"`y' `x' "`pos'" `"`txt'"'"'"'
+
+		local    y `"`ynxt'"'
+		gettoken x pts : pts
+	}
+
+	.ptlist = `"`ptlist'"'
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*
+	Creates a new serset and the view and returns its reference.
+	Assumes that the data in memory is the same as when parse was called.
+
+	Allows a touse(varname) option that further restricts the sample, 
+	restricts beyond the held .if and .in
+
+	Additional options to the .serset.new command may be specified, but
+	this is unlikely to be necessary.
+
+	If must_create_serset == 1, then this command MUST be used, 
+	otherwise the serset may be created by other means.
+*/ 
+
+program log_create_serset
+
+	syntax , LOG(name) SERSETNAME(string) [ TOUSE(passthru) * ]
+
+	.varlist = "y x `.posnm' `.labvars[1]'"
+
+	.`log'.Arrpush __NOLOG__ twoway__ipoint_serset `.ptlist' ,	///
+		x(x) y(y) pos(`.posnm') lbl(`.labvars[1]')		///
+		sersetname(`sersetname')
+
+	.`log'.Arrpush .`sersetname'.isa	// trick to make _fr_runlog
+						// place mapping statement
+						// into permanent log.
+
+	.wtype = ""			// so .Super.log_create_view will
+	.wtexp = ""			// not try to add weight to serset
+end
+

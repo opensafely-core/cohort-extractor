@@ -1,0 +1,171 @@
+/*
+  xtfrontier
+
+*!  VERSION 1.4.2  29nov2018
+
+  keyword:  eclass
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE _ht330
+INCLUDE header
+
+HELP hlp1, view("help xtfrontier")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	script se_createAsOIMJknifeBstrap
+	setscale_hadj resource XTFRONTIER_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script max_setDefaultDifficult
+	script se_setCluster_off
+	script se_setTitleSE
+END
+
+SCRIPT show_xtset
+BEGIN
+	create STRING note
+	note.setvalue resource XTFRONTIER_TIME_VARYING_DECAY_MODEL
+	note.append   resource XTFRONTIER_TIME_VAR_MUST_BE_SPEC
+	note.withvalue create CHILD xtset, message(`"" " `"@"'"')
+END
+
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)				///
+	label(resource XTFRONTIER_DLG_TITLE)
+BEGIN
+  BUTTON   bu_xtset	_xsetbu	_top	_setbuwd .,			///
+	onpush(script show_xtset)					///
+	label(resource LBL_BU_PANEL_SETTINGS)
+
+  TEXT tx_dv 		_lft	_topph	_vnwd	.,			///
+	label(resource LBL_DEPVAR)
+  VARNAME vn_dv		@ 	_ss	@	.,			///
+	ts								///
+	numeric								///
+	label(resource LBL_DEPVAR)
+
+  TEXT tx_iv		_vlx	_topph	160	.,			///
+	label(resource LBL_INDDEPVAR)
+  VARLIST vl_iv		@	_ss	_vlwd	.,			///
+	fv ts								///
+	allowcat							///
+	numeric								///
+	label(resource LBL_INDDEPVAR)
+
+  CHECKBOX ck_nocons	@	_ms	@	.,			///
+	label(resource LBL_SUPPRESS_THE_CONSTANT_TERM)			///
+	option(noconstant)
+
+  GROUPBOX gb_dist	_lft	_ls	_iwd	_ht4,			///
+	label(resource LBL_DISTRIBUTION_OF_INEFFICIENCY_TERM)
+  RADIO    rb_ti	_ilft	_ss	_cwd2	.,			///
+	label(resource XTFRONTIER_MAIN_RB_TI) 				///
+	option(ti) first
+  RADIO    rb_tvd	@	_ss	@	.,			///
+	label(resource XTFRONTIER_MAIN_RB_TVD)				///
+	option(tvd) last
+
+  GROUPBOX gb_options	_lft	_xls	_iwd	_ht9, 		///
+	label(resource LBL_OPTIONS)
+
+  RADIO    rb_default	_ilft	_ss	_ibwd	.,			///
+	first								///
+	label(resource XTFRONTIER_MAIN_RB_DEFAULT)
+  RADIO    rb_cost	@	_ss	@	.,			///
+	last								///
+	label(resource XTFRONTIER_MAIN_RB_COST)				///
+	option(cost)
+  
+  DEFINE _x _ilft
+  DEFINE _y _ms
+  DEFINE _cx _ilw80
+  DEFINE _bux _islw80
+  INCLUDE _constraints
+  
+  DEFINE _x _ilft
+  DEFINE _xw _ibwd
+//  INCLUDE _ck_collinear
+END
+
+INCLUDE _constraints_sc 
+INCLUDE byifin
+INCLUDE weights_fi
+INCLUDE se
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+        program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _y _top
+  DEFINE _cx _spr2
+  INCLUDE _sp_level
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _nocnsreport
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+
+INCLUDE max_ml
+
+PROGRAM command
+BEGIN
+	put /program by_output " "
+	put "xtfrontier "
+	varlist main.vn_dv [main.vl_iv]
+	if !main.vl_iv & main.ck_nocons {
+		call create STRING _MSG_TMP
+                call _MSG_TMP.format					/// 
+			"resource LBL_MSGBOX_IS_SELECTED_WITHOUT_INDVARS_FMT" ///
+			"resource LBL_NOCONSTANT"
+		stopbox stop "class _MSG_TMP.value"
+// "Suppress constant term" is selected without independent variables.
+	}
+	put " " /program ifin_output
+	put " " /program weights_output
+	beginoptions
+		option main.ck_nocons
+		option radio(main rb_ti rb_tvd)
+		INCLUDE _constraints_main_pr
+//		option main.ck_collinear
+		option main.rb_cost
+		put " " /program se_output
+		optionarg /hidedefault rpt.sp_level
+		INCLUDE _nocnsreport_pr
+		INCLUDE _report_columns_pr
+		put " " rpt_bu_facvarsResults
+		put " " rpt_bu_fmtcoefResults
+		put " " /program max_output
+	endoptions
+END

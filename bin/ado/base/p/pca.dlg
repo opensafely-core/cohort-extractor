@@ -1,0 +1,162 @@
+/*
+	pca
+
+*!  VERSION 1.2.0  10nov2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE header
+
+HELP hlp1, view("help pca")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource PCA_DLG_HSCALE
+END
+
+DIALOG main, label(resource PCA_DLG_TITLE) tabtitle(resource LBL_TAB_MODEL)
+BEGIN
+  TEXT     tx_var		_lft	_top	_iwd	.,		///
+	label(resource LBL_VARIABLES)
+  VARLIST  vl_var		@	_ss	@	.,		///
+  	numeric								///
+	label(resource LBL_VARIABLES)
+END
+
+DIALOG model2, tabtitle(resource LBL_TAB_MODEL2)
+BEGIN
+  CHECKBOX ck_components	_lft	_top	_iwd	.,		///
+	label(resource LBL_MAXIMUM_NUMBER_OF_PRINCIPAL_COMPONENTS_TO_RETAIN)	///
+	onclickon(model2.sp_components.enable)				///
+	onclickoff(model2.sp_components.disable)
+  SPINNER  sp_components	_cksep	_ss	_spwd	.,		///
+	min(1) max(100000)						///
+	option(components)
+  CHECKBOX ck_mineigen		_lft	_ls	_iwd	.,		///
+  	onclickon(model2.en_mineigen.enable)				///
+  	onclickoff(model2.en_mineigen.disable)				///
+	label(resource LBL_MINIMUM_EIGENVALUE_TO_BE_RETAINED)
+  EDIT     en_mineigen	       _indent2	_ss	_en7wd	.,		///
+	option(mineigen) default(1e-5)					///
+	label(resource LBL_MINIMUM_EIGENVALUE_TO_BE_RETAINED)
+  CHECKBOX ck_covar		_lft	_ls	_iwd	.,		///
+	option(covariance)						///
+	label(resource LBL_USE_COVARIANCE_INSTEAD_OF_CORRELATION_MATRIX)
+  CHECKBOX ck_vce		@	_ms	@	.,		///
+	option(vce(normal))						///
+  	onclickon(program ck_vce_on)					///
+  	onclickoff(script ck_vce_off)					///
+	label(resource LBL_COMP_VCE_EIGENVALUES_VECTORS_ASSUMING_MULTIV_NORM)
+END
+
+INCLUDE byifin
+INCLUDE weights_fa
+
+PROGRAM ck_vce_on
+BEGIN
+	call report.sp_level.enable
+	call report.tx_level.enable
+	call report.ck_blanks.enable
+	if report.ck_blanks {
+		call report.en_blanks.enable
+		call report.tx_blanks.enable
+	}
+	call adv.en_tol.enable
+	call adv.tx_tol.enable
+	call adv.ck_ignore.enable
+END
+
+SCRIPT ck_vce_off
+BEGIN
+	report.sp_level.disable
+	report.tx_level.disable
+	report.ck_blanks.disable
+	report.en_blanks.disable
+	report.tx_blanks.disable
+	adv.en_tol.disable
+	adv.tx_tol.disable
+	adv.ck_ignore.disable
+END
+
+DIALOG report, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  CHECKBOX ck_blanks		_lft	_ls	_iwd	.,		///
+  	onclickon(script ck_blanks_on)					///
+  	onclickoff(script ck_blanks_off)				///
+	label(resource LBL_DIS_LOADINGS_BLANK_WHEN_ABSOLUTE_VALUE_LESS)
+  EDIT     en_blanks	       _indent2	_ss	_en7wd	.,		///
+	option(blanks)							///
+	label(resource LBL_ED_VALUE)
+  TEXT     tx_blanks		_spsep	@	_cksprb	.,		///
+	label(resource LBL_ED_VALUE)
+
+  CHECKBOX ck_novce		_lft	_ls	_iwd	.,		///
+	option(novce)							///
+	label(resource LBL_SUPPRESS_DISPLAY_OF_STAND_ERRORS_EVEN_IF_COMPUTED)
+  CHECKBOX ck_means		_lft	_ms	_iwd	.,		///
+	option(means)							///
+	label(resource PCA_REPORT_CK_MEANS)
+END
+
+SCRIPT ck_blanks_on
+BEGIN
+	report.en_blanks.enable
+	report.tx_blanks.enable
+END
+
+SCRIPT ck_blanks_off
+BEGIN
+	report.en_blanks.disable
+	report.tx_blanks.disable
+END
+
+DIALOG adv, tabtitle(resource LBL_ADVANCED)
+BEGIN
+  EDIT     en_tol		_lft	_top	_en7wd	.,		///
+	default(1e-5)							///
+	option(tol)							///
+	label(resource LBL_NUMERIC_TOLERANCE_RARELY_NEEDED)
+  TEXT     tx_tol		_spsep	@	_cksprb	.,		///
+	label(resource LBL_NUMERIC_TOLERANCE_RARELY_NEEDED)
+  CHECKBOX ck_ignore		_lft	_ls	_iwd	.,		///
+	option(ignore)							///
+	label(resource LBL_CONTINUE_COMPUTATION_OF_SE_AND_TESTS_RARELY_NEEDED)
+END
+
+PROGRAM command
+BEGIN
+	INCLUDE _by_pr
+	put "pca "
+	varlist main.vl_var
+	INCLUDE _weights_pr
+	INCLUDE _ifin_pr
+	beginoptions
+		if model2.ck_components {
+			optionarg model2.sp_components
+		}
+		if model2.ck_mineigen {
+			require model2.en_mineigen
+			optionarg /hidedefault model2.en_mineigen
+		}
+		option model2.ck_covar
+		option model2.ck_vce
+		optionarg /hidedefault report.sp_level
+		if report.ck_blanks {
+			require report.en_blanks
+			optionarg /hidedefault report.en_blanks
+		}
+		option report.ck_novce
+		option report.ck_means
+		optionarg /hidedefault adv.en_tol
+		option adv.ck_ignore
+	endoptions
+END

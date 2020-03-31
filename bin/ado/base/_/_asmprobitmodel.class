@@ -1,0 +1,91 @@
+*! version 2.0.2  01apr2019
+
+version 14
+
+class _asmprobitmodel {
+
+}, inherit(_altprobitmodel)
+
+program .oncopy
+
+	di as err "_asmprobitmodel.oncopy not implemented"
+	exit 498
+end
+
+program ._set 
+	if (`.version'>=14) local fv fv
+
+	syntax varlist(numeric `fv') [fw iw pw], touse(varname numeric) /// 
+		altern(varname) case(varname numeric) const(passthru) [	///
+		ifin(varname numeric)			///
+		CASEVars(varlist numeric `fv')		///
+		altwise					///
+		COLlinear				///
+		* ]
+
+	.deptype = "binary"
+
+	._presetvalidate `varlist', touse(`touse') case(`case')           ///
+		altern(`altern') casevars(`casevars') `const' `collinear' ///
+		`altwise' ifin(`ifin') 
+
+	local casevars `r(casevars)'
+	local varlist `r(varlist)'
+
+	.Super._set `varlist' [`weight'`exp'], touse(`touse') case(`case') ///
+		altern(`altern') casevars(`casevars') `const' `collinear'  ///
+		`options'
+
+	.mltouse = ._numericvar.new byte 0
+	qui replace `.mltouse.varname' = (`.dep'==1) if `touse'
+end
+
+program .initest
+	syntax, b(name) [ cmat(passthru) trace ]
+
+	.Super.initest, b(`b') `cmat' `trace' call(clogit) nrtol(0.01)
+
+	if !`.cov.structural' & `.cov.vscale' != 1 {
+		mat `b' = `b'*sqrt(`.cov.vscale')
+	}
+end
+
+program .eretpost, eclass
+
+	.Super.eretpost
+
+	._alternstats `.dep', type(binary)
+	tempname mat
+	mat `mat' = r(stats)
+
+	ereturn matrix stats = `mat'
+end
+
+program .eretget
+	syntax, touse(varname numeric) [ markout(string) * ]
+
+	.deptype = "binary"
+	._eretmarkout `touse', `markout' `options' 
+
+	.Super.eretget, touse(`touse') `options'
+end
+
+program .predscores, rclass
+	syntax newvarlist, b(passthru) 
+
+	.mltouse = ._numericvar.new byte 0
+	qui replace `.mltouse.varname' = (`.dep'==1) if `.touse'
+
+	.Super.predscores `typlist' `varlist', `b' `options'
+end
+
+program .summary
+
+	di _n "_asmprobitmodel:"
+
+	.Super.summary
+end
+
+exit
+
+

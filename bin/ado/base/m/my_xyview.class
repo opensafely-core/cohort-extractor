@@ -1,0 +1,132 @@
+/*                                 my_xyview
+
+	Example of how to create a user-defined twoway view and integrate it
+	into the twoway command and gui.
+
+	This particular example adds two different view types.
+
+	See also, twoway_smileys_parse.class and twoway_triangles_parse.class
+	that are required to add my_xyview to the view recognized by
+	twoway.ado.
+*/
+*! version 1.0.1  01apr2005
+
+version 8
+
+class {
+} , inherit(xyview)				// inherit from desired view
+
+
+//--------------------------------------------------------------------------
+//  Must add the two new view types, smileys and triangles, to the set of
+//  available types so they will appear in the gui.
+
+program new
+
+	if 0`.type.codeof smileys' == 0 {
+		.type.add smileys
+	}
+	if 0`.type.codeof triangles' == 0 {
+		.type.add triangles
+	}
+
+	.Super.new `0'				// must run xyview.new
+
+	if "`.type.setting'" == "smileys" {
+				// co-opt the style of the view to fit 
+				// the nefarious needs of drawing a face.
+		.style.symbol.symbol.setstyle, style(circle)
+		.style.symbol.size.setstyle, style(huge)	// draw 
+
+		.style.symbol.backsymbol.setstyle, style(circle)
+		.style.symbol.backsize.setstyle,   style(tiny)
+	}
+end
+
+
+//--------------------------------------------------------------------------
+//  Handle drawing for our two new view types, otherwise let xyview do the
+//  drawing.
+
+program draw
+
+	.serset.set					// make serset current
+
+	if "`.type.setting'" == "smileys" {
+		._draw_smileys
+	}
+	else if "`.type.setting'" == "triangles" {
+		._draw_triangles
+	}
+	else {
+		.Super.draw
+	}
+end
+
+
+//--------------------------------------------------------------------------
+//  Render smiley faces
+//
+program _draw_smileys
+
+/*
+	if "`.style.symbol.symbol.setting'" != "none" {
+		.style.symbol.setgdifull			// symbols 
+		gdi scatter `.serset.id' `.xvar' `.yvar'	// for heads
+	}
+*/
+
+					// loop over obs and draw face
+	forvalues j = 1/`:serset N' {
+		_smile_at `.X `j''  `.Y `j''
+	}
+
+end
+
+program _smile_at
+	args x0 y0
+
+	local xtrans = `.style.symbol.size.val' * `gdi(gbeta)' / `gdi(xbeta)'
+	local ytrans = `.style.symbol.size.val' * `gdi(gbeta)' / `gdi(ybeta)'
+
+	.style.symbol.setgdifull				// symbols 
+	gdi point `x0' `y0'					// for heads
+
+	.style.symbol.setgdifull, back		// backing symbol for eyes/nose
+
+	local y = `y0' + .2 * `ytrans'
+	gdi point `=`x0'-.22*`xtrans'' `y'			// eyes
+	gdi point `=`x0'+.22*`xtrans'' `y'
+
+	// gdi symbol = diamond					// nose
+	gdi point `x0' `y0'
+
+	local y = `y0' - .27 * `ytrans'				// smile
+	local w = .25 * `xtrans'
+
+	gdi line `=`x0'-`w''   `=`y'+.1*`ytrans'' `=`x0'-`w'/2' `y'
+	gdi line `=`x0'-`w'/2' `y'                `=`x0'+`w'/2' `y'
+	gdi line `=`x0'+`w'/2' `y' `=`x0'+`w''    `=`y'+.1*`ytrans''
+end
+
+//--------------------------------------------------------------------------
+//  Render triangles
+program _draw_triangles
+
+	.style.shade.setgdifull				// fill style
+	.style.connecting_line.setgdifull		// line style
+
+	forvalues j = 1(3)`:serset N' {
+		local j1 = `j' + 1
+		local j2 = `j' + 2
+		local j3 = `j' + 3
+		if `j1' <= `:serset N' {
+			gdi line `.X `j''  `.Y `j''  `.X `j1'' `.Y `j1''
+		}
+		if `j2' <= `:serset N' {
+			gdi line `.X `j1'' `.Y `j1'' `.X `j2'' `.Y `j2''
+			gdi line `.X `j2'' `.Y `j2'' `.X `j''  `.Y `j''
+		}
+						// ?? change to fill connects
+	}
+end

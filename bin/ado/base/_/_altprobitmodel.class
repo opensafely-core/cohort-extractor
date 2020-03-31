@@ -1,0 +1,1357 @@
+*! version 2.0.9  05dec2019
+
+version 14
+
+class _altprobitmodel {
+	instance:
+		_altcovmatrix cov
+		double cholesky
+		double antithetics
+		double pivlev
+		double imeth
+		double ifast
+		double intburn
+		double intpoints
+		string seed
+		string rngstate
+		double scale
+		_numericvar mltouse
+
+		/* rank or binary					*/
+		string deptype
+
+		/* a-s score variables					*/
+		array scas
+		/* c-s score variables					*/
+		array sccs
+}, inherit(_altdepmodel)
+
+program .oncopy
+
+	di as err "_altprobitmodel.oncopy not implemented"
+	exit 498
+end
+
+program .desctructor
+
+	cap mata: mata drop _mprobit_panel_info
+end
+
+program ._set
+	syntax varlist(numeric fv) [fw iw pw], touse(varname numeric) /// 
+		altern(varname) case(varname numeric) [	///
+		const(passthru)				///
+		CASEVars(varlist numeric fv)		///
+		base(string)				///
+		scale(string)				///
+		CORRelation(passthru)			///
+		STDdev(passthru)			///
+		STRUCtural				///
+		FACTor(passthru)			///
+		INTMethod(string)			///
+		INTPoints(integer 0)			///
+		INTBurn(integer 0)			///
+		INTSeed(string) 			///
+		ANTIthetics				///
+		noPIVot					///
+		favor(string)				///
+		NOPREserve				///
+		TRace					///
+		COLlinear				///
+		CM ]
+
+	qui findfile _probitmodel_macros.ado
+	qui include `"`r(fn)'"'
+
+	tempname cobj fobj
+
+	/* _altdepmodel will reconstruct .altern			*/
+	`.vv' ///
+	.altern = ._alternvar.new `altern' if `touse'
+
+	/* make sure base scale alternative is valid			*/
+	if "`scale'" != "" {
+		.altindex `"`scale'"'
+		.scale = `r(index)'
+		local scopt scale(`.scale')
+	}
+	if "`base'" != "" {
+		.altindex `"`base'"'
+		.base = `r(index)'
+		local bopt base(`.base')
+	}
+	if `.scale'<. & `.scale'==`.base' {
+		di as error "{bf:scalealternative()} cannot equal the " ///
+		 "{bf:basealternative()}"
+		exit 459	
+	}
+
+	/* construct covariance object					*/
+	if ("`factor'" != "") local alt fac
+	else local alt alt
+
+	if "`cm'" != "" {		// CM, free parameters
+		local fpopt freeparm
+	}
+	.cov = ._`alt'covmatrix.new, nalt(`.altern.k') `correlation' ///
+		`stddev' `structural' `factor' `bopt' `scopt' `fpopt'
+
+	/* base and scale using mprobit rules				*/
+	.base = `r(base)'
+	.scale = `r(scale)'
+	.cholesky = `r(cholesky)'
+	if `.base' < . {
+		/* pass base alternative thru to base class 		*/
+		local bopt `"base(`"`:label `.altern.varname' `.base''"')"'
+	}
+
+	.`cobj' = ._numericvar.new double `case' if `touse'
+
+	.Super._set `varlist' [`weight'`exp'], touse(`touse')       ///
+		altern(`altern') case(`cobj') byaltvars(`casevars') ///
+		`const'  `collinear' `bopt' `altwise' 
+
+	if "`cm'" != "" {		// CM, free parameters
+		.mversion = `PROBIT_VERSION_CM_BASE'
+		if `.version' < 16 {
+			.version = 16	// CM, first version
+		}
+	}
+	else if `.version' <= 10.1 {	// AS, e(opt) == "ml"
+		.mversion = `PROBIT_VERSION_AS_ML'
+	}
+	else {
+		/* AS, e(opt) == "moptimize"				*/
+		.mversion = `PROBIT_VERSION_AS_MOPT'
+		if `.version' >= 16 {
+			.version = 15.1	// AS, last version
+		}
+	}
+
+	if `.altern.k' > 20 {
+		di as error "{p}there are `.altern.k' alternatives in " ///
+		 "{bf:`.altern.variable'}; the maximum number of " ///
+		 "alternatives is 20{p_end}"
+		exit 149
+	}
+	if `.ncase' <= 10*(`.kanc'+`.kcoef') {
+		if `.ncase' <= `.kanc'+`.kcoef' {
+			di as error "{p}there are only `=`.ncase'' " ///
+			 "cases to estimate `=`.kanc'+`.kcoef'' parameters" ///
+			 "{p_end}"
+			exit 2001
+		}
+		di in gr "{p 0 6 2}note: there are only `=`.ncase'' " ///
+		 "cases to estimate `=`.kanc'+`.kcoef'' parameters{p_end}"
+	}
+
+	.antithetics = ("`antithetics'"!="") 
+	if ("`pivot'"=="") .pivlev = cond(_caller()<=10,2,1)
+	else .pivlev = 0 
+
+	if ("`intmethod'"=="") .imeth = 2
+	else {
+		local lmth = length("`intmethod'")
+/****************************************************************************/
+if ("`intmethod'"==bsubstr("halton",1,max(3,`lmth'))) .imeth = 1
+else if ("`intmethod'"==bsubstr("hammersley",1,max(3,`lmth'))) .imeth = 2
+else if ("`intmethod'"==bsubstr("random",1,max(3,`lmth'))) .imeth = 3
+else {
+	di as error "{p}option {bf:intmethod()} must specify halton, " ///
+	 "hammersley, or random{p_end}" 
+	exit 198
+}
+/****************************************************************************/
+	}		
+	/* default favoring speed					*/
+	_favor_parse, speed: `favor'
+	local favor `s(favor)'
+	.ifast = 1
+
+	local nalt = `.altern.k'
+	if `nalt' <= 2 {
+		.intpoints = 0
+		.intburn = 0
+	}
+	else {
+		if ("`favor'"=="space") .ifast = 0
+
+		.intpoints = `intpoints'	
+		if `.intpoints' < 0 {
+			di as error "{bf:intpoints()} must be greater than 0"
+			exit 198
+		}
+		if `.intpoints' == 0 {
+			/* number of points in the sequence */
+                        if ("`cm'" != "") {
+                                syntax varlist(numeric fv) [fw iw pw]       ///
+                                       [ , const(string) * ]
+                                fvexpand `varlist' 
+                                local asvars `"`r(varlist)'"'
+                                gettoken depv asvars : asvars
+                                fvexpand `casevars'
+                                local csvars `"`r(varlist)'"'
+                                tempname aomat comat
+                                local nba : list sizeof asvars
+                                local nbc : list sizeof csvars
+                                if (`nba' > 0) {
+                                        mat `aomat' = J(1,`nba',.)
+                                        mat colnames `aomat' = `asvars'
+                                        _ms_omit_info `aomat'
+                                        local navar  = `nba' - `r(k_omit)'
+                                }
+                                else local navar 0
+                                if (`nbc' > 0) {
+                                        mat `comat' = J(1,`nbc',.)
+                                        mat colnames `comat' = `csvars'
+                                        _ms_omit_info `comat'
+                                        local ncvar  = `nbc' - `r(k_omit)'
+                                }
+                                else local ncvar 0
+                                local ncons  = `const'*(`nalt'-1)
+                                local ncoefs = (`nalt'-1)*`ncvar' +         ///
+                                               `ncons' + `navar'
+                                local nvarp  = (`nalt'-1)*(`nalt'-2)/2 +    ///
+                                               (`nalt'-2)
+                                local intp   = ceil(500+2.5*sqrt(`.ncase')* ///
+                                               sqrt(ln(`ncoefs'+5)+`nvarp'))
+                                if (`.imeth'==3) .intpoints  = 2*`intp'
+                                else .intpoints = `intp'
+                        }
+                        else {
+			        if (`.imeth'==3) .intpoints  = 100*`nalt'
+			        else .intpoints = 50*`nalt'
+                        }
+		}
+		if `intburn' < 0 {
+			di as error "{bf:intburn()} must be greater than 0"
+			exit 198
+		}
+		else if `intburn'>0 & `.imeth'==3 {
+			di as error "{bf:intburn()} cannot be used with " ///
+			 "intmethod(random)"
+			exit 198
+		}
+	}
+
+	if ("`intseed'" == "") .seed = "`c(seed)'"
+	else if (`.imeth' == 3) .seed = "`intseed'"
+	else {
+		di as error "{p}{bf:intseed()} is not allowed when " ///
+		 "specifying the Halton or Hammersley sequences{p_end}"
+		exit 184
+	}
+	
+	.intburn = `intburn'
+
+	/* make sure we reconstruct the panel info object		*/
+	cap mata: mata drop _mprobit_panel_info
+	/* make sure we reconstruct the simulation points (favor speed)	*/
+	cap mata: mata drop _mprobit_P
+end
+
+program ._presetvalidate, rclass
+	syntax varlist(min=1 numeric fv), touse(varname numeric)       ///
+		case(varname numeric) altern(varname) const(integer) [ ///
+		collinear ifin(passthru) casevars(varlist numeric fv) altwise ]
+
+	.Super._presetvalidate `varlist', touse(`touse') case(`case')     ///
+		altern(`altern') byaltvars(`casevars') `ifin' `altwise'
+
+	gettoken dep indep0 : varlist
+
+	_fv_check_depvar `dep'
+
+	if "`.deptype'" == "binary" {
+		/* assert one selection per case			*/
+		._markoutbindep `dep', case(`case') touse(`touse') oneonly
+	}
+	if "`collinear'" == "" { 
+		._rmcollin `varlist', touse(`touse') byaltvars(`casevars')
+
+		local casevars  `r(byaltvars)'
+		local varlist `r(varlist)'
+		return add
+		return local casevars `casevars'
+	}
+	else {
+		`return local varlist `varlist'
+		return local casevars `casevars'
+	}
+	local nvar: word count `varlist'
+	local ncv: word count `casevars'
+	/* includes depvar						*/
+	if `nvar'+`ncv'+`const' == 1 {
+		di as error "too few variables specified"
+		exit 102
+	} 
+end
+
+program .evaluate, rclass
+	syntax newvarlist(min=1 max=1), b(name) [ todo(integer 0) ///
+		ranked(integer 0) depvar(varname) ]
+
+	local lf `varlist'
+	local dp_dx = 4
+
+	local vv : di "version " %5.1f `.version' ":"
+	if (`.cholesky') {
+		.cov.evaluate, b(`b') cholesky
+		/* base pivoted to first index				*/
+		local ibase = 1
+	}
+	else {
+		.cov.evaluate, b(`b') 
+		local ibase = `.base'
+	}
+
+	if `r(bail)' {
+		/* force -ml- to do a step half 			*/
+		return local error 1
+		exit
+	}
+	local R `.cov.matname'
+	if "`r(factor)'" != "" {
+		/* factor weights: V = I + C'C				*/
+		tempname C
+		mat `C' = r(C)
+	}
+	/* compute utilities 						*/
+	tempvar u
+	.evaleqs `u', b(`b')
+
+	qui gen double `lf' = 0.0 if `.touse'
+
+	/* go ahead and set the seed now 				*/
+	if (`.imeth' == 3) {
+		`.vv' set seed `.seed'
+		.rngstate = "`c(seed)'"
+	}
+
+	tempname err
+	scalar `err' = 0
+	local bal = (`.unbal'==0)
+	local imeth = `.imeth'
+	if (`.ifast' > 0) local imeth = 10 + `imeth'
+
+	/* margins uses todo==3 (dp_db) or todo==4 (dp_dx)		*/
+	if `todo' == 2 {
+		local todo = 1
+	}
+	else if `todo' == `dp_dx' {
+		if `.kascoef' > 0 {
+			tempname ba
+			mat `ba' = `b'[1,"`.altern.variable':"]
+		}
+		if `.kbacoef' {
+			tempname bc idba bb
+			local alt `.altern.varname'
+			local m = `.altern.k'
+			mat `idba' = vecdiag(`.idbacoef.matname'* ///
+				`.idbacoef.matname'')
+			local m1 = `m'-1
+			local kba = `.kbacoef'/`m1'
+			forvalues j=1/`m' {
+				if `idba'[1,`j'] == 0 {
+					/* no by-alternative equation	*/
+					mat `bc' = (nullmat(`bc') \ ///
+						J(1,`kba',0))
+					continue
+				}
+				local lev `.altern.labels[`j']'
+				mat `bb' = `b'[1,"`lev':"]
+				mat `bc' = (nullmat(`bc') \ `bb')
+			}
+		}
+	}
+	/* margins generates a depvar based on the outcome option	*/
+	if "`depvar'" == "" {
+		local depvar `.dep'
+	}
+	local store `.mltouse.varname'
+
+	mata: _mprobit_simulator("`depvar'","`u'","`.case.varname'",    ///
+		"`lf'","`.touse'","`store'",`"`.strvars'"',  		///
+		`"`.strasscrs'"',`"`.strbavars'"',`"`.strcsscrs'"',     ///
+		`.const',`"`.strancscrs'"',"`.altern.varname'",         ///
+		"`.cov.order.matname'","`.cov.matname'",`todo',         ///
+		`imeth',`.intpoints',`.intburn',`.antithetics',         ///
+		`.pivlev',`.cholesky',`bal',`ranked',`ibase',           ///
+		"`.cov.T.matname'","`C'","`err'")
+
+	return local error = `err' 
+end
+
+/* margins prediction							*/
+program ._margins_predict, sclass
+	syntax varlist(min=1 max=1) [iw], b(name) todo(integer)        ///
+			depvar(varname) outcome(integer) [ altidx(string) ///
+			j2op(string) j2xvar(varname) ]
+
+	tempvar pr
+	local dp_db = 3
+
+	.evaluate `pr', b(`b') todo(`todo') depvar(`depvar') 
+
+	local stripe : colfullnames `b'
+
+	/* calling routine initialized -varlist- to zero using -margins-
+	 *  estimation sample						*/
+	if `todo' == `dp_db' {
+		qui replace `varlist' = `pr' if `.touse'
+		label variable `varlist' "Pr(outcome==`outcome')"
+		exit
+	}
+
+	/* j2xvar could be a fvrevar/tsrevar tempvar			*/
+	._which_varlist, xvar(`j2xvar')
+	local asvar = `s(asvar)'
+	local bavar = `s(bavar)'
+	local xvar `s(xvar)'	// name of variable w/out fv/ts ops
+	if `s(omit)' {
+		local label `"d_Pr(outcome==`outcome')/d_`j2xvar'"'
+		if "`altidx'" != "" {
+			local altern `.altern.labels[`altidx']'
+			local label `"`label'(altern=`altern')"'
+		}
+		label variable `varlist' `"`label'"'
+		sreturn local omit = 1
+		exit
+	}
+
+	if `asvar' {
+		local scores `"`.strasscrs'"'
+	}
+	else if `bavar' {
+		/* single score variable; AS and CS score variable
+		 *  is identical					*/
+		local scores `"`.strcsscrs'"'
+	}
+	else  {
+		di as err "variable {bf:`j2xvar'} is not in the model"
+		exit 498
+	}
+	local altidx = real("`altidx'")
+	if !`bavar' {
+		if missing(`altidx') {
+			/* programmer error				*/
+			di as err "{p}option {bf:altidx(#)} required if " ///
+			 "an alternative-specific variable is specified in " ///
+			 "option {bf:`j2op'(`j2xvar')}{p_end}"
+			exit 498
+		}
+	}
+	local scores: list retokenize scores
+
+	if "`j2op'"=="eydx" | "`j2op'"=="eyex" {
+		if `altidx' != `outcome' {
+			/* pr is all zeros except at altern == outcome
+			 * fill pr with pr(altern==outcome)		*/
+			/* data sorted so estimation sample in
+			 *  contiguous block				*/
+			qui by `.sort_touse' `.case.varname' ///
+				(`.altern.varname'): ///
+				replace `pr' = sum(`pr') if `.touse'
+			qui by `.sort_touse' `.case.varname' ///
+				(`.altern.varname'): ///
+				replace `pr' = `pr'[_N] if `.touse' 
+		}
+	}
+	tempname dx
+	/* obtain d_xb/d_x						*/
+	_ms_dzb_dx `j2xvar', matrix(`b')
+	mat `dx' = r(b)
+
+	._score_dx `varlist', dx(`dx') pr(`pr') scores(`scores')            ///
+		j2op(`j2op') j2xvar(`j2xvar') asvar(`asvar') bavar(`bavar') ///
+		outcome(`outcome') altidx(`altidx')
+
+	sreturn local omit = 0
+end
+
+/* margins prediction							*/
+program .margins_predict
+	syntax newvarlist(min=1 max=1) [iw], b(name) outcome(integer)    ///
+			[ j1(name) j2(name) altidx(string) dydx(varname) ///
+			dyex(varname) eydx(varname) eyex(varname) ]
+
+	local dp_db = 3
+	local dp_dx = 4
+
+	tempvar depvar wt stouse
+
+	/* make sure we recreate a new panel info object		*/
+	cap mata: mata drop _mprobit_panel_info
+
+	/* Pr(choice == outcome)                                        */
+	qui gen int `depvar' = (`outcome'==`.altern.varname') if `.touse'
+	/* initialize -margins- estimation sample to zero before updating
+	 *  estimation sample to exclude cases without -outcome- or
+	 *  -altidx- alternatives					*/
+	qui gen double `varlist' = 0 if `.touse'
+
+	/* markout panels that do not have alternative == outcome
+	 * sort unused observations to the bottom			*/
+	._marg_markout_nochoice, depvar(`depvar') altidx(`altidx') ///
+		sort_touse(`stouse')
+
+	if "`.mltouse.varname'" == "" {
+		.mltouse = ._numericvar.new byte 0
+	}
+	qui replace `.mltouse.varname' = `depvar' if `.touse'
+
+	if "`j1'" != "" {
+		local todo = `dp_db'
+	}
+	else if "`j2'" != "" {
+		local todo = `dp_dx'
+
+		if "`dydx'" != "" {
+			local j2op dydx
+			local j2xvar `dydx'
+		}
+		else if "`dyex'" != "" {
+			local j2op dyex
+			local j2xvar `dyex'
+		}
+		else if "`eydx'" != "" {
+			local j2op eydx
+			local j2xvar `eydx'
+		}
+		else if "`eyex'" != "" {
+			local j2op eyex
+			local j2xvar `eyex'
+		}
+		else {
+			/* programmer error				*/
+			di as err "{p}one of {bf:dydx()}, {bf:dyex()}, " ///
+			 "{bf:eydx()}, or {bf:eyex()} required with " ///
+			 "option {bf:j2()}{p_end}"
+			exit 498
+		}
+		local margins margins
+	}
+	else {
+		/* programmer error					*/
+		di as error "{bf:j1()} or {bf:j2()} required"
+		exit 498
+	}
+	.genscvar, `margins'
+
+	._margins_predict `varlist', b(`b') todo(`todo') depvar(`depvar') ///
+		outcome(`outcome') altidx(`altidx') j2op(`j2op') ///
+		j2xvar(`j2xvar')
+
+	if `todo' == `dp_db' {
+		/* j1 will contain dp/db				*/
+		.scores [`weight'`exp'], g(`j1')
+
+		local stripe : colnames `b'
+		mat colnames `j1' = `stripe'
+		.sort_touse = ""	// going out of scope
+		exit
+	}
+	if `s(omit)' {
+		local k = colsof(`b')
+		local stripe : colfullnames `b'
+		mat `j2' = J(1,`k',0)
+		mat colnames `j2' = `stripe'
+		exit
+	}
+	if "`weight'" != "" {
+		local wopt [`weight'`exp']
+	}
+	if (1) {
+		/* compute second derivatives by hand and store in j2	*/
+		._margins_j2 `wopt', b(`b') j2(`j2') depvar(`depvar') ///
+			outcome(`outcome') altidx(`altidx') ///
+			j2xvar(`j2xvar') j2op(`j2op') todo(`todo')
+	}
+	else {
+		/* use Mata deriv() to compute second derivatives; takes
+		 *  about twice as long as the hand rolled version	*/
+		local options `"depvar(`depvar') outcome(`outcome')"'
+		local options `"`options' altidx(`altidx') j2xvar(`j2xvar')"'
+		local options `"`options' j2op(`j2op') todo(`todo')"'
+		tempname dx
+
+		/* obtain d_xb/d_x					*/
+		_ms_dzb_dx `j2xvar', matrix(`b')
+		mat `dx' = r(b)
+
+		mata: _cm_margins_j2(`"`.objkey'"',"`wopt'",`"`options'"', ///
+			"`b'","`j2'","`dx'")
+	}
+	.sort_touse = ""	// going out of scope
+end
+
+/* postestimation prediction						*/
+program .predict
+	syntax newvarlist(min=1 max=1), b(name)  [ v(name) opt(string) ]
+
+	local type : word 1 of `typlist'
+	if ("`opt'"=="") local opt pr
+
+	if bsubstr("`opt'",1,2) == "pr" {
+		/* make sure we recreate a new panel info object	*/
+		cap mata: mata drop _mprobit_panel_info
+		/* sort unused observations to the bottom		*/
+		sort `.case.varname' `.altern.varname'
+
+		tempvar p
+		.evaluate `p', b(`b') todo(-1) 
+		qui replace `p' = . if `.touse' == 0
+		qui gen `type' `varlist' = `p'
+		label variable `varlist' "Pr(`.altern.variable')"
+	}
+	else if "`opt'"=="xb" {
+		tempvar xb
+		.evaleqs `xb', b(`b')
+		qui gen `type' `varlist' =  `xb'
+		label variable `varlist' "Linear prediction"
+	}
+	else if "`opt'" == "stdp" {
+		if "`v'" == "" {
+			/* programmer error 				*/
+			di as err "variance-covariance matrix required"
+			exit 198
+		}
+		tempname R
+		.choleskyV, v(`v')
+		mat `R' = r(R)
+
+		tempvar stdp
+		.evalxRRx `stdp', r(`R')
+		qui gen `type' `varlist' = sqrt(`stdp') if `.touse'
+		label variable `varlist' "S.E. of the prediction"
+	}
+end
+
+program .predscores, rclass
+	syntax newvarlist, b(passthru) 
+
+	/* make sure we recreate a new panel info object		*/
+	cap mata: mata drop _mprobit_panel_info
+
+	/* sort unused observations to the bottom			*/
+	sort `.case.varname' `.altern.varname'
+ 
+	.Super.predscores `typlist' `varlist', `b'
+end
+
+program ._evalmfx, rclass
+	syntax, b(passthru) [ discrete vrank(varname numeric) ///
+		reverse(integer 0) * ]
+
+	tempvar eta deta
+	.evaleqs `eta', `b'  
+
+	local covtype = 0
+	if (`.cholesky') {
+		.cov.evaluate, `b' cholesky
+		local covtype = 1
+	}
+	else {
+		.cov.evaluate, `b' 
+		if "`r(factor)'" != "" {
+			tempname F
+			local covtype = 2
+			mat `F' = r(C)
+		}
+	}
+	local R `.cov.matname'
+
+	if `.kanc' > 0 {
+		local T `.cov.T.matname'
+		if (`.cholesky') mat `R' = `R'*`R''
+	}
+	if (`.imeth'==3) local seed `.seed'
+
+	local order `.cov.order.matname'
+	local struct `.cov.structure.matname'
+	local altern `.altern.varname'
+	local idba `.idbacoef.matname'
+	local kaltern = `.altern.k'
+	local kbavars = `.kbavars'
+	local kvars = `.kvars'
+
+	tempname a da A dA
+	if "`discrete'" == "" {
+		/* derivatives  					*/
+		if `kvars' > 0 {
+			tempname dx dxdb	
+			._d1_ascoef, `b'
+
+			/* d(Xb)/dx					*/
+			mat `dx' = r(dx)
+			/* d(Xb)/dx/db					*/
+			mat `dxdb' = r(dxdb)
+			local ada `dx' `dxdb'
+		}
+		if `kbavars' > 0 {
+			tempname dz dzda
+			._d1_bacoef, `b'
+
+			/* d(Za)/dz					*/
+			mat `dz' = r(dz)
+			/* d(Za)/dz/da					*/
+			mat `dzda' = r(dzda)
+			local AdA `dz' `dzda'
+		}
+		if `.kanc' > 0 {
+			._extract_anccoef, `b'
+
+			tempname anc
+			mat `anc'  = r(b)
+		}
+
+		mata: _mprobit_mfx("`eta'","`altern'","`vrank'","`R'",     ///
+			"`order'",`kaltern',`.kanc',`"`.strvars'"',        ///
+			`"`.strbavars'"',`.const', "`idba'","`T'",`.base', ///
+			`reverse',`.imeth',`.intpoints',`.intburn',        ///
+			`.antithetics',`covtype',"`seed'","`F'","`ada'",   ///
+			"`AdA'","`anc'")
+
+		local k_p = `r(k_p)'
+		/* must repost matrices?				*/
+		forvalues i=1/`k_p' {
+			tempname dpdx`i'
+			mat `dpdx`i'' = r(dpdx`i')
+			return matrix dpdx`i' = `dpdx`i''
+			if `kvars' > 0 {
+				tempname dgdb`i'
+				mat `dgdb`i'' = r(dgdb`i')
+				return matrix dgdb`i' = `dgdb`i''
+			}
+			if `kbavars' > 0 {
+				tempname dgda`i' 
+				mat `dgda`i'' = r(dgda`i')
+				return matrix dgda`i' = `dgda`i''
+			}
+		}
+		if "`vrank'" != "" {
+			tempname ranks 
+			mat `ranks' = r(ranks)
+			local np = colsof(`ranks')
+			/* pretty up ranks with colnames		*/ 
+			forvalues j=1/`=_N' {
+				local k = `.altern.varname'[`j']
+				local ai : label `.altern.varname' `k' 
+				local altrow `altrow' `ai'
+			}
+			mat rownames `ranks' = `altrow'
+			/* cache using generic name for ._altdepmodel	*/
+			return matrix outcome = `ranks'
+		}
+	}
+	else {
+		/* discrete change					*/
+		mata: _mprobit_mfx("`eta'","`altern'","`vrank'","`R'",     ///
+			"`order'",`kaltern',`.kanc',`"`.strvars'"',      ///
+			`"`.strbavars'"',`.const', "`idba'","`T'",`.base', ///
+			`reverse',`.imeth',`.intpoints',`.intburn',        ///
+			`.antithetics',`covtype',"`seed'","`F'")
+
+		local k_p = `r(k_p)'
+		/* must repost matrices?				*/
+		forvalues i=1/`k_p' {
+			tempname dgdb`i'
+			mat `dgdb`i'' = r(dgdb`i')
+			return matrix dgdb`i' = `dgdb`i''
+		}
+	}
+
+	if $MPROBIT_NUMDERIVERROR {
+		di as text "{p 0 6 2}note: one or more numeric derivatives " ///
+		 "failed; standard errors may be questionable{p_end}"
+	}
+
+	/* must repost matrices?					*/
+	tempname g pr
+	mat `g' = r(g)
+	return matrix g = `g'
+	mat `pr' = r(p)
+	return matrix p = `pr'
+
+	/* repost scalars						*/
+	return add
+end
+
+program ._mfxcallback, rclass
+	syntax, b(name)
+
+	mat colnames `b' = `.ancstripe'
+
+	tempname V
+	if `.cholesky' {
+		.cov.evaluate, b(`b') cholesky
+		mat `V' = `.cov.matname'
+		mat `V' = `V'*`V''
+	}
+	else {
+		.cov.evaluate, b(`b')
+		mat `V' = `.cov.matname'
+	}
+
+	return matrix V = `V'
+end
+
+/* generate ml covariate ancillary parameters				*/
+program .genancpar
+	syntax, [ noPERMute ]
+
+	if `.cholesky' & "`permute'"=="" {
+		/* permute base and scale to (1,1) and (2,2)		*/
+		.cov.permute, base(`.base') scale(`.scale')
+		local base = 1
+		local scale = 2
+	}
+	else {
+		local base = `.base'
+		local scale = `.scale'
+	}
+	/* differenced parameterization					*/
+	if (!`.cov.structural')	.cov.diffcov, base(`base') scale(`scale')
+
+	/* generate ancillary parameters				*/
+	.anc.ref = .cov.genanc, cholesky(`.cholesky')
+
+	/* generate matrix that maps (var,rho) -> vech(cov)		*/
+	.cov.genTmat
+end
+
+/* generate a stripe assuming covariance is structural			*/
+program .vparstripe
+
+	.anc.ref = .cov.genanc, stripe 
+	local stripe `r(stripe)'
+
+	class exit `"`stripe'"'
+end
+
+/* alternative-specific scores						*/
+/*  called by ._altdepmodel.scores					*/
+program .evalasscrs, rclass
+	syntax [newvarlist] [iw], [ g(name) ]
+
+	local kvars = `.kvars'
+	if `kvars' == 0 {
+		return scalar k = 0
+		exit
+	}
+	if `.scas.arrnels' != `kvars' {
+		/* programmer error 					*/
+		di as err "_altprobitmodel.evalasscrs; likelihood not " ///
+		 "evaluated using todo(1)"
+		exit 499
+	}
+	local kscrs : word count `varlist'
+	local bg = ("`g'"!="")
+	if (`kscrs'==0 & !`bg') {
+		/* programmer error 					*/
+		di as err "_altprobitmodel.evalasscrs; require either a " ///
+		 "varlist or the g() option"
+		exit 499
+	}
+	if `kscrs' > 0 {
+		if `kscrs' < `kvars' {
+			di as err "insufficient number of score variables"
+			exit 489
+		}
+		local scores `varlist'
+	}
+	else tempvar sc
+
+	if `bg' {
+		if "`weight'" != "" {
+			/* margins weights				*/
+			local wopt [`weight'`exp']
+		}
+		else if `bg' & "`.wtype'" != "" {
+			if ("`.wtype'"=="pweight") ///
+				local wopt [iweight=`.weight.varname']
+			else local wopt [`.wtype'=`.weight.varname']
+		}
+	}
+	local touse `.mltouse.varname'
+
+	forvalues i=1/`kvars' {
+		if `kscrs' > 0 {
+			local sc: word `i' of `scores' 
+			if "`sc'" == "" {
+				di as err `scerr'
+				exit 498
+			}
+			qui gen double `sc' = 0 if `.touse'
+			/* value if .mltouse				*/
+			qui replace `sc' = `.scas[`i'].varname' if `touse'
+		}
+
+		if `bg' {
+			summarize `.scas[`i'].varname' `wopt' if `touse', ///
+				meanonly
+			mat `g' = (nullmat(`g'),r(sum))
+		}
+	}
+	return scalar k = `kvars'
+end
+
+/* by-alternative (case-specific) scores 				*/
+/*  called by ._altdepmodel.scores					*/
+program .evalbascrs, rclass
+	syntax [newvarlist] [iw], [ g(name) ]
+
+	if `.kbavars'+`.const' == 0 {
+		return scalar k = 0
+		exit
+	}
+	if `.sccs.arrnels' != `.kbavars'+`.const' {
+		/* programmer error 					*/
+		di as err "_altprobitmodel.evalbascrs; likelihood not " ///
+		 "evaluated using todo(1)"
+		exit 499
+	}
+	local kscrs : word count `varlist'
+	local bg = ("`g'"!="")
+	if (`kscrs'==0 & !`bg') {
+		/* programmer error 					*/
+		di as err "_altdepmodel.evalbascrs, require either a " ///
+		 "varlist or the g() option"
+		exit 499
+	}
+	if `kscrs' > 0 {
+		local scores `varlist'
+	}
+	if `bg' {
+		if "`weight'" != "" {
+			/* margins weights				*/
+			local wopt [`weight'`exp']
+		}
+		else if "`.wtype'" != "" {
+			if ("`.wtype'"=="pweight") ///
+				local wopt [iweight=`.weight.varname']
+			else local wopt [`.wtype'=`.weight.varname']
+		}
+	}
+	local ai `.altern.varname'
+	local is = 0
+	local n = 0
+	local idba `.idbacoef.matname'
+	local kbavar1 = `.kbavars'+1
+	forvalues j=1/`.altern.k' {
+		if `j' == `.base' {
+			continue
+		}
+		forvalues k=1/`kbavar1' {
+			if `idba'[`j',`k'] == 0 {
+				continue
+			}
+			if `kscrs' {
+				local sc: word `++is' of `scores' 
+				if "`sc'" == "" {
+					di as err "insufficient number of " ///
+					 "score variables"
+					exit 489
+				}
+				qui gen double `sc' = 0 if `.touse'
+				if `idba'[`j',`k'] > 0 {
+					qui replace `sc' =           ///
+						`.sccs[`k'].varname' ///
+						if `ai'==`j' & `.touse'
+				}
+			}
+			if `bg' {
+				summarize `.sccs[`k'].varname' `wopt' ///
+					if `ai'==`j' & `.touse', meanonly
+				mat `g' = (nullmat(`g'),r(sum))
+			}
+			local `++n'
+		}
+	}
+	return scalar k = `n'
+end
+
+/* ancillary variable scores						*/
+/*  called by ._altdepmodel.scores					*/
+program .evalancscrs, rclass
+	syntax [newvarlist] [iw], [ g(name) ]
+
+	if `.kanc' == 0 {
+		return local k = 0
+		exit
+	}
+	if `.scanc.arrnels' != `.kanc' {
+		/* programmer error 					*/
+		di as err "_altprobitmodel.evalancscrs; likelihood not " ///
+		 "evaluated using todo(1)"
+		exit 499
+	}
+	local kscrs : word count `varlist'
+	local bg = ("`g'"!="")
+	if `kscrs' == 0 {
+		if !`bg' {
+			/* programmer error 				*/
+			di as err "_altprobitmodel.evalancscrs; require " ///
+			 "either a namelist or the g() option"
+			exit 499
+		}
+	}
+	else if `kscrs' < `.kanc' {
+		di as err "insufficient number of score variables"
+		exit 489
+	}
+	local touse `.mltouse.varname'
+
+	if (`.cholesky') local cholesky cholesky
+
+	/* transform scores						*/
+	.cov.transcrs `.strancscrs', touse(`touse') `cholesky'
+
+	if "`varlist'" != "" {
+		local k = 0
+		while `++k' <= `.kanc' {
+			local sc : word `k' of `varlist'
+			/* set to 0 if .touse				*/
+			qui gen double `sc' = 0 if `.touse'
+			/* set to value if .mltouse			*/
+			qui replace `sc' = `.scanc[`k'].varname' if `touse'
+		}
+	}
+	if `bg' {
+		if "`weight'" != "" {
+			/* margins weights				*/
+			local wopt [`weight'`exp']
+		}
+		else if "`.wtype'" != "" {
+			if ("`.wtype'"=="pweight") ///
+				local wopt [iweight=`.weight.varname']
+			else local wopt [`.wtype'=`.weight.varname']
+		}
+		local k = 0
+		while `++k' <= `.kanc' {
+			summarize `.scanc[`k'].varname' `wopt' ///
+				if `touse', meanonly
+			mat `g' = (nullmat(`g'),r(sum))
+		}
+	}
+	return local k = `k'
+end
+
+program .opg
+	syntax, h(name)
+
+	if (`.scas.arrnels'!=`.kvars') |                 ///
+		(`.sccs.arrnels'!=`.kbavars'+`.const') | ///
+		(`.scanc.arrnels'!=`.kanc') {
+
+		/* programmer error 					*/
+		di as err "_altprobitmodel.opg; likelihood not evaluated" ///
+		 "using todo(1)"
+		exit 499
+	}
+
+	local bal = (`.unbal'==0)
+	mata: _mprobit_outer_prod(`"`.strasscrs'"',`"`.strcsscrs'"',       ///
+		`"`.strancscrs'"',"`.mltouse.varname'","`.touse.varname'", ///
+		`.altern.k',`.base',"`.altern.varname'",`bal', "`h'")
+end
+
+program .genscvar
+	syntax, [ margins ]
+
+	.scas.Arrdropall
+	.sccs.Arrdropall
+	/* generates scores for ancillary parameters + main equation	*/
+	.Super.genscvar
+
+	if `.kvars' > 0 {
+		/* ref on main equation score var			*/
+		.scas[1] = .scvar.ref 	
+		if "`margins'" == "" {
+			local k = `.kvars'
+			forvalues i=2/`.kvars' {
+				.scas[`i'] = ._numericvar.new double .
+			}
+		}
+	}
+	.sccs.Arrdropall
+	if "`margins'" != "" {
+		.sccs[1] = ._numericvar.new double .
+	}
+	else {
+		local ncs = `.kbavars'+`.const'
+		forvalues i=1/`ncs' {
+			.sccs[`i'] = ._numericvar.new double .
+		}
+	}
+end
+
+program .strasscrs
+
+	local scores
+	forvalues i=1/`.scas.arrnels' {
+		local scores `scores' `.scas.[`i'].varname'
+	}
+
+	class exit `"`scores'"'
+end
+
+program .strcsscrs
+
+	local scores
+	forvalues i=1/`.sccs.arrnels' {
+		local scores `scores' `.sccs.[`i'].varname'
+	}
+
+	class exit `"`scores'"'
+end
+
+program .initest
+	syntax, b(name) call(string) [ cmat(name) trace * ]
+
+	local nalt = `.altern.k'
+	local altern `.altern.varname'
+
+	local X `.strvars' `.strtvars'
+
+	if "`cmat'" != "" {
+		local n: word count `X'
+		if `=colsof(`cmat')' == `=`n'+1' {
+			matrix colnames `cmat' = `X' c`++n'
+			local copt constraints(`cmat')
+		}
+	}
+	if "`wtype'" != "" {
+		local wopt [`wtype'=`weight.varname']
+	}
+	if ("`trace'"!="") local cap cap noi
+	else local cap cap
+
+	`cap' `call' `.dep' `X' `wopt', group(`.case.varname') ///
+		ltol(0.0001) tol(0.001) `copt' iterate(50) `options'
+
+	if _rc != 0 {
+		di in gr "{p 0 6 2}note: initial estimates from " ///
+		 "{bf:`call'} failed; using linear least squares " ///
+		 "estimates{p_end}"
+
+		local tmp: subinstr local options "reverse" "reverse", all ///
+			word count(local reverse)
+
+		if "`.deptype'"=="rank" & `reverse' {
+			/* reverse ranked data for better estimates	*/
+			tempvar y
+			summarize `.dep', meanonly
+			qui gen `y' = r(max)-`.dep'+1
+			`cap' regress `y' `X' `wopt', noconst 
+		}
+		else `cap' regress `.dep' `X' `wopt', noconst 
+
+		mat `b' = e(b)
+	}
+	else {
+		mat `b' = e(b)*sqrt(6)/c(pi)
+
+		if e(converged) == 0 {
+			di in gr "{p 0 6 2}note: computation of initial " ///
+			 "estimates failed to converge{p_end}"
+		}
+	}
+	local stripe `.asstripe' `.bastripe'
+
+	if `.kanc' > 0 {
+		tempname b1
+		.cov.initest, b(`b1')
+		mat `b' = (`b',`b1')
+		local stripe `stripe' `.ancstripe'
+	}
+	mat colnames `b' = `stripe' 
+	if "`trace'" != "" {
+		tempname b0
+		mat `b0' = `b'
+		ereturn post `b0'
+		ereturn display
+		di _n "alternative by case-variable coefficient " ///
+		 "indices" _c
+		mat li `.idbacoef.matname', noheader
+	}
+end
+
+program .reparameterize, rclass
+	syntax, b(name) 
+
+	if (`.cholesky'==0) {
+		/* programmer error					*/
+		di as err "._altprobitmodel.reparameterize: matrix is " ///
+		 "not a Cholesky matrix"
+		exit 499
+	}
+	.cov.reparameterize, b(`b') start(`.kcoef')
+	
+	.cholesky = 0
+	.genancpar
+
+	mat colnames `b' = `.stripe'
+end
+
+program .eretpost, eclass
+
+	.Super.eretpost, ind2vars(casevars)
+
+	ereturn scalar i_scale = `.scale'
+
+	.cov.eretpost
+
+	ereturn scalar cholesky = `.cholesky'
+
+	if `.altern.k' > 2 {
+		if (`.imeth'!=3) ereturn scalar mc_burn = `.intburn'
+		ereturn scalar mc_antithetics = `.antithetics'
+		ereturn scalar mc_points = `.intpoints'
+
+		if (`.imeth'==1) ereturn local mc_method "Halton"
+		else if (`.imeth'==2) ereturn local mc_method "Hammersley"
+		else {
+			ereturn local mc_method "uniform random"
+			ereturn hidden local mc_seed "`.seed'"
+			ereturn local mc_rngstate "`.rngstate'"
+		}
+	}
+end
+
+program .eretget
+	syntax, touse(varname numeric) [ * ]
+
+	qui findfile _probitmodel_macros.ado
+	qui include `"`r(fn)'"'
+
+	.Super.eretget, touse(`touse') ind2vars(casevars) `options'
+
+	if missing(`.version') {
+		/* started saving e(version) in version 14 for 
+		 *  FV support						*/
+	        .version = cond("`e(opt)'"=="ml", 10.1, 13.1)
+	}
+	if `.version' < 14 {
+		.mversion = `PROBIT_VERSION_AS_ML'
+	}
+	else if `.version' < 16 {
+		.mversion = `PROBIT_VERSION_AS_MOPT'
+	}
+	local vv : display "version " %5.1f `.version' ":"
+	.vv = "`vv'"
+
+	if "`e(cov_class)'" == "" {
+		.cov = ._altcovmatrix.new
+	}
+	else {
+		.cov = .`e(cov_class)'.new
+	}
+	if (0 <`.base' & `.base' < .) local bopt base(`.base')
+
+	if `.mversion' >= `PROBIT_VERSION_CM_BASE' {
+		.cov.set_freeparm, on
+	}
+	else {
+		.cov.set_freeparm, off
+	}
+	.cov.eretget, `bopt'
+
+	.scale = e(i_scale)
+	.cholesky = e(cholesky)
+
+	if `.altern.k' > 2 {
+		local meth = bsubstr("`e(mc_method)'",1,3)
+		if ("`meth'"=="Hal") .imeth = 1
+		else if ("`meth'"=="Ham") .imeth = 2
+		else {
+			.imeth = 3
+			.seed = "`e(mc_seed)'"
+		}
+		if (`.imeth'!=3) .intburn = e(mc_burn)
+		else .intburn = 0
+
+		.antithetics = e(mc_antithetics)
+		.intpoints = e(mc_points)
+	}
+	else .imeth = 0
+
+	/* fill .anc array with names of ancillary parameters		*/
+	.genancpar, nopermute
+	/* set unbalanced data flag to be safe				*/
+	.unbal = 1
+	/* one pass, generate sequences on the fly			*/
+	.ifast = 0
+	/* pivot integration intervals					*/
+	.pivlev = 1
+end
+
+program ._eretmarkout
+	syntax varname(numeric), [ altwise singleton depvar * ]
+
+	local touse `varlist'
+	tempvar touse0
+	qui gen byte `touse0' = `touse'
+
+	.Super._eretmarkout `touse0', ind2vars(casevars) `depvar' `options'
+
+	/* casewise or altwise deletion					*/
+	if "`altwise'" == "" {
+		._markoutbycase `touse0', case(`e(case)') ifin(`touse')
+	}
+	qui replace `touse' = `touse0' 
+	if "`singleton'" != "" {
+		._markoutsingletons `touse', case(`e(case)')
+	}
+	if "`depvar'"!="" & "`.deptype'"=="binary" {
+		._markoutbindep `e(depvar)', case(`e(case)') ///
+			touse(`touse') oneonly 
+	}
+	qui count if `touse'
+	if r(N) == 0 {
+		di as err "no cases remain after removing invalid " ///
+		 "observations"
+		exit 2000
+	}
+end
+
+program .kcor
+
+	class exit `.cov.kcor'
+end
+
+program .kstd
+
+	class exit `.cov.kstd'
+end
+
+/* overload .kanc method since .anc array is not filled until		*/
+/*  .genancpar is called						*/
+program .kanc
+
+	class exit `.cov.kanc'
+end
+
+program .summary
+
+	di _n "_altprobitmodel class:"  
+	.cov.summary
+
+	di 
+	di "base altern   " `.base'
+	di "scale altern  " `.scale'
+	di "cholesky:     " `.cholesky'
+	di "antithetics:  " `.antithetics'
+	di "imeth:        " `.imeth'
+	di "intburn:      " `.intburn'
+	di "intpoints     " `.intpoints'
+	di "seed:           `.seed'"
+
+	summarize `.touse', meanonly
+	di "touse:  sum = " r(sum)
+
+	.Super.summary
+
+end
+
+exit

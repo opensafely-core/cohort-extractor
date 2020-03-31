@@ -1,0 +1,795 @@
+/*
+	power twomeans
+
+*!  VERSION 1.1.6  15nov2018
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_xlarge
+DEFINE _dlght 530
+INCLUDE header
+
+HELP hlp1, view("help power twomeans")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING graph_res
+	create STRING standdev_res
+	create STRING numContents
+	create STRING stok
+	create ARRAY tmp
+	create BOOLEAN containsNumlist
+	create BOOLEAN containsNumlist_m1
+	create BOOLEAN containsNumlist_m2
+	create BOOLEAN child_hasNumlist
+	create STRING child_dlgName
+
+	child_hasNumlist.setfalse
+	child_dlgName.setvalue "Power_Twomeans"
+
+	program table_create4Twomeans
+	setscale_hadj resource POWER_TWOMEANS_DLG_HSCALE
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	if __MESSAGE.iseq("ttest") {
+		call main.ck_knownsd.setoff
+		call main.ck_knownsd.disable
+	}
+	if __MESSAGE.iseq("ztest") {
+		call main.ck_knownsd.seton
+		call main.ck_knownsd.disable
+	}
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	label(resource POWER_TWOMEANS_DLG_TITLE)
+BEGIN
+  INCLUDE power_compute
+  DEFINE errpos _ls
+  INCLUDE power_errorprob
+  DEFINE sspos +45
+  INCLUDE power_twosampsi
+
+  GROUPBOX gb_effect_size	_lft	200	_iwd	_ht16,		///
+	label(resource LBL_EFFECT_SIZE)
+  GROUPBOX gb_means		_indent	_ss	_cwd1	_ht13,		///
+	label(resource LBL_MEANS)
+  DEFINE holdy2 @y
+  EDIT ed_control		_indent	_ss	_en14wd	.,		///
+	onchange(program check_for_numlist)				///
+	tooltip(resource POWER_TWOMEANS_MAIN_ED_CONTROL)		///
+	label("")
+  TEXT tx_control		_en14sep @	100	.,		///
+	label(resource LBL_STAR_CONTROL)
+  EDIT ed_exp_diff		_iilft	_ls	_en14wd	.,		///
+	onchange(program check_for_numlist)				///
+	option(diff)							///
+	label("")
+  TEXT tx_exp_diff		_en14sep @	8	.,		///
+	label("*")
+  COMBOBOX cb_exp_diff		+10	 @	100	.,		///
+	dropdownlist							///
+	contents("main_effect_list")					///
+	values("main_effect_values")					///
+	onselchange("program main_exp_diff_changed")			///
+	label("")
+  GROUPBOX gb_std		_lft2	holdy2	_cwd2	_ht13,		///
+	label(resource LBL_STANDARD_DEVIATIONS)
+  RADIO rb_std_common		_ilft2	_ss	_inwd	., first	///
+	onclickon("program main_std_common_on")				///
+	onclickoff("script main_std_common_off")			///
+	label(resource LBL_COMMON_STANDARD_DEVIATION)
+  RADIO rb_std_group		_ilft2	+40	@	., last		///
+	onclickon("program main_std_group_on")				///
+	onclickoff("script main_std_group_off")				///
+	label(resource LBL_GROUP_STANDARD_DEVIATIONS)
+  EDIT ed_sd			_iilft2	-20	_en14wd	.,		///
+	option(sd)							///
+	default(1)							///
+	onchange(program check_for_numlist)				///
+	label(resource LBL_COMMON_VALUE)
+  TEXT tx_sd			_en14sep @	95	.,		///
+	label(resource LBL_STAR_COMMON_VALUE)
+  EDIT ed_sd1			_iilft2	+40	_en14wd	.,		///
+	onchange(program check_for_numlist)				///
+	option(sd1)							///
+	label(resource LBL_CONTROL)
+  TEXT tx_sd1			_en14sep @	95	.,		///
+	label(resource LBL_STAR_CONTROL)
+  EDIT ed_sd2			_iilft2	_ms	_en14wd	.,		///
+	onchange(program check_for_numlist)				///
+	option(sd2)							///
+	label(resource LBL_EXPERIMENTAL)
+  TEXT tx_sd2			_en14sep @	95	.,		///
+	label(resource LBL_STAR_EXPERIMENTAL)
+  CHECKBOX ck_knownsd		_ilft2	_ls	225	.,		///
+	option(knownsd)							///
+	onclickon("program power_iteration_tab_check")			///
+	onclickoff("program power_iteration_tab_check")			///
+	label(resource POWER_TWOMEANS_CK_KNOWNSD)
+  DEFINE ypos +45
+  INCLUDE power_test_maincommon
+END
+
+LIST main_compute_list
+BEGIN
+	resource LBL_TOTAL_SAMPLE_SIZE
+	resource LBL_CONTROL_GROUP_SAMPLE_SIZE
+	resource LBL_EXPERIMENTAL_GROUP_SAMPLE_SIZE
+	resource PSS_LBL_POWER
+	resource POWER_TWOMEANS_EFFECT_SIZE_EXPERIMENTAL_GROUP_MEAN
+END
+
+LIST main_compute_values
+BEGIN
+	tot_sampsi
+	ctrl_sampsi
+	exp_sampsi
+	power
+	effect
+END
+
+INCLUDE _power_list
+
+LIST main_effect_list
+BEGIN
+	resource LBL_EXPERIMENTAL
+	resource POWER_LBL_DIFFERENCE
+END
+
+LIST main_effect_values
+BEGIN
+	"exp"
+	"diff"
+END
+
+PROGRAM main_compute_changed
+BEGIN
+	if main.cb_compute.iseq("tot_sampsi") {
+		call program main_tot_sampsi_on
+	}
+	if main.cb_compute.iseq("ctrl_sampsi") {
+		call program main_ctrl_sampsi_on
+	}
+	if main.cb_compute.iseq("exp_sampsi") {
+		call program main_exp_sampsi_on
+	}
+	if main.cb_compute.iseq("power") {
+		call program main_power_on
+	}
+	if main.cb_compute.iseq("effect") {
+		call program main_effect_on
+	}
+	call program check_for_numlist
+END
+
+PROGRAM main_tot_sampsi_on
+BEGIN
+	call script main_sampsi_hide_all
+	call main.gb_sample_size.setposition . . . 75
+	call main.ck_nfrac.setposition . 170
+	call main.tx_sampsi.hide
+	call main.cb_sampsi.hide
+	call main.ed_nratio.show
+	call main.tx_nratio.show
+	call main.ed_power.show
+	call main.ed_beta.show
+	call main.tx_power_beta_power.show
+	call main.cb_power_beta.show
+	call main.ed_exp_diff.show
+	call main.tx_exp_diff.show
+	call main.cb_exp_diff.show
+
+	call program main_move_effect_size
+	call program main_move_main_opts
+	call script power_test_maincommon_hide_dir
+	call program main_power_beta_changed
+	call program power_iteration_tab_check
+END
+
+PROGRAM main_ctrl_sampsi_on
+BEGIN
+	call script main_sampsi_hide_all
+	call main.gb_sample_size.setposition . . . 75
+	call main.ck_nfrac.setposition . 170
+	call main.tx_sampsi.hide
+	call main.cb_sampsi.hide
+	call main.ed_n2.show
+	call main.tx_n2.show
+	call main.ed_power.show
+	call main.ed_beta.show
+	call main.tx_power_beta_power.show
+	call main.cb_power_beta.show
+	call main.ed_exp_diff.show
+	call main.tx_exp_diff.show
+	call main.cb_exp_diff.show
+	call program main_move_effect_size
+	call program main_move_main_opts
+	call script power_test_maincommon_hide_dir
+	call program main_power_beta_changed
+	call program power_iteration_tab_check
+END
+
+PROGRAM main_exp_sampsi_on
+BEGIN
+	call script main_sampsi_hide_all
+	call main.gb_sample_size.setposition . . . 75
+	call main.ck_nfrac.setposition . 170
+	call main.tx_sampsi.hide
+	call main.cb_sampsi.hide
+	call main.ed_n1.show
+	call main.tx_n1.show
+	call main.ed_power.show
+	call main.ed_beta.show
+	call main.tx_power_beta_power.show
+	call main.cb_power_beta.show
+	call main.ed_exp_diff.show
+	call main.tx_exp_diff.show
+	call main.cb_exp_diff.show
+	call program main_move_effect_size
+	call program main_move_main_opts
+	call script power_test_maincommon_hide_dir
+	call program main_power_beta_changed
+	call program power_iteration_tab_check
+END
+
+PROGRAM main_power_on
+BEGIN
+	call script main_sampsi_hide_all
+	call main.gb_sample_size.setposition . . . 95
+	call main.ck_nfrac.setposition . 190
+	call main.tx_sampsi.show
+	call main.cb_sampsi.show
+	call main.ed_power.hide
+	call main.ed_beta.hide
+	call main.tx_power_beta_power.hide
+	call main.cb_power_beta.hide
+	call main.ed_exp_diff.show
+	call main.tx_exp_diff.show
+	call main.cb_exp_diff.show
+	call program main_sampsi_changed
+	call program main_move_effect_size
+	call program main_move_main_opts
+	call script power_test_maincommon_hide_dir
+	call program power_iteration_tab_check
+END
+
+PROGRAM main_effect_on
+BEGIN
+	call script main_sampsi_hide_all
+	call main.gb_sample_size.setposition . . . 95
+	call main.ck_nfrac.setposition . 190
+	call main.tx_sampsi.show
+	call main.cb_sampsi.show
+	call main.ed_power.show
+	call main.ed_beta.show
+	call main.tx_power_beta_power.show
+	call main.cb_power_beta.show
+	call main.ed_exp_diff.hide
+	call main.tx_exp_diff.hide
+	call main.cb_exp_diff.hide
+	call program main_sampsi_changed
+	call program main_move_effect_size
+	call program main_move_main_opts
+	call script power_test_maincommon_show_dir
+	call program main_power_beta_changed
+	call program power_iteration_tab_check
+END
+
+INCLUDE power_errorprob_pr
+INCLUDE power_twosampsi_pr
+
+PROGRAM main_exp_diff_changed
+BEGIN
+	if main.cb_exp_diff.iseq("exp") {
+		call main.ed_exp_diff.settooltip resource POWER_TWOMEANS_EXPERIMENTAL_GROUP_MEAN_M2
+	}
+	else {
+		call main.ed_exp_diff.settooltip resource POWER_TWOMEANS_MEAN_DIFFERENCE_M2_M1
+	}
+	call program check_for_numlist
+	call program table_create4Twomeans
+END
+
+PROGRAM main_power_beta_table
+BEGIN
+	call program table_create4Twomeans
+END
+
+PROGRAM main_move_effect_size
+BEGIN
+	if main.cb_compute.iseq("power") | main.cb_compute.iseq("effect") {
+		call main.gb_effect_size.setposition . 240
+		call main.gb_means.setposition . 260
+		call main.ed_control.setposition . 280
+		call main.tx_control.setposition . 280
+		call main.ed_exp_diff.setposition . 305
+		call main.tx_exp_diff.setposition . 305
+		call main.cb_exp_diff.setposition . 305
+		call main.gb_std.setposition . 260
+		call main.rb_std_common.setposition . 280
+		call main.rb_std_group.setposition . 325
+		call main.ed_sd.setposition . 300
+		call main.tx_sd.setposition . 300
+		call main.ed_sd1.setposition . 345
+		call main.tx_sd1.setposition . 345
+		call main.ed_sd2.setposition . 370
+		call main.tx_sd2.setposition . 370
+		call main.ck_knownsd.setposition . 395
+	}
+	else {
+		call main.gb_effect_size.setposition . 215
+		call main.gb_means.setposition . 235
+		call main.ed_control.setposition . 255
+		call main.tx_control.setposition . 255
+		call main.ed_exp_diff.setposition . 280
+		call main.tx_exp_diff.setposition . 280
+		call main.cb_exp_diff.setposition . 280
+		call main.gb_std.setposition . 235
+		call main.rb_std_common.setposition . 255
+		call main.rb_std_group.setposition . 300
+		call main.ed_sd.setposition . 275
+		call main.tx_sd.setposition . 275
+		call main.ed_sd1.setposition . 320
+		call main.tx_sd1.setposition . 320
+		call main.ed_sd2.setposition . 345
+		call main.tx_sd2.setposition . 345
+		call main.ck_knownsd.setposition . 370
+	}
+END
+
+PROGRAM main_std_common_on
+BEGIN
+	call main.ed_sd.enable
+	call main.tx_sd.enable
+END
+
+SCRIPT main_std_common_off
+BEGIN
+	main.ed_sd.disable
+	main.tx_sd.disable
+END
+
+PROGRAM main_std_group_on
+BEGIN
+	call main.ed_sd1.enable
+	call main.tx_sd1.enable
+	call main.ed_sd2.enable
+	call main.tx_sd2.enable
+END
+
+SCRIPT main_std_group_off
+BEGIN
+	main.ed_sd1.disable
+	main.tx_sd1.disable
+	main.ed_sd2.disable
+	main.tx_sd2.disable
+END
+
+PROGRAM main_move_main_opts
+BEGIN
+	if main.cb_compute.iseq("power") | main.cb_compute.iseq("effect") {
+		call main.tx_oneside.setposition . 445
+		call main.cb_oneside.setposition . 465
+		call main.tx_direction.setposition . 445
+		call main.cb_direction.setposition . 465
+		call main.ck_parallel.setposition  . 500
+	}
+	else {
+		call main.tx_oneside.setposition . 420
+		call main.cb_oneside.setposition . 440
+		call main.tx_direction.setposition . 420
+		call main.cb_direction.setposition . 440
+		call main.ck_parallel.setposition  . 475
+	}
+END
+
+PROGRAM check_for_numlist
+BEGIN
+	call containsNumlist.setfalse
+	call containsNumlist_m1.setfalse
+	call containsNumlist_m2.setfalse
+
+	if main.ed_control {
+		call numContents.setvalue class main.ed_control.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+			call containsNumlist_m1.settrue
+		}
+	}
+
+	if main.ed_exp_diff.isvisible() {
+		call numContents.setvalue class main.ed_exp_diff.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+			call containsNumlist_m2.settrue
+		}
+		call program table_create4Twomeans
+	}
+
+	if main.ed_sd & main.ed_sd.isenabled() {
+		call numContents.setvalue class main.ed_sd.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+		call program table_create4Twomeans
+	}
+
+	If main.ed_sd1.isenabled() {
+		call numContents.setvalue class main.ed_sd1.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+		call program table_create4Twomeans
+	}
+
+	if main.ed_sd2.isenabled() {
+		call numContents.setvalue class main.ed_sd2.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+		call program table_create4Twomeans
+	}
+
+	if main.ed_alpha {
+		call numContents.setvalue class main.ed_alpha.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_power.isvisible() {
+		call numContents.setvalue class main.ed_power.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_beta.isvisible() {
+		call numContents.setvalue class main.ed_beta.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_nratio.isvisible() {
+		call numContents.setvalue class main.ed_nratio.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+		call program table_create4Twomeans
+	}
+
+	if main.ed_n1.isvisible() {
+		call numContents.setvalue class main.ed_n1.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_n2.isvisible() {
+		call numContents.setvalue class main.ed_n2.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_sampsi_n.isvisible() {
+		call numContents.setvalue class main.ed_sampsi_n.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_sampsi_nratio.isvisible() {
+		call numContents.setvalue class main.ed_sampsi_nratio.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+		call program table_create4Twomeans
+	}
+
+	if main.ed_sampsi_n1.isvisible() {
+		call numContents.setvalue class main.ed_sampsi_n1.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_sampsi_n2.isvisible() {
+		call numContents.setvalue class main.ed_sampsi_n2.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if containsNumlist {
+		call main.ck_parallel.enable
+	}
+	else {
+		call main.ck_parallel.disable
+	}
+END
+
+PROGRAM power_iteration_tab_check
+BEGIN
+	call script power_iteration_enable
+	if main.cb_compute.iseq("power") {
+		call script power_iteration_disable
+	}
+	else {
+		if main.ck_knownsd & main.cb_oneside.iseq("onesided") {
+			call script power_iteration_disable
+		}
+		if main.cb_compute.endswith("sampsi") {
+			call script power_iteration_is_sampsi
+		}
+		if main.cb_compute.iseq("effect") {
+			call script power_iteration_is_effect
+		}
+	}
+END
+
+INCLUDE power_test_maincommon_pr
+INCLUDE power_table_opts
+INCLUDE power_graph
+INCLUDE power_iteration
+
+PROGRAM command
+BEGIN
+	put "power twomeans "
+
+	if !main.ed_control {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format 				///
+			"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT" ///
+			"resource LBL_TAB_MAIN" 		///
+			"resource LBL_CONTROL_GROUP_MEAN" 
+		stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Control-group mean" must be filled in.
+	}
+
+	if !main.ed_control.isnumlist() {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format 				///
+			"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+			"resource LBL_TAB_MAIN"			///
+			"resource LBL_CONTROL_GROUP_MEAN"
+		stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Control-group mean".
+	}
+
+	if containsNumlist_m1 {
+		put "("
+		put main.ed_control
+		put ")"
+	}
+	else {
+		put main.ed_control
+	}
+
+	if main.cb_compute.endswith("sampsi") | main.cb_compute.iseq("power") {
+		if !main.ed_exp_diff {
+			if main.cb_exp_diff.iseq("exp") {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format 				///
+			"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT" ///
+			"resource LBL_TAB_MAIN" 		///
+			"resource LBL_EXPERIMENTAL_GROUP_MEAN"
+		stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Experimental-group mean" must be filled in.
+			}
+			else  {
+				call create STRING _MSG_TMP
+ 				call _MSG_TMP.format 						///
+ 					"resource POWER_MSGBOX_BETWEEN_MEANS_REQUIRED_FMT"	///
+					"resource LBL_TAB_MAIN"					///
+					"resource POWER_LBL_DIFFERENCE"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Difference" between means must be filled in.
+			}
+		}
+	}
+
+	if main.cb_exp_diff.iseq("exp") & main.cb_exp_diff.isvisible() {
+		if !main.ed_exp_diff.isnumlist() {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format 				///
+			"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+			"resource LBL_TAB_MAIN"			///
+			"resource LBL_EXPERIMENTAL_GROUP_MEAN"
+		stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Experimental-group mean".
+		}
+		if containsNumlist_m2 {
+			put " ("
+			put main.ed_exp_diff
+			put ")"
+		}
+		else {
+			put " " main.ed_exp_diff
+		}
+	}
+
+	beginoptions
+		if main.cb_exp_diff.iseq("diff") & main.cb_exp_diff.isvisible(){
+			if !main.ed_exp_diff.isnumlist() {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format 					///
+			"resource LBL_MSGBOX_INVALID_NUMLIST_BETWEEN_MEANS_FMT"	///
+			"resource LBL_TAB_MAIN"				///
+			"resource POWER_LBL_DIFFERENCE"
+		stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Difference" between means.
+			}
+			optionarg main.ed_exp_diff
+		}
+		if main.rb_std_common & main.ed_sd {
+			if !main.ed_sd.isnumlist() {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format 						///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" 	///
+				"resource LBL_TAB_MAIN"					///
+				"resource LBL_COMMON_STANDARD_DEVIATION"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Common standard deviation".
+			}
+			if !main.ed_sd.isNumlistGT(0) {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format						///
+				"resource LBL_MSGBOX_ON_TAB_GREATER_THAN_0_FMT" 	///
+				"resource LBL_TAB_MAIN"					///
+				"resource LBL_COMMON_STANDARD_DEVIATION"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Common standard deviation" must be greater than 0.
+			}
+			optionarg /hidedefault main.ed_sd
+		}
+		if main.rb_std_group {
+			optionarg main.ed_sd1
+			optionarg main.ed_sd2
+			if !main.ed_sd1.isnumlist() {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format 						///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" 	///
+				"resource LBL_TAB_MAIN"					///
+				"resource LBL_CONTROL_GROUP_STANDARD_DEVIATION"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Control-group standard deviation".
+			}
+			if !main.ed_sd1.isNumlistGT(0) {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format						///
+				"resource LBL_MSGBOX_ON_TAB_GREATER_THAN_0_FMT" 	///
+				"resource LBL_TAB_MAIN"					///
+				"resource LBL_CONTROL_GROUP_STANDARD_DEVIATION"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Control-group standard deviation" must be greater than 0.
+			}
+			if !main.ed_sd2.isnumlist() {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format 						///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" 	///
+				"resource LBL_TAB_MAIN"					///
+				"resource LBL_EXPERIMENTAL_GROUP_STANDARD_DEVIATION"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Experimental-group standard deviation".
+			}
+			if !main.ed_sd2.isNumlistGT(0) {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format						///
+				"resource LBL_MSGBOX_ON_TAB_GREATER_THAN_0_FMT" 	///
+				"resource LBL_TAB_MAIN"					///
+				"resource LBL_EXPERIMENTAL_GROUP_STANDARD_DEVIATION"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Experimental-group standard deviation" must be greater than 0.
+			}
+		}
+		
+		if main.ck_knownsd {
+			put " knownsds"
+		}
+
+		put " " /program power_errorprob_output
+		put " " /program power_twosampsi_output
+		put " " /program power_test_maincommon_output
+		put " " /program power_table_opts_output
+		put " " /program power_graph_output
+		put " " /program power_iteration_output
+	endoptions
+END

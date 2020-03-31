@@ -1,0 +1,213 @@
+//				clockdir
+//
+//  Style for clock directions using 1-12 as direction settings
+//
+//  Also allows Top for 12 o-clock, Bottom for 6 o-clock, Left for 9 o-clock,
+//  and Right for 3 o-clock.  0 o-clock means center and Center is a synonym
+//  for that position.
+
+*! version 1.0.4  06jun2011
+version 8
+
+class {
+    class:
+	compass2dir_map = { "NE", "NE",  "E", "SE", "SE", "S", "SW", 	///
+			    "SW",  "W", "NW", "NW",  "N" }
+} , inherit(codestyle)
+
+
+// ---------------------------------------------------------------------------
+// Returns the angle associated with the direction.
+// Also allows a position setting other than this objects to be passed
+//
+// Note, does not matter what "center" returns, nothing would be useful.
+
+program angle
+	args pos
+
+	local x = 12 - cond("`pos'"=="", `.setting', 0`pos')
+	class exit = cond(`x'>8, `x'-9, `x'+3) * c(pi) / 6
+end
+
+
+// ---------------------------------------------------------------------------
+// Relative position (4-way, suitable for grid) of the clock direction
+
+program relative_position
+	if `.iseast' {
+		class exit "rightof"
+	}
+	if `.iswest' {
+		class exit "leftof"
+	}
+	if `.issouth' {
+		class exit "below"
+	}
+	if `.isnorth' {
+		class exit "above"
+	}
+
+	class exit "on"
+end
+
+
+// ---------------------------------------------------------------------------
+// Relative position as a stylename for relative_pos.class
+
+program relative_pos
+	if `.iseast' {
+		class exit "right"
+	}
+	if `.iswest' {
+		class exit "left"
+	}
+	if `.issouth' {
+		class exit "below"
+	}
+	if `.isnorth' {
+		class exit "above"
+	}
+
+	class exit "default"
+end
+
+
+// ---------------------------------------------------------------------------
+// Map setting to a compass2dir style.
+
+program compass2style
+	if ! 0`.setting' {
+		class exit "center"
+	}
+
+	class exit .compass2dir_map[`.setting']
+end
+
+
+// ---------------------------------------------------------------------------
+// Map setting to a horizontal style setting.
+
+program horizontal_style
+
+	local set 0`.setting'
+
+	if `set' == 12 | `set' == 6 | `set' == 0 {
+		class exit "center"
+	}
+
+	if `set' >= 1 & `set' <= 5 {
+		class exit "right"
+	}
+
+	class exit "left"
+end
+
+
+// ---------------------------------------------------------------------------
+// Map setting to a vertical style setting.
+
+program vertical_style
+
+	local set 0`.setting'
+
+	if `set' == 9 | `set' == 3 | `set' == 0 {
+		class exit "center"
+	}
+
+	if `set' >= 4 & `set' <= 8 {
+		class exit "bottom"
+	}
+
+	class exit "top"
+end
+
+
+// ---------------------------------------------------------------------------
+// Whether the direction is any of the East directions
+
+program iseast
+	class exit = `.setting' >= 2 & `.setting' <= 4
+end
+
+// ---------------------------------------------------------------------------
+// Whether the direction is any of the West directions
+
+program iswest
+	class exit = `.setting' >= 8 & `.setting' <= 10
+end
+
+// ---------------------------------------------------------------------------
+// Whether the direction is any of the North directions
+
+program isnorth
+	class exit = `.setting' == 1 | `.setting' == 11 | `.setting' == 12
+end
+
+// ---------------------------------------------------------------------------
+// Whether the direction is any of the South directions
+
+program issouth
+	class exit = `.setting' >= 5 & `.setting' <= 7
+end
+
+
+
+// ---------------------------------------------------------------------------
+// Whether the direction is South of center
+
+program southofcenter
+	class exit = `.setting' >= 4 & `.setting' <= 8
+end
+
+// ---------------------------------------------------------------------------
+// Whether the direction is North of center
+
+program northofcenter
+	class exit = (`.setting' >= 10 & `.setting' <= 12) |		///
+		     (`.setting' >=  1 & `.setting' <=  2)
+end
+
+// ---------------------------------------------------------------------------
+// Whether the direction is East of center
+
+program eastofcenter
+	class exit = `.setting' >= 1 & `.setting' <= 5
+end
+
+// ---------------------------------------------------------------------------
+// Whether the direction is West of center
+
+program westofcenter
+	class exit = `.setting' >= 7 & `.setting' <= 11
+end
+
+
+// ---------------------------------------------------------------------------
+
+program _unabbrev
+
+	local 0 , `0'
+
+	syntax [ , Center Top Bottom Left Right * ]
+
+	if "`center'`top'`bottom'`left'`right'" == "" {
+		class exit "`options'"
+	}
+
+	if "`center'" != "" {
+		class exit "0"
+	}
+	if "`top'" != "" {
+		class exit "12"
+	}
+	if "`bottom'" != "" {
+		class exit "6"
+	}
+	if "`left'" != "" {
+		class exit "9"
+	}
+	if "`right'" != "" {
+		class exit "3"
+	}
+
+end

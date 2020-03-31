@@ -1,0 +1,272 @@
+/*
+  sg__errvar.dlg
+
+*!  VERSION 1.1.1  03jun2015
+
+*/
+
+VERSION 14.0
+MODAL
+
+INCLUDE _std_msmall
+DEFINE _dlght 230
+INCLUDE header_sem_ed
+
+DEFINE _clwd	15
+DEFINE _wd	160
+DEFINE _sep	+165
+DEFINE _wd2	120
+DEFINE _sep2	+125
+DEFINE _cbwd	100
+DEFINE _cbsep	+105
+
+INCLUDE sg__common_output		/* routines necessary for output */
+
+SCRIPT PREINIT
+BEGIN
+	script sg__common_output_init 	/* initialize output globals */
+
+	create STRING OBJ
+	program setupOBJECT
+
+	create STRING sTemp
+	create DOUBLE dTemp
+	setscale_hadj resource SG__ERRVAR_DLG_HSCALE
+END
+
+PROGRAM setupOBJECT
+BEGIN
+	if ! __MESSAGE {
+		stopbox stop resource LBL_MSGBOX_OBJECT_NOT_FOUND
+// An unexpected error has occurred. Object not found.
+		exit 198
+	}
+	call OBJ.setvalue class __MESSAGE.value
+END
+
+SCRIPT variable_PREINIT
+BEGIN
+	create STRING sLabel
+	create STRING sXpos
+	create STRING sYpos
+	create STRING sCnsVar		/* constraint variance	*/
+	create STRING sIniVar
+
+	program variable_get_defaults
+END
+
+SCRIPT variable_POSTINIT
+BEGIN
+	program variable_initialize_controls
+END
+
+PROGRAM variable_get_defaults
+BEGIN
+	call sLabel.setvalue class .__SEMG.dbsettings.errlabel
+	call sLabel.withvalue variable.ed_errlabel.setdefault "@"
+
+	call sXpos.setvalue class .__SEMG.dbsettings.xoffset
+	call sXpos.withvalue variable.ed_xpos.setdefault "@"
+
+	call sYpos.setvalue class .__SEMG.dbsettings.yoffset
+	call sYpos.withvalue variable.ed_ypos.setdefault "@"
+
+	call sCnsVar.setvalue class .__SEMG.dbsettings.cns_var
+	call sCnsVar.withvalue variable.ed_cnsvar.setdefault "@"
+
+	call sIniVar.setvalue class .__SEMG.dbsettings.ini_var
+	call sIniVar.withvalue variable.ed_inivar.setdefault "@"
+END
+
+PROGRAM variable_initialize_controls
+BEGIN
+	call variable.ed_errlabel.setvalue class sLabel.value
+	call variable.ed_errlabel.setvalue class sLabel.value
+	call variable.ed_xpos.setvalue class sXpos.value
+	call variable.ed_ypos.setvalue class sYpos.value
+
+	call variable.ed_cnsvar.setvalue class sCnsVar.value
+	call variable.ed_inivar.setvalue class sIniVar.value
+END
+
+DIALOG variable, label(resource LBL_VARIABLE_PROPERTIES) tabtitle(resource SG__ERRVAR_TAB_VARIABLE)
+BEGIN
+  TEXT     tx_label	_lft	_top	_iwd	.,		///
+	label(resource SG__ERRVAR_VARIABLE_TX_LABEL)
+  EDIT     ed_errlabel	@	_ss	@	., nomemory
+
+
+  GROUPBOX gb_pos	_lft	+35	_iwd	55,		///
+	label(resource SG__ERRVAR_VARIABLE_GB_POS) 
+  TEXT     tx_xpos	80	_ss	25	.,		///
+	label(resource LBL_X_LOWERCASE_COLON) right 
+  EDIT     ed_xpos	+30	@	75	., nomemory
+  TEXT     tx_ypos	+80	@	25	.,		///
+	label(resource LBL_Y_LOWERCASE) right 
+  EDIT     ed_ypos	+30	@	75	., nomemory
+
+  GROUPBOX gb_cons	_lft	+45	_iwd	_ht5h,		///
+	label(resource LBL_ERROR_VARIANCE)
+
+  TEXT     tx_cnsvar	_ilft	_ss	_wd2	.,		///
+	label(resource SG__ERRVAR_VARIABLE_TX_CNSVAR) right
+  EDIT     ed_cnsvar	_sep2	@	_cbwd	., nomemory
+  BUTTON   bu_cnsvar	_cbsep	@	_clwd	.,		///
+	label(resource LBL_?) onpush(view help sg__constraints##|_new)
+
+  TEXT     tx_inivar	_ilft	_ls	_wd2	.,		///
+	label(resource SG__ERRVAR_VARIABLE_TX_INIVAR) right
+  EDIT     ed_inivar	_sep2	@	_cbwd	., nomemory
+  BUTTON   bu_inivar	_cbsep	@	_clwd	.,		///
+	label(resource LBL_?) onpush(view help sg__initialvalues##|_new)
+END
+
+PROGRAM variable_output
+BEGIN
+	call program variable_get_defaults
+
+	if ! variable.ed_errlabel.isdefault() {
+		call sg__PARAM2.setvalue "SetSelected"
+		call sg__ARG_00.setvalue "errlabel"
+		call sg__ARG_01.setvalue class variable.ed_errlabel.value
+		put /program sg__do_output_sub
+	}
+
+	if ! variable.ed_xpos.isdefault() {
+		call dTemp.setvalue class variable.ed_xpos.value
+		call sTemp.setvalue class variable.ed_xpos.value
+		if (!dTemp & dTemp.isneq(0) & sTemp.isneq("<multiple>")) {
+			call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_CONTAINS_A_NONNUMERIC_VALUE_FMT" ///
+				"resource LBL_X_LOWERCASE"
+			stopbox stop "class _MSG_TMP.value"
+// "x" contains a nonnumeric value.
+		}
+		call sg__PARAM2.setvalue "SetSelected"
+		call sg__ARG_00.setvalue "offset[1]"
+		call sg__ARG_01.setvalue class variable.ed_xpos.value
+		put /program sg__do_output_sub
+	}
+
+	if ! variable.ed_ypos.isdefault() {
+		call dTemp.setvalue class variable.ed_ypos.value
+		call sTemp.setvalue class variable.ed_ypos.value
+		if (!dTemp & dTemp.isneq(0) & sTemp.isneq("<multiple>")) {
+			call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_CONTAINS_A_NONNUMERIC_VALUE_FMT" ///
+				"resource LBL_Y_LOWERCASE"
+			stopbox stop "class _MSG_TMP.value"
+// "y" contains a nonnumeric value.
+		}
+		call sg__PARAM2.setvalue "SetSelected"
+		call sg__ARG_00.setvalue "offset[2]"
+		call sg__ARG_01.setvalue class variable.ed_ypos.value
+		put /program sg__do_output_sub
+	}
+
+	if ! variable.ed_cnsvar.isdefault() {
+		call sg__PARAM2.setvalue "SetSelected"
+		call sg__ARG_00.setvalue "cns_var"
+		call sg__ARG_01.setvalue class variable.ed_cnsvar.value
+		put /program sg__do_output_sub
+	}
+
+	if ! variable.ed_inivar.isdefault() {
+		call dTemp.setvalue class variable.ed_inivar.value
+		call sTemp.setvalue class variable.ed_inivar.value
+		if (!dTemp & dTemp.isneq(0) & sTemp & sTemp.isneq("<multiple>")) {
+			call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_CONTAINS_A_NONNUMERIC_VALUE_FMT" ///
+				"resource LBL_INITIAL_VALUE"
+			stopbox stop "class _MSG_TMP.value"
+// "Initial value" contains a nonnumeric value.
+		}
+		call sg__PARAM2.setvalue "SetSelected"
+		call sg__ARG_00.setvalue "ini_var"
+		call sg__ARG_01.setvalue class variable.ed_inivar.value
+		put /program sg__do_output_sub
+	}
+END
+
+
+/*****************************************************************************/
+
+SCRIPT prop_custom_on
+BEGIN
+	prop.bu_propset.enable
+	prop.bu_propclear.enable
+END
+
+SCRIPT prop_custom_off
+BEGIN
+	prop.bu_propset.disable
+	prop.bu_propclear.disable
+END
+
+DIALOG prop, tabtitle(resource LBL_APPEARANCE_NO_COLON)
+BEGIN
+  TEXTBOX tb_n1			_lft	_top	_iwd	105,		///
+	label(resource SG__ERRVAR_PROP_TB_N1)
+
+  CHECKBOX ck_custom		_lft	+110	_iwd	_ht6,		///
+	nomemory							///
+	onclickon(script prop_custom_on)				///
+	onclickoff(script prop_custom_off)				///
+	groupbox label(resource LBL_CUSTOMIZE_APPEARANCE_FOR_SELECTED_VARIABLES)
+
+  BUTTON  bu_propset 		+20	_ms	160	.,		///
+	label(resource LBL_SET_CUSTOM_APPEARANCE)			///
+	onpush(program do_prop_selected)	
+  BUTTON  bu_propclear 		@	 _mls	160	.,		///
+	label(resource LBL_CLEAR_CUSTOM_APPEARANCE)			///
+	onpush(program do_prop_clear)
+END
+
+PROGRAM do_prop_selected
+BEGIN
+	call sg__PARAM1.setvalue class OBJ.value
+	call sg__PARAM2.setvalue "LaunchDlg"
+	call sg__ARG_00.setvalue "variables_prop"
+	call sg__ARG_01.setvalue "selected"
+	put /program sg__do_output_sub
+END
+
+PROGRAM do_prop_clear
+BEGIN
+	call sg__PARAM1.setvalue class OBJ.value
+	call sg__PARAM2.setvalue "ClearStylesSelected"
+	call sg__ARG_00.setvalue "variables_prop"
+	call sg__ARG_01.setvalue "selected"
+	put /program sg__do_output_sub
+END
+
+/*****************************************************************************/
+
+PROGRAM command
+BEGIN
+	call sg__PARAM1.setvalue class OBJ.value
+	
+	call sg__PARAM2.setvalue "BeginSet"
+	call sg__DESCPT.setvalue "change variable settings"
+	put /program sg__do_output_sub
+	
+	put /program variable_output
+
+	call sg__PARAM2.setvalue "EndSet"
+	call sg__DESCPT.setvalue "change variable settings"
+	put /program sg__do_output_sub
+
+
+	call sg__PARAM1.setvalue class OBJ.value
+	call sg__PARAM2.setvalue "UpdateDlg"
+	call sg__ARG_00.setvalue "variables"
+	call sg__ARG_01.setvalue class sSrcTypeOrig.value
+	put /program sg__do_output_sub
+
+	call sg__PARAM1.setvalue class OBJ.value
+	call sg__PARAM2.setvalue "Reselect"
+	put /program sg__do_output_sub
+END

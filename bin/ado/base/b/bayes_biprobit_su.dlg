@@ -1,0 +1,201 @@
+/*
+  bayes biprobit su
+
+*!  VERSION 1.0.5  28may2019
+
+  keyword:  eclass
+
+*/
+
+VERSION 15.0
+
+INCLUDE _std_wide
+DEFINE _dlght 500
+INCLUDE header
+HELP hlp1, view("help bayes_biprobit")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource BAYES_BIPROBIT_SU_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script prior_gibbs_hide
+	script rpt_coef_on
+	program prior_show_normal_default
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)				///
+	title(resource BAYES_BIPROBIT_SU_DLG_TITLE)
+BEGIN
+  TEXT     tx_dv1    _lft      _top      _iwd      .,			///
+	label(resource BIPROBIT_SU_MAIN_TX_DV1)
+
+  VARNAME  vn_dv1    @         _ss       _vnwd     .,			///
+	ts								///
+	numeric								///
+	label(resource BIPROBIT_SU_MAIN_TX_DV1)
+
+  TEXT     tx_iv1    _vlx      _top      _vlwd     .,			///
+	label(resource BIPROBIT_SU_MAIN_TX_IV1)		
+		
+  VARLIST  vl_iv1    @         _ss       @         .,			///
+  	allowcat							///
+  	ts fv								///
+  	numeric								///
+  	label(resource BIPROBIT_SU_MAIN_TX_IV1)
+  CHECKBOX ck_nocon1 @         _ms       @         .,			///
+ 	option("noconstant")						///
+	label(resource BIPROBIT_SU_MAIN_CK_NOCON1)
+  TEXT     tx_dv2    _lft      _ls       _iwd      .,			///
+	label(resource BIPROBIT_SU_MAIN_TX_DV2)
+  DEFINE y @y
+  VARNAME  vn_dv2    @         _ss       _vnwd     .,			///
+	ts								///
+	numeric								///
+	label(resource BIPROBIT_SU_MAIN_TX_DV2)
+
+  TEXT     tx_iv2    _vlx      y         _vlwd     .,			///
+	label(resource BIPROBIT_SU_MAIN_TX_IV2)	
+  VARLIST  vl_iv2    @         _ss       @         .,			///
+	allowcat							///
+	ts fv								///
+	numeric								///
+	label(resource BIPROBIT_SU_MAIN_TX_IV2)
+  CHECKBOX ck_nocon2 @         _ms       @         .,			///
+	option("noconstant")						///
+	label(resource BIPROBIT_SU_MAIN_CK_NOCON2)
+  GROUPBOX gb_output _lft      _ls       _iwd      _ht6,		///
+	label(resource LBL_OPTIONS)
+  TEXT     tx_off1   _ilft     _ms       _cwd2     .,			///
+	label(resource LBL_EQ_1_OFFSET_VARIABLE)
+DEFINE y @y
+  VARNAME  vn_off1   @         _ss       _vnwd     .,			///
+	option("offset")						///
+	numeric								///
+	label(resource LBL_EQ_1_OFFSET_VARIABLE)
+  TEXT     tx_off2   _vlx      y         _cwd2     .,			///
+	label(resource LBL_EQ_2_OFFSET_VARIABLE)
+  VARNAME  vn_off2   @         _ss       _vnwd     .,			///
+	option("offset")						///
+	numeric								///
+	label(resource LBL_EQ_2_OFFSET_VARIABLE)
+
+  DEFINE _x _ilft
+  DEFINE _xw _ibwd
+ // INCLUDE _ck_collinear
+END
+
+
+INCLUDE ifin
+INCLUDE weights_f
+INCLUDE bayes_priors
+INCLUDE bayes_simulation
+INCLUDE bayes_blocking
+INCLUDE bayes_initialization
+INCLUDE bayes_adaptation
+INCLUDE bayes_reporting
+INCLUDE bayes_advanced
+
+PROGRAM bayes_opts_output
+BEGIN
+	beginoptions
+		put " " /program bayes_priors_output
+		put " " /program bayes_simulation_output
+		put " " /program bayes_blocking_output
+		put " " /program bayes_init_output
+		put " " /program bayes_adaptation_output
+		put " " /program bayes_reporting_output
+		put " " /program bayes_advanced_output
+	endoptions
+END
+
+PROGRAM bayes_build_parse 
+BEGIN
+	require main.vn_dv1 main.vn_dv2
+	put "biprobit ("
+	put /program subcommand_1
+	if !main.vl_iv1 {
+		put " "
+	}
+	put ") ("
+	put /program subcommand_2
+	if !main.vl_iv2 {
+		put " "
+	}
+	put ")"
+	beginoptions
+//		option main.ck_collinear
+	endoptions
+END
+
+PROGRAM subcommand_1
+BEGIN
+	put main.vn_dv1 " " " = " main.vl_iv1
+	if main.vn_off1 | main.ck_nocon1{
+		beginoptions
+			optionarg main.vn_off1
+			option main.ck_nocon1
+		endoptions
+	}
+END
+
+PROGRAM subcommand_2
+BEGIN
+	put main.vn_dv2 " " " = " main.vl_iv2
+	if main.vn_off2 | main.ck_nocon2 {
+		beginoptions
+			optionarg main.vn_off2
+			option main.ck_nocon2
+		endoptions
+	}
+END
+
+PROGRAM ecommand_output
+BEGIN
+	require main.vn_dv1 main.vn_dv2
+	if !main.vl_iv1 & main.ck_nocon1 {
+		call create STRING _MSG_TMP
+                call _MSG_TMP.format						///
+			"resource BIPROBIT_SU_MSGBOX_FIRST_EQUATION_FMT" 	///
+			"resource BIPROBIT_SU_MAIN_CK_NOCON1"
+		stopbox stop "class _MSG_TMP.value"
+// "Suppress constant term in equation 1" is selected 
+// without first equation independent variables.
+	}
+	if !main.vl_iv2 & main.ck_nocon2 {
+		call create STRING _MSG_TMP
+                call _MSG_TMP.format						///
+			"resource BIPROBIT_SU_MSGBOX_SECOND_EQUATION_FMT"	///
+			"resource BIPROBIT_SU_MAIN_CK_NOCON2"
+		stopbox stop "class _MSG_TMP.value"
+// "Suppress constant term in equation 2" is selected 
+// without second equation independent variables.
+	}
+	put "biprobit ("
+	put /program subcommand_1
+	if !main.vl_iv1 {
+		put " "
+	}
+	put ") ("
+	put /program subcommand_2
+	if !main.vl_iv2 {
+		put " "
+	}
+	put ")"
+	put " " /program ifin_output
+	put " " /program weights_output
+	beginoptions
+//		option main.ck_collinear
+	endoptions
+END
+
+PROGRAM command
+BEGIN
+	put "bayes"
+	put /program bayes_opts_output
+	put " : "
+	put /program ecommand_output
+END

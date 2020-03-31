@@ -1,0 +1,276 @@
+/*
+	meta_reopts.dlg
+
+*!  VERSION 1.0.4  20oct2019
+
+*/
+
+VERSION 16.0
+INCLUDE _std_large
+DEFINE _dlght 270
+INCLUDE header
+
+HELP hlp1, view(help meta)
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource META_REOPTS_DLG_HSCALE
+	create STRING STMP
+	create STRING __MESSAGE
+	create STRING callerVar
+	create STRING parent_name
+	create STRING parent_subgrp
+	create STRING parent_cumu
+	create STRING line_opts_output
+	parent_name.setvalue class PARENT._dlg_rsrcname
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program change_mode
+END
+
+PROGRAM change_mode
+BEGIN
+	call main.bu_line_options.hide
+	if __MESSAGE.equals("summary") {
+		call callerVar.setvalue "summary_reopts"
+		call parent_name.withvalue parent_subgrp.setvalue	///
+			class @.meta.ck_summ_subgrp.value
+		call parent_name.withvalue parent_cumu.setvalue		///
+			class @.meta.ck_summ_cumu.value
+	}
+	if __MESSAGE.equals("forest"){
+		call callerVar.setvalue "forest_reopts"
+		call main.bu_line_options.show
+		call parent_name.withvalue parent_subgrp.setvalue	///
+			class @.meta.ck_forest_subgrp.value
+		call parent_name.withvalue parent_cumu.setvalue		///
+			class @.meta.ck_forest_cumu.value
+	}
+	if __MESSAGE.equals("regress") {
+		call callerVar.setvalue "regress_reopts"
+		call program predinterval_hide
+	}
+	if __MESSAGE.equals("bias") {
+		call callerVar.setvalue "bias_reopts"
+		call program predinterval_hide
+		call program taui_hide
+		call main.ck_se.setposition 10 10 . .
+		call main.rb_se_default.setposition 20 30 . .
+		call main.rb_se_trun.setposition 20 50 . .
+	}
+	call program se_set_status
+END
+
+PROGRAM taui_hide
+BEGIN
+	call main.ck_taui.hide
+	call main.rb_tau2.hide
+	call main.ed_tau2.hide
+	call main.rb_i2.hide
+	call main.ed_i2.hide
+END
+
+PROGRAM predinterval_hide
+BEGIN
+	call main.ck_predinterval.hide
+	call main.cb_predinterval.hide
+	call main.tx_predinterval.hide
+	call main.ck_se.setposition 10 150 . .
+	call main.rb_se_default.setposition 20 170 . .
+	call main.rb_se_trun.setposition 20 190 . .
+END
+DIALOG main, title(resource META_REOPTS_DLG_TITLE)
+BEGIN
+  CHECKBOX ck_taui			_lft	_top	_iwd	_ht8h,	///
+	onclickon(program taui_set_status)				///
+	onclickoff(program taui_set_status)				///
+	groupbox							///
+	label(resource META_REOPTS_MAIN_CK_TAUI)
+  RADIO rb_tau2				_ilft	_ss	_ibwd	.,	///
+	first								///
+	onclickon(program taui_set_status)				///
+	onclickoff(program taui_set_status)				///
+	label(resource META_REOPTS_MAIN_RB_TAU2)
+  EDIT ed_tau2				_iilft	_ss	_spwd	.,	///
+	numonly								///
+	label("tau2")							///
+	option(tau2)
+  RADIO rb_i2				_ilft	_ms	_ibwd	.,	///
+	last								///
+	onclickon(program taui_set_status)				///
+	onclickoff(program taui_set_status)				///
+	label(resource META_REOPTS_MAIN_RB_I2)
+  EDIT ed_i2				_iilft	_ss	_spwd	.,	///
+	numonly								///
+	label("i2")							///
+	option(i2)
+  CHECKBOX ck_predinterval		_lft	_xls	_iwd	_ht2,	///
+	groupbox							///
+	onclickon(program main_pred_check)				///
+	onclickoff(program main_pred_check)				///
+	label(resource META_REOPTS_MAIN_CK_PREDINTERVAL)
+  COMBOBOX cb_predinterval		_ilft	_ss	_spwd	.,	///
+	dropdownlist							///
+	contents(predinterval)						///
+	values(predinterval_values)					///
+	default(95)							///
+	option(predinterval)						///
+	label(resource LBL_CONFIDENCE_LEVEL_FOR_CI_VARIABLES)
+  TEXT tx_predinterval			_spsep	@	110	.,	///
+	label(resource LBL_TX_LEVEL)
+  BUTTON bu_line_options		+120	@	140	.,      ///
+	onpush(script main_show_line_child)				///
+	label(resource LBL_LINE_OPTIONS)
+  CHECKBOX ck_se			_lft	_xls	_iwd	_ht3h,	///
+	groupbox							///
+	onclickon(script seclickon)					///
+	onclickoff(script seclickoff)					///
+	label(resource META_REOPTS_MAIN_CK_SE)
+  RADIO rb_se_default			_ilft	_ss	_ibwd	.,	///
+	first								///
+	label(resource META_REOPTS_MAIN_RB_SE_DEFAULT)
+  RADIO rb_se_trun			@	_ss	@	.,	///
+	last								///
+	label(resource META_REOPTS_MAIN_RB_SE_TRUN)
+END
+
+SCRIPT seclickoff
+BEGIN
+	main.rb_se_default.disable
+	main.rb_se_trun.disable
+END
+
+SCRIPT seclickon
+BEGIN
+	main.rb_se_default.enable
+	main.rb_se_trun.enable
+END
+
+PROGRAM se_set_status 
+BEGIN
+	if parent_subgrp.isneq("0") | parent_cumu.isneq("0") {
+		call main.ck_se.disable
+		call script seclickoff
+	}
+	else {
+		call main.ck_se.enable
+	}
+	if __MESSAGE.equals("bias") | __MESSAGE.equals("regress"){
+		call main.ck_se.enable
+	}
+END
+
+PROGRAM taui_set_status
+BEGIN
+	if ! main.ck_taui {
+		call main.rb_tau2.disable
+		call main.ed_tau2.disable
+		call main.rb_i2.disable
+		call main.ed_i2.disable
+	}
+	else {
+		call main.rb_tau2.enable
+		call main.rb_i2.enable
+		if main.rb_tau2 {
+			call main.ed_tau2.enable
+			call main.ed_i2.disable
+		}
+		if main.rb_i2 {
+			call main.ed_tau2.disable
+			call main.ed_i2.enable
+		}
+	}
+END
+
+PROGRAM main_pred_check
+BEGIN
+	if main.ck_predinterval {
+		call main.cb_predinterval.enable
+		call main.tx_predinterval.enable
+		call main.bu_line_options.enable
+	}
+	else {
+		call main.cb_predinterval.disable
+		call main.tx_predinterval.disable
+		call main.bu_line_options.disable
+	}
+END
+
+
+
+SCRIPT main_show_line_child
+BEGIN
+	create CHILD gr_line_properties AS line
+	line.callthru "script gr_line_setOptionsTo_cl"
+	line.setExitString line_opts_output
+	line.setExitAction "program main_show_line_opts_done"
+END
+
+PROGRAM main_show_line_opts_done
+BEGIN
+	if line_opts_output {
+		call STMP.setvalue resource LBL_LINE_OPTIONS
+		call STMP.append " *"
+	}
+	else {
+		call STMP.setvalue resource LBL_LINE_OPTIONS
+		call STMP.append "  "
+	}
+	call STMP.withvalue main.bu_line_options.setlabel "@"
+END
+
+PROGRAM command
+BEGIN
+	if main.ck_taui {
+		if main.rb_tau2 {
+			optionarg main.ed_tau2
+		}
+		if main.rb_i2 {
+			optionarg main.ed_i2
+		}
+		if __MESSAGE.equals("summary") {
+		call callerVar.withvalue PARENT.callthru "@_taui.settrue"
+		}
+	}
+	else {
+		if __MESSAGE.equals("summary") {
+		call callerVar.withvalue PARENT.callthru "@_taui.setfalse"
+		}
+	}
+	if main.ck_predinterval {
+		put " predinterval("
+		put main.cb_predinterval
+		if __MESSAGE.equals("forest") {
+			if line_opts_output {
+				put ", " line_opts_output
+			}
+		}
+		put ")"
+	}
+	if main.ck_se {
+		put " se(khartung"
+		if main.rb_se_trun {
+			put ", truncated"
+		}
+		put ")"
+		
+		call callerVar.withvalue PARENT.callthru "@_se.settrue"
+	}
+	else {
+		call callerVar.withvalue PARENT.callthru "@_se.setfalse"
+	}
+END
+
+LIST predinterval
+BEGIN
+	99.9
+	99.5
+	99
+	97.5
+	95
+	90
+	80
+END

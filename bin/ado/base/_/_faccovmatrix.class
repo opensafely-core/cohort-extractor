@@ -1,0 +1,227 @@
+*! version 1.0.1  29mar2019
+
+version 10 
+
+class _faccovmatrix {
+	instance:
+		double fdim
+
+}, inherit(_altcovmatrix) 
+
+program ._set, rclass
+	syntax, nalt(passthru) [ STRUCtural FACTor(integer 1) ///
+		base(passthru) scale(passthru) FREEParm ]
+
+	.Super._set, `nalt' `structural' `base' `scale'  ///
+		correlation(unstructured) stddev(heteroskedastic) ///
+		`freeparm'
+
+	.fdim = `factor'
+	if (`.kalt'==2) local mxdim = 1
+	else local mxdim = floor((`.kalt'*(`.kalt'-1)/2-1)/(`.kalt'-2))
+
+	if `.fdim'<1 | `.fdim'>`mxdim' {
+		di as err "{p}factor dimension must be greater than or " ///
+		 "equal to one and less than or equal to `mxdim'{p_end}"
+		exit 198
+	}
+	.full = 0
+	if "`r(base)'"=="" || "`r(scale)'"=="" {
+		di as err "base and scale alternative are required for " ///
+		 "the factored covariance parameterization"
+		exit 498
+	}
+	mat `.fixed.matname'[`r(base)',`r(base)'] = 0
+
+	return add
+	return local cholesky = 0
+end
+
+program .kanc
+
+	class exit `.fdim'*(`.kalt'-2)
+end
+
+program .initest
+	syntax, b(name)
+
+	local k = 1/sqrt(`.fdim')
+	mat `b' = J(1,`.kanc',`k')
+end
+
+program .genanc, rclass
+	syntax [, stripe * ]
+
+	local bstripe = ("`stripe'"!="")
+	.anc.Arrdropall
+
+	local fixed `.fixed.matname'
+	local stripe
+	/* factor parameterized covariance			*/
+	forvalues j=1/`.dim' {
+		if `fixed'[`j',`j'] < . {
+			continue
+		}
+		forvalues i=1/`.fdim' {
+			if `bstripe' {
+				if `.freeparm' == 1 {
+					local stripe `"`stripe' /:c`i'_`j'"'
+				}
+				else {
+					local stripe `"`stripe' c`i'_`j':_cons"'
+				}
+			}
+			else {
+				.anc.Arrpush "c`i'_`j'"
+			}
+		}
+	}
+	if (`bstripe') return local stripe `"`:list retokenize stripe'"'
+
+	class exit .anc.ref
+end
+
+program .evaluate, rclass
+	syntax, b(name) [ * ]
+
+	tempname C
+	local dim = `.dim'
+	mat `C' = J(`.fdim',`dim',0)
+	local fixed `.fixed.matname'
+
+	/* factor parameterized covariance			*/
+	forvalues j=1/`dim' {
+		if `fixed'[`j',`j'] < . {
+			mat `C'[1,`j'] = `fixed'[`j',`j']
+			continue
+		}
+		forvalues i=1/`.fdim' {
+			if `.freeparm' == 1 {
+				local nm "/:c`i'_`j'"
+			}
+			else {
+				local nm "c`i'_`j':_cons"
+			}
+			local k = colnumb(`b',"`nm'")
+			if `k' >= . {
+				di as err "could not find coefficient " ///
+				 "associated with parameter `nm'"
+				exit 497
+			}
+			mat `C'[`i',`j'] = `b'[1,`k']
+		}
+	}
+	local names: colnames `.structure.matname'
+	mat `.name' = I(`dim') + `C''*`C'
+	mat colnames `.matname' = `names'
+	mat rownames `.matname' = `names'
+
+	return matrix C = `C'
+	return local factor factor
+	return local bail = 0
+end
+
+/* do nothing							*/
+program .transcrs
+	syntax varlist(min=1), touse(varname numeric) 
+
+end
+
+program .diffcov
+	syntax, base(integer) scale(integer)
+
+	/* do not difference if structural	*/
+	if (`.structural') exit
+
+	/* already differenced 			*/
+	local dim = `.dim'
+	if (`.structure.cols' == `dim') exit
+
+	local fixed `.fixed.matname'
+	local struct `.structure.matname'
+
+	local names : colnames `fixed'
+	local names : list names - base
+
+	tempname fi st
+	mat `fi' = J(`dim',`dim',.)
+	mat `st' = J(`dim',`dim',.)
+	local jj = 0
+	forvalues j=1/`.kalt' {
+		if `j' == `base' {
+			continue
+		}
+		local `++jj'
+		local ii = 0
+		forvalues i=1/`.kalt' {
+			if `i' == `base' {
+				continue
+			}
+			mat `fi'[`++ii',`jj'] = `fixed'[`i',`j']
+			mat `st'[`ii',`jj'] = `struct'[`i',`j']
+		}
+	}
+	local i = `scale'
+	if `i' > `base' {
+		local `--i'
+	}
+	mat `fi'[`i',`i'] = sqrt(`fi'[`i',`i']^2 + `fixed'[`base',`base']^2)
+
+	mat `fixed' = `fi'
+	mat `struct' = `st'
+	mat rownames `fixed' = `names'
+	mat colnames `fixed' = `names'
+	mat rownames `struct' = `names'
+	mat colnames `struct' = `names'
+end
+
+program .genTmat
+
+	local T `.T.name'
+	loca dim `.dim'
+	local nr = `.fdim'*`dim'
+	local nc = `nr' - (1+`.structural')*`.fdim'
+	if (`nc'<=0) exit
+
+	mat `T' = J(`nr',`nc',0)
+	local fixed `.fixed.matname'
+	local k = 0
+	forvalues j=1/`dim' {
+		if `fixed'[`j',`j'] < . {
+			continue
+		}
+		forvalues i=1/`.fdim' {
+			mat `T'[`=`.fdim'*(`j'-1)+`i'',`++k'] = 1
+		}
+	}
+end
+
+program .eretpost, eclass
+
+	.Super.eretpost
+
+	ereturn scalar k_factors = `.fdim'
+end
+
+program .eretget
+	syntax, [ base(passthru) ]
+
+	.Super.eretget, `base'
+	
+	.fdim = e(k_factors)
+	/* reset order matrix					*/
+	/* for the differenced covariance we do not pivot	*/
+	/*  base to position 1					*/ 
+	forvalues i=1/`.kalt' {
+		mat `.order.matname'[`i',1] = `i'
+	}
+end
+
+program .summary
+	di "factor parameterized " _c
+
+	.Super.summary 
+	di "factor dim:   `.fdim'
+end
+
+exit

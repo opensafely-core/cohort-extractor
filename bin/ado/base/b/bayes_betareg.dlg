@@ -1,0 +1,213 @@
+/*
+  bayes betareg
+
+*!  VERSION 1.0.4  01nov2018
+
+  keyword:  eclass
+
+*/
+
+VERSION 15.0
+
+INCLUDE _std_wide
+DEFINE _dlght 670
+INCLUDE header
+
+HELP hlp1, view("help bayes_betareg")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource BAYES_BETAREG_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script prior_gibbs_hide
+	script rpt_coef_on
+	program prior_show_normal_default
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)				///
+	title(resource BAYES_BETAREG_DLG_TITLE)
+BEGIN
+  TEXT tx_dv 			_lft	_top	_vnwd	.,		///
+	label(resource LBL_DEPVAR)
+  VARNAME vn_dv			@ 	_ss	@	.,		///
+	numeric								///
+	label(resource LBL_DEPVAR)
+
+  TEXT tx_iv			_vlx	_top	160	.,		///
+	label(resource LBL_INDDEPVAR)
+  VARLIST vl_iv			@	_ss	_vlwd	.,		///
+	fv								///
+	allowcat							///
+	numeric								///
+	label(resource LBL_INDDEPVAR)
+
+  CHECKBOX ck_nocons		@	_ms	@	.,		///
+	option("noconstant")						///
+	label(resource LBL_NOCONSTANT)
+
+  GROUPBOX gb_options		_lft	_ls	_iwd	_ht13,		///
+	label(resource LBL_OPTIONS)
+  CHECKBOX ck_scale		_ilft	_ms	_inwd	_ht4,		///
+	groupbox							///
+	onclickon("script main_scale_on")				///
+	onclickoff("script main_scale_off")				///
+	label(resource BETAREG_MAIN_CK_SCALE)
+  VARLIST vl_scale		_indent	_ss	_inwd	.,		///
+	fv								///
+	allowcat							///
+	numeric								///
+	label(resource BETAREG_MAIN_CK_SCALE)
+  CHECKBOX ck_scale_nocons	@	_ms	@	.,		///
+	option("noconstant")						///
+	label(resource LBL_NOCONSTANT)
+  TEXT tx_link 			_ilft	_ls	_cwd3	.,		///
+	label(resource LBL_LINK_FUNCTIONS_CONDITIONAL_MEAN)
+  DEFINE holdy @y
+  COMBOBOX cb_link 		@	_ss	@	.,		///
+	dropdownlist							///
+	default(logit)							///
+	option(link)							///
+	contents("main_link_list")					///
+	values("main_link_values")					///
+	label(resource LBL_LINK_FUNCTIONS_CONDITIONAL_MEAN)
+  TEXT tx_slink 		_ilft2 holdy	_cwd3	.,		///
+	label(resource BETAREG_MAIN_TX_SLINK)
+  COMBOBOX cb_slink 		@	_ss	@	.,		///
+	dropdownlist							///
+	default(log)							///
+	option(slink)							///
+	contents("main_slink_list")					///
+	values("main_slink_values")					///
+	label(resource BETAREG_MAIN_TX_SLINK)
+END
+
+SCRIPT main_scale_on
+BEGIN
+	main.vl_scale.enable
+	main.ck_scale_nocons.enable
+END
+
+SCRIPT main_scale_off
+BEGIN
+	main.vl_scale.disable
+	main.ck_scale_nocons.disable
+END
+
+LIST main_link_list
+BEGIN
+	resource LBL_LOGIT
+	resource LBL_PROBIT
+	resource LBL_CLOGLOG
+	resource BETAREG_LOGLOG
+END
+
+LIST main_link_values
+BEGIN
+	logit
+	probit
+	cloglog
+	loglog
+END
+
+LIST main_slink_list
+BEGIN
+	resource LBL_LOG
+	resource BETAREG_ROOT
+	resource LBL_IDENTITY
+END
+
+LIST main_slink_values
+BEGIN
+	log
+	root
+	identity
+END
+
+INCLUDE ifin
+INCLUDE weights_f
+INCLUDE bayes_priors
+INCLUDE bayes_simulation
+INCLUDE bayes_blocking
+INCLUDE bayes_initialization
+INCLUDE bayes_adaptation
+INCLUDE bayes_reporting
+INCLUDE bayes_advanced
+
+PROGRAM bayes_opts_output
+BEGIN
+	beginoptions
+		put " " /program bayes_priors_output
+		put " " /program bayes_simulation_output
+		put " " /program bayes_blocking_output
+		put " " /program bayes_init_output
+		put " " /program bayes_adaptation_output
+		put " " /program bayes_reporting_output
+		put " " /program bayes_advanced_output
+	endoptions
+END
+
+PROGRAM bayes_build_parse 
+BEGIN
+	put "betareg "
+	varlist main.vn_dv [main.vl_iv]
+	beginoptions
+		option main.ck_nocons
+		if main.ck_scale {
+			require main.vl_scale
+			put " scale("
+			put /program scale_output
+			put ")"
+		}
+		optionarg /hidedefault main.cb_link
+		optionarg /hidedefault main.cb_slink
+	endoptions
+END
+
+PROGRAM scale_output
+BEGIN
+	put main.vl_scale
+	if main.ck_scale_nocons {
+		put ", noconstant"
+	}
+END
+
+PROGRAM ecommand_output
+BEGIN
+	put "betareg "
+	varlist main.vn_dv [main.vl_iv]
+	if !main.vl_iv & main.ck_nocons {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format 					///
+			"resource LBL_MSGBOX_SELECTED_NO_INDVARS_FMT"  	///
+			"resource LBL_TAB_MODEL" 			///
+			"resource LBL_NOCONSTANT"
+		stopbox stop class _MSG_TMP.value
+// On the "Model" tab, "Suppress constant term" is selected without independent variables.
+	}
+
+	put " " /program ifin_output
+	put " " /program weights_output
+	beginoptions
+		option main.ck_nocons
+		if main.ck_scale {
+			require main.vl_scale
+			put " scale("
+			put /program scale_output
+			put ")"
+		}
+		optionarg /hidedefault main.cb_link
+		optionarg /hidedefault main.cb_slink
+	endoptions
+END
+
+PROGRAM command
+BEGIN
+	put "bayes"
+	put /program bayes_opts_output
+	put " : "
+	put /program ecommand_output
+END

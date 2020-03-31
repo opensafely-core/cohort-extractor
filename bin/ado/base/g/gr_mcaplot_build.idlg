@@ -1,0 +1,1651 @@
+/*
+  gr_mcaplot_build.idlg
+
+*!  VERSION 1.1.3  03jun2015
+
+    NOTE: (IMPORTANT)
+    	The name of this dialog tab must not be changed due to 
+    	external dependencies.
+    	
+	// SCRIPTS and PROGRAMS for external use
+		* SCRIPT gr_mcaplot_build_disable
+		* SCRIPT gr_mcaplot_build_enable
+		* PROGRAM gr_mcaplot_build_output
+*/
+
+SCRIPT gr_mcaplot_build_disable
+BEGIN
+	program gr_mcaplot_build_disable_wrk
+END
+PROGRAM gr_mcaplot_build_disable_wrk
+BEGIN
+	call mcabuild.tx_plots.disable
+	call mcabuild.lb_plots.disable
+	call mcabuild.bu_new.disable
+	
+	if D(mcabuild.bu_edit) {
+		call mcabuild_isEditOn.setfalse
+	}
+	if ! D(mcabuild.bu_edit) {
+		call mcabuild_isEditOn.settrue
+	}
+	call mcabuild.bu_edit.disable
+	
+	if D(mcabuild.bu_disable) {
+		call mcabuild_isDisableOn.setfalse
+	}
+	if ! D(mcabuild.bu_disable) {
+		call mcabuild_isDisableOn.settrue
+	}
+	call mcabuild.bu_disable.disable
+
+	if D(mcabuild.bu_enable) {
+		call mcabuild_isEnableOn.setfalse
+	}
+	if ! D(mcabuild.bu_enable) {
+		call mcabuild_isEnableOn.settrue
+	}
+	call mcabuild.bu_enable.disable
+
+	call mcabuild.tb_note.disable
+	call mcabuild_isFullyDisabled.settrue
+END
+
+SCRIPT gr_mcaplot_build_enable
+BEGIN
+	program gr_mcaplot_build_enable_wrk
+END
+PROGRAM gr_mcaplot_build_enable_wrk
+BEGIN
+	call mcabuild.tx_plots.enable
+	call mcabuild.lb_plots.enable
+	call mcabuild.bu_new.enable
+	if mcabuild_isEditOn {
+		call mcabuild.bu_edit.enable
+	}
+	if mcabuild_isDisableOn {
+		call mcabuild.bu_disable.enable
+	}
+	if mcabuild_isEnableOn {
+		call mcabuild.bu_enable.enable
+	}
+	call mcabuild.tb_note.enable
+	call mcabuild_isFullyDisabled.setfalse
+END
+
+SCRIPT mcabuild_PREINIT
+BEGIN
+	create BOOLEAN mcabuild_plotsRequired
+	mcabuild_plotsRequired.settrue
+	
+	create STRING  mcabuild_STMP
+	create STRING  mcabuild_outputCmd
+	create BOOLEAN mcabuild_isEditOn
+	create BOOLEAN mcabuild_isDisableOn
+	create BOOLEAN mcabuild_isEnableOn
+	create BOOLEAN mcabuild_isFullyDisabled
+	
+	//** PUBLIC
+		create BOOLEAN mcabuild_isY2Set
+		create STRING mcabuild_CMD
+	//**
+
+	create STRING mcabuild_CMD1
+	create STRING mcabuild_CMD2
+	create STRING mcabuild_CMD3
+	create STRING mcabuild_CMD4
+	create STRING mcabuild_CMD5
+	create STRING mcabuild_CMD6
+	create STRING mcabuild_CMD7
+	create STRING mcabuild_CMD8
+	create STRING mcabuild_CMD9
+	create STRING mcabuild_CMD10
+	create STRING mcabuild_CMD11
+	create STRING mcabuild_CMD12
+	create STRING mcabuild_CMD13
+	create STRING mcabuild_CMD14
+	create STRING mcabuild_CMD15
+	create STRING mcabuild_CMD16
+	
+	create BOOLEAN mcabuild_plot2isY2Set
+	create BOOLEAN mcabuild_plot3isY2Set
+	create BOOLEAN mcabuild_plot4isY2Set
+	create BOOLEAN mcabuild_plot5isY2Set
+	create BOOLEAN mcabuild_plot6isY2Set
+	create BOOLEAN mcabuild_plot7isY2Set
+	create BOOLEAN mcabuild_plot8isY2Set
+	create BOOLEAN mcabuild_plot9isY2Set
+	create BOOLEAN mcabuild_plot10isY2Set
+	create BOOLEAN mcabuild_plot11isY2Set
+	create BOOLEAN mcabuild_plot12isY2Set
+	create BOOLEAN mcabuild_plot13isY2Set
+	create BOOLEAN mcabuild_plot14isY2Set
+	create BOOLEAN mcabuild_plot15isY2Set
+	create BOOLEAN mcabuild_plot16isY2Set
+	
+	create STRING mcabuild_result1
+	create STRING mcabuild_result2
+	create STRING mcabuild_result3
+	create STRING mcabuild_result4
+	create STRING mcabuild_result5
+	create STRING mcabuild_result6
+	create STRING mcabuild_result7
+	create STRING mcabuild_result8
+	create STRING mcabuild_result9
+	create STRING mcabuild_result10
+	create STRING mcabuild_result11
+	create STRING mcabuild_result12
+	create STRING mcabuild_result13
+	create STRING mcabuild_result14
+	create STRING mcabuild_result15
+	create STRING mcabuild_result16
+
+	create STRING mcabuild_status1
+	create STRING mcabuild_status2
+	create STRING mcabuild_status3
+	create STRING mcabuild_status4
+	create STRING mcabuild_status5
+	create STRING mcabuild_status6
+	create STRING mcabuild_status7
+	create STRING mcabuild_status8
+	create STRING mcabuild_status9
+	create STRING mcabuild_status10
+	create STRING mcabuild_status11
+	create STRING mcabuild_status12
+	create STRING mcabuild_status13
+	create STRING mcabuild_status14
+	create STRING mcabuild_status15
+	create STRING mcabuild_status16
+	
+	create ARRAY  mcabuild_plots
+	create ARRAY  mcabuild_plot_values
+	create DOUBLE mcabuild_counter
+	create BOOLEAN mcabuild_hasResult
+	
+	create BOOLEAN mcabuild_newEntry
+	create STRING  mcabuild_newEntryValue
+	
+	mcabuild.bu_edit.disable
+	mcabuild.bu_disable.disable
+	mcabuild.bu_enable.disable
+END
+
+SCRIPT mcabuild_POSTINIT
+BEGIN
+	mcabuild.bu_new.setfocus
+	program mcabuild_process_list
+	program mcabuild_check_y2_and_set_ytab
+END
+
+DIALOG mcabuild, title(resource GR_MCAPLOT_BUILD_DLG_TITLE)	///
+	tabtitle(resource LBL_PLOTS)
+BEGIN
+  RADIO    rb_default	_lft	_top	_iwd	.,		///
+	first							///
+	onclickon(script gr_mcaplot_build_disable)		///
+	label(resource GR_MCAPLOT_BUILD_MCABUILD_RB_DEFAULT)
+  RADIO    rb_custom	@	_ss	@	.,		///
+	last							///
+	onclickon(script gr_mcaplot_build_enable)		///
+	label(resource GR_MCAPLOT_BUILD_MCABUILD_RB_CUSTOM)
+  TEXT     tx_plots	_iilft	_ms	150	.,		///
+	label(resource GR_MCAPLOT_BUILD_MCABUILD_TX_PLOTS)
+  LISTBOX  lb_plots	@	+20	@	195,		///
+  	contents(mcabuild_plots)				///
+	values(mcabuild_plot_values)				///
+  	ondblclick(program mcabuild_check_plot)			///
+  	onselchangelist(mcabuild_plot_changed)			///
+  	nomemory
+  BUTTON   bu_new	+160	@	100	.,		///
+  	label(resource LBL_BU_CREATE)				///
+  	onpush(program mcabuild_create_new)			///
+  	tooltip(resource LBL_CLICK_CREATE_NEW_PLOT)
+  BUTTON   bu_edit	@	+23	@	.,		///
+  	label(resource LBL_BU_EDIT)				///
+  	onpush(program mcabuild_check_plot)  			///
+  	tooltip(resource LBL_CLICK_EDIT_EXISTING_PLOT)
+  BUTTON   bu_disable	@	+28	@	.,		///
+  	label(resource LBL_BU_DISABLE)				///
+  	onpush(program mcabuild_disable_sel)			///
+  	tooltip(resource LBL_CLICK_DISABLE_PLOT)
+  BUTTON   bu_enable	@	+23	@	.,		///
+  	label(resource LBL_BU_ENABLE)				///
+  	onpush(program mcabuild_enable_sel)			///
+  	tooltip(resource LBL_CLICK_ENABLE_PREVIOUSLY_DISABLED_PLOT)
+
+  TEXTBOX  tb_note	_iilft	+130	_iibwd	_tb2,		///
+  	label(resource GR_MCAPLOT_BUILD_MCABUILD_TB_NOTE)
+
+END
+
+PROGRAM mcabuild_create_new
+BEGIN
+	if mcabuild_counter.iseq(0) {
+		call script mcabuild_make_plot1
+	}
+	if mcabuild_counter.iseq(1) {
+		call script mcabuild_make_plot2
+	}
+	if mcabuild_counter.iseq(2) {
+		call script mcabuild_make_plot3
+	}
+	if mcabuild_counter.iseq(3) {
+		call script mcabuild_make_plot4
+	}
+	if mcabuild_counter.iseq(4) {
+		call script mcabuild_make_plot5
+	}
+	if mcabuild_counter.iseq(5) {
+		call script mcabuild_make_plot6
+	}
+	if mcabuild_counter.iseq(6) {
+		call script mcabuild_make_plot7
+	}
+	if mcabuild_counter.iseq(7) {
+		call script mcabuild_make_plot8
+	}
+	if mcabuild_counter.iseq(8) {
+		call script mcabuild_make_plot9
+	}
+	if mcabuild_counter.iseq(9) {
+		call script mcabuild_make_plot10
+	}
+	if mcabuild_counter.iseq(10) {
+		call script mcabuild_make_plot11
+	}
+	if mcabuild_counter.iseq(11) {
+		call script mcabuild_make_plot12
+	}
+	if mcabuild_counter.iseq(12) {
+		call script mcabuild_make_plot13
+	}
+	if mcabuild_counter.iseq(13) {
+		call script mcabuild_make_plot14
+	}
+	if mcabuild_counter.iseq(14) {
+		call script mcabuild_make_plot15
+	}
+	if mcabuild_counter.iseq(15) {
+		call script mcabuild_make_plot16
+	}
+	if mcabuild_counter.iseq(16) {
+		stopbox stop resource LBL_MSGBOX_PLOT_LIMIT_EXCEEDED_ONLY_16_DEF
+// Plot limit exceeded. Only 16 plots may be defined.
+	}
+END
+
+SCRIPT mcabuild_make_plot1
+BEGIN
+	create CHILD gr_mcaplot AS mcabuild_plot1, allowsubmit
+	mcabuild_plot1.setExitString "mcabuild_result1"
+	mcabuild_plot1.setExitAction "program mcabuild_plot1_done"
+	mcabuild_plot1.setSubmitAction "program mcabuild_plot1_submit_done"
+	mcabuild_STMP.format "resource LBL_PLOT_FMT" "1" ""
+	mcabuild_STMP.withvalue mcabuild_plot1.settitle "@"
+	mcabuild_plot1.callthru "script y2SetHidden_true"
+END
+PROGRAM mcabuild_plot1_done
+BEGIN
+	if mcabuild_counter.iseq(0) {
+		call mcabuild_status1.setstring "active"
+		call mcabuild_counter.setvalue 1
+		call program mcabuild_process_list_new
+	}
+	call mcabuild_CMD.withvalue mcabuild_CMD1.setstring `"@"'
+	call mcabuild.lb_plots.forceselchange
+END
+PROGRAM mcabuild_plot1_submit_done
+BEGIN
+	call program mcabuild_plot1_done
+	call Submit
+END
+
+SCRIPT mcabuild_make_plot2
+BEGIN
+	create CHILD gr_mcaplot AS mcabuild_plot2, allowsubmit
+	mcabuild_plot2.setExitString "mcabuild_result2"
+	mcabuild_plot2.setExitAction "program mcabuild_plot2_done"
+	mcabuild_plot2.setSubmitAction "program mcabuild_plot2_submit_done"
+	mcabuild_STMP.format "resource LBL_PLOT_FMT" "2" ""
+	mcabuild_STMP.withvalue mcabuild_plot2.settitle "@"
+END
+PROGRAM mcabuild_plot2_done
+BEGIN
+	if mcabuild_counter.iseq(1) {
+		call mcabuild_status2.setstring "active"
+		call mcabuild_counter.setvalue 2           
+		call program mcabuild_process_list_new
+	}
+	call mcabuild_CMD.withvalue mcabuild_CMD2.setstring `"@"'
+	call mcabuild.lb_plots.forceselchange
+	if mcabuild_isY2Set {
+		call mcabuild_plot2isY2Set.settrue
+	}
+	if ! mcabuild_isY2Set {
+		call mcabuild_plot2isY2Set.setfalse
+	}
+	call program mcabuild_check_y2_and_set_ytab
+END
+PROGRAM mcabuild_plot2_submit_done
+BEGIN
+	call program mcabuild_plot2_done
+	call Submit
+END
+
+SCRIPT mcabuild_make_plot3
+BEGIN
+	create CHILD gr_mcaplot AS mcabuild_plot3, allowsubmit
+	mcabuild_plot3.setExitString "mcabuild_result3"
+	mcabuild_plot3.setExitAction "program mcabuild_plot3_done"
+	mcabuild_plot3.setSubmitAction "program mcabuild_plot3_submit_done"
+	mcabuild_STMP.format "resource LBL_PLOT_FMT" "3" ""
+	mcabuild_STMP.withvalue mcabuild_plot3.settitle "@"
+END
+PROGRAM mcabuild_plot3_done
+BEGIN
+	if mcabuild_counter.iseq(2) {
+		call mcabuild_status3.setstring "active"
+		call mcabuild_counter.setvalue 3           
+		call program mcabuild_process_list_new		
+	}
+	call mcabuild_CMD.withvalue mcabuild_CMD3.setstring `"@"'
+	call mcabuild.lb_plots.forceselchange
+	if mcabuild_isY2Set {
+		call mcabuild_plot3isY2Set.settrue
+	}
+	if ! mcabuild_isY2Set {
+		call mcabuild_plot3isY2Set.setfalse
+	}
+	call program mcabuild_check_y2_and_set_ytab
+END
+PROGRAM mcabuild_plot3_submit_done
+BEGIN
+	call program mcabuild_plot3_done
+	call Submit
+END
+
+SCRIPT mcabuild_make_plot4
+BEGIN
+	create CHILD gr_mcaplot AS mcabuild_plot4, allowsubmit
+	mcabuild_plot4.setExitString "mcabuild_result4"
+	mcabuild_plot4.setExitAction "program mcabuild_plot4_done"
+	mcabuild_plot4.setSubmitAction "program mcabuild_plot4_submit_done"
+	mcabuild_STMP.format "resource LBL_PLOT_FMT" "4" ""
+	mcabuild_STMP.withvalue mcabuild_plot4.settitle "@"
+END
+PROGRAM mcabuild_plot4_done
+BEGIN
+	if mcabuild_counter.iseq(3) {
+		call mcabuild_status4.setstring "active"
+		call mcabuild_counter.setvalue 4           
+		call program mcabuild_process_list_new
+	}
+	call mcabuild_CMD.withvalue mcabuild_CMD4.setstring `"@"'
+	call mcabuild.lb_plots.forceselchange
+	if mcabuild_isY2Set {
+		call mcabuild_plot4isY2Set.settrue
+	}
+	if ! mcabuild_isY2Set {
+		call mcabuild_plot4isY2Set.setfalse
+	}
+	call program mcabuild_check_y2_and_set_ytab
+END
+PROGRAM mcabuild_plot4_submit_done
+BEGIN
+	call program mcabuild_plot4_done
+	call Submit
+END
+
+SCRIPT mcabuild_make_plot5
+BEGIN
+	create CHILD gr_mcaplot AS mcabuild_plot5, allowsubmit
+	mcabuild_plot5.setExitString "mcabuild_result5"
+	mcabuild_plot5.setExitAction "program mcabuild_plot5_done"
+	mcabuild_plot5.setSubmitAction "program mcabuild_plot5_submit_done"
+	mcabuild_STMP.format "resource LBL_PLOT_FMT" "5" ""
+	mcabuild_STMP.withvalue mcabuild_plot5.settitle "@"
+END
+PROGRAM mcabuild_plot5_done
+BEGIN
+	if mcabuild_counter.iseq(4) {
+		call mcabuild_status5.setstring "active"
+		call mcabuild_counter.setvalue 5           
+		call program mcabuild_process_list_new
+	}
+	call mcabuild_CMD.withvalue mcabuild_CMD5.setstring `"@"'
+	call mcabuild.lb_plots.forceselchange
+	if mcabuild_isY2Set {
+		call mcabuild_plot5isY2Set.settrue
+	}
+	if ! mcabuild_isY2Set {
+		call mcabuild_plot5isY2Set.setfalse
+	}
+	call program mcabuild_check_y2_and_set_ytab
+END
+PROGRAM mcabuild_plot5_submit_done
+BEGIN
+	call program mcabuild_plot5_done
+	call Submit
+END
+
+SCRIPT mcabuild_make_plot6
+BEGIN
+	create CHILD gr_mcaplot AS mcabuild_plot6, allowsubmit
+	mcabuild_plot6.setExitString "mcabuild_result6"
+	mcabuild_plot6.setExitAction "program mcabuild_plot6_done"
+	mcabuild_plot6.setSubmitAction "program mcabuild_plot6_submit_done"
+	mcabuild_STMP.format "resource LBL_PLOT_FMT" "6" ""
+	mcabuild_STMP.withvalue mcabuild_plot6.settitle "@"
+END
+PROGRAM mcabuild_plot6_done
+BEGIN
+	if mcabuild_counter.iseq(5) {
+		call mcabuild_status6.setstring "active"
+		call mcabuild_counter.setvalue 6           
+		call program mcabuild_process_list_new
+	}
+	call mcabuild_CMD.withvalue mcabuild_CMD6.setstring `"@"'
+	call mcabuild.lb_plots.forceselchange
+	if mcabuild_isY2Set {
+		call mcabuild_plot6isY2Set.settrue
+	}
+	if ! mcabuild_isY2Set {
+		call mcabuild_plot6isY2Set.setfalse
+	}
+	call program mcabuild_check_y2_and_set_ytab
+END
+PROGRAM mcabuild_plot6_submit_done
+BEGIN
+	call program mcabuild_plot6_done
+	call Submit
+END
+
+SCRIPT mcabuild_make_plot7
+BEGIN
+	create CHILD gr_mcaplot AS mcabuild_plot7, allowsubmit
+	mcabuild_plot7.setExitString "mcabuild_result7"
+	mcabuild_plot7.setExitAction "program mcabuild_plot7_done"
+	mcabuild_plot7.setSubmitAction "program mcabuild_plot7_submit_done"
+	mcabuild_STMP.format "resource LBL_PLOT_FMT" "7" ""
+	mcabuild_STMP.withvalue mcabuild_plot7.settitle "@"
+END
+PROGRAM mcabuild_plot7_done
+BEGIN
+	if mcabuild_counter.iseq(6) {
+		call mcabuild_status7.setstring "active"
+		call mcabuild_counter.setvalue 7           
+		call program mcabuild_process_list_new
+	}
+	call mcabuild_CMD.withvalue mcabuild_CMD7.setstring `"@"'
+	call mcabuild.lb_plots.forceselchange
+	if mcabuild_isY2Set {
+		call mcabuild_plot7isY2Set.settrue
+	}
+	if ! mcabuild_isY2Set {
+		call mcabuild_plot7isY2Set.setfalse
+	}
+	call program mcabuild_check_y2_and_set_ytab
+END
+PROGRAM mcabuild_plot7_submit_done
+BEGIN
+	call program mcabuild_plot7_done
+	call Submit
+END
+
+SCRIPT mcabuild_make_plot8
+BEGIN
+	create CHILD gr_mcaplot AS mcabuild_plot8, allowsubmit
+	mcabuild_plot8.setExitString "mcabuild_result8"
+	mcabuild_plot8.setExitAction "program mcabuild_plot8_done"
+	mcabuild_plot8.setSubmitAction "program mcabuild_plot8_submit_done"
+	mcabuild_STMP.format "resource LBL_PLOT_FMT" "8" ""
+	mcabuild_STMP.withvalue mcabuild_plot8.settitle "@"
+END
+PROGRAM mcabuild_plot8_done
+BEGIN
+	if mcabuild_counter.iseq(7) {
+		call mcabuild_status8.setstring "active"
+		call mcabuild_counter.setvalue 8           
+		call program mcabuild_process_list_new
+	}
+	call mcabuild_CMD.withvalue mcabuild_CMD8.setstring `"@"'
+	call mcabuild.lb_plots.forceselchange
+	if mcabuild_isY2Set {
+		call mcabuild_plot8isY2Set.settrue
+	}
+	if ! mcabuild_isY2Set {
+		call mcabuild_plot8isY2Set.setfalse
+	}
+	call program mcabuild_check_y2_and_set_ytab
+END
+PROGRAM mcabuild_plot8_submit_done
+BEGIN
+	call program mcabuild_plot8_done
+	call Submit
+END
+
+SCRIPT mcabuild_make_plot9
+BEGIN
+	create CHILD gr_mcaplot AS mcabuild_plot9, allowsubmit
+	mcabuild_plot9.setExitString "mcabuild_result9"
+	mcabuild_plot9.setExitAction "program mcabuild_plot9_done"
+	mcabuild_plot9.setSubmitAction "program mcabuild_plot9_submit_done"
+	mcabuild_STMP.format "resource LBL_PLOT_FMT" "9" ""
+	mcabuild_STMP.withvalue mcabuild_plot9.settitle "@"
+END
+PROGRAM mcabuild_plot9_done
+BEGIN
+	if mcabuild_counter.iseq(8) {
+		call mcabuild_status9.setstring "active"
+		call mcabuild_counter.setvalue 9           
+		call program mcabuild_process_list_new
+	}
+	call mcabuild_CMD.withvalue mcabuild_CMD9.setstring `"@"'
+	call mcabuild.lb_plots.forceselchange
+	if mcabuild_isY2Set {
+		call mcabuild_plot9isY2Set.settrue
+	}
+	if ! mcabuild_isY2Set {
+		call mcabuild_plot9isY2Set.setfalse
+	}
+	call program mcabuild_check_y2_and_set_ytab
+END
+PROGRAM mcabuild_plot9_submit_done
+BEGIN
+	call program mcabuild_plot9_done
+	call Submit
+END
+
+SCRIPT mcabuild_make_plot10
+BEGIN
+	create CHILD gr_mcaplot AS mcabuild_plot10, allowsubmit
+	mcabuild_plot10.setExitString "mcabuild_result10"
+	mcabuild_plot10.setExitAction "program mcabuild_plot10_done"
+	mcabuild_plot10.setSubmitAction "program mcabuild_plot10_submit_done"
+	mcabuild_STMP.format "resource LBL_PLOT_FMT" "10" ""
+	mcabuild_STMP.withvalue mcabuild_plot10.settitle "@"
+END
+PROGRAM mcabuild_plot10_done
+BEGIN
+	if mcabuild_counter.iseq(9) {
+		call mcabuild_status10.setstring "active"
+		call mcabuild_counter.setvalue 10           
+		call program mcabuild_process_list_new
+	}
+	call mcabuild_CMD.withvalue mcabuild_CMD10.setstring `"@"'
+	call mcabuild.lb_plots.forceselchange
+	if mcabuild_isY2Set {
+		call mcabuild_plot10isY2Set.settrue
+	}
+	if ! mcabuild_isY2Set {
+		call mcabuild_plot10isY2Set.setfalse
+	}
+	call program mcabuild_check_y2_and_set_ytab
+END
+PROGRAM mcabuild_plot10_submit_done
+BEGIN
+	call program mcabuild_plot10_done
+	call Submit
+END
+
+SCRIPT mcabuild_make_plot11
+BEGIN
+	create CHILD gr_mcaplot AS mcabuild_plot11, allowsubmit
+	mcabuild_plot11.setExitString "mcabuild_result11"
+	mcabuild_plot11.setExitAction "program mcabuild_plot11_done"
+	mcabuild_plot11.setSubmitAction "program mcabuild_plot11_submit_done"
+	mcabuild_STMP.format "resource LBL_PLOT_FMT" "11" ""
+	mcabuild_STMP.withvalue mcabuild_plot11.settitle "@"
+END
+PROGRAM mcabuild_plot11_done
+BEGIN
+	if mcabuild_counter.iseq(10) {
+		call mcabuild_status11.setstring "active"
+		call mcabuild_counter.setvalue 11           
+		call program mcabuild_process_list_new
+	}
+	call mcabuild_CMD.withvalue mcabuild_CMD11.setstring `"@"'
+	call mcabuild.lb_plots.forceselchange
+	if mcabuild_isY2Set {
+		call mcabuild_plot11isY2Set.settrue
+	}
+	if ! mcabuild_isY2Set {
+		call mcabuild_plot11isY2Set.setfalse
+	}
+	call program mcabuild_check_y2_and_set_ytab
+END
+PROGRAM mcabuild_plot11_submit_done
+BEGIN
+	call program mcabuild_plot11_done
+	call Submit
+END
+
+SCRIPT mcabuild_make_plot12
+BEGIN
+	create CHILD gr_mcaplot AS mcabuild_plot12, allowsubmit
+	mcabuild_plot12.setExitString "mcabuild_result12"
+	mcabuild_plot12.setExitAction "program mcabuild_plot12_done"
+	mcabuild_plot12.setSubmitAction "program mcabuild_plot12_submit_done"
+	mcabuild_STMP.format "resource LBL_PLOT_FMT" "12" ""
+	mcabuild_STMP.withvalue mcabuild_plot12.settitle "@"
+END
+PROGRAM mcabuild_plot12_done
+BEGIN
+	if mcabuild_counter.iseq(11) {
+		call mcabuild_status12.setstring "active"
+		call mcabuild_counter.setvalue 12           
+		call program mcabuild_process_list_new
+	}
+	call mcabuild_CMD.withvalue mcabuild_CMD12.setstring `"@"'
+	call mcabuild.lb_plots.forceselchange
+	if mcabuild_isY2Set {
+		call mcabuild_plot12isY2Set.settrue
+	}
+	if ! mcabuild_isY2Set {
+		call mcabuild_plot12isY2Set.setfalse
+	}
+	call program mcabuild_check_y2_and_set_ytab
+END
+PROGRAM mcabuild_plot12_submit_done
+BEGIN
+	call program mcabuild_plot12_done
+	call Submit
+END
+
+SCRIPT mcabuild_make_plot13
+BEGIN
+	create CHILD gr_mcaplot AS mcabuild_plot13, allowsubmit
+	mcabuild_plot13.setExitString "mcabuild_result13"
+	mcabuild_plot13.setExitAction "program mcabuild_plot13_done"
+	mcabuild_plot13.setSubmitAction "program mcabuild_plot13_submit_done"
+	mcabuild_STMP.format "resource LBL_PLOT_FMT" "13" ""
+	mcabuild_STMP.withvalue mcabuild_plot13.settitle "@"
+END
+PROGRAM mcabuild_plot13_done
+BEGIN
+	if mcabuild_counter.iseq(12) {
+		call mcabuild_status13.setstring "active"
+		call mcabuild_counter.setvalue 13           
+		call program mcabuild_process_list_new
+	}
+	call mcabuild_CMD.withvalue mcabuild_CMD13.setstring `"@"'
+	call mcabuild.lb_plots.forceselchange
+	if mcabuild_isY2Set {
+		call mcabuild_plot13isY2Set.settrue
+	}
+	if ! mcabuild_isY2Set {
+		call mcabuild_plot13isY2Set.setfalse
+	}
+	call program mcabuild_check_y2_and_set_ytab
+END
+PROGRAM mcabuild_plot13_submit_done
+BEGIN
+	call program mcabuild_plot13_done
+	call Submit
+END
+
+SCRIPT mcabuild_make_plot14
+BEGIN
+	create CHILD gr_mcaplot AS mcabuild_plot14, allowsubmit
+	mcabuild_plot14.setExitString "mcabuild_result14"
+	mcabuild_plot14.setExitAction "program mcabuild_plot14_done"
+	mcabuild_plot14.setSubmitAction "program mcabuild_plot14_submit_done"
+	mcabuild_STMP.format "resource LBL_PLOT_FMT" "14" ""
+	mcabuild_STMP.withvalue mcabuild_plot14.settitle "@"
+END
+PROGRAM mcabuild_plot14_done
+BEGIN
+	if mcabuild_counter.iseq(13) {
+		call mcabuild_status14.setstring "active"
+		call mcabuild_counter.setvalue 14           
+		call program mcabuild_process_list_new
+	}
+	call mcabuild_CMD.withvalue mcabuild_CMD14.setstring `"@"'
+	call mcabuild.lb_plots.forceselchange
+	if mcabuild_isY2Set {
+		call mcabuild_plot14isY2Set.settrue
+	}
+	if ! mcabuild_isY2Set {
+		call mcabuild_plot14isY2Set.setfalse
+	}
+	call program mcabuild_check_y2_and_set_ytab
+END
+PROGRAM mcabuild_plot14_submit_done
+BEGIN
+	call program mcabuild_plot14_done
+	call Submit
+END
+
+SCRIPT mcabuild_make_plot15
+BEGIN
+	create CHILD gr_mcaplot AS mcabuild_plot15, allowsubmit
+	mcabuild_plot15.setExitString "mcabuild_result15"
+	mcabuild_plot15.setExitAction "program mcabuild_plot15_done"
+	mcabuild_plot15.setSubmitAction "program mcabuild_plot15_submit_done"
+	mcabuild_STMP.format "resource LBL_PLOT_FMT" "15" ""
+	mcabuild_STMP.withvalue mcabuild_plot15.settitle "@"
+END
+PROGRAM mcabuild_plot15_done
+BEGIN
+	if mcabuild_counter.iseq(14) {
+		call mcabuild_status15.setstring "active"
+		call mcabuild_counter.setvalue 15           
+		call program mcabuild_process_list_new
+	}
+	call mcabuild_CMD.withvalue mcabuild_CMD15.setstring `"@"'
+	call mcabuild.lb_plots.forceselchange
+	if mcabuild_isY2Set {
+		call mcabuild_plot15isY2Set.settrue
+	}
+	if ! mcabuild_isY2Set {
+		call mcabuild_plot15isY2Set.setfalse
+	}
+	call program mcabuild_check_y2_and_set_ytab
+END
+PROGRAM mcabuild_plot15_submit_done
+BEGIN
+	call program mcabuild_plot15_done
+	call Submit
+END
+
+SCRIPT mcabuild_make_plot16
+BEGIN
+	create CHILD gr_mcaplot AS mcabuild_plot16, allowsubmit
+	mcabuild_plot16.setExitString "mcabuild_result16"
+	mcabuild_plot16.setExitAction "program mcabuild_plot16_done"
+	mcabuild_plot16.setSubmitAction "program mcabuild_plot16_submit_done"
+	mcabuild_STMP.format "resource LBL_PLOT_FMT" "16" ""
+	mcabuild_STMP.withvalue mcabuild_plot16.settitle "@"
+END
+PROGRAM mcabuild_plot16_done
+BEGIN
+	if mcabuild_counter.iseq(15) {
+		call mcabuild_status16.setstring "active"
+		call mcabuild_counter.setvalue 16           
+		call program mcabuild_process_list_new
+	}
+	call mcabuild_CMD.withvalue mcabuild_CMD16.setstring `"@"'
+	call mcabuild.lb_plots.forceselchange
+	if mcabuild_isY2Set {
+		call mcabuild_plot16isY2Set.settrue
+	}
+	if ! mcabuild_isY2Set {
+		call mcabuild_plot16isY2Set.setfalse
+	}
+	call program mcabuild_check_y2_and_set_ytab	
+END
+PROGRAM mcabuild_plot16_submit_done
+BEGIN
+	call program mcabuild_plot16_done
+	call Submit
+END
+
+SCRIPT mcabuild_clear_list
+BEGIN
+	mcabuild_plots.Arrdropall
+	mcabuild_plot_values.Arrdropall
+END
+
+PROGRAM mcabuild_process_list_new
+BEGIN
+	call mcabuild_newEntry.settrue
+	call program mcabuild_process_list
+	call mcabuild_newEntry.setfalse
+END
+
+PROGRAM mcabuild_process_list
+BEGIN	
+	call script mcabuild_clear_list
+	if mcabuild_counter.isge(1) {
+		call mcabuild_plot_values.Arrpush "plot1"
+		call mcabuild_newEntryValue.setstring "plot1"
+		if mcabuild_status1.iseq("active") {
+			call mcabuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"1" ""
+			call mcabuild_STMP.withvalue mcabuild_plots.Arrpush "@"
+		}
+		if mcabuild_status1.iseq("disabled") {
+			call mcabuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"1" "resource LBL_PAREN_DISABLED"
+			call mcabuild_STMP.withvalue mcabuild_plots.Arrpush "@"
+		}
+		call mcabuild.bu_edit.enable
+	}
+	if mcabuild_counter.isge(2) {
+		call mcabuild_plot_values.Arrpush "plot2"
+		call mcabuild_newEntryValue.setstring "plot2"
+		if mcabuild_status2.iseq("active") {
+			call mcabuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"2" ""
+			call mcabuild_STMP.withvalue mcabuild_plots.Arrpush "@"
+		}
+		if mcabuild_status2.iseq("disabled") {
+			call mcabuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"2" "resource LBL_PAREN_DISABLED"
+			call mcabuild_STMP.withvalue mcabuild_plots.Arrpush "@"
+		}
+	}
+	if mcabuild_counter.isge(3) {
+		call mcabuild_plot_values.Arrpush "plot3"
+		call mcabuild_newEntryValue.setstring "plot3"
+		if mcabuild_status3.iseq("active") {
+			call mcabuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"3" ""
+			call mcabuild_STMP.withvalue mcabuild_plots.Arrpush "@"
+		}
+		if mcabuild_status3.iseq("disabled") {
+			call mcabuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"3" "resource LBL_PAREN_DISABLED"
+			call mcabuild_STMP.withvalue mcabuild_plots.Arrpush "@"
+		}
+	}
+	if mcabuild_counter.isge(4) {
+		call mcabuild_plot_values.Arrpush "plot4"
+		call mcabuild_newEntryValue.setstring "plot4"
+		if mcabuild_status4.iseq("active") {
+			call mcabuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"4" ""
+			call mcabuild_STMP.withvalue mcabuild_plots.Arrpush "@"
+		}
+		if mcabuild_status4.iseq("disabled") {
+			call mcabuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"4" "resource LBL_PAREN_DISABLED"
+			call mcabuild_STMP.withvalue mcabuild_plots.Arrpush "@"
+		}
+	}
+	if mcabuild_counter.isge(5) {
+		call mcabuild_plot_values.Arrpush "plot5"
+		call mcabuild_newEntryValue.setstring "plot5"
+		if mcabuild_status5.iseq("active") {
+			call mcabuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"5" ""
+			call mcabuild_STMP.withvalue mcabuild_plots.Arrpush "@"
+		}
+		if mcabuild_status5.iseq("disabled") {
+			call mcabuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"5" "resource LBL_PAREN_DISABLED"
+			call mcabuild_STMP.withvalue mcabuild_plots.Arrpush "@"
+		}
+	}
+	if mcabuild_counter.isge(6) {
+		call mcabuild_plot_values.Arrpush "plot6"
+		call mcabuild_newEntryValue.setstring "plot6"
+		if mcabuild_status6.iseq("active") {
+			call mcabuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"6" ""
+			call mcabuild_STMP.withvalue mcabuild_plots.Arrpush "@"
+		}
+		if mcabuild_status6.iseq("disabled") {
+			call mcabuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"6" "resource LBL_PAREN_DISABLED"
+			call mcabuild_STMP.withvalue mcabuild_plots.Arrpush "@"
+		}
+	}
+	if mcabuild_counter.isge(7) {
+		call mcabuild_plot_values.Arrpush "plot7"
+		call mcabuild_newEntryValue.setstring "plot7"
+		if mcabuild_status7.iseq("active") {
+			call mcabuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"7" ""
+			call mcabuild_STMP.withvalue mcabuild_plots.Arrpush "@"
+		}
+		if mcabuild_status7.iseq("disabled") {
+			call mcabuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"7" "resource LBL_PAREN_DISABLED"
+			call mcabuild_STMP.withvalue mcabuild_plots.Arrpush "@"
+		}
+	}
+	if mcabuild_counter.isge(8) {
+		call mcabuild_plot_values.Arrpush "plot8"
+		call mcabuild_newEntryValue.setstring "plot8"
+		if mcabuild_status8.iseq("active") {
+			call mcabuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"8" ""
+			call mcabuild_STMP.withvalue mcabuild_plots.Arrpush "@"
+		}
+		if mcabuild_status8.iseq("disabled") {
+			call mcabuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"8" "resource LBL_PAREN_DISABLED"
+			call mcabuild_STMP.withvalue mcabuild_plots.Arrpush "@"
+		}
+	}	
+	if mcabuild_counter.isge(9) {
+		call mcabuild_plot_values.Arrpush "plot9"
+		call mcabuild_newEntryValue.setstring "plot9"
+		if mcabuild_status9.iseq("active") {
+			call mcabuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"9" ""
+			call mcabuild_STMP.withvalue mcabuild_plots.Arrpush "@"
+		}
+		if mcabuild_status9.iseq("disabled") {
+			call mcabuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"9" "resource LBL_PAREN_DISABLED"
+			call mcabuild_STMP.withvalue mcabuild_plots.Arrpush "@"
+		}
+	}
+	if mcabuild_counter.isge(10) {
+		call mcabuild_plot_values.Arrpush "plot10"
+		call mcabuild_newEntryValue.setstring "plot10"
+		if mcabuild_status10.iseq("active") {
+			call mcabuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"10" ""
+			call mcabuild_STMP.withvalue mcabuild_plots.Arrpush "@"
+		}
+		if mcabuild_status10.iseq("disabled") {
+			call mcabuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"10" "resource LBL_PAREN_DISABLED"
+			call mcabuild_STMP.withvalue mcabuild_plots.Arrpush "@"
+		}
+	}
+	if mcabuild_counter.isge(11) {
+		call mcabuild_plot_values.Arrpush "plot11"
+		call mcabuild_newEntryValue.setstring "plot11"
+		if mcabuild_status11.iseq("active") {
+			call mcabuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"11" ""
+			call mcabuild_STMP.withvalue mcabuild_plots.Arrpush "@"
+		}
+		if mcabuild_status11.iseq("disabled") {
+			call mcabuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"11" "resource LBL_PAREN_DISABLED"
+			call mcabuild_STMP.withvalue mcabuild_plots.Arrpush "@"
+		}
+	}
+	if mcabuild_counter.isge(12) {
+		call mcabuild_plot_values.Arrpush "plot12"
+		call mcabuild_newEntryValue.setstring "plot12"
+		if mcabuild_status12.iseq("active") {
+			call mcabuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"12" ""
+			call mcabuild_STMP.withvalue mcabuild_plots.Arrpush "@"
+		}
+		if mcabuild_status12.iseq("disabled") {
+			call mcabuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"12" "resource LBL_PAREN_DISABLED"
+			call mcabuild_STMP.withvalue mcabuild_plots.Arrpush "@"
+		}
+	}
+	if mcabuild_counter.isge(13) {
+		call mcabuild_plot_values.Arrpush "plot13"
+		call mcabuild_newEntryValue.setstring "plot13"
+		if mcabuild_status13.iseq("active") {
+			call mcabuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"13" ""
+			call mcabuild_STMP.withvalue mcabuild_plots.Arrpush "@"
+		}
+		if mcabuild_status13.iseq("disabled") {
+			call mcabuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"13" "resource LBL_PAREN_DISABLED"
+			call mcabuild_STMP.withvalue mcabuild_plots.Arrpush "@"
+		}
+	}
+	if mcabuild_counter.isge(14) {
+		call mcabuild_plot_values.Arrpush "plot14"
+		call mcabuild_newEntryValue.setstring "plot14"
+		if mcabuild_status14.iseq("active") {
+			call mcabuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"14" ""
+			call mcabuild_STMP.withvalue mcabuild_plots.Arrpush "@"
+		}
+		if mcabuild_status14.iseq("disabled") {
+			call mcabuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"14" "resource LBL_PAREN_DISABLED"
+			call mcabuild_STMP.withvalue mcabuild_plots.Arrpush "@"
+		}
+	}
+	if mcabuild_counter.isge(15) {
+		call mcabuild_plot_values.Arrpush "plot15"
+		call mcabuild_newEntryValue.setstring "plot15"
+		if mcabuild_status15.iseq("active") {
+			call mcabuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"15" ""
+			call mcabuild_STMP.withvalue mcabuild_plots.Arrpush "@"
+		}
+		if mcabuild_status15.iseq("disabled") {
+			call mcabuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"15" "resource LBL_PAREN_DISABLED"
+			call mcabuild_STMP.withvalue mcabuild_plots.Arrpush "@"
+		}
+	}
+	if mcabuild_counter.isge(16) {
+		call mcabuild_plot_values.Arrpush "plot16"
+		call mcabuild_newEntryValue.setstring "plot16"
+		if mcabuild_status16.iseq("active") {
+			call mcabuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"16" ""
+			call mcabuild_STMP.withvalue mcabuild_plots.Arrpush "@"
+		}
+		if mcabuild_status16.iseq("disabled") {
+			call mcabuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"16" "resource LBL_PAREN_DISABLED"
+			call mcabuild_STMP.withvalue mcabuild_plots.Arrpush "@"
+		}
+	}
+	call mcabuild.lb_plots.repopulate
+	if mcabuild_newEntry {
+		call mcabuild_newEntryValue.withvalue			///
+			mcabuild.lb_plots.setvalue "@"
+	}
+END
+
+PROGRAM mcabuild_check_y2_and_set_ytab
+BEGIN
+	if mcabuild_plot2isY2Set | mcabuild_plot3isY2Set 		///
+		| mcabuild_plot4isY2Set 				///
+		| mcabuild_plot5isY2Set | mcabuild_plot6isY2Set 	///
+		| mcabuild_plot7isY2Set | mcabuild_plot8isY2Set 	///
+		| mcabuild_plot9isY2Set | mcabuild_plot10isY2Set 	///
+		| mcabuild_plot11isY2Set | mcabuild_plot12isY2Set 	///
+		| mcabuild_plot13isY2Set | mcabuild_plot14isY2Set 	///
+		| mcabuild_plot15isY2Set | mcabuild_plot16isY2Set 	///
+	{
+		call script gr_yaxis_showY2
+	}
+	else {
+		call script gr_yaxis_hideY2
+	}
+END
+
+LIST mcabuild_plot_changed
+BEGIN
+	script mcabuild_plot1_sel
+	script mcabuild_plot2_sel
+	script mcabuild_plot3_sel
+	script mcabuild_plot4_sel
+	script mcabuild_plot5_sel
+	script mcabuild_plot6_sel
+	script mcabuild_plot7_sel
+	script mcabuild_plot8_sel	
+	script mcabuild_plot9_sel
+	script mcabuild_plot10_sel
+	script mcabuild_plot11_sel
+	script mcabuild_plot12_sel
+	script mcabuild_plot13_sel
+	script mcabuild_plot14_sel
+	script mcabuild_plot15_sel
+	script mcabuild_plot16_sel	
+END
+
+SCRIPT mcabuild_plot0_sel
+BEGIN
+	mcabuild.tb_note.setlabel			///
+		"resource LBL_PRESS_CREATE_DEFINE_TIME_SERIES_PLOT"
+//		`"Press "Create" to define a time-series plot."'
+	mcabuild.bu_enable.disable
+	mcabuild.bu_disable.disable
+END
+
+SCRIPT mcabuild_plot1_sel
+BEGIN
+	mcabuild_CMD1.withvalue mcabuild.tb_note.setlabel `"@"'
+	program mcabuild_plot1_check_status
+END
+PROGRAM mcabuild_plot1_check_status
+BEGIN
+	if mcabuild_status1.iseq("active") {
+		call mcabuild.bu_enable.disable
+		call mcabuild.bu_disable.enable
+	}
+	if mcabuild_status1.iseq("disabled") {
+		call mcabuild.bu_enable.enable
+		call mcabuild.bu_disable.disable
+	}
+END
+
+SCRIPT mcabuild_plot2_sel
+BEGIN
+	mcabuild_CMD2.withvalue mcabuild.tb_note.setlabel `"@"'
+	program mcabuild_plot2_check_status
+END
+PROGRAM mcabuild_plot2_check_status
+BEGIN
+	if mcabuild_status2.iseq("active") {
+		call mcabuild.bu_enable.disable
+		call mcabuild.bu_disable.enable
+	}
+	if mcabuild_status2.iseq("disabled") {
+		call mcabuild.bu_enable.enable
+		call mcabuild.bu_disable.disable
+	}
+END
+
+SCRIPT mcabuild_plot3_sel
+BEGIN
+	mcabuild_CMD3.withvalue mcabuild.tb_note.setlabel `"@"'
+	program mcabuild_plot3_check_status
+END
+PROGRAM mcabuild_plot3_check_status
+BEGIN
+	if mcabuild_status3.iseq("active") {
+		call mcabuild.bu_enable.disable
+		call mcabuild.bu_disable.enable
+	}
+	if mcabuild_status3.iseq("disabled") {
+		call mcabuild.bu_enable.enable
+		call mcabuild.bu_disable.disable
+	}
+END
+
+SCRIPT mcabuild_plot4_sel
+BEGIN
+	mcabuild_CMD4.withvalue mcabuild.tb_note.setlabel `"@"'
+	program mcabuild_plot4_check_status
+END
+PROGRAM mcabuild_plot4_check_status
+BEGIN
+	if mcabuild_status4.iseq("active") {
+		call mcabuild.bu_enable.disable
+		call mcabuild.bu_disable.enable
+	}
+	if mcabuild_status4.iseq("disabled") {
+		call mcabuild.bu_enable.enable
+		call mcabuild.bu_disable.disable
+	}
+END
+
+SCRIPT mcabuild_plot5_sel
+BEGIN
+	mcabuild_CMD5.withvalue mcabuild.tb_note.setlabel `"@"'
+	program mcabuild_plot5_check_status
+END
+PROGRAM mcabuild_plot5_check_status
+BEGIN
+	if mcabuild_status5.iseq("active") {
+		call mcabuild.bu_enable.disable
+		call mcabuild.bu_disable.enable
+	}
+	if mcabuild_status5.iseq("disabled") {
+		call mcabuild.bu_enable.enable
+		call mcabuild.bu_disable.disable
+	}
+END
+
+SCRIPT mcabuild_plot6_sel
+BEGIN
+	mcabuild_CMD6.withvalue mcabuild.tb_note.setlabel `"@"'
+	program mcabuild_plot6_check_status
+END
+PROGRAM mcabuild_plot6_check_status
+BEGIN
+	if mcabuild_status6.iseq("active") {
+		call mcabuild.bu_enable.disable
+		call mcabuild.bu_disable.enable
+	}
+	if mcabuild_status6.iseq("disabled") {
+		call mcabuild.bu_enable.enable
+		call mcabuild.bu_disable.disable
+	}
+END
+
+SCRIPT mcabuild_plot7_sel
+BEGIN
+	mcabuild_CMD7.withvalue mcabuild.tb_note.setlabel `"@"'
+	program mcabuild_plot7_check_status
+END
+PROGRAM mcabuild_plot7_check_status
+BEGIN
+	if mcabuild_status7.iseq("active") {
+		call mcabuild.bu_enable.disable
+		call mcabuild.bu_disable.enable
+	}
+	if mcabuild_status7.iseq("disabled") {
+		call mcabuild.bu_enable.enable
+		call mcabuild.bu_disable.disable
+	}
+END
+
+SCRIPT mcabuild_plot8_sel
+BEGIN
+	mcabuild_CMD8.withvalue mcabuild.tb_note.setlabel `"@"'
+	program mcabuild_plot8_check_status
+END
+PROGRAM mcabuild_plot8_check_status
+BEGIN
+	if mcabuild_status8.iseq("active") {
+		call mcabuild.bu_enable.disable
+		call mcabuild.bu_disable.enable
+	}
+	if mcabuild_status8.iseq("disabled") {
+		call mcabuild.bu_enable.enable
+		call mcabuild.bu_disable.disable
+	}
+END
+
+SCRIPT mcabuild_plot9_sel
+BEGIN
+	mcabuild_CMD9.withvalue mcabuild.tb_note.setlabel `"@"'
+	program mcabuild_plot9_check_status
+END
+PROGRAM mcabuild_plot9_check_status
+BEGIN
+	if mcabuild_status9.iseq("active") {
+		call mcabuild.bu_enable.disable
+		call mcabuild.bu_disable.enable
+	}
+	if mcabuild_status9.iseq("disabled") {
+		call mcabuild.bu_enable.enable
+		call mcabuild.bu_disable.disable
+	}
+END
+
+SCRIPT mcabuild_plot10_sel
+BEGIN
+	mcabuild_CMD10.withvalue mcabuild.tb_note.setlabel `"@"'
+	program mcabuild_plot10_check_status
+END
+PROGRAM mcabuild_plot10_check_status
+BEGIN
+	if mcabuild_status10.iseq("active") {
+		call mcabuild.bu_enable.disable
+		call mcabuild.bu_disable.enable
+	}
+	if mcabuild_status10.iseq("disabled") {
+		call mcabuild.bu_enable.enable
+		call mcabuild.bu_disable.disable
+	}
+END
+
+SCRIPT mcabuild_plot11_sel
+BEGIN
+	mcabuild_CMD11.withvalue mcabuild.tb_note.setlabel `"@"'
+	program mcabuild_plot11_check_status
+END
+PROGRAM mcabuild_plot11_check_status
+BEGIN
+	if mcabuild_status11.iseq("active") {
+		call mcabuild.bu_enable.disable
+		call mcabuild.bu_disable.enable
+	}
+	if mcabuild_status11.iseq("disabled") {
+		call mcabuild.bu_enable.enable
+		call mcabuild.bu_disable.disable
+	}
+END
+
+SCRIPT mcabuild_plot12_sel
+BEGIN
+	mcabuild_CMD12.withvalue mcabuild.tb_note.setlabel `"@"'
+	program mcabuild_plot12_check_status
+END
+PROGRAM mcabuild_plot12_check_status
+BEGIN
+	if mcabuild_status12.iseq("active") {
+		call mcabuild.bu_enable.disable
+		call mcabuild.bu_disable.enable
+	}
+	if mcabuild_status12.iseq("disabled") {
+		call mcabuild.bu_enable.enable
+		call mcabuild.bu_disable.disable
+	}
+END
+
+SCRIPT mcabuild_plot13_sel
+BEGIN
+	mcabuild_CMD13.withvalue mcabuild.tb_note.setlabel `"@"'
+	program mcabuild_plot13_check_status
+END
+PROGRAM mcabuild_plot13_check_status
+BEGIN
+	if mcabuild_status13.iseq("active") {
+		call mcabuild.bu_enable.disable
+		call mcabuild.bu_disable.enable
+	}
+	if mcabuild_status13.iseq("disabled") {
+		call mcabuild.bu_enable.enable
+		call mcabuild.bu_disable.disable
+	}
+END
+
+SCRIPT mcabuild_plot14_sel
+BEGIN
+	mcabuild_CMD14.withvalue mcabuild.tb_note.setlabel `"@"'
+	program mcabuild_plot14_check_status
+END
+PROGRAM mcabuild_plot14_check_status
+BEGIN
+	if mcabuild_status14.iseq("active") {
+		call mcabuild.bu_enable.disable
+		call mcabuild.bu_disable.enable
+	}
+	if mcabuild_status14.iseq("disabled") {
+		call mcabuild.bu_enable.enable
+		call mcabuild.bu_disable.disable
+	}
+END
+
+SCRIPT mcabuild_plot15_sel
+BEGIN
+	mcabuild_CMD15.withvalue mcabuild.tb_note.setlabel `"@"'
+	program mcabuild_plot15_check_status
+END
+PROGRAM mcabuild_plot15_check_status
+BEGIN
+	if mcabuild_status15.iseq("active") {
+		call mcabuild.bu_enable.disable
+		call mcabuild.bu_disable.enable
+	}
+	if mcabuild_status15.iseq("disabled") {
+		call mcabuild.bu_enable.enable
+		call mcabuild.bu_disable.disable
+	}
+END
+
+SCRIPT mcabuild_plot16_sel
+BEGIN
+	mcabuild_CMD16.withvalue mcabuild.tb_note.setlabel `"@"'
+	program mcabuild_plot16_check_status
+END
+PROGRAM mcabuild_plot16_check_status
+BEGIN
+	if mcabuild_status16.iseq("active") {
+		call mcabuild.bu_enable.disable
+		call mcabuild.bu_disable.enable
+	}
+	if mcabuild_status16.iseq("disabled") {
+		call mcabuild.bu_enable.enable
+		call mcabuild.bu_disable.disable
+	}
+END
+
+PROGRAM mcabuild_disable_sel
+BEGIN
+	if mcabuild.lb_plots.iseq("plot1") {
+		call mcabuild_status1.setstring "disabled"
+	}
+	if mcabuild.lb_plots.iseq("plot2") {
+		call mcabuild_status2.setstring "disabled"
+	}
+	if mcabuild.lb_plots.iseq("plot3") {
+		call mcabuild_status3.setstring "disabled"
+	}
+	if mcabuild.lb_plots.iseq("plot4") {
+		call mcabuild_status4.setstring "disabled"
+	}
+	if mcabuild.lb_plots.iseq("plot5") {
+		call mcabuild_status5.setstring "disabled"
+	}
+	if mcabuild.lb_plots.iseq("plot6") {
+		call mcabuild_status6.setstring "disabled"
+	}
+	if mcabuild.lb_plots.iseq("plot7") {
+		call mcabuild_status7.setstring "disabled"
+	}
+	if mcabuild.lb_plots.iseq("plot8") {
+		call mcabuild_status8.setstring "disabled"
+	}	
+	if mcabuild.lb_plots.iseq("plot9") {
+		call mcabuild_status9.setstring "disabled"
+	}
+	if mcabuild.lb_plots.iseq("plot10") {
+		call mcabuild_status10.setstring "disabled"
+	}
+	if mcabuild.lb_plots.iseq("plot11") {
+		call mcabuild_status11.setstring "disabled"
+	}
+	if mcabuild.lb_plots.iseq("plot12") {
+		call mcabuild_status12.setstring "disabled"
+	}
+	if mcabuild.lb_plots.iseq("plot13") {
+		call mcabuild_status13.setstring "disabled"
+	}
+	if mcabuild.lb_plots.iseq("plot14") {
+		call mcabuild_status14.setstring "disabled"
+	}
+	if mcabuild.lb_plots.iseq("plot15") {
+		call mcabuild_status15.setstring "disabled"
+	}
+	if mcabuild.lb_plots.iseq("plot16") {
+		call mcabuild_status16.setstring "disabled"
+	}	
+	call program mcabuild_process_list
+END
+
+PROGRAM mcabuild_enable_sel
+BEGIN
+	if mcabuild.lb_plots.iseq("plot1") {
+		call mcabuild_status1.setstring "active"
+	}
+	if mcabuild.lb_plots.iseq("plot2") {
+		call mcabuild_status2.setstring "active"
+	}
+	if mcabuild.lb_plots.iseq("plot3") {
+		call mcabuild_status3.setstring "active"
+	}
+	if mcabuild.lb_plots.iseq("plot4") {
+		call mcabuild_status4.setstring "active"
+	}
+	if mcabuild.lb_plots.iseq("plot5") {
+		call mcabuild_status5.setstring "active"
+	}
+	if mcabuild.lb_plots.iseq("plot6") {
+		call mcabuild_status6.setstring "active"
+	}
+	if mcabuild.lb_plots.iseq("plot7") {
+		call mcabuild_status7.setstring "active"
+	}
+	if mcabuild.lb_plots.iseq("plot8") {
+		call mcabuild_status8.setstring "active"
+	}	
+	if mcabuild.lb_plots.iseq("plot9") {
+		call mcabuild_status9.setstring "active"
+	}
+	if mcabuild.lb_plots.iseq("plot10") {
+		call mcabuild_status10.setstring "active"
+	}
+	if mcabuild.lb_plots.iseq("plot11") {
+		call mcabuild_status11.setstring "active"
+	}
+	if mcabuild.lb_plots.iseq("plot12") {
+		call mcabuild_status12.setstring "active"
+	}
+	if mcabuild.lb_plots.iseq("plot13") {
+		call mcabuild_status13.setstring "active"
+	}
+	if mcabuild.lb_plots.iseq("plot14") {
+		call mcabuild_status14.setstring "active"
+	}
+	if mcabuild.lb_plots.iseq("plot15") {
+		call mcabuild_status15.setstring "active"
+	}
+	if mcabuild.lb_plots.iseq("plot16") {
+		call mcabuild_status16.setstring "active"
+	}
+	call program mcabuild_process_list
+END
+
+PROGRAM mcabuild_check_plot
+BEGIN
+	if mcabuild.lb_plots.iseq("plot1") {
+		call script mcabuild_make_plot1		
+	}
+	if mcabuild.lb_plots.iseq("plot2") {
+		call script mcabuild_make_plot2
+	}
+	if mcabuild.lb_plots.iseq("plot3") {
+		call script mcabuild_make_plot3
+	}
+	if mcabuild.lb_plots.iseq("plot4") {
+		call script mcabuild_make_plot4
+	}
+	if mcabuild.lb_plots.iseq("plot5") {
+		call script mcabuild_make_plot5
+	}
+	if mcabuild.lb_plots.iseq("plot6") {
+		call script mcabuild_make_plot6
+	}
+	if mcabuild.lb_plots.iseq("plot7") {
+		call script mcabuild_make_plot7
+	}
+	if mcabuild.lb_plots.iseq("plot8") {
+		call script mcabuild_make_plot8
+	}
+	if mcabuild.lb_plots.iseq("plot9") {
+		call script mcabuild_make_plot9		
+	}
+	if mcabuild.lb_plots.iseq("plot10") {
+		call script mcabuild_make_plot10
+	}
+	if mcabuild.lb_plots.iseq("plot11") {
+		call script mcabuild_make_plot11
+	}
+	if mcabuild.lb_plots.iseq("plot12") {
+		call script mcabuild_make_plot12
+	}
+	if mcabuild.lb_plots.iseq("plot13") {
+		call script mcabuild_make_plot13
+	}
+	if mcabuild.lb_plots.iseq("plot14") {
+		call script mcabuild_make_plot14
+	}
+	if mcabuild.lb_plots.iseq("plot15") {
+		call script mcabuild_make_plot15
+	}
+	if mcabuild.lb_plots.iseq("plot16") {
+		call script mcabuild_make_plot16
+	}	
+END
+
+PROGRAM mcabuild_make_first_pass
+BEGIN
+	if mcabuild_status1.iseq("active") & mcabuild_result1 {
+		call mcabuild_hasResult.settrue
+	}
+	if mcabuild_status2.iseq("active") & mcabuild_result2 {
+		call mcabuild_hasResult.settrue
+	}
+	if mcabuild_status3.iseq("active") & mcabuild_result3 {
+		call mcabuild_hasResult.settrue
+	}
+	if mcabuild_status4.iseq("active") & mcabuild_result4 {
+		call mcabuild_hasResult.settrue
+	}
+	if mcabuild_status5.iseq("active") & mcabuild_result5 {
+		call mcabuild_hasResult.settrue
+	}
+	if mcabuild_status6.iseq("active") & mcabuild_result6 {
+		call mcabuild_hasResult.settrue
+	}
+	if mcabuild_status7.iseq("active") & mcabuild_result7 {
+		call mcabuild_hasResult.settrue
+	}
+	if mcabuild_status8.iseq("active") & mcabuild_result8 {
+		call mcabuild_hasResult.settrue
+	}
+	if mcabuild_status9.iseq("active") & mcabuild_result9 {
+		call mcabuild_hasResult.settrue
+	}
+	if mcabuild_status10.iseq("active") & mcabuild_result10 {
+		call mcabuild_hasResult.settrue
+	}
+	if mcabuild_status11.iseq("active") & mcabuild_result11 {
+		call mcabuild_hasResult.settrue
+	}
+	if mcabuild_status12.iseq("active") & mcabuild_result12 {
+		call mcabuild_hasResult.settrue
+	}
+	if mcabuild_status13.iseq("active") & mcabuild_result13 {
+		call mcabuild_hasResult.settrue
+	}
+	if mcabuild_status14.iseq("active") & mcabuild_result14 {
+		call mcabuild_hasResult.settrue
+	}
+	if mcabuild_status15.iseq("active") & mcabuild_result15 {
+		call mcabuild_hasResult.settrue
+	}
+	if mcabuild_status16.iseq("active") & mcabuild_result16 {
+		call mcabuild_hasResult.settrue
+	}
+END
+
+PROGRAM gr_mcaplot_build_output
+BEGIN
+	if ! mcabuild_isFullyDisabled {
+		if mcabuild_counter.iseq(0) & mcabuild_plotsRequired {
+			stopbox stop resource LBL_MSGBOX_PLOTS_NOT_DEFINED
+// Plots not defined. Please create a plot before proceeding.
+		}
+		call mcabuild_hasResult.setfalse
+		call program mcabuild_make_first_pass
+		if ! mcabuild_hasResult  &  mcabuild_plotsRequired {
+			stopbox stop resource LBL_MSGBOX_ALL_PLOTS_DISABLED
+// All plots are disabled. 
+// Either define a new plot or enable an existing plot before proceeding.
+		}
+
+		if mcabuild_hasResult {
+			put mcabuild_outputCmd
+			if mcabuild_outputCmd {
+				put "("
+			}
+
+			if mcabuild_status1.iseq("active") & mcabuild_result1 {
+				put mcabuild_result1
+				call mcabuild_hasResult.settrue
+			}
+			if mcabuild_status2.iseq("active") & mcabuild_result2 {
+				put " " mcabuild_result2
+				call mcabuild_hasResult.settrue
+			}
+			if mcabuild_status3.iseq("active") & mcabuild_result3 {
+				put " " mcabuild_result3
+				call mcabuild_hasResult.settrue
+			}
+			if mcabuild_status4.iseq("active") & mcabuild_result4 {
+				put " " mcabuild_result4
+				call mcabuild_hasResult.settrue
+			}
+			if mcabuild_status5.iseq("active") & mcabuild_result5 {
+				put " " mcabuild_result5
+				call mcabuild_hasResult.settrue
+			}
+			if mcabuild_status6.iseq("active") & mcabuild_result6 {
+				put " " mcabuild_result6
+				call mcabuild_hasResult.settrue
+			}
+			if mcabuild_status7.iseq("active") & mcabuild_result7 {
+				put " " mcabuild_result7
+				call mcabuild_hasResult.settrue
+			}
+			if mcabuild_status8.iseq("active") & mcabuild_result8 {
+				put " " mcabuild_result8
+				call mcabuild_hasResult.settrue
+			}
+			if mcabuild_status9.iseq("active") & mcabuild_result9 {
+				put " " mcabuild_result9
+				call mcabuild_hasResult.settrue
+			}
+			if mcabuild_status10.iseq("active") & mcabuild_result10 {
+				put " " mcabuild_result10
+				call mcabuild_hasResult.settrue
+			}
+			if mcabuild_status11.iseq("active") & mcabuild_result11 {
+				put " " mcabuild_result11
+				call mcabuild_hasResult.settrue
+			}
+			if mcabuild_status12.iseq("active") & mcabuild_result12 {
+				put " " mcabuild_result12
+				call mcabuild_hasResult.settrue
+			}
+			if mcabuild_status13.iseq("active") & mcabuild_result13 {
+				put " " mcabuild_result13
+				call mcabuild_hasResult.settrue
+			}
+			if mcabuild_status14.iseq("active") & mcabuild_result14 {
+				put " " mcabuild_result14
+				call mcabuild_hasResult.settrue
+			}
+			if mcabuild_status15.iseq("active") & mcabuild_result15 {
+				put " " mcabuild_result15
+				call mcabuild_hasResult.settrue
+			}
+			if mcabuild_status16.iseq("active") & mcabuild_result16 {
+				put " " mcabuild_result16
+				call mcabuild_hasResult.settrue
+			}
+
+			if mcabuild_outputCmd {
+				put ") "
+			}
+		}
+	}
+END

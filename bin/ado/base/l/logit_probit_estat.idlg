@@ -1,0 +1,311 @@
+/*
+  estat after probit dprobit logit logistic
+
+*!  VERSION 1.1.2  01mar2018
+
+	***
+	USE EXTREME CARE WHEN CHANGING CONTROL NAMES. The names used
+	in this file have multiple external dependencies.
+*/
+
+SCRIPT POSTINIT
+BEGIN
+	program parseMessage
+END
+
+PROGRAM parseMessage
+BEGIN
+	if __MESSAGE.contains("-classification-") {
+		call main.lb_subcmd.setvalue "classification"
+	}
+	if __MESSAGE.contains("-gof-") {
+		call main.lb_subcmd.setvalue "gof"
+	}
+	if __MESSAGE.contains("-ic-") {
+		call main.lb_subcmd.setvalue "ic"
+	}
+	if __MESSAGE.contains("-summarize-") {
+		call main.lb_subcmd.setvalue "summarize"
+	}
+	if __MESSAGE.contains("-vce-") {
+		call main.lb_subcmd.setvalue "vce"
+	}
+	if __MESSAGE.contains("-bootstrap-") {
+		call main.lb_subcmd.setvalue "bootstrap"
+	}
+END
+
+
+DIALOG main, label(resource ESTAT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_subcmd		_lft	_top	_iwd	.,		///
+  	label(resource LBL_REPORTS_STATISTICS_SUBCOMMAND)
+  LISTBOX  lb_subcmd		@	_ss	@	70,		///
+  	contents(main_subcommand_contents)				///
+  	values(main_subcommand_values)					///
+  	onselchangelist(main_subcommand_scripts)
+
+  DEFINE holdy 110
+
+  // classification
+  GROUPBOX gb_sample		_lft	holdy	_iwd	_ht4,		///
+  	label(resource LBL_TEST_SAMPLE)
+  RADIO    rb_sample		_ilft	_ss	_ibwd	.,		///
+	label(resource LBL_USE_ESTIMATION_SAMPLE) first
+  RADIO    rb_all		@	_ss	@	.,		///
+	label(resource LBL_USE_ALL_OBSERVATIONS_IN_THE_DATA)		///
+	last option(all)
+  EDIT     ed_cutoff		_lft	+45	_en7wd	.,		///
+  	option(cutoff) default(0.5)
+  TEXT     tx_cutoff		_en7sep	@	_en7r	.,		///
+  	label(resource LBL_POSITIVE_OUTCOME_THRESHOLD_DEFAULT_POINT_5)
+
+  // gof
+  GROUPBOX gb_test		_lft	holdy	_iwd	_ht6h,		///
+	label(resource LBL_TEST)
+  RADIO    rb_pearson		_ilft	_ss	_ibwd	.,  		///
+	label(resource LOGIT_PROBIT_ESTAT_MAIN_RB_PEARSON)		///
+	first onclickon(script main_group_off)
+  RADIO    rb_hosmer		@	_ss	_ibwd	.,		///
+	label(resource LOGIT_PROBIT_ESTAT_MAIN_RB_HOSMER)		///
+	last onclickon(script main_group_on)
+  SPINNER  sp_group		_indent2 _ms	_spwd	.,  		///
+	label(resource LOGIT_PROBIT_ESTAT_MAIN_SP_GROUP)		///
+	min(1) max(10000) default(10) option(group)
+  TEXT     tx_group		_spsep	@	_cksprb	., 		///
+	label(resource LOGIT_PROBIT_ESTAT_MAIN_SP_GROUP)
+
+  CHECKBOX ck_outsample		_lft	+120	_iwd	.,		///
+  	option(outsample)						///
+  	label(resource LOGIT_PROBIT_ESTAT_MAIN_CK_OUTSAMPLE)
+  CHECKBOX ck_table		@	_ms	@	.,		///
+  	option(table)							///
+  	label(resource LOGIT_PROBIT_ESTAT_MAIN_CK_TABLE)
+
+  // Information criteria
+  CHECKBOX ck_n			_lft	holdy	_iwd	.,		///
+	onclickon(main.sp_n.enable)					///
+	onclickoff(main.sp_n.disable)					///
+	label(resource LBL_NUMBER_OBSERVATIONS_CALCULATING_BIC)
+  SPINNER sp_n			_indent2 _ss	_spwd	.,		///
+	default(e(N)) min(1) max(e(N))					///
+	option(n)
+
+  // Summarize options
+  GROUPBOX gb_eqlist            _lft    holdy	_iwd	_ht6,		///
+  	label(resource LBL_SUMMARIZE)
+  RADIO    rb_default		_ilft	_ss	_inwd	.,		///
+  	first label(resource LBL_ALL_VARIABLES_INVOLVED_ESTIMATION)	///
+  	onclickon(main.vl_spec.disable)
+  RADIO    rb_spec		@	_ss	@	.,		///
+	onclickon(main.vl_spec.enable) last				///
+	label(resource LBL_VARIABLES_OPTIONAL_EQUATION_NAMES)
+  VARLIST  vl_spec	      _indent2	_ss	_inwd	.,		///
+  	numeric								///
+	label(resource LBL_VARIABLES_OPTIONAL_EQUATION_NAMES)
+  CHECKBOX ck_equation      	_lft	+45	_iwd	.,		///
+	option(equation)						///
+	label(resource LBL_DISPLAY_SUMMARY_EQUATION)
+  CHECKBOX ck_labels		@	_ms	@	.,		///
+  	label(resource LBL_DISPLAY_VARIABLE_LABELS)			///
+  	option(labels)
+  CHECKBOX ck_noheader		_lft	_ms	_iwd	.,		///
+	option(noheader)						///
+	label(resource LBL_SUPPRESS_HEADER)
+  CHECKBOX ck_noweights		@	_ms	@	.,		///
+	option(noweights)						///
+	label(resource LBL_IGNORE_WEIGHTS)
+
+  INCLUDE estat_vce
+  INCLUDE _estat_bootstrap
+END
+
+INCLUDE _estat_bootstrap_pr
+INCLUDE estat_vce_pr
+
+SCRIPT main_group_on
+BEGIN
+	main.sp_group.enable
+	main.tx_group.enable
+END
+SCRIPT main_group_off
+BEGIN
+	main.sp_group.disable
+	main.tx_group.disable
+END
+
+LIST main_subcommand_contents
+BEGIN
+	resource LBL_RPT_VARIOUS_SUMMARY_STATS_INCLUDING_CLASS_TABLE
+	resource LOGIT_PROBIT_ESTAT_GOF
+	resource LBL_INFORMATION_CRITERIA
+	resource LBL_SUMMARIZE_ESTIMATION_SAMPLE
+	resource LBL_COVARIANCE_MATRIX_ESTIMATES
+END
+
+LIST main_subcommand_values
+BEGIN
+	classification
+	gof
+	ic
+	summarize
+	vce
+END
+
+LIST main_subcommand_scripts
+BEGIN
+	script sel_classification
+	script sel_gof
+	script sel_ic
+	script sel_summarize
+	script sel_vce
+END
+
+SCRIPT sel_classification
+BEGIN
+	script main_hide_all
+	main.gb_sample.show
+	main.rb_sample.show
+	main.rb_all.show
+	main.gb_sample.setposition . 110
+	main.rb_sample.setposition . 130
+	main.rb_all.setposition . 150
+	main.ed_cutoff.show
+	main.tx_cutoff.show
+	script ifin_enable
+	script weights_enable
+END
+
+SCRIPT sel_gof
+BEGIN
+	script main_hide_all
+	main.gb_test.show
+	main.rb_pearson.show
+	main.rb_hosmer.show
+	main.gb_sample.show
+	main.rb_sample.show
+	main.rb_all.show
+	main.gb_sample.setposition . 215
+	main.rb_sample.setposition . 235
+	main.rb_all.setposition . 255
+	main.sp_group.show
+  	main.tx_group.show
+	main.ck_outsample.show
+  	main.ck_table.show
+	script ifin_enable
+	script weights_enable
+END
+
+SCRIPT sel_ic
+BEGIN
+	script main_hide_all
+	main.ck_n.show
+	main.sp_n.show
+END
+
+SCRIPT sel_summarize
+BEGIN
+	script main_hide_all
+	script main_summ_on
+END
+
+SCRIPT sel_vce
+BEGIN
+	script main_hide_all
+	program vce_on
+END
+
+SCRIPT main_summ_on
+BEGIN
+	main.ck_equation.show
+	main.ck_labels.show
+	main.ck_noheader.show
+	main.ck_noweights.show
+	main.gb_eqlist.show
+	main.rb_default.show
+	main.rb_spec.show
+	main.vl_spec.show
+END
+
+SCRIPT main_summ_off
+BEGIN
+	main.ck_equation.hide
+	main.ck_labels.hide
+	main.ck_noheader.hide
+	main.ck_noweights.hide
+	main.gb_eqlist.hide
+	main.rb_default.hide
+	main.rb_spec.hide
+	main.vl_spec.hide
+END
+
+SCRIPT main_hide_all  // MUST BE IMPLEMENTED FOR BOOTSTRAP
+BEGIN
+	main.gb_sample.hide
+	main.rb_sample.hide
+	main.rb_all.hide
+	main.ed_cutoff.hide
+	main.tx_cutoff.hide
+	main.gb_test.hide
+	main.rb_pearson.hide
+	main.rb_hosmer.hide
+	main.sp_group.hide
+  	main.tx_group.hide
+  	main.ck_outsample.hide
+  	main.ck_table.hide
+	script ifin_disable
+	script weights_disable
+	main.ck_n.hide
+	main.sp_n.hide
+	script main_summ_off
+	program vce_off
+	script main_bootstrap_hide
+END
+
+PROGRAM vl_output
+BEGIN
+	put main.vl_spec
+END
+
+PROGRAM vl_eq_output
+BEGIN
+	put main.vl_eq
+END
+
+INCLUDE ifin
+INCLUDE weights_f
+
+PROGRAM command
+BEGIN
+	put "estat "
+	put main.lb_subcmd
+	INCLUDE _ifin_pr
+	INCLUDE _weights_pr
+
+	if main.rb_spec {
+		require main.vl_spec
+		put " " main.vl_spec
+	}
+
+	beginoptions
+		// classification
+		option main.rb_all
+		optionarg /hidedefault main.ed_cutoff
+		// gof
+		optionarg main.sp_group
+		option main.ck_outsample
+  		option main.ck_table
+  
+  		// ic options
+		optionarg main.sp_n
+
+		// Summarize options
+		option main.ck_equation
+		option main.ck_labels
+		option main.ck_noheader
+		option main.ck_noweights
+		put " " /program vce_output
+		put " " /program bootstrap_output
+	endoptions
+
+END

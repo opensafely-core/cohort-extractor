@@ -1,0 +1,191 @@
+/*
+  haver use
+
+*! VERSION 1.3.3  02may2017 (deprecated)
+
+*/
+
+VERSION 8.0 WINDOWS
+
+INCLUDE _std_medium
+INCLUDE _ht320
+INCLUDE header
+
+HELP hlp1, view("help haver")
+RESET res1
+
+DEFINE _hvwd 131
+DEFINE _hvsep +135
+
+DIALOG main, label("haver use - Import Haver Analytics data ")		///
+		tabtitle("Main")
+
+BEGIN
+  TEXT     tx_varlist  _lft        _top      _iwd        .,		///
+		label("Variables to load:")
+  VARLIST  ed_varlist  @           _ss       @           .,		///
+  		label("Name of time variable")
+  TEXT     tx_file     @           _ms       @           .,		///
+		label("Filename:")
+  FILE     fi_file     @           _ss       @           .,		///
+		error("Filename")					///
+		label("Browse...")					///
+		filter(Haver (*.dat)|*.dat|All Files (*.*)|*.*)
+
+  GROUPBOX gb_options  @           _ls       @           _ht14,		///
+		label("Options")
+
+  CHECKBOX ck_clear    _indent     _ms       _cwd2       .,		///
+  		label("Replace data in memory")				///
+		option(clear)
+  DEFINE x @x
+  CHECKBOX ck_fill     _lft2       @         _cwd2       .,		///
+  		label("Fill time gaps with observations")		///
+  		option(fill)
+  CHECKBOX ck_tvar     x           _ms       _hvwd        .,		///
+  		onclickon(script tvar_on)				///
+  		onclickoff(script tvar_off)				///
+  		label("Name of time variable:")
+  EDIT     ed_tvar     _hvsep      @         @           .,		///
+  		default("time")						///
+  		label("Name of time variable")				///
+  		option(tvar)
+  CHECKBOX ck_hmissing x           _ms       _hvwd       .,		///
+  		onclickon(script hmissing_on)				///
+  		onclickoff(script hmissing_off)				///
+  		label("Haver missing values:")
+  EDIT     ed_hmissing _hvsep      @         @           .,		///
+  		default(".")						///
+  		label("Missing value")  				///
+  		option(hmissing)
+  BUTTON   bu_hmissing _iilft4_4   @         _cwd4_3     .,		///
+  		label("Help")    				        ///
+  		onpush("view help missing##|_new")
+
+  CHECKBOX ck_trange   x           _ms       _ibwd 	 _ht3,		///
+  		onclickon(script trange_on)				///
+  		onclickoff(script trange_off)				///
+		label("Select time range")				///
+		groupbox
+  COMBOBOX cb_trange   _indent     _ms       _cwd4_3 	 .,		///
+  		contents(namelist) values(valuelist) 			///
+		label("Time range qualifier")				///
+		dropdownlist
+  EDIT     ed_lower    _iilft4_2   @         @           .,		///
+  		label("Lower bound")
+  TEXT	   tx_dash     +77         @         15	 	 .,		///
+  		label("/") center
+  EDIT     ed_upper    _iilft4_3   @         _cwd4_3     .,		///
+  		label("Upper bound")
+  BUTTON   bu_trange   _iilft4_4   @         @           .,		///
+  		label("Help")    				        ///
+  		onpush("view help tin##|_new")
+
+  BUTTON   bu_describe _lft        _xxxls    130         .,		///
+  		label("Describe Haver data")				///
+  		onpush(program haverdescribe)
+END
+
+LIST namelist
+BEGIN
+	In
+	Within
+END
+
+LIST valuelist
+BEGIN
+	tin
+	twithin
+END
+
+SCRIPT tvar_on
+BEGIN
+	main.ed_tvar.enable
+END
+
+SCRIPT tvar_off
+BEGIN
+	main.ed_tvar.disable
+END
+
+SCRIPT trange_on
+BEGIN
+	main.cb_trange.enable
+	main.ed_lower.enable
+	main.tx_dash.enable
+	main.ed_upper.enable
+	main.bu_trange.enable
+END
+
+SCRIPT trange_off
+BEGIN
+	main.cb_trange.disable
+	main.ed_lower.disable
+	main.tx_dash.disable
+	main.ed_upper.disable
+	main.bu_trange.disable
+END
+
+SCRIPT hmissing_on
+BEGIN
+	main.ed_hmissing.enable
+	main.bu_hmissing.enable
+END
+
+SCRIPT hmissing_off
+BEGIN
+	main.ed_hmissing.disable
+	main.bu_hmissing.disable
+END
+
+
+PROGRAM haverdescribe
+BEGIN
+	if !main.fi_file {
+		stopbox stop `""Filename" must be filled in"'
+	}
+	put `"haver describe ""' main.fi_file `"""'
+	stata
+END
+
+PROGRAM lower_date
+BEGIN
+	put main.ed_lower
+END
+
+PROGRAM upper_date
+BEGIN
+	put main.ed_upper
+END
+
+PROGRAM command
+BEGIN
+	put "haver use "
+	if !main.ed_varlist {
+		require main.fi_file
+	}
+	if main.ed_varlist {
+		put main.ed_varlist " "
+		put "using "
+		require main.fi_file
+	}
+	put `"""'
+	put main.fi_file
+	put `"" "'
+	beginoptions
+		if main.ck_trange {
+			put main.cb_trange "("
+			put main.ed_lower ","
+			put main.ed_upper ") "
+		}
+		if main.ck_hmissing {
+			optionarg main.ed_hmissing
+		}
+		option main.ck_fill
+		if main.ck_tvar {
+			require main.ed_tvar
+			optionarg main.ed_tvar
+		}
+		option main.ck_clear
+	endoptions
+END

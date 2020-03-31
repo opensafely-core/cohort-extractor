@@ -1,0 +1,178 @@
+/*
+  bayes heckprobit
+
+*! VERSION 1.0.4  28may2019
+
+  keyword:  eclass
+
+*/
+
+VERSION 15.0
+
+INCLUDE _std_wide
+DEFINE _dlght 500
+INCLUDE header
+
+HELP hlp1, view("help bayes_heckprobit")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource BAYES_HECKPROBIT_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script prior_gibbs_hide
+	script rpt_coef_on
+	program prior_show_normal_default
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)			///
+	title(resource BAYES_HECKPROBIT_DLG_TITLE)
+BEGIN
+  TEXT tx_dv            _lft    _topph  _vnwd   .,			///
+	label(resource LBL_DEPVAR)
+  VARNAME vn_dv         @       _ss     @       .,			///
+	ts								///
+	label(resource LBL_DEPVAR)
+
+  TEXT tx_iv            _vlx    _topph  160     .,			///
+	label(resource LBL_INDDEPVAR)
+  VARLIST vl_iv         @       _ss     _vlwd   .,			///
+	fv ts                                                           ///
+	allowcat							///
+	label(resource LBL_INDDEPVAR)
+
+  CHECKBOX ck_nocons   @           _ms       @           .,		///
+	label(resource LBL_NOCONSTANT)					///
+	option(noconstant)
+                
+  CHECKBOX ck_sdv      _lft        _ls       _vnwd       .,		///
+	label(resource LBL_SELECTION_DV)				///
+	onclickon(gaction main.vn_sdv.enable)				///
+	onclickoff(gaction main.vn_sdv.disable)
+                
+  DEFINE y @y
+  VARNAME  vn_sdv      @           _ss       @           .,		///
+	label(resource LBL_SELECTION_VARIABLE) ts
+                
+  TEXT     tx_siv      _vlx        y         _vlwd       .,		///
+	label(resource LBL_SELECTION_INDEPENDENT_VARIABLES)             
+                
+  VARLIST  vl_siv      @           _ss       @           .,             ///
+	label(resource LBL_SELECTION_INDEPENDENT_VARIABLES_NO_COLON)	///
+	allowcat ts fv
+                
+  CHECKBOX ck_snocon   @           _ms       @           .,		///
+	label(resource LBL_SUPPRESS_SELECTION_CONSTANT_TERM)   	 	///
+	option(noconstant)
+                
+  GROUPBOX gb_opt      _lft        _ls       _iwd        _ht5,		///
+	label(resource LBL_OPTIONS)             
+
+  TEXT     tx_offset   _ilft       _ms       _cwd2       .,		///
+	label(resource LBL_REGRESSION_OFFSET_VARIABLE)  
+                
+  TEXT     tx_seloff   _lft2       @         @           .,		///
+	label(resource HECKMAN_MODEL_TX_SELOFF)
+
+  VARNAME  vn_offset   _ilft       _ss       _cwd3_2     .,		///
+	label(resource LBL_REGRESSION_OFFSET)				///
+	option(offset)  
+  VARNAME  vn_seloff   _lft2       @         @           .,		///
+	label(resource HECKMAN_MODEL_VN_SELOFF)				///
+	option(offset)
+  DEFINE _x _ilft
+  DEFINE _xw _cwd1
+//  INCLUDE _ck_collinear
+END
+
+INCLUDE ifin
+INCLUDE weights_f
+INCLUDE bayes_priors
+INCLUDE bayes_simulation
+INCLUDE bayes_blocking
+INCLUDE bayes_initialization
+INCLUDE bayes_adaptation
+INCLUDE bayes_reporting
+INCLUDE bayes_advanced
+
+PROGRAM bayes_opts_output
+BEGIN
+	beginoptions
+		put " " /program bayes_priors_output
+		put " " /program bayes_simulation_output
+		put " " /program bayes_blocking_output
+		put " " /program bayes_init_output
+		put " " /program bayes_adaptation_output
+		put " " /program bayes_reporting_output
+		put " " /program bayes_advanced_output
+	endoptions
+END
+
+PROGRAM bayes_build_parse 
+BEGIN
+	put "heckprobit "
+	put " " /program heckman_model_output
+	beginoptions
+		put " " /program heckman_model_opts_output
+//		option main.ck_collinear
+	endoptions
+END
+
+PROGRAM heckman_model_subopts
+BEGIN
+        option main.ck_snocon
+        optionarg main.vn_seloff
+END
+
+PROGRAM heckman_model_opts
+BEGIN
+        if main.ck_sdv {
+                varlist main.vn_sdv
+                put " = "
+        }
+        require main.vl_siv
+        put " " main.vl_siv
+        if main.ck_snocon | main.vn_seloff {
+                beginoptions
+                        put /program heckman_model_subopts
+                endoptions
+        }
+END
+
+PROGRAM heckman_model_opts_output
+BEGIN
+        option main.ck_nocons
+        put "select("
+        put /program heckman_model_opts
+        put ")"
+        optionarg main.vn_offset
+END     
+
+PROGRAM heckman_model_output
+BEGIN
+        varlist main.vn_dv [main.vl_iv]
+        put " "
+END
+
+PROGRAM ecommand_output
+BEGIN
+	put "heckprobit "
+	put " " /program heckman_model_output
+	put " " /program ifin_output
+	put " " /program weights_output
+	beginoptions
+		put " " /program heckman_model_opts_output
+//		option main.ck_collinear
+	endoptions
+END
+
+PROGRAM command
+BEGIN
+	put "bayes"
+	put /program bayes_opts_output
+	put " : "
+	put /program ecommand_output
+END

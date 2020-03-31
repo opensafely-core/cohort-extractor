@@ -1,0 +1,54 @@
+/*                          gditransform
+
+	Class for managing the GDI "x" and "y" transforms.
+*/
+*! version 1.0.0  30jul2002
+
+version 8
+
+class {
+}, inherit(object)
+
+
+/* -------------------------------------------------------------------------*/
+/* Rescale the specified dimension GDI transform, reset the result to the GDI.
+
+   Usage:  rescale dimension size_inches range_min range_max
+
+   Maps range_max - range_min onto the size.  Assumes that the graphing area
+   has already been translated s.t. range_min will plot at 0.
+
+   dimension must be "x" or "y".
+*/
+
+program define rescale
+	args dim size min max null
+
+	if ! ("`dim'" == "x" | "`dim'" == "y") {
+	   di in red /*
+	      */ "gditransform.rescale syntax is rescale {x|y} #size #min #max"
+	}
+	foreach arg in size min max {
+		capture confirm number ``arg''
+		if _rc {
+	   	di in red /*
+		*/"gditransform.rescale syntax is rescale {x|y} #size #min #max"
+		}
+	}
+	if "`null'" != "" {
+	   di in red /*
+	      */ "gditransform.rescale syntax is rescale {x|y} #size #min #max"
+	}
+
+	tempname a_r b_r 
+
+				/* compute transform from range to size */
+	scalar `b_r' = `size' / (`max' - `min')
+	scalar `a_r' = -`b_r' * `min'
+
+				/* combine new transform with current GDI
+				 * transform and set to GDI */
+	gdi `dim'alpha = `gdi(`dim'alpha)' + `gdi(`dim'beta)' *`a_r'
+	gdi `dim'beta  = `gdi(`dim'beta)' * `b_r'
+end
+

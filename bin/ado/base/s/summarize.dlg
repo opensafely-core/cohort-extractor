@@ -1,0 +1,127 @@
+/*
+	summarize
+
+*!  VERSION 1.1.3  04dec2019
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+INCLUDE _ht300
+INCLUDE header
+
+HELP hlp1, view("help summarize")
+RESET res1
+
+DEFINE exin    +70
+DEFINE exina   +80
+DEFINE exwd     50
+DEFINE exwda   195
+
+SCRIPT PREINIT
+BEGIN
+	create STRING bu_facvarsResults
+	setscale_hadj resource SUMMARIZE_DLG_HSCALE
+END
+
+DIALOG main, label(resource SUMMARIZE_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_var        _lft     _top     _iwd        .,		/*
+		*/ label(resource LBL_VARIABLES_LEAVE_EMPTY_FOR_ALL_VARIABLES)
+  VARLIST  vl_var           @      _ss        @        ., allowts	/*
+		*/ label(resource LBL_GB_VARIABLES) ts fv numeric
+  TEXT     tx_examples      @      _ms        @        .,		/*
+		*/ label(resource LBL_EXAMPLES)
+  TEXT     tx_examp1     exin        @     exwd        ., right		/*
+		*/ label(resource LBL_YR_STAR)
+  DEFINE   holdx @x
+  TEXT     tx_examp1a   exina        @    exwda        .,		/*
+		*/ label(resource LBL_ALL_VARIABLES_STARTING_WITH_YR)
+  TEXT     tx_examp2    holdx      _ss     exwd        ., right		/*
+		*/ label(resource LBL_XYZ_ABC)
+  TEXT     tx_examp2a   exina        @    exwda        .,		/*
+		*/ label(resource LBL_ALL_VARIABLES_BETWEEN_XYZ_ABC)
+
+  GROUPBOX gb_out	 _lft     +35     _iwd    _ht15,		/*
+  		*/ label(resource LBL_OPTIONS)
+  RADIO    rb_std     _indent      _ss    _inwd        ., 		/*
+  		*/ first 						/*
+		*/ option(NONE) /* default option */ 			/*
+		*/ label(resource SUMMARIZE_MAIN_RB_STD) 		/*
+		*/ clickon("script std_on")	
+  RADIO    rb_detail        @      _ss        @        ., 		/*
+		*/ option("detail")					/*
+  		*/ label(resource SUMMARIZE_MAIN_RB_DETAIL)		/*
+		*/ clickon("script detail_on")	
+  RADIO    rb_mean          @      _ss        @        ., 		/*
+  		*/ last 						/*
+		*/ option("meanonly")					/*
+  		*/ label(resource SUMMARIZE_MAIN_RB_MEAN)		/*
+		*/ clickon("script mean_on")
+  CHECKBOX ck_format        @      _ms        @        ., 		/*
+		*/ option("format")					/*
+  		*/ label(resource SUMMARIZE_MAIN_CK_FORMAT)
+  SPINNER  sp_sep           @      _ms    _spwd        .,		/*
+		*/ option("separator")					/*
+		*/ label(resource SUMMARIZE_MAIN_SP_SEP)		/*
+		*/ min(0)						/*
+		*/ default(5)						/*
+		*/ max(100000)						
+  TEXT     tx_sep      _spsep        @    _sprb        .,		/*
+		*/ label(resource LBL_SEPARATOR_LINE_EVERY_N_VARIABLES_0_NONE)
+
+  BUTTON bu_facvars     _ilft	+35	200	.,			///
+	onpush("program bu_facvars_getOpts")				///
+	label(resource LBL_FACTOR_VARIABLE_DISPLAY_OPTIONS)
+END
+
+PROGRAM bu_facvars_getOpts
+BEGIN
+	call create CHILD factor_vars_reporting AS bu_facvars
+	call bu_facvars.setExitString bu_facvarsResults
+	call bu_facvars.setExitAction "program bu_facvars_ckResults"
+END
+
+PROGRAM bu_facvars_ckResults
+BEGIN
+	if bu_facvarsResults {
+		call main.bu_facvars.modified_on
+	}
+	else {
+		call main.bu_facvars.modified_off
+	}
+END
+
+INCLUDE byifin
+INCLUDE weights_fai 
+
+SCRIPT std_on
+BEGIN
+	weights.rb_iw.enable
+END
+
+SCRIPT detail_on
+BEGIN
+	weights.rb_iw.disable
+END
+
+SCRIPT mean_on
+BEGIN
+	weights.rb_iw.enable
+END
+
+PROGRAM command
+BEGIN
+	INCLUDE _by_pr
+	put "summarize "
+	varlist [main.vl_var]
+ 	INCLUDE _weights_pr 
+	INCLUDE _ifin_pr
+	beginoptions
+		option radio(main rb_std rb_detail rb_mean)
+		option main.ck_format
+		optionarg /hidedefault main.sp_sep
+		put " " bu_facvarsResults
+	endoptions
+END

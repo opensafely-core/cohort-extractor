@@ -1,0 +1,524 @@
+/*
+  power_twosampsi_pr.idlg
+
+  * programming for power_twosampsi include file
+
+*!  VERSION 1.1.3  11sep2019
+
+*/
+
+LIST main_sampsi_list
+BEGIN
+	resource LBL_TWOWAYSAMPSI_PR_TOTAL_SS_ALLOC_RATIO
+	resource LBL_TWOWAYSAMPSI_PR_GROUP_SS_ALLOC_RATIO
+	resource LBL_TWOWAYSAMPSI_PR_TOTAL_ONE_GROUP_SS
+	resource LBL_TWOWAYSAMPSI_PR_GROUP_SS
+END
+
+LIST main_sampsi_values
+BEGIN
+	"tssar"
+	"gssar"
+	"togss"
+	"gss"
+END
+
+LIST main_sampsi_group_list
+BEGIN
+	resource LBL_CONTROL
+	resource LBL_EXPERIMENTAL
+END
+
+LIST main_sampsi_group_values
+BEGIN
+	"ctrl_size"
+	"exp_size"
+END
+
+SCRIPT main_sampsi_hide_all
+BEGIN
+	main.ed_nratio.hide
+	main.ed_n1.hide
+	main.ed_n2.hide
+	main.tx_nratio.hide
+	main.tx_n1.hide
+	main.tx_n2.hide
+	main.ed_sampsi_n.hide
+	main.ed_sampsi_nratio.hide
+	main.ed_sampsi_n1.hide
+	main.ed_sampsi_n2.hide
+	main.tx_sampsi_n.hide
+	main.tx_sampsi_nratio.hide
+	main.tx_sampsi_n1.hide
+	main.tx_sampsi_n2.hide
+	main.tx_sampsi_num.hide
+	main.cb_sampsi_group.hide
+END
+
+PROGRAM main_sampsi_changed
+BEGIN
+	if main.cb_sampsi.isvisible() {
+		if main.cb_sampsi.iseq("tssar") {
+			call program main_tssar_on
+		}
+		if main.cb_sampsi.iseq("gssar") {
+			call program main_gssar_on
+		}
+		if main.cb_sampsi.iseq("togss") {
+			call program main_togss_on
+		}
+		if main.cb_sampsi.iseq("gss") {
+			call program main_gss_on
+		}
+	}
+	call program check_for_numlist
+END
+
+PROGRAM main_tssar_on
+BEGIN
+	call script main_sampsi_hide_all
+
+
+	call main.ed_sampsi_n.show
+	call main.ed_sampsi_nratio.show
+	call main.tx_sampsi_n.show
+	call main.tx_sampsi_nratio.show
+
+	call main.ed_sampsi_n.setposition . 165
+	call main.tx_sampsi_n.setposition . 165
+	call main.ed_sampsi_nratio.setposition . 190
+	call main.tx_sampsi_nratio.setposition . 190
+END
+
+PROGRAM main_gssar_on
+BEGIN
+	call script main_sampsi_hide_all
+
+	call main.tx_sampsi_num.show
+	call main.cb_sampsi_group.show
+	call main.ed_sampsi_nratio.show
+	call main.tx_sampsi_nratio.show
+
+	call main.ed_sampsi_n1.setposition . 165
+	call main.ed_sampsi_n2.setposition . 165
+	call main.tx_sampsi_num.setposition . 165
+	call main.cb_sampsi_group.setposition . 165
+	call main.ed_sampsi_nratio.setposition . 190
+	call main.tx_sampsi_nratio.setposition . 190
+
+	call program main_sampsi_group_changed
+END
+
+PROGRAM main_togss_on
+BEGIN
+	call script main_sampsi_hide_all
+
+	call main.ed_sampsi_n.show
+	call main.tx_sampsi_n.show
+	call main.tx_sampsi_num.show
+	call main.cb_sampsi_group.show
+
+	call main.ed_sampsi_n.setposition . 165
+	call main.tx_sampsi_n.setposition . 165
+	call main.ed_sampsi_n1.setposition . 190
+	call main.ed_sampsi_n2.setposition . 190
+	call main.tx_sampsi_num.setposition . 190
+	call main.cb_sampsi_group.setposition . 190
+
+	call program main_sampsi_group_changed
+END
+
+PROGRAM main_gss_on
+BEGIN
+	call script main_sampsi_hide_all
+
+	call main.ed_sampsi_n1.show
+	call main.tx_sampsi_n1.show
+	call main.ed_sampsi_n2.show
+	call main.tx_sampsi_n2.show
+
+	call main.ed_sampsi_n1.setposition . 165
+	call main.tx_sampsi_n1.setposition . 165
+	call main.ed_sampsi_n2.setposition . 190
+	call main.tx_sampsi_n2.setposition . 190
+END
+
+PROGRAM main_sampsi_group_changed
+BEGIN
+	if main.cb_sampsi_group.isvisible() {
+		if main.cb_sampsi_group.iseq("ctrl_size") {
+			call main.ed_sampsi_n1.show
+			call main.ed_sampsi_n2.hide
+		}
+		else {
+			call main.ed_sampsi_n1.hide
+			call main.ed_sampsi_n2.show
+		}
+		call program check_for_numlist
+	}
+END
+
+PROGRAM power_twosampsi_output
+BEGIN
+	if main.cb_compute.iseq("tot_sampsi") {
+		if !main.ed_nratio.isnumlist() {
+			call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_ALLOCATION_RATIO_N2_N1"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Allocation ratio, N2/N1".
+		}
+		if !main.ed_nratio.isNumlistGT(0) {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_GREATER_THAN_0_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_ALLOCATION_RATIO_N2_N1"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Allocation ratio, N2/N1" must be greater than 0.
+		}
+		optionarg /hidedefault main.ed_nratio
+		option main.ck_nfrac
+	}
+	if main.cb_compute.iseq("ctrl_sampsi") {
+		require main.ed_n2
+		if !main.ed_n2.isnumlist() {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_EXPERIMENTAL_GROUP_SAMPLE_SIZE"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Experimental-group sample size".
+		}
+		if !main.ed_n2.isNumlistGT(0) {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_GREATER_THAN_0_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_EXPERIMENTAL_GROUP_SAMPLE_SIZE"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Experimental-group sample size" must be greater than 0.
+		}
+		optionarg main.ed_n2
+		put " compute(n1)"
+		option main.ck_nfrac
+	}
+	if main.cb_compute.iseq("exp_sampsi") {
+		require main.ed_n1
+		if !main.ed_n1.isnumlist() {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_CONTROL_GROUP_SAMPLE_SIZE"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Control-group sample size".
+		}
+		if !main.ed_n1.isNumlistGT(0) {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_GREATER_THAN_0_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_CONTROL_GROUP_SAMPLE_SIZE"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Control-group sample size" must be greater than 0.
+		}
+		optionarg main.ed_n1
+		put " compute(n2)"
+		option main.ck_nfrac
+	}
+	if main.cb_compute.iseq("sampsi") {
+		if !main.ed_nratio.isnumlist() {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_ALLOCATION_RATIO_N2_N1"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Allocation ratio, N2/N1".
+		}
+		if !main.ed_nratio.isNumlistGT(0) {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_GREATER_THAN_0_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_ALLOCATION_RATIO_N2_N1"
+                        stopbox stop "class _MSG_TMP.value"
+
+// On the "Main" tab, "Allocation ratio, N2/N1" must be greater than 0.
+		}
+		optionarg /hidedefault main.ed_nratio
+		option main.ck_nfrac
+	}
+	if main.cb_compute.iseq("power") |  main.cb_compute.iseq("effect") {
+		if main.cb_sampsi.iseq("tssar") {
+			require main.ed_sampsi_n
+			if !main.ed_sampsi_n.isnumlist() {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_TOTAL_SAMPLE_SIZE"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Total sample size".
+			}
+			if !main.ed_sampsi_n.isNumlistGT(0) {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_GREATER_THAN_0_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_TOTAL_SAMPLE_SIZE"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Total sample size" must be greater than 0.
+			}
+			optionarg main.ed_sampsi_n
+			if !main.ed_sampsi_nratio.isnumlist() {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_ALLOCATION_RATIO_N2_N1"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Allocation ratio, N2/N1".
+			}
+			if !main.ed_sampsi_nratio.isNumlistGT(0) {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_GREATER_THAN_0_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_ALLOCATION_RATIO_N2_N1"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Allocation ratio, N2/N1" must be greater than 0.
+			}
+			optionarg /hidedefault main.ed_sampsi_nratio
+		}
+		if main.cb_sampsi.iseq("gssar") {
+			require main.ed_sampsi_nratio
+			if main.cb_sampsi_group.iseq("ctrl_size") {
+				if !main.ed_sampsi_n1 {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_CONTROL_GROUP_SAMPLE_SIZE"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Control-group sample size" must be filled in.				
+				}
+				if !main.ed_sampsi_n1.isnumlist() {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_CONTROL_GROUP_SAMPLE_SIZE"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Control-group sample size".
+				}
+				if !main.ed_sampsi_n1.isNumlistGT(0) {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_GREATER_THAN_0_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_CONTROL_GROUP_SAMPLE_SIZE"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Control-group sample size" must be greater than 0.
+				}
+				optionarg main.ed_sampsi_n1
+			}
+			else {
+				if !main.ed_sampsi_n2 {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_EXPERIMENTAL_GROUP_SAMPLE_SIZE"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Experimental-group sample size" must be filled in.				
+				}
+				if !main.ed_sampsi_n2.isnumlist() {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_EXPERIMENTAL_GROUP_SAMPLE_SIZE"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Experimental-group sample size".
+				}
+				if !main.ed_sampsi_n2.isNumlistGT(0) {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_GREATER_THAN_0_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_EXPERIMENTAL_GROUP_SAMPLE_SIZE"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Experimental-group sample size" must be greater than 0.
+				}
+				optionarg main.ed_sampsi_n2
+			}
+			if !main.ed_sampsi_nratio.isnumlist() {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_ALLOCATION_RATIO_N2_N1"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Allocation ratio, N2/N1".
+			}
+			if !main.ed_sampsi_nratio.isNumlistGT(0) {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_GREATER_THAN_0_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_ALLOCATION_RATIO_N2_N1"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Allocation ratio, N2/N1" must be greater than 0.
+			}
+			optionarg main.ed_sampsi_nratio
+		}
+		if main.cb_sampsi.iseq("togss") {
+			require main.ed_sampsi_n
+			if !main.ed_sampsi_n.isnumlist() {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_TOTAL_SAMPLE_SIZE"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Total sample size".
+			}
+			if !main.ed_sampsi_n.isNumlistGT(0) {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_GREATER_THAN_0_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_TOTAL_SAMPLE_SIZE"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Total sample size" must be greater than 0.
+			}
+			optionarg main.ed_sampsi_n
+			if main.cb_sampsi_group.iseq("ctrl_size") {
+				if !main.ed_sampsi_n1 {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_CONTROL_GROUP_SAMPLE_SIZE"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Control-group sample size" must be filled in.				
+				}
+				if !main.ed_sampsi_n1.isnumlist() {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_CONTROL_GROUP_SAMPLE_SIZE"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Control-group sample size".
+				}
+				if !main.ed_sampsi_n1.isNumlistGT(0) {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_GREATER_THAN_0_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_CONTROL_GROUP_SAMPLE_SIZE"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Control-group sample size" must be greater than 0.
+				}
+				optionarg main.ed_sampsi_n1
+			}
+			else {
+				if !main.ed_sampsi_n2 {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_EXPERIMENTAL_GROUP_SAMPLE_SIZE"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Experimental-group sample size" must be filled in.				
+				}
+				if !main.ed_sampsi_n2.isnumlist() {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_EXPERIMENTAL_GROUP_SAMPLE_SIZE"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Experimental-group sample size".
+				}
+				if !main.ed_sampsi_n2.isNumlistGT(0) {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_GREATER_THAN_0_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_EXPERIMENTAL_GROUP_SAMPLE_SIZE"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Experimental-group sample size" must be greater than 0.
+				}
+				optionarg main.ed_sampsi_n2
+			}
+		}
+		if main.cb_sampsi.iseq("gss") {
+			if !main.ed_sampsi_n1 {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_CONTROL_GROUP_SAMPLE_SIZE"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Control-group sample size" must be filled in.				
+			}
+			if !main.ed_sampsi_n2 {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_EXPERIMENTAL_GROUP_SAMPLE_SIZE"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Experimental-group sample size" must be filled in.				
+			}
+			if !main.ed_sampsi_n1.isnumlist() {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_CONTROL_GROUP_SAMPLE_SIZE"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Control-group sample size".
+			}
+			if !main.ed_sampsi_n1.isNumlistGT(0) {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_GREATER_THAN_0_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_CONTROL_GROUP_SAMPLE_SIZE"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Control-group sample size" must be greater than 0.
+			}
+			if !main.ed_sampsi_n2.isnumlist() {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_EXPERIMENTAL_GROUP_SAMPLE_SIZE"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Experimental-group sample size".
+			}
+			if !main.ed_sampsi_n2.isNumlistGT(0) {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_GREATER_THAN_0_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_EXPERIMENTAL_GROUP_SAMPLE_SIZE"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Experimental-group sample size" must be greater than 0.
+			}
+			optionarg main.ed_sampsi_n1
+			optionarg main.ed_sampsi_n2
+		}
+
+		option main.ck_nfrac
+	}
+END
+

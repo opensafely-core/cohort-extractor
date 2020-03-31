@@ -1,0 +1,380 @@
+/*
+	ca_estat
+
+*!  VERSION 1.2.1  02feb2015
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 320
+INCLUDE header
+
+HELP hlp1, view("help ca postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource CA_ESTAT_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program parseMessage
+END
+
+PROGRAM parseMessage
+BEGIN
+	if __MESSAGE.contains("-coordinates-") {
+		call main.lb_subcmd.setvalue "coordinates"
+	}
+	if __MESSAGE.contains("-distances-") {
+		call main.lb_subcmd.setvalue "distances"
+	}
+	if __MESSAGE.contains("-inertia-") {
+		call main.lb_subcmd.setvalue "inertia"
+	}
+	if __MESSAGE.contains("-loadings-") {
+		call main.lb_subcmd.setvalue "loadings"
+	}
+	if __MESSAGE.contains("-profiles-") {
+		call main.lb_subcmd.setvalue "profiles"
+	}
+	if __MESSAGE.contains("-summarize-") {
+		call main.lb_subcmd.setvalue "summarize"
+	}
+	if __MESSAGE.contains("-table-") {
+		call main.lb_subcmd.setvalue "table"
+	}
+END
+
+
+DIALOG main, label(resource CA_ESTAT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_subcmd		_lft	_top	_cwd1	.,		///
+  	label(resource LBL_REPORTS_STATISTICS_SUBCOMMAND)
+  LISTBOX  lb_subcmd		@	_ss	_iwd	70,		///
+  	contents(main_subcommand_contents)				///
+  	values(main_subcommand_values)					///
+  	onselchangelist(main_subcommand_scripts)
+
+  DEFINE holdy 110
+
+  // coordinates options
+  // with which options
+  GROUPBOX gb_opts		_lft	holdy	_iwd	_ht6,		///
+	label(resource CA_ESTAT_MAIN_GB_OPTS)
+  RADIO    rb_both_coord	_ilft	_ss	_inwd	.,	first	///
+	option(NONE) label(resource CA_ESTAT_MAIN_RB_BOTH_COORD)
+  RADIO    rb_row_coord		@	_ss	@	.,		///
+	option(norow) label(resource CA_ESTAT_MAIN_RB_ROW_COORD)
+  RADIO    rb_column_coord	@	_ss	@	.,	last	///
+	option(nocolumn) label(resource CA_ESTAT_MAIN_RB_COLUMN_COORD)
+
+  // distances options
+
+  CHECKBOX ck_approx		_lft	_xls	_iwd	.,		///
+  	option(approx)							///
+  	label(resource CA_ESTAT_MAIN_CK_APPROX)
+
+  // inertia options
+  CHECKBOX ck_total		_lft	holdy 	_iwd	.,		///
+	option(total)							///
+	label(resource CA_ESTAT_MAIN_CK_TOTAL)
+  CHECKBOX ck_noscale		@	_ms	@	.,		///
+  	label(resource CA_ESTAT_MAIN_CK_NOSCALE)			///
+  	option(noscale)
+
+  // summarize options
+  CHECKBOX ck_labels		_lft	holdy	_iwd	.,		///
+  	label(resource LBL_DISPLAY_VARIABLE_LABELS)			///
+  	option(labels)
+  CHECKBOX ck_noheader		@	_ms	@	.,		///
+	option(noheader)						///
+	label(resource LBL_SUPPRESS_HEADER)
+  CHECKBOX ck_noweights		@	_ms	@	.,		///
+	option(noweights)						///
+	label(resource LBL_IGNORE_WEIGHTS)
+
+  // table options
+  CHECKBOX ck_fit		_lft	holdy	_iwd	.,		///
+	option(fit)							///
+	label(resource CA_ESTAT_MAIN_CK_FIT)
+  CHECKBOX ck_obs		@	_ms	@	.,		///
+  	label(resource CA_ESTAT_MAIN_CK_OBS)				///
+  	option(obs)
+  CHECKBOX ck_independence	@	_ms	@	.,		///
+  	label(resource CA_ESTAT_MAIN_CK_INDEPENDENCE)			///
+  	option(independence)
+  CHECKBOX ck_noscale2		@	_ms	@	.,		///
+  	label(resource CA_ESTAT_MAIN_CK_NOSCALE2)			///
+  	option(noscale)
+
+  CHECKBOX ck_format		_lft	_ms	_iwd	.,		///
+  	onclickon(script main_format_on)				///
+  	onclickoff(script main_format_off)				///
+	label(resource LBL_SPECIFY_THE_DISPLAY_FORMAT)
+  EDIT     ed_format		+20 	_ss	200	.,		///
+	option(format) label(resource LBL_DISPLAY_FORMAT)
+  BUTTON   bn_format      	+205	@	80       .,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(script showFormatDialog)					///
+	tooltip(resource LBL_CREATE_DISPLAY_FORMAT)
+END
+
+SCRIPT showFormatDialog
+BEGIN
+	create STRING formatString
+	create CHILD format_chooser
+	format_chooser.setExitString formatString
+	format_chooser.setExitAction "main.ed_format.setvalue class formatString.value"
+END
+
+LIST main_subcommand_contents
+BEGIN
+	resource CA_ESTAT_ROW_COLUMN_COORDINATES
+	resource CA_ESTAT_CHI2_DISTANCES_FROM_ROW_COL_PROFILES
+	resource CA_ESTAT_INERTIA_CONTRIBUTIONS_INDIVIDUALS_CELLS
+	resource CA_ESTAT_CORRELATIONS_OF_PROFILES_AXES
+	resource CA_ESTAT_ROW_COLUMN_PROFILES
+	resource CA_ESTAT_SUMMARIZE_ESTIMATION_SAMPLE
+	resource CA_ESTAT_FITTED_CORRESPONDENCE_TABLE
+END
+
+LIST main_subcommand_values
+BEGIN
+	coordinates
+	distances
+	inertia
+	loadings
+	profiles
+	summarize
+	table
+END
+
+LIST main_subcommand_scripts
+BEGIN
+	script sel_coordinates
+	script sel_distances
+	script sel_inertia
+	script sel_loadings
+	script sel_profiles
+	script sel_summarize
+	script sel_table
+END
+
+SCRIPT sel_coordinates
+BEGIN
+	script main_row_col_opts_on
+	main.ck_format.show
+	main.ed_format.show
+	main.bn_format.show
+	main.ck_format.setposition . 210 . .
+	main.ed_format.setposition . 230 . .
+	main.bn_format.setposition . 230 . .
+
+	main.ck_approx.hide
+	script main_inertia_opts_off
+	script main_summarize_opts_off
+	script main_table_opts_off
+END
+
+SCRIPT sel_distances
+BEGIN
+	script main_row_col_opts_on
+	main.ck_format.show
+	main.ed_format.show
+	main.bn_format.show
+	main.ck_format.setposition . 235 . .
+	main.ed_format.setposition . 255 . .
+	main.bn_format.setposition . 255 . .
+	main.ck_approx.show
+
+	script main_inertia_opts_off
+	script main_summarize_opts_off
+	script main_table_opts_off
+END
+
+SCRIPT sel_inertia
+BEGIN
+	script main_inertia_opts_on
+	script main_format_opt_show
+	main.ck_format.setposition . 160 . .
+	main.ed_format.setposition . 180 . .
+	main.bn_format.setposition . 180 . .
+
+	script main_row_col_opts_off
+	main.ck_approx.hide
+	script main_summarize_opts_off
+	script main_table_opts_off
+END
+
+SCRIPT sel_loadings
+BEGIN
+	script main_row_col_opts_on
+	script main_format_opt_show
+	main.ck_format.setposition . 210 . .
+	main.ed_format.setposition . 230 . .
+	main.bn_format.setposition . 230 . .
+
+	script main_summarize_opts_off
+	script main_inertia_opts_off
+	script main_table_opts_off
+	main.ck_approx.hide
+END
+
+SCRIPT sel_profiles
+BEGIN
+	script main_row_col_opts_on
+	script main_format_opt_show
+	main.ck_format.setposition . 210 . .
+	main.ed_format.setposition . 230 . .
+	main.bn_format.setposition . 230 . .
+
+	script main_summarize_opts_off
+	script main_inertia_opts_off
+	script main_table_opts_off
+	main.ck_approx.hide
+END
+
+SCRIPT sel_summarize
+BEGIN
+	script main_summarize_opts_on
+
+	script main_row_col_opts_off
+	script main_format_opt_hide
+	main.ck_approx.hide
+	script main_inertia_opts_off
+	script main_table_opts_off
+END
+
+SCRIPT sel_table
+BEGIN
+	script main_table_opts_on
+	script main_format_opt_show
+	main.ck_format.setposition . 210 . .
+	main.ed_format.setposition . 230 . .
+	main.bn_format.setposition . 230 . .
+
+	main.ck_approx.hide
+	script main_inertia_opts_off
+	script main_summarize_opts_off
+	script main_row_col_opts_off
+END
+
+SCRIPT main_row_col_opts_on
+BEGIN
+	main.gb_opts.show
+	main.rb_both_coord.show
+	main.rb_row_coord.show
+	main.rb_column_coord.show
+END
+
+SCRIPT main_row_col_opts_off
+BEGIN
+	main.gb_opts.hide
+	main.rb_both_coord.hide
+	main.rb_row_coord.hide
+	main.rb_column_coord.hide
+END
+
+SCRIPT main_inertia_opts_on
+BEGIN
+	main.ck_total.show
+	main.ck_noscale.show
+END
+
+SCRIPT main_inertia_opts_off
+BEGIN
+	main.ck_total.hide
+	main.ck_noscale.hide
+END
+
+SCRIPT main_summarize_opts_on
+BEGIN
+	main.ck_labels.show
+	main.ck_noheader.show
+	main.ck_noweights.show
+END
+
+SCRIPT main_summarize_opts_off
+BEGIN
+	main.ck_labels.hide
+	main.ck_noheader.hide
+	main.ck_noweights.hide
+END
+
+SCRIPT main_table_opts_on
+BEGIN
+	main.ck_fit.show
+	main.ck_obs.show
+	main.ck_independence.show
+	main.ck_noscale2.show
+END
+
+SCRIPT main_table_opts_off
+BEGIN
+	main.ck_fit.hide
+	main.ck_obs.hide
+	main.ck_independence.hide
+	main.ck_noscale2.hide
+END
+
+SCRIPT main_format_opt_hide
+BEGIN
+	main.ck_format.hide
+	main.ed_format.hide
+	main.bn_format.hide
+END
+
+SCRIPT main_format_opt_show
+BEGIN
+	main.ck_format.show
+	main.ed_format.show
+	main.bn_format.show
+END
+
+SCRIPT main_format_on
+BEGIN
+	main.ed_format.enable
+	main.bn_format.enable
+END
+SCRIPT main_format_off
+BEGIN
+	main.ed_format.disable
+	main.bn_format.disable
+END
+
+PROGRAM command
+BEGIN
+	put "estat "
+	put main.lb_subcmd
+	beginoptions
+		// coordinates options
+		option main.rb_row_coord
+		option main.rb_column_coord
+
+  		// distances options
+		option main.ck_approx
+
+  		// inertia options
+		option main.ck_total
+		option main.ck_noscale
+
+		// Summarize options
+		option main.ck_labels
+		option main.ck_noheader
+		option main.ck_noweights
+
+  		// table options
+		option main.ck_fit
+		option main.ck_obs
+		option main.ck_independence
+		option main.ck_noscale2
+		if main.ck_format {
+			require main.ed_format
+			optionarg main.ed_format
+		}
+	endoptions
+END

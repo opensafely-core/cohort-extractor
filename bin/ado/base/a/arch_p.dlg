@@ -1,0 +1,307 @@
+/*
+	predict (after arch)
+
+*!  VERSION 1.2.0  28aug2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE _ht340
+INCLUDE header
+HELP hlp1, view("help arch postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource ARCH_P_DLG_HSCALE
+END
+
+
+DIALOG main, label(resource PREDICT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  INCLUDE  _p_gentype
+
+  GROUPBOX gb_opt        _lft      _ls     _iwd    _ht12, label(resource LBL_PRODUCE)
+  RADIO    rb_xb      _indent      _ss    _inwd        ., first /*
+		*/ option(xb)					/*
+*/ label(resource LBL_VALUES_MEAN_EQUATION_DIFFERENCED)
+  RADIO    rb_y             @      _ss        @        .,	/*
+		*/ option(y)					/*
+*/ label(resource LBL_VALUES_MEAN_EQUATION_UNDIFFERENCED)
+  RADIO    rb_variance      @      _ss        @        .,	/*
+		*/ option(variance)				/*
+*/ label(resource ARCH_P_MAIN_RB_VARIANCE)
+  RADIO    rb_het           @      _ss        @        .,	/*
+		*/ option(het)					/*
+*/ label(resource ARCH_P_MAIN_RB_HET)
+  RADIO    rb_resid         @      _ss        @        .,	/*
+		*/ option(residuals)				/*
+*/ label(resource LBL_RESIDUALS_PREDICTED_INNOVATIONS)
+  RADIO    rb_yresid        @      _ss        @        ., last	/*
+		*/ option(yresiduals)				/*
+*/ label(resource LBL_RESIDUALS_PREDICTED_INNOVATIONS_Y)
+
+END
+
+INCLUDE ifin
+
+DEFINE labwd     75
+DEFINE labsep   +80
+DEFINE varnwd    70
+DEFINE varnsep  +75
+DEFINE orwd      20
+DEFINE orsep    +25
+DEFINE valwd     55
+DEFINE valsep   +60
+
+DIALOG opt, tabtitle(resource LBL_OPTIONS)
+BEGIN
+
+  GROUPBOX gb_stepdyn    _lft     _top     _iwd    _ht16,	/*
+		*/ label(resource LBL_ONE_STEP_DYNAMIC)
+  RADIO    rb_onestep _indent      _ss    _inwd        ., first	/*
+		*/ clickon("script all_off")			/*
+		*/ label(resource LBL_ONE_STEP_PREDICTION)
+  DEFINE   hx  @x
+  DEFINE   hcx @cx
+  RADIO    rb_dyn1          @      _ms        @        .,	/*
+		*/ clickon("script all_off")			/*
+*/ label(resource LBL_SWITCH_DYNAMIC_PREDICTIONS)
+  RADIO    rb_dyn2          @      _ms _comb3_1        .,	/*
+		*/ clickon("script dyn_on")			/*
+		*/ label(resource LBL_SWITCH_DYNAMIC_PREDICTIONS_TIME)
+  EDIT     ed_dyn2   _indent2      _ss  _en14wd        .,	/*
+		*/ label(resource LBL_SWITCH_DYNAMIC_PREDICTIONS_TIME)
+  RADIO    rb_at           hx      _ms      hcx        ., last	/*
+		*/ clickon("script at_on")			/*
+	*/ label(resource ARCH_P_OPT_RB_AT)
+
+  TEXT     tx_err    _indent2      _ss    labwd        ., right /*
+		*/ label(resource LBL_ERROR)
+  DEFINE   inx @x
+  RADIO    rb_err_vr   labsep        @   varnwd        ., first /*
+		*/ clickon("script err_varnotval")		/*
+		*/ label(resource LBL_VARNAME)
+  VARNAME  vn_err_vr  varnsep        @    _vnwd        .,	/*
+  		*/ numeric					/*
+		*/ label(resource LBL_ERROR_VARNAME)
+  TEXT     tx_err_or   _vnsep        @     orwd        ., center/*
+		*/ label(resource LBL_OR)
+  RADIO    rb_err_vl    orsep        @    valwd        ., last	/*
+		*/ clickon("script err_valnotvar")		/*
+		*/ label(resource ARCH_P_OPT_RB_ERR_VL)
+  EDIT     en_err_vl   valsep        @   _en7wd        .,	/*
+		*/ numonly					/*
+		*/ label(resource ARCH_P_OPT_EN_ERR_VL)
+
+  TEXT     tx_verr        inx      _ms    labwd        ., right /*
+		*/ label(resource ARCH_P_OPT_TX_VERR)
+  RADIO    rb_verr_vr  labsep        @   varnwd        ., first /*
+		*/ clickon("script verr_varnotval")		/*
+		*/ label(resource LBL_VARNAME)
+  VARNAME  vn_verr_vr varnsep        @    _vnwd        .,	/*
+  		*/ numeric					/*
+		*/ label(resource ARCH_P_OPT_VN_VERR_VR)
+  TEXT     tx_verr_or  _vnsep        @     orwd        ., center/*
+		*/ label(resource LBL_OR)
+  RADIO    rb_verr_vl   orsep        @    valwd        ., last	/*
+		*/ clickon("script verr_valnotvar")		/*
+		*/ label(resource ARCH_P_OPT_RB_ERR_VL)
+  EDIT     en_verr_vl  valsep        @   _en7wd        .,	/*
+		*/ numonly					/*
+		*/ label(resource ARCH_P_OPT_EN_VERR_VL)
+
+  GROUPBOX gb_disturb    _lft     _xls     _iwd     _ht9,	/*
+		*/ label(resource LBL_ARMA_COMPONENT)
+  RADIO    rb_arma    _indent      _ss    _inwd        ., first /*
+		*/ option(NONE)  /* default */			/*
+		*/ clickon("gaction opt.ed_t0.disable")		/*
+*/ label(resource LBL_INCLUDE_ARMA_COMPONENT)
+  RADIO    rb_t0            @      _ms        @        .,	/*
+		*/ option(NONE)	 /* handled another way	*/	/*
+		*/ clickon("gaction opt.ed_t0.enable")		/*
+*/ label(resource LBL_ARMA_COMPONENT_ASSUME_ZERO)
+  DEFINE   hldx  @x
+  DEFINE   hldcx @cx
+  EDIT     ed_t0     _indent2      _ss  _en14wd        .,	/*
+		*/ option(t0)					/*
+*/ label(resource LBL_ARMA_COMPONENT_ASSUME_ZERO)
+  RADIO    rb_struct     hldx      _ms    hldcx        ., last	/*
+		*/ option(structural)				/*
+		*/ clickon("gaction opt.ed_t0.disable")		/*
+	*/ label(resource LBL_STRUCTURAL_COMPONENT)
+END
+
+SCRIPT dynon
+BEGIN
+  opt.ed_dyn2.enable
+END
+
+SCRIPT dynoff
+BEGIN
+  opt.ed_dyn2.disable
+END
+
+PROGRAM err_on
+BEGIN
+	call gaction opt.tx_err.enable
+	call gaction opt.rb_err_vr.enable
+	call gaction opt.tx_err_or.enable
+	call gaction opt.rb_err_vl.enable
+	if opt.rb_err_vr {
+		call gaction opt.vn_err_vr.enable
+	}
+	if opt.rb_err_vl {
+		call gaction opt.en_err_vl.enable
+	}
+END
+
+SCRIPT err_off
+BEGIN
+  opt.tx_err.disable
+  opt.rb_err_vr.disable
+  opt.vn_err_vr.disable
+  opt.tx_err_or.disable
+  opt.rb_err_vl.disable
+  opt.en_err_vl.disable
+END
+
+PROGRAM verr_on
+BEGIN
+	call gaction opt.tx_verr.enable
+	call gaction opt.rb_verr_vr.enable
+	call gaction opt.tx_verr_or.enable
+	call gaction opt.rb_verr_vl.enable
+	if opt.rb_verr_vr {
+		call gaction opt.vn_verr_vr.enable
+	}
+	if opt.rb_verr_vl {
+		call gaction opt.en_verr_vl.enable
+	}
+END
+
+
+SCRIPT verr_off
+BEGIN
+  opt.tx_verr.disable
+  opt.rb_verr_vr.disable
+  opt.vn_verr_vr.disable
+  opt.tx_verr_or.disable
+  opt.rb_verr_vl.disable
+  opt.en_verr_vl.disable
+END
+
+SCRIPT err_varnotval
+BEGIN
+  opt.vn_err_vr.enable
+  opt.en_err_vl.disable
+END
+
+SCRIPT err_valnotvar
+BEGIN
+  opt.vn_err_vr.disable
+  opt.en_err_vl.enable
+END
+
+SCRIPT verr_varnotval
+BEGIN
+  opt.vn_verr_vr.enable
+  opt.en_verr_vl.disable
+END
+
+SCRIPT verr_valnotvar
+BEGIN
+  opt.vn_verr_vr.disable
+  opt.en_verr_vl.enable
+END
+
+SCRIPT aton
+BEGIN
+  program err_on
+  program verr_on
+END
+
+SCRIPT atoff
+BEGIN
+  script err_off
+  script verr_off
+END
+
+SCRIPT all_off
+BEGIN
+  script dynoff
+  script atoff
+END
+
+SCRIPT at_on
+BEGIN
+  script dynoff
+  script aton
+END
+
+SCRIPT dyn_on
+BEGIN
+  script dynon
+  script atoff
+END
+
+INCLUDE _p_gentype_sc
+INCLUDE _type_list_fd
+
+PROGRAM command
+BEGIN
+	put "predict "
+	put " " /program _p_gentype_output
+	INCLUDE _ifin_pr
+	beginoptions
+		option radio(main rb_xb rb_y rb_variance rb_het /*
+					*/ rb_resid rb_yresid)
+
+		if opt.rb_dyn1 {
+			put "dynamic(.) "
+		}
+		if opt.rb_dyn2 {
+			require opt.ed_dyn2
+			put "dynamic(" opt.ed_dyn2 ") "
+		}
+		if opt.rb_at {
+			put "at("
+			if opt.rb_err_vr {
+				require opt.vn_err_vr
+				put opt.vn_err_vr
+			}
+			if opt.rb_err_vl {
+				require opt.en_err_vl
+				put opt.en_err_vl
+			}
+			put " "
+			if opt.rb_verr_vr {
+				if opt.vn_verr_vr {
+					put opt.vn_verr_vr
+				}
+				if !opt.vn_verr_vr {
+					put "."
+				}
+			}
+			if opt.rb_verr_vl {
+				if opt.en_verr_vl {
+					put opt.en_verr_vl
+				}
+				if !opt.en_verr_vl {
+					put "."
+				}
+			}
+			put ") "
+		}
+
+		option radio(opt rb_arma rb_struct rb_t0)
+
+		if opt.rb_t0 {
+			require opt.ed_t0
+			optionarg opt.ed_t0
+		}
+
+	endoptions
+END

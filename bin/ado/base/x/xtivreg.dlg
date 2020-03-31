@@ -1,0 +1,262 @@
+/*
+  xtivreg
+
+*!  VERSION 1.3.3  14may2019
+
+  keyword:  eclass
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 340
+INCLUDE header
+HELP hlp1, view("help xtivreg")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	script se_createAsConvCLRBJknifeBstrap
+	setscale_hadj resource XTIVREG_DLG_HSCALE
+END
+
+SCRIPT show_xtset
+BEGIN
+	create STRING note
+	note.setvalue resource XTIVREG_FIRST_DIFF_EST
+	note.withvalue create CHILD xtset, message(`"" " `"@"'"')
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)				///
+	label(resource XTIVREG_DLG_TITLE)
+		
+BEGIN
+  BUTTON   bu_xtset	_xsetbu	_top	_setbuwd .,			///
+	onpush(script show_xtset)					///
+	label(resource LBL_BU_PANEL_SETTINGS)
+
+  TEXT     tx_dv     _lft      _topph    _vnwd     .,			/*
+		*/ label(resource LBL_DEPVAR)				/*
+		*/
+  VARNAME  vn_dv     @         _ss       @         .,			/*
+		*/ label(resource LBL_DEPVAR)				/*
+		*/ ts							/*
+		*/ numeric						/*
+		*/
+
+  TEXT     tx_iv     _vlx      _topph    160       .,			/*
+		*/ label(resource LBL_INDDEPVAR)			/*
+		*/
+  VARLIST  vl_iv     @         _ss       _vlwd     .,			/*
+		*/ label(resource LBL_INDDEPVAR)			/*
+		*/ ts fv						/*
+		*/ numeric						/*
+		*/
+  CHECKBOX ck_nocons @         _ms       @         .,			/*
+		*/ label(resource LBL_NOCONSTANT)			/*
+		*/ option("noconstant")					/*
+		*/
+
+  TEXT     tx_vars2  _lft      _ms       _iwd      .,			/*
+		*/ label(resource LBL_ENDOGENOUS_VARIABLES)		/*
+		*/
+  VARLIST  vl_vars2  @         _ss       @         .,			/*
+		*/ label(resource LBL_ENDOGENOUS_VARIABLES)		/*
+		*/ allowcat						/*
+		*/ ts							/*
+		*/ numeric						/*
+		*/
+  TEXT     tx_ivars  _lft      _ls       _iwd      .,			/*
+		*/ label(resource LBL_INSTRUMENTAL_VARIABLES)		/*
+		*/
+  VARLIST  vl_ivars  @         _ss       @         .,			/*
+		*/ label(resource LBL_INSTRUMENTAL_VARIABLES)		/*
+		*/ allowcat						/*
+		*/ ts fv						/*
+		*/ numeric						/*
+		*/
+
+  GROUPBOX gb_mopts  _lft      _ls       _iwd      _ht11,		/*
+		*/ label(resource LBL_OPTIONS)				/*
+		*/
+  CHECKBOX ck_ec2sls _lft2     _ss       _cwd2     .,			/*
+		*/ label(resource XTIVREG_MAIN_CK_EC2SLS)		/*
+		*/ option("ec2sls")					/*
+		*/
+  DEFINE y @y
+  CHECKBOX ck_nosa   @         _ls       @         .,			/*
+		*/ label(resource XTIVREG_MAIN_CK_NOSA)			/*
+		*/ option("nosa")					/*
+		*/
+  TEXT     tx_nosa   _indent2  _vss      _inwd     .,			/*
+		*/ label(resource XTIVREG_MAIN_TX_NOSA)			/*
+		*/
+  CHECKBOX ck_reg    _lft2     _ms       _cwd2     .,			/*
+		*/ label(resource XTIVREG_MAIN_CK_REG)			/*
+		*/ clickon("gaction rpt.ck_first.disable")		/*
+		*/ clickoff("gaction rpt.ck_first.enable")		/*
+		*/ option("regress")					/*
+		*/
+  TEXT     tx_reg    _indent2  _vss      _inwd     .,			/*
+		*/ label(resource XTIVREG_MAIN_TX_REG)			/*
+		*/
+
+  GROUPBOX gb_model  _ilft     y         _cwd2     _ht8,		/*
+		*/ label(resource XTIVREG_MAIN_GB_MODEL)					/*
+		*/
+  RADIO    rb_re     _indent   _ss       _cwd4     .,			/*
+		*/ label(resource XTIVREG_MAIN_RB_RE)			/*
+		*/ clickon("script re_opts")				/*
+		*/ first						/*
+		*/ option("re")						/*
+		*/
+  RADIO    rb_be     @         _ss       @         .,			/*
+		*/ label(resource XTIVREG_MAIN_RB_BE)			/*
+		*/ clickon("script be_opts")				/*
+		*/ option("be")						/*
+		*/
+  RADIO    rb_fe     @         _ss       @         .,			/*
+		*/ label(resource LBL_FIXED_EFFECTS_HYPHEN)		/*
+		*/ clickon("script fe_opts")				/*
+		*/ option("fe")						/*
+		*/
+  RADIO    rb_fd     @         _ss       @         .,			/*
+		*/ label(resource XTIVREG_MAIN_RB_FD)			/*
+		*/ clickon("script fd_opts")				/*
+		*/ last							/*
+		*/ option("fd")						/*
+		*/
+END
+
+SCRIPT re_opts
+BEGIN
+  	rpt.ck_theta.disable
+	main.ck_ec2sls.enable
+	main.ck_nosa.enable
+	main.tx_nosa.enable
+	rpt.ck_theta.enable
+	rpt.bu_facvars.enable
+	main.ck_nocons.disable
+END
+
+SCRIPT be_opts
+BEGIN
+	rpt.ck_theta.disable
+	main.ck_ec2sls.enable
+	main.ck_ec2sls.disable
+	main.ck_nosa.disable
+	main.tx_nosa.disable
+	rpt.ck_theta.disable
+	rpt.bu_facvars.enable
+	main.ck_nocons.disable
+END
+
+SCRIPT fe_opts
+BEGIN
+  	rpt.ck_theta.disable
+	rpt.bu_facvars.enable
+	script be_opts
+END
+
+SCRIPT fd_opts
+BEGIN
+	rpt.ck_theta.disable
+	main.ck_ec2sls.enable
+	main.ck_ec2sls.disable
+	main.ck_nosa.disable
+	main.tx_nosa.disable
+	rpt.ck_theta.disable
+	rpt.bu_facvars.disable
+	main.ck_nocons.enable
+END
+
+INCLUDE byifin
+INCLUDE se
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+        program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  CHECKBOX ck_first  _lft      _ls       _iwd      .,			/*
+		*/ label(resource XTIVREG_RPT_CK_FIRST)			/*
+		*/ option("first")					/*
+		*/
+
+  CHECKBOX ck_small  @         _ms       @         .,			/*
+		*/ label(resource XTIVREG_RPT_CK_SMALL)			/*
+		*/ option("small")					/*
+		*/
+  CHECKBOX ck_theta  @        _ms        @         .,			/*
+		*/ label(resource XTIVREG_RPT_CK_THETA)			/*
+		*/ option("theta")					/*
+		*/
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+INCLUDE _factor_vars_reporting_sc
+
+PROGRAM rpt_output
+BEGIN
+	optionarg /hidedefault rpt.sp_level
+	option rpt.ck_first
+	option rpt.ck_small
+	option rpt.ck_theta
+	INCLUDE _report_columns_pr
+	put " " rpt_bu_facvarsResults
+	put " " rpt_bu_fmtcoefResults
+END
+
+PROGRAM subcommand
+BEGIN
+	varlist main.vl_vars2
+	put "="
+	varlist main.vl_ivars
+END
+
+PROGRAM command
+BEGIN
+	put /program by_output " "
+	put "xtivreg "
+	varlist main.vn_dv [main.vl_iv]
+	put "("
+		put /program subcommand
+	put ")"
+	
+	put " " /program ifin_output
+	beginoptions
+		option main.ck_nocons
+		option radio(main rb_re rb_be rb_fe rb_fd)
+		option main.ck_ec2sls
+		option main.ck_nosa
+		option main.ck_reg
+		put " " /program se_output
+		put " " /program rpt_output
+	endoptions
+END
+

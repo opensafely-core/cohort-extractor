@@ -1,0 +1,293 @@
+/*
+  binreg
+
+*!  VERSION 1.4.4  29nov2018
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_glm
+DEFINE _dlght 455
+INCLUDE header
+HELP hlp1, view("help binreg")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	program parseMessage
+	script se_createAsGLM
+        setscale_hadj resource BINREG_DLG_HSCALE
+	create STRING __const_tab
+	__const_tab.setvalue "main"
+END
+
+PROGRAM parseMessage
+BEGIN
+	if __MESSAGE.contains("__MI__") {
+		call script byifin_set_by_off
+		call script se_setMI_on
+	}
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program max_create_binreg
+END
+
+
+DIALOG main, /*
+*/ label(resource BINREG_DLG_TITLE) tabtitle(resource LBL_TAB_MODEL)
+BEGIN
+  TEXT tx_dv 		_lft	_top	_vnwd	.,			///
+	label(resource LBL_DEPVAR)
+  VARNAME vn_dv		@ 	_ss	@	.,			///
+	ts								///
+	numeric								///
+	label(resource LBL_DEPVAR)
+
+  TEXT tx_iv		_vlx	_top	160	.,			///
+	label(resource LBL_INDDEPVAR)
+  VARLIST vl_iv		@	_ss	_vlwd	.,			///
+	fv ts								///
+	allowcat							///
+	numeric								///
+	label(resource LBL_INDDEPVAR)
+  CHECKBOX ck_nocons @         _ms       @         .,			/*
+		*/ label(resource LBL_NOCONSTANT)			/*
+		*/ option("noconstant")					/*
+		*/
+  GROUPBOX gb_opts   _lft      _ms       _iwd      _ht4,		/*
+		*/ label(resource BINREG_MAIN_GB_OPTS)			/*
+		*/
+  RADIO    rb_or     _ilft     _ss       _cwd2     .,			/*
+		*/ label(resource BINREG_MAIN_RB_OR)			/*
+		*/ first						/*
+		*/ option("or")						/*
+		*/
+  RADIO    rb_rr     _lft2     @         @         .,			/*
+		*/ label(resource BINREG_MAIN_RB_RR)			/*
+		*/ option("rr")						/*
+		*/
+  RADIO    rb_hr     _ilft     _ss       @         .,			/*
+		*/ label(resource BINREG_MAIN_RB_HR)			/*
+		*/ option("hr")						/*
+		*/
+  RADIO    rb_rd     _lft2     @         @         .,			/*
+		*/ label(resource BINREG_MAIN_RB_RD)			/*
+		*/ last							/*
+		*/ option("rd")						/*
+		*/
+
+  GROUPBOX gb_n      _lft      _xls      _iwd      _ht4h,		/*
+		*/ label(resource BINREG_MAIN_GB_N)			/*
+		*/
+  RADIO    rb_sp_n   _ilft     _ss       _rbwd     .,			/*
+		*/ clickon("script sp_n")				/*
+		*/ first						/*
+		*/ option(NONE)	 					/*
+		*/
+  SPINNER  sp_n      _rbsep    @         _spwd     .,			/*
+		*/ label(resource LBL_CONSTANT)				/*
+		*/ min(1)						/*
+		*/ max(10000000)					/*
+		*/ default(1)						/*
+		*/ option("n")	 					/*
+		*/
+  TEXT     tx_sp_n   _spsep    @         _rbsprb   .,			/*
+		*/ label(resource LBL_CONSTANT)				/*
+		*/
+  RADIO    rb_vn_n   _ilft     _ms       _rbwd     .,			/*
+		*/ clickon("script vn_n")				/*
+		*/ last							/*
+		*/ option(NONE)						/*
+		*/
+  VARNAME  vn_n      _rbsep    @         _vnwd     .,			/*
+		*/ label(resource LBL_VARIABLE)				/*
+		*/ option("n")						/*
+		*/ numeric                                              /*
+		*/
+  TEXT     tx_vn_n   _vnsep    @         _rbvnrb   .,			/*
+		*/ label(resource LBL_VARIABLE)				/*
+		*/
+
+  GROUPBOX gb_opt    _lft      _xls      _iwd      _ht15,		/*
+		*/ label(resource LBL_OPTIONS)				/*
+		*/
+
+  RADIO    rb_expose _ilft     _ss       _cwd4_1   .,			/*
+		*/ label(resource LBL_EXPOSURE_VARIABLE)		/*
+		*/ first						/*
+		*/ clickon("script expose")				/*
+		*/
+  RADIO    rb_offset _ilft4_2  @         @         .,			/*
+		*/ label(resource LBL_OFFSET_VARIABLE)			/*
+		*/ last							/*
+		*/ clickon("script offset")				/*
+		*/
+
+  VARNAME  vn_expose _ilft     _ss       @         .,			/*
+		*/ label(resource LBL_EXPOSURE_VARIABLE)		/*
+		*/ option("exposure")					/*
+		*/ numeric						/*
+		*/
+  VARNAME  vn_offset _ilft4_2  @         @         .,			/*
+		*/ label(resource LBL_OFFSET_VARIABLE)			/*
+		*/ option("offset")					/*
+		*/ numeric						/*
+		*/
+
+  DEFINE _x _ilft
+  DEFINE _y _ls
+  DEFINE _cx _ilw80
+  DEFINE _bux _islw80
+  INCLUDE _constraints
+
+  DEFINE _x _ilft
+  DEFINE _xw _ibwd
+//  INCLUDE _ck_collinear
+
+  TEXT     tx_init   _ilft     _ms      _ibwd      .,			/*
+		*/ label(resource LBL_INITIAL_MEAN_ESTIMATES_VARIABLE)	/*
+		*/
+/* -init- seems to be equivalent to the -glm- option -mu-  */
+  VARNAME  vn_init   @         _ss      _cwd4_1    .,			/*
+		*/ label(resource LBL_INITIAL_MEAN_ESTIMATES_VARIABLE)		/*
+		*/ option("init")					/*
+		*/ numeric						/*
+		*/
+  TEXT     tx_note   _lft4_2   @        _comb4_3   .,			/*
+  		*/ label(resource LBL_NOTE_ADVANCED_OPT_HELP_WITH_CONVERGENCE)
+END
+
+SCRIPT expose
+BEGIN
+  main.vn_expose.enable
+  main.vn_offset.disable
+END
+
+SCRIPT offset
+BEGIN
+  main.vn_expose.disable
+  main.vn_offset.enable
+END
+
+INCLUDE _constraints_sc 
+
+//SCRIPT collinear_disable
+///BEGIN
+//	main.ck_collinear.disable
+//END
+
+//SCRIPT collinear_enable
+//BEGIN
+//	main.ck_collinear.enable
+//END
+
+SCRIPT sp_n
+BEGIN
+	main.sp_n.enable
+	main.vn_n.disable
+END
+
+SCRIPT vn_n
+BEGIN
+	main.sp_n.disable
+	main.vn_n.enable
+END
+
+
+INCLUDE byifin
+INCLUDE weights_fpai
+INCLUDE se
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+        program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  CHECKBOX ck_coeff  _lft      _ls       _iwd      .,			/*
+		*/ label(resource BINREG_RPT_CK_COEFF)	/*
+		*/ option(coeff)					/*
+		*/
+
+  DEFINE _x _lft
+  DEFINE _y _ms
+  DEFINE _cx _iwd
+  INCLUDE _nocnsreport
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+
+PROGRAM rpt_output
+BEGIN
+	optionarg /hidedefault rpt.sp_level
+	option rpt.ck_coeff
+	INCLUDE _nocnsreport_pr
+	INCLUDE _report_columns_pr
+	put " " rpt_bu_facvarsResults
+	put " " rpt_bu_fmtcoefResults
+END
+
+INCLUDE max_glm
+
+PROGRAM command
+BEGIN
+	INCLUDE _by_pr
+	put "binreg "
+	varlist main.vn_dv [main.vl_iv]
+	if !main.vl_iv & main.ck_nocons {
+		call create STRING _MSG_TMP
+                call _MSG_TMP.format					///
+			"resource LBL_MSGBOX_IS_SELECTED_WITHOUT_INDVARS_FMT" ///
+			"resource LBL_NOCONSTANT"
+		stopbox stop "class _MSG_TMP.value"
+// "Suppress constant term" is selected without independent variables.
+	}
+	INCLUDE _weights_pr
+	INCLUDE _ifin_pr
+	beginoptions
+		option main.ck_nocons
+		option radio(main rb_or rb_rr rb_hr rb_rd)
+		if main.rb_sp_n {
+			optionarg /hidedefault main.sp_n
+		}
+		if main.rb_vn_n {
+			require main.vn_n
+			optionarg main.vn_n
+		}
+		optionarg main.vn_expose
+		optionarg main.vn_offset
+		optionarg main.cb_constr
+//		option main.ck_collinear
+		optionarg main.vn_init
+
+		put " " /program se_output
+		put " " /program rpt_output
+		put " " /program max_glm_output
+	endoptions
+END

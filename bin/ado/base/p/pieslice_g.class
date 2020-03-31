@@ -1,0 +1,196 @@
+/*                                 pieslice_g
+
+	a view of a pieslice
+
+        This is a subview.  When drawn, assumes that the appropriate x and y
+        scales have already been set.
+
+	Often pie slices are drawn with a reference to a common shared style.
+        Allows the slice to be customized from this style
+    
+	See as_custom_ed.class for customization
+
+*/
+*! version 1.1.1  01jun2013
+
+version 8
+
+class {
+	x0	= 0
+	y0	= 0
+	radius	= 0
+	angle0	= 0
+	angle1	= 0
+	explode = .gsize.new , style(zero)
+
+	clockwise	= 1
+
+	draw_view       = .yesno.new, style(yes)
+
+	dragable	= 1
+
+	class areastyle style
+
+	dialog		= "pieslice"
+} , inherit(subview)
+
+
+/*--------------------------------------------------------------------------*/
+/*
+	Usage:  .pieslice_g.new y0 x0 radius angle0 angle1 explode [ , 
+				counterclockwise
+				style(stylename) styleref(name|key) ]
+
+	if reference is specified the style is assigned by reference rather
+	than by copying (by value)
+*/
+
+program new
+
+	syntax anything(name=poslist id="6 pie slice numbers") [ , 	///
+			COUNTERCLOCKwise				///
+			Style(passthru) STYLEREF(passthru) * ]
+
+	.grid_dragable	= 0
+	.deleted	= 0
+	.already_custom	= 0
+
+	numlist "`poslist'" , min(6) max(6) missingok
+	local poslist `r(numlist)'
+	foreach d in x0 y0 radius angle0 angle1 {
+		gettoken `d' poslist : poslist , parse(" ,")
+		.`d' = (``d'')
+	}
+
+	.explode.set, realset(`poslist')
+
+	.clockwise = ("`counterclockwise'" != "")
+
+	if "`style'" == "" & "`styleref'" == "" {
+		local style style(scheme)
+	}
+
+	.setstyle , `style' `styleref' `options'
+end
+
+
+// --------------------------------------------------------------------------
+
+program draw
+	if (! `.draw_view.istrue')  exit				// Exit
+
+	.style.setgdifull
+
+	local mid = _pi * (`.angle0' + `.angle1') / 360
+	if `.explode.val' {
+		local y = `.y0' + sin(`mid') * `.explode.gmval'
+		local x = `.x0' + cos(`mid') * `.explode.gmval'
+	}
+	else {
+		local x `.x0'
+		local y `.y0'
+	}
+
+	if `.angle0'+`.angle1' < . {
+		if `.clockwise' {
+			gdi pieslice `x' `y' `.radius' `.angle1' `.angle0'
+		}
+		else {
+			gdi pieslice `x' `y' `.radius' `.angle0' `.angle1'
+		}
+	}
+
+						// Finding ~ bounding rectangle
+	local pts = 7
+	local ymin = `y'
+	local ymax = `y'
+	local xmin = `x'
+	local xmax = `x'
+	forvalues i = 0/`pts' {
+	    local angle = 2 * _pi *					///
+	    	  (`i'*(`.angle0') + (`pts'-`i')*(`.angle1')) /		///
+		  (`pts' * 360)
+	    local yp = `y' + sin(`angle') * `.radius'
+	    local xp = `x' + cos(`angle') * `.radius'
+	    local ymin = min(`ymin', `yp')
+	    local ymax = max(`ymax', `yp')
+	    local xmin = min(`xmin', `xp')
+	    local xmax = max(`xmax', `xp')
+	}
+
+	.set_gdi_posn `ymin' `xmin' `ymax' `xmax'
+
+end
+
+
+// ---------------------------------------------------------------------------
+// Returns true if the pie slice is at the clicked position
+
+program AtClickedPos
+
+	class exit = `.at_pos `.`._Gr_Global.Container'.LocalClicked' 1 1 `.`._Gr_Global.Container'.drawn_gmult''
+end
+
+
+// ----------------------------------------------------------------------------
+//  Determine if a position is in/on the view.
+//  Generate line segments for the two radius lines and a set of inscribed
+//  lines inside the arc then use the odd-line-cross rule to determine if the
+//  point is inside.
+
+program at_pos
+	args y x ym xm drawn_gmult
+
+	local mid = _pi * (`.angle0' + `.angle1') / 360
+	local ym = `.y0' + sin(`mid') * `.explode.val' * `drawn_gmult'
+	local xm = `.x0' + cos(`mid') * `.explode.val' * `drawn_gmult'
+
+	local inside = 0
+	local pts = 7
+	local y1 = `ym'
+	local x1 = `xm'
+	forvalues i = 0/`pts' {
+	    local angle = 2 * _pi *					///
+	    	  (`i'*(`.angle0') + (`pts'-`i')*(`.angle1')) /		///
+		  (`pts' * 360)
+	    local y2 = `ym' + sin(`angle') * `.radius'
+	    local x2 = `xm' + cos(`angle') * `.radius'
+
+	    if (`y1' < `y' & `y' < `y2') | (`y2' < `y' & `y' < `y1') {
+		if (`x1' + (`y'-`y1') / (`y2'-`y1')*(`x2'-`x1') < `x') {
+			local inside = !`inside'
+		}
+	    }
+
+	    local y1 = `y2'
+	    local x1 = `x2'
+	}
+
+	local y2 = `ym'
+	local x2 = `xm'
+	if (`y1' < `y' & `y' < `y2') | (`y2' < `y' & `y' < `y1') {
+		if (`x1' + (`y'-`y1') / (`y2'-`y1')*(`x2'-`x1') < `x') {
+			local inside = !`inside'
+		}
+	}
+
+	if `inside' {
+		.found_y = `y'
+		.found_x = `x'
+	}
+
+	class exit = `inside'
+
+end
+
+
+// ----------------------------------------------------------------------------
+// Respond to a .DragBy by moving the position
+
+program DragBy
+	args y_shift x_shift
+
+	.y0 = `.y0' + `y_shift'
+	.x0 = `.x0' + `x_shift'
+end
+

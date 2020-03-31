@@ -1,0 +1,691 @@
+/*
+  irt_hybrid_sub
+
+*!  VERSION 1.1.7  07may2019
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_xlarge
+POSITION . . 550 580
+HELP hlp1, view("help irt hybrid")
+RESET res1
+OK ok1 , label(resource LBL_BU_OK)
+CANCEL can1, label(resource LBL_BU_CANCEL)
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource IRT_HYBRID_DLG_HSCALE
+	create STRING STMP
+	create STRING group_var
+	create STRING parent_name
+	create STRING parm
+	create STRING m_name
+
+	STMP.append "resource LBL_GROUP"
+	STMP.append ":"
+	STMP.withvalue model.tx_group.setlabel "@"
+
+	parent_name.setvalue class PARENT._dlg_rsrcname
+	parent_name.withvalue group_var.setvalue			///
+		class @.group_var.value
+	program check_group_var
+	program model_choose_change
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program model_choose_change
+END
+
+PROGRAM check_group_var
+BEGIN
+	if group_var.isneq("") {
+		call model.tx_group.enable
+		call model.cb_group.enable
+		call program model_populate_levels
+	}
+	else {
+		call model.tx_group.disable
+		call model.cb_group.disable
+	}
+END
+
+DIALOG model, tabtitle(resource LBL_TAB_MODEL)				///
+	label(resource IRT_HYBRID_DLG_TITLE)
+BEGIN
+  TEXT	tx_bmodel		_lft	_top	_iwd	.,		///
+	label(resource IRT_HYBRID_MAIN_TX_BMODEL)
+  TEXT	tx_omodel		@	100	@	.,		///
+	label(resource IRT_HYBRID_MAIN_TX_OMODEL)
+  TEXT	tx_umodel		@	205	@	.,		///
+	label(resource IRT_HYBRID_MAIN_TX_UMODEL)
+  RADIO rb_pl1			35	35	@	., 		///
+	first								///
+	onclickon(program model_choose_change)				///
+	label(resource IRT_HYBRID_MAIN_RB_PL1)
+  RADIO rb_pl2			@	55	300	., 		///
+	onclickon(program model_choose_change)				///
+	label(resource IRT_HYBRID_MAIN_RB_PL2)
+  RADIO rb_pl3			@	75	@	., 		///
+	onclickon(program model_choose_change)				///
+	label(resource IRT_HYBRID_MAIN_RB_PL3)
+  RADIO rb_grm			35	120	@	., 		///
+	onclickon(program model_choose_change)				///
+	label(resource IRT_HYBRID_MAIN_RB_GRM)
+  RADIO rb_pcm			@	140	@	., 		///
+	onclickon(program model_choose_change)				///
+	label(resource IRT_HYBRID_MAIN_RB_PCM)
+  RADIO rb_gpcm			@	160	@	., 		///
+	onclickon(program model_choose_change)				///
+	label(resource IRT_HYBRID_MAIN_RB_GPCM)
+  RADIO rb_rsm			@	180	@	., 		///
+	onclickon(program model_choose_change)				///
+	label(resource IRT_HYBRID_MAIN_RB_RSM)
+  RADIO rb_nrm			35	230	@	., 		///
+	last								///
+	onclickon(program model_choose_change)				///
+	label(resource IRT_HYBRID_MAIN_RB_NRM)
+  TEXT	tx_group		20	_ls	380	.,		///
+	label(resource LBL_GROUP)
+  COMBOBOX cb_group		20	_ss	_vnwd	.,		///
+	dropdown							///
+	contents(model_lvls_list)					/// 
+	label(resource LBL_GROUP)
+  TEXTBOX tb_note		_vlsep	@	180	.,		///
+	label("")
+	
+  TEXT	tx_eitem		_ilft	_ls	470	.,		///
+	label(resource IRT_HYBRID_MAIN_TX_EITEM)
+  VARLIST vl_eitem		@	_ss	@	.,		///
+	label(resource IRT_HYBRID_MAIN_TX_EITEM)
+  DEFINE cns_y _ls
+  INCLUDE irt_model_opt_cns 
+
+  CHECKBOX ck_sepguessing	_lft	_ls	_iwd	.,		///
+	option(sepguessing)						///
+	label(resource IRT_HYBRID_MAIN_CK_SEPGUESSING)
+  CHECKBOX ck_gsepguessing	@	_ms	@	.,		///
+        option(gsepguessing)                                            ///
+	label(resource IRT_MODEL_OPTIONS_MODEL_CK_GSEPGUESSING)
+END
+
+SCRIPT model_cns_hide_all
+BEGIN
+	model.rb_irt.hide
+	model.rb_slope_intercept.hide
+
+	model.tx_discrim.hide
+	model.ed_discrim.hide
+	model.tx_diff.hide
+	model.ed_diff.hide
+	model.tx_guess.hide
+	model.ed_guess.hide
+
+	model.tx_alpha.hide
+	model.ed_alpha.hide
+	model.tx_beta.hide
+	model.ed_beta.hide
+
+	model.tx_discrim1.hide
+	model.ed_discrim1.hide
+	model.tx_discrim2.hide
+	model.ed_discrim2.hide
+	model.tx_discrim3.hide
+	model.ed_discrim3.hide
+	model.tx_discrim4.hide
+	model.ed_discrim4.hide
+	model.tx_diff1.hide
+	model.ed_diff1.hide
+	model.tx_diff2.hide
+	model.ed_diff2.hide
+	model.tx_diff3.hide
+	model.ed_diff3.hide
+	model.tx_diff4.hide
+	model.ed_diff4.hide
+END
+
+PROGRAM model_cns_setup
+BEGIN
+	call create STRING sTMP
+	call script model_cns_hide_all
+	call model.ck_cns.show
+	call model.ck_cns.setposition . . . 155
+	call model.ck_sepguessing.setposition . 530
+	call model.ck_gsepguessing.setposition . 555
+	if m_name.iseq("1pl") {
+		call model.rb_irt.show
+		call model.rb_slope_intercept.show
+		call model.tx_discrim.show
+		call model.ed_discrim.show
+		call model.tx_diff.show
+		call model.ed_diff.show
+		call model.tx_guess.hide
+		call model.ed_guess.hide
+
+		call model.tx_alpha.show
+		call model.ed_alpha.show
+		call model.tx_beta.show
+		call model.ed_beta.show
+	}
+	if m_name.iseq("2pl") {
+		call model.rb_irt.show
+		call model.rb_slope_intercept.show
+		call model.tx_discrim.show
+		call model.ed_discrim.show
+		call model.tx_diff.show
+		call model.ed_diff.show
+		call model.tx_guess.hide
+		call model.ed_guess.hide
+
+		call model.tx_alpha.show
+		call model.ed_alpha.show
+		call model.tx_beta.show
+		call model.ed_beta.show
+	}
+	if m_name.iseq("3pl") {
+		call model.rb_irt.show
+		call model.rb_slope_intercept.show
+		call model.tx_discrim.show
+		call model.ed_discrim.show
+		call model.tx_diff.show
+		call model.ed_diff.show
+		call model.tx_guess.show
+		call model.ed_guess.show
+
+		call model.tx_alpha.show
+		call model.ed_alpha.show
+		call model.tx_beta.show
+		call model.ed_beta.show
+	}
+	if m_name.iseq("grm") |	m_name.iseq("pcm") |		///
+		m_name.iseq("gpcm") | m_name.iseq("rsm") {
+		call model.ck_cns.setposition . . . 120
+		call model.tx_discrim1.show
+		call model.ed_discrim1.show
+		call model.tx_diff1.show
+		call model.ed_diff1.show
+		call model.tx_diff2.show
+		call model.ed_diff2.show
+		call model.tx_diff3.show
+		call model.ed_diff3.show
+		call model.tx_diff4.show
+		call model.ed_diff4.show
+		call sTMP.format "resource LBL_DISCRIMINATION"
+		call sTMP.append " (a):"
+		call sTMP.withvalue model.tx_discrim1.setlabel "@"
+		call sTMP.withvalue model.ed_discrim1.setlabel "@"
+	}
+	if m_name.iseq("nrm") {
+		call model.ck_cns.setposition . . . 120
+		call model.tx_discrim1.show
+		call model.ed_discrim1.show
+		call model.tx_discrim2.show
+		call model.ed_discrim2.show
+		call model.tx_discrim3.show
+		call model.ed_discrim3.show
+		call model.tx_discrim4.show
+		call model.ed_discrim4.show
+		call model.tx_diff1.show
+		call model.ed_diff1.show
+		call model.tx_diff2.show
+		call model.ed_diff2.show
+		call model.tx_diff3.show
+		call model.ed_diff3.show
+		call model.tx_diff4.show
+		call model.ed_diff4.show
+
+		call sTMP.format "resource LBL_DISCRIMINATION"
+		call sTMP.append " (a1):"
+		call sTMP.withvalue model.tx_discrim1.setlabel "@"
+		call sTMP.withvalue model.ed_discrim1.setlabel "@"
+	}
+
+	call sTMP.format "resource LBL_DISCRIMINATION"
+	call sTMP.append " (a):"
+	call sTMP.withvalue model.tx_discrim.setlabel "@"
+	call sTMP.withvalue model.ed_discrim.setlabel "@"
+
+	call sTMP.format "resource LBL_DIFFICULTY"
+	call sTMP.append " (b):"
+	call sTMP.withvalue model.tx_diff.setlabel "@"
+	call sTMP.withvalue model.ed_diff.setlabel "@"
+
+	call sTMP.format "resource LBL_GUESSING"
+	call sTMP.append " (c):"
+	call sTMP.withvalue model.tx_guess.setlabel "@"
+	call sTMP.withvalue model.ed_guess.setlabel "@"
+
+	call sTMP.format "resource LBL_SLOPE"
+	call sTMP.append " (alpha):"
+	call sTMP.withvalue model.tx_alpha.setlabel "@"
+	call sTMP.withvalue model.ed_alpha.setlabel "@"
+
+	call sTMP.format "resource LBL_INTERCEPT"
+	call sTMP.append " (beta):"
+	call sTMP.withvalue model.tx_beta.setlabel "@"
+	call sTMP.withvalue model.ed_beta.setlabel "@"
+
+	call sTMP.format "resource LBL_DISCRIMINATION"
+	call sTMP.append " (a2):"
+	call sTMP.withvalue model.tx_discrim2.setlabel "@"
+	call sTMP.withvalue model.ed_discrim2.setlabel "@"
+	call sTMP.format "resource LBL_DISCRIMINATION"
+	call sTMP.append " (a3):"
+	call sTMP.withvalue model.tx_discrim3.setlabel "@"
+	call sTMP.withvalue model.ed_discrim3.setlabel "@"
+	call sTMP.format "resource LBL_DISCRIMINATION"
+	call sTMP.append " (a4):""
+	call sTMP.withvalue model.tx_discrim4.setlabel "@"
+	call sTMP.withvalue model.ed_discrim4.setlabel "@"
+	call sTMP.format "resource LBL_DIFFICULTY"
+	call sTMP.append " (b1):"
+	call sTMP.withvalue model.tx_diff1.setlabel "@"
+	call sTMP.withvalue model.ed_diff1.setlabel "@"
+	call sTMP.format "resource LBL_DIFFICULTY"
+	call sTMP.append " (b2):"
+	call sTMP.withvalue model.tx_diff2.setlabel "@"
+	call sTMP.withvalue model.ed_diff2.setlabel "@"
+	call sTMP.format "resource LBL_DIFFICULTY"
+	call sTMP.append " (b3):"
+	call sTMP.withvalue model.tx_diff3.setlabel "@"
+	call sTMP.withvalue model.ed_diff3.setlabel "@"
+	call sTMP.format "resource LBL_DIFFICULTY"
+	call sTMP.append " (b4):"
+	call sTMP.withvalue model.tx_diff4.setlabel "@"
+	call sTMP.withvalue model.ed_diff4.setlabel "@"
+END
+
+PROGRAM model_cns_on
+BEGIN
+	if m_name.iseq("1pl") {
+		call program model_1pl_2pl_on
+	}
+	if m_name.iseq("2pl") {
+		call program model_1pl_2pl_on
+	}
+	if m_name.iseq("3pl") {
+		call program model_3pl_on
+	}
+	if m_name.iseq("grm") | m_name.iseq("pcm") |		///
+		m_name.iseq("gpcm") | m_name.iseq("rsm") |	///
+		m_name.iseq("nrm") {
+		call model.tx_discrim1.enable
+		call model.ed_discrim1.enable
+		call model.tx_discrim2.enable
+		call model.ed_discrim2.enable
+		call model.tx_discrim3.enable
+		call model.ed_discrim3.enable
+		call model.tx_discrim4.enable
+		call model.ed_discrim4.enable
+		call model.tx_diff1.enable
+		call model.ed_diff1.enable
+		call model.tx_diff2.enable
+		call model.ed_diff2.enable
+		call model.tx_diff3.enable
+		call model.ed_diff3.enable
+		call model.tx_diff4.enable
+		call model.ed_diff4.enable
+
+	}
+END
+
+SCRIPT model_cns_off
+BEGIN
+	model.rb_irt.disable
+	model.rb_slope_intercept.disable
+
+	model.tx_discrim.disable
+	model.ed_discrim.disable
+	model.tx_diff.disable
+	model.ed_diff.disable
+	model.tx_guess.disable
+	model.ed_guess.disable
+
+	model.tx_alpha.disable
+	model.ed_alpha.disable
+	model.tx_beta.disable
+	model.ed_beta.disable
+
+	model.tx_discrim1.disable
+	model.ed_discrim1.disable
+	model.tx_discrim2.disable
+	model.ed_discrim2.disable
+	model.tx_discrim3.disable
+	model.ed_discrim3.disable
+	model.tx_discrim4.disable
+	model.ed_discrim4.disable
+	model.tx_diff1.disable
+	model.ed_diff1.disable
+	model.tx_diff2.disable
+	model.ed_diff2.disable
+	model.tx_diff3.disable
+	model.ed_diff3.disable
+	model.tx_diff4.disable
+	model.ed_diff4.disable
+END
+
+PROGRAM model_1pl_2pl_on
+BEGIN
+	call model.rb_irt.enable
+	call model.rb_slope_intercept.enable
+	if model.rb_irt {
+		call program model_irt_on
+	}
+	else {
+		call program model_slope_intercept_on
+	}
+END
+
+PROGRAM model_3pl_on
+BEGIN
+	call model.rb_irt.enable
+	call model.rb_slope_intercept.enable
+	if model.rb_irt  {
+		call program model_irt_on
+	}
+	else {
+		call program model_slope_intercept_on
+	}
+END
+
+PROGRAM model_irt_on
+BEGIN
+	if model.ck_cns {
+		call model.tx_discrim.enable
+		call model.ed_discrim.enable
+		call model.tx_diff.enable
+		call model.ed_diff.enable
+		call model.tx_guess.enable
+		call model.ed_guess.enable
+
+		call model.tx_alpha.disable
+		call model.ed_alpha.disable
+		call model.tx_beta.disable
+		call model.ed_beta.disable
+	}
+END
+
+SCRIPT model_slope_intercept_on
+BEGIN
+	if model.ck_cns {
+		call model.tx_discrim.disable
+		call model.ed_discrim.disable
+		call model.tx_diff.disable
+		call model.ed_diff.disable
+		call model.tx_guess.disable
+		call model.ed_guess.disable
+
+		call model.tx_alpha.enable
+		call model.ed_alpha.enable
+		call model.tx_beta.enable
+		call model.ed_beta.enable
+	}
+END
+
+PROGRAM cns_output
+BEGIN
+	if model.ck_cns {
+		put "cns("
+		if m_name.iseq("1pl") | m_name.iseq("2pl") | m_name.iseq("3pl"){
+			if model.rb_irt {
+				if m_name.isneq("3pl") {
+					if model.ed_discrim.iseq("") &	///
+						model.ed_diff.iseq("") {							
+							call create STRING _MSG_TMP
+							call _MSG_TMP.format 			   		///
+								"resource LBL_MSGBOX_SPECIFY_EITHER_FMT" 	///
+								"resource LBL_DISCRIMINATION"	   		///
+								"resource LBL_DIFFICULTY"
+							stopbox stop "class _MSG_TMP.value"
+//You must specify either "Discrimination" or "Difficulty".
+					}
+				}
+				else {
+					if model.ed_discrim.iseq("") &	///
+						model.ed_diff.iseq("") & ///
+						model.ed_guess.iseq("") {
+							call create STRING _MSG_TMP
+							call _MSG_TMP.format 			   	///
+								"resource LBL_MSGBOX_SPECIFY_THREE_FMT" ///
+								"resource LBL_DISCRIMINATION"	   	///
+								"resource LBL_DIFFICULTY"		///
+								"resource LBL_GUESSING"
+							stopbox stop "class _MSG_TMP.value"
+//You must specify either "Discrimination", "Difficulty", or "Guessing".
+					}
+				} 
+				if model.ed_discrim  {
+					put "a@"
+					put model.ed_discrim
+				}
+				if model.ed_diff {
+					put " b@"
+					put model.ed_diff
+				}
+				if model.ed_guess {
+					put " c@"
+					put model.ed_guess
+				}
+			}
+			if model.rb_slope_intercept {
+				if model.ed_alpha.iseq("") &		///
+					model.ed_beta.iseq("") {
+						call create STRING _MSG_TMP
+						call _MSG_TMP.format 			   		///
+							"resource LBL_MSGBOX_SPECIFY_EITHER_FMT"	///
+							"resource LBL_SLOPE"	   			///
+							"resource LBL_INTERCEPT"
+						stopbox stop "class _MSG_TMP.value"
+//You must specify either "Slope" or "Intercept".
+				} 
+				if model.ed_alpha {
+					put "alpha@"
+					put model.ed_alpha
+				}
+				if model.ed_beta {
+					put " beta@"
+					put model.ed_beta
+				}
+			}
+		}
+		if m_name.iseq("grm") | m_name.iseq("pcm") |		///
+			m_name.iseq("gpcm") | m_name.iseq("rsm") {
+			if model.ed_discrim1.iseq("") &			///
+				model.ed_diff1.iseq("") &		///
+				model.ed_diff2.iseq("") &		///
+				model.ed_diff3.iseq("") &		///
+				model.ed_diff4.iseq("") {
+					call create STRING _MSG_TMP
+					call _MSG_TMP.format 			   		///
+						"resource LBL_MSGBOX_SPECIFY_EITHER_OR_ONE_FMT"	///
+						"resource LBL_DISCRIMINATION"	   		///
+						"resource LBL_DIFFICULTY"
+					stopbox stop "class _MSG_TMP.value"
+//You must specify either "Discrimination" or one "Difficulty".
+			} 
+			if model.ed_discrim1 {
+				put "a@"
+				put model.ed_discrim1
+			}
+
+			if model.ed_diff1 {
+				put " b1@"
+				put model.ed_diff1
+			}
+			if model.ed_diff2 {
+				put " b2@"
+				put model.ed_diff2
+			}
+			if model.ed_diff3 {
+				put " b3@"
+				put model.ed_diff3
+			}
+			if model.ed_diff4 {
+				put " b4@"
+				put model.ed_diff4
+			}
+		}
+		if m_name.iseq("nrm") {
+			if model.ed_discrim1.iseq("") &			///
+				model.ed_discrim2.iseq("") &		///
+				model.ed_discrim3.iseq("") &		///
+				model.ed_discrim4.iseq("") &		///
+				model.ed_diff1.iseq("") &		///
+				model.ed_diff2.iseq("") &		///
+				model.ed_diff3.iseq("") &		///
+				model.ed_diff4.iseq("") {
+					call create STRING _MSG_TMP
+					call _MSG_TMP.format 			   		    ///
+						"resource LBL_MSGBOX_SPECIFY_EITHER_ONE_OR_ONE_FMT" ///
+						"resource LBL_DISCRIMINATION"	   		    ///
+						"resource LBL_DIFFICULTY"
+				stopbox stop "class _MSG_TMP.value"
+//You must specify either one "Discrimination" or one "Difficulty".
+			} 
+			if model.ed_discrim1 {
+				put "a1@"
+				put model.ed_discrim1
+			}
+			if model.ed_discrim2 {
+				put " a2@"
+				put model.ed_discrim2
+			}
+			if model.ed_discrim3 {
+				put " a3@"
+				put model.ed_discrim3
+			}
+			if model.ed_discrim4 {
+				put " a4@"
+				put model.ed_discrim4
+			}
+
+			if model.ed_diff1 {
+				put " b1@"
+				put model.ed_diff1
+			}
+			if model.ed_diff2 {
+				put " b2@"
+				put model.ed_diff2
+			}
+			if model.ed_diff3 {
+				put " b3@"
+				put model.ed_diff3
+			}
+			if model.ed_diff4 {
+				put " b4@"
+				put model.ed_diff4
+			}
+		}
+		put ")"
+	}
+END
+
+PROGRAM model_choose_change
+BEGIN
+	if model.rb_pl1 {
+		call m_name.setvalue "1pl"
+	}
+	if model.rb_pl2 {
+		call m_name.setvalue "2pl"
+	}
+	if model.rb_grm {
+		call m_name.setvalue "grm"
+	}
+	if model.rb_pcm {
+		call m_name.setvalue "pcm"
+	}
+	if model.rb_gpcm {
+		call m_name.setvalue "gpcm"
+	}
+	if model.rb_rsm {
+		call m_name.setvalue "rsm"
+	}
+	if model.rb_nrm {
+		call m_name.setvalue "nrm"
+	}
+	if model.rb_pl3 {
+		call model.ck_sepguessing.show
+		call model.ck_gsepguessing.show
+		call m_name.setvalue "3pl"
+	}
+	else {
+		call model.ck_sepguessing.hide
+		call model.ck_gsepguessing.hide
+	}
+	call program model_cns_setup
+END
+
+LIST model_lvls_list
+BEGIN
+END
+
+PROGRAM	model_populate_levels
+BEGIN
+	call create STRING lvl_errcode
+	call create STRING lvls
+
+	if group_var.isneq("") {
+		put "_dlg_tools_wrk levels "
+		put group_var
+		put " no_all"
+		stata hidden immediate
+		call lvl_errcode.setvalue s(errcode)
+		if lvl_errcode.isneq("0") {
+			call model.tb_note.setlabel s(errmsg)
+			call lvls.setvalue ""
+			call lvls.tokenizeOnStr model_lvls_list " "
+		}
+		else {
+			call model.tb_note.setlabel " "
+			call lvls.setvalue s(levels)
+			call lvls.tokenizeOnStr model_lvls_list " "
+		}
+		call model.cb_group.repopulate
+	}
+END
+
+PROGRAM	command
+BEGIN
+	require model.vl_eitem
+	put "("
+	if model.cb_group.isneq("") {
+		put model.cb_group
+		put ":"
+	}
+
+	if model.rb_pl1 {
+		put "1pl "
+	}
+	if model.rb_pl2 {
+		put "2pl "
+	}
+	if model.rb_pl3 {
+		put "3pl "
+	}
+	if model.rb_grm {
+		put "grm "
+	}
+	if model.rb_pcm {
+		put "pcm "
+	}
+	if model.rb_gpcm {
+		put "gpcm "
+	}
+	if model.rb_rsm {
+		put "rsm "
+	}
+	if model.rb_nrm {
+		put "nrm "
+	}
+	put model.vl_eitem
+	if model.ck_cns | model.ck_sepguessing | model.ck_gsepguessing {
+		put ", "
+		option model.ck_sepguessing
+		option model.ck_gsepguessing
+		put " " /program cns_output
+	}
+
+	put ")"
+END

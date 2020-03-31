@@ -1,0 +1,168 @@
+/*
+  xtdpdsys
+
+*!  VERSION 1.2.1  17may2017
+
+  keyword:  eclass
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE _ht385
+INCLUDE header
+
+HELP hlp1, view("help xtdpdsys")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	script se_createAsXTABOND
+	setscale_hadj resource XTDPDSYS_DLG_HSCALE
+END
+
+SCRIPT show_xtset
+BEGIN
+	create STRING note
+	note.setvalue resource XTDPDSYS_TIME_VAR_IS_REQ_FOR_THIS_COMMAND
+	note.withvalue create CHILD xtset, message(`""-timeRequired-" `"@"'"')
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)				///
+	label(resource XTDPDSYS_DLG_TITLE)
+BEGIN
+  BUTTON bu_xtset	_xsetbu	_top	_setbuwd	.,		///
+	onpush(script show_xtset)					///
+	label(resource LBL_BU_PANEL_SETTINGS)
+
+  TEXT tx_dv		_lft	_topph	_vnwd		.,		///
+	label(resource LBL_DEPVAR)
+
+  VARNAME vn_dv		@	_ss	@		.,		///
+  	numeric								///
+	label(resource LBL_DEPVAR)
+
+  TEXT tx_iv		_vlx	_topph	160		.,		///
+	label(resource LBL_INDDEPVAR)
+
+  VARLIST vl_iv		@	_ss	_vlwd		.,		///
+	label(resource LBL_INDDEPVAR) ts				///
+	allowcat							///
+	numeric								///
+
+  CHECKBOX ck_nocons	@	_ms	@		.,		///
+	label(resource LBL_NOCONSTANT)					///
+	option("noconstant")
+
+  GROUPBOX gb_opts	_lft	_ms	_iwd		_ht13,		///
+	label(resource LBL_OPTIONS)
+
+  SPINNER sp_lags	40	_ls	_spwd		.,		///
+	label(resource XTDPDSYS_MAIN_SP_LAGS)				///
+	min(1)								///
+	max(c(N))							///
+	default(1)							///
+	option("lags")
+
+  TEXT tx_lags		_spsep	@	_cksprb		.,		///
+	label(resource XTDPDSYS_MAIN_SP_LAGS)
+
+  CHECKBOX ck_maxld	_ilft	_ls	_ckwd		.,		///
+	label("")							///
+	clickon("gaction main.sp_maxld.enable")				///
+	clickoff("gaction main.sp_maxld.disable")
+
+  SPINNER sp_maxld	_cksep	@	_spwd		.,		///
+	min(1)								///
+	max(c(N))							///
+	default(1)							///
+	option("maxldep")						///
+	label(resource XTDPDSYS_MAIN_SP_MAXLD)
+
+  TEXT tx_maxld		_spsep	@	_cksprb		.,		///
+	label(resource XTDPDSYS_MAIN_SP_MAXLD)
+
+  CHECKBOX ck_maxlag	_ilft	_ls	_ckwd		.,		///
+	label("")							///
+	clickon("gaction main.sp_maxlag.enable")			///
+	clickoff("gaction main.sp_maxlag.disable")
+
+  SPINNER sp_maxlag	_cksep	@	_spwd		.,		///
+	min(1)								///
+	max(c(N))							///
+	default(1)							///
+	option("maxlags")						///
+	label(resource XTDPDSYS_MAIN_SP_MAXLAG)
+
+  TEXT tx_maxlag _spsep		@	_cksprb		.,		///
+	label(resource XTDPDSYS_MAIN_SP_MAXLAG)
+
+  CHECKBOX ck_twostep	_ilft	_ls	_ibwd		.,		///
+	clickon(script twostep_on)					///
+	clickoff(script twostep_off)					///
+	option(twostep)							///
+	label(resource XTDPDSYS_MAIN_CK_TWOSTEP)
+END
+
+SCRIPT twostep_on
+BEGIN
+	// allow robust... do nothing
+END
+SCRIPT twostep_off
+BEGIN
+	// allow robust... do nothing
+END
+
+INCLUDE _xtdpd_common
+INCLUDE byifin
+INCLUDE se
+
+DIALOG rpt, label("") tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  GROUPBOX gb_tests	_lft	_ls	_iwd	_ht3,		///
+	label(resource LBL_ADDITIONAL_TEST_STATISTICS)
+
+  SPINNER sp_artest	_ilft	_ms	_spwd	.,		///
+	label(resource XTDPDSYS_RPT_SP_ARTEST)			///
+	min(1)							///
+	max(c(N))						///
+	default(2)						///
+	option("artests")
+		
+  TEXT tx_artest	_spsep	@	_sprb	.,		///
+	label(resource XTDPDSYS_RPT_SP_ARTEST)
+
+  DEFINE _x _lft
+  DEFINE _y _xxls
+  DEFINE _cx _iwd
+  INCLUDE _vsquish
+END
+
+
+PROGRAM command
+BEGIN
+	allowxi
+	put /program by_output " "
+	put "xtdpdsys "
+	varlist main.vn_dv [main.vl_iv]
+	put " " /program ifin_output
+	beginoptions
+		option main.ck_nocons
+		optionarg main.sp_lags
+		optionarg main.sp_maxld
+		optionarg main.sp_maxlag
+
+		option main.ck_twostep
+		put " " /program _xtdpd_common_output
+		put " " /program se_output
+		optionarg /hidedefault rpt.sp_level
+		optionarg rpt.sp_artest
+		INCLUDE _vsquish_pr
+	endoptions
+END

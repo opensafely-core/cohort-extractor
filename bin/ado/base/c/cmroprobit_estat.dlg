@@ -1,0 +1,452 @@
+/*
+	cmroprobit_estat
+
+*!  VERSION 1.0.1  15nov2018
+
+	***
+	USE EXTREME CARE WHEN CHANGING CONTROL NAMES. The names used
+	in this file have multiple external dependencies.
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 360	//dialog length for bootstrap options
+INCLUDE header
+
+HELP hlp1, view("help cmroprobit postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create BOOLEAN has_FactorVars
+	has_FactorVars.setfalse
+	setscale_hadj resource CMROPROBIT_ESTAT_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program parseMessage
+	program set_ic
+END
+
+PROGRAM set_ic
+BEGIN
+	call create DOUBLE eN_ic
+	call create DOUBLE eN
+	call create DOUBLE missing
+
+	call eN_ic.setvalue e(N_ic)	
+	call eN.setvalue e(N)	
+	call missing.setvalue .
+	if eN_ic.islt(missing) {
+		call eN_ic.withvalue main.sp_n.setrange 1 @
+	}
+	else {
+		call eN.withvalue main.sp_n.setrange 1 @
+	}
+END
+
+PROGRAM parseMessage
+BEGIN
+	if __MESSAGE.contains("-correlation-") {
+		call main.lb_subcmd.setvalue "correlation"
+	}
+	if __MESSAGE.contains("-covariance-") {
+		call main.lb_subcmd.setvalue "covariance"
+	}
+	if __MESSAGE.contains("-facweights-") {
+		call main.lb_subcmd.setvalue "facweights"
+	}
+	if __MESSAGE.contains("-ic-") {
+		call main.lb_subcmd.setvalue "ic"
+	}
+	if __MESSAGE.contains("-summarize-") {
+		call main.lb_subcmd.setvalue "summarize"
+	}
+	if __MESSAGE.contains("-vce-") {
+		call main.lb_subcmd.setvalue "vce"
+	}
+	if __MESSAGE.contains("-bootstrap-") {
+		call main.lb_subcmd.setvalue "bootstrap"
+	}
+END
+
+
+DIALOG main, label(resource CMROPROBIT_ESTAT_DLG_TITLE)	///
+	tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_subcmd		_lft	_top	_cwd1	.,		///
+  	label(resource LBL_REPORTS_STATISTICS_SUBCOMMAND)
+  LISTBOX  lb_subcmd		@	_ss	_iwd	70,		///
+  	contents(main_subcommand_contents)				///
+  	values(main_subcommand_values)					///
+  	onselchangelist(main_subcommand_scripts)
+
+  DEFINE holdy 110
+
+  // correlation options
+  GROUPBOX gb_style		_lft	holdy	_iwd	_ht14h,		///
+	label(resource LBL_STYLE)
+  TEXT     tx_border    	_ilft	_ss	_ibwd	.,		///
+	label(resource LBL_BORDER_STYLE)
+  COMBOBOX cb_border		@       _ss     200	.,		///
+	label(resource LBL_BORDER_STYLE)				///
+	dropdownlist default(all)					///
+	contents(style_words)						///
+	value(style_values)						///
+	option(border)
+  TEXT     tx_left		_ilft	_ls	_ibwd	.,  		///
+	label(resource LBL_LEFT_INDENT_FOR_TABLES)
+  SPINNER  sp_left	       @	_ss	_spwd	.,		///
+	label(resource LBL_LEFT_INDENT_FOR_TABLES)			///
+	min(0) max(80) default(2) option(left)
+
+  TEXT	   tx_style_format	_ilft	_ss	_ibwd	.,		///
+	label(resource LBL_DISPLAY_FORMAT)
+  EDIT     ed_corstyle_format	_ilft	_ss	175	.,		///
+	option(format) label(resource LBL_DISPLAY_FORMAT)
+  BUTTON   bn_corstyle_format   +180    @       80      .,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(script showCorstyleFormatDialog)				///
+	tooltip(resource LBL_CREATE_DISPLAY_FORMAT)
+
+  // + covariance options
+  EDIT     ed_covstyle_format	_ilft	_ss	175	.,		///
+	option(format) label(resource LBL_DISPLAY_FORMAT)
+  BUTTON   bn_covstyle_format   +180    @       80      .,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(script showCovstyleFormatDialog)				///
+	tooltip(resource LBL_CREATE_DISPLAY_FORMAT)
+
+  // + facweights options
+  EDIT     ed_facstyle_format	_ilft	_ss	175	.,		///
+	option(format) label(resource LBL_DISPLAY_FORMAT)
+  BUTTON   bn_facstyle_format   +180    @       80      .,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(script showFacstyleFormatDialog)				///
+	tooltip(resource LBL_CREATE_DISPLAY_FORMAT)
+
+  // Information criteria
+  CHECKBOX ck_n			_lft	holdy	_iwd	.,		///
+	onclickon(main.sp_n.enable)					///
+	onclickoff(main.sp_n.disable)					///
+	label(resource LBL_NUMBER_OBSERVATIONS_CALCULATING_BIC)
+  SPINNER sp_n			_indent2 _ss	_spwd	.,		///
+	default(e(N)) min(1) max(e(N))					///
+	option(n)
+
+  // Summarize options
+  GROUPBOX gb_eqlist            _lft    holdy	_iwd	_ht6,		///
+  	label(resource LBL_SUMMARIZE)
+  RADIO    rb_default		_ilft	_ss	_inwd	.,		///
+  	first label(resource LBL_ALL_VARIABLES_INVOLVED_ESTIMATION)	///
+  	onclickon(main.vl_spec.disable)
+  RADIO    rb_spec		@	_ss	@	.,		///
+	onclickon(main.vl_spec.enable) last				///
+	label(resource LBL_VARIABLES_OPTIONAL_EQUATION_NAMES)
+  VARLIST  vl_spec	      _indent2	_ss	_inwd	.,		///
+  	numeric								///
+	label(resource LBL_VARIABLES_OPTIONAL_EQUATION_NAMES)
+  CHECKBOX ck_equation      	_lft	+45	_iwd	.,		///
+	option(equation)						///
+	label(resource LBL_DISPLAY_SUMMARY_EQUATION)
+  CHECKBOX ck_labels		@	_ms	@	.,		///
+  	label(resource LBL_DISPLAY_VARIABLE_LABELS)			///
+  	option(labels)
+  CHECKBOX ck_noheader		_lft	_ms	_iwd	.,		///
+	option(noheader)						///
+	label(resource LBL_SUPPRESS_HEADER)
+  CHECKBOX ck_noweights		@	_ms	@	.,		///
+	option(noweights)						///
+	label(resource LBL_IGNORE_WEIGHTS)
+
+  INCLUDE estat_vce
+  INCLUDE _estat_bootstrap
+END
+
+SCRIPT showCorstyleFormatDialog
+BEGIN
+	create STRING corstyleFormatString
+	create CHILD format_chooser
+	format_chooser.setExitString corstyleFormatString
+	format_chooser.setExitAction 			///
+		"main.ed_corstyle_format.setvalue class corstyleFormatString.value"
+END
+
+SCRIPT showCovstyleFormatDialog
+BEGIN
+	create STRING covstyleFormatString
+	create CHILD format_chooser
+	format_chooser.setExitString covstyleFormatString
+	format_chooser.setExitAction 			///
+		"main.ed_covstyle_format.setvalue class covstyleFormatString.value"
+END
+
+SCRIPT showFacstyleFormatDialog
+BEGIN
+	create STRING facstyleFormatString
+	create CHILD format_chooser
+	format_chooser.setExitString facstyleFormatString
+	format_chooser.setExitAction 			///
+		"main.ed_facstyle_format.setvalue class facstyleFormatString.value"
+END
+
+INCLUDE _estat_bootstrap_pr
+INCLUDE estat_vce_pr
+
+LIST style_words
+BEGIN
+	resource LBL_AROUND_ALL_FOUR_SIDES
+	resource LBL_NO_BORDER_LINES_DRAWN
+	resource LBL_AT_THE_TOP_BOTTOM
+	resource LBL_AT_THE_LEFT_RIGHT
+	resource LBL_AT_THE_LEFT
+	resource LBL_AT_THE_RIGHT
+	resource LBL_AT_THE_TOP
+	resource LBL_AT_THE_BOTTOM
+END
+
+LIST style_values
+BEGIN
+	all
+	none
+	rows
+	columns
+	left
+	right
+	top
+	bottom
+END
+
+LIST main_subcommand_contents
+BEGIN
+	resource LBL_CORRELATION_MATRIX_LATENT_VAR_ERR_ALT
+	resource LBL_COVARIANCE_MATRIX_LATENT_VAR_ERR_ALT
+	resource LBL_VARIANCE_COVARIANCE_FACTOR_WEIGHTS_MAT
+	resource LBL_INFORMATION_CRITERIA
+	resource LBL_SUMMARIZE_ESTIMATION_SAMPLE
+	resource LBL_COVARIANCE_MATRIX_ESTIMATES
+END
+
+LIST main_subcommand_values
+BEGIN
+	correlation
+	covariance
+	facweights
+	ic
+	summarize
+	vce
+END
+
+LIST main_subcommand_scripts
+BEGIN
+	script sel_correlation
+	script sel_covariance
+	script sel_facweights
+	script sel_ic
+	script sel_summarize
+	script sel_vce
+END
+
+SCRIPT sel_correlation
+BEGIN
+	script main_hide_all
+	main.gb_style.setposition . . . 175
+	script correlation_on
+END
+
+SCRIPT sel_covariance
+BEGIN
+	script main_hide_all
+	main.gb_style.setposition . . . 175
+	script covariance_on
+END
+
+SCRIPT sel_facweights
+BEGIN
+	script main_hide_all
+	main.gb_style.setposition . . . 175
+	script facweights_on
+END
+
+SCRIPT sel_ic
+BEGIN
+	script main_hide_all
+	main.ck_n.show
+	main.sp_n.show
+END
+
+SCRIPT sel_summarize
+BEGIN
+	script main_hide_all
+	script main_summ_on
+END
+
+SCRIPT sel_vce
+BEGIN
+	script main_hide_all
+	program vce_on
+END
+
+SCRIPT correlation_on
+BEGIN
+	main.tx_style_format.setposition    . 130 . .
+	main.ed_corstyle_format.setposition . 150 . .
+	main.bn_corstyle_format.setposition . 150 . .
+	main.tx_style_format.show
+	main.ed_corstyle_format.show
+	main.bn_corstyle_format.show
+
+	main.tx_border.setposition . 180 . .
+	main.cb_border.setposition . 200 . .
+	main.tx_left.setposition   . 230 . .
+	main.sp_left.setposition   . 250 . .
+	main.gb_style.show
+	main.tx_border.show
+	main.cb_border.show
+	main.tx_left.show
+	main.sp_left.show
+	main.ed_covstyle_format.hide
+	main.bn_covstyle_format.hide
+	main.ed_facstyle_format.hide
+	main.bn_facstyle_format.hide
+END
+
+SCRIPT covariance_on
+BEGIN
+	main.tx_style_format.setposition    . 130 . .
+	main.ed_covstyle_format.setposition . 150 . .
+	main.bn_covstyle_format.setposition . 150 . .
+	main.tx_style_format.show
+	main.ed_covstyle_format.show
+	main.bn_covstyle_format.show
+
+	main.tx_border.setposition . 180 . .
+	main.cb_border.setposition . 200 . .
+	main.tx_left.setposition   . 230 . .
+	main.sp_left.setposition   . 250 . .
+	main.gb_style.show
+	main.tx_border.show
+	main.cb_border.show
+	main.tx_left.show
+	main.sp_left.show
+	main.ed_corstyle_format.hide
+	main.bn_corstyle_format.hide
+	main.ed_facstyle_format.hide
+	main.bn_facstyle_format.hide
+END
+
+SCRIPT facweights_on
+BEGIN
+	main.tx_style_format.setposition    . 130 . .
+	main.ed_facstyle_format.setposition . 150 . .
+	main.bn_facstyle_format.setposition    . 150 . .
+	main.tx_style_format.show
+	main.ed_facstyle_format.show
+	main.bn_facstyle_format.show
+
+	main.tx_border.setposition . 180 . .
+	main.cb_border.setposition . 200 . .
+	main.tx_left.setposition   . 230 . .
+	main.sp_left.setposition   . 250 . .
+	main.gb_style.show
+	main.tx_border.show
+	main.cb_border.show
+	main.tx_left.show
+	main.sp_left.show
+	main.ed_corstyle_format.hide
+	main.bn_corstyle_format.hide
+	main.ed_covstyle_format.hide
+	main.bn_covstyle_format.hide
+END
+
+SCRIPT non_basic_opt_off
+BEGIN
+	main.tx_style_format.hide
+	main.ed_corstyle_format.hide
+	main.ed_covstyle_format.hide
+	main.bn_covstyle_format.hide
+	main.bn_corstyle_format.hide
+	main.ed_facstyle_format.hide
+	main.bn_facstyle_format.hide
+	main.gb_style.hide
+	main.tx_border.hide
+	main.cb_border.hide
+	main.tx_left.hide
+	main.sp_left.hide
+END
+
+SCRIPT main_summ_on
+BEGIN
+	main.ck_equation.show
+	main.ck_labels.show
+	main.ck_noheader.show
+	main.ck_noweights.show
+	main.gb_eqlist.show
+	main.rb_default.show
+	main.rb_spec.show
+	main.vl_spec.show
+END
+
+SCRIPT main_summ_off
+BEGIN
+	main.ck_equation.hide
+	main.ck_labels.hide
+	main.ck_noheader.hide
+	main.ck_noweights.hide
+	main.gb_eqlist.hide
+	main.rb_default.hide
+	main.rb_spec.hide
+	main.vl_spec.hide
+END
+
+SCRIPT main_hide_all
+BEGIN
+	main.ck_n.hide
+	main.sp_n.hide
+	program vce_off
+	script main_summ_off
+	script non_basic_opt_off
+	script main_bootstrap_hide
+END
+
+PROGRAM vl_output
+BEGIN
+	put main.vl_spec
+END
+
+PROGRAM vl_eq_output
+BEGIN
+	put main.vl_eq
+END
+
+PROGRAM command
+BEGIN
+	put "estat "
+	put main.lb_subcmd
+	if main.rb_spec {
+		require main.vl_spec
+		put " " main.vl_spec
+	}
+	beginoptions
+		// non-basic options
+		optionarg /hidedefault main.ed_corstyle_format
+		optionarg /hidedefault main.ed_covstyle_format
+		optionarg /hidedefault main.ed_facstyle_format
+		optionarg /hidedefault main.cb_border
+		optionarg /hidedefault main.sp_left
+
+		// ic options
+		optionarg main.sp_n
+
+		// Summarize options
+		option main.ck_equation
+		option main.ck_labels
+		option main.ck_noheader
+		option main.ck_noweights
+		put " " /program vce_output
+		put " " /program bootstrap_output
+	endoptions
+END

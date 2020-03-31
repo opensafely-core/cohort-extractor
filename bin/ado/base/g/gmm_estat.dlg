@@ -1,0 +1,97 @@
+/*
+	gmm_estat
+
+*!  VERSION 1.1.2  10mar2015
+
+	***
+	USE EXTREME CARE WHEN CHANGING CONTROL NAMES. The names used
+	in this file have multiple external dependencies.
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 330
+INCLUDE header
+
+HELP hlp1, view("help gmm postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource GMM_ESTAT_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program parseMessage
+END
+
+PROGRAM parseMessage
+BEGIN
+	if __MESSAGE.contains("-overid-") {
+		call main.lb_subcmd.setvalue "overid"
+	}
+	if __MESSAGE.contains("-vce-") {
+		call main.lb_subcmd.setvalue "vce"
+	}
+END
+
+
+DIALOG main, label(resource GMM_ESTAT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_subcmd		_lft	_top	_iwd	.,		///
+  	label(resource LBL_REPORTS_STATISTICS_SUBCOMMAND)
+  LISTBOX  lb_subcmd		@	_ss	@	55,		///
+  	contents(main_subcommand_contents)				///
+  	values(main_subcommand_values)					///
+	onselchangelist(main_subcommand_scripts)
+  DEFINE holdy 95
+
+  INCLUDE estat_vce
+END
+
+INCLUDE estat_vce_pr
+
+LIST main_subcommand_contents
+BEGIN
+	resource LBL_COVARIANCE_MATRIX_ESTIMATES
+	resource LBL_PERFORM_TEST_OVERID_RESTRICTIONS_OVERID
+END
+
+LIST main_subcommand_values
+BEGIN
+	vce
+	overid
+END
+
+LIST main_subcommand_scripts
+BEGIN
+        script sel_vce
+        script sel_overid
+END
+
+SCRIPT sel_overid
+BEGIN
+	script main_hide_all
+END
+
+SCRIPT sel_vce
+BEGIN
+	script main_hide_all
+	program vce_on
+END
+
+SCRIPT main_hide_all
+BEGIN
+	program vce_off
+END
+
+PROGRAM command
+BEGIN
+	put "estat "
+	put main.lb_subcmd
+	beginoptions
+		put " " /program vce_output
+	endoptions
+END

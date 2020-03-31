@@ -1,0 +1,213 @@
+/*
+    gr_bar_options.dlg
+    
+*!  VERSION 1.1.2  14aug2017
+
+	// SCRIPTS and PROGRAMS for external use
+		* SCRIPT  gr_bar_setHistogramOn
+
+*/
+
+VERSION 14
+
+INCLUDE _std_vsmall
+DEFINE _dlght 330
+INCLUDE header_gr_child
+
+DEFINE _clwd	15
+DEFINE _wd	140
+DEFINE _sep	+145
+DEFINE _cbwd	130
+DEFINE _cbsep	+135
+
+HELP hlp1, view("help twoway_bar")
+RESET res1
+
+SCRIPT  gr_bar_setHistogramOn
+BEGIN
+	main.tx_base.hide
+	main.ed_base.hide
+	main.tx_gap.show
+	main.sp_gap.show
+	histogramOn.settrue
+END
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource GR_BAR_OPTIONS_DLG_HSCALE
+END
+
+PROGRAM PREINIT_PROGRAM
+BEGIN
+	call main.tx_gap.hide
+	call main.sp_gap.hide
+	call create PBOOLEAN histogramOn
+	if histogramOn {
+		call script gr_bar_setHistogramOn
+	}
+END
+
+DIALOG main, label(resource LBL_LINE_OPTIONS)
+BEGIN
+  TEXT     tx_fclr	_lft	20	_wd	.,		///
+	label(resource LBL_FILL_COLOR) right
+  COMBOBOX cb_fclr	_sep	@	_cbwd	.,		///
+	dropdownlist contents(colors) option(fcolor)		///
+	onselchangelist(main_cl_fclr_sel)
+  COLOR    cl_fclr	_cbsep	@	_clwd	., option(fcolor)
+  TEXT     tx_fopacity	_lft	_mls	_wd	.,		///
+	label(resource LBL_FILL_OPACITY) right
+  SPINNER sp_fopacity	_sep	@	_spwd	.,		///
+	default(100)						///
+	min(0)							///
+	max(100)
+
+  TEXT     tx_intensity	_lft	_mls	_wd	.,		///
+	label(resource LBL_FILL_INTENSITY) right
+  EDIT     ed_intensity	_sep	@	_cbwd	.,		///
+	option(fintensity)
+	
+  TEXT     tx_lclr	_lft	_mls	_wd	.,		///
+	label(resource LBL_OUTLINE_COLOR) right
+  COMBOBOX cb_lclr	_sep	@	_cbwd	.,		///
+	dropdownlist contents(colors) option(lcolor)		///
+	onselchangelist(main_cl_lclr_sel)
+  COLOR    cl_lclr	_cbsep	@	_clwd	., option(lcolor)
+  TEXT     tx_lopacity	_lft	_mls	_wd	.,		///
+	label(resource LBL_OUTLINE_OPACITY) right
+  SPINNER sp_lopacity	_sep	@	_spwd	.,		///
+	default(100)						///
+	min(0)							///
+	max(100)
+
+  TEXT     tx_width	_lft	 _mls	_wd	.,		///
+	label(resource LBL_OUTLINE_WIDTH) right
+  COMBOBOX cb_width	_sep	@	_cbwd	.,		///
+	dropdown option(lwidth)					///
+	contents(linewidths)
+
+  TEXT     tx_lpattern	_lft	_mls	_wd	.,		///
+	label(resource LBL_OUTLINE_PATTERN) right
+  COMBOBOX cb_lpattern	_sep	@	_cbwd	.,		///
+	dropdownlist option(lpattern)				///
+	contents(linepatterns)
+
+  TEXT    tx_lalign	_lft	_mls	_wd	.,		///
+      label(resource LBL_OUTLINE_ALIGNMENT) right
+  COMBOBOX cb_lalign	_sep	@	_cbwd	.,		///
+	dropdownlist option(lalign)				///
+	contents(alignstroke)
+	
+  TEXT     tx_orient	_lft	_mls	_wd	.,		///
+	label(resource LBL_ORIENTATION) right
+  COMBOBOX cb_orient	_sep	@	_cbwd	.,		///
+	dropdownlist 						///
+	contents(orientation_contents)  			///
+	values(orientation_values)
+	
+  TEXT     tx_barwidth	_lft	_mls	_wd	.,		///
+	label(resource LBL_BAR_WIDTH) right
+  EDIT     ed_barwidth	_sep	@	_cbwd	.,		///
+	option(barwidth)
+	
+  TEXT     tx_base	_lft	_mls	_wd	.,		///
+	label(resource LBL_BASE_LINE) right
+  EDIT     ed_base	_sep	@	_cbwd	.,		///
+	option(base)
+
+  /* for histogram */
+  TEXT     tx_gap	_lft	@	_wd	.,		///
+	label(resource LBL_BAR_GAP) right
+  SPINNER  sp_gap	_sep	@	_cbwd	.,		///
+	option(gap) min(0) max(100) default(0)
+END
+
+LIST main_cl_lclr_sel
+BEGIN
+	main.cl_lclr.hide
+	main.cl_lclr.show
+	main.cl_lclr.hide
+END
+
+LIST main_cl_fclr_sel
+BEGIN
+	main.cl_fclr.hide
+	main.cl_fclr.show
+	main.cl_fclr.hide
+END
+
+LIST orientation_contents
+BEGIN
+	resource LBL_DEFAULT
+	resource LBL_HORIZONTAL
+	resource LBL_VERTICAL
+END
+
+LIST orientation_values
+BEGIN
+	""
+	horizontal
+	vertical
+END
+
+PROGRAM main_fcolor_output
+BEGIN
+	if (main.cb_fclr.isneq("") | main.sp_fopacity.isneq(100)) {
+		put "fcolor("
+		if (main.cb_fclr.iseq("custom")) {
+			put `"""' main.cl_fclr
+			if (main.sp_fopacity.isneq(100)) {
+				put " %" main.sp_fopacity
+			}
+			put `"""'
+		}
+		else {
+			if (main.cb_fclr.isneq("")) {
+				put main.cb_fclr
+			}
+			if (main.sp_fopacity.isneq(100)) {
+				put "%" main.sp_fopacity
+			}
+		}
+		put ")"
+	}
+END
+
+PROGRAM main_lcolor_output
+BEGIN
+	if (main.cb_lclr.isneq("") | main.sp_lopacity.isneq(100)) {
+		put "lcolor("
+		if (main.cb_lclr.iseq("custom")) {
+			put `"""' main.cl_lclr
+			if (main.sp_lopacity.isneq(100)) {
+				put " %" main.sp_lopacity
+			}
+			put `"""'
+		}
+		else {
+			if (main.cb_lclr.isneq("")) {
+				put main.cb_lclr
+			}
+			if (main.sp_lopacity.isneq(100)) {
+				put "%" main.sp_lopacity
+			}
+		}
+		put ")"
+	}
+END
+
+PROGRAM command
+BEGIN	
+	put /program " " main_fcolor_output
+	optionarg main.ed_intensity    
+	put /program " " main_lcolor_output
+	
+	optionarg /hidedefault main.cb_width
+	optionarg /hidedefault main.cb_lpattern	
+	optionarg /hidedefault main.cb_lalign
+	
+	put " " main.cb_orient
+	optionarg main.ed_barwidth
+	optionarg main.ed_base
+	optionarg /hidedefault main.sp_gap
+END

@@ -1,0 +1,75 @@
+/*
+  gr_ed_rline.dlg
+
+*!  VERSION 1.1.2  03jun2016
+
+*/
+
+VERSION 14.0
+MODAL
+
+INCLUDE _std_vsmall
+DEFINE _dlght 220
+INCLUDE header_gr_ed
+
+DEFINE _clwd	15
+DEFINE _wd	120
+DEFINE _sep	+125
+DEFINE _cbwd	130
+DEFINE _cbsep	+135
+
+SCRIPT PREINIT
+BEGIN
+	settitle resource LBL_GB_LINE_PROPERTIES
+	create STRING G
+	create STRING J
+	create STRING style
+	create STRING Gstyle
+	create ARRAY  ARGS
+	program setupGOBJECT
+
+	create DOUBLE index
+	setscale_hadj resource GR_ED_RLINE_DLG_HSCALE
+END
+
+PROGRAM setupGOBJECT
+BEGIN
+	if ! __MESSAGE {
+		stopbox stop "resource LBL_MSGBOX_OBJECT_NOT_FOUND"
+// An unexpected error has occurred. Object not found.
+		exit 198
+	}
+	call G.setvalue class __MESSAGE.value
+	call __MESSAGE.tokenize ARGS
+	call G.setvalue class ARGS[1]
+	call J.setvalue class ARGS[2]
+	call Gstyle.setvalue class G.value
+	if J.iseq("") {
+		call Gstyle.append ".style"
+	}
+	else {
+		call create BOOLEAN customstyle
+		call J.withvalue Gstyle.append ".obs_styles[@]"
+		call Gstyle.withvalue customstyle.storeClsObjectExists @
+		if ! customstyle {
+			call Gstyle.setvalue class G.value
+			call Gstyle.append ".style"
+		}
+	}
+END
+
+INCLUDE gr_ed_rline
+
+PROGRAM command
+BEGIN
+	put "_gm_dlg_edits"
+	beginoptions
+		put " object(" G ") "
+		put " " /program rline_output " "
+
+		if J {
+			put " jindex(" J ") "
+		}
+		put " epilog(_gedi toolbar rline " G " " J ")"
+	endoptions
+END

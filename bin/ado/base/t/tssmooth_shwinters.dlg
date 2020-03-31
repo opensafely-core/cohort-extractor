@@ -1,0 +1,288 @@
+/*
+   tssmooth shwinters
+
+*! VERSION 1.3.0  16dec2014
+
+*/
+
+VERSION 14.0
+INCLUDE _std_large
+INCLUDE _ht370
+INCLUDE header
+HELP hlp1, view("help tssmooth_shwinters")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource TSSMOOTH_SHWINTERS_DLG_HSCALE
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)	///
+	label(resource TSSMOOTH_SHWINTERS_DLG_TITLE)
+BEGIN
+
+  DEFINE _x _xsetbu
+  DEFINE _y _top
+  INCLUDE _bu_tsset
+
+  TEXT     tx_gener    _lft      +10       _cwd3_1   .,			///
+	label(resource TSSMOOTH_SHWINTERS_MAIN_TX_GENER)
+
+  TEXT     tx_exp      _lft3_2   @         _cwd3_1   .,			///
+	label(resource TSSMOOTH_SHWINTERS_MAIN_TX_EXP)
+
+  EDIT     ed_gener    _lft      _ss       _vnwd     .,			///
+	label(resource TSSMOOTH_SHWINTERS_MAIN_TX_GENER)
+
+  TEXT     tx_equals   _eqxpos   @         _eqwd     .,			///
+	center label(resource LBL_EQUAL_SIGN)
+
+  EXP      ex_exp      _lft3_2   @         _comb3_1  .,			///
+	label(resource LBL_BU_CREATE) error(resource TSSMOOTH_SHWINTERS_MAIN_TX_EXP)
+
+DEFINE _x _lft
+DEFINE _y _ls
+DEFINE _cx _cwd1
+INCLUDE _type
+DEFINE holdy @y
+
+  CHECKBOX ck_replace  _lft3_2   holdy     _comb3_1  .,			///
+	option(replace) nomem label(resource TSSMOOTH_SHWINTERS_MAIN_CK_REPLACE)
+
+  GROUPBOX gb_opts     _lft      +35       _iwd	     _ht19h,		///
+	label(resource LBL_OPTIONS)
+
+  RADIO    rb_parms1   _ilft     _ss       _cwd2     .,			///
+	label(resource TSSMOOTH_SHWINTERS_MAIN_RB_PARMS1)		///
+	onclickon(script main_parms_on) first
+
+  DEFINE holdy1 @y
+
+  TEXT     tx_parms1    _indent2  _vss      _inwd    .,			///
+	label(resource TSSMOOTH_SHWINTERS_MAIN_TX_PARMS1)
+
+  TEXT     tx_parms2    @         _vss      @        .,			///
+	label(resource TSSMOOTH_SHWINTERS_MAIN_TX_PARMS2)
+
+  RADIO    rb_parms2   _lft4_3   holdy1    _cwd2     .,			///
+	label(resource TSSMOOTH_SHWINTERS_MAIN_RB_PARMS2)		///
+	onclickon(script main_parms_off) last
+
+  EDIT     ed_parms1   _indent2  _ss       30        ., numonly		///
+	label(resource TSSMOOTH_SHWINTERS_MAIN_ED_PARMS1)
+
+  DEFINE holdy2 @y
+
+  EDIT     ed_parms2   +35       holdy2	   30        ., numonly		///
+	label(resource TSSMOOTH_SHWINTERS_MAIN_ED_PARMS2)
+
+  EDIT     ed_parms3   +35       @         30        ., numonly		///
+	label(resource TSSMOOTH_SHWINTERS_MAIN_ED_PARMS3)
+
+  CHECKBOX ck_samp0    _ilft     +35       _cwd2     .,			///
+	label(resource TSSMOOTH_SHWINTERS_MAIN_CK_SAMP0)		///
+	onclickon(script main_samp0_on)					///
+	onclickoff(script main_samp0_off)
+  DEFINE holdy3 @y
+  TEXT     tx_samp0    _indent2  _vss      @         .,			///
+	label(resource TSSMOOTH_SHWINTERS_MAIN_TX_SAMP0)
+
+  SPINNER  sp_samp0    @         _ss	   _spwd     .,			///
+  	option(samp0) min(2) max(c(N)) default(2)
+
+  CHECKBOX ck_s0       _ilft4_3  holdy3	   _cwd2     .,			///
+	label(resource TSSMOOTH_SHWINTERS_MAIN_CK_S0)			///
+	onclickon(script main_s0_on)					///
+	onclickoff(script main_s0_off)
+
+  EDIT     ed_s01      _indent2  _ss   	   _en7wd    .,	numonly		///
+	label(resource TSSMOOTH_SHWINTERS_MAIN_ED_S01)
+
+  EDIT     ed_s02      _en7sep   @         _en7wd    .,	numonly		///
+	label(resource TSSMOOTH_SHWINTERS_MAIN_ED_S02)
+
+  CHECKBOX ck_for      _ilft     +45       _cwd1     .,			///
+	label(resource TSSMOOTH_SHWINTERS_MAIN_CK_FOR)			///
+	onclickon(main.sp_for.enable)					///
+	onclickoff(main.sp_for.disable)
+
+  DEFINE holdy4 @y
+
+  SPINNER  sp_for      _indent2  _ss       _spwd     .,			///
+	option(forecast) min(1) max(500) default(1)
+
+
+  CHECKBOX ck_period   _ilft4_3  holdy4    _cwd2     .,			///
+	label(resource TSSMOOTH_SHWINTERS_MAIN_CK_PERIOD)		///
+	onclickon(main.sp_period.enable)				///
+	onclickoff(main.sp_period.disable)
+
+  SPINNER  sp_period   _indent2   _ss       _spwd     .,		///
+	option(period) min(2) max(1000) default(2)
+
+  CHECKBOX ck_additive _ilft     _ls        _ibwd     .,		///
+	option(additive)						///
+	label(resource TSSMOOTH_SHWINTERS_MAIN_CK_ADDITIVE)
+END
+
+DIALOG opt, tabtitle(resource LBL_OPTIONS)
+BEGIN
+  CHECKBOX ck_sn0_0    _lft      _top       _iwd      .,		///
+	onclickon(opt.ed_sn0_0.enable )					///
+	onclickoff(opt.ed_sn0_0.disable)				///
+	label(resource TSSMOOTH_SHWINTERS_OPT_CK_SN0_0)
+
+  EDIT     ed_sn0_0    _indent2  _ss       _vnwd     .,			///
+	option(sn0_0)							///
+	label(resource TSSMOOTH_SHWINTERS_OPT_CK_SN0_0)
+
+
+  CHECKBOX ck_sn0_v    _lft      _ls       _iwd	     .,			///
+	onclickon(opt.ed_sn0_v.enable )					///
+	onclickoff(opt.ed_sn0_v.disable)				///
+	label(resource TSSMOOTH_SHWINTERS_OPT_CK_SN0_V)
+
+  EDIT     ed_sn0_v    _indent2  _ss       _vnwd     .,			///
+	option(sn0_v)							///
+	label(resource TSSMOOTH_SHWINTERS_OPT_ED_SN0_V)
+
+  CHECKBOX ck_snt_v    _lft      _ls       _iwd	     .,			///
+	onclickon(opt.ed_snt_v.enable )					///
+	onclickoff(opt.ed_snt_v.disable)				///
+	label(resource TSSMOOTH_SHWINTERS_OPT_CK_SNT_V)
+
+  EDIT     ed_snt_v    _indent2  _ss       _vnwd     .,			///
+	option(snt_v)							///
+	label(resource TSSMOOTH_SHWINTERS_OPT_ED_SNT_V)
+
+  CHECKBOX ck_normal   _lft      _ls       _iwd      .,			///
+	option(normalize)						///
+	label(resource TSSMOOTH_SHWINTERS_OPT_CK_NORMAL)
+
+  CHECKBOX ck_altsta	_lft	_ms	_iwd	.,			///
+	option(altstarts)						///
+	label(resource TSSMOOTH_SHWINTERS_OPT_CK_ALTSTA)
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script max_setDefaultDifficult
+	script max_setFromForShwinters
+END
+
+INCLUDE ifin
+INCLUDE _type_list_fd
+INCLUDE max_ml
+
+SCRIPT main_parms_on
+BEGIN
+	main.ed_parms1.disable
+	main.ed_parms2.disable
+	main.ed_parms3.disable
+	script max_from_enable
+END
+
+SCRIPT main_parms_off
+BEGIN
+	script max_from_disable
+	main.ed_parms1.enable
+	main.ed_parms2.enable
+	main.ed_parms3.enable
+END
+
+SCRIPT main_samp0_on
+BEGIN
+	main.ck_s0.disable
+	main.ed_s01.disable
+	main.ed_s02.disable
+	main.sp_samp0.enable
+	main.tx_samp0.enable
+END
+
+SCRIPT main_samp0_off
+BEGIN
+	main.sp_samp0.disable
+	main.ck_s0.enable
+END
+
+SCRIPT main_s0_on
+BEGIN
+	main.sp_samp0.disable
+	main.ck_samp0.disable
+	main.tx_samp0.disable
+	main.ed_s01.enable
+	main.ed_s02.enable
+
+END
+
+SCRIPT main_s0_off
+BEGIN
+	main.ed_s01.disable
+	main.ed_s02.disable
+	main.ck_samp0.enable
+	main.tx_samp0.enable
+END
+
+PROGRAM command
+BEGIN
+	put "tssmooth shwinters "
+	INCLUDE _type_pr
+	require main.ed_gener
+	put main.ed_gener
+	put " "
+	put "= "
+	require main.ex_exp
+	put main.ex_exp
+	INCLUDE _ifin_pr
+	beginoptions
+		if main.rb_parms2 {
+			require main.ed_parms1
+			require main.ed_parms2
+			require main.ed_parms3
+			put "parms("
+			put main.ed_parms1
+			put " "
+			put main.ed_parms2
+			put " "
+			put main.ed_parms3
+			put ")"
+			put " "
+		}
+		if main.ck_s0 {
+		   	require main.ed_s01
+		   	require main.ed_s02
+			put "s0("
+			put main.ed_s01
+			put " "
+			put main.ed_s02
+			put ")"
+			put " "
+		}
+		if main.ck_samp0 {
+			optionarg main.sp_samp0
+		}
+		if main.ck_for {
+			optionarg main.sp_for
+		}
+		if main.ck_period {
+			optionarg main.sp_period
+		}
+		if opt.ck_sn0_0 {
+			require opt.ed_sn0_0
+			optionarg opt.ed_sn0_0
+		}
+		if opt.ck_sn0_v {
+			require opt.ed_sn0_v
+			optionarg opt.ed_sn0_v
+		}
+		if opt.ck_snt_v {
+			require opt.ed_snt_v
+			optionarg opt.ed_snt_v
+		}
+		option main.ck_additive
+		option main.ck_replace
+		option opt.ck_normal
+		option opt.ck_altsta
+		put " " /program max_output
+	endoptions
+END

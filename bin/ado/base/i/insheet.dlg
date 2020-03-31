@@ -1,0 +1,102 @@
+/*
+	insheet
+
+*!  VERSION 1.2.2  27nov2014 (deprecated)
+
+*/
+
+VERSION 9.0
+
+INCLUDE _std_large
+INCLUDE _ht350
+INCLUDE header
+HELP hlp1, view("help insheet")
+RESET res1
+
+DIALOG main,label("insheet - Import text data") tabtitle("Main")
+BEGIN
+  TEXT     tx_using	_lft	_top	_iwd	.,		///
+	label("Text dataset filename:")
+
+  FILE     fi_using	@	_ss	@	.,		///
+	filter("Comma Separated Values (*.csv)|*.csv|Text Files (*.txt)|*.txt|Raw Files (*.raw)|*.raw|All (*.*)|*.*")	///
+	defext(raw) 						///
+	error("Text dataset filename")				///
+	label("Browse...")
+  TEXT     tx_vl	_lft	_ls	@	.,		///
+	label("New variable names: (optional)")
+
+  EDIT     ed_vl	@	_ss	@	.,		///
+	label("Optional new variable names")
+  GROUPBOX gb_opt	@	_ls	@	_ht2, 		///
+	label("Storage type")
+  RADIO    rb_no	_ilft	_ss	_cwd3_2	.,		///
+	option(NONE)						///
+	first label("Use default")
+  RADIO    rb_float	_lft3_2	@	@	., 		///
+	option(nodouble)					///
+	label("Force float")
+  RADIO    rb_double	_lft3_3	@	@	., 		///
+	option(double)						///
+	last label("Force double")
+
+  GROUPBOX gb_delim	_lft	_xls	_iwd	_ht10,		///
+	label("Delimiter")
+  RADIO    rb_auto	_ilft	_ss	_inwd	.,		///
+	first							///
+	label("Automatically determine delimiter")
+  RADIO    rb_tab	@	_ss	@	.,		///
+	label("Tab-delimited data")				///
+	option(tab)
+  RADIO    rb_csv	@	_ss	@	.,		///
+	label("Comma-delimited data")				///
+	option(comma)
+  RADIO    rb_delimit	@	_ss	@	.,		///
+	label("User-specified delimiter")			///
+	option(delimiter) last					///
+	onclickon(script main_delimit_on)			///
+	onclickoff(script main_delimit_off)
+  EDIT     ed_delimit	_indent2 _ss	40	.,		///
+	option(delimiter) max(1) label("Value delimiter")
+  TEXT     tx_delimit	+45	@	100	.,		///
+  	label("Value delimiter")
+  CHECKBOX ck_clear	_lft	_xls	_cwd1	.,		///
+	option(clear) nomem label("Replace data in memory")
+ 
+  CHECKBOX ck_case	_lft2	@	_cwd1	.,		///
+	option(case) nomem label("Preserve variable case")
+	/* nonames option not included because not really needed */
+END
+
+SCRIPT main_delimit_on
+BEGIN
+	main.ed_delimit.enable
+	main.tx_delimit.enable
+END
+
+SCRIPT main_delimit_off
+BEGIN
+	main.ed_delimit.disable
+	main.tx_delimit.disable
+END
+
+PROGRAM command
+BEGIN
+	put "insheet "
+	varlist [main.ed_vl]
+	require main.fi_using
+	put "using "
+	put `"""' main.fi_using `"""'
+	beginoptions
+		option main.rb_float
+		option main.rb_double
+		option main.rb_tab
+		option main.rb_csv
+		if main.rb_delimit {
+			require main.ed_delimit
+			optionarg /quoted main.ed_delimit
+		}
+		option main.ck_clear
+		option main.ck_case
+	endoptions
+END

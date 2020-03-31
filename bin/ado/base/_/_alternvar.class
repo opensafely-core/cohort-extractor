@@ -1,0 +1,219 @@
+*! version 2.1.2  04feb2020
+
+version 14
+
+class _alternvar {
+	instance:
+		string vlabel
+		_matrix freq
+		_matrix values
+}, inherit(_factorvar)
+
+program ._set 
+	local vv : display "version " string(_caller()) ":"
+	syntax varname [fw] [if]
+
+	if (strlen("`varlist'")>20) local stopt stub(altern)
+
+	`vv' ///
+	.Super._set `varlist' `if', `stopt'
+	local variable "`.variable'"
+	if `.k' <= 1 {
+		di as txt "{p 0 6 2}note: alternatives variable " ///
+		 "`variable' does not vary{p_end}"
+	}
+	local labs `"`.strlabels'"'
+
+	cap confirm string variable `variable'
+	if _rc == 0 {
+		._tabulate `variable' [`weight'`exp'] `if', ///
+			matcell(`.freq.name')
+	}
+	else {
+		._tabulate `variable' [`weight'`exp'] `if', ///
+			matrow(`.values.name') matcell(`.freq.name')
+		local label : value label `variable'
+		if ("`label'"!="") .vlabel = "`label'"
+
+		mat `.values.name' = `.values.name''
+		mat colnames `.values.matname' = `labs'
+		mat rownames `.values.matname' = r1
+	}
+	mat `.freq.name' = `.freq.name''
+	mat colnames `.freq.matname' = `labs'
+	mat rownames `.freq.matname' = r1
+end
+
+program .valuelabel
+	syntax, value(integer)
+
+	local found = 0
+	if `.values.isvalid' {
+		local klev = `.values.cols'
+		forvalues i=1/`klev' {
+			local val = `.values.matname'[1,`i']
+			if `val' == `value' {
+				local found = 1
+				local label `.labels[`i']'
+				continue, break
+			}
+		}
+	}
+	else {
+		local klev = `.k'
+		if (`klev'>0) & (`value'<=`klev') {
+			local label `.labels[`value']'
+			local found = 1
+		}
+	}
+	if !`found' {
+		/* programmer error					*/
+		di as err "alternative value {bf:`value') not found"
+		exit 498
+	}
+	class exit "`label'"
+end
+
+program .isvalid
+	if (!`.Super.isvalid') class exit 0
+
+	local k = `.k'
+	if (`.freq.cols'!=`k') class exit 0
+	if `.values.isvalid' {
+		if (`.values.cols'!=`k') class exit 0
+	}
+
+	class exit 1
+end
+
+program .summary
+	if (!`.isvalid') exit
+
+	.Super.summary
+
+	di _n "values" _c
+	.values.list noheader
+	di _n "frequencies" _c
+	.freq.list noheader
+end
+
+program .eretpost, eclass
+	syntax [, index(integer -1) noSTATS ]
+
+	if (!`.isvalid') exit
+
+	.Super.eretpost, label(alt) index(`index') 
+
+	if ("`stats'" != "") exit
+
+	if (`index' < 0) local index
+
+	tempname m
+	mat `m' = `.freq.matname'
+	ereturn matrix altfreq`index' = `m'
+	if `.values.isvalid' { 
+		tempname m
+		mat `m' = `.values.matname'
+		ereturn matrix altvals`index' = `m'
+	}
+end
+
+program .eretget
+	local vv : display "version " string(_caller()) ":"
+	syntax, [ touse(varname) index(integer -1) altwise force ]
+
+	.vlabel = ""
+	if `.freq.isvalid' {
+		.freq = ._matrix.new
+	}
+	if `.values.isvalid' {
+		.values = ._matrix.new
+	}
+	if `.ref_n' == 1 {
+		.Super.destructor
+	}	
+	else {
+		.varname = ""
+	}
+	if "`e(case)'" == "" {
+		di as err "e(case) is required"
+		exit 322
+	}
+	if "`touse'" == "" {
+		tempvar touse
+		qui gen byte `touse' = 1
+	}
+	tempvar ni ni1
+
+	/* base class ._factorvar					*/
+	`vv' ///
+	._eretget, touse(`touse') label(alt) index(`index') ///
+		bylist(`e(case)') n(`ni') `force'
+
+	if "`force'"!="" & (`r(k_mxlabel)'>e(k_alt`ind')) {
+		/* undocumented option 					*/
+		di in gr "{p 0 6 2}note: variable `.variable' has more " ///
+		 "than `=e(k_alt`ind')' alternatives in the data{p_end}"
+	}
+	else if `r(k_nomatch)' > 0 {
+		di in gr "{p 0 6 2}note: variable `.variable' has " ///
+		 "alternatives that are not in the fitted model{p_end}"
+	}
+	if `r(k_label)' == 0 {
+		di as error "{p}no observations remain after excluding " ///
+		 "invalid alternatives{p_end}"
+		exit 2000
+	}
+
+	/* index maps the new to the old factor levels 			*/
+	local indold `r(indold)'
+	local indnew `r(indnew)'
+
+	/* drop cases that have alternatives not used in the model 	*/
+	if "`altwise'" == "" {
+		qui by `e(case)' : gen long `ni1' = sum(`touse')
+		qui by `e(case)': replace `touse' = 0 if `ni1'[_N]!=`ni'[_N]
+	}
+	qui count if `touse'
+	if r(N) == 0 {
+		di as err "no cases remain after excluding invalid observations"
+		exit 2000
+	}
+	/* recover alternative statistics, possibly different from 	*/
+	/*  the object posting to ereturn				*/
+	/* the number of alternatives and order must never change	*/
+	.freq = ._matrix.new
+	.values = ._matrix.new
+	local colnames `.strlabels'
+	mat `.freq.name' = J(1,`.k',.)
+	mat colnames `.freq.matname' = `colnames'
+
+	tempname freq
+	cap confirm string variable `.variable'
+	if _rc == 0 {
+		qui tabulate `.variable' `wtopt' if `touse', ///
+			matcell(`freq') 
+	}
+	else {
+		tempname vals
+		qui tabulate `.variable' `wtopt' if `touse', ///
+			matrow(`vals') matcell(`freq')
+
+		local label : value label `.variable'
+		if ("`label'"!="") .vlabel = "`label'"
+
+		mat `.values.name' = J(1,`.k',.)
+		mat colnames `.values.matname' = `colnames'
+	}
+	cap
+	local k = 0
+	foreach i of numlist `indnew' {
+		local j : word `++k' of `indold'
+		mat `.freq.matname'[1,`j'] = `freq'[`i',1]
+		if "`vals'" != "" {
+			mat `.values.matname'[1,`j'] = `vals'[`i',1]
+		}
+	}
+end
+
+exit

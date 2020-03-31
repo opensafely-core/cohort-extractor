@@ -1,0 +1,257 @@
+/*
+  ivtobit
+
+*!  VERSION 1.3.1  19may2015
+
+  keyword:  eclass
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_xlarge // long title w/survey
+DEFINE _dlght 380
+INCLUDE header
+
+HELP hlp1, view("help ivtobit")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	script se_createAsSvyJknifeBstrapML
+	program svy_check_title
+	setscale_hadj resource IVTOBIT_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script sub_set_by_on
+	program se_setFinalInitState
+END
+
+SCRIPT svy_is_on
+BEGIN
+	main.ck_newey.disable
+	rpt.ck_first.disable
+	script max_setDefaultNoLog
+END
+SCRIPT svy_is_off
+BEGIN
+	main.ck_newey.enable
+	rpt.ck_first.enable
+	script max_setDefaultLog
+END
+PROGRAM svy_check_title
+BEGIN
+	if __MESSAGE.contains("-svy-") {
+		call settitle resource IVTOBIT_SVY_DLG_TITLE
+	}
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)				///
+	/// **** has svy title ****					///
+	title(resource IVTOBIT_DLG_TITLE)
+BEGIN
+  TEXT tx_dv 		_lft	_top	_vnwd	.,			///
+	label(resource LBL_DEPVAR)
+  VARNAME vn_dv		@ 	_ss	@	.,			///
+	ts								///
+	numeric								///
+	label(resource LBL_DEPVAR)
+
+  TEXT tx_iv		_vlx	_top	160	.,			///
+	label(resource LBL_INDDEPVAR)
+  VARLIST vl_iv		@	_ss	_vlwd	.,			///
+	fv ts								///
+	allowcat							///
+	numeric								///
+	label(resource LBL_INDDEPVAR)
+  TEXT     tx_vars2	_lft	_ls	_iwd	.,			///
+	label(resource LBL_ENDOGENOUS_VARIABLES)
+  VARLIST  vl_vars2	@	_ss	@	.,			///
+	label(resource LBL_ENDOGENOUS_VARIABLES)			///
+	numeric								///
+	allowcat ts
+
+  TEXT     tx_ivars	@	_ls	@	.,			///
+	label(resource LBL_INSTRUMENTAL_VARIABLES)
+  VARLIST  vl_ivars	@	_ss	@	.,			///
+	label(resource LBL_INSTRUMENTAL_VARIABLES)			///
+	numeric								///
+	allowcat ts fv
+
+  GROUPBOX gb_censor	_lft	+35	_iwd	_ht8h,			///
+	label(resource LBL_SPECIFY_AT_LEAST_ONE_CENSORING_LIMIT)
+  RADIO    rb_noll	_indent	_ss	_cwd2	.,			///
+	first								///
+	label(resource LBL_NO_LEFT_CENSORING_LIMIT)			///
+	onclickon(main.en_ll.disable)
+  DEFINE y @y
+  RADIO    rb_ll	@	_ss	@	.,			///
+	label(resource LBL_LEFT_CENSORING_AT_MINIMUM)			///
+	onclickon(main.en_ll.disable) option(ll)			///
+	default(1)
+  RADIO    rb_llarg	@	_ss	@	.,			///
+	last label(resource IVTOBIT_MAIN_RB_LLARG)			///
+	onclickon(main.en_ll.enable)
+  EDIT     en_ll	_indent2 _ss	_en14wd	.,			///
+	label(resource LBL_LEFT_CENSORING_LIMIT)			///
+	numonly	  option("ll")
+
+  RADIO    rb_noul	_lft2	y	_cwd2	.,			///
+	first								///
+	onclickon(main.en_ul.disable)					///
+	label(resource LBL_NO_RIGHT_CENSORING_LIMIT)
+  RADIO    rb_ul	@	_ss	@	.,			///
+	label(resource LBL_RIGHT_CENSORING_AT_MAXIMUM)			///
+	onclickon(main.en_ul.disable)					///
+	option(ul)
+  RADIO    rb_ularg	@	_ss	@	.,			///
+	last								///
+	label(resource IVTOBIT_MAIN_RB_ULARG)				///
+	onclickon(main.en_ul.enable)
+  EDIT     en_ul	_indent2 _ss	_en14wd	.,			///
+	label(resource LBL_RIGHT_CENSORING_LIMIT) numonly		///
+	option(ul)
+
+  CHECKBOX ck_newey	_lft	_xxls	_iwd	.,			///
+	option(twostep)							///
+	onclickon(script main_newey_on)					///
+	onclickoff(script main_newey_off)				///
+	label(resource LBL_USE_NEWEYS_TWO_STEP_ESTIMATOR_INST_MLE)
+
+  TEXT     tx_constr	_lft	_ms	_iwd	.,			///
+	label(resource LBL_CONSTRAINTS_OPTIONAL)
+  COMBOBOX cb_constr	@	_ss	@	.,			///
+	append								///
+	dropdown							///
+	contents(constraint)						///
+	label(resource LBL_CONSTRAINTS)					///
+	option(constraints)
+  DEFINE _x @x
+  DEFINE _xw @xsize
+END
+
+SCRIPT main_newey_on
+BEGIN
+	// THE ORDER MATTERS
+	script se_switchToJknifeBstrap
+	script se_setN2step_on
+	script weights_setLayout_f
+	script max_disable
+	main.tx_constr.disable
+	main.cb_constr.disable
+END
+
+SCRIPT main_newey_off
+BEGIN
+	// THE ORDER MATTERS
+	script max_enable
+	script se_setN2step_off
+	script se_switchToSvyJknifeBstrapML
+	script weights_setLayout_fpi
+	main.tx_constr.enable
+	main.cb_constr.enable
+END
+
+INCLUDE sub_by_ifin_over_subpop
+INCLUDE weights_fpi
+INCLUDE se
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+        program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2b
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  CHECKBOX ck_first	_lft	_ls	_iwd	.,	///
+	label(resource LBL_REPORT_FIRST_STAGE_REGRESSION) option(first)
+
+  DEFINE _x _lft
+  DEFINE _y _ms
+  DEFINE _cx _iwd
+  INCLUDE _nocnsreport
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE factor_vars_reporting_pr
+INCLUDE fmt_coef_table_reporting_pr
+
+PROGRAM rpt_output
+BEGIN
+	optionarg /hidedefault rpt.sp_level
+	option rpt.ck_first
+	INCLUDE _nocnsreport_pr
+	INCLUDE _report_columns_pr
+
+	put " " rpt_bu_facvarsResults
+	put " " rpt_bu_fmtcoefResults
+END
+
+INCLUDE max_ml
+
+PROGRAM command_sub
+BEGIN
+	varlist main.vl_vars2
+	put "="
+	varlist main.vl_ivars
+END
+
+PROGRAM command
+BEGIN
+	put /program by_output " "
+	put /program se_prefix_output " "
+	put "ivtobit "
+	varlist main.vn_dv [main.vl_iv]
+	put "("
+	put /program command_sub
+	put ")"
+	put " " /program ifin_output
+	put " " /program weights_output
+	beginoptions
+		if main.rb_noll & main.rb_noul {
+			call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_AT_LEAST_ONE_CENSORING_LIMIT_SPEC_FMT" ///
+				"resource LBL_TAB_MODEL" 
+			stopbox stop "class _MSG_TMP.value"
+// On the "Model" tab, at least one censoring limit must be specified.
+		}
+		if main.rb_llarg {
+			require main.en_ll
+			optionarg main.en_ll
+		}
+		if main.rb_ularg {
+			require main.en_ul
+			optionarg main.en_ul
+		}
+		option main.rb_ll
+		option main.rb_ul
+		option main.ck_newey
+		optionarg main.cb_constr
+		put " " /program se_output
+		put " " /program rpt_output
+		put " " /program max_output
+	endoptions
+END

@@ -1,0 +1,463 @@
+//                                 y2xview_g
+//
+//	Base class for data views that have an x variable, two y variables 
+//	and possibly a weight variable
+
+*! version 1.2.0  21nov2019
+
+version 8
+
+class {
+	type	= .y2xtype.new,	     style(rspike)
+
+	double y2var				// y2 variable id
+
+} , inherit(yxview)
+
+
+// ---------------------------------------------------------------------------
+program set
+
+	syntax [ , YBvar(string) * ]
+
+	.Super.set , `options'
+
+	if `"`ybvar'"' != `""' {
+
+		capture confirm integer number `ybvar'
+		if _rc {
+			local varid = `.serset.seriesof `ybvar''
+			if 0`varid' {
+				.y2var = `varid'
+			}
+			else {
+			    di in white `"`ybvar' not found in serset"'
+			}
+		}
+		else {
+			.y2var = `ybvar'
+		}
+	}
+
+end
+
+
+// ---------------------------------------------------------------------------
+//	Returns the value of y2 for the specified observation
+//
+//	Usage:  .Y2 #_obs
+
+program Y2
+	.serset.set
+
+	class exit = serset(`.y2var', `1')
+end
+
+
+// ---------------------------------------------------------------------------
+//	Returns minimum and maximum sizes
+
+program ranges , rclass
+
+	capture return scalar xmin = `.serset.sers[`.xvar'].min'
+	capture return scalar xmax = `.serset.sers[`.xvar'].max'
+	capture return scalar ymin = min(`.serset.sers[`.yvar'].min' ,	///
+					 `.serset.sers[`.y2var'].min')
+	capture return scalar ymax = max(`.serset.sers[`.yvar'].max' ,	///
+					 `.serset.sers[`.y2var'].max')
+
+	if "`.bar_drop_to.stylename'" == "y" {
+		capture local xmin = return(ymin)
+		capture local xmax = return(ymax)
+
+		capture return scalar ymin = return(xmin)
+		capture return scalar ymax = return(xmax)
+		capture return scalar xmin = `xmin'
+		capture return scalar xmax = `xmax'
+	}
+
+/*
+	if `.base' < . {
+		local ord = cond("`.bar_drop_to.snm"=="y", "x", "y")
+
+		capture return scalar `ord'min = min(return(`ord'min) , `.base')
+		capture return scalar `ord'max = max(return(`ord'max) , `.base')
+	}
+*/
+end
+
+
+// ---------------------------------------------------------------------------
+//	Returns a key object of the view
+
+program newkey
+
+	syntax [anything] [ , Position(passthru) ]
+							// anything ignored
+
+	class exit .y2xkey_g.new , view(`.objkey') `position'
+end
+
+// ---------------------------------------------------------------------------
+//	Returns the label of the specified dimension variable, or if that is 
+//	blank the name of the <dim>variable.  Optionally, returns only the name.
+//
+//      Note that the y-label will be <y_label>/<y2_label> unless both y
+//      variables have the same label.
+
+
+program dimtitle
+
+	gettoken dim 0 : 0
+
+	syntax [ , Nameonly Keynum(integer 1) ]		// keynum ignored
+
+	if "`.bar_drop_to.stylename'" == "y" {
+		local dim = cond("`dim'" == "x" , "y", "x")
+	}
+
+	if ! `.Local.serset.isofclass serset' {
+		exit
+	}
+
+	if "`nameonly'" == "" {
+	    local label `"`.serset.sers[`.`dim'var'].label_or_name'"'
+	    if "`dim'" == "y" {
+		if `"`label'"' !=					///
+		   `"`.serset.sers[`.y2var'].label_or_name'"' {
+		    local label						///
+			`"`label'/`.serset.sers[`.y2var'].label_or_name'"'
+		}
+	    }
+	}
+	else {
+		local label `"`.serset.sers[`.`dim'var'].name'"'
+		if "`dim'" == "y" {
+			local label `"`label'/`.serset.sers[`.y2var'].name'"'
+		}
+	}
+
+	class exit `"`label'"'
+end
+
+// ----------------------------------------------------------------------------
+// Determine if a position is in/on the view
+// Switched to from yxview at_pos and most work is done in yxview functions
+
+program _at_pos_rscatter
+
+	if (0`._at_markers `0'')  class exit 1
+	class exit = `._at_markers `0' `.y2var' `.xvar''
+end
+
+
+program _at_pos_rline
+
+	if (0`._at_lines `0'') {
+		.object_found_dialog = "rline"
+	}
+	else {
+		if (0`._at_lines `0' 2') {
+			.object_found_dialog = "rline"
+		}
+		else {
+			if (`._at_rpoints `0'') {
+				.object_found_dialog = "rline"
+			}
+		}
+	}
+
+	class exit = ("`.object_found_dialog'" == "rline")
+end
+
+
+program _at_pos_rarea
+	args y x ymult xmult gmult
+
+	if (`._at_rarea `y' `x'') {
+		.object_found_dialog = "area"
+	}
+	else {
+		if (`._at_pos_rline `0'') .object_found_dialog = "area"
+	}
+	class exit = ("`.object_found_dialog'" == "area")
+end
+
+program _at_rarea
+	args y x
+
+
+// ??
+	if "`.bar_drop_to.stylename'" == "x" {
+		local yvar  "`.yvar'"
+		local y2var "`.y2var'"
+		local xvar  "`.xvar'"
+		local x2var "`.xvar'"
+	}
+	else {
+		local yvar  `.xvar'
+		local y2var `.xvar'
+		local xvar  `.yvar'
+		local x2var `.y2var'
+	}
+
+	local cmiss 0`.style.connect_missings.istrue'
+	local yln = `._yscale_trans_code'
+	local xln = `._xscale_trans_code'
+
+	class exit = 							///
+`.serset.at_polyarea `yvar' `xvar' `y2var' `x2var' `y' `x' `cmiss' `yln' `xln''
+
+end
+
+
+program _at_pos_rconnected
+	if (`._at_pos_rscatter `0'')  {
+		if ("`.object_found_dialog'" != "markerlabel")		///
+			.object_found_dialog = "rconnected"
+	}
+	else {
+		if `._at_pos_rline `0'' {
+			.object_found_dialog = "rconnected"
+		}
+	}
+
+	class exit = ("`.object_found_dialog'" == "rconnected" | 	///
+		      "`.object_found_dialog'" == "markerlabel")
+end
+
+program _at_pos_rspike
+	if (`._at_pos_rspike_wrk `0'')  .object_found_dialog = "spike"
+	class exit = ("`.object_found_dialog'" == "spike")
+end
+
+program _at_pos_rspike_wrk
+	args yp xp ymult xmult gmult
+
+	local halo = max(`gmult'*`.style.line.width.val', 1.6)*`xmult'
+	local yscale = `xmult' / `ymult'
+	local yln = `._yscale_trans_code'
+	local xln = `._xscale_trans_code'
+
+	if "`.bar_drop_to.stylename'" == "x" {
+		class exit = `.serset.at_pclines `.yvar'  `.xvar'	///
+						 `.y2var' `.xvar'	///
+						 `yp' `xp' `halo'	///
+						 `yscale' `yln' `xln''
+	}
+	else {
+		class exit = `.serset.at_pclines `.xvar'  `.yvar'	///
+						 `.xvar'  `.y2var'	///
+						 `yp' `xp' `halo'	///
+						 `yscale' `yln' `xln''
+	}
+end
+
+
+program _at_pos_rbar
+	args yp xp ymult xmult gmult
+
+	local found 0
+	if "`.bar_drop_to.stylename'" == "x" {
+		local d = max(`.bar_size' / 2, .45*`xmult')
+		forvalues j = 1/`:serset N' {
+			local x = serset(`.xvar', `j')
+		        if (`x' >= . | `=serset(`.yvar', `j')' >= . |	///
+		                       `=serset(`.y2var', `j')' >= .) continue
+			if sign(`yp' - `=serset(`.yvar',  `j')') != 	///
+			   sign(`yp' - `=serset(`.y2var', `j')') {
+				if `xp' >= `x'-`d' & `xp' <= `x'+`d' {
+					local found `j'
+					continue, break
+				}
+			}
+		}
+	}
+	else {
+		local d = max(`.bar_size' / 2, .45*`ymult')
+		forvalues j = 1/`:serset N' {
+			local y = serset(`.xvar', `j')
+		        if (`y' >= . | `=serset(`.yvar', `j')' >= . |	///
+		                       `=serset(`.y2var', `j')' >= .) continue
+			if sign(`xp' - `=serset(`.yvar',  `j')') !=	///
+			   sign(`xp' - `=serset(`.y2var', `j')') {
+				if `yp' >= `y'-`d' & `yp' <= `y'+`d' {
+					local found `j'
+					continue, break
+				}
+			}
+		}
+	}
+
+	if (`found') {
+		.object_found_dialog = "bar"
+		._Gr_Global.serset_index = `found'
+	}
+	class exit = `found'
+end
+
+program _at_pos_rbarm
+	args yp xp ymult xmult gmult
+
+	local found 0
+	if "`.bar_drop_to.stylename'" == "x" {
+		local d = max(`.style.marker.size.val'*`gmult'*`xmult' / 2, ///
+			      .45*`xmult')
+		forvalues j = 1/`:serset N' {
+			local x = serset(`.xvar', `j')
+			if sign(`yp' - `=serset(`.yvar',  `j')') != 	///
+			   sign(`yp' - `=serset(`.y2var', `j')') {
+				if `xp' >= `x'-`d' & `xp' <= `x'+`d' {
+					local found `j'
+					continue, break
+				}
+			}
+		}
+	}
+	else {
+		local d = max(`.style.marker.size.val'*`gmult'*`ymult' / 2, ///
+			      .45*`ymult')
+		forvalues j = 1/`:serset N' {
+			local y = serset(`.xvar', `j')
+			if sign(`xp' - `=serset(`.yvar',  `j')') !=	///
+			   sign(`xp' - `=serset(`.y2var', `j')') {
+				if `yp' >= `y'-`d' & `yp' <= `y'+`d' {
+					local found `j'
+					continue, break
+				}
+			}
+		}
+	}
+
+	if (`found') {
+		.object_found_dialog = "barm"
+		._Gr_Global.serset_index = `found'
+	}
+	class exit = `found'
+end
+
+
+program _at_pos_rcapsym
+	local found `._at_pos_rscatter `0''
+	if (! `found') {
+		local found `._at_pos_rspike_wrk `0''
+	}
+
+	if ("`.object_found_dialog'" != "markerlabel")			///
+		.object_found_dialog = "dropline"
+	class exit = `found'
+end
+
+
+program _at_pos_rcap
+	if (`._at_pos_rcapsym `0'')  .object_found_dialog = "rcap"
+	class exit = ("`.object_found_dialog'" == "rcap")
+end
+
+
+program _at_rpoints
+	args y x ymult xmult gmult
+
+	if (`._at_points `y' `x' `ymult' `xmult' .9')	    class exit = 1
+	class exit = `._at_points `y' `x' `ymult' `xmult' .9 .y2var .yvar'
+end
+
+
+// ---------------------------------------------------------------------------
+// Set the extents to the graphics editor.
+
+program gedi_extent
+
+	if "`.type.stylename'"=="rcap" | "`.type.stylename'" == "rcapsym" |  ///
+	   "`.type.stylename'"=="rconnected" | "`.type.stylename'"=="rscatter" {
+		local sz  = `.style.marker.size.val' *			///
+	    	     `.`.plotregion'.drawn_gmult' * `.`.plotregion'.drawn_gbeta'
+	}
+	else local sz = 0
+
+	
+	if "`.bar_drop_to.stylename'" == "x" {
+		local vlist "`.xvar' `.yvar' `.xvar' `.y2var'"
+	}
+	else {
+		local vlist "`.yvar' `.xvar' `.y2var' `.xvar'"
+	}
+
+	_gedi extent "" "" 0 0 0 0 
+if ("$grdebug"!="") di in white `"_gedi extent "" "" 0 0 0 0"'
+
+	_gedi ytransform `.`.plotregion'.yscale.transform.stylename'
+	_gedi xtransform `.`.plotregion'.xscale.transform.stylename'
+	
+	if "`.object_found_dialog'" == "markerlabel" {
+	    local cust_dex "`.SelectedCustomIndex'"
+
+	    if ("`cust_dex'" == "" )	local style style
+	    else			local style "obs_styles[`cust_dex']"
+
+	    local shift = cond(0`.`style'.label.position.setting', 	  ///
+				(`.`style'.marker.size.val' / 2 +	  ///
+				`.`style'.label.textstyle.size.val' / 2 + ///
+				`.`style'.label.textgap.val') * `gmult'	  ///
+				`.`.plotregion'.drawn_gmult' *		  ///
+				`.`.plotregion'.drawn_gbeta', 		  ///
+			       0)
+	    if `.pvar' < . & "`cust_dex'" == "" {		// indiv pos
+		_gedi mlabelextent 4 `.serset.id' `vlist'		///
+			`.`.plotregion'.ScaleTransforms' `shift' `.pvar'
+if ("$grdebug"!="") di in white "_gedi mlabelextent 4 `.serset.id' `vlist' `.`.plotregion'.ScaleTransforms' `shift' `.pvar'"
+	    }
+	    else {						// all same pos
+	    							// or custom
+		local posangle `.`style'.label.position.angle'
+		local xshift = `shift' * cos(`posangle')
+		local yshift = `shift' * sin(`posangle')
+		_gedi mlabelextent 3 `.serset.id' `vlist'		///
+			`.`.plotregion'.ScaleTransforms'		///
+			`xshift' `yshift' `cust_dex'
+if ("$grdebug"!="") di in white "_gedi mlabelextent 3 `.serset.id' `vlist' `.`.plotregion'.ScaleTransforms' `xshift' `yshift' `cust_dex'"
+	    }
+	}
+	else {
+		_gedi plotextent 2 `.type.stylename' `.serset.id'	///
+			`vlist'						///
+			`.`.plotregion'.ScaleTransforms' `sz'		///
+			`.SelectedCustomIndex'
+
+if ("$grdebug"!="") di in white `" _gedi plotextent 2 `.type.stylename' `.serset.id' `vlist' `.`.plotregion'.ScaleTransforms' `sz' `.SelectedCustomIndex'"'
+	}
+
+    class exit = 1
+end
+
+// ---------------------------------------------------------------------------
+// Return the appropriate default dialog type for the view/plot.
+
+program _dialog
+
+	local type "`.type.stylename'"
+
+	if "`type'" == "rcapsym" {
+		class exit "dropline"
+	}
+	if "`type'" == "rline" {
+		class exit "rline"
+	}
+	if "`type'" == "rconnected" {
+		class exit "rconnected"
+	}
+	if "`type'" == "rcap" {
+		class exit "rcap"
+	}
+
+	if (bsubstr("`type'", 1, 1) == "r") {
+		class exit "`=bsubstr("`type'", 2, .)'"
+	}
+
+	class exit "`.Super._dialog'"
+end
+
+// ---------------------------------------------------------------------------
+
+//  Picks up .draw (switcher program from yxview)
+

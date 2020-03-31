@@ -1,0 +1,114 @@
+/*
+  sg__level.dlg
+
+*!  VERSION 1.1.1  03jun2015
+
+*/
+
+VERSION 14.0
+MODAL
+
+INCLUDE _std_vsmall
+DEFINE _dlght 80
+INCLUDE header_sem_ed
+
+DEFINE _clwd	15
+DEFINE _wd	130
+DEFINE _sep	+135
+DEFINE _wd2	120
+DEFINE _sep2	+125
+DEFINE _cbwd	120
+DEFINE _cbsep	+125
+
+INCLUDE sg__common_output		/* routines necessary for output */
+
+SCRIPT PREINIT
+BEGIN
+	script sg__common_output_init 	/* initialize output globals */
+
+	create STRING OBJ
+	program setupOBJECT
+
+	create STRING sTemp
+	create STRING sSrcType
+	setscale_hadj resource SG__LEVEL_DLG_HSCALE
+END
+
+PROGRAM setupOBJECT
+BEGIN
+	if ! __MESSAGE {
+		stopbox stop resource LBL_MSGBOX_OBJECT_NOT_FOUND
+// An unexpected error has occurred. Object not found.
+		exit 198
+	}
+	call OBJ.setvalue class __MESSAGE.value
+END
+
+SCRIPT main_PREINIT
+BEGIN
+	create STRING sLevel
+
+	program main_get_defaults
+END
+
+SCRIPT main_POSTINIT
+BEGIN
+	program main_initialize_controls
+END
+
+PROGRAM main_get_defaults
+BEGIN
+	call sLevel.setvalue class .__SEMG.dbsettings.level
+	call sLevel.withvalue main.sp_level.setdefault "@"
+END
+
+PROGRAM main_initialize_controls
+BEGIN
+	call main.sp_level.setvalue class sLevel.value
+END
+
+INCLUDE levels_list
+
+DIALOG main, label(resource LBL_TX_LEVEL) tabtitle("")
+BEGIN
+
+  COMBOBOX  sp_level	70	25	_spwd	.,		///
+	dropdown						///
+	label(resource SG__LEVEL_MAIN_SP_LEVEL)			///
+	default(c(level))					///
+	contents(levels)					///
+	option(level)
+  TEXT     tx_level	_spsep	@	180	.,  		///
+	label(resource SG__LEVEL_MAIN_SP_LEVEL)
+END
+
+PROGRAM main_output
+BEGIN
+	call program main_get_defaults
+
+	if ! main.sp_level.isdefault() {
+		call sg__ONEARG.settrue
+		call sg__PARAM2.setvalue "ChangeLevel"
+		call sg__ARG_00.setvalue class main.sp_level.value
+		call sg__DESCPT.setvalue "change confidence level"
+		put /program sg__do_output_sub
+	}
+END
+
+/*****************************************************************************/
+
+PROGRAM command
+BEGIN
+	call sg__PARAM1.setvalue class OBJ.value
+	
+	put /program main_output
+
+	call sg__PARAM1.setvalue class OBJ.value
+	call sg__PARAM2.setvalue "UpdateDlg"
+	call sg__ARG_00.setvalue "level"
+	put /program sg__do_output_sub
+
+	call sg__PARAM1.setvalue class OBJ.value
+	call sg__PARAM2.setvalue "Reselect"
+	put /program sg__do_output_sub
+END

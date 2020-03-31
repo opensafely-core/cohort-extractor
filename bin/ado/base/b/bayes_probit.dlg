@@ -1,0 +1,126 @@
+/*
+  bayes probit
+
+*! VERSION 1.0.5  29may2019
+
+  keyword:  eclass
+
+*/
+
+VERSION 15.0
+
+INCLUDE _std_wide
+DEFINE _dlght 500
+INCLUDE header
+
+HELP hlp1, view("help bayes_probit")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource BAYES_PROBIT_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script prior_gibbs_hide
+	script rpt_coef_on
+	program prior_show_normal_default
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)				///
+	title(resource BAYES_PROBIT_DLG_TITLE)
+BEGIN
+  TEXT tx_dv 		_lft	_top	_vnwd	.,			///
+	label(resource LBL_DEPVAR)
+  VARNAME vn_dv		@ 	_ss	@	.,			///
+	ts								///
+	numeric								///
+	label(resource LBL_DEPVAR)
+
+  TEXT tx_iv		_vlx	_top	160	.,			///
+	label(resource LBL_INDDEPVAR)
+  VARLIST vl_iv		@	_ss	_vlwd	.,			///
+	fv ts								///
+	allowcat							///
+	numeric								///
+	label(resource LBL_INDDEPVAR)
+  CHECKBOX ck_nocons @         _ms       @         .,			///
+	label(resource LBL_NOCONSTANT)					///
+	option(noconstant)
+
+  GROUPBOX gb_output _lft      _ls      _iwd      _ht8,		///
+	label(resource LBL_OPTIONS)
+  TEXT     tx_offset _ilft     _ms       _ibwd     .,			///
+	label(resource LBL_OFFSET_VARIABLE)
+  VARNAME  vn_offset @         _ss       _vnwd     .,			///
+	label(resource LBL_OFFSET_VARIABLE)				///
+	numeric								///
+	option(offset)
+  CHECKBOX ck_asis   @         _ls       _ibwd     .,			///
+	label(resource LBL_RETAIN_PERFECT_PREDICTOR_VARS)		///
+	option(asis)
+	
+  DEFINE _x _ilft
+  DEFINE _xw _cwd1
+
+//  CHECKBOX ck_collinear _x _ms _xw ., option("collinear")	///
+//  	label(resource _CK_COLLINEAR_CK_COLLINEAR)
+END
+
+INCLUDE ifin
+INCLUDE weights_f
+INCLUDE bayes_priors
+INCLUDE bayes_simulation
+INCLUDE bayes_blocking
+INCLUDE bayes_initialization
+INCLUDE bayes_adaptation
+INCLUDE bayes_reporting
+INCLUDE bayes_advanced
+
+PROGRAM bayes_opts_output
+BEGIN
+	beginoptions
+		put " " /program bayes_priors_output
+		put " " /program bayes_simulation_output
+		put " " /program bayes_blocking_output
+		put " " /program bayes_init_output
+		put " " /program bayes_adaptation_output
+		put " " /program bayes_reporting_output
+		put " " /program bayes_advanced_output
+	endoptions
+END
+
+PROGRAM bayes_build_parse 
+BEGIN
+	put "probit "
+	varlist main.vn_dv [main.vl_iv]
+	beginoptions
+		option main.ck_nocons
+		optionarg main.vn_offset
+		option main.ck_asis
+//		option main.ck_collinear
+	endoptions
+END
+
+PROGRAM ecommand_output
+BEGIN
+	put "probit "
+	varlist main.vn_dv [main.vl_iv]
+	put " " /program ifin_output
+	put " " /program weights_output
+	beginoptions
+		option main.ck_nocons
+		optionarg main.vn_offset
+		option main.ck_asis
+//		option main.ck_collinear
+	endoptions
+END
+
+PROGRAM command
+BEGIN
+	put "bayes"
+	put /program bayes_opts_output
+	put " : "
+	put /program ecommand_output
+END

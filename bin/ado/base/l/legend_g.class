@@ -1,0 +1,938 @@
+//                               legend_g
+//
+//	Base class for legends
+// 
+//  Legends are typically maintained in one of two ways:
+//
+//	1.  The .objkey of a graph or graphs are placed in .graphs[] and
+//	    .rebuild is used to extract the keys and labels from the 
+//	    graph(s) views.  Note that this method requires that the views 
+//	    implement .newkey.
+//
+//	2.  The keys and labels are placed directly in the legend using 
+//	    .addkey so that .rebuild is not used and .graphs[] need not be
+//	    maintained.  When all keys have been added, must invoke
+//	    .repositionkeys.
+//
+//  The first method is easier and more automated.  The second is more
+//  flexible.
+
+
+*! version 1.1.3  17oct2008
+
+version 8
+
+class {
+	legendstyle	style
+
+	keygap		= .spacer.new
+	rowsp		= .spacer.new
+	colsp		= .spacer.new
+
+	holes		= ""			// list of holes
+	labelwidth	= .gsize.new , style(default)
+
+	array		keys
+	array		labels
+	array		map			// ordering for keys
+
+	// plotregion1 is inserted in our grid and holds the keys.
+	// it is really a grid
+
+	_all		= 0			// keys for all plots/views
+	_styleonly	= 0			// keys for only style changes
+
+	array		graphs			// array of graph keys
+
+	dialog		= "legend"
+
+} , inherit(grid)
+
+
+// ---------------------------------------------------------------------------
+//
+//  Usage:	.new , graphs(graph_objkeys) ...
+
+program new
+
+	syntax [ , GRaphs(string) * ]
+
+
+	.Super.new , `options'
+
+	.xstretch.set fixed
+	.ystretch.set fixed
+	.subview.set_true
+
+	.insert (plotregion1 = .grid.new, subview			///
+		style(scheme legend_key_region)) new
+	.plotregion1.xstretch.set fixed 
+	.plotregion1.ystretch.set fixed 
+
+	foreach gr of local graphs {
+		.graphs.Arrpush `gr'
+	}
+end
+
+
+// ---------------------------------------------------------------------------
+//  Usage:  addkey key_view text_for_label
+
+program addkey
+	gettoken keyview label : 0
+	
+	if `"`keyview'"' != `""' {
+		.keys[`=`.keys.arrnels'+1'] = .`keyview'.ref
+		.map[`=`.map.arrnels'+1'] = `.keys.arrnels'
+
+		gettoken unused rest : label , qed(quoted)
+		if `quoted' & `"`rest'"' != `""' {
+			.labels.Arrpush `"`"`label'"'"'
+		}
+		else {
+			capture local unq `label'
+			local rc = _rc
+			if (!`rc') {
+				local 0 `", try(`unq')"'	// be safe
+				capture syntax [, TRY(string asis) ]
+			}
+			if `rc' | _rc {
+				if `quoted' {
+					.labels.Arrpush `"`label'"'
+				}
+				else {
+					.labels.Arrpush `"`"`label'"'"'
+				}
+			}
+			else {
+				.labels.Arrpush `label'
+			}
+		}
+	}
+end
+
+// ---------------------------------------------------------------------------
+//  Usage:  rmkey [key_dex]
+//
+//  Note, .repositionkeys should be called after one or more calls to rm_key.
+
+program rmkey
+	args dex
+
+	local top `.map.arrnels'
+
+	if `"`dex'"' == `""' {					// pop
+		.keys[`.map[`top']'].Arrdropel
+		.map[`top'].Arrdropel
+		.labels.[`top']Arrdropel
+		exit
+	}
+
+	capture confirm integer `dex'
+	if _rc | `dex' < 1 {
+		exit						// silent
+	}
+
+	if `dex' > 0`.map.arrnels' {
+		exit						// silent
+	}
+
+	local ktop `.keys.arrnels'
+	forvalues i=0`.map[`dex']'/`=`ktop'-1' {
+		.keys.Arrdropel[`i']   = .keys.Arrdropel[`=`i'+1'] 
+	}
+
+	forvalues i=`dex'/`=`top'-1' {
+		.keys.Arrdropel[`i']   = .keys.Arrdropel[`=`i'+1'] 
+		.labels.Arrdropel[`i'] = .labels.Arrdropel[`=`i'+1'] 
+	}
+
+	.keys.Arrdropel[`ktop']
+	.map.Arrdropel[`top'] 
+	.labels.Arrdropel[`top'] 
+end
+
+
+// ---------------------------------------------------------------------------
+//  Rebuilds the keys and labels from the array of graphs in .graphs
+//
+//  Option all specifies that ALL views get an entry in the legend, by default
+//  only views having a style that differs from all previously added keys gets
+//  an entry.  
+//
+//  Option styleonly only states that the stylename only is to be considered
+//  in determining keys to be excluded, by default both the stylename and the
+//  the classname of the view are used.
+//
+//  Only views providing .newkey will be added.  The key will only be labeled
+//  if the view also supports .label.
+//
+//  Note, does not create the key and label view in the "plotregion", must
+//  call .repositionkeys after .rebuild to complete creation of the legend.
+
+program rebuild
+
+	syntax [ , ALL STYLEOnly ]
+
+	local all	= 0`._all'       | "`all'"       != ""
+	local fullstyle	= 0`._styleonly' | "`styleonly'" == ""
+
+	.clear
+
+	tempname key
+	local ct 0
+	forvalues i = 1/0`.graphs.arrnels' {
+	    local graph `.graphs[`i']'
+	    if `.`graph'.isofclass piegraph_g' {
+	    	local plotregions plotregion1
+	    }
+	    else {
+	    	local plotregions `.`graph'.list_ofclass plotregion'
+	    }
+	    foreach plreg of local plotregions {
+		foreach vwnm in `.`graph'.`plreg'.list_ofclass anyview_g' {
+
+		    local view `.`graph'.`plreg'.`vwnm'.objkey'
+
+		    local style  `.`view'.style.stylename'
+		    local fstyle `style'
+		    if `fullstyle' {
+			local fstyle "`.`view'.type.stylename':`style'"
+		    }
+
+		    local pos : list posof "`fstyle'" in stylelist
+		    if `all' | ! `pos' {
+			forvalues k = 1/0`.`view'.numkeys' {
+			    capture .`key'.ref = .`view'.newkey `k' ,	///
+				    pos(`.style.key_position.snm')
+			    if ! _rc  & "`.`key'.isa'" == "class" {
+				.addkey `key' `"`.`view'.label , keynum(`k')'"'
+				local ++ct
+				if "`style'" != "" {
+				    local stylelist "`stylelist' `fstyle'"
+				}
+				else {
+				    local stylelist `"`stylelist' """'
+				}
+			    }
+			    capture class free `key'
+			}
+		    }
+		    else {
+		    	if  `"`.labels[`pos']'"' != `"`.`view'.label'"' {
+		    	   .labels[`pos'] = `"`.labels[`pos']'/`.`view'.label'"'
+
+			   local 0 `", try(`.labels[`pos']')"'	   // be safe
+			   capture syntax [, TRY(string asis) ]
+			   if _rc {
+				.labels[`pos'] =  `"`"`.labels[`pos']'"'"'
+			   }
+			}
+		    }
+
+		}
+	    }
+	}
+
+	if ((`ct' > 1 & ! 0`.style.force_nodraw.istrue') |		///
+	    0`.style.force_draw.istrue') {
+		.draw_view.set_true
+	}
+	else {
+		.draw_view.set_false
+	}
+
+end
+
+
+// ---------------------------------------------------------------------------
+//  Recreate the key and label area of the legend using the current style
+//  settings.
+
+program repositionkeys
+	args keepstyles
+
+	if "`keepstyles'" == "keepstyles" {			// for editor
+		tempname styles text
+		.`styles' = {}
+		.`text'   = {}
+		forvalues i = 1/0`.plotregion1.label.arrnels' {
+			.`styles'[`i'] = .plotregion1.label[`i'].style.ref
+			.`text'[`i']   = .plotregion1.label[`i'].text
+		}
+	}
+
+	foreach view in key label rowsp colsp keygap {		// clear
+		if "`.plotregion1.`view'.isa'" != "" {
+			.plotregion1.delete `view'
+		}
+	}
+
+							// # of rows and cols
+	local nwh = 0`.map.arrnels' + 0`:word count `.holes''
+
+	if 0`.style.rows.val'+0`.style.cols.val' <= 0 {
+		.cols = 2
+	}
+
+	if 0`.style.rows.val' > 0 {
+		local rows `.style.rows.val'
+		local cols = 1 + int((`nwh' - 1) / `rows')
+	}
+	else if 0`.style.cols.val' > 0 {
+		local cols `.style.cols.val'
+		local rows = 1 + int((`nwh' - 1) / `cols')
+	}
+
+	tempname kgap lspc				// spacer and gaps
+	.keygap.set , xsize(`.style.key_gap.gmval')
+	.colsp.set  , xsize(`.style.col_gap.gmval')
+	.rowsp.set  , ysize(`.style.row_gap.gmval')
+
+	local force = cond(0`.style.force_keysize.istrue' , "force" , "")
+
+							// place keys and labels
+	local placepgm = "Place" +					///
+		cond(0`.style.text_first.istrue' , "TextKey" , "KeyText") + ///
+		cond(0`.style.stacked.istrue'    , "Stacked" , "Adj")     + ///
+		cond(0`.style.col_first.istrue'  , "Col"     , "Row")
+
+	.`placepgm' `nwh' `rows' `cols' `force'
+
+	if ("`keepstyles'" == "keepstyles")  .recapture_styles `styles' `text'
+	else				     .distribute_styles
+end
+
+
+//  Place legend components in Key-Text order, Text adjacent to keys and Row
+//  first.
+
+program PlaceKeyTextAdjRow
+	args n rows cols force
+
+	local holes `.holes'
+	if "`.labelwidth.stylename'" != "default" {
+		local labwidth textwidth(`.labelwidth.val')
+	}
+	local p .plotregion1
+	local s .`.objkey'
+	._try_align west left middle center
+	local r = 2 * `rows' - 1
+	local c 0
+	local i 0
+	forvalues j = 1/0`n' {
+	    if  0`:list j in holes' {
+	    	local c = `c' + 3
+	    }
+	    else {
+	    	local ++c
+		local k 0`.map[`++i']'
+		if "`.keys[`k'].isa'" != "" {
+		    .keys[`k'].set , xsize(`.style.key_xsize.gmval')	    ///
+				     ysize(`.style.key_ysize.gmval')	    ///
+				     pos(`.style.key_position.snm') `force'
+		    `p'.insert (key    = `s'.keys[`k'].ref)	at `r' `c'
+		}
+		`p'.insert (keygap = `s'.keygap.ref)		at `r' `++c'
+		`p'.insert (label  = .sized_textbox.new ,		    ///
+			mtextq(`"`.labels[`i']'"') `labwidth'		    ///
+			styleref(`.style.labelstyle.objkey'))	at `r' `++c'
+	    }
+	    if `c' >= 4 * `cols' - 1 {
+		if `j' < `n' {
+		    `p'.insert (rowsp = `s'.rowsp.ref)		at `--r' `c'
+		}
+
+		local c 0
+		local --r
+	    }
+	    else {
+		`p'.insert (colsp = `s'.colsp.ref)		at `r' `++c'
+	    }
+	}
+end
+
+//  Place legend components in Text-Key order, Text adjacent to keys and Row
+//  first.
+
+
+program PlaceTextKeyAdjRow
+	args n rows cols force
+
+	local holes `.holes'
+	local p .plotregion1
+	local s .`.objkey'
+	._try_align east right middle center
+	local r = 2 * `rows' - 1
+	local c 0
+	local i 0
+	forvalues j = 1/0`n' {
+	    if  0`:list j in holes' {
+	    	local c = `c' + 3
+	    }
+	    else {
+		`p'.insert (label  = .sized_textbox.new ,		    ///
+			mtextq(`"`.labels[`++i']'"')			    ///
+			styleref(`.style.labelstyle.objkey'))	at `r' `++c'
+		`p'.insert (keygap = `s'.keygap.ref)		at `r' `++c'
+	    	local ++c
+		local k 0`.map[`i']'
+		if "`.keys[`k'].isa'" != "" {
+		    .keys[`k'].set , xsize(`.style.key_xsize.gmval')	    ///
+				     ysize(`.style.key_ysize.gmval')	    ///
+				     pos(`.style.key_position.snm') `force'
+		    `p'.insert (key    = `s'.keys[`k'].ref)	at `r' `c'
+		}
+	    }
+	    if `c' >= 4 * `cols' - 1 {
+		if `j' < `n' {
+		    `p'.insert (rowsp = `s'.rowsp.ref)		at `--r' `c'
+		}
+
+		local c 0
+		local --r
+	    }
+	    else {
+		`p'.insert (colsp = `s'.colsp.ref)		at `r' `++c'
+	    }
+	}
+end
+
+//  Place legend components in Key-Text order, Text adjacent to keys and
+//  Column first.
+
+program PlaceKeyTextAdjCol
+	args n rows cols force
+
+	local holes `.holes'
+	local p .plotregion1
+	local s .`.objkey'
+	._try_align west left middle center
+	local r = 2 * `rows' - 1
+	local c  0
+	local cc 0
+	local i  0
+	forvalues j = 1/0`n' {
+	    if  0`:list j in holes' {
+	    	local c = `c' + 3
+	    }
+	    else {
+	    	local ++ c
+		local k 0`.map[`++i']'
+		if "`.keys[`k'].isa'" != "" {
+		    .keys[`k'].set , xsize(`.style.key_xsize.gmval')	    ///
+				     ysize(`.style.key_ysize.gmval')	    ///
+				     pos(`.style.key_position.snm') `force'
+		    `p'.insert (key    = `s'.keys[`k'].ref)	at `r' `c'
+		}
+		`p'.insert (keygap = `s'.keygap.ref)		at `r' `++c'
+		`p'.insert (label  = .sized_textbox.new ,		    ///
+			mtextq(`"`.labels[`i']'"')			    ///
+			styleref(`.style.labelstyle.objkey'))	at `r' `++c'
+	    }
+	    if `c' < 4 * `cols' - 1 {
+		`p'.insert (colsp = `s'.colsp.ref)		at `r' `++c'
+	    }
+
+	    if `--r' < 2 {
+	    	local c  = `c' + 1
+		local cc = `c'
+		local r  = 2 * `rows' - 1
+	    }
+	    else {
+	        `p'.insert (rowsp = `s'.rowsp.ref)		at `r--' `c'
+	    	local c = `cc'
+	    }
+	}
+end
+
+//  Place legend components in Text-Key order, Text adjacent to keys and 
+//  Column first.
+
+program PlaceTextKeyAdjCol
+	args n rows cols force
+
+	local holes `.holes'
+	local p .plotregion1
+	local s .`.objkey'
+	._try_align east right middle center
+	local r = 2 * `rows' - 1
+	local c  0
+	local cc 0
+	local i  0
+	forvalues j = 1/0`n' {
+	    if  0`:list j in holes' {
+	    	local c = `c' + 3
+	    }
+	    else {
+		`p'.insert (label  = .sized_textbox.new ,		    ///
+			mtextq(`"`.labels[`++i']'"')			    ///
+			styleref(`.style.labelstyle.objkey'))	at `r' `++c'
+		`p'.insert (keygap = `s'.keygap.ref)		at `r' `++c'
+	    	local ++c
+		local k 0`.map[`i']'
+		if "`.keys[`k'].isa'" != "" {
+		    .keys[`k'].set , xsize(`.style.key_xsize.gmval')	    ///
+				     ysize(`.style.key_ysize.gmval')	    ///
+				     pos(`.style.key_position.snm') `force'
+		    `p'.insert (key    = `s'.keys[`k'].ref)	at `r' `++c'
+		}
+	    }
+	    if `c' < 4 * `cols' - 1 {
+		`p'.insert (colsp = `s'.colsp.ref)		at `r' `++c'
+	    }
+
+	    if `--r' < 2 {
+	    	local c  = `c' + 1
+		local cc = `c'
+		local r  = 2 * `rows' - 1
+	    }
+	    else {
+	        `p'.insert (rowsp = `s'.rowsp.ref)		at `r--' `c'
+	    	local c = `cc'
+	    }
+	}
+end
+
+//  Place legend components in Key-Text order, Text stacked below keys and Row
+//  first.
+
+program PlaceKeyTextStackedRow
+	args n rows cols force
+
+	.keygap.set , ysize(`.style.key_gap.gmval')
+
+	local holes `.holes'
+	local p .plotregion1
+	local s .`.objkey'
+	._try_align west left middle west
+	local r  = 4 * `rows'
+	local rr `r'
+	local c 0
+	local i 0
+	forvalues j = 1/0`n' {
+	    if  0`:list j in holes' {
+	    	local ++c
+		local r = `r' - 3
+	    }
+	    else {
+	    	local ++c
+		local --r
+		local k 0`.map[`++i']'
+		if "`.keys[`k'].isa'" != "" {
+		    .keys[`k'].set , xsize(`.style.key_xsize.gmval')	    ///
+				     ysize(`.style.key_ysize.gmval') 	    ///
+				     pos(`.style.key_position.snm') `force'
+		    `p'.insert (key    = `s'.keys[`k'].ref)	at `r' `c'
+		}
+		`p'.insert (keygap = `s'.keygap.ref)		at `--r' `c'
+		`p'.insert (label  = .sized_textbox.new ,		    ///
+			mtextq(`"`.labels[`i']'"')			    ///
+			styleref(`.style.labelstyle.objkey'))	at `--r' `c'
+	    }
+	    if `c' >= 2*`cols'-1 {
+		if `j' < `n' {
+		    `p'.insert (rowsp = `s'.rowsp.ref)		at `--r' `c'
+		}
+
+		local c 0
+		local rr `r'
+	    }
+	    else {
+		`p'.insert (colsp = `s'.colsp.ref)		at `r' `++c'
+		local r `rr'
+	    }
+	}
+end
+
+//  Place legend components in Text-Key order, Text stacked below keys and Row
+//  first.
+
+program PlaceTextKeyStackedRow
+	args n rows cols force
+
+	.keygap.set , ysize(`.style.key_gap.gmval')
+
+	local holes `.holes'
+	local p .plotregion1
+	local s .`.objkey'
+	._try_align west left middle west
+	local r  = 4 * `rows'
+	local rr `r'
+	local c 0
+	local i 0
+	forvalues j = 1/0`n' {
+	    if  0`:list j in holes' {
+	    	local ++c
+		local r = `r' - 3
+	    }
+	    else {
+		`p'.insert (label  = .sized_textbox.new ,		    ///
+			mtextq(`"`.labels[`++i']'"')			    ///
+			styleref(`.style.labelstyle.objkey'))	at `--r' `++c'
+		`p'.insert (keygap = `s'.keygap.ref)		at `--r' `c'
+		local --r
+		local k 0`.map[`i']'
+		if "`.keys[`k'].isa'" != "" {
+		    .keys[`k'].set , xsize(`.style.key_xsize.gmval')	    ///
+				     ysize(`.style.key_ysize.gmval')	    ///
+				     pos(`.style.key_position.snm') `force'
+		    `p'.insert (key    = `s'.keys[`k'].ref)	at `r' `c'
+		}
+	    }
+	    if `c' >= 2*`cols'-1 {
+		if `j' < `n' {
+		    `p'.insert (rowsp = `s'.rowsp.ref)		at `--r' `c'
+		}
+
+		local c 0
+		local rr `r'
+	    }
+	    else {
+		`p'.insert (colsp = `s'.colsp.ref)		at `r' `++c'
+		local r `rr'
+	    }
+	}
+end
+
+//  Place legend components in Key-Text order, Text stacked below keys and 
+//  Column first.
+
+program PlaceKeyTextStackedCol
+	args n rows cols force
+
+	.keygap.set , ysize(`.style.key_gap.gmval')
+
+	local holes `.holes'
+	local p .plotregion1
+	local s .`.objkey'
+	._try_align west left middle west
+	local r  = 4 * `rows'
+	local rr `r'
+	local c  1
+	local cc 1
+	local i  0
+	forvalues j = 1/0`n' {
+	    if  0`:list j in holes' {
+	    	local ++c
+		local r = `r' - 3
+	    }
+	    else {
+	    	local --r
+		local k 0`.map[`++i']'
+		if "`.keys[`k'].isa'" != "" {
+		    .keys[`k'].set , xsize(`.style.key_xsize.gmval')	    ///
+				     ysize(`.style.key_ysize.gmval')	    ///
+				     pos(`.style.key_position.snm') `force'
+		    `p'.insert (key    = `s'.keys[`k'].ref)	at `r' `c'
+		}
+		`p'.insert (keygap = `s'.keygap.ref)		at `--r' `c'
+		`p'.insert (label  = .sized_textbox.new ,		    ///
+			mtextq(`"`.labels[`i']'"')			    ///
+			styleref(`.style.labelstyle.objkey'))	at `--r' `c'
+	    }
+	    if `r' > 4 {
+		if `j' < `n' {
+		    `p'.insert (rowsp = `s'.rowsp.ref)		at `--r' `c'
+		}
+
+		local c `cc'
+	    }
+	    else {
+		`p'.insert (colsp = `s'.colsp.ref)		at `r' `++c'
+		local ++c
+		local cc `c'
+		local r = 4 * `rows'
+	    }
+	}
+end
+
+//  Place legend components in Text-Key order, Text stacked below keys and 
+//  Column first.
+
+program PlaceTextKeyStackedCol
+	args n rows cols force
+
+	.keygap.set , ysize(`.style.key_gap.gmval')
+
+	local holes `.holes'
+	local p .plotregion1
+	local s .`.objkey'
+	._try_align west left middle west
+	local r  = 4 * `rows'
+	local rr `r'
+	local c  1
+	local cc 1
+	local i  0
+	forvalues j = 1/0`n' {
+	    if  0`:list j in holes' {
+	    	local ++c
+		local r = `r' - 3
+	    }
+	    else {
+		`p'.insert (label  = .sized_textbox.new ,		    ///
+			mtextq(`"`.labels[`++i']'"')			    ///
+			styleref(`.style.labelstyle.objkey'))	at `--r' `c'
+		`p'.insert (keygap = `s'.keygap.ref)		at `--r' `c'
+		local --r
+		local k 0`.map[`i']'
+		if "`.keys[`k'].isa'" != "" {
+		    .keys[`k'].set , xsize(`.style.key_xsize.gmval')	    ///
+				     ysize(`.style.key_ysize.gmval')	    ///
+				     pos(`.style.key_position.snm') `force'
+		    `p'.insert (key    = `s'.keys[`k'].ref)	at `r' `c'
+		}
+	    }
+	    if `r' > 4 {
+		if `j' < `n' {
+		    `p'.insert (rowsp = `s'.rowsp.ref)		at `--r' `c'
+		}
+
+		local c `cc'
+	    }
+	    else {
+		`p'.insert (colsp = `s'.colsp.ref)		at `r' `++c'
+		local ++c
+		local cc `c'
+		local r = 4 * `rows'
+	    }
+	}
+end
+
+
+// ---------------------------------------------------------------------------
+// Make each labels style its own copy of the overall style.  Done so the
+// editor can change the appearance of individual labels.
+
+program distribute_styles
+
+	forvalues i = 1/0`.plotregion1.label.arrnels' {
+	  .plotregion1.label[`i'].resetstyle , style(`.style.labelstyle.objkey')
+	}
+
+end
+
+
+// ---------------------------------------------------------------------------
+// Make each labels style its own copy of the previous style and its text
+// its previous text. Done so the editor can change the content and appearance 
+// of individual labels and retain previous settings.
+
+program recapture_styles
+	args styles text
+
+	forvalues i = 1/0`.plotregion1.label.arrnels' {
+		.plotregion1.label[`i'].style.ref = .`styles'[`i'].ref
+		.plotregion1.label[`i'].text.ref  = .`text'[`i'].ref
+	}
+
+end
+
+
+// ---------------------------------------------------------------------------
+//  Parse and specify edits to the existing key labels and optional
+//  additional unkeyed labels to appear.
+
+program parse_order
+
+	if `"`0'"' == `""' {
+		exit
+	}
+
+	tempname nmap nlabs			// in case we fail.
+	.`nmap'  = {}
+	.`nlabs' = {}
+
+	gettoken dex 0 : 0 , quotes
+
+	local i 0
+	while `"`dex'"' != `""' {
+		if `"`dex'"' == `"-"' {
+			.`nmap'[`++i'] = 0
+		}
+		else {
+			capture confirm integer number `dex'
+			if _rc {
+				di as error "`dex' not an integer, option" ///
+					" order() ignored"
+				exit
+			}
+			.`nmap'[`++i'] = `dex'
+			capture .`nlabs'[`i'] = .labels[`dex']
+		}
+
+		local pass1 1
+		while 1 {
+			gettoken text 0 : 0 , quotes		// quoted
+			gettoken tuq    : text			// unquoted
+
+			if `"`text'"' == `"`tuq'"' {
+				local dex `tuq'		// assume next dex
+				continue , break
+			}
+
+			if `pass1' {
+				.`nlabs'[`i'] = `"`text'"'
+				local pass1 0
+			}
+			else {
+				.`nlabs'[`i'] = `"`.`nlabs'[`i']' `text'"'
+			}
+		}
+	}
+
+	.map.ref    = .`nmap'.ref
+	.labels.ref = .`nlabs'.ref
+
+	.repositionkeys
+
+end
+
+
+program _try_align
+	args box just align key
+
+	if "`.style.labelstyle.box_alignment.stylename'" == "default" {
+		local edit `"labelstyle(box_alignment(`box'))"'
+	}
+	if "`.style.labelstyle.horizontal.stylename'" == "default" {
+		local edit `"`edit' labelstyle(horizontal(`just'))"'
+	}
+	if "`.style.labelstyle.vertical.stylename'" == "default" {
+		local edit `"`edit' labelstyle(vertical(`align'))"'
+	}
+
+	if "`.style.key_position.stylename'" == "default" {
+		local edit `"`edit' key_position(`key')"'
+	}
+
+	if `"`edit'"' != `""' {
+		.style.editstyle `edit' editcopy
+	}
+
+
+end
+
+
+// ---------------------------------------------------------------------------
+//   Clear the current keys and labels and their positioning in the
+//   "plotregion" grid.  Does NOT clear the graphs.
+
+program clear
+	foreach view in key label rowsp colsp keygap {		// clear
+		if "`.plotregion1.`view'.isa'" != "" {
+			.plotregion1.delete `view'
+		}
+	}
+
+	.keys.ref   = {}
+	.labels.ref = {}
+	.map.ref    = {}
+end
+
+
+// ---------------------------------------------------------------------------
+//  Parse title options and push its declaration and any style edits onto the 
+//  specified log.
+//
+//  This call MUST occur after the declaration of plotregion1 has been pushed.
+//  Returns the unparsed options.
+//
+//	Usage:  local options = `".parse_and_log_title <logname> `options'"'
+
+
+program parse_and_log_titles , rclass
+
+	if "`.title.isa'" != "" {
+		.parse_and_log_titles_edits `0'
+		exit
+	}
+
+	gettoken log   0 : 0
+	gettoken obj   0 : 0
+
+							// preferred span order
+  _fr_title_parse_and_log `log' "`obj'" note     NOTE     leg_note     `0'
+  _fr_title_parse_and_log `log' "`obj'" caption  CAPtion  leg_caption  `r(rest)'
+  _fr_title_parse_and_log `log' "`obj'" subtitle SUBtitle leg_subtitle `r(rest)'
+  _fr_title_parse_and_log `log' "`obj'" title    Title    leg_title    `r(rest)'
+	
+	return local rest `r(rest)'
+end
+
+program parse_and_log_titles_edits , rclass
+	gettoken log   0 : 0
+	gettoken obj   0 : 0
+
+							// preferred span order
+	_fr_tedits_parse_and_log `log' "`obj'" note     NOTE     `0'
+	_fr_tedits_parse_and_log `log' "`obj'" caption  CAPtion  `r(rest)'
+	_fr_tedits_parse_and_log `log' "`obj'" subtitle SUBtitle `r(rest)'
+	_fr_tedits_parse_and_log `log' "`obj'" title    Title    `r(rest)'
+	
+	return local rest `r(rest)'
+end
+
+// ---------------------------------------------------------------------------
+// Returns our size
+
+program xsize
+	class exit = 0`.Super.xsize' +					///
+		     0`.style.boxmargin.gmleft' + 0`.style.boxmargin.gmright'
+end
+
+program ysize
+	class exit = 0`.Super.ysize' +					///
+		     0`.style.boxmargin.gmbottom' + 0`.style.boxmargin.gmtop'
+end
+
+// ---------------------------------------------------------------------------
+//  Use compass_draw to allow alignment of the sized legend in an area that
+//  is possibly larger than the size of the legend.
+
+program draw
+
+	syntax [, * ]
+
+	.compass_draw , align(style.box_alignment) drawpgm(_super_draw)	///
+			margins(style.margin) `options'
+end
+
+program _super_draw
+
+	syntax [, XSize(real 0) YSize(real 0) * ]
+
+	.xsize_ren = `xsize'
+	.ysize_ren = `ysize'
+	.style.boxmargin.setgdi, view(`.objkey')		// boxmargin
+
+	.Super.draw , xsize(`.xsize_ren') ysize(`.ysize_ren') `options'
+end
+
+
+// ---------------------------------------------------------------------------
+// Edits from the graph editor.
+
+program Edit
+	
+	syntax [, style(string asis) cmd(string asis) noreposition keepstyles *]
+
+	if (`"`style'`cmd'"' == `""')  exit				// Exit
+
+	while `"`style'`cmd'"' != `""' {
+		if `"`style'"' != "" {
+			.style.editstyle `style' editcopy
+		}
+
+		if `"`cmd'"' != `""' {
+			`cmd'
+		}
+
+		local 0 `", `options'"'
+		syntax [, style(string asis) cmd(string asis) * ]
+	}
+
+	syntax [, FAKE_OPT_FOR_BETTER_MSG ]
+
+	if ("`noreposition'" == "")  .repositionkeys `keepstyles'
+end

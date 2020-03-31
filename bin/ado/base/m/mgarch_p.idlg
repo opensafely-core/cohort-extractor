@@ -1,0 +1,105 @@
+/*
+	predict (after mgarch) INCLUDE file
+
+*!  VERSION 1.1.0  23oct2014
+
+*/
+
+SCRIPT POSTINIT
+BEGIN
+	script _p_gentype_multiple
+	script _p_gentype_setMedium
+	program check_for_correlation_rb
+END
+
+PROGRAM check_for_correlation_rb
+BEGIN
+	if has_correlation_rb {
+		call main.rb_correlation.show
+		call main.gb_opt.setposition . . . 105 
+	}
+	else {
+		call main.rb_correlation.hide
+		call main.gb_opt.setposition . . . 85
+	}
+END
+
+DIALOG main, label(resource PREDICT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  INCLUDE  _p_gentype
+
+  GROUPBOX gb_opt	_lft	_ls	_iwd	_ht7h,			///
+	label(resource LBL_PRODUCE)
+  RADIO rb_xb		_ilft	_ss	_inwd	., first		///
+	option(xb)							///
+	onclickon(script main_rb_xb)					///
+	label(resource LBL_LINEAR_PREDICTION)
+  RADIO rb_residuals	@	_ss	@	.,			///
+	option(residuals)						///
+	onclickon(script main_rb_residuals)				///
+	label(resource LBL_RESIDUALS)
+  RADIO rb_variance	@	_ss	@	., 			///
+	option(variance)						///
+	onclickon(script main_rb_variance)				///
+	label(resource MGARCH_P_MAIN_RB_VARIANCE)
+  RADIO rb_correlation	@	_ss	@	., last			///
+	option(correlation)						///
+	onclickon(script main_rb_correlation)				///
+	label(resource MGARCH_P_MAIN_RB_CORRELATION)
+END
+
+SCRIPT main_rb_xb
+BEGIN
+	opts.tx_dynamic.enable
+	opts.ed_dynamic.enable
+END
+
+SCRIPT main_rb_residuals
+BEGIN
+	opts.tx_dynamic.disable
+	opts.ed_dynamic.disable
+END
+
+SCRIPT main_rb_variance
+BEGIN
+	opts.tx_dynamic.enable
+	opts.ed_dynamic.enable
+END
+
+SCRIPT main_rb_correlation
+BEGIN
+	opts.tx_dynamic.enable
+	opts.ed_dynamic.enable
+END
+
+INCLUDE ifin
+
+DIALOG opts, tabtitle(resource LBL_OPTIONS)
+BEGIN
+  TEXT tx_equation	_lft	_top	_iwd	.,			///
+	label(resource LBL_NAME_OF_EQUATIONS_FOR_PREDICTIONS)
+  EDIT ed_equation	@	_ss	@	.,			///
+	option(equation)						///
+	label(resource LBL_NAME_OF_EQUATIONS_FOR_PREDICTIONS)
+  
+  TEXT tx_dynamic	@	_ls	@	.,			///
+	label(resource LBL_DYNAMIC_FORECASTS)
+  EDIT ed_dynamic	@	_ss	@	.,			///
+	option(dynamic)							///
+	label(resource LBL_DYNAMIC_FORECASTS)
+END
+
+INCLUDE _p_gentype_sc
+INCLUDE _type_list_fd
+
+PROGRAM command
+BEGIN
+	put "predict "
+	put " " /program _p_gentype_output
+	INCLUDE _ifin_pr
+	beginoptions
+		option radio(main rb_xb rb_residuals rb_variance rb_correlation)
+		optionarg opts.ed_equation
+		optionarg opts.ed_dynamic
+	endoptions
+END

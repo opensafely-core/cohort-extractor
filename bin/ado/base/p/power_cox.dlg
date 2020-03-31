@@ -1,0 +1,699 @@
+/*
+	power cox
+
+*!  VERSION 1.1.5  02may2017
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_xwide
+DEFINE _dlght 515
+INCLUDE header
+
+HELP hlp1, view("help power cox")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING graph_res
+	create STRING numContents
+	create STRING stok
+	create ARRAY tmp
+	create BOOLEAN containsNumlist
+	create BOOLEAN containsNumlist_bl
+
+	program table_create4Cox
+	setscale_hadj resource POWER_COX_DLG_HSCALE
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)			///
+  label(resource POWER_COX_DLG_TITLE)
+BEGIN
+  INCLUDE power_compute
+
+  DEFINE errpos _ls
+  INCLUDE power_errorprob
+
+  DEFINE sspos +40
+  INCLUDE power_onesampsize
+
+  GROUPBOX gb_effect_size	_lft	+40	_iwd	_ht7h,	///
+	label(resource LBL_EFFECT_SIZE)
+  GROUPBOX gb_effect_size2	@	@	@	_ht4h,	///
+	label(resource LBL_EFFECT_SIZE)
+  GROUPBOX gb_spec		_indent	_ss	_cwd1	_ht4h,	///
+	label(resource LBL_SPECIFY)
+  DEFINE holdy @y
+  RADIO	rb_hr			_indent	_ss	_rbwd	.,	///
+  	onclickon(program main_reg_hratio_check)		///
+  	first							///
+  	label("")
+  DEFINE holdy2 @y
+  RADIO	rb_reg			@	_ms	@	.,	///
+  	onclickon(program main_reg_hratio_check)		///
+  	last							///
+  	label("")
+  EDIT	ed_hr			_rbsep	holdy2	_en14wd	.,	///
+  	default(0.5)						///
+  	option(hratio)						///
+	onchange(program check_for_numlist)			///
+  	tooltip(resource POWER_COX_MAIN_ED_HR) ///
+  	label(resource LBL_HAZARD_RATIO)
+  DEFINE holdx @x
+  TEXT	tx_hr			_en14sep @	140	.,	///
+  	label(resource POWER_COX_MAIN_TX_HR)
+  EDIT	ed_reg			holdx	_ms	_en14wd	.,	///
+  	tooltip(resource POWER_COX_MAIN_ED_REG)			///
+	onchange(program check_for_numlist)			///
+  	label(resource LBL_REGRESSION_COEFFICIENT)
+  TEXT	tx_reg			_en14sep @	140	.,	///
+  	label(resource LBL_STAR_REGRESSION_COEFFICIENT)
+  TEXT	tx_report_effect	_lft2	holdy	150	.,	///
+	label(resource LBL_REPORT_EFFECT_SIZE_AS)
+  COMBOBOX cb_report_effect	@	 _ss	@	.,	///
+	dropdownlist						///
+	option(effect)						///
+	default(coefficient)					///
+	contents("main_esize_rpt_list")				///
+	values("main_esize_rpt_values")				///
+	label(resource LBL_REPORT_EFFECT_SIZE_AS)
+  GROUPBOX gb_covariate		_lft	+75	_iwd	_ht2,	///
+	label(resource LBL_TESTED_COVARIATE_PROPERTIES)  
+  EDIT	ed_sd			_indent _ss	_en14wd	.,	///
+  	default(0.5)						///
+	onchange(program check_for_numlist)			///
+	option(sd)						///
+  	tooltip(resource POWER_COX_MAIN_ED_SD_TIP) ///
+  	label(resource POWER_COX_MAIN_ED_SD)
+  TEXT	tx_sd			_en14sep @	120	.,	///
+  	label(resource LBL_STAR_STANDARD_DEVIATION)
+  EDIT	ed_r2			_lft2	@	_en14wd	.,	///
+  	default(0)						///
+	onchange(program check_for_numlist)			///
+	option(r2)						///
+  	tooltip(resource POWER_COX_MAIN_ED_R2_TIP) 		///
+  	label(resource POWER_COX_MAIN_ED_R2)	
+  TEXT	tx_r2			_en14sep @	120	.,	///
+  	label(resource LBL_STAR_CORRELATION)
+  CHECKBOX gb_cens		_lft	+40	_iwd	_ht2h,	///
+	label(resource LBL_ADJUST_FOR_CENSORING) groupbox	///
+	onclickon(program main_cens_check)			///
+	onclickoff(program main_cens_check)
+  EDIT ed_failprob		_ilft	_ms	_en14wd	.,	///
+	option(failprob)					///
+	default(1)						///
+	onchange(program check_for_numlist)			///
+	tooltip(resource POWER_COX_MAIN_ED_FAILPROB_TIP) 	///
+	label(resource POWER_COX_MAIN_ED_FAILPROB)
+  TEXT tx_pr			_en14sep @	155	.,	///
+	label(resource POWER_COX_MAIN_TX_PR)
+
+  EDIT ed_wdprob		_lft2	@	_en14wd	.,	///
+	option(wdprob)						///
+	default(0)						///
+	onchange(program check_for_numlist)			///
+	tooltip(resource POWER_COX_MAIN_ED_WDPROB) 		///
+	label(resource LBL_PROPORTION_OF_WITHDRAWS)
+  TEXT tx_wdprob		_en14sep @	150	.,	///
+	label(resource POWER_COX_MAIN_TX_WDPROB)
+
+  TEXT  tx_oneside		_lft	+40	_cwd1	.,	///
+	label(resource LBL_SIDES)
+  DEFINE test_y @y
+  COMBOBOX cb_oneside		@	_ss	_en14wd	.,	///
+	dropdownlist						///
+	contents(sides)						///
+	values(sides_values)
+
+  TEXT  tx_direction		_lft2 	test_y	_cwd1	.,	///
+	label(resource LBL_DIRECTION_OF_THE_EFFECT)
+  COMBOBOX cb_direction		@	_ss	_en14wd	.,	///
+	option(direction)					///
+	dropdownlist contents(directions) values(directions_values)
+  CHECKBOX ck_parallel		_lft	_ls	_iwd	.,	///
+	option(parallel)					///
+	label(resource LBL_TREAT_NUMBER_LISTS_IN_STARRED_OPTIONS_AS_PARALLEL)
+END
+
+LIST main_compute_list
+BEGIN
+	resource LBL_SAMPLE_SIZE
+	resource PSS_LBL_POWER
+	resource POWER_COX_EFFECT_SIZE
+END
+
+LIST main_compute_values
+BEGIN
+	"sampsi"
+	"power"
+	"effect"
+END
+
+LIST main_esize_rpt_list
+BEGIN
+	resource LBL_REGRESSION_COEFFICIENT
+	resource LBL_HAZARD_RATIO
+	resource LBL_LOG_HAZARD_RATIO
+END
+
+LIST main_esize_rpt_values
+BEGIN
+	"coefficient"
+	"hratio"
+	"lnhratio"
+END
+
+LIST directions
+BEGIN
+	resource LBL_EFFECT_DIRECTION_LOWER
+	resource LBL_EFFECT_DIRECTION_UPPER
+END
+
+LIST directions_values
+BEGIN
+	""
+	upper
+END
+
+LIST sides
+BEGIN
+	resource LBL_TWO_SIDED_TEST
+	resource LBL_ONE_SIDED_TEST
+END
+
+LIST sides_values
+BEGIN
+	""
+	onesided
+END
+
+PROGRAM main_compute_changed
+BEGIN
+	if main.cb_compute.iseq("sampsi") {
+		call program main_sampsi_on
+	}
+	if main.cb_compute.iseq("power") {
+		call program main_power_on
+	}
+	if main.cb_compute.iseq("effect") {
+		call program main_effect_on
+	}
+END
+
+PROGRAM main_sampsi_on
+BEGIN
+	call main.ed_power.show
+	call main.ed_beta.show
+	call main.tx_power_beta_power.show
+	call main.cb_power_beta.show
+	call main.ed_n.hide
+	call main.tx_n.hide
+	call main.ck_nfrac.show
+	call main.tx_direction.hide
+	call main.cb_direction.hide
+	call program main_power_beta_changed
+	call program main_reg_hratio_check
+	call program main_effect_show
+	call program main_cens_check
+	call program check_for_numlist
+END
+
+PROGRAM main_power_on
+BEGIN
+	call main.ed_power.hide
+	call main.ed_beta.hide
+	call main.tx_power_beta_power.hide
+	call main.cb_power_beta.hide
+	call main.ed_n.show
+	call main.tx_n.show
+	call main.ck_nfrac.hide
+	call main.tx_direction.hide
+	call main.cb_direction.hide
+	call program main_reg_hratio_check
+	call program main_effect_show
+	call program main_cens_check
+	call program check_for_numlist
+END
+
+PROGRAM main_effect_on
+BEGIN
+	call main.ed_power.show
+	call main.ed_beta.show
+	call main.tx_power_beta_power.show
+	call main.cb_power_beta.show
+	call main.ed_n.show
+	call main.tx_n.show
+	call main.ck_nfrac.hide
+	call main.tx_direction.show
+	call main.cb_direction.show
+	call program main_power_beta_changed
+	call program main_reg_hratio_check
+	call program main_effect_hide
+	call program main_cens_check
+	call program check_for_numlist
+END
+
+PROGRAM main_power_beta_table
+BEGIN
+	call program table_create4Cox
+END
+
+PROGRAM main_effect_show
+BEGIN
+	call main.gb_effect_size.show
+	call main.gb_effect_size2.hide
+	call main.gb_spec.show
+	call main.rb_reg.show
+	call main.rb_hr.show
+	call main.ed_reg.show
+	call main.tx_reg.show
+	call main.ed_hr.show
+	call main.tx_hr.show	
+	call main.tx_report_effect.setposition 335 200
+	call main.cb_report_effect.setposition 335 220
+	call main.gb_covariate.setposition 10 295
+	call main.ed_sd.setposition . 315
+	call main.tx_sd.setposition . 315
+	call main.ed_r2.setposition . 315
+	call main.tx_r2.setposition . 315	
+	call main.gb_cens.setposition . 355
+	call main.ed_failprob.setposition . 380
+	call main.tx_pr.setposition . 380
+	call main.ed_wdprob.setposition . 380
+	call main.tx_wdprob.setposition . 380
+	call main.tx_oneside.setposition . 420
+	call main.cb_oneside.setposition . 440
+	call main.tx_direction.setposition . 420
+	call main.cb_direction.setposition . 440 
+	call main.ck_parallel.setposition . 475
+END
+
+PROGRAM main_effect_hide
+BEGIN
+	call main.gb_effect_size.hide
+	call main.gb_effect_size2.show
+	call main.gb_spec.hide
+	call main.rb_reg.hide
+	call main.rb_hr.hide
+	call main.ed_reg.hide
+	call main.tx_reg.hide
+	call main.ed_hr.hide
+	call main.tx_hr.hide	
+	call main.tx_report_effect.setposition 20 200
+	call main.cb_report_effect.setposition 20 220
+	call main.gb_covariate.setposition 10 265
+	call main.ed_sd.setposition . 285
+	call main.tx_sd.setposition . 285
+	call main.ed_r2.setposition . 285
+	call main.tx_r2.setposition . 285
+	call main.gb_cens.setposition . 325
+	call main.ed_failprob.setposition . 350
+	call main.tx_pr.setposition . 350
+	call main.ed_wdprob.setposition . 350
+	call main.tx_wdprob.setposition . 350
+	call main.tx_oneside.setposition . 390
+	call main.cb_oneside.setposition . 410
+	call main.tx_direction.setposition . 390
+	call main.cb_direction.setposition . 410 
+	call main.ck_parallel.setposition . 445
+END
+
+PROGRAM main_reg_hratio_check
+BEGIN
+	if main.rb_reg {
+		call main.ed_reg.enable
+		call main.tx_reg.enable
+		call main.ed_hr.disable
+		call main.tx_hr.disable
+	}
+	else {
+		call main.ed_reg.disable
+		call main.tx_reg.disable
+		call main.ed_hr.enable
+		call main.tx_hr.enable
+	}
+	call program table_create4Cox
+END
+
+PROGRAM main_cens_check
+BEGIN
+	if main.gb_cens {
+		call main.ed_failprob.enable
+		call main.tx_pr.enable
+		call main.ed_wdprob.enable
+		call main.tx_wdprob.enable
+	}
+	else {
+		call main.ed_failprob.disable
+		call main.tx_pr.disable
+		call main.ed_wdprob.disable
+		call main.tx_wdprob.disable
+	}
+	if main.cb_compute.iseq("sampsi") {
+		call main.ed_wdprob.show
+		call main.tx_wdprob.show
+	}
+	else {
+		call main.ed_wdprob.hide
+		call main.tx_wdprob.hide
+	}
+END
+
+PROGRAM check_for_numlist
+BEGIN
+	call containsNumlist.setfalse
+	call containsNumlist_bl.setfalse
+
+	if main.ed_alpha {
+		call numContents.setvalue class main.ed_alpha.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_power.isvisible() {
+		call numContents.setvalue class main.ed_power.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_beta.isvisible() {
+		call numContents.setvalue class main.ed_beta.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+	
+	if main.ed_hr.isvisible() & main.ed_hr.isenabled() {
+		call numContents.setvalue class main.ed_hr.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_reg.isvisible() & main.ed_reg.isenabled() {
+		call numContents.setvalue class main.ed_reg.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+			call containsNumlist_bl.settrue
+		}
+	}
+	
+	if main.ed_sd.isvisible() & main.ed_sd.isenabled() {
+		call numContents.setvalue class main.ed_sd.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_r2.isvisible() & main.ed_r2.isenabled() {
+		call numContents.setvalue class main.ed_r2.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+		call program table_create4Cox
+	}
+
+	if main.ed_failprob.isvisible() & main.ed_failprob.isenabled() {
+		call numContents.setvalue class main.ed_failprob.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+	
+	if main.ed_wdprob.isvisible() & main.ed_wdprob.isenabled() {
+		call numContents.setvalue class main.ed_wdprob.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if containsNumlist {
+		call main.ck_parallel.enable
+	}
+	else {
+		call main.ck_parallel.disable
+	}
+END
+
+INCLUDE _power_list
+INCLUDE power_errorprob_pr
+INCLUDE power_table_opts
+INCLUDE power_graph
+
+PROGRAM power_test_maincommon_output
+BEGIN
+	optionarg /hidedefault main.cb_direction
+	put main.cb_oneside
+	option main.ck_parallel
+END
+
+PROGRAM command
+BEGIN
+	put "power cox "
+
+	if main.ed_reg.isenabled() {
+		require main.ed_reg
+		
+		if !main.ed_reg.isnumlist() {
+			call create STRING _MSG_TMP
+                        call _MSG_TMP.format				/// 
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_REGRESSION_COEFFICIENT" 
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Regression coefficient".
+		}	
+
+		if containsNumlist_bl {
+			put "("
+			put main.ed_reg
+			put ")"
+		}
+		else {
+			put main.ed_reg
+		}		
+	}	
+	
+	if main.cb_compute.iseq("power") | main.cb_compute.iseq("effect") {
+		require main.ed_n
+	}
+	
+	beginoptions
+		if main.ed_n & main.ed_n.isvisible() {
+			if !main.ed_n.isnumlist() {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_SAMPLE_SIZE"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Sample size".
+			}
+			if !main.ed_n.isNumlistGT(0) {
+			call create STRING _MSG_TMP
+                        call _MSG_TMP.format				/// 
+				"resource LBL_MSGBOX_ON_TAB_GREATER_THAN_0_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_SAMPLE_SIZE"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Sample size" must be greater than 0.
+			}
+			optionarg main.ed_n
+		}
+		option main.ck_nfrac
+		
+		if main.ed_hr.isenabled() {
+			require main.ed_hr
+
+			if !main.ed_hr.isnumlist() {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_HAZARD_RATIO"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Hazard ratio".
+			}
+			
+			if main.ed_hr.isNumlistLE(0) {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_GREATER_THAN_0_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_HAZARD_RATIO"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Hazard ratio" must be greater than 0.
+			}
+
+			optionarg /hidedefault main.ed_hr		
+		}		
+		
+		if main.ed_sd {
+			if !main.ed_sd.isnumlist() {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource POWER_COX_MAIN_ED_SD"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for 
+// "Standard deviation of covariate of interest".
+			}
+
+			if main.ed_sd.isNumlistLE(0) {
+	                        call create STRING _MSG_TMP
+        	                call _MSG_TMP.format			/// 
+					"resource LBL_MSGBOX_ON_TAB_GREATER_THAN_0_FMT" ///
+					"resource LBL_TAB_MAIN"		///
+					"resource POWER_COX_MAIN_ED_SD"
+        	               stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Standard deviation of covariate of interest" must be greater than 0.
+			}			
+
+			optionarg /hidedefault main.ed_sd
+		}
+		
+		if main.ed_r2 {
+			if !main.ed_r2.isnumlist() {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource POWER_COX_SQUARED_COEFF_MULTI_CORR"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for 
+// "Squared coefficient of multiple correlation with other predictors".
+			}
+			
+			if main.ed_r2.isNumlistLT(0) | main.ed_r2.isNumlistGE(1) {
+		call create STRING _MSG_TMP
+                        call _MSG_TMP.format				/// 
+				"resource LBL_MSGBOX_ON_TAB_GE_0_LT_1_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource POWER_COX_SQUARED_COEFF_MULTI_CORR"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Squared coefficient of multiple correlation with other predictors" 
+// must be in [0,1).
+			}
+
+			optionarg /hidedefault main.ed_r2
+		}
+		
+		if main.gb_cens {
+			require main.ed_failprob 
+
+			if !main.ed_failprob.isnumlist() {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource POWER_COX_MAIN_ED_FAILPROB"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for 
+// "Overall probability of a subject experiencing an event of interest in the study".
+			}
+
+			if main.ed_failprob.isNumlistLE(0) | main.ed_failprob.isNumlistGT(1) {
+			call create STRING _MSG_TMP
+                        call _MSG_TMP.format				/// 
+				"resource LBL_MSGBOX_ON_TAB_GT_0_LE_1_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource POWER_COX_MAIN_ED_FAILPROB" 
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Overall probability of a subject experiencing an event of interest in the study"
+// must be in (0,1].
+			}
+
+			optionarg /hidedefault main.ed_failprob
+			
+			if main.ed_wdprob.isvisible() {
+				if main.ed_wdprob & !main.ed_wdprob.isnumlist() {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_PROPORTION_OF_SUBJECTS_ANTICIPATED_WITHDRAW_FROM_ST"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for
+// "Proportion of subjects anticipated to withdraw from a study".
+				}
+
+				if main.ed_wdprob.isNumlistLT(0) | main.ed_wdprob.isNumlistGE(1) {
+			call create STRING _MSG_TMP
+                        call _MSG_TMP.format				/// 
+				"resource LBL_MSGBOX_ON_TAB_GE_0_LT_1_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_PROPORTION_OF_SUBJECTS_ANTICIPATED_WITHDRAW_FROM_ST"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Proportion of subjects anticipated to withdraw from a study" must be in [0,1).
+				}				
+
+				optionarg /hidedefault main.ed_wdprob
+			}
+		}
+		
+		optionarg /hidedefault main.cb_report_effect
+		put " " /program power_errorprob_output
+		put " " /program power_test_maincommon_output
+		put " " /program power_table_opts_output
+		put " " /program power_graph_output
+	endoptions
+END
+

@@ -1,0 +1,522 @@
+/*
+	icd10pcs
+
+*! VERSION 1.0.8  06dec2019
+
+*/
+
+VERSION 15.0
+
+INCLUDE _std_medium
+DEFINE _dlght 470
+INCLUDE header
+HELP hlp1, view("help icd10pcs")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource ICD10PCS_DLG_HSCALE
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	title(resource ICD10PCS_DLG_TITLE)
+BEGIN
+  GROUPBOX gb_utilities		_lft	_top	_iwd	_ht12,		///
+	label(resource LBL_UTILITIES)
+  RADIO rb_check		_ilft	_ss	_inwd	., first	///
+	onclickon(script main_check_on)					///
+	label(resource LBL_VERIFY_VARIABLE_CONTAINS_DEFINED_CODES)
+  RADIO rb_clean		@	_ss	@	.,		///
+	onclickon(script main_clean_on)					///
+	label(resource LBL_CLEAN_VARIABLE_VERIFY_FORMAT)
+  RADIO rb_generate		@	_ss	@	.,		///
+	onclickon(program main_generate_on)		                ///
+	label(resource LBL_GENERATE_VARIABLE_FROM_EXISTING_VARIABLE)
+  RADIO rb_lookup		@	_ss	@	.,		///
+	onclickon(script main_lookup_on)				///
+	label(resource LBL_DISPLAY_CODE_DESCRIPTION)
+  RADIO rb_search		@	_ss	@	.,		///
+	onclickon(script main_search_on)				///
+	label(resource LBL_SEARCH_FOR_CODES)
+  RADIO rb_query		@	_ss	@	., last		///
+	onclickon(script main_query_on)					///
+	label(resource ICD10PCS_MAIN_RB_QUERY)
+
+// check
+  TEXT tx_vn			_lft	+45	_iwd	.,		///
+	label(resource LBL_VARIABLE_NAME)
+  DEFINE holdy @y
+  VARNAME vn_vn			@	_ss	_vnwd	.,		///
+	label(resource LBL_VARIABLE_NAME)
+  GROUPBOX gb_opt		_lft	_ls	_iwd	_ht11,		///
+	label(resource LBL_OPTIONS)
+  CHECKBOX ck_fmtonly		_ilft	_ss	_ibwd	.,		///
+	option(fmtonly)							///
+	label(resource LBL_VERIFY_FORMAT_ONLY)
+  CHECKBOX ck_summary		@	_ms	@	.,		///
+	option(summary)							///
+	clickon("main.ck_list.disable")					///
+	clickoff("main.ck_list.enable")					///
+	label(resource LBL_FREQ_INVALID_UNDEFINED_CODE)
+  CHECKBOX ck_list		@	_ms	@	.,		///
+	option(list)							///
+	clickon("main.ck_summary.disable")				///
+	clickoff("main.ck_summary.enable")				///
+	label(resource LBL_LIST_INDIVIDUAL_INVALID_CODES)
+  CHECKBOX ck_gen		@	_ms	_ibwd	.,		///
+	clickon("main.ed_checkgen.enable")				///
+	clickoff("main.ed_checkgen.disable")				///
+	label(resource LBL_CREATE_A_NEW_VARIABLE_REASON_CODE_NOT_DEF)
+  EDIT ed_checkgen		_indent2 _ss	_vnwd	.,		///
+	option(generate)						///
+	max(32)								///
+	label(resource LBL_CREATE_A_NEW_VARIABLE_REASON_CODE_NOT_DEF)
+
+// clean
+  RADIO rb_cleangen		_ilft	-95	_ibwd	., first	///
+	onclickon("main.ed_cleangen.enable")				///
+	onclickoff("main.ed_cleangen.disable")				///
+	label(resource LBL_CREATE_A_NEW_VAR_CONTAINING_CLEANED_CODE)
+  RADIO rb_cleanrep		@	+45	@	., last		///
+	option(replace)							///
+	onclickon("main.ed_cleangen.disable")				///
+	label(resource LBL_REPLACE_EXISTING_CODES_CLEANED_CODE)
+  EDIT ed_cleangen		_indent2 -25	_vnwd	.,		///
+	option(generate)						///
+	max(32)								///
+	label(resource LBL_CREATE_A_NEW_VAR_CONTAINING_CLEANED_CODE)
+  CHECKBOX ck_check		_ilft	+50	_ibwd	.,		///
+	option(check)							///
+	label(resource LBL_CHK_VAR_CONTAINS_VALID_CODES)
+  CHECKBOX ck_nodots		_ilft	_ms	_ibwd	.,		///
+	option(nodots)							///
+ 	label(resource LBL_FRMT_CODE_WITHOUT_PERIOD)
+
+// generate
+  TEXT tx_gen			_lft	holdy	_cwd1	.,		///
+	label(resource LBL_GENERATE_NEW_VARIABLE_NAME)
+  EDIT ed_gen			@	_ss	_vnwd	.,		///
+	max(32)								///
+	label(resource LBL_GENERATE_NEW_VARIABLE_NAME)
+  TEXT tx_gen_vn		_lft2	holdy	_cwd1	.,		///
+	label(resource LBL_FROM_EXISTING_VARIABLE_NAME)
+  VARNAME vn_gen_vn		@	_ss	_vnwd	.,		///
+	label(resource LBL_FROM_EXISTING_VARIABLE_NAME)
+  COMBOBOX cb_gen 		_ilft 	+55	_ibwd	.,		///
+	dropdownlist							///
+	contents(generate_list)						///
+	values(generate_values)						///
+	onselchange(program generate_pgm_sel)
+  CHECKBOX ck_catcheck		_ilft	_ls	@	.,		///
+  	option(check)							///
+  	label(resource LBL_CHK_VAR_CONTAINS_ICD10_CODES)
+  CHECKBOX ck_begin		@	@	_inwd	.,	        ///
+	option(addcode(begin))                                          ///
+	onclickon(program main_begin_check)				///
+	onclickoff(program main_begin_check)				///
+	label(resource LBL_PREPEND_CODE_TO_DESC)
+  CHECKBOX ck_end		_ilft	_ms	@	.,	        ///
+	option(addcode(end))						///
+	onclickon(script main_end_on)				        ///
+	onclickoff(program main_end_off)			        ///
+	label(resource LBL_APPEND_CODE_TO_DESC)
+  CHECKBOX ck_gendots		@	_ms	@	.,		///
+ 	option(nodots)							///
+ 	label(resource LBL_FRMT_CODE_WITHOUT_PERIOD)
+  CHECKBOX ck_gencheck		@	_ms	@	.,		///
+	option(check)							///
+	label(resource LBL_CHK_VAR_CONTAINS_VALID_CODES)
+  CHECKBOX ck_long		@	_ms	@	.,		///
+	option(long)							///
+	label(resource ICD_LBL_CHK_USE_LONG_DESCRIPTION)
+  COMBOBOX cb_version		@	_ms	_spwd	.,		///
+	dropdown							///
+	option(version)							///
+	contents("main_version_list")					///
+	label(resource ICD10PCS_MAIN_TX_YEAR)
+DEFINE x @x
+  TEXT tx_version		_spsep	@	270	.,		///
+	label(resource ICD10PCS_MAIN_TX_YEAR)
+  TEXT tx_rang		        x	-130	_vlwd	.,		///
+	label(resource LBL_TX_RANGE_LIST)
+  EDIT ed_rang			x	_ss	_vlwd	.,		///
+	option(range)							///
+	label(resource LBL_GENERATE_INDICATOR_VAR_FROM_RANGE_LIST)
+  CHECKBOX ck_rangcheck		@	_ms	@	.,		///
+  	option(check)							///
+	label(resource LBL_CHK_VAR_CONTAINS_VALID_CODES)
+
+// lookup
+  TEXT tx_lookup		_lft	holdy	_iwd	.,		///
+	label(resource ICD10PCS_MAIN_TX_LOOKUP)
+  EDIT ed_lookup		@	_ss	_vnwd	.,		///
+	label(resource ICD10PCS_MAIN_TX_LOOKUP)
+
+// search
+  TEXT tx_search		_lft	holdy	_iwd	.,		///
+	label(resource LBL_KEYWORDS)
+  EDIT ed_search		@	_ss	@	.,		///
+  	label(resource LBL_KEYWORDS)
+  CHECKBOX ck_or		_ilft	+50	_ibwd	.,		///
+  	option(or)							///
+  	label(resource LBL_USE_OR_LOGIC)
+  CHECKBOX ck_matchcase		@	_ms	@	.,		///
+  	option(matchcase)						///
+	label(resource LBL_MATCH_CASE)
+
+// query
+  TEXTBOX tb_query		_lft	holdy	_iwd	.,		///
+	label(resource ICD10PCS_MAIN_TB_QUERY)
+END
+
+LIST generate_list
+BEGIN
+	resource LBL_GENERATE_NEW_VAR_THREE_CHAR_CODE
+	resource LBL_GENERATE_NEW_VAR_CONTAINING_DESC_FROM
+	resource LBL_GENERATE_INDICATOR_VAR_FROM_RANGE_LIST
+END
+
+PROGRAM generate_pgm_sel
+BEGIN
+	if main.cb_gen.isvisible() {
+		if main.cb_gen.equals("category") {
+			call program gen_cat_show
+		}
+		if main.cb_gen.equals("description") {
+			call program gen_desc_show
+		}
+		if main.cb_gen.equals("range") {
+			call program gen_range_show
+		}
+	}
+END
+
+LIST generate_values
+BEGIN
+	category
+	description
+	range
+END
+
+LIST main_version_list
+BEGIN
+	""
+	2020
+	2019
+	2018
+	2017
+	2016
+END
+
+SCRIPT main_hide_all
+BEGIN
+	main.tx_vn.hide
+	main.vn_vn.hide
+	main.gb_opt.hide
+	main.ck_fmtonly.hide
+	main.ck_list.hide
+        main.ck_summary.hide
+	main.ck_gen.hide
+	main.rb_cleangen.hide
+	main.ed_cleangen.hide
+	main.rb_cleanrep.hide
+	main.ed_checkgen.hide
+	main.ck_long.hide
+	main.ck_nodots.hide
+        main.ck_check.hide
+        main.ck_or.hide
+        main.ck_matchcase.hide
+	main.tx_gen_vn.hide
+	main.vn_gen_vn.hide
+	main.tx_gen.hide
+	main.ed_gen.hide
+	main.ck_begin.hide
+	main.ck_end.hide
+        main.ck_gendots.hide
+        main.ck_gencheck.hide
+        main.ck_catcheck.hide
+        main.ck_rangcheck.hide
+ 	main.ed_rang.hide
+	main.tx_lookup.hide
+	main.ed_lookup.hide
+        main.tx_search.hide
+        main.ed_search.hide
+	main.tb_query.hide
+	main.cb_version.hide
+	main.tx_version.hide
+	main.cb_gen.hide
+	main.tx_rang.hide
+END
+
+SCRIPT main_check_on
+BEGIN
+	script main_hide_all
+	script ifin_enable
+
+	main.tx_vn.show
+	main.vn_vn.show
+	main.gb_opt.show
+	main.gb_opt.setposition . . . 180
+	main.ck_fmtonly.show
+	main.ck_list.show
+        main.ck_summary.show	
+	main.ck_gen.show
+	main.ed_checkgen.show
+	main.cb_version.show
+	main.tx_version.show
+	main.cb_version.enable
+	main.tx_version.enable
+	main.cb_version.setposition 20 370 . .
+	main.tx_version.setposition 85 370 . .
+END
+
+SCRIPT main_clean_on
+BEGIN
+	script main_hide_all
+	script ifin_enable
+
+	main.tx_vn.show
+	main.vn_vn.show
+	main.gb_opt.show
+	main.gb_opt.setposition . . . 140
+	main.rb_cleangen.show
+        main.ed_cleangen.show
+	main.rb_cleanrep.show
+        main.ck_check.show       
+	main.ck_nodots.show
+END
+
+PROGRAM main_generate_on
+BEGIN
+	call script main_hide_all
+	call script ifin_enable
+
+	call main.tx_gen_vn.show
+	call main.vn_gen_vn.show
+	call main.tx_gen.show
+	call main.ed_gen.show
+	call main.gb_opt.show
+	call main.gb_opt.setposition . . . 200
+	call main.cb_gen.show
+	call program generate_pgm_sel
+END
+
+PROGRAM main_begin_check
+BEGIN
+	if main.ck_begin {
+		call main.ck_end.disable
+	}
+	else {
+		call main.ck_end.enable
+	}
+END
+
+SCRIPT main_end_on
+BEGIN
+	main.ck_begin.disable
+END
+
+PROGRAM main_end_off
+BEGIN
+	if ! main.ck_end {
+		call main.ck_begin.enable
+	}
+END
+
+SCRIPT main_lookup_on
+BEGIN
+	script main_hide_all
+	script ifin_disable
+
+	main.tx_lookup.show
+	main.ed_lookup.show
+	main.cb_version.show
+	main.tx_version.show
+	main.cb_version.enable
+	main.tx_version.enable
+	main.gb_opt.show
+	main.gb_opt.setposition . . . 55
+	main.cb_version.setposition 20 245 . .
+	main.tx_version.setposition 85 245 . .
+END
+
+SCRIPT main_search_on
+BEGIN
+	script main_hide_all
+	script ifin_disable
+
+	main.tx_search.show
+	main.ed_search.show
+	main.gb_opt.show
+	main.gb_opt.setposition . . . 105
+	main.ck_or.show
+	main.ck_matchcase.show
+	main.cb_version.show
+	main.tx_version.show
+	main.cb_version.enable
+	main.tx_version.enable
+	main.cb_version.setposition 20 300 . .
+	main.tx_version.setposition 85 300 . .
+END
+
+SCRIPT main_query_on
+BEGIN
+	script main_hide_all
+	script ifin_disable
+
+	main.tb_query.show
+END
+
+PROGRAM	gen_cat_show
+BEGIN
+	call main.ck_catcheck.show
+	call main.ck_begin.hide
+	call main.ck_end.hide
+	call main.ck_long.hide
+	call main.ck_gendots.hide
+	call main.ck_gencheck.hide
+	call main.ck_gendots.hide
+	call main.cb_version.hide
+	call main.tx_version.hide
+	call main.ck_rangcheck.hide
+	call main.tx_rang.hide
+	call main.ed_rang.hide
+	call program gen_move_options	
+END
+
+PROGRAM	gen_desc_show
+BEGIN
+	call main.ck_begin.show
+	call main.ck_end.show
+	call main.ck_gendots.show
+	call main.ck_gencheck.show
+	call main.ck_long.show
+	call main.cb_version.show
+	call main.tx_version.show
+	call main.tx_rang.hide
+	call main.ed_rang.hide
+	call main.ck_catcheck.hide
+	call main.ck_rangcheck.hide
+	call program gen_move_options
+END
+
+PROGRAM	gen_range_show
+BEGIN
+	call main.tx_rang.show
+	call main.ed_rang.show
+	call main.ck_rangcheck.show
+	call main.ck_begin.hide
+	call main.ck_end.hide
+	call main.ck_gendots.hide
+	call main.ck_gencheck.hide
+	call main.ck_long.hide
+	call main.cb_version.hide
+	call main.tx_version.hide
+	call main.ck_catcheck.hide
+	call program gen_move_options
+END
+
+PROGRAM gen_move_options
+BEGIN
+	if main.cb_gen.equals("category") {
+		call main.gb_opt.setposition . . . 85
+	}
+	if main.cb_gen.equals("description") {
+		call main.cb_version.setposition . 405
+		call main.tx_version.setposition . 405
+		call main.gb_opt.setposition . . . 205
+	}
+	if main.cb_gen.equals("range") {
+		call main.gb_opt.setposition . . . 125
+	}				
+END
+
+INCLUDE ifin 
+
+PROGRAM command
+BEGIN
+	if main.rb_check {
+		put "icd10pcs check "
+		varlist main.vn_vn
+		put " " /program ifin_output
+		beginoptions
+			option main.ck_fmtonly
+			option main.ck_list
+			option main.ck_summary
+			if main.ck_gen {
+				require main.ed_checkgen
+				optionarg main.ed_checkgen
+			}
+			optionarg /hidedefault main.cb_version
+		endoptions
+	}
+	if main.rb_clean {
+		put "icd10pcs clean "
+		varlist main.vn_vn
+		put " " /program ifin_output
+		beginoptions
+			if main.rb_cleangen {
+				require main.ed_cleangen
+				optionarg main.ed_cleangen
+			}
+			if main.rb_cleanrep {
+				option main.rb_cleanrep
+			}
+
+			option main.ck_check
+			option main.ck_nodots
+		endoptions
+	}
+	
+	if main.rb_generate {
+		put "icd10pcs generate "
+		require main.ed_gen
+		put main.ed_gen
+		put " "
+		put "= "
+		varlist main.vn_gen_vn
+		put " " /program ifin_output
+		beginoptions
+			if main.cb_gen.equals("category") {
+				put main.cb_gen
+				option main.ck_catcheck
+			}
+			if main.cb_gen.equals("description") {
+				put main.cb_gen
+				option main.ck_begin
+				option main.ck_end
+				option main.ck_gendots
+				option main.ck_gencheck
+				option main.ck_long
+				optionarg /hidedefault main.cb_version
+			}
+			if main.cb_gen.equals("range") {
+				require main.ed_rang
+				optionarg main.ed_rang
+				option main.ck_rangcheck
+			}
+		endoptions	
+	}	
+	
+	if main.rb_lookup {
+		put "icd10pcs lookup "
+		require main.ed_lookup
+		put main.ed_lookup
+		beginoptions
+			optionarg /hidedefault main.cb_version
+		endoptions
+	}
+	if main.rb_search {
+		put "icd10pcs search "
+		require main.ed_search
+		put main.ed_search
+		beginoptions
+			option main.ck_or
+			option main.ck_matchcase
+			optionarg /hidedefault main.cb_version
+		endoptions
+	}
+	if main.rb_query {
+		put "icd10pcs query"
+	}
+END

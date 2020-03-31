@@ -1,0 +1,689 @@
+/*
+	meta_forest_plot.dlg
+
+*!  VERSION 1.0.9  02dec2019
+
+*/
+
+VERSION 16.0
+INCLUDE _std_medium
+DEFINE _dlght 440
+INCLUDE header
+HELP hlp1, view("help meta")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource META_FOREST_PLOT_DLG_HSCALE
+	create STRING title
+	create STRING STMP
+	title.setvalue resource LBL_PLOT_OPTIONS
+	title.withvalue settitle "@"
+
+	create DOUBLE vec_size
+	create SVECTOR subgroup_vlist_vec
+	create ARRAY subgroup_vlist
+	create STRING parent_name
+	create STRING parent_subgrp
+	create STRING parent_cumu
+	create STRING parent_vl_subgroup
+
+	create STRING MarkerOptsResults
+	create STRING CIOptsResults
+	create STRING OverallMarkerOptsResults
+	create STRING SubgroupMarkerOptsResults
+	create STRING InsideMarkerOptsResults
+	create STRING ESRefLineOptsResults
+	create STRING NullRefLineOptsResults
+	create STRING CustomOverAllResults
+	create STRING HRuleOptsResults
+
+	parent_name.setvalue class PARENT._dlg_rsrcname
+END
+
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	call parent_name.withvalue parent_subgrp.setvalue		///
+		class @.meta.ck_forest_subgrp.value
+	call parent_name.withvalue parent_cumu.setvalue			///
+		class @.meta.ck_forest_cumu.value
+	call parent_name.withvalue parent_vl_subgroup.setvalue		///
+		class @.meta.vl_forest_subgrp.value
+
+	call parent_vl_subgroup.tokenize subgroup_vlist
+	call subgroup_vlist_vec.copyFromArray subgroup_vlist
+
+	call vec_size.setvalue class subgroup_vlist_vec.size
+
+	call main.ck_nogmarkers.disable
+	call main.bu_gmarkeropts.disable
+
+	call main.ck_insidemarker.enable
+
+	if parent_subgrp.iseq("1") {
+		call main.ck_nogmarkers.enable
+		call main.bu_gmarkeropts.enable
+		if vec_size.isgt(1) {
+			call main.ck_nowmarkers.disable
+			call main.ck_nomarkers.disable
+			call main.bu_markeropts.disable
+			call main.ck_insidemarker.disable
+			call main.bu_insidemarker_opts.disable
+		}
+	}
+	if parent_cumu.iseq("1") {
+		call custom
+		call main.ck_nogmarkers.disable
+		call main.ck_nowmarkers.disable
+		call main.bu_gmarkeropts.disable
+  		call main.ck_nomarkers.disable
+  		call main.bu_markeropts.disable
+		call main.ck_insidemarker.disable
+		call main.bu_insidemarker_opts.disable
+		call program custom_disable
+	}
+	else {
+		call program custom_enable
+	}
+END
+
+DEFINE bu_wd 200
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  CHECKBOX ck_crop			_lft	_top	_iwd	.,	///
+	onclickon(script main_crop_on)					///
+	onclickoff(script main_crop_off)				///
+	label(resource META_FOREST_PLOT_MAIN_CK_CROP)
+  TEXT tx_lower				_ilft	_ss	_vnwd	.,	///
+	label(resource LBL_LOWER)
+  TEXT tx_upper				_vnsep	@	@	.,	///
+	label(resource LBL_UPPER)
+  EDIT ed_lower				_ilft	_ss	@	.,	///
+	numonly								///
+	label(resource LBL_LOWER)
+  EDIT ed_upper				_vnsep	@	@	.,	///
+	numonly								///
+	label(resource LBL_UPPER)
+  BUTTON bu_ciopts			_ilft	_ls	bu_wd	.,	///
+	onpush(program main_ciopts_show)				///
+	label(resource LBL_CI_OPTIONS)
+
+  CHECKBOX ck_nowmarkers		_lft	_ls	_iwd	.,	///
+	option("nowmarkers")						///
+	onclickon(main.bu_ciopts.disable)				///
+	onclickoff(main.bu_ciopts.enable)				///
+	label(resource META_FOREST_PLOT_MAIN_CK_NOWMARKERS)
+  CHECKBOX ck_nomarkers			_lft	_ls	_iwd	.,	///
+	option("nomarkers")						///
+	onclickon(main.bu_markeropts.disable)				///
+	onclickoff(main.bu_markeropts.enable)				///
+	label(resource META_FOREST_PLOT_MAIN_CK_NOMARKERS)
+  BUTTON bu_markeropts			_ilft	_ss	bu_wd	.,	///
+	onpush(program main_markeropts_show)				///
+	label(resource LBL_MARKER_OPTIONS)
+
+  CHECKBOX ck_noomarker			_lft	_ls	_iwd	.,	///
+	option("noomarker")						///
+	onclickon(main.bu_omarkeropts.disable)				///
+	onclickoff(main.bu_omarkeropts.enable)				///
+	label(resource META_FOREST_PLOT_MAIN_CK_NOOMARKERS)
+  BUTTON bu_omarkeropts			_ilft	_ss	bu_wd	.,	///
+	onpush(program main_omarkeropts_show)				/// 
+	label(resource LBL_OVERALL_MARKER_OPTIONS)
+
+  CHECKBOX ck_nogmarkers		_lft	_ls	_iwd	.,	///
+	option("nogmarkers")						///
+	onclickon(main.bu_gmarkeropts.disable)				///
+	onclickoff(main.bu_gmarkeropts.enable)				///
+	label(resource META_FOREST_PLOT_MAIN_CK_NOGMARKERS)
+  BUTTON bu_gmarkeropts			_ilft	_ss	bu_wd	.,	///
+	onpush(program main_gmarkeropts_show)				///
+	label(resource LBL_SUBGROUP_MARKER_OPTIONS)
+  CHECKBOX ck_insidemarker		_lft	_ls	_iwd	.,	///
+	option("insidemarker")						///
+	onclickon(main.bu_insidemarker_opts.enable)			///
+	onclickoff(main.bu_insidemarker_opts.disable)			///
+	label(resource META_FOREST_PLOT_MAIN_CK_INSIDEMARKER)
+  BUTTON bu_insidemarker_opts		_ilft	_ss	bu_wd	.,	///
+	onpush(program main_insidemarkeropts_show)			///
+	label(resource LBL_MARKER_OPTIONS)
+  CHECKBOX ck_esrefline			_lft	_ls	_iwd	.,	///
+	option("esrefline")						///
+	onclickon(main.bu_esrefline_opts.enable)			///
+	onclickoff(main.bu_esrefline_opts.disable)			///
+	label(resource META_FOREST_PLOT_MAIN_CK_ESREFLINE)
+  BUTTON bu_esrefline_opts		_ilft	_ss	bu_wd	.,	///
+	onpush(program main_esreflineopts_show)				///
+	label(resource LBL_LINE_OPTIONS)
+  CHECKBOX ck_nullrefline		_lft	_ls	_iwd	.,	///
+	option("nullrefline")						///
+	onclickon(main.bu_nullrefline_opts.enable)			///
+	onclickoff(main.bu_nullrefline_opts.disable)			///
+	label(resource META_FOREST_PLOT_MAIN_CK_NULLREFLINE)
+  BUTTON bu_nullrefline_opts		_ilft	_ss	bu_wd	.,	///
+	onpush(program main_nullreflineopts_show)			///
+	label(resource LBL_OPTIONS)
+END
+
+SCRIPT main_crop_on
+BEGIN
+	main.tx_lower.enable
+	main.tx_upper.enable
+	main.ed_lower.enable
+	main.ed_upper.enable
+END
+
+SCRIPT main_crop_off
+BEGIN
+	main.tx_lower.disable
+	main.tx_upper.disable
+	main.ed_lower.disable
+	main.ed_upper.disable
+END
+
+PROGRAM main_markeropts_show
+BEGIN
+	call create CHILD gr_marker_nolabel_options AS MarkerOpts
+	call MarkerOpts.setExitString MarkerOptsResults
+	call MarkerOpts.setExitAction "program main_markeropts_done"
+END
+
+PROGRAM main_markeropts_done
+BEGIN
+	if MarkerOptsResults {
+		call main.bu_markeropts.modified_on
+	}
+	else {
+		call main.bu_markeropts.modified_off
+	}
+END
+
+PROGRAM main_ciopts_show
+BEGIN
+	call create CHILD gr_line_properties AS CIOpts
+	call CIOpts.callthru "script gr_line_setOptionsTo_cl"
+	call CIOpts.setExitString CIOptsResults
+	call CIOpts.setExitAction "program main_ciopts_done"
+END
+
+PROGRAM main_ciopts_done
+BEGIN
+	if CIOptsResults {
+		call main.bu_ciopts.modified_on
+	}
+	else {
+		call main.bu_ciopts.modified_off
+	}
+END
+
+PROGRAM main_omarkeropts_show
+BEGIN
+	call create CHILD gr_marker_nolabel_options AS OverallMarkerOpts
+	if (parent_cumu.isneq("1")) {
+		call OverallMarkerOpts.callthru "program main_msymbol_disable"
+	}
+	call OverallMarkerOpts.setExitString OverallMarkerOptsResults
+	call OverallMarkerOpts.setExitAction "program main_omarkeropts_done"
+END
+
+PROGRAM main_omarkeropts_done
+BEGIN
+	if OverallMarkerOptsResults {
+		call main.bu_omarkeropts.modified_on
+	}
+	else {
+		call main.bu_omarkeropts.modified_off
+	}
+END
+
+PROGRAM main_gmarkeropts_show
+BEGIN
+	call create CHILD gr_marker_nolabel_options AS SubgroupMarkerOpts
+	call SubgroupMarkerOpts.callthru "program main_msymbol_disable"
+	call SubgroupMarkerOpts.setExitString SubgroupMarkerOptsResults
+	call SubgroupMarkerOpts.setExitAction "program main_gmarkeropts_done"
+END
+
+PROGRAM main_gmarkeropts_done
+BEGIN
+	if SubgroupMarkerOptsResults {
+		call main.bu_gmarkeropts.modified_on
+	}
+	else {
+		call main.bu_gmarkeropts.modified_off
+	}
+END
+
+PROGRAM main_insidemarkeropts_show
+BEGIN
+	call create CHILD gr_marker_nolabel_options AS InsideMarkerOpts
+	call InsideMarkerOpts.setExitString InsideMarkerOptsResults
+	call InsideMarkerOpts.setExitAction "program main_insidemarkeropts_done"
+END
+
+PROGRAM main_insidemarkeropts_done
+BEGIN
+	if InsideMarkerOptsResults {
+		call main.bu_insidemarker_opts.modified_on
+	}
+	else {
+		call main.bu_insidemarker_opts.modified_off
+	}
+END
+
+PROGRAM main_esreflineopts_show
+BEGIN
+	call create CHILD gr_line_properties AS LineOpts
+	call LineOpts.setExitString ESRefLineOptsResults
+	call LineOpts.setExitAction "program main_esreflineopts_done"
+END
+
+PROGRAM main_esreflineopts_done
+BEGIN
+	if ESRefLineOptsResults {
+		call main.bu_esrefline_opts.modified_on
+	}
+	else {
+		call main.bu_esrefline_opts.modified_off
+	}
+END
+
+PROGRAM main_nullreflineopts_show
+BEGIN
+	call create CHILD meta_forest_nullrefline_child AS NullOpts
+	call NullOpts.setExitString NullRefLineOptsResults
+	call NullOpts.setExitAction "program main_nullreflineopts_done"
+END
+
+PROGRAM main_nullreflineopts_done
+BEGIN
+	if NullRefLineOptsResults {
+		call main.bu_nullrefline_opts.modified_on
+	}
+	else {
+		call main.bu_nullrefline_opts.modified_off
+	}
+END
+
+SCRIPT custom_PREINIT
+BEGIN
+	create STRING STMP
+	create STRING custom_spec_tmp
+	create STRING custom_spec_tmp2
+	create STRING custom_spec_childdlg
+	create STRING custom_spec_dlgname
+	create STRING custom_spec_child_result
+	create STRING custom_spec_cmd_output
+
+	create ARRAY custom_spec_list
+
+	create SVECTOR customSPECCommandDisplayList
+	create SVECTOR customSPECCommandList
+	create SVECTOR customSPECCommandValues
+	create SVECTOR customSPECStatusList
+	create SVECTOR customSPECChildDialogList
+
+	create DOUBLE custom_spec_count
+	create DOUBLE custom_spec_position
+	create DOUBLE custom_spec_arraysize
+
+	custom.bu_spec_edit.disable
+	custom.bu_spec_disable.disable
+	custom.bu_spec_enable.disable
+END
+
+SCRIPT custom_POSTINIT
+BEGIN
+	customSPECCommandDisplayList.copyToArray custom_spec_list
+	custom.lb_specBuild.repopulate
+END
+
+DIALOG custom, tabtitle(resource LBL_CUSTOM_DIAMOND)
+BEGIN
+  TEXT tx_spec			_lft	_top	220	.,		///
+	label(resource LBL_SPECIFICATION)
+  LISTBOX lb_specBuild		@	_ss	@	160,		///
+	contents(custom_spec_list)					///
+	ondblclick(program custom_spec_edit)				///
+	onselchange(program custom_spec_sel_changed)			///
+	nomemory
+  BUTTON bu_spec_create		240	@	80	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program custom_spec_create)				///
+	tooltip(resource LBL_EDIT_SPECIFICATION)
+  BUTTON bu_spec_edit		@	_ms	@	.,		///
+	label(resource LBL_BU_EDIT)					///
+	onpush(program custom_spec_edit)				///
+	tooltip(resource LBL_EDIT_SPECIFICATION)
+  BUTTON bu_spec_disable	@	_ms	@	.,		///
+	label(resource LBL_BU_DISABLE)					///
+	onpush(program custom_spec_disable)				///
+	tooltip(resource LBL_CLICK_TO_DISABLE_A_SPECIFICATION)
+  BUTTON bu_spec_enable		@	_ms	@	.,		///
+	label(resource LBL_BU_ENABLE)					///
+	onpush(program custom_spec_enable)				///
+	tooltip(resource LBL_CLICK_TO_ENABLE_PREV_DISABLED_SPEC)
+  TEXTBOX tb_spec_note		_lft	+90	_iwd	_tb2,		///
+	label(resource LBL_PRESS_CREATE_DEFINE_SPECIFICATION)
+END
+
+PROGRAM custom_disable
+BEGIN
+	call custom.tx_spec.disable
+	call custom.lb_specBuild.disable
+	call custom.bu_spec_create.disable
+	call custom.bu_spec_edit.disable
+	call custom.bu_spec_disable.disable
+	call custom.bu_spec_enable.disable
+	call custom.tb_spec_note.disable
+END
+
+PROGRAM custom_enable
+BEGIN
+	call custom.tx_spec.enable
+	call custom.lb_specBuild.enable
+	call custom.bu_spec_create.enable
+	call custom.tb_spec_note.enable
+
+	call custom.lb_specBuild.repopulate
+END
+
+PROGRAM custom_spec_create
+BEGIN
+	call custom_spec_count.setvalue class customSPECChildDialogList.size
+	call custom_spec_count.increment
+	call custom_spec_tmp.setvalue "custom_spec_"
+	call custom_spec_tmp.append class custom_spec_count.value
+	call custom_spec_tmp.withvalue custom_spec_childdlg.setvalue @
+	call program custom_show_spec_child
+END
+
+PROGRAM custom_spec_edit
+BEGIN
+	call customSPECCommandDisplayList.findstr class			///
+		custom.lb_specBuild.value
+	call custom_spec_position.setvalue class			///
+		customSPECCommandDisplayList.position
+	call custom_spec_position.withvalue				///
+		custom_spec_childdlg.setvalue				///
+		class customSPECChildDialogList.values[@]
+	call program custom_show_spec_child_edit
+END
+
+PROGRAM custom_show_spec_child
+BEGIN
+	call custom_spec_tmp.setvalue "meta_forest_customoverall_child AS "
+	call custom_spec_tmp.append class custom_spec_childdlg.value
+	call custom_spec_tmp.withvalue create CHILD @
+	call custom_spec_childdlg.withvalue @.setExitString		///
+		"custom_spec_child_result"
+	call custom_spec_childdlg.withvalue @.setExitAction		///
+		"program custom_spec_child_create_done"
+
+
+	call custom_spec_count.withvalue STMP.format			///
+		"resource LBL_CUSTOM_DIAMOND_SPECIFICATION_FMT" "@" ""
+	call STMP.withvalue custom_spec_tmp.setvalue "@"
+	call custom_spec_childdlg.withvalue				///
+		custom_spec_tmp2.setvalue "@.settitle"
+	call custom_spec_tmp2.append `" ""'
+	call custom_spec_tmp2.append class custom_spec_tmp.value
+	call custom_spec_tmp2.append `"""'
+	call custom_spec_tmp2.withvalue @
+END
+
+PROGRAM custom_show_spec_child_edit
+BEGIN
+	call custom_spec_tmp.setvalue "meta_forest_customoverall_child AS "
+	call custom_spec_tmp.append class custom_spec_childdlg.value
+	call custom_spec_tmp.withvalue create CHILD @
+	call custom_spec_childdlg.withvalue @.setExitString		///
+		"custom_spec_child_result"
+	call custom_spec_childdlg.withvalue @.setExitAction		///
+		"program custom_spec_child_edit_done"
+
+	call custom_spec_position.withvalue				///
+		custom_spec_tmp.setvalue				///
+		class customSPECCommandDisplayList.values[@]
+	call custom_spec_childdlg.withvalue				///
+		custom_spec_tmp2.setvalue "@.settitle"
+	call custom_spec_tmp2.append `" ""'
+	call custom_spec_tmp2.append class custom_spec_tmp.value
+	call custom_spec_tmp2.append `"""'
+	call custom_spec_tmp2.withvalue @
+END
+
+PROGRAM custom_spec_child_create_done
+BEGIN
+	call custom_spec_arraysize.setvalue class			///
+		customSPECChildDialogList.size
+	call custom_spec_arraysize.increment
+
+	/* Store child dialog name */
+	call customSPECChildDialogList.store class			///
+		custom_spec_arraysize.value class custom_spec_childdlg.value
+
+	/* Store listbox display specification string */
+	call custom_spec_arraysize.withvalue STMP.format		///
+		"resource LBL_CUSTOM_DIAMOND_SPECIFICATION_FMT" "@" ""
+
+	call STMP.withvalue						///
+		customSPECCommandDisplayList.store class		///
+		custom_spec_arraysize.value "@"
+
+	/* Store child dialog result string */
+	call customSPECCommandList.store class				///
+		custom_spec_arraysize.value				///
+		class custom_spec_child_result.value
+
+	/* Store child dialog result string for final command
+	   For disable/enable */
+	call customSPECCommandValues.store class			///
+		custom_spec_arraysize.value				///
+		class custom_spec_child_result.value
+
+	/* Store disable/enable status */
+	call customSPECStatusList.store class				///
+		custom_spec_arraysize.value "active"
+
+	call customSPECCommandDisplayList.copyToArray custom_spec_list
+	call custom.lb_specBuild.repopulate
+	call STMP.withvalue custom.lb_specBuild.setvalue "@"
+END
+
+PROGRAM custom_spec_child_edit_done
+BEGIN
+	call customSPECChildDialogList.findstr class			///
+		custom_spec_childdlg.value
+	call custom_spec_position.setvalue class			///
+		customSPECChildDialogList.position
+	call custom_spec_position.withvalue custom_spec_tmp.setvalue	///
+		class customSPECStatusList.values[@]
+	if custom_spec_tmp.iseq("active") {
+		call custom_spec_position.withvalue STMP.format		///
+			"resource LBL_CUSTOM_DIAMOND_SPECIFICATION_FMT" "@" ""
+		call STMP.withvalue					///
+			customSPECCommandDisplayList.store class	///
+			custom_spec_position.value "@"
+		call customSPECCommandValues.store class		///
+			custom_spec_position.value class		///
+			custom_spec_child_result.value
+		call STMP.withvalue custom_spec_tmp2.setvalue "@"
+	}
+	else {
+		call custom_spec_position.withvalue STMP.format		///
+			"resource LBL_CUSTOM_DIAMOND_SPECIFICATION_FMT" "@" ""	///
+			"resource LBL_PAREN_DISABLED"
+		call STMP.withvalue					///
+			custom_spec_tmp2.setvalue "@"
+
+		call STMP.withvalue					///
+			customSPECCommandDisplayList.store		///
+			class custom_spec_position.value "@"
+	}
+
+	call customSPECCommandList.store class				///
+		custom_spec_position.value class			///
+		custom_spec_child_result.value
+
+	call customSPECCommandDisplayList.copyToArray custom_spec_list
+	call custom.lb_specBuild.repopulate
+	call custom.lb_specBuild.setvalue class custom_spec_tmp2.value
+END
+
+PROGRAM custom_spec_sel_changed
+BEGIN
+	call customSPECCommandDisplayList.findstr class			///
+		custom.lb_specBuild.value
+	call custom_spec_position.setvalue class			///
+		customSPECCommandDisplayList.position
+	call custom_spec_position.withvalue custom_spec_tmp.setvalue	///
+		class customSPECStatusList.values[@]
+	if custom_spec_position {
+		call custom.bu_spec_edit.enable
+		call custom_spec_position.withvalue			///
+			custom.tb_spec_note.setlabel			///
+			class customSPECCommandList.values[@]
+	}
+
+	if custom_spec_tmp.iseq("disable") {
+		call custom.bu_spec_enable.enable
+		call custom.bu_spec_disable.disable
+	}
+	if custom_spec_tmp.iseq("active") {
+		call custom.bu_spec_enable.disable
+		call custom.bu_spec_disable.enable
+	}
+END
+
+PROGRAM custom_spec_disable
+BEGIN
+	call customSPECCommandDisplayList.findstr class			///
+		custom.lb_specBuild.value
+	call custom_spec_position.setvalue class			///
+		customSPECCommandDisplayList.position
+
+	call custom_spec_tmp.setvalue class custom.lb_specBuild.value
+	call customSPECStatusList.store class				///
+		custom_spec_position.value "disable"
+	call customSPECCommandValues.store class custom_spec_position.value ""
+	call STMP.format "resource LBL_PAREN_DISABLED"
+	call custom_spec_tmp.append " "
+	call custom_spec_tmp.append class STMP.value
+	call custom_spec_tmp.withvalue STMP.setvalue "@"
+
+	call custom_spec_tmp.withvalue					///
+		customSPECCommandDisplayList.store			///
+		class custom_spec_position.value "@"
+
+	call customSPECCommandDisplayList.copyToArray custom_spec_list
+	call custom.lb_specBuild.repopulate
+	call custom.lb_specBuild.setvalue class STMP.value
+END
+
+PROGRAM custom_spec_enable
+BEGIN
+	call customSPECCommandDisplayList.findstr class			///
+		custom.lb_specBuild.value
+	call custom_spec_position.setvalue class			///
+		customSPECCommandDisplayList.position
+
+	call customSPECStatusList.store class				///
+		custom_spec_position.value "active"
+	call custom_spec_position.withvalue				///
+		customSPECCommandValues.store				///
+		class custom_spec_position.value class			///
+		customSPECCommandList.values[@]
+
+	call custom_spec_position.withvalue STMP.format			///
+		"resource LBL_CUSTOM_DIAMOND_SPECIFICATION_FMT" "@" ""
+	call STMP.withvalue						///
+		customSPECCommandDisplayList.store			///
+		class custom_spec_position.value "@"
+
+	call customSPECCommandDisplayList.copyToArray custom_spec_list
+	call custom_spec_position.withvalue				///
+		custom_spec_tmp2.setvalue class				///
+		customSPECCommandDisplayList.values[@]
+	call custom.lb_specBuild.repopulate
+	call custom.lb_specBuild.setvalue class custom_spec_tmp2.value
+END
+
+PROGRAM custom_output
+BEGIN
+	call customSPECCommandValues.copyToString custom_spec_cmd_output
+
+	if parent_cumu.isneq("1") {
+		put custom_spec_cmd_output
+	}
+END
+
+PROGRAM command
+BEGIN
+	option main.ck_nomarkers
+	option main.ck_nowmarkers
+	option main.ck_noomarker
+	option main.ck_nogmarkers
+	if main.ck_crop {
+		require main.ed_lower
+		require main.ed_upper
+		put " crop("
+		put main.ed_lower
+		put " "
+		put main.ed_upper
+		put ")"
+	}
+	if MarkerOptsResults {
+		put " markeropts("
+		put MarkerOptsResults
+		put ")"
+	}
+	if CIOptsResults {
+		put " ciopts("
+		put CIOptsResults
+		put ")"
+	}
+	if OverallMarkerOptsResults {
+		put " omarkeropts("
+		put OverallMarkerOptsResults
+		put ")"
+	}
+	if SubgroupMarkerOptsResults {
+		put " gmarkeropts("
+		put  SubgroupMarkerOptsResults
+		put ")"
+	}
+	if main.ck_insidemarker {
+		put " insidemarker"
+		if InsideMarkerOptsResults {
+			put "("
+			put  InsideMarkerOptsResults
+			put ")"
+		}
+	}
+	if main.ck_esrefline {
+		put " esrefline"
+		if ESRefLineOptsResults {
+			put "("
+			put  ESRefLineOptsResults
+			put ")"
+		}
+	}
+	if main.ck_nullrefline {
+		put " nullrefline"
+		if NullRefLineOptsResults {
+			put "("
+			put  NullRefLineOptsResults
+			put ")"
+		}
+	}
+	if HRuleOptsResults {
+		put " hruleopts("
+		put HRuleOptsResults
+		put ")"
+	}
+	put " " /program custom_output
+END
+

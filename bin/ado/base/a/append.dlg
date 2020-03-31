@@ -1,0 +1,113 @@
+/*
+    append.dlg
+
+*!  VERSION 2.1.3  16may2015
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 400
+INCLUDE header
+HELP hlp1, view("help append")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource APPEND_DLG_HSCALE
+	
+        main.fi_filename.formatfilter "{0} (*.dta)|*.dta|{1} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_DTA_FILES" "resource ui_ex FILE_TYPE_ALL_FILES"
+END
+
+DIALOG main,label(resource APPEND_DLG_TITLE)  tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  GROUPBOX gb_using       _lft     _top     _iwd        _ht12,      	///
+	label(resource LBL_APPEND_DATASET_ON_DISK_CURRENT_DATASET)
+  TEXT     tx_using       _ilft    _ss      _ibwd       .,		///
+	label(resource LBL_FILENAME_OF_DATASET_ON_DISK)
+  FILE     fi_filename       @        _ss      @           .,		///
+	defext(dta)							///
+	error(resource LBL_FILENAME_OF_DATASET_ON_DISK)			///
+	label(resource LBL_BU_BROWSE)
+  BUTTON   bu_dtaadd    @	_ms	_cwd3_2	.,			///
+	label(resource LBL_SELECT_ADDITIONAL_FILE) onpush(program main_dta_add)
+  TEXT     tx_include	@	_ls	_cwd1	.,			///
+	label(resource LBL_LIST_FILES_ON_DISK)
+  EDIT     ed_multiple	@	_ss    _ibwd	.,
+
+  GROUPBOX gb_opt         _lft     _xxls     _iwd        _ht18h, 	///
+	label(resource LBL_OPTIONS)
+  TEXT tx_generate	_ilft	_ss	_inwd	.,			///
+	label(resource LBL_NAME_NEW_VARIABLE_TO_MARK_RES)
+  DEFINE holdcx @cx
+  EDIT ed_generate	@	_ss	_vnwd	.,			///
+	max(32)	option(generate)			 		///
+	label(resource LBL_NAME_NEW_VARIABLE_MARK_MERGE_RES)
+
+  RADIO    rb_all       @    _ms      holdcx      ., first		///
+	label(resource APPEND_MAIN_RB_ALL)				///
+	onclickon(main.vl_keep.disable)
+  RADIO    rb_keep      @   _ss      @           ., last		///
+	label(resource APPEND_MAIN_RB_KEEP)				///
+	onclickon(main.vl_keep.enable)
+  VARLIST  vl_keep        _indent2 _ss      _inwd       .,		///
+	label(resource APPEND_MAIN_RB_KEEP)				///
+	option(keep)
+
+  CHECKBOX ck_nolabel     _ilft    _ls      _ibwd       .,		///
+	option(nolabel)							///
+	label(resource LBL_DO_NOT_COPY_VALUE_LABEL_DEF)
+  CHECKBOX ck_nonotes     @        _ms      @           .,		///
+	label(resource LBL_DO_NOT_COPY_NOTES_FROM_DTA)			///
+	option(nonotes)
+  CHECKBOX ck_force       @        _ms      @           .,		///
+	label(resource LBL_APPEND_VARIABLES_WITHOUT_ERROR) 		///
+	option(force)
+END
+
+PROGRAM main_dta_add
+BEGIN
+	if main.fi_filename {
+		call script main_add
+	}
+END
+
+SCRIPT main_add
+BEGIN
+	main.fi_filename.withvalue main.ed_multiple.smartinsert `""@""'
+	main.fi_filename.setvalue ""
+END
+
+PROGRAM command
+BEGIN
+	if ! main.ed_multiple & ! main.fi_filename {
+		call create STRING _MSG_TMP
+                call _MSG_TMP.format 					///
+			"resource LBL_MSGBOX_DTA_ON_DISK_REQUIRED_FMT" 	///
+			"resource LBL_TAB_MAIN"
+
+		stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, A dataset on disk must be selected.
+	}
+
+	put "append using "
+	put main.ed_multiple " "
+	if main.fi_filename {
+		put `"""'
+		put main.fi_filename
+		put `"""' " "
+	}
+
+	beginoptions
+		optionarg main.ed_generate
+		if main.rb_keep {
+			require main.vl_keep
+			optionarg main.vl_keep
+		}
+		option main.ck_nolabel
+		option main.ck_nonotes
+		option main.ck_force
+	endoptions
+END

@@ -1,0 +1,79 @@
+/*
+    mi_append
+
+*!  VERSION 1.1.3  19may2015
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_mlarge
+DEFINE _dlght 265
+INCLUDE header
+HELP hlp1, view("help mi_append")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource MI_APPEND_DLG_HSCALE
+	
+        main.fi_filename.formatfilter "{0} (*.dta)|*.dta|{1} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_DTA_FILES" "resource ui_ex FILE_TYPE_ALL_FILES"
+END
+
+DIALOG main,label(resource MI_APPEND_DLG_TITLE)  tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  GROUPBOX gb_using	_lft	_top	_iwd	_ht4h,			///
+	label(resource LBL_APPEND_DATASET_ON_DISK_CURRENT_DATASET)
+  TEXT tx_using		_ilft	_ss	_ibwd	.,			///
+	label(resource LBL_FILENAME_OF_DATASET_ON_DISK)
+  FILE fi_filename	@	_ss	@	.,			///
+	defext(dta)							///
+	error(resource LBL_FILENAME_OF_DATASET_ON_DISK)			///
+	label(resource LBL_BU_BROWSE)
+
+  GROUPBOX gb_opt	_lft	+45	_iwd	_ht12h,	 		///
+	label(resource LBL_OPTIONS)
+  TEXT tx_generate	_ilft	_ss	_inwd	.,			///
+	label(resource LBL_NAME_NEW_VARIABLE_TO_MARK_RES)
+  DEFINE holdcx @cx
+  EDIT ed_generate	@	_ss	_vnwd	.,			///
+	max(32)	option(generate)			 		///
+	label(resource LBL_NAME_OF_NEW_VARIABLE_TO_MARK_MERGE_RESULTS)
+
+  CHECKBOX ck_nolabel	_ilft	_ls	_ibwd	.,			///
+	option(nolabel)							///
+	label(resource LBL_DO_NOT_COPY_VALUE_LABEL_DEF)
+  CHECKBOX ck_nonotes	@	_ms	@	.,			///
+	option(nonotes)							///
+	label(resource LBL_DO_NOT_COPY_NOTES_FROM_DTA)
+  CHECKBOX ck_force	@	_ms	@	.,			///
+	option(force)							///
+	label(resource LBL_APPEND_VARIABLES_WITHOUT_ERROR)
+END
+
+PROGRAM command
+BEGIN
+	if !main.fi_filename {
+		call create STRING _MSG_TMP
+                call _MSG_TMP.format 					///
+			"resource LBL_MSGBOX_DTA_ON_DISK_REQUIRED_FMT" 	///
+			"resource LBL_TAB_MAIN"
+		stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, A dataset on disk must be selected.
+	}
+
+	put "mi append using "
+	if main.fi_filename {
+		put `"""'
+		put main.fi_filename
+		put `"""' " "
+	}
+
+	beginoptions
+		optionarg main.ed_generate
+		option main.ck_nolabel
+		option main.ck_nonotes
+		option main.ck_force
+	endoptions
+END

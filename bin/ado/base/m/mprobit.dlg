@@ -1,0 +1,204 @@
+/*
+  mprobit
+
+*!  VERSION 1.2.2  29nov2018
+
+  keyword:  eclass
+
+*/
+
+VERSION 14.0
+INCLUDE _std_xlarge
+INCLUDE header
+
+HELP hlp1, view("help mprobit")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	program parseMessage
+	script se_createAsSvyJknifeBstrapML
+	program svy_check_title
+	setscale_hadj resource MPROBIT_DLG_HSCALE
+END
+
+PROGRAM parseMessage
+BEGIN
+	if __MESSAGE.contains("__MI__") {
+		call script se_setMI_on
+	}
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program check_bytab
+	program se_setFinalInitState
+END
+
+PROGRAM check_bytab
+BEGIN
+	if ! __MESSAGE.contains("__MI__") {
+		call script sub_set_by_on
+	}
+END
+
+SCRIPT svy_is_on
+BEGIN
+	script max_setDefaultNoLog
+END
+SCRIPT svy_is_off
+BEGIN
+	script max_setDefaultLog
+END
+PROGRAM svy_check_title
+BEGIN
+	if __MESSAGE.contains("-svy-") {
+		call settitle resource MPROBIT_SVY_DLG_TITLE
+	}
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)				///
+	/// **** has svy title ****					///
+	title(resource MPROBIT_DLG_TITLE)
+BEGIN
+  TEXT tx_dv 		_lft	_top	_vnwd	.,			///
+	label(resource LBL_DEPVAR)
+  VARNAME vn_dv		@ 	_ss	@	.,			///
+  	numeric								///
+	label(resource LBL_DEPVAR)
+
+  TEXT tx_iv		_vlx	_top	160	.,			///
+	label(resource LBL_INDDEPVAR)
+  VARLIST vl_iv		@	_ss	_vlwd	.,			///
+	fv								///
+	allowcat							///
+	numeric								///
+	label(resource LBL_INDDEPVAR)
+
+  CHECKBOX ck_nocons @         _ms       @         .,			///
+	label(resource MPROBIT_MAIN_CK_NOCONS)				///
+	option(noconstant)
+
+  GROUPBOX gb_output _lft      _ls       _iwd      _ht11,		///
+	label(resource LBL_OPTIONS)
+
+  CHECKBOX ck_base   _ilft     _ls       _ckwd     .,			///
+	onclickon(main.en_base.enable)					///
+	onclickoff(main.en_base.disable)
+  EDIT     en_base   _cksep    @         _en14wd   .,			///
+	label(resource LBL_BASE_OUTCOME) 				///
+	option(baseoutcome)
+  TEXT     tx_base   _en14sep  @         _cken7r2b .,			///
+	label(resource LBL_BASE_OUTCOME)
+
+  CHECKBOX ck_probitparam	_ilft	_ls	_ibwd	.,		///
+  	option(probitparam)						///
+  	label(resource MPROBIT_MAIN_CK_PROBITPARAM)
+
+  DEFINE _x _ilft
+  DEFINE _y _ms
+  DEFINE _cx _ilw80
+  DEFINE _bux _islw80
+  INCLUDE _constraints
+
+  DEFINE _x _ilft
+  DEFINE _xw _ibwd
+//  INCLUDE _ck_collinear
+END
+
+INCLUDE _constraints_sc 
+INCLUDE sub_by_ifin_over_subpop
+INCLUDE weights_fpi
+INCLUDE se
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+        program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _nocnsreport
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+
+PROGRAM rpt_output
+BEGIN
+	optionarg /hidedefault rpt.sp_level
+	INCLUDE _nocnsreport_pr
+	INCLUDE _report_columns_pr
+	put " " rpt_bu_facvarsResults
+	put " " rpt_bu_fmtcoefResults
+END
+
+DIALOG int, tabtitle(resource LBL_TAB_INTEGRATION)
+BEGIN
+  SPINNER  sp_intpoints		_lft	_top	_spwd	.,		///
+  	option(intpoints) min(1) default(15) max(100)
+  TEXT     tx_intpoints		_spsep	@	200	.,		///
+  	label(resource LBL_NUMBER_OF_QUADRATURE_POINTS_NO_COLON)
+END
+
+PROGRAM int_output
+BEGIN
+	optionarg /hidedefault int.sp_intpoints
+END
+
+INCLUDE max_ml
+
+PROGRAM command
+BEGIN
+	put /program by_output " "
+	put /program se_prefix_output " "
+	put "mprobit "
+	varlist main.vn_dv [main.vl_iv]
+	if !main.vl_iv & main.ck_nocons {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format					/// 
+			"resource LBL_MSGBOX_IS_SELECTED_WITHOUT_INDVARS_FMT" ///
+			"resource LBL_NOCONSTANT"
+		stopbox stop "class _MSG_TMP.value"
+// "Suppress constant term" is selected without independent variables.
+	}
+	put " " /program ifin_output
+	put " " /program weights_output
+	beginoptions
+		option main.ck_nocons
+		if main.ck_base {
+			optionarg main.en_base
+		}
+		option main.ck_probitparam
+		INCLUDE _constraints_main_pr
+//		option main.ck_collinear
+		put " " /program se_output
+		put " " /program rpt_output
+		put " " /program int_output
+		put " " /program max_output
+	endoptions
+END

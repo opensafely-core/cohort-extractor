@@ -1,0 +1,210 @@
+/*
+	estat_vce_pr -- an INCLUDE file containing the SCRIPTs and PROGRAMs
+	used by estat.dlg and svy_estat.dlg
+
+*!  VERSION 1.2.3  09dec2019
+
+	NOTE: this INCLUDE file assumes that the controls for the -estat vce-
+	options are within the 'main' table.
+
+*/
+
+PROGRAM vce_bu_facvars_getOpts
+BEGIN
+	call create STRING vce_bu_facvarsResults
+	call create CHILD factor_vars_reporting AS vce_bu_facvars
+	call vce_bu_facvars.setExitString vce_bu_facvarsResults
+	call vce_bu_facvars.setExitAction "program vce_bu_facvars_ckResults"
+	call vce_bu_facvars.callthru "script fv_check_init"
+	call vce_bu_facvars.settitle resource LBL_FACTOR_VARIABLE_DISPLAY_OPTIONS
+END
+
+PROGRAM vce_bu_facvars_ckResults
+BEGIN
+	if vce_bu_facvarsResults {
+		call main.bu_facvars_vce.modified_on
+	}
+	else {
+		call main.bu_facvars_vce.modified_off
+	}
+END
+
+SCRIPT showFormatDialog_vce1
+BEGIN
+	create STRING formatString_vce1
+	create CHILD format_chooser
+	format_chooser.setExitString formatString_vce1
+	format_chooser.setExitAction "main.ed_format_cor.setvalue class formatString_vce1.value"
+END
+
+SCRIPT showFormatDialog_vce2
+BEGIN
+	create STRING formatString_vce2
+	create CHILD format_chooser
+	format_chooser.setExitString formatString_vce2
+	format_chooser.setExitAction "main.ed_format_cov.setvalue class formatString_vce2.value"
+END
+
+PROGRAM format_on
+BEGIN
+	call gaction main.ed_format_cor.enable
+	call gaction main.ed_format_cov.enable
+	call gaction main.bn_format1.enable
+	call gaction main.bn_format2.enable
+END
+
+PROGRAM format_off
+BEGIN
+	call gaction main.ed_format_cor.disable
+	call gaction main.ed_format_cov.disable
+	call gaction main.bn_format1.disable
+	call gaction main.bn_format2.disable
+END
+
+PROGRAM cov_on
+BEGIN
+	if main.lb_subcmd.equals("vce") {
+		call gaction main.ed_format_cov.show
+		call gaction main.bn_format2.show
+		call gaction main.ed_format_cor.hide
+		call gaction main.bn_format1.hide
+	}
+	if main.ck_format & !main.ed_format_cov {
+		call gaction main.ed_format_cov.enable
+	}
+	if !main.ck_format & main.ed_format_cov {
+		call gaction main.ed_format_cov.disable
+	}
+END
+
+PROGRAM cor_on
+BEGIN
+	if main.lb_subcmd.equals("vce") {
+		call gaction main.ed_format_cor.show
+		call gaction main.bn_format1.show
+		call gaction main.ed_format_cov.hide
+		call gaction main.bn_format2.hide
+	}
+	if main.ck_format & !main.ed_format_cor {
+		call gaction main.ed_format_cor.enable
+	}
+	if !main.ck_format & main.ed_format_cor {
+		call gaction main.ed_format_cor.disable
+	}
+END
+
+PROGRAM vce_on
+BEGIN
+	call main.gb_matdisp.show
+	call main.rb_covariance.show
+	call main.rb_correlation.show
+	call main.ck_eq.show
+	call main.vl_eq.show
+	call main.ck_block.show
+	call main.ck_diag.show
+	call main.ck_format.show
+	if main.rb_covariance & main.lb_subcmd.equals("vce") {
+		call main.ed_format_cov.show
+		call main.bn_format2.show
+		call main.ed_format_cor.hide
+		call main.bn_format1.hide
+	}
+	if main.rb_correlation & main.lb_subcmd.equals("vce") {
+		call main.ed_format_cor.show
+		call main.bn_format1.show
+		call main.ed_format_cov.hide
+		call main.bn_format2.hide
+	}
+	call main.ck_nolines.show
+	if has_FactorVars {
+		call main.bu_facvars_vce.show
+	}
+END
+
+PROGRAM vce_off
+BEGIN
+	call main.gb_matdisp.hide
+	call main.rb_covariance.hide
+	call main.rb_correlation.hide
+	call main.ck_eq.hide
+	call main.vl_eq.hide
+	call main.ck_block.hide
+	call main.ck_diag.hide
+	call main.ck_format.hide
+	call main.ed_format_cov.hide
+	call main.ed_format_cor.hide
+	call main.bn_format1.hide
+	call main.bn_format2.hide
+	call main.ck_nolines.hide
+	call main.bu_facvars_vce.hide
+END
+
+PROGRAM vce_output
+BEGIN
+	// -estat vce-
+	option main.rb_covariance
+	option main.rb_correlation
+	if main.ck_eq & main.lb_subcmd.equals("vce") {
+		require main.vl_eq
+		put "equation("
+		put /program vl_eq_output
+		put ") "
+	}
+	option main.ck_block
+	option main.ck_diag
+	if main.ck_format {
+		require main.ed_format_cor
+		optionarg main.ed_format_cor
+		require main.ed_format_cov
+		optionarg main.ed_format_cov
+	}
+	option main.ck_nolines
+	
+	call create BOOLEAN max_tmpBOOL
+	call max_tmpBOOL.storeClsObjectExists vce_bu_facvarsResults
+	if max_tmpBOOL & !H(main.bu_facvars_vce){
+		put " "  vce_bu_facvarsResults
+	}
+END
+
+PROGRAM ck_eq_on
+BEGIN
+	call main.vl_eq.enable
+	call main.ck_nolines.disable
+END
+
+PROGRAM ck_eq_off
+BEGIN
+	call main.vl_eq.disable
+	if !(main.ck_diag | main.ck_block) {
+		call main.ck_nolines.enable
+	}
+END
+
+PROGRAM ck_block_on
+BEGIN
+	call main.ck_diag.disable
+	call main.ck_nolines.disable
+END
+
+PROGRAM ck_block_off
+BEGIN
+	call main.ck_diag.enable
+	if !(main.ck_diag | main.ck_eq) {
+		call main.ck_nolines.enable
+	}
+END
+
+PROGRAM ck_diag_on
+BEGIN
+	call main.ck_block.disable
+	call main.ck_nolines.disable
+END
+
+PROGRAM ck_diag_off
+BEGIN
+	call main.ck_block.enable
+	if !(main.ck_block | main.ck_eq) {
+		call main.ck_nolines.enable
+	}
+END

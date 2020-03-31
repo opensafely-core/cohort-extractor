@@ -1,0 +1,409 @@
+/*
+	discrim
+
+*! VERSION 1.1.0  22sep2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_xlarge
+DEFINE _dlght 460
+INCLUDE header
+
+HELP hlp1, view("help discrim")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource DISCRIM_DLG_HSCALE
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	if __MESSAGE.iseq("-knn-") {
+		call main.rb_knn.seton
+	}
+	if __MESSAGE.iseq("-lda-") {
+		call main.rb_lda.seton
+	}
+	if __MESSAGE.iseq("-logistic-") {
+		call main.rb_logistic.seton
+	}
+	if __MESSAGE.iseq("-qda-") {
+		call main.rb_qda.seton
+	}
+END
+
+DIALOG main, label(resource DISCRIM_DLG_TITLE) tabtitle(resource LBL_TAB_MODEL)
+BEGIN
+  GROUPBOX gb_type	_lft	_top	_iwd	_ht8,		///
+	label(resource DISCRIM_MAIN_GB_TYPE)
+  RADIO rb_knn		_ilft	_ss	_ibwd	.,		///
+	first							///
+	option(knn)						///
+	onclickon(program main_rb_knn_on)			///
+	label(resource DISCRIM_MAIN_RB_KNN)
+  RADIO rb_lda		@	_ss	@	.,		///
+	option(lda)						///
+	onclickon(program main_rb_lda_on)			///
+	label(resource LBL_LINEAR)
+  RADIO rb_logistic	@	_ss	@	.,		///
+	option(logistic)					///
+	onclickon(program main_rb_logistic_on)			///
+	label(resource DISCRIM_MAIN_RB_LOGISTIC)
+  RADIO rb_qda		@	_ss	@	.,		///
+	last							///
+	option(qda)						///
+	onclickon(program main_rb_qda_on)			///
+	label(resource DISCRIM_MAIN_RB_QDA)
+
+  TEXT tx_var		_lft	_xls	_vlwd	.,		///
+	label(resource LBL_VARIABLES)
+DEFINE holdy @y
+  VARLIST vl_var	@	_ss	_vlwd	.,		///
+  	numeric							///
+	allowcat label(resource LBL_VARIABLES)
+
+  TEXT     tx_group	_vnx	holdy	_vnwd	.,		///
+	label(resource LBL_GROUP_VARIABLE)
+  VARLIST vl_group	@	_ss	_vnwd	.,		///
+	option(group)						///
+	numeric							///
+	label(resource LBL_GROUP_VARIABLE)
+
+  SPINNER sp_k		_lft	_ls	_spwd	.,		///
+	default(1)						///
+	min(1)							///
+	max(c(N))						///
+	option(k)						///
+	label(resource LBL_NUMBER_OF_NEAREST_NEIGHBORS)
+  TEXT tx_k		_spsep	@	200	.,		///
+	label(resource LBL_NUMBER_OF_NEAREST_NEIGHBORS)
+
+  GROUPBOX gb_priors	_lft	_ls	_iwd	_ht8h,		///
+	label(resource LBL_GROUP_PRIOR_PROBABILITIES)
+
+  RADIO rb_equal	_indent	_ss	_ibwd	.,		///
+	first							///
+	onclickon(main.lb_matname.disable)			///
+	label(resource LBL_EQUAL_PRIOR_PROBABILITIES)
+
+  RADIO rb_proportional	@	_ss	@	.,		///
+	onclickon(main.lb_matname.disable)			///
+	label(resource LBL_GROUP_SIZE_PROPORTIONAL_PRIOR_PROB)
+
+  RADIO rb_matrix	@	_ss	@	.,		///
+	last							///
+	onclickon(main.lb_matname.enable)			///
+	label(resource LBL_MATRIX_MATRIX_EXPRESSION_CONTAINING_GROUP)
+  COMBOBOX lb_matname	_rbsep	_ss	200	60,		///
+	dropdown						///
+	label(resource DISCRIM_MAIN_LB_MATNAME)  		 ///
+	contents(vector)
+
+  GROUPBOX gb_ties	_lft	+45	_iwd	_ht8,		///
+	label(resource LBL_TIES_GROUP_CLASSIFICATION)
+
+  RADIO rb_missing	_indent	_ss	_ibwd	.,		///
+	first							///
+	label(resource LBL_PRODUCE_A_MISSING_VALUE)
+
+  RADIO rb_random	@	_ss	@	.,		///
+	label(resource LBL_ARE_BROKEN_RANDOMLY)
+
+  RADIO rb_first	@	_ss	@	.,		///
+	label(resource LBL_ARE_SET_TO_THE_FIRST_TIED_GROUP)
+
+  RADIO rb_nearest	@	_ss	@	.,		///
+	last							///
+	label(resource LBL_ARE_ASSIGNED_BASED_CLOSEST_OBSERVATIONS)
+END
+
+PROGRAM main_rb_lda_on
+BEGIN
+	call main.sp_k.disable
+	call main.tx_k.disable
+	if main.rb_nearest {
+		call main.rb_missing.seton
+	}
+	call main.rb_nearest.disable
+
+	call rpt.ck_lootable.enable
+	call rpt.ck_nolog.disable
+
+	call measure.gb_dist.disable
+	call measure.rb_distc.disable
+	call measure.rb_distb.disable
+	call measure.lb_distc.disable
+	call measure.lb_distb.disable
+	call measure.tx_power.disable
+	call measure.en_power.disable
+	call measure.gb_convertsim.disable
+	call measure.rb_standard.disable
+	call measure.rb_oneminus.disable
+	call measure.ck_mahalanobis.disable
+END
+
+PROGRAM main_rb_logistic_on
+BEGIN
+	call main.sp_k.disable
+	call main.tx_k.disable
+	if main.rb_nearest {
+		call main.rb_missing.seton
+	}
+	call main.rb_nearest.disable
+
+	call rpt.ck_lootable.disable
+	call rpt.ck_nolog.enable
+
+	call measure.gb_dist.disable
+	call measure.rb_distc.disable
+	call measure.rb_distb.disable
+	call measure.lb_distc.disable
+	call measure.lb_distb.disable
+	call measure.tx_power.disable
+	call measure.en_power.disable
+	call measure.gb_convertsim.disable
+	call measure.rb_standard.disable
+	call measure.rb_oneminus.disable
+	call measure.ck_mahalanobis.disable
+END
+
+PROGRAM main_rb_knn_on
+BEGIN
+	call main.sp_k.enable
+	call main.tx_k.enable
+	call main.rb_nearest.enable
+
+	call rpt.ck_lootable.enable
+	call rpt.ck_nolog.disable
+
+	call measure.gb_dist.enable
+	call measure.rb_distc.enable
+	call measure.rb_distb.enable
+	call measure.lb_distc.enable
+	call measure.lb_distb.enable
+	call measure.tx_power.enable
+	call measure.en_power.enable
+	if measure.rb_distb {
+		call measure.gb_convertsim.enable
+		call measure.rb_standard.enable
+		call measure.rb_oneminus.enable
+	}
+	call measure.ck_mahalanobis.enable
+END
+
+PROGRAM main_rb_qda_on
+BEGIN
+	call main.sp_k.disable
+	call main.tx_k.disable
+	if main.rb_nearest {
+		call main.rb_missing.seton
+	}
+	call main.rb_nearest.disable
+
+	call rpt.ck_lootable.enable
+	call rpt.ck_nolog.disable
+
+	call measure.gb_dist.disable
+	call measure.rb_distc.disable
+	call measure.rb_distb.disable
+	call measure.lb_distc.disable
+	call measure.lb_distb.disable
+	call measure.tx_power.disable
+	call measure.en_power.disable
+	call measure.gb_convertsim.disable
+	call measure.rb_standard.disable
+	call measure.rb_oneminus.disable
+	call measure.ck_mahalanobis.disable
+END
+
+PROGRAM main_priors_output
+BEGIN
+	if main.rb_proportional {
+		put "priors(proportional)"
+	}
+	if main.rb_matrix {
+		put "priors("
+		put main.lb_matname
+		put ")"
+	}
+END
+
+PROGRAM main_ties_output
+BEGIN
+	if main.rb_random {
+		put "ties(random)"
+	}
+	if main.rb_first {
+		put "ties(first)"
+	}
+	if main.rb_nearest {
+		put "ties(nearest)"
+	}
+END
+
+DIALOG measure, label("") tabtitle(resource DISCRIM_TAB_MEASURE)
+BEGIN
+  GROUPBOX gb_dist	_lft	_top	_iwd	_ht10,		///
+	label(resource LBL_DISSIMILARITY_MEASURE)
+
+  RADIO rb_distc	_indent	_ss	110	.,		///
+	first							///
+	label(resource LBL_CONTINUOUS)				///
+	onclickon(script d_continuous_on)
+  DEFINE holdx @x
+  RADIO rb_distb	+120	@	@	.,		///
+	last							///
+	label(resource LBL_BINARY)				///
+	onclickon(script d_binary_on)
+
+  LISTBOX lb_distc	holdx	_ms	_comb3_2 _ht4,		///
+	contents(continuous_dist)				///
+	onselchangelist(cont_power)				///
+	values(contin_value)
+
+  DEFINE holdy @y
+  LISTBOX lb_distb	@	@	@	_ht4,		///
+	contents(binary_dist)					///
+	value(binary_value)
+
+  DEFINE holdy @y
+  TEXT tx_power		_lft3_3	holdy	_cwd3_2	.,		///
+	label(resource LBL_#_FOR_L#_OR_LPOWER#)
+  EDIT en_power		_lft3_3	_ss	_en7wd	.,		///
+	numonly default(literal "2")				///
+	label(resource LBL_#_FOR_L#_OR_LPOWER#)
+
+  GROUPBOX gb_convertsim _lft	150	_iwd	_ht2,		///
+	label(resource LBL_CONVERT_SIMILARITY_TO_DISSIMILARITY)
+  RADIO rb_standard	_ilft	_ss	_cwd2	.,		///
+	first							///
+	label(resource LBL_USING_DIJ_SQRT_SII_SJJ_2SIJ)		///
+	option(s2d(standard))
+  RADIO rb_oneminus	_lft2	@	@	.,		///
+	last							///
+	label(resource LBL_USING_DIJ_1_SIJ)			///
+	option(s2d(oneminus))
+
+  CHECKBOX ck_mahalanobis _lft	_xls	_iwd	.,		///
+	option(mahalanobis)					///
+label(resource DISCRIM_MEASURE_CK_MAHALANOBIS)
+END
+
+INCLUDE _cl_dist_list
+
+SCRIPT d_continuous_on
+BEGIN
+	measure.lb_distc.show
+	measure.lb_distb.hide
+	measure.lb_distc.forceselchange
+	measure.ck_mahalanobis.enable
+	program convert_sim_check
+END
+
+SCRIPT d_binary_on
+BEGIN
+	measure.lb_distb.show
+	measure.lb_distc.hide
+	measure.ck_mahalanobis.disable
+	script power_off
+	program convert_sim_check
+END
+
+SCRIPT power_on
+BEGIN
+	measure.tx_power.show
+	measure.en_power.show
+	program convert_sim_check
+END
+
+SCRIPT power_off
+BEGIN
+	measure.tx_power.hide
+	measure.en_power.hide
+	program convert_sim_check
+END
+
+PROGRAM convert_sim_check
+BEGIN
+	if measure.rb_distc {
+		if measure.lb_distc.equals("correlation") | measure.lb_distc.equals("angular") {
+			call measure.rb_standard.enable
+			call measure.rb_oneminus.enable
+			call measure.gb_convertsim.enable
+		}
+		if ! (measure.lb_distc.equals("correlation") | measure.lb_distc.equals("angular")) {
+			call measure.rb_standard.disable
+			call measure.rb_oneminus.disable
+			call measure.gb_convertsim.disable
+		}
+	}
+	if measure.rb_distb {
+		call measure.rb_standard.enable
+		call measure.rb_oneminus.enable
+		call measure.gb_convertsim.enable
+	}
+END
+
+PROGRAM measure_output
+BEGIN
+	put "measure("
+	if measure.rb_distc {
+		put measure.lb_distc
+		if measure.en_power {
+			put "(" measure.en_power ")"
+		}
+	}
+	if measure.rb_distb {
+		put measure.lb_distb
+	}
+	put ")"
+END
+
+INCLUDE ifin
+INCLUDE weights_f
+
+DIALOG rpt, label("") tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  CHECKBOX ck_notable	_lft	_top	_iwd	.,		///
+	option(notable)						///
+	label(resource LBL_SUPPRESS_RESUBSTITUTION_CLAS_TABLE)
+
+  CHECKBOX ck_lootable	@	_ms	@	.,		///
+	option(lootable)					///
+	label(resource DISCRIM_RPT_CK_LOOTABLE)
+
+  CHECKBOX ck_nolog	@	_ms	@	.,		///
+	option(nolog)						///
+	label(resource DISCRIM_RPT_CK_NOLOG)
+END
+
+PROGRAM command
+BEGIN
+	allowxi
+	put "discrim "
+	option radio(main rb_lda rb_logistic rb_knn rb_qda)
+	require main.vl_var
+	varlist [main.vl_var]
+	INCLUDE _ifin_pr
+	put " " /program weights_output
+	beginoptions
+		if main.rb_knn {
+			optionarg main.sp_k
+		}
+		require main.vl_group
+		optionarg main.vl_group
+		put " " /program main_priors_output
+		put " " /program main_ties_output
+		if main.rb_knn {
+			put " " /program measure_output
+		}
+		option measure.ck_mahalanobis
+		option measure.rb_oneminus
+		option rpt.ck_notable
+		option rpt.ck_lootable
+		option rpt.ck_nolog
+	endoptions
+END

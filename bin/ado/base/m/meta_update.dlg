@@ -1,0 +1,1074 @@
+/*
+	meta_update.dlg
+
+*!  VERSION 1.0.3  18jun2019
+
+*/
+
+VERSION 16.0
+INCLUDE _std_large
+DEFINE _dlght 400
+INCLUDE header
+HELP hlp1, view(help meta_update)
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING m_datatype
+
+	create STRING m_method
+	create STRING m_model
+	create STRING m_study_label
+	create STRING m_study_size
+	create STRING m_estype
+	create STRING m_esopt_exact
+	create STRING m_esopt_holkinse
+	create STRING m_esopt_unequal
+	create STRING m_eslabel
+	create STRING m_ci_level
+	create STRING m_show
+	create STRING m_zcopt
+	create STRING m_zcadj
+	create STRING m_zcval
+	
+	setscale_hadj resource META_UPDATE_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program set_status
+END
+
+PROGRAM ON_DOTPROMPT
+BEGIN
+	call program set_status
+END
+
+PROGRAM set_status
+BEGIN
+	call m_datatype.setvalue char _dta[_meta_datatype]
+	call program none_hide
+	call program set_hide
+	call main.tx_set_studysize.hide
+	call main.vn_set_studysize.hide
+	if m_datatype.equals("") {
+		call program none_show
+		call program esize_cont_hide
+		call program esize_bin_hide
+	}
+	if m_datatype.equals("continuous") {
+		call program esize_cont_show
+		call program esize_bin_hide
+		call program set_status_cont
+	}
+	if m_datatype.equals("binary") {
+		call program esize_cont_hide
+		call program esize_bin_show
+		call program set_status_bin
+	}
+	if m_datatype.equals("Generic"){
+		call program esize_cont_hide
+		call program esize_bin_hide
+		call program set_show
+		call program set_status_set
+	}
+END
+
+PROGRAM set_status_cont
+BEGIN
+	call m_estype.setvalue char _dta[_meta_estype]
+	call m_estype.withvalue main.cb_esize_cont_size.setvalue "@"
+
+	if m_estype.equals("hedgesg") {
+		call m_esopt_exact.setvalue char _dta[_meta_esopt_exact]
+		if ! m_esopt_exact.equals("") {
+			call main.ck_esize_cont_exact.seton
+		}
+		
+		call m_esopt_holkinse.setvalue char _dta[_meta_esopt_holkinse]
+		if ! m_esopt_holkinse.equals("") {
+			call main.ck_esize_cont_hholkinse.seton
+		}
+	}
+
+	if m_estype.equals("cohend") {
+		call m_esopt_holkinse.setvalue char _dta[_meta_esopt_holkinse]
+		if ! m_esopt_holkinse.equals("") {
+			call main.ck_esize_cont_cholkinse.seton
+		}
+	}
+
+	if m_estype.equals("mdiff") {
+		call m_esopt_unequal.setvalue char _dta[_meta_esopt_unequal]
+		if ! m_esopt_unequal.equals("") {
+			call main.ck_esize_cont_unequal.seton
+		}
+	}
+
+	call m_model.setvalue char _dta[_meta_model]
+	if m_model.equals("random") {
+		call main.rb_esize_cont_remethod.seton
+		
+		call m_method.setvalue char _dta[_meta_method]
+		call m_method.withvalue main.cb_esize_cont_remethod.setvalue "@"
+	}
+	if m_model.equals("common") {
+		call main.rb_esize_cont_common.seton
+	}
+	if m_model.equals("fixed") {
+		call main.rb_esize_cont_fixed.seton
+	}
+
+	call m_study_label.setvalue char _dta[_meta_studylabel]
+	if m_study_label.iseq("Generic") {
+		call m_study_label.setvalue ""
+	}
+	call m_study_label.withvalue main.vn_esize_cont_studylabel.setvalue "@"
+
+	call m_eslabel.setvalue char _dta[_meta_eslabel]
+	call m_eslabel.withvalue main.ed_esize_cont_eslabel.setvalue "@"
+
+	call m_ci_level.setvalue char _dta[_meta_level]
+	call m_ci_level.withvalue main.cb_esize_cont_level.setvalue "@"
+
+	call m_show.setvalue char _dta[_meta_show]
+	if ! m_show.equals("") {
+		call main.ck_esize_cont_nometashow.seton
+	}
+END
+
+PROGRAM set_status_bin
+BEGIN
+	call m_estype.setvalue char _dta[_meta_estype]
+	call m_estype.withvalue main.cb_esize_bin_size.setvalue "@"
+
+	call m_model.setvalue char _dta[_meta_model]
+	call m_method.setvalue char _dta[_meta_method]
+	if m_model.equals("random") {
+		call main.rb_esize_bin_remethod.seton
+		call m_method.withvalue main.cb_esize_bin_remethod.setvalue "@"
+	}
+	if m_model.equals("common") {
+		call main.rb_esize_bin_common.seton
+		call m_method.withvalue main.cb_esize_bin_cemethod.setvalue "@"
+	}
+	if m_model.equals("fixed") {
+		call main.rb_esize_bin_fixed.seton
+		call m_method.withvalue main.cb_esize_bin_femethod.setvalue "@"
+	}
+
+	call m_zcadj.setvalue char _dta[_meta_zcadj]
+	if ! m_zcadj.equals("") {
+		call main.ck_esize_bin_zero.seton
+		
+		call m_zcadj.setvalue char _dta[_meta_zcadj]
+		if m_zcadj.equals("tacc") {
+			call m_zcadj.withvalue main.cb_esize_bin_or_zero.setvalue "@"
+		}
+		else {
+			call m_zcadj.withvalue main.cb_esize_bin_or_zero.setvalue "@"
+			call m_zcadj.withvalue main.cb_esize_bin_rr_zero.setvalue "@"
+		}
+	
+		call m_zcval.setvalue char _dta[_meta_zcvalue]
+		call m_zcval.withvalue main.ed_esize_bin_zero.setvalue "@"
+	}
+
+	call m_study_label.setvalue char _dta[_meta_studylabel]
+	if m_study_label.iseq("Generic") {
+		call m_study_label.setvalue ""
+	}
+	call m_study_label.withvalue main.vn_esize_bin_studylabel.setvalue "@"
+
+	call m_eslabel.setvalue char _dta[_meta_eslabel]
+	call m_eslabel.withvalue main.ed_esize_bin_eslabel.setvalue "@"
+
+	call m_ci_level.setvalue char _dta[_meta_level]
+	call m_ci_level.withvalue main.cb_esize_bin_level.setvalue "@"
+
+	call m_show.setvalue char _dta[_meta_show]
+	if m_show {
+		call main.ck_esize_bin_nometashow.seton
+	}
+END
+
+PROGRAM set_status_set
+BEGIN
+	call m_model.setvalue char _dta[_meta_model]
+	if m_model.equals("random") {
+		call main.rb_set_remethod.seton
+
+		call m_method.setvalue char _dta[_meta_method]
+		call m_method.withvalue main.cb_set_remethod.setvalue "@"
+	}
+	if m_model.equals("common") {
+		call main.rb_set_common.seton
+	}
+	if m_model.equals("fixed") {
+		call main.rb_set_fixed.seton
+	}
+
+	call m_study_label.setvalue char _dta[_meta_studylabel]
+	if m_study_label.iseq("Generic") {
+		call m_study_label.setvalue ""
+	}
+	call m_study_label.withvalue main.vn_set_studylabel.setvalue "@"
+
+	call m_study_size.setvalue char _dta[_meta_studysize]
+	call m_study_size.withvalue main.vn_set_studysize.setvalue "@"
+	
+	call m_eslabel.setvalue char _dta[_meta_eslabel]
+	call m_eslabel.withvalue main.ed_set_eslabel.setvalue "@"
+
+	call m_ci_level.setvalue char _dta[_meta_level]
+	call m_ci_level.withvalue main.cb_set_level.setvalue "@"
+	
+
+	call m_show.setvalue char _dta[_meta_show]
+	if m_show {
+		call main.ck_set_nometashow.seton
+	}
+END
+DIALOG main, title(resource META_UPDATE_DLG_TITLE)
+BEGIN
+  TEXT tx_none				_lft	_top	_iwd	.,	///
+	label(resource LBL_NONE)
+
+/* -------------- esize cont ------------- */
+  GROUPBOX gb_esize_cont_size		_lft	_top	_iwd	95,	///
+	label(resource LBL_SPECIFY_EFFECT_SIZE)
+  TEXT tx_esize_cont_size		_ilft	_ss	_ibwd	.,	///
+	label(resource LBL_EFFECT_SIZE, colon)
+  COMBOBOX cb_esize_cont_size		@	_ss	@	.,	///
+	dropdownlist							///
+	contents(setup_esize_cont_eff_size)				///
+	values(setup_esize_cont_eff_size_vals)				///
+	onselchange(program setup_esize_cont_size_change)		///
+	label(resource LBL_EFFECT_SIZE)
+  CHECKBOX ck_esize_cont_exact		_ilft	_ms	.	.,	///
+	label(resource META_META_CK_ESIZE_CONT_EXACT)
+  CHECKBOX ck_esize_cont_cholkinse	@	@	.	.,	///
+	label(resource META_META_CK_CONT_HHOLKINSE)
+  CHECKBOX ck_esize_cont_unequal	@	@	.	.,	///
+	label(resource META_META_CK_CONT_UNEQUAL)
+  CHECKBOX ck_esize_cont_hholkinse	@	_ms	.	.,	///
+	label(reesource META_META_CK_CONT_HHOLKINSE)
+
+  GROUPBOX gb_esize_cont_model		_lft	_xls	_iwd	90,	///
+	label(resource LBL_META_ANALYSIS_MODEL)
+  RADIO rb_esize_cont_remethod		_ilft	_ss	200	.,	///
+	first								///
+	onclickon(program setup_esize_cont_model_re_on)			///
+	label(resource LBL_RANDOM_EFFECTS_HYPHEN)
+  TEXT tx_esize_cont_method		+150	@	100	.,	///
+	label(resource LBL_METHOD)
+  RADIO rb_esize_cont_common		_ilft	_ss	300	.,	///
+	onclickon(program setup_esize_cont_model_cefe_on)		///
+	label(resource LBL_COMMON_EFFECTS)
+  RADIO rb_esize_cont_fixed		_ilft	_ss	300	.,	///
+	last								///
+	onclickon(program setup_esize_cont_model_cefe_on)		///
+	label(resource LBL_FIXED_EFFECTS_HYPHEN)
+
+  COMBOBOX cb_esize_cont_remethod	+180	@	210	.,	///
+	dropdownlist							///
+	contents(re_method)						///
+	values(re_method_vals)						///
+	label(resource LBL_METHOD_NO_COLON)
+
+  GROUPBOX gb_esize_cont_opt		_lft	_xls	_iwd	110,	///
+	label(resource LBL_OPTIONS)
+  TEXT tx_esize_cont_studylabel		_ilft	_ss	200	.,	///
+	label(resource LBL_STUDY_LABEL, colon)
+  VARNAME vn_esize_cont_studylabel	+70	@	_vnwd	.,	///
+	label(resource resource LBL_STUDY_LABEL)
+  TEXT tx_esize_cont_eslabel		_vnsep	@	200	.,	///
+	label(resource LBL_EFFECT_SIZE_LABEL, colon)
+  EDIT ed_esize_cont_eslabel		+90	@	_vnwd	.,	///
+	label(resource LBL_EFFECT_SIZE_LABEL)
+  COMBOBOX cb_esize_cont_level		_ilft	_ls	60	.,	///
+	dropdownlist							///
+	contents(levels)						///
+	default(95)							///
+	label(resource LBL_CONFIDENCE_LEVEL_FOR_ALL_META_ANALYSIS_COMMANDS)
+  TEXT tx_esize_cont_level		+65	@	260	.,	///
+	label(resource LBL_CONFIDENCE_LEVEL_FOR_ALL_META_ANALYSIS_COMMANDS)
+  CHECKBOX ck_esize_cont_nometashow	_ilft	_ls	250	.,	///
+	label(resource LBL_DO_NOT_SHOW_META_SETTING_INFORMATION)
+/* -------------- esize bin ------------- */
+  GROUPBOX gb_esize_bin_size		_lft	_top	_iwd	45,	///
+	label(resource LBL_SPECIFY_EFFECT_SIZE)
+  TEXT tx_esize_bin_size		_ilft	_ss	100	.,	///
+	label(resource LBL_SPECIFY_EFFECT_SIZE,  colon)
+  COMBOBOX cb_esize_bin_size		+110	@	200	.,	///
+	dropdownlist							///
+	onselchange(program bin_orrr_change)				///
+	contents(setup_esize_bin_eff_size)				///
+	values(setup_esize_bin_eff_size_vals)				///
+	label(resource LBL_EFFECT_SIZE)
+
+  GROUPBOX gb_esize_bin_model		_lft	_xls	_iwd	90,	///
+	label(resource LBL_META_ANALYSIS_MODEL)
+  RADIO rb_esize_bin_remethod		_ilft	_ss	300	.,	///
+	first								///
+	onclickon(program esize_bin_re_on)				///
+	label(resource LBL_RANDOM_EFFECTS_HYPHEN)
+  TEXT tx_esize_bin_method		+150	@	100	.,	///
+	label(resource LBL_METHOD, colon)
+  RADIO rb_esize_bin_common		_ilft	_ss	300	.,	///
+	onclickon(program esize_bin_ce_on)				///
+	label(resource LBL_COMMON_EFFECTS)
+  COMBOBOX cb_esize_bin_remethod	+150	@	210	.,	///
+	dropdownlist							///
+	contents(re_method)						///
+	values(re_method_vals)						///
+	label(resource LBL_METHOD)
+  COMBOBOX cb_esize_bin_cemethod	@	@	210	.,	///
+	dropdownlist							///
+	contents(cefe_method)						///
+	values(cefe_method_vals)					///
+	label(resource LBL_METHOD_NO_COLON)
+  COMBOBOX cb_esize_bin_femethod	@	@	210	.,	///
+	dropdownlist							///
+	contents(cefe_method)						///
+	values(cefe_method_vals)					///
+	label(resource LBL_METHOD_NO_COLON)
+  RADIO rb_esize_bin_fixed		_ilft	_ss	300	.,	///
+	last								///
+	onclickon(program esize_bin_fe_on)				///
+	label(resource LBL_FIXED_EFFECTS_HYPHEN)
+	
+  GROUPBOX gb_esize_bin_opt		_lft	_xls	_iwd	135,	///
+	label(resource LBL_OPTIONS)
+  CHECKBOX ck_esize_bin_zero		_ilft	_ss	.	.,	///
+	onclickon(program setup_esize_bin_zero_on)			///
+	onclickoff(program setup_esize_bin_zero_off)			///
+	label(resource LBL_ADJUST_FOR_ZERO_CELLS_BY, colon)
+  COMBOBOX cb_esize_bin_or_zero		+145	@	200	.,	///
+	dropdownlist							///
+	onselchange(program setup_esize_bin_zero_or_change)		///
+	contents(setup_esize_bin_zero_lnor)				///
+	values(setup_esize_bin_zero_lnor_vals)				///
+	label(resource LBL_ADJUST_FOR_ZERO_CELLS_BY)
+  COMBOBOX cb_esize_bin_rr_zero		@	@	200	.,	///
+	dropdownlist							///
+	onselchange(program setup_esize_bin_zero_rr_change)		///
+	contents(setup_esize_bin_zero)					///
+	values(setup_esize_bin_zero_vals)				///
+	label(resource LBL_ADJUST_FOR_ZERO_CELLS_BY)
+  EDIT ed_esize_bin_zero		+205	@	75	.,	///
+	numonly default("0.5")						///
+	label(resource LBL_ZERO_CELL_ADJUSTMENT_VAL)
+	
+  TEXT tx_esize_bin_studylabel		_ilft	_ls	200	.,	///
+	label(resource LBL_STUDY_LABEL, colon)
+  VARNAME vn_esize_bin_studylabel	+70	@	_vnwd	.,	///
+	label(resource LBL_STUDY_LABEL)
+  TEXT tx_esize_bin_eslabel		_vnsep	@	200	.,	///
+	label(resource LBL_EFFECT_SIZE_LABEL, colon)
+  EDIT ed_esize_bin_eslabel		+90	@	_vnwd	.,	///
+	label(resource LBL_EFFECT_SIZE_LABEL)
+  COMBOBOX cb_esize_bin_level		_ilft	_ls	60	.,	///
+	dropdownlist							///
+	contents(levels)						///
+	default(95)							///
+	label(resource LBL_CONFIDENCE_LEVEL_FOR_ALL_META_ANALYSIS_COMMANDS)
+  TEXT tx_esize_bin_level		+65	@	260	.,	///
+	label(resource LBL_CONFIDENCE_LEVEL_FOR_ALL_META_ANALYSIS_COMMANDS)
+  CHECKBOX ck_esize_bin_nometashow	_ilft	_ls	250	.,	///
+	label(resource LBL_DO_NOT_SHOW_META_SETTING_INFORMATION)
+
+/* -------------- set ------------- */
+  GROUPBOX gb_set_model			_lft	_top _iwd 90,		///
+	label(resource LBL_META_ANALYSIS_MODEL)
+  RADIO rb_set_remethod			_ilft	_ss	300	.,	///
+	first								///
+	onclickon(program setup_set_model_re_on)			///
+	label(resource LBL_RANDOM_EFFECTS_HYPHEN)
+  TEXT tx_set_method			+150	@	100	.,	///
+	label(resource LBL_METHOD)
+  RADIO rb_set_common			_ilft	_ss	300	.,	///
+	onclickon(program setup_set_model_ce_on)			///
+	label(resource LBL_COMMON_EFFECTS)
+  COMBOBOX cb_set_remethod		+150	@	210	.,	///
+	dropdownlist							///
+	contents(re_method)						///
+	values(re_method_vals)						///
+	label(resource LBL_METHOD_NO_COLON)
+  RADIO rb_set_fixed			_ilft	_ss	300	.,	///
+	last								///
+	onclickon(program setup_set_model_fe_on)			///
+	label(resource LBL_FIXED_EFFECTS_HYPHEN)
+
+  GROUPBOX gb_set_opts			_lft	_xls	_iwd	170,	///
+	label(resource LBL_OPTIONS)
+  TEXT tx_set_studylabel		_ilft	_ss	_vnwd	.,	///
+	label(resource LBL_STUDY_LABEL, colon)
+  VARNAME vn_set_studylabel		@	_ss	@	.,	///
+	option(studylabel)						///
+	label(resource LBL_STUDY_LABEL)
+  TEXT tx_set_studysize			_ilft2	-20	@	.,	///
+	label(resource LBL_STUDY_SIZE, colon)
+  VARNAME vn_set_studysize		@	_ss	@	.,	///
+	option(studysize)						///
+	label(resource LBL_STUDY_SIZE)
+  TEXT tx_set_eslabel			_ilft	_ms	@	.,	///
+	label(resource LBL_EFFECT_SIZE_LABEL, colon)
+  EDIT ed_set_eslabel			@	_ss	@	.,	///
+	option(eslabel)							///
+	label(resource LBL_EFFECT_SIZE_LABEL)
+  COMBOBOX cb_set_level			_ilft	_ls	60	.,	///
+	dropdownlist							///
+	contents(levels)						///
+	default(95)							///
+	option(level)							///
+	label(resource LBL_CONFIDENCE_LEVEL_FOR_ALL_META_ANALYSIS_COMMANDS)
+  TEXT tx_set_level			+65	@ 	260	.,	///
+	label(resource LBL_CONFIDENCE_LEVEL_FOR_ALL_META_ANALYSIS_COMMANDS)
+  CHECKBOX ck_set_nometashow		_ilft	_ls	250	.,	///
+	label(resource LBL_DO_NOT_SHOW_META_SETTING_INFORMATION)
+END
+
+LIST setup_esize_cont_eff_size
+BEGIN
+	resource LBL_HEDGESS_G
+	resource LBL_COHENS_D
+	resource LBL_GLASSS_DELTA2
+	resource LBL_GLASSS_DELTA1
+	resource LBL_MEAN_DIFF
+END
+LIST setup_esize_cont_eff_size_vals
+BEGIN
+	hedgesg
+	cohend
+	glassdelta2
+	glassdelta1
+	mdiff
+END
+
+LIST re_method
+BEGIN
+	resource LBL_RESTRICTED_MAX_LIKELIHOOD
+	resource LBL_MAX_LIKELIHOOD
+	resource LBL_EMPIRICAL_BAYES
+	resource LBL_DERSIMONIAN_LAIRD
+	resource LBL_SIDIK_JONKMAN
+	resource LBL_HEDGES
+	resource LBL_HUNTER_SCHMIDT
+END
+LIST re_method_vals
+BEGIN
+	reml
+	mle
+	ebayes
+	dlaird
+	sjonkman
+	hedges
+	hschmidt
+END
+
+LIST cefe_method
+BEGIN
+	resource LBL_MANTEL_HAENSZEL
+	resource LBL_INVERSE_VARIANCE
+END
+LIST cefe_method_vals
+BEGIN
+	mhaenszel
+	invvariance
+END
+
+LIST setup_esize_bin_eff_size
+BEGIN
+	resource LBL_LOG_ODDS_RATIO
+	resource LBL_LOG_RISK_RATIO
+	resource LBL_RISK_DIFFERENCE
+	resource LBL_LOG_PETOS_ODDS_RATIO
+END
+LIST setup_esize_bin_eff_size_vals
+BEGIN
+	lnoratio
+	lnrratio
+	rdiff
+	lnorpeto
+END
+
+LIST setup_esize_bin_zero
+BEGIN
+	resource LBL_ADD_TO_ONLY_TABLES_WITH_ZERO_CELL
+	resource LBL_ADD_TO_ALL_TABLES_ZERO_CELL
+END
+LIST setup_esize_bin_zero_vals
+BEGIN
+	only0
+	allif0
+END
+
+LIST setup_esize_bin_zero_lnor
+BEGIN
+	resource LBL_ADD_TO_ONLY_TABLES_WITH_ZERO_CELL
+	resource LBL_ADD_TO_ALL_TABLES_ZERO_CELL
+	resource LBL_USE_TREATMENT_ARM_CONTINUITY_CORR
+END
+LIST setup_esize_bin_zero_lnor_vals
+BEGIN
+	only0
+	allif0
+	tacc
+END
+
+PROGRAM none_show
+BEGIN
+	call main.tx_none.show
+END
+
+PROGRAM none_hide
+BEGIN 
+	call main.tx_none.hide
+END
+
+
+PROGRAM esize_cont_show
+BEGIN
+	call main.gb_esize_cont_size.show
+	call main.tx_esize_cont_size.show
+	call main.cb_esize_cont_size.show
+	call main.gb_esize_cont_model.show
+	call main.rb_esize_cont_remethod.show
+	call main.tx_esize_cont_method.show
+	call main.rb_esize_cont_common.show
+	call main.cb_esize_cont_remethod.show
+	call main.rb_esize_cont_fixed.show
+	call main.gb_esize_cont_opt.show
+	call main.tx_esize_cont_studylabel.show
+	call main.vn_esize_cont_studylabel.show
+	call main.tx_esize_cont_eslabel.show
+	call main.ed_esize_cont_eslabel.show
+	call main.cb_esize_cont_level.show
+	call main.tx_esize_cont_level.show
+	call main.ck_esize_cont_nometashow.show
+
+	call program setup_esize_cont_size_change
+END
+
+PROGRAM setup_esize_cont_model_re_on
+BEGIN
+	call main.tx_esize_cont_method.show
+	call main.cb_esize_cont_remethod.show
+END
+
+PROGRAM setup_esize_cont_model_cefe_on
+BEGIN
+	call main.tx_esize_cont_method.hide
+	call main.cb_esize_cont_remethod.hide
+END
+
+PROGRAM setup_esize_cont_size_change
+BEGIN
+	call main.ck_esize_cont_exact.hide
+	call main.ck_esize_cont_hholkinse.hide
+	call main.ck_esize_cont_unequal.hide
+	call main.ck_esize_cont_cholkinse.hide
+	if main.cb_esize_cont_size.iseq("hedgesg") {
+		call main.ck_esize_cont_exact.show
+		call main.ck_esize_cont_hholkinse.show
+	}
+	if main.cb_esize_cont_size.iseq("cohend") {
+		call main.ck_esize_cont_cholkinse.show
+	}
+	if main.cb_esize_cont_size.iseq("mdiff") {
+		call main.ck_esize_cont_unequal.show
+	}
+END
+
+PROGRAM esize_bin_show
+BEGIN
+	call main.gb_esize_bin_size.show
+	call main.tx_esize_bin_size.show
+	call main.cb_esize_bin_size.show
+	call main.gb_esize_bin_model.show
+	call main.rb_esize_bin_remethod.show
+	call main.tx_esize_bin_method.show
+	call main.rb_esize_bin_common.show
+	call main.rb_esize_bin_fixed.show
+	call main.gb_esize_bin_opt.show
+	call main.ck_esize_bin_zero.show
+	call main.cb_esize_bin_or_zero.show
+	call main.cb_esize_bin_rr_zero.show
+	call main.ed_esize_bin_zero.show
+	call main.tx_esize_bin_studylabel.show
+	call main.vn_esize_bin_studylabel.show
+	call main.tx_esize_bin_eslabel.show
+	call main.ed_esize_bin_eslabel.show
+	call main.cb_esize_bin_level.show
+	call main.tx_esize_bin_level.show
+	call main.ck_esize_bin_nometashow.show
+	call program esize_bin_re_on
+	call program esize_bin_ce_on
+	call program esize_bin_fe_on
+END
+
+PROGRAM bin_orrr_change
+BEGIN
+	if main.cb_esize_bin_size.equals("lnoratio") | main.cb_esize_bin_size.equals("lnrratio"){
+		call main.ck_esize_bin_zero.enable
+		if main.ck_esize_bin_zero {
+			call program setup_esize_bin_zero_on
+		}
+		else {
+			call program update_bin_zero
+		}
+	}
+	else {
+		call main.ck_esize_bin_zero.disable
+		call main.cb_esize_bin_or_zero.disable
+		call main.cb_esize_bin_rr_zero.disable
+		call main.ed_esize_bin_zero.disable
+	}
+END
+
+PROGRAM esize_bin_re_on
+BEGIN
+	if m_datatype.equals("binary") & main.rb_esize_bin_remethod {
+		call program esize_bin_recefe_off
+		call main.cb_esize_bin_remethod.show
+	}
+END
+
+PROGRAM esize_bin_ce_on
+BEGIN
+	if m_datatype.equals("binary") & main.rb_esize_bin_common {
+		call program esize_bin_recefe_off
+		call main.cb_esize_bin_cemethod.show
+	}
+END
+
+PROGRAM esize_bin_fe_on
+BEGIN
+	if m_datatype.equals("binary") & main.rb_esize_bin_fixed {
+		call program esize_bin_recefe_off
+		call main.cb_esize_bin_femethod.show
+	}
+END
+
+PROGRAM esize_bin_recefe_off
+BEGIN
+	call main.cb_esize_bin_remethod.hide
+	call main.cb_esize_bin_cemethod.hide
+	call main.cb_esize_bin_femethod.hide
+END
+
+PROGRAM update_bin_zero 
+BEGIN
+	if main.cb_esize_bin_size.equals("lnoratio") {
+		call main.cb_esize_bin_or_zero.show
+		call main.cb_esize_bin_rr_zero.hide
+		call program setup_esize_bin_zero_or_change
+	}
+	if main.cb_esize_bin_size.equals("lnrratio"){
+		call main.cb_esize_bin_rr_zero.show
+		call main.cb_esize_bin_or_zero.hide
+		call program setup_esize_bin_zero_rr_change
+	}
+END
+
+PROGRAM setup_esize_bin_zero_on
+BEGIN
+	call program update_bin_zero
+	call main.cb_esize_bin_or_zero.enable
+	call main.cb_esize_bin_rr_zero.enable
+	call main.ed_esize_bin_zero.enable
+END
+
+PROGRAM setup_esize_bin_zero_off
+BEGIN
+	call main.cb_esize_bin_or_zero.disable
+	call main.cb_esize_bin_rr_zero.disable
+	call main.ed_esize_bin_zero.disable
+END
+
+PROGRAM setup_esize_bin_zero_or_change
+BEGIN
+	if main.cb_esize_bin_or_zero.equals("tacc") {
+		call main.ed_esize_bin_zero.hide
+	}
+	else {
+		call main.ed_esize_bin_zero.show
+	}
+END
+
+PROGRAM setup_esize_bin_zero_rr_change
+BEGIN
+	call main.ed_esize_bin_zero.show
+END
+
+PROGRAM set_show
+BEGIN
+	call main.gb_set_model.show
+	call main.rb_set_remethod.show
+	call main.tx_set_method.show
+	call main.rb_set_common.show
+	call main.cb_set_remethod.show
+	call main.rb_set_fixed.show
+	call main.gb_set_opts.show
+	call main.tx_set_studylabel.show
+	call main.vn_set_studylabel.show
+	call main.tx_set_eslabel.show
+	call main.ed_set_eslabel.show
+	call main.cb_set_level.show
+	call main.tx_set_level.show
+	call main.ck_set_nometashow.show
+END
+
+PROGRAM setup_set_model_re_on
+BEGIN
+	call main.tx_set_method.show
+	call main.cb_set_remethod.show
+END
+
+PROGRAM setup_set_model_ce_on
+BEGIN
+	call main.tx_set_method.hide
+	call main.cb_set_remethod.hide
+END
+
+PROGRAM setup_set_model_fe_on
+BEGIN
+	call main.tx_set_method.hide
+	call main.cb_set_remethod.hide
+END
+
+PROGRAM esize_cont_hide
+BEGIN
+	call main.gb_esize_cont_size.hide
+	call main.tx_esize_cont_size.hide
+	call main.cb_esize_cont_size.hide
+	call main.ck_esize_cont_exact.hide
+	call main.ck_esize_cont_cholkinse.hide
+	call main.ck_esize_cont_unequal.hide
+	call main.ck_esize_cont_hholkinse.hide
+	call main.gb_esize_cont_model.hide
+	call main.rb_esize_cont_remethod.hide
+	call main.tx_esize_cont_method.hide
+	call main.rb_esize_cont_common.hide
+	call main.cb_esize_cont_remethod.hide
+	call main.rb_esize_cont_fixed.hide
+	call main.gb_esize_cont_opt.hide
+	call main.tx_esize_cont_studylabel.hide
+	call main.vn_esize_cont_studylabel.hide
+	call main.tx_esize_cont_eslabel.hide
+	call main.ed_esize_cont_eslabel.hide
+	call main.cb_esize_cont_level.hide
+	call main.tx_esize_cont_level.hide
+	call main.ck_esize_cont_nometashow.hide
+END
+
+PROGRAM esize_bin_hide
+BEGIN
+	call main.gb_esize_bin_size.hide
+	call main.tx_esize_bin_size.hide
+	call main.cb_esize_bin_size.hide
+	call main.gb_esize_bin_model.hide
+	call main.rb_esize_bin_remethod.hide
+	call main.tx_esize_bin_method.hide
+	call main.rb_esize_bin_common.hide
+	call main.cb_esize_bin_remethod.hide
+	call main.cb_esize_bin_cemethod.hide
+	call main.cb_esize_bin_femethod.hide
+	call main.rb_esize_bin_fixed.hide
+	call main.gb_esize_bin_opt.hide
+	call main.ck_esize_bin_zero.hide
+	call main.cb_esize_bin_or_zero.hide
+	call main.cb_esize_bin_rr_zero.hide
+	call main.ed_esize_bin_zero.hide
+	call main.tx_esize_bin_studylabel.hide
+	call main.vn_esize_bin_studylabel.hide
+	call main.tx_esize_bin_eslabel.hide
+	call main.ed_esize_bin_eslabel.hide
+	call main.cb_esize_bin_level.hide
+	call main.tx_esize_bin_level.hide
+	call main.ck_esize_bin_nometashow.hide
+END
+
+PROGRAM set_hide
+BEGIN
+	call main.gb_set_model.hide
+	call main.rb_set_remethod.hide
+	call main.tx_set_method.hide
+	call main.rb_set_common.hide
+	call main.cb_set_remethod.hide
+	call main.rb_set_fixed.hide
+	call main.gb_set_opts.hide
+	call main.tx_set_studylabel.hide
+	call main.vn_set_studylabel.hide
+	call main.tx_set_eslabel.hide
+	call main.ed_set_eslabel.hide
+	call main.cb_set_level.hide
+	call main.tx_set_level.hide
+	call main.ck_set_nometashow.hide
+END
+
+PROGRAM command
+BEGIN
+	if m_datatype.equals("") {
+		put ""
+	}
+	if m_datatype.equals("continuous") {
+		put /program command_esize_cont
+	}
+	if m_datatype.equals("binary") {
+		put /program command_esize_bin
+	}
+	if m_datatype.equals("Generic"){
+		put /program command_set
+	}
+END
+
+PROGRAM command_esize_cont
+BEGIN	
+	if ! main.cb_esize_cont_size.iseq(m_estype) {
+		put /program put_esize_cont_es
+	}
+	else {
+		if main.cb_esize_cont_size.iseq("hedgesg") {
+			if ((main.ck_esize_cont_exact & m_esopt_exact.iseq("")) ///
+				| (!main.ck_esize_cont_exact & m_esopt_exact.isneq("")) ///
+				| (!main.ck_esize_cont_hholkinse & m_esopt_holkinse.isneq("")) ///
+				| (main.ck_esize_cont_hholkinse & m_esopt_holkinse.iseq(""))) {
+				put /program put_esize_cont_es
+			}
+		}
+		if main.cb_esize_cont_size.equals("cohend") {
+			if ((main.ck_esize_cont_cholkinse & m_esopt_holkinse.iseq(""))  ///
+			    | (!main.ck_esize_cont_cholkinse & m_esopt_holkinse.isneq(""))) {
+				put /program put_esize_cont_es
+			}
+		}
+		if main.cb_esize_cont_size.equals("mdiff") {
+			if ((main.ck_esize_cont_unequal & m_esopt_holkinse.iseq("")) ///
+			    | (!main.ck_esize_cont_unequal & m_esopt_holkinse.isneq(""))) {
+				put /program put_esize_cont_es
+			}
+		}
+	}
+	
+	if ((main.rb_esize_cont_common & ! m_model.equals("common")) | ///
+	   (main.rb_esize_cont_fixed  & ! m_model.equals("fixed")) | ///
+	   ((main.rb_esize_cont_remethod & ! m_model.equals("random")) | ///
+	    (main.rb_esize_cont_remethod & m_model.equals("random") & ///
+	     ! main.cb_esize_cont_remethod.equals(m_method)))) {
+		put " "
+		put /program put_esize_cont_model_method
+	}
+	
+	if ! main.vn_esize_cont_studylabel.equals(m_study_label) {
+		put " studylabel("
+		put main.vn_esize_cont_studylabel
+		put ")"
+	}
+	
+	if ! main.ed_esize_cont_eslabel.equals(m_eslabel) {
+		put " eslabel("
+		put main.ed_esize_cont_eslabel
+		put ")"
+	}
+	
+	if ! main.cb_esize_cont_level.equals(m_ci_level) {
+		put " level("
+		put main.cb_esize_cont_level
+		put ")"
+	}
+	
+	if (main.ck_esize_cont_nometashow & ! m_show) {
+		put " nometashow"
+	}
+	
+	if (! main.ck_esize_cont_nometashow & m_show) {
+		put " metashow"
+	}
+END
+
+PROGRAM put_esize_cont_model_method
+BEGIN
+	if main.rb_esize_cont_remethod {
+		put "random("
+		put main.cb_esize_cont_remethod
+		put ")"
+	}
+	if main.rb_esize_cont_common {
+		put "common"
+	}
+	if main.rb_esize_cont_fixed {
+		put "fixed"
+	}
+END
+
+PROGRAM put_esize_cont_es
+BEGIN
+	put "esize("
+	put main.cb_esize_cont_size
+	put /program put_hedgesg_option
+	put /program put_cohend_options
+	put /program put_mdiff_options
+	put ")"
+END
+
+PROGRAM put_hedgesg_option
+BEGIN
+	if main.cb_esize_cont_size.equals("hedgesg") {
+		put ","
+		if main.ck_esize_cont_exact {
+			put " exact"
+		}
+		if main.ck_esize_cont_hholkinse {
+			put " holkinse"
+		}
+	}
+END
+
+PROGRAM put_cohend_options
+BEGIN
+	if main.cb_esize_cont_size.equals("cohend") & main.ck_esize_cont_cholkinse {
+		put ", holkinse"
+	}
+END
+
+PROGRAM put_mdiff_options
+BEGIN
+	if main.cb_esize_cont_size.equals("mdiff") & main.ck_esize_cont_unequal {
+		put ", unequal"
+	}
+END
+
+PROGRAM command_esize_bin
+BEGIN
+	if ! main.cb_esize_bin_size.equals(m_estype) {
+		put " esize("
+		put main.cb_esize_bin_size
+		put ")"
+	}
+	
+	if main.rb_esize_bin_remethod & (! m_model.equals("random") | ///
+		! main.cb_esize_bin_remethod.equals(m_method)) {
+		put " random("
+		put main.cb_esize_bin_remethod
+		put ")"
+	}
+	
+	if main.rb_esize_bin_common & (! m_model.equals("common") | ///
+		! main.cb_esize_bin_cemethod.equals(m_method)) {
+		put " common("
+		put main.cb_esize_bin_cemethod
+		put ")"
+	}
+	
+	if main.rb_esize_bin_fixed & (! m_model.equals("fixed") | ///
+		! main.cb_esize_bin_femethod.equals(m_method)) {
+		put " fixed("
+		put main.cb_esize_bin_femethod
+		put ")"
+	}
+	
+	if (main.cb_esize_bin_size.equals("lnoratio") | main.cb_esize_bin_size.equals("lnrratio")) {
+		if ! main.ck_esize_bin_zero & m_zcadj {
+			put " zerocells(none)"
+		}
+		if ((main.ck_esize_bin_zero & ! m_zcadj) ///
+		    | (main.ck_esize_bin_zero & ///
+			(! main.ed_esize_bin_zero.equals(m_zcval) | ///
+			  (main.cb_esize_bin_size.equals("lnoratio") & ///
+			   ! main.cb_esize_bin_or_zero.equals(m_zcadj)) ///
+			| (main.cb_esize_bin_size.equals("lnrratio") & ///
+			   ! main.cb_esize_bin_rr_zero.equals(m_zcadj))))) {
+			put " zerocells("
+			put main.ed_esize_bin_zero 
+			put ", "
+			if main.cb_esize_bin_size.equals("lnoratio") {
+				put main.cb_esize_bin_or_zero
+			}
+			if main.cb_esize_bin_size.equals("lnrratio") {
+				put main.cb_esize_bin_rr_zero
+			}
+			put ")"
+		}
+	}
+	
+	
+	if ! main.vn_esize_bin_studylabel.equals(m_study_label) {
+		put " studylabel("
+		put main.vn_esize_bin_studylabel
+		put ")"
+	}
+	
+	if ! main.ed_esize_bin_eslabel.equals(m_eslabel) {
+		put " eslabel("
+		put main.ed_esize_bin_eslabel
+		put ")"
+	}
+	
+	if ! main.cb_esize_bin_level.equals(m_ci_level) {
+		put " level("
+		put main.cb_esize_bin_level
+		put ")"
+	}
+	
+	if (main.ck_esize_bin_nometashow & ! m_show) {
+		put " nometashow"
+	}
+	
+	if (! main.ck_esize_bin_nometashow & m_show) {
+		put " metashow"
+	}
+END
+
+PROGRAM command_set
+BEGIN
+	if main.rb_set_remethod & (! m_model.equals("random") | ///
+		! main.cb_set_remethod.equals(m_method)) {
+		put " random("
+		put main.cb_set_remethod
+		put ")"
+	}
+	
+	if main.rb_set_common {
+		put " common"
+	}
+	
+	if main.rb_set_fixed {
+		put " fixed"
+	}
+	
+	if ! main.vn_set_studylabel.equals(m_study_label) {
+		put " studylabel("
+		put main.vn_set_studylabel
+		put ")"
+	}
+	
+	if ! main.vn_set_studysize.equals(m_study_size) {
+		put " studysize("
+		put main.vn_set_studysize
+		put ")"
+	}
+	
+	if ! main.ed_set_eslabel.equals(m_eslabel) {
+		put " eslabel("
+		put main.ed_set_eslabel
+		put ")"
+	}
+	
+	if ! main.cb_set_level.equals(m_ci_level) {
+		put " level("
+		put main.cb_set_level
+		put ")"
+	}
+	
+	if (main.ck_set_nometashow & ! m_show) {
+		put " nometashow"
+	}
+	
+	if (! main.ck_set_nometashow & m_show) {
+		put " metashow"
+	}
+END
+
+

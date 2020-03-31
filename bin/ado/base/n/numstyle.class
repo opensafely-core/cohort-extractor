@@ -1,0 +1,105 @@
+/*				numstyle
+
+	These styles take a value and generally do not have named styles,
+	though they may.  
+	
+	Note that .setting, but not .stylename and .snm returns the value of
+	.val for these styles, rather than the name.
+*/
+*! version 1.1.0  17jan2007
+
+version 8
+
+class {
+	double val
+
+	allow_pct = 1			// let "*<#> mean proportion of
+					// current value
+} , inherit(style)
+
+
+
+// ---------------------------------------------------------------------------
+//  ALL styles must run .Super.new if they implement their own .new program 
+
+program define new
+
+	.Super.new, `.set `0''
+
+end
+
+
+program define set
+	syntax [ , Set(integer -99999) REALSET(real -99999) *]
+
+	if `set' != -99999 { 
+		.val = `set' 
+	}
+
+	if `realset' != -99999 { 
+		.val = `realset' 
+	}
+
+	class exit `"`options'"'
+end
+
+
+// ---------------------------------------------------------------------------
+//  Take over .setstyle so that its argument is taken as either a number to 
+//  be set to value or a name, rather than only name
+//
+//   	Usage:  .a.b.setstyle, style(#)
+
+program setstyle
+
+	syntax  [ , Style(string) ]
+
+	local style `._unabbrev `style''
+
+	if 0`.allow_pct' {
+						// let +/- be a percentage
+						// scaling of the current value
+		gettoken op num : style , parse("*")
+		if "`op'" == "*" {
+			capture confirm number `num'
+			if !_rc {
+				.val = 0`.val' * `num'
+				exit
+			}
+		}
+	}
+
+	capture confirm number `style'		// accept a numeric setting
+	if ! _rc {
+		.val = `style'
+		exit
+	}
+						// Allow scheme to set value
+	local scheme_setting `.`c(curscm)'.style `.classname' `style''	
+	capture confirm number `scheme_setting'
+	if ! _rc {
+		.val = `scheme_setting'
+		exit
+	}
+
+	if `"`scheme_setting'"' != `""' {	// let parent handle this
+		.Super.setstyle, style(`scheme_setting')
+	}
+					// else, just keep current settings
+end
+
+// ---------------------------------------------------------------------------
+//  Take over .setting and return .val rather than the current stylename.
+//
+//	Usage:  .setting
+//
+//	Returns the current value of .val
+
+
+program setting
+	if `.val' < . {
+		class exit (`.val')
+	}
+
+	class exit "`.val'"
+end

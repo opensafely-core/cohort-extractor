@@ -1,0 +1,1648 @@
+/*
+  gr_ts_tsbuild.idlg
+
+*!  VERSION 1.1.5  11apr2015
+
+    NOTE: (IMPORTANT)
+    	The name of this dialog tab must not be changed due to 
+    	external dependencies.
+    	
+	// SCRIPTS and PROGRAMS for external use
+		* SCRIPT gr_ts_tsbuild_disable
+		* SCRIPT gr_ts_tsbuild_enable
+		* PROGRAM gr_ts_tsbuild_output
+*/
+
+SCRIPT gr_ts_tsbuild_disable
+BEGIN
+	program gr_ts_tsbuild_disable_wrk
+END
+PROGRAM gr_ts_tsbuild_disable_wrk
+BEGIN
+	call tsbuild.tx_plots.disable
+	call tsbuild.lb_plots.disable
+	call tsbuild.bu_new.disable
+	
+	if D(tsbuild.bu_edit) {
+		call tsbuild_isEditOn.setfalse
+	}
+	if ! D(tsbuild.bu_edit) {
+		call tsbuild_isEditOn.settrue
+	}
+	call tsbuild.bu_edit.disable
+	
+	if D(tsbuild.bu_disable) {
+		call tsbuild_isDisableOn.setfalse
+	}
+	if ! D(tsbuild.bu_disable) {
+		call tsbuild_isDisableOn.settrue
+	}
+	call tsbuild.bu_disable.disable
+
+	if D(tsbuild.bu_enable) {
+		call tsbuild_isEnableOn.setfalse
+	}
+	if ! D(tsbuild.bu_enable) {
+		call tsbuild_isEnableOn.settrue
+	}
+	call tsbuild.bu_enable.disable
+
+	call tsbuild.tb_note.disable
+	call tsbuild_isFullyDisabled.settrue
+END
+
+SCRIPT gr_ts_tsbuild_enable
+BEGIN
+	program gr_ts_tsbuild_enable_wrk
+END
+PROGRAM gr_ts_tsbuild_enable_wrk
+BEGIN
+	call tsbuild.tx_plots.enable
+	call tsbuild.lb_plots.enable
+	call tsbuild.bu_new.enable
+	if tsbuild_isEditOn {
+		call tsbuild.bu_edit.enable
+	}
+	if tsbuild_isDisableOn {
+		call tsbuild.bu_disable.enable
+	}
+	if tsbuild_isEnableOn {
+		call tsbuild.bu_enable.enable
+	}
+	call tsbuild.tb_note.enable
+	call tsbuild_isFullyDisabled.setfalse
+END
+
+SCRIPT tsbuild_PREINIT
+BEGIN
+	create BOOLEAN tsbuild_plotsRequired
+	tsbuild_plotsRequired.settrue
+	
+	create STRING  tsbuild_STMP
+	create STRING  tsbuild_outputCmd
+	create BOOLEAN tsbuild_isEditOn
+	create BOOLEAN tsbuild_isDisableOn
+	create BOOLEAN tsbuild_isEnableOn
+	create BOOLEAN tsbuild_isFullyDisabled
+	
+	//** PUBLIC
+		create BOOLEAN tsbuild_isY2Set
+		create STRING tsbuild_CMD
+	//**
+
+	create STRING tsbuild_CMD1
+	create STRING tsbuild_CMD2
+	create STRING tsbuild_CMD3
+	create STRING tsbuild_CMD4
+	create STRING tsbuild_CMD5
+	create STRING tsbuild_CMD6
+	create STRING tsbuild_CMD7
+	create STRING tsbuild_CMD8
+	create STRING tsbuild_CMD9
+	create STRING tsbuild_CMD10
+	create STRING tsbuild_CMD11
+	create STRING tsbuild_CMD12
+	create STRING tsbuild_CMD13
+	create STRING tsbuild_CMD14
+	create STRING tsbuild_CMD15
+	create STRING tsbuild_CMD16
+	
+	create BOOLEAN tsbuild_plot2isY2Set
+	create BOOLEAN tsbuild_plot3isY2Set
+	create BOOLEAN tsbuild_plot4isY2Set
+	create BOOLEAN tsbuild_plot5isY2Set
+	create BOOLEAN tsbuild_plot6isY2Set
+	create BOOLEAN tsbuild_plot7isY2Set
+	create BOOLEAN tsbuild_plot8isY2Set
+	create BOOLEAN tsbuild_plot9isY2Set
+	create BOOLEAN tsbuild_plot10isY2Set
+	create BOOLEAN tsbuild_plot11isY2Set
+	create BOOLEAN tsbuild_plot12isY2Set
+	create BOOLEAN tsbuild_plot13isY2Set
+	create BOOLEAN tsbuild_plot14isY2Set
+	create BOOLEAN tsbuild_plot15isY2Set
+	create BOOLEAN tsbuild_plot16isY2Set
+	
+	create STRING tsbuild_result1
+	create STRING tsbuild_result2
+	create STRING tsbuild_result3
+	create STRING tsbuild_result4
+	create STRING tsbuild_result5
+	create STRING tsbuild_result6
+	create STRING tsbuild_result7
+	create STRING tsbuild_result8
+	create STRING tsbuild_result9
+	create STRING tsbuild_result10
+	create STRING tsbuild_result11
+	create STRING tsbuild_result12
+	create STRING tsbuild_result13
+	create STRING tsbuild_result14
+	create STRING tsbuild_result15
+	create STRING tsbuild_result16
+
+	create STRING tsbuild_status1
+	create STRING tsbuild_status2
+	create STRING tsbuild_status3
+	create STRING tsbuild_status4
+	create STRING tsbuild_status5
+	create STRING tsbuild_status6
+	create STRING tsbuild_status7
+	create STRING tsbuild_status8
+	create STRING tsbuild_status9
+	create STRING tsbuild_status10
+	create STRING tsbuild_status11
+	create STRING tsbuild_status12
+	create STRING tsbuild_status13
+	create STRING tsbuild_status14
+	create STRING tsbuild_status15
+	create STRING tsbuild_status16
+	
+	create ARRAY  tsbuild_plots
+	create ARRAY  tsbuild_plot_values
+	create DOUBLE tsbuild_counter
+	create BOOLEAN tsbuild_hasResult
+	
+	create BOOLEAN tsbuild_newEntry
+	create STRING  tsbuild_newEntryValue
+	
+	tsbuild.bu_edit.disable
+	tsbuild.bu_disable.disable
+	tsbuild.bu_enable.disable
+END
+
+SCRIPT tsbuild_POSTINIT
+BEGIN
+	tsbuild.bu_new.setfocus
+	program tsbuild_process_list
+	program tsbuild_check_y2_and_set_ytab
+END
+
+/***
+PROGRAM tsbuild_POSTINIT_PROGRAM is defined by gr_addplots wrapper
+DO NOT DEFINE HERE
+****/
+
+DIALOG tsbuild, title(resource TSLINE_DLG_TITLE)		///
+	tabtitle(resource LBL_PLOTS)
+BEGIN
+  DEFINE _x _xsetbu
+  DEFINE _y _top
+  INCLUDE _bu_tsset
+
+  TEXT     tx_plots	10	10	130	.,		///
+	label(resource GR_TW_BUILD_BUILD_TX_PLOTS)
+  
+  LISTBOX  lb_plots	@	+20	@	175,		///
+  	contents(tsbuild_plots) values(tsbuild_plot_values)	///
+  	ondblclick(program tsbuild_check_plot)			///
+  	onselchangelist(tsbuild_plot_changed)			///
+  	nomemory
+  BUTTON   bu_new	+140	@	100	.,		///
+  	label(resource LBL_BU_CREATE)				///
+  	onpush(program tsbuild_create_new)			///
+  	tooltip(resource LBL_CLICK_CREATE_NEW_PLOT)
+  BUTTON   bu_edit	@	+23	@	.,		///
+  	label(resource LBL_BU_EDIT)				///
+  	onpush(program tsbuild_check_plot)  			///
+  	tooltip(resource LBL_CLICK_EDIT_EXISTING_PLOT)
+  BUTTON   bu_disable	@	+28	@	.,		///
+  	label(resource LBL_BU_DISABLE)				///
+  	onpush(program tsbuild_disable_sel)			///
+  	tooltip(resource LBL_CLICK_DISABLE_PLOT)
+  BUTTON   bu_enable	@	+23	@	.,		///
+  	label(resource LBL_BU_ENABLE)				///
+  	onpush(program tsbuild_enable_sel)			///
+  	tooltip(resource LBL_CLICK_ENABLE_PREVIOUSLY_DISABLED_PLOT)
+
+  TEXTBOX  tb_note	_lft	+110	_iwd	_tb2,		///
+  	label(resource LBL_PRESS_CREATE_DEFINE_TIME_SERIES_PLOT)
+END
+
+PROGRAM tsbuild_create_new
+BEGIN
+	if tsbuild_counter.iseq(0) {
+		call script tsbuild_make_plot1
+	}
+	if tsbuild_counter.iseq(1) {
+		call script tsbuild_make_plot2
+	}
+	if tsbuild_counter.iseq(2) {
+		call script tsbuild_make_plot3
+	}
+	if tsbuild_counter.iseq(3) {
+		call script tsbuild_make_plot4
+	}
+	if tsbuild_counter.iseq(4) {
+		call script tsbuild_make_plot5
+	}
+	if tsbuild_counter.iseq(5) {
+		call script tsbuild_make_plot6
+	}
+	if tsbuild_counter.iseq(6) {
+		call script tsbuild_make_plot7
+	}
+	if tsbuild_counter.iseq(7) {
+		call script tsbuild_make_plot8
+	}
+	if tsbuild_counter.iseq(8) {
+		call script tsbuild_make_plot9
+	}
+	if tsbuild_counter.iseq(9) {
+		call script tsbuild_make_plot10
+	}
+	if tsbuild_counter.iseq(10) {
+		call script tsbuild_make_plot11
+	}
+	if tsbuild_counter.iseq(11) {
+		call script tsbuild_make_plot12
+	}
+	if tsbuild_counter.iseq(12) {
+		call script tsbuild_make_plot13
+	}
+	if tsbuild_counter.iseq(13) {
+		call script tsbuild_make_plot14
+	}
+	if tsbuild_counter.iseq(14) {
+		call script tsbuild_make_plot15
+	}
+	if tsbuild_counter.iseq(15) {
+		call script tsbuild_make_plot16
+	}
+	if tsbuild_counter.iseq(16) {
+		stopbox stop resource LBL_MSGBOX_PLOT_LIMIT_EXCEEDED_ONLY_16_DEF
+// Plot limit exceeded. Only 16 plots may be defined.
+	}
+END
+
+SCRIPT tsbuild_make_plot1
+BEGIN
+	create CHILD gr_ts_plot AS tsbuild_plot1, allowsubmit
+	tsbuild_plot1.setExitString "tsbuild_result1"
+	tsbuild_plot1.setExitAction "program tsbuild_plot1_done"
+	tsbuild_plot1.setSubmitAction "program tsbuild_plot1_submit_done"
+	tsbuild_STMP.format "resource LBL_PLOT_FMT" "1" ""
+        tsbuild_STMP.withvalue tsbuild_plot1.settitle "@"
+	tsbuild_plot1.callthru "script y2SetHidden_true"
+END
+PROGRAM tsbuild_plot1_done
+BEGIN
+	if tsbuild_counter.iseq(0) {
+		call tsbuild_status1.setstring "active"
+		call tsbuild_counter.setvalue 1
+		call program tsbuild_process_list_new
+	}
+	call tsbuild_CMD.withvalue tsbuild_CMD1.setstring `"@"'
+	call tsbuild.lb_plots.forceselchange
+END
+PROGRAM tsbuild_plot1_submit_done
+BEGIN
+	call program tsbuild_plot1_done
+	call Submit
+END
+
+SCRIPT tsbuild_make_plot2
+BEGIN
+	create CHILD gr_ts_plot AS tsbuild_plot2, allowsubmit
+	tsbuild_plot2.setExitString "tsbuild_result2"
+	tsbuild_plot2.setExitAction "program tsbuild_plot2_done"
+	tsbuild_plot2.setSubmitAction "program tsbuild_plot2_submit_done"
+	tsbuild_STMP.format "resource LBL_PLOT_FMT" "2" ""
+        tsbuild_STMP.withvalue tsbuild_plot2.settitle "@"
+END
+PROGRAM tsbuild_plot2_done
+BEGIN
+	if tsbuild_counter.iseq(1) {
+		call tsbuild_status2.setstring "active"
+		call tsbuild_counter.setvalue 2           
+		call program tsbuild_process_list_new
+	}
+	call tsbuild_CMD.withvalue tsbuild_CMD2.setstring `"@"'
+	call tsbuild.lb_plots.forceselchange
+	if tsbuild_isY2Set {
+		call tsbuild_plot2isY2Set.settrue
+	}
+	if ! tsbuild_isY2Set {
+		call tsbuild_plot2isY2Set.setfalse
+	}
+	call program tsbuild_check_y2_and_set_ytab
+END
+PROGRAM tsbuild_plot2_submit_done
+BEGIN
+	call program tsbuild_plot2_done
+	call Submit
+END
+
+SCRIPT tsbuild_make_plot3
+BEGIN
+	create CHILD gr_ts_plot AS tsbuild_plot3, allowsubmit
+	tsbuild_plot3.setExitString "tsbuild_result3"
+	tsbuild_plot3.setExitAction "program tsbuild_plot3_done"
+	tsbuild_plot3.setSubmitAction "program tsbuild_plot3_submit_done"
+	tsbuild_STMP.format "resource LBL_PLOT_FMT" "3" ""
+        tsbuild_STMP.withvalue tsbuild_plot3.settitle "@"
+END
+PROGRAM tsbuild_plot3_done
+BEGIN
+	if tsbuild_counter.iseq(2) {
+		call tsbuild_status3.setstring "active"
+		call tsbuild_counter.setvalue 3           
+		call program tsbuild_process_list_new		
+	}
+	call tsbuild_CMD.withvalue tsbuild_CMD3.setstring `"@"'
+	call tsbuild.lb_plots.forceselchange
+	if tsbuild_isY2Set {
+		call tsbuild_plot3isY2Set.settrue
+	}
+	if ! tsbuild_isY2Set {
+		call tsbuild_plot3isY2Set.setfalse
+	}
+	call program tsbuild_check_y2_and_set_ytab
+END
+PROGRAM tsbuild_plot3_submit_done
+BEGIN
+	call program tsbuild_plot3_done
+	call Submit
+END
+
+SCRIPT tsbuild_make_plot4
+BEGIN
+	create CHILD gr_ts_plot AS tsbuild_plot4, allowsubmit
+	tsbuild_plot4.setExitString "tsbuild_result4"
+	tsbuild_plot4.setExitAction "program tsbuild_plot4_done"
+	tsbuild_plot4.setSubmitAction "program tsbuild_plot4_submit_done"
+	tsbuild_STMP.format "resource LBL_PLOT_FMT" "4" ""
+        tsbuild_STMP.withvalue tsbuild_plot4.settitle "@"
+END
+PROGRAM tsbuild_plot4_done
+BEGIN
+	if tsbuild_counter.iseq(3) {
+		call tsbuild_status4.setstring "active"
+		call tsbuild_counter.setvalue 4           
+		call program tsbuild_process_list_new
+	}
+	call tsbuild_CMD.withvalue tsbuild_CMD4.setstring `"@"'
+	call tsbuild.lb_plots.forceselchange
+	if tsbuild_isY2Set {
+		call tsbuild_plot4isY2Set.settrue
+	}
+	if ! tsbuild_isY2Set {
+		call tsbuild_plot4isY2Set.setfalse
+	}
+	call program tsbuild_check_y2_and_set_ytab
+END
+PROGRAM tsbuild_plot4_submit_done
+BEGIN
+	call program tsbuild_plot4_done
+	call Submit
+END
+
+SCRIPT tsbuild_make_plot5
+BEGIN
+	create CHILD gr_ts_plot AS tsbuild_plot5, allowsubmit
+	tsbuild_plot5.setExitString "tsbuild_result5"
+	tsbuild_plot5.setExitAction "program tsbuild_plot5_done"
+	tsbuild_plot5.setSubmitAction "program tsbuild_plot5_submit_done"
+	tsbuild_STMP.format "resource LBL_PLOT_FMT" "5" ""
+        tsbuild_STMP.withvalue tsbuild_plot5.settitle "@"
+END
+PROGRAM tsbuild_plot5_done
+BEGIN
+	if tsbuild_counter.iseq(4) {
+		call tsbuild_status5.setstring "active"
+		call tsbuild_counter.setvalue 5           
+		call program tsbuild_process_list_new
+	}
+	call tsbuild_CMD.withvalue tsbuild_CMD5.setstring `"@"'
+	call tsbuild.lb_plots.forceselchange
+	if tsbuild_isY2Set {
+		call tsbuild_plot5isY2Set.settrue
+	}
+	if ! tsbuild_isY2Set {
+		call tsbuild_plot5isY2Set.setfalse
+	}
+	call program tsbuild_check_y2_and_set_ytab
+END
+PROGRAM tsbuild_plot5_submit_done
+BEGIN
+	call program tsbuild_plot5_done
+	call Submit
+END
+
+SCRIPT tsbuild_make_plot6
+BEGIN
+	create CHILD gr_ts_plot AS tsbuild_plot6, allowsubmit
+	tsbuild_plot6.setExitString "tsbuild_result6"
+	tsbuild_plot6.setExitAction "program tsbuild_plot6_done"
+	tsbuild_plot6.setSubmitAction "program tsbuild_plot6_submit_done"
+	tsbuild_STMP.format "resource LBL_PLOT_FMT" "6" ""
+        tsbuild_STMP.withvalue tsbuild_plot6.settitle "@"
+END
+PROGRAM tsbuild_plot6_done
+BEGIN
+	if tsbuild_counter.iseq(5) {
+		call tsbuild_status6.setstring "active"
+		call tsbuild_counter.setvalue 6           
+		call program tsbuild_process_list_new
+	}
+	call tsbuild_CMD.withvalue tsbuild_CMD6.setstring `"@"'
+	call tsbuild.lb_plots.forceselchange
+	if tsbuild_isY2Set {
+		call tsbuild_plot6isY2Set.settrue
+	}
+	if ! tsbuild_isY2Set {
+		call tsbuild_plot6isY2Set.setfalse
+	}
+	call program tsbuild_check_y2_and_set_ytab
+END
+PROGRAM tsbuild_plot6_submit_done
+BEGIN
+	call program tsbuild_plot6_done
+	call Submit
+END
+
+SCRIPT tsbuild_make_plot7
+BEGIN
+	create CHILD gr_ts_plot AS tsbuild_plot7, allowsubmit
+	tsbuild_plot7.setExitString "tsbuild_result7"
+	tsbuild_plot7.setExitAction "program tsbuild_plot7_done"
+	tsbuild_plot7.setSubmitAction "program tsbuild_plot7_submit_done"
+	tsbuild_STMP.format "resource LBL_PLOT_FMT" "7" ""
+        tsbuild_STMP.withvalue tsbuild_plot7.settitle "@"
+END
+PROGRAM tsbuild_plot7_done
+BEGIN
+	if tsbuild_counter.iseq(6) {
+		call tsbuild_status7.setstring "active"
+		call tsbuild_counter.setvalue 7           
+		call program tsbuild_process_list_new
+	}
+	call tsbuild_CMD.withvalue tsbuild_CMD7.setstring `"@"'
+	call tsbuild.lb_plots.forceselchange
+	if tsbuild_isY2Set {
+		call tsbuild_plot7isY2Set.settrue
+	}
+	if ! tsbuild_isY2Set {
+		call tsbuild_plot7isY2Set.setfalse
+	}
+	call program tsbuild_check_y2_and_set_ytab
+END
+PROGRAM tsbuild_plot7_submit_done
+BEGIN
+	call program tsbuild_plot7_done
+	call Submit
+END
+
+SCRIPT tsbuild_make_plot8
+BEGIN
+	create CHILD gr_ts_plot AS tsbuild_plot8, allowsubmit
+	tsbuild_plot8.setExitString "tsbuild_result8"
+	tsbuild_plot8.setExitAction "program tsbuild_plot8_done"
+	tsbuild_plot8.setSubmitAction "program tsbuild_plot8_submit_done"
+	tsbuild_STMP.format "resource LBL_PLOT_FMT" "8" ""
+        tsbuild_STMP.withvalue tsbuild_plot8.settitle "@"
+END
+PROGRAM tsbuild_plot8_done
+BEGIN
+	if tsbuild_counter.iseq(7) {
+		call tsbuild_status8.setstring "active"
+		call tsbuild_counter.setvalue 8           
+		call program tsbuild_process_list_new
+	}
+	call tsbuild_CMD.withvalue tsbuild_CMD8.setstring `"@"'
+	call tsbuild.lb_plots.forceselchange
+	if tsbuild_isY2Set {
+		call tsbuild_plot8isY2Set.settrue
+	}
+	if ! tsbuild_isY2Set {
+		call tsbuild_plot8isY2Set.setfalse
+	}
+	call program tsbuild_check_y2_and_set_ytab
+END
+PROGRAM tsbuild_plot8_submit_done
+BEGIN
+	call program tsbuild_plot8_done
+	call Submit
+END
+
+SCRIPT tsbuild_make_plot9
+BEGIN
+	create CHILD gr_ts_plot AS tsbuild_plot9, allowsubmit
+	tsbuild_plot9.setExitString "tsbuild_result9"
+	tsbuild_plot9.setExitAction "program tsbuild_plot9_done"
+	tsbuild_plot9.setSubmitAction "program tsbuild_plot9_submit_done"
+	tsbuild_STMP.format "resource LBL_PLOT_FMT" "9" ""
+        tsbuild_STMP.withvalue tsbuild_plot9.settitle "@"
+END
+PROGRAM tsbuild_plot9_done
+BEGIN
+	if tsbuild_counter.iseq(8) {
+		call tsbuild_status9.setstring "active"
+		call tsbuild_counter.setvalue 9           
+		call program tsbuild_process_list_new
+	}
+	call tsbuild_CMD.withvalue tsbuild_CMD9.setstring `"@"'
+	call tsbuild.lb_plots.forceselchange
+	if tsbuild_isY2Set {
+		call tsbuild_plot9isY2Set.settrue
+	}
+	if ! tsbuild_isY2Set {
+		call tsbuild_plot9isY2Set.setfalse
+	}
+	call program tsbuild_check_y2_and_set_ytab
+END
+PROGRAM tsbuild_plot9_submit_done
+BEGIN
+	call program tsbuild_plot9_done
+	call Submit
+END
+
+SCRIPT tsbuild_make_plot10
+BEGIN
+	create CHILD gr_ts_plot AS tsbuild_plot10, allowsubmit
+	tsbuild_plot10.setExitString "tsbuild_result10"
+	tsbuild_plot10.setExitAction "program tsbuild_plot10_done"
+	tsbuild_plot10.setSubmitAction "program tsbuild_plot10_submit_done"
+	tsbuild_STMP.format "resource LBL_PLOT_FMT" "10" ""
+        tsbuild_STMP.withvalue tsbuild_plot10.settitle "@"
+END
+PROGRAM tsbuild_plot10_done
+BEGIN
+	if tsbuild_counter.iseq(9) {
+		call tsbuild_status10.setstring "active"
+		call tsbuild_counter.setvalue 10           
+		call program tsbuild_process_list_new
+	}
+	call tsbuild_CMD.withvalue tsbuild_CMD10.setstring `"@"'
+	call tsbuild.lb_plots.forceselchange
+	if tsbuild_isY2Set {
+		call tsbuild_plot10isY2Set.settrue
+	}
+	if ! tsbuild_isY2Set {
+		call tsbuild_plot10isY2Set.setfalse
+	}
+	call program tsbuild_check_y2_and_set_ytab
+END
+PROGRAM tsbuild_plot10_submit_done
+BEGIN
+	call program tsbuild_plot10_done
+	call Submit
+END
+
+SCRIPT tsbuild_make_plot11
+BEGIN
+	create CHILD gr_ts_plot AS tsbuild_plot11, allowsubmit
+	tsbuild_plot11.setExitString "tsbuild_result11"
+	tsbuild_plot11.setExitAction "program tsbuild_plot11_done"
+	tsbuild_plot11.setSubmitAction "program tsbuild_plot11_submit_done"
+	tsbuild_STMP.format "resource LBL_PLOT_FMT" "11" ""
+        tsbuild_STMP.withvalue tsbuild_plot11.settitle "@"
+END
+PROGRAM tsbuild_plot11_done
+BEGIN
+	if tsbuild_counter.iseq(10) {
+		call tsbuild_status11.setstring "active"
+		call tsbuild_counter.setvalue 11           
+		call program tsbuild_process_list_new
+	}
+	call tsbuild_CMD.withvalue tsbuild_CMD11.setstring `"@"'
+	call tsbuild.lb_plots.forceselchange
+	if tsbuild_isY2Set {
+		call tsbuild_plot11isY2Set.settrue
+	}
+	if ! tsbuild_isY2Set {
+		call tsbuild_plot11isY2Set.setfalse
+	}
+	call program tsbuild_check_y2_and_set_ytab
+END
+PROGRAM tsbuild_plot11_submit_done
+BEGIN
+	call program tsbuild_plot11_done
+	call Submit
+END
+
+SCRIPT tsbuild_make_plot12
+BEGIN
+	create CHILD gr_ts_plot AS tsbuild_plot12, allowsubmit
+	tsbuild_plot12.setExitString "tsbuild_result12"
+	tsbuild_plot12.setExitAction "program tsbuild_plot12_done"
+	tsbuild_plot12.setSubmitAction "program tsbuild_plot12_submit_done"
+	tsbuild_STMP.format "resource LBL_PLOT_FMT" "12" ""
+        tsbuild_STMP.withvalue tsbuild_plot12.settitle "@"
+END
+PROGRAM tsbuild_plot12_done
+BEGIN
+	if tsbuild_counter.iseq(11) {
+		call tsbuild_status12.setstring "active"
+		call tsbuild_counter.setvalue 12           
+		call program tsbuild_process_list_new
+	}
+	call tsbuild_CMD.withvalue tsbuild_CMD12.setstring `"@"'
+	call tsbuild.lb_plots.forceselchange
+	if tsbuild_isY2Set {
+		call tsbuild_plot12isY2Set.settrue
+	}
+	if ! tsbuild_isY2Set {
+		call tsbuild_plot12isY2Set.setfalse
+	}
+	call program tsbuild_check_y2_and_set_ytab
+END
+PROGRAM tsbuild_plot12_submit_done
+BEGIN
+	call program tsbuild_plot12_done
+	call Submit
+END
+
+SCRIPT tsbuild_make_plot13
+BEGIN
+	create CHILD gr_ts_plot AS tsbuild_plot13, allowsubmit
+	tsbuild_plot13.setExitString "tsbuild_result13"
+	tsbuild_plot13.setExitAction "program tsbuild_plot13_done"
+	tsbuild_plot13.setSubmitAction "program tsbuild_plot13_submit_done"
+	tsbuild_STMP.format "resource LBL_PLOT_FMT" "13" ""
+        tsbuild_STMP.withvalue tsbuild_plot13.settitle "@"
+END
+PROGRAM tsbuild_plot13_done
+BEGIN
+	if tsbuild_counter.iseq(12) {
+		call tsbuild_status13.setstring "active"
+		call tsbuild_counter.setvalue 13           
+		call program tsbuild_process_list_new
+	}
+	call tsbuild_CMD.withvalue tsbuild_CMD13.setstring `"@"'
+	call tsbuild.lb_plots.forceselchange
+	if tsbuild_isY2Set {
+		call tsbuild_plot13isY2Set.settrue
+	}
+	if ! tsbuild_isY2Set {
+		call tsbuild_plot13isY2Set.setfalse
+	}
+	call program tsbuild_check_y2_and_set_ytab
+END
+PROGRAM tsbuild_plot13_submit_done
+BEGIN
+	call program tsbuild_plot13_done
+	call Submit
+END
+
+SCRIPT tsbuild_make_plot14
+BEGIN
+	create CHILD gr_ts_plot AS tsbuild_plot14, allowsubmit
+	tsbuild_plot14.setExitString "tsbuild_result14"
+	tsbuild_plot14.setExitAction "program tsbuild_plot14_done"
+	tsbuild_plot14.setSubmitAction "program tsbuild_plot14_submit_done"
+	tsbuild_STMP.format "resource LBL_PLOT_FMT" "14" ""
+        tsbuild_STMP.withvalue tsbuild_plot14.settitle "@"
+END
+PROGRAM tsbuild_plot14_done
+BEGIN
+	if tsbuild_counter.iseq(13) {
+		call tsbuild_status14.setstring "active"
+		call tsbuild_counter.setvalue 14           
+		call program tsbuild_process_list_new
+	}
+	call tsbuild_CMD.withvalue tsbuild_CMD14.setstring `"@"'
+	call tsbuild.lb_plots.forceselchange
+	if tsbuild_isY2Set {
+		call tsbuild_plot14isY2Set.settrue
+	}
+	if ! tsbuild_isY2Set {
+		call tsbuild_plot14isY2Set.setfalse
+	}
+	call program tsbuild_check_y2_and_set_ytab
+END
+PROGRAM tsbuild_plot14_submit_done
+BEGIN
+	call program tsbuild_plot14_done
+	call Submit
+END
+
+SCRIPT tsbuild_make_plot15
+BEGIN
+	create CHILD gr_ts_plot AS tsbuild_plot15, allowsubmit
+	tsbuild_plot15.setExitString "tsbuild_result15"
+	tsbuild_plot15.setExitAction "program tsbuild_plot15_done"
+	tsbuild_plot15.setSubmitAction "program tsbuild_plot15_submit_done"
+	tsbuild_STMP.format "resource LBL_PLOT_FMT" "15" ""
+        tsbuild_STMP.withvalue tsbuild_plot15.settitle "@"
+END
+PROGRAM tsbuild_plot15_done
+BEGIN
+	if tsbuild_counter.iseq(14) {
+		call tsbuild_status15.setstring "active"
+		call tsbuild_counter.setvalue 15           
+		call program tsbuild_process_list_new
+	}
+	call tsbuild_CMD.withvalue tsbuild_CMD15.setstring `"@"'
+	call tsbuild.lb_plots.forceselchange
+	if tsbuild_isY2Set {
+		call tsbuild_plot15isY2Set.settrue
+	}
+	if ! tsbuild_isY2Set {
+		call tsbuild_plot15isY2Set.setfalse
+	}
+	call program tsbuild_check_y2_and_set_ytab
+END
+PROGRAM tsbuild_plot15_submit_done
+BEGIN
+	call program tsbuild_plot15_done
+	call Submit
+END
+
+SCRIPT tsbuild_make_plot16
+BEGIN
+	create CHILD gr_ts_plot AS tsbuild_plot16, allowsubmit
+	tsbuild_plot16.setExitString "tsbuild_result16"
+	tsbuild_plot16.setExitAction "program tsbuild_plot16_done"
+	tsbuild_plot16.setSubmitAction "program tsbuild_plot16_submit_done"
+	tsbuild_STMP.format "resource LBL_PLOT_FMT" "16" ""
+        tsbuild_STMP.withvalue tsbuild_plot16.settitle "@"
+END
+PROGRAM tsbuild_plot16_done
+BEGIN
+	if tsbuild_counter.iseq(15) {
+		call tsbuild_status16.setstring "active"
+		call tsbuild_counter.setvalue 16           
+		call program tsbuild_process_list_new
+	}
+	call tsbuild_CMD.withvalue tsbuild_CMD16.setstring `"@"'
+	call tsbuild.lb_plots.forceselchange
+	if tsbuild_isY2Set {
+		call tsbuild_plot16isY2Set.settrue
+	}
+	if ! tsbuild_isY2Set {
+		call tsbuild_plot16isY2Set.setfalse
+	}
+	call program tsbuild_check_y2_and_set_ytab	
+END
+PROGRAM tsbuild_plot16_submit_done
+BEGIN
+	call program tsbuild_plot16_done
+	call Submit
+END
+
+SCRIPT tsbuild_clear_list
+BEGIN
+	tsbuild_plots.Arrdropall
+	tsbuild_plot_values.Arrdropall
+END
+
+PROGRAM tsbuild_process_list_new
+BEGIN
+	call tsbuild_newEntry.settrue
+	call program tsbuild_process_list
+	call tsbuild_newEntry.setfalse
+END
+
+PROGRAM tsbuild_process_list
+BEGIN	
+	call script tsbuild_clear_list
+	if tsbuild_counter.isge(1) {
+		call tsbuild_plot_values.Arrpush "plot1"
+		call tsbuild_newEntryValue.setstring "plot1"
+		if tsbuild_status1.iseq("active") {
+			call tsbuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"1" ""
+			call tsbuild_STMP.withvalue tsbuild_plots.Arrpush "@"
+		}
+		if tsbuild_status1.iseq("disabled") {
+			call tsbuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"1" "resource LBL_PAREN_DISABLED"
+			call tsbuild_STMP.withvalue tsbuild_plots.Arrpush "@"
+		}
+		call tsbuild.bu_edit.enable
+	}
+	if tsbuild_counter.isge(2) {
+		call tsbuild_plot_values.Arrpush "plot2"
+		call tsbuild_newEntryValue.setstring "plot2"
+		if tsbuild_status2.iseq("active") {
+			call tsbuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"2" ""
+			call tsbuild_STMP.withvalue tsbuild_plots.Arrpush "@"
+		}
+		if tsbuild_status2.iseq("disabled") {
+			call tsbuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"2" "resource LBL_PAREN_DISABLED"
+			call tsbuild_STMP.withvalue tsbuild_plots.Arrpush "@"
+		}
+	}
+	if tsbuild_counter.isge(3) {
+		call tsbuild_plot_values.Arrpush "plot3"
+		call tsbuild_newEntryValue.setstring "plot3"
+		if tsbuild_status3.iseq("active") {
+			call tsbuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"3" ""
+			call tsbuild_STMP.withvalue tsbuild_plots.Arrpush "@"
+		}
+		if tsbuild_status3.iseq("disabled") {
+			call tsbuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"3" "resource LBL_PAREN_DISABLED"
+			call tsbuild_STMP.withvalue tsbuild_plots.Arrpush "@"
+		}
+	}
+	if tsbuild_counter.isge(4) {
+		call tsbuild_plot_values.Arrpush "plot4"
+		call tsbuild_newEntryValue.setstring "plot4"
+		if tsbuild_status4.iseq("active") {
+			call tsbuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"4" ""
+			call tsbuild_STMP.withvalue tsbuild_plots.Arrpush "@"
+		}
+		if tsbuild_status4.iseq("disabled") {
+			call tsbuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"4" "resource LBL_PAREN_DISABLED"
+			call tsbuild_STMP.withvalue tsbuild_plots.Arrpush "@"
+		}
+	}
+	if tsbuild_counter.isge(5) {
+		call tsbuild_plot_values.Arrpush "plot5"
+		call tsbuild_newEntryValue.setstring "plot5"
+		if tsbuild_status5.iseq("active") {
+			call tsbuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"5" ""
+			call tsbuild_STMP.withvalue tsbuild_plots.Arrpush "@"
+		}
+		if tsbuild_status5.iseq("disabled") {
+			call tsbuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"5" "resource LBL_PAREN_DISABLED"
+			call tsbuild_STMP.withvalue tsbuild_plots.Arrpush "@"
+		}
+	}
+	if tsbuild_counter.isge(6) {
+		call tsbuild_plot_values.Arrpush "plot6"
+		call tsbuild_newEntryValue.setstring "plot6"
+		if tsbuild_status6.iseq("active") {
+			call tsbuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"6" ""
+			call tsbuild_STMP.withvalue tsbuild_plots.Arrpush "@"
+		}
+		if tsbuild_status6.iseq("disabled") {
+			call tsbuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"6" "resource LBL_PAREN_DISABLED"
+			call tsbuild_STMP.withvalue tsbuild_plots.Arrpush "@"
+		}
+	}
+	if tsbuild_counter.isge(7) {
+		call tsbuild_plot_values.Arrpush "plot7"
+		call tsbuild_newEntryValue.setstring "plot7"
+		if tsbuild_status7.iseq("active") {
+			call tsbuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"7" ""
+			call tsbuild_STMP.withvalue tsbuild_plots.Arrpush "@"
+		}
+		if tsbuild_status7.iseq("disabled") {
+			call tsbuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"7" "resource LBL_PAREN_DISABLED"
+			call tsbuild_STMP.withvalue tsbuild_plots.Arrpush "@"
+		}
+	}
+	if tsbuild_counter.isge(8) {
+		call tsbuild_plot_values.Arrpush "plot8"
+		call tsbuild_newEntryValue.setstring "plot8"
+		if tsbuild_status8.iseq("active") {
+			call tsbuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"8" ""
+			call tsbuild_STMP.withvalue tsbuild_plots.Arrpush "@"
+		}
+		if tsbuild_status8.iseq("disabled") {
+			call tsbuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"8" "resource LBL_PAREN_DISABLED"
+			call tsbuild_STMP.withvalue tsbuild_plots.Arrpush "@"
+		}
+	}	
+	if tsbuild_counter.isge(9) {
+		call tsbuild_plot_values.Arrpush "plot9"
+		call tsbuild_newEntryValue.setstring "plot9"
+		if tsbuild_status9.iseq("active") {
+			call tsbuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"9" ""
+			call tsbuild_STMP.withvalue tsbuild_plots.Arrpush "@"
+		}
+		if tsbuild_status9.iseq("disabled") {
+			call tsbuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"9" "resource LBL_PAREN_DISABLED"
+			call tsbuild_STMP.withvalue tsbuild_plots.Arrpush "@"
+		}
+	}
+	if tsbuild_counter.isge(10) {
+		call tsbuild_plot_values.Arrpush "plot10"
+		call tsbuild_newEntryValue.setstring "plot10"
+		if tsbuild_status10.iseq("active") {
+			call tsbuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"10" ""
+			call tsbuild_STMP.withvalue tsbuild_plots.Arrpush "@"
+		}
+		if tsbuild_status10.iseq("disabled") {
+			call tsbuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"10" "resource LBL_PAREN_DISABLED"
+			call tsbuild_STMP.withvalue tsbuild_plots.Arrpush "@"
+		}
+	}
+	if tsbuild_counter.isge(11) {
+		call tsbuild_plot_values.Arrpush "plot11"
+		call tsbuild_newEntryValue.setstring "plot11"
+		if tsbuild_status11.iseq("active") {
+			call tsbuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"11" ""
+			call tsbuild_STMP.withvalue tsbuild_plots.Arrpush "@"
+		}
+		if tsbuild_status11.iseq("disabled") {
+			call tsbuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"11" "resource LBL_PAREN_DISABLED"
+			call tsbuild_STMP.withvalue tsbuild_plots.Arrpush "@"
+		}
+	}
+	if tsbuild_counter.isge(12) {
+		call tsbuild_plot_values.Arrpush "plot12"
+		call tsbuild_newEntryValue.setstring "plot12"
+		if tsbuild_status12.iseq("active") {
+			call tsbuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"12" ""
+			call tsbuild_STMP.withvalue tsbuild_plots.Arrpush "@"
+		}
+		if tsbuild_status12.iseq("disabled") {
+			call tsbuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"12" "resource LBL_PAREN_DISABLED"
+			call tsbuild_STMP.withvalue tsbuild_plots.Arrpush "@"
+		}
+	}
+	if tsbuild_counter.isge(13) {
+		call tsbuild_plot_values.Arrpush "plot13"
+		call tsbuild_newEntryValue.setstring "plot13"
+		if tsbuild_status13.iseq("active") {
+			call tsbuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"13" ""
+			call tsbuild_STMP.withvalue tsbuild_plots.Arrpush "@"
+		}
+		if tsbuild_status13.iseq("disabled") {
+			call tsbuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"13" "resource LBL_PAREN_DISABLED"
+			call tsbuild_STMP.withvalue tsbuild_plots.Arrpush "@"
+		}
+	}
+	if tsbuild_counter.isge(14) {
+		call tsbuild_plot_values.Arrpush "plot14"
+		call tsbuild_newEntryValue.setstring "plot14"
+		if tsbuild_status14.iseq("active") {
+			call tsbuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"14" ""
+			call tsbuild_STMP.withvalue tsbuild_plots.Arrpush "@"
+		}
+		if tsbuild_status14.iseq("disabled") {
+			call tsbuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"14" "resource LBL_PAREN_DISABLED"
+			call tsbuild_STMP.withvalue tsbuild_plots.Arrpush "@"
+		}
+	}
+	if tsbuild_counter.isge(15) {
+		call tsbuild_plot_values.Arrpush "plot15"
+		call tsbuild_newEntryValue.setstring "plot15"
+		if tsbuild_status15.iseq("active") {
+			call tsbuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"15" ""
+			call tsbuild_STMP.withvalue tsbuild_plots.Arrpush "@"
+		}
+		if tsbuild_status15.iseq("disabled") {
+			call tsbuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"15" "resource LBL_PAREN_DISABLED"
+			call tsbuild_STMP.withvalue tsbuild_plots.Arrpush "@"
+		}
+	}
+	if tsbuild_counter.isge(16) {
+		call tsbuild_plot_values.Arrpush "plot16"
+		call tsbuild_newEntryValue.setstring "plot16"
+		if tsbuild_status16.iseq("active") {
+			call tsbuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"16" ""
+			call tsbuild_STMP.withvalue tsbuild_plots.Arrpush "@"
+		}
+		if tsbuild_status16.iseq("disabled") {
+			call tsbuild_STMP.format "resource LBL_PLOT_FMT" ///
+				"16" "resource LBL_PAREN_DISABLED"
+			call tsbuild_STMP.withvalue tsbuild_plots.Arrpush "@"
+		}
+	}
+	call tsbuild.lb_plots.repopulate
+	if tsbuild_newEntry {
+		call tsbuild_newEntryValue.withvalue tsbuild.lb_plots.setvalue "@"
+	}
+END
+
+PROGRAM tsbuild_check_y2_and_set_ytab
+BEGIN
+	if tsbuild_plot2isY2Set | tsbuild_plot3isY2Set 			///
+		| tsbuild_plot4isY2Set 					///
+		| tsbuild_plot5isY2Set | tsbuild_plot6isY2Set 		///
+		| tsbuild_plot7isY2Set | tsbuild_plot8isY2Set 		///
+		| tsbuild_plot9isY2Set | tsbuild_plot10isY2Set 		///
+		| tsbuild_plot11isY2Set | tsbuild_plot12isY2Set 	///
+		| tsbuild_plot13isY2Set | tsbuild_plot14isY2Set 	///
+		| tsbuild_plot15isY2Set | tsbuild_plot16isY2Set 	///
+	{
+		call script gr_yaxis_showY2
+	}
+	else {
+		call script gr_yaxis_hideY2
+	}
+END
+
+LIST tsbuild_plot_changed
+BEGIN
+	script tsbuild_plot1_sel
+	script tsbuild_plot2_sel
+	script tsbuild_plot3_sel
+	script tsbuild_plot4_sel
+	script tsbuild_plot5_sel
+	script tsbuild_plot6_sel
+	script tsbuild_plot7_sel
+	script tsbuild_plot8_sel	
+	script tsbuild_plot9_sel
+	script tsbuild_plot10_sel
+	script tsbuild_plot11_sel
+	script tsbuild_plot12_sel
+	script tsbuild_plot13_sel
+	script tsbuild_plot14_sel
+	script tsbuild_plot15_sel
+	script tsbuild_plot16_sel	
+END
+
+SCRIPT tsbuild_plot0_sel
+BEGIN
+	tsbuild.tb_note.setlabel resource LBL_PRESS_CREATE_DEFINE_TIME_SERIES_PLOT
+	tsbuild.bu_enable.disable
+	tsbuild.bu_disable.disable
+END
+
+SCRIPT tsbuild_plot1_sel
+BEGIN
+	tsbuild_CMD1.withvalue tsbuild.tb_note.setlabel `"@"'
+	program tsbuild_plot1_check_status
+END
+PROGRAM tsbuild_plot1_check_status
+BEGIN
+	if tsbuild_status1.iseq("active") {
+		call tsbuild.bu_enable.disable
+		call tsbuild.bu_disable.enable
+	}
+	if tsbuild_status1.iseq("disabled") {
+		call tsbuild.bu_enable.enable
+		call tsbuild.bu_disable.disable
+	}
+END
+
+SCRIPT tsbuild_plot2_sel
+BEGIN
+	tsbuild_CMD2.withvalue tsbuild.tb_note.setlabel `"@"'
+	program tsbuild_plot2_check_status
+END
+PROGRAM tsbuild_plot2_check_status
+BEGIN
+	if tsbuild_status2.iseq("active") {
+		call tsbuild.bu_enable.disable
+		call tsbuild.bu_disable.enable
+	}
+	if tsbuild_status2.iseq("disabled") {
+		call tsbuild.bu_enable.enable
+		call tsbuild.bu_disable.disable
+	}
+END
+
+SCRIPT tsbuild_plot3_sel
+BEGIN
+	tsbuild_CMD3.withvalue tsbuild.tb_note.setlabel `"@"'
+	program tsbuild_plot3_check_status
+END
+PROGRAM tsbuild_plot3_check_status
+BEGIN
+	if tsbuild_status3.iseq("active") {
+		call tsbuild.bu_enable.disable
+		call tsbuild.bu_disable.enable
+	}
+	if tsbuild_status3.iseq("disabled") {
+		call tsbuild.bu_enable.enable
+		call tsbuild.bu_disable.disable
+	}
+END
+
+SCRIPT tsbuild_plot4_sel
+BEGIN
+	tsbuild_CMD4.withvalue tsbuild.tb_note.setlabel `"@"'
+	program tsbuild_plot4_check_status
+END
+PROGRAM tsbuild_plot4_check_status
+BEGIN
+	if tsbuild_status4.iseq("active") {
+		call tsbuild.bu_enable.disable
+		call tsbuild.bu_disable.enable
+	}
+	if tsbuild_status4.iseq("disabled") {
+		call tsbuild.bu_enable.enable
+		call tsbuild.bu_disable.disable
+	}
+END
+
+SCRIPT tsbuild_plot5_sel
+BEGIN
+	tsbuild_CMD5.withvalue tsbuild.tb_note.setlabel `"@"'
+	program tsbuild_plot5_check_status
+END
+PROGRAM tsbuild_plot5_check_status
+BEGIN
+	if tsbuild_status5.iseq("active") {
+		call tsbuild.bu_enable.disable
+		call tsbuild.bu_disable.enable
+	}
+	if tsbuild_status5.iseq("disabled") {
+		call tsbuild.bu_enable.enable
+		call tsbuild.bu_disable.disable
+	}
+END
+
+SCRIPT tsbuild_plot6_sel
+BEGIN
+	tsbuild_CMD6.withvalue tsbuild.tb_note.setlabel `"@"'
+	program tsbuild_plot6_check_status
+END
+PROGRAM tsbuild_plot6_check_status
+BEGIN
+	if tsbuild_status6.iseq("active") {
+		call tsbuild.bu_enable.disable
+		call tsbuild.bu_disable.enable
+	}
+	if tsbuild_status6.iseq("disabled") {
+		call tsbuild.bu_enable.enable
+		call tsbuild.bu_disable.disable
+	}
+END
+
+SCRIPT tsbuild_plot7_sel
+BEGIN
+	tsbuild_CMD7.withvalue tsbuild.tb_note.setlabel `"@"'
+	program tsbuild_plot7_check_status
+END
+PROGRAM tsbuild_plot7_check_status
+BEGIN
+	if tsbuild_status7.iseq("active") {
+		call tsbuild.bu_enable.disable
+		call tsbuild.bu_disable.enable
+	}
+	if tsbuild_status7.iseq("disabled") {
+		call tsbuild.bu_enable.enable
+		call tsbuild.bu_disable.disable
+	}
+END
+
+SCRIPT tsbuild_plot8_sel
+BEGIN
+	tsbuild_CMD8.withvalue tsbuild.tb_note.setlabel `"@"'
+	program tsbuild_plot8_check_status
+END
+PROGRAM tsbuild_plot8_check_status
+BEGIN
+	if tsbuild_status8.iseq("active") {
+		call tsbuild.bu_enable.disable
+		call tsbuild.bu_disable.enable
+	}
+	if tsbuild_status8.iseq("disabled") {
+		call tsbuild.bu_enable.enable
+		call tsbuild.bu_disable.disable
+	}
+END
+
+SCRIPT tsbuild_plot9_sel
+BEGIN
+	tsbuild_CMD9.withvalue tsbuild.tb_note.setlabel `"@"'
+	program tsbuild_plot9_check_status
+END
+PROGRAM tsbuild_plot9_check_status
+BEGIN
+	if tsbuild_status9.iseq("active") {
+		call tsbuild.bu_enable.disable
+		call tsbuild.bu_disable.enable
+	}
+	if tsbuild_status9.iseq("disabled") {
+		call tsbuild.bu_enable.enable
+		call tsbuild.bu_disable.disable
+	}
+END
+
+SCRIPT tsbuild_plot10_sel
+BEGIN
+	tsbuild_CMD10.withvalue tsbuild.tb_note.setlabel `"@"'
+	program tsbuild_plot10_check_status
+END
+PROGRAM tsbuild_plot10_check_status
+BEGIN
+	if tsbuild_status10.iseq("active") {
+		call tsbuild.bu_enable.disable
+		call tsbuild.bu_disable.enable
+	}
+	if tsbuild_status10.iseq("disabled") {
+		call tsbuild.bu_enable.enable
+		call tsbuild.bu_disable.disable
+	}
+END
+
+SCRIPT tsbuild_plot11_sel
+BEGIN
+	tsbuild_CMD11.withvalue tsbuild.tb_note.setlabel `"@"'
+	program tsbuild_plot11_check_status
+END
+PROGRAM tsbuild_plot11_check_status
+BEGIN
+	if tsbuild_status11.iseq("active") {
+		call tsbuild.bu_enable.disable
+		call tsbuild.bu_disable.enable
+	}
+	if tsbuild_status11.iseq("disabled") {
+		call tsbuild.bu_enable.enable
+		call tsbuild.bu_disable.disable
+	}
+END
+
+SCRIPT tsbuild_plot12_sel
+BEGIN
+	tsbuild_CMD12.withvalue tsbuild.tb_note.setlabel `"@"'
+	program tsbuild_plot12_check_status
+END
+PROGRAM tsbuild_plot12_check_status
+BEGIN
+	if tsbuild_status12.iseq("active") {
+		call tsbuild.bu_enable.disable
+		call tsbuild.bu_disable.enable
+	}
+	if tsbuild_status12.iseq("disabled") {
+		call tsbuild.bu_enable.enable
+		call tsbuild.bu_disable.disable
+	}
+END
+
+SCRIPT tsbuild_plot13_sel
+BEGIN
+	tsbuild_CMD13.withvalue tsbuild.tb_note.setlabel `"@"'
+	program tsbuild_plot13_check_status
+END
+PROGRAM tsbuild_plot13_check_status
+BEGIN
+	if tsbuild_status13.iseq("active") {
+		call tsbuild.bu_enable.disable
+		call tsbuild.bu_disable.enable
+	}
+	if tsbuild_status13.iseq("disabled") {
+		call tsbuild.bu_enable.enable
+		call tsbuild.bu_disable.disable
+	}
+END
+
+SCRIPT tsbuild_plot14_sel
+BEGIN
+	tsbuild_CMD14.withvalue tsbuild.tb_note.setlabel `"@"'
+	program tsbuild_plot14_check_status
+END
+PROGRAM tsbuild_plot14_check_status
+BEGIN
+	if tsbuild_status14.iseq("active") {
+		call tsbuild.bu_enable.disable
+		call tsbuild.bu_disable.enable
+	}
+	if tsbuild_status14.iseq("disabled") {
+		call tsbuild.bu_enable.enable
+		call tsbuild.bu_disable.disable
+	}
+END
+
+SCRIPT tsbuild_plot15_sel
+BEGIN
+	tsbuild_CMD15.withvalue tsbuild.tb_note.setlabel `"@"'
+	program tsbuild_plot15_check_status
+END
+PROGRAM tsbuild_plot15_check_status
+BEGIN
+	if tsbuild_status15.iseq("active") {
+		call tsbuild.bu_enable.disable
+		call tsbuild.bu_disable.enable
+	}
+	if tsbuild_status15.iseq("disabled") {
+		call tsbuild.bu_enable.enable
+		call tsbuild.bu_disable.disable
+	}
+END
+
+SCRIPT tsbuild_plot16_sel
+BEGIN
+	tsbuild_CMD16.withvalue tsbuild.tb_note.setlabel `"@"'
+	program tsbuild_plot16_check_status
+END
+PROGRAM tsbuild_plot16_check_status
+BEGIN
+	if tsbuild_status16.iseq("active") {
+		call tsbuild.bu_enable.disable
+		call tsbuild.bu_disable.enable
+	}
+	if tsbuild_status16.iseq("disabled") {
+		call tsbuild.bu_enable.enable
+		call tsbuild.bu_disable.disable
+	}
+END
+
+PROGRAM tsbuild_disable_sel
+BEGIN
+	if tsbuild.lb_plots.iseq("plot1") {
+		call tsbuild_status1.setstring "disabled"
+	}
+	if tsbuild.lb_plots.iseq("plot2") {
+		call tsbuild_status2.setstring "disabled"
+	}
+	if tsbuild.lb_plots.iseq("plot3") {
+		call tsbuild_status3.setstring "disabled"
+	}
+	if tsbuild.lb_plots.iseq("plot4") {
+		call tsbuild_status4.setstring "disabled"
+	}
+	if tsbuild.lb_plots.iseq("plot5") {
+		call tsbuild_status5.setstring "disabled"
+	}
+	if tsbuild.lb_plots.iseq("plot6") {
+		call tsbuild_status6.setstring "disabled"
+	}
+	if tsbuild.lb_plots.iseq("plot7") {
+		call tsbuild_status7.setstring "disabled"
+	}
+	if tsbuild.lb_plots.iseq("plot8") {
+		call tsbuild_status8.setstring "disabled"
+	}	
+	if tsbuild.lb_plots.iseq("plot9") {
+		call tsbuild_status9.setstring "disabled"
+	}
+	if tsbuild.lb_plots.iseq("plot10") {
+		call tsbuild_status10.setstring "disabled"
+	}
+	if tsbuild.lb_plots.iseq("plot11") {
+		call tsbuild_status11.setstring "disabled"
+	}
+	if tsbuild.lb_plots.iseq("plot12") {
+		call tsbuild_status12.setstring "disabled"
+	}
+	if tsbuild.lb_plots.iseq("plot13") {
+		call tsbuild_status13.setstring "disabled"
+	}
+	if tsbuild.lb_plots.iseq("plot14") {
+		call tsbuild_status14.setstring "disabled"
+	}
+	if tsbuild.lb_plots.iseq("plot15") {
+		call tsbuild_status15.setstring "disabled"
+	}
+	if tsbuild.lb_plots.iseq("plot16") {
+		call tsbuild_status16.setstring "disabled"
+	}	
+	call program tsbuild_process_list
+END
+
+PROGRAM tsbuild_enable_sel
+BEGIN
+	if tsbuild.lb_plots.iseq("plot1") {
+		call tsbuild_status1.setstring "active"
+	}
+	if tsbuild.lb_plots.iseq("plot2") {
+		call tsbuild_status2.setstring "active"
+	}
+	if tsbuild.lb_plots.iseq("plot3") {
+		call tsbuild_status3.setstring "active"
+	}
+	if tsbuild.lb_plots.iseq("plot4") {
+		call tsbuild_status4.setstring "active"
+	}
+	if tsbuild.lb_plots.iseq("plot5") {
+		call tsbuild_status5.setstring "active"
+	}
+	if tsbuild.lb_plots.iseq("plot6") {
+		call tsbuild_status6.setstring "active"
+	}
+	if tsbuild.lb_plots.iseq("plot7") {
+		call tsbuild_status7.setstring "active"
+	}
+	if tsbuild.lb_plots.iseq("plot8") {
+		call tsbuild_status8.setstring "active"
+	}	
+	if tsbuild.lb_plots.iseq("plot19") {
+		call tsbuild_status9.setstring "active"
+	}
+	if tsbuild.lb_plots.iseq("plot10") {
+		call tsbuild_status10.setstring "active"
+	}
+	if tsbuild.lb_plots.iseq("plot11") {
+		call tsbuild_status11.setstring "active"
+	}
+	if tsbuild.lb_plots.iseq("plot12") {
+		call tsbuild_status12.setstring "active"
+	}
+	if tsbuild.lb_plots.iseq("plot13") {
+		call tsbuild_status13.setstring "active"
+	}
+	if tsbuild.lb_plots.iseq("plot14") {
+		call tsbuild_status14.setstring "active"
+	}
+	if tsbuild.lb_plots.iseq("plot15") {
+		call tsbuild_status15.setstring "active"
+	}
+	if tsbuild.lb_plots.iseq("plot16") {
+		call tsbuild_status16.setstring "active"
+	}
+	call program tsbuild_process_list
+END
+
+PROGRAM tsbuild_check_plot
+BEGIN
+	if tsbuild.lb_plots.iseq("plot1") {
+		call script tsbuild_make_plot1		
+	}
+	if tsbuild.lb_plots.iseq("plot2") {
+		call script tsbuild_make_plot2
+	}
+	if tsbuild.lb_plots.iseq("plot3") {
+		call script tsbuild_make_plot3
+	}
+	if tsbuild.lb_plots.iseq("plot4") {
+		call script tsbuild_make_plot4
+	}
+	if tsbuild.lb_plots.iseq("plot5") {
+		call script tsbuild_make_plot5
+	}
+	if tsbuild.lb_plots.iseq("plot6") {
+		call script tsbuild_make_plot6
+	}
+	if tsbuild.lb_plots.iseq("plot7") {
+		call script tsbuild_make_plot7
+	}
+	if tsbuild.lb_plots.iseq("plot8") {
+		call script tsbuild_make_plot8
+	}
+	if tsbuild.lb_plots.iseq("plot9") {
+		call script tsbuild_make_plot9		
+	}
+	if tsbuild.lb_plots.iseq("plot10") {
+		call script tsbuild_make_plot10
+	}
+	if tsbuild.lb_plots.iseq("plot11") {
+		call script tsbuild_make_plot11
+	}
+	if tsbuild.lb_plots.iseq("plot12") {
+		call script tsbuild_make_plot12
+	}
+	if tsbuild.lb_plots.iseq("plot13") {
+		call script tsbuild_make_plot13
+	}
+	if tsbuild.lb_plots.iseq("plot14") {
+		call script tsbuild_make_plot14
+	}
+	if tsbuild.lb_plots.iseq("plot15") {
+		call script tsbuild_make_plot15
+	}
+	if tsbuild.lb_plots.iseq("plot16") {
+		call script tsbuild_make_plot16
+	}	
+END
+
+PROGRAM tsbuild_make_first_pass
+BEGIN
+	if tsbuild_status1.iseq("active") & tsbuild_result1 {
+		call tsbuild_hasResult.settrue
+	}
+	if tsbuild_status2.iseq("active") & tsbuild_result2 {
+		call tsbuild_hasResult.settrue
+	}
+	if tsbuild_status3.iseq("active") & tsbuild_result3 {
+		call tsbuild_hasResult.settrue
+	}
+	if tsbuild_status4.iseq("active") & tsbuild_result4 {
+		call tsbuild_hasResult.settrue
+	}
+	if tsbuild_status5.iseq("active") & tsbuild_result5 {
+		call tsbuild_hasResult.settrue
+	}
+	if tsbuild_status6.iseq("active") & tsbuild_result6 {
+		call tsbuild_hasResult.settrue
+	}
+	if tsbuild_status7.iseq("active") & tsbuild_result7 {
+		call tsbuild_hasResult.settrue
+	}
+	if tsbuild_status8.iseq("active") & tsbuild_result8 {
+		call tsbuild_hasResult.settrue
+	}
+	if tsbuild_status9.iseq("active") & tsbuild_result9 {
+		call tsbuild_hasResult.settrue
+	}
+	if tsbuild_status10.iseq("active") & tsbuild_result10 {
+		call tsbuild_hasResult.settrue
+	}
+	if tsbuild_status11.iseq("active") & tsbuild_result11 {
+		call tsbuild_hasResult.settrue
+	}
+	if tsbuild_status12.iseq("active") & tsbuild_result12 {
+		call tsbuild_hasResult.settrue
+	}
+	if tsbuild_status13.iseq("active") & tsbuild_result13 {
+		call tsbuild_hasResult.settrue
+	}
+	if tsbuild_status14.iseq("active") & tsbuild_result14 {
+		call tsbuild_hasResult.settrue
+	}
+	if tsbuild_status15.iseq("active") & tsbuild_result15 {
+		call tsbuild_hasResult.settrue
+	}
+	if tsbuild_status16.iseq("active") & tsbuild_result16 {
+		call tsbuild_hasResult.settrue
+	}
+END
+
+PROGRAM gr_ts_build_output
+BEGIN
+	if ! tsbuild_isFullyDisabled {
+		if tsbuild_counter.iseq(0) & tsbuild_plotsRequired {
+			stopbox stop resource LBL_MSGBOX_PLOTS_NOT_DEFINED
+// Plots not defined. Please create a plot before proceeding.
+		}
+		call tsbuild_hasResult.setfalse
+		call program tsbuild_make_first_pass
+		if ! tsbuild_hasResult  &  tsbuild_plotsRequired {
+			stopbox stop resource LBL_MSGBOX_ALL_PLOTS_DISABLED
+// All plots are disabled. 
+// Either define a new plot or enable an existing plot before proceeding.
+		}
+
+		if tsbuild_hasResult {
+			put tsbuild_outputCmd
+			if tsbuild_outputCmd {
+				put "("
+			}
+
+			if tsbuild_status1.iseq("active") & tsbuild_result1 {
+				put tsbuild_result1
+				call tsbuild_hasResult.settrue
+			}
+			if tsbuild_status2.iseq("active") & tsbuild_result2 {
+				put " " tsbuild_result2
+				call tsbuild_hasResult.settrue
+			}
+			if tsbuild_status3.iseq("active") & tsbuild_result3 {
+				put " " tsbuild_result3
+				call tsbuild_hasResult.settrue
+			}
+			if tsbuild_status4.iseq("active") & tsbuild_result4 {
+				put " " tsbuild_result4
+				call tsbuild_hasResult.settrue
+			}
+			if tsbuild_status5.iseq("active") & tsbuild_result5 {
+				put " " tsbuild_result5
+				call tsbuild_hasResult.settrue
+			}
+			if tsbuild_status6.iseq("active") & tsbuild_result6 {
+				put " " tsbuild_result6
+				call tsbuild_hasResult.settrue
+			}
+			if tsbuild_status7.iseq("active") & tsbuild_result7 {
+				put " " tsbuild_result7
+				call tsbuild_hasResult.settrue
+			}
+			if tsbuild_status8.iseq("active") & tsbuild_result8 {
+				put " " tsbuild_result8
+				call tsbuild_hasResult.settrue
+			}
+			if tsbuild_status9.iseq("active") & tsbuild_result9 {
+				put " " tsbuild_result9
+				call tsbuild_hasResult.settrue
+			}
+			if tsbuild_status10.iseq("active") & tsbuild_result10 {
+				put " " tsbuild_result10
+				call tsbuild_hasResult.settrue
+			}
+			if tsbuild_status11.iseq("active") & tsbuild_result11 {
+				put " " tsbuild_result11
+				call tsbuild_hasResult.settrue
+			}
+			if tsbuild_status12.iseq("active") & tsbuild_result12 {
+				put " " tsbuild_result12
+				call tsbuild_hasResult.settrue
+			}
+			if tsbuild_status13.iseq("active") & tsbuild_result13 {
+				put " " tsbuild_result13
+				call tsbuild_hasResult.settrue
+			}
+			if tsbuild_status14.iseq("active") & tsbuild_result14 {
+				put " " tsbuild_result14
+				call tsbuild_hasResult.settrue
+			}
+			if tsbuild_status15.iseq("active") & tsbuild_result15 {
+				put " " tsbuild_result15
+				call tsbuild_hasResult.settrue
+			}
+			if tsbuild_status16.iseq("active") & tsbuild_result16 {
+				put " " tsbuild_result16
+				call tsbuild_hasResult.settrue
+			}
+
+			if tsbuild_outputCmd {
+				put ") "
+			}
+		}
+	}
+END

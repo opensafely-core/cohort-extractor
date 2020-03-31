@@ -1,0 +1,416 @@
+/*
+  weights.idlg
+
+*!  VERSION 1.1.6  03jun2015
+
+	// SCRIPTS and PROGRAMS for external use
+		* SCRIPT weights_disable
+		* SCRIPT weights_enable
+		
+		* PROGRAM weights_enable_fromSE
+		* PROGRAM weights_disable_fromSE
+			// SE tab calls these routines to prevent 
+			// call backs to that tab
+			
+		* SCRIPT weights_setLayout_fpai
+		* SCRIPT weights_setLayout_fpa
+		* SCRIPT weights_setLayout_fpi
+		* SCRIPT weights_setLayout_fai
+		* SCRIPT weights_setLayout_fp
+		* SCRIPT weights_setLayout_fa
+		* SCRIPT weights_setLayout_fi
+		* SCRIPT weights_setLayout_ai
+		* SCRIPT weights_setLayout_f
+		* SCRIPT weights_setLayout_a
+		* SCRIPT weights_setLayout_i
+		* PROGRAM weights_output
+*/
+
+DIALOG weights, tabtitle(resource WEIGHTS_TABTITLE)
+BEGIN
+  TEXT     tx_wgttyp _lft      _top      _cwd1     .,		///
+	label(resource LBL_WEIGHT_TYPE)
+  BUTTON   bu_help   _xsetbu   -2        _setbuwd  .,		///
+	label(resource LBL_HELP_WEIGHTS)			///
+	onpush(view help weights##|_new)
+
+  RADIO    rb_none   _lft      +22       _iwd      ., 		///
+	first 							///
+	label(resource LBL_NONE)				///
+	onclickon(script _wgt_off)				///
+	option(NONE)
+  RADIO    rb_fw     _lft      _ss       _iwd      .,		///
+	label(resource WEIGHTS_RB_FW)				///
+	onclickon(script _wgt_on)				///
+	option(fweight)
+  RADIO    rb_pw     _lft      _ss       _iwd      .,		///
+	label(resource WEIGHTS_RB_PW)				///
+	onclickon(script _wgt_on)				///
+	option(pweight)
+  RADIO    rb_aw     _lft      _ss       _iwd      .,		///
+	label(resource WEIGHTS_RB_AW)				///
+	onclickon(script _wgt_on)				///
+	option(aweight)
+  RADIO    rb_iw     _lft      _ss       _iwd      ., 		///
+	last 							///
+	label(resource LBL_IMPORTANCE_WEIGHTS)			///
+	onclickon(script _wgt_on)				///
+	option(iweight)
+
+  TEXT     tx_wgt    _lft      _ls       _iwd      ., 		///
+	label(resource WEIGHTS_TX_WGT)
+  VARLIST  vl_wgt    @         _ss       _iwd      .,		///
+  	numeric							///
+	label(resource WEIGHTS_TX_WGT)
+  /* VARLIST is used so the user can type something like 1/ and then
+   * select the weight variable without it getting erased.
+   */
+END
+
+//***  BEGIN utility scripts and programs
+PROGRAM _check_weight_and_technique
+BEGIN
+	if weights.rb_pw {
+   		call script _local_se_setPW_on
+	}
+	if weights.rb_iw {
+   		call script _local_se_setIW_on
+	}
+	if !weights.rb_none & !weights.rb_pw {
+   		call script _local_se_setNonPW_on
+	}
+	if weights.rb_none {
+		call script _local_se_setWeights_off
+	}
+END
+
+// SE tab is not guaranteed to exists--wrapper are to be called locally
+SCRIPT _local_se_setPW_on 
+BEGIN
+	script se_setPW_on
+END
+SCRIPT _local_se_setIW_on 
+BEGIN
+	script se_setIW_on
+END
+
+SCRIPT _local_se_setNonPW_on
+BEGIN
+	script se_setNonPW_on
+END
+
+SCRIPT _local_se_setWeights_off
+BEGIN
+	script se_setWeights_off
+END
+
+PROGRAM _wgt_set_labels
+BEGIN
+	if weights.rb_fw {
+		call weights.vl_wgt.setlabel resource WEIGHTS_TX_WGT_FW
+		call weights.tx_wgt.setlabel resource WEIGHTS_TX_WGT_FW
+		exit
+	}
+
+	if weights.rb_pw {
+		call weights.vl_wgt.setlabel resource LBL_SAMPLING_WEIGHT
+		call weights.tx_wgt.setlabel resource LBL_SAMPLING_WEIGHT
+		exit
+	}
+	if weights.rb_aw {
+		call weights.vl_wgt.setlabel resource WEIGHTS_TX_WGT_AW
+		call weights.tx_wgt.setlabel resource WEIGHTS_TX_WGT_AW
+		exit
+	}
+	if weights.rb_iw {
+		call weights.vl_wgt.setlabel resource WEIGHTS_TX_WGT_IW
+		call weights.tx_wgt.setlabel resource WEIGHTS_TX_WGT_IW
+		exit
+	}
+	if weights.rb_none {
+		call weights.vl_wgt.setlabel resource WEIGHTS_TX_WGT
+		call weights.tx_wgt.setlabel resource WEIGHTS_TX_WGT
+		exit
+	}
+END
+
+SCRIPT _wgt_on
+BEGIN
+	weights.tx_wgt.enable
+	weights.vl_wgt.enable
+	program _wgt_set_labels
+	program _check_weight_and_technique
+END
+
+SCRIPT _wgt_off
+BEGIN
+	weights.tx_wgt.disable
+	weights.vl_wgt.disable
+	program _wgt_set_labels
+	program _check_weight_and_technique
+END
+
+PROGRAM _weights_check_selected
+BEGIN
+	if ! weights.rb_fw.isvisible() & weights.rb_fw {
+		call weights.rb_none.seton
+		stopbox note resource WEIGHTS_MSGBOX_FW_DESELECT
+// On the "Weights" tab, "Frequency weights" have been deselected 
+// because they are not allowed with current selections.
+		exit
+	}
+	if ! weights.rb_aw.isvisible() & weights.rb_aw {
+		call weights.rb_none.seton
+		stopbox note resource WEIGHTS_MSGBOX_AW_DESELECT
+// On the "Weights" tab, "Analytic weights" have been deselected 
+// because they are not allowed with current selections.
+		exit
+	}
+	if ! weights.rb_pw.isvisible() & weights.rb_pw {
+		call weights.rb_none.seton
+		stopbox note resource WEIGHTS_MSGBOX_PW_DESELECT
+// On the "Weights" tab, "Sampling weights" have been deselected 
+// because they are not allowed with current selections.
+		exit
+	}
+	if ! weights.rb_iw.isvisible() & weights.rb_iw {
+		call weights.rb_none.seton
+		stopbox note resource WEIGHTS_MSGBOX_IW_DESELECT
+// On the "Weights" tab, "Importance weights" have been deselected
+// because they are not allowed with current selections.
+		exit
+	}
+END
+//**   END utility scripts and programs
+
+//***  BEGIN scripts and programs for external use
+SCRIPT  weights_disable
+BEGIN
+	program disable_weights
+END
+PROGRAM disable_weights // leave in for backwards compatibility
+BEGIN
+	call weights.tx_wgttyp.disable
+	call weights.rb_none.disable
+	call weights.rb_fw.disable
+	call weights.rb_pw.disable
+	call weights.rb_aw.disable
+	call weights.rb_iw.disable
+	call script _wgt_off
+END
+PROGRAM weights_disable_fromSE
+BEGIN
+	// SE tab calls this routine to prevent call backs to that tab
+	call weights.tx_wgttyp.disable
+	call weights.rb_none.disable
+	call weights.rb_fw.disable
+	call weights.rb_pw.disable
+	call weights.rb_aw.disable
+	call weights.rb_iw.disable
+	call weights.tx_wgt.disable
+	call weights.vl_wgt.disable
+END
+
+SCRIPT  weights_enable
+BEGIN
+	program enable_weights
+END
+PROGRAM enable_weights // leave in for backwards compatibility
+BEGIN
+	call gaction weights.tx_wgttyp.enable
+	call gaction weights.rb_none.enable
+	call gaction weights.rb_fw.enable
+	call gaction weights.rb_pw.enable
+	call gaction weights.rb_aw.enable
+	call gaction weights.rb_iw.enable
+	if weights.rb_none {
+		call script _wgt_off
+	}
+	if ! weights.rb_none {
+		call script _wgt_on
+	}
+END
+PROGRAM weights_enable_fromSE
+BEGIN
+	// SE tab calls this routine to prevent call backs to that tab
+	call weights.tx_wgttyp.enable
+	call weights.rb_none.enable
+	call weights.rb_fw.enable
+	call weights.rb_pw.enable
+	call weights.rb_aw.enable
+	call weights.rb_iw.enable
+	if weights.rb_none {
+		call weights.tx_wgt.disable
+		call weights.vl_wgt.disable
+	}
+	if ! weights.rb_none {
+		call weights.tx_wgt.enable
+		call weights.vl_wgt.enable
+	}
+END
+
+SCRIPT weights_setLayout_fpai
+BEGIN
+	weights.rb_fw.show
+	weights.rb_pw.show
+	weights.rb_aw.show
+	weights.rb_iw.show
+	weights.rb_fw.setposition . 50
+	weights.rb_pw.setposition . 70
+	weights.rb_aw.setposition . 90
+	weights.rb_iw.setposition . 110
+	weights.tx_wgt.setposition . 140
+	weights.vl_wgt.setposition . 160
+	program _weights_check_selected
+END
+
+SCRIPT weights_setLayout_fpa
+BEGIN
+	weights.rb_fw.show
+	weights.rb_pw.show
+	weights.rb_aw.show
+	weights.rb_iw.hide
+	weights.rb_fw.setposition . 50
+	weights.rb_pw.setposition . 70
+	weights.rb_aw.setposition . 90
+	weights.tx_wgt.setposition . 120
+	weights.vl_wgt.setposition . 140
+	program _weights_check_selected
+END
+
+SCRIPT weights_setLayout_fpi
+BEGIN
+	weights.rb_fw.show
+	weights.rb_pw.show
+	weights.rb_aw.hide
+	weights.rb_iw.show
+	weights.rb_fw.setposition . 50
+	weights.rb_pw.setposition . 70
+	weights.rb_iw.setposition . 90
+	weights.tx_wgt.setposition . 120
+	weights.vl_wgt.setposition . 140
+	program _weights_check_selected
+END
+
+SCRIPT weights_setLayout_fai
+BEGIN
+	weights.rb_fw.show
+	weights.rb_pw.hide
+	weights.rb_aw.show
+	weights.rb_iw.show
+	weights.rb_fw.setposition . 50
+	weights.rb_aw.setposition . 70
+	weights.rb_iw.setposition . 90
+	weights.tx_wgt.setposition . 120
+	weights.vl_wgt.setposition . 140
+	program _weights_check_selected
+END
+
+SCRIPT weights_setLayout_fp
+BEGIN
+	weights.rb_fw.show
+	weights.rb_pw.show
+	weights.rb_aw.hide
+	weights.rb_iw.hide
+	weights.rb_fw.setposition . 50
+	weights.rb_pw.setposition . 70
+	weights.tx_wgt.setposition . 100
+	weights.vl_wgt.setposition . 120
+	program _weights_check_selected
+END
+
+SCRIPT weights_setLayout_fa
+BEGIN
+	weights.rb_fw.show
+	weights.rb_pw.hide
+	weights.rb_aw.show
+	weights.rb_iw.hide
+	weights.rb_fw.setposition . 50
+	weights.rb_aw.setposition . 70
+	weights.tx_wgt.setposition . 100
+	weights.vl_wgt.setposition . 120
+	program _weights_check_selected
+END
+
+SCRIPT weights_setLayout_fi
+BEGIN
+	weights.rb_fw.show
+	weights.rb_pw.hide
+	weights.rb_aw.hide
+	weights.rb_iw.show
+	weights.rb_fw.setposition . 50
+	weights.rb_iw.setposition . 70
+	weights.tx_wgt.setposition . 100
+	weights.vl_wgt.setposition . 120
+	program _weights_check_selected
+END
+
+SCRIPT weights_setLayout_ai
+BEGIN
+	weights.rb_fw.hide
+	weights.rb_pw.hide
+	weights.rb_aw.show
+	weights.rb_iw.show
+	weights.rb_aw.setposition . 50
+	weights.rb_iw.setposition . 70
+	weights.tx_wgt.setposition . 100
+	weights.vl_wgt.setposition . 120
+	program _weights_check_selected
+END
+
+SCRIPT weights_setLayout_f
+BEGIN
+	weights.rb_fw.show
+	weights.rb_pw.hide
+	weights.rb_aw.hide
+	weights.rb_iw.hide
+	weights.rb_fw.setposition . 50
+	weights.tx_wgt.setposition . 80
+	weights.vl_wgt.setposition . 100
+	program _weights_check_selected
+END
+
+SCRIPT weights_setLayout_a
+BEGIN
+	weights.rb_fw.hide
+	weights.rb_pw.hide
+	weights.rb_aw.show
+	weights.rb_iw.hide
+	weights.rb_aw.setposition . 50
+	weights.tx_wgt.setposition . 80
+	weights.vl_wgt.setposition . 100
+	program _weights_check_selected
+END
+
+SCRIPT weights_setLayout_i
+BEGIN
+	weights.rb_fw.hide
+	weights.rb_pw.hide
+	weights.rb_aw.hide
+	weights.rb_iw.show
+	weights.rb_iw.setposition . 50
+	weights.tx_wgt.setposition . 80
+	weights.vl_wgt.setposition . 100
+	program _weights_check_selected
+END
+
+PROGRAM _wgh_output
+BEGIN
+	option radio (weights rb_none rb_fw rb_pw rb_aw rb_iw)
+	put "= "
+	put weights.vl_wgt
+END
+
+PROGRAM weights_output
+BEGIN
+// CHECK IS ALSO IN SEM_BUILDER FILES sg__gestoptions and sg__estoptions
+	if weights.rb_none.isvisible() & weights.rb_none.isenabled() {
+		if ! weights.rb_none {
+			require weights.vl_wgt
+			put " " "["
+			put /program _wgh_output
+			put "] "
+		}
+	}
+END
+//**  END scripts and programs for external use

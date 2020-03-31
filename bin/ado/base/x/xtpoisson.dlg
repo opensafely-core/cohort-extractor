@@ -1,0 +1,280 @@
+/*
+  xtpoisson
+
+*!  VERSION 1.5.1  04dec2018
+
+  keyword:  eclass
+
+*/
+
+VERSION 15.0
+
+INCLUDE _std_wide
+DEFINE _dlght 330
+INCLUDE header
+
+HELP hlp1, view("help xtpoisson")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	program parseMessage
+	script se_createAsGEE
+	setscale_hadj resource XTPOISSON_DLG_HSCALE
+END
+
+PROGRAM parseMessage
+BEGIN
+	if __MESSAGE.contains("__MI__") {
+		call script se_setMI_on
+		call main.bu_xtset.hide
+	}
+	else {
+		call main.bu_mi_xtset.hide
+	}
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program check_bytab
+	program check_se_status
+	script corr_setForceVisible
+	script weights_setLayout_i
+END
+
+PROGRAM check_bytab
+BEGIN
+	if __MESSAGE.contains("__MI__") {
+		call script byifin_set_by_off
+	}
+END
+
+SCRIPT show_xtset
+BEGIN
+	create STRING note
+	note.setvalue resource XTPOISSON_POP_AV_MODEL
+	note.withvalue create CHILD xtset, message(`"" " `"@"'"')
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)				///
+	label(resource XTPOISSON_DLG_TITLE)
+BEGIN
+  BUTTON   bu_xtset	_xsetbu	_top	_setbuwd .,			///
+	onpush(script show_xtset)					///
+	label(resource LBL_BU_PANEL_SETTINGS)
+  BUTTON   bu_mi_xtset  _xsetbu	_top	_setbuwd	.,		///
+	onpush("view dialog mi_xtset")					///
+	label(resource LBL_BU_PANEL_SETTINGS)
+
+  TEXT tx_dv 		_lft	_topph	_vnwd	.,			///
+	label(resource LBL_DEPVAR)
+  VARNAME vn_dv		@ 	_ss	@	.,			///
+	ts								///
+	numeric								///
+	label(resource LBL_DEPVAR)
+
+  TEXT tx_iv		_vlx	_topph	160	.,			///
+	label(resource LBL_INDDEPVAR)
+  VARLIST vl_iv		@	_ss	_vlwd	.,			///
+	fv ts								///
+	allowcat							///
+	numeric								///
+	label(resource LBL_INDDEPVAR)
+  CHECKBOX ck_nocons @         _ms       @         .,			///
+	option("noconstant")						///
+	label(resource LBL_NOCONSTANT)
+  GROUPBOX gb_model  _lft      _ms       _iwd      _ht2,		///
+	label(resource XTPOISSON_MAIN_GB_MODEL)
+  RADIO    rb_re     _ilft     _ss       _cwd3_2   .,first		///
+	clickon("script re_opts")					///
+	option("re")							///
+	label(resource XTPOISSON_MAIN_RB_RE)
+  RADIO    rb_fe     _ilft3_2  @         @         .,			///
+	clickon("script fe_opts")					///
+	option("fe")							///
+	label(resource XTPOISSON_MAIN_RB_FE)
+  RADIO    rb_pa     _ilft3_3  @         @         .,last		///
+	clickon("script pa_opts")					///
+	option("pa")							///
+	label(resource XTPOISSON_MAIN_RB_PA)
+  GROUPBOX gb_opts   _lft      _xls      _iwd      _ht12h,		///
+	label(resource LBL_OPTIONS)
+  RADIO    rb_expose _ilft     _ss       _cwd4_1   .,first		///
+	clickon("script expose")					///
+	label(resource LBL_EXPOSURE_VARIABLE)
+  RADIO    rb_offset _ilft4_2  @         @         .,last		///
+	clickon("script offset")					///
+	label(resource LBL_OFFSET_VARIABLE)
+  VARNAME  vn_expose _ilft     _ss       _cwd4_1   .,			///
+	option("exposure")						///
+	numeric								///
+	label(resource LBL_EXPOSURE_VARIABLE)
+  VARNAME  vn_offset _ilft4_2  @         @         .,			///
+	option("offset")						///
+	numeric								///
+	label(resource LBL_OFFSET_VARIABLE)
+  CHECKBOX ck_normal _ilft     _ls       _ibwd    .,			///
+	onclickon(program main_normal_on)				///
+	onclickoff(script main_normal_off)				///
+	option(normal)							///
+	label(resource XTPOISSON_MAIN_CK_NORMAL)
+
+  DEFINE _x _ilft
+  DEFINE _y _ms
+  DEFINE _cx _ilw80
+  DEFINE _bux _islw80
+  INCLUDE _constraints
+
+  DEFINE _x _ilft
+  DEFINE _xw _ibwd
+//  INCLUDE _ck_collinear
+END
+
+INCLUDE _constraints_sc 
+
+PROGRAM main_normal_on
+BEGIN
+	if main.ck_normal {
+		call script intopts_re_enable
+		call script intopts_re_reset
+		call script max_ml_on
+	}
+	call program check_se_status
+END
+
+SCRIPT main_normal_off
+BEGIN
+	script intopts_re_disable
+	script max_ml_on
+	main.tx_constr.enable
+	main.cb_constr.enable
+	rpt.ck_nocnsreport.enable
+//	main.ck_collinear.enable
+	program check_se_status
+END
+
+SCRIPT expose
+BEGIN
+	main.vn_expose.enable
+	main.vn_offset.disable
+END
+
+SCRIPT offset
+BEGIN
+	main.vn_expose.disable
+	main.vn_offset.enable
+END
+
+SCRIPT re_opts
+BEGIN
+	program check_se_status
+	program disable_xtgee_common
+	main.ck_nocons.enable
+	main.tx_constr.enable
+	main.cb_constr.enable
+	rpt.ck_nocnsreport.enable
+//	main.ck_collinear.enable
+	main.ck_normal.enable
+	script max_ml_on
+	program main_normal_on
+	script rpt_lrtest_enable
+	script weights_setLayout_i
+END
+
+SCRIPT fe_opts
+BEGIN
+	program check_se_status
+	program disable_xtgee_common
+	main.ck_nocons.disable
+	main.tx_constr.enable
+	main.cb_constr.enable
+	rpt.ck_nocnsreport.enable
+//	main.ck_collinear.enable
+	main.ck_normal.disable
+	script intopts_re_disable
+	script rpt_lrtest_disable
+	script max_ml_on
+	script weights_setLayout_i
+END
+
+SCRIPT pa_opts
+BEGIN
+	program check_se_status
+	program enable_xtgee_common
+	main.ck_nocons.enable
+	main.tx_constr.disable
+	main.cb_constr.disable
+	rpt.ck_nocnsreport.disable
+//	main.ck_collinear.disable
+	main.ck_normal.disable
+	script intopts_re_disable
+	script rpt_lrtest_disable
+	script max_pa_on
+	script weights_setLayout_fpi
+END
+
+INCLUDE xtgee_common
+INCLUDE byifin
+INCLUDE weights
+INCLUDE se
+INCLUDE rpt_xt_irr
+INCLUDE intopts_re
+INCLUDE max_ml
+
+PROGRAM check_se_status
+BEGIN
+	if main.rb_pa {
+		call script se_setIOIM_off
+		call script se_setGEE_on
+	}
+	if main.rb_re {
+		call script se_setGEE_off
+		call script se_setIOIMRobustClrobust_on
+		call script se_setOIIM_on
+	}
+	if main.rb_fe {
+		call script se_setGEE_off
+		call script se_setIOIMRobustClrobust_on
+		call script se_setCluster_off
+	}
+END
+
+PROGRAM command
+BEGIN
+	put /program by_output " " 
+	put "xtpoisson "
+	varlist main.vn_dv [main.vl_iv]
+	if !main.vl_iv & main.ck_nocons & !D(main.ck_nocons) {
+		call create STRING _MSG_TMP
+                call _MSG_TMP.format					/// 
+			"resource LBL_MSGBOX_IS_SELECTED_WITHOUT_INDVARS_FMT" ///
+			"resource LBL_NOCONSTANT" 
+		stopbox stop "class _MSG_TMP.value"
+// "Suppress constant term" is selected without independent variables.
+	}
+	if main.rb_fe & !main.vl_iv {
+                call create STRING _MSG_TMP
+                call _MSG_TMP.format						/// 
+			"resource XTPOISSON_MSGBOX_REQUIRED_WITH_MODEL_FMT" 	///
+			"resource LBL_INDDEPVAR" 				///
+			"resource XTPOISSON_MAIN_RB_FE"
+		stopbox stop "class _MSG_TMP.value"
+// "Independent variables" must be filled in with "Fixed-effects (FE)" model.
+	}
+	put " " /program ifin_output
+	put " " /program weights_output
+	beginoptions
+		option main.ck_nocons
+		option radio(main rb_re rb_fe rb_pa)
+		optionarg main.vn_expose
+		optionarg main.vn_offset
+		option main.ck_normal
+		INCLUDE _constraints_main_pr
+//		option main.ck_collinear
+		put " " /program xtgee_common_output
+		put " " /program se_output
+		put " " /program rpt_output
+		put " " /program intopts_re_output
+		put " " /program max_output
+	endoptions
+END

@@ -1,0 +1,146 @@
+/*
+	meta_funnel_graph.dlg
+
+*!  VERSION 1.0.1  28may2019
+
+*/
+
+VERSION 16.0
+INCLUDE _std_large
+DEFINE _dlght 370
+INCLUDE header
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource META_FUNNEL_GRAPH_DLG_HSCALE
+        create STRING title
+	create BOOLEAN ciopts_enabled
+        title.format "resource LBL_GRAPH_OPTIONS_FMT" ""
+        title.withvalue settitle @
+END
+
+SCRIPT POSTINIT
+BEGIN
+	gr_line_options.settabtitle resource LBL_ES_OPTS
+	gr_line_options_optionName.setstring "esopts"
+	program set_ciopts_status
+END
+
+PROGRAM set_ciopts_status
+BEGIN
+	if __MESSAGE.equals("std") {
+		call ciopts.tx_clr.enable
+		call ciopts.cb_clr.enable
+		call ciopts.cl_clr.enable
+		call ciopts.tx_opacity.enable
+		call ciopts.sp_opacity.enable
+		call ciopts.tx_width.enable
+		call ciopts.cb_width.enable
+		call ciopts.tx_pattern.enable
+		call ciopts.cb_pattern.enable
+		call ciopts_enabled.settrue
+	}
+	if __MESSAGE.equals("con") {
+		call ciopts.tx_clr.disable
+		call ciopts.cb_clr.disable
+		call ciopts.cl_clr.disable
+		call ciopts.tx_opacity.disable
+		call ciopts.sp_opacity.disable
+		call ciopts.tx_width.disable
+		call ciopts.cb_width.disable
+		call ciopts.tx_pattern.disable
+		call ciopts.cb_pattern.disable
+		call ciopts_enabled.setfalse
+	}
+END
+
+INCLUDE gr_line_options
+DIALOG ciopts, tabtitle(resource LBL_CI_PLOT)
+BEGIN
+  TEXT     tx_clr	_lft	20	_wd	.,		///
+	label(resource LBL_COLOR) right
+  COMBOBOX cb_clr	_sep	@	_cbwd	.,		///
+	dropdownlist contents(colors) option(lcolor)		///
+	onselchangelist(ciopts_cl_clr_sel)
+  COLOR    cl_clr	_cbsep	@	_clwd	., option(lcolor)
+  TEXT     tx_opacity	_lft	_mls	_wd	.,		///
+	label(resource LBL_OPACITY) right
+  SPINNER sp_opacity	_sep	@	_spwd	.,		///
+	default(100)						///
+	min(0)							///
+	max(100)
+  
+  TEXT     tx_width	_lft	 _mls	_wd	.,		///
+	label(resource LBL_WIDTH) right
+  COMBOBOX cb_width	_sep	@	_cbwd	.,		///
+	dropdown option(lwidth)					///
+	contents(linewidths)
+
+  TEXT     tx_pattern	_lft	_mls	_wd	.,		///
+	label(resource LBL_PATTERN) right
+  COMBOBOX cb_pattern	_sep	@	_cbwd	.,		///
+	dropdownlist option(lpattern)				///
+	contents(linepatterns)
+END
+INCLUDE gr_yaxis
+INCLUDE gr_xaxis
+INCLUDE gr_titles
+INCLUDE gr_legend
+INCLUDE gr_overall
+
+LIST ciopts_cl_clr_sel
+BEGIN
+	ciopts.cl_clr.hide
+	ciopts.cl_clr.show
+	ciopts.cl_clr.hide
+END
+
+PROGRAM ciopts_lcolor_output
+BEGIN
+	if (ciopts.cb_clr.isneq("") | ciopts.sp_opacity.isneq(100)) {
+		put "lcolor("
+		if (ciopts.cb_clr.iseq("custom")) {
+			put `"""' ciopts.cl_clr
+			if (ciopts.sp_opacity.isneq(100)) {
+				put " %" ciopts.sp_opacity
+			}
+			put `"""'
+		}
+		else {
+			if (ciopts.cb_clr.isneq("")) {
+				put ciopts.cb_clr
+			}
+			if (ciopts.sp_opacity.isneq(100)) {
+				put "%" ciopts.sp_opacity
+			}
+		}
+		put ")"
+	}
+END
+
+PROGRAM ciopts_output
+BEGIN
+	if ((ciopts.cb_clr.isneq("") | ciopts.sp_opacity.isneq(100)) | ///
+	    !ciopts.cb_width.isdefault() | !ciopts.cb_pattern.isdefault()) {
+		if ciopts_enabled {
+			put "ciopts("
+			put /program ciopts_lcolor_output
+			optionarg /hidedefault ciopts.cb_width
+			optionarg /hidedefault ciopts.cb_pattern
+			put ")"
+		}
+	}
+END
+
+PROGRAM command
+BEGIN
+	put " " /program gr_line_options_output
+	put " " /program ciopts_output
+	put " " /program gr_yaxis_output
+	put " " /program gr_xaxis_output
+	put " " /program gr_titles_output
+	put " " /program gr_legend_output
+	put " " /program gr_overall_output
+END
+
+

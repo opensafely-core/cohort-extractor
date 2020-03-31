@@ -1,0 +1,128 @@
+/*
+  sg__common_output.idlg
+
+*!  VERSION 1.0.2  21dec2012
+
+*/
+
+SCRIPT sg__common_output_init	/* Must be called by callers PREINIT */
+BEGIN
+	create STRING sg__PARAM1
+	create STRING sg__PARAM2
+	create STRING sg__ARG_00
+	create STRING sg__ARG_01
+	create STRING sg__DESCPT /* description */
+	create BOOLEAN sg__ONEARG /* if set, prevents a second argument */
+	sg__ONEARG.setfalse
+
+	create STRING sg__DQU
+	sg__DQU.setvalue `"""'
+
+	create STRING sg__cmplquote
+	sg__cmplquote.setvalue "`"
+	sg__cmplquote.append `"""'
+
+	create STRING sg__cmprquote
+	sg__cmprquote.setvalue `"""'
+	sg__cmprquote.append "'"
+END
+
+PROGRAM sg__put_cmplquotes
+BEGIN
+	put sg__cmplquote
+END
+
+PROGRAM sg__put_cmprquotes
+BEGIN
+	put sg__cmprquote
+END
+
+PROGRAM sg__do_output_arg0_sub
+BEGIN
+	/* global string objects to be set...
+	   sg__PARAM1, sg__PARAM2, [sg__ARG_00], [sg__DESCPT]
+	 */
+	
+	put "mata: sg__global.signal("  
+	put `"""' sg__PARAM1 `"""' ", "
+	put `"""' sg__PARAM2 `"""' ", "
+	put "`" `"""' sg__ARG_00 `"""' "'" ", "
+	put `"""' `"""' ")"
+	stata hidden immediate
+	call program sg__reset_args
+END
+
+PROGRAM sg__do_output_sub
+BEGIN
+	/* global string objects to be set...
+	   sg__PARAM1, sg__PARAM2, [sg__ARG_00] [sg__ARG_01], [sg__DESCPT]
+	 */
+
+	if sg__ARG_00.iseq("<multiple>") | sg__ARG_01.iseq("<multiple>") {
+		exit
+	}
+
+	put "mata: sg__global.signal("  
+	put `"""' sg__PARAM1 `"""' ", "
+	put `"""' sg__PARAM2 `"""' ", "
+	put /program sg__put_cmplquotes
+	
+	// if sg__ARG_00 is empty and sg__ARG_01 are not empty we output quotes
+	// so the position of sg__ARG_01 is maintained.
+	if (!sg__ARG_00 & sg__ARG_01) {
+		put `"""' `"""'
+	}
+	else {
+		put /program sg__put_sg__ARG_00
+	}
+	
+	if (!sg__ONEARG) {
+		if (sg__ARG_01) {
+			put " "
+			if (sg__ARG_01.contains(sg__DQU)) {
+				put /program sg__put_cmplquotes
+			}
+			else {
+				put `"""'
+			}
+			put /program sg__put_sg__ARG_01
+			if (sg__ARG_01.contains(sg__DQU)) {
+				put /program sg__put_cmprquotes
+			}
+			else {
+				put `"""'
+			}
+		}
+		else {
+			put " "
+			put `"""' `"""'
+		}
+	}
+	put /program sg__put_cmprquotes
+	put ", "
+	
+	put `"""' sg__DESCPT `"""'	
+	put ")"
+	stata hidden immediate
+	
+	call program sg__reset_args
+END
+
+PROGRAM sg__put_sg__ARG_00
+BEGIN
+	put sg__ARG_00
+END
+
+PROGRAM sg__put_sg__ARG_01
+BEGIN
+	put sg__ARG_01
+END
+
+PROGRAM sg__reset_args
+BEGIN
+	/* sg__PARAM1 not reset (holds modelname) */
+	call sg__PARAM2.setvalue ""
+	call sg__ARG_00.setvalue ""
+	call sg__ARG_01.setvalue ""
+	call sg__DESCPT.setvalue ""
+END

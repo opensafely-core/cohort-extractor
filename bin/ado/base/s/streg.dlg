@@ -1,0 +1,525 @@
+/*
+  streg
+
+*!  VERSION 1.5.1  29nov2018
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 350
+INCLUDE header
+
+HELP hlp1, view("help streg")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create DOUBLE svy_on
+	create STRING __const_tab
+	__const_tab.setvalue "model2"
+	program parseMessage
+	script se_createAsSvyJknifeBstrapML
+	program svy_check_title
+	setscale_hadj resource STREG_DLG_HSCALE
+	svy_on.setvalue 0
+END
+
+PROGRAM parseMessage
+BEGIN
+	if __MESSAGE.contains("__MI__") {
+		call script se_setMI_on
+		call main.bu_stset.hide
+	}
+	else {
+		call main.bu_mi_stset.hide
+	}
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program check_bytab
+	program se_setFinalInitState
+END
+
+PROGRAM check_bytab
+BEGIN
+	if ! __MESSAGE.contains("__MI__") {
+		call script sub_set_by_on
+	}
+END
+
+SCRIPT svy_is_on
+BEGIN
+	program model2_check_shared
+	rpt.ck_nohead.disable
+	script max_setDefaultNoLog
+	svy_on.setvalue 1
+END
+SCRIPT svy_is_off
+BEGIN
+	rpt.ck_nohead.enable
+	program check_frailty
+	program check_distribution
+	script max_setDefaultLog
+	svy_on.setvalue 0
+END
+PROGRAM svy_check_title
+BEGIN
+	if __MESSAGE.contains("-svy-") {
+		call settitle resource STREG_SVY_DLG_TITLE
+	}
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)				///
+	title(resource STREG_DLG_TITLE) // has svy title
+BEGIN
+  DEFINE _x _xsetbu
+  DEFINE _y _top
+  INCLUDE _bu_stset
+  BUTTON   bu_mi_stset _x        _y        _setbuwd  .,			/*
+		*/ onpush("view dialog mi_stset")			/*
+		*/ label(resource LBL_SURVIVAL_SETTINGS)		/*
+		*/ tooltip(resource LBL_DECLARE_DATA_TO_BE_SURVIVAL_TIME_DATA)
+
+  TEXT     tx_iv     _lft      _topph     _cwd1    .,			/*
+		*/ label(resource LBL_INDDEPVAR)			/*
+		*/
+  VARLIST  vl_iv     _lft      _ss       _iwd      .,			/*
+		*/ label(resource LBL_INDDEPVAR) fv			/*
+		*/ numeric						/*
+		*/
+  CHECKBOX ck_nocons @         _ls       @         .,			/*
+  		*/label(resource LBL_NOCONSTANT) option(noconstant)
+
+  DEFINE y _ls
+  INCLUDE st_distribution
+
+  CHECKBOX ck_frailty _lft     +45       _iwd      _ht2,		/*
+		*/ label(resource STREG_MAIN_CK_FRAILTY)		/*
+		*/ groupbox						/*
+		*/ clickon("script frailty_on")				/*
+		*/ clickoff("script frailty_off")			/*
+		*/
+  RADIO    rb_fgamma _indent   _ss       _cwd2     .,			/*
+		*/ label(resource LBL_GAMMA_UPPER)			/*
+		*/ first						/*
+		*/ option("frailty(gamma)")				/*
+		*/
+  RADIO    rb_figaus _lft2     @         @         .,			/*
+		*/ label(resource LBL_INVERSE_GAUSSIAN)			/*
+		*/ last							/*
+		*/ option("frailty(invgaussian)")			/*
+		*/
+END
+
+PROGRAM check_frailty
+BEGIN
+	if main.ck_frailty {
+		call script frailty_on
+	}
+	if ! main.ck_frailty {
+		call script frailty_off
+	}
+END
+
+SCRIPT frailty_on
+BEGIN
+	main.rb_fgamma.enable
+	main.rb_figaus.enable
+	program check_distribution
+END
+
+SCRIPT frailty_off
+BEGIN
+	main.rb_fgamma.disable
+	main.rb_figaus.disable
+	model2.ck_strata.enable
+	program check_distribution
+END
+
+PROGRAM check_distribution
+BEGIN
+	if main.rb_exp {
+		call script main_exp_on
+	}
+	if main.rb_exp_time {
+		call script main_exp_time_on
+	}
+	if main.rb_weib {
+		call script main_weib_on
+	}
+	if main.rb_gomp {
+		call script main_gomp_on
+	}
+	if main.rb_logn {
+		call script main_logn_on
+	}
+	if main.rb_logl {
+		call script main_logl_on
+	}
+	if main.rb_gamma {
+		call script main_gamma_on
+	}
+END
+
+SCRIPT main_exp_on
+BEGIN
+	rpt.ck_nohr.enable
+	rpt.ck_tr.disable
+	model2.ck_anc.disable
+	model2.vl_anc.disable
+	model2.ck_anc2.disable
+	model2.vl_anc2.disable
+	program model2_check_strata
+	program model2_check_shared
+	program model2_check_anc
+	script max_from_disable
+END
+
+SCRIPT main_exp_time_on
+BEGIN
+	rpt.ck_nohr.disable
+	rpt.ck_tr.enable
+	model2.ck_anc.disable
+	model2.vl_anc.disable
+	model2.ck_anc2.disable
+	model2.vl_anc2.disable
+	program model2_check_strata
+	program model2_check_shared
+	program model2_check_anc
+	script max_from_disable
+END
+
+SCRIPT main_weib_on
+BEGIN
+	rpt.ck_nohr.enable
+	rpt.ck_tr.disable
+	model2.ck_anc.enable
+	model2.vl_anc.enable
+	model2.ck_anc2.disable
+	model2.vl_anc2.disable
+	program model2_check_shared
+	program model2_check_strata
+	program model2_check_anc
+	script max_from_enable
+END
+
+SCRIPT main_weib_time_on
+BEGIN
+	rpt.ck_nohr.disable
+	rpt.ck_tr.enable
+	model2.ck_anc.enable
+	model2.vl_anc.enable
+	model2.ck_anc2.disable
+	model2.vl_anc2.disable
+	script max_from_enable
+	program model2_check_strata
+	program model2_check_shared
+	program model2_check_anc
+	script max_from_enable
+END
+
+SCRIPT main_gomp_on
+BEGIN
+	rpt.ck_nohr.enable
+	rpt.ck_tr.disable
+	model2.ck_anc.enable
+	model2.vl_anc.enable
+	model2.ck_anc2.disable
+	model2.vl_anc2.disable
+	program model2_check_strata
+	program model2_check_shared
+	program model2_check_anc
+	script max_from_enable
+END
+
+SCRIPT main_logn_on
+BEGIN
+	rpt.ck_nohr.disable
+	rpt.ck_tr.enable
+	model2.ck_anc.enable
+	model2.vl_anc.enable
+	model2.ck_anc2.disable
+	model2.vl_anc2.disable
+	program model2_check_strata
+	program model2_check_shared
+	program model2_check_anc
+	script max_from_enable
+END
+
+SCRIPT main_logl_on
+BEGIN
+	rpt.ck_nohr.disable
+	rpt.ck_tr.enable
+	model2.ck_anc.enable
+	model2.vl_anc.enable
+	model2.ck_anc2.disable
+	model2.vl_anc2.disable
+	program model2_check_strata
+	program model2_check_shared
+	program model2_check_anc
+	script max_from_enable
+END
+
+SCRIPT main_gamma_on
+BEGIN
+	rpt.ck_nohr.disable
+	rpt.ck_tr.enable
+	program model2_check_strata
+	program model2_check_shared
+	program model2_check_anc
+	script max_from_enable
+	model2.ck_anc2.enable
+END
+
+PROGRAM model2_check_shared
+BEGIN
+	if main.ck_frailty & ! main.rb_gamma & !svy_on {
+		call model2.tx_shared.enable
+		call model2.vn_shared.enable
+	}
+	else {
+		call model2.tx_shared.disable
+		call model2.vn_shared.disable
+	}
+END
+
+DIALOG model2, tabtitle(resource LBL_TAB_MODEL2)
+BEGIN
+  GROUPBOX gb_opts		_lft	_top	_iwd	_ht28,		///
+	label(resource LBL_OPTIONS)
+  CHECKBOX ck_strata		_ilft	_ms	_cwd1	_ht2,		///
+	groupbox							///
+	onclickon(program model2_check_strata)				///
+	onclickoff(program model2_strata_off)				///
+	label(resource LBL_STRATA_ID_VARIABLE)
+  DEFINE y @y
+  VARNAME vn_strata		_iilft	_ss	_vnwd	.,		///
+	option("strata")						///
+	label(resource LBL_STRATA_ID_VARIABLE)
+
+  TEXT tx_offset		_ilft2 y	@	.,		///
+	label(resource LBL_OFFSET_VARIABLE)
+  VARNAME vn_offset		@	_ss	@	.,		///
+	label(resource LBL_OFFSET_VARIABLE) option(offset) numeric
+
+  TEXT tx_shared		_ilft	_xls	_cwd2	.,		///
+	label(resource LBL_SHARED_FRAILTY_ID_VARIABLE)
+  VARNAME vn_shared		@	_ss	_cwd3_2	.,		///
+	option("shared")						///
+	label(resource LBL_SHARED_FRAILTY_ID_VARIABLE)
+  CHECKBOX ck_anc		_ilft	_ls	_ibwd	_ht2,		///
+	groupbox							///
+	onclickon(script model2_anc_on)					///
+	onclickoff(script model2_anc_off)				///
+	label(resource LBL_IND_VAR_TO_MODEL_FIRST_ANCILLARY_PARAM)
+  VARLIST  vl_anc		_iilft	_ss	_inwd	.,		///
+	option("ancillary") fv						///
+	numeric								///
+	label(resource LBL_IND_VAR_TO_MODEL_FIRST_ANCILLARY_PARAM)
+  CHECKBOX ck_anc2		_ilft	_xls	_ibwd	_ht2,		///
+	groupbox							///
+	onclickon(script model2_anc2_on)				///
+	onclickoff(script model2_anc2_off)				///
+	label(resource LBL_IND_VAR_TO_MODEL_SECOND_ANCILLARY_PARAM)
+  VARLIST vl_anc2		_iilft	_ss	_inwd	.,		///
+	option("anc2") fv						///
+	numeric								///
+	label(resource LBL_IND_VAR_TO_MODEL_SECOND_ANCILLARY_PARAM)
+
+  DEFINE _x _ilft
+  DEFINE _y _xls
+  DEFINE _cx _ilw80
+  DEFINE _bux _islw80
+  INCLUDE _constraints
+
+  DEFINE _x _ilft
+  DEFINE _xw _ibwd
+//  INCLUDE _ck_collinear
+END
+
+PROGRAM model2_check_strata
+BEGIN
+	if model2.ck_strata & !main.ck_frailty {
+		call model2.vn_strata.enable
+		call rpt.ck_tr.disable
+		call rpt.ck_nohr.disable
+		call model2.ck_anc.disable
+		call model2.vl_anc.disable
+		call model2.ck_anc2.disable
+		call model2.vl_anc2.disable
+	}
+	else {
+		call program model2_strata_off
+	}
+	if main.ck_frailty {
+		call model2.ck_strata.disable
+		call model2.vn_strata.disable
+	}
+END
+
+PROGRAM model2_strata_off
+BEGIN
+	call model2.vn_strata.disable
+	call program check_distribution
+END
+
+PROGRAM model2_check_anc
+BEGIN
+	if main.ck_frailty | main.rb_exp | main.rb_exp_time {
+		call model2.ck_anc.disable
+		call model2.vl_anc.disable
+		call model2.ck_anc2.disable
+		call model2.vl_anc2.disable
+	}
+	else {
+		call model2.ck_anc.enable
+		if model2.ck_anc {
+			call model2.vl_anc.enable
+		}
+		else {
+			call model2.vl_anc.disable
+		}
+		if main.rb_gamma {
+			call model2.ck_anc2.enable
+			if model2.ck_anc2 {
+				call model2.vl_anc2.enable
+			}
+			else {
+				call model2.vl_anc2.disable
+			}
+		}
+		call model2.ck_anc2.disable
+		call model2.vl_anc2.disable
+	}
+END
+
+SCRIPT model2_anc_on
+BEGIN
+	model2.vl_anc.enable
+	rpt.ck_nohr.disable
+	rpt.ck_tr.disable
+END
+
+SCRIPT model2_anc_off
+BEGIN
+	model2.vl_anc.disable
+	program check_distribution
+END
+
+SCRIPT model2_anc2_on
+BEGIN
+	model2.vl_anc2.enable
+	rpt.ck_nohr.disable
+	rpt.ck_tr.disable
+END
+
+SCRIPT model2_anc2_off
+BEGIN
+	model2.vl_anc2.disable
+	program check_distribution
+END
+
+SCRIPT model2_PREINIT
+BEGIN
+	create STRING __const_tab
+	__const_tab.setvalue "model2"
+END
+
+INCLUDE _constraints_sc 
+INCLUDE sub_by_ifin_over_subpop
+INCLUDE se
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+	program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2
+  DEFINE _y _top
+  INCLUDE _sp_level
+  DEFINE y @y
+
+  CHECKBOX ck_nohr		_lft	_ls	_iwd	.,		///
+	option("nohr")							///
+	label(resource LBL_DO_NO_REPORT_HAZARD_RATIOS)
+
+  CHECKBOX ck_tr		@	_ms	@	.,		///
+	option("tratio")						///
+	label(resource LBL_REPORT_TIME_RATIOS)
+
+  CHECKBOX ck_noshow		@	_ms	@	.,		///
+	option("noshow")						///
+	label(resource LBL_DO_NOT_REPORT_ST_VARIABLE_DESCRIPTIONS)
+
+  CHECKBOX ck_nohead		@	_ms	@	.,		///
+	option(noheader)						///
+	label(resource LBL_DO_NOT_DISPLAY_OUTPUT_HEADER)
+  DEFINE _x _lft
+  DEFINE _y _ms
+  DEFINE _cx _iwd
+  INCLUDE _nocnsreport
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+
+INCLUDE max_ml
+
+PROGRAM command
+BEGIN
+	put /program by_output " "
+	put /program se_prefix_output " "
+	put "streg "
+	varlist [main.vl_iv]
+	put " " /program ifin_output
+	beginoptions
+		option main.ck_nocons
+		option radio(main rb_exp rb_exp_time rb_weib 		///
+			rb_weib_time rb_gomp rb_logn rb_logl rb_gamma)
+		if main.ck_frailty {
+			option radio(main rb_fgamma rb_figaus)
+		}
+		optionarg model2.vn_strata
+		optionarg model2.vn_offset
+		optionarg model2.vn_shared
+		optionarg model2.vl_anc
+		optionarg model2.vl_anc2
+		optionarg model2.cb_constr
+//		option model2.ck_collinear
+
+		put " " /program se_output
+
+		optionarg /hidedefault rpt.sp_level
+		option rpt.ck_nohr
+		option rpt.ck_tr
+		option rpt.ck_noshow
+		option rpt.ck_nohead
+		INCLUDE _nocnsreport_pr
+		INCLUDE _report_columns_pr
+		put " " rpt_bu_facvarsResults
+		put " " rpt_bu_fmtcoefResults
+		put " " /program max_output
+	endoptions
+END

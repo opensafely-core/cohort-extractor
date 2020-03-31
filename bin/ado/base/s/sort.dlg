@@ -1,0 +1,200 @@
+/*
+	sort
+
+*!	VERSION 2.1.1  18dec2014
+
+** This dialog box may be called internally by the Data Editor
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 285
+INCLUDE header
+
+DEFINE fromwd 50
+DEFINE fromsep +55
+DEFINE towd 35
+DEFINE tosep +45
+
+HELP hlp1, view("help sort")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create ARRAY  ARGS
+	create STRING VARS
+	create DOUBLE INFROM
+	create DOUBLE INTO
+	setscale_hadj resource SORT_DLG_HSCALE
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	if __MESSAGE {
+		if __MESSAGE.iseq("-gsort-") {
+			call main.rb_advancedsort.seton
+		}
+		else {
+			call main.ck_in.setoff
+			call __MESSAGE.tokenize ARGS
+			call VARS.setvalue class ARGS[1]
+			call INFROM.setvalue class ARGS[2]
+			call INTO.setvalue class ARGS[3]
+			call main.vl_vars.setvalue class VARS.value
+
+			if (INFROM) {
+				call main.sp_from.setvalue class INFROM.value
+				call main.ck_in.seton
+				if (INTO) {
+					call main.sp_to.setvalue	///
+						class INTO.value
+				}
+			}
+			else {
+				call main.sp_from.setvalue 1
+				call main.sp_to.setvalue c(N)
+			}
+		}
+	}
+END
+
+DIALOG main, label(resource SORT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  RADIO rb_standardsort		_lft	_top	_iwd	.,		///
+	first								///
+	onclickon(script main_standardsort_on)				///
+	label(resource SORT_MAIN_RB_STANDARDSORT)
+  RADIO rb_advancedsort		@       _ss     @       .,              ///
+	last								///
+	onclickon(script main_advancedsort_on)				///
+	label(resource SORT_MAIN_RB_ADVANCEDSORT)
+  TEXT tx_vars			_lft	_ls	_iwd	.,		///
+	label(resource LBL_VARIABLES)
+  VARLIST vl_vars		_lft	_ss	_iwd	.,		///
+	label(resource LBL_VARIABLES)
+  CHECKBOX ck_stable		_lft	_ls	_iwd	.,		///
+	option("stable")						///
+	label(resource SORT_MAIN_CK_STABLE)
+  DEFINE holdy @y
+  GROUPBOX gb_sub		_lft	_xls	_iwd	_ht2,		///
+	label(resource SORT_MAIN_GB_SUB)
+  CHECKBOX ck_in		_ilft	_ss	fromwd	.,		///
+	label(resource LBL_FROM_LOWERCASE)				///
+	clickon("script sub_on")					///
+	clickoff("script sub_off")
+  SPINNER  sp_from		fromsep	@	_spwd	.,		///
+	min(1)								///
+	max(c(N))							///
+	default(1)
+  TEXT tx_to			_spsep	@	towd	.,		///
+	label(resource LBL_TO)						///
+	right
+  SPINNER sp_to			tosep	@	_spwd	.,		///
+	min(1)								///
+	max(c(N))							///
+	default(c(N))
+
+  TEXT tx_example		_lft	holdy	_cwd4_1	.,		///
+	label(resource LBL_EXAMPLES)
+  TEXT tx_example2		100	@	_comb4_1 .,		///
+	label(resource SORT_MAIN_TX_EXAMPLE2)
+  TEXT tx_example3		@	_vss	@	.,		///
+	label(resource SORT_MAIN_TX_EXAMPLE3)
+  TEXT	tx_example4		@	_vss	@	.,		///
+	label(resource SORT_MAIN_TX_EXAMPLE4)
+  TEXT tx_example5		_lft	_ss	_iwd	.,		///
+	label(resource SORT_MAIN_TX_EXAMPLE5)
+  TEXT tx_example6		@	_vss	@	.,		///
+	label(resource SORT_MAIN_TX_EXAMPLE6)
+  CHECKBOX ck_gen		_lft	_ls	_iwd	.,		///
+	onclickon(main.ed_gen.enable)					///
+	onclickoff(main.ed_gen.disable)					///
+	label(resource SORT_MAIN_CK_GEN)
+  EDIT ed_gen			_indent2 _ss	_vnwd	.,		///
+	max(32)								///
+	option(generate)						///
+	label(resource SORT_MAIN_CK_GEN)
+  CHECKBOX ck_mfirst		_lft	_ls	_iwd	.,		///
+	label(resource SORT_MAIN_CK_MFIRST)				///
+	option(mfirst)
+END
+
+
+SCRIPT main_standardsort_on
+BEGIN
+	main.ck_stable.show
+	main.gb_sub.show
+	main.ck_in.show
+	main.sp_from.show
+	main.sp_to.show
+	main.tx_to.show
+
+	main.tx_example.hide
+	main.tx_example2.hide
+	main.tx_example3.hide
+	main.tx_example4.hide
+	main.tx_example5.hide
+	main.tx_example6.hide
+	main.ck_gen.hide
+	main.ed_gen.hide
+	main.ck_mfirst.hide
+END
+
+SCRIPT main_advancedsort_on
+BEGIN
+	main.tx_example.show
+	main.tx_example2.show
+	main.tx_example3.show
+	main.tx_example4.show
+	main.tx_example5.show
+	main.tx_example6.show
+	main.ck_gen.show
+	main.ed_gen.show
+	main.ck_mfirst.show
+
+	main.ck_stable.hide
+	main.gb_sub.hide
+	main.ck_in.hide
+	main.sp_from.hide
+	main.sp_to.hide
+	main.tx_to.hide
+END
+
+SCRIPT sub_on
+BEGIN
+	main.sp_from.enable
+	main.sp_to.enable
+END
+
+SCRIPT sub_off
+BEGIN
+	main.sp_from.disable
+	main.sp_to.disable
+END
+
+PROGRAM command
+BEGIN
+	if main.rb_standardsort {
+		put "sort"
+		varlist main.vl_vars
+	if main.ck_in {
+		inrange main.sp_from main.sp_to
+		}
+		beginoptions
+			option main.ck_stable
+		endoptions
+	}
+	if main.rb_advancedsort {
+		put "gsort"
+		varlist main.vl_vars
+		beginoptions
+			if main.ck_gen {
+				require main.ed_gen
+				optionarg main.ed_gen
+		}
+		option main.ck_mfirst
+		endoptions
+	}
+END

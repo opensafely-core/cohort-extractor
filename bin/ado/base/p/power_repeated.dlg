@@ -1,0 +1,1409 @@
+/*
+	power repeated
+
+*!  VERSION 1.1.7  18dec2017
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_xwide
+DEFINE _dlght 530
+INCLUDE header
+
+HELP hlp1, view("help power repeated")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING numContents
+	create STRING stok
+	create ARRAY tmp
+	create BOOLEAN containsNumlist
+	create STRING gsimpsi_res
+	create BOOLEAN child_hasNumlist
+	create DOUBLE ngrps
+	create DOUBLE nreps
+	create STRING dlgName
+	create DOUBLE tmp_ngrps
+	create DOUBLE tmp_nreps
+	create STRING tmp_gmeans
+	create STRING tmp_cov
+	create BOOLEAN hasMat
+	create BOOLEAN hasGroupm
+	create ARRAY factorList
+	create ARRAY factorValues
+	
+	dlgName.setvalue class _dlg_rsrcname
+	child_hasNumlist.setfalse
+	program table_create4Repeated
+	setscale_hadj resource POWER_REPEATED_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program check_gsimpsi_result
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	label(resource POWER_REPEATED_DLG_TITLE)
+BEGIN
+  INCLUDE power_compute
+  DEFINE errpos _ls
+  INCLUDE power_errorprob
+  DEFINE sspos +45
+  INCLUDE power_repeatedsampsi
+
+  GROUPBOX gb_effect_size	_lft	200	_iwd	_ht16h,		///
+	label(resource LBL_EFFECT_SIZE)
+  TEXT 	tx_means		_indent	_ss	_cwd1	.,		///
+	label(resource LBL_SPECIFY)
+  COMBOBOX cb_meanspec		@	+35	_cwd3	.,		///
+  	dropdownlist							///
+	contents("main_means_list")					///
+	values("main_means_values")					///
+	onselchange("program main_means_changed")			///
+  	label(resource LBL_SPECIFY)
+  EDIT	ed_meannum		_ilft	_xls	_en14wd	.,		///
+  	onchange(program power_repeated_dim_check)			///
+  	label(resource LBL_ALTERNATIVE_CELL_MEANS)			///
+  	tooltip(resource POWER_REPEATED_MAIN_ED_MEANNUM)
+  EDIT	ed_vareffect		@	@	@	.,		///
+  	option(vareffect)						///
+  	onchange(program check_for_numlist)				///
+  	label(resource LBL_VARIANCE_EXPLAINED_BY_TESTED_EFFECT)		///
+  	tooltip(resource LBL_VARIANCE_EXPLAINED_BY_TESTED_EFFECT_VAREFFECT)
+  EDIT	ed_varbetween		@	@	@	.,		///
+  	option(varbetween)						///
+  	onchange(program check_for_numlist)				///
+  	label(resource POWER_REPEATED_VAR_EXP_BETWEEN_SUBJECT_EFFECT)	///
+  	tooltip(resource LBL_VARIANCE_EXP_BETWEEN_SUBJECT_EFFECT_VARBETWEEN)
+  EDIT	ed_varwithin		@	@	@	.,		///
+  	option(varwithin)						///
+  	onchange(program check_for_numlist)				///
+  	label(resource POWER_REPEATED_VAR_EXP_WITHIN_SUBJECT_EFFECT)	///
+  	tooltip(resource LBL_VARIANCE_EXP_WITHIN_SUBJECT_EFFECT_VARWITHIN)
+  EDIT	ed_varbwithin		@	@	@	.,		///
+  	option(varbwithin)						///
+  	onchange(program check_for_numlist)				///
+  	label(resource LBL_VARIANCE_EXP_BETWEEN_WITHIN_GROUP_EFFECT)	///
+  	tooltip(resource LBL_VARIANCE_EXP_BETWEEN_WITHIN_GROUP_EFFECT_VARBWITHIN)
+  COMBOBOX cb_factor		@	@	@	.,		///
+  	dropdownlist							///
+  	contents("main_factor_list")					///
+  	values("main_factor_values")					///
+  	onselchange(program main_factor_on)				///
+  	option(factor)							///
+  	default(between)						///
+  	label(resource LBL_TESTED_EFFECT)  
+  COMBOBOX cb_wfactor		@	@	@	.,		///
+  	dropdownlist							///
+  	contents("main_wfactor_list")					///
+  	values("main_wfactor_values")					///
+  	onselchange(program table_create4Repeated)			///
+  	option(factor)							///
+  	label(resource LBL_TESTED_EFFECT) 
+  TEXT	tx_meannum		_en14sep @	_cwd1	.,		///
+  	label(resource LBL_ALTERNATIVE_CELL_MEANS)
+  TEXT	tx_vareffect		@	@	@	.,		///
+  	label(resource LBL_STAR_EFFECT_VARIANCE)
+  TEXT	tx_varbetween		@ 	@	@	.,		///
+  	label(resource POWER_REPEATED_MAIN_TX_VARBETWEEN)
+  TEXT	tx_varwithin		@ 	@	@	.,		///
+  	label(resource POWER_REPEATED_MAIN_TX_VARWITHIN)
+  TEXT	tx_varbwithin		@ 	@	@	.,		///
+  	label(resource POWER_REPEATED_MAIN_TX_VARBWITHIN)
+  TEXT	tx_factor		@	@	@	.,		///
+  	label(resource LBL_TESTED_EFFECT)
+  COMBOBOX cb_meanmat		_ilft	@	_en14wd	.,		///
+	label(resource LBL_ALTERNATIVE_CELL_MEANS)			///
+	onselchange(program power_repeated_dim_check)			///
+	contents(matrix)						///
+	dropdown
+  BUTTON bu_meanmat		_en14sep @	120	.,		///
+	label(resource LBL_INPUT_MATRIX)				///
+	onpush(program show_cmeans_matrix)				///
+	tooltip(resource POWER_REPEATED_MAIN_BU_MEANMAT)
+  SPINNER sp_ngroups		_ilft	@	_en14wd	.,		///
+  	min(1)								///
+  	default(2)							///
+  	option(ngroups)							///
+  	onchange(program power_repeated_dim_check)			///
+  	label(resource LBL_NUMBER_OF_GROUPS)
+  TEXT	tx_ngroups		_en14sep @	@	.,		///
+  	label(resource LBL_NUMBER_OF_GROUPS)
+  SPINNER sp_nrepeated		_ilft	@	_en14wd	.,		///
+  	min(2)								///
+  	option(nrepeated)						///
+  	onchange(program power_repeated_dim_check)			///
+  	tooltip(resource POWER_REPEATED_MAIN_SP_NREPEATED_TOOLTIP)
+  TEXT	tx_nrepeated		_en14sep @	180	.,		///
+  	label(resource POWER_REPEATED_MAIN_SP_NREPEATED)
+  DEFINE holdy2 @y
+  GROUPBOX gb_corcov		_lft2	holdy2	_cwd2	_ht12h,		///
+	label(resource POWER_REPEATED_MAIN_GB_CORCOV)
+  RADIO rb_cov			_ilft2	_ss	_inwd	., 		///
+  	first								///
+  	onclickon("program main_covariance_on")				///
+  	onclickoff("script main_covariance_off")			///
+	label(resource LBL_COVARIANCE_NO_COLON)
+  RADIO rb_corr			_ilft2	+45	@	., 		///
+  	last								///
+  	onclickon("program main_correlation_on")			///
+  	onclickoff("script main_correlation_off")			///
+	label(resource POWER_REPEATED_MAIN_RB_CORR)
+  COMBOBOX cb_cov		_iilft2	-15	_en14wd	.,		///
+  	option(covmatrix)						///
+  	onselchange(program power_repeated_dim_check)			///
+  	contents(matrix)						///
+	dropdown							///
+	label(resource POWER_REPEATED_MAIN_GB_CORCOV)
+  BUTTON bu_cov			_en14sep @	100	.,		///
+	label(resource LBL_INPUT_MATRIX)				///
+	onpush(program show_cov_matrix)					///
+	tooltip(resource POWER_REPEATED_MAIN_BU_COV)
+  EDIT ed_corrs			_iilft2	+45	_en14wd	.,		///
+  	option(corr)							///
+	onchange(program check_for_numlist)				///
+	label(resource LBL_CORRELATION_BETWEEN_REPEATED_MEASURES)	///
+	tooltip(resource POWER_REPEATED_MAIN_ED_CORRS)
+  EDIT 	ed_varerr		@	_ss	_en14wd	.,		///
+  	option(varerror)						///
+  	onchange(program check_for_numlist)				///
+  	default(1)							///
+  	label(resource LBL_ERROR_VARIANCE)				///
+  	tooltip(resource POWER_REPEATED_MAIN_ED_VARERR)
+  TEXT tx_corrs			_en14sep @	95	.,		///
+	label(resource LBL_STAR_CORRELATION)
+  TEXT tx_varerr		@	_ss	95	.,		///
+	label(resource POWER_REPEATED_MAIN_TX_VARERR)
+  CHECKBOX ck_showmat		_lft	_ls	_iwd	.,		///
+  	option(showmatrices)						///
+  	label(resource POWER_REPEATED_MAIN_CK_SHOWMAT)
+  CHECKBOX ck_showmeans		_lft	_ls	_iwd	.,		///
+  	option(showmeans)						///
+  	onclickon(program table_create4Repeated)			///
+  	onclickoff(program table_create4Repeated)			///
+  	label(resource LBL_DISPLAY_CELL_MEANS_IN_DEFAULT_TABLE)
+  CHECKBOX ck_parallel		_lft	_ls	_iwd	.,		///
+	option(parallel)						///
+	label(resource LBL_TREAT_NUMBER_LISTS_IN_STARRED_OPTIONS_AS_PARALLEL)
+END
+
+LIST main_compute_list
+BEGIN
+	resource LBL_SAMPLE_SIZE
+	resource PSS_LBL_POWER
+	resource LBL_EFFECT_SIZE
+END
+
+LIST main_compute_values
+BEGIN
+	tot_sampsi
+	power
+	effect
+END
+
+LIST main_factor_list
+BEGIN
+	resource POWER_REPEATED_LBL_BETWEEN
+	resource POWER_REPEATED_LBL_WITHIN
+	resource POWER_REPEATED_LBL_BETWEEN_WITHIN
+END
+
+LIST main_factor_values
+BEGIN
+	"between"
+	"within"
+	"bwithin"
+END
+
+LIST main_wfactor_list
+BEGIN
+	resource POWER_REPEATED_LBL_WITHIN
+END
+
+LIST main_wfactor_values
+BEGIN
+	"within"
+END
+
+INCLUDE _power_list
+
+LIST main_means_list
+BEGIN
+	resource LBL_ALTERNATIVE_CELL_MEANS
+	resource LBL_ALTERNATIVE_CELL_MEANS_MATRIX
+	resource LBL_VARIANCE_EXPLAINED_BY_TESTED_EFFECT
+	resource POWER_REPEATED_VAR_EXP_BETWEEN_SUBJECT_EFFECT
+	resource POWER_REPEATED_VAR_EXP_WITHIN_SUBJECT_EFFECT
+	resource POWER_REPEATED_VAR_EXP_BETWEEN_WITHIN_EFFECT
+END
+
+LIST main_means_values
+BEGIN
+	"cmeans"
+	"cmeansmat"
+	"vareffect"
+	"varbetween"
+	"varwithin"
+	"varbwithin"
+END
+
+PROGRAM main_compute_changed
+BEGIN
+	if main.cb_compute.iseq("tot_sampsi") {
+		call program main_tot_sampsi_on
+	}
+	if main.cb_compute.iseq("power") {
+		call program main_power_on
+	}
+	if main.cb_compute.iseq("effect") {
+		call program main_effect_on
+	}
+	call program check_for_numlist
+END
+
+PROGRAM main_tot_sampsi_on
+BEGIN
+	call script main_sampsi_hide_all
+	call main.gb_sample_size.setposition . . . 95
+	call main.ck_nfrac.setposition . 190
+	call main.tx_sampsi.show
+	call main.cb_sampsi.hide
+	call main.ck_nfrac.show
+	call main.cb_grw.show
+	call main.ed_power.show
+	call main.ed_beta.show
+	call main.tx_power_beta_power.show
+	call main.cb_power_beta.show
+	call program main_grw_changed
+	call program main_move_effect_size
+	call program main_means_changed 
+	call program main_move_main_opts
+	call program main_power_beta_changed
+	call program power_iteration_tab_check
+
+	if main.cb_meanspec.iseq("vareffect") | main.cb_meanspec.iseq("varbetween") | ///
+		main.cb_meanspec.iseq("varwithin") | main.cb_meanspec.iseq("varbwithin") {
+		if main.rb_cov {
+			call main.sp_nrepeated.hide
+			call main.tx_nrepeated.hide	
+		}
+		if main.rb_corr {
+			call main.sp_nrepeated.show
+			call main.tx_nrepeated.show
+		}
+	}
+	else {
+		call main.sp_nrepeated.hide
+		call main.tx_nrepeated.hide		
+	}
+END
+
+PROGRAM main_power_on
+BEGIN
+	call script main_sampsi_hide_all
+	call main.gb_sample_size.setposition . . . 95
+	call main.ck_nfrac.setposition . 190
+	call main.tx_sampsi.show
+	call main.cb_sampsi.show
+	call main.ck_nfrac.show
+	call main.ed_power.hide
+	call main.ed_beta.hide
+	call main.tx_power_beta_power.hide
+	call main.cb_power_beta.hide
+	call program main_move_effect_size
+	call program main_means_changed 
+	call program main_sampsi_changed
+	call program main_move_main_opts
+	call program power_iteration_tab_check
+	
+	if main.cb_meanspec.iseq("vareffect") | main.cb_meanspec.iseq("varbetween") | ///
+		main.cb_meanspec.iseq("varwithin") | main.cb_meanspec.iseq("varbwithin") {
+		if main.rb_cov {
+			call main.sp_nrepeated.hide
+			call main.tx_nrepeated.hide	
+		}
+		if main.rb_corr {
+			call main.sp_nrepeated.show
+			call main.tx_nrepeated.show
+		}
+	}
+	else {
+		call main.sp_nrepeated.hide
+		call main.tx_nrepeated.hide		
+	}
+	
+END
+
+PROGRAM main_effect_on
+BEGIN
+	call script main_sampsi_hide_all
+	call main.gb_sample_size.setposition . . . 95
+	call main.ck_nfrac.setposition . 190
+	call main.tx_sampsi.show
+	call main.cb_sampsi.show
+	call main.ck_nfrac.show
+	call main.ed_power.show
+	call main.ed_beta.show
+	call main.tx_power_beta_power.show
+	call main.cb_power_beta.show
+	call program main_sampsi_changed
+	call program main_move_effect_size
+	call program main_means_changed 
+	call program main_move_main_opts
+	call program main_power_beta_changed
+	call program power_iteration_tab_check
+	call program power_repeated_dim_check
+	
+	if main.rb_cov {
+		call main.sp_nrepeated.hide
+		call main.tx_nrepeated.hide	
+	}
+	if main.rb_corr {
+		call main.sp_nrepeated.show
+		call main.tx_nrepeated.show
+	}	
+END
+
+PROGRAM main_means_changed
+BEGIN
+	if main.cb_meanspec.isvisible() {
+		if main.cb_meanspec.iseq("cmeans") {
+			call program main_cmeans_on
+		}
+		if main.cb_meanspec.iseq("cmeansmat") {
+			call program main_cmeansmat_on
+		}
+		if main.cb_meanspec.iseq("vareffect") {
+			call program main_vareffect_on
+		}
+		if main.cb_meanspec.iseq("varbetween") {
+			call program main_varbetween_on
+		}
+		if main.cb_meanspec.iseq("varwithin") {
+			call program main_varwithin_on
+		}
+		if main.cb_meanspec.iseq("varbwithin") {
+			call program main_varbwithin_on
+		}
+		call program power_repeated_dim_check
+		call program check_for_numlist
+	}
+END
+
+PROGRAM main_cmeans_on
+BEGIN
+	call main.ed_meannum.show
+	call main.tx_meannum.show
+	call main.cb_meanmat.hide
+	call main.bu_meanmat.hide
+	call main.ed_vareffect.hide
+	call main.tx_vareffect.hide
+	call main.sp_ngroups.hide
+	call main.tx_ngroups.hide
+	call main.sp_nrepeated.hide
+	call main.tx_nrepeated.hide
+	call main.cb_factor.show
+	call main.tx_factor.show
+	call main.ed_varbetween.hide
+	call main.tx_varbetween.hide
+	call main.ed_varwithin.hide
+	call main.tx_varwithin.hide
+	call main.ed_varbwithin.hide
+	call main.tx_varbwithin.hide
+
+	call main.cb_factor.setposition . 343
+	call main.cb_wfactor.setposition . 343
+	call main.tx_factor.setposition . 343
+	
+	if main.cb_compute.iseq("power") | main.cb_compute.iseq("effect") {
+		call main.cb_sampsi.show
+		call program main_sampsi_changed
+	}
+	call main.cb_grw.enable
+	call main.ed_grw.enable
+	call main.cb_grw_mat.enable
+	call main.bu_grw_mat.enable
+	call main.tx_grw.enable
+END
+
+PROGRAM main_cmeansmat_on
+BEGIN
+	call main.ed_meannum.hide
+	call main.tx_meannum.hide
+	call main.cb_meanmat.show
+	call main.bu_meanmat.show
+	call main.ed_vareffect.hide
+	call main.tx_vareffect.hide
+	call main.sp_ngroups.hide
+	call main.tx_ngroups.hide
+	call main.sp_nrepeated.hide
+	call main.tx_nrepeated.hide
+	call main.cb_factor.show
+	call main.tx_factor.show
+	call main.ed_varbetween.hide
+	call main.tx_varbetween.hide
+	call main.ed_varwithin.hide
+	call main.tx_varwithin.hide
+	call main.ed_varbwithin.hide
+	call main.tx_varbwithin.hide
+	
+	call main.cb_factor.setposition . 343
+	call main.cb_wfactor.setposition . 343
+	call main.tx_factor.setposition . 343
+	call main.ed_vareffect.setposition . 343
+	call main.tx_vareffect.setposition . 343
+	call main.ed_varbetween.setposition . 343
+	call main.tx_varbetween.setposition . 343
+	call main.ed_varwithin.setposition . 343
+	call main.tx_varwithin.setposition . 343
+	call main.ed_varbwithin.setposition . 343
+	call main.tx_varbwithin.setposition . 343
+
+	if main.cb_compute.iseq("power") | main.cb_compute.iseq("effect") {
+		call main.cb_sampsi.show
+		call program main_sampsi_changed
+	}
+	call main.cb_grw.enable
+	call main.ed_grw.enable
+	call main.cb_grw_mat.enable
+	call main.bu_grw_mat.enable
+	call main.tx_grw.enable
+END
+
+PROGRAM main_vareffect_on
+BEGIN
+	call main.ed_meannum.hide
+	call main.tx_meannum.hide
+	call main.cb_meanmat.hide
+	call main.bu_meanmat.hide
+	call main.ed_vareffect.show
+	call main.tx_vareffect.show
+	call main.sp_ngroups.show
+	call main.tx_ngroups.show
+	call main.sp_nrepeated.show
+	call main.tx_nrepeated.show
+	call main.cb_factor.show
+	call main.tx_factor.show
+	call main.ed_varbetween.hide
+	call main.tx_varbetween.hide
+	call main.ed_varwithin.hide
+	call main.tx_varwithin.hide
+	call main.ed_varbwithin.hide
+	call main.tx_varbwithin.hide
+
+	call main.cb_factor.setposition . 315
+	call main.cb_wfactor.setposition . 315
+	call main.tx_factor.setposition . 315
+	call main.sp_ngroups.setposition . 343
+	call main.tx_ngroups.setposition . 343
+	call main.ed_vareffect.setposition . 371
+	call main.tx_vareffect.setposition . 371
+	call main.ed_varbetween.setposition . 371
+	call main.tx_varbetween.setposition . 371
+	call main.ed_varwithin.setposition . 371
+	call main.tx_varwithin.setposition . 371
+	call main.ed_varbwithin.setposition . 371
+	call main.tx_varbwithin.setposition . 371
+	call main.sp_nrepeated.setposition . 399
+	call main.tx_nrepeated.setposition . 399
+	
+	if main.cb_compute.iseq("power") | main.cb_compute.iseq("effect") {
+		call main.cb_sampsi.show
+	}
+	
+	if main.cb_compute.iseq("tot_sampsi") {
+		call main.cb_grw.enable
+		call main.ed_grw.enable
+		call main.cb_grw_mat.enable
+		call main.bu_grw_mat.enable
+		call main.tx_grw.enable
+	}
+
+	if main.rb_cov {
+		call main.sp_nrepeated.hide
+		call main.tx_nrepeated.hide	
+	}
+	if main.rb_corr {
+		call main.sp_nrepeated.show
+		call main.tx_nrepeated.show
+	}
+	
+	if main.cb_factor.iseq("between") | main.cb_factor.iseq("bwithin") {
+		call main.sp_ngroups.setrange 2 .
+	}
+	if main.cb_factor.iseq("within") {
+		call main.sp_ngroups.setrange 1 .
+	}	
+END
+
+PROGRAM main_varbetween_on
+BEGIN
+	call main.ed_meannum.hide
+	call main.tx_meannum.hide
+	call main.cb_meanmat.hide
+	call main.bu_meanmat.hide
+	call main.ed_vareffect.hide
+	call main.tx_vareffect.hide
+	call main.sp_ngroups.show
+	call main.tx_ngroups.show
+	call main.sp_nrepeated.show
+	call main.tx_nrepeated.show
+	call main.cb_factor.hide
+	call main.cb_wfactor.hide
+	call main.tx_factor.hide
+	call main.ed_varbetween.show
+	call main.tx_varbetween.show
+	call main.ed_varwithin.hide
+	call main.tx_varwithin.hide
+	call main.ed_varbwithin.hide
+	call main.tx_varbwithin.hide
+	
+	call main.sp_ngroups.setposition . 315
+	call main.tx_ngroups.setposition . 315
+	call main.ed_vareffect.setposition . 343
+	call main.tx_vareffect.setposition . 343
+	call main.ed_varbetween.setposition . 343
+	call main.tx_varbetween.setposition . 343
+	call main.ed_varwithin.setposition . 343
+	call main.tx_varwithin.setposition . 343
+	call main.ed_varbwithin.setposition . 343
+	call main.tx_varbwithin.setposition . 343
+	call main.sp_nrepeated.setposition . 371
+	call main.tx_nrepeated.setposition . 371
+
+	if main.cb_compute.iseq("power") | main.cb_compute.iseq("effect") {
+		call main.cb_sampsi.show
+	}
+	
+	if main.cb_compute.iseq("tot_sampsi") {
+		call main.cb_grw.enable
+		call main.ed_grw.enable
+		call main.cb_grw_mat.enable
+		call main.bu_grw_mat.enable
+		call main.tx_grw.enable
+	}
+
+	if main.rb_cov {
+		call main.sp_nrepeated.hide
+		call main.tx_nrepeated.hide	
+	}
+	if main.rb_corr {
+		call main.sp_nrepeated.show
+		call main.tx_nrepeated.show
+	}
+	call main.sp_ngroups.setrange 2 .
+END
+
+PROGRAM main_varwithin_on
+BEGIN
+	call main.ed_meannum.hide
+	call main.tx_meannum.hide
+	call main.cb_meanmat.hide
+	call main.bu_meanmat.hide
+	call main.ed_vareffect.hide
+	call main.tx_vareffect.hide
+	call main.sp_ngroups.show
+	call main.tx_ngroups.show
+	call main.sp_nrepeated.show
+	call main.tx_nrepeated.show
+	call main.cb_factor.hide
+	call main.cb_wfactor.hide
+	call main.tx_factor.hide
+	call main.ed_varbetween.hide
+	call main.tx_varbetween.hide
+	call main.ed_varwithin.show
+	call main.tx_varwithin.show
+	call main.ed_varbwithin.hide
+	call main.tx_varbwithin.hide
+
+	call main.sp_ngroups.setposition . 315
+	call main.tx_ngroups.setposition . 315
+	call main.ed_vareffect.setposition . 343
+	call main.tx_vareffect.setposition . 343
+	call main.ed_varbetween.setposition . 343
+	call main.tx_varbetween.setposition . 343
+	call main.ed_varwithin.setposition . 343
+	call main.tx_varwithin.setposition . 343
+	call main.ed_varbwithin.setposition . 343
+	call main.tx_varbwithin.setposition . 343
+	call main.sp_nrepeated.setposition . 371
+	call main.tx_nrepeated.setposition . 371
+
+	if main.cb_compute.iseq("power") | main.cb_compute.iseq("effect") {
+		call main.cb_sampsi.show
+	}
+	
+	if main.cb_compute.iseq("tot_sampsi") {
+		call main.cb_grw.enable
+		call main.ed_grw.enable
+		call main.cb_grw_mat.enable
+		call main.bu_grw_mat.enable
+		call main.tx_grw.enable
+	}
+
+	if main.rb_cov {
+		call main.sp_nrepeated.hide
+		call main.tx_nrepeated.hide	
+	}
+	if main.rb_corr {
+		call main.sp_nrepeated.show
+		call main.tx_nrepeated.show
+	}
+	call main.sp_ngroups.setrange 1 .
+END
+
+PROGRAM main_varbwithin_on
+BEGIN
+	call main.ed_meannum.hide
+	call main.tx_meannum.hide
+	call main.cb_meanmat.hide
+	call main.bu_meanmat.hide
+	call main.ed_vareffect.hide
+	call main.tx_vareffect.hide
+	call main.sp_ngroups.show
+	call main.tx_ngroups.show
+	call main.sp_nrepeated.show
+	call main.tx_nrepeated.show
+	call main.cb_factor.hide
+	call main.cb_wfactor.hide
+	call main.tx_factor.hide
+	call main.ed_varbetween.hide
+	call main.tx_varbetween.hide
+	call main.ed_varwithin.hide
+	call main.tx_varwithin.hide
+	call main.ed_varbwithin.show
+	call main.tx_varbwithin.show
+	
+	call main.sp_ngroups.setposition . 315
+	call main.tx_ngroups.setposition . 315
+	call main.ed_vareffect.setposition . 343
+	call main.tx_vareffect.setposition . 343
+	call main.ed_varbetween.setposition . 343
+	call main.tx_varbetween.setposition . 343
+	call main.ed_varwithin.setposition . 343
+	call main.tx_varwithin.setposition . 343
+	call main.ed_varbwithin.setposition . 343
+	call main.tx_varbwithin.setposition . 343
+	call main.sp_nrepeated.setposition . 371
+	call main.tx_nrepeated.setposition . 371
+
+	if main.cb_compute.iseq("power") | main.cb_compute.iseq("effect") {
+		call main.cb_sampsi.show
+	}
+	
+	if main.cb_compute.iseq("tot_sampsi") {
+		call main.cb_grw.enable
+		call main.ed_grw.enable
+		call main.cb_grw_mat.enable
+		call main.bu_grw_mat.enable
+		call main.tx_grw.enable
+	}
+	
+	if main.rb_cov {
+		call main.sp_nrepeated.hide
+		call main.tx_nrepeated.hide	
+	}
+	if main.rb_corr {
+		call main.sp_nrepeated.show
+		call main.tx_nrepeated.show
+	}
+	call main.sp_ngroups.setrange 2 .
+END
+
+PROGRAM main_factor_on 
+BEGIN
+	if main.cb_factor.iseq("between") | main.cb_factor.iseq("bwithin") {
+		call main.sp_ngroups.setrange 2 .
+	}
+	if main.cb_factor.iseq("within") {
+		call main.sp_ngroups.setrange 1 .
+	}
+	call program table_create4Repeated
+END
+
+PROGRAM main_covariance_on
+BEGIN
+	call main.cb_cov.enable
+	call main.bu_cov.enable
+	call main.sp_nrepeated.hide
+	call main.tx_nrepeated.hide
+END
+
+SCRIPT main_covariance_off
+BEGIN
+	main.cb_cov.disable
+	main.bu_cov.disable
+END
+
+PROGRAM main_correlation_on
+BEGIN
+	call main.ed_corrs.enable
+	call main.tx_corrs.enable
+	call main.ed_varerr.enable
+	call main.tx_varerr.enable
+	
+	if main.cb_meanspec.isvisible() {
+		if main.cb_meanspec.iseq("vareffect") | main.cb_meanspec.iseq("varbetween") | ///
+			main.cb_meanspec.iseq("varwithin") | main.cb_meanspec.iseq("varbwithin") {
+			call main.sp_nrepeated.show
+			call main.tx_nrepeated.show
+		}
+	}
+	else {
+		call main.sp_nrepeated.show
+		call main.tx_nrepeated.show		
+		call main.sp_nrepeated.setposition . 330
+		call main.tx_nrepeated.setposition . 330
+	}
+	call program table_create4Repeated
+END
+
+SCRIPT main_correlation_off
+BEGIN
+	main.ed_corrs.disable
+	main.tx_corrs.disable
+	main.ed_varerr.disable
+	main.tx_varerr.disable
+	
+	program table_create4Repeated
+END
+
+PROGRAM show_cmeans_matrix
+BEGIN
+	call create STRING CmeansMatResult
+	call create CHILD matrix_input AS CmeansMat
+	if ! _rc {
+		call CmeansMat.setExitString CmeansMatResult
+		call CmeansMat.setExitAction "program main_getCmeansMatResult"
+		call CmeansMat.callthru "isChildContext.settrue"
+	}
+END
+
+PROGRAM main_getCmeansMatResult
+BEGIN
+	call main.cb_meanmat.repopulate
+	call main.cb_meanmat.setvalue class CmeansMatResult.value
+END
+
+PROGRAM show_cov_matrix
+BEGIN
+	call create STRING CovMatResult
+	call create CHILD matrix_input AS CovMat
+	if ! _rc {
+		call CovMat.setExitString CovMatResult
+		call CovMat.setExitAction "program main_getCovMatResult"
+		call CovMat.callthru "isChildContext.settrue"
+	}
+END
+
+PROGRAM main_getCovMatResult
+BEGIN
+	call main.cb_cov.repopulate
+	call main.cb_cov.setvalue class CovMatResult.value
+END
+
+INCLUDE power_errorprob_pr
+INCLUDE power_repeatedsampsi_pr
+
+PROGRAM main_power_beta_table
+BEGIN
+	call program table_create4Repeated
+END
+
+PROGRAM main_move_effect_size
+BEGIN
+	if main.cb_compute.iseq("tot_sampsi") {
+		call main.gb_effect_size.setposition . 240
+		call main.tx_means.show
+		call main.cb_meanspec.show
+		call main.cb_grw.setposition . 165
+		call main.tx_means.setposition . 260
+		call main.cb_meanspec.setposition . 280
+		call main.ed_meannum.setposition . 315
+		call main.tx_meannum.setposition . 315
+		call main.cb_meanmat.setposition . 315
+		call main.bu_meanmat.setposition . 315
+		call main.gb_corcov.setposition . 260
+		call main.rb_cov.setposition . 280
+		call main.rb_corr.setposition . 330
+		call main.cb_cov.setposition . 300
+		call main.bu_cov.setposition . 300
+		call main.ed_corrs.setposition . 350
+		call main.tx_corrs.setposition . 350
+		call main.ed_varerr.setposition . 378
+		call main.tx_varerr.setposition . 378
+	}
+	if main.cb_compute.iseq("power") {
+		call main.gb_effect_size.setposition . 240
+		call main.tx_means.show
+		call main.cb_meanspec.show
+		call main.tx_means.setposition . 260
+		call main.cb_meanspec.setposition . 280
+		call main.ed_meannum.setposition . 315
+		call main.tx_meannum.setposition . 315
+		call main.cb_meanmat.setposition . 315
+		call main.bu_meanmat.setposition . 315
+		call main.gb_corcov.setposition . 260
+		call main.rb_cov.setposition . 280
+		call main.rb_corr.setposition . 330
+		call main.cb_cov.setposition . 300
+		call main.bu_cov.setposition . 300
+		call main.ed_corrs.setposition . 350
+		call main.tx_corrs.setposition . 350
+		call main.ed_varerr.setposition . 378
+		call main.tx_varerr.setposition . 378
+	}
+	if main.cb_compute.iseq("effect") {
+		call main.gb_effect_size.setposition . 240
+		call main.tx_means.hide
+		call main.cb_meanspec.hide
+		call main.ed_meannum.hide
+		call main.tx_meannum.hide
+		call main.ed_vareffect.hide
+		call main.tx_vareffect.hide
+		call main.ed_varbetween.hide
+		call main.tx_varbetween.hide
+		call main.ed_varwithin.hide
+		call main.tx_varwithin.hide
+		call main.ed_varbwithin.hide
+		call main.tx_varbwithin.hide
+		call main.cb_meanmat.hide
+		call main.bu_meanmat.hide
+		call main.sp_ngroups.show
+		call main.tx_ngroups.show
+		call main.cb_factor.show
+		call main.tx_factor.show
+		call main.gb_corcov.setposition . 260
+		call main.rb_cov.setposition . 280
+		call main.rb_corr.setposition . 330
+		call main.cb_cov.setposition . 300
+		call main.bu_cov.setposition . 300
+		call main.ed_corrs.setposition . 350
+		call main.tx_corrs.setposition . 350
+		call main.cb_factor.setposition . 270
+		call main.cb_wfactor.setposition . 270
+		call main.tx_factor.setposition . 270
+		call main.sp_ngroups.setposition . 300
+		call main.tx_ngroups.setposition . 300
+		call main.sp_nrepeated.setposition . 328
+		call main.tx_nrepeated.setposition . 328
+		call main.ed_varerr.setposition . 378
+		call main.tx_varerr.setposition . 378
+		call main.sp_ngroups.setrange 1 .
+	}
+END
+
+PROGRAM main_move_main_opts
+BEGIN
+	call main.ck_showmat.setposition . 450
+	call main.ck_showmeans.setposition . 475
+	call main.ck_parallel.setposition  . 500
+END
+
+PROGRAM check_for_numlist
+BEGIN
+	call containsNumlist.setfalse
+
+	if main.ed_alpha {
+		call numContents.setvalue class main.ed_alpha.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_power.isvisible() {
+		call numContents.setvalue class main.ed_power.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_beta.isvisible() {
+		call numContents.setvalue class main.ed_beta.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+	
+	if main.ed_corrs.isvisible() & main.ed_corrs.isenabled() {
+		call numContents.setvalue class main.ed_corrs.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+		if main.ed_corrs {
+			call main.ck_showmat.enable
+		}
+		else {
+			call main.ck_showmat.disable
+		}
+	}
+	
+	if main.ed_varerr.isvisible() {
+		call numContents.setvalue class main.ed_varerr.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_sampsi_n.isvisible() {
+		call numContents.setvalue class main.ed_sampsi_n.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+	
+	if main.ed_sampsi_npg.isvisible() {
+		call numContents.setvalue class main.ed_sampsi_npg.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+	
+	if main.ed_vareffect.isvisible() {
+		call numContents.setvalue class main.ed_vareffect.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+	
+	if main.ed_varbetween.isvisible() {
+		call numContents.setvalue class main.ed_varbetween.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+	
+	if main.ed_varwithin.isvisible() {
+		call numContents.setvalue class main.ed_varwithin.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+	
+	if main.ed_varbwithin.isvisible() {
+		call numContents.setvalue class main.ed_varbwithin.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+	
+	if containsNumlist {
+		call main.ck_parallel.enable
+	}
+	else {
+		call main.ck_parallel.disable
+	}
+END
+
+PROGRAM power_iteration_tab_check
+BEGIN
+	call script power_iteration_enable
+	if main.cb_compute.iseq("power") {
+		call script power_iteration_disable
+	}
+	else {
+		if main.cb_compute.endswith("sampsi") {
+			call script power_iteration_is_sampsi
+		}
+		if main.cb_compute.iseq("effect") {
+			call script power_iteration_is_effect
+		}
+	}
+END
+
+PROGRAM power_repeated_dim_check
+BEGIN
+	call hasMat.setfalse
+	call hasGroupm.setfalse
+	if main.ed_meannum.isvisible() & main.ed_meannum.isneq(tmp_gmeans) {
+		if main.ed_meannum {
+			put "power_anova_dim prepeated, "
+			put "clsname(" dlgName ") "
+			put "ctrlname(""ed_meannum"") "
+			put "is_mat(0) "
+			stata hidden immediate	
+			call ngrps.setvalue r(ngscount)
+			call nreps.setvalue r(nrepscount)
+		}		
+	}
+	if main.cb_meanmat.isvisible() & main.cb_meanmat.isneq(tmp_gmeans) {
+		if main.cb_meanmat {
+			put "power_anova_dim prepeated, "
+			put "clsname(" dlgName ") "
+			put "ctrlname(""cb_meanmat"") "
+			put "is_mat(1) "
+			stata hidden immediate	
+			call ngrps.setvalue r(ngscount)
+			call nreps.setvalue r(nrepscount)
+		}		
+	}
+	if main.sp_ngroups.isvisible() & main.sp_ngroups.isneq(tmp_ngrps) {
+		call main.sp_ngroups.withvalue ngrps.setvalue @
+	}
+	if main.sp_ngroups.isvisible() & main.sp_ngroups.iseq(tmp_ngrps) {
+		call tmp_ngrps.withvalue ngrps.setvalue @
+	}
+	if main.sp_nrepeated.isvisible() & main.sp_nrepeated.isneq(tmp_nreps) {
+		call main.sp_nrepeated.withvalue nreps.setvalue @
+	}
+	if main.sp_nrepeated.isvisible() & main.sp_nrepeated.iseq(tmp_nreps) {
+		call tmp_nreps.withvalue nreps.setvalue @
+	}
+	if main.cb_cov.isenabled() & main.cb_cov.isneq(tmp_cov) {
+		if main.cb_cov {
+			put "power_anova_dim prepeated, "
+			put "clsname(" dlgName ") "
+			put "ctrlname(""cb_cov"") "
+			put "is_mat(1) "
+			stata hidden immediate	
+			call nreps.setvalue r(nrepscount)		
+		}
+	}
+	if main.ed_meannum.isvisible() & main.ed_meannum {
+		call hasMat.settrue
+		call hasGroupm.settrue
+	}
+	if main.cb_meanmat.isvisible() & main.cb_meanmat {
+		call hasMat.settrue
+		call hasGroupm.settrue
+	}
+	if main.cb_cov.isenabled() & main.cb_cov {
+		call hasMat.settrue	
+	}
+	if hasMat {
+		call main.ck_showmat.enable
+	}
+	else {
+		call main.ck_showmat.disable
+	}
+	if hasGroupm {
+		call main.ck_showmeans.enable
+	}
+	else {
+		call main.ck_showmeans.disable
+	}
+	call program main_factorlist_changed
+	call program table_create4Repeated
+END
+
+PROGRAM main_factorlist_changed
+BEGIN
+	if main.cb_compute.iseq("tot_sampsi") | main.cb_compute.iseq("power") { 
+		if main.cb_meanspec.iseq("cmeans") | main.cb_meanspec.iseq("vareffect") | ///
+			main.cb_meanspec.iseq("cmeansmat") {
+				if ngrps.iseq(0) {
+					call main.cb_factor.show
+					call main.cb_wfactor.hide
+				}
+				if ngrps.iseq(1) {
+					call main.cb_factor.hide
+					call main.cb_wfactor.show
+				}
+				if ngrps.isgt(1) {
+					call main.cb_factor.show
+					call main.cb_wfactor.hide
+				}
+			}
+	}
+	if main.cb_compute.iseq("effect") {
+		if ngrps.iseq(0) {
+			call main.cb_factor.show
+			call main.cb_wfactor.hide
+		}
+		if ngrps.iseq(1) {
+			call main.cb_factor.hide
+			call main.cb_wfactor.show
+		}
+		if ngrps.isgt(1) {
+			call main.cb_factor.show
+			call main.cb_wfactor.hide
+		}		
+	}
+END
+
+INCLUDE power_table_opts
+INCLUDE power_graph
+INCLUDE power_iteration
+
+PROGRAM command
+BEGIN
+	call tmp_gmeans.setvalue ""
+	call tmp_ngrps.setvalue 0
+	call tmp_nreps.setvalue 0
+	call tmp_cov.setvalue ""
+	if main.ed_meannum.isvisible() & main.ed_meannum {
+		call main.ed_meannum.withvalue tmp_gmeans.setvalue "@"
+	}
+	if main.cb_meanmat.isvisible() & main.cb_meanmat {
+		call main.cb_meanmat.withvalue tmp_gmeans.setvalue "@"
+	}
+	if main.sp_ngroups.isvisible() & main.sp_ngroups {
+		call main.sp_ngroups.withvalue tmp_ngrps.setvalue @
+	}
+	if main.sp_nrepeated.isvisible() & main.sp_nrepeated {
+		call main.sp_nrepeated.withvalue tmp_nreps.setvalue @
+	}	
+	if main.cb_cov.isenabled() & main.cb_cov {
+		call main.cb_cov.withvalue tmp_cov.setvalue "@"
+	}
+	call ngrps.withvalue tmp_ngrps.setvalue @
+	call nreps.withvalue tmp_nreps.setvalue @
+	put "power repeated"
+	
+	if main.cb_meanspec.iseq("cmeans") {
+		require main.ed_meannum
+		put " " main.ed_meannum
+	}
+	
+	if main.cb_meanspec.iseq("cmeansmat") {
+		require main.cb_meanmat
+		put " " main.cb_meanmat
+	}
+	
+	if main.cb_meanspec.isvisible() & main.cb_meanspec.iseq("vareffect") {
+		require main.ed_vareffect
+		if !main.ed_vareffect.isnumlist() {
+			call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_VARIANCE_EXPLAINED_BY_TESTED_EFFECT" 
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for 
+// "Variance explained by tested effect".
+		}
+		if !main.ed_vareffect.isNumlistGT(0) {
+			call create STRING _MSG_TMP
+                        call _MSG_TMP.format				/// 
+				"resource LBL_MSGBOX_ON_TAB_GREATER_THAN_0_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_VARIANCE_EXPLAINED_BY_TESTED_EFFECT"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Variance explained by tested effect" must be greater than 0.
+		}
+		require main.sp_ngroups
+	}
+
+	if main.cb_meanspec.isvisible() & main.cb_meanspec.iseq("varbetween") {
+		require main.ed_varbetween
+		if !main.ed_varbetween.isnumlist() {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource POWER_REPEATED_VAR_EXP_BETWEEN_SUBJECT_EFFECT"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for 
+// "Variance explained by between-subjects effect".
+		}
+		if !main.ed_varbetween.isNumlistGT(0) {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_GREATER_THAN_0_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource POWER_REPEATED_VAR_EXP_BETWEEN_SUBJECT_EFFECT"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Variance explained by between-subjects effect" must be greater than 0.
+		}
+		require main.sp_ngroups
+	}
+
+	if main.cb_meanspec.isvisible() & main.cb_meanspec.iseq("varwithin") {
+		require main.ed_varwithin
+		if !main.ed_varwithin.isnumlist() {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource POWER_REPEATED_VAR_EXP_WITHIN_SUBJECT_EFFECT"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for 
+// "Variance explained by within-subject effect".
+		}
+		if !main.ed_varwithin.isNumlistGT(0) {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_GREATER_THAN_0_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource POWER_REPEATED_VAR_EXP_WITHIN_SUBJECT_EFFECT"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Variance explained by within-subject effect" must be greater than 0.
+		}
+		require main.sp_ngroups
+	}
+	
+	if main.cb_meanspec.isvisible() & main.cb_meanspec.iseq("varbwithin") {
+		require main.ed_varbwithin
+		if !main.ed_varbwithin.isnumlist() {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_VARIANCE_EXP_BETWEEN_WITHIN_GROUP_EFFECT"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for 
+// "Variance explained by between-within effect".
+		}
+		if !main.ed_varbwithin.isNumlistGT(0) {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_GREATER_THAN_0_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_VARIANCE_EXP_BETWEEN_WITHIN_GROUP_EFFECT"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Variance explained by between-within effect" must be greater than 0.
+		}
+		require main.sp_ngroups
+	}
+
+	if main.rb_cov {
+		require main.cb_cov
+	}
+	
+	if main.rb_corr {
+		require main.ed_corrs
+		if !main.ed_corrs.isnumlist() {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_CORRELATION_BETWEEN_REPEATED_MEASURES"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for 
+// "Correlation between repeated measures".
+		}
+		if !(main.ed_corrs.isNumlistGE(-1) & main.ed_corrs.isNumlistLE(1)) {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_BETWEEN_NEG_1_AND_1_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_CORRELATION_BETWEEN_REPEATED_MEASURES"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Correlation between repeated measures" must be between -1 and 1.
+		}
+		if main.ed_varerr & !main.ed_varerr.isnumlist() {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_ERROR_VARIANCE"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Error variance".
+		}
+		if main.ed_varerr & !main.ed_varerr.isNumlistGT(0) {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_GREATER_THAN_0_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_ERROR_VARIANCE"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Error variance" must be greater than 0.
+		}		
+		require main.sp_nrepeated
+	}
+
+	beginoptions
+		optionarg main.ed_vareffect
+		optionarg main.ed_varbetween
+		optionarg main.ed_varwithin
+		optionarg main.ed_varbwithin
+		
+		if main.cb_compute.iseq("tot_sampsi") | main.cb_compute.iseq("power") { 
+			if main.cb_meanspec.isneq("vareffect") {
+				optionarg /hidedefault main.cb_factor
+				optionarg main.cb_wfactor
+			}
+			else {
+				optionarg main.cb_factor
+				optionarg main.cb_wfactor
+			}
+		}
+		if main.cb_compute.iseq("effect") {
+			optionarg main.cb_factor
+			optionarg main.cb_wfactor
+			require main.sp_ngroups
+		}
+		optionarg main.sp_ngroups
+		optionarg main.sp_nrepeated
+		optionarg main.cb_cov
+		optionarg main.ed_corrs
+		optionarg main.ed_varerr
+		put " " /program power_repeatedsampsi_output
+		put " " /program power_errorprob_output
+		option main.ck_showmat
+		option main.ck_showmeans
+		option main.ck_parallel
+		put " " /program power_table_opts_output
+		put " " /program power_graph_output
+		put " " /program power_iteration_output
+	endoptions
+END

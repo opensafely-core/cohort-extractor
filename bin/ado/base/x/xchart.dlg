@@ -1,0 +1,191 @@
+/*
+	xchart
+
+*!  VERSION 2.1.1  14feb2019
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_xlarge
+DEFINE _dlght 380
+INCLUDE header
+
+HELP hlp1, view("help xchart")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource XCHART_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script gr_plots_setDefaultScatter
+	script gr_ciplots_setDefaultLine
+	gr_ciplots_outputCmd.setstring "clopts"
+	gr_ciplots.settabtitle resource LBL_CONTROL_LIMITS
+END
+
+DIALOG main,label(resource XCHART_DLG_TITLE)				///
+	tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_var         _lft       _top       _vlwd	   .,		///
+	label(resource LBL_VARIABLES)
+  VARLIST  vl_var         @          _ss        @          .,		///
+  	numeric								///
+	label(resource LBL_VARIABLES)
+
+  GROUPBOX gb_std         @          _ls        @          _ht6,	///
+	label(resource LBL_STANDARD_DEVIATION_OF_THE_PROCESS)
+
+  RADIO    rb_range       _indent    _ss        _inwd      .,		///
+	label(resource LBL_CALCULATE_STANDARD_DEVIATION_BASED_ON_RANGE)	///
+	first onclickon(script std_off)
+  RADIO    rb_std         @          _ss        @          .,		///
+	label(resource LBL_USE_USER_SPECIFIED_STANDARD_DEVIATION)	///
+	last onclickon(script std_on)
+
+  EDIT     en_std         _indent2   _ss        _en7wd     .,		///
+	label(resource LBL_USER_SPECIFIED_STANDARD_DEVIATION) default(0) ///
+	numonly option(std)
+  TEXT     tx_std         _en7sep    @          130        .,		///
+	label(resource LBL_STANDARD_DEVIATION)
+
+  GROUPBOX gb_mean        _lft      _xls      _vlwd     _ht6, 		///
+	label(resource LBL_MEAN)
+
+  RADIO    rb_cmean       _indent   _ss       _inwd     .,  		///
+	label(resource LBL_CALCULATE_MEAN) first onclickon(script mean_off)
+  RADIO    rb_mean        _ilft     _ss       @         ., 		///
+	label(resource LBL_USER_SPECIFIED_MEAN) 			///
+	onclickon(script mean_on)					///
+	last
+  EDIT     en_mean        _indent2  _ss       _en7wd    .,		///
+	label(resource LBL_USER_SPECIFIED_MEAN) default(0) numonly option(mean)
+  TEXT     tx_mean        _en7sep   @         130       .,		///
+	label(resource LBL_MEAN)
+
+  CHECKBOX ck_xbar        _lft      _xls      _vlwd     _ht5,		///
+	label(resource XCHART_MAIN_CK_XBAR)				///
+	groupbox onclickon(script sc_on) onclickoff(script sc_off)
+  EDIT     en_lower       _indent   _ms       _en7wd    .,		///
+	label(resource LBL_LOWER_LIMIT) default(0) numonly option(lower)
+  DEFINE   holdx @x
+  TEXT     tx_lower       _en7sep   @         _en7r2b   .,		///
+	label(resource LBL_LOWER_LIMIT)
+  EDIT     en_upper       holdx     _ms       _en7wd    .,		///
+	label(resource LBL_UPPER_LIMIT) default(0) numonly option(upper)
+  TEXT     tx_upper       _en7sep   @         _en7r2b   .,		///
+	label(resource LBL_UPPER_LIMIT)
+
+  CHECKBOX ck_nograph     _lft      +40       _iwd      .,		///
+	label(resource LBL_SUPPRESS_GRAPH) option(nograph)		///
+	onclickon(script graph_off) onclickoff(script graph_on)
+END
+
+SCRIPT sc_on
+BEGIN
+	main.en_lower.enable
+	main.tx_lower.enable
+	main.en_upper.enable
+	main.tx_upper.enable
+END
+
+SCRIPT sc_off
+BEGIN
+	main.en_lower.disable
+	main.tx_lower.disable
+	main.en_upper.disable
+	main.tx_upper.disable
+END
+
+SCRIPT std_on
+BEGIN
+	main.en_std.enable
+	main.tx_std.enable
+END
+
+SCRIPT std_off
+BEGIN
+        main.en_std.disable
+        main.tx_std.disable
+END
+
+SCRIPT mean_on
+BEGIN
+        main.en_mean.enable
+        main.tx_mean.enable
+END
+
+SCRIPT mean_off
+BEGIN
+        main.en_mean.disable
+        main.tx_mean.disable
+END
+
+SCRIPT graph_on
+BEGIN
+	script gr_plots_enable
+	script gr_ciplots_enable
+	script gr_addplots_enable
+	script gr_yaxis_enable
+	script gr_xaxis_enable
+	script gr_titles_enable
+	script gr_legend_enable
+	script gr_overall_enable
+END
+
+SCRIPT graph_off
+BEGIN
+	script gr_plots_disable
+	script gr_ciplots_disable
+	script gr_addplots_disable
+	script gr_yaxis_disable
+	script gr_xaxis_disable
+	script gr_titles_disable
+	script gr_legend_disable
+	script gr_overall_disable
+END
+
+INCLUDE ifin
+INCLUDE gr_plots
+INCLUDE gr_ciplots
+INCLUDE gr_addplots
+INCLUDE gr_yaxis
+INCLUDE gr_xaxis
+INCLUDE gr_titles
+INCLUDE gr_legend
+INCLUDE gr_overall
+
+PROGRAM command
+BEGIN
+        put "xchart "
+        varlist main.vl_var
+        INCLUDE _ifin_pr
+        beginoptions
+		if main.rb_std{
+			require main.en_std
+			optionarg main.en_std
+		}
+		if main.rb_mean{
+			require main.en_mean
+			optionarg main.en_mean
+		}
+		if main.ck_xbar{
+			require main.en_lower
+			require main.en_upper
+			optionarg main.en_lower
+			optionarg main.en_upper
+		}
+		option main.ck_nograph
+		put " " /program gr_plots_output
+		put " " /program gr_ciplots_output
+		put " " /program gr_addplots_output
+		put " " /program gr_yaxis_output
+		put " " /program gr_xaxis_output
+		put " " /program gr_titles_output
+		put " " /program gr_legend_output
+		put " " /program gr_overall_output
+        endoptions
+END

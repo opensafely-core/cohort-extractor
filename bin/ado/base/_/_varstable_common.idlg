@@ -1,0 +1,331 @@
+/*
+ _varstable_common.idlg
+
+*!  VERSION 2.1.4  12dec2019
+
+*/
+
+SCRIPT main_PREINIT
+BEGIN
+	create STRING refCircleResults
+	create STRING markerResults
+	create STRING polCircleResults
+	setscale_hadj resource _VARSTABLE_COMMON_DLG_HSCALE
+END
+
+SCRIPT main_POSTINIT
+BEGIN
+	 program main_checkRefCircleResults
+	 program main_checkMarkerResults
+	 program main_checkPolCircleResults
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  GROUPBOX gb_var		_lft	_top	_iwd	_ht6h,
+  RADIO rb_curres		_ilft	_ss	_ibwd	., first	///
+	label(resource LBL_USE_ACTIVE_RESULTS)
+  RADIO    rb_use		@	_ss	_cwd1	., last		///
+	label(resource LBL_USE_ALTERNATIVE_RESULTS)			///
+	onclickon(gaction main.cb_estimates.enable)			///
+	onclickoff(gaction main.cb_estimates.disable)
+  DEFINE y @y
+  COMBOBOX cb_estimates		_indent2 _ss	_vnwd	.,		///
+	dropdown							///
+	option(estimates)						///
+	contents(estimates)						///
+	label(resource LBL_ALTERNATIVE_RESULTS)
+
+  CHECKBOX ck_amat		_ilft2	y	_cwd3	.,		///
+	label(resource _VARSTABLE_COMMON_MAIN_CK_AMAT)			///
+	onclickon(gaction main.ed_amat.enable)				///
+	onclickoff(gaction main.ed_amat.disable)
+  EDIT ed_amat			_indent2 _ss	_vnwd	.,		///
+	option(amat)							///
+	max(32)								///
+	label(resource _VARSTABLE_COMMON_MAIN_CK_AMAT)
+
+  CHECKBOX ck_graph		_lft	_xxls	_iwd	_ht22h,		///
+	label(resource _VARSTABLE_COMMON_MAIN_CK_GRAPH)			///
+	onclickon(program main_graph_on)				///
+	onclickoff(script main_graph_off)				///
+	option(graph) groupbox
+
+  GROUPBOX gb_label		_ilft	_ms	_irj180	_ht6,		///
+	label(resource LBL_LABELS)
+  DEFINE y @y
+  RADIO rb_nolabel		_indent	_ss	_inwd	., 		///
+	first label(resource _VARSTABLE_COMMON_MAIN_RB_NOLABEL)
+  DEFINE cx @cx
+  RADIO rb_dlabel		@	_ss	@	.,		///
+	option(dlabel)							///
+	label(resource LBL_LAB_EIGENVALUES_DISTANCE_UNIT_CIRCLE)
+  RADIO rb_modlabel		@	_ss	@	.,		///
+	option(modlabel) last						///
+	label(resource LBL_LABEL_EIGENVALUES_MODULUS)
+
+  BUTTON bu_markers		_irj150	-55	140	.,		///
+	label(resource LBL_MARKER_PROPERTIES_DLG_TITLE)			///
+	onpush(script main_show_markers_dialog)				///
+	tooltip(resource LBL_MARKER_PROPERTIES_DLG_TITLE)
+  BUTTON bu_ref_circle		@	_mls	@	.,		///
+	label(resource LBL_REFERENCE_UNIT_CIRCLE)			///
+	onpush(script main_show_ref_circle_dialog)			///
+	tooltip(resource _VARSTABLE_COMMON_MAIN_BU_REF_CIRCLE)
+
+  GROUPBOX gb_pgrid		_ilft	+70	_ibwd	_ht8h,		///
+	label(resource LBL_POLAR_GRID_CIRCLES)
+  RADIO rb_default		_indent	_ss	cx	.,		///
+	first 								///
+	onclickon(program main_grid_default_on)				///
+	label(resource LBL_USE_DEFAULT_POLAR_GRID_CIRCLES)
+  DEFINE y @y
+  RADIO	rb_nogrid		@	_ss	_ibwd	.,		///
+	option(nogrid)							///
+	onclickon(program main_nogrid_on)				///
+	label(resource LBL_SUPPRESS_POLAR_GRID_CIRCLES)
+  RADIO	rb_pgrid		@	_ss	@	.,		///
+	last 								///
+	onclickon(program main_pgrid_on)				///
+	label(resource LBL_OVERRIDE_DEFAULT_RADII_POLAR_GRID_CIRCLES)
+  DEFINE x2 @x
+  EDIT ed_pgrid			_indent2 _ss 	_vnwd	.,		///
+	error(resource LBL_RADII_POLAR_GRID_CIRCLES)
+  TEXT tx_pgrid			_vnsep	@	120	.,		///
+	label(resource LBL_RADII)
+
+  BUTTON bu_pol_circle		_irj150	y	140	.,		///
+	label(resource LBL_POLAR_GRID_CIRCLES)				///
+	onpush(script main_show_pol_circle_dialog)			///
+	tooltip(resource LBL_POLAR_GRID_CIRCLE_PROPERTIES)
+END
+
+//Main programs/scripts
+PROGRAM main_graph_on
+BEGIN
+	call main.gb_label.enable
+	call main.bu_ref_circle.enable
+	call main.bu_markers.enable
+	call main.rb_nolabel.enable
+	call main.rb_dlabel.enable
+	call main.rb_modlabel.enable
+	call main.gb_pgrid.enable
+	call main.rb_default.enable
+	call main.rb_nogrid.enable
+	call main.rb_pgrid.enable
+	if main.rb_pgrid {
+		call main.ed_pgrid.enable
+		call main.tx_pgrid.enable
+	}
+	if ! main.rb_nogrid {
+		call main.bu_pol_circle.enable
+	}
+
+	call script gr_addplots_enable
+	call script gr_yaxis_enable
+	call script gr_xaxis_enable
+	call script gr_titles_enable
+	call script gr_legend_enable
+	call script gr_overall_enable
+END
+
+SCRIPT main_graph_off
+BEGIN
+	main.gb_label.disable
+	main.bu_ref_circle.disable
+	main.bu_markers.disable
+	main.rb_nolabel.disable
+	main.rb_dlabel.disable
+	main.rb_modlabel.disable
+	main.gb_pgrid.disable
+	main.rb_default.disable
+	main.rb_nogrid.disable
+	main.rb_pgrid.disable
+	main.ed_pgrid.disable
+	main.tx_pgrid.disable
+	main.bu_pol_circle.disable
+	
+	script gr_addplots_disable
+	script gr_yaxis_disable
+	script gr_xaxis_disable
+	script gr_titles_disable
+	script gr_legend_disable
+	script gr_overall_disable
+END
+
+PROGRAM main_grid_default_on
+BEGIN
+	if main.ck_graph {
+		call main.ed_pgrid.disable
+		call main.tx_pgrid.disable
+		call main.bu_pol_circle.enable
+	}	
+END
+
+PROGRAM main_nogrid_on
+BEGIN
+	if main.ck_graph {
+		call main.ed_pgrid.disable
+		call main.tx_pgrid.disable
+		call main.bu_pol_circle.disable
+	}
+END
+
+PROGRAM main_pgrid_on
+BEGIN
+	if main.ck_graph {
+		call main.ed_pgrid.enable
+		call main.tx_pgrid.enable
+		call main.bu_pol_circle.enable
+	}
+END
+
+// Main buttons
+SCRIPT main_show_ref_circle_dialog
+BEGIN
+	create CHILD gr_line_options AS refCircle, allowsubmit
+	refCircle.setExitString refCircleResults
+	refCircle.settitle resource _VARSTABLE_COMMON_REF_UNIT_CIRCLE_PROP
+	refCircle.setExitAction "program main_checkRefCircleResults"
+	refCircle.setSubmitAction "program main_refCircleSubmit"
+END
+
+PROGRAM main_checkRefCircleResults
+BEGIN
+	if refCircleResults {
+		call main.bu_ref_circle.modified_on
+	}
+	else {
+		call main.bu_ref_circle.modified_off
+	}
+END
+PROGRAM main_refCircleSubmit
+BEGIN
+	call program main_checkRefCircleResults
+	call Submit
+END
+
+SCRIPT main_show_markers_dialog
+BEGIN
+	create CHILD gr_marker_nolabel_options AS markers, allowsubmit
+	markers.setExitString markerResults
+	markers.settitle resource LBL_MARKER_PROPERTIES_DLG_TITLE
+	markers.setExitAction "program main_checkMarkerResults"
+	markers.setSubmitAction "program main_markerSubmit"
+
+END
+PROGRAM main_checkMarkerResults
+BEGIN
+	if markerResults {
+		call main.bu_markers.modified_on
+	}
+	else {
+		call main.bu_markers.modified_off
+	}
+END
+PROGRAM main_markerSubmit
+BEGIN
+	call program main_checkMarkerResults
+	call Submit
+END
+
+SCRIPT main_show_pol_circle_dialog
+BEGIN
+	create CHILD gr_line_options AS polCircle, allowsubmit
+	polCircle.setExitString polCircleResults
+	polCircle.settitle resource LBL_POLAR_GRID_CIRCLE_PROPERTIES
+	polCircle.setExitAction "program main_checkPolCircleResults"
+	polCircle.setSubmitAction "program main_polCircleSubmit"
+
+END
+PROGRAM main_checkPolCircleResults
+BEGIN
+	if polCircleResults {
+		call main.bu_pol_circle.modified_on
+	}
+	else {
+		call main.bu_pol_circle.modified_off
+	}
+END
+PROGRAM main_polCircleSubmit
+BEGIN
+	call program main_checkPolCircleResults
+	call Submit
+END
+
+INCLUDE gr_addplots
+INCLUDE gr_yaxis
+INCLUDE gr_xaxis
+INCLUDE gr_titles
+INCLUDE gr_legend
+INCLUDE gr_overall
+
+
+PROGRAM grid_options
+BEGIN
+	if main.rb_default {
+		put ".1 .2 .3 .4 .5 .6 .7 .8 .9"
+	}
+	if main.rb_pgrid {
+		require main.ed_pgrid
+		put main.ed_pgrid
+	}
+	beginoptions
+		if polCircleResults & ! H(main.bu_pol_circle) {
+			put  polCircleResults 
+		}
+	endoptions
+END
+
+PROGRAM _varstable_common_output
+BEGIN
+	if main.ck_amat {
+		require main.ed_amat
+	}
+	if main.rb_use {
+		require main.cb_estimates
+	}
+	beginoptions
+                optionarg main.ed_amat
+                optionarg main.cb_estimates
+                option main.ck_graph
+		if main.ck_graph {
+			option main.rb_dlabel
+			option main.rb_modlabel
+			option main.rb_nogrid
+			if markerResults & ! H(main.bu_markers) {
+				put " "  markerResults " "
+			}
+			if refCircleResults & ! H(main.bu_ref_circle) {
+				put " rlopts(" refCircleResults ") "
+			}
+			if ((polCircleResults & ! H(main.bu_pol_circle)) | ///
+			   (main.ed_pgrid      & ! D(main.ed_pgrid))     | ///
+			   main.rb_pgrid)				///
+			{
+				put " " "pgrid("
+				put /program grid_options
+				put ")"
+			}
+
+			put " " /program gr_addplots_output
+			put " " /program gr_yaxis_output
+			put " " /program gr_xaxis_output
+			put " " /program gr_titles_output
+			put " " /program gr_legend_output
+			put " " /program gr_overall_output
+		}
+	endoptions
+END
+
+PROGRAM varstable_output
+BEGIN
+	put "varstable"
+	put /program _varstable_common_output
+END
+
+PROGRAM vecstable_output
+BEGIN
+	put "vecstable"
+	put /program _varstable_common_output
+END

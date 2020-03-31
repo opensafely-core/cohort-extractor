@@ -1,0 +1,973 @@
+/*                          twoway_yxview_parse
+
+   A parser for yxviews.  Works with twoway.ado.
+
+   Typical usage:
+
+   	tempname parse_obj
+	.`parse_obj' = .twoway_yxview_parse.new parse_syntax
+		... process .`parse_obj'.options ...
+	.ss = .`parse_obj'.log_create_serset	/* or create your own serset */
+	.view = .`parse_obj'.log_create_view , view(#) serset(ssname) 	///
+		plotregion(prname) seriesid(#) ...
+	.`parse_obj'.log_edits .view #_view
+
+*/
+*! version 1.2.4  30sep2019
+
+version 8
+
+class twoway_yxview_parse {
+    instance:
+    	double n			// number of views
+
+					// attributes expected by twoway
+	string varlist
+	string if
+	string in
+	string wtype
+	string wtexp
+	string sort
+	string omitmethod
+	string options				// other options
+
+	array  labvars
+
+	must_create_serset = 0		// designates whether serset_cmd MUST
+					// be used to create serset for view 
+
+	matamatrix = ""			// create view from this mata matrix
+
+	string viewtype			// attributes specific to the view
+
+	array plotstyles		// array of .editstyle strings
+	array plotsettings		// array of plot settings
+
+	viewclass = "yxview"		// class of the created views
+					// may be replaced if inherited 
+
+	x_pushed = 0			// internal tracking
+
+	varcheck	= 1		// side signal from children
+	allow_anything	= 0		// side signal from children
+	anything	= ""
+
+	wtvarnum  = 0			// weight variable id
+	posnm     = ""			// position variable name
+
+	drop_base = 1			// for areas, whether dropping do base
+
+	overall_drop_to = ""		// for bar and rbar
+	barwidth	= -1		// for rbar
+
+	work		= ""		// work space
+
+} , inherit(parser_g)
+
+
+
+/* -------------------------------------------------------------------------*/
+/*
+	Parse the yxview and fill-in the parsing information.
+
+	Leaves any unparsed options in .options.
+
+	Parsers that derive from this class often use -_parse expand- to
+	expand their own options, then call here to parse the varlist and
+	to combine and record the pair options.
+
+	Assumes that weights are allowed, so issue a message if .wttype is
+	filled in and your derived view does not support weights.
+*/
+
+program parse
+
+	syntax [anything(id="varlist" equalok)] [aw fw pw ] [if] [in]	///
+		[ , SERSET(passthru) * ]
+
+	if `"`serset'"' == `""' {
+					// let children signal what  is allowed
+		if `.allow_anything' {
+			local varspec [ anything(equalok) ]
+		}
+		else {
+		    if 0`.varcheck' {
+			local varspec varlist(min=2 numeric ts default=none)
+		    }
+		    else {
+			local varspec [varlist(numeric ts default=none)]
+		    }
+		}
+	}
+	else {					// if serset allow names
+		if `.allow_anything' {
+			local varspec [ anything(equalok) ]
+		}
+		else {
+		    if 0`.varcheck' {
+			local varspec namelist(min=2)
+		    }
+		    else {
+			local varspec [namelist(min=1 default=none)]
+		    }
+		}
+	}
+
+	_parse combop 0 : 0 , option(MLabels)   rightmost
+	_parse combop 0 : 0 , option(TYPE)      rightmost
+	_parse combop 0 : 0 , option(RECASTas)  rightmost
+	_parse combop 0 : 0 , option(SORT1)     rightmost
+	_parse combop 0 : 0 , option(SERSET)    rightmost
+
+
+						// handle matamatrix(matname)
+	syntax [ anything(equalok) ] [aw fw pw] [if] [in] [, 		///
+		RECASTas(string) noDROPBase				///
+		OMITANYMiss OMITALLMiss OMITDUPmiss OMITNothing * ]
+	local anything = trim(`"`anything'"')
+	local ismata = bsubstr(`"`anything'"', 1, 11) == "matamatrix("
+
+	if (`ismata') {
+	    local end = strpos(`"`anything'"', ")")
+	    local matamatrix = bsubstr(`"`anything'"', 12, `end'-12)
+	    if (strlen(`"`anything'"') > `end') {
+	        local namelist = bsubstr(`"`anything'"', `end'+1, .)
+		confirm names `namelist'
+	    }
+
+	    mata:  st_local("mmexists", 				     ///
+	    		    strofreal(findexternal("`matamatrix'") != NULL))
+	    if (! `mmexists') {
+		di as error `"`matamatrix' is not a mata matrix"'
+		exit 198
+	    }
+
+	    mata:  st_local("isreal", strofreal(isreal(`matamatrix')))
+	    if (! `isreal') {
+		di as error `"`matamatrix' is not a real-valued mata matrix"'
+		exit 198
+	    }
+
+	    mata:  _set_varlist_grc("`matamatrix'", "`namelist'")
+	    .matamatrix = "`matamatrix'"
+	    .must_create_serset = 1
+	}
+	else {
+						// standard Stata varspec
+	    syntax `varspec' [aw fw pw] [if] [in] [ ,			///
+		MLabels(string) TYPE(string) RECASTas(string)		///
+		SORT SORT1(namelist) MLABVposition(name) 		///
+		OMITANYMiss OMITALLMiss OMITDUPmiss OMITNothing		///
+		SERSET(passthru) noDROPBase * ]
+
+	    local varlist `varlist' `namelist'
+	}
+
+	if `:word count `omitanymiss' `omitallmiss' `omitdupmiss'	///
+	   `omitnothing'' > 1 {
+		di as error "may only specify one from omitanymiss " 	///
+			"omitallmiss omitdupmiss omitnothing"
+		exit 198
+	}
+
+	if `"`recastas'"' != `""' {
+		local type `"`recastas'"'			// synonym
+	}
+
+	if `.n' >= . {					// else set by caller
+		.n = max(`=`:word count `varlist'' - 1', 0)
+	}
+
+	local labclean : subinstr local mlabels "." " " , all
+	if `"`labclean'"' != `""' & ! `.allow_anything' {
+		unab labclean : `labclean'
+	}
+	local labclean : list uniq labclean
+	.varlist	= "`:list varlist | labclean'"
+	.anything	= `"`anything'"'
+	.if		= `"`if'"'
+	.in		= `"`in'"'
+	.wtype		= `"`weight'"'
+	.wtexp		= `"`exp'"'
+	.omitmethod	= "`omitanymiss'`omitallmiss'`omitdupmiss'`omitnothing'"
+	if `"`sort'"'  != `""' {
+		.sort	= "`:word `=`.n'+1' of `.varlist''"
+	}
+	if `"`sort1'"' != `""' {
+		.sort	= "`sort1'"
+	}
+	if `"`.wtexp'"' != `""' {
+		.must_create_serset = 1
+	}
+
+	if "`dropbase'" != "" {
+		.drop_base = 0
+	}
+
+	if "`mlabels'" != "" {				// record label vars
+		local i 0
+		foreach var of local mlabels {
+			if "`var'" == ".." {
+				di in red ".. not allowed in option mlabel()"
+				exit 198
+			}
+			if "`var'" == "..." {
+				di in red "... not allowed in option mlabel()"
+				exit 198
+			}
+
+			if "`var'" == "." {
+				local ++i
+			}
+			else {
+				if ! `.allow_anything' {
+					unab var : `var'
+				}
+				.labvars[`++i'] = "`var'"		
+			}
+		}
+	}
+
+	if "`mlabvposition'" != "" {			// label positions
+		if ! `.allow_anything' {
+			unab mlabvposition : `mlabvposition'
+		}
+
+		local varlist `.varlist'
+		.varlist = "`:list varlist | mlabvposition'"
+
+		.posnm = "`mlabvposition'"
+	}
+
+	if "`type'" != "" {
+		.viewtype	= "`type'"		// assumes a valid view
+	}
+
+	if `.BarOrBarDerived' {
+		local 0 `", `options'"'
+		syntax [ , HORizontal VERTical * ]
+
+		if `:word count `horizontal' `vertical'' > 1 {
+		   di as error "may not combine options horizontal and vertical"
+		   exit 198
+		}
+
+		if "`vertical'"   != "" {
+			.overall_drop_to = "x"
+		}
+		if "`horizontal'" != "" {
+			.overall_drop_to = "y"
+		}
+	}
+
+	.parse_opts , `options' `serset'
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*
+	Parse the options for the yxview and fill-in the parsing information.
+
+	Leaves any unparsed options in .options.
+
+	Note, again that parsers deriving from this parser often merely 
+	-_parse expand- their options and call through to here.
+*/
+
+program parse_opts
+
+	local popts P1(string asis)  P2(string asis)  P3(string asis)	///
+		    P4(string asis)  P5(string asis)  P6(string asis)	///
+		    P7(string asis)  P8(string asis)  P9(string asis)	///
+		    P10(string asis) P11(string asis) P12(string asis)	///
+		    P13(string asis) P14(string asis) P15(string asis)	///
+		    P16(string asis) P17(string asis) P18(string asis)	///
+		    P19(string asis) P20(string asis) 
+
+	local n = cond(`.n' < . , `.n' , 19) + 1	// ignore p# # > .n
+							// allow +1 for x
+							// masquerading as y
+
+							// style settings
+
+	.work = .factor `macval(0)'
+	local 0 `"`.work'"'
+	_parse factordot  0 : 0 , n(`.n')
+	_parse combine    0 : 0
+
+	syntax [ , `popts' * ]
+
+	forvalues i = 1/`n' {
+		if `"`p`i''"' != `""' {
+			.plotstyles[`i'] = `"`p`i''"'
+		}
+	}
+
+							// plot settings
+	.work = .FactorPlot , `macval(options)'
+	local 0 `"`.work'"'
+	_parse factordot  0 : 0 , n(`.n')
+	_parse combine    0 : 0
+
+	syntax [ , `popts' * ]
+	forvalues i = 1/`n' {
+		if `"`p`i''"' != `""' {
+			.plotsettings[`i'] = `"`p`i''"'
+		}
+	}
+
+	.options	= `"`options'"'
+
+end
+
+program factor
+						// factor overall series style
+
+	_parse combop 0 : 0 , option(PSTYle)    rightmost
+	_parse factor 0 : 0 , option(PSTYle)	to(style(X))	
+
+						// All colors
+	_parse combop 0 : 0 , option(COLor)	rightmost
+	_parse factor 0 : 0 , option(COLor) to(line(color(X)) qxav(X))
+	_parse factor 0 : 0, option(QXAV) to(area(shadestyle(color(X))) qxav(X))
+	_parse factor 0 : 0 , option(QXAV) to(area(linestyle(color(X))) qxav(X))
+	_parse factor 0 : 0 , option(QXAV)				///
+				to(marker(fillcolor(X) linestyle(color(X))))
+
+
+						// connecting & area line style
+
+	_parse combop 0 : 0 , option(LStyle)	rightmost
+	_parse factor 0 : 0 , option(LStyle)	to(line(X) area(linestyle(X)))
+	_parse combop 0 : 0 , option(LColor)	rightmost
+	_parse factor 0 : 0 , option(LColor)				///
+				to(line(color(X)) area(linestyle(color(X)))) 
+	_parse combop 0 : 0 , option(LWidth)	rightmost
+	_parse factor 0 : 0 , option(LWidth)				///
+				to(line(width(X)) area(linestyle(width(X))))   
+	_parse combop 0 : 0 , option(LAlign)	rightmost
+	_parse factor 0 : 0 , option(LAlign)				///
+				to(line(align(X)) area(linestyle(align(X))))   
+	_parse combop 0 : 0 , option(LPattern)	rightmost
+	_parse factor 0 : 0 , option(LPattern)				///
+			to(line(pattern(X)) area(linestyle(pattern(X))))   
+
+
+						// connecting line style
+
+	_parse combop 0 : 0 , option(CLStyle)   rightmost
+	_parse factor 0 : 0 , option(CLStyle)	to(line(X))	
+	_parse combop 0 : 0 , option(CLColor)   rightmost
+	_parse factor 0 : 0 , option(CLColor)	to(line(color(X))) 
+	_parse combop 0 : 0 , option(CLWidth)   rightmost
+	_parse factor 0 : 0 , option(CLWidth)	to(line(width(X))) 
+	_parse combop 0 : 0 , option(CLAlign)   rightmost
+	_parse factor 0 : 0 , option(CLAlign)	to(line(align(X))) 
+	_parse combop 0 : 0 , option(CLPattern) rightmost
+	_parse factor 0 : 0 , option(CLPattern)	to(line(pattern(X))) 
+
+						// marker style options
+
+	_parse combop 0 : 0 , option(MSTyle)    rightmost
+	_parse factor 0 : 0 , option(MSTyle)	to(marker(X))		
+	_parse combop 0 : 0 , option(Msymbol)   rightmost
+	_parse factor 0 : 0 , option(Msymbol)	to(marker(symbol(X)))	
+	_parse combop 0 : 0 , option(Symbol)    rightmost
+	_parse factor 0 : 0 , option(Symbol)	to(marker(symbol(X)))	
+	_parse combop 0 : 0 , option(MColor)    rightmost
+	_parse factor 0 : 0 , option(MColor)				///
+			      to(marker(fillcolor(X) linestyle(color(X))))	
+	_parse combop 0 : 0 , option(MFColor)   rightmost
+	_parse factor 0 : 0 , option(MFColor) to(marker(fillcolor(X)))	
+	_parse combop 0 : 0 , option(MSIze)   rightmost
+	_parse factor 0 : 0 , option(MSIze)   to(marker(size(X)))	
+	_parse combop 0 : 0 , option(MLstyle) rightmost
+	_parse factor 0 : 0 , option(MLstyle) to(marker(linestyle(X))) 
+	_parse combop 0 : 0 , option(MLColor) rightmost
+	_parse factor 0 : 0 , option(MLColor) to(marker(linestyle(color(X)))) 
+	_parse combop 0 : 0 , option(MLPattern) rightmost
+	_parse factor 0 : 0 , option(MLPattern)  			///
+			      to(marker(linestyle(pattern(X))))   
+	_parse combop 0 : 0 , option(MLWidth) rightmost
+	_parse factor 0 : 0 , option(MLWidth) to(marker(linestyle(width(X))))   
+	_parse combop 0 : 0 , option(MLAlign) rightmost
+	_parse factor 0 : 0 , option(MLAlign) to(marker(linestyle(align(X))))   
+	_parse combop 0 : 0 , option(MANGle)   rightmost
+	_parse factor 0 : 0 , option(MANGle)	to(marker(angle(X)))	
+	_parse combop 0 : 0 , option(MSYMANgle) rightmost
+	_parse factor 0 : 0 , option(MSYMANgle) to(marker(symangle(X)))
+	_parse combop 0 : 0 , option(MSAngle) rightmost
+	_parse factor 0 : 0 , option(MSAngle) to(marker(symangle(X)))
+	_parse combop 0 : 0 , option(BARBSize)   rightmost
+	_parse factor 0 : 0 , option(BARBSize)	to(marker(backsize(X)))	
+	_parse combop 0 : 0 , option(BMSymbol) rightmost
+	_parse factor 0 : 0 , option(BMSymbol) to(marker(backsymbol(X)))
+	_parse combop 0 : 0 , option(BSymbol) rightmost
+	_parse factor 0 : 0 , option(BSymbol) to(marker(backsymbol(X)))	
+	_parse combop 0 : 0 , option(BMColor) rightmost
+	_parse factor 0 : 0 , option(BMColor) to(marker(backcolor(X))) 
+	_parse combop 0 : 0 , option(BMSIze)  rightmost
+	_parse factor 0 : 0 , option(BMSIze)  to(marker(backsize(X)))
+	_parse combop 0 : 0 , option(BMLinestyle)  rightmost
+	_parse factor 0 : 0 , option(BMLinestyle)  to(marker(backline(X)))
+	_parse combop 0 : 0 , option(BMLColor) rightmost
+	_parse factor 0 : 0 , option(BMLColor) to(marker(backline(color(X))))
+	_parse combop 0 : 0 , option(BMLPattern) rightmost
+	_parse factor 0 : 0 , option(BMLPattern)			///
+			      to(marker(backline(pattern(X))))   
+	_parse combop 0 : 0 , option(BMLWidth) rightmost
+	_parse factor 0 : 0 , option(BMLWidth) to(marker(backline(width(X))))   
+	_parse combop 0 : 0 , option(BMLAlign) rightmost
+	_parse factor 0 : 0 , option(BMLAlign) to(marker(backline(align(X))))   
+
+						// label style options
+	_parse combop 0 : 0 , option(MLABSTyle) rightmost
+	_parse factor 0 : 0 , option(MLABSTyle) to(label(X))		
+	_parse combop 0 : 0 , option(MLABPosition) rightmost
+	_parse factor 0 : 0 , option(MLABPosition) to(label(position(X)))	
+	_parse combop 0 : 0 , option(MLABFormat) rightmost
+	_parse factor 0 : 0 , option(MLABFormat) to(label(format(X)))	
+	_parse combop 0 : 0 , option(MLABGap) rightmost
+	_parse factor 0 : 0 , option(MLABGap) to(label(textgap(X)))
+	_parse combop 0 : 0 , option(MLABTextstyle) rightmost
+	_parse factor 0 : 0 , option(MLABTextstyle) to(label(textstyle(X))) 
+	_parse combop 0 : 0 , option(MLABSize) rightmost
+	_parse factor 0 : 0 , option(MLABSize) to(label(textstyle(size(X)))) 
+	_parse combop 0 : 0 , option(MLABColor) rightmost
+	_parse factor 0 : 0 , option(MLABColor) to(label(textstyle(color(X)))) 
+	_parse combop 0 : 0 , option(MLABFontface) rightmost
+	_parse factor 0 : 0 , option(MLABFontface)			///
+			      to(label(textstyle(fontface(X)))) 
+	_parse combop 0 : 0 , option(MLABANGle) rightmost
+	_parse factor 0 : 0 , option(MLABANGle) to(label(textstyle(angle(X)))) 
+	_parse combop 0 : 0 , option(MLABJUSTification) rightmost
+	_parse factor 0 : 0 , option(MLABJUSTification) to(label(horizontal(X)))
+	_parse combop 0 : 0 , option(MLABALIGNment) rightmost
+	_parse factor 0 : 0 , option(MLABALIGNment) to(label(vertical(X)))
+
+						// area style options
+
+	_parse combop 0 : 0 , option(ASTyle)    rightmost
+	_parse factor 0 : 0 , option(ASTyle)	to(area(X))		
+	_parse combop 0 : 0 , option(AColor)    rightmost
+	_parse factor 0 : 0 , option(AColor)				///
+			      to(area(shadestyle(color(X)) linestyle(color(X))))
+	_parse combop 0 : 0 , option(AFColor)   rightmost
+	_parse factor 0 : 0 , option(AFColor) to(area(shadestyle(color(X))))
+	_parse combop 0 : 0 , option(AFIntensity) rightmost
+	_parse factor 0 : 0 , option(AFIntensity)			///
+			      to(area(shadestyle(intensity(X))))
+	_parse combop 0 : 0 , option(ALstyle) rightmost
+	_parse factor 0 : 0 , option(ALstyle) to(area(linestyle(X))) 
+	_parse combop 0 : 0 , option(ALColor) rightmost
+	_parse factor 0 : 0 , option(ALColor) to(area(linestyle(color(X)))) 
+	_parse combop 0 : 0 , option(ALPattern) rightmost
+	_parse factor 0 : 0 , option(ALPattern)  			///
+			      to(area(linestyle(pattern(X))))   
+	_parse combop 0 : 0 , option(ALWidth) rightmost
+	_parse factor 0 : 0 , option(ALWidth) to(area(linestyle(width(X))))   
+	_parse combop 0 : 0 , option(ALAlign) rightmost
+	_parse factor 0 : 0 , option(ALAlign) to(area(linestyle(align(X))))   
+
+						// bar (b) a synonym for area
+
+	_parse combop 0 : 0 , option(BSTyle)    rightmost
+	_parse factor 0 : 0 , option(BSTyle)	to(area(X))		
+	_parse combop 0 : 0 , option(BColor)    rightmost
+	_parse factor 0 : 0 , option(BColor)				///
+			      to(area(shadestyle(color(X)) linestyle(color(X))))
+	_parse combop 0 : 0 , option(BFColor)   rightmost
+	_parse factor 0 : 0 , option(BFColor) to(area(shadestyle(color(X))))
+	_parse combop 0 : 0 , option(BFIntensity) rightmost
+	_parse factor 0 : 0 , option(BFIntensity)			///
+			      to(area(shadestyle(intensity(X))))
+	_parse combop 0 : 0 , option(BLstyle) rightmost
+	_parse factor 0 : 0 , option(BLstyle) to(area(linestyle(X))) 
+	_parse combop 0 : 0 , option(BLColor) rightmost
+	_parse factor 0 : 0 , option(BLColor) to(area(linestyle(color(X)))) 
+	_parse combop 0 : 0 , option(BLPattern) rightmost
+	_parse factor 0 : 0 , option(BLPattern)  			///
+			      to(area(linestyle(pattern(X))))   
+	_parse combop 0 : 0 , option(BLWidth) rightmost
+	_parse factor 0 : 0 , option(BLWidth) to(area(linestyle(width(X))))   
+	_parse combop 0 : 0 , option(BLAlign) rightmost
+	_parse factor 0 : 0 , option(BLAlign) to(area(linestyle(align(X))))   
+
+						// area fill synonym, no prefix
+	_parse combop 0 : 0 , option(FColor)   rightmost
+	_parse factor 0 : 0 , option(FColor) to(area(shadestyle(color(X))))
+	_parse combop 0 : 0 , option(FIntensity) rightmost
+	_parse factor 0 : 0 , option(FIntensity)			///
+			      to(area(shadestyle(intensity(X))))
+
+						// dot marker options
+
+	_parse combop 0 : 0 , option(DSTyle)    rightmost
+	_parse factor 0 : 0 , option(DSTyle)	to(dots(X))		
+	_parse combop 0 : 0 , option(Dsymbol)   rightmost
+	_parse factor 0 : 0 , option(Dsymbol)	to(dots(symbol(X)))	
+	_parse combop 0 : 0 , option(DColor)    rightmost
+	_parse factor 0 : 0 , option(DColor)				///
+			      to(dots(fillcolor(X) linestyle(color(X))))	
+	_parse combop 0 : 0 , option(DFColor)   rightmost
+	_parse factor 0 : 0 , option(DFColor)   to(dots(fillcolor(X)))	
+	_parse combop 0 : 0 , option(DSIze)     rightmost
+	_parse factor 0 : 0 , option(DSIze)     to(dots(size(X)))	
+	_parse combop 0 : 0 , option(DLstyle)   rightmost
+	_parse factor 0 : 0 , option(DLstyle)   to(dots(linestyle(X))) 
+	_parse combop 0 : 0 , option(DLColor)   rightmost
+	_parse factor 0 : 0 , option(DLColor)   to(dots(linestyle(color(X)))) 
+	_parse combop 0 : 0 , option(DLPattern) rightmost
+	_parse factor 0 : 0 , option(DLPattern)  			///
+			      to(dots(linestyle(pattern(X))))   
+	_parse combop 0 : 0 , option(DLWidth)   rightmost
+	_parse factor 0 : 0 , option(DLWidth)   to(dots(linestyle(width(X))))   
+	_parse combop 0 : 0 , option(DLAlign)   rightmost
+	_parse factor 0 : 0 , option(DLAlign)   to(dots(linestyle(align(X))))   
+
+	class exit `"`0'"'
+end
+
+program FactorPlot
+	_parse combop 0 : 0 , option(Type)       rightmost
+	_parse factor 0 : 0 , option(Type)       to(type(X))	
+	_parse combop 0 : 0 , option(Connect)    rightmost
+	_parse factor 0 : 0 , option(Connect)    to(connect(X))	
+	_parse combop 0 : 0 , option(CMISSings)  rightmost
+	_parse factor 0 : 0 , option(CMISSings)  to(cmissings(X))	
+	_parse combop 0 : 0 , option(JITTER)     rightmost
+	_parse factor 0 : 0 , option(JITTER)     to(jitter(X))	
+	_parse combop 0 : 0 , option(JITTERSEED) rightmost
+	_parse factor 0 : 0 , option(JITTERSEED) to(jitterseed(X))	
+	_parse combop 0 : 0 , option(ZVARLabel)  rightmost
+	_parse factor 0 : 0 , option(ZVARLabel)  to(zvarlabel(X))	
+	_parse combop 0 : 0 , option(YVARLabel)  rightmost
+	_parse factor 0 : 0 , option(YVARLabel)  to(yvarlabel(X))	
+	_parse combop 0 : 0 , option(XVARLabel)  rightmost
+	_parse factor 0 : 0 , option(XVARLabel)  to(xvarlabel(X))	
+	_parse combop 0 : 0 , option(ZVARFormat) rightmost
+	_parse factor 0 : 0 , option(ZVARFormat) to(zvarformat(X))	
+	_parse combop 0 : 0 , option(YVARFormat) rightmost
+	_parse factor 0 : 0 , option(YVARFormat) to(yvarformat(X))	
+	_parse combop 0 : 0 , option(XVARFormat) rightmost
+	_parse factor 0 : 0 , option(XVARFormat) to(xvarformat(X))	
+	_parse combop 0 : 0 , option(NUMKEYs)    rightmost
+	_parse factor 0 : 0 , option(NUMKEYs)    to(numkeys(X))	
+
+	if `.BarOrBarDerived' {
+		_parse combop 0 : 0 , option(BARType)  rightmost
+		_parse factor 0 : 0 , option(BARType)  to(bartype(X))	
+		_parse combop 0 : 0 , option(BARWidth) rightmost
+		_parse factor 0 : 0 , option(BARWidth) to(barwidth(X))	
+		_parse combop 0 : 0 , option(DROPto)   rightmost
+		_parse factor 0 : 0 , option(DROPto)   to(dropto(X))	
+		_parse combop 0 : 0 , option(BARGap)   rightmost
+		_parse factor 0 : 0 , option(BARGap)   to(bargap(X))	
+
+		_parse combop 0 : 0 , option(BASE)     rightmost
+		_parse factor 0 : 0 , option(BASE)     to(base(X))	
+
+		_parse combop 0 : 0 , option(DOTEXtend)  rightmost
+		_parse factor 0 : 0 , option(DOTEXtend)  to(dotextend(X))	
+		_parse combop 0 : 0 , option(NDOTs)      rightmost
+		_parse factor 0 : 0 , option(NDOTs)      to(ndots(X))	
+	}
+
+	class exit `"`0'"'
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*
+        Logs a command or commands to create a new serset and the view and
+        returns its reference.  Assumes that the data in memory is the same as
+        when parse was called.
+
+	Allows a touse(varname) option that further restricts the sample, 
+	restricts beyond the held .if and .in
+
+	Additional options to the .serset.new command may be specified, but
+	this is unlikely to be necessary.
+
+	If must_create_serset == 1, then this command MUST be used, 
+	otherwise the serset may be created by other means.
+*/ 
+
+program log_create_serset
+
+	syntax , LOG(name) SERSETNAME(string) [ TOUSE(passthru) * ]
+
+	.log_touse , log(`log') `touse'
+
+	if "`.sort'" != "" {
+		local sortopt sort(`.sort')
+	}
+
+	if ("`.matamatrix'" == "") {
+		.`log'.Arrpush .`sersetname' = .serset.new `.varlist' 	///
+			[`.wtype'`.wtexp'] if \`touse1' ,		///
+			`.omitmethod' `sortopt' `options' nocount
+	}
+	else {
+		.`log'.Arrpush .`sersetname' = .mataserset_g.new 	///
+			`.varlist' , matamatrix(`.matamatrix')		///
+			`.omitmethod' `sortopt' `options' nocount
+	}
+
+	if "`.wtype'" != "" {
+		.wtvarnum = `=`:word count `.varlist''+1'
+	}
+end
+
+program log_touse
+
+	syntax , LOG(name) [ TOUSE(varname) ]
+
+	.`log'.Arrpush __NOLOG__ tempname touse1
+						// caller agrees to use touse1
+	if "`touse'" == "" {
+		.`log'.Arrpush __NOLOG__ gen byte \`touse1' = 1
+	}
+	else {
+		.`log'.Arrpush __NOLOG__ gen byte \`touse1' = `touse'
+	}
+
+	if `"`.in'`.if'"' != "" {
+		.`log'.Arrpush __NOLOG__ tempname touse2 
+		.`log'.Arrpush __NOLOG__ mark \`touse2' `.if' `.in'
+		.`log'.Arrpush __NOLOG__				///
+			       qui replace \`touse1' = 0 if \`touse2' != 1
+	}
+end
+
+
+// like log_touse, but immediately affects the supplied newtouse variable.
+
+program full_touse
+	args touse newtouse
+
+						// caller agrees to use touse1
+	if "`touse'" == "" {
+		capture gen byte `newtouse' = 1
+		if _rc {
+			qui replace `newtouse' = 1
+		}
+	}
+	else {
+		capture gen byte `touse1' = `touse'
+		if _rc {
+			qui replace `newtouse' = `touse'
+		}
+	}
+
+	if `"`.in'`.if'"' != "" {
+		tempname touse2 
+		mark `touse2' `.if' `.in'
+		qui replace `newtouse' = 0 if `touse2' != 1
+	}
+end
+
+program full_touseopt
+	gettoken newtouse 0 : 0
+
+	syntax [, TOUSE(string asis) ]
+
+	.full_touse `touse' `newtouse'
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*
+	Logs a command to create an instance of the view.
+
+	Expects to see a serset(serset_name|serset_reference) option.
+
+	Additional options to the .new command may be specified.
+
+        seriesid(#) is an option to log_create_view that specifies a default
+        series scheme for the view that will be used if the style option was
+        not specified.  
+*/
+
+program log_create_view
+
+	syntax , LOG(name) NAME(name) PLOTREGion(string) SERSET(string)	///
+		 [ View(integer 1) SERIESID(integer 0) style(string)	///
+		   YVARiable(passthru) XVARiable(passthru) 		///
+		   LVARiable(passthru) WVARiable(passthru) * ]
+
+	if ("`yvariable'"=="" | "`xvariable'"=="" | "`wvariable'"=="")	///
+	 & (`view' > `.n' | `.n' >= .) {
+		di as error "twoway_yxview_parse, view # too large"
+		exit 198
+	}
+
+	if `"`style'"' == "" {
+		if `seriesid' > 0 {
+			local styleopt style(scheme p`seriesid'`._type_suffix')
+		}
+		else {
+			local styleopt style(scheme)
+		}
+	}
+	else {
+		local styleopt style(`style')
+	}
+
+	tokenize `.varlist'
+	if `"`yvariable'"' == `""' {
+		local yvariable yvariable(\`.`serset'.seriesof ``view''')
+	}
+	if `"`xvariable'"' == `""' {
+		local xvariable xvariable(\`.`serset'.seriesof ``=`.n'+1''')
+	}
+	if `"`lvariable'"' == `""' {
+	    if "`.labvars[`view']'" != "" {
+		local lvariable 	///
+			lvariable(\`.`serset'.seriesof `.labvars[`view']'')
+	    }
+	}
+	if `"`pvariable'"' == `""' {
+	    if "`.posnm'" != "" {
+		local pvariable 	///
+			pvariable(\`.`serset'.seriesof `.posnm'')
+	    }
+	}
+
+	if `"`wvariable'"' == `""' {
+		if `"`.wtexp'"' != `""' {
+			local wvariable wvariable(0\`.`serset'.weight_id')
+		}
+	}
+
+	.`log'.Arrpush .`plotregion'.Declare `name' = .`.viewclass'.new ,   ///
+		 type(`.viewtype') serset(\`.`serset'.objkey') 		    ///
+		`macval(yvariable)' `macval(xvariable)' `macval(wvariable)' ///
+		`macval(lvariable)' `macval(pvariable)' 		    ///
+		 plotregion(\`.`plotregion'.objkey')			    ///
+		`styleopt' `macval(options)'
+
+	if `.isofclass twoway_contour_parse' {
+		.`log'.Arrpush .contour_view = "`plotregion'.`name'"
+	}
+	else if `.isofclass twoway_contourline_parse' {
+		.`log'.Arrpush .contourline_view = "`plotregion'.`name'"
+	}
+	else if `.isofclass twoway_patch_parse' {
+		.`log'.Arrpush .patch_view = "`plotregion'.`name'"
+	}
+
+end
+
+
+program define _type_suffix
+    if ("`.viewtype'" == "line" | "`.viewtype'" == "rline" |		///
+        "`.viewtype'" == "pcline")  class exit "line"
+
+    if ("`.viewtype'" == "bar"  | "`.viewtype'" == "rbar")   class exit "bar"
+    if ("`.viewtype'" == "area" | "`.viewtype'" == "rarea")  class exit "area"
+
+    if ("`.viewtype'" == "pcarrow" | "`.viewtype'" == "pcbarrow") 	///
+    	class exit "arrow"
+end
+
+/* -------------------------------------------------------------------------*/
+/*
+	Pushes onto the specified log any post-creation commands implied by 
+	the parsed syntax that must be applied to the created view.
+*/ 
+
+program log_edits
+	args log view i novlabel
+
+	if `"`.plotstyles[`i']'"' != `""' {
+		.`log'.Arrpush .`view'.style.editstyle `.plotstyles[`i']'  ///
+			editcopy	// should unnamed styles be the default
+	}
+
+	if `"`.plotsettings[`i']'"' != `""' {
+		local 0 `", `.plotsettings[`i']'"'
+		syntax [ , TYPE(string) CONNECT(string) CMISSINGS(string) ///
+			   JITTER(real 0) JITTERSEED(integer -1)	  ///
+			   YVARLABEL(string asis)  XVARLABEL(string asis) ///
+			   YVARFORMAT(string)      XVARFORMAT(string)     ///
+			   NUMKEYS(string) * ]
+		if `"`type'"' != `""' {
+		       .`log'.Arrpush .`view'.type.setstyle , style(`type')
+		}
+		if `"`connect'"' != `""' {
+		       .`log'.Arrpush .`view'.style.editstyle		///
+				connect(`connect') editcopy
+		       .`log'.Arrpush .`view'._maybe_override_type
+		}
+		if `"`cmissings'"' != `""' {
+		       .`log'.Arrpush					///
+		           .`view'.style.editstyle			///
+			   connect_missings(`cmissings') editcopy
+		}
+		if `jitter' != 0 {
+			.`log'.Arrpush .`view'.jitter = `jitter'
+			if `jitterseed' <= 0 {
+				.`log'.Arrpush .`view'.jitterseed = ///
+					`gdi(newjitterseed)'
+			}
+			else {
+				.`log'.Arrpush .`view'.jitterseed = ///
+					2*(`jitterseed'/2) + 1
+			}
+		}
+		if "`novlabel'" == "" {
+		    if `"`yvarlabel'"' != `""' {
+		    	local yvarlabel `yvarlabel'		// sic
+			.`log'.Arrpush					 ///
+			    .`view'.serset.sers[\`.`view'.yvar'].label = ///
+			    `"`yvarlabel'"'
+		    }
+		    if `"`xvarlabel'"' != `""' {
+			.`log'.Arrpush					 ///
+			    .`view'.serset.sers[\`.`view'.xvar'].label = ///
+			    `"`xvarlabel'"'
+		    }
+		}
+		if `"`yvarformat'"' != `""' {
+			.`log'.Arrpush					  ///
+			    .`view'.serset.sers[\`.`view'.yvar'].format = ///
+			    `"`yvarformat'"'
+		}
+		if `"`xvarformat'"' != `""' {
+			.`log'.Arrpush					  ///
+			    .`view'.serset.sers[\`.`view'.xvar'].format = ///
+			    `"`xvarformat'"'
+		}
+
+	}
+
+	if (`.BarOrBarDerived')  .LogBarEdits `log' `view' `i' `options'
+
+	if `.drop_base' == 0 {
+		.`log'.Arrpush .`view'.drop_base.setstyle , style(no)
+	}
+
+	if `"`numkeys'"' != `""' {
+		.`log'.Arrpush .`view'.numkeys = `numkeys'
+	}
+
+end
+
+program LogBarEdits
+	gettoken log  0 : 0
+	gettoken view 0 : 0
+	gettoken i    0 : 0
+
+	if "`.overall_drop_to'" != "" {
+	       .`log'.Arrpush .`view'.bar_drop_to.setstyle ,	///
+			style(`.overall_drop_to')
+	}
+
+	if `"`0'"' != `""' {
+		local 0 , `0'
+		syntax [ , BASE(string)					///
+			   BARTYPE(string) BARWIDTH(real -1)		///
+			   BARGAP(real -1) DROPTO(string) 		///
+			   DOTEXTEND(string) NDOTS(real -1) ]
+
+		if `"`base'"' != `""' {
+			capture confirm number `base'
+			if _rc {
+			   di as error "option base() incorrectly specified" ///
+				", `base' is not a number"
+			}
+			.`log'.Arrpush .`view'.base = `base'
+		}
+
+		if `"`bartype'"' != `""' {
+		       .`log'.Arrpush .`view'.bartype.setstyle ,	///
+				style(`bartype')
+		}
+		if `barwidth' != -1 {
+			.`log'.Arrpush .`view'.bar_size = `barwidth'
+		}
+		if `bargap' != -1 {
+			.`log'.Arrpush .`view'.bar_gap = `bargap'
+		}
+		if `"`dropto'"' != `""' {
+		       .`log'.Arrpush .`view'.bar_drop_to.setstyle ,	///
+				style(`dropto')
+		}
+
+		if "`dotextend'" != "" {
+			.`log'.Arrpush .`view'.dots_extend.setstyle	///
+				, style(`dotextend')
+		}
+		if `ndots' != -1 {
+			.`log'.Arrpush .`view'.num_dots = `ndots'
+		}
+	}
+
+	.`log'.Arrpush .`view'.register_with_scale
+
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*  Returns the value of the specified plot-level option for the 
+    specified view number.  Returns the string representation of the option.
+*/
+
+program plotoption
+	args option i
+
+	if `"`.plotsettings[`i']'"' != `""' {
+		local 0 `", `.plotsettings[`i']'"'
+		syntax [ , `option'(string asis) * ]
+
+		if `"``option''"' != `""' {
+			class exit `"``option''"'
+		}
+	}
+end
+
+
+// ---------------------------------------------------------------------------
+program BarOrBarDerived
+	
+	class exit = ("`.viewtype'" == "bar"      |	///
+		      "`.viewtype'" == "area"     |	///
+		      "`.viewtype'" == "dot"      |	///
+		      "`.viewtype'" == "dropline" |	///
+		      "`.viewtype'" == "scatteri" |	///
+		      "`.viewtype'" == "spike")
+end
+
+
+// ---------------------------------------------------------------------------
+
+mata:
+
+void _set_varlist_grc(string scalar matname, string scalar namelist)
+{
+	real   matrix	mat 
+	real   scalar	c
+	string scalar	vlist
+	string rowvector nms
+
+	vlist = ""
+	if (cols(mat = *findexternal(matname)) > 1) {
+		nms = tokens(namelist)
+		for (c=1; c < cols(mat); c++) {
+			if (cols(nms) >= c)
+				vlist = vlist + " " + nms[c]
+			else	vlist = vlist + " " + matname + strofreal(c)
+		}
+
+		if (cols(nms) >= cols(mat))
+			vlist = vlist + " " + nms[cols(mat)]
+		else	vlist = vlist + " x"
+
+		st_local("varlist", vlist)
+	}
+	else	st_local("varlist", "")
+}
+
+end
+

@@ -1,0 +1,307 @@
+/*
+	sts_test
+
+*!  VERSION 1.2.0  21nov2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE _ht340
+INCLUDE header
+
+HELP hlp1, view("help sts_test")
+RESET res1
+
+DEFINE ltrwd 10
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource STS_TEST_DLG_HSCALE
+END
+
+DIALOG main,label(resource STS_TEST_DLG_TITLE)     /*
+                */ tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  DEFINE _x _xsetbu
+  DEFINE _y _top
+  INCLUDE _bu_stset
+  TEXT     tx_var        _lft       _topph    _cwd1       .,            /*
+                */ label(resource LBL_VARIABLES)
+  VARLIST  vl_var        @          _ss       _iwd        .,            /*
+		*/ allowcat						/*
+		*/ numeric						/*
+                */ label(resource LBL_VARIABLES)
+  GROUPBOX gb_test       @          _ls       @           _ht11,        /*
+                */ label(resource STS_TEST_MAIN_GB_TEST)
+  RADIO    rb_logrank    _ilft      _ss       _cwd3_2     .,            /*
+                */ label(resource STS_TEST_MAIN_RB_LOGRANK)                                    /*
+                */ option(logrank)                                      /*
+                */ clickon("script tests_off")                          /*
+                */ first
+  DEFINE y @y
+  RADIO    rb_cox        _lft3_2    @         @           .,            /*
+                */ label(resource STS_TEST_MAIN_RB_COX)                                         /*
+                */ clickon("script cox_on")                             /*
+                */ option(cox)
+  RADIO    rb_wilcoxon   _lft3_3    @         @           .,            /*
+                */ label(resource STS_TEST_MAIN_RB_WILCOXON)                                    /*
+                */ option(wilcoxon)                                     /*
+                */ clickon("script tests_off")
+  RADIO    rb_tware      _ilft      _ss       @           .,            /*
+                */ label(resource STS_TEST_MAIN_RB_TWARE)               /*
+                */ option(tware)                                        /*
+                */ clickon("script tests_off")
+  RADIO    rb_peto       _lft3_2    @         @           .,            /*
+                */ label(resource STS_TEST_MAIN_RB_PETO)                /*
+                */ option(peto)                                         /*
+                */ clickon("script tests_off")
+  DEFINE y @y
+  RADIO    rb_fh         _ilft      _ss       _ibwd       .,            /*
+         */ label(resource STS_TEST_MAIN_RB_FH) /*
+                */ last                                                 /*
+                */ option(NONE)                                         /*
+                */ clickon("script fh_on")
+  DEFINE y1 @y
+  SPINNER  sp_p          _indent2   _ms       _spwd       .,            /*
+                */ label(resource STS_TEST_MAIN_SP_P)                                           /*
+                */ max(100000)                                          /*
+                */ min(0)                                               /*
+                */ default(0)
+  DEFINE x @x
+  TEXT     tx_p          _spsep     @         ltrwd       .,            /*
+                */ label(resource STS_TEST_MAIN_SP_P)
+  SPINNER  sp_q          _lft3_2    @         _spwd       .,            /*
+		*/ label(resource STS_TEST_MAIN_SP_Q)                                           /*
+                */ max(100000)                                          /*
+                */ min(0)                                               /*
+                */ default(0)
+  TEXT     tx_q          _spsep     @         ltrwd       .,            /*
+                */ label(resource STS_TEST_MAIN_SP_Q)
+  CHECKBOX ck_trend      _ilft      _ms       _ibwd       .,            /*
+*/ label(resource STS_TEST_MAIN_CK_TREND)/*
+                */ option(trend)
+  GROUPBOX gb_strata      _lft      _xls      _iwd        _ht8h,        /*
+                */ label(resource LBL_TEST_TYPE)
+  RADIO    rb_nostrata    _ilft     _ss       _ibwd       .,            /*
+                */ label(resource STS_TEST_MAIN_RB_NOSTRATA)            /*
+                */ first                                                /*
+                */ clickon("script strata_off")
+  RADIO    rb_strata      _ilft     _ss       _ibwd       .,            /*
+                */ label(resource STS_TEST_MAIN_RB_STRATA)              /*
+                */ last                                                 /*
+                */ clickon("script strata_on")
+  VARLIST  vl_strata      _indent2  _ss       _inwd       .,            /*
+                */ label(resource STS_TEST_MAIN_RB_STRATA)              /*
+                */ option(strata)
+  RADIO    rb_nodetail    _indent   _ms       _cwd4       .,            /*
+                */ label(resource STS_TEST_MAIN_RB_NODETAIL)            /*
+                */ first                                                /*
+                */ option(NONE)                                         /*
+                */
+  RADIO    rb_detail      _lft2     @         @           .,            /*
+                */ label(resource STS_TEST_MAIN_RB_DETAIL)             /*
+                */ last                                                 /*
+                */ option(detail)                                       /*
+                */
+END
+
+INCLUDE ifin
+
+DIALOG opt, label("")  tabtitle(resource LBL_OPTIONS)
+BEGIN
+  GROUPBOX gb_matrix      _lft      _top      _iwd        _ht4h,        /*
+                */ label(resource STS_TEST_OPT_GB_MATRIX)
+  TEXT     tx_matrix1     _ilft     _ss       _cwd2       .,            /*
+                */ label(resource STS_TEST_OPT_TX_MATRIX1)
+  DEFINE y @y
+  EDIT     ed_matname1    @         _ss       _vnwd       .,            /*
+                */ label(resource STS_TEST_OPT_TX_MATRIX1)                                    /*
+                */ max(32)
+  TEXT     tx_matrix2     _lft2     y         _cwd2       .,            /*
+                */ label(resource STS_TEST_OPT_TX_MATRIX2)
+  EDIT     ed_matname2    @         _ss       _vnwd       .,            /*
+                */ label(resource STS_TEST_OPT_TX_MATRIX2)                                    /*
+                */ max(32)
+  CHECKBOX ck_noshow     _lft      _xxls     _iwd        .,             /*
+                */ label(resource LBL_DO_NOT_SHOW_ST_SETTING_INFORMATION)          /*
+                */ option(noshow)
+  CHECKBOX ck_notitle      @         _ms       @           .,           /*
+                */ label(resource LBL_SUPPRESS_TITLE)                   /*
+                */ option(notitle)
+END
+
+SCRIPT tests_off
+BEGIN
+	script sp_p_off
+	script sp_q_off
+	main.ck_trend.enable
+        script mat_on
+	script detail_off
+	program detail_on
+END
+
+SCRIPT fh_on
+BEGIN
+	script sp_p_on
+	script sp_q_on
+	main.ck_trend.enable
+	program detail_on
+        script mat_on
+END
+
+SCRIPT fh_off
+BEGIN
+	script sp_p_off
+	script sp_q_off
+END
+
+SCRIPT sp_p_off
+BEGIN
+	main.sp_p.disable
+	main.tx_p.disable
+END
+
+SCRIPT sp_p_on
+BEGIN
+	main.sp_p.enable
+	main.tx_p.enable
+END
+
+SCRIPT sp_q_on
+BEGIN
+	main.sp_q.enable
+	main.tx_q.enable
+END
+
+SCRIPT sp_q_off
+BEGIN
+	main.sp_q.disable
+	main.tx_q.disable
+END
+
+SCRIPT cox_on
+BEGIN
+	script fh_off
+	main.ck_trend.disable
+	script mat_off
+	script detail_off
+END
+
+SCRIPT mat_off
+BEGIN
+	script matrix1_off
+	script matrix2_off
+END
+
+SCRIPT mat_on
+BEGIN
+        script matrix1_on
+        script matrix2_on
+END
+
+SCRIPT matrix1_off
+BEGIN
+	opt.tx_matrix1.disable
+	opt.ed_matname1.disable
+END
+
+SCRIPT matrix2_off
+BEGIN
+        opt.tx_matrix2.disable
+        opt.ed_matname2.disable
+END
+
+SCRIPT matrix1_on
+BEGIN
+	opt.tx_matrix1.enable
+	opt.ed_matname1.enable
+END
+
+SCRIPT matrix2_on
+BEGIN
+	opt.tx_matrix2.enable
+	opt.ed_matname2.enable
+END
+
+SCRIPT strata_on
+BEGIN
+	main.vl_strata.enable
+	program prog_detail_off
+END
+
+SCRIPT strata_off
+BEGIN
+	main.vl_strata.disable
+	program prog_detail_off
+	program detail_on
+END
+
+SCRIPT detail_off
+BEGIN
+	main.rb_nodetail.disable
+	main.rb_detail.disable
+END
+
+PROGRAM detail_on
+BEGIN
+	if main.rb_strata {
+		call gaction main.rb_nodetail.enable
+		call gaction main.rb_detail.enable
+	}
+	if main.rb_nostrata {
+		call gaction main.rb_nodetail.disable
+		call gaction main.rb_detail.disable
+	}
+END
+
+PROGRAM prog_detail_off
+BEGIN
+	if main.rb_cox {
+		call script detail_off
+	}
+	if !main.rb_cox {
+		call program detail_on
+	}
+END
+
+PROGRAM command
+BEGIN
+	allowxi
+	require main.vl_var
+	if main.rb_strata {
+		require main.vl_strata
+	}
+	if opt.ed_matname1 {
+		require opt.ed_matname2
+	}
+	if opt.ed_matname2 {
+		require opt.ed_matname1
+	}
+	put "sts test "
+	varlist main.vl_var
+	INCLUDE _ifin_pr
+	beginoptions
+		option radio (main rb_logrank rb_wilcoxon rb_cox rb_tware rb_peto rb_fh)
+		if main.rb_fh {
+			put "fh(" main.sp_p " "  main.sp_q ")"
+		}
+		optionarg main.vl_strata
+		if !main.rb_cox {
+			if main.vl_strata {
+				option main.rb_detail
+			}
+		}
+		option main.ck_trend
+		if opt.ed_matname1  & opt.ed_matname1.isenabled() {
+			put "mat("
+			put opt.ed_matname1
+			put " "
+			put opt.ed_matname2
+			put ")"
+		}
+		option opt.ck_notitle
+		option opt.ck_noshow
+	endoptions
+END

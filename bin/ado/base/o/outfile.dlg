@@ -1,0 +1,133 @@
+/*
+	outfile
+
+*! VERSION 1.2.1  08mar2015
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+INCLUDE _ht280
+INCLUDE header
+
+HELP hlp1, view("help outfile")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource OUTFILE_DLG_HSCALE
+	
+        main.fi_using.formatfilter "{0} (*.raw)|*.raw|{1} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_RAW_FILES" "resource ui_ex FILE_TYPE_ALL_FILES"
+END
+
+DIALOG main, label(resource OUTFILE_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_var            _lft      _top      _iwd      .,		/*
+		*/ label(resource LBL_VARIABLES_LEAVE_EMPTY_FOR_ALL_VARIABLES)
+  VARLIST  vl_var            @         _ss       @         .,		/*
+		*/ label(resource LBL_GB_VARIABLES)
+
+  TEXT     tx_using          @         _ms       @         .,		/*
+		*/ label(resource LBL_WRITE_TO_THE_FILE)
+  FILE     fi_using          @         _ss       @         .,		/*
+		*/ error(resource LBL_WRITE_TO_THE_FILE)		/*
+		*/ label(resource LBL_SAVE_AS)				/*
+		*/ defext(raw)						/*
+		*/ save
+
+  GROUPBOX gb_options        @         _ls       @         _ht12h,	/*
+		*/ label(resource LBL_OPTIONS)
+
+  CHECKBOX ck_dictionary     _ilft     _ss       _ibwd     .,		/*
+		*/ option(dictionary)					/*
+		*/ clickon("script dict_on")				/*
+		*/ clickoff("script dict_off")				/*
+		*/ label(resource OUTFILE_MAIN_CK_DICTIONARY)
+
+  CHECKBOX ck_nolabel        @         _ms       @         .,		/*
+		*/ option(nolabel)					/*
+		*/ label(resource LBL_OUTPUT_NUMERIC_VALUES_OF_LABELED_VARIABLES)
+
+  CHECKBOX ck_noquote        @         _ms       @         .,		/*
+		*/ option(noquote)					/*
+		*/ label(resource LBL_DO_NOT_ENCLOSE_STRINGS_IN_DOUBLE_QUOTES)
+
+  CHECKBOX ck_comma          @         _ms       @         .,		/*
+		*/ option(comma)					/*
+		*/ clickon(gaction adv.ck_missing.enable)		/*
+		*/ clickoff(gaction adv.ck_missing.disable)		/*
+		*/ label(resource LBL_COMMA_SEPARATED_INSTEAD_OF_TAB_SEP_FORMAT)
+
+  CHECKBOX ck_wide           @         _ms       @         .,		/*
+		*/ option(wide)						/*
+		*/ label(resource OUTFILE_MAIN_CK_WIDE)
+END
+
+
+INCLUDE ifin
+
+
+DIALOG adv, label("") tabtitle(resource LBL_ADVANCED)
+BEGIN
+  GROUPBOX gb_justify        _lft      _top      _iwd      _ht6,	/*
+		*/ label(resource OUTFILE_ADV_GB_JUSTIFY)
+  RADIO    rb_left           _indent   _ss       _ibwd     ., first	/*
+		*/ option(NONE)						/*
+		*/ label(resource OUTFILE_ADV_RB_LEFT)
+  RADIO    rb_rjs            @         _ss       @         .,		/*
+		*/ option(rjs)						/*
+		*/ label(resource OUTFILE_ADV_RB_RJS)
+  RADIO    rb_fjs            @         _ss       @         ., last	/*
+		*/ option(fjs)						/*
+		*/ label(resource OUTFILE_ADV_RB_FJS)
+
+  CHECKBOX ck_runtogether    _lft      _xls      _iwd      .,		/*
+		*/ option(runtogether)					/*
+  		*/ label(resource OUTFILE_ADV_CK_RUNTOGETHER)
+  CHECKBOX ck_missing        _lft      _ms       _iwd      .,		/*
+		*/ option(missing)											/*
+  		*/ label(resource OUTFILE_ADV_CK_MISSING)
+END
+
+
+SCRIPT dict_on
+BEGIN
+  main.ck_comma.disable
+  main.ck_wide.disable
+  main.ck_noquote.disable
+END
+
+SCRIPT dict_off
+BEGIN
+  main.ck_comma.enable
+  main.ck_wide.enable
+  main.ck_noquote.enable
+END
+
+
+PROGRAM command
+BEGIN
+	require main.fi_using
+	put "outfile "
+	varlist [main.vl_var]
+	repfile main.fi_using
+	put " using " 
+	put `"""'
+	put main.fi_using
+	put `"""'
+	INCLUDE _ifin_pr
+	beginoptions
+		option main.ck_dictionary
+		option main.ck_nolabel
+		option main.ck_noquote
+		put "replace"
+		option main.ck_comma
+		option main.ck_wide
+		option radio(adv rb_left rb_rjs rb_fjs)
+		option adv.ck_runtogether
+		option adv.ck_missing
+	endoptions
+END
+

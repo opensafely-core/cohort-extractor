@@ -1,0 +1,166 @@
+/*
+	psdensity
+
+*!  VERSION 1.1.1  20may2015
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_small
+DEFINE _dlght 330
+INCLUDE header
+HELP hlp1, view("help psdensity")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource PSDENSITY_DLG_HSCALE
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	call create DOUBLE pi
+	call create DOUBLE a
+	call create DOUBLE b
+	call create DOUBLE missing
+	call create DOUBLE ncycles
+	call pi.setvalue c(pi)
+	call missing.setvalue .
+	call ncycles.setvalue e(ncycles)
+	if ncycles.isgt(0) & ncycles.islt(missing) {
+		call main.tx_cycle.enable
+		call main.sp_cycle.enable
+	}
+	else {
+		call main.tx_cycle.disable
+		call main.sp_cycle.disable
+	}
+END
+
+DIALOG main, label(resource PSDENSITY_DLG_TITLE) 			///
+	tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT tx_fnewvar		_lft	_top	130	.,		///
+	label(resource PSDENSITY_MAIN_TX_FNEWVAR)
+  DEFINE holdy @y
+  EDIT ed_fnewvar		@	_ss	_vnwd	.,		///
+	label(resource PSDENSITY_MAIN_TX_FNEWVAR)
+  TEXT tx_dnewvar		_lft2	holdy	@	.,		///
+	label(resource PSDENSITY_MAIN_TX_DNEWVAR)
+  EDIT ed_dnewvar		@	_ss	@	.,		///
+	label(resource PSDENSITY_MAIN_TX_DNEWVAR)
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _vnwd
+  INCLUDE _type
+
+  GROUPBOX gb_opt		_lft	_ls	_iwd	_ht18,		///
+	label(resource PSDENSITY_MAIN_GB_OPT)
+  CHECKBOX ck_pspectrum		_ilft	_ss	_inwd	.,		///
+	option(pspectrum)						///
+	label(resource PSDENSITY_MAIN_CK_PSPECTRUM)
+  CHECKBOX ck_range		_ilft	_ms	_inwd	_ht4,		///
+	groupbox							///
+	onclickon("script main_range_on")				///
+	onclickoff("script main_range_off")				///
+	label(resource PSDENSITY_MAIN_CK_PSPECTRUM)
+  TEXT tx_range_start		_iilft	_ss	_inwd	.,		///
+	label(resource PSDENSITY_MAIN_TX_RANGE_START)
+  DEFINE holdy2 @y
+  EDIT ed_range_start		@	_ss	_spwd	.,		///
+	numonly								///
+	label(resource PSDENSITY_MAIN_TX_RANGE_START)
+  TEXT tx_range_end		_iilft2	holdy2	_ibwd	.,		///
+	label(resource PSDENSITY_MAIN_TX_RANGE_END)
+  EDIT ed_range_end		@	_ss	_spwd	.,		///
+	numonly								///
+	label(resource PSDENSITY_MAIN_TX_RANGE_END)
+  TEXT tx_cycle			_ilft	_xls	_ibwd	.,		///
+	label(resource PSDENSITY_MAIN_TX_CYCLE)
+  SPINNER sp_cycle		@	_ss	_spwd	.,		///
+	option(cycle)							///
+	default(1)							///
+	min(1)								///
+	max(3)								///
+	label(resource PSDENSITY_MAIN_TX_CYCLE)
+  CHECKBOX ck_smemory		_ilft	_ls	_ibwd	.,		///
+	option(smemory)							///
+	label(resource PSDENSITY_MAIN_CK_SMEMORY)
+END
+
+SCRIPT main_range_on
+BEGIN
+	main.tx_range_start.enable
+	main.ed_range_start.enable
+	main.tx_range_end.enable
+	main.ed_range_end.enable
+END
+
+SCRIPT main_range_off
+BEGIN
+	main.tx_range_start.disable
+	main.ed_range_start.disable
+	main.tx_range_end.disable
+	main.ed_range_end.disable
+END
+
+INCLUDE _type_list_fd
+
+PROGRAM main_range_output
+BEGIN
+	call a.setvalue class main.ed_range_start.value
+	call b.setvalue class main.ed_range_end.value
+
+	if (a.isge(b)) {
+		call create STRING _MSG_TMP
+                call _MSG_TMP.format 					///
+			"resource PSDENSITY_MSGBOX_INVALID_RANGE_FMT" 	///
+			"resource PSDENSITY_MAIN_TX_RANGE_START" 	///
+			"resource PSDENSITY_MAIN_TX_RANGE_END" 
+		stopbox stop "class _MSG_TMP.value"
+// Invalid range.  "Start range" is greater than or equal to "End range".
+	}
+
+	if a.islt(0) | a.isgt(pi) {
+                call create STRING _MSG_TMP
+                call _MSG_TMP.format					/// 
+			"resource PSDENSITY_MSGBOX_INVALID_RANGE_0_PI_FMT" ///
+			"resource PSDENSITY_MAIN_TX_RANGE_START" 
+		stopbox stop "class _MSG_TMP.value"
+// Invalid range.  "Start range" should be between 0 and pi.
+	}
+	if b.islt(0) | b.isgt(pi) {
+                call create STRING _MSG_TMP
+                call _MSG_TMP.format					/// 
+			"resource PSDENSITY_MSGBOX_INVALID_RANGE_0_PI_FMT" ///
+			"resource PSDENSITY_MAIN_TX_RANGE_END"
+                stopbox stop "class _MSG_TMP.value"
+// Invalid range.  "End range" should be between 0 and pi.
+	}
+	put main.ed_range_start " "
+	put main.ed_range_end
+END
+
+PROGRAM command
+BEGIN
+	put "psdensity "
+	INCLUDE _type_pr
+	require main.ed_fnewvar
+	require main.ed_dnewvar
+	put main.ed_fnewvar " "
+	put main.ed_dnewvar " "
+	beginoptions
+		option main.ck_pspectrum
+		if main.ck_range {
+			require main.ed_range_start
+			require main.ed_range_end
+			put "range("
+			put /program main_range_output
+			put ") "
+		}
+		optionarg main.sp_cycle
+		option main.ck_smemory
+	endoptions
+END

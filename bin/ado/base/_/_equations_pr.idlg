@@ -1,0 +1,244 @@
+/*
+  _equations_pr.idlg
+
+*!  VERSION 1.0.0  09jun2015
+
+  This file contains PROGRAMs
+
+*/
+
+PROGRAM main_eq_create
+BEGIN
+	call main_eq_count.setvalue class mainEQChildDialogList.size
+	call main_eq_count.increment
+	call main_eq_tmp.setvalue "main_eq_"
+	call main_eq_tmp.append class main_eq_count.value
+	call main_eq_tmp.withvalue main_eq_childdlg.setvalue @
+	call program main_show_eq_child
+END
+
+PROGRAM main_eq_edit
+BEGIN
+	call mainEQCommandDisplayList.findstr class			///
+		main.lb_eqBuild.value
+	call main_eq_position.setvalue class				///
+		mainEQCommandDisplayList.position
+	call main_eq_position.withvalue					///
+		main_eq_childdlg.setvalue				///
+		class mainEQChildDialogList.values[@]
+	call program main_show_eq_child_edit
+END
+
+PROGRAM main_show_eq_child
+BEGIN
+	call main_eq_tmp.setvalue "eq_syntax AS "
+	call main_eq_tmp.append class main_eq_childdlg.value
+	call main_eq_tmp.withvalue create CHILD @
+	call main_eq_childdlg.withvalue @.setExitString			///
+		"main_eq_child_result"
+	call main_eq_childdlg.withvalue @.setExitAction			///
+		"program main_eq_child_create_done"
+
+
+	call STMP.format "resource LBL_EQUATION"
+	call STMP.append " "
+	call main_eq_count.withvalue STMP.append "@"
+	call STMP.withvalue main_eq_tmp.setvalue "@"
+	call main_eq_childdlg.withvalue					///
+		main_eq_tmp2.setvalue "@.settitle"
+	call main_eq_tmp2.append `" ""'
+	call main_eq_tmp2.append class main_eq_tmp.value
+	call main_eq_tmp2.append `"""'
+	call main_eq_tmp2.withvalue @
+END
+
+PROGRAM main_show_eq_child_edit
+BEGIN
+	call main_eq_tmp.setvalue "eq_syntax AS "
+	call main_eq_tmp.append class main_eq_childdlg.value
+	call main_eq_tmp.withvalue create CHILD @
+	call main_eq_childdlg.withvalue @.setExitString			///
+		"main_eq_child_result"
+	call main_eq_childdlg.withvalue @.setExitAction			///
+		"program main_eq_child_edit_done"
+
+	call main_eq_position.withvalue					///
+		main_eq_tmp.setvalue					///
+		class mainEQCommandDisplayList.values[@]
+	call main_eq_childdlg.withvalue					///
+		main_eq_tmp2.setvalue "@.settitle"
+	call main_eq_tmp2.append `" ""'
+	call main_eq_tmp2.append class main_eq_tmp.value
+	call main_eq_tmp2.append `"""'
+	call main_eq_tmp2.withvalue @
+END
+
+PROGRAM main_eq_child_create_done
+BEGIN
+	call main_eq_arraysize.setvalue class				///
+		mainEQChildDialogList.size
+	call main_eq_arraysize.increment
+
+	// Store child dialog name
+	call mainEQChildDialogList.store class				///
+		main_eq_arraysize.value class main_eq_childdlg.value
+
+	// Store listbox display equation string
+	call STMP.format "resource LBL_EQUATION"
+	call STMP.append " "
+	call main_eq_arraysize.withvalue STMP.append "@"
+
+	call STMP.withvalue						///
+		mainEQCommandDisplayList.store class			///
+		main_eq_arraysize.value "@"
+
+	// Store child dialog result string
+	call mainEQCommandList.store class				///
+		main_eq_arraysize.value					///
+		class main_eq_child_result.value
+
+	// Store child dialog result string for final command
+	//   For disable/enable
+	call main_eq_tmp.setvalue "("
+	call main_eq_tmp.append class main_eq_child_result.value
+	call main_eq_tmp.append ")"
+	call mainEQCommandValues.store class				///
+		main_eq_arraysize.value					///
+		class main_eq_tmp.value
+
+	// Store disable/enable status
+	call mainEQStatusList.store class				///
+		main_eq_arraysize.value "active"
+
+	call mainEQCommandDisplayList.copyToArray main_eq_list
+	call main.lb_eqBuild.repopulate
+	call STMP.withvalue main.lb_eqBuild.setvalue "@"
+END
+
+PROGRAM main_eq_child_edit_done
+BEGIN
+	call mainEQChildDialogList.findstr class			///
+		main_eq_childdlg.value
+	call main_eq_position.setvalue class				///
+		mainEQChildDialogList.position
+	call main_eq_position.withvalue main_eq_tmp.setvalue		///
+		class mainEQStatusList.values[@]
+	if main_eq_tmp.iseq("active") {
+		call STMP.format "resource LBL_EQUATION"
+		call STMP.append " "
+		call main_eq_position.withvalue STMP.append "@"
+		call STMP.withvalue					///
+			mainEQCommandDisplayList.store class		///
+			main_eq_position.value "@"
+		call main_eq_tmp3.setvalue "("
+		call main_eq_tmp3.append class main_eq_child_result.value
+		call main_eq_tmp3.append ")"
+		call mainEQCommandValues.store class			///
+			main_eq_position.value class			///
+			main_eq_tmp3.value
+		call STMP.withvalue main_eq_tmp2.setvalue "@"
+	}
+	else {
+		call STMP.format "resource LBL_EQUATION"
+		call STMP.append " "
+		call main_eq_position.withvalue STMP.append "@"
+		call STMP.append " "
+		call STMP.append "resource LBL_PAREN_DISABLED"
+		call STMP.withvalue					///
+			main_eq_tmp2.setvalue "@"
+
+		call STMP.withvalue					///
+			mainEQCommandDisplayList.store			///
+			class main_eq_position.value "@"
+	}
+
+	call mainEQCommandList.store class				///
+		main_eq_position.value class				///
+		main_eq_child_result.value
+
+	call mainEQCommandDisplayList.copyToArray main_eq_list
+	call main.lb_eqBuild.repopulate
+	call main.lb_eqBuild.setvalue class main_eq_tmp2.value
+END
+
+PROGRAM main_eq_sel_changed
+BEGIN
+	call mainEQCommandDisplayList.findstr class			///
+		main.lb_eqBuild.value
+	call main_eq_position.setvalue class				///
+		mainEQCommandDisplayList.position
+	call main_eq_position.withvalue main_eq_tmp.setvalue		///
+		class mainEQStatusList.values[@]
+	if main_eq_position {
+		call main.bu_eq_edit.enable
+		call main_eq_position.withvalue				///
+			main.tb_eq_note.setlabel			///
+			class mainEQCommandList.values[@]
+	}
+
+	if main_eq_tmp.iseq("disable") {
+		call main.bu_eq_enable.enable
+		call main.bu_eq_disable.disable
+	}
+	if main_eq_tmp.iseq("active") {
+		call main.bu_eq_enable.disable
+		call main.bu_eq_disable.enable
+	}
+END
+
+PROGRAM main_eq_disable
+BEGIN
+	call mainEQCommandDisplayList.findstr class			///
+		main.lb_eqBuild.value
+	call main_eq_position.setvalue class				///
+		mainEQCommandDisplayList.position
+
+	call main_eq_tmp.setvalue class main.lb_eqBuild.value
+	call mainEQStatusList.store class				///
+		main_eq_position.value "disable"
+	call mainEQCommandValues.store class main_eq_position.value ""
+	call STMP.format "resource LBL_PAREN_DISABLED"
+	call main_eq_tmp.append " "
+	call main_eq_tmp.append class STMP.value
+	call main_eq_tmp.withvalue STMP.setvalue "@"
+
+	call main_eq_tmp.withvalue					///
+		mainEQCommandDisplayList.store				///
+		class main_eq_position.value "@"
+
+	call mainEQCommandDisplayList.copyToArray main_eq_list
+	call main.lb_eqBuild.repopulate
+	call main.lb_eqBuild.setvalue class STMP.value
+END
+
+PROGRAM main_eq_enable
+BEGIN
+	call mainEQCommandDisplayList.findstr class			///
+		main.lb_eqBuild.value
+	call main_eq_position.setvalue class				///
+		mainEQCommandDisplayList.position
+
+	call mainEQStatusList.store class				///
+		main_eq_position.value "active"
+	call main_eq_tmp3.setvalue "("
+	call main_eq_position.withvalue main_eq_tmp3.append class	///
+		mainEQCommandList.values[@]
+	call main_eq_tmp3.append ")"
+	call mainEQCommandValues.store				///
+		class main_eq_position.value class			///
+		main_eq_tmp3.value
+
+	call STMP.format "resource LBL_EQUATION"
+	call STMP.append " "
+	call main_eq_position.withvalue STMP.append "@"
+	call STMP.withvalue						///
+		mainEQCommandDisplayList.store				///
+		class main_eq_position.value "@"
+
+	call mainEQCommandDisplayList.copyToArray main_eq_list
+	call main_eq_position.withvalue					///
+		main_eq_tmp2.setvalue class				///
+		mainEQCommandDisplayList.values[@]
+	call main.lb_eqBuild.repopulate
+	call main.lb_eqBuild.setvalue class main_eq_tmp2.value
+END

@@ -1,0 +1,190 @@
+/*
+  biprobit
+
+*!  VERSION 1.4.3  18jun2019
+
+  keyword:  eclass
+
+*/
+
+VERSION 15.0
+
+INCLUDE _std_large
+DEFINE _dlght 335
+INCLUDE header
+HELP hlp1, view("help biprobit")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	script se_createAsSvyJknifeBstrapML
+	program svy_check_title
+	setscale_hadj resource BIPROBIT_NOTSU_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script sub_set_by_on
+	program se_setFinalInitState
+END
+
+SCRIPT svy_is_on
+BEGIN
+	rpt.gb_tests.disable
+	rpt.ck_lrmodel.disable
+	script max_setDefaultNoLog
+END
+SCRIPT svy_is_off
+BEGIN
+	rpt.gb_tests.enable
+	rpt.ck_lrmodel.enable
+	script max_setDefaultLog
+END
+PROGRAM svy_check_title
+BEGIN
+	if __MESSAGE.contains("-svy-") {
+		call settitle resource BIPROBIT_NOTSU_SVY_DLG_TITLE
+	}
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)				///
+	title(resource BIPROBIT_NOTSU_DLG_TITLE) // has svy title
+BEGIN
+  TEXT     tx_dv1    _lft      _top      _vnwd      .,			///
+	label(resource LBL_DEPENDENT_VARIABLE_1)
+  VARNAME  vn_dv1    @         _ss       _vnwd     .,			///
+	ts								///
+	numeric								///
+	label(resource LBL_DEPENDENT_VARIABLE_1)
+  TEXT     tx_dv2    _vlx      _top      _vnwd      .,			///
+	label(resource LBL_DEPENDENT_VARIABLE_2)
+  VARNAME  vn_dv2    @         _ss       _vnwd     .,			///
+	ts								///
+	numeric								///
+	label(resource LBL_DEPENDENT_VARIABLE_2)
+  TEXT     tx_iv     _lft      _ls       _iwd      .,			///
+	label(resource LBL_INDDEPVAR)
+  VARLIST  vl_iv     @         _ss       @         .,			///
+	allowcat							///
+	ts fv								///
+	numeric								///
+	label(resource LBL_INDDEPVAR)
+  CHECKBOX ck_nocons @         _ls       @         .,			///
+	option("noconstant")						///
+	label(resource LBL_NOCONSTANT)
+  GROUPBOX gb_output _lft      _ls       _iwd      _ht13,		///
+	label(resource LBL_OPTIONS)
+  CHECKBOX ck_part   _ilft     _ms       _cwd2     .,			///
+	option("partial")						///
+	label(resource LBL_FIT_PARTIAL_OBSERVABILITY_MODEL)
+  TEXT     tx_off1   _ilft     _ms       _cwd2     .,			///
+	label(resource LBL_EQ_1_OFFSET_VARIABLE)
+DEFINE y @y
+  VARNAME  vn_off1   @         _ss       _vnwd     .,			///
+	option("offset1")						///
+	numeric								///
+	label(resource LBL_EQ_1_OFFSET_VARIABLE)
+  TEXT     tx_off2   _vlx      y         _cwd2     .,			///
+	label(resource LBL_EQ_2_OFFSET_VARIABLE)
+  VARNAME  vn_off2   @         _ss       _vnwd     .,			///
+	option("offset2")						///
+	numeric								///
+	label(resource LBL_EQ_2_OFFSET_VARIABLE)
+
+  DEFINE _x _ilft
+  DEFINE _y _ls
+  DEFINE _cx _ilw80
+  DEFINE _bux _islw80
+  INCLUDE _constraints
+
+  DEFINE _x _ilft
+  DEFINE _xw _ibwd
+//  INCLUDE _ck_collinear
+END
+
+INCLUDE _constraints_sc 
+INCLUDE sub_by_ifin_over_subpop
+INCLUDE weights_fpi
+INCLUDE se
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+        program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  GROUPBOX gb_tests  _lft      _xls     _iwd      _ht2,			///
+  	label(resource LBL_ADDITIONAL_TEST_STATISTICS)
+  CHECKBOX ck_lrmodel _ilft     _ss      _cwd0     .,			///
+	option(lrmodel)							///
+  	onclickon(script se_setRobust_off)				///
+  	onclickoff(script se_setRobust_on)				///
+	label(resource LBL_PERFORM_LIKELIHOOD_RATIO_MODEL_TEST_LRMODEL)
+  DEFINE _x _lft
+  DEFINE _y _xls
+  DEFINE _cx _iwd
+  INCLUDE _nocnsreport
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _xls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+
+INCLUDE max_ml
+
+PROGRAM command
+BEGIN
+	put /program by_output " "
+	put /program se_prefix_output " "
+	put "biprobit "
+	varlist main.vn_dv1 main.vn_dv2 [main.vl_iv]
+	if !main.vl_iv & main.ck_nocons {
+	call create STRING _MSG_TMP
+	call _MSG_TMP.format					///
+		"resource LBL_MSGBOX_SELECTED_NO_INDVARS_FMT"	///
+		"resource LBL_TAB_MODEL"			///
+		"resource LBL_NOCONSTANT"
+
+	stopbox stop "class _MSG_TMP.value"
+// On the "Model" tab, "Suppress constant term" is selected without independent variables.
+	}
+	put " " /program ifin_output
+	put " " /program weights_output
+	beginoptions
+		INCLUDE _constraints_main_pr
+//		option main.ck_collinear
+		option main.ck_nocons
+		option main.ck_part
+		optionarg main.vn_off1
+		optionarg main.vn_off2
+		put " " /program se_output
+		optionarg /hidedefault rpt.sp_level
+		option rpt.ck_lrmodel
+		INCLUDE _nocnsreport_pr
+		INCLUDE _report_columns_pr
+		put " " rpt_bu_facvarsResults
+		put " " rpt_bu_fmtcoefResults
+		put " " /program max_output
+	endoptions
+END

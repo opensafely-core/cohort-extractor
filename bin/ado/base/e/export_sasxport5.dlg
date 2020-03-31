@@ -1,0 +1,90 @@
+/*
+  export_sasxport5
+
+*! VERSION 2.0.1  11apr2019
+
+*/
+
+VERSION 16.0
+
+INCLUDE _std_large
+DEFINE _dlght 310
+INCLUDE header
+
+HELP hlp1, view("help import_sasexport5")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+       setscale_hadj resource EXPORT_SASXPORT5_DLG_HSCALE
+	
+        main.fi_file.formatfilter "{0} (*.xpt)|*.xpt|{1} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_XPT_FILE" "resource ui_ex FILE_TYPE_ALL_FILES"
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	label(resource EXPORT_SASXPORT5_DLG_TITLE)
+BEGIN
+  TEXT tx_var			_lft	_top	_iwd	.,		///
+	label(resource LBL_VARIABLES_LEAVE_EMPTY_FOR_ALL_VARIABLES)
+  VARLIST vl_var		@	_ss	@	.,		///
+	label(resource LBL_VARIABLES)
+
+  TEXT tx_file			@	_ms	@	.,		///
+	label(resource LBL_SAVE_FILE_AS)
+  FILE fi_file			@	_ss	@	.,		///
+	save								///
+	error(resource LBL_SAVE_FILE_AS)				///
+	label(resource LBL_SAVE_AS)
+
+  GROUPBOX gb_options		@	_ls	@	_ht16h,		///
+	label(resource LBL_OPTIONS)
+
+  CHECKBOX ck_rename		_indent	_ss	_inwd	.,		///
+	option(rename)							///
+	default(1)							///
+label(resource LBL_RENAME_VAR_VALUE_LABELS_MEET_SAS_XPORT_REST)
+
+  CHECKBOX ck_replace		@	_ms	@	.,		///
+	option(replace)							///
+	label(resource LBL_OVERWRITE_FILES_IF_THEY_ALREADY_EXIST)
+
+  GROUPBOX gb_value_lab		@	_ls	@	_ht7h,		///
+	label(resource LBL_VALUE_LABELS)
+  RADIO rb_xpf			_indent	_ss	_inwd	., first	///
+	option("vallabfile(xpf)")					///
+	label(resource EXPORT_SASXPORT_MAIN_RB_XPF)
+  RADIO rb_sascode		@	_ss	@	.,		///
+	option("vallabfile(sascode)")					///
+	label(resource EXPORT_SASXPORT_MAIN_RB_SASCODE)
+  RADIO rb_both			@	_ss	@	.,		///
+	option("vallabfile(both)")					///
+	label(resource EXPORT_SASXPORT_MAIN_RB_BOTH)
+  RADIO rb_none			@	_ss	@	., last		///
+	option("vallabfile(none)")					///
+	label(resource EXPORT_SASXPORT_MAIN_RB_NONE)
+END
+
+INCLUDE ifin
+
+PROGRAM command
+BEGIN
+	put "export sasxport5 "
+	if main.vl_var {
+		varlist [main.vl_var]
+		put " using "
+	}
+		put `"""'
+	require main.fi_file
+	put main.fi_file `"" "'
+
+	INCLUDE _ifin_pr
+
+	beginoptions
+		option main.ck_rename
+		option main.ck_replace
+		option main.rb_sascode
+		option main.rb_both
+		option main.rb_none
+	endoptions
+END

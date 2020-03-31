@@ -1,0 +1,254 @@
+/*
+
+*! VERSION 1.1.2  11sep2019
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+DEFINE _dlght 295
+INCLUDE header
+
+HELP hlp1, view("help prtesti")
+RESET res1
+
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource PRTESTI_DLG_HSCALE
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	if __MESSAGE.iseq("-one-") {
+		call main.rb_prtesti1.seton
+	}
+	if __MESSAGE.iseq("-two-") {
+		call main.rb_prtesti2.seton
+	}
+END
+
+DIALOG main, label(resource PRTESTI_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+
+	GROUPBOX	gb_prtesti	_lft	_top	_iwd	_ht4,	///
+		label(resource PRTESTI_MAIN_GB_PRTESTI)
+	RADIO		rb_prtesti1	_indent	_ss	_ibwd	.,	///
+		first							///
+		onclickon("program main_prtesti1_on")			///
+		label(resource LBL_ONE_SAMPLE)
+	RADIO		rb_prtesti2	@	_ss	@	.,	///
+		last							///
+		onclickon("program main_prtesti2_on")			///
+		label(resource LBL_TWO_SAMPLE)
+
+	GROUPBOX	gb_group	_lft	_xls	_iwd	_ht16,	///
+		label(resource PRTESTI_MAIN_GB_GROUP)
+
+	/* One-sample proportion test calculator */
+	EDIT     	en_obs1		_indent	_ls	_en7wd	.,	///
+		numonly							///
+		label(resource LBL_SAMPLE_SIZE)
+	DEFINE	holdx @x
+	DEFINE	holdy @y
+	TEXT     	tx_obs1  	_en7sep	@	_cwd2	.,	///
+		label(resource LBL_SAMPLE_SIZE)
+	EDIT		en_prop1	holdx	_ls	_en7wd	.,	///
+		numonly							///
+		label(resource LBL_SAMPLE_PROPORTION)
+	TEXT		tx_prop1	_en7sep	@	_cwd2	.,	///
+		label(resource LBL_SAMPLE_PROPORTION)
+	EDIT		en_prop2	holdx	_ls	_en7wd	.,	///
+		numonly							///
+		label(resource LBL_HYPOTHESIZED_PROPORTION)
+	TEXT		tx_prop2	_en7sep	@	_cwd2	.,	///
+		label(resource LBL_HYPOTHESIZED_PROPORTION)
+
+	/* Two-sample proportion test calculator */
+	DEFINE _cwd3_01 126
+	DEFINE _cwd3_02 126
+	DEFINE _cwd3_03 126
+	DEFINE _cwd3_1 110
+	DEFINE _cwd3_2 110
+	DEFINE _cwd3_3 96
+	DEFINE _lft3_02 150
+	DEFINE _lft3_03 274
+	DEFINE _ilft3_2 158
+	DEFINE _ilft3_3 283
+
+	DEFINE _iwd 380
+
+	FRAME   	fr_sam1		_lft3_02	holdy	_cwd3_02	_ht5h,	///
+		label("")
+	FRAME    	fr_sam2		_lft3_03	@	_cwd3_03	@,	///
+		label("")
+	TEXT		tx_sam1		_ilft3_2	@	_cwd3_2	.,		///
+		center									///
+		label(resource LBL_SAMPLE_1)
+	TEXT     	tx_sam2		_ilft3_3	@	_cwd3_2	.,		///
+		center									///
+		label(resource LBL_SAMPLE_2)
+
+	FRAME		fr_rows		holdx		_ss	_iwd	_ht3h,		///
+		label("")
+	TEXT		tx_size		_indent		_indent	_cwd3_1	.,		///
+		label(resource LBL_SIZE_NOCOLON)
+	DEFINE holdx1 @x
+	EDIT		en_size1	_ilft3_2	@	_cwd3_2	.,		///
+		numonly									///
+		label(resource LBL_SIZE_FOR_SAMPLE_1)
+	EDIT		en_size2	_ilft3_3	@	_cwd3_2	.,		///
+		numonly									///
+		label(resource LBL_SIZE_FOR_SAMPLE_2)
+	TEXT		tx_prop		holdx1		_ms	_cwd3_1	.,		///
+		label(resource PRTESTI_MAIN_TX_PROP)
+	EDIT		en_cprop1	_ilft3_2	@	_cwd3_2	.,		///
+		numonly									///
+		label(resource PRTESTI_MAIN_EN_CPROP1)
+	EDIT		en_cprop2	_ilft3_3	@	_cwd3_2	.,		///
+		numonly									///
+		label(resource PRTESTI_MAIN_EN_CPROP2)
+
+	DEFINE _x holdx
+	DEFINE _cx _cwd2
+	DEFINE _y _xls
+  	INCLUDE _sp_level
+
+  	CHECKBOX 	ck_count	holdx		_xls	_iwd	.,		///
+		option("count")								///
+		label(resource PRTESTI_MAIN_CK_COUNT)
+END
+
+PROGRAM main_prtesti1_on
+BEGIN
+	call script main_prtesti1_show
+	call script main_prtesti2_hide
+	call main.sp_level.setposition . 210
+	call main.tx_level.setposition . 210
+	call script main_ck_count_show
+	call main.ck_count.setposition . 240
+	call main.gb_group.setlabel resource PRTESTI_MAIN_GB_GROUP
+END
+
+PROGRAM main_prtesti2_on
+BEGIN
+	call script main_prtesti1_hide
+	call script main_prtesti2_show
+	call main.sp_level.setposition . 220
+	call main.tx_level.setposition . 220
+	call script main_ck_count_show
+	call main.ck_count.setposition . 250
+	call main.gb_group.setlabel resource PRTESTI_TWO_SAMPLE_PROP_TEST_CALC
+END
+
+SCRIPT main_ck_count_show
+BEGIN
+	main.ck_count.show
+END
+
+SCRIPT main_ck_count_hide
+BEGIN
+	main.ck_count.hide
+END
+
+SCRIPT main_prtesti1_show
+BEGIN
+	main.en_obs1.show
+	main.tx_obs1.show
+	main.en_prop1.show
+	main.tx_prop1.show
+	main.en_prop2.show
+	main.tx_prop2.show
+	main.ck_count.show
+	main.ck_count.setoff
+	main.sp_level.setvalue "95"
+END
+
+SCRIPT main_prtesti1_hide
+BEGIN
+	main.en_obs1.hide
+	main.tx_obs1.hide
+	main.en_prop1.hide
+	main.tx_prop1.hide
+	main.en_prop2.hide
+	main.tx_prop2.hide
+	main.ck_count.hide
+END
+
+SCRIPT main_prtesti2_show
+BEGIN
+	main.fr_sam1.show
+	main.fr_sam2.show
+	main.tx_sam1.show
+	main.tx_sam2.show
+	main.fr_rows.show
+	main.tx_size.show
+	main.en_size1.show
+	main.en_size2.show
+	main.tx_prop.show
+	main.en_cprop1.show
+	main.en_cprop2.show
+	main.ck_count.show
+	main.ck_count.setoff
+	main.sp_level.setvalue "95"
+END
+
+SCRIPT main_prtesti2_hide
+BEGIN
+	main.fr_sam1.hide
+	main.fr_sam2.hide
+	main.tx_sam1.hide
+	main.tx_sam2.hide
+	main.fr_rows.hide
+	main.tx_size.hide
+	main.en_size1.hide
+	main.en_size2.hide
+	main.tx_prop.hide
+	main.en_cprop1.hide
+	main.en_cprop2.hide
+	main.ck_count.hide
+END
+
+PROGRAM main_by_group_opt
+BEGIN
+	varlist main.vn_byopt
+END
+
+PROGRAM command
+BEGIN
+	if main.rb_prtesti1 {
+		put "prtesti "
+		require main.en_obs1
+		put main.en_obs1
+		put " "
+		require main.en_prop1
+		put main.en_prop1
+		put " "
+		require main.en_prop2
+		put main.en_prop2
+		put " "
+	}
+
+	if main.rb_prtesti2 {
+		put "prtesti "
+		require main.en_size1
+		put main.en_size1
+		put " "
+		require main.en_cprop1
+		put main.en_cprop1
+		put " "
+		require main.en_size2
+		put main.en_size2
+		put " "
+		require main.en_cprop2
+		put main.en_cprop2
+		put " "
+	}
+
+	beginoptions
+		INCLUDE _level_main_pr
+		option main.ck_count
+	endoptions
+END
+

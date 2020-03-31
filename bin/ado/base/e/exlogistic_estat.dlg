@@ -1,0 +1,406 @@
+/*
+	exlogistic_estat
+
+*!  VERSION 1.1.1  02feb2015
+
+	***
+	USE EXTREME CARE WHEN CHANGING CONTROL NAMES. The names used
+	in this file have multiple external dependencies.
+*/
+
+VERSION 14.0
+
+INCLUDE _std_xlarge
+//DEFINE _dlght 320
+INCLUDE header
+
+HELP hlp1, view("help exlogistic postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource EXLOGISTIC_ESTAT_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program parseMessage
+END
+
+PROGRAM parseMessage
+BEGIN
+	if __MESSAGE.contains("-predict-") {
+		call main.lb_subcmd.setvalue "predict"
+	}
+	if __MESSAGE.contains("-se-") {
+		call main.lb_subcmd.setvalue "se"
+	}
+	if __MESSAGE.contains("-summarize-") {
+		call main.lb_subcmd.setvalue "summarize"
+	}
+END
+
+
+DIALOG main, label(resource EXLOGISTIC_ESTAT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_subcmd		_lft	_top	_iwd	.,		///
+  	label(resource LBL_REPORTS_STATISTICS_SUBCOMMAND)
+  LISTBOX  lb_subcmd		@	_ss	@	70,		///
+  	contents(main_subcommand_contents)				///
+  	values(main_subcommand_values)					///
+  	onselchangelist(main_subcommand_scripts)
+
+  DEFINE holdy 110
+
+  // predict options
+  GROUPBOX gb_pred	_lft	holdy	_cwd1	_ht4,		///
+  	label(resource LBL_COMPUTE)
+
+  RADIO rb_pr		_indent	_ss	_inwd	., 		///
+	first							///
+	label(resource EXLOGISTIC_ESTAT_MAIN_RB_PR)		///
+	option(pr)
+  RADIO    rb_xb	@	_ss	@	.,		///
+	last							///
+	label(resource EXLOGISTIC_ESTAT_MAIN_RB_XB)					///
+	option(xb)
+
+  DEFINE _x _lft
+  DEFINE _cx _spr
+  DEFINE _y _xxls
+  INCLUDE _sp_level
+
+  SPINNER  sp_memory	_lft	_xls	_spwd	.,		///
+	default(10) min(1) max(512)  
+  TEXT     tx_mb	_spsep	@	210 	.,		///
+  	label(resource LBL_LIMIT_FOR_MEMORY_USAGE_IN_MEGABYTES)
+ 
+  CHECKBOX ck_nolog	_lft	_xls	_cwd1	.,		///
+	label(resource LBL_DO_NOT_DISPLAY_ENUMERATION_LOG)	///
+	option(nolog)
+
+  CHECKBOX ck_except	_lft2	holdy	_cwd1	_ht17,		///
+	groupbox						///
+	clickon("script varvalon")				///
+	clickoff("script varvaloff")				///
+	label(resource LBL_USE_SPECIFIED_VARIABLE_VALUES)
+  TEXT tx_var		_indent2 _ss	_vnwd	.,		///
+	label(resource LBL_VARIABLE)
+  DEFINE x1 @x
+  TEXT tx_value		_vnsep	@	_en7wd	.,		///
+	label(resource LBL_VALUE)
+  VARNAME vn_var1	x1	_ss	_vnwd	.,		///
+  	numeric							///
+	label(resource LBL_VARIABLE)
+  EDIT en_value1	_vnsep	@	_en7wd	., numonly	///
+	label(resource LBL_VALUE)
+  VARNAME vn_var2	x1	_ms	_vnwd	.,		///
+  	numeric							///
+	label(resource LBL_VARIABLE)
+  EDIT en_value2	_vnsep	@	_en7wd	., numonly	///
+	label(resource LBL_VALUE)
+  VARNAME vn_var3	x1	_ms	_vnwd	.,		///
+  	numeric							///
+	label(resource LBL_VARIABLE)
+  EDIT en_value3	_vnsep	@	_en7wd	., numonly	///
+	label(resource LBL_VALUE)
+  VARNAME vn_var4	x1	_ms	_vnwd	.,		///
+  	numeric							///
+	label(resource LBL_VARIABLE)
+  EDIT en_value4	_vnsep	@	_en7wd	., numonly	///
+	label(resource LBL_VALUE)
+  VARNAME vn_var5	x1	_ms	_vnwd	.,		///
+  	numeric							///
+	label(resource LBL_VARIABLE)
+  EDIT en_value5	_vnsep	@	_en7wd	., numonly	///
+	label(resource LBL_VALUE)
+  VARNAME vn_var6	x1	_ms	_vnwd	.,		///
+  	numeric							///
+	label(resource LBL_VARIABLE)
+  EDIT en_value6	_vnsep	@	_en7wd	., numonly	///
+	label(resource LBL_VALUE)
+
+  // se option
+  GROUPBOX gb_coefopt	_lft	holdy	_iwd	_ht4,		///
+  	label(resource LBL_COEFFICIENT_OPTIONS)
+
+  RADIO    rb_or	_indent	_ss	_ibwd	., 		///
+	first							///
+	label(resource LBL_REPORT_ODDS_RATIOS_DEFAULT) 		///
+	option(NONE)
+  RADIO    rb_coef	@	_ss	@	.,		///
+	last							///
+	label(resource LBL_REPORT_COEFFICIENTS)				///
+	option(coef)
+
+  // Summarize options
+  GROUPBOX gb_eqlist            _lft    holdy	_iwd	_ht6,		///
+  	label(resource LBL_SUMMARIZE)
+  RADIO    rb_default		_ilft	_ss	_inwd	.,		///
+  	first label(resource LBL_ALL_VARIABLES_INVOLVED_ESTIMATION)	///
+  	onclickon(main.vl_spec.disable)
+  RADIO    rb_spec		@	_ss	@	.,		///
+	onclickon(main.vl_spec.enable) last				///
+	label(resource LBL_VARIABLES_OPTIONAL_EQUATION_NAMES)
+  VARLIST  vl_spec	      _indent2	_ss	_inwd	.,		///
+	label(resource LBL_VARIABLES_OPTIONAL_EQUATION_NAMES)
+  CHECKBOX ck_equation      	_lft	+45	_iwd	.,		///
+	option(equation)						///
+	label(resource LBL_DISPLAY_SUMMARY_EQUATION)
+  CHECKBOX ck_labels		@	_ms	@	.,		///
+  	label(resource LBL_DISPLAY_VARIABLE_LABELS)				///
+  	option(labels)
+  CHECKBOX ck_noheader		_lft	_ms	_iwd	.,		///
+	option(noheader)						///
+	label(resource LBL_SUPPRESS_HEADER)
+  CHECKBOX ck_noweights		@	_ms	@	.,		///
+	option(noweights)						///
+	label(resource LBL_IGNORE_WEIGHTS)
+END
+
+LIST main_subcommand_contents
+BEGIN
+	resource EXLOGISTIC_ESTAT_SINGLE_OBSERVATION_PRED
+	resource LBL_REPORT_COEFFICIENT_ASYMPTOTIC_STANDARD_ERRORS
+	resource LBL_SUMMARIZE_ESTIMATION_SAMPLE
+END
+
+LIST main_subcommand_values
+BEGIN
+	predict
+	se
+	summarize
+END
+
+LIST main_subcommand_scripts
+BEGIN
+	script sel_predict
+	script sel_se
+	script sel_summarize
+END
+
+SCRIPT sel_predict
+BEGIN
+	script main_hide_all
+	script main_predict_on
+END
+
+SCRIPT sel_se
+BEGIN
+	script main_hide_all
+	script main_se_on
+END
+
+SCRIPT sel_summarize
+BEGIN
+	script main_hide_all
+	script main_summ_on
+END
+
+SCRIPT main_predict_on
+BEGIN
+	main.gb_pred.show
+	main.rb_pr.show
+	main.rb_xb.show
+	main.sp_level.show
+	main.tx_level.show
+	main.sp_memory.show
+	main.tx_mb.show
+	main.ck_nolog.show
+	main.ck_except.show
+	main.tx_var.show
+	main.tx_value.show
+	main.vn_var1.show
+	main.en_value1.show
+	main.vn_var2.show
+	main.en_value2.show
+	main.vn_var3.show
+	main.en_value3.show
+	main.vn_var4.show
+	main.en_value4.show
+	main.vn_var5.show
+	main.en_value5.show
+	main.vn_var6.show
+	main.en_value6.show
+END
+
+SCRIPT main_predict_off
+BEGIN
+	main.gb_pred.hide
+	main.rb_pr.hide
+	main.rb_xb.hide
+	main.sp_level.hide
+	main.tx_level.hide
+	main.sp_memory.hide
+	main.tx_mb.hide
+	main.ck_nolog.hide
+	main.ck_except.hide
+	main.tx_var.hide
+	main.tx_value.hide
+	main.vn_var1.hide
+	main.en_value1.hide
+	main.vn_var2.hide
+	main.en_value2.hide
+	main.vn_var3.hide
+	main.en_value3.hide
+	main.vn_var4.hide
+	main.en_value4.hide
+	main.vn_var5.hide
+	main.en_value5.hide
+	main.vn_var6.hide
+	main.en_value6.hide
+END
+
+SCRIPT main_se_on
+BEGIN
+	main.gb_coefopt.show
+	main.rb_or.show
+	main.rb_coef.show
+END
+
+SCRIPT main_se_off
+BEGIN
+	main.gb_coefopt.hide
+	main.rb_or.hide
+	main.rb_coef.hide
+END
+
+SCRIPT main_summ_on
+BEGIN
+	main.ck_equation.show
+	main.ck_labels.show
+	main.ck_noheader.show
+	main.ck_noweights.show
+	main.gb_eqlist.show
+	main.rb_default.show
+	main.rb_spec.show
+	main.vl_spec.show
+END
+
+SCRIPT main_summ_off
+BEGIN
+	main.ck_equation.hide
+	main.ck_labels.hide
+	main.ck_noheader.hide
+	main.ck_noweights.hide
+	main.gb_eqlist.hide
+	main.rb_default.hide
+	main.rb_spec.hide
+	main.vl_spec.hide
+END
+
+SCRIPT main_hide_all
+BEGIN
+	script main_predict_off
+	script main_se_off
+	script main_summ_off
+END
+
+SCRIPT varvalon
+BEGIN
+	main.tx_var.enable
+	main.tx_value.enable
+	main.vn_var1.enable
+	main.en_value1.enable
+	main.vn_var2.enable
+	main.en_value2.enable
+	main.vn_var3.enable
+	main.en_value3.enable
+	main.vn_var4.enable
+	main.en_value4.enable
+	main.vn_var5.enable
+	main.en_value5.enable
+	main.vn_var6.enable
+	main.en_value6.enable
+END
+
+SCRIPT varvaloff
+BEGIN
+	main.tx_var.disable
+	main.tx_value.disable
+	main.vn_var1.disable
+	main.en_value1.disable
+	main.vn_var2.disable
+	main.en_value2.disable
+	main.vn_var3.disable
+	main.en_value3.disable
+	main.vn_var4.disable
+	main.en_value4.disable
+	main.vn_var5.disable
+	main.en_value5.disable
+	main.vn_var6.disable
+	main.en_value6.disable
+END
+
+PROGRAM vl_output
+BEGIN
+	put main.vl_spec
+END
+
+PROGRAM vl_eq_output
+BEGIN
+	put main.vl_eq
+END
+
+PROGRAM at_output
+BEGIN
+	if main.ck_except {
+		require main.vn_var1 main.en_value1
+		put main.vn_var1 "=" main.en_value1
+		if main.vn_var2 | main.en_value2 {
+			require main.vn_var2 main.en_value2
+			put " " main.vn_var2 "=" main.en_value2
+		}
+		if main.vn_var3 | main.en_value3 {
+			require main.vn_var3 main.en_value3
+			put " " main.vn_var3 "=" main.en_value3
+		}
+		if main.vn_var4 | main.en_value4 {
+			require main.vn_var4 main.en_value4
+			put " " main.vn_var4 "=" main.en_value4
+		}
+		if main.vn_var5 | main.en_value5 {
+			require main.vn_var5 main.en_value5
+			put " " main.vn_var5 "=" main.en_value5
+		}
+		if main.vn_var6 | main.en_value6 {
+			require main.vn_var6 main.en_value6
+			put " " main.vn_var6 "=" main.en_value6
+		}
+	}
+END
+
+PROGRAM command
+BEGIN
+	put "estat "
+	put main.lb_subcmd
+	if main.rb_spec {
+		require main.vl_spec
+		put " " main.vl_spec
+	}
+	beginoptions
+		// predict options
+		option radio(main rb_pr rb_xb)
+		if main.ck_except & main.ck_except.isvisible() {
+			put " " "at("
+			put /program at_output
+			put ") "
+		}
+		optionarg /hidedefault main.sp_level
+		if !main.sp_memory.isdefault() {
+			put "memory("
+			put main.sp_memory
+			put "M)"
+		}
+		option main.ck_nolog
+
+		// se option
+		option main.rb_coef
+
+		// Summarize options
+		option main.ck_equation
+		option main.ck_labels
+		option main.ck_noheader
+		option main.ck_noweights
+	endoptions
+END

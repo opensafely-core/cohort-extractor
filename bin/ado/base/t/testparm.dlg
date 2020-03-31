@@ -1,0 +1,134 @@
+/*
+  testparm
+
+*!  VERSION 1.2.3  12apr2015
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 310
+INCLUDE header
+
+HELP hlp1, view("help testparm")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource TESTPARM_DLG_HSCALE
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	call create STRING edfmethod
+	call edfmethod.setvalue e(dfmethod)
+
+	if (edfmethod.iseq("")) {
+		call main.ck_small.disable
+	}
+	else {
+		call main.ck_small.enable
+	}
+	call program check_svy
+END
+
+PROGRAM ON_DOTPROMPT
+BEGIN
+	call program check_svy
+END
+
+PROGRAM check_svy
+BEGIN
+	call create STRING has_svy
+	call has_svy.setvalue e(prefix)
+	if has_svy.iseq("svy") {
+		call main.ck_nosvyadjust.enable
+	}
+	else {
+		call main.ck_nosvyadjust.disable
+	}
+END
+
+DIALOG main, label(resource TESTPARM_DLG_TITLE)/*
+		*/ tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_var          _lft      _top       _iwd     .,		/*
+  		*/label(resource TESTPARM_MAIN_TX_VAR)
+  VARLIST  vl_var          @         _ss        @        .,		/*
+  		*/numeric						/*
+  		*/label(resource TESTPARM_MAIN_TX_VAR)
+  GROUPBOX gb_opt          @         _ls        @        _ht20h,       	/*
+  		*/label(resource LBL_OPTIONS)
+  GROUPBOX gb_equal        _indent   _ms        _ibwd    _ht4,		/*
+		*/label(resource TESTPARM_MAIN_GB_EQUAL)
+  DEFINE holdx @x
+  RADIO    rb_zero         _indent   _ss        _inwd    .,		/*
+		*/label(resource TESTPARM_MAIN_RB_ZERO)			/*
+  		*/first option("NONE")
+  RADIO    rb_equal        @         _ss        @        .,		/*
+		*/label(resource TESTPARM_MAIN_RB_EQUAL)		/*
+  		*/last option("equal")
+  GROUPBOX gb_equat        holdx     _xls       _ibwd    _ht4,		/*
+  		*/label(resource TESTPARM_MAIN_GB_EQUAT)
+  CHECKBOX ck_equat        _indent   _ss        _inwd    .,		/*
+		*/label(resource TESTPARM_MAIN_CK_EQUAT)/*
+  		*/clickon(script equat_on) clickoff(script equat_off)
+  COMBOBOX cb_equat        _indent2  _ss        _vnwd    .,		/*
+		*/label(resource TESTPARM_MAIN_CK_EQUAT)/*
+		*/dropdown contents(ereturn eqnames)			/*
+		*/option("equation")
+  CHECKBOX ck_nosvyadjust	_ilft	_xls	_ibwd	.,		///
+	option(nosvyadjust)						///
+	label(resource TEST_OPT_CK_NOSVYADJUST)
+  CHECKBOX ck_small		@	_ms	@	.,		///
+	option(small)							///
+	onclickon("script main_small_on")				///
+	onclickoff("script main_small_off")				///
+	label(resource LBL_SMALL_SAMPLE_ADJUSTED_TEST)
+END
+
+SCRIPT main_small_on
+BEGIN
+	main.gb_equal.disable
+	main.rb_zero.disable
+	main.rb_equal.disable
+	main.gb_equat.disable
+	main.ck_equat.disable
+	main.cb_equat.disable
+END
+
+SCRIPT main_small_off
+BEGIN
+	main.gb_equal.enable
+	main.rb_zero.enable
+	main.rb_equal.enable
+	main.gb_equat.enable
+	main.ck_equat.enable
+	main.cb_equat.enable
+END
+
+SCRIPT equat_on
+BEGIN
+  main.cb_equat.enable
+END
+
+SCRIPT equat_off
+BEGIN
+  main.cb_equat.disable
+END
+
+PROGRAM command
+BEGIN
+	put "testparm "
+	varlist main.vl_var
+	beginoptions
+		option radio(main rb_zero rb_equal)
+		if main.ck_equat {
+			require main.cb_equat
+			optionarg main.cb_equat
+			option main.ck_nosvyadjust
+			option main.ck_small
+		}
+	endoptions
+END

@@ -1,0 +1,116 @@
+/*
+   A logged or replayable grid, meaning that it can be replayed to build 
+   itself, edits can be undone, and it can be saved and restored like a graph.
+
+*/
+*! version 1.0.0  30jul2002
+
+version 8
+
+class {
+    instance:
+	declared_xsize = 6			/* sz if not contained	*/
+	declared_ysize = 4
+
+    	insert_key = ""				/* from log file	  */
+	reading    = 0				/* reading from a logfile */
+	_scheme = .scheme.new , clear		/* scheme		  */
+	array __LOG				/* allows logging	  */
+} , inherit(grid)
+
+/* -------------------------------------------------------------------------*/
+
+program define new
+
+	syntax [anything] [, READLOG(string) * ]
+	local 0 `anything' , `options'
+
+	.reading = "`readlog'" != ""
+
+	if "`readlog'" != "" {				/* prep cmd(s) when */
+		file read `readlog' cmd	
+		`cmd'					/* local 0 orig_cmd */
+
+	}
+
+	._scheme.ref = .`c(curscm)'.ref
+
+	.__LOG.Arrpush local 0 `0'
+
+	.Super.new `0'
+
+	if "`readlog'" != "" {				/* run rest of log */
+		.runfromfile `readlog'
+	}
+end
+
+/* -------------------------------------------------------------------------*/
+/* Shadows one in grid.class and handles replay from file.
+*/
+
+program define insert
+
+	.__LOG.Arrpush <BeginCmd>
+	.Super.insert `0'
+	.__LOG.Arrpush .insert `0'
+	.__LOG.Arrpush <EndCmd>
+end
+
+
+/* -------------------------------------------------------------------------*/
+/* Shadows the one in grid.class and logs the key.
+
+   If we are reading from a log, also fetches the object to be declared from
+   the map rather than allowing it to be built from the rvalue.
+*/
+
+program define _declare_view
+	gettoken name 0 : 0
+
+	if `.reading' {
+		.Declare `name' = .__Map.`.insert_key'.ref
+	}
+	else {
+		.Declare `name' `0'
+	}
+	.insert_key = "`.`r(name)'.uname'"
+
+	.__LOG.Arrpush .insert_key = "`.insert_key'"
+end
+
+
+/* -------------------------------------------------------------------------*/
+/* Initialize a drawing area and draw this object into that area
+*/
+program define drawgraph
+
+	.popifendsin drawgraph
+
+	syntax [ , XSIZE(real `.declared_xsize') YSIZE(real `.declared_ysize') ]
+	.declared_xsize = `xsize'
+	.declared_ysize = `ysize'
+
+	gdi end
+
+	gdi init `.declared_xsize' `.declared_ysize' `.bgcolor.rgb' , live
+
+
+							/* put in gu's */
+	if `.declared_xsize' < `.declared_ysize' {
+		local y_gus = `.declared_ysize' * 100 / `.declared_xsize'
+		local x_gus = 100
+	}
+	else {
+		local x_gus = `.declared_xsize' * 100 / `.declared_ysize'
+		local y_gus = 100
+	}
+	
+
+
+	.set_gu_scaling `gdi(xmetric)' `gdi(ymetric)'
+
+	.draw , xsize(`x_gus') ysize(`y_gus')
+	gdi update
+	gdi end
+end
+

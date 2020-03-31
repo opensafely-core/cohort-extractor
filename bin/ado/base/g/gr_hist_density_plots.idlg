@@ -1,0 +1,231 @@
+/*
+  gr_hist_density_plots
+
+*!  VERSION 1.1.2  11dec2019
+
+	 // SCRIPTS and PROGRAMS for external use
+		 * SCRIPT gr_hist_density_plots_setNoNorm
+		 * SCRIPT gr_hist_density_plots_enable
+		 * SCRIPT gr_hist_density_plots_disable
+*/
+
+SCRIPT dplots_PREINIT
+BEGIN
+	create STRING normalLineResults
+	create STRING kdensityLineResults
+	dplots.ck_nonorm.hide
+END
+
+SCRIPT dplots_POSTINIT
+BEGIN
+	program checkNormalLineResults
+	program checkKdensityLineResults
+END
+
+DIALOG dplots, tabtitle(resource LBL_DENSITY_PLOTS)
+BEGIN
+  CHECKBOX ck_nonorm		_lft	_top	200	.,		///
+	label(resource GR_HIST_DENSITY_PLOTS_DPLOTS_CK_NONORM) 		///
+	onclickon(program dplots_normal_disable)			///
+	onclickoff(program dplots_normal_enable)			///
+	option(nonormal)
+  CHECKBOX ck_norm		_lft	_top	200	.,		///
+	label(resource LBL_ADD_NORMAL_DENSITY_PLOT)			///
+	onclickon(program dplots_normal_enable)				///
+	onclickoff(program dplots_normal_disable)			///
+	option(normal)
+  BUTTON bu_norm_line		+220	 @	120	.,		///
+	label(resource LBL_GB_LINE_PROPERTIES)					///
+	onpush(script show_normal_line_dialog)				///
+	tooltip(resource LBL_LINE_PROPERTIES_FOR_NORMAL_DENSITY_PLOT)
+
+  CHECKBOX ck_kden		_lft	_ms	200	.,		///
+	label(resource LBL_ADD_KERNEL_DENSITY_PLOT)			///
+	onclickon(program dplots_kden_enable)				///
+	onclickoff(program dplots_kden_disable)				///
+	option(kdensity)	
+  BUTTON bu_kdensity		+220	 @	120	.,		///
+	label(resource LBL_GB_LINE_PROPERTIES)					///
+	onpush(script show_kdensity_dialog)				///
+	tooltip(resource LBL_LINE_PROPERTIES_FOR_KERNEL_DENSITY_PLOT)
+  
+  GROUPBOX gb_smooth		_iilft	_ms	320	_ht9h,		///
+	label(resource LBL_SMOOTHING_OPTIONS)
+  CHECKBOX ck_kden_width	+10	_ms	200	.,		///
+	label(resource LBL_OVERRIDE_OPTIMAL_WIDTH)			///
+	onclickon(program dplots_kden_width_enable)			///
+	onclickoff(program dplots_kden_width_disable)
+  DEFINE x @x
+  EDIT     en_kden_width	+10	_ss 	_en7wd	.,		///
+	label(resource LBL_HALF_WIDTH_OF_KERNEL) numonly option(width)	
+  TEXT     tx_kden_width	+65	@	200	.,		///
+	label(resource LBL_HALF_WIDTH_OF_KERNEL)
+  TEXT     tx_kernel		x	_ms	200	.,		///
+	label(resource LBL_KERNEL_FUNCTION)
+  COMBOBOX cb_kernel		@	_ss	@	.,		///
+	dropdownlist							///
+	contents(kernel_function) values(kernel_function_val)
+
+END
+
+// Dplots scripts/programs
+PROGRAM dplots_normal_enable
+BEGIN
+	if dplots.ck_norm.isvisible() & dplots.ck_norm {
+		call dplots.bu_norm_line.enable
+	}
+	if dplots.ck_nonorm.isvisible() & ! dplots.ck_nonorm {
+		call dplots.bu_norm_line.enable
+	}
+END
+PROGRAM dplots_normal_disable
+BEGIN
+	call dplots.bu_norm_line.disable
+END
+
+PROGRAM dplots_kden_enable
+BEGIN
+	if dplots.ck_kden {
+		call dplots.bu_kdensity.enable
+		call dplots.gb_smooth.enable
+		call dplots.ck_kden_width.enable
+		if dplots.ck_kden_width {
+			call dplots.en_kden_width.enable
+			call dplots.tx_kden_width.enable
+		}
+		call dplots.tx_kernel.enable
+		call dplots.cb_kernel.enable
+	}
+END
+PROGRAM dplots_kden_disable
+BEGIN
+	call dplots.bu_kdensity.disable
+	call dplots.gb_smooth.disable
+	call dplots.ck_kden_width.disable
+	call dplots.en_kden_width.disable
+	call dplots.tx_kden_width.disable
+	call dplots.tx_kernel.disable
+	call dplots.cb_kernel.disable
+END
+
+PROGRAM dplots_kden_width_enable
+BEGIN
+	call dplots.en_kden_width.enable
+	call dplots.tx_kden_width.enable
+END
+PROGRAM dplots_kden_width_disable
+BEGIN
+	call dplots.en_kden_width.disable
+	call dplots.tx_kden_width.disable
+END
+
+SCRIPT gr_hist_density_plots_setNoNorm
+BEGIN
+	dplots.ck_norm.hide	
+	dplots.ck_nonorm.show
+	program dplots_normal_enable
+END
+SCRIPT gr_hist_density_plots_enable
+BEGIN
+	dplots.ck_norm.enable
+	program dplots_normal_enable
+	dplots.ck_kden.enable
+	program dplots_kden_enable
+END
+
+SCRIPT gr_hist_density_plots_disable
+BEGIN
+	dplots.ck_nonorm.disable
+	dplots.ck_norm.disable	
+	dplots.bu_norm_line.disable
+	dplots.ck_kden.disable	
+	dplots.bu_kdensity.disable
+	dplots.gb_smooth.disable
+	dplots.ck_kden_width.disable
+	dplots.en_kden_width.disable
+	dplots.tx_kden_width.disable
+	dplots.tx_kernel.disable
+	dplots.cb_kernel.disable
+END
+
+// Dplots buttons
+SCRIPT show_normal_line_dialog
+BEGIN
+	create CHILD gr_line_options AS normalLine, allowsubmit
+	normalLine.setExitString normalLineResults
+	normalLine.settitle resource LBL_LINE_PROPERTIES_FOR_NORMAL_DENSITY_PLOT
+	normalLine.setExitAction "program checkNormalLineResults"
+	normalLine.setSubmitAction "program normalLineSubmit"
+END
+
+PROGRAM checkNormalLineResults
+BEGIN
+	if normalLineResults {
+		call dplots.bu_norm_line.modified_on
+	}
+	else {
+		call dplots.bu_norm_line.modified_off
+	}
+END
+PROGRAM normalLineSubmit
+BEGIN
+	call program checkNormalLineResults
+	call Submit
+END
+
+SCRIPT show_kdensity_dialog
+BEGIN
+	create CHILD gr_line_options AS kdensityLine, allowsubmit
+	kdensityLine.setExitString kdensityLineResults
+	kdensityLine.settitle resource LBL_LINE_PROPERTIES_FOR_KERNEL_DENSITY_PLOT
+	kdensityLine.setExitAction "program checkKdensityLineResults"
+	kdensityLine.setSubmitAction "program kdensityLineSubmit"
+END
+
+PROGRAM checkKdensityLineResults
+BEGIN
+	if kdensityLineResults {
+		call dplots.bu_kdensity.modified_on
+	}
+	else {
+		call dplots.bu_kdensity.modified_off
+	}
+END
+PROGRAM kdensityLineSubmit
+BEGIN
+	call program checkKdensityLineResults
+	call Submit
+END
+	
+
+PROGRAM dplots_kdenopts_opts
+BEGIN
+	if kdensityLineResults & ! H(dplots.bu_kdensity) {
+		put " " kdensityLineResults " "
+	}
+	if dplots.ck_kden_width {
+		require dplots.en_kden_width
+		optionarg dplots.en_kden_width
+	}
+	put " " dplots.cb_kernel " "
+END
+
+PROGRAM gr_hist_density_plots_output
+BEGIN
+	option dplots.ck_norm
+	option dplots.ck_nonorm
+	if normalLineResults & ! H(dplots.bu_norm_line) {
+		put " normopts(" normalLineResults ") "
+	}
+	option dplots.ck_kden
+
+	if kdensityLineResults & ! H(dplots.bu_kdensity) 		///
+		| (dplots.en_kden_width & !H(dplots.en_kden_width)) 	///
+		| (dplots.cb_kernel & !H(dplots.cb_kernel))		///
+	{
+		put " " "kdenopts("
+		put /program dplots_kdenopts_opts
+		put ")"
+	}
+END
+

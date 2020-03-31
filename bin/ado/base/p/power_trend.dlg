@@ -1,0 +1,571 @@
+/*
+	power trend
+
+*!  VERSION 1.1.2  14mar2017
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_wide
+DEFINE _dlght 500
+INCLUDE header
+
+HELP hlp1, view("help power trend")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING numContents
+	create STRING stok
+	create ARRAY tmp
+	create BOOLEAN containsNumlist
+	create STRING dlgName
+	create STRING gsimpsi_res
+	create BOOLEAN child_hasNumlist
+	create STRING tmp_probspec
+	create STRING tmp_elevels
+	create DOUBLE ngrps
+	create DOUBLE tmp_ngrps
+	create DOUBLE nrc
+	create DOUBLE nnumlist
+	
+	dlgName.setvalue class _dlg_rsrcname
+	child_hasNumlist.setfalse
+	program table_create4Trend
+	setscale_hadj resource POWER_TREND_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program check_gsimpsi_result
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+  label(resource POWER_TREND_DLG_TITLE)
+BEGIN
+  INCLUDE power_compute
+  DEFINE errpos _ls
+  INCLUDE power_errorprob
+  DEFINE sspos +45
+  INCLUDE power_trendsampsi
+
+  GROUPBOX gb_probspec		_lft	230	_iwd	_ht10,		///
+	label(resource LBL_EFFECT_SIZE)
+  TEXT 	tx_specify		_indent	_ss	_cwd1	.,		///
+	label(resource LBL_SPECIFY)
+  DEFINE specy @y
+  COMBOBOX cb_probspec		@	_ss	250	.,		///
+  	dropdownlist							///
+	contents("main_probspec_list")					///
+	values("main_probspec_values")					///
+	onselchange("program main_probspec_changed")			///
+  	label(resource LBL_SPECIFY)
+  EDIT	ed_probspecnum		_ilft	+35	_en14wd	.,		///
+  	onchange(program power_trend_dim_check)				///
+  	label(resource POWER_TREND_MAIN_ED_PROBSPECNUM)	///
+  	tooltip(resource POWER_TREND_MAIN_ED_PROBSPECNUM_TIP)
+  TEXT	tx_probspecnum		_en14sep @	162	.,		///
+  	label(resource POWER_TREND_MAIN_TX_PROBSPECNUM)
+  COMBOBOX cb_probspecmat	_ilft	@	_en14wd	.,		///
+	label(resource POWER_TREND_MAIN_CB_PROBSPECMAT)	///
+	contents(matrix)						///
+	onselchange(program power_trend_dim_check)			///
+	dropdown
+  BUTTON bu_probspecmat		_en14sep @	120	.,		///
+	label(resource LBL_INPUT_MATRIX)				///
+	onpush(program show_probspec_matrix)				///
+	tooltip(resource POWER_TREND_MAIN_BU_PROBSPECMAT)
+
+  CHECKBOX	ck_elevels	_lft2 	 specy	_cwd2	_ht6h,		///
+	groupbox							///
+	onclickon(program main_elevels_enable)				///
+	onclickoff(program main_elevels_disable)			///
+	label(resource POWER_TREND_MAIN_CK_ELEVELS)
+  COMBOBOX cb_elevels		_ilft2	_ms	250	.,		///
+  	dropdownlist							///
+	contents("main_elevels_list")					///
+	values("main_elevels_values")					///
+	onselchange("program main_elevels_changed")			///
+  	label(resource LBL_SPECIFY)
+  EDIT	ed_elevelsnum		_ilft2	+35	_en14wd	.,		///
+	option(exposure)						///
+  	onchange(program power_trend_dim_check)				///
+  	label(resource POWER_TREND_MAIN_ED_ELEVELSNUM)			///
+  	tooltip(resource POWER_TREND_MAIN_ED_ELEVELSNUM_TIP)
+  TEXT	tx_elevelsnum		_en14sep @	100	.,		///
+  	label(resource POWER_TREND_MAIN_TX_ELEVELSNUM)
+  COMBOBOX cb_elevelsmat	_ilft2	@	_en14wd	.,		///
+	label(resource POWER_TREND_MAIN_CB_ELEVELSMAT)			///
+	option(exposure)						///
+	contents(matrix)						///
+	onselchange(program power_trend_dim_check)			///
+	dropdown
+  BUTTON bu_elevelsmat		_en14sep @	120	.,		///
+	label(resource LBL_INPUT_MATRIX)				///
+	onpush(program show_elevels_matrix)				///
+	tooltip(resource POWER_TREND_MAIN_BU_ELEVELSMAT)
+
+  CHECKBOX ck_continuity	_lft	+65	_iwd	.,		///
+	option(continuity)						///
+	onclickon(program main_continuity_enable)			///
+	onclickoff(program main_continuity_disable)			///
+	label(resource POWER_TREND_MAIN_CK_CONTINUITY)
+
+  DEFINE ypos _ms
+  INCLUDE power_test_maincommon
+END
+
+LIST main_compute_list
+BEGIN
+	resource LBL_SAMPLE_SIZE
+	resource PSS_LBL_POWER
+END
+
+LIST main_compute_values
+BEGIN
+	tot_sampsi
+	power
+END
+
+INCLUDE _power_list
+
+LIST main_probspec_list
+BEGIN
+	resource POWER_TREND_ALT_GROUP_PROB
+	resource POWER_TREND_ALT_GROUP_PROB_MATRIX
+END
+
+LIST main_probspec_values
+BEGIN
+	"probspec"
+	"probspecmat"
+END
+
+LIST main_elevels_list
+BEGIN
+	resource POWER_TREND_STRICTLY_INCREASING_EXPOSURE_LEVELS
+	resource POWER_TREND_STRICTLY_INCREASING_EXPOSURE_LEVELS_MATRIX
+END
+
+LIST main_elevels_values
+BEGIN
+	"explevels"
+	"explevelsmat"
+END
+
+PROGRAM main_compute_changed
+BEGIN
+	if main.cb_compute.iseq("tot_sampsi") {
+		call program main_tot_sampsi_on
+	}
+	if main.cb_compute.iseq("power") {
+		call program main_power_on
+	}
+	call program check_for_numlist
+END
+
+PROGRAM main_tot_sampsi_on
+BEGIN
+	call script main_sampsi_hide_all
+	call main.gb_sample_size.setposition . . . 95
+	call main.ck_nfrac.setposition . 190
+	call main.cb_grw.setposition . 165
+	call main.tx_sampsi.show
+	call main.cb_sampsi.hide
+	call main.cb_grw.show
+	call main.ed_power.show
+	call main.ed_beta.show
+	call main.tx_power_beta_power.show
+	call main.cb_power_beta.show
+	call program main_grw_changed
+	call script power_test_maincommon_hide_dir
+	call program main_elevels_changed 
+	call program main_power_beta_changed
+	call program power_iteration_tab_check
+END
+
+PROGRAM main_power_on
+BEGIN
+	call script main_sampsi_hide_all
+	call main.gb_sample_size.setposition . . . 95
+	call main.ck_nfrac.setposition . 190
+	call main.tx_sampsi.show
+	call main.cb_sampsi.show
+	call main.ed_power.hide
+	call main.ed_beta.hide
+	call main.tx_power_beta_power.hide
+	call main.cb_power_beta.hide
+	call script power_test_maincommon_hide_dir
+	call program main_elevels_changed 
+	call program main_sampsi_changed
+	call program power_iteration_tab_check
+END
+
+PROGRAM main_probspec_changed
+BEGIN
+	if main.cb_probspec {
+		if main.cb_probspec.iseq("probspec") {
+			call program main_probspec_on
+		}
+		if main.cb_probspec.iseq("probspecmat") {
+			call program main_probspecmat_on
+		}
+		call program power_trend_dim_check
+		call program check_for_numlist
+	}
+END
+
+PROGRAM main_elevels_changed
+BEGIN
+	if main.cb_elevels {
+		if main.cb_elevels.iseq("explevels") {
+			call program main_elevels_on
+		}
+		if main.cb_elevels.iseq("explevelsmat") {
+			call program main_elevelsmat_on
+		}
+		call program power_trend_dim_check
+		call program check_for_numlist
+	}
+END
+
+PROGRAM main_probspec_on
+BEGIN
+	call main.ed_probspecnum.show
+	call main.tx_probspecnum.show
+	call main.cb_probspecmat.hide
+	call main.bu_probspecmat.hide
+END
+
+PROGRAM main_probspecmat_on
+BEGIN
+	call main.ed_probspecnum.hide
+	call main.tx_probspecnum.hide
+	call main.cb_probspecmat.show
+	call main.bu_probspecmat.show
+END
+
+PROGRAM main_elevels_on
+BEGIN
+	call main.ed_elevelsnum.show
+	call main.tx_elevelsnum.show
+	call main.cb_elevelsmat.hide
+	call main.bu_elevelsmat.hide
+END
+
+PROGRAM main_elevelsmat_on
+BEGIN
+	call main.ed_elevelsnum.hide
+	call main.tx_elevelsnum.hide
+	call main.cb_elevelsmat.show
+	call main.bu_elevelsmat.show
+END
+
+PROGRAM main_elevels_enable
+BEGIN
+	call main.cb_elevels.enable
+	call main.ed_elevelsnum.enable
+	call main.tx_elevelsnum.enable
+	call main.cb_elevelsmat.enable
+	call main.bu_elevelsmat.enable
+	call main.ck_continuity.disable
+END
+
+PROGRAM main_elevels_disable
+BEGIN
+	call main.cb_elevels.disable
+	call main.ed_elevelsnum.disable
+	call main.tx_elevelsnum.disable
+	call main.cb_elevelsmat.disable
+	call main.bu_elevelsmat.disable
+	call main.ck_continuity.enable
+END
+
+PROGRAM main_continuity_enable
+BEGIN
+	call main.ck_elevels.disable
+	call main.cb_elevels.disable
+	call main.ed_elevelsnum.disable
+	call main.tx_elevelsnum.disable
+	call main.cb_elevelsmat.disable
+	call main.bu_elevelsmat.disable
+END
+
+PROGRAM main_continuity_disable
+BEGIN
+	call main.ck_elevels.enable
+	if main.ck_elevels {
+		call main.ed_elevelsnum.enable
+		call main.tx_elevelsnum.enable
+		call main.cb_elevelsmat.enable
+		call main.bu_elevelsmat.enable
+	}
+	else {
+		call main.ed_elevelsnum.disable
+		call main.tx_elevelsnum.disable
+		call main.cb_elevelsmat.disable
+		call main.bu_elevelsmat.disable
+	}
+END
+
+INCLUDE power_errorprob_pr
+INCLUDE power_trendsampsi_pr
+
+PROGRAM main_power_beta_table
+BEGIN
+	call program table_create4Trend
+END
+
+PROGRAM check_for_numlist
+BEGIN
+	call containsNumlist.setfalse
+
+	if main.ed_alpha {
+		call numContents.setvalue class main.ed_alpha.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_power.isvisible() {
+		call numContents.setvalue class main.ed_power.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_beta.isvisible() {
+		call numContents.setvalue class main.ed_beta.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_sampsi_n.isvisible() {
+		call numContents.setvalue class main.ed_sampsi_n.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_sampsi_npg.isvisible() {
+		call numContents.setvalue class main.ed_sampsi_npg.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if containsNumlist {
+		call main.ck_parallel.enable
+	}
+	else {
+		call main.ck_parallel.disable
+	}
+END
+
+PROGRAM power_iteration_tab_check
+BEGIN
+	call script power_iteration_enable
+	if main.cb_compute.iseq("power") {
+		call script power_iteration_disable
+	}
+	else {
+		if main.cb_compute.endswith("sampsi") {
+			call script power_iteration_is_sampsi
+		}
+		if main.cb_compute.iseq("effect") {
+			call script power_iteration_is_effect
+		}
+	}
+END
+
+PROGRAM show_elevels_matrix
+BEGIN
+	call create STRING ElevelsMatResult
+	call create CHILD matrix_input AS ElevelsMat
+	if ! _rc {
+		call ElevelsMat.setExitString ElevelsMatResult
+		call ElevelsMat.setExitAction "program main_getElevelsMatResult"
+		call ElevelsMat.callthru "isChildContext.settrue"
+	}
+END
+
+PROGRAM main_getElevelsMatResult
+BEGIN
+	call main.cb_elevelsmat.repopulate
+	call main.cb_elevelsmat.setvalue class ElevelsMatResult.value
+END
+
+PROGRAM show_probspec_matrix
+BEGIN
+	call create STRING ProbspecMatResult
+	call create CHILD matrix_input AS ProbspecMat
+	if ! _rc {
+		call ProbspecMat.setExitString ProbspecMatResult
+		call ProbspecMat.setExitAction "program main_getProbspecMatResult"
+		call ProbspecMat.callthru "isChildContext.settrue"
+	}
+END
+
+PROGRAM main_getProbspecMatResult
+BEGIN
+	call main.cb_probspecmat.repopulate
+	call main.cb_probspecmat.setvalue class ProbspecMatResult.value
+END
+
+PROGRAM power_trend_dim_check
+BEGIN
+	if main.ed_probspecnum.isneq(tmp_probspec) {
+		if main.ed_probspecnum.isvisible() & main.ed_probspecnum {
+			put "power_anova_dim ptrend, "
+			put "clsname(" dlgName ") "
+			put "ctrlname(""ed_probspecnum"") "
+			put "is_mat(0) "
+			stata hidden immediate	
+			call ngrps.setvalue r(ngcount)
+			call nrc.setvalue r(nrc)
+			call nnumlist.setvalue r(ngnumlist)
+		}
+	}
+	if main.cb_probspecmat.isneq(tmp_probspec) {	
+		if main.cb_probspecmat.isvisible() & main.cb_probspecmat {
+			put "power_anova_dim ptrend, "
+			put "clsname(" dlgName ") "
+			put "ctrlname(""cb_probspecmat"") "
+			put "is_mat(1) "
+			stata hidden immediate	
+			call ngrps.setvalue r(ngcount)
+			call nrc.setvalue r(nrc)
+			call nnumlist.setvalue r(ngnumlist)
+		}
+	}
+	if main.ed_elevelsnum.isneq(tmp_elevels) {
+		if main.ed_elevelsnum.isvisible() & main.ed_elevelsnum.isenabled() & main.ed_elevelsnum {
+			put "power_anova_dim ptrend, "
+			put "clsname(" dlgName ") "
+			put "ctrlname(""ed_elevelsnum"") "
+			put "is_mat(0) "
+			stata hidden immediate	
+			call nrc.setvalue r(nrc)
+			call nnumlist.setvalue r(ngnumlist)	
+		}
+	}
+	if main.cb_elevelsmat.isneq(tmp_elevels) {	
+		if main.cb_elevelsmat.isvisible() & main.cb_elevelsmat.isenabled() & main.cb_elevelsmat {
+			put "power_anova_dim ptrend, "
+			put "clsname(" dlgName ") "
+			put "ctrlname(""cb_elevelsmat"") "
+			put "is_mat(1) "
+			stata hidden immediate	
+			call nrc.setvalue r(nrc)
+			call nnumlist.setvalue r(ngnumlist)
+		}
+	}
+
+	if nnumlist.iseq(1) {
+		call main.ck_parallel.enable
+	}
+	else {
+		call main.ck_parallel.disable
+	}
+	call program table_create4Trend
+END
+
+INCLUDE power_table_opts
+INCLUDE power_graph
+INCLUDE power_iteration
+INCLUDE power_test_maincommon_pr
+
+PROGRAM command
+BEGIN
+	call tmp_probspec.setvalue ""
+	call tmp_elevels.setvalue ""
+	call tmp_ngrps.setvalue 0
+	if main.ed_probspecnum.isvisible() & main.ed_probspecnum {
+		call main.ed_probspecnum.withvalue tmp_probspec.setvalue "@"
+	}
+	if main.cb_probspecmat.isvisible() & main.cb_probspecmat {
+		call main.cb_probspecmat.withvalue tmp_probspec.setvalue "@"
+	}
+	if main.ed_elevelsnum.isvisible() & main.ed_elevelsnum.isenabled() & main.ed_elevelsnum {
+		call main.ed_elevelsnum.withvalue tmp_elevels.setvalue "@"
+	}
+	if main.cb_elevelsmat.isvisible() & main.cb_elevelsmat.isenabled() & main.cb_elevelsmat {
+		call main.cb_elevelsmat.withvalue tmp_elevels.setvalue "@"
+	}
+	call ngrps.withvalue tmp_ngrps.setvalue @
+	
+	put "power trend"
+
+	if main.cb_probspec.iseq("probspec") {
+		require main.ed_probspecnum
+		if !(main.ed_probspecnum.isNumlistGT(0) & main.ed_probspecnum.isNumlistLT(1)) {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format				///
+				"resource LBL_MSGBOX_ON_TAB_GT_0_LT_1_FMT" ///
+				"resource LBL_TAB_MAIN" 		///
+				"resource POWER_TREND_MAIN_ED_PROBSPECNUM"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Alternative group probabilities of observing a success" 
+// must be in (0,1).
+		}
+		put " " main.ed_probspecnum
+	}
+		
+	if main.cb_probspec.iseq("probspecmat") {
+		require main.cb_probspecmat
+		put " " main.cb_probspecmat
+	}
+
+	beginoptions
+		if main.cb_elevels {
+			if main.cb_elevels.iseq("explevels") {
+				require main.ed_elevelsnum
+				optionarg main.ed_elevelsnum
+			}
+			if main.cb_elevels.iseq("explevelsmat") {
+				require main.cb_elevelsmat
+				optionarg main.cb_elevelsmat
+			}
+		}
+		
+		put " " /program power_errorprob_output
+		put " " /program power_trendsampsi_output
+		option main.ck_continuity
+		put " " /program power_test_maincommon_output
+		put " " /program power_table_opts_output
+		put " " /program power_graph_output
+		put " " /program power_iteration_output
+	endoptions
+END

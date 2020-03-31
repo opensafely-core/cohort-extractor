@@ -1,0 +1,124 @@
+/*
+    gr_ed_rconnected.dlg
+    
+*!  VERSION 1.1.3  31jul2017
+
+*/
+
+VERSION 14.0
+MODAL
+
+INCLUDE _std_vsmall
+DEFINE _dlght 330
+INCLUDE header_gr_ed
+
+DEFINE _clwd	15
+DEFINE _wd	110
+DEFINE _sep	+115
+DEFINE _wd2	100
+DEFINE _sep2	+105
+DEFINE _cbwd	130
+DEFINE _cbsep	+135
+
+SCRIPT PREINIT
+BEGIN
+	settitle resource GR_ED_RCONNECTED_DLG_TITLE
+	create STRING G
+	create STRING J
+	create STRING style
+	create STRING Gstyle
+	create ARRAY  ARGS
+	program setupGOBJECT
+	create DOUBLE index
+
+	create DOUBLE drawview
+	program get_defaults
+	setscale_hadj resource GR_ED_RCONNECTED_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program initialize_controls
+END
+
+PROGRAM setupGOBJECT
+BEGIN
+	if ! __MESSAGE {
+		stopbox stop "resource LBL_MSGBOX_OBJECT_NOT_FOUND"
+// An unexpected error has occurred. Object not found.
+		exit 198
+	}
+	call G.setvalue class __MESSAGE.value
+	call __MESSAGE.tokenize ARGS
+	call G.setvalue class ARGS[1]
+	call J.setvalue class ARGS[2]
+	call Gstyle.setvalue class G.value
+	if J.iseq("") {
+		call Gstyle.append ".style"
+	}
+	else {
+		call create BOOLEAN customstyle
+		call J.withvalue Gstyle.append ".obs_styles[@]"
+		call Gstyle.withvalue customstyle.storeClsObjectExists @
+		if ! customstyle {
+			call Gstyle.setvalue class G.value
+			call Gstyle.append ".style"
+		}
+	}
+END
+
+INCLUDE gr_ed_rline
+INCLUDE gr_ed_marker
+
+DIALOG adv, tabtitle(resource LBL_ADVANCED)
+BEGIN
+  CHECKBOX ck_hide	_lft	_top	_iwd	.,		///
+	label(resource LBL_HIDE_PLOT)
+END
+
+PROGRAM get_defaults
+BEGIN
+	call G.withvalue drawview.setvalue class @.draw_view.istrue
+	if drawview {
+		call adv.ck_hide.setdefault 0
+	}
+	else {
+		call adv.ck_hide.setdefault 1
+	}
+END
+
+PROGRAM initialize_controls
+BEGIN
+	if drawview {
+		call adv.ck_hide.setoff
+	}
+	else {
+		call adv.ck_hide.seton
+	}
+END
+
+PROGRAM command
+BEGIN
+	call program get_defaults
+	
+	put "_gm_dlg_edits"
+	beginoptions
+		put " object(" G ") "
+		put " " /program rline_output
+		put " " /program marker_output
+
+		if ! adv.ck_hide.isdefault() {
+			if adv.ck_hide {
+				put "set(draw_view no) "
+			}
+			else {
+				put "set(draw_view yes) "
+			}
+		}
+		if J {
+			put " jindex(" J ") "
+		}
+
+		put " epilog(_gedi toolbar rconnected " G " " J ")"
+	endoptions
+END

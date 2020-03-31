@@ -1,0 +1,1769 @@
+/*
+    bayespredict
+
+*!  VERSION 1.0.8  15jul2019
+
+*/
+
+VERSION 16.0
+SYNCHRONOUS_ONLY
+
+INCLUDE _std_large
+DEFINE _dlght 455
+INCLUDE header
+
+HELP hlp1, view("help bayespredict")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource BAYESPREDICT_DLG_HSCALE
+
+	create STRING sTMP
+	create STRING main_ysim_tmp
+	create STRING main_ysim_tmp2
+	create STRING main_ysim_childdlg
+	create STRING main_ysim_child_result
+	create DOUBLE main_ysim_position
+	
+	create ARRAY main_ysimspec_list
+	create SVECTOR mainYsimspecCommandDisplayList
+	create SVECTOR mainYsimspecCommandList
+	create SVECTOR mainYsimspecCommandValues
+	create SVECTOR mainYsimspecStatusList
+	create SVECTOR mainYsimspecChildDialogList
+	create DOUBLE main_ysimspec_count
+	create DOUBLE main_ysimspec_arraysize
+	create STRING main_ysimspec_output
+	
+	create STRING main_func_tmp
+	create STRING main_func_tmp2
+	create STRING main_func_childdlg
+	create STRING main_func_child_result
+	create DOUBLE main_func_position
+	
+	create ARRAY main_funcspec_list
+	create SVECTOR mainFuncspecCommandDisplayList
+	create SVECTOR mainFuncspecCommandList
+	create SVECTOR mainFuncspecCommandValues
+	create SVECTOR mainFuncspecStatusList
+	create SVECTOR mainFuncspecChildDialogList
+	create DOUBLE main_funcspec_count
+	create DOUBLE main_funcspec_arraysize
+	create STRING main_funcspec_output
+	
+	create STRING cmdName
+	create STRING cmdStr
+	create STRING cmdPrefix
+	create STRING depvars
+	create ARRAY tmp
+	create ARRAY tmp2
+	create ARRAY tmpvalue
+	create SVECTOR tmpvec
+	create DOUBLE tmpsize
+	create DOUBLE loop
+	
+	depvars.setvalue e(depvars)
+	depvars.tokenize tmp
+	depvars.tokenize tmp2
+	depvars.tokenize tmpvalue
+	tmpvec.copyFromArray tmp
+	tmpsize.setvalue class tmpvec.size
+	
+	cmdName.setvalue e(cmd)
+	cmdStr.setvalue e(cmdline)
+	cmdPrefix.setvalue e(prefix)
+	
+	main.bu_ysimspec_edit.disable
+	main.bu_ysimspec_disable.disable
+	main.bu_ysimspec_enable.disable
+	
+	main.bu_funcspec_edit.disable
+	main.bu_funcspec_disable.disable
+	main.bu_funcspec_enable.disable
+END
+
+PROGRAM check_cmd
+BEGIN
+	if !cmdName.equals("bayesmh") | cmdStr.equals("") | cmdPrefix.equals("bayes") {
+		call main.gb_syntax.disable
+		call main.rb_predict.disable
+		call main.rb_posterior.disable
+		call main.rb_reps.disable
+		call main.rb_simulate.disable
+		call main.rb_function.disable
+		call main.rb_postmean.disable
+		call main.rb_postmedian.disable
+		call main.rb_postsd.disable
+		call main.rb_postint.disable
+		call main.gb_varspec.disable
+		call script syntax_ysimspec_disable
+		call script syntax_funcspec_disable
+		call main.tx_varl.disable
+		call main.ed_varl.disable
+		call main.tx_varu.disable
+		call main.ed_varu.disable
+		call main.tx_typel.disable
+		call main.cb_typel.disable
+		
+		call main.gb_opt.disable
+		call main.tx_save.disable
+		call main.fi_save.disable
+		call main.ck_save.disable
+		call main.tx_outcome.disable
+		call main.cb_outcome.disable
+		call main.cb_outcome2.disable
+		call main.ed_mcse.disable
+		call main.tx_mcse.disable
+		call main.sp_level.disable
+		call main.tx_level.disable
+		call main.ck_hpd.disable
+		call main.tx_reps.disable
+		call main.sp_reps.disable
+		
+		call script ifin_disable
+		
+		call simulate.ed_rseed.disable
+		call simulate.tx_rseed.disable
+		call simulate.gb_chains.disable
+		call simulate.rb_chain_all.disable
+		call simulate.rb_chain_nlist.disable
+		call simulate.cb_chains.disable
+		
+		call simulate.ck_dots.disable
+		call script simulate_dots_off
+		
+		call script adv_disable
+		
+		stopbox stop resource BAYESPREDICT_MESSAGEBOX_SUPPORT
+//stopbox "Bayesian predictions are supported only after -bayesmh-." 		
+	}
+	else {
+		call main.gb_syntax.enable
+		call main.rb_predict.enable
+		call main.rb_posterior.enable
+		call main.rb_reps.enable
+		call main.rb_simulate.enable
+		call main.rb_function.enable
+		call main.rb_postmean.enable
+		call main.rb_postmedian.enable
+		call main.rb_postsd.enable
+		call main.rb_postint.enable
+		call main.gb_ysimspec.enable
+		call main.gb_varspec.enable
+		call main.gb_funcspec.enable
+		call main.tx_varl.enable
+		call main.ed_varl.enable
+		call main.tx_varu.enable
+		call main.ed_varu.enable
+		call main.tx_typel.enable
+		call main.cb_typel.enable
+		
+		call main.gb_opt.enable
+		call main.tx_save.enable
+		call main.fi_save.enable
+		call main.ck_save.enable
+		call main.tx_outcome.enable
+		call main.cb_outcome.enable
+		call main.cb_outcome2.enable
+		call main.ed_mcse.enable
+		call main.tx_mcse.enable
+		call main.sp_level.enable
+		call main.tx_level.enable
+		call main.ck_hpd.enable
+		call main.tx_reps.enable
+		call main.sp_reps.enable
+		
+		call program ifin_enable_pr
+		
+		call simulate.ed_rseed.enable
+		call simulate.tx_rseed.enable
+		call program check_nchains
+		call simulate.ck_dots.enable
+		if main.ck_dots {
+			call program simulate_dots_on
+		}
+		else {
+			call script simulate_dots_off
+		}
+	}
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	call program check_cmd
+	
+	if __MESSAGE.contains("-bayesreps-") {
+		call main.rb_reps.seton
+	}
+	else {
+		call main.rb_predict.seton
+	}
+	
+	if main.rb_predict {
+		call program main_predict
+	}
+	if main.rb_posterior {
+		call program main_posterior
+	}
+	if main.rb_reps {
+		call program main_reps
+	}
+	
+	call mainYsimspecCommandDisplayList.copyToArray main_ysimspec_list
+	call main.lb_ysimspecBuild.repopulate
+	
+	call mainFuncspecCommandDisplayList.copyToArray main_funcspec_list
+	call main.lb_funcspecBuild.repopulate
+	
+ 	call program check_nchains
+	
+	if tmpsize.isgt(0) {
+	call tmp.ArrpushR resource BAYES_LBL_PAREN_ALL_PAREN
+	}
+	call main.cb_outcome.setcontentslist tmp
+	call main.cb_outcome.repopulate
+	call main.cb_outcome2.setcontentslist tmp2
+	call main.cb_outcome2.repopulate
+	
+	if tmpsize.isgt(0) {
+	call tmp.ArrpushR resource BAYES_LBL_PAREN_ALL_PAREN
+	}
+	call main.cb_outcome.setvalueslist tmpvalue
+	call main.cb_outcome.setvalue 1
+	call main.cb_outcome2.setvalueslist tmpvalue
+	call main.cb_outcome2.setvalue 1
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	title(resource BAYESPREDICT_DLG_TITLE)
+BEGIN
+  GROUPBOX gb_syntax		_lft	_top	_iwd	295,		///
+	label(resource LBL_SYNTAX)
+  RADIO  rb_predict			_ilft	_ss	_ibwd	.,		///
+	first								///
+	onclickon(program main_predict)					///
+	label(resource BAYESPREDICT_MAIN_RB_PREDICT)
+  RADIO  rb_posterior		_ilft	_ss	_ibwd	.,		///
+	onclickon(program main_posterior)					///
+	label(resource BAYESPREDICT_MAIN_RB_POSTERIOR)
+  RADIO  rb_reps			_ilft	_ss	_ibwd	.,		///
+	last								///
+	onclickon(program main_reps)					///
+	label(resource BAYESPREDICT_MAIN_RB_REPS)
+  RADIO rb_simulate			+15		_ss	425	.,		///
+	first								///
+	onclickon(program main_simulate)					///
+	label(resource BAYESPREDICT_MAIN_RB_SIMULATE)
+  RADIO  rb_function		@		_ss	@	.,		///
+	last								///
+	onclickon(program main_function)				///
+	label(resource BAYES_LBL_FUNCTION_OF_SIMULATED_OUTCOME_RESIDUALS)
+  RADIO rb_postmean			@		_ss	@	.,		///
+	first								///
+	onclickon(program main_postmean)				///
+	label(resource BAYESPREDICT_MAIN_RB_POSTMEAN)
+  RADIO rb_postmedian		@		_ss	@	.,	///
+	onclickon(program main_postmedian)				///
+	label(resource BAYESPREDICT_MAIN_RB_POSTMEDIAN)
+  RADIO rb_postsd			@		_ss	@	.,		///
+	onclickon(program main_postsd)					///
+	label(resource BAYESPREDICT_MAIN_RB_POSTSD)
+  RADIO  rb_postint			@		_ss	@	.,		///
+	last								///
+	onclickon(program main_postint)					///
+	label(resource BAYESPREDICT_MAIN_RB_POSTINT)
+	
+  GROUPBOX gb_ysimspec		_iilft	+20	_iibwd	_ht12,		///
+	label("")
+  DEFINE holdspec @y
+  LISTBOX lb_ysimspecBuild	_indent	_ms	245	95,		///
+	contents(main_ysimspec_list)					///
+	ondblclick(program main_ysimspec_edit)				///
+	onselchange(program main_ysimspec_sel_changed)			///
+	nomemory							///
+	label(resource BAYES_ESS_LBL_RB_SELECTED)
+  BUTTON bu_ysimspec_create	295	@	80	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program main_ysimspec_create)
+  BUTTON bu_ysimspec_edit	@	_ms	@	.,		///
+	label(resource LBL_BU_EDIT)					///
+	onpush(program main_ysimspec_edit)
+  BUTTON bu_ysimspec_disable	@	_ms	@	.,		///
+	label(resource LBL_BU_DISABLE)					///
+	onpush(program main_ysimspec_disable)
+  BUTTON bu_ysimspec_enable	@	_ms	@	.,		///
+	label(resource LBL_BU_ENABLE)					///
+	onpush(program main_ysimspec_enable)
+  TEXTBOX tb_ysimspec_note	40	+25	370	20,		///
+	label(resource LBL_PRESS_CREATE_DEFINE_SPECIFICATION)
+	
+  GROUPBOX gb_funcspec		_iilft	holdspec _iibwd	_ht12,		///
+	label("")
+  LISTBOX lb_funcspecBuild	_indent	_ms	245	95,		///
+	contents(main_funcspec_list)					///
+	ondblclick(program main_funcspec_edit)				///
+	onselchange(program main_funcspec_sel_changed)			///
+	nomemory							///
+	label(resource BAYES_ESS_LBL_RB_SELECTED)
+  BUTTON bu_funcspec_create	295	@	80	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program main_funcspec_create)
+  BUTTON bu_funcspec_edit	@	_ms	@	.,		///
+	label(resource LBL_BU_EDIT)					///
+	onpush(program main_funcspec_edit)
+  BUTTON bu_funcspec_disable	@	_ms	@	.,		///
+	label(resource LBL_BU_DISABLE)					///
+	onpush(program main_funcspec_disable)
+  BUTTON bu_funcspec_enable	@	_ms	@	.,		///
+	label(resource LBL_BU_ENABLE)					///
+	onpush(program main_funcspec_enable)
+  TEXTBOX tb_funcspec_note	40	+25	370	20,		///
+	label(resource LBL_PRESS_CREATE_DEFINE_SPECIFICATION)
+	
+  GROUPBOX gb_varspec		_iilft	holdspec _iibwd	_ht8h,		///
+	label("")
+  TEXT     tx_varl        	_indent	_ss    _vlwd	.,		///
+	label(resource LBL_NEW_VARIABLE_NAME)
+  DEFINE holdvarxl @x
+  DEFINE holdvaryl @y
+  EDIT     ed_varl           	@      	_ss    295	.,		///
+	label(resource LBL_NEW_VARIABLE_NAME)
+
+  TEXT     tx_typel         	340  holdvaryl	_vnwd	.,		///
+	label(resource LBL_NEW_VARIABLE_TYPE)
+  COMBOBOX cb_typel         	@	_ss	_vnwd   .,		///
+	label(resource LBL_TYPE) dropdownlist contents(type) default(c(type))
+	
+  TEXT     tx_varu        	holdvarxl    	_ls    _vlwd        .,	///
+	label(resource LBL_NEW_VARIABLE_NAME)
+  DEFINE holdvaryu @y
+  EDIT     ed_varu           @      _ss    295        .,		///
+	label(resource LBL_NEW_VARIABLE_NAME)
+
+  GROUPBOX gb_opt		_lft	320	_iwd	125,		///
+	label(resource LBL_OPTIONS)
+  
+  TEXT tx_save			_ilft	_ms	_ibwd	.,		///
+	label(resource BAYESPREDICT_MAIN_TX_SAVE)
+  FILE	fi_save			_ilft	_ss	_ibwd	.,		///
+	option(saving)							///
+	defext(dta) 							///
+	save								///
+	error(resource BAYESPREDICT_MAIN_TX_SAVE)		///
+	label(resource LBL_BU_BROWSE)
+  CHECKBOX ck_save		@	_ms	@	.,		///
+	label(resource LBL_OVERWRITE_FILE_IF_IT_ALREADY_EXISTS)
+	
+  COMBOBOX cb_outcome		_ilft	405	_en14wd	.,		///
+	dropdownlist							///
+	option(outcome)							///
+	onselchange(program main_outcome_change)			///
+	label(resource LBL_OUTCOME_VARIABLE, nocolon)
+	
+  COMBOBOX cb_outcome2		@	@	_en14wd	.,		///
+	dropdownlist							///
+	option(outcome)							///
+	label(resource LBL_OUTCOME_VARIABLE, nocolon)
+	
+  TEXT tx_outcome		_en14sep	@	340	.,	///
+	label(resource LBL_OUTCOME_VARIABLE, nocolon)
+	
+  EDIT ed_mcse			_ilft	405	_en14wd	.,		///
+	option(mcse)							///
+	label(resource BAYESPREDICT_MAIN_TX_MCSE)
+	
+  TEXT tx_mcse		_en14sep	@	340	.,		///
+	label(resource BAYESPREDICT_MAIN_TX_MCSE)
+
+  SPINNER sp_reps		_ilft	405	_en14wd	.,		///
+	option(nreps)							///
+	default(1) min(1) max(e(mcmcsize))				///
+	onchange(program main_reps_change)				///
+	label(resource BAYESPREDICT_MAIN_TX_REPS)
+	
+  TEXT tx_reps		_en14sep	@	340	.,		///
+	label(resource BAYESPREDICT_MAIN_TX_REPS)
+	
+  COMBOBOX  sp_level		_ilft	405	_en14wd	.,		///
+	dropdown							///
+	label(resource BAYES_LBL_TX_LEVEL)				///
+	default(c(level))						///
+	contents(clevels)						///
+	option(clevel)
+  TEXT	    tx_level		_en14sep @	300	.,		///
+	label(resource BAYES_LBL_TX_LEVEL)
+  CHECKBOX ck_hpd		_ilft	_ls	_ibwd	.,		///
+	option(hpd)							///
+	label(resource BAYESPREDICT_MAIN_CK_HPD)
+END
+
+LIST type
+BEGIN
+  float
+  double
+  long
+  int
+  byte
+END
+
+LIST clevels
+BEGIN
+	99.9 
+	99.5
+	99
+	97.5
+	95
+	90
+	80
+END
+
+SCRIPT main_predict_common
+BEGIN
+	script syntax_ysimspec_hide
+	script syntax_funcspec_hide
+	script syntax_simulated_hidel
+	script syntax_simulated_hideu
+	script syntax_ysimspec_disable
+	script syntax_funcspec_disable
+	script adv_disable
+	
+	main.tx_save.show 
+	main.fi_save.show
+	main.ck_save.show
+	main.tx_outcome.hide 
+	main.cb_outcome.hide
+	main.cb_outcome2.hide
+	main.ed_mcse.hide 
+	main.tx_mcse.hide
+	main.sp_reps.hide
+	main.tx_reps.hide
+	main.sp_level.hide 
+	main.tx_level.hide 
+	main.ck_hpd.hide
+END
+
+PROGRAM main_predict
+BEGIN
+	call main.rb_simulate.show 
+	call main.rb_function.show 
+	call main.rb_postmean.hide 
+	call main.rb_postmedian.hide 
+	call main.rb_postsd.hide 
+	call main.rb_postint.hide
+	call main.rb_simulate.setposition . 50
+	call main.rb_function.setposition . 70
+	call main.rb_posterior.setposition . 90 
+	call main.rb_reps.setposition . 110
+	
+	if main.rb_simulate {
+		call program main_simulate
+	}
+	if main.rb_function {
+		call program main_function
+	}
+END
+
+PROGRAM main_simulate
+BEGIN	
+	call script main_predict_common
+	call script syntax_ysimspec_show
+	
+	if main.rb_simulate.isenabled() {
+		call main.lb_ysimspecBuild.enable
+		call main.tb_ysimspec_note.enable
+		call main.bu_ysimspec_create.enable
+	}
+	call main.gb_ysimspec.setposition . 135
+	call main.lb_ysimspecBuild.setposition . 160
+	call main.bu_ysimspec_create.setposition . 160
+	call main.bu_ysimspec_edit.setposition . 185
+	call main.bu_ysimspec_disable.setposition . 210
+	call main.bu_ysimspec_enable.setposition . 235
+	call main.tb_ysimspec_note.setposition . 260
+END
+
+PROGRAM main_function
+BEGIN
+	call script main_predict_common
+	call script syntax_funcspec_show
+	
+	if main.rb_simulate.isenabled() {
+		call main.lb_funcspecBuild.enable
+		call main.tb_funcspec_note.enable
+		call main.bu_funcspec_create.enable
+	}
+	call main.gb_funcspec.setposition . 135
+	call main.lb_funcspecBuild.setposition . 160
+	call main.bu_funcspec_create.setposition . 160
+	call main.bu_funcspec_edit.setposition . 185
+	call main.bu_funcspec_disable.setposition . 210
+	call main.bu_funcspec_enable.setposition . 235
+	call main.tb_funcspec_note.setposition . 260
+END
+
+SCRIPT main_posterior_common
+BEGIN
+	script syntax_ysimspec_hide
+	script syntax_funcspec_hide
+	script syntax_simulated_hidel
+	script syntax_simulated_hideu
+	
+	main.tx_save.hide 
+	main.fi_save.hide
+	main.ck_save.hide
+	main.tx_outcome.hide 
+	main.cb_outcome.hide
+	main.cb_outcome2.hide
+	main.ed_mcse.hide 
+	main.tx_mcse.hide
+	main.sp_reps.hide
+	main.tx_reps.hide
+	main.sp_level.hide 
+	main.tx_level.hide 
+	main.ck_hpd.hide
+END
+
+PROGRAM main_posterior
+BEGIN
+	call main.rb_simulate.hide 
+	call main.rb_function.hide 
+	call main.rb_postmean.show 
+	call main.rb_postmedian.show 
+	call main.rb_postsd.show 
+	call main.rb_postint.show
+	call main.rb_posterior.setposition . 50
+	call main.rb_postmean.setposition . 70
+	call main.rb_postmedian.setposition . 90
+	call main.rb_postsd.setposition . 110
+	call main.rb_postint.setposition . 130 
+	call main.rb_reps.setposition . 150
+	
+	if main.rb_postmean {
+		call program main_postmean
+	}
+	if main.rb_postmedian {
+		call program main_postmedian
+	}
+	if main.rb_postsd {
+		call program main_postsd
+	}
+	if main.rb_postint {
+		call program main_postint
+	}
+END
+
+PROGRAM main_postmean
+BEGIN
+	call script main_posterior_common
+	call program main_outcome_change
+	call script syntax_simulated_showl
+	call program batch_change
+	call program corr_change
+	
+	call main.gb_varspec.setposition . 175
+	call main.tx_varl.setposition 40 190
+    call main.ed_varl.setposition 40 210
+    call main.tx_typel.setposition 340 190
+    call main.cb_typel.setposition 340 210
+	
+	call main.tx_outcome.show 
+	call main.cb_outcome.show
+	call main.tx_outcome.setposition . 345 
+	call main.cb_outcome.setposition . 345 
+	call main.ed_mcse.show 
+	call main.tx_mcse.show
+	call main.ed_mcse.setposition . 380
+	call main.tx_mcse.setposition . 380
+END
+
+PROGRAM main_postmedian
+BEGIN
+	call script main_posterior_common
+	call program main_outcome_change
+	call script syntax_simulated_showl
+	call script adv_disable
+	
+	call main.gb_varspec.setposition . 175
+	call main.tx_varl.setposition 40 190
+    call main.ed_varl.setposition 40 210
+    call main.tx_typel.setposition 340 190
+    call main.cb_typel.setposition 340 210
+	
+	call main.tx_outcome.show 
+	call main.cb_outcome.show
+	call main.tx_outcome.setposition . 345 
+	call main.cb_outcome.setposition . 345 
+END
+
+PROGRAM main_postsd
+BEGIN
+	call script main_posterior_common
+	call program main_outcome_change
+	call script syntax_simulated_showl
+	call script adv_disable
+	
+	call main.gb_varspec.setposition . 175
+	call main.tx_varl.setposition 40 190
+    call main.ed_varl.setposition 40 210
+    call main.tx_typel.setposition 340 190
+    call main.cb_typel.setposition 340 210
+	
+	call main.tx_outcome.show 
+	call main.cb_outcome.show
+	call main.tx_outcome.setposition . 345 
+	call main.cb_outcome.setposition . 345 
+END
+
+PROGRAM main_postint
+BEGIN
+	call script main_posterior_common
+	call script syntax_simulated_showl
+	call script syntax_simulated_showu
+	call program main_outcome2_change
+	call script adv_disable
+	
+	call main.gb_varspec.setposition . 175
+	call main.tx_varl.setposition 40 190
+	call main.ed_varl.setposition 40 210
+	call main.tx_varu.setposition 40 235
+	call main.ed_varu.setposition 40 255
+	call main.tx_typel.setposition 340 190
+	call main.cb_typel.setposition 340 210
+
+	call main.tx_outcome.show 
+	call main.cb_outcome.hide
+	call main.cb_outcome2.show
+	call main.tx_outcome.setposition . 345 
+	call main.cb_outcome2.setposition . 345 
+	call main.sp_level.show 
+	call main.tx_level.show 
+	call main.ck_hpd.show
+	call main.sp_level.setposition . 380
+	call main.tx_level.setposition . 380
+	call main.ck_hpd.setposition . 415
+END
+
+PROGRAM main_reps
+BEGIN
+	call script syntax_ysimspec_hide
+	call script syntax_funcspec_hide
+	call script syntax_simulated_showl
+	call script syntax_simulated_hideu
+	call program main_outcome2_change
+	call script adv_disable
+	
+	call main.rb_simulate.hide 
+	call main.rb_function.hide 
+	call main.rb_postmean.hide 
+	call main.rb_postmedian.hide 
+	call main.rb_postsd.hide 
+	call main.rb_postint.hide
+	call main.rb_posterior.setposition . 50
+	call main.rb_reps.setposition . 70
+	
+	call main.gb_varspec.setposition . 95
+	call main.tx_varl.setposition 40 110
+	call main.ed_varl.setposition 40 130
+	call main.tx_typel.setposition 340 110
+	call main.cb_typel.setposition 340 130
+	
+	call main.tx_save.hide 
+	call main.fi_save.hide
+	call main.ck_save.hide
+	call main.tx_outcome.show  
+	call main.cb_outcome.hide
+	call main.cb_outcome2.show
+	call main.tx_outcome.setposition . 380 
+	call main.cb_outcome2.setposition . 380 
+	call main.ed_mcse.hide 
+	call main.tx_mcse.hide
+	call main.sp_reps.show
+	call main.tx_reps.show
+	call main.sp_reps.setposition . 345
+	call main.tx_reps.setposition . 345	
+	call main.sp_level.hide 
+	call main.tx_level.hide 
+	call main.ck_hpd.hide
+END
+
+PROGRAM main_outcome_change
+BEGIN
+	if main.cb_outcome.equals("(All)") {
+		if tmpsize.isgt(1) {
+			call tmpsize.withvalue				///
+				sTMP.format "Specify {0} new variable names or variables stub*:" "@"
+			call sTMP.withvalue main.tx_varl.setlabel "@"
+			call sTMP.withvalue main.ed_varl.setlabel "@"
+			call main.tx_typel.setlabel resource LBL_NEW_VARIABLES_TYPE
+			call main.tx_mcse.setlabel resource BAYESPREDICT_MAIN_TX_MCSE2
+			call main.ed_mcse.setlabel resource BAYESPREDICT_MAIN_TX_MCSE2
+		}
+		else {
+			call main.tx_varl.setlabel resource BAYES_LBL_SPECIFY_ONE_NEW_VARIABLE_NAME
+			call main.ed_varl.setlabel resource BAYES_LBL_SPECIFY_ONE_NEW_VARIABLE_NAME
+			call main.tx_typel.setlabel resource LBL_NEW_VARIABLE_TYPE
+			call main.tx_mcse.setlabel resource BAYESPREDICT_MAIN_TX_MCSE
+			call main.ed_mcse.setlabel resource BAYESPREDICT_MAIN_TX_MCSE
+		}
+	}
+	else {
+		call main.tx_varl.setlabel resource LBL_NEW_VARIABLE_NAME
+		call main.ed_varl.setlabel resource LBL_NEW_VARIABLE_NAME
+		call main.tx_typel.setlabel resource LBL_NEW_VARIABLE_TYPE
+		call main.tx_mcse.setlabel resource BAYESPREDICT_MAIN_TX_MCSE
+		call main.ed_mcse.setlabel resource BAYESPREDICT_MAIN_TX_MCSE
+	}
+END
+
+PROGRAM main_outcome2_change
+BEGIN
+	if main.rb_postint {
+	call main.tx_varl.setlabel resource BAYES_LBL_NEW_VARIABLE_NAME_FOR_LOWER_BOUND
+	call main.ed_varl.setlabel resource BAYES_LBL_NEW_VARIABLE_NAME_FOR_LOWER_BOUND
+	call main.tx_varu.setlabel resource BAYES_LBL_NEW_VARIABLE_NAME_FOR_UPPER_BOUND
+	call main.ed_varu.setlabel resource BAYES_LBL_NEW_VARIABLE_NAME_FOR_UPPER_BOUND
+	call main.tx_typel.setlabel resource LBL_NEW_VARIABLES_TYPE
+	}
+	if main.rb_reps {
+		call program main_reps_change
+	}
+END
+
+PROGRAM main_reps_change
+BEGIN
+	if main.sp_reps.equals(1) {
+		call main.tx_varl.setlabel resource LBL_NEW_VARIABLE_NAME
+		call main.ed_varl.setlabel resource LBL_NEW_VARIABLE_NAME
+		call main.tx_typel.setlabel resource LBL_NEW_VARIABLE_TYPE
+	}
+	else {
+	call main.tx_varl.setlabel resource BAYES_LBL_SPECIFY_VARIABLES_STUB
+	call main.ed_varl.setlabel resource BAYES_LBL_SPECIFY_VARIABLES_STUB
+	call main.tx_typel.setlabel resource LBL_NEW_VARIABLES_TYPE
+	}
+END
+
+SCRIPT syntax_ysimspec_show
+BEGIN
+	main.gb_ysimspec.show
+	main.lb_ysimspecBuild.show
+	main.bu_ysimspec_create.show
+	main.bu_ysimspec_edit.show
+	main.bu_ysimspec_disable.show
+	main.bu_ysimspec_enable.show
+	main.tb_ysimspec_note.show
+	program show_reffects_disable
+	program main_ysimspec_sel_changed
+END
+
+SCRIPT syntax_ysimspec_hide
+BEGIN
+	main.gb_ysimspec.hide
+	main.lb_ysimspecBuild.hide
+	main.bu_ysimspec_create.hide
+	main.bu_ysimspec_edit.hide
+	main.bu_ysimspec_disable.hide
+	main.bu_ysimspec_enable.hide
+	main.tb_ysimspec_note.hide
+END
+
+SCRIPT syntax_ysimspec_disable
+BEGIN
+	main.gb_ysimspec.disable
+	main.lb_ysimspecBuild.disable
+	main.bu_ysimspec_create.disable
+	main.bu_ysimspec_edit.disable
+	main.bu_ysimspec_disable.disable
+	main.bu_ysimspec_enable.disable
+	main.tb_ysimspec_note.disable
+END
+
+SCRIPT syntax_funcspec_show
+BEGIN
+	main.gb_funcspec.show
+	main.lb_funcspecBuild.show
+	main.bu_funcspec_create.show
+	main.bu_funcspec_edit.show
+	main.bu_funcspec_disable.show
+	main.bu_funcspec_enable.show
+	main.tb_funcspec_note.show
+	program show_reffects_disable
+	program main_funcspec_sel_changed
+END
+
+SCRIPT syntax_funcspec_hide
+BEGIN
+	main.gb_funcspec.hide
+	main.lb_funcspecBuild.hide
+	main.bu_funcspec_create.hide
+	main.bu_funcspec_edit.hide
+	main.bu_funcspec_disable.hide
+	main.bu_funcspec_enable.hide
+	main.tb_funcspec_note.hide
+END
+
+SCRIPT syntax_funcspec_disable
+BEGIN
+	main.gb_funcspec.disable
+	main.lb_funcspecBuild.disable
+	main.bu_funcspec_create.disable
+	main.bu_funcspec_edit.disable
+	main.bu_funcspec_disable.disable
+	main.bu_funcspec_enable.disable
+	main.tb_funcspec_note.disable
+END
+
+SCRIPT syntax_simulated_showl
+BEGIN
+	main.gb_varspec.show
+	main.tx_varl.show 
+	main.ed_varl.show 
+	main.tx_typel.show
+	main.cb_typel.show
+END
+
+SCRIPT syntax_simulated_hidel
+BEGIN
+	main.gb_varspec.hide
+	main.tx_varl.hide 
+	main.ed_varl.hide 
+	main.tx_typel.hide
+	main.cb_typel.hide
+END
+
+SCRIPT syntax_simulated_showu
+BEGIN
+	main.tx_varu.show 
+	main.ed_varu.show 
+END
+
+SCRIPT syntax_simulated_hideu
+BEGIN
+	main.tx_varu.hide 
+	main.ed_varu.hide 
+END
+
+PROGRAM main_ysimspec_create
+BEGIN
+	call main_ysimspec_count.setvalue class mainYsimspecChildDialogList.size
+	call main_ysimspec_count.increment
+	call main_ysim_tmp.setvalue "main_ysimspec_"
+	call main_ysim_tmp.append class main_ysimspec_count.value
+	call main_ysim_tmp.withvalue main_ysim_childdlg.setvalue @
+	call program main_show_ysimspec_child
+END
+
+PROGRAM main_ysimspec_edit
+BEGIN
+	call mainYsimspecCommandDisplayList.findstr class		///
+		main.lb_ysimspecBuild.value
+	call main_ysim_position.setvalue class				///
+		mainYsimspecCommandDisplayList.position
+	call main_ysim_position.withvalue				///
+		main_ysim_childdlg.setvalue				///
+		class mainYsimspecChildDialogList.values[@]
+	call program main_show_ysimspec_child_edit
+END
+
+PROGRAM main_show_ysimspec_child
+BEGIN
+	call main_ysim_tmp.setvalue "bayespredict_ysimspec AS "
+	call main_ysim_tmp.append class main_ysim_childdlg.value
+	call main_ysim_tmp.withvalue create CHILD @
+	call main_ysim_childdlg.withvalue @.setExitString		///
+		"main_ysim_child_result"
+	call main_ysim_childdlg.withvalue @.setExitAction		///
+		"program main_ysimspec_child_create_done"
+
+	call main_ysimspec_count.withvalue				///
+		sTMP.format "resource LBL_SPECIFICATION_FMT" "@" ""
+
+	call main_ysim_childdlg.withvalue				///
+		main_ysim_tmp2.setvalue "@.settitle"
+	call main_ysim_tmp2.append `" ""'
+	call main_ysim_tmp2.append class sTMP.value
+	call main_ysim_tmp2.append `"""'
+	call main_ysim_tmp2.withvalue @
+END
+
+PROGRAM main_show_ysimspec_child_edit
+BEGIN
+	call main_ysim_tmp.setvalue "bayespredict_ysimspec AS "
+	call main_ysim_tmp.append class main_ysim_childdlg.value
+	call main_ysim_tmp.withvalue create CHILD @
+	call main_ysim_childdlg.withvalue @.setExitString		///
+		"main_ysim_child_result"
+	call main_ysim_childdlg.withvalue @.setExitAction		///
+		"program main_ysimspec_child_edit_done"
+
+	call main_ysim_position.withvalue				///
+		main_ysim_tmp.setvalue					///
+		class mainYsimspecCommandDisplayList.values[@]
+	call main_ysim_childdlg.withvalue				///
+		main_ysim_tmp2.setvalue "@.settitle"
+	call main_ysim_tmp2.append `" ""'
+	call main_ysim_tmp2.append class main_ysim_tmp.value
+	call main_ysim_tmp2.append `"""'
+	call main_ysim_tmp2.withvalue @
+END
+
+PROGRAM main_ysimspec_child_create_done
+BEGIN
+	call main_ysimspec_arraysize.setvalue class			///
+		mainYsimspecChildDialogList.size
+	call main_ysimspec_arraysize.increment
+
+	/* Store child dialog name */
+	call mainYsimspecChildDialogList.store class			///
+		main_ysimspec_arraysize.value class main_ysim_childdlg.value
+
+	call main_ysimspec_arraysize.withvalue				///
+		sTMP.format "resource LBL_SPECIFICATION_FMT" "@" ""
+
+	/* Store listbox display equation string */
+	call sTMP.withvalue						///
+		mainYsimspecCommandDisplayList.store class		///
+		main_ysimspec_arraysize.value "@"
+
+	/* Store child dialog result string */
+	call mainYsimspecCommandList.store class			///
+		main_ysimspec_arraysize.value				///
+		class main_ysim_child_result.value
+
+
+	/* Store child dialog result string for final command
+	   For disable/enable */
+	call mainYsimspecCommandValues.store class			///
+		main_ysimspec_arraysize.value				///
+		class main_ysim_child_result.value
+
+	/* Store disable/enable status */
+	call mainYsimspecStatusList.store class				///
+		main_ysimspec_arraysize.value "active"
+
+	call mainYsimspecCommandDisplayList.copyToArray main_ysimspec_list
+	call main.lb_ysimspecBuild.repopulate
+	call sTMP.withvalue main.lb_ysimspecBuild.setvalue "@"
+END
+
+PROGRAM main_ysimspec_child_edit_done
+BEGIN
+	call mainYsimspecChildDialogList.findstr class			///
+		main_ysim_childdlg.value
+	call main_ysim_position.setvalue class				///
+		mainYsimspecChildDialogList.position
+	call main_ysim_position.withvalue main_ysim_tmp.setvalue	///
+		class mainYsimspecStatusList.values[@]
+	if main_ysim_tmp.iseq("active") {
+
+		call main_ysim_position.withvalue			///
+			sTMP.format "resource LBL_SPECIFICATION_FMT" "@" ""
+
+		call sTMP.withvalue					///
+			mainYsimspecCommandDisplayList.store class	///
+			main_ysim_position.value "@"
+		call mainYsimspecCommandValues.store class		///
+			main_ysim_position.value class			///
+			main_ysim_child_result.value
+
+		call sTMP.withvalue					///
+			main_ysim_tmp2.setvalue "@"
+	}
+	else {
+		call main_ysim_position.withvalue			///
+			sTMP.format "resource LBL_SPECIFICATION_FMT" "@" "resource LBL_PAREN_DISABLED"
+
+		call sTMP.withvalue					///
+			main_ysim_tmp2.setvalue "@"
+
+		call main_ysim_tmp2.withvalue				///
+			mainYsimspecCommandDisplayList.store		///
+			class main_ysim_position.value "@"
+	}
+
+	call mainYsimspecCommandList.store class			///
+		main_ysim_position.value class				///
+		main_ysim_child_result.value
+
+	call mainYsimspecCommandDisplayList.copyToArray main_ysimspec_list
+	call main.lb_ysimspecBuild.repopulate
+	call main.lb_ysimspecBuild.setvalue class main_ysim_tmp2.value
+END
+
+PROGRAM main_ysimspec_sel_changed
+BEGIN
+	call mainYsimspecCommandDisplayList.findstr class		///
+		main.lb_ysimspecBuild.value
+	call main_ysim_position.setvalue class				///
+		mainYsimspecCommandDisplayList.position
+	call main_ysim_position.withvalue main_ysim_tmp.setvalue	///
+		class mainYsimspecStatusList.values[@]
+	if main_ysim_position {
+		if main.lb_ysimspecBuild.isenabled() {
+			call main.bu_ysimspec_edit.enable
+		}
+
+		call main_ysim_position.withvalue			///
+			main.tb_ysimspec_note.setlabel			///
+		class mainYsimspecCommandList.values[@]
+	}
+
+	if main_ysim_tmp.iseq("disable") & main.lb_ysimspecBuild.isenabled() {
+		call main.bu_ysimspec_enable.enable
+		call main.bu_ysimspec_disable.disable
+	}
+	if main_ysim_tmp.iseq("active") & main.lb_ysimspecBuild.isenabled() {
+		call main.bu_ysimspec_enable.disable
+		call main.bu_ysimspec_disable.enable
+	}
+END
+
+PROGRAM main_ysimspec_disable
+BEGIN
+	call mainYsimspecCommandDisplayList.findstr class		///
+		main.lb_ysimspecBuild.value
+	call main_ysim_position.setvalue class				///
+		mainYsimspecCommandDisplayList.position
+
+	call main_ysim_tmp.setvalue class main.lb_ysimspecBuild.value
+	call mainYsimspecStatusList.store class				///
+		main_ysim_position.value "disable"
+	call mainYsimspecCommandValues.store class main_ysim_position.value ""
+
+	call main_ysim_position.withvalue				///
+		sTMP.format "resource LBL_SPECIFICATION_FMT" "@" "resource LBL_PAREN_DISABLED"
+
+	call sTMP.withvalue						///
+		mainYsimspecCommandDisplayList.store			///
+		class main_ysim_position.value "@"
+
+	call mainYsimspecCommandDisplayList.copyToArray main_ysimspec_list
+	call sTMP.withvalue main_ysim_tmp2.setvalue "@"
+	call main.lb_ysimspecBuild.repopulate
+	call main.lb_ysimspecBuild.setvalue class main_ysim_tmp2.value
+END
+
+PROGRAM main_ysimspec_enable
+BEGIN
+	call mainYsimspecCommandDisplayList.findstr class		///
+		main.lb_ysimspecBuild.value
+	call main_ysim_position.setvalue class				///
+		mainYsimspecCommandDisplayList.position
+
+	call mainYsimspecStatusList.store class				///
+		main_ysim_position.value "active"
+	call main_ysim_position.withvalue				///
+		mainYsimspecCommandValues.store				///
+		class main_ysim_position.value class			///
+		mainYsimspecCommandList.values[@]
+
+	call main_ysim_position.withvalue				///
+		sTMP.format "resource LBL_SPECIFICATION_FMT" "@" ""
+
+	call sTMP.withvalue						///
+		mainYsimspecCommandDisplayList.store			///
+		class main_ysim_position.value "@"
+
+
+	call mainYsimspecCommandDisplayList.copyToArray main_ysimspec_list
+	call main_ysim_position.withvalue				///
+		main_ysim_tmp2.setvalue class				///
+		mainYsimspecCommandDisplayList.values[@]
+	call main.lb_ysimspecBuild.repopulate
+	call main.lb_ysimspecBuild.setvalue class main_ysim_tmp2.value
+END
+
+PROGRAM main_funcspec_create
+BEGIN
+	call main_funcspec_count.setvalue class mainFuncspecChildDialogList.size
+	call main_funcspec_count.increment
+	call main_func_tmp.setvalue "main_funcspec_"
+	call main_func_tmp.append class main_funcspec_count.value
+	call main_func_tmp.withvalue main_func_childdlg.setvalue @
+	call program main_show_funcspec_child
+END
+
+PROGRAM main_funcspec_edit
+BEGIN
+	call mainFuncspecCommandDisplayList.findstr class		///
+		main.lb_funcspecBuild.value
+	call main_func_position.setvalue class				///
+		mainFuncspecCommandDisplayList.position
+	call main_func_position.withvalue				///
+		main_func_childdlg.setvalue				///
+		class mainFuncspecChildDialogList.values[@]
+	call program main_show_funcspec_child_edit
+END
+
+PROGRAM main_show_funcspec_child
+BEGIN
+	call main_func_tmp.setvalue "bayespredict_funcspec AS "
+	call main_func_tmp.append class main_func_childdlg.value
+	call main_func_tmp.withvalue create CHILD @
+	call main_func_childdlg.withvalue @.setExitString		///
+		"main_func_child_result"
+	call main_func_childdlg.withvalue @.setExitAction		///
+		"program main_funcspec_child_create_done"
+
+	call main_funcspec_count.withvalue				///
+		sTMP.format "resource LBL_SPECIFICATION_FMT" "@" ""
+
+	call main_func_childdlg.withvalue				///
+		main_func_tmp2.setvalue "@.settitle"
+	call main_func_tmp2.append `" ""'
+	call main_func_tmp2.append class sTMP.value
+	call main_func_tmp2.append `"""'
+	call main_func_tmp2.withvalue @
+END
+
+PROGRAM main_show_funcspec_child_edit
+BEGIN
+	call main_func_tmp.setvalue "bayespredict_funcspec AS "
+	call main_func_tmp.append class main_func_childdlg.value
+	call main_func_tmp.withvalue create CHILD @
+	call main_func_childdlg.withvalue @.setExitString		///
+		"main_func_child_result"
+	call main_func_childdlg.withvalue @.setExitAction		///
+		"program main_funcspec_child_edit_done"
+
+	call main_func_position.withvalue				///
+		main_func_tmp.setvalue					///
+		class mainFuncspecCommandDisplayList.values[@]
+	call main_func_childdlg.withvalue				///
+		main_func_tmp2.setvalue "@.settitle"
+	call main_func_tmp2.append `" ""'
+	call main_func_tmp2.append class main_func_tmp.value
+	call main_func_tmp2.append `"""'
+	call main_func_tmp2.withvalue @
+END
+
+PROGRAM main_funcspec_child_create_done
+BEGIN
+	call main_funcspec_arraysize.setvalue class			///
+		mainFuncspecChildDialogList.size
+	call main_funcspec_arraysize.increment
+
+	/* Store child dialog name */
+	call mainFuncspecChildDialogList.store class			///
+		main_funcspec_arraysize.value class main_func_childdlg.value
+
+	call main_funcspec_arraysize.withvalue				///
+		sTMP.format "resource LBL_SPECIFICATION_FMT" "@" ""
+
+	/* Store listbox display equation string */
+	call sTMP.withvalue						///
+		mainFuncspecCommandDisplayList.store class		///
+		main_funcspec_arraysize.value "@"
+
+	/* Store child dialog result string */
+	call mainFuncspecCommandList.store class			///
+		main_funcspec_arraysize.value				///
+		class main_func_child_result.value
+
+
+	/* Store child dialog result string for final command
+	   For disable/enable */
+	call mainFuncspecCommandValues.store class			///
+		main_funcspec_arraysize.value				///
+		class main_func_child_result.value
+
+	/* Store disable/enable status */
+	call mainFuncspecStatusList.store class				///
+		main_funcspec_arraysize.value "active"
+
+	call mainFuncspecCommandDisplayList.copyToArray main_funcspec_list
+	call main.lb_funcspecBuild.repopulate
+	call sTMP.withvalue main.lb_funcspecBuild.setvalue "@"
+END
+
+PROGRAM main_funcspec_child_edit_done
+BEGIN
+	call mainFuncspecChildDialogList.findstr class			///
+		main_func_childdlg.value
+	call main_func_position.setvalue class				///
+		mainFuncspecChildDialogList.position
+	call main_func_position.withvalue main_func_tmp.setvalue	///
+		class mainFuncspecStatusList.values[@]
+	if main_func_tmp.iseq("active") {
+
+		call main_func_position.withvalue			///
+			sTMP.format "resource LBL_SPECIFICATION_FMT" "@" ""
+
+		call sTMP.withvalue					///
+			mainFuncspecCommandDisplayList.store class	///
+			main_func_position.value "@"
+		call mainFuncspecCommandValues.store class		///
+			main_func_position.value class			///
+			main_func_child_result.value
+
+		call sTMP.withvalue					///
+			main_func_tmp2.setvalue "@"
+	}
+	else {
+		call main_func_position.withvalue			///
+			sTMP.format "resource LBL_SPECIFICATION_FMT" "@" "resource LBL_PAREN_DISABLED"
+
+		call sTMP.withvalue					///
+			main_func_tmp2.setvalue "@"
+
+		call main_func_tmp2.withvalue				///
+			mainFuncspecCommandDisplayList.store		///
+			class main_func_position.value "@"
+	}
+
+	call mainFuncspecCommandList.store class			///
+		main_func_position.value class				///
+		main_func_child_result.value
+
+	call mainFuncspecCommandDisplayList.copyToArray main_funcspec_list
+	call main.lb_funcspecBuild.repopulate
+	call main.lb_funcspecBuild.setvalue class main_func_tmp2.value
+END
+
+PROGRAM main_funcspec_sel_changed
+BEGIN
+	call mainFuncspecCommandDisplayList.findstr class		///
+		main.lb_funcspecBuild.value
+	call main_func_position.setvalue class				///
+		mainFuncspecCommandDisplayList.position
+	call main_func_position.withvalue main_func_tmp.setvalue	///
+		class mainFuncspecStatusList.values[@]
+	if main_func_position {
+		if main.lb_funcspecBuild.isenabled() {
+			call main.bu_funcspec_edit.enable
+		}
+
+		call main_func_position.withvalue			///
+			main.tb_funcspec_note.setlabel			///
+		class mainFuncspecCommandList.values[@]
+	}
+
+	if main_func_tmp.iseq("disable") & main.lb_funcspecBuild.isenabled() {
+		call main.bu_funcspec_enable.enable
+		call main.bu_funcspec_disable.disable
+	}
+	if main_func_tmp.iseq("active") & main.lb_funcspecBuild.isenabled() {
+		call main.bu_funcspec_enable.disable
+		call main.bu_funcspec_disable.enable
+	}
+END
+
+PROGRAM main_funcspec_disable
+BEGIN
+	call mainFuncspecCommandDisplayList.findstr class		///
+		main.lb_funcspecBuild.value
+	call main_func_position.setvalue class				///
+		mainFuncspecCommandDisplayList.position
+
+	call main_func_tmp.setvalue class main.lb_funcspecBuild.value
+	call mainFuncspecStatusList.store class				///
+		main_func_position.value "disable"
+	call mainFuncspecCommandValues.store class main_func_position.value ""
+
+	call main_func_position.withvalue				///
+		sTMP.format "resource LBL_SPECIFICATION_FMT" "@" "resource LBL_PAREN_DISABLED"
+
+	call sTMP.withvalue						///
+		mainFuncspecCommandDisplayList.store			///
+		class main_func_position.value "@"
+
+	call mainFuncspecCommandDisplayList.copyToArray main_funcspec_list
+	call sTMP.withvalue main_func_tmp2.setvalue "@"
+	call main.lb_funcspecBuild.repopulate
+	call main.lb_funcspecBuild.setvalue class main_func_tmp2.value
+END
+
+PROGRAM main_funcspec_enable
+BEGIN
+	call mainFuncspecCommandDisplayList.findstr class		///
+		main.lb_funcspecBuild.value
+	call main_func_position.setvalue class				///
+		mainFuncspecCommandDisplayList.position
+
+	call mainFuncspecStatusList.store class				///
+		main_func_position.value "active"
+	call main_func_position.withvalue				///
+		mainFuncspecCommandValues.store				///
+		class main_func_position.value class			///
+		mainFuncspecCommandList.values[@]
+
+	call main_func_position.withvalue				///
+		sTMP.format "resource LBL_SPECIFICATION_FMT" "@" ""
+
+	call sTMP.withvalue						///
+		mainFuncspecCommandDisplayList.store			///
+		class main_func_position.value "@"
+
+
+	call mainFuncspecCommandDisplayList.copyToArray main_funcspec_list
+	call main_func_position.withvalue				///
+		main_func_tmp2.setvalue class				///
+		mainFuncspecCommandDisplayList.values[@]
+	call main.lb_funcspecBuild.repopulate
+	call main.lb_funcspecBuild.setvalue class main_func_tmp2.value
+END
+
+PROGRAM check_nchains
+BEGIN
+	call create STRING cmdName
+	call create STRING cmdPrefix
+	call create DOUBLE nchains
+	call create DOUBLE hasnchain
+	
+	call hasnchain.setvalue 0
+	call cmdName.setvalue e(cmd)
+	call cmdPrefix.setvalue e(prefix)
+	call nchains.setvalue e(nchains)
+	
+	call simulate.gb_chains.enable
+	call simulate.rb_chain_all.enable
+	call simulate.rb_chain_nlist.enable
+	call simulate.cb_chains.enable
+
+	if simulate.rb_chain_all {
+		call simulate.cb_chains.disable
+	}
+	
+	if cmdName.equals("bayesmh") {
+		call hasnchain.setvalue 1
+	}
+	if cmdPrefix.equals("bayes") {
+		call hasnchain.setvalue 1
+	}	
+
+	if nchains.iseq(2) {
+		call simulate.cb_chains.setcontentslist main_chain2_values
+	}
+	if nchains.iseq(3) {
+		call simulate.cb_chains.setcontentslist main_chain3_values
+	}
+	if nchains.iseq(4) {
+		call simulate.cb_chains.setcontentslist main_chain4_values
+	}
+	if nchains.iseq(5) {
+		call simulate.cb_chains.setcontentslist main_chain5_values
+	}
+	if nchains.iseq(6) {
+		call simulate.cb_chains.setcontentslist main_chain6_values
+	}
+	if nchains.iseq(7) {
+		call simulate.cb_chains.setcontentslist main_chain7_values
+	}
+	if nchains.iseq(8) {
+		call simulate.cb_chains.setcontentslist main_chain8_values
+	}
+	if nchains.iseq(9) {
+		call simulate.cb_chains.setcontentslist main_chain9_values
+	}
+	if nchains.iseq(10) {
+		call simulate.cb_chains.setcontentslist main_chain10_values
+	}
+	if nchains.islt(2) | !hasnchain {
+		call simulate.gb_chains.disable
+		call simulate.rb_chain_all.disable
+		call simulate.rb_chain_nlist.disable
+		call simulate.cb_chains.disable
+	}
+	call simulate.cb_chains.repopulate
+END
+
+SCRIPT main_chains_all_on
+BEGIN
+	simulate.cb_chains.disable
+END
+
+SCRIPT main_chains_nlist_on
+BEGIN
+	simulate.cb_chains.enable
+END
+
+PROGRAM chains_output
+BEGIN
+	optionarg /hidedefault simulate.cb_chains
+END
+
+LIST main_chain2_values
+BEGIN
+	1
+	2
+END
+
+LIST main_chain3_values
+BEGIN
+	1
+	2
+	3
+END
+
+LIST main_chain4_values
+BEGIN
+	1
+	2
+	3
+	4
+END
+
+LIST main_chain5_values
+BEGIN
+	1
+	2
+	3
+	4
+	5
+END
+
+LIST main_chain6_values
+BEGIN
+	1
+	2
+	3
+	4
+	5
+	6
+END
+
+LIST main_chain7_values
+BEGIN
+	1
+	2
+	3
+	4
+	5
+	6
+	7
+END
+
+LIST main_chain8_values
+BEGIN
+	1
+	2
+	3
+	4
+	5
+	6
+	7
+	8
+END
+
+LIST main_chain9_values
+BEGIN
+	1
+	2
+	3
+	4
+	5
+	6
+	7
+	8
+	9
+END
+
+LIST main_chain10_values
+BEGIN
+	1
+	2
+	3
+	4
+	5
+	6
+	7
+	8
+	9
+	10
+END
+
+INCLUDE ifin
+
+DIALOG simulate, tabtitle(resource BAYES_SIMULATION_TABTITLE)
+BEGIN
+  EDIT     ed_rseed		_lft	_top	_en14wd	.,		///
+	numonly								///
+	option(rseed)							///
+	label(resource LBL_RANDOM_NUMBER_SEED_NO_COLON)
+  TEXT 	   tx_rseed		_en14sep @	350	.,		///
+	label(resource LBL_RANDOM_NUMBER_SEED_NO_COLON)
+	
+  DEFINE chain_x _lft
+  DEFINE chain_y _ls
+  DEFINE chain_w _iwd
+  GROUPBOX gb_chains		chain_x	chain_y	chain_w	_ht6h,		///
+	label(resource LBL_CHAINS)
+  RADIO rb_chain_all		+10	_ss	_iwd	.,first		///
+	onclickon(script main_chains_all_on)				///
+	label(resource LBL_USE_ALL_CHAINS_FOR_COMPUTATION)
+  RADIO rb_chain_nlist		@	_ss	@	.,last		///
+	onclickon(script main_chains_nlist_on)				///
+	label(resource LBL_SPECIFY_WHICH_CHAIN_FOR_COMPUTATION)
+  DEFINE holdxx @x
+  COMBOBOX cb_chains		+15	_ss	_en14wd	.,		///
+	dropdown							///
+	append								///
+	option(chains)							///
+	contents(main_chain_values)					///
+	label(resource LBL_SPECIFY_WHICH_CHAIN_FOR_COMPUTATION)
+	
+  CHECKBOX ck_dots			_lft	+50	_iwd	_ht10,	///
+	groupbox							///
+	onclickon(program simulate_dots_on)					///
+	onclickoff(script simulate_dots_off)				///
+	label(resource BAYES_REPORTING_CK_DOTS)
+  RADIO	rb_dots1			_ilft	_ms	_ibwd	.,	///
+	first								///
+	onclickon(script simulate_dots_disable)				///
+	label(resource BAYES_REPORTING_RB_DOTS1)
+  RADIO rb_dots2			@	_ms	@	.,	///
+	last								///
+	onclickon(script simulate_dots_enable)				///
+	label(resource BAYES_REPORTING_RB_DOTS2)
+  TEXT    tx_dots1			37  	_ms	75	.,	///
+	label(resource BAYES_REPORTING_TX_DOTS1)	
+  SPINNER sp_dots1			165	@	_en7wd	.,	///
+	default(0) min(0) max(1000000)					///
+	option(dots)							///
+	label(resource BAYES_REPORTING_TX_DOTS2)
+  TEXT    tx_dots2			_en7sep  @	75	.,	///
+	label(resource BAYES_REPORTING_TX_DOTS2)
+	
+  TEXT    tx_dots3			37  	_ms	130	.,	///
+	label(resource BAYES_REPORTING_TX_DOTS3)	
+  SPINNER sp_dots2			165	@	_en7wd	.,	///
+	default(0) min(0) max(1000000)					///
+	option(dots)							///
+	label(resource BAYES_REPORTING_TX_DOTS4)
+  TEXT    tx_dots4			_en7sep  @	75	.,	///
+	label(resource BAYES_REPORTING_TX_DOTS4)
+END
+
+PROGRAM simulate_dots_on
+BEGIN
+	call simulate.rb_dots1.enable
+	call simulate.rb_dots2.enable
+	
+	if simulate.rb_dots1 {
+		call script simulate_dots_disable
+	}
+	else {
+		call script simulate_dots_enable
+	}
+END
+
+SCRIPT simulate_dots_off
+BEGIN
+	simulate.rb_dots1.disable
+	simulate.rb_dots2.disable
+	script simulate_dots_disable
+END
+
+SCRIPT simulate_dots_enable
+BEGIN
+	simulate.tx_dots1.enable
+	simulate.tx_dots2.enable
+	simulate.tx_dots3.enable
+	simulate.tx_dots4.enable
+	simulate.sp_dots1.enable
+	simulate.sp_dots2.enable
+END
+
+SCRIPT simulate_dots_disable
+BEGIN
+	simulate.tx_dots1.disable
+	simulate.tx_dots2.disable
+	simulate.tx_dots3.disable
+	simulate.tx_dots4.disable
+	simulate.sp_dots1.disable
+	simulate.sp_dots2.disable
+END
+
+DIALOG adv, tabtitle(resource LBL_ADVANCED)
+BEGIN
+  EDIT    ed_batch		_lft	_top	_en14wd	.,		///
+	numonly								///
+	option(batch)							///
+	default(0)							///
+	onchange(program batch_change)				///
+	label(resource BAYES_LBL_TX_BATCH)
+  TEXT	  tx_batch		_en14sep @	300	.,		///
+	label(resource BAYES_LBL_TX_BATCH)
+
+  DEFINE advy _ls
+  INCLUDE bayesmh_advanced
+END
+
+SCRIPT adv_disable
+BEGIN
+	adv.tx_batch.disable
+	adv.ed_batch.disable
+	adv.tx_corrlag.disable
+	adv.sp_corrlag.disable
+	adv.tx_corrtol.disable
+	adv.ed_corrtol.disable	
+END
+
+PROGRAM batch_change
+BEGIN
+	if adv.ed_batch & adv.ed_batch.isneq(0) {
+		call adv.tx_corrlag.disable
+		call adv.sp_corrlag.disable
+		call adv.tx_corrtol.disable
+		call adv.ed_corrtol.disable
+	}
+	else {
+		call adv.tx_corrlag.enable
+		call adv.sp_corrlag.enable
+		call adv.tx_corrtol.enable
+		call adv.ed_corrtol.enable
+	}
+END
+
+PROGRAM corr_change
+BEGIN
+	call create BOOLEAN hasbatch
+	call hasbatch.settrue
+	
+	if adv.sp_corrlag & adv.sp_corrlag.isneq(500) {
+		call hasbatch.setfalse
+	}
+	
+	if adv.ed_corrtol & adv.ed_corrtol.isneq(0.01) {
+		call hasbatch.setfalse
+	}
+	
+	if hasbatch {
+		call adv.tx_batch.enable
+		call adv.ed_batch.enable
+	}
+	else {
+		call adv.tx_batch.disable
+		call adv.ed_batch.disable
+	}
+END
+
+INCLUDE bayesmh_advanced_sc
+
+PROGRAM command
+BEGIN
+	call cmdName.setvalue e(cmd)
+	call cmdStr.setvalue e(cmdline)
+	call cmdPrefix.setvalue e(prefix)
+	
+	if !cmdName.equals("bayesmh") | cmdStr.equals("") | cmdPrefix.equals("bayes") {
+		stopbox stop resource BAYESPREDICT_MESSAGEBOX_SUPPORT
+//stopbox stop "Bayesian predictions are supported only after -bayesmh-."
+	}
+	
+	if main.rb_reps {
+		put "bayesreps"
+	}
+	else {
+		put "bayespredict"
+	}
+	if main.rb_predict {
+		require main.fi_save
+		
+		if main.rb_predict & main.rb_simulate {
+			call mainYsimspecCommandValues.copyToString main_ysimspec_output
+			if main_ysimspec_output.equals("") {
+				stopbox stop resource BAYESSTATS_MSGBOX_PREDICTION_MUST_BE_SPECIFIED
+//stopbox stop "Prediction specifications must be specified."
+			}
+			put " " main_ysimspec_output	
+		}
+		if main.rb_predict & main.rb_function {
+			call mainFuncspecCommandValues.copyToString main_funcspec_output
+			if main_funcspec_output.equals("") {
+				stopbox stop resource BAYESSTATS_MSGBOX_PREDICTION_MUST_BE_SPECIFIED
+//stopbox stop "Prediction specifications must be specified."
+			}
+			put " " main_funcspec_output	
+		}
+	}
+	if main.rb_posterior {
+		if main.rb_postmean | main.rb_postmedian | main.rb_postsd {
+			require main.ed_varl
+			if ! main.cb_typel.isdefault() {
+				put " " main.cb_typel
+			}
+			put " " main.ed_varl
+		}
+		if main.rb_postint {
+			require main.ed_varl
+			require main.ed_varu
+			if ! main.cb_typel.isdefault() {
+				put " " main.cb_typel
+			}
+			put " " main.ed_varl
+			put " " main.ed_varu
+		}
+	}
+	if main.rb_reps {
+		require main.ed_varl
+		if ! main.cb_typel.isdefault() {
+			put " " main.cb_typel
+		}
+		put " " main.ed_varl
+		require main.sp_reps
+	}
+	put " " /program ifin_output
+	beginoptions
+		if main.rb_predict {
+			put " saving("
+			put main.fi_save
+			if main.ck_save {
+				put ", replace"
+			}
+			put ")"
+		}
+		if main.rb_posterior {
+			if main.rb_postmean {
+				put " mean"
+			}
+			if main.rb_postmedian {
+				put " median"
+			}
+			if main.rb_postsd {
+				put " std"
+			}
+			if main.rb_postint {
+				put " cri"
+			}
+		}
+		if main.rb_reps {
+			optionarg main.sp_reps
+		}
+		if main.cb_outcome.isvisible() & !main.cb_outcome.equals("(All)") {
+			optionarg main.cb_outcome
+		}
+		optionarg main.cb_outcome2
+		optionarg main.ed_mcse
+		optionarg /hidedefault main.sp_level
+		option main.ck_hpd
+		optionarg /hidedefault simulate.ed_rseed
+		put " " /program chains_output
+		
+		if simulate.ck_dots {
+			if simulate.rb_dots1 {
+				put " dots "
+			}
+			else {
+				if simulate.sp_dots1.iseq(0) {
+					put " dots(0)"
+				}
+				if simulate.sp_dots1 & !simulate.sp_dots1.isdefault() {
+					put " dots("
+					put simulate.sp_dots1 
+					if simulate.sp_dots2 & !simulate.sp_dots2.isdefault() {
+						put ", every("
+						put simulate.sp_dots2
+						put ")"
+					}
+					put ") "
+				}
+			}
+		}
+	
+		optionarg /hidedefault adv.ed_batch
+		put " " /program advanced_output
+	endoptions
+END
+

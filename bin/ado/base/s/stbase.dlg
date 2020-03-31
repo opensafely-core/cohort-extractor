@@ -1,0 +1,123 @@
+/*
+	stbase
+
+*!  VERSION 1.2.0  19nov2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE _ht270
+INCLUDE header
+
+HELP hlp1, view("help stbase")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource STBASE_DLG_HSCALE
+END
+
+
+DIALOG main,label(resource STBASE_DLG_TITLE)                     	/*
+		*/ tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  DEFINE  _x _xsetbu
+  DEFINE  _y _top
+  INCLUDE _bu_stset
+
+  RADIO    rb_stdata      _lft      _ms       _iwd       .,             /*
+	*/label(resource STBASE_MAIN_RB_STDATA)/*
+                */      first                                           /*
+                */      clickon("script at_off")
+  RADIO    rb_cross       _lft      _ss       @          .,             /*
+ */label(resource STBASE_MAIN_RB_CROSS)/*
+		*/      last                                            /*
+                */      clickon("script at_on")
+  SPINNER  sp_at          _indent2  _ms       _spwd      .,             /*
+                */      label("at")                                     /*
+		*/      min(0)                                          /*
+                */      max(100000)                                     /*
+                */      default(1)                                      /*
+                */      option(at)
+  DEFINE tx @x
+  TEXT     tx_at          _spsep    @         _rbspr       .,           /*
+                */      label(resource LBL_ANALYSIS_TIME)
+
+  GROUPBOX gb_opt         tx        _ls       _ibwd      _ht6,          /*
+                */label(resource STBASE_MAIN_GB_OPT)
+  RADIO    rb_gap         _indent   _ss       _inwd      .,             /*
+                */      first                                           /*
+                */      clickon("gaction main.ed_name.disable")         /*
+                */      option(gap)					/*
+		*/label(resource STBASE_MAIN_RB_GAP)
+  RADIO    rb_name        @         _ss       @          .,             /*
+                */      label(resource LBL_USER_SPECIFIED)              /*
+                */      last                                            /*
+                */      clickon("gaction main.ed_name.enable")          /*
+		*/      option(NONE)
+
+  EDIT     ed_name        _indent2  _ss       _vnwd      .,             /*
+                */      label(resource LBL_USER_SPECIFIED_VARIABLE)     /*
+                */      max(32)                                         /*
+                */      option(gap)
+  CHECKBOX ck_replace     _lft      _xls      _iwd       .,             /*
+		*/      label(resource LBL_OVERWRITE_CURRENT_DATA_IN_MEMORY) /*
+		*/      option(replace) nomem
+
+// preserve option is not shown on dialog , coz it is for programmers
+//CHECKBOX ck_preserve   @         _ms       @          .,		/*
+//              */      label ("Do not preserve the original data")     /*
+//              */      option(preserve)
+
+  CHECKBOX  ck_noshow     @         _ms       @          . ,            /*
+                */      label(resource LBL_DO_NOT_SHOW_ST_SETTING_INFORMATION) /*
+                */      option(noshow)
+END
+
+INCLUDE ifin
+
+SCRIPT at_off
+BEGIN
+	main.sp_at.disable
+	main.tx_at.disable
+	main.rb_name.disable
+	main.ed_name.disable
+	main.rb_gap.disable
+	main.gb_opt.disable
+END
+
+SCRIPT at_on
+BEGIN
+        main.sp_at.enable
+        main.tx_at.enable
+        main.rb_name.enable
+        program rb_name_check
+        main.rb_gap.enable
+        main.gb_opt.enable
+END
+
+PROGRAM rb_name_check
+BEGIN
+	if main.rb_name {
+		call gaction main.ed_name.enable
+	}
+END
+
+PROGRAM command
+BEGIN
+        put "stbase "
+	INCLUDE _ifin_pr
+	beginoptions
+		if main.rb_cross {
+			optionarg main.sp_at
+			if main.rb_name {
+				require main.ed_name
+				optionarg main.ed_name
+			}
+		}
+		option main.ck_replace
+		option main.ck_noshow
+	endoptions
+END

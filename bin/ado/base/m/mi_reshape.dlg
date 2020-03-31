@@ -1,0 +1,109 @@
+/*
+	mi reshape
+
+*!  VERSION 1.0.2  03jul2009
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 310
+INCLUDE header
+
+HELP hlp1, view("help mi_reshape")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource MI_RESHAPE_DLG_HSCALE
+END
+
+DIALOG main, label(resource MI_RESHAPE_DLG_TITLE) /*
+		*/ tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  RADIO    rb_long            _lft     _top _comb4_1        ., first	/*
+		*/ label(resource LBL_LONG_FORMAT_FROM_WIDE)		/*
+		*/ clickon("script main_all_on")			/*
+		*/ option(long)
+  BUTTON   bu_example      _lft4_4        @  _cwd4_1        .,		/*
+		*/ label(resource LBL_EXAMPLE_BUTTON)			/*
+		*/ push("script example")
+  RADIO    rb_wide            _lft      _ss     _iwd        ., last 	/*
+		*/ label(resource LBL_WIDE_FORMAT_FROM_LONG)		/*
+		*/ clickon("script main_all_on")			/*
+		*/ option(wide)
+  TEXT     tx_var_i              @      _ls        @        .,		/*
+		*/ label(resource LBL_ID_VARIABLES_THE_I_OPTION)
+  VARLIST  vl_var_i              @      _ss        @        .,		/*
+		*/option(i)						/*
+		*/ label(resource LBL_ID_VARIABLES)
+  GROUPBOX gb_j			 @	_ls	   _iwd	    _ht8,	///
+	label(resource LBL_SUBOBSERVATION_IDENTIFIER_THE_J_OPTION)
+  TEXT     tx_var_j              _indent  _ss      _cwd1    .,		/*
+		*/ label(resource LBL_VARIABLE)
+  DEFINE holdy @y
+  VARNAME  vn_var_j              @        _ss    _vnwd      .,		/*
+		*/ label(resource LBL_VARIABLE)
+  TEXT     tx_jvals              _lft2   holdy     _cwd3    .,		/*
+	*/ label(resource LBL_VALUES_OPTIONAL)
+  EDIT     ed_jvals              @      _ss        @        .,		/*
+		*/ label(resource LBL_VALUES)
+  CHECKBOX ck_string          _ilft     _ls     _iwd        .,		/*
+		*/ option(string)					/*
+	*/ label(resource LBL_ALLOW_THE_SUBOBSERVATION_IDENTIFIER_TO_INC_STR)
+
+  TEXT     tx_var              _lft     _xxls     _iwd      .,		/*
+		*/ label(resource LBL_BASE_STUB_NAMES_X_IJ_VARIABLES)
+  VARLIST  vl_var                @      _ss        @        .,		/*
+		*/ label(resource LBL_BASE_STUB_NAMES_X_IJ_VARIABLES)
+
+  TEXT     tx_note               @      _ls        @        .,		/*
+	*/ label(resource LBL_ALL_OTHER_VARIABLES_SHOULD_BE_CONSTANT_WITHIN_ID)
+END
+
+SCRIPT example
+BEGIN
+  view help reshape_example##|_new
+END
+
+SCRIPT main_all_on
+BEGIN
+	main.tx_var_i.enable
+	main.vl_var_i.enable
+	main.gb_j.enable
+	main.tx_var_j.enable
+	main.vn_var_j.enable
+	main.tx_var.enable
+	main.vl_var.enable
+	main.tx_note.enable
+	main.ck_string.enable
+	main.tx_jvals.enable
+	main.ed_jvals.enable
+END
+
+PROGRAM j_output
+BEGIN
+	varlist main.vn_var_j
+	
+	if main.ed_jvals {
+		put " " main.ed_jvals
+	}
+END
+
+PROGRAM command
+BEGIN
+	put "mi reshape "
+	option radio (main rb_long rb_wide)
+	if main.rb_long | main.rb_wide {
+		varlist main.vl_var
+		beginoptions
+			optionarg main.vl_var_i
+			put "j(" 
+			put /program j_output
+			put ")"
+			option main.ck_string
+		endoptions
+	}
+END
+

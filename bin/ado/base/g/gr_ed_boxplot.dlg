@@ -1,0 +1,1108 @@
+/*
+  gr_ed_boxplot.dlg
+
+*!  VERSION 1.1.6  31jul2017
+
+*/
+
+VERSION 14.0
+MODAL
+
+INCLUDE _std_small
+DEFINE _dlght 445
+INCLUDE header_gr_ed
+
+DEFINE _clwd	15
+DEFINE _wd	120
+DEFINE _sep	+125
+DEFINE _wd2	110
+DEFINE _sep2	+115
+DEFINE _cbwd	120
+DEFINE _cbsep	+125
+
+SCRIPT PREINIT
+BEGIN
+	settitle resource LBL_BOX_PROPERTIES
+	create DOUBLE d_tmp
+	create STRING G
+	create STRING J
+	create STRING style
+	create STRING Gstyle
+	create ARRAY  ARGS
+	program setupGOBJECT
+
+	create DOUBLE index
+
+// main
+	create STRING fill_color
+	create STRING fill_rgb
+	create STRING fill_opacity
+	create STRING intensity
+	create STRING line_color
+	create STRING line_rgb
+	create STRING line_opacity
+	create STRING line_align
+	create STRING width
+	create STRING pattern
+
+	create DOUBLE customWhiskers
+	create STRING WColor
+	create STRING WRGB
+	create STRING WOpacity
+	create STRING WWidth
+	create STRING WPattern
+
+// median
+	create STRING color
+	create STRING rgb
+	create STRING opacity
+	create STRING width
+	create STRING pattern
+
+	create STRING medianType
+	create STRING m_color
+	create STRING m_rgb
+	create STRING m_opacity
+	create STRING m_size
+	create STRING m_symbol
+	create STRING m_symbol_angle
+
+	create STRING ln_m_color
+	create STRING ln_m_rgb
+	create STRING ln_m_opacity
+	create STRING ln_m_width
+	create STRING ln_m_align
+	create DOUBLE drawview
+	program get_defaults
+	setscale_hadj resource GR_ED_BOXPLOT_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program initialize_controls
+END
+
+PROGRAM setupGOBJECT
+BEGIN
+	if ! __MESSAGE {
+		stopbox stop resource LBL_MSGBOX_OBJECT_NOT_FOUND
+// An unexpected error has occurred. Object not found.
+		exit 198
+	}
+	call G.setvalue class __MESSAGE.value
+	call __MESSAGE.tokenize ARGS
+	call G.setvalue class ARGS[1]
+	call J.setvalue class ARGS[2]
+	call Gstyle.setvalue class G.value
+	if J.iseq("") {
+		call Gstyle.append ".style"
+	}
+	else {
+		call create BOOLEAN customstyle
+		call J.withvalue Gstyle.append ".obs_styles[@]"
+		call Gstyle.withvalue customstyle.storeClsObjectExists @
+		if ! customstyle {
+			call Gstyle.setvalue class G.value
+			call Gstyle.append ".style"
+		}
+	}
+END
+
+DIALOG main, tabtitle(resource GR_ED_BOXPLOT_TAB_MAIN)
+BEGIN
+  GROUPBOX gb_rect	_lft	_top	_iwd	430,		///
+	label(resource GR_ED_BOXPLOT_MAIN_GB_RECT)
+  TEXT     tx_fclr	_ilft	_ss	_wd	.,		///
+	label(resource LBL_COLOR) right
+  COMBOBOX cb_fclr	_sep	@	_cbwd	.,		///
+	dropdownlist contents(_colors) 				///
+	onselchangelist(rect_cl_fclr_sel)
+  COLOR    cl_fclr	_cbsep	@	_clwd	.,
+  TEXT     tx_fopacity	_ilft	_mls	_wd	.,		///
+	label(resource LBL_OPACITY) right
+  SPINNER sp_fopacity	_sep	@	_spwd	.,		///
+	default(100)						///
+	min(0)							///
+	max(100)
+
+  TEXT     tx_intensity	_ilft	_mls	_wd	.,		///
+	label(resource LBL_FILL_INTENSITY) right
+  COMBOBOX cb_intensity	_sep	@	_cbwd	.,		///
+	dropdown contents(_intensity)
+  
+  TEXT     tx_width	_ilft	 _mls	_wd	.,		///
+	label(resource LBL_OUTLINE_WIDTH) right
+  COMBOBOX cb_width	_sep	@	_cbwd	.,		///
+	dropdown 						///
+	contents(_linewidths)
+
+  TEXT     tx_pattern	_ilft	_mls	_wd	.,		///
+	label(resource LBL_OUTLINE_PATTERN) right
+  COMBOBOX cb_pattern	_sep	@	_cbwd	.,		///
+	dropdownlist						///
+	contents(_linepatterns)
+
+   TEXT     tx_lalign	_ilft	_mls	_wd	.,		///
+      label(resource LBL_OUTLINE_ALIGNMENT) right
+   COMBOBOX cb_lalign	_sep	@	_cbwd	.,		///
+      dropdownlist option(lalign)				///
+      contents(alignstroke)
+
+
+  CHECKBOX ck_outline	_ilft	_ls	_ibwd	_ht5,		///
+	groupbox						///
+	label(resource LBL_DIFFERENT_OUTLINE_COLOR)		///
+	onclickon(script rect_outline_on)			///
+	onclickoff(script rect_outline_off) nomemory
+
+  TEXT     tx_lclr	_iilft	_ss	_wd2	.,		///
+	label(resource LBL_OUTLINE_COLOR) right
+  COMBOBOX cb_lclr	_sep2	@	_cbwd	.,		///
+	dropdownlist contents(_colors) 				///
+	onselchangelist(rect_cl_lclr_sel)
+  COLOR    cl_lclr	_cbsep	@	_clwd	.,
+  TEXT     tx_lopacity	_iilft	_mls	_wd2	.,		///
+	label(resource LBL_OUTLINE_OPACITY) right
+  SPINNER sp_lopacity	_sep2	@	_spwd	.,		///
+	default(100)						///
+	min(0)							///
+	max(100)
+
+  CHECKBOX ck_wcustom	_ilft	+40	_ibwd	_ht11,		///
+	groupbox label(resource LBL_CUSTOM_WHISKERS)		///
+	onclickon(script custom_whiskers_on)			///
+	onclickoff(script custom_whiskers_off)
+
+  TEXT     tx_wclr	_iilft	_ss	_wd2	.,		///
+	label(resource LBL_COLOR) right
+  COMBOBOX cb_wclr	_sep2	@	_cbwd	.,		///
+	dropdownlist contents(_colors) 				///
+	onselchangelist(wisk_cl_clr_sel)
+  COLOR    cl_wclr	_cbsep	@	_clwd	.,
+  TEXT     tx_wopacity	_iilft	_mls	_wd2	.,		///
+	label(resource LBL_OPACITY) right
+  SPINNER sp_wopacity	_sep2	@	_spwd	.,		///
+	default(100)						///
+	min(0)							///
+	max(100)
+  
+  TEXT     tx_wwidth	_iilft	 _mls	_wd2	.,		///
+	label(resource LBL_WIDTH) right
+  COMBOBOX cb_wwidth	_sep2	@	_cbwd	.,		///
+	dropdown 						///
+	contents(_linewidths)
+
+  TEXT     tx_wpattern	_iilft	_mls	_wd2	.,		///
+	label(resource LBL_PATTERN) right
+  COMBOBOX cb_wpattern	_sep2	@	_cbwd	.,		///
+	dropdownlist						///
+	contents(_linepatterns)
+END
+
+SCRIPT rect_outline_on
+BEGIN
+	main.tx_lclr.enable
+	main.cb_lclr.enable
+	main.tx_lopacity.enable
+	main.sp_lopacity.enable
+END
+
+SCRIPT rect_outline_off
+BEGIN
+	main.tx_lclr.disable
+	main.cb_lclr.disable
+	main.tx_lopacity.disable
+	main.sp_lopacity.disable
+END
+
+LIST rect_cl_fclr_sel
+BEGIN
+	main.cl_fclr.show
+	main.cl_fclr.hide
+END
+LIST rect_cl_lclr_sel
+BEGIN
+	main.cl_lclr.show
+	main.cl_lclr.hide
+END
+
+LIST wisk_cl_clr_sel
+BEGIN
+	main.cl_wclr.show
+	main.cl_wclr.hide
+END
+
+SCRIPT custom_whiskers_on
+BEGIN
+	main.tx_wclr.enable
+	main.cb_wclr.enable
+	main.cl_wclr.enable
+	main.tx_wopacity.enable
+	main.sp_wopacity.enable
+	main.tx_wwidth.enable
+	main.cb_wwidth.enable
+	main.tx_wpattern.enable
+	main.cb_wpattern.enable	
+END
+
+SCRIPT custom_whiskers_off
+BEGIN
+	main.tx_wclr.disable
+	main.cb_wclr.disable
+	main.cl_wclr.disable
+	main.tx_wopacity.disable
+	main.sp_wopacity.disable
+	main.tx_wwidth.disable
+	main.cb_wwidth.disable
+	main.tx_wpattern.disable
+	main.cb_wpattern.disable	
+END
+
+PROGRAM main_get_defaults
+BEGIN
+	call G.withvalue index.setvalue class @.style.pstyle.area.shadestyle.color.styledex
+	call index.withvalue fill_color.setvalue class .__STYLES.color[@]
+	call main.cb_fclr.setdefault class fill_color.value
+	call G.withvalue fill_rgb.setvalue class @.style.pstyle.area.shadestyle.color.rgb
+	call main.cl_fclr.setdefault class fill_rgb.value
+	call G.withvalue fill_opacity.setvalue class @.style.pstyle.area.shadestyle.color.opacity
+	call main.sp_fopacity.setdefault class fill_opacity.value
+
+	call G.withvalue index.setvalue  class @.style.pstyle.area.shadestyle.intensity.styledex
+	call index.withvalue intensity.setvalue class .__STYLES.intensity[@]
+	if ! intensity {
+		call G.withvalue intensity.setvalue class @.style.pstyle.area.shadestyle.intensity.val
+	}
+	call main.cb_intensity.setdefault class intensity.value
+
+	call G.withvalue index.setvalue class @.style.pstyle.area.linestyle.color.styledex
+	call index.withvalue line_color.setvalue class .__STYLES.color[@]
+	call main.cb_lclr.setdefault class line_color.value
+	call G.withvalue line_rgb.setvalue class @.style.pstyle.area.linestyle.color.rgb
+	call main.cl_lclr.setdefault class line_rgb.value
+	call G.withvalue line_rgb.setvalue class @.style.pstyle.area.linestyle.color.rgb
+	call main.cl_lclr.setdefault class line_rgb.value
+
+	call G.withvalue line_opacity.setvalue class @.style.pstyle.area.linestyle.color.opacity
+	call main.sp_lopacity.setdefault class line_opacity.value
+
+
+	call G.withvalue index.setvalue class @.style.pstyle.area.linestyle.width.styledex
+	call index.withvalue width.setvalue class .__STYLES.linewidth[@]
+	if ! width {
+		call G.withvalue width.setvalue class @.style.pstyle.area.linestyle.width.val
+	}
+	call main.cb_width.setdefault class width.value
+
+	call G.withvalue index.setvalue class @.style.pstyle.area.linestyle.pattern.styledex
+	call index.withvalue pattern.setvalue class .__STYLES.linepattern[@]
+	call main.cb_pattern.setdefault class pattern.value
+
+	call G.withvalue index.setvalue class @.style.pstyle.area.linestyle.align.styledex
+	call index.withvalue line_align.setvalue class .__STYLES.alignstroke[@]
+	call main.cb_lalign.setdefault class line_align.value
+	
+	call G.withvalue customWhiskers.setvalue class @.style.custom_whiskers.istrue
+	if customWhiskers {
+		call main.ck_wcustom.setdefault 1
+	}
+	else {
+		call main.ck_wcustom.setdefault 0
+	}
+
+	call G.withvalue index.setvalue class @.style.whisker_style.color.styledex
+	call index.withvalue WColor.setvalue class .__STYLES.color[@]
+	call main.cb_wclr.setdefault class WColor.value
+	call G.withvalue WRGB.setvalue class @.style.whisker_style.color.rgb
+	call main.cl_wclr.setdefault class WRGB.value
+
+	call G.withvalue WOpacity.setvalue class @.style.whisker_style.color.opacity
+	call main.sp_wopacity.setdefault class WOpacity.value
+
+	call G.withvalue index.setvalue class @.style.whisker_style.width.styledex
+	call index.withvalue WWidth.setvalue class .__STYLES.linewidth[@]
+	if ! WWidth {
+		call G.withvalue WWidth.setvalue class @.style.whisker_style.width.val
+	}
+	call main.cb_wwidth.setdefault class WWidth.value
+	
+	call G.withvalue index.setvalue class @.style.whisker_style.pattern.styledex
+	call index.withvalue WPattern.setvalue class .__STYLES.linepattern[@]
+	call main.cb_wpattern.setdefault class WPattern.value
+END
+
+PROGRAM main_initialize_controls
+BEGIN
+	if fill_color {
+		call main.cb_fclr.setvalue class fill_color.value
+	}
+	else {
+		call main.cb_fclr.setvalue "custom"
+	}
+	call main.cl_fclr.setvalue class fill_rgb.value
+	call main.sp_fopacity.setvalue class fill_opacity.value
+	call main.cb_intensity.setvalue class intensity.value
+
+	if line_color {
+		call main.cb_lclr.setvalue class line_color.value
+	}
+	else {
+		call main.cb_lclr.setvalue "custom"
+	}
+	call main.cl_lclr.setvalue class line_rgb.value
+	call main.sp_lopacity.setvalue class line_opacity.value
+
+	call main.cb_width.setvalue class width.value
+	call main.cb_pattern.setvalue class pattern.value
+	call main.cb_lalign.setvalue class line_align.value
+
+	if fill_rgb.isneq(line_rgb) {
+		call main.ck_outline.seton
+	}
+	else {
+		call main.ck_outline.setoff
+	}
+
+	if customWhiskers {
+		call main.ck_wcustom.seton
+	}
+	else {
+		call main.ck_wcustom.setoff
+	}
+
+	if WColor {
+		call main.cb_wclr.setvalue class WColor.value
+	}
+	else {
+		call main.cb_wclr.setvalue "custom"
+	}
+	call main.cl_wclr.setvalue class WRGB.value
+	call main.sp_wopacity.setvalue class WOpacity.value
+	call main.cb_wwidth.setvalue class WWidth.value
+	call main.cb_wpattern.setvalue class WPattern.value
+
+END
+
+DIALOG median, tabtitle(resource LBL_MEDIAN)
+BEGIN
+  GROUPBOX gb_medtype	_lft	_top	_iwd	_ht6,		///
+	label(resource LBL_MEDIAN_TYPE)
+
+  RADIO    rb_line	_ilft	_ss	_ibwd	.,		///
+	first							///
+	label(resource GR_ED_BOXPLOT_MEDIAN_RB_LINE)		///
+	onclickon(program median_check_type)
+  RADIO    rb_cline	@	_ss	@	.,		///
+	label(resource LBL_CUSTOM_LINE)				///
+	onclickon(program median_check_type)
+  RADIO    rb_marker	@	_ss	@	.,		///
+	last							///
+	label(resource LBL_MARKER)				///
+	onclickon(program median_check_type)
+
+// cline
+  GROUPBOX gb_cline	_lft	+40	_iwd	_ht11,		///
+	label(resource GR_ED_BOXPLOT_MEDIAN_GB_CLINE)
+DEFINE YTOP @y
+  TEXT     tx_clclr	_ilft	_ss	_wd	.,		///
+	label(resource LBL_COLOR) right
+  COMBOBOX cb_clclr	_sep	@	_cbwd	.,		///
+	dropdownlist contents(_colors) 				///
+	onselchangelist(median_cl_clclr_sel)
+  COLOR    cl_clclr	_cbsep	@	_clwd	.,
+  TEXT     tx_clopacity	_ilft	_mls	_wd	.,		///
+	label(resource LBL_OPACITY) right
+  SPINNER sp_clopacity	_sep	@	_spwd	.,		///
+	default(100)						///
+	min(0)							///
+	max(100)
+  
+  TEXT     tx_clwidth	_ilft	 _mls	_wd	.,		///
+	label(resource LBL_WIDTH) right
+  COMBOBOX cb_clwidth	_sep	@	_cbwd	.,		///
+	dropdown 						///
+	contents(_linewidths)
+
+  TEXT     tx_clpattern	_ilft	_mls	_wd	.,		///
+	label(resource LBL_PATTERN) right
+  COMBOBOX cb_clpattern	_sep	@	_cbwd	.,		///
+	dropdownlist						///
+	contents(_linepatterns) 
+
+// marker
+  GROUPBOX gb_marker	_lft	YTOP	_iwd	_ht28,		///
+	label(resource LBL_MARKER_PROPERTIES_DLG_TITLE)
+
+ TEXT     tx_symbol	_ilft	_ss	_wd	.,		///
+	label(resource LBL_SYMBOL) right
+  COMBOBOX cb_symbol	_sep	@	_cbwd	.,		///
+	dropdownlist 						///
+	contents(_symbols)
+
+  TEXT     tx_size	_ilft	_mls	_wd	.,		///
+	label(resource LBL_SIZE) right
+  COMBOBOX cb_size	_sep	@	_cbwd	.,		///
+	dropdown						///
+	contents(_symbolsizes)
+
+  TEXT     tx_clr	_ilft	_mls	_wd	.,		///
+	label(resource LBL_COLOR) right
+  COMBOBOX cb_clr	_sep	@	_cbwd	.,		///
+	dropdownlist contents(_colors) 				///
+	onselchangelist(marker_cl_clr_sel)
+  COLOR    cl_clr	_cbsep	@	_clwd	.,
+  TEXT     tx_opacity	_ilft	_mls	_wd	.,		///
+	label(resource LBL_OPACITY) right
+  SPINNER sp_opacity	_sep	@	_spwd	.,		///
+	default(100)						///
+	min(0)							///
+	max(100)
+  TEXT     tx_msymangle	_ilft	_mls	_wd	.,		///
+	label(resource LBL_SYMBOL_ANGLE) right
+  COMBOBOX cb_msymangle	_sep	@	_cbwd	.,		///
+	option(msangle) dropdownlist contents(angles)
+
+  CHECKBOX ck_outline	_ilft	_ls	_ibwd	_ht10h,		///
+	groupbox						///
+	label(resource LBL_DIFFERENT_OUTLINE_COLOR)		///
+	onclickon(script marker_outline_on)			///
+	onclickoff(script marker_outline_off) nomemory
+  
+  TEXT     tx_lclr	_iilft	_ss	_wd2	.,		///
+	label(resource LBL_OUTLINE_COLOR) right
+  COMBOBOX cb_lclr	_sep2	@	_cbwd	.,		///
+	dropdownlist contents(_colors) 				///
+	onselchangelist(marker_cl_lclr_sel)
+  COLOR    cl_lclr	_cbsep	@	_clwd	.,
+  TEXT     tx_lopacity	_iilft	_mls	_wd2	.,		///
+	label(resource LBL_OUTLINE_OPACITY) right
+  SPINNER sp_lopacity	_sep2	@	_spwd	.,		///
+	default(100)						///
+	min(0)							///
+	max(100)
+
+  TEXT     tx_lwidth	_iilft	_mls	_wd2	.,		///
+	label(resource LBL_OUTLINE_WIDTH) right
+  COMBOBOX cb_lwidth	_sep2	@	_cbwd	.,		///
+	dropdown 						///
+	contents(_linewidths)
+   TEXT     tx_lalign	_iilft	_mls	_wd2	.,		///
+      label(resource LBL_OUTLINE_ALIGNMENT) right
+   COMBOBOX cb_lalign	_sep2	@	_cbwd	.,		///
+      dropdownlist option(lalign)				///
+      contents(alignstroke)
+END
+
+PROGRAM median_check_type
+BEGIN
+	if median.rb_line {
+		call script median_hide_cline
+		call script median_hide_marker
+	}
+	if median.rb_cline {
+		call script median_show_cline
+		call script median_hide_marker
+	}
+	if median.rb_marker{
+		call script median_hide_cline
+		call script median_show_marker
+	}
+END
+
+SCRIPT median_show_cline
+BEGIN
+	median.gb_cline.show
+	median.tx_clclr.show
+	median.cb_clclr.show
+	median.cb_clclr.forceselchange
+	median.tx_clopacity.show
+	median.sp_clopacity.show
+	median.tx_clwidth.show
+	median.cb_clwidth.show
+	median.tx_clpattern.show
+	median.cb_clpattern.show
+END
+
+SCRIPT median_hide_cline
+BEGIN
+	median.gb_cline.hide
+	median.tx_clclr.hide
+	median.cb_clclr.hide
+	median.cl_clclr.hide
+	median.tx_clopacity.hide
+	median.sp_clopacity.hide
+	median.tx_clwidth.hide
+	median.cb_clwidth.hide
+	median.tx_clpattern.hide
+	median.cb_clpattern.hide
+END
+
+SCRIPT median_show_marker
+BEGIN
+	median.gb_marker.show
+	median.tx_symbol.show
+	median.cb_symbol.show
+	median.tx_size.show
+	median.cb_size.show
+	median.tx_clr.show
+	median.cb_clr.show
+	median.cb_clr.forceselchange
+	median.tx_opacity.show
+	median.sp_opacity.show
+	median.tx_msymangle.show
+	median.cb_msymangle.show
+	median.ck_outline.show
+	median.tx_lclr.show
+	median.cb_lclr.show
+	median.cb_lclr.forceselchange
+	median.tx_lopacity.show
+	median.sp_lopacity.show
+	median.tx_lwidth.show
+	median.cb_lwidth.show
+	median.tx_lalign.show
+	median.cb_lalign.show
+END
+
+SCRIPT median_hide_marker
+BEGIN
+	median.gb_marker.hide
+	median.tx_symbol.hide
+	median.cb_symbol.hide
+	median.tx_size.hide
+	median.cb_size.hide
+	median.tx_clr.hide
+	median.cb_clr.hide
+	median.cl_clr.hide
+	median.tx_opacity.hide
+	median.sp_opacity.hide
+	median.tx_msymangle.hide
+	median.cb_msymangle.hide
+	median.ck_outline.hide
+	median.tx_lclr.hide
+	median.cb_lclr.hide
+	median.cl_lclr.hide
+	median.tx_lopacity.hide
+	median.sp_lopacity.hide
+	median.tx_lwidth.hide
+	median.cb_lwidth.hide
+	median.tx_lalign.hide
+	median.cb_lalign.hide
+END
+
+SCRIPT marker_outline_on
+BEGIN
+	median.tx_lclr.enable
+	median.cb_lclr.enable
+	median.cl_lclr.enable
+	median.tx_lopacity.enable
+	median.sp_lopacity.enable
+	median.tx_lwidth.enable
+	median.cb_lwidth.enable
+	median.tx_lalign.enable
+	median.cb_lalign.enable
+END
+
+SCRIPT marker_outline_off
+BEGIN
+	median.tx_lclr.disable
+	median.cb_lclr.disable
+	median.cl_lclr.disable
+	median.tx_lopacity.disable
+	median.sp_lopacity.disable
+	median.tx_lwidth.disable
+	median.cb_lwidth.disable
+	median.tx_lalign.disable
+	median.cb_lalign.disable
+END
+
+LIST median_cl_clclr_sel
+BEGIN
+	median.cl_clclr.show
+	median.cl_clclr.hide
+END
+
+LIST marker_cl_clr_sel
+BEGIN
+	median.cl_clr.show
+	median.cl_clr.hide
+END
+
+LIST marker_cl_lclr_sel
+BEGIN
+	median.cl_lclr.show
+	median.cl_lclr.hide
+END
+
+PROGRAM median_get_defaults
+BEGIN
+	call G.withvalue index.setvalue class @.style.median_type.styledex
+	call index.withvalue medianType.setvalue class .__STYLES.medtypestyle[@]
+	if medianType.iseq("line") {
+		call median.rb_line.setdefault 1
+		call median.rb_cline.setdefault 0
+		call median.rb_marker.setdefault 0
+	}
+	if medianType.iseq("cline") {
+		call median.rb_line.setdefault 0
+		call median.rb_cline.setdefault 1
+		call median.rb_marker.setdefault 0
+	}
+	if medianType.iseq("marker") {
+		call median.rb_line.setdefault 0
+		call median.rb_cline.setdefault 0
+		call median.rb_marker.setdefault 1
+	}
+
+// cline
+	call G.withvalue index.setvalue class @.style.pstyle.line.color.styledex
+	call index.withvalue color.setvalue class .__STYLES.color[@]
+	call median.cb_clclr.setdefault class color.value
+	
+	call G.withvalue rgb.setvalue class @.style.pstyle.line.color.rgb
+	call median.cl_clclr.setdefault class rgb.value
+
+	call G.withvalue opacity.setvalue class @.style.pstyle.line.color.opacity
+	call median.sp_clopacity.setdefault class opacity.value
+
+	call G.withvalue index.setvalue class @.style.pstyle.line.width.styledex
+	call index.withvalue width.setvalue class .__STYLES.linewidth[@]
+	if ! width {
+		call G.withvalue width.setvalue class @.style.pstyle.line.width.val
+	}
+	call median.cb_clwidth.setdefault class width.value
+
+	call G.withvalue index.setvalue class @.style.pstyle.line.pattern.styledex
+	call index.withvalue pattern.setvalue class .__STYLES.linepattern[@]
+	call median.cb_clpattern.setdefault class pattern.value
+
+// marker
+	call G.withvalue index.setvalue class @.style.median_style.marker.size.styledex
+	call index.withvalue m_size.setvalue class .__STYLES.symbolsize[@]
+	if ! m_size {
+		call G.withvalue m_size.setvalue class @.style.median_style.marker.size.val
+	}
+	call median.cb_size.setdefault class m_size.value
+
+	call G.withvalue index.setvalue class @.style.median_style.marker.symbol.styledex
+	call index.withvalue m_symbol.setvalue class .__STYLES.symbol[@]
+	call median.cb_symbol.setdefault class m_symbol.value
+
+	call G.withvalue index.setvalue class @.style.median_style.marker.fillcolor.styledex
+	call index.withvalue m_color.setvalue class .__STYLES.color[@]
+	call median.cb_clr.setdefault class m_color.value
+	call G.withvalue m_rgb.setvalue class @.style.median_style.marker.fillcolor.rgb
+	call median.cl_clr.setdefault class m_rgb.value
+
+	call G.withvalue m_opacity.setvalue class @.style.median_style.marker.fillcolor.opacity
+	call median.sp_opacity.setdefault class m_opacity.value
+
+	call G.withvalue index.setvalue class @.style.median_style.marker.symangle.styledex
+	call index.withvalue m_symbol_angle.setvalue class .__STYLES.anglestyle[@]
+	call median.cb_msymangle.setdefault class m_symbol_angle.value
+
+	call G.withvalue index.setvalue class @.style.median_style.marker.linestyle.color.styledex
+	call index.withvalue ln_m_color.setvalue class .__STYLES.color[@]
+	call median.cb_lclr.setdefault class ln_m_color.value
+	call G.withvalue ln_m_rgb.setvalue class @.style.median_style.marker.linestyle.color.rgb
+	call median.cl_lclr.setdefault class ln_m_rgb.value
+
+	call G.withvalue ln_m_opacity.setvalue class @.style.median_style.marker.linestyle.color.opacity
+	call median.sp_lopacity.setdefault class ln_m_opacity.value
+
+	call G.withvalue index.setvalue class @.style.median_style.marker.linestyle.width.styledex
+	call index.withvalue ln_m_width.setvalue class .__STYLES.linewidth[@]
+	if ! ln_m_width {
+		call G.withvalue ln_m_width.setvalue class @.style.median_style.marker.linestyle.width.val
+	}
+	call median.cb_lwidth.setdefault class ln_m_width.value
+
+	call G.withvalue index.setvalue class @.style.median_style.marker.linestyle.align.styledex
+	call index.withvalue ln_m_align.setvalue class .__STYLES.alignstroke[@]
+	call median.cb_lalign.setdefault class ln_m_align.value
+END
+
+PROGRAM median_initialize_controls
+BEGIN
+	if medianType.iseq("line") {
+		call median.rb_line.seton
+	}
+	if medianType.iseq("cline") {
+		call median.rb_cline.seton
+	}
+	if medianType.iseq("marker") {
+		call median.rb_marker.seton
+	}
+
+// cline
+	if color {
+		call median.cb_clclr.setvalue class color.value
+	}
+	if ! color {
+		call median.cb_clclr.setvalue "custom"
+	}
+	call median.cl_clclr.setvalue class rgb.value
+	call median.sp_clopacity.setvalue class opacity.value
+
+	call median.cb_clwidth.setvalue class width.value
+	call median.cb_clpattern.setvalue class pattern.value
+
+// marker
+	call median.cb_size.setvalue class m_size.value
+	call median.cb_symbol.setvalue class m_symbol.value
+	call median.cb_msymangle.setvalue class m_symbol_angle.value
+	
+	if m_color {
+		call m_color.withvalue median.cb_clr.setvalue "@"
+	}
+	else {
+		call median.cb_clr.setvalue "custom"
+	}
+	call median.cl_clr.setvalue class m_rgb.value
+	call median.sp_opacity.setvalue class m_opacity.value
+
+	if ln_m_color {
+		call median.cb_lclr.setvalue class ln_m_color.value
+	}
+	else {
+		call median.cb_lclr.setvalue "custom"
+	}
+	call median.cl_lclr.setvalue class ln_m_rgb.value
+	call median.sp_lopacity.setvalue class ln_m_opacity.value
+	
+	call median.cb_lwidth.setvalue class ln_m_width.value
+	call median.cb_lalign.setvalue class ln_m_align.value
+	
+	if m_rgb.isneq(ln_m_rgb) {
+		call median.ck_outline.seton
+	}
+	if m_rgb.iseq(ln_m_rgb) {
+		call median.ck_outline.setoff
+	}
+	
+	call program median_check_type
+END
+
+DIALOG adv, tabtitle(resource LBL_ADVANCED)
+BEGIN
+  CHECKBOX ck_hide	_lft	_top	_iwd	.,		///
+	label(resource GR_ED_BOXPLOT_ADV_CK_HIDE)
+END
+
+PROGRAM get_defaults
+BEGIN
+	call program main_get_defaults
+	call program median_get_defaults
+
+	call G.withvalue drawview.setvalue class @.draw_view.istrue
+	if drawview {
+		call adv.ck_hide.setdefault 0
+	}
+	else {
+		call adv.ck_hide.setdefault 1
+	}
+END
+
+PROGRAM initialize_controls
+BEGIN
+	call program main_initialize_controls
+	call program median_initialize_controls
+
+	if drawview {
+		call adv.ck_hide.setoff
+	}
+	else {
+		call adv.ck_hide.seton
+	}
+END
+
+PROGRAM command
+BEGIN
+	call program get_defaults
+
+	put "_gm_dlg_edits"
+	beginoptions
+		put " object(" G ") "
+
+		if ! main.cl_fclr.isvisible() & ! main.cb_fclr.isdefault() {
+			put "style(pstyle(area(shadestyle(color(" 
+			put main.cb_fclr 
+			put "))))) "
+		}
+		if main.cl_fclr.isvisible() & ! main.cl_fclr.isdefault() {
+			put "style(pstyle(area(shadestyle(color("  `"""'
+			put main.cl_fclr
+			put `"""'
+			put "))))) "
+		}
+		if ! main.sp_fopacity.isdefault() {
+			put "style(pstyle(area(shadestyle(color("  `"""'
+			put "%"
+			put main.sp_fopacity
+			put `"""'
+			put "))))) "
+		}
+		if ! main.ck_outline & main.cb_fclr.isneq(line_color) {
+			if ! main.cl_fclr.isvisible() {
+				put "style(pstyle(area(linestyle(color(" 
+				put main.cb_fclr 
+				put "))))) "
+			}
+			if main.cl_fclr.isvisible() & main.cl_fclr.isneq(line_rgb) {
+				put "style(pstyle(area(linestyle(color("  `"""'
+				put main.cl_fclr
+				put `"""'
+				put "))))) "
+			}
+		}
+		call line_opacity.withvalue d_tmp.setvalue @
+		if ! main.ck_outline & main.sp_fopacity.isneq(d_tmp) {
+			put "style(pstyle(area(linestyle(color("  `"""'
+			put "%"
+			put main.sp_fopacity
+			put `"""'
+			put "))))) "
+		}
+		if main.cb_lclr & main.ck_outline {
+			if ! main.cl_lclr.isvisible() & ! main.cb_lclr.isdefault() {
+				put "style(pstyle(area(linestyle(color(" 
+				put main.cb_lclr 
+				put "))))) "
+			}
+			if main.cl_lclr.isvisible() & ! main.cl_lclr.isdefault() {
+				put "style(pstyle(area(linestyle(color("  `"""'
+				put main.cl_lclr
+				put `"""'
+				put "))))) "
+			}
+		}
+		if main.ck_outline & ! main.sp_lopacity.isdefault() {
+			put "style(pstyle(area(linestyle(color("  `"""'
+			put "%"
+			put main.sp_lopacity
+			put `"""'
+			put "))))) "
+		}
+
+		if ! main.cb_intensity.isdefault() & main.cb_intensity {
+			put "style(pstyle(area(shadestyle(intensity("
+			put main.cb_intensity
+			put "))))) "
+		}
+
+		if ! main.cb_width.isdefault() {
+			put "style(pstyle(area(linestyle(width("
+			put main.cb_width
+			put "))))) "
+		}
+		if ! main.cb_pattern.isdefault() {
+			put "style(pstyle(area(linestyle(pattern("
+			put main.cb_pattern
+			put "))))) "
+		}
+		if ! main.cb_lalign.isdefault() {
+			put "style(pstyle(area(linestyle(align("
+			put main.cb_lalign
+			put "))))) "
+		}
+		
+		if ! main.ck_wcustom.isdefault() {
+			put "style(custom_whiskers("
+			if main.ck_wcustom {
+				put "yes"
+			}
+			else {
+				put "no"
+			}
+			put ")) "
+		}
+		if main.ck_wcustom {
+			if ! main.cl_wclr.isvisible() & ! main.cb_wclr.isdefault() {
+				put "style(whisker_style(color(" 
+				put main.cb_wclr 
+				put "))) "
+			}
+			if main.cl_wclr.isvisible() & ! main.cl_wclr.isdefault() {
+				put "style(whisker_style(color("  `"""'
+				put main.cl_wclr
+				put `"""'
+				put "))) "
+			}
+			if ! main.sp_wopacity.isdefault() {
+				put "style(whisker_style(color("  `"""'
+				put "%"
+				put main.sp_wopacity
+				put `"""'
+				put "))) "
+			}
+			if ! main.cb_wwidth.isdefault() {
+				put "style(whisker_style(width("
+				put main.cb_wwidth
+				put "))) "
+			}
+			if ! main.cb_wpattern.isdefault() {
+				put "style(whisker_style(pattern("
+				put main.cb_wpattern
+				put "))) "
+			}
+
+			if ! adv.ck_hide.isdefault() {
+				if adv.ck_hide {
+					put "set(draw_view no) "
+				}
+				else {
+					put "set(draw_view yes) "
+				}
+			}
+		}
+
+		if (! median.rb_line.isdefault()		///
+			| ! median.rb_cline.isdefault() 	///
+			| ! median.rb_marker.isdefault() )	///
+		{
+			put "style(median_type("
+			if median.rb_line {
+				put "line"
+			}
+			if median.rb_cline {
+				put "cline"
+			}
+			if median.rb_marker {
+				put "marker"
+			}
+			put ")) "
+		}
+		if median.rb_cline {
+			if ! median.cl_clclr.isvisible() & ! median.cb_clclr.isdefault() {
+				put "style(pstyle(line(color(" 
+				put median.cb_clclr 
+				put ")))) "
+			}
+			if median.cl_clclr.isvisible() & ! median.cl_clclr.isdefault() {
+				put "style(pstyle(line(color("  `"""'
+				put median.cl_clclr
+				put `"""'
+				put ")))) "
+			}
+			if ! median.sp_clopacity.isdefault() {
+				put "style(pstyle(line(color("  `"""'
+				put "%"
+				put median.sp_clopacity
+				put `"""'
+				put ")))) "
+			}
+			if ! median.cb_clwidth.isdefault() {
+				put "style(pstyle(line(width("
+				put median.cb_clwidth
+				put ")))) "
+			}
+			if ! median.cb_clpattern.isdefault() {
+				put "style(pstyle(line(pattern("
+				put median.cb_clpattern
+				put ")))) "
+			}
+		}
+		if median.rb_marker {
+			if ! median.cb_size.isdefault() {
+				put "style(median_style(marker(size("
+				put median.cb_size
+				put ")))) "
+			}
+			if ! median.cb_symbol.isdefault() {
+				put "style(median_style(marker(symbol("
+				put median.cb_symbol
+				put ")))) "
+			}
+			if ! median.cb_msymangle.isdefault() {
+				put "style(median_style(marker(symangle("
+				put median.cb_msymangle
+				put ")))) "
+			}
+
+			if ! median.cl_clr.isvisible() & ! median.cb_clr.isdefault() {
+				put "style(median_style(marker(fillcolor(" 
+				put median.cb_clr 
+				put ")))) "
+			}
+			if median.cl_clr.isvisible() & ! median.cl_clr.isdefault() {
+				put "style(median_style(marker(fillcolor("  `"""'
+				put median.cl_clr
+				put `"""'
+				put ")))) "
+			}
+			if ! median.sp_opacity.isdefault() {
+				put "style(median_style(marker(fillcolor("  `"""'
+				put "%"
+				put median.sp_opacity
+				put `"""'
+				put ")))) "
+			}
+			if ! median.ck_outline & median.cb_clr.isneq(ln_m_color) {
+				if ! median.cl_clr.isvisible() {
+					put "style(median_style(marker(linestyle(color(" 
+					put median.cb_clr 
+					put "))))) "
+				}
+				if median.cl_clr.isvisible() & median.cl_clr.isneq(ln_m_rgb) {
+					put "style(median_style(marker(linestyle(color("  `"""'
+					put median.cl_clr
+					put `"""'
+					put "))))) "
+				}
+			}
+			call ln_m_opacity.withvalue d_tmp.setvalue @
+			if ! median.ck_outline & median.sp_opacity.isneq(d_tmp) {
+				put "style(median_style(marker(linestyle(color("  `"""'
+				put "%"
+				put median.sp_opacity
+				put `"""'
+				put "))))) "
+			}
+
+			if median.cb_lclr & median.ck_outline {
+			    if ! median.cl_lclr.isvisible() & ! median.cb_lclr.isdefault(){
+				put "style(median_style(marker(linestyle(color(" 
+				put median.cb_lclr 
+				put "))))) "
+			    }
+			    if median.cl_lclr.isvisible() & ! median.cl_lclr.isdefault() {
+				put "style(median_style(marker(linestyle(color("  `"""'
+				put median.cl_lclr
+				put `"""'
+				put "))))) "
+			    }
+			}
+		       if median.ck_outline & ! median.sp_lopacity.isdefault() {
+				put "style(median_style(marker(linestyle(color("  `"""'
+				put "%"
+				put median.sp_lopacity
+				put `"""'
+				put "))))) "
+			    }
+			if ! median.cb_lwidth.isdefault() & median.ck_outline {
+				put "style(median_style(marker(linestyle(width("
+				put median.cb_lwidth
+				put "))))) "
+			}
+			if ! median.cb_lalign.isdefault() & median.ck_outline {
+				put "style(median_style(marker(linestyle(align("
+				put median.cb_lalign
+				put "))))) "
+			}
+		}
+
+		if ! adv.ck_hide.isdefault() {
+			if adv.ck_hide {
+				put "set(draw_view no) "
+			}
+			else {
+				put "set(draw_view yes) "
+			}
+		}
+
+		if J {
+			put " jindex(" J ") "
+		}
+
+		put " epilog(_gedi toolbar boxplot " G " " J ")"
+	endoptions
+END

@@ -1,0 +1,118 @@
+/*
+  areg
+
+*!  VERSION 1.3.1  25sep2014
+
+  keyword:  eclass
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE header
+HELP hlp1, view("help areg")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	program parseMessage
+	script se_createAsOLS
+	setscale_hadj resource AREG_DLG_HSCALE
+END
+
+
+DIALOG main, label(resource AREG_DLG_TITLE)/*
+		*/ tabtitle(resource LBL_TAB_MODEL)
+BEGIN
+  TEXT tx_dv 		_lft	_top	_vnwd	.,			///
+	label(resource LBL_DEPVAR)
+  VARNAME vn_dv		@ 	_ss	@	.,			///
+	ts								///
+	numeric								///
+	label(resource LBL_DEPVAR)
+
+  TEXT tx_iv		_vlx	_top	160	.,			///
+	label(resource LBL_INDDEPVAR)
+  VARLIST vl_iv		@	_ss	_vlwd	.,			///
+	fv ts								///
+	allowcat							///
+	numeric								///
+	label(resource LBL_INDDEPVAR)
+
+  TEXT     tx_absorb _lft      _ls       _iwd      .,			/*
+		*/ label(resource AREG_MAIN_TX_ABSORB)	/*
+		*/
+  DEFINE y @y
+  VARNAME  vn_absorb @         _ss       _vnwd     .,			/*
+		*/ label(resource AREG_MAIN_TX_ABSORB)		/*
+		*/ option("absorb")					/*
+		*/
+END
+
+INCLUDE byifin
+INCLUDE weights_fpa
+INCLUDE se
+
+PROGRAM parseMessage
+BEGIN
+	if __MESSAGE.contains("__MI__") {
+		call script byifin_set_by_off
+		call script se_setMI_on
+	}
+END
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+        program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr
+  DEFINE _y 20
+  INCLUDE _sp_level
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+END
+
+PROGRAM rpt_output
+BEGIN
+        optionarg /hidedefault rpt.sp_level
+        INCLUDE _report_columns_pr
+        put " " rpt_bu_facvarsResults
+        put " " rpt_bu_fmtcoefResults
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+
+PROGRAM command
+BEGIN
+	INCLUDE _by_pr
+	put "areg "
+	varlist main.vn_dv [main.vl_iv]
+	INCLUDE _weights_pr
+	INCLUDE _ifin_pr
+	beginoptions
+		require main.vn_absorb
+		optionarg main.vn_absorb
+		put " " /program se_output
+		put " " /program rpt_output
+	endoptions
+END

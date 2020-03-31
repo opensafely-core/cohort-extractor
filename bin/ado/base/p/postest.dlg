@@ -1,0 +1,89 @@
+/*
+  postest.dlg
+
+*! VERSION 1.0.9  02mar2017
+
+  keyword:  eclass
+
+*/
+
+VERSION 14.0
+SYNCHRONOUS_ONLY
+
+INCLUDE _std_large
+DEFINE _dlght 450
+POSITION . . _dlgwd _dlght
+CANCEL can1, label(resource LBL_BU_CANCEL) target(dialog) uaction(on_close)
+
+PROGRAM ON_DOTPROMPT
+BEGIN
+	call program postest_emit
+END
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource POSTEST_DLG_HSCALE
+	create STRING dlgcmd
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program postest_emit
+END
+
+PROGRAM postest_emit
+BEGIN
+	put "postest_emit"
+	put " .postest_dlg.cmd_list"
+	put " .postest_dlg.ttl_list"
+	put " .postest_dlg.main.tv_commands.repopulate"
+	// comment the following line to use strings instead of the localized
+	// resources
+	put ", rsrckey"
+	stata hidden immediate
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN) title(resource POSTEST_DLG_TITLE)
+BEGIN
+  DEFINE myw	400
+  DEFINE myh	400
+  TEXT tx_post			_lft	_top	_iwd	.,		///
+	label(resource POSTEST_MAIN_TX_POST)
+  TREEVIEW tv_commands		@	_ss	myw	myh,		///
+	contents(ttl_list)						///
+	collapse							///
+	values(cmd_list)						///
+	onselchange(program main_check_launch_btn)			///
+	error(resource POSTEST_MAIN_TX_POST)				///
+	ondblclick(program main_do_dialog_cmd)
+  BUTTON bu_go 			415 	@	75	.,		///
+	onpush(program main_do_dialog_cmd)				///
+	label(resource LBL_BU_LAUNCH)
+END
+
+LIST cmd_list
+BEGIN
+END
+
+LIST ttl_list
+BEGIN
+END
+
+PROGRAM main_check_launch_btn
+BEGIN
+	if main.tv_commands.isneq("") {
+		call main.bu_go.enable
+	}
+	else {
+		call main.bu_go.disable
+	}
+END
+
+PROGRAM main_do_dialog_cmd
+BEGIN
+	if main.tv_commands.isneq("") {
+		call main.tv_commands.withvalue @
+		call main.tv_commands.withvalue dlgcmd.setvalue @
+	}
+END
+/* END: postest.dlg */

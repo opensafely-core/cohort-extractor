@@ -1,0 +1,100 @@
+//				as_custom_ed.class
+//
+//  Provides the common member programs and variables to allow objects that
+//  have been created with a common referenced style to be customized with
+//  their own style.  
+//
+//  Note that this class is typically used through multiple inheritance with
+//  the main parent class and that the new class usually implements a
+//  .SetRightMenu to setup an appropriate right-click menu item to process
+//  edits to customize the object.
+
+
+*! version 1.2.4  28may2015
+
+version 10
+
+class {
+	already_custom	= 1			// flag for custom or not
+} 
+
+
+// ----------------------------------------------------------------------------
+// Interface with _gm_dlg_edit to signal that this object be made custom.
+// The index is not needed for this type of object, but needs to return
+// a number when given a number.
+
+program SelectedCustomIndex
+
+	if (0`._Gr_Global.serset_index' == -1)  class exit "-1"
+
+	class exit ""
+end
+
+// ----------------------------------------------------------------------------
+// Interface with _gm_dlg_edit to make this object have a custom style.
+// Since each object has its own style, this may seem odd, but
+// bargraph_g.class and others create many objects whose styles are 
+// references to a common style.  
+// Invoking .EditCustomStyle breaks this linkage.
+
+program EditCustomStyle
+
+	._Gr_Global.serset_index =  (.)
+
+	syntax  [ , j(integer -1) style(string asis) force]
+
+	if (`"`style'"' == `""' & "`force'" == "")  exit		// Exit
+	if (`j'!= -1 )  exit						// Exit
+
+
+	if ! 0`.already_custom' {
+	    if "`.style.snm'" == "" {
+		.style.ref = .`.style.classname'.new , style(`.style.objkey')
+	    }
+	    else {
+		.style.ref = .`.style.classname'.new , style(`.style.snm')
+	    }
+	}
+
+	.already_custom = 1
+
+	if (`"`style'"' != `""')  .style.editstyle `style' editcopy
+end
+
+
+//  ---------------------------------------------------------------------------
+//  Set the right-click menu for this object. 
+
+program SetRightMenu
+
+	if (`.already_custom')    exit				// Exits
+
+	local editobj "`._Gr_Global.edit_object'"
+	local j 1					// any positive # OK
+
+	local cmd .`editobj'.CustomProperties `editobj'
+	
+	// menu resource -- "Object-specific properties"
+	_gedi rightmenu add 8 OBJECT_OBJECT_SPECIFIC_PROPERTIES CMD "`cmd'"
+end
+
+
+//  ---------------------------------------------------------------------------
+//  Implement the custom properties from the right menu
+
+program CustomProperties
+
+	._Gr_Global.serset_index = -1			// steal this
+
+	_gedi showdialog gr_ed_`.dialog' `0'
+end
+
+//  ---------------------------------------------------------------------------
+//  Returns -1 when the current setting of specified index is intended
+//  for us, 0 otherwise.
+
+program objspecific_index 
+
+	class exit = cond(`0'==-1, -1, 0)
+end

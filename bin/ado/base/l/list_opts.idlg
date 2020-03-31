@@ -1,0 +1,345 @@
+/*
+
+    _list_opts.idlg  Common list options
+
+*!  VERSION 1.1.2  22oct2014
+
+    // SCRIPTS and PROGRAMS for external use
+
+	* SCRIPT list_opts_subvarname_disable
+
+*/
+
+DIALOG opt, tabtitle(resource LBL_OPTIONS)
+BEGIN
+  GROUPBOX gb_for    _lft      _top      _cwd1     _ht6,	///
+	label(resource LBL_OUTPUT_FORMATS)
+  DEFINE holdy @y
+  RADIO    rb_def    _ilft      _ss      _inwd     .,		///
+	label(resource LBL_USE_DEFAULT_FORMAT) first		///
+	onclickon(program table_on) option(NONE)
+  RADIO    rb_tab    @         _ss       @         .,		///
+	label(resource LBL_FORCE_TABLE_FORMAT) option(table)	///
+	onclickon(program table_on)
+  RADIO    rb_disp   @         _ss       @         .,		///
+	label(resource LBL_FORCE_DISPLAY_FORMAT) last option(display)	///
+	onclickon(script table_off)
+  GROUPBOX gb_head   _lft2     holdy     _cwd1     _ht6, 	///
+	label(resource LBL_VARIABLE_HEADER)
+
+  RADIO    rb_head   _indent   _ss       _inwd     ., 		///
+	first onclickon(opt.sp_hean.disable)			///
+	label(resource LBL_DISPLAY_ONCE)
+
+  RADIO    rb_noh    @         _ss       @         ., 		///
+	option(noheader) label(resource LBL_SUPPRESS)		///
+	onclickon(opt.sp_hean.disable)
+
+  RADIO    rb_hean   @         _ss       _rbwd     ., 		///
+	option(header) onclickon(opt.sp_hean.enable) last
+
+  SPINNER  sp_hean   _rbsep    @         _spwd     .,		///
+	option(header) min(1) max(10000) default(10)		///
+	label(resource LBL_DISPLAY_EVERY_N_LINES)
+
+  TEXT     tx_hean   _spsep    @         _rbspr2b  .,		///
+	label(resource LBL_DISPLAY_EVERY_N_LINES)
+  GROUPBOX gb_table  _lft      _xls      _iwd      _ht10h, 	///
+	label(resource LBL_TABLE_OPTIONS)
+  CHECKBOX ck_clean  _ilft     _ss       _cwd2     ., 		///
+	option(clean)  label(resource LBL_FORCE_A_CLEAN_TABLE) 	///
+	onclickon(script clean_on) onclickoff(program clean_off)
+  CHECKBOX ck_div    _lft2     @         @         ., 		///
+	option(divider) label(resource LBL_DRAW_DIVIDER_LINES_BETWEEN_COLUMNS)
+  GROUPBOX gb_sep    _ilft     _ls       _ibwd     _ht4h,	///
+	label(resource LBL_SEPARATORS)
+  RADIO    rb_sep    _indent   _ss       _cwd3     ., 		///
+	onclickon(opt.sp_sep.enable)				///
+	onclickoff(opt.sp_sep.disable) first			///
+	label(resource LBL_PLACE_SEPARATORS_EVERY_N_LINES)
+DEFINE y @y
+  SPINNER  sp_sep    _indent2  _ss       _spwd     .,		///
+	option(separator)					///
+	min(0) max(10000) default(5)
+  TEXT	   tx_sep    _spsep   @          _rbspr2b  .,		///
+	label(resource LBL_LINES_DEFAULT_5)
+  RADIO    rb_sepby  _lft2     y         _cwd3     .,		///
+	label(resource LBL_WHEN_THESE_VARIABLES_CHANGE)		///
+	onclickon(opt.vl_sepby.enable)				///
+	onclickoff(opt.vl_sepby.disable)			///
+	option(sepby) last
+  VARLIST  vl_sepby  _indent2  _ss       _inwd     .,		///
+	label(resource LBL_DRAW_SEPARATOR_WHEN_THESE_VAR_CHANGE) ///
+	option(sepby)
+  CHECKBOX ck_nolab  _lft     _xxxls     _iwd      ., 		///
+	option(nolabel)						///
+	label(resource LBL_DIS_NUMERIC_CODES_RATHER_THAN_LABEL_VAL)
+END
+
+PROGRAM table_on
+BEGIN
+	call gaction opt.gb_table.enable
+	call gaction opt.ck_clean.enable
+	if !opt.ck_clean {
+		call program clean_off
+	}
+END
+
+SCRIPT table_off
+BEGIN
+	opt.gb_table.disable
+	opt.ck_clean.disable
+	script clean_on
+END
+
+SCRIPT clean_on
+BEGIN
+	opt.ck_div.disable
+	opt.gb_sep.disable
+	opt.rb_sep.disable
+	opt.sp_sep.disable
+	opt.tx_sep.disable
+	opt.rb_sepby.disable
+	opt.vl_sepby.disable
+END
+
+PROGRAM clean_off
+BEGIN
+	call gaction opt.ck_div.enable
+	call gaction opt.gb_sep.enable
+	call gaction opt.rb_sep.enable
+	if opt.rb_sep {
+		call gaction opt.sp_sep.enable
+	}
+	call gaction opt.tx_sep.enable
+	call gaction opt.rb_sepby.enable
+	if opt.rb_sepby {
+		opt.vl_sepby.enable
+	}
+END
+
+DIALOG summary, tabtitle(resource LBL_SUMMARY)
+BEGIN
+  CHECKBOX ck_mean   _lft      _top      _iwd      ., 		///
+	option(mean)						///
+	onclickon(program mean_on)				///
+	onclickoff(program mean_off)				///
+	label(resource LBL_MEAN_LEAVE_EMPTY_FOR_ALL_VARIABLES)
+  VARLIST  vl_mean   _indent2  _ss       _inwd     .,		///
+	option(mean)						///
+	allowcat						///
+  	label(resource LBL_MEAN)
+
+  CHECKBOX ck_sum    _lft      _ls       _iwd      .,		///
+	option(sum)						///
+	onclickon(program sum_on)				///
+	onclickoff(program sum_off)				///
+	label(resource LBL_SUM_LEAVE_EMPTY_FOR_ALL_VARIABLES)
+
+  VARLIST  vl_sum    _indent2  _ss       _inwd     .,		///
+	option(sum) allowcat label(resource LBL_SUM)
+
+  CHECKBOX ck_N      _lft      _ls       _iwd      ., 		///
+	option(N)						///
+	onclickon(program N_on)					///
+	onclickoff(program N_off)				///
+	label(resource LBL_NUMBER_OF_OBERS_LEAVE_EMPTY_FOR_ALL_VAR)
+
+  VARLIST  vl_N      _indent2  _ss       _inwd     .,		///
+	option(N) allowcat label(resource LBL_NUMBER_OF_OBSERVATIONS)
+
+  CHECKBOX ck_lab    _lft      _ls       _iwd      ., 		///
+	onclickon(summary.vn_lab.enable)			///
+	onclickoff(summary.vn_lab.disable)			///
+	label(resource LBL_SUBSTITUTE_SUMMARY_VALUE_WITH_SUMMARY_NAME)
+
+  VARNAME  vn_lab    _indent2  _ss       _vnwd     .,		///
+	option(labvar)						///
+	label(resource LBL_SUBSTITUTE_SUMMARY_VALUE_WITH_SUMMARY_NAME)
+END
+
+PROGRAM mean_on
+BEGIN
+	call gaction summary.vl_mean.enable
+	call gaction summary.ck_lab.enable
+	if summary.ck_lab{
+		call gaction summary.vn_lab.enable
+	}
+END
+
+PROGRAM mean_off
+BEGIN
+	call gaction summary.vl_mean.disable
+	if !summary.ck_sum & !summary.ck_N {
+		call gaction summary.ck_lab.disable
+		call gaction summary.vn_lab.disable
+	}
+END
+
+PROGRAM sum_on
+BEGIN
+	call gaction summary.vl_sum.enable
+	call gaction summary.ck_lab.enable
+	if summary.ck_lab {
+		call gaction summary.vn_lab.enable
+	}
+END
+
+PROGRAM sum_off
+BEGIN
+	call gaction summary.vl_sum.disable
+	if !summary.ck_mean & !summary.ck_N {
+		call gaction summary.ck_lab.disable
+		call gaction summary.vn_lab.disable
+	}
+END
+
+PROGRAM N_on
+BEGIN
+	call gaction summary.vl_N.enable
+	call gaction summary.ck_lab.enable
+	if summary.ck_lab {
+		call gaction summary.vn_lab.enable
+	}
+END
+
+PROGRAM N_off
+BEGIN
+	call gaction summary.vl_N.disable
+	if !summary.ck_sum & !summary.ck_mean {
+		call gaction summary.ck_lab.disable
+		call gaction summary.vn_lab.disable
+	}
+END
+
+DIALOG adv, tabtitle(resource LBL_ADVANCED)
+BEGIN
+  CHECKBOX ck_cons   _lft      _top      _iwd      _ht4, 	///
+	option(constant) groupbox				///
+	onclickon(adv.vl_cons.enable)				///
+	onclickoff(adv.vl_cons.disable)				///
+	label(resource LBL_SEPARATE_LIST_VARIABLES_CONSTANT_ONLY_ONCE)
+
+  TEXT	   tx_cons   _ilft     _ss       _inwd     .,		///
+	label(resource LBL_CONSTANT_VAR_LEAVE_EMPTY_FOR_STATA_DET)
+
+  VARLIST  vl_cons   @         _ss       @         ., 		///
+	option(constant) allowcat label(resource LBL_CONSTANT_VARIABLES)
+
+  CHECKBOX ck_notrim _lft      _xls      _iwd      ., 		///
+	option(notrim) label(resource LBL_SUPPRESS_STRING_TRIMMING)
+
+  CHECKBOX ck_abs    @         _ms       @         ., 		///
+	option(absolute)					///
+	label(resource LBL_DISPLAY_OVERALL_OBS_NUMBERS_USING_VAR)
+
+  CHECKBOX ck_nodotz @         _ms       @         ., 		///
+	option(nodotz)						///
+	label(resource LBL_DIS_NUMERICAL_VALUES_EQUAL_TO_Z_FIELD_BLANKS)
+
+  CHECKBOX ck_subv   @         _ms       @         ., 		///
+	option(subvarname)					///
+	label(resource LBL_SUBSTITUTE_CHAR_VARIABLE_NAME_IN_HEADER)
+
+  CHECKBOX ck_lsize  @         _ms       _iwd      ., 		///
+	onclickon(script adv_lsize_on)				///
+	onclickoff(script adv_lsize_off)			///
+	label(resource LBL_OVERRIDE_DEFAULT_NUMBER_COLUMNS)
+  SPINNER  sp_lsize  _indent2  _ss       _spwd     .,		///
+	option(linesize)					///
+	min(1) max(255) default(79)
+  TEXT	   tx_lsize  _spsep    @         _cksprb   .,		///
+	label(resource LBL_COLUMNS)
+END
+
+SCRIPT adv_lsize_on
+BEGIN
+	adv.sp_lsize.enable
+	adv.tx_lsize.enable
+END
+
+SCRIPT adv_lsize_off
+BEGIN
+	adv.sp_lsize.disable
+	adv.tx_lsize.disable
+END
+
+PROGRAM list_opts_output
+BEGIN
+	option radio (opt rb_def rb_tab rb_disp)
+	if !opt.rb_disp {
+		option opt.ck_clean
+		if !opt.ck_clean {
+			option opt.ck_div
+			if opt.rb_sep {
+				optionarg /hidedefault opt.sp_sep
+			}
+			if opt.rb_sepby {
+				optionarg opt.vl_sepby
+			}
+		}
+	}
+	option opt.rb_noh
+	if opt.rb_hean {
+		optionarg opt.sp_hean
+	}
+	option opt.ck_nolab
+
+	/* summary tab */
+	if summary.ck_mean {
+		if summary.vl_mean {
+			optionarg summary.vl_mean
+		}
+		if !summary.vl_mean {
+			option summary.ck_mean
+		}
+	}
+	if summary.ck_sum {
+		if summary.vl_sum {
+			optionarg summary.vl_sum
+		}
+		if !summary.vl_sum {
+			option summary.ck_sum
+		}
+	}
+	if summary.ck_N {
+		if summary.vl_N {
+			optionarg summary.vl_N
+		}
+		if !summary.vl_N {
+			option summary.ck_N
+		}
+	}
+	if summary.ck_lab {
+		require summary.vn_lab
+		optionarg summary.vn_lab
+	}
+
+	/* advanced tab */
+	if adv.ck_cons {
+		if adv.vl_cons {
+			optionarg adv.vl_cons
+		}
+		if !adv.vl_cons {
+			option adv.ck_cons
+		}
+	}
+	option adv.ck_notrim
+	option adv.ck_abs
+	option adv.ck_nodotz
+	option adv.ck_subv
+	if adv.ck_lsize {
+		require adv.sp_lsize
+		optionarg adv.sp_lsize
+	}
+END
+
+// For external use by duplicates examples and duplicates list
+SCRIPT list_opts_subvarname_disable
+BEGIN
+	adv.ck_subv.hide
+	adv.ck_lsize.setposition . 165 . .
+	adv.tx_lsize.setposition . 185 . .
+	adv.sp_lsize.setposition . 185 . .
+	adv.sp_lsize.show
+END

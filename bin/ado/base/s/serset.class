@@ -1,0 +1,577 @@
+*! version 1.1.4  04may2019
+version 8
+
+class {
+	double id				/* serset id		    */
+	string sortorder			/* sort order 		    */
+	string miss_opts			/* missing value options    */
+	double weight_id			/* series id of the wgt var */
+
+	array sers				/* array of series	    */
+}, inherit(object)
+
+program destructor
+	if 0`.id.ref_n' <= 1 {
+		if `.id' < . {
+			serset drop `.id'
+		}
+	}
+end
+
+// Note, the destructor drops sersets.  This means that sersets created
+// through .serset should NOT be held and used anywhere but in the .serset
+// instance.
+
+
+/* -------------------------------------------------------------------------*/
+/*	Usage:  .new [varlist] [if] [in] [weight] [, noCOUNT
+			OMITANYMiss OMITALLMiss OMITDUPmiss OMITNothing
+*/
+
+program define new
+
+	syntax [varlist(ts default=none)] [if] [in] [aw fw pw] [, 	/*
+		*/ OMITANYMiss OMITALLMiss OMITDUPmiss OMITNothing 	/*
+		*/ noCOUNT SORT(string) noLABel READLOG(string) ]
+
+	if "`readlog'" != "" {
+		.readfromfile `readlog'
+	}
+
+	if `"`exp'"' != `""' {				/* handle weights */
+		tempname wttmp
+		local wtvar `._genwt `wttmp' `exp''
+		local varlist `varlist' `wtvar'
+		local w_id : word count `varlist'
+		.weight_id = `w_id'
+		if bsubstr("`wtvar'", 1, 2) == "__" {
+			local wtnm _weight_
+		}
+	}
+
+	if "`varlist'" == "" { 			/* will leave if readlog */
+		exit 
+	} 
+
+							/* handle sort */
+	if "`sort'" != "" {
+		local unused : subinstr local sort "-" "-", count(local ct)
+		if ! `ct' {
+			local sort : subinstr local sort "+" "" , all
+			local sortopt sort(`sort')
+		}
+	}
+
+							// default missing
+	local miss `omitanymiss' `omitallmiss' `omitdupmiss' `omitnothing'
+
+	serset create `varlist' `if' `in' , `miss' `sortopt'
+
+	.id = r(id)
+	.miss_opts = "`miss'"
+	.sortorder = "`sort'"
+
+							/* create series */
+	if "`omitanymiss'" == "" {
+		local missing missing
+	}
+	foreach var of local varlist {
+		.sers[`.sers.arrnels'+1] = .series.new `var' `if' `in',    /*
+			*/ variable `count' `missing'
+		/* any style info used here must be duplicated in seton */
+	}
+
+	if 0`ct' {					/* gsort if needed */
+		.sort `.sortorder'
+	}
+
+	if "`label'" == "" {
+		.set_labels `if' `in'
+	}
+
+	if "`wtnm'" != "" {
+		.sers[`.sers.arrnels'].name = "`wtnm'"
+		.sers[`.sers.arrnels'].label = "weight expression"
+	}
+end
+
+program define _genwt
+	gettoken tname expr : 0
+
+	gettoken equal 0 : expr , parse(" =")
+	capture syntax varlist(min=1 max=1 numeric)
+	if _rc {
+		gen float `tname' `expr'			/* not double */
+		class exit `"`tname'"'
+	}
+	else {
+		class exit `"`0'"'
+	}
+end
+
+/* -------------------------------------------------------------------------*/
+/*	Usage:  .set
+*/
+
+program define set
+
+	if `.id' < . {
+		serset `.id'
+	}
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*	Usage:  .seton serset_id
+*/
+
+program define seton
+	args ss_id
+
+	/* does not handle weight variable */
+
+	.id = `ss_id'
+
+	serset `ss_id'
+	local k : serset k
+	forvalues i = 1/`k' {
+		.sers[`i'] = .series.new
+		.sers[`i'].seton `i'
+	}
+end
+
+/* -------------------------------------------------------------------------*/
+/*	Usage:  .seriesof <series_name>
+
+	Returns the series index/id for the specified name
+*/
+
+program define seriesof
+
+	forvalues i=1/0`.sers.arrnels' {
+		if "`.sers[`i'].name'" == "`0'" {
+			local id `i'
+			continue, break
+		}
+	}
+
+	class exit = 0`id'
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*	Usage:  .nameof <series_num>
+
+	Returns the series name for the specified name index/id
+*/
+
+program define nameof
+	class exit "`.sers[`1'].name'"
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*  Returns the list of variables stored in the serset.
+*/
+
+program define varlist
+
+	forvalues i=1/0`.sers.arrnels' {
+		local varlist `varlist' `.sers[`i'].name'
+	}
+
+	class exit `"`varlist'"'
+	
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*  Records the labels for all of the series in the serset.
+*/
+
+program define set_labels
+
+	forvalues i=1/0`.sers.arrnels' {
+		.sers[`i'].set_labels `0'
+	}
+	
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*  Returns the value of a specified observation in a specified series.
+    The returned value is always a string.  If the series is string it is the
+    string.  If it is labeled, it is the label. If it is numeric it is the
+    string value of the number formatted by its number.  The series can be
+    specified either as a variable name or index number.
+*/
+
+program value
+	args i j
+
+	capture confirm name `i'
+	if !_rc {
+		local i = `.seriesof `i''
+	}
+
+	if 0`i' <= 0  |  0`i' > 0`.sers.arrnels' {
+		class exit ""
+	}
+
+	if "`.sers[`i'].type.setting'" == "string" {
+		class exit `"`=strserset(`i', `j')'"'
+	}
+
+	local fmt "`.sers[`i'].format'"
+	if  "`fmt'" == "" {
+		local fmt "%9.0g"
+	}
+
+	if 0`.sers[`i'].has_labels' {
+		local val = serset(`i', `j')
+		class exit `"`.sers[`i'].value_label `val' `fmt''"'
+	}
+
+	class exit "`:display `fmt' `=serset(`i', `j')''"
+
+end
+
+/* -------------------------------------------------------------------------*/
+/*  Returns the numeric value of a specified observation in a specified series.
+    Returns . if the series is string.
+*/
+program numvalue
+	args i j
+
+	capture confirm name `i'
+	if !_rc {
+		local i = `.seriesof `i''
+	}
+
+	if "`.sers[`i'].type.setting'" == "string" {
+		class exit = (.)
+	}
+
+	class exit = serset(`i', `j')
+end
+
+
+
+/* -------------------------------------------------------------------------*/
+/*  Sorts a serset using gsort
+    
+    Usage:  .sort <gsort_syntax>
+
+    Note the names supplied may be either variable names or serset numbers.
+*/
+
+program define sort
+						/* see if we need to gsort */
+	local unused : subinstr local 0 "-" "-" , count(local use_gsort)
+
+	if ! `use_gsort' {
+		syntax anything(id=varlist) [ , mfirst *]
+
+		if "`mfirst'" != "" {
+			local use_gsort 1
+		}
+	}
+
+	.set
+
+	if ! `use_gsort' {			/* just a simple sort */
+		capture serset sort `0'
+		if _rc >= 900 {
+			preserve
+			drop _all
+			serset sort `0'
+		}
+		else {
+			serset sort `0'				// show error
+		}
+		exit
+	}
+
+						/* must use gsort */
+	local cmd `0'
+
+	local 0 : subinstr local 0 "+" "", all
+	local 0 : subinstr local 0 "-" "", all
+
+	syntax anything(id=varlist) [ , * ]
+
+	foreach vnum of local anything {
+		capture confirm integer number `vnum'
+		if ! _rc {
+			local cmd : subinstr local cmd			///
+				    "`vnum'"  "`.sers[`vnum'].name'"  , word
+			local cmd : subinstr local cmd			///
+				    "-`vnum'" "-`.sers[`vnum'].name'" , word
+		}
+	}
+
+	preserve
+	serset use , clear
+	gsort `cmd'
+	serset drop
+	serset create `.varlist' , `.miss_opts'
+	serset reset_id `.id'
+
+	.sortorder = "`cmd'"
+end
+
+
+/* -------------------------------------------------------------------------*/
+/* Set the sort through the attribute holding the sort order.
+   Used from the gui like a trigger.
+*/
+
+program define _set_sortorder
+	if "`0'" == "`.sortorder'" {
+		exit					/* nothing to do */
+	}
+
+	.sort `0'
+end
+
+// ---------------------------------------------------------------------------
+// Programs to determine if a specified point is located on a serset
+// within a specified tolerance
+
+// Is the specified point located on one of the points defined by the x and y
+// variables?
+
+program at_points
+	args yvar xvar y x ytol xtol yln xln
+
+	.set
+
+	local obs =							///
+	0`:serset onpoints `--yvar' `--xvar' `y' `x' `ytol' `xtol' `yln' `xln''
+
+	if (0`obs')  ._Gr_Global.serset_index = `obs'
+
+	class exit = `obs'
+end
+
+
+// Is the specified point located on one of the lines connecting pairs of
+// points in the defined by the x and y variables?
+
+program at_lines
+	args yvar xvar y x tol yscale cmiss yln xln ctype
+
+	.set
+
+	class exit = 0`:serset onlines `--yvar' `--xvar' `y' `x' `tol' `yscale' `cmiss' `yln' `xln' `ctype''
+
+end
+
+
+// Is the specified point located on one of the lines connecting pairs of
+// points in the defined by the x1,y1 x2,y2 (e.g. paired coordinate) variables
+
+program at_pclines
+	args y1var x1var y2var x2var y x tol yscale ylog xlog
+
+	.set
+
+	local obs = 0`:serset onpclines `--y1var' `--x1var' `--y2var' `--x2var' `y' `x' `tol' `yscale' `ylog' `xlog''
+
+	if (0`obs')  ._Gr_Global.serset_index = `obs'
+
+	class exit = `obs'
+end
+
+// Is the specified point located within the area defined by the x and y
+// variables?
+
+program at_area
+	args yvar xvar y x base cmiss ylog xlog
+
+	.set
+
+	class exit =  							///
+	0`:serset inarea `--yvar' `--xvar' `y' `x' `base' `cmiss' `ylog' `xlog''
+end
+
+
+// Is the specified point located within the range area defined by the 
+// x, y, and y2 variables?
+
+program at_rarea
+	args yvar y2var xvar y x base cmiss ylog xlog
+
+	.set
+
+	class exit = 0`:serset inrarea `--yvar' `--y2var' `--xvar' `y' `x' `base' `cmiss' `ylog' `xlog''
+end
+
+
+
+// Is the specified point located within the range area defined by the 
+// x, x2, y, and y2 variables?
+
+program at_polyarea
+	args yvar xvar y2var x2var y x cmiss ylog xlog
+
+	.set
+
+	class exit = 0`:serset inpolyarea `--yvar' `--xvar' `--y2var' `--x2var' `y' `x' `cmiss' `ylog' `xlog''
+end
+/* -------------------------------------------------------------------------*/
+/* Convert into a median band serset.  Resulting serset has only two variables.
+   If y and x variables not specified use variables 1 and 2.
+*/
+
+program as_median_bands
+	syntax [, Yvariable(integer 1) Xvariable(integer 2) Bands(integer -1) ]
+
+	_gs_default_bands bands : `bands'
+	local y `yvariable'
+	local x `xvariable'
+
+	tempname yser xser
+	.`yser' = .sers[`y'].copy
+	.`xser' = .sers[`x'].copy
+
+	serset set `.id'				// med band serset
+	serset create_xmedians `y' `x' , bands(`bands') 
+
+							// remake ourself
+	serset drop `.id'
+	serset reset_id `.id'
+
+	.weight_id = (.)
+
+	._clear_sers
+	.sers[1] = .`yser'.ref
+	.sers[2] = .`xser'.ref
+
+	.sers[1].reset_partial 1
+	.sers[2].reset_partial 2
+
+	.sort 2
+end
+
+
+/* -------------------------------------------------------------------------*/
+/* Convert into a median spline band serset.  Resulting serset has only two 
+   variables.  If y and x variables not specified use variables 1 and 2.
+*/
+program as_spline
+	syntax [, Yvariable(integer 1) Xvariable(integer 2)		///
+		  SPLinepts(integer 10) ]
+
+	local y `yvariable'
+	local x `xvariable'
+
+	tempname yser xser
+	.`yser' = .sers[`y'].copy
+	.`xser' = .sers[`x'].copy
+
+	serset set `.id'				// med band serset
+	serset create_cspline `y' `x' , n(`splinepts')
+
+							// remake ourself
+	serset drop `.id'
+	serset reset_id `.id'
+
+	.weight_id = (.)
+
+	._clear_sers
+	.sers[1] = .`yser'.ref
+	.sers[2] = .`xser'.ref
+
+	.sers[1].reset_partial 1
+	.sers[2].reset_partial 2
+
+	.sort 2
+end
+
+program _clear_sers
+	while 0`.sers.arrnels' {
+		.sers.Arrpop
+	}
+end
+
+
+/* -------------------------------------------------------------------------*/
+/* Saves a serset to disk.
+*/
+ 
+program define savetofile
+	args filehndl
+
+	file write `filehndl' "<BeginSerset>" _n
+	forvalues i = 1/0`.sers.arrnels' {
+		file write `filehndl' "<BeginSeries>" _n
+		.sers[`i'].savetofile `filehndl'
+		file write `filehndl' "<EndSeries>" _n
+	}
+
+	_writenum `filehndl' weight_id
+	if "`.miss_opts'" != "" {
+		file write `filehndl' `".miss_opts = "`.miss_opts'""' _n
+	}
+	if "`.sortorder'" != "" {
+		file write `filehndl' `".sortorder = "`.sortorder'""' _n
+	}
+
+	if `.id' < . {
+		serset `.id'
+	}
+	file write `filehndl' "<BeginSersetData>" _n
+	file sersetwrite `filehndl'
+	file write `filehndl' _n
+	file write `filehndl' "<EndSersetData>" _n
+
+	file write `filehndl' "<EndSerset>" _n
+end
+
+
+
+/* -------------------------------------------------------------------------*/
+/* Reads a serset from disk.
+*/
+
+program define readfromfile
+	args filehndl
+
+	file read `filehndl' line
+	gettoken tok : line
+	if "`tok'" != "<BeginSerset>" {
+		di `"`line'"'
+		di "invalid line in file"
+	}
+
+						/* process serset lines */
+	local i 0
+	while 1 {
+		file read `filehndl' line
+		gettoken tok : line
+
+		if "`tok'" == "<EndSerset>" {
+			continue, break				/* DONE */
+		}
+
+		if "`tok'" == "<BeginSeries>" {
+			.sers[`++i'] = .series.new ,  readlog(`filehndl')
+			continue
+		}
+
+		if "`tok'" == "<BeginSersetData>" {
+			file sersetread `filehndl'
+			.id = r(id)
+			file read `filehndl' line	/* \n		   */
+			file read `filehndl' line	/* <EndSersetData> */
+			continue
+		}
+
+		`line'					/* run line	   */
+
+	}
+
+	file read `filehndl' line	/* <EndItem> */
+
+end

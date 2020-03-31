@@ -1,0 +1,118 @@
+/*
+  mi passive: generate
+
+*!  VERSION 1.1.1  03jun2015
+
+** This dialog box is called from the mi dialog
+
+*/
+
+VERSION 14.0
+INCLUDE _std_medium
+DEFINE _dlght 230
+INCLUDE header
+HELP hlp1, view("help mi_passive")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource MI_PASSIVE_GEN_DLG_HSCALE
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)			///
+	label(resource MI_PASSIVE_GEN_DLG_TITLE)
+	
+BEGIN
+  TEXT     tx_type	_lft	_top	_cwd1	.,		///
+	label(resource LBL_TX_VARIABLE_TYPE)
+  COMBOBOX cb_type	@	_ss	_vnwd	.,		///
+	label(resource LBL_TYPE) dropdownlist contents(type) 	///
+	onselchangelist(main_type_actions) default(c(type))
+
+  TEXT     tx_newname	_lft2	_top	_cwd3_1	.,		///
+	label(resource LBL_VARIABLE_NAME)
+  EDIT     ed_newname	@	_ss	_vnwd	.,		///
+	label(resource LBL_VARIABLE_NAME) nomemory
+
+  GROUPBOX gb_contents	_lft	+35	_iwd	_ht7,		///
+	label(resource LBL_CONTENTS_OF_VARIABLE)
+  RADIO    rb_exp	_ilft	_ss	_ibwd	.,		///
+	first label(resource LBL_SPECIFY_A_VALUE_OR_AN_EXPRESSION)	///
+	onclickon(program check_values_exp)
+  RADIO    rb_missing	@	+50	@	.,		///
+	last label(resource LBL_FILL_WITH_MISSING_DATA)		///
+	onclickon(program check_values_exp)
+  EXP      ex_exp	_indent2 -30	_inwd	.,		///
+  	error(resource LBL_SPECIFY_A_VALUE_OR_AN_EXPRESSION) label(resource LBL_BU_CREATE)
+END
+
+PROGRAM check_values_exp
+BEGIN
+	if main.rb_exp {
+		call main.ex_exp.enable
+		call script byifin_enable
+	}
+	else {
+		call main.ex_exp.disable
+		call script byifin_disable
+	}
+END
+
+LIST main_type_actions
+BEGIN
+	program main_value_labels_enable
+	program main_value_labels_enable
+	program main_value_labels_enable
+	program main_value_labels_enable
+	program main_value_labels_enable
+	script  main_value_labels_disable
+END
+
+INCLUDE byif
+INCLUDE _type_list_all_string
+
+PROGRAM my_by_output
+BEGIN
+	if sub.ck_by {
+		require sub.vl_by
+		put "by  " sub.vl_by ":"
+	}
+END
+
+PROGRAM command
+BEGIN
+	put "mi passive: "
+	put /program my_by_output " "
+	
+	put "generate "
+	if ! main.cb_type.isdefault() {
+		put " " main.cb_type " "
+	}
+
+	require main.ed_newname
+	if ! main.ed_newname.isvalidname() {
+		stopbox stop resource LBL_MSGBOX_VAR_NAME_INVALID
+// The variable name you specified is invalid.
+	}
+	if main.ed_newname.isvarname() {
+		stopbox stop resource LBL_MSGBOX_VAR_NAME_ALREADY_EXISTS
+// The variable name you specified already exists.
+	}
+	put main.ed_newname
+
+	put " " "= "
+	if main.rb_exp {
+		require main.ex_exp
+		put main.ex_exp
+	}
+	else {
+		if main.cb_type.iseq("str") {
+			put `""""'
+		}
+		else {
+			put "."
+		}
+	}
+	
+	put " " /program if_output
+END

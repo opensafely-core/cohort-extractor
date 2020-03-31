@@ -1,0 +1,91 @@
+*! version 1.0.0  03jan2019
+
+version 16
+
+class {
+
+	meff_y		= "_meta_se"
+	meff_x		= "_meta_es"
+	meff_opts	= ""
+	meff_preserve	= ""
+
+}, inherit(twoway_function_parse)
+
+program .parse
+	.must_create_serset = 1
+	.viewtype = "line"
+	.n = 1
+	.allow_anything = 1
+	.varcheck = 0
+
+	syntax [anything] [if] [in] [, Range(passthru) *]
+
+	.Super.parse 0 `if' `in', `options'
+
+	local options `"[], `range' `.options'"'	// ignore weights
+	_parse expand loc glob : options
+	if `loc_n' != 1 {
+		error 198
+	}
+	local 0 `"`loc_1'"'
+	_parse combop 0 : 0, option(RAnge)	rightmost
+
+	syntax [,				///
+		theta(passthru)			///
+		range(passthru)			///
+		metric(passthru)		///
+		method(passthru)		///
+		*				///
+	]
+	twoway__meta_funnel_gen `anything', `range' `metric' `method'
+	local metric metric(`r(metric)')
+	local method method(`r(method)')
+	.meff_opts = "`theta' `range' `metric' `method'"
+
+	.meff_preserve	= `"`r(preserve)'"'
+	.meff_y		= "`r(y)'"
+	.meff_x		= "`r(x)'"
+
+	.options	= `"`options'"'
+end
+
+program log_create_serset
+
+	syntax , LOG(name) SERSETNAME(string) [ TOUSE(passthru) * ]
+
+	local nolog  .`log'.Arrpush __NOLOG__
+
+	.log_touse , log(`log') `touse'
+
+	// make the data
+	if (`"`.meff_preserve'"' != "") `nolog' preserve
+	`nolog' tempname x y
+	`nolog' twoway__meta_funnel_gen `.meff_y' `.meff_x'	///
+		if \`touse1',					///
+		`.meff_opts'					///
+		generate(\`y' \`x')				///
+		// blank
+
+	// no weights to remove
+
+	.`log'.Arrpush				///
+		.`sersetname' = .serset.new	///
+			\`y' \`x'		///
+			in 1/2,			///
+			nocount			///
+			`.omitmethod'		///
+			`options'
+
+	.`log'.Arrpush .`sersetname'.sers[1].name = "y"
+	.`log'.Arrpush .`sersetname'.sers[2].name = "x"
+
+	if ! `.yxswitch' {
+		.varlist = "y x"
+	}
+	else	.varlist = "x y"
+
+	if (`"`.meff_preserve'"' != "") `nolog' restore
+
+end
+
+exit

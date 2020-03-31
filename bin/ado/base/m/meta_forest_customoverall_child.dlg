@@ -1,0 +1,117 @@
+/*
+	meta_forest_customoverall_child.dlg
+
+*!  VERSION 1.0.3  02dec2019
+
+*/
+
+VERSION 16.0
+INCLUDE _std_medium
+DEFINE _dlght 200
+INCLUDE header
+HELP hlp1, view("help meta")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource META_FOREST_CUSTOMOVERALL_CHILD_DLG_HSCALE
+	create STRING STMP
+	create STRING TextboxOptsResults
+	create STRING MarkerOptsResults
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT tx_es				_lft	_top	_vnwd	.,	///
+	label(resource LBL_EFFECT_SIZE, colon)
+  TEXT tx_lb				_lft3_2	@	@	.,	///
+	label(resource LBL_LOWER_CI_LIMIT, colon)
+  TEXT tx_ub				_lft3_3	@	@	.,	///
+	label(resource LBL_UPPER_CI_LIMIT, colon)
+
+  EDIT ed_es				_lft	_ss	@	.,	///
+	numonly								///
+	label(resource LBL_EFFECT_SIZE)
+  EDIT ed_lb				_lft3_2	@	@	.,	///
+	numonly								///
+	label(resource LBL_LOWER_CI_LIMIT)
+  EDIT ed_ub				_lft3_3	@	@	.,	///
+	numonly								///
+	label(resource LBL_UPPER_CI_LIMIT)
+
+  TEXT tx_label				_lft	_ls	_vnwd	.,	///
+	label(resource LBL_LABEL)
+  EDIT ed_label				@	_ss	@	.,	///
+	label(resource LBL_LABEL)
+
+  BUTTON bu_textbox_opts		@	_ls	200	.,	///
+	onpush(program main_textbox_opts_show)				///
+	label(resource LBL_TEXTBOX_OPTIONS)
+
+  BUTTON bu_marker_opts			@	_ls	@	.,	///
+	onpush(program main_marker_opts_show)				///
+	label(resource LBL_MARKER_OPTIONS)
+END
+
+PROGRAM main_textbox_opts_show
+BEGIN
+	call create CHILD gr_textbox_opts_child AS BoxOpts
+	call BoxOpts.setExitString TextboxOptsResults
+	call BoxOpts.setExitAction "program main_textbox_opts_done"
+END
+
+PROGRAM main_textbox_opts_done
+BEGIN
+	if TextboxOptsResults {
+		call main.bu_textbox_opts.modified_on
+	}
+	else {
+		call main.bu_textbox_opts.modified_off
+	}
+END
+
+PROGRAM main_marker_opts_show
+BEGIN
+	call create CHILD gr_marker_nolabel_options AS MarkerOpts
+	call MarkerOpts.callthru "program main_msymbol_disable"
+	call MarkerOpts.setExitString MarkerOptsResults
+	call MarkerOpts.setExitAction "program main_marker_opts_done"
+END
+
+PROGRAM main_marker_opts_done
+BEGIN
+	if MarkerOptsResults {
+		call main.bu_marker_opts.modified_on
+	}
+	else {
+		call main.bu_marker_opts.modified_off
+	}
+END
+
+PROGRAM command_output
+BEGIN
+	require main.ed_es
+	require main.ed_lb
+	require main.ed_ub
+
+	put main.ed_es " "
+	put main.ed_lb " "
+	put main.ed_ub
+	beginoptions
+		if MarkerOptsResults {
+			put " " MarkerOptsResults
+		}
+	endoptions
+END
+
+PROGRAM command
+BEGIN
+	put " customoverall("
+	put /program command_output
+	put ")"
+END
+

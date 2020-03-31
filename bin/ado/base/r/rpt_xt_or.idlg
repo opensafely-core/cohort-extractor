@@ -1,0 +1,79 @@
+/*
+  rpt_xt_or.idlg
+
+*! VERSION 1.2.1  05feb2019
+
+  keyword:  eclass
+
+*/
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+	program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2b
+  DEFINE _y _top
+  INCLUDE _sp_level
+  
+  RADIO    rb_default   _lft       _ls       _iwd       .,		///
+  	label(resource LBL_REPORT_COEFFICIENTS_DLFT) first
+  RADIO    rb_or        @          _ss       @           .,		///
+  	label(resource LBL_REPORT_ODDS_RATIOS)				///
+  	option(or) last  
+		
+  GROUPBOX gb_tests    _lft        _ls       _iwd        _ht2,		///
+  	label(resource LBL_ADDITIONAL_TEST_STATISTICS)  
+  CHECKBOX ck_lrmodel   _ilft       _ss       _ibwd       .,		///
+	label(resource LBL_PERFORM_LIKELIHOOD_RATIO_MODEL_TEST_LRMODEL)	///
+	option(lrmodel)							///
+  	onclickon(script se_setRobust_off)				///
+  	onclickoff(script se_setRobust_on)				
+  DEFINE _x _lft
+  DEFINE _y _xls
+  DEFINE _cx _iwd
+  INCLUDE _nocnsreport
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+
+SCRIPT  rpt_lrtest_enable
+BEGIN
+	rpt.ck_lrmodel.enable
+END
+
+SCRIPT  rpt_lrtest_disable
+BEGIN
+	rpt.ck_lrmodel.disable
+END
+
+PROGRAM rpt_output
+BEGIN
+	optionarg /hidedefault rpt.sp_level
+	option rpt.rb_or
+	option rpt.ck_lrmodel
+	INCLUDE _nocnsreport_pr
+	INCLUDE _report_columns_pr
+	put " " rpt_bu_facvarsResults
+	put " " rpt_bu_fmtcoefResults
+END

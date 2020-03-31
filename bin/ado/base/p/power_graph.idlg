@@ -1,0 +1,110 @@
+/*
+	include file for iteration used at graph tab
+	for -power- commands.
+
+*!  VERSION 1.1.3  12dec2019
+
+		// SCRIPTS and PROGRAMS for external use
+		* PROGRAM show_graph_dlg
+		* PROGRAM check_graph_res
+		* PROGRAM graph_Submit
+		* PROGRAM power_graph_output
+*/
+
+SCRIPT graph_PREINIT
+BEGIN
+	create STRING graph_res
+END
+
+SCRIPT graph_POSTINIT
+BEGIN
+	program check_graph_res
+END
+
+DIALOG graph, tabtitle(resource LBL_GRAPH)
+BEGIN
+	CHECKBOX ck_graph	_lft	_top	@	.,		///
+		option(graph)						///
+		onclickon(graph.bu_graph.enable)			///
+		onclickoff(graph.bu_graph.disable)			///
+		label(resource POWER_GRAPH_GRAPH_CK_GRAPH)
+	BUTTON	bu_graph	_indent	_ms	180	.,		///
+		onpush(program show_graph_dlg)				///
+		label(resource LBL_GRAPH_PROPERTIES)
+	
+	/*CHECKBOX ck_grsave	_lft	+35	_iwd	_ht6h,		///
+		groupbox						///
+		onclickon(script opt_grsave_on)				///
+		onclickoff(script opt_grsave_off)			///
+		label("Save graphed results")
+	TEXT	tx_grsave	_iilft	_ss	_iibwd	.,		///
+		label("Filename:")
+	FILE	fi_grsave	@	_ss	@	.,		///
+		option(grsaving)					///
+		filter("Stata Graph (*.gph)|*.gph|All (*.*)|*.*")	///
+		save							///
+		error("Filename")					///
+		label("Browse...")
+	CHECKBOX ck_repgr	@	_ms	@	.,		///
+		label("Overwrite file if it already exists")*/
+END
+
+SCRIPT opt_grsave_on
+BEGIN
+	graph.fi_grsave.enable
+	graph.tx_grsave.enable
+	graph.ck_repgr.enable
+END
+
+SCRIPT opt_grsave_off
+BEGIN
+	graph.fi_grsave.disable
+	graph.tx_grsave.disable
+	graph.ck_repgr.disable
+END
+
+PROGRAM show_graph_dlg
+BEGIN
+	call create CHILD power_graph AS graph_opt, allowsubmit
+	call graph_opt.setExitString graph_res
+	call graph_opt.setExitAction "program check_graph_res"
+	call graph_opt.setSubmitAction "program graph_Submit"
+END
+
+PROGRAM check_graph_res
+BEGIN
+	if graph_res.iseq("") {
+		call graph.bu_graph.modified_off
+	}
+	else {
+		call graph.bu_graph.modified_on
+	}
+END
+PROGRAM graph_Submit
+BEGIN
+	call program check_graph_res
+	call Submit
+END
+
+PROGRAM power_graph_output
+BEGIN
+	if graph_res & graph.ck_graph {
+		put "graph("
+		put graph_res
+		put ")"
+	}
+	else {
+		option graph.ck_graph
+	}
+
+	/*if graph.ck_grsave {
+		require graph.fi_grsave
+		put `" grsaving("'
+		put graph.fi_grsave
+		if graph.ck_repgr {
+			put `", replace"'
+		}
+		put `")"'
+	}*/
+END
+

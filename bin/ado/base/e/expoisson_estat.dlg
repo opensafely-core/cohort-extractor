@@ -1,0 +1,196 @@
+/*
+	expoisson_estat
+
+*!  VERSION 1.1.1  02feb2015
+
+	***
+	USE EXTREME CARE WHEN CHANGING CONTROL NAMES. The names used
+	in this file have multiple external dependencies.
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 360	//dialog length for bootstrap options
+INCLUDE header
+
+HELP hlp1, view("help expoisson postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource EXPOISSON_ESTAT_DLG_HSCALE
+END
+
+
+SCRIPT POSTINIT
+BEGIN
+	program parseMessage
+END
+
+PROGRAM parseMessage
+BEGIN
+	if __MESSAGE.contains("-se-") {
+		call main.lb_subcmd.setvalue "se"
+	}
+	if __MESSAGE.contains("-summarize-") {
+		call main.lb_subcmd.setvalue "summarize"
+	}
+END
+
+
+
+DIALOG main, label(resource EXPOISSON_ESTAT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_subcmd		_lft	_top	_iwd	.,		///
+  	label(resource LBL_REPORTS_STATISTICS_SUBCOMMAND)
+  LISTBOX  lb_subcmd		@	_ss	@	70,		///
+  	contents(main_subcommand_contents)				///
+  	values(main_subcommand_values)					///
+  	onselchangelist(main_subcommand_scripts)
+
+  DEFINE holdy 110
+
+  // se option
+  GROUPBOX gb_coefopt	_lft	holdy	_iwd	_ht4,		///
+  	label(resource LBL_COEFFICIENT_OPTIONS)
+
+  RADIO    rb_coef	_indent	_ss	_ibwd	., 		///
+	first							///
+	label(resource LBL_REPORT_COEFFICIENTS_DLFT) 		///
+	option(NONE)
+  RADIO    rb_irr	@	_ss	@	.,		///
+	last							///
+	label(resource LBL_REPORT_INCIDENCE_RATE_RATIOS)	///
+	option(irr)
+
+  // Summarize options
+  GROUPBOX gb_eqlist            _lft    holdy	_iwd	_ht6,		///
+  	label(resource LBL_SUMMARIZE)
+  RADIO    rb_default		_ilft	_ss	_inwd	.,		///
+  	first label(resource LBL_ALL_VARIABLES_INVOLVED_ESTIMATION)	///
+  	onclickon(main.vl_spec.disable)
+  RADIO    rb_spec		@	_ss	@	.,		///
+	onclickon(main.vl_spec.enable) last				///
+	label(resource LBL_VARIABLES_OPTIONAL_EQUATION_NAMES)
+  VARLIST  vl_spec	      _indent2	_ss	_inwd	.,		///
+  	numeric								///
+	label(resource LBL_VARIABLES_OPTIONAL_EQUATION_NAMES)
+  CHECKBOX ck_equation      	_lft	+45	_iwd	.,		///
+	option(equation)						///
+	label(resource LBL_DISPLAY_SUMMARY_EQUATION)
+  CHECKBOX ck_labels		@	_ms	@	.,		///
+  	label(resource LBL_DISPLAY_VARIABLE_LABELS)				///
+  	option(labels)
+  CHECKBOX ck_noheader		_lft	_ms	_iwd	.,		///
+	option(noheader)						///
+	label(resource LBL_SUPPRESS_HEADER)
+  CHECKBOX ck_noweights		@	_ms	@	.,		///
+	option(noweights)						///
+	label(resource LBL_IGNORE_WEIGHTS)
+END
+
+LIST main_subcommand_contents
+BEGIN
+	resource LBL_REPORT_COEFFICIENT_ASYMPTOTIC_STANDARD_ERRORS
+	resource LBL_SUMMARIZE_ESTIMATION_SAMPLE
+END
+
+LIST main_subcommand_values
+BEGIN
+	se
+	summarize
+END
+
+LIST main_subcommand_scripts
+BEGIN
+	script sel_se
+	script sel_summarize
+END
+
+SCRIPT sel_se
+BEGIN
+	script main_hide_all
+	script main_se_on
+END
+
+SCRIPT sel_summarize
+BEGIN
+	script main_hide_all
+	script main_summ_on
+END
+
+SCRIPT main_se_on
+BEGIN
+	main.gb_coefopt.show
+	main.rb_coef.show
+	main.rb_irr.show
+END
+
+SCRIPT main_se_off
+BEGIN
+	main.gb_coefopt.hide
+	main.rb_coef.hide
+	main.rb_irr.hide
+END
+
+SCRIPT main_summ_on
+BEGIN
+	main.ck_equation.show
+	main.ck_labels.show
+	main.ck_noheader.show
+	main.ck_noweights.show
+	main.gb_eqlist.show
+	main.rb_default.show
+	main.rb_spec.show
+	main.vl_spec.show
+END
+
+SCRIPT main_summ_off
+BEGIN
+	main.ck_equation.hide
+	main.ck_labels.hide
+	main.ck_noheader.hide
+	main.ck_noweights.hide
+	main.gb_eqlist.hide
+	main.rb_default.hide
+	main.rb_spec.hide
+	main.vl_spec.hide
+END
+
+SCRIPT main_hide_all
+BEGIN
+	script main_summ_off
+	script main_se_off
+END
+
+PROGRAM vl_output
+BEGIN
+	put main.vl_spec
+END
+
+PROGRAM vl_eq_output
+BEGIN
+	put main.vl_eq
+END
+
+
+PROGRAM command
+BEGIN
+	put "estat "
+	put main.lb_subcmd
+	if main.rb_spec {
+		require main.vl_spec
+		put " " main.vl_spec
+	}
+	beginoptions
+		// se option
+		option main.rb_irr
+
+		// Summarize options
+		option main.ck_equation
+		option main.ck_labels
+		option main.ck_noheader
+		option main.ck_noweights
+	endoptions
+END

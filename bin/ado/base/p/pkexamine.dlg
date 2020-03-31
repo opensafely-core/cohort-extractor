@@ -1,0 +1,144 @@
+/*
+  pkexamine
+
+*! VERSION 2.1.0  11nov2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE header
+
+HELP hlp1, view("help pkexamine")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource PKEXAMINE_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script gr_plots_setDefaultConnected
+	gr_plots.settabtitle resource PKEXAMINE_AUC_PLOT
+END
+
+DIALOG main, label(resource PKEXAMINE_DLG_TITLE) 			///
+	tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_vart         _lft      _top      _cwd1     .,		///
+	label(resource LBL_TIME_VARIABLE)
+  TEXT     tx_varc         _lft2     @         @         .,		///
+	label(resource LBL_CONCENTRATION_VARIABLE)
+  VARNAME  vn_vart         _lft      _ss       _vnwd     .,		///
+  	numeric								///
+	label(resource LBL_TIME_VARIABLE)
+  VARNAME  vn_varc         _lft2     @         @         .,		///
+  	numeric								///
+	label(resource LBL_CONCENTRATION_VARIABLE)
+  GROUPBOX gb_opt          _lft      +35       _iwd      _ht19,		///
+	label(resource LBL_OPTIONS)
+  CHECKBOX ck_trap         _lft2     _ss       _cwd2     .,		///
+	label(resource LBL_USE_TRAPEZOIDAL_RULE) option(trapezoid)
+
+  CHECKBOX ck_fit          _ilft     @         @         .,		///
+	label(resource PKEXAMINE_MAIN_CK_FIT)				///
+	onclickon(main.sp_fit.enable)					///
+	onclickoff(main.sp_fit.disable)
+  SPINNER  sp_fit          _indent2  _ss       _spwd     .,		///
+	label(resource PKEXAMINE_MAIN_SP_FIT)				///
+	min(3) max(10000000) default(3) option(fit)
+  CHECKBOX ck_graph        _ilft     +35       _ibwd     _ht10h,	///
+	option(graph) label(resource PKEXAMINE_MAIN_CK_GRAPH) groupbox	///
+	onclickon(script graph_on)					///
+	onclickoff(script graph_off)
+  RADIO    rb_data         _indent   _ms       _inwd     .,		///
+	label(resource PKEXAMINE_MAIN_RB_DATA) option("NONE") first				///
+	onclickon(main.en_exp.disable)
+  DEFINE holdx @x
+  RADIO    rb_line         @         _ss       @         .,		///
+	label(resource PKEXAMINE_MAIN_RB_LINE) option(line)		///
+	onclickon(main.en_exp.disable)
+  RADIO    rb_log          @         _ss       @         .,		///
+	label(resource PKEXAMINE_MAIN_RB_LOG) option(log)		///
+	onclickon(main.en_exp.disable)
+  RADIO    rb_exp          @         _ss       @         .,		///
+	label(resource PKEXAMINE_MAIN_RB_EXP)  last			///
+	onclickon(gaction main.en_exp.enable) option(NONE)
+  EDIT     en_exp          _indent2  _ss       _en7wd    .,		///
+	option(exp) numonly label(resource PKEXAMINE_MAIN_RB_EXP)
+END
+
+SCRIPT graph_on
+BEGIN
+	main.rb_data.enable
+	main.rb_line.enable
+	main.rb_log.enable
+	main.rb_exp.enable
+
+	script gr_plots_enable
+	script gr_addplots_enable
+	script gr_yaxis_enable
+	script gr_xaxis_enable
+	script gr_titles_enable
+	script gr_legend_enable
+	script gr_overall_enable
+END
+
+SCRIPT graph_off
+BEGIN
+	main.rb_data.disable
+	main.rb_line.disable
+	main.rb_log.disable
+	main.rb_exp.disable
+	main.en_exp.disable
+
+	script gr_plots_disable
+	script gr_addplots_disable
+	script gr_yaxis_disable
+	script gr_xaxis_disable
+	script gr_titles_disable
+	script gr_legend_disable
+	script gr_overall_disable
+END
+
+INCLUDE byifin
+INCLUDE gr_plots
+INCLUDE gr_addplots
+INCLUDE gr_yaxis
+INCLUDE gr_xaxis
+INCLUDE gr_titles
+INCLUDE gr_legend
+INCLUDE gr_overall
+
+PROGRAM command
+BEGIN
+        INCLUDE _by_pr
+	put "pkexamine "
+	varlist main.vn_vart
+	varlist main.vn_varc
+	INCLUDE _ifin_pr
+	beginoptions
+	        option main.ck_trap
+		if main.ck_fit {
+			optionarg main.sp_fit
+		}
+		option main.ck_graph
+		if main.ck_graph {
+
+			option radio(main rb_data rb_line rb_log rb_exp)
+			if main.rb_exp{
+				require main.en_exp
+				optionarg main.en_exp
+			}
+			put " " /program gr_plots_output
+			put " " /program gr_addplots_output
+			put " " /program gr_yaxis_output
+			put " " /program gr_xaxis_output
+			put " " /program gr_titles_output
+			put " " /program gr_legend_output
+			put " " /program gr_overall_output
+		}
+	endoptions
+END

@@ -1,0 +1,221 @@
+/*
+    bayes_me_rpt_output_opts.dlg - bayes me output reporting options
+
+*!  VERSION 1.0.3  08mar2017
+
+*/
+VERSION 15.0
+
+INCLUDE _std_medium
+DEFINE _dlght 430
+INCLUDE header
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING cmdname
+	create DOUBLE numRe
+	create STRING parent_name
+
+	parent_name.setvalue class PARENT._dlg_rsrcname
+	parent_name.withvalue cmdname.setvalue		///
+		class @.cmdname.value
+	parent_name.withvalue numRe.setvalue		///
+		class @.numRe.value
+
+	create STRING melabel
+	
+	cmdname.withvalue melabel.format "resource LBL_DISPLAY_PARAMETERS_USING_LABELS_FMT" "@"
+
+	create STRING dlgname
+	dlgname.storeDialogClassName
+	create ARRAY rpt_show_params_list
+	create STRING showparas_str
+	create ARRAY rpt_showre_params_list
+	create STRING showreparas_str
+
+	program check_reffects
+
+	setscale_hadj resource BAYES_ME_RPT_OUTPUT_OPTS_DLG_HSCALE
+END
+
+PROGRAM	check_reffects
+BEGIN
+//	call showparas_str.setvalue ""
+//	call showparas_str.append s(reparams)
+
+	if numRe.isge(1) {
+		call program show_reffects_enable
+	}
+	else {
+		call program show_reffects_disable
+	}
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	call melabel.withvalue rpt.ck_melabel.setlabel "@"
+	
+	call rpt.cb_params.repopulate
+	call rpt.cb_showre.repopulate
+
+	call rpt.rb_showallref.setlabel "resource BAYES_LBL_SHOWALLREF"
+	call rpt.rb_showselref.setlabel "resource BAYES_LBL_SHOWSELREF"
+END
+DIALOG rpt, label(resource LBL_OUTPUT_REPORTING_OPTIONS)
+BEGIN
+  GROUPBOX gb_params		_lft	_top	_iwd	_ht9h,		///
+  	label(resource BAYES_RPT_OUTPUT_GB_PARAMS)
+  RADIO    rb_showall		_ilft	_ms	_ibwd	.,first		///
+	onclickon(script params_off)					///
+	label(resource BAYES_RPT_OUTPUT_RB_SHOW_ALL)
+  RADIO    rb_showsel		_ilft	_ss	_ibwd	.,		///
+	option(show)							///
+	onclickon(program params_on)					///
+	label(resource BAYES_RPT_OUTPUT_RB_SHOW_SEL)						
+  RADIO    rb_noshowsel		_ilft	_ss	_ibwd	.,last		///
+	option(noshow)							///
+	onclickon(program params_on)					///
+	label(resource BAYES_RPT_OUTPUT_RB_SUPPRESS_SEL)
+  COMBOBOX cb_params 		@	_ms	_ibwd	.,		///
+	dropdown							///
+	append								///
+	contents(rpt_show_params_list)					///
+	label(resource BAYES_LBL_MPARAMS_EXCLUDED_OUTPUT)
+
+  DEFINE rex _lft
+  DEFINE rey +50
+  DEFINE rewid _iwd
+  INCLUDE bayes_showreffects
+
+  CHECKBOX ck_melabel		_lft	+45	_iwd	.,		///
+	option(melabel)							///
+	label("")
+  CHECKBOX ck_nogroup		_lft	_ms	_iwd	.,		///
+	option(nogroup)							///
+	label(resource LBL_SUPPRESS_TABLE_SUMMARIZING_GROUPS)
+  CHECKBOX ck_notable		_lft	_ms	_iwd	.,		///
+	option(notable)							///
+	label(resource BAYES_LBL_SUPPRESS_ESTTABLE_OUTPUT)
+  CHECKBOX ck_noheader		_lft	_ms	_iwd	.,		///
+	option(noheader)						///
+	label(resource BAYES_LBL_SUPPRESS_HEADER_EST_OR_REPLAY)
+  TEXT	  tx_title		_lft 	_ls	_iwd	.,		///
+	label(resource BAYES_LBL_OPT_TITLE_TABLE_PARAMS_EST)
+  EDIT    ed_title		_lft	_ss	_iwd	.,		///
+	option(title)							///
+	label(resource BAYES_LBL_OPT_TITLE_TABLE_PARAMS_EST)
+END
+
+PROGRAM get_params
+BEGIN
+	put "bayesmh_wrk_dlg " 
+	put dlgname
+	put " rpt_show_params_list"
+	put `" "s(params) s(eqnames)""'
+	put " 0"
+	stata hidden immediate
+END
+PROGRAM get_showre_params
+BEGIN
+	put "bayesmh_wrk_dlg " 
+	put dlgname
+	put " rpt_showre_params_list"
+	put `" "s(reparams)""'
+	put " 0"
+	stata hidden immediate
+	call rpt.cb_showre.repopulate
+END
+
+PROGRAM params_on
+BEGIN
+	call program get_params
+	call rpt.cb_params.enable
+	call rpt.cb_params.repopulate
+END
+SCRIPT params_off
+BEGIN
+	rpt.cb_params.disable
+END
+PROGRAM show_reffects_check
+BEGIN
+	if rpt.rb_showallref.isenabled() & rpt.rb_showallref {
+		call rpt.cb_showre.disable
+	}
+	if rpt.rb_showselref.isenabled() & rpt.rb_showselref {
+		call rpt.cb_showre.enable
+		call program get_showre_params
+	}	
+END
+
+PROGRAM show_reffects_on
+BEGIN
+	if rpt.ck_showreffects.isenabled() & rpt.ck_showreffects {
+		call rpt.rb_showallref.enable
+		call rpt.rb_showselref.enable
+		call program show_reffects_check
+	}
+END
+
+PROGRAM show_reffects_off
+BEGIN
+	call rpt.rb_showallref.disable
+	call rpt.rb_showselref.disable
+	call rpt.cb_showre.disable
+END
+
+PROGRAM show_reffects_enable
+BEGIN
+	call rpt.ck_showreffects.enable
+	if rpt.ck_showreffects {
+		call program show_reffects_on
+	}
+	else {
+		call program show_reffects_off
+	}
+END
+
+PROGRAM show_reffects_disable
+BEGIN
+	call rpt.ck_showreffects.disable
+	call rpt.rb_showallref.disable
+	call rpt.rb_showselref.disable
+	call rpt.cb_showre.disable
+END
+
+PROGRAM show_reffects_output
+BEGIN
+	if rpt.rb_showallref.isenabled() & rpt.rb_showallref {
+		option rpt.rb_showallref
+	}
+	
+	if rpt.rb_showselref.isenabled() & rpt.rb_showselref {
+		optionarg rpt.cb_showre
+	}
+END
+
+PROGRAM show_output
+BEGIN
+	put rpt.cb_params
+END
+PROGRAM command
+BEGIN
+	if rpt.cb_params.isenabled() & rpt.cb_params {
+		if rpt.rb_showsel {
+			put "show"
+		}
+		if rpt.rb_noshowsel {
+			put "noshow"
+		}
+		put "("
+		put /program show_output
+		put ")"
+	}
+	put " " /program show_reffects_output
+	option rpt.ck_melabel
+	option rpt.ck_nogroup
+	option rpt.ck_notable
+	option rpt.ck_noheader
+	optionarg rpt.ed_title
+END
+

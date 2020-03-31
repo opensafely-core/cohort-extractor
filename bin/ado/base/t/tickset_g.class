@@ -1,0 +1,1954 @@
+//                                 tickset_g
+//
+//  View for a set of ticks and their labels
+//
+//  Note, tightly linked to axis.class and not much use without that class.
+//  Note, the max and min for ticksets should be set through the _set_xyz_min
+//	  programs provided in axis_g.class.
+
+//  consider convert_custom to convert the current ticks to the
+//     (axis-level?) custom ticklist.
+    
+*! version 1.3.2   22nov2019
+
+version 8
+
+class {
+	use_rule	= .yesno.new , style(no)
+	pow2		= 0
+	trans		= 0
+	min		=  1e300			// for the rule
+	max		= -1e300			// for the rule
+	delta		= 1				// for the rule
+	label_format	= "%8.0gc"
+
+	ticks		= {}				// specified ticks
+	tick_styles	= {}				// their styles
+	rule_ticks_beg	= (.)				// range of rule ticks
+	rule_ticks_end	= (.)				// for some date rules
+
+	_create_as_custom = .yesno.new , style(no)
+
+	_tmin  =  1e300					// ticks min
+	_tmax  = -1e300					// ticks max
+							// see .overallmin/max
+
+	_between_ticks	= 0				// # of between ticks
+
+	_default	= 1				// mainly for by()
+
+	_custom_min	= -1				// signaling from parse
+	_custom_max	= -1				// for tick_styles
+
+	class scale	scale
+
+	called		= 0
+
+	dlg_tickpos	= {}				// tick info for dlg
+	dlg_ticklabel	= {}				//   parallel arrays
+	dlg_tickstyle	= {}				//   easier for dlg
+	dlg_isrule	= {}				// is a rule tick
+
+	num_rule_ticks	= 0
+
+} , inherit(subview)
+
+
+// ---------------------------------------------------------------------------
+//  Set the scale used by this tickset.
+
+program set_scale
+	.scale.ref = .`0'.ref
+end
+
+
+// ---------------------------------------------------------------------------
+//  Set the min and max and the actual number of ticks and return the set 
+//  min and max
+
+program .set_ticks_pow2
+	args min max nticks
+
+	local ln2min = ceil(log(`min')/log(2))
+	local ln2max = floor(log(`max')/log(2))
+	if `ln2min' >= `ln2max' {
+		.pow2 = 0
+		.set_ticks `min' `max' 1 //`nticks'
+		exit
+	}
+	if missing(`ln2max') {
+		local ln2max = 0
+	}
+	if missing(`ln2min') {
+		local ln2min = -`ln2max'
+	}
+
+	local newmin = 2^(`ln2min')
+	local newmax = 2^(`ln2max')
+
+	local range = `ln2max' - `ln2min'
+	local skip = floor(`range'/(`nticks'-1))
+	if `skip' < 1 {
+		local skip 1
+	}
+	local 2skip = 2^(`skip')
+
+	local cur = `newmin'
+	if `ln2min' < 0 {
+		local lab = 2^(-`ln2min')
+	}
+	else {
+		local lab = `newmin'
+	}
+	local i 1
+	while `cur' <= `newmax' {
+		if `cur' < 1 {
+			local LAB = "1/`lab'"
+		}
+		else	local LAB "`cur'"
+		.add_change_tick `i' `cur' "`LAB'" 1
+		if `cur' < 1 {
+			local lab = `lab'/`2skip'
+		}
+		else	local lab = `lab'*`2skip'
+		local cur = `cur'*`2skip'
+		local ++i
+	}
+end
+
+program set_pow2
+	.pow2 = 1
+	.trans = 0
+end
+
+program .set_ticks_trans, rclass
+	args min0 max0 nticks set_type
+
+	local func "`.scale.transform.stylename'"
+	local reverse 0
+	if "`func'" == "log" {
+		local ifunc exp
+	}
+	else if "`func'" == "atanh" {
+		local ifunc tanh
+	}
+	else if "`func'" == "logit" {
+		local ifunc invlogit
+	}
+	else if "`func'" == "log1m" {
+		local ifunc -expm1
+		local reverse 1
+	}
+	else {
+		.trans = 0
+		.set_ticks `min0' `max0' `nticks' `set_type'
+		exit
+	}
+
+	if `reverse' {
+		local min1 = `func'(`max0')
+		local max1 = `func'(`min0')
+	}
+	else {
+		local min1 = `func'(`min0')
+		local max1 = `func'(`max0')
+	}
+	if `min1' >= `max1' {
+		.trans = 0
+		.set_ticks `min0' `max0' 1 //`nticks'
+		exit
+	}
+
+	capture gdi natscale `min1' `max1' `nticks'
+	if c(rc) {
+		.trans = 0
+		.set_ticks `min0' `max0' `nticks'
+		exit
+	}
+	if c(rc) | abs(r(n)) >= 10000 {
+		.trans = 0
+		.set_ticks `min0' `max0' 1 //`nticks'
+		exit
+	}
+	if r(max) > r(min) + 3 * r(n) * r(delta) {
+		.trans = 0
+		.set_ticks `min0' `max0' 1 //`nticks'
+		exit
+	}
+
+	local min2   = r(min)		
+	local max2   = r(max)
+	local delta = r(delta)
+
+	local cur = `min2'
+	local i 1
+	local tmin `max0'
+	local tmax `min0'
+	while `cur' <= `max2' {
+		local tcur = `ifunc'(`cur')
+		if !missing(`tcur') {
+			.add_change_tick `i' `tcur' "" 1
+			if `tcur' < `tmin' {
+				local tmin `tcur'
+			}
+			if `tcur' > `tmax' {
+				local tmax `tcur'
+			}
+			local ++i
+		}
+		local cur = `cur' + `delta'
+	}
+	if "`tmin'" != "`max0'" {
+		.min = `tmin'
+		if `.min' < `.scale.min' {
+			.scale.min = `.min'
+		}
+	}
+	if "`tmax'" != "`min0'" {
+		.max = `tmax'
+		if `.max' > `.scale.max' {
+			.scale.max = `.max'
+		}
+	}
+	.use_rule.set_false
+end
+
+program set_trans
+	.pow2 = 0
+	.trans = 1
+end
+
+program set_reverse
+	.scale.reverse.set_true
+end
+
+program set_ticks , rclass
+	args min0 max0 tryticks set_type
+
+	.rule_ticks_beg = (.)
+	.rule_ticks_end = (.)
+
+	if ! `._default' {
+		if ("`set_type'" == "only_default")  exit
+
+		if "`set_type'" == "rerange" {
+			local hold_min   = `.min'
+			local hold_max   = `.max'
+			local hold_delta = `.delta'
+		}
+	}
+
+	if `min0' >= `max0' {
+		.min = 0`min0' - 1
+		.max = 0`min0' + 1
+		.delta = `.max' - `.min'
+		.scale.addcur `.min' `.max'
+		.use_rule.set_`=cond(0`tryticks' >= 1, "true", "false")'
+		exit
+	}			
+
+	if 0`tryticks' > 1 {
+		if bsubstr(`"`.label_format'"',1,3) == "%-t" {
+			local ff = bsubstr(`"`.label_format'"',4,1)
+		}
+		else if bsubstr(`"`.label_format'"',1,2) == "%t" {
+			local ff = bsubstr(`"`.label_format'"',3,1)
+		}
+		else if bsubstr(`"`.label_format'"',1,3) == "%-d" {
+			local ff d
+		}
+		else if bsubstr(`"`.label_format'"',1,2) == "%d" {
+			local ff d
+		}
+		if inlist("`ff'","d","w","m","q","h","y") {
+			gdi tsnatscale `min0' `max0' `tryticks', `ff'
+			if abs(r(n)) < 10000 {
+				.min   = r(min)
+				.max   = r(max)
+				if !missing(r(delta)) {
+					.delta = r(delta)
+				}
+				else {
+					.delta = 0
+					.rule_ticks_beg = 1
+					.add_ticks `r(list)' , clear
+					.rule_ticks_end = `.ticks.arrnels'
+				}
+			}
+			else {
+				.min = `min0'
+				.max = `max0'
+				.delta = `.max' - `.min'
+			}
+		}
+		else if `.pow2' == 0 & `.trans' == 0 {
+			gdi natscale `min0' `max0' `tryticks'
+			if abs(r(n)) >= 10000 {
+				.min = `min0'		// natscale fooled
+				.max = `max0'
+				.delta = `.max' - `.min'
+			}
+			else if r(max) > r(min) + 3 * r(n) * r(delta) {
+				.min = `min0' - 1	// natscale fooled
+				.max = `max0' + 1
+				.delta = `.max' - `.min'
+			}
+			else {
+				.min   = r(min)		
+				.max   = r(max)
+				.delta = r(delta)
+			}
+		}
+		if `.pow2' {
+			.use_rule.set_false
+			.set_ticks_pow2 `min0' `max0' `tryticks'
+		}
+		else if `.trans' {
+			.set_ticks_trans `min0' `max0' `tryticks' `set_type'
+		}
+		else if "`set_type'" == "" | `._default' {
+			.use_rule.set_true
+		}
+		else if "`set_type'" == "rerange" {
+			._tmin = min(`._tmin', `.min')	// specified by xcommon 
+			._tmax = max(`._tmax', `.max')  // of graph combine
+			if ! `._default' {
+				.min   = `hold_min'
+				.max   = `hold_max'
+				.delta = `hold_delta'
+			}
+		}
+		//  may want a way to force numticks to make 
+		//  min and max be inclusive of data range
+	}
+	else {
+		if 0`tryticks' == 1 {
+			local hold_default 0`._default'
+			.minmax_ticks
+			._default = `hold_default'
+		}
+		else {
+			.min   = `min0'
+			.max   = `max0'
+			.delta = `.max' - `.min'
+			.use_rule.set_false
+		}
+	}
+end
+
+
+// ---------------------------------------------------------------------------
+
+program set_format
+	if `"`0'"' != `""' {
+		.label_format = `"`0'"'
+	}
+end
+
+
+// ---------------------------------------------------------------------------
+//  Set transform.
+
+program set_transform
+
+	if "`.scale.transform.stylename'" == "linear" {
+		exit
+	}
+	if `.delta' == 0 {
+		exit
+	}
+	local max1 0
+	forvalues z = `.min'(`.delta')`.max' {
+		if "`.scale.transform.stylename'" == "log" {
+			if `z' > 0 {
+				.min = `z'
+				continue, break				// Break
+			}
+		}
+		else if "`.scale.transform.stylename'" == "atanh" {
+			local max1 1
+			if `z' > -1 {
+				.min = `z'
+				continue, break				// Break
+			}
+		}
+		else if "`.scale.transform.stylename'" == "logit" {
+			local max1 1
+			if `z' > 0 {
+				.min = `z'
+				continue, break				// Break
+			}
+		}
+		else if "`.scale.transform.stylename'" == "log1m" {
+			local max1 1
+			if `z' < 1 {
+				.min = `z'
+				continue, break				// Break
+			}
+		}
+	}
+	if `max1' {
+		forvalues z = `.max'(-`.delta')`.min' {
+			if `z' < 1 {
+				.max = `z'
+				continue, break				// Break
+			}
+		}
+	}
+end
+
+
+// ---------------------------------------------------------------------------
+program set_default
+	confirm number `1'
+	._default = `1'
+end
+
+// ---------------------------------------------------------------------------
+
+program clear_ticks
+	while 0`.ticks.arrnels' > 0 {
+		.ticks.Arrpop
+	}
+
+	._tmin =  1e300
+	._tmax = -1e300
+end
+
+program clear
+	.use_rule.set_false
+	.min =  1e300
+	.max = -1e300
+	.clear_ticks
+end
+
+// ---------------------------------------------------------------------------
+// Returns the x- or y-locations for each tick, the locations are
+// in ascending order.
+
+program tick_values
+
+	capture numlist "`.min'(`.delta')`.max'"
+	local list "`r(numlist)'"
+
+	forvalues i = 1/0`.ticks.arrnels' {		// specified
+		local list "`list' `.ticks[`i'][1]'"
+	}
+
+	numlist "`list'", sort
+
+	class exit "`r(numlist)'"
+end
+
+// ---------------------------------------------------------------------------
+// Return the size of the specified label whose label matches supplied text.  
+// The size is in the same direction along the axis and is in GUs.  Only 
+// labels with specified text labels are searched.
+
+program _matching_label_size
+	args style ord label_text
+
+	local im `._matching_label_find `"`label_text'"''
+
+	if (! 0`im')  class exit = 0
+
+	local SIZE `style'.tickstyle.size
+	gettoken chk1 chk2 : label_text , qed(quoted)
+	if `quoted' & `"`chk2'"' != `""' {
+		while `"`chk2'"' != `""' {
+			local llen = 0`.`SIZE' `angle' `label_text''
+			gettoken chk1 chk2 : chk2 
+			local clen = 0`.`SIZE'  `angle' `chk1''
+			if `clen' > `llen' {
+				local label_text `"`chk1'"'
+			}
+		}
+	}
+
+	if "`.tick_styles[`im'].isa'" != "" {			// custom
+		local style "tick_styles[`im']"
+	}
+
+	local angle = `.`style'.tickangle.val' - ("`ord'"=="y")*90
+
+	if (mod(`angle', 180) == 90)  exit
+
+	local sz = 0`.`style'.tickstyle.label_width `angle' `label_text''
+
+	class exit = `sz'
+end
+
+
+// ---------------------------------------------------------------------------
+// Edit the style for the specified label whose label matches supplied text.  
+// Only labels with specified text labels are searched.
+
+program _matching_label_editstyle
+	args style label_text options
+
+	local im `._matching_label_find `"`label_text'"''
+
+	if (! 0`im')  class exit = 0
+
+	if "`.tick_styles[`im'].objkey'" == "" {	
+		.tick_styles[`im'] = .ticksetstyle.new, style(`style')
+	}
+	.tick_styles[`im'].editstyle `options' editcopy
+end
+
+
+// ---------------------------------------------------------------------------
+// Reset the position of the label whose label matches supplied text.  
+// Only labels with specified text labels are searched.
+
+program _matching_label_position
+	args style label_text pos
+
+	local im `._matching_label_find `"`label_text'"''
+
+	if (! 0`im')  class exit = 0
+
+	.ticks[`im'][1] = `pos'
+end
+
+
+// ---------------------------------------------------------------------------
+// Returns index for specified label whose label matches supplied text.  
+// Only labels specified text labels are searched.
+
+program _matching_label_find
+	args label_text
+
+	if (`.ticks.arrnels'==0)  class exit = 0
+
+	forvalues i = 1/0`.ticks.arrnels' {		// specified ticks
+		if `"`.ticks[`i'][2]'"' == `"`label_text'"' {
+			local im = `i'
+			continue, break
+		}
+	}
+
+	class exit = `im'
+end
+
+// ---------------------------------------------------------------------------
+
+program _tick_and_label_width
+	args style ord labseries
+
+	if `.ticks.arrnels'==0 & !0`.use_rule.istrue' {
+		class exit = 0
+	}
+
+	local angle = `.`style'.tickangle.val' - ("`ord'"=="x")*90
+
+					// try to avoid search through ticks
+	if mod(`angle', 180) == 0 & ! `._has_customs' {	
+		local size = `.`style'.tickstyle.size  `angle' X'
+	}
+	else {
+		local size 						///
+		`._biggest_label `style' "`labseries'" `angle' `.`style'.use_labels.istrue' `ord' '
+	}
+
+
+	if `.`style'.alternate.istrue' {
+		local size = `size' + 0`.`style'.alternate_gap.gmval' +	///
+			     `.`style'.tickstyle.textstyle.size.gmval'
+	}
+
+	if mod(`angle', 180) == 0 {			// consider multiline
+	    local ct = 0`._max_multi_height `.`style'.use_labels.istrue''
+	    if `ct' > 1 {
+	       local ht = `ct' * `.`style'.tickstyle.textstyle.size.gmval' + ///
+	          (`ct'-1) * 0`.`style'.tickstyle.textstyle.linegap.gmval' + ///
+		  `.`style'.tickstyle.tick_and_gap'
+		local size = max(`size', `ht')
+	    }
+	}
+
+	class exit = `size'
+end
+
+program _biggest_label
+	args style labseries angle uselbl ord
+
+	local max 0
+
+	local fmt `.label_format'
+
+	local SIZE `style'.tickstyle.size
+	if 0`.use_rule.istrue' & `.delta' != 0 {		// min/max/delta
+		forvalues x = `.min'(`.delta')`.max' {
+			if 0`uselbl' {
+			     local xstr	`"`.`labseries'.value_label `x' `fmt''"'
+			}
+			if !`uselbl' | `"`xstr'"' == `""' {
+				local xstr = string(`x',`"`fmt'"')
+			}
+			local xlen = 0`.`SIZE' `angle' `xstr''
+			if `xlen' > `max' {
+				local maxstr `"`xstr'"'
+				local max = `xlen'
+			}
+		}
+		local xstr = string(`.max',`"`fmt'"')
+		local xlen = 0`.`SIZE' `angle' `xstr''
+		if `xlen' > `max' {
+			local maxstr `"`xstr'"'
+			local max = `xlen'
+		}
+	}
+
+
+	forvalues i = 1/0`.ticks.arrnels' {		// specified
+		local x `.ticks[`i'][1]'
+
+		local lab
+		if `"`.ticks[`i'][2]'"' == `""' {
+			if `uselbl' {
+			      local lab `"`.`labseries'.value_label `x' `fmt''"'
+			}
+			if !`uselbl' | `"`lab'"' == `""' {
+				local lab `=string(`x',"`fmt'")'
+			}
+		}
+		else {
+			local lab `"`.ticks[`i'][2]'"'
+			gettoken chk1 chk2 : lab , qed(quoted)
+			if `quoted' & `"`chk2'"' != `""' {
+			    local lab `"`chk1'"'
+			    while `"`chk2'"' != `""' {
+				local llen = 0`.`SIZE' `angle' `lab''
+				gettoken chk1 chk2 : chk2 
+				local clen = 0`.`SIZE' `angle' `chk1''
+				if `clen' > `llen' {
+					local lab `"`chk1'"'
+				}
+			    }
+			}
+		}
+
+		if "`.tick_styles[`i'].objkey'" == "" {
+			local llen = 0`.`SIZE' `angle' `lab''
+			if `llen' > `max' {
+				local maxstr `"`lab'"'
+				local max = `llen'
+			}
+		}
+		else {						// custom
+			local ang = 0`.tick_styles[`i'].tickangle.val' - ///
+				    ("`ord'"=="x")*90
+			local cust_size = max(0`cust_size',		///
+			      0`.tick_styles[`i'].tickstyle.size `ang' `lab'')
+		}
+	}
+
+	class exit = max(`max', 0`cust_size')
+end
+
+
+program _max_multi_height
+	args uselbl
+
+	local fmt `.label_format'		// 01jul2003 -- jsp added
+
+	local maxct 0
+	forvalues i = 1/0`.ticks.arrnels' {
+		local lab `"`.ticks[`i'][2]'"'
+		if `"`lab'"' == `""' {
+		    if 0`uselbl' {
+			local labels `._value_label_series'
+		    local lab `"`.`labels'.value_label `.ticks[`i'][1]' `fmt''"'
+		    }
+		}
+		if `"`lab'"' != `""' {
+			local ct 1
+			gettoken chk1 chk2 : lab , qed(quoted)
+			if `quoted' & `"`chk2'"' != `""' {
+			    while `"`chk2'"' != `""' {
+				gettoken chk1 chk2 : chk2 
+				if ( `"`chk1'"' != `""' ) local ++ct
+			    }
+			}
+			local maxct = max(`maxct', `ct')
+		}
+	}
+
+	class exit = `maxct'
+end
+
+program _value_label_series
+
+	local axis : word 1 of `.scale.axes'
+	local ord = cond("`.`axis'.position.snm'"=="left" |		///
+			 "`.`axis'.position.snm'"=="right", "y", "x") 
+
+     class exit "`.`axis'.plotregion.dynamicmv[1].dim_value_label_series `ord''"
+     				//   ^
+				//   usually plot1
+end
+
+/*  deprecated
+program _longest_label
+	args labseries uselbl
+
+	local max 0
+
+	local fmt `.label_format'
+
+	if 0`.use_rule.istrue' & `.delta' != 0 {		// min/max/delta
+		forvalues x = `.min'(`.delta')`.max' {
+			if 0`uselbl' {
+			     local xstr	`"`.`labseries'.value_label `x' `fmt''"'
+			}
+			if !`uselbl' | `"`xstr'"' == `""' {
+				local xstr = string(`x',`"`fmt'"')
+			}
+			if length(`"`xstr'"') > `max' {
+				local maxstr `"`xstr'"'
+				local max = length(`"`xstr'"')
+			}
+		}
+		local xstr = string(`.max',`"`fmt'"')
+		if length(`"`xstr'"') > `max' {
+			local maxstr `"`xstr'"'
+			local max = length(`"`xstr'"')
+		}
+	}
+
+	forvalues i = 1/0`.ticks.arrnels' {		// specified
+		local x `.ticks[`i'][1]'
+
+		local lab
+		if `"`.ticks[`i'][2]'"' == `""' {
+			if `uselbl' {
+			      local lab `"`.`labseries'.value_label `x' `fmt''"'
+			}
+			if !`uselbl' | `"`lab'"' == `""' {
+				local lab `=string(`x',"`fmt'")'
+			}
+		}
+		else {
+			local lab `"`.ticks[`i'][2]'"'
+			gettoken chk1 chk2 : lab , qed(quoted)
+			if `quoted' & `"`chk2'"' != `""' {
+			    local lab `"`chk1'"'
+			    while `"`chk2'"' != `""' {
+				gettoken chk1 chk2 : chk2 
+				if length(`"`chk1'"') > length(`"`lab'"') {
+					local lab `"`chk1'"'
+				}
+			    }
+			}
+		}
+
+		if length(`"`lab'"') > `max' {
+			local maxstr `"`lab'"'
+			local max = length(`"`maxstr'"')
+		}
+	}
+
+	class exit `"`maxstr'"'
+end
+*/
+
+
+// ---------------------------------------------------------------------------
+//  Returns a structure containing the left (bottom) and right (top) amounts
+//  that the smallest (and largest) tick labels overhang the size of the axis.
+//  The sizes are in GU.  The overhang does not include the plotregion margin.
+//  Note, not applicable to log scales
+
+program _label_overhangs
+	args style ord labseries
+
+	tempname return				// class to return sizes
+	.`return' = .null.new
+	.`return'.Declare left     = 0
+	.`return'.Declare right    = 0
+	.`return'.Declare txtleft  = 0
+	.`return'.Declare txtright = 0
+	.`return'.Declare szleft   = 0
+
+	if `.ticks.arrnels'==0 & !0`.use_rule.istrue' {
+		class exit .`return'.ref
+	}
+
+	local angle = `.`style'.tickangle.val' - ("`ord'"=="y")*90
+
+	if mod(`angle', 180) == 90 {		// avoid search through ticks
+		class exit .`return'.ref
+	}
+
+	local uselbl `.`style'.use_labels.istrue'
+
+						// Find and evaluate only
+						// min and max tick positions
+	local min  1e300
+	local max -1e300
+	tempname minstyle maxstyle
+
+	local fmt `.label_format'
+
+	if 0`.use_rule.istrue' {		// Rule -- p is pos (min or max)
+		foreach p in min max {
+		   local `p' `.`p''
+		   if 0`uselbl' {
+			local `p'str `"`.`labseries'.value_label `.`p'' `fmt''"'
+		   }
+		   if !`uselbl' | `"``p'str'"' == `""' {
+			local `p'str = string(`.`p'',`"`fmt'"')
+		   }
+		   local `p'style "`style'"
+
+		}
+	}
+
+	forvalues i = 1/0`.ticks.arrnels' {		// specified
+		if (`.ticks[`i'][1]' <= `min') {
+			local min `.ticks[`i'][1]'
+			local i_min `i'
+		}
+		if (`.ticks[`i'][1]' >= `max') {
+			local max `.ticks[`i'][1]'
+			local i_max `i'
+		}
+	}
+
+	foreach p in min max {
+		local i 0`i_`p''
+		if (!`i') continue
+
+		local `p' `.ticks[`i'][1]'
+
+		if `"`.ticks[`i'][2]'"' == `""' {
+		   if `uselbl' {
+		      local `p'str `"`.`labseries'.value_label ``p'' `fmt''"'
+		   }
+		   if !`uselbl' | `"``p'str'"' == `""' {
+			local `p'str `=string(``p'',"`fmt'")'
+		   }
+		}
+		else {
+		   local `p'str `"`.ticks[`i'][2]'"'
+		   gettoken chk1 chk2 : `p'str , qed(quoted)
+		   if `quoted' & `"`chk2'"' != `""' {
+			local SIZE `style'.tickstyle.size
+		   	local `p'str `"`chk1'"'
+		   	while `"`chk2'"' != `""' {
+			   local llen = 0`.`SIZE' `angle' ``p'str''
+			   gettoken chk1 chk2 : chk2 
+			   local clen = 0`.`SIZE' `angle' `chk1''
+			   if `clen' > `llen' {
+				local `p'str `"`chk1'"'
+			   }
+		   	}
+		   }
+		}
+
+		if "`.tick_styles[`i'].objkey'" == "" {
+		   local `p'style = "`style'"
+		}
+		else {						// custom
+		   local `p'style "tick_styles[`i']"
+		   local angle = 0`.tick_styles[`i'].tickangle.val' -	///
+				 ("`ord'"=="y")*90
+		}
+	}
+
+						// compute overhangs
+	if 0`.scale.reverse.isfalse' {
+	    local szleft   `.`minstyle'.tickstyle.label_width `angle' `minstr''
+	    local szright  `.`maxstyle'.tickstyle.label_width `angle' `maxstr''
+	    local posleft  `.scale.pos_in_size_metric `min''
+	    local posright `.scale.pos_in_size_metric `max''
+	    local hzleft   `.`minstyle'.tickstyle.textstyle.horizontal.snm'
+	    local hzright  `.`maxstyle'.tickstyle.textstyle.horizontal.snm'
+	}
+	else {
+	    local szright  `.`minstyle'.tickstyle.label_width `angle' `minstr''
+	    local szleft   `.`maxstyle'.tickstyle.label_width `angle' `maxstr''
+	    local posleft  `.scale.pos_in_size_metric `max''
+	    local posright `.scale.pos_in_size_metric `min''
+	    local hzleft   `.`maxstyle'.tickstyle.textstyle.horizontal.snm'
+	    local hzright  `.`minstyle'.tickstyle.textstyle.horizontal.snm'
+	}
+
+	local muleft  = cond("`hzleft'"=="left", 0,			///
+			     cond("`hzleft'"=="right", 1, 0.5))
+	local muright = cond("`hzright'"=="left", 1,			///
+			    cond("`hzright'"=="right", 0, 0.5))
+
+	.`return'.left  = -(`posleft'  - `muleft' *`szleft')
+	.`return'.right =   `posright' + `muright'*`szright' - `.scale.size'
+	.`return'.txtleft  = `muleft' *`szleft'
+	.`return'.txtright = `muright'*`szright'
+	.`return'.szleft = `szleft'		// needed only for sts flipping
+
+	class exit .`return'.ref
+end
+
+// ---------------------------------------------------------------------------
+//  Sets the rule for the tickset using natscale and the suggested number of
+//  ticks and the current min and max from the scale.
+//
+//	Usage:  suggest_ticks_current <#_suggested_number_of_ticks>
+
+program suggest_ticks_current
+	args ticks
+
+	capture confirm integer number `ticks'
+	if _rc {
+		di as error `"invalid tick rule, `ticks' not an integer"'
+		exit 198
+	}
+
+	.set_ticks `.scale.curmin' `.scale.curmax' `ticks'
+
+	._between_ticks = 0
+	.use_rule.set_true
+end
+
+// ---------------------------------------------------------------------------
+//  Sets the rule for the tickset using natscale and the suggested number of
+//  ticks and the absolute min and max from the scale.
+//
+//	Usage:  suggest_ticks <#_suggested_number_of_ticks>
+
+program suggest_ticks
+	args ticks
+
+	capture confirm integer number `ticks'
+	if _rc {
+		di as error `"invalid tick rule, `ticks' not an integer"'
+		exit 198
+	}
+
+	.set_ticks `.scale.min' `.scale.max' `ticks'
+
+	if `.trans' == 0 {
+		._between_ticks = 0
+		.use_rule.set_true
+	}
+end
+
+program suggest_between_ticks
+	args ticks
+
+	if `ticks' < 1 {
+		exit
+	}
+
+	if ! 0`.mymajor.isofclass tickset_g' {
+		di in green "##`ticks' ignored, only allowed for minor ticks"
+		exit
+	}
+
+	.delta = `.mymajor.delta' / max(`ticks', 1)
+	.min   = min(`.scale.min', `.scale.curmin')
+	.max   = max(`.scale.max', `.scale.curmax')
+	.min   = `.mymajor.min' -					///
+		 `.delta' * floor((`.mymajor.min' - `.min') / `.delta')
+	.max   = `.mymajor.max' +					///
+		 `.delta' * floor((`.max' - `.mymajor.max') / `.delta')
+
+	._between_ticks = `ticks'
+	.use_rule.set_true
+end
+
+program reset_between_ticks
+	.suggest_between_ticks `._between_ticks'
+end
+
+// ---------------------------------------------------------------------------
+//  Sets the rule for the tickset to be a single tick at the absolute minimum 
+//  and maximum of the scale.
+//
+//	Usage:  minmax_ticks
+
+program minmax_ticks
+
+	._clear_rule_ticks
+
+	.min   = `.scale.min'
+	.max   = `.scale.max'
+	.delta = `.max' - `.min'
+
+	._between_ticks = 0
+	.use_rule.set_true
+	._default       = 0
+end
+
+program none_ticks
+
+	._clear_rule_ticks
+
+	._between_ticks = 0
+	.use_rule.set_false
+	._default       = 0
+end
+
+program range_ticks
+
+	._clear_rule_ticks
+
+	local fmt `.label_format'
+	_date2elapsed, format(`fmt') datelist()
+	if "`s(fmt)'" == "" {
+		gettoken min 0 : 0
+		gettoken max 0 : 0
+		gettoken delta 0 : 0
+	}
+	else {
+		gettoken min 0 : 0 , parse(" ()") match(par1)
+		gettoken max 0 : 0 , parse(" ()") match(par2)
+		gettoken delta 0 : 0
+
+		_date2elapsed, format(`fmt') datelist((`min'))
+		local dmin `s(args)'
+		capture numlist "`dmin'", min(1) max(1)
+		if _rc {
+			di as err ///
+`"{p}invalid tick rule "' ///
+`""`min'" must be a number or valid argument for `s(fmt)'() function{p_end}"'
+			exit 198
+		}
+
+		_date2elapsed, format(`fmt') datelist((`max'))
+		local dmax `s(args)'
+		capture numlist "`dmax'", min(1) max(1)
+		if _rc {
+			di as err ///
+`"{p}invalid tick rule "' ///
+`""`max'" must be a number or valid argument for `s(fmt)'() function{p_end}"'
+			exit 198
+		}
+
+		local min `dmin'
+		local max `dmax'
+	}
+
+	if `min' >= `max' {
+		exit
+	}
+
+	.min   = `min'
+	.max   = `max'
+	.delta = `delta'
+
+	._between_ticks = 0
+	.use_rule.set_true
+	._default       = 0
+end
+
+
+program _clear_rule_ticks
+
+	if (`.rule_ticks_beg' >= .)		    exit
+	if (`.rule_ticks_end' >= .)		    exit
+	if (`.rule_ticks_beg' > `.rule_ticks_end')  exit
+
+	if `.rule_ticks_beg' == 1 & `.rule_ticks_end' == `.ticks.arrnels' {
+		.ticks       = {}
+		.tick_styles = {}
+		.rule_ticks_beg = (.)
+		.rule_ticks_end = (.)
+		exit
+	}
+
+	forvalues i = 							///
+`.ticks.arrnels'(-1)`=`.ticks.arrnels'-`.rule_ticks_end'+`.rule_ticks_beg'' {
+		.ticks.Arrpop
+		if (`i' == `.tick_styles.arrnels')  .tick_styles.Arrpop
+	}
+
+	.rule_ticks_beg = (.)
+	.rule_ticks_end = (.)
+
+end
+
+// ---------------------------------------------------------------------------
+//  Add a specific major tick/label (or multiple ticks/labels)
+//
+//  Usage:
+//
+//    add_ticks numlist ["label"] [numlist ["label"]] ...
+//
+//  or
+//
+//    add_ticks datelist ["label"] [datelist ["label"]] ...
+
+program add_ticks
+
+	syntax [ anything(name=ticks) ] [ , clear custom noRESCALE 	///
+					    EDITSTYLE(string asis)	///
+					    BASESTYLE(string) ]
+
+	if "`clear'" != "" {
+		.clear_ticks
+	}
+	local 0 `"`ticks'"'
+
+	local i = 0`.ticks.arrnels'
+	if ("`custom'" == "custom") ._custom_min = `i' + 1
+	gettoken pos 0 : 0 , quotes parse(" ()") match(par)
+	while `"`pos'"' != `""' {
+		if "`par'" != "" {
+			local pos `"(`pos')"'
+		}
+
+		gettoken label : 0 , q qed(qed) 	// quoted
+		if 0`qed' {
+			gettoken label 0 : 0 , q
+			.add_change_tick `++i' `"`pos'"' `label' `rescale'
+		}
+		else {					// position only
+			.add_change_tick `++i' `"`pos'"'   ""    `rescale'
+		}
+		gettoken pos 0 : 0 , quotes parse(" ()") match(par)
+	}
+
+	if ("`custom'" == "custom") ._custom_max = `i' 
+
+	if `"`editstyle'"' != `""' {			// Used only by editor
+		.set_custom "`basestyle'" `editstyle'
+	}
+end
+
+// ---------------------------------------------------------------------------
+// Add/change tick
+
+program add_change_tick
+	args i pos label rescale
+
+	local fmt `.label_format'
+
+	_date2elapsed, format(`fmt') datelist(`pos')
+	local tfmt `s(fmt)'
+	local pos `s(args)'
+	capture confirm number `pos'
+	if _rc {
+		if "`tfmt'" == "" {
+			di as err ///
+			`"invalid ticklist "`pos'" must be number"'
+		}
+		else {
+			di as err `"{p}invalid ticklist "' ///
+`""`pos'" must be a number or valid argument for `tfmt'() function{p_end}"'
+		}
+		exit 198
+	}
+
+	if "`rescale'" != "norescale" {
+		._tmin = min(`._tmin' , `pos')
+		._tmax = max(`._tmax' , `pos')
+	}
+
+	.ticks[`i'] = { `pos' , `"`label'"' }
+
+end
+
+// ---------------------------------------------------------------------------
+//  Create and edit the styles for custom ticks
+//
+//  Usage:
+//
+//    set_custom args_for_editstyle
+
+program set_custom
+	gettoken basestyle options : 0
+
+	forvalues i = `._custom_min'/`._custom_max' {
+		.tick_styles[`i'] = .ticksetstyle.new, style(`basestyle')
+		.tick_styles[`i'].editstyle `options' editcopy
+	}
+
+	._custom_min = -1
+	._custom_max = -1
+end
+
+program _has_customs
+	local has 0
+	forvalues i = 1/0`.tick_styles.arrnels' {
+		if "`.tick_styles[`i'].objkey'" != "" {
+			local has 1
+			continue, break
+		}
+	}
+
+	class exit = `has'
+end
+
+// ---------------------------------------------------------------------------
+//  Edit a tick
+//
+//  Usage:
+//
+//    edit_tick index [ pos label ] [ , editstyle(<style_edits>) basestyle()
+//					clearstyle ]
+
+program edit_tick
+
+	syntax [ anything(name=args) ] [ , custom			///
+					   EDITSTYLE(string asis)	///
+					   BASESTYLE(string) 		///
+					   CLEARSTYLE * ]
+
+	gettoken i     args : args
+	gettoken pos   args : args
+	gettoken label args : args
+
+	if `i' <=  `.num_rule_ticks' {			// edits of rules -> add
+		gettoken i 0 : 0
+		add_ticks `0'			
+		exit							// Exit
+	}
+
+	local i_dlg `i'
+	local i = `i' - `.num_rule_ticks'
+
+	if "`clearstyle'" != "" {			// Clear a custom
+		.tick_styles[`i'].ref = NULLKEY
+		.dlg_tickstyle[`i_dlg'] = "default"
+		exit							// Exit
+	}
+
+
+	if "`pos'" != "" {			// change position or label
+		.add_change_tick `i' `pos' `"`label'"' rescale
+	}
+
+	if `"`editstyle'"' != `""' {		// change look
+		if "`.tick_styles[`i'].isa'" == "" {
+		    .tick_styles[`i'] = .ticksetstyle.new, style(`basestyle')
+		}
+
+		while `"`editstyle'"' != `""' {
+			.tick_styles[`i'].editstyle `editstyle' editcopy
+
+			local 0 `", `options'"'
+			syntax [ , EDITSTYLE(string asis) * ]
+		}
+	}
+
+	local 0 `", `options'"'
+	syntax [, FAKE_OPT_FOR_BETTER_MSG ]
+end
+
+
+// ---------------------------------------------------------------------------
+//  Delete a tick, may not delete a tick created by a rule.
+//
+//  Usage:
+//
+//    delete_tick index 
+
+program delete_tick
+	args dex
+
+	if (`dex' <=  `.num_rule_ticks')  exit
+
+	local dex = `dex' - `.num_rule_ticks'
+
+	forvalues i = `dex'/`=0`.ticks.arrnels'-1' {
+		.ticks[`i']       =  .ticks[`i'+1]
+		if "`.tick_styles[`i'+1].isa'" == "" {
+			.tick_styles[`i'].ref = NULLKEY
+		}
+		else {
+			.tick_styles[`i'] =  .tick_styles[`i'+1]
+		}
+	}
+
+	.ticks.Arrpop
+
+	if (0`.tick_styles.arrnels' >  0`.ticks.arrnels') .tick_styles.Arrpop
+
+
+end
+
+// ---------------------------------------------------------------------------
+//  Return our overall min/max
+
+program overallmin
+	if 0`.use_rule.istrue' {
+		if "`.scale.transform.snm'" == "log" {
+			class exit = max(min(`.min', `._tmin'), 1)
+		}
+		else if "`.scale.transform.snm'" == "atanh" {
+			class exit = max(min(`.min', `._tmin'), -1)
+		}
+		else if "`.scale.transform.snm'" == "logit" {
+			class exit = max(min(`.min', `._tmin'), 0)
+		}
+		else if "`.scale.transform.snm'" == "log1m" {
+			class exit = max(min(`.min', `._tmin'), 0)
+		}
+		else {
+			class exit = min(`.min', `._tmin')
+		}
+	}
+
+	if "`.scale.transform.snm'" == "log" {
+		class exit = max(`._tmin', 1)
+	}
+	else if "`.scale.transform.snm'" == "atanh" {
+		class exit = max(`._tmin', -1)
+	}
+	else if "`.scale.transform.snm'" == "logit" {
+		class exit = max(`._tmin', 0)
+	}
+	else if "`.scale.transform.snm'" == "log1m" {
+		class exit = max(`._tmin', 0)
+	}
+	else {
+		class exit = `._tmin'
+	}
+end
+
+program overallmax
+	if 0`.use_rule.istrue' {
+		if "`.scale.transform.snm'" == "atanh" {
+			class exit = min(max(`.max', `._tmax'), -1)
+		}
+		else if "`.scale.transform.snm'" == "logit" {
+			class exit = min(max(`.max', `._tmax'), 1)
+		}
+		else if "`.scale.transform.snm'" == "log1m" {
+			class exit = min(max(`.max', `._tmax'), 1)
+		}
+		else {
+			class exit = max(`.max', `._tmax')
+		}
+	}
+
+	if "`.scale.transform.snm'" == "atanh" {
+		class exit = min(`._tmax', 1)
+	}
+	else if "`.scale.transform.snm'" == "logit" {
+		class exit = min(`._tmax', 1)
+	}
+	else if "`.scale.transform.snm'" == "log1m" {
+		class exit = min(`._tmax', 1)
+	}
+	else {
+		class exit = `._tmax'
+	}
+	class exit = `._tmax'
+end
+
+
+// ---------------------------------------------------------------------------
+//  Return the min/max of the user-specified ticks
+
+program specifiedmin
+	class exit `._tmin'
+end
+
+program specifiedmax
+	class exit `._tmax'
+end
+
+
+
+// ---------------------------------------------------------------------------
+
+program draw
+	args style pos z0 drawgrid gridonly pregsize lowmargin highmargin labels
+
+						// set the style to the gdi
+	local setgdi4tickstyle .`style'.tickstyle.setgdifull , ///
+		angle(`.`style'.tickangle.val') posdefault(`pos')
+	`setgdi4tickstyle'
+						// special case for ##<#>
+	if 0`._between_ticks' {
+		.reset_between_ticks
+	}
+
+	._init_dlg_ticks
+
+	local op = cond("`pos'" == "right" | "`pos'" == "above", "+", "-")
+
+	local otol 0`.`style'.gridstyle.outer_tolerance.val'
+
+						// tick and text z positions
+	_compute_zs tpos tin tout zi zo zt : `style' `pos' `z0'
+
+						// grid positions
+	local islr  = ("`pos'" == "left" | "`pos'" == "right")
+
+	local ln = "`.scale.transform.stylename'" == "log"	// logged
+	local atanh = "`.scale.transform.stylename'" == "atanh"	// logged
+	local logit = "`.scale.transform.stylename'" == "logit"	// logged
+	local log1m = "`.scale.transform.stylename'" == "log1m"	// logged
+
+	if 0`drawgrid' {
+		local g0 = `z0' + 					///
+			 0`.`style'.gridstyle.extend_low.isfalse' * 0`lowmargin'
+		local g1 = `g0' + 0`pregsize' + 			    ///
+		   0`.`style'.gridstyle.extend_low.istrue' * 0`lowmargin' + ///
+		   0`.`style'.gridstyle.extend_high.istrue' * 0`highmargin'
+
+		local drawmin = 0`.`style'.gridstyle.draw_min.istrue'
+		local drawmax = 0`.`style'.gridstyle.draw_max.istrue'
+
+		local omin = `.overallmin'
+		local omax = `.overallmax'
+		local odif = `omax' - `omin'
+		if ( `.scale.min' <= `omin' )  local drawmin 1
+		if ( `.scale.max' >= `omax' )  local drawmax 1
+		if (abs((`.scale.min'-`omin') / `.delta') < .6)  local drawmin 1
+		if (abs((`.scale.max'-`omax') / `.delta') < .6)  local drawmax 1
+		local omin = min(`.scale.min' , `omin')
+		local omax = max(`.scale.max' , `omax')
+
+		if 0`.`style'.gridstyle.force_nomin.istrue' {	// nogmin
+			local extra_min & (\\\`i' > 1)
+		}
+		if 0`.`style'.gridstyle.force_nomax.istrue' {	// nogmax
+			local last = int((`.max'+.48*`.delta'-`.min')/`.delta')
+			local extra_max & (\\\`i' <= `last')
+		}
+
+		local d = cond(`islr', "y", "x")
+		local draw						    ///
+			(`omax' - \``d'' > `otol' * `.delta' | `drawmax') & ///
+			(\``d'' - `omin' > `otol' * `.delta' | `drawmin')   ///
+			`extra_min' `extra_max'
+		if (`ln')  local draw 1
+		if (`atanh')  local draw 1
+		if (`logit')  local draw 1
+		if (`log1m')  local draw 1
+	}
+
+
+						// draw ticks and labels
+	local fmt `.label_format'
+	local labeled  0`.`style'.tickstyle.show_labels.istrue'
+	local uselbl   0`.`style'.use_labels.istrue'
+	local ticked   0`.`style'.tickstyle.show_ticks.istrue' & 	  ///
+		       "`.`style'.tickstyle.linestyle.snm'" != "none" & ///
+		       "`.`style'.tickstyle.linestyle.color.snm'" != "none"
+	local alt   = 0`.`style'.alternate.istrue'
+	local altsz = 0`.`style'.alternate_gap.gmval' + 		///
+		0`.`style'.tickstyle.textstyle.size.gmval'
+
+	.num_rule_ticks = 0
+	if 0`.use_rule.istrue' {			// min/max/delta
+
+		if `islr' & `.delta' != 0 {			// left or right
+			local i 0
+			forvalues yf = `.min'(`.delta')`=`.max'+.48*`.delta'' {
+
+				if (abs(`yf') < `.delta' * 1e-6)  local y 0
+				else				  local y `yf'
+
+				if `ln' & `y' < 0 {
+					continue		// Continue
+				}
+				if `atanh' & `y' < -1 {
+					continue
+				}
+				if `logit' & `y' < 0 {
+					continue
+				}
+				if `log1m' & `y' > 1 {
+					continue
+				}
+
+				if `labeled' {
+					if 0`._between_ticks' {  // skip majors
+						if 0`.on_a_major `y'' {
+							continue   // Continue
+						}
+					}
+				}
+				if (`.on_a_specified `y'') continue	
+
+				local ++i
+
+				local lab
+				if `ticked' & ! `gridonly' {
+					gdi line `zi' `y' `zo' `y'
+				}
+				if `labeled' & ! `gridonly' {
+					local xt `zt'
+					if `alt' {
+						if mod((`i'-1), 2) {
+						    local xt = `xt' `op' `altsz'
+						}
+					} 
+					if `uselbl' {
+					   local lab			///
+					   `"`.`labels'.value_label `y' `fmt''"'
+					}
+					if !`uselbl' | `"`lab'"' == `""' {
+						local lab `:di `fmt' `y'' // sic
+					}
+					gettoken chk1 chk2 : lab , qed(quoted)
+					if `quoted' & `"`chk2'"' != `""' {
+					    ._mtext_label `style' `pos'	///
+					    		  `xt' `y' `lab'
+					}
+					else  gdi exttext `xt' `y' `lab'
+				}
+				._set_dlg_tick `i' `y' `"`lab'"' "default" 1
+				if 0`drawgrid' {
+				    if 0`=`draw'' {
+					.`style'.gridstyle.linestyle.setgdifull
+					gdi line `g0' `y' `g1' `y'
+					.`style'.tickstyle.linestyle.setgdifull
+				    }
+				}
+				local yc = `y'
+			}
+		}
+		else if `.delta' != 0 {			// above or below
+			local i 0
+			forvalues xf = `.min'(`.delta')`=`.max'+.48*`.delta'' {
+
+				if (abs(`xf') < `.delta' * 1e-6)  local x 0
+				else				  local x `xf'
+
+				if `ln' & `x' < 0 {
+					continue		// Continue
+				}
+				if `atanh' & `x' < -1 {
+					continue
+				}
+				if `logit' & `x' < 0 {
+					continue
+				}
+				if `log1m' & `x' > 1 {
+					continue
+				}
+
+				if `labeled' {
+					if 0`._between_ticks' {  // skip majors
+						if 0`.on_a_major `x'' {
+							continue    // Continue
+						}
+					}
+				}
+				if (`.on_a_specified `x'') continue	
+
+				local ++i
+
+				local lab
+				if `ticked' & ! `gridonly' {
+					gdi line `x' `zi' `x' `zo'
+				}
+				if `labeled' & ! `gridonly' {
+					local yt `zt'
+					if `alt' {
+						if mod((`i'-1), 2) {
+						    local yt = `yt' `op' `altsz'
+						}
+					} 
+					if `uselbl' {
+					   local lab			///
+					   `"`.`labels'.value_label `x' `fmt''"'
+					}
+					if !`uselbl' | `"`lab'"' == `""' {
+						local lab `:di `fmt' `x'' // sic
+					}
+					gettoken chk1 chk2 : lab , qed(quoted)
+					if `quoted' & `"`chk2'"' != `""' {
+					    ._mtext_label `style' `pos'	///
+					    		  `x' `yt' `lab'
+					}
+					else  gdi exttext `x' `yt' `lab'
+				}
+				._set_dlg_tick `i' `x' `"`lab'"' "default" 1
+				if 0`drawgrid' {
+				    if 0`=`draw'' {
+					.`style'.gridstyle.linestyle.setgdifull
+					gdi line `x' `g0' `x' `g1'
+					.`style'.tickstyle.linestyle.setgdifull
+				    }
+				}
+				local xc = `x'
+			}
+		}
+	}
+
+	local i_r = 0`i'
+	.num_rule_ticks = 0`i'
+							// specified ticks
+	local custlabeled  `labeled'
+	local custticked   `ticked'
+	local resetgdi 0
+	if `islr' {
+		forvalues i = 1/0`.ticks.arrnels' {
+			if "`.tick_styles[`i'].isa'" != "" {      // custom
+				.tick_styles[`i'].tickstyle.setgdifull ,    ///
+				   angle(`.tick_styles[`i'].tickangle.val') ///
+				   posdefault(`pos')
+				_compute_zs tpos tin tout zi zo zt :	///
+					    "tick_styles[`i']" `pos' `z0'
+				local custlabeled  			///
+				0`.tick_styles[`i'].tickstyle.show_labels.istrue'
+				local custticked = `.tick_styles[`i'].ticked'
+				local sty "tick_styles[`i']"
+			}
+			else	local sty "default"
+			local xt `zt'
+			local lab
+			if `alt' {
+				if mod((`i'-1), 2) {
+					local xt = `xt' `op' `altsz'
+				}
+			} 
+			local y `.ticks[`i'][1]'
+			if `ln' & `y' < 0 {
+				continue			// Continue
+			}
+			if `atanh' & `y' < -1 {
+				continue
+			}
+			if `logit' & `y' < 0 {
+				continue
+			}
+			if `log1m' & `y' > 1 {
+				continue
+			}
+			if `custticked' & ! `gridonly' {
+				gdi line `zi' `y' `zo' `y'
+			}
+			local lab
+			if `custlabeled' & ! `gridonly' {
+			    if `"`.ticks[`i'][2]'"' == `""' {
+				if `uselbl' {
+				    local lab				///
+				 	`"`.`labels'.value_label `y' `fmt''"'
+				}
+				if !`uselbl' | `"`lab'"' == `""' {
+				    local lab `:di `fmt' `y''		// sic
+				}
+			    }
+			    else {
+				local lab `"`.ticks[`i'][2]'"'
+			    }
+			    gettoken chk1 chk2 : lab , qed(quoted)
+			    if `quoted' & `"`chk2'"' != `""' {
+				if "`.tick_styles[`i'].isa'" != "" { 
+					local sty "tick_styles[`i']"
+				}
+				else {
+					local sty `style'
+				}
+				._mtext_label `sty' `pos' `xt' `y' `lab'
+				local resetgdi 1
+			    }
+			    else {
+				// NOTE: check if we need to reset the
+				// tickstyles, a prior call to
+				// ._mtext_label most likely left some
+				// unwanted gdi style changes behind
+				if `resetgdi' {
+					`setgdi4tickstyle'
+					local resetgdi 0
+				}
+				gdi exttext `xt' `y' `lab'
+			    }
+			}
+			._set_dlg_tick `=`i_r'+`i'' `y' `"`lab'"' "`sty'" 0
+			if 0`drawgrid' {
+			    if 0`=`draw'' {
+				.`style'.gridstyle.linestyle.setgdifull
+				gdi line `g0' `y' `g1' `y'
+				.`style'.tickstyle.linestyle.setgdifull
+			    }
+			}
+
+			if "`.tick_styles[`i'].isa'" != "" {      // custom
+				.`style'.tickstyle.setgdifull ,		///
+				    angle(`.`style'.tickangle.val')	///
+				    posdefault(`pos')
+				_compute_zs tpos tin tout zi zo zt :	///
+					    `style' `pos' `z0'
+				local custlabeled  `labeled'
+				local custticked   `ticked'
+			}
+		}
+	}
+	else {
+		forvalues i = 1/0`.ticks.arrnels' {
+			if "`.tick_styles[`i'].isa'" != "" {      // custom
+				.tick_styles[`i'].tickstyle.setgdifull ,    ///
+				   angle(`.tick_styles[`i'].tickangle.val') ///
+				   posdefault(`pos')
+				_compute_zs tpos tin tout zi zo zt :	///
+					    "tick_styles[`i']" `pos' `z0'
+				local custlabeled  			///
+				0`.tick_styles[`i'].tickstyle.show_labels.istrue'
+				local custticked = `.tick_styles[`i'].ticked'
+				local sty "tick_styles[`i']"
+			}
+			else	local sty "default"
+
+			local yt `zt'
+			local lab
+			if `alt' {
+				if mod((`i'-1), 2) {
+					local yt = `yt' `op' `altsz'
+				}
+			} 
+			local x `.ticks[`i'][1]'
+			if `ln' & `x' < 0 {
+				continue			// Continue
+			}
+			if `atanh' & `x' < -1 {
+				continue
+			}
+			if `logit' & `x' < 0 {
+				continue
+			}
+			if `log1m' & `x' > 1 {
+				continue
+			}
+			if `custticked' & ! `gridonly' {
+			      gdi line `x' `zi' `x' `zo'
+			}
+			local lab
+			if `custlabeled' & ! `gridonly' {
+			    if `"`.ticks[`i'][2]'"' == `""' {
+				if `uselbl' {
+				    local lab				///
+					`"`.`labels'.value_label `x' `fmt''"'
+				}
+				if `"`lab'"' == `""' {
+				    local lab `:di `fmt' `x''		// sic
+				}
+			    }
+			    else {
+				local lab `"`.ticks[`i'][2]'"'
+			    }
+			    gettoken chk1 chk2 : lab , qed(quoted)
+			    if `quoted' & `"`chk2'"' != `""' {
+				if "`.tick_styles[`i'].isa'" != "" { 
+					local sty "tick_styles[`i']"
+				}
+				else {
+					local sty `style'
+				}
+			    	._mtext_label `sty' `pos' `x' `yt' `lab'
+				local resetgdi 1
+			    }
+			    else {
+				// NOTE: check if we need to reset the
+				// tickstyles, a prior call to
+				// ._mtext_label most likely left some
+				// unwanted gdi style changes behind
+				if `resetgdi' {
+					`setgdi4tickstyle'
+					local resetgdi 0
+				}
+				gdi exttext `x' `yt' `lab'
+			    }
+			}
+			._set_dlg_tick `=`i_r'+`i'' `x' `"`lab'"' "`sty'" 0
+			if 0`drawgrid' {
+			    if 0`=`draw'' {
+				.`style'.gridstyle.linestyle.setgdifull
+				gdi line `x' `g0' `x' `g1'
+				.`style'.tickstyle.linestyle.setgdifull
+			    }
+			}
+			if "`.tick_styles[`i'].isa'" != "" { // standard
+				.`style'.tickstyle.setgdifull ,		///
+				    angle(`.`style'.tickangle.val')	///
+				    posdefault(`pos')
+				_compute_zs tpos tin tout zi zo zt :	///
+					    `style' `pos' `z0'
+				local custlabeled  `labeled'
+				local custticked   `ticked'
+			}
+		}
+	}
+end
+
+program _compute_zs
+	args tposm tinm toutm zim zom ztm colon style pos z0
+
+        local op = cond("`pos'" == "right" | "`pos'" == "above", "+", "-")
+
+	local tpos `.`style'.tickstyle.position.stylename'
+	local tin  = -0`.`style'.tickstyle.tick_length' *		///
+	      cond("`tpos'"== "inside", 1 , cond("`tpos'" == "outside", 0, .5))
+	local tout =  0`.`style'.tickstyle.tick_length' *		///
+	      cond("`tpos'"== "inside", 0 , cond("`tpos'" == "outside", 1, .5))
+	local zi = `z0' `op' `tin'
+	local zo = `z0' `op' `tout'
+	local zt = `zo' `op' 0`.`style'.tickstyle.textgap.gmval'
+
+	c_local `tposm' `tpos'
+	c_local `tinm'  `tin'
+	c_local `toutm' `tout'
+	c_local `zim'   `zi'
+	c_local `zom'   `zo'
+	c_local `ztm'   `zt'
+
+end
+
+//  Set the tick information for the axis dialog in the graphics editor
+
+program _set_dlg_tick
+	args i pos label style isrule
+
+	.dlg_tickpos[`i']   = `pos' 
+	.dlg_ticklabel[`i'] = `"`label'"' 
+	.dlg_tickstyle[`i'] = "`style'"
+	.dlg_isrule[`i']    = `isrule'
+end
+
+program _init_dlg_ticks
+	.dlg_tickpos	= {}
+	.dlg_ticklabel	= {}
+	.dlg_tickstyle	= {}
+	.dlg_isrule	= {}
+end
+
+// ----------------------------------------------------------------------------
+// Make a temporary positioned textbox to display the multiline label.
+program _mtext_label
+	gettoken style lab : 0
+	gettoken   pos lab : lab
+	gettoken     x lab : lab
+	gettoken     y lab : lab
+
+	tempname postb
+
+	.`postb' = .pos_textbox.new , xpos(`x') ypos(`y') mtextq(`"`lab'"')
+
+						// style from textstyle
+	local fs `.`style'.tickstyle.textstyle.objkey'
+	.`postb'.style.editstyle horizontal(`.`fs'.horizontal.snm')	///
+		vertical(`.`fs'.vertical.snm') angle(`.`fs'.angle.val') ///
+		size(`.`fs'.size.val') color(`.`fs'.color.rgb')		///
+		linegap(`.`fs'.linegap.val')				///
+		margin(zero) boxmargin(zero) editcopy
+						// approximate orientation
+	.`postb'.orientation.setstyle					///
+		, style(`.`style'.tickangle.nearest_orientation')
+
+						// box placement/alignment
+	local cpos "`.`fs'.align2compass `pos' `.`fs'.horizontal.snm''"
+	.`postb'.style.box_alignment.setstyle ,	style(`cpos')
+
+	local cpos1 = substr("`cpos'", 1, 1)
+	local angle = round(mod(`.`style'.tickangle.val', 360), 90)
+	local edit ".`postb'.style.editstyle"
+	if ("`cpos1'" == "N") {
+		if (`angle' ==   0) `edit' vertical(bottom)  editcopy
+		if (`angle' == 180) `edit' vertical(top)     editcopy
+		if (`angle' ==  90) `edit' horizontal(left)  editcopy
+		if (`angle' == 270) `edit' horizontal(right) editcopy
+	}
+	if ("`cpos1'" == "S") { 
+		if (`angle' ==   0) `edit' vertical(top)     editcopy
+		if (`angle' == 180) `edit' vertical(bottom)  editcopy
+		if (`angle' ==  90) `edit' horizontal(right) editcopy
+		if (`angle' == 270) `edit' horizontal(left)  editcopy
+	}
+	if ("`cpos1'" == "W") { 
+		if (`angle' ==   0) `edit' horizontal(right) editcopy
+		if (`angle' == 180) `edit' horizontal(left)  editcopy
+		if (`angle' ==  90) `edit' vertical(bottom)  editcopy
+		if (`angle' == 270) `edit' vertical(top)     editcopy
+	}
+	if ("`cpos1'" == "E") {
+		if (`angle' ==   0) `edit' horizontal(left)  editcopy
+		if (`angle' == 180) `edit' horizontal(right) editcopy
+		if (`angle' ==  90) `edit' vertical(top)     editcopy
+		if (`angle' == 270) `edit' vertical(bottom)  editcopy
+	}
+
+	.`postb'.draw
+end
+
+
+// ---------------------------------------------------------------------------
+//  Whether the specified values is on a major tick of .mymajor. cannot check
+//  .show_labels or .length of .mymajor because the style is not accessible.
+
+program on_a_major
+	args xory
+
+	if ! 0`.mymajor.isofclass tickset_g' {
+		class exit 0
+	}
+
+	local tol = (`.overallmax' - `.overallmin') / 10000
+	local hit 0
+
+	if `.mymajor.delta' != 0 {
+		forvalues z = `.mymajor.min'(`.mymajor.delta')`.mymajor.max' {
+			if abs(`xory' - `z') < `tol' {
+				local hit 1
+				continue, break
+			}
+		}
+	}
+
+	if `hit' {
+		class exit `hit'
+	}
+
+	forvalues i = 1/0`.ticks.arrnels' {
+		if abs(`xory' - `.ticks[`i'][1]') < `tol' {
+			local hit 1
+			continue, break
+		}
+	}
+
+	class exit `hit'
+end
+
+
+// ---------------------------------------------------------------------------
+//  Whether the supplied value is on one of the specified or custom ticks.
+
+program on_a_specified
+	args xory
+
+	if (0`.ticks.arrnels' == 0)  class exit 0
+
+	local tol = abs(`.overallmax' - `.overallmin') * 1e-5
+
+	local hit 0
+	forvalues i = 1/0`.ticks.arrnels' {
+		if ("`.ticks[`i'].[1].isa'" != "double")  continue
+
+		if abs(`xory' - `.ticks[`i'][1]') < `tol' {
+			local hit 1
+			continue, break
+		}
+	}
+
+	class exit `hit'
+end
+
+// ---------------------------------------------------------------------------
+//  Returns the index in the dlg_... arrays of the tick that is closest to
+//  the clicked point.  
+
+program NearestSelectedTick
+	args zclick
+
+
+	local found 1e300
+	local dex   0
+
+	forvalues i = 1/0`.dlg_tickpos.arrnels' {
+		local try = abs(`zclick' - `.dlg_tickpos[`i']')
+		if (`try' < `found')  {
+			local found `try'
+			local dex `i'
+		}
+	}
+
+	class exit = `dex'
+
+end

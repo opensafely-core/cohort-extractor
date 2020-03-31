@@ -1,0 +1,278 @@
+/*
+    stptime.dlg
+
+*!  VERSION 1.2.3  20may2015
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE _ht320
+INCLUDE header
+
+HELP hlp1, view("help stptime")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource STPTIME_DLG_HSCALE
+END
+
+DIALOG main,label(resource STPTIME_DLG_TITLE)/*
+                */ tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  DEFINE _x _xsetbu
+  DEFINE _y _top
+  INCLUDE _bu_stset
+  GROUPBOX gb_person     _lft       _ss       _iwd        _ht15h,       /*
+                */ label(resource LBL_COMPUTE_NO_COLON)
+  RADIO    rb_incidence  _ilft      _ss       _ibwd       .,            /*
+                */ label(resource STPTIME_MAIN_RB_INCIDENCE)     	/*
+                */ first                                                /*
+                */ onclickon(script main_rb_incidence_on)
+  RADIO    rb_person     @          _ss       @           .,            /*
+                */ label(resource STPTIME_MAIN_RB_PERSON)    		/*
+                */ last                                                 /*
+                */ onclickon(script main_rb_person_on)
+  EDIT     ed_person     _indent2   _ss       _inwd       .,            /*
+                */ label(resource STPTIME_MAIN_RB_PERSON)    		/*
+                */ option(at)
+  TEXT     tx_ex1        @          _ms       _inwd       .,            /*
+                */ label(resource LBL_EXAMPLES)
+  TEXT     tx_ex2        _indent2   _vss      _cwd1       .,            /*
+                */ label(resource STPTIME_MAIN_TX_EX2)
+  DEFINE tx @x
+  TEXT     tx_ex3        _lft4_2    @         @           .,            /*
+                */ label(resource STPTIME_MAIN_TX_EX3)
+
+  TEXT     tx_ex4         tx        _vss      @           .,            /*
+                */ label(resource STPTIME_MAIN_TX_EX4)
+  TEXT     tx_ex5        _lft4_2    @         @           .,            /*
+                */ label(resource STPTIME_MAIN_TX_EX5)
+
+  TEXT     tx_ex6         tx        _vss      @           .,            /*
+                */ label(resource STPTIME_MAIN_TX_EX6)
+  TEXT     tx_ex7        _lft4_2    @         @           .,            /*
+                */ label(resource STPTIME_MAIN_TX_EX7)
+  CHECKBOX ck_trim        _ilft     _ms       _ibwd       .,            /*
+   */ label(resource STPTIME_MAIN_CK_TRIM)  /*
+                */ option(trim)
+  TEXT     tx_by          _lft      _xls      _iwd        .,            /*
+		*/ label(resource STPTIME_MAIN_VN_BYVAR)
+  VARNAME  vn_byvar       @         _ss       _vnwd       .,            /*
+                */ option(by)						/*
+		*/ label(resource STPTIME_MAIN_VN_BYVAR)
+END
+
+SCRIPT main_rb_incidence_on
+BEGIN
+	main.ed_person.disable
+	main.ck_trim.disable
+END
+
+SCRIPT main_rb_person_on
+BEGIN
+	main.ed_person.enable
+	main.ck_trim.enable
+END
+
+INCLUDE byif
+
+SCRIPT opt_PREINIT
+BEGIN
+        opt.fi_using.formatfilter "{0} (*.dta)|*.dta|{1} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_DTA_FILES" "resource ui_ex FILE_TYPE_ALL_FILES"
+END
+
+DIALOG opt, label("")  tabtitle(resource LBL_OPTIONS)
+BEGIN
+  CHECKBOX ck_per         _lft      _top       _ckwd       .,           /*
+                */ label("")                                            /*
+                */ clickon("gaction opt.sp_per.enable")                 /*
+                */ clickoff("gaction opt.sp_per.disable")
+  SPINNER  sp_per         _cksep    @          _spwd       .,           /*
+                */ label(resource LBL_UNITS_USED_TO_REPORT_RATES)       /*
+                */ min(1)                                               /*
+                */ max(1000000)                                         /*
+                */ default(0)                                           /*
+                */ option(per)
+  TEXT     tx_per         _spsep    @         _ckspr      .,            /*
+                */ label(resource LBL_UNITS_USED_TO_REPORT_RATES)
+  CHECKBOX ck_dd          _lft      _ms       _ckwd       .,            /*
+                */ label("")						/*
+                */ clickon("gaction opt.sp_dd.enable")                  /*
+                */ clickoff("gaction opt.sp_dd.disable")
+  SPINNER  sp_dd          _cksep    @         _spwd       .,            /*
+                */ label(resource STPTIME_OPT_SP_DD)                    /*
+                */ min(0)                                               /*
+                */ max(1000)                                            /*
+                */ default(0)                                           /*
+                */ option(dd)
+  TEXT     tx_dd          _spsep    @         _ckspr      .,            /*
+                */ label(resource STPTIME_OPT_SP_DD)
+
+  CHECKBOX ck_match       _lft       _ls      _iwd        _ht13h,       /*
+      */ label(resource STPTIME_OPT_CK_MATCH) /*
+                */ groupbox                                             /*
+                */ clickon("script match_on")                           /*
+                */ clickoff("script match_off")
+  TEXT     tx_groupvar    _ilft      _ms      _ibwd       .,            /*
+   */ label(resource STPTIME_OPT_TX_GROUPVAR)
+  EDIT     ed_groupvar    @          _ss      _vnwd       .,            /*
+  */ label(resource STPTIME_OPT_TX_GROUPVAR)/*
+                */ option(smr) max(32)
+  TEXT     tx_ratevar     @          _ms      _ibwd       .,            /*
+                */ label(resource STPTIME_OPT_TX_RATEVAR)
+  EDIT     ed_ratevar     @          _ss      _vnwd       .,            /*
+           */ label(resource STPTIME_OPT_TX_RATEVAR)/*
+                */ option(smr) max(32)
+  TEXT     tx_using       @          _ms      _ibwd       .,            /*
+                */ label(resource STPTIME_OPT_TX_USING)
+  FILE     fi_using       @          _ss      @           .,            /*
+                */ label(resource LBL_BU_BROWSE)                        /*
+                */ error(resource STPTIME_OPT_TX_USING)			/*
+		*/ defext(dta)						/*
+                */ option(using)
+  DEFINE _x _lft
+  DEFINE _cx _sprb
+  DEFINE _y +45
+  INCLUDE _sp_level
+  CHECKBOX ck_noshow      _lft     _ls        _iwd        .,            /*
+	        */ label(resource LBL_DO_NOT_SHOW_ST_SETTING_INFORMATION)  /*
+                */ option(noshow)
+END
+
+SCRIPT adv_PREINIT
+BEGIN
+        adv.fi_output.formatfilter "{0} (*.dta)|*.dta|{1} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_DTA" "resource ui_ex FILE_TYPE_ALL_FILES"
+END
+
+DIALOG adv, label("")  tabtitle(resource LBL_ADVANCED)
+BEGIN
+  CHECKBOX ck_jackknife   _lft       _top     _iwd        .,            /*
+	        */ label(resource LBL_JACKKNIFE_CONFIDENCE_INTERVALS)   /*
+                */ option(jackknife)
+  TEXT     tx_jackknife   _cksep     _vss     _inwd       .,		/*
+  		*/ label(resource STPTIME_ADV_TX_JACKKNIFE)
+  GROUPBOX gb_title       _lft       _ls      _iwd        _ht6,         /*
+                */ label(resource STPTIME_ADV_GB_TITLE)
+  RADIO    rb_person      _ilft      _ss      _ibwd       .,            /*
+                */ label(resource LBL_PERSON_TIME)                      /*
+                */ first                                                /*
+                */ clickon("gaction adv.ed_title.disable")
+  RADIO    rb_specified   @          _ss      @           .,            /*
+                */ label(resource LBL_USER_SPECIFIED)                   /*
+                */ last                                                 /*
+                */ clickon("gaction adv.ed_title.enable")
+  EDIT     ed_title       _indent2   _ss      _vnwd       .,            /*
+                */ label(resource LBL_USER_SPECIFIED)                   /*
+                */ max(132)                                             /*
+		*/ option(title)
+  CHECKBOX ck_output      _lft       _xls     _iwd        _ht4h,        /*
+                */ label(resource STPTIME_ADV_CK_OUTPUT)                /*
+                */ groupbox                                             /*
+                */ clickon("script output_on")                          /*
+                */ clickoff("script output_off")
+  TEXT     tx_output      _ilft      _ms      _ibwd       .,            /*
+                */ label(resource LBL_FILENAME)
+  FILE     fi_output      @          _ss      @           .,            /*
+                */ error(resource LBL_FILENAME)				/*
+                */ option(output)                                       /*
+                */ label(resource LBL_SAVE_AS)				/*
+		*/ defext(dta)						/*
+                */ save
+END
+
+SCRIPT match_on
+BEGIN
+	opt.ed_groupvar.enable
+	opt.ed_ratevar.enable
+	opt.fi_using.enable
+END
+
+SCRIPT match_off
+BEGIN
+        opt.ed_groupvar.disable
+        opt.ed_ratevar.disable
+        opt.fi_using.disable
+END
+
+SCRIPT output_on
+BEGIN
+	adv.fi_output.enable
+END
+
+SCRIPT output_off
+BEGIN
+        adv.fi_output.disable
+END
+
+PROGRAM command
+BEGIN
+	if adv.ck_output & main.vn_byvar {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format							/// 
+			"resource STPTIME_MSGBOX_MAY_NOT_BE_FILLED_IN_FMT" 		///
+			"resource STPTIME_CAT_VAR_BY_WHICH_INCIDENCE_RATE_SMR_COMPUTED" ///
+			"resource STPTIME_ADV_CK_OUTPUT"
+		stopbox stop "class _MSG_TMP.value"
+			
+// "Categorical variable by which incidence rates/SMR are to be computed"
+// may not be filled in when "Save summary dataset to a file" is checked.
+	}
+	if main.rb_person {
+		require main.ed_person
+	}
+	if opt.ck_match {
+		if !opt.ed_ratevar & !opt.ed_groupvar & !opt.fi_using {
+			require opt.ed_groupvar
+		}
+		if opt.ed_ratevar {
+			require opt.ed_groupvar
+		}
+		if opt.ed_groupvar {
+			require opt.ed_ratevar
+		}
+		if opt.ed_ratevar & opt.ed_groupvar {
+			require opt.fi_using
+		}
+	}
+	if adv.rb_specified {
+		require adv.ed_title
+	}
+	INCLUDE _by_pr
+	put "stptime "
+	INCLUDE _if_pr
+	beginoptions
+		optionarg main.ed_person
+		optionarg main.vn_byvar
+		option main.ck_trim
+		optionarg opt.sp_per
+		optionarg opt.sp_dd
+		INCLUDE _level_opt_pr
+		option opt.ck_noshow
+		option adv.ck_jackknife
+		if opt.ck_match {
+	 		put "smr("  opt.ed_groupvar
+			put " " opt.ed_ratevar ") "
+			put "using("
+			put `"""'
+			put opt.fi_using
+			put `"""'
+			put ") "
+		}
+		optionarg adv.ed_title
+		if adv.ck_output {
+			require adv.fi_output
+			repfile adv.fi_output
+			put "output("
+			put `"""'
+			put adv.fi_output
+			put `"""'
+			put ", replace"
+		        put ")"
+		}
+	endoptions
+END

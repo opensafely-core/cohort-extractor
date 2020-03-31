@@ -1,0 +1,381 @@
+/*
+    kdensity.dlg 
+
+*!  VERSION 2.0.6  01dec2019
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_wide
+DEFINE _dlgwd 650  // _dlgwd 650 is minimum size due to number of tabs (MAC)
+DEFINE _dlght 330
+INCLUDE header
+
+HELP hlp1, view("help kdensity")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource KDENSITY_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	gr_plots.settabtitle resource KDENSITY_KERNEL_PLOT
+	script gr_plots_setDefaultLine
+END
+
+DIALOG main, label(resource KDENSITY_DLG_TITLE) ///
+	tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_var		_lft	_top	_cwd3_1	.,	///
+	label(resource LBL_VARIABLE)
+  DEFINE y @y
+  VARNAME  vn_var		@	_ss	_vnwd	.,	///
+  	numeric							///
+	label(resource LBL_VARIABLE)
+
+  TEXT tx_kernel		_lft3_2	y	_cwd3_1 .,	///
+	label(resource LBL_KERNEL_FUNCTION)
+  COMBOBOX cb_kernel 		@	_ss	_vnwd	.,	///
+	label(resource LBL_KERNEL_FUNCTION)			///	
+	dropdownlist						///
+	contents(kernel_function)				///
+	values(kernel_function_val)				///	
+	option(kernel)					
+
+  TEXT tx_width			_lft3_3 y	_cwd3_1	.,	///
+	label(resource KDENSITY_MAIN_TX_WIDTH)
+  EDIT en_width			@	_ss	_en14wd	.,	///
+	label(resource LBL_HALFWIDTH_OF_THE_KERNEL)		///
+	numonly							///
+	option(bwidth)
+
+  CHECKBOX ck_gen		_lft	+35	_iwd	_ht4h,	///
+	label(resource LBL_GEN_NEW_VARIABLES)			///
+	groupbox						///
+	onclickon(script gen_on)				///
+	onclickoff(script gen_off)				
+  DEFINE y @y
+  TEXT tx_newx			_ilft	_ss	_vnwd	.,	///
+	label(resource KDENSITY_MAIN_TX_NEWX)
+  TEXT tx_newden		_ilft3_2 @	@	.,	///
+	label(resource KDENSITY_MAIN_TX_NEWDEN)
+  EDIT ed_newx			_ilft	_ss	_vnwd	.,	///
+	label(resource KDENSITY_MAIN_TX_NEWX)			///
+	max(32)							
+  EDIT ed_newden 		_ilft3_2 @	@	., 	///
+	label(resource KDENSITY_MAIN_TX_NEWDEN)			///
+	max(32)
+
+  CHECKBOX ck_n			_lft	_xxls	_iwd	_ht10,	///
+	groupbox						///
+	onclickoff(script main_ck_n_off)			///
+	onclickon(program main_ck_n_on)				///
+	label(resource LBL_OVERRIDE_DEFAULT_GRID_EVAL_POINTS)
+  RADIO rb_n			_ilft	_ms	400	.,	///
+	onclickon(program main_rb_n_on) first			///
+	label(resource LBL_ESTIMATE_DENSITY_SPECIFIED_NUMBER_EVAL_POINTS)
+  RADIO rb_at			@	+50	@	.,	///
+	onclickon(program main_rb_at_on) last			///
+	label(resource LBL_ESTIMATE_DENSITY_USING_VALUES_SPECIFIED_BY_VAR)
+  VARNAME vn_at			_indent2 +20	_vnwd	.,	///
+	option(at)						///
+	numeric							///
+	label(resource LBL_ESTIMATE_DENSITY_USING_VALUES_SPECIFIED_BY_VAR) 
+  SPINNER sp_n			@	-50	_spwd	.,	///
+	min(1)							///
+	max(10000000)						///
+	default(50)						///
+	option(n)
+
+  CHECKBOX ck_nogr		_lft	+100	_vnwd	.,	///
+	label(resource LBL_SUPPRESS_GRAPH)			///
+	option(nograph)						///
+	onclickon(script graph_off)				///
+	onclickoff(script graph_on)
+
+END
+
+INCLUDE _kernel_function_list
+
+SCRIPT gen_on
+BEGIN
+	main.ed_newx.enable
+	main.tx_newx.enable
+	main.ed_newden.enable
+	main.tx_newden.enable
+END
+
+SCRIPT gen_off
+BEGIN
+	main.ed_newx.disable
+	main.tx_newx.disable
+	main.ed_newden.disable
+	main.tx_newden.disable
+END
+
+SCRIPT main_ck_n_off
+BEGIN
+	main.rb_at.disable
+	main.rb_n.disable
+	main.vn_at.disable
+	main.sp_n.disable
+END
+
+PROGRAM main_ck_n_on
+BEGIN
+	call main.rb_at.enable
+	call main.rb_n.enable
+	if main.rb_n {
+		call main.sp_n.enable
+	}
+	if main.rb_at {
+		call main.vn_at.enable
+	}
+END
+
+PROGRAM main_rb_n_on
+BEGIN
+	if main.ck_n { // must check due to initialization order
+		call main.vn_at.disable
+		call main.sp_n.enable
+	}
+END
+
+PROGRAM main_rb_at_on
+BEGIN
+	if main.ck_n { // must check due to initialization order
+		call main.vn_at.enable
+		call main.sp_n.disable
+	}
+END
+
+SCRIPT graph_off
+BEGIN
+	script gr_plots_disable
+	script dplots_disable
+	script gr_addplots_disable
+	script gr_titles_disable
+	script gr_yaxis_disable
+	script gr_xaxis_disable
+	script gr_legend_disable
+	script gr_overall_disable
+END
+
+SCRIPT graph_on
+BEGIN
+	script gr_plots_enable
+	script dplots_enable
+	script gr_addplots_enable
+	script gr_titles_enable
+	script gr_yaxis_enable
+	script gr_xaxis_enable
+	script gr_legend_enable
+	script gr_overall_enable
+END
+
+INCLUDE ifin
+INCLUDE weights_fai
+INCLUDE gr_plots
+
+SCRIPT dplots_disable
+BEGIN
+	dplots.gb_den.disable
+	dplots.ck_norm.disable
+	dplots.bu_norm_line.disable
+	dplots.ck_student.disable
+	dplots.bu_student_line.disable
+	dplots.tx_student.disable
+	dplots.sp_student.disable
+END
+
+SCRIPT dplots_enable
+BEGIN
+	program dplots_enable_wrk
+END
+PROGRAM dplots_enable_wrk
+BEGIN
+	call dplots.gb_den.enable
+	call dplots.ck_norm.enable
+	if dplots.ck_norm {
+		call dplots.bu_norm_line.enable
+	}
+	call dplots.ck_student.enable
+	if dplots.ck_student {
+		call dplots.bu_student_line.enable
+		call dplots.tx_student.enable
+		call dplots.sp_student.enable
+	}
+END
+
+SCRIPT dplots_PREINIT
+BEGIN
+	create STRING normalLineResults	
+	create STRING studentLineResults	
+END
+
+SCRIPT dplots_POSTINIT
+BEGIN
+	program checkNormalLineResults
+	program checkStudentLineResults
+END
+
+DIALOG dplots, label(resource LBL_DENSITY_PLOTS) 		///
+	tabtitle(resource LBL_DENSITY_PLOTS)
+BEGIN
+  GROUPBOX gb_den		_lft	_top	_iwd	_ht7h,	///
+  	label(resource LBL_DENSITY_PLOTS)
+
+  CHECKBOX ck_norm		_ilft	_ms	200	.,	///
+	label(resource LBL_ADD_NORMAL_DENSITY_PLOT)		///
+	onclickon(program gdensity_normal_enable)		///
+	onclickoff(program gdensity_normal_disable)		///
+	option(normal)
+ 
+  BUTTON bu_norm_line		+220	 @	120	.,	///
+	label(resource LBL_GB_LINE_PROPERTIES)			///
+	onpush(script show_normal_line_dialog)			///
+	tooltip(resource LBL_LINE_PROPERTIES_FOR_NORMAL_DENSITY_PLOT)
+  DEFINE x @x
+
+  CHECKBOX ck_student		_ilft	_ms	200 	.,	///
+	label(resource KDENSITY_DPLOTS_CK_STUDENT)		///
+	onclickon(program gdensity_student_enable)		///
+	onclickoff(program gdensity_student_disable)		///
+	option(normal)
+  DEFINE y @y
+
+  SPINNER sp_student		+20	_ms	_spwd	.,	///
+	min(1)							/// 
+	max(100000) 						///
+	default(1) 						///
+	option(student)
+  TEXT tx_student		_spsep	@	120	.,	///
+	label(resource LBL_DEGREES_OF_FREEDOM)
+ 
+  BUTTON bu_student_line	x	y	120	.,	///
+	label(resource LBL_GB_LINE_PROPERTIES)			///
+	onpush(script show_student_line_dialog)			///
+	tooltip(resource KDENSITY_LINE_PROP_STUDENTS_T_DENSITY_PLOT)
+END
+
+PROGRAM gdensity_normal_enable
+BEGIN
+	call dplots.bu_norm_line.enable
+END
+PROGRAM gdensity_normal_disable
+BEGIN
+	call dplots.bu_norm_line.disable
+END
+
+PROGRAM gdensity_student_enable
+BEGIN
+	call dplots.bu_student_line.enable
+	call dplots.tx_student.enable
+	call dplots.sp_student.enable
+END
+PROGRAM gdensity_student_disable
+BEGIN
+	call dplots.bu_student_line.disable
+	call dplots.tx_student.disable
+	call dplots.sp_student.disable
+END
+
+SCRIPT show_normal_line_dialog
+BEGIN
+	create CHILD gr_line_options AS normalLine, allowsubmit
+	normalLine.setExitString normalLineResults
+	normalLine.settitle resource LBL_LINE_PROPERTIES_FOR_NORMAL_DENSITY_PLOT
+	normalLine.setExitAction "program checkNormalLineResults"
+	normalLine.setSubmitAction "program normalLineSubmit"
+END
+PROGRAM checkNormalLineResults
+BEGIN
+	if normalLineResults.iseq("") {
+		call dplots.bu_norm_line.modified_off
+		
+	}
+	if ! normalLineResults.iseq("") {
+		call dplots.bu_norm_line.modified_on
+	}
+END
+PROGRAM normalLineSubmit
+BEGIN
+	call program checkNormalLineResults
+	call Submit
+END
+
+SCRIPT show_student_line_dialog
+BEGIN
+	create CHILD gr_line_options AS studentLine, allowsubmit
+	studentLine.setExitString studentLineResults
+	studentLine.settitle resource KDENSITY_LINE_PROP_STUDENTS_T_DENSITY_PLOT
+	studentLine.setExitAction "program checkStudentLineResults"
+	studentLine.setSubmitAction "program studentLineSubmit"
+END
+PROGRAM checkStudentLineResults
+BEGIN
+	if studentLineResults.iseq("") {
+		call dplots.bu_student_line.modified_off
+	}
+	if ! studentLineResults.iseq("") {
+		call dplots.bu_student_line.modified_on
+	}
+END
+PROGRAM studentLineSubmit
+BEGIN
+	call program checkStudentLineResults
+	call Submit
+END
+
+INCLUDE gr_addplots
+INCLUDE gr_yaxis
+INCLUDE gr_xaxis
+INCLUDE gr_titles
+INCLUDE gr_legend
+INCLUDE gr_overall
+
+PROGRAM command
+BEGIN
+	put "kdensity "
+	varlist main.vn_var
+	put " " /program ifin_output
+	put " " /program weights_output
+	beginoptions
+		optionarg /hidedefault main.cb_kernel
+		optionarg main.en_width
+		if main.ck_gen {
+			require main.ed_newden main.ed_newx
+			put "generate(" main.ed_newx " " main.ed_newden ") "
+		}
+		optionarg main.sp_n
+		if main.rb_at {
+			require main.vn_at
+			optionarg main.vn_at
+		}
+		option main.ck_nogr
+		
+		option dplots.ck_norm	
+		if normalLineResults & ! H(dplots.bu_norm_line) {
+			put " normopts(" normalLineResults ") "
+		}
+		
+		if dplots.ck_student {
+			optionarg dplots.sp_student
+		}	
+		
+		if studentLineResults & ! H(dplots.bu_student_line) {
+			put " stopts(" studentLineResults ") "
+		}
+		
+		put " " /program gr_plots_output
+		put " " /program gr_addplots_output
+		put " " /program gr_yaxis_output
+		put " " /program gr_xaxis_output
+		put " " /program gr_titles_output
+		put " " /program gr_legend_output
+		put " " /program gr_overall_output
+	endoptions
+END

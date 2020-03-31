@@ -1,0 +1,266 @@
+//                                  global_g
+//
+//  Globals for the graph system
+
+*! version 1.3.0  21nov2019
+
+version 8
+
+class {
+					// Graph and window management
+	graphlist	= ""
+	current_graph	= ""
+						// Graph editor globals
+
+	edit_graph	= ""		// name of the graph being edited
+	click_pos	= ""		// click position from gui
+	click_y		= (.)		// clicked y and x position in
+	click_x		= (.)		//	GDI metric
+	shift_y		= (.)		// shift from click to button up
+	shift_x		= (.)		// 	position
+	y_pixels	= (.)		// y and x dimensions of the graph
+	x_pixels	= (.)		//         in pixels
+	views		= {}		// list of views found at position
+	prefix		= ""		// where we are searching
+	edit_object	= ""		// object being edited
+	hold_object	= ""		// object edited, held after Clear
+	grid_ed_object	= ""		// object for the current edit grid
+	dlg_edit_object	= ""		// object the dialog has designated
+	serset_index	= (.)		// index/obs of point clicked
+	label_of_index	= ""		// marker label at serset_index
+	gridnm		= ""		// name of current grid when grid edit
+	gridobj		= ""		// name of object in the grid
+	y_offset	= (.)		// offset of clicked pos from position
+	x_offset	= (.)		// of edit_object, sometimes just posn
+	y_container	= (.)		// dropped position in the container
+	x_container	= (.)		// of edit_object
+	y_plotregion	= (.)		// clicked position in plotregion in
+	x_plotregion	= (.)		// the plotregions scale
+	y_log		= 0		// signals that we are looking in log
+	x_log		= 0		// metric
+	y_atanh		= 0		// signals that we are looking in
+	x_atanh		= 0		// atanh metric
+	y_logit		= 0		// signals that we are looking in
+	x_logit		= 0		// logit metric
+	y_log1m		= 0		// signals that we are looking in
+	x_log1m		= 0		// log1m metric
+	y_grid		= (.)		// clicked position in grid
+	x_grid		= (.)		
+	grid_rowpos	= {}		// The row and column positions of
+	grid_colpos	= {}		// the edit grid, in pixels
+	callerver       = ""            // caller version
+} , inherit(object)
+
+
+// ---------------------------------------------------------------------------
+
+program SetPrototypes
+					// Prototypes to hold editor styles
+
+	if "`.addedline_proto.isa'" == "" {
+		.Declare addedline_proto = .arrow_g.new 0 0 0 0 , style(editor)
+		.addedline_proto.style.ReadPrefs addedline_proto
+	}
+	if "`.addedtext_proto.isa'" == "" {
+		.Declare addedtext_proto = .textbox.new , style(editor)
+		.addedtext_proto.style.ReadPrefs addedtext_proto
+	}
+	if "`.addedmarker_proto.isa'" == "" {
+		.Declare addedmarker_proto = .marker_g.new 0 0 , style(editor)
+		.addedmarker_proto.style.ReadPrefs addedmarker_proto
+	}
+end
+
+
+// ------------------------------------------------------------------------
+// Clear any customized settings stored in prefs and reset style to default
+
+program ResetPrototypeDefaults
+	args proto_nm
+
+	_gedi prefclear `proto_nm'
+
+	.`proto_nm'.style.setstyle, style(editor)
+
+end
+
+// ---------------------------------------------------------------------------
+
+program set
+	gettoken clsvar value : 0
+
+	if "`.`clsvar'.isa'" == "" {
+		.Declare `clsvar' = `value'
+	}
+	else {
+		.`clsvar' = `value'
+	}
+end
+
+// ---------------------------------------------------------------------------
+// Fetches the current graph.  Note that the top graph window will take
+// precedence over the internally tracked graph.  This lets the system work
+// both with windowed interfaces and in console mode.
+
+program current_graph_resync
+
+	if      ("`gdi(topwindow)'" == "__BLANK")  class exit ""
+	else if ("`gdi(topwindow)'" == "")         class exit "`.current_graph'"
+	else {
+		.current_graph = "`gdi(topwindow)'"
+		class exit "`.current_graph'"
+	}
+end
+
+// ---------------------------------------------------------------------------
+// Sets the current graph, but does not bring the graph window to the top
+// that is the caller's responsibility.  Does not check that the supplied name
+// is even a graph and some callers avail themselves of this.
+
+program set_current_graph
+	args graph
+
+	.current_graph = "`graph'"
+end
+
+// ---------------------------------------------------------------------------
+// Returns the name of the prottype if the supplied fully qualified object 
+// name is a prototype that holds a style for creating objects in the 
+// editor, returns "" otherwise.
+
+program prototypename
+
+	if (bsubstr(`"`0'"', 1, 10) == "_Gr_Global") {
+		tokenize `"`0'"', parse(".")
+		class exit "`3'"
+	}
+
+	class exit ""
+end
+
+
+// ---------------------------------------------------------------------------
+// Sets the clicked position
+
+program set_click
+	args xpix ypix xsize ysize
+
+	.click_pos = "`xpix' `ypix' `xsize' `ysize'"
+
+	.click_y = 32000 * (`ysize' - `ypix') / max(`ysize', `xsize')
+	.click_x = 32000 * `xpix' / max(`ysize', `xsize')
+
+	.y_pixels = `ysize'
+	.x_pixels = `xsize'
+end
+
+
+// ---------------------------------------------------------------------------
+// Sets shift from the clicked position to the specified, button up, position.
+
+program set_shift
+	args xpix ypix xsize ysize
+
+	.shift_y = 32000 * (`ysize' - `ypix') / max(`ysize', `xsize')
+	.shift_x = 32000 * `xpix' / max(`ysize', `xsize')
+
+	.shift_y = `.shift_y' - `.click_y'
+	.shift_x = `.shift_x' - `.click_x'
+end
+
+// ---------------------------------------------------------------------------
+// Extend the prefix for the views being searched
+
+program extend_prefix
+	args name
+
+	if ("`name'" == "")  exit
+
+	if "`.prefix'" == "" {
+		.prefix = "`name'"
+	}
+	else {
+		.prefix = "`.prefix'.`name'"
+	}
+end
+
+
+// ---------------------------------------------------------------------------
+// Remove the last extension to the prefix
+
+program pop_prefix
+	local pfx "`.prefix'"
+
+	local pfx : subinstr local pfx "." " ", all
+	local ct : list sizeof pfx
+	tokenize `pfx'
+	local `ct--' ""
+	local pfx "`*'"
+	
+	local pfx : subinstr local pfx " " ".", all
+
+	.prefix = "`pfx'"
+end
+
+
+// ---------------------------------------------------------------------------
+// Return the name of the container currently being searched
+
+program Container
+	class exit "`.current_graph'.`.prefix'"
+end
+
+// ---------------------------------------------------------------------------
+// Adds the named view to the list of selected views
+
+program AddSelected
+
+	if "`.prefix'" == "" {
+		.views[`.views.arrnels'+1] = "`0'"
+	}
+	else {
+		.views[`.views.arrnels'+1] = "`.prefix'.`0'"
+	}
+end
+
+
+// ---------------------------------------------------------------------------
+// Reset for editing a new graph
+
+program ResetEditor
+	.click_pos	= ""		// click position from gui
+	.click_y	= (.)		// clicked y and x position in
+	.click_x	= (.)		//	GDI metric
+	.shift_y	= (.)		// shift from click to button up
+	.shift_x	= (.)		// 	position
+	.y_pixels	= (.)		// y and x dimensions of the graph
+	.x_pixels	= (.)		//         in pixels
+	.views		= {}		// list of views found at position
+	.prefix		= ""		// 
+	.edit_object	= ""		// object being edited
+	.hold_object	= ""		// object edited, held after Clear
+	.grid_ed_object	= ""		// object for the current edit grid
+	.serset_index	= (.)		// index/obs of point clicked
+	.label_of_index	= ""		// marker label at serset_index
+	.gridnm		= ""		// name of current grid when grid edit
+	.gridobj	= ""		// name of object in the grid
+	.y_offset	= (.)		// offset of clicked pos from position
+	.x_offset	= (.)		// of edit_object, sometimes just posn
+	.y_container	= (.)		// dropped position in the container
+	.x_container	= (.)		// of edit_object
+	.y_plotregion	= (.)		// clicked position in plotregion in
+	.x_plotregion	= (.)		// the plotregions scale
+	.y_grid		= (.)		// clicked position in grid
+	.x_grid		= (.)		
+	.grid_rowpos	= {}		// The row and column positions of
+	.grid_colpos	= {}		// the edit grid, in pixels
+end
+
+
+// ---------------------------------------------------------------------------
+//  Reinitialize the editors graph browser
+
+program BrowserReinit
+	if (0`_gedi(mode)')  _gedi browser reinit
+end
+

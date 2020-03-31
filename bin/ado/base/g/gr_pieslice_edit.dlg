@@ -1,0 +1,107 @@
+/*
+    gr_pieslice_edit.dlg
+
+*!  VERSION 1.1.2  16jun2016
+
+*/
+
+VERSION 15.0
+
+INCLUDE _std_vsmall
+DEFINE _dlght 170
+INCLUDE header_gr_child
+
+DEFINE _clwd	15
+DEFINE _wd	120
+DEFINE _sep	+125
+DEFINE _wd2	110
+DEFINE _sep2	+115
+DEFINE _cbwd	120
+DEFINE _cbsep	+125
+
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource GR_PIESLICE_EDIT_DLG_HSCALE
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN) title(resource LBL_PIE_SLICE_PROPERTIES)
+BEGIN
+  GROUPBOX gb_pie	_lft	_top	_iwd	_ht12,		///
+	label(resource LBL_SLICE_PROPERTIES)
+  TEXT     tx_clr	_ilft	_ms	_wd	.,		///
+	label(resource LBL_FILL_COLOR) right
+  COMBOBOX cb_clr	_sep	@	_cbwd	.,		///
+	dropdownlist contents(colors) option(color)		///
+	onselchangelist(main_cl_clr_sel)
+  COLOR    cl_clr	_cbsep	@	_clwd	., option(color)
+
+  TEXT     tx_opacity	_ilft	_mls	_wd	.,		///
+	label(resource LBL_FILL_OPACITY) right
+  SPINNER sp_opacity	_sep	@	_spwd	.,		///
+	default(100)						///
+	min(0)							///
+	max(100)
+
+  CHECKBOX ck_explode	_ilft	+35	_ibwd	_ht2,		///
+	label(resource LBL_EXPLODE_SLICE) groupbox		///
+	onclickon(script main_explode_on)			///
+	onclickoff(script main_explode_off)			///
+	option(explode)
+  TEXT     tx_explode	_iilft	_ss	_wd2	.,		///
+	label(resource GR_PIESLICE_EDIT_MAIN_TX_EXPLODE) right
+  COMBOBOX cb_explode	_sep2	@	_cbwd	.,		///
+	dropdownlist option(explode)				///
+	contents(textsizes)
+END
+
+SCRIPT main_explode_on
+BEGIN
+	main.tx_explode.enable
+	main.cb_explode.enable
+END
+SCRIPT main_explode_off
+BEGIN
+	main.tx_explode.disable
+	main.cb_explode.disable
+END
+
+LIST main_cl_clr_sel
+BEGIN
+	main.cl_clr.hide
+	main.cl_clr.show
+	main.cl_clr.hide
+END
+
+PROGRAM main_fcolor_output
+BEGIN
+	if (main.cb_clr.isneq("") | main.sp_opacity.isneq(100)) {
+		put "color("
+		if (main.cb_clr.iseq("custom")) {
+			put `"""' main.cl_clr
+			if (main.sp_opacity.isneq(100)) {
+				put " %" main.sp_opacity
+			}
+			put `"""'
+		}
+		else {
+			if (main.cb_clr.isneq("")) {
+				put main.cb_clr
+			}
+			if (main.sp_opacity.isneq(100)) {
+				put "%" main.sp_opacity
+			}
+		}
+		put ")"
+	}
+END
+
+PROGRAM command
+BEGIN
+	put /program " " main_fcolor_output
+	if main.ck_explode & ! main.cb_explode {
+		option main.ck_explode
+	}
+	optionarg /hidedefault main.cb_explode
+END

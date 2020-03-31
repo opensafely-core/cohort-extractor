@@ -1,0 +1,217 @@
+*! version 1.0.0  10jan2009
+version 11
+
+class _pb_exp_list {
+	string	stub	= ""
+	string	eqstub	= "_eq_"
+	string	cmd	= ""
+
+	double	first	= 1
+	double	dim	= 0
+	string	nlcom	= ""
+	string	stripe	= ""
+
+	array	b_exp
+	array	exp
+	array	name
+}
+
+program .new
+	.setup `0'
+end
+
+program .reset
+	.init
+	.setup `0'
+end
+
+program .parse, rclass
+	_parse expand L G : 0
+
+	// no global options
+	local 0 "`G_if' `G_in', `G_op'"
+	syntax [, *]
+	_check_eformopt `.cmd', soptions eformopts(`options')
+	return local eform `"`s(eform)'"'
+	return local options `"`s(options)'"'
+
+	local j 0
+	forval i = 1/`L_n' {
+		gettoken name rest : L_`i', parse(" :")
+		gettoken COLON 0 : rest, parse(" :")
+		if `"`COLON'"' == ":" {
+			confirm name `name'
+		}
+		else {
+			local name
+			local 0 : copy local L_`i'
+		}
+		syntax [anything(id="expression" name=E)] [, *]
+		if `"`E'"' == "_b" {
+			local E
+			_check_eformopt `.cmd', eformopts(`options')
+			if !inlist(`"`return(eform)'"', "", `"`s(eform)'"') {
+				di as err ///
+"multiple inconsistent eform options specified"
+				exit 198
+			}
+			if strlen(`"`s(eform)'"') {
+				return local eform `"`s(eform)'"'
+			}
+		}
+		else {
+			if `:length local options' {
+				di as err "options not allowed"
+				exit 198
+			}
+		}
+
+		if `:length local E' {
+			// the empty string is counted as being in the list 
+			while `:list name in namelist' {
+				local ++j
+				local name `.stub'`j'
+			}
+			local namelist `namelist' `name'
+			.exp.Arrpush	"`E'"
+			.name.Arrpush	"`name'"
+		}
+	}
+	return scalar k_exp = `.exp.arrnels'
+end
+
+program .k_exp
+	class exit `.exp.arrnels'
+end
+
+program .compute
+	syntax namelist(min=2 max=2)
+	tokenize `namelist'
+	args b V
+
+	if `.first' {
+		.build_nlcom
+	}
+
+	local k = `.exp.arrnels'
+	if `k' == 0 {
+		matrix `b' = e(b)
+		matrix `V' = e(V)
+		exit
+	}
+
+	tempname ehold
+	_est hold `ehold', copy restore
+
+nobreak {
+
+capture noisily quietly break {
+
+	nlcom `.nlcom', post
+
+} // capture noisily nobreak
+	local rc = c(rc)
+
+	if !`rc' {
+		matrix `b' = e(b)
+		matrix `V' = e(V)
+		matrix colna `b' = `.stripe'
+		matrix colna `V' = `.stripe'
+		matrix rowna `V' = `.stripe'
+	}
+
+	_est unhold `ehold'
+
+} // break
+
+	exit `rc'
+
+end
+
+program .post_legend, eclass
+	local k 0
+	local n = `.b_exp.arrnels'
+	forval i = 1/`n' {
+		local ++k
+		ereturn local exp`k' `"`.b_exp[`i']'"'
+	}
+	local n = `.exp.arrnels'
+	forval i = 1/`n' {
+		local ++k
+		ereturn local exp`k' `"`.exp[`i']'"'
+	}
+	ereturn scalar k_extra = `n' > 0
+	ereturn scalar k_exp = `k'
+end
+
+// subroutines --------------------------------------------------------------
+
+program .setup
+	syntax, stub(name) [eqstub(name) CMDname(name)]
+
+	if `:length local stub' > 20 {
+		di as err "option stub() too long"
+		exit 198
+	}
+	.stub	= "`stub'"
+	if `:length local eqstub' {
+		.eqstub = "`eqstub'"
+	}
+	.cmd	= "`cmdname'"
+end
+
+program .init
+	.stub	= ""
+	.eqstub	= "_eq_"
+	.cmd	= ""
+
+	.first	= 1
+	.nlcom	= ""
+
+	.b_exp.Arrdropall
+	.exp.Arrdropall
+	.name.Arrdropall
+end
+
+program .build_nlcom
+	local coleq : coleq e(b)
+	local colna : colna e(b)
+	local ueq : list uniq coleq
+	local neq : list sizeof ueq
+	local k = `.exp.arrnels'
+	if `"`ueq'"' == "_" {
+		if `k' {
+			local mycoleq : subinstr local coleq ///
+				"_" "`.eqstub'1", all
+		}
+		local coleq
+	}
+	else	local mycoleq : copy local coleq
+
+	local n : list sizeof colna
+	forval i = 1/`n' {
+		gettoken beq coleq : coleq
+		if `:length local beq' {
+			local beq "[`beq']"
+		}
+		gettoken ceq mycoleq : mycoleq
+		if `:length local ceq' {
+			local ceq "`ceq':"
+		}
+		gettoken name colna : colna
+		.b_exp.Arrpush "`beq'_b[`name']"
+		local nlcom `"`nlcom' (`beq'_b[`name'])"'
+		local stripe `"`stripe' `ceq'`name'"'
+	}
+	.dim = `n'
+	local ++neq
+	local ceq "`.eqstub'`neq':"
+	forval i = 1/`k' {
+		local nlcom `"`nlcom' (`.exp[`i']')"'
+		local stripe `"`stripe' `ceq'`.name[`i']'"'
+	}
+	.nlcom = "`nlcom'"
+	.stripe = "`stripe'"
+end
+
+exit

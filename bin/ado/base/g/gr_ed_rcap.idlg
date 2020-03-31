@@ -1,0 +1,178 @@
+/*
+  gr_ed_rcap.idlg
+
+*!  VERSION 1.1.2  22mar2017
+
+*/
+
+SCRIPT rcap_PREINIT
+BEGIN
+	create STRING color
+	create STRING rgb
+	create STRING opacity
+	create STRING width
+	create STRING pattern
+	create STRING capsize
+	create DOUBLE drawview
+
+	program rcap_get_defaults
+END
+
+DIALOG rcap, tabtitle(resource LBL_SPIKES)
+BEGIN
+  GROUPBOX gb_rcap	_lft	_top	_iwd	_ht13h,		///
+	label(resource LBL_CAPPED_SPIKE_PROPERTIES)
+  TEXT     tx_clr	_ilft	_ss	_wd	.,		///
+	label(resource LBL_COLOR) right
+  COMBOBOX cb_clr	_sep	@	_cbwd	.,		///
+	dropdownlist contents(_colors) 				///
+	onselchangelist(rcap_cl_clr_sel)
+  COLOR    cl_clr	_cbsep	@	_clwd	.,
+  TEXT     tx_opacity	_ilft	_mls	_wd	.,		///
+	label(resource LBL_OPACITY) right
+  SPINNER sp_opacity	_sep	@	_spwd	.,		///
+	default(100)						///
+	min(0)							///
+	max(100)
+  
+  TEXT     tx_width	_ilft	 _mls	_wd	.,		///
+	label(resource LBL_WIDTH) right
+  COMBOBOX cb_width	_sep	@	_cbwd	.,		///
+	dropdown 						///
+	contents(_linewidths)
+
+  TEXT     tx_pattern	_ilft	_mls	_wd	.,		///
+	label(resource LBL_PATTERN) right
+  COMBOBOX cb_pattern	_sep	@	_cbwd	.,		///
+	dropdownlist						///
+	contents(_linepatterns)
+
+  TEXT     tx_capsize	_ilft	_mls	_wd	.,		///
+	label(resource LBL_TX_CAP_SIZE) right
+  COMBOBOX cb_capsize	_sep	@	_cbwd	.,		///
+	dropdown						///
+	contents(_symbolsizes)
+
+  // public scope (do not change name)
+  CHECKBOX ck_hide	_lft	+45	_iwd	.,		///
+	label(resource LBL_HIDE_PLOT)
+END
+
+SCRIPT rcap_POSTINIT
+BEGIN
+	program rcap_initialize_controls
+END
+
+LIST rcap_cl_clr_sel
+BEGIN
+	rcap.cl_clr.show
+	rcap.cl_clr.hide
+END
+
+PROGRAM rcap_get_defaults
+BEGIN
+	call Gstyle.withvalue index.setvalue class @.area.linestyle.color.styledex
+	call index.withvalue color.setvalue class .__STYLES.color[@]
+	call rcap.cb_clr.setdefault class color.value
+	
+	call Gstyle.withvalue rgb.setvalue class @.area.linestyle.color.rgb
+	call rcap.cl_clr.setdefault class rgb.value
+
+	call Gstyle.withvalue opacity.setvalue class @.area.linestyle.color.opacity
+	call rcap.sp_opacity.setdefault class opacity.value
+
+	call Gstyle.withvalue index.setvalue class @.area.linestyle.width.styledex
+	call index.withvalue width.setvalue class .__STYLES.linewidth[@]
+	if ! width {
+		call Gstyle.withvalue width.setvalue class @.area.linestyle.width.val
+	}
+	call rcap.cb_width.setdefault class width.value
+
+	call Gstyle.withvalue index.setvalue class @.area.linestyle.pattern.styledex
+	call index.withvalue pattern.setvalue class .__STYLES.linepattern[@]
+	call rcap.cb_pattern.setdefault class pattern.value
+
+	call Gstyle.withvalue index.setvalue class @.marker.size.styledex
+	call index.withvalue capsize.setvalue class .__STYLES.symbolsize[@]
+	if ! capsize {
+		call Gstyle.withvalue capsize.setvalue class @.marker.size.val
+	}
+	call rcap.cb_capsize.setdefault class capsize.value
+
+	call G.withvalue drawview.setvalue class @.draw_view.istrue
+	if drawview {
+		call rcap.ck_hide.setdefault 0
+	}
+	else {
+		call rcap.ck_hide.setdefault 1
+	}
+END
+
+PROGRAM rcap_initialize_controls
+BEGIN
+	if color {
+		call rcap.cb_clr.setvalue class color.value
+	}
+	if ! color {
+		call rcap.cb_clr.setvalue "custom"
+	}
+	call rcap.cl_clr.setvalue class rgb.value
+	call rcap.sp_opacity.setvalue class opacity.value
+
+	call rcap.cb_width.setvalue class width.value
+	call rcap.cb_pattern.setvalue class pattern.value
+	call rcap.cb_capsize.setvalue class capsize.value
+
+	if drawview {
+		call rcap.ck_hide.setoff
+	}
+	else {
+		call rcap.ck_hide.seton
+	}
+END
+
+PROGRAM rcap_output
+BEGIN
+	call program rcap_get_defaults
+
+	if ! rcap.cl_clr.isvisible() & ! rcap.cb_clr.isdefault() {
+		put "style(area(linestyle(color(" 
+		put rcap.cb_clr 
+		put ")))) "
+	}
+	if rcap.cl_clr.isvisible() & ! rcap.cl_clr.isdefault() {
+		put "style(area(linestyle(color("  `"""'
+		put rcap.cl_clr
+		put `"""'
+		put ")))) "
+	}
+	if ! rcap.sp_opacity.isdefault() {
+		put "style(area(linestyle(color("
+		put "%"
+		put rcap.sp_opacity
+		put ")))) "
+	}
+	if ! rcap.cb_width.isdefault() {
+		put "style(area(linestyle(width("
+		put rcap.cb_width
+		put ")))) "
+	}
+	if ! rcap.cb_pattern.isdefault() {
+		put "style(area(linestyle(pattern("
+		put rcap.cb_pattern
+		put ")))) "
+	}
+	if ! rcap.cb_capsize.isdefault() {
+		put "style(marker(size("
+		put rcap.cb_capsize
+		put "))) "
+	}
+	if ! rcap.ck_hide.isdefault() {
+		if rcap.ck_hide {
+			put "set(draw_view no) "
+		}
+		else {
+			put "set(draw_view yes) "
+		}
+	}
+END

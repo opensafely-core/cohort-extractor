@@ -1,0 +1,175 @@
+/*
+	predict (after mestreg)
+
+*!  VERSION 1.2.0  04may2016
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 475
+INCLUDE header
+
+HELP hlp1, view("help mestreg postestimation")
+RESET res1
+
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource MESTREG_P_DLG_HSCALE
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	call script _p_gentype_setMedium
+	
+	if main.rb_smean | main.rb_smedian | main.rb_hazard 		///
+		| main.rb_eta | main.rb_xb | main.rb_stdp |		///
+		main.rb_surv | main.rb_distribution | main.rb_scores  {
+		call main.tx_var.setlabel resource LBL_NEW_VARIABLE_NAMES_STUB
+		call main.ed_var.setlabel resource LBL_NEW_VARIABLE_NAMES_STUB
+	}
+	call script me_post_hide_outcome_opt
+	call program main_options_check
+END
+
+DIALOG main, label(resource PREDICT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  INCLUDE  _p_gentype
+
+  GROUPBOX gb_prod		_lft	_ls	_iwd	_ht13h,		///
+	label(resource LBL_PRODUCE)
+  RADIO	rb_smean		_indent	_ss	230	., first	///
+	option(mean)							///
+	onclickon(script main_re_off)					///
+	label(resource LBL_PREDICTED_MEAN_SURVIVAL_TIME)
+  DEFINE holdy @y
+  RADIO	rb_smedian		@	_ss	@	.,		///
+	option(median)							///
+	onclickon(script main_re_off)					///
+	label(resource LBL_PREDICTED_MEDIAN_SURVIVAL_TIME)
+  RADIO	rb_hazard		@	_ss	@	.,		///
+	option(hazard)							///
+	onclickon(script main_re_off)					///
+	label(resource LBL_HAZARD)
+  RADIO rb_eta			@	_ss	@	.,		///
+	option(eta)							///
+	onclickon(script main_re_off)					///
+	label(resource LBL_FITTED_LINEAR_PREDICTOR)
+  RADIO rb_xb			@	_ss	@	.,		///
+	option(xb)							///
+	onclickon(script main_re_off)					///
+	label(resource LBL_LINEAR_PREDICTOR_XB_FIXED_PORTION)
+  RADIO rb_stdp			@	_ss	@	.,		///
+	option(stdp)							///
+	onclickon(script main_re_off)					///
+	label(resource LBL_STANDARD_ERROR_XB_FOR_FIXED_PORTION)
+  RADIO rb_surv			@	_ss	@	.,		///
+	option(surv)							///
+	onclickon(script main_re_off)					///
+	label(resource LBL_PREDICTED_SURVIVOR_FUNCTION)
+  RADIO rb_density		_lft2	holdy	@	.,		///
+	option(density)							///
+	onclickon(script main_re_off)					///
+	label(resource LBL_DENSITY_FUNCTION)
+  RADIO rb_distribution		@	_ss	@	.,		///
+	option(distribution)						///
+	onclickon(script main_re_off)					///
+	label(resource LBL_DISTRIBUTION_FUNCTION)
+  RADIO rb_scores		@	_ss	@	., 		///
+	option(scores)							///
+	onclickon(script main_re_on)					///
+	label(resource LBL_PARAMETER_LEVEL_SCORES)
+  RADIO rb_remeans		@	_ss	@	.,		///
+	option(ebmeans)							///
+	onclickon(script main_re_on)					///
+	label(resource LBL_EMPIRICAL_BAYES_MEANS)
+  RADIO rb_remodes		@	_ss	@	., last		///
+	option(ebmodes)							///
+	onclickon(script main_re_on)					///
+	label(resource LBL_EMPIRICAL_BAYES_MODES)
+
+  DEFINE _x _lft
+  DEFINE _y 245
+  DEFINE _cx _iwd
+  DEFINE _h _ht12h
+  INCLUDE me_post_options 
+END
+
+SCRIPT main_re_on
+BEGIN
+	script _p_gentype_multiple
+	program main_opt_off
+END
+
+SCRIPT main_re_off
+BEGIN
+	script _p_gentype_single
+	program main_opt_on
+END
+
+INCLUDE _p_gentype_sc
+INCLUDE _type_list_fd
+INCLUDE me_post_options_pr
+
+PROGRAM main_opt_on
+BEGIN
+	call main.tx_var.setlabel resource LBL_NEW_VARIABLE_NAMES_STUB
+	call main.ed_var.setlabel resource LBL_NEW_VARIABLE_NAMES_STUB
+	call program main_options_check
+	if main.rb_xb |	main.rb_stdp {
+		call script me_post_integration_disable
+	}
+	else {
+		call script me_post_integration_enable
+	}
+END
+
+PROGRAM main_opt_off
+BEGIN
+	call program main_options_check
+	call script me_post_integration_disable
+END
+
+PROGRAM main_options_check
+BEGIN
+	if main.rb_remeans | main.rb_remodes  {
+		call program me_post_re_options_on
+	}
+	if main.rb_smean | main.rb_hazard | main.rb_eta | 		///
+		main.rb_surv | main.rb_density | main.rb_distribution {
+		call program me_post_re_options_off
+	}
+	if main.rb_smedian {
+		call main.rb_marginal.disable
+	}
+	if main.rb_xb | main.rb_stdp {
+		call script me_post_xb_stdp_options_on
+	}
+	if main.rb_scores {
+		call script me_post_scores_on
+	}
+END
+
+INCLUDE ifin
+INCLUDE me_post_integration
+
+PROGRAM command
+BEGIN
+	put "predict "
+	put " " /program _p_gentype_output
+	put " " /program ifin_output
+	beginoptions
+		option radio(main rb_smean rb_smedian rb_hazard rb_eta	///
+			rb_xb rb_stdp rb_surv rb_density		///
+			rb_distribution	rb_scores)
+
+                if main.rb_remeans | main.rb_remodes {
+                        put " reffects "
+                        option radio(main rb_remeans rb_remodes)
+                }
+		put " " /program me_post_options_output
+		put " " /program me_post_integration_output
+	endoptions
+END

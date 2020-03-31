@@ -1,0 +1,99 @@
+/*
+  npregress_spec_child.dlg
+
+*!  VERSION 1.0.6  03may2017
+
+*/
+
+VERSION 15.0
+
+INCLUDE _std_mlarge
+DEFINE _dlght 100
+INCLUDE header
+
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource NPREGRESS_SPEC_CHILD_DLG_HSCALE
+	create STRING vars
+	program main_populate_spec_vars
+
+	create STRING parent_name
+	create DOUBLE bwidthlist
+	parent_name.setvalue class PARENT._dlg_rsrcname
+	parent_name.withvalue bwidthlist.setvalue class @.bwidth_coef.value
+
+	create ARRAY main_coef_name_list
+	create ARRAY main_coef_name_values
+	program main_populate_coef_name
+END
+
+PROGRAM main_populate_spec_vars
+BEGIN
+	call vars.setvalue s(finalvars)
+	call vars.tokenizeOnStr main_varlist_list " "
+END
+PROGRAM main_populate_coef_name
+BEGIN
+	call main_coef_name_list.Arrdropall
+	call main_coef_name_values.Arrdropall
+	if bwidthlist.iseq(1) {
+		call main_coef_name_list.ArrpushR resource LBL_MEAN
+		call main_coef_name_values.Arrpush "Mean"
+		call main_coef_name_list.ArrpushR resource LBL_EFFECT
+		call main_coef_name_values.Arrpush "Effect"	
+	}
+	if bwidthlist.iseq(2) {
+		call main_coef_name_list.ArrpushR resource LBL_MEAN
+		call main_coef_name_values.Arrpush "Mean"
+	}
+	if bwidthlist.iseq(3) {
+		call main_coef_name_list.ArrpushR resource LBL_EFFECT
+		call main_coef_name_values.Arrpush "Effect"	
+	}
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	call main.cb_spec_var.repopulate
+	call main.cb_coef_name.repopulate
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT tx_coef_name		_lft	_top	120	.,		///
+	label(resource LBL_COEFFICIENT_NAME)
+  TEXT tx_var			+140	@	@	.,		///
+	label(resource LBL_VARIABLE)
+  COMBOBOX cb_coef_name		_lft	+20	@	.,		///
+	dropdownlist							///
+	contents(main_coef_name_list)					///
+	values(main_coef_name_values)					///
+	label(resource LBL_COEFFICIENT_NAME)
+  COMBOBOX cb_spec_var		+140	@	120	.,		///
+	dropdownlist							///
+	nomemory							///
+	contents("main_varlist_list")					///
+	label(resource LBL_VARIABLE)
+  TEXT tx_equ			+125	@	20	.,		///
+	label(" = ") center
+  TEXT tx_value			+25	-20	120	.,		///
+	label(resource LBL_VALUE)
+  EDIT ed_value			@	+20	120	.,		///
+	numonly								///
+	nomemory							///
+	label(resource LBL_VALUE)
+END
+
+LIST main_varlist_list
+BEGIN
+END
+
+PROGRAM command
+BEGIN
+	require main.cb_coef_name
+	require main.cb_spec_var
+	require main.ed_value
+	put main.cb_coef_name ":" main.cb_spec_var " = " main.ed_value
+END

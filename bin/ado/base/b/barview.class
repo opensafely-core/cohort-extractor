@@ -1,0 +1,118 @@
+/*				barview
+
+	class that redirects a .draw to a bar graphs bar drawing program.  In
+	this way the bars can be placed inside a plotregion and drawn from the
+	plotregion.
+
+*/
+*! version 1.1.1  19jan2007
+
+version 8
+
+class {
+	bargraph = ""				// key of the bargraph
+
+	type	 = .yxtype.new , style(bar)	// for key only
+						// bar or scatter
+} , inherit(subview)
+
+program new
+	gettoken bargraph 0 : 0
+
+	.Super.new `0'
+	.bargraph = "`.`1'.objkey'"
+	.deleted = 1
+end
+
+
+// ----------------------------------------------------------------------------
+program draw
+
+	.`.bargraph'.makebars
+end
+
+// ----------------------------------------------------------------------------
+// Number of legend keys for the bar graph
+
+program numkeys
+	class exit =	///
+	    0`.`.bargraph'.sersets[1].sers[`.`.bargraph'.shadevar'].categories'
+end
+
+
+// ----------------------------------------------------------------------------
+// Return a key for the specified bar.
+
+program newkey
+	gettoken i_bar 0 : 0
+
+	if `.numkeys' == 0 {
+		class exit ""
+	}
+
+	confirm integer number `i_bar'
+	syntax  [ , Position(passthru) ]
+
+/*
+	if (`.`.bargraph'.horizontal.istrue' &				///
+	    ! `.`.bargraph'.var_asc_sort.istrue')  | 			///
+	   (!`.`.bargraph'.horizontal.istrue' &				///
+	    !`.`.bargraph'.var_asc_sort.istrue') {
+		local i_bar = 1 +					///
+		`.`.bargraph'.sersets[1].sers[`.`.bargraph'.shadevar'].categories' - `i_bar'
+	}
+*/
+
+	tempname key
+	.`key' =  .yxkey_g.new , view(`.objkey') 		///
+		style(`.`.bargraph'.barstyles[`i_bar'].objkey') `position'
+	.`key'.set_yxsize_dotsize
+	class exit .`key'.ref
+
+end
+
+
+// ----------------------------------------------------------------------------
+// Return a key label for a specified bar (keynum).
+
+program label
+
+	syntax [ , Nameonly Keynum(integer 1) ]		// nameonly ignored
+
+	local shadevar = `.`.bargraph'.shadevar'
+	local series     `.bargraph'.sersets[1].sers[`shadevar']
+
+	class exit `"`.`series'.value_label `keynum''"'
+	
+/*
+	if `.`.bargraph'.boxplot.istrue' {
+		local labdex `._box_labdex `keynum' `shadevar''
+	}
+	else	local labdex = serset(`shadevar', `keynum')
+	class exit `"`.`series'.value_label `labdex''"'
+*/
+end
+
+program _box_labdex
+	args keynum shadevar
+
+	local ct 1
+	local j 1
+	while `ct' < `keynum' {
+		if serset(`shadevar', `j') != serset(`shadevar', `++j') {
+			local ++ct
+		}
+	}
+
+	class exit = serset(`shadevar' , `j')
+end
+
+// ----------------------------------------------------------------------------
+// Returns the dialog/toolbar name for the key
+
+program dialog
+	if (`.`.bargraph'.boxplot.istrue')  class exit "2_boxplot"
+	if (`.`.bargraph'.dotplot.istrue')  class exit "2_marker"
+
+	class exit "2_rectangle"
+end

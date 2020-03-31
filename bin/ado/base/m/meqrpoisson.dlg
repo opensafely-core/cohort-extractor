@@ -1,0 +1,302 @@
+/*
+  meqrpoisson
+
+*!  VERSION 1.1.7  01may2017
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_glm
+DEFINE _dlght 470
+INCLUDE header
+
+HELP hlp1, view("help meqrpoisson")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING STMP
+	create STRING main_equ_tmp
+	create STRING main_equ_tmp2
+	create STRING main_equ_childdlg
+	create STRING main_equ_dlgname
+	create STRING main_equ_child_result
+	create STRING main_equ_cmd_output
+	create STRING main_equ_cmd_last
+
+	create ARRAY main_equ_list
+	create ARRAY main_equ_toklist
+
+	create SVECTOR mainEQUCommandDisplayList
+	create SVECTOR mainEQUCommandList
+	create SVECTOR mainEQUCommandValues
+	create SVECTOR mainEQUStatusList
+	create SVECTOR mainEQUChildDialogList
+
+	create DOUBLE main_equ_count
+	create DOUBLE main_equ_position
+	create DOUBLE main_equ_arraysize
+	create DOUBLE main_equ_tmpcount
+
+	main.bu_equ_edit.disable
+	main.bu_equ_disable.disable
+	main.bu_equ_enable.disable
+
+	create BOOLEAN allow_fweights
+	create BOOLEAN allow_pweights
+
+	allow_fweights.setfalse
+	allow_pweights.setfalse
+	setscale_hadj resource MEQRPOISSON_DLG_HSCALE
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	call program check_bytab
+	call script max_setListNoBHHH
+	call script max_setOptionXTME
+END
+
+SCRIPT POSTINIT
+BEGIN
+	mainEQUCommandDisplayList.copyToArray main_equ_list
+	main.lb_equBuild.repopulate
+END
+
+PROGRAM check_bytab
+BEGIN
+	if __MESSAGE.contains("__MI__") {
+		call script byifin_set_by_off
+	}
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)				///
+	label(resource MEQRPOISSON_DLG_TITLE)
+BEGIN
+	GROUPBOX gb_fe		_lft	_top	_iwd	_ht10h,		///
+		label(resource LBL_FIXED_EFFECTS_MODEL)
+	DEFINE _x _indent
+	DEFINE _y _ss
+	INCLUDE me_dviv
+
+	CHECKBOX ck_nocons	@	_ms	@	.,		///
+		option(noconstant)					///
+		label(resource LBL_NOCONSTANT)
+
+	RADIO    rb_expo	_ilft	_ss	_cwd2	., first	///
+		onclickon(main.vn_offset.disable)			///
+		onclickoff(main.vn_offset.enable)			///
+		label(resource LBL_EXPOSURE_VARIABLE)
+	DEFINE holdy @y
+
+	VARNAME  vn_expo	_ilft	_ss	_vnwd	.,		///
+		option(exposure)					///
+		label(resource LBL_EXPOSURE_VARIABLE)
+	RADIO	 rb_offset	250	holdy	_cwd3_2	., last		///
+		onclickon(main.vn_expo.disable)				///
+		onclickoff(main.vn_expo.enable)				///
+		label(resource LBL_OFFSET_VARIABLE)
+	VARNAME  vn_offset	@	_ss	_vnwd	.,		///
+		option(offset)						///
+		label(resource LBL_OFFSET_VARIABLE)
+
+	DEFINE _x _lft
+	DEFINE _y +40
+	INCLUDE me_equ
+END
+
+INCLUDE me_qrequ_pr
+INCLUDE _constraints_sc
+
+INCLUDE byifin
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+	program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+	DEFINE _x _lft
+	DEFINE _cx _spr2
+	DEFINE _y _top
+	INCLUDE _sp_level
+
+	CHECKBOX ck_irr			_lft	_ls	_iwd	.,	///
+		option(irr)						///
+		label(resource LBL_REPORT_FIXED_EFFECTS_COEF_AS_INC_RATE_RATIO)
+
+	RADIO rb_variance		@	_ls	@	.,first	///
+		onclickon(program rpt_check_options)			///
+		onclickoff(program rpt_check_options)			///
+		label(resource LBL_VARIANCE_COMPONENTS)
+	RADIO rb_stddev			@	_ms	@	.,last	///
+		option(stddeviations)					///
+		onclickon(program rpt_check_options)			///
+		onclickoff(program rpt_check_options)			///
+		label(resource LBL_SHOW_VARIANCE_COMPONENTS_AS_STANDARD_DEV_CORR)
+
+	CHECKBOX ck_noretable		@	_ls	@	.,	///
+		option(noretable)					///
+		onclickon(program rpt_check_options)			///
+		onclickoff(program rpt_check_options)			///
+		label(resource LBL_SUPPRESS_RANDOM_EFFECTS_TABLE)
+	CHECKBOX ck_nofetable		@	_ms	@	.,	///
+		option(nofetable)					///
+		onclickon(program rpt_check_options)			///
+		onclickoff(program rpt_check_options)			///
+		label(resource LBL_SUPPRESS_FIXED_EFFECTS_TABLE)
+	CHECKBOX ck_estmetric		@	_ms	@	.,	///
+		option(estmetric)					///
+		onclickon(script rpt_estmetric_on)			///
+		onclickoff(script rpt_estmetric_off)			///
+		label(resource LBL_SHOW_PARAMETER_ESTIMATES_IN_EST_METRIC)
+	CHECKBOX ck_noheader		@	_ms	@	.,	///
+		option(noheader)					///
+		label(resource LBL_SUPPRESS_OUTPUT_HEADER)
+	CHECKBOX ck_nogroup		@	_ms	@	.,	///
+		option(nogroup)						///
+		label(resource LBL_SUPPRESS_TABLE_SUMMARIZING_GROUPS)
+
+	DEFINE _x _lft
+	DEFINE _y _ls
+	DEFINE _cx _iwd
+	INCLUDE _report_columns
+
+	DEFINE _x _lft
+	DEFINE _y _ls
+	INCLUDE _bu_factor_vars_reporting
+
+	DEFINE _x _lft2
+	DEFINE _y  @
+	INCLUDE _bu_coef_table_reporting
+END
+
+PROGRAM rpt_check_options
+BEGIN
+	call rpt.ck_estmetric.enable
+	if rpt.rb_stddev | rpt.ck_noretable | rpt.ck_nofetable {
+		call rpt.ck_estmetric.disable
+	}
+	if !rpt.rb_stddev & !rpt.ck_noretable. & !rpt.ck_nofetable  {
+		call rpt.ck_estmetric.enable
+	}
+END
+
+SCRIPT rpt_estmetric_on
+BEGIN
+	rpt.rb_variance.disable
+	rpt.rb_stddev.disable
+	rpt.ck_noretable.disable
+	rpt.ck_nofetable.disable
+END
+
+SCRIPT rpt_estmetric_off
+BEGIN
+	rpt.rb_variance.enable
+	rpt.rb_stddev.enable
+	rpt.ck_noretable.enable
+	rpt.ck_nofetable.enable
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+
+DIALOG int,  tabtitle(resource LBL_TAB_INTEGRATION)
+BEGIN
+	RADIO	rb_intp		_lft	_top	_iwd	., first	///
+		onclickon(int.ed_intp.enable)				///
+		onclickoff(int.ed_intp.disable)				///
+		label(resource LBL_NUMBER_INTEGRATION_POINTS_ADAPTIVE_GAUSSIAN_QUAD)
+	EDIT	ed_intp		_iilft	_ms	_vnwd	.,		///
+		default(7)						///
+		option(intpoints)					///
+		label(resource LBL_NUMBER_INTEGRATION_POINTS_ADAPTIVE_GAUSSIAN_QUAD)
+	RADIO	rb_intm		_lft	_ms	_iwd	., last		///
+		option(laplace)						///
+		label(resource LBL_USE_LAPLACIAN_APPROXIMATION)
+END
+
+INCLUDE max_ml
+
+PROGRAM	fe_opt_output
+BEGIN
+	option main.ck_nocons
+	optionarg main.vn_expo
+	optionarg main.vn_offset
+END
+
+PROGRAM rpt_output
+BEGIN
+	optionarg /hidedefault rpt.sp_level
+	option rpt.ck_irr
+	option rpt.rb_stddev
+	option rpt.ck_noretable
+	option rpt.ck_nofetable
+	option rpt.ck_estmetric
+	option rpt.ck_noheader
+	option rpt.ck_nogroup
+	INCLUDE _report_columns_pr
+	put " " rpt_bu_facvarsResults
+	put " " rpt_bu_fmtcoefResults
+END
+
+PROGRAM	command
+BEGIN
+	call mainEQUCommandValues.copyToString main_equ_cmd_output
+	call main_equ_cmd_output.tokenizeOnStr main_equ_toklist "||"
+	call main_equ_tmpcount.storeClsArraySize main_equ_toklist
+	call main_equ_tmpcount.withvalue main_equ_cmd_last.setvalue class main_equ_toklist[@]
+
+	INCLUDE _by_pr
+	put "meqrpoisson "
+	varlist main.vn_dv [main.vl_iv]
+	put " " /program ifin_output
+
+	if main_equ_cmd_last.contains(",") {
+		beginoptions
+			put " " /program fe_opt_output
+			put " " main_equ_cmd_output
+		endoptions
+	}
+	else {
+		if main_equ_cmd_output {
+			if main.ck_nocons | main.vn_expo | main.vn_offset {
+				put ","
+			}
+			if main.ck_nocons {
+				put " noconstant"
+			}
+			if main.vn_expo & main.vn_expo.isenabled() {
+				put " exposure("
+				put main.vn_expo
+				put ")"
+			}
+			if main.vn_offset & main.vn_offset.isenabled() {
+				put " offset("
+				put main.vn_offset
+				put ")"
+			}
+			put " " main_equ_cmd_output
+		}
+		else {
+			beginoptions
+				put " " /program fe_opt_output
+			endoptions
+		}
+	}
+
+	beginoptions
+		if int.rb_intp {
+			require int.ed_intp
+			optionarg /hidedefault int.ed_intp
+		}
+		option int.rb_intm
+		put " " /program rpt_output
+		put " " /program max_output
+	endoptions
+END

@@ -1,0 +1,89 @@
+/*
+	infile
+
+*! VERSION 1.2.2  14mar2015
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_small
+INCLUDE header
+HELP hlp1, view("help infile1")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource INFILE_FREE_DLG_HSCALE
+	
+        main.fi_using.formatfilter "{0} (*.raw)|*.raw|{1} (*.txt)|*.txt|{2} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_RAW_FILES" "resource ui_ex FILE_TYPE_TXT_FILES" ///
+		"resource ui_ex FILE_TYPE_ALL_FILES"
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)			///
+	label(resource INFILE_FREE_DLG_TITLE)
+
+BEGIN
+  TEXT     tx_using  _lft      _top      _iwd        .,		///
+	label(resource LBL_TEXT_DATASET_FILENAME)
+
+  FILE     fi_using  @         _ss       @           .,		///
+	option(using)						///
+	error(resource LBL_TEXT_DATASET_FILENAME)		///
+	label(resource LBL_BU_BROWSE) defext(raw)
+
+  TEXT     tx_vl     _lft      _ls       @           .,		///
+	label(resource LBL_NEW_VARIABLE_NAMES)
+
+  EDIT     ed_vl     @         _ss       @           .,		///
+	label(resource LBL_NEW_VARIABLE_NAMES)
+
+  CHECKBOX ck_clear  _lft      _xls      _iwd        .,		///
+	option(clear) nomem					///
+ 	label(resource LBL_REPLACE_DATA_IN_MEMORY)
+END
+
+INCLUDE ifin
+
+DIALOG opt, tabtitle(resource LBL_OPTIONS)
+BEGIN
+  CHECKBOX ck_auto   _lft      _top      _iwd        .,		///
+	option(automatic)					///
+	label(resource LBL_CREATE_VALUE_LABELS_FROM_NONNUMERIC_DATA)
+
+  CHECKBOX ck_byvar  @         _ms       @           .,		///
+	onclickon(opt.sp_byvar.enable)				///
+	onclickoff(opt.sp_byvar.disable)			///
+	label(resource INFILE_FREE_OPT_CK_BYVAR)
+
+  SPINNER  sp_byvar  _indent2  _ms       _spwd       .,		///
+	option(byvariable)					///
+	min(1) max(100000) default(1)				///
+	label(resource LBL_NUMBER_OF_OBSERVATIONS)
+
+  TEXT     tx_sp     _spsep    @         _ckspr      .,		///
+	label(resource LBL_NUMBER_OF_OBSERVATIONS)
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script ifin_setNotDataDependent
+END
+
+PROGRAM command
+BEGIN
+	require main.fi_using
+	put "infile "
+	varlist main.ed_vl
+	put "using "
+	put `"""' main.fi_using `"""'
+	put " " /program ifin_output
+	beginoptions
+		option opt.ck_auto
+		if opt.ck_byvar {
+			optionarg opt.sp_byvar
+		}
+		option main.ck_clear
+	endoptions
+END

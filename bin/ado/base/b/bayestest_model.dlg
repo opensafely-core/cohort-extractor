@@ -1,0 +1,101 @@
+/*
+  bayestest_model
+
+*!  VERSION 1.1.0  25feb2019
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 240
+INCLUDE header
+HELP hlp1, view("help bayestest model")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource BAYESTEST_MODEL_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program check_nchains
+
+	main.gb_chains.setposition 10 .
+        main.rb_chain_all.setposition 20 .
+        main.rb_chain_nlist.setposition 20 .
+        main.cb_chains.setposition 30 .
+        main.ck_sepchains.setposition 20 . 
+END
+
+DIALOG main, title(resource BAYESTEST_MODEL_TITLE) 			///
+	tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT tx_name				_lft	_top	_iwd	.,	///
+	label(resource ESTIMATES_TABLE_MAIN_TX_NAME)
+  COMBOBOX cb_name			@	_ss	@ 	.,	///
+	dropdown append contents(estimates)				///
+	option(stats)							///
+	label(resource ESTIMATES_TABLE_MAIN_CB_NAME)
+  CHECKBOX ck_prior			_lft	_ls	_iwd	.,	///
+	clickon(main.ed_prior.enable)					///
+	clickoff(main.ed_prior.disable)					///
+	label(resource BAYESTEST_MODEL_MAIN_CK_PRIOR)
+  EDIT ed_prior				_indent2 _ss	_ibwd	.,	///
+	option("prior")							///
+	label(resource BAYESTEST_MODEL_MAIN_CK_PRIOR)
+
+  DEFINE chain_x _lft
+  DEFINE chain_y _ls
+  DEFINE chain_w _iwd
+  INCLUDE bayes_chains_opts
+END
+
+INCLUDE bayes_chains_opts_sc
+
+DIALOG adv, tabtitle(resource LBL_ADVANCED)
+BEGIN
+  GROUPBOX gb_marglm		_lft	_top	_iwd	_ht5,		///
+	label(resource BAYES_LBL_ADV_GB_MARGLM)
+  RADIO  rb_laplace		_ilft	_ms	_ibwd	.,		///
+	first								///
+	label(resource BAYES_LBL_ADV_RB_LAPLACE)
+  RADIO rb_hmean		@	_ms	@	.,		///
+	last								///
+	label(resource BAYES_LBL_ADV_RB_HMEAN)
+END
+
+PROGRAM command
+BEGIN
+	put "bayestest model "
+	put main.cb_name
+	beginoptions
+		if main.ck_prior {
+			require main.ed_prior
+			if !main.ed_prior.isnumlist() {
+				call create STRING _MSG_TMP
+		                call _MSG_TMP.format 		///
+		                	"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+		                	"resource LBL_TAB_MAIN"	///
+					"resource BAYESTEST_MODEL_MAIN_CK_PRIOR"
+				stopbox stop class _MSG_TMP.value
+// On the "Main" tab, an invalid numlist is specified for "Prior probabilities for all tested models".
+			}
+			if !main.ed_prior.isNumlistInRange(0, 1) {
+				call create STRING _MSG_TMP
+		                call _MSG_TMP.format 		///
+		                	"resource BAYESTEST_MODEL_MSGBOX_BETWEEN_0_1_FMT" ///
+					"resource BAYESTEST_MODEL_MAIN_CK_PRIOR"
+				stopbox stop class _MSG_TMP.value
+// "Prior probabilities for all tested models" must be between 0 and 1.
+			}
+			optionarg main.ed_prior
+		}
+		if adv.rb_hmean {
+			put " marglmethod(hmean)"
+		}
+		put " " /program chains_output
+	endoptions
+
+END

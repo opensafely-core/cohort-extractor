@@ -1,0 +1,964 @@
+/*                              plotregion
+
+	A view and region for holding data views.  Controls the common scale
+	for a set of views
+
+	May contain a set of dynamically declared views that share the plot
+	region.
+*/
+*! version 1.3.3  21nov2019
+
+version 8
+
+class {
+	style		= .plotregionstyle.new
+	xscale		= .scale.new, size(6) dim(x)
+	yscale		= .scale.new, size(6) dim(y)
+	zscale		= .scale.new, size(6) dim(z)
+	autosquare100	= .yesno.new, style(no)
+
+	fixed_xsize	= (.)
+	fixed_ysize	= (.)
+
+	set_xsize	= .gsize.new , style(-99)
+	set_ysize	= .gsize.new , style(-99)
+
+	array _xylines			// x and y lines across the region
+
+	array graphs			// string keys of graphs, may be empty
+	array axes			// string array of associated axes,
+					// may be empty
+
+	draw_view	= .yesno.new, style(yes)
+	fill_if_drawn	= .yesno.new, style(no)
+
+	drawn_gmult	= 1		// for scaling when finding subviews
+	drawn_yalpha	= (.)		// scale transforms when drawn
+	drawn_ybeta	= (.)
+	drawn_xalpha	= (.)
+	drawn_xbeta	= (.)
+	drawn_gbeta	= (.)
+
+	dialog		= "plotregion"
+
+						// Graph recorder
+	added_lines_rec		= 0			// total at current 
+	added_markers_rec	= 0			// point in recording
+	added_text_rec		= 0
+	_xylines_rec		= 0
+	added_lines_new		= 0			// added during playback
+	added_markers_new	= 0
+	added_text_new		= 0
+	_xylines_new		= 0
+
+}, inherit(view)
+
+
+
+/* -------------------------------------------------------------------------*/
+program define new
+
+	.xstretch.set shared			/* shared stretchability */
+	.ystretch.set shared			/* shared stretchability */
+	.set `0'
+end
+
+
+/* -------------------------------------------------------------------------*/
+program define set
+
+	syntax [ , GRAPH(string) AUTOSQuare100 * ]
+
+	if "`graph'" != "" {
+		.graphs.Arrpush `.`graph'.objkey'
+	}
+	if ("`autosquare100'" != "")  .autosquare100.set_true
+
+	.style.set ,  `options'
+end
+
+
+/* -------------------------------------------------------------------------*/
+/* Insert a view into the plot region.
+
+   Usage:  
+
+     insert <new_view> 
+
+		<new_view>  :=  name = rvalue (returning a view)
+				class viewclass [name]
+
+   Could also just use the internal class system's declare
+
+   	.myregion.Declare <name = view_rvalue>
+*/
+program insert 
+
+	.Declare `0'
+end
+
+
+
+// ---------------------------------------------------------------------------
+//	Usage:	.DeclareInArray name = <literal | instance >
+//
+// Just like the builtin .Declare, but this always creates an array even if
+// only one item of name is ever declared.  The builtin creates a scalar of
+// name and makes it into an array if another object of name is declared.
+
+program DeclareInArray
+
+	gettoken name 0 : 0
+
+	if "`.`name'.isa'" == "" {
+		.Declare `name' = {}
+	}
+
+	.Declare `name' `0'
+end
+
+
+
+/* -------------------------------------------------------------------------*/
+/* Declare the specified xyline into the xyline array.
+*/
+
+program declare_xyline
+	._xylines[`=0`._xylines.arrnels'+1'] = `0'
+end
+
+// ---------------------------------------------------------------------------
+// Look for a time format in the axes attached to this plotregion.
+
+program get_time_format, rclass
+	.xscale.get_time_format
+	return add
+	class exit "`return(fmt)'"
+end
+
+/* -------------------------------------------------------------------------*/
+/* Add an axis to the list of axes associated with the plotregion
+*/
+
+program addaxis
+	if 0`.axes.arrindexof "`.`0'.objkey'"' {
+		exit					// already there
+	}
+	.axes.Arrpush `.`0'.objkey'
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*
+	Reset the plotregion's X and Y scaling using the plotregion's views
+
+	Usage:  reset_scales [x|y] [, noclear]
+*/
+
+program reset_scales
+
+	syntax [name] [ , noCLear ]
+
+	if "`clear'" == "" {
+		if "`namelist'" == "x" | "`namelist'" == "" {
+			.xscale.reinit
+		}
+		if "`namelist'" == "y" | "`namelist'" == "" {
+			.yscale.reinit
+		}
+	}
+
+	forvalues i = 1/0`.dynamicmv.arrnels' {
+		if "`.dynamicmv[`i'].isa'" != "array" {
+			._set_scales dynamicmv[`i'] `namelist'
+			continue				/* CONTINUE */
+		}
+					/* loop over any name that are arrays */
+		forvalues j = 1/0`.dynamicmv[`i'].arrnels' {
+			._set_scales dynamicmv[`i'][`j'] `namelist'
+		}
+	}
+
+end
+
+program _set_scales
+	args view xy
+
+	capture .`view'.ranges
+
+	if "`xy'" == "x" | "`xy'" == "" {
+		if r(xmin) < . {
+			.xscale.addmin `r(xmin)'
+		}
+		if r(xmax) < . {
+			.xscale.addmax `r(xmax)'
+		}
+	}
+	if "`xy'" == "y" | "`xy'" == "" {
+		if r(ymin) < . {
+			.yscale.addmin `r(ymin)'
+		}
+		if r(ymax) < . {
+			.yscale.addmax `r(ymax)'
+		}
+	}
+end
+
+program clear_scales
+
+	syntax [name]
+
+	if ("`namelist'" == "x" | "`namelist'" == "")  .xscale.reinit
+	if ("`namelist'" == "y" | "`namelist'" == "")  .yscale.reinit
+
+end
+
+
+// ---------------------------------------------------------------------------
+//  Use compass_draw to allow alignment of the sized plotregion in an area 
+//  that is possibly larger than the size of the plotregion.
+
+program draw
+
+/*
+	.real_draw `0'
+	exit
+*/
+
+	syntax [, * ]
+
+	.drawn_gmult = ._Gr_Cglobal.gmetric_mult
+
+	.compass_draw , align(style.box_alignment) drawpgm(_sized_draw)	///
+			margins(style.margin) `options'
+end
+
+program _sized_draw
+
+	syntax [, XSize(real 0) YSize(real 0) * ]
+
+	.xsize_ren = `xsize'
+	.ysize_ren = `ysize'
+
+	.real_draw , xsize(`.xsize_ren') ysize(`.ysize_ren') `options'
+end
+
+// --------------------------------------------------------------------------
+// gridonly implies that only the filled background, grid, and x/ylines are 
+// to be drawn, otherwise everything but these are drawn.
+
+program define real_draw
+
+	syntax [, XSize(real -1) YSize(real -1) GRIDONLY ]
+	
+	if `xsize' != -1 { 
+		.xsize_ren = `xsize' 
+	}
+	if `ysize' != -1 { 
+		.ysize_ren = `ysize' 
+	}
+
+	if "`gridonly'" != "" | 0`._Gr_Cglobal.gversion' < 2 {
+		if 0`.style.boxstyle.is_drawn' {		/* outer box */
+			.style.boxstyle.draw 0 0 `.xsize_ren'  `.ysize_ren'
+		}
+		.set_gdi_posn 0 0 `.ysize_ren' `.xsize_ren'
+
+		.style.margin.setgdi,  view(`.objkey')		// allow margins
+
+		if 0`.style.inner_boxstyle.is_drawn'  {		/* inner box */
+			.style.inner_boxstyle.draw 0 0 `.xsize_ren' `.ysize_ren'
+		}
+
+								/* draw grids */
+		forvalues i = 1/0`.axes.arrnels' {
+			if 0`.`.axes[`i']'.isofclass axis' {
+				.`.axes[`i']'.draw , xsize(`.xsize_ren') ///
+					ysize(`.ysize_ren') gridonly	 ///
+					plotregion(`.objkey')
+			}
+		}
+
+							/* draw x and y lines */
+		forvalues i = 1/0`._xylines.arrnels' {
+			._xylines[`i'].draw
+		}
+
+		if (0`._Gr_Cglobal.gversion' > 1)  exit		// Exit
+	}
+	else {
+		.set_gdi_posn 0 0 `.ysize_ren' `.xsize_ren'
+		.style.margin.setgdi,  view(`.objkey')		// allow margins
+	}
+
+
+	if (`.autosquare100.istrue') ._set_autosquare
+
+	.xscale.setgdi `.xsize_ren'		/* set the gdi transforms */
+	.yscale.setgdi `.ysize_ren'
+
+	.drawn_yalpha = `gdi(yalpha)'
+	.drawn_ybeta  = `gdi(ybeta)'
+	.drawn_xalpha = `gdi(xalpha)'
+	.drawn_xbeta  = `gdi(xbeta)'
+	.drawn_gbeta  = `gdi(gbeta)'
+
+						/* loop over objects in the
+						 * plotregion and draw */
+	forvalues i = 1/0`.dynamicmv.arrnels' {
+
+		if 0`.dynamicmv[`i'].isofclass view' | 			/*
+		*/ 0`.dynamicmv[`i'].isofclass subview' {
+			.dynamicmv[`i'].draw
+			continue
+		}
+
+					/* loop over any name that are arrays */
+		if "`.dynamicmv[`i'].isa'" == "array" {
+			forvalues j = 1/0`.dynamicmv[`i'].arrnels' {
+				if 0`.dynamicmv[`i'][`j'].isofclass view' |  ///
+				   0`.dynamicmv[`i'][`j'].isofclass subview' {
+					.dynamicmv[`i'][`j'].draw
+				}
+			}
+		}
+	}
+end
+
+
+/* -------------------------------------------------------------------------*/
+program define reset_gdi
+
+	.xscale.setgdi `.xsize_ren'		/* set the gdi transforms */
+	.yscale.setgdi `.ysize_ren'
+end
+
+// -------------------------------------------------------------------------
+// Set the scaling so that it is 100 in the smaller rendered dimension and
+// whatever is need to maintain squareness in the other dimension.  Both
+// dimensions are centered on 0.
+
+program _set_autosquare
+
+	if `.ysize_ren' > `.xsize_ren' {
+		.xscale.set, min(-50) max(50)
+		local half = 50 * `.ysize_ren' / `.xsize_ren'
+		.yscale.set, min(-`half') max(`half')
+	}
+	else {
+		.yscale.set, min(-50) max(50)
+		local half = 50 * `.xsize_ren' / `.ysize_ren'
+		.xscale.set, min(-`half') max(`half')
+	}
+end
+
+// ---------------------------------------------------------------------------
+// Allows for old fixed_<x/y>size setting as well as preferred set_<x/y>size.
+
+program xsize
+
+	if "`.xstretch.setting'" == "fixed" & `.set_xsize.val' > 0 {
+		class exit `.set_xsize.gmval'
+	}
+	else if "`.xstretch.setting'" == "fixed" & `.fixed_xsize' < . {
+		class exit `.fixed_xsize'
+	}
+	class exit = 0
+end
+
+program ysize
+
+	if "`.xstretch.setting'" == "fixed" & `.set_ysize.val' > 0 {
+		class exit `.set_ysize.gmval'
+	}
+	else if "`.ystretch.setting'" == "fixed" & `.fixed_ysize' < . {
+		class exit `.fixed_ysize'
+	}
+	class exit = 0
+end
+
+/* -------------------------------------------------------------------------*/
+/*
+	Returns a composite label for the specified dimension.
+
+	If more than one view uses the dimension and the views have different
+	titles, the titles are separated by slashes -- /.
+
+        If option [, clean] is specified and if more than one view uses the
+        dimension and the views have different titles, then nothing is
+        returned.
+*/
+
+
+program dimtitle
+
+	gettoken dim 0 : 0
+	syntax [, ONE CLEAN ]
+
+	forvalues i = 1/0`.dynamicmv.arrnels' {
+		if "`.dynamicmv[`i'].isa'" != "array" {
+			capture local t0 `"`.dynamicmv[`i'].dimtitle `dim''"'
+			local pos :list posof `"`t0'"' in tlist
+			if `pos' == 0 {
+				local slash = cond(`"`title'"'=="", "", "/")
+				if "`one'" != "" & "`slash'" != "" {
+					local title
+					continue , break
+				}
+				if "`clean'" != "" {
+				  if `"`title'"' != `""' & `"`slash'"' != `""' {
+					class exit ""
+				  }
+				}
+				local title `"`title'`slash'`t0'"'
+				local tlist `"`tlist' `"`t0'"'"'
+			}
+			continue				// Continue
+		}
+					/* loop over any name that are arrays */
+		forvalues j = 1/0`.dynamicmv[`i'].arrnels' {
+		      capture local t0 `"`.dynamicmv[`i'][`j'].dimtitle `dim''"'
+			local pos :list posof `"`t0'"' in tlist
+			if `pos' == 0 {
+				local slash = cond(`"`title'"'=="", "", "/")
+				if "`one'" != "" & "`slash'" != "" {
+					local title
+					local quit 1
+					continue , break
+				}
+				if "`clean'" != "" {
+				  if `"`title'"' != `""' & `"`slash'"' != `""' {
+					class exit ""
+				  }
+				}
+				local title `"`title'`slash'`t0'"'
+				local tlist `"`tlist' `"`t0'"'"'
+			}
+		}
+		if 0`quit' {
+			continue , break
+		}
+	}
+
+	class exit `"`title'"'
+
+end
+
+program dimtitle_safe
+	
+	local title `"`.dimtitle `0''"'
+
+	local title : subinstr local title `"""' `""' , count(local ct)
+	if ! `ct' & bsubstr(`"`title'"',1,1) != `"""'{
+	    local unused : subinstr local title "(" "(" , count(local ct)
+	    if ! `ct' {
+		local unused : subinstr local title ")" ")" , count(local ct)
+	    }
+	}
+
+	if `ct' {
+		class exit `"`"`title'"'"'
+	}
+	else {
+		class exit `"`title'"'
+	}
+end
+
+
+// -------------------------------------------------------------------------
+//
+//	Returns a simple label for the specified dimension.
+//
+//	If more than one view uses the dimension and the views have different
+//	titles, then nothing is returned.
+
+program dimtitle_clean
+	
+	local title `"`.dimtitle `0', clean'"'
+
+	local title : subinstr local title `"""' `""' , count(local ct)
+	if ! `ct' & bsubstr(`"`title'"',1,1) != `"""'{
+	    local unused : subinstr local title "(" "(" , count(local ct)
+	    if ! `ct' {
+		local unused : subinstr local title ")" ")" , count(local ct)
+	    }
+	}
+
+	if `ct' {
+		class exit `"`"`title'"'"'
+	}
+	else {
+		class exit `"`title'"'
+	}
+end
+
+
+// -------------------------------------------------------------------------
+//
+//	Returns a simple label for the specified dimension.
+//
+//  Just like dimtitle_clean, but the result is always compound quoted.
+
+program dimtitle_quoted
+	
+	class exit `"`"`.dimtitle `0', clean'"'"'
+end
+
+
+// -------------------------------------------------------------------------
+//
+//	Returns a simple label for the specified dimension.
+//
+//  Just like dimtitle_clean, but the result is quoted if it doesn't already
+//  contain quoted pieces.  Also adds dots to the end, if supplied.
+
+program dimtitle_mquoted
+	gettoken dots rest : 0
+	
+	local title `"`.dimtitle `rest', clean'"'
+	gettoken unused1 rest : title , qed(quoted)
+	if `quoted' {
+		if `"`rest'"' == `""' {
+			class exit `"`title'`macval(dots)'"'		// Exit
+		}
+		capture local rest `rest'		// be safe
+		local rc = _rc
+		if ! `rc' {
+			local 0 `", try(`rest')"'
+			capture syntax [, TRY(string asis) ]
+		}
+		if !(_rc | `rc') {
+			class exit `"`title'`macval(dots)'"'		// Exit
+		}
+	}
+
+	class exit `"`"`title'`macval(dots)'"'"'
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*
+	Returns the first encountered variable format in the specified
+	dimension/ordinate
+
+*/
+
+program dimformat
+
+	gettoken dim 0 : 0
+	syntax
+
+	local found 0
+	forvalues i = 1/0`.dynamicmv.arrnels' {
+		if `"`fmt'"' != `""' {
+			continue				// Continue
+		}
+		if "`.dynamicmv[`i'].isa'" != "array" {
+			capture local fmt `.dynamicmv[`i'].dimformat `dim''
+			continue				// Continue
+		}
+					/* loop over any name that are arrays */
+		forvalues j = 1/0`.dynamicmv[`i'].arrnels' {
+			capture local fmt `.dynamicmv[`i'][`j'].dimformat `dim''
+			if `"`fmt'"' != `""' {
+				continue			// Continue
+			}
+		}
+	}
+
+	class exit `"`fmt'"'
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*  Return a list of .Declared objects that are of the specified class type
+    or inherit from the specified classtype. 
+
+	Usage:  .list_ofclass
+*/
+
+program list_ofclass
+	args classnm
+
+	forvalues i = 1/0`.dynamicmv.arrnels' {
+
+		if "`.dynamicmv[`i'].isa'" == "array" {
+			forvalues j = 1/0`.dynamicmv[`i'].arrnels' {
+			    if 0`.dynamicmv[`i'][`j'].isofclass `classnm'' {
+				class nameoflocal dynamicmv[`i']
+				local list `list' `r(name)'[`j']
+			    }
+			}
+		}
+		else {
+			if 0`.dynamicmv[`i'].isofclass `classnm'' {
+				class nameoflocal dynamicmv[`i']
+				local list `list' `r(name)'
+			}
+		}
+	}
+
+	class exit "`list'"
+end
+
+
+// ---------------------------------------------------------------------------
+// Moves a view from its current position to a position earlier in the
+// set of views.  Shifts all other views down.  Silently refuses if any
+// objects between from and to are not views
+
+// any arrays between then new and old positions.
+
+program move_view
+	args from to
+
+	if `from' <= `to' {
+		exit
+	}
+	if `from' > 0`.dynamicmv.arrnels' {
+		exit
+	}
+	forvalues i = `to'/`from' {
+		if ! `.dynamicmv[`i'].isofclass anyview_g' {
+			exit
+		}
+	}
+
+	tempname hold
+	.`hold'.ref = .dynamicmv[`from'].ref
+	local tonm "`.attribname dynamicmv `to''"
+	forvalues i = `from'(-1)`=`to'+1' {
+		local nm "`.attribname dynamicmv `i''"
+		.dynamicmv[`i'].ref = NULLKEY
+		.insert `nm' =  .dynamicmv[`=`i'-1'].ref
+	}
+	.dynamicmv[`to'].ref = NULLKEY
+	.insert `tonm' =  .`hold'.ref
+end
+
+
+// ---------------------------------------------------------------------------
+// Return the names of all views that are at the specified x and y positions
+// must adjust for compass_draw
+// deprecated, no longer used
+
+program define views_at_pos
+	args y x ysz xsz
+
+	tempname views					// array of views at pos
+	.`views' = {}
+
+	local y = `y' - `.drawn_gmult' * `.style.margin.gmbottom'
+	local x = `x' - `.drawn_gmult' * `.style.margin.gmleft'
+
+	local y = `.yscale.pos_in_natural_metric `y''	// convert to scale
+	local x = `.xscale.pos_in_natural_metric `x''	// metric
+if ("$grdebug"!="") di in white "yscale :`y':   xscale :`x':"
+
+	local ym = `.yscale.natural_mult'		// multiplier from gu
+	local xm = `.xscale.natural_mult'		// to natural
+
+	._Gr_Global.y_plotregion = `y'			// Save clicked posn
+	._Gr_Global.x_plotregion = `x'			// in plotregion
+
+	local pos_args `y' `x' `ym' `xm' `.drawn_gmult'
+
+	forvalues i = 1/0`.dynamicmv.arrnels' {		// accumulate views
+
+		if `.dynamicmv[`i'].isofclass view' | 			///
+		   `.dynamicmv[`i'].isofclass subview' {
+			if 0`.dynamicmv[`i'].at_pos `pos_args'' {
+				.`views'[`.`views'.arrnels'+1] =	///
+				 "`.attribname dynamicmv `i''"
+			}
+			continue
+		}
+
+					// loop over any name that are arrays
+		if "`.dynamicmv[`i'].isa'" == "array" {
+		    forvalues j = 1/0`.dynamicmv[`i'].arrnels' {
+			if `.dynamicmv[`i'][`j'].isofclass view' |	///
+			   `.dynamicmv[`i'][`j'].isofclass subview' {
+			    if 0`.dynamicmv[`i'][`j'].at_pos `pos_args''{
+				.`views'[`.`views'.arrnels'+1] =	///
+					"`.attribname dynamicmv `i''[`j']"
+			    }
+			}
+		    }
+		}
+	}
+
+	class exit .`views'.ref
+end
+
+
+// ---------------------------------------------------------------------------
+// Work program to traverses all held views and adds the names of all views 
+// at the current clicked position to selected views array.  Should only be
+// invoked through AddSelectedViews.
+
+program _add_selected_views
+						// Convert click pos to natural
+	local y_x `.ClickPosInNaturalMetric'
+	gettoken y x : y_x
+if ("$grdebug"!="") di in white "yscale :`y':   xscale :`x':"
+
+	local ym = `.yscale.ln_natural_mult'		// multiplier from gu
+	local xm = `.xscale.ln_natural_mult'		// to natural
+
+	local in_plreg = `.AtClickedPos'
+
+	if `in_plreg' {
+		._Gr_Global.y_plotregion = `y'		// Save clicked posn
+		._Gr_Global.x_plotregion = `x'		// in plotregion
+	}
+							// signals that logged
+	if ("`.yscale.transform.snm'" == "log") ._Gr_Global.y_log = 1
+	if ("`.xscale.transform.snm'" == "log") ._Gr_Global.x_log = 1
+	if ("`.yscale.transform.snm'" == "atanh") ._Gr_Global.y_atanh = 1
+	if ("`.xscale.transform.snm'" == "atanh") ._Gr_Global.x_atanh = 1
+	if ("`.yscale.transform.snm'" == "logit") ._Gr_Global.y_logit = 1
+	if ("`.xscale.transform.snm'" == "logit") ._Gr_Global.x_logit = 1
+	if ("`.yscale.transform.snm'" == "log1m") ._Gr_Global.y_log1m = 1
+	if ("`.xscale.transform.snm'" == "log1m") ._Gr_Global.x_log1m = 1
+
+	local pos_args `y' `x' `ym' `xm' `.drawn_gmult'
+
+	forvalues i = 1/0`.dynamicmv.arrnels' {		// accumulate views
+
+		if `.dynamicmv[`i'].isofclass view' | 			///
+		   `.dynamicmv[`i'].isofclass subview' {
+			if (!`in_plreg' &				///
+			    `.dynamicmv[`i'].isofclass yxview')		///
+				continue
+			if 0`.dynamicmv[`i'].at_pos `pos_args'' {
+			    ._Gr_Global.AddSelected `.attribname dynamicmv `i''
+			}
+			continue
+		}
+
+					// loop over any name that are arrays
+		if "`.dynamicmv[`i'].isa'" == "array" {
+		    forvalues j = 1/0`.dynamicmv[`i'].arrnels' {
+			if (!`in_plreg' & 				///
+			    `.dynamicmv[`i'][`j'].isofclass yxview')	///
+				continue
+			if `.dynamicmv[`i'][`j'].isofclass view' |	///
+			   `.dynamicmv[`i'][`j'].isofclass subview' {
+			    if 0`.dynamicmv[`i'][`j'].at_pos `pos_args''{
+			        ._Gr_Global.AddSelected			///
+				    `.attribname dynamicmv `i''[`j']
+			    }
+			}
+		    }
+		}
+	}
+
+						// Find xylines (reflines)
+	forvalues i = 1/0`._xylines.arrnels' {
+		if 0`._xylines[`i'].at_pos `pos_args'' {
+		    ._Gr_Global.AddSelected _xylines[`i']
+		}
+	}
+
+	._Gr_Global.y_log = 0
+	._Gr_Global.x_log = 0
+	._Gr_Global.y_atanh = 0
+	._Gr_Global.x_atanh = 0
+	._Gr_Global.y_logit = 0
+	._Gr_Global.x_logit = 0
+	._Gr_Global.y_log1m = 0
+	._Gr_Global.x_log1m = 0
+end
+
+program ClickPosInNaturalMetric
+
+						// Convert GDI pos to GU pos
+	local y_gusz = `.yscale.size' + `.drawn_gmult' *		///
+			(`.style.margin.gmbottom' + `.style.margin.gmtop')
+	local x_gusz = `.xscale.size' + `.drawn_gmult' *		///
+			(`.style.margin.gmleft' + `.style.margin.gmright')
+	local y = `y_gusz' * (`._Gr_Global.click_y' - `.gdi_y0') / 	///
+		  (`.gdi_y1' - `.gdi_y0')
+	local x = `x_gusz' * (`._Gr_Global.click_x' - `.gdi_x0') / 	///
+		   (`.gdi_x1' - `.gdi_x0')
+
+						// Handle margins
+	local y = `y' - `.drawn_gmult' * `.style.margin.gmbottom'
+	local x = `x' - `.drawn_gmult' * `.style.margin.gmleft'
+
+						// Convert to scale metric
+	local y = `.yscale.pos_in_natural_metric `y''
+	local x = `.xscale.pos_in_natural_metric `x''
+
+	class exit "`y' `x'"
+end
+
+program _size_w_margin
+	arg dim
+
+end
+
+
+//  -------------------------------------------------------------------------
+//  Given an (y,x) position and size of the containing object, returns the
+//  local (y_loc,x_loc) position and local size of this object.
+//
+//  Unlike some containers, for plotregions, the y and x size are not
+//  currently changed or rescaled.
+
+program LocalPosition
+	args y x ysz xsz
+
+	local y = `y' - `.drawn_gmult' * `.style.margin.gmbottom'
+	local x = `x' - `.drawn_gmult' * `.style.margin.gmleft'
+
+	local y = `.yscale.pos_in_natural_metric `y''	// convert to scale
+	local x = `.xscale.pos_in_natural_metric `x''	// metric
+if ("$grdebug"!="") di in white "yscale :`y':   xscale :`x':"
+
+	class exit "`y' `x' `.ysize_ren' `.xsize_ren'"
+end
+
+
+//  -------------------------------------------------------------------------
+//  Scales the supplied y and x shifts from the GDI metric to the natural
+//  metric of the plotregion
+
+program LocalShift
+	args y_shift x_shift
+
+							// GDI --> local GU
+	local y_gusz = `.yscale.size' + `.drawn_gmult' *		///
+			(`.style.margin.gmbottom' + `.style.margin.gmtop')
+	local x_gusz = `.xscale.size' + `.drawn_gmult' *		///
+			(`.style.margin.gmleft' + `.style.margin.gmright')
+
+	local y_shift = `y_gusz' * `y_shift' / (`.gdi_y1' - `.gdi_y0')
+	local x_shift = `x_gusz' * `x_shift' / (`.gdi_x1' - `.gdi_x0')
+
+							// reverse scales
+
+							// GU --> natural
+	if "`.yscale.transform.stylename'" != "linear" {
+		local y_shift = `._log_shift y `y_shift''
+	}
+	else {
+		if (0`.yscale.reverse.istrue')  local y_shift = -`y_shift'
+		local y_shift = `y_shift' * `.yscale.natural_mult'
+	}
+
+	if "`.xscale.transform.stylename'" != "linear" {
+		local x_shift = `._log_shift x `x_shift''
+	}
+	else {
+		if (0`.xscale.reverse.istrue')  local x_shift = -`x_shift'
+		local x_shift = `x_shift' * `.xscale.natural_mult'
+	}
+
+
+	class exit "`y_shift' `x_shift'"
+end
+
+program _log_shift
+	args dim shift
+
+	if (0`.`._Gr_Global.edit_object'.isofclass pos_textbox') 	///
+		local orig_pos `.`._Gr_Global.edit_object'.`dim'pos.val'
+	else	local orig_pos `._Gr_Global.`dim'_plotregion'
+
+	local shift = `.`dim'scale.pos_in_natural_metric		///
+		         `=`.`dim'scale.pos_in_size_metric 		///
+		              `orig_pos'' + `shift''' - `orig_pos'
+
+	class exit = `shift'
+end
+
+
+//  -------------------------------------------------------------------------
+//  Returns the x and y scale transforms when the plotregion was last drawn
+
+program ScaleTransforms
+      class exit "`.drawn_xalpha' `.drawn_xbeta' `.drawn_yalpha' `.drawn_ybeta'"
+end
+
+
+
+// ---------------------------------------------------------------------------
+// Return a list of additional views that are to appear in the graph editor
+// object browser.  These are in addition to all dynamically declared views.
+
+program add_browser_objects
+
+	forvalues i = 1/0`._xylines.arrnels' {
+		local views "`views' _xylines[`i']"
+	}
+
+	class exit "`views'"
+end
+
+//  -------------------------------------------------------------------------
+//  Adds a reference line to the plotregion from the graph editor.
+
+program add_log_refline
+	gettoken ord            0 : 0
+	gettoken plotregion zlist : 0
+
+	local plotregion `plotregion'				// sic
+	local plreg "`._Gr_Global.dlg_edit_object'"
+	if ("`plotregion'" != "") local plreg "`plreg'.`plotregion'"
+	_gm_splitlog logobj logplreg : `plreg'
+
+	foreach z of local zlist {
+	    capture confirm number `z'
+	    if c(rc) {
+		_fr_declare_date_line `ord' `plreg' "" style(default) (`z')
+		_gm_logadd_in `logobj' 					///
+		_fr_declare_date_line `ord' `logplreg' "" style(default) (`z')
+	    }
+	    else {
+		.declare_xyline .gridline_g.new `z',			///
+			 ordinate(`ord') plotregion(`.objkey') style(default)
+		_gm_log `plreg'.declare_xyline .gridline_g.new `z',	   ///
+			 ordinate(`ord') plotregion(\`.`logplreg'.objkey') ///
+			 style(default)
+	    }
+						// Count for recorder
+	    if 0`_gedi(recording)' {
+		._xylines_new = `=`._xylines_new' + 1'
+		_gm_log .`plreg'._xylines_new = `._xylines_new'
+				._xylines_rec = `._xylines.arrnels'
+		_gm_log .`plreg'._xylines_rec = `._xylines.arrnels'
+	    }
+	}
+
+	capture noisily _gedi browser reinit
+	_gedi browser refresh
+
+end
+
+
+// ---------------------------------------------------------------------------
+// Zero the counts of added text, lines, markers, and reference lines
+// that have been added during the current playback
+
+program ZeroPlaybackCounts
+	.added_lines_new   = 0
+	.added_markers_new = 0
+	.added_text_new    = 0
+	._yxlines_new      = 0
+end
+
+exit
+
+/*
+tempname xtrans ytrans			// must hold transforms
+.`xtrans' = .transform.new , dimension(x)
+.`ytrans' = .transform.new , dimension(y)
+.`xtrans'.get_from_gdi
+.`ytrans'.get_from_gdi
+*/
+/*
+.`xtrans'.reset			// reset the transform
+.`ytrans'.reset			// reset the transform
+*/

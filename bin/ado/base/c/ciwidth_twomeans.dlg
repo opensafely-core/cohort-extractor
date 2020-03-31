@@ -1,0 +1,615 @@
+/*
+	ciwidth_twomeans.dlg
+
+*!  VERSION 1.0.13  30jul2019
+
+*/
+
+VERSION 16.0
+
+INCLUDE _std_xwide
+DEFINE _dlght 540
+INCLUDE header
+
+HELP hlp1, view("help ciwidth twomeans")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING graph_res
+	create DOUBLE knownsd
+	knownsd.setvalue 0
+	setscale_hadj resource CIWIDTH_TWOMEANS_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	main.cb_compute.setcontentslist main_compute_twomeans_list
+	main.cb_compute.setvalueslist main_compute_twomeans_values
+	main.cb_compute.repopulate
+	main.cb_compute.setvalue tot_sampsi
+	program main_probwidth_show
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	label(resource CIWIDTH_TWOMEANS_DLG_TITLE)
+BEGIN
+  
+  INCLUDE ciwidth_compute
+
+  DEFINE con_y _ls
+  INCLUDE ciwidth_confidence
+
+  DEFINE sspos +45
+  INCLUDE ciwidth_twosampsi
+
+  GROUPBOX gb_precision		_lft	+45	_iwd	_ht17,		///
+	label(resource LBL_PRECISION)
+/*
+  GROUPBOX gb_means		_ilft	_ss	_cwd1	_ht5,		///
+	label("Means (optional)")
+//	label(resource LBL_MEANS_OPTIONAL)
+  DEFINE holdz @y
+  EDIT ed_control		_iilft	_ss	_en14wd	.,		///
+	onchange(program check_for_numlist)				///
+	tooltip(resource POWER_TWOMEANS_MAIN_ED_CONTROL)		///
+	label("")
+  TEXT tx_control		_en14sep @	100	.,		///
+	label(resource LBL_STAR_CONTROL)
+  EDIT ed_exp_diff		_iilft	_ls	_en14wd	.,		///
+	onchange(program check_for_numlist)				///
+	option(diff)							///
+	label("")
+  TEXT tx_exp_diff		_en14sep @	8	.,		///
+	label("*")
+  COMBOBOX cb_exp_diff		+10	 @	100	.,		///
+	dropdownlist							///
+	contents("main_effect_list")					///
+	values("main_effect_values")					///
+	onselchange("program main_exp_diff_changed")			///
+	label("")
+*/
+  EDIT ed_width			_ilft	_ss	_en14wd	.,		///
+	option(width)							///
+	onchange("program check_for_numlist")				///
+	error(resource LBL_STAR_CI_WIDTH)
+  DEFINE holdz @y
+  TEXT tx_width			_en14sep @	120	.,		///
+	label(resource LBL_STAR_CI_WIDTH)
+
+  GROUPBOX gb_sd		_lft2	holdz	_cwd2	_ht14,		///
+	label(resource LBL_STANDARD_DEVIATIONS)
+  RADIO rb_std_common		_indent	_ss	200	., first	///
+	onclickon("program main_std_check")				///
+	onclickoff("program main_std_check")				///
+	label(resource LBL_COMMON_STANDARD_DEVIATION)
+  RADIO rb_std_group		@	+50	@	., last		///
+	onclickon("program main_std_check")				///
+	onclickoff("program main_std_check")				///
+	label(resource LBL_GROUP_STANDARD_DEVIATIONS)
+  EDIT ed_sd			_iilft2	-25	_en14wd	.,		///
+	option(sd)							///
+	default(1)							///
+	onchange(program check_for_numlist)				///
+	label(resource LBL_COMMON_VALUE)
+  TEXT tx_sd			_en14sep @	95	.,		///
+	label(resource LBL_STAR_COMMON_VALUE)
+  EDIT ed_sd1			_iilft2	+50	_en14wd	.,		///
+	onchange(program check_for_numlist)				///
+	option(sd1)							///
+	label(resource LBL_CONTROL)
+  TEXT tx_sd1			_en14sep @	95	.,		///
+	label(resource LBL_STAR_CONTROL)
+  EDIT ed_sd2			_iilft2	_ms	_en14wd	.,		///
+	onchange(program check_for_numlist)				///
+	option(sd2)							///
+	label(resource LBL_EXPERIMENTAL)
+  TEXT tx_sd2			_en14sep @	95	.,		///
+	label(resource LBL_STAR_EXPERIMENTAL)
+  CHECKBOX ck_knownsd		_ilft2	_ms	230	.,		///
+	option(knownsds)						///
+	onclickon("program main_knownsd_changed")			///
+	onclickoff("program main_knownsd_changed")			///
+	label(resource LBL_ASSUME_A_KNOWN_STANDARD_DEVIATION)
+
+  DEFINE ypos +45
+  INCLUDE ciwidth_test_maincommon
+END
+
+PROGRAM main_compute_changed
+BEGIN
+	if main.cb_compute.iseq("tot_sampsi") {
+		call program main_tot_sampsi_on
+	}
+	if main.cb_compute.iseq("ctrl_sampsi") {
+		call program main_ctrl_sampsi_on
+	}
+	if main.cb_compute.iseq("exp_sampsi") {
+		call program main_exp_sampsi_on
+	}
+	if main.cb_compute.iseq("ciwidth") {
+		call program main_ciwidth_on
+	}
+	if main.cb_compute.iseq("probci") {
+		call program main_probci_on
+	}
+
+	call program main_std_check
+	call program main_knownsd_changed
+END
+
+PROGRAM main_check_table_tab
+BEGIN
+	call program table_create4Twomeans
+END
+
+PROGRAM main_tot_sampsi_on
+BEGIN
+	call program main_probwidth_show
+
+	call script twosampsi_mean_tot_sampsi_on
+
+	call script ciwidth_show_width_move_sd
+END
+
+PROGRAM main_ctrl_sampsi_on
+BEGIN
+	call program main_probwidth_show
+
+	call script twosampsi_mean_ctrl_sampsi_on
+
+	call script ciwidth_show_width_move_sd
+END
+
+PROGRAM main_exp_sampsi_on
+BEGIN
+	call program main_probwidth_show
+
+	call script twosampsi_mean_exp_sampsi_on
+
+	call script ciwidth_show_width_move_sd
+END
+
+PROGRAM main_ciwidth_on
+BEGIN
+	call program main_probwidth_show
+
+	call script twosampsi_mean_probci_ciwidth_on
+
+	call script ciwidth_hide_width_move_sd
+END
+
+PROGRAM main_probci_on
+BEGIN
+	call script main_probwidth_hide
+
+	call script twosampsi_mean_probci_ciwidth_on
+
+	call script ciwidth_show_width_move_sd
+END
+
+PROGRAM main_exp_diff_changed
+BEGIN
+	call program table_create4Twomeans
+END
+
+PROGRAM main_std_check
+BEGIN
+	if main.rb_std_common {
+		if knownsd {
+			call main.ck_knownsd.seton
+		}
+		else {
+			call main.ck_knownsd.setoff
+		}
+
+		if main.cb_compute.isneq("probci") {
+			call main.ck_knownsd.enable
+			call main.ck_knownsd.setoff
+		}
+		else {
+			call main.ck_knownsd.disable
+			call main.ck_knownsd.setoff
+		}
+
+		call main.ed_sd.enable
+		call main.tx_sd.enable
+
+		call main.ed_sd1.disable
+		call main.tx_sd1.disable
+		call main.ed_sd2.disable
+		call main.tx_sd2.disable
+	}
+	if main.rb_std_group {
+		call main.ck_knownsd.disable
+		call main.ck_knownsd.seton
+
+		call main.ed_sd.disable
+		call main.tx_sd.disable
+	
+		call main.ed_sd1.enable
+		call main.tx_sd1.enable
+		call main.ed_sd2.enable
+		call main.tx_sd2.enable
+	}
+	if main.cb_compute.iseq("probci") {
+		call main.rb_std_group.disable
+		call main.rb_std_common.seton
+	}
+	else {
+		call main.rb_std_group.enable
+	}
+
+	call program table_create4Twomeans
+END
+
+SCRIPT ciwidth_hide_width_move_sd
+BEGIN
+	main.ed_width.hide
+	main.tx_width.hide
+END
+
+SCRIPT ciwidth_show_width_move_sd
+BEGIN
+	main.ed_width.show
+	main.tx_width.show
+END
+
+PROGRAM main_knownsd_changed
+BEGIN
+	if main.rb_std_common {
+		call main.ck_knownsd.withvalue knownsd.setvalue @
+	}
+	if main.ck_knownsd {
+		call main.ed_probwidth.disable
+	}
+	else {
+		if main.cb_compute.isneq("probci") {
+			call main.ed_probwidth.enable
+		}
+	}
+	if main.cb_compute.contains("sampsi") & main.ed_probwidth &	///
+		main.ed_probwidth.isvisible() {
+		call main.ck_knownsd.disable
+	}
+	else {
+		if main.cb_compute.contains("sampsi") {
+			call main.ck_knownsd.enable
+                }
+	}
+
+	call program ciwidth_iteration_tab_check
+	call program main_check_table_tab
+END
+
+PROGRAM ciwidth_precision_output
+BEGIN
+	if main.cb_compute.isneq("ciwidth") {
+		if !main.ed_width.isnumlist() | main.ed_width.isNumlistLT(0) {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format					///
+			"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+			"resource LBL_TAB_MAIN" 			///
+			"resource LBL_CI_WIDTH" 
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for CI width
+
+		}
+		optionarg main.ed_width
+	}
+
+	if main.rb_std_common {
+		optionarg /hidedefault main.ed_sd
+	}
+	if main.rb_std_group {
+		require main.ed_sd1
+		require main.ed_sd2
+
+		optionarg main.ed_sd1
+		optionarg main.ed_sd2
+		put " knownsds"	
+	}
+	else {
+		option main.ck_knownsd
+	}
+END
+
+
+PROGRAM check_for_numlist
+BEGIN
+
+	call create STRING numContents
+	call create STRING stok
+	call create ARRAY tmp
+	call create BOOLEAN containsNumlist
+
+	call containsNumlist.setfalse
+
+	if main.ed_level & main.ed_level.isvisible() {
+		call numContents.setvalue class main.ed_level.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_alpha & main.ed_alpha.isvisible() {
+		call numContents.setvalue class main.ed_alpha.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_probwidth & main.ed_probwidth.isvisible() &		///
+		main.ed_probwidth.isenabled() {
+		call numContents.setvalue class main.ed_probwidth.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+		call main.rb_std_common.seton
+		call main.rb_std_group.disable
+		call program main_knownsd_changed
+	}
+	else {
+		call main.rb_std_group.enable
+		call program main_knownsd_changed
+	}
+
+	if main.ed_width & main.ed_width.isvisible() {
+		call numContents.setvalue class main.ed_width.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_sd & main.ed_sd.isenabled() {
+		call numContents.setvalue class main.ed_sd.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_sd1.isenabled() {
+		call numContents.setvalue class main.ed_sd1.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_sd2.isenabled() {
+		call numContents.setvalue class main.ed_sd2.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_nratio.isvisible() {
+		call numContents.setvalue class main.ed_nratio.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_n1.isvisible() {
+		call numContents.setvalue class main.ed_n1.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_n2.isvisible() {
+		call numContents.setvalue class main.ed_n2.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_sampsi_n.isvisible() {
+		call numContents.setvalue class main.ed_sampsi_n.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_sampsi_nratio.isvisible() {
+		call numContents.setvalue class main.ed_sampsi_nratio.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_sampsi_n1.isvisible() {
+		call numContents.setvalue class main.ed_sampsi_n1.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_sampsi_n2.isvisible() {
+		call numContents.setvalue class main.ed_sampsi_n2.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+/*
+	if main.ed_control {
+		call numContents.setvalue class main.ed_control.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_exp_diff {
+		call numContents.setvalue class main.ed_exp_diff.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+*/
+
+	if containsNumlist {
+		call main.ck_parallel.enable
+	}
+	else {
+		call main.ck_parallel.disable
+	}
+	call program table_create4Twomeans
+END
+
+PROGRAM ciwidth_iteration_tab_check
+BEGIN
+	call script ciwidth_iteration_enable
+	if main.cb_compute.iseq("ciwidth") {
+		call script ciwidth_iteration_disable
+	}
+	if main.cb_compute.iseq("probci") {
+		call script ciwidth_iteration_disable
+	}
+	if main.cb_compute.contains("sampsi") {
+		call script ciwidth_iteration_is_sampsi
+//		if main.cb_sided.iseq("onesided") & main.ck_knownsd {
+		if main.ck_knownsd {
+			call script ciwidth_iteration_disable
+		}
+	}
+END
+
+
+INCLUDE ciwidth_list
+INCLUDE ciwidth_confidence_pr
+INCLUDE ciwidth_twosampsi_pr
+INCLUDE ciwidth_test_maincommon_pr
+INCLUDE ciwidth_table_opts
+INCLUDE ciwidth_graph
+INCLUDE ciwidth_iteration
+
+PROGRAM command
+BEGIN
+	if main.cb_compute.contains("sampsi") {
+		require main.ed_width
+	}
+	if main.cb_compute.contains("probci") {
+		require main.ed_width
+	}
+
+	put "ciwidth twomeans "
+/*
+	if main.ed_control {
+		put " (" main.ed_control ")"
+		require main.ed_exp_diff
+
+	}
+	if main.cb_exp_diff.iseq("exp") & main.ed_exp_diff{
+		put " (" main.ed_exp_diff ")"
+	}
+*/
+	beginoptions
+/*
+		if main.cb_exp_diff.iseq("diff") & main.ed_exp_diff {
+			put " diff(" main.ed_exp_diff ")"
+		}
+*/
+		put " " /program ciwidth_confidence_output
+		put " " /program ciwidth_twosampsi_output
+		put " " /program ciwidth_precision_output
+		put " " /program ciwidth_test_maincommon_output
+		put " " /program ciwidth_table_opts_output
+		put " " /program ciwidth_graph_output
+		put " " /program ciwidth_iteration_output
+	endoptions
+END

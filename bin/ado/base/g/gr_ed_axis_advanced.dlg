@@ -1,0 +1,186 @@
+/*
+  gr_ed_axis_advanced.dlg
+
+*!  VERSION 1.1.1  23feb2016
+
+*/
+
+VERSION 14.0
+MODAL
+
+INCLUDE _std_vsmall
+DEFINE _dlght 120
+INCLUDE header_gr_ed
+
+DEFINE _clwd	15
+DEFINE _wd	120
+DEFINE _sep	+125
+DEFINE _cbwd	130
+DEFINE _cbsep	+135
+
+SCRIPT PREINIT
+BEGIN
+	create STRING G
+	create STRING parent_name
+
+	// Get the Graphics object name (G) from the parent...
+	parent_name.setvalue class PARENT._dlg_rsrcname
+	parent_name.withvalue G.setvalue class @.G.value
+
+	create STRING position
+	create STRING title_gap
+	create DOUBLE drawview
+
+	create DOUBLE index
+	create STRING tmp
+	
+	program setupList
+	program get_defaults
+	setscale_hadj resource GR_ED_AXIS_ADVANCED_DLG_HSCALE
+END
+
+PROGRAM setupList
+BEGIN
+	/* look at axis.position and if it is left or right we have a yaxis 
+	 * and if it is top or bottom we have an xaxis ...
+	 * 	if neither fall back on the name of the object
+	 */
+	call G.withvalue index.setvalue class @.position.styledex
+	call index.withvalue tmp.setvalue class .__STYLES.relative_posn[@]
+	if tmp.contains("left") | tmp.contains("right") {
+		call script setupAsYaxis
+	}
+	else {
+		if tmp.contains("above") | tmp.contains("below") {
+			call script setupAsXaxis
+		}
+		else {
+			/* did not resolve position */
+			if G.contains("xaxis") {
+				call script setupAsXaxis
+			}
+			if G.contains("yaxis") {
+				call script setupAsYaxis
+			}
+		}
+	}
+END
+
+SCRIPT setupAsXaxis
+BEGIN
+	main_relative_posn_label.Arrdropall
+	main_relative_posn.Arrdropall
+
+	main_relative_posn_label.ArrpushR resource style "RELATIVE_POSN-BELOW"
+	main_relative_posn.Arrpush "below"
+	main_relative_posn_label.ArrpushR resource style "RELATIVE_POSN-ABOVE"
+	main_relative_posn.Arrpush "above"
+END
+
+SCRIPT setupAsYaxis
+BEGIN
+	main_relative_posn_label.Arrdropall
+	main_relative_posn.Arrdropall
+
+	main_relative_posn_label.ArrpushR resource style "RELATIVE_POSN-LEFT"
+	main_relative_posn.Arrpush "left"
+	main_relative_posn_label.ArrpushR resource style "RELATIVE_POSN-RIGHT"
+	main_relative_posn.Arrpush "right"
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program initialize_controls
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_position	_lft	20	_wd	.,		///
+	label(resource LBL_POSITION) right
+  COMBOBOX cb_position	_sep	@	_cbwd	.,		///
+	dropdownlist 						///
+	contents(main_relative_posn_label)			///
+	values(main_relative_posn)
+
+  TEXT     tx_titlegap	_lft	_mls	_wd	.,		///
+	label(resource LBL_TITLE_GAP) right
+  COMBOBOX cb_titlegap	_sep	@	_cbwd	.,		///
+	dropdown 						///
+	contents(_textsizes)
+
+  CHECKBOX ck_hidden	@	_ls	@	.,		///
+	label(resource LBL_HIDE_AXIS)
+END
+
+LIST main_relative_posn_label
+BEGIN
+	/* Empty stub */
+END
+
+LIST main_relative_posn
+BEGIN
+	/* Empty stub */
+END
+
+PROGRAM get_defaults
+BEGIN
+	call G.withvalue index.setvalue class @.position.styledex
+	call index.withvalue position.setvalue class main_relative_posn[@]
+	call main.cb_position.setdefault class position.value
+
+	call G.withvalue index.setvalue class @.style.title_gap.styledex
+	call index.withvalue title_gap.setvalue class __STYLES.gsize[@]
+	if ! title_gap {
+		call G.withvalue title_gap.setvalue class @.style.title_gap.val
+	}
+	call main.cb_titlegap.setdefault class title_gap.value
+
+	call G.withvalue drawview.setvalue class @.draw_view.istrue
+	if drawview {
+		call main.ck_hidden.setdefault 0
+	}
+	else {
+		call main.ck_hidden.setdefault 1
+	}
+END
+
+PROGRAM initialize_controls
+BEGIN
+	call main.cb_position.setvalue class position.value
+	call main.cb_titlegap.setvalue class title_gap.value
+	if drawview {
+		call main.ck_hidden.setoff
+	}
+	else {
+		call main.ck_hidden.seton
+	}
+END
+
+PROGRAM command
+BEGIN
+	call program get_defaults
+	put "_gm_dlg_edits"
+	beginoptions
+		put " object(" G ") "
+		if ! main.cb_position.isdefault() {
+			put "set(position "
+			put main.cb_position
+			put ") "
+		}
+		if ! main.cb_titlegap.isdefault() {
+			put "style(title_gap("
+			put main.cb_titlegap
+			put ")) "
+		}
+		if ! main.ck_hidden.isdefault() {
+			if main.ck_hidden {
+				put "set(draw_view off) "
+			}
+			else {
+				put "set(draw_view on) "
+			}
+		}
+		put " epilog(_gedi toolbar axis " G ")"
+	endoptions
+	stata hidden queue
+END

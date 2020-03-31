@@ -1,0 +1,78 @@
+/*
+	predict (after mlexp)
+
+*!  VERSION 1.1.2  19oct2015
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+INCLUDE header
+
+HELP hlp1, view("help mlexp postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource MLEXP_P_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script _p_gentype_setMedium
+END
+
+DIALOG main, label(resource PREDICT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  INCLUDE  _p_gentype
+
+  GROUPBOX gb_opts		_lft	_ls	_iwd	_ht6,		///
+	label(resource LBL_PRODUCE)
+
+  RADIO rb_xb			_ilft	_ss	_inwd	., first	///
+	option(xb)							///
+	onclickon(script main_xb_on)					///
+	onclickoff(script main_xb_off)					///
+	label(resource LBL_LINEAR_PREDICTION)
+  COMBOBOX cb_eq		_indent2 _ss	_vnwd	.,		///
+	dropdown							///
+	option(equation)						///
+	contents(ereturn eqnames)					///
+	label(resource LBL_ONE_EQUATION)
+  TEXT tx_eq			_vnsep	@	_cwd1	.,		///
+	label(resource LBL_EQUATION_NAME)
+
+  RADIO rb_scores		_ilft	_ms	@	., last		///  
+	option(scores)							/// 
+	onclickon(script _p_gentype_multiple)				///
+	label(resource LBL_EQUATION_LEVEL_SCORES)
+END
+
+SCRIPT main_xb_on
+BEGIN
+	main.cb_eq.enable
+	main.tx_eq.enable
+	script _p_gentype_single
+END
+
+SCRIPT main_xb_off
+BEGIN
+	main.cb_eq.disable
+	main.tx_eq.disable
+END
+
+INCLUDE _p_gentype_sc
+INCLUDE ifin
+INCLUDE _type_list_fd
+
+PROGRAM command
+BEGIN
+	put "predict "
+	put " " /program _p_gentype_output
+	put " " /program ifin_output
+	beginoptions
+		option radio(main rb_xb rb_scores)
+		optionarg main.cb_eq
+	endoptions
+END

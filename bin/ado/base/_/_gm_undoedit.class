@@ -1,0 +1,127 @@
+/*				_gm_undoedit				*/
+*! version 1.1.1  07jun2007
+
+version 8
+
+class {
+	log	= ""
+	logdex	= (.)
+	n_edits	= (.)
+	title	= "edits"
+	hold_edits = {}
+}
+
+
+program erase_edits
+
+	local logidx = 0`.`.log'.arrnels'
+
+	if 0`.logdex' == `logidx' {
+		forvalues i = 1/`.n_edits' {
+			.`.log'.Arrpop
+		}
+	}
+	else {
+		forvalues i = 0/`=`.n_edits'-1' {
+			.`.log'[`.logdex'-`i'].Arrdropel
+		}
+	}
+	
+end
+
+program backup_edits
+
+	if (0`.hold_edits.arrnels')  exit			// Exit
+
+	local j = 0
+	forvalues i = `.logdex'/`=`.logdex'+`.n_edits'-1' {
+		.hold_edits[`++j'] = .`.log'[`i'].ref
+	}
+end
+
+
+program repost_edits
+	forvalues i = 1/`.n_edits' {
+		.`.log'.Arrpush `macval(.hold_edits[`i'])'
+	}
+end
+
+program edit_name
+	forvalues i = `.logdex'/`=`.logdex'+`.n_edits'-1' {
+		local try `"`.logentry2edit `.`.log'[`i']''"'
+
+		if `i' == `.logdex' {
+			local edit `"`try'"'
+			if strpos("`try'", "new")  continue, break
+		}
+		else {
+			if `"`try'"' != `"`edit'"' {
+				local edit "edits"
+				continue, break
+			}
+		}
+	}
+
+	class exit `"`edit'"'
+end
+
+program logentry2edit
+	foreach try in DragBy .move					///
+		       textbox.new arrow_g.new marker_g.new		///
+		       color width size symbol angle			///
+		       pattern intensity position gap space 		///
+		       margin drawbox dots extend			///
+		       box_alignment connect connect_missings numticks	///
+		       use_labels set_type SetType explode		///
+		       rotate sort set_horizontal set_vertical		///
+		       percentages stack include0 dotplot reverse_scale	///
+		       fill horizontal vertical set_stack set_fill	///
+		       set_percentages 					///
+		       {
+
+		if strpos(`"`0'"', "`try'") {
+			if "`edit'" == "" {
+				local edit "`try'"
+				if strpos("`try'", "new")   continue, break
+				if strpos("`try'", "set_")  continue, break
+			}
+			else if "`try'" == "`edit'" {
+				continue
+			}
+			else {
+				local edit ""
+				continue, break
+			}
+		}
+	}
+
+	if ("`edit'" == "")		class exit "edits"
+
+	if ("`edit'" == "DragBy")	class exit "reposition"
+	if ("`edit'" == ".move")	class exit "grid reposition"
+	if ("`edit'" == "textbox.new")	class exit "add text"
+	if ("`edit'" == "arrow_g.new")	class exit "add line"
+	if ("`edit'" == "marker_g.new")	class exit "add marker"
+	if ("`edit'" == "position")	class exit "compass position"
+	if ("`edit'" == "horizontal")	class exit "justification"
+	if ("`edit'" == "vertical")	class exit "vertical alignment"
+	if ("`edit'" == "drawbox")	class exit "draw bounding box"
+	if ("`edit'" == "numticks")	class exit "number of ticks"
+	if ("`edit'" == "use_labels")	class exit "use of labels"
+	if ("`edit'" == "connect")	class exit "connection type"
+	if ("`edit'" == "set_type")	class exit "plot type"
+	if ("`edit'" == "SetType")	class exit "plot type"
+	if ("`edit'" == "connect_missings")	class exit "connect missings"
+	if ("`edit'" == "box_alignment")	class exit "compass position"
+	if ("`edit'" == "set_horizontal")	class exit "vertical/horizontal"
+	if ("`edit'" == "set_vertical")		class exit "vertical/horizontal"
+	if ("`edit'" == "set_stack")		class exit "stack/unstack"
+	if ("`edit'" == "set_percentages")	class exit "percentages"
+	if ("`edit'" == "reverse_scale")	class exit "reverse scale"
+	if ("`edit'" == "set_fill")					///
+					class exit "include missing categories"
+
+	class exit `"`edit'"'
+
+end
+

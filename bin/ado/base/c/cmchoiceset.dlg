@@ -1,0 +1,247 @@
+/*
+	cmchoiceset.dlg
+
+*!  VERSION 1.0.5  24apr2019
+
+*/
+
+VERSION 16.0
+
+INCLUDE _std_medium
+DEFINE _dlght 400
+INCLUDE header
+
+HELP hlp1, view("help cmchoiceset")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource CMCHOICESET_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program check_time
+END
+
+PROGRAM check_time
+BEGIN
+	call create STRING time
+	call time.setvalue char _dta[_cm_timevar]
+	if time.iseq("") {
+		call main.ck_time.disable
+	}
+	else {
+		call main.ck_time.enable
+	}
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	label(resource CMCHOICESET_DLG_TITLE)
+BEGIN
+  DEFINE _x _xsetbu
+  DEFINE _y _top
+  INCLUDE _bu_cmset
+
+  CHECKBOX ck_varname		_lft	_ss	_iwd	.,		///
+	onclickon("program main_check_state")				///
+	onclickoff("program main_check_state")				///
+	label(resource CMCHOICESET_TABULATE_CHOICESET_VERSUS_VAR)
+  TEXT tx_varname		_ilft	_ss	@	.,		///
+	label(resource LBL_VARIABLE_NAME)
+  VARNAME vn_varname		@	_ss	_vnwd	.,		///
+	label(resource LBL_VARIABLE_NAME)
+  CHECKBOX ck_size		_lft	_ls	_iwd	.,		///
+	option(size)							///
+	label(resource CMCHOICESET_TABULATE_SIZE_OF_CHOICE_SETS)
+  CHECKBOX ck_obs		_lft	_ms	@	.,		///
+	option(observations)						///
+	label(resource CMCHOICESET_TABULATE_BY_OBS)
+  CHECKBOX ck_altwise		_lft	_ms	@	.,		///
+	option(altwise)							///
+	label(resource LBL_USE_ALTERNATIVEWISE_DELETION_INSTEAD_CASEWISE)
+  CHECKBOX ck_trans		_lft	_ms	@	.,		///
+	option(transpose)						///
+	onclickoff("main.ck_trans.disable")				///
+	label(resource LBL_TRANSPOSE_ROWS_AND_COLUMNS_TWO_WAY_TABLES)
+  CHECKBOX ck_missing		_lft	_ms	_iwd	.,		///
+	option(missing)							///
+	label(resource LBL_INCLUDE_MISSING_VALS_IN_TABULATION)
+  CHECKBOX ck_time		_lft	_ms	@	.,		///
+	option(time)							///
+	onclickon("program main_check_state")				///
+	onclickoff("program main_check_state")				///
+	label(resource CMCHOICESET_TABULATE_CHOICESET_VERSUS_TIME_VAR)
+  CHECKBOX ck_gen		@	_ms	_iwd	_ht11,		///
+	groupbox							///
+	onclickon("program main_show_genvar")				///
+	onclickoff("program main_hide_genvar")				///
+	label(resource LBL_GEN_NEW_VARIABLE)
+  TEXT tx_generate		_indent _ss	_inwd	.,		///
+	label(resource LBL_VARIABLE)
+  EDIT ed_generate		@	_ss	@	.,		///
+	option(generate)						///
+	label(resource LBL_VARIABLE)
+  CHECKBOX ck_replace		@	_ms	_iwd	.,		///
+	option(replace)							///
+	label(resource LBL_REPLACE_ANY_VAR_WITH_ABOVE_NAME)
+  TEXT tx_label			@	_ss	_inwd	.,		///
+	label(resource LBL_LABEL)
+   EDIT ed_label		@	_ss	@	.,		///
+	option(label)
+END
+
+PROGRAM main_hide_genvar
+BEGIN
+	if !main.ck_gen {
+		call main.tx_generate.disable
+		call main.ed_generate.disable
+		call main.ck_replace.disable
+		call main.tx_label.disable
+		call main.ed_label.disable
+	}
+END
+
+PROGRAM main_show_genvar
+BEGIN
+	if main.ck_gen {
+		call main.tx_generate.enable
+		call main.ed_generate.enable
+		call main.ck_replace.enable
+		call main.tx_label.enable
+		call main.ed_label.enable
+		
+	}
+END
+
+PROGRAM main_check_state
+BEGIN
+	if main.ck_varname | main.ck_time {
+		call main.tx_varname.enable
+		call main.vn_varname.enable
+		call main.ck_trans.enable
+		call opt.ck_sort.disable
+		call script opt_cell_display_enable
+	}
+	else {
+		call main.tx_varname.disable
+		call main.vn_varname.disable
+		call main.ck_trans.disable
+		call opt.ck_sort.enable
+		call script opt_cell_display_disable
+	}
+	if main.ck_varname  {
+		call main.ck_missing.disable
+	}
+	else {
+		call main.ck_missing.disable
+	}
+END
+
+INCLUDE byifin
+
+DIALOG opt, tabtitle(resource LBL_OPTIONS)
+BEGIN
+  CHECKBOX ck_sort		_lft	_top	_iwd	.,		///
+	option("sort")							///
+	label(resource LBL_DISPLAY_TABLE_IN_DESCENDING_ORDER_OF_FREQ)
+  GROUPBOX gb_cell		_lft	_ls	_iwd	_ht8,		///
+	label(resource _TAB2_GB_CELL)
+  CHECKBOX ck_col		_indent	_ms	_inwd	.,		///
+	option("column")						///
+	label(resource _TAB2_CK_COL)
+  CHECKBOX ck_row		@	_ms	@	.,		///
+	option("row")							///
+	label(resource _TAB2_CK_ROW)
+  CHECKBOX ck_cell		@	_ms	@	.,		///
+	option("cell")							///
+	label(resource LBL_WITHIN_CELL_RELATIVE_FREQ)
+  GROUPBOX gb_display		_lft	_xls	_iwd	_ht8,		///
+	label(resource LBL_DISPLAY)
+  CHECKBOX ck_rowsort		_indent	_ms	_inwd	.,		///
+	option("rowsort")						///
+	label(resource _TAB2_CK_ROWSORT)
+  CHECKBOX ck_colsort		@	_ms	@	.,		///
+	option("colsort")						///
+	label(resource _TAB2_CK_COLSORT)
+  CHECKBOX ck_nokey		@	_ms	@	.,		///
+	option("nokey")							///
+	label(resource _TAB2_CK_NOKEY)
+END
+
+SCRIPT opt_cell_display_enable
+BEGIN
+	opt.ck_col.enable
+	opt.ck_row.enable
+	opt.ck_cell.enable
+	opt.ck_rowsort.enable
+	opt.ck_colsort.enable
+	opt.ck_nokey.enable
+END
+
+SCRIPT opt_cell_display_disable
+BEGIN
+	opt.ck_col.disable
+	opt.ck_row.disable
+	opt.ck_cell.disable
+	opt.ck_rowsort.disable
+	opt.ck_colsort.disable
+	opt.ck_nokey.disable
+END
+
+PROGRAM opt_output
+BEGIN
+	option opt.ck_sort
+	option opt.ck_col
+	option opt.ck_row
+	option opt.ck_cell
+	option opt.ck_rowsort
+	option opt.ck_colsort
+	option opt.ck_nokey
+END
+
+PROGRAM generate_output
+BEGIN
+	require main.ed_generate
+	if main.ck_gen & !main.ed_generate.isvalidname() {
+		stopbox stop resource LBL_MSGBOX_VAR_NAME_INVALID
+// The variable name you specified is invalid.
+	}
+	if main.ed_generate.isvarname() & !main.ck_replace {
+			stopbox stop resource LBL_MSGBOX_VAR_NAME_ALREADY_EXISTS
+// The variable name you specified already exists.
+	}
+
+	put main.ed_generate
+	beginoptions
+		option main.ck_replace
+		optionarg main.ed_label
+	endoptions
+END
+
+PROGRAM command
+BEGIN
+	if main.ck_varname {
+		require main.vn_varname
+	}
+
+	put /program by_output " "
+
+	put "cmchoiceset "
+	put main.vn_varname
+	put " " /program ifin_output
+	beginoptions
+		option main.ck_altwise
+		option main.ck_missing
+		option main.ck_obs
+		option main.ck_size
+		option main.ck_trans
+		option main.ck_time
+		if main.ck_gen {
+			put " generate("
+			put /program generate_output
+			put ")"
+		}
+		put " " /program opt_output
+	endoptions
+END

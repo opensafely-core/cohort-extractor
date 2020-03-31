@@ -1,0 +1,199 @@
+/*
+  strate
+
+*! VERSION 2.1.2  28nov2017
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_xlarge
+DEFINE _dlght 405
+INCLUDE header
+
+HELP hlp1, view("help strate")
+RESET res1
+
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource STRATE_DLG_HSCALE
+	
+        main.fi_out.formatfilter "{0} (*.dta)|*.dta|{1} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_DTA" "resource ui_ex FILE_TYPE_ALL_FILES"
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	title(resource STRATE_DLG_TITLE)
+BEGIN
+  DEFINE _x _xsetbu
+  DEFINE _y _top
+  INCLUDE _bu_stset
+  TEXT     tx_var          _lft      _top       _cwd1     .,		///
+	label(resource STRATE_MAIN_TX_VAR)
+  VARLIST  vl_var          @         _ss        @         .,		///
+	allowcat label(resource LBL_GB_VARIABLES) numeric
+
+  GROUPBOX gb_opt          @         +35        _iwd      _ht30h,	///
+	label(resource LBL_OPTIONS)
+
+  EDIT     en_per          _ilft     _ss        _en7wd    .,		///
+	numonly	 option(per)
+  TEXT     tx_per          _en7sep   @          180       .,		///
+	label(resource LBL_UNITS_USED_TO_REPORT_RATES)
+
+  VARNAME  vn_smr          _ilft     _ls        _vnwd     .,		///
+	label(resource STRATE_MAIN_VN_SMR)				///
+	numeric								///
+	option(smr)
+  TEXT     tx_smr          _vnsep    @          180       .,		///
+	label(resource STRATE_MAIN_VN_SMR)
+	
+  VARNAME  vn_clus         _ilft     _ls        _vnwd     .,		///
+	label(resource LBL_CLUSTER_VARIABLE)				///
+	option(cluster)
+  TEXT     tx_clus         _vnsep    @          220       .,		///
+	label(resource STRATE_MAIN_TX_CLUS)
+
+  CHECKBOX ck_jack         _ilft     _ls        _cwd2	  .,		///
+	label(resource LBL_JACKKNIFE_CONFIDENCE_INTERVALS)		///
+	option(jackknife)
+  CHECKBOX ck_miss         @         _ms        _ibwd     .,		///
+	option(missing)							///
+	label(resource STRATE_MAIN_CK_MISS)
+  CHECKBOX ck_graph        @         _ms        _cwd2     .,		///
+	label(resource STRATE_MAIN_CK_GRAPH)				///
+	option(graph)							///
+	onclickon(script graph_on)					///
+	onclickoff(script graph_off)
+  CHECKBOX ck_nowhis      _lft2      @          @         .,		///
+	label(resource STRATE_MAIN_CK_NOWHIS)				///
+	onclickon(program check_nowhis)					///
+	onclickoff(program check_nowhis)				///
+	option(nowhisker)
+  DEFINE _x _ilft
+  DEFINE _y _ls
+  DEFINE _cx _spr2b
+  INCLUDE _sp_level
+
+  CHECKBOX ck_out          _ilft     +35        _ibwd     _ht7,		///
+	label(resource STRATE_MAIN_CK_OUT)				///
+	onclickon(script out_on)					///
+	onclickoff(script out_off)					///
+	option(output) groupbox
+  TEXT     tx_out	   _indent   _ss      _inwd	  .,		///
+  	label(resource LBL_FILENAME)
+  FILE     fi_out          @         _ss      @           .,		///
+	label(resource LBL_SAVE_AS) save				///
+	defext(dta) error(resource STRATE_MAIN_CK_OUT)
+  CHECKBOX ck_list         @         _ls      @           .,		///
+	label(resource STRATE_MAIN_CK_LIST)				///
+	option(nolist)
+END
+
+INCLUDE ifin
+INCLUDE gr_plots
+INCLUDE gr_ciplots
+INCLUDE gr_addplots
+INCLUDE gr_yaxis
+INCLUDE gr_xaxis
+INCLUDE gr_titles
+INCLUDE gr_legend
+INCLUDE gr_overall
+
+SCRIPT POSTINIT
+BEGIN
+	script gr_ciplots_setDefaultSpike
+	gr_ciplots_outputCmd.setstring "ciopts"
+END
+
+PROGRAM check_nowhis
+BEGIN
+	if main.ck_graph {
+		if ! main.ck_nowhis {
+			call script gr_ciplots_enable
+		}
+		if !H(main.ck_nowhis) & main.ck_nowhis {
+			call script gr_ciplots_disable
+		}
+	}
+END
+
+SCRIPT graph_on
+BEGIN
+	main.ck_nowhis.enable
+	program check_nowhis
+	script gr_plots_enable
+	script gr_addplots_enable
+	script gr_xaxis_enable
+	script gr_yaxis_enable
+	script gr_titles_enable
+	script gr_legend_enable
+	script gr_overall_enable
+END
+
+SCRIPT graph_off
+BEGIN
+	main.ck_nowhis.disable
+	script gr_plots_disable
+	script gr_ciplots_disable
+	script gr_addplots_disable
+	script gr_xaxis_disable
+	script gr_yaxis_disable
+	script gr_titles_disable
+	script gr_legend_disable
+	script gr_overall_disable
+END
+
+SCRIPT out_on
+BEGIN
+  main.fi_out.enable
+  main.tx_out.enable
+  main.ck_list.enable
+END
+
+SCRIPT out_off
+BEGIN
+  main.fi_out.disable
+  main.tx_out.disable
+  main.ck_list.disable
+END
+
+PROGRAM command
+BEGIN
+	allowxi
+	put "strate "
+	varlist [main.vl_var]
+	INCLUDE _ifin_pr
+	beginoptions
+		optionarg main.en_per
+		optionarg main.vn_clus
+		option main.ck_jack
+		option main.ck_list
+		optionarg main.vn_smr
+		if main.ck_out {
+			require main.fi_out
+			repfile main.fi_out
+			put `"output("'
+			put `"""'
+			put main.fi_out
+			put `"""'
+			put ", replace"
+			put `") "'
+		}
+		option main.ck_miss
+		INCLUDE _level_main_pr
+		option main.ck_graph
+		if main.ck_graph {
+			option main.ck_nowhis
+		}
+
+		put " " /program gr_plots_output
+		put " " /program gr_ciplots_output
+		put " " /program gr_addplots_output
+		put " " /program gr_yaxis_output
+		put " " /program gr_xaxis_output
+		put " " /program gr_titles_output
+		put " " /program gr_overall_output
+	endoptions
+END

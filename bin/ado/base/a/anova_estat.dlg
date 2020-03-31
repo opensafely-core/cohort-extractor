@@ -1,0 +1,470 @@
+/*
+	anova_estat
+
+*!  VERSION 2.1.7  16nov2017
+
+	***
+	USE EXTREME CARE WHEN CHANGING CONTROL NAMES. The names used
+	in this file have multiple external dependencies.
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 400	//dialog length for bootstrap options
+INCLUDE header
+
+HELP hlp1, view("help anova postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create BOOLEAN has_FactorVars
+	has_FactorVars.settrue
+	program sum_bu_facvars_ckResults
+	program vce_bu_facvars_ckResults
+	setscale_hadj resource ANOVA_ESTAT_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program parseMessage
+END
+
+PROGRAM parseMessage
+BEGIN
+	if __MESSAGE.contains("-hettest-") {
+		call main.lb_subcmd.setvalue "hettest"
+	}
+	if __MESSAGE.contains("-imtest-") {
+		call main.lb_subcmd.setvalue "imtest"
+	}
+	if __MESSAGE.contains("-ovtest-") {
+		call main.lb_subcmd.setvalue "ovtest"
+	}
+	if __MESSAGE.contains("-szroeter-") {
+		call main.lb_subcmd.setvalue "szroeter"
+	}
+	if __MESSAGE.contains("-vif-") {
+		call main.lb_subcmd.setvalue "vif"
+	}
+	if __MESSAGE.contains("-esize-") {
+		call main.lb_subcmd.setvalue "esize"
+	}
+	if __MESSAGE.contains("-ic-") {
+		call main.lb_subcmd.setvalue "ic"
+	}
+	if __MESSAGE.contains("-summarize-") {
+		call main.lb_subcmd.setvalue "summarize"
+	}
+	if __MESSAGE.contains("-vce-") {
+		call main.lb_subcmd.setvalue "vce"
+	}
+	if __MESSAGE.contains("-bootstrap-") {
+		call main.lb_subcmd.setvalue "bootstrap"
+	}
+END
+
+
+DIALOG main, label(resource ANOVA_ESTAT_DLG_TITLE)	///
+	tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_subcmd		_lft	_top	_iwd	.,		///
+  	label(resource LBL_REPORTS_STATISTICS_SUBCOMMAND)
+  LISTBOX  lb_subcmd		@	_ss	@	70,		///
+  	contents(main_subcommand_contents)				///
+  	values(main_subcommand_values)					///
+  	onselchangelist(main_subcommand_scripts)
+
+  DEFINE holdy 110
+
+  // hettest options
+  COMBOBOX cb_test		_lft	holdy	200	.,		///
+	dropdownlist 							///
+	contents(hettest_test)						///
+	values(hettest_test_values)					///
+	onselchangelist(hettest_test_sel)
+  TEXT     tx_test		+205	@	200	.,		///
+	label(resource LBL_TEST_TO_COMPUTE)
+  GROUPBOX gb_fit		_lft	_ls	_iwd	_ht6h,		///
+  	label(resource LBL_TESTS_FOR_HETEROSKEDASTICITY)
+  RADIO    rb_fit		_ilft	_ss	_ibwd	.,		///
+  	first label(resource LBL_USE_FITTED_VALUES_OF_REGRESSION)		///
+  	onclickon(main.vl_var.disable)
+  RADIO    rb_var		@	_ss	@	.,		///
+  	last label(resource LBL_USE_THE_FOLLOWING_VARIABLES)			///
+  	onclickon(main.vl_var.enable)
+  VARLIST  vl_var		_indent2 _ss	_inwd	.,		///
+  	numeric								///
+	label(resource LBL_USE_THE_FOLLOWING_VARIABLES)
+
+  CHECKBOX ck_rhs		_lft	_xxls	_iwd	.,		///
+	option(rhs)							///
+	label(resource LBL_USE_RHS_VARIABLES_TEST)
+
+  CHECKBOX ck_mtest    		_lft	_ls	_iwd	_ht4,		///
+	label(resource LBL_PERFORM_MULTIPLE_TESTING)  groupbox			///
+	onclickon(script main_adjustment_on)				///
+	onclickoff(script main_adjustment_off)
+  TEXT     tx_adjustment	_ilft	_ss	_inwd	.,		///
+  	label(resource LBL_P_VALUE_ADJUSTMENT)
+  COMBOBOX cb_adjustment	@	_ss     160	.,		///
+	label(resource LBL_MULTIPLE_TESTING_ADJUSTMENT)				///
+	dropdownlist 							///
+	contents(adjustment_methods)					///
+	values(adjustment_values)
+
+  // imtest options
+  CHECKBOX ck_preserve		_lft	holdy	_ibwd	.,		///
+	option(preserve)						///
+	label(resource LBL_PRESERVE_RESTORE_ORIG_DATA_AUXILIARY_REG)
+  CHECKBOX ck_white		@	_ms	@	.,		///
+	option(white)							///
+	label(resource LBL_PERFORM_WHITES_ORIG_HETERO_TEST)
+
+  // ovtest options - reuse rhs
+
+  // szroeter options - reuse hettest options
+  GROUPBOX gb_mtest    		_lft	_ls	_iwd	_ht4,		///
+	label(resource LBL_MULTIPLE_TESTING)
+
+  // vif
+  CHECKBOX ck_vif_uncentered	_lft	holdy	_iwd	.,		///
+	option(uncentered)						///
+	label(resource LBL_COMPUTE_UNCENTERED_VARIANCE_INFLATION_FAC)
+
+  // esize
+  RADIO rb_esize_eta		_lft	holdy	_iwd	., first	///
+	label(resource LBL_REPORT_ETA_SQUARED)
+  RADIO rb_esize_epsilon	@	_ss	@	.,		///
+	option(epsilon)							///
+	label(resource LBL_REPORT_EPSILON_SQUARED)
+  RADIO rb_esize_omega		@	_ss	@	., last		///
+	option(omega)							///
+	label(resource LBL_REPORT_OMEGA_SQUARED)
+  DEFINE   _x  _lft
+  DEFINE   _cx _spr
+  DEFINE   _y  _ls
+  INCLUDE  _sp_level
+
+  // Information criteria
+  CHECKBOX ck_n			_lft	holdy	_iwd	.,		///
+	onclickon(main.sp_n.enable)					///
+	onclickoff(main.sp_n.disable)					///
+	label(resource LBL_NUMBER_OBSERVATIONS_CALCULATING_BIC)
+  SPINNER sp_n			_indent2 _ss	_spwd	.,		///
+	default(e(N)) min(1) max(e(N))					///
+	option(n)
+
+  INCLUDE estat_sum
+  INCLUDE estat_vce
+  INCLUDE _estat_bootstrap
+END
+
+INCLUDE estat_sum_pr
+INCLUDE _estat_bootstrap_pr
+INCLUDE estat_vce_pr
+
+LIST hettest_test
+BEGIN
+	resource LBL_BREUSCH_PAGAN_COOK_WEISBERG
+	resource LBL_NR2_VERSION_SCORE_TEST
+	resource LBL_F_STATISTIC
+END
+LIST hettest_test_values
+BEGIN
+	""
+	"iid"
+	"fstat"	
+END
+LIST hettest_test_sel
+BEGIN
+	program mtest_allowed
+	program mtest_disallowed
+END
+
+PROGRAM mtest_allowed
+BEGIN
+	call main.ck_mtest.enable
+	if main.ck_mtest {
+		call script main_adjustment_on
+	}
+END
+PROGRAM mtest_disallowed
+BEGIN
+	call main.ck_mtest.disable
+	call script main_adjustment_off
+END
+
+SCRIPT main_group_on
+BEGIN
+	main.sp_group.enable
+	main.tx_group.enable
+END
+SCRIPT main_group_off
+BEGIN
+	main.sp_group.disable
+	main.tx_group.disable
+END
+
+LIST adjustment_methods
+BEGIN
+	resource LBL_NONE
+	resource LBL_BONFERRONI_ADJUSTMENT
+	resource LBL_HOLM_ADJUSTMENT
+	resource LBL_SIDAK_ADJUSTMENT
+END
+
+LIST adjustment_values
+BEGIN
+	mtest
+	mtest(bonferroni)
+	mtest(holm)
+	mtest(sidak)
+END
+
+LIST main_subcommand_contents
+BEGIN
+	resource LBL_TEST_FOR_HETEROSKEDASTICITY_HETTEST
+	resource LBL_INFORMATION_MATRIX_TEST_IMTEST
+	resource LBL_RAMSEY_REGRESSION_SPEC_ERROR_OMITTED_VAR
+	resource LBL_SZROETERS_RANK_TEST_HETEROSKEDASTICITY
+	resource LBL_VARIANCE_INFLATION_FACTORS_INDEP_VARS
+	resource LBL_EFFECT_SIZES_ESIZE
+	resource LBL_INFORMATION_CRITERIA
+	resource LBL_SUMMARIZE_ESTIMATION_SAMPLE
+	resource LBL_COVARIANCE_MATRIX_ESTIMATES
+END
+
+LIST main_subcommand_values
+BEGIN
+	hettest
+	imtest
+	ovtest
+	szroeter
+	vif
+	esize
+	ic
+	summarize
+	vce
+END
+
+LIST main_subcommand_scripts
+BEGIN
+	script sel_hettest
+	script sel_imtest
+	script sel_ovtest
+	script sel_szroeter
+	script sel_vif
+	script sel_esize
+	script sel_ic
+	script sel_summarize
+	script sel_vce
+END
+
+SCRIPT sel_hettest
+BEGIN
+	script main_hide_all
+	program hettest_on
+END
+
+SCRIPT sel_imtest
+BEGIN
+	script main_hide_all
+	script imtest_on
+END
+
+SCRIPT sel_ovtest
+BEGIN
+	script main_hide_all
+	script ovtest_on
+END
+
+SCRIPT sel_szroeter
+BEGIN
+	script main_hide_all
+	script szroeter_on
+END
+
+SCRIPT sel_vif
+BEGIN
+	script main_hide_all
+	main.ck_vif_uncentered.show
+END
+
+SCRIPT sel_esize
+BEGIN
+	script main_hide_all
+	main.rb_esize_eta.show
+	main.rb_esize_epsilon.show
+	main.rb_esize_omega.show
+	main.sp_level.show
+	main.tx_level.show
+END
+
+SCRIPT sel_ic
+BEGIN
+	script main_hide_all
+	main.ck_n.show
+	main.sp_n.show
+END
+
+SCRIPT sel_summarize
+BEGIN
+	script main_hide_all
+	program main_summ_on
+END
+
+SCRIPT sel_vce
+BEGIN
+	script main_hide_all
+	program vce_on
+END
+
+PROGRAM hettest_on
+BEGIN
+	call main.cb_test.show
+	call main.tx_test.show
+	
+	call main.gb_fit.setposition . 140
+	call main.rb_fit.setposition . 160
+	call main.rb_var.setposition . 180
+	call main.vl_var.setposition . 200
+	call main.gb_fit.show
+	call main.rb_fit.show
+	call main.rb_var.show
+	call main.vl_var.show
+	call main.ck_rhs.setposition . 250 . .
+	call main.ck_rhs.show
+	call main.ck_mtest.show
+	call main.tx_adjustment.setposition . 300 
+	call main.cb_adjustment.setposition . 320 
+	call main.tx_adjustment.show
+	call main.cb_adjustment.show
+	if ! main.ck_mtest {
+		call script main_adjustment_off
+	}
+END
+
+SCRIPT imtest_on
+BEGIN
+	main.ck_preserve.show
+	main.ck_white.show
+END
+
+SCRIPT ovtest_on
+BEGIN
+	main.ck_rhs.setposition . 110 . .
+	main.ck_rhs.show
+END
+
+SCRIPT szroeter_on
+BEGIN
+	main.gb_fit.setposition . 110
+	main.rb_fit.setposition . 130
+	main.rb_var.setposition . 150
+	main.vl_var.setposition . 170
+	main.gb_fit.show
+	main.rb_fit.show
+	main.rb_var.show
+	main.vl_var.show
+	main.ck_rhs.setposition . 220 . .
+	main.ck_rhs.show
+	main.gb_mtest.setposition . 250 . .
+	main.gb_mtest.show
+	main.tx_adjustment.setposition . 270 
+	main.cb_adjustment.setposition . 290 
+	main.tx_adjustment.show
+	main.cb_adjustment.show
+	script main_adjustment_on
+END
+
+SCRIPT main_adjustment_on
+BEGIN
+	main.cb_adjustment.enable
+	main.tx_adjustment.enable
+END
+
+SCRIPT main_adjustment_off
+BEGIN
+	main.cb_adjustment.disable
+	main.tx_adjustment.disable
+END
+
+SCRIPT main_hide_all  // MUST BE IMPLEMENTED FOR BOOTSTRAP
+BEGIN
+	main.cb_test.hide
+	main.tx_test.hide
+	main.gb_fit.hide
+	main.rb_fit.hide
+	main.rb_var.hide
+	main.vl_var.hide
+	main.ck_rhs.hide
+	main.ck_mtest.hide
+	main.gb_mtest.hide
+	main.tx_adjustment.hide
+	main.cb_adjustment.hide
+	main.ck_preserve.hide
+	main.ck_white.hide
+	main.ck_vif_uncentered.hide
+	main.rb_esize_eta.hide
+	main.rb_esize_epsilon.hide
+	main.rb_esize_omega.hide
+	main.sp_level.hide
+	main.tx_level.hide
+	main.ck_n.hide
+	main.sp_n.hide
+	script main_summ_off
+	program vce_off
+	script main_bootstrap_hide
+END
+
+PROGRAM vl_output
+BEGIN
+	put main.vl_spec
+END
+
+PROGRAM vl_eq_output
+BEGIN
+	put main.vl_eq
+END
+
+PROGRAM command
+BEGIN
+	put "estat "
+	put main.lb_subcmd
+	put " " /program summarize_output
+	if main.rb_var & main.rb_var.isvisible() {
+		varlist main.vl_var
+	}
+	beginoptions
+		// non-basic options
+		if main.lb_subcmd.iseq("hettest") {
+			put " " main.cb_test
+		}
+		option main.ck_rhs
+		if main.lb_subcmd.iseq("hettest") 			///
+		   |	( main.lb_subcmd.iseq("szroeter") 		///
+			  & ! main.cb_adjustment.iseq("mtest")		///
+			) 						///
+		{
+			put " " main.cb_adjustment
+		}
+		option main.ck_preserve
+		option main.ck_white
+		option main.ck_vif_uncentered
+
+		option main.rb_esize_epsilon
+		option main.rb_esize_omega
+		optionarg /hidedefault main.sp_level
+
+		// ic options
+		optionarg main.sp_n
+
+		// Summarize options
+		put " " /program summarize_opts_output
+
+		put " " /program vce_output
+		put " " /program bootstrap_output
+	endoptions
+END

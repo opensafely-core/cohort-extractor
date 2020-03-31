@@ -1,0 +1,612 @@
+/*
+ rocreg
+
+*!  VERSION 1.1.3  20may2015
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_xlarge
+DEFINE _dlght 535
+INCLUDE header
+
+HELP hlp1, view("help rocreg")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource ROCREG_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)				///
+	label(resource ROCREG_DLG_TITLE)
+BEGIN
+  GROUPBOX gb_syntax		_lft	_top	_iwd	_ht2,		///
+	label(resource LBL_SYNTAX)
+  RADIO rb_np			_indent	_ss	130	., first	///
+	onclickon("program main_np_on")					///
+	label(resource ROCREG_MAIN_RB_NP)
+  RADIO rb_p			+140	@	180	.,		///
+	onclickon("program main_p_on")					///
+	label(resource ROCREG_MAIN_RB_P)
+  RADIO rb_ml			+190	@	180	., last		///
+	onclickon("program main_ml_on")					///
+	label(resource ROCREG_MAIN_RB_ML)
+
+  TEXT tx_refvar		_lft	+40	_vnwd	.,		///
+	label(resource LBL_REFERENCE_VARIABLE)
+  DEFINE holdy @y
+  VARNAME vn_refvar		_lft	_ss	_vnwd	., 		///
+  	numeric								///
+	label(resource LBL_REFERENCE_VARIABLE)
+  TEXT tx_classvar		_vlx	holdy	_vlwd	.,		///
+	label(resource ROCREG_MAIN_TX_CLASSVAR)
+  VARLIST vl_classvar		@	_ss	_vlwd	.,		///
+  	numeric								///
+	label(resource ROCREG_MAIN_TX_CLASSVAR)
+
+  GROUPBOX gb_opt		_lft	_ls	_iwd	_ht21,
+  CHECKBOX ck_auc		_ilft	_ss	_ibwd	.,		///
+	option("auc")							///
+	label(resource ROCREG_MAIN_CK_AUC)
+  DEFINE top_opt_y @y
+  CHECKBOX ck_roc		@	_ms	@	.,		///
+	onclickon("main.ed_roc.enable")					///
+	onclickoff("main.ed_roc.disable")				///
+	label(resource LBL_ESTIMATE_ROC_FOR_GIVEN_FALSE_POSITIVE_RATES)
+  EDIT ed_roc			+20	_ss	_vnwd	.,		///
+	option(roc)							///
+	label(resource LBL_ESTIMATE_ROC_FOR_GIVEN_FALSE_POSITIVE_RATES)
+  CHECKBOX ck_invroc		_ilft	_ms	_ibwd	.,		///
+	onclickon("main.ed_invroc.enable")				///
+	onclickoff("main.ed_invroc.disable")				///
+	label(resource LBL_ESTIMATE_FALSE_POSITIVE_RATES_FOR_GIVEN_ROC_VALUES)
+  EDIT ed_invroc		+20	_ss	_vnwd	.,		///
+	option(invroc)							///
+	label(resource LBL_ESTIMATE_FALSE_POSITIVE_RATES_FOR_GIVEN_ROC_VALUES)
+  CHECKBOX ck_pauc		_ilft	_ms	_ibwd	.,		///
+	onclickon("main.ed_pauc.enable")				///
+	onclickoff("main.ed_pauc.disable")				///
+	label(resource LBL_ESTIMATE_PARTIAL_AREA_UNDER_ROC_CURVE_FOR_FP_RATES)
+  EDIT ed_pauc			+20	_ss	_vnwd	.,		///
+	option(pauc)							///
+	label(resource LBL_ESTIMATE_PARTIAL_AREA_UNDER_ROC_CURVE_FOR_FP_RATES)
+  TEXT tx_roccov		_ilft	top_opt_y _ibwd	.,		///
+	label(resource ROCREG_MAIN_TX_ROCCOV)
+  VARLIST vl_roccov		_ilft	_ss	@	.,		///
+	option(roccov)							///
+	numeric								///
+	label(resource ROCREG_MAIN_TX_ROCCOV)
+  SPINNER sp_fprpts		_ilft 	_ls	_spwd	.,		///
+	option(fprpts)							///
+	min(1)								///
+	max(100000)							///
+	default(10)							///
+	label(resource ROCREG_MAIN_SP_FPRPTS)
+  TEXT tx_fprpts		_spsep	@	_cwd1	.,		///
+	label(resource ROCREG_MAIN_SP_FPRPTS)
+  CHECKBOX ck_allctrlfpr	_ilft	_ls	_ibwd	.,		///
+	option(ctrlfprall)						///
+	onclickon(program check_fprall)					///
+	onclickoff(program check_fprall)				///
+	label(resource ROCREG_MAIN_CK_ALLCTRLFPR)
+  TEXT tx_cluster		_ilft	_ls	_ibwd	.,		///
+	label(resource ROCREG_MAIN_TX_CLUSTER)
+  VARNAME vn_cluster		_ilft	_ss	_vnwd	.,		///
+	option(cluster)							///
+	label(resource ROCREG_MAIN_TX_CLUSTER)
+  GROUPBOX gb_ctrl_pop		_lft	+45	_iwd	_ht12h,		///
+	label(resource ROCREG_MAIN_GB_CTRL_POP)
+  CHECKBOX ck_ctrl_pop		_ilft	_ss	_inwd	_ht4h,		///
+	groupbox							///
+	onclickon("script main_ctrl_pop_on")				///
+	onclickoff("script main_ctrl_pop_off")				///
+	label(resource ROCREG_MAIN_CK_CTRL_POP)
+  TEXT tx_ctrlvars		_iilft	_ss	_inwd	.,		///
+	label(resource ROCREG_MAIN_TX_CTRLVARS)
+  DEFINE holdy @y
+  VARLIST vl_ctrlvars		@	_ss	300	.,		///
+	option(ctrlcov)							///
+	numeric								///
+	label(resource ROCREG_MAIN_TX_CTRLVARS)
+  TEXT tx_ctrlmodel		+320	holdy	170	.,		///
+	label(resource ROCREG_MAIN_TX_CTRLMODEL)
+  COMBOBOX cb_ctrlmodel		@	_ss	@	.,		///
+	option(ctrlmodel)						///
+	dropdownlist							///
+	contents(main_ctrlmodel_list)					///
+	values(main_ctrlmodel_values)					///
+	label(resource ROCREG_MAIN_TX_CTRLMODEL)
+  TEXT tx_pvc			_ilft	+45	_cwd1	.,		///
+	label(resource ROCREG_MAIN_TX_PVC)
+  COMBOBOX cb_pvc		@	_ss	150	.,		///
+	option(pvc)							///
+	dropdownlist							///
+	onselchange(program main_pvc_selchange)				///
+	contents(main_pvc_list)						///
+	values(main_pvc_values)						///
+	label(resource ROCREG_MAIN_TX_PVC)
+  CHECKBOX ck_tiecorrected	_lft2	@	_cwd2	.,		///
+	option(tiecorrected)						///
+	label(resource ROCREG_MAIN_CK_TIECORRECTED)
+END
+
+PROGRAM check_fprall
+BEGIN
+	if main.ck_allctrlfpr {
+		call main.sp_fprpts.disable
+		call main.tx_fprpts.disable
+	}
+	else {
+		call main.sp_fprpts.enable
+		call main.tx_fprpts.enable
+	}
+END
+
+
+LIST main_ctrlmodel_list
+BEGIN
+	resource ROCREG_STRATA
+	resource LBL_LINEAR
+END
+
+LIST main_ctrlmodel_values
+BEGIN
+	""
+	"linear"
+END
+
+LIST main_pvc_list
+BEGIN
+	resource ROCREG_EMPIRICAL
+	resource LBL_NORMAL
+END
+
+LIST main_pvc_values
+BEGIN
+	""
+	"normal"
+END
+
+PROGRAM main_pvc_selchange
+BEGIN
+	if !main.cb_pvc.iseq("normal") {
+		call main.ck_tiecorrected.enable
+	}
+	else {
+		call main.ck_tiecorrected.disable
+	}
+
+END
+
+PROGRAM main_np_on
+BEGIN
+	call script weights_disable
+	call program boot_on
+	call script rpt_display_opts_off
+	call script max_disable
+
+	call script main_hide_all
+	call main.gb_opt.setposition . . . 240
+	call main.gb_opt.setlabel resource ROCREG_NONPARAMETRIC_OPTIONS
+	call main.ck_auc.show
+	call main.ck_roc.show
+	call main.ed_roc.show
+	call main.ck_invroc.show
+	call main.ed_invroc.show
+	call main.ck_pauc.show
+	call main.ed_pauc.show
+	call main.tx_cluster.show
+	call main.vn_cluster.show
+	call main.tx_cluster.setposition . 305
+	call main.vn_cluster.setposition . 325
+
+	call main.gb_ctrl_pop.show
+	call main.ck_ctrl_pop.show
+	call main.tx_ctrlvars.show
+	call main.vl_ctrlvars.show
+	call main.tx_ctrlmodel.show
+	call main.cb_ctrlmodel.show
+	call main.tx_pvc.show
+	call main.cb_pvc.show
+	call main.ck_tiecorrected.show
+
+	call main.gb_ctrl_pop.setposition . 370 . 155
+	call main.ck_ctrl_pop.setposition . 390
+	call main.tx_ctrlvars.setposition 30 410 300 .
+	call main.vl_ctrlvars.setposition 30 430 300 .
+	call main.tx_ctrlmodel.setposition . 410
+	call main.cb_ctrlmodel.setposition . 430
+	call main.tx_pvc.setposition . 470
+	call main.cb_pvc.setposition . 490
+	call main.ck_tiecorrected.setposition . 490
+
+	if main.ck_ctrl_pop {
+		call script main_ctrl_pop_on
+	}
+	else {
+		call script main_ctrl_pop_off
+	}
+END
+
+PROGRAM main_p_on
+BEGIN
+	call script weights_disable
+	call program boot_on
+	call script rpt_display_opts_off
+	call script max_disable
+
+	call script main_hide_all
+	call main.gb_opt.setposition . . . 180
+	call main.gb_opt.setlabel 				///
+		"resource ROCREG_PARAMETRIC_USING_BOOTSTRAP_OPTIONS"
+	call main.tx_roccov.show
+	call main.vl_roccov.show
+	call main.sp_fprpts.show
+	call main.tx_fprpts.show
+	call main.ck_allctrlfpr.show
+	call main.tx_cluster.show
+	call main.vn_cluster.show
+	call main.tx_cluster.setposition . 245
+	call main.vn_cluster.setposition . 265
+
+	call main.gb_ctrl_pop.show
+	call main.ck_ctrl_pop.show
+	call main.tx_ctrlvars.show
+	call main.vl_ctrlvars.show
+	call main.tx_ctrlmodel.show
+	call main.cb_ctrlmodel.show
+	call main.tx_pvc.show
+	call main.cb_pvc.show
+	call main.ck_tiecorrected.show
+
+	call main.gb_ctrl_pop.setposition . 310 . 160
+	call main.ck_ctrl_pop.setposition . 335
+	call main.tx_ctrlvars.setposition 30 355 300 .
+	call main.vl_ctrlvars.setposition 30 375 300 .
+	call main.tx_ctrlmodel.setposition . 355
+	call main.cb_ctrlmodel.setposition . 375
+	call main.tx_pvc.setposition . 415
+	call main.cb_pvc.setposition . 435
+	call main.ck_tiecorrected.setposition . 435
+
+	if main.ck_ctrl_pop {
+		call script main_ctrl_pop_on
+	}
+	else {
+		call script main_ctrl_pop_off
+	}
+END
+
+PROGRAM main_ml_on
+BEGIN
+	call script weights_enable
+	call script boot_off
+	call script rpt_display_opts_on
+	call script max_enable
+
+	call script main_hide_all
+	call main.gb_opt.setposition . . . 125
+	call main.gb_opt.setlabel resource ROCREG_PARAMETRIC_USING_ML_OPTIONS
+	call main.tx_roccov.show
+	call main.vl_roccov.show
+	call script max_enable
+	call main.tx_cluster.show
+	call main.vn_cluster.show
+	call main.tx_cluster.setposition . 190
+	call main.vn_cluster.setposition . 210
+
+	call main.gb_ctrl_pop.show
+	call main.tx_ctrlvars.show
+	call main.vl_ctrlvars.show
+	call main.tx_ctrlvars.enable
+	call main.vl_ctrlvars.enable
+
+	call main.gb_ctrl_pop.setposition . 255 . 75
+	call main.tx_ctrlvars.setposition 20 275
+	call main.vl_ctrlvars.setposition 20 295 510 .
+END
+
+SCRIPT main_hide_all
+BEGIN
+	main.ck_auc.hide
+	main.ck_roc.hide
+	main.ed_roc.hide
+	main.ck_invroc.hide
+	main.ed_invroc.hide
+	main.ck_pauc.hide
+	main.ed_pauc.hide
+	main.tx_roccov.hide
+	main.vl_roccov.hide
+	main.sp_fprpts.hide
+	main.tx_fprpts.hide
+	main.ck_allctrlfpr.hide
+	main.tx_cluster.hide
+	main.vn_cluster.hide
+	main.gb_ctrl_pop.hide
+	main.ck_ctrl_pop.hide
+	main.tx_ctrlvars.hide
+	main.vl_ctrlvars.hide
+	main.tx_ctrlmodel.hide
+	main.cb_ctrlmodel.hide
+	main.tx_pvc.hide
+	main.cb_pvc.hide
+	main.ck_tiecorrected.hide
+END
+
+PROGRAM main_np_output
+BEGIN
+	option main.ck_auc
+
+	if main.ck_roc {
+		require main.ed_roc
+		if !main.ed_roc.isnumlist() {
+			call create STRING _MSG_TMP
+                        call _MSG_TMP.format				/// 
+			"resource LBL_MSGBOX_ON_TAB_THERE_IS_AN_INVALID_FMT" ///
+			"resource LBL_TAB_MAIN" 			///
+			"resource LBL_NUMLIST" 				///
+			"resource LBL_ESTIMATE_ROC_FOR_GIVEN_FALSE_POSITIVE_RATES" 
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab there is an invalid "Numlist" for "Estimate ROC for given false-positive rates".
+		}
+		optionarg main.ed_roc
+	}
+
+	if main.ck_invroc {
+		require main.ed_invroc
+		if !main.ed_invroc.isnumlist() {
+			call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+			"resource LBL_MSGBOX_ON_TAB_THERE_IS_AN_INVALID_FMT" ///
+			"resource LBL_TAB_MAIN" 			///
+			"resource LBL_NUMLIST" 				///
+			"resource LBL_ESTIMATE_FALSE_POSITIVE_RATES_FOR_GIVEN_ROC_VALUES"
+                        stopbox stop "class _MSG_TMP.value"
+
+// On the "Main" tab there is an invalid "Numlist" for "Estimate false-positive rate for given ROC values".
+		}
+		optionarg main.ed_invroc
+	}
+
+	if main.ck_pauc {
+		require main.ed_pauc
+		if !main.ed_pauc.isnumlist() {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+			"resource LBL_MSGBOX_ON_TAB_THERE_IS_AN_INVALID_FMT" ///
+			"resource LBL_TAB_MAIN" 			///
+			"resource LBL_NUMLIST" 				///
+			"resource LBL_ESTIMATE_PARTIAL_AREA_UNDER_ROC_CURVE_FOR_FP_RATES"
+                        stopbox stop "class _MSG_TMP.value"
+
+// On the "Main" tab there is an invalid "Numlist" for "Estimate partial area under the ROC curve (pAUC) for given false-positive rates".
+		}
+		optionarg main.ed_pauc
+	}
+	optionarg main.vn_cluster
+	if main.ck_ctrl_pop {
+		require main.vl_ctrlvars
+		optionarg main.vl_ctrlvars
+  		optionarg main.cb_ctrlmodel
+	}
+  	optionarg main.cb_pvc
+  	option main.ck_tiecorrected
+END
+
+PROGRAM main_p_output
+BEGIN
+	optionarg main.vl_roccov
+	optionarg /hidedefault main.sp_fprpts
+	option main.ck_allctrlfpr
+	optionarg main.vn_cluster
+	if main.ck_ctrl_pop {
+		require main.vl_ctrlvars
+		optionarg main.vl_ctrlvars
+  		optionarg main.cb_ctrlmodel
+	}
+  	optionarg main.cb_pvc
+  	option main.ck_tiecorrected
+END
+
+PROGRAM main_ml_output
+BEGIN
+	optionarg main.vl_roccov
+	optionarg /hidedefault main.sp_fprpts
+	option main.ck_allctrlfpr
+	optionarg main.vn_cluster
+	optionarg main.vl_ctrlvars
+END
+
+SCRIPT main_ctrl_pop_on
+BEGIN
+	main.tx_ctrlvars.enable
+	main.vl_ctrlvars.enable
+	main.tx_ctrlmodel.enable
+	main.cb_ctrlmodel.enable
+END
+
+SCRIPT main_ctrl_pop_off
+BEGIN
+	main.tx_ctrlvars.disable
+	main.vl_ctrlvars.disable
+	main.tx_ctrlmodel.disable
+	main.cb_ctrlmodel.disable
+END
+
+INCLUDE ifin
+INCLUDE weights_fpi
+
+SCRIPT boot_PREINIT
+BEGIN
+        boot.fi_bsave.formatfilter "{0} (*.dta)|*.dta|{1} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_DTA" "resource ui_ex FILE_TYPE_ALL_FILES"
+END
+
+DIALOG boot, tabtitle(resource SE_LBL_BOOTSTRAP)
+BEGIN
+  CHECKBOX ck_nobootstrap	_lft	_top	_iwd	.,		///
+	option("nobootstrap")						///
+	onclickon("script boot_nobootstrap_on")				///
+	onclickoff("script boot_nobootstrap_off")			///
+	label(resource ROCREG_BOOT_CK_NOBOOTSTRAP)
+  SPINNER sp_bseed		@ 	_ls	_spwd	.,		///
+	option(bseed)							///
+	min(1)								///
+	max(100000)							///
+	default(1)							///
+	label(resource ROCREG_BOOT_SP_BSEED)
+  TEXT tx_bseed			_spsep	@	_cwd1	.,		///
+	label(resource ROCREG_BOOT_SP_BSEED)
+  SPINNER sp_breps		_lft 	_ls	_spwd	.,		///
+	option(breps)							///
+	min(1)								///
+	max(100000)							///
+	default(1000)							///
+	label(resource LBL_NUMBER_OF_BOOTSTRAP_REPLICATIONS)
+  TEXT tx_breps			_spsep	@	_cwd1	.,		///
+	label(resource LBL_NUMBER_OF_BOOTSTRAP_REPLICATIONS)
+  CHECKBOX ck_bootcc		_lft	_ls	_iwd	.,		///
+	option("bootcc")						///
+	label(resource ROCREG_BOOT_CK_BOOTCC)
+  CHECKBOX ck_nobstrata		@	_ms	@	.,		///
+	option("nobstrata")						///
+	label(resource ROCREG_BOOT_CK_NOBSTRATA)
+  CHECKBOX ck_nodots		@	_ms	@	.,		///
+	option(nodots)							///
+	label(resource ROCREG_BOOT_CK_NODOTS)
+  TEXT tx_bsave			@	_ls	@	.,		///
+        label(resource ROCREG_BOOT_TX_BSAVE)
+  FILE fi_bsave			@	_ss	@	.,		///
+	option("bsave")							///
+        save 								///
+        defext(dta)							///
+        error(resource ROCREG_BOOT_TX_BSAVE)   				///
+	label(resource LBL_SAVE_AS)
+END
+
+SCRIPT boot_off
+BEGIN
+	boot.ck_nobootstrap.disable
+	script boot_nobootstrap_on
+END
+
+PROGRAM boot_on
+BEGIN
+	call boot.ck_nobootstrap.enable
+	if boot.ck_nobootstrap {
+		call script boot_nobootstrap_on
+	}
+	else {
+		call script boot_nobootstrap_off
+	}
+END
+
+SCRIPT boot_nobootstrap_on
+BEGIN
+	boot.sp_bseed.disable
+	boot.tx_bseed.disable
+	boot.sp_breps.disable
+	boot.tx_breps.disable
+	boot.ck_bootcc.disable
+	boot.ck_nobstrata.disable
+	boot.ck_nodots.disable
+	boot.tx_bsave.disable
+	boot.fi_bsave.disable
+END
+
+SCRIPT boot_nobootstrap_off
+BEGIN
+	boot.sp_bseed.enable
+	boot.tx_bseed.enable
+	boot.sp_breps.enable
+	boot.tx_breps.enable
+	boot.ck_bootcc.enable
+	boot.ck_nobstrata.enable
+	boot.ck_nodots.enable
+	boot.tx_bsave.enable
+	boot.fi_bsave.enable
+END
+
+PROGRAM boot_output
+BEGIN
+	option boot.ck_nobootstrap
+	if !boot.ck_nobootstrap {
+		optionarg /hidedefault boot.sp_bseed
+		optionarg /hidedefault boot.sp_breps
+		option boot.ck_bootcc
+		option boot.ck_nobstrata
+		option boot.ck_nodots
+		optionarg boot.fi_bsave
+	}
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2b
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _noomitted
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_coef_table_reporting
+END
+
+SCRIPT rpt_display_opts_on
+BEGIN
+	rpt.ck_noomitted.enable
+	rpt.bu_fmtcoef.enable
+END
+
+SCRIPT rpt_display_opts_off
+BEGIN
+	rpt.ck_noomitted.disable
+	rpt.bu_fmtcoef.disable
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+
+INCLUDE max_ml
+
+PROGRAM command
+BEGIN
+	put "rocreg "
+	varlist main.vn_refvar
+	varlist main.vl_classvar
+	put " " /program ifin_output
+	put " " /program weights_output
+	beginoptions
+		if main.rb_np {
+			put " " /program main_np_output
+		}
+		if main.rb_p {
+			put " probit"
+			put " " /program main_p_output
+		}
+		if main.rb_ml {
+			put " probit ml"
+			put " " /program main_ml_output
+		}
+		if !main.rb_ml {
+			put " " /program boot_output
+		}
+		optionarg /hidedefault rpt.sp_level
+		INCLUDE _noomitted_pr
+		put " " rpt_bu_fmtcoefResults
+
+		put " " /program max_output
+	endoptions
+END

@@ -1,0 +1,641 @@
+/*
+	irt graph iif
+
+*!  VERSION 1.1.6  11dec2017
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 330
+INCLUDE header
+
+HELP hlp1, view("help irtgraph iif")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN	
+	create STRING STMP
+	create STRING main_iif_tmp
+	create STRING main_iif_tmp2
+	create STRING main_iif_childdlg
+	create STRING main_iif_child_result
+	create STRING main_iif_cmd_output
+
+	create ARRAY main_iif_list
+	create ARRAY main_iif_cmdlist
+	create ARRAY main_iif_cmdvalueslist
+	create ARRAY main_iif_statuslist
+	create ARRAY main_iif_childdlglist
+	create ARRAY main_iif_itemlist
+	create ARRAY main_iif_editlist
+
+	create SVECTOR mainIIFCommandDisplayVec
+	create SVECTOR mainIIFCommandVec
+	create SVECTOR mainIIFCommandValuesVec
+	create SVECTOR mainIIFStatusVec
+	create SVECTOR mainIIFChildDialogVec
+	create SVECTOR mainIIFItemVec
+	create SVECTOR mainIIFItemVecOrig
+	create SVECTOR mainIIFEditVec
+
+	create DOUBLE main_iif_count
+	create DOUBLE main_iif_position
+	create DOUBLE main_iif_arraysize
+	create DOUBLE main_iif_tmpcount
+	
+	create STRING strI
+	create STRING strItems
+	create DOUBLE main_item_count
+	create DOUBLE loopI
+	create STRING selItems
+	create STRING selItemsEdit
+
+	main.bu_iif_edit.disable
+	main.bu_iif_disable.disable
+	main.bu_iif_enable.disable
+	main.bu_iif_clear.disable
+	
+	main_item_count.setvalue e(k_dv)
+	strItems.setvalue e(item_list)
+	
+	strItems.tokenize main_iif_itemlist
+	mainIIFItemVecOrig.copyFromArray main_iif_itemlist
+	setscale_hadj resource IRT_GRAPH_IIF_BUILD_DLG_HSCALE
+END
+
+PROGRAM builder_SETUP
+BEGIN
+	call main_item_count.setvalue e(k_dv)
+	call strItems.setvalue e(item_list)
+	
+	call strItems.tokenize main_iif_itemlist
+	call mainIIFItemVecOrig.copyFromArray main_iif_itemlist
+	
+	call loopI.setvalue 1
+	while(loopI.isle(main_item_count)) {
+		call loopI.withvalue strI.format 		///
+			"resource LBL_CURVE_FMT" "@" ""
+		call strI.withvalue main_iif_list.Arrpush @
+		
+		call strI.setvalue "main_equ_"
+		call strI.append class loopI.value
+		call strI.withvalue main_iif_childdlglist.Arrpush @
+		
+		call strI.setvalue "("
+		call loopI.withvalue				///
+			strI.append				///
+			class mainIIFItemVecOrig.values[@]
+		call strI.append ")"
+		call strI.withvalue main_iif_cmdlist.Arrpush @
+
+		call strI.setvalue "("
+		call loopI.withvalue				///
+			strI.append				///
+			class mainIIFItemVecOrig.values[@]
+		call strI.append ")"
+		call strI.withvalue main_iif_cmdvalueslist.Arrpush @		
+		
+		call main_iif_statuslist.Arrpush "active"
+		call main_iif_editlist.Arrpush "0"
+		call loopI.increment
+	}
+	call mainIIFCommandDisplayVec.copyFromArray main_iif_list
+	call mainIIFCommandVec.copyFromArray main_iif_cmdlist
+	call mainIIFCommandValuesVec.copyFromArray main_iif_cmdvalueslist
+	call mainIIFStatusVec.copyFromArray main_iif_statuslist
+	call mainIIFChildDialogVec.copyFromArray main_iif_childdlglist
+	call mainIIFEditVec.copyFromArray main_iif_editlist
+	call mainIIFItemVec.copyFromArray main_iif_itemlist
+	
+	call main.lb_iifBuild.repopulate
+END
+
+SCRIPT POSTINIT
+BEGIN
+	mainIIFCommandDisplayVec.copyToArray main_iif_list
+	main.lb_iifBuild.repopulate
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	label(resource IRT_GRAPH_IIF_BUILD_DLG_TITLE)
+BEGIN
+  GROUPBOX gb_re		_lft	_top	_iwd	_ht17h,		///
+	label(resource IRT_GRAPH_IIF_BUILD_MAIN_GB_RE)
+
+  LISTBOX lb_iifBuild		_ilft	_ms	250	145,		///
+	contents(main_iif_list)						///
+	ondblclick(program main_model_edit)				///
+	onselchange(program main_model_sel_changed)			///
+	nomemory
+  BUTTON bu_iif_create		280	@	80	.,		///
+	label(resource IRT_GRAPH_IIF_BUILD_MAIN_BU_IIF_CREATE)		///
+	onpush(program main_model_create)				///
+	tooltip(resource IRT_GRAPH_IIF_BUILD_MAIN_BU_IIF_CREATE_TIP)
+  BUTTON bu_iif_edit		@	_ms	@	.,		///
+	label(resource LBL_BU_EDIT)					///
+	onpush(program main_model_edit)					///
+	tooltip(resource IRT_GRAPH_IIF_BUILD_MAIN_BU_IIF_EDIT)
+  BUTTON bu_iif_disable	@	_ms	@	.,			///
+	label(resource LBL_BU_DISABLE)					///
+	onpush(program main_model_disable)				///
+	tooltip(resource IRT_GRAPH_IIF_BUILD_MAIN_BU_IIF_DISABLE)
+  BUTTON bu_iif_enable		@	_ms	@	.,		///
+	label(resource LBL_BU_ENABLE)					///
+	onpush(program main_model_enable)				///
+	tooltip(resource IRT_GRAPH_IIF_BUILD_MAIN_BU_IIF_ENABLE)
+  BUTTON bu_iif_clear		@	_ms	@	.,		///
+	label(resource IRT_GRAPH_IIF_BUILD_MAIN_BU_IIF_CLEAR)		///
+	onpush(program main_model_clear)				///
+	tooltip(resource IRT_GRAPH_IIF_BUILD_MAIN_BU_IIF_CLEAR_TIP)
+  BUTTON bu_iif_addall		@	_ms	@	.,		///
+	label(resource IRT_GRAPH_IIF_BUILD_MAIN_BU_IIF_ADDALL)		///
+	onpush(program main_model_addall)				///
+	tooltip(resource IRT_GRAPH_IIF_BUILD_MAIN_BU_IIF_ADDALL_TIP)
+  TEXTBOX tb_iif_note		20	+30	370	20,		///
+	label(resource IRT_GRAPH_IIF_BUILD_MAIN_TB_IIF_NOTE)
+	
+  GROUPBOX gb_options		_lft	+40	_iwd	_ht5h,		///
+	label(resource LBL_OPTIONS)
+  CHECKBOX ck_range		_ilft	_ms	_ibwd	.,		///
+	onclickon(program main_range_on)				///
+	onclickoff(program main_range_off)				///
+	label(resource IRT_GRAPH_IIF_BUILD_MAIN_CK_RANGE)
+  EDIT   ed_from		+20	_ms	_en14wd	.,		///
+	numonly								///
+	label(resource LBL_RANGE_OF_THETA)
+  TEXT	tx_range		_en14sep @	50	.,		///
+	label(resource LBL_TO_LOWERCASE)
+  EDIT   ed_to			180	@	_en14wd	.,		///
+	numonly								///
+	label(resource LBL_RANGE_OF_THETA)
+END
+
+PROGRAM main_model_create
+BEGIN
+	call selItemsEdit.setvalue "0"
+	call main_iif_count.setvalue class mainIIFChildDialogVec.size
+	call main_iif_count.increment
+	call main_iif_tmp.setvalue "main_equ_"
+	call main_iif_tmp.append class main_iif_count.value
+	call main_iif_tmp.withvalue main_iif_childdlg.setvalue @
+	call program main_show_equ_child
+END
+
+PROGRAM main_model_edit
+BEGIN
+	call selItemsEdit.setvalue "1"
+	call mainIIFCommandDisplayVec.findstr class			///
+		main.lb_iifBuild.value
+	call main_iif_position.setvalue class				///
+		mainIIFCommandDisplayVec.position
+	call main_iif_position.withvalue				///
+		main_iif_childdlg.setvalue				///
+		class mainIIFChildDialogVec.values[@]
+	call program main_show_equ_child_edit
+END
+
+PROGRAM main_show_equ_child
+BEGIN
+	call main_iif_tmp.setvalue "irt_graph_iif_build_sub AS "
+	call main_iif_tmp.append class main_iif_childdlg.value
+	call main_iif_tmp.withvalue create CHILD @
+	call main_iif_childdlg.withvalue @.setExitString		///
+		"main_iif_child_result"
+	call main_iif_childdlg.withvalue @.setExitAction		///
+		"program main_equ_child_create_done"
+
+	call main_iif_count.withvalue STMP.format			///
+		"resource LBL_CURVE_FMT" "@" ""
+	call STMP.withvalue main_iif_tmp.setvalue "@"
+	call main_iif_childdlg.withvalue				///
+		main_iif_tmp2.setvalue "@.settitle"
+	call main_iif_tmp2.append `" ""'
+	call main_iif_tmp2.append class main_iif_tmp.value
+	call main_iif_tmp2.append `"""'
+	call main_iif_tmp2.withvalue @
+END
+
+PROGRAM main_show_equ_child_edit
+BEGIN
+	call main_iif_tmp.setvalue "irt_graph_iif_build_sub AS "
+	call main_iif_tmp.append class main_iif_childdlg.value
+	call main_iif_tmp.withvalue create CHILD @
+	call main_iif_childdlg.withvalue @.setExitString		///
+		"main_iif_child_result"
+	call main_iif_childdlg.withvalue @.setExitAction		///
+		"program main_equ_child_edit_done"
+
+	call main_iif_position.withvalue				///
+		main_iif_tmp.setvalue					///
+		class mainIIFCommandDisplayVec.values[@]
+	call main_iif_childdlg.withvalue				///
+		main_iif_tmp2.setvalue "@.settitle"
+	call main_iif_tmp2.append `" ""'
+	call main_iif_tmp2.append class main_iif_tmp.value
+	call main_iif_tmp2.append `"""'
+	call main_iif_tmp2.withvalue @
+END
+
+PROGRAM main_equ_child_create_done
+BEGIN
+	call main_iif_arraysize.setvalue class				///
+		mainIIFChildDialogVec.size
+	call main_iif_arraysize.increment
+
+	/* Store child dialog name */
+	call mainIIFChildDialogVec.store class				///
+		main_iif_arraysize.value class main_iif_childdlg.value
+
+	/* Store listbox display equation string */
+	call main_iif_arraysize.withvalue STMP.format			///
+		"resource LBL_CURVE_FMT" "@" ""
+	call STMP.withvalue						///
+		mainIIFCommandDisplayVec.store class			///
+		main_iif_arraysize.value "@"
+
+	/* Store child dialog result string */
+	call mainIIFCommandVec.store class				///
+		main_iif_arraysize.value				///
+		class main_iif_child_result.value
+
+	/* Store child dialog result string for final command
+	   For disable/enable */
+	call mainIIFCommandValuesVec.store class			///
+		main_iif_arraysize.value				///
+		class main_iif_child_result.value
+
+	/* Store disable/enable status */
+	call mainIIFStatusVec.store class				///
+		main_iif_arraysize.value "active"
+		
+	call mainIIFEditVec.store class					///
+		main_iif_arraysize.value "1"
+		
+	call mainIIFItemVec.store class					///
+		main_iif_arraysize.value				///
+		class selItems.value
+
+	call mainIIFCommandVec.copyToArray main_iif_cmdlist
+	call mainIIFCommandValuesVec.copyToArray main_iif_cmdvalueslist
+	call mainIIFChildDialogVec.copyToArray main_iif_childdlglist
+	call mainIIFStatusVec.copyToArray main_iif_statuslist
+	call mainIIFEditVec.copyToArray main_iif_editlist
+	call mainIIFItemVec.copyToArray main_iif_itemlist
+
+	call mainIIFCommandDisplayVec.copyToArray main_iif_list
+	call main.lb_iifBuild.repopulate
+	call STMP.withvalue main.lb_iifBuild.setvalue "@"
+END
+
+PROGRAM main_equ_child_edit_done
+BEGIN
+	call mainIIFChildDialogVec.findstr class			///
+		main_iif_childdlg.value
+	call main_iif_position.setvalue class				///
+		mainIIFChildDialogVec.position
+	call main_iif_position.withvalue main_iif_tmp.setvalue		///
+		class mainIIFStatusVec.values[@]
+	if main_iif_tmp.iseq("active") {
+		call main_iif_position.withvalue			///
+			"resource LBL_CURVE_FMT" "@" ""
+		call STMP.withvalue					///	
+			mainIIFCommandDisplayVec.store class		///
+			main_iif_position.value "@"
+		call mainIIFCommandValuesVec.store class		///
+			main_iif_position.value class			///
+			main_iif_child_result.value
+			
+		call STMP.withvalue main_iif_tmp2.setvalue "@"
+	}
+	else {
+		call main_iif_position.withvalue			///
+			"resource LBL_CURVE_FMT" "@" 			///
+			"resource LBL_PAREN_DISABLED"
+
+		call STMP.withvalue main_iif_tmp2.setvalue "@"
+
+		call STMP.withvalue					///
+			mainIIFCommandDisplayVec.store			///
+			class main_iif_position.value "@"
+	}
+
+	call mainIIFCommandVec.store class				///
+		main_iif_position.value class				///
+		main_iif_child_result.value
+		
+	call mainIIFEditVec.store class					///
+		main_iif_position.value "1"
+		
+	call mainIIFItemVec.store class					///
+		main_iif_position.value					///
+		class selItems.value
+
+	call mainIIFCommandVec.copyToArray main_iif_cmdlist
+	call mainIIFCommandValuesVec.copyToArray main_iif_cmdvalueslist
+	call mainIIFEditVec.copyToArray main_iif_editlist
+	call mainIIFItemVec.copyToArray main_iif_itemlist	
+
+	call mainIIFCommandDisplayVec.copyToArray main_iif_list
+	call main.lb_iifBuild.repopulate
+	call main.lb_iifBuild.setvalue class main_iif_tmp2.value
+END
+
+PROGRAM main_model_sel_changed
+BEGIN
+	call mainIIFCommandDisplayVec.findstr class			///
+		main.lb_iifBuild.value
+	call main_iif_position.setvalue class				///
+		mainIIFCommandDisplayVec.position
+	call main_iif_position.withvalue main_iif_tmp.setvalue	///
+		class mainIIFStatusVec.values[@]
+	if main_iif_position {
+		call main.bu_iif_edit.enable
+
+		call main_iif_position.withvalue			///
+			main.tb_iif_note.setlabel			///
+		class mainIIFCommandVec.values[@]
+		
+		call main_iif_position.withvalue			///
+			selItems.setvalue				///
+		class mainIIFItemVec.values[@]
+		
+		call main_iif_position.withvalue			///
+			selItemsEdit.setvalue				///
+		class mainIIFEditVec.values[@]
+	}
+
+	if main_iif_tmp.iseq("disable") {
+		call main.bu_iif_enable.enable
+		call main.bu_iif_disable.disable
+	}
+	if main_iif_tmp.iseq("active") {
+		call main.bu_iif_enable.disable
+		call main.bu_iif_disable.enable
+	}
+	if main_iif_tmp.isneq("") {
+		call main.bu_iif_clear.enable
+	}
+END
+
+PROGRAM main_model_disable
+BEGIN
+	call mainIIFCommandDisplayVec.findstr class			///
+		main.lb_iifBuild.value
+	call main_iif_position.setvalue class				///
+		mainIIFCommandDisplayVec.position
+
+	call main_iif_tmp.setvalue class main.lb_iifBuild.value
+	call mainIIFStatusVec.store class				///
+		main_iif_position.value "disable"
+	call mainIIFCommandValuesVec.store class main_iif_position.value ""
+
+	call STMP.format "resource LBL_PAREN_DISABLED"
+	call main_iif_tmp.append " "
+	call main_iif_tmp.append class STMP.value
+	call main_iif_tmp.withvalue STMP.setvalue "@"
+
+	call main_iif_tmp.withvalue					///
+		mainIIFCommandDisplayVec.store				///
+		class main_iif_position.value "@"
+		
+	call mainIIFStatusVec.copyToArray main_iif_statuslist
+	call mainIIFCommandValuesVec.copyToArray main_iif_cmdvalueslist
+
+	call mainIIFCommandDisplayVec.copyToArray main_iif_list
+	call main.lb_iifBuild.repopulate
+	call main.lb_iifBuild.setvalue class main_iif_tmp2.value
+	call main.lb_iifBuild.setvalue class STMP.value
+END
+
+PROGRAM main_model_enable
+BEGIN
+	call mainIIFCommandDisplayVec.findstr class			///
+		main.lb_iifBuild.value
+	call main_iif_position.setvalue class				///
+		mainIIFCommandDisplayVec.position
+
+	call mainIIFStatusVec.store class				///
+		main_iif_position.value "active"
+	call main_iif_position.withvalue				///
+		mainIIFCommandValuesVec.store				///
+		class main_iif_position.value class			///
+		mainIIFCommandVec.values[@]
+
+	call main_iif_position.withvalue STMP.format			///
+		"resource LBL_CURVE_FMT" "@" "" 
+
+	call STMP.withvalue						///
+		mainIIFCommandDisplayVec.store				///
+		class main_iif_position.value "@"
+		
+	call mainIIFStatusVec.copyToArray main_iif_statuslist
+	call mainIIFCommandValuesVec.copyToArray main_iif_cmdvalueslist
+
+	call mainIIFCommandDisplayVec.copyToArray main_iif_list
+	call main_iif_position.withvalue				///
+		main_iif_tmp2.setvalue class				///
+		mainIIFCommandDisplayVec.values[@]
+	call main.lb_iifBuild.repopulate
+	call main.lb_iifBuild.setvalue class main_iif_tmp2.value
+END
+
+PROGRAM main_model_clear
+BEGIN
+	call mainIIFCommandDisplayVec.dropall
+	call mainIIFCommandVec.dropall
+	call mainIIFCommandValuesVec.dropall
+	call mainIIFStatusVec.dropall
+	call mainIIFChildDialogVec.dropall
+	call mainIIFItemVec.dropall
+	call mainIIFEditVec.dropall
+	call main_iif_list.Arrdropall
+	call main_iif_cmdlist.Arrdropall
+	call main_iif_cmdvalueslist.Arrdropall
+	call main_iif_statuslist.Arrdropall
+	call main_iif_childdlglist.Arrdropall
+	call main_iif_itemlist.Arrdropall
+	call main_iif_editlist.Arrdropall
+	
+	call main.lb_iifBuild.clearlist
+	call main.lb_iifBuild.repopulate
+	call main.tb_iif_note.setlabel resource IRT_GRAPH_IIF_BUILD_MAIN_TB_IIF_NOTE
+	call main.bu_iif_clear.disable
+	call main.bu_iif_create.enable
+	call main.bu_iif_edit.disable
+	call main.bu_iif_enable.disable
+	call main.bu_iif_disable.disable
+END
+
+PROGRAM main_model_addall
+BEGIN
+	call main_iif_count.setvalue class mainIIFChildDialogVec.size
+	call loopI.setvalue 1
+
+	call strI.setvalue e(cmd2)
+	if strI.isneq("irt") {
+		call main_item_count.setvalue 0
+	}
+
+	while(loopI.isle(main_item_count)) {
+		call main_iif_count.increment
+		call main_iif_count.withvalue 			///
+			strI.format "resource LBL_CURVE_FMT" "@" "" 
+		call strI.withvalue main_iif_list.Arrpush @
+		
+		call strI.setvalue "main_equ_"
+		call strI.append class main_iif_count.value
+		call strI.withvalue main_iif_childdlglist.Arrpush @
+		
+		call strI.setvalue "("
+		call loopI.withvalue				///
+			strI.append				///
+			class mainIIFItemVecOrig.values[@]
+		call strI.append ")"
+		call strI.withvalue main_iif_cmdlist.Arrpush @
+
+		call strI.setvalue "("
+		call loopI.withvalue				///
+			strI.append				///
+			class mainIIFItemVecOrig.values[@]
+		call strI.append ")"
+		call strI.withvalue main_iif_cmdvalueslist.Arrpush @
+
+		call loopI.withvalue				///
+			strI.setvalue				///
+			class mainIIFItemVecOrig.values[@]
+		call strI.withvalue main_iif_itemlist.Arrpush @		
+		
+		call main_iif_statuslist.Arrpush "active"
+		call main_iif_editlist.Arrpush "0"
+		call loopI.increment
+	}
+	
+	call mainIIFCommandDisplayVec.copyFromArray main_iif_list
+	call mainIIFCommandVec.copyFromArray main_iif_cmdvalueslist
+	call mainIIFCommandValuesVec.copyFromArray main_iif_cmdvalueslist
+	call mainIIFStatusVec.copyFromArray main_iif_statuslist
+	call mainIIFChildDialogVec.copyFromArray main_iif_childdlglist
+	call mainIIFEditVec.copyFromArray main_iif_editlist
+	call mainIIFItemVec.copyFromArray main_iif_itemlist
+	
+	call main.lb_iifBuild.repopulate
+END
+
+PROGRAM main_range_on
+BEGIN
+	call main.ed_from.enable
+	call main.tx_range.enable
+	call main.ed_to.enable
+END
+
+PROGRAM main_range_off
+BEGIN
+	call main.ed_from.disable
+	call main.tx_range.disable
+	call main.ed_to.disable
+END
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+END
+
+INCLUDE gr_addplots_2
+INCLUDE gr_yaxis
+INCLUDE gr_xaxis
+INCLUDE gr_titles
+INCLUDE gr_legend
+INCLUDE gr_overall
+
+SCRIPT dataopt_PREINIT
+BEGIN
+        dataopt.fi_save.formatfilter "{0} (*.dta)|*.dta|{1} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_DTA" "resource ui_ex FILE_TYPE_ALL_FILES"
+END
+
+DIALOG dataopt, tabtitle(resource LBL_DATA)
+BEGIN
+  SPINNER sp_n				_lft	_top	_en14wd	.,	///
+	default(300) min(1) max(10000000)				///
+	option(n)							///
+	label(resource IRT_GRAPH_IIF_BUILD_DATAOPT_SP_N) 
+  TEXT    tx_n				_en14sep @	300	.,	///
+	label(resource IRT_GRAPH_IIF_BUILD_DATAOPT_SP_N) 
+
+  CHECKBOX ck_save			_lft	+40	_iwd	_ht5,	///
+	groupbox							///
+	onclickon(script dataopt_save_on)				///
+	onclickoff(script dataopt_save_off)				///
+	label(resource LBL_SAVE_PLOT_DATA_AS_DATASET)
+  FILE	fi_save				_ilft	_ss	_ibwd	.,	///
+	option(saving)							///
+	defext(dta)							///
+	save								///
+	error(resource IRT_GRAPH_IIF_BUILD_DATAOPT_FI_SAVE)		///
+	label(resource LBL_BU_BROWSE)
+  CHECKBOX ck_repdta			@	_ms	@	.,	///
+	label(resource LBL_OVERWRITE_FILE_IF_IT_ALREADY_EXISTS)
+END
+
+SCRIPT dataopt_save_on
+BEGIN
+	dataopt.fi_save.enable
+	dataopt.ck_repdta.enable
+END
+
+SCRIPT dataopt_save_off
+BEGIN
+	dataopt.fi_save.disable
+	dataopt.ck_repdta.disable
+END
+
+PROGRAM command
+BEGIN
+	call mainIIFCommandValuesVec.copyToString main_iif_cmd_output
+	if main_iif_cmd_output.iseq("") {
+stopbox stop "resource IRT_GRAPH_MSGBOX_ITEMS_REQUIRED_TO_CREATE_CURVES"
+// "Items" must be specified to create curves.
+	}
+	
+	put "irtgraph iif "
+	if main_iif_cmd_output {
+		put main_iif_cmd_output
+	}
+	
+	beginoptions
+		if main.ck_range {
+			require main.ed_from
+			require main.ed_to
+			put ", range("
+			put main.ed_from
+			put " "
+			put main.ed_to
+			put ")"
+		}
+
+		put " " /program gr_addplots_output
+		put " " /program gr_yaxis_output
+		put " " /program gr_xaxis_output
+		put " " /program gr_titles_output
+		put " " /program gr_legend_output
+		put " " /program gr_overall_output
+		
+		if !dataopt.sp_n.isdefault() {
+			put " n("
+			put dataopt.sp_n
+			put ")"
+		}
+		
+		if dataopt.ck_save {
+			require dataopt.fi_save
+			put `"data("'
+			put dataopt.fi_save
+			if dataopt.ck_repdta {
+				put `", replace"'
+			}
+			put `")"'
+		}
+	endoptions
+END

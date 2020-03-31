@@ -1,0 +1,98 @@
+/*
+  gr_ed_key_contour.dlg
+
+*!  VERSION 1.1.1  03jun2015
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_vsmall
+DEFINE _dlght 200
+INCLUDE header_gr_ed
+
+DEFINE _clwd	15
+DEFINE _wd	120
+DEFINE _sep	+125
+DEFINE _cbwd	130
+DEFINE _cbsep	+135
+
+SCRIPT PREINIT
+BEGIN
+	settitle resource LBL_CONTOUR_PROPERTIES_DLG_TITLE
+	create STRING G
+	create STRING GRAPH
+	create STRING Gstyle
+	program setupGOBJECT
+
+	create DOUBLE drawview
+	setscale_hadj resource GR_ED_KEY_CONTOUR_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	contour.ck_hide.show
+	program get_defaults
+	program initialize_controls
+END
+
+PROGRAM setupGOBJECT
+BEGIN
+	if ! __MESSAGE {
+		stopbox stop "resource LBL_MSGBOX_OBJECT_NOT_FOUND"
+// An unexpected error has occurred. Object not found.
+		exit 198
+	}
+	call G.setvalue class __MESSAGE.value
+	call G.append ".view"	// fixup for legends
+	call G.withvalue Gstyle.setvalue "@.style"
+	call GRAPH.setvalue class ._Gr_Global.edit_graph
+END
+
+INCLUDE gr_ed_contour
+
+PROGRAM get_defaults
+BEGIN
+	call G.withvalue drawview.setvalue class @.draw_view.istrue
+	if drawview {
+		call contour.ck_hide.setdefault 0
+	}
+	else {
+		call contour.ck_hide.setdefault 1
+	}
+END
+
+PROGRAM initialize_controls
+BEGIN
+	if drawview {
+		call contour.ck_hide.setoff
+	}
+	else {
+		call contour.ck_hide.seton
+	}
+END
+
+PROGRAM command
+BEGIN
+	put "." GRAPH ".UndoBegin"
+	stata hidden queue
+
+	put "_gm_dlg_edits"
+	beginoptions
+		put " object(" Gstyle ") "
+		put " " /program contour_output
+		put " nodraw "
+	endoptions
+	stata hidden queue
+	
+	put "_gm_dlg_edits"
+	beginoptions		
+		put " object(" G ") "
+		put " " /program contour_hide_output
+		put " epilog(_gedi toolbar contour " G ")"
+	endoptions
+	stata hidden queue
+
+	put "." GRAPH ".UndoEnd " G
+	stata hidden queue
+END

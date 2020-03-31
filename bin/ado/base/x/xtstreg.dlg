@@ -1,0 +1,227 @@
+/*
+  xtstreg 
+
+*!  VERSION 1.1.3  05feb2019
+
+*/
+
+VERSION 15.0
+
+INCLUDE _std_large
+DEFINE _dlght 390
+INCLUDE header
+
+HELP hlp1, view("help xtstreg")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	program parseMessage
+	script se_createAsInternalML
+	setscale_hadj resource XTSTREG_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program check_bytab
+	program se_setFinalInitState
+END
+
+PROGRAM check_bytab
+BEGIN
+	if ! __MESSAGE.contains("__MI__") {
+		call script sub_set_by_on
+	}
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)				///
+	title(resource XTSTREG_DLG_TITLE) 
+BEGIN
+  DEFINE _x _xsetbu
+  DEFINE _y _top
+  INCLUDE _bu_stset
+
+  BUTTON	bu_xtset	230	@	_setbuwd .,		///
+	onpush(script show_xtset)					///
+	label(resource LBL_BU_PANEL_SETTINGS)
+
+  TEXT tx_iv			_lft	_topph	_cwd1	.,		///
+	label(resource LBL_INDDEPVAR)
+
+  VARLIST vl_iv			_lft	_ss	_iwd	.,		///
+	numeric								///
+	fv ts								///
+	label(resource LBL_INDDEPVAR)
+  CHECKBOX ck_nocons		@	_ls	@	.,		///
+	label(resource LBL_NOCONSTANT) option(noconstant)
+
+  GROUPBOX gb_opts		_lft	_ls	_iwd	_ht22,		///
+	label(resource LBL_OPTIONS)
+
+  DEFINE y _ss
+  INCLUDE st_distribution_gamma
+
+  TEXT tx_offset		_ilft	_xls	@	.,		///
+	label(resource LBL_OFFSET_VARIABLE)
+  VARNAME  vn_offset		@	_ss	@	.,		///
+	option(offset) numeric						///
+	label(resource LBL_OFFSET_VARIABLE)
+
+  DEFINE _x _ilft
+  DEFINE _y _ls
+  DEFINE _cx _ilw80
+  DEFINE _bux _islw80
+  INCLUDE _constraints
+
+//  CHECKBOX ck_collinear		20	_ls	_ibwd	.,	///
+//	option(collinear)						///
+//	label(resource LBL_KEEP_COLLINEAR_VARIABLES)
+END
+
+SCRIPT show_xtset
+BEGIN
+	create CHILD xtset
+END
+
+PROGRAM main_exp_on
+BEGIN
+	rpt.ck_nohr.enable
+	rpt.ck_tr.disable
+	script max_from_disable
+END
+
+PROGRAM main_exp_time_on
+BEGIN
+	rpt.ck_nohr.disable
+	rpt.ck_tr.enable
+	script max_from_disable
+END
+
+PROGRAM main_weib_on
+BEGIN
+	rpt.ck_nohr.enable
+	rpt.ck_tr.disable
+	script max_from_enable
+END
+
+PROGRAM main_weib_time_on
+BEGIN
+	rpt.ck_nohr.disable
+	rpt.ck_tr.enable
+	script max_from_enable
+END
+
+SCRIPT main_logn_on
+BEGIN
+	rpt.ck_nohr.disable
+	rpt.ck_tr.enable
+	script max_from_enable
+END
+
+SCRIPT main_logl_on
+BEGIN
+	rpt.ck_nohr.disable
+	rpt.ck_tr.enable
+	script max_from_enable
+END
+
+SCRIPT main_gamma_on
+BEGIN
+	rpt.ck_nohr.disable
+	rpt.ck_tr.enable
+	script max_from_enable
+END
+
+INCLUDE _constraints_sc 
+INCLUDE sub_by_ifin_over_subpop
+INCLUDE weights_fpi
+INCLUDE se
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+	program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2
+  DEFINE _y _top
+  INCLUDE _sp_level
+  DEFINE y @y
+
+  CHECKBOX ck_nohr		_lft	_ls	_iwd	.,		///
+	option("nohr")							///
+	label(resource LBL_DO_NO_REPORT_HAZARD_RATIOS)
+  CHECKBOX ck_tr		@	_ms	@	.,		///
+	option("tratio")						///
+	label(resource LBL_REPORT_TIME_RATIOS)
+  CHECKBOX ck_noshow		@	_ms	@	.,		///
+	option("noshow")						///
+	label(resource LBL_DO_NOT_REPORT_ST_VARIABLE_DESCRIPTIONS)
+  CHECKBOX ck_lrmodel		@	_ms	@	.,		///
+	option("lrmodel")						///
+	onclickon(script se_setRobust_off)				///
+	onclickoff(script se_setRobust_on)				///
+	label(resource LBL_PERFORM_LIKELIHOOD_RATIO_MODEL_TEST_LRMODEL)
+  DEFINE _x _lft
+  DEFINE _y _ms
+  DEFINE _cx _iwd
+  INCLUDE _nocnsreport
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+
+PROGRAM rpt_output
+BEGIN
+	optionarg /hidedefault rpt.sp_level
+	option rpt.ck_nohr
+	option rpt.ck_tr
+	option rpt.ck_noshow
+	option rpt.ck_lrmodel
+	INCLUDE _nocnsreport_pr
+	INCLUDE _report_columns_pr
+	put " " rpt_bu_facvarsResults
+	put " " rpt_bu_fmtcoefResults
+END
+
+INCLUDE intopts_fe
+INCLUDE max_ml
+
+PROGRAM command
+BEGIN
+	put /program by_output " "
+	put /program se_prefix_output " "
+	put "xtstreg "
+	varlist [main.vl_iv]
+	put " " /program ifin_output
+	put " " /program weights_output
+	beginoptions
+		option main.ck_nocons
+		option radio(main rb_exp rb_exp_time rb_weib rb_weib_time rb_logn rb_logl rb_gamma)
+		INCLUDE _constraints_main_pr
+		optionarg main.vn_offset
+//		option main.ck_collinear
+		put " " /program se_output
+		put " " /program rpt_output
+		put " " /program intopts_fe_output
+		put " " /program max_output
+	endoptions
+END

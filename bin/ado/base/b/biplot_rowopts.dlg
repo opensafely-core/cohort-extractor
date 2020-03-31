@@ -1,0 +1,158 @@
+/*
+    biplot_rowopts.dlg
+
+*!  VERSION 1.1.3  22oct 2019
+
+	 // SCRIPTS and PROGRAMS for external use
+                * SCRIPT main_set_label_properties_off
+
+*/
+
+VERSION 14.0
+INCLUDE _std_msmall
+INCLUDE header_gr_child
+
+HELP hlp1, view("help biplot")
+RESET res1
+
+SCRIPT main_set_label_properties_off
+BEGIN
+        main.bu_mlabel.disable
+	labelPropertiesButtonAllowed.setfalse
+END
+
+SCRIPT main_set_label_properties_on
+BEGIN
+        main.bu_mlabel.enable
+	labelPropertiesButtonAllowed.settrue
+END
+PROGRAM main_PREINIT_PROGRAM
+BEGIN
+        call create STRING main_markerResults
+        call create STRING main_labelResults
+	call create PBOOLEAN labelPropertiesButtonAllowed
+	call main.bu_mlabel.enable
+	if !labelPropertiesButtonAllowed {
+		call script main_set_label_properties_off
+	}
+	else {
+		call script main_set_label_properties_on
+	}
+END
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource BIPLOT_ROWOPTS_DLG_HSCALE
+END
+
+
+SCRIPT main_POSTINIT
+BEGIN
+        program checkMarkerResults
+        program checkLabelResults
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  BUTTON bu_marker	_lft     _top	140     .,			///
+        label(resource LBL_MARKER_PROPERTIES_DLG_TITLE)			///
+        onpush(script show_marker_dialog)				///
+        tooltip(resource BIPLOT_ROWOPTS_BU_MARKER)
+  BUTTON bu_mlabel	_lft     _ls     140     .,              	///
+        label(resource LBL_GB_LABEL_PROPERTIES)				///
+        onpush(script show_label_dialog)                          	///
+        tooltip(resource BIPLOT_ROWOPTS_TOOL_TIP_BU_MLABEL)
+
+  CHECKBOX ck_name	_lft    +35     _iwd    .,			///
+        onclickon(script name_on)					///
+        onclickoff(script name_off)					///
+        label(resource BIPLOT_MAIN_CK_NAME)
+  EDIT ed_name		_cksep  _ms     _vnwd   .,			///
+        label(resource BIPLOT_MAIN_ED_NAME)				///
+        option(name)
+  TEXT tx_name		_vnsep  @       100     .,			///
+        label(resource LBL_NAME)
+END
+
+SCRIPT name_on
+BEGIN
+	main.ed_name.enable
+	main.tx_name.enable
+END
+
+SCRIPT name_off
+BEGIN
+	main.ed_name.disable
+	main.tx_name.disable
+END
+
+// main buttons
+SCRIPT show_marker_dialog
+BEGIN
+        create CHILD gr_marker_nolabel_options AS main_marker, allowsubmit
+        main_marker.setExitString main_markerResults
+        main_marker.settitle resource BIPLOT_MAIN_MARKER_PROP_GROUP_OBS
+        main_marker.setExitAction "program checkMarkerResults"
+        main_marker.setSubmitAction "program markerSubmit"
+END
+
+PROGRAM checkMarkerResults
+BEGIN
+        if main_markerResults {
+        	call main.bu_marker.modified_on
+        }
+        else {
+        	call main.bu_marker.modified_off
+        }
+END
+
+PROGRAM markerSubmit
+BEGIN
+        call program checkMarkerResults
+        call Submit
+END
+
+SCRIPT show_label_dialog
+BEGIN
+        create CHILD biplot_marker_mlabel_options AS main_label, allowsubmit
+        main_label.setExitString main_labelResults
+        main_label.settitle resource BIPLOT_MAIN_LABEL_PROP_GROUP_OBS
+        main_label.setExitAction "program checkLabelResults"
+        main_label.setSubmitAction "program labelSubmit"
+END
+
+PROGRAM checkLabelResults
+BEGIN
+        if main_labelResults {
+        	callmain.bu_mlabel.modified_on
+        }
+        else {
+        	callmain.bu_mlabel.modified_off
+        }
+END
+
+PROGRAM labelSubmit
+BEGIN
+        call program checkLabelResults
+        call Submit
+END
+
+PROGRAM rowover_output
+BEGIN
+        if main.ck_name {
+                require main.ed_name
+                optionarg main.ed_name
+        }
+        if main_markerResults & ! H(main.bu_marker) {
+                put " " main_markerResults " "
+        }
+        if main_labelResults & ! H(main.bu_mlabel) {
+                put " " main_labelResults " "
+        }
+END
+
+
+PROGRAM command
+BEGIN
+	put /program rowover_output
+END

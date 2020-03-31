@@ -1,0 +1,232 @@
+/*
+    bayes_adaptation.idlg - bayes adaptation tab
+
+*!  VERSION 1.0.1  23feb2017
+
+*/
+
+SCRIPT adaptation_PREINIT
+BEGIN
+	create BOOLEAN hasadaptation
+END
+
+DIALOG adaptation, tabtitle(resource BAYES_ADAPTATION_TABTITLE)
+BEGIN
+  GROUPBOX gb_adaptation		_lft	_top	_iwd	_ht24,	///
+	label(resource BAYES_LBL_ADAPTIVE_MCMC_PROCEDURE)
+  SPINNER sp_adapt_int			_ilft	_ms	_en7wd	.,	///
+	default(100) min(1) max(1000000)				///
+	option(every)							///
+	label(resource BAYES_LBL_ADAPTATION_INTERVAL) 
+  TEXT    tx_adapt_int			_en7sep @	400	.,	///
+	label(resource BAYES_LBL_ADAPTATION_INTERVAL)
+  SPINNER sp_adapt_max			_ilft	_ls	_en7wd	.,	///
+	default(25) min(1) max(1000000)					///
+	option(maxiter)							///
+	label(resource BAYES_LBL_MAX_NUM_ADAPT_ITERATIONS) 
+  TEXT    tx_adapt_max			_en7sep @	400	.,	///
+	label(resource BAYES_LBL_MAX_NUM_ADAPT_ITERATIONS)
+  SPINNER sp_adapt_min			_ilft	_ls	_en7wd	.,	///
+	default(5) min(1) max(1000000)					///
+	option(miniter)							///
+	label(resource BAYES_LBL_MIN_NUM_ADAPT_ITERATIONS) 
+  TEXT    tx_adapt_min			_en7sep @	400	.,	///
+	label(resource BAYES_LBL_MIN_NUM_ADAPT_ITERATIONS)
+  EDIT    ed_adapt_alpha		_ilft	_ls	_en7wd	.,	///
+	numonly								///
+	default(0.75) 							///
+	option(alpha)							///
+	label(resource BAYES_LBL_PARAM_CONTRL_ACCPT_ALPHA) 
+  TEXT    tx_adapt_alpha		_en7sep @	400	.,	///
+	label(resource BAYES_LBL_PARAM_CONTRL_ACCPT_ALPHA)
+  EDIT    ed_adapt_beta			_ilft	_ls	_en7wd	.,	///
+	numonly								///
+	default(0.8) 							///
+	option(beta)							///
+	label(resource BAYES_LBL_PARAM_CONTRL_PROP_BETA) 
+  TEXT    tx_adapt_beta			_en7sep @	400	.,	///
+	label(resource BAYES_LBL_PARAM_CONTRL_PROP_BETA)
+  EDIT    ed_adapt_gamma		_ilft	_ls	_en7wd	.,	///
+	numonly								///
+	default(0) 							///
+	option(gamma)							///
+	label(resource BAYES_LBL_PARAM_CONTRL_ADAP_GAMMA)
+  TEXT    tx_adapt_gamma		_en7sep @	400	.,	///
+	label(resource BAYES_LBL_PARAM_CONTRL_ADAP_GAMMA)
+  EDIT    ed_adapt_arate		_ilft	_ls	_en7wd	.,	///
+	numonly								///
+	option(tarate)							///
+	label(resource BAYES_LBL_TARGET_ACCPT_ALL) 
+  TEXT    tx_adapt_arate		_en7sep @	400	.,	///
+	label(resource BAYES_LBL_TARGET_ACCPT_ALL)
+  EDIT    ed_adapt_atolerance		_ilft	_ls	_en7wd	.,	///
+	numonly								///
+	default(0.01) 							///
+	option(tolerance)						///
+	label(resource BAYES_LBL_TX_ATOLERANCE) 
+  TEXT    tx_adapt_atolerance		_en7sep @	400	.,	///
+	label(resource BAYES_LBL_TX_ATOLERANCE)
+	
+  EDIT    ed_scale			_lft	+50	_en7wd	.,	///
+	numonly								///
+	default(2.38) 							///
+	option(scale)							///
+	label(resource BAYES_LBL_INIT_MULTI_SCALE_FACTOR_ALL) 
+  TEXT    tx_scale			_en7sep @	400	.,	///
+	label(resource BAYES_LBL_INIT_MULTI_SCALE_FACTOR_ALL)
+  COMBOBOX cb_covariance		_lft	_ls	120	.,	///
+	dropdown							///
+	contents(matrix)						///
+	option(covariance)						///
+	label(resource BAYES_LBL_TX_COVARIANCE)
+  BUTTON   btn_covariance		135 	@	85	.,	///
+	onpush(program show_cov_matrix)					///
+	tooltip(resource BAYES_LBL_INPUT_SCALE_MATRIX_BY_HAND)		///
+	label(resource LBL_INPUT_MATRIX)
+  TEXT    tx_covariance			+95 	@	350	.,	///
+	label(resource BAYES_LBL_TX_COVARIANCE)
+END
+
+PROGRAM show_cov_matrix
+BEGIN
+	call create STRING CovMatResult
+	call create CHILD matrix_input AS CovMat
+	if ! _rc {
+		call CovMat.setExitString CovMatResult
+		call CovMat.setExitAction "program adaptation_getCovMatResult"
+		call CovMat.callthru "isChildContext.settrue"
+	}
+END
+
+PROGRAM adaptation_getCovMatResult
+BEGIN
+	call adaptation.cb_covariance.repopulate
+	call adaptation.cb_covariance.setvalue class CovMatResult.value
+END
+
+PROGRAM adaptation_mcmc_output
+BEGIN
+	if !adaptation.sp_adapt_int.isdefault() & adaptation.sp_adapt_int {
+		put " every("
+		put adaptation.sp_adapt_int
+		put ")"
+	}
+	if !adaptation.sp_adapt_max.isdefault() & adaptation.sp_adapt_max {
+		put " maxiter("
+		put adaptation.sp_adapt_max
+		put ")"
+	}
+	if !adaptation.sp_adapt_min.isdefault() & adaptation.sp_adapt_min {
+		put " miniter("
+		put adaptation.sp_adapt_min
+		put ")"
+	}
+	if !adaptation.ed_adapt_alpha.isdefault() & adaptation.ed_adapt_alpha {
+		if adaptation.ed_adapt_alpha.isNumlistLE(0) | adaptation.ed_adapt_alpha.isNumlistGE(1) {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format 					///
+				"resource LBL_MSGBOX_ON_TAB_GE_0_LE_1_FMT" 	///
+				"resource BAYES_ADAPTATION_TABTITLE"		///
+				"resource BAYES_LBL_PARAM_CONTRL_ACCPT_ALPHA"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Adaptation" tab, "parameter controlling acceptance rate, alpha()" must be in [0,1].
+		}
+		put " alpha("
+		put adaptation.ed_adapt_alpha
+		put ")"
+	}
+	if !adaptation.ed_adapt_beta.isdefault() & adaptation.ed_adapt_beta {
+		if adaptation.ed_adapt_beta.isNumlistLT(0) | adaptation.ed_adapt_beta.isNumlistGT(1) {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format 					///
+				"resource LBL_MSGBOX_ON_TAB_GE_0_LE_1_FMT" 	///
+				"resource BAYES_ADAPTATION_TABTITLE"		///
+				"resource BAYES_LBL_PARAM_CONTRL_PROP_BETA"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Adaptation" tab, "parameter controlling proposal covariance, beta()" must be in [0,1].
+		}
+		put " beta("
+		put adaptation.ed_adapt_beta
+		put ")"
+	}
+	if !adaptation.ed_adapt_gamma.isdefault() & adaptation.ed_adapt_gamma {
+		if adaptation.ed_adapt_gamma.isNumlistLT(0) | adaptation.ed_adapt_gamma.isNumlistGT(1) {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format 					///
+				"resource LBL_MSGBOX_ON_TAB_GE_0_LE_1_FMT" 	///
+				"resource BAYES_ADAPTATION_TABTITLE"		///
+				"resource BAYES_LBL_PARAM_CONTRL_ADAP_GAMMA"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Adaptation" tab, "parameter controlling adaptation rate, gamma()" must be in [0,1].
+		}
+		put " gamma("
+		put adaptation.ed_adapt_gamma
+		put ")"
+	}
+	if adaptation.ed_adapt_arate {
+		if adaptation.ed_adapt_arate.isNumlistLE(0) | adaptation.ed_adapt_arate.isNumlistGE(1) {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format 					///
+				"resource LBL_MSGBOX_ON_TAB_GT_0_LT_1_FMT" 	///
+				"resource BAYES_ADAPTATION_TABTITLE"		///
+				"resource BAYES_LBL_TARGET_ACCPT_ALL"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Adaptation" tab, "target acceptance rate for all blocks of model parameters" must be in (0,1).
+		}
+		put " tarate("
+		put adaptation.ed_adapt_arate
+		put ")"
+	}
+	if !adaptation.ed_adapt_atolerance.isdefault() & adaptation.ed_adapt_atolerance {
+		if adaptation.ed_adapt_atolerance.isNumlistLE(0) | adaptation.ed_adapt_atolerance.isNumlistGE(1) {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format 					///
+				"resource LBL_MSGBOX_ON_TAB_GT_0_LT_1_FMT" 	///
+				"resource BAYES_ADAPTATION_TABTITLE"		///
+				"resource BAYES_LBL_TX_ATOLERANCE"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Adaptation" tab, "tolerance for acceptance rate" must be in (0,1).
+		}
+		put " tolerance("
+		put adaptation.ed_adapt_atolerance
+		put ")"
+	}
+END
+
+PROGRAM bayes_adaptation_output
+BEGIN
+	call hasadaptation.setfalse
+	
+	if !adaptation.sp_adapt_int.isdefault() & adaptation.sp_adapt_int {
+		call hasadaptation.settrue
+	}
+	if !adaptation.sp_adapt_max.isdefault() & adaptation.sp_adapt_max {
+		call hasadaptation.settrue
+	}
+	if !adaptation.sp_adapt_min.isdefault() & adaptation.sp_adapt_min {
+		call hasadaptation.settrue
+	}
+	if !adaptation.ed_adapt_alpha.isdefault() & adaptation.ed_adapt_alpha {
+		call hasadaptation.settrue
+	}
+	if !adaptation.ed_adapt_beta.isdefault() & adaptation.ed_adapt_beta {
+		call hasadaptation.settrue
+	}
+	if !adaptation.ed_adapt_gamma.isdefault() & adaptation.ed_adapt_gamma {
+		call hasadaptation.settrue
+	}
+	if adaptation.ed_adapt_arate {
+		call hasadaptation.settrue
+	}
+	if !adaptation.ed_adapt_atolerance.isdefault() & adaptation.ed_adapt_atolerance {
+		call hasadaptation.settrue
+	}
+	
+	if hasadaptation {
+		put "adaptation("
+		put /program adaptation_mcmc_output
+		put ")"
+	}
+	optionarg /hidedefault adaptation.ed_scale
+	optionarg adaptation.cb_covariance
+END

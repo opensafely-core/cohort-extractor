@@ -1,0 +1,209 @@
+/*
+    drop
+
+*!  VERSION 2.2.2  03jan2018
+
+** This dialog box may be called internally by the Data Editor
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+INCLUDE header
+HELP hlp1, view("help drop")
+RESET res1
+
+DEFINE fromwd 34
+DEFINE fromsep +39
+DEFINE towd 30
+DEFINE tosep +35
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource DROP_OBS_DLG_HSCALE
+END
+
+DIALOG main, label(resource DROP_OBS_DLG_TITLE)				///
+	tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  GROUPBOX gb_type		_lft	_top	_iwd	_ht4,		///
+  	label(resource DROP_OBS_MAIN_GB_TYPE)
+  RADIO    rb_drop		_indent	_ss	_inwd	.,		///
+  	label(resource DROP_OBS_MAIN_RB_DROP) first			///
+  	onclickon(script main_drop_on)
+  RADIO    rb_keep		@	_ss	@	.,		///
+  	label(resource DROP_OBS_MAIN_RB_KEEP) last			///
+  	onclickon(script main_keep_on)
+
+  GROUPBOX gb_ifin	_lft	_xls	_iwd	_ht9h,			///
+	label(resource DROP_OBS_MAIN_GB_IFIN)
+
+  TEXT     tx_if	_ilft	_ss	_inwd	.,			///
+	label(resource LBL_IF_EXPRESSION)
+  EXP      ex_if	@	_ss	@	.,			///
+	label(resource LBL_BU_CREATE)
+
+  CHECKBOX ck_in	@	+35	@	.,			///
+	label(resource DROP_OBS_MAIN_CK_IN)				///
+	onclickon(program main_in_on)					///
+	onclickoff(script main_in_off)
+  TEXT     tx_from	@	_ss	fromwd	.,			///
+  	label(resource LBL_FROM) right
+  SPINNER  sp_from	fromsep	@	_spwd	.,			///
+	min(1) max(c(N)) default(1)
+  TEXT     tx_to	_spsep	@	towd	.,			///
+	label(resource LBL_TO) right
+  SPINNER  sp_to	tosep	@	_spwd	.,			///
+  	min(1) max(c(N)) default(c(N))
+END
+
+SCRIPT main_keep_on
+BEGIN
+	main.gb_ifin.setlabel resource DROP_OBS_MAIN_GB_IFIN
+	main.ck_in.setlabel resource DROP_OBS_MAIN_CK_IN
+END
+
+SCRIPT main_drop_on
+BEGIN
+	main.gb_ifin.setlabel resource DROP_OBS_OBSERVATIONS_TO_DROP
+	main.ck_in.setlabel resource DROP_OBS_DROP_A_RANGE_OF_OBSERVATIONS
+END
+
+PROGRAM main_in_on
+BEGIN
+	if by.ck_by.isenabled() & by.ck_by {
+		call main.ck_in.setoff
+		if main.rb_keep {
+			call program showmessage_1a
+		}
+		if main.rb_drop {
+			call program showmessage_1b
+		}
+	}
+	if ! by.ck_by  | ( by.ck_by & ! by.ck_by.isenabled() ) {
+		call main.sp_from.enable
+		call main.tx_from.enable
+		call main.tx_to.enable
+		call main.sp_to.enable
+	}
+END
+
+SCRIPT main_in_off
+BEGIN
+	main.tx_from.disable
+	main.sp_from.disable
+	main.tx_to.disable
+	main.sp_to.disable
+END
+
+DIALOG by, tabtitle(resource DROP_OBS_TAB_BY)
+BEGIN
+  CHECKBOX ck_by	_lft	_top	_iwd	_ht4,		///
+  	groupbox						///
+	label(resource LBL_REPEAT_COMMAND_BY_GROUPS)		///
+	onclickon(program by_on)				///
+	onclickoff(script by_off)
+  TEXT     tx_by	_indent _ss	_inwd	.,		///
+	label(resource LBL_VARIABLES_THAT_DEFINE_GROUPS)
+  VARLIST  vl_by	@	_ss	@	.,		///
+	label(resource LBL_VARIABLES_THAT_DEFINE_GROUPS)
+END
+
+PROGRAM by_on
+BEGIN
+	if main.ck_in.isenabled() & main.ck_in {
+		call gaction by.ck_by.setoff
+		if main.rb_keep {
+			call program showmessage_2a
+		}
+		if main.rb_drop {
+			call program showmessage_2b
+		}
+	}
+	if ! main.ck_in {
+		call by.vl_by.enable
+		call by.tx_by.enable
+	}
+END
+
+SCRIPT by_off
+BEGIN
+	by.tx_by.disable
+	by.vl_by.disable
+END
+
+PROGRAM showmessage_1a
+BEGIN
+	call create STRING _MSG_TMP
+        call _MSG_TMP.format 				///
+        	"resource DROP_OBS_MSGBOX1_FMT"		///
+		"resource DROP_OBS_MAIN_CK_IN"		///
+		"resource LBL_REPEAT_COMMAND_BY_GROUPS" 
+	stopbox stop "class _MSG_TMP.value"			
+// "Keep a range of observations", may not be specified with "Repeat command by groups" on the by tab. 
+// (i.e. the -by- prefix cannot be combined with the -in- qualifier)
+END
+PROGRAM showmessage_1b
+BEGIN
+	 call create STRING _MSG_TMP
+        call _MSG_TMP.format 					///
+        	"resource DROP_OBS_MSGBOX1_FMT" 		///
+                "resource DROP_OBS_DROP_A_RANGE_OF_OBSERVATIONS" ///
+		"resource LBL_REPEAT_COMMAND_BY_GROUPS"
+	stopbox stop "class _MSG_TMP.value"
+// "Drop a range of observations", may not be specified with "Repeat command by groups" on the by tab. 
+// (i.e. the -by- prefix cannot be combined with the -in- qualifier)
+END
+
+PROGRAM showmessage_2a
+BEGIN
+	call create STRING _MSG_TMP
+        call _MSG_TMP.format 					///
+        	"resource DROP_OBS_MSGBOX2_FMT" 		///
+		"resource LBL_REPEAT_COMMAND_BY_GROUPS" 	///
+		"resource DROP_OBS_MAIN_CK_IN" 
+	stopbox stop "class _MSG_TMP.value"
+// "Repeat command by groups", may not be specified with "Keep a range of observations" on the Main tab. 
+// (i.e. the -by- prefix cannot be combined with the -in- qualifier)
+END
+PROGRAM showmessage_2b
+BEGIN
+	call create STRING _MSG_TMP
+	call _MSG_TMP.format 					///
+		"resource DROP_OBS_MSGBOX2_FMT" 		///
+                "resource LBL_REPEAT_COMMAND_BY_GROUPS" 	///
+                "resource DROP_OBS_DROP_A_RANGE_OF_OBSERVATIONS"
+	stopbox stop "class _MSG_TMP.value"
+// "Repeat command by groups", may not be specified with "Drop a range of observations" on the Main tab. 
+// (i.e. the -by- prefix cannot be combined with the -in- qualifier)
+END
+
+PROGRAM command
+BEGIN
+	if by.ck_by {
+		require by.vl_by
+		bysort by.vl_by
+	}
+
+	if main.rb_keep {
+		put "keep "
+	}
+	if main.rb_drop {
+		put "drop "
+	}
+
+	if ! main.ex_if & ! main.ck_in {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format 				///
+			"resource DROP_OBS_MSGBOX3_FMT" 	///
+			"resource LBL_TAB_MAIN" 
+		stopbox stop "class _MSG_TMP.value"
+// On the "Main"  tab, either an expression or a range of observations must be specified.
+	}
+	ifexp main.ex_if
+	if main.ck_in {
+		put "in "
+		put main.sp_from "/" main.sp_to
+	}
+END

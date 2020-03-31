@@ -1,0 +1,100 @@
+*! version 2.0.0  16dec2013
+
+version 14
+                                                                                
+class _numericvar {
+        class:
+                _nextid n = ._nextid.new
+                                                                                
+        instance:
+                string varname = ""
+		string exp = ""
+}
+
+program .new
+	/* null constructor 						*/
+        if ("`0'"=="")  exit
+	local vv : display "version " string(_caller()) ":"
+
+	`vv' ///
+	._set `0'
+end
+
+program .destructor
+        if ("`.varname'"!="") cap drop `.varname'
+end
+
+program .type
+	cap local type : type `.varname'
+	class exit "`type'"
+end
+
+program .oncopy
+        if (!`.`.oncopy_src'.isvalid') exit
+
+	/* current name is a copy of .oncopy_src 			*/
+	.varname = ""
+
+	cap gen `.`.oncopy_src'.type' `.name' = `.`.oncopy_src'.varname'
+end
+
+program ._set
+	syntax [anything(name=expr id="expression")] [if]
+
+	if `.isvalid' {
+	        qui replace `.varname' = `expr' `if'
+		cap noi confirm numeric variable `.varname'
+		local rc 
+		if `rc' {
+			qui drop `.varname'
+		}
+		else {
+			.exp = "`:list retokenize expr'"
+		}
+		exit `rc'
+	}
+	else {
+		gettoken type rest : expr
+		if "`type'"=="double" | "`type'"=="float" |  ///
+			"`type'"=="long" | "`type'"=="int" | ///
+			"`type'"=="byte" {
+			local expr `"`rest'"'
+		}
+		else local type double
+
+		if "`expr'" != "" {
+	        	qui gen `type' `.name' = `expr' `if'
+			.exp = "`:list retokenize expr'"
+		}
+		else {
+			.exp = ""
+	        	qui gen `type' `.name' = .
+		}
+	}
+end
+
+program .isvalid
+	if ("`.varname'"=="") class exit 0
+
+	cap confirm numeric variable `.varname'
+
+	class exit (_rc == 0)
+end
+
+program .name
+        if "`.varname'" == "" {
+                .varname = "__tvar_`.n.next'"
+        }
+                                                                                
+        class exit "`.varname'"
+end
+
+program .summary 
+	if (!`.isvalid') exit
+
+	if ("`.exp'"!="") di as txt _n "`.varname' = `.exp'" _c
+	summarize `.varname'
+	describe `.varname'
+end
+
+exit

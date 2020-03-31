@@ -1,0 +1,123 @@
+/*
+  mvreg
+
+*! VERSION 1.1.0  31oct2014
+
+  keyword:  eclass
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE header
+
+HELP hlp1, view("help mvreg")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	program parseMessage
+	setscale_hadj resource MVREG_DLG_HSCALE
+END
+
+PROGRAM parseMessage
+BEGIN
+	if __MESSAGE.contains("__MI__") {
+		call script byifin_set_by_off
+	}
+END
+
+DIALOG main, label(resource MVREG_DLG_TITLE) tabtitle(resource LBL_TAB_MODEL)
+BEGIN
+  /*--+----1----+----2----+----3----+----4----+----5----+----6----+----7----+*/ 
+  TEXT     tx_dv     _lft      _top      _iwd      .,			/*
+		*/ label(resource LBL_DEPENDENT_VARIABLES)		/*
+		*/
+  VARLIST  vl_dv     @         _ss       @         .,			/*
+		*/ label(resource LBL_DEPENDENT_VARIABLES) ts		/*
+		*/ numeric						/*
+		*/
+
+  TEXT     tx_iv     @         _ls       @         .,			/*
+		*/ label(resource LBL_INDDEPVAR)			/*
+		*/
+  VARLIST  vl_iv     @         _ss       @         .,			/*
+		*/ label(resource LBL_INDDEPVAR) ts fv			/*
+		*/ allowcat						/*
+		*/ numeric						/*
+		*/
+  CHECKBOX ck_nocons @         _ms       _cwd1     .,			/*
+		*/ label(resource LBL_NOCONSTANT)			/*
+		*/ option("noconstant")					/*
+		*/
+
+
+/* -noheader- and -notable- are programmers options */
+END
+
+INCLUDE byifin
+INCLUDE weights_fa
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+        program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN	
+  DEFINE _x _lft
+  DEFINE _cx _spr
+  DEFINE _y _top
+  INCLUDE _sp_level
+  
+  CHECKBOX ck_corr   _lft      _ls       _cwd1     .,			/*
+		*/ label(resource MVREG_RPT_CK_CORR)			/*
+		*/ option("corr")					/*
+		*/
+
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+END
+
+PROGRAM rpt_output
+BEGIN
+	optionarg /hidedefault rpt.sp_level
+	option rpt.ck_corr
+	INCLUDE _report_columns_pr
+	put " " rpt_bu_facvarsResults
+	put " " rpt_bu_fmtcoefResults
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+
+PROGRAM command
+BEGIN
+	INCLUDE _by_pr
+	put "mvreg "
+	varlist main.vl_dv 
+	put "="
+	varlist main.vl_iv
+	INCLUDE _weights_pr
+	INCLUDE _ifin_pr
+	beginoptions
+		option main.ck_nocons
+		put " " /program rpt_output
+	endoptions
+END
+

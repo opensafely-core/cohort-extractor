@@ -1,0 +1,338 @@
+/*
+  esizei
+
+*! VERSION 1.1.2  11dec2017
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+DEFINE _dlght 490
+INCLUDE header
+
+HELP hlp1, view("help esize")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource ESIZEI_DLG_HSCALE
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	if __MESSAGE.iseq("-ttest-") {
+		call main.rb_ttest.seton
+	}
+	if __MESSAGE.iseq("-ftest-") {
+		call main.rb_ftest.seton
+	}
+END
+
+DIALOG main, label(resource ESIZEI_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+	GROUPBOX gb_ttesti	_lft	_top	_iwd	_ht4,		///
+		label(resource ESIZEI_MAIN_GB_TTESTI)
+	RADIO	rb_ttest	_indent	_ss	_ibwd	.,		///
+		first							///
+		onclickon("program main_ttest_on")			///
+		label(resource ESIZEI_MAIN_RB_TTEST)
+	DEFINE	holdx @x
+	RADIO	rb_ftest	@	_ss	@	.,		///
+		last							///
+		onclickon("program main_ftest_on")			///
+		label(resource ESIZEI_MAIN_RB_FTEST)
+
+	GROUPBOX gb_group	_lft	_xls	_iwd	_ht12,		///
+		label(resource ESIZEI_MAIN_GB_GROUP)
+
+	/* F tests from an ANOVA */
+	DEFINE _cwd3_01 126
+	DEFINE _cwd3_02 126
+	DEFINE _cwd3_03 126
+	DEFINE _cwd3_1 110
+	DEFINE _cwd3_2 110
+	DEFINE _cwd3_3 96
+	DEFINE _lft3_02 150
+	DEFINE _lft3_03 274
+	DEFINE _ilft3_2 158
+	DEFINE _ilft3_3 283
+
+	DEFINE _myiwd 380
+
+	FRAME	fr_sam1		_lft3_02 _ls	_cwd3_02 _ht8,		///
+		label("")
+	DEFINE	holdy @y
+	FRAME   fr_sam2		_lft3_03 @	_cwd3_03 @,		///
+		label("")
+	TEXT	tx_sam1		_ilft3_2 @	_cwd3_2	 .,		///
+		center							///
+		label(resource LBL_SAMPLE_1)
+	TEXT	tx_sam2		_ilft3_3 @	_cwd3_2	 .,		///
+		center							///
+		label(resource LBL_SAMPLE_2)
+
+	FRAME	fr_rows		holdx	_ss	_myiwd	_ht6,		///
+		label("")
+	TEXT	tx_size		_indent	_indent	_cwd3_1	.,		///
+		label(resource LBL_SIZE_NOCOLON)
+	DEFINE holdx1 @x
+	SPINNER	sp_size1	_ilft3_2 @	_cwd3_2	.,		///
+		min(1) max(1000000000) default(1)			///
+		label(resource LBL_SIZE_FOR_SAMPLE_1)
+	SPINNER	sp_size2	_ilft3_3 @	_cwd3_2	.,		///
+		min(1) max(1000000000)	default(1)			///
+		label(resource LBL_SIZE_FOR_SAMPLE_2)
+	TEXT	tx_cmean	holdx1	_ms	_cwd3_1	.,		///
+		label(resource LBL_MEAN)
+	EDIT	en_mean1	_ilft3_2 @	_cwd3_2	.,		///
+		numonly							///
+		label(resource LBL_MEAN_FOR_SAMPLE_1)
+	EDIT	en_mean2	_ilft3_3 @	_cwd3_2	.,		///
+		numonly							///
+		label(resource LBL_MEAN_FOR_SAMPLE_1)
+	TEXT	tx_csd		holdx1	_ms	_cwd3_1	.,		///
+		label(resource LBL_STD_DEV)
+	EDIT	en_sd1		_ilft3_2 @	_cwd3_2	.,		///
+		numonly							///
+		label(resource LBL_STD_DEV_FOR_SAMPLE_1)
+	EDIT	en_sd2		_ilft3_3 @	_cwd3_2	.,		///
+		numonly							///
+		label(resource LBL_STD_DEV_FOR_SAMPLE_2)
+
+	/* Comparing means from two independent samples */
+	EDIT  	ed_df1    	holdx	holdy	_spwd	.,		///
+		numonly							///
+		label(resource ESIZEI_MAIN_ED_DF1)
+	TEXT   	tx_df1		_spsep	@	_cwd2	.,		///
+		label(resource ESIZEI_MAIN_ED_DF1)
+	EDIT    ed_df2		holdx	_xls	_en7wd	.,		///
+		numonly							///
+		label(resource ESIZEI_MAIN_ED_DF2)
+	TEXT    tx_df2   	_en7sep	@	_cwd2	.,		///
+		label(resource ESIZEI_MAIN_ED_DF2)
+	EDIT	ed_f		holdx	_xls	_en7wd	.,		///
+		numonly							///
+		label(resource ESIZEI_MAIN_ED_F)
+	TEXT	tx_f		_en7sep	@	_cwd2	.,		///
+		label(resource ESIZEI_MAIN_ED_F)
+
+	DEFINE _myiwd 400
+	GROUPBOX gb_opts	_lft	_xxls	_myiwd	_ht20,		///
+		label(resource LBL_OPTIONS)
+	CHECKBOX	ck_coh		_indent	_ss	_inwd	.,	///
+		option(cohensd)						///
+		onclickon(program main_ck_all_disable)			///
+		onclickoff(program main_ck_all_enable)			///
+		label(resource ESIZEI_MAIN_CK_COH)
+	DEFINE holdxo @x
+	DEFINE holdyo @y
+	CHECKBOX	ck_hed		@	_ms	@	.,	///
+		option(hedgesg)						///
+		onclickon(program main_ck_all_disable)			///
+		onclickoff(program main_ck_all_enable)			///
+		label(resource ESIZEI_MAIN_CK_HED)
+	CHECKBOX	ck_gla		@	_ms	@	.,	///
+		option(glassdelta)					///
+		onclickon(program main_ck_all_disable)			///
+		onclickoff(program main_ck_all_enable)			///
+		label(resource LBL_RPT_GLASS_DELTA_GROUP_STANDARD_DEVIATION)
+	CHECKBOX	ck_pbc		@	_ms	@	.,	///
+		option(pbcorr)						///
+		onclickon(program main_ck_all_disable)			///
+		onclickoff(program main_ck_all_enable)			///
+		label(resource LBL_RPT_POINT_BISERIAL_CORRELATION_COEFFICIENT)
+	CHECKBOX	ck_all		@	_ms	@	.,	///
+		option(all)						///
+		onclickon(script main_ck_all_on)			///
+		onclickoff(script main_ck_all_off)			///
+		label(resource LBL_RPT_ALL_ESTIMATES_OF_EFFECT_SIZE)
+	CHECKBOX	ck_une		@	_ms	@	.,	///
+		option(unequal)						///
+		label(resource LBL_UNEQUAL_VARIANCES)
+	CHECKBOX	ck_w		@	_ms	@	.,	///
+		option(welch)						///
+		label(resource LBL_WELCHS_APPROXIMATION)
+
+	DEFINE _x _ilft
+	DEFINE _cx _cwd2
+	DEFINE _y _ls
+	INCLUDE _sp_level
+END
+
+PROGRAM main_ttest_on
+BEGIN
+	call script main_ttest_show
+	call script main_ftest_hide
+	call main.gb_group.setlabel resource ESIZEI_MAIN_GB_GROUP
+END
+
+PROGRAM main_ftest_on
+BEGIN
+	call script main_ttest_hide
+	call script main_ftest_show
+	call main.gb_group.setlabel resource ESIZEI_F_TESTS_FROM_AN_ANOVA
+END
+
+SCRIPT main_ttest_show
+BEGIN
+	main.fr_sam1.show
+	main.fr_sam2.show
+	main.tx_sam1.show
+	main.tx_sam2.show
+	main.fr_rows.show
+	main.tx_size.show
+	main.sp_size1.show
+	main.sp_size2.show
+	main.tx_cmean.show
+	main.en_mean1.show
+	main.en_mean2.show
+	main.tx_csd.show
+	main.en_sd1.show
+	main.en_sd2.show
+	script main_opts_show
+END
+
+SCRIPT main_ttest_hide
+BEGIN
+	main.fr_sam1.hide
+	main.fr_sam2.hide
+	main.tx_sam1.hide
+	main.tx_sam2.hide
+	main.fr_rows.hide
+	main.tx_size.hide
+	main.sp_size1.hide
+	main.sp_size2.hide
+	main.tx_cmean.hide
+	main.en_mean1.hide
+	main.en_mean2.hide
+	main.tx_csd.hide
+	main.en_sd1.hide
+	main.en_sd2.hide
+END
+
+SCRIPT main_ftest_show
+BEGIN
+	main.ed_df1.show
+	main.tx_df1.show
+	main.ed_df2.show
+	main.tx_df2.show
+	main.ed_f.show
+	main.tx_f.show
+	script main_opts_hide
+END
+
+SCRIPT main_ftest_hide
+BEGIN
+	main.ed_df1.hide
+	main.tx_df1.hide
+	main.ed_df2.hide
+	main.tx_df2.hide
+	main.ed_f.hide
+	main.tx_f.hide
+END
+
+SCRIPT main_opts_show
+BEGIN
+	main.gb_opts.show
+	main.ck_coh.show
+	main.ck_hed.show
+	main.ck_gla.show
+	main.ck_pbc.show
+	main.ck_all.show
+	main.ck_une.show
+	main.ck_w.show
+	main.sp_level.setposition . 450
+	main.tx_level.setposition . 450
+END
+
+SCRIPT main_opts_hide
+BEGIN
+	main.gb_opts.hide
+	main.ck_coh.hide
+	main.ck_hed.hide
+	main.ck_gla.hide
+	main.ck_pbc.hide
+	main.ck_all.hide
+	main.ck_une.hide
+	main.ck_w.hide
+	main.sp_level.setposition . 250
+	main.tx_level.setposition . 250
+END
+
+SCRIPT main_ck_all_on
+BEGIN
+	main.ck_coh.disable
+	main.ck_hed.disable
+	main.ck_gla.disable
+	main.ck_pbc.disable
+END
+
+SCRIPT main_ck_all_off
+BEGIN
+	main.ck_coh.enable
+	main.ck_hed.enable
+	main.ck_gla.enable
+	main.ck_pbc.enable
+END
+
+PROGRAM main_ck_all_disable
+BEGIN
+	if main.ck_coh | main.ck_hed | main.ck_gla | ///
+	   main.ck_pbc {
+		call main.ck_all.disable
+	}
+END
+
+PROGRAM main_ck_all_enable
+BEGIN
+	if !main.ck_coh & !main.ck_hed & !main.ck_gla & ///
+	   !main.ck_pbc {
+		call main.ck_all.enable
+	}
+END
+
+PROGRAM command
+BEGIN
+	put "esizei "
+	if main.rb_ttest {
+		require main.en_mean1 main.en_sd1
+		require main.en_mean2 main.en_sd2
+		put main.sp_size1
+		put " "
+		put main.en_mean1
+		put " "
+		put main.en_sd1
+		put " "
+		put main.sp_size2
+		put " "
+		put main.en_mean2
+		put " "
+		put main.en_sd2
+	}
+	if main.rb_ftest {
+		require main.ed_df1
+		require main.ed_df2
+		require main.ed_f
+		put main.ed_df1
+		put " "
+		put main.ed_df2
+		put " "
+		put main.ed_f
+	}
+
+	beginoptions
+		if main.rb_ttest {
+			option main.ck_coh
+			option main.ck_hed
+			option main.ck_gla
+			option main.ck_pbc
+			option main.ck_all
+			option main.ck_une
+			option main.ck_w
+		}
+		INCLUDE _level_main_pr
+	endoptions
+END
+
+

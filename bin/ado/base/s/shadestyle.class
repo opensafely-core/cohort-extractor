@@ -1,0 +1,128 @@
+*! version 1.0.1  01jun2013
+version 8
+
+class {
+
+    instance:
+	color		= .color.new ,       type(shade)
+	intensity	= .intensity.new , 
+	fill		= .fillpattern.new /*, style(pattern10) */
+
+}, inherit(style)
+
+/* -------------------------------------------------------------------------*/
+/*
+	Usage:  .new [, Color(color_setting) Fillpattern(fillname) 
+			Intensity(#) ]
+*/
+program define new
+
+	syntax [, Style(string) * ]
+
+	if ("`style'" == "")  .setstyle, style(scheme)
+
+	.Super.new, `.set `0''
+end
+
+
+program define set
+
+	syntax [,  Color(passthru) Fillpattern(string) 			/*
+		*/ Intensity(string) * ]
+
+	if "`color'" != "" {
+		.color.set , `color'
+	}
+
+	if "`fillpattern'" != "" {
+		.fill.setstyle, style(`fillpattern')
+	}
+
+	if "`intensity'" != "" {
+		.intensity.setstyle, style(`intensity')
+	}
+
+	class exit `"`options'"'
+end
+
+
+/* -------------------------------------------------------------------------*/
+/* 
+	Set this shade style to the GDI
+*/
+
+program define setgdi
+
+
+	capture noisily {
+		local holdrgb "`.color.setting'"
+		.color.setintensity100 0`.intensity.val'
+		.color.setgdi , shade
+		.color.setrgb `holdrgb'
+	}
+	
+//	.color.setgdi , shade
+//	gdi shadelevel = 0`.intensity.val'
+	if "`.color.stylename'" == "none" {
+		gdi shadepattern = none
+	}
+	else {
+		if "`.fill.setting'" == "" {
+			gdi shadepattern = pattern10
+		}
+		else {
+			gdi shadepattern = `.fill.setting'
+		}
+	}
+
+
+end
+
+
+/* -------------------------------------------------------------------------*/
+/* 
+	Set this shade style to the GDI and reset the pen
+*/
+
+program define setgdifull
+
+	.setgdi
+	gdi shadechange
+end
+
+
+
+// ---------------------------------------------------------------------------
+// Set this shade to the GDI pen color
+
+program define setgdipen
+
+	syntax [ , LINewidth(string) noINTensity ]
+
+	if ("`linewidth'" != "")  gdi gm_linewidth = `linewidth'
+
+	if "`intensity'" == "" {
+		.color.setgdi , line
+	}
+	else {
+		capture noisily {
+			local holdrgb "`.color.setting'"
+			.color.setintensity100 0`.intensity.val'
+			.color.setgdi , line
+			.color.setrgb `holdrgb'
+		}
+	}
+end
+
+
+/* -------------------------------------------------------------------------*/
+/* 
+	Set this shade style to the GDI and reset the pen
+*/
+
+program define setgdipenfull
+
+	.setgdipen `0'
+	gdi penchange
+end
+

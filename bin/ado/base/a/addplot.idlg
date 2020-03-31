@@ -1,0 +1,2636 @@
+/*
+    addplot.idlg
+
+*!  VERSION 1.0.11  21dec2014 (deprecated)
+
+	// SCRIPTS and PROGRAMS for external use
+
+	* SCRIPT  addplot_disable
+	* SCRIPT  addplot_enable
+	* PROGRAM addplot_output
+
+	******
+		The following tabs are identical. Changes made to one
+		must be	made to ALL
+
+		 plot1.idlg
+		 plot2.idlg
+		 plot3.idlg
+		 plot4.idlg
+		 addplot.idlg  ** the POSTINT SCRIPT for this tab is different
+	------
+*/
+
+SCRIPT addplot_PREINIT
+BEGIN
+	create BOOLEAN addplot_is_pc_type
+	create BOOLEAN addplot_is_weights
+	create BOOLEAN addplot_uses_scatter_weights
+END
+
+SCRIPT addplot_POSTINIT
+BEGIN
+	addplot.cb_type.withvalue addplot.cb_type.setvalue "@"
+	addplot.cb_msize_wgt.additem "Weighted"
+
+// Global system lists used in plot tabs and elsewhere
+// These are expected to be the last items in this list.
+	_dc_symbolsizes.Arrpush "weight"
+	_dv_symbolsizes.Arrpush "weight"
+END
+
+DEFINE vnwd  130
+DEFINE vnsep +150
+
+DIALOG addplot, tabtitle("Add plot")
+BEGIN
+  TEXT     tx_type		_lft	_top	180	.,	///
+	label("Plot type to add:")
+  LISTBOX  cb_type		@	_ss	@	315,	///
+	contents(addplot_graph_type)				///
+	values(addplot_graph_type_val)				///
+	onselchangelist(addplot_change)
+
+  TEXT     tx_x			200	_top	vnwd	.,	///
+	label("X variable:")
+  VARNAME  vn_x			@	_ss	@	.,	///
+  	numeric							///
+	label("X variable")
+  TEXT     tx_y			vnsep	_top	vnwd	.,
+
+  VARNAME  vn_y			@	_ss	@	.,	///
+  	numeric							///
+	label("Y variable")
+  TEXT     tx_if		vnsep	_top	vnwd	.,	///
+	label("If: (expression)")
+  EXP      ex_if		@	_ss	249	.,	///
+	label("Create...")
+  CHECKBOX ck_sort		200	_ms	vnwd	.,	///
+	label("Sort on X") option(sort)
+
+  CHECKBOX ck_yaxis2		350	55	vnwd	.,	///
+	label("Second Y axis") option(yaxis(2))
+  TEXT     tx_x2		200	55	vnwd	.,	///
+  	label("X-2 variable:")
+  VARNAME  vn_x2		200	75	vnwd	.,	///
+  	numeric							///
+  	label("X-2 variable:")
+  TEXT     tx_y2		350	55	vnwd	.,	///
+	label("Y variable: (lower)")
+DEFINE y @y
+  VARNAME  vn_y2		350	75	@	.,	///
+  	numeric							///
+	label("Y variable (lower)")
+
+  CHECKBOX ck_inrange		500	55	249	.,	///
+	onclickon(script addplot_inrange_on)			///
+	onclickoff(script addplot_inrange_off)			///
+  	label("Use a range of observations")
+  TEXT     tx_from		500	75	30	.,	///
+	label("From:")
+  SPINNER  sp_from		+32  	@	_spwd	.,	///
+	min(1) default(1) max(c(N))
+  TEXT     tx_to		_spsep	@	14	.,	///
+  		label("to:")
+  SPINNER  sp_to		+16	@	_spwd	.,	///
+	min(1) default(c(N)) max(c(N))
+
+  GROUPBOX gb_generic		200	100	550	70,	///
+	label("Median-band")
+
+  CHECKBOX ck_mband		210	120	vnwd	.,	///
+	label("Number of bands") 				///
+	onclickon(addplot.sp_mband.enable)			///
+	onclickoff(addplot.sp_mband.disable)
+  SPINNER  sp_mband		230	140	_spwd	.,	///
+	default(10) min(1) max(10000000) option(bands)
+
+  CHECKBOX ck_mpoints		350	120	300	.,	///
+	label("Number of points between knots")			///
+	onclickon(addplot.sp_mpoints.enable)			///
+	onclickoff(addplot.sp_mpoints.disable)
+  SPINNER  sp_mpoints		370	140	_spwd	.,	///
+	default(10) min(1) max(10000000) option(n)
+
+/**** BEGIN -- lowess options ****/
+  // share gb_generic here
+  CHECKBOX ck_mean		210	120	530	.,	///
+	label("Running-mean smoothing") option(mean)
+  CHECKBOX ck_noweight		210	140	530	.,	///
+  	option(noweight)					///
+	label("Prevents use of Cleveland's tricube weighting function")
+  CHECKBOX ck_logit		210	160	530	.,	///
+  	option(logit) label("Transform smoothed yvar into logit")
+  CHECKBOX ck_noadjust		210	180	530	.,	///
+  	option(noadjust)					///
+	label("Adjust mean of the smoothed yvar to equal the mean of yvar")
+  EDIT     ed_bandwidth		210	210	_en7wd	.,	///
+	default(0.8) numonly option(bwidth)
+  TEXT     tx_bandwidth		_en7sep	210	vnwd	.,	///
+	label("Bandwidth")
+/**** END   -- lowess options ****/
+
+/**** BEGIN -- kdensity options ****/
+  // share gb_generic here
+  TEXT     tx_function		210	120	530	.,	///
+	label("Kernel function:")
+  COMBOBOX cb_function		210	140	_vnwd	.,	///
+	dropdownlist						///
+	contents(kernel_function)				///
+	values(kernel_function_val)
+  CHECKBOX ck_kernelwidth	210	170	530	.,	///
+	label("Override optimal width (smoothing parameter)")	///
+	onclickon(script addplot_kernelwidth_on)		///
+	onclickoff(script addplot_kernelwidth_off)
+  EDIT     ed_kernelwidth	210	190	_en7wd	.,	///
+  	option(width)
+  TEXT     tx_kernelwidth	_en7sep	190	200	.,	///
+	label("Halfwidth of the kernel")
+
+  SPINNER  sp_kerneleval	210	220	_en7wd	.,	///
+	default(300) min(1) max(10000000) option(n)
+  TEXT     tx_kerneleval	_en7sep	220	400	.,	///
+	label("Number of points at which the estimate is evaluated")
+/**** END   -- kernel options ****/
+
+/**** BEGIN -- Fit/fitci options ****/
+  GROUPBOX gb_fit		200	100	550	115,	///
+	label("Quadratic prediction w/ci")
+
+  CHECKBOX ck_fitrange		215	125	60  	.,	///
+	onclickon(script addplot_fitrange_on)			///
+	onclickoff(script addplot_fitrange_off)			///
+	label("Range")
+
+  EDIT     ed_fitfrom		+65	125	_spwd	., default(.)
+  TEXT     tx_fitto		_spsep	125	14	., label("to:")
+  EDIT     ed_fitto		+16	125	_spwd	., default(.)
+
+  RADIO    rb_predpoints	490	118	20	., 	///
+  	first onclickon(program addplot_predpoints_on)
+  RADIO    rb_predx		490	138	249	.,	///
+  	onclickon(script addplot_predx_on)			///
+	label("Predict at X values") last option(atobs)
+
+  SPINNER  sp_predpoints	510	118	_spwd	.,	///
+	default(100) min(1) max(10000000) option(n)
+  TEXT     tx_predpoints	_spsep	118	150	.,	///
+	label("Prediction points")
+
+  TEXT     tx_ci_src		210	163	65	.,	///
+	label("CI source:") right
+
+  COMBOBOX cb_ci_src		+70	163	99	.,	///
+	dropdownlist 						///
+	contents(addplot_ci_source) values(addplot_ci_source_values)
+
+  TEXT     tx_fitplot		379	163	65	.,	///
+	label("Fit plot:") right
+  COMBOBOX cb_fitplot		+70	163	99	.,	///
+	option(fitplot)						///
+	dropdownlist						///
+	onselchangelist(addplot_fitplots_change)		///
+	contents(addplot_fitplots) values(addplot_fitplots_values)
+
+  TEXT     tx_regress_opt	560	163	75	.,	///
+	label("Regress opts:") right
+  EDIT     ed_regress_opt	+80	163	99	.,	///
+	label("Regress options") option(estopts)
+
+  TEXT     tx_level		210	188	65	.,	///
+	label("CI level:") right
+  SPINNER  sp_level		+70	188	99	.,	///
+	default(95) min(10) max(99) option(level)
+
+  TEXT     tx_ciplot		379	188	65	.,	///
+	label("CI plot:") right
+  COMBOBOX cb_ciplot		+70	188	99	.,	///
+	option(ciplot)						///
+	dropdownlist 						///
+	onselchangelist(addplot_ciplots_change)			///
+	contents(addplot_ciplots) values(addplot_ciplots_values)
+
+  TEXT     tx_pred_opt		560	188	75	.,	///
+	label("Predict opts:") right
+  EDIT     ed_pred_opt		+80	188	99	.,	///
+	label("Predict options") option(predopts)
+
+  TEXT     tx_ecommand		203	125	75	.,	///
+  	label("Estimation:") right
+  COMBOBOX cb_ecommand		280	125	99	.,	///
+  	dropdownlist contents(addplot_estimation_command_list) 	///
+  	option(estcmd) default(regress)
+/**** END   -- fit & fit with ci options ****/
+
+/**** BEGIN -- Scatter options ****/
+  GROUPBOX gb_marker		200	120	550	_ht11,	///
+	label("Markers")
+
+  TEXT     tx_msymbol		210	140	65	.,	///
+	label("Symbol:") right
+  COMBOBOX cb_msymbol		280	140	99	.,	///
+	option(msymbol)						///
+	dropdownlist						///
+	contents(symbols)
+
+  TEXT     tx_msize		392	140	65	.,	///
+	label("Size:") right
+  COMBOBOX cb_msize_wgt		+70	140	99	.,	///
+	option(msize)						///
+	dropdownlist 						///
+	contents(symbolsizes) onselchange(program addplot_weight_check)
+  COMBOBOX cb_msize		@	@	@	.,	///
+	option(msize)						///
+	dropdownlist 						///
+	contents(symbolsizes)
+  TEXT     tx_mcolor		570	140	65	.,	///
+	label("Color:") right
+  COMBOBOX cb_mcolor		+70	140	82	.,	///
+	option(mcolor)						///
+	dropdownlist						///
+	contents(colors) onselchangelist(addplot_color_mcolor)
+  COLOR    cl_mcolor		+85	140	_btwd	.,	///
+	option(mcolor)
+
+  CHECKBOX ck_mlabel		210	170	530	85,	///
+	label("Marker labels") groupbox				///
+	onclickon(script addplot_mlabel_1_enable)			///
+	onclickoff(script addplot_mlabel_1_disable)
+
+  TEXT     tx_mlabel		220	195	58	.,	///
+	label("Variable:") right
+
+  VARNAME  vn_mlabel		+63	195	99	.,	///
+	label("Marker labels variable") option(mlabel)
+
+  TEXT     tx_mlsize		220	225	58	.,	///
+	label("Size:") right
+  COMBOBOX cb_mlsize		+63	225	99	.,	///
+	option(mlabsize) 					///
+	dropdownlist						///
+	contents(textsizes)
+
+  TEXT     tx_mlcolor		399	195	58	.,	///
+	label("Color:") right
+  COMBOBOX cb_mlcolor		+63	195	82	.,	///
+	option(mlabcolor)					///
+	dropdownlist						///
+	contents(colors) onselchangelist(addplot_color_mlcolor)
+  COLOR    cl_mlcolor		+85	195	_btwd	.,	///
+	option(mlabcolor)
+
+  TEXT     tx_mlposition	399	225	58	.,	///
+	label("Position:") right
+  COMBOBOX cb_mlposition	+63	225	99	.,	///
+	option(mlabposition) 					///
+	dropdownlist						///
+	contents(clockpos)
+
+  TEXT     tx_weightvar		362	170	95	.,	///
+	label("Weight variable:") right
+  VARNAME  vn_weightvar		+100	170	99	.,	///
+  	numeric							///
+	label("Weight variable")
+
+  TEXT     tx_orientation	570	170	65	.,	///
+	label("Orientation:") right
+  COMBOBOX cb_orientation	+70	170	99	.,	///
+	contents(addplot_orientation_contents)			///
+	values(addplot_orientation_values)			///
+	dropdownlist
+/**** END   -- Scatter options  ****/
+
+/**** BEGIN -- Line options  ****/
+  GROUPBOX gb_line		200	120	550	80,	///
+  		label("Lines")
+  TEXT     tx_clcolor		210	140	65	.,	///
+	label("Line color:") 					///
+	right
+  COMBOBOX cb_clcolor		+70	140	82	.,	///
+	dropdownlist option(lcolor)				///
+	contents(colors) onselchangelist(addplot_color_clcolor)
+  COLOR    cl_clcolor		+85	140	_btwd	.,	///
+	option(lcolor)
+
+  TEXT     tx_connect		210	170	65	.,	///
+	label("Type:") right
+  COMBOBOX cb_connect		+70	170	99	.,	///
+	option(connect)						///
+	dropdownlist 						///
+	contents(connecttypes)
+
+  TEXT     tx_clwidth		392	140	65	.,	///
+  		label("Width:") right
+  COMBOBOX cb_clwidth		+70	140	99	.,	///
+	dropdownlist						///
+	contents(linewidths) option(lwidth)
+
+  TEXT     tx_clpattern		392	170	65	.,	///
+	label("Pattern:") right
+  COMBOBOX cb_clpattern		+70	170	99	.,	///
+	dropdownlist 						///
+ 	contents(linepatterns) option(lpattern)
+/**** END   -- Line options ****/
+
+/**** BEGIN -- Area options ****/
+  GROUPBOX gb_common		200	120	550	80,	///
+	label("Area")
+
+  TEXT     tx_blcolor		210	140	65	.,	///
+	label("Line color:") 					///
+	right
+
+  COMBOBOX cb_blcolor		+70	140	82	.,	///
+	option(lcolor)						///
+	dropdownlist						///
+	contents(colors) onselchangelist(addplot_color_blcolor)
+  COLOR    cl_blcolor		+85	140	_btwd	.,	///
+	option(lcolor)
+
+  TEXT     tx_bfcolor		210	170	65	.,	///
+	label("Fill color:") 					///
+	right
+  COMBOBOX cb_bfcolor		+70 	170	82	.,	///
+	option(fcolor)						///
+	dropdownlist						///
+	contents(colors) onselchangelist(addplot_color_bfcolor)
+  COLOR    cl_bfcolor		+85	170	_btwd	.,	///
+	option(fcolor)
+
+  TEXT     tx_blwidth		392	140	65	.,	///
+	label("Line width:") right
+  COMBOBOX cb_blwidth		+70	140	99	.,	///
+	dropdownlist						///
+	contents(linewidths) option(lwidth)
+
+  TEXT     tx_blpattern		392	170	65	.,	///
+	label("Ln. pattern:") right
+  TEXT     tx_barwidth		392	170	65	.,	///
+	label("Bar width:") right
+  COMBOBOX cb_blpattern		+70	170	99	.,	///
+	dropdownlist 						///
+	contents(linepatterns) option(lpattern)
+  EDIT     en_barwidth		@	170	99	.,	///
+	default(1) numonly option(barwidth)
+
+  TEXT     tx_base		570	140	65	.,	///
+	label("Baseline:") right
+  EDIT     en_base		+70	140	99	.,	///
+	default(0) numonly option(base)
+/**** END   -- Area options ****/
+
+/**** BEGIN -- pcarrow options ****/
+  TEXT     tx_barbsize		210	225	65	.,	///
+  	label("Barbsize:") right
+  COMBOBOX cb_barbsize		280	225	99	.,	///
+  	option(barbsize) dropdownlist contents(symbolsizes)
+
+  CHECKBOX ck_headlabel		590	310	139	.,	///
+  	label("Label head of arrow") option(headlabel)
+/**** END   -- pcarrow options ****/
+
+/**** BEGIN -- Histogram options ****/
+  TEXT     tx_histtype		210	120	140	.,	///
+  	label("Histogram type:")
+  COMBOBOX cb_histtype		210	140	140	.,	///
+  	dropdownlist						///
+  	contents(addplot_histogram_list) values(addplot_histogram_list_values)
+  GROUPBOX gb_datatype		210	175	140	70,	///
+  	label("Type of data")
+  RADIO    rb_continuous	220	195	120	.,	///
+  	first label("Continuous data")				///
+  	onclickon(program addplot_datatype_check)
+  RADIO    rb_discrete		220	215	120	.,	///
+  	last label("Discrete data") option(discrete)		///
+  	onclickon(program addplot_datatype_check)
+
+  SPINNER  sp_gap		386	125	_spwd	.,	///
+  	default(0) min(0) max(100) option(gap)
+  TEXT     tx_gap		_spsep  125	100	.,	///
+  	label("Gap")
+
+  EDIT     ed_datamin		500	125	_en7wd	.,	///
+  	option(start)
+  TEXT     tx_datamin		_en7sep 125	150	.,	///
+  	label("Theoretical data minimum")
+
+  CHECKBOX ck_num_of_bins	386	205	350	.,	///
+    	onclickon(script addplot_num_of_bins_on)			///
+  	onclickoff(script addplot_num_of_bins_off)		///
+  	label("Override number of bins used with continuous data")
+  SPINNER  sp_num_of_bins	386	225	_spwd	.,	///
+  	default(10) min(1) max(1000) option(bin)
+
+  CHECKBOX ck_width_of_bins	386	155	350	.,	///
+  	onclickon(script addplot_width_of_bins_on)		///
+  	onclickoff(script addplot_width_of_bins_off)		///
+	label("Override width of bins")
+  EDIT     ed_width_of_bins	386	175	_en7wd	.,	///
+  	option(width)
+/**** END   -- Histogram options ****/
+END
+
+PROGRAM addplot_weight_check
+BEGIN
+	if addplot_uses_scatter_weights {
+		if addplot.cb_msize_wgt.iseq("weight") {
+			call addplot_is_weights.settrue
+			call addplot.ck_mlabel.hide
+			call addplot.tx_mlabel.hide
+			call addplot.vn_mlabel.hide
+			call addplot.tx_mlsize.hide
+			call addplot.cb_mlsize.hide
+			call addplot.tx_mlcolor.hide
+			call addplot.cb_mlcolor.hide
+			call addplot.cl_mlcolor.hide
+			call addplot.tx_mlposition.hide
+			call addplot.cb_mlposition.hide
+			call addplot.gb_marker.setposition . . . 80
+			call addplot.tx_weightvar.show
+			call addplot.vn_weightvar.show
+			exit
+		}
+		call script addplot_scatter_show_options
+		call addplot.cb_msize.hide
+		call addplot.cb_msize_wgt.show
+		call addplot_is_weights.setfalse
+		if addplot.cb_type.iseq("rscatter") {
+			call addplot.gb_marker.setposition . . . 170
+		}
+		if ! addplot.cb_type.iseq("rscatter") {
+			call addplot.gb_marker.setposition . . . 140
+		}
+		call addplot.tx_weightvar.hide
+		call addplot.vn_weightvar.hide
+	}
+END
+
+SCRIPT addplot_set_scatter_weights_on
+BEGIN
+	addplot_uses_scatter_weights.settrue
+	addplot.cb_msize.hide
+	addplot.cb_msize_wgt.show
+	addplot.cb_msize_wgt.withvalue addplot.cb_msize_wgt.setvalue "@"
+END
+
+PROGRAM addplot_datatype_check
+BEGIN
+	if addplot.rb_discrete {
+		call addplot.ck_num_of_bins.hide
+		call addplot.sp_num_of_bins.hide
+		call addplot.ck_width_of_bins.enable
+		if addplot.ck_width_of_bins {
+			call addplot.ed_width_of_bins.enable
+		}
+	}
+	if addplot.rb_continuous {
+		call addplot.ck_num_of_bins.show
+		call addplot.sp_num_of_bins.show
+		if addplot.ck_num_of_bins {
+			call addplot.ck_width_of_bins.disable
+		}
+		if addplot.ck_width_of_bins {
+			call addplot.ck_num_of_bins.setoff
+		}
+	}
+END
+
+SCRIPT addplot_num_of_bins_on
+BEGIN
+	addplot.sp_num_of_bins.enable
+	addplot.ck_width_of_bins.disable
+	addplot.ed_width_of_bins.disable
+END
+
+SCRIPT addplot_num_of_bins_off
+BEGIN
+	addplot.sp_num_of_bins.disable
+	addplot.ck_width_of_bins.enable
+END
+
+SCRIPT addplot_width_of_bins_on
+BEGIN
+	addplot.ed_width_of_bins.enable
+	addplot.ck_num_of_bins.disable
+	addplot.sp_num_of_bins.disable
+END
+
+SCRIPT addplot_width_of_bins_off
+BEGIN
+	addplot.ed_width_of_bins.disable
+	addplot.ck_num_of_bins.enable
+END
+
+SCRIPT addplot_kernelwidth_on
+BEGIN
+	addplot.ed_kernelwidth.enable
+	addplot.tx_kernelwidth.enable
+END
+
+SCRIPT addplot_kernelwidth_off
+BEGIN
+	addplot.ed_kernelwidth.disable
+	addplot.tx_kernelwidth.disable
+END
+
+SCRIPT addplot_inrange_on
+BEGIN
+	addplot.tx_from.enable
+	addplot.sp_from.enable
+	addplot.tx_to.enable
+	addplot.sp_to.enable
+END
+
+SCRIPT addplot_inrange_off
+BEGIN
+	addplot.tx_from.disable
+	addplot.sp_from.disable
+	addplot.tx_to.disable
+	addplot.sp_to.disable
+END
+
+SCRIPT addplot_y2_show
+BEGIN
+	addplot.tx_y2.show
+	addplot.vn_y2.show
+	addplot.tx_y.setlabel "Y variable: (upper)"
+	addplot.vn_y.setlabel "Y variable: (upper)"
+	addplot.tx_y2.setlabel "Y variable: (lower)"
+	addplot.vn_y2.setlabel "Y variable: (lower)"
+END
+
+SCRIPT addplot_xypaired_show
+BEGIN
+	addplot.tx_y2.show
+	addplot.vn_y2.show
+	addplot.tx_y.setlabel "Y-1 variable:"
+	addplot.vn_y.setlabel "Y-1 variable:"
+	addplot.tx_y2.setlabel "Y-2 variable:"
+	addplot.vn_y2.setlabel "Y-2 variable:"
+	addplot.ck_yaxis2.setposition . 100 . .
+
+	addplot.tx_x2.show
+	addplot.vn_x2.show
+	addplot.tx_x2.setlabel "X-2 variable:"
+	addplot.vn_x2.setlabel "X-2 variable"
+	addplot.tx_x.setlabel "X-1 variable:"
+	addplot.vn_x.setlabel "X-1 variable"
+	addplot.ck_sort.hide
+END
+
+SCRIPT addplot_x2_hide
+BEGIN
+	addplot.tx_x2.hide
+	addplot.vn_x2.hide
+	addplot.tx_x.setlabel "X variable:"
+	addplot.vn_x.setlabel "X variable"
+END
+
+SCRIPT addplot_y2_hide
+BEGIN
+	addplot.tx_y2.hide
+	addplot.vn_y2.hide
+	addplot.tx_y.setlabel "Y variable:"
+	addplot.vn_y.setlabel "Y variable"
+END
+
+SCRIPT addplot_common_show
+BEGIN
+	addplot.tx_x.show
+	addplot.vn_x.show
+	addplot.tx_y.show
+	addplot.vn_y.show
+	addplot.tx_if.show
+	addplot.ex_if.show
+	addplot.ck_sort.show
+	addplot.ck_yaxis2.setposition . 55 . .
+	script addplot_set_second_y_to_middle
+	addplot.ck_yaxis2.show
+	addplot.ck_inrange.show
+	addplot.tx_from.show
+	addplot.sp_from.show
+	addplot.tx_to.show
+	addplot.sp_to.show
+END
+
+SCRIPT addplot_common_hide
+BEGIN
+	addplot.tx_x.hide
+	addplot.vn_x.hide
+	addplot.tx_y.hide
+	addplot.vn_y.hide
+	addplot.tx_if.hide
+	addplot.ex_if.hide
+	addplot.ck_sort.hide
+	addplot.ck_yaxis2.hide
+	addplot.ck_inrange.hide
+	addplot.tx_from.hide
+	addplot.sp_from.hide
+	addplot.tx_to.hide
+	addplot.sp_to.hide
+END
+
+LIST addplot_orientation_contents
+BEGIN
+	Default
+	Horizontal
+	Vertical
+END
+
+LIST addplot_orientation_values
+BEGIN
+	""
+	horizontal
+	vertical
+END
+
+LIST addplot_color_mcolor
+BEGIN
+	addplot.cl_mcolor.hide
+	addplot.cl_mcolor.show
+	addplot.cl_mcolor.hide
+END
+
+LIST addplot_color_mlcolor
+BEGIN
+	addplot.cl_mlcolor.hide
+	addplot.cl_mlcolor.show
+	addplot.cl_mlcolor.hide
+END
+
+LIST addplot_color_clcolor
+BEGIN
+	addplot.cl_clcolor.hide
+	addplot.cl_clcolor.show
+	addplot.cl_clcolor.hide
+END
+
+LIST addplot_color_bfcolor
+BEGIN
+	addplot.cl_bfcolor.hide
+	addplot.cl_bfcolor.show
+	addplot.cl_bfcolor.hide
+END
+
+LIST addplot_color_blcolor
+BEGIN
+	addplot.cl_blcolor.hide
+	addplot.cl_blcolor.show
+	addplot.cl_blcolor.hide
+END
+
+LIST addplot_graph_type
+BEGIN
+	<None>
+	Scatter
+	Line
+	Connected
+	Area
+	Bar
+	Spike
+	Dropline
+	Range area
+	Range bar
+	Range spike
+	Range spike w/cap
+	Range spike w/symbol
+	Range scatter
+	Range line
+	Range connected
+	Paired coordinate spikes
+	Paired coordinate spikes w/sym.
+	Paired coordinate arrows
+	Paired coordinate double arrows
+	Paired coordinate scatter
+	Time-series line
+	Time-series range line
+	Median-band
+	Median-spline
+	Lowess
+	Kernel density
+	Linear prediction
+	Quadratic prediction
+	Fractional polynomial
+	Linear prediction w/CI
+	Quadratic prediction w/CI
+	Fractional polynomial w/CI
+	Histogram
+END
+
+LIST addplot_graph_type_val
+BEGIN
+	""
+	scatter
+	line
+	connected
+	area
+	bar
+	spike
+	dropline
+	rarea
+	rbar
+	rspike
+	rcap
+	rcapsym
+	rscatter
+	rline
+	rconnected
+	pcspike
+	pccapsym
+	pcarrow
+	pcbarrow
+	pcscatter
+	tsline
+	tsrline
+	mband
+	mspline
+	lowess
+	kdensity
+	lfit
+	qfit
+	fpfit
+	lfitci
+	qfitci
+	fpfitci
+	histogram
+END
+
+LIST addplot_change
+BEGIN
+	script addplot_do_none
+	script addplot_do_scatter
+	script addplot_do_line
+	script addplot_do_connected
+	script addplot_do_area
+	script addplot_do_bar
+	script addplot_do_spike
+	script addplot_do_dropline
+	script addplot_do_rarea
+	script addplot_do_rbar
+	script addplot_do_rspike
+	script addplot_do_rspike_cap
+	script addplot_do_rspike_capsym
+	script addplot_do_rscatter
+	script addplot_do_rline
+	script addplot_do_rconnected
+	script addplot_do_pcspike
+	script addplot_do_pccapsym
+	script addplot_do_pcarrow
+	script addplot_do_pcbarrow
+	script addplot_do_pcscatter
+	script addplot_do_tsline
+	script addplot_do_tsrline
+	script addplot_do_mband
+	script addplot_do_mspline
+	script addplot_do_lowess
+	script addplot_do_kdensity
+	script addplot_do_lfit
+	script addplot_do_qfit
+	script addplot_do_fpfit
+	script addplot_do_lfitci
+	script addplot_do_qfitci
+	script addplot_do_fpfitci
+	script addplot_do_histogram
+END
+
+LIST addplot_ciplots
+BEGIN
+	Range area
+	Range bar
+	Range spike
+	Range spike w/cap
+	Range line
+END
+
+LIST addplot_ciplots_values
+BEGIN
+	""
+	rbar
+	rspike
+	rcap
+	rline
+END
+
+LIST addplot_fitplots
+BEGIN
+	Line
+	Scatter
+	Connected
+END
+
+LIST addplot_fitplots_values
+BEGIN
+	""
+	scatter
+	connected
+END
+
+LIST addplot_fitplots_change
+BEGIN
+	script addplot_fitplot_line_show
+	script addplot_fitplot_scatter_show
+	script addplot_fitplot_connected_show
+END
+
+LIST addplot_ciplots_change
+BEGIN
+	program addplot_ciplot_rarea_on
+	program addplot_ciplot_rbar_on
+	program addplot_ciplot_rspike_on
+	program addplot_ciplot_rcap_on
+	program addplot_ciplot_rline_on
+END
+
+LIST addplot_estimation_command_list
+BEGIN
+	regress
+	clogit
+	glm
+	logit
+	logistic
+	poisson
+	probit
+	stcox
+	streg
+END
+
+LIST addplot_histogram_list
+BEGIN
+	Density
+	Fraction
+	Frequency
+	Percent
+END
+
+LIST addplot_histogram_list_values
+BEGIN
+	""
+	fraction
+	frequency
+	percent
+END
+
+LIST addplot_ci_source
+BEGIN
+	Prediction
+	Forecast
+	Residual
+END
+
+LIST addplot_ci_source_values
+BEGIN
+	""
+	stdf
+	stdr
+END
+
+SCRIPT addplot_set_second_y_to_left
+BEGIN
+	addplot.ck_yaxis2.setposition 200 75 . .
+END
+
+SCRIPT addplot_set_second_y_to_middle
+BEGIN
+	addplot.ck_yaxis2.setposition 350 55 . .
+END
+
+///***** Scatter 1
+SCRIPT addplot_scatter_setLayout_1
+BEGIN
+	addplot.gb_marker.setposition		200 120 550 140
+	addplot.tx_msymbol.setposition		210 140 65  .
+	addplot.cb_msymbol.setposition		280 140 99  .
+	addplot.tx_msize.setposition		392 140 65  .
+	addplot.cb_msize.setposition		462 140 99  .
+	addplot.cb_msize_wgt.setposition		462 140 99  .
+	addplot.tx_mcolor.setposition		570 140 65  .
+	addplot.cb_mcolor.setposition		640 140 82  .
+	addplot.cl_mcolor.setposition		725 140 .   .
+
+	addplot.ck_mlabel.setposition		210 170 530 85
+	addplot.tx_mlabel.setposition		220 195 58  .
+	addplot.vn_mlabel.setposition		283 195 99  .
+	addplot.tx_mlsize.setposition		220 225 58  .
+	addplot.cb_mlsize.setposition		283 225 99  .
+	addplot.tx_mlcolor.setposition		399 195 58  .
+	addplot.cb_mlcolor.setposition		462 195 82  .
+	addplot.cl_mlcolor.setposition		547 195 .   .
+	addplot.tx_mlposition.setposition		399 225 58  .
+	addplot.cb_mlposition.setposition		462 225 99  .
+	addplot.tx_weightvar.setposition		362 170 95  .
+	addplot.vn_weightvar.setposition		462 170 99  .
+	addplot.tx_weightvar.setlabel "Weight variable:"
+END
+
+///***** Scatter 2
+SCRIPT addplot_scatter_setLayout_2
+BEGIN
+	addplot.gb_marker.setposition		200 205 550 140
+	addplot.tx_msymbol.setposition		210 225 65  .
+	addplot.cb_msymbol.setposition		280 225 99  .
+	addplot.tx_msize.setposition		392 225 65  .
+	addplot.cb_msize.setposition		462 225 99  .
+	addplot.cb_msize_wgt.setposition		462 225 99  .
+	addplot.tx_mcolor.setposition		570 225 65  .
+	addplot.cb_mcolor.setposition		640 225 82  .
+	addplot.cl_mcolor.setposition		725 225 .   .
+
+	addplot.ck_mlabel.setposition		210 255 530 85
+	addplot.tx_mlabel.setposition		220 280 58  .
+	addplot.vn_mlabel.setposition		283 280 99  .
+	addplot.tx_mlsize.setposition		220 310 58  .
+	addplot.cb_mlsize.setposition		283 310 99  .
+	addplot.tx_mlcolor.setposition		399 280 58  .
+	addplot.cb_mlcolor.setposition		462 280 82  .
+	addplot.cl_mlcolor.setposition		547 280 .   .
+	addplot.tx_mlposition.setposition		399 310 58  .
+	addplot.cb_mlposition.setposition		462 310 99  .
+	addplot.tx_weightvar.setposition		362 255 95  .
+	addplot.vn_weightvar.setposition		462 255 99  .
+	addplot.tx_weightvar.setlabel "Weight variable:"
+END
+
+///***** Scatter 3
+SCRIPT addplot_scatter_setLayout_3
+BEGIN
+	addplot.gb_marker.setposition		200 120 550 165
+	addplot.tx_msymbol.setposition		210 140 65  .
+	addplot.cb_msymbol.setposition		280 140 99  .
+	addplot.tx_msize.setposition		392 140 65  .
+	addplot.cb_msize.setposition		462 140 99  .
+	addplot.cb_msize_wgt.setposition		462 140 99  .
+	addplot.tx_mcolor.setposition		570 140 65  .
+	addplot.cb_mcolor.setposition		640 140 82  .
+	addplot.cl_mcolor.setposition		725 140 .   .
+	addplot.tx_orientation.setposition	570 170 65  .
+	addplot.cb_orientation.setposition	640 170 99  .
+	addplot.ck_mlabel.setposition		210 195 530 85
+	addplot.tx_mlabel.setposition		220 220 58  .
+	addplot.vn_mlabel.setposition		283 220 99  .
+	addplot.tx_mlsize.setposition		220 250 58  .
+	addplot.cb_mlsize.setposition		283 250 99  .
+	addplot.tx_mlcolor.setposition		399 220 58  .
+	addplot.cb_mlcolor.setposition		462 220 82  .
+	addplot.cl_mlcolor.setposition		547 220 .   .
+	addplot.tx_mlposition.setposition		399 250 58  .
+	addplot.cb_mlposition.setposition		462 250 99  .
+	addplot.tx_weightvar.setposition		362 170 95  .
+	addplot.vn_weightvar.setposition		462 170 99  .
+	addplot.tx_weightvar.setlabel "Weight variable:"
+END
+
+///***** Scatter 4
+SCRIPT addplot_scatter_setLayout_4
+BEGIN
+	addplot.gb_marker.setposition		200 220 179 125
+	addplot.tx_mcolor.setposition		210 240 58  .
+	addplot.cb_mcolor.setposition		273 240 82  .
+	addplot.cl_mcolor.setposition		358 240 .   .
+	addplot.tx_msymbol.setposition		210 265 58  .
+	addplot.cb_msymbol.setposition		273 265 99  .
+	addplot.tx_msize.setposition		210 290 58  .
+	addplot.cb_msize.setposition		273 290 99  .
+	addplot.cb_msize_wgt.setposition		273 290 99  .
+	addplot.ck_mlabel.setposition		386 220 179 125
+	addplot.tx_mlabel.setposition		396 240 58  .
+	addplot.vn_mlabel.setposition		459 240 99  .
+	addplot.tx_mlsize.setposition		396 265 58  .
+	addplot.cb_mlsize.setposition		459 265 99  .
+	addplot.tx_mlcolor.setposition		396 290 58  .
+	addplot.cb_mlcolor.setposition		459 290 82  .
+	addplot.cl_mlcolor.setposition		544 290 .   .
+	addplot.tx_mlposition.setposition		396 315 58  .
+	addplot.cb_mlposition.setposition		459 315 99  .
+	addplot.tx_weightvar.setposition		210 315 58  .
+	addplot.vn_weightvar.setposition		273 315 99  .
+	addplot.tx_weightvar.setlabel "Weight:"
+END
+
+///***** Scatter 5
+SCRIPT addplot_scatter_setLayout_5
+BEGIN
+	addplot.gb_marker.setposition		386 220 179 125
+	addplot.tx_mcolor.setposition		396 240 58  .
+	addplot.cb_mcolor.setposition		459 240 82  .
+	addplot.cl_mcolor.setposition		544 240 .   .
+	addplot.tx_msymbol.setposition		396 265 58  .
+	addplot.cb_msymbol.setposition		459 265 99  .
+	addplot.tx_msize.setposition		396 290 58  .
+	addplot.cb_msize.setposition		459 290 99  .
+	addplot.cb_msize_wgt.setposition		459 290 99  .
+	addplot.tx_weightvar.setposition		396 315 58  .
+	addplot.vn_weightvar.setposition		459 315 99  .
+	addplot.tx_weightvar.setlabel "Weight:"
+END
+
+SCRIPT addplot_scatter_show
+BEGIN
+	addplot_uses_scatter_weights.setfalse
+	/*
+		Use script addplot_set_scatter_weights_on after calling
+		this script to enable scatter weights
+	*/
+	script addplot_scatter_show_options
+END
+
+SCRIPT addplot_scatter_show_options
+BEGIN
+	addplot.gb_marker.show
+	addplot.tx_msymbol.show
+	addplot.cb_msymbol.show
+	addplot.tx_mcolor.show
+	addplot.cb_mcolor.show
+	addplot.cb_mcolor.withvalue addplot.cb_mcolor.setvalue "@"
+	addplot.tx_msize.show
+	addplot.cb_msize.show
+	addplot.ck_mlabel.show
+	addplot.tx_mlabel.show
+	addplot.vn_mlabel.show
+	addplot.tx_mlsize.show
+	addplot.cb_mlsize.show
+	addplot.tx_mlcolor.show
+	addplot.cb_mlcolor.show
+	addplot.cb_mlcolor.withvalue addplot.cb_mlcolor.setvalue "@"
+	addplot.tx_mlposition.show
+	addplot.cb_mlposition.show
+END
+
+SCRIPT addplot_mlabel_1_enable
+BEGIN
+	addplot.tx_mlabel.enable
+	addplot.vn_mlabel.enable
+	addplot.tx_mlsize.enable
+	addplot.cb_mlsize.enable
+	addplot.tx_mlcolor.enable
+	addplot.cb_mlcolor.enable
+	addplot.cl_mlcolor.enable
+	addplot.tx_mlposition.enable
+	addplot.cb_mlposition.enable
+	addplot.ck_headlabel.enable
+END
+
+SCRIPT addplot_mlabel_1_disable
+BEGIN
+	addplot.tx_mlabel.disable
+	addplot.vn_mlabel.disable
+	addplot.tx_mlsize.disable
+	addplot.cb_mlsize.disable
+	addplot.tx_mlcolor.disable
+	addplot.cb_mlcolor.disable
+	addplot.cl_mlcolor.disable
+	addplot.tx_mlposition.disable
+	addplot.cb_mlposition.disable
+	addplot.ck_headlabel.disable
+END
+
+///** Lines
+SCRIPT addplot_line_setLayout_1
+BEGIN
+	addplot.gb_line.setposition		200 120 550 80
+	addplot.tx_clcolor.setposition		210 140 65  .
+	addplot.cb_clcolor.setposition		280 140 82  .
+	addplot.cl_clcolor.setposition		365 140 .   .
+	addplot.tx_connect.setposition		210 170 65  .
+	addplot.cb_connect.setposition		280 170 99  .
+	addplot.tx_clwidth.setposition		392 140 65  .
+	addplot.cb_clwidth.setposition		462 140 99  .
+	addplot.tx_clpattern.setposition		392 170 65  .
+	addplot.cb_clpattern.setposition    	462 170 99  .
+END
+
+///** Lines 2
+SCRIPT addplot_line_setLayout_2
+BEGIN
+	addplot.gb_line.setposition		200 180 550 80
+
+	addplot.tx_clcolor.setposition		210 200 65  .
+	addplot.cb_clcolor.setposition		280 200 82  .
+	addplot.cl_clcolor.setposition		365 200 .   .
+	addplot.tx_connect.setposition		210 230 65  .
+	addplot.cb_connect.setposition		280 230 99  .
+	addplot.tx_clwidth.setposition		392 200 65  .
+	addplot.cb_clwidth.setposition		462 200 99  .
+	addplot.tx_clpattern.setposition		392 230 65  .
+	addplot.cb_clpattern.setposition    	462 230 99  .
+END
+
+///** Lines 3
+SCRIPT addplot_line_setLayout_3
+BEGIN
+	addplot.gb_line.setposition		200 265 550 80
+	addplot.tx_clcolor.setposition		210 285 65  .
+	addplot.cb_clcolor.setposition		280 285 82  .
+	addplot.cl_clcolor.setposition		365 285 .   .
+	addplot.tx_connect.setposition		210 315 65  .
+	addplot.cb_connect.setposition		280 315 99  .
+	addplot.tx_clwidth.setposition		392 285 65  .
+	addplot.cb_clwidth.setposition		462 285 99  .
+	addplot.tx_clpattern.setposition		392 315 65  .
+	addplot.cb_clpattern.setposition    	462 315 99  .
+END
+
+///** Lines 4
+SCRIPT addplot_line_setLayout_4
+BEGIN
+	addplot.gb_line.setposition		200 225 550 80
+	addplot.tx_clcolor.setposition		210 245 65  .
+	addplot.cb_clcolor.setposition		280 245 82  .
+	addplot.cl_clcolor.setposition		365 245 .   .
+	addplot.tx_connect.setposition		210 275 65  .
+	addplot.cb_connect.setposition		280 275 99  .
+	addplot.tx_clwidth.setposition		392 245 65  .
+	addplot.cb_clwidth.setposition		462 245 99  .
+	addplot.tx_clpattern.setposition		392 275 65  .
+	addplot.cb_clpattern.setposition    	462 275 99  .
+END
+
+///** Lines 5
+SCRIPT addplot_line_setLayout_5
+BEGIN
+	addplot.gb_line.setposition		200 220 179 125
+	addplot.tx_clcolor.setposition		210 240 58  .
+	addplot.cb_clcolor.setposition		273 240 82  .
+	addplot.cl_clcolor.setposition		358 240 .   .
+	addplot.tx_clwidth.setposition		210 265 58  .
+	addplot.cb_clwidth.setposition		273 265 99  .
+	addplot.tx_clpattern.setposition		210 290 58  .
+	addplot.cb_clpattern.setposition    	273 290 99  .
+	addplot.tx_connect.setposition		210 315 58  .
+	addplot.cb_connect.setposition		273 315 99  .
+END
+
+SCRIPT addplot_line_show
+BEGIN
+	addplot.gb_line.show
+	addplot.tx_clcolor.show
+	addplot.cb_clcolor.show
+	addplot.cb_clcolor.withvalue addplot.cb_clcolor.setvalue "@"
+	addplot.tx_clpattern.show
+	addplot.cb_clpattern.show
+	addplot.tx_clwidth.show
+	addplot.cb_clwidth.show
+	addplot.tx_connect.show
+	addplot.cb_connect.show
+	addplot.gb_line.setlabel "Lines"
+END
+
+
+SCRIPT addplot_orientation_show
+BEGIN
+	addplot.tx_orientation.show
+	addplot.cb_orientation.show
+END
+
+SCRIPT addplot_orientation_hide
+BEGIN
+	addplot.tx_orientation.hide
+	addplot.cb_orientation.hide
+END
+
+/* Common opts for area, bar, spike, and dropline */
+SCRIPT addplot_common_area_opts_setpos
+BEGIN
+	addplot.gb_common.setposition		200 120 550 80
+	addplot.tx_blcolor.setposition		210 140  65 .
+	addplot.cb_blcolor.setposition		280 140  82 .
+	addplot.cl_blcolor.setposition		365 140  .  .
+
+	addplot.tx_bfcolor.setposition		210 170  65 .
+	addplot.cb_bfcolor.setposition		280 170  82 .
+	addplot.cl_bfcolor.setposition		365 170  .  .
+	addplot.tx_blwidth.setposition		392 140  65 .
+	addplot.cb_blwidth.setposition		462 140  99 .
+	addplot.tx_blpattern.setposition		392 170  65 .
+	addplot.tx_barwidth.setposition		392 170  65 .
+	addplot.cb_blpattern.setposition		462 170  99 .
+	addplot.en_barwidth.setposition		462 170  99 .
+	addplot.tx_base.setposition		570 140  65 .
+	addplot.en_base.setposition     		640 140  99 .
+	addplot.tx_orientation.setposition	570 170  65 .
+	addplot.cb_orientation.setposition	640 170  99 .
+END
+
+/* Common opts for area, bar, spike, and dropline */
+SCRIPT addplot_common_area_opts_show
+BEGIN
+	addplot.gb_common.show
+	addplot.tx_blcolor.show
+	addplot.cb_blcolor.show
+	addplot.cb_blcolor.withvalue addplot.cb_blcolor.setvalue "@"
+	addplot.tx_blwidth.show
+	addplot.cb_blwidth.show
+	script addplot_orientation_show
+END
+
+/* Common opts for area, bar, spike, and dropline */
+SCRIPT addplot_area_opts_show
+BEGIN
+	script addplot_common_area_opts_show
+	script addplot_common_area_opts_setpos
+	addplot.tx_base.show
+	addplot.en_base.show
+	addplot.tx_blpattern.show
+	addplot.cb_blpattern.show
+	addplot.tx_bfcolor.show
+	addplot.cb_bfcolor.show
+	addplot.cb_bfcolor.withvalue addplot.cb_bfcolor.setvalue "@"
+END
+
+SCRIPT addplot_bar_opts_show
+BEGIN
+	script addplot_common_area_opts_show
+	script addplot_common_area_opts_setpos
+	addplot.tx_base.show
+	addplot.en_base.show
+	addplot.tx_bfcolor.show
+	addplot.cb_bfcolor.show
+	addplot.cb_bfcolor.withvalue addplot.cb_bfcolor.setvalue "@"
+	addplot.tx_barwidth.show
+	addplot.en_barwidth.show
+END
+
+SCRIPT addplot_spike_drop_opts_show
+BEGIN
+	script addplot_common_area_opts_show
+	script addplot_common_area_opts_setpos
+	addplot.tx_base.show
+	addplot.en_base.show
+	addplot.tx_blpattern.show
+	addplot.cb_blpattern.show
+END
+
+SCRIPT addplot_range_area_opts_show
+BEGIN
+	script addplot_common_area_opts_show
+	script addplot_common_area_opts_setpos
+	addplot.tx_blpattern.show
+	addplot.cb_blpattern.show
+	addplot.tx_bfcolor.show
+	addplot.cb_bfcolor.show
+	addplot.cb_bfcolor.withvalue addplot.cb_bfcolor.setvalue "@"
+END
+
+SCRIPT addplot_range_bar_opts_show
+BEGIN
+	script addplot_common_area_opts_show
+	script addplot_common_area_opts_setpos
+	addplot.tx_bfcolor.show
+	addplot.cb_bfcolor.show
+	addplot.cb_bfcolor.withvalue addplot.cb_bfcolor.setvalue "@"
+	addplot.tx_barwidth.show
+	addplot.en_barwidth.show
+END
+
+SCRIPT addplot_rng_spike_drop_opts_show
+BEGIN
+	script addplot_common_area_opts_show
+	script addplot_common_area_opts_setpos
+	addplot.tx_blpattern.show
+	addplot.cb_blpattern.show
+END
+
+SCRIPT addplot_rng_cap_show
+BEGIN
+	script addplot_common_area_opts_show
+	script addplot_common_area_opts_setpos
+	addplot.tx_msize.setposition	570 140 65  .
+	addplot.cb_msize.setposition	640 140 99  .
+
+	addplot.tx_msize.show
+	addplot.cb_msize.show
+END
+
+SCRIPT addplot_range_line_opts_show
+BEGIN
+	script addplot_common_area_opts_show
+	script addplot_common_area_opts_setpos
+	addplot.tx_connect.setposition	210 170 65  .
+	addplot.cb_connect.setposition	280 170 99  .
+	addplot.tx_blpattern.show
+	addplot.cb_blpattern.show
+	addplot.tx_connect.show
+	addplot.cb_connect.show
+	script addplot_orientation_show
+END
+
+SCRIPT addplot_mbands_show
+BEGIN
+	addplot.gb_generic.setposition 	200 100 550  70
+	addplot.gb_generic.show
+	addplot.ck_mband.show
+	addplot.sp_mband.show
+END
+
+SCRIPT addplot_mpoints_show
+BEGIN
+	addplot.gb_generic.setposition 	200 100 550  70
+	addplot.gb_generic.show
+	addplot.ck_mpoints.show
+	addplot.sp_mpoints.show
+END
+
+SCRIPT addplot_lowess_show
+BEGIN
+	addplot.gb_generic.setposition	200 100 550 155
+	addplot.gb_generic.show
+	addplot.ck_mean.show
+	addplot.ck_noweight.show
+	addplot.ck_logit.show
+	addplot.ck_noadjust.show
+	addplot.ed_bandwidth.show
+	addplot.tx_bandwidth.show
+END
+
+SCRIPT addplot_kdensity_show
+BEGIN
+	addplot.gb_generic.setposition	200 100 550 155
+	addplot.gb_generic.show
+	addplot.tx_function.show
+	addplot.cb_function.show
+	addplot.ck_kernelwidth.show
+	addplot.ed_kernelwidth.show
+	addplot.tx_kernelwidth.show
+	addplot.sp_kerneleval.show
+	addplot.tx_kerneleval.show
+END
+
+SCRIPT addplot_fitrange_on
+BEGIN
+	addplot.ed_fitfrom.enable
+	addplot.tx_fitto.enable
+	addplot.ed_fitto.enable
+END
+
+SCRIPT addplot_fitrange_off
+BEGIN
+	addplot.ed_fitfrom.disable
+	addplot.tx_fitto.disable
+	addplot.ed_fitto.disable
+END
+
+SCRIPT addplot_set_predpoints_lfit
+BEGIN
+	addplot.sp_predpoints.setdefault 3
+	addplot.sp_predpoints.setvalue 3
+END
+
+SCRIPT addplot_set_predpoints_lfitci
+BEGIN
+	addplot.sp_predpoints.setdefault 100
+	addplot.sp_predpoints.setvalue 100
+END
+
+SCRIPT addplot_set_predpoints_qfit
+BEGIN
+	addplot.sp_predpoints.setdefault 100
+	addplot.sp_predpoints.setvalue 100
+END
+
+SCRIPT addplot_predx_on
+BEGIN
+	addplot.sp_predpoints.disable
+	addplot.ck_fitrange.disable
+	script addplot_fitrange_off
+END
+
+PROGRAM addplot_predpoints_on
+BEGIN
+	call addplot.sp_predpoints.enable
+	call addplot.ck_fitrange.enable
+	if addplot.ck_fitrange {
+		call script addplot_fitrange_on
+	}
+END
+
+SCRIPT addplot_fit_setpos
+BEGIN
+	addplot.tx_regress_opt.setposition	203 160 75  .
+	addplot.ed_regress_opt.setposition	280 160 140 .
+	addplot.tx_pred_opt.setposition		203 185 75  .
+	addplot.ed_pred_opt.setposition		280 185 140 .
+END
+
+SCRIPT addplot_fit_show
+BEGIN
+	addplot.gb_fit.show
+	addplot.ck_fitrange.show
+	addplot.ed_fitfrom.show
+	addplot.tx_fitto.show
+	addplot.ed_fitto.show
+	addplot.rb_predpoints.show
+	addplot.sp_predpoints.show
+	addplot.tx_predpoints.show
+	addplot.rb_predx.show
+	addplot.tx_ci_src.hide
+	addplot.cb_ci_src.hide
+	addplot.tx_fitplot.hide
+	addplot.cb_fitplot.hide
+	addplot.tx_ciplot.hide
+	addplot.cb_ciplot.hide
+	addplot.tx_level.hide
+	addplot.sp_level.hide
+	addplot.tx_regress_opt.show
+	addplot.ed_regress_opt.show
+	addplot.tx_pred_opt.show
+	addplot.ed_pred_opt.show
+END
+
+SCRIPT addplot_fit_ci_setpos
+BEGIN
+	addplot.tx_regress_opt.setposition	560 163 75 .
+	addplot.ed_regress_opt.setposition	640 163 99 .
+	addplot.tx_pred_opt.setposition		560 188 75 .
+	addplot.ed_pred_opt.setposition		640 188 99 .
+	addplot.tx_level.setposition 		210 188 65 .
+	addplot.sp_level.setposition 		280 188 99 .
+END
+
+SCRIPT addplot_fit_ci_show
+BEGIN
+	addplot.gb_fit.show
+	addplot.ck_fitrange.show
+	addplot.ed_fitfrom.show
+	addplot.tx_fitto.show
+	addplot.ed_fitto.show
+	addplot.rb_predpoints.show
+	addplot.sp_predpoints.show
+	addplot.tx_predpoints.show
+	addplot.rb_predx.show
+	addplot.tx_ci_src.show
+	addplot.cb_ci_src.show
+	addplot.tx_fitplot.show
+	addplot.cb_fitplot.show
+	addplot.tx_ciplot.show
+	addplot.cb_ciplot.show
+	addplot.tx_level.show
+	addplot.sp_level.show
+	addplot.tx_regress_opt.show
+	addplot.ed_regress_opt.show
+	addplot.tx_pred_opt.show
+	addplot.ed_pred_opt.show
+END
+
+SCRIPT addplot_ciplot_rarea_show
+BEGIN
+	addplot.tx_blpattern.hide
+	addplot.cb_blpattern.hide
+	addplot.tx_connect.hide
+	addplot.cb_connect.hide
+
+	addplot.gb_common.show
+	addplot.tx_blcolor.show
+	addplot.cb_blcolor.show
+	addplot.cb_blcolor.withvalue addplot.cb_blcolor.setvalue "@"
+	addplot.tx_bfcolor.show
+	addplot.cb_bfcolor.show
+	addplot.cb_bfcolor.withvalue addplot.cb_bfcolor.setvalue "@"
+	addplot.tx_blwidth.show
+	addplot.cb_blwidth.show
+END
+
+SCRIPT addplot_ciplot_rspike_show
+BEGIN
+	addplot.tx_bfcolor.hide
+	addplot.cb_bfcolor.hide
+	addplot.cb_bfcolor.hide
+	addplot.tx_connect.hide
+	addplot.cb_connect.hide
+
+	addplot.gb_common.show
+	addplot.tx_blcolor.show
+	addplot.cb_blcolor.show
+	addplot.cb_blcolor.withvalue addplot.cb_blcolor.setvalue "@"
+	addplot.tx_blwidth.show
+	addplot.cb_blwidth.show
+	addplot.tx_blpattern.show
+	addplot.cb_blpattern.show
+END
+
+SCRIPT addplot_ciplot_rline_show
+BEGIN
+	addplot.tx_bfcolor.hide
+	addplot.cb_bfcolor.hide
+	addplot.cb_bfcolor.hide
+
+	addplot.gb_common.show
+	addplot.tx_blcolor.show
+	addplot.cb_blcolor.show
+	addplot.cb_blcolor.withvalue addplot.cb_blcolor.setvalue "@"
+	addplot.tx_blwidth.show
+	addplot.cb_blwidth.show
+	addplot.tx_blpattern.show
+	addplot.cb_blpattern.show
+	addplot.tx_connect.show
+	addplot.cb_connect.show
+END
+
+SCRIPT addplot_common_ci_opts_setpos
+BEGIN
+	addplot.gb_common.setposition		572 220 179 125
+	addplot.tx_blcolor.setposition		582 240  58 .
+	addplot.cb_blcolor.setposition		645 240  82 .
+	addplot.cl_blcolor.setposition		730 240  .  .
+	addplot.tx_bfcolor.setposition		582 265  58 .
+	addplot.cb_bfcolor.setposition		645 265  82 .
+	addplot.cl_bfcolor.setposition		730 265  .  .
+	addplot.tx_blwidth.setposition		580 290  60 .
+	addplot.cb_blwidth.setposition		645 290  99 .
+
+	addplot.tx_blpattern.setposition		582 265  58 .
+	addplot.cb_blpattern.setposition		645 265  99 .
+	addplot.tx_connect.setposition		582 315  58 .
+	addplot.cb_connect.setposition		645 315  99 .
+END
+
+SCRIPT addplot_scatter_opts_hide
+BEGIN
+	addplot.gb_marker.hide
+	addplot.tx_msymbol.hide
+	addplot.cb_msymbol.hide
+	addplot.tx_mcolor.hide
+	addplot.cb_mcolor.hide
+	addplot.cl_mcolor.hide
+	addplot.tx_msize.hide
+	addplot.cb_msize_wgt.hide
+	addplot.cb_msize.hide
+	addplot.ck_mlabel.hide
+	addplot.tx_mlabel.hide
+	addplot.vn_mlabel.hide
+	addplot.tx_mlsize.hide
+	addplot.cb_mlsize.hide
+	addplot.tx_mlcolor.hide
+	addplot.cb_mlcolor.hide
+	addplot.cl_mlcolor.hide
+	addplot.tx_mlposition.hide
+	addplot.cb_mlposition.hide
+	addplot.tx_orientation.hide
+	addplot.cb_orientation.hide
+	addplot.tx_weightvar.hide
+	addplot.vn_weightvar.hide
+END
+
+SCRIPT addplot_line_opts_hide
+BEGIN
+	addplot.gb_line.hide
+	addplot.tx_clcolor.hide
+	addplot.cb_clcolor.hide
+	addplot.cl_clcolor.hide
+	addplot.tx_clpattern.hide
+	addplot.cb_clpattern.hide
+	addplot.tx_clwidth.hide
+	addplot.cb_clwidth.hide
+	addplot.tx_connect.hide
+	addplot.cb_connect.hide
+END
+
+SCRIPT addplot_fit_range_hide
+BEGIN
+	addplot.ck_fitrange.hide
+	addplot.ed_fitfrom.hide
+	addplot.tx_fitto.hide
+	addplot.ed_fitto.hide
+END
+
+SCRIPT addplot_fit_pred_hide
+BEGIN
+	addplot.rb_predpoints.hide
+	addplot.sp_predpoints.hide
+	addplot.tx_predpoints.hide
+	addplot.rb_predx.hide
+END
+
+SCRIPT addplot_hide_all
+BEGIN
+	addplot.gb_generic.hide
+	addplot.ck_mband.hide
+	addplot.sp_mband.hide
+	addplot.ck_mpoints.hide
+	addplot.sp_mpoints.hide
+	addplot.ck_mean.hide
+	addplot.ck_noweight.hide
+	addplot.ck_logit.hide
+	addplot.ck_noadjust.hide
+	addplot.ed_bandwidth.hide
+	addplot.tx_bandwidth.hide
+	addplot.tx_function.hide
+	addplot.cb_function.hide
+	addplot.ck_kernelwidth.hide
+	addplot.ed_kernelwidth.hide
+	addplot.tx_kernelwidth.hide
+	addplot.sp_kerneleval.hide
+	addplot.tx_kerneleval.hide
+	addplot.gb_fit.hide
+	script addplot_fit_range_hide
+	script addplot_fit_pred_hide
+	addplot.tx_ci_src.hide
+	addplot.cb_ci_src.hide
+	addplot.tx_fitplot.hide
+	addplot.cb_fitplot.hide
+	addplot.tx_ciplot.hide
+	addplot.cb_ciplot.hide
+	addplot.tx_level.hide
+	addplot.sp_level.hide
+	addplot.tx_regress_opt.hide
+	addplot.ed_regress_opt.hide
+	addplot.tx_pred_opt.hide
+	addplot.ed_pred_opt.hide
+	addplot.tx_ecommand.hide
+	addplot.cb_ecommand.hide
+	script addplot_scatter_opts_hide
+	script addplot_line_opts_hide
+	addplot.tx_barbsize.hide
+	addplot.cb_barbsize.hide
+	addplot.ck_headlabel.hide
+	addplot.tx_clwidth.hide
+	addplot.cb_clwidth.hide
+	addplot.tx_clpattern.hide
+	addplot.cb_clpattern.hide
+	addplot.gb_common.hide
+	addplot.tx_blcolor.hide
+	addplot.cb_blcolor.hide
+	addplot.cl_blcolor.hide
+	addplot.tx_blwidth.hide
+	addplot.cb_blwidth.hide
+	addplot.tx_blpattern.hide
+	addplot.cb_blpattern.hide
+	addplot.tx_bfcolor.hide
+	addplot.cb_bfcolor.hide
+	addplot.cl_bfcolor.hide
+	addplot.tx_barwidth.hide
+	addplot.en_barwidth.hide
+	addplot.tx_base.hide
+	addplot.en_base.hide
+	addplot.tx_histtype.hide
+	addplot.cb_histtype.hide
+	addplot.gb_datatype.hide
+	addplot.rb_continuous.hide
+	addplot.rb_discrete.hide
+	addplot.sp_gap.hide
+	addplot.tx_gap.hide
+	addplot.ed_datamin.hide
+	addplot.tx_datamin.hide
+	addplot.ck_num_of_bins.hide
+	addplot.sp_num_of_bins.hide
+	addplot.ck_width_of_bins.hide
+	addplot.ed_width_of_bins.hide
+END
+
+SCRIPT addplot_do_none
+BEGIN
+	addplot_is_pc_type.setfalse
+	script addplot_common_hide
+	script addplot_x2_hide
+	script addplot_y2_hide
+	script addplot_hide_all
+	addplot.tx_type.setlabel "Plot type: (None)"
+END
+
+SCRIPT addplot_do_line
+BEGIN
+	addplot_is_pc_type.setfalse
+	addplot.tx_type.setlabel "Plot type: (Line)"
+	script addplot_common_show
+	script addplot_x2_hide
+	script addplot_y2_hide
+	script addplot_hide_all
+
+	script addplot_line_setLayout_1
+	script addplot_line_show
+END
+
+SCRIPT addplot_do_scatter
+BEGIN
+	addplot_is_pc_type.setfalse
+	addplot.tx_type.setlabel "Plot type: (Scatter)"
+	script addplot_common_show
+	script addplot_x2_hide
+	script addplot_y2_hide
+	script addplot_hide_all
+
+	script addplot_scatter_setLayout_1
+	script addplot_scatter_show
+	script addplot_set_scatter_weights_on
+	addplot.gb_marker.setlabel "Markers"
+END
+
+SCRIPT addplot_do_connected
+BEGIN
+	addplot_is_pc_type.setfalse
+	addplot.tx_type.setlabel "Plot type: (Connected)"
+	script addplot_common_show
+	script addplot_x2_hide
+	script addplot_y2_hide
+	script addplot_hide_all
+
+	script addplot_line_setLayout_1
+	script addplot_line_show
+	script addplot_scatter_setLayout_2
+	script addplot_scatter_show
+	script addplot_set_scatter_weights_on
+	addplot.gb_marker.setlabel "Markers"
+END
+
+SCRIPT addplot_do_area
+BEGIN
+	addplot_is_pc_type.setfalse
+	addplot.tx_type.setlabel "Plot type: (Area)"
+	script addplot_common_show
+	script addplot_x2_hide
+	script addplot_y2_hide
+	script addplot_hide_all
+
+	script addplot_area_opts_show
+	addplot.gb_common.setlabel "Area"
+END
+
+SCRIPT addplot_do_bar
+BEGIN
+	addplot_is_pc_type.setfalse
+	addplot.tx_type.setlabel "Plot type: (Bar)"
+	script addplot_common_show
+	script addplot_x2_hide
+	script addplot_y2_hide
+	script addplot_hide_all
+	script addplot_bar_opts_show
+	addplot.gb_common.setlabel "Bars"
+END
+
+SCRIPT addplot_do_spike
+BEGIN
+	addplot_is_pc_type.setfalse
+	addplot.tx_type.setlabel "Plot type: (Spike)"
+	script addplot_common_show
+	script addplot_x2_hide
+	script addplot_y2_hide
+	script addplot_hide_all
+
+	script addplot_spike_drop_opts_show
+	addplot.gb_common.setlabel "Spikes"
+END
+
+SCRIPT addplot_do_dropline
+BEGIN
+	addplot_is_pc_type.setfalse
+	addplot.tx_type.setlabel "Plot type: (Dropline)"
+	script addplot_common_show
+	script addplot_x2_hide
+	script addplot_y2_hide
+	script addplot_hide_all
+
+	script addplot_scatter_setLayout_2
+	script addplot_scatter_show
+	script addplot_set_scatter_weights_on
+	script addplot_spike_drop_opts_show
+	addplot.gb_common.setlabel "Droplines"
+	addplot.gb_marker.setlabel "Markers"
+END
+
+SCRIPT addplot_do_rarea
+BEGIN
+	addplot_is_pc_type.setfalse
+	addplot.tx_type.setlabel "Plot type: (Range area)"
+	script addplot_common_show
+	script addplot_y2_show
+	script addplot_set_second_y_to_left
+
+	script addplot_x2_hide
+	script addplot_hide_all
+
+	script addplot_range_area_opts_show
+	addplot.gb_common.setlabel "Range area"
+END
+
+SCRIPT addplot_do_rbar
+BEGIN
+	addplot_is_pc_type.setfalse
+	addplot.tx_type.setlabel "Plot type: (Range bar)"
+	script addplot_common_show
+	script addplot_y2_show
+	script addplot_set_second_y_to_left
+
+	script addplot_x2_hide
+	script addplot_hide_all
+
+	script addplot_range_bar_opts_show
+	addplot.gb_common.setlabel "Range bars"
+END
+
+SCRIPT addplot_do_rspike
+BEGIN
+	addplot_is_pc_type.setfalse
+	addplot.tx_type.setlabel "Plot type: (Range spike)"
+	script addplot_common_show
+	script addplot_y2_show
+	script addplot_set_second_y_to_left
+
+	script addplot_x2_hide
+	script addplot_hide_all
+
+	script addplot_rng_spike_drop_opts_show
+	addplot.gb_common.setlabel "Range spikes"
+END
+
+SCRIPT addplot_do_rspike_cap
+BEGIN
+	addplot_is_pc_type.setfalse
+	addplot.tx_type.setlabel "Plot type: (Range spike w/cap)"
+	script addplot_common_show
+	script addplot_y2_show
+	script addplot_set_second_y_to_left
+
+	script addplot_x2_hide
+	script addplot_hide_all
+
+	script addplot_rng_spike_drop_opts_show
+	script addplot_rng_cap_show
+	addplot.gb_common.setlabel "Range spike with caps"
+END
+
+SCRIPT addplot_do_rspike_capsym
+BEGIN
+	addplot_is_pc_type.setfalse
+	addplot.tx_type.setlabel "Plot type: (Range spike w/sym.)"
+	script addplot_common_show
+	script addplot_y2_show
+	script addplot_set_second_y_to_left
+
+	script addplot_x2_hide
+	script addplot_hide_all
+
+	script addplot_rng_spike_drop_opts_show
+	script addplot_scatter_setLayout_2
+	script addplot_scatter_show
+	script addplot_set_scatter_weights_on
+	addplot.gb_common.setlabel "Range spikes"
+	addplot.gb_marker.setlabel "Markers"
+END
+
+SCRIPT addplot_do_rscatter
+BEGIN
+	addplot_is_pc_type.setfalse
+	addplot.tx_type.setlabel "Plot type: (Range scatter)"
+	script addplot_common_show
+	script addplot_y2_show
+	script addplot_set_second_y_to_left
+
+	script addplot_x2_hide
+	script addplot_hide_all
+
+	script addplot_scatter_setLayout_3
+	script addplot_scatter_show
+	script addplot_set_scatter_weights_on
+	script addplot_orientation_show
+	addplot.gb_marker.setlabel "Range scatter (markers)"
+END
+
+SCRIPT addplot_do_rline
+BEGIN
+	addplot_is_pc_type.setfalse
+	addplot.tx_type.setlabel "Plot type: (Range line)"
+	script addplot_common_show
+	script addplot_y2_show
+	script addplot_set_second_y_to_left
+
+	script addplot_x2_hide
+	script addplot_hide_all
+
+	script addplot_range_line_opts_show
+	addplot.gb_common.setlabel "Range lines"
+END
+
+SCRIPT addplot_do_rconnected
+BEGIN
+	addplot_is_pc_type.setfalse
+	addplot.tx_type.setlabel "Plot type: (Range connected)"
+	script addplot_common_show
+	script addplot_y2_show
+	script addplot_set_second_y_to_left
+
+	script addplot_x2_hide
+	script addplot_hide_all
+
+	script addplot_range_line_opts_show
+	script addplot_scatter_setLayout_2
+	script addplot_scatter_show
+	script addplot_set_scatter_weights_on
+	addplot.gb_common.setlabel "Range lines"
+END
+
+SCRIPT addplot_do_pcspike
+BEGIN
+	addplot_is_pc_type.settrue
+	addplot.tx_type.setlabel "Plot type: (PC spike)"
+	script addplot_common_show
+	script addplot_xypaired_show
+
+	script addplot_hide_all
+
+	script addplot_range_line_opts_show
+	addplot.gb_common.setlabel "Paired coordinate spikes"
+END
+
+SCRIPT addplot_do_pccapsym
+BEGIN
+	addplot_is_pc_type.settrue
+	addplot.tx_type.setlabel "Plot type: (PC spike w/cap)"
+	script addplot_common_show
+	script addplot_xypaired_show
+
+	script addplot_hide_all
+
+	script addplot_range_line_opts_show
+	script addplot_scatter_setLayout_2
+	script addplot_scatter_show
+	script addplot_set_scatter_weights_on
+	addplot.gb_common.setlabel "Paired coordinate spikes"
+	addplot.gb_marker.setlabel "Markers"
+END
+
+SCRIPT addplot_do_pcarrow
+BEGIN
+	addplot_is_pc_type.settrue
+	addplot.tx_type.setlabel "Plot type: (PC arrow)"
+	script addplot_common_show
+	script addplot_xypaired_show
+
+	script addplot_hide_all
+
+	script addplot_range_line_opts_show
+	script addplot_scatter_setLayout_2
+	script addplot_scatter_show
+	addplot.ck_headlabel.show
+	addplot.tx_msymbol.hide
+	addplot.cb_msymbol.hide
+	addplot.gb_common.setlabel "Paired coordinate arrow shafts"
+	addplot.gb_marker.setlabel "Arrow heads"
+	addplot.tx_barbsize.show
+	addplot.cb_barbsize.show
+END
+
+SCRIPT addplot_do_pcbarrow
+BEGIN
+	addplot_is_pc_type.settrue
+	addplot.tx_type.setlabel "Plot type: (PC double arrow)"
+	script addplot_common_show
+	script addplot_xypaired_show
+
+	script addplot_hide_all
+
+	script addplot_range_line_opts_show
+	script addplot_scatter_setLayout_2
+	script addplot_scatter_show
+	addplot.ck_headlabel.show
+	addplot.tx_msymbol.hide
+	addplot.cb_msymbol.hide
+	addplot.gb_common.setlabel "Paired coordinate arrow shafts"
+	addplot.gb_marker.setlabel "Arrow heads"
+	addplot.tx_barbsize.show
+	addplot.cb_barbsize.show
+END
+
+SCRIPT addplot_do_pcscatter
+BEGIN
+	addplot_is_pc_type.settrue
+	addplot.tx_type.setlabel "Plot type: (PC scatter)"
+	script addplot_common_show
+	script addplot_xypaired_show
+
+	script addplot_hide_all
+
+	script addplot_scatter_setLayout_3
+	script addplot_scatter_show
+	script addplot_orientation_show
+	addplot.gb_marker.setlabel "Markers"
+END
+
+SCRIPT addplot_do_tsline
+BEGIN
+	addplot_is_pc_type.setfalse
+	addplot.tx_type.setlabel "Plot type: (TS line)"
+	script addplot_common_show
+
+	script addplot_x2_hide
+	script addplot_y2_hide
+	script addplot_hide_all
+	addplot.tx_x.hide
+	addplot.vn_x.hide
+	addplot.ck_sort.hide
+	addplot.ck_yaxis2.setposition 350 55 . .
+
+	script addplot_line_setLayout_1
+	script addplot_line_show
+	addplot.gb_common.setlabel "Lines"
+END
+
+SCRIPT addplot_do_tsrline
+BEGIN
+	addplot_is_pc_type.setfalse
+	addplot.tx_type.setlabel "Plot type: (TS range line)"
+	script addplot_common_show
+	script addplot_y2_show
+	addplot.ck_yaxis2.setposition 350 100 . .
+
+	script addplot_x2_hide
+	script addplot_hide_all
+	addplot.tx_x.hide
+	addplot.vn_x.hide
+	addplot.ck_sort.hide
+
+	script addplot_line_setLayout_1
+	script addplot_line_show
+	addplot.gb_common.setlabel "Lines"
+END
+
+SCRIPT addplot_do_mband
+BEGIN
+	addplot_is_pc_type.setfalse
+	addplot.tx_type.setlabel "Plot type: (Median-band)"
+	script addplot_common_show
+
+	script addplot_x2_hide
+	script addplot_y2_hide
+	script addplot_hide_all
+
+	script addplot_mbands_show
+	script addplot_line_setLayout_2
+	script addplot_line_show
+	script addplot_set_second_y_to_middle
+	addplot.gb_generic.setlabel "Median-band"
+END
+
+SCRIPT addplot_do_mspline
+BEGIN
+	addplot_is_pc_type.setfalse
+	addplot.tx_type.setlabel "Plot type: (Median-spline)"
+	script addplot_common_show
+
+	script addplot_x2_hide
+	script addplot_y2_hide
+	script addplot_hide_all
+
+	script addplot_mbands_show
+	script addplot_mpoints_show
+	script addplot_line_setLayout_2
+	script addplot_line_show
+	script addplot_set_second_y_to_middle
+	addplot.gb_generic.setlabel "Median-spline"
+END
+
+SCRIPT addplot_do_lowess
+BEGIN
+	addplot_is_pc_type.setfalse
+	addplot.tx_type.setlabel "Plot type: (Lowess)"
+	script addplot_common_show
+
+	script addplot_x2_hide
+	script addplot_y2_hide
+	script addplot_hide_all
+
+	script addplot_line_setLayout_3
+	script addplot_line_show
+	script addplot_lowess_show
+	script addplot_set_second_y_to_middle
+	addplot.gb_generic.setlabel "Lowess"
+END
+
+SCRIPT addplot_do_kdensity
+BEGIN
+	addplot_is_pc_type.setfalse
+	addplot.tx_type.setlabel "Plot type: (Kernel density)"
+	script addplot_common_show
+	script addplot_x2_hide
+	script addplot_y2_hide
+	script addplot_hide_all
+
+	addplot.ck_yaxis2.hide
+	addplot.tx_y.hide
+	addplot.vn_y.hide
+
+	script addplot_line_setLayout_3
+	script addplot_line_show
+	script addplot_kdensity_show
+	script addplot_set_second_y_to_middle
+	addplot.gb_generic.setlabel "Kernel density"
+END
+
+SCRIPT addplot_do_lfit
+BEGIN
+	addplot_is_pc_type.setfalse
+	addplot.tx_type.setlabel "Plot type: (Linear prediction)"
+	script addplot_common_show
+	script addplot_x2_hide
+	script addplot_y2_hide
+	script addplot_hide_all
+
+	script addplot_fit_setpos
+	script addplot_fit_show
+	script addplot_set_predpoints_lfit
+	script addplot_line_setLayout_4
+	script addplot_line_show
+	addplot.gb_line.setlabel "Lines (fit plot)"
+	script addplot_set_second_y_to_middle
+	addplot.gb_fit.setlabel "Linear prediction"
+END
+
+SCRIPT addplot_do_qfit
+BEGIN
+	addplot_is_pc_type.setfalse
+	addplot.tx_type.setlabel "Plot type: (Quadratic pred.)"
+	script addplot_common_show
+	script addplot_x2_hide
+	script addplot_y2_hide
+	script addplot_hide_all
+
+	script addplot_fit_setpos
+	script addplot_fit_show
+	script addplot_set_predpoints_qfit
+	script addplot_line_setLayout_4
+	script addplot_line_show
+	addplot.gb_line.setlabel "Lines (fit plot)"
+	script addplot_set_second_y_to_middle
+	addplot.gb_fit.setlabel "Quadratic prediction"
+END
+
+SCRIPT addplot_do_fpfit
+BEGIN
+	addplot_is_pc_type.setfalse
+	addplot.tx_type.setlabel "Plot type: (Fractional poly.)"
+	script addplot_common_show
+	script addplot_x2_hide
+	script addplot_y2_hide
+	script addplot_hide_all
+
+	script addplot_fit_setpos
+	addplot.gb_fit.show
+	addplot.tx_ecommand.show
+	addplot.cb_ecommand.show
+	addplot.tx_regress_opt.show
+	addplot.ed_regress_opt.show
+	addplot.tx_pred_opt.show
+	addplot.ed_pred_opt.show
+
+	script addplot_line_setLayout_4
+	script addplot_line_show
+	addplot.gb_line.setlabel "Lines (fit plot)"
+	script addplot_set_second_y_to_middle
+	addplot.gb_fit.setlabel "Fractional polynomial"
+END
+
+SCRIPT addplot_do_lfitci
+BEGIN
+	addplot_is_pc_type.setfalse
+	addplot.tx_type.setlabel "Plot type: (Linear pred. w/CI)"
+	script addplot_common_show
+
+	script addplot_x2_hide
+	script addplot_y2_hide
+	script addplot_hide_all
+
+	script addplot_fit_ci_setpos
+	script addplot_fit_ci_show
+	script addplot_set_predpoints_lfitci
+	script addplot_cb_fitplot_checkvalue
+	script addplot_set_second_y_to_middle
+	addplot.gb_fit.setlabel "Linear prediction w/CI"
+END
+
+SCRIPT addplot_do_qfitci
+BEGIN
+	addplot_is_pc_type.setfalse
+	addplot.tx_type.setlabel "Plot type: (Quadratic pred. w/CI)"
+	script addplot_common_show
+
+	script addplot_x2_hide
+	script addplot_y2_hide
+	script addplot_hide_all
+
+	script addplot_fit_ci_setpos
+	script addplot_fit_ci_show
+	script addplot_set_predpoints_qfit
+	script addplot_cb_fitplot_checkvalue
+	script addplot_set_second_y_to_middle
+	addplot.gb_fit.setlabel "Quadratic prediction w/CI"
+END
+
+SCRIPT addplot_do_fpfitci
+BEGIN
+	addplot_is_pc_type.setfalse
+	addplot.tx_type.setlabel "Plot type: (Fractional poly. w/CI)"
+	script addplot_common_show
+	script addplot_x2_hide
+	script addplot_y2_hide
+	script addplot_hide_all
+
+	//---
+	script addplot_fit_ci_setpos
+	script addplot_fit_ci_show
+	// override some of the settings used in the scripts above
+	script addplot_fit_range_hide
+	script addplot_fit_pred_hide
+	addplot.tx_ci_src.hide
+	addplot.cb_ci_src.hide
+	addplot.tx_ecommand.show
+	addplot.cb_ecommand.show
+	addplot.tx_level.setposition 210 163 65 .
+	addplot.sp_level.setposition 280 163 99 .
+	//---
+
+	script addplot_cb_fitplot_checkvalue
+
+	script addplot_cb_fitplot_checkvalue
+	addplot.gb_line.setlabel "Lines (fit plot)"
+	script addplot_set_second_y_to_middle
+	addplot.gb_fit.setlabel "Fractional polynomial w/CI"
+END
+
+SCRIPT addplot_do_histogram
+BEGIN
+	addplot_is_pc_type.setfalse
+	addplot.tx_type.setlabel "Plot type: (Histogram)"
+	script addplot_common_show
+	script addplot_x2_hide
+	script addplot_y2_hide
+	script addplot_hide_all
+
+	addplot.ck_yaxis2.hide
+	addplot.tx_y.hide
+	addplot.vn_y.hide
+
+	// set locations
+	addplot.gb_generic.setposition		200 100 550 155
+	addplot.gb_common.setposition		200 265 550 80
+	addplot.tx_blcolor.setposition		210 285  65 .
+	addplot.cb_blcolor.setposition		280 285  82 .
+	addplot.cl_blcolor.setposition		365 285  .  .
+	addplot.tx_bfcolor.setposition		210 315  65 .
+	addplot.cb_bfcolor.setposition		280 315  82 .
+	addplot.cl_bfcolor.setposition		365 315  .  .
+	addplot.tx_blwidth.setposition		392 285  65 .
+	addplot.cb_blwidth.setposition		462 285  99 .
+	addplot.tx_orientation.setposition	392 315  65 .
+	addplot.cb_orientation.setposition	462 315  99 .
+
+	// show controls
+	addplot.gb_generic.show
+	addplot.tx_histtype.show
+	addplot.cb_histtype.show
+	addplot.gb_datatype.show
+	addplot.rb_continuous.show
+	addplot.rb_discrete.show
+	addplot.sp_gap.show
+	addplot.tx_gap.show
+	addplot.ed_datamin.show
+	addplot.tx_datamin.show
+	program addplot_datatype_check
+	addplot.ck_width_of_bins.show
+	addplot.ed_width_of_bins.show
+	script addplot_common_area_opts_show
+	addplot.tx_bfcolor.show
+	addplot.cb_bfcolor.show
+	addplot.cb_bfcolor.withvalue addplot.cb_bfcolor.setvalue "@"
+	addplot.gb_common.setlabel "Bars"
+
+	script addplot_set_second_y_to_middle
+	addplot.gb_generic.setlabel "Histogram"
+END
+
+SCRIPT addplot_cb_fitplot_checkvalue
+BEGIN
+	addplot.cb_fitplot.withvalue addplot.cb_fitplot.setvalue "@"
+END
+
+SCRIPT addplot_cb_ciplot_checkvalue
+BEGIN
+	addplot.cb_ciplot.withvalue addplot.cb_ciplot.setvalue "@"
+END
+
+SCRIPT addplot_fitplot_line_show
+BEGIN
+	script addplot_scatter_opts_hide
+	script addplot_line_setLayout_5
+	script addplot_line_show
+	addplot.gb_line.setlabel "Lines (fit plot)"
+	script addplot_cb_ciplot_checkvalue
+END
+
+SCRIPT addplot_fitplot_scatter_show
+BEGIN
+	script addplot_line_opts_hide
+	script addplot_scatter_setLayout_4
+	script addplot_scatter_show
+	addplot.gb_marker.setlabel "Markers (fit plot)"
+	script addplot_cb_ciplot_checkvalue
+END
+
+SCRIPT addplot_fitplot_connected_show
+BEGIN
+	script addplot_scatter_opts_hide
+	script addplot_line_opts_hide
+	script addplot_line_setLayout_5
+	script addplot_line_show
+	addplot.gb_line.setlabel "Lines (fit plot)"
+	script addplot_scatter_setLayout_5
+	addplot.gb_marker.setlabel "Markers (fit plot)"
+	addplot.gb_marker.show
+	addplot.tx_msymbol.show
+	addplot.cb_msymbol.show
+	addplot.tx_mcolor.show
+	addplot.cb_mcolor.show
+	addplot.cb_mcolor.withvalue addplot.cb_mcolor.setvalue "@"
+	addplot.tx_msize.show
+	addplot.cb_msize.show
+	script addplot_cb_ciplot_checkvalue
+END
+
+PROGRAM addplot_ciplot_rarea_on
+BEGIN
+	if !H(addplot.cb_ciplot) {
+		call addplot.gb_common.setlabel "CI options (Range area)"
+		call script addplot_common_ci_opts_setpos
+		call script addplot_ciplot_rarea_show
+	}
+END
+PROGRAM addplot_ciplot_rbar_on
+BEGIN
+	if !H(addplot.cb_ciplot) {
+		call addplot.gb_common.setlabel "CI options (Range bar)"
+		call script addplot_common_ci_opts_setpos
+		call script addplot_ciplot_rarea_show
+
+	}
+END
+PROGRAM addplot_ciplot_rspike_on
+BEGIN
+	if !H(addplot.cb_ciplot) {
+		call addplot.gb_common.setlabel "CI options (Range spike)"
+		call script addplot_common_ci_opts_setpos
+		call script addplot_ciplot_rspike_show
+	}
+END
+PROGRAM addplot_ciplot_rcap_on
+BEGIN
+	if !H(addplot.cb_ciplot) {
+		call addplot.gb_common.setlabel "CI options (Range cap)"
+		call script addplot_common_ci_opts_setpos
+		call script addplot_ciplot_rspike_show
+	}
+END
+PROGRAM addplot_ciplot_rline_on
+BEGIN
+	if !H(addplot.cb_ciplot) {
+		call addplot.gb_common.setlabel "CI options (Range line)"
+		call script addplot_common_ci_opts_setpos
+		call script addplot_ciplot_rline_show
+	}
+END
+
+SCRIPT addplot_disable
+BEGIN
+	script addplot_do_none
+	addplot.tx_type.disable
+	addplot.cb_type.disable
+END
+
+SCRIPT addplot_enable
+BEGIN
+	addplot.tx_type.enable
+	addplot.cb_type.enable
+	addplot.cb_type.withvalue addplot.cb_type.setvalue "@"
+END
+
+PROGRAM addplot_line_opts
+BEGIN
+	if addplot.cb_type.iseq("lfitci")			///
+		| addplot.cb_type.iseq("qfitci")		///
+		| addplot.cb_type.iseq("fpfitci")		///
+	{
+		if addplot.cl_clcolor.isvisible() {
+			put " clcolor("
+			put `"""'
+			put addplot.cl_clcolor
+			put `"""'
+			put ") "
+		}
+		if ((! addplot.cl_clcolor.isvisible())		///
+			& addplot.cb_clcolor.isneq(""))		///
+		{
+			put " clcolor("
+			put addplot.cb_clcolor
+			put ") "
+		}
+		if addplot.cb_clpattern.isvisible() 		///
+			& addplot.cb_clpattern.isneq("") 	///
+		{
+			put " clpattern("
+			put addplot.cb_clpattern
+			put ") "
+		}
+		if addplot.cb_clwidth.isvisible() 		///
+			& addplot.cb_clwidth.isneq("") 		///
+		{
+			put " clwidth("
+			put addplot.cb_clwidth
+			put ") "
+		}
+	}
+	if addplot.cb_type.isneq("lfitci")			///
+		& addplot.cb_type.isneq("qfitci")		///
+		& addplot.cb_type.isneq("fpfitci")		///
+	{
+		if !Hcc(addplot.cb_clcolor) {
+			optionarg /hidedefault addplot.cb_clcolor
+		}
+		if Hcc(addplot.cb_clcolor) {
+			optionarg /quoted addplot.cl_clcolor
+		}
+		optionarg addplot.cb_clpattern
+		optionarg addplot.cb_clwidth
+	}
+	optionarg addplot.cb_connect
+END
+
+PROGRAM addplot_scatter_opts
+BEGIN
+	optionarg addplot.cb_msymbol
+	if !Hcc(addplot.cb_mcolor) {
+		optionarg /hidedefault addplot.cb_mcolor
+	}
+	if Hcc(addplot.cb_mcolor) {
+		optionarg /quoted addplot.cl_mcolor
+	}
+	if ! addplot_is_weights | ! addplot_uses_scatter_weights {
+		optionarg addplot.cb_msize_wgt
+		optionarg addplot.cb_msize
+
+		if addplot.ck_mlabel {
+			require addplot.vn_mlabel
+			optionarg addplot.vn_mlabel
+			optionarg addplot.cb_mlsize
+			if !Hcc(addplot.cb_mlcolor) {
+				optionarg /hidedefault addplot.cb_mlcolor
+			}
+			if Hcc(addplot.cb_mlcolor) {
+				optionarg /quoted addplot.cl_mlcolor
+			}
+			optionarg addplot.cb_mlposition
+		}
+	}
+END
+
+/* Common opts for area, bar, spike, and dropline */
+PROGRAM addplot_common_area_opts
+BEGIN
+	if addplot.cb_type.iseq("lfitci")			///
+		| addplot.cb_type.iseq("qfitci")		///
+		| addplot.cb_type.iseq("fpfitci")		///
+	{
+		if addplot.cl_blcolor.isvisible() {
+			put " blcolor("
+			put `"""'
+			put addplot.cl_blcolor
+			put `"""'
+			put ") "
+		}
+		if ((! addplot.cl_blcolor.isvisible())		///
+			& addplot.cb_blcolor.isneq(""))		///
+		{
+			put "blcolor("
+			put addplot.cb_blcolor
+			put ") "
+		}
+		if addplot.cb_blpattern.isvisible()		///
+			& addplot.cb_blpattern.isneq("") 	///
+		{
+			put " blpattern("
+			put addplot.cb_blpattern
+			put ") "
+		}
+		if addplot.cb_blwidth.isvisible()		///
+			& addplot.cb_blwidth.isneq("") 		///
+		{
+			put " blwidth("
+			put addplot.cb_blwidth
+			put ") "
+		}
+	}
+	if addplot.cb_type.isneq("lfitci")			///
+		& addplot.cb_type.isneq("qfitci")		///
+		& addplot.cb_type.isneq("fpfitci")		///
+	{
+		if !Hcc(addplot.cb_blcolor) {
+			optionarg /hidedefault addplot.cb_blcolor
+		}
+		if Hcc(addplot.cb_blcolor) {
+			optionarg /quoted addplot.cl_blcolor
+		}
+		// blpattern is used with area
+		optionarg addplot.cb_blpattern
+		optionarg addplot.cb_blwidth
+	}
+  	optionarg /hidedefault addplot.en_base
+
+	put addplot.cb_orientation " "
+
+	// bfcolor is used with area and bar
+	if !Hcc(addplot.cb_bfcolor) {
+		optionarg /hidedefault addplot.cb_bfcolor
+	}
+	if Hcc(addplot.cb_bfcolor) {
+		optionarg /quoted addplot.cl_bfcolor
+	}
+
+	// barwidth is used with bar
+	optionarg /hidedefault addplot.en_barwidth
+
+END
+
+PROGRAM addplot_plotoptions
+BEGIN
+	option addplot.ck_yaxis2
+	option addplot.ck_sort
+	optionarg addplot.sp_mband
+	optionarg addplot.sp_mpoints
+
+  	option addplot.ck_mean
+  	option addplot.ck_noweight
+  	option addplot.ck_logit
+  	option addplot.ck_noadjust
+  	optionarg /hidedefault addplot.ed_bandwidth
+
+  	put addplot.cb_function " "
+  	optionarg addplot.ed_kernelwidth
+  	optionarg /hidedefault addplot.sp_kerneleval
+
+	optionarg /hidedefault addplot.cb_ecommand
+  	if addplot.ck_fitrange 	///
+  		& ! ( D(addplot.ck_fitrange) | H(addplot.ck_fitrange) ) {
+		put "range("
+		put addplot.ed_fitfrom " "
+		put addplot.ed_fitto
+		put ") "
+	}
+	optionarg /hidedefault addplot.sp_predpoints
+	option addplot.rb_predx
+	put addplot.cb_ci_src " "
+	optionarg /hidedefault addplot.sp_level
+	optionarg addplot.ed_regress_opt
+	optionarg addplot.ed_pred_opt
+	optionarg /hidedefault addplot.cb_fitplot
+	optionarg /hidedefault addplot.cb_ciplot
+
+	put addplot.cb_histtype " "
+	option addplot.rb_discrete
+	optionarg /hidedefault addplot.sp_gap
+	optionarg addplot.ed_datamin
+	optionarg addplot.sp_num_of_bins
+	optionarg addplot.ed_width_of_bins
+
+	put /program addplot_line_opts " "
+	put /program addplot_common_area_opts " "
+	optionarg /hidedefault addplot.cb_barbsize
+	put /program addplot_scatter_opts " "
+	option addplot.ck_headlabel
+END
+
+PROGRAM addplot_common_output
+BEGIN
+	put addplot.cb_type " "
+	if ! addplot_is_pc_type {
+		require addplot.vn_x
+		if addplot.vn_y.isvisible() {
+			varlist addplot.vn_y
+		}
+		if addplot.vn_y2.isvisible() {
+			varlist addplot.vn_y2
+		}
+		put addplot.vn_x " "
+	}
+	if addplot_is_pc_type {
+		require addplot.vn_x
+		varlist addplot.vn_y
+		put " " addplot.vn_x
+		require addplot.vn_x2
+		varlist addplot.vn_y2
+		put " " addplot.vn_x2
+	}
+	ifexp addplot.ex_if
+	inrange addplot.sp_from addplot.sp_to
+	if addplot_is_weights & addplot_uses_scatter_weights {
+		require addplot.vn_weightvar
+		put " " "[" addplot.cb_msize_wgt "="
+		put addplot.vn_weightvar
+		put "] "
+	}
+	beginoptions
+		put /program addplot_plotoptions
+	endoptions
+END
+
+PROGRAM addplot_output
+BEGIN
+	if addplot.cb_type & addplot.cb_type.isenabled() {
+		put "addplot("
+		put /program addplot_common_output
+		put ") "
+	}
+END

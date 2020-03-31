@@ -1,0 +1,199 @@
+/*
+	cluster notes
+
+*!  VERSION 1.3.0  08sep2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+INCLUDE _ht310
+INCLUDE header
+HELP hlp1, view("help cluster_notes")
+RESET res1
+
+DEFINE fromwd 50
+DEFINE fromsep +55
+DEFINE towd 35
+DEFINE tosep +45
+
+SCRIPT PREINIT
+BEGIN
+	create STRING oldCluster // < stata 10 cluster results
+	create STRING newCluster
+	create LIST  clusters
+	program getClusters
+	setscale_hadj resource CLUSTER_NOTES_DLG_HSCALE
+END
+
+PROGRAM getClusters
+BEGIN
+	call oldCluster.setvalue char _dta[_cl]
+	call newCluster.setvalue char _dta[_cluster_objects]
+	if newCluster {
+		call newCluster.tokenize clusters
+	}
+	else {
+		call oldCluster.tokenize clusters
+	}
+	call main.cb_list.repopulate
+	call main.cb_add.repopulate
+	call main.cb_drop.repopulate
+END
+
+DIALOG main, label(resource CLUSTER_NOTE_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  RADIO    rb_list        _lft      _top      _iwd      ., first	/*
+		*/ clickon("script list")				/*
+	*/ label(resource CLUSTER_NOTE_MAIN_RB_LIST)
+  COMBOBOX cb_list        _indent2  _ms       _inwd     ., dropdown	/*
+		*/ append						/*
+		*/ contents(clusters)					/*
+		*/ label(resource CLUSTER_NOTE_MAIN_CB_LIST)
+
+  RADIO    rb_add         _lft      _xls      _iwd      .,		/*
+		*/ clickon("script add")				/*
+		*/ label(resource CLUSTER_NOTE_MAIN_RB_ADD)
+  COMBOBOX cb_add         _indent2  _ms       _inwd     ., dropdownlist /*
+		*/ contents(clusters)					/*
+		*/ label(resource CLUSTER_NOTE_MAIN_RB_ADD)
+  TEXT     tx_note        @         _ms       @         .,		/*
+		*/ label(resource LBL_NOTE)
+  EDIT     ed_note        @         _ss       @         .,		/*
+		*/ label(resource LBL_NOTE)
+
+  RADIO    rb_drop        _lft      _xls      _iwd      ., last		/*
+		*/ clickon("script drop")				/*
+		*/ label(resource CLUSTER_NOTE_MAIN_RB_DROP)
+  COMBOBOX cb_drop        _indent2  _ms       _inwd     ., dropdownlist /*
+		*/ contents(clusters)					/*
+		*/ label(resource CLUSTER_NOTE_MAIN_RB_DROP)
+
+  CHECKBOX ck_in          @         _ls       @         _ht2h, groupbox	/*
+		*/ clickon("program in_on")				/*
+		*/ clickoff("script in_off")				/*
+		*/ label(resource CLUSTER_NOTE_MAIN_CK_IN)
+  TEXT     tx_from        _indent   _ms       fromwd    ., right	/*
+		*/ label(resource LBL_FROM)
+  SPINNER  sp_from        fromsep   @         _spwd     .,		/*
+		*/ min(1) max(9999) default(1)				/*
+		*/ label(resource LBL_FROM)
+  CHECKBOX ck_to          _lft2     @         fromwd    .,		/*
+		*/ clickon("gaction main.sp_to.enable")			/*
+		*/ clickoff("gaction main.sp_to.disable")		/*
+		*/ label(resource LBL_TO)
+  SPINNER  sp_to          tosep     @         _spwd     .,		/*
+		*/ min(1) max(9999) default(1)				/*
+		*/ label(resource LBL_TO)
+END
+
+
+SCRIPT list
+BEGIN
+	main.cb_list.enable
+	script add_off
+	script drop_off
+END
+
+SCRIPT add
+BEGIN
+	main.cb_list.disable
+	script add_on
+	script drop_off
+END
+
+SCRIPT drop
+BEGIN
+	main.cb_list.disable
+	script add_off
+	script drop_on
+END
+
+SCRIPT add_on
+BEGIN
+	main.cb_add.enable
+	main.tx_note.enable
+	main.ed_note.enable
+END
+
+SCRIPT add_off
+BEGIN
+	main.cb_add.disable
+	main.tx_note.disable
+	main.ed_note.disable
+END
+
+SCRIPT drop_on
+BEGIN
+	main.cb_drop.enable
+	program ckin_on
+END
+
+SCRIPT drop_off
+BEGIN
+	main.cb_drop.disable
+	script ckin_off
+END
+
+PROGRAM ckin_on
+BEGIN
+	call gaction main.ck_in.enable
+	if main.ck_in {
+		call program in_on
+	}
+	if !main.ck_in {
+		call script in_off
+	}
+END
+
+SCRIPT ckin_off
+BEGIN
+	main.ck_in.disable
+	script in_off
+END
+
+PROGRAM in_on
+BEGIN
+	call gaction main.tx_from.enable
+	call gaction main.sp_from.enable
+	call gaction main.ck_to.enable
+	if main.ck_to {
+		call gaction main.sp_to.enable
+	}
+	if !main.ck_to {
+		call gaction main.sp_to.disable
+	}
+END
+
+SCRIPT in_off
+BEGIN
+	main.tx_from.disable
+	main.sp_from.disable
+	main.ck_to.disable
+	main.sp_to.disable
+END
+
+
+PROGRAM command
+BEGIN
+	put "cluster notes "
+	if main.rb_list {
+		put main.cb_list
+	}
+	if main.rb_add {
+		require main.cb_add
+		require main.ed_note
+		put main.cb_add " " " : " main.ed_note
+	}
+	if main.rb_drop {
+		require main.cb_drop
+		put "drop " main.cb_drop " "
+		if main.ck_in {
+			put " in " main.sp_from
+			if main.ck_to {
+				put "/" main.sp_to
+			}
+		}
+	}
+END

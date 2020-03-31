@@ -1,0 +1,128 @@
+/*
+    gr_locpoly_options.dlg
+    
+*!  VERSION 1.1.2  31oct2019
+
+*/
+
+VERSION 14
+
+INCLUDE _std_large
+INCLUDE header_gr_child
+
+DEFINE _clwd 15
+
+HELP hlp1, view("help twoway_lpoly")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING lineResults
+	setscale_hadj resource GR_LOCPOLY_OPTIONS_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program checkLineResults
+END
+
+INCLUDE _kernel_function_list
+
+DIALOG main, label(resource LBL_LOCAL_POLYNOMIAL_PLOT_OPTIONS) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_function		_lft	_top	200	.,	///
+	label(resource LBL_KERNEL_FUNCTION)
+  COMBOBOX cb_function		@	_ss	_vnwd	.,	///
+	dropdownlist						///
+	contents(kernel_function)				///
+	values(kernel_function_val)
+	
+  SPINNER  sp_degree		@	+35	_spwd	.,	///
+	default(0) min(0) max(10000000)				///
+	option(degree)
+  TEXT     tx_degree		_spsep	@	380	.,	///
+	label(resource LBL_DEGREE_POLY_USED_SMOOTHING_DEFAULT_0)
+	
+  CHECKBOX ck_points		_lft	+35	_iwd	.,	///
+	onclickon(script points_on)				///
+	onclickoff(script points_off)	  			///
+	label(resource LBL_OVERRIDE_NUMBER_POINTS_WHICH_SMOOTH_EVAL)
+  SPINNER  sp_points		+20	_ss	_en7wd	.,	///
+	default(50) min(1) max(10000000) option(n)
+  TEXT     tx_points		_en7sep	@	200	.,	///
+	label(resource LBL_NUMBER_OF_POINTS)
+
+  CHECKBOX ck_bwidth		_lft	_ls	_iwd	.,	///
+	label(resource GR_LOCPOLY_OPTIONS_MAIN_CK_BWIDTH)	///
+	onclickon(script bwidth_on)				///
+	onclickoff(script bwidth_off)
+  EDIT     ed_bwidth		+20	_ss	_en7wd	.,	///
+  	option(width)						///
+	label(resource LBL_HALFWIDTH_OF_THE_KERNEL)
+  TEXT     tx_bwidth		_en7sep	@	200	.,	///
+	label(resource LBL_HALFWIDTH_OF_THE_KERNEL)
+	
+  BUTTON   bu_line_opts		_lft	+40	120	.,	///
+	label(resource LBL_GB_LABEL_PROPERTIES)			///
+	onpush(script line_options_show)			///
+	tooltip(resource LBL_LINE_PROP_LOCAL_POLYNOMIAL_PLOT)
+END
+
+SCRIPT bwidth_on
+BEGIN
+	main.ed_bwidth.enable
+	main.tx_bwidth.enable
+END
+
+SCRIPT bwidth_off
+BEGIN
+	main.ed_bwidth.disable
+	main.tx_bwidth.disable
+END
+
+SCRIPT points_on
+BEGIN
+	main.sp_points.enable
+	main.tx_points.enable
+END
+
+SCRIPT points_off
+BEGIN
+	main.sp_points.disable
+	main.tx_points.disable
+END
+
+SCRIPT line_options_show
+BEGIN
+	create CHILD gr_line_options AS lineOptions, allowsubmit
+	lineOptions.setExitString lineResults
+	lineOptions.settitle resource LBL_LINE_PROP_LOCAL_POLYNOMIAL_PLOT
+	lineOptions.setExitAction "program checkLineResults"
+	lineOptions.setSubmitAction "script lineSubmit"
+END
+PROGRAM checkLineResults
+BEGIN
+	if lineResults.iseq("") {
+		call main.bu_line_opts.modified_off
+	}
+	if lineResults.isneq("") {
+		call main.bu_line_opts.modified_on
+	}
+END
+SCRIPT lineSubmit
+BEGIN
+	program checkLineResults
+	Submit
+END
+
+PROGRAM command
+BEGIN
+	put main.cb_function " "
+	optionarg /hidedefault main.sp_degree
+	optionarg main.sp_points
+	if main.ck_bwidth {
+		require main.ed_bwidth
+		optionarg main.ed_bwidth
+	}
+	put " " lineResults " "
+END

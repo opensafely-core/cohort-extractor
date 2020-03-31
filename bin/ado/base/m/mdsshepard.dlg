@@ -1,0 +1,114 @@
+/*
+	mdsshepard
+
+*!  VERSION 2.1.2  01dec2019
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_mlarge
+INCLUDE header
+
+HELP hlp1, view("help mdsshepard")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING markerResults
+	setscale_hadj resource MDSSHEPARD_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program check_markerResults
+END
+
+DIALOG main, label(resource MDSSHEPARD_DLG_TITLE) 		///
+		tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  CHECKBOX ck_notransform	_lft	_top	_iwd	.,	///
+  		option(notransform)				///
+  		label(resource LBL_USE_DISSIMILARITIES_INSTEAD_OF_DISPARITIES)
+
+  CHECKBOX ck_autoaspect	@	_ms	@	.,	///
+  		option(autoaspect)				///
+  		label(resource LBL_AUTOMATICALLY_ADJUST_ASPECT_RATIO_BASED_ON_DATA)
+  CHECKBOX ck_separate		@	_ms	@	.,	///
+  		option(separate)				///
+  		onclickon(script main_by_on)			///
+  		onclickoff(script main_by_off)			///
+  		label(resource MDSSHEPARD_MAIN_CK_SEPARATE)
+
+  BUTTON bu_markers		_lft	+30	120	.,	///
+	label(resource LBL_MARKER_PROPERTIES_DLG_TITLE)		///
+	onpush(script main_show_markers_dialog)
+END
+
+SCRIPT main_by_on
+BEGIN
+	script gr_legend_setByoptsContext_on
+	script gr_titles_setByoptsContext_on
+	script gr_yaxis_setByoptsContext_on
+	script gr_xaxis_setByoptsContext_on
+	script gr_overall_setByoptsContext_on
+	script gr_byopts_enable
+END
+
+SCRIPT main_by_off
+BEGIN
+	script gr_legend_setByoptsContext_off
+	script gr_titles_setByoptsContext_off
+	script gr_yaxis_setByoptsContext_off
+	script gr_xaxis_setByoptsContext_off
+	script gr_overall_setByoptsContext_off
+	script gr_byopts_disable
+END
+
+SCRIPT main_show_markers_dialog
+BEGIN
+	create CHILD gr_marker_nolabel_options AS markers, allowsubmit
+	markers.setExitString markerResults
+	markers.settitle resource LBL_MARKER_PROPERTIES_DLG_TITLE
+	markers.setExitAction "program check_markerResults"
+	markers.setSubmitAction "script markerSubmit"
+END
+PROGRAM check_markerResults
+BEGIN
+	if markerResults {
+		call main.bu_markers.modified_on
+	}
+	else {
+		call main.bu_markers.modified_off
+	}
+END
+SCRIPT markerSubmit
+BEGIN
+	program check_markerResults
+	Submit
+END
+
+INCLUDE gr_yaxis
+INCLUDE gr_xaxis
+INCLUDE gr_titles
+INCLUDE gr_legend
+INCLUDE gr_overall
+INCLUDE gr_byopts
+
+PROGRAM command
+BEGIN
+	put "mdsshepard "
+	beginoptions
+		option main.ck_separate
+		option main.ck_notransform
+		option main.ck_autoaspect
+		put " " markerResults " "
+
+		put " " /program gr_yaxis_output
+		put " " /program gr_xaxis_output
+		put " " /program gr_titles_output
+		put " " /program gr_legend_output
+		put " " /program gr_overall_output
+		put " " /program gr_byopts_output
+	endoptions
+END

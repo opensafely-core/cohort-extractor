@@ -1,0 +1,184 @@
+//				compass2dir
+//
+//  Style for compass directions with 1 direction between N, E, S, and W.
+//
+//  Also allows Top for north, Bottom for south, Left for west, and Right for
+//  for east.
+*! version 1.0.6  13feb2015  
+version 8
+
+class {
+    class:
+    	_nms_for_pi = { "east",  "neast", "north", "nwest", "west", 	///
+		        "swest", "south", "seast", "east",  "neast",	///
+			"center", "default" }
+					// so we can be certain of order
+
+} , inherit(codestyle)
+
+
+// ---------------------------------------------------------------------------
+// Returns the angle associated with the direction.
+//
+// Note, does not matter what "center" or "default" returns, nothing would 
+// be useful.
+
+program angle
+	class exit = (`._nms_for_pi.arrindexof `.stylename''-1) * c(pi) / 4
+end
+
+
+// ---------------------------------------------------------------------------
+// Whether the direction is any of the East directions
+
+program iseast
+	class exit = index("`.stylename'", "east")
+end
+
+// ---------------------------------------------------------------------------
+// Whether the direction is any of the West directions
+
+program iswest
+	class exit = index("`.stylename'", "west")
+end
+
+// ---------------------------------------------------------------------------
+// Whether the direction is any of the North directions
+
+program isnorth
+	class exit = bsubstr("`.stylename'", 1, 1) == "n" 
+end
+
+// ---------------------------------------------------------------------------
+// Whether the direction is any of the South directions
+
+program issouth
+	class exit = bsubstr("`.stylename'", 1, 1) == "s"
+end
+
+
+// ---------------------------------------------------------------------------
+// Whether the direction is any of the East directions or is center
+
+program iseast_orcenter
+	class exit = index("`.stylename'", "east")  |		///
+		     "`.stylename'" == "center"
+end
+
+// ---------------------------------------------------------------------------
+// Whether the direction is any of the West directions or is center
+
+program iswest_orcenter
+	class exit = index("`.stylename'", "west")  |		///
+		     "`.stylename'" == "center"
+end
+
+// ---------------------------------------------------------------------------
+// Whether the direction is any of the North directions or is center
+
+program isnorth_orcenter
+	class exit = bsubstr("`.stylename'", 1, 1) == "n"  |	///
+		     "`.stylename'" == "center"
+end
+
+// ---------------------------------------------------------------------------
+// Whether the direction is any of the South directions or is center
+
+program issouth_orcenter
+	class exit = bsubstr("`.stylename'", 1, 1) == "s"  |	///
+		     "`.stylename'" == "center"
+end
+
+
+// ---------------------------------------------------------------------------
+
+program _unabbrev
+
+	local 0 , `0'
+
+	syntax [ , North South East West NWest NEast SWest SEast Center	///
+		   Top Bottom Left Right * ]
+
+	if length(`"`options'"') <= 2 {
+							// possibly map capital
+							// abbreviations
+		local c = bsubstr(`"`options'"', 1, 1)
+		local wc 0`:word count `north' `south' `east' `west'	///
+			  `nwest' `neast' `swest' `seast' `center''
+		if "`c'" > "A" & "`c'" < "X" & `wc' == 0 {
+			if `"`options'"' == "N" {
+				class exit "north"
+			}
+			if `"`options'"' == "S" {
+				class exit "south"
+			}
+			if `"`options'"' == "E" {
+				class exit "east"
+			}
+			if `"`options'"' == "W" {
+				class exit "west"
+			}
+			if `"`options'"' == "NE" {
+				class exit "neast"
+			}
+			if `"`options'"' == "NW" {
+				class exit "nwest"
+			}
+			if `"`options'"' == "SE" {
+				class exit "seast"
+			}
+			if `"`options'"' == "SW" {
+				class exit "swest"
+			}
+
+			if `"`options'"' == "T" {
+				class exit "north"
+			}
+			if `"`options'"' == "B" {
+				class exit "south"
+			}
+			if `"`options'"' == "R" {
+				class exit "east"
+			}
+			if `"`options'"' == "L" {
+				class exit "west"
+			}
+		}
+
+							// possibly map 1-12
+							// clock positions
+		capture confirm number `options'
+		if _rc == 0 & `wc' == 0 {
+		    if `options' >= 0 & `options' <= 12 {
+			local nm : word `=`options'+1' of		///
+				center neast neast east seast seast	///
+				south swest swest west nwest nwest north
+			class exit "`nm'"
+		    }
+		}
+	}
+
+	local name `north' `south' `east' `west' `nwest' `neast'	///
+		   `swest' `seast' `center' `options'
+
+	local udname `top' `bottom' `left' `right'
+
+	if "`udname'" != "" & "`name'" == "" {
+		if "`udname'" == "top" {
+			class exit "north"
+		}
+		if "`udname'" == "bottom" {
+			class exit "south"
+		}
+		if "`udname'" == "left" {
+			class exit "west"
+		}
+		if "`udname'" == "right" {
+			class exit "east"
+		}
+	}
+
+	class exit "`name' `udname'"
+
+end
+

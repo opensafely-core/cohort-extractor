@@ -1,0 +1,294 @@
+/*                                _gm_undo
+
+	Class for managing the graphics undo log.
+*/
+*! version 1.1.3  29jan2015
+
+version 10
+
+class {
+    class:
+    	sz = 500
+
+    instance:
+    	array edits			// array or arrays (sets) to 
+					//    undo edits, references to logs
+					//    holding the edits. managed as a
+					//    circular list
+
+	nxt   = 1			// index of next open undo edit
+	undex = -`.sz'			// index of next undo edit, 
+					//       if negative, already undone
+					//       or nothing to undo
+					//       and no more to undo
+
+	in_set		= 0		// 1 if in a set of edits, 0 otherwise
+	end_soon	= 0		// flag to other so end set soon
+
+} , inherit(object)
+
+
+/* -------------------------------------------------------------------------*/
+/* Add an edit to the list that can be undone.  Must specify the name of the
+   log and number of lines in the log that correspond to the edit.  Edits must
+   already be in the log.
+*/
+program add
+
+	args logname num_edits
+
+	local idx = 0`.`logname'.arrnels'
+
+	if `idx'-`num_edits' < 0 {
+		di as text "`logname' not found or `num_edits' is too large"
+		exit 198					/* EXIT */
+	}
+
+	if (! `.in_set')  .collapse_redos
+
+	if ("`.edits[`.nxt'].isa'"    == "") .edits[`.nxt'] = {}
+
+	local setnxt = 0`.edits[`.nxt'].arrnels' + 1
+	if ("`.edits[`.nxt'][`setnxt'].isa'" == "")			///
+		.edits[`.nxt'][`setnxt'] = ._gm_undoedit.new
+
+
+	.edits[`.nxt'][`setnxt'].log     = "`logname'"
+	.edits[`.nxt'][`setnxt'].logdex  = `idx'
+	.edits[`.nxt'][`setnxt'].n_edits = `num_edits'
+
+
+	if (! `.in_set') {
+		.undex = `.nxt'
+		._update_nxt
+		.set_title
+
+	}
+
+end
+
+// --------------------------------------------------------------------------
+// Start/End a set of edits that are to be undone as a group.  
+// Several -.add-s may occur within a set.
+
+program begin_set
+	.in_set = 1
+	.collapse_redos
+end
+
+
+program end_set
+
+	.end_soon = 0
+
+	if (! `.in_set')  		   exit			// Exit
+	.in_set = 0
+
+	if (! 0`.edits[`.nxt'].arrnels')   exit			// Exit
+	
+	.undex = `.nxt'
+	._update_nxt
+end
+
+// --------------------------------------------------------------------------
+// Sets the title for the current undo.  
+//      Usage:  set_title [object_name]
+
+program set_title
+	args viewnm
+
+	if (! 0`.edits[`.undex'].arrnels')  exit		// Exit
+
+	forvalues j = 1/0`.edits[`.undex'].arrnels' {
+		local try `"`.edits[`.undex'][`j'].edit_name'"'
+		if `j' == 1 {
+			local edit `"`try'"'
+			if strpos("`try'", "add") {
+				local noview = 1
+				continue, break
+			}
+		}
+		else {
+			if `"`try'"' != `"`edit'"' {
+				local edit "edits"
+				continue, break
+			}
+		}
+	}
+
+	if (bsubstr("`viewnm'",1,6)=="__key(") local viewnm "organization"
+
+	if `"`viewnm'"' == `""' | 0`noview' {
+		.edits[`.undex'][1].title = `"`edit'"'
+	}
+	else {
+		.edits[`.undex'][1].title = `"`viewnm' `edit'"'
+	}
+end
+
+
+/* -------------------------------------------------------------------------*/
+/* Undo the most recently logged edit.  This removes the edit 
+   its log and moves the redo index.  It does not redraw the edited object.
+*/
+
+program undo
+
+	if 0`.edits[`.undex'].arrnels' == 0 {		// includes neg undex
+		di as text "note: nothing to undo"
+		exit						// Exit
+	}
+
+						// undo all edits in the set
+
+	forvalues j = `.edits[`.undex'].arrnels'(-1)1 {
+		local edit edits[`.undex'][`j']
+		local log  `.`edit'.log'
+		local logidx = 0`.`log'.arrnels'
+
+		if `logidx' < 0`.`edit'.logdex' {
+		    di as error "undo edit has become invalid, no longer in log"
+		    local rc 198
+		}
+		else {
+			if `logidx'-`.`edit'.n_edits' < 0 {
+			 di as error "undo implies more edits than log contains"
+			 local rc 198
+			}
+		}
+
+		if ! 0`rc' {
+			.`edit'.backup_edits 
+			.`edit'.erase_edits
+		}
+	}
+
+	local try = cond(`.undex'==1, `.sz', `.undex'-1)
+	if ((! 0`.edits[`try'].arrnels') | `try' == `.nxt') .undex = -`.undex'
+	else						    .undex = `try'
+
+	class exit `"`._topname `log''"'
+end
+
+
+// ---------------------------------------------------------------------------
+// Redoes the last undo
+
+program redo
+
+	local redex = cond(`.undex' < 0,				    ///
+		     cond(0`.edits[-`.undex'].arrnels', -`.undex', `.nxt'), ///
+		     cond(`.undex'==`.sz', 1, `.undex'+1))
+
+	if (`redex' == `.nxt') {
+		di as text "note: nothing to redo"
+		class exit = 0
+	}
+
+	forvalues j = 1/0`.edits[`redex'].arrnels' {
+		.edits[`redex'][`j'].repost_edits
+	}
+
+	.undex = `redex'
+
+	class exit = 1
+end
+
+// --------------------------------------------------------------------------
+// Remove all the undo entries that have yet to be been redone
+
+program collapse_redos
+	
+	local clear0 = cond(`.undex' < 0, 				    ///
+		     cond(0`.edits[-`.undex'].arrnels', -`.undex', `.nxt'), ///
+		     cond(`.undex'==`.sz', 1, `.undex'+1))
+
+	if (`clear0' == `.nxt')  exit					// Exit
+
+	local clear = `clear0'
+	while `clear' != `.nxt' {
+		._clear_i `clear'
+		local clear = cond(`clear'==`.sz', 1, `clear'+1)
+	}
+
+	.nxt = `clear0'
+
+	.undex = - cond(`.nxt'==1, `.sz', `.nxt'-1)
+end
+
+
+/* -------------------------------------------------------------------------*/
+/* Clear all edits.
+*/
+
+program clear
+
+	forvalues i=1/`.sz' {
+		._clear_i `i'
+	}
+end
+
+// --------------------------------------------------------------------------
+// Return the title for the undo and redo titles for the menus.
+
+program UndoTitle
+	class exit "`.edits[`.undex'][1].title'"
+						// handles neg as blank
+end
+
+program RedoTitle
+	local redex = cond(`.undex' < 0,				    ///
+		     cond(0`.edits[-`.undex'].arrnels', -`.undex', `.nxt'), ///
+		     cond(`.undex'==`.sz', 1, `.undex'+1))
+
+	if (`redex' == `.nxt')  class exit ""
+	else			class exit "`.edits[`redex'][1].title'"
+end
+
+
+// --------------------------------------------------------------------------
+// Return the title for the undo and redo titles for the menus.
+
+program any_undos
+
+							// includes neg undex
+	class exit =  0`.edits[`.undex'].arrnels' 	
+
+end
+
+
+/* -------------------------------------------------------------------------*/
+program debug
+	di ".nxt = `.nxt'  .undex = `.undex'"
+	forvalues i = 1/`.sz' {
+	    forvalues j = 1/0`.edits[`i'].arrnels' {
+		capture noi di ".edits[`i'][`j']: "			///
+			       "log `.edits[`i'][`j'].log' "		///
+			       "logdex=`.edits[`i'][`j'].logdex' "	///
+			       "n_edits=`.edits[`i'][`j'].n_edits'"
+		forvalues k=0/`=`.edits[`i'][`j'].n_edits'-1' {
+		    cap noi di "{p 4 4 8}"				///
+`"`macval(.`.edits[`i'][`j'].log'[`.edits[`i'][`j'].logdex'+`k'])'{p_end}"'
+		}
+	    }
+	}
+end
+
+
+/* -------------------------------------------------------------------------*/
+
+program _update_nxt
+	.nxt = cond(`.nxt'==`.sz', 1, `.nxt'+1)
+	._clear_nxt
+end
+
+program _clear_nxt
+	._clear_i `.nxt'
+end
+
+program _clear_i
+	args i
+
+	if ("`.edits[`i'].isa'" != "")  .edits[`i'] = {}
+end
+

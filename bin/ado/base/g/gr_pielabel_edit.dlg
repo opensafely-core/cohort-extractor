@@ -1,0 +1,133 @@
+/*
+    gr_pielabel_edit.dlg
+
+*!  VERSION 1.1.2  22mar2017
+
+*/
+
+VERSION 15.0
+
+INCLUDE _std_vsmall
+DEFINE _dlght 215
+INCLUDE header_gr_child
+
+DEFINE _clwd	15
+DEFINE _wd	120
+DEFINE _sep	+125
+DEFINE _wd2	110
+DEFINE _sep2	+115
+DEFINE _cbwd	120
+DEFINE _cbsep	+125
+
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource GR_PIELABEL_EDIT_DLG_HSCALE
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN) title(resource LBL_PIE_SLICE_PROPERTIES)
+BEGIN
+  GROUPBOX gb_pie	_lft	_top	_iwd	_ht16h,		///
+	label(resource LBL_GB_LABEL_PROPERTIES)
+
+  TEXT     tx_label	_ilft	_ss	_wd	.,		///
+	label(resource LBL_LABEL_TYPE) right
+  COMBOBOX cb_label	_sep	@	_cbwd	.,		///
+	dropdownlist 						///
+	contents(label_type) values(label_type_values)
+
+  TEXT     tx_clr	_ilft	_mls	_wd	.,		///
+	label(resource LBL_COLOR) right
+  COMBOBOX cb_clr	_sep	@	_cbwd	.,		///
+	dropdownlist contents(colors) option(color)		///
+	onselchangelist(main_cl_clr_sel)
+  COLOR    cl_clr	_cbsep	@	_clwd	., option(color)
+  TEXT     tx_opacity	_ilft	_mls	_wd	.,		///
+	label(resource LBL_OPACITY) right
+  SPINNER sp_opacity	_sep	@	_spwd	.,		///
+	default(100)						///
+	min(0)							///
+	max(100)
+
+  TEXT     tx_size	_ilft	_mls	_wd	.,		///
+	label(resource LBL_SIZE) right
+  COMBOBOX cb_size	_sep	@	_cbwd	.,		///
+	dropdownlist option(size)				///
+	contents(textsizes)
+
+  TEXT     tx_orient	_ilft	_mls	_wd	.,		///
+	label(resource LBL_ORIENTATION) right
+  COMBOBOX cb_orient	_sep	@	_cbwd	.,		///
+	dropdownlist option(orientation)			///
+	contents(orientation) values(orientation_values)
+
+  TEXT     tx_format	_ilft	_mls	_wd	.,		///
+	label(resource LBL_FORMAT) right
+  EDIT     ed_format	_sep	@	_cbwd	.,		///
+	option(format)
+  BUTTON   bu_format   _cbsep	@	_clwd	.,		///
+	label(..) onpush(script mainGetFormat)			///
+	tooltip(resource LBL_CREATE_DISPLAY_FORMAT)
+END
+
+SCRIPT mainGetFormat
+BEGIN
+	create STRING labelFormat
+	create CHILD format_chooser
+	format_chooser.setExitString labelFormat
+	format_chooser.setExitAction "main.ed_format.setvalue class labelFormat.value"
+END
+
+INCLUDE gr_orientation
+
+LIST label_type_values
+BEGIN
+	""
+	sum
+	percent
+	name
+END
+LIST label_type
+BEGIN
+	resource LBL_NONE
+	resource LBL_SUM
+	resource LBL_PERCENT
+	resource LBL_TX_NAME
+END
+
+LIST main_cl_clr_sel
+BEGIN
+	main.cl_clr.hide
+	main.cl_clr.show
+	main.cl_clr.hide
+END
+
+PROGRAM command
+BEGIN
+	put main.cb_label
+	beginoptions
+		if (main.cb_clr.isneq("") | main.sp_opacity.isneq(100)) {
+			put "color("
+			if (main.cb_clr.iseq("custom")) {
+				put `"""' main.cl_clr
+				if (main.sp_opacity.isneq(100)) {
+					put " %" main.sp_opacity
+				}
+				put `"""'
+			}
+			else {
+				if (main.cb_clr.isneq("")) {
+					put main.cb_clr
+				}
+				if (main.sp_opacity.isneq(100)) {
+					put "%" main.sp_opacity
+				}
+			}
+			put ")"
+		}		
+		optionarg /hidedefault main.cb_size
+		optionarg /hidedefault main.cb_orient
+		optionarg main.ed_format
+	endoptions
+END

@@ -1,0 +1,1936 @@
+/*
+  sg__variables_prop.dlg
+
+*!  VERSION 1.2.5  03jun2015
+
+*/
+
+VERSION 14.0
+MODAL
+
+INCLUDE _std_mlarge
+DEFINE _dlght 390
+INCLUDE header_sem_ed
+
+DEFINE _clwd	15
+DEFINE _wd	160
+DEFINE _sep	+165
+DEFINE _wd2	110
+DEFINE _sep2	+115
+DEFINE _cbwd	125
+DEFINE _cbsep	+130
+
+INCLUDE sg__common_output		/* routines necessary for output */
+
+SCRIPT PREINIT
+BEGIN
+	create STRING STMP
+	script sg__common_output_init 	/* initialize output globals */
+
+	create STRING OBJ
+	program setupOBJECT
+
+	create STRING sTemp
+	create DOUBLE dTemp
+	create STRING sVarType		// observed(1) / latent(2) / other(<multiple>)
+	create STRING sSrcType
+	create STRING sSrcTypeOrig
+	create STRING sIsExog
+	create DOUBLE nSelected 
+	create BOOLEAN bLatent		/* latent only 		*/
+	create BOOLEAN bObserved	/* observed only 	*/
+	create BOOLEAN bExogenous	/* exogenous only 	*/
+	create BOOLEAN bEndogenous	/* endogenous only	*/
+	create BOOLEAN bML		/* Multilevel latent	*/
+	create BOOLEAN bGLM		/* Generalized response */
+	create STRING sTTLSuffix
+
+	program global_get_defaults
+	program setup_title
+	setscale_hadj resource SG__VARIABLES_PROP_DLG_HSCALE
+END
+
+PROGRAM setup_title_suffix
+BEGIN
+	if (sSrcTypeOrig.iseq("allnodes")) {
+	call sTTLSuffix.setvalue resource LBL_TITLE_SUFFIX_ALL_VARIABLES
+	}
+	if (sSrcTypeOrig.iseq("latent")) {
+	call sTTLSuffix.setvalue resource LBL_TITLE_SUFFIX_ALL_LATENT
+	}
+	if (sSrcTypeOrig.iseq("lstd")) {
+	call sTTLSuffix.setvalue resource LBL_TITLE_SUFFIX_ALL_LATENT_STANDARD
+	}
+	if (sSrcTypeOrig.iseq("lml")) {
+	call sTTLSuffix.setvalue resource LBL_TITLE_SUFFIX_ALL_LATENT_MULTILEVEL
+	}
+	if (sSrcTypeOrig.iseq("lstdexog")) {
+	call sTTLSuffix.setvalue resource LBL_TITLE_SUFFIX_LATENT_STANDARD_EXOGENOUS
+	}
+	if (sSrcTypeOrig.iseq("lstdendog")) {
+	call sTTLSuffix.setvalue resource LBL_TITLE_SUFFIX_LATENT_STANDARD_ENDOGENOUS
+	}
+	if (sSrcTypeOrig.iseq("lmlexog")) {
+	call sTTLSuffix.setvalue resource LBL_TITLE_SUFFIX_LATENT_MULTILEVEL_EXOGENOUS
+	}
+	if (sSrcTypeOrig.iseq("lmlendog")) {
+	call sTTLSuffix.setvalue resource LBL_TITLE_SUFFIX_LATENT_MULTILEVEL_ENDOGENOUS
+	}
+	if (sSrcTypeOrig.iseq("observed")) {
+	call sTTLSuffix.setvalue resource LBL_TITLE_SUFFIX_ALL_OBSERVED
+	}
+	if (sSrcTypeOrig.iseq("olin")) {
+	call sTTLSuffix.setvalue resource LBL_TITLE_SUFFIX_ALL_OBSERVED_LINEAR
+	}
+	if (sSrcTypeOrig.iseq("oglm")) {
+	call sTTLSuffix.setvalue resource LBL_TITLE_SUFFIX_ALL_OBSERVED_GENERALIZED
+	}
+	if (sSrcTypeOrig.iseq("olinexog")) {
+	call sTTLSuffix.setvalue resource LBL_TITLE_SUFFIX_OBSERVED_LINEAR_EXOGENOUS
+	}
+	if (sSrcTypeOrig.iseq("olinendog")) {
+	call sTTLSuffix.setvalue resource LBL_TITLE_SUFFIX_OBSERVED_LINEAR_ENDOGENOUS
+	}	
+	if (sSrcTypeOrig.iseq("error")) {
+	call sTTLSuffix.setvalue resource LBL_TITLE_SUFFIX_ALL_ERRORS
+	}
+	if (sSrcTypeOrig.iseq("oerror")) {
+	call sTTLSuffix.setvalue resource LBL_TITLE_SUFFIX_OBSERVED_ERRORS
+	}
+	if (sSrcTypeOrig.iseq("lerror")) {
+	call sTTLSuffix.setvalue resource LBL_TITLE_SUFFIX_LATENT_ERRORS
+	}
+	
+	if (sSrcTypeOrig.iseq("selected")) {
+	call sTTLSuffix.setvalue resource LBL_TITLE_SUFFIX_SELECTED_VARIABLES
+	}
+	if (sSrcTypeOrig.iseq("selerror")) {
+	call sTTLSuffix.setvalue resource LBL_TITLE_SUFFIX_SELECTED_ERRORS
+	}
+END
+
+PROGRAM setup_title
+BEGIN
+	call program setup_title_suffix
+	call sTTLSuffix.withvalue STMP.format			///
+			"resource LBL_TITLE_VARIABLE_SETTINGS_FMT" "@"
+	call STMP.withvalue settitle "@"
+END
+
+PROGRAM setupOBJECT
+BEGIN
+	if ! __MESSAGE {
+		stopbox stop resource LBL_MSGBOX_OBJECT_NOT_FOUND
+// An unexpected error has occurred. Object not found.
+		exit 198
+	}
+	call OBJ.setvalue class __MESSAGE.value
+END
+
+PROGRAM global_get_defaults
+BEGIN
+	call sSrcType.setvalue class .__SEMG.dbsettings.source
+	call sSrcTypeOrig.setvalue class .__SEMG.dbsettings.source
+	
+	if (sSrcType.iseq("selected")) {
+		call sSrcType.setvalue "nodestyle"
+	}
+
+	call nSelected.setvalue class .__SEMG.dbsettings.n_selected
+	if (!nSelected) {
+		call nSelected.setvalue 0
+	}
+
+	call bLatent.setfalse
+	call bObserved.setfalse
+	call sVarType.setvalue class .__SEMG.dbsettings.type
+	// 1=observed, 2=latent, <multiple>
+	if (sVarType.iseq("1")) { 
+		call bObserved.settrue
+	}
+	if (sVarType.iseq("2")) {
+		call bLatent.settrue
+	}
+	
+	call bML.setfalse
+	call sTemp.setvalue class .__SEMG.dbsettings.isml
+	if (sTemp.iseq("1") | sTemp.iseq(".")) {
+		call bML.settrue
+	}
+	
+	call bGLM.setfalse
+	call sTemp.setvalue class .__SEMG.dbsettings.isglm
+	if (sTemp.iseq("1") | sTemp.iseq(".")) {
+		call bGLM.settrue
+	}
+	
+	call bExogenous.setfalse
+	call bEndogenous.setfalse
+	call sIsExog.setvalue class .__SEMG.dbsettings.isexog
+	// 1=exogenous, 0=endogenous, <multiple>
+	if (sIsExog.iseq("1")) { 
+		call bExogenous.settrue
+	}
+	if (sIsExog.iseq("0")) {
+		call bEndogenous.settrue
+	}
+END
+
+SCRIPT shape_PREINIT
+BEGIN
+	create STRING sSpX
+	create STRING sSpY
+	create STRING sSpOwidth
+	create STRING sSpOcolor
+	create STRING sSpFcolor
+	create STRING sSpMLOval
+	create STRING sSpMLOffset
+	program shape_get_defaults
+END
+
+SCRIPT shape_POSTINIT
+BEGIN
+	program shape_initialize_controls
+END
+
+PROGRAM shape_get_defaults
+BEGIN
+	call sSrcType.withvalue sSpX.setvalue class .__SEMG.dbsettings.@_xsize
+	call sSrcType.withvalue sSpY.setvalue class .__SEMG.dbsettings.@_ysize
+	call sSpX.withvalue shape.cb_width.setdefault "@"
+	call sSpY.withvalue shape.cb_height.setdefault "@"
+	
+	call sSrcType.withvalue sSpOwidth.setvalue class .__SEMG.dbsettings.@_line_width
+	call sSpOwidth.withvalue shape.cb_owidth.setdefault "@"
+
+	call sSrcType.withvalue sSpOcolor.setvalue class .__SEMG.dbsettings.@_line_color
+	call sSpOcolor.withvalue shape.cb_ocolor.setdefault "@"
+
+	call sSrcType.withvalue sSpFcolor.setvalue class .__SEMG.dbsettings.@_fillcolor
+	call sSpFcolor.withvalue shape.cb_fcolor.setdefault "@"
+
+	call sSrcType.withvalue sSpMLOval.setvalue class .__SEMG.dbsettings.@_mlovals
+	call sSpMLOval.withvalue shape.cb_mlovals.setdefault "@"
+
+	call sSrcType.withvalue sSpMLOffset.setvalue class .__SEMG.dbsettings.@_mloffset
+	call sSpMLOffset.withvalue shape.cb_iooff.setdefault "@"
+END
+
+PROGRAM shape_initialize_controls
+BEGIN
+	call shape.cb_width.setvalue class sSpX.value
+	call shape.cb_height.setvalue class sSpY.value
+	call shape.cb_owidth.setvalue class sSpOwidth.value
+
+	call shape.cb_ocolor.setvalue class sSpOcolor.value 
+	call shape.cb_fcolor.setvalue class sSpFcolor.value
+
+	call shape.cb_mlovals.setvalue class sSpMLOval.value
+	call shape.cb_iooff.setvalue class sSpMLOffset.value
+	if (bML) {
+		call shape.cb_mlovals.enable
+		call shape.cb_iooff.enable
+	}
+	else {
+		call shape.cb_mlovals.disable
+		call shape.cb_iooff.disable
+	}
+END
+
+DIALOG shape, label(resource LBL_VARIABLE_PROPERTIES) tabtitle(resource LBL_BOX_OVAL)
+BEGIN
+  TEXT     tx_size	_lft	_top	_wd	.,		///
+	label(resource LBL_SIZE) right 
+  COMBOBOX cb_width	_sep	@	50	., nomemory	///
+	dropdown contents(__SEM_STYLES_LABEL.size)		///
+	values(__SEM_STYLES.size)
+  TEXT     tx_x		+55	@	17	.,		///
+	label(resource LBL_X_LOWERCASE) center 
+  COMBOBOX cb_height	+20	@	50	., nomemory	///
+	dropdown contents(__SEM_STYLES_LABEL.size)		///
+	values(__SEM_STYLES.size)
+  TEXT     tx_size_m	+55	@	50	.,		///
+	label(resource LBL_PAREN_IN_PAREN)
+
+  TEXT     tx_owidth	_lft	_mls	_wd	.,		///
+	label(resource LBL_OUTLINE_WIDTH) right
+  COMBOBOX cb_owidth	_sep	@	_cbwd	., nomemory	///
+	dropdown contents(.__SEM_STYLES_LABEL.width)		///
+	values(.__SEM_STYLES.width)
+  TEXT     tx_width_m	_cbsep	@	50	.,		///
+	label(resource LBL_PT)
+
+  TEXT     tx_ocolor	_lft	_mls	_wd	.,		///
+	label(resource LBL_OUTLINE_COLOR) right
+  COMBOBOX cb_ocolor	_sep	@	_cbwd	., nomemory	///
+	dropdown contents(.__SEM_STYLES_LABEL.color)		///
+	values(.__SEM_STYLES.color)
+
+  TEXT     tx_fcolor	_lft	_mls	_wd	.,		///
+	label(resource LBL_FILL_COLOR) right
+  COMBOBOX cb_fcolor	_sep	@	_cbwd	., nomemory	///
+	dropdown contents(.__SEM_STYLES_LABEL.color)		///
+	values(.__SEM_STYLES.color)
+
+  TEXT     tx_mlovals	_lft	_mls	_wd	.,		///
+	label(resource SG__VARIABLES_PROP_SHAPE_TX_MLOVALS) right
+  COMBOBOX cb_mlovals	_sep	@	170	., nomemory	///
+	dropdown contents(.__SEM_STYLES_LABEL.mlovals)		///
+	values(.__SEM_STYLES.mlovals)
+
+  TEXT     tx_iooff	_lft	_mls	_wd	.,		///
+	label(resource SG__VARIABLES_PROP_SHAPE_TX_IOOFF) right
+  COMBOBOX cb_iooff	_sep	@	_cbwd	., nomemory	///
+	dropdown contents(.__SEM_STYLES_LABEL.gap)		///
+	values(.__SEM_STYLES.gap)
+  TEXT     tx_iooff_m 	_cbsep	@	50	.,		///
+	label(resource LBL_PT)
+END
+
+PROGRAM shape_output
+BEGIN
+	call program shape_get_defaults
+
+	call create STRING shapeTmp
+	if (sSrcType.iseq("nodestyle")) {
+		call shapeTmp.setvalue "SetStyleSelected"
+	}
+	else { 
+		call shapeTmp.setvalue "SetStyle"
+	}
+	if (!shape.cb_width.isdefault()) {
+		call dTemp.setvalue class shape.cb_width.value
+		call sTemp.setvalue class shape.cb_width.value
+		if (!dTemp & dTemp.isneq(0) & sTemp.isneq("<multiple>")) {
+			call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_CONTAINS_A_NONNUMERIC_VALUE_FMT" ///
+				"resource LBL_BOX_OVAL" 		///
+				"resource LBL_TAB_SIZE"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Box/Oval" tab, "Size" contains a nonnumeric value.
+		}
+		call sg__PARAM2.setvalue class shapeTmp.value
+		call sg__ARG_00.setvalue class sSrcType.value
+		call sg__ARG_00.append ".xsize"
+		call sg__ARG_01.setvalue class shape.cb_width.value
+		put /program sg__do_output_sub
+	}
+	if (!shape.cb_height.isdefault()) {
+		call dTemp.setvalue class shape.cb_height.value
+		call sTemp.setvalue class shape.cb_height.value
+		if (!dTemp & dTemp.isneq(0) & sTemp.isneq("<multiple>")) {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_CONTAINS_A_NONNUMERIC_VALUE_FMT" ///
+				"resource LBL_BOX_OVAL" 		///
+				"resource LBL_TAB_SIZE"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Box/Oval" tab, "Size" contains a nonnumeric value.
+		}
+		call sg__PARAM2.setvalue class shapeTmp.value
+		call sg__ARG_00.setvalue class sSrcType.value
+		call sg__ARG_00.append ".ysize"
+		call sg__ARG_01.setvalue class shape.cb_height.value
+		put /program sg__do_output_sub
+	}
+
+	if (!shape.cb_owidth.isdefault()) {
+		call dTemp.setvalue class shape.cb_owidth.value
+		call sTemp.setvalue class shape.cb_owidth.value
+		if (!dTemp & dTemp.isneq(0) & sTemp.isneq("<multiple>")) {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_CONTAINS_A_NONNUMERIC_VALUE_FMT" ///
+				"resource LBL_BOX_OVAL" 		///
+				"resource LBL_OUTLINE_WIDTH"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Box/Oval" tab, "Outline width" contains a nonnumeric value.
+		}
+		call sg__PARAM2.setvalue class shapeTmp.value
+		call sg__ARG_00.setvalue class sSrcType.value
+		call sg__ARG_00.append ".line.width"
+		call sg__ARG_01.setvalue class shape.cb_owidth.value
+		put /program sg__do_output_sub
+	}
+
+	if (!shape.cb_ocolor.isdefault()) {
+		call sg__PARAM2.setvalue class shapeTmp.value
+		call sg__ARG_00.setvalue class sSrcType.value
+		call sg__ARG_00.append ".line.color"
+		call sg__ARG_01.setvalue class shape.cb_ocolor.value
+		put /program sg__do_output_sub
+	}
+
+	if (!shape.cb_fcolor.isdefault()) {
+		call sg__PARAM2.setvalue class shapeTmp.value
+		call sg__ARG_00.setvalue class sSrcType.value
+		call sg__ARG_00.append ".fillcolor"
+		call sg__ARG_01.setvalue class shape.cb_fcolor.value
+		put /program sg__do_output_sub
+	}
+
+	if (shape.cb_mlovals.isenabled() & !shape.cb_mlovals.isdefault()) {
+		call sg__PARAM2.setvalue class shapeTmp.value
+		call sg__ARG_00.setvalue class sSrcType.value
+		call sg__ARG_00.append ".mlovals"
+		call sg__ARG_01.setvalue class shape.cb_mlovals.value
+		put /program sg__do_output_sub
+	}
+
+	if (!shape.cb_iooff.isdefault()) {
+		call dTemp.setvalue class shape.cb_iooff.value
+		call sTemp.setvalue class shape.cb_iooff.value
+		if (!dTemp & dTemp.isneq(0) & sTemp.isneq("<multiple>")) {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_CONTAINS_A_NONNUMERIC_VALUE_FMT" ///
+				"resource LBL_BOX_OVAL" 		///
+				"resource SG__VARIABLES_SHAPE_TX_IOOFF"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Box/Oval" tab, "Inner oval offset" contains a nonnumeric value.
+		}
+		call sg__PARAM2.setvalue class shapeTmp.value
+		call sg__ARG_00.setvalue class sSrcType.value
+		call sg__ARG_00.append ".mloffset"
+		call sg__ARG_01.setvalue class shape.cb_iooff.value
+		put /program sg__do_output_sub
+	}
+END
+
+/****************************************************************************/
+
+SCRIPT label_PREINIT
+BEGIN
+	create STRING sLblObsLabel
+	create STRING sLblLatLabel
+	create STRING sLblMLLabel
+	create STRING sLblPos
+	create STRING sLblPosRef
+	create STRING sLblBGap
+	create STRING sLblOffsetX
+	create STRING sLblOffsetY
+	create STRING sLblFontSz
+	create STRING sLblFontClr
+	create STRING sLblFontFace
+	create BOOLEAN bLblBold
+	create BOOLEAN bLblItalic
+	
+	create BOOLEAN bLblShowObs
+	create BOOLEAN bLblShowLat
+	create BOOLEAN bLblShowMlLat
+	
+	program label_get_defaults
+END
+
+SCRIPT label_POSTINIT
+BEGIN
+	program label_initialize_controls
+END
+
+PROGRAM label_get_defaults
+BEGIN
+	call sSrcType.withvalue sLblObsLabel.setvalue class .__SEMG.dbsettings.@_label_obslabtxt
+	call sLblObsLabel.withvalue label.ed_obslab.setdefault "@"
+
+	call sSrcType.withvalue sLblLatLabel.setvalue class .__SEMG.dbsettings.@_label_latlabtxt
+	call sLblLatLabel.withvalue label.ed_latlab.setdefault "@"
+
+	call sSrcType.withvalue sLblMLLabel.setvalue class .__SEMG.dbsettings.@_label_mllatlabtxt
+	call sLblMLLabel.withvalue label.ed_mllab.setdefault "@"
+
+	call sSrcType.withvalue sLblPos.setvalue class .__SEMG.dbsettings.@_label_pos
+	call sLblPos.withvalue label.cb_position.setdefault "@"
+
+	call sSrcType.withvalue sLblPosRef.setvalue class .__SEMG.dbsettings.@_label_inside
+	call sLblPosRef.withvalue label.cb_posref.setdefault "@"
+
+	call sSrcType.withvalue sLblBGap.setvalue class .__SEMG.dbsettings.@_label_gap
+	call sLblBGap.withvalue label.cb_bgap.setdefault "@"
+
+	call sSrcType.withvalue sLblOffsetX.setvalue class .__SEMG.dbsettings.@_label_xoffset
+	call sLblOffsetX.withvalue label.cb_offset_x.setdefault "@"
+
+	call sSrcType.withvalue sLblOffsetY.setvalue class .__SEMG.dbsettings.@_label_yoffset
+	call sLblOffsetY.withvalue label.cb_offset_y.setdefault "@"
+
+	call sSrcType.withvalue sLblFontSz.setvalue class .__SEMG.dbsettings.@_label_size
+	call sLblFontSz.withvalue label.cb_fsize.setdefault "@"
+
+	call sSrcType.withvalue sLblFontClr.setvalue class .__SEMG.dbsettings.@_label_color
+	call sLblFontClr.withvalue label.cb_fcolor.setdefault "@"
+
+	call sSrcType.withvalue sLblFontFace.setvalue class .__SEMG.dbsettings.@_label_face
+	call sLblFontFace.withvalue label.cb_fface.setdefault "@"
+
+	call sSrcType.withvalue sTemp.setvalue class .__SEMG.dbsettings.@_label_bold
+	if (sTemp.iseq(2)) {
+		call bLblBold.settrue
+		call label.ck_bold.setdefault 1
+	}
+	else {
+		call bLblBold.setfalse
+		call label.ck_bold.setdefault 0
+	}
+
+	call sSrcType.withvalue sTemp.setvalue class .__SEMG.dbsettings.@_label_italic
+	if (sTemp.iseq(2)) {
+		call bLblItalic.settrue
+		call label.ck_italic.setdefault 1
+	}
+	else {
+		call bLblItalic.setfalse
+		call label.ck_italic.setdefault 0
+	}
+
+
+	if (sSrcType.iseq("error") | sSrcType.iseq("lerror") |		///
+		sSrcType.iseq("oerror") | sVarType.iseq("4")) {
+		call label.cb_obslab.setcontentslist ".__SEM_STYLES_LABEL.errobslabel"
+		call label.cb_obslab.setvalueslist   ".__SEM_STYLES.errobslabel"
+		call label.cb_latlab.setcontentslist ".__SEM_STYLES_LABEL.errlatlabel"
+		call label.cb_latlab.setvalueslist   ".__SEM_STYLES.errlatlabel"
+	}
+	else {
+		call label.cb_obslab.setcontentslist ".__SEM_STYLES_LABEL.obslabel"
+		call label.cb_obslab.setvalueslist   ".__SEM_STYLES.obslabel"
+		call label.cb_latlab.setcontentslist ".__SEM_STYLES_LABEL.latlabel"
+		call label.cb_latlab.setvalueslist   ".__SEM_STYLES.latlabel"
+	}
+
+	call label.cb_mllab.setcontentslist ".__SEM_STYLES_LABEL.mllatlabel"
+	call label.cb_mllab.setvalueslist   ".__SEM_STYLES.mllatlabel"
+END
+
+PROGRAM label_initialize_controls
+BEGIN
+	call label.ed_obslab.setvalue class sLblObsLabel.value
+	call label.cb_obslab.setvalue class sLblObsLabel.value
+	call label.ed_latlab.setvalue class sLblLatLabel.value
+	call label.cb_latlab.setvalue class sLblLatLabel.value
+	call label.ed_mllab.setvalue class sLblMLLabel.value
+	call label.cb_mllab.setvalue class sLblMLLabel.value
+
+	call label.cb_position.setvalue class sLblPos.value
+	call label.cb_posref.setvalue class sLblPosRef.value
+	call label.cb_bgap.setvalue class sLblBGap.value
+	call label.cb_offset_x.setvalue class sLblOffsetX.value
+	call label.cb_offset_y.setvalue class sLblOffsetY.value
+	call label.cb_fsize.setvalue class sLblFontSz.value
+	call label.cb_fcolor.setvalue class sLblFontClr.value
+	call label.cb_fface.setvalue class sLblFontFace.value
+	
+	call bLblShowObs.setfalse
+	call bLblShowLat.setfalse
+	call bLblShowMlLat.setfalse
+	if (sVarType.iseq("1") | sVarType.iseq("4")	|	///
+		sVarType.iseq("<multiple>") 		| 	///
+		sVarType.iseq("."))				///
+	{ // observed
+		if (sSrcTypeOrig.iseq("allnodes") 	|	///
+			sSrcTypeOrig.iseq("observed") 	|	///
+			sSrcTypeOrig.iseq("olin") 	|	///
+			sSrcTypeOrig.iseq("oglm") 	|	///
+			sSrcTypeOrig.iseq("olinexog") 	|	///
+			sSrcTypeOrig.iseq("olinendog") 	|	///
+			sSrcTypeOrig.iseq("error") 	|	///
+			sSrcTypeOrig.iseq("oerror") 	|	///
+			sSrcTypeOrig.iseq("selected"))		///
+		{
+			call bLblShowObs.settrue
+		}
+	}
+	if (sVarType.iseq("2") | sVarType.iseq("4") 	|	///
+		sVarType.iseq("<multiple>") 		|	///
+		sVarType.iseq(".")) 				///
+	{ // latent
+		if (sSrcTypeOrig.iseq("allnodes") 	|	///
+			sSrcTypeOrig.iseq("latent") 	|	///
+			sSrcTypeOrig.iseq("lstd") 	|	///
+			sSrcTypeOrig.iseq("lstdexog") 	|	///
+			sSrcTypeOrig.iseq("lstdendog") 	|	///
+			sSrcTypeOrig.iseq("error")	|	///
+			sSrcTypeOrig.iseq("lerror")	|	///
+			sSrcTypeOrig.iseq("selected"))		///
+		{
+			call bLblShowLat.settrue
+		}
+	}
+
+	if (sVarType.iseq("2") | sVarType.iseq("4") 	|	///
+		sVarType.iseq("<multiple>") 		|	///
+		sVarType.iseq(".")) 				///
+	{ // latent multilevel
+		if (sSrcTypeOrig.iseq("allnodes") 	|	///
+			sSrcTypeOrig.iseq("latent") 	|	///
+			sSrcTypeOrig.iseq("lml") 	|	///
+			sSrcTypeOrig.iseq("lmlexog") 	|	///
+			sSrcTypeOrig.iseq("lmlendog") 	|	///
+			sSrcTypeOrig.iseq("error")	|	///
+			sSrcTypeOrig.iseq("lerror")	|	///
+			sSrcTypeOrig.iseq("selected"))		///
+		{
+			call bLblShowMlLat.settrue
+		}
+	}
+	
+	if (bML & bLblShowMlLat) {
+		call label.cb_mllab.enable
+		call label.ed_mllab.enable
+	}
+	else {
+		call label.cb_mllab.disable
+		call label.ed_mllab.disable
+	}
+
+	if (bLblShowObs | bLblShowLat) {
+		if (bLblShowObs & bLblShowLat) {
+			call label.cb_obslab.enable
+			call label.ed_obslab.enable
+			call label.cb_latlab.enable
+			call label.ed_latlab.enable
+		}
+		else {
+			if (bLblShowObs) {
+				call label.cb_obslab.enable
+				call label.ed_obslab.enable
+				call label.cb_latlab.disable
+				call label.ed_latlab.disable
+			}
+			if (bLblShowLat) {
+				call label.cb_obslab.disable
+				call label.ed_obslab.disable
+				call label.cb_latlab.enable
+				call label.ed_latlab.enable
+			}
+		}
+	}
+	else {
+		call label.cb_obslab.disable
+		call label.ed_obslab.disable
+		call label.cb_latlab.disable
+		call label.ed_latlab.disable
+	}
+
+	if (bLblBold) {
+		call label.ck_bold.seton
+	}
+	else {
+		call label.ck_bold.setoff
+	}
+	if (bLblItalic) {
+		call label.ck_italic.seton
+	}
+	else {
+		call label.ck_italic.setoff
+	}
+END
+
+PROGRAM label_obs_content_change
+BEGIN
+	if (label.cb_obslab.isEqualIgnoreCase("custom")) {
+		call label.ed_obslab.setvalue class sLblObsLabel.value
+	}
+	else {
+		call label.ed_obslab.setvalue class label.cb_obslab.value
+	}
+END
+
+PROGRAM label_lat_content_change
+BEGIN
+	if (label.cb_latlab.isEqualIgnoreCase("custom")) {
+		call label.ed_latlab.setvalue class sLblLatLabel.value
+	}
+	else {
+		call label.ed_latlab.setvalue class label.cb_latlab.value
+	}
+END
+
+PROGRAM label_ml_content_change
+BEGIN
+	if (label.cb_mllab.isEqualIgnoreCase("custom")) {
+		call label.ed_mllab.setvalue class sLblMLLabel.value
+	}
+	else {
+		call label.ed_mllab.setvalue class label.cb_mllab.value
+	}
+END
+
+PROGRAM label_check_position
+BEGIN
+	if (label.cb_position.iseq("0")) {
+		call label.cb_posref.disable
+		call label.cb_bgap.disable
+	}
+	else {
+		call label.cb_posref.enable
+		call label.cb_bgap.enable
+	}
+END
+
+DIALOG label, tabtitle(resource LBL_TAB_LABEL)
+BEGIN
+  GROUPBOX gb_label	_lft	_top	_iwd	_ht7h,		///
+	label(resource SG__VARIABLES_PROP_LABEL_GB_LABEL)
+
+  TEXT     tx_obslab	_ilft	_ss	105	.,		///
+	label(resource SG__VARIABLES_PROP_LABEL_TX_OBSLAB) right
+
+  COMBOBOX cb_obslab	+110	@	180	., nomemory	///
+	dropdownlist onselchange(program label_obs_content_change) 
+  EDIT     ed_obslab	+185	@	125	., nomemory
+
+  TEXT     tx_latlab	_ilft	_ms	105	.,		///
+	label(resource SG__VARIABLES_PROP_LABEL_TX_LATLAB) right
+
+  COMBOBOX cb_latlab	+110	@	180	., nomemory	///
+	dropdownlist onselchange(program label_lat_content_change)
+  EDIT     ed_latlab	+185	@	125	., nomemory
+
+  TEXT     tx_mllab	_ilft	_ms	105	.,		///
+	label(resource SG__VARIABLES_PROP_LABEL_TX_MLLAB) right
+
+  COMBOBOX cb_mllab	+110	@	180	., nomemory	///
+	dropdownlist onselchange(program label_ml_content_change)
+  EDIT     ed_mllab	+185	@	125	., nomemory
+
+  GROUPBOX gb_placement	_lft	+45	_iwd	_ht8,		///
+	label(resource LBL_PLACEMENT_NO_COLON)
+  TEXT     tx_position	_ilft	_ss	_wd	.,		///
+	label(resource LBL_POSITION) right
+  COMBOBOX cb_position	_sep	@	80	., nomemory	///
+	dropdown contents(.__SEM_STYLES_LABEL.clock)		///
+	values(.__SEM_STYLES.clock)				///
+	onselchange(program label_check_position)
+  COMBOBOX cb_posref	+85	@	80	., nomemory	///
+	dropdown contents(.__SEM_STYLES_LABEL.inside)		///
+	values(.__SEM_STYLES.inside)
+
+  TEXT     tx_bgap	_ilft	_mls	_wd	.,		///
+	label(resource LBL_BOUNDARY_GAP) right
+  COMBOBOX cb_bgap	_sep	@	80	., nomemory	///
+	dropdown contents(.__SEM_STYLES_LABEL.pointsize)	///
+	values(.__SEM_STYLES.pointsize)
+  TEXT     tx_bgap_m	+85	@	50	.,		///
+	label(resource LBL_PT)
+
+  TEXT     tx_offset	_ilft	_mls	_wd	.,		///
+	label(resource LBL_OFFSET) right 
+  COMBOBOX cb_offset_x	_sep	@	80	., nomemory	///
+	tooltip(resource LBL_X_OFFSET_NO_COLON) dropdown	///
+	contents(.__SEM_STYLES_LABEL.pointsize)			///
+	values(.__SEM_STYLES.pointsize)
+  COMBOBOX cb_offset_y	+85	@	80	., nomemory	///
+	tooltip(resource LBL_Y_OFFSET_NO_COLON) dropdown	///
+	contents(.__SEM_STYLES_LABEL.pointsize)			///
+	values(.__SEM_STYLES.pointsize)
+  TEXT     tx_offset_m	+85	@	50	.,		///
+	label(resource LBL_PT)
+
+  GROUPBOX gb_font	_lft	+45	_iwd	_ht10h,		///
+	label(resource LBL_FONT)
+  TEXT     tx_fsize	_ilft	_ss	_wd	.,		///
+	label(resource LBL_SIZE) right
+  COMBOBOX cb_fsize	_sep	@	80	., nomemory	///
+	dropdown contents(.__SEM_STYLES_LABEL.pointsize)	///
+	values(.__SEM_STYLES.pointsize)
+  TEXT     tx_fsize_m	+85	@	50	.,		///
+	label(resource LBL_PT)
+
+  TEXT     tx_fcolor	_ilft	_mls	_wd	.,		///
+	label(resource LBL_FONT_COLOR) right
+  COMBOBOX cb_fcolor	_sep	@	_cbwd	., nomemory	///
+	dropdown contents(.__SEM_STYLES_LABEL.color)		///
+	values(.__SEM_STYLES.color)
+
+  TEXT     tx_fface	_ilft	_mls	_wd	.,		///
+	label(resource LBL_FONT_FACE) right
+  COMBOBOX cb_fface	_sep	@	_cbwd	., nomemory	///
+	dropdown contents(.__SEM_STYLES_LABEL.face)		///
+	values(.__SEM_STYLES.face)
+
+  CHECKBOX ck_bold	@	_mls	60	., nomemory	///
+	label(resource LBL_BOLD) 
+  CHECKBOX ck_italic	+65	@	_wd	., nomemory	///
+	label(resource LBL_ITALIC) 
+END
+
+PROGRAM label_output
+BEGIN
+	call program label_get_defaults
+
+	call create STRING sLabelTmp
+	if (sSrcType.iseq("nodestyle")) {
+		call sLabelTmp.setvalue "SetStyleSelected"
+	}
+	else { 
+		call sLabelTmp.setvalue "SetStyle"
+	}
+
+	if (label.ed_obslab.isenabled() & !label.ed_obslab.isdefault()) {
+		call sg__PARAM2.setvalue class sLabelTmp.value
+		call sg__ARG_00.setvalue class sSrcType.value
+		call sg__ARG_00.append ".label.obslabtxt"
+		call sg__ARG_01.setvalue class label.ed_obslab.value
+		put /program sg__do_output_sub
+	}
+
+	if (label.ed_latlab.isenabled() & !label.ed_latlab.isdefault()) {
+		call sg__PARAM2.setvalue class sLabelTmp.value
+		call sg__ARG_00.setvalue class sSrcType.value
+		call sg__ARG_00.append ".label.latlabtxt"
+		call sg__ARG_01.setvalue class label.ed_latlab.value
+		put /program sg__do_output_sub
+	}
+
+	if (label.ed_mllab.isenabled() & !label.ed_mllab.isdefault()) {
+		call sg__PARAM2.setvalue class sLabelTmp.value
+		call sg__ARG_00.setvalue class sSrcType.value
+		call sg__ARG_00.append ".label.mllatlabtxt"
+		call sg__ARG_01.setvalue class label.ed_mllab.value
+		put /program sg__do_output_sub
+	}
+	
+	if (!label.cb_position.isdefault()) {
+		call sg__PARAM2.setvalue class sLabelTmp.value
+		call sg__ARG_00.setvalue class sSrcType.value
+		call sg__ARG_00.append ".label.pos"
+		call sg__ARG_01.setvalue class label.cb_position.value
+		put /program sg__do_output_sub
+	}
+	if (label.cb_posref.isenabled() & !label.cb_posref.isdefault()) {
+		call sg__PARAM2.setvalue class sLabelTmp.value
+		call sg__ARG_00.setvalue class sSrcType.value
+		call sg__ARG_00.append ".label.inside"
+		call sg__ARG_01.setvalue class label.cb_posref.value
+		put /program sg__do_output_sub
+	}
+
+	if (label.cb_bgap.isenabled() & !label.cb_bgap.isdefault()) {
+		call dTemp.setvalue class label.cb_bgap.value
+		call sTemp.setvalue class label.cb_bgap.value
+		if (!dTemp & dTemp.isneq(0) & sTemp.isneq("<multiple>")) {
+			call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_CONTAINS_A_NONNUMERIC_VALUE_FMT" ///
+				"resource LBL_TAB_LABEL" 		///
+				"resource LBL_BOUNDARY_GAP" 
+			stopbox stop "class _MSG_TMP.value"
+// On the "Label" tab, "Boundary gap" contains a nonnumeric value.
+		}
+		call sg__PARAM2.setvalue class sLabelTmp.value
+		call sg__ARG_00.setvalue class sSrcType.value
+		call sg__ARG_00.append ".label.gap"
+		call sg__ARG_01.setvalue class label.cb_bgap.value
+		put /program sg__do_output_sub
+	}
+
+	if (!label.cb_offset_x.isdefault()) {
+		call dTemp.setvalue class label.cb_offset_x.value
+		call sTemp.setvalue class label.cb_offset_x.value
+		if (!dTemp & dTemp.isneq(0) & sTemp.isneq("<multiple>")) {
+                       call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_CONTAINS_A_NONNUMERIC_VALUE_FMT" ///
+				"resource LBL_TAB_LABEL" 		///
+				"resource LBL_OFFSET"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Label" tab, "Offset" contains a nonnumeric value.
+		}
+		call sg__PARAM2.setvalue class sLabelTmp.value
+		call sg__ARG_00.setvalue class sSrcType.value
+		call sg__ARG_00.append ".label.xoffset"
+		call sg__ARG_01.setvalue class label.cb_offset_x.value
+		put /program sg__do_output_sub
+	}
+	if (!label.cb_offset_y.isdefault()) {
+		call dTemp.setvalue class label.cb_offset_y.value
+		call sTemp.setvalue class label.cb_offset_y.value
+		if (!dTemp & dTemp.isneq(0) & sTemp.isneq("<multiple>")) {
+                       call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_CONTAINS_A_NONNUMERIC_VALUE_FMT" ///
+				"resource LBL_TAB_LABEL" 		///
+				"resource LBL_OFFSET"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Label" tab, "Offset" contains a nonnumeric value.
+		}
+		call sg__PARAM2.setvalue class sLabelTmp.value
+		call sg__ARG_00.setvalue class sSrcType.value
+		call sg__ARG_00.append ".label.yoffset"
+		call sg__ARG_01.setvalue class label.cb_offset_y.value
+		put /program sg__do_output_sub
+	}
+
+	if (!label.cb_fsize.isdefault()) {
+		call dTemp.setvalue class label.cb_fsize.value
+		call sTemp.setvalue class label.cb_fsize.value
+		if (!dTemp & dTemp.isneq(0) & sTemp.isneq("<multiple>")) {
+                       call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_CONTAINS_A_NONNUMERIC_VALUE_FMT" ///
+				"resource LBL_TAB_LABEL" 		///
+				"resource LBL_TAB_SIZE"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Label" tab, "Size" contains a nonnumeric value.
+		}
+		call sg__PARAM2.setvalue class sLabelTmp.value
+		call sg__ARG_00.setvalue class sSrcType.value
+		call sg__ARG_00.append ".label.size"
+		call sg__ARG_01.setvalue class label.cb_fsize.value
+		put /program sg__do_output_sub
+	}
+
+	if (!label.cb_fcolor.isdefault()) {
+		call sg__PARAM2.setvalue class sLabelTmp.value
+		call sg__ARG_00.setvalue class sSrcType.value
+		call sg__ARG_00.append ".label.color"
+		call sg__ARG_01.setvalue class label.cb_fcolor.value
+		put /program sg__do_output_sub
+	}
+
+	if (!label.cb_fface.isdefault()) {
+		call sg__PARAM2.setvalue class sLabelTmp.value
+		call sg__ARG_00.setvalue class sSrcType.value
+		call sg__ARG_00.append ".label.face"
+		call sg__ARG_01.setvalue class label.cb_fface.value
+		put /program sg__do_output_sub
+	}
+
+	if (!label.ck_bold.isdefault()) {
+		call sg__PARAM2.setvalue class sLabelTmp.value
+		call sg__ARG_00.setvalue class sSrcType.value
+		call sg__ARG_00.append ".label.bold"
+		if label.ck_bold {
+			call sg__ARG_01.setvalue "yes"
+		}
+		else {
+			call sg__ARG_01.setvalue "no"
+		}
+		put /program sg__do_output_sub
+	}
+
+	if (!label.ck_italic.isdefault()) {
+		call sg__PARAM2.setvalue class sLabelTmp.value
+		call sg__ARG_00.setvalue class sSrcType.value
+		call sg__ARG_00.append ".label.italic"
+		if label.ck_italic {
+			call sg__ARG_01.setvalue "yes"
+		}
+		else {
+			call sg__ARG_01.setvalue "no"
+		}
+		put /program sg__do_output_sub
+	}
+END
+
+/****************************************************************************/
+
+SCRIPT flink_PREINIT
+BEGIN
+	create STRING sFlinkStyle
+	create STRING sFlinkOrder
+
+	program flink_get_defaults
+END
+
+SCRIPT flink_POSTINIT
+BEGIN
+	program flink_initialize_controls
+END
+
+PROGRAM flink_get_defaults
+BEGIN
+	call sSrcType.withvalue sFlinkStyle.setvalue class .__SEMG.dbsettings.@_famlinklook
+	call sFlinkStyle.withvalue flink.cb_ostyle.setdefault "@"
+
+	call sSrcType.withvalue sFlinkOrder.setvalue class .__SEMG.dbsettings.@_famlinkplace
+	call sFlinkOrder.withvalue flink.cb_order.setdefault "@"
+END
+
+PROGRAM flink_initialize_controls
+BEGIN
+	call flink.cb_ostyle.setvalue class sFlinkStyle.value
+	call flink.cb_order.setvalue class sFlinkOrder.value
+
+	if bGLM {
+		call flink.gb_flink.enable
+		call flink.tx_ostyle.enable
+		call flink.cb_ostyle.enable
+		call flink.tx_order.enable
+		call flink.cb_order.enable
+		call flink.tx_appear1.enable
+		call flink.bu_appear1.enable
+	}
+	else {
+		call flink.gb_flink.disable
+		call flink.tx_ostyle.disable
+		call flink.cb_ostyle.disable
+		call flink.tx_order.disable
+		call flink.cb_order.disable
+		call flink.tx_appear1.disable
+		call flink.bu_appear1.disable
+	}
+
+	call program ostyle_changed
+END
+
+PROGRAM show_appearance_dlg1
+BEGIN
+	call create STRING sDlg1
+	call OBJ.withvalue sDlg1.setvalue "@"
+	call sDlg1.append " "
+	call sDlg1.append class flink.cb_ostyle.value
+	call sDlg1.withvalue create CHILD sg__variables_prop_flink, message("@")
+
+	if (flink.cb_ostyle.iseqignorecase("fancybox")) {
+		call sg__variables_prop_flink.settitle resource LBL_TITLE_APPEARANCE_SETTINGS_FANCY_BOX
+	}
+	if (flink.cb_ostyle.iseqignorecase("famlink")) {
+		call sg__variables_prop_flink.settitle resource LBL_TITLE_APPEARANCE_SETTINGS_FAM_LINK
+	}
+	if (flink.cb_ostyle.iseqignorecase("family")) {
+		call sg__variables_prop_flink.settitle resource LBL_TITLE_APPEARANCE_SETTINGS_FAM
+	}
+	if (flink.cb_ostyle.iseqignorecase("link")) {
+		call sg__variables_prop_flink.settitle resource LBL_TITLE_APPEARANCE_SETTINGS_LINK
+	}
+END
+
+PROGRAM ostyle_changed
+BEGIN
+	if !flink.cb_ostyle.isenabled() {
+		exit
+	}
+
+	if (flink.cb_ostyle.iseqignorecase("fancybox")) {
+		call flink.tx_order.disable
+		call flink.cb_order.disable
+		call flink.bu_appear1.enable
+		call flink.bu_appear1.setlabel resource SG__VARIABLES_PROP_FANCY_BOX
+	}
+	if (flink.cb_ostyle.iseqignorecase("std")) {
+		call flink.tx_order.disable
+		call flink.cb_order.disable
+		call flink.bu_appear1.disable
+		call flink.bu_appear1.setlabel resource SG__VARIABLES_PROP_SETTINGS
+	}
+	if (flink.cb_ostyle.iseqignorecase("famlink")) {
+		call flink.tx_order.enable
+		call flink.cb_order.enable
+		call flink.bu_appear1.enable
+		call flink.bu_appear1.setlabel resource SG__VARIABLES_PROP_FAMILY_AND_LINK
+	}
+	if (flink.cb_ostyle.iseqignorecase("family")) {
+		call flink.tx_order.enable
+		call flink.cb_order.enable
+		call flink.bu_appear1.enable
+		call flink.bu_appear1.setlabel resource SG__VARIABLES_PROP_FAMILY_ONLY
+	}
+	if (flink.cb_ostyle.iseqignorecase("link")) {
+		call flink.tx_order.enable
+		call flink.cb_order.enable
+		call flink.bu_appear1.enable
+		call flink.bu_appear1.setlabel resource SG__VARIABLES_PROP_LINK_ONLY
+	}
+END
+
+DIALOG flink, tabtitle(resource SG__VARIABLES_PROP_TAB_FLINK)
+BEGIN
+  GROUPBOX gb_flink	_lft	_top	_iwd	_ht11,		///
+	label(resource SG__VARIABLES_PROP_FLINK_GB_FLINK)
+
+  TEXT     tx_ostyle	_ilft	_ms	_wd	.,		///
+	label(resource SG__VARIABLES_PROP_FLINK_TX_OSTYLE) right
+  COMBOBOX cb_ostyle	_sep	@	160	., nomemory	///
+	dropdownlist contents(.__SEM_STYLES_LABEL.famlinklook)	///
+	values(.__SEM_STYLES.famlinklook)			///
+	onselchange(program ostyle_changed)
+
+  TEXT     tx_order	_ilft	_mls	_wd	.,		///
+  	label(resource SG__VARIABLES_PROP_FLINK_TX_ORDER) right
+  COMBOBOX cb_order	_sep	@	160	., nomemory	///
+	dropdownlist contents(__SEM_STYLES_LABEL.famlinkplace)	///
+	values(__SEM_STYLES.famlinkplace)
+
+  TEXT     tx_appear1	_ilft	+35	_ibwd	.,		///
+	label(resource SG__VARIABLES_PROP_FLINK_TX_APPEAR1)
+  BUTTON    bu_appear1	55	_ss	130	.,		///
+	onpush(program show_appearance_dlg1)
+END
+
+PROGRAM flink_output
+BEGIN
+	call program flink_get_defaults
+
+	call create STRING sFLinkTmp
+	if (sSrcType.iseq("nodestyle")) {
+		call sFLinkTmp.setvalue "SetStyleSelected"
+	}
+	else { 
+		call sFLinkTmp.setvalue "SetStyle"
+	}
+
+	if (!flink.cb_ostyle.isdefault()) {
+		call sg__PARAM2.setvalue class sFLinkTmp.value
+		call sg__ARG_00.setvalue class sSrcType.value
+		call sg__ARG_00.append ".famlinklook"
+		call sg__ARG_01.setvalue class flink.cb_ostyle.value
+		put /program sg__do_output_sub
+	}
+
+	if (flink.cb_order.isenabled() & !flink.cb_order.isdefault()) {
+		call sg__PARAM2.setvalue class sFLinkTmp.value
+		call sg__ARG_00.setvalue class sSrcType.value
+		call sg__ARG_00.append ".famlinkplace"
+		call sg__ARG_01.setvalue class flink.cb_order.value
+		put /program sg__do_output_sub
+	}
+END
+
+
+/****************************************************************************/
+
+SCRIPT result_PREINIT
+BEGIN
+	create STRING sResExog1
+	create STRING sResExog2
+	create STRING sResExog3
+	create STRING sResExog4
+
+	create STRING sResEndog1
+	create STRING sResEndog2
+	create STRING sResEndog3
+	create STRING sResEndog4
+
+	create STRING sResErr1
+	create STRING sResErr2
+	create STRING sResErr3
+	create STRING sResErr4
+	program result_get_defaults
+END
+
+SCRIPT result_POSTINIT
+BEGIN
+	program result_initialize_controls
+	STMP.format "resource LBL_RESULT_FMT" "1" ":"
+	STMP.withvalue result.tx_exog_res1.setlabel "@"	
+	STMP.withvalue result.tx_endog_res1.setlabel "@"
+	STMP.withvalue result.tx_error_res1.setlabel "@"
+	STMP.format "resource LBL_RESULT_FMT" "2" ":"
+	STMP.withvalue result.tx_exog_res2.setlabel "@"	
+	STMP.withvalue result.tx_endog_res2.setlabel "@"
+	STMP.withvalue result.tx_error_res2.setlabel "@"
+	STMP.format "resource LBL_RESULT_FMT" "3" ":"
+	STMP.withvalue result.tx_exog_res3.setlabel "@"	
+	STMP.withvalue result.tx_endog_res3.setlabel "@"
+	STMP.withvalue result.tx_error_res3.setlabel "@"
+	STMP.format "resource LBL_RESULT_FMT" "4" ":"
+	STMP.withvalue result.tx_exog_res4.setlabel "@"	
+	STMP.withvalue result.tx_endog_res4.setlabel "@"
+	STMP.withvalue result.tx_error_res4.setlabel "@"
+
+	STMP.format "resource LBL_RESULT_FMT" "1" "..."
+	STMP.withvalue result.bu_app_res1.setlabel "@"
+	STMP.format "resource LBL_RESULT_FMT" "2" "..."
+	STMP.withvalue result.bu_app_res2.setlabel "@"
+	STMP.format "resource LBL_RESULT_FMT" "3" "..."
+	STMP.withvalue result.bu_app_res3.setlabel "@"
+	STMP.format "resource LBL_RESULT_FMT" "4" "..."
+	STMP.withvalue result.bu_app_res4.setlabel "@"
+
+END
+
+PROGRAM result_get_defaults
+BEGIN
+	call sSrcType.withvalue sResExog1.setvalue class .__SEMG.dbsettings.@_result1_exogtxt
+	call sResExog1.withvalue result.ed_exog_res1.setdefault "@"
+
+	call sSrcType.withvalue sResExog2.setvalue class .__SEMG.dbsettings.@_result2_exogtxt
+	call sResExog2.withvalue result.ed_exog_res2.setdefault "@"
+
+	call sSrcType.withvalue sResExog3.setvalue class .__SEMG.dbsettings.@_result3_exogtxt
+	call sResExog3.withvalue result.ed_exog_res3.setdefault "@"
+
+	call sSrcType.withvalue sResExog4.setvalue class .__SEMG.dbsettings.@_result4_exogtxt
+	call sResExog4.withvalue result.ed_exog_res4.setdefault "@"
+
+	/******/
+
+	call sSrcType.withvalue sResEndog1.setvalue class .__SEMG.dbsettings.@_result1_endogtxt
+	call sResEndog1.withvalue result.ed_endog_res1.setdefault "@"
+
+	call sSrcType.withvalue sResEndog2.setvalue class .__SEMG.dbsettings.@_result2_endogtxt
+	call sResEndog2.withvalue result.ed_endog_res2.setdefault "@"
+
+	call sSrcType.withvalue sResEndog3.setvalue class .__SEMG.dbsettings.@_result3_endogtxt
+	call sResEndog3.withvalue result.ed_endog_res3.setdefault "@"
+
+	call sSrcType.withvalue sResEndog4.setvalue class .__SEMG.dbsettings.@_result4_endogtxt
+	call sResEndog4.withvalue result.ed_endog_res4.setdefault "@"
+
+	/******/
+	
+	call sSrcType.withvalue sResErr1.setvalue class .__SEMG.dbsettings.@_result1_exogtxt
+	call sResErr1.withvalue result.ed_error_res1.setdefault "@"
+
+	call sSrcType.withvalue sResErr2.setvalue class .__SEMG.dbsettings.@_result2_exogtxt
+	call sResErr2.withvalue result.ed_error_res2.setdefault "@"
+
+	call sSrcType.withvalue sResErr3.setvalue class .__SEMG.dbsettings.@_result3_exogtxt
+	call sResErr3.withvalue result.ed_error_res3.setdefault "@"
+
+	call sSrcType.withvalue sResErr4.setvalue class .__SEMG.dbsettings.@_result4_exogtxt
+	call sResErr4.withvalue result.ed_error_res4.setdefault "@"
+END
+
+PROGRAM result_initialize_controls
+BEGIN
+	call create BOOLEAN bResExog
+	call create BOOLEAN bResEndog
+	call create BOOLEAN bResErr
+
+	call bResExog.setfalse 
+	call bResEndog.setfalse
+	call bResErr.setfalse 
+
+	call result.ed_exog_res1.setvalue class sResExog1.value
+	call result.ed_exog_res2.setvalue class sResExog2.value
+	call result.ed_exog_res3.setvalue class sResExog3.value
+	call result.ed_exog_res4.setvalue class sResExog4.value
+
+	call result.cb_exog_res1.setvalue class sResExog1.value
+	call result.cb_exog_res2.setvalue class sResExog2.value
+	call result.cb_exog_res3.setvalue class sResExog3.value
+	call result.cb_exog_res4.setvalue class sResExog4.value
+
+	/******/
+
+	call result.ed_endog_res1.setvalue class sResEndog1.value
+	call result.ed_endog_res2.setvalue class sResEndog2.value
+	call result.ed_endog_res3.setvalue class sResEndog3.value
+	call result.ed_endog_res4.setvalue class sResEndog4.value
+
+	call result.cb_endog_res1.setvalue class sResEndog1.value
+	call result.cb_endog_res2.setvalue class sResEndog2.value
+	call result.cb_endog_res3.setvalue class sResEndog3.value
+	call result.cb_endog_res4.setvalue class sResEndog4.value
+
+	/******/
+
+	call result.ed_error_res1.setvalue class sResErr1.value
+	call result.ed_error_res2.setvalue class sResErr2.value
+	call result.ed_error_res3.setvalue class sResErr3.value
+	call result.ed_error_res4.setvalue class sResErr4.value
+
+	call result.cb_error_res1.setvalue class sResErr1.value
+	call result.cb_error_res2.setvalue class sResErr2.value
+	call result.cb_error_res3.setvalue class sResErr3.value
+	call result.cb_error_res4.setvalue class sResErr4.value
+
+	if sSrcTypeOrig.iseq("allnodes") 	|			///
+		sSrcTypeOrig.iseq("latent") 	|			///
+		sSrcTypeOrig.iseq("observed") 	| 			///
+		sSrcTypeOrig.iseq("olin") 	|			///
+		sSrcTypeOrig.iseq("lstd") 	|			///
+		sSrcTypeOrig.iseq("lml") 	|			///
+		sSrcTypeOrig.iseq("olinexog") 	|			///
+		sSrcTypeOrig.iseq("lstdexog") 	|			///
+		sSrcTypeOrig.iseq("lmlexog") 	|			///
+		sSrcTypeOrig.iseq("error") 	|			///
+		sSrcTypeOrig.iseq("lerror") 	|			///
+		sSrcTypeOrig.iseq("oerror") 	|			///
+		(	sSrcTypeOrig.iseq("selected") &			///
+			(sIsExog.iseq("1")|sIsExog.iseq("<multiple>"))	///
+		) 							///
+	{
+		call bResExog.settrue
+	}
+
+	if sSrcTypeOrig.iseq("allnodes") 	| 			///
+		sSrcTypeOrig.iseq("latent") 	|			///
+		sSrcTypeOrig.iseq("observed") 	| 			///
+		sSrcTypeOrig.iseq("olin") 	|			///
+		sSrcTypeOrig.iseq("oglm") 	|			///
+		sSrcTypeOrig.iseq("lstd") 	|			///
+		sSrcTypeOrig.iseq("lml") 	|			///
+		sSrcTypeOrig.iseq("olinendog") 	|			///
+		sSrcTypeOrig.iseq("oglmendog") 	|			///
+		sSrcTypeOrig.iseq("lstdendog") 	|			///
+		sSrcTypeOrig.iseq("lmendog") 	|			///		
+		(	sSrcTypeOrig.iseq("selected") &			///
+			(sIsExog.iseq("0")|sIsExog.iseq("<multiple>"))	///
+		) 							///
+	{
+		call bResEndog.settrue
+	}
+
+	if sSrcTypeOrig.iseq("error") 		| 			///
+		sSrcTypeOrig.iseq("lerror") 	|			///
+		sSrcTypeOrig.iseq("oerror") 	| 			///
+		sSrcTypeOrig.iseq("selerror")				///
+	{
+		call bResErr.settrue
+	}
+
+	if bResErr {
+		call script result_exog_hide
+		call script result_endog_hide
+		call script result_error_show
+
+		call result.tx_appearance.setposition . 149
+		call result.bu_app_res1.setposition . 169 
+		call result.bu_app_res2.setposition . 169 
+		call result.bu_app_res3.setposition . 169 
+		call result.bu_app_res4.setposition . 169 
+	}
+	else {
+		call script result_error_hide
+		call script result_exog_show
+		call script result_endog_show
+		call result.tx_appearance.setposition . 288
+		call result.bu_app_res1.setposition . 308 
+		call result.bu_app_res2.setposition . 308 
+		call result.bu_app_res3.setposition . 308 
+		call result.bu_app_res4.setposition . 308 
+
+		if bResExog {
+			call script result_exog_enable
+		}
+		else {
+			call script result_exog_disable
+		}
+		if bResEndog {
+			 call script result_endog_enable
+		}
+		else {
+			 call script result_endog_disable
+		}
+	}
+END
+
+SCRIPT result_exog_enable
+BEGIN
+	result.tx_exog.enable
+	result.tx_exog_res1.enable
+	result.tx_exog_res2.enable
+	result.tx_exog_res3.enable
+	result.tx_exog_res4.enable
+	result.cb_exog_res1.enable
+	result.cb_exog_res2.enable
+	result.cb_exog_res3.enable
+	result.cb_exog_res4.enable
+	result.ed_exog_res1.enable
+	result.ed_exog_res2.enable
+	result.ed_exog_res3.enable
+	result.ed_exog_res4.enable
+END
+
+SCRIPT result_exog_disable
+BEGIN
+	result.tx_exog.disable
+	result.tx_exog_res1.disable
+	result.tx_exog_res2.disable
+	result.tx_exog_res3.disable
+	result.tx_exog_res4.disable
+	result.cb_exog_res1.disable
+	result.cb_exog_res2.disable
+	result.cb_exog_res3.disable
+	result.cb_exog_res4.disable
+	result.ed_exog_res1.disable
+	result.ed_exog_res2.disable
+	result.ed_exog_res3.disable
+	result.ed_exog_res4.disable
+END
+
+SCRIPT result_endog_enable
+BEGIN
+	result.tx_endog.enable
+	result.tx_endog_res1.enable
+	result.tx_endog_res2.enable
+	result.tx_endog_res3.enable
+	result.tx_endog_res4.enable
+	result.cb_endog_res1.enable
+	result.cb_endog_res2.enable
+	result.cb_endog_res3.enable
+	result.cb_endog_res4.enable
+	result.ed_endog_res1.enable
+	result.ed_endog_res2.enable
+	result.ed_endog_res3.enable
+	result.ed_endog_res4.enable
+END
+
+SCRIPT result_endog_disable
+BEGIN
+	result.tx_endog.disable
+	result.tx_endog_res1.disable
+	result.tx_endog_res2.disable
+	result.tx_endog_res3.disable
+	result.tx_endog_res4.disable
+	result.cb_endog_res1.disable
+	result.cb_endog_res2.disable
+	result.cb_endog_res3.disable
+	result.cb_endog_res4.disable
+	result.ed_endog_res1.disable
+	result.ed_endog_res2.disable
+	result.ed_endog_res3.disable
+	result.ed_endog_res4.disable
+END
+
+SCRIPT result_exog_show
+BEGIN
+	result.tx_exog.show
+	result.hl_exogh.show
+	result.tx_exog_res1.show
+	result.tx_exog_res2.show
+	result.tx_exog_res3.show
+	result.tx_exog_res4.show
+	result.cb_exog_res1.show
+	result.cb_exog_res2.show
+	result.cb_exog_res3.show
+	result.cb_exog_res4.show
+	result.ed_exog_res1.show
+	result.ed_exog_res2.show
+	result.ed_exog_res3.show
+	result.ed_exog_res4.show
+END
+
+SCRIPT result_exog_hide
+BEGIN
+	result.tx_exog.hide
+	result.hl_exogh.hide
+	result.tx_exog_res1.hide
+	result.tx_exog_res2.hide
+	result.tx_exog_res3.hide
+	result.tx_exog_res4.hide
+	result.cb_exog_res1.hide
+	result.cb_exog_res2.hide
+	result.cb_exog_res3.hide
+	result.cb_exog_res4.hide
+	result.ed_exog_res1.hide
+	result.ed_exog_res2.hide
+	result.ed_exog_res3.hide
+	result.ed_exog_res4.hide
+END
+
+SCRIPT result_endog_show
+BEGIN
+	result.tx_endog.show
+	result.hl_endogh.show
+	result.tx_endog_res1.show
+	result.tx_endog_res2.show
+	result.tx_endog_res3.show
+	result.tx_endog_res4.show
+	result.cb_endog_res1.show
+	result.cb_endog_res2.show
+	result.cb_endog_res3.show
+	result.cb_endog_res4.show
+	result.ed_endog_res1.show
+	result.ed_endog_res2.show
+	result.ed_endog_res3.show
+	result.ed_endog_res4.show
+END
+
+SCRIPT result_endog_hide
+BEGIN
+	result.tx_endog.hide
+	result.hl_endogh.hide
+	result.tx_endog_res1.hide
+	result.tx_endog_res2.hide
+	result.tx_endog_res3.hide
+	result.tx_endog_res4.hide
+	result.cb_endog_res1.hide
+	result.cb_endog_res2.hide
+	result.cb_endog_res3.hide
+	result.cb_endog_res4.hide
+	result.ed_endog_res1.hide
+	result.ed_endog_res2.hide
+	result.ed_endog_res3.hide
+	result.ed_endog_res4.hide
+END
+
+SCRIPT result_error_show
+BEGIN
+	result.tx_error.show
+	result.hl_errorh.show
+	result.tx_error_res1.show
+	result.tx_error_res2.show
+	result.tx_error_res3.show
+	result.tx_error_res4.show
+	result.cb_error_res1.show
+	result.cb_error_res2.show
+	result.cb_error_res3.show
+	result.cb_error_res4.show
+	result.ed_error_res1.show
+	result.ed_error_res2.show
+	result.ed_error_res3.show
+	result.ed_error_res4.show
+END
+
+SCRIPT result_error_hide
+BEGIN
+	result.tx_error.hide
+	result.hl_errorh.hide
+	result.tx_error_res1.hide
+	result.tx_error_res2.hide
+	result.tx_error_res3.hide
+	result.tx_error_res4.hide
+	result.cb_error_res1.hide
+	result.cb_error_res2.hide
+	result.cb_error_res3.hide
+	result.cb_error_res4.hide
+	result.ed_error_res1.hide
+	result.ed_error_res2.hide
+	result.ed_error_res3.hide
+	result.ed_error_res4.hide
+END
+
+PROGRAM result_exog_res1_change
+BEGIN
+	if (result.cb_exog_res1.isEqualIgnoreCase("custom")) {
+		call result.ed_exog_res1.setvalue class sResExog1.value
+	}
+	else {
+		call result.ed_exog_res1.setvalue class result.cb_exog_res1.value
+	}
+END
+
+PROGRAM result_exog_res2_change
+BEGIN
+	if (result.cb_exog_res2.isEqualIgnoreCase("custom")) {
+		call result.ed_exog_res2.setvalue class sResExog2.value
+	}
+	else {
+		call result.ed_exog_res2.setvalue class result.cb_exog_res2.value
+	}
+END 
+
+PROGRAM result_exog_res3_change
+BEGIN
+	if (result.cb_exog_res3.isEqualIgnoreCase("custom")) {
+		call result.ed_exog_res3.setvalue class sResExog3.value
+	}
+	else {
+		call result.ed_exog_res3.setvalue class result.cb_exog_res3.value
+	}
+END 
+
+PROGRAM result_exog_res4_change
+BEGIN
+	if (result.cb_exog_res4.isEqualIgnoreCase("custom")) {
+		call result.ed_exog_res4.setvalue class sResExog4.value
+	}
+	else {
+		call result.ed_exog_res4.setvalue class result.cb_exog_res4.value
+	}
+END 
+
+/******/
+
+PROGRAM result_endog_res1_change
+BEGIN
+	if (result.cb_endog_res1.isEqualIgnoreCase("custom")) {
+		call result.ed_endog_res1.setvalue class sResEndog1.value
+	}
+	else {
+		call result.ed_endog_res1.setvalue class result.cb_endog_res1.value
+	}
+END
+
+PROGRAM result_endog_res2_change
+BEGIN
+	if (result.cb_endog_res2.isEqualIgnoreCase("custom")) {
+		call result.ed_endog_res2.setvalue class sResEndog2.value
+	}
+	else {
+		call result.ed_endog_res2.setvalue class result.cb_endog_res2.value
+	}
+END 
+
+PROGRAM result_endog_res3_change
+BEGIN
+	if (result.cb_endog_res3.isEqualIgnoreCase("custom")) {
+		call result.ed_endog_res3.setvalue class sResEndog3.value
+	}
+	else {
+		call result.ed_endog_res3.setvalue class result.cb_endog_res3.value
+	}
+END 
+
+PROGRAM result_endog_res4_change
+BEGIN
+	if (result.cb_endog_res4.isEqualIgnoreCase("custom")) {
+		call result.ed_endog_res4.setvalue class sResEndog4.value
+	}
+	else {
+		call result.ed_endog_res4.setvalue class result.cb_endog_res4.value
+	}
+END 
+
+/******/
+
+PROGRAM result_error_res1_change
+BEGIN
+	if (result.cb_error_res1.isEqualIgnoreCase("custom")) {
+		call result.ed_error_res1.setvalue class sResErr1.value
+	}
+	else {
+		call result.ed_error_res1.setvalue class result.cb_error_res1.value
+	}
+END
+
+PROGRAM result_error_res2_change
+BEGIN
+	if (result.cb_error_res2.isEqualIgnoreCase("custom")) {
+		call result.ed_error_res2.setvalue class sResErr2.value
+	}
+	else {
+		call result.ed_error_res2.setvalue class result.cb_error_res2.value
+	}
+END 
+
+PROGRAM result_error_res3_change
+BEGIN
+	if (result.cb_error_res3.isEqualIgnoreCase("custom")) {
+		call result.ed_error_res3.setvalue class sResErr3.value
+	}
+	else {
+		call result.ed_error_res3.setvalue class result.cb_error_res3.value
+	}
+END 
+
+PROGRAM result_error_res4_change
+BEGIN
+	if (result.cb_error_res4.isEqualIgnoreCase("custom")) {
+		call result.ed_error_res4.setvalue class sResErr4.value
+	}
+	else {
+		call result.ed_error_res4.setvalue class result.cb_error_res4.value
+	}
+END 
+
+DIALOG result, tabtitle(resource LBL_RESULTS)
+BEGIN
+  TEXT     tx_exog	_lft	_top	_cwd1	.,		///
+	label(resource LBL_EXOGENOUS_VARIABLES)
+  HLINK    hl_exogh	_rj40	@	40	.,		///
+	label(resource LBL_HELP_LOWERCASE) right		///
+	onpush(view help sg__tags##|_new)
+
+  TEXT     tx_exog_res1	_ilft	_ss	50	.,		///
+	right
+  COMBOBOX cb_exog_res1	+55	@	175	., nomemory	///
+	dropdownlist contents(__SEM_STYLES_LABEL.exogresult)	///
+	values(__SEM_STYLES.exogresult)				///
+	onselchange(program result_exog_res1_change)
+  EDIT     ed_exog_res1 +180	@	195	., nomemory
+
+  TEXT     tx_exog_res2	_ilft	_mls	50	.,		///
+	right 
+  COMBOBOX cb_exog_res2	+55	@	175	., nomemory	///
+	dropdownlist contents(__SEM_STYLES_LABEL.exogresult)	///
+	values(__SEM_STYLES.exogresult)				///
+	onselchange(program result_exog_res2_change)
+  EDIT     ed_exog_res2 +180	@	195	., nomemory
+
+  TEXT     tx_exog_res3	_ilft	_mls	50	.,		///
+	right
+  COMBOBOX cb_exog_res3	+55	@	175	., nomemory	///
+	dropdownlist contents(__SEM_STYLES_LABEL.exogresult)	///
+	values(__SEM_STYLES.exogresult)				///
+	onselchange(program result_exog_res3_change)
+  EDIT     ed_exog_res3 +180	@	195	., nomemory
+
+  TEXT     tx_exog_res4	_ilft	_mls	50	.,		///
+	right
+  COMBOBOX cb_exog_res4	+55	@	175	., nomemory	///
+	dropdownlist contents(__SEM_STYLES_LABEL.exogresult)	///
+	values(__SEM_STYLES.exogresult)				///
+	onselchange(program result_exog_res4_change)
+  EDIT     ed_exog_res4 +180	@	195	., nomemory
+
+  /*************/
+
+  TEXT     tx_endog		_lft	+35	_cwd1	.,		///
+	label(resource LBL_ENDOGENOUS_VARIABLES)
+  HLINK    hl_endogh		_rj40	@	40	.,		///
+	label(resource LBL_HELP_LOWERCASE) right			///
+	onpush(view help sg__tags##|_new)
+
+  TEXT     tx_endog_res1	_ilft	_ss	50	.,		///
+	right
+  COMBOBOX cb_endog_res1	+55	@	175	., nomemory	///
+	dropdownlist contents(__SEM_STYLES_LABEL.endogresult)		///
+	values(__SEM_STYLES.endogresult)				///
+	onselchange(program result_endog_res1_change)
+  EDIT     ed_endog_res1 	+180	@	195	., nomemory
+
+  TEXT     tx_endog_res2	_ilft	_mls	50	.,		///
+	right
+  COMBOBOX cb_endog_res2	+55	@	175	., nomemory	///
+	dropdownlist contents(__SEM_STYLES_LABEL.endogresult)		///
+	values(__SEM_STYLES.endogresult)				///
+	onselchange(program result_endog_res2_change)
+  EDIT     ed_endog_res2 	+180	@	195	., nomemory
+
+  TEXT     tx_endog_res3	_ilft	_mls	50	.,		///
+	right
+  COMBOBOX cb_endog_res3	+55	@	175	., nomemory	///
+	dropdownlist contents(__SEM_STYLES_LABEL.endogresult)		///
+	values(__SEM_STYLES.endogresult)				///
+	onselchange(program result_endog_res3_change)
+  EDIT     ed_endog_res3 	+180	@	195	., nomemory
+
+  TEXT     tx_endog_res4	_ilft	_mls	50	.,		///
+	right
+  COMBOBOX cb_endog_res4	+55	@	175	., nomemory	///
+	dropdownlist contents(__SEM_STYLES_LABEL.endogresult)		///
+	values(__SEM_STYLES.endogresult)				///
+	onselchange(program result_endog_res4_change)
+  EDIT     ed_endog_res4 	+180	@	195	., nomemory
+
+  /*************/
+
+  TEXT     tx_error		_lft	_top	_cwd1	.,		///
+	label(resource LBL_ERROR_VARIABLES_COLON)
+  HLINK    hl_errorh		_rj40	@	40	.,		///
+	label(resource LBL_HELP_LOWERCASE) right						///
+	onpush(view help sg__tags##|_new)
+
+  TEXT     tx_error_res1	_ilft	_ss	50	.,		///
+	right 
+  COMBOBOX cb_error_res1	+55	@	175	., nomemory	///
+	dropdownlist contents(__SEM_STYLES_LABEL.errorresult)		///
+	values(__SEM_STYLES.errorresult)				///
+	onselchange(program result_error_res1_change)
+  EDIT     ed_error_res1 	+180	@	195	., nomemory
+
+  TEXT     tx_error_res2	_ilft	_mls	50	.,		///
+	right 
+  COMBOBOX cb_error_res2	+55	@	175	., nomemory	///
+	dropdownlist contents(__SEM_STYLES_LABEL.errorresult)		///
+	values(__SEM_STYLES.errorresult)				///
+	onselchange(program result_error_res2_change)
+  EDIT     ed_error_res2 	+180	@	195	., nomemory
+
+  TEXT     tx_error_res3	_ilft	_mls	50	.,		///
+	right
+  COMBOBOX cb_error_res3	+55	@	175	., nomemory	///
+	dropdownlist contents(__SEM_STYLES_LABEL.errorresult)		///
+	values(__SEM_STYLES.errorresult)				///
+	onselchange(program result_error_res3_change)
+  EDIT     ed_error_res3 	+180	@	195	., nomemory
+
+  TEXT     tx_error_res4	_ilft	_mls	50	.,		///
+	right
+  COMBOBOX cb_error_res4	+55	@	175	., nomemory	///
+	dropdownlist contents(__SEM_STYLES_LABEL.errorresult)		///
+	values(__SEM_STYLES.errorresult)				///
+	onselchange(program result_error_res4_change)
+  EDIT     ed_error_res4 	+180	@	195	., nomemory
+
+  /*************/
+
+  TEXT     tx_appearance	_lft	+35	_iwd	.,		///
+	label(resource LBL_APPEARANCE_OF_RESULTS_FONT_COLOR_POSITION_ETC)
+
+  BUTTON   bu_app_res1		+50	_ss	80	.,		///
+	onpush(program result_appearance_do1)
+DEFINE x @x
+  BUTTON   bu_app_res2		+90	@	@	.,		///
+	onpush(program result_appearance_do2)
+
+  BUTTON   bu_app_res3		+90	@	@	.,		///
+	onpush(program result_appearance_do3)
+
+  BUTTON   bu_app_res4		+90	@	@	.,		///
+	onpush(program result_appearance_do4)
+END
+
+PROGRAM result_appearance_do1
+BEGIN
+	call OBJ.withvalue create CHILD sg__variables_prop_result AS result_appearance1, message(@) allowsubmit
+	call program setup_title_suffix
+	call sTTLSuffix.withvalue STMP.format			///
+			"resource LBL_TITLE_APPEARANCE_OF_RESULTS_#_FMT" "1" "@"
+	call STMP.withvalue result_appearance1.settitle "@"
+	call result_appearance1.callthru `"sResult.setvalue "result1"'
+	call result_appearance1.callthru "program loadDefaults"
+	call result_appearance1.setExitAction "program send_update_signal"
+	call result_appearance1.setExitString sTemp	/* required, not used */
+END
+
+PROGRAM result_appearance_do2
+BEGIN
+	call OBJ.withvalue create CHILD sg__variables_prop_result AS result_appearance2, message(@) allowsubmit
+	call program setup_title_suffix
+	call sTTLSuffix.withvalue STMP.format			///
+			"resource LBL_TITLE_APPEARANCE_OF_RESULTS_#_FMT" "2" "@"
+	call STMP.withvalue result_appearance2.settitle "@"
+	call result_appearance2.callthru `"sResult.setvalue "result2"'
+	call result_appearance2.callthru "program loadDefaults"
+	call result_appearance2.setExitAction "program send_update_signal"
+	call result_appearance2.setExitString sTemp	/* required, not used */
+END
+
+PROGRAM result_appearance_do3
+BEGIN
+	call OBJ.withvalue create CHILD sg__variables_prop_result AS result_appearance3, message(@) allowsubmit
+	call program setup_title_suffix
+	call sTTLSuffix.withvalue STMP.format			///
+			"resource LBL_TITLE_APPEARANCE_OF_RESULTS_#_FMT" "3" "@"
+	call STMP.withvalue result_appearance3.settitle "@"
+	call result_appearance3.callthru `"sResult.setvalue "result3"'
+	call result_appearance3.callthru "program loadDefaults"
+	call result_appearance3.setExitAction "program send_update_signal"
+	call result_appearance3.setExitString sTemp	/* required, not used */
+END
+
+PROGRAM result_appearance_do4
+BEGIN
+	call OBJ.withvalue create CHILD sg__variables_prop_result AS result_appearance4, message(@) allowsubmit
+	call program setup_title_suffix
+	call sTTLSuffix.withvalue STMP.format			///
+			"resource LBL_TITLE_APPEARANCE_OF_RESULTS_#_FMT" "4" "@"
+	call STMP.withvalue result_appearance4.settitle "@"
+	call result_appearance4.callthru `"sResult.setvalue "result4"'
+	call result_appearance4.callthru "program loadDefaults"
+	call result_appearance4.setExitAction "program send_update_signal"
+	call result_appearance4.setExitString sTemp	/* required, not used */
+END
+
+PROGRAM result_output
+BEGIN
+	call program result_get_defaults
+
+	call create STRING sResultTmp
+	if (sSrcType.iseq("nodestyle")) {
+		call sResultTmp.setvalue "SetStyleSelected"
+	}
+	else { 
+		call sResultTmp.setvalue "SetStyle"
+	}
+
+	if !H(result.ed_exog_res1) & !result.ed_exog_res1.isdefault() {
+		call sg__PARAM2.setvalue class sResultTmp.value
+		call sg__ARG_00.setvalue class sSrcType.value
+		call sg__ARG_00.append ".result1.exogtxt"
+		call sg__ARG_01.setvalue class result.ed_exog_res1.value
+		put /program sg__do_output_sub
+	}
+	if !H(result.ed_exog_res2) & !result.ed_exog_res2.isdefault() {
+		call sg__PARAM2.setvalue class sResultTmp.value
+		call sg__ARG_00.setvalue class sSrcType.value
+		call sg__ARG_00.append ".result2.exogtxt"
+		call sg__ARG_01.setvalue class result.ed_exog_res2.value
+		put /program sg__do_output_sub
+	}
+	if !H(result.ed_exog_res3) & !result.ed_exog_res3.isdefault() {
+		call sg__PARAM2.setvalue class sResultTmp.value
+		call sg__ARG_00.setvalue class sSrcType.value
+		call sg__ARG_00.append ".result3.exogtxt"
+		call sg__ARG_01.setvalue class result.ed_exog_res3.value
+		put /program sg__do_output_sub
+	}
+	if !H(result.ed_exog_res4) & !result.ed_exog_res4.isdefault() {
+		call sg__PARAM2.setvalue class sResultTmp.value
+		call sg__ARG_00.setvalue class sSrcType.value
+		call sg__ARG_00.append ".result4.exogtxt"
+		call sg__ARG_01.setvalue class result.ed_exog_res4.value
+		put /program sg__do_output_sub
+	}
+
+	/******/
+
+	if !H(result.ed_endog_res1) & !result.ed_endog_res1.isdefault() {
+		call sg__PARAM2.setvalue class sResultTmp.value
+		call sg__ARG_00.setvalue class sSrcType.value
+		call sg__ARG_00.append ".result1.endogtxt"
+		call sg__ARG_01.setvalue class result.ed_endog_res1.value
+		put /program sg__do_output_sub
+	}
+	if !H(result.ed_endog_res2) & !result.ed_endog_res2.isdefault() {
+		call sg__PARAM2.setvalue class sResultTmp.value
+		call sg__ARG_00.setvalue class sSrcType.value
+		call sg__ARG_00.append ".result2.endogtxt"
+		call sg__ARG_01.setvalue class result.ed_endog_res2.value
+		put /program sg__do_output_sub
+	}
+	if !H(result.ed_endog_res3) & !result.ed_endog_res3.isdefault() {
+		call sg__PARAM2.setvalue class sResultTmp.value
+		call sg__ARG_00.setvalue class sSrcType.value
+		call sg__ARG_00.append ".result3.endogtxt"
+		call sg__ARG_01.setvalue class result.ed_endog_res3.value
+		put /program sg__do_output_sub
+	}
+	if !H(result.ed_endog_res4) & !result.ed_endog_res4.isdefault() {
+		call sg__PARAM2.setvalue class sResultTmp.value
+		call sg__ARG_00.setvalue class sSrcType.value
+		call sg__ARG_00.append ".result4.endogtxt"
+		call sg__ARG_01.setvalue class result.ed_endog_res4.value
+		put /program sg__do_output_sub
+	}
+
+	/******/
+
+	if !H(result.ed_error_res1) & !result.ed_error_res1.isdefault() {
+		call sg__PARAM2.setvalue class sResultTmp.value
+		call sg__ARG_00.setvalue class sSrcType.value
+		call sg__ARG_00.append ".result1.exogtxt"
+		call sg__ARG_01.setvalue class result.ed_error_res1.value
+		put /program sg__do_output_sub
+	}
+	if !H(result.ed_error_res2) & !result.ed_error_res2.isdefault() {
+		call sg__PARAM2.setvalue class sResultTmp.value
+		call sg__ARG_00.setvalue class sSrcType.value
+		call sg__ARG_00.append ".result2.exogtxt"
+		call sg__ARG_01.setvalue class result.ed_error_res2.value
+		put /program sg__do_output_sub
+	}
+	if !H(result.ed_error_res3) & !result.ed_error_res3.isdefault() {
+		call sg__PARAM2.setvalue class sResultTmp.value
+		call sg__ARG_00.setvalue class sSrcType.value
+		call sg__ARG_00.append ".result3.exogtxt"
+		call sg__ARG_01.setvalue class result.ed_error_res3.value
+		put /program sg__do_output_sub
+	}
+	if !H(result.ed_error_res4) & !result.ed_error_res4.isdefault() {
+		call sg__PARAM2.setvalue class sResultTmp.value
+		call sg__ARG_00.setvalue class sSrcType.value
+		call sg__ARG_00.append ".result4.exogtxt"
+		call sg__ARG_01.setvalue class result.ed_error_res4.value
+		put /program sg__do_output_sub
+	}
+END
+
+/*****************************************************************************/
+
+PROGRAM send_update_signal
+BEGIN
+	call sg__PARAM1.setvalue class OBJ.value
+	call sg__PARAM2.setvalue "UpdateDlg"
+	call sg__ARG_00.setvalue "variables_prop"
+	call sg__ARG_01.setvalue class sSrcTypeOrig.value
+	put /program sg__do_output_sub
+END
+
+PROGRAM command
+BEGIN
+	call program global_get_defaults
+	call sg__PARAM1.setvalue class OBJ.value
+	
+	call sg__PARAM2.setvalue "BeginSet"
+	call sg__DESCPT.setvalue "change variables' appearance"
+	put /program sg__do_output_sub
+	
+	put /program shape_output
+	put /program label_output
+	put /program flink_output
+	put /program result_output
+
+	call sg__PARAM2.setvalue "EndSet"
+	call sg__DESCPT.setvalue "change variables' appearance"
+	put /program sg__do_output_sub
+
+	call program send_update_signal
+END

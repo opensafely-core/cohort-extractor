@@ -1,0 +1,247 @@
+/*
+  bayes_block.dlg
+
+*!  VERSION 1.0.3  08mar2017
+
+*/
+
+VERSION 15.0
+
+INCLUDE _std_xlarge
+DEFINE _dlght 250
+INCLUDE header
+
+HELP hlp1, view("help bayesmh##blockdesc")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource BAYES_BLOCK_DLG_HSCALE
+	create BOOLEAN block_adapt
+	create BOOLEAN has_gibbs
+	
+	create DOUBLE prior_layout
+	create ARRAY main_paraspec_list
+	create STRING paraspec_str
+	create STRING paraspec_tmp
+
+	create STRING dlgname
+	dlgname.storeDialogClassName
+	
+	create STRING cmdName
+	create STRING cmdStr
+	
+	cmdStr.setvalue ""
+	cmdName.setvalue ""
+	cmdName.setvalue e(cmd)
+	cmdStr.setvalue e(cmdline)
+	
+	program load_paramslist
+END
+
+PROGRAM load_paramslist
+BEGIN
+	call paraspec_str.setvalue ""
+	call paraspec_str.append s(bayes_equndefined)
+	call paraspec_str.append " "
+	call paraspec_str.append s(noparams)
+	call paraspec_str.tokenizeOnStr main_paraspec_list " "
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	call main.cb_paraspec.repopulate
+END
+	
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT tx_paraspec		_lft	_top	_iwd	.,		///
+	label(resource BAYES_LBL_PARAMETER_SPEC_C)
+  COMBOBOX  cb_paraspec		@	_ss	@	.,		///
+	append								///
+	dropdown							///
+	contents(main_paraspec_list)					///
+	label(resource BAYES_LBL_PARAMETER_SPEC_C)
+  CHECKBOX ck_gibbs		_lft	_ls	@	.,		///
+	option(gibbs)							///
+	onclickon(program main_gibbs_on)				///
+	onclickoff(program main_gibbs_off)				///
+	label(resource BAYES_LBL_PERFORM_GIBBS_SAMPLING_BLOCK)
+
+  CHECKBOX ck_split		_lft	_ms	@	.,		///
+	option(split)							///
+	label(resource BAYES_LBL_PLACE_ALL_PARAMS_SEPARATE_BLOCKS)
+
+  EDIT    ed_scale		_lft	_ls	_en7wd	.,		///
+	numonly								///
+	default(2.38) 							///
+	option(scale)							///
+	onchange(program main_gibbs_change)				///
+	label(resource BAYES_LBL_INIT_MULTIP_SCALE_FACTOR)
+
+  TEXT    tx_scale		_en7sep @	350	.,		///
+	label(resource BAYES_LBL_INIT_MULTIP_SCALE_FACTOR)
+
+  COMBOBOX cb_covariance 	_lft	_ls	_en14wd	.,		///
+	contents(matrix)						///
+	dropdown							///
+	option(covariance)						///
+	onselchange(program main_gibbs_change)				///
+	label(resource BAYES_LBL_TX_COVARIANCE)
+  BUTTON   btn_covariance 	_en14sep @	100	.,		///
+	onpush(program show_cov_matrix)					///
+	tooltip(resource BAYES_LBL_INPUT_SCALE_MATRIX_BY_HAND)		///
+	label(resource LBL_INPUT_MATRIX)
+  TEXT    tx_covariance		+105 	@	285	.,		///
+	label(resource BAYES_LBL_TX_COVARIANCE)
+	
+  EDIT    ed_adapt_arate		_lft	_ls	_en7wd	.,	///
+	numonly								///
+	option(tarate)							///
+	onchange(program main_gibbs_change)				///
+	label(resource BAYES_LBL_TARGET_ACCEPTANCE_ARATE)
+
+  TEXT    tx_adapt_arate		_en7sep @	400	.,	///
+	label(resource BAYES_LBL_TARGET_ACCEPTANCE_ARATE)
+
+  EDIT    ed_adapt_atolerance		_lft	_ls	_en7wd	.,	///
+	numonly								///
+	default(0.01) 							///
+	option(tolerance)						///
+	onchange(program main_gibbs_change)				///
+	label(resource BAYES_LBL_TX_ATOLERANCE) 
+  TEXT    tx_adapt_atolerance		_en7sep @	400	.,	///
+	label(resource BAYES_LBL_TX_ATOLERANCE)
+END
+
+PROGRAM main_gibbs_on
+BEGIN
+	call main.ed_scale.disable
+	call main.tx_scale.disable
+	call main.cb_covariance.disable
+	call main.btn_covariance.disable
+	call main.tx_covariance.disable
+	call main.ed_adapt_arate.disable
+	call main.tx_adapt_arate.disable
+	call main.ed_adapt_atolerance.disable
+	call main.tx_adapt_atolerance.disable
+END
+
+PROGRAM main_gibbs_off
+BEGIN
+	call main.ed_scale.enable
+	call main.tx_scale.enable
+	call main.cb_covariance.enable
+	call main.btn_covariance.enable
+	call main.tx_covariance.enable
+	call main.ed_adapt_arate.enable
+	call main.tx_adapt_arate.enable
+	call main.ed_adapt_atolerance.enable
+	call main.tx_adapt_atolerance.enable
+END
+
+PROGRAM main_gibbs_change
+BEGIN
+	call block_adapt.setfalse
+	call has_gibbs.setfalse
+
+	if !main.ed_scale.isdefault() & main.ed_scale {
+		call has_gibbs.settrue
+	}
+	if main.cb_covariance {
+		call has_gibbs.settrue
+	}
+	if main.ed_adapt_arate {
+		call has_gibbs.settrue
+		call block_adapt.settrue
+	}
+	if !main.ed_adapt_atolerance.isdefault() & main.ed_adapt_atolerance {
+		call has_gibbs.settrue
+		call block_adapt.settrue
+	}
+	
+	if has_gibbs {
+		call main.ck_gibbs.disable
+	}
+	else {
+		call main.ck_gibbs.enable
+	}
+END
+
+PROGRAM show_cov_matrix
+BEGIN
+	call create STRING CovMatResult
+	call create CHILD matrix_input AS CovMat
+	if ! _rc {
+		call CovMat.setExitString CovMatResult
+		call CovMat.setExitAction "program main_getCovMatResult"
+		call CovMat.callthru "isChildContext.settrue"
+	}
+END
+
+PROGRAM main_getCovMatResult
+BEGIN
+	call main.cb_covariance.repopulate
+	call main.cb_covariance.setvalue class CovMatResult.value
+END
+
+PROGRAM adaptation_mcmc_output
+BEGIN
+	if main.ed_adapt_arate {
+		if main.ed_adapt_arate.isNumlistLE(0) | main.ed_adapt_arate.isNumlistGE(1) {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format 						///
+				"resource BAYES_BLOCK_MSGBOX_ADAPTATION_WITHIN_0_1_FMT" ///
+				"resource BAYES_LBL_TARGET_ACCEPTANCE_ARATE"
+			stopbox stop "class _MSG_TMP.value"
+// "Target acceptance rate" must be in (0,1).
+
+		}
+		put " tarate("
+		put main.ed_adapt_arate
+		put ")"
+	}
+	if !main.ed_adapt_atolerance.isdefault() & main.ed_adapt_atolerance {
+		if main.ed_adapt_atolerance.isNumlistLE(0) | main.ed_adapt_atolerance.isNumlistGE(1) {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format 						///
+				"resource BAYES_BLOCK_MSGBOX_ADAPTATION_WITHIN_0_1_FMT" ///
+				"resource BAYES_LBL_TX_ATOLERANCE"
+			stopbox stop "class _MSG_TMP.value"
+// "Tolerance for acceptance" rate must be in (0,1).
+
+		}
+		put " tolerance("
+		put main.ed_adapt_atolerance
+		put ")"
+	}
+END
+
+PROGRAM block_adaptation_output
+BEGIN	
+	if block_adapt {
+		put "adaptation("
+		put /program adaptation_mcmc_output
+		put ")"
+	}
+END
+
+PROGRAM block_output
+BEGIN
+	require main.cb_paraspec 
+	put main.cb_paraspec
+	beginoptions
+		option main.ck_split
+		option main.ck_gibbs
+		optionarg /hidedefault main.ed_scale
+		optionarg main.cb_covariance
+		put " " /program block_adaptation_output
+	endoptions
+END
+
+PROGRAM command
+BEGIN
+	put "block("
+	put /program block_output
+	put ")"
+END

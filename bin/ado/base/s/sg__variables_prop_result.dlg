@@ -1,0 +1,429 @@
+/*
+  sg__variables_prop_result.dlg
+
+*!  VERSION 1.1.1  03jun2015
+
+*/
+
+VERSION 14.0
+MODAL
+
+INCLUDE _std_msmall
+DEFINE _dlght 290
+INCLUDE header_sem_ed
+
+DEFINE _clwd	15
+DEFINE _wd	120
+DEFINE _sep	+125
+DEFINE _wd2	110
+DEFINE _sep2	+115
+DEFINE _cbwd	125
+DEFINE _cbsep	+130
+
+INCLUDE sg__common_output		/* routines necessary for output */
+
+SCRIPT PREINIT
+BEGIN
+	script sg__common_output_init 	/* initialize output globals */
+
+	create STRING OBJ
+	program setupOBJECT
+
+	create STRING sTemp
+	create DOUBLE dTemp
+	create STRING sSrcType
+	create STRING sSrcTypeOrig
+
+	program global_get_defaults
+	setscale_hadj resource SG__VARIABLES_PROP_RESULT_DLG_HSCALE
+END
+
+PROGRAM setupOBJECT
+BEGIN
+	if ! __MESSAGE {
+		stopbox stop resource LBL_MSGBOX_OBJECT_NOT_FOUND
+// An unexpected error has occurred. Object not found.
+		exit 198
+	}
+	call OBJ.setvalue class __MESSAGE.value
+END
+
+PROGRAM global_get_defaults
+BEGIN
+	call sSrcType.setvalue class .__SEMG.dbsettings.source
+	call sSrcTypeOrig.setvalue class .__SEMG.dbsettings.source
+	
+	if (sSrcType.iseq("selected")) {
+		call sSrcType.setvalue "nodestyle"
+	}
+END
+
+SCRIPT main_PREINIT
+BEGIN
+	create STRING sPos
+	create STRING sPosRef
+	create STRING sBGap
+	create STRING sOffsetX
+	create STRING sOffsetY
+	create STRING sFormat
+	create STRING sFontSz
+	create STRING sFontClr
+	create STRING sFontFace
+	create BOOLEAN bBold
+	create BOOLEAN bItalic
+	
+	create STRING sResult		/* set by parent */
+	create STRING sSrcResInit
+	create STRING sSrcResOut
+END
+
+SCRIPT main_POSTINIT
+BEGIN
+
+END
+
+PROGRAM loadDefaults /* to be called by parent dialog */
+BEGIN
+	/* sResult setup by parent dialog */
+	/* sSrcResInit formed by sSrcType and sResult (example: lexog_result1) */
+	call sSrcType.withvalue sSrcResInit.setvalue "@_"
+	call sSrcResInit.append class sResult.value
+
+	/* sSrcResOut formed by sSrcType and sResult (example: lexog.result1) */
+	call sSrcType.withvalue sSrcResOut.setvalue "@."
+	call sSrcResOut.append class sResult.value
+	
+	call program main_get_defaults
+	call program main_initialize_controls
+END
+
+PROGRAM main_get_defaults
+BEGIN
+	call sSrcResInit.withvalue sPos.setvalue class .__SEMG.dbsettings.@_pos
+	call sPos.withvalue main.cb_position.setdefault "@"
+
+	call sSrcResInit.withvalue sPosRef.setvalue class .__SEMG.dbsettings.@_inside
+	call sPosRef.withvalue main.cb_posref.setdefault "@"
+
+	call sSrcResInit.withvalue sBGap.setvalue class .__SEMG.dbsettings.@_gap
+	call sBGap.withvalue main.cb_bgap.setdefault "@"
+
+	call sSrcResInit.withvalue sOffsetX.setvalue class .__SEMG.dbsettings.@_xoffset
+	call sOffsetX.withvalue main.cb_offset_x.setdefault "@"
+
+	call sSrcResInit.withvalue sOffsetY.setvalue class .__SEMG.dbsettings.@_yoffset
+	call sOffsetY.withvalue main.cb_offset_y.setdefault "@"
+
+	call sSrcResInit.withvalue sFontSz.setvalue class .__SEMG.dbsettings.@_size
+	call sFontSz.withvalue main.cb_fsize.setdefault "@"
+
+	call sSrcResInit.withvalue sFormat.setvalue class .__SEMG.dbsettings.@_fmt
+	call sFormat.withvalue main.ed_fmt.setdefault "@"
+
+	call sSrcResInit.withvalue sFontClr.setvalue class .__SEMG.dbsettings.@_color
+	call sFontClr.withvalue main.cb_fcolor.setdefault "@"
+
+	call sSrcResInit.withvalue sFontFace.setvalue class .__SEMG.dbsettings.@_face
+	call sFontFace.withvalue main.cb_fface.setdefault "@"
+
+	call sSrcResInit.withvalue sTemp.setvalue class .__SEMG.dbsettings.@_bold
+	if (sTemp.iseq("2")) {
+		call bBold.settrue
+		call main.ck_bold.setdefault 1
+	}
+	else {
+		call bBold.setfalse
+		call main.ck_bold.setdefault 0
+	}
+
+	call sSrcResInit.withvalue sTemp.setvalue class .__SEMG.dbsettings.@_italic
+	if (sTemp.iseq("2")) {
+		call bItalic.settrue
+		call main.ck_italic.setdefault 1
+	}
+	else {
+		call bItalic.setfalse
+		call main.ck_italic.setdefault 0
+	}
+END
+
+PROGRAM main_initialize_controls
+BEGIN
+	call main.cb_position.setvalue class sPos.value
+	call main.cb_posref.setvalue class sPosRef.value
+	call main.cb_bgap.setvalue class sBGap.value
+	call main.cb_offset_x.setvalue class sOffsetX.value
+	call main.cb_offset_y.setvalue class sOffsetY.value
+	call main.ed_fmt.setvalue class sFormat.value
+	call main.cb_fsize.setvalue class sFontSz.value
+	call main.cb_fcolor.setvalue class sFontClr.value
+	call main.cb_fface.setvalue class sFontFace.value
+
+	if (bBold) {
+		call main.ck_bold.seton
+	}
+	else {
+		call main.ck_bold.setoff
+	}
+	if (bItalic) {
+		call main.ck_italic.seton
+	}
+	else {
+		call main.ck_italic.setoff
+	}
+END
+
+PROGRAM main_check_position
+BEGIN
+	if (main.cb_position.iseq("0")) {
+		call main.cb_posref.disable
+		call main.cb_bgap.disable
+	}
+	else {
+		call main.cb_posref.enable
+		call main.cb_bgap.enable
+	}
+END
+
+DIALOG main, label(resource SG__VARIABLES_PROP_RESULT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_position	_ilft	20	_wd	.,		///
+	label(resource LBL_POSITION) right
+  COMBOBOX cb_position	_sep	@	80	., nomemory	///
+	dropdown contents(.__SEM_STYLES_LABEL.clock)		///
+	values(.__SEM_STYLES.clock)				///
+	onselchange(program main_check_position)
+  COMBOBOX cb_posref	+85	@	80	., nomemory	///
+	dropdown contents(.__SEM_STYLES_LABEL.inside)		///
+	values(.__SEM_STYLES.inside)
+
+  TEXT     tx_bgap	_ilft	_mls	_wd	.,		///
+	label(resource LBL_BOUNDARY_GAP) right
+  COMBOBOX cb_bgap	_sep	@	80	., nomemory	///
+	dropdown contents(.__SEM_STYLES_LABEL.pointsize)	///
+	values(.__SEM_STYLES.pointsize)
+  TEXT     tx_bgap_m	+85	@	50	.,		///
+	label(resource LBL_PT)
+
+  TEXT     tx_offset	_ilft	_mls	_wd	.,		///
+	label(resource LBL_OFFSET) right 
+  COMBOBOX cb_offset_x	_sep	@	80	., nomemory	///
+	tooltip(resource LBL_X_OFFSET_NO_COLON) dropdown	///
+	contents(.__SEM_STYLES_LABEL.pointsize)			///
+	values(.__SEM_STYLES.pointsize)
+  COMBOBOX cb_offset_y	+85	@	80	., nomemory	///
+	tooltip(resource LBL_Y_OFFSET_NO_COLON) dropdown	///
+	contents(.__SEM_STYLES_LABEL.pointsize)			///
+	values(.__SEM_STYLES.pointsize)
+  TEXT     tx_offset_m	+85	@	50	.,		///
+	label(resource LBL_PT)
+
+  TEXT     tx_fmt	_ilft	_mls	_wd	.,		///
+  	label(resource LBL_FORMAT) right
+  EDIT     ed_fmt	_sep	@	165	., nomemory	///
+	option(format)
+  BUTTON   bu_fmt	+170	@	20	.,		///
+	label("...") onpush(script main_GetFormat)		///
+	tooltip(resource LBL_CREATE_DISPLAY_FORMAT)
+
+  GROUPBOX gb_font	_lft	+30	_iwd	_ht10h,		///
+	label(resource LBL_FONT)
+  TEXT     tx_fsize	_ilft	_ss	_wd	.,		///
+	label(resource LBL_SIZE) right
+  COMBOBOX cb_fsize	_sep	@	80	., nomemory	///
+	dropdown contents(.__SEM_STYLES_LABEL.pointsize)	///
+	values(.__SEM_STYLES.pointsize)
+  TEXT     tx_fsize_m	+85	@	50	.,		///
+	label(resource LBL_PT)
+
+  TEXT     tx_fcolor	_ilft	_mls	_wd	.,		///
+	label(resource LBL_FONT_COLOR) right
+  COMBOBOX cb_fcolor	_sep	@	_cbwd	., nomemory	///
+	dropdown contents(.__SEM_STYLES_LABEL.color)		///
+	values(.__SEM_STYLES.color)
+
+  TEXT     tx_fface	_ilft	_mls	_wd	.,		///
+	label(resource LBL_FONT_FACE) right
+  COMBOBOX cb_fface	_sep	@	_cbwd	., nomemory	///
+	dropdown contents(.__SEM_STYLES_LABEL.face)		///
+	values(.__SEM_STYLES.face)
+
+  CHECKBOX ck_bold	@	_mls	60	., nomemory	///
+	label(resource LBL_BOLD) 
+  CHECKBOX ck_italic	+65	@	_wd	., nomemory	///
+	label(resource LBL_ITALIC) 
+END
+
+SCRIPT main_GetFormat
+BEGIN
+	create STRING mainFormat
+	create CHILD format_chooser
+	format_chooser.setExitString mainFormat
+	format_chooser.setExitAction "main.ed_fmt.setvalue class mainFormat.value"
+END
+
+PROGRAM main_output
+BEGIN
+	call program main_get_defaults
+
+	call create STRING sMainTmp
+	if (sSrcType.iseq("nodestyle")) {
+		call sMainTmp.setvalue "SetStyleSelected"
+	}
+	else { 
+		call sMainTmp.setvalue "SetStyle"
+	}
+	
+	if (!main.cb_position.isdefault()) {
+		call sg__PARAM2.setvalue class sMainTmp.value
+		call sg__ARG_00.setvalue class sSrcResOut.value
+		call sg__ARG_00.append ".pos"
+		call sg__ARG_01.setvalue class main.cb_position.value
+		put /program sg__do_output_sub
+	}
+	if (main.cb_posref.isenabled() & !main.cb_posref.isdefault()) {
+		call sg__PARAM2.setvalue class sMainTmp.value
+		call sg__ARG_00.setvalue class sSrcResOut.value
+		call sg__ARG_00.append ".inside"
+		call sg__ARG_01.setvalue class main.cb_posref.value
+		put /program sg__do_output_sub
+	}
+
+	if (main.cb_bgap.isenabled() & !main.cb_bgap.isdefault()) {
+		call dTemp.setvalue class main.cb_bgap.value
+		call sTemp.setvalue class main.cb_bgap.value
+		if (!dTemp & dTemp.isneq(0) & sTemp.isneq("<multiple>")) {
+			call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_CONTAINS_A_NONNUMERIC_VALUE_FMT" ///
+				"resource LBL_BOUNDARY_GAP"
+			stopbox stop "class _MSG_TMP.value"
+// "Boundary gap" contains a nonnumeric value.
+		}
+		call sg__PARAM2.setvalue class sMainTmp.value
+		call sg__ARG_00.setvalue class sSrcResOut.value
+		call sg__ARG_00.append ".gap"
+		call sg__ARG_01.setvalue class main.cb_bgap.value
+		put /program sg__do_output_sub
+	}
+
+	if (!main.cb_offset_x.isdefault()) {
+		call dTemp.setvalue class main.cb_offset_x.value
+		call sTemp.setvalue class main.cb_offset_x.value
+		if (!dTemp & dTemp.isneq(0) & sTemp.isneq("<multiple>")) {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_CONTAINS_A_NONNUMERIC_VALUE_FMT" ///
+				"resource LBL_OFFSET"
+                        stopbox stop "class _MSG_TMP.value"
+// "Offset" contains a nonnumeric value.
+		}
+		call sg__PARAM2.setvalue class sMainTmp.value
+		call sg__ARG_00.setvalue class sSrcResOut.value
+		call sg__ARG_00.append ".xoffset"
+		call sg__ARG_01.setvalue class main.cb_offset_x.value
+		put /program sg__do_output_sub
+	}
+	if (!main.cb_offset_y.isdefault()) {
+		call dTemp.setvalue class main.cb_offset_y.value
+		call sTemp.setvalue class main.cb_offset_y.value
+		if (!dTemp & dTemp.isneq(0) & sTemp.isneq("<multiple>")) {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_CONTAINS_A_NONNUMERIC_VALUE_FMT" ///
+				"resource LBL_OFFSET"
+                        stopbox stop "class _MSG_TMP.value"
+// "Offset" contains a nonnumeric value.
+		}
+		call sg__PARAM2.setvalue class sMainTmp.value
+		call sg__ARG_00.setvalue class sSrcResOut.value
+		call sg__ARG_00.append ".yoffset"
+		call sg__ARG_01.setvalue class main.cb_offset_y.value
+		put /program sg__do_output_sub
+	}
+
+	if (!main.ed_fmt.isdefault()) {
+		call sg__PARAM2.setvalue class sMainTmp.value
+		call sg__ARG_00.setvalue class sSrcResOut.value
+		call sg__ARG_00.append ".fmt"
+		call sg__ARG_01.setvalue class main.ed_fmt.value
+		put /program sg__do_output_sub
+	}
+
+	if (!main.cb_fsize.isdefault()) {
+		call dTemp.setvalue class main.cb_fsize.value
+		call sTemp.setvalue class main.cb_fsize.value
+		if (!dTemp & dTemp.isneq(0) & sTemp.isneq("<multiple>")) {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_CONTAINS_A_NONNUMERIC_VALUE_FMT" ///
+                        "resource LBL_TAB_SIZE"
+                        stopbox stop "class _MSG_TMP.value"
+// "Size" contains a nonnumeric value.
+		}
+		call sg__PARAM2.setvalue class sMainTmp.value
+		call sg__ARG_00.setvalue class sSrcResOut.value
+		call sg__ARG_00.append ".size"
+		call sg__ARG_01.setvalue class main.cb_fsize.value
+		put /program sg__do_output_sub
+	}
+
+	if (!main.cb_fcolor.isdefault()) {
+		call sg__PARAM2.setvalue class sMainTmp.value
+		call sg__ARG_00.setvalue class sSrcResOut.value
+		call sg__ARG_00.append ".color"
+		call sg__ARG_01.setvalue class main.cb_fcolor.value
+		put /program sg__do_output_sub
+	}
+
+	if (!main.cb_fface.isdefault()) {
+		call sg__PARAM2.setvalue class sMainTmp.value
+		call sg__ARG_00.setvalue class sSrcResOut.value
+		call sg__ARG_00.append ".face"
+		call sg__ARG_01.setvalue class main.cb_fface.value
+		put /program sg__do_output_sub
+	}
+
+	if (!main.ck_bold.isdefault()) {
+		call sg__PARAM2.setvalue class sMainTmp.value
+		call sg__ARG_00.setvalue class sSrcResOut.value
+		call sg__ARG_00.append ".bold"
+		if main.ck_bold {
+			call sg__ARG_01.setvalue "yes"
+		}
+		else {
+			call sg__ARG_01.setvalue "no"
+		}
+		put /program sg__do_output_sub
+	}
+
+	if (!main.ck_italic.isdefault()) {
+		call sg__PARAM2.setvalue class sMainTmp.value
+		call sg__ARG_00.setvalue class sSrcResOut.value
+		call sg__ARG_00.append ".italic"
+		if main.ck_italic {
+			call sg__ARG_01.setvalue "yes"
+		}
+		else {
+			call sg__ARG_01.setvalue "no"
+		}
+		put /program sg__do_output_sub
+	}
+END
+
+/*****************************************************************************/
+
+PROGRAM command
+BEGIN
+	call sg__PARAM1.setvalue class OBJ.value
+	
+	call sg__PARAM2.setvalue "BeginSet"
+	call sg__DESCPT.setvalue "change variable results' appearance"
+	put /program sg__do_output_sub
+	
+	put /program main_output
+
+	call sg__PARAM2.setvalue "EndSet"
+	call sg__DESCPT.setvalue "change variable results' appearance"
+	put /program sg__do_output_sub
+END

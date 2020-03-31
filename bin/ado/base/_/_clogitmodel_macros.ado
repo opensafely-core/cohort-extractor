@@ -1,0 +1,6 @@
+*! version 1.0.0  04apr2019
+
+local CLOGIT_VERSION_AS_BASE	1
+local CLOGIT_VERSION_CM_BASE	2
+
+exit

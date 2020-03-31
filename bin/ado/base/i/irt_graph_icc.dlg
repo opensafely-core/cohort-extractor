@@ -1,0 +1,215 @@
+/*
+	irt graph icc
+
+*!  VERSION 1.1.6  01dec2019
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 330
+INCLUDE header
+
+HELP hlp1, view("help irtgraph icc")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING	BlocLinePropResults
+	create STRING	PlocLinePropResults
+	
+	gr_line_options.settabtitle resource LBL_LINE
+	setscale_hadj resource IRT_GRAPH_ICC_DLG_HSCALE
+END
+
+DIALOG main, tabtitle(resource LBL_PLOTS)				///
+	label(resource IRT_GRAPH_ICC_DLG_TITLE)
+BEGIN
+  CHECKBOX ck_bloc			_lft	_top	_iwd	.,	///
+	onclickon(main.btn_bloc.enable)					///
+	onclickoff(main.btn_bloc.disable)				///
+	label(resource IRT_GRAPH_ICC_MAIN_CK_BLOC)
+  BUTTON   btn_bloc			_iilft	_ms	_en14wd	.,	///
+	onpush(program main_bloc_lineprop)				///
+	label(resource LBL_GB_LINE_PROPERTIES)
+  CHECKBOX ck_ploc			_lft	_ms	_iwd	.,	///
+	onclickon(main.btn_ploc.enable)					///
+	onclickoff(main.btn_ploc.disable)				///
+	label(resource IRT_GRAPH_ICC_MAIN_CK_PLOC)
+  BUTTON   btn_ploc			_iilft	_ms	_en14wd	.,	///
+	onpush(program main_ploc_lineprop)				///
+	label(resource LBL_GB_LINE_PROPERTIES)
+  CHECKBOX ck_range			_lft	_ms	_ibwd	.,	///
+	onclickon(program main_range_on)				///
+	onclickoff(program main_range_off)				///
+	label(resource IRT_GRAPH_ICC_MAIN_CK_RANGE)
+  EDIT   ed_from			+20	_ms	_en14wd	.,	///
+	numonly								///
+	label(resource LBL_RANGE_OF_THETA)
+  TEXT	tx_range			_en14sep @	50	.,	///
+	label(resource LBL_TO_LOWERCASE)
+  EDIT   ed_to				172	@	_en14wd	.,	///
+	numonly								///
+	label(resource LBL_RANGE_OF_THETA)
+END
+
+PROGRAM main_range_on
+BEGIN
+	call main.ed_from.enable
+	call main.tx_range.enable
+	call main.ed_to.enable
+END
+
+PROGRAM main_range_off
+BEGIN
+	call main.ed_from.disable
+	call main.tx_range.disable
+	call main.ed_to.disable
+END
+
+PROGRAM main_bloc_lineprop
+BEGIN
+	call create CHILD gr_line_options AS BlocLinePropDlg
+	if ! _rc {
+		call BlocLinePropDlg.setExitString BlocLinePropResults
+		call BlocLinePropDlg.setExitAction "program graph_get_BlocLinePropResults"
+	}
+END
+
+PROGRAM graph_get_BlocLinePropResults
+BEGIN
+	if BlocLinePropResults {
+		call main.btn_bloc.modified_on
+	}
+	else {
+		call main.btn_bloc.modified_off
+	}
+END
+
+PROGRAM main_ploc_lineprop
+BEGIN
+	call create CHILD gr_line_options AS PlocLinePropDlg
+	if ! _rc {
+		call PlocLinePropDlg.setExitString PlocLinePropResults
+		call PlocLinePropDlg.setExitAction "program graph_get_PlocLinePropResults"
+	}
+END
+
+PROGRAM graph_get_PlocLinePropResults
+BEGIN
+	if PlocLinePropResults {
+		call main.btn_ploc.modified_on
+	}
+	else {
+		call main.btn_ploc.modified_off
+	}
+END
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+END
+
+INCLUDE gr_line_options
+INCLUDE gr_addplots_2
+INCLUDE gr_yaxis
+INCLUDE gr_xaxis
+INCLUDE gr_titles
+INCLUDE gr_legend
+INCLUDE gr_overall
+
+SCRIPT dataopt_PREINIT
+BEGIN
+        dataopt.fi_save.formatfilter "{0} (*.dta)|*.dta|{1} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_DTA" "resource ui_ex FILE_TYPE_ALL_FILES"
+END
+
+DIALOG dataopt, tabtitle(resource LBL_DATA)
+BEGIN
+  SPINNER sp_n				_lft	_top	_en14wd	.,	///
+	default(300) min(1) max(10000000)				///
+	option(n)							///
+	label(resource IRT_GRAPH_ICC_DATAOPT_SP_N) 
+  TEXT    tx_n				_en14sep @	300	.,	///
+	label(resource IRT_GRAPH_ICC_DATAOPT_SP_N) 
+
+  CHECKBOX ck_save			_lft	+40	_iwd	_ht5,	///
+	groupbox							///
+	onclickon(script dataopt_save_on)				///
+	onclickoff(script dataopt_save_off)				///
+	label(resource LBL_SAVE_PLOT_DATA_AS_DATASET)
+  FILE	fi_save				_ilft	_ss	_ibwd	.,	///
+	option(saving)							///
+	defext(dta)							///
+	save								///
+	error(resource IRT_GRAPH_ICC_DATAOPT_FI_SAVE)			///
+	label(resource LBL_BU_BROWSE)
+  CHECKBOX ck_repdta			@	_ms	@	.,	///
+	label(resource LBL_OVERWRITE_FILE_IF_IT_ALREADY_EXISTS)
+END
+
+SCRIPT dataopt_save_on
+BEGIN
+	dataopt.fi_save.enable
+	dataopt.ck_repdta.enable
+END
+
+SCRIPT dataopt_save_off
+BEGIN
+	dataopt.fi_save.disable
+	dataopt.ck_repdta.disable
+END
+
+PROGRAM command
+BEGIN
+	if main.ck_bloc {
+		put " blocation"
+		if BlocLinePropResults {
+			put "("
+			put BlocLinePropResults
+			put ")"
+		}
+	}
+	if main.ck_ploc {
+		put " plocation" 
+		if PlocLinePropResults {
+			put "("
+			put PlocLinePropResults
+			put ")"				
+		}
+	}
+	if main.ck_range {
+		require main.ed_from
+		require main.ed_to
+		put " range("
+		put main.ed_from
+		put " "
+		put main.ed_to
+		put ")"
+	}
+	
+	put " " /program gr_line_options_output
+	put " " /program gr_addplots_output
+	put " " /program gr_yaxis_output
+	put " " /program gr_xaxis_output
+	put " " /program gr_titles_output
+	put " " /program gr_legend_output
+	put " " /program gr_overall_output
+	
+	if !dataopt.sp_n.isdefault() {
+		put " n("
+		put dataopt.sp_n
+		put ")"
+	}
+	
+	if dataopt.ck_save {
+		require dataopt.fi_save
+		put `"data("'
+		put dataopt.fi_save
+		if dataopt.ck_repdta {
+			put `", replace"'
+		}
+		put `")"'
+	}
+END

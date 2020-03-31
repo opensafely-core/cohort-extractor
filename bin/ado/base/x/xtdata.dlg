@@ -1,0 +1,113 @@
+/*
+  xtdata
+
+*!  VERSION 1.2.1  18may2017
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_xlarge
+INCLUDE _ht250
+INCLUDE header
+
+HELP hlp1, view("help xtdata")
+RESET res1
+
+SCRIPT show_xtset
+BEGIN
+	create CHILD xtset,
+END
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource XTDATA_DLG_HSCALE
+END
+
+
+DIALOG main, label(resource XTDATA_DLG_TITLE) /*
+		*/ tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  BUTTON   bu_xtset	_xsetbu	_top	_setbuwd .,		///
+	onpush(script show_xtset)				///
+	label(resource LBL_BU_PANEL_SETTINGS)
+
+  TEXT      tx_var         _lft      _topph    _comb4_3     .,		/*
+  	*/label(resource XTDATA_MAIN_TX_VAR)/*
+  		*/
+  VARLIST   vl_var         @         _ss       _iwd         .,		/*
+		*/allowcat						/*
+		*/numeric						/*
+  		*/label(resource XTDATA_MAIN_VL_VAR)
+		
+  GROUPBOX  gb_opt         _lft      _ls       _iwd      _ht14, 	/*
+  		*/label(resource LBL_OPTIONS)
+  GROUPBOX  gb_type        _indent   _ss       _cwd2     _ht11,		/*
+  		*/label(resource XTDATA_MAIN_GB_TYPE)
+  DEFINE holdy @y
+  DEFINE holdx @x
+  RADIO     rb_re          _indent   _ss       _inwd     .,		/*
+		*/label(resource XTDATA_MAIN_RB_RE)			/*
+  		*/clickon("script re_on")				/*
+  		*/option("re") first
+  DEFINE holdxi @x
+  DEFINE skip +27
+  EDIT      en_ratio       _indent   skip      _en7wd    .,		/*
+		*/label(resource XTDATA_MAIN_EN_RATIO) 			/*
+		*/option("ratio")					/*
+		*/numonly
+  TEXTBOX   tb_ratio       _en7sep   -7        150       _tb3, /*SIC*/  /*
+		*/label(resource XTDATA_MAIN_EN_RATIO) 			/*
+		*/  		
+  
+  RADIO     rb_be          holdxi    +48       _cwd4    .,		/* 
+		*/label(resource XTDATA_MAIN_RB_BE)			/*
+  		*/clickon("script re_off")				/*
+  		*/option("be")
+  RADIO     rb_fe          @         _ms       @         .,		/*
+  		*/label(resource XTDATA_MAIN_RB_FE)			/*
+  		*/clickon("script re_off")				/*
+  		*/option("fe")  last
+  GROUPBOX  gb_doub        _lft2     holdy     _cwd2     _ht4,		/*
+  		*/label(resource XTDATA_MAIN_GB_DOUB)
+  RADIO     rb_doub        _indent   _ss       _inwd     .,		/*
+  		*/label(resource LBL_DOUBLE)				/*
+  		*/option("NONE") first
+  RADIO     rb_nodoub      @         _ss       @         .,		/*
+		*/label(resource XTDATA_MAIN_RB_NODOUB)			/*
+  		*/option("nodouble") last  
+  CHECKBOX  ck_clear       _lft2   _xls        _cwd2     .,		/*
+  		*/label(resource LBL_OVERWRITE_CURRENT_DATA_IN_MEMORY)	/*
+  		*/option("clear") nomem
+END
+
+INCLUDE ifin
+
+SCRIPT re_on
+BEGIN
+  main.en_ratio.enable
+  main.tb_ratio.enable
+END
+
+SCRIPT re_off
+BEGIN
+  main.en_ratio.disable
+  main.tb_ratio.disable
+END
+PROGRAM command
+BEGIN
+	allowxi
+	put "xtdata "
+	varlist [main.vl_var]
+	INCLUDE _ifin_pr
+	beginoptions
+		option radio(main rb_re rb_be rb_fe)
+		if main.rb_re {
+			require main.en_ratio
+			optionarg main.en_ratio
+		}
+		option radio(main rb_doub rb_nodoub)
+		option main.ck_clear
+	endoptions
+END
+

@@ -1,0 +1,108 @@
+/*
+  varbasic
+
+  VERSION 1.1.0  18dec2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+INCLUDE _ht270
+INCLUDE header
+HELP hlp1, view("help varbasic")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource VARBASIC_DLG_HSCALE
+END
+
+DIALOG main, label(resource VARBASIC_DLG_TITLE) /*
+*/  tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  DEFINE _x _xsetbu
+  DEFINE _y _top
+  INCLUDE _bu_tsset
+
+  TEXT     tx_dv             _lft      _topph    129       .,		/*
+		*/ label(resource LBL_DEPENDENT_VARIABLES)
+  VARLIST  vl_dv             @         _ss       _iwd      .,		/*
+  		*/ numeric						/*
+		*/ label(resource LBL_DEPENDENT_VARIABLES) ts
+
+  GROUPBOX gb_lags           @         _ls       _comb3_1  _ht10,	/*
+		*/ label(resource LBL_LAGS)
+  DEFINE   holdy @y
+  RADIO    rb_lags1          _ilft     _ss       _comb3_3  ., first	/*
+		*/ clickon("script one2n")				/*
+		*/ label(resource VARBASIC_MAIN_RB_LAGS1)
+  SPINNER  sp_lags1          _indent2  _ms       _spwd     .,		/*
+		*/ min(1) max(c(N)) default(2)				/*
+		*/ label(resource VARBASIC_MAIN_RB_LAGS1)
+  RADIO    rb_lags2          _ilft     _ls       _comb3_3  ., last	/*
+		*/ clickon("script laglist")				/*
+		*/ label(resource VARBASIC_MAIN_RB_LAGS2)
+  EDIT     ed_lags2          _indent2  _ms       _vnwd     .,		/*
+		*/ option("lags")					/*
+		*/ label(resource VARBASIC_MAIN_ED_LAGS2)
+
+  GROUPBOX gb_step           _lft      _xls      _iwd      _ht2h,	/*
+		*/ label(resource VARBASIC_MAIN_GB_STEP)
+  SPINNER  sp_step           _ilft     _ms       _spwd     .,		/*
+		*/ min(1) max(c(N)) default(8)				/*
+		*/ option("step")					/*
+		*/ label(resource LBL_PERIODS)
+  TEXT     tx_step           _spsep    @         _sprb     .,		/*
+		*/ label(resource LBL_PERIODS)
+
+  GROUPBOX gb_graph          _lft3_3   holdy     _cwd3_1   _ht10,	/*
+		*/ label(resource LBL_GRAPH)
+  RADIO    rb_oirf           _indent   _ms       _inwd     ., first	/*
+		*/ option(NONE)						/*
+		*/ label(resource VARBASIC_MAIN_RB_OIRF)
+  RADIO    rb_irf            @         _ms       @         .,		/*
+		*/ option("irf")					/*
+		*/ label(resource VARBASIC_MAIN_RB_IRF)
+  RADIO    rb_fevd           @         _ms       @         .,		/*
+		*/ option("fevd")					/*
+		*/ label(resource VARBASIC_MAIN_RB_FEVD)
+  RADIO    rb_nograph        @         _ms       @         ., last	/*
+		*/ option("nograph")					/*
+		*/ label(resource VARBASIC_MAIN_RB_NOGRAPH)
+END
+
+INCLUDE ifin
+
+SCRIPT one2n
+BEGIN
+	main.sp_lags1.enable
+	main.ed_lags2.disable
+END
+
+SCRIPT laglist
+BEGIN
+	main.sp_lags1.disable
+	main.ed_lags2.enable
+END
+
+PROGRAM command
+BEGIN
+	allowxi
+	put "varbasic "
+	varlist main.vl_dv
+	INCLUDE _ifin_pr
+	beginoptions
+		if main.rb_lags1 {
+			put "lags(1/"
+			put main.sp_lags1
+			put ") "
+		}
+		if main.rb_lags2 {
+			require main.ed_lags2
+			optionarg main.ed_lags2
+		}
+		optionarg main.sp_step
+		option radio(main rb_oirf rb_irf rb_fevd rb_nograph)
+	endoptions
+END

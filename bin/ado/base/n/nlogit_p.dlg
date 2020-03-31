@@ -1,0 +1,108 @@
+/*
+	predict (after nlogit)
+
+*!  VERSION 1.1.1  01feb2019
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium  // ** set POSTINIT to match
+DEFINE _dlght 270
+INCLUDE header
+
+HELP hlp1, view("help nlogit postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource NLOGIT_P_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script _p_gentype_setMedium
+END
+
+DIALOG main, label(resource PREDICT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  INCLUDE  _p_gentype
+
+  GROUPBOX gb_opts		_lft	_ls	_iwd	_ht10,		///
+		label(resource LBL_PRODUCE)
+  RADIO    rb_pr		_indent	_ss	_inwd	., first	///
+		option(pr)						///
+		onclickon(program check_stat_type)			///
+		label(resource LBL_PROBABILITY_ALTERNATIVE_CHOSEN)
+  RADIO    rb_xb		@	_ss	@	.,		///
+		option(xb)						///
+		onclickon(program check_stat_type)			///
+		label(resource LBL_LINEAR_PREDICTION)
+  RADIO    rb_condp		@	_ss	@	.,		///
+		option(condp)						///
+		onclickon(program check_stat_type)			///
+		label(resource NLOGIT_P_MAIN_RB_CONDP)
+  RADIO    rb_iv		@	_ss	@	.,		///
+		option(iv)						///
+		onclickon(program check_stat_type)			///
+		label(resource NLOGIT_P_MAIN_RB_IV)
+  RADIO    rb_score		@	_ss	@	., last		///
+		option(score)						///
+		onclickon(program check_stat_type)			///
+		label(resource LBL_PARAMETER_LEVEL_SCORES)
+
+  CHECKBOX ck_hlevel		_lft	+45	_ckwd	.,		///
+	onclickon(program check_stat_type)				///
+	onclickoff(program check_stat_type)
+  SPINNER  sp_hlevel		_cksep	@	_spwd	.,		///
+	default(1) min(1) max(e(levels)) option(hlevel)				
+  TEXT     tx_hlevel		_spsep	@	200	.,		///
+	label(resource NLOGIT_P_MAIN_TX_HLEVEL)	
+END
+
+PROGRAM check_stat_type
+BEGIN
+	if main.rb_pr | main.rb_xb | main.rb_condp {
+		call main.ck_hlevel.enable
+		if main.ck_hlevel {
+			call main.sp_hlevel.enable
+		}
+		else {
+			call main.sp_hlevel.disable
+		}
+		call main.tx_hlevel.enable
+		call script _p_gentype_multiple
+	}
+	if main.rb_iv {
+		call main.ck_hlevel.enable
+		if main.ck_hlevel {
+			call main.sp_hlevel.enable
+		}
+		else {
+			call main.sp_hlevel.disable
+		}
+		call main.tx_hlevel.enable
+		call script _p_gentype_multiple
+	}
+	if main.rb_score {
+		call main.ck_hlevel.disable
+		call main.sp_hlevel.disable
+		call main.tx_hlevel.disable
+		call script _p_gentype_multiple
+	}
+END
+
+INCLUDE _p_gentype_sc
+INCLUDE ifin
+INCLUDE _type_list_fd
+
+PROGRAM command
+BEGIN
+	put "predict "
+	put " " /program _p_gentype_output
+	put " " /program ifin_output
+	beginoptions
+		option radio(main rb_pr rb_xb rb_condp rb_iv rb_score)
+		optionarg main.sp_hlevel
+	endoptions
+END

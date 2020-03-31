@@ -1,0 +1,113 @@
+*! version 1.0.1  19jul2004
+version 8
+
+class cell {
+	double minrow			
+	double maxrow
+	double mincol
+	double maxcol
+
+	string fitspan		/* may have up to 4 tokens */
+
+//	style = .cellstyle.new
+
+} , inherit(object)
+
+program define _prse_set_span
+	args view maxrow maxcol options
+
+	local 0 `options'
+	syntax [ , RING(real -1)					///
+		   SPANRows(string) SPANCols(string) SPANFit(string) ] 
+
+	if `ring' > -1 {				// track ring
+		if "`.ring.isa'" == "" {
+			.Declare ring = `ring'
+		}
+		else {
+			.ring = `ring'
+		}
+	}
+
+	._set_span `view' row `maxrow' "`spanrows'"
+	._set_span `view' col `maxcol' "`spancols'"
+
+				/* makes no attempt to resolve disagreements
+				 * between span and fitspan */
+
+	if "`spanfit'" == "" { 
+		exit						/* EXIT */
+	}
+
+	local 0 ", `spanfit'"
+	syntax [, Left Right Above Below ]
+
+	.fitspan = "`.fitspan' `left' `right' `above' `below'"
+
+	if "`.`view'.xstretch.setting'" == "fixed" {
+		if index("`.fitspan'", "left") | index("`.fitspan'", "right") {
+		     di as error "may not span columns with a fixed size view"
+		     .fitspan = ""
+		     exit 198
+		}
+	}
+	if "`.`view'.ystretch.setting'" == "fixed" {
+		if index("`.fitspan'", "above") | index("`.fitspan'", "below") {
+			di as error "may not span rows with a fixed size view"
+			.fitspan = ""
+			exit 198
+		}
+	}
+
+end
+
+program define _set_span
+	args view dim maxdim span
+
+	if "`span'" == "" { 
+		exit						/* EXIT */
+	}
+
+
+	if "`span'" == "all" {
+		.min`dim' = 1
+		.max`dim' = `maxdim'
+		exit						/* EXIT */
+	}
+
+	numlist "`span'", ascending integer min(1) max(2) range(>-100 <100)
+	tokenize `r(numlist)'
+
+	local ord = cond("`dim'"=="col", "x", "y") /* get ord "row"/"col" */
+/*
+	if "`.`view'.`ord'stretch.setting'" == "fixed" {
+		if ! ("`1'`2'" == "" | "`1'`2'" == "0" | "`1'`2'" == "00") {
+			di as error "may not span `dim's with a fixed size view"
+		}
+	}
+*/
+
+
+	local base = `.min`dim''
+	if `1' <= 0 {
+		.min`dim' = max(`base' + `1' , 1)
+		if 0`2' < 0 {
+			di as error "may not specify two negative "	/*
+				*/ numbers to option span`dim'"
+			exit 198
+		}
+
+		if "`2'" != "" {
+			.max`dim' = `base' + `2'
+		}
+	}
+	else {
+		.max`dim' = `base' + `1'
+		if "`2'" != "" {
+			di as error "may not specify two positive"	/*
+				*/ " numbers to option span`dim'"
+			exit 198				/* EXIT */
+		}
+	}
+
+end

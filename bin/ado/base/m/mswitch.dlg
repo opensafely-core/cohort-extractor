@@ -1,0 +1,296 @@
+/*
+  mswitch.dlg
+
+*! VERSION 1.1.5  28nov2017
+
+  keyword:  eclass
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 500
+INCLUDE header
+HELP hlp1, view("help mswitch")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	script se_createAsRobustOIM
+	setscale_hadj resource MSWITCH_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script sub_set_by_on
+	program se_setFinalInitState
+END
+
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL) title(resource MSWITCH_DLG_TITLE) 
+BEGIN
+  DEFINE _x _xsetbu
+  DEFINE _y _top
+  INCLUDE _bu_tsset
+
+  GROUPBOX gb_model		_lft	_ss	_iwd	_ht1h,		///
+	label(resource LBL_TAB_MODEL)		
+  RADIO rb_regression		_ilft	_ss	_cwd3	., first	///
+	option("dr")							///
+	onclickon("script main_regression_on")				///
+	label(resource MSWITCH_MAIN_RB_REGRESSION)
+  RADIO rb_autoregression	_ilft2	@	@	., last		///
+	option("ar")							///
+	onclickon("script main_autoregression_on")			///
+	label(resource MSWITCH_MAIN_RB_AUTOREGRESSION)
+  TEXT tx_dv			_lft	_xls	_vnwd	.,		///
+	label(resource LBL_DEPVAR)
+  DEFINE holdy @y
+  VARNAME vn_dv			@	_ss	@	.,		///
+	ts								///
+	label(resource LBL_DEPVAR)
+
+  TEXT tx_nonswitch		_vlx	holdy	160	.,		///
+	label(resource MSWITCH_MAIN_TX_NONSWITCH)
+  VARLIST vl_nonswitch		@	_ss	_vlwd	.,		///
+	fv ts								///
+	allowcat							///
+	label(resource MSWITCH_MAIN_TX_NONSWITCH)
+  
+  GROUPBOX gb_options		_lft	_xls	_iwd	340,		///
+	label(resource LBL_OPTIONS)
+
+  SPINNER sp_states		_ilft	_ss	_spwd	.,		///
+	min(1)								///
+	max(100000)							///
+	default(2)							///
+	option(states)							///
+	label(resource MSWITCH_MAIN_SP_STATES)
+  TEXT tx_states		_spsep	@	120	.,		///
+	label(resource MSWITCH_MAIN_SP_STATES)
+
+  EDIT ed_ar			_lft2	@	_spwd	.,		///
+	option(ar)							///
+	label(resource MSWITCH_MAIN_ED_AR)
+  TEXT tx_ar			_spsep	@	120	.,		///
+	label(resource MSWITCH_MAIN_ED_AR)
+
+  CHECKBOX ck_switch		_ilft	_ls	_ibwd	_ht9h,		///
+	groupbox							///
+	onclickon("program main_switch_on")				///
+	onclickoff("script main_switch_off")				///
+	label(resource MSWITCH_MAIN_CK_SWITCH)		
+  TEXT tx_switch		_iilft 	_ss	_inwd	.,		///
+	label(resource LBL_VARIABLES)
+  VARLIST vl_switch		@	_ss	@	.,		///
+	allowcat fv							///
+	error(resource MSWITCH_MAIN_VL_SWITCH)
+  CHECKBOX ck_nocons		@	_ls	@	.,		///
+	option(noconstant)						///
+	onclickon("main.ck_cons.enable")				///
+	onclickoff("main.ck_cons.disable")				///
+	label(resource LBL_NOCONSTANT)
+  CHECKBOX ck_cons		@	_ms	@	.,		///
+	option(constant)						///
+	label(resource MSWITCH_MAIN_CK_CONS)
+
+  CHECKBOX ck_varswitch		_ilft	_xls	@	.,		///
+	option(varswitch)						///
+	label(resource MSWITCH_MAIN_CK_VARSWITCH)
+
+  CHECKBOX ck_arswitch		_ilft	_ms	@	.,		///
+	option(arswitch)						///
+	label(resource MSWITCH_MAIN_CK_ARSWITCH)
+
+  TEXT tx_p0			_ilft 	_ls	280	.,		///
+	label(resource MSWITCH_MAIN_TX_P0)
+  COMBOBOX cb_p0		@ 	_ss	@	.,		///
+	dropdownlist							///
+	option(p0)							///
+	default(transition)						///
+	contents("main_p0_list")					///
+	values("main_p0_values")					///
+	label(resource MSWITCH_MAIN_TX_P0)
+
+  DEFINE _x _ilft
+  DEFINE _y _ls
+  DEFINE _cx _ilw80
+  DEFINE _bux _islw80
+  INCLUDE _constraints
+END
+
+LIST main_p0_list
+BEGIN
+	resource MSWITCH_MATRIX_CONDITIONAL_TRANSITION_PROBAB
+	resource MSWITCH_UNCONDITIONAL_PROBAB_1_K
+	resource MSWITCH_ESTIMATE_USING_EXTRA_PARAMETERS_OF_MODEL
+END
+
+LIST main_p0_values
+BEGIN
+	transition
+	fixed
+	smoothed
+END
+
+SCRIPT main_regression_on
+BEGIN
+	main.tx_ar.disable
+	main.ed_ar.disable
+	main.ck_arswitch.disable
+END
+
+SCRIPT main_autoregression_on
+BEGIN
+	main.tx_ar.enable
+	main.ed_ar.enable
+	main.ck_arswitch.enable
+END
+
+PROGRAM main_switch_on
+BEGIN
+	call main.tx_switch.enable
+	call main.vl_switch.enable
+	call main.ck_nocons.enable
+	if main.ck_nocons {
+		call main.ck_cons.enable
+	}
+	else {
+		call main.ck_cons.disable
+	}
+END
+
+SCRIPT main_switch_off
+BEGIN
+	main.tx_switch.disable
+	main.vl_switch.disable
+	main.ck_nocons.disable
+	main.ck_cons.disable
+END
+
+INCLUDE sub_by_ifin_over_subpop
+INCLUDE se
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+        program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2b
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _nocnsreport
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+
+PROGRAM rpt_output
+BEGIN
+	optionarg /hidedefault rpt.sp_level
+	INCLUDE _nocnsreport_pr
+	put " " rpt_bu_facvarsResults
+	put " " rpt_bu_fmtcoefResults
+END
+
+
+DIALOG em, tabtitle(resource LBL_EM_OPTIONS)
+BEGIN
+  SPINNER sp_emiter		_lft	_top	_spwd	.,		///
+	option(emiter)							///
+	min(0) max(16000) default(20)					///
+	label(resource LBL_NUMBER_OF_EM_ITERATIONS)
+  TEXT tx_emiter		_spsep	@	_spr	.,		///
+	label(resource LBL_NUMBER_OF_EM_ITERATIONS)
+
+  GROUPBOX gb_log		_lft	_ls	_iwd	_ht6,		///
+	label(resource LBL_EM_ITERATION_LOG)
+  RADIO rb_nolog		_indent	_ss	_inwd	., first	///
+	option(noemshow)						///
+	label(resource LBL_SUPPRESS_LOG)
+  RADIO rb_emlog		@	_ss	@	.,		///
+	option(emlog)							///
+	label(resource LBL_SHOW_LOG)
+  RADIO rb_emdots		@	_ss	@	., last		///
+	option(emdots)							///
+	label(resource LBL_SHOW_EM_ITERATIONS_AS_DOTS)
+END
+
+PROGRAM em_output
+BEGIN
+	optionarg /hidedefault em.sp_emiter
+	option em.rb_emlog
+	option em.rb_emdots
+END
+
+INCLUDE max_ml
+
+PROGRAM switch_output
+BEGIN
+	require main.vl_switch
+	put main.vl_switch
+	beginoptions
+		option main.ck_nocons
+	endoptions
+END
+
+PROGRAM command
+BEGIN
+
+	put /program by_output " "
+	put /program se_prefix_output " "
+	put "mswitch "
+	option radio(main rb_regression rb_autoregression)
+	varlist main.vn_dv [main.vl_nonswitch]
+	put " " /program ifin_output
+	beginoptions
+		optionarg /hidedefault main.sp_states
+		if main.ck_switch {
+			put " switch("
+			put /program switch_output
+			put ")"
+			option main.ck_cons
+
+		}
+		if main.rb_autoregression {
+			if main.ed_ar & !main.ed_ar.isnumlist() {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format				/// 
+					"resource MSWITCH_MSGBOX_INVALID_NUMLIST_FMT" ///
+					"resource LBL_TAB_MODEL" 		///
+					"resource MSWITCH_MAIN_ED_AR"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Model" tab, invalid numlist specified for "Number of AR term".
+			}
+			option main.ck_arswitch
+		}
+		optionarg main.ed_ar
+		option main.ck_varswitch
+		optionarg /hidedefault main.cb_p0
+		INCLUDE _constraints_main_pr
+		put " " /program se_output
+		put " " /program rpt_output
+		put " " /program em_output
+		put " " /program max_output
+	endoptions
+END

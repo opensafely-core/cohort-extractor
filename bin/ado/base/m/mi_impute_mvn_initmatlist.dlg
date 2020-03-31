@@ -1,0 +1,212 @@
+/*
+  mi impute mvn initmatlist
+
+*!  VERSION 1.1.0  04nov2014
+
+  keyword:  mi impute
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+DEFINE _dlght 280
+INCLUDE header
+
+HELP hlp1, view("help mi impute mvn")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource MI_IMPUTE_MVN_INITMATLIST_DLG_HSCALE
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	label(resource LBL_INITIAL_MATRIX_OPTIONS)
+BEGIN
+  BUTTON bu_matrix_input _rj100	_top	100	.,			///
+	label(resource LBL_INPUT_MATRIX)				///
+	onpush(program main_show_matrix_input)				///
+	tooltip(resource LBL_INPUT_HAND)
+  CHECKBOX ck_betas	_lft	_ss	_iwd	.,			///
+	onclickon(script main_betas_on)					///
+	onclickoff(script main_betas_off)				///
+	label(resource LBL_COEFFICIENTS)
+  COMBOBOX cb_betas	_indent2 _ss	_inwd	.,			///
+	dropdown							///
+	option(betas)							///
+	contents(matrix)						///
+	label(resource LBL_COEFFICIENTS)
+  CHECKBOX ck_sds	_lft	_ls	_iwd	.,			///
+	onclickon(script main_sds_on)					///
+	onclickoff(program main_sds_off)				///
+	label(resource LBL_STANDARD_DEVIATIONS)
+  COMBOBOX cb_sds	_indent2 _ss	_inwd	.,			///
+	dropdown							///
+	option(sds)							///
+	contents(matrix)						///
+	label(resource LBL_STANDARD_DEVIATIONS)
+  CHECKBOX ck_vars	_lft	_ls	_iwd	.,			///
+	onclickon(script main_vars_on)					///
+	onclickoff(program main_vars_off)				///
+	label(resource LBL_VARIANCES)
+  COMBOBOX cb_vars	_indent2 _ss	_inwd	.,			///
+	dropdown							///
+	option(vars)							///
+	contents(matrix)						///
+	label(resource LBL_VARIANCES)
+  RADIO rb_corr	_lft	_ls	_iwd	., first			///
+	onclickon(script main_corr_on)					///
+	onclickoff(program main_corr_off)				///
+	label(resource MI_IMPUTE_MVN_INITMATLIST_MAIN_RB_CORR)
+  COMBOBOX cb_corr	_indent2 _ss	_inwd	.,			///
+	dropdown							///
+	option(corr)							///
+	contents(matrix)						///
+	label(resource MI_IMPUTE_MVN_INITMATLIST_MAIN_RB_CORR)
+  RADIO rb_cov		_lft	_ls	_iwd	., last			///
+	onclickon(script main_cov_on)					///
+	onclickoff(program main_cov_off)				///
+	label(resource MI_IMPUTE_MVN_INITMATLIST_MAIN_RB_COV)
+  COMBOBOX cb_cov	_indent2 _ss	_inwd	.,			///
+	dropdown							///
+	option(cov)							///
+	contents(matrix)						///
+	label(resource MI_IMPUTE_MVN_INITMATLIST_MAIN_RB_COV)
+END
+
+PROGRAM main_show_matrix_input
+BEGIN
+	call create STRING matrixInputResult
+	call create CHILD matrix_input AS matrixInput
+	if ! _rc {
+		call matrixInput.setExitString matrixInputResult
+		call matrixInput.setExitAction				///
+			"program main_getMatrixInputResult"
+		call matrixInput.callthru "isChildContext.settrue"
+	}
+END
+
+PROGRAM main_getMatrixInputResult
+BEGIN
+	call main.cb_betas.repopulate
+	call main.cb_sds.repopulate
+	call main.cb_vars.repopulate
+	call main.cb_cov.repopulate
+	call main.cb_corr.repopulate
+END
+
+SCRIPT main_betas_on
+BEGIN
+	main.cb_betas.enable
+END
+
+SCRIPT main_betas_off
+BEGIN
+	main.cb_betas.disable
+END
+
+SCRIPT main_sds_on
+BEGIN
+	main.cb_sds.enable
+
+	main.rb_cov.disable
+	main.cb_cov.disable
+	main.ck_vars.disable
+	main.cb_vars.disable
+END
+
+PROGRAM main_sds_off
+BEGIN
+	call main.cb_sds.disable
+	if main.rb_cov {
+		call main.cb_cov.enable
+	}
+	call main.ck_vars.enable
+	if main.ck_vars {
+		call main.cb_vars.enable
+	}
+	call main.rb_cov.enable
+	if main.rb_cov {
+		call main.cb_cov.disable
+	}
+END
+
+SCRIPT main_vars_on
+BEGIN
+	main.cb_vars.enable
+
+	main.ck_sds.disable
+	main.cb_sds.disable
+
+	main.rb_cov.disable
+	main.cb_cov.disable
+END
+
+PROGRAM main_vars_off
+BEGIN
+	call main.cb_vars.disable
+
+	call main.ck_sds.enable
+	if main.ck_sds {
+		call main.cb_sds.enable
+	}
+	call main.rb_cov.enable
+	if main.rb_cov {
+		call main.cb_cov.disable
+	}
+END
+
+SCRIPT main_corr_on
+BEGIN
+	main.cb_corr.enable
+END
+
+PROGRAM main_corr_off
+BEGIN
+	call main.cb_corr.disable
+END
+
+SCRIPT main_cov_on
+BEGIN
+	main.cb_cov.enable
+	main.ck_sds.disable
+	main.cb_sds.disable
+	main.ck_vars.disable
+	main.cb_vars.disable
+END
+
+PROGRAM main_cov_off
+BEGIN
+	call main.cb_cov.disable
+	call main.ck_sds.enable
+	if main.ck_sds {
+		call main.cb_sds.enable
+	}
+	call main.ck_vars.enable
+	if main.ck_vars {
+		call main.cb_vars.enable
+	}
+END
+
+PROGRAM command
+BEGIN
+	if main.ck_betas {
+		require main.cb_betas
+		optionarg main.cb_betas
+	}
+	if main.ck_sds {
+		require main.cb_sds
+		optionarg main.cb_sds
+	}
+	if main.ck_vars {
+		require main.cb_vars
+		optionarg main.cb_vars
+	}
+	if main.rb_corr {
+		optionarg main.cb_corr
+	}
+	if main.rb_cov {
+		optionarg main.cb_cov
+	}
+END

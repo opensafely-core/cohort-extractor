@@ -1,0 +1,4209 @@
+*! version 1.2.0  03feb2020
+version 16
+
+class fpgraph_g {
+
+classwide:
+	graphfamily	= "forest"
+
+instancespecific:
+
+	fpgraphstyle	style
+
+	allow_editor	= 1
+
+	colnames	= ""
+
+	n_studies	= 0		// number of studies
+
+	col_ht		= 0		// columns height, inches
+
+	colrow0		= 3		// row where columns are placed
+	relht		= 1		// relative height of columns
+
+	res_prse	= {}		// result parsing array
+
+	opts		= ""
+
+	// stored results from -meta summarize-
+
+	N_mat		= ""		// r(_N) matrix
+	N_rows		= 0		// rowsof(r(_N))
+
+	res_mat		= ""		// r(res) matrix
+	res_rows	= 0
+
+	het_mat		= ""
+
+	diff_mat	= ""		// r(diffgroup) matrix
+
+	do_wmarkers	= 1		// do weighted marker sizes
+
+	has_cumul	= 0		// indicator: results are cumulative
+	cumul_mat	= ""		// r(cumul) matrix
+	cumul_varname	= ""		// r(ordervar) varname
+	cumul_byvar	= ""		// r(byvar) varname
+
+	do_overall	= 0
+	do_omarker	= 1
+
+	has_grp		= 0		// indicator: has subgroup()
+	n_groups	= 0		// number of groups
+	grp_varlist	= ""		// r(subgroupvars) varlist
+	grp_kvars	= 0
+	grp_labels	= {}
+	grp_klabels	= {}
+
+	has_df		= 0
+
+	ci_level	= ""
+
+					// subgroup tests/stats:
+	do_ghet		= 0		// heterogeneity
+	do_gsig		= 0		// significance
+	do_gwhom	= 0		// within homogeneity
+
+					// overall test/stats:
+	do_ohet		= 0		// heterogeneity
+	do_osig		= 0		// significance
+	do_ohom		= 0		// homogeneity
+
+	do_qb		= 0		// between homogeneity
+
+	has_gxtra	= 1
+
+	hetprefix	= "Heterogeneity:"
+	homprefix	= "Test of {&theta}{sub:i} = {&theta}{sub:j}:"
+	sigprefix	= "Test of {&theta} = 0:"
+	qbprefix	= "Test of group differences:"
+
+	model		= ""		// r(model)
+
+	es_label	= ""		// r(fp_eslab)
+	note_text	= ""		// r(note)
+
+	eform		= 0		// r(eform)
+	transform	= 0		// r(transform) 0/1
+	tr_f		= ""		// transform function
+	tr_invf		= ""		// transform inverse function -- used
+					// in call to set_transform for the
+					// plots
+
+	has_crop	= 0
+	lb_crop		= (.)
+	ub_crop		= (.)
+
+	has_pi		= 0
+	pi_lb		= (.)
+	pi_ub		= (.)
+	pi_es		= (.)
+	pi_level	= (.)
+	pi_lspike	= (.)
+	pi_larrow	= (.)
+	pi_uspike	= (.)
+	pi_uarrow	= (.)
+
+	cibind		= ""		// scheme special fpcibind
+	sebind		= ""		// scheme special fpsebind
+
+	// other convenience properties
+
+	keys_mat	= ""
+	keys		= ""
+	ukeys		= ""
+	allkeys		= ""
+	data_expanded	= ""
+	data1_expanded	= ""
+	data2_expanded	= ""
+
+	plot_idx	= 0
+	spacer_idx	= 0
+	id_idx		= 0
+
+	k_lefttext	= 0		// # lines in left text
+	k_righttext	= 0		// # lines in right text
+	y_nulltext	= 0		// spos for null left/right text
+	x_nullval	= 0		// x pos for null value
+
+	do_insidemark	= 0
+
+	has_esse	= 0
+	has_ci		= 0
+	has_esci	= 0
+
+	esse_expanded	= "_spacer_left _es _se _spacer_right"
+	ci_expanded	= "_spacer_lb _lb _ub _spacer_ub"
+	esci_expanded	= "_spacer_lb _es _lb _ub _spacer_ub"
+
+	es_idx		= 0
+	se_idx		= 0
+	lb_idx		= 0
+	ub_idx		= 0
+
+	spacer_lb_idx		= 0
+	spacer_ub_idx		= 0
+	spacer_left_idx		= 0
+	spacer_right_idx	= 0
+
+	custom_overall	= {}
+
+	col_suptitle	= {}
+	col_title	= {}
+
+	supti_spans	= {}
+	colti_spans	= {}
+
+	style_remade	= 0		// flags for remaking our style
+
+} , inherit(graph_g)
+
+program .new
+	syntax [anything] [if] [in] [,	///
+		STYLE(string)		///
+		READLOG(string)		///
+		*			///
+	]
+
+	if `"`style'"' == `""' {
+		local style "scheme default"
+	}
+
+	.Super.new , style(`style')
+
+	.SetBind sebind : parentheses
+	.SetBind cibind : brackets
+
+	if "`readlog'" == "" {			// not reading from a file
+		.__LOG.Arrpush .style.setstyle , style(`style')
+	}
+
+	.style.fixed_sizes.set_true
+
+	._dialog = "fpgraph"
+
+	if "`readlog'" != "" {			// reading from a file
+		.runfromfile `readlog'
+		exit
+	}
+
+	.parse `macval(0)'
+end
+
+program .SetBind
+	args bind COLON default
+
+	local special `"`.`c(curscm)'.special.fp`bind''"'
+	if inlist("`special'","brackets","parentheses") {
+		.`bind' = `"`special'"'
+	}
+	else {
+		.`bind' = `"`default'"'
+	}
+end
+
+// ----------------------------------------------------------------------------
+// Parse and log, new forest graph command.  When the log is run, turns the
+// current object into the specified forest.
+
+program .parse
+	tempname log                            // logs all creation/edits
+	.`log' = {}                             // then runs the log
+	local push .`log'.Arrpush
+
+	local IGNORED_OPTS		///
+		NAME(string) 		///
+		SCHeme(passthru)	///
+		COPYSCHeme		///
+		REFSCHeme 		///
+		FXSIZe(passthru)	///
+		FYSIZe(passthru)	///
+		XSIZe(passthru)		///
+		YSIZe(passthru)		///
+		SAVing(passthru)	///
+		STYLE(passthru)		///
+		READLOG(passthru)	///
+		LEGend(passthru)	///
+		noDRAW
+
+	syntax [anything] [if] [in]		///
+	[,					///
+		`IGNORED_OPTS'			///
+						///
+		COLTItleopts(string asis)	///
+						///
+		HRULEopts(string asis)		///
+		NOHRULE				///
+						///
+		BODYopts(string asis)		///
+						///
+		ITEMopts(string asis)		///
+		NOWMARKers			///
+		NOMARKers			///
+		MARKeropts(string asis)		///
+		CIOPts(string asis)		///
+						///
+		GROUPopts(string asis)		///
+		SUBGROUPOpts(string asis)	///
+		NOGMARKers			///
+		GMARKeropts(string asis)	///
+						///
+		OVERALLopts(string asis)	///
+		NOOMARKer			///
+		OMARKeropts(string asis)	///
+						///
+		crop(	numlist			///
+			missingokay		///
+			min=2			///
+			max=2)			///
+						///
+		cibind(string)			///
+		sebind(string)			///
+						///
+		NONOTEs				///
+						///
+		ESREFline			///
+		ESREFlineopts(string asis)	///
+						///
+		NULLREFline			///
+		NULLREFlineopts(string asis)	///
+						///
+		INSIDEMARKer			///
+		INSIDEMARKeropts(string asis)	///
+						///
+		SORT(string)			///
+		PREDINTerval			///
+		PREDINTervalopts(string asis)	///
+		Level(passthru)			/// -meta update-
+						///
+		*				///
+	]
+
+	if `"`sort'"' != "" {
+		local sortopt `"sort(`sort')"'
+	}
+
+	.parse_custom_overall `log' , `options'
+	local options `"`s(options)'"'
+	if `.custom_overall.arrnels' {
+		local customoverall customoverall
+	}
+
+	if `"`predinterval'`predintervalopts'"' != "" {
+		.has_pi = 1
+		.parse_predinterval `predintervalopts'
+		local pioption	`"`s(pioption)'"'
+		local piopts	`"`s(piopts)'"'
+	}
+
+	if `"`esreflineopts'"' != "" {
+		local esrefline esrefline
+	}
+	if `"`insidemarker'`insidemarkeropts'"' != "" {
+		local insidemarker insidemarker
+		.do_insidemark = 1
+	}
+	`push' .do_insidemark = (`.do_insidemark')
+
+	// early check for options not allowed
+	meta__parse_sumfperr,	///
+		`options'	///
+		`pioption'	///
+		`sortopt'	///
+		`esrefline'	///
+		`insidemarker'	///
+		`customoverall'
+
+	if `:list sizeof hruleopts' {
+		opts_exclusive "hruleopts() `nohrule'"
+	}
+	else if "`nohrule'" != "" {
+		local hruleopts style(none)
+	}
+
+	if `:list sizeof markeropts' {
+		opts_exclusive "markeropts() `nomarkers'"
+	}
+	else if "`nomarkers'" != "" {
+		opts_exclusive "`nomarkers' `nowmarkers'"
+		local markeropts mstyle(none)
+	}
+
+	if `"`groupopts'"' != "" {
+		if `"`subgroupopts'"' != "" {
+			opts_exclusive "groupopts() subgroupopts()"
+			local groupopts : copy local subgroupopts
+		}
+	}
+	else {
+		local groupopts : copy local subgroupopts
+	}
+
+	if `:list sizeof gmarkeropts' {
+		opts_exclusive "gmarkeropts() `nogmarkers'"
+	}
+	else if "`nogmarkers'" != "" {
+		local gmarkeropts mstyle(none)
+		.has_gxtra = 0
+	}
+
+	if `:list sizeof omarkeropts' {
+		opts_exclusive "omarkeropts() `noomarker'"
+	}
+	else if "`noomarker'" != "" {
+		.do_omarker = 0
+		local omarkeropts mstyle(none)
+	}
+	`push' .do_omarker = `.do_omarker'
+
+	if "`nowmarkers'" != "" {
+		.do_wmarkers = 0
+	}
+
+	if `"`crop'"' != "" {
+		gettoken lb_crop ub_crop : crop
+		.lb_crop = (`lb_crop')
+		.ub_crop = (`ub_crop')
+		.has_crop = 1
+	}
+	`push' .lb_crop = (`.lb_crop')
+	`push' .ub_crop = (`.ub_crop')
+	`push' .has_crop = `.has_crop'
+
+	.ParseBind cibind : `cibind'
+	`push' .cibind = `"`.cibind'"'
+	.ParseBind sebind : `sebind'
+	`push' .sebind = `"`.sebind'"'
+
+	marksample touse, novarlist
+
+	preserve
+
+	if `"`sort'"' != "" {
+		.parse_sort `touse' `sort'
+		local sort `"`s(sort)'"'
+	}
+
+	if `"`level'`sort'"' != "" {
+		gsort `sort' _meta_id
+		quietly meta update, keepstudylbl `level'
+	}
+
+	local datavars : char _dta[_meta_datavars]
+	markout `touse' `datavars' _meta_es _meta_se
+
+	meta summarize if `touse',	///
+		noheader		///
+		notable			///
+		nofooter		///
+		`options'		///
+		`pioption'		///
+		`level'			///
+		`sortopt'		///
+		_forestok
+
+	.opts = `"`r(forestopts)'"'
+	tempname N res cumul diff het
+	.parse_results `log' `N' `res' `cumul' `diff' `het'
+	_fr_runlog `log'
+	.`log' = {}
+
+	if `"`esreflineopts'`esrefline'"' != "" {
+		local what = cond(`.transform', "f(theta)", "theta")
+		local val = `.res_mat'[`.res_rows',"`what'"]
+		if `.eform' {
+			local val = exp(`val')
+		}
+		// else if `.transform' -- val already correct
+		local esrefline					///
+			xline(`val',				///
+				lstyle(scheme fpesrefline)	///
+				`esreflineopts'			///
+			)
+	}
+	if `"`nullreflineopts'`nullrefline'"' != "" {
+		if `.eform' {
+			.x_nullval = 1
+		}
+		else if `.transform' {
+			.x_nullval = `.tr_f'(0)
+		}
+		.parse_nullrefline_options, `nullreflineopts'
+		local left_text		`"`s(left_text)'"'
+		local left_opts		`"`s(left_opts)'"'
+		.set_number_of_lines .k_lefttext `left_text'
+		`push' .k_lefttext = `.k_lefttext'
+		local right_text	`"`s(right_text)'"'
+		local right_opts	`"`s(right_opts)'"'
+		.set_number_of_lines .k_righttext `right_text'
+		`push' .k_righttext = `.k_righttext'
+		local nullrefline				///
+			xline(`.x_nullval',			///
+				lstyle(scheme fpnullrefline)	///
+				`s(options)'			///
+			)
+	}
+
+	local type : char _dta[_meta_datatype]
+	if `.has_cumul' | `.grp_kvars' > 1 {
+		local binary 0
+		local contin 0
+	}
+	else {
+		local binary = ("`type'" == "binary")
+		local contin = ("`type'" == "continuous")
+	}
+
+	local ALLKEYS	_id		/// individual column keys
+			_plot		///
+			_es		///
+			_se		///
+			_lb		///
+			_ub		///
+			_weight		///
+			_K		///
+			_pvalue		///
+			_order		///
+			_a		///
+			_b		///
+			_c		///
+			_d		///
+			_n1		///
+			_mean1		///
+			_sd1		///
+			_n2		///
+			_mean2		///
+			_sd2		///
+			_esse		/// special shortcut column keys
+			_ci		///
+			_esci		///
+			_data		/// simple shortcut column keys
+			_data1		///
+			_data2		///
+			_spacer		/// utility column keys
+			_spacer_lb	///
+			_spacer_ub	///
+			_spacer_left	///
+			_spacer_right	///
+					 // blank
+
+	if `binary' {
+		local data1 _a _b
+		local data2 _c _d
+		local data `data1' `data2'
+		local udata _data
+		local udatai _data1 _data2
+		local dd _a _b _c _d
+		local fp b
+	}
+	else if `contin' {
+		local data1 _n1 _mean1 _sd1
+		local data2 _n2 _mean2 _sd2
+		local data `data1' `data2'
+		local udata _data
+		local udatai _data1 _data2
+		local dd _n1 _mean1 _sd1 _n2 _mean2 _sd2
+		local fp c
+	}
+	else {
+		local fp g
+	}
+
+	.data_expanded = "`data'"
+	.data1_expanded = "`data1'"
+	.data2_expanded = "`data2'"
+
+	// create locals containing individual data variables
+	// they will be _a _b _c _d or _mean1 _sd1 _n1 _mean2 _sd2 _n2
+	local i 0
+	foreach k of local dd {
+		local ++i
+		local v : word `i' of `datavars'
+		local `k' `v'
+	}
+
+	if `.has_cumul' {
+		local default _id _plot _esci _pvalue _order
+		local direction = r(direction)
+	}
+	else if `.grp_kvars' > 1 {
+		local default _id _K _plot _esci _pvalue
+	}
+	else {
+		local default _id `udata' _plot _esci _weight
+	}
+	local keys `default' `udatai' `dd' _es _ci _lb _ub _se _esse
+
+	tempname ehold
+	_estimates hold `ehold', restore nullok
+
+	_unab _meta*
+	local metavars `"`r(varlist)'"'
+	_unab *
+	local ukeys `"`r(varlist)'"'
+	local ukeys : list ukeys - touse
+	local ukeys : list ukeys - ALLKEYS
+	local ukeys : list ukeys - metavars
+	.ukeys = `"`ukeys'"'
+	`push' .ukeys = `"`ukeys'"'
+
+	local keys `keys' `ukeys'
+	.keys = `"`keys'"'
+	`push' .keys = `"`keys'"'
+
+	local ALLKEYS `ALLKEYS' `ukeys'
+	.allkeys = `"`ALLKEYS'"'
+	`push' .allkeys = `"`ALLKEYS'"'
+
+	tempname b
+	local dim : list sizeof keys
+	matrix `b' = J(1,`dim',0)
+	matrix colna `b' = `keys'
+	.keys_mat = "`b'"
+
+	if `"`anything'"' == "" {
+		local anything `default'
+	}
+	else {
+		capture _unab `anything' , matrix(`b')
+		if c(rc) == 0 {
+			local anything `"`r(varlist)'"'
+		}
+	}
+
+	foreach key of local anything {
+		capture _unab `key' , matrix(`.keys_mat')
+		if c(rc) == 0 {
+			local key `"`r(varlist)'"'
+		}
+		local pos : list posof `"`key'"' in keys
+
+		if `pos' == 0 {
+			local pos : list posof "`key'" in ALLKEYS
+			if `pos' {
+				di as err "column {bf:`key'} is not available"
+				exit 198
+			}
+
+			di as err ///
+			`"{bf:`key'} is not a valid column identifier"'
+			exit 198
+		}
+
+		local colnames `colnames' `key'
+	}
+	local ucols : list colnames & ukeys
+
+	if `:list sizeof ucols' {
+		if `.grp_kvars' > 1 {
+			gettoken key : ucols
+			di as err "{p}"
+			di as err "column {bf:`key'} is not available"
+			di as err "when option {bf:subgroup()}"
+			di as err "contains multiple variables"
+			di as err "{p_end}"
+			exit 198
+		}
+	}
+
+	// composites trigger that associated singleton elements be
+	// removed
+
+	if `:list posof "_esse" in colnames' {
+		// this is a "smart" shortcut
+		.has_esse = 1
+		local strip _es _se
+		local colnames : list colnames - strip
+		if `:list posof "_esci" in colnames' {
+			di as err ///
+			"only one of {bf:_esse} or {bf:_esci} is allowed"
+			exit 198
+		}
+		local SUB `.esse_expanded'
+		local colnames : ///
+			subinstr local colnames "_esse" "`SUB'", word
+	}
+	if `:list posof "_ci" in colnames' {
+		// this is a "smart" shortcut
+		.has_ci = 1
+		local strip _lb _ub
+		local colnames : list colnames - strip
+		if `:list posof "_esci" in colnames' {
+			di as err ///
+			"only one of {bf:_ci} or {bf:_esci} is allowed"
+			exit 198
+		}
+		local SUB `.ci_expanded'
+		local colnames : ///
+			subinstr local colnames "_ci" "`SUB'", word
+	}
+	if `:list posof "_esci" in colnames' {
+		// this is a "smart" shortcut
+		.has_esci = 1
+		local strip _es _ci _lb _ub
+		local colnames : list colnames - strip
+		if `:list posof "_esse" in colnames' {
+			di as err ///
+			"only one of {bf:_esci} or {bf:_esse} is allowed"
+			exit 198
+		}
+		local SUB `.esci_expanded'
+		local colnames : ///
+			subinstr local colnames "_esci" "`SUB'", word
+	}
+
+	// shortcuts are replaced by the associated singletons
+
+	if `:list posof "_data1" in colnames' {
+		// this is a shortcut
+		local colnames : ///
+			subinstr local colnames "_data1" "`data1'", word
+	}
+	if `:list posof "_data2" in colnames' {
+		// this is a shortcut
+		local colnames : ///
+			subinstr local colnames "_data2" "`data2'", word
+	}
+	if `:list posof "_data" in colnames' {
+		// this is a shortcut
+		local colnames : ///
+			subinstr local colnames "_data" "`data'", word
+	}
+
+	// duplicates are removed
+	local colnames : list uniq colnames
+
+	local id_idx : list posof "_id" in colnames
+	local plot_idx : list posof "_plot" in colnames
+	if `id_idx' {
+		if `id_idx' < `plot_idx' {
+			local colnames : subinstr ///
+				local colnames "_plot" "_spacer _plot"
+		}
+		else {
+			local colnames `colnames' _spacer
+		}
+	}
+	`push' .colnames = `"`colnames'"'
+
+	.build_results `log'
+	_fr_runlog `log'
+	.`log' = {}
+
+	tempname esprse ciprse
+	.`esprse' = .twoway_rscatter_parse.new
+	.`ciprse'  = .twoway_pcarrow_parse.new
+	if `.do_insidemark' {
+		tempname esinprse
+		.`esinprse' = .twoway_rscatter_parse.new
+	}
+	if `.has_pi' {
+		tempname piprse
+		.`piprse'  = .twoway_pcarrow_parse.new
+	}
+
+	sum _meta_weight if `touse', meanonly
+	qui replace _meta_weight = (_meta_weight / r(sum)) * 100
+
+	qui gen double _meta_pvalue = .
+	rename _meta_cil _meta_lb
+	rename _meta_ciu _meta_ub
+
+	local get_trans = `.transform'
+	if `.grp_kvars' > 1 {
+		// replace _meta_* variables with group results
+		local N_needed = `.res_rows' + `.custom_overall.arrnels'
+		if _N >= `N_needed' {
+			quietly replace `touse' = _n <= `N_needed'
+			quietly keep if `touse'
+		}
+		else {
+			quietly set obs `N_needed'
+			tempname keep
+			quietly gen byte `keep' = 1
+		}
+		quietly replace `touse' = _n < `.res_rows'
+		quietly replace _meta_es = .
+		quietly replace _meta_se = .
+		quietly replace _meta_lb = .
+		quietly replace _meta_ub = .
+		quietly replace _meta_studylabel = ""
+		quietly generate double _meta_K = .
+		mata: GetGroupResults("`.res_mat'", `.transform')
+		local pos 0
+		forval v = 1/`.grp_kvars' {
+		forval i = 1/`.grp_klabels[`v']' {
+			local ++pos
+			quietly replace ///
+			_meta_studylabel = `"`.grp_labels[`v'][`i']'"' ///
+				in `pos'
+		} // i
+		} // v
+		local get_trans 0
+	}
+	else if `.grp_kvars' == 1 {
+		markout `touse' `.grp_varlist' , strok
+		quietly keep if `touse'
+		sort `.grp_varlist' _meta_id
+		local N_needed = `.res_rows' + `.custom_overall.arrnels'
+		if `N_needed' > _N {
+			local n_studies = _N
+			quietly set obs `N_needed'
+			quietly replace `touse' = _n < `.res_rows'
+			tempname keep
+			quietly gen byte `keep' = 1
+		}
+	}
+	else if `.has_cumul' {
+		markout `touse' `.cumul_byvar' `.cumul_varname' , strok
+		// replace _meta_* variables with cumulative results
+		quietly clonevar _meta_order = `.cumul_varname'
+		quietly keep if `touse'
+		if "`direction'" == "ascending" {
+			sort `.cumul_byvar' `.cumul_varname' _meta_id
+		}
+		else {
+			gsort `.cumul_byvar' -`.cumul_varname' -_meta_id
+		}
+		mata: GetCumulResults("`.cumul_mat'", `.transform')
+		local get_trans 0
+	}
+	else {
+		quietly keep if `touse'
+		sort _meta_id
+	}
+
+	if `.custom_overall.arrnels' > _N & `.grp_kvars' < 2 {
+		di as err "too many {bf:custom_overall()} options;"
+		di as err "{p}"
+		di as err "the number of {bf:custom_overall()}"
+		di as err "options cannot exceed the number of"
+		di as err "studies"
+		di as err "{p_end}"
+		exit 198
+	}
+	if `binary' | `contin' {
+		local i 0
+		foreach d in `datavars' {
+			local ++i
+			local w : word `i' of `dd'
+			quietly clonevar _meta`w' = `d'
+		}
+	}
+
+	if `.eform' {
+		local eflist _meta_es _meta_lb _meta_ub
+		foreach v of local eflist {
+			quietly replace `v' = exp(`v') if `touse'
+		}
+		quietly replace _meta_se = _meta_se*_meta_es if `touse'
+	}
+	else if `get_trans' {
+		quietly replace _meta_es = _meta_es_transf if `touse'
+		quietly replace _meta_lb = _meta_cil_transf if `touse'
+		quietly replace _meta_ub = _meta_ciu_transf if `touse'
+		quietly replace _meta_se = . if `touse'
+	}
+
+	capture drop _meta_es_plot
+	quietly clonevar _meta_es_plot = _meta_es
+	capture drop _meta_crop
+	quietly clonevar _meta_crop = _meta_es
+
+	local mid_crop = (`.lb_crop'+`.ub_crop')/2
+
+	capture drop _meta_larrow
+	quietly gen double _meta_larrow = .
+	capture drop _meta_lspike
+	quietly clonevar _meta_lspike = _meta_lb
+	if !missing(`.lb_crop') {
+		local if if _meta_es < `.lb_crop' & `touse'
+		qui replace _meta_es_plot = . `if'
+		qui replace _meta_crop = min(`mid_crop',`.ub_crop',_meta_ub) `if'
+
+		local if if _meta_lb < `.lb_crop' & `touse'
+		qui replace _meta_larrow = `.lb_crop' `if'
+		qui replace _meta_lspike = . `if'
+	}
+
+	capture drop _meta_uarrow
+	quietly gen double _meta_uarrow = .
+	capture drop _meta_uspike
+	quietly clonevar _meta_uspike = _meta_ub
+	if !missing(`.ub_crop') {
+		local if if _meta_es > `.ub_crop' & `touse'
+		qui replace _meta_es_plot = . `if'
+		qui replace _meta_crop = max(`mid_crop',`.lb_crop',_meta_lb) `if'
+
+		local if if _meta_ub > `.ub_crop' & `touse'
+		qui replace _meta_uarrow = `.ub_crop' `if'
+		qui replace _meta_uspike = . `if'
+	}
+	if `.has_pi' {
+		local i = 0`.n_groups' + 1
+		local what = cond(`.transform', "f(theta)", "theta")
+		local val = `.res_mat'[`.res_rows',"`what'"]
+		if `.eform' {
+			local val = exp(`val')
+		}
+		// else if `.transform' -- val already correct
+		.pi_es = (`val')
+		.pi_crop = (`val')
+
+		.pi_lspike = (`.pi_lb')
+		if !missing(`.lb_crop') {
+			if `.pi_es' < `.lb_crop' {
+				.pi_crop = min(`mid_crop',`.ub_crop',`.pi_ub')
+			}
+			if `.pi_lb' < `.lb_crop' {
+				.pi_larrow = (`.lb_crop')
+				.pi_lspike = (.)
+			}
+		}
+
+		.pi_uspike = (`.pi_ub')
+		if !missing(`.ub_crop') {
+			if `.pi_es' > `.ub_crop' {
+				.pi_crop = max(`mid_crop',`.lb_crop',`.pi_lb')
+			}
+			if `.pi_ub' > `.ub_crop' {
+				.pi_uarrow = (`.ub_crop')
+				.pi_uspike = (.)
+			}
+		}
+
+		if missing(`.pi_crop') {
+			.pi_lspike = (.)
+			.pi_larrow = (.)
+			.pi_uspike = (.)
+			.pi_uarrow = (.)
+		}
+	}
+
+	if !missing(`.lb_crop') {
+		qui replace _meta_crop = . if `touse' & ///
+			!missing(_meta_larrow) &	///
+			_meta_crop <= _meta_larrow
+	}
+	if !missing(`.ub_crop') {
+		qui replace _meta_crop = . if `touse' & ///
+			_meta_crop >= _meta_uarrow
+	}
+	qui replace _meta_larrow = . if missing(_meta_crop) & `touse'
+	qui replace _meta_uarrow = . if missing(_meta_crop) & `touse'
+	qui replace _meta_lspike = . if missing(_meta_crop) & `touse'
+	qui replace _meta_uspike = . if missing(_meta_crop) & `touse'
+
+	if `.eform' | `.transform' {
+		local fmt `"`.`c(curscm)'.special.fpfmt_es'"'
+		capture confirm numeric format `fmt'
+		if c(rc) == 0 {
+			format `fmt' _meta_es_plot
+		}
+	}
+
+	unab vlist : _meta*
+	if `.has_cumul' {
+		local vlist `vlist' `.cumul_byvar'
+	}
+	if `.grp_kvars' == 1 {
+		local vlist `vlist' `.grp_varlist'
+	}
+	local vlist `vlist' `ucols'
+
+	if `.has_cumul' {
+		.`esprse'.parse `touse' `touse' `touse' , `omarkeropts'
+	}
+	else if `.grp_kvars' > 1 {
+		.`esprse'.parse `touse' `touse' `touse' , `gmarkeropts'
+	}
+	else {
+		.`esprse'.parse `touse' `touse' `touse' , `markeropts'
+	}
+	if `.do_insidemark' {
+		.`esinprse'.parse `touse' `touse' `touse' , `insidemarkeropts'
+	}
+	._err_bad_options , `.`esprse'.options'
+
+	.`ciprse'.parse `touse' `touse' `touse' `touse' , `ciopts'
+	.`ciprse'.drop_to.setstyle , style(x)
+	._err_bad_options , `.`ciprse'.options'
+
+	if `"`piprse'"' != "" {
+		.`piprse'.parse `touse' `touse' `touse' `touse' , `piopts'
+		.`piprse'.drop_to.setstyle , style(x)
+		._err_bad_options , `.`piprse'.options'
+	}
+
+	qui gen double _spos    = 0	// y position: study
+	qui gen double _grpspos = 0	// y position: group
+	qui gen double _mrkspos = 0	// y position: marker
+	qui gen double _hetspos = 0	// y position: het stats
+	qui gen double _homspos = 0	// y position: hom stats
+	qui gen double _sigspos = 0	// y position: sig stats
+	qui gen double _qbspos = 0	// y position: sig stats
+	local vlist	`vlist'		///
+			_spos		///
+			_grpspos	///
+			_mrkspos	///
+			_hetspos	///
+			_homspos	///
+			_sigspos	///
+			_qbspos
+
+	if "`keep'" != "" {
+		local ifcond if `keep'
+	}
+	else {
+		local ifcond if `touse'
+	}
+	`push' .sersets[1] = .serset.new `vlist' `ifcond' , nocount
+	_fr_runlog `log'
+	.`log' = {}
+	if `.has_pi' {
+		quietly replace _meta_es_plot = `.pi_es' in 1
+		quietly replace _meta_crop = `.pi_crop' in 1
+		quietly replace _meta_lspike = `.pi_lspike' in 1
+		quietly replace _meta_larrow = `.pi_larrow' in 1
+		quietly replace _meta_uspike = `.pi_uspike' in 1
+		quietly replace _meta_uarrow = `.pi_uarrow' in 1
+		`push' .sersets[2] = .serset.new `vlist' in 1 , nocount
+		_fr_runlog `log'
+		.`log' = {}
+	}
+
+	restore
+
+	`push' .res_rows = `.res_rows'
+	`push' .setN `n_studies'
+
+        `push' .insert				///
+		(plotregion1 = .grid.new,	///
+			subview			///
+			style(scheme fpgraph)	///
+		) new
+	`push' .bgcolor.set, color("scheme fpgraph")
+	_fr_runlog `log'
+	.`log' = {}
+
+	.place_columns `log' `"`colnames'"'
+	_fr_runlog `log'
+	.`log' = {}
+
+	.plot_idx = 0`._coldex _plot'
+	`push' .plot_idx = `.plot_idx'
+
+	.spacer_idx = 0`._coldex _spacer'
+	`push' .spacer_idx = `.spacer_idx'
+
+	.id_idx = 0`._coldex _id'
+	`push' .id_idx = `.id_idx'
+
+	`push' .has_esse = `.has_esse'
+	`push' .has_ci = `.has_ci'
+	`push' .has_esci = `.has_esci'
+
+	.es_idx = 0`._coldex _es'
+	`push' .es_idx = `.es_idx'
+	.se_idx = 0`._coldex _se'
+	`push' .se_idx = `.se_idx'
+	.lb_idx = 0`._coldex _lb'
+	`push' .lb_idx = `.lb_idx'
+	.ub_idx = 0`._coldex _ub'
+	`push' .ub_idx = `.ub_idx'
+
+	.spacer_lb_idx = 0`._coldex _spacer_lb'
+	`push' .spacer_lb_idx = `.spacer_lb_idx'
+	.spacer_ub_idx = 0`._coldex _spacer_ub'
+	`push' .spacer_ub_idx = `.spacer_ub_idx'
+
+	.spacer_left_idx = 0`._coldex _spacer_left'
+	`push' .spacer_left_idx = `.spacer_left_idx'
+	.spacer_right_idx = 0`._coldex _spacer_right'
+	`push' .spacer_right_idx = `.spacer_right_idx'
+
+	if `.has_esse' {
+		`push' .fix_esse
+	}
+	if `.has_ci' {
+		`push' .fix_ci
+	}
+	if `.has_esci' {
+		`push' .fix_esci
+	}
+
+	.create_stats `log'
+
+	_fr_area_parse_and_log `log' "" GRAPHRegion , `macval(.opts)'
+	.opts = `"`r(rest)'"'
+	_fr_runlog `log'
+	.`log' = {}
+
+	_fr_area_parse_and_log `log' plotregion1  PLOTRegion , `macval(.opts)'
+	.opts = `"`r(rest)'"'
+	_fr_runlog `log'
+	.`log' = {}
+
+	`push'								///
+	.plotregion1.insert						///
+		(hrule = .hrule_g.new , style(scheme fp))		///
+		above column1 , spancols(all) spanfit(left right)
+
+	if `:list sizeof hruleopts' {
+		._parse_hrule_options edits : `"`hruleopts'"'
+		`push'					///
+		.plotregion1.hrule.style.editstyle	///
+				`edits'			///
+				editcopy
+	}
+
+	if "`nonotes'" == "" & `"`.note_text'"' != "" {
+		local noteopt note(`.note_text', style("scheme fpbody"))
+	}
+
+	.parse_and_log_titles `log' "" `titleopt' `noteopt' `macval(.opts)'
+	.opts = `"`r(rest)'"'
+	_fr_runlog `log'
+	.`log' = {}
+
+	.parse_and_log_spacers `log' "" `macval(.opts)'
+	.opts = `"`r(rest)'"'
+	_fr_runlog `log'
+	.`log' = {}
+
+	if `.has_grp' & `.grp_kvars' == 1 {
+		if `.has_gxtra' == 0 {
+			if 0`._coldex _es' {
+				.has_gxtra = 1
+			}
+			else if 0`._coldex _se' {
+				.has_gxtra = 1
+			}
+			else if 0`._coldex _lb' {
+				.has_gxtra = 1
+			}
+			else if 0`._coldex _ub' {
+				.has_gxtra = 1
+			}
+			else if 0`._coldex _pvalue' {
+				.has_gxtra = 1
+			}
+			else if 0`._coldex _ci' {
+				.has_gxtra = 1
+			}
+			else if 0`._coldex _esse' {
+				.has_gxtra = 1
+			}
+			else if 0`._coldex _esci' {
+				.has_gxtra = 1
+			}
+		}
+	}
+	else {
+		.has_gxtra = 0
+	}
+	`push' .has_gxtra = `.has_gxtra'
+
+	if `.plot_idx' > 0 {
+		.ParseAndLogAxes `log' 0 plotregion1. "1" "" "" ///
+			`esrefline'				///
+			`nullrefline'				///
+			`macval(.opts)'
+		.opts = `"`r(rest)'"'
+
+		local plot plotregion1.column`.plot_idx'
+		if "`.`plot'.esplot.isa'" != "" {
+			.`esprse'.log_edits `log' `plot'.esplot 1 no
+		}
+		if "`.`plot'.esinsideplot.isa'" != "" {
+			.`esinprse'.log_edits `log' `plot'.esinsideplot 1 no
+		}
+		if "`.`plot'.lbplot.isa'" != "" {
+			.`ciprse'.log_edits `log' `plot'.lbplot 1 no
+		}
+		if "`.`plot'.larrowplot.isa'" != "" {
+			.`ciprse'.log_edits `log' `plot'.larrowplot 1 no
+		}
+		if "`.`plot'.ubplot.isa'" != "" {
+			.`ciprse'.log_edits `log' `plot'.ubplot 1 no
+		}
+		if "`.`plot'.uarrowplot.isa'" != "" {
+			.`ciprse'.log_edits `log' `plot'.uarrowplot 1 no
+		}
+		if "`.`plot'.pi_lbplot.isa'" != "" {
+			.`piprse'.log_edits `log' `plot'.pi_lbplot 1 no
+		}
+		if "`.`plot'.pi_larrowplot.isa'" != "" {
+			.`piprse'.log_edits `log' `plot'.pi_larrowplot 1 no
+		}
+		if "`.`plot'.pi_ubplot.isa'" != "" {
+			.`piprse'.log_edits `log' `plot'.pi_ubplot 1 no
+		}
+		if "`.`plot'.pi_uarrowplot.isa'" != "" {
+			.`piprse'.log_edits `log' `plot'.pi_uarrowplot 1 no
+		}
+		if "`.`plot'.group.isa'" != "" {
+		    if `.grp_kvars' == 1 {
+			._parse_marker_options edits "" : `"`gmarkeropts'"'
+			if `"`edits'"' != "" {
+				`push' .style.editstyle			///
+					grpmarkerstyle(marker(`edits'))	///
+					editcopy
+			}
+		    }
+		    if `.has_cumul' == 0 {
+			._parse_marker_options edits "" : `"`omarkeropts'"'
+			if `"`edits'"' != "" {
+				`push' .style.editstyle			///
+					allmarkerstyle(marker(`edits'))	///
+					editcopy
+			}
+		    }
+		}
+	}
+
+	_fr_runlog `log'
+	.`log' = {}
+
+	// NOTE: style editing must be in the following order
+	// 	coltitleopts	- overrides for column titles
+	// 	bodyopts	- applies to all but coltitleopts
+	// 	itemopts	- overrides for item text
+	// 	groupopts	- overrides for group text
+	// 	overallopts	- overrides for overall text
+
+	if `"`coltitleopts'"' != "" {
+		._get_edit_titles list : sup
+		foreach item of local list {
+			_fr_sztextbox_parse_and_log	///
+				`log' `item' , `coltitleopts'
+			._err_bad_options , `r(rest)'
+		}
+		._get_edit_titles list :
+		foreach item of local list {
+			_fr_sztextbox_parse_and_log	///
+				`log' `item' , `coltitleopts'
+			._err_bad_options , `r(rest)'
+		}
+	}
+
+	if `"`bodyopts'"' != `""' {
+		._get_edititem list : items
+		foreach item of local list {
+			_fr_sztextbox_parse_and_log	///
+				`log' `item' , `bodyopts'
+			._err_bad_options , `r(rest)'
+		}
+	    if `.has_grp' {
+		._get_edititem list : group_items
+		foreach item of local list {
+			_fr_sztextbox_parse_and_log	///
+				`log' `item' , `bodyopts'
+			._err_bad_options , `r(rest)'
+		}
+	    }
+	    if `.do_overall' {
+		._get_editoverall list :
+		foreach item of local list {
+			_fr_sztextbox_parse_and_log	///
+				`log' `item' , `bodyopts'
+			._err_bad_options , `r(rest)'
+		}
+	    }
+	}
+
+	if `"`itemopts'"' != `""' {
+		if `.grp_kvars' < 2 & `.has_cumul' == 0 {
+			._get_edititem list : items
+			foreach item of local list {
+				_fr_sztextbox_parse_and_log	///
+					`log' `item' , `itemopts'
+				._err_bad_options , `r(rest)'
+			}
+		}
+		else {
+			di as txt "note: Option {bf:itemopts()} ignored."
+		}
+	}
+
+	if `"`groupopts'"' != `""' {
+		if `.grp_kvars' > 1 {
+			._get_edititem ilist : items
+			._get_edititem glist : group_items
+			local list `ilist' `glist'
+			foreach item of local list {
+				_fr_sztextbox_parse_and_log	///
+					`log' `item' , `groupopts'
+				._err_bad_options , `r(rest)'
+			}
+		}
+		else if `.grp_kvars' == 1 {
+			._get_edititem list : group_items
+			foreach item of local list {
+				_fr_sztextbox_parse_and_log	///
+					`log' `item' , `groupopts'
+				._err_bad_options , `r(rest)'
+			}
+		}
+		else {
+			di as txt "note: Option {bf:groupopts()} ignored."
+		}
+	}
+
+	if `"`overallopts'"' != `""' {
+		if `.has_cumul' {
+			._get_edititem ilist : items
+			._get_edititem glist : group_items
+			local list `ilist' `glist'
+			foreach item of local list {
+				_fr_sztextbox_parse_and_log	///
+					`log' `item' , `overallopts'
+				._err_bad_options , `r(rest)'
+			}
+		}
+		else if `.do_overall' {
+			._get_editoverall list :
+			foreach item of local list {
+				_fr_sztextbox_parse_and_log	///
+					`log' `item' , `overallopts'
+				._err_bad_options , `r(rest)'
+			}
+		}
+		else {
+			di as txt "note: Option {bf:overallopts()} ignored."
+		}
+	}
+	// column options
+	.parse_and_log_columnopts `log'
+
+	`push' .span_titles
+
+	`push' .set_spositions
+	`push' .set_graphwidth
+
+	_fr_runlog `log'
+	.`log' = {}
+
+	if 0`.id_idx' {
+		local pos = `.n_groups' + 1
+		forval i = 1/0`.custom_overall.arrnels' {
+			local ++pos
+			local LOPTS `"`.res_prse[`pos'].lopts'"'
+		if `:length local LOPTS' {
+			._get_editcustom list `pos' :
+		foreach item of local list {
+			`push' .`item'.style.ref = .`item'.style.copy
+			_fr_sztextbox_parse_and_log	///
+				`log' `item' , `LOPTS'
+		} // item
+		} // if
+		} // i
+	}
+	if 0`.plot_idx' {
+		local pos = `.n_groups' + 1
+		local item plotregion1.column`.plot_idx'.group
+		forval i = 1/0`.custom_overall.arrnels' {
+			local ++pos
+			local edits `"`.res_prse[`pos'].mopts'"'
+			if `:length local edits' {
+				`push' .`item'[`pos'].style.ref ///
+					= .`item'[`pos'].style.copy
+				`push' .`item'[`pos'].style.editstyle	///
+					marker(`edits') editcopy
+			}
+		}
+	}
+
+
+	if `.plot_idx' > 0 {
+		if `:length local left_text' {
+			.set_nulltext `log' left `left_text', `left_opts'
+		}
+		if `:length local right_text' {
+			.set_nulltext `log' right `right_text', `right_opts'
+		}
+	}
+
+	_fr_runlog `log'
+	.`log' = {}
+
+	._err_bad_options , `macval(.opts)'
+end
+
+program .parse_sort, sclass
+	gettoken touse 0 : 0
+	local syntax syntax varlist [, ASCending DESCending *]
+	capture `syntax'
+	if c(rc) {
+		di as err "option {bf:sort()} invalid;"
+		`syntax'
+		error 198	// [sic]
+	}
+	opts_exclusive "`ascending' `descending'" sort
+	if `:length local options' {
+		gettoken tok : options, bind
+		di as err "option {bf:sort()} invalid;"
+		di as err "option {bf:`tok'} not allowed"
+		exit 198
+	}
+	markout `touse' `varlist', strok
+	if "`descending'" != "" {
+		local sort
+		foreach var of local varlist {
+			local sort `sort' -`var'
+		}
+	}
+	else {
+		local sort : copy local varlist
+	}
+	sreturn clear
+	sreturn local sort `"`sort'"'
+end
+
+program .parse_custom_overall, sclass
+	gettoken log 0 : 0, parse(",")
+	local push .`log'.Arrpush
+	syntax [, CUSTOMOVERall(string asis) *]
+	local i 0 
+	while `"`customoverall'"' != "" {
+		local ++i
+		.custom_overall[`i'] = `"`customoverall'"'
+		`push' .custom_overall[`i'] = `"`customoverall'"'
+		local 0 `", `options'"'
+		syntax [, CUSTOMOVERall(string asis) *]
+	}
+	sreturn local options `"`options'"'
+end
+
+program .parse_predinterval, sclass
+	syntax [anything] [, *]
+
+	local pioption predinterval
+	if `"`anything'"' != "" {
+		local pioption `pioption'(`anything')
+	}
+	sreturn local pioption `pioption'
+	sreturn local piopts `"`options'"'
+end
+
+program .set_nulltext
+	gettoken log 0 : 0
+	gettoken type 0 : 0
+	syntax anything [, *]
+
+	local plot plotregion1.column`.plot_idx'
+
+	._parse_log_1textbox				///
+		`log' `plot' 0				///
+		`.y_nulltext' `.x_nullval' `anything'	///
+		,					///
+		tstyle(scheme fpnull`type'text)		///
+		`options'
+end
+
+program .ParseBind
+	args prop COLON option
+
+	local 0 `", `option'"'
+	local syntax syntax [, PARENtheses BRACKETs]
+	capture `syntax'
+	if c(rc) {
+		di as err "option {bf:`prop'(`option')} invalid;"
+		`syntax'
+		exit 198	// [sic]
+	}
+	local option `parentheses' `brackets'
+	local dim : list sizeof option
+	if `dim' == 2 {
+		di as err "option {bf:`prop'()} invalid;"
+		opts_exclusive "`option'"
+		exit 198	// [sic]
+	}
+	if `dim' == 1 {
+		.`prop' = "`option'"
+	}
+end
+
+program .parse_results
+	args log N res cumul diff het
+
+	local 0 `", `macval(.opts)'"'
+	syntax [,					///
+		NOGHETstats				///
+		NOOHETstats				///
+		NOGSIGtests				///
+		NOOSIGtest				///
+		NOGWHOMtests				///
+		NOOHOMtest				///
+		NOGBHOMtests				///
+		*					///
+	]
+	.opts = `"`options'"'
+
+	matrix `N' = r(_N)
+	.N_mat = "`N'"
+	.N_rows = rowsof(`N')
+
+	if "`r(df)'" != "" {
+		.has_df = 1
+	}
+	
+	.transform = r(transform)
+	if `.transform' {
+		local f `"`r(transf)'"'
+		if `"`f'"' == "exp(@)" {
+			.tr_f = "exp"
+			.tr_invf = "log"
+		}
+		else if `"`f'"' == "tanh(@)" {
+			.tr_f = "tanh"
+			.tr_invf = "atanh"
+		}
+		else if `"`f'"' == "invlogit(@)" {
+			.tr_f = "invlogit"
+			.tr_invf = "logit"
+		}
+		else if `"`f'"' == "-expm1(@)" {
+			.tr_f = "-expm1"
+			.tr_invf = "log1m"
+		}
+		else {
+			di as err "transformation not recognized"
+			exit 198
+		}
+	}
+	
+	if "`r(cumul)'" == "matrix" {
+		.has_cumul = 1
+		.do_wmarkers = 0
+		if `.transform' {
+			matrix `cumul' = r(res_transf)
+		}
+		else {
+			matrix `cumul' = r(cumul)
+		}
+		.cumul_mat = "`cumul'"
+		.cumul_varname = "`r(ordervar)'"
+		if "`r(byvar)'" != "" {
+			.cumul_byvar= "`r(byvar)'"
+			.has_grp = 1
+		}
+	}
+	else {
+		.do_overall = 1
+	}
+
+	local varlist `"`r(subgroupvars)'"'
+	if `"`varlist'"' != "" {
+		.has_grp = 1
+		.grp_kvars = `:list sizeof varlist'
+		.grp_varlist = "`varlist'"
+	}
+	if `.grp_kvars' > 1 {
+		forval v = 1/`.grp_kvars' {
+			.grp_labels[`v'] = {}
+			.grp_klabels[`v'] = `.N_mat'[`v',1]
+		forval i = 1/`.grp_klabels[`v']' {
+			.grp_labels[`v'][`i'] = strtrim(`"`r(v`v'g`i'label)'"')
+		} // i
+		} // v
+	}
+	else if `.has_grp' {
+		forval i = 1/`.N_rows' {
+			.grp_labels[`i'] = strtrim(`"`r(g`i'label)'"')
+		}
+	}
+
+	if `.grp_kvars' > 1 {
+		matrix `res' = r(esgroup)
+		.res_mat = "`res'"
+		matrix `het' = r(hetgroup)
+		.het_mat = "`het'"
+	}
+	else {
+		matrix `res' = r(res)
+		.res_mat = "`res'"
+	}
+	if `.transform' {
+		matrix `res' = r(res_transf)
+		.res_mat = "`res'"
+	}
+	.res_rows = rowsof(`.res_mat')
+
+	if `.has_grp' & "`nogbhomtests'" == "" {
+		if "`r(diffgroup)'" == "matrix" {
+			matrix `diff' = r(diffgroup)
+			.diff_mat = "`diff'"
+			.do_qb = 1
+		}
+	}
+
+	.model = "`r(model)'"
+	if "`.model'" == "common" {
+		local noghetstats noghetstats
+		local noohetstats noohetstats
+		local nogwhomtests nogwhomtests
+		local noohomtest noohomtest
+	}
+	.es_label	= `"`r(fp_eslab)'"'
+	.note_text	= `"`r(note)'"'
+
+	if `.has_grp' & `.grp_kvars' <= 1 {
+		if "`.cumul_byvar'" == "" {
+			if "`noghetstats'"=="" {
+				.do_ghet = 1
+			}
+			if "`nogsigtests'"=="" {
+				// NOTE: .do_gsig is always 0, but we
+				// may want to turn on in the future
+
+				* .do_gsig = 1
+			}
+			if "`nogwhomtests'"=="" {
+				.do_gwhom = 1
+			}
+		}
+	}
+
+	if `.do_overall' {
+		if "`noohetstats'"=="" {
+			.do_ohet = 1
+		}
+		if "`noosigtest'"=="" & `.grp_kvars' == 0 {
+			.do_osig = 1
+		}
+		if "`noohomtest'"=="" {
+			.do_ohom = 1
+		}
+	}
+
+	.eform = r(eform)
+	.ci_level = "`r(level)'"
+
+	if `.has_pi' {
+		if `.eform' {
+			.pi_lb = (exp(`r(pi_lb)'))
+			.pi_ub = (exp(`r(pi_ub)'))
+		}
+		else if `.transform' {
+			.pi_lb = (`.tr_f'(`r(pi_lb)'))
+			.pi_ub = (`.tr_f'(`r(pi_ub)'))
+		}
+		else {
+			.pi_lb = (`r(pi_lb)')
+			.pi_ub = (`r(pi_ub)')
+		}
+		.pi_level = (`r(pilevel)')
+	}
+
+
+	// push vital properties into the log
+	local push .`log'.Arrpush
+
+	// set by this method
+	`push' .do_wmarkers	= `.do_wmarkers'
+	`push' .has_cumul	= `.has_cumul'
+	`push' .cumul_varname	= `"`.cumul_varname'"'
+	`push' .cumul_byvar	= `"`.cumul_byvar'"'
+	`push' .do_overall	= `.do_overall'
+	`push' .has_grp		= `.has_grp'
+	`push' .grp_kvars	= `.grp_kvars'
+	`push' .has_df		= `.has_df'
+	`push' .do_ghet		= `.do_ghet'
+	`push' .do_gwhom	= `.do_gwhom'
+	`push' .do_gsig		= `.do_gsig'
+	`push' .do_ohet		= `.do_ohet'
+	`push' .do_ohom		= `.do_ohom'
+	`push' .do_osig		= `.do_osig'
+	`push' .do_qb		= `.do_qb'
+	`push' .eform		= `.eform'
+	`push' .transform	= `.transform'
+	`push' .tr_f		= `"`.tr_f'"'
+	`push' .tr_invf		= `"`.tr_invf'"'
+	`push' .ci_level	= `"`.ci_level'"'
+	`push' .es_label	= `"`.es_label'"'
+	`push' .has_pi		= `.has_pi'
+	`push' .pi_lb		= (`.pi_lb')
+	`push' .pi_ub		= (`.pi_ub')
+	`push' .pi_level	= (`.pi_level')
+end
+
+program .parse_nullrefline_options, sclass
+	syntax [,				///
+		FAVORSLeft(string asis)		///
+		FAVORSRight(string asis)	///
+		*				///
+	]
+	sreturn clear
+	sreturn local options `"`options'"'
+
+	if `:length local favorsleft' {
+		local 0 : copy local favorsleft
+		syntax anything(id="favorsleft text") [, *]
+		gettoken tok : anything, qed(quoted)
+		if `quoted' == 0 {
+			local anything `""`anything'""'
+		}
+		sreturn local left_text `"`anything'"'
+		sreturn local left_opts `"`options'"'
+	}
+	if `:length local favorsright' {
+		local 0 : copy local favorsright
+		syntax anything(id="favorsright text") [, *]
+		gettoken tok : anything, qed(quoted)
+		if `quoted' == 0 {
+			local anything `""`anything'""'
+		}
+		sreturn local right_text `"`anything'"'
+		sreturn local right_opts `"`options'"'
+	}
+end
+
+program .setN
+	if `.grp_kvars' > 1 & `.custom_overall.arrnels' {
+		.n_studies = `.res_rows' - 1
+	}
+	else if `"`1'"' != "" {
+		.n_studies = `1'
+	}
+	else {
+		.sersets[1].set
+		.n_studies = `:serset N'
+	}
+end
+
+program .build_results
+	args log
+
+	local push .`log'.Arrpush
+
+	`push' .do_overall = `.do_overall'
+
+	if `.has_grp' {
+		.n_groups = `.N_rows'
+	}
+	`push' .n_groups = `.n_groups'
+
+	if `.grp_kvars' > 1 {
+		.build_groups2 `log'
+	}
+	else if `.has_grp' {
+		.build_groups `log'
+	}
+
+	if `.do_overall' {
+		if `.grp_kvars' > 1 {
+			.build_overall2 `log'
+		}
+		else {
+			.build_overall `log'
+		}
+		.build_custom_overall `log'
+	}
+end
+
+program .build_groups2
+	args log
+
+	local push .`log'.Arrpush
+
+	local varlist `"`.grp_varlist'"'
+	local kvars : list sizeof varlist
+
+	local i 0
+	foreach var of local varlist {
+		local ++i
+		`push' .res_prse[`i'] = .fp_res_prse.new
+
+		local declare .res_prse[`i'].Declare
+		`push' `declare' y		= (.)
+		`push' `declare' x		= (.)
+		`push' `declare' se		= (.)
+		`push' `declare' lb		= (.)
+		`push' `declare' ub		= (.)
+		`push' `declare' wgt		= (.)
+		`push' `declare' n_studies	= `=`.N_mat'[`i',1]'
+		`push' `declare' label		= `"{bf:`var'}"'
+	}
+end
+
+program .build_groups
+	args log
+
+	local push .`log'.Arrpush
+	
+	local wth = cond(`.transform', "f(theta)", "theta")
+	local wlb = cond(`.transform', "f(ci_lb)", "ci_lb")
+	local wub = cond(`.transform', "f(ci_ub)", "ci_ub")
+	
+	local cth = colnumb(`.res_mat', "`wth'")
+	local cse = colnumb(`.res_mat', "se")
+	local clb = colnumb(`.res_mat', "`wlb'")
+	local cub = colnumb(`.res_mat', "`wub'")
+
+	forvalues i=1/`.n_groups' {
+		local th = `.res_mat'[`i',`cth']
+		local se = `.res_mat'[`i',`cse']
+		local lb = `.res_mat'[`i',`clb']
+		local ub = `.res_mat'[`i',`cub']
+		if `.eform' {
+			local th = exp(`th')
+			local se = `th'*`se'
+			local lb = exp(`lb')
+			local ub = exp(`ub')
+		}
+		// else if `.transform' -- values already correct
+		local n = `.N_mat'[`i',1]
+
+		`push' .res_prse[`i'] = .fp_res_prse.new
+
+		local declare .res_prse[`i'].Declare
+		`push' `declare' y		= (.)
+		`push' `declare' x		= (`th')
+		`push' `declare' se		= (`se')
+		`push' `declare' lb		= (`lb')
+		`push' `declare' ub		= (`ub')
+		`push' `declare' wgt		= (.)
+		`push' `declare' n_studies	= `n'
+		local label `"`.grp_labels[`i']'"'
+		`push' `declare' label		= `"{bf:`label'}"'
+	}
+end
+
+program .build_overall2
+	args log
+
+	local push .`log'.Arrpush
+
+	local row = rowsof(`.res_mat')
+	
+	local wth = cond(`.transform', "f(theta)", "theta")
+	local wlb = cond(`.transform', "f(ci_lb)", "ci_lb")
+	local wub = cond(`.transform', "f(ci_ub)", "ci_ub")
+	
+	local cth = colnumb(`.res_mat', "`wth'")
+	local cse = colnumb(`.res_mat', "se")
+	local clb = colnumb(`.res_mat', "`wlb'")
+	local cub = colnumb(`.res_mat', "`wub'")
+	local cn  = colnumb(`.res_mat', "n")
+	local cp  = colnumb(`.res_mat', "p")
+
+	local th = `.res_mat'[`row',`cth']
+	local se = `.res_mat'[`row',`cse']
+	local lb = `.res_mat'[`row',`clb']
+	local ub = `.res_mat'[`row',`cub']
+	local n  = `.res_mat'[`row',`cn']
+	local p  = `.res_mat'[`row',`cp']
+	if `.eform' {
+		local th = exp(`th')
+		local se = `th'*`se'
+		local lb = exp(`lb')
+		local ub = exp(`ub')
+	}
+	// else if `.transform' -- values already correct
+
+	local i = `.grp_kvars' + 1
+	`push' .res_prse[`i'] = .fp_res_prse.new
+
+	local declare .res_prse[`i'].Declare
+	`push' `declare' y		= (.)
+	`push' `declare' x		= (`th')
+	`push' `declare' se		= (`se')
+	`push' `declare' lb		= (`lb')
+	`push' `declare' ub		= (`ub')
+	`push' `declare' n_studies	= (`n')
+	`push' `declare' p		= (`p')
+	`push' `declare' wgt		= (.)
+	`push' `declare' label	= "{bf:Overall}"
+end
+
+program .build_overall
+	args log
+
+	local push .`log'.Arrpush
+
+	local i = rowsof(`.res_mat')
+	
+	local wth = cond(`.transform', "f(theta)", "theta")
+	local wlb = cond(`.transform', "f(ci_lb)", "ci_lb")
+	local wub = cond(`.transform', "f(ci_ub)", "ci_ub")
+	
+	local cth = colnumb(`.res_mat', "`wth'")
+	local cse = colnumb(`.res_mat', "se")
+	local clb = colnumb(`.res_mat', "`wlb'")
+	local cub = colnumb(`.res_mat', "`wub'")
+	
+	local th = `.res_mat'[`i',`cth']
+	local se = `.res_mat'[`i',`cse']
+	local lb = `.res_mat'[`i',`clb']
+	local ub = `.res_mat'[`i',`cub']
+	if `.eform' {
+		local th = exp(`th')
+		local se = `th'*`se'
+		local lb = exp(`lb')
+		local ub = exp(`ub')
+	}
+	// else if `.transform' -- values already correct
+
+	`push' .res_prse[`i'] = .fp_res_prse.new
+
+	local declare .res_prse[`i'].Declare
+	`push' `declare' y	= (.)
+	`push' `declare' x	= (`th')
+	`push' `declare' se	= (`se')
+	`push' `declare' lb	= (`lb')
+	`push' `declare' ub	= (`ub')
+	`push' `declare' wgt	= (.)
+	`push' `declare' label	= "{bf:Overall}"
+end
+
+program .build_custom_overall
+	args log
+
+	local push .`log'.Arrpush
+
+	if `.grp_kvars' > 1 {
+		local dim = `.grp_kvars' + 1
+	}
+	else {
+		local dim = rowsof(`.res_mat')
+	}
+
+	forval i = 1/0`.custom_overall.arrnels' {
+		// parse syntax
+		local 0 `"`.custom_overall[`i']'"'
+		local syntax syntax anything(id="custom values") ///
+			[, LABel(string asis) *]
+		capture `syntax'
+		if c(rc) {
+			di as err "option {bf:customoverall()} invalid;"
+			`syntax'
+			error 198	// [sic]
+		}
+		._parse_marker_options MOPTS LOPTS : `"`options'"'
+
+		// parse numlist
+		local numlist numlist "`anything'", min(3) max(3)
+		capture `numlist'
+		if c(rc) {
+			di as err "option {bf:customoverall()} invalid;"
+			`numlist'
+			error 198	// [sic]
+		}
+		tokenize `r(numlist)'
+		args th lb ub
+		if `ub' < `lb' {
+			di as err "{p}"
+			di as err "option {bf:customoverall()} invalid;{break}"
+			di as err "upper confidence bound `ub' is smaller"
+			di as err "than lower confidence bound `lb'"
+			di as err "{p_end}"
+			exit 198
+		}
+		if `ub' < `th' {
+			di as err "{p}"
+			di as err "option {bf:customoverall()} invalid;{break}"
+			di as err "upper confidence bound `ub' is smaller"
+			di as err "than estimate `th'"
+			di as err "{p_end}"
+			exit 198
+		}
+		if `th' < `lb' {
+			di as err "{p}"
+			di as err "option {bf:customoverall()} invalid;{break}"
+			di as err "estimate `th' is smaller"
+			di as err "than lower confidence bound `lb'"
+			di as err "{p_end}"
+			exit 198
+		}
+		if `.eform' {
+			local th = exp(`th')
+			local lb = exp(`lb')
+			local ub = exp(`ub')
+		}
+		else if `.transform' {
+			local th = `.tr_f'(`th')
+			local lb = `.tr_f'(`lb')
+			local ub = `.tr_f'(`ub')
+		}
+
+		// parse label option
+		if `:length local label' {
+			local 0 : copy local label
+			capture syntax anything
+			if c(rc) {
+				di as err "option {bf:customoverall()} invalid;"
+				syntax anything
+				error 198	// [sic]
+			}
+
+		}
+		else {
+			local label `"Custom `i'"'
+		}
+
+		local ++dim
+		`push' .res_prse[`dim'] = .fp_res_prse.new
+
+		local declare .res_prse[`dim'].Declare
+		`push' `declare' y	= (.)
+		`push' `declare' x	= (`th')
+		`push' `declare' se	= (.)
+		`push' `declare' lb	= (`lb')
+		`push' `declare' ub	= (`ub')
+		`push' `declare' wgt	= (.)
+		`push' `declare' label	= `"`label'"'
+		`push' `declare' lopts	= `"`LOPTS'"'
+		`push' `declare' mopts	= `"`MOPTS'"'
+	}
+
+end
+
+program .span_titles
+	local colnames `"`.colnames'"'
+
+	local supbox plotregion1.supcoltitle
+	local colbox plotregion1.coltitle
+
+	.supti_spans.Arrdropall
+	.colti_spans.Arrdropall
+
+	local i 0
+	foreach col of local colnames {
+		local ++i
+		local col = strlower("`col'")
+		local col`i' : copy local col
+		local c`i' `._coldex `col''
+		local supti`i' `"`.`supbox'`c`i''.text[1]'"'
+		local colti`i' `"`.`colbox'`c`i''.text[1]'"'
+	}
+	local dim = `i'
+
+	local supti : copy local supti1
+	local spos 1
+	local colti : copy local colti1
+	local cpos 1
+	.supti_spans[1] = 1
+	.colti_spans[1] = 1
+	forval i = 2/`dim' {
+		.supti_spans[`i'] = 1
+		if `c`i'' == 0 {
+			continue
+		}
+		if `"`supti`i''"' != "" & `"`supti'"' == `"`supti`i''"' {
+			.supti_spans[`i'] = 0
+			.supti_spans[`spos'] = `.supti_spans[`spos']' + 1
+		}
+		else {
+			local supti : copy local supti`i'
+			local spos `i'
+		}
+
+		.colti_spans[`i'] = 1
+		if `"`colti`i''"' != "" & `"`colti'"' == `"`colti`i''"' {
+			.colti_spans[`i'] = 0
+			.colti_spans[`cpos'] = `.colti_spans[`cpos']' + 1
+		}
+		else {
+			local colti : copy local colti`i'
+			local cpos `i'
+		}
+	}
+
+	forval i = 1/`dim' {
+		if `c`i'' == 0 {
+			continue
+		}
+		local spans `.supti_spans[`i']'
+		if `spans' == 0 {
+			.`supbox'`c`i''.draw_view.set_false
+		}
+		else if `spans' == 1 {
+			.`supbox'`c`i''.draw_view.set_true
+		}
+		else if `spans' > 1 {
+			local --spans
+			.`supbox'`c`i''.draw_view.set_true
+			.plotregion1.Expand supcoltitle`c`i'' right `spans'
+		}
+
+		local spans `.colti_spans[`i']'
+		if `spans' == 0 {
+			.`colbox'`c`i''.draw_view.set_false
+		}
+		else if `spans' == 1 {
+			.`colbox'`c`i''.draw_view.set_true
+		}
+		else if `spans' > 1 {
+			local --spans
+			.`colbox'`c`i''.draw_view.set_true
+			.plotregion1.Expand coltitle`c`i'' right `spans'
+		}
+	}
+end
+
+// ---------------------------------------------------------------------------
+// Set the s (y) positions for all of the markers, labels, and groups.
+// Also sets the graph height -- ysize.
+
+program .set_spositions
+	// compute pieces
+	local otherht = 0`.title.inches'    +				///
+			0`.subtitle.inches' +				///
+			0`.t1title.inches'  +				///
+			0`.t2title.inches'  +				///
+			0`.b1title.inches'  +				///
+			0`.b2title.inches'  +				///
+			0`.note.inches'     +				///
+			0`.caption.inches'  +				///
+			0`.plotregion1.hrule.inches'         +		///
+			0`.style.margin.inches'		     +		///
+			0`.plotregion1.style.margin.inches'  +		///
+			0`.colmaxinches'
+
+	if `.plot_idx' {
+		local axis_ht = 0`.plotregion1.xaxis1.style.inches'
+		local otherht = `otherht' + `axis_ht'
+	}
+
+	local sgap = `.style.study_gap.inches'
+	local ggap = `.style.group_gap.inches'
+	local ogap = `.style.overall_gap.inches'
+
+	// set the following in inches:
+	//
+	// 	_spos
+	// 	_grpspos
+	// 	_mrkspos
+	// 	_hetspos
+	// 	_homspos
+	// 	_sigspos
+	// 	_qbspos
+
+	preserve
+
+	.sersets[1].set
+	serset use , clear
+
+	// shortcuts
+	local plid plotregion1.column`.id_idx'
+	local plot plotregion1.column`.plot_idx'
+
+	if `.has_grp' {
+		local k_groups = `.n_groups'
+	}
+	else {
+		local k_groups 1
+	}
+
+	local row 0
+	local pos 0
+	forvalues g = 1/`k_groups' {
+		local pos = `pos' + `sgap'
+		if `.has_grp' {
+			qui replace _grpspos = `pos' in `g'
+			if `.plot_idx' & `.has_cumul' == 0 {
+				.`plot'.group[`g'].y = `pos'
+			}
+
+			local grpin = `.grpinches `g''
+			local grpin2 = `grpin'/2
+			local pos = `pos' + `grpin2' + `ggap'
+
+			._set_grp k_studies : `g'
+		}
+		else {
+			local grpin = 0
+			local grpin2 = 0
+			local k_studies = _N
+		}
+		forvalues s = 1/`k_studies' {
+			local ++row
+
+			if `s' > 1 {
+				local pos = `pos' + `sgap'
+			}
+
+			local rowin = `.rowinches `row''
+			local rowin2 = `rowin'/2
+
+			local pos = `pos' + `rowin2'
+			quietly replace _spos = `pos' in `row'
+			local pos = `pos' + `rowin2'
+
+		}
+		if `.has_grp' & "`.cumul_byvar'" == "" {
+			local pos = `pos' + `rowin2' + `sgap'
+			quietly replace _mrkspos = `pos' in `g'
+			quietly replace _hetspos = `pos' in `g'
+			quietly replace _homspos = `pos' in `g'
+
+			local xtra 0
+			if `.do_ghet' {
+				// _hetspos already set
+				local xtra 1
+			}
+
+			if `.do_gwhom' {
+				if `xtra' {
+					local pos = `pos' + `rowin2' + `sgap'
+					local pos = `pos' + `rowin2'
+				}
+				qui replace _homspos = `pos' in `g'
+				local xtra 1
+			}
+
+			if `.do_gsig' {
+				if `xtra' {
+					local pos = `pos' + `rowin2' + `sgap'
+					local pos = `pos' + `rowin2'
+				}
+				qui replace _sigspos = `pos' in `g'
+				local xtra 1
+			}
+
+			if `.do_qb' & `.grp_kvars' > 1 {
+				if `xtra' {
+					local pos = `pos' + `rowin2' + `sgap'
+					local pos = `pos' + `rowin2'
+				}
+				qui replace _qbspos = `pos' in `g'
+				local xtra 1
+			}
+
+			if `.has_gxtra' | `xtra' {
+				local pos = `pos' + `rowin2' + `sgap'
+			}
+
+			local pos = `pos' + `grpin2'
+			if `g' < `k_groups' {
+				local pos = `pos' + `ggap'
+			}
+		}
+		else if "`.cumul_byvar'" != "" {
+			if `g' < `k_groups' {
+				local pos = `pos' + `grpin2' + `ggap'
+			}
+		}
+	}
+
+	// start position for placing the null text
+	local y0_nulltext = `pos'
+
+	local xtra 0
+	if `.do_overall' & `.has_cumul' == 0 {
+
+		if `.has_grp' == 0 {
+			local row 1
+		}
+		else {
+			local row = `.n_groups' + 1
+		}
+		local overall_row `row'
+		local pos = `pos' + `ggap'
+		local y0_nulltext = `pos'
+
+		local overallin = `.grpinches `row''
+
+		local pos = `pos' + `overallin'/2 + `ogap'
+		if `.plot_idx' {
+			.`plot'.group[`row'].y = `pos'
+		}
+		qui replace _grpspos = `pos' in `row'
+		qui replace _mrkspos = `pos' in `row'
+		qui replace _hetspos = `pos' in `row'
+		qui replace _homspos = `pos' in `row'
+		qui replace _sigspos = `pos' in `row'
+		forval i = 1/0`.custom_overall.arrnels' {
+			local cust_row = `row' + `i'
+			local pos = `pos' + `overallin'/2 + `rowin2' + `sgap'
+			if `.plot_idx' {
+				.`plot'.group[`cust_row'].y = `pos'
+			}
+			qui replace _grpspos = `pos' in `cust_row'
+			qui replace _mrkspos = `pos' in `cust_row'
+		}
+		local pos = `pos' + `overallin'/2
+		if `.plot_idx' & `.do_omarker' {
+			local y0_nulltext = `pos'
+		}
+
+		if `.do_ohet' {
+			local pos = `pos' + `rowin2' + `sgap'
+			qui replace _hetspos = `pos' in `row'
+			local xtra 1
+		}
+
+		if `.do_ohom' {
+			local pos = `pos' + `rowin2' + `sgap'
+			if `xtra' {
+				local pos = `pos' + `rowin2'
+			}
+			qui replace _homspos = `pos' in `row'
+			local xtra 1
+		}
+
+		if `.do_osig' {
+			local pos = `pos' + `rowin2' + `sgap'
+			if `xtra' {
+				local pos = `pos' + `rowin2'
+			}
+			qui replace _sigspos = `pos' in `row'
+			local xtra 1
+		}
+
+	}
+
+	if `.do_qb' & `.grp_kvars' == 1 {
+		local pos = `pos' + `rowin2' + `sgap'
+		if `xtra' {
+			local pos = `pos' + `rowin2'
+		}
+		local pos = `pos' + `rowin2'
+		qui replace _qbspos = `pos' in 1
+	}
+
+	// add final gap to match the leading one
+	local pos = `pos' + `sgap'
+
+	// end position for placing the null text
+	local y1_nulltext = `pos'
+
+	// compute y position of null text, possibly adjusting the overall
+	// height to accommodate the extra lines
+	local k_nulltext = max(`.k_lefttext',`.k_righttext')
+	if `k_nulltext' {
+		local h_avail = `y1_nulltext' - `y0_nulltext'
+		local h_lines = `k_nulltext'*`rowin' + `sgap'
+		local diff = `h_lines' - `h_avail'
+		if `diff' > 0 {
+			// increase available space for null text
+			local pos = `pos' + `diff'
+			local h_avail = `h_lines'
+		}
+		.y_nulltext = `y0_nulltext' + `h_avail' / 2
+	}
+
+	// convert _spos to scale hts.
+
+	.col_ht = `pos'
+	.relht  = 100 * `.col_ht' / (`.col_ht' + `otherht')
+	local mult  = 100 / (`.col_ht' + `otherht')
+
+	quietly replace _spos = _spos * `mult'
+	if `k_nulltext' {
+		.y_nulltext = `.y_nulltext' * `mult'
+	}
+
+	forvalues j = 1/0`.res_prse.arrnels' {
+		qui replace _grpspos = _grpspos * `mult' in `j'
+		qui replace _mrkspos = _mrkspos * `mult' in `j'
+		qui replace _hetspos = _hetspos * `mult' in `j'
+		qui replace _homspos = _homspos * `mult' in `j'
+		qui replace _sigspos = _sigspos * `mult' in `j'
+		qui replace _qbspos = _qbspos * `mult' in `j'
+		if `.plot_idx' & `.has_cumul' == 0 {
+			.`plot'.group[`j'].y = _mrkspos[`j']
+		}
+	}
+
+	if `.do_ghet' & `.id_idx' {
+		forvalues j = 1/`.n_groups' {
+			.`plid'.het_stats[`j'].ypos.val = _hetspos[`j']
+		}
+	}
+
+	if `.do_gwhom' & `.id_idx' {
+		forvalues j = 1/`.n_groups' {
+			.`plid'.hom_stats[`j'].ypos.val = _homspos[`j']
+		}
+	}
+
+	if `.do_gsig' & `.id_idx' {
+		forvalues j = 1/`.n_groups' {
+			.`plid'.sig_stats[`j'].ypos.val = _sigspos[`j']
+		}
+	}
+
+	if `.do_ohet' & `.id_idx' {
+		local obs = `.n_groups' + 1
+		if `.do_ghet' {
+			local j = `obs'
+		}
+		else {
+			local j = 1
+		}
+		.`plid'.het_stats[`j'].ypos.val = _hetspos[`obs']
+	}
+
+	if `.do_ohom' & `.id_idx' {
+		local obs = `.n_groups' + 1
+		if `.do_gwhom' {
+			local j = `obs'
+		}
+		else {
+			local j = 1
+		}
+		.`plid'.hom_stats[`j'].ypos.val = _homspos[`obs']
+	}
+
+	if `.do_osig' & `.id_idx' {
+		local obs = `.n_groups' + 1
+		if `.do_gsig' {
+			local j = `obs'
+		}
+		else {
+			local j = 1
+		}
+		.`plid'.sig_stats[`j'].ypos.val = _sigspos[`obs']
+	}
+
+	if `.do_qb' & `.id_idx' {
+		forvalues j = 1/`.grp_kvars' {
+			.`plid'.bhom_stats[`j'].ypos.val = _qbspos[`j']
+		}
+	}
+
+	serset drop
+	serset create `.sersets[1].varlist' , `.sersets[1].miss_opts'
+	serset reset_id `.sersets[1].id'
+
+	restore
+
+	if `.has_pi' {
+		preserve
+
+		.sersets[2].set
+		serset use , clear
+
+		quietly replace _spos = `.`plot'.group[`overall_row'].y'
+
+		serset drop
+		serset create `.sersets[2].varlist' , `.sersets[2].miss_opts'
+		serset reset_id `.sersets[2].id'
+
+		restore
+	}
+
+	local grht = `otherht' + `.col_ht'
+	if `grht' < c(min_graphsize) {
+		local grht = c(min_graphsize)
+	}
+	if `grht' > c(max_graphsize) {
+		local kind = cond(`.grp_kvars' > 1, "subgroups", "studies")
+		di as err "graph height too big; too many `kind'"
+		di as err "{p 4 4 2}You may consider, for instance, using a" ///
+			"smaller font size by specifying " ///
+			"{bf:meta forestplot, bodyopts(size(}...{bf:))}{p_end}"
+		exit 198
+	}
+	.style.editstyle declared_ysize(`grht') editcopy
+
+	.set_yscales 0 `.relht'
+end
+
+program .set_number_of_lines
+	// Syntax:
+	//
+	// 	.<property> <possibly quoted text>
+	gettoken dot_k_lines 0 : 0
+
+	// NOTE: quoted text logic taken from
+	// twowaygraph_g._parse_log_1textbox
+
+	local k_lines 0
+	gettoken qtok 0	: 0, quotes
+	gettoken tok	: qtok
+	while `"`qtok'"' != "" & `"`qtok'"' != `"`tok'"' {
+		local ++k_lines
+		gettoken qtok 0	: 0, quotes
+		gettoken tok	: qtok
+	}
+	`dot_k_lines' = `k_lines'
+end
+
+// Loop over column options -- parse and apply.
+
+program .parse_and_log_columnopts
+	args log
+
+	local 0 `", `macval(.opts)'"'
+	syntax [, COLumnopts(string asis) *]
+	while `"`columnopts'"' != `""' {
+		.columnoptions `log' `columnopts'
+		local 0 `", `macval(options)'"'
+		syntax [, COLumnopts(string asis) *]
+	}
+
+	.opts = `"`macval(options)'"'
+end
+
+// Parse and apply options to one column
+
+program .BadColID
+	args colid
+
+	local ALLKEYS `"`.allkeys'"'
+	local pos : list posof "`colid'" in ALLKEYS
+	if `pos' {
+		di as err "column {bf:`colid'} is not available"
+		exit 198
+	}
+
+	di as err "column {bf:`colid'} not recognized"
+	exit 198
+end
+
+program .redo_items
+	args column
+
+	.`column'.recreate		///
+		`.res_prse.objkey'	///
+		`.n_groups'		///
+		`.do_overall'		///
+		`.has_cumul'
+end
+
+program .columnoptions
+	gettoken log     0 : 0
+	gettoken ulist 0 : 0 , parse(",")
+
+	local push .`log'.Arrpush
+
+	if `"`ulist'"' == `""' {
+		di as err "option {bf:columnopts()} invalid;"
+		di as err "nothing found where a column identifier expected"
+		exit 198
+	}
+
+	capture _unab `ulist' , matrix(`.keys_mat')
+	if c(rc) == 0 {
+		local ulist `"`r(varlist)'"'
+	}
+
+	local data `"`.data_expanded'"'
+	local data1 `"`.data1_expanded'"'
+	local data2 `"`.data2_expanded'"'
+
+	local has_data : list sizeof data
+	local has_data1 : list sizeof data1
+	local has_data2 : list sizeof data2
+
+	local ALL `"`.colnames'"'
+	local ALL : subinstr local ALL "_spacer" "", word
+
+	// build list
+	// - expand shortcuts
+	// - check for invalid column identifiers
+
+	foreach colid of local ulist {
+		if `"`colid'"' == "_data" {
+			if `has_data' == 0 {
+				.BadColID `colid'
+			}
+			local list `list' `data'
+		}
+		else if `"`colid'"' == "_data1" {
+			if `has_data1' == 0 {
+				.BadColID `colid'
+			}
+			local list `list' `data1'
+		}
+		else if `"`colid'"' == "_data2" {
+			if `has_data2' == 0 {
+				.BadColID `colid'
+			}
+			local list `list' `data2'
+		}
+		else if `"`colid'"' == "_esse" {
+			if `.has_esse' == 0 {
+				.BadColID `colid'
+			}
+			local list `list' `.esse_expanded'
+		}
+		else if `"`colid'"' == "_ci" {
+			if `.has_ci' == 0 {
+				.BadColID `colid'
+			}
+			local list `list' `.ci_expanded'
+		}
+		else if `"`colid'"' == "_esci" {
+			if `.has_esci' == 0 {
+				.BadColID `colid'
+			}
+			local list `list' `.esci_expanded'
+		}
+		else if `"`colid'"' == "_all" {
+			local list `list' `ALL'
+		}
+		else {
+			local col = `._coldex `colid''
+			if `col' == 0 {
+				.BadColID `colid'
+			}
+			local list `list' `colid'
+		}
+	}
+	local list : list uniq list
+
+	syntax [,				///
+		SUPERTItle(string asis)		///
+		TItle(string asis)		///
+		format(string)			///
+		mask(string)			///
+		PLOTRegion(passthru)		///
+		*				/// textbox options
+	]
+	local has_su	: length local supertitle
+	local has_ti	: length local title
+	local has_fmt	: length local format
+	local has_mask	: length local mask
+	local has_pr	: length local plotregion
+	local opts	: copy local options
+	local has_opts	: length local opts
+
+	if `has_su' {
+		local 0 : copy local supertitle
+		capture syntax [anything] [, *]
+		if c(rc) {
+			di as err "suboption {bf:supertitle()} invalid;"
+			syntax [anything] [, *]
+			error 198 // [sic]
+		}
+		local su_title : copy local anything
+		local su_opts : copy local options
+		local has_su_title : length local su_title
+		local has_su_opts : length local su_opts
+	}
+
+	if `has_ti' {
+		local 0 : copy local title
+		capture syntax [anything] [, *]
+		if c(rc) {
+			di as err "suboption {bf:title()} invalid;"
+			syntax [anything] [, *]
+			error 198 // [sic]
+		}
+		local ti_title : copy local anything
+		local ti_opts : copy local options
+		local has_ti_title : length local ti_title
+		local has_ti_opts : length local ti_opts
+	}
+
+	if `has_fmt' {
+		capture confirm format `format'
+		if c(rc) {
+			di as err "suboption {bf:format()} invalid;"
+			confirm format `format'
+			error 7
+		}
+	}
+
+	foreach colid of local list {
+		local col = `._coldex `colid''
+		if `col' == 0 {
+			// should not be possible
+			.BadColID `colid'
+		}
+
+		local column plotregion1.column`col'
+
+		if `has_pr' {
+			_fr_area_parse_and_log	///
+				`log'		///
+				`column'	///
+				PLOTRegion , `macval(plotregion)'
+		}
+
+		if `has_su' {
+			local su plotregion1.supcoltitle`col'
+			if `has_su_title' {
+				`push' .`su'.edit ,		///
+					mtextq(`"`su_title'"')	///
+					replace
+			}
+			if `has_su_opts' {
+				`push' .`su'.EditCustomStyle , j(-1) force
+				_fr_sztextbox_parse_and_log	///
+					`log' `su' , `macval(su_opts)'
+				._err_bad_options , `r(rest)'
+			}
+		}
+
+		if `has_ti' {
+			local ti plotregion1.coltitle`col'
+			if `has_ti_title' {
+				`push' .`ti'.edit ,		///
+					mtextq(`"`ti_title'"')	///
+					replace
+			}
+			if `has_ti_opts' {
+				`push' .`ti'.EditCustomStyle , j(-1) force
+				_fr_sztextbox_parse_and_log	///
+					`log' `ti' , `macval(ti_opts)'
+				._err_bad_options , `r(rest)'
+			}
+		}
+
+		local recreate 0
+
+		if `has_fmt' {
+			`push' .`column'.reset_formats `format'
+			local recreate 1
+		}
+
+		if `has_mask' {
+			`push' .`column'.reset_mask `mask'
+			local recreate 1
+		}
+
+		local item `column'.items[1]
+		if `has_opts' & "`.`item'.isa'" != "" {
+			`push' .`item'.EditCustomStyle , j(-1) force
+			_fr_sztextbox_parse_and_log	///
+				`log' `item' , `macval(opts)'
+			._err_bad_options , `r(rest)'
+			`push' .`column'.linkallstyles
+		}
+
+		if `recreate' {
+			`push' .redo_items `column'
+		}
+	}
+end
+
+// Fetch the column title textboxes to edit.
+
+program ._get_edit_titles
+	args c_mac colon sup
+
+	local list ""
+	local i  0
+	while "`.plotregion1.column`++i'.isa'" != "" {
+		local col plotregion1.`sup'coltitle`i'
+		if "`.`col'.isa'" != "" {
+			local list `"`list' .`col'"'
+		}
+	}
+
+	c_local `c_mac' "`list'"
+end
+
+// Fetch the best/legal column text item to edit.
+// Also works for groups because you can pass in the array to search.
+
+program ._get_edititem
+	args c_mac colon itemarr
+
+	local list ""
+	local i  0
+	while "`.plotregion1.column`++i'.isa'" != "" {
+		local col plotregion1.column`i'
+		if "`.`col'.`itemarr'[1].isa'" != "" {
+			local list `"`list' .`col'.`itemarr'[1]"'
+		}
+	}
+
+	c_local `c_mac' "`list'"
+end
+
+// Fetch the best/legal overall line column text to edit.
+
+program ._get_editoverall
+	args c_mac colon
+
+	local itemarr group_items
+
+	if `.do_overall' == 0 {
+		c_local `itemmac' ""
+	}
+
+	if `.has_grp' {
+		local first = 0`.n_groups' + 1
+	}
+	else {
+		local first 1
+	}
+	local last = 0`.res_prse.arrnels'
+	local item ""
+	local i   0
+	while "`.plotregion1.column`++i'.isa'" != "" {
+		local col plotregion1.column`i'
+		forval dex = `first'/`last' {
+		    if "`.`col'.`itemarr'[`dex'].isa'" != "" {
+			local list `"`list' .`col'.`itemarr'[`dex']"'
+		    }
+		}
+	}
+
+	c_local `c_mac' "`list'"
+end
+
+program ._get_editcustom
+	args c_mac dex colon
+
+	local itemarr group_items
+
+	if `.do_overall' == 0 {
+		c_local `itemmac' ""
+	}
+
+	local item ""
+	local i   0
+	while "`.plotregion1.column`++i'.isa'" != "" {
+		local col plotregion1.column`i'
+		if "`.`col'.`itemarr'[`dex'].isa'" != "" {
+			local list `"`list' .`col'.`itemarr'[`dex']"'
+		}
+	}
+
+	c_local `c_mac' "`list'"
+end
+
+// Fetch the number of studies in the group id.  Silly big number if group id
+// does not exist.  Big number is safe for the intended use.
+
+program ._set_grp
+	args grp_n colon grp_id
+
+	if `grp_id' > 0`.res_prse.arrnels' {
+		c_local `grp_n' 9999999
+		exit
+	}
+
+	c_local `grp_n' = 0`.res_prse[`grp_id'].n_studies'
+end
+
+program .rowinches
+	args j
+
+	local max 0
+	local i 0
+	while "`.plotregion1.column`++i'.isa'" != "" {
+		local col "plotregion1.column`i'"
+		if 0`.`col'.draw_view.istrue' & `i' != `.plot_idx' {
+			local sz = 0`.`col'.items[`j'].style.size.inches'
+			local max = max(`max', `sz')
+		}
+	}
+
+	class exit = `max'
+end
+
+program .grpinches
+	args j
+
+	local max 0
+	local i 0
+	while "`.plotregion1.column`++i'.isa'" != "" {
+		local col "plotregion1.column`i'"
+		if `i' == `.plot_idx' {
+			local sz = 0`.`col'.group[`j'].style.marker.size.inches'
+			local max = max(`max', `sz')
+		}
+		else if 0`.`col'.draw_view.istrue' {
+			local sz = 0`.`col'.group_items[`j'].style.size.inches'
+			local max = max(`max', `sz')
+		}
+	}
+
+	class exit = `max'
+end
+
+program .colmaxinches
+	local max 0
+	local i 0
+	while "`.plotregion1.column`++i'.isa'" != "" {
+		local col "plotregion1.column`i'"
+		if 0`.`col'.draw_view.istrue' {
+			local sz = 0`.`col'.style.margin.inches'
+			local max = max(`max', `sz')
+		}
+	}
+
+	class exit = `max'
+end
+
+// Set the width of all columns and column titles
+// Also sets the graph width -- xsize.
+
+program .set_graphwidth
+
+	local grwidth	= 0`.style.margin.wdinches'	///
+			+ 0`.plotregion1.style.margin.wdinches'
+
+	if `.plot_idx' {
+		local col plotregion1.column`.plot_idx'
+		local grwidth = `grwidth' + 0`.`col'.style.margin.wdinches'
+		local grwidth = `grwidth' + 0`.style.plot_width.inches'
+	}
+
+	tempname widths
+	.`widths' = {}
+
+	local i 0
+	while "`.plotregion1.column`++i'.isa'" != "" {
+		if `i' == `.plot_idx' {
+			continue
+		}
+		local col plotregion1.column`i'
+		local colid `"`.`col'.style.colname.snm'"'
+		local cti plotregion1.coltitle`i'
+		local csu plotregion1.supcoltitle`i'
+		if `i' == `.spacer_idx' {
+			.`widths'[`i'] = 0`.`col'.wdinches'
+			continue
+		}
+		if `i' == `.spacer_lb_idx' {
+			.`widths'[`i'] = 0`.`col'.wdinches'
+			continue
+		}
+		if `i' == `.spacer_ub_idx' {
+			.`widths'[`i'] = 0`.`col'.wdinches'
+			continue
+		}
+		if `i' == `.spacer_left_idx' {
+			.`widths'[`i'] = 0`.`col'.wdinches'
+			continue
+		}
+		if `i' == `.spacer_right_idx' {
+			.`widths'[`i'] = 0`.`col'.wdinches'
+			continue
+		}
+		local align `"`.`col'.items[1].style.box_alignment.snm'"'
+		.`widths'[`i'] = 0
+		if 0`.`col'.draw_view.istrue' {
+			local lm = 0`.`col'.style.margin.gleft.inches'
+			local rm = 0`.`col'.style.margin.gright.inches'
+			local cw = 0`.`col'.wdinches'
+
+			local tw = 0`.`cti'.wdinches'
+			local spans = 0`.colti_spans[`i']'
+			if `spans' > 1 {
+				local tw = `tw'/`spans'
+			}
+			else if `spans' == 0 {
+				local tw = 0
+			}
+
+			local sw = 0`.`csu'.wdinches'
+			local spans = 0`.supti_spans[`i']'
+			if `spans' > 1 {
+				local sw = `sw'/`spans'
+			}
+			else if `spans' == 0 {
+				local sw = 0
+			}
+
+			local mw = max(`tw',`sw')
+			local wd = max(`cw', `mw')
+			local adj 0
+			if `mw' > `cw' {
+				local adj = (`mw' - `cw')/2
+			}
+			if "`align'" == "west" {
+				local xpos = `wd' - `lm' - `rm' - `adj'
+			}
+			else {
+				local xpos = `lm' + `adj'
+			}
+			.`col'.adjust_xpos `xpos'
+			.`widths'[`i'] = `wd'
+			.`col'.xscale.set, min(0) max(`wd')
+			local grwidth = `grwidth' + `wd'
+		}
+	}
+
+	if `.spacer_lb_idx' & `.spacer_ub_idx' {
+		local start `.spacer_lb_idx'
+		local stop `.spacer_ub_idx'
+		local col plotregion1.column`start'
+		local cti plotregion1.coltitle`start'
+		local csu plotregion1.supcoltitle`start'
+		local spans = 0`.colti_spans[`start']'
+		if `spans' == `stop' - `start' + 1 {
+			local wtb 0
+			forval i = `start'/`stop' {
+				local wtb = `wtb' + `.`widths'[`i']'
+			}
+			local tw = 0`.`cti'.wdinches'
+			local sw = 0`.`csu'.wdinches'
+			local mw = max(`sw',`tw')
+			if `mw' > `wtb' {
+				local add = (`mw' - `wtb')
+				.`widths'[`start'] = ///
+					`.`widths'[`start']' + `add'/2
+				.`widths'[`stop'] = ///
+					`.`widths'[`stop']' + `add'/2
+				local grwidth = `grwidth' + `add'
+			}
+			else if `.has_ci' {
+				local xpos `.`widths'[`start']'
+				.`col'.adjust_xpos `xpos'
+				.`col'.xscale.set, min(0) max(`xpos')
+			}
+		}
+	}
+
+	if `.spacer_left_idx' & `.spacer_right_idx' {
+		local start `.spacer_left_idx'
+		local stop `.spacer_right_idx'
+		local cti plotregion1.coltitle`start'
+		local csu plotregion1.supcoltitle`start'
+		local spans = 0`.colti_spans[`start']'
+		if `spans' == `stop' - `start' + 1 {
+			local wtb 0
+			forval i = `start'/`stop' {
+				local wtb = `wtb' + `.`widths'[`i']'
+			}
+			local tw = 0`.`cti'.wdinches'
+			local sw = 0`.`csu'.wdinches'
+			local mw = max(`sw',`tw')
+			if `mw' > `wtb' {
+				local add = (`mw' - `wtb')
+				.`widths'[`start'] = ///
+					`.`widths'[`start']' + `add'/2
+				.`widths'[`stop'] = ///
+					`.`widths'[`stop']' + `add'/2
+				local grwidth = `grwidth' + `add'
+			}
+		}
+	}
+
+	if `.id_idx' & `.spacer_idx' {
+		local i = `.id_idx'
+		local wtb 0
+		while `i' < `.spacer_idx' {
+			local wtb = `wtb' + `.`widths'[`i']'
+			local ++i
+		}
+		local wstats = 0`.plotregion1.column`.id_idx'.wdinches_stats'
+		if `wstats' > `wtb' {
+			.`widths'[`.spacer_idx'] = `wstats' - `wtb'
+			local grwidth = `grwidth' + `.`widths'[`.spacer_idx']'
+		}
+	}
+
+	if `grwidth' < c(min_graphsize) {
+		local grwidth 1
+	}
+	if `grwidth' > c(max_graphsize) {
+		di as err "graph width too big"
+		exit 198
+	}
+	.style.editstyle declared_xsize(`grwidth') editcopy
+
+	local ht = `.style.declared_ysize.val'
+	local relmult = 100 / cond(`grwidth' < `ht' , `grwidth' , `ht')
+
+	local i 0
+	while "`.plotregion1.column`++i'.isa'" != "" {
+		if `i' != `.plot_idx' {
+			.plotregion1.column`i'.xstretch.set fixed
+			.plotregion1.column`i'.fixed_xsize =		///
+				`.`widths'[`i']' * `relmult'
+		}
+		.plotregion1.coltitle`i'.xstretch.set fixed
+		.plotregion1.supcoltitle`i'.xstretch.set fixed
+	}
+end
+
+// Place the columns of labels and data
+
+program .move_column
+	args c i
+
+	local has_xaxis1 = "`.plotregion1.xaxis1.isa'" != ""
+
+	.plotregion1.move column`c' at `.colrow' `i'
+	.plotregion1.move coltitle`c' at `=`.colrow'+1' `i'
+	.plotregion1.move supcoltitle`c' at `=`.colrow'+2' `i'
+
+	.plotregion1.column`c'.draw_view.set_true
+	.plotregion1.coltitle`c'.draw_view.set_true
+	.plotregion1.supcoltitle`c'.draw_view.set_true
+
+	if "`col'" == "_plot" & `has_xaxis1' {
+		.plotregion1.move xaxis1 below column`c'
+	}
+end
+
+program .do_translations
+	args cmac COLON text
+
+	if strpos(`"`text'"', "_ES_LABEL_") {
+		local text : subinstr	///
+			local text "_ES_LABEL_" `"`.es_label'"'
+	}
+	if strpos(`"`text'"', "_ES_LABEL_") {
+		local text : subinstr	///
+			local text "_ES_LABEL_" `"`.es_label'"'
+	}
+	if strpos(`"`text'"', "_LEVEL_") {
+		local text : subinstr	///
+			local text "_LEVEL_" "`.ci_level'"
+	}
+	if strpos(`"`text'"', "_ORDER_") {
+		local lbl `.cumul_varname'
+		local text : subinstr	///
+			local text "_ORDER_" `"`lbl'"'
+	}
+
+	c_local `cmac' `"`text'"'
+end
+
+program .insert_column
+	args c i col varname label numeric vl
+
+	if "`col'" == "_id" {
+		local tstyleref "`.style.collabel.objkey'"
+	}
+	else {
+		local tstyleref "`.style.coltitle.objkey'"
+	}
+
+	if "`col'" == "_K" {
+		local col _k
+	}
+
+	.plotregion1.insert			///
+	(column`c' = .fpcolumn`col'.new ,	///
+		serset(`.sersets[1].objkey')	///
+		graph(`.objkey')		///
+	)	at `.colrow' `i'
+
+	if `"`varname'"' != "" {
+		.plotregion1.column`c'.set_custom_info	///
+			`varname'			///
+			`"`label'"'			///
+			`numeric' `vl'
+	}
+
+	.plotregion1.column`c'.get_labels text
+
+	local nlabels : list sizeof text
+	if `nlabels' == 2 {
+		gettoken suptitle title : text
+		local title : list retok title
+	}
+	else {
+		local title : copy local text
+	}
+	.do_translations suptitle : `"`suptitle'"'
+	.do_translations title : `"`title'"'
+
+	.link_textstyles `c'
+	.populate_column `c'
+	.plotregion1.column`c'.yscale.set ,	///
+		min(0)				///
+		max(`.relht')			///
+		reverse
+
+	if "`col'" == "_plot" {
+		.add_plots `c'
+		if `.has_cumul' == 0 {
+			.add_grp_plots `c'
+		}
+		.add_axis `c'
+	}
+
+	.col_title[`c'] = `"`title'"'
+	.col_suptitle[`c'] = `"`suptitle'"'
+end
+
+program .insert_coltitle
+	args c i col text
+
+	if "`col'" == "_id" {
+		local tstyleref "`.style.collabel.objkey'"
+	}
+	else {
+		local tstyleref "`.style.coltitle.objkey'"
+	}
+
+	.plotregion1.insert			///
+	(coltitle`c' = .textbox.new ,		///
+		mtextq(`"`text'"')		///
+		styleref(`tstyleref')		///
+	)	at `=`.colrow'+1' `i'
+	.plotregion1.coltitle`c'.already_custom = 0
+end
+
+program .insert_supcoltitle
+	args c i col text
+
+	if "`col'" == "_id" {
+		local tstyleref "`.style.collabel.objkey'"
+	}
+	else {
+		local tstyleref "`.style.coltitle.objkey'"
+	}
+
+	.plotregion1.insert			///
+	(supcoltitle`c' = .textbox.new ,	///
+		mtextq(`"`text'"')		///
+		styleref(`tstyleref')		///
+	)	at `=`.colrow'+2' `i'
+	.plotregion1.supcoltitle`c'.already_custom = 0
+end
+
+program .PushRun
+	gettoken log 0 : 0
+
+	.`log'.Arrpush `0'
+	_fr_runlog `log'
+	.`log' = {}
+end
+
+program .place_columns
+	args log colnames
+
+	if "`colnames'" == "" {
+		local colnames `"`.colnames'"'
+	}
+
+	// turn all existing columns off
+	// will be turned back on as moved
+	local i 0
+	while "`.plotregion1.column`++i'.isa'" != "" {
+		.plotregion1.column`i'.draw_view.set_false
+		.plotregion1.coltitle`i'.draw_view.set_false
+		.plotregion1.supcoltitle`i'.draw_view.set_false
+	}
+	local maxcol = `i' - 1
+
+	local tstyleref "`.style.coltitle.objkey'"
+
+	local c_idx 0
+	local i_idx 0
+
+	local ukeys `"`.ukeys'"'
+
+	// find existing columns or create
+	local i 0
+	foreach col of local colnames {
+		local ++i
+		local c = `._coldex `col''
+		local new = `"`.plotregion1.column`c'.isa'"' != ""
+		if (`new') {
+			local icol`i' `c'
+			local newcol`i' 0
+
+			.move_column `c' `i'
+		}
+		else {
+			local ++maxcol
+			local c = `maxcol'
+			local icol`i' `c'
+			local newcol`i' 1
+
+			local varname
+			local label
+			local numeric
+			local vl
+			if `:list col in ukeys' {
+				local varname : copy local col
+				local label : variable label `varname'
+				if `"`label'"' == "" {
+					local label : copy local col
+				}
+				capture confirm numeric variable `varname'
+				local numeric = c(rc) == 0
+				if `numeric' {
+					local vl : value label `varname'
+				}
+				local col _custom
+			}
+
+			.PushRun `log' .insert_column `c' `i' `col' ///
+				"`varname'" `"`label'"' `numeric' `vl'
+			.PushRun `log' .insert_coltitle `c' `i' `col' ///
+				`"`.col_title[`c']'"'
+			.PushRun `log' .insert_supcoltitle `c' `i' `col' ///
+				`"`.col_suptitle[`c']'"'
+		}
+	}
+end
+
+program .fix_esse
+	local start = `.spacer_left_idx'
+	local stop = `.spacer_right_idx'
+
+	local col plotregion1.column
+	local cti plotregion1.coltitle
+	local csu plotregion1.supcoltitle
+
+	// get updated common titles
+	.`col'`start'.relabel_for_esse
+	.`col'`start'.get_labels text
+	local nlabels : list sizeof text
+	if `nlabels' == 2 {
+		gettoken suptitle title : text
+		gettoken title : title
+	}
+	else {
+		gettoken title : text
+	}
+	.do_translations suptitle : `"`suptitle'"'
+	.do_translations title : `"`title'"'
+
+	// reset the titles
+	forval i = `start'/`stop' {
+		.`cti'`i'.text[1] = `"`title'"'
+		.`csu'`i'.text[1] = `"`suptitle'"'
+	}
+
+	// redo masks and margins
+	local style `col'`.es_idx'.style.margin
+	local gleft	`"gleft(`.`style'.gleft.stylesetting')"'
+	local gright	`"gright(`.`style'.gright.stylesetting')"'
+	local gtop	`"gtop(`.`style'.gtop.stylesetting')"'
+	local gbottom	`"gbottom(`.`style'.gbottom.stylesetting')"'
+	local set `gleft' `gright' `gtop' `gbottom'
+	.`col'`.es_idx'.style.editstyle margin(`set') editcopy
+	// !,! _length measures ( to be too small !,!
+	if "`.sebind'" == "parentheses" {
+		local mask `"_fmt1_ ("'
+	}
+	else {
+		local mask `"_fmt1_ ["'
+	}
+	.`col'`.es_idx'.reset_mask `mask'
+	.redo_items `col'`.es_idx'
+
+	local style `col'`.se_idx'.style.margin
+	local gleft	`"gleft(`.`style'.gleft.stylesetting')"'
+	local gright	`"gright(`.`style'.gright.stylesetting')"'
+	local gtop	`"gtop(`.`style'.gtop.stylesetting')"'
+	local gbottom	`"gbottom(`.`style'.gbottom.stylesetting')"'
+	local set gleft(0) `gright' `gtop' `gbottom'
+	.`col'`.se_idx'.style.editstyle margin(`set') editcopy
+	if "`.sebind'" == "parentheses" {
+		local mask `"_fmt1_)"'
+	}
+	else {
+		local mask `"_fmt1_]"'
+	}
+	.`col'`.se_idx'.reset_mask `mask'
+	.redo_items `col'`.se_idx'
+end
+
+program .fix_ci
+	local start = `.spacer_lb_idx'
+	local stop = `.spacer_ub_idx'
+
+	local col plotregion1.column
+	local cti plotregion1.coltitle
+	local csu plotregion1.supcoltitle
+
+	// get updated common titles
+	.`col'`start'.relabel_for_ci
+	.`col'`start'.get_labels text
+	local nlabels : list sizeof text
+	if `nlabels' == 2 {
+		gettoken suptitle title : text
+		gettoken title : title
+	}
+	else {
+		gettoken title : text
+	}
+	.do_translations suptitle : `"`suptitle'"'
+	.do_translations title : `"`title'"'
+
+	// reset the titles
+	forval i = `start'/`stop' {
+		.`cti'`i'.edit , mtextq(`"`title'"') replace
+		.`csu'`i'.edit , mtextq(`"`suptitle'"') replace
+	}
+
+	// redo masks and margins
+	local style `col'`.spacer_lb_idx'.style.margin
+	local gleft	`"gleft(`.`style'.gleft.stylesetting')"'
+	local gright	`"gright(`.`style'.gright.stylesetting')"'
+	local gtop	`"gtop(`.`style'.gtop.stylesetting')"'
+	local gbottom	`"gbottom(`.`style'.gbottom.stylesetting')"'
+	local set `gleft' `gright' `gtop' `gbottom'
+	.`col'`.spacer_lb_idx'.style.editstyle margin(`set') editcopy
+	if "`.cibind'" == "brackets" {
+		.`col'`.spacer_lb_idx'.alt_text = `"["'
+	}
+	else {
+		.`col'`.spacer_lb_idx'.alt_text = `"("'
+	}
+	.`col'`.spacer_lb_idx'.draw_view.set_true
+	.redo_items `col'`.spacer_lb_idx'
+
+	local style `col'`.lb_idx'.style.margin
+	local gleft	`"gleft(`.`style'.gleft.stylesetting')"'
+	local gright	`"gright(`.`style'.gright.stylesetting')"'
+	local gtop	`"gtop(`.`style'.gtop.stylesetting')"'
+	local gbottom	`"gbottom(`.`style'.gbottom.stylesetting')"'
+	local set gleft(0) `gright' `gtop' `gbottom'
+	.`col'`.lb_idx'.style.editstyle margin(`set') editcopy
+	if c(dp) == "period" {
+		local mask `"_fmt1_,"'
+	}
+	else {
+		local mask `"_fmt1_;"'
+	}
+	.`col'`.lb_idx'.reset_mask `mask'
+	.redo_items `col'`.lb_idx'
+
+	local style `col'`.ub_idx'.style.margin
+	local gleft	`"gleft(`.`style'.gleft.stylesetting')"'
+	local gright	`"gright(`.`style'.gright.stylesetting')"'
+	local gtop	`"gtop(`.`style'.gtop.stylesetting')"'
+	local gbottom	`"gbottom(`.`style'.gbottom.stylesetting')"'
+	local set gleft(0) `gright' `gtop' `gbottom'
+	.`col'`.ub_idx'.style.editstyle margin(`set') editcopy
+	if "`.cibind'" == "brackets" {
+		local mask `"_fmt1_]"'
+	}
+	else {
+		local mask `"_fmt1_)"'
+	}
+	.`col'`.ub_idx'.reset_mask `mask'
+	.redo_items `col'`.ub_idx'
+end
+
+program .fix_esci
+	local start = `.spacer_lb_idx'
+	local stop = `.spacer_ub_idx'
+
+	local col plotregion1.column
+	local cti plotregion1.coltitle
+	local csu plotregion1.supcoltitle
+
+	// get updated common titles
+	.`col'`start'.relabel_for_esci
+	.`col'`start'.get_labels text
+	local nlabels : list sizeof text
+	if `nlabels' == 2 {
+		gettoken suptitle title : text
+		gettoken title : title
+	}
+	else {
+		gettoken title : text
+	}
+	.do_translations suptitle : `"`suptitle'"'
+	.do_translations title : `"`title'"'
+
+	// reset the titles
+	forval i = `start'/`stop' {
+		.`cti'`i'.text[1] = `"`title'"'
+		.`csu'`i'.text[1] = `"`suptitle'"'
+	}
+
+	// redo masks and margins
+	local style `col'`.es_idx'.style.margin
+	local gleft	`"gleft(`.`style'.gleft.stylesetting')"'
+	local gright	`"gright(`.`style'.gright.stylesetting')"'
+	local gtop	`"gtop(`.`style'.gtop.stylesetting')"'
+	local gbottom	`"gbottom(`.`style'.gbottom.stylesetting')"'
+	local set `gleft' gright(0) `gtop' `gbottom'
+	.`col'`.es_idx'.style.editstyle margin(`set') editcopy
+	if "`.cibind'" == "brackets" {
+		local mask `"_fmt1_ ["'
+	}
+	else {
+		local mask `"_fmt1_ ("'
+	}
+	.`col'`.es_idx'.reset_mask `mask'
+	.redo_items `col'`.es_idx'
+
+	local style `col'`.lb_idx'.style.margin
+	local gleft	`"gleft(`.`style'.gleft.stylesetting')"'
+	local gright	`"gright(`.`style'.gright.stylesetting')"'
+	local gtop	`"gtop(`.`style'.gtop.stylesetting')"'
+	local gbottom	`"gbottom(`.`style'.gbottom.stylesetting')"'
+	local set gleft(0) `gright' `gtop' `gbottom'
+	.`col'`.lb_idx'.style.editstyle margin(`set') editcopy
+	if c(dp) == "period" {
+		local mask `"_fmt1_,"'
+	}
+	else {
+		local mask `"_fmt1_;"'
+	}
+	.`col'`.lb_idx'.reset_mask `mask'
+	.redo_items `col'`.lb_idx'
+
+	local style `col'`.ub_idx'.style.margin
+	local gleft	`"gleft(`.`style'.gleft.stylesetting')"'
+	local gright	`"gright(`.`style'.gright.stylesetting')"'
+	local gtop	`"gtop(`.`style'.gtop.stylesetting')"'
+	local gbottom	`"gbottom(`.`style'.gbottom.stylesetting')"'
+	local set gleft(0) `gright' `gtop' `gbottom'
+	.`col'`.ub_idx'.style.editstyle margin(`set') editcopy
+	if "`.cibind'" == "brackets" {
+		local mask `"_fmt1_]"'
+	}
+	else {
+		local mask `"_fmt1_)"'
+	}
+	.`col'`.ub_idx'.reset_mask `mask'
+	.redo_items `col'`.ub_idx'
+end
+
+// Return the row at which drawn columns are currently placed.
+
+program .colrow
+	local row = `.colrow0'
+	local i   = 0
+	while "`.plotregion1.column`++i'.isa'" != "" {
+		if 0`.plotregion1.column`i'.draw_view.istrue' {
+			local row = 0`.plotregion1.minrowof column`i''
+			continue, break
+		}
+	}
+
+	class exit = `row'
+end
+
+program .ProblemInSerset
+	arg varname
+	di as err "internal graph error;"
+	di as err "variable {bf:`varname'} not found in serset"
+	exit 459
+end
+
+program .add_plots
+	args plot_idx
+
+	local col "plotregion1.column`plot_idx'"
+
+	local larrow	= `.sersets[1].seriesof _meta_larrow'
+	local lb	= `.sersets[1].seriesof _meta_lspike'
+	local uarrow	= `.sersets[1].seriesof _meta_uarrow'
+	local ub	= `.sersets[1].seriesof _meta_uspike'
+	local es	= `.sersets[1].seriesof _meta_es_plot'
+	local crop	= `.sersets[1].seriesof _meta_crop'
+	local spos	= `.sersets[1].seriesof _spos'
+	local wt	= `.sersets[1].seriesof _meta_weight'
+	if ! 0`larrow' {
+		.ProblemInSerSet _meta_larrow
+	}
+	if ! 0`lb' {
+		.ProblemInSerSet _meta_lspike
+	}
+	if ! 0`uarrow' {
+		.ProblemInSerSet _meta_uarrow
+	}
+	if ! 0`ub' {
+		.ProblemInSerSet _meta_uspike
+	}
+	if ! 0`es' {
+		.ProblemInSerSet _meta_es_plot
+	}
+	if ! 0`crop' {
+		.ProblemInSerSet _meta_crop
+	}
+	if ! 0`spos' {
+		.ProblemInSerSet _spos
+	}
+	if ! 0`wt' | `.do_wmarkers' == 0 | `.grp_kvars' > 1 | `.has_cumul' {
+		local wtopt ""
+	}
+	else {
+		local wtopt "wvariable(`wt')"
+	}
+
+	if `.has_cumul' {
+		local esstyle fpcumul
+		local cisstyle fpallci
+		local ciastyle fpallarrow
+	}
+	else if `.grp_kvars' > 1 {
+		local esstyle fpgrps
+		local cisstyle fpgrpci
+		local ciastyle fpgrparrow
+	}
+	else {
+		local esstyle fpes
+		local cisstyle fpci
+		local ciastyle fpciarrow
+	}
+
+	.`col'.Declare							///
+	       lbplot = .yxyxview_g.new , type(pcarrow)			///
+	       serset(`.sersets[1].objkey')				///
+	       plotregion(`.`col'.objkey')				///
+	       xvar(`es')						///
+	       yvar(`spos')						///
+	       xbvar(`lb')						///
+	       ybvar(`spos')						///
+	       style(scheme `cisstyle')
+
+	if !missing(`.lb_crop') {
+		.`col'.Declare						///
+		       larrowplot = .yxyxview_g.new , type(pcarrow)	///
+		       serset(`.sersets[1].objkey')			///
+		       plotregion(`.`col'.objkey')			///
+		       xvar(`crop')					///
+		       yvar(`spos')					///
+		       xbvar(`larrow')					///
+		       ybvar(`spos')					///
+		       style(scheme `ciastyle')
+	}
+
+	.`col'.Declare							///
+	       ubplot = .yxyxview_g.new , type(pcarrow)			///
+	       serset(`.sersets[1].objkey')				///
+	       plotregion(`.`col'.objkey')				///
+	       xvar(`es')						///
+	       yvar(`spos')						///
+	       xbvar(`ub')						///
+	       ybvar(`spos')						///
+	       style(scheme `cisstyle')
+
+	if !missing(`.ub_crop') {
+		.`col'.Declare						///
+		       uarrowplot = .yxyxview_g.new , type(pcarrow)	///
+		       serset(`.sersets[1].objkey')			///
+		       plotregion(`.`col'.objkey')			///
+		       xvar(`crop')					///
+		       yvar(`spos')					///
+		       xbvar(`uarrow')					///
+		       ybvar(`spos')					///
+		       style(scheme `ciastyle')
+	}
+
+	.`col'.Declare							///
+	       esplot = .yxview.new , type(scatter) 			///
+	       serset(`.sersets[1].objkey')				///
+	       plotregion(`.`col'.objkey')				///
+	       yvariable(`spos')					///
+	       xvariable(`es')						///
+	       `wtopt'							///
+	       style(scheme `esstyle')
+	.`col'.esplot.scale_by_max = 1
+
+	if `.do_insidemark' {
+		.`col'.Declare						///
+		       esinsideplot = .yxview.new , type(scatter)	///
+		       serset(`.sersets[1].objkey')			///
+		       plotregion(`.`col'.objkey')			///
+		       yvariable(`spos')				///
+		       xvariable(`es')					///
+		       style(scheme fpesinside)
+	}
+
+	if `.has_pi' {
+		.add_pi_plot `plot_idx'
+	}
+
+	if `.eform' {
+		.`col'.xscale.set_transform log
+	}
+	else if `.transform' {
+		.`col'.xscale.set_transform `.tr_invf'
+	}
+
+	.`col'.reset_scales x
+end
+
+program .add_pi_plot
+	if `.do_overall' == 0 {
+		exit
+	}
+	args plot_idx
+
+	local col "plotregion1.column`plot_idx'"
+
+	local larrow	= `.sersets[2].seriesof _meta_larrow'
+	local lb	= `.sersets[2].seriesof _meta_lspike'
+	local uarrow	= `.sersets[2].seriesof _meta_uarrow'
+	local ub	= `.sersets[2].seriesof _meta_uspike'
+	local es	= `.sersets[2].seriesof _meta_es_plot'
+	local crop	= `.sersets[2].seriesof _meta_crop'
+	local spos	= `.sersets[2].seriesof _spos'
+	if ! 0`larrow' {
+		.ProblemInSerSet _meta_larrow_pi
+	}
+	if ! 0`lb' {
+		.ProblemInSerSet _meta_lspike_pi
+	}
+	if ! 0`uarrow' {
+		.ProblemInSerSet _meta_uarrow_pi
+	}
+	if ! 0`ub' {
+		.ProblemInSerSet _meta_uspike_pi
+	}
+	if ! 0`es' {
+		.ProblemInSerSet _meta_es_plot
+	}
+	if ! 0`crop' {
+		.ProblemInSerSet _meta_crop
+	}
+	if ! 0`spos' {
+		.ProblemInSerSet _spos
+	}
+
+	local cisstyle fpallci
+	local ciastyle fpallarrow
+
+	.`col'.Declare							///
+	       pi_lbplot = .yxyxview_g.new , type(pcarrow)		///
+	       serset(`.sersets[2].objkey')				///
+	       plotregion(`.`col'.objkey')				///
+	       xvar(`es')						///
+	       yvar(`spos')						///
+	       xbvar(`lb')						///
+	       ybvar(`spos')						///
+	       style(scheme `cisstyle')
+
+	if !missing(`.lb_crop') {
+		.`col'.Declare						///
+		       pi_larrowplot = .yxyxview_g.new , type(pcarrow)	///
+		       serset(`.sersets[2].objkey')			///
+		       plotregion(`.`col'.objkey')			///
+		       xvar(`crop')					///
+		       yvar(`spos')					///
+		       xbvar(`larrow')					///
+		       ybvar(`spos')					///
+		       style(scheme `ciastyle')
+	}
+
+	.`col'.Declare							///
+	       pi_ubplot = .yxyxview_g.new , type(pcarrow)		///
+	       serset(`.sersets[2].objkey')				///
+	       plotregion(`.`col'.objkey')				///
+	       xvar(`es')						///
+	       yvar(`spos')						///
+	       xbvar(`ub')						///
+	       ybvar(`spos')						///
+	       style(scheme `cisstyle')
+
+	if !missing(`.ub_crop') {
+		.`col'.Declare						///
+		       pi_uarrowplot = .yxyxview_g.new , type(pcarrow)	///
+		       serset(`.sersets[2].objkey')			///
+		       plotregion(`.`col'.objkey')			///
+		       xvar(`crop')					///
+		       yvar(`spos')					///
+		       xbvar(`uarrow')					///
+		       ybvar(`spos')					///
+		       style(scheme `ciastyle')
+	}
+
+end
+
+program .add_grp_plots
+	args plot_idx
+
+	local col "plotregion1.column`plot_idx'"
+
+	forvalues i = 1/`.n_groups' {
+		local mstyleref `.style.grpmarkerstyle.objkey'
+		.`col'.DeclareInArray			///
+			group = .fpgrpmarker.new	///
+			`.res_prse[`i'].values', styleref(`mstyleref')
+	}
+
+	if `.do_overall' {
+		local mstyleref `.style.allmarkerstyle.objkey'
+		local i = 0`.n_groups' + 1
+		.`col'.DeclareInArray			///
+			group = .fpgrpmarker.new	///
+			`.res_prse[`i'].values', styleref(`mstyleref')
+		forval j = 1/0`.custom_overall.arrnels' {
+			local ++i
+			.`col'.DeclareInArray			///
+				group = .fpgrpmarker.new	///
+				`.res_prse[`i'].values', styleref(`mstyleref')
+		}
+	}
+end
+
+program .add_axis
+	args plot_idx
+
+	local col plotregion1.column`plot_idx'
+	.plotregion1.insert						///
+		(xaxis1 = .axis.new , 					///
+			plotregion(`.`col'.objkey')			///
+			style(scheme fp)				///
+			position(below) )				///
+		below column`plot_idx'
+
+	.`col'.addaxis `.plotregion1.xaxis1.objkey'
+
+	if `.eform' {
+		.plotregion1.xaxis1.set_pow2
+	}
+	else if `"`.tr_f'"' == "exp" {
+		.plotregion1.xaxis1.set_pow2
+	}
+	else if `.transform' {
+		.plotregion1.xaxis1.set_trans
+		if `"`.tr_invf'"' == "log1m" {
+			.plotregion1.xaxis1.set_reverse
+		}
+	}
+	.plotregion1.xaxis1.set_ticks
+end
+
+program .set_yscales
+	args min max
+
+	local i 0
+	while "`.plotregion1.column`++i'.isa'" != "" {
+		.plotregion1.column`i'.yscale.set,	///
+			min(`min')			///
+			max(`max')			///
+			reverse
+	}
+end
+
+program ._coldex
+	args col
+
+	local names `"`.colnames'"'
+	local pos : list posof "`col'" in names
+
+	class exit = `pos'
+end
+
+program .populate_column
+	args coldex
+
+	local col "plotregion1.column`coldex'"
+	local coltype = "`.`col'.style.colname.setting'"
+
+	if "`coltype'" == "_plot" {
+		exit
+	}
+
+	.`col'.fill_varidx
+	.`col'.make_mask
+
+	forvalues j = 1/`.n_studies' {
+		.`col'.create_item `j'
+	}
+
+	.`col'.create_groups	`.res_prse.objkey'	///
+				`.n_groups'		///
+				`.do_overall'		///
+				`.has_cumul'
+end
+
+program .create_hetstats
+	args push col mat obs isoverall
+
+	if `isoverall' == 0 {
+		local row = `obs'
+	}
+	else	local row = rowsof(`mat')
+
+	local T2 .h
+	if `"`.model'"' == "random" {
+		local pos = colnumb(`mat', "tau2")
+		if !missing(`pos') {
+			local T2 = `mat'[`row',`pos']
+		}
+	}
+
+	local I2 .
+	local pos = colnumb(`mat', "I2")
+	if !missing(`pos') {
+		local I2 = `mat'[`row',`pos']
+	}
+
+	local H2 .
+	local pos = colnumb(`mat', "H2")
+	if !missing(`pos') {
+		local H2 = `mat'[`row',`pos']
+	}
+
+	`push'				///
+	.`col'.create_hetstats		///
+		`"`.hetprefix'"'	///
+		`T2' `I2' `H2' `obs' `isoverall'
+end
+
+program .create_homstats
+	args push col mat obs isoverall
+
+	if `isoverall' == 0 {
+		local row = `obs'
+	}
+	else	local row = rowsof(`mat')
+
+	local df .
+	local pos = colnumb(`mat', "df")
+	if !missing(`pos') {
+		local df = `mat'[`row',`pos']
+	}
+
+	local Q .
+	local pos = colnumb(`mat', "Q")
+	if !missing(`pos') {
+		local Q = `mat'[`row',`pos']
+	}
+
+	local p .
+	local pos = colnumb(`mat', "P>Q")
+	if !missing(`pos') {
+		local p = `mat'[`row',`pos']
+	}
+
+	`push'				///
+	.`col'.create_homstats		///
+		`"`.homprefix'"'	///
+		`df' `Q' `p' `obs' `isoverall'
+end
+
+program .create_sigstats
+	args push col mat obs isoverall has_df
+
+	if `isoverall' == 0 {
+		local row = `obs'
+	}
+	else	local row = rowsof(`mat')
+
+	local z .
+	local pos = colnumb(`mat', "z")
+	if !missing(`pos') {
+		local z = `mat'[`row',`pos']
+	}
+
+	local p .
+	local pos = colnumb(`mat', "P>z")
+	if !missing(`pos') {
+		local p = `mat'[`row',`pos']
+	}
+
+	local df .
+	if `has_df' {
+		local pos = colnumb(`mat', "df")
+		if !missing(`pos') {
+			local df = `mat'[`row',`pos']
+		}
+		local stat t
+	}
+	else {
+		local stat z
+	}
+
+	`push'				///
+	.`col'.create_sigstats		///
+		`"`.sigprefix'"'	///
+		`stat' `df' `z' `p' `obs' `isoverall'
+end
+
+program .create_bhomstats
+	args push col mat obs
+
+	local df .
+	local pos = colnumb(`mat', "df_Q_b")
+	if !missing(`pos') {
+		local df = `mat'[`obs',`pos']
+	}
+
+	local Q .
+	local pos = colnumb(`mat', "Q_b")
+	if !missing(`pos') {
+		local Q = `mat'[`obs',`pos']
+	}
+
+	local p .
+	local pos = colnumb(`mat', "p_Q_b")
+	if !missing(`pos') {
+		local p = `mat'[`obs',`pos']
+	}
+
+	`push'				///
+	.`col'.create_bhomstats		///
+		`"`.qbprefix'"' `df' `Q' `p' `obs'
+end
+
+program .create_stats
+	args log
+
+	local push .`log'.Arrpush
+
+	if `.id_idx' == 0 {
+		exit
+	}
+	local col "plotregion1.column`.id_idx'"
+
+	forvalues j = 1/`.n_groups' {
+		if `.do_ghet' {
+			.create_hetstats `push' `col' `.res_mat' `j' 0
+		}
+		if `.do_gwhom' {
+			.create_homstats `push' `col' `.res_mat' `j' 0
+		}
+		if `.do_gsig' {
+			.create_sigstats ///
+				`push' `col' `.res_mat' `j' 0 `.has_df'
+		}
+	}
+
+	if `.do_overall' {
+		local j = `.n_groups' + 1
+		if `.do_ohet' {
+			if `.grp_kvars' <= 1 {
+				.create_hetstats ///
+					`push' `col' `.res_mat' `j' 1
+			}
+			else {
+				.create_hetstats ///
+					`push' `col' `.het_mat' `j' 1
+			}
+		}
+		if `.do_ohom' {
+			if `.grp_kvars' <= 1 {
+				.create_homstats ///
+					`push' `col' `.res_mat' `j' 1
+			}
+			else {
+				.create_homstats ///
+					`push' `col' `.het_mat' `j' 1
+			}
+		}
+		if `.do_osig' {
+			.create_sigstats ///
+				`push' `col' `.res_mat' `j' 1 `.has_df'
+		}
+	}
+
+	if `.do_qb' {
+		forvalues j = 1/`.grp_kvars' {
+			.create_bhomstats `push' `col' `.diff_mat' `j'
+		}
+	}
+end
+
+// Link a column's text styles to the overall graph text styles, if the
+// column and graph text styles are the same named style.
+
+program .link_textstyles
+	args coldex
+
+	if ! 0`.style_remade' {
+		.style_remade = 1
+		.style.remake_as_copy
+	}
+
+	local col "plotregion1.column`coldex'"
+	if `"`.`col'.classname'"' == "fpcolumn_custom" {
+		// do not link custom column styles
+		exit
+	}
+	local cs "`col'.style"
+
+	local list item grp overall qb
+	local types textstyle labelstyle
+	foreach el of local list {
+		local csel `el'textstyle
+		foreach t of local types {
+			local myel `el'`t'
+			if "`.`cs'.`csel'.snm'" == "`.style.`myel'.snm'" {
+				.`cs'.`csel'.ref = .style.`myel'.ref
+			}
+		}
+	}
+end
+
+program ._parse_hrule_options
+	args edits COLON options
+
+	local 0 `", `options'"'
+	syntax [,			///
+		LColor(string asis)	///
+		LWidth(string asis)	///
+		LAlign(string asis)	///
+		LPattern(string asis)	///
+		LSTYle(string asis)	///
+		Margin(passthru)	///
+		STYle(passthru)		/// NODOC
+	]
+
+	if `"`lcolor'"' != "" {
+		local edits `edits' linestyle(color(`lcolor'))
+	}
+	if `"`lwidth'"' != "" {
+		local edits `edits' linestyle(width(`lwidth'))
+	}
+	if `"`lalign'"' != "" {
+		local edits `edits' linestyle(align(`lalign'))
+	}
+	if `"`lpattern'"' != "" {
+		local edits `edits' linestyle(pattern(`lpattern'))
+	}
+	if `"`margin'"' != "" {
+		local edits `edits' `margin'
+	}
+	if `"`lstyle'"' != "" {
+		local edits `edits' style(`lstyle')
+	}
+	if `"`style'"' != "" {
+		local edits `edits' `style'
+	}
+
+	c_local `edits'
+end
+
+program ._parse_marker_options
+	args edits extra COLON options
+
+	if "`extra'" != "" {
+		local STAR "*"
+	}
+
+	local 0 `", `options'"'
+	syntax [,			///
+		MColor(string asis)	///
+		MFColor(string asis)	///
+		MLColor(string asis)	///
+		MLWidth(string asis)	///
+		MLAlign(string asis)	///
+		MLSTYle(string asis)	///
+		MSTYle(string asis)	///
+		`STAR'			///
+	]
+
+	if "`extra'" != "" {
+		c_local `extra' `"`options'"'
+	}
+
+	if `"`mstyle'"' == "none" {
+		local edits `edits' fillcolor(none)
+		local edits `edits' linestyle(color(none))
+		c_local `edits'
+		exit
+	}
+	if `"`mcolor'"' != "" {
+		local edits `edits' fillcolor(`mcolor')
+		local edits `edits' linestyle(color(`mcolor'))
+	}
+	if `"`mfcolor'"' != "" {
+		local edits `edits' fillcolor(`mfcolor')
+	}
+	if `"`mlcolor'"' != "" {
+		local edits `edits' linestyle(color(`mlcolor'))
+	}
+	if `"`mlwidth'"' != "" {
+		local edits `edits' linestyle(width(`mlwidth'))
+	}
+	if `"`mlalign'"' != "" {
+		local edits `edits' linestyle(align(`mlalign'))
+	}
+	if `"`mlstyle'"' != "" {
+		local edits `edits' linestyle(style(`mlstyle'))
+	}
+	if `"`mstyle'"' != "" {
+		local edits `edits' style(`mstyle')
+	}
+
+	c_local `edits'
+end
+
+program ._err_bad_options
+	syntax [, FAKE_OPT_FOR_BETTER_MSG ]
+end
+
+mata:
+
+void GetGroupResults(string scalar mname, real scalar transform)
+{
+	real	matrix	res
+	real	vector	rows
+	real	scalar	cth
+	real	scalar	cse
+	real	scalar	clb
+	real	scalar	cub
+	real	scalar	cK
+	real	scalar	cpv
+	string  scalar  thlbl
+	string  scalar  cillbl
+	string  scalar  ciulbl
+	
+	thlbl  = "theta" 
+	cillbl = "ci_lb"
+	ciulbl = "ci_ub"
+	
+	if (transform) {
+		thlbl  = "f(theta)" 
+		cillbl = "f(ci_lb)"
+		ciulbl = "f(ci_ub)"
+	}
+	
+	res = st_matrix(mname)
+	rows = rows(res) - 1
+	rows = 1::rows
+
+	cth = st_matrixcolnumb(mname, ("", thlbl))
+	cse = st_matrixcolnumb(mname, ("", "se"))
+	clb = st_matrixcolnumb(mname, ("", cillbl))
+	cub = st_matrixcolnumb(mname, ("", ciulbl))
+	cK  = st_matrixcolnumb(mname, ("", "n"))
+	cpv = st_matrixcolnumb(mname, ("", "p"))
+
+	st_store(rows,"_meta_es",res[rows,cth])
+	st_store(rows,"_meta_se",res[rows,cse])
+	st_store(rows,"_meta_lb",res[rows,clb])
+	st_store(rows,"_meta_ub",res[rows,cub])
+	st_store(rows,"_meta_pvalue",res[rows,cpv])
+	st_store(rows,"_meta_K",res[rows,cK])
+}
+
+void GetCumulResults(string scalar mname, real scalar transform)
+{
+	real	matrix	res
+	real	scalar	cth
+	real	scalar	cse
+	real	scalar	clb
+	real	scalar	cub
+	real	scalar	cpv
+	string  scalar  thlbl
+	string  scalar  cillbl
+	string  scalar  ciulbl
+	
+	thlbl  = "theta" 
+	cillbl = "ci_lb"
+	ciulbl = "ci_ub"
+	
+	if (transform) {
+		thlbl  = "f(theta)" 
+		cillbl = "f(ci_lb)"
+		ciulbl = "f(ci_ub)"
+	}
+	
+	res = st_matrix(mname)
+	cth = st_matrixcolnumb(mname, ("", thlbl))
+	cse = st_matrixcolnumb(mname, ("", "se"))
+	clb = st_matrixcolnumb(mname, ("", cillbl))
+	cub = st_matrixcolnumb(mname, ("", ciulbl))
+	cpv = st_matrixcolnumb(mname, ("", "p"))
+
+	st_store(.,"_meta_es",res[.,cth])
+	st_store(.,"_meta_se",res[.,cse])
+	st_store(.,"_meta_lb",res[.,clb])
+	st_store(.,"_meta_ub",res[.,cub])
+	st_store(.,"_meta_pvalue",res[.,cpv])
+}
+
+end
+
+exit
+
+Todo
+
+	Check the logic for size of symbol using weights
+
+Things we need.
+
+	Dialogs:
+		for the graph
+		for the "plotregion" which is itself a grid/graph
+		probably others
+
+	Contextual tool bars
+		for the graph
+		for the "plotregion" which is itself a grid/graph
+		probably others
+
+
+	LOTS MORE
+
+<end>

@@ -1,0 +1,2719 @@
+/*
+	power exponential
+
+*!  VERSION 1.1.4  14mar2017
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_wide
+DEFINE _dlght 540
+INCLUDE header
+
+HELP hlp1, view("help power exponential")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING graph_res
+	create STRING numContents
+	create STRING stok
+	create ARRAY tmp
+	create BOOLEAN containsNumlist
+	create BOOLEAN containsNumlist_h1
+	create BOOLEAN containsNumlist_h2
+	create BOOLEAN containsNumlist_s1
+	create BOOLEAN containsNumlist_s2
+
+	program table_create4Exponential
+	setscale_hadj resource POWER_EXPONENTIAL_DLG_HSCALE
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+  label(resource POWER_EXPONENTIAL_DLG_TITLE)
+BEGIN
+  INCLUDE power_compute
+  DEFINE errpos _ls
+  INCLUDE power_errorprob
+  DEFINE sspos +45
+  INCLUDE power_twosampsi
+
+  GROUPBOX gb_effect_size	_lft	200	_iwd	_ht13,		///
+	label(resource LBL_EFFECT_SIZE)
+  TEXT tx_spec			_ilft	_ls	_cwd1	.,		///
+	label(resource LBL_SPECIFY)
+  COMBOBOX cb_effect_sel 	_ilft	_ss	290	., 		///
+  	dropdownlist							///
+	contents("main_esize_list")					///
+	values("main_esize_values")					///
+	onselchange("program main_esize_changed")			///
+	label(resource LBL_EFFECT_SIZE)
+  TEXT	tx_report_effect	_lft2	holdy	200	.,		///
+	label(resource LBL_REPORT_EFFECT_SIZE_AS)
+  COMBOBOX cb_report_effect	@	_ss	210	.,		///
+	dropdownlist							///
+	option(effect)							///
+	contents("main_esize_rpt_list")					///
+	values("main_esize_rpt_values")					///
+	label(resource LBL_REPORT_EFFECT_SIZE_AS)
+
+  EDIT	ed_haz1			_ilft	_ls	_en14wd	.,		///
+  	tooltip(resource POWER_EXPONENTIAL_MAIN_ED_HAZ1) 		///
+	onchange(program check_for_numlist)				///
+  	label(resource LBL_HAZARD_RATE_IN_CONTROL_GROUP)
+  TEXT	tx_haz1			_en14sep @	350	.,		///
+  	label(resource POWER_EXPONENTIAL_MAIN_TX_HAZ1)
+	
+  EDIT	ed_haz2			_ilft	_ls	_en14wd	.,		///
+  	tooltip(resource POWER_EXPONENTIAL_MAIN_ED_HAZ2) 		///
+	onchange(program check_for_numlist)				///
+  	label(resource LBL_HAZARD_RATE_IN_EXPERIMENTAL_GROUP)
+  TEXT	tx_haz2			_en14sep @	350	.,		///
+  	label(resource POWER_EXPONENTIAL_MAIN_TX_HAZ2)
+	
+  EDIT	ed_surv1		_ilft	_ls	_en14wd	.,		///
+	onchange(program check_for_numlist)				///
+  	tooltip(resource POWER_EXPONENTIAL_MAIN_ED_SURV1_TIP) 		///
+  	label(resource POWER_EXPONENTIAL_MAIN_ED_SURV1)
+  TEXT	tx_surv1		_en14sep @	350	.,		///
+  	label(resource POWER_EXPONENTIAL_MAIN_TX_SURV1)
+	
+  EDIT	ed_surv2		_ilft	_ls	_en14wd	.,		///
+	onchange(program check_for_numlist)				///
+  	tooltip(resource POWER_EXPONENTIAL_MAIN_ED_SURV2_TIP) 		///
+  	label(resource POWER_EXPONENTIAL_MAIN_ED_SURV2)
+  TEXT	tx_surv2		_en14sep @	350	.,		///
+  	label(resource POWER_EXPONENTIAL_MAIN_TX_SURV2)
+	
+  EDIT	ed_hr			_ilft	_ls	_en14wd	.,		///
+  	default(0.5)							///
+	onchange(program check_for_numlist)				///
+	option(hratio)							///
+  	tooltip(resource POWER_EXPONENTIAL_MAIN_ED_HR_TIP) 		///
+  	label(resource POWER_EXPONENTIAL_MAIN_ED_HR)
+  TEXT	tx_hr			_en14sep @	350	.,		///
+  	label(resource POWER_EXPONENTIAL_MAIN_TX_HR)
+	
+  EDIT	ed_lnhr			_ilft	_ls	_en14wd	.,		///
+	option(lnhratio)						///
+	onchange(program check_for_numlist)				///
+  	tooltip(resource POWER_EXPONENTIAL_MAIN_ED_LNHR_TIP) 		///
+  	label(resource POWER_EXPONENTIAL_MAIN_ED_LNHR)
+  TEXT	tx_lnhr			_en14sep @	350	.,		///
+  	label(resource POWER_EXPONENTIAL_MAIN_TX_LNHR)
+	
+  EDIT	ed_hdiff		_ilft	_ls	_en14wd	.,		///
+	option(hdifference)						///
+	onchange(program check_for_numlist)				///
+  	tooltip(resource POWER_EXPONENTIAL_MAIN_ED_HDIFF_TIP) 		///
+  	label(resource POWER_EXPONENTIAL_MAIN_ED_HDIFF)
+  TEXT	tx_hdiff		_en14sep @	350	.,		///
+  	label(resource LBL_STAR_DIFFERENCE)
+	
+  EDIT	ed_time			_ilft	_ls	_en14wd	.,		///
+	option(time)							///
+	onchange(program check_for_numlist)				///
+  	tooltip(resource POWER_EXPONENTIAL_MAIN_ED_TIME) 		///
+  	label(resource LBL_REFERENCE_TIME)
+  TEXT	tx_time			_en14sep @	350	.,		///
+  	label(resource POWER_EXPONENTIAL_MAIN_TX_TIME)
+	
+  CHECKBOX ck_logh		_lft	+120	_iwd	.,		///
+	option(loghazard)						///
+	onclickon(program main_logh_changed)				///
+	onclickoff(program main_logh_changed)				///
+	label(resource POWER_EXPONENTIAL_MAIN_CK_LOGH)
+  CHECKBOX ck_uncond		_lft	+120	_iwd	.,		///
+	option(unconditional)						///
+	label(resource POWER_EXPONENTIAL_MAIN_CK_UNCOND)
+	
+  DEFINE ypos +35
+  INCLUDE power_test_maincommon
+END
+
+LIST main_compute_list
+BEGIN
+	resource LBL_SAMPLE_SIZE
+	resource PSS_LBL_POWER
+END
+
+LIST main_compute_values
+BEGIN
+	"sampsi"
+	"power"
+END
+
+LIST main_hazsurv_list
+BEGIN
+	resource POWER_EXPONENTIAL_HAZARD_RATES
+	resource POWER_EXPONENTIAL_SURVIVAL_PROBABILITIES
+END
+
+LIST main_hazsurv_values
+BEGIN
+	"haz"
+	"surv"
+END
+
+LIST main_esize_list
+BEGIN
+	resource LBL_HAZARD_RATIO
+	resource LBL_LOG_HAZARD_RATIO
+	resource POWER_EXPONENTIAL_HAZARD_RATE_CONTROL_EXP_GROUPS
+	resource POWER_EXPONENTIAL_HAZARD_RATE_CONTROL_GROUP_HAZ_RATIO
+	resource POWER_EXPONENTIAL_HAZ_RATE_CONTROL_GROUP_LOG_HR
+	resource POWER_EXPONENTIAL_HAZ_RATE_CONTROL_GROUP_HR_DIFF
+	resource POWER_EXPONENTIAL_SURV_PROB_IN_CONTROL_EXP_GROUPS
+	resource POWER_EXPONENTIAL_SURV_PROB_IN_CONTROL_HR
+	resource POWER_EXPONENTIAL_SURV_PROB_IN_CONTROL_LOG_HR
+	resource POWER_EXPONENTIAL_SURV_PROB_IN_CONTROL_HR_DIFF
+END
+
+LIST main_esize_values
+BEGIN
+	"hratio"
+	"lnhratio"
+	"h1h2"
+	"h1hr"
+	"h1lnhr"
+	"h1hdiff"
+	"s1s2"
+	"s1hr"
+	"s1lnhr"
+	"s1hdiff"
+END
+
+LIST main_esize_rpt_list
+BEGIN
+	resource LBL_HAZARD_RATIO
+	resource LBL_LOG_HAZARD_RATIO
+	resource LBL_DIFFERENCE_BETWEEN_HAZARD_RATES
+	resource POWER_EXPONENTIAL_DIFF_BETWEEN_LOG_HR
+END
+
+LIST main_esize_rpt_values
+BEGIN
+	"hratio"
+	"lnhratio"
+	"hdifference"
+	"lnhdifference"
+END
+
+LIST main_esize_rpt_list2
+BEGIN
+	resource LBL_HAZARD_RATIO
+        resource LBL_LOG_HAZARD_RATIO
+END
+
+LIST main_esize_rpt_values2
+BEGIN
+	"hratio"
+	"lnhratio"
+END
+
+PROGRAM main_compute_changed
+BEGIN
+	if main.cb_compute.iseq("sampsi") {
+		call program main_sampsi_on
+	}
+	if main.cb_compute.iseq("power") {
+		call program main_power_on
+	}
+END
+
+PROGRAM main_sampsi_on
+BEGIN
+	call script main_sampsi_hide_all
+	call main.gb_sample_size.setposition . . . 75
+	call main.ck_nfrac.setposition . 170
+	call main.tx_sampsi.hide
+	call main.cb_sampsi.hide
+	call main.ed_nratio.show
+	call main.tx_nratio.show
+	call main.ed_power.show
+	call main.ed_beta.show
+	call main.tx_power_beta_power.show
+	call main.cb_power_beta.show
+	call script power_test_maincommon_hide_dir
+	call program main_power_beta_changed
+	call program main_esize_changed
+	call program main_move_effect_size
+	call program main_move_main_opts
+	call program check_for_numlist
+	call program cens_admin_check
+END
+
+PROGRAM main_power_on
+BEGIN
+	call script main_sampsi_hide_all
+	call main.gb_sample_size.setposition . . . 95
+	call main.ck_nfrac.setposition . 190
+	call main.tx_sampsi.show
+	call main.cb_sampsi.show
+	call main.ed_power.hide
+	call main.ed_beta.hide
+	call main.tx_power_beta_power.hide
+	call main.cb_power_beta.hide
+	call script power_test_maincommon_hide_dir
+	call program main_sampsi_changed
+	call program main_esize_changed
+	call program main_move_effect_size
+	call program main_move_main_opts
+	call program check_for_numlist
+	call program cens_admin_check
+END
+
+PROGRAM main_power_beta_table
+BEGIN
+	call program table_create4Exponential
+END
+
+PROGRAM main_move_effect_size
+BEGIN
+	if main.cb_compute.iseq("power") {
+		call main.gb_effect_size.setposition . 230
+		call main.tx_spec.setposition . 250
+		call main.cb_effect_sel.setposition . 270
+		call main.tx_report_effect.setposition 330 250
+		call main.cb_report_effect.setposition 330 270
+	}
+	else {
+		call main.gb_effect_size.setposition . 210
+		call main.tx_spec.setposition . 230
+		call main.cb_effect_sel.setposition . 250
+		call main.tx_report_effect.setposition 330 230
+		call main.cb_report_effect.setposition 330 250
+	}
+END
+
+PROGRAM main_move_main_opts
+BEGIN
+	if main.cb_compute.iseq("power") {
+		call main.ck_logh.setposition . 405
+		call main.ck_uncond.setposition . 430
+		call main.tx_oneside.setposition . 455
+		call main.cb_oneside.setposition . 480
+		call main.tx_direction.setposition . 455
+		call main.cb_direction.setposition . 480
+		call main.ck_parallel.setposition  . 510
+	}
+	else {
+		call main.ck_logh.setposition . 385
+		call main.ck_uncond.setposition . 410
+		call main.tx_oneside.setposition . 435
+		call main.cb_oneside.setposition . 460
+		call main.tx_direction.setposition . 435
+		call main.cb_direction.setposition . 460
+		call main.ck_parallel.setposition  . 490
+	}
+END
+
+PROGRAM main_esize_changed
+BEGIN
+	if main.cb_effect_sel.iseq("hratio") {
+		call program main_hratio_on
+	}
+	if main.cb_effect_sel.iseq("lnhratio") {
+		call program main_lnhratio_on
+	}
+	
+	if main.cb_effect_sel.iseq("h1h2") {
+		call program main_h1h2_on
+	}
+	if main.cb_effect_sel.iseq("h1hr") {
+		call program main_h1hr_on
+	}
+	if main.cb_effect_sel.iseq("h1lnhr") {
+		call program main_h1lnhr_on
+	}	
+	if main.cb_effect_sel.iseq("h1hdiff") {
+		call program main_h1hdiff_on
+	}
+
+	if main.cb_effect_sel.iseq("s1s2") {
+		call program main_s1s2_on
+	}
+	if main.cb_effect_sel.iseq("s1hr") {
+		call program main_s1hr_on
+	}
+	if main.cb_effect_sel.iseq("s1lnhr") {
+		call program main_s1lnhr_on
+	}	
+	if main.cb_effect_sel.iseq("s1hdiff") {
+		call program main_s1hdiff_on
+	}
+	call program check_for_numlist
+	call program table_create4Exponential
+END
+
+PROGRAM main_hratio_on
+BEGIN
+	call main.ed_haz1.hide
+	call main.tx_haz1.hide
+	call main.ed_haz2.hide
+	call main.tx_haz2.hide
+	call main.ed_hr.show
+	call main.tx_hr.show
+	call main.ed_lnhr.hide
+	call main.tx_lnhr.hide
+	call main.ed_hdiff.hide
+	call main.tx_hdiff.hide
+	call main.ed_surv1.hide
+	call main.tx_surv1.hide
+	call main.ed_surv2.hide
+	call main.tx_surv2.hide
+	call main.ed_time.hide
+	call main.tx_time.hide
+	
+	if main.cb_compute.iseq("power") {
+		call main.ed_hr.setposition . 305
+		call main.tx_hr.setposition . 305
+	}
+	else {
+		call main.ed_hr.setposition . 285
+		call main.tx_hr.setposition . 285
+	}
+	call main.cb_report_effect.setcontentslist main_esize_rpt_list2
+	call main.cb_report_effect.setvalueslist main_esize_rpt_values2
+	call main.cb_report_effect.repopulate
+	call main.cb_report_effect.setvalue "hratio"
+END
+
+PROGRAM main_lnhratio_on
+BEGIN
+	call main.ed_haz1.hide
+	call main.tx_haz1.hide
+	call main.ed_haz2.hide
+	call main.tx_haz2.hide
+	call main.ed_hr.hide
+	call main.tx_hr.hide
+	call main.ed_lnhr.show
+	call main.tx_lnhr.show
+	call main.ed_hdiff.hide
+	call main.tx_hdiff.hide
+	call main.ed_surv1.hide
+	call main.tx_surv1.hide
+	call main.ed_surv2.hide
+	call main.tx_surv2.hide
+	call main.ed_time.hide
+	call main.tx_time.hide
+	
+	if main.cb_compute.iseq("power") {
+		call main.ed_lnhr.setposition . 305
+		call main.tx_lnhr.setposition . 305
+	}
+	else {
+		call main.ed_lnhr.setposition . 285
+		call main.tx_lnhr.setposition . 285
+	}
+	call main.cb_report_effect.setcontentslist main_esize_rpt_list2
+	call main.cb_report_effect.setvalueslist main_esize_rpt_values2
+	call main.cb_report_effect.repopulate
+	call main.cb_report_effect.setvalue "hratio"
+END
+
+PROGRAM main_h1h2_on
+BEGIN
+	call main.ed_haz1.show
+	call main.tx_haz1.show
+	call main.ed_haz2.show
+	call main.tx_haz2.show
+	call main.ed_hr.hide
+	call main.tx_hr.hide
+	call main.ed_lnhr.hide
+	call main.tx_lnhr.hide
+	call main.ed_hdiff.hide
+	call main.tx_hdiff.hide
+	call main.ed_surv1.hide
+	call main.tx_surv1.hide
+	call main.ed_surv2.hide
+	call main.tx_surv2.hide
+	call main.ed_time.hide
+	call main.tx_time.hide
+	
+	if main.cb_compute.iseq("power") {
+		call main.ed_haz1.setposition . 305
+		call main.tx_haz1.setposition . 305
+		call main.ed_haz2.setposition . 330
+		call main.tx_haz2.setposition . 330
+	}
+	else {
+		call main.ed_haz1.setposition . 285
+		call main.tx_haz1.setposition . 285
+		call main.ed_haz2.setposition . 310
+		call main.tx_haz2.setposition . 310
+	}
+	call main.cb_report_effect.setcontentslist main_esize_rpt_list
+	call main.cb_report_effect.setvalueslist main_esize_rpt_values
+	call main.cb_report_effect.repopulate
+	call main.cb_report_effect.setvalue "hdifference"
+END
+
+PROGRAM main_h1hr_on
+BEGIN
+	call main.ed_haz1.show
+	call main.tx_haz1.show
+	call main.ed_haz2.hide
+	call main.tx_haz2.hide
+	call main.ed_hr.show
+	call main.tx_hr.show
+	call main.ed_lnhr.hide
+	call main.tx_lnhr.hide
+	call main.ed_hdiff.hide
+	call main.tx_hdiff.hide
+	call main.ed_surv1.hide
+	call main.tx_surv1.hide
+	call main.ed_surv2.hide
+	call main.tx_surv2.hide
+	call main.ed_time.hide
+	call main.tx_time.hide
+	
+	if main.cb_compute.iseq("power") {
+		call main.ed_haz1.setposition . 305
+		call main.tx_haz1.setposition . 305
+		call main.ed_hr.setposition . 330
+		call main.tx_hr.setposition . 330
+	}
+	else {
+		call main.ed_haz1.setposition . 285
+		call main.tx_haz1.setposition . 285
+		call main.ed_hr.setposition . 310
+		call main.tx_hr.setposition . 310
+	}
+	call main.cb_report_effect.setcontentslist main_esize_rpt_list
+	call main.cb_report_effect.setvalueslist main_esize_rpt_values
+	call main.cb_report_effect.repopulate
+	call main.cb_report_effect.setvalue "hdifference"
+END
+
+PROGRAM main_h1lnhr_on
+BEGIN
+	call main.ed_haz1.show
+	call main.tx_haz1.show
+	call main.ed_haz2.hide
+	call main.tx_haz2.hide
+	call main.ed_hr.hide
+	call main.tx_hr.hide
+	call main.ed_lnhr.show
+	call main.tx_lnhr.show
+	call main.ed_hdiff.hide
+	call main.tx_hdiff.hide
+	call main.ed_surv1.hide
+	call main.tx_surv1.hide
+	call main.ed_surv2.hide
+	call main.tx_surv2.hide
+	call main.ed_time.hide
+	call main.tx_time.hide
+	
+	if main.cb_compute.iseq("power") {
+		call main.ed_haz1.setposition . 305
+		call main.tx_haz1.setposition . 305
+		call main.ed_lnhr.setposition . 330
+		call main.tx_lnhr.setposition . 330
+	}
+	else {
+		call main.ed_haz1.setposition . 285
+		call main.tx_haz1.setposition . 285
+		call main.ed_lnhr.setposition . 310
+		call main.tx_lnhr.setposition . 310
+	}
+	call main.cb_report_effect.setcontentslist main_esize_rpt_list
+	call main.cb_report_effect.setvalueslist main_esize_rpt_values
+	call main.cb_report_effect.repopulate
+	call main.cb_report_effect.setvalue "hdifference"
+END
+
+PROGRAM main_h1hdiff_on
+BEGIN
+	call main.ed_haz1.show
+	call main.tx_haz1.show
+	call main.ed_haz2.hide
+	call main.tx_haz2.hide
+	call main.ed_hr.hide
+	call main.tx_hr.hide
+	call main.ed_lnhr.hide
+	call main.tx_lnhr.hide
+	call main.ed_hdiff.show
+	call main.tx_hdiff.show
+	call main.ed_surv1.hide
+	call main.tx_surv1.hide
+	call main.ed_surv2.hide
+	call main.tx_surv2.hide
+	call main.ed_time.hide
+	call main.tx_time.hide
+	
+	if main.cb_compute.iseq("power") {
+		call main.ed_haz1.setposition . 305
+		call main.tx_haz1.setposition . 305
+		call main.ed_hdiff.setposition . 330
+		call main.tx_hdiff.setposition . 330
+	}
+	else {
+		call main.ed_haz1.setposition . 285
+		call main.tx_haz1.setposition . 285
+		call main.ed_hdiff.setposition . 310
+		call main.tx_hdiff.setposition . 310
+	}
+	call main.cb_report_effect.setcontentslist main_esize_rpt_list
+	call main.cb_report_effect.setvalueslist main_esize_rpt_values
+	call main.cb_report_effect.repopulate
+	call main.cb_report_effect.setvalue "hdifference"
+END
+
+PROGRAM main_s1s2_on
+BEGIN
+	call main.ed_haz1.hide
+	call main.tx_haz1.hide
+	call main.ed_haz2.hide
+	call main.tx_haz2.hide
+	call main.ed_surv1.show
+	call main.tx_surv1.show
+	call main.ed_surv2.show
+	call main.tx_surv2.show
+	call main.ed_hr.hide
+	call main.tx_hr.hide
+	call main.ed_lnhr.hide
+	call main.tx_lnhr.hide
+	call main.ed_hdiff.hide
+	call main.tx_hdiff.hide
+	call main.ed_time.show
+	call main.tx_time.show
+
+	if main.cb_compute.iseq("power") {
+		call main.ed_surv1.setposition . 305
+		call main.tx_surv1.setposition . 305
+		call main.ed_surv2.setposition . 330
+		call main.tx_surv2.setposition . 330
+		call main.ed_time.setposition . 355
+		call main.tx_time.setposition . 355
+	}
+	else {
+		call main.ed_surv1.setposition . 285
+		call main.tx_surv1.setposition . 285
+		call main.ed_surv2.setposition . 310
+		call main.tx_surv2.setposition . 310
+		call main.ed_time.setposition . 335
+		call main.tx_time.setposition . 335
+	}
+	call main.cb_report_effect.setcontentslist main_esize_rpt_list
+	call main.cb_report_effect.setvalueslist main_esize_rpt_values
+	call main.cb_report_effect.repopulate
+	call main.cb_report_effect.setvalue "hdifference"
+END
+
+PROGRAM main_s1hr_on
+BEGIN
+	call main.ed_haz1.hide
+	call main.tx_haz1.hide
+	call main.ed_haz2.hide
+	call main.tx_haz2.hide
+	call main.ed_surv1.show
+	call main.tx_surv1.show
+	call main.ed_surv2.hide
+	call main.tx_surv2.hide
+	call main.ed_hr.show
+	call main.tx_hr.show
+	call main.ed_lnhr.hide
+	call main.tx_lnhr.hide
+	call main.ed_hdiff.hide
+	call main.tx_hdiff.hide
+	call main.ed_time.show
+	call main.tx_time.show
+	
+	if main.cb_compute.iseq("power") {
+		call main.ed_surv1.setposition . 305
+		call main.tx_surv1.setposition . 305
+		call main.ed_hr.setposition . 330
+		call main.tx_hr.setposition . 330
+		call main.ed_time.setposition . 355
+		call main.tx_time.setposition . 355
+	}
+	else {
+		call main.ed_surv1.setposition . 285
+		call main.tx_surv1.setposition . 285
+		call main.ed_hr.setposition . 310
+		call main.tx_hr.setposition . 310
+		call main.ed_time.setposition . 335
+		call main.tx_time.setposition . 335
+	}
+	call main.cb_report_effect.setcontentslist main_esize_rpt_list
+	call main.cb_report_effect.setvalueslist main_esize_rpt_values
+	call main.cb_report_effect.repopulate
+	call main.cb_report_effect.setvalue "hdifference"
+END
+
+PROGRAM main_s1lnhr_on
+BEGIN
+	call main.ed_haz1.hide
+	call main.tx_haz1.hide
+	call main.ed_haz2.hide
+	call main.tx_haz2.hide
+	call main.ed_surv1.show
+	call main.tx_surv1.show
+	call main.ed_surv2.hide
+	call main.tx_surv2.hide
+	call main.ed_hr.hide
+	call main.tx_hr.hide
+	call main.ed_lnhr.show
+	call main.tx_lnhr.show
+	call main.ed_hdiff.hide
+	call main.tx_hdiff.hide
+	call main.ed_time.show
+	call main.tx_time.show
+	
+	if main.cb_compute.iseq("power") {
+		call main.ed_surv1.setposition . 305
+		call main.tx_surv1.setposition . 305
+		call main.ed_lnhr.setposition . 330
+		call main.tx_lnhr.setposition . 330
+		call main.ed_time.setposition . 355
+		call main.tx_time.setposition . 355
+	}
+	else {
+		call main.ed_surv1.setposition . 285
+		call main.tx_surv1.setposition . 285
+		call main.ed_lnhr.setposition . 310
+		call main.tx_lnhr.setposition . 310
+		call main.ed_time.setposition . 335
+		call main.tx_time.setposition . 335
+	}
+	call main.cb_report_effect.setcontentslist main_esize_rpt_list
+	call main.cb_report_effect.setvalueslist main_esize_rpt_values
+	call main.cb_report_effect.repopulate
+	call main.cb_report_effect.setvalue "hdifference"
+END
+
+PROGRAM main_s1hdiff_on
+BEGIN
+	call main.ed_haz1.hide
+	call main.tx_haz1.hide
+	call main.ed_haz2.hide
+	call main.tx_haz2.hide
+	call main.ed_surv1.show
+	call main.tx_surv1.show
+	call main.ed_surv2.hide
+	call main.tx_surv2.hide
+	call main.ed_hr.hide
+	call main.tx_hr.hide
+	call main.ed_lnhr.hide
+	call main.tx_lnhr.hide
+	call main.ed_hdiff.show
+	call main.tx_hdiff.show
+	call main.ed_time.show
+	call main.tx_time.show
+	
+	if main.cb_compute.iseq("power") {
+		call main.ed_surv1.setposition . 305
+		call main.tx_surv1.setposition . 305
+		call main.ed_hdiff.setposition . 330
+		call main.tx_hdiff.setposition . 330
+		call main.ed_time.setposition . 355
+		call main.tx_time.setposition . 355
+	}
+	else {
+		call main.ed_surv1.setposition . 285
+		call main.tx_surv1.setposition . 285
+		call main.ed_hdiff.setposition . 310
+		call main.tx_hdiff.setposition . 310
+		call main.ed_time.setposition . 335
+		call main.tx_time.setposition . 335
+	}
+	call main.cb_report_effect.setcontentslist main_esize_rpt_list
+	call main.cb_report_effect.setvalueslist main_esize_rpt_values
+	call main.cb_report_effect.repopulate
+	call main.cb_report_effect.setvalue "hdifference"
+END
+
+PROGRAM main_logh_changed
+BEGIN
+	if main.ck_logh.isenabled() & main.ck_logh {
+		call accrual.ck_expacc.disable
+		call main.cb_report_effect.setvalue "lnhratio"
+		call main.cb_report_effect.setdefault "lnhratio"
+	}
+	else {
+		call accrual.ck_expacc.enable
+		call main.cb_report_effect.setvalue "hdifference"
+		call main.cb_report_effect.setdefault "hdifference"
+	}
+	call program accrual_check_expacc
+END
+
+DIALOG accrual, tabtitle(resource POWER_EXPONENTIAL_TAB_ACCRUAL)
+BEGIN
+  TEXT	 tx_timespec		_lft	_top	_en14wd	.,		///
+	label(resource LBL_SPECIFY)
+  COMBOBOX cb_timespec		@	_ss	245	.,		///
+	dropdownlist							///
+	contents("accrual_timespec_contents")				///
+	value("accrual_timespec_values")				///
+	onselchange("program accrual_timespec_changed")			///
+	label(resource POWER_EXPONENTIAL_ACCRUAL_CB_TIMESPEC)
+  EDIT	 ed_aperiod		275	@	_en14wd	.,		///
+	option(aperiod)							///
+	onchange(program accrual_aperiod_change)			///
+	tooltip(resource POWER_EXPONENTIAL_ACCRUAL_ED_APERIOD_TIP)	///
+	label(resource POWER_EXPONENTIAL_ACCRUAL_ED_APERIOD)
+  TEXT	 tx_aperiod		_en14sep @	165	.,		///
+	label(resource POWER_EXPONENTIAL_ACCRUAL_TX_APERIOD)
+  EDIT	 ed_fperiod		275	_ms	_en14wd	.,		///
+	option(fperiod)							///
+	onchange(program accrual_aperiod_change)			///
+	tooltip(resource POWER_EXPONENTIAL_ACCRUAL_ED_FPERIOD_TIP)	///
+	label(resource POWER_EXPONENTIAL_ACCRUAL_ED_FPERIOD)
+  TEXT	 tx_fperiod		_en14sep @	165	.,		///
+	label(resource POWER_EXPONENTIAL_ACCRUAL_TX_FPERIOD)
+  EDIT	 ed_study		275	@	_en14wd	.,		///
+	option(studytime)						///
+	onchange(program accrual_aperiod_change)			///
+	tooltip(resource POWER_EXPONENTIAL_ACCRUAL_ED_STUDY)		///
+	label(resource LBL_DURATION_OF_THE_STUDY)
+  TEXT	 tx_study		_en14sep @	165	.,		///
+	label(resource POWER_EXPONENTIAL_ACCRUAL_TX_STUDY)
+
+  CHECKBOX ck_expacc		_lft	+40	_iwd	_ht15,		///
+	groupbox							///
+	tooltip(resource POWER_EXPONENTIAL_ACCRUAL_CK_EXPACC_TIP)	///
+	label(resource POWER_EXPONENTIAL_ACCRUAL_CK_EXPACC)		///
+	onclickon(program accrual_check_expacc)				///
+	onclickoff(program accrual_check_expacc)
+  RADIO rb_prop			_ilft	_ss	_iibwd	.,		///
+	first								///
+	onclickon(program accrual_prop_on)				///
+	label(resource POWER_EXPONENTIAL_ACCRUAL_RB_PROP)
+  RADIO rb_shape		_ilft	+105	_iibwd	.,		///
+	last								///
+	onclickon(program accrual_shape_on)				///
+	label(resource POWER_EXPONENTIAL_ACCRUAL_RB_SHAPE)
+
+  DEFINE x1 35
+  DEFINE x2 55
+  EDIT ed_aprob			x2	@	_en14wd	.,		///
+	option(aprob)							///
+	default(0.5)							///
+	onchange(program check_for_numlist)				///
+	label(resource POWER_EXPONENTIAL_ACCRUAL_ED_APROB)
+  TEXT tx_aprob			_en14sep @	350	.,		///
+	label(resource POWER_EXPONENTIAL_ACCRUAL_TX_APROB)
+
+  EDIT ed_aptime		x2	_ms	_en14wd	.,		///
+	option(aptime)							///
+	default(0.5)							///
+	onchange(program check_for_numlist)				///
+	label(resource POWER_EXPONENTIAL_ACCRUAL_ED_APTIME)		///
+	tooltip(resource POWER_EXPONENTIAL_ACCRUAL_ED_APTIME_TIP)
+  TEXT tx_aptime		_en14sep @	350	.,		///
+	label(resource POWER_EXPONENTIAL_ACCRUAL_TX_APTIME)
+
+  CHECKBOX ck_atime		x1	_ms	_ckwd	.,		///
+	onclickon(program accrual_atime_check)				///
+	onclickoff(program accrual_atime_check)
+  EDIT ed_atime			x2	@	_en14wd	.,		///
+	option(atime)							///
+	onchange(program check_for_numlist)				///
+	label(resource POWER_EXPONENTIAL_ACCRUAL_ED_ATIME)		///
+	tooltip(resource POWER_EXPONENTIAL_ACCRUAL_ED_ATIME_TIP)
+  TEXT tx_atime			_en14sep @	350	.,		///
+	label(resource POWER_EXPONENTIAL_ACCRUAL_TX_ATIME)
+
+  EDIT ed_ashape		x2	+55	_en14wd	.,		///
+	option(ashape)							///
+	default(0)							///
+	onchange(program check_for_numlist)				///
+	tooltip(resource POWER_EXPONENTIAL_ACCRUAL_ED_ASHAPE)		///
+	label(resource LBL_SHAPE_PARAMETER)	
+  TEXT tx_ashape		_en14sep @	350	.,		///
+	label(resource POWER_EXPONENTIAL_ACCRUAL_TX_ASHAPE)
+
+  CHECKBOX ck_loss		_lft	+40	_iwd	_ht21,		///
+	groupbox							///
+	label(resource POWER_EXPONENTIAL_ACCRUAL_CK_LOSS)		///
+	onclickon(program accrual_loss_check)				///
+	onclickoff(program accrual_loss_check)
+  TEXT	 tx_loss		_ilft	_ss	90	.,		///
+	label(resource LBL_SPECIFY)
+  COMBOBOX cb_loss		@	_ss	280	.,		///
+	dropdownlist							///
+	contents("accrual_loss_contents")				///
+	values("accrual_loss_values")					///
+	onselchange("program accrual_loss_changed")			///
+	label(resource POWER_EXPONENTIAL_ACCRUAL_CK_LOSS)
+
+  RADIO rb_lossprobc		_ilft	_ls	_iibwd	.,		///
+	first								///
+	onclickon(program accrual_lossprob_check)			///
+	label(resource POWER_EXPONENTIAL_ACCRUAL_RB_LOSS_PROBC)
+  RADIO rb_lossprobg		_ilft	+55	_iibwd	.,		///
+	last								///
+	onclickon(program accrual_lossprob_check)			///
+	label(resource POWER_EXPONENTIAL_ACCRUAL_RB_LOSS_PROBG)
+
+  RADIO rb_losshazc		_ilft	_ls	_iibwd	.,		///
+	first								///
+	onclickon(program accrual_losshaz_check)			///
+	label(resource POWER_EXPONENTIAL_ACCRUAL_RB_LOSS_HAZC)	
+  RADIO rb_losshazg		_ilft	+55	_iibwd	.,		///
+	last								///
+	onclickon(program accrual_losshaz_check)			///
+	label(resource POWER_EXPONENTIAL_ACCRUAL_RB_LOSSHAZG)
+
+  EDIT ed_lossprob		x2	-30	_en14wd	.,		///
+	option(lossprob)						///
+	default(0)							///
+	onchange(program check_for_numlist)				///
+	label(resource LBL_PROPORTION_SUBJECTS_LOST_FOLLOW_UP_CONT_EXP_GROUPS) ///
+	tooltip(resource POWER_EXPONENTIAL_ACCRUAL_ED_LOSS_PROB)
+  TEXT tx_lossprob		_en14sep @	400	.,		///
+		label(resource LBL_STAR_COMMON_VALUE)
+  EDIT ed_lossprob1		x2	+55	_en14wd	.,		///
+	option(lossprob1)						///
+	default(0)							///
+	onchange(program check_for_numlist)				///
+	label(resource LBL_PROPORTION_SUBJECTS_LOST_FOLLOW_UP_CONTROL_GROUP) ///
+	tooltip(resource POWER_EXPONENTIAL_ACCRUAL_ED_LOSSPROB1)
+  TEXT tx_lossprob1		_en14sep @	400	.,		///
+		label(resource POWER_EXPONENTIAL_ACCRUAL_TX_LOSSPROB1)
+  EDIT ed_lossprob2		x2	_ms	_en14wd	.,		///
+	option(lossprob2)						///
+	default(0)							///
+	onchange(program check_for_numlist)				///
+	label(resource LBL_PROPORTION_SUBJECTS_LOST_FOLLOW_UP_EXP_GROUP) ///
+	tooltip(resource POWER_EXPONENTIAL_ACCRUAL_ED_LOSSPROB2)
+  TEXT tx_lossprob2		_en14sep @	400	.,		///
+	label(resource POWER_EXPONENTIAL_ACCRUAL_TX_LOSSPROB2)
+  EDIT ed_losstime		_ilft	_ls	_en14wd	.,		///
+	option(losstime)						///
+	default(1)							///
+	onchange(program check_for_numlist)				///
+	label(resource POWER_EXPONENTIAL_ACCRUAL_ED_LOSSTIME)		///
+	tooltip(resource POWER_EXPONENTIAL_ACCRUAL_ED_LOSSTIME_TIP)
+  TEXT tx_losstime		_en14sep @	400	.,		///
+	label(resource POWER_EXPONENTIAL_ACCRUAL_TX_LOSSTIME)
+
+  EDIT ed_losshaz		x2	+50	_en14wd	.,		///
+	option(losshaz)							///
+	default(0)							///
+	onchange(program check_for_numlist)				///
+	label(resource POWER_EXPONENTIAL_ACCRUAL_ED_LOSSHAZ)		///
+	tooltip(resource POWER_EXPONENTIAL_ACCRUAL_ED_LOSSHAZ_TIP)
+  TEXT tx_losshaz		_en14sep @	400	.,		///
+	label(resource LBL_STAR_COMMON_VALUE)
+  CHECKBOX ck_losshaz		x1	_ms	_ckwd	.,		///
+	onclickon(program accrual_losshaz_check)			///
+	onclickoff(program accrual_losshaz_check)
+  EDIT ed_losshaz1		x2	@	_en14wd	.,		///
+	option(losshaz1)						///
+	default(0)							///
+	onchange(program check_for_numlist)				///
+	label(resource POWER_EXPONENTIAL_ACCRUAL_ED_LOSSHAZ1) 		///
+	tooltip(resource POWER_EXPONENTIAL_ACCRUAL_ED_LOSSHAZ1_TIP)
+  TEXT tx_losshaz1		_en14sep @	400	.,		///
+	label(resource POWER_EXPONENTIAL_ACCRUAL_TX_LOSSPROB1)
+  EDIT ed_losshaz2		x2	_ms	_en14wd	.,		///
+	option(losshaz2)						///
+	onchange(program check_for_numlist)				///
+	default(0)							///
+	label(resource POWER_EXPONENTIAL_ACCRUAL_ED_LOSSHAZ2)		///
+	tooltip(resource POWER_EXPONENTIAL_ACCRUAL_ED_LOSSHAZ2_TIP)
+  TEXT tx_losshaz2		_en14sep @	400	.,		///
+	label(resource POWER_EXPONENTIAL_ACCRUAL_TX_LOSSPROB2)
+END
+
+LIST accrual_timespec_contents
+BEGIN
+	resource POWER_EXPONENTIAL_STUDY_CONT_UNTIL_ALL_SUB_FAIL
+	resource LBL_DURATION_OF_THE_STUDY
+	resource POWER_EXPONENTIAL_LENGTH_OF_FOLLOW_UP_PER
+	resource POWER_EXPONENTIAL_DUR_STUDY_ACCRUAL_PER
+	resource POWER_EXPONENTIAL_DUR_STUDY_FOLLOW_UP_PER
+	resource POWER_EXPONENTIAL_LENGTHS_FOLLOW_UP_ACC_PER
+END
+
+LIST accrual_timespec_values
+BEGIN
+	"study_continue"
+	"study"
+	"follow"
+	"study_accrual"
+	"study_follow"
+	"follow_accrual"
+END
+
+LIST accrual_loss_contents
+BEGIN
+	resource POWER_EXPONENTIAL_PROP_SUBJECTS_LOST_FOLLOW_UP
+	resource POWER_EXPONENTIAL_LOSS_FOLLOW_UP_HAZARD_RATES
+END
+
+LIST accrual_loss_values
+BEGIN
+	"lossprob"
+	"losshaz"
+END
+
+PROGRAM accrual_timespec_changed
+BEGIN
+	if accrual.cb_timespec.iseq("study_continue") {
+		call program accrual_study_continue
+	}
+	if accrual.cb_timespec.iseq("study") {
+		call program accrual_study
+	}
+	if accrual.cb_timespec.iseq("follow") {
+		call program accrual_follow
+	}	
+	if accrual.cb_timespec.iseq("study_accrual") {
+		call program accrual_study_accrual
+	}
+	if accrual.cb_timespec.iseq("study_follow") {
+		call program accrual_study_follow
+	}
+	if accrual.cb_timespec.iseq("follow_accrual") {
+		call program accrual_follow_accrual
+	}	
+	call program accrual_move_change
+	call program accrual_aperiod_change
+	call program table_create4Exponential
+END
+
+PROGRAM accrual_study_continue
+BEGIN
+	call accrual.ed_aperiod.hide
+	call accrual.tx_aperiod.hide
+	call accrual.ed_fperiod.hide
+	call accrual.tx_fperiod.hide
+	call accrual.ed_study.hide
+	call accrual.tx_study.hide
+END
+
+PROGRAM accrual_study
+BEGIN
+	call accrual.ed_aperiod.hide
+	call accrual.tx_aperiod.hide
+	call accrual.ed_fperiod.hide
+	call accrual.tx_fperiod.hide
+	call accrual.ed_study.show
+	call accrual.tx_study.show
+	
+	call accrual.ed_study.setposition . 30 
+	call accrual.tx_study.setposition . 30 
+END
+
+PROGRAM accrual_follow
+BEGIN
+	call accrual.ed_aperiod.hide
+	call accrual.tx_aperiod.hide
+	call accrual.ed_fperiod.show
+	call accrual.tx_fperiod.show
+	call accrual.ed_study.hide
+	call accrual.tx_study.hide
+	
+	call accrual.ed_fperiod.setposition . 30 
+	call accrual.tx_fperiod.setposition . 30 
+END
+
+PROGRAM accrual_study_accrual
+BEGIN
+	call accrual.ed_aperiod.show
+	call accrual.tx_aperiod.show
+	call accrual.ed_fperiod.hide
+	call accrual.tx_fperiod.hide
+	call accrual.ed_study.show 
+	call accrual.tx_study.show
+	
+	call accrual.ed_study.setposition . 30 
+	call accrual.tx_study.setposition . 30 
+	call accrual.ed_aperiod.setposition . 55 
+	call accrual.tx_aperiod.setposition . 55 
+END
+
+PROGRAM accrual_study_follow
+BEGIN
+	call accrual.ed_aperiod.hide
+	call accrual.tx_aperiod.hide
+	call accrual.ed_fperiod.show
+	call accrual.tx_fperiod.show
+	call accrual.ed_study.show 
+	call accrual.tx_study.show
+
+	call accrual.ed_study.setposition . 30 
+	call accrual.tx_study.setposition . 30 
+	call accrual.ed_fperiod.setposition . 55 
+	call accrual.tx_fperiod.setposition . 55 
+END
+
+PROGRAM accrual_follow_accrual
+BEGIN
+	call accrual.ed_aperiod.show
+	call accrual.tx_aperiod.show
+	call accrual.ed_fperiod.show
+	call accrual.tx_fperiod.show
+	call accrual.ed_study.hide 
+	call accrual.tx_study.hide
+	
+	call accrual.ed_fperiod.setposition . 30 
+	call accrual.tx_fperiod.setposition . 30 
+	call accrual.ed_aperiod.setposition . 55 
+	call accrual.tx_aperiod.setposition . 55 
+END
+
+PROGRAM accrual_move_change
+BEGIN
+	if accrual.cb_timespec.iseq("study_continue") {
+		call accrual.ck_expacc.setposition . 65
+		call accrual.rb_prop.setposition . 90
+		call accrual.rb_shape.setposition . 190
+		call accrual.ed_aprob.setposition . 115
+		call accrual.tx_aprob.setposition . 115
+		call accrual.ed_aptime.setposition . 140 
+		call accrual.tx_aptime.setposition . 140
+		call accrual.ck_atime.setposition . 165
+		call accrual.ed_atime.setposition . 165
+		call accrual.tx_atime.setposition . 165
+		call accrual.tx_ashape.setposition . 215 
+		call accrual.ed_ashape.setposition . 215
+		
+		call accrual.ck_loss.setposition . 260
+		call accrual.tx_loss.setposition . 285
+		call accrual.cb_loss.setposition . 305
+		call accrual.rb_lossprobc.setposition . 340
+		call accrual.rb_lossprobg.setposition . 390
+		call accrual.rb_losshazc.setposition . 340
+		call accrual.rb_losshazg.setposition . 390
+		call accrual.ed_lossprob.setposition . 365
+		call accrual.tx_lossprob.setposition . 365
+		call accrual.ed_lossprob1.setposition . 415
+		call accrual.tx_lossprob1.setposition . 415
+		call accrual.ed_lossprob2.setposition . 440
+		call accrual.tx_lossprob2.setposition . 440
+		call accrual.ed_losstime.setposition . 470
+		call accrual.tx_losstime.setposition . 470
+		call accrual.ed_losshaz.setposition . 365
+		call accrual.tx_losshaz.setposition . 365
+		call accrual.ed_losshaz1.setposition . 415
+		call accrual.tx_losshaz1.setposition . 415
+		call accrual.ed_losshaz2.setposition . 440
+		call accrual.tx_losshaz2.setposition . 440
+		
+		call accrual.ck_expacc.disable
+		call script accrual_exp_accrual_disable
+		call accrual.ck_loss.disable
+		call script accrual_loss_disable
+	}
+	if accrual.cb_timespec.iseq("study") {
+		call accrual.ck_expacc.setposition . 65
+		call accrual.rb_prop.setposition . 90
+		call accrual.rb_shape.setposition . 190
+		call accrual.ed_aprob.setposition . 115
+		call accrual.tx_aprob.setposition . 115
+		call accrual.ed_aptime.setposition . 140 
+		call accrual.tx_aptime.setposition . 140
+		call accrual.ck_atime.setposition . 165
+		call accrual.ed_atime.setposition . 165
+		call accrual.tx_atime.setposition . 165
+		call accrual.tx_ashape.setposition . 215 
+		call accrual.ed_ashape.setposition . 215
+		
+		call accrual.ck_loss.setposition . 260
+		call accrual.tx_loss.setposition . 285
+		call accrual.cb_loss.setposition . 305
+		call accrual.rb_lossprobc.setposition . 340
+		call accrual.rb_lossprobg.setposition . 390
+		call accrual.rb_losshazc.setposition . 340
+		call accrual.rb_losshazg.setposition . 390
+		call accrual.ed_lossprob.setposition . 365
+		call accrual.tx_lossprob.setposition . 365
+		call accrual.ed_lossprob1.setposition . 415
+		call accrual.tx_lossprob1.setposition . 415
+		call accrual.ed_lossprob2.setposition . 440
+		call accrual.tx_lossprob2.setposition . 440
+		call accrual.ed_losstime.setposition . 470
+		call accrual.tx_losstime.setposition . 470
+		call accrual.ed_losshaz.setposition . 365
+		call accrual.tx_losshaz.setposition . 365
+		call accrual.ed_losshaz1.setposition . 415
+		call accrual.tx_losshaz1.setposition . 415
+		call accrual.ed_losshaz2.setposition . 440
+		call accrual.tx_losshaz2.setposition . 440
+
+		call accrual.ck_expacc.disable
+		call script accrual_exp_accrual_disable
+		call accrual.ck_loss.enable
+		call program accrual_loss_check	
+	}
+	if accrual.cb_timespec.iseq("follow") {
+		call accrual.ck_expacc.setposition . 65
+		call accrual.rb_prop.setposition . 90
+		call accrual.rb_shape.setposition . 190
+		call accrual.ed_aprob.setposition . 115
+		call accrual.tx_aprob.setposition . 115
+		call accrual.ed_aptime.setposition . 140 
+		call accrual.tx_aptime.setposition . 140
+		call accrual.ck_atime.setposition . 165
+		call accrual.ed_atime.setposition . 165
+		call accrual.tx_atime.setposition . 165
+		call accrual.tx_ashape.setposition . 215 
+		call accrual.ed_ashape.setposition . 215
+		
+		call accrual.ck_loss.setposition . 260
+		call accrual.tx_loss.setposition . 285
+		call accrual.cb_loss.setposition . 305
+		call accrual.rb_lossprobc.setposition . 340
+		call accrual.rb_lossprobg.setposition . 390
+		call accrual.rb_losshazc.setposition . 340
+		call accrual.rb_losshazg.setposition . 390
+		call accrual.ed_lossprob.setposition . 365
+		call accrual.tx_lossprob.setposition . 365
+		call accrual.ed_lossprob1.setposition . 415
+		call accrual.tx_lossprob1.setposition . 415
+		call accrual.ed_lossprob2.setposition . 440
+		call accrual.tx_lossprob2.setposition . 440
+		call accrual.ed_losstime.setposition . 470
+		call accrual.tx_losstime.setposition . 470
+		call accrual.ed_losshaz.setposition . 365
+		call accrual.tx_losshaz.setposition . 365
+		call accrual.ed_losshaz1.setposition . 415
+		call accrual.tx_losshaz1.setposition . 415
+		call accrual.ed_losshaz2.setposition . 440
+		call accrual.tx_losshaz2.setposition . 440
+
+		call accrual.ck_expacc.disable
+		call script accrual_exp_accrual_disable
+		call accrual.ck_loss.enable
+		call program accrual_loss_check		
+	}	
+	if accrual.cb_timespec.iseq("study_accrual") {
+		call accrual.ck_expacc.setposition . 85
+		call accrual.rb_prop.setposition . 110
+		call accrual.rb_shape.setposition . 210
+		call accrual.ed_aprob.setposition . 135
+		call accrual.tx_aprob.setposition . 135
+		call accrual.ed_aptime.setposition . 160
+		call accrual.tx_aptime.setposition . 160
+		call accrual.ck_atime.setposition . 185
+		call accrual.ed_atime.setposition . 185
+		call accrual.tx_atime.setposition . 185
+		call accrual.tx_ashape.setposition . 235
+		call accrual.ed_ashape.setposition . 235
+		
+		call accrual.ck_loss.setposition . 280
+		call accrual.tx_loss.setposition . 305
+		call accrual.cb_loss.setposition . 325
+		call accrual.rb_lossprobc.setposition . 360
+		call accrual.rb_lossprobg.setposition . 410
+		call accrual.rb_losshazc.setposition . 360
+		call accrual.rb_losshazg.setposition . 410
+		call accrual.ed_lossprob.setposition . 385
+		call accrual.tx_lossprob.setposition . 385
+		call accrual.ed_lossprob1.setposition . 435
+		call accrual.tx_lossprob1.setposition . 435
+		call accrual.ed_lossprob2.setposition . 460
+		call accrual.tx_lossprob2.setposition . 460
+		call accrual.ed_losstime.setposition . 490
+		call accrual.tx_losstime.setposition . 490
+		call accrual.ed_losshaz.setposition . 385
+		call accrual.tx_losshaz.setposition . 385
+		call accrual.ed_losshaz1.setposition . 435
+		call accrual.tx_losshaz1.setposition . 435
+		call accrual.ed_losshaz2.setposition . 460
+		call accrual.tx_losshaz2.setposition . 460
+
+		call accrual.ck_expacc.enable
+		call program accrual_check_expacc
+		call accrual.ck_loss.enable
+		call program accrual_loss_check		
+	}
+	if accrual.cb_timespec.iseq("study_follow") {
+		call accrual.ck_expacc.setposition . 85
+		call accrual.rb_prop.setposition . 110
+		call accrual.rb_shape.setposition . 210
+		call accrual.ed_aprob.setposition . 135
+		call accrual.tx_aprob.setposition . 135
+		call accrual.ed_aptime.setposition . 160
+		call accrual.tx_aptime.setposition . 160
+		call accrual.ck_atime.setposition . 185
+		call accrual.ed_atime.setposition . 185
+		call accrual.tx_atime.setposition . 185
+		call accrual.tx_ashape.setposition . 235
+		call accrual.ed_ashape.setposition . 235
+		
+		call accrual.ck_loss.setposition . 280
+		call accrual.tx_loss.setposition . 305
+		call accrual.cb_loss.setposition . 325
+		call accrual.rb_lossprobc.setposition . 360
+		call accrual.rb_lossprobg.setposition . 410
+		call accrual.rb_losshazc.setposition . 360
+		call accrual.rb_losshazg.setposition . 410
+		call accrual.ed_lossprob.setposition . 385
+		call accrual.tx_lossprob.setposition . 385
+		call accrual.ed_lossprob1.setposition . 435
+		call accrual.tx_lossprob1.setposition . 435
+		call accrual.ed_lossprob2.setposition . 460
+		call accrual.tx_lossprob2.setposition . 460
+		call accrual.ed_losstime.setposition . 490
+		call accrual.tx_losstime.setposition . 490
+		call accrual.ed_losshaz.setposition . 385
+		call accrual.tx_losshaz.setposition . 385
+		call accrual.ed_losshaz1.setposition . 435
+		call accrual.tx_losshaz1.setposition . 435
+		call accrual.ed_losshaz2.setposition . 460
+		call accrual.tx_losshaz2.setposition . 460
+
+		call accrual.ck_expacc.enable
+		call program accrual_check_expacc
+		call accrual.ck_loss.enable
+		call program accrual_loss_check			
+	}
+	if accrual.cb_timespec.iseq("follow_accrual") {
+		call accrual.ck_expacc.setposition . 85
+		call accrual.rb_prop.setposition . 110
+		call accrual.rb_shape.setposition . 210
+		call accrual.ed_aprob.setposition . 135
+		call accrual.tx_aprob.setposition . 135
+		call accrual.ed_aptime.setposition . 160
+		call accrual.tx_aptime.setposition . 160
+		call accrual.ck_atime.setposition . 185
+		call accrual.ed_atime.setposition . 185
+		call accrual.tx_atime.setposition . 185
+		call accrual.tx_ashape.setposition . 235
+		call accrual.ed_ashape.setposition . 235
+		
+		call accrual.ck_loss.setposition . 280
+		call accrual.tx_loss.setposition . 305
+		call accrual.cb_loss.setposition . 325
+		call accrual.rb_lossprobc.setposition . 360
+		call accrual.rb_lossprobg.setposition . 410
+		call accrual.rb_losshazc.setposition . 360
+		call accrual.rb_losshazg.setposition . 410
+		call accrual.ed_lossprob.setposition . 385
+		call accrual.tx_lossprob.setposition . 385
+		call accrual.ed_lossprob1.setposition . 435
+		call accrual.tx_lossprob1.setposition . 435
+		call accrual.ed_lossprob2.setposition . 460
+		call accrual.tx_lossprob2.setposition . 460
+		call accrual.ed_losstime.setposition . 490
+		call accrual.tx_losstime.setposition . 490
+		call accrual.ed_losshaz.setposition . 385
+		call accrual.tx_losshaz.setposition . 385
+		call accrual.ed_losshaz1.setposition . 435
+		call accrual.tx_losshaz1.setposition . 435
+		call accrual.ed_losshaz2.setposition . 460
+		call accrual.tx_losshaz2.setposition . 460
+
+		call accrual.ck_expacc.enable
+		call program accrual_check_expacc
+		call accrual.ck_loss.enable
+		call program accrual_loss_check			
+	}
+END
+
+PROGRAM accrual_check_expacc
+BEGIN
+	if accrual.ck_expacc.isenabled() & accrual.ck_expacc {
+		call accrual.rb_prop.enable
+		call accrual.rb_shape.enable
+		
+		call program accrual_prop_on
+		call program accrual_shape_on
+		
+		call main.ck_logh.disable
+	}
+	else {
+		call script accrual_exp_accrual_disable
+		call main.ck_logh.enable
+	}
+	call program check_for_numlist
+END
+
+SCRIPT accrual_exp_accrual_disable
+BEGIN
+	accrual.rb_prop.disable
+	accrual.rb_shape.disable
+	accrual.tx_ashape.disable
+	accrual.ed_ashape.disable
+	accrual.ck_atime.disable
+	accrual.ed_atime.disable
+	accrual.tx_atime.disable
+	accrual.ed_aptime.disable
+	accrual.tx_aptime.disable
+	accrual.ed_aprob.disable
+	accrual.tx_aprob.disable
+END
+
+PROGRAM accrual_shape_on
+BEGIN
+	if accrual.rb_shape.isenabled() & accrual.rb_shape {
+		call accrual.tx_ashape.enable
+		call accrual.ed_ashape.enable
+	
+		call accrual.ck_atime.disable
+		call accrual.ed_atime.disable
+		call accrual.tx_atime.disable
+		call accrual.ed_aptime.disable
+		call accrual.tx_aptime.disable
+		call accrual.ed_aprob.disable
+		call accrual.tx_aprob.disable
+		call program check_for_numlist
+	}
+END
+
+PROGRAM accrual_prop_on
+BEGIN	
+	if accrual.rb_prop.isenabled() & accrual.rb_prop {
+		call accrual.ed_aprob.enable
+		call accrual.tx_aprob.enable
+		call accrual.ck_atime.enable
+		call program accrual_atime_check
+		call accrual.tx_ashape.disable
+		call accrual.ed_ashape.disable
+		call program check_for_numlist
+	}
+END
+
+PROGRAM accrual_atime_check
+BEGIN
+	if accrual.ck_atime.isenabled() {
+		if accrual.ck_atime {
+			call accrual.ed_atime.enable
+			call accrual.tx_atime.enable
+			call accrual.ed_aptime.disable
+			call accrual.tx_aptime.disable
+		}
+		else {
+			call accrual.ed_aptime.enable
+			call accrual.tx_aptime.enable
+			call accrual.ed_atime.disable
+			call accrual.tx_atime.disable
+		}
+	}
+END
+
+PROGRAM accrual_loss_check
+BEGIN
+	if accrual.ck_loss.isenabled() & accrual.ck_loss {
+		call accrual.tx_loss.enable
+		call accrual.cb_loss.enable
+		call accrual.rb_lossprobc.enable
+		call accrual.rb_lossprobg.enable
+		call accrual.rb_losshazc.enable
+		call accrual.rb_losshazg.enable
+		call program accrual_loss_changed
+	}
+	else {	
+		call script accrual_loss_disable
+	}
+	call program check_for_numlist
+END
+
+SCRIPT accrual_loss_disable
+BEGIN
+	accrual.tx_loss.disable
+	accrual.cb_loss.disable
+	accrual.rb_lossprobc.disable
+	accrual.rb_lossprobg.disable
+	accrual.rb_losshazc.disable
+	accrual.rb_losshazg.disable
+	accrual.ed_lossprob.disable
+	accrual.tx_lossprob.disable
+	accrual.ed_lossprob1.disable
+	accrual.tx_lossprob1.disable
+	accrual.ed_lossprob2.disable
+	accrual.tx_lossprob2.disable
+	accrual.ed_losstime.disable
+	accrual.tx_losstime.disable
+	accrual.ed_losshaz.disable
+	accrual.tx_losshaz.disable
+	accrual.ed_losshaz1.disable
+	accrual.tx_losshaz1.disable
+	accrual.ed_losshaz2.disable
+	accrual.tx_losshaz2.disable
+END
+
+SCRIPT accrual_lossprob_show
+BEGIN
+	accrual.rb_lossprobc.show
+	accrual.rb_lossprobg.show
+	accrual.ed_lossprob.show
+	accrual.tx_lossprob.show
+	accrual.ed_lossprob1.show
+	accrual.tx_lossprob1.show
+	accrual.ed_lossprob2.show
+	accrual.tx_lossprob2.show
+	accrual.ed_losstime.show
+	accrual.tx_losstime.show
+END
+
+SCRIPT accrual_lossprob_hide
+BEGIN
+	accrual.rb_lossprobc.hide
+	accrual.rb_lossprobg.hide
+	accrual.ed_lossprob.hide
+	accrual.tx_lossprob.hide
+	accrual.ed_lossprob1.hide
+	accrual.tx_lossprob1.hide
+	accrual.ed_lossprob2.hide
+	accrual.tx_lossprob2.hide
+	accrual.ed_losstime.hide
+	accrual.tx_losstime.hide
+END
+
+SCRIPT accrual_losshaz_show
+BEGIN
+	accrual.rb_losshazc.show
+	accrual.rb_losshazg.show
+	accrual.ed_losshaz.show
+	accrual.tx_losshaz.show
+	accrual.ed_losshaz1.show
+	accrual.tx_losshaz1.show
+	accrual.ed_losshaz2.show
+	accrual.tx_losshaz2.show
+END
+
+SCRIPT accrual_losshaz_hide
+BEGIN
+	accrual.rb_losshazc.hide
+	accrual.rb_losshazg.hide
+	accrual.ed_losshaz.hide
+	accrual.tx_losshaz.hide
+	accrual.ed_losshaz1.hide
+	accrual.tx_losshaz1.hide
+	accrual.ed_losshaz2.hide
+	accrual.tx_losshaz2.hide
+END
+
+PROGRAM accrual_loss_changed
+BEGIN
+	if accrual.cb_loss.iseq("lossprob") {
+		call script accrual_lossprob_show
+		call script accrual_losshaz_hide
+		call program accrual_lossprob_check
+	}
+	if accrual.cb_loss.iseq("losshaz") {
+		call script accrual_lossprob_hide
+		call script accrual_losshaz_show
+		call program accrual_losshaz_check
+	}
+	call program check_for_numlist
+END
+
+PROGRAM accrual_lossprob_check
+BEGIN
+	if accrual.rb_lossprobc.isenabled() & accrual.rb_lossprobg.isenabled() {
+		if accrual.rb_lossprobc {
+			call accrual.ed_lossprob.enable
+			call accrual.tx_lossprob.enable
+			call accrual.ed_lossprob1.disable
+			call accrual.tx_lossprob1.disable
+			call accrual.ed_lossprob2.disable
+			call accrual.tx_lossprob2.disable
+		}
+		else {
+			call accrual.ed_lossprob.disable
+			call accrual.tx_lossprob.disable
+			call accrual.ed_lossprob1.enable
+			call accrual.tx_lossprob1.enable
+			call accrual.ed_lossprob2.enable
+			call accrual.tx_lossprob2.enable
+		}
+		call accrual.ed_losstime.enable
+		call accrual.tx_losstime.enable
+		call program check_for_numlist
+	}
+END
+
+PROGRAM accrual_losshaz_check
+BEGIN
+	if accrual.rb_losshazc.isenabled() & accrual.rb_losshazg.isenabled() {
+		if accrual.rb_losshazc {
+			call accrual.ed_losshaz.enable
+			call accrual.tx_losshaz.enable
+			call accrual.ed_losshaz1.disable
+			call accrual.tx_losshaz1.disable
+			call accrual.ed_losshaz2.disable
+			call accrual.tx_losshaz2.disable
+		}
+		else {
+			call accrual.ed_losshaz.disable
+			call accrual.tx_losshaz.disable
+			call accrual.ed_losshaz1.enable
+			call accrual.tx_losshaz1.enable
+			call accrual.ed_losshaz2.enable
+			call accrual.tx_losshaz2.enable
+		}
+		call program check_for_numlist
+	}
+END
+
+PROGRAM accrual_aperiod_change
+BEGIN
+	if accrual.ed_aperiod.isvisible() {
+		if accrual.ed_aperiod.iseq("") | accrual.ed_aperiod.iseq("0") {
+			call accrual.ck_expacc.disable
+		}
+		else {
+			call accrual.ck_expacc.enable
+		}
+	}
+	else {
+		if accrual.ed_study.isvisible() & accrual.ed_study & accrual.ed_study.iseq(accrual.ed_fperiod) {
+			call accrual.ck_expacc.disable 
+		}
+		else {
+			call accrual.ck_expacc.enable
+		}
+	}
+	if accrual.cb_timespec.iseq("study_continue") | accrual.cb_timespec.iseq("study") | ///
+		accrual.cb_timespec.iseq("follow") {
+		call accrual.ck_expacc.disable
+	}
+	call program accrual_check_expacc
+	call program check_for_numlist
+END
+
+INCLUDE power_table_opts
+INCLUDE power_graph
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  CHECKBOX ck_output		_lft	_top	_iwd	_ht8,		///
+	groupbox							///
+	onclickon(program rpt_check_output)				///
+	onclickoff(program rpt_check_output)				///
+	label(resource POWER_EXPONENTIAL_RPT_CK_OUTPUT)
+  RADIO  rb_show		_ilft	_ms	_ibwd	.,		///
+	first								///
+	option(show)							///
+	clickon(program rpt_rb_show)					///
+	label(resource POWER_EXPONENTIAL_RPT_RB_SHOW)
+
+  RADIO rb_showspec		_ilft 	_ms	_ibwd	.,		///
+	last								///
+	clickon(program rpt_rb_showspec)				///
+	label(resource POWER_EXPONENTIAL_RPT_RB_SHOWSPEC)
+  COMBOBOX cb_showspec 		+20	_ms	_en14wd	.,		///
+	dropdownlist							///
+	option(show)							///
+	contents("rpt_showspec_list")					///
+	values("rpt_showspec_values")					///
+	onselchange(program table_create4Exponential)			///
+	label(resource POWER_EXPONENTIAL_RPT_CB_SHOWSPEC)
+END
+
+LIST rpt_showspec_list
+BEGIN
+	resource LBL_NUMBER_OF_EVENTS
+	resource POWER_EXPONENTIAL_RPT_NUM_OF_LOSSES
+	resource POWER_EXPONENTIAL_RPT_EVENT_PROB
+	resource LBL_ALL_OF_THE_ABOVE
+END
+
+LIST rpt_showspec_values
+BEGIN
+	"events"
+	"losses"
+	"eventprobs"
+	"all"
+END
+
+PROGRAM rpt_rb_show
+BEGIN
+	if rpt.rb_show.isenabled() & rpt.rb_show {
+		call rpt.cb_showspec.disable
+		call program table_create4Exponential
+	}
+END
+
+PROGRAM rpt_rb_showspec
+BEGIN
+	if rpt.rb_showspec.isenabled() & rpt.rb_showspec {
+		call rpt.cb_showspec.enable
+		call program table_create4Exponential
+	}
+END
+
+PROGRAM rpt_check_output
+BEGIN
+	if rpt.ck_output {
+		call rpt.rb_show.enable
+		call rpt.rb_showspec.enable
+		
+		if rpt.rb_showspec {
+			call program rpt_rb_showspec
+		}
+		else {
+			call program rpt_rb_show
+		}
+		call program table_create4Exponential
+	}
+	else {
+		call rpt.rb_show.disable
+		call rpt.rb_showspec.disable
+		call rpt.cb_showspec.disable
+		call program table_create4Exponential
+	}
+END
+
+PROGRAM check_for_numlist
+BEGIN
+	call containsNumlist.setfalse
+	call containsNumlist_h1.setfalse
+	call containsNumlist_h2.setfalse
+
+	if main.ed_alpha {
+		call numContents.setvalue class main.ed_alpha.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_power.isvisible() {
+		call numContents.setvalue class main.ed_power.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_beta.isvisible() {
+		call numContents.setvalue class main.ed_beta.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_n1.isvisible() {
+		call numContents.setvalue class main.ed_n1.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_n2.isvisible() {
+		call numContents.setvalue class main.ed_n2.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_sampsi_n.isvisible() {
+		call numContents.setvalue class main.ed_sampsi_n.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_sampsi_n1.isvisible() {
+		call numContents.setvalue class main.ed_sampsi_n1.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_sampsi_n2.isvisible() {
+		call numContents.setvalue class main.ed_sampsi_n2.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+	
+	if main.ed_nratio.isvisible() {
+		call numContents.setvalue class main.ed_nratio.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+		call program table_create4Exponential
+	}
+
+	if main.ed_sampsi_nratio.isvisible() {
+		call numContents.setvalue class main.ed_sampsi_nratio.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+		call program table_create4Exponential
+	}
+	else {
+		call program table_create4Exponential
+	}
+
+	if main.ed_haz1.isvisible() {
+		call numContents.setvalue class main.ed_haz1.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+			call containsNumlist_h1.settrue
+		}
+	}
+
+	if main.ed_haz2.isvisible() {
+		call numContents.setvalue class main.ed_haz2.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+			call containsNumlist_h2.settrue
+		}
+	}
+
+	if main.ed_surv1.isvisible() {
+		call numContents.setvalue class main.ed_surv1.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+			call containsNumlist_s1.settrue
+		}
+	}
+
+	if main.ed_surv2.isvisible() {
+		call numContents.setvalue class main.ed_surv2.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+			call containsNumlist_s2.settrue
+		}
+	}
+
+	if main.ed_time.isvisible() {
+		call numContents.setvalue class main.ed_time.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_hr.isvisible() {
+		call numContents.setvalue class main.ed_hr.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+			call containsNumlist_h2.settrue
+		}
+	}
+
+	if main.ed_lnhr.isvisible() {
+		call numContents.setvalue class main.ed_lnhr.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+			call containsNumlist_h2.settrue
+		}
+	}
+
+	if main.ed_hdiff.isvisible() {
+		call numContents.setvalue class main.ed_hdiff.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+			call containsNumlist_h2.settrue
+		}
+	}
+
+	if accrual.ed_study.isvisible() {
+		call numContents.setvalue class accrual.ed_study.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+			call containsNumlist_h2.settrue
+		}
+		call program table_create4Exponential
+	}
+
+	if accrual.ed_fperiod.isvisible() {
+		call numContents.setvalue class accrual.ed_fperiod.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+			call containsNumlist_h2.settrue
+		}
+		call program table_create4Exponential
+	}
+
+	if accrual.ed_aperiod.isvisible() {
+		call numContents.setvalue class accrual.ed_aperiod.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+			call containsNumlist_h2.settrue
+		}
+		call program table_create4Exponential
+	}
+
+	if accrual.ed_aprob.isenabled() {
+		call numContents.setvalue class accrual.ed_aprob.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+			call containsNumlist_h2.settrue
+		}
+		call program table_create4Exponential
+	}
+
+	if accrual.ed_aptime.isenabled() {
+		call numContents.setvalue class accrual.ed_aptime.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+			call containsNumlist_h2.settrue
+		}
+		call program table_create4Exponential
+	}
+
+	if accrual.ed_atime.isenabled() {
+		call numContents.setvalue class accrual.ed_atime.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+			call containsNumlist_h2.settrue
+		}
+		call program table_create4Exponential
+	}
+
+	if accrual.ed_ashape.isenabled() {
+		call numContents.setvalue class accrual.ed_ashape.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+			call containsNumlist_h2.settrue
+		}
+		call program table_create4Exponential
+	}
+
+	if accrual.ed_lossprob.isenabled() {
+		call numContents.setvalue class accrual.ed_lossprob.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+			call containsNumlist_h2.settrue
+		}
+		call program table_create4Exponential
+	}
+
+	if accrual.ed_lossprob1.isenabled() {
+		call numContents.setvalue class accrual.ed_lossprob1.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+			call containsNumlist_h2.settrue
+		}
+		call program table_create4Exponential
+	}
+
+	if accrual.ed_lossprob2.isenabled() {
+		call numContents.setvalue class accrual.ed_lossprob2.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+			call containsNumlist_h2.settrue
+		}
+		call program table_create4Exponential
+	}
+
+	if accrual.ed_losstime.isenabled() {
+		call numContents.setvalue class accrual.ed_losstime.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+			call containsNumlist_h2.settrue
+		}
+		call program table_create4Exponential
+	}
+
+	if accrual.ed_losshaz.isenabled() {
+		call numContents.setvalue class accrual.ed_losshaz.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+			call containsNumlist_h2.settrue
+		}
+		call program table_create4Exponential
+	}
+
+	if accrual.ed_losshaz1.isenabled() {
+		call numContents.setvalue class accrual.ed_losshaz1.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+			call containsNumlist_h2.settrue
+		}
+		call program table_create4Exponential
+	}
+
+	if accrual.ed_losshaz2.isenabled() {
+		call numContents.setvalue class accrual.ed_losshaz2.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+			call containsNumlist_h2.settrue
+		}
+		call program table_create4Exponential
+	}
+
+	if containsNumlist {
+		call main.ck_parallel.enable
+	}
+	else {
+		call main.ck_parallel.disable
+	}
+END
+
+INCLUDE _power_list
+INCLUDE power_errorprob_pr
+INCLUDE power_twosampsi_pr
+INCLUDE power_test_maincommon_pr
+
+PROGRAM accrual_followup_output
+BEGIN
+	if accrual.ed_study.isvisible() {
+		require accrual.ed_study
+		if accrual.ed_study & !accrual.ed_study.isnumlist() {
+			call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource POWER_EXPONENTIAL_TAB_ACCRUAL" ///
+				"resource LBL_DURATION_OF_THE_STUDY" 
+			stopbox stop "class _MSG_TMP.value"
+// On the "Accrual/Follow-up" tab, an invalid numlist is specified for 
+// "Duration of the study".
+		}
+		if accrual.ed_study.isNumlistLT(0) {
+			call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource POWER_EXPONENTIAL_MSGBOX_MUST_NOT_BE_NEGATIVE_FMT" ///
+				"resource POWER_EXPONENTIAL_TAB_ACCRUAL" ///
+				"resource LBL_DURATION_OF_THE_STUDY"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Accrual/Follow-up" tab, "Duration of the study" must not be negative.
+		}
+		optionarg accrual.ed_study
+	}
+	if accrual.ed_fperiod.isvisible() {
+		require accrual.ed_fperiod
+		if accrual.ed_fperiod & !accrual.ed_fperiod.isnumlist() {
+                       call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource POWER_EXPONENTIAL_TAB_ACCRUAL" ///
+				"resource POWER_EXPONENTIAL_ACCRUAL_ED_FPERIOD"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Accrual/Follow-up" tab, an invalid numlist is specified for 
+// "Length of the follow-up period".
+		}
+		if accrual.ed_fperiod.isNumlistLT(0) {
+                       call create STRING _MSG_TMP
+                        call _MSG_TMP.format				/// 
+				"resource POWER_EXPONENTIAL_MSGBOX_MUST_NOT_BE_NEGATIVE_FMT" ///
+				"resource POWER_EXPONENTIAL_TAB_ACCRUAL" ///
+				"resource POWER_EXPONENTIAL_ACCRUAL_ED_FPERIOD"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Accrual/Follow-up" tab, "Length of the follow-up period" must not be negative.
+		}
+		optionarg accrual.ed_fperiod
+	}
+	if accrual.ed_aperiod.isvisible() {
+		require accrual.ed_aperiod
+		if accrual.ed_aperiod & !accrual.ed_aperiod.isnumlist() {
+                       call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource POWER_EXPONENTIAL_TAB_ACCRUAL" ///
+				"resource POWER_EXPONENTIAL_ACCRUAL_ED_APERIOD"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Accrual/Follow-up" tab, an invalid numlist is specified for 
+// "Length of the accrual period".
+		}
+		if accrual.ed_aperiod.isNumlistLT(0) {
+                       call create STRING _MSG_TMP
+                        call _MSG_TMP.format				/// 
+				"resource POWER_EXPONENTIAL_MSGBOX_MUST_NOT_BE_NEGATIVE_FMT" ///
+				"resource POWER_EXPONENTIAL_TAB_ACCRUAL" ///
+				"resource POWER_EXPONENTIAL_ACCRUAL_ED_APERIOD"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Accrual/Follow-up" tab, "Length of the accrual period" must not be negative.
+		}
+		optionarg /hidedefault accrual.ed_aperiod
+	}
+	
+	if accrual.ed_aprob.isenabled() {
+		require accrual.ed_aprob
+		if accrual.ed_aprob & !accrual.ed_aprob.isnumlist() {
+                       call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource POWER_EXPONENTIAL_TAB_ACCRUAL" ///
+				"resource POWER_EXPONENTIAL_ACCRUAL_ED_APROB"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Accrual/Follow-up" tab, an invalid numlist is specified for 
+// "Proportion of subjects expected to be accrued by time t*".
+		}
+		if !(accrual.ed_aprob.isNumlistGT(0) & accrual.ed_aprob.isNumlistLT(1)) {
+			call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_GT_0_LT_1_FMT" ///
+				"resource POWER_EXPONENTIAL_TAB_ACCRUAL" ///
+				"resource POWER_EXPONENTIAL_ACCRUAL_ED_APROB"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Accrual/Follow-up" tab, "Proportion of subjects expected to be accrued by time t*" 
+// must be in (0,1).
+		}
+		optionarg /hidedefault accrual.ed_aprob
+	}
+	
+	if accrual.ed_aptime.isenabled() {
+		require accrual.ed_aptime
+		if accrual.ed_aptime & !accrual.ed_aptime.isnumlist() {
+                       call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource POWER_EXPONENTIAL_TAB_ACCRUAL" ///
+				"resource LBL_PROPORTION_ACCRUAL_PERIOD"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Accrual/Follow-up" tab, an invalid numlist is specified for 
+// "Proportion of the accrual period".
+		}
+		if !(accrual.ed_aptime.isNumlistGT(0) & accrual.ed_aptime.isNumlistLT(1)) {
+			call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_GT_0_LT_1_FMT" ///
+				"resource POWER_EXPONENTIAL_TAB_ACCRUAL" ///
+				"resource LBL_PROPORTION_ACCRUAL_PERIOD"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Accrual/Follow-up" tab, "Proportion of the accrual period" 
+// must be in (0,1).
+		}
+		optionarg /hidedefault accrual.ed_aptime
+	}
+	
+	if accrual.ed_atime.isenabled() {
+		require accrual.ed_atime
+		if accrual.ed_atime & !accrual.ed_atime.isnumlist() {
+                       call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource POWER_EXPONENTIAL_TAB_ACCRUAL" ///
+				"resource LBL_REFERENCE_ACCRUAL_TIME"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Accrual/Follow-up" tab, an invalid numlist is specified for 
+// "Reference accrual time".
+		}
+		if accrual.ed_atime.isNumlistLT(0.01) | accrual.ed_atime.isNumlistGT(0.99) {
+			call create STRING _MSG_TMP
+                        call _MSG_TMP.format				/// 
+				"resource POWER_EXPONENTIAL_MSGBOX_MUST_BE_IN_01_99_FMT" ///
+				"resource POWER_EXPONENTIAL_TAB_ACCRUAL" ///
+				"resource LBL_REFERENCE_ACCRUAL_TIME"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Accrual/Follow-up" tab, "Reference accrual time" must be in [0.01,0.99].
+		}
+		optionarg accrual.ed_atime
+	}
+	
+	if accrual.ed_ashape.isenabled() {
+		require accrual.ed_ashape
+		if accrual.ed_ashape & !accrual.ed_ashape.isnumlist() {
+                       call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource POWER_EXPONENTIAL_TAB_ACCRUAL" ///
+				"resource LBL_SHAPE_PARAMETER"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Accrual/Follow-up" tab, an invalid numlist is specified for 
+// "Shape parameter".
+		}
+		optionarg /hidedefault accrual.ed_ashape
+	}
+	
+	if accrual.ed_lossprob.isvisible() & accrual.ed_lossprob.isenabled() {
+		require accrual.ed_lossprob
+		if accrual.ed_lossprob & !accrual.ed_lossprob.isnumlist() {
+                       call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource POWER_EXPONENTIAL_TAB_ACCRUAL" ///
+				"resource LBL_PROPORTION_SUBJECTS_LOST_FOLLOW_UP_CONT_EXP_GROUPS"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Accrual/Follow-up" tab, an invalid numlist is specified for 
+// "Proportion of subjects lost to follow-up in the control and experimental groups".
+		}
+		if accrual.ed_lossprob.isNumlistLT(0) | accrual.ed_lossprob.isNumlistGE(1) {
+			call create STRING _MSG_TMP
+                        call _MSG_TMP.format				/// 
+				"resource LBL_MSGBOX_ON_TAB_GE_0_LT_1_FMT" ///
+				"resource POWER_EXPONENTIAL_TAB_ACCRUAL" ///
+				"resource LBL_PROPORTION_SUBJECTS_LOST_FOLLOW_UP_CONT_EXP_GROUPS" 
+			stopbox stop "class _MSG_TMP.value"
+// On the "Accrual/Follow-up" tab, "Proportion of subjects lost to follow-up in the control and experimental groups" 
+// must be in [0,1).
+		}
+		optionarg /hidedefault accrual.ed_lossprob
+	}
+	
+	if accrual.ed_lossprob1.isvisible() & accrual.ed_lossprob1.isenabled() {
+		require accrual.ed_lossprob1
+		if accrual.ed_lossprob1 & !accrual.ed_lossprob1.isnumlist() {
+                       call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource POWER_EXPONENTIAL_TAB_ACCRUAL" ///
+				"resource LBL_PROPORTION_SUBJECTS_LOST_FOLLOW_UP_CONTROL_GROUP"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Accrual/Follow-up" tab, an invalid numlist is specified for 
+// "Proportion of subjects lost to follow-up in the control group".
+		}
+		if accrual.ed_lossprob1.isNumlistLT(0) | accrual.ed_lossprob1.isNumlistGE(1) {
+	                call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_GE_0_LT_1_FMT" ///
+				"resource POWER_EXPONENTIAL_TAB_ACCRUAL" ///
+				"resource LBL_PROPORTION_SUBJECTS_LOST_FOLLOW_UP_CONTROL_GROUP"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Accrual/Follow-up" tab, "Proportion of subjects lost to follow-up in the control group" 
+// must be in [0,1).
+		}
+		optionarg /hidedefault accrual.ed_lossprob1
+	}
+	
+	if accrual.ed_lossprob2.isvisible() & accrual.ed_lossprob2.isenabled() {
+		require accrual.ed_lossprob2
+		if accrual.ed_lossprob2 & !accrual.ed_lossprob2.isnumlist() {
+                       call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource POWER_EXPONENTIAL_TAB_ACCRUAL" ///
+				"resource LBL_PROPORTION_SUBJECTS_LOST_FOLLOW_UP_EXP_GROUP"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Accrual/Follow-up" tab, an invalid numlist is specified for 
+// "Proportion of subjects lost to follow-up in the experimental group".
+		}
+		if accrual.ed_lossprob2.isNumlistLT(0) | accrual.ed_lossprob2.isNumlistGE(1) {
+			call create STRING _MSG_TMP
+                        call _MSG_TMP.format				///
+				"resource LBL_MSGBOX_ON_TAB_GE_0_LT_1_FMT" ///
+				"resource POWER_EXPONENTIAL_TAB_ACCRUAL" ///
+				"resource LBL_PROPORTION_SUBJECTS_LOST_FOLLOW_UP_EXP_GROUP"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Accrual/Follow-up" tab, "Proportion of subjects lost to follow-up in the experimental group" 
+// must be in [0,1).
+		}
+		optionarg /hidedefault accrual.ed_lossprob2
+	}
+	
+	if accrual.ed_losstime.isvisible() & accrual.ed_losstime.isenabled() {
+		require accrual.ed_losstime
+		if accrual.ed_losstime & !accrual.ed_losstime.isnumlist() {
+                       call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource POWER_EXPONENTIAL_TAB_ACCRUAL" ///
+				"resource POWER_EXPONENTIAL_ACCRUAL_ED_LOSSTIME"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Accrual/Follow-up" tab, an invalid numlist is specified for 
+// "Time at which the proportion of subjects is lost to follow-up".
+		}
+		if accrual.ed_losstime.isNumlistLE(0) {
+			call create STRING _MSG_TMP
+                        call _MSG_TMP.format				/// 
+				"resource LBL_MSGBOX_ON_TAB_GREATER_THAN_0_FMT" ///
+				"resource POWER_EXPONENTIAL_TAB_ACCRUAL" ///
+				"resource POWER_EXPONENTIAL_ACCRUAL_ED_LOSSTIME"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Accrual/Follow-up" tab, "Time at which the proportion of subjects is lost to follow-up"
+// must be greater than 0.
+		}
+		optionarg /hidedefault accrual.ed_losstime
+	}
+	
+	if accrual.ed_losshaz.isvisible() & accrual.ed_losshaz.isenabled() {
+		require accrual.ed_losshaz
+		if accrual.ed_losshaz & !accrual.ed_losshaz.isnumlist() {
+                       call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource POWER_EXPONENTIAL_TAB_ACCRUAL" ///
+				"resource POWER_EXPONENTIAL_ACCRUAL_ED_LOSSHAZ"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Accrual/Follow-up" tab, an invalid numlist is specified for 
+// "Loss hazard rates common both to the control and experimental groups".
+		}
+		if accrual.ed_losshaz.isNumlistLT(0) {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format				/// 
+				"resource POWER_EXPONENTIAL_MSGBOX_MUST_NOT_BE_NEGATIVE_FMT" ///
+				"resource POWER_EXPONENTIAL_TAB_ACCRUAL" ///
+				"resource POWER_EXPONENTIAL_ACCRUAL_ED_LOSSHAZ"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Accrual/Follow-up" tab, "Loss hazard rates common both to the control and experimental groups"
+// must not be negative.
+		}
+		optionarg /hidedefault accrual.ed_losshaz
+	}
+	
+	if accrual.ed_losshaz1.isvisible() & accrual.ed_losshaz1.isenabled() {
+		require accrual.ed_losshaz1
+		if accrual.ed_losshaz1 & !accrual.ed_losshaz1.isnumlist() {
+			call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource POWER_EXPONENTIAL_TAB_ACCRUAL" ///
+				"resource POWER_EXPONENTIAL_ACCRUAL_ED_LOSSHAZ1"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Accrual/Follow-up" tab, an invalid numlist is specified for 
+// "Loss hazard rates lost to follow-up in the control group".
+		}
+		if accrual.ed_losshaz1.isNumlistLT(0) {
+			call create STRING _MSG_TMP
+                        call _MSG_TMP.format				/// 
+				"resource POWER_EXPONENTIAL_MSGBOX_MUST_NOT_BE_NEGATIVE_FMT" ///
+				"resource POWER_EXPONENTIAL_TAB_ACCRUAL" ///
+				"resource POWER_EXPONENTIAL_ACCRUAL_ED_LOSSHAZ1"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Accrual/Follow-up" tab, "Loss hazard rates lost to follow-up in the control group" 
+// must not be negative.
+		}
+		optionarg /hidedefault accrual.ed_losshaz1
+	}
+	
+	if accrual.ed_losshaz2.isvisible() & accrual.ed_losshaz2.isenabled() {
+		require accrual.ed_losshaz2
+		if accrual.ed_losshaz2 & !accrual.ed_losshaz2.isnumlist() {
+			call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource POWER_EXPONENTIAL_TAB_ACCRUAL" ///
+				"resource POWER_EXPONENTIAL_ACCRUAL_ED_LOSSHAZ2"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Accrual/Follow-up" tab, an invalid numlist is specified for 
+// "Loss hazard rates lost to follow-up in the experimental group".
+		}
+		if accrual.ed_losshaz2.isNumlistLT(0) {
+			call create STRING _MSG_TMP
+                        call _MSG_TMP.format				/// 
+				"resource POWER_EXPONENTIAL_MSGBOX_MUST_NOT_BE_NEGATIVE_FMT" ///
+				"resource POWER_EXPONENTIAL_TAB_ACCRUAL" ///
+				"resource POWER_EXPONENTIAL_ACCRUAL_ED_LOSSHAZ2"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Accrual/Follow-up" tab, "Loss hazard rates lost to follow-up in the experimental group" 
+// must not be negative.
+		}
+		optionarg /hidedefault accrual.ed_losshaz2
+	}
+END
+
+PROGRAM command
+BEGIN
+	put "power exponential"
+	if main.ed_haz1.isvisible() {
+		require main.ed_haz1
+		if !main.ed_haz1.isnumlist() {
+			call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource LBL_TAB_MAIN" 		///
+				"resource POWER_EXPONENTIAL_HAZARD_RATE_IN_CONTROL_GR"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for 
+// "Hazard rate in control group".
+		}
+		
+		if main.ed_haz1.isNumlistLE(0) {
+			call create STRING _MSG_TMP
+                        call _MSG_TMP.format				/// 
+				"resource LBL_MSGBOX_ON_TAB_GREATER_THAN_0_FMT" ///
+				"resource LBL_TAB_MAIN" 		///
+				"resource POWER_EXPONENTIAL_HAZARD_RATE_IN_CONTROL_GR"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Hazard rate in control group" must be greater than 0.
+		}
+		
+		if containsNumlist_h1 {
+			put " ("
+			put main.ed_haz1
+			put ")"
+		}
+		else {
+			put " " main.ed_haz1
+		}
+	}
+
+	if main.ed_haz2.isvisible() {	
+		require main.ed_haz2
+		if !main.ed_haz2.isnumlist() {
+                       call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource LBL_TAB_MAIN" 		///
+				"resource LBL_HAZARD_RATE_IN_EXPERIMENTAL_GROUP"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for
+// "Hazard rate in experimental group".
+		}
+		
+		if main.ed_haz2.isNumlistLE(0) {
+                      call create STRING _MSG_TMP
+                      call _MSG_TMP.format				///
+				"resource LBL_MSGBOX_ON_TAB_GREATER_THAN_0_FMT" ///
+				"resource LBL_TAB_MAIN" 		///
+				"resource LBL_HAZARD_RATE_IN_EXPERIMENTAL_GROUP" 
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Hazard rate in experimental group" must be greater than 0.
+		}
+
+		if containsNumlist_h2 {
+			put " ("
+			put main.ed_haz2
+			put ")"
+		}
+		else {
+			put " " main.ed_haz2
+		}
+	}
+
+	if main.ed_surv1.isvisible() {
+		require main.ed_surv1
+		if !main.ed_surv1.isnumlist() {
+                       call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource LBL_TAB_MAIN" 		///
+				"resource LBL_SURVIVAL_PROBABILITY_IN_CONTROL_GROUP"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for 
+// "Survival probability in control group".
+		}
+		
+		if !(main.ed_surv1.isNumlistGT(0) & main.ed_surv1.isNumlistLT(1)) {
+	                       call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_GT_0_LT_1_FMT" ///
+				"resource LBL_TAB_MAIN" 		///
+				"resource LBL_SURVIVAL_PROBABILITY_IN_CONTROL_GROUP"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Survival probability in control group" must be in (0,1).
+		}
+
+		if containsNumlist_s1 {
+			put " ("
+			put main.ed_surv1
+			put ")"
+		}
+		else {
+			put " " main.ed_surv1
+		}
+	}
+
+	if main.ed_surv2.isvisible() {	
+		require main.ed_surv2
+		if !main.ed_surv2.isnumlist() {
+                       call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource LBL_TAB_MAIN" 		///
+				"resource LBL_SURVIVAL_PROBABILITY_IN_EXPERIMENTAL_GROUP"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for 
+// "Survival probability in experimental group".
+		}
+		
+		if !(main.ed_surv2.isNumlistGT(0) & main.ed_surv2.isNumlistLT(1)) {
+                              call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_GT_0_LT_1_FMT" ///
+				"resource LBL_TAB_MAIN" 		///
+				"resource LBL_SURVIVAL_PROBABILITY_IN_EXPERIMENTAL_GROUP" 
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Survival probability in experimental group" 
+// must be in (0,1).
+		}
+
+		if containsNumlist_s2 {
+			put " ("
+			put main.ed_surv2
+			put ")"
+		}
+		else {
+			put " " main.ed_surv2
+		}
+	}
+	
+	if accrual.cb_timespec.isneq("study_continue") {
+		if !main.ed_haz1.isvisible() & !main.ed_surv1.isvisible() {
+			call create STRING _MSG_TMP
+                        call _MSG_TMP.format						///
+				"resource LBL_MSGBOX_ON_TAB_MUST_BE_SPECIFIED_FMT" 	///
+				"resource LBL_TAB_MAIN"					///
+				"resource POWER_EXPONENTIAL_CONTROL_GR_HR_OR_SURV_PROB"
+				
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Control-group hazard rate or survival probability" must be specified.			
+		}
+	}
+
+	if main.ed_hr.isvisible() {
+		require main.ed_hr
+		if !main.ed_hr.isnumlist() {
+                       call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource LBL_TAB_MAIN" 		///
+				"resource POWER_EXPONENTIAL_MAIN_ED_HR"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for 
+// "Hazard ratio of the experimental to the control group".
+		}
+		
+		if main.ed_hr.isNumlistLE(0) {
+			call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_GREATER_THAN_0_FMT" ///
+				"resource LBL_TAB_MAIN" 		///
+				"resource POWER_EXPONENTIAL_MAIN_ED_HR"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Hazard ratio of the experimental to the control group" 
+// must be greater than 0.
+		}
+	}
+
+	if main.ed_lnhr.isvisible() {
+		require main.ed_lnhr
+		if !main.ed_lnhr.isnumlist() {
+                       call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource LBL_TAB_MAIN" 		///
+				"resource POWER_EXPONENTIAL_MAIN_ED_LNHR"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for
+// "Log hazard-ratio of the experimental to the control group".
+		}
+	}
+
+	if main.ed_hdiff.isvisible() {
+		require main.ed_hdiff
+		if !main.ed_hdiff.isnumlist() {
+                       call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource LBL_TAB_MAIN" 		///
+				"resource POWER_EXPONENTIAL_DIFF_BTW_EXP_CONTROL_GR_HR"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for
+// "Difference between experimental and control group hazard rates".
+		}
+	}
+	beginoptions
+		if main.ed_time.isvisible() {
+			require main.ed_time
+			if !main.ed_time.isnumlist() {
+                       call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource LBL_TAB_MAIN" 		///
+				"resource LBL_REFERENCE_TIME"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for 
+// "Reference time".
+			}
+			
+			if main.ed_time.isNumlistLE(0) {
+			call create STRING _MSG_TMP
+                        call _MSG_TMP.format				/// 
+				"resource LBL_MSGBOX_ON_TAB_GREATER_THAN_0_FMT" ///
+				"resource LBL_TAB_MAIN" 		///
+				"resource LBL_REFERENCE_TIME"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Reference time" must be greater than 0.
+			}
+			optionarg main.ed_time
+		}
+
+		optionarg /hidedefault main.ed_hr
+		optionarg main.ed_lnhr
+		optionarg main.ed_hdiff
+		optionarg /hidedefault main.cb_report_effect
+		option main.ck_logh
+		option main.ck_uncond
+
+		put " " /program power_errorprob_output
+		put " " /program power_twosampsi_output
+		put " " /program power_test_maincommon_output
+		put " " /program accrual_followup_output
+	
+		if rpt.rb_showspec {
+			optionarg rpt.cb_showspec
+		}
+		else {
+			option rpt.rb_show
+		}
+		
+		put " " /program power_table_opts_output
+		put " " /program power_graph_output
+	endoptions
+END
+

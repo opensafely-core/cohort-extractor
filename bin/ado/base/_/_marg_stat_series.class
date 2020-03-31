@@ -1,0 +1,992 @@
+*! version 1.0.0  28jan2019
+version 11
+
+class _marg_stat_series {
+	string	parent	= ""		// objkey
+	string	at	= ""		// matrix name
+	string	atstat	= ""
+	string	marg	= ""		// matrix name
+	string	mvars	= ""		// current margin vars
+	string	mlist	= ""		// list of all margin vars
+
+	array	atspec
+	string	atvars		= ""
+	string	atrevars	= ""
+	string	atcolna		= ""
+	double	hasat		= 0
+	double	haspred		= 0
+	double	has_revar	= 0
+	array	revars
+	string	balvars		= ""
+	double	make_asbal	= 0
+	double	is_asbal	= 0
+
+	string	.xvars	= ""
+
+	double	at_idx0	= 0
+	double	hasmarg	= 0
+	double	se	= 0
+}
+
+program .set_parent
+	.parent = "`0'"
+	.se	= `.`.parent'.se'
+end
+
+program .set_at
+	gettoken at list : 0
+	.at = "`at'"
+	.atstat = `"`:list retok list'"'
+end
+
+program .set_margin
+	gettoken marg mlist : 0
+	.marg = "`marg'"
+	.mvars = "`: colna `marg''"
+	.mlist = "`:list retok mlist'"
+	.hasmarg = "`:colna `marg''" != "_cons"
+end
+
+program .set_at_idx0
+	.at_idx0 = `0'
+end
+
+program .check_at, rclass
+	syntax [, singlemargin]
+	local singlemargin : list sizeof singlemargin 
+	local XLIST : colna `.at'
+	local k : list sizeof XLIST
+	local SLIST `"`.atstat'"'
+	local slist : copy local SLIST
+	local ks 0
+	while `:length local slist' {
+		local ++ks
+		gettoken s slist : slist , bind
+	}
+	if `k' != `ks' {
+		di as err "option at() incorrectly specified"
+		exit 198
+	}
+	local noasobs 1
+	if `singlemargin' {
+		local MLIST : colna `.marg'
+		if "`MLIST'" == "_cons" {
+			local MLIST
+		}
+		local DVARS `"`.`.parent'.xvars'"'
+		foreach x of local DVARS {
+			_ms_parse_parts `x'
+			if r(type) == "factor" {
+				if "`r(ts_op)'" == "" {
+					local name `r(name)'
+				}
+				else {
+					local name `r(ts_op)'.`r(name)'
+				}
+				if !`:list name in DLIST' {
+					local DLIST `DLIST' `name'
+				}
+			}
+		}
+		if `:list sizeof DLIST' > 1 {
+			local DLIST
+		}
+		local MLIST `MLIST' `DLIST'
+	}
+	local slist : copy local SLIST
+	local xlist : copy local XLIST
+	local SLIST
+	forval i = 1/`k' {
+		gettoken s slist : slist, bind
+		gettoken x xlist : xlist
+		if `noasobs' & "`s'" == "asobserved" {
+			if `singlemargin' {
+				_ms_parse_parts `x'
+				if r(type) == "factor" {
+					if "`r(ts_op)'" == "" {
+						local name `r(name)'
+					}
+					else {
+						local name `r(ts_op)'.`r(name)'
+					}
+					if !`:list name in MLIST' {
+						local noasobs 0
+					}
+				}
+				else {
+					local noasobs 0
+				}
+			}
+			else {
+				local noasobs 0
+			}
+		}
+		if missing(`.at'[1,`i']) & "`s'" != "asobserved" {
+			_ms_parse_parts `x'
+			local var `"`r(name)'"'
+			if "`r(ts_op)'" != "" {
+				local var "`r(ts_op)'.`var'"
+			}
+			if "`s'" == "asbalanced" {
+				local asbal `asbal' `x'
+			}
+			else {
+				.atspec[`i'] = "`s'"
+			}
+		}
+		local SLIST `SLIST' `s'
+	}
+	.atstat = `"`SLIST'"'
+	local xlist : copy local XLIST
+	forval i = 1/`k' {
+		gettoken x xlist : xlist
+		if "`x'" != "_cons" {
+			if !missing(`.at'[1,`i']) | ///
+			   !inlist("`.atspec[`i']'", "", "asbalanced") {
+				local atlist `atlist' `x'
+			}
+		}
+	}
+	.hasat	= `.`.parent'.atlist.arrnels' > 1
+	.haspred= `.`.parent'.is_pred' == 2
+
+	if `:length local asbal' {
+		.balvars = "`asbal'"
+		.make_asbal = 1
+	}
+	if `:length local atlist' | `.hasat' {
+		.atvars = "`atlist'"
+		.hasat	= 1
+		.`.parent'.hasat = 1
+		.atcolna = "`XLIST'"
+	}
+	return scalar noasobs = `noasobs'
+end
+
+program .fill_at, rclass
+	args at
+	tempname t0 t1 z
+
+	local k_by = `.`.parent'.k_by'
+	local hasby = `k_by' > 1
+	local if "if `.`.parent'.t_sub'"
+	local c_at = colsof(`at')
+	local r_at = rowsof(`at')
+	local XLIST : colna `at'
+	local xlist : copy local XLIST
+	forval i = 1/`c_at' {
+		gettoken x xlist : xlist
+		if !missing(`at'[1,`i']) {
+			continue
+		}
+		local stat = "`.atspec[`i']'"
+		if "`stat'" == "" {
+			continue
+		}
+		local haso = bsubstr("`stat'",1,1) == "o"
+		if `haso' {
+			local stat = bsubstr("`stat'", 2, .)
+		}
+		if bsubstr("`stat'",1,1) != "(" {
+			if !`haso' & `hasby' {
+				continue
+			}
+			._calc_atstat `x' `if', stat(`stat')
+			if !missing(r(value)) {
+				scalar `z' = r(value)
+				forval j = 1/`r_at' {
+					matrix `at'[`j',`i'] = `z'
+				}
+			}
+		}
+		else {
+			forval j = 1/`r_at' {
+				matrix `at'[`j',`i'] = .g
+			}
+		}
+	}
+	if !`hasby' {
+		exit
+	}
+	local if "if `.`.parent'.t_grp' == \`g'"
+	forval j = 1/`r_at' {
+		matrix `t0' = `at'[`j',1...]
+		forval g = 1/`k_by' {
+			local xlist : copy local XLIST
+			forval i = 1/`c_at' {
+				gettoken x xlist : xlist
+				if !missing(`at'[1,`i']) {
+					continue
+				}
+				local stat = "`.atspec[`i']'"
+				if bsubstr("`stat'",1,1) == "o" {
+					continue
+				}
+				if bsubstr("`stat'",1,1) != "(" {
+					._calc_atstat `x' `if', stat(`stat')
+					if !missing(r(value)) {
+						matrix `t0'[1,`i'] = r(value)
+					}
+				}
+			}
+			matrix `t1' = nullmat(`t1') \ `t0'
+		}
+	}
+	matrix drop `at'
+	matrix rename `t1' `at'
+end
+
+program .check_revar
+	._check_mrevar
+	._check_atrevar
+end
+
+progra ._check_mrevar
+	local mvars : colna `.marg'
+	if "`mvars'" == "_cons" {
+		exit
+	}
+	local xvars `"`.`.parent'.xovars'"'
+	local xrevars `"`.`.parent'.xrevars'"'
+	local k : list sizeof xvars
+	local update 0
+	forval i = 1/`k' {
+		gettoken ox xvars : xvars
+		gettoken rx xrevars : xrevars
+		if `:length local rx' {
+			_ms_parse_parts `ox'
+			if "`r(ts_op)'" != "" {
+				local ox `r(ts_op)'.`r(name)'
+				if `:list ox in mvars' {
+					_ms_parse_parts `rx'
+					local rx `"`r(name)'"'
+					local mvars : subinstr		///
+						local mvars		///
+						"`ox'" "`rx'", word
+					local update 1
+				}
+			}
+		}
+	}
+	if `update' {
+		matrix colna `.marg'= `mvars'
+	}
+end
+
+program ._check_atrevar
+	.has_revar = 0
+	if !`.hasat' {
+		exit
+	}
+	local colna : colna `.at'
+	local xvars `"`.`.parent'.xovars'"'
+	local xrevars `"`.`.parent'.xrevars'"'
+	local atvars `"`.atvars'"'
+	local k : list sizeof xvars
+	forval i = 1/`k' {
+		gettoken ox xvars : xvars
+		gettoken rx xrevars : xrevars
+		if `:length local rx' {
+			if `:list ox in atvars' {
+				local atvars : subinstr local atvars	///
+					"`ox'" "`rx'", word
+				local colna : subinstr local colna	///
+					"`ox'" "`rx'", word
+			}
+		}
+	}
+	if `:length local atvars' {
+		.has_revar = 1
+		.atrevars = "`atvars'"
+		.atcolna = "`colna'"
+	}
+end
+
+program ._pull_margins, rclass
+	_on_colon_parse `0'
+	local mlist `"`s(before)'"'
+	local list `"`s(after)'"'
+	foreach m of local mlist {
+		._pull_factor 0.`m' : `list'
+		local list `"`r(list)'"'
+	}
+	return local list `"`list'"'
+end
+
+program ._pull_factor, rclass
+	gettoken f	0 : 0
+	gettoken COLON	0 : 0
+	_ms_parse_parts `f'
+	if r(type) != "factor" {
+		return local list `"`0'"'
+		exit
+	}
+	local name `r(ts_op)'.`r(name)'
+	foreach x of local 0 {
+		_ms_parse_parts `x'
+		if r(type) == "factor" {
+			local xname `r(ts_op)'.`r(name)'
+			if "`name'" == "`xname'" {
+				local x
+			}
+		}
+		local list `list' `x'
+	}
+	return local list `"`list'"'
+end
+
+program ._balance, eclass
+	gettoken mult balvars : 0
+	tempname b
+	_ms_balance `balvars', `.`.parent'.empty' consvar(`.`.parent'.t_touse')
+	matrix `b' = r(b)
+	ereturn repost b=`b', rename
+	matrix `mult' = r(mult)
+end
+
+program .estimate, rclass
+	args dx
+	local mvars : colna `.marg'
+	if "`mvars'" != "_cons" {
+		tempname ehold
+		_est hold `ehold', copy restore
+		_fv_term_info i.(`mvars'),	individuals	///
+						tsrestripe	///
+						`.`.parent'.FVTImatopt'
+		local revars `"`r(individuals)'"'
+		local k : list sizeof revars
+		.revars.Arrdropall
+		forval i = 1/`k' {
+			gettoken x revars : revars
+			_ms_parse_parts `x'
+			local m `"`r(name)'"'
+			local j : list posof "`m'" in mvars
+			if !`j' {
+				capture local ch : char `m'[tsrevar]
+				if c(rc) {
+					local j 0
+				}
+				else {
+					local j : list posof "`ch'" in mvars
+				}
+				if `j' {
+					set marginsrevars `ch'
+					set marginsmvars `ch'
+				}
+			}
+			else {
+				set marginsmvars `m'
+			}
+			if `j' {
+				.revars[`j'] = "`m'"
+			}
+		}
+		local k : list sizeof mvars
+		forval i = 1/`k' {
+			gettoken m mvars : mvars
+			if "`.revars[`i']'" != "" {
+				local m "`.revars[`i']'"
+			}
+			local MVARS `MVARS' `m'
+		}
+		matrix colna `.marg' = `MVARS'
+	}
+
+	tempname marg b err db nobs touse esbase
+
+	// k_at is a multiple of k_by, since we already expanded .at to include
+	// the number of groups
+
+	local k_at	= rowsof(`.at')
+	local k_by	= `.`.parent'.k_by'
+	local hasby	= `k_by' > 1
+	local k_marg	= rowsof(`.marg')
+	if `hasby' {
+		quietly gen byte `touse' = `.`.parent'.t_grp' == 1
+	}
+	else {
+		local touse `.`.parent'.t_sub'
+	}
+	local g = 1
+	forval i = 1/`k_at' {
+		forval j = 1/`k_marg' {
+			matrix `marg' = `.marg'[`j',1...]
+			._call_compute `dx' `i' `marg' if `touse'
+			matrix `esbase' = nullmat(`esbase'), r(esbase)
+			matrix `b' = nullmat(`b') , r(b)
+			matrix `err' = nullmat(`err') , r(error)
+			matrix `nobs' = nullmat(`nobs') , r(N)
+			if `.se' {
+				matrix `db' = nullmat(`db') \ r(db)
+			}
+		}
+		if `hasby' {
+			local g = mod(`g',`k_by') + 1
+			quietly replace `touse' = `.`.parent'.t_grp' == `g'
+		}
+	}
+	return matrix esbase `esbase'
+	return matrix b `b'
+	return matrix error `err'
+	return matrix N `nobs'
+	if `.se' {
+		return matrix db `db'
+	}
+	matrix colna `.marg' = `.mvars'
+end
+
+// subroutines --------------------------------------------------------------
+
+program ._calc_atstat, rclass
+	syntax anything(name=var) [if] [, stat(name)]
+
+	local wt "`.`.parent'.wt'"
+	if "`stat'" == "zero" {
+		return scalar value = 0
+	}
+	else if inlist("`stat'", "mean", "min", "max") {
+		_ms_parse_parts `var'
+		if r(type) == "factor" {
+			// purposely ignore the base
+			local var `r(level)'`r(ts_op)'.`r(name)'
+		}
+		sum `var' `if' `wt', meanonly
+		return scalar value = r(`stat')
+	}
+	else if inlist("`stat'", "", "asbalanced") {
+		return scalar value = .
+	}
+	else {
+		if "`stat'" == "median" {
+			local p 50
+		}
+		else	local p = bsubstr("`stat'",2,.)
+		fvrevar `var'
+		_pctile `r(varlist)' `if' `wt', p(`p')
+		return scalar value = r(r1)
+	}
+end
+
+program ._call_compute, rclass
+	gettoken dx	0 : 0
+	gettoken atrow	0 : 0
+	gettoken marg	if : 0
+
+	tempname betatemp 
+	_ms_parse_parts `dx'
+	local isvar = r(type) == "variable"
+
+nobreak {
+
+capture noisily break {
+
+	if `.hasmarg' {
+		tempname mhold
+		._preserve_mvars `marg' `mhold'
+	}
+
+	if `.hasat' {
+		if `.has_revar' {
+			local atvars "`.atrevars'"
+		}
+		else {
+			local atvars "`.atvars'"
+		}
+		if `isvar' & "`dx'" != "_cons" {
+			local pull : char `dx'[fvrevar]
+		}
+		if "`pull'" == "" {
+			local pull : copy local dx
+		}
+		._pull_factor `pull' : `atvars'
+		local mlist : colna `marg'
+		._pull_margins `mlist' : `r(list)'
+		local atvars `"`r(list)'"'
+		if `:list sizeof atvars' > 1 | !inlist("`atvars'","","_cons") {
+			tempname ehold hold
+			_est hold `ehold', copy restore
+			local colna `"`.atcolna'"'
+			if "`.`.parent'.t_altb'" != "" {
+
+				tempname altbhold
+				matrix `altbhold' = `.`.parent'.t_altb'
+
+			}
+			_fv_term_info `atvars',	individuals	///
+						tsrestripe	///
+						fvrestripe	///
+						`.`.parent'.FVTImatopt'
+			local listatotal  = r(individuals)
+			local listacambio = r(varlist)
+
+			mata: st_global("e(listatotal)", ///
+			"`listatotal'", "hidden")
+			mata: st_global("e(listacambio)", ///
+			"`listacambio'", "hidden")
+			mata: st_global("e(atvars)", "`atvars'", "hidden")
+			local revars `"`r(individuals)'"'
+			local k : list sizeof revars
+			.revars.Arrdropall
+			forval i = 1/`k' {
+				gettoken x revars : revars
+				if strpos("`x'", ".") {
+					local j : list posof "`x'" in colna
+					// not revar'd/restriped
+					continue
+				}
+				local j : list posof "`x'" in colna
+				if !`j' {
+				    capture local ch : char `x'[tsrevar]
+				    if c(rc) {
+					 local j 0
+				    }
+				    else local j : list posof "`ch'" in colna
+				    if `j' {
+					set marginsrevars `ch'
+				    }
+				}
+				if !`j' {
+				    capture local ch : char `x'[fvrevar]
+				    if c(rc) {
+					 local j 0
+				    }
+				    else local j : list posof "`ch'" in colna
+				}
+				if `j' {
+					.revars[`j'] = "`x'"
+				}
+			}
+			local k : list sizeof colna
+			local in1 = `.`.parent'.use_in1'
+			local marginsatvarsd
+			forval i = 1/`k' {
+				gettoken x colna : colna
+				if "`.revars[`i']'" != "" {
+					local x "`.revars[`i']'"
+				}
+				local xvars `xvars' `x'
+				if !missing(`.at'[`atrow',`i']) {
+				    local ch
+				    capture local ch : char `x'[tsrevar]
+				    if `"`ch'"' == "" {
+				    capture local ch : char `x'[fvrevar]
+				    }
+				    if `"`ch'"' != "" {
+					set marginsatvars `ch'
+				    }
+				    else {
+					set marginsatvars `x'
+				    }
+				    local marginsatvarsd `marginsatvarsd' `x'
+				   
+				}
+				else if `in1' {
+					_ms_parse_parts `x'
+					local name = r(name)
+					if !`:list name in mlist' {
+						local in1 0
+					}
+				}
+			}
+			mata:st_global("e(_erm_marginsatvarsd)",	///
+				"`marginsatvarsd'","hidden")
+			if `in1' {
+				local in in 1
+				.`.parent'.wt = ""
+			}
+			else {
+				.`.parent'.wt = `"`.`.parent'.wt_hold'"' 
+			}
+			if `.`.parent'.restripe' {
+				local xtra `"`.`.parent'.xtra_atvars'"'
+				local orig : list atvars - xtra
+				if `"`orig'"' != "" {
+					_fv_term_info `orig',	///
+						individuals	///
+						tsrestripe	///
+						fvrestripe
+				}
+			}
+			.xvars = "`xvars'"
+			tempname at
+			matrix `at' = `.at'[`atrow',1...]
+			matrix colna `at' = `colna'
+			._preserve_atvars `at' `hold' "`in'"
+
+			local atstripes_np : colna `at'
+			mata: st_matrix("e(atmatrix)", ///
+				st_matrix("`at'"), "hidden")
+			mata: st_global("e(atstripes)", ///
+				"`atstripes_np'", "hidden")
+		}
+	}
+	else if `.`.parent'.use_in1' {
+		local atlist : colna `.at'
+		if !inlist(`"`atlist'"', "", "_cons") {
+			fvrevar `atlist' in 1, list
+			local atlist = r(varlist)
+			local mlist : colna `marg'
+			if `:list atlist === mlist' {
+				local in in 1
+				.`.parent'.wt = ""
+			}
+		}
+	}
+	local k_pred 1
+	if `.haspred' {
+		local k_pred = `.`.parent'._pred.arrnels'
+	}
+	.is_asbal = 0
+	if `.make_asbal' {
+		if `isvar' {
+			if !strpos("`dx'", ".") & "`dx'" != "_cons" {
+				local revar : char `dx'[fvrevar]
+			}
+			if "`revar'" == "" {
+				local revar : copy local dx
+			}
+			._pull_factor `revar' : `.balvars'
+		}
+		else	._pull_factor `dx' : `.balvars'
+		local mlist : colna `marg'
+		._pull_margins `mlist' : `r(list)'
+		local balvars `"`r(list)'"'
+		local byvars `"`.`.parent'.by'"'
+		if `:length local byvars' {
+			._pull_margins `byvars' : `balvars'
+			local balvars `"`r(list)'"'
+		}
+		if `:length local balvars' {
+			.is_asbal = 1
+			.`.parent'.has_asbal = 1
+			tempname mult
+			if !`:length local ehold' {
+				tempname ehold
+				_est hold `ehold', copy restore
+			}
+			foreach f of local balvars {
+				_ms_parse_parts `f'
+				if "`r(ts_op)'" == "" {
+					local var `r(name)'
+				}
+				else {
+					local var `r(ts_op)'.`r(name)'
+				}
+				local BALVARS : list BALVARS | var
+			}
+			if `"`.`.parent'.empty'"' == "reweight" {
+				local fixed : colna `marg'
+				if `"`fixed'"' != "_cons" {
+					local k 0
+					foreach f of local fixed {
+					    local ++k
+					    local lev = `marg'[1,`k']
+					    local BALVARS `BALVARS' `lev'.`f'
+					}
+				}
+				foreach b of local byvars {
+					capture _ms_check_varlist i.`b'
+					if !c(rc) {
+						sum `b' `if', mean
+						local BALVARS `BALVARS'	///
+							`r(min)'.`b'
+					}
+				}
+			}
+			if `isvar' {
+				._balance `mult' `BALVARS'
+			}
+			else {
+				.`.parent'.BALVARS = "`BALVARS'"
+			}
+		}
+	}
+
+ } // capture noisily break
+local rc = c(rc)
+
+	if "`in'" != "" {
+		gettoken ignore TOUSE : if
+		tempname in_nobs
+		sum `TOUSE' `if' `.`.parent'.wt_hold', mean
+		scalar `in_nobs' = r(N)
+		local if
+	}
+
+	if !`rc' {
+capture noisily break {
+
+		tempname b err db nobs esbase
+
+		forval j = 1/`k_pred' {
+			._compute `dx' `atrow' `marg' `j' "`mult'" `if' `in'
+			matrix `esbase' = nullmat(`esbase'), r(esbase)
+			matrix `b' = nullmat(`b') , r(b)
+			matrix `err' = nullmat(`err') , r(error)
+			if "`in'" == "" {
+				matrix `nobs' = nullmat(`nobs') , r(N)
+			}
+			else {
+				.AppendNobs `nobs' `in_nobs'
+			}
+			if `.se' {
+				matrix `db' = nullmat(`db') \ r(db)
+			}
+		}
+		return matrix esbase `esbase'
+		return matrix b `b'
+		return matrix error `err'
+		return matrix N `nobs'
+		if `.se' {
+			return matrix db `db'
+		}
+
+} // capture noisily break
+local rc = c(rc)
+
+	}
+	if "`altbhold'" != "" {
+		matrix `.`.parent'.t_altb' = `altbhold'
+	}
+	if `:length local hold' & `:length local at' {
+		._restore_atvars `at' `hold'
+	}
+
+	if `:length local mhold' {
+		._restore_mvars `marg' `mhold'
+	}
+
+	if !`isvar' {
+		.`.parent'.BALVARS = ""
+	}
+
+} // nobreak
+	exit `rc'
+end
+
+program .AppendNobs
+	args nobs in_nobs
+
+	local dim = colsof(r(N))
+	forval el = 1/`dim' {
+		if el(r(N),1,`el') == 1 {
+			matrix `nobs' = nullmat(`nobs'), `in_nobs'
+		}
+		else {
+			matrix `nobs' = nullmat(`nobs'), el(r(N),1,`el')
+		}
+	}
+end
+
+program ._preserve_mvars
+	args marg hold
+
+	local mvars : colna `marg'
+	local k = colsof(`marg')
+	forval i = 1/`k' {
+		gettoken m mvars : mvars
+		rename `m' `hold'`i'
+		quietly gen `m' = `marg'[1,`i']
+	}
+end
+
+program ._restore_mvars
+	args marg hold
+
+	local mvars : colna `marg'
+	local k = colsof(`marg')
+	forval i = 1/`k' {
+		gettoken m mvars : mvars
+		capture confirm var `hold'`i'
+		if !c(rc) {
+			drop `m'
+			rename `hold'`i' `m'
+		}
+	}
+end
+
+program ._preserve_atvars
+	args at hold in
+
+	local touse `.`.parent'.t_sub'
+	local xvars `"`.xvars'"'
+	local XVARS : copy local xvars
+	local slist `"`.atstat'"'
+	matrix colna `at' = `xvars'
+	local k = colsof(`at')
+	forval i = 1/`k' {
+		gettoken x xvars : xvars
+		gettoken s slist : slist, bind
+		_ms_parse_parts `x'
+		if r(type) != "factor" {
+			if !missing(`at'[1,`i']) {
+				local hold`i' `hold'`i'
+				quietly gen `hold`i'' = `at'[1,`i'] `in'
+			}
+			else if `at'[1,`i'] == .g {
+				local hold`i' `hold'`i'
+				quietly gen `hold`i'' = `s'
+				capture assert !missing(`hold`i'') if `touse'
+				if c(rc) {
+					drop `hold`i''
+di as err "{p 0 0 2}"
+di as err "detected missing values in at(`x'=generate(`s'));{break}"
+di as err "missing values within the estimation sample are not allowed"
+di as err "to result from generate() within"
+di as err "the at() option"
+di as err "{p_end}"
+					exit 459
+				}
+			}
+		}
+	}
+	tempname t
+	forval i = 1/`k' {
+		gettoken x XVARS : XVARS
+		if "`hold`i''" != "" {
+			local tschar : char `x'[tsrevar]
+			local fvchar : char `x'[fvrevar]
+			char `x'[tsrevar]
+			char `x'[fvrevar]
+			rename `x' `t'
+			rename `hold`i'' `x'
+			rename `t' `hold`i''
+			char `x'[tsrevar] `"`tschar'"'
+			char `x'[fvrevar] `"`fvchar'"'
+		}
+	}
+end
+
+program ._restore_atvars
+	args at hold
+
+	local xvars : colna `at'
+	local k = colsof(`at')
+	forval i = 1/`k' {
+		gettoken x xvars : xvars
+		_ms_parse_parts `x'
+		if r(type) != "factor" {
+			if !missing(`at'[1,`i']) | `at'[1,`i'] == .g {
+				capture confirm var `hold'`i'
+				if !c(rc) {
+					local tschar : char `x'[tsrevar]
+					local fvchar : char `x'[fvrevar]
+					drop `x'
+					rename `hold'`i' `x'
+					char `x'[tsrevar] `"`tschar'"'
+					char `x'[fvrevar] `"`fvchar'"'
+				}
+			}
+		}
+	}
+end
+
+program ._compute, rclass
+	gettoken dx	0 : 0
+	gettoken i	0 : 0
+	gettoken marg	0 : 0
+	gettoken j	0 : 0
+	gettoken mult	if : 0
+
+	tempname b err db nobs esbase
+	_ms_parse_parts `dx'
+	local dxfactor = r(type) == "factor"
+	if "`dx'" == "_cons" {
+		.`.parent'.est1 `if', mult(`mult') pred(`j') 
+	}
+	else {
+		.`.parent'.est2 `if', xvar(`dx') mult(`mult') pred(`j')
+	}
+	scalar `esbase' = r(esbase)
+	matrix `b'     = r(b)
+	matrix `err'   = cond(r(not_estimable)==1, 8, 0)
+	matrix `nobs'  = r(N)
+	scalar betamss = 0 
+	scalar nmss    = 0 
+	mata: st_numscalar("betamss", st_matrix("`b'") == ///
+	J(1, cols(st_matrix("`b'")), .))
+	mata: st_numscalar("nmss", st_matrix("`nobs'") == ///
+	J(1, cols(st_matrix("`nobs'")), .))
+	if `.se' {
+		if (betamss==1|nmss==1) {
+			if ("`e(cmd_loco)'"!="_npreg_series_two") {
+				matrix `db' = 0*e(b)
+			}
+			else {
+				matrix `db' = 0*e(b_series)
+			}
+		}
+		else {
+			matrix `db' = r(db)
+		}
+	}
+	local hasby `.`.parent'.hasby'
+	if `hasby' {
+		local k_by = `.`.parent'.k_by'
+	}
+
+	if `.haspred' {
+		if `.`.parent'._pred.arrnels' > 1 {
+			local colna `colna'`cross'`j'._predict
+			local cross "#"
+		}
+	}
+	if `.hasat' {
+		if `.`.parent'.atrows' > 1 {
+			if `hasby' {
+				local ii = floor((`i'-1)/`k_by')+1+`.at_idx0'
+			}
+			else {
+				local ii = `i' + `.at_idx0'
+			}
+			local colna `colna'`cross'`ii'._at
+			local cross "#"
+		}
+	}
+	if `hasby' {
+		local gmat `.`.parent'.t_gmat'
+		local ii = mod(`i'-1,`k_by') + 1
+		local colna `colna'`cross'`.`.parent'.bylist[`ii']'
+		local cross "#"
+	}
+	if `.hasmarg' {
+		local mvars `"`.mvars'"'
+		local K = colsof(`marg')
+		forval k = 1/`K' {
+			gettoken m mvars : mvars
+			local level = `marg'[1,`k']
+			local colna `colna'`cross'`level'.`m'
+			local cross "#"
+		}
+	}
+	if !`:length local colna' {
+		local colna _cons
+	}
+	if "`dx'" != "_cons" {
+		.`.parent'.get_dx_oname odx : `dx'
+		local colna `"`odx':`colna'"'
+	}
+	matrix colna `b' = `colna'
+	return matrix b `b'
+	return matrix error `err'
+	matrix colna `nobs' = `colna'
+	return scalar esbase = `esbase'
+	return matrix N `nobs'
+	if `.se' {
+		if `.is_asbal' & !`dxfactor' {
+			mata: st_matrix("`db'",	///
+					st_matrix("`db'") :* ///
+					abs(st_matrix("`mult'")))
+		}
+		matrix rowna `db' = `colna'
+		if ("`e(cmd_loco)'"!="_npreg_series_two") {
+			matrix colna `db' = `:colful e(b)'
+		}
+		else {
+			matrix colna `db' = `:colful e(b_series)'
+		}
+		return matrix db `db'
+	}
+end
+
+exit

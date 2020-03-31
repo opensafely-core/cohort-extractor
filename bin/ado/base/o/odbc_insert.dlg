@@ -1,0 +1,210 @@
+/*
+  odbc_insert.dlg
+
+*! VERSION 1.1.2 19jan2018
+
+*/
+
+VERSION 14.0
+SYNCHRONOUS_ONLY
+MODAL
+
+INCLUDE _std_large
+DEFINE _dlght 385 
+INCLUDE header
+
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource ODBC_INSERT_DLG_HSCALE
+END
+
+PROGRAM PREINIT_PROGRAM
+BEGIN
+	call create BOOLEAN isLoading
+	call create STRING odbc_err_msg
+	call create DOUBLE command_flag
+	call isLoading.settrue
+	put "capture odbc list"
+	stata hidden immediate
+	call command_flag.setvalue 0
+END
+
+SCRIPT POSTINIT
+BEGIN
+	isLoading.setfalse
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN) 		///	
+	title(resource ODBC_INSERT_DLG_TITLE)
+BEGIN
+  BUTTON   bu_set_auth	_rj100	_top	100	.,	///
+	label(resource LBL_AUTHENTICATION)		///
+	onpush(program main_set_auth)			///
+	tooltip(resource LBL_CLICK_SET_YOUR_DATABASE_USER_ID_PASSWORD)
+  TEXT     tx_dsn	_lft	_topph	_cwd1	.,	///
+	label(resource LBL_ODBC_DATA_SOURCES)		
+  LISTBOX  lb_dsn	_lft	_ss	_iwd	80,	///
+	nomemory					///
+	onselchange(program ds_selected)		///
+	option(dsn)					///
+	contents(.__ODBC_INFO.DSLABEL) values(.__ODBC_INFO.DS)
+
+  TEXT     tx_tables	_lft	+90	_cwd1	.,	///
+	label(resource LBL_TABLES)
+  COMBOBOX  cb_tables	_lft	_ss	_iwd	150,	///
+	nomemory					///
+	dropdown					///
+	append						///
+	option(table)					///
+	onselchange(program table_selected)		///
+	contents(.__ODBC_INFO.TABLE)			///
+	label(resource LBL_TABLES)
+
+  TEXT tx_varlist	_lft	_ls	_cwd1	.,	///
+	label(resource LBL_VARIABLES)
+  VARLIST vl_varlist	@	_ss	_iwd	.,	///
+	label(resource LBL_VARIABLES)
+  TEXT tx_aslist	_lft	_ls	_cwd1	.,	///
+	label(resource ODBC_INSERT_MAIN_TX_ASLIST)
+  COMBOBOX  cb_asvars	@	_ss	_iwd	.,	///
+	nomemory					///
+	dropdown					///
+	append						///
+	contents(.__ODBC_INFO.VARIABLES)		///
+	label(resource LBL_VARIABLES)
+
+  GROUPBOX gb_iopts	_lft	_ls	_iwd	_ht2,	/// 
+	label(resource ODBC_INSERT_MAIN_GB_IOPTS) 
+  RADIO rb_insert	_ilft	_ss	_cwd1	.,	///
+	first						///
+	option(insert)					///
+	label(resource ODBC_INSERT_MAIN_RB_INSERT)
+  DEFINE y @y 
+  RADIO rb_overwrite	_lft2	y	@	., last	///
+	option(overwrite)				///
+	label(resource ODBC_INSERT_MAIN_RB_OVERWRITE)
+  
+  CHECKBOX ck_quoted	_lft	_xls	_cwd1	.,	///
+	option(quoted)					///
+	label(resource ODBC_INSERT_MAIN_CK_QUOTED)
+  CHECKBOX ck_block	_lft2	@	@	.,	///
+	option(block)					///
+	label(resource ODBC_INSERT_MAIN_CK_BLOCK)
+  
+END
+
+PROGRAM ds_selected
+BEGIN
+	call .__ODBC_INFO.TABLE.Arrdropall
+	call .__ODBC_INFO.VARIABLES.Arrdropall
+
+	if isLoading {
+		exit
+	}
+
+	if main.lb_dsn {
+		put "capture odbc query "
+		put `"""'
+		put main.lb_dsn
+		put `"""'
+		stata hidden immediate
+
+		call odbc_err_msg.setvalue class .__ODBC_INFO.ODBC_ERR_MSG
+	
+		if (odbc_err_msg) {
+			call command_flag.setvalue 1
+			call create CHILD odbc_error
+			call main.cb_tables.repopulate
+			call main.cb_asvars.repopulate
+		}
+		else {
+			call main.cb_tables.repopulate
+			call main.cb_asvars.repopulate
+		}
+	}
+END
+
+PROGRAM table_selected
+BEGIN
+	if isLoading {
+		exit
+	}
+	call .__ODBC_INFO.VARIABLES.Arrdropall
+	call main.cb_asvars.setvalue ""
+	
+	if main.lb_dsn  & main.cb_tables {
+		put "capture odbc describe "
+		put `"""'
+			put main.cb_tables
+		put `"""'
+		beginoptions
+			optionarg /quoted main.lb_dsn
+		endoptions
+
+		stata hidden immediate
+
+		call odbc_err_msg.setvalue class .__ODBC_INFO.ODBC_ERR_MSG
+	
+		if (odbc_err_msg) {
+			call command_flag.setvalue 2
+			call create CHILD odbc_error
+			call main.cb_asvars.repopulate
+		}
+		else {
+			call main.cb_asvars.repopulate
+		}
+	}
+END
+
+PROGRAM main_set_auth
+BEGIN
+	call create STRING odbc_insert_result // Not used
+	call create CHILD odbc_setauth
+	call odbc_setauth.setExitString "odbc_insert_result"	
+	call odbc_setauth.setExitAction "program process_setauth"	
+	
+END
+
+PROGRAM process_setauth
+BEGIN
+	if(command_flag.iseq(1)) {
+		call program ds_selected
+	}	
+	if(command_flag.iseq(2)){
+		call program table_selected
+	}	
+END
+
+INCLUDE ifin
+
+PROGRAM command
+BEGIN
+	if ! main.lb_dsn | ! main.cb_tables {
+		call create STRING _MSG_TMP
+                call _MSG_TMP.format 					///
+			"resource LBL_MSGBOX_DATA_SOURCE_TABLE_NOT_SELECTED_FMT" ///
+			"resource LBL_TAB_MAIN"
+                stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, A data source and table have not been selected.
+        }
+
+	put "odbc insert "
+
+	if main.vl_varlist {
+		put main.vl_varlist
+	}
+	put " " /program ifin_output
+	beginoptions
+		if main.cb_asvars {
+			put `"as(""'
+			put main.cb_asvars
+			put `"")"'
+		}
+		optionarg /quoted main.lb_dsn
+		optionarg /quoted main.cb_tables
+		option main.ck_quoted
+		option radio(main rb_insert rb_create rb_overwrite)	
+	endoptions
+END

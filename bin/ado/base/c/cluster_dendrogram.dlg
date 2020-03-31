@@ -1,0 +1,230 @@
+/*
+  cluster dendrogram
+
+*!  VERSION 2.1.2  19dec2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_xwide
+DEFINE _dlght 300
+INCLUDE header
+HELP hlp1, view("help cluster_dendrogram")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING oldCluster // < stata 10 cluster results
+	create STRING newCluster
+	create LIST  clusters
+	program getClusters
+	setscale_hadj resource CLUSTER_DENDROGRAM_DLG_HSCALE
+END
+
+PROGRAM getClusters
+BEGIN
+	call oldCluster.setvalue char _dta[_cl]
+	call newCluster.setvalue char _dta[_cluster_objects]
+	if newCluster {
+		call newCluster.tokenize clusters
+	}
+	else {
+		call oldCluster.tokenize clusters
+	}
+	call main.lb_clname.repopulate
+END
+
+SCRIPT POSTINIT
+BEGIN
+	gr_line_options.settabtitle resource LBL_TAB_PLOT
+END
+
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	label(resource CLUSTER_DENDROGRAM_DLG_TITLE)
+BEGIN
+  TEXT     tx_clname    _lft      _top      105       .,		///
+	label(resource LBL_CLUSTER_ANALYSIS)
+  LISTBOX  lb_clname    @         _ss       @         70,		///
+	contents(clusters)						///
+	label(resource LBL_CLUSTER_ANALYSIS)
+  BUTTON   bu_reset	+110      @         75        .,		///
+	label(resource CLUSTER_DENDROGRAM_MAIN_BU_RESET)		///
+	tooltip(resource CLUSTER_DENDROGRAM_MAIN_BU_RESET_TOOLTIP)	///
+	onpush(program getClusters)
+  DEFINE y @y
+
+  CHECKBOX ck_quick     _lft      +85       _cwd3_0   .,		///
+	option(quick)							///
+	label(resource CLUSTER_DENDROGRAM_MAIN_CK_QUICK)
+
+  TEXT     tx_labels    @         _ms       @         .,		///
+	label(resource CLUSTER_DENDROGRAM_MAIN_TX_LABELS)
+  VARNAME  vn_labels    @         _ss       _vnwd     .,		///
+	option(labels)							///
+	label(resource CLUSTER_DENDROGRAM_MAIN_TX_LABELS)
+
+  GROUPBOX gb_orient    @         _ls       _cwd3_1   _ht4,		///
+  	label(resource LBL_ORIENTATION)
+  RADIO    rb_vert	_ilft     _ss       _cwd3_3   .,		///
+  	first label(resource LBL_VERTICAL)
+  RADIO    rb_horizontal @        _ss       @         ., 		///
+  	last label(resource LBL_HORIZONTAL) option(horizontal)
+
+  GROUPBOX gb_branches	_lft3_2   _top      _comb3_1  _ht9,		///
+  	label(resource CLUSTER_DENDROGRAM_MAIN_GB_BRANCHES)
+  RADIO    rb_all       _indent   _ss       _inwd     ., first		///
+	onclickon(script nocut)						///
+	label(resource CLUSTER_DENDROGRAM_MAIN_RB_ALL)
+  RADIO    rb_cutnumber @         _ss       @         ., 		///
+  	label(resource CLUSTER_DENDROGRAM_MAIN_RB_CUTNUMBER)		///
+	onclickon(script cutnum)
+  RADIO    rb_cutvalue  @         _ss       @         ., 		///
+  	last label(resource CLUSTER_DENDROGRAM_MAIN_RB_CUTVALUE)	///
+	onclickon(script cutval)
+
+  SPINNER  sp_cutnumber @         _ls       _en7wd    .,		///
+	min(2) max(100) default(20)					///
+	option(cutnumber)						///
+	label(resource CLUSTER_DENDROGRAM_MAIN_SP_CUTNUMBER)
+  EDIT     en_cutvalue  @         @         _en7wd    ., numonly	///
+	option(cutvalue)						///
+	label(resource CLUSTER_DENDROGRAM_MAIN_EN_CUTVALUE)
+  TEXT     tx_cutnumber _en7sep   @         200       .,		///
+	label(resource CLUSTER_DENDROGRAM_MAIN_SP_CUTNUMBER)
+  TEXT     tx_cutvalue  @         @         @         .,		///
+	label(resource CLUSTER_DENDROGRAM_MAIN_EN_CUTVALUE)
+
+  CHECKBOX ck_showcnt   _lft3_2    _xxls    _comb3_1  _ht8,		///
+  	groupbox							///
+  	onclickon(program check_showcount)				///
+  	onclickoff(program check_showcount)				///
+	option(showcount)						///
+	label(resource CLUSTER_DENDROGRAM_MAIN_CK_SHOWCNT)
+  EDIT     ed_cntprefix _indent   _ms       _en14wd   .,		///
+  	default("n=")							///
+  	option(countprefix)						///
+  	label(resource CLUSTER_DENDROGRAM_MAIN_ED_CNTPREFIX)
+DEFINE holdx @x
+  TEXT     tx_cntprefix _en14sep  @         _en14r3cb .,		///
+  	label(resource CLUSTER_DENDROGRAM_MAIN_ED_CNTPREFIX)
+  EDIT     ed_cntsuffix holdx     _ms       _en14wd   .,		///
+  	default("")							///
+  	option(countsuffix)						///
+  	label(resource CLUSTER_DENDROGRAM_MAIN_ED_CNTSUFFIX)
+  TEXT     tx_cntsuffix _en14sep  @         _en14r3cb .,		///
+  	label(resource CLUSTER_DENDROGRAM_MAIN_ED_CNTSUFFIX)
+  CHECKBOX ck_cntinline holdx     _ls       465       .,		///
+  	option(countinline)						///
+  	label(resource CLUSTER_DENDROGRAM_MAIN_CK_CNTINLINE)
+
+END
+
+SCRIPT nocut
+BEGIN
+	main.sp_cutnumber.hide
+	main.tx_cutnumber.hide
+	main.en_cutvalue.hide
+	main.tx_cutvalue.hide
+	main.gb_branches.setposition . . . 90
+	main.ck_showcnt.hide
+	main.ed_cntprefix.hide
+	main.tx_cntprefix.hide
+	main.ed_cntsuffix.hide
+	main.tx_cntsuffix.hide
+	main.ck_cntinline.hide
+END
+
+SCRIPT cutnum
+BEGIN
+	main.sp_cutnumber.show
+	main.tx_cutnumber.show
+	main.en_cutvalue.hide
+	main.tx_cutvalue.hide
+	main.gb_branches.setposition . . . 125
+	main.ck_showcnt.show
+	main.ed_cntprefix.show
+	main.tx_cntprefix.show
+	main.ed_cntsuffix.show
+	main.tx_cntsuffix.show
+	main.ck_cntinline.show
+END
+
+SCRIPT cutval
+BEGIN
+	main.sp_cutnumber.hide
+	main.tx_cutnumber.hide
+	main.en_cutvalue.show
+	main.tx_cutvalue.show
+	main.gb_branches.setposition . . . 125
+	main.ck_showcnt.show
+	main.ed_cntprefix.show
+	main.tx_cntprefix.show
+	main.ed_cntsuffix.show
+	main.tx_cntsuffix.show
+	main.ck_cntinline.show
+END
+
+PROGRAM check_showcount
+BEGIN
+	if main.ck_showcnt {
+		call main.ed_cntprefix.enable
+		call main.tx_cntprefix.enable
+		call main.ed_cntsuffix.enable
+		call main.tx_cntsuffix.enable
+		call main.ck_cntinline.enable
+	}
+	if ! main.ck_showcnt {
+		call main.ed_cntprefix.disable
+		call main.tx_cntprefix.disable
+		call main.ed_cntsuffix.disable
+		call main.tx_cntsuffix.disable
+		call main.ck_cntinline.disable
+	}
+END
+
+INCLUDE ifin
+INCLUDE gr_line_options
+INCLUDE gr_addplots_2
+INCLUDE gr_yaxis
+INCLUDE gr_xaxis
+INCLUDE gr_titles
+INCLUDE gr_legend
+INCLUDE gr_overall
+
+PROGRAM command
+BEGIN
+	put "cluster dendrogram " main.lb_clname
+	put " " /program ifin_output
+	beginoptions
+		option main.ck_quick
+		optionarg main.vn_labels
+		option main.rb_horizontal
+		if main.rb_cutnumber {
+			optionarg main.sp_cutnumber
+		}
+		if main.rb_cutvalue {
+			require main.en_cutvalue
+			optionarg main.en_cutvalue
+		}
+		if main.ck_showcnt {
+			option main.ck_showcnt
+			if !default(main.ed_cntprefix) & main.ed_cntprefix {
+				optionarg /quoted main.ed_cntprefix
+			}
+			if !default(main.ed_cntsuffix) & main.ed_cntsuffix {
+				optionarg /quoted main.ed_cntsuffix
+			}
+			option main.ck_cntinline
+		}
+
+		put " " /program gr_line_options_output
+		put " " /program gr_addplots_output
+		put " " /program gr_yaxis_output
+		put " " /program gr_xaxis_output
+		put " " /program gr_titles_output
+		put " " /program gr_legend_output
+		put " " /program gr_overall_output
+	endoptions
+END

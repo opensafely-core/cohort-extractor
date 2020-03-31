@@ -1,0 +1,2112 @@
+/*
+    irt.dlg
+
+*!  VERSION 1.1.20  20nov2019
+
+*/
+
+VERSION 14.0
+POSITION . . 700 540
+CANCEL can1, label(resource LBL_BU_CLOSE) target(dialog) uaction(on_close)
+HELP hlp1, view(help irt)
+RESET res1
+
+PROGRAM on_close
+BEGIN
+	call SaveState
+END
+
+SCRIPT PREINIT
+BEGIN	
+	create STRING AdvancedOptsResult
+	create STRING HybridModelsResult
+	create STRING ReportAdvancedOptsResult
+	create STRING GraphICCAllOptsResult
+	create STRING GraphICCSelOptsResult
+	create STRING GraphCCCAllOptsResult
+	create STRING GraphCCCSelOptsResult
+	create STRING GraphTCCOptsResult
+	create STRING GraphIIFAllOptsResult
+	create STRING GraphIIFSelOptsResult
+	create STRING GraphTIFOptsResult
+	create STRING GraphICCBuildResult
+	create STRING GraphICCBuildSelResult
+	create STRING GraphCCCBuildResult
+	create STRING GraphCCCBuildSelResult
+	create STRING GraphIIFBuildResult
+	create STRING GraphIIFBuildSelResult
+	create STRING ModelName
+	create STRING ModelDisplayName
+	create STRING CmdLine
+	create STRING CmdName
+	create STRING _irt_items
+	create LIST   _irt_ITEM_LIST
+	create STRING pbyoutput
+	create STRING psvyoutput
+	create STRING GraphVarselFvResult
+	create STRING formatString
+	create STRING group_var
+	create STRING e_group_var
+	e_group_var.setvalue e(groupvar)
+	
+	create BOOLEAN hasSortOrder
+	create BOOLEAN hasSvy
+	create STRING irt_svyset
+	setscale_hadj resource IRT_DLG_HSCALE
+	program svy_check_title
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	call program set_state
+	if AdvancedOptsResult | pbyoutput.isneq("") | psvyoutput.isneq("") {
+		call irt.btn_advopts.modified_on
+	}
+	else {
+		call irt.btn_advopts.modified_off
+	}
+END
+
+PROGRAM ON_DOTPROMPT
+BEGIN
+	call program set_state
+END
+
+PROGRAM set_state
+BEGIN
+	if irt.btn_1 {
+		call program OnBTN1
+	}
+	if irt.btn_2 {
+		call program OnBTN2
+	}
+	if irt.btn_3 {
+		call program OnBTN3
+	}
+	if irt.btn_4 {
+		call program OnBTN4
+	}
+	if irt.btn_5 {
+		call program OnBTN5
+	}
+	call CmdLine.setvalue e(cmdline)
+	call CmdName.setvalue e(cmd2)
+	
+	call _irt_items.setvalue e(item_list)
+	call _irt_ITEM_LIST.Arrdropall
+	call _irt_items.tokenize _irt_ITEM_LIST
+	call irt.cb_ritem.repopulate
+	call irt.cb_varsel.repopulate
+	
+	if CmdName.iseq("irt") {
+		if CmdLine.contains("hybrid") {
+			call ModelName.setvalue "hybrid"
+		}
+		else {
+			call ModelName.setvalue e(model1)
+		}
+		if irt.vn_model_group.isneq("") | e_group_var.isneq("") {
+			call irt.rb_greport.enable
+		}
+		else {
+			call irt.rb_greport.disable
+		}
+	}
+	if ModelName.iseq("") {
+		call irt.tx_irt_query.setlabel resource IRT_MODEL_NO_MODEL_IN_MEMORY
+	}	
+	if ModelName.iseq("1pl") {
+		call irt.tx_irt_query.setlabel resource IRT_MODEL_ONE_PARAMETER_LOGISTIC_MODEL
+	}
+	if ModelName.iseq("2pl") {
+		call irt.tx_irt_query.setlabel resource IRT_MODEL_TWO_PARAMETER_LOGISTIC_MODEL
+	}
+	if ModelName.iseq("3pl") {
+		call irt.tx_irt_query.setlabel resource IRT_MODEL_THREE_PARAMETER_LOGISTIC_MODEL
+	}
+	if ModelName.iseq("grm") {
+		call irt.tx_irt_query.setlabel resource IRT_MODEL_GRADED_RESPONSE_MODEL
+	}
+	if ModelName.iseq("pcm") {
+		call irt.tx_irt_query.setlabel resource IRT_MODEL_PARTIAL_CREDIT_MODEL
+	}
+	if ModelName.iseq("gpcm") {
+		call irt.tx_irt_query.setlabel resource IRT_MODEL_GENERALIZED_PARTIAL_CREDIT_MODEL
+	}
+	if ModelName.iseq("rsm") {
+		call irt.tx_irt_query.setlabel resource IRT_MODEL_RATING_SCALE_MODEL
+	}
+	if ModelName.iseq("nrm") {
+		call irt.tx_irt_query.setlabel resource IRT_MODEL_NOMINAL_RESPONSE_MODEL
+	}
+	if ModelName.iseq("hybrid") {
+		call irt.tx_irt_query.setlabel resource IRT_MODEL_HYBRID_MODELS
+	}
+	
+	if __MESSAGE.contains("graph_icc") {
+		call irt.btn_3.seton
+		call irt.rb_icc.seton 
+	}
+	if __MESSAGE.contains("graph_ccc") {
+		call irt.btn_3.seton
+		call irt.rb_ccc.seton
+	}
+	if __MESSAGE.contains("graph_iif") {
+		call irt.btn_3.seton
+		call irt.rb_iif.seton
+	}
+	if __MESSAGE.contains("graph_tcc") {
+		call irt.btn_3.seton
+		call irt.rb_tcc.seton
+	}
+	if __MESSAGE.contains("graph_tif") {
+		call irt.btn_3.seton
+		call irt.rb_tif.seton
+	}
+	if __MESSAGE.contains("report") {
+		call irt.btn_2.seton
+	}
+	if ModelName.iseq("grm") | ModelName.iseq("pcm") |		///
+		ModelName.iseq("gpcm") | ModelName.iseq("rsm") |	///
+		ModelName.iseq("nrm") {
+		call irt.rb_icc.setlabel "resource IRT_IRT_RB_ICC_BCC"
+	}
+	else {
+		call irt.rb_icc.setlabel "resource IRT_IRT_RB_ICC"
+	}
+END
+
+PROGRAM svy_check_title
+BEGIN
+	if __MESSAGE.contains("-svy-") {
+		call settitle resource IRT_SVY_DLG_TITLE
+		call hasSvy.settrue
+	}
+	else {
+		call settitle resource IRT_DLG_TITLE
+		call hasSvy.setfalse
+	}
+END
+
+DIALOG irt, title(resource IRT_DLG_TITLE)
+BEGIN
+  RADIO btn_1			10	20	100	80, panebutton	///
+	first								///
+	onclickon(program OnBTN1)					///
+	label(resource LBL_TAB_MODEL)					///
+	tooltip(resource IRT_IRT_BTN_1)
+  RADIO btn_2			10	+80	100	80, panebutton	///
+	onclickon(program OnBTN2)					///
+	label(resource LBL_REPORT)					///
+	tooltip(resource IRT_IRT_BTN_2)
+  RADIO btn_3			10	+80	100	80, panebutton	///
+	onclickon(program OnBTN3)					///
+	label(resource LBL_GRAPH)					///
+	tooltip(resource IRT_IRT_BTN_3)
+  RADIO btn_4			10	+80	100	80, panebutton	///
+	onclickon(program OnBTN4)					///
+	label(resource IRT_IRT_TAB_DIFF)				///
+	tooltip(resource IRT_IRT_BTN_4)
+  RADIO btn_5			10	+80	100	80, panebutton	///
+	last								///
+	onclickon(program OnBTN5)					///
+	label(resource IRT_FINISH)					///
+	tooltip(resource IRT_IRT_BTN_5)
+	
+  GROUPBOX gb_label		120	15	570	495,		///
+	label("")
+  TEXT tx_general		130	40	550	.,		///
+	label(resource LBL_FEATURE_CURRENTLY_NOT_AVAILABLE)
+  TEXTBOX tb_general +20 +20 -40 30,
+	
+/* -------------------- Model Button -------------------- */
+
+  BUTTON btn_clogstart		570	15	120	.,		///
+	onpush(program model_submit_cmdlog)				///
+	label(resource IRT_IRT_BTN_CLOGSTART)
+
+  GROUPBOX gb_model		130	55	550	405,		///
+	label(resource LBL_MODELS)
+  TEXT	tx_bmodel		140	75	500	.,		///
+	label(resource IRT_IRT_TX_BMODEL)
+  TEXT	tx_omodel		140	160	500	.,		///
+	label(resource IRT_IRT_TX_OMODEL)
+  TEXT	tx_umodel		140	265	500	.,		///
+	label(resource IRT_IRT_TX_UMODEL)
+  TEXT	tx_hmodel		140	310	500	.,		///
+	label(resource IRT_HYBRID_MODELS)
+  RADIO rb_pl1			165	95	500	., 		///
+	first								///
+	onclickon(program model_show_tab)				///
+	label(resource IRT_IRT_RB_PL1)
+  RADIO rb_pl2			165	115	500	., 		///
+	onclickon(program model_show_tab)				///
+	label(resource IRT_IRT_RB_PL2)
+  RADIO rb_pl3			165	135	500	., 		///
+	onclickon(program model_show_tab)				///
+	label(resource IRT_IRT_RB_PL3)
+  RADIO rb_grm			165	180	500	., 		///
+	onclickon(program model_show_tab)				///
+	label(resource IRT_IRT_RB_GRM)
+  RADIO rb_pcm			165	200	500	., 		///
+	onclickon(program model_show_tab)				///
+	label(resource IRT_IRT_RB_PCM)
+  RADIO rb_gpcm			165	220	500	., 		///
+	onclickon(program model_show_tab)				///
+	label(resource IRT_IRT_RB_GPCM)
+  RADIO rb_rsm			165	240	500	., 		///
+	onclickon(program model_show_tab)				///
+	label(resource IRT_IRT_RB_RSM)
+  RADIO rb_nrm			165	285	500	., 		///
+	onclickon(program model_show_tab)				///
+	label(resource IRT_IRT_RB_NRM)
+  RADIO rb_hyb			165	330	500	., 		///
+	last								///
+	onclickon(program model_show_tab)				///
+	label(resource IRT_HYBRID_MODELS)
+	
+  TEXT	tx_eitem		140	355	500	.,		///
+	label(resource IRT_ITEMS)
+  TEXT	tx_hybmodel		@	@	@	.,		///
+	label(resource LBL_MODEL)
+  VARLIST vl_eitem		140	375	530	.,		///
+	label(resource IRT_ITEMS)
+  EDIT  ed_hybmodel		140	375	440	.,		///
+	label(resource IRT_IRT_ED_HYBMODEL)
+  BUTTON btn_hyb		585	375	85	.,		///
+	onpush(program model_submit_hybrid)				///
+	tooltip(resource IRT_IRT_BTN_HYP)				///
+	label(resource LBL_BU_CREATE)
+
+  TEXT	tx_model_group		140	400	420	.,		///
+	label(resource LBL_GROUP_VARIABLE)
+  VARNAME vn_model_group	140	420	120	.,		///
+	numeric								///
+	label(resource LBL_GROUP_VARIABLE)
+
+  BUTTON btn_fit		585	430	85	.,		///
+	onpush(program model_submit_fit)				///
+	label(resource IRT_IRT_BTN_FIT)
+  BUTTON btn_advopts		130	470	150	.,		///
+	onpush(program model_submit_advopts)				///
+	label(resource LBL_ADVANCED_OPTIONS)
+	
+/* -------------------- Report Button -------------------- */
+  GROUPBOX gb_rcommon		130	40	550	360,		///
+	label(resource IRT_IRT_GB_RCOMMON)
+
+  RADIO rb_report		140	60	520	., first	///
+	onclickon(script irt_report_on)					///
+	label(resource IRT_RB_REPORT)
+  RADIO rb_greport		@	+20	520	., last 	///
+	onclickon(script irt_greport_on)				///
+	label(resource IRT_RB_GREPORT)
+	
+  GROUPBOX gb_sort		140	+25	530	130,		///
+	label(resource IRT_IRT_GB_SORT)	
+  RADIO rb_sorte		150	+20	515	., 		///
+	first								///
+	onclickon(irt.ck_desc.disable)					///
+	label(resource IRT_IRT_RB_SORTE)
+  RADIO rb_sorta		@	+20	@	., 		///
+	onclickon(irt.ck_desc.enable)					///
+	label(resource IRT_IRT_RB_SORTA)
+  RADIO rb_sortb		@	+20	@	., 		///
+	onclickon(irt.ck_desc.enable)					///
+	label(resource IRT_IRT_RB_SORTB)
+  RADIO rb_sortc		@	+20	@	., 		///
+	last								///
+	onclickon(irt.ck_desc.enable)					///
+	label(resource IRT_IRT_RB_SORTC)
+  CHECKBOX ck_desc		@	+25	@	.,		///
+	label(resource IRT_IRT_CK_DESC)
+	
+  GROUPBOX gb_group		140	+40	530	65,		///
+	label(resource IRT_IRT_GB_GROUP)
+  RADIO rb_byitem		150	+20	515	., 		///
+	first								///
+	label(resource IRT_IRT_RB_BYITEM)
+  RADIO rb_byparm		@	+20	@	., 		///
+	last								///
+	label(resource IRT_IRT_RB_BYPARM)
+	
+  TEXT	tx_ritem		140	+35	500	.,		///
+	label(resource IRT_IRT_TX_RITEM)
+  COMBOBOX cb_ritem		140	+20	530	.,		///
+	dropdown							///
+	append								///
+	contents(e(item_list))						///
+	label(resource IRT_ITEMS)
+  BUTTON btn_rsubmit		585	+25	85	.,		///
+	onpush(program report_submit_report)				///
+	label(resource LBL_BU_SUBMIT)
+	
+  BUTTON btn_radvanced		130	+40	170	.,		///
+	onpush(program report_submit_advance)				///
+	label(resource IRT_IRT_BTN_RADVANCED)
+	
+/* -------------------- Graph Button -------------------- */
+  GROUPBOX gb_graph		130	40	550	130,		///
+	label(resource IRT_IRT_GB_GRAPH)
+  RADIO rb_icc			140	60	520	., 		///
+	first								///
+	onclickon(program graph_sel_change)				///
+	label(resource IRT_IRT_RB_ICC)
+  RADIO rb_ccc			@	80	520	., 		///
+	onclickon(program graph_sel_change)				///
+	label(resource IRT_IRT_RB_CCC)
+  RADIO rb_iif			@	100	520	., 		///
+	onclickon(program graph_sel_change)				///
+	label(resource IRT_IRT_RB_IIF) 
+  RADIO rb_tcc			@	120	520	., 		///
+	onclickon(program graph_sel_change)				///
+	label(resource IRT_IRT_RB_TCC)
+  RADIO rb_tif			@	140	520	., 		///
+	last								///
+	onclickon(program graph_sel_change)				///
+	label(resource IRT_IRT_RB_TIF)
+	
+  GROUPBOX gb_gicc		130	40	550	165,		///
+	label(resource IRT_COMMON_GRAPHS)
+  CHECKBOX ck_iccbloc		140	65	520	.,		///
+	label(resource IRT_ADD_VERT_LINES_FOR_EST_ITEM_DIFF)
+  TEXT  tx_icc			140	90	120	.,		///
+	label(resource IRT_IRT_TX_ICC)
+  TEXT	tx_iccall		140	115	105	.,		///
+	label(resource IRT_ALL_ITEMS)		
+  BUTTON btn_iccallsub		493	115	85	.,		///
+	onpush(program graph_submit_iccall)				///
+	label(resource LBL_BU_SUBMIT)
+  BUTTON btn_iccallopt		585	115	90	.,		///
+	onpush(program graph_submit_iccallopts)				///
+	tooltip(resource IRT_ADD_ADV_OPTIONS_TO_CUSTOMIZE_ICC)		///
+	label(resource IRT_ADD_OPTIONS_BTN)
+  TEXT	tx_iccsel		140	140	105	.,		///
+	label(resource IRT_SELECTED_ITEMS)
+  COMBOBOX cb_varsel		260	140	200	.,		///
+	dropdown							///
+	append								///
+	contents(e(item_list))						///
+	label(resource IRT_SELECTED_ITEMS)
+  BUTTON btn_varsel		465	140	20	.,		///
+ 	onpush(program graph_varsel_fv)					///
+	tooltip(resource IRT_IRT_BTN_VARSEL)				///
+	label("...")
+  BUTTON btn_iccselsub		493	140	85	.,		///
+	onpush(program graph_submit_iccsel)				///
+	label(resource LBL_BU_SUBMIT)
+  BUTTON btn_iccselopt		585	140	90	.,		///
+	onpush(program graph_submit_iccselopts)				///
+	tooltip(resource IRT_ADD_ADV_OPTIONS_TO_CUSTOMIZE_ICC)		///
+	label(resource IRT_ADD_OPTIONS_BTN)
+  TEXT	tx_iccnotes		140	165	520	.,		///
+	label(resource IRT_IRT_TX_ICCNOTES)
+  GROUPBOX gb_gcicc		130	340	550	85,		///
+	label(resource IRT_CUSTOM_GRAPHS)
+  BUTTON btn_ciccall		140	365	225	.,		///
+	onpush(program graph_submit_ciccall)				///
+	label(resource IRT_IRT_BTN_CICCALL)
+  BUTTON btn_ciccsel		140	390	225	.,		///
+	onpush(program graph_submit_ciccsel)				///
+	label(resource IRT_IRT_BTN_CICCSEL)
+	
+  GROUPBOX gb_gccc		130	180	550	110,		///
+	label(resource IRT_COMMON_GRAPHS)
+  TEXT  tx_ccc			140	90	120	.,		///
+	label(resource IRT_IRT_TX_CCC)
+  TEXT	tx_cccall		140	115	105	.,		///
+	label(resource IRT_ALL_ITEMS)		
+  BUTTON btn_cccallsub		493	115	85	.,		///
+	onpush(program graph_submit_cccall)				///
+	label(resource LBL_BU_SUBMIT)
+  BUTTON btn_cccallopt		585	115	90	.,		///
+	onpush(program graph_submit_cccallopts)				///
+	tooltip(resource IRT_ADD_ADV_OPTIONS_TO_CUSTOMIZE_CCC)		///
+	label(resource IRT_ADD_OPTIONS_BTN)
+  TEXT	tx_cccsel		140	140	105	.,		///
+	label(resource IRT_SELECTED_ITEMS)
+  BUTTON btn_cccselsub		493	140	85	.,		///
+	onpush(program graph_submit_cccsel)				///
+	label(resource LBL_BU_SUBMIT)
+  BUTTON btn_cccselopt		585	280	90	.,		///
+	onpush(program graph_submit_cccselopts)				///
+	tooltip(resource IRT_ADD_ADV_OPTIONS_TO_CUSTOMIZE_CCC)		///
+	label(resource IRT_ADD_OPTIONS_BTN)
+  GROUPBOX gb_gcccc		130	340	550	85,		///
+	label(resource IRT_CUSTOM_GRAPHS)
+  BUTTON btn_ccccall		140	365	225	.,		///
+	onpush(program graph_submit_ccccall)				///
+	label(resource IRT_CUSTOMIZED_GRAPH_STARTING_FROM_ALL_ITEMS)
+  BUTTON btn_ccccsel		140	390	225	.,		///
+	onpush(program graph_submit_ccccsel)				///
+	label(resource IRT_CUSTOMIZED_GRAPH_OF_SELECTED_ITEMS)
+	
+  GROUPBOX gb_gtcc		130	320	550	60,		///
+	label("")
+  TEXT	tx_tcc			140	345	400	.,		///
+	label(resource IRT_IRT_TX_TCC)		
+  BUTTON btn_tccsub		493	345	85	.,		///
+	onpush(program graph_submit_tcc)				///
+	label(resource LBL_BU_SUBMIT)
+  BUTTON btn_tcccustom		585	345	90	.,		///
+	onpush(program graph_submit_tccopts)				///
+	tooltip(resource IRT_ADD_ADV_OPTIONS_TO_CUSTOMIZE_TCC)		///
+	label(resource IRT_ADD_OPTIONS_BTN)
+	
+  GROUPBOX gb_giif		130	410	550	110,		///
+	label(resource IRT_COMMON_GRAPHS)
+  TEXT  tx_iif			140	65	120	.,		///
+	label(resource IRT_IRT_TX_IIF)
+  TEXT	tx_iifall		140	90	105	.,		///
+	label(resource IRT_ALL_ITEMS)		
+  BUTTON btn_iifallsub		493	90	85	.,		///
+	onpush(program graph_submit_iifall)				///
+	label(resource LBL_BU_SUBMIT)
+  BUTTON btn_iifallopt		585	90	90	.,		///
+	onpush(program graph_submit_iifallopts)				///
+	tooltip(resource IRT_ADD_ADV_OPTIONS_TO_CUSTOMIZE_IIF)		///
+	label(resource IRT_ADD_OPTIONS_BTN)
+  TEXT	tx_iifsel		140	115	105	.,		///
+	label(resource IRT_SELECTED_ITEMS)
+  BUTTON btn_iifselsub		493	115	85	.,		///
+	onpush(program graph_submit_iifsel)				///
+	label(resource LBL_BU_SUBMIT)
+  BUTTON btn_iifselopt		585	115	90	.,		///
+	onpush(program graph_submit_iifselopts)				///
+	tooltip(resource IRT_ADD_ADV_OPTIONS_TO_CUSTOMIZE_IIF)		///
+	label(resource IRT_ADD_OPTIONS_BTN)	
+  GROUPBOX gb_gciif		130	320	550	85,		///
+	label(resource IRT_CUSTOM_GRAPHS)
+  BUTTON btn_ciifall		140	345	225	.,		///
+	onpush(program graph_submit_ciifall)				///
+	label(resource IRT_CUSTOMIZED_GRAPH_STARTING_FROM_ALL_ITEMS)
+  BUTTON btn_ciifsel		140	370	225	.,		///
+	onpush(program graph_submit_ciifsel)				///
+	label(resource IRT_CUSTOMIZED_GRAPH_OF_SELECTED_ITEMS)
+	
+  GROUPBOX gb_gtif		130	525	550	60,		///
+	label("")
+  TEXT	tx_tif			140	550	400	.,		///
+	label(resource IRT_IRT_TX_TIF)		
+  BUTTON btn_tifsub		493	550	85	.,		///
+	onpush(program graph_submit_tif)				///
+	label(resource LBL_BU_SUBMIT)
+  BUTTON btn_tifcustom		585	550	90	.,		///
+	onpush(program graph_submit_tifopts)				///
+	tooltip(resource IRT_ADD_ADV_OPTIONS_TO_CUSTOMIZE_TIF)		///
+	label(resource IRT_ADD_OPTIONS_BTN)
+
+/* -------------------- DIFF Button -------------------- */
+
+  RADIO btn_d1			130	40	80	32, first	///
+	panebutton							///
+	onclickon(program dif_show_tab)					///
+	label(resource LBL_TAB_MAIN)
+  RADIO btn_d2			+81	@	@	@, 		///
+	panebutton							///
+	onclickon(program dif_show_tab)					///
+	label(resource SUB_BY_IFIN_OVER_SUBPOP_TABTITLE_IF_IN)
+  RADIO btn_d3			+81	@	@	@, 		///
+	panebutton							///
+	onclickon(program dif_show_tab)					///
+	label(resource WEIGHTS_TABTITLE)
+  RADIO btn_d4			+81	@	@	@, last		///
+	panebutton							///
+	onclickon(program dif_show_tab)					///
+	label(resource LBL_TAB_REPORTING)
+
+  GROUPBOX dif_gb_tab		130	+40	550	335,		///
+	label(resource IRT_HYBRID_MAIN_TX_EITEM)
+
+  // Main
+  RADIO dif_rb_mh		140	+25	530	@, first 	///
+	onclickon(program dif_show_difmh)				///
+	label(resource IRT_IRT_DIF_RB_MH)
+  DEFINE tab_y @y
+  RADIO dif_rb_logistic		@	+25	@	@, last		///
+	onclickon(program dif_show_diflogistic)				///
+	label(resource IRT_IRT_DIF_RB_LOGISTIC)
+  TEXT dif_tx_var		@	+25	@	.,		///
+	label(resource IRT_HYBRID_MAIN_TX_EITEM)
+  VARLIST dif_vl_var		@	+20	@	.,		///
+	numeric								///
+	label(resource IRT_HYBRID_MAIN_TX_EITEM)
+
+  GROUPBOX dif_gb_opts		@	+30	530	200,		///
+	label(resource LBL_OPTIONS)
+  TEXT dif_tx_group		150	+20	510	.,		///
+	label(resource IRT_IRT_DIFF_TX_GROUP)
+  VARNAME dif_vn_group		@	+20	120	.,		///
+	numeric								///
+	option(group)							///
+	label(resource IRT_IRT_DIFF_TX_GROUP)
+  TEXT dif_tx_total		@	+30	510	.,		///
+	label(resource IRT_IRT_DIFF_TX_TOTAL)
+  VARNAME dif_vn_total		@	+20	120	.,		///
+	numeric								///
+	option(total)							///
+	label(resource IRT_IRT_DIFF_TX_TOTAL)
+  TEXT dif_tx_items		@	+30	510	.,		///
+	label(resource IRT_IRT_DIFF_TX_ITEMS)
+  VARLIST dif_vl_items		@	+20	@	.,		///
+	numeric								///
+	option(items)							///
+	label(resource IRT_IRT_DIFF_TX_ITEMS)
+
+  CHECKBOX dif_ck_noyates	@	+30	@	.,		///
+	option(noyates)							///
+	label(resource IRT_IRT_DIFF_CK_NOYATES)
+  // ifin
+  TEXT dif_tx_if		140	tab_y	530	.,		///
+	label(resource LBL_IF_EXPRESSION)
+  EXP dif_ex_if			@	+20	@	.,		///
+	label(resource LBL_BU_CREATE)
+
+  CHECKBOX dif_ck_in		@	+35	@	.,		///
+	label(resource LBL_USE_RANGE_OBS)				///
+	onclickon(script irt_enable_in)					///
+	onclickoff(script irt_disable_in)
+  TEXT dif_tx_from		@	+20	34	.,		///
+	label(resource LBL_FROM) right
+  SPINNER dif_sp_from		+39	@	60	.,		///
+	min(1)								///
+	max(c(N))							///
+	default(1)
+  TEXT  dif_tx_to		+65	@	30	.,		///
+	label(resource LBL_TO) right
+  SPINNER dif_sp_to		+35	@	60	.,		///
+	min(1)								///
+	max(c(N))							///
+	default(c(N))
+
+  // weights
+  TEXT dif_tx_wgttyp		140	tab_y	100	.,		///
+	label(resource LBL_WEIGHT_TYPE)
+  BUTTON dif_bu_help		560	tab_y	110	.,		///
+	label(resource LBL_HELP_WEIGHTS)				///
+	onpush(view help weights##|_new)
+
+  RADIO dif_rb_none		140	+22	530	., first	///
+	onclickon(script dif_wgt_off)					///
+	label(resource LBL_NONE)
+  RADIO dif_rb_fw		@	+20	@	., last		///
+	onclickon(script dif_wgt_on)					///
+	option(fweight)							///
+	label(resource WEIGHTS_RB_FW)
+
+  TEXT dif_tx_wgt		@	+30	@	.,		///
+	label(resource WEIGHTS_TX_WGT)
+  VARLIST dif_vl_wgt		@ 	+20	@	.,		///
+	numeric								///
+	label(resource WEIGHTS_TX_WGT)
+
+  // reporting
+  SPINNER dif_sp_level		140	tab_y	60	.,		///
+	min(10)								///
+	max(99)								///
+	label(resource LBL_TX_LEVEL)					///
+	default(global S_level)	
+  TEXT dif_tx_level		+65	@	100	.,		///
+	label(resource LBL_TX_LEVEL)
+
+  TEXT dif_tx_maxp		140	+30	510	.,		///
+	label(resource IRT_IRT_DIF_TX_MAXP)
+  EDIT dif_ed_maxp		@	+20	60	.,		///
+	numonly	
+
+  TEXT dif_tx_sformat		140	+30	510	.,		///
+	label(resource IRT_IRT_DIF_TX_SFORMAT)
+  EDIT dif_ed_sformat		@	+20	120	.,		///
+	option(sformat)							///
+	default("%9.2f")
+  BUTTON dif_bu_sformat		+125	@	80	.,		///
+	onpush(script showSFormatDialog)				///
+	tooltip(resource LBL_CREATE_DISPLAY_FORMAT)			///
+	label(resource LBL_BU_CREATE)
+
+  TEXT dif_tx_pformat		140	+30	510	.,		///
+	label(resource IRT_IRT_DIF_TX_PFORMAT)
+  EDIT dif_ed_pformat		@	+20	120	.,		///
+	default("%9.4f")						///
+	option(pformat)	
+  BUTTON dif_bu_pformat		+125	@	80	.,		///
+	onpush(script showPFormatDialog)				///
+	tooltip(resource LBL_CREATE_DISPLAY_FORMAT)			///
+	label(resource LBL_BU_CREATE)
+
+  TEXT dif_tx_oformat		140	+30	510	.,		///
+	label(resource IRT_IRT_DIF_TX_OFORMAT)
+  EDIT dif_ed_oformat		@	+20	120	.,		///
+	default("%9.4f")						///
+	option(oformat)	
+  BUTTON dif_bu_oformat		+125	@	80	.,		///
+	onpush(script showPFormatDialog)				///
+	tooltip(resource LBL_CREATE_DISPLAY_FORMAT)			///
+	label(resource LBL_BU_CREATE)
+
+  BUTTON btn_dif_submit		595	430	85	.,		///
+	onpush(program dif_submit)					///
+	label(resource LBL_BU_SUBMIT)
+
+/* -------------------- Finish Button -------------------- */
+
+  BUTTON btn_clogclose		560	35	125	.,		///
+	onpush(program finish_submit_logclose)				///
+	label(resource IRT_IRT_BTN_5)
+	
+/* -------------------- Status bar -------------------- */
+  FRAME irt_statusbar		130	500	550	1,
+  TEXT tx_irt_query		320	505	250	.,		///
+	label(resource IRT_MODEL_NO_MODEL_IN_MEMORY)
+END
+
+LIST choose_graph_list
+BEGIN
+	resource IRT_ICC
+	resource IRT_CCC
+	resource IRT_TCC
+	resource IRT_IIF
+	resource IRT_TIF
+END
+LIST choose_graph_values
+BEGIN
+	icc
+	ccc
+	tcc
+	iif
+	tif
+END
+
+/* -------------------- Overall Dialog Control -------------------- */
+
+PROGRAM OnBTN1
+BEGIN
+	call irt.gb_label.setposition . 35 . 495
+	call irt.gb_label.setlabel resource LBL_TAB_MODEL
+	call script model_show
+	call script report_hide
+	call script graph_hide
+	call script dif_hide
+	call script finish_hide
+END
+
+PROGRAM OnBTN2
+BEGIN
+	call irt.gb_label.setposition . 15 . 515
+	call irt.gb_label.setlabel resource LBL_REPORT
+	call script model_hide
+	call program report_show
+	call script graph_hide
+	call script dif_hide
+	call script finish_hide
+END
+
+PROGRAM OnBTN3
+BEGIN
+	call irt.gb_label.setposition . 15 . 515
+	call irt.gb_label.setlabel resource LBL_GRAPH
+	call script model_hide
+	call script report_hide
+	call program graph_show
+	call script dif_hide
+	call script finish_hide
+END
+
+PROGRAM OnBTN4
+BEGIN
+	call irt.gb_label.setposition . 15 . 515
+	call irt.gb_label.setlabel resource IRT_IRT_DIFF_TITLE
+	call script model_hide
+	call script report_hide
+	call script graph_hide
+	call script dif_show
+	call script finish_hide
+END
+
+PROGRAM OnBTN5
+BEGIN
+	call irt.gb_label.setposition . 15 . 515
+	call irt.gb_label.setlabel resource IRT_FINISH
+	call script model_hide
+	call script report_hide
+	call script graph_hide
+	call script dif_hide
+	call script finish_show
+END
+
+/* -------------------- Model Button -------------------- */
+
+SCRIPT model_show
+BEGIN
+	irt.tx_general.hide
+	irt.tb_general.hide
+	
+	irt.btn_clogstart.show
+	irt.gb_model.show
+	irt.tx_bmodel.show
+	irt.tx_omodel.show
+	irt.tx_umodel.show
+	irt.tx_hmodel.show
+	irt.rb_pl1.show
+	irt.rb_pl2.show
+	irt.rb_pl3.show
+	irt.rb_grm.show
+	irt.rb_pcm.show
+	irt.rb_gpcm.show
+	irt.rb_rsm.show
+	irt.rb_nrm.show
+	irt.rb_hyb.show
+	irt.btn_advopts.show
+	irt.btn_fit.show
+	irt.tx_model_group.show
+	irt.vn_model_group.show
+	program model_show_tab
+END
+
+SCRIPT model_hide
+BEGIN
+	irt.tx_general.hide
+	irt.tb_general.hide
+	
+	irt.btn_clogstart.hide
+	irt.gb_model.hide
+	irt.tx_bmodel.hide
+	irt.tx_omodel.hide
+	irt.tx_umodel.hide
+	irt.tx_hmodel.hide
+	irt.rb_pl1.hide
+	irt.rb_pl2.hide
+	irt.rb_pl3.hide
+	irt.rb_grm.hide
+	irt.rb_pcm.hide
+	irt.rb_gpcm.hide
+	irt.rb_rsm.hide
+	irt.rb_nrm.hide
+	irt.rb_hyb.hide
+	irt.tx_eitem.hide
+	irt.vl_eitem.hide
+	irt.tx_hybmodel.hide
+	irt.ed_hybmodel.hide
+	irt.btn_hyb.hide
+	irt.tx_model_group.hide
+	irt.vn_model_group.hide
+	irt.btn_advopts.hide
+	irt.btn_fit.hide
+END
+
+PROGRAM model_show_tab
+BEGIN
+	if irt.rb_hyb {
+		call irt.tx_eitem.hide
+		call irt.vl_eitem.hide
+		call irt.tx_hybmodel.show
+		call irt.ed_hybmodel.show
+		call irt.btn_hyb.show
+	}
+	else {
+		call irt.tx_eitem.show
+		call irt.vl_eitem.show
+		call irt.tx_hybmodel.hide
+		call irt.ed_hybmodel.hide
+		call irt.btn_hyb.hide
+	}
+	if irt.rb_pl1 {
+		call ModelDisplayName.setvalue "1pl"
+	}
+	if irt.rb_pl2 {
+		call ModelDisplayName.setvalue "2pl"
+	}
+	if irt.rb_pl3 {
+		call ModelDisplayName.setvalue "3pl"
+	}
+	if irt.rb_grm {
+		call ModelDisplayName.setvalue "grm"
+	}
+	if irt.rb_pcm {
+		call ModelDisplayName.setvalue "pcm"
+	}
+	if irt.rb_gpcm {
+		call ModelDisplayName.setvalue "gpcm"
+	}
+	if irt.rb_rsm {
+		call ModelDisplayName.setvalue "rsm"
+	}
+	if irt.rb_nrm {
+		call ModelDisplayName.setvalue "nrm"
+	}
+	if irt.rb_hyb {
+		call ModelDisplayName.setvalue "hybrid"
+	}
+END
+
+PROGRAM model_submit_cmdlog
+BEGIN	
+	call create STRING CmdLogDlgResult
+	call create CHILD cmdlog AS CmdLogDlg, allowsubmit
+	if ! _rc {
+		call CmdLogDlg.setExitString CmdLogDlgResult
+		call CmdLogDlg.setExitAction "program model_get_CmdLogResult"
+		call CmdLogDlg.setSubmitAction "script model_cmdlog_submit"
+	}
+END
+
+PROGRAM model_get_CmdLogResult
+BEGIN
+	if CmdLogDlgResult {
+		call irt.btn_clogstart.modified_on
+		put CmdLogDlgResult
+		stata
+	}
+	else {
+		call irt.btn_clogstart.modified_off
+	}
+END
+
+SCRIPT model_cmdlog_submit
+BEGIN
+	program model_get_CmdLogResult
+	Submit
+END
+
+PROGRAM model_submit_hybrid
+BEGIN
+	if irt.vn_model_group.isneq("") {
+		call group_var.setvalue class irt.vn_model_group.value
+		call create CHILD irt_hybrid AS HybridModelsDlg,	///
+			message("groupvar")
+	}
+	else {
+		call group_var.setvalue ""
+		call create CHILD irt_hybrid AS HybridModelsDlg
+	}
+
+	if ! _rc {
+		call HybridModelsDlg.setExitString HybridModelsResult
+		call HybridModelsDlg.setExitAction "program model_get_HybridModelsResult"
+	}
+END
+
+PROGRAM model_get_HybridModelsResult
+BEGIN
+	call HybridModelsResult.withvalue irt.ed_hybmodel.setvalue @
+END
+
+PROGRAM model_submit_advopts
+BEGIN
+	call create CHILD irt_model_options AS AdvancedOptsDlg, allowsubmit
+	if ! _rc {
+		call AdvancedOptsDlg.setExitString AdvancedOptsResult
+		call AdvancedOptsDlg.setExitAction "program model_get_AdvancedOptsResult"
+		call AdvancedOptsDlg.setSubmitAction "script model_AdvancedOpts_submit"
+	}
+END
+
+PROGRAM model_get_AdvancedOptsResult
+BEGIN
+	if AdvancedOptsResult | pbyoutput.isneq("") | psvyoutput.isneq("") {
+		call irt.btn_advopts.modified_on
+	}
+	else {
+		call irt.btn_advopts.modified_off
+	}
+	call script model_AdvancedOpts_submit
+END
+
+SCRIPT model_AdvancedOpts_submit
+BEGIN
+	program model_submit_fit
+	Submit
+END
+
+PROGRAM model_submit_fit
+BEGIN
+	if __MESSAGE.contains("-svy-") {
+		if psvyoutput.isneq("") {
+			call irt_svyset.setstring char _dta[_svy_version]
+			if irt_svyset.equals("") {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format 				   	///
+				"resource SE_MSGBOX_SVY_SETTINGS_REQUIRED_FMT" 	///
+				"resource LBL_SURVEY_SETTINGS" 	   		///
+				"resource SE_TITLE_SE_ROBUST"
+			stopbox stop "class _MSG_TMP.value"
+// Survey estimation commands require survey settings. See "Survey settings" on the "SE/Robust" tab.
+			}
+		}
+	}
+	if pbyoutput.isneq("") {
+		put pbyoutput " "
+	}
+	if psvyoutput.isneq("") {
+		put psvyoutput " "
+	}
+	if irt.rb_hyb {
+		if HybridModelsResult.iseq("") {
+			call create STRING _MSG_TMP
+                        call _MSG_TMP.format					/// 
+				"resource IRT_MSGBOX_MUST_BE_SPECIFIED_FMT" 	///
+				"resource IRT_HYBRID_IRT_MODELS"
+			stopbox stop "class _MSG_TMP.value"
+// "Hybrid IRT models" must be specified.
+		}
+		call ModelName.setvalue "hybrid"
+		call irt.tx_irt_query.setlabel resource IRT_MODEL_HYBRID_MODELS
+		put "irt hybrid "
+		put irt.ed_hybmodel
+		if AdvancedOptsResult {
+			put " " AdvancedOptsResult
+			if irt.vn_model_group {
+				if !AdvancedOptsResult.contains(",") & ///
+				(AdvancedOptsResult.contains("fweight") | ///
+				AdvancedOptsResult.contains("pweight") | ///
+				AdvancedOptsResult.contains("iweight")) { 
+					put ", group(" irt.vn_model_group ")"
+				}
+				else {
+					put " group(" irt.vn_model_group ")"
+				}
+			}
+		}
+		else {
+			beginoptions
+				if irt.vn_model_group {
+					put " group(" irt.vn_model_group ")"
+				}
+			endoptions
+		}
+		stata
+	}
+	else {
+		require irt.vl_eitem
+		if irt.rb_pl1 {
+			call ModelName.setvalue "1pl"
+			call irt.tx_irt_query.setlabel resource IRT_MODEL_ONE_PARAMETER_LOGISTIC_MODEL
+			put "irt 1pl "
+		}
+		if irt.rb_pl2 {
+			call ModelName.setvalue "2pl"
+			call irt.tx_irt_query.setlabel resource IRT_MODEL_TWO_PARAMETER_LOGISTIC_MODEL
+			put "irt 2pl "
+		}
+		if irt.rb_pl3 {
+			call ModelName.setvalue "3pl"
+			call irt.tx_irt_query.setlabel resource IRT_MODEL_THREE_PARAMETER_LOGISTIC_MODEL
+			put "irt 3pl "
+		}
+		if irt.rb_grm {
+			call ModelName.setvalue "grm"
+			call irt.tx_irt_query.setlabel resource IRT_MODEL_GRADED_RESPONSE_MODEL
+			put "irt grm "
+		}
+		if irt.rb_pcm {
+			call ModelName.setvalue "pcm"
+			call irt.tx_irt_query.setlabel resource IRT_MODEL_PARTIAL_CREDIT_MODEL
+			put "irt pcm "
+		}
+		if irt.rb_gpcm {
+			call ModelName.setvalue "gpcm"
+			call irt.tx_irt_query.setlabel resource IRT_MODEL_GENERALIZED_PARTIAL_CREDIT_MODEL
+			put "irt gpcm "
+		}
+		if irt.rb_rsm {
+			call ModelName.setvalue "rsm"
+			call irt.tx_irt_query.setlabel resource IRT_MODEL_RATING_SCALE_MODEL
+			put "irt rsm "
+		}
+		if irt.rb_nrm {
+			call ModelName.setvalue "nrm"
+			call irt.tx_irt_query.setlabel resource IRT_MODEL_NOMINAL_RESPONSE_MODEL
+			put "irt nrm "
+		}
+		put irt.vl_eitem
+		if AdvancedOptsResult {
+			put " " AdvancedOptsResult
+			if irt.vn_model_group {
+				if !AdvancedOptsResult.contains(",") & ///
+				(AdvancedOptsResult.contains("fweight") | ///
+				AdvancedOptsResult.contains("pweight") | ///
+				AdvancedOptsResult.contains("iweight")) { 
+				put ", group(" irt.vn_model_group ")"
+				}
+				else {
+					put " group(" irt.vn_model_group ")"
+				}
+			}
+		}
+		else {
+			beginoptions
+				if irt.vn_model_group {
+					put " group(" irt.vn_model_group ")"
+				}
+			endoptions
+		}
+		stata
+	}
+END
+
+/* -------------------- Report Button -------------------- */
+
+PROGRAM report_show
+BEGIN
+	if CmdName.isneq("irt") {
+		call irt.tx_general.show
+		call irt.tb_general.show
+		call script report_hide
+		call irt.tb_general.setlabel resource IRT_NO_IRT_RESULTS_FOUND
+	}
+	else {
+		call irt.tx_general.hide
+		call irt.tb_general.hide
+		call irt.gb_rcommon.show
+		call irt.rb_report.show
+		call irt.rb_greport.show
+		call irt.gb_sort.show
+		call irt.rb_sortb.show
+		call irt.rb_sorta.show
+		call irt.rb_sortc.show
+		call irt.rb_sorte.show
+		call irt.ck_desc.show
+		call irt.gb_group.show
+		call irt.rb_byitem.show
+		call irt.rb_byparm.show
+		call irt.tx_ritem.show
+		call irt.cb_ritem.show
+		call irt.btn_rsubmit.show
+		call irt.btn_radvanced.show
+		call program report_check_enable
+	}
+END
+
+SCRIPT irt_report_on
+BEGIN
+	irt.tx_ritem.enable
+	irt.cb_ritem.enable
+END
+
+SCRIPT irt_greport_on
+BEGIN
+	irt.tx_ritem.disable
+	irt.cb_ritem.disable
+END
+
+SCRIPT report_hide
+BEGIN
+	irt.gb_rcommon.hide
+	irt.rb_report.hide
+	irt.rb_greport.hide
+	irt.gb_sort.hide
+	irt.rb_sortb.hide
+	irt.rb_sorta.hide
+	irt.rb_sortc.hide
+	irt.rb_sorte.hide
+	irt.ck_desc.hide
+	irt.gb_group.hide
+	irt.rb_byitem.hide
+	irt.rb_byparm.hide
+	irt.tx_ritem.hide
+	irt.cb_ritem.hide
+	irt.btn_rsubmit.hide
+	irt.btn_radvanced.hide
+	
+	script predict_statistics_hide
+END
+
+PROGRAM report_check_enable
+BEGIN
+	if ModelName.iseq("hybrid") { 
+		/*call irt.gb_sort.disable
+		call irt.rb_sortb.disable
+		call irt.rb_sorta.disable
+		call irt.rb_sortc.disable
+		call irt.rb_sorte.disable
+		call irt.ck_desc.disable
+		call irt.gb_group.disable
+		call irt.rb_byitem.disable
+		call irt.rb_byparm.disable*/
+	}
+	else {
+		call irt.gb_sort.enable
+		call irt.rb_sortb.enable
+		call irt.rb_sorta.enable
+		call irt.rb_sorte.enable
+		call irt.ck_desc.enable
+		call irt.gb_group.enable
+		call irt.rb_byitem.enable
+		call irt.rb_byparm.enable
+	}
+	if irt.rb_sorte {
+		call irt.ck_desc.disable
+	}
+	else {
+		call irt.ck_desc.enable
+	}
+END
+
+PROGRAM report_submit_advance
+BEGIN
+	if irt.rb_greport & irt.rb_greport.isenabled() {
+		call create CHILD irt_report_options AS ReportAdvancedOptsDlg, allowsubmit message(-greport-)
+	}
+	else {
+		call create CHILD irt_report_options AS ReportAdvancedOptsDlg, allowsubmit
+	}
+
+	if ! _rc {
+		call ReportAdvancedOptsDlg.setExitString ReportAdvancedOptsResult
+		call ReportAdvancedOptsDlg.setExitAction "program report_get_AdvancedOptsResult"
+		call ReportAdvancedOptsDlg.setSubmitAction "script report_AdvancedOpts_submit"
+	}
+END
+
+PROGRAM report_get_AdvancedOptsResult
+BEGIN
+	if ReportAdvancedOptsResult {
+		call irt.btn_radvanced.modified_on
+	}
+	else {
+		call irt.btn_radvanced.modified_off
+	}
+	call program report_submit_report
+END
+
+SCRIPT report_AdvancedOpts_submit
+BEGIN
+	program report_submit_report
+	Submit
+END
+
+PROGRAM report_submit_report
+BEGIN
+	call hasSortOrder.setfalse
+  	if irt.rb_report {
+		put "estat report"
+	}
+	else {
+		put "estat greport"
+	}
+
+	if irt.cb_ritem {
+		put " " irt.cb_ritem
+	}
+	beginoptions
+		if irt.rb_sortb.isvisible() & irt.rb_sortb {
+			call hasSortOrder.settrue
+			put "sort(b"
+		}
+		if irt.rb_sorta.isvisible() & irt.rb_sorta {
+			call hasSortOrder.settrue
+			put "sort(a"
+		}
+		if irt.rb_sortc.isvisible() & irt.rb_sortc {
+			call hasSortOrder.settrue
+			put "sort(c"
+		}
+		if irt.ck_desc.isenabled() & irt.ck_desc {
+			put ", descending"
+		}
+		if hasSortOrder {
+			put ")"
+		}
+		if irt.rb_byparm {
+			put " byparm"
+		}
+		put " " ReportAdvancedOptsResult
+		stata
+	endoptions
+END
+
+/* -------------------- Graph Button -------------------- */
+
+PROGRAM graph_show
+BEGIN
+	if CmdName.isneq("irt") {
+		call irt.tx_general.show
+		call irt.tb_general.show
+		call irt.gb_graph.hide
+		call irt.rb_icc.hide
+		call irt.rb_ccc.hide
+		call irt.rb_tcc.hide
+		call irt.rb_tif.hide
+		call irt.rb_iif.hide
+		call script graph_hide
+		call irt.tb_general.setlabel resource IRT_NO_IRT_RESULTS_FOUND
+	}
+	else {
+		call irt.tx_general.hide
+		call irt.tb_general.hide
+		call irt.gb_graph.show
+		call irt.rb_icc.show
+		call irt.rb_ccc.show
+		call irt.rb_tcc.show
+		call irt.rb_tif.show
+		call irt.rb_iif.show
+		call program graph_sel_change
+	}
+END
+
+SCRIPT graph_hide
+BEGIN
+	irt.gb_graph.hide
+	irt.rb_icc.hide
+	irt.rb_ccc.hide
+	irt.rb_tcc.hide
+	irt.rb_tif.hide
+	irt.rb_iif.hide
+	script graph_curve_hide
+END
+
+SCRIPT graph_curve_hide
+BEGIN
+	irt.cb_varsel.hide
+	irt.btn_varsel.hide
+	
+	irt.gb_gicc.hide
+	irt.ck_iccbloc.hide
+	irt.tx_iccall.hide
+	irt.btn_iccallsub.hide
+	irt.tx_iccsel.hide
+	irt.btn_iccselsub.hide
+	irt.btn_iccselopt.hide
+	irt.gb_gcicc.hide
+	irt.btn_ciccall.hide
+	irt.btn_ciccsel.hide
+	irt.tx_iccnotes.hide
+	irt.tx_icc.hide
+	irt.btn_iccallopt.hide
+	
+	irt.gb_gccc.hide
+	irt.tx_cccall.hide
+	irt.btn_cccallsub.hide
+	irt.tx_cccsel.hide
+	irt.btn_cccselsub.hide
+	irt.btn_cccselopt.hide
+	irt.gb_gcccc.hide
+	irt.btn_ccccall.hide
+	irt.btn_ccccsel.hide
+	irt.tx_ccc.hide
+	irt.btn_cccallopt.hide
+	
+	irt.gb_gtcc.hide
+	irt.tx_tcc.hide
+	irt.btn_tccsub.hide
+	irt.btn_tcccustom.hide
+	
+	irt.gb_giif.hide
+	irt.tx_iifall.hide
+	irt.btn_iifallsub.hide
+	irt.tx_iifsel.hide
+	irt.btn_iifselsub.hide
+	irt.btn_iifselopt.hide
+	irt.gb_gciif.hide
+	irt.btn_ciifall.hide
+	irt.btn_ciifsel.hide
+	irt.tx_iif.hide
+	irt.btn_iifallopt.hide
+	
+	irt.gb_gtif.hide
+	irt.tx_tif.hide
+	irt.btn_tifsub.hide
+	irt.btn_tifcustom.hide
+END
+
+PROGRAM graph_sel_change
+BEGIN
+	call script graph_curve_hide
+	
+	if irt.rb_icc {
+		call irt.gb_gicc.show
+		call irt.ck_iccbloc.show
+		call irt.tx_iccall.show
+		call irt.btn_iccallsub.show
+		call irt.tx_iccsel.show
+		call irt.cb_varsel.show
+		call irt.btn_varsel.show
+		call irt.btn_iccselsub.show
+		call irt.btn_iccselopt.show
+		call irt.gb_gicc.setposition . 185
+		call irt.ck_iccbloc.setposition . 210
+		call irt.tx_iccall.setposition 155 265
+		call irt.btn_iccallsub.setposition . 265
+		call irt.tx_iccsel.setposition 155 290
+		call irt.cb_varsel.setposition 260 290
+		call irt.btn_varsel.setposition 462 290
+		call irt.btn_iccselsub.setposition . 290
+		call irt.btn_iccselopt.setposition . 290
+		call irt.tx_iccnotes.show
+		call irt.tx_iccnotes.setposition . 322
+		call irt.gb_gcicc.show
+		call irt.btn_ciccall.show
+		call irt.btn_ciccsel.show
+		call irt.gb_gcicc.setposition . 365
+		call irt.btn_ciccall.setposition . 390
+		call irt.btn_ciccsel.setposition . 415
+		call irt.tx_icc.show
+		call irt.tx_icc.setposition . 240
+		call irt.btn_iccallopt.show
+		call irt.btn_iccallopt.setposition . 265
+	}
+	if irt.rb_ccc {
+		call irt.gb_gccc.show
+		call irt.tx_cccall.show
+		call irt.btn_cccallsub.show
+		call irt.tx_cccsel.show
+		call irt.cb_varsel.show
+		call irt.btn_varsel.show
+		call irt.btn_cccselsub.show
+		call irt.btn_cccselopt.show
+		call irt.gb_gccc.setposition . 185
+		call irt.tx_cccall.setposition 155 235
+		call irt.btn_cccallsub.setposition . 235
+		call irt.tx_cccsel.setposition 155 260
+		call irt.cb_varsel.setposition 260 260
+		call irt.btn_varsel.setposition 462 260
+		call irt.btn_cccselsub.setposition . 260
+		call irt.btn_cccselopt.setposition . 260
+		call irt.gb_gcccc.show
+		call irt.btn_ccccall.show
+		call irt.btn_ccccsel.show
+		call irt.gb_gcccc.setposition . 310
+		call irt.btn_ccccall.setposition . 335
+		call irt.btn_ccccsel.setposition . 360
+		call irt.tx_ccc.show
+		call irt.tx_ccc.setposition . 210
+		call irt.btn_cccallopt.show
+		call irt.btn_cccallopt.setposition . 235
+	}
+	if irt.rb_tcc {
+		call irt.gb_gtcc.show
+		call irt.tx_tcc.show
+		call irt.btn_tccsub.show
+		call irt.btn_tcccustom.show
+		call irt.gb_gtcc.setposition . 185
+		call irt.tx_tcc.setposition . 210
+		call irt.btn_tccsub.setposition . 210
+		call irt.btn_tcccustom.setposition . 210
+	}
+	if irt.rb_iif {
+		call irt.gb_giif.show
+		call irt.tx_iifall.show
+		call irt.btn_iifallsub.show
+		call irt.tx_iifsel.show
+		call irt.cb_varsel.show
+		call irt.btn_iifselsub.show
+		call irt.btn_iifselopt.show
+		call irt.gb_giif.setposition . 185
+		call irt.tx_iifall.setposition 155 235
+		call irt.btn_iifallsub.setposition . 235
+		call irt.tx_iifsel.setposition 155 260
+		call irt.cb_varsel.setposition 286 260
+		call irt.btn_iifselsub.setposition . 260
+		call irt.btn_iifselopt.setposition . 260
+		call irt.gb_gciif.show
+		call irt.btn_ciifall.show
+		call irt.btn_ciifsel.show
+		call irt.gb_gciif.setposition . 310
+		call irt.btn_ciifall.setposition . 335
+		call irt.btn_ciifsel.setposition . 360
+		call irt.tx_iif.show
+		call irt.tx_iif.setposition . 210
+		call irt.btn_iifallopt.show
+		call irt.btn_iifallopt.setposition . 235
+	}
+	if irt.rb_tif {
+		call irt.gb_gtif.show
+		call irt.tx_tif.show
+		call irt.btn_tifsub.show
+		call irt.btn_tifcustom.show
+		call irt.gb_gtif.setposition . 185
+		call irt.tx_tif.setposition . 210
+		call irt.btn_tifsub.setposition . 210
+		call irt.btn_tifcustom.setposition . 210
+	}
+END
+
+PROGRAM graph_varsel_fv
+BEGIN
+	call create CHILD irt_fv_internal AS GraphVarselFvSetDlg
+	if ! _rc {
+		call irt.cb_varsel.withvalue GraphVarselFvSetDlg.callthru `"main.vl_varlist.setvalue `"@"'"'
+		call GraphVarselFvSetDlg.setExitString GraphVarselFvResult
+		call GraphVarselFvSetDlg.setExitAction "program graph_get_VarselFvResult"
+	}
+END
+
+PROGRAM graph_get_VarselFvResult
+BEGIN
+	if GraphVarselFvResult {
+		call GraphVarselFvResult.withvalue irt.cb_varsel.setvalue "@"
+	}
+END
+
+PROGRAM graph_submit_iccall
+BEGIN
+	put "irtgraph icc"
+	beginoptions
+		put " bcc"
+		if GraphICCAllOptsResult.contains("blocation") {
+			if GraphICCAllOptsResult {
+				put " " GraphICCAllOptsResult
+			}
+		}
+		else {
+			if irt.ck_iccbloc {
+				put " blocation"
+			}
+			put " " GraphICCAllOptsResult
+		}
+	endoptions
+	stata
+END
+
+PROGRAM graph_submit_iccsel
+BEGIN
+	require irt.cb_varsel
+	put "irtgraph icc "
+	put irt.cb_varsel
+	beginoptions
+		put " bcc"
+		if GraphICCSelOptsResult.contains("blocation") {
+			put " " GraphICCSelOptsResult
+		}
+		else {
+			if irt.ck_iccbloc {
+				put " blocation"
+			}
+			put " " GraphICCSelOptsResult
+		}
+	endoptions
+	stata
+END
+
+PROGRAM graph_submit_iccallopts
+BEGIN
+	call create CHILD irt_graph_icc AS GraphICCALLOptsDlg, allowsubmit
+	if ! _rc {
+		call GraphICCALLOptsDlg.setExitString GraphICCAllOptsResult
+		call GraphICCALLOptsDlg.setExitAction "program graph_get_GraphICCAllOptsResult"
+		call GraphICCALLOptsDlg.setSubmitAction "program graph_get_GraphICCAllOptsResult"
+	}
+END
+
+PROGRAM graph_get_GraphICCAllOptsResult
+BEGIN
+	if GraphICCAllOptsResult {
+		call irt.btn_iccallopt.modified_on
+	}
+	else {
+		call irt.btn_iccallopt.modified_off
+	}
+	call program graph_submit_iccall
+END
+
+PROGRAM graph_submit_iccselopts
+BEGIN
+	call create CHILD irt_graph_icc AS GraphICCSelOptsDlg, allowsubmit
+	if ! _rc {
+		call GraphICCSelOptsDlg.setExitString GraphICCSelOptsResult
+		call GraphICCSelOptsDlg.setExitAction "program graph_get_GraphICCSelOptsResult"
+		call GraphICCSelOptsDlg.setSubmitAction "program graph_get_GraphICCSelOptsResult"
+	}
+END
+
+PROGRAM graph_get_GraphICCSelOptsResult
+BEGIN
+	if GraphICCSelOptsResult {
+		call irt.btn_iccselopt.modified_on
+	}
+	else {
+		call irt.btn_iccselopt.modified_off
+	}
+	call program graph_submit_iccsel
+END
+
+PROGRAM graph_submit_ciccall
+BEGIN
+	call create CHILD irt_graph_icc_build_all AS GraphICCBuildDlg, allowsubmit
+	if ! _rc {
+		call GraphICCBuildDlg.setExitString GraphICCBuildResult
+		call GraphICCBuildDlg.setExitAction "program graph_get_GraphICCBuildResult"
+		call GraphICCBuildDlg.setSubmitAction "program graph_get_GraphICCBuildResult"
+	}
+END
+
+PROGRAM graph_get_GraphICCBuildResult
+BEGIN
+	put GraphICCBuildResult
+	stata
+END
+
+PROGRAM graph_submit_ciccsel
+BEGIN
+	call create CHILD irt_graph_icc_build AS GraphICCSelBuildDlg, allowsubmit
+	if ! _rc {
+		call GraphICCSelBuildDlg.setExitString GraphICCBuildSelResult
+		call GraphICCSelBuildDlg.setExitAction "program graph_get_GraphICCBuildSelResult"
+		call GraphICCSelBuildDlg.setSubmitAction "program graph_get_GraphICCBuildSelResult"
+	}
+END
+
+PROGRAM graph_get_GraphICCBuildSelResult
+BEGIN
+	put GraphICCBuildSelResult
+	stata
+END
+
+PROGRAM graph_submit_cccall
+BEGIN
+	put "irtgraph icc"
+	beginoptions
+		put " ccc"
+		put " " GraphCCCAllOptsResult
+	endoptions
+	stata
+END
+
+PROGRAM graph_submit_cccsel
+BEGIN
+	require irt.cb_varsel
+	put "irtgraph icc "
+	put irt.cb_varsel
+	beginoptions
+		put " ccc"
+		put " " GraphCCCSelOptsResult
+	endoptions
+	stata
+END
+
+PROGRAM graph_submit_cccallopts
+BEGIN
+	call create CHILD irt_graph_ccc AS GraphCCCAllOptsDlg, allowsubmit
+	if ! _rc {
+		call GraphCCCAllOptsDlg.setExitString GraphCCCAllOptsResult
+		call GraphCCCAllOptsDlg.setExitAction "program graph_get_GraphCCCAllOptsResult"
+		call GraphCCCAllOptsDlg.setSubmitAction "program graph_get_GraphCCCAllOptsResult"
+	}
+END
+
+PROGRAM graph_get_GraphCCCAllOptsResult
+BEGIN
+	if GraphCCCAllOptsResult {
+		call irt.btn_cccallopt.modified_on
+	}
+	else {
+		call irt.btn_cccallopt.modified_off
+	}
+	call program graph_submit_cccall
+END
+
+PROGRAM graph_submit_cccselopts
+BEGIN
+	call create CHILD irt_graph_ccc AS GraphCCCSelOptsDlg, allowsubmit
+	if ! _rc {
+		call GraphCCCSelOptsDlg.setExitString GraphCCCSelOptsResult
+		call GraphCCCSelOptsDlg.setExitAction "program graph_get_GraphCCCSelOptsResult"
+		call GraphCCCSelOptsDlg.setSubmitAction "program graph_get_GraphCCCSelOptsResult"
+	}
+END
+
+PROGRAM graph_get_GraphCCCSelOptsResult
+BEGIN
+	if GraphCCCSelOptsResult {
+		call irt.btn_cccselopt.modified_on
+	}
+	else {
+		call irt.btn_cccselopt.modified_off
+	}
+	call program graph_submit_cccsel
+END
+
+PROGRAM graph_submit_ccccall
+BEGIN
+	call create CHILD irt_graph_ccc_build_all AS GraphCCCBuildDlg, allowsubmit
+	if ! _rc {
+		call GraphCCCBuildDlg.setExitString GraphCCCBuildResult
+		call GraphCCCBuildDlg.setExitAction "program graph_get_GraphCCCBuildResult"
+		call GraphCCCBuildDlg.setSubmitAction "program graph_get_GraphCCCBuildResult"
+	}
+END
+
+PROGRAM graph_get_GraphCCCBuildResult
+BEGIN
+	put GraphCCCBuildResult
+	stata
+END
+
+PROGRAM graph_submit_ccccsel
+BEGIN
+	call create CHILD irt_graph_ccc_build AS GraphCCCSelBuildDlg, allowsubmit
+	if ! _rc {
+		call GraphCCCSelBuildDlg.setExitString GraphCCCBuildSelResult
+		call GraphCCCSelBuildDlg.setExitAction "program graph_get_GraphCCCBuildSelResult"
+		call GraphCCCSelBuildDlg.setSubmitAction "program graph_get_GraphCCCBuildSelResult"
+	}
+END
+
+PROGRAM graph_get_GraphCCCBuildSelResult
+BEGIN
+	put GraphCCCBuildSelResult
+	stata
+END
+
+PROGRAM graph_submit_tcc
+BEGIN
+	put "irtgraph tcc"
+	beginoptions
+		put GraphTCCOptsResult
+	endoptions
+	stata
+END
+
+PROGRAM graph_submit_tccopts
+BEGIN
+	call create CHILD irt_graph_tcc AS GraphTCCOptsDlg, allowsubmit
+	if ! _rc {
+		call GraphTCCOptsDlg.setExitString GraphTCCOptsResult
+		call GraphTCCOptsDlg.setExitAction "program graph_get_GraphTCCOptsResult"
+		call GraphTCCOptsDlg.setSubmitAction "program graph_get_GraphTCCOptsResult"
+	}
+END
+
+PROGRAM graph_get_GraphTCCOptsResult
+BEGIN
+	if GraphTCCOptsResult {
+		call irt.btn_tcccustom..modified_on
+	}
+	else {
+		call irt.btn_tcccustom..modified_off
+	}
+	call program graph_submit_tcc
+END
+
+PROGRAM graph_submit_iifall
+BEGIN
+	put "irtgraph iif"
+	beginoptions
+		put GraphIIFAllOptsResult
+	endoptions
+	stata
+END
+
+PROGRAM graph_submit_iifsel
+BEGIN
+	require irt.cb_varsel
+	put "irtgraph iif "
+	put irt.cb_varsel
+	beginoptions
+		put GraphIIFSelOptsResult
+	endoptions
+	stata
+END
+
+PROGRAM graph_submit_iifallopts
+BEGIN
+	call create CHILD irt_graph_iif AS GraphIIFAllOptsDlg, allowsubmit
+	if ! _rc {
+		call GraphIIFAllOptsDlg.setExitString GraphIIFAllOptsResult
+		call GraphIIFAllOptsDlg.setExitAction "program graph_get_GraphIIFAllOptsResult"
+		call GraphIIFAllOptsDlg.setSubmitAction "program graph_get_GraphIIFAllOptsResult"
+	}
+END
+
+PROGRAM graph_get_GraphIIFAllOptsResult
+BEGIN
+	if GraphIIFAllOptsResult {
+		call irt.btn_iifallopt.modified_on
+	}
+	else {
+		call irt.btn_iifallopt.modified_off
+	}
+	call program graph_submit_iifall
+END
+
+PROGRAM graph_submit_iifselopts
+BEGIN
+	call create CHILD irt_graph_iif AS GraphIIFSelOptsDlg, allowsubmit
+	if ! _rc {
+		call GraphIIFSelOptsDlg.setExitString GraphIIFSelOptsResult
+		call GraphIIFSelOptsDlg.setExitAction "program graph_get_GraphIIFSelOptsResult"
+		call GraphIIFSelOptsDlg.setSubmitAction "program graph_get_GraphIIFSelOptsResult"
+	}
+END
+
+PROGRAM graph_get_GraphIIFSelOptsResult
+BEGIN
+	if GraphIIFSelOptsResult {
+		call irt.btn_iifselopt.modified_on
+	}
+	else {
+		call irt.btn_iifselopt.modified_off
+	}
+	call program graph_submit_iifsel
+END
+
+PROGRAM graph_submit_ciifall
+BEGIN
+	call create CHILD irt_graph_iif_build_all AS GraphIIFBuildDlg, allowsubmit
+	if ! _rc {
+		call GraphIIFBuildDlg.setExitString GraphIIFBuildResult
+		call GraphIIFBuildDlg.setExitAction "program graph_get_GraphIIFBuildResult"
+		call GraphIIFBuildDlg.setSubmitAction "program graph_get_GraphIIFBuildResult"
+	}
+END
+
+PROGRAM graph_get_GraphIIFBuildResult
+BEGIN
+	put GraphIIFBuildResult
+	stata
+END
+
+PROGRAM graph_submit_ciifsel
+BEGIN
+	call create CHILD irt_graph_iif_build AS GraphIIFSelBuildDlg, allowsubmit
+	if ! _rc {
+		call GraphIIFSelBuildDlg.setExitString GraphIIFBuildSelResult
+		call GraphIIFSelBuildDlg.setExitAction "program graph_get_GraphIIFBuildSelResult"
+		call GraphIIFSelBuildDlg.setSubmitAction "program graph_get_GraphIIFBuildSelResult"
+	}
+END
+
+PROGRAM graph_get_GraphIIFBuildSelResult
+BEGIN
+	put GraphIIFBuildSelResult
+	stata
+END
+
+PROGRAM graph_submit_tif
+BEGIN
+	put "irtgraph tif" 
+	beginoptions
+		put GraphTIFOptsResult
+	endoptions
+	stata
+END
+
+PROGRAM graph_submit_tifopts
+BEGIN
+	call create CHILD irt_graph_tif AS GraphTIFOptsDlg, allowsubmit
+	if ! _rc {
+		call GraphTIFOptsDlg.setExitString GraphTIFOptsResult
+		call GraphTIFOptsDlg.setExitAction "program graph_get_GraphTIFOptsResult"
+		call GraphTIFOptsDlg.setSubmitAction "program graph_get_GraphTIFOptsResult"
+	}
+END
+
+PROGRAM graph_get_GraphTIFOptsResult
+BEGIN
+	if GraphTIFOptsResult {
+		call irt.btn_tifcustom.modified_on
+	}
+	else {
+		call irt.btn_tifcustom.modified_off
+	}
+	call program graph_submit_tif
+END
+
+/* -------------------- DIF Button -------------------- */
+
+SCRIPT dif_show
+BEGIN
+	irt.btn_d1.show
+	irt.btn_d2.show
+	irt.btn_d3.show
+	irt.btn_d4.show
+	program dif_show_tab
+	irt.btn_dif_submit.show
+END
+
+SCRIPT dif_hide
+BEGIN
+	irt.btn_d1.hide
+	irt.btn_d2.hide
+	irt.btn_d3.hide
+	irt.btn_d4.hide
+	irt.dif_gb_tab.hide
+	script dif_tab_hideall
+	irt.btn_dif_submit.hide
+END
+
+SCRIPT dif_tab_hideall
+BEGIN
+	irt.dif_rb_mh.hide
+	irt.dif_rb_logistic.hide
+	irt.dif_tx_var.hide
+	irt.dif_vl_var.hide
+	irt.dif_gb_opts.hide
+	irt.dif_tx_group.hide
+	irt.dif_vn_group.hide
+	irt.dif_tx_total.hide
+	irt.dif_vn_total.hide
+	irt.dif_tx_items.hide
+	irt.dif_vl_items.hide
+	irt.dif_ck_noyates.hide
+	irt.dif_sp_level.hide
+	irt.dif_tx_level.hide
+	irt.dif_tx_sformat.hide
+	irt.dif_ed_sformat.hide
+	irt.dif_bu_sformat.hide
+	irt.dif_tx_pformat.hide
+	irt.dif_ed_pformat.hide
+	irt.dif_bu_pformat.hide
+	irt.dif_tx_oformat.hide
+	irt.dif_ed_oformat.hide
+	irt.dif_bu_oformat.hide
+	irt.dif_tx_maxp.hide
+	irt.dif_ed_maxp.hide
+	irt.dif_tx_wgttyp.hide
+	irt.dif_bu_help.hide
+	irt.dif_rb_none.hide
+	irt.dif_rb_fw.hide
+	irt.dif_tx_wgt.hide
+	irt.dif_vl_wgt.hide
+	irt.dif_tx_if.hide
+	irt.dif_ex_if.hide
+	irt.dif_ck_in.hide
+	irt.dif_tx_from.hide
+	irt.dif_sp_from.hide
+	irt.dif_tx_to.hide
+	irt.dif_sp_to.hide
+END
+
+PROGRAM dif_show_tab
+BEGIN
+	call irt.dif_gb_tab.show
+	call script dif_tab_hideall
+	if irt.btn_d1 & irt.btn_d1.isvisible() {
+		call irt.dif_gb_tab.setlabel "resource LBL_TAB_MAIN"
+		call irt.dif_tx_var.show
+		call irt.dif_rb_mh.show
+		call irt.dif_rb_logistic.show
+		call irt.dif_vl_var.show
+		call irt.dif_gb_opts.show
+		call irt.dif_tx_group.show
+		call irt.dif_vn_group.show
+		call irt.dif_tx_total.show
+		call irt.dif_vn_total.show
+		call irt.dif_tx_items.show
+		call irt.dif_vl_items.show
+		call irt.dif_ck_noyates.show
+		if irt.dif_rb_mh {
+			call program dif_show_difmh
+		}
+		else {
+			call program dif_show_diflogistic
+		}
+	}
+	if irt.btn_d2 & irt.btn_d2.isvisible() {
+call irt.dif_gb_tab.setlabel "resource SUB_BY_IFIN_OVER_SUBPOP_TABTITLE_IF_IN"
+		call irt.dif_tx_if.show
+		call irt.dif_ex_if.show
+		call irt.dif_ck_in.show
+		call irt.dif_tx_from.show
+		call irt.dif_sp_from.show
+		call irt.dif_tx_to.show
+		call irt.dif_sp_to.show
+		if irt.dif_ck_in {
+			call script irt_enable_in
+		}
+		else {
+			call script irt_disable_in
+		}
+	}
+	if irt.btn_d3 & irt.btn_d3.isvisible() {
+		call irt.dif_gb_tab.setlabel "resource WEIGHTS_TABTITLE"
+		call irt.dif_tx_wgttyp.show
+		call irt.dif_bu_help.show
+		call irt.dif_rb_none.show
+		call irt.dif_rb_fw.show
+		call irt.dif_tx_wgt.show
+		call irt.dif_vl_wgt.show
+	}
+	if irt.btn_d4 & irt.btn_d4.isvisible() {
+		call irt.dif_gb_tab.setlabel "resource LBL_TAB_REPORTING"
+		call irt.dif_sp_level.show
+		call irt.dif_tx_level.show
+		call irt.dif_tx_sformat.show
+		call irt.dif_ed_sformat.show
+		call irt.dif_bu_sformat.show
+		call irt.dif_tx_pformat.show
+		call irt.dif_ed_pformat.show
+		call irt.dif_bu_pformat.show
+		if irt.dif_rb_mh {
+			call irt.dif_tx_oformat.enable
+			call irt.dif_ed_oformat.enable
+			call irt.dif_bu_oformat.enable
+		}
+		else {
+			call irt.dif_tx_oformat.disable
+			call irt.dif_ed_oformat.disable
+			call irt.dif_bu_oformat.disable
+		}
+		call irt.dif_tx_oformat.show
+		call irt.dif_ed_oformat.show
+		call irt.dif_bu_oformat.show
+		call irt.dif_tx_maxp.show
+		call irt.dif_ed_maxp.show
+	}
+END
+
+PROGRAM dif_show_difmh
+BEGIN
+	call irt.dif_tx_items.setlabel resource IRT_IRT_DIFF_TX_ITEMS
+	call irt.dif_vl_items.setlabel resource IRT_IRT_DIFF_TX_ITEMS
+	call irt.dif_ck_noyates.enable
+	call irt.dif_ck_noyates.enable
+	call irt.dif_sp_level.enable
+	call irt.dif_tx_level.enable
+END
+
+PROGRAM dif_show_diflogistic
+BEGIN
+	call irt.dif_tx_items.setlabel resource IRT_IRT_DIF_TX_ITEMS_2
+	call irt.dif_vl_items.setlabel resource IRT_IRT_DIF_TX_ITEMS_2
+	call irt.dif_ck_noyates.disable
+	call irt.dif_ck_noyates.disable
+	call irt.dif_sp_level.disable
+	call irt.dif_tx_level.disable
+	call irt.dif_tx_oformat.hide
+	call irt.dif_ed_oformat.hide
+	call irt.dif_bu_oformat.hide
+END
+
+SCRIPT irt_enable_in
+BEGIN
+	irt.dif_sp_from.enable
+	irt.dif_tx_to.enable
+	irt.dif_sp_to.enable
+	irt.dif_tx_from.enable
+END
+
+SCRIPT irt_disable_in
+BEGIN
+	irt.dif_sp_from.disable
+	irt.dif_tx_to.disable
+	irt.dif_sp_to.disable
+	irt.dif_tx_from.disable
+END
+
+SCRIPT dif_wgt_off
+BEGIN
+	irt.dif_tx_wgt.disable
+	irt.dif_vl_wgt.disable
+END
+
+SCRIPT dif_wgt_on
+BEGIN
+	irt.dif_tx_wgt.enable
+	irt.dif_vl_wgt.enable
+END
+
+SCRIPT showSFormatDialog
+BEGIN
+	create CHILD format_chooser
+	format_chooser.setExitString formatString
+	format_chooser.setExitAction "irt.dif_ed_wformat.setvalue class formatString.value"
+END
+
+SCRIPT showPFormatDialog
+BEGIN
+	create CHILD format_chooser
+	format_chooser.setExitString formatString
+	format_chooser.setExitAction "irt.dif_ed_pformat.setvalue class formatString.value"
+END
+
+
+PROGRAM dif_submit
+BEGIN
+	if irt.dif_rb_mh {
+		put "difmh "
+	}
+	if irt.dif_rb_logistic {
+		put "diflogistic "
+	}
+	if irt.dif_vl_var.isenabled() & !irt.dif_vl_var {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format 			   	///
+			"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT" ///
+			"resource LBL_TAB_MAIN"	   		///
+			"resource IRT_HYBRID_MAIN_TX_EITEM"
+		stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Items:" must be filled in.
+	}
+	if irt.dif_vl_var.isenabled() & irt.dif_vl_var {
+		put /hidden irt.dif_vl_var
+	}
+	if irt.dif_ex_if & irt.dif_ex_if.isenabled() {
+		put /hidden " " "if " irt.dif_ex_if 
+	}
+	if irt.dif_ck_in & irt.dif_ck_in.isenabled() &			///
+		irt.dif_sp_from.isenabled() & irt.dif_sp_to.isenabled() {
+		put " " "in " 
+		put /hidden irt.dif_sp_from
+		put "/" 
+		put /hidden irt.dif_sp_to
+	}
+	if irt.dif_rb_fw & irt.dif_rb_fw.isenabled() {
+		put /hidden " [fweight = " irt.dif_vl_wgt "]"
+	}
+	beginoptions
+		if irt.dif_vn_group.isenabled()	& !irt.dif_vn_group {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format 			   	///
+				"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT" ///
+				"resource LBL_TAB_MAIN"	   		///
+				"resource IRT_IRT_DIFF_TX_GROUP"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Variable that defines groups" must be filled in.
+		}
+		if irt.dif_vn_group.isenabled()	& irt.dif_vn_group {
+			put /hidden " group(" irt.dif_vn_group ")"
+		}
+		if irt.dif_vn_total.isenabled() & irt.dif_vn_total  {
+			put /hidden " total(" irt.dif_vn_total ")"
+		}
+		if irt.dif_vl_items.isenabled() & irt.dif_vl_items  {
+			put /hidden " items(" irt.dif_vl_items ")"
+		}
+		if irt.dif_ck_noyates.isenabled() & irt.dif_ck_noyates  {
+			put /hidden " noyates"
+		}
+		if irt.dif_sp_level.isenabled() & 			///
+			!irt.dif_sp_level.isdefault()  {
+			put /hidden " level(" irt.dif_sp_level ")"
+		}
+		if irt.dif_ed_sformat.isenabled() & irt.dif_ed_sformat ///
+			& irt.dif_ed_sformat.isneq("%9.2f")  {
+			put /hidden " sformat(" irt.dif_ed_sformat ")"
+		}
+		if irt.dif_ed_pformat.isenabled() & irt.dif_ed_pformat ///
+			& irt.dif_ed_pformat.isneq("%9.4f")  {
+			put /hidden " pformat(" irt.dif_ed_pformat ")"
+		}
+		if irt.dif_rb_mh {
+			if irt.dif_ed_oformat.isenabled() &		///
+				irt.dif_ed_oformat &			///
+				irt.dif_ed_oformat.isneq("%9.4f")  {
+				put /hidden " oformat(" irt.dif_ed_oformat ")"
+			}
+		}
+		if irt.dif_ed_maxp.isenabled() & irt.dif_ed_maxp ///
+			& irt.dif_ed_maxp.isneq("")  {
+			put /hidden " maxp(" irt.dif_ed_maxp ")"
+		}
+	endoptions
+	stata
+END
+
+/* -------------------- Finish Button -------------------- */
+
+SCRIPT finish_show
+BEGIN
+	irt.btn_clogclose.show
+END
+
+SCRIPT finish_hide
+BEGIN
+	irt.btn_clogclose.hide
+END
+
+PROGRAM finish_submit_logclose
+BEGIN
+	put "cmdlog close"
+	stata
+END

@@ -1,0 +1,210 @@
+/*
+  gr_ed_axis_scale.dlg
+
+*!  VERSION 1.0.3  03jun2015
+
+*/
+
+VERSION 10.0
+MODAL
+
+INCLUDE _std_vsmall
+DEFINE _dlght 180
+INCLUDE header_gr_ed
+
+DEFINE _clwd	15
+DEFINE _wd	120
+DEFINE _sep	+125
+DEFINE _cbwd	130
+DEFINE _cbsep	+135
+
+SCRIPT PREINIT
+BEGIN
+	create STRING G
+	create STRING parent_name
+
+	// Get the Graphics object name (G) from the parent...
+	parent_name.setvalue class PARENT._dlg_rsrcname
+	parent_name.withvalue G.setvalue class @.G.value
+
+	create DOUBLE reverse
+	create STRING transform
+	create DOUBLE min
+	create DOUBLE max
+	create DOUBLE curmin
+	create DOUBLE curmax
+	create DOUBLE ctl_val
+	create STRING axisType
+	create DOUBLE index
+	create STRING tmp
+
+	program get_defaults
+	setscale_hadj resource GR_ED_AXIS_SCALE_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program initialize_controls
+END
+
+DIALOG main, title(resource GR_ED_AXIS_SCALE_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  CHECKBOX ck_log	_lft	20	_iwd	.,		///
+	label(resource LBL_USE_LOGARITHMIC_SCALE)
+  CHECKBOX ck_reverse	@	_ms	@	.,		///
+	label(resource LBL_REVERSE_SCALE_RUN_FROM_MAX_MIN)
+
+  CHECKBOX ck_range	_lft	+30	_iwd	_ht5h,		///
+	groupbox						///
+	label(resource LBL_EXTEND_RANGE_AXIS_SCALE)		///
+	onclickon(program check_range_on)			///
+	onclickoff(program check_range_on)			///
+	nomemory
+  EDIT     ed_lower	_ilft	_ms	_en7wd	.,		///
+	label(resource LBL_LOWER_LIMIT)				///
+	numonly
+  TEXT     tx_lower	_en7sep	@	200	.,		///
+	label(resource LBL_LOWER_LIMIT)
+  EDIT     ed_upper	_ilft	_ms	_en7wd	.,		///
+	label(resource LBL_UPPER_LIMIT)				///
+	numonly
+  TEXT     tx_upper	_en7sep	@	200	.,		///
+	label(resource LBL_UPPER_LIMIT)
+END
+
+PROGRAM check_range_on
+BEGIN
+	if main.ck_range {
+		call main.ed_lower.enable
+		call main.tx_lower.enable
+		call main.ed_upper.enable
+		call main.tx_upper.enable
+	}
+	else {
+		call main.ed_lower.disable
+		call main.tx_lower.disable
+		call main.ed_upper.disable
+		call main.tx_upper.disable
+	}
+END
+
+PROGRAM get_defaults
+BEGIN
+	/* look at axis.position and if it is left or right we have a yaxis
+	 * and if it is top or bottom we have an xaxis ...
+	 * 	if neither fall back on the name of the object
+	 */
+	call G.withvalue index.setvalue class @.position.styledex
+	call index.withvalue tmp.setvalue class __STYLES.relative_posn[@]
+	if tmp.contains("left") | tmp.contains("right") {
+		call axisType.setvalue "yscale"
+	}
+	else {
+		if tmp.contains("above") | tmp.contains("below") {
+			call axisType.setvalue "xscale"
+		}
+		else {
+			/* did not resolve position */
+			if (G.contains("xaxis")) {
+				call axisType.setvalue "xscale"
+			}
+			if (G.contains("yaxis")) {
+				call axisType.setvalue "yscale"
+			}
+		}
+	}
+
+	call tmp.setvalue class G.value
+	call tmp.append ".plotregion."
+	call tmp.append class axisType.value
+
+	call tmp.withvalue index.setvalue class @.transform.styledex
+	call index.withvalue transform.setvalue class __STYLES.transformstyle[@]
+	if transform.iseq("linear") {
+		call main.ck_log.setdefault 0
+	}
+	else {
+		call main.ck_log.setdefault 1
+	}
+
+	call tmp.withvalue reverse.setvalue class @.reverse.istrue
+	call reverse.withvalue main.ck_reverse.setdefault @
+
+	call tmp.withvalue min.setvalue class @.min
+	call tmp.withvalue max.setvalue class @.max
+	call tmp.withvalue curmin.setvalue class @.curmin
+	call tmp.withvalue curmax.setvalue class @.curmax
+	call curmin.withvalue main.ed_lower.setdefault @
+	call curmax.withvalue main.ed_upper.setdefault @
+END
+
+PROGRAM initialize_controls
+BEGIN
+	if transform.iseq("linear") {
+		call main.ck_log.setoff
+	}
+	else {
+		call main.ck_log.seton
+	}
+
+	if reverse {
+		call main.ck_reverse.seton
+	}
+	else {
+		call main.ck_reverse.setoff
+	}
+
+	call min.withvalue main.tx_lower.formatlabel "resource GR_ED_AXIS_SCALE_MAIN_TX_LOWER_FMT" "@"
+	call max.withvalue main.tx_upper.formatlabel "resource GR_ED_AXIS_SCALE_MAIN_TX_UPPER_FMT" "@"
+	call curmin.withvalue main.ed_lower.setvalue @
+	call curmax.withvalue main.ed_upper.setvalue @
+END
+
+PROGRAM command
+BEGIN
+	call program get_defaults
+	put "_gm_dlg_edits"
+	beginoptions
+		put " object(" G ") "
+		if ! main.ck_log.isdefault() {
+			if main.ck_log {
+				put "set(plotregion." axisType ".transform log)"
+			}
+			else {
+				put "set(plotregion." axisType ".transform linear)"
+			}
+		}
+		if ! main.ck_reverse.isdefault() {
+			if main.ck_reverse {
+				put "set(plotregion." axisType ".reverse yes)"
+			}
+			else {
+				put "set(plotregion." axisType ".reverse no)"
+			}
+		}
+		if ! main.ed_lower.isdefault() {
+			call main.ed_lower.withvalue ctl_val.setvalue @
+			if ctl_val.isGreaterThan(min) {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format			///
+					"resource GR_ED_AXIS_MSGBOX_LOWER_LIMIT_LARGE"
+				stopbox stop "class _MSG_TMP.value"
+// Lower limit to large.
+			}
+			put "set(plotregion." axisType ".curmin " main.ed_lower ") "
+		}
+		if ! main.ed_upper.isdefault() {
+			call main.ed_upper.withvalue ctl_val.setvalue @
+			if ctl_val.isLessThan(max) {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 			///
+					"resource GR_ED_AXIS_MSGBOX_UPPER_LIMIT_SMALL"
+				stopbox stop "class _MSG_TMP.value"
+// Upper limit to small.
+			}
+			put "set(plotregion." axisType ".curmax " main.ed_upper ") "
+		}
+		put " epilog(_gedi toolbar axis " G ")"
+	endoptions
+	stata hidden queue
+END

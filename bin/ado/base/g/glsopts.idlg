@@ -1,0 +1,175 @@
+/*
+  glsopts
+
+*!  VERSION 1.1.2  21dec2014 (deprecated)
+
+*/
+
+DIALOG lsopts, tabtitle("Lowess")
+BEGIN
+  CHECKBOX ck_lowess         _lft      _top      _gwd1     _ht19,	///
+	label("Add a lowess smooth plot")				///
+	onclickon(program glsopts_check)				///
+	onclickoff(program glsopts_check)				///
+	option(lowess)							///
+	groupbox
+  TEXT     tx_ccol	     _igft     _ms       _txwd     .,		///
+	label("Color:") right
+  COMBOBOX cb_ccol	     _txsep    @         _tcr4gi   .,		///
+	option(lcolor) dropdownlist					///
+  	contents(colors) onselchangelist(lsopts_color_ccol)
+  COLOR    cl_ccol	     _tcr4gisep @        _colorwd  .,		///
+	option(lcolor)
+
+  TEXT     tx_clwidth	     _igft4_2  @         _txwd     .,		///
+	label("Width:") right
+  COMBOBOX cb_clwidth	     _txsep    @         _txr4gi   .,		///
+	dropdownlist contents(linewidths) option(lwidth)
+
+  TEXT     tx_conn	     _igft     _ls       _txwd     .,		///
+	label("Type:") right
+  COMBOBOX cb_conn	     _txsep    @         _txr4gi   .,   	///
+	option(connect) dropdownlist contents(connecttypes)
+
+  TEXT     tx_clpat	     _igft4_2  @         _txwd     .,		///
+	label("Pattern:") right
+  COMBOBOX cb_clpat	     _txsep    @         _txr4gi   .,		///
+	dropdownlist contents(linepatterns) option(lpattern)
+
+  GROUPBOX gb_meth	     _igft     +35       _gwd2     _ht9,	///
+	label("Smoothing options")
+  CHECKBOX ck_mean	     _indent   _ss       _inwd     .,		///
+	label("Running-mean smooth")					///
+	option(mean)
+
+  CHECKBOX ck_weight	     @	       _ms	 @	   .,		///
+	label("Suppress weighted regressions")				///
+	option(noweight)
+
+  CHECKBOX ck_bwidth	     @	       _ms	 @	   .,		///
+  	label("Override default bandwidth (default 0.8)") 		///
+  	onclickon(script lsopts_bandwidth_on) 				///
+  	onclickoff(script lsopts_bandwidth_off)
+  EDIT     en_bwidth	     _indent2  _ss	 _en7wd	   .,		///
+	label("Bandwidth")						///
+	default("literal 0.8")						///
+	numonly								///
+	option(bwidth)
+  TEXT     tx_bwidth	    _en7sep    @         _en7r3b   .,		///
+	label("Bandwidth")
+END
+
+SCRIPT lsopts_bandwidth_on
+BEGIN
+	lsopts.en_bwidth.enable
+	lsopts.tx_bwidth.enable
+END
+SCRIPT lsopts_bandwidth_off
+BEGIN
+	lsopts.en_bwidth.disable
+	lsopts.tx_bwidth.disable
+END
+
+LIST lsopts_color_ccol
+BEGIN
+	lsopts.cl_ccol.hide
+	lsopts.cl_ccol.show
+	lsopts.cl_ccol.hide
+END
+
+SCRIPT glsopts_disable
+BEGIN
+	lsopts.ck_lowess.disable
+	program glsopts_check
+END
+
+SCRIPT glsopts_enable
+BEGIN
+	lsopts.ck_lowess.enable
+	program glsopts_check
+END
+
+PROGRAM glsopts_check
+BEGIN
+	if !H(lsopts.ck_lowess) & lsopts.ck_lowess {
+		// line options
+		call lsopts.tx_ccol.enable
+		call lsopts.cb_ccol.enable
+		call lsopts.cl_ccol.enable
+		call lsopts.tx_clwidth.enable
+		call lsopts.cb_clwidth.enable
+		call lsopts.tx_clpat.enable
+		call lsopts.cb_clpat.enable
+		call lsopts.tx_conn.enable
+		call lsopts.cb_conn.enable
+		// smoothing options
+		call lsopts.gb_meth.enable
+		call lsopts.ck_mean.enable
+		call lsopts.ck_weight.enable
+		call lsopts.ck_bwidth.enable
+		if lsopts.ck_bwidth {
+			call lsopts.en_bwidth.enable
+			call lsopts.tx_bwidth.enable
+		}
+	}
+	if H(lsopts.ck_lowess) | ! lsopts.ck_lowess {
+		// line options
+		call lsopts.tx_ccol.disable
+		call lsopts.cb_ccol.disable
+		call lsopts.cl_ccol.disable
+		call lsopts.tx_clwidth.disable
+		call lsopts.cb_clwidth.disable
+		call lsopts.tx_clpat.disable
+		call lsopts.cb_clpat.disable
+		call lsopts.tx_conn.disable
+		call lsopts.cb_conn.disable
+		// smoothing options
+		call lsopts.gb_meth.disable
+		call lsopts.ck_mean.disable
+		call lsopts.ck_weight.disable
+		call lsopts.ck_bwidth.disable
+		call lsopts.en_bwidth.disable
+		call lsopts.tx_bwidth.disable
+	}
+END
+
+PROGRAM glsopts_options
+BEGIN
+	if H(lsopts.cl_ccol) {
+		optionarg /hidedefault lsopts.cb_ccol
+	}
+	if !H(lsopts.cl_ccol) {
+		optionarg /quoted lsopts.cl_ccol
+	}
+	optionarg /hidedefault lsopts.cb_clwidth
+	optionarg /hidedefault lsopts.cb_clpat
+	optionarg /hidedefault lsopts.cb_conn
+	option lsopts.ck_mean
+	option lsopts.ck_weight
+	if lsopts.ck_bwidth {
+		require lsopts.en_bwidth
+	}
+	optionarg lsopts.en_bwidth
+END
+
+PROGRAM glsopts_output
+BEGIN
+	option lsopts.ck_lowess
+	if lsopts.ck_lowess	& 	///
+	   !D(lsopts.ck_lowess) & 	///
+	   ( lsopts.ck_mean	| 	///
+	     lsopts.ck_weight	| 	///
+	     lsopts.ck_bwidth	| 	///
+	     lsopts.cb_ccol	| 	///
+	     !H(lsopts.cl_ccol)	| 	///
+	     lsopts.cb_clwidth	| 	///
+	     lsopts.cb_clpat	| 	///
+	     lsopts.cb_conn		///
+	   )				///
+	{
+		put " " "lsopts("
+		put /program glsopts_options
+		put ")"
+	}
+END
+/* end */

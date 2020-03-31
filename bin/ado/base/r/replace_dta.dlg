@@ -1,0 +1,146 @@
+/*
+
+  replace_dlg
+
+*!  VERSION 1.1.2  03may2019
+
+*******************************************************************
+Duplicate version of the -replace- dialog box designed specifically
+to be called internally from the Data Editor.
+*******************************************************************
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+DEFINE _dlght 275
+INCLUDE header
+HELP hlp1, view("help replace")
+RESET res1
+
+DEFINE fromwd 34
+DEFINE fromsep +39
+DEFINE towd 25
+DEFINE tosep +30
+
+SCRIPT PREINIT
+BEGIN
+	create ARRAY  ARGS
+	create STRING VARS
+	create STRING IFEXP
+	create DOUBLE INFROM
+	create DOUBLE INTO
+	setscale_hadj resource REPLACE_DTA_DLG_HSCALE
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	if __MESSAGE {
+		call main.ck_in.setoff
+
+		call __MESSAGE.tokenize ARGS
+		call VARS.setvalue class ARGS[1]
+		call IFEXP.setvalue class ARGS[2]
+		call INFROM.setvalue class ARGS[3]
+		call INTO.setvalue class ARGS[4]
+		
+		call main.vn_old.setvalue class VARS.value
+		call main.ex_if.setvalue class IFEXP.value
+		
+		if (INFROM) {
+			call main.sp_from.setvalue class INFROM.value
+			call main.ck_in.seton
+			if (INTO) {
+				call main.sp_to.setvalue class INTO.value
+			}
+		}
+		else {
+			call main.sp_from.setvalue 1
+			call main.sp_to.setvalue c(N)
+		}
+	}
+END
+
+DIALOG main, label(resource REPLACE_DTA_DLG_TITLE)	///
+	tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_dv	_lft	_top	_iwd	.,	///
+	label(resource LBL_VARIABLE)
+  VARNAME  vn_old	@	_ss	_vnwd	.,	///
+	label(resource LBL_VARIABLE)
+
+  CHECKBOX ck_type	_lft2	@	_cwd1	.,	///
+	option(nopromote) label(resource LBL_PRESERVE_TYPE)
+
+  TEXT     tx_exp	_lft	_ls	_iwd	.,	///
+	label(resource LBL_NEW_CONTENTS_VALUE_OR_EXPRESSION)
+  EXP      ex_exp	_lft	_ss	_iwd	.,	///
+	label(resource LBL_BU_CREATE) error(resource LBL_NEW_CONTENTS)
+	
+  GROUPBOX gb_ifin	_lft	+45	_iwd	_ht10,	///
+	label(resource LBL_RESTRICT_OBS)
+
+  TEXT     tx_if	_ilft	_ss	_inwd	.,	///
+	label(resource LBL_IF_EXPRESSION)
+  EXP      ex_if	@	_ss	@	.,	///
+	label(resource LBL_BU_CREATE)
+
+  CHECKBOX ck_in	@	+35	@	.,	///
+	label(resource LBL_USE_RANGE_OBS)		///
+	onclickon(script ifin_enable_in)		///
+	onclickoff(script ifin_disable_in)
+  TEXT     tx_from	@	_ss	fromwd	.,	///
+  	label(resource LBL_FROM) right
+  SPINNER  sp_from	fromsep	@	_spwd	.,	///
+	min(1)						///
+	max(c(N))					///
+	default(1)
+  TEXT     tx_to	_spsep	@	towd	.,	///
+	label(resource LBL_TO) right
+  SPINNER  sp_to	tosep	@	_spwd	.,	///
+	min(1)						///
+	max(c(N))					///
+  	default(c(N))
+END
+
+SCRIPT ifin_enable_in
+BEGIN
+	main.sp_from.enable
+	main.tx_to.enable
+	main.sp_to.enable
+	main.tx_from.enable
+	program ifin_check_range
+END
+
+PROGRAM ifin_check_range
+BEGIN
+	call main.sp_from.setrange 1 c(N)
+	call main.sp_to.setrange 1 c(N)
+END
+
+SCRIPT ifin_disable_in
+BEGIN
+	main.sp_from.disable
+	main.sp_to.disable
+	main.tx_to.disable
+	main.tx_from.disable
+END
+
+PROGRAM command
+BEGIN
+        put "replace "
+        varlist main.vn_old
+        put "= "
+        require main.ex_exp
+        put main.ex_exp
+
+	ifexp main.ex_if
+	if main.ck_in {
+		put " " "in " main.sp_from "/" main.sp_to
+	}
+
+        beginoptions
+                option main.ck_type
+        endoptions
+END

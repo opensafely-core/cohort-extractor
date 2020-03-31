@@ -1,0 +1,158 @@
+/*
+	INCLUDE file containing SCRIPTs for the varlist and typlist for the
+	predict command.  (May also be used elsewhere).
+
+*!  VERSION 1.2.0  20mar2019
+
+	// SCRIPTS and PROGRAMS for external use
+		* SCRIPT _p_gentype_multiple
+		* SCRIPT _p_gentype_single
+		* SCRIPT _p_gentype_setLarge
+		* SCRIPT _p_gentype_setMedium
+		* SCRIPT _p_gentype_score_on
+		* SCRIPT _p_gentype_score_off
+		* SCRIPT _p_gentype_scores_on
+		* SCRIPT _p_gentype_scores_off
+		* PROGRAM _p_gentype_output
+*/
+
+SCRIPT main_PREINIT
+BEGIN
+	create BOOLEAN _p_gentype_isMulti
+	create BOOLEAN _p_gentype_hasStub
+	_p_gentype_hasStub.settrue // the default
+	create STRING _p_gentype_size
+	program main_check_default_size
+
+END
+
+PROGRAM main_check_default_size
+BEGIN
+	if ! _p_gentype_size {
+		call _p_gentype_size.setstring "large"
+	}
+END
+
+SCRIPT _p_gentype_multiple
+BEGIN
+	_p_gentype_isMulti.settrue
+	program _p_gentype_Multiple
+	program __p_gentype_setMultiTitle
+
+END
+SCRIPT _p_gentype_single
+BEGIN
+	_p_gentype_isMulti.setfalse
+	main.tx_var.setlabel resource LBL_NEW_VARIABLE_NAME
+	main.ed_var.setlabel resource LBL_NEW_VARIABLE_NAME
+	main.ed_var.setposition . . 120 .
+END
+
+SCRIPT _p_gentype_setHasStubTrue
+BEGIN
+	_p_gentype_hasStub.settrue
+	program __p_gentype_setMultiTitle
+END
+SCRIPT _p_gentype_setHasStubFalse
+BEGIN
+	_p_gentype_hasStub.setfalse
+	program __p_gentype_setMultiTitle
+END
+
+// NOTE: the following widths should be equivalent to _vlwd from the
+// respective _std_*.idlg file.
+PROGRAM _p_gentype_Multiple
+BEGIN
+	if _p_gentype_size.equals("large") {
+		call main.ed_var.setposition . . 340 .
+	}
+	if _p_gentype_size.equals("medium") {
+		call main.ed_var.setposition . . 250 .
+	}
+END
+
+PROGRAM __p_gentype_setMultiTitle
+BEGIN
+    if _p_gentype_isMulti {
+    
+	if _p_gentype_hasStub {	
+		call main.tx_var.formatlabel "resource LBL_NEW_#_VAR_NAMES_FMT" "e(k_cat)"
+		call main.ed_var.setlabel resource LBL_NEW_#_VAR_NAMES_FMT			
+	}
+	if ! _p_gentype_hasStub {
+		call main.tx_var.setlabel resource LBL_NEW_VARIABLE_NAMES
+		call main.ed_var.setlabel resource LBL_NEW_VARIABLE_NAMES
+	}
+     }
+END
+
+PROGRAM __p_gentype_check_size_and_mode
+BEGIN
+	if _p_gentype_isMulti {
+		call script _p_gentype_multiple
+	}
+	else {
+		call script _p_gentype_single
+	}
+END
+
+SCRIPT _p_gentype_setLarge
+BEGIN
+	_p_gentype_size.setstring "large"
+	program __p_gentype_check_size_and_mode
+END
+SCRIPT _p_gentype_setMedium
+BEGIN
+	_p_gentype_size.setstring "medium"
+	program __p_gentype_check_size_and_mode
+END
+
+SCRIPT _p_gentype_nooffset_disable
+BEGIN
+	main.ck_nooffset.disable
+END
+SCRIPT _p_gentype_nooffset_enable
+BEGIN
+	main.ck_nooffset.enable
+END
+
+SCRIPT _p_gentype_scores_on
+BEGIN
+	script _p_gentype_multiple
+	script _p_gentype_nooffset_disable
+END
+SCRIPT _p_gentype_scores_off
+BEGIN
+	script _p_gentype_single
+	script _p_gentype_nooffset_enable
+END
+
+SCRIPT _p_gentype_score_on
+BEGIN
+	script _p_gentype_single
+	script _p_gentype_nooffset_disable
+END
+SCRIPT _p_gentype_score_off
+BEGIN
+	script _p_gentype_single
+	script _p_gentype_nooffset_enable
+END
+
+PROGRAM _p_gentype_output
+BEGIN
+	require main.ed_var
+	if ! main.cb_type.isdefault() {
+		put  main.cb_type " "
+		if _p_gentype_isMulti & ! main.ed_var.contains("*") {
+			put "("
+		}
+		put main.ed_var
+		if _p_gentype_isMulti & ! main.ed_var.contains("*") {
+			put ")"
+		}
+		put " "
+	}
+	if main.cb_type.isdefault() {
+		put " " main.ed_var " "
+	}
+END

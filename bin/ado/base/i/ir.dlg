@@ -1,0 +1,149 @@
+/*
+    ir.dlg
+
+*!  VERSION 1.2.1  01jul2015
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE _ht340
+INCLUDE header
+HELP hlp1, view("help ir")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource IR_DLG_HSCALE
+END
+
+DIALOG main, label(resource IR_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  INCLUDE  _epitab_vars
+  TEXT	   tx_timevar	_lft	_ls	_iwd	.,		///
+	label(resource IR_MAIN_TX_TIMEVAR)
+  VARNAME  vn_timevar	_lft	_ss	_vnwd	.,		///
+  	numeric							///
+	label(resource IR_MAIN_VN_TIMEVAR)
+END
+
+INCLUDE ifin
+INCLUDE weights_f
+
+DIALOG opt, tabtitle(resource LBL_OPTIONS)
+BEGIN
+  CHECKBOX ck_byopt	_lft	_top	_cwd1	.,		///
+	label(resource LBL_STRATIFY_ON_VARIABLE)		///
+	onclickon(program byopt_on)				///
+	onclickoff(script byopt_off)
+  VARNAME  vn_byopt	_indent2 _ss	_vnwd	.,		///
+	label(resource LBL_STRATIFY_ON_VARIABLE)
+
+  INCLUDE  _epitab_stdopts
+
+  CHECKBOX ck_ird	_lft	_ms	_iwd	.,		///
+	option(ird)						///
+	label(resource IR_OPT_CK_IRD)
+
+  DEFINE _x _lft2
+  DEFINE _y _top
+  DEFINE _cx _spr2
+  INCLUDE _sp_level
+END
+
+PROGRAM byopt_on
+BEGIN
+	call gaction opt.vn_byopt.enable
+	call gaction opt.rb_mstd.enable
+	call gaction opt.rb_istd.enable
+	call gaction opt.rb_estd.enable
+	call gaction opt.rb_vstd.enable
+	call gaction opt.ck_nocrude.enable
+	call gaction opt.ck_missing.enable
+	call gaction opt.ck_pool.enable
+	call gaction opt.ck_nohom.enable
+	if opt.rb_vstd {
+		call gaction opt.vn_vstd.enable
+	}
+	if opt.rb_istd | opt.rb_estd | opt.rb_vstd {
+		call gaction opt.ck_ird.enable
+	}
+END
+
+SCRIPT byopt_off
+BEGIN
+	opt.vn_byopt.disable
+	opt.rb_mstd.disable
+	opt.rb_istd.disable
+	opt.rb_estd.disable
+	opt.rb_vstd.disable
+	opt.ck_nocrude.disable
+	opt.ck_missing.disable
+	opt.ck_pool.disable
+	opt.ck_nohom.disable
+	opt.ck_ird.disable
+	opt.vn_vstd.disable
+END
+
+SCRIPT mstd_on
+BEGIN
+	opt.ck_ird.disable
+	opt.vn_vstd.disable
+END
+
+SCRIPT estd_on
+BEGIN
+	opt.ck_ird.enable
+	opt.vn_vstd.disable
+END
+
+SCRIPT istd_on
+BEGIN
+	opt.ck_ird.enable
+	opt.vn_vstd.disable
+END
+
+SCRIPT vstd_on
+BEGIN
+	opt.ck_ird.enable
+	opt.vn_vstd.enable
+END
+
+PROGRAM ir_by_var_output
+BEGIN
+	put opt.vn_byopt
+	if opt.ck_missing {
+		put ", " 
+		option opt.ck_missing
+	}
+END
+
+PROGRAM command
+BEGIN
+	put "ir "
+	varlist main.vn_varcase
+	varlist main.vn_varexp
+	varlist main.vn_timevar
+	INCLUDE _weights_pr
+	INCLUDE _ifin_pr
+	beginoptions
+		if opt.ck_byopt {
+			require opt.vn_byopt
+			put "by("
+			put /program ir_by_var_output
+			put ")"
+		}
+		if opt.ck_byopt {
+			option radio(opt rb_mstd rb_istd rb_estd rb_vstd)
+		}
+		if opt.rb_vstd {
+			optionarg opt.vn_vstd
+		}
+		option opt.ck_pool
+		option opt.ck_nocrude
+		option opt.ck_nohom
+		option opt.ck_ird
+		INCLUDE _level_opt_pr
+	endoptions
+END

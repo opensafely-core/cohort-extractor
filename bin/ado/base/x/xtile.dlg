@@ -1,0 +1,80 @@
+/*
+ xtile
+
+ *!  VERSION 1.2.0  19dec2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE header
+
+HELP hlp1, view("help xtile")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource XTILE_DLG_HSCALE
+END
+
+DIALOG main,  tabtitle(resource LBL_TAB_MAIN)	///
+	label(resource XTILE_DLG_TITLE)
+BEGIN
+  INCLUDE _exp_vareq
+  GROUPBOX gb_opt          _lft      _xls      _iwd      _ht11,		///
+	label(resource LBL_OPTIONS)
+  RADIO    rb_nquant       _indent   _ms       _rbwd     .,		///
+	first onclickon(script nquant_on)
+  DEFINE _x @x
+  SPINNER  sp_nquant       _cksep    @         _spwd     .,		///
+	label(resource LBL_NUMBER_OF_QUANTILES)				///
+	min(2) max(100) default(2) option(nquantiles)
+  TEXT     tx_nquant       _spsep    @         _cksprb   .,		///
+	label(resource LBL_NUMBER_OF_QUANTILES)
+  RADIO    rb_cutp         _x        _ls       _ibwd     .,		///
+	label(resource XTILE_MAIN_RB_CUTP)				///
+	onclickon(script cutp_on) last
+  VARNAME  vn_cutp         _indent2  _ss       _vnwd     .,		///
+	label(resource XTILE_MAIN_RB_CUTP) 				///
+	numeric								///
+	option(cutpoints)
+  CHECKBOX ck_altdef       _x        _ls       _ibwd     .,		///
+	label(resource XTILE_MAIN_CK_ALTDEF)				///
+ 	option(altdef) 							///
+	onclickon(program disable_weights)				///
+	onclickoff(program enable_weights)
+END
+
+INCLUDE ifin
+INCLUDE weights_fpa
+
+SCRIPT nquant_on
+BEGIN
+	main.sp_nquant.enable
+	main.vn_cutp.disable
+END
+
+SCRIPT cutp_on
+BEGIN
+	main.sp_nquant.disable
+	main.vn_cutp.enable
+END
+
+PROGRAM command
+BEGIN
+	put "xtile "
+	INCLUDE _exp_vareq_pr
+	INCLUDE  _weights_pr
+	INCLUDE _ifin_pr
+	beginoptions
+		if main.rb_nquant {
+			optionarg /hidedefault main.sp_nquant
+		}
+		if main.rb_cutp {
+			require main.vn_cutp
+			optionarg main.vn_cutp
+		}
+		option main.ck_altdef
+	endoptions
+END

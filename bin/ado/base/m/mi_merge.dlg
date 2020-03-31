@@ -1,0 +1,185 @@
+/*
+    mi_merge
+
+*!  VERSION 1.1.3  14mar2015
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE _ht340
+INCLUDE header
+
+HELP hlp1, view("help mi_merge")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource MI_MERGE_DLG_HSCALE
+	
+        main.fi_filename.formatfilter "{0} (*.dta)|*.dta|{1} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_DTA_FILES" "resource ui_ex FILE_TYPE_ALL_FILES"
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	label(resource MI_MERGE_DLG_TITLE)
+BEGIN
+  GROUPBOX gb_type	_lft	_top	_iwd	_ht8,			///
+	label(resource LBL_TYPE_OF_MERGE)
+  RADIO rb_1_to_1	_ilft	_ss	_inwd	.,			///
+	first								///
+	onclickon(script main_showvlist_on)				///
+	label(resource LBL_ONE_TO_ONE_KEY_VARIABLES)
+  RADIO rb_m_to_1	@	_ss	@	.,			///
+	onclickon(script main_showvlist_on)				///
+	label(resource LBL_MANY_TO_ONE_KEY_VAR_UNIQUE_KEY_FOR_DATA_ON_DISK)
+  RADIO rb_1_to_m	@	_ss	@	.,			///
+	onclickon(script main_showvlist_on)				///
+	label(resource LBL_ONE_TO_MAY_KEY_VAR_UNIQUE_KEY_FOR_DATA_IN_MEM)
+  RADIO rb_m_to_m	@	_ss	@	., last			///
+	onclickon(script main_showvlist_on)				///
+	label(resource LBL_MANY_TO_MANY_ON_KEY_VARIABLES)
+  
+  TEXT tx_var		_lft	_xls	_iwd	.,			///
+	label(resource LBL_KEY_VARIABLES_MATCH_VARIABLES)
+  VARLIST vl_varlist	@	_ss	@	.,			///
+	label(resource LBL_KEY_VARIABLES)
+
+  TEXT tx_filename	@	_ls	@	.,			///
+	label(resource LBL_FILENAME_OF_DATASET_ON_DISK)
+  FILE fi_filename 	@       _ss	@	.,			///
+	error(resource LBL_FILENAME_OF_DATASET_ON_DISK)			///
+	defext(dta) label(resource LBL_BU_BROWSE)
+END
+
+SCRIPT main_showvlist_on
+BEGIN
+	main.tx_var.enable
+	main.vl_varlist.enable
+END
+
+SCRIPT main_showvlist_off
+BEGIN
+	main.tx_var.disable
+	main.vl_varlist.disable
+END
+
+SCRIPT opt_PREINIT
+BEGIN
+	create ARRAY opt_using_variables
+	create DOUBLE opt_des_error
+END
+
+DIALOG opt, tabtitle(resource LBL_OPTIONS)
+BEGIN
+  TEXT tx_generate	_lft	_top	_iwd	.,			///
+	label(resource LBL_NAME_OF_NEW_VARIABLE_TO_MARK_MERGE_RESULTS)
+  EDIT ed_generate	_lft	_ss	_vnwd	.,			///
+	max(32)	option(generate)					///
+	label(resource LBL_NAME_NEW_VARIABLE_MARK_MERGE_RES)
+  CHECKBOX ck_nolabel	_lft	_ls	_iwd	.,			///
+	option(nolabel)	label(resource LBL_DO_NOT_COPY_VALUE_LABEL_DEF)
+  CHECKBOX ck_nonotes	@	_ms	@	.,			///
+	label(resource LBL_DO_NOT_COPY_NOTES_FROM_DTA) option(nonotes)
+  CHECKBOX ck_noreport	@	_ms	@	.,			///
+	option(noreport) label(resource LBL_DO_NOT_DISPLAY_RESULT_SUMMARY_TABLE)
+  CHECKBOX ck_force	@	_ms	@	.,			///
+	option(force) label(resource LBL_ALLOW_STING_NUMERIC_VAR_TYPE_MISMATCH_WITHOUT_ERR)
+END
+
+DIALOG res, tabtitle(resource LBL_RESULTS)
+BEGIN
+  GROUPBOX gb_assert	_lft	_top	_iwd	_ht12,			///
+  	label(resource LBL_REQUIRE_MERGE_RESULTS)
+  CHECKBOX ck_amaster	_ilft	_ss	_ibwd	.,			///
+	option(master) label(resource LBL_RECORD_APPEARED_IN_MASTER_ONLY)
+  CHECKBOX ck_ausing	@	_ms	@	.,			///
+	option(using) label(resource LBL_RECORD_APPEARED_IN_USING_ONLY)
+  CHECKBOX ck_amatch	@	_ms	@	.,			///
+	option(match) label(resource LBL_RECORD_APPEARED_IN_BOTH)
+  CHECKBOX ck_amatch_u @	_ms	@	.,			///
+	option(match_update) 						///
+	label(resource LBL_RECORD_APPEARED_IN_BOTH_MISSING_VALUES_UPDATED)
+  CHECKBOX ck_amatch_c	@	_ms	@	.,			///
+	option(match_conflict) 						///
+	label(resource LBL_RECODE_APPEARED_IN_BOTH_CONFLICTING_NONMISSING)
+ 
+  GROUPBOX gb_keep	_lft	_xls	_iwd	_ht12,			///
+  	label(resource LBL_RESULTS_TO_KEEP)
+  CHECKBOX ck_kmaster	_ilft	_ss	_ibwd	.,			///
+	option(master) label(resource LBL_RECORD_APPEARED_IN_MASTER_ONLY)
+  CHECKBOX ck_kusing	@	_ms	@	.,			///
+	option(using) label(resource LBL_RECORD_APPEARED_IN_USING_ONLY)
+  CHECKBOX ck_kmatch	@	_ms	@	.,			///
+	option(match) label(resource LBL_RECORD_APPEARED_IN_BOTH)
+  CHECKBOX ck_kmatch_u @	_ms	@	.,			///
+	option(match_update) 						///
+	label(resource LBL_RECORD_APPEARED_IN_BOTH_MISSING_VALUES_UPDATED)
+  CHECKBOX ck_kmatch_c	@	_ms	@	.,			///
+	option(match_conflict) 						///
+	label(resource LBL_RECODE_APPEARED_IN_BOTH_CONFLICTING_NONMISSING)
+END
+
+PROGRAM build_res_assert_output
+BEGIN
+	option res.ck_amaster
+	option res.ck_ausing
+	option res.ck_amatch
+	option res.ck_amatch_u
+	option res.ck_amatch_c
+END
+
+PROGRAM build_res_keep_output
+BEGIN
+	option res.ck_kmaster
+	option res.ck_kusing
+	option res.ck_kmatch
+	option res.ck_kmatch_u
+	option res.ck_kmatch_c
+END
+
+PROGRAM command
+BEGIN
+	require main.fi_filename
+	if main.rb_1_to_1 {
+		require main.vl_varlist
+		put "mi merge 1:1 " main.vl_varlist
+	}
+	if main.rb_m_to_1 {
+		require main.vl_varlist
+		put "mi merge m:1 " main.vl_varlist
+	}
+	if main.rb_1_to_m {
+		require main.vl_varlist
+		put "mi merge 1:m " main.vl_varlist
+	}
+	if main.rb_m_to_m {
+		require main.vl_varlist
+		put "mi merge m:m " main.vl_varlist
+	}
+
+	put " " "using "
+	put `"""'
+	put main.fi_filename
+	put `"""'
+	beginoptions
+		if (res.ck_amaster | res.ck_ausing | ///
+			res.ck_amatch | res.ck_amatch_u | res.ck_amatch_c) {
+			put " assert("
+			put /program build_res_assert_output
+			put ")"	
+		}
+		if (res.ck_kmaster | res.ck_kusing | ///
+			res.ck_kmatch | res.ck_kmatch_u | res.ck_kmatch_c) {
+			put " keep("
+			put /program build_res_keep_output
+			put ")"	
+		}
+		optionarg /hidedefault opt.ed_generate
+		option opt.ck_nolabel
+		option opt.ck_nonotes
+		option opt.ck_noreport
+		option opt.ck_force
+	endoptions
+END

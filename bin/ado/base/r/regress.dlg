@@ -1,0 +1,243 @@
+/*
+  regress
+
+*!  VERSION 1.3.4  03mar2015
+
+  keyword:  eclass
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE header
+
+HELP hlp1, view("help regress")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	program parseMessage
+	script se_createAsSvyOLS
+	script se_setBias_on
+	program svy_check_title
+	setscale_hadj resource REGRESS_DLG_HSCALE
+END
+
+PROGRAM parseMessage
+BEGIN
+	if __MESSAGE.contains("__MI__") {
+		call script se_setMI_on
+	}
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program check_bytab
+	program se_setFinalInitState
+END
+
+PROGRAM check_bytab
+BEGIN
+	if ! __MESSAGE.contains("__MI__") {
+		call script sub_set_by_on
+	}
+END
+
+SCRIPT svy_is_on
+BEGIN
+	main.ck_hascon.disable
+	main.ck_tsscon.disable
+	rpt.ck_beta.disable
+	rpt.gb_output.disable
+	rpt.tx_depn.disable
+	rpt.ed_depn.disable
+END
+SCRIPT svy_is_off
+BEGIN
+	main.ck_hascon.enable
+	main.ck_tsscon.enable
+	rpt.ck_beta.enable
+	rpt.gb_output.enable
+	rpt.tx_depn.enable
+	rpt.ed_depn.enable
+END
+PROGRAM svy_check_title
+BEGIN
+	if __MESSAGE.contains("-svy-") {
+		call settitle resource REGRESS_DLG_TITLE_SVY
+	}
+	else {
+		call settitle resource REGRESS_DLG_TITLE
+	}
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)
+BEGIN
+  TEXT tx_dv 		_lft	_top	_vnwd	.,			///
+	label(resource LBL_DEPVAR)
+  VARNAME vn_dv		@ 	_ss	@	.,			///
+	ts								///
+	numeric								///
+	label(resource LBL_DEPVAR)
+
+  TEXT tx_iv		_vlx	_top	160	.,			///
+	label(resource LBL_INDDEPVAR)
+  VARLIST vl_iv		@	_ss	_vlwd	.,			///
+	fv ts								///
+	allowcat							///
+	numeric								///
+	label(resource LBL_INDDEPVAR)
+
+  GROUPBOX gb_cons	_lft	_xls	_iwd	_ht8,			///
+	label(resource LBL_TREATMENT_OF_CONSTANT)
+
+  CHECKBOX ck_nocons	_ilft	_ms	_inwd	.,			///
+	label(resource LBL_NOCONSTANT)					///
+	option("noconstant")
+
+  CHECKBOX ck_hascon	@	_ms	@	.,			///
+	label(resource LBL_HAS_USER_SUPPLIED_CONSTANT)			///
+	option("hascons")						///
+
+  CHECKBOX ck_tsscon	@	_ms	@	.,			///
+	label(resource REGRESS_MAIN_CK_TSSCONS)				///
+	option("tsscons")
+END
+
+INCLUDE sub_by_ifin_over_subpop
+INCLUDE weights_fpai
+INCLUDE se
+
+PROGRAM beta_on
+BEGIN
+	if robust.ck_robust {
+		call gaction robust.vn_clust.disable
+	}
+END
+
+PROGRAM beta_off
+BEGIN
+	if robust.ck_robust {
+		call gaction robust.vn_clust.enable
+	}
+END
+
+
+PROGRAM robon
+BEGIN
+	call gaction robust.gb_bias.enable
+	call gaction robust.rb_hc1.enable
+	call gaction robust.rb_hc2.enable
+	call gaction robust.rb_hc3.enable
+	call gaction robust.tx_hc1.enable
+	call gaction robust.tx_hc2.enable
+	call gaction robust.tx_hc3.enable
+	call gaction robust.tx_clust.enable
+	if !rpt.ck_beta {
+		call gaction robust.vn_clust.enable
+	}
+END
+
+SCRIPT roboff
+BEGIN
+	robust.gb_bias.disable
+	robust.rb_hc1.disable
+	robust.rb_hc2.disable
+	robust.rb_hc3.disable
+	robust.tx_hc1.disable
+	robust.tx_hc2.disable
+	robust.tx_hc3.disable
+	robust.tx_clust.disable
+	robust.vn_clust.disable
+END
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+	program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2b
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  CHECKBOX ck_beta	_lft2	@	_cwd2	.,			///
+	label(resource REGRESS_RPT_CK_BETA)				///
+	option("beta")							///
+	onclickon(program beta_on)					///
+	onclickoff(program beta_off)
+
+  RADIO    rb_default 	_lft	+35	_iwd	.,			///
+ 	label(resource LBL_REPORT_COEFFICIENTS_DLFT) first		///
+ 	onclickon(rpt.ed_eform.disable)
+  RADIO    rb_eform	@	_ss	@	.,			///
+	label(resource LBL_REPORT_EXPONENTIATED_COEFFICIENTS_LABEL_AS)				///
+	last  onclickon(rpt.ed_eform.enable)
+  EDIT     ed_eform	+20	_ss	_vnwd	.,			///
+	label(resource LBL_REPORT_EXPONENTIATED_COEFFICIENTS_LABEL_AS)				///
+	default("exp(Coef.)")						///
+	option("eform")
+
+  GROUPBOX gb_output	_lft	_ls	_iwd	_ht4,			///
+	label(resource REGRESS_RPT_GB_OUTPUT)
+
+  TEXT     tx_depn	_ilft	_ss	_cwd1	.,			///
+		label(resource LBL_SUBSTITUTE_DEP_VARIABLE_NAME)
+
+  EDIT     ed_depn	@	_ss	@	.,			///
+	label(resource LBL_SUBSTITUTE_DEP_VARIABLE_NAME)		///
+	option("depname")
+
+  DEFINE _x _lft
+  DEFINE _y _xls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+
+PROGRAM rpt_output
+BEGIN
+	optionarg /hidedefault rpt.sp_level
+	option rpt.ck_beta
+	optionarg rpt.ed_depn
+	if rpt.rb_eform {
+		require rpt.ed_eform
+	}
+	optionarg rpt.ed_eform
+	INCLUDE _report_columns_pr
+	put " " rpt_bu_facvarsResults
+	put " " rpt_bu_fmtcoefResults
+END
+
+PROGRAM command
+BEGIN
+	put /program by_output " "
+	put /program se_prefix_output " "
+	put "regress "
+	varlist main.vn_dv [main.vl_iv]
+	put " " /program ifin_output
+	put " " /program weights_output
+	beginoptions
+		option main.ck_nocons
+		option main.ck_hascon
+		option main.ck_tsscon
+		put " " /program se_output
+		put " " /program rpt_output
+	endoptions
+END

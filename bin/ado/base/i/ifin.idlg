@@ -1,0 +1,174 @@
+/*
+  ifin.idlg -- standard include dialog for by, if, and in options
+
+*!  VERSION 1.2.2  03may2019
+
+    // SCRIPTS and PROGRAMS for external use
+	* SCRIPT  ifin_enable
+	* SCRIPT  ifin_disable
+	* SCRIPT  ifin_enable_if
+	* SCRIPT  ifin_disable_if
+	* SCRIPT  ifin_setNotDataDependent
+	* PROGRAM ifin_output
+	* BOOLEAN ifin_has_output
+
+	* OBJECT  sub.tx_note1
+	* OBJECT  sub.tx_note2
+
+*/
+
+DEFINE fromwd 34
+DEFINE fromsep +39
+DEFINE towd 29
+DEFINE tosep +34
+
+SCRIPT sub_PREINIT
+BEGIN
+	create BOOLEAN _sub_isDataDependent
+	create BOOLEAN ifin_has_output
+	_sub_isDataDependent.settrue
+END
+
+DIALOG sub, tabtitle(resource SUB_BY_IFIN_OVER_SUBPOP_TABTITLE_IF_IN)
+BEGIN
+  GROUPBOX gb_ifin	_lft	_top	_iwd	_ht10,		///
+	label(resource LBL_RESTRICT_OBS)
+
+  TEXT     tx_if	_ilft	_ss	_inwd	.,		///
+	label(resource LBL_IF_EXPRESSION)
+  EXP      ex_if	@	_ss	@	.,		///
+	label(resource LBL_BU_CREATE)
+
+  CHECKBOX ck_in	@	+35	@	.,		///
+	label(resource LBL_USE_RANGE_OBS)			///
+	onclickon(script ifin_enable_in)			///
+	onclickoff(script ifin_disable_in)
+  TEXT     tx_from	@	_ss	fromwd	.,		///
+  	label(resource LBL_FROM) right
+  SPINNER  sp_from	fromsep	@	_spwd	.,		///
+	min(1)							///
+	max(c(N))						///
+	default(1)
+  TEXT     tx_to	_spsep	@	towd	.,		///
+	label(resource LBL_TO) right
+  SPINNER  sp_to	tosep	@	_spwd	.,		///
+	min(1)							///
+	max(c(N))						///
+  	default(c(N))
+
+  // Called externally and should not be removed or renamed.
+  TEXT     tx_note1	_lft	_xxls	_iwd	.,
+  TEXT     tx_note2	@	_vss	@	.,
+END
+
+///-- For external use
+SCRIPT ifin_enable
+BEGIN
+	program ifin_enable_pr
+END
+
+SCRIPT ifin_disable
+BEGIN
+	sub.gb_ifin.disable
+	sub.tx_if.disable
+	sub.ex_if.disable
+	sub.ck_in.disable
+	sub.sp_from.disable
+	sub.tx_to.disable
+	sub.sp_to.disable
+END
+
+SCRIPT ifin_enable_if
+BEGIN
+	sub.tx_if.enable
+	sub.ex_if.enable
+END
+
+SCRIPT ifin_disable_if
+BEGIN
+	sub.tx_if.disable
+	sub.ex_if.disable
+END
+
+SCRIPT ifin_setNotDataDependent
+BEGIN
+	sub.sp_to.setrange 1 10000000
+	sub.sp_from.setrange 1 10000000
+	_sub_isDataDependent.setfalse
+END
+
+PROGRAM ifin_output
+BEGIN
+	call ifin_has_output.setfalse
+	if _sub_isDataDependent {
+		ifexp sub.ex_if
+		if sub.ck_in {
+			inrange sub.sp_from sub.sp_to
+		}
+	}
+	if ! _sub_isDataDependent {
+		ifexp sub.ex_if
+		if sub.ck_in {
+			put " " "in " sub.sp_from "/" sub.sp_to
+		}
+	}
+	if sub.ex_if | sub.ck_in {
+		call ifin_has_output.settrue
+	}
+END
+
+///--
+
+PROGRAM ifin_enable_pr
+BEGIN
+	call sub.gb_ifin.enable
+	call sub.tx_if.enable
+	call sub.ex_if.enable
+	call sub.ck_in.enable
+	if sub.ck_in {
+		call script ifin_enable_in
+	}
+END
+
+SCRIPT ifin_enable_in
+BEGIN
+	sub.sp_from.enable
+	sub.tx_to.enable
+	sub.sp_to.enable
+	sub.tx_from.enable
+	program ifin_check_range
+END
+
+PROGRAM ifin_check_range
+BEGIN
+	if _sub_isDataDependent {
+		call sub.sp_from.setrange 1 c(N)
+		call sub.sp_to.setrange 1 c(N)
+	}
+END
+
+SCRIPT ifin_disable_in
+BEGIN
+	sub.sp_from.disable
+	sub.sp_to.disable
+	sub.tx_to.disable
+	sub.tx_from.disable
+END
+
+///-- left in for backward compatibility
+//    NOTE: these calls are deprecated
+PROGRAM disable_sub
+BEGIN
+	call script ifin_disable
+END
+
+PROGRAM enable_sub
+BEGIN
+	call program ifin_enable_pr
+END
+
+SCRIPT sub_off
+BEGIN
+	script ifin_disable
+END
+///--

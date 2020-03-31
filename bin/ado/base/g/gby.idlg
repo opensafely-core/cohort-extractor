@@ -1,0 +1,1651 @@
+/*
+  gby.idlg Include for graphics by
+
+*!  VERSION 1.1.7  21dec2014 (deprecated)
+
+  	// SCRIPTS and PROGRAMS for external use
+
+  		* SCRIPT gby_total_disable
+  		* SCRIPT gby_missing_disable
+  		* SCRIPT gby_setViewByopts
+  		* SCRIPT gby_setViewByopts_Total
+
+  		* SCRIPT gby_enable
+  		* SCRIPT gby_disable
+  		* PROGRAM gby_byopts_output
+  		* PROGRAM gby_output
+*/
+
+SCRIPT gby_PREINIT
+BEGIN
+	create BOOLEAN _gby_isenabled
+	_gby_isenabled.settrue
+END
+
+DIALOG gby, tabtitle("By")
+BEGIN
+  /* LEFT SIDE */
+  GROUPBOX  gb_main    _lft        _top      _gwd1       _ht17h,	///
+	label("By controls ")
+  DEFINE    ytop @y
+  /* LEFT SIDE-- By col(1) */
+  TEXT     tx_vars     _igft       _ms       _txwd       .,		///
+	label("Variables:") right
+  VARLIST  vl_vars     _txsep      @         _txr2gi     .,		///
+	label("Variables:")
+  CHECKBOX ck_total    @           _ms       _txr2b4g    .,		///
+	label("Graph total") option(total)
+  DEFINE   y @y
+  CHECKBOX ck_missing  @           _ms       105         .,		///
+	label("Graph missing") option(missing)
+  CHECKBOX ck_colfirst @           _ms       _txr2b4g    .,		///
+	label("Column first") option(colfirst)
+  TEXT     tx_holes    _igft       _ms       _txwd       .,		///
+	label("Holes:")	right
+  EDIT     ed_holes    _txsep      @         _tcr2b4g    .,		///
+	option(holes)
+  BUTTON   bu_holes    _tcr2b4gsep @         _btwd       .,		///
+	label("?") onpush(view help numlist##|_new)
+  TEXT     tx_layout   _igft       _ms       _txwd       .,             ///
+	label("Layout:") right
+  COMBOBOX cb_layout   _txsep      @         _txr2b4g    .,             ///
+  	dropdownlist contents(gby_layout) values(gby_layout_values)	///
+	onselchangelist(gby_layout_action)
+  TEXT     tx_layoutsp _igft       _ms       _txwd       .,		///
+	right	/* uses setlabel below */
+  SPINNER  sp_rowcol   _txsep      @         _spwd       .,		///
+	min(1) max(100) default(1)
+  /* LEFT SIDE-- By col(2) */
+  TEXT     tx_style    _gft4_2     y         _txwd       .,		///
+	label("Style:")	right
+  COMBOBOX cb_style    _txsep      @         _txr2b4g    .,		///
+	dropdownlist contents(bygraph) option(style)
+  TEXT     tx_imargin  _gft4_2     _ms       _txwd       .,		///
+	label("Margin:") right
+  COMBOBOX cb_imargin  _txsep      @         _txr2b4g    .,		///
+	dropdown contents(margin) option(imargin)
+  TEXT     tx_iscale   _gft4_2     _ms       _txwd       .,		///
+	label("Scale text:") right
+  EDIT     ed_iscale   _txsep      @         _en7wd      .,		///
+	numonly	option(iscale) default(1)
+  TEXT     tx_xrescale _gft4_2     _ms       _txwd       .,		///
+	label("X-Rescale:") right
+  COMBOBOX cb_xrescale _txsep      @         _txr2b4g    .,		///
+	dropdownlist contents(yesno) values(gby_xrescale_values)
+  TEXT     tx_yrescale _gft4_2     _ms       _txwd       .,		///
+	label("Y-Rescale:") right
+  COMBOBOX cb_yrescale _txsep      @         _txr2b4g    .,		///
+	dropdownlist contents(yesno) values(gby_yrescale_values)
+
+  /* LEFT SIDE LOWER Region options */
+  TEXT     tx_space    _lft        _xxxls    0		 0,
+  DEFINE   y @y
+  /* Col(1) */
+  GROUPBOX gb_gregion  _lft        y         _cwd4_g     _ht9h,		///
+	label("Graph region ")
+  TEXT     tx_gregfclr _lft4_1gi   _ss       _txwd    .,		///
+	label("Fill color:") right
+  COMBOBOX cb_gregfclr _txsep      @         _tcr4gi  .,		///
+	contents(colors) dropdownlist option(fcolor)			///
+	onselchangelist(gby_cl_gregfclr_sel)
+  COLOR    cl_gregfclr _tcr4gisep  @         _colorwd ., option(fcolor)
+  TEXT     tx_greglclr _lft4_1gi   _ms       _txwd    .,		///
+	label("Line color:") right
+  COMBOBOX cb_greglclr _txsep      @         _tcr4gi  .,		///
+	contents(colors) dropdownlist option(lcolor)			///
+	onselchangelist(gby_cl_greglclr_sel)
+  COLOR    cl_greglclr _tcr4gisep  @         _colorwd ., option(lcolor)
+  TEXT     tx_greglwd  _lft4_1gi   _ms       _txwd    .,		///
+	label("Line width:") right
+  COMBOBOX cb_greglwd  _txsep      @         _txr4gi  .,		///
+	contents(linewidths) dropdownlist option(lwidth)
+  TEXT     tx_gregmarg _lft4_1gi   _ms       _txwd    .,		///
+	label("Margin:") right
+  COMBOBOX cb_gregmarg _txsep      @         _txr4gi  .,		///
+	contents(margin) dropdown option(margin)
+  /* Col(2) */
+  GROUPBOX gb_pregion  _lft4_2g    y         _cwd4_g  _ht9h,		///
+	label("Plot region ")
+  TEXT     tx_pregfclr _lft4_2gi   _ss       _txwd    .,		///
+	label("Fill color:") right
+  COMBOBOX cb_pregfclr _txsep      @         _tcr4gi  .,		///
+	contents(colors) dropdownlist option(fcolor)			///
+	onselchangelist(gby_cl_pregfclr_sel)
+  COLOR    cl_pregfclr _tcr4gisep  @         _colorwd ., option(fcolor)
+  TEXT     tx_preglclr _lft4_2gi   _ms       _txwd    .,		///
+	label("Line color:") right
+  COMBOBOX cb_preglclr _txsep      @         _tcr4gi  .,		///
+	contents(colors) dropdownlist option(lcolor)			///
+	onselchangelist(gby_cl_preglclr_sel)
+  COLOR    cl_preglclr _tcr4gisep  @         _colorwd ., option(lcolor)
+  TEXT     tx_preglwd  _lft4_2gi   _ms       _txwd    .,		///
+	label("Line width:") right
+  COMBOBOX cb_preglwd  _txsep      @         _txr4gi  .,		///
+	contents(linewidths) dropdownlist option(lwidth)
+  TEXT     tx_pregmarg _lft4_2gi   _ms       _txwd    .,		///
+	label("Margin:") right
+  COMBOBOX cb_pregmarg _txsep      @         _txr4gi  .,		///
+	contents(margin) dropdown option(margin)
+
+  /**********************************************************************/
+  /* RIGHT SIDE */
+  /**********************************************************************/
+  /* Right Side Upper titles captions notes*/
+  GROUPBOX gb_title    _lft2g      ytop     _gwd1       _ht19h,		///
+	label("Title / Subtitle / Caption / Note ")
+  COMBOBOX cb_mode     _igft2      _ss       _tcr2b4g    .,		///
+	dropdownlist contents(gby_mode) onselchangelist(gby_mode_action)
+  TEXT     tx_mode     _tcr2b4gsep @         _txr2b4g    .,
+  TEXT     tx_mark2    _igft2      _ls       0           0,
+  DEFINE   rty @y
+  /**********************************************************************/
+  /* Right Side Upper Title col(1) */
+  TEXT     tx_title    _igft2      rty       _txwd       .,		///
+	label("Title:") right
+  EDIT     ed_title    _txsep      @         _txr2gi     .,
+  TEXT     tx_ttlsize  _igft2      _ms       _txwd       .,		///
+	label("Size:") right
+  COMBOBOX cb_ttlsize  _txsep      @         _txr2b4g    .,		///
+	dropdownlist contents(textsizes) option(size)
+  DEFINE   y @y
+  TEXT     tx_ttlclr   _igft2      _ms       _txwd       .,		///
+	label("Color:")	right
+  COMBOBOX cb_ttlclr   _txsep      @         _tcr2b4g    .,		///
+	dropdownlist contents(colors) option(color)			///
+	onselchangelist(gby_cl_ttlclr_sel)
+  COLOR    cl_ttlclr   _tcr2b4gsep @         _colorwd    ., option(color)
+  TEXT     tx_ttlpos   _igft2      _ms       _txwd       .,		///
+	label("Position:") right
+  COMBOBOX cb_ttlpos   _txsep      @         _txr2b4g    .,		///
+	dropdownlist contents(clockpos) option(position)
+  TEXT     tx_ttlmark  _igft2      _ss       0           0,
+  DEFINE   bxy @y
+  /* Right Side Upper Title col(2) */
+  TEXT     tx_ttljust  _gft4_4     y         _txwd       .,		///
+	label("Justify:") right
+  COMBOBOX cb_ttljust  _txsep      @         _txr2b4g    .,		///
+	dropdownlist contents(justification) option(justification)
+  TEXT     tx_ttlgp    _gft4_4     _ms       _txwd       .,		///
+	label("Line gap:") right
+  EDIT     ed_ttlgp    _txsep      @         _txr2b4g    .,		///
+	label("Line gap") option(linegap)
+  /* Right Side Upper Title box */
+  CHECKBOX ck_ttlbox   _igft2      bxy       _cwd1gb     _ht4h,		///
+	groupbox label("Box") option(box) 				///
+	onclickon(script by_ttlbox_on) onclickoff(script by_ttlbox_off)
+    /* col(1) */
+  TEXT     tx_ttlbclr  _iigft2     _ss       _txswd      .,		///
+	label("Fill color:") right
+  COMBOBOX cb_ttlbclr  _txssep     @         _tcr2b4g    .,		///
+	dropdownlist contents(colors) option(fcolor)			///
+	onselchangelist(gby_cl_ttlbclr_sel)
+  COLOR    cl_ttlbclr  _tcr2b4gsep @         _colorwd    ., option(fcolor)
+  DEFINE   y3 @y
+  TEXT     tx_ttlblclr _iigft2     _ms       _txswd      .,		///
+	label("Line color:") right
+  COMBOBOX cb_ttlblclr _txssep     @         _tcr2b4g    .,		///
+	dropdownlist contents(colors) option(lcolor)			///
+	onselchangelist(gby_cl_ttlblclr_sel)
+  COLOR    cl_ttlblclr _tcr2b4gsep @         _colorwd    ., option(lcolor)
+    /* col(2) */
+  TEXT     tx_ttlmarg  _gft4_4     y3        _txswd      .,		///
+	label("Margin:") right
+  COMBOBOX cb_ttlmarg  _txssep     @         _txr2b4g    .,		///
+	dropdownlist contents(margin) 	option(margin)
+  CHECKBOX ck_ttlexp   @           _ms       _txr2b4g    .,		///
+	label("Ignore text") option(bexpand)
+  /**********************************************************************/
+  /* Right Side Upper Subtitle col(1) */
+  TEXT     tx_stitle    _igft2     rty       _txwd       .,		///
+	label("Subtitle:") right
+  EDIT     ed_stitle    _txsep     @         _txr2gi     .,		///
+	label("Subtitle")
+  TEXT     tx_stlsize  _igft2      _ms       _txwd       .,		///
+	label("Size:") right
+  COMBOBOX cb_stlsize  _txsep      @         _txr2b4g    .,		///
+	dropdownlist contents(textsizes) option(size)
+  DEFINE   y @y
+  TEXT     tx_stlclr   _igft2      _ms       _txwd       .,		///
+	label("Color:") right
+  COMBOBOX cb_stlclr   _txsep      @         _tcr2b4g    .,		///
+	dropdownlist contents(colors) option(color)			///
+	onselchangelist(gby_cl_stlclr_sel)
+  COLOR    cl_stlclr   _tcr2b4gsep @         _colorwd    ., option(color)
+  TEXT     tx_stlpos   _igft2      _ms       _txwd       .,		///
+	label("Position:") right
+  COMBOBOX cb_stlpos   _txsep      @         _txr2b4g    .,		///
+	dropdownlist contents(clockpos)	option(position)
+  TEXT     tx_stlmark  _igft2      _ss       0           0,
+  DEFINE   bxy @y
+  /* Right Side Upper Subtitle col(2) */
+  TEXT     tx_stljust  _gft4_4     y         _txwd       .,		///
+	label("Justify:") right
+  COMBOBOX cb_stljust  _txsep      @         _txr2b4g    .,		///
+	dropdownlist contents(justification) option(justification)
+  TEXT     tx_stlgp    _gft4_4     _ms       _txwd       .,		///
+	label("Line gap:") right
+  EDIT     ed_stlgp    _txsep      @         _txr2b4g    .,		///
+	option(linegap)
+  /* Right Side Upper Subtitle box */
+  CHECKBOX ck_stlbox   _igft2      bxy       _cwd1gb     _ht4h,		///
+	groupbox label("Box") option(box)				///
+	onclickon(script by_stlbox_on) onclickoff(script by_stlbox_off)
+    /* col(1) */
+  TEXT     tx_stlbclr  _iigft2     _ss       _txswd      .,		///
+	label("Fill color:") right
+  COMBOBOX cb_stlbclr  _txssep     @         _tcr2b4g    .,		///
+	dropdownlist contents(colors) option(fcolor)			///
+	onselchangelist(gby_cl_stlbclr_sel)
+  COLOR    cl_stlbclr  _tcr2b4gsep @         _colorwd    ., option(fcolor)
+  DEFINE   y3 @y
+  TEXT     tx_stlblclr _iigft2     _ms       _txswd      .,		///
+	label("Line color:") right
+  COMBOBOX cb_stlblclr _txssep     @         _tcr2b4g    .,		///
+	dropdownlist contents(colors) option(lcolor)			///
+	onselchangelist(gby_cl_stlblclr_sel)
+  COLOR    cl_stlblclr _tcr2b4gsep @         _colorwd    ., option(lcolor)
+    /* col(2) */
+  TEXT     tx_stlmarg  _gft4_4     y3        _txswd      ., 		///
+	label("Margin:") right
+  COMBOBOX cb_stlmarg  _txssep     @         _txr2b4g    .,		///
+	dropdownlist contents(margin) option(margin)
+  CHECKBOX ck_stlexp   @           _ms       _txr2b4g    .,		///
+	label("Ignore text") option(bexpand)
+  /**********************************************************************/
+  /* Right Side Upper Caption col(1) */
+  TEXT     tx_caption  _igft2      rty       _txwd       .,		///
+	label("Caption:") right
+  EDIT     ed_caption    _txsep    @         _txr2gi     .,
+  TEXT     tx_capsize  _igft2      _ms       _txwd       .,		///
+	label("Size:") right
+  COMBOBOX cb_capsize  _txsep      @         _txr2b4g    .,		///
+	dropdownlist contents(textsizes) option(size)
+  DEFINE   y @y
+  TEXT     tx_capclr   _igft2      _ms       _txwd       .,		///
+	label("Color:")	right
+  COMBOBOX cb_capclr   _txsep      @         _tcr2b4g    .,		///
+	dropdownlist contents(colors) option(color)			///
+	onselchangelist(gby_cl_capclr_sel)
+  COLOR    cl_capclr   _tcr2b4gsep @         _colorwd    ., option(color)
+  TEXT     tx_cappos   _igft2      _ms       _txwd       .,		///
+	label("Position:") right
+  COMBOBOX cb_cappos   _txsep      @         _txr2b4g    .,		///
+	dropdownlist contents(clockpos)	option(position)
+  TEXT     tx_capmark  _igft2      _ss       0           0,
+  DEFINE   bxy @y
+  /* Right Side Upper Caption col(2) */
+  TEXT     tx_capjust  _gft4_4     y         _txwd       .,		///
+	label("Justify:") right
+  COMBOBOX cb_capjust  _txsep      @         _txr2b4g    .,		///
+	dropdownlist contents(justification) option(justification)
+  TEXT     tx_capgp    _gft4_4     _ms       _txwd       .,		///
+	label("Line gap:") right
+  EDIT     ed_capgp    _txsep      @         _txr2b4g    .,		///
+	option(linegap)
+  /* Right Side Upper Caption box */
+  CHECKBOX ck_capbox   _igft2      bxy       _cwd1gb     _ht4h,		///
+	groupbox label("Box") option(box)				///
+	onclickon(script by_capbox_on) onclickoff(script by_capbox_off)
+    /* col(1) */
+  TEXT     tx_capbclr  _iigft2     _ss       _txswd      .,		///
+	label("Fill color:") right
+  COMBOBOX cb_capbclr  _txssep     @         _tcr2b4g    .,		///
+	dropdownlist contents(colors) option(fcolor)			///
+	onselchangelist(gby_cl_capbclr_sel)
+  COLOR    cl_capbclr  _tcr2b4gsep @         _colorwd    ., option(fcolor)
+  DEFINE   y3 @y
+  TEXT     tx_capblclr _iigft2     _ms       _txswd      .,		///
+	label("Line color:") right
+  COMBOBOX cb_capblclr _txssep     @         _tcr2b4g    .,		///
+	dropdownlist contents(colors) option(lcolor)			///
+	onselchangelist(gby_cl_capblclr_sel)
+  COLOR    cl_capblclr _tcr2b4gsep @         _colorwd    ., option(lcolor)
+    /* col(2) */
+  TEXT     tx_capmarg  _gft4_4     y3        _txswd      .,		///
+	label("Margin:") right
+  COMBOBOX cb_capmarg  _txssep     @         _txr2b4g    .,		///
+	dropdownlist contents(margin)  option(margin)
+  CHECKBOX ck_capexp   @           _ms       _txr2b4g    .,		///
+	label("Ignore text") option(bexpand)
+  /**********************************************************************/
+  /* Right Side Upper Note col(1) */
+  TEXT     tx_note     _igft2      rty       _txwd       .,		///
+	label("Note:") right
+  EDIT     ed_note     _txsep      @         _txr2gi     .,		///
+	label("Note")
+  TEXT     tx_notsize  _igft2      _ms       _txwd       .,		///
+	label("Size:")  right
+  COMBOBOX cb_notsize  _txsep      @         _txr2b4g    .,		///
+	dropdownlist contents(textsizes) option(size)
+  DEFINE   y @y
+  TEXT     tx_notclr   _igft2      _ms       _txwd       .,		///
+	label("Color:") right
+  COMBOBOX cb_notclr   _txsep      @         _tcr2b4g    .,		///
+	dropdownlist contents(colors) option(color)			///
+	onselchangelist(gby_cl_notclr_sel)
+  COLOR    cl_notclr   _tcr2b4gsep @         _colorwd    ., option(color)
+  TEXT     tx_notpos   _igft2      _ms       _txwd       .,		///
+	label("Position:") right
+  COMBOBOX cb_notpos   _txsep      @         _txr2b4g    .,		///
+	dropdownlist contents(clockpos)	option(position)
+  TEXT     tx_notmark  _igft2      _ss       0           0,
+  DEFINE   bxy @y
+  /* Right Side Upper Note col(2) */
+  TEXT     tx_notjust  _gft4_4     y         _txwd       .,		///
+	label("Justify:") right
+  COMBOBOX cb_notjust  _txsep      @         _txr2b4g    .,		///
+	dropdownlist contents(justification) option(justification)
+  TEXT     tx_notgp    _gft4_4     _ms       _txwd       .,		///
+	label("Line gap:") right
+  EDIT     ed_notgp    _txsep      @         _txr2b4g    ., option(linegap)
+  /* Right Side Upper Note box */
+  CHECKBOX ck_notbox   _igft2      bxy       _cwd1gb     _ht4h,		///
+	groupbox label("Box") option(box)				///
+	onclickon(script by_notbox_on) onclickoff(script by_notbox_off)
+    /* col(1) */
+  TEXT     tx_notbclr  _iigft2     _ss       _txswd      .,		///
+	label("Fill color:") right
+  COMBOBOX cb_notbclr  _txssep     @         _tcr2b4g    .,		///
+	dropdownlist contents(colors) option(fcolor)			///
+	onselchangelist(gby_cl_notbclr_sel)
+  COLOR    cl_notbclr  _tcr2b4gsep @         _colorwd    ., option(fcolor)
+  DEFINE   y3 @y
+  TEXT     tx_notblclr _iigft2     _ms       _txswd      .,		///
+	label("Line color:") right
+  COMBOBOX cb_notblclr _txssep     @         _tcr2b4g    .,		///
+	dropdownlist contents(colors) option(lcolor)			///
+	onselchangelist(gby_cl_notblclr_sel)
+  COLOR    cl_notblclr _tcr2b4gsep @         _colorwd    ., option(lcolor)
+    /* col(2) */
+  TEXT     tx_notmarg  _gft4_4     y3        _txswd      .,		///
+	label("Margin:") right
+  COMBOBOX cb_notmarg  _txssep     @         _txr2b4g    .,		///
+	dropdownlist contents(margin) option(margin)
+  CHECKBOX ck_notexp   @           _ms       _txr2b4g    .,		///
+  	label("Ignore text") option(bexpand)
+
+  /**********************************************************************/
+  /**********************************************************************/
+  /* RIGHT SIDE LOWER Legend options */
+  GROUPBOX  gb_legend  _lft2g      _xls      _gwd1       _ht7h,		///
+	label("Legend options ")
+  /* col(1) */
+  TEXT     tx_legend   _igft2      _ms       _txwd       .,		///
+	label("Use legend:") right
+  DEFINE   y @y
+  COMBOBOX cb_legend   _txsep      @         _txr2b4g    .,		///
+	dropdownlist  contents(yesno) values(gby_legend_values)		///
+	onselchangelist(gby_legend_action)
+  CHECKBOX ck_leghole  @           _ms       _txr2b4g    .,		///
+	label("Show in hole")						///
+	onclickon(script gby_leghole_on) onclickoff(script gby_leghole_off)
+  CHECKBOX ck_legspan  @           _ms       180         .,		///
+	label("Span width of graph") option(span)
+  /* col(2) */
+  TEXT     tx_legpos   _gft4_4     y         _txwd       .,		///
+	label("Position:") right
+  DEFINE   y @y
+  COMBOBOX cb_legpos   _txsep      @         _txr2b4g    .,		///
+	dropdownlist contents(clockpos)	option(position)
+  TEXT     tx_leghole  _gft4_4     _ms       _txwd       ., 		///
+	label("Hole:") right
+  EDIT     ed_leghole  _txsep      @         _en7wd      ., numonly	///
+  	label("Hole")
+END
+
+SCRIPT gby_total_disable
+BEGIN
+	gby.ck_total.disable
+END
+
+SCRIPT gby_missing_disable
+BEGIN
+	gby.ck_missing.disable
+END
+
+SCRIPT gby_setViewByopts
+BEGIN
+	gby.tx_vars.hide
+	gby.vl_vars.hide
+	gby.ck_total.hide
+	gby.ck_missing.hide
+	gby.ck_colfirst.setposition . 30
+	gby.tx_style.setposition . 30
+	gby.cb_style.setposition . 30
+	gby.tx_holes.setposition . 55
+	gby.ed_holes.setposition . 55
+	gby.bu_holes.setposition . 55
+	gby.tx_imargin.setposition . 55
+	gby.cb_imargin.setposition . 55
+	gby.tx_layout.setposition . 80
+	gby.cb_layout.setposition . 80
+	gby.tx_iscale.setposition . 80
+	gby.ed_iscale.setposition . 80
+	gby.tx_layoutsp.setposition . 105
+	gby.sp_rowcol.setposition . 105
+	gby.tx_xrescale.setposition . 105
+	gby.cb_xrescale.setposition . 105
+	gby.tx_yrescale.setposition . 130
+	gby.cb_yrescale.setposition . 130
+END
+
+SCRIPT gby_setViewByopts_Total
+BEGIN
+	gby.tx_vars.hide
+	gby.vl_vars.hide
+	gby.ck_missing.hide
+	gby.ck_total.setposition . 30
+	gby.tx_style.setposition . 30
+	gby.cb_style.setposition . 30
+	gby.ck_colfirst.setposition . 55
+	gby.tx_imargin.setposition . 55
+	gby.cb_imargin.setposition . 55
+	gby.tx_holes.setposition . 80
+	gby.ed_holes.setposition . 80
+	gby.bu_holes.setposition . 80
+	gby.tx_iscale.setposition . 80
+	gby.ed_iscale.setposition . 80
+	gby.tx_layout.setposition . 105
+	gby.cb_layout.setposition . 105
+	gby.tx_xrescale.setposition . 105
+	gby.cb_xrescale.setposition . 105
+	gby.tx_layoutsp.setposition . 130
+	gby.sp_rowcol.setposition . 130
+	gby.tx_yrescale.setposition . 130
+	gby.cb_yrescale.setposition . 130
+END
+
+/* Begin Enable All */
+SCRIPT gby_enable
+BEGIN
+	program gby_enable_pr
+END
+
+PROGRAM gby_enable_pr
+BEGIN
+	call _gby_isenabled.settrue
+	call gaction gby.gb_main.enable
+	call gaction gby.tx_vars.enable
+	call gaction gby.vl_vars.enable
+	call gaction gby.ck_total.enable
+	call gaction gby.ck_missing.enable
+	call gaction gby.ck_colfirst.enable
+	call gaction gby.tx_holes.enable
+	call gaction gby.ed_holes.enable
+	call gaction gby.bu_holes.enable
+	call gaction gby.tx_layout.enable
+	call gaction gby.cb_layout.enable
+	call gaction gby.tx_layoutsp.enable
+	call gaction gby.sp_rowcol.enable
+	call gaction gby.tx_style.enable
+	call gaction gby.cb_style.enable
+	call gaction gby.tx_imargin.enable
+	call gaction gby.cb_imargin.enable
+	call gaction gby.tx_iscale.enable
+	call gaction gby.ed_iscale.enable
+	call gaction gby.tx_xrescale.enable
+	call gaction gby.cb_xrescale.enable
+	call gaction gby.tx_yrescale.enable
+	call gaction gby.cb_yrescale.enable
+	/* Graph region options */
+	call gaction gby.gb_gregion.enable
+	call gaction gby.tx_gregfclr.enable
+	call gaction gby.cb_gregfclr.enable
+	call gaction gby.cl_gregfclr.enable
+	call gaction gby.tx_greglclr.enable
+	call gaction gby.cb_greglclr.enable
+	call gaction gby.cl_greglclr.enable
+	call gaction gby.tx_greglwd.enable
+	call gaction gby.cb_greglwd.enable
+	call gaction gby.tx_gregmarg.enable
+	call gaction gby.cb_gregmarg.enable
+	/* Plot region options */
+	call gaction gby.gb_pregion.enable
+	call gaction gby.tx_pregfclr.enable
+	call gaction gby.cb_pregfclr.enable
+	call gaction gby.cl_pregfclr.enable
+	call gaction gby.tx_preglclr.enable
+	call gaction gby.cb_preglclr.enable
+	call gaction gby.cl_preglclr.enable
+	call gaction gby.tx_preglwd.enable
+	call gaction gby.cb_preglwd.enable
+	call gaction gby.tx_pregmarg.enable
+	call gaction gby.cb_pregmarg.enable
+	/* Title Subtitle Caption Note options */
+	call gaction gby.gb_title.enable
+	call gaction gby.cb_mode.enable
+	call gaction gby.tx_mode.enable
+	/* Title options */
+	call gaction gby.tx_title.enable
+	call gaction gby.ed_title.enable
+	call gaction gby.tx_ttlsize.enable
+	call gaction gby.cb_ttlsize.enable
+	call gaction gby.tx_ttlclr.enable
+	call gaction gby.cb_ttlclr.enable
+	call gaction gby.cl_ttlclr.enable
+	call gaction gby.tx_ttlpos.enable
+	call gaction gby.cb_ttlpos.enable
+	call gaction gby.tx_ttljust.enable
+	call gaction gby.cb_ttljust.enable
+	call gaction gby.tx_ttlgp.enable
+	call gaction gby.ed_ttlgp.enable
+	call gaction gby.ck_ttlbox.enable
+	if gby.ck_ttlbox {
+		call script by_ttlbox_on
+	}
+	* Subtitle options */
+	call gaction gby.tx_stitle.enable
+	call gaction gby.ed_stitle.enable
+	call gaction gby.tx_stlsize.enable
+	call gaction gby.cb_stlsize.enable
+	call gaction gby.tx_stlclr.enable
+	call gaction gby.cb_stlclr.enable
+	call gaction gby.cl_stlclr.enable
+	call gaction gby.tx_stlpos.enable
+	call gaction gby.cb_stlpos.enable
+	call gaction gby.tx_stljust.enable
+	call gaction gby.cb_stljust.enable
+	call gaction gby.tx_stlgp.enable
+	call gaction gby.ed_stlgp.enable
+	call gaction gby.ck_stlbox.enable
+	if gby.ck_stlbox {
+		call script by_stlbox_on
+	}
+	/* Caption options */
+	call gaction gby.tx_caption.enable
+	call gaction gby.ed_caption.enable
+	call gaction gby.tx_capsize.enable
+	call gaction gby.cb_capsize.enable
+	call gaction gby.tx_capclr.enable
+	call gaction gby.cb_capclr.enable
+	call gaction gby.cl_capclr.enable
+	call gaction gby.tx_cappos.enable
+	call gaction gby.cb_cappos.enable
+	call gaction gby.tx_capjust.enable
+	call gaction gby.cb_capjust.enable
+	call gaction gby.tx_capgp.enable
+	call gaction gby.ed_capgp.enable
+	call gaction gby.ck_capbox.enable
+	if gby.ck_capbox {
+		call script by_capbox_on
+	}
+	/* Note options */
+	call gaction gby.tx_note.enable
+	call gaction gby.ed_note.enable
+	call gaction gby.tx_notsize.enable
+	call gaction gby.cb_notsize.enable
+	call gaction gby.tx_notclr.enable
+	call gaction gby.cb_notclr.enable
+	call gaction gby.cl_notclr.enable
+	call gaction gby.tx_notpos.enable
+	call gaction gby.cb_notpos.enable
+	call gaction gby.tx_notjust.enable
+	call gaction gby.cb_notjust.enable
+	call gaction gby.tx_notgp.enable
+	call gaction gby.ed_notgp.enable
+	call gaction gby.ck_notbox.enable
+	if gby.ck_notbox {
+		call script by_notbox_on
+	}
+	/* Legend options */
+	call gaction gby.gb_legend.enable
+	call gaction gby.tx_legend.enable
+	call gaction gby.cb_legend.enable
+	call gaction gby.cb_legend.withvalue gby.cb_legend.setvalue "@"
+END
+/* End Enable All */
+
+/* Begin Disable All */
+SCRIPT gby_disable
+BEGIN
+	_gby_isenabled.setfalse
+	gby.gb_main.disable
+	gby.tx_vars.disable
+	gby.vl_vars.disable
+	gby.ck_total.disable
+	gby.ck_missing.disable
+	gby.ck_colfirst.disable
+	gby.tx_holes.disable
+	gby.ed_holes.disable
+	gby.bu_holes.disable
+	gby.tx_layout.disable
+	gby.cb_layout.disable
+	gby.tx_layoutsp.disable
+	gby.sp_rowcol.disable
+	gby.tx_style.disable
+	gby.cb_style.disable
+	gby.tx_imargin.disable
+	gby.cb_imargin.disable
+	gby.tx_iscale.disable
+	gby.ed_iscale.disable
+	gby.tx_xrescale.disable
+	gby.cb_xrescale.disable
+	gby.tx_yrescale.disable
+	gby.cb_yrescale.disable
+
+	/* Graph region options */
+	gby.gb_gregion.disable
+	gby.tx_gregfclr.disable
+	gby.cb_gregfclr.disable
+	gby.cl_gregfclr.disable
+	gby.tx_greglclr.disable
+	gby.cb_greglclr.disable
+	gby.cl_greglclr.disable
+	gby.tx_greglwd.disable
+	gby.cb_greglwd.disable
+	gby.tx_gregmarg.disable
+	gby.cb_gregmarg.disable
+
+	/* Plot region options */
+	gby.gb_pregion.disable
+	gby.tx_pregfclr.disable
+	gby.cb_pregfclr.disable
+	gby.cl_pregfclr.disable
+	gby.tx_preglclr.disable
+	gby.cb_preglclr.disable
+	gby.cl_preglclr.disable
+	gby.tx_preglwd.disable
+	gby.cb_preglwd.disable
+	gby.tx_pregmarg.disable
+	gby.cb_pregmarg.disable
+
+	/* Title Subtitle Caption Note options */
+	gby.gb_title.disable
+	gby.cb_mode.disable
+	gby.tx_mode.disable
+
+	/* Title options */
+	gby.tx_title.disable
+	gby.ed_title.disable
+	gby.tx_ttlsize.disable
+	gby.cb_ttlsize.disable
+	gby.tx_ttlclr.disable
+	gby.cb_ttlclr.disable
+	gby.cl_ttlclr.disable
+	gby.tx_ttlpos.disable
+	gby.cb_ttlpos.disable
+	gby.tx_ttljust.disable
+	gby.cb_ttljust.disable
+	gby.tx_ttlgp.disable
+	gby.ed_ttlgp.disable
+	gby.ck_ttlbox.disable
+	script by_ttlbox_off
+
+	/* Subtitle options */
+	gby.tx_stitle.disable
+	gby.ed_stitle.disable
+	gby.tx_stlsize.disable
+	gby.cb_stlsize.disable
+	gby.tx_stlclr.disable
+	gby.cb_stlclr.disable
+	gby.cl_stlclr.disable
+	gby.tx_stlpos.disable
+	gby.cb_stlpos.disable
+	gby.tx_stljust.disable
+	gby.cb_stljust.disable
+	gby.tx_stlgp.disable
+	gby.ed_stlgp.disable
+	gby.ck_stlbox.disable
+	script by_stlbox_off
+
+	/* Caption options */
+	gby.tx_caption.disable
+	gby.ed_caption.disable
+	gby.tx_capsize.disable
+	gby.cb_capsize.disable
+	gby.tx_capclr.disable
+	gby.cb_capclr.disable
+	gby.cl_capclr.disable
+	gby.tx_cappos.disable
+	gby.cb_cappos.disable
+	gby.tx_capjust.disable
+	gby.cb_capjust.disable
+	gby.tx_capgp.disable
+	gby.ed_capgp.disable
+	gby.ck_capbox.disable
+	script by_capbox_off
+
+	/* Note options */
+	gby.tx_note.disable
+	gby.ed_note.disable
+	gby.tx_notsize.disable
+	gby.cb_notsize.disable
+	gby.tx_notclr.disable
+	gby.cb_notclr.disable
+	gby.cl_notclr.disable
+	gby.tx_notpos.disable
+	gby.cb_notpos.disable
+	gby.tx_notjust.disable
+	gby.cb_notjust.disable
+	gby.tx_notgp.disable
+	gby.ed_notgp.disable
+	gby.ck_notbox.disable
+	script by_notbox_off
+
+	/* Legend options */
+	gby.gb_legend.disable
+	gby.tx_legend.disable
+	gby.cb_legend.disable
+	gby.ck_leghole.disable
+	gby.ck_legspan.disable
+	gby.tx_legpos.disable
+	gby.cb_legpos.disable
+	gby.tx_leghole.disable
+	gby.ed_leghole.disable
+END
+/* End Disable All */
+
+SCRIPT gby_leghole_on
+BEGIN
+	gby.tx_leghole.enable
+	gby.ed_leghole.enable
+END
+SCRIPT gby_leghole_off
+BEGIN
+	gby.tx_leghole.disable
+	gby.ed_leghole.disable
+END
+
+LIST gby_layout
+BEGIN
+	"Default"
+	"Rows"
+	"Columns"
+END
+LIST gby_layout_values
+BEGIN
+	""
+	"rows"
+	"cols"
+END
+
+LIST gby_layout_action
+BEGIN
+	script gbylayout_default_on
+	script gbylayout_row_on
+	script gbylayout_col_on
+END
+
+SCRIPT gbylayout_row_on
+BEGIN
+	gby.tx_layoutsp.setlabel "Rows:"
+	gby.sp_rowcol.show
+END
+
+SCRIPT gbylayout_col_on
+BEGIN
+	gby.tx_layoutsp.setlabel "Columns:"
+	gby.sp_rowcol.show
+END
+
+SCRIPT gbylayout_default_on
+BEGIN
+	gby.tx_layoutsp.setlabel ""
+	gby.sp_rowcol.hide
+END
+
+LIST gby_xrescale_values
+BEGIN
+	""
+	"xrescale"
+	"noxrescale"
+END
+
+LIST gby_yrescale_values
+BEGIN
+	""
+	"yrescale"
+	"noyrescale"
+END
+
+LIST gby_cl_gregfclr_sel
+BEGIN
+	gby.cl_gregfclr.hide
+	gby.cl_gregfclr.show
+	gby.cl_gregfclr.hide
+END
+
+LIST gby_cl_greglclr_sel
+BEGIN
+	gby.cl_greglclr.hide
+	gby.cl_greglclr.show
+	gby.cl_greglclr.hide
+END
+
+LIST gby_cl_pregfclr_sel
+BEGIN
+	gby.cl_pregfclr.hide
+	gby.cl_pregfclr.show
+	gby.cl_pregfclr.hide
+END
+
+LIST gby_cl_preglclr_sel
+BEGIN
+	gby.cl_preglclr.hide
+	gby.cl_preglclr.show
+	gby.cl_preglclr.hide
+END
+
+LIST gby_mode
+BEGIN
+	"Title"
+	"Subtitle"
+	"Caption"
+	"Note"
+END
+
+LIST gby_mode_action
+BEGIN
+	script gby_title_on
+	script gby_subtitle_on
+	script gby_caption_on
+	script gby_note_on
+END
+
+SCRIPT gby_hide_all
+BEGIN
+	script gby_subtitle_hide
+	script gby_caption_hide
+	script gby_note_hide
+	script gby_title_hide
+END
+
+SCRIPT gby_show_all
+BEGIN
+	script gby_title_show
+	script gby_subtitle_show
+	script gby_caption_show
+	script gby_note_show
+END
+
+SCRIPT gby_title_on
+BEGIN
+	script gby_hide_all
+	script gby_title_show
+END
+SCRIPT gby_subtitle_on
+BEGIN
+	script gby_hide_all
+	script gby_subtitle_show
+END
+SCRIPT gby_caption_on
+BEGIN
+	script gby_hide_all
+	script gby_caption_show
+END
+SCRIPT gby_note_on
+BEGIN
+	script gby_hide_all
+	script gby_note_show
+END
+
+SCRIPT gby_title_show
+BEGIN
+	gby.tx_mode.setlabel "Title options"
+	gby.tx_title.show
+	gby.ed_title.show
+	gby.tx_ttlsize.show
+	gby.cb_ttlsize.show
+	gby.tx_ttlclr.show
+	gby.cb_ttlclr.show
+	gby.cb_ttlclr.withvalue gby.cb_ttlclr.setvalue "@"
+	gby.tx_ttlpos.show
+	gby.cb_ttlpos.show
+	gby.tx_ttljust.show
+	gby.cb_ttljust.show
+	gby.tx_ttlgp.show
+	gby.ed_ttlgp.show
+	gby.ck_ttlbox.show
+	gby.tx_ttlbclr.show
+	gby.cb_ttlbclr.show
+	gby.cb_ttlbclr.withvalue gby.cb_ttlbclr.setvalue "@"
+	gby.tx_ttlblclr.show
+	gby.cb_ttlblclr.show
+	gby.cb_ttlblclr.withvalue gby.cb_ttlblclr.setvalue "@"
+	gby.tx_ttlmarg.show
+	gby.cb_ttlmarg.show
+	gby.ck_ttlexp.show
+END
+
+SCRIPT gby_title_hide
+BEGIN
+	gby.tx_title.hide
+	gby.ed_title.hide
+	gby.tx_ttlsize.hide
+	gby.cb_ttlsize.hide
+	gby.tx_ttlclr.hide
+	gby.cb_ttlclr.hide
+	gby.cl_ttlclr.hide
+	gby.tx_ttlpos.hide
+	gby.cb_ttlpos.hide
+	gby.tx_ttljust.hide
+	gby.cb_ttljust.hide
+	gby.tx_ttlgp.hide
+	gby.ed_ttlgp.hide
+	gby.ck_ttlbox.hide
+	gby.tx_ttlbclr.hide
+	gby.cb_ttlbclr.hide
+	gby.cl_ttlbclr.hide
+	gby.tx_ttlblclr.hide
+	gby.cb_ttlblclr.hide
+	gby.cl_ttlblclr.hide
+	gby.tx_ttlmarg.hide
+	gby.cb_ttlmarg.hide
+	gby.ck_ttlexp.hide
+END
+
+SCRIPT gby_subtitle_show
+BEGIN
+	gby.tx_mode.setlabel "Subtitle options"
+	gby.tx_stitle.show
+	gby.ed_stitle.show
+	gby.tx_stlsize.show
+	gby.cb_stlsize.show
+	gby.tx_stlclr.show
+	gby.cb_stlclr.show
+	gby.cb_stlclr.withvalue gby.cb_stlclr.setvalue "@"
+	gby.tx_stlpos.show
+	gby.cb_stlpos.show
+	gby.tx_stljust.show
+	gby.cb_stljust.show
+	gby.tx_stlgp.show
+	gby.ed_stlgp.show
+	gby.ck_stlbox.show
+	gby.tx_stlbclr.show
+	gby.cb_stlbclr.show
+	gby.cb_stlbclr.withvalue gby.cb_stlbclr.setvalue "@"
+	gby.tx_stlblclr.show
+	gby.cb_stlblclr.show
+	gby.cb_stlblclr.withvalue gby.cb_stlblclr.setvalue "@"
+	gby.tx_stlmarg.show
+	gby.cb_stlmarg.show
+	gby.ck_stlexp.show
+END
+SCRIPT gby_subtitle_hide
+BEGIN
+	gby.tx_stitle.hide
+	gby.ed_stitle.hide
+	gby.tx_stlsize.hide
+	gby.cb_stlsize.hide
+	gby.tx_stlclr.hide
+	gby.cb_stlclr.hide
+	gby.cl_stlclr.hide
+	gby.tx_stlpos.hide
+	gby.cb_stlpos.hide
+	gby.tx_stljust.hide
+	gby.cb_stljust.hide
+	gby.tx_stlgp.hide
+	gby.ed_stlgp.hide
+	gby.ck_stlbox.hide
+	gby.tx_stlbclr.hide
+	gby.cb_stlbclr.hide
+	gby.cl_stlbclr.hide
+	gby.tx_stlblclr.hide
+	gby.cb_stlblclr.hide
+	gby.cl_stlblclr.hide
+	gby.tx_stlmarg.hide
+	gby.cb_stlmarg.hide
+	gby.ck_stlexp.hide
+END
+
+SCRIPT gby_caption_show
+BEGIN
+	gby.tx_mode.setlabel "Caption options"
+	gby.tx_caption.show
+	gby.ed_caption.show
+	gby.tx_capsize.show
+	gby.cb_capsize.show
+	gby.tx_capclr.show
+	gby.cb_capclr.show
+	gby.cb_capclr.withvalue gby.cb_capclr.setvalue "@"
+	gby.tx_cappos.show
+	gby.cb_cappos.show
+	gby.tx_capjust.show
+	gby.cb_capjust.show
+	gby.tx_capgp.show
+	gby.ed_capgp.show
+	gby.ck_capbox.show
+	gby.tx_capbclr.show
+	gby.cb_capbclr.show
+	gby.cb_capbclr.withvalue gby.cb_capbclr.setvalue "@"
+	gby.tx_capblclr.show
+	gby.cb_capblclr.show
+	gby.cb_capblclr.withvalue gby.cb_capblclr.setvalue "@"
+	gby.tx_capmarg.show
+	gby.cb_capmarg.show
+	gby.ck_capexp.show
+END
+
+SCRIPT gby_caption_hide
+BEGIN
+	gby.tx_caption.hide
+	gby.ed_caption.hide
+	gby.tx_capsize.hide
+	gby.cb_capsize.hide
+	gby.tx_capclr.hide
+	gby.cb_capclr.hide
+	gby.cl_capclr.hide
+	gby.tx_cappos.hide
+	gby.cb_cappos.hide
+	gby.tx_capjust.hide
+	gby.cb_capjust.hide
+	gby.tx_capgp.hide
+	gby.ed_capgp.hide
+	gby.ck_capbox.hide
+	gby.tx_capbclr.hide
+	gby.cb_capbclr.hide
+	gby.cl_capbclr.hide
+	gby.tx_capblclr.hide
+	gby.cb_capblclr.hide
+	gby.cl_capblclr.hide
+	gby.tx_capmarg.hide
+	gby.cb_capmarg.hide
+	gby.ck_capexp.hide
+END
+
+SCRIPT gby_note_show
+BEGIN
+	gby.tx_mode.setlabel "Note options"
+	gby.tx_note.show
+	gby.ed_note.show
+	gby.tx_notsize.show
+	gby.cb_notsize.show
+	gby.tx_notclr.show
+	gby.cb_notclr.show
+	gby.cb_notclr.withvalue gby.cb_notclr.setvalue "@"
+	gby.tx_notpos.show
+	gby.cb_notpos.show
+	gby.tx_notjust.show
+	gby.cb_notjust.show
+	gby.tx_notgp.show
+	gby.ed_notgp.show
+	gby.ck_notbox.show
+	gby.tx_notbclr.show
+	gby.cb_notbclr.show
+	gby.cb_notbclr.withvalue gby.cb_notbclr.setvalue "@"
+	gby.tx_notblclr.show
+	gby.cb_notblclr.show
+	gby.cb_notblclr.withvalue gby.cb_notblclr.setvalue "@"
+	gby.tx_notmarg.show
+	gby.cb_notmarg.show
+	gby.ck_notexp.show
+END
+
+SCRIPT gby_note_hide
+BEGIN
+	gby.tx_note.hide
+	gby.ed_note.hide
+	gby.tx_notsize.hide
+	gby.cb_notsize.hide
+	gby.tx_notclr.hide
+	gby.cb_notclr.hide
+	gby.cl_notclr.hide
+	gby.tx_notpos.hide
+	gby.cb_notpos.hide
+	gby.tx_notjust.hide
+	gby.cb_notjust.hide
+	gby.tx_notgp.hide
+	gby.ed_notgp.hide
+	gby.ck_notbox.hide
+	gby.tx_notbclr.hide
+	gby.cb_notbclr.hide
+	gby.cl_notbclr.hide
+	gby.tx_notblclr.hide
+	gby.cb_notblclr.hide
+	gby.cl_notblclr.hide
+	gby.tx_notmarg.hide
+	gby.cb_notmarg.hide
+	gby.ck_notexp.hide
+END
+
+SCRIPT gby_gmatrix_show /* Show some components for gmatrix */
+BEGIN
+	gby.tx_xrescale.show
+	gby.cb_xrescale.show
+	gby.tx_yrescale.show
+	gby.cb_yrescale.show
+	gby.gb_legend.show
+	gby.tx_legend.show
+	gby.cb_legend.show
+	gby.ck_leghole.show
+	gby.ck_legspan.show
+	gby.tx_legpos.show
+	gby.cb_legpos.show
+	gby.tx_leghole.show
+	gby.ed_leghole.show
+END
+
+SCRIPT gby_gmatrix_hide /* Hide some components for gmatrix */
+BEGIN
+	gby.tx_xrescale.hide
+	gby.cb_xrescale.hide
+	gby.tx_yrescale.hide
+	gby.cb_yrescale.hide
+	gby.gb_legend.hide
+	gby.tx_legend.hide
+	gby.cb_legend.hide
+	gby.ck_leghole.hide
+	gby.ck_legspan.hide
+	gby.tx_legpos.hide
+	gby.cb_legpos.hide
+	gby.tx_leghole.hide
+	gby.ed_leghole.hide
+END
+
+SCRIPT  by_ttlbox_on
+BEGIN
+	gby.tx_ttlbclr.enable
+	gby.cb_ttlbclr.enable
+	gby.cl_ttlbclr.enable
+	gby.tx_ttlblclr.enable
+	gby.cb_ttlblclr.enable
+	gby.cl_ttlblclr.enable
+	gby.tx_ttlmarg.enable
+	gby.cb_ttlmarg.enable
+	gby.ck_ttlexp.enable
+END
+
+SCRIPT  by_ttlbox_off
+BEGIN
+	gby.tx_ttlbclr.disable
+	gby.cb_ttlbclr.disable
+	gby.cl_ttlbclr.disable
+	gby.tx_ttlblclr.disable
+	gby.cb_ttlblclr.disable
+	gby.cl_ttlblclr.disable
+	gby.tx_ttlmarg.disable
+	gby.cb_ttlmarg.disable
+	gby.ck_ttlexp.disable
+END
+
+SCRIPT  by_stlbox_on
+BEGIN
+	gby.tx_stlbclr.enable
+	gby.cb_stlbclr.enable
+	gby.cl_stlbclr.enable
+	gby.tx_stlblclr.enable
+	gby.cb_stlblclr.enable
+	gby.cl_stlblclr.enable
+	gby.tx_stlmarg.enable
+	gby.cb_stlmarg.enable
+	gby.ck_stlexp.enable
+END
+
+SCRIPT  by_stlbox_off
+BEGIN
+	gby.tx_stlbclr.disable
+	gby.cb_stlbclr.disable
+	gby.cl_stlbclr.disable
+	gby.tx_stlblclr.disable
+	gby.cb_stlblclr.disable
+	gby.cl_stlblclr.disable
+	gby.tx_stlmarg.disable
+	gby.cb_stlmarg.disable
+	gby.ck_stlexp.disable
+END
+
+SCRIPT  by_capbox_on
+BEGIN
+	gby.tx_capbclr.enable
+	gby.cb_capbclr.enable
+	gby.cl_capbclr.enable
+	gby.tx_capblclr.enable
+	gby.cb_capblclr.enable
+	gby.cl_capblclr.enable
+	gby.tx_capmarg.enable
+	gby.cb_capmarg.enable
+	gby.ck_capexp.enable
+END
+
+SCRIPT  by_capbox_off
+BEGIN
+	gby.tx_capbclr.disable
+	gby.cb_capbclr.disable
+	gby.cl_capbclr.disable
+	gby.tx_capblclr.disable
+	gby.cb_capblclr.disable
+	gby.cl_capblclr.disable
+	gby.tx_capmarg.disable
+	gby.cb_capmarg.disable
+	gby.ck_capexp.disable
+END
+
+SCRIPT  by_notbox_on
+BEGIN
+	gby.tx_notbclr.enable
+	gby.cb_notbclr.enable
+	gby.cl_notbclr.enable
+	gby.tx_notblclr.enable
+	gby.cb_notblclr.enable
+	gby.cl_notblclr.enable
+	gby.tx_notmarg.enable
+	gby.cb_notmarg.enable
+	gby.ck_notexp.enable
+END
+
+SCRIPT  by_notbox_off
+BEGIN
+	gby.tx_notbclr.disable
+	gby.cb_notbclr.disable
+	gby.cl_notbclr.disable
+	gby.tx_notblclr.disable
+	gby.cb_notblclr.disable
+	gby.cl_notblclr.disable
+	gby.tx_notmarg.disable
+	gby.cb_notmarg.disable
+	gby.ck_notexp.disable
+END
+
+LIST gby_cl_ttlclr_sel
+BEGIN
+	gby.cl_ttlclr.hide
+	gby.cl_ttlclr.show
+	gby.cl_ttlclr.hide
+END
+
+LIST gby_cl_ttlbclr_sel
+BEGIN
+	gby.cl_ttlbclr.hide
+	gby.cl_ttlbclr.show
+	gby.cl_ttlbclr.hide
+END
+
+LIST gby_cl_ttlblclr_sel
+BEGIN
+	gby.cl_ttlblclr.hide
+	gby.cl_ttlblclr.show
+	gby.cl_ttlblclr.hide
+END
+
+LIST gby_cl_stlclr_sel
+BEGIN
+	gby.cl_stlclr.hide
+	gby.cl_stlclr.show
+	gby.cl_stlclr.hide
+END
+
+LIST gby_cl_stlbclr_sel
+BEGIN
+	gby.cl_stlbclr.hide
+	gby.cl_stlbclr.show
+	gby.cl_stlbclr.hide
+END
+
+LIST gby_cl_stlblclr_sel
+BEGIN
+	gby.cl_stlblclr.hide
+	gby.cl_stlblclr.show
+	gby.cl_stlblclr.hide
+END
+
+LIST gby_cl_capclr_sel
+BEGIN
+	gby.cl_capclr.hide
+	gby.cl_capclr.show
+	gby.cl_capclr.hide
+END
+
+LIST gby_cl_capbclr_sel
+BEGIN
+	gby.cl_capbclr.hide
+	gby.cl_capbclr.show
+	gby.cl_capbclr.hide
+END
+
+LIST gby_cl_capblclr_sel
+BEGIN
+	gby.cl_capblclr.hide
+	gby.cl_capblclr.show
+	gby.cl_capblclr.hide
+END
+
+LIST gby_cl_notclr_sel
+BEGIN
+	gby.cl_notclr.hide
+	gby.cl_notclr.show
+	gby.cl_notclr.hide
+END
+
+LIST gby_cl_notbclr_sel
+BEGIN
+	gby.cl_notbclr.hide
+	gby.cl_notbclr.show
+	gby.cl_notbclr.hide
+END
+
+LIST gby_cl_notblclr_sel
+BEGIN
+	gby.cl_notblclr.hide
+	gby.cl_notblclr.show
+	gby.cl_notblclr.hide
+END
+
+LIST gby_legend_values
+BEGIN
+	""
+	"on"
+	"off"
+END
+
+LIST gby_legend_action
+BEGIN
+	program gby_legend_opt_on
+	program gby_legend_opt_on
+	script gby_legend_opt_off
+END
+
+PROGRAM gby_legend_opt_on
+BEGIN
+	if !H(gby.cb_legend) {
+		call gaction gby.ck_leghole.enable
+		if gby.ck_leghole {
+			call gaction gby.tx_leghole.enable
+			call gaction gby.ed_leghole.enable
+		}
+		call gaction gby.ck_legspan.enable
+		call gaction gby.tx_legpos.enable
+		call gaction gby.cb_legpos.enable
+	}
+END
+
+SCRIPT gby_legend_opt_off
+BEGIN
+	gby.ck_leghole.disable
+	gby.tx_leghole.disable
+	gby.ed_leghole.disable
+	gby.ck_legspan.disable
+	gby.tx_legpos.disable
+	gby.cb_legpos.disable
+END
+
+/* Begin Region programming */
+PROGRAM gby_graph_region_opt_subpr
+BEGIN
+	if H(gby.cl_gregfclr) {
+		optionarg /hidedefault gby.cb_gregfclr
+	}
+	if !H(gby.cl_gregfclr) {
+		optionarg /quoted gby.cl_gregfclr
+	}
+	if H(gby.cl_greglclr) {
+		optionarg /hidedefault gby.cb_greglclr
+	}
+	if !H(gby.cl_greglclr) {
+		optionarg /quoted gby.cl_greglclr
+	}
+	optionarg /hidedefault gby.cb_greglwd
+	optionarg /hidedefault gby.cb_gregmarg
+END
+
+PROGRAM gby_plot_region_opt_subpr
+BEGIN
+	if H(gby.cl_pregfclr) {
+		optionarg /hidedefault gby.cb_pregfclr
+	}
+	if !H(gby.cl_pregfclr) {
+		optionarg /quoted gby.cl_pregfclr
+	}
+	if H(gby.cl_preglclr) {
+		optionarg /hidedefault gby.cb_preglclr
+	}
+	if !H(gby.cl_preglclr) {
+		optionarg /quoted gby.cl_preglclr
+	}
+	optionarg /hidedefault gby.cb_preglwd
+	optionarg /hidedefault gby.cb_pregmarg
+
+END
+/* End Region programming */
+
+/* Begin Title, Subtitle, Caption, and Note Option Programming */
+PROGRAM gby_text_opt_pr
+BEGIN
+	if gby.ed_title | gby.cb_ttlsize | gby.cb_ttlclr | gby.cb_ttlpos  ///
+	   | gby.cb_ttljust | gby.ed_ttlgp | gby.ck_ttlbox {
+		put " "  "title("
+		put /hidden gby.ed_title
+		put /program gby_title_opt_pr
+		put ")"
+	}
+	if gby.ed_stitle | gby.cb_stlsize | gby.cb_stlclr | gby.cb_stlpos  ///
+	   | gby.cb_stljust | gby.ed_stlgp | gby.ck_stlbox {
+		put " "  "subtitle("
+		put /hidden gby.ed_stitle
+		put /program gby_subtitle_opt_pr
+		put ")"
+	}
+	if gby.ed_caption | gby.cb_capsize | gby.cb_capclr | gby.cb_cappos  ///
+	   | gby.cb_capjust | gby.ed_capgp | gby.ck_capbox {
+		put " "  "caption("
+		put /hidden gby.ed_caption
+		put /program gby_caption_opt_pr
+		put ")"
+	}
+	if gby.ed_note | gby.cb_notsize | gby.cb_notclr | gby.cb_notpos  ///
+	   | gby.cb_notjust | gby.ed_notgp | gby.ck_notbox {
+		put " "  "note("
+		put /hidden gby.ed_note
+		put /program gby_note_opt_pr
+		put ")"
+	}
+END
+PROGRAM gby_title_opt_pr
+BEGIN
+	beginoptions
+		hoptionarg /hidedefault gby.cb_ttlsize
+		if !Hcc(gby.cb_ttlclr) {
+			hoptionarg /hidedefault gby.cb_ttlclr
+		}
+		if Hcc(gby.cb_ttlclr) {
+			hoptionarg /quoted gby.cl_ttlclr
+		}
+	        hoptionarg /hidedefault gby.cb_ttlpos
+		hoptionarg /hidedefault gby.cb_ttljust
+		hoptionarg gby.ed_ttlgp
+		hoption gby.ck_ttlbox
+		if !Hcc(gby.cb_ttlbclr) {
+			hoptionarg /hidedefault gby.cb_ttlbclr
+		}
+		if Hcc(gby.cb_ttlbclr) {
+			hoptionarg /quoted gby.cl_ttlbclr
+		}
+		if !Hcc(gby.cb_ttlblclr) {
+			hoptionarg /hidedefault gby.cb_ttlblclr
+		}
+		if Hcc(gby.cb_ttlblclr) {
+			hoptionarg /quoted gby.cl_ttlblclr
+		}
+		hoptionarg gby.cb_ttlmarg
+		hoption gby.ck_ttlexp
+	endoptions
+END
+
+PROGRAM gby_subtitle_opt_pr
+BEGIN
+	beginoptions
+		hoptionarg /hidedefault gby.cb_stlsize
+		if !Hcc(gby.cb_stlclr) {
+			hoptionarg /hidedefault gby.cb_stlclr
+		}
+		if Hcc(gby.cb_stlclr) {
+			hoptionarg /quoted gby.cl_stlclr
+		}
+	        hoptionarg /hidedefault gby.cb_stlpos
+		hoptionarg /hidedefault gby.cb_stljust
+		hoptionarg gby.ed_stlgp
+		hoption gby.ck_stlbox
+		if !Hcc(gby.cb_stlbclr) {
+			hoptionarg /hidedefault gby.cb_stlbclr
+		}
+		if Hcc(gby.cb_stlbclr) {
+			hoptionarg /quoted gby.cl_stlbclr
+		}
+		if !Hcc(gby.cb_stlblclr) {
+			hoptionarg /hidedefault gby.cb_stlblclr
+		}
+		if Hcc(gby.cb_stlblclr) {
+			hoptionarg /quoted gby.cl_stlblclr
+		}
+		hoptionarg gby.cb_stlmarg
+		hoption gby.ck_stlexp
+	endoptions
+END
+
+PROGRAM gby_caption_opt_pr
+BEGIN
+	beginoptions
+		hoptionarg /hidedefault gby.cb_capsize
+		if !Hcc(gby.cb_capclr) {
+			hoptionarg /hidedefault gby.cb_capclr
+		}
+		if Hcc(gby.cb_capclr) {
+			hoptionarg /quoted gby.cl_capclr
+		}
+	        hoptionarg /hidedefault gby.cb_cappos
+		hoptionarg /hidedefault gby.cb_capjust
+		hoptionarg gby.ed_capgp
+		hoption gby.ck_capbox
+		if !Hcc(gby.cb_capbclr) {
+			hoptionarg /hidedefault gby.cb_capbclr
+		}
+		if Hcc(gby.cb_capbclr) {
+			hoptionarg /quoted gby.cl_capbclr
+		}
+		if !Hcc(gby.cb_capblclr) {
+			hoptionarg /hidedefault gby.cb_capblclr
+		}
+		if Hcc(gby.cb_capblclr) {
+			hoptionarg /quoted gby.cl_capblclr
+		}
+		hoptionarg gby.cb_capmarg
+		hoption gby.ck_capexp
+	endoptions
+END
+
+PROGRAM gby_note_opt_pr
+BEGIN
+	beginoptions
+		hoptionarg /hidedefault gby.cb_notsize
+		if !Hcc(gby.cb_notclr) {
+			hoptionarg /hidedefault gby.cb_notclr
+		}
+		if Hcc(gby.cb_notclr) {
+			hoptionarg /quoted gby.cl_notclr
+		}
+	        hoptionarg /hidedefault gby.cb_notpos
+		hoptionarg /hidedefault gby.cb_notjust
+		hoptionarg gby.ed_notgp
+		hoption gby.ck_notbox
+		if !Hcc(gby.cb_notbclr) {
+			hoptionarg /hidedefault gby.cb_notbclr
+		}
+		if Hcc(gby.cb_notbclr) {
+			hoptionarg /quoted gby.cl_notbclr
+		}
+		if !Hcc(gby.cb_notblclr) {
+			hoptionarg /hidedefault gby.cb_notblclr
+		}
+		if Hcc(gby.cb_notblclr) {
+			hoptionarg /quoted gby.cl_notblclr
+		}
+		hoptionarg gby.cb_notmarg
+		hoption gby.ck_notexp
+	endoptions
+END
+/* End Title, Subtitle, Caption, and Note Option Programming */
+
+/* Begin Legend Option Programming */
+PROGRAM gby_legend_opt_pr
+BEGIN
+	put " " gby.cb_legend
+	optionarg /hidedefault gby.cb_legpos
+	if gby.ck_leghole {
+		require gby.ed_leghole
+		put " "  "at(" gby.ed_leghole ")"
+	}
+	option gby.ck_legspan
+END
+/* End Legend Option Programming */
+
+PROGRAM gby_options_output
+BEGIN
+	option gby.ck_total
+	option gby.ck_missing
+	option gby.ck_colfirst
+	optionarg gby.ed_holes
+	if gby.cb_layout {
+		put " " gby.cb_layout "("
+		put gby.sp_rowcol
+		put ")"
+	}
+	optionarg gby.cb_style
+	optionarg gby.cb_imargin
+	if gby.ed_iscale & !default(gby.ed_iscale) {
+		put "iscale(*" gby.ed_iscale ")"
+	}
+	if gby.cb_xrescale {
+		put " " gby.cb_xrescale
+	}
+	if gby.cb_yrescale {
+		put " " gby.cb_yrescale
+	}
+
+	if gby.cb_gregfclr | !H(gby.cl_gregfclr) 		/*
+	   */ | gby.cb_greglclr | !H(gby.cl_greglclr)		/*
+	   */ | gby.cb_greglwd  | gby.cb_gregmarg {
+		put " "  "graphregion("
+		put /program gby_graph_region_opt_subpr
+		put ")"
+	}
+	if gby.cb_pregfclr | !H(gby.cl_pregfclr) 		/*
+	   */ | gby.cb_preglclr | !H(gby.cl_preglclr)		/*
+	   */ | gby.cb_preglwd  | gby.cb_pregmarg {
+		put " "  "plotregion("
+		put /program gby_plot_region_opt_subpr
+		put ")"
+	}
+
+	put " " /program gby_text_opt_pr
+	if gby.cb_legend | gby.ck_leghole | gby.ck_legspan | gby.cb_legpos {
+		put " "  "legend("
+		put /program gby_legend_opt_pr
+		put ")"
+	}
+END
+
+PROGRAM gby_opt_pr	/* graph by option programming */
+BEGIN
+	put gby.vl_vars
+	beginoptions
+		put /program gby_options_output
+	endoptions
+END
+
+PROGRAM gby_output /* To be used with out programming include */
+BEGIN
+	if !H(gby.vl_vars) & gby.vl_vars {
+		put " "  "by("
+		put /program gby_opt_pr
+		put ")"
+	}
+END
+
+PROGRAM gby_byopts_output
+BEGIN
+	if gby.ck_colfirst | gby.cb_style | gby.ed_holes 	///
+	 | gby.cb_imargin | gby.cb_layout | gby.ck_total	///
+	 | (gby.ed_iscale & ! gby.ed_iscale.isdefault())	///
+	 | gby.cb_xrescale | gby.cb_yrescale | gby.cb_gregfclr	///
+	 | gby.cb_greglclr | gby.cb_greglwd | gby.cb_gregmarg	///
+	 | gby.cb_pregfclr | gby.cb_preglclr | gby.cb_preglwd	///
+	 | gby.cb_pregmarg | gby.ed_title | gby.ed_stitle	///
+	 | gby.ed_caption | gby.ed_note | gby.cb_legend		///
+	 | gby.ck_leghole | gby.ck_legspan | gby.cb_legpos	///
+	{
+		if _gby_isenabled { 	// is the tab enabled?
+			put " " "byopts("
+			put /program gby_options_output
+			put ")"
+		}
+	}
+END

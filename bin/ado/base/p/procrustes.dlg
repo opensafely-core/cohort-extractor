@@ -1,0 +1,94 @@
+/*
+	procrustes
+
+*!  VERSION 1.1.1  14nov2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE header
+HELP hlp1, view("help procrustes")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource PROCRUSTES_DLG_HSCALE
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL) label(resource PROCRUSTES_DLG_TITLE)
+BEGIN
+  TEXT     tx_varlist_y		_lft	_top	_vlwd	.,		///
+	label(resource PROCRUSTES_MAIN_TX_VARLIST_Y)
+  VARLIST  vl_varlist_y		@	_ss	@	.,		///
+  	numeric								///
+	label(resource PROCRUSTES_MAIN_TX_VARLIST_Y)
+  TEXT     tx_varlist_x		@	_ls	@	.,		///
+	label(resource PROCRUSTES_MAIN_TX_VARLIST_X)
+  VARLIST  vl_varlist_x		@	_ss	@	.,		///
+  	numeric								///
+	label(resource PROCRUSTES_MAIN_TX_VARLIST_X)
+
+  GROUPBOX gb_trans		_lft	+35	_iwd	_ht6,		///
+	label(resource PROCRUSTES_MAIN_GB_TRANS)
+  RADIO	rb_default		_ilft	_ss	_ibwd	.,		///
+	first label(resource PROCRUSTES_MAIN_RB_DEFAULT)		///
+	option(NONE)
+  RADIO	rb_oblique		@	_ss	@	., 		///
+	label(resource PROCRUSTES_MAIN_RB_OBLIQUE)			///
+	option(transform(oblique))
+  RADIO	rb_unrestrict		@	_ss	@ 	.,		///
+	last label(resource PROCRUSTES_MAIN_RB_UNRESTRICT)		///
+	option(transform(unrestricted))					///
+	onclickon(main.ck_norho.disable)				///
+	onclickoff(main.ck_norho.enable)
+  CHECKBOX ck_noconstant	_lft	+45	_iwd	.,		///
+	label(resource PROCRUSTES_MAIN_CK_NOCONSTANT)			///
+	option(noconstant)
+  CHECKBOX ck_norho		@	_ms	@	.,		///
+	label(resource PROCRUSTES_MAIN_CK_NORHO)			///
+	option(norho)
+  CHECKBOX ck_force		@	_ms	@	.,		///
+	option(force)							///
+	label(resource PROCRUSTES_MAIN_CK_FORCE)
+END
+
+INCLUDE byifin
+INCLUDE weights_fa
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  CHECKBOX ck_nofit		_lft	_top	_iwd	.,		///
+	label(resource PROCRUSTES_RPT_CK_NOFIT)				///
+	option(nofit)
+END
+
+PROGRAM vly_output
+BEGIN
+	varlist main.vl_varlist_y
+END
+
+PROGRAM vlx_output
+BEGIN
+	varlist main.vl_varlist_x
+END
+
+PROGRAM command
+BEGIN
+	put /program by_output " "
+	put "procrustes ("
+	put /program vly_output
+	put ") ("
+	put /program vlx_output
+	put ") "
+	INCLUDE _ifin_pr
+ 	INCLUDE _weights_pr
+	beginoptions
+		option radio(main rb_default rb_oblique rb_unrestrict)
+		option main.ck_noconstant
+		option main.ck_norho
+		option main.ck_force
+		option rpt.ck_nofit
+        endoptions
+END

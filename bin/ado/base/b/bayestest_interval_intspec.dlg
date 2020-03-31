@@ -1,0 +1,195 @@
+/*
+    bayestest_interval_intspec.dlg
+
+*!  VERSION 1.2.0  21feb2019
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 285
+INCLUDE header
+
+HELP hlp1, view("help bayestest interval")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource BAYESTEST_INTERVAL_INTSPEC_DLG_HSCALE
+
+	create ARRAY paras_list
+	create STRING paras_str
+	create STRING paras_tmp
+	
+	create STRING cmdName
+	create STRING cmdStr
+	create STRING cmdPrefix
+
+	create STRING dlgname
+	dlgname.storeDialogClassName
+	
+	cmdStr.setvalue ""
+	cmdName.setvalue ""
+	cmdPrefix.setvalue ""
+	cmdName.setvalue e(cmd)
+	cmdStr.setvalue e(cmdline)
+	cmdPrefix.setvalue e(prefix)
+	
+	main.tx_intvalues.setposition . 130
+	main.rb_int.setposition . 160
+	main.rb_single.setposition . 210
+	main.tx_lower.setposition . 185
+	main.ed_lower.setposition . 185
+	main.cb_lower.setposition . 185
+	main.tx_theta.setposition . 185
+	main.cb_upper.setposition . 185
+	main.ed_upper.setposition . 185
+	main.tx_upper.setposition . 185 
+	main.tx_equal.setposition . 235
+	main.ed_equal.setposition . 235
+	
+	program paras_init
+END
+
+PROGRAM paras_init
+BEGIN
+	call paras_list.Arrdropall
+
+	if cmdName.equals("bayesmh") & !cmdStr.equals("") {
+		put "bayesmh_parse_params "
+		put cmdStr
+		stata hidden immediate
+		put "bayesmh_wrk_dlg " 
+		put dlgname
+		put " paras_list"
+		put `" "s(postparams)""'
+		put " 0"
+		stata hidden immediate
+	}
+	if cmdPrefix.equals("bayes") & !cmdStr.equals("") {
+		put "bayes_parse_params "
+		put cmdStr
+		stata hidden immediate
+		put "bayesmh_wrk_dlg " 
+		put dlgname
+		put " paras_list"
+		put `" "s(postparams)""'
+		put " 0"
+		stata hidden immediate
+	}
+	
+	call main.cb_paras.repopulate
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	title(resource BAYESTEST_INTERVAL_INTSPEC_TITLE)				
+BEGIN
+  GROUPBOX gb_intspec		_lft	_top	_iwd	_ht23,		///
+	label(resource BAYES_LBL_GB_INTSPEC)
+	
+  RADIO  rb_onepara		_ilft	_ss	_ibwd	.,		///
+	first								///
+	onclickon(script main_onepara_on)				///
+	label(resource BAYES_LBL_RB_ONEPARA)
+  RADIO rb_paraexp		@	80	@	.,		///
+	last										///
+	onclickon(script main_paraexp_on)				///
+	label(resource BAYES_LBL_RB_PARAEXP)
+  HLINK hl_exspec		415	80	65	.,		///
+	right								///
+	onpush(view help bayesian_postestimation##functions)		///
+	label(resource LBL_PAREN_EXAMPLES_PAREN)
+	
+  
+  COMBOBOX  cb_paras		40	50	200	.,		///
+	dropdown							///
+	contents(paras_list)						///
+	label(resource BAYES_LBL_RB_ONEPARA)
+	
+  EXP   ex_exspec		@	100	440	.,		///
+	parameter							///
+	bayes 								///
+	tooltip(resource BAYES_LBL_EX_EXSPEC_TIP)			///
+	error(resource BAYES_LBL_RB_PARAEXP)				///
+	label(resource LBL_BU_CREATE)
+
+  INCLUDE bayestest_interval_testspec
+END
+
+INCLUDE bayestest_interval_testspec_sc
+
+SCRIPT main_onepara_on
+BEGIN
+	main.cb_paras.enable
+	main.ex_exspec.disable
+END 
+
+SCRIPT main_paraexp_on
+BEGIN
+	main.cb_paras.disable
+	main.ex_exspec.enable
+END
+
+PROGRAM command
+BEGIN
+	put "("
+	if main.rb_onepara {
+		require main.cb_paras
+		put main.cb_paras
+	}
+	if main.rb_paraexp {
+		require main.ex_exspec
+		put main.ex_exspec
+	}
+	if main.rb_single {
+		require main.ed_equal
+		if main.ed_equal {
+			put " == "
+			put main.ed_equal
+		}
+		put ")"
+	}
+	beginoptions
+		if main.rb_int {
+			call create DOUBLE lvalue
+			call create DOUBLE uvalue
+			call lvalue.setvalue class main.ed_lower.value
+			call uvalue.setvalue class main.ed_upper.value
+			if main.ed_lower.equals("") & main.ed_upper.equals("") {
+		stopbox stop resource BAYES_MSGBOX_ONE_UPPER_LOWER_SPECIFIED
+// At least one of lower value or upper value must be specified.
+			}
+			if main.ed_lower & main.ed_upper {
+				if main.ed_lower.iseq(".") & main.ed_upper.iseq(".") {
+		stopbox stop resource BAYES_MSGBOX_ONE_UPPER_LOWER_SPECIFIED
+// At least one of lower value or upper value must be specified.		
+				}
+				if main.ed_lower.isneq(".") & main.ed_upper.isneq(".") { 
+					if lvalue.isNumlistGE(uvalue) {
+		stopbox stop resource BAYES_MSGBOX_LOWER_MUST_BE_LESSTHAN_UPPER
+// Lower value must be less than upper value.
+					}
+				}
+			}
+			if main.ed_lower & main.ed_lower.isneq(".") {
+				put " lower("
+				put main.ed_lower
+				if main.cb_lower.equals("<=") {
+					put ", inclusive"
+				}
+				put ")"
+			}
+			if main.ed_upper & main.ed_upper.isneq(".") {
+				put " upper("
+				put main.ed_upper 
+				if main.cb_upper.equals("<=") {
+					put ", inclusive"
+				}
+				put ")"
+			}
+			put ")"
+		}
+	endoptions
+END
+

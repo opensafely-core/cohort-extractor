@@ -1,0 +1,89 @@
+/*
+	predict (after cmclogit)
+
+*!  VERSION 1.0.1  16nov2018
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium   // ** set POSTINIT to match
+DEFINE _dlght 250
+INCLUDE header
+
+HELP hlp1, view("help cmclogit postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create DOUBLE e_k_alt
+	e_k_alt.setvalue e(k_alt)
+	e_k_alt.decrement
+	setscale_hadj resource CMCLOGIT_P_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script _p_gentype_setMedium
+END
+
+DIALOG main, label(resource PREDICT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  INCLUDE  _p_gentype
+
+  GROUPBOX gb_opts		_lft	_ls	_iwd	_ht8,	///
+		label(resource LBL_PRODUCE)
+  RADIO    rb_pr		_ilft	_ss	_ibwd	.,	///
+		first						///
+		option(pr)					///
+		onclickon(program check_stat)			///
+		label(resource LBL_PROBABILITY_ALTERNATIVE_CHOSEN)
+  RADIO    rb_xb		_ilft	_ss	@	.,	///
+		option(xb)					///
+		onclickon(program check_stat)			///
+		label(resource LBL_LINEAR_PREDICTION)
+  RADIO    rb_stdp		@	_ss	@	.,	///
+		option(stdp)					///
+		onclickon(program check_stat)			///
+		label(resource LBL_STANDARD_ERROR_LINEAR_PREDICTION)
+  RADIO    rb_score		@	_ss	@	.,	///
+		last						///
+		onclickon(program check_stat)			///
+		option(score)					///
+		label(resource LBL_PARAMETER_LEVEL_SCORES)
+
+  CHECKBOX ck_nooffset		_lft	+45	@	.,	///
+                option(nooffset)				///
+                label(resource LBL_IGNORE_OFFSET_VARIABLE)
+END
+
+PROGRAM check_stat
+BEGIN
+	if main.rb_pr {
+		call script _p_gentype_single
+	}
+	if main.rb_xb {
+		call script _p_gentype_single
+	}
+	if main.rb_stdp {
+		call script _p_gentype_single
+	}
+	if main.rb_score {
+		call script _p_gentype_multiple
+	}
+END
+
+INCLUDE _p_gentype_sc
+INCLUDE ifin
+INCLUDE _type_list_fd
+
+PROGRAM command
+BEGIN
+	put "predict "
+	put " " /program _p_gentype_output
+	put " " /program ifin_output
+	beginoptions
+		option radio(main rb_pr rb_xb rb_stdp rb_score)
+		option main.ck_nooffset
+	endoptions
+END

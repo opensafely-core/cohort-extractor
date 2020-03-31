@@ -1,0 +1,84 @@
+/*				stargraph
+
+	class for star graphs
+
+*/
+*! version 1.0.1  29jan2015
+
+version 8
+
+class {
+
+} , inherit(graph_g)
+
+/* -------------------------------------------------------------------------*/
+/* Uses .new from graph.cls
+
+	Usage:  .new serlist [if] [in] [wt] [, label(labvar) omit_opts 
+					       graph_opts stargraph_opts]
+
+*/
+program new
+
+	syntax [varlist] [if] [in] /*[aw fw iw pw]*/ [ , Label(varname)	/*
+		*/ READLOG(passthru) * ]
+
+	if "`readlog'" == "" {
+
+		if 0`:word count `varlist'' < 2 {	/* sic, not in syntax */
+			di as error "too few variables specified"
+			exit 102
+		}
+
+	}
+
+				/* let graph_g.new handle readlog etc.
+				 * it is given all the variables that need to 
+				 * be in the serset, most also retained as
+				 * options so .makegraph can find them.
+				*/
+	if "`label'" != "" {					// labels
+		if bsubstr("`:type `label''", 1, 3) == "str" {
+			tempname labvar
+			encode `label', gen(`labvar')
+			local label `labvar'
+		}
+	}
+	else {
+		tempname label
+		gen long `label' = _n
+	}
+	.Super.new `label' `varlist' `if' `in' [`weight'`exp'] , 	/*
+		*/ `options' label(`label') omitanymiss
+
+end
+
+/* -------------------------------------------------------------------------*/
+/*  Creates a stargraph given an existing sersets array.
+
+	Usage:  .makegraph , graph_options
+*/
+
+program makegraph
+
+	syntax [ , BNDOPTIONS(string) * ]
+
+							/* stars view */
+	.insert (starview = .Global.starview.new , 			/*
+		*/ serset(`.sersets[1].objkey') `options') at 1 1 , spanrows(2)
+
+	.insert (space = .spacer.new, ystretch(free)) at 1 2
+	.insert (legend = .Global.starlegend.new 0`.starview.label_var', /*
+		*/ serset(`.sersets[1].objkey') 			 /*
+		*/ gstyle(`.starview.style.objkey'))			 /*
+		*/ at 2 2
+	.legend.xstretch.set fixed
+	.legend.ystretch.set fixed
+
+
+	.maketitles , nodefault `options'		/* make titles */
+
+	.serset.set				/* set the current serset */
+end
+
+

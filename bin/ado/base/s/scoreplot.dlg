@@ -1,0 +1,342 @@
+/*
+ scoreplot
+ 
+*!  VERSION 2.1.3  03dec2019
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 250
+INCLUDE header
+
+HELP hlp1, view("help scoreplot")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource SCOREPLOT_DLG_HSCALE
+END
+
+SCRIPT main_PREINIT
+BEGIN
+	create STRING markerResults
+	create STRING labelResults
+	create STRING DiagonalLabelResults
+	create STRING GraphCombineResults
+	main.ed_cmd.hide
+	main.ed_subcmd.hide
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	call program main_checkMarkerResults
+	call program main_checkLabelResults
+	call program main_checkDiagonalLabelResults
+	call program main_checkGraphCombineResults
+
+	call create BOOLEAN cmdOk
+	call cmdOk.setfalse
+
+	if main.ed_cmd.iseq("factor") {
+		call main.tx_factors2.setlabel resource LBL_FACTORS
+		call main.sp_factors.enable
+		call cmdOk.settrue
+	}
+	if main.ed_cmd.iseq("pca") {
+		call main.tx_factors2.setlabel resource LBL_COMPONENTS
+		call main.sp_factors.enable
+		call cmdOk.settrue
+	}
+	if main.ed_cmd.iseq("candisc") {
+		call main.tx_factors2.setlabel resource LBL_DISCRIMINANT_FUNCTIONS
+		call main.sp_factors.enable
+		call cmdOk.settrue
+	}
+	if main.ed_cmd.iseq("discrim") & main.ed_subcmd.iseq("lda") {
+		call main.tx_factors2.setlabel resource LBL_DISCRIMINANT_FUNCTIONS
+		call main.sp_factors.enable
+		call cmdOk.settrue
+	}
+	if ! (cmdOk) {
+		stopbox note resource LBL_MSGBOX_DIALOG_REQUIRES_PCA_FACTOR_CANDIS_ETC
+// This dialog requires that -pca-, -factor-, -candisc-, or -discrim lda- be performed prior to starting.
+// Use the "Reset" (R) button on this dialog once that has been done.
+		call main.sp_factors.disable
+	}
+	call program check_factors
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)   ///
+        label(resource SCOREPLOT_DLG_TITLE)
+BEGIN
+  TEXT tx_factors		_lft	_top	_cwd1	.,		///
+	label(resource LBL_PLOT_ALL_COMBINATIONS_OF_THE_FOLLOWING)
+  TEXT tx_scoreopt		_lft2	@	_cwd1	.,		///
+	label(resource SCOREPLOT_MAIN_TX_SCOREOPT) 
+
+  SPINNER sp_factors		_lft	_ss	_spwd	.,		///
+	default(2) min(2) max(e(f)) option(factors)			///
+	onchange(program check_factors)
+  TEXT tx_factors2		_spsep	@	_spr2b	.,
+  EDIT ed_scoreopt		_lft2	@	_cwd1	.,		///
+	option(scoreopt)
+
+  CHECKBOX ck_rotated		_lft	+35	_cwd0	.,		///
+	label(resource LBL_USE_UNROTATED_RESULTS)			///
+	option(norotated)
+  BUTTON bu_markers		_rj120	@	120	.,		///
+	label(resource LBL_MARKER_PROPERTIES_DLG_TITLE)			///
+	onpush(script main_show_markers_dialog)
+  BUTTON bu_labels		@	_ms	@	.,		///
+	label(resource LBL_GB_LABEL_PROPERTIES)				///
+	onpush(script main_show_labels_dialog)
+  CHECKBOX ck_matrix		_lft	@	_rj140	.,		///
+	option(matrix)							///
+	onclickon(script main_set_matrix_on)				///
+	onclickoff(script main_set_matrix_off)				///
+	label(resource LBL_GRAPH_AS_A_MATRIX_PLOT_DEFAULT_SCATTERPLOT)
+  DEFINE y @y
+
+  // Graph Matrix 
+  GROUPBOX vn_diagonal		_lft	_ls	_iwd	_ht5,		///
+	label(resource LBL_DIAGONAL_LABELS_MATRIX_PLOT)
+  EDIT ed_dlabel		_ilft	_ss	200	.,		///
+        label(resource LBL_DIAGONAL_LABELS) option(diagonal)
+  BUTTON bu_dlabel		+205	@	15	.,		///
+	label(resource LBL_?)						///
+	tooltip(resource LBL_HELP_DIAGONAL_LABELS)			///
+	onpush(view help gdiagonal##|_new)
+  BUTTON bu_diagonal_labels	_ilft	_ls	160	.,		///
+	label(resource LBL_DIAGONAL_LABEL_PROPERTIES)			///
+	onpush(script main_show_diagonal_label_dialog)
+  CHECKBOX ck_half		_rj190	@	170	.,		///
+	label(resource LBL_GRAPH_LOWER_HALF_ONLY) option(half)
+
+  //Graph combine
+  CHECKBOX ck_combined		_lft	y	_rj140	.,		///
+	option(combined)						///
+	onclickon(script main_set_combined_on)				///
+	onclickoff(program main_set_combined_off)			///
+	label(resource LBL_GRAPH_COMBINED_PLOT_DEFAULT_MATRIX_PLOT)
+  BUTTON bu_combine_opts	_lft	_ls	160	.,		///
+	label(resource LBL_GRAPH_COMBINE_PROPERTIES)			///
+	onpush(script main_show_graph_combine_dialog)
+	
+  EDIT     ed_cmd 0 0 0 0, default(e(cmd))				///
+        // hidden control
+  EDIT     ed_subcmd 0 0 0 0, default(e(subcmd))			///
+        // hidden control
+END
+
+
+PROGRAM check_factors
+BEGIN
+	if main.sp_factors.equals(2) {
+		call main.ck_combined.hide
+		call main.bu_combine_opts.hide
+		call main.ck_matrix.show
+		if ! main.ck_matrix {
+			call script main_set_matrix_off
+		}
+		else {
+			call script main_set_matrix_on
+		}
+	}
+	else {
+		call main.ck_matrix.hide
+		call main.ck_combined.show
+		if main.ck_combined {
+			call script main_set_combined_on
+		}
+		else {
+			call program main_set_combined_off
+		}
+	}
+
+END
+
+SCRIPT main_set_matrix_on
+BEGIN
+	main.vn_diagonal.show
+	main.ed_dlabel.show
+	main.bu_dlabel.show
+	main.bu_diagonal_labels.show
+	main.ck_half.show
+			
+	script gr_yaxis_disable
+	script gr_xaxis_disable
+END
+SCRIPT main_set_matrix_off
+BEGIN
+	main.vn_diagonal.hide
+	main.ed_dlabel.hide
+	main.bu_dlabel.hide
+	main.bu_diagonal_labels.hide
+	main.ck_half.hide
+	
+	script gr_yaxis_enable
+	script gr_xaxis_enable
+END
+
+SCRIPT main_set_combined_on
+BEGIN
+        main.bu_combine_opts.show
+	script main_set_matrix_off
+END
+PROGRAM main_set_combined_off
+BEGIN
+        call main.bu_combine_opts.hide
+	if ! main.sp_factors.equals(2) {
+                call script main_set_matrix_on
+        }
+END
+
+// Main buttons
+SCRIPT main_show_markers_dialog
+BEGIN
+	create CHILD gr_marker_nolabel_options AS markers, allowsubmit
+	markers.setExitString markerResults
+	markers.settitle resource LBL_MARKER_PROPERTIES_DLG_TITLE
+	markers.setExitAction "program main_checkMarkerResults"
+	markers.setSubmitAction "program main_markerSubmit"
+END
+PROGRAM main_checkMarkerResults
+BEGIN
+	if markerResults {
+		call main.bu_markers.modified_on
+	}
+	else {
+		call main.bu_markers.modified_off
+	}
+END
+PROGRAM main_markerSubmit
+BEGIN
+	call program main_checkMarkerResults
+	call Submit
+END
+
+SCRIPT main_show_labels_dialog
+BEGIN
+	create CHILD gr_markerlabel_options AS labels, allowsubmit
+	labels.setExitString labelResults
+	labels.settitle resource LBL_GB_LABEL_PROPERTIES
+	labels.setExitAction "program main_checkLabelResults"
+	labels.setSubmitAction "program main_labelSubmit"
+END
+PROGRAM main_checkLabelResults
+BEGIN
+	if labelResults {
+		call main.bu_labels.modified_on
+	}
+	else {
+		call main.bu_labels.modified_off
+	}
+END
+PROGRAM main_labelSubmit
+BEGIN
+	call program main_checkLabelResults
+	call Submit
+END
+
+SCRIPT main_show_diagonal_label_dialog
+BEGIN
+	create CHILD gr_diagonal_label_options AS diagonal_labels, allowsubmit
+	diagonal_labels.setExitString DiagonalLabelResults
+	diagonal_labels.settitle resource LBL_DIAGONAL_LABEL_PROPERTIES
+	diagonal_labels.setExitAction "program main_checkDiagonalLabelResults"
+	diagonal_labels.setSubmitAction "program main_DiagonalLabelSubmit"
+END
+PROGRAM main_checkDiagonalLabelResults
+BEGIN
+	if DiagonalLabelResults {
+		call main.bu_diagonal_labels.modified_on
+	}
+	else {
+		call main.bu_diagonal_labels.modified_off
+	}
+END
+PROGRAM main_DiagonalLabelSubmit
+BEGIN
+	call program main_checkDiagonalLabelResults
+	call Submit
+END
+
+SCRIPT main_show_graph_combine_dialog
+BEGIN
+	create CHILD gr_combine_options AS graph_combine_opts, allowsubmit
+	graph_combine_opts.setExitString GraphCombineResults
+	graph_combine_opts.settitle resource LBL_GRAPH_COMBINE_PROPERTIES
+	graph_combine_opts.setExitAction "program main_checkGraphCombineResults"
+	graph_combine_opts.setSubmitAction "program main_GraphCombineSubmit"
+END
+PROGRAM main_checkGraphCombineResults
+BEGIN
+	if GraphCombineResults {
+		call main.bu_combine_opts.formatlabel "resource LBL_BU_GRAPH_COMBINE_PROPERTIES_FMT" " *"
+	}
+	else {
+		call main.bu_combine_opts.formatlabel "resource LBL_BU_GRAPH_COMBINE_PROPERTIES_FMT" "  "
+	}
+END
+PROGRAM main_GraphCombineSubmit
+BEGIN
+	call program main_checkGraphCombineResults
+	call Submit
+END
+
+INCLUDE ifin
+INCLUDE gr_yaxis
+INCLUDE gr_xaxis
+INCLUDE gr_titles
+INCLUDE gr_overall
+
+PROGRAM command
+BEGIN
+	put "scoreplot "
+	put " " /program ifin_output
+	beginoptions
+		if ! main.sp_factors.equals(2) {
+			if main.ed_cmd.equals("factor") {
+				put " " "factors("
+			}
+			if ! main.ed_cmd.equals("factor") {
+				put " " "components("
+			}
+			put main.sp_factors
+			put ") "
+		}
+		if markerResults & ! H(main.bu_markers) {
+			 put " " markerResults " "
+		}
+		if labelResults & ! H(main.bu_labels) {
+			put " " labelResults " "
+                }
+		option main.ck_rotated
+		option main.ck_matrix
+		if main.ck_matrix | ! main.sp_factors.equals(2) & ///
+		   ! main.ck_combined {
+			if DiagonalLabelResults &  ///
+				! H(main.bu_diagonal_labels) | main.ed_dlabel {
+				put "diagonal(" 
+				put main.ed_dlabel
+				put DiagonalLabelResults 
+				put ") "
+			}
+		}
+		option main.ck_half
+		option main.ck_combined
+		if main.ck_combined {
+			if GraphCombineResults & ! H(main.bu_combine_opts) {
+				put " " GraphCombineResults " "
+			}
+		}
+		optionarg main.ed_scoreopt
+
+		put " " /program gr_yaxis_output
+		put " " /program gr_xaxis_output
+		put " " /program gr_titles_output
+		put " " /program gr_overall_output
+	endoptions
+END

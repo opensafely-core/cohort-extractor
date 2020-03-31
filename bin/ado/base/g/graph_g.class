@@ -1,0 +1,3003 @@
+//                               graph_g
+//
+//	Base class for graphs
+//
+*! version 1.3.2  21nov2019
+
+version 8
+
+class graph_g {
+
+    instance:
+    	graphstyle	style
+
+	array sersets				// some graphs only use 1
+
+	_scheme = .scheme.new , clear		// scheme
+	array __LOG				// allows logging
+
+	_drawing	= 1			// for aspect ratios
+	_xstretch_hold	= .stretch_g.new	// held for aspect ratios
+	_ystretch_hold	= .stretch_g.new
+	n_text          = 0                     // counter for added text
+
+	filename = ""				// full path filename from use
+	dirty 	 = 0				// editor dirty flag
+	undo	 = ._gm_undo.new		// editor undo manager
+	recorder = {}				// recorder array
+
+	gversion   = 7				// graph version
+	clsversion = 7				// graph class version
+
+	command  = ""				// header information
+	date     = ""
+	time     = ""
+	dta_file = ""
+	dta_date = ""
+
+} , inherit(grid)
+
+
+program new
+
+	syntax [, READLOG(string) * ]
+
+	._scheme.ref = .`c(curscm)'.ref		// declare local scheme
+	.Super.new , `options'
+
+	._dialog  = "graph"
+	.dragable = 0
+
+	if "`readlog'" != "" {
+		.runfromfile `readlog'
+	}
+
+end
+
+/* -------------------------------------------------------------------------*/
+/*
+	Usage:  .parse serlist [if] [in] [wt] [, omit_opts sort graph_opts ]
+
+		where:
+			serlist = varlist 
+		     or
+			serlist = (varlist [if] [in] [wt], options ) (...) ...
+*/
+
+program parse_sersets
+					/* handle reading from a file */
+
+	syntax [anything(name=vlist id=varlist equalok)] [if] [in]	///
+		[aw fw pw] [, READLOG(string) LABels 			///
+		SCHeme(string) USESCHEME(string) * ]
+	
+	if "`readlog'" != "" {
+					// run cmds to create this graph
+
+		file read `readlog' cmd
+		gettoken tok : cmd
+		while "`tok'" != "<BeginCmd>" {		// prefix commands
+			`cmd'
+			.__LOG.Arrpush `macval(cmd)'
+
+			file read `readlog' cmd
+			gettoken tok : cmd
+		}
+
+		file read `readlog' cmd
+		`cmd'				// _map_sersets	
+		file read `readlog' cmd			
+		`cmd'				// fills in fullopts
+		file read `readlog' cmd		// ignore <EndCmd>
+		if r(eof) {
+			exit			// problem
+		}
+
+		._scheme.ref = .`c(curscm)'.ref		// declare local scheme
+
+		.log_cmd local fullopts `fullopts'
+		if "`.sersets[1].isa'" != "" {
+			.sersets[1].set
+		}
+		.makegraph , `fullopts'			// child defines this
+
+		.runfromfile `readlog'			// remaining commands
+
+		exit						// Exit
+	}
+
+	._scheme.ref = .`c(curscm)'.ref		/* declare local scheme */
+
+					/* pull off () bound varlists */
+	local paren (
+	while "`paren'" != "" {
+		gettoken bnd 0 : 0 , match(paren)
+		if "`paren'" != "" {
+			local bndlist `bndlist' (`bnd')
+		}
+	}
+	local 0 `bnd' `0'
+
+
+						/* parse global options */
+	syntax [anything(name=vlist id=varlist)] [if] [in]		/*
+		*/ [aw fw pw] [,					/*
+		*/ OMITANYMiss OMITALLMiss OMITDUPmiss OMITNothing 	/*
+		*/ SORT(passthru) LABels USESCHEME(string) * ]
+
+	if "`vlist'" != "" {
+		if "`bndlist'" != "" {
+			di in red "may not combine standard varlist "	/*
+				*/ "and varlists in parentheses"
+			exit 198
+		}
+		local bndlist (`vlist')
+	}
+
+	local allif `if'
+	local allin `in'
+	local allsort `sort'
+	local allwt [`weight'`exp']
+	local allomit `omitanymiss' `omitallmiss' `omitdupmiss' `omitnothing'
+	if "`allomit'" == "" { 
+		local allomit omitallmis 
+	}
+	local alloptions `options'
+
+					/* process (varlist, options)    */
+					/* create sersets if not created */
+
+	gettoken 0 bndlist : bndlist , match(paren)
+	local i 1
+	while "`paren'" != "" {
+		syntax [anything(name=vlist id=varlist)] 		/*
+		   */ [if] [in] [aw fw pw] , [ 				/*
+		   */ OMITANYMiss OMITALLMiss OMITDUPmiss OMITNothing	/*
+		   */ SOrt(passthru) * ]
+		local omit `omitanymiss' `omitallmiss' 		/*
+			*/ `omitdupmiss' `omitnothing'
+		local wt [`weight'`exp']
+		if `"`if'"'   == `""' { 
+			local if `allif' 
+		}
+		if `"`in'"'   == `""' { 
+			local in `allin' 
+		}
+		if `"`sort'"' == `""' { 
+			local sort `allsort' 
+		}
+		if `"`omit'"' == `""' { 
+			local omit `allomit' 
+		}
+		if  "`wt'"    == "[]" { 
+			local wt `allwt' 
+		}
+
+		local bndoptions `bndoptions' (, `options')
+
+		if "`readlog'" == "" {
+			.sersets[`i'] = .serset.new `vlist' `if' `in'	/*
+				*/ `wt' , `sort' `omit'
+		}
+
+		gettoken 0 bndlist : bndlist , match(paren)
+		local i = `i' + 1
+	}
+
+/* 
+	if "`labels'" != "" {				/* fetch labels */
+		forvalues i = 2/0`.sersets[1].sers.arrnels' {
+			.sersets[1].sers[`i'].set_labels `if' `in'
+		}
+	}
+*/
+
+	.log_cmd local fullopts `alloptions' bndoptions(`"`bndoptions'"')
+	if "`.sersets[1].isa'" != "" {
+		.sersets[1].set
+	}
+	.makegraph , `alloptions' bndoptions(`"`bndoptions'"')
+end
+
+/* -------------------------------------------------------------------------*/
+/* Arrpush the commands onto the __LOG array that are used by save and undo 
+   to recreate this graph.
+*/
+
+program define log_cmd
+						/* keys of sersets */
+	forvalues i = 1/`.sersets.arrnels' {
+		local keys `keys' `.sersets[`i'].uname'
+	}
+	.__LOG.Arrpush <BeginCmd>
+	.__LOG.Arrpush ._map_sersets `keys'
+	.__LOG.Arrpush `0'
+	.__LOG.Arrpush <EndCmd>
+end
+
+/* -------------------------------------------------------------------------*/
+/*  Used when reading a graph from disk or recreating for an undo to map
+    build a sersets array for this graph from the already created sersets.
+*/
+
+program define _map_sersets
+	
+	local i 1
+	foreach keynm of local 0 {
+		.sersets[`i++'] = .__Map.`keynm'.ref
+	}
+end
+/*
+		.sersets[`i'] = .serset.new
+		.sersets[`i'].seton ${T_Curserset`i'}
+*/
+
+
+
+// ---------------------------------------------------------------------------
+//  Set the gmetric scaling for the graph to the specified value (#) or 
+//  multiplier (*#).
+
+program set_scale
+	args scale
+
+	if `"`scale'"' != `""' {
+		tempname rsz
+		.`rsz' = .numstyle.new, style(`.gmetric_mult')
+		.`rsz'.setstyle , style(`scale')
+		.gmetric_mult = `.`rsz'.val'
+	}
+end
+
+
+// ---------------------------------------------------------------------------
+//  Sets the plotregion for an axis and registers the axis with the 
+//  plotregion and scale.  Both the axis and plotregion must exist in the
+//  current graph.
+
+program set_axis_plotregion
+	args axis plotregion xy
+
+	if (!0`.Local.`axis'.isofclass axis') exit
+	if (!0`.Local.`plotregion'.isofclass plotregion') exit
+
+	.`axis'.set_plotregion `.`plotregion'.objkey' `xy'
+
+end
+
+// ---------------------------------------------------------------------------
+//  Parse title options and push its declaration and any style edits onto the 
+//  specified log.
+//
+//  This call MUST occur after the declaration of plotregion1 has been pushed.
+//  Returns the unparsed options.
+//
+//	Usage:  local options = `".parse_and_log_title <logname> `options'"'
+
+
+program parse_and_log_titles , rclass
+      gettoken log   0 : 0
+      gettoken obj   0 : 0
+
+							// ordered for spanning
+      _fr_title_parse_and_log `log' "`obj'" r1title  R1title  r1title  `0'            
+      _fr_title_parse_and_log `log' "`obj'" r2title  R2title  r2title  `r(rest)'
+      _fr_title_parse_and_log `log' "`obj'" l1title  L1title  l1title  `r(rest)'
+      _fr_title_parse_and_log `log' "`obj'" l2title  L2title  l2title  `r(rest)'
+      _fr_title_parse_and_log `log' "`obj'" t1title  T1title  t1title  `r(rest)'
+      _fr_title_parse_and_log `log' "`obj'" t2title  T2title  t2title  `r(rest)'
+      _fr_title_parse_and_log `log' "`obj'" b1title  B1title  b1title  `r(rest)'
+      _fr_title_parse_and_log `log' "`obj'" b2title  B2title  b1title  `r(rest)'
+
+      _fr_title_parse_and_log `log' "`obj'" note     NOTE     note     `r(rest)'
+      _fr_title_parse_and_log `log' "`obj'" caption  CAPtion  caption  `r(rest)'
+      _fr_title_parse_and_log `log' "`obj'" subtitle SUBtitle subtitle `r(rest)'
+      _fr_title_parse_and_log `log' "`obj'" title    Title    title    `r(rest)'
+      
+      return local rest `r(rest)'
+end
+
+program parse_and_log_titles_edits , rclass
+	gettoken log   0 : 0
+	gettoken obj   0 : 0
+
+							// ordered for spanning
+	_fr_tedits_parse_and_log `log' "`obj'" r1title  R1title  `0'		
+	_fr_tedits_parse_and_log `log' "`obj'" r2title  R2title  `r(rest)'
+	_fr_tedits_parse_and_log `log' "`obj'" l1title  L1title  `r(rest)'
+	_fr_tedits_parse_and_log `log' "`obj'" l2title  L2title  `r(rest)'
+	_fr_tedits_parse_and_log `log' "`obj'" t1title  T1title  `r(rest)'
+	_fr_tedits_parse_and_log `log' "`obj'" t2title  T2title  `r(rest)'
+	_fr_tedits_parse_and_log `log' "`obj'" b1title  B1title  `r(rest)'
+	_fr_tedits_parse_and_log `log' "`obj'" b2title  B2title  `r(rest)'
+
+	_fr_tedits_parse_and_log `log' "`obj'" note     NOTE     `r(rest)'
+	_fr_tedits_parse_and_log `log' "`obj'" caption  CAPtion  `r(rest)'
+	_fr_tedits_parse_and_log `log' "`obj'" subtitle SUBtitle `r(rest)'
+	_fr_tedits_parse_and_log `log' "`obj'" title    Title    `r(rest)'
+	
+	return local rest `r(rest)'
+end
+
+
+// ---------------------------------------------------------------------------
+//  Creates spacers around plotregion  as part of allowing the region to 
+//  become fixed size and thus lock aspect ratio.
+//
+//  This call MUST occur after the declaration of plotregion1 has been pushed.
+//  Returns the unparsed options.
+//
+//  Usage:  local options = `".parse_and_log_spacers <logname> <obj> `options'"'
+//
+//		Only option allowed is ring(#) to allow the spacers to be
+//		placed inside or outside titles -- rarely used.  Default is
+//		between t1title and t2titles, etc.
+
+program parse_and_log_spacers , rclass
+	gettoken log   0 : 0
+	gettoken obj   0 : 0
+
+	local 0 `", `0'"'
+	syntax [ , SPACErs(string asis) * ]
+	local rest `"`options'"'
+
+	local 0 `", `spacers'"'
+	syntax [, RING(string)]
+
+	if ("`ring'" == "") {
+		local ring `.style.spacers_ring.setting'
+	}
+
+	.`log'.Arrpush `obj'.insert (spacert = .spacer.new)		///
+		above   plotregion1 , ring(`ring')
+	.`log'.Arrpush `obj'.insert (spacerb = .spacer.new)		///
+		below   plotregion1 , ring(`ring')
+	.`log'.Arrpush `obj'.insert (spacerl = .spacer.new)		///
+		leftof  plotregion1 , ring(`ring')
+	.`log'.Arrpush `obj'.insert (spacerr = .spacer.new)		///
+		rightof plotregion1 , ring(`ring')
+
+	return local rest `rest'
+end
+
+program set_spacers_fixed
+	.spacert.set , xstretch(fixed) ystretch(fixed) xsize(0) ysize(0)
+	.spacerb.set , xstretch(fixed) ystretch(fixed) xsize(0) ysize(0)
+	.spacerl.set , xstretch(fixed) ystretch(fixed) xsize(0) ysize(0)
+	.spacerr.set , xstretch(fixed) ystretch(fixed) xsize(0) ysize(0)
+end
+
+/* -------------------------------------------------------------------------*/
+/* Initialize a drawing area and draw this object into that area
+*/
+program define drawgraph
+
+	.popifendsin drawgraph
+
+	syntax [ , SCALE(string) XSIZE(string) YSIZE(string) noMAYBEDRAW]
+
+	if `"`scale'"' != `""' {
+		.__LOG.Arrpush .set_scale `scale'
+		               .set_scale `scale'
+	}
+	if `"`xsize'"' != "" {
+	    .__LOG.Arrpush .style.editstyle declared_xsize(`xsize') editcopy
+		           .style.editstyle declared_xsize(`xsize') editcopy
+	}
+	local xsize = `.style.declared_xsize.val'
+	if `"`ysize'"' != "" {
+	    .__LOG.Arrpush .style.editstyle declared_ysize(`ysize') editcopy
+		           .style.editstyle declared_ysize(`ysize') editcopy
+	}
+	local ysize = `.style.declared_ysize.val'
+
+	gdi end
+	gdi init `xsize' `ysize' `.bgcolor.rgb' , live
+
+	if "`maybedraw'" != "" {
+		gdi record    = no
+		gdi maybedraw = no
+	}
+	capture noisily {
+		.set_gu_scaling `gdi(xmetric)' `gdi(ymetric)'
+
+							// put in gu's
+		if `xsize' < `ysize' {
+			local y_gus = `ysize' * 100 / `xsize'
+			local x_gus = 100
+		}
+		else {
+			local x_gus = `xsize' * 100 / `ysize'
+			local y_gus = 100
+		}
+		
+		.draw , xsize(`x_gus') ysize(`y_gus')
+		gdi update
+		gdi end
+	}
+	local rc = _rc
+
+	if "`maybedraw'" != "" {
+		gdi record    = yes
+		gdi maybedraw = yes
+	}
+
+	if (`rc')  exit `rc'
+
+	if 0`._Gr_Cglobal.redraw' {
+		._Gr_Cglobal.redraw = 0
+		.drawgraph `0'
+		._Gr_Cglobal.redraw = 0
+	}
+end
+
+// ---------------------------------------------------------------------------
+// Sets the edited object to be the object with the deepest name.
+
+program _set_edit_object
+
+	gr_current name : , query
+
+	if (`"`._Gr_Global.views[1]'"' == `""') {
+		._Gr_Global.edit_object = "`name'"
+		if (`_gedi(mode)' != 2)  exit				// Exit
+	}
+
+					// Add a line, textbox, or marker
+	if `_gedi(mode)' == 3 |`_gedi(mode)' == 4 | `_gedi(mode)' == 6 {
+		_set_views_to_containers `name'
+	}
+
+				// Keep current object if among those found at 
+				// pos, or if we are dragging and the
+				// current object contains one of those found
+	local found 0
+	forvalues i = 1/`._Gr_Global.views.arrnels' {
+	    if "`name'.`._Gr_Global.views[`i']'" ==			///
+	       "`._Gr_Global.hold_object'" {
+	       local found 1
+	       continue, break
+	    }
+	    if 0`_gedi(dragging)' & "`._Gr_Global.hold_object'" != "" {
+		local new "`name'.`._Gr_Global.views[`i']'"
+	        local x : subinstr local new "`._Gr_Global.hold_object'" "", ///
+			  count(local ct)
+	    	if `ct' {
+		    local found 1
+		    continue, break
+		}
+	    }
+	}
+	if (`found') {
+		._Gr_Global.edit_object = "`._Gr_Global.hold_object'"
+		exit
+	}
+
+						// Set object with deepest name
+	local maxtoks 0
+	forvalues i = 1/`._Gr_Global.views.arrnels' {
+		local namelist `"`._Gr_Global.views[`i']'"'
+		local namelist : subinstr local namelist "." " " , all
+		local toks : list sizeof namelist
+		if `toks' >= `maxtoks' {
+			local dex `i'
+			local maxtoks `toks'
+		}
+	}
+
+	if "`._Gr_Global.views[`dex']'" == "" {
+		local editobj "`name'"
+	}
+	else {
+		local editobj "`name'.`._Gr_Global.views[`dex']'"
+	}
+
+					// Special case for grid edit
+					// Drill containers only when useful
+	if `_gedi(mode)' == 2 {
+		local accept_drag = 0
+		local namesp : subinstr local editobj "." " " , all
+		local ct : list sizeof namesp
+		tokenize `namesp'
+		forvalues i = 1/`ct' {
+			if ("``i''" == "")  continue, break
+
+			if (`i' == 1)  local try "``i''"
+			else	       local try "`try'.``i''"
+
+			if (0`.`try'.grid_dragable') {
+				if ("`accepted'" == "" | `accept_drag')	{
+					local accepted "`try'"
+					local accept_drag = 0
+				}
+			}
+			if `.`try'.isofclass grid' {
+				if `.`try'.numobjects' > 1 {
+					if `.`try'.numgriddragable' > 0 {
+						local accept_drag = 1
+					}
+				}
+			}
+			else	local accept_drag = 0
+		}
+
+		if ("`accepted'" != "") {
+			local unused : subinstr local accepted "." "." ,  ///
+				count(local ct)
+			if (`ct' > 0)  local editobj "`accepted'"
+			else	       local editobj ""
+		}
+	}
+
+						// Set the selected object
+	._Gr_Global.edit_object = "`editobj'"
+	._Gr_Global.hold_object = "`editobj'"
+
+	capture .`._Gr_Global.edit_object'.Selected
+
+end
+
+// ---------------------------------------------------------------------------
+// Truncate all found views to their found container.
+
+program _set_views_to_containers
+	args name
+
+	forvalues i = 1/`._Gr_Global.views.arrnels' {
+		local try    ""
+		local answer ""
+		local dot    ""
+		local most "`._Gr_Global.views[`i']'"
+		local tokens : subinstr local most "." " " , all
+		foreach tok of local tokens {
+			local try "`try'`dot'`tok'"
+			local dot "."
+			if 0`.`name'.`try'.found' {
+				if `.`name'.`try'.isofclass container' |    ///
+				   `.`name'.`try'.isofclass plotregion' {
+					local answer "`try'"
+				}
+			}
+		}
+		._Gr_Global.views[`i'] = "`answer'"
+	}
+end
+
+
+// ---------------------------------------------------------------------------
+program _set_edit_and_hold
+	._Gr_Global.edit_object = "`0'"
+	._Gr_Global.hold_object = "`0'"
+end
+
+// ---------------------------------------------------------------------------
+// Instructs the browser what is selected, then what the alternate selections
+// are.
+
+program _set_browser_selected
+
+	if ("`._Gr_Global.edit_object'" == "")  exit		// Exit
+
+	gr_current graphnm : , query
+
+if ("$grdebug"!="") di in white "_gedi browser selected `._Gr_Global.edit_object'"
+	_gedi browser selected `._Gr_Global.edit_object'
+
+	if (0`._Gr_Global.views.arrnels' < 2)  exit
+
+	forvalues i = 1/`._Gr_Global.views.arrnels' {
+	    if "`graphnm'.`._Gr_Global.views[`i']'" !=			///
+	       "`._Gr_Global.edit_object'" {
+if ("$grdebug"!="") di in white "_gedi browser altsel `graphnm'.`._Gr_Global.views[`i']'"
+		_gedi browser altsel `graphnm'.`._Gr_Global.views[`i']'
+	    }
+	}
+end
+
+// ---------------------------------------------------------------------------
+// Set and invoke the context sensitive (CTS) toolbar
+
+program _set_cts_toolbar
+	args editobj
+
+	if "`editobj'" == "" {
+		_gedi toolbar none
+		exit							// Exit
+	}
+
+	if (0`_gedi(mode)' == 2)  local toolbarnm grideditor
+	else			  local toolbarnm  "`.`editobj'.dialog'"
+
+	if "`toolbarnm'" == "" {	// no programmable dialog -> no cts bar
+		di in white "Warning, no CTS toolbar for `.`editobj'.classname'"
+		exit
+	}
+
+	_gedi toolbar `toolbarnm' `editobj' `.`editobj'.SelectedCustomIndex'
+if ("$grdebug"!="") di in white 	///
+`"_gedi toolbar `toolbarnm' `editobj' `.`editobj'.SelectedCustomIndex'"'
+end
+
+// ---------------------------------------------------------------------------
+// Set the _gedi properties of the selected object.
+
+program _set_gedi_properties
+
+	local editobj `._Gr_Global.edit_object'
+
+						// Set dragable
+	local drag = cond(`_gedi(mode)' == 2,				///
+		0`.`editobj'.grid_dragable', 0`.`editobj'.dragable')
+	_gedi dragable `drag'
+
+						// Set extent
+
+	if (0`.`editobj'.gedi_extent')	exit			// We are done
+
+	local y0 = 0`.`editobj'.gdi_y0'
+	local x0 = 0`.`editobj'.gdi_x0'
+	local y1 = 0`.`editobj'.gdi_y1'
+	local x1 = 0`.`editobj'.gdi_x1'
+
+	if (`y0' < . & `x0' < . & `y1' < . & `x1' < .) {
+	    _gedi extent "`.`editobj'.dialog'" "`editobj'" `x0' `y0' `x1' `y1'
+if ("$grdebug"!="") di in white `"_gedi extent "`.`editobj'.dialog'" "`editobj'" `x0' `y0' `x1' `y1'"'
+	}
+
+						// Set if on a point/corner/end
+	if ("`.`editobj'.drag_point'" != "" ) {
+		if (`.`editobj'.drag_point' < .) {
+			_gedi pointonobject `.`editobj'.DragPoint'
+//			_gedi pointonobject `._gdi2pixel `.`editobj'.DragPoint''
+		}
+	}
+
+end
+
+// ---------------------------------------------------------------------------
+// Set the view browser with all view objects in the graph.
+
+program _set_view_browser
+	args advanced
+
+	gr_current graphnm : , query
+
+	._append_to_view_browser `graphnm' `graphnm' "" `advanced'
+end
+
+program _append_to_view_browser
+	args contnm container view advanced
+
+	local dot = cond("`view'" == "", "", ".")
+
+	local realnm "`container'`dot'`view'"		// real obj name
+
+	if (0`.`realnm'.deleted' == 1)  exit				// Exit
+
+	local viewnm `"`.`realnm'.BrowserName `view''"'	// display name
+	if (`"`viewnm'"' == `""')  local viewnm "`view'"
+	local browsernm `"`contnm'`dot'`viewnm'"'
+
+	if "`advanced'" != "" | ! 0`.`realnm'.isofclass spacer' {
+		if strpos(`"`viewnm'"', ".") {
+			gettoken nullnm : viewnm, parse(".")
+// if ("$grdebug"!="") di in white `"_gedi browser append `"`contnm'`dot'`nullnm' .  -1 -1"'
+			_gedi browser append `"`contnm'`dot'`nullnm'"' . -1 -1
+		}
+// if ("$grdebug"!="") di in white `"_gedi browser append `"`browsernm'"' `"`realnm'"' `._drawn_view `realnm'' `.`realnm'.locked'"'
+		_gedi browser append `"`browsernm'"' `"`realnm'"'	///
+			      `._drawn_view `realnm'' `.`realnm'.locked'
+	}
+
+	if ! 0`.`realnm'.no_browser_recurse' {
+		._append_views_recurse `"`browsernm'"' `realnm' `advanced'
+	}
+end
+
+program _append_views_recurse
+	args contnm container advanced
+
+						// let container set all views
+	local views "`.`container'.browser_objects'"
+
+	if "`views'" != "" {
+		foreach view of local views {
+			._append_to_view_browser `"`contnm'"' `container'  ///
+						 `view' `advanced'
+		}
+
+		exit						// Exit
+	}
+						// let container add views
+	local views "`.`container'.add_browser_objects'"
+
+	if "`views'" != "" {
+		foreach view of local views {
+			._append_to_view_browser `"`contnm'"' `container' ///
+						 `view' `advanced'
+		}
+	}
+						// let container exclude dyn-
+						// declared objects
+
+	if (0`.`container'.browser_stop')  exit			// Exit
+
+						// use all dyn-declared objects
+	local dynarr `container'.dynamicmv	
+
+	forvalues i = 1/0`.`dynarr'.arrnels' {
+
+	    if "`.`dynarr'[`i'].isa'" == "array" {
+		forvalues j = 1/0`.`dynarr'[`i'].arrnels' {
+		    if 0`.`dynarr'[`i'][`j'].isofclass anyview_g' {
+		       local nm `.`container'.attribname dynamicmv `i''
+		       ._append_to_view_browser `"`contnm'"' `container'  ///
+		       				`nm'[`j'] `advanced'
+		    }
+		}
+	    }
+	    else {
+		if 0`.`dynarr'[`i'].isofclass anyview_g' {
+			local nm `.`container'.attribname dynamicmv `i''
+			._append_to_view_browser `"`contnm'"' `container'  ///
+						 `nm' `advanced'
+		}
+	    }
+	}
+end
+
+
+//  -------------------------------------------------------------------------
+//  Append an object to the graph editor object browser
+//  Use this, not -_gedi browser append- directly.
+
+program _browser_append
+	args contnm container view advanced
+
+	local dot = cond("`view'" == "", "", ".")
+
+	local realnm "`container'`dot'`view'"		// real obj name
+
+	if (0`.`realnm'.deleted' == 1)  exit				// Exit
+
+	local viewnm `"`.`realnm'.BrowserName `view''"'	// display name
+	if (`"`viewnm'"' == `""')  local viewnm "`view'"
+	local browsernm `"`contnm'`dot'`viewnm'"'
+
+
+	if "`advanced'" != "" | ! 0`.`realnm'.isofclass spacer' {
+		if strpos(`"`viewnm'"', ".") {
+			gettoken nullnm : viewnm, parse(".")
+			_gedi browser append `"`contnm'`dot'`nullnm'"' . -1 -1
+if ("$grdebug"!="") ///
+di in white `"_gedi browser append `"`contnm'`dot'`nullnm' .  -1 -1"'
+		}
+		_gedi browser append `"`browsernm'"' `"`realnm'"'	///
+			      `._drawn_view `realnm'' `.`realnm'.locked'
+if ("$grdebug"!="") di in white `"_gedi browser append `"`browsernm'"' `"`realnm'"' `._drawn_view `realnm'' `.`realnm'.locked'"'
+	}
+end
+
+program _drawn_view
+	args view
+
+	class exit = cond("`.`view'.draw_view.isa'" == "", -1, 		///
+	                  cond(`.`view'.draw_view.istrue', 0, 1))
+end
+
+
+// ---------------------------------------------------------------------------
+// Draw the graph.  Needed only to draw all grids and x/y lines owned by the
+// plotregions before anything else is drawn on the graph.  Also implements
+// aspect ratios.  Otherwise, the heavy lifting is done by .grid.
+
+program draw
+
+	if (! `.draw_view.istrue')  exit			// Exit
+
+	if 0`._Gr_Cglobal.gversion' < 2 {
+		.Super.draw `0'
+		exit
+	}
+
+	if 0`._drawing' {
+		if 0`._use_aspect_ratio' {
+			._draw_and_set_aspect `0'
+		}
+		else {
+			if ((0`.style.adj_xmargins.istrue' |		///
+			     0`.style.adj_ymargins.istrue') & `._has_spacers') {
+				._draw_and_set_overhangs `0'
+			}
+		}
+	}
+
+	.draw_setup1 `0'			// break into grid setup
+	.draw_setup2
+						
+	foreach plreg_dex in `.list_ofclass_indices plotregion' {
+		.draw_cell `plreg_dex'  gridonly
+	}
+
+	.draw_cells				// main part of .grid.draw
+end
+
+program _draw_and_set_aspect
+	._drawing = 0
+
+	tempname holds
+	.`holds' = {}
+	._hold_for_aspect `holds'
+
+	capture .draw `0'
+	local rc = _rc
+
+	._reset_for_aspect `holds'
+
+	._drawing = 1
+
+	if (`rc')  exit `rc'
+
+	._setup_aspect_ratio
+end
+
+program _hold_for_aspect
+	args holds
+
+	.`holds'[1] = .xtransform
+	.`holds'[2] = .ytransform
+
+	.`holds'[3] = `gdi(xalpha)'
+	.`holds'[4] = `gdi(xbeta)'
+	.`holds'[5] = `gdi(yalpha)'
+	.`holds'[6] = `gdi(ybeta)'
+
+	.`holds'[7] = .get_gu_scaling
+
+	.`holds'[8] = "`gdi(maybedraw)'"
+	.`holds'[9] = "`gdi(record)'"
+
+	._reinit_stretches
+
+	gdi record    = no
+	gdi maybedraw = no
+end
+
+program _reset_for_aspect
+	args holds
+
+	gdi record    = `.`holds'[9]'
+	gdi maybedraw = `.`holds'[8]'
+
+	gdi resetregs
+
+	gdi xalpha = `.`holds'[3]'
+	gdi xbeta  = `.`holds'[4]'
+	gdi yalpha = `.`holds'[5]'
+	gdi ybeta  = `.`holds'[6]'
+
+	.xtransform = .`holds'[1]
+	.ytransform = .`holds'[2]
+
+	.reset_gu_scaling `.`holds'[7]'
+end
+
+// be sure we are alway on original stretch settings
+
+program _reinit_stretches
+
+	if (! 0`._xstretch_hold.current') {
+		._xstretch_hold.setcode `.plotregion1.xstretch.current'
+		._ystretch_hold.setcode `.plotregion1.ystretch.current'
+	}
+	else {
+		.plotregion1.xstretch.setcode `._xstretch_hold.current'
+		.plotregion1.ystretch.setcode `._ystretch_hold.current'
+	}
+	.set_spacers_fixed		// and spacers are all fixed and 0
+end
+
+program _setup_aspect_ratio
+
+// di in white ":`.plotregion1.xsize_ren':  :`.plotregion1.ysize_ren':"
+	if 0`.plotregion1.ysize_ren' / 0`.plotregion1.xsize_ren' >	///
+	   `.style.aspect_ratio.val' {
+		local ord y
+		local size =  0`.plotregion1.xsize_ren' *		///
+			      `.style.aspect_ratio.val'
+		if 0`.style.aspect_pos.issouth_orcenter'		///
+			.spacert.ystretch.set free
+		if 0`.style.aspect_pos.isnorth_orcenter'		///
+			.spacerb.ystretch.set free
+	}
+	else {
+		local ord x
+		local size = 0`.plotregion1.ysize_ren' / 		///
+			      `.style.aspect_ratio.val'
+		if 0`.style.aspect_pos.iswest_orcenter'			///
+			.spacerr.xstretch.set free
+		if 0`.style.aspect_pos.iseast_orcenter'			///
+			.spacerl.xstretch.set free
+	}
+
+	foreach preg in `.list_ofclass plotregion' {
+		.`preg'.`ord'stretch.set fixed
+		.`preg'.fixed_`ord'size = `size'
+	}
+
+
+	if `.isofclass fpgraph_g' {
+		.plotregion1.`ord'stretch.set fixed
+		.plotregion1.fixed_`ord'size = `size'
+	}
+
+	foreach axis in `.list_ofclass axis' {
+		local pos `.`axis'.position.snm'
+		if "`ord'" == "y" {
+			if "`pos'" == "left" {
+				.`axis'.`ord'stretch.set fixed
+				.`axis'.box_alignment.setstyle , style(west) 
+			}
+			else if "`pos'" == "right" {
+				.`axis'.`ord'stretch.set fixed
+				.`axis'.box_alignment.setstyle , style(east) 
+			}
+		}
+		else if "`ord'" == "x"  {
+			if "`pos'" == "above" {
+				.`axis'.`ord'stretch.set fixed
+				.`axis'.box_alignment.setstyle , style(north) 
+			}
+			else if "`pos'" == "below" {
+				.`axis'.`ord'stretch.set fixed
+				.`axis'.box_alignment.setstyle , style(south) 
+			}
+		}
+		
+	}
+end
+
+//  --------------------------------------------------------------------------
+//  Set the aspect ratio for the graph.  Handle reinitializing from a possible
+//  existing aspect ratio.
+
+program SetAspectRatio
+	args ratio
+
+	local was_ratio = 0`.style.aspect_ratio.val'
+	.style.editstyle aspect_ratio(`ratio') editcopy
+	if (`was_ratio' == 0)  exit
+
+	capture .set_spacers_fixed	//  spacers are to fixed and 0
+
+	foreach preg in `.list_ofclass plotregion' {
+		.`preg'.ystretch.set shared
+		.`preg'.xstretch.set shared
+	}
+
+	foreach axis in `.list_ofclass axis' {
+		local ord = cond("`.`axis'.position.snm'"=="left" |	///
+				 "`.`axis'.position.snm'"=="right", "y", "x")
+		.`axis'.`ord'stretch.set shared
+	}
+end
+
+
+program _use_aspect_ratio
+	class exit = 0`.style.aspect_ratio.val' != 0 &			///
+		     "`.spacerl.isa'" != "" & "`.spacerr.isa'" != "" &	///
+		     "`.spacert.isa'" != "" & "`.spacerb.isa'" != ""
+end
+
+program _has_spacers
+	class exit = "`.spacerl.isa'" != "" & "`.spacerr.isa'" != "" &	///
+		     "`.spacert.isa'" != "" & "`.spacerb.isa'" != ""
+end
+	
+
+program _draw_and_set_overhangs
+	._drawing = 0
+
+	tempname holds
+	.`holds' = {}
+	._hold_for_aspect `holds'
+
+	capture .draw `0'
+	local rc = _rc
+
+	._reset_for_aspect `holds'
+
+	._drawing = 1
+
+	if (`rc')  exit `rc'
+
+	if (0`.style.adj_xmargins.istrue')  ._set_xaxis_overhangs
+	if (0`.style.adj_ymargins.istrue')  ._set_yaxis_overhangs
+end
+
+program _set_xaxis_overhangs
+
+	tempname hangs
+	local maxleft   0
+	local maxright  0
+	local txtleft   0
+	local txtright  0
+	foreach axis in `.list_axes x' {
+		.`hangs'.ref = .`axis'.major_label_overhangs
+		if `.`hangs'.left' > `maxleft' {
+			local maxleft `.`hangs'.left'
+			local txtleft `.`hangs'.txtleft'
+		}
+		if `.`hangs'.right' > `maxright' {
+			local maxright `.`hangs'.right'
+			local txtright `.`hangs'.txtright'
+		}
+	}
+
+	tempname grmargin
+	.`grmargin' = .margin.new, style(scheme graph)
+	local freeleft  = `.minxposof plotregion1' + 			///
+			  `.plotregion1.style.margin.left' +		///
+			  `.style.margin.left' - `.`grmargin'.left'
+
+	local freeright = `.plotregion1.style.margin.right' +		///
+			  (`.xsize_ren' - `.maxxposof plotregion1') +	///
+			  `.style.margin.right' - `.`grmargin'.right'
+			  
+	local tadjleft  = max(0, `txtleft'  - `freeleft')	// text is
+	local tadjright = max(0, `txtright' - `freeright')	// fixed size
+
+	local adjleft   = max(0, `maxleft'  - `freeleft'  - `tadjleft')
+	local adjright  = max(0, `maxright' - `freeright' - `tadjright')
+
+	local adjtot = `adjleft' + `adjright'
+	local adj = `adjtot' * 						    ///
+		  (`.plotregion1.xsize_ren' - (`tadjleft' + `tadjright')) / ///
+		  (`.plotregion1.xsize_ren' + (`adjleft'  + `adjright'))
+
+	local adjleft  = `adj' * `adjleft'  / `adjtot'
+	local adjright = `adj' * `adjright' / `adjtot'
+
+	if (`adjleft' >= .)   local adjleft  0
+	if (`adjright' >= .)  local adjright 0
+
+	local adjleft  = `adjleft'  + `tadjleft'
+	local adjright = `adjright' + `tadjright'
+
+	if (`adjleft'  > 0)  .spacerl.set , xsize(`adjleft')
+	if (`adjright' > 0)  .spacerr.set , xsize(`adjright')
+
+end
+
+// _set_yaxis_overhangs is a nearly literal duplication of _set_xaxis_overhangs
+// left means bottom and right means top
+
+program _set_yaxis_overhangs
+	tempname hangs
+	local maxleft   0
+	local maxright  0
+	local txtleft   0
+	local txtright  0
+	foreach axis in `.list_axes y' {
+		.`hangs'.ref = .`axis'.major_label_overhangs
+		if `.`hangs'.left' > `maxleft' {
+			local maxleft `.`hangs'.left'
+			local txtleft `.`hangs'.txtleft'
+		}
+		if `.`hangs'.right' > `maxright' {
+			local maxright `.`hangs'.right'
+			local txtright `.`hangs'.txtright'
+		}
+	}
+
+	local freeleft  = `.minxposof plotregion1' + 			///
+			  `.plotregion1.style.margin.bottom'
+	local freeright = `.plotregion1.style.margin.top' +		///
+			  (`.ysize_ren' - `.maxyposof plotregion1')
+			  
+	local tadjleft  = max(0, `txtleft'  - `freeleft')	// text is
+	local tadjright = max(0, `txtright' - `freeright')	// fixed size
+
+	local adjleft   = max(0, `maxleft'  - `freeleft'  - `tadjleft')
+	local adjright  = max(0, `maxright' - `freeright' - `tadjright')
+
+	
+	local adjtot = `adjleft' + `adjright'
+	local adj = `adjtot' * 						    ///
+		  (`.plotregion1.ysize_ren' - (`tadjleft' + `tadjright')) / ///
+		  (`.plotregion1.ysize_ren' + (`adjleft'  + `adjright'))
+
+	local adjleft  = `adj' * `adjleft'  / `adjtot'
+	local adjright = `adj' * `adjright' / `adjtot'
+
+	if (`adjleft' >= .)   local adjleft  0
+	if (`adjright' >= .)  local adjright 0
+
+	local adjleft  = `adjleft'  + `tadjleft'
+	local adjright = `adjright' + `tadjright'
+
+	if (`adjleft'  > 0)  .spacerb.set , ysize(`adjleft')
+	if (`adjright' > 0)  .spacert.set , ysize(`adjright')
+end
+
+
+// ---------------------------------------------------------------------------
+// Redraw the graph without repositioning the objects in the grid.
+
+program drawgraph_noposition
+	._Gr_Cglobal.set noposition 1
+	.drawgraph `0'
+	._Gr_Cglobal.set noposition 0
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*  Sets the supplied variables to be the series set for the graph
+
+	Usage:  .graphvars [index] <serset.new syntax>
+
+    If you already have an instance of .serset, say myserset, then it may be
+    directly assigned to the sersets for the graph, e.g.
+
+        .graphname.sersets[1] = myserset
+        .graphname.sersets[#] = myserset
+*/
+
+program define graphvars
+
+	gettoken index : 0
+	capture confirm integer number `index'
+	if _rc == 0 { 
+		gettoken index 0 : 0 
+	}
+	else	index 1
+
+	.sersets[`index'] = `.serset.new `0'
+end
+
+
+/* -------------------------------------------------------------------------*/
+/* Create "standard" titles						
+
+   deprecated
+
+   Assumes that .plotregion is already available so titles can be positioned
+   relative to the .plotregion.
+
+   Spanning of the right and left titles is currently set up assuming that 
+   there are cells for top and bottom axes and their labels.
+
+*/
+
+program define maketitles, rclass
+
+	syntax [ , B1title(string) B2title(string) BStyle(string) 	/*
+	      */   L1title(string) L2title(string) LStyle(string) 	/*
+	      */   R1title(string) R2title(string) RStyle(string) 	/*
+	      */   T1title(string) T2title(string) TStyle(string) 	/*
+	      */   TItle(string) noDEFAULT * ]
+
+	return local options `options'
+
+	if `"`title'"' != `""' & `"`t1title'"' == "" {
+		local t1title `title'
+	}
+
+	if "`default'" == "" {				/* default title */
+		if `"`t1title'"' == `""' {
+			local t1title `.sersets[1].sers.[1].label'
+			if `"`t1title'"' == `""' {
+				local t1title `.sersets[1].sers.[1].name'
+			}
+
+			if 0`.sersets.arrnels' > 0 | 			///
+			   0`.sersets[1].sers.arrnels > 2' {
+				local t1title `t1title' ...
+			}
+		}
+	}
+
+	foreach t in t2title t1title b1title b2title l2title l1title 	/*
+		*/ r1title r2title {
+		local p = bsubstr("`t'", 1, 1)
+		
+		local place = cond("`p'"=="b", "bottom",		/*
+			*/    cond("`p'"=="t", "top",			/*
+			*/    cond("`p'"=="l", "fullleft", "fullright")))
+
+		if "`p'"=="l" | "`p'"=="r" {
+			local orient orientation(vertical)
+			local span spanrows(all) 	/*fitspan(above below)*/
+		}
+		else	local span spancols(all) /*fitspan(left right)*/
+
+		local style ``=bsubstr("`t'", 1, 1) + "style"''
+		if "`style'" == "" {
+			local style = cond("`place'"=="top", 		/*
+				*/ "scheme heading", "scheme subheading") 
+		}
+
+		.insert (`t' = .textbox.new, text(`"``t''"')		/*
+			*/ style(`style') `orient') `place', `span'
+
+		if `"``t''"' == `""' {
+			.`t'.draw_view.setstyle , style(no)
+		}
+	}
+
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*
+	Parse and log x/yoptions , x/ytitles , x/y[m]label , x/y[m]ticks , 
+	and x/yline options for axes.  When there are multiple axes the axis
+	is determined by an axis(#) sub option.
+
+	26aug2003 -- logic was added for time axis options, to be translated
+	to x-axis options.
+*/
+program ParseAndLogAxes , rclass
+	gettoken log 0 : 0			// log to push to
+	gettoken ax  0 : 0			// axis # if !=0 ignore axis()
+	gettoken nm  0 : 0			// name of view,  "" ok
+	gettoken xs  0 : 0			// valid xaxis #s
+	gettoken ys  0 : 0			// valid yaxis #s
+	gettoken zs  0 : 0			// valid yaxis #s
+
+						// look up our own list of axes
+	if "`zs'" == "_find" {			
+		local zs ""
+		foreach zax in `.list_ofclass axis' {
+			if bsubstr("`zax'",1,1) == "z" {
+				local zs "`zs' `=bsubstr("`zax'",6,.)'"
+			}
+		}
+	}
+	if "`xs'" == "_find" {			
+		local xs ""
+		foreach xax in `.list_ofclass axis' {
+			if bsubstr("`xax'",1,1) == "x" {
+				local xs "`xs' `=bsubstr("`xax'",6,.)'"
+			}
+		}
+	}
+	if "`ys'" == "_find" {
+		local ys ""
+		foreach yax in `.list_ofclass axis' {
+			if bsubstr("`yax'",1,1) == "y" {
+				local ys "`ys' `=bsubstr("`yax'",6,.)'"
+			}
+		}
+	}
+
+					// labels, ticks, titles, axisstyle
+	//		1	2	3	4	5	6	7
+	local names     ignored	major	minor	majornl	minornl	title	ignored
+	local optnames  SCale	Labels	MLabels	TICks	MTicks	Title	LInes
+
+	local options `"`0'"'
+
+	// NOTE: time axis options, override the -x- axis options
+	foreach d in X T Y Z {
+	    if "`d'" == "T" {
+	    	    local datesok datesok
+	    	    local dl = cond("`d'"=="T","x",lower("`d'"))
+	    }
+	    else {
+	    	    local datesok
+	    	    local dl = lower("`d'")
+	    }
+
+	    local optdex 0
+	    foreach opt of local optnames {
+
+		local optnm = lower("`d'`opt'")
+		local ++optdex
+		local viewname `:word `optdex' of `names''
+
+		local comma = cond(`optdex'==1, ",", "")
+
+		local 0 `", `options'"'
+		syntax [ , `d'`opt'(string asis) * ]
+
+		while `"``optnm''"' != `""' {
+
+//		    local n `._axisnum `comma'``optnm'''	// buglet
+		    if `optdex' == 6 {
+			_parse comma unused opts : `optnm'
+			._axisnum n : `opts'
+		    }
+		    else {
+			._axisnum n : `comma'``optnm''
+		    }
+		    local n = cond(`ax' , `ax' , `n')
+		    if ! `:list n in `dl's' {
+			di as error "`optnm'(``optnm'') not allowed, "	///
+				"`dl'axis`n' does not exist"
+			exit 198
+		    }
+
+		    if `optdex' > 1 & `optdex' < 6 {
+			_gs_parse_and_log_tickset `log'  `nm'`dl'axis`n' ///
+			    "`viewname'" "`datesok'" ``optnm''
+		    }
+		    else {
+		    	if `optdex' == 6 {
+			    _gs_parse_and_log_axtitle `log'		///
+				`nm'`dl'axis`n'.`viewname' ``optnm''
+			}
+			else {
+			    if `optdex' == 1 {
+				_gs_parse_and_log_axoptions `log'	///
+				    `nm'`dl'axis`n' "`datesok'" ``optnm''
+			    }
+			    else {
+				_gs_parse_and_log_lines `log' `dl'	///
+				    `nm'`dl'axis`n' "`datesok'" ``optnm''
+			    }
+			}
+		    }
+
+		    local 0 , `options'
+		    syntax [ , `d'`opt'(string asis) * ]
+		}
+	    }
+	}
+
+	return local rest `"`options'"'
+end
+
+program _axisnum
+	gettoken macnm 0 : 0
+	gettoken colon 0 : 0
+
+	syntax [anything] [, AXis(integer 1) * ]
+
+	c_local `macnm' `axis'
+//	class exit `axis'
+end
+
+
+// ---------------------------------------------------------------------------
+//  Parses and logs additional text options -- text() -- where the target
+//  plotregion is specified.
+
+program ParseAndLogText , rclass
+	gettoken log   0 : 0
+	gettoken plreg 0 : 0
+
+	syntax [ , TEXT(string asis) TTEXT(string asis) * ]
+	while `"`text'`ttext'"' != `""' {
+		if `"`text'"' != "" {
+			._parse_log_1textbox `log' "`plreg'" "" `text'
+		}
+		if `"`ttext'"' != "" {
+			._parse_log_1textbox `log' "`plreg'" "datesok" `ttext'
+		}
+		local 0 `", `options'"'
+		syntax [ , TEXT(string asis) TTEXT(string asis) * ]
+	}
+
+	return local rest `"`options'"'
+end
+
+program _parse_log_1textbox
+	gettoken log		0 : 0
+	gettoken plreg		0 : 0
+	gettoken datesok	0 : 0
+
+	syntax [ anything(name=triplets) ] [ , TSTYle(string) * ]
+
+	local fullopts `"`options'"'
+
+	if `"`tstyle'"' == `""' {
+		local tstyle "scheme text_option"
+	}
+							// Insert the textboxes
+	gettoken y triplets : triplets
+	gettoken x triplets : triplets
+
+	while `"`y'"' != `""' {
+		capture numlist "`x' `y'" , max(2) min(2)	// x-y point
+		local rc = _rc
+		if `rc' & "`datesok'" != "" {
+			capture	{
+				numlist "`y'" , max(1) min(1)
+				_confirm_number_or_date `x'
+			}
+			local rc = _rc
+		}
+		if `rc' {
+			di as error `"invalid point, `x' `y'"'
+			exit 198
+		}
+
+		gettoken txtq triplets : triplets , quotes	// text
+		gettoken txt           : txtq
+		while `"`txtq'"' != `""' & `"`txtq'"' != `"`txt'"' {
+			local mtext `"`mtext' `txtq'"'
+			gettoken txtq triplets : triplets , quotes
+			gettoken txt           : txtq
+		}
+
+		.n_text = `.n_text' + 1
+		// pass the format indirectly to the textbox
+		if "`datesok'" != "" {
+			local dopt datesok(\`r(fmt)')
+		}
+		.`log'.Arrpush .`plreg'.get_time_format
+		.`log'.Arrpush .`plreg'.Declare textbox`.n_text' =	///
+			.pos_textbox.new , ypos(`y') xpos(`x')		///
+			forcesized mtextq(`"`mtext'"') style(`tstyle')	///
+			`macval(dopt)'
+		local mtext
+
+		_fr_sztextbox_parse_and_log `log' `plreg'.textbox`.n_text' ///
+			, `fullopts'
+
+		local 0 `", `r(rest)'"'
+		syntax [, FAKE_OPT_FOR_BETTER_MSG ]
+
+		local    y `txt'
+		gettoken x triplets : triplets
+	}
+
+end
+
+
+/* -------------------------------------------------------------------------*/
+/* A graph dialog box that waits until all items have been changed to redraw
+
+   Note, currently redraws even on final cancel.
+*/
+
+program define graphdb
+	.db
+	.drawgraph
+end
+
+// ---------------------------------------------------------------------------
+program runlog
+	_fr_runlog `0'
+end
+
+
+// ---------------------------------------------------------------------------
+// Set the header information
+
+program record_header
+
+	tempname log
+	.`log' = {}
+
+	.`log'.Arrpush .command  = `"`0'"'
+	.`log'.Arrpush .date     = "`c(current_date)'"
+	.`log'.Arrpush .time     = "`c(current_time)'"
+	.`log'.Arrpush .dta_file = "`c(filename)'"
+	.`log'.Arrpush .dta_date = "`c(filedate)'"
+
+	capture .after_header `log'
+
+	_fr_runlog `log'
+end
+
+// ---------------------------------------------------------------------------
+//  _setstyle_  member programs to set styles in .style that have side effects
+
+
+program _setstyle_title_position
+	_setstyle_xyz_position title `0'
+end
+
+program _setstyle_subtitle_position
+	_setstyle_xyz_position subtitle `0'
+end
+
+program _setstyle_caption_position
+	_setstyle_xyz_position caption `0'
+end
+
+program _setstyle_note_position
+	_setstyle_xyz_position note `0'
+end
+
+
+program _setstyle_title_ring
+	_setstyle_xyz_ring title `0'
+end
+
+program _setstyle_subtitle_ring
+	_setstyle_xyz_ring subtitle `0'
+end
+
+program _setstyle_caption_ring
+	_setstyle_xyz_ring caption `0'
+end
+
+program _setstyle_note_ring
+	_setstyle_xyz_ring note `0'
+end
+
+
+program _setstyle_xyz_position
+
+	gettoken xyz 0 : 0
+	tokenize `0'
+
+	if "`1'" == "`.style.`xyz'_position.setting'" {
+		exit
+	}
+
+	.style.`xyz'_position.setstyle, style(`1')
+
+	if 0`.style.`xyz'_ring.setting' == 0 {	// new position in grid
+		local pos unmoved
+	}
+	else {
+		local pos `.style.`xyz'_position.relative_position'
+	}
+
+						// over-ride box alignment
+	.`xyz'.style.box_alignment.setstyle, 				///
+			style(`.style.`xyz'_position.compass2style')
+
+/*
+						// over-ride text halign
+	if "`pos'" != "leftof" & "`pos'" != "rightof"  {
+		.`xyz'.style.horizontal.setstyle, 			///
+			style(`.style.`xyz'_position.horizontal_style')
+	}
+*/
+
+	if "`pos'" != "unmoved" {
+	      .move `xyz' `pos' plotregion1 , ring(`.style.`xyz'_ring.setting')
+	}
+end
+
+program _setstyle_xyz_ring
+
+	gettoken xyz 0 : 0
+	tokenize `0'
+
+	if "`1'" == "`.style.`xyz'_ring.setting'" {
+		exit
+	}
+
+	.style.`xyz'_ring.setstyle, style(`1')
+
+	if 0`.style.`xyz'_ring.setting' == 0 {	// new position in grid
+		local pos on
+	}
+	else {
+		local pos `.style.`xyz'_position.relative_position'
+	}
+
+						// over-ride box alignment
+	.`xyz'.style.box_alignment.setstyle, 				///
+			style(`.style.`xyz'_position.compass2style')
+
+      .move `xyz' `pos' plotregion1 , ring(`.style.`xyz'_ring.setting')
+end
+
+
+
+// -------------------------------------------------------------------------*/
+//  Return a list of all the axes at the specified locations
+//
+//	Usage:  .list_axes {x|y|left|right|above|below}
+// 
+//  Note that y is just left and right and x is just top and bottom.
+
+program list_axes
+	args pos
+
+	local axlist `.list_ofclass axis'
+
+	if "`pos'" == "x" {
+		foreach axis of local axlist {
+			if "`.`axis'.position.stylename'" == "above" |	///
+			   "`.`axis'.position.stylename'" == "below" {
+				local list `list' `axis'
+			}
+		}
+		class exit "`list'"				// Exit
+	}
+
+	if "`pos'" == "y" {
+		foreach axis of local axlist {
+			if "`.`axis'.position.stylename'" == "left" |	///
+			   "`.`axis'.position.stylename'" == "right" {
+				local list `list' `axis'
+			}
+		}
+		class exit "`list'"				// Exit
+	}
+
+	foreach axis of local axlist {
+		if "`.`axis'.position.stylename'" == "`pos'" {
+			local list `list' `axis'
+		}
+	}
+	class exit "`list'"					// Exit
+end
+
+
+
+// ---------------------------------------------------------------------------
+//  Swap an axis from one side of the plotregion to the other.  Assumes the
+//  target plotregion is the first one found in the graph unless a specific
+//  plotregion is specified
+//
+//	Usage:  .alt_axis axis [plotregion]
+
+program alt_axis
+	args axis plotregion
+
+	if ("`axis'" == "zaxis1")  exit				// Exit
+
+	local pfrom  left  right  below  above
+	local pto    right left   above  below
+
+	if "`plotregion'" == "" {
+		local plotregion `:word 1 of `.list_ofclass plotregion''
+	}
+
+	local pos	///
+		`:word `:list posof "`.`axis'.position.snm'" in pfrom' of `pto''
+	if "`pos'" == "" | "`plotregion'" == "" {
+		di in green "cannot find location to alternate axis"
+		exit
+	}
+
+	local of = cond("`pos'"=="left" | "`pos'"=="right", "of", "")
+
+	.move `axis' `pos'`of' `plotregion' , ring(`.cells.`axis'.ring')
+
+	.`axis'.position.setstyle, style(`pos')
+end
+
+// ---------------------------------------------------------------------------
+//  Used to replay an axis into its current position to change its ring.
+program reinsert_axis
+	args axis plotregion
+
+	if "`plotregion'" == "" {
+		local plotregion `:word 1 of `.list_ofclass plotregion''
+	}
+
+	local pos `.`axis'.position.snm' 
+	if "`pos'" == "" | "`plotregion'" == "" {
+		di in green "cannot find location to alternate axis"
+		exit
+	}
+
+	local of = cond("`pos'"=="left" | "`pos'"=="right", "of", "")
+
+	.move `axis' `pos'`of' `plotregion' , ring(`.cells.`axis'.ring')
+
+	.`axis'.position.setstyle, style(`pos')
+end
+
+// ---------------------------------------------------------------------------
+// Returns the axis title for the specified dimension/ordinate.  Only the
+// first axis in the dimension is checked for a title.
+
+program get_axis_title
+	args d
+
+	if (0`.horizontal.istrue')  local d = cond("`d'" == "x" , "y" , "x")
+					// only some families support horizontal
+
+	class exit `"`.`d'axis1.title.get_text'"'
+end
+
+
+// ---------------------------------------------------------------------------
+// Returns a reference to the style of the axis title for the specified 
+// dimension/ordinate.  Only the first axis in the dimension is checked for 
+// a title.
+
+program get_axis_title_styleref
+	args d
+
+	if (0`.horizontal.istrue')  local d = cond("`d'" == "x" , "y" , "x")
+					// only some families support horizontal
+
+	class exit `"`.`d'axis1.title.style.objkey'"'
+end
+
+// ---------------------------------------------------------------------------
+// Start graph editor on a graph
+
+program OpenEditor
+
+if ("$grdebug"!="") di in white "OpenEditor"
+	gr_current name : , query
+
+	.SetUndoRedoMenus
+
+	if ("`name'" == "`._Gr_Global.edit_graph'")  exit		// Exit
+
+	._Gr_Global.edit_graph = "`name'"
+
+	._Gr_Global.ResetEditor
+	._Gr_Global.current_graph_resync
+
+	._Gr_Global.SetPrototypes
+
+	.ClearSelection
+end
+
+// ---------------------------------------------------------------------------
+// Clear graph editor
+
+program ClearEditor
+
+if ("$grdebug"!="") di in white "ClearEditor"
+
+	._Gr_Global.edit_graph = ""
+
+	._Gr_Global.ResetEditor
+	._Gr_Global.current_graph_resync
+
+	.SetUndoRedoMenus
+	_gedi undo 0 ""
+	_gedi redo 0 ""
+end
+
+// ---------------------------------------------------------------------------
+// Process a left mouse click in a graph window
+// Finds the object at the clicked location and records in the global
+// graph object.
+
+program LeftClick
+	args xpix ypix xsize ysize alt
+
+						// exit if point repeated
+	if ("`xpix' `ypix' `xsize' `ysize'" == "`._Gr_Global.click_pos'" & ///
+	    "`._Gr_Global.edit_object'" != "") {
+		_gedi pending 0
+		exit
+	}
+
+						// Clear settings
+	._Gr_Global.serset_index = (.)
+	._Gr_Global.y_plotregion = (.)
+	._Gr_Global.x_plotregion = (.)
+
+						// Record click position and sz
+	._Gr_Global.set_click `xpix' `ypix' `xsize' `ysize'
+
+						// convert pixels to GUs
+						// and reverse y
+	local x = 100 * `xpix'             / min(`xsize', `ysize')
+	local y = 100 * (`ysize' - `ypix') / min(`xsize', `ysize')
+
+	if `xsize' < `ysize' {			// convert size to GUs
+		local y_gus = `ysize' * 100 / `xsize'
+		local x_gus = 100
+	}
+	else {
+		local x_gus = `xsize' * 100 / `ysize'
+		local y_gus = 100
+	}
+
+	local x = `x' - (0`.xoffset')
+	local y = `y' - (0`.yoffset')
+
+	._Gr_Global.views = {}				// Initialize
+	._Gr_Global.prefix = ""				// Searching in
+	.AddSelectedViews				// Find views at click
+
+							// Set edited object
+	._set_edit_object		
+	local editobj "`._Gr_Global.edit_object'"
+if ("$grdebug"!="") di in white "------------> editobj :`editobj':"
+
+	if `_gedi(mode)' == 4 {				// Add a textbox
+		.UndoBegin endsoon
+		.AddBlankTextbox newtextbox : `editobj'
+		gr_ed_db "`newtextbox'"
+		_set_edit_and_hold `newtextbox'
+		_gedi pending 0
+		exit						// Exit
+	}
+
+	if `_gedi(mode)' == 3 {				// Add a line
+		_gedi pending 0
+		exit						// Exit
+	}
+
+	if `_gedi(mode)' == 6 {				// Adding a marker
+		.AddMarkerInContainer `editobj'
+		_gedi pending 0
+		graph display
+		exit						// Exit
+	}
+
+	if (`_gedi(mode)' == 2) ._set_grid_lines 	// Find the grid
+
+	._set_cts_toolbar `editobj'
+	._set_browser_selected
+	._set_gedi_properties
+	_gedi pending 0
+	_gedi show
+
+if ("$grdebug"!="") di in white "views=`._Gr_Global.views.arrnels'"
+if ("$grdebug"!="") clslistarray ._Gr_Global.views
+if ("$grdebug"!="") di in white ".edit_object:  `._Gr_Global.edit_object'"
+
+end
+
+
+// ---------------------------------------------------------------------------
+// Process a right mouse click in a graph window
+// Finds the object at the clicked location set the right-click menu.
+
+program RightClick
+
+	if `:list sizeof 0' == 1 {		// Right-click in browser
+		_gedi browser selected `0'
+		.BrowserSelect `0'
+	}
+	else {					// Right-click on graph
+		nobreak {
+			capture noisily {
+				local mode_hold = `_gedi(mode)'
+				if (`mode_hold' == 2)  _gedi mode 2
+				else		       _gedi mode 1
+				.LeftClick `0'
+			}
+			capture noisily _gedi mode `mode_hold'
+		}
+	}
+
+	.SetRightMenu
+
+end
+
+program SetRightMenu
+	local editobj "`._Gr_Global.edit_object'"
+
+	_gedi rightmenu clear
+
+	if ("`editobj'" == "")  exit				// Exit
+
+							// Hide/Show
+	local draw "`.`editobj'.draw_view.snm'"
+	if "`draw'" != "" {
+	    if "`draw'" == "yes" {
+	    	local cmd "_gm_dlg_edits , object(`editobj') set(draw_view no)"
+		local cmd "`cmd' epilog(.`._Gr_Global.edit_graph'.ClearSelection)"
+//		local cmd "`cmd' epilog(_gedi browser modify `editobj' hide 1)"
+		// menu resource -- "Hide"
+		_gedi rightmenu add 1 "OBJECT_HIDE" CMD "`cmd'"
+	    }
+	    else {
+	    	local cmd "_gm_dlg_edits , object(`editobj') set(draw_view yes)"
+		local cmd "`cmd' epilog(.`._Gr_Global.edit_graph'.BrowserSelect `editobj')"
+//		local cmd "`cmd' epilog(_gedi browser modify `editobj' hide 0)"
+		// menu resource -- "Show"
+		_gedi rightmenu add 1 "OBJECT_SHOW" CMD "`cmd'"
+	    }
+	}
+
+							// Delete
+	if 0`.`editobj'.deleted' == 0 {
+	    local cmd "_gm_dlg_edits , object(`editobj')"
+	    local cmd "`cmd' cmd(_gm_edit .`editobj'.Delete)"
+	    local cmd "`cmd' epilog(_gedi browser delete `editobj')"
+	    local cmd "`cmd' epilog(.`._Gr_Global.edit_graph'.ClearSelection)"
+	    // menu resource -- "Delete"
+	    _gedi rightmenu add 2 "OBJECT_DELETE" CMD "`cmd'"
+	}
+
+							// Lock/Unlock select
+	if 0`.`editobj'.locked' {
+	    	local cmd "_gm_dlg_edits , object(`editobj') set(locked 0)"
+		local cmd "`cmd' epilog(_gedi browser modify `editobj' lock 0)"
+		// menu resource -- "Unlock object"
+		_gedi rightmenu add 3 "OBJECT_UNLOCK_OBJECT" CMD "`cmd'"
+	}
+	else {
+	    	local cmd "_gm_dlg_edits , object(`editobj') set(locked 1)"
+		local cmd "`cmd' epilog(_gedi browser modify `editobj' lock 1)"
+		// menu resource -- "Lock object"
+		_gedi rightmenu add 3 "OBJECT_LOCK_OBJECT" CMD "`cmd'"
+	}
+							// Lock/Unlock drag
+	if "`.`editobj'.dragable.isa'" == "double" {
+	    if 0`.`editobj'.dragable' {
+	    	local cmd "_gm_dlg_edits , object(`editobj') set(dragable 0)"
+	    	// menu resource -- "Lock position"
+		_gedi rightmenu add 5 "OBJECT_LOCK_POSITION" CMD "`cmd'"
+	    }
+	    else {
+	    	local ds = cond(0`.`editobj'.hold_dragable',		///
+		      0`.`editobj'.hold_dragable', 1)
+	    	local cmd "_gm_dlg_edits , object(`editobj') set(dragable `ds')"
+	    	// menu resource -- "Unlock position"
+		_gedi rightmenu add 5 "OBJECT_UNLOCK_POSITION" CMD "`cmd'"
+	    }
+	}
+
+							// Properties dialog
+	local dialog  "`.`editobj'.dialog'"
+	if ("`dialog'" != "") {
+		local cmd "_gedi showdialog gr_ed_`dialog' `editobj'"
+		
+		if ("`dialog'"=="scatter") {
+			// menu resource -- "Scatter properties"
+			local dsp_label OBJECT_SCATTER_PROPERTIES
+		}
+		else if ("`dialog'"=="dropline") {
+			// menu resource -- "Dropline properties"
+			local dsp_label OBJECT_DROPLINE_PROPERTIES
+		}
+		else if ("`dialog'"=="area") {
+			// menu resource -- "Area properties"
+			local dsp_label OBJECT_AREA_PROPERTIES
+		}
+		else if ("`dialog'"=="spike") {
+			// menu resource -- "Spike properties"
+			local dsp_label OBJECT_SPIKE_PROPERTIES
+		}
+		else if ("`dialog'"=="line") {
+			// menu resource -- "Line properties"
+			local dsp_label OBJECT_LINE_PROPERTIES
+		}
+		else if ("`dialog'"=="markerlabel") {
+			// menu resource -- "Marker label properties"
+			local dsp_label OBJECT_MARKERLABEL_PROPERTIES
+		}
+		else if ("`dialog'"=="boxregion") {
+			// menu resource -- "Box region properties"
+			local dsp_label OBJECT_BOXREGION_PROPERTIES
+		}
+		else if ("`dialog'"=="dotregion") {
+			// menu resource -- "Dot region properties"
+			local dsp_label OBJECT_DOTREGION_PROPERTIES
+		}
+		else if ("`dialog'"=="barregion") {
+			// menu resource -- "Bar region properties"
+			local dsp_label OBJECT_BARREGION_PROPERTIES
+		}
+		else if ("`dialog'"=="boxplot") {
+			// menu resource -- "Box properties"
+			local dsp_label OBJECT_BOXPLOT_PROPERTIES
+		}
+		else if ("`dialog'"=="bygraph") {
+			// menu resource -- "Graph properties"
+			local dsp_label OBJECT_GRAPH_PROPERTIES
+		}
+		else if ("`dialog'"=="grid") {
+			// menu resource -- "Grid properties"
+			local dsp_label OBJECT_GRID_PROPERTIES
+		}
+		else if ("`dialog'"=="dotplotline") {
+			// menu resource -- "Dot line properties"
+			local dsp_label OBJECT_DOTPLOTLINE_PROPERTIES
+		}
+		else if ("`dialog'"=="graph") {
+			// menu resource -- "Graph properties"
+			local dsp_label OBJECT_GRAPH_PROPERTIES
+		}
+		else if ("`dialog'"=="rline") {
+			// menu resource -- "Line properties"
+			local dsp_label OBJECT_LINE_PROPERTIES
+		}
+		else if ("`dialog'"=="connected") {
+			// menu resource -- "Connected line properties"
+			local dsp_label OBJECT_CONNECTED_PROPERTIES
+		}
+		else if ("`dialog'"=="rconnected") {
+			// menu resource -- "Connected line properties"
+			local dsp_label OBJECT_CONNECTED_PROPERTIES
+		}
+		else if ("`dialog'"=="bar") {
+			// menu resource -- "Bar properties"
+			local dsp_label OBJECT_BAR_PROPERTIES
+		}
+		else if ("`dialog'"=="barm") {
+			// menu resource -- "Bar properties"
+			local dsp_label OBJECT_BAR_PROPERTIES
+		}
+		else if ("`dialog'"=="pcarrow") {
+			// menu resource -- "Paired-coordinate arrow properties"
+			local dsp_label OBJECT_PCARROW_PROPERTIES
+		}
+		else if ("`dialog'"=="contour") {
+			// menu resource -- "Contour properties"
+			local dsp_label OBJECT_CONTOUR_PROPERTIES
+		}
+		else if ("`dialog'"=="contourline") {
+			// menu resource -- "Contourline properties"
+			local dsp_label OBJECT_CONTOURLINE_PROPERTIES
+		}		
+		else if ("`dialog'"=="arrow") {
+			// menu resource -- "Added line properties"
+			local dsp_label OBJECT_ARROW_PROPERTIES
+		}
+		else if ("`dialog'"=="axis") {
+			// menu resource -- "Axis properties"
+			local dsp_label OBJECT_AXIS_PROPERTIES
+		}
+		else if ("`dialog'"=="boxplot") {
+			// menu resource -- "Box properties"
+			local dsp_label OBJECT_BOXPLOT_PROPERTIES
+		}
+		else if ("`dialog'"=="refline") {
+			// menu resource -- "Reference line properties"
+			local dsp_label OBJECT_REFLINE_PROPERTIES
+		}
+		else if ("`dialog'"=="legend") {
+			// menu resource -- "Legend properties"
+			local dsp_label OBJECT_LEGEND_PROPERTIES
+		}
+		else if ("`dialog'"=="marker") {
+			// menu resource -- "Marker properties"
+			local dsp_label OBJECT_MARKER_PROPERTIES
+		}
+		else if ("`dialog'"=="pieslice") {
+			// menu resource -- "Pie slice properties"
+			local dsp_label OBJECT_PIESLICE_PROPERTIES
+		}
+		else if ("`dialog'"=="plotregion") {
+			// menu resource -- "Plot region properties"
+			local dsp_label OBJECT_PLOTREGION_PROPERTIES
+		}
+		else if ("`dialog'"=="rectangle") {
+			// menu resource -- "Rectangle properties"
+			local dsp_label OBJECT_RECTANGLE_PROPERTIES
+		}
+		else if ("`dialog'"=="textbox") {
+			// menu resource -- "Textbox properties"
+			local dsp_label OBJECT_TEXTBOX_PROPERTIES
+		}
+		else {
+			local prefix = proper("`dialog'")
+			local dsp_label "`prefix' properties"
+		}
+		
+		_gedi rightmenu add 6 "`dsp_label'" CMD "`cmd'"
+		if ("$grdebug"!="") di in white	///
+			`"_gedi rightmenu add 6 "`dsp_label'" CMD "`cmd'""'
+	}
+
+	if ! 0`.`editobj'.isofclass graph_g' {
+		capture .`._Gr_Global.edit_object'.SetRightMenu
+	}
+
+	_gedi rightmenu show
+end
+
+
+// ---------------------------------------------------------------------------
+// Process an object selected in the browser signal.
+// Selects the view object and sets its extents to the GUI.
+// Note, does NOT check that this is a legal view in the graph.
+
+program BrowserSelect
+	args editobj
+
+if ("$grdebug"!="") di in white `"BrowserSelect `0'"'
+	.SelectNewObject `editobj'
+
+	capture .`editobj'.object_found_dialog = ""
+	._set_cts_toolbar `editobj'
+	._set_gedi_properties
+	if (`_gedi(mode)' == 2) ._set_grid_lines 		// Find the grid
+	_gedi show
+end
+
+// ---------------------------------------------------------------------------
+// Select and object.  Do not clear the list of possible views at location.
+
+program SelectObject
+	args editobj
+
+	._Gr_Global.edit_object = "`editobj'"
+	._Gr_Global.hold_object = "`editobj'"
+	._Gr_Global.serset_index = (.)
+end
+
+// ---------------------------------------------------------------------------
+// Select and object.  Clear the list of possible views at location.
+
+program SelectNewObject
+	args editobj
+
+	.SelectObject `editobj'
+
+	._Gr_Global.views    = {}
+	if ("`editobj'" != "")  ._Gr_Global.views[1] = "`editobj'"
+end
+
+// ---------------------------------------------------------------------------
+// Clears any current selection
+
+program ClearSelection
+
+	._Gr_Global.edit_object = ""
+	._Gr_Global.hold_object = ""
+	._Gr_Global.views = {}
+	._Gr_Global.serset_index = (.)
+	capture .`editobj'.object_found_dialog = ""
+
+	capture _gedi browser selected
+
+	if `_gedi(mode)' == 3 | `_gedi(mode)' == 4 | `_gedi(mode)' == 6 {
+		.ModeChange			// adding line, text, or marker
+	}
+	else {
+		._set_cts_toolbar ""
+	}
+	._set_gedi_properties
+	_gedi show
+end
+
+// ---------------------------------------------------------------------------
+// Process a double mouse click in a graph window
+// Typically follows a left click or a right click and selecting properties
+// Launches the dialog box to edit the current object.
+
+program DoubleClick
+	local editobj `._Gr_Global.edit_object'
+
+	if ("`editobj'" == "")  exit				// Exit
+
+	gr_ed_db "`editobj'" `.`editobj'.SelectedCustomIndex'
+end
+
+// ---------------------------------------------------------------------------
+// Process a mouse release in a graph window
+// Always follows a left click or double click
+
+
+program ButtonUp
+	args xpix ypix xsize ysize
+
+if ("$grdebug"!="") di in white "The mouse is up!"
+
+						// Check click position
+	if ("`xpix' `ypix' `xsize' `ysize'" == "`._Gr_Global.click_pos'")  exit
+
+	if (! ((0`.`._Gr_Global.edit_object'.dragable'		&	///
+		! (0`_gedi(mode)' == 2))			|	///
+		0`_gedi(mode)' == 3				|	///
+	       (0`.`._Gr_Global.edit_object'.grid_dragable'	&	///
+		0`_gedi(mode)' == 2)))  exit
+
+	._Gr_Global.set_shift `xpix' `ypix' `xsize' `ysize'
+	local shift "`._Gr_Global.shift_y' `._Gr_Global.shift_x'"
+
+if ("$grdebug"!="") di in white "shift=`shift'"
+
+						// Find container and object
+
+	local fullobj `._Gr_Global.edit_object'
+	local namesp : subinstr local fullobj "." " " , all
+	local ct : list sizeof namesp
+	tokenize `namesp'
+
+	if `_gedi(mode)' == 3 {					// Adding a line
+		local container `fullobj'
+		while "`container'" != "" {
+			if (0`.`container'.isofclass container' |	///
+			    0`.`container'.isofclass plotregion')	///
+				continue, break
+
+			local `ct--' ""
+			local container `*'
+			local container : subinstr local container " " "." , all
+		}
+	}
+	else {
+		local obj ``ct''
+		local `ct' ""
+		local container `*'
+		local container : subinstr local container " " "." , all
+	}
+
+						// Rescale the GDI shift to
+						// the local metric
+	if      0`.`container'.isofclass grid' {
+		local shift `.`container'.LocalShift `shift''
+	}
+	else if 0`.`container'.isofclass plotregion' {
+		local shift `.`container'.LocalShift `shift''
+	}
+	else {
+		local shift `.LocalShift `shift''
+	}
+
+						// Perform operation
+	if `_gedi(mode)' == 3 {				// Adding a line
+		.AddLineInContainer `container' `shift'
+	}
+	else if  0`_gedi(mode)' == 2 {			// Grid drag
+		if (! 0`_gedi(dragging)')  exit			// Exit
+		if 0`.`container'.isofclass grid' {
+			.UndoBegin
+			.`container'.GridDrag `container' `obj' `shift'
+			.UndoEnd `fullobj'
+			.dirty = 1
+			_gedi dirtychanged
+		}
+		else {					// Impossible
+			di in white "`obj' not positioned in a grid" 
+			di in white "may not be Grid dragged"
+		}
+		._Gr_Global.grid_ed_object = ""
+	}
+	else {						// Standard drag
+		if (! 0`_gedi(dragging)')  exit			// Exit
+		.UndoBegin
+		capture  .`._Gr_Global.edit_object'.DragSetup `shift'
+		_gm_edit .`._Gr_Global.edit_object'.DragBy `shift'
+		.UndoEnd `fullobj'
+		.dirty = 1
+		_gedi dirtychanged
+	}
+
+	graph display
+
+	if  (0`_gedi(mode)'==1 | 0`_gedi(mode)'==2 | 0`_gedi(mode)'==5) {
+	    	.BrowserSelect "`._Gr_Global.edit_object'"
+		if (`_gedi(mode)' == 2) ._set_grid_lines 
+	}
+
+						// possibly redraw selection
+	if  (0`_gedi(mode)'==1 | 0`_gedi(mode)'==2 | 0`_gedi(mode)'==5)   ///
+		_gedi show
+
+end
+
+
+// ---------------------------------------------------------------------------
+// Process a mode change signal from the editor GUI
+
+program ModeChange
+
+
+if ("$grdebug"!="") di in white "ModeChange"
+
+	if `_gedi(mode)' == 1 {
+		if ("`._Gr_Global.edit_object'" != "") {
+			.BrowserSelect `._Gr_Global.edit_object'
+			_gedi browser selected `._Gr_Global.edit_object'
+		}
+		exit
+	}
+
+	if ("`._Gr_Global.edit_object'" != "" |				///
+	    "`._Gr_Global.hold_object'" != "")  .ClearSelection
+
+	if `_gedi(mode)' == 2 {				// grid editing
+		._set_grid_lines
+		exit
+	}
+
+	if `_gedi(mode)' == 3 {				// adding line
+		_gedi toolbar `._Gr_Global.addedline_proto.dialog' 	///
+				_Gr_Global.addedline_proto
+	    exit
+
+	}
+
+	if `_gedi(mode)' == 4 {				// adding text
+		_gedi toolbar `._Gr_Global.addedtext_proto.dialog'	///
+				_Gr_Global.addedtext_proto
+	    exit
+	}
+
+	if `_gedi(mode)' == 6 {				// adding marker
+		_gedi toolbar `._Gr_Global.addedmarker_proto.dialog'	///
+				_Gr_Global.addedmarker_proto
+	    exit
+	}
+end
+
+
+// ---------------------------------------------------------------------------
+// Set undo and redo menus
+
+program SetUndoRedoMenus
+	local title `"`.undo.UndoTitle'"'
+	local on = (`"`title'"' != `""')
+	_gedi undo `on' `"`title'"'
+
+	if 0`_gedi(recording)' {
+		if `"`title'"' != `""' {
+			.recorder.Arrpush `"// `title'"'
+			.recorder.Arrpush ""
+		}
+	}
+
+	local title `"`.undo.RedoTitle'"'
+	local on = (`"`title'"' != `""')
+	_gedi redo `on' `"`title'"'
+end
+
+// ---------------------------------------------------------------------------
+// Process the begin and end of undo sets, each treated as a single undo.
+
+program UndoBegin
+	.undo.begin_set
+
+	if ("`1'" == "endsoon") .undo.end_soon = 1
+end
+
+program UndoEnd
+
+	.undo.end_set
+
+	local unused : subinstr local 0 "." ".", all count(local ct)
+	tokenize `0', parse(".")
+	local view "``=2*`ct'+1''"
+	local viewnm `"`.`0'.BrowserName `view''"'
+	if (`"`viewnm'"' != `""') {
+		local unused :subinstr local viewnm "." ".", all count(local ct)
+		tokenize `viewnm', parse(".")
+		local viewnm "``=2*`ct'+1''"
+		if (`"`viewnm'"' == `""')  local viewnm "`view'"
+	}
+	else	local viewnm "`view'"
+	.undo.set_title `"`viewnm'"'
+
+	.SetUndoRedoMenus
+end
+
+// ---------------------------------------------------------------------------
+// Reset dimensions of graph after a resize, dimensions are in pixels
+
+program Dimensions
+	args xsize ysize
+
+	._Gr_Global.y_pixels = `ysize'
+	._Gr_Global.x_pixels = `xsize'
+end
+
+program RescaleClick
+	args ypix xpix ysize xsize
+						// convert pixels to GUs
+						// and reverse y
+	local x = 100 * `xpix'             / min(`xsize', `ysize')
+	local y = 100 * (`ysize' - `ypix') / min(`xsize', `ysize')
+
+/*
+	local x = `x' - (0`.xoffset')		// translate any offsets
+	local y = `y' - (0`.yoffset')
+*/
+
+	if `xsize' < `ysize' {			// convert size to GUs
+		local y_sz_gus = `ysize' * 100 / `xsize'
+		local x_sz_gus = 100
+	}
+	else {
+		local x_sz_gus = `xsize' * 100 / `ysize'
+		local y_sz_gus = 100
+	}
+
+	class exit "`y' `x' `y_sz_gus' `x_sz_gus'"
+end
+
+
+// ---------------------------------------------------------------------------
+// Signal that the object browser is open, causes the browser to be 
+// populated with the current graphs views.
+
+program BrowserOpen
+	args advanced
+
+	._set_view_browser `advanced'
+if ("$grdebug"!="") di in white "_gedi browser refresh"
+	_gedi browser refresh
+end
+
+
+// ---------------------------------------------------------------------------
+
+program AddBlankTextbox
+	args editname colon editobj
+
+						// Find plotregion and graph 
+						// or just graph
+	_gs_rtmostofclass plreg : plotregion `editobj'
+	_gs_rtmostofclass graph : grid       `editobj'
+
+	if ("`plreg'" == "" | "`plreg'" == "Global" | 			///
+	    `:length local graph' > `:length local plreg') {
+		local plreg "`graph'"
+
+		if `.`plreg'.isofclass grid' {
+			local y `.`plreg'.y_click'
+			local x `.`plreg'.x_click'
+		}
+		else {					// never reached?
+			local y `._Gr_Global.y_grid'
+			local x `._Gr_Global.x_grid'
+		}
+	}
+	else {
+		local y `._Gr_Global.y_plotregion'
+		local x `._Gr_Global.x_plotregion'
+	}
+	if ("`graph'" == "" | "`graph'" == "Global")  exit	// Exit
+
+							// Add text
+	_gm_edit .`plreg'.AddTextBox added_text editor `y' `x'
+
+	local nels = `.`plreg'.added_text.arrnels'
+
+						// Count for recorder
+	if 0`_gedi(recording)' {
+	    _gm_edit .`plreg'.added_text_new = `=`.`plreg'.added_text_new' + 1'
+	    _gm_edit .`plreg'.added_text_rec = `nels'
+	}
+
+						// Add object to browser
+	local contnm `_gedi(browser nameof `plreg')'
+	if (`"`contnm'"' == `""')  local contnm "`plreg'"
+	._browser_append `"`contnm'"' `plreg' added_text[`nels']
+
+						// Set the text style
+	_gm_edit .`plreg'.added_text[`nels'].style.editstyle	    ///
+		`._Gr_Global.addedtext_proto.style.get_editstyle' editcopy
+
+	_gedi browser refresh
+if ("$grdebug"!="") di in white "_gedi browser refresh"
+
+						// Return the full obj name
+	c_local `editname' "`plreg'.added_text[`nels']"
+
+end
+
+
+// ---------------------------------------------------------------------------
+// Adds an arrow/line.
+
+program AddLineInContainer
+	args container y_shift x_shift
+
+	if ("`container'" == "" | "`container'" == "." |		///
+	    "`container'" == "Global" | "`container'" == ".Global")  exit 
+
+	if (0`.`container'.isofclass plotregion') {
+		local y0 `._Gr_Global.y_plotregion'
+		local x0 `._Gr_Global.x_plotregion'
+	}
+	else if (0`.`container'.isofclass grid') {
+		local y0 = `.`container'.y_click'
+		local x0 = `.`container'.x_click'
+	}
+	else {				// never reached ?
+		local y0 `._Gr_Global.y_grid'
+		local x0 `._Gr_Global.x_grid'
+	}
+	local y1 = `y0' + `y_shift'
+	local x1 = `x0' + `x_shift'
+
+if ("$grdebug"!="") di in white "AddLineInC `container'---> :`x0' `y0' `x1' `y1':
+	.UndoBegin
+
+	_gm_edit .`container'.AddLine added_lines editor `x0' `y0' `x1' `y1' 
+
+	local nels `.`container'.added_lines.arrnels'
+
+						// Count for recorder
+	if 0`_gedi(recording)' {
+		_gm_edit .`container'.added_lines_new =			///
+				`=`.`container'.added_lines_new' + 1'
+		_gm_edit .`container'.added_lines_rec = `nels'
+	}
+
+						// add object to browser
+	local contnm `_gedi(browser nameof `container')'
+	if (`"`contnm'"' == `""')  local contnm "`container'"
+	._browser_append `"`contnm'"' `container' added_lines[`nels']
+
+						// set line style
+	_gm_edit .`container'.added_lines[`nels'].style.editstyle	    ///
+		    `._Gr_Global.addedline_proto.style.get_editstyle' editcopy
+
+	_set_edit_and_hold `container'.added_lines[`nels']
+
+	.UndoEnd 				// Set undo menu
+
+	_gedi browser refresh
+if ("$grdebug"!="") di in white "_gedi browser refresh"
+
+	.dirty = 1
+	_gedi dirtychanged
+end
+
+
+// ---------------------------------------------------------------------------
+// Adds a marker
+
+program AddMarkerInContainer
+	args editobj
+
+//  could combine the following block code for finding the right container 
+//  with that in .AddBlankTextbox and in .ButtonUp.
+						// Find plotregion and graph 
+						// or just graph
+	_gs_rtmostofclass plreg : plotregion `editobj'
+	_gs_rtmostofclass graph : grid       `editobj'
+
+	if ("`plreg'" == "" | "`plreg'" == "Global" | 			///
+	    `:length local graph' > `:length local plreg') {
+		local plreg "`graph'"
+
+		if `.`plreg'.isofclass grid' {
+			local y `.`plreg'.y_click'
+			local x `.`plreg'.x_click'
+		}
+		else {					// never reached?
+			local y `._Gr_Global.y_grid'
+			local x `._Gr_Global.x_grid'
+		}
+	}
+	else {
+		local y `._Gr_Global.y_plotregion'
+		local x `._Gr_Global.x_plotregion'
+	}
+	if ("`graph'" == "" | "`graph'" == "Global")  exit	// Exit
+
+	local container "`plreg'"
+
+	if ("`container'" == "" | "`container'" == "." |		///
+	    "`container'" == "Global" | "`container'" == ".Global")  exit 
+
+	if (0`.`container'.isofclass plotregion') {
+		local y0 `._Gr_Global.y_plotregion'
+		local x0 `._Gr_Global.x_plotregion'
+	}
+	else if (0`.`container'.isofclass grid') {
+		local y0 = `.`container'.y_click'
+		local x0 = `.`container'.x_click'
+	}
+	else {				// is this used ?
+		local y0 `._Gr_Global.y_grid'
+		local x0 `._Gr_Global.x_grid'
+	}
+
+if ("$grdebug"!="") di in white "AddMarkerInC `container'---> :`x0' `y0':
+	.UndoBegin
+
+	_gm_edit .`container'.AddMarker added_markers editor `x0' `y0'
+
+	local nels `.`container'.added_markers.arrnels'
+
+						// Count for recorder
+	if 0`_gedi(recording)' {
+		_gm_edit .`container'.added_markers_new =		///
+				`=`.`container'.added_markers_new' + 1'
+		_gm_edit .`container'.added_markers_rec = `nels'
+	}
+
+						// add object to browser
+	local contnm `_gedi(browser nameof `container')'
+	if (`"`contnm'"' == `""')  local contnm "`container'"
+	._browser_append `"`contnm'"' `container' added_markers[`nels']
+
+
+						// set marker style
+	_gm_edit .`container'.added_markers[`nels'].style.editstyle	    ///
+		    `._Gr_Global.addedmarker_proto.style.get_editstyle' editcopy
+
+	_set_edit_and_hold `container'.added_markers[`nels']
+
+	.UndoEnd 				// Set undo menu
+
+	_gedi browser refresh
+if ("$grdebug"!="") di in white "_gedi browser refresh"
+
+	.dirty = 1
+	_gedi dirtychanged
+end
+
+
+// ------------------------------------------------------------------------
+// Clear any customized settings stored in prefs, reset style to default, 
+// and reinitialize the CTS toolbar.
+
+program ResetPrototypeDefaults
+	args object_nm
+
+	gettoken globnm rest     : object_nm , parse(".")
+	gettoken dot    proto_nm : rest      , parse(".")
+
+	._Gr_Global.ResetPrototypeDefaults `proto_nm'
+
+	.ModeChange
+end
+
+// ---------------------------------------------------------------------------
+// Sets the position of the grid lines for the grid that contains the
+// currently selected object.  Also saves the nesting grid and the object
+// being edited.
+
+program _set_grid_lines
+
+						// find nesting grid
+	local name `._Gr_Global.edit_object'
+
+	if ("`name'" == "`._Gr_Global.grid_ed_object'")  exit
+
+	local namesp : subinstr local name "." " " , all
+	local ct : list sizeof namesp
+	tokenize `namesp'
+	local found 0
+	while "`name'" != "" {
+		local obj "``ct''"
+		local `ct--' ""
+		local name `*'
+		local name : subinstr local name " " ".", all
+
+		if 0`.`name'.isofclass grid' {
+			local found 1
+			continue, break
+		}
+	}
+
+	if (! `found') {
+		._Gr_Global.grid_rowpos = {}
+		._Gr_Global.grid_colpos = {}
+		._Gr_Global.gridnm = ""
+		exit
+	}
+
+	._Gr_Global.gridobj = "`obj'"
+	._Gr_Global.gridnm  = "`name'"
+
+					// Compute grid row and column
+					// positions, in pixels
+
+	local n_row = 0`.`name'.rowpos.arrnels'
+	local n_col = 0`.`name'.colpos.arrnels'
+
+						// margins
+	local bmar = 0`.`name'.style.margin.gmbottom' * 0`.`name'.drawn_gmult'
+	local tmar = 0`.`name'.style.margin.gmtop'    * 0`.`name'.drawn_gmult'
+	local lmar = 0`.`name'.style.margin.gmleft'   * 0`.`name'.drawn_gmult'
+	local rmar = 0`.`name'.style.margin.gmright'  * 0`.`name'.drawn_gmult'
+
+				// Starting point of container
+	local y0 = 0`.`name'.gdi_y0'
+	local x0 = 0`.`name'.gdi_x0'
+
+				// Ending point of container
+	local y1 = 0`.`name'.gdi_y1'
+	local x1 = 0`.`name'.gdi_x1'
+
+				// rescaler:  grid offsets --> gdi
+	local b_row = (`y1' - `y0') / (0`.`name'.ysize_ren' + `bmar' + `tmar')
+	local b_col = (`x1' - `x0') / (0`.`name'.xsize_ren' + `lmar' + `rmar')
+
+						// offsets to pixels
+	._Gr_Global.grid_rowpos = {}
+	._Gr_Global.grid_colpos = {}
+
+	local j = 0
+	forvalues i=1/`n_row' {
+		if (`i' == 1)  local doit = 1
+		else           local doit = `.`name'.rowpos[`i']' !=	///
+					    `.`name'.rowpos[`i'-1]'
+		if `doit' {
+			._Gr_Global.grid_rowpos[`++j'] = `y0' + 	///
+			     `b_row' * (`.`name'.rowpos[`i']' + `bmar')
+		}
+	}
+
+	local j = 0
+	forvalues i=1/`n_col' {
+		if (`i' == 1)  local doit = 1
+		else           local doit = `.`name'.colpos[`i']' !=	///
+					    `.`name'.colpos[`i'-1]'
+		if `doit' {
+			._Gr_Global.grid_colpos[`++j'] = `x0' + 	///
+			     `b_col' * (`.`name'.colpos[`i']' + `lmar')
+		}
+	}
+
+	._Gr_Global.grid_ed_object = "`._Gr_Global.edit_object'"
+
+	_gedi gridinit
+
+end
+
+
+// ---------------------------------------------------------------------------
+// Unlock all of the objects in the current graph
+
+program UnlockAll
+	_unlock_recurse "`._Gr_Global.edit_graph'"
+end
+
+program _unlock_recurse
+	args obj
+
+	if 0`.`obj'.locked' == 1 {
+	    	_gm_dlg_edits , object(`obj') set(locked 0) nodraw
+		_gedi browser modify `obj' lock 0
+	}
+
+						// let container set views all
+	local views "`.`obj'.browser_objects'"
+
+	if "`views'" != "" {
+		foreach view of local views {
+			._unlock_recurse `obj'.`view'
+		}
+		exit						// Exit
+	}
+						// let container add views
+	local views "`.`obj'.add_browser_objects'"
+
+	if "`views'" != "" {
+		foreach view of local views {
+			._unlock_recurse `obj'.`view'
+		}
+	}
+						// let container exclude dyn-
+						// declared objects
+
+	if (0`.`obj'.browser_stop')  exit			// Exit
+
+						// use all dyn-declared objects
+	local dynarr `obj'.dynamicmv	
+
+	forvalues i = 1/0`.`dynarr'.arrnels' {
+
+	    if "`.`dynarr'[`i'].isa'" == "array" {
+		forvalues j = 1/0`.`dynarr'[`i'].arrnels' {
+		    if 0`.`dynarr'[`i'][`j'].isofclass anyview_g' {
+		       local nm `.`obj'.attribname dynamicmv `i''
+		       ._unlock_recurse `obj'.`nm'[`j']
+		    }
+		}
+	    }
+	    else {
+		if 0`.`dynarr'[`i'].isofclass anyview_g' {
+			local nm `.`obj'.attribname dynamicmv `i''
+		       ._unlock_recurse `obj'.`nm'
+		}
+	    }
+	}
+end
+
+
+// ---------------------------------------------------------------------------
+// End and save a graph editor recording
+
+program RecorderEnd
+	args filename
+
+	if `"`filename'"' == `""' {
+		.recorder = {}
+		exit
+	}
+
+	tempname fh
+	capture confirm new file `"`filename'"'
+	if (_rc)  local replace replace
+	file open `fh' using `"`filename'"', write text `replace'
+
+	_gs_rec_wrfilehdr `fh' "`._Gr_Global.edit_graph'"
+
+	file write `fh' _newline
+	file write `fh' "// File created by Graph Editor Recorder." _newline
+	file write `fh' "// Edit only if you know what you are doing." _newline
+	file write `fh' _newline
+
+	forvalues i = 1/`.recorder.arrnels' {
+		file write `fh' `"`macval(.recorder[`i'])'"' _newline
+	}
+
+	file write `fh' _newline
+	file write `fh' "// <end>" _newline
+
+	file close `fh'
+
+	.recorder = {}
+end
+
+
+// ---------------------------------------------------------------------------
+// Play a graph editor recording
+
+program RecorderPlay
+	args filename
+
+	._Gr_Global.current_graph_resync
+
+	.ZeroPlaybackCounts
+
+	tempname fh
+	file open `fh' using `"`filename'"', read text 
+
+	_gs_rec_rdfilehdr `"`filename'"' `fh'
+
+	.dirty = 1
+	_gedi dirtychanged
+
+	.UndoBegin
+
+	file read `fh' cmd
+	while r(eof) == 0 {
+	    if bsubstr(`"`cmd'"',1,2) != "//" & bsubstr(`"`cmd'"',1,1) != "*" {
+		if bsubstr(`"`cmd'"',1,1) == "." {
+			_maybe_fixup_cmd cmd : `macval(cmd)'
+			capture `cmd'
+			if _rc {
+				._throw_note `fh' `"`cmd'"'
+			}
+			else {
+			       _gm_log .`._Gr_Global.current_graph'`macval(cmd)'
+			}
+		}
+		else {
+			gettoken logobj cmd : cmd
+			gettoken grname rest : logobj, parse(".")
+
+			local dot = cond(`"`rest'"' == `""', "", ".")
+			local logobj `"`._Gr_Global.current_graph'`dot'`rest'"'
+
+			_maybe_fixup_cmd cmd : `macval(cmd)'
+
+			capture .`logobj'.runprogram `cmd'
+
+			if _rc {
+				._throw_note `fh' `"`cmd'"'
+			}
+			else {
+				_gm_logadd_in `logobj' `cmd'
+			}
+		}
+
+	    }
+
+	    file read `fh' cmd
+	}
+
+	.UndoEnd Recorder playback
+
+
+	file close `fh'
+
+	_gedi browser reinit
+
+	graph display
+end
+
+program _throw_note
+	args fh cmd
+
+	while bsubstr(`"`cmd'"',1,2) != "//" {
+		file read `fh' cmd
+	}
+	local cmd : subinstr local cmd "// " ""
+	di in green `"`cmd'"'
+	di in green  "(note:  edit not appropriate for current graph)"
+end
+
+// ---------------------------------------------------------------------------
+// Fixes up the indices for added text, lines, markers, and reference lines
+// during Graph Recorder playback.  Because other text, lines etc. may already
+// exist before a playback begins, and because they may have different
+// indices, the indices for all references to these may need to be adjusted.
+
+program _maybe_fixup_cmd
+	gettoken newcmd cmd : 0
+	gettoken colon  cmd : cmd
+
+	local cmd `macval(cmd)'					// sic
+
+	foreach addarr in added_text added_lines added_markers _xylines {
+	    mata: _gred_container_of("container", "`addarr'[", 		///
+	    			     `"`macval(cmd)'"')
+
+	    if ("`container'" == "<_NOT_FOUND>")  continue
+	    if (! 0``container'.`addarr'_new')    continue, break
+
+	    mata: _gred_index_of("cmddex", "`addarr'[", `"`macval(cmd)'"')
+
+	    if (0``container'.`addarr'_rec' - `cmddex') < 		///
+	        0``container'.`addarr'_new' {
+		local newdex = 0``container'.`addarr'.arrnels' -	///
+		      (0``container'.`addarr'_rec' - `cmddex')
+		mata: _gred_replace_dex("cmd", "`addarr'[", "`newdex'",	///
+					`"`macval(cmd)'"')
+	    }
+	    continue, break
+
+	}
+
+	c_local `newcmd' `"`macval(cmd)'"'
+end
+
+program TextboxDialogDone
+	args object
+
+//	_gedi toolbar textbox `object'
+end
+
+// ---------------------------------------------------------------------------
+// Convert an x, y pair in the GDI metric into the pixel metric of the
+// graph editor.  Returns x and y in the pixel metric.
+// Stop using if move _gedi to gdi metric
+
+program _gdi2pixel
+	args x y
+
+	local ypixels = `._Gr_Global.y_pixels'	// size of graph in pixels
+	local xpixels = `._Gr_Global.x_pixels'
+	local xm = cond(0`xpixels' > 0`ypixels', 1, 0`ypixels' / 0`xpixels')
+	local ym = cond(0`xpixels' < 0`ypixels', 1, 0`xpixels' / 0`ypixels')
+
+	local y = round(`y' * `ym' * 0`ypixels' / 32000)
+	local x = round(`x' * `xm' * 0`xpixels' / 32000)
+
+	class exit "`x' `y'"
+end
+
+
+version 10.0
+mata:
+
+//  Return the container of the specified object in a local macro
+
+void _gred_container_of(string scalar container_local, string scalar objectnm,
+			string scalar cmd) {
+
+	real scalar pos
+
+	pos = strpos(cmd, objectnm)
+
+	if (pos)  st_local(container_local, bsubstr(cmd, 1, pos-2))
+	else      st_local(container_local, "<_NOT_FOUND>")
+}
+
+//  Return the index portion of the specified object in a local macro
+
+void _gred_index_of(string scalar dex_local, string scalar objectnm,
+		    string scalar cmd) {
+
+	real scalar beg, lst
+
+	cmd = bsubstr(cmd, strpos(cmd, objectnm), .)
+	beg = strpos(cmd, "[") + 1
+	lst = strpos(cmd, "]")
+
+	st_local(dex_local, bsubstr(cmd, beg, lst - beg))
+}
+
+//  Return in a local macro the command with the index of the specified object
+//  replaced with the supplied index.
+
+void _gred_replace_dex(string scalar cmd_local, string scalar objectnm,
+		       string scalar new_dex, string scalar cmd) {
+
+	real scalar beg_obj, beg, lst
+
+	beg_obj = strpos(cmd, objectnm)
+
+	beg = beg_obj + strpos(bsubstr(cmd, beg_obj), "[") - 1
+	lst = beg_obj + strpos(bsubstr(cmd, beg_obj), "]") - 1
+
+	st_local(cmd_local, bsubstr(cmd, 1, beg) + new_dex + bsubstr(cmd, lst, .))
+}
+
+//  Strip base name from a full class object name
+
+void _gred_replace_basename(string scalar localname, string scalar objectnm,
+			    string scalar newbase) {
+	st_local(localname,
+		 newbase + "." + bsubstr(objectnm, strpos(objectnm, ".")+1, .))
+}
+
+end
+

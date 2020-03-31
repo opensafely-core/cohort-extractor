@@ -1,0 +1,171 @@
+/*
+  caprojection
+
+*!  VERSION 2.1.4  23oct2019
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_mlarge
+DEFINE _dlght 250
+INCLUDE header
+
+HELP hlp1, view("help caprojection")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource CAPROJECTION_DLG_HSCALE
+END
+
+SCRIPT main_PREINIT
+BEGIN
+	create STRING GraphCombineResults
+	
+END
+
+SCRIPT main_POSTINIT
+BEGIN
+	program main_checkGraphCombineResults
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)						///
+label(resource CAPROJECTION_DLG_TITLE) 
+BEGIN
+  GROUPBOX gb_dim		_lft	_top	_iwd	_ht6,		///
+	label(resource LBL_DIMENSIONS)
+  RADIO rb_default_dim		_ilft	_ss	_inwd	.,		///
+	first label(resource LBL_PLOT_FIRST_SECOND_DIMENSIONS)			///
+	onclickon(script main_dim_off)
+  RADIO rb_dim			@	_ss	@	.,		///
+	last label(resource LBL_SPECIFY_OTHER_DIMENSIONS_PLOT)			///
+	onclickon(script main_dim_on)
+  EDIT ed_dim			_indent2 _ss	_en7wd	.,		///
+	label(resource LBL_TWO_DIMENSIONS_TO_PLOT) option(dim)			///
+	default("2  1")
+  TEXT tx_dim			_en7sep	@	200	.,		///
+	label(resource LBL_TWO_DIMENSIONS_TO_PLOT)
+
+  CHECKBOX ck_norow		_lft	+45	_cwd1	.,		///
+	label(resource LBL_SUPPRESS_ROW_COORDINATES)				///
+	option(norow) 							///
+	onclickon(script main_ca_row_disable)				///
+	onclickoff(script main_ca_row_enable)
+  BUTTON bu_combine_opts	_lft4_3	@	160	.,		///
+	label(resource LBL_GRAPH_COMBINE_OPTIONS)				///
+	onpush(script main_show_graph_combine_dialog)			///
+	tooltip(resource LBL_GRAPH_COMBINE_OPTIONS)
+  CHECKBOX ck_nocolumn		_lft	_ms	_iwd	.,		///
+	label(resource LBL_SUPPRESS_COLUMN_COORDINATES)				///
+	option(nocolumn)						///
+	onclickon(script main_ca_col_disable)				///
+	onclickoff(script main_ca_col_enable)
+
+  CHECKBOX ck_alternate		@	_ms	@	.,		///
+	label(resource LBL_ALTERNATE_LABELS) option(alternate)
+
+  SPINNER sp_maxlength		@	_ms	_spwd	.,		///
+	default(12) min(1) max(32) option(maxlength)
+  TEXT tx_maxlength		_spsep	@	_iwd	.,		///
+	label(resource LBL_MAXIMUM_NUMBER_CHARACTERS_DISPLAYED_LABELS)
+
+END
+
+//Program/Scripts
+SCRIPT main_ca_row_enable
+BEGIN
+	main.ck_nocolumn.enable
+	main.bu_combine_opts.enable
+	script ca_row_enable
+END
+
+SCRIPT main_ca_row_disable
+BEGIN
+	main.ck_nocolumn.disable
+	main.bu_combine_opts.disable
+	script ca_row_disable
+END
+
+SCRIPT main_ca_col_enable
+BEGIN
+	main.ck_norow.enable
+	main.bu_combine_opts.enable
+	script ca_col_enable
+END
+
+SCRIPT main_ca_col_disable
+BEGIN
+	main.ck_norow.disable
+	main.bu_combine_opts.disable
+	script ca_col_disable
+END
+
+SCRIPT main_dim_on
+BEGIN
+	main.ed_dim.enable
+	main.tx_dim.enable
+END
+SCRIPT main_dim_off
+BEGIN
+	main.ed_dim.disable
+	main.tx_dim.disable
+END
+
+//Buttons
+SCRIPT main_show_graph_combine_dialog
+BEGIN
+	create CHILD gr_combine_options AS graph_combine_opts, 	///
+		allowsubmit message(set_caprojection_options)
+	graph_combine_opts.setExitString GraphCombineResults
+	graph_combine_opts.settitle resource LBL_GRAPH_COMBINE_OPTIONS
+	graph_combine_opts.setExitAction "program main_checkGraphCombineResults"
+	graph_combine_opts.setSubmitAction "program main_GraphCombineSubmit"
+END
+PROGRAM main_checkGraphCombineResults
+BEGIN
+	if GraphCombineResults {
+		call main.bu_combine_opts.modified_on
+	}
+	else {
+		call main.bu_combine_opts.modified_off
+	}
+END
+PROGRAM main_GraphCombineSubmit
+BEGIN
+	call program main_checkGraphCombineResults
+	call Submit
+END
+
+INCLUDE gr_ca_row_col
+INCLUDE gr_yaxis
+INCLUDE gr_xaxis
+INCLUDE gr_titles
+INCLUDE gr_legend
+INCLUDE gr_overall
+
+//Output
+PROGRAM command
+BEGIN
+	put "caprojection "
+	beginoptions
+		if main.rb_dim {
+			require main.ed_dim
+			optionarg main.ed_dim
+		}
+		option main.ck_norow
+		option main.ck_nocolumn
+		option main.ck_alternate
+		optionarg /hidedefault main.sp_maxlength
+		if GraphCombineResults & ! H(main.bu_combine_opts) {
+			put " " GraphCombineResults " "
+		}
+		put " " /program gr_ca_row_col_output
+		put " " /program gr_yaxis_output
+		put " " /program gr_xaxis_output
+		put " " /program gr_titles_output
+		put " " /program gr_legend_output
+		put " " /program gr_overall_output
+	endoptions
+END
+

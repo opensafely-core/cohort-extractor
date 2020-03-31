@@ -1,0 +1,743 @@
+/*
+  bayesstats_exp.dlg
+
+*!  VERSION 1.0.5  05apr2019
+
+*/
+
+VERSION 16.0
+
+INCLUDE _std_xlarge
+DEFINE _dlght 475
+INCLUDE header
+
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource BAYESSTATS_EXP_DLG_HSCALE
+
+	create DOUBLE is_pp
+	create STRING nobs
+	create STRING STMP
+	create STRING exp
+	create STRING parent_exp
+	create STRING parent_name
+	create STRING funcx_res
+	create STRING funcy_res
+	
+	create ARRAY tmp
+	create ARRAY tmpvalue
+	create ARRAY tmppred
+	create STRING estfile
+	create STRING simout
+	create STRING simoutvalue
+	create STRING simname
+	create STRING funcname
+	create ARRAY main_category_list
+	create ARRAY main_category_value
+	create ARRAY main_predout_list
+	create ARRAY main_predout_values
+
+	parent_name.setvalue class PARENT._dlg_rsrcname
+	
+	program stat_init
+END
+
+PROGRAM stat_init
+BEGIN
+	call main_category_list.Arrdropall
+	call main_category_value.Arrdropall
+	call main_predout_list.Arrdropall
+	call main_predout_values.Arrdropall
+	
+	call parent_name.withvalue is_pp.setvalue class @.is_pp.value
+	call parent_name.withvalue estfile.setvalue class @.estfile.value
+	
+	put "capture _bayespredict estrestore "
+	put estfile
+	stata hidden immediate
+	
+	call simout.setvalue s(savedOutcomes)
+	call simoutvalue.setvalue s(savedIndOutcomes)
+	call simname.setvalue s(ysimvars)
+	call funcname.setvalue s(predfnames)
+	call nobs.setvalue s(N)
+	
+	call simout.tokenize tmp
+	call simoutvalue.tokenize tmpvalue
+	
+	call main.cb_obsout.setcontentslist tmp
+	call main.cb_resout.setcontentslist tmp
+	call main.cb_muout.setcontentslist tmp
+	call main.cb_obsout.setvalueslist tmpvalue
+	call main.cb_resout.setvalueslist tmpvalue
+	call main.cb_muout.setvalueslist tmpvalue
+	
+	if !funcname.equals("") {
+		call funcname.tokenize tmppred
+		call main.cb_predout.setcontentslist tmppred
+		call main.cb_predout.setvalueslist tmppred
+	}
+	else {
+		call main_predout_list.ArrpushR resource LBL_PAREN_NONE_PAREN
+		call main_predout_values.Arrpush "(none)"
+	}
+	
+	if !simout.equals(""){
+		if is_pp.iseq(1) {
+			call main_category_list.ArrpushR resource BAYES_LBL_REPLICATED_OUTCOMES
+		}
+		else {
+			call main_category_list.ArrpushR resource BAYES_LBL_SIMULATED_OUTCOMES
+		}
+		call main_category_list.ArrpushR resource LBL_RESIDUALS
+		call main_category_list.ArrpushR resource BAYES_LBL_EXPECTED_VALUES
+		
+		call main_category_value.Arrpush "observation"
+		call main_category_value.Arrpush "residual"
+		call main_category_value.Arrpush "mu"
+		
+		if !funcname.equals("") {
+			call main_category_list.ArrpushR resource BAYES_LBL_OTHER_PREDICTIONS
+			call main_category_value.Arrpush "pred"
+		}
+	}
+	else {
+		if !funcname.equals("") {
+			call main_category_list.ArrpushR resource BAYES_LBL_OTHER_PREDICTIONS
+			call main_category_value.Arrpush "pred"
+		}
+	}
+	
+	call main_category_list.ArrpushR resource LBL_FUNCTIONS_MATH
+	call main_category_list.ArrpushR resource LBL_FUNCTIONS_TRI
+	
+	call main_category_value.Arrpush "math"
+	call main_category_value.Arrpush "trigonometric"
+	
+	call main.lb_category.repopulate
+	call main.cb_obsout.repopulate
+	call main.cb_resout.repopulate
+	call main.cb_muout.repopulate
+	call main.cb_predout.repopulate
+	
+	call program main_category_sel_check
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	call nobs.withvalue main.sp_obsobs.setrange 1 @
+	call nobs.withvalue main.sp_resobs.setrange 1 @
+	call nobs.withvalue main.sp_muobs.setrange 1 @
+	
+	call program main_category_sel_check
+
+	call parent_name.withvalue parent_exp.setvalue class @.main.ed_exp.value
+	call parent_exp.withvalue main.ed_exp.setvalue @
+END
+
+DIALOG main, label("Expression builder")
+BEGIN
+  TEXT tx_exp			_lft	_top	_iwd	.,		///
+	label(resource LBL_EXPRESSION)
+
+  EDIT ed_exp			@	_ss	@	_ht4,		///
+	multiline							///
+	label(resource LBL_EXPRESSION)
+  TEXT tx_category		_lft	+90	_iwd	.,		///
+	label(resource LBL_INCLUDE_COLON)
+  LISTBOX lb_category		@	_ss	_cwd0	_ht8,		///
+	contents(main_category_list)					///
+	values(main_category_value)					///
+	onselchange(program main_category_sel_check)			///
+	label(resource LBL_INCLUDE_COLON)
+DEFINE bsep +25
+  BUTTON bu_7			_iilft2	@	20	.,		///
+	onpush(main.ed_exp.insert 7)					///
+	label("7")
+  BUTTON bu_8			bsep	@	20	.,		///
+	onpush(main.ed_exp.insert 8)					///
+	label("8")
+  BUTTON bu_9			bsep	@	20	.,		///
+	onpush(main.ed_exp.insert 9)					///
+	label("9")
+  BUTTON bu_plus		bsep	@	20	.,		///
+	onpush(main.ed_exp.insert +)					///
+	label("+")
+  BUTTON bu_minus		bsep	@	20	.,		///
+	onpush(main.ed_exp.insert -)					///
+	label("-")
+  BUTTON bu_multp		bsep	@	20	.,		///
+	onpush(main.ed_exp.insert *)					///
+	label("*")
+  BUTTON bu_divid		bsep	@	20	.,		///
+	onpush(main.ed_exp.insert /)					///
+	label("/")
+  BUTTON bu_4			_iilft2	_ls	20	.,		///
+	onpush(main.ed_exp.insert 4)					///
+	label("4")
+  BUTTON bu_5			bsep	@	20	.,		///
+	onpush(main.ed_exp.insert 5)					///
+	label("5")
+  BUTTON bu_6			bsep	@	20	.,		///
+	onpush(main.ed_exp.insert 6)					///
+	label("6")
+  BUTTON bu_le			bsep	@	20	.,		///
+	onpush(main.ed_exp.insert <=)					///
+	label("<=")
+  BUTTON bu_ge			bsep	@	20	.,		///
+	onpush(main.ed_exp.insert >=)					///
+	label(">=")
+  BUTTON bu_less		bsep	@	20	.,		///
+	onpush(main.ed_exp.insert <)					///
+	label("<")
+  BUTTON bu_grter		bsep	@	20	.,		///
+	onpush(main.ed_exp.insert >)					///
+	label(">")
+  BUTTON bu_1			_iilft2	_ls	20	.,		///
+	onpush(main.ed_exp.insert 1)					///
+	label("1")
+  BUTTON bu_2			bsep	@	20	.,		///
+	onpush(main.ed_exp.insert 2)					///
+	label("2")
+  BUTTON bu_3			bsep	@	20	.,		///
+	onpush(main.ed_exp.insert 3)					///
+	label("3")
+  BUTTON bu_equal		bsep	@	20	.,		///
+	onpush(main.ed_exp.insert ==)					///
+	label("==")
+  BUTTON bu_neq			bsep	@	20	.,		///
+	onpush(main.ed_exp.insert !=)					///
+	label("!=")
+  BUTTON bu_lbrac		bsep	@	20	.,		///
+	onpush(main.ed_exp.insert "(")					///
+	label("(")
+  BUTTON bu_rbrac		bsep	@	20	.,		///
+	onpush(main.ed_exp.insert ")")					///
+	label(")")
+  BUTTON bu_0			_iilft2	_ls	45	.,		///
+	onpush(main.ed_exp.insert 0)					///
+	label("0")
+  BUTTON bu_dot			+50	@	20	.,		///
+	onpush(main.ed_exp.insert .)					///
+	label(".")
+  BUTTON bu_pi			bsep	@	45	.,		///
+	onpush(main.ed_exp.insert _pi)					///
+	label("pi")
+  BUTTON bu_caret		+50	@	20	.,		///
+	onpush(main.ed_exp.insert ^)					///
+	label("^")
+
+  GROUPBOX gb_expcat		_lft	_ls	_iwd	_ht17,		///
+	label(resource LBL_OBSERVATIONS)
+
+//Observations
+  TEXT tx_obsout		_ilft	+20	_ibwd	.,		///
+	label(resource LBL_OUTCOME_VARIABLE)
+  COMBOBOX cb_obsout		@	_ss	_en14wd	.,		///
+	dropdownlist							///
+	label(resource LBL_OUTCOME_VARIABLE)
+  TEXT tx_obsobs			_ilft	_ls	_ibwd	.,		///
+	label(resource LBL_OBSERVATION_COLON)
+  SPINNER sp_obsobs	@		_ss	_en14wd	.,		///
+	min(1) default(1)							///
+	label(resource LBL_OBSERVATION_COLON)
+  
+//Expected observations
+  TEXT tx_muout			_ilft	280	_ibwd	.,		///
+	label(resource LBL_OUTCOME_VARIABLE)
+  COMBOBOX cb_muout		@	_ss	_en14wd	.,		///
+	dropdownlist							///
+	label(resource LBL_OUTCOME_VARIABLE)
+  TEXT tx_muobs		_ilft	_ls	_ibwd	.,			///
+	label(resource LBL_OBSERVATION_COLON)
+  SPINNER sp_muobs	@		_ss	_en14wd	.,		///
+	min(1) default(1)						///
+	label(resource LBL_OBSERVATION_COLON)
+
+//Residuals
+  TEXT tx_resout		_ilft	280	_ibwd	.,		///
+	label(resource LBL_OUTCOME_VARIABLE)
+  COMBOBOX cb_resout		@	_ss	_en14wd	.,		///
+	dropdownlist							///
+	label(resource LBL_OUTCOME_VARIABLE)
+  TEXT tx_resobs		_ilft	_ls	_ibwd	.,		///
+	label(resource LBL_OBSERVATION_COLON)
+  SPINNER sp_resobs	@		_ss	_en14wd	.,		///
+	min(1) default(1)						///
+	label(resource LBL_OBSERVATION_COLON)
+  
+//Other predictions
+  TEXT tx_predout		_ilft	280	_ibwd	.,		///
+	label(resource LBL_PREDICTION_COLON)
+  COMBOBOX cb_predout		@	_ss	_en14wd	.,		///
+	dropdownlist							///
+	label(resource LBL_PREDICTION_COLON)
+
+//Functions,math
+  TEXT tx_funcmath		_ilft	280	_vnwd	.,		///
+	label(resource LBL_FUNCTIONS)
+  COMBOBOX cb_funcmath		@	_ss	@	.,		///
+	dropdownlist							///
+	contents(main_funcmath_list)					///
+	values(main_funcmath_value)					///
+	onselchange(program main_funcmath_sel_change)
+  GROUPBOX gb_descrpt		_ilft	_ls	_ibwd	_ht5,		///
+	label(resource LBL_DESCRIPTION)
+  TEXTBOX tb_descrpt		_iilft	_ss	_inwd	_tb3,		///
+	label("")
+
+//Functions,tri
+  TEXT tx_functri		_ilft	280	_vnwd	.,		///
+	label(resource LBL_FUNCTIONS)
+  COMBOBOX cb_functri		@	_ss	@	.,		///
+	dropdownlist							///
+	contents(main_functri_list)					///
+	values(main_functri_value)					///
+	onselchange(program main_functri_sel_change)			///
+	label(resource LBL_FUNCTIONS)
+  TEXT tx_add			20	430	420	.,		///
+	right								///
+	label(resource MENL_EXP_ADD_FUNCTION_NOTE)
+  BUTTON bu_add			_irj80	@	80	.,		///
+	onpush(program main_add_expression)				///
+	label(resource LBL_BU_ADD)
+END
+
+LIST main_funcmath_list
+BEGIN
+	"abs()"
+	"ceil()"
+	"cloglog()"
+	"comb()"
+	"digamma()"
+	"exp()"
+	"floor()"
+	"int()"
+	"invcloglog()"
+	"invlogit()"
+	"ln()"
+	"lnfactorial()"
+	"lngamma()"
+	"log()"
+	"log10()"
+	"logit()"
+	"max()"
+	"min()"
+	"mod()"
+	"reldif()"
+	"round()"
+	"sign()"
+	"sqrt()"
+	"sum()"
+	"trigamma()"
+	"trunc()"
+END
+
+LIST main_funcmath_value
+BEGIN
+	"abs(x)"
+	"ceil(x)"
+	"cloglog(x)"
+	"comb(n, k)"
+	"digamma(x)"
+	"exp(x)"
+	"floor(x)"
+	"int(x)"
+	"invcloglog(x)"
+	"invlogit(x)"
+	"ln(x)"
+	"lnfactorial(n)"
+	"lngamma(x)"
+	"log(x)"
+	"log10(x)"
+	"logit(x)"
+	"max(x1, x2, ..., xn)"
+	"min(x1, x2, ..., xn)"
+	"mod(x, y)"
+	"reldif(x, y)"
+	"round(x)"
+	"sign(x)"
+	"sqrt(x)"
+	"sum(x)"
+	"trigamma(x)"
+	"trunc(x)"
+END
+
+LIST main_functri_list
+BEGIN
+	"acos()"
+	"acosh()"
+	"asin()"
+	"asinh()"
+	"atan()"
+	"atan2()"
+	"atanh()"
+	"cos()"
+	"cosh()"
+	"sin()"
+	"sinh()"
+	"tan()"
+	"tanh()"
+END
+
+LIST main_functri_value
+BEGIN
+	"acos(x)"
+	"acosh(x)"
+	"asin(x)"
+	"asinh(x)"
+	"atan(x)"
+	"atan2(y, x)"
+	"atanh(x)"
+	"cos(x)"
+	"cosh(x)"
+	"sin(x)"
+	"sinh(x)"
+	"tan(x)"
+	"tanh(x)"
+END
+
+PROGRAM main_category_sel_check
+BEGIN
+	call script main_expcat_hide_all
+	if main.lb_category.iseq(observation) {
+		if is_pp.iseq(1) {
+			call main.tx_add.setlabel "resource BAYESSTATS_EXP_ADD_REPLICATED_NOTE"
+		}
+		else {
+			call main.tx_add.setlabel "resource BAYESSTATS_EXP_ADD_SIMULATED_NOTE"
+		}
+		call program main_observation_show
+	}
+	if main.lb_category.iseq(mu) {
+		call main.tx_add.setlabel "resource BAYESSTATS_EXP_ADD_EXPECTED_NOTE"
+		call script main_mu_show
+	}
+	if main.lb_category.iseq(residual) {
+		call main.tx_add.setlabel "resource BAYESSTATS_EXP_ADD_RESIDUALS_NOTE"
+		call script main_residual_show
+	}
+	if main.lb_category.iseq(pred) {
+		call main.tx_add.setlabel "resource BAYESSTATS_EXP_ADD_PREDICTIONS_NOTE"
+		call script main_pred_show
+	}
+	if main.lb_category.iseq(math) {
+		call main.tx_add.setlabel "resource MENL_EXP_ADD_FUNCTION_NOTE"
+		call script main_funcmath_show
+	}
+	if main.lb_category.iseq(trigonometric) {
+		call main.tx_add.setlabel "resource MENL_EXP_ADD_FUNCTION_NOTE"
+		call script main_functri_show
+	}
+END
+
+SCRIPT main_expcat_hide_all
+BEGIN
+	main.tx_obsout.hide
+	main.cb_obsout.hide
+	main.tx_obsobs.hide 
+	main.sp_obsobs.hide
+	
+	main.tx_muout.hide
+	main.cb_muout.hide
+	main.tx_muobs.hide 
+	main.sp_muobs.hide
+
+	main.tx_resout.hide
+	main.cb_resout.hide
+	main.tx_resobs.hide 
+	main.sp_resobs.hide
+	
+	main.tx_predout.hide 
+	main.cb_predout.hide
+
+	main.tx_funcmath.hide
+	main.cb_funcmath.hide
+	main.gb_descrpt.hide
+	main.tb_descrpt.hide
+	main.tx_functri.hide
+	main.cb_functri.hide
+END
+
+PROGRAM main_observation_show
+BEGIN
+	if is_pp.iseq(1) {
+		call main.tx_add.setlabel resource BAYESSTATS_EXP_LBL_REPLICATED_OUTCOME_VALUES
+	}
+	else {
+		call main.tx_add.setlabel resource BAYESSTATS_EXP_LBL_SIMULATED_OUTCOME_VALUES
+	}
+	
+	call main.tx_obsout.show
+	call main.cb_obsout.show
+	call main.tx_obsobs.show 
+	call main.sp_obsobs.show
+END
+
+SCRIPT main_mu_show
+BEGIN	
+	main.gb_expcat.setlabel resource BAYES_LBL_EXPECTED_VALUES
+	main.tx_muout.show
+	main.cb_muout.show
+	main.tx_muobs.show 
+	main.sp_muobs.show
+END
+
+SCRIPT main_residual_show
+BEGIN
+	main.gb_expcat.setlabel resource BAYES_LBL_RESIDUALS_VALUES
+	main.tx_resout.show
+	main.cb_resout.show
+	main.tx_resobs.show 
+	main.sp_resobs.show
+END
+
+SCRIPT main_pred_show
+BEGIN
+	main.gb_expcat.setlabel resource BAYES_LBL_OTHER_PREDICTIONS
+	main.tx_predout.show 
+	main.cb_predout.show
+END
+
+SCRIPT main_funcmath_show
+BEGIN
+	main.gb_expcat.setlabel resource LBL_FUNCTIONS_MATH
+	main.tx_funcmath.show
+	main.cb_funcmath.show
+	main.gb_descrpt.show
+	main.tb_descrpt.show
+	program main_funcmath_sel_change
+END
+
+SCRIPT main_functri_show
+BEGIN
+	main.gb_expcat.setlabel resource LBL_FUNCTIONS_TRI
+	main.tx_functri.show
+	main.cb_functri.show
+	main.gb_descrpt.show
+	main.tb_descrpt.show
+	program main_functri_sel_change
+END
+
+PROGRAM main_funcmath_sel_change
+BEGIN
+	if main.cb_funcmath.isvisible() & main.cb_funcmath.isenabled() {
+		if main.cb_funcmath.iseq("abs(x)") {
+			call main.tb_descrpt.setlabel resource LBL_DESCRPT_ABS
+
+		}
+		if main.cb_funcmath.iseq("ceil(x)") {
+			call main.tb_descrpt.setlabel resource LBL_DESCRPT_CEIL			
+		}
+		if main.cb_funcmath.iseq("cloglog(x)") {
+			call main.tb_descrpt.setlabel resource LBL_DESCRPT_CLOGLOG
+
+		}
+		if main.cb_funcmath.iseq("comb(n, k)") {
+			call main.tb_descrpt.setlabel resource LBL_DESCRPT_COMB
+
+		}
+		if main.cb_funcmath.iseq("digamma(x)") {
+			call main.tb_descrpt.setlabel resource LBL_DESCRPT_DIGAMMA
+
+		}
+		if main.cb_funcmath.iseq("exp(x)") {
+			call main.tb_descrpt.setlabel resource LBL_DESCRPT_EXP
+
+		}
+		if main.cb_funcmath.iseq("floor(x)") {
+			call main.tb_descrpt.setlabel resource LBL_DESCRPT_FLOOR
+		}
+		if main.cb_funcmath.iseq("int(x)") {
+			call main.tb_descrpt.setlabel resource LBL_DESCRPT_INT
+		}
+		if main.cb_funcmath.iseq("invcloglog(x)") {
+			call main.tb_descrpt.setlabel resource LBL_DESCRPT_INVCLOGLOG
+		}
+		if main.cb_funcmath.iseq("invlogit(x)") {
+			call main.tb_descrpt.setlabel resource LBL_DESCRPT_INVLOGIT
+		}
+		if main.cb_funcmath.iseq("ln(x)") {
+			call main.tb_descrpt.setlabel resource LBL_DESCRPT_LN
+		}
+		if main.cb_funcmath.iseq("lnfactorial(x)") {
+			call main.tb_descrpt.setlabel resource LBL_DESCRPT_LNFACTORIAL
+		}
+		if main.cb_funcmath.iseq("lngamma(x)") {
+			call main.tb_descrpt.setlabel resource LBL_DESCRPT_LNGAMMA
+		}
+		if main.cb_funcmath.iseq("log(x)") {
+			call main.tb_descrpt.setlabel resource LBL_DESCRPT_LOG
+		}
+		if main.cb_funcmath.iseq("log10(x)") {
+			call main.tb_descrpt.setlabel resource LBL_DESCRPT_LOG10
+		}
+		if main.cb_funcmath.iseq("logit(x)") {
+			call main.tb_descrpt.setlabel resource LBL_DESCRPT_LOGIT
+		}
+		if main.cb_funcmath.iseq("max(x1, x2, ..., xn)") {
+			call main.tb_descrpt.setlabel resource LBL_DESCRPT_MAX
+		}
+		if main.cb_funcmath.iseq("min(x1, x2, ..., xn)") {
+			call main.tb_descrpt.setlabel resource LBL_DESCRPT_MIN
+		}
+		if main.cb_funcmath.iseq("mod(x, y)") {
+			call main.tb_descrpt.setlabel resource LBL_DESCRPT_MOD
+		}
+		if main.cb_funcmath.iseq("reldif(x, y)") {
+			call main.tb_descrpt.setlabel resource LBL_DESCRPT_RELDIF
+		}
+		if main.cb_funcmath.iseq("round(x)") {
+			call main.tb_descrpt.setlabel resource LBL_DESCRPT_ROUND
+		}
+		if main.cb_funcmath.iseq("sign(x)") {
+			call main.tb_descrpt.setlabel resource LBL_DESCRPT_SIGN
+		}
+		if main.cb_funcmath.iseq("sqrt(x)") {
+			call main.tb_descrpt.setlabel resource LBL_DESCRPT_SQRT
+		}
+		if main.cb_funcmath.iseq("sum(x)") {
+			call main.tb_descrpt.setlabel resource LBL_DESCRPT_SUM
+		}
+		if main.cb_funcmath.iseq("trigamma(x)") {
+			call main.tb_descrpt.setlabel resource LBL_DESCRPT_TRIGAMMA
+		}
+		if main.cb_funcmath.iseq("trunc(x)") {
+			call main.tb_descrpt.setlabel resource LBL_DESCRPT_TRUNC
+		}
+	}
+END
+
+PROGRAM main_functri_sel_change
+BEGIN
+	if main.cb_functri.isvisible() & main.cb_funcmath.isenabled() {
+		if main.cb_functri.iseq("acos(x)") {
+			call main.tb_descrpt.setlabel resource LBL_DESCRPT_ACOS
+		}
+		if main.cb_functri.iseq("acosh(x)") {
+			call main.tb_descrpt.setlabel resource LBL_DESCRPT_ACOSH
+		}
+		if main.cb_functri.iseq("asin(x)") {
+			call main.tb_descrpt.setlabel resource LBL_DESCRPT_ASIN
+		}
+		if main.cb_functri.iseq("asinh(x)") {
+			call main.tb_descrpt.setlabel resource LBL_DESCRPT_ASINH
+		}
+		if main.cb_functri.iseq("atan(x)") {
+			call main.tb_descrpt.setlabel resource LBL_DESCRPT_ATAN
+		}
+		if main.cb_functri.iseq("atan2(y, x)") {
+			call main.tb_descrpt.setlabel resource LBL_DESCRPT_ATAN2
+		}
+		if main.cb_functri.iseq("atanh(x)") {
+			call main.tb_descrpt.setlabel resource LBL_DESCRPT_ATANH
+		}
+		if main.cb_functri.iseq("cos(x)") {
+			call main.tb_descrpt.setlabel resource LBL_DESCRPT_COS
+		}
+		if main.cb_functri.iseq("cosh(x)") {
+			call main.tb_descrpt.setlabel resource LBL_DESCRPT_COSH
+		}
+		if main.cb_functri.iseq("sin(x)") {
+			call main.tb_descrpt.setlabel resource LBL_DESCRPT_SIN
+		}
+		if main.cb_functri.iseq("sinh(x)") {
+			call main.tb_descrpt.setlabel resource LBL_DESCRPT_SINH
+		}
+		if main.cb_functri.iseq("tan(x)") {
+			call main.tb_descrpt.setlabel resource LBL_DESCRPT_TAN
+		}
+		if main.cb_functri.iseq("tanh(x)") {
+			call main.tb_descrpt.setlabel resource LBL_DESCRPT_TANH
+		}
+	}
+END
+
+
+PROGRAM main_add_expression
+BEGIN
+	call exp.setvalue ""
+	if main.lb_category.iseq(observation) {
+		call program obs_output
+	}
+	if main.lb_category.iseq(mu) {
+		call program mu_output
+	}
+	if main.lb_category.iseq(residual) {
+		call program res_output
+	}
+	if main.lb_category.iseq(pred) {
+		call program pred_output
+	}
+	if main.lb_category.iseq(math) {
+		call program funcmath_output
+	}
+	if main.lb_category.iseq(trigonometric) {
+		call program functri_output
+	}
+	call exp.withvalue main.ed_exp.insert "@"
+END
+
+PROGRAM obs_output
+BEGIN
+	require main.cb_obsout
+	call exp.setvalue " "
+	call exp.append "{_ysim"
+	call main.cb_obsout.withvalue exp.append "@"
+	call exp.append "["
+	call main.sp_obsobs.withvalue exp.append "@"
+	call exp.append "]"
+	call exp.append "}"
+END
+
+PROGRAM mu_output
+BEGIN
+	require main.cb_muout
+	call exp.setvalue " "
+	call exp.append "{_mu"
+	call main.cb_muout.withvalue exp.append "@"
+	call exp.append "["
+	call main.sp_muobs.withvalue exp.append "@"
+	call exp.append "]"
+	call exp.append "}"
+END
+
+PROGRAM res_output
+BEGIN
+	require main.cb_resout
+	call exp.setvalue " "
+	call exp.append "{_resid"
+	call main.cb_resout.withvalue exp.append "@"
+	call exp.append "["
+	call main.sp_resobs.withvalue exp.append "@"
+	call exp.append "]"
+	call exp.append "}"
+END
+
+PROGRAM pred_output
+BEGIN
+	require main.cb_predout
+	call exp.setvalue " "
+	call exp.append "{"
+	call main.cb_predout.withvalue exp.append "@"
+	call exp.append "}"
+END
+
+PROGRAM funcmath_output
+BEGIN
+	call exp.setvalue " "
+	call main.cb_funcmath.withvalue exp.append @
+END
+
+PROGRAM functri_output
+BEGIN
+	call exp.setvalue " "
+	call main.cb_functri.withvalue exp.append @
+END
+
+PROGRAM command
+BEGIN
+	put main.ed_exp
+END

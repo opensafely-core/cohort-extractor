@@ -1,0 +1,385 @@
+/*
+  svy: tabulate twoway
+
+*!  VERSION 1.4.3  20may2015
+
+  keyword:  eclass
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE _ht320
+INCLUDE header
+
+HELP hlp1, view("help svy: tabulate twoway")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource SVY_TABULATE_TWOWAY_DLG_HSCALE
+END
+
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL) ///
+	label(resource SVY_TABULATE_TWOWAY_DLG_TITLE)
+BEGIN
+  TEXT     tx_var1     _lft        _top      _cwd3_1     .,		///
+		label(resource LBL_ROW_VARIABLE)
+  VARNAME  vn_var1     _lft        _ss       _vnwd       .,		///
+		label(resource LBL_ROW_VARIABLE)
+
+  TEXT     tx_var2     _vlx        _top      _cwd3_1     .,		///
+		label(resource LBL_COLUMN_VARIABLE)
+  VARNAME  vn_var2     @           _ss       _vnwd       .,		///
+		label(resource LBL_COLUMN_VARIABLE)
+
+  CHECKBOX ck_stdize _lft          _xls      _iwd        _ht4,		///
+		groupbox						///
+		clickon(script stdize_on)				///
+		clickoff(script stdize_off)				///
+		label(resource LBL_DIRECT_STANDARDIZATION)
+  TEXT     tx_stdize _ilft     _ss       150       .,			///
+		label(resource LBL_STANDARD_STRATA_VARIABLE)
+  TEXT     tx_stdwgt +165      @         @         .,			///
+		label(resource LBL_STANDARD_WEIGHT_VARIABLE)
+  VARNAME  vn_stdize _ilft     _ss       @         .,			///
+		label(resource LBL_STANDARD_STRATA_VARIABLE)		///
+		option(stdize)
+  VARNAME  vn_stdwgt +165      @         @         .,			///
+		label(resource LBL_STANDARD_WEIGHT_VARIABLE)		///
+		numeric							///
+		option(stdweight)
+
+  GROUPBOX gb_opts     _lft        _xls      _iwd        _ht7h,		///
+  		label(resource LBL_OPTIONS)
+  TEXT     tx_tab      _ilft       _ss       _cwd1       .,		///
+		label(resource LBL_USE_CELL_TOTALS_PROPORTIONS_OF)
+
+  VARNAME  vn_tab      @           _ss       _vnwd       .,		///
+		label(resource LBL_TOTALS_PROPORTIONS_VARIABLE)		///
+		numeric							///
+		option(tab)
+
+  CHECKBOX ck_miss     @           _ls       _ibwd       .,		///
+		label(resource LBL_TREAT_MISSING_VALUES_LIKE_OTHER_VALUES)	///
+		option(missing)
+
+  DEFINE _x _xsetbu
+  DEFINE _y 290
+  INCLUDE _bu_svyset
+
+END
+
+SCRIPT stdize_on
+BEGIN
+	main.tx_stdize.enable
+	main.tx_stdwgt.enable
+	main.vn_stdize.enable
+	main.vn_stdwgt.enable
+	items.ck_deff.disable
+	items.ck_deft.disable
+	items.ck_srssub.disable
+END
+
+SCRIPT stdize_off
+BEGIN
+	main.tx_stdize.disable
+	main.tx_stdwgt.disable
+	main.vn_stdize.disable
+	main.vn_stdwgt.disable
+	items.ck_deff.enable
+	items.ck_deft.enable
+	items.ck_srssub.enable
+END
+
+PROGRAM stdize_output
+BEGIN
+	if main.ck_stdize {
+		require main.vn_stdize
+		require main.vn_stdwgt
+		optionarg main.vn_stdize
+		optionarg main.vn_stdwgt
+	}
+END
+
+INCLUDE sub_by_ifin_over_subpop
+INCLUDE svy_se
+
+SCRIPT POSTINIT
+BEGIN
+	script sub_set_svy_on
+END
+
+DIALOG items, label("") tabtitle(resource LBL_TABLE_ITEMS)
+BEGIN
+  CHECKBOX ck_cell     _lft        _top      _iwd        .,		///
+		label(resource LBL_CELL_PROPORTIONS)			///
+		option(cell)
+
+  CHECKBOX ck_count    @           _ms       @           .,		///
+		label(resource LBL_WEIGHTED_CELL_COUNTS)		///
+		option(count)
+
+  CHECKBOX ck_col      @           _ms       @           .,		///
+		label(resource LBL_WITHIN_COLUMN_PROPORTIONS)		///
+		option(column)
+
+  CHECKBOX ck_row      @           _ms       @           .,		///
+		label(resource LBL_WITHIN_ROW_PROPORTIONS)		///
+		option(row)
+
+  CHECKBOX ck_se       @           _ms       @           .,		///
+		label(resource LBL_STANDARD_ERRORS)			///
+		option(se)
+
+  CHECKBOX ck_ci       @           _ms       @           .,		///
+		label(resource LBL_CONFIDENCE_INTERVALS)		///
+		option(ci)
+
+  CHECKBOX ck_deff     @           _ms       @           .,		///
+		label(resource LBL_DISPLAY_THE_DEFF_DESIGN_EFFECTS)	///
+		option(deff)
+
+  CHECKBOX ck_deft     @           _ms       @           .,		///
+		label(resource LBL_DISPLAY_THE_DEFT_DESIGN_EFFECTS)	///
+		option(deft)
+
+  CHECKBOX ck_cv     @           _ms       @           .,		///
+		label(resource LBL_DISPLAY_THE_COEFFICIENT_OF_VARIATION) ///
+		option(cv)
+
+  CHECKBOX ck_srssub   @           _ms       @           .,		///
+label(resource LBL_RPT_DESIGN_EFFECTS_ASSUMING_STS_WITHING_SUBPOP)	///
+		option(srssubpop)
+
+  CHECKBOX ck_obs      @           _ms       @           .,		///
+		label(resource LBL_CELL_OBSERVATIONS)			///
+		option(obs)
+
+END
+
+DIALOG rpt, label("") tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  CHECKBOX ck_percent  _lft        _ls       _ibwd       .,		///
+label(resource LBL_DISPLAY_PERCENTAGES_INSTEAD_OF_PROPORTIONS)		///
+		option(percent)
+
+  CHECKBOX ck_vert     @           _ms       @           .,		///
+label(resource LBL_STACK_CONFIDENCE_INTERVAL_ENDPOINTS_VERTICALLY)	///
+		option(vertical)
+
+
+  CHECKBOX ck_nomarg   _lft        _ms       @           .,		///
+		label(resource LBL_SUPPRESS_ROW_AND_COLUMN_MARGINALS)	///
+		option(nomarginals)
+
+  CHECKBOX ck_nolab    _lft        _ms       @           .,		///
+		label(resource LBL_SUPPRESS_DISPLAYING_VALUE_LABELS)	///
+		option(nolabel)
+
+  CHECKBOX ck_cellw    _lft        _ms       _ckwd       .,		///
+		onclickon(gaction rpt.sp_cellw.enable)			///
+		onclickoff(gaction rpt.sp_cellw.disable)
+  SPINNER  sp_cellw    _cksep      @         _spwd       .,		///
+		label(resource LBL_CELL_WIDTH)				///
+		min(4)							///
+		max(20)							///
+		default(4)						///
+		option(cellwidth)
+  TEXT     tx_cellw    _spsep      @         _ckspr      .,		///
+		label(resource LBL_CELL_WIDTH)
+
+  CHECKBOX ck_csepw    _lft        _ms       _ckwd       .,		///
+		onclickon(gaction rpt.sp_csepw.enable)			///
+		onclickoff(gaction rpt.sp_csepw.disable)
+  SPINNER  sp_csepw    _cksep      @         _spwd       .,		///
+		label(resource LBL_COLUMN_SEPARATION_WIDTH)		///
+		min(1)							///
+		max(10)							///
+		default(1)						///
+		option(csepwidth)
+  TEXT     tx_csepw    _spsep      @         _ckspr      .,		///
+		label(resource LBL_COLUMN_SEPARATION_WIDTH)
+
+  CHECKBOX ck_stubw    _lft        _ms       _ckwd       .,		///
+		onclickon(gaction rpt.sp_stubw.enable)			///
+		onclickoff(gaction rpt.sp_stubw.disable)
+  SPINNER  sp_stubw    _cksep      @         _spwd       .,		///
+		label(resource LBL_STUB_WIDTH)				///
+		min(4)							///
+		max(40)							///
+		default(4)						///
+		option(stubwidth)
+  TEXT     tx_stubw    _spsep      @         _ckspr      .,		///
+		label(resource LBL_STUB_WIDTH)
+
+  CHECKBOX ck_format   _lft        _ms       _iwd        ., 		///
+  		onclickon(script format_on)				///
+  		onclickoff(script format_off)				///
+  		label(resource LBL_OVERRIDE_DISPLAY_FORMAT)
+  EDIT     ed_format   +20         _ss       200         .,		///
+		option(format) 						///
+		label(resource LBL_DISPLAY_FORMAT_NO_COLON)
+  BUTTON   bn_format   +205        @         80          .,		///
+	label(resource LBL_BU_CREATE) onpush(script rpt_GetFormat)	///
+	tooltip(resource LBL_CREATE_DISPLAY_FORMAT)
+END
+
+SCRIPT rpt_GetFormat
+BEGIN
+	create STRING rptFormat
+	create CHILD format_chooser
+	format_chooser.setExitString rptFormat
+	format_chooser.setExitAction "rpt.ed_format.setvalue class rptFormat.value"
+END
+
+SCRIPT format_off
+BEGIN
+	rpt.ed_format.disable
+	rpt.bn_format.disable
+END
+
+SCRIPT format_on
+BEGIN
+	rpt.ed_format.enable
+	rpt.bn_format.enable
+END
+
+DIALOG rpt2, tabtitle(resource LBL_TEST_STATISTICS)
+BEGIN
+  CHECKBOX ck_pear     _lft        _top      _iwd        .,		///
+		label(resource LBL_PEARSONS_CHI_SQUARED)		///
+		option(pearson)
+
+  CHECKBOX ck_lr       @           _ms       @           .,		///
+		label(resource LBL_LIKELIHOOD_RATIO)			///
+		option(lr)
+
+  CHECKBOX ck_null     @           _ms       @           .,		///
+		label(resource SVY_TABULATE_TWOWAY_RPT2_CK_NULL)	///
+		option(null)
+
+  CHECKBOX ck_wald     @           _ms       @           .,		///
+		label(resource SVY_TABULATE_TWOWAY_RPT2_CK_WALD)					///
+		onclickon(gaction rpt2.ck_noadj.enable)			///
+		onclickoff(program wald_off)				///
+		option(wald)
+
+  CHECKBOX ck_llwald   @           _ms       @           .,		///
+		label(resource SVY_TABULATE_TWOWAY_RPT2_CK_LLWALD)	///
+		onclickon(gaction rpt2.ck_noadj.enable)			///
+		onclickoff(program wald_off)				///
+		option(llwald)
+
+  CHECKBOX ck_noadj    @           _ms       @           .,		///
+		label(resource SVY_TABULATE_TWOWAY_RPT2_CK_NOADJ)	///
+		option(noadjust)
+
+END
+
+PROGRAM wald_off
+BEGIN
+	if ! rpt2.ck_wald & ! rpt2.ck_llwald {
+		call gaction rpt2.ck_noadj.disable
+	}
+END
+
+PROGRAM items_output
+BEGIN
+	if items.ck_se | items.ck_ci | items.ck_deff ///
+	 | items.ck_deft | items.ck_cv | items.ck_srssub {
+	if (items.ck_cell ///
+	 & (items.ck_count | items.ck_col | items.ck_row) ///
+	 | (items.ck_count & (items.ck_col | items.ck_row)) ///
+	 | (items.ck_col & items.ck_row)) {
+
+		call create STRING _MSG_TMP
+                call _MSG_TMP.format					///
+			"resource LBL_MSGBOX_ONLY_ONE_OF_FOUR_CHOSEN_WITH_FIVE_FMT" ///
+			"resource LBL_CELL_PROPORTIONS" 		///
+			"resource LBL_WEIGHTED_CELL_COUNTS" 		///
+			"resource LBL_WITHIN_COLUMN_PROPORTIONS" 	///
+			"resource LBL_WITHIN_ROW_PROPORTIONS" 		///
+			"resource LBL_STANDARD_ERRORS" 			///
+			"resource LBL_CONFIDENCE_INTERVALS" 		///
+			"resource LBL_DEFF" 				///
+			"resource LBL_DEFT" 				///
+			"resource LBL_COEFFICIENT_OF_VARIATION" 
+		stopbox stop "class _MSG_TMP.value"
+// Only one of "Cell proportions", "Weighted cell counts",
+// "Within-column proportions", and "Within-row proportions" may be chosen with
+// "Standard errors", "Confidence intervals", "DEFF", 
+// "DEFT", or "Coefficient of variation".
+	}
+	}
+	option items.ck_cell
+	option items.ck_count
+	option items.ck_col
+	option items.ck_row
+	option items.ck_se
+	option items.ck_ci
+	option items.ck_deff
+	option items.ck_deft
+	option items.ck_cv
+	if items.ck_srssub & !(sub.vn_subpop | sub.ex_subif) {
+		call create STRING _MSG_TMP
+                call _MSG_TMP.format 					///
+			"resource LBL_MSGBOX_REQUIRES_A_SUBPOP_IN_TAB_FMT" ///
+			"resource LBL_TABLE_ITEMS" 			///
+			"resource LBL_RPT_DESIGN_EFFECTS_ASSUMING_STS_WITHING_SUBPOP" ///
+			"resource SUB_BY_IFIN_OVER_SUBPOP_TABTITLE_IF_IN"
+		stopbox stop "class _MSG_TMP.value"
+// On the "Table items" tab,
+// "Report design effects assuming SRS within subpopulation"
+// requires that a subpopulation be specified in the "if/in" tab.
+	}
+	option items.ck_srssub
+	option items.ck_obs
+END
+
+PROGRAM rpt_output
+BEGIN
+	optionarg /hidedefault rpt.sp_level
+	option rpt.ck_percent
+	option rpt.ck_vert
+	option rpt.ck_nomarg
+	option rpt.ck_nolab
+	optionarg rpt.ed_format
+	optionarg rpt.sp_cellw
+	optionarg rpt.sp_csepw
+	optionarg rpt.sp_stubw
+
+END
+
+PROGRAM rpt2_output
+BEGIN
+	option rpt2.ck_pear
+	option rpt2.ck_lr
+	option rpt2.ck_null
+	option rpt2.ck_wald
+	option rpt2.ck_llwald
+	option rpt2.ck_noadj
+END
+
+PROGRAM command
+BEGIN
+	put /program svy_prefix_output
+	put " : tabulate "
+	varlist main.vn_var1 main.vn_var2
+	put " " /program ifin_output
+	beginoptions
+		put " " /program stdize_output
+		optionarg main.vn_tab
+		option main.ck_miss
+		put " " /program items_output
+		put " " /program rpt_output
+		put " " /program rpt2_output
+	endoptions
+END

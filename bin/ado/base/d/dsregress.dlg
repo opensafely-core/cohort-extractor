@@ -1,0 +1,835 @@
+/*
+	dsregress.dlg
+
+*!  VERSION 1.0.5  06jun2019
+
+*/
+
+VERSION 16.0
+
+INCLUDE _std_xlarge
+DEFINE _dlght 460
+INCLUDE header
+
+HELP hlp1, view("help dsregress")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource DSREGRESS_DLG_HSCALE
+	script se_createAsOLS
+	script se_setJknifeBstrap_off
+	script se_setCluster_off
+	script se_setBias_on
+	script se_setDefaultRobust
+END
+
+SCRIPT POSTINIT
+BEGIN
+	settitle  resource "DSREGRESS_DLG_TITLE"
+	program se_setFinalInitState
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)
+BEGIN
+  TEXT tx_depvar		_lft	_top	_vnwd	.,		///
+	label(resource LBL_DEPVAR)
+  VARNAME vn_depvar		@	_ss	@	.,		///
+	numeric								///
+	label(resource LBL_DEPVAR)
+
+  TEXT tx_varsofinterest	_vlx	_top	_vlwd	.,		///
+	label(resource LBL_VARIABLES_OF_INTEREST)
+  VARLIST vl_varsofinterest	@	_ss	@ 	.,		///
+	fv								///
+	numeric								///
+	label(resource LBL_VARIABLES_OF_INTEREST)
+
+  GROUPBOX gb_controls		_lft	_ls	_iwd	_ht9,		///
+	label(resource LBL_CONTROL_VARIABLES)
+  TEXT tx_alwaysvars		_ilft	_ss	_ibwd	.,		///
+	label(resource LBL_VARIABLES_ALWAYS_INCLUDED_OPTIONAL)
+  VARLIST vl_alwaysvars		@	_ss	@ 	.,		///
+	fv								///
+	numeric								///
+	label(resource LBL_VARIABLES_ALWAYS_INCLUDED_OPTIONAL)
+  TEXT tx_othervars		@	_ls	@	.,		///
+	label(resource LBL_VARIABLES_TO_INCLUDE_OR_EXCLUDE)
+  VARLIST vl_othervars		@	_ss	@ 	.,		///
+	fv nobase							///
+	numeric								///
+	label(resource LBL_VARIABLES_TO_INCLUDE_OR_EXCLUDE)
+
+  GROUPBOX gb_opts		_lft	+45	_iwd	_ht14h,		///
+	label(resource LBL_OPTIONS)
+  GROUPBOX gb_selection		_ilft	_ss	_inwd	_ht5h,		///
+	label(resource LBL_SELECTION_METHOD_FOR_LAMBDA)
+  RADIO rb_selection_plugin	_iilft	_ss	375	., first	///
+	onclickon("program main_selection_change")			///
+	label(resource LBL_PLUGIN_FORMULA)
+  RADIO rb_selection_cv		@	_ss	@	., 		///
+	onclickon("program main_selection_change")			///
+	option("selection(cv)")						///
+	label(resource LBL_CROSS_VALIDATION)
+  RADIO rb_selection_adaptive	@	_ss	@	., last		///
+	onclickon("program main_selection_change")			///
+	option("selection(adaptive)")					///
+	label(resource LBL_ADAPTIVE_LASSO)
+  CHECKBOX ck_sqrtlasso		_ilft	+45	_ibwd	.,		///
+	option("sqrtlasso")						///
+	label(resource LBL_USE_SQRT_LASSOS)
+  CHECKBOX ck_missingok		@	_ms	@	.,		///
+	option("missingok")						///
+	label(resource LBL_AFTER_FITTING_LASSO_IGNORE_MISSING_VALUES)
+END
+
+PROGRAM main_selection_change
+BEGIN
+	if main.rb_selection_cv | main.rb_selection_adaptive {
+		call opt.ed_rseed.enable
+		call opt.tx_rseed.enable
+		if main.rb_selection_adaptive {
+			call main.ck_sqrtlasso.disable
+		}
+		else {
+			call main.ck_sqrtlasso.enable
+		}
+	}
+	else {
+		call opt.ed_rseed.disable
+		call opt.tx_rseed.disable
+	}
+	if main.rb_selection_plugin_het | main.rb_selection_plugin_hom {
+		call opt.ck_grid.disable
+		call script opt_grid_off
+	}
+	else {
+		call opt.ck_grid.enable
+		if opt.ck_grid {
+			call program opt_grid_on
+		}
+	}
+END
+
+INCLUDE ifin
+INCLUDE se
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+	program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2b
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+
+PROGRAM rpt_output
+BEGIN
+	optionarg /hidedefault rpt.sp_level
+	INCLUDE _report_columns_pr
+	put " " rpt_bu_facvarsResults
+	put " " rpt_bu_fmtcoefResults
+END
+
+SCRIPT opt_PREINIT
+BEGIN
+	create STRING bu_opt_mat_inputResult
+END
+
+DIALOG opt, tabtitle(resource LBL_TAB_OPTIMIZATION)
+BEGIN
+  GROUPBOX gb_log		_lft	_top	_cwd1	_ht5h,		///
+	label(resource LBL_ITERATION_LOG)
+  RADIO rb_log			_indent	_ss	_inwd	., first	///
+	option(log)							///
+	label(resource LBL_SHOW_LOG)
+  RADIO rb_verbose		@	_ss	@	.,		///
+	option(verbose)							///
+	label(resource LBL_DISPLAY_A_VERBOSE_ITERATION_LOG)
+  RADIO rb_nolog		@	_ss	@	., last		///
+	option(nolog)							///
+	label(resource LBL_SUPPRESS_LOG)
+  EDIT ed_rseed			_lft	_xls	_spwd	.,		///
+	numonly								///
+	option(rseed)							///
+	label(resource LBL_RANDOM_NUMBER_SEED_NO_COLON)
+  TEXT tx_rseed			_spsep	@	150	.,		///
+	label(resource LBL_RANDOM_NUMBER_SEED_NO_COLON)
+END
+
+PROGRAM opt_output
+BEGIN
+	option opt.rb_verbose
+	option opt.rb_nolog
+	optionarg opt.ed_rseed
+END
+
+SCRIPT adv_PREINIT
+BEGIN
+	create STRING STMP
+	create STRING definedVarsOfInterenst
+	definedVarsOfInterenst.setvalue ""
+
+	create STRING adv_lspec_tmp
+	create STRING adv_lspec_tmp2
+	create STRING adv_lspec_childdlg
+	create STRING adv_lspec_dlgname
+	create STRING adv_lspec_child_result
+	create STRING adv_lspec_cmd_output
+
+	create ARRAY adv_lspec_list
+
+	create SVECTOR advLSPECCommandDisplayList
+	create SVECTOR advLSPECCommandList
+	create SVECTOR advLSPECCommandValues
+	create SVECTOR advLSPECStatusList
+	create SVECTOR advLSPECChildDialogList
+
+	create DOUBLE adv_lspec_count
+	create DOUBLE adv_lspec_position
+	create DOUBLE adv_lspec_arraysize
+
+	adv.bu_lspec_edit.disable
+	adv.bu_lspec_disable.disable
+	adv.bu_lspec_enable.disable
+
+	create STRING adv_sspec_tmp
+	create STRING adv_sspec_tmp2
+	create STRING adv_sspec_childdlg
+	create STRING adv_sspec_dlgname
+	create STRING adv_sspec_child_result
+	create STRING adv_sspec_cmd_output
+
+	create ARRAY adv_sspec_list
+
+	create SVECTOR advSSPECCommandDisplayList
+	create SVECTOR advSSPECCommandList
+	create SVECTOR advSSPECCommandValues
+	create SVECTOR advSSPECStatusList
+	create SVECTOR advSSPECChildDialogList
+
+	create DOUBLE adv_sspec_count
+	create DOUBLE adv_sspec_position
+	create DOUBLE adv_sspec_arraysize
+
+	adv.bu_sspec_edit.disable
+	adv.bu_sspec_disable.disable
+	adv.bu_sspec_enable.disable
+END
+
+SCRIPT adv_POSTINIT
+BEGIN
+	advLSPECCommandDisplayList.copyToArray adv_lspec_list
+	adv.lb_lspecBuild.repopulate
+
+	advSSPECCommandDisplayList.copyToArray adv_sspec_list
+	adv.lb_sspecBuild.repopulate
+END
+
+DIALOG adv, tabtitle(resource LBL_ADVANCED)
+BEGIN
+  TEXT tx_lspec			_lft	_top	220	.,		///
+	label(resource LBL_LASSO_SPECIFICATION)
+
+  LISTBOX lb_lspecBuild		@	_ss	@	160,		///
+	contents(adv_lspec_list)					///
+	ondblclick(program adv_lspec_edit)				///
+	onselchange(program adv_lspec_sel_changed)			///
+	nomemory
+  BUTTON bu_lspec_create	240	@	80	.,		///
+	onpush(program adv_lspec_create)				///
+	tooltip(resource LBL_EDIT_SPECIFICATION)			///
+	label(resource LBL_BU_CREATE)
+  BUTTON bu_lspec_edit		@	_ms	@	.,		///
+	onpush(program adv_lspec_edit)					///
+	tooltip(resource LBL_EDIT_SPECIFICATION)			///
+	label(resource LBL_BU_EDIT)
+  BUTTON bu_lspec_disable	@	_ms	@	.,		///
+	onpush(program adv_lspec_disable)				///
+	tooltip(resource LBL_CLICK_TO_DISABLE_A_SPECIFICATION)		///
+	label(resource LBL_BU_DISABLE)
+  BUTTON bu_lspec_enable	@	_ms	@	.,		///
+	onpush(program adv_lspec_enable)				///
+	tooltip(resource LBL_CLICK_TO_ENABLE_PREV_DISABLED_SPEC)	///
+	label(resource LBL_BU_ENABLE)
+  TEXTBOX tb_lspec_note		_lft	+90	_iwd	_tb2,		///
+	label(resource LBL_PRESS_CREATE_DEFINE_SPECIFICATION)
+
+  TEXT tx_sspec			_lft	_xls	220	.,		///
+	label(resource LBL_SQUARE_ROOT_LASSO_SPECIFICATION)
+
+  LISTBOX lb_sspecBuild		@	_ss	@	160,		///
+	contents(adv_sspec_list)					///
+	ondblclick(program adv_sspec_edit)				///
+	onselchange(program adv_sspec_sel_changed)			///
+	nomemory
+  BUTTON bu_sspec_create	240	@	80	.,		///
+	onpush(program adv_sspec_create)				///
+	tooltip(resource LBL_EDIT_SPECIFICATION)			///
+	label(resource LBL_BU_CREATE)
+  BUTTON bu_sspec_edit		@	_ms	@	.,		///
+	onpush(program adv_sspec_edit)					///
+	tooltip(resource LBL_EDIT_SPECIFICATION)			///
+	label(resource LBL_BU_EDIT)
+  BUTTON bu_sspec_disable	@	_ms	@	.,		///
+	onpush(program adv_sspec_disable)				///
+	tooltip(resource LBL_CLICK_TO_DISABLE_A_SPECIFICATION)		///
+	label(resource LBL_BU_DISABLE)
+  BUTTON bu_sspec_enable	@	_ms	@	.,		///
+	onpush(program adv_sspec_enable)				///
+	tooltip(resource LBL_CLICK_TO_ENABLE_PREV_DISABLED_SPEC)	///
+	label(resource LBL_BU_ENABLE)
+  TEXTBOX tb_sspec_note		_lft	+90	_iwd	_tb2,		///
+	label(resource LBL_PRESS_CREATE_DEFINE_SPECIFICATION)
+END
+
+// Lasso
+PROGRAM adv_lspec_create
+BEGIN
+	require main.vn_depvar
+	require main.vl_varsofinterest
+
+	put "lasso_opts_wrk_dlg, depvar("
+	put main.vn_depvar
+	put ")"
+	put " voi("
+	put main.vl_varsofinterest
+	put ") "
+
+	put `" defined(""'
+	put definedVarsOfInterenst " "
+	put `"") "'
+
+	stata hidden immediate
+
+	call adv_lspec_count.setvalue class advLSPECChildDialogList.size
+	call adv_lspec_count.increment
+	call adv_lspec_tmp.setvalue "adv_lspec_"
+	call adv_lspec_tmp.append class adv_lspec_count.value
+	call adv_lspec_tmp.withvalue adv_lspec_childdlg.setvalue @
+	call program adv_show_lspec_child
+END
+
+PROGRAM adv_lspec_edit
+BEGIN
+	call advLSPECCommandDisplayList.findstr class			///
+		adv.lb_lspecBuild.value
+	call adv_lspec_position.setvalue class				///
+		advLSPECCommandDisplayList.position
+	call adv_lspec_position.withvalue				///
+		adv_lspec_childdlg.setvalue				///
+		class advLSPECChildDialogList.values[@]
+	call program adv_show_lspec_child_edit
+END
+
+PROGRAM adv_show_lspec_child
+BEGIN
+	call adv_lspec_tmp.setvalue "lasso_opts_child AS "
+	call adv_lspec_tmp.append class adv_lspec_childdlg.value
+	call adv_lspec_tmp.withvalue create CHILD @
+	call adv_lspec_childdlg.withvalue @.setExitString		///
+		"adv_lspec_child_result"
+	call adv_lspec_childdlg.withvalue @.setExitAction		///
+		"program adv_lspec_child_create_done"
+
+
+	call adv_lspec_count.withvalue STMP.format			///
+		"resource LBL_SPECIFICATION_FMT" "@" ""
+	call STMP.withvalue adv_lspec_tmp.setvalue "@"
+	call adv_lspec_childdlg.withvalue				///
+		adv_lspec_tmp2.setvalue "@.settitle"
+	call adv_lspec_tmp2.append `" ""'
+	call adv_lspec_tmp2.append class adv_lspec_tmp.value
+	call adv_lspec_tmp2.append `"""'
+	call adv_lspec_tmp2.withvalue @
+END
+
+PROGRAM adv_show_lspec_child_edit
+BEGIN
+	call adv_lspec_tmp.setvalue "lasso_opts_child AS "
+	call adv_lspec_tmp.append class adv_lspec_childdlg.value
+	call adv_lspec_tmp.withvalue create CHILD @
+	call adv_lspec_childdlg.withvalue @.setExitString		///
+		"adv_lspec_child_result"
+	call adv_lspec_childdlg.withvalue @.setExitAction		///
+		"program adv_lspec_child_edit_done"
+
+	call adv_lspec_position.withvalue				///
+		adv_lspec_tmp.setvalue					///
+		class advLSPECCommandDisplayList.values[@]
+	call adv_lspec_childdlg.withvalue				///
+		adv_lspec_tmp2.setvalue "@.settitle"
+	call adv_lspec_tmp2.append `" ""'
+	call adv_lspec_tmp2.append class adv_lspec_tmp.value
+	call adv_lspec_tmp2.append `"""'
+	call adv_lspec_tmp2.withvalue @
+END
+
+PROGRAM adv_lspec_child_create_done
+BEGIN
+	call adv_lspec_arraysize.setvalue class				///
+		advLSPECChildDialogList.size
+	call adv_lspec_arraysize.increment
+
+	/* Store child dialog name */
+	call advLSPECChildDialogList.store class			///
+		adv_lspec_arraysize.value class adv_lspec_childdlg.value
+
+	/* Store listbox display specification string */
+	call adv_lspec_arraysize.withvalue STMP.format			///
+		"resource LBL_SPECIFICATION_FMT" "@" ""
+
+	call STMP.withvalue						///
+		advLSPECCommandDisplayList.store class			///
+		adv_lspec_arraysize.value "@"
+
+	/* Store child dialog result string */
+	call advLSPECCommandList.store class				///
+		adv_lspec_arraysize.value				///
+		class adv_lspec_child_result.value
+
+	/* Store child dialog result string for final command
+	   For disable/enable */
+	call advLSPECCommandValues.store class				///
+		adv_lspec_arraysize.value				///
+		class adv_lspec_child_result.value
+
+	/* Store disable/enable status */
+	call advLSPECStatusList.store class				///
+		adv_lspec_arraysize.value "active"
+
+	call advLSPECCommandDisplayList.copyToArray adv_lspec_list
+	call adv.lb_lspecBuild.repopulate
+	call STMP.withvalue adv.lb_lspecBuild.setvalue "@"
+END
+
+PROGRAM adv_lspec_child_edit_done
+BEGIN
+	call advLSPECChildDialogList.findstr class			///
+		adv_lspec_childdlg.value
+	call adv_lspec_position.setvalue class				///
+		advLSPECChildDialogList.position
+	call adv_lspec_position.withvalue adv_lspec_tmp.setvalue	///
+		class advLSPECStatusList.values[@]
+	if adv_lspec_tmp.iseq("active") {
+		call adv_lspec_position.withvalue STMP.format		///
+			"resource LBL_SPECIFICATION_FMT" "@" ""
+		call STMP.withvalue					///
+			advLSPECCommandDisplayList.store class		///
+			adv_lspec_position.value "@"
+		call advLSPECCommandValues.store class			///
+			adv_lspec_position.value class			///
+			adv_lspec_child_result.value
+		call STMP.withvalue adv_lspec_tmp2.setvalue "@"
+	}
+	else {
+		call adv_lspec_position.withvalue STMP.format		///
+			"resource LBL_SPECIFICATION_FMT" "@"		///
+			"resource LBL_PAREN_DISABLED"
+		call STMP.withvalue					///
+			adv_lspec_tmp2.setvalue "@"
+
+		call STMP.withvalue					///
+			advLSPECCommandDisplayList.store		///
+			class adv_lspec_position.value "@"
+	}
+
+	call advLSPECCommandList.store class				///
+		adv_lspec_position.value class				///
+		adv_lspec_child_result.value
+
+	call advLSPECCommandDisplayList.copyToArray adv_lspec_list
+	call adv.lb_lspecBuild.repopulate
+	call adv.lb_lspecBuild.setvalue class adv_lspec_tmp2.value
+END
+
+PROGRAM adv_lspec_sel_changed
+BEGIN
+	call advLSPECCommandDisplayList.findstr class			///
+		adv.lb_lspecBuild.value
+	call adv_lspec_position.setvalue class				///
+		advLSPECCommandDisplayList.position
+	call adv_lspec_position.withvalue adv_lspec_tmp.setvalue	///
+		class advLSPECStatusList.values[@]
+	if adv_lspec_position {
+		call adv.bu_lspec_edit.enable
+		call adv_lspec_position.withvalue			///
+			adv.tb_lspec_note.setlabel			///
+			class advLSPECCommandList.values[@]
+	}
+
+	if adv_lspec_tmp.iseq("disable") {
+		call adv.bu_lspec_enable.enable
+		call adv.bu_lspec_disable.disable
+	}
+	if adv_lspec_tmp.iseq("active") {
+		call adv.bu_lspec_enable.disable
+		call adv.bu_lspec_disable.enable
+	}
+END
+
+PROGRAM adv_lspec_disable
+BEGIN
+	call advLSPECCommandDisplayList.findstr class			///
+		adv.lb_lspecBuild.value
+	call adv_lspec_position.setvalue class				///
+		advLSPECCommandDisplayList.position
+
+	call adv_lspec_tmp.setvalue class adv.lb_lspecBuild.value
+	call advLSPECStatusList.store class				///
+		adv_lspec_position.value "disable"
+	call advLSPECCommandValues.store class adv_lspec_position.value ""
+	call STMP.format "resource LBL_PAREN_DISABLED"
+	call adv_lspec_tmp.append " "
+	call adv_lspec_tmp.append class STMP.value
+	call adv_lspec_tmp.withvalue STMP.setvalue "@"
+
+	call adv_lspec_tmp.withvalue					///
+		advLSPECCommandDisplayList.store			///
+		class adv_lspec_position.value "@"
+
+	call advLSPECCommandDisplayList.copyToArray adv_lspec_list
+	call adv.lb_lspecBuild.repopulate
+	call adv.lb_lspecBuild.setvalue class STMP.value
+END
+
+PROGRAM adv_lspec_enable
+BEGIN
+	call advLSPECCommandDisplayList.findstr class			///
+		adv.lb_lspecBuild.value
+	call adv_lspec_position.setvalue class				///
+		advLSPECCommandDisplayList.position
+
+	call advLSPECStatusList.store class				///
+		adv_lspec_position.value "active"
+	call adv_lspec_position.withvalue				///
+		advLSPECCommandValues.store				///
+		class adv_lspec_position.value class			///
+		advLSPECCommandList.values[@]
+
+	call adv_lspec_position.withvalue STMP.format			///
+		"resource LBL_SPECIFICATION_FMT" "@" ""
+	call STMP.withvalue						///
+		advLSPECCommandDisplayList.store			///
+		class adv_lspec_position.value "@"
+
+	call advLSPECCommandDisplayList.copyToArray adv_lspec_list
+	call adv_lspec_position.withvalue				///
+		adv_lspec_tmp2.setvalue class				///
+		advLSPECCommandDisplayList.values[@]
+	call adv.lb_lspecBuild.repopulate
+	call adv.lb_lspecBuild.setvalue class adv_lspec_tmp2.value
+END
+
+//Squareroot Lasso
+PROGRAM adv_sspec_create
+BEGIN
+	require main.vn_depvar
+	require main.vl_varsofinterest
+
+	put "lasso_opts_wrk_dlg, depvar("
+	put main.vn_depvar
+	put ")"
+	put " voi("
+	put main.vl_varsofinterest
+	put ") "
+
+	put `" defined(""'
+	put definedVarsOfInterenst " "
+	put `"") "'
+
+	call adv_sspec_count.setvalue class advSSPECChildDialogList.size
+	call adv_sspec_count.increment
+	call adv_sspec_tmp.setvalue "adv_sspec_"
+	call adv_sspec_tmp.append class adv_sspec_count.value
+	call adv_sspec_tmp.withvalue adv_sspec_childdlg.setvalue @
+	call program adv_show_sspec_child
+END
+
+PROGRAM adv_sspec_edit
+BEGIN
+	call advSSPECCommandDisplayList.findstr class			///
+		adv.lb_sspecBuild.value
+	call adv_sspec_position.setvalue class				///
+		advSSPECCommandDisplayList.position
+	call adv_sspec_position.withvalue				///
+		adv_sspec_childdlg.setvalue				///
+		class advSSPECChildDialogList.values[@]
+	call program adv_show_sspec_child_edit
+END
+
+PROGRAM adv_show_sspec_child
+BEGIN
+	call adv_sspec_tmp.setvalue "sqrtlasso_opts_child AS "
+	call adv_sspec_tmp.append class adv_sspec_childdlg.value
+	call adv_sspec_tmp.append ", message(dsregress)"
+	call adv_sspec_tmp.withvalue create CHILD @
+	call adv_sspec_childdlg.withvalue @.setExitString		///
+		"adv_sspec_child_result"
+	call adv_sspec_childdlg.withvalue @.setExitAction		///
+		"program adv_sspec_child_create_done"
+
+
+	call adv_sspec_count.withvalue STMP.format			///
+		"resource LBL_SPECIFICATION_FMT" "@" ""
+	call STMP.withvalue adv_sspec_tmp.setvalue "@"
+	call adv_sspec_childdlg.withvalue				///
+		adv_sspec_tmp2.setvalue "@.settitle"
+	call adv_sspec_tmp2.append `" ""'
+	call adv_sspec_tmp2.append class adv_sspec_tmp.value
+	call adv_sspec_tmp2.append `"""'
+	call adv_sspec_tmp2.withvalue @
+END
+
+PROGRAM adv_show_sspec_child_edit
+BEGIN
+	call adv_sspec_tmp.setvalue "sqrtlasso_opts_child AS "
+	call adv_sspec_tmp.append class adv_sspec_childdlg.value
+	call adv_sspec_tmp.append ", message(dsregress)"
+	call adv_sspec_tmp.withvalue create CHILD @
+	call adv_sspec_childdlg.withvalue @.setExitString		///
+		"adv_sspec_child_result"
+	call adv_sspec_childdlg.withvalue @.setExitAction		///
+		"program adv_sspec_child_edit_done"
+
+	call adv_sspec_position.withvalue				///
+		adv_sspec_tmp.setvalue					///
+		class advSSPECCommandDisplayList.values[@]
+	call adv_sspec_childdlg.withvalue				///
+		adv_sspec_tmp2.setvalue "@.settitle"
+	call adv_sspec_tmp2.append `" ""'
+	call adv_sspec_tmp2.append class adv_sspec_tmp.value
+	call adv_sspec_tmp2.append `"""'
+	call adv_sspec_tmp2.withvalue @
+END
+
+PROGRAM adv_sspec_child_create_done
+BEGIN
+	call adv_sspec_arraysize.setvalue class				///
+		advSSPECChildDialogList.size
+	call adv_sspec_arraysize.increment
+
+	/* Store child dialog name */
+	call advSSPECChildDialogList.store class			///
+		adv_sspec_arraysize.value class adv_sspec_childdlg.value
+
+	/* Store listbox display specification string */
+	call adv_sspec_arraysize.withvalue STMP.format			///
+		"resource LBL_SPECIFICATION_FMT" "@" ""
+
+	call STMP.withvalue						///
+		advSSPECCommandDisplayList.store class			///
+		adv_sspec_arraysize.value "@"
+
+	/* Store child dialog result string */
+	call advSSPECCommandList.store class				///
+		adv_sspec_arraysize.value				///
+		class adv_sspec_child_result.value
+
+	/* Store child dialog result string for final command
+	   For disable/enable */
+	call advSSPECCommandValues.store class				///
+		adv_sspec_arraysize.value				///
+		class adv_sspec_child_result.value
+
+	/* Store disable/enable status */
+	call advSSPECStatusList.store class				///
+		adv_sspec_arraysize.value "active"
+
+	call advSSPECCommandDisplayList.copyToArray adv_sspec_list
+	call adv.lb_sspecBuild.repopulate
+	call STMP.withvalue adv.lb_sspecBuild.setvalue "@"
+END
+
+PROGRAM adv_sspec_child_edit_done
+BEGIN
+	call advSSPECChildDialogList.findstr class			///
+		adv_sspec_childdlg.value
+	call adv_sspec_position.setvalue class				///
+		advSSPECChildDialogList.position
+	call adv_sspec_position.withvalue adv_sspec_tmp.setvalue	///
+		class advSSPECStatusList.values[@]
+	if adv_sspec_tmp.iseq("active") {
+		call adv_sspec_position.withvalue STMP.format		///
+			"resource LBL_SPECIFICATION_FMT" "@" ""
+		call STMP.withvalue					///
+			advSSPECCommandDisplayList.store class		///
+			adv_sspec_position.value "@"
+		call advSSPECCommandValues.store class			///
+			adv_sspec_position.value class			///
+			adv_sspec_child_result.value
+		call STMP.withvalue adv_sspec_tmp2.setvalue "@"
+	}
+	else {
+		call adv_sspec_position.withvalue STMP.format		///
+			"resource LBL_SPECIFICATION_FMT" "@"		///
+			"resource LBL_PAREN_DISABLED"
+		call STMP.withvalue					///
+			adv_sspec_tmp2.setvalue "@"
+
+		call STMP.withvalue					///
+			advSSPECCommandDisplayList.store		///
+			class adv_sspec_position.value "@"
+	}
+
+	call advSSPECCommandList.store class				///
+		adv_sspec_position.value class				///
+		adv_sspec_child_result.value
+
+	call advSSPECCommandDisplayList.copyToArray adv_sspec_list
+	call adv.lb_sspecBuild.repopulate
+	call adv.lb_sspecBuild.setvalue class adv_sspec_tmp2.value
+END
+
+PROGRAM adv_sspec_sel_changed
+BEGIN
+	call advSSPECCommandDisplayList.findstr class			///
+		adv.lb_sspecBuild.value
+	call adv_sspec_position.setvalue class				///
+		advSSPECCommandDisplayList.position
+	call adv_sspec_position.withvalue adv_sspec_tmp.setvalue	///
+		class advSSPECStatusList.values[@]
+	if adv_sspec_position {
+		call adv.bu_sspec_edit.enable
+		call adv_sspec_position.withvalue			///
+			adv.tb_sspec_note.setlabel			///
+			class advSSPECCommandList.values[@]
+	}
+
+	if adv_sspec_tmp.iseq("disable") {
+		call adv.bu_sspec_enable.enable
+		call adv.bu_sspec_disable.disable
+	}
+	if adv_sspec_tmp.iseq("active") {
+		call adv.bu_sspec_enable.disable
+		call adv.bu_sspec_disable.enable
+	}
+END
+
+PROGRAM adv_sspec_disable
+BEGIN
+	call advSSPECCommandDisplayList.findstr class			///
+		adv.lb_sspecBuild.value
+	call adv_sspec_position.setvalue class				///
+		advSSPECCommandDisplayList.position
+
+	call adv_sspec_tmp.setvalue class adv.lb_sspecBuild.value
+	call advSSPECStatusList.store class				///
+		adv_sspec_position.value "disable"
+	call advSSPECCommandValues.store class adv_sspec_position.value ""
+	call STMP.format "resource LBL_PAREN_DISABLED"
+	call adv_sspec_tmp.append " "
+	call adv_sspec_tmp.append class STMP.value
+	call adv_sspec_tmp.withvalue STMP.setvalue "@"
+
+	call adv_sspec_tmp.withvalue					///
+		advSSPECCommandDisplayList.store			///
+		class adv_sspec_position.value "@"
+
+	call advSSPECCommandDisplayList.copyToArray adv_sspec_list
+	call adv.lb_sspecBuild.repopulate
+	call adv.lb_sspecBuild.setvalue class STMP.value
+END
+
+PROGRAM adv_sspec_enable
+BEGIN
+	call advSSPECCommandDisplayList.findstr class			///
+		adv.lb_sspecBuild.value
+	call adv_sspec_position.setvalue class				///
+		advSSPECCommandDisplayList.position
+
+	call advSSPECStatusList.store class				///
+		adv_sspec_position.value "active"
+	call adv_sspec_position.withvalue				///
+		advSSPECCommandValues.store				///
+		class adv_sspec_position.value class			///
+		advSSPECCommandList.values[@]
+
+	call adv_sspec_position.withvalue STMP.format			///
+		"resource LBL_SPECIFICATION_FMT" "@" ""
+	call STMP.withvalue						///
+		advSSPECCommandDisplayList.store			///
+		class adv_sspec_position.value "@"
+
+	call advSSPECCommandDisplayList.copyToArray adv_sspec_list
+	call adv_sspec_position.withvalue				///
+		adv_sspec_tmp2.setvalue class				///
+		advSSPECCommandDisplayList.values[@]
+	call adv.lb_sspecBuild.repopulate
+	call adv.lb_sspecBuild.setvalue class adv_sspec_tmp2.value
+END
+
+PROGRAM adv_output
+BEGIN
+	call advLSPECCommandValues.copyToString adv_lspec_cmd_output
+
+	if adv_lspec_cmd_output.isneq("") {
+		put " " adv_lspec_cmd_output
+	}
+
+	call advSSPECCommandValues.copyToString adv_sspec_cmd_output
+
+	if adv_sspec_cmd_output.isneq("") {
+		put " " adv_sspec_cmd_output
+	}
+END
+
+PROGRAM command
+BEGIN
+	require main.vn_depvar
+	require main.vl_varsofinterest
+	require main.vl_othervars
+
+	put "dsregress "
+
+	put " " main.vn_depvar
+	put " " main.vl_varsofinterest
+	put " " /program ifin_output
+	beginoptions
+		put " controls("
+		if main.vl_alwaysvars {
+			put "(" main.vl_alwaysvars ")"
+		}
+		put " "  main.vl_othervars
+		put ")"
+
+		option radio (main rb_selection_cv rb_selection_adaptive)
+
+		option main.ck_sqrtlasso
+		option main.ck_missingok
+
+		put " " /program se_output
+		put " " /program rpt_output
+		put " " /program opt_output
+		put " " /program adv_output
+	endoptions
+END
+
+
+//END
+
+
+

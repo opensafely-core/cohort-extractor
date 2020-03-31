@@ -1,0 +1,206 @@
+/*
+    dotplot.dlg
+
+*!  VERSION 2.1.0  22sep2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_xlarge
+DEFINE _dlght 380
+INCLUDE header
+
+HELP hlp1, view("help dotplot")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource DOTPLOT_DLG_HSCALE
+END
+
+
+SCRIPT POSTINIT
+BEGIN
+	script gr_plots_setDefaultScatter
+END
+
+
+DIALOG main, label(resource DOTPLOT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  GROUPBOX gb_varchoice  _lft     _top    _iwd     _ht7,		///
+		label(resource DOTPLOT_MAIN_GB_VARCHOICE)
+  RADIO    rb_vn      _indent      _ss    200        .,    		///
+		first 							///
+		clickon(program vn_clickon)				///
+		label(resource DOTPLOT_MAIN_RB_VN)
+  RADIO    rb_vl      _lft2          @     @	     .,    		///
+		last							///
+		clickon("script vl_clickon")				///
+		label(resource DOTPLOT_MAIN_RB_VL)
+
+  TEXT     tx_var       _ilft      _ms    _vnwd        .,		///
+  		label(resource LBL_VARIABLE)
+  TEXT     tx_vars          @        @        @        .,		///
+  		label(resource LBL_VARIABLES)
+  VARNAME  vn_var           @      _ss        @        .,		///
+  		numeric							///
+		label(resource LBL_VARIABLE) error(resource DOTPLOT_MAIN_VN_VAR)
+  VARLIST  vl_var           @        @    _vlwd        .,		///
+  		numeric							///
+		label(resource LBL_VARIABLES) error(resource DOTPLOT_MAIN_GB_VARCHOICE)
+END
+
+DIALOG opts, tabtitle(resource LBL_OPTIONS) 
+BEGIN
+  CHECKBOX ck_byopt   _lft        _top    _iwd    _ht4h,		///
+		label(resource DOTPLOT_OPTS_CK_BYOPT)			///
+		clickon(script opts_byopt_on)				///
+		clickoff(script opts_byopt_off)				///
+		groupbox
+  DEFINE   holdy @y
+  TEXT     tx_byopt   _indent      _ss    _vnwd        .,		///
+  		label(resource LBL_VARIABLE)
+  VARNAME  vn_byopt         @      _ss    _vnwd        .,		///
+		option(over)						///
+		label(resource DOTPLOT_OPTS_VN_BYOPT)
+
+  SPINNER  sp_nx        _lft     _xxls   _spwd        .,   		///
+		option("nx")
+  TEXT     tx_nx       _spsep        @  _ckspr        .,   		///
+		label(resource DOTPLOT_OPTS_TX_NX)
+
+  SPINNER  sp_ny       _lft       _ls    _spwd        .,   		///
+		option("ny")	default(35)				///
+		label("")
+  TEXT     tx_ny       _spsep        @  _ckspr        .,   		///
+		label(resource DOTPLOT_OPTS_TX_NY)
+
+  SPINNER  sp_incr      _lft      _ls    _spwd        .,   		///
+		option("incr")						///
+		label("") default(1)
+  TEXT     tx_incr     _spsep        @  _ckspr         .,   		///
+		label(resource DOTPLOT_OPTS_TX_INCR)
+
+  CHECKBOX ck_pluses    _lft       +35    _iwd    _ht4,			///
+		label(resource DOTPLOT_OPTS_CK_PLUSES)				///
+		clickon("script pluses_on")				///
+		clickoff("script pluses_off")				///
+		groupbox
+  RADIO    rb_mean    _indent      _ss    _inwd        ., 		///
+		first							///
+		option("mean")						///
+		label(resource DOTPLOT_OPTS_RB_MEAN)
+  RADIO    rb_median        @      _ss        @        ., 		///
+		last							///
+		option("median")					///
+		label(resource DOTPLOT_OPTS_RB_MEDIAN)
+  CHECKBOX ck_bounded   _lft     _xls     _iwd        .,		///
+		option("bounded")					///
+		label(resource DOTPLOT_OPTS_CK_BOUNDED)
+  CHECKBOX ck_bar           @      _ms        @        .,		///
+		option("bar")						///
+		label(resource DOTPLOT_OPTS_CK_BAR)
+  CHECKBOX ck_nogroup       @      _ms        @        .,		///
+		option("nogroup")					///
+		label(resource DOTPLOT_OPTS_CK_NOGROUP)
+  CHECKBOX ck_center        @      _ms        @        .,		///
+		option("center")					///
+		label(resource DOTPLOT_OPTS_CK_CENTER)
+END
+
+SCRIPT pluses_on
+BEGIN
+  opts.rb_mean.enable
+  opts.rb_median.enable
+END
+
+SCRIPT pluses_off
+BEGIN
+  opts.rb_mean.disable
+  opts.rb_median.disable
+END
+
+PROGRAM vn_clickon
+BEGIN
+  call main.tx_var.show
+  call main.tx_vars.hide
+  call main.vl_var.hide
+  call main.vn_var.show
+  call opts.ck_bounded.enable
+  call opts.ck_byopt.enable
+  if opts.ck_byopt {
+  	call script opts_byopt_on
+  }
+END
+
+SCRIPT vl_clickon
+BEGIN
+  main.tx_var.hide
+  main.tx_vars.show
+  main.vl_var.show
+  main.vn_var.hide
+  opts.ck_byopt.disable
+  script opts_byopt_off
+  opts.ck_bounded.disable
+END
+
+SCRIPT opts_byopt_on
+BEGIN
+	opts.tx_byopt.enable
+	opts.vn_byopt.enable
+END
+
+SCRIPT opts_byopt_off
+BEGIN
+	opts.tx_byopt.disable
+	opts.vn_byopt.disable
+END
+
+INCLUDE ifin
+INCLUDE gr_plots
+INCLUDE gr_yaxis
+INCLUDE gr_xaxis
+INCLUDE gr_titles
+INCLUDE gr_legend
+INCLUDE gr_overall
+
+PROGRAM command
+BEGIN
+	put "dotplot "
+	if main.rb_vl {
+		varlist main.vl_var
+	}
+	if main.rb_vn {
+		varlist main.vn_var
+	}
+	INCLUDE _ifin_pr
+	beginoptions
+		if main.rb_vn {
+			if opts.ck_byopt {
+				optionarg opts.vn_byopt
+			}
+		}
+		optionarg /hidedefault opts.sp_nx
+		optionarg /hidedefault opts.sp_ny
+		optionarg /hidedefault opts.sp_incr
+
+
+		if opts.ck_pluses {
+			option radio(opts rb_mean rb_median)
+		}
+
+		option opts.ck_bounded
+		option opts.ck_bar
+		option opts.ck_nogroup
+		option opts.ck_center
+
+		put " " /program gr_plots_output
+		put " " /program gr_yaxis_output
+		put " " /program gr_xaxis_output
+		put " " /program gr_titles_output
+		put " " /program gr_legend_output
+		put " " /program gr_overall_output
+	endoptions
+END
+         

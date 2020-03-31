@@ -1,0 +1,793 @@
+/*
+  fracpoly
+
+*! VERSION 1.3.2  02dec2014 (deprecated)
+
+*/
+
+VERSION 12.0
+
+INCLUDE _std_large
+DEFINE  _dlght 430
+INCLUDE header
+HELP hlp1, view("help fracpoly")
+RESET res1
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	call create STRING rpt_bu_fmtcoefResults
+        call program rpt_bu_fmtcoef_ckResults
+END
+
+DIALOG main, label("fracpoly - Fractional polynomial regression")	/*
+		*/ tabtitle("Model")
+BEGIN
+  TEXT     tx_dv     _lft      _top      _vnwd     .,			/*
+		*/ label("Dependent variable:")				/*
+		*/
+  VARNAME  vn_dv     @         _ss       @         .,			/*
+		*/ label("Dependent variable")				/*
+		*/ numeric						/*
+		*/
+  VARNAME  vn_dv2    @         _ms       @         .,			/*
+		*/ label("Dependent variable 2")			/*
+		*/ numeric						/*
+		*/
+
+  CHECKBOX ck_iv     _vlx      _top      _vlwd     .,			/*
+		*/ label("Independent variables:  (unknown powers)")	/*
+		*/ onclickon("script indep_degrees_on")			/*
+		*/ onclickoff("script indep_degrees_off")		/*
+		*/
+  VARLIST  vl_iv     @         _ss       @         .,			/*
+		*/ label("Independent variables")			/*
+		*/ allowcat						/*
+		*/ numeric						/*
+		*/
+  SPINNER  sp_deg    @         _ms       _spwd     .,			/*
+		*/ label("Degree of fractional polynomial to fit")	/*
+		*/ min(1)						/*
+		*/ max(100)						/*
+		*/ default(2)						/*
+		*/ option("degree")					/*
+		*/
+  TEXT     tx_deg    _spsep    @         _spr      .,			/*
+		*/ label("Degree of fractional polynomial to fit")	/*
+		*/
+
+  TEXT     tx_xvari  _lft      _ls       _comb3_2  .,			/*
+	*/ label("Independent variables with user-supplied powers:")	/*
+		*/
+  DEFINE y @y
+  LISTBOX  lb_xvari  _lft      _ss       _cwd1     _ht4,		/*
+	*/ label("Independent variables with user-supplied powers")	/*
+		*/ contents(xvar_con)					/*
+		*/ onselchangelist(xvar_sel)				/*
+		*/
+  TEXT     tx_dist   _lft3_3   y         _cwd3_1   .,			/*
+  		*/label("Distribution: (for streg)")
+  LISTBOX  lb_dist   @         _ss       @        _ht4,			/*
+  		*/label("Distribution") contents(distributions) 	/*
+  		*/values(distributionsv) option(distribution)
+
+  TEXT     tx_xvar   _lft      _xxxxxls   _vnwd     .,			/*
+		*/ label("Independent var. 1:")				/*
+		*/
+  DEFINE y @y
+  VARNAME  vn_xvar1  _lft      _ss       _vnwd     .,			/*
+		*/ label("Independent var. 1")				/*
+		*/ numeric						/*
+		*/
+  TEXT     tx_pows   _vlx      y         _vlwd     .,			/*
+		*/ label("List of powers for independent variable 1:")	/*
+		*/
+  EDIT     ed_pows1  _vlx      _ss       _vlwd     .,			/*
+		*/ label("List of powers for independent variable 1")	/*
+		*/
+
+  VARNAME  vn_xvar2  _lft      @         _vnwd     .,			/*
+		*/ label("Independent var. 2")				/*
+		*/ numeric						/*
+		*/
+  EDIT     ed_pows2  _vlx      @         _vlwd     .,			/*
+		*/ label("List of powers for independent variable 2")	/*
+		*/
+
+  VARNAME  vn_xvar3  _lft      @         _vnwd     .,			/*
+		*/ label("Independent var. 3")				/*
+		*/ numeric						/*
+		*/
+  EDIT     ed_pows3  _vlx      @         _vlwd     .,			/*
+		*/ label("List of powers for independent variable 3")	/*
+		*/
+
+  VARNAME  vn_xvar4  _lft      @         _vnwd     .,			/*
+		*/ label("Independent var. 4")				/*
+		*/ numeric						/*
+		*/
+  EDIT     ed_pows4  _vlx      @         _vlwd     .,			/*
+		*/ label("List of powers for independent variable 4")	/*
+		*/
+
+  VARNAME  vn_xvar5  _lft      @         _vnwd     .,			/*
+		*/ label("Independent var. 5")				/*
+		*/ numeric						/*
+		*/
+  EDIT     ed_pows5  _vlx      @         _vlwd     .,			/*
+		*/ label("List of powers for independent variable 5")	/*
+		*/
+
+  VARNAME  vn_xvar6  _lft      @         _vnwd     .,			/*
+		*/ label("Independent var. 6")				/*
+		*/ numeric						/*
+		*/
+  EDIT     ed_pows6  _vlx      @         _vlwd     .,			/*
+		*/ label("List of powers for independent variable 6")	/*
+		*/
+
+  VARNAME  vn_xvar7  _lft      @         _vnwd     .,			/*
+		*/ label("Independent var. 7")				/*
+		*/ numeric						/*
+		*/
+  EDIT     ed_pows7  _vlx      @         _vlwd     .,			/*
+		*/ label("List of powers for independent variable 7")	/*
+		*/
+
+  VARNAME  vn_xvar8  _lft      @         _vnwd     .,			/*
+		*/ label("Independent var. 8")				/*
+		*/ numeric						/*
+		*/
+  EDIT     ed_pows8  _vlx      @         _vlwd     .,			/*
+		*/ label("List of powers for independent variable 8")	/*
+		*/
+
+  VARNAME  vn_xvar9  _lft      @         _vnwd     .,			/*
+		*/ label("Independent var. 9")				/*
+		*/ numeric						/*
+		*/
+  EDIT     ed_pows9  _vlx      @         _vlwd     .,			/*
+		*/ label("List of powers for independent variable 9")	/*
+		*/
+
+  VARNAME  vn_xvar10 _lft      @         _vnwd     .,			/*
+		*/ label("Independent var. 10")				/*
+		*/ numeric						/*
+		*/
+  EDIT     ed_pows10 _vlx      @         _vlwd     .,			/*
+		*/ label("List of powers for independent variable 10")	/*
+		*/
+
+  GROUPBOX gb_reg    _lft      _ls       _iwd      _ht10h,		/*
+		*/ label("Available regression commands") 		/*
+		*/
+  TEXT     tx_reg    _ilft     _ss       _ibwd     .,			/*
+		*/label("Weights allowed are the same as those supported by the regression command.")
+  RADIO    rb_clogit _ilft     _ms       _cwd5_2   .,			/*
+		*/ label("clogit *")					/*
+		*/ first						/*
+		*/ clickon(script clogit_on)				/*
+		*/ option("clogit")					/*
+		*/
+DEFINE RBTOP @y
+  RADIO    rb_glm     @        _ss       @         .,			/*
+		*/ label("glm")						/*
+		*/ onclickon(script glm_on)				/*
+		*/ option("glm")					/*
+		*/
+  RADIO    rb_intreg  @        _ss       @         .,			/*
+		*/ label("intreg")					/*
+		*/ onclickon(script intreg_on)				/*
+		*/ option("intreg")					/*
+		*/	
+  RADIO    rb_logist  @        _ss       @         .,			/*
+		*/ label("logistic")					/*
+		*/ onclickon(script logistic_on)			/*
+		*/ option("logistic")					/*
+		*/
+  RADIO    rb_logit  _ilft5_2  RBTOP     @         .,			/*
+		*/ label("logit")					/*
+		*/ onclickon(script logit_on)				/*
+		*/ option("logit")					/*
+		*/
+  RADIO    rb_mlogit @        _ss       @         .,			/*
+		*/ label("mlogit")					/*
+		*/ onclickon(script mlogit_on)				/*
+		*/ option("mlogit")					/*
+		*/
+  RADIO    rb_nbreg  @        _ss       @         .,			/*
+		*/ label("nbreg")					/*
+		*/ onclickon(script nbreg_on)				/*
+		*/ option("nbreg")					/*
+		*/
+  RADIO    rb_ologit @        _ss       @         .,			/*
+		*/ label("ologit")					/*
+		*/ onclickon(script ologit_on)				/*
+		*/ option("ologit")					/*
+		*/
+  RADIO    rb_oprobit _ilft5_3 RBTOP     @         .,			/*
+		*/ label("oprobit")					/*
+		*/ onclickon(script oprobit_on)				/*
+		*/ option("oprobit")					/*
+		*/
+  RADIO    rb_pois   @        _ss       @         .,			/*
+		*/ label("poisson")					/*
+		*/ onclickon(script poisson_on)				/*
+		*/ option("poisson")					/*
+		*/
+  RADIO    rb_probit @        _ss       @         .,			/*
+		*/ label("probit")					/*
+		*/ onclickon(script probit_on)				/*
+		*/ option("probit")					/*
+		*/
+  RADIO    rb_qreg   @        _ss       @         .,			/*
+		*/ label("qreg")					/*
+		*/ option("qreg")					/*
+		*/ onclickon(script qreg_on) 
+  RADIO    rb_reg    _ilft5_4 RBTOP     @         .,			/*
+		*/ label("regress")					/*
+		*/ option("regress")					/*
+		*/ onclickon(script regress_on) 
+  RADIO    rb_rreg   @        _ss       @         .,			/*
+		*/ label("rreg")					/*
+		*/ option("rreg")					/*
+		*/ onclickon(script rreg_on) 
+  RADIO    rb_stcox  @        _ss       @         .,			/*
+		*/ label("stcox")					/*
+		*/ option("stcox")					/*
+		*/ onclickon(script stcox_on)				/*
+		*/
+  RADIO    rb_stcrreg @       _ss       @         .,			/*
+		*/ label("stcrreg **")					/*
+		*/ option("stcrreg")					/*
+		*/ onclickon(script stcrreg_on)				/*
+		*/
+  RADIO    rb_streg  _ilft5_5  RBTOP    @         .,			/*
+		*/ label("streg")					/*
+		*/ option("streg")					/*
+		*/ onclickon(script streg_on)				/*
+		*/
+  RADIO	   rb_xtgee  @        _ss       @         .,			/*
+  		*/ label("xtgee")					/*
+  		*/ option("xtgee")					/*
+  		*/ onclickon(script xtgee_on)				/*
+  		*/ last
+
+  TEXT     tx_note   _lft     +80      _iwd      .,			/*
+  */ label(`"* Note: the group() option must be specified."')
+  TEXT     tx_note2  @        _ss       @         .,			/*
+  */ label(`"Use "Other options accepted by chosen regression command" on "Model 2" tab."')
+END
+
+LIST distributions
+BEGIN
+	exponential
+	Weibull
+	Gompertz
+	lognormal
+	loglogistic
+	gamma
+END
+
+LIST distributionsv
+BEGIN
+	exponential
+	weibull
+	gompertz
+	lognormal
+	llogistic
+	gamma
+END
+
+SCRIPT clogit_on
+BEGIN
+	script streg_off_dv
+	main.tx_note.setlabel `"* Note: the group() option must be specified."'
+	main.tx_dv.setlabel "Dependent variable:"
+	main.vn_dv.enable
+	main.vn_dv2.hide
+	main.tx_note.show
+	main.tx_note2.show
+	script weights_setLayout_fpi
+	script weights_enable
+END
+
+SCRIPT glm_on
+BEGIN
+	script streg_off_dv
+	script weights_setLayout_fpai
+	script weights_enable
+END
+
+SCRIPT intreg_on
+BEGIN
+	script streg_off_dv
+	script weights_setLayout_fpai
+	script weights_enable
+
+	main.vn_dv2.show
+	main.tx_dv.setlabel "Dependent variables:"
+END
+
+
+SCRIPT logistic_on
+BEGIN
+	script streg_off_dv
+	script weights_setLayout_fpi
+	script weights_enable
+END
+
+SCRIPT logit_on
+BEGIN
+	script streg_off_dv
+	script weights_setLayout_fpi
+	script weights_enable
+END
+
+SCRIPT mlogit_on
+BEGIN
+	script streg_off_dv
+	script weights_setLayout_fpi
+	script weights_enable
+END
+
+SCRIPT nbreg_on
+BEGIN
+	script streg_off_dv
+	script weights_setLayout_fpi
+	script weights_enable
+END
+
+SCRIPT ologit_on
+BEGIN
+	script streg_off_dv
+	script weights_setLayout_fpi
+	script weights_enable
+END
+
+SCRIPT oprobit_on
+BEGIN
+	script streg_off_dv
+	script weights_setLayout_fpi
+	script weights_enable
+END
+
+SCRIPT poisson_on
+BEGIN
+	script streg_off_dv
+	script weights_setLayout_fpi
+	script weights_enable
+END
+
+SCRIPT probit_on
+BEGIN
+	script streg_off_dv
+	script weights_setLayout_fpai
+	script weights_enable
+END
+
+SCRIPT qreg_on
+BEGIN
+	script streg_off_dv
+	script weights_setLayout_fa
+	script weights_enable
+	model2.ck_nocons.disable
+END
+
+SCRIPT regress_on
+BEGIN
+	script streg_off_dv
+	script weights_setLayout_fpai
+	script weights_enable
+END
+
+SCRIPT rreg_on
+BEGIN
+	script streg_off_dv
+	script weights_disable
+	model2.ck_nocons.disable
+END
+
+SCRIPT stcox_on
+BEGIN
+	script streg_off_nodv
+	script weights_disable
+END
+
+SCRIPT stcrreg_on
+BEGIN
+	main.tx_note.setlabel `"** Note: the compete() option must be specified."'
+	script streg_off_nodv
+	script weights_disable
+	main.tx_note.show
+	main.tx_note2.show
+END
+
+SCRIPT streg_on
+BEGIN
+	main.vn_dv.disable
+	main.tx_dist.enable
+	main.lb_dist.enable
+	model2.ck_nocons.disable
+	script weights_disable
+END
+
+SCRIPT xtgee_on
+BEGIN
+	script streg_off_dv
+	script weights_setLayout_fpi
+	script weights_enable
+END
+
+SCRIPT streg_off_nodv
+BEGIN
+	main.vn_dv.disable
+	main.tx_dist.disable
+	main.lb_dist.disable
+	main.tx_note.hide
+	main.tx_note2.hide
+	model2.ck_nocons.disable
+END
+
+SCRIPT streg_off_dv
+BEGIN
+	main.tx_dv.setlabel "Dependent variable:"
+	main.vn_dv.enable 
+	main.vn_dv2.hide
+	main.tx_dist.disable
+	main.lb_dist.disable
+	main.tx_note.hide
+	main.tx_note2.hide
+	model2.ck_nocons.enable
+END
+
+SCRIPT indep_degrees_on
+BEGIN
+	main.vl_iv.enable
+	main.sp_deg.enable
+	main.tx_deg.enable
+END
+
+SCRIPT indep_degrees_off
+BEGIN
+	main.vl_iv.disable
+	main.sp_deg.disable
+	main.tx_deg.disable
+END
+
+LIST xvar_con
+BEGIN
+	Independent variable 1
+	Independent variable 2
+	Independent variable 3
+	Independent variable 4
+	Independent variable 5
+	Independent variable 6
+	Independent variable 7
+	Independent variable 8
+	Independent variable 9
+	Independent variable 10
+END
+
+LIST xvar_sel
+BEGIN
+	script xvar1
+	script xvar2
+	script xvar3
+	script xvar4
+	script xvar5
+	script xvar6
+	script xvar7
+	script xvar8
+	script xvar9
+	script xvar10
+END
+
+PROGRAM hide_allx
+BEGIN
+	if !H(main.vn_xvar1) {
+		call gaction main.vn_xvar1.hide
+		call gaction main.ed_pows1.hide
+	}
+	if !H(main.vn_xvar2) {
+		call gaction main.vn_xvar2.hide
+		call gaction main.ed_pows2.hide
+	}
+	if !H(main.vn_xvar3) {
+		call gaction main.vn_xvar3.hide
+		call gaction main.ed_pows3.hide
+	}
+	if !H(main.vn_xvar4) {
+		call gaction main.vn_xvar4.hide
+		call gaction main.ed_pows4.hide
+	}
+	if !H(main.vn_xvar5) {
+		call gaction main.vn_xvar5.hide
+		call gaction main.ed_pows5.hide
+	}
+	if !H(main.vn_xvar6) {
+		call gaction main.vn_xvar6.hide
+		call gaction main.ed_pows6.hide
+	}
+	if !H(main.vn_xvar7) {
+		call gaction main.vn_xvar7.hide
+		call gaction main.ed_pows7.hide
+	}
+	if !H(main.vn_xvar8) {
+		call gaction main.vn_xvar8.hide
+		call gaction main.ed_pows8.hide
+	}
+	if !H(main.vn_xvar9) {
+		call gaction main.vn_xvar9.hide
+		call gaction main.ed_pows9.hide
+	}
+	if !H(main.vn_xvar10) {
+		call gaction main.vn_xvar10.hide
+		call gaction main.ed_pows10.hide
+	}
+
+END
+
+SCRIPT xvar1
+BEGIN
+	program hide_allx
+	main.tx_xvar.setlabel "Independent var. 1:"
+	main.vn_xvar1.show
+	main.tx_pows.setlabel "List of powers for independent variable 1:"
+	main.ed_pows1.show
+END
+
+SCRIPT xvar2
+BEGIN
+	program hide_allx
+	main.tx_xvar.setlabel "Independent var. 2:"
+	main.vn_xvar2.show
+	main.tx_pows.setlabel "List of powers for independent variable 2:"
+	main.ed_pows2.show
+END
+
+SCRIPT xvar3
+BEGIN
+	program hide_allx
+	main.tx_xvar.setlabel "Independent var. 3:"
+	main.vn_xvar3.show
+	main.tx_pows.setlabel "List of powers for independent variable 3:"
+	main.ed_pows3.show
+END
+
+SCRIPT xvar4
+BEGIN
+	program hide_allx
+	main.tx_xvar.setlabel "Independent var. 4:"
+	main.vn_xvar4.show
+	main.tx_pows.setlabel "List of powers for independent variable 4:"
+	main.ed_pows4.show
+END
+
+SCRIPT xvar5
+BEGIN
+	program hide_allx
+	main.tx_xvar.setlabel "Independent var. 5:"
+	main.vn_xvar5.show
+	main.tx_pows.setlabel "List of powers for independent variable 5:"
+	main.ed_pows5.show
+END
+
+SCRIPT xvar6
+BEGIN
+	program hide_allx
+	main.tx_xvar.setlabel "Independent var. 6:"
+	main.vn_xvar6.show
+	main.tx_pows.setlabel "List of powers for independent variable 6:"
+	main.ed_pows6.show
+END
+
+SCRIPT xvar7
+BEGIN
+	program hide_allx
+	main.tx_xvar.setlabel "Independent var. 7:"
+	main.vn_xvar7.show
+	main.tx_pows.setlabel "List of powers for independent variable 7:"
+	main.ed_pows7.show
+END
+
+SCRIPT xvar8
+BEGIN
+	program hide_allx
+	main.tx_xvar.setlabel "Independent var. 8:"
+	main.vn_xvar8.show
+	main.tx_pows.setlabel "List of powers for independent variable 8:"
+	main.ed_pows8.show
+END
+
+SCRIPT xvar9
+BEGIN
+	program hide_allx
+	main.tx_xvar.setlabel "Independent var. 9:"
+	main.vn_xvar9.show
+	main.tx_pows.setlabel "List of powers for independent variable 9:"
+	main.ed_pows9.show
+END
+
+SCRIPT xvar10
+BEGIN
+	program hide_allx
+	main.tx_xvar.setlabel "Independent var. 10:"
+	main.vn_xvar10.show
+	main.tx_pows.setlabel "List of powers for independent variable 10:"
+	main.ed_pows10.show
+END
+
+DIALOG model2, tabtitle("Model 2")
+BEGIN
+  CHECKBOX ck_noscal _lft      _top      _iwd      .,			/*
+	*/ label("Suppress scaling of first independent variable")	/*
+		*/ option("noscaling")					/*
+		*/
+  CHECKBOX ck_nocons @         _ms       @         .,			/*
+		*/ label("Suppress constant term")			/*
+		*/ option("noconstant")					/*
+		*/
+
+  TEXT     tx_powers _lft      _ls       _iwd      .,			/*
+	*/ label("List of fractional polynomial powers to choose from: (0 means log)")/*
+		*/
+  EDIT     ed_powers @         _ss       @         .,			/*
+	*/ label("List of fractional polynomial powers to choose from")	/*
+		*/ option("powers")					/*
+		*/ default(-2, -1, -0.5, 0, 0.5, 1, 2, 3)
+		
+  GROUPBOX gb_adv    @         _xls      @         _ht9h,		/*
+  		*/ label("Advanced options")
+  TEXT     tx_center _ilft     _ss       _ibwd     .,			/*
+*/ label("Specification of centering for the indep. variables: (see help for details)") /*
+		*/
+  EDIT     ed_center @         _ss       @         .,			/*
+*/ label("Specification of centering for the independent variables")	/*
+		*/ option("center")					/*
+		*/
+
+  TEXT     tx_regopt @         _ls       @         .,			/*
+	*/ label("Other options accepted by chosen regression command:")/*
+		*/
+  EDIT     ed_regopt @         _ss       @         .,			/*
+	*/ label("Other options accepted by chosen regression command")/*
+		*/  		
+  CHECKBOX ck_all    _lft      _xls      _iwd      .,			/*
+*/ label("Include out-of-sample observations in generated variables")	/*
+		*/ option("all")					/*
+		*/
+END
+
+INCLUDE ifin
+INCLUDE weights
+
+DIALOG rpt, tabtitle("Reporting")
+BEGIN
+  CHECKBOX ck_log    _lft      _top      _cwd1     .,			/*
+		*/ label("Display iteration log")			/*
+		*/ option("log")					/*
+		*/
+  GROUPBOX gb_tests  _lft      _ls       _iwd      _ht2,		/*
+  		*/ label("Additional test statistics")  		
+  CHECKBOX ck_compar _ilft     _ss       _cwd2     .,			/*
+		*/ label("Compare models by degree")			/*
+		*/ option("compare")					/*
+		*/
+
+  DEFINE _x _lft
+  DEFINE _y _xxls
+  INCLUDE _bu_coef_table_reporting
+END
+	
+INCLUDE fmt_coef_table_reporting_pr
+
+PROGRAM command_prefix
+BEGIN
+	put "fracpoly "
+	beginoptions
+		optionarg /hidedefault main.sp_deg
+		option model2.ck_noscal
+		option model2.ck_nocons
+		optionarg /hidedefault model2.ed_powers
+		optionarg model2.ed_center
+		option model2.ck_all
+		option rpt.ck_log
+		option rpt.ck_compar
+		put " " rpt_bu_fmtcoefResults
+	endoptions
+END
+
+PROGRAM command
+BEGIN
+	allowxi
+	put /program command_prefix " : "
+
+	option radio(main rb_clogit rb_glm rb_intreg 			///
+		rb_logist rb_logit rb_mlogit rb_nbreg 			///
+		rb_ologit rb_oprobit rb_pois rb_probit rb_qreg rb_reg 	///
+		rb_rreg rb_stcox rb_stcrreg rb_streg rb_xtgee)
+	if main.rb_clogit | main.rb_glm			 		///
+		| main.rb_intreg | main.rb_logist | main.rb_logit 	///
+		| main.rb_mlogit 					///
+		| main.rb_nbreg | main.rb_ologit | main.rb_oprobit 	///
+		| main.rb_pois | main.rb_probit | main.rb_qreg 		///
+		| main.rb_reg | main.rb_rreg | main.rb_xtgee 		///
+	{
+		varlist main.vn_dv
+		if main.rb_intreg {
+			varlist main.vn_dv2
+		}
+	}
+	if !main.vl_iv & !main.vn_xvar1 {
+		stopbox stop "Independent variable 1 must be specified"
+	}
+	if main.ck_iv {
+		varlist main.vl_iv
+	}
+	if main.vn_xvar1 {
+		put /hidden main.vn_xvar1
+		put " "
+		put /hidden main.ed_pows1
+		put " "
+	}
+	if main.vn_xvar2 {
+		put /hidden main.vn_xvar2
+		put " "
+		put /hidden main.ed_pows2
+		put " "
+	}
+	if main.vn_xvar3 {
+		put /hidden main.vn_xvar3
+		put " "
+		put /hidden main.ed_pows3
+		put " "
+	}
+	if main.vn_xvar4 {
+		put /hidden main.vn_xvar4
+		put " "
+		put /hidden main.ed_pows4
+		put " "
+	}
+	if main.vn_xvar5 {
+		put /hidden main.vn_xvar5
+		put " "
+		put /hidden main.ed_pows5
+		put " "
+	}
+	if main.vn_xvar6 {
+		put /hidden main.vn_xvar6
+		put " "
+		put /hidden main.ed_pows6
+		put " "
+	}
+	if main.vn_xvar7 {
+		put /hidden main.vn_xvar7
+		put " "
+		put /hidden main.ed_pows7
+		put " "
+	}
+	if main.vn_xvar8 {
+		put /hidden main.vn_xvar8
+		put " "
+		put /hidden main.ed_pows8
+		put " "
+	}
+	if main.vn_xvar9 {
+		put /hidden main.vn_xvar9
+		put " "
+		put /hidden main.ed_pows9
+		put " "
+	}
+	if main.vn_xvar10 {
+		put /hidden main.vn_xvar10
+		put " "
+		put /hidden main.ed_pows10
+		put " "
+	}
+	INCLUDE _weights_pr
+	INCLUDE _ifin_pr
+	beginoptions
+		optionarg main.lb_dist
+		put model2.ed_regopt
+	endoptions
+END

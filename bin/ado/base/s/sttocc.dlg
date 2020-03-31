@@ -1,0 +1,100 @@
+/*
+	sttocc
+	
+	VERSION 1.1.0  19nov2014
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+INCLUDE header
+
+HELP hlp1, view("help sttocc")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource STTOCC_DLG_HSCALE
+END
+
+
+DIALOG main,label(resource STTOCC_DLG_TITLE)/*
+		*/ tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  
+  DEFINE _x _xsetbu
+  DEFINE _y _top
+  INCLUDE _bu_stset
+  TEXT     tx_var      _lft         _ss     _iwd          .,            /*
+                */ label(resource LBL_VARIABLES_LEAVE_EMPTY_FOR_ALL)
+  VARLIST  vl_var      @            _ss     @             .,            /*
+                */ label(resource LBL_VARIABLES)                        
+  GROUPBOX gb_match    @            _ls     @             _ht6,         /*
+                */ label(resource STTOCC_MAIN_GB_MATCH)               
+  RADIO    rb_time     _indent      _ss     _ibwd         .,            /*
+                */ label(resource STTOCC_MAIN_RB_TIME)                    /*
+                */ first                                                /*
+                */ clickon("gaction main.vl_matchvar.disable")
+  RADIO    rb_matchvar @            _ss     @             .,            /*
+                */ label(resource STTOCC_MAIN_RB_MATCHVAR)            /*
+                */ last                                                 /*
+                */ clickon("gaction main.vl_matchvar.enable")
+  VARLIST  vl_matchvar  _indent2    _ss     _inwd         .,            /*
+                */ label(resource STTOCC_MAIN_RB_MATCHVAR)             /*
+                */ option(match)
+  SPINNER  sp_number    _lft        _xls    _spwd         .,            /*
+                */ label(resource STTOCC_MAIN_SP_NUMBER)            /*
+                */ min(1)                                               /*
+                */ max(100000)                                          /*
+                */ default(1)                                           /*
+                */ option(number)
+  TEXT     tx_number    _spsep      @       _sprb         .,            /*
+                */ label(resource STTOCC_MAIN_SP_NUMBER)
+  CHECKBOX ck_nodots    _lft        _ls     _iwd         .,             /*
+   */ label(resource STTOCC_MAIN_CK_NODOTS)/*
+                */ option(nodots) 
+END
+
+DIALOG opt,label("") tabtitle(resource LBL_OPTIONS)
+BEGIN
+  TEXT     tx_cgen      _lft        _top     _iwd         .,            /*
+               */ label(resource STTOCC_OPT_TX_CGEN)
+  EDIT     ed_cgen      @           _ss      @            .,            /*
+             */ label(resource STTOCC_OPT_TX_CGEN) /*
+		*/ default("_case")                                     /*
+                */ max(32)  
+  TEXT     tx_sgen      @           _ms      @            .,            /*
+          */ label(resource STTOCC_OPT_TX_SGEN)
+  EDIT     ed_sgen      @           _ss      @            .,            /*
+        */ label(resource STTOCC_OPT_TX_SGEN) /*
+                */ default("_set")                                      /*
+                */ max(32)  
+  TEXT     tx_tgen      @           _ms      @            .,            /*
+   */ label(resource STTOCC_OPT_TX_TGEN)
+  EDIT     ed_tgen      @           _ss      @            .,            /*
+*/ label(resource STTOCC_OPT_TX_TGEN) /*	
+ 		*/ default("_time")                                     /*
+                */ max(32)  
+END
+
+PROGRAM command
+BEGIN
+	if main.rb_matchvar {
+		require main.vl_matchvar
+	}
+	require opt.ed_cgen opt.ed_sgen opt.ed_tgen
+	put "sttocc "
+	varlist [main.vl_var]
+	beginoptions
+		if main.rb_matchvar {
+			optionarg main.vl_matchvar
+		}
+		optionarg main.sp_number
+		if !default(opt.ed_cgen) | !default(opt.ed_sgen) | /*
+			*/ !default(opt.ed_tgen) {
+			put "generate(" opt.ed_cgen  " " opt.ed_sgen /*
+				*/ " " opt.ed_tgen ")"
+		}
+	        option main.ck_nodots  
+	endoptions
+END

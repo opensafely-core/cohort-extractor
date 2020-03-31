@@ -1,0 +1,591 @@
+*! version 2.2.0  30mar2016
+version 11
+
+class _b_diparm {
+	string	LEVEL	= ""
+	double	IS_MI	= 0
+	string	BMAT	= ""
+	string	COLNA	= ""
+	string	VMAT	= ""
+	string	DFMAT	= ""
+	string	COLFUL	= ""
+	double	DF	= 0
+	double	DF_HOLD	= 0
+	double	EXTRA	= 1
+	string	METHOD	= ""
+	double	has_b	= 0
+	double	has_v	= 0
+	double	has_df	= 0
+	double	has_Cns	= 0
+}
+
+program .new
+	.IS_MI = `"`e(mi)'"' == "mi" & `"`e(df_mi)'"' == "matrix"
+	if `.IS_MI' {
+		local ALTOPT DFMATrix(string)
+	}
+	syntax [,	Level(cilevel)			///
+			DOF(real -1)			///
+			BMATrix(string)			///
+			VMATrix(string)			///
+			EXTRA(real 1)			///
+			MCOMPARE(passthru)		///
+			`ALTOPT'			///
+	]
+
+	_get_mcompare, `mcompare'
+	if !inlist("`s(method)'", "noadjust", "bonferroni", "sidak") {
+		di as err "option `mcompare' not allowed"
+		exit 198
+	}
+	.METHOD = "`s(method)'"
+
+	.LEVEL	= "`level'"
+	if "`bmatrix'" == "" {
+		if `:length local vmatrix' {
+			di as err "option vmatrix() requires option bmatrix()"
+			exit 198
+		}
+	}
+	if "`vmatrix'" == "" {
+		if `:length local dfmatrix' {
+			di as err "option dfmatrix() requires option vmatrix()"
+			exit 198
+		}
+	}
+	if `.IS_MI' & "`bmatrix'`vmatrix'`dfmatrix'`e(properties)'"=="" {
+		local bmatrix e(b_mi)
+		local vmatrix e(V_mi)
+		local dfmatrix e(df_mi)
+	}
+	if `:length local bmatrix' {
+		.has_b	= 1
+		.BMAT	= "`bmatrix'"
+		.COLNA	= "`:colful `bmatrix''"
+	}
+	else {
+		.COLNA	= "`:colful e(b)'"
+		.has_Cns = "`e(Cns)'" == "matrix"
+	}
+	if `:length local vmatrix' {
+		.has_v	= 1
+		.VMAT	= "`vmatrix'"
+	}
+	if `:length local dfmatrix' {
+		.has_df	= 1
+		.DFMAT	= "`dfmatrix'"
+	}
+	if `dof' <= 0 {
+		local df_r 0
+		Chk4PosInt df_r
+		if `df_r' {
+			.DF = `df_r'
+		}
+	}
+	else {
+		.DF = `dof'
+	}
+	if `extra' > 1 {
+		.EXTRA = `extra'
+	}
+end
+
+program .store
+	syntax [, DOF(real -1)]
+
+	if `dof' > 0 {
+		.DF_HOLD = `.DF'
+		.DF = `dof'
+	}
+end
+
+program .restore
+	syntax
+	if `.DF_HOLD' {
+		.DF = `.DF_HOLD'
+		.DF_HOLD = 0
+	}
+end
+
+program .compute, rclass
+	version 11
+	syntax anything(name=EQS id="equation name(s)") [,	///
+		NOProb Prob					///
+		EXP						///
+		TANH						///
+		ILOGIT INVLOGIT					/// synonyms
+		Function(str)					///
+		Derivative(str)					///
+		CI(string)					///
+	]
+
+	// "NOProb Prob" fudge is OK for programmer's command:
+	// 	noprob is the default if a transform is specified
+	// 	  prob is the default if no transform specified
+
+	opts_exclusive "`prob' `noprob'"
+	local prob `prob' `noprob'
+
+	if "`ilogit'`invlogit'" != "" {
+		local ilogit ilogit
+	}
+	local builtin `exp' `tanh' `ilogit'
+	local fd 0
+	if `:length local function' {
+		local ++fd
+	}
+	if `:length local derivative' {
+		local ++fd
+	}
+	if `fd' == 1 {
+		di as err "both function() and derivative() must be specified"
+		exit 198
+	}
+	if `fd' {
+		local fopt "function()"
+	}
+	opts_exclusive "`builtin' `fopt'"
+
+	if `.has_b' {
+		local bmat `"`.BMAT'"'
+	}
+	else {
+		local bmat `"e(b)"'
+	}
+
+	foreach EQ of local EQS {
+		if substr(`"`EQ'"',1,1) != "/" {
+			local eq `"/`EQ'"'
+		}
+		else	local eq : copy local EQ
+
+		local el : colnumb `bmat' "`eq'"
+		if inlist(`"`el'"', "", ".") {
+			di as err "parameter named {bf:`EQ'} not found"
+			exit 322
+		}
+
+		local eqs `eqs' `eq'
+	}
+
+	// number of specified equations
+	local neq : list sizeof eqs
+
+	if `.has_Cns' {
+		tempname Cns C
+		matrix `Cns' = e(Cns)
+	}
+
+	if `neq' != 1 {
+		local el 0
+	}
+	// else 'el' was set above
+
+	// determine the degrees of freedom
+	if `.IS_MI' {
+		if `.has_df' {
+			local df = el(`.DFMAT',1,`el')
+		}
+		else {
+			local df = el(e(df_mi),1,`el')
+		}
+		if missing(`df') {
+			local df 0
+		}
+	}
+	else {
+		local df = `.DF'
+	}
+
+	// compute the critical value
+	tempname z alpha
+	scalar `alpha' = (100 - `.LEVEL')/100
+	mata: st_numscalar("`z'",				///
+			   _mc_crit("`.METHOD'",		///
+			   	    `df' == 0 ? . : `df',	///
+				    st_numscalar("`alpha'"),	///
+				    .,				///
+				    `.EXTRA'))
+
+	local isCns 0
+	if `neq' == 1 {
+		// single equation
+		tempname b se
+		if `.has_b' {
+			scalar `b' = el(`.BMAT',1,`el')
+			if `.has_v' {
+				scalar `se' = sqrt(el(`.VMAT',`el',`el'))
+			}
+			else {
+				scalar `se' = 0
+			}
+		}
+		else {
+			scalar `b' = _b[`eqs']
+			if "`e(V)'" == "matrix" {
+				scalar `se' = _se[`eqs']
+			}
+			else {
+				scalar `se' = 0
+			}
+			if `.has_Cns' & `se' == 0 {
+				matrix `C' = `Cns'[1...,`el']
+				matrix `C' = `C''*`C'
+				local isCns = `C'[1,1] != 0
+			}
+		}
+		if `se' == 0 {
+			scalar `se' = .
+		}
+
+		if "`function'" != "" {
+			.Function `b' `se' `z' "`function'" "`derivative'"
+		}
+		else if "`builtin'" != "" {
+			.`builtin' `b' `se' `z'
+		}
+		else {	// identity transformation
+			if ("`prob'" != "noprob") local prob prob
+			.identity `b' `se' `z' `el' "`ci'"
+		}
+	}
+	else {
+		.Multiple "`eqs'" `z' "`function'" "`derivative'" "`ci'"
+		local isCns = r(cns)
+	}
+
+	.AddTest `df', `prob'
+	return add
+	if `df' == 0 {
+		return scalar df = .
+	}
+	else	return scalar df = `df'
+	return scalar crit = `z'
+	return scalar cns = `isCns'
+end
+
+/* subroutines ----------------------------------------------------------- */
+
+program .AddTest, rclass
+	syntax anything(name=df) [, Prob]
+
+	return add
+	if "`prob'" == "" {
+		return scalar p = .
+		return scalar z = .
+		exit
+	}
+	return scalar z = return(est)/return(se)
+	mata: st_numscalar("return(p)",				///
+			   _mc_pvalue("`.METHOD'",		///
+			   	    `df' == 0 ? . : `df',	///
+				    st_numscalar("return(z)"),	///
+				    .,				///
+				    `.EXTRA'))
+	return local prob prob
+end
+
+program .Multiple, rclass
+	args eqs z func deriv ci
+	tempname b V D se
+	local neq : word count `eqs'
+
+	// compute point estimate
+
+	MEval "scalar `b'" "`func'" `eqs'
+
+	// get variance-covariance of desired equations
+
+	GetV `eqs'
+	mat `V' = r(V)
+
+	if `.has_Cns' {
+		tempname Cns
+		GetCns `eqs'
+		mat `Cns' = r(Cns)
+	}
+
+	// compute derivatives
+
+	mat `D' = J(1,`neq',0)
+	local nder : list sizeof deriv
+	if `neq' != `nder' {
+		di in red ///
+"number of derivatives not equal to number of parameters"
+		exit 198
+	}
+	tokenize `deriv'
+	local eqi 1
+	while `eqi' <= `neq' {
+		MEval "mat `D'[1,`eqi']" "``eqi''" `eqs'
+		local eqi = `eqi' + 1
+	}
+
+	mat `V' = `D'*`V'*`D''
+	scalar `se' = sqrt(`V'[1,1])
+	if `se' == 0 {
+		scalar `se' = .
+	}
+
+	local isCns 0
+	if `.has_Cns' & `se' == . {
+		local isCns 1
+		tempname C
+		local k = colsof(`D')
+		forval i = 1/`k' {
+			if `D'[1,`i'] {
+				matrix `C' = `Cns'[1...,`i']
+				matrix `C' = `C''*`C'
+				local isCns = `C'[1,1] != 0
+			}
+			if `isCns' == 0 {
+				continue, break
+			}
+		}
+	}
+
+	// save results
+	return scalar est = `b'
+	return scalar se  = `se'
+
+	// confidence interval
+	if "`e(mi)'"=="mi" {
+		return scalar lb = .b
+		return scalar ub = .b
+	}
+	else if "`ci'"=="" {
+		return scalar lb = `b' - `z'*`se'
+		return scalar ub = `b' + `z'*`se'
+	}
+	else {
+		// no leading dot ".", so users can use their own CI
+		// transformation
+		CI`ci' `b' `se' `z'
+		return add
+	}
+	return scalar i = 0
+	return scalar cns = `isCns'
+end
+
+// get variance-covariance of desired equations
+program .GetV, rclass
+	tempname V u v
+	if `.has_v' {
+		mat `V' = `.VMAT'
+	}
+	else {
+		mat `V' = e(V)
+	}
+	local eqi 1
+	while "``eqi''"!="" {
+		mat `u' = `V'[1...,"``eqi''"]
+		mat `v' = nullmat(`v') , `u'
+		local eqi = `eqi' + 1
+	}
+	mat drop `V'
+	local eqi 1
+	while "``eqi''"!="" {
+		mat `u' = `v'["``eqi''",1...]
+		mat `V' = nullmat(`V') \ `u'
+		local eqi = `eqi' + 1
+	}
+	if diag0cnt(`V') > 0 {
+		mat `V' = 0*`V'
+	}
+
+	return matrix V `V'
+end
+
+// get variance-covariance of desired equations
+program .GetCns, rclass
+	tempname Cns u v
+	mat `Cns' = e(Cns)
+	local eqi 1
+	while "``eqi''"!="" {
+		mat `u' = `Cns'[1...,"``eqi''"]
+		mat `v' = nullmat(`v') , `u'
+		local eqi = `eqi' + 1
+	}
+	mat drop `Cns'
+	mat rename `v' `Cns'
+
+	return matrix Cns `Cns'
+end
+
+// substitute @1, @2,..., @9 for equation names
+program .MEval
+	args genx func
+	macro shift 2 /* `*' = list of equation names */
+
+	if `.has_b' {
+		local bmat `"`.BMAT'"'
+	}
+	else {
+		local bmat `"e(b)"'
+	}
+
+	local colna `"`.COLNA'"'
+	while "`func'" != "" {
+		gettoken sub func : func, parse("@")
+		if "`sub'"=="@" {
+			gettoken eqi func : func, parse("123456789")
+			local el : colnumb `bmat' "``eqi''"
+			if `.has_b' {
+				local exp "`exp'(el(`.BMAT',1,`el'))"
+			}
+			else {
+				local exp "`exp'(_b[``eqi''])"
+			}
+		}
+		else	local exp "`exp'`sub'"
+	}
+
+	capture `genx' = `exp'
+	if _rc {
+		di in red "expression evaluates to" _n "`exp'"
+		exit 198
+	}
+end
+
+program .Function, rclass
+	args b se z func deriv
+
+	Express `b' `deriv'
+	return scalar se = abs(`r(exp)')*`se'
+
+	// macroname `work' substituted into function
+	tempname work
+	Express `work' `func'
+
+	scalar `work' = `b'
+	return scalar est = `r(exp)'
+
+	scalar `work' = `b' - `z'*`se'
+	return scalar lb = `r(exp)'
+
+	scalar `work' = `b' + `z'*`se'
+	return scalar ub = `r(exp)'
+
+	if return(lb) > return(ub) {
+		scalar `work' = return(lb)
+		return scalar lb = return(ub)
+		return scalar ub = `work'
+	}
+	return scalar i = 0
+end
+
+program .Express, rclass
+	gettoken b 0 : 0
+
+	while "`0'" != "" {
+		gettoken sub 0 : 0, parse("@")
+		if "`sub'"=="@" {
+			local exp "`exp'`b'"
+		}
+		else	local exp "`exp'`sub'"
+	}
+
+	return local exp "`exp'"
+end
+
+program .Chk4PosInt
+	args ename
+	if `"`e(`ename')'"' != "" {
+		capture confirm integer number `e(`ename')'
+		if !c(rc) {
+			if `e(`ename')' > 0 {
+				c_local `ename' `e(`ename')'
+			}
+		}
+	}
+end
+
+/* built-in transformations ---------------------------------------------- */
+
+program .exp, rclass
+	args b se z
+	return scalar est = exp(`b')
+	return scalar se  = return(est)*`se'
+	return scalar lb  = exp(`b'-`z'*`se')
+	return scalar ub  = exp(`b'+`z'*`se')
+	return scalar i = 0
+end
+
+program .tanh, rclass
+	args b se z
+	tempname lb ub ll ul
+	scalar `lb' = `b' - `z'*`se'
+	scalar `ub' = `b' + `z'*`se'
+	return scalar est = (exp(`b')-exp(-`b'))/(exp(`b')+exp(-`b'))
+	return scalar se  = (1 - return(est)^2)*`se'
+	scalar `ll'  = (exp(`lb')-exp(-`lb'))/(exp(`lb')+exp(-`lb'))
+	scalar `ul'  = (exp(`ub')-exp(-`ub'))/(exp(`ub')+exp(-`ub'))
+	return scalar lb  = cond(`ll'==.,-1,`ll')
+	return scalar ub  = cond(`ul'==., 1,`ul')
+	return scalar i = 0
+end
+
+program .ilogit, rclass
+	args b se z
+	return scalar est = 1/(1 + exp(-`b'))
+	return scalar se  = return(est)*(1 - return(est))*`se'
+	return scalar lb  = 1/(1 + exp(-(`b'-`z'*`se')))
+	return scalar ub  = 1/(1 + exp(-(`b'+`z'*`se')))
+	return scalar i = 0
+end
+
+program .identity, rclass
+	args b se z i ci
+	return scalar est = `b'
+	return scalar se  = `se'
+	if "`ci'"=="" {
+		return scalar lb  = `b' - `z'*`se'
+		return scalar ub  = `b' + `z'*`se'
+	}
+	else {
+		// no leading dot ".", so users can use their own CI
+		// transformation
+		CI`ci' `b' `se' `z'
+		return add
+	}
+	return scalar i = `i'
+end
+
+/* built-in CI transformations ------------------------------------------- */
+
+program .CIlogit, rclass
+	args p se z
+	tempname or pq
+	scalar `or' = `p'/(1-`p')
+	scalar `pq' = `p'*(1-`p')
+	return scalar lb = 1/(1+exp(-(log(`or')-`z'*`se'/`pq')))
+	return scalar ub = 1/(1+exp(-(log(`or')+`z'*`se'/`pq')))
+end
+
+program .CIprobit, rclass
+	args p se z
+	tempname y
+	scalar `y' = invnorm(`p')
+	return scalar lb = normprob(`y'-`z'*`se'/normalden(`y'))
+	return scalar ub = normprob(`y'+`z'*`se'/normalden(`y'))
+end
+
+program .CIatanh, rclass
+	args x se z
+	tempname y lb ub ll ul
+	scalar `y'  = 0.5*log((1+`x')/(1-`x'))
+	scalar `lb' = `y'-`z'*`se'/(1-`x'^2)
+	scalar `ub' = `y'+`z'*`se'/(1-`x'^2)
+	scalar `ll' = (exp(`lb')-exp(-`lb'))/(exp(`lb')+exp(-`lb'))
+	scalar `ul' = (exp(`ub')-exp(-`ub'))/(exp(`ub')+exp(-`ub'))
+	return scalar lb  = cond(`ll'==.,-1,`ll')
+	return scalar ub  = cond(`ul'==.,1,`ul')
+end
+
+program .CIlog, rclass
+	args x se z
+	return scalar lb = exp(log(`x')-`z'*`se'/`x')
+	return scalar ub = exp(log(`x')+`z'*`se'/`x')
+end
+
+exit

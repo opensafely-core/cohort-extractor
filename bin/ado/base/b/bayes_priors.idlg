@@ -1,0 +1,676 @@
+/*
+  bayes_priors.idlg - bayes priors tab
+
+*!  VERSION 1.0.8  19sep2017
+
+    // SCRIPTS and PROGRAMS for external use
+	* SCRIPT  prior_gibbs_show
+	* SCRIPT  prior_gibbs_hide
+	* PROGRAM  prior_show_normal_default
+	* PROGRAM  prior_show_normaligamma_default
+	* PROGRAM  prior_show_normalflat_default
+	* PROGRAM  prior_show_normaljeffery_default
+	* SCRIPT  prior_normal_logover_param
+	* SCRIPT  prior_normal_loganc_param
+	* SCRIPT  prior_normal_anc_param
+	* SCRIPT  prior_normal_anc_params
+	* SCRIPT  prior_normal
+
+*/
+
+SCRIPT prior_PREINIT
+BEGIN
+	create STRING _MSG_TMP
+	create STRING STMP
+	create STRING EstimateCmdString
+	create STRING tempEstimateCmdString
+	
+	create STRING prior_build_tmp
+	create STRING prior_build_tmp2
+	create STRING prior_build_childdlg
+	create STRING prior_build_child_result
+	create DOUBLE prior_build_position
+
+	create STRING dlgname
+	dlgname.storeDialogClassName
+	
+
+	create ARRAY prior_prior_list
+	create SVECTOR priorPriorCommandDisplayList
+	create SVECTOR priorPriorCommandList
+	create SVECTOR priorPriorCommandValues
+	create SVECTOR priorPriorStatusList
+	create SVECTOR priorPriorChildDialogList
+	create SVECTOR priorPriorChildDialogNameList
+	create DOUBLE prior_prior_count
+	create DOUBLE prior_prior_arraysize
+	create STRING prior_prior_output
+	
+
+
+	create STRING BAYES_PARSE_PARAMS
+	create STRING BAYES_PARSE_PARAMS_ERROR
+	create STRING BAYES_PARSE_PARAMS_RESULT
+	
+	create DOUBLE prior_layout
+
+	create STRING prior_paras_str
+	create DOUBLE prior_mode
+	create STRING priorparam
+	create STRING build_STMP
+	
+	
+	prior.bu_prior_edit.disable
+	prior.bu_prior_disable.disable
+	prior.bu_prior_enable.disable
+	
+
+	prior_mode.setvalue 0
+END
+
+SCRIPT prior_POSTINIT
+BEGIN
+	priorPriorCommandDisplayList.copyToArray prior_prior_list
+	prior.lb_priorBuild.repopulate
+END
+
+DIALOG prior, tabtitle(resource LBL_TAB_PRIORS)
+BEGIN
+  CHECKBOX ck_gibbs		_lft	_top	_iwd	.,		///
+  	option(gibbs)							///
+  	label(resource BAYES_LBL_GIBBS_UPDATE_PARAMS)
+  GROUPBOX gb_dftprior		_lft	_ms	_iwd	_ht16h,		///
+  	label(resource BAYES_LBL_DEFAULT_PRIORS)
+  TEXT     tx_normal		_ilft	_ss	_ibwd	.,		///
+    	label(resource BAYES_LBL_NORMAL_PRIOR_COEF)
+  EDIT	   ed_normal		_ilft	_ss	_spwd	.,		///
+  	option(normalprior) numonly					///
+  	default(100) 							///
+  	tooltip(resource BAYES_PRIOR_ED_NORMAL_TOOLTIP)			///
+   	label(resource LBL_STANDARD_DEVIATION)
+  TEXT     tx_stdv		_en7sep	@	_cwd6	.,		///
+	label(resource LBL_STANDARD_DEVIATION)
+  TEXT     tx_igamma		_ilft	_ms	_ibwd	.,		///
+  	label(resource BAYES_LBL_IGAMMAPRIOR_VARIANCE_COMP)
+  EDIT     ed_igamma		_ilft	_ss	_en7wd	.,		///
+  	option(igammaprior)						///
+  	default(0.01) numonly						///
+  	tooltip(resource BAYES_PRIOR_TOOLTIP_SHAPE_IGAMMAPRIOR)		///
+	label(resource BAYES_LBL_IGAMMAPRIOR_VARIANCE)
+  TEXT     tx_shape		_en7sep	@	_cwd6	.,		///
+  	label(resource BAYES_LBL_SHAPE)
+  EDIT     ed_igamma2		_ilft	_ms	_en7wd	.,		///
+  	option(igammaprior)						///
+  	default(0.01) numonly						///
+  	tooltip(resource BAYES_PRIOR_TOOLTIP_SCALE_IGAMMAPRIOR)		///
+	label(resource BAYES_LBL_IGAMMA_PRIOR)
+  TEXT     tx_scale		_en7sep	@	_cwd6	.,		///
+  	label(resource BAYES_LBL_SCALE)
+  TEXT     tx_flat		_ilft	_ls	_ibwd	.,		///
+  	label(resource BAYES_PRIOR_TX_FLAT)
+  TEXT     tx_jeffery		_ilft	_ms	_ibwd	.,		///
+  	label(resource BAYES_PRIOR_TX_JEFFERY)
+  GROUPBOX gb_prior		_lft	_xls	_iwd	_ht18,		///
+  	label(resource BAYES_LBL_CUS_PRIORS_MODEL_PARAMS)
+  LISTBOX lb_priorBuild		_indent	_ss	300	145,		///
+	contents(prior_prior_list)					///
+	ondblclick(program prior_prior_edit)				///
+	onselchange(program prior_prior_sel_changed)			///
+	nomemory
+  BUTTON bu_prior_create	335	@	75	.,		///
+	label(resource LBL_BU_CREATE)					///
+	onpush(program prior_prior_create)
+  BUTTON bu_prior_edit		@	_ls	@	.,		///
+	label(resource LBL_BU_EDIT)					///
+	onpush(program prior_prior_edit)
+  BUTTON bu_prior_disable	@	_ls	@	.,		///
+	label(resource LBL_BU_DISABLE)					///
+	onpush(program prior_prior_disable)
+  BUTTON bu_prior_enable	@	_ls	@	.,		///
+	label(resource LBL_BU_ENABLE)					///
+	onpush(program prior_prior_enable)
+  TEXTBOX tb_prior_note		20	+70	370	20,		///
+	label(resource BAYES_LBL_PRESS_CREATE_TO_DEFINE_A_PRIOR_DIST)	
+  CHECKBOX ck_dryrun		_lft	_xls	_iwd	.,		///
+	option(dryrun)							///
+	onclickon(block.ck_blocksummary.disable)			///
+	onclickoff(block.ck_blocksummary.enable)			///
+	label(resource BAYES_LBL_SHOW_MSUM_WITHOUT_EST)
+
+END
+
+PROGRAM prior_prior_create
+BEGIN
+	call prior_mode.setvalue 0
+	call prior_prior_count.setvalue class priorPriorChildDialogList.size
+	call prior_prior_count.increment
+	call prior_build_tmp.setvalue "prior_prior_"
+	call prior_build_tmp.append class prior_prior_count.value
+	call prior_build_tmp.withvalue prior_build_childdlg.setvalue @
+	call program prior_show_prior_child
+END
+
+PROGRAM prior_prior_edit
+BEGIN
+	call prior_mode.setvalue 1
+	call priorPriorCommandDisplayList.findstr class			///
+		prior.lb_priorBuild.value
+	call prior_build_position.setvalue class				///
+		priorPriorCommandDisplayList.position
+	call prior_build_position.withvalue				///
+		prior_build_childdlg.setvalue				///
+		class priorPriorChildDialogList.values[@]
+	call program prior_show_prior_child_edit
+END
+
+PROGRAM prior_show_prior_child
+BEGIN
+	call priorPriorCommandValues.copyToString prior_prior_output
+	put "capture bayes_parse_params "
+	if !prior_prior_output.equals("") {
+		put "," prior_prior_output
+	}
+	put " : " 
+	put /program bayes_build_parse	
+	stata hidden immediate
+
+	call BAYES_PARSE_PARAMS_ERROR.setvalue ""
+	call BAYES_PARSE_PARAMS_RESULT.setvalue ""
+	call BAYES_PARSE_PARAMS_RESULT.setvalue s(params)
+	if BAYES_PARSE_PARAMS_RESULT.iseq("") {
+		call BAYES_PARSE_PARAMS_ERROR.setvalue resource BAYES_MSGBOX_ERRORS_IN_SPECIFICATION
+	stopbox stop "class BAYES_PARSE_PARAMS_ERROR.value"
+// Errors in model specification.
+	}
+
+	call prior_build_tmp.setvalue "bayes_prior AS "
+	call prior_build_tmp.append class prior_build_childdlg.value
+	call prior_build_tmp.withvalue create CHILD @
+	call prior_build_childdlg.withvalue @.setExitString		///
+		"prior_build_child_result"
+	call prior_build_childdlg.withvalue @.setExitAction		///
+		"program prior_prior_child_create_done"
+
+	call prior_prior_count.withvalue					///
+		build_STMP.format "resource BAYES_LBL_PRIOR_FMT" "@" ""
+	call prior_build_childdlg.withvalue				///
+		prior_build_tmp2.setvalue "@.settitle"
+	call prior_build_tmp2.append `" ""'
+	call prior_build_tmp2.append class build_STMP.value
+	call prior_build_tmp2.append `"""'
+	call prior_build_tmp2.withvalue @
+END
+
+PROGRAM prior_show_prior_child_edit
+BEGIN
+	call priorPriorCommandValues.copyToString prior_prior_output
+	put "capture bayes_parse_params "
+	if !prior_prior_output.equals("") {
+		put "," prior_prior_output
+	}
+	put " : " 
+	put /program bayes_build_parse
+	stata hidden immediate
+
+	call prior_build_tmp.setvalue "bayes_prior AS "
+	call prior_build_tmp.append class prior_build_childdlg.value
+	call prior_build_tmp.withvalue create CHILD @
+	call prior_build_childdlg.withvalue @.setExitString		///
+		"prior_build_child_result"
+	call prior_build_childdlg.withvalue @.setExitAction		///
+		"program prior_prior_child_edit_done"
+
+	call prior_build_position.withvalue				///
+		prior_build_tmp.setvalue					///
+		class priorPriorCommandDisplayList.values[@]
+	call prior_build_childdlg.withvalue				///
+		prior_build_tmp2.setvalue "@.settitle"
+	call prior_build_tmp2.append `" ""'
+	call prior_build_tmp2.append class prior_build_tmp.value
+	call prior_build_tmp2.append `"""'
+	call prior_build_tmp2.withvalue @
+END
+
+PROGRAM prior_prior_child_create_done
+BEGIN
+	call prior_prior_arraysize.setvalue class			///
+		priorPriorChildDialogList.size
+	call prior_prior_arraysize.increment
+
+	/* Store child dialog name */
+	call priorPriorChildDialogList.store class			///
+		prior_prior_arraysize.value class prior_build_childdlg.value
+
+	/* Store listbox display prior string */
+	call prior_prior_arraysize.withvalue				///
+		build_STMP.format "resource BAYES_LBL_PRIOR_FMT" "@" ""
+		
+	call build_STMP.withvalue					///
+		priorPriorCommandDisplayList.store class			///
+		prior_prior_arraysize.value "@"
+
+	/* Store child dialog result string */
+	call priorPriorCommandList.store class				///
+		prior_prior_arraysize.value				///
+		class prior_build_child_result.value
+
+
+	/* Store child dialog result string for final command
+	   For disable/enable */
+	call priorPriorCommandValues.store class				///
+		prior_prior_arraysize.value				///
+		class prior_build_child_result.value
+
+	/* Store disable/enable status */
+	call priorPriorStatusList.store class				///
+		prior_prior_arraysize.value "active"
+
+	call priorPriorCommandDisplayList.copyToArray prior_prior_list
+	call prior.lb_priorBuild.repopulate
+	call build_STMP.withvalue					///
+		prior.lb_priorBuild.setvalue "@"
+END
+
+PROGRAM prior_prior_child_edit_done
+BEGIN	
+	call priorPriorChildDialogList.findstr class			///
+		prior_build_childdlg.value
+	call prior_build_position.setvalue class				///
+		priorPriorChildDialogList.position
+	call prior_build_position.withvalue prior_build_tmp.setvalue	///
+		class priorPriorStatusList.values[@]
+	if prior_build_tmp.iseq("active") {
+		call prior_build_position.withvalue			///
+			build_STMP.format "resource BAYES_LBL_PRIOR_FMT" "@" ""
+		
+		call build_STMP.withvalue				///
+			priorPriorCommandDisplayList.store class		///
+			prior_build_position.value "@"
+		call priorPriorCommandValues.store class			///
+			prior_build_position.value class			///
+			prior_build_child_result.value
+
+		call build_STMP.withvalue				///
+			prior_build_tmp2.setvalue "@"
+	}
+	else {
+		call prior_build_position.withvalue build_STMP.format	///
+			"resource BAYES_LBL_PRIOR_FMT" "@"		///
+			"resource LBL_PAREN_DISABLED"
+		call build_STMP.withvalue				///
+			prior_build_tmp2.setvalue "@"
+
+		call prior_build_tmp2.withvalue				///
+			priorPriorCommandDisplayList.store		///
+			class prior_build_position.value "@"
+	}
+
+	call priorPriorCommandList.store class				///
+		prior_build_position.value class				///
+		prior_build_child_result.value
+
+	call priorPriorCommandDisplayList.copyToArray prior_prior_list
+	call prior.lb_priorBuild.repopulate
+	call prior.lb_priorBuild.setvalue class prior_build_tmp2.value
+END
+
+PROGRAM prior_prior_sel_changed
+BEGIN
+	call priorPriorCommandDisplayList.findstr class			///
+		prior.lb_priorBuild.value
+	call prior_build_position.setvalue class				///
+		priorPriorCommandDisplayList.position
+	call prior_build_position.withvalue prior_build_tmp.setvalue	///
+		class priorPriorStatusList.values[@]
+	if prior_build_position {
+		call prior.bu_prior_edit.enable
+
+		call prior_build_position.withvalue			///
+			prior.tb_prior_note.setlabel			///
+		class priorPriorCommandList.values[@]
+	}
+
+	if prior_build_tmp.iseq("disable") {
+		call prior.bu_prior_enable.enable
+		call prior.bu_prior_disable.disable
+	}
+	if prior_build_tmp.iseq("active") {
+		call prior.bu_prior_enable.disable
+		call prior.bu_prior_disable.enable
+	}
+END
+
+PROGRAM prior_prior_disable
+BEGIN
+	call priorPriorCommandDisplayList.findstr class			///
+		prior.lb_priorBuild.value
+	call prior_build_position.setvalue class				///
+		priorPriorCommandDisplayList.position
+
+	call prior_build_tmp.setvalue class prior.lb_priorBuild.value
+	call priorPriorStatusList.store class				///
+		prior_build_position.value "disable"
+	call priorPriorCommandValues.store class prior_build_position.value ""
+
+	call build_STMP.format "resource LBL_PAREN_DISABLED"
+	call prior_build_tmp.append " "
+	call prior_build_tmp.append class build_STMP.value
+	
+	call prior_build_tmp.withvalue					///
+		priorPriorCommandDisplayList.store			///
+		class prior_build_position.value "@"
+
+	call priorPriorCommandDisplayList.copyToArray prior_prior_list
+	call prior_build_tmp.withvalue prior_build_tmp2.setvalue "@"
+	call prior.lb_priorBuild.repopulate
+	call prior.lb_priorBuild.setvalue class prior_build_tmp2.value
+END
+
+PROGRAM prior_prior_enable
+BEGIN
+	call priorPriorCommandDisplayList.findstr class			///
+		prior.lb_priorBuild.value
+	call prior_build_position.setvalue class				///
+		priorPriorCommandDisplayList.position
+
+	call priorPriorStatusList.store class				///
+		prior_build_position.value "active"
+	call prior_build_position.withvalue				///
+		priorPriorCommandValues.store				///
+		class prior_build_position.value class			///
+		priorPriorCommandList.values[@]
+
+	call prior_build_position.withvalue				///
+		build_STMP.format "resource BAYES_LBL_PRIOR_FMT" "@" ""
+		
+	call build_STMP.withvalue					///
+		priorPriorCommandDisplayList.store			///
+		class prior_build_position.value "@"
+
+	call priorPriorCommandDisplayList.copyToArray prior_prior_list
+	call prior_build_position.withvalue				///
+		prior_build_tmp2.setvalue class				///
+		priorPriorCommandDisplayList.values[@]
+	call prior.lb_priorBuild.repopulate
+	call prior.lb_priorBuild.setvalue class prior_build_tmp2.value
+END
+
+SCRIPT prior_gibbs_show
+BEGIN
+	prior.ck_gibbs.show
+END
+
+SCRIPT prior_gibbs_hide
+BEGIN
+	prior.ck_gibbs.hide
+END
+
+PROGRAM  prior_show_normal_default
+BEGIN
+	call prior.tx_igamma.hide
+	call prior.ed_igamma.hide
+	call prior.ed_igamma2.hide
+	call prior.tx_flat.hide
+	call prior.tx_jeffery.hide	
+	if prior.ck_gibbs.isvisible() {
+		call prior.gb_dftprior.setposition . 40 . 75
+		call prior.tx_normal.setposition . 60 . .
+		call prior.ed_normal.setposition . 80 . .
+		call prior.gb_prior.setposition . 120 . .
+		call prior.lb_priorBuild.setposition . 140 . .
+		call prior.bu_prior_create.setposition . 140 . .
+		call prior.bu_prior_edit.setposition . 140 . .
+		call prior.bu_prior_disable.setposition . 200 . .
+		call prior.bu_prior_enable.setposition . 230 . .
+		call prior.tb_prior_note.setposition . 300 . .
+		call prior.ck_dryrun.setposition . 340 . .	
+	}
+	if !prior.ck_gibbs.isvisible() {
+		call prior.gb_dftprior.setposition . 10 . 75
+		call prior.tx_normal.setposition . 30 . .
+		call prior.ed_normal.setposition . 50 . .
+		call prior.tx_stdv.setposition . 50 . .
+		call prior.gb_prior.setposition . 90 . .
+		call prior.lb_priorBuild.setposition . 110 . .
+		call prior.bu_prior_create.setposition . 110 . .
+		call prior.bu_prior_edit.setposition . 140 . .
+		call prior.bu_prior_disable.setposition . 170 . .
+		call prior.bu_prior_enable.setposition . 200 . .
+		call prior.tb_prior_note.setposition . 270 . .
+		call prior.ck_dryrun.setposition . 310 . .	
+	}
+END
+
+PROGRAM  prior_show_normaligamma_default
+BEGIN
+	call prior.tx_igamma.show
+	call prior.ed_igamma.show
+	call prior.ed_igamma2.show
+	call prior.tx_flat.hide
+	call prior.tx_jeffery.hide	
+	if prior.ck_gibbs.isvisible() {
+		call prior.gb_dftprior.setposition . 40 . 140
+		call prior.tx_normal.setposition . 60 . .
+		call prior.ed_normal.setposition . 80 . .
+		call prior.tx_stdv.setposition . 80 . .
+		call prior.tx_igamma.setposition . 105 . .
+		call prior.ed_igamma.setposition . 125 . .
+		call prior.tx_shape.setposition . 125 . .
+		call prior.ed_igamma2.setposition . 150 . . 
+		call prior.tx_scale.setposition . 150 . .
+		call prior.gb_prior.setposition . 190 . .
+		call prior.lb_priorBuild.setposition . 210 . .
+		call prior.bu_prior_create.setposition . 210 . .
+		call prior.bu_prior_edit.setposition . 240 . .
+		call prior.bu_prior_disable.setposition . 270 . .
+		call prior.bu_prior_enable.setposition . 300 . .
+		call prior.tb_prior_note.setposition . 370 . .
+		call prior.ck_dryrun.setposition . 410 . .	
+	}
+	if !prior.ck_gibbs.isvisible() {
+		call prior.gb_dftprior.setposition . 10 . 140
+		call prior.tx_normal.setposition . 30 . .
+		call prior.ed_normal.setposition . 50 . .
+		call prior.tx_stdv.setposition . 50 . .
+		call prior.tx_igamma.setposition . 75 . .
+		call prior.ed_igamma.setposition . 95 . .
+		call prior.tx_shape.setposition . 95 . .
+		call prior.ed_igamma2.setposition . 120 . . 
+		call prior.tx_scale.setposition . 120 . .
+		call prior.gb_prior.setposition . 160 . .
+		call prior.lb_priorBuild.setposition . 180 . .
+		call prior.bu_prior_create.setposition . 180 . .
+		call prior.bu_prior_edit.setposition . 210 . .
+		call prior.bu_prior_disable.setposition . 240 . .
+		call prior.bu_prior_enable.setposition . 270 . .
+		call prior.tb_prior_note.setposition . 340 . .
+		call prior.ck_dryrun.setposition . 380 . .	
+	}
+END
+PROGRAM  prior_show_normalflat_default
+BEGIN
+	call prior.tx_igamma.hide
+	call prior.ed_igamma.hide
+	call prior.tx_shape.hide
+	call prior.ed_igamma2.hide
+	call prior.tx_scale.hide
+	call prior.tx_flat.show
+	call prior.tx_jeffery.hide
+	if prior.ck_gibbs.isvisible() {
+		call prior.gb_dftprior.setposition . 40 . 95
+		call prior.tx_normal.setposition . 60 . .
+		call prior.ed_normal.setposition . 80 . .
+		call prior.tx_stdv.setposition . 80 . .
+		call prior.tx_flat.setposition . 110 . .
+		call prior.gb_prior.setposition . 145 . .
+		call prior.lb_priorBuild.setposition . 165 . .
+		call prior.bu_prior_create.setposition . 165 . .
+		call prior.bu_prior_edit.setposition . 195 . .
+		call prior.bu_prior_disable.setposition . 225 . .
+		call prior.bu_prior_enable.setposition . 255 . .
+		call prior.tb_prior_note.setposition . 325 . .
+		call prior.ck_dryrun.setposition . 365 . .	
+	}
+	if !prior.ck_gibbs.isvisible() {
+		call prior.gb_dftprior.setposition . 10 . 95
+		call prior.tx_normal.setposition . 30 . .
+		call prior.ed_normal.setposition . 50 . .
+		call prior.tx_stdv.setposition . 50 . .
+		call prior.tx_flat.setposition . 80 . .
+		call prior.gb_prior.setposition . 120 . .
+		call prior.lb_priorBuild.setposition . 140 . .
+		call prior.bu_prior_create.setposition . 140 . .
+		call prior.bu_prior_edit.setposition . 170 . .
+		call prior.bu_prior_disable.setposition . 200 . .
+		call prior.bu_prior_enable.setposition . 230 . .
+		call prior.tb_prior_note.setposition . 300 . .
+		call prior.ck_dryrun.setposition . 340 . .	
+	}
+END
+
+PROGRAM  prior_show_normaljeffery_default
+BEGIN
+	call prior.tx_igamma.hide
+	call prior.ed_igamma.hide
+	call prior.tx_shape.hide
+	call prior.ed_igamma2.hide
+	call prior.tx_scale.hide
+	call prior.tx_flat.hide
+	call prior.tx_jeffery.show
+	if prior.ck_gibbs.isvisible() {
+		call prior.gb_dftprior.setposition . 40 . 95
+		call prior.tx_normal.setposition . 60 . .
+		call prior.ed_normal.setposition . 80 . .
+		call prior.tx_stdv.setposition . 80 . .
+		call prior.tx_jeffery.setposition . 110 . .
+		call prior.gb_prior.setposition . 145 . .
+		call prior.lb_priorBuild.setposition . 165 . .
+		call prior.bu_prior_create.setposition . 165 . .
+		call prior.bu_prior_edit.setposition . 195 . .
+		call prior.bu_prior_disable.setposition . 225 . .
+		call prior.bu_prior_enable.setposition . 255 . .
+		call prior.tb_prior_note.setposition . 325 . .
+		call prior.ck_dryrun.setposition . 365 . .	
+	}
+	if !prior.ck_gibbs.isvisible() {
+		call prior.gb_dftprior.setposition . 10 . 95
+		call prior.tx_normal.setposition . 30 . .
+		call prior.ed_normal.setposition . 50 . .
+		call prior.tx_stdv.setposition . 50 . .
+		call prior.tx_jeffery.setposition . 80 . .
+		call prior.gb_prior.setposition . 120 . .
+		call prior.lb_priorBuild.setposition . 140 . .
+		call prior.bu_prior_create.setposition . 140 . .
+		call prior.bu_prior_edit.setposition . 170 . .
+		call prior.bu_prior_disable.setposition . 200 . .
+		call prior.bu_prior_enable.setposition . 230 . .
+		call prior.tb_prior_note.setposition . 300 . .
+		call prior.ck_dryrun.setposition . 340 . .	
+	}
+END
+
+SCRIPT prior_normal_logover_param
+BEGIN
+	prior.tx_normal.setlabel "resource BAYES_PRIOR_TX_NORMAL_LOGOVER"
+	prior.ed_normal.settooltip "resource BAYES_PRIOR_ED_NORMAL_TOOLTIP_LOGOVER"
+END
+SCRIPT prior_normal_loganc_param
+BEGIN
+	prior.tx_normal.setlabel "resource BAYES_PRIOR_TX_NORMAL_LOGANC"
+	prior.ed_normal.settooltip "resource BAYES_PRIOR_ED_NORMAL_TOOLTIP_LOGANC"
+END
+
+SCRIPT prior_normal_anc_param
+BEGIN
+	prior.tx_normal.setlabel "resource BAYES_PRIOR_TX_NORMAL_ANC"
+	prior.ed_normal.settooltip "resource BAYES_PRIOR_ED_NORMAL_TOOLTIP_ANC"
+END
+
+SCRIPT prior_normal_anc_params
+BEGIN
+	prior.tx_normal.setlabel "resource BAYES_PRIOR_TX_NORMAL_ANCS"
+	prior.ed_normal.settooltip "resource BAYES_PRIOR_ED_NORMAL_TOOLTIP_ANCS"
+END
+
+SCRIPT prior_normal
+BEGIN
+	prior.tx_normal.setlabel "resource BAYES_PRIOR_TX_NORMAL"
+	prior.ed_normal.settooltip "resource BAYES_PRIOR_ED_NORMAL_TOOLTIP"
+END
+
+PROGRAM prior_prioropt_output
+BEGIN
+	call priorPriorCommandValues.copyToString prior_prior_output
+	put " " prior_prior_output
+END
+
+PROGRAM prior_igamma_output
+BEGIN
+	if prior.ed_igamma & prior.ed_igamma2 {
+		if prior.ed_igamma.isneq(".") | prior.ed_igamma2.isneq("."){
+			if prior.ed_igamma.isle(0) 			///
+			& prior.ed_igamma.isneq(".") {
+				call _MSG_TMP.format			///
+"resource LBL_MSGBOX_BAYES_NOT_POSITIVE_FMT"		///
+"resource LBL_TAB_PRIORS"						///
+"resource BAYES_PRIOR_TOOLTIP_SHAPE_IGAMMAPRIOR"			
+		stopbox stop "class _MSG_TMP.value"
+			}
+			if prior.ed_igamma2.isle(0) 			///
+			& prior.ed_igamma2.isneq(".") {
+call _MSG_TMP.format							///
+"resource LBL_MSGBOX_BAYES_NOT_POSITIVE_FMT"		///
+"resource LBL_TAB_PRIORS"						///
+"resource BAYES_PRIOR_TOOLTIP_SCALE_IGAMMAPRIOR"			
+		stopbox stop "class _MSG_TMP.value"
+			}
+			if ! (prior.ed_igamma.isdefault() 		///
+			& prior.ed_igamma2.isdefault()) {
+				put "igammaprior("
+				put prior.ed_igamma
+				put " "
+				put prior.ed_igamma2
+				put ")"
+			}
+		}
+	}
+	else {
+		if prior.ed_igamma & prior.ed_igamma.isneq(".") {
+			if prior.ed_igamma.isle(0) {
+call _MSG_TMP.format			///
+"resource LBL_MSGBOX_BAYES_NOT_POSITIVE_FMT"		///
+"resource LBL_TAB_PRIORS"						///
+"resource BAYES_PRIOR_TOOLTIP_SCALE_IGAMMAPRIOR"			
+		stopbox stop "class _MSG_TMP.value"
+			}
+			put "igammaprior("
+			put prior.ed_igamma
+			put " .)"			
+		}
+		if prior.ed_igamma2 & prior.ed_igamma2.isneq("."){
+			if prior.ed_igamma2.isle(0) {
+call _MSG_TMP.format			///
+"resource LBL_MSGBOX_BAYES_NOT_POSITIVE_FMT"			///
+"resource LBL_TAB_PRIORS"						///
+"resource BAYES_PRIOR_TOOLTIP_SCALE_IGAMMAPRIOR"			
+		stopbox stop "class _MSG_TMP.value"
+		}
+			put "igammaprior(. "
+			put prior.ed_igamma2
+			put ")"			
+		}
+	}
+END
+
+PROGRAM bayes_priors_output
+BEGIN
+	if prior.ck_gibbs.isvisible() & prior.ck_gibbs.isenabled() {
+		option prior.ck_gibbs
+	}
+	optionarg /hidedefault prior.ed_normal
+	if prior.ed_igamma.isvisible() & prior.ed_igamma2.isvisible() {
+		put " "/program prior_igamma_output
+	}
+	put " " /program prior_prioropt_output
+	option prior.ck_dryrun
+END

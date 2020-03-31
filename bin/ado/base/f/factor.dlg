@@ -1,0 +1,352 @@
+/*
+	factor
+
+*!  VERSION 1.3.0  07jun2018
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 310
+INCLUDE header
+HELP hlp1, view("help factor")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource FACTOR_DLG_HSCALE
+END
+
+DIALOG main, label(resource FACTOR_DLG_TITLE) tabtitle(resource LBL_TAB_MODEL)
+BEGIN
+  TEXT     tx_var	_lft	_top		_iwd	.,		///
+	label(resource LBL_VARIABLES)
+  VARLIST  vl_var	@	_ss		@	.,		///
+        numeric								///
+	label(resource LBL_VARIABLES)
+END
+
+DIALOG model2, tabtitle(resource LBL_TAB_MODEL2)
+BEGIN
+GROUPBOX gb_methods	_lft	_top		_iwd	_ht8,   	///
+	label(resource LBL_METHOD_NO_COLON)
+  RADIO    rb_pf	_indent	_ss		_inwd	.,		///
+	first option(NONE)	 					///
+	onclickon("script pf_on")					///
+	label(resource LBL_PRINCIPAL_FACTOR_DEFAULT)
+  RADIO    rb_pcf	@	_ss		@	.,		///
+	option(pcf)							///
+	onclickon("script pcf_on")					///
+	label(resource LBL_PRINCIPAL_COMPONENT_FACTOR)
+  RADIO    rb_ipf	@	_ss		@	.,		///
+	option(ipf)							///
+	onclickon("program ipf_on")					///
+	label(resource LBL_ITERATED_PRINCIPAL_FACTOR)
+  RADIO    rb_ml	@	_ss		@	.,		///
+	last								///
+	option(ml)							///
+	onclickon("program ml_on")					///
+	label(resource LBL_MAXIMUM_LIKELIHOOD_FACTOR)
+
+  CHECKBOX ck_factors	_lft	_xls		_iwd	.,		///
+	onclickon(" model2.sp_factors.enable")			///
+	onclickoff(" model2.sp_factors.disable")			///
+	label(resource LBL_MAXIMUM_NUMBER_FACTORS_RETAINED)
+  SPINNER  sp_factors	_cksep	_ss		_spwd	.,		///
+	min(1) default(100) max(100000)					///
+	option(factors)							///
+	label(resource LBL_MAXIMUM_NUMBER_FACTORS_RETAINED)
+  CHECKBOX ck_mineigen	_lft	_ls		_iwd	.,		///
+	onclickon(" model2.ed_mineigen.enable")			///
+	onclickoff(" model2.ed_mineigen.disable")		///
+	label(resource LBL_MINIMUM_VALUE_EIGENVALUES_RETAINED)
+  EDIT     ed_mineigen	_cksep	_ss		_en7wd	.,		///
+	numonly 							///
+	option(mineigen)						///
+	label(resource LBL_MINIMUM_VALUE_EIGENVALUES_RETAINED)
+  GROUPBOX gb_ipf	_lft	_ls		_iwd	_ht4,		///
+	label(resource LBL_ITERATED_PRINCIPAL_FACTOR)
+  CHECKBOX ck_citerate  _ilft	_ss		_ibwd	.,		///
+	onclickon("script citerate_on")					///
+	onclickoff("script citerate_off")				///
+	label(resource LBL_COMMUNALITY_REESTIMATION_ITERATIONS)
+  SPINNER  sp_citerate	_cksep	_ss		_spwd	.,		///
+	min(0) default(0) max(100000)					///
+	option(citerate)						///
+	label(resource LBL_COMMUNALITY_REESTIMATION_ITERATIONS)
+END
+
+INCLUDE byifin
+INCLUDE weights_fa
+
+DIALOG report, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+
+  CHECKBOX ck_blanks	_lft	_top		_iwd	.,		///
+  	onclickon(script ck_blanks_on)					///
+  	onclickoff(script ck_blanks_off)				///
+	label(resource LBL_DIS_LOADINGS_BLANK_WHEN_ABSOLUTE_VALUE_LESS)
+  EDIT     ed_blanks	_indent2  _ss		_en7wd	.,		///
+	option(blanks)							///
+	label(resource LBL_ED_VALUE)
+  TEXT     tx_blanks	_spsep	@		_cksprb	.,		///
+	label(resource LBL_ED_VALUE)
+  CHECKBOX ck_altdivisor  _lft	_ls		_iwd	.,		///
+	option(altdivisor)						///
+	label(resource LBL_TRACE_CORR_MATRIX_DIVISOR_REPORTED_PROPORT)
+END
+
+SCRIPT pcf_on
+BEGIN
+  model2.gb_ipf.disable
+  model2.ck_citerate.disable
+  script citerate_off
+  program ml_off
+END
+
+SCRIPT pf_on
+BEGIN
+  model2.gb_ipf.disable
+  model2.ck_citerate.disable
+  script citerate_off
+  program ml_off
+END
+
+PROGRAM ipf_on
+BEGIN
+	call  model2.gb_ipf.enable
+	call  model2.ck_citerate.enable
+	call  model2.ck_citerate.setlabel ""
+	if model2.ck_citerate {
+	call script citerate_on
+	}
+	call program ml_off
+END
+
+SCRIPT citerate_on
+BEGIN
+  model2.sp_citerate.enable
+END
+
+SCRIPT citerate_off
+BEGIN
+  model2.sp_citerate.disable
+END
+
+PROGRAM ml_on
+BEGIN
+	call  model2.gb_ipf.disable
+	call  model2.ck_citerate.disable
+	call script citerate_off
+
+	call  max.sp_iter.enable
+	call  max.tx_iter.enable
+	call  max.gb_ml.enable
+	call  max.ck_protect.enable
+	if max.ck_protect {
+		call script protect_on
+	}
+	call  max.ck_seed.enable
+	if max.ck_seed {
+		call script seed_on
+	}
+	call  max.ck_random.enable
+	call  max.gb_log.enable
+	call  max.rb_log.enable
+	call  max.rb_trace.enable
+	call  max.rb_nolog.enable
+	call  max.gb_tol.enable
+	call  max.ed_tol.enable
+	call  max.tx_tol.enable
+	call  max.ed_ltol.enable
+	call  max.tx_ltol.enable
+	if max.ck_protect {
+		call script protect_on
+	}
+	if max.ck_seed {
+		call script seed_on
+	}
+	call  max.ck_random.enable
+END
+
+PROGRAM ml_off
+BEGIN
+	call  max.sp_iter.disable
+	call  max.tx_iter.disable
+	call  max.gb_ml.disable
+	call  max.ck_protect.disable
+	if max.ck_protect {
+		call script protect_off
+	}
+	call  max.ck_seed.disable
+	if max.ck_seed {
+		call script seed_off
+	}
+	call  max.ck_random.disable
+	call  max.gb_log.disable
+	call  max.rb_log.disable
+	call  max.rb_trace.disable
+	call  max.rb_nolog.disable
+	call  max.gb_tol.disable
+	call  max.ed_tol.disable
+	call  max.tx_tol.disable
+	call  max.ed_ltol.disable
+	call  max.tx_ltol.disable
+	if max.ck_protect {
+		call script protect_off
+	}
+	if max.ck_seed {
+		call script seed_off
+	}
+	call  max.ck_random.disable
+END
+
+SCRIPT ck_blanks_on
+BEGIN
+	report.ed_blanks.enable
+	report.tx_blanks.enable
+END
+
+SCRIPT ck_blanks_off
+BEGIN
+	report.ed_blanks.disable
+	report.tx_blanks.disable
+END
+
+DIALOG max, tabtitle(resource LBL_TAB_MAXIMIZATION)
+BEGIN
+  SPINNER  sp_iter	_lft	_top		_spwd	.,		///
+	label(resource LBL_MAXIMUM_ITERATIONS)			 		///
+	min(0) max(16000) default(c(maxiter))				///
+	option(iterate)
+  TEXT     tx_iter	_spsep	@		_spr2b	.,		///
+	label(resource LBL_MAXIMUM_ITERATIONS)
+
+  GROUPBOX gb_ml	_lft	_ls		_iwd	_ht10,		///
+	label(resource FACTOR_MAX_GB_ML)
+  CHECKBOX ck_protect	_ilft	_ms		_cwd1	.,		///
+	onclickon("script protect_on")					///
+	onclickoff("script protect_off")				///
+	label(resource LBL_PROTECT_OPTIMIZATIONS)
+  DEFINE holdy @y
+
+  SPINNER  sp_protect	_cksep	_ss		_spwd	.,		///
+	min(1) default(1) max(100000)					///
+	option(protect)							///
+	label(resource LBL_PROTECT_OPTIMIZATIONS)
+
+  CHECKBOX ck_random	_lft2	holdy		_cwd2	.,           	///
+	option(random)							///
+	label(resource LBL_USE_RANDOM_STARTING_VALUES)
+
+  CHECKBOX ck_seed	_ilft	+50		_ibwd	.,		///
+	onclickon(script seed_on)					///
+	onclickoff(script seed_off)					///
+	label(resource LBL_SEED_FOR_UNIFORM_PSEUDORANDOM_SEQ)
+  EDIT     en_seed	_indent2  _ss		_en7wd	.,		///
+  	numonly	option(seed) label(resource LBL_SEED_CODE)
+  TEXT     tx_seed	_en7sep	@		150	.,		///
+	label(resource LBL_SEED_CODE)
+
+  GROUPBOX gb_log	_lft	+45		_cwd1	_ht6,		///
+	label(resource LBL_ITERATION_LOG)
+  DEFINE holdy @y
+  DEFINE cx @cx
+  DEFINE cy @cy
+
+  RADIO	   rb_log	_indent	_ss		_inwd	.,		///
+	label(resource LBL_SHOW_LOG) first option(NONE)
+  RADIO    rb_trace	@	_ss		@	.,		///
+	label(resource LBL_SHOW_LOG_AND_PARM_VEC)				///
+	option(trace)
+  RADIO	   rb_nolog	@	_ss		@	.,		///
+	label(resource LBL_SUPPRESS_LOG) last option(nolog)
+
+  GROUPBOX gb_tol	_lft2	holdy		cx	cy,		///
+	label(resource LBL_CONVERGENCE_TOLERANCE)
+
+  EDIT     ed_tol	_ilft2	_ms		_en7wd	.,		///
+	label(resource LBL_COEFFICIENT_VECTOR)					///
+	option(tolerance) default(1e-4)
+  TEXT     tx_tol	_en7sep	@		_en7r2b	.,		///
+	label(resource LBL_COEFFICIENT_VECTOR)
+
+  EDIT     ed_ltol	_ilft2	_ls		_en7wd	.,		///
+	label(resource LBL_LOG_LIKELIHOOD)						///
+	option(ltolerance) default(0)
+  TEXT     tx_ltol	_en7sep	@		_en7r2b	.,		///
+	label(resource LBL_LOG_LIKELIHOOD)
+END
+
+SCRIPT protect_on
+BEGIN
+  max.sp_protect.enable
+END
+
+SCRIPT protect_off
+BEGIN
+  max.sp_protect.disable
+END
+
+SCRIPT seed_on
+BEGIN
+	max.en_seed.enable
+	max.tx_seed.enable
+END
+
+SCRIPT seed_off
+BEGIN
+	max.en_seed.disable
+	max.tx_seed.disable
+END
+
+PROGRAM max_output
+BEGIN
+	optionarg /hidedefault max.sp_iter
+	if model2.rb_ml {
+		if max.ck_protect {
+			optionarg max.sp_protect
+		}
+		option max.ck_random
+		if max.ck_seed {
+			require max.en_seed
+			optionarg max.en_seed
+		}
+	}
+	option max.rb_log
+	option max.rb_trace
+	option max.rb_nolog
+	optionarg /hidedefault max.ed_tol
+	optionarg /hidedefault max.ed_ltol
+END
+
+PROGRAM command
+BEGIN
+	put /program by_output " "
+	put "factor "
+	varlist main.vl_var	
+	put " " /program weights_output
+	put " " /program ifin_output
+	beginoptions
+		option radio(model2 rb_pf rb_pcf rb_ipf rb_ml)
+		if model2.ck_factors {
+			optionarg /hidedefault model2.sp_factors
+		}
+		if model2.ck_mineigen {
+			require model2.ed_mineigen
+			optionarg model2.ed_mineigen
+		}
+		if model2.rb_ipf {
+			if model2.ck_citerate {
+				optionarg model2.sp_citerate
+			}
+		}
+		if report.ck_blanks {
+			require report.ed_blanks
+			optionarg report.ed_blanks
+		}
+		option report.ck_altdivisor
+		put " " /program max_output
+	endoptions
+END

@@ -1,0 +1,321 @@
+/*
+  bayes mestreg
+
+*!  VERSION 1.0.8  04dec2018
+
+  keyword:  eclass
+
+*/
+
+VERSION 15.0
+
+INCLUDE _std_xwide
+DEFINE _dlght 670
+INCLUDE header
+
+HELP hlp1, view("help bayes_mestreg")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING STMP
+
+	create STRING main_equ_tmp
+	create STRING main_equ_tmp2
+	create STRING main_equ_childdlg
+	create STRING main_equ_dlgname
+	create STRING main_equ_child_result
+	create STRING main_equ_cmd_output
+	create STRING main_equ_cmd_last
+
+	create ARRAY main_equ_list
+	create ARRAY main_equ_toklist
+
+	create SVECTOR mainEQUCommandDisplayList
+	create SVECTOR mainEQUCommandList
+	create SVECTOR mainEQUCommandValues
+	create SVECTOR mainEQUStatusList
+	create SVECTOR mainEQUChildDialogList
+
+	create DOUBLE main_equ_count
+	create DOUBLE main_equ_position
+	create DOUBLE main_equ_arraysize
+	create DOUBLE main_equ_tmpcount
+
+	main.bu_equ_edit.disable
+	main.bu_equ_disable.disable
+	main.bu_equ_enable.disable
+
+	create DOUBLE unstructured
+	create SVECTOR mainEQUUnstructured
+	create DOUBLE numUns
+	create DOUBLE loopI
+	create DOUBLE priorUns
+	create DOUBLE unsI
+	create STRING stsI
+
+	create SVECTOR mainEQULevelvar
+	create STRING iwishart_levelvar
+	create STRING iwishart_relevel
+	create ARRAY iwishart_relevel_list
+	create DOUBLE numRelevel
+	create STRING relevelI
+
+	create DOUBLE numRe
+	numRe.setvalue 0
+	create STRING restubs
+	create STRING strRe1
+	create STRING strRe2
+
+	create STRING cmdname
+	cmdname.setvalue "mestreg"
+
+	setscale_hadj resource BAYES_MESTREG_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script prior_iwishart_disable
+	script prior_flat_hide
+	script simulation_restubs_disable
+
+	script st_rpt_coef_on
+
+	mainEQUCommandDisplayList.copyToArray main_equ_list
+	main.lb_equBuild.repopulate
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)				///
+	title(resource BAYES_MESTREG_DLG_TITLE)
+BEGIN
+  DEFINE _x _xsetbu
+  DEFINE _y _top
+  BUTTON   bu_stset 	_x	_y	_setbuwd  .,			///
+	onpush(program model_st_setting)				///
+	label(resource LBL_SURVIVAL_SETTINGS)				///
+	tooltip(resource LBL_DECLARE_DATA_TO_BE_SURVIVAL_TIME_DATA)
+
+  GROUPBOX gb_fe		_lft	_ss	_iwd	_ht11h,		///
+	label(resource LBL_FIXED_EFFECTS_MODEL)
+  TEXT tx_iv			_ilft	_ss	_ibwd	.,		///
+	label(resource LBL_INDDEPVAR)
+  VARLIST vl_iv			@	_ss	@	.,		///
+	allowcat							///
+	numeric								///
+	allowts								///
+	fv ts								///
+	label(resource LBL_INDDEPVAR)
+  CHECKBOX ck_nocons		@	_ms	@	.,		///
+	option(noconstant)						///
+	label(resource LBL_NOCONSTANT)
+
+  TEXT tx_offset		_ilft	_ls	_cwd2	.,		///
+	label(resource LBL_OFFSET_VARIABLE)
+
+  VARNAME vn_offset		_ilft	_ss	_vnwd	.,		///
+	option(offset)							///
+	label(resource LBL_OFFSET_VARIABLE)
+
+  DEFINE _x _lft
+  DEFINE _y +40
+  INCLUDE me_equ
+
+  GROUPBOX gb_opts		_lft	+45	_iwd	_ht12,		///
+	label(resource LBL_OPTIONS)
+
+  DEFINE y _ss
+  INCLUDE st_distribution_gamma
+
+//  CHECKBOX ck_collinear		_ilft	_xls	_ibwd	.,		///
+//	option(collinear)						///
+//	label(resource LBL_KEEP_COLLINEAR_VARIABLES)
+END
+
+PROGRAM model_st_setting
+BEGIN
+	call create STRING model_stResults
+	call create CHILD stset AS bayes_mestreg_st, allowsubmit
+	call bayes_mestreg_st.setExitString model_stResults
+	call bayes_mestreg_st.setExitAction "program model_st_submit"
+	call bayes_mestreg_st.setSubmitAction "program model_st_submit"
+END
+
+PROGRAM model_st_submit
+BEGIN
+	put model_stResults
+	stata
+END
+
+SCRIPT main_exp_on
+BEGIN
+	script st_rpt_coef_on
+	script prior_normal
+END
+
+SCRIPT main_exp_time_on
+BEGIN
+	script st_rpt_coef_tr_on
+	script prior_normal
+END
+
+SCRIPT main_weib_on
+BEGIN
+	script st_rpt_coef_on
+	script prior_normal_loganc_param
+END
+
+SCRIPT main_weib_time_on
+BEGIN
+	script st_rpt_coef_tr_on
+	script prior_normal_loganc_param
+END
+
+SCRIPT main_logn_on
+BEGIN
+	script st_rpt_coef_tr_on
+	script prior_normal_loganc_param
+END
+
+SCRIPT main_logl_on
+BEGIN
+	script st_rpt_coef_tr_on
+	script prior_normal_loganc_param
+END
+
+SCRIPT main_gamma_on
+BEGIN
+	script st_rpt_coef_tr_on
+	script prior_normal_loganc_param
+END
+
+PROGRAM fe_opt_output
+BEGIN
+	option main.ck_nocons
+	optionarg main.vn_offset
+END
+
+INCLUDE bayes_me_equ_pr
+
+INCLUDE ifin
+INCLUDE weights_f
+INCLUDE bayes_me_priors
+INCLUDE bayes_me_simulation
+INCLUDE bayes_blocking
+INCLUDE bayes_initialization
+INCLUDE bayes_adaptation
+INCLUDE bayes_me_st_reporting
+INCLUDE bayes_advanced
+
+PROGRAM bayes_opts_output
+BEGIN
+	beginoptions
+		put " " /program bayes_priors_output
+		put " " /program bayes_simulation_output
+		put " " /program bayes_blocking_output
+		put " " /program bayes_init_output
+		put " " /program bayes_adaptation_output
+		put " " /program bayes_me_st_reporting_output
+		put " " /program bayes_advanced_output
+	endoptions
+END
+
+PROGRAM bayes_build_parse 
+BEGIN
+	call mainEQUCommandValues.copyToString main_equ_cmd_output
+
+	call main_equ_cmd_output.tokenizeOnStr main_equ_toklist "||"
+	call main_equ_tmpcount.storeClsArraySize main_equ_toklist
+	call main_equ_tmpcount.withvalue main_equ_cmd_last.setvalue class main_equ_toklist[@]
+
+	put "mestreg "
+	varlist main.vl_iv
+
+	if main_equ_cmd_last.contains(",") {
+		beginoptions
+			put " " /program fe_opt_output
+			put " " main_equ_cmd_output
+		endoptions
+	}
+	else {
+		if main_equ_cmd_output {
+			if main.ck_nocons | main.vn_offset {
+				put ","
+			}
+			if main.ck_nocons {
+				put " noconstant"
+			}
+			if main.vn_offset {
+				put " offset("
+				put main.vn_offset
+				put ")"
+			}
+			put " " main_equ_cmd_output
+		}
+		else {
+			beginoptions
+				put " " /program fe_opt_output
+			endoptions
+		}
+	}
+
+	beginoptions
+	option radio(main rb_exp rb_exp_time rb_weib rb_weib_time rb_logn rb_logl rb_gamma)
+//		option main.ck_collinear
+	endoptions
+END
+
+PROGRAM ecommand_output
+BEGIN
+	call mainEQUCommandValues.copyToString main_equ_cmd_output
+
+	call main_equ_cmd_output.tokenizeOnStr main_equ_toklist "||"
+	call main_equ_tmpcount.storeClsArraySize main_equ_toklist
+	call main_equ_tmpcount.withvalue main_equ_cmd_last.setvalue class main_equ_toklist[@]
+
+	put "mestreg "
+	varlist main.vl_iv
+	put " " /program ifin_output
+	put " " /program weights_output
+
+	if main_equ_cmd_last.contains(",") {
+		beginoptions
+			put " " /program fe_opt_output
+			put " " main_equ_cmd_output
+		endoptions
+	}
+	else {
+		if main_equ_cmd_output {
+			if main.ck_nocons | main.vn_offset {
+				put ","
+			}
+			if main.ck_nocons {
+				put " noconstant"
+			}
+			if main.vn_offset {
+				put " offset("
+				put main.vn_offset
+				put ")"
+			}
+			put " " main_equ_cmd_output
+		}
+		else {
+			beginoptions
+				put " " /program fe_opt_output
+			endoptions
+		}
+	}
+
+	beginoptions
+	option radio(main rb_exp rb_exp_time rb_weib rb_weib_time rb_logn rb_logl rb_gamma)
+//		option main.ck_collinear
+		option rpt.ck_noshow
+	endoptions
+END
+
+PROGRAM command
+BEGIN
+	put "bayes"
+	put /program bayes_opts_output
+	put " : "
+	put /program ecommand_output
+END

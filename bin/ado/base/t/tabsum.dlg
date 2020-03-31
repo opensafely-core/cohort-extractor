@@ -1,0 +1,111 @@
+/*
+	tabsum	
+
+*!  VERSION 1.1.3  20may2015
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE header
+
+HELP hlp1, view("help tabsum")
+RESET res1
+
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource TABSUM_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+        create STRING STMP
+
+        STMP.format "resource LBL_VARIABLE_FMT" "1:" "" 
+	STMP.withvalue main.tx_var1.setlabel "@"
+        STMP.format "resource LBL_VARIABLE_FMT" "1:" "" 
+	STMP.withvalue main.vn_var1.setlabel "@"
+        STMP.format "resource LBL_VARIABLE_FMT" "2:"			///
+		"resource LBL_PAREN_OPTIONAL" 
+	STMP.withvalue main.tx_var2.setlabel "@"
+        STMP.format "resource LBL_VARIABLE_FMT" "2:" "" 
+	STMP.withvalue main.vn_var2.setlabel "@"
+
+END
+
+DIALOG main, label(resource TABSUM_DLG_TITLE) /*
+		*/ tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_var1            _lft     _top    _cwd1        .,
+		
+  VARNAME  vn_var1               @      _ss        @        .,
+
+  TEXT     tx_var2           _lft2     _top    _cwd1        .,
+  VARNAME  vn_var2               @      _ss        @        .,
+  TEXT     tx_summarize       _lft      _ms    _cwd1        .,		/*
+		*/ label(resource TABSUM_MAIN_TX_SUMMARIZE)
+  VARNAME  vn_summarize          @      _ss        @        .,		/*
+		*/ option("summarize")					/*
+		*/ numeric						/*
+		*/ label(resource TABSUM_MAIN_TX_SUMMARIZE)
+
+  GROUPBOX gb_output          _lft     _xls     _iwd   _ht11h,		/*
+		*/ label(resource LBL_OUTPUT)
+  TEXT     tx_tabulate     _indent      _ss    _cwd2        .,  	/*
+		*/ label(resource TABSUM_MAIN_TX_TABULATE)	
+  DEFINE   holdy @y
+  CHECKBOX ck_nomeans      _indent      _ss    _inwd        .,		/*
+		*/ option(nomeans)					/*
+		*/ label(resource LBL_SUPPRESS_MEANS)
+  CHECKBOX ck_nostandard         @      _ms        @        .,		/*
+		*/ option(nostandard)					/*
+		*/ label(resource LBL_SUPPRESS_STANDARD_DEVIATIONS)
+  CHECKBOX ck_nofreq             @      _ms        @        .,		/*
+		*/ option(nofreq)					/*
+		*/ label(resource LBL_SUPPRESS_FREQUENCIES)
+  CHECKBOX ck_noobs              @      _ms        @        .,		/*
+		*/ option(noobs)					/*
+		*/ label(resource LBL_SUPPRESS_NUMBER_OF_OBS)
+
+  CHECKBOX ck_missing         _lft     _xls     _iwd        .,		/*
+		*/ option(missing)					/*
+		*/ label(resource LBL_TREAT_MISSING_VALUES_AS_CATEGORIES)
+
+  GROUPBOX gb_other          _lft2    holdy    _cwd2    _ht8h,		/*
+		*/ label(resource LBL_OTHER)
+  CHECKBOX ck_nolabel      _indent      _ms    _inwd        .,		/*
+		*/ option(nolabel)					/*
+		*/ label(resource LBL_SHOW_NUMERIC_CODES_NOT_LABELS)
+  CHECKBOX ck_wrap               @      _ms        @        .,		/*
+		*/ option(wrap)						/*
+		*/ label(resource LBL_DO_NOT_BREAK_WIDE_TABLES)
+END
+
+
+INCLUDE byifin
+INCLUDE weights_fa
+
+
+PROGRAM command
+BEGIN
+	INCLUDE _by_pr
+	put "tabulate "
+	varlist main.vn_var1
+	varlist [main.vn_var2]
+	INCLUDE _weights_pr
+	INCLUDE _ifin_pr
+	beginoptions
+		require main.vn_summarize
+		optionarg main.vn_summarize
+		option main.ck_nomeans
+		option main.ck_nostandard
+		option main.ck_nofreq
+		option main.ck_noobs
+		option main.ck_wrap
+		option main.ck_nolabel
+		option main.ck_missing
+	endoptions
+END
+

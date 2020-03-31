@@ -1,0 +1,550 @@
+/*
+  sg__variables_censor.dlg
+
+*!  VERSION 1.1.1  03jun2015
+
+*/
+
+VERSION 14.0
+MODAL
+
+INCLUDE _std_mlarge
+DEFINE _dlght 260
+INCLUDE header_sem_ed
+
+DEFINE _clwd	15
+DEFINE _wd	160
+DEFINE _sep	+165
+DEFINE _wd2	120
+DEFINE _sep2	+125
+DEFINE _cbwd	100
+DEFINE _cbsep	+105
+
+INCLUDE sg__common_output		/* routines necessary for output */
+
+SCRIPT PREINIT
+BEGIN
+	script sg__common_output_init 	/* initialize output globals */
+
+	create STRING OBJ
+	program setupOBJECT
+
+	create STRING sTemp
+	create DOUBLE dTemp
+	create DOUBLE nSelected 
+
+	program global_get_defaults
+	setscale_hadj resource SG__VARIABLES_CENSOR_DLG_HSCALE
+END
+
+PROGRAM setupOBJECT
+BEGIN
+	if ! __MESSAGE {
+		stopbox stop resource LBL_MSGBOX_OBJECT_NOT_FOUND
+// An unexpected error has occurred. Object not found.
+		exit 198
+	}
+	call OBJ.setvalue class __MESSAGE.value
+END
+
+PROGRAM global_get_defaults
+BEGIN
+	call nSelected.setvalue class .__SEMG.dbsettings.n_selected
+	if (!nSelected) {
+		call nSelected.setvalue 0
+	}
+END
+
+SCRIPT main_PREINIT
+BEGIN
+	create STRING censorType
+	create STRING lcensType
+	create STRING rcensType
+
+	create STRING lcensored
+	create STRING rcensored
+	create STRING linterval
+	create STRING uinterval
+
+	program main_get_defaults
+END
+
+SCRIPT main_POSTINIT
+BEGIN
+	program main_initialize_controls
+END
+
+PROGRAM main_get_defaults
+BEGIN
+	call censorType.setvalue class .__SEMG.dbsettings.censortype
+	call lcensType.setvalue class .__SEMG.dbsettings.lcenstype
+	call rcensType.setvalue class .__SEMG.dbsettings.rcenstype
+
+	call lcensored.setvalue class .__SEMG.dbsettings.lcensored
+	if lcensType.iseq("constant") {
+		call lcensored.withvalue main.ed_lcons.setdefault "@"
+	}
+
+	call rcensored.setvalue class .__SEMG.dbsettings.rcensored
+	if rcensType.iseq("constant") {
+		call rcensored.withvalue main.ed_rcons.setdefault "@"
+	}
+
+	call linterval.setvalue class .__SEMG.dbsettings.linterval
+	call linterval.withvalue main.vn_lbound.setdefault "@"
+
+	call uinterval.setvalue class .__SEMG.dbsettings.uinterval
+	call uinterval.withvalue main.vn_ubound.setdefault "@"
+END
+
+PROGRAM main_initialize_controls
+BEGIN
+	if censorType.iseq("none") {
+		call main.rb_none.seton
+	}
+	if censorType.iseq("left") {
+		call main.rb_left.seton
+	}
+	if censorType.iseq("right") {
+		call main.rb_right.seton
+	}
+	if censorType.iseq("both") {
+		call main.rb_both.seton
+	}
+	if censorType.iseq("linterval") {
+		call main.rb_udepvar.seton
+	}
+	if censorType.iseq("uinterval") {
+		call main.rb_ldepvar.seton
+	}
+
+	if lcensType.iseq("constant") {
+		call main.rb_lcons.seton
+		call main.ed_lcons.setvalue class lcensored.value
+	}
+	else {
+		call main.rb_lvar.seton
+		call main.vn_lvar.setvalue class lcensored.value
+	}
+
+	if rcensType.iseq("constant") {
+		call main.rb_rcons.seton
+		call main.ed_rcons.setvalue class rcensored.value
+	}
+	else {
+		call main.rb_rvar.seton
+		call main.vn_rvar.setvalue class rcensored.value
+	}
+	
+	call main.vn_lbound.setvalue class linterval.value
+	call main.vn_ubound.setvalue class uinterval.value
+END
+
+PROGRAM check_leftcensor_type
+BEGIN
+	if main.rb_left | main.rb_right | main.rb_both {
+		if main.rb_lcons {
+			call main.vn_lvar.hide
+			call main.tx_lvar.hide
+			call main.ed_lcons.show
+			call main.tx_lcons.show
+		}
+		else {
+			call main.vn_lvar.show
+			call main.tx_lvar.show
+			call main.ed_lcons.hide
+			call main.tx_lcons.hide
+		}
+	}
+END
+
+PROGRAM check_rightcensor_type
+BEGIN
+	if main.rb_left | main.rb_right | main.rb_both {
+		if main.rb_rcons {
+			call main.vn_rvar.hide
+			call main.tx_rvar.hide
+			call main.ed_rcons.show
+			call main.tx_rcons.show
+		}
+		else {
+			call main.vn_rvar.show
+			call main.tx_rvar.show
+			call main.ed_rcons.hide
+			call main.tx_rcons.hide
+		}
+	}
+END
+
+SCRIPT hide_lr
+BEGIN
+	main.gb_left.hide
+	main.rb_lcons.hide
+	main.rb_lvar.hide
+	main.tx_lvar.hide
+	main.vn_lvar.hide
+	main.tx_lcons.hide
+	main.ed_lcons.hide
+	main.gb_right.hide
+	main.rb_rcons.hide
+	main.rb_rvar.hide
+	main.tx_rvar.hide
+	main.vn_rvar.hide
+	main.tx_rcons.hide
+	main.ed_rcons.hide
+END
+
+SCRIPT show_lr
+BEGIN
+	main.gb_left.show
+	main.rb_lcons.show
+	main.rb_lvar.show
+	main.tx_lvar.show
+	main.vn_lvar.show
+	main.tx_lcons.show
+	main.ed_lcons.show
+	main.gb_right.show
+	main.rb_rcons.show
+	main.rb_rvar.show
+	main.tx_rvar.show
+	main.vn_rvar.show
+	main.tx_rcons.show
+	main.ed_rcons.show
+	
+	program check_leftcensor_type
+	program check_rightcensor_type
+END
+
+SCRIPT disable_left
+BEGIN
+	main.gb_left.disable
+	main.rb_lcons.disable
+	main.rb_lvar.disable
+	main.tx_lvar.disable
+	main.vn_lvar.disable
+	main.tx_lcons.disable
+	main.ed_lcons.disable
+END
+
+SCRIPT enable_left
+BEGIN
+	main.gb_left.enable
+	main.rb_lcons.enable
+	main.rb_lvar.enable
+	main.tx_lvar.enable
+	main.vn_lvar.enable
+	main.tx_lcons.enable
+	main.ed_lcons.enable
+END
+
+SCRIPT disable_right
+BEGIN
+	main.gb_right.disable
+	main.rb_rcons.disable
+	main.rb_rvar.disable
+	main.tx_rvar.disable
+	main.vn_rvar.disable
+	main.tx_rcons.disable
+	main.ed_rcons.disable
+END
+
+SCRIPT enable_right
+BEGIN
+	main.gb_right.enable
+	main.rb_rcons.enable
+	main.rb_rvar.enable
+	main.tx_rvar.enable
+	main.vn_rvar.enable
+	main.tx_rcons.enable
+	main.ed_rcons.enable
+END
+
+SCRIPT hide_interval
+BEGIN
+	main.gb_interval.hide
+	main.tx_lbound.hide
+	main.vn_lbound.hide
+	main.tx_ubound.hide
+	main.vn_ubound.hide
+END
+
+SCRIPT show_interval
+BEGIN
+	main.gb_interval.show
+	main.tx_lbound.show
+	main.vn_lbound.show
+	main.tx_ubound.show
+	main.vn_ubound.show
+END
+
+SCRIPT disable_lower
+BEGIN
+	main.tx_lbound.disable
+	main.vn_lbound.disable
+END
+
+SCRIPT enable_lower
+BEGIN
+	main.tx_lbound.enable
+	main.vn_lbound.enable
+END
+
+SCRIPT disable_upper
+BEGIN
+	main.tx_ubound.disable
+	main.vn_ubound.disable
+END
+
+SCRIPT enable_upper
+BEGIN
+	main.tx_ubound.enable
+	main.vn_ubound.enable
+END
+
+PROGRAM check_type
+BEGIN
+	if main.rb_none {
+		call script hide_lr
+		call script hide_interval
+	}
+	if main.rb_left {
+		call script show_lr
+		call script hide_interval
+
+		call script disable_right
+		call script enable_left
+	}
+	if main.rb_right {
+		call script show_lr
+		call script hide_interval
+
+		call script disable_left
+		call script enable_right
+	}
+	if main.rb_both {
+		call script show_lr
+		call script hide_interval
+
+		call script enable_left
+		call script enable_right
+	}
+	if main.rb_ldepvar {
+		call script hide_lr
+		call script show_interval
+		call script disable_lower
+		call script enable_upper
+	}
+	if main.rb_udepvar {
+		call script hide_lr
+		call script show_interval
+
+		call script enable_lower
+		call script disable_upper
+	}
+END
+
+DIALOG main, tabtitle(resource SG__VARIABLES_CENSOR_DLG_TITLE) label(resource SG__VARIABLES_CENSOR_DLG_TITLE)
+BEGIN
+  RADIO rb_none		_lft	_top	_iwd	., first	///
+	label(resource SG__VARIABLES_CENSOR_MAIN_RB_NONE)					///
+	onclickon(program check_type)
+  RADIO rb_left		@	_ss	@	., 		///
+	label(resource SG__VARIABLES_CENSOR_MAIN_RB_LEFT)					///
+	onclickon(program check_type)
+  RADIO rb_right	@	_ss	@	., 		///
+	label(resource SG__VARIABLES_CENSOR_MAIN_RB_RIGHT)					///
+	onclickon(program check_type)
+  RADIO rb_both		@	_ss	@	., 		///
+	label(resource SG__VARIABLES_CENSOR_MAIN_RB_BOTH)	///
+	onclickon(program check_type)
+  RADIO rb_ldepvar	@	_ss	@	., 		///
+	label(resource SG__VARIABLES_CENSOR_MAIN_RB_LDEPVAR)	///
+	onclickon(program check_type)
+  RADIO rb_udepvar	@	_ss	@	., last		///
+	label(resource SG__VARIABLES_CENSOR_MAIN_RB_UDEPVAR)	///
+	onclickon(program check_type)
+
+  GROUPBOX gb_left	_lft	_ls	_cwd1	_ht7h,		///
+	label(resource SG__VARIABLES_CENSOR_MAIN_GB_LEFT)
+DEFINE y @y
+  RADIO    rb_lcons	_indent	_ss	_inwd	., first	///
+	label(resource LBL_CONSTANT) onclickon(program check_leftcensor_type)
+  RADIO    rb_lvar	@	_ss	@	., last		///
+	label(resource LBL_VN_VARIABLE) onclickon(program check_leftcensor_type)
+
+  TEXT     tx_lvar	@	_ls	60	.,		///
+	label(resource LBL_VARIABLE) right
+DEFINE x @x
+  VARNAME  vn_lvar	+65	@	110	.,		///
+	label(resource SG__VARIABLES_CENSOR_MAIN_VN_LVAR)
+
+  TEXT     tx_lcons	x	@	60	.,		///
+	label(resource LBL_CONSTANT_COLON) right
+  EDIT     ed_lcons	+65	@	70	.,		///
+	label(resource SG__VARIABLES_CENSOR_MAIN_ED_LCONS)
+
+  GROUPBOX gb_right	_lft2	y	_cwd1	_ht7h,		///
+	label(resource SG__VARIABLES_CENSOR_MAIN_GB_RIGHT) 
+  RADIO    rb_rcons	_indent	_ss	_inwd	., first	///
+	label(resource LBL_CONSTANT_COLON) onclickon(program check_rightcensor_type)
+  RADIO    rb_rvar	@	_ss	@	., last		///
+	label(resource LBL_VN_VARIABLE) onclickon(program check_rightcensor_type)
+
+  TEXT     tx_rvar	@	_ls	60	.,		///
+	label(resource LBL_VARIABLE) right
+DEFINE x @x
+  VARNAME  vn_rvar	+65	@	110	.,		///
+	label(resource SG__VARIABLES_CENSOR_MAIN_VN_RVAR)
+
+  TEXT     tx_rcons	x	@	60	.,		///
+	label(resource LBL_CONSTANT_COLON) right
+  EDIT     ed_rcons	+65	@	70	.,		///
+	label(resource SG__VARIABLES_CENSOR_MAIN_ED_RCONS)
+
+
+  GROUPBOX gb_interval	_lft	y	_iwd	_ht4h,		///
+	label(resource SG__VARIABLES_CENSOR_MAIN_GB_INTERVAL)
+
+  TEXT     tx_lbound	+10	_ss	130	.,		///
+	label(resource SG__VARIABLES_CENSOR_MAIN_TX_LBOUND)
+DEFINE y @y
+  VARNAME  vn_lbound	@	_ss	110	.,		///
+	label(resource SG__VARIABLES_CENSOR_MAIN_VN_LBOUND)
+  TEXT     tx_ubound	_lft2	y	130	.,		///
+	label(resource SG__VARIABLES_CENSOR_MAIN_TX_UBOUND)
+  VARNAME  vn_ubound	@	_ss	110	.,		///
+	label(resource SG__VARIABLES_CENSOR_MAIN_VN_UBOUND)
+END
+
+PROGRAM main_output
+BEGIN
+	call program main_get_defaults
+
+	if main.rb_none {
+		call sg__PARAM2.setvalue "SetSelected"
+		call sg__ARG_00.setvalue "censortype"
+		call sg__ARG_01.setvalue "none"
+		put /program sg__do_output_sub
+	}
+	
+	if main.rb_left {
+		call sg__PARAM2.setvalue "SetSelected"
+		call sg__ARG_00.setvalue "censortype"
+		call sg__ARG_01.setvalue "left"
+		put /program sg__do_output_sub
+	}
+	if main.rb_right {
+		call sg__PARAM2.setvalue "SetSelected"
+		call sg__ARG_00.setvalue "censortype"
+		call sg__ARG_01.setvalue "right"
+		put /program sg__do_output_sub
+	}
+	if main.rb_both {
+		call sg__PARAM2.setvalue "SetSelected"
+		call sg__ARG_00.setvalue "censortype"
+		call sg__ARG_01.setvalue "both"
+		put /program sg__do_output_sub
+	}
+	if main.rb_ldepvar {
+		call sg__PARAM2.setvalue "SetSelected"
+		call sg__ARG_00.setvalue "censortype"
+		call sg__ARG_01.setvalue "uinterval"
+		put /program sg__do_output_sub
+	}
+	if main.rb_udepvar {
+		call sg__PARAM2.setvalue "SetSelected"
+		call sg__ARG_00.setvalue "censortype"
+		call sg__ARG_01.setvalue "linterval"
+		put /program sg__do_output_sub
+	}
+
+
+	if main.rb_left | main.rb_both {
+		call sg__PARAM2.setvalue "SetSelected"
+		call sg__ARG_00.setvalue "lcensor"
+		if main.rb_lcons {
+			require main.ed_lcons
+			
+			// should be numeric non-missing
+			call dTemp.setvalue class main.ed_lcons.value
+			if (!dTemp & dTemp.isneq(0)) {
+				call create STRING _MSG_TMP
+	                        call _MSG_TMP.format 			///
+					"resource LBL_MSGBOX_CONTAINS_A_NONNUMERIC_VALUE_FMT" ///
+					"resource SG__VARIABLES_CENSOR_MAIN_ED_LCONS"
+				stopbox stop "class _MSG_TMP.value"
+// "Constant for left censoring" contains a nonnumeric value.
+			}
+
+			call sg__ARG_01.setvalue class main.ed_lcons.value
+		}
+		else {
+			require main.vn_lvar
+			call sg__ARG_01.setvalue class main.vn_lvar.value
+		}
+		put /program sg__do_output_sub
+	}
+	if main.rb_right | main.rb_both {
+		call sg__PARAM2.setvalue "SetSelected"
+		call sg__ARG_00.setvalue "rcensor"
+		if main.rb_rcons {
+			require main.ed_rcons
+
+			// should be numeric non-missing
+			call dTemp.setvalue class main.ed_rcons.value
+			if (!dTemp & dTemp.isneq(0)) {
+                                call create STRING _MSG_TMP
+                                call _MSG_TMP.format 			///
+					"resource LBL_MSGBOX_CONTAINS_A_NONNUMERIC_VALUE_FMT" ///
+					"resource SG__VARIABLES_CENSOR_MAIN_ED_RCONS"
+                                stopbox stop "class _MSG_TMP.value"
+// "Constant for right censoring" contains a nonnumeric value.
+			}
+
+			call sg__ARG_01.setvalue class main.ed_rcons.value
+		}
+		else {
+			require main.vn_rvar
+			call sg__ARG_01.setvalue class main.vn_rvar.value
+		}
+		put /program sg__do_output_sub
+	}
+
+	if main.rb_ldepvar {
+		call sg__PARAM2.setvalue "SetSelected"
+		call sg__ARG_00.setvalue "rcensor"
+		require main.vn_ubound
+		call sg__ARG_01.setvalue class main.vn_ubound.value
+		put /program sg__do_output_sub
+	}
+	if main.rb_udepvar {
+		call sg__PARAM2.setvalue "SetSelected"
+		call sg__ARG_00.setvalue "lcensor"
+		require main.vn_lbound
+		call sg__ARG_01.setvalue class main.vn_lbound.value
+		put /program sg__do_output_sub
+	}	
+END
+
+/*****************************************************************************/
+
+PROGRAM command
+BEGIN
+	call program global_get_defaults
+
+	call sg__PARAM1.setvalue class OBJ.value
+	
+	call sg__PARAM2.setvalue "BeginSet"
+	call sg__DESCPT.setvalue "change censoring"
+	put /program sg__do_output_sub
+	
+	put /program main_output
+
+	call sg__PARAM2.setvalue "EndSet"
+	call sg__DESCPT.setvalue "change censoring"
+	put /program sg__do_output_sub
+
+	call sg__PARAM1.setvalue class OBJ.value
+	call sg__PARAM2.setvalue "Reselect"
+	put /program sg__do_output_sub
+END

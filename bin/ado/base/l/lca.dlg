@@ -1,0 +1,2002 @@
+/*
+	lca
+
+*!  VERSION 1.0.12  01dec2019
+
+*/
+
+VERSION 15.0
+
+INCLUDE _std_wide
+DEFINE _dlght 520
+INCLUDE header
+
+HELP hlp1, view("help gsem_lclass_options")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING STMP
+	create DOUBLE rc
+
+	script se_createAsLCASvyLinearized
+	program svy_check_title
+	setscale_hadj resource LCA_DLG_HSCALE
+	
+	create STRING sCensorDlgResult
+	create STRING sFailureDlgResult
+	create STRING sPredDlgResult
+	create STRING sMoreCatResult
+	create STRING sClassSpecResult
+	create STRING lvar1
+	create STRING lnum1
+	create STRING lbase1
+	create STRING sClassString
+
+	// LCADM
+	create STRING main_lcadm_tmp
+	create STRING main_lcadm_tmp2
+	create STRING main_lcadm_tmp3
+	create STRING main_lcadm_childdlg
+	create STRING main_lcadm_dlgname
+	create STRING main_lcadm_child_result
+	create STRING main_lcadm_cmd_output
+
+	create ARRAY main_lcadm_list
+
+	create SVECTOR mainLCADMCommandDisplayList
+	create SVECTOR mainLCADMCommandList
+	create SVECTOR mainLCADMCommandValues
+	create SVECTOR mainLCADMStatusList
+	create SVECTOR mainLCADMChildDialogList
+
+	create DOUBLE main_lcadm_count
+	create DOUBLE main_lcadm_position
+	create DOUBLE main_lcadm_arraysize
+
+	main.bu_lcadm_edit.disable
+	main.bu_lcadm_disable.disable
+	main.bu_lcadm_enable.disable
+
+	// LCADC
+	create STRING main_lcadc_tmp
+	create STRING main_lcadc_tmp2
+	create STRING main_lcadc_tmp3
+	create STRING main_lcadc_childdlg
+	create STRING main_lcadc_dlgname
+	create STRING main_lcadc_child_result
+	create STRING main_lcadc_cmd_output
+
+	create ARRAY main_lcadc_list
+
+	create SVECTOR mainLCADCCommandDisplayList
+	create SVECTOR mainLCADCCommandList
+	create SVECTOR mainLCADCCommandValues
+	create SVECTOR mainLCADCStatusList
+	create SVECTOR mainLCADCChildDialogList
+
+	create DOUBLE main_lcadc_count
+	create DOUBLE main_lcadc_position
+	create DOUBLE main_lcadc_arraysize
+
+	main.bu_lcadc_edit.disable
+	main.bu_lcadc_disable.disable
+	main.bu_lcadc_enable.disable
+
+	// PATH
+	create STRING main_path_tmp
+	create STRING main_path_tmp2
+	create STRING main_path_tmp3
+	create STRING main_path_childdlg
+	create STRING main_path_dlgname
+	create STRING main_path_child_result
+	create STRING main_path_cmd_output
+
+	create ARRAY main_path_list
+
+	create SVECTOR mainPATHCommandDisplayList
+	create SVECTOR mainPATHCommandList
+	create SVECTOR mainPATHCommandValues
+	create SVECTOR mainPATHStatusList
+	create SVECTOR mainPATHChildDialogList
+
+	create DOUBLE main_path_count
+	create DOUBLE main_path_position
+	create DOUBLE main_path_arraysize
+
+	main.bu_path_edit.disable
+	main.bu_path_disable.disable
+	main.bu_path_enable.disable
+END
+
+SCRIPT POSTINIT
+BEGIN
+	mainLCADMCommandDisplayList.copyToArray main_lcadm_list
+	main.lb_lcadm_Build.repopulate
+
+	mainLCADCCommandDisplayList.copyToArray main_lcadc_list
+	main.lb_lcadc_Build.repopulate
+
+	mainPATHCommandDisplayList.copyToArray main_path_list
+	main.lb_path_Build.repopulate
+
+	advCOVSCommandDisplayList.copyToArray adv_covs_list
+	adv.lb_covsBuild.repopulate
+	
+	program se_setFinalInitState
+END
+
+SCRIPT svy_is_on
+BEGIN
+	//
+END
+
+SCRIPT svy_is_off
+BEGIN
+	//
+END
+
+PROGRAM svy_check_title
+BEGIN
+	if __MESSAGE.contains("-svy-") {
+		call settitle resource LCA_DLG_SVY_TITLE
+	}
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)				///
+	label(resource LCA_DLG_TITLE)
+BEGIN
+  TEXT tx_analysis		_lft	_top	_iwd	.,		///
+	label(resource LBL_TYPE_OF_ANALYSIS)
+  COMBOBOX cb_analysis		@	_ss	240	.,		///
+	dropdownlist							///
+	onselchange(program main_analysis_change)			///
+	contents(main_analysis_list)					///
+	values(main_analysis_values)					///
+	label(resource LBL_TYPE_OF_ANALYSIS)
+  GROUPBOX gb_lclass		_lft	+35	_iwd	_ht10,		///
+  	label(resource LCA_MAIN_GB_LCLASS)
+// Var1
+  EDIT ed_cat_var1		_ilft	_ms	_vnwd	.,		///
+	default(A)							///
+	onchange(program check_more_cat)				///
+	label(resource LCA_MAIN_ED_CAT_VAR1)
+  TEXT tx_cat_var1		+125	@	300	.,		///
+  	label(resource LCA_MAIN_ED_CAT_VAR1)
+  SPINNER sp_num_class_var1	_ilft	_ls	_vnwd	.,		///
+	default(2)							///
+	min(1)								///
+	max(9)								///
+	label(resource LBL_NUMBER_OF_CLASSES)	
+  DEFINE holdy @y
+  TEXT tx_num_class_var1 	+125 	@	215	.,		///
+  	label(resource LBL_NUMBER_OF_CLASSES)
+  SPINNER sp_base_class_var1	325	holdy	_vnwd	.,		///
+	default(1)							///
+	min(1)								///
+	max(9)
+  TEXT	tx_base_class_var1	450 	@	80	.,		///
+  	label(resource LBL_BASE_CLASSES)
+  BUTTON bu_more_cat		_ilft	+40	235	.,		///
+	onpush(program main_more_cat_spec)				///
+	label(resource LBL_MULTI_LATENT_CAT_VAR)	
+	
+  GROUPBOX gb_model		_lft	+50	_iwd	_ht15h,		///
+	label(resource LBL_MEASUREMENT_MODEL)
+//LCA
+  TEXT tx_measure_model		_ilft	_ms	305	.,		///
+  	label(resource LBL_MEASUREMENT_TYPE)
+  DEFINE holdy @y
+
+  TEXT tx_measure_model_expo	+305	@	_vnwd	.,		///
+	label(resource LBL_EXPOSURE)
+  TEXT tx_measure_model_deno	@	@	@	.,		///
+  	label(resource LBL_DENOMINATOR_COLON)
+  VARNAME vn_measure_model_expo	@	_ss	@	.,		///
+	numeric								///
+	label(resource LBL_EXPOSURE)
+  VARNAME vn_measure_model_deno	@	@	@	.,		///
+	numeric								///
+	label(resource LBL_DENOMINATOR)
+  BUTTON   bu_censor		@	@	100	.,		///
+	label(resource SG__VARIABLES_VARIABLE_BU_CENSOR)		///
+	onpush(program create_censordlg)
+  BUTTON   bu_failure		@	@	150	.,		///
+	onpush(program create_failuredlg)				///
+	label(resource LBL_BU_FAILURE_AND_TRUNCATION)
+  COMBOBOX cb_measure_model	_ilft	@	290	.,		///
+	dropdown							///
+	onselchange(program main_check_measure_model)			///
+	contents(main_measure_model_list)				///
+	values(main_measure_model_values)				///
+	label(resource LBL_MEASUREMENT_TYPE)
+
+  TEXT tx_measure_vars		@	_ls	@	.,		///
+	label(resource LBL_MEASUREMENT_VARIABLES)
+
+  VARLIST vl_measure_vars	@	_ss	@	.,		///
+	numeric								///
+	label(resource LBL_MEASUREMENT_VARIABLES)
+
+  TEXT tx_lca_class_param	@	_ls	@	.,		///
+  	label(resource LBL_PARAMETERS_EQUAL_ACROSS_CLASSES)
+  COMBOBOX cb_lca_class_param	@	_ss	@	.,		///
+	option(lcinvariant)						///
+	dropdown							///
+	append								///
+	contents(main_param_class_list)					///
+	values(main_param_class_values)					///
+	label(resource LBL_PARAMETERS_EQUAL_ACROSS_CLASSES)
+
+// LCA DM
+  TEXT tx_lcadm_spec		_ilft	holdy	205	.,		///
+	label(resource LBL_MEASUREMENT_SPECIFICATION)
+  LISTBOX lb_lcadm_Build	@	_ss	@	90,		///
+	contents(main_lcadm_list)					///
+	ondblclick(program main_lcadm_edit)				///
+	onselchange(program main_lcadm_sel_changed)			///
+	nomemory
+  BUTTON bu_lcadm_create	230	@	80	.,		///
+	onpush(program main_lcadm_create)				///
+	tooltip(resource LBL_CREATE_SPECIFICATION)			///
+	label(resource LBL_BU_CREATE)
+  BUTTON bu_lcadm_edit		@	_ms	@	.,		///
+	onpush(program main_lcadm_edit)					///
+	tooltip(resource LBL_EDIT_SPECIFICATION)			///
+	label(resource LBL_BU_EDIT)
+  BUTTON bu_lcadm_disable	@	_ms	@	.,		///
+	onpush(program main_lcadm_disable)				///
+	tooltip(resource LBL_CLICK_TO_DISABLE_A_SPECIFICATION)		///
+	label(resource LBL_BU_DISABLE)
+  BUTTON bu_lcadm_enable	@	_ms	@	.,		///
+	onpush(program main_lcadm_enable)				///
+	tooltip(resource LBL_CLICK_TO_ENABLE_PREV_DISABLED_SPEC)	///
+	label(resource LBL_BU_ENABLE)
+  TEXTBOX tb_lcadm_note		_ilft	+25	_ibwd	_tb1,		///
+	label(resource LBL_PRESS_CREATE_DEFINE_SPECIFICATION)
+
+  TEXT tx_lcadm_class_param	325	holdy	255	.,		///
+  	label(resource LBL_PARAMETERS_EQUAL_ACROSS_CLASSES)
+  COMBOBOX cb_lcadm_class_param	@	_ss	@	.,		///
+	option(lcinvariant)						///
+	dropdown							///
+	append								///
+	contents(main_param_class_list)					///
+	values(main_param_class_values)					///
+	label(resource LBL_PARAMETERS_EQUAL_ACROSS_CLASSES)
+
+// LCADC
+  TEXT tx_lcadc_spec		_ilft	holdy	205	.,		///
+  	label(resource LBL_MEASUREMENT_SPECIFICATION)
+  LISTBOX lb_lcadc_Build	@	_ss	@	90,		///
+	contents(main_lcadc_list)					///
+	ondblclick(program main_lcadc_edit)				///
+	onselchange(program main_lcadc_sel_changed)			///
+	nomemory
+  BUTTON bu_lcadc_create	230	@	80	.,		///
+	onpush(program main_lcadc_create)				///
+	tooltip(resource LBL_CREATE_SPECIFICATION)			///
+	label(resource LBL_BU_CREATE)
+  BUTTON bu_lcadc_edit		@	_ms	@	.,		///
+	onpush(program main_lcadc_edit)					///
+	tooltip(resource LBL_EDIT_SPECIFICATION)			///
+	label(resource LBL_BU_EDIT)
+  BUTTON bu_lcadc_disable	@	_ms	@	.,		///
+	onpush(program main_lcadc_disable)				///
+	tooltip(resource LBL_CLICK_TO_DISABLE_A_SPECIFICATION)		///
+	label(resource LBL_BU_DISABLE)
+  BUTTON bu_lcadc_enable	@	_ms	@	.,		///
+	onpush(program main_lcadc_enable)				///
+	tooltip(resource LBL_CLICK_TO_ENABLE_PREV_DISABLED_SPEC)	///
+	label(resource LBL_BU_ENABLE)
+  TEXTBOX tb_lcadc_note		_ilft	+25	_ibwd	_tb1,		///
+	label(resource LBL_PRESS_CREATE_DEFINE_SPECIFICATION)
+
+  TEXT tx_lcadc_class_param	325	holdy	255	.,		///
+	label(resource LBL_PARAMETERS_EQUAL_ACROSS_CLASSES)
+
+  COMBOBOX cb_lcadc_class_param	@	_ss	@	.,		///
+	option(lcinvariant)						///
+	dropdown							///
+	append								///
+	contents(main_param_class_list)					///
+	values(main_param_class_values)					///
+	label(resource LBL_PARAMETERS_EQUAL_ACROSS_CLASSES)
+// FMM
+  TEXT tx_fmm			_lft	70	_iwd	.,		///
+  	label(resource LCA_MAIN_TX_FMM)
+  BUTTON bu_fmm			@	_ss	80	.,		///
+	onpush(view dialog fmm)						///
+	label(resource LBL_BU_LAUNCH)
+
+// PATH
+  TEXT tx_path_spec		_ilft	holdy	205	.,		///
+  	label(resource LBL_PATH_SPECIFICATION)
+  LISTBOX lb_path_Build		@	_ss	@	90,		///
+	contents(main_path_list)					///
+	ondblclick(program main_path_edit)				///
+	onselchange(program main_path_sel_changed)			///
+	nomemory
+  BUTTON bu_path_create		230	@	80	.,		///
+	onpush(program main_path_create)				///
+	tooltip(resource LBL_CREATE_SPECIFICATION)			///
+	label(resource LBL_BU_CREATE)
+  BUTTON bu_path_edit		@	_ms	@	.,		///
+	onpush(program main_path_edit)					///
+	tooltip(resource LBL_EDIT_SPECIFICATION)			///
+	label(resource LBL_BU_EDIT)
+  BUTTON bu_path_disable	@	_ms	@	.,		///
+	onpush(program main_path_disable)				///
+	tooltip(resource LBL_CLICK_TO_DISABLE_A_SPECIFICATION)		///
+	label(resource LBL_BU_DISABLE)
+  BUTTON bu_path_enable		@	_ms	@	.,		///
+	onpush(program main_path_enable)				///
+	tooltip(resource LBL_CLICK_TO_ENABLE_PREV_DISABLED_SPEC)	///
+	label(resource LBL_BU_ENABLE)
+  TEXTBOX tb_path_note		_ilft	+25	_ibwd	_tb1,		///
+	label(resource LBL_PRESS_CREATE_DEFINE_SPECIFICATION)
+
+  TEXT tx_path_class_param	325	holdy	255	.,		///
+  	label(resource LBL_PARAMETERS_EQUAL_ACROSS_CLASSES)
+  COMBOBOX cb_path_class_param	@	_ss	@	.,		///
+	option(lcinvariant)						///
+	dropdown							///
+	append								///
+	contents(main_param_class_list)					///
+	values(main_param_class_values)					///
+	label(resource LBL_PARAMETERS_EQUAL_ACROSS_CLASSES)
+
+// PRED
+  CHECKBOX ck_predictors	_lft	+150	_iwd	_ht8,		///
+	groupbox							///
+	onclickon(program main_pred_on)					///
+	onclickoff(script main_pred_off)				///
+	label(resource LBL_MODEL_HAS_PREDICTORS_FOR_CLASS_MEMBERSHIP)
+  DEFINE holdy2 @y
+  TEXT tx_pred			_ilft	_ss	290	.,		///
+  	label(resource LBL_PREDICTORS)
+  VARLIST vl_pred		@	_ss	@	.,		///
+	fv ts								///
+	numeric								///
+	label(resource LBL_PREDICTORS)
+  BUTTON bu_pred_spec		_ilft	+35	235	.,		///
+	onpush(program main_pred_spec)					///
+	label(resource LCA_MAIN_BU_PRED_SPEC)	
+END
+
+LIST main_analysis_list
+BEGIN
+	resource LBL_LCA
+	resource LBL_LCA_WITH_DIFF_MEASUREMENT_MODELS
+	resource LBL_LCA_WITH_DIFF_CLASS_MEASUREMENTS
+	resource LBL_FMM
+	resource LBL_PATH_WITH_LATENT_CLASSES
+END
+
+LIST main_analysis_values
+BEGIN
+	"lca"
+	"lcadm"
+	"lcadc"
+	"fmm"
+	"path"
+END
+
+INCLUDE lca_list
+
+PROGRAM main_show_all
+BEGIN
+	call main.gb_lclass.show
+	call main.tx_cat_var1.show
+	call main.ed_cat_var1.show
+	call main.tx_num_class_var1.show
+	call main.sp_num_class_var1.show
+	call main.tx_base_class_var1.show 
+	call main.sp_base_class_var1.show
+	call main.bu_more_cat.show
+	call main.ck_predictors.show
+	call main.tx_pred.show
+	call main.vl_pred.show
+	call main.bu_pred_spec.show
+END
+
+SCRIPT main_hide_all
+BEGIN
+	main.gb_lclass.hide
+	main.tx_cat_var1.hide
+	main.ed_cat_var1.hide
+	main.tx_num_class_var1.hide
+	main.sp_num_class_var1.hide
+	main.tx_base_class_var1.hide 
+	main.sp_base_class_var1.hide
+	main.bu_more_cat.hide
+	main.ck_predictors.hide
+	main.tx_pred.hide
+	main.vl_pred.hide
+	main.bu_pred_spec.hide
+	script main_analysis_hide_all
+END
+
+PROGRAM check_more_cat
+BEGIN
+	if main.ed_cat_var1 {
+		call main.bu_more_cat.enable
+	}
+	else {
+		call main.bu_more_cat.disable
+	}
+END
+
+PROGRAM main_more_cat_spec
+BEGIN
+	require main.sp_num_class_var1
+	require main.sp_base_class_var1
+	call main.ed_cat_var1.withvalue lvar1.setvalue "@"
+	call main.sp_num_class_var1.withvalue lnum1.setvalue "@"
+	call main.sp_base_class_var1.withvalue lbase1.setvalue "@"
+	
+	if main.sp_base_class_var1.isgt(main.sp_num_class_var1) {
+stopbox stop resource LBL_MSGBOX_BASE_CLASS_NOT_EXCEED_NUM_OF_CLASSES
+	}
+		
+	call create CHILD lca_multi_class AS morec
+	if ! _rc {
+		call morec.setExitString sMoreCatResult
+		call morec.setExitAction "program lca_getMoreCatResult"
+	}	
+END
+
+PROGRAM lca_getMoreCatResult
+BEGIN
+	if sMoreCatResult {
+		call main.bu_more_cat.modified_on
+	}
+	else {
+		call main.bu_more_cat.modified_off
+	}
+END
+
+PROGRAM create_lcsspecs_list 
+BEGIN
+	if main.ed_cat_var1.iseq("") {
+		call rc.setvalue 1
+		require main.ed_cat_var1
+	}
+
+	put  "gsem_lcspecs"
+
+	put  " " group.vn_group
+	put  ", "
+	put  "lclass("
+	put main.ed_cat_var1
+	put " "
+	put main.sp_num_class_var1
+	if main.sp_base_class_var1 &		///
+		main.sp_base_class_var1.isneq(1) {
+		put ", base("
+		put main.sp_base_class_var1
+		put ")"
+	}
+	put  ")"
+
+	put " " sMoreCatResult
+	stata hidden immediate
+END
+
+// PRED
+PROGRAM main_pred_on
+BEGIN
+	call main.tx_pred.enable
+	call main.vl_pred.enable
+	call main.bu_pred_spec.enable
+END
+
+SCRIPT main_pred_off
+BEGIN
+	main.tx_pred.disable
+	main.vl_pred.disable
+	main.bu_pred_spec.disable
+END
+
+PROGRAM main_analysis_change
+BEGIN
+	call script main_analysis_hide_all
+	if main.cb_analysis.iseq("lca") {
+		call program main_show_all
+		call program main_lca_show
+		exit
+	}
+	if main.cb_analysis.iseq("lcadm") {
+		call program main_show_all
+		call program main_lcadm_show
+		exit
+	}
+	if main.cb_analysis.iseq("lcadc") {
+		call program main_show_all
+		call program main_lcadc_show
+		exit
+	}
+	if main.cb_analysis.iseq("fmm") {
+		call script main_hide_all
+		call program main_fmm_show
+		exit
+	}
+	if main.cb_analysis.iseq("path") {
+		call program main_show_all
+		call program main_path_show
+		exit
+	}
+END
+
+SCRIPT main_analysis_hide_all
+BEGIN
+	main.gb_model.hide
+	script main_lca_hide
+	script main_lcadm_hide
+	script main_lcadc_hide
+	script main_fmm_hide
+	script main_path_hide
+END
+
+// LCA
+PROGRAM main_lca_show
+BEGIN
+	call main.gb_model.show
+	call main.gb_model.setlabel resource LBL_MEASUREMENT_MODEL
+	call main.tx_measure_model.show
+	call main.cb_measure_model.show
+	call main.tx_measure_vars.show
+	call main.vl_measure_vars.show
+	call main.tx_lca_class_param.show
+	call main.cb_lca_class_param.show
+	call program main_check_measure_model
+END
+
+SCRIPT main_lca_hide
+BEGIN
+	main.tx_measure_model.hide
+	main.cb_measure_model.hide
+	main.tx_measure_vars.hide
+	main.vl_measure_vars.hide
+	main.tx_lca_class_param.hide
+	main.cb_lca_class_param.hide
+	main.tx_measure_model_expo.hide
+	main.tx_measure_model_deno.hide
+	main.vn_measure_model_expo.hide
+	main.vn_measure_model_deno.hide
+	main.bu_censor.hide 
+	main.bu_failure.hide
+END
+
+// LCA DM
+PROGRAM main_lcadm_show
+BEGIN
+	call main.gb_model.show
+	call main.gb_model.setlabel resource LBL_MEASUREMENT_MODEL
+	call main.tx_lcadm_spec.show
+	call main.lb_lcadm_Build.show
+	call main.bu_lcadm_create.show
+	call main.bu_lcadm_edit.show
+	call main.bu_lcadm_disable.show
+	call main.bu_lcadm_enable.show
+	call main.tb_lcadm_note.show
+	call main.tx_lcadm_class_param.show
+	call main.cb_lcadm_class_param.show
+END
+
+SCRIPT main_lcadm_hide
+BEGIN
+	 main.tx_lcadm_spec.hide
+	 main.lb_lcadm_Build.hide
+	 main.bu_lcadm_create.hide
+	 main.bu_lcadm_edit.hide
+	 main.bu_lcadm_disable.hide
+	 main.bu_lcadm_enable.hide
+	 main.tb_lcadm_note.hide
+	 main.tx_lcadm_class_param.hide
+	 main.cb_lcadm_class_param.hide
+END
+
+PROGRAM main_lcadm_create
+BEGIN
+	call main_lcadm_count.setvalue class mainLCADMChildDialogList.size
+	call main_lcadm_count.increment
+	call main_lcadm_tmp.setvalue "main_lcadm_"
+	call main_lcadm_tmp.append class main_lcadm_count.value
+	call main_lcadm_tmp.withvalue main_lcadm_childdlg.setvalue @
+	call program main_show_lcadm_child
+END
+
+PROGRAM main_lcadm_edit
+BEGIN
+	call mainLCADMCommandDisplayList.findstr class			///
+		main.lb_lcadm_Build.value
+	call main_lcadm_position.setvalue class				///
+		mainLCADMCommandDisplayList.position
+	call main_lcadm_position.withvalue				///
+		main_lcadm_childdlg.setvalue				///
+		class mainLCADMChildDialogList.values[@]
+	call program main_show_lcadm_child_edit
+END
+
+PROGRAM main_show_lcadm_child
+BEGIN
+	call main_lcadm_tmp.setvalue "lca_lcadm_child AS "
+	call main_lcadm_tmp.append class main_lcadm_childdlg.value
+	call main_lcadm_tmp.withvalue create CHILD @
+	call main_lcadm_childdlg.withvalue @.setExitString		///
+		"main_lcadm_child_result"
+	call main_lcadm_childdlg.withvalue @.setExitAction		///
+		"program main_lcadm_child_create_done"
+
+
+	call STMP.format "resource LBL_SPECIFICATION"
+	call STMP.append " "
+	call main_lcadm_count.withvalue STMP.append "@"
+	call STMP.withvalue main_lcadm_tmp.setvalue "@"
+	call main_lcadm_childdlg.withvalue				///
+		main_lcadm_tmp2.setvalue "@.settitle"
+	call main_lcadm_tmp2.append `" ""'
+	call main_lcadm_tmp2.append class main_lcadm_tmp.value
+	call main_lcadm_tmp2.append `"""'
+	call main_lcadm_tmp2.withvalue @
+END
+
+PROGRAM main_show_lcadm_child_edit
+BEGIN
+	call main_lcadm_tmp.setvalue "lca_lcadm_child AS "
+	call main_lcadm_tmp.append class main_lcadm_childdlg.value
+	call main_lcadm_tmp.withvalue create CHILD @
+	call main_lcadm_childdlg.withvalue @.setExitString		///
+		"main_lcadm_child_result"
+	call main_lcadm_childdlg.withvalue @.setExitAction		///
+		"program main_lcadm_child_edit_done"
+
+	call main_lcadm_position.withvalue				///
+		main_lcadm_tmp.setvalue					///
+		class mainLCADMCommandDisplayList.values[@]
+	call main_lcadm_childdlg.withvalue				///
+		main_lcadm_tmp2.setvalue "@.settitle"
+	call main_lcadm_tmp2.append `" ""'
+	call main_lcadm_tmp2.append class main_lcadm_tmp.value
+	call main_lcadm_tmp2.append `"""'
+	call main_lcadm_tmp2.withvalue @
+END
+
+PROGRAM main_lcadm_child_create_done
+BEGIN
+	call main_lcadm_arraysize.setvalue class			///
+		mainLCADMChildDialogList.size
+	call main_lcadm_arraysize.increment
+
+	// Store child dialog name
+	call mainLCADMChildDialogList.store class			///
+		main_lcadm_arraysize.value class main_lcadm_childdlg.value
+
+	// Store listbox display equation string
+	call STMP.format "resource LBL_SPECIFICATION"
+	call STMP.append " "
+	call main_lcadm_arraysize.withvalue STMP.append "@"
+
+	call STMP.withvalue						///
+		mainLCADMCommandDisplayList.store class			///
+		main_lcadm_arraysize.value "@"
+
+	// Store child dialog result string
+	call mainLCADMCommandList.store class				///
+		main_lcadm_arraysize.value				///
+		class main_lcadm_child_result.value
+
+	// Store child dialog result string for final command
+	//   For disable/enable
+	call main_lcadm_tmp.setvalue "("
+	call main_lcadm_tmp.append class main_lcadm_child_result.value
+	call main_lcadm_tmp.append ")"
+	call mainLCADMCommandValues.store class				///
+		main_lcadm_arraysize.value				///
+		class main_lcadm_tmp.value
+
+	// Store disable/enable status
+	call mainLCADMStatusList.store class				///
+		main_lcadm_arraysize.value "active"
+
+	call mainLCADMCommandDisplayList.copyToArray main_lcadm_list
+	call main.lb_lcadm_Build.repopulate
+	call STMP.withvalue main.lb_lcadm_Build.setvalue "@"
+END
+
+PROGRAM main_lcadm_child_edit_done
+BEGIN
+	call mainLCADMChildDialogList.findstr class			///
+		main_lcadm_childdlg.value
+	call main_lcadm_position.setvalue class				///
+		mainLCADMChildDialogList.position
+	call main_lcadm_position.withvalue main_lcadm_tmp.setvalue	///
+		class mainLCADMStatusList.values[@]
+	if main_lcadm_tmp.iseq("active") {
+		call STMP.format "resource LBL_SPECIFICATION"
+		call STMP.append " "
+		call main_lcadm_position.withvalue STMP.append "@"
+		call STMP.withvalue					///
+			mainLCADMCommandDisplayList.store class		///
+			main_lcadm_position.value "@"
+		call main_lcadm_tmp3.setvalue "("
+		call main_lcadm_tmp3.append class main_lcadm_child_result.value
+		call main_lcadm_tmp3.append ")"
+		call mainLCADMCommandValues.store class			///
+			main_lcadm_position.value class			///
+			main_lcadm_tmp3.value
+		call STMP.withvalue main_lcadm_tmp2.setvalue "@"
+	}
+	else {
+		call STMP.format "resource LBL_SPECIFICATION"
+		call STMP.append " "
+		call main_lcadm_position.withvalue STMP.append "@"
+		call STMP.append " "
+		call STMP.append "resource LBL_PAREN_DISABLED"
+		call STMP.withvalue					///
+			main_lcadm_tmp2.setvalue "@"
+
+		call STMP.withvalue					///
+			mainLCADMCommandDisplayList.store		///
+			class main_lcadm_position.value "@"
+	}
+
+	call mainLCADMCommandList.store class				///
+		main_lcadm_position.value class				///
+		main_lcadm_child_result.value
+
+	call mainLCADMCommandDisplayList.copyToArray main_lcadm_list
+	call main.lb_lcadm_Build.repopulate
+	call main.lb_lcadm_Build.setvalue class main_lcadm_tmp2.value
+END
+
+PROGRAM main_lcadm_sel_changed
+BEGIN
+	call mainLCADMCommandDisplayList.findstr class			///
+		main.lb_lcadm_Build.value
+	call main_lcadm_position.setvalue class				///
+		mainLCADMCommandDisplayList.position
+	call main_lcadm_position.withvalue main_lcadm_tmp.setvalue	///
+		class mainLCADMStatusList.values[@]
+	if main_lcadm_position {
+		call main.bu_lcadm_edit.enable
+		call main_lcadm_position.withvalue			///
+			main.tb_lcadm_note.setlabel			///
+			class mainLCADMCommandList.values[@]
+	}
+
+	if main_lcadm_tmp.iseq("disable") {
+		call main.bu_lcadm_enable.enable
+		call main.bu_lcadm_disable.disable
+	}
+	if main_lcadm_tmp.iseq("active") {
+		call main.bu_lcadm_enable.disable
+		call main.bu_lcadm_disable.enable
+	}
+END
+
+PROGRAM main_lcadm_disable
+BEGIN
+	call mainLCADMCommandDisplayList.findstr class			///
+		main.lb_lcadm_Build.value
+	call main_lcadm_position.setvalue class				///
+		mainLCADMCommandDisplayList.position
+
+	call main_lcadm_tmp.setvalue class main.lb_lcadm_Build.value
+	call mainLCADMStatusList.store class				///
+		main_lcadm_position.value "disable"
+	call mainLCADMCommandValues.store class main_lcadm_position.value ""
+	call STMP.format "resource LBL_PAREN_DISABLED"
+	call main_lcadm_tmp.append " "
+	call main_lcadm_tmp.append class STMP.value
+	call main_lcadm_tmp.withvalue STMP.setvalue "@"
+
+	call main_lcadm_tmp.withvalue					///
+		mainLCADMCommandDisplayList.store			///
+		class main_lcadm_position.value "@"
+
+	call mainLCADMCommandDisplayList.copyToArray main_lcadm_list
+	call main.lb_lcadm_Build.repopulate
+	call main.lb_lcadm_Build.setvalue class STMP.value
+END
+
+PROGRAM main_lcadm_enable
+BEGIN
+	call mainLCADMCommandDisplayList.findstr class			///
+		main.lb_lcadm_Build.value
+	call main_lcadm_position.setvalue class				///
+		mainLCADMCommandDisplayList.position
+
+	call mainLCADMStatusList.store class				///
+		main_lcadm_position.value "active"
+	call main_lcadm_tmp3.setvalue "("
+	call main_lcadm_position.withvalue main_lcadm_tmp3.append class	///
+		mainLCADMCommandList.values[@]
+	call main_lcadm_tmp3.append ")"
+	call mainLCADMCommandValues.store				///
+		class main_lcadm_position.value class			///
+		main_lcadm_tmp3.value
+
+	call STMP.format "resource LBL_SPECIFICATION"
+	call STMP.append " "
+	call main_lcadm_position.withvalue STMP.append "@"
+	call STMP.withvalue						///
+		mainLCADMCommandDisplayList.store			///
+		class main_lcadm_position.value "@"
+
+	call mainLCADMCommandDisplayList.copyToArray main_lcadm_list
+	call main_lcadm_position.withvalue				///
+		main_lcadm_tmp2.setvalue class				///
+		mainLCADMCommandDisplayList.values[@]
+	call main.lb_lcadm_Build.repopulate
+	call main.lb_lcadm_Build.setvalue class main_lcadm_tmp2.value
+END
+
+// LCA DC
+PROGRAM main_lcadc_show
+BEGIN
+	call main.gb_model.show
+	call main.gb_model.setlabel resource LBL_MEASUREMENT_MODEL
+	call main.tx_lcadc_spec.show
+	call main.lb_lcadc_Build.show
+	call main.bu_lcadc_create.show
+	call main.bu_lcadc_edit.show
+	call main.bu_lcadc_disable.show
+	call main.bu_lcadc_enable.show
+	call main.tb_lcadc_note.show
+	call main.tx_lcadc_class_param.show
+	call main.cb_lcadc_class_param.show
+END
+
+SCRIPT main_lcadc_hide
+BEGIN
+	 main.tx_lcadc_spec.hide
+	 main.lb_lcadc_Build.hide
+	 main.bu_lcadc_create.hide
+	 main.bu_lcadc_edit.hide
+	 main.bu_lcadc_disable.hide
+	 main.bu_lcadc_enable.hide
+	 main.tb_lcadc_note.hide
+	 main.tx_lcadc_class_param.hide
+	 main.cb_lcadc_class_param.hide
+END
+
+PROGRAM main_lcadc_create
+BEGIN
+	call main_lcadc_count.setvalue class mainLCADCChildDialogList.size
+	call main_lcadc_count.increment
+	call main_lcadc_tmp.setvalue "main_lcadc_"
+	call main_lcadc_tmp.append class main_lcadc_count.value
+	call main_lcadc_tmp.withvalue main_lcadc_childdlg.setvalue @
+	call program main_show_lcadc_child
+END
+
+PROGRAM main_lcadc_edit
+BEGIN
+	call mainLCADCCommandDisplayList.findstr class			///
+		main.lb_lcadc_Build.value
+	call main_lcadc_position.setvalue class				///
+		mainLCADCCommandDisplayList.position
+	call main_lcadc_position.withvalue				///
+		main_lcadc_childdlg.setvalue				///
+		class mainLCADCChildDialogList.values[@]
+	call program main_show_lcadc_child_edit
+END
+
+PROGRAM main_show_lcadc_child
+BEGIN
+	call rc.setvalue 0
+	call program create_lcsspecs_list 
+	if rc.isneq(0) {
+		exit
+	}
+	call main_lcadc_tmp.setvalue "lca_lcadc_child AS "
+	call main_lcadc_tmp.append class main_lcadc_childdlg.value
+	call main_lcadc_tmp.withvalue create CHILD @
+	call main_lcadc_childdlg.withvalue @.setExitString		///
+		"main_lcadc_child_result"
+	call main_lcadc_childdlg.withvalue @.setExitAction		///
+		"program main_lcadc_child_create_done"
+
+
+	call STMP.format "resource LBL_SPECIFICATION"
+	call STMP.append " "
+	call main_lcadc_count.withvalue STMP.append "@"
+	call STMP.withvalue main_lcadc_tmp.setvalue "@"
+	call main_lcadc_childdlg.withvalue				///
+		main_lcadc_tmp2.setvalue "@.settitle"
+	call main_lcadc_tmp2.append `" ""'
+	call main_lcadc_tmp2.append class main_lcadc_tmp.value
+	call main_lcadc_tmp2.append `"""'
+	call main_lcadc_tmp2.withvalue @
+END
+
+PROGRAM main_show_lcadc_child_edit
+BEGIN
+	call rc.setvalue 0
+	call program create_lcsspecs_list 
+	if rc.isneq(0) {
+		exit
+	}
+	call main_lcadc_tmp.setvalue "lca_lcadc_child AS "
+	call main_lcadc_tmp.append class main_lcadc_childdlg.value
+	call main_lcadc_tmp.withvalue create CHILD @
+	call main_lcadc_childdlg.withvalue @.setExitString		///
+		"main_lcadc_child_result"
+	call main_lcadc_childdlg.withvalue @.setExitAction		///
+		"program main_lcadc_child_edit_done"
+
+	call main_lcadc_position.withvalue				///
+		main_lcadc_tmp.setvalue					///
+		class mainLCADCCommandDisplayList.values[@]
+	call main_lcadc_childdlg.withvalue				///
+		main_lcadc_tmp2.setvalue "@.settitle"
+	call main_lcadc_tmp2.append `" ""'
+	call main_lcadc_tmp2.append class main_lcadc_tmp.value
+	call main_lcadc_tmp2.append `"""'
+	call main_lcadc_tmp2.withvalue @
+END
+
+PROGRAM main_lcadc_child_create_done
+BEGIN
+	call main_lcadc_arraysize.setvalue class			///
+		mainLCADCChildDialogList.size
+	call main_lcadc_arraysize.increment
+
+	// Store child dialog name
+	call mainLCADCChildDialogList.store class			///
+		main_lcadc_arraysize.value class main_lcadc_childdlg.value
+
+	// Store listbox display equation string
+	call STMP.format "resource LBL_SPECIFICATION"
+	call STMP.append " "
+	call main_lcadc_arraysize.withvalue STMP.append "@"
+
+	call STMP.withvalue						///
+		mainLCADCCommandDisplayList.store class			///
+		main_lcadc_arraysize.value "@"
+
+	// Store child dialog result string
+	call mainLCADCCommandList.store class				///
+		main_lcadc_arraysize.value				///
+		class main_lcadc_child_result.value
+
+	// Store child dialog result string for final command
+	//   For disable/enable
+	call main_lcadc_tmp.setvalue "("
+	call main_lcadc_tmp.append class main_lcadc_child_result.value
+	call main_lcadc_tmp.append ")"
+	call mainLCADCCommandValues.store class				///
+		main_lcadc_arraysize.value				///
+		class main_lcadc_tmp.value
+
+	// Store disable/enable status
+	call mainLCADCStatusList.store class				///
+		main_lcadc_arraysize.value "active"
+
+	call mainLCADCCommandDisplayList.copyToArray main_lcadc_list
+	call main.lb_lcadc_Build.repopulate
+	call STMP.withvalue main.lb_lcadc_Build.setvalue "@"
+END
+
+PROGRAM main_lcadc_child_edit_done
+BEGIN
+	call mainLCADCChildDialogList.findstr class			///
+		main_lcadc_childdlg.value
+	call main_lcadc_position.setvalue class				///
+		mainLCADCChildDialogList.position
+	call main_lcadc_position.withvalue main_lcadc_tmp.setvalue	///
+		class mainLCADCStatusList.values[@]
+	if main_lcadc_tmp.iseq("active") {
+		call STMP.format "resource LBL_SPECIFICATION"
+		call STMP.append " "
+		call main_lcadc_position.withvalue STMP.append "@"
+		call STMP.withvalue					///
+			mainLCADCCommandDisplayList.store class		///
+			main_lcadc_position.value "@"
+		call main_lcadc_tmp3.setvalue "("
+		call main_lcadc_tmp3.append class main_lcadc_child_result.value
+		call main_lcadc_tmp3.append ")"
+		call mainLCADCCommandValues.store class			///
+			main_lcadc_position.value class			///
+			main_lcadc_tmp3.value
+		call STMP.withvalue main_lcadc_tmp2.setvalue "@"
+	}
+	else {
+		call STMP.format "resource LBL_SPECIFICATION"
+		call STMP.append " "
+		call main_lcadc_position.withvalue STMP.append "@"
+		call STMP.append " "
+		call STMP.append "resource LBL_PAREN_DISABLED"
+		call STMP.withvalue					///
+			main_lcadc_tmp2.setvalue "@"
+
+		call STMP.withvalue					///
+			mainLCADCCommandDisplayList.store		///
+			class main_lcadc_position.value "@"
+	}
+
+	call mainLCADCCommandList.store class				///
+		main_lcadc_position.value class				///
+		main_lcadc_child_result.value
+
+	call mainLCADCCommandDisplayList.copyToArray main_lcadc_list
+	call main.lb_lcadc_Build.repopulate
+	call main.lb_lcadc_Build.setvalue class main_lcadc_tmp2.value
+END
+
+PROGRAM main_lcadc_sel_changed
+BEGIN
+	call mainLCADCCommandDisplayList.findstr class			///
+		main.lb_lcadc_Build.value
+	call main_lcadc_position.setvalue class				///
+		mainLCADCCommandDisplayList.position
+	call main_lcadc_position.withvalue main_lcadc_tmp.setvalue	///
+		class mainLCADCStatusList.values[@]
+	if main_lcadc_position {
+		call main.bu_lcadc_edit.enable
+		call main_lcadc_position.withvalue			///
+			main.tb_lcadc_note.setlabel			///
+			class mainLCADCCommandList.values[@]
+	}
+
+	if main_lcadc_tmp.iseq("disable") {
+		call main.bu_lcadc_enable.enable
+		call main.bu_lcadc_disable.disable
+	}
+	if main_lcadc_tmp.iseq("active") {
+		call main.bu_lcadc_enable.disable
+		call main.bu_lcadc_disable.enable
+	}
+END
+
+PROGRAM main_lcadc_disable
+BEGIN
+	call mainLCADCCommandDisplayList.findstr class			///
+		main.lb_lcadc_Build.value
+	call main_lcadc_position.setvalue class				///
+		mainLCADCCommandDisplayList.position
+
+	call main_lcadc_tmp.setvalue class main.lb_lcadc_Build.value
+	call mainLCADCStatusList.store class				///
+		main_lcadc_position.value "disable"
+	call mainLCADCCommandValues.store class main_lcadc_position.value ""
+	call STMP.format "resource LBL_PAREN_DISABLED"
+	call main_lcadc_tmp.append " "
+	call main_lcadc_tmp.append class STMP.value
+	call main_lcadc_tmp.withvalue STMP.setvalue "@"
+
+	call main_lcadc_tmp.withvalue					///
+		mainLCADCCommandDisplayList.store			///
+		class main_lcadc_position.value "@"
+
+	call mainLCADCCommandDisplayList.copyToArray main_lcadc_list
+	call main.lb_lcadc_Build.repopulate
+	call main.lb_lcadc_Build.setvalue class STMP.value
+END
+
+PROGRAM main_lcadc_enable
+BEGIN
+	call mainLCADCCommandDisplayList.findstr class			///
+		main.lb_lcadc_Build.value
+	call main_lcadc_position.setvalue class				///
+		mainLCADCCommandDisplayList.position
+
+	call mainLCADCStatusList.store class				///
+		main_lcadc_position.value "active"
+	call main_lcadc_tmp3.setvalue "("
+	call main_lcadc_position.withvalue main_lcadc_tmp3.append class	///
+		mainLCADCCommandList.values[@]
+	call main_lcadc_tmp3.append ")"
+	call mainLCADCCommandValues.store				///
+		class main_lcadc_position.value class			///
+		main_lcadc_tmp3.value
+
+	call STMP.format "resource LBL_SPECIFICATION"
+	call STMP.append " "
+	call main_lcadc_position.withvalue STMP.append "@"
+	call STMP.withvalue						///
+		mainLCADCCommandDisplayList.store			///
+		class main_lcadc_position.value "@"
+
+	call mainLCADCCommandDisplayList.copyToArray main_lcadc_list
+	call main_lcadc_position.withvalue				///
+		main_lcadc_tmp2.setvalue class				///
+		mainLCADCCommandDisplayList.values[@]
+	call main.lb_lcadc_Build.repopulate
+	call main.lb_lcadc_Build.setvalue class main_lcadc_tmp2.value
+END
+
+// FMM
+PROGRAM main_fmm_show
+BEGIN
+	call main.tx_fmm.show
+	call main.bu_fmm.show
+END
+
+SCRIPT main_fmm_hide
+BEGIN
+	main.tx_fmm.hide
+	main.bu_fmm.hide
+END
+
+// PATH
+PROGRAM main_path_show
+BEGIN
+	call main.gb_model.show
+	call main.gb_model.setlabel resource LBL_PATH_MODEL
+	call main.tx_path_spec.show
+	call main.lb_path_Build.show
+	call main.bu_path_create.show
+	call main.bu_path_edit.show
+	call main.bu_path_disable.show
+	call main.bu_path_enable.show
+	call main.tb_path_note.show
+	call main.tx_path_class_param.show
+	call main.cb_path_class_param.show
+END
+
+SCRIPT main_path_hide
+BEGIN
+	 main.tx_path_spec.hide
+	 main.lb_path_Build.hide
+	 main.bu_path_create.hide
+	 main.bu_path_edit.hide
+	 main.bu_path_disable.hide
+	 main.bu_path_enable.hide
+	 main.tb_path_note.hide
+	 main.tx_path_class_param.hide
+	 main.cb_path_class_param.hide
+END
+
+PROGRAM main_path_create
+BEGIN
+	call main_path_count.setvalue class mainPATHChildDialogList.size
+	call main_path_count.increment
+	call main_path_tmp.setvalue "main_path_"
+	call main_path_tmp.append class main_path_count.value
+	call main_path_tmp.withvalue main_path_childdlg.setvalue @
+	call program main_show_path_child
+END
+
+PROGRAM main_path_edit
+BEGIN
+	call mainPATHCommandDisplayList.findstr class			///
+		main.lb_path_Build.value
+	call main_path_position.setvalue class				///
+		mainPATHCommandDisplayList.position
+	call main_path_position.withvalue				///
+		main_path_childdlg.setvalue				///
+		class mainPATHChildDialogList.values[@]
+	call program main_show_path_child_edit
+END
+
+PROGRAM main_show_path_child
+BEGIN
+	call rc.setvalue 0
+	call program create_lcsspecs_list 
+	if rc.isneq(0) {
+		exit
+	}
+	call main_path_tmp.setvalue "lca_path_child AS "
+	call main_path_tmp.append class main_path_childdlg.value
+	call main_path_tmp.withvalue create CHILD @
+	call main_path_childdlg.withvalue @.setExitString		///
+		"main_path_child_result"
+	call main_path_childdlg.withvalue @.setExitAction		///
+		"program main_path_child_create_done"
+
+
+	call STMP.format "resource LBL_SPECIFICATION"
+	call STMP.append " "
+	call main_path_count.withvalue STMP.append "@"
+	call STMP.withvalue main_path_tmp.setvalue "@"
+	call main_path_childdlg.withvalue				///
+		main_path_tmp2.setvalue "@.settitle"
+	call main_path_tmp2.append `" ""'
+	call main_path_tmp2.append class main_path_tmp.value
+	call main_path_tmp2.append `"""'
+	call main_path_tmp2.withvalue @
+END
+
+PROGRAM main_show_path_child_edit
+BEGIN
+	call rc.setvalue 0
+	call program create_lcsspecs_list 
+	if rc.isneq(0) {
+		exit
+	}
+	call main_path_tmp.setvalue "lca_path_child AS "
+	call main_path_tmp.append class main_path_childdlg.value
+	call main_path_tmp.withvalue create CHILD @
+	call main_path_childdlg.withvalue @.setExitString		///
+		"main_path_child_result"
+	call main_path_childdlg.withvalue @.setExitAction		///
+		"program main_path_child_edit_done"
+
+	call main_path_position.withvalue				///
+		main_path_tmp.setvalue					///
+		class mainPATHCommandDisplayList.values[@]
+	call main_path_childdlg.withvalue				///
+		main_path_tmp2.setvalue "@.settitle"
+	call main_path_tmp2.append `" ""'
+	call main_path_tmp2.append class main_path_tmp.value
+	call main_path_tmp2.append `"""'
+	call main_path_tmp2.withvalue @
+END
+
+PROGRAM main_path_child_create_done
+BEGIN
+	call main_path_arraysize.setvalue class			///
+		mainPATHChildDialogList.size
+	call main_path_arraysize.increment
+
+	// Store child dialog name
+	call mainPATHChildDialogList.store class			///
+		main_path_arraysize.value class main_path_childdlg.value
+
+	// Store listbox display equation string
+	call STMP.format "resource LBL_SPECIFICATION"
+	call STMP.append " "
+	call main_path_arraysize.withvalue STMP.append "@"
+
+	call STMP.withvalue						///
+		mainPATHCommandDisplayList.store class			///
+		main_path_arraysize.value "@"
+
+	// Store child dialog result string
+	call mainPATHCommandList.store class				///
+		main_path_arraysize.value				///
+		class main_path_child_result.value
+
+	// Store child dialog result string for final command
+	//   For disable/enable
+	call main_path_tmp.setvalue "("
+	call main_path_tmp.append class main_path_child_result.value
+	call main_path_tmp.append ")"
+	call mainPATHCommandValues.store class				///
+		main_path_arraysize.value				///
+		class main_path_tmp.value
+
+	// Store disable/enable status
+	call mainPATHStatusList.store class				///
+		main_path_arraysize.value "active"
+
+	call mainPATHCommandDisplayList.copyToArray main_path_list
+	call main.lb_path_Build.repopulate
+	call STMP.withvalue main.lb_path_Build.setvalue "@"
+END
+
+PROGRAM main_path_child_edit_done
+BEGIN
+	call mainPATHChildDialogList.findstr class			///
+		main_path_childdlg.value
+	call main_path_position.setvalue class				///
+		mainPATHChildDialogList.position
+	call main_path_position.withvalue main_path_tmp.setvalue	///
+		class mainPATHStatusList.values[@]
+	if main_path_tmp.iseq("active") {
+		call STMP.format "resource LBL_SPECIFICATION"
+		call STMP.append " "
+		call main_path_position.withvalue STMP.append "@"
+		call STMP.withvalue					///
+			mainPATHCommandDisplayList.store class		///
+			main_path_position.value "@"
+		call main_path_tmp3.setvalue "("
+		call main_path_tmp3.append class main_path_child_result.value
+		call main_path_tmp3.append ")"
+		call mainPATHCommandValues.store class			///
+			main_path_position.value class			///
+			main_path_tmp3.value
+		call STMP.withvalue main_path_tmp2.setvalue "@"
+	}
+	else {
+		call STMP.format "resource LBL_SPECIFICATION"
+		call STMP.append " "
+		call main_path_position.withvalue STMP.append "@"
+		call STMP.append " "
+		call STMP.append "resource LBL_PAREN_DISABLED"
+		call STMP.withvalue					///
+			main_path_tmp2.setvalue "@"
+
+		call STMP.withvalue					///
+			mainPATHCommandDisplayList.store		///
+			class main_path_position.value "@"
+	}
+
+	call mainPATHCommandList.store class				///
+		main_path_position.value class				///
+		main_path_child_result.value
+
+	call mainPATHCommandDisplayList.copyToArray main_path_list
+	call main.lb_path_Build.repopulate
+	call main.lb_path_Build.setvalue class main_path_tmp2.value
+END
+
+PROGRAM main_path_sel_changed
+BEGIN
+	call mainPATHCommandDisplayList.findstr class			///
+		main.lb_path_Build.value
+	call main_path_position.setvalue class				///
+		mainPATHCommandDisplayList.position
+	call main_path_position.withvalue main_path_tmp.setvalue	///
+		class mainPATHStatusList.values[@]
+	if main_path_position {
+		call main.bu_path_edit.enable
+		call main_path_position.withvalue			///
+			main.tb_path_note.setlabel			///
+			class mainPATHCommandList.values[@]
+	}
+
+	if main_path_tmp.iseq("disable") {
+		call main.bu_path_enable.enable
+		call main.bu_path_disable.disable
+	}
+	if main_path_tmp.iseq("active") {
+		call main.bu_path_enable.disable
+		call main.bu_path_disable.enable
+	}
+END
+
+PROGRAM main_path_disable
+BEGIN
+	call mainPATHCommandDisplayList.findstr class			///
+		main.lb_path_Build.value
+	call main_path_position.setvalue class				///
+		mainPATHCommandDisplayList.position
+
+	call main_path_tmp.setvalue class main.lb_path_Build.value
+	call mainPATHStatusList.store class				///
+		main_path_position.value "disable"
+	call mainPATHCommandValues.store class main_path_position.value ""
+	call STMP.format "resource LBL_PAREN_DISABLED"
+	call main_path_tmp.append " "
+	call main_path_tmp.append class STMP.value
+	call main_path_tmp.withvalue STMP.setvalue "@"
+
+	call main_path_tmp.withvalue					///
+		mainPATHCommandDisplayList.store			///
+		class main_path_position.value "@"
+
+	call mainPATHCommandDisplayList.copyToArray main_path_list
+	call main.lb_path_Build.repopulate
+	call main.lb_path_Build.setvalue class STMP.value
+END
+
+PROGRAM main_path_enable
+BEGIN
+	call mainPATHCommandDisplayList.findstr class			///
+		main.lb_path_Build.value
+	call main_path_position.setvalue class				///
+		mainPATHCommandDisplayList.position
+
+	call mainPATHStatusList.store class				///
+		main_path_position.value "active"
+	call main_path_tmp3.setvalue "("
+	call main_path_position.withvalue main_path_tmp3.append class	///
+		mainPATHCommandList.values[@]
+	call main_path_tmp3.append ")"
+	call mainPATHCommandValues.store				///
+		class main_path_position.value class			///
+		main_path_tmp3.value
+
+	call STMP.format "resource LBL_SPECIFICATION"
+	call STMP.append " "
+	call main_path_position.withvalue STMP.append "@"
+	call STMP.withvalue						///
+		mainPATHCommandDisplayList.store			///
+		class main_path_position.value "@"
+
+	call mainPATHCommandDisplayList.copyToArray main_path_list
+	call main_path_position.withvalue				///
+		main_path_tmp2.setvalue class				///
+		mainPATHCommandDisplayList.values[@]
+	call main.lb_path_Build.repopulate
+	call main.lb_path_Build.setvalue class main_path_tmp2.value
+END
+
+PROGRAM main_pred_spec
+BEGIN
+	call sClassSpecResult.setvalue "lclass("
+	call main.ed_cat_var1.withvalue sClassSpecResult.append "@"
+	call sClassSpecResult.append " "
+	call main.sp_num_class_var1.withvalue sClassSpecResult.append "@"
+	if main.sp_base_class_var1 &		///
+		main.sp_base_class_var1.isneq(1) {
+		call sClassSpecResult.append ", base("
+		call main.sp_base_class_var1.withvalue sClassSpecResult.append "@"
+		call sClassSpecResult.append ")"
+	}
+	call sClassSpecResult.append ")"
+	if !sMoreCatResult.equals("") {
+		call sClassSpecResult.append " "
+		call sMoreCatResult.withvalue sClassSpecResult.append "@"
+	}
+	
+	call create CHILD lca_pred_spec AS preds
+	if ! _rc {
+		call preds.setExitString sPredDlgResult
+		call preds.setExitAction "program lca_getPredResult"
+	}	
+END
+
+PROGRAM lca_getPredResult
+BEGIN
+	if sPredDlgResult {
+		call main.bu_pred_spec.modified_on
+	}
+	else {
+		call main.bu_pred_spec.modified_off
+	}
+END
+
+DIALOG group, tabtitle(resource LBL_GROUP)
+BEGIN
+  TEXT tx_group			_lft	_top	175	.,		///
+	label(resource LBL_VAR_IDENTIFYING_GROUPS)
+  VARNAME vn_group		@	_ss	_vnwd	.,		///
+	numeric								///
+	option(group)							///
+	label(resource LBL_VAR_IDENTIFYING_GROUPS)
+  TEXT tx_group_param		@	_ls	280	.,		///
+  	label(resource LBL_PARAMETERS_EQUAL_ACROSS_CLASSES)
+  COMBOBOX cb_group_param	@	_ss	280	.,		///
+	option(ginvariant)						///
+	dropdown							///
+	append								///
+	contents(model_param_group_list)				///
+	values(model_param_group_values)				///
+	label(resource LBL_PARAMETERS_EQUAL_ACROSS_GROUPS)
+END
+
+INCLUDE sub_by_ifin_over_subpop
+INCLUDE weights_fpi
+INCLUDE se
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	rpt.sp_level.setvalue class SG_LEVEL.value
+	rpt.sp_level.setdefault class SG_LEVEL.value
+
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+	program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, label(resource SG__GESTOPTIONS_DLG_TITLE) tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2b
+  DEFINE _y _top
+  INCLUDE _sp_level
+
+  CHECKBOX ck_nocnsreport	_lft	_ls	_iwd	.,		///
+	option(nocnsreport)						///
+	label(resource LBL_DO_NOT_DISPLAY_CONSTRAINTS)
+  CHECKBOX ck_noheader		@	_ms	@	.,		///
+	option(noheader)						///
+	label(resource LBL_DO_NOT_DISPLAY_HEADER_ABOVE_PARAMETER_TABLE)
+  CHECKBOX ck_nodvheader	@	_ms	@	.,		///
+	option(nodvheader)						///
+	label(resource SG__GESTOPTIONS_RPT_CK_NODVHEADER)
+  CHECKBOX ck_notable		@	_ms	@	.,		///
+	option(notable)							///
+	label(resource SG__GESTOPTIONS_RPT_CK_NOTABLE)
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+
+PROGRAM rpt_output
+BEGIN
+	optionarg /hidedefault rpt.sp_level
+	option rpt.ck_nocnsreport
+	option rpt.ck_noheader
+	option rpt.ck_nodvheader
+	option rpt.ck_notable
+	put " " rpt_bu_facvarsResults
+	put " " rpt_bu_fmtcoefResults
+END
+
+INCLUDE lca_maximization
+
+SCRIPT adv_PREINIT
+BEGIN
+	create STRING __const_tab
+	__const_tab.setvalue "adv"
+
+	/* covstructure */
+	create STRING adv_covs_tmp
+	create STRING adv_covs_tmp2
+	create STRING adv_covs_childdlg
+	create STRING adv_covs_child_result
+	create STRING adv_covs_cmd_output
+
+	create ARRAY adv_covs_list
+
+	create SVECTOR advCOVSCommandDisplayList
+	create SVECTOR advCOVSCommandList
+	create SVECTOR advCOVSCommandValues
+	create SVECTOR advCOVSStatusList
+	create SVECTOR advCOVSChildDialogList
+
+	create DOUBLE adv_covs_count
+	create DOUBLE adv_covs_position
+	create DOUBLE adv_covs_arraysize
+
+	adv.bu_covs_edit.disable
+	adv.bu_covs_disable.disable
+	adv.bu_covs_enable.disable
+END
+
+SCRIPT adv_POSTINIT
+BEGIN
+	advCOVSCommandDisplayList.copyToArray adv_covs_list
+	adv.lb_covsBuild.repopulate
+END
+
+DIALOG adv,tabtitle(resource LBL_ADVANCED)
+BEGIN
+  TEXT tx_covsBuild		_lft	_top	_iwd	.,		///
+	label(resource LBL_COVARIANCE_STRUCTURE)
+  LISTBOX lb_covsBuild		@	_ss	200	95,		///
+	contents(adv_covs_list) 					///
+	ondblclick(program adv_covs_edit)				///
+	onselchange(program adv_covs_sel_changed)			///
+	nomemory
+  BUTTON bu_covs_new		+210	@	80	.,		///
+	onpush(program adv_covs_create)					///
+	tooltip(resource SG__GESTOPTIONS_ADV_BU_COVS_NEW)		///
+	label(resource LBL_BU_CREATE)
+  BUTTON bu_covs_edit		@	_ms	@	.,		///
+	onpush(program adv_covs_edit)  					///
+	tooltip(resource SG__GESTOPTIONS_ADV_BU_COVS_EDIT)		///
+	label(resource LBL_BU_EDIT)
+  BUTTON bu_covs_disable	@	_ms	@	.,		///
+	onpush(program adv_covs_disable)				///
+	tooltip(resource SG__GESTOPTIONS_ADV_BU_COVS_DISABLE)		///
+	label(resource LBL_BU_DISABLE)
+  BUTTON bu_covs_enable		@	_ms	@	.,		///
+	onpush(program adv_covs_enable)					///
+	tooltip(resource SG__GESTOPTIONS_ADV_BU_COVS_ENABLE)		///
+	label(resource LBL_BU_ENABLE)
+  TEXTBOX tb_covs_note		_lft	+25	_iwd	_tb2,		///
+	label(resource SG__GESTOPTIONS_ADV_TB_COVS_NOTE)
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _ilw60
+  DEFINE _bux _islw60
+  INCLUDE _constraints
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _xw _iwd
+//  INCLUDE _ck_collinear
+
+  CHECKBOX ck_noestimate	_x	_ls	_xw	.,		///
+	option(noestimate)						///
+	label(resource LBL_PREVENT_MODEL_FITTING)
+
+  TEXT     tx_startvalues	_lft	_ls	_iwd	.,		///
+	label(resource SG__GESTOPTIONS_ADV_TX_STARTVALUES)
+  COMBOBOX cb_startvalues	@	_ss	440	.,		///
+	option(startvalues)						///
+	dropdown							///
+	contents(adv_startvalues_list)					///
+	values(adv_startvalues_values)					///
+	label(resource SG__GESTOPTIONS_ADV_TX_STARTVALUES)
+END
+
+LIST adv_startvalues_list
+BEGIN
+	resource SG__GESTOPTIONS_USE_WHAT_SPEC_IN_MODELS
+	resource SG__GESTOPTIONS_EST_INTERCEPT_SCALE_EACH_RESPONSE_MOD
+	resource SG__GESTOPTIONS_EST_FIXED_EFF_COEF_SCALE
+	resource SG__GESTOPTIONS_USE_GEN_RESID_FROM_FITTED_EFF_IV_METHOD
+END
+
+LIST adv_startvalues_values
+BEGIN
+	zero
+	constantonly
+	fixedonly
+	iv
+END
+
+/* covariance restriction list box */
+PROGRAM adv_covs_create
+BEGIN
+	call adv_covs_count.setvalue class advCOVSChildDialogList.size
+	call adv_covs_count.increment
+	call adv_covs_count.withvalue adv_covs_childdlg.setvalue	///
+		"adv_covs@"
+	call program adv_show_covs_child
+END
+
+PROGRAM adv_covs_edit
+BEGIN
+	call advCOVSCommandDisplayList.findstr class adv.lb_covsBuild.value
+	call adv_covs_position.setvalue class 				///
+		advCOVSCommandDisplayList.position
+	call adv_covs_position.withvalue adv_covs_childdlg.setvalue	///
+		class advCOVSChildDialogList.values[@]
+
+	call program adv_show_covs_child_edit
+END
+
+PROGRAM adv_show_covs_child
+BEGIN
+	call adv_covs_childdlg.withvalue 				///
+		create CHILD sg__opts_newcovs AS @, message("HIDE_GROUP")
+	call adv_covs_childdlg.withvalue @.setExitString 		///
+		"adv_covs_child_result"
+	call adv_covs_childdlg.withvalue @.setExitAction		///
+		"program adv_covs_child_done"
+
+	call adv_covs_count.withvalue STMP.format			///
+		"resource LBL_COVARIANCE_STRUCTURE_FMT" "@" ""
+	call STMP.withvalue adv_covs_tmp.setvalue "@"
+	call adv_covs_childdlg.withvalue adv_covs_tmp2.setvalue "@.settitle"
+	call adv_covs_tmp2.append `" ""'
+	call adv_covs_tmp2.append class adv_covs_tmp.value
+	call adv_covs_tmp2.append `"""'
+	call adv_covs_tmp2.withvalue @
+END
+
+PROGRAM adv_show_covs_child_edit
+BEGIN
+	call adv_covs_childdlg.withvalue create CHILD sg__opts_newcovs AS @
+	call adv_covs_childdlg.withvalue @.setExitString 		///
+		"adv_covs_child_result"
+	call adv_covs_childdlg.withvalue @.setExitAction		///
+		"program adv_covs_child_done"
+
+	call adv_covs_position.withvalue adv_covs_tmp.setvalue		///
+		class advCOVSCommandDisplayList.values[@]
+	call adv_covs_childdlg.withvalue adv_covs_tmp2.setvalue "@.settitle"
+	call adv_covs_tmp2.append `" ""'
+	call adv_covs_tmp2.append class adv_covs_tmp.value
+	call adv_covs_tmp2.append `"""'
+	call adv_covs_tmp2.withvalue @
+END
+
+PROGRAM adv_covs_child_done
+BEGIN
+	call advCOVSChildDialogList.findstr class adv_covs_childdlg.value
+	call adv_covs_position.setvalue class advCOVSChildDialogList.position
+	if adv_covs_position {
+		call adv_covs_position.withvalue adv_covs_tmp.setvalue ///
+			class advCOVSStatusList.values[@]
+		if adv_covs_tmp.iseq("active") {
+			call adv_covs_position.withvalue STMP.format	///
+				"resource LBL_COVARIANCE_STRUCTURE_FMT" "@" ""
+			call STMP.withvalue				///
+				advCOVSCommandDisplayList.store class	///
+				adv_covs_position.value			///
+				"@"
+			call advCOVSCommandValues.store class		///
+				adv_covs_position.value class		///
+				adv_covs_child_result.value
+			call STMP.withvalue				///
+				adv_covs_tmp2.setvalue			///
+				"@"
+		}
+		else {
+			call adv_covs_position.withvalue STMP.format	///
+			"resource LBL_COVARIANCE_STRUCTURE_FMT" "@"	///
+				"resource LBL_PAREN_DISABLED"
+			call STMP.withvalue				///
+				adv_covs_tmp2.setvalue			///
+				"@"
+
+			call adv_covs_tmp2.withvalue			///
+				advCOVSCommandDisplayList.store		///
+				class adv_covs_position.value "@"
+		}
+
+		call advCOVSCommandList.store class			///
+			adv_covs_position.value class 			///
+			adv_covs_child_result.value
+
+		call advCOVSCommandDisplayList.copyToArray adv_covs_list
+		call adv.lb_covsBuild.repopulate
+		call adv.lb_covsBuild.setvalue class adv_covs_tmp2.value
+	}
+	else {
+		call adv_covs_arraysize.setvalue class 			///
+			advCOVSChildDialogList.size
+		call adv_covs_arraysize.increment
+
+		/* Store child dialog name */
+		call advCOVSChildDialogList.store class			///
+			adv_covs_arraysize.value class			///
+			adv_covs_childdlg.value
+
+		/* Store listbox display covariance restriction string */
+		call adv_covs_arraysize.withvalue STMP.format		///
+			"resource LBL_COVARIANCE_STRUCTURE_FMT" "@" ""
+		call STMP.withvalue					///
+			advCOVSCommandDisplayList.store class		///
+			adv_covs_arraysize.value "@"
+
+		/* Store child dialog result string */
+		call advCOVSCommandList.store class			///
+			adv_covs_arraysize.value 			///
+			class adv_covs_child_result.value
+
+		/* Store child dialog result string for final command
+		   For disable/enable */
+		call advCOVSCommandValues.store class			///
+			adv_covs_arraysize.value class 			///
+			adv_covs_child_result.value
+
+		/* Store disable/enable status */
+		call advCOVSStatusList.store				///
+			class adv_covs_arraysize.value "active"
+
+		call advCOVSCommandDisplayList.copyToArray adv_covs_list
+		call adv.lb_covsBuild.repopulate
+		call STMP.withvalue					///
+			adv.lb_covsBuild.setvalue "@"
+	}
+END
+
+PROGRAM adv_covs_sel_changed
+BEGIN
+	call advCOVSCommandDisplayList.findstr class adv.lb_covsBuild.value
+	call adv_covs_position.setvalue class 				///
+		advCOVSCommandDisplayList.position
+	call adv_covs_position.withvalue adv_covs_tmp.setvalue		///
+		class advCOVSStatusList.values[@]
+	if adv_covs_position {
+		call adv.bu_covs_edit.enable
+		call adv_covs_position.withvalue			///
+			adv.tb_covs_note.setlabel			///
+			class advCOVSCommandList.values[@]
+	}
+
+	if adv_covs_tmp.iseq("disable") {
+		call adv.bu_covs_enable.enable
+		call adv.bu_covs_disable.disable
+	}
+	if adv_covs_tmp.iseq("active") {
+		call adv.bu_covs_enable.disable
+		call adv.bu_covs_disable.enable
+	}
+END
+
+PROGRAM adv_covs_disable
+BEGIN
+	call advCOVSCommandDisplayList.findstr class adv.lb_covsBuild.value
+	call adv_covs_position.setvalue class				///
+		advCOVSCommandDisplayList.position
+
+	call adv_covs_tmp.setvalue class adv.lb_covsBuild.value
+	call advCOVSStatusList.store class adv_covs_position.value "disable"
+	call advCOVSCommandValues.store class adv_covs_position.value ""
+
+	call STMP.format "resource LBL_PAREN_DISABLED"
+	call adv_covs_tmp.append " "
+	call adv_covs_tmp.append class STMP.value
+	call adv_covs_tmp.withvalue STMP.setvalue "@"
+
+	call adv_covs_tmp.withvalue advCOVSCommandDisplayList.store	///
+		class adv_covs_position.value "@"
+
+	call advCOVSCommandDisplayList.copyToArray adv_covs_list
+	call adv.lb_covsBuild.repopulate
+	call adv.lb_covsBuild.setvalue class STMP.value
+END
+
+PROGRAM adv_covs_enable
+BEGIN
+	call advCOVSCommandDisplayList.findstr class adv.lb_covsBuild.value
+	call adv_covs_position.setvalue class 				///
+		advCOVSCommandDisplayList.position
+
+	call advCOVSStatusList.store class adv_covs_position.value "active"
+	call adv_covs_position.withvalue advCOVSCommandValues.store	///
+		class adv_covs_position.value class 			///
+		advCOVSCommandList.values[@]
+
+	call adv_covs_position.withvalue STMP.format			///
+		"resource LBL_COVARIANCE_STRUCTURE_FMT" "@" ""
+
+	call STMP.withvalue						///
+		advCOVSCommandDisplayList.store				///
+		class adv_covs_position.value "@"
+
+	call advCOVSCommandDisplayList.copyToArray adv_covs_list
+	call adv_covs_position.withvalue adv_covs_tmp2.setvalue class	///
+		advCOVSCommandDisplayList.values[@]
+	call adv.lb_covsBuild.repopulate
+	call adv.lb_covsBuild.setvalue class adv_covs_tmp2.value
+END
+
+INCLUDE _constraints_sc
+
+PROGRAM lclass_output
+BEGIN
+	require main.ed_cat_var1
+	require main.sp_num_class_var1
+	
+	if main.sp_base_class_var1.isgt(main.sp_num_class_var1) {
+stopbox stop resource LBL_MSGBOX_CLASS_NUM_NOT_EXCEED_TOTNUM_OF_CLASSES	
+	}
+	
+	put "lclass("
+	put main.ed_cat_var1
+	put " "
+	put main.sp_num_class_var1
+	if main.sp_base_class_var1 &		///
+		main.sp_base_class_var1.isneq(1) {
+		put ", base("
+		put main.sp_base_class_var1
+		put ")"
+	}
+	put ")"
+	
+	if sMoreCatResult {
+		put " " sMoreCatResult
+	}
+END
+
+PROGRAM pred_output
+BEGIN
+	if main.vl_pred {
+		put " ("
+		if sMoreCatResult.equals("") {
+			put main.ed_cat_var1
+		}
+		else {
+			put sClassString
+		}
+		
+		put " <- "
+		put main.vl_pred
+		put ")"
+		put " "
+	}
+	put " " sPredDlgResult
+END
+
+PROGRAM lca_output
+BEGIN
+	put main.vl_measure_vars
+
+	if main.cb_measure_model.contains("ordinal") {
+		put " <-"
+	}
+	else {
+		put " <- _cons"
+	}
+END
+
+PROGRAM lcadm_output
+BEGIN
+	call mainLCADMCommandValues.copyToString main_lcadm_cmd_output
+	if main_lcadm_cmd_output.equals("") {
+		stopbox stop resource LBL_MSGBOX_MEASUREMENT_MODEL_MUST_BE_SPECIFIED
+	}
+	put main_lcadm_cmd_output
+END
+
+PROGRAM lcadc_output
+BEGIN
+	call mainLCADCCommandValues.copyToString main_lcadc_cmd_output
+	if main_lcadc_cmd_output.equals("") {
+		stopbox stop resource LBL_MSGBOX_MEASUREMENT_MODEL_MUST_BE_SPECIFIED
+	}
+	put main_lcadc_cmd_output
+END
+
+PROGRAM path_output
+BEGIN
+	call mainPATHCommandValues.copyToString main_path_cmd_output
+	if main_path_cmd_output.equals("") {
+		stopbox stop resource LBL_MSGBOX_PATH_MODEL_MUST_BE_SPECIFIED
+	}
+	put main_path_cmd_output
+END
+
+PROGRAM adv_output
+BEGIN
+	call advCOVSCommandValues.copyToString adv_covs_cmd_output
+	call adv_covs_arraysize.setvalue class advCOVSStatusList.size
+	if adv_covs_cmd_output & adv.lb_covsBuild.isvisible() {
+		put adv_covs_cmd_output
+	}
+	optionarg adv.cb_constr
+//	option adv.ck_collinear
+	option adv.ck_noestimate
+	optionarg adv.cb_startvalues
+END
+
+PROGRAM command
+BEGIN
+	if main.cb_analysis.iseq("fmm") {
+		exit
+	}
+	// external error checking
+	if se.ck_svy {
+		call se_svyset.setstring char _dta[_svy_version]
+		if se_svyset.equals("") {
+			call se_STMP.format				///
+			"resource SE_MSGBOX_SVY_SETTINGS_REQUIRED_FMT" ///
+				"resource LBL_SURVEY_SETTINGS"		///
+				"resource SE_TITLE_SE_ROBUST"
+			stopbox stop "class se_STMP.value"
+// Survey estimation commands require survey settings. See "Survey settings" on the "SE/Robust" tab.
+		}
+	}
+	if se_vcetype.equals(resource LBL_CLUSTERED_ROBUST)		///
+		| se_vcetype.equals(resource SE_LBL_CLUSTER) {
+		require se.vn_cluster
+	}
+
+	put /program se_prefix_output " "
+
+	put "gsem "
+
+	if main.cb_analysis.iseq("lca") {
+		require main.cb_measure_model
+		require main.vl_measure_vars
+		put "("
+		put /program lca_output
+		put ")"
+	}
+	if main.cb_analysis.iseq("lcadm") {
+		put /program lcadm_output
+	}
+	if main.cb_analysis.iseq("lcadc") {
+		put /program lcadc_output
+	}
+	if main.cb_analysis.iseq("path") {
+		put /program path_output
+	}
+	
+	if main.ck_predictors {
+		put " " /program pred_output
+	}
+	
+	put " " /program ifin_output
+	put " " /program weights_output
+	beginoptions
+		optionarg group.vn_group
+		optionarg group.cb_group_param
+		
+		if main.cb_analysis.iseq("lca") {
+			put " " /program main_measure_model_output
+		}
+		
+		put " " /program lclass_output
+		
+		if main.cb_lca_class_param.isvisible() {
+			optionarg main.cb_lca_class_param
+		}
+		if main.cb_lcadm_class_param.isvisible() {
+			optionarg main.cb_lcadm_class_param
+		}
+		if main.cb_lcadc_class_param.isvisible() {
+			optionarg main.cb_lcadc_class_param
+		}
+		if main.cb_path_class_param.isvisible() {
+			optionarg main.cb_path_class_param
+		}
+		put " " /program se_output
+		put " " /program rpt_output
+		put " " /program max_output
+		put " " /program adv_output
+	endoptions
+END

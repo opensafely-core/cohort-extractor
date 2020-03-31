@@ -1,0 +1,3773 @@
+/*				bargraph_g
+
+	class for bar graphs
+
+*/
+*! version 1.2.4  29aug2019
+
+version 8
+
+class {
+    class:
+    	graphfamily	= "bar"
+
+    instance:
+	graphstyle = .barstyle.new
+	array barstyles
+
+	horizontal	= .yesno.new , style(no)
+	dotplot		= .yesno.new , style(no)
+	boxplot		= .yesno.new , style(no)
+	stack		= .yesno.new , style(no)
+	percentages	= .yesno.new , style(no)
+	rotate		= .yesno.new , style(no)
+	fill		= .yesno.new , style(yes)
+	include0	= .yesno.new , style(yes)
+	showvaraxis	= .yesno.new , style(no)
+	/* overlay		= .yesno.new , style(no) */
+
+	var_asc_sort	= .yesno.new , style(yes)
+	grp_asc_sort	= .yesno.new , style(yes)
+	sup_asc_sort	= .yesno.new , style(yes)
+
+	swap_scaleaxis	= .yesno.new , style(yes)	/* here to allow set */
+	swap_groupaxis	= .yesno.new , style(yes)
+
+	reverse_scale   = .yesno.new , style(no)
+
+	barlabel_method	= .barlabelstyle.new , style(none)
+	barlabel_pos	= .barlabelpos.new   , style(outside)
+	barlabel_opts	= ""
+
+	custom_whiskers	= .yesno.new	    , style(no)
+	median_type	= .medtypestyle.new , style(line)
+
+	vargroup	= 0				// category var #'s
+	group		= 0
+	supergroup	= 0
+
+	varsrt		= 0				// sort variable #'s
+	grpsrt		= 0
+	supsrt		= 0
+	boxsrt		= 0
+
+	shadevar	= 2				/* usually vargroup */
+
+	barsize		= 0
+
+	array		labels				/* array of labels */
+
+	array		mlabels				// marker label varnames
+	mlabvars	= ""
+	array		lvar				// marker label var ids
+
+	delta		= 1				// delta for dots 
+
+	yaxis1		= .axis.new			// just for parsing
+
+	dot_signal	= 0				// from dotgraph_g
+	box_signal	= 0				// from boxgraph_g
+	horiz_signal	= 0				// from hbargraph_g
+
+	bygraphs	= ""
+
+	_makelbls	= 0				// internal signaling
+	_nsorts		= 0
+	_ngrps		= 0
+	_height_sorts	= ""
+	_remake		= 1
+	_remake_lbls	= 0
+	_repos_only	= 0
+	_blbl_ct	= 0
+
+} , inherit(graph_g)
+
+
+/* -------------------------------------------------------------------------*/
+/* Uses .new from graph.cls
+
+	Usage:  .new statlist [if] [in] [wt] [, omit_opts graph_opts 
+					       bargraph_opts]
+*/
+program new
+
+	.Super.new
+
+	capture syntax [anything(id=varlist equalok)] [if] [in] [aw fw pw] ///
+		       [ , READLOG(passthru) * ]
+
+	if `"`readlog'"' != `""' {
+		local 0 `"ForceACmd_1 `0'"'		// sic , for expand
+	}
+
+	gettoken tok rest : 0 , match(paren)
+	if "`paren'" == "(" {
+		if `"`tok'"' == `"asis"' {
+			local asis 1
+			local 0 `"`rest'"'
+		}
+	}
+	local ignored_opts noDRAW NAME(string) 				///
+		SCHeme(passthru) COPYSCHeme REFSCHeme 			///
+		XSIZe(passthru)  YSIZe(passthru)			///
+		FXSIZe(passthru) FYSIZe(passthru) SAVing(string asis)	///
+		PLAY(string asis)
+
+	syntax [anything(id=varlist equalok)] [if] [in] [aw fw pw] [ ,	///
+		SHADEVAR(varname) ASCategory				///
+		ASYvars noLABel noFILL CW MISSing noOUTsides 		///
+		CURORDER YVARoptions(string asis) 			///
+		BOXPLOT PERcentages 					///
+		ALLCategories						///
+		READLOG(passthru) 					///
+		BYIF(string asis)					///
+		`ignored_opts' * ]
+
+	local wtexp `weight'`exp'
+	marksample touse
+ 	if (`"`byif'"' != `""')  qui replace `touse' = 0 if ! (`byif')
+	local options `"`options' `boxplot' `percentages'"'
+
+							// over() options
+	_parse_over by varopt opt superopt options :			///
+		    `=("`asyvars'"!="")' `=("`ascategory'"!="")' , `options'
+	local origopts `"`options'"'
+
+	if "`ascategory'" != "" & `"`yvaroptions'"' != `""' {
+	    if `"`opt'"' != `""' {
+		 di in green "(note: over() options superseding yvaroptions())"
+	    }
+	    else local opt `"`yvaroptions'"'
+	}
+	else if `"`yvaroptions'"' != `""' {
+	    if `"`varopt'"' != `""' {
+		 di in green "(note: over() options superseding yvaroptions())"
+	    }
+	    else local varopt `"`yvaroptions'"'
+	}
+
+	// Get the list of marker label variables
+	.GetMarkerLabVars , `origopts'
+	forval i = 1/`.mlabels.arrnels' {
+		local mlabvars `mlabvars' `.mlabels[`i']'
+	}
+	.mlabvars = "`mlabvars'"
+
+if "`readlog'" == "" {
+
+	local boxplot = ("`boxplot'" != "" | `.box_signal')
+
+	if `"`anything'"' == "" {
+		if `boxplot' {
+			di as error "varlist or statlist required"
+			exit 198
+		}
+		else	local anything "(percent)"
+	}
+
+	if ( "`fill'" != "" )  .fill.set_false
+
+	if "`curorder'" != "" & ! 0`asis' {
+		di as error "option curorder must be combined with (asis)"
+		exit 198
+	}
+
+	preserve
+
+	local vlist `._get_varlist `anything''		/* strip collapse syn */
+	local n_vars : word count `vlist'
+
+	._sub_tempnames  by : _over `by'		// no tempnames 
+	._sub_vtempnames vlist anything : _var  `"`vlist'"' `"`anything'"'
+
+	local byct : word count `by'
+	tokenize `by'					/* set up groups */
+	if `: word count `vlist'' > 1 {
+		if `byct' > 2 {
+			di as error "may not specify more than two by "	/*
+				*/ "variables when a varlist is specified"
+			exit 198
+		}
+
+		if "`ascategory'" == "" | `byct' == 2 {
+			local supergroup = cond(`byct'==2 , "`1'", "")
+			local group      = cond(`byct'==2 , "`2'", "`1'")
+			local vargroup _variables
+		}
+		else {
+			local supergroup = cond(`byct'==1 , "`1'", "")
+			local group    _variables
+			local vargroup _spacer
+		}
+	}
+	else {
+		if "`asyvars'" == "" | `byct' == 3 {
+			if `byct' == 3 {
+				local supergroup `1'
+				local group      `2'
+				local vargroup   `3'
+			}
+			else if `byct' == 2 {
+				local supergroup `1'
+				local group      `2'
+				local vargroup   _variables
+			}
+			else if `byct' == 1 {
+				local group `1'
+				local vargroup _variables
+			}
+			else	local vargroup _variables
+		}
+		else {
+			else if `byct' == 2 {
+				local group      `1'
+				local vargroup   `2'
+			}
+			else if `byct' == 1 {
+				local vargroup `1'
+			}
+			else	local vargroup _variables
+		}
+	}
+	.PushDo ._ngrps = `:word count `group' `supergroup' `vargroup''
+
+	if "`missing'" == "" {			/* keep sample */
+		tempvar   touse2
+		qui gen byte `touse2' = 1
+		markout  `touse2' `by' , strok
+		qui keep if  `touse2'
+	}
+	else	.LabelMissing `by'
+
+					// relabel(), and sort() in over()
+	local k 0
+	foreach v in var "" super {	
+		local ++k
+		if `"``v'opt'"' != `""' {
+			local 0 `", ``v'opt'"'
+			syntax [ , RELabel(string asis) SORT(string) TOTal * ]
+			if `"`relabel'"' != `""' {
+			    local relab`v' `"._set_labels ``v'group' `relabel'"'
+			}
+			if "`sort'" != "" {
+			      local srtlist "`srtlist' `.SetSort "`v'" `sort''"
+			}
+			if "`total'" != "" {
+			       if "`totalopt'" != "" {
+				    di as error "option total may be "	///
+					"specified in only one over() options"
+				    exit 198
+			       }
+			       local totalopt total(`=`k'-("`ascategory'"!="")')
+			}
+			local overopts `"`overopts' `v'axopt(`options')"'
+		}
+	}
+
+	if `boxplot' | 0`asis' {			// sort(varname)
+		foreach srtv of local srtlist {
+			gettoken unused : srtv , match(paren)
+			if (`"`paren'"' == `""')  qui gen `srtv'
+		}
+	}
+
+	tempvar encvar strvar ltouse			// labels
+	if "`allcategories'" == "" {
+		gen byte `ltouse' = `touse'
+	}
+	else if `"`if'"' != `""' & `"`byif'"' != `""' {	// by and if
+		mark `ltouse' `if'
+	}
+	else {
+		gen byte `ltouse' = 1
+	}
+
+	local g 0
+	foreach grp of local by  {
+		if "`= bsubstr("`:type `grp''", 1, 3)'" != "str" {	
+			qui egen `strvar' = group(`grp') if `ltouse' ,	///
+					label missing lname(_blbl_`++g')
+			drop `grp'
+			rename `strvar' `grp'
+		}
+							// strings encoded
+		if "`= bsubstr("`:type `grp''", 1, 3)'" == "str" {
+			tempname tmplbl
+			qui encode `grp' if `ltouse', gen(`encvar')	///
+						     label(`tmplbl')
+			drop `grp'
+			rename `encvar' `grp'
+
+			if "`curorder'" != "" {
+				._relabel_var `grp'
+			}
+		}
+	}
+
+						// compute values 
+	if ("`allcategories'" != "") {
+		tempfile preserve data
+		qui keep if `ltouse'
+		qui save `"`preserve'"'
+	}
+
+	if `boxplot' {
+		BoxData `anything' if `touse' [`wtexp'] ,		///
+			 by(`by') `cw' vargroup(`vargroup') `label'	///
+			 sortvars(`._get_varlist `srtlist'') `totalopt'
+		local vlist _values
+		local srtlist `srtlist' _box_sort
+		if "`outsides'" != "" {
+		      qui drop if _box_sort == 9999
+		      local mytitleopts note("excludes outside values", suffix)
+		}
+	}
+	else if ! 0`asis' {
+		collapse `anything' `srtlist' if `touse' [`wtexp'] , ///
+			  by(`by') `cw' clabel graphbar(vlist)
+	}
+	else {
+		qui keep if `touse'
+	}
+	
+	foreach svar in `._get_varlist `srtlist'' {
+		local vlist : subinstr local vlist "`svar'" "" , word
+	}
+
+	if ("`allcategories'" != "") {
+		if (`boxplot') sort `by' _box_sort
+		else if (`"`by'"' != `""')  sort `by'
+		qui save `"`data'"'
+		qui use  `"`preserve'"'
+		tempvar one
+		gen byte `one' = 1
+		collapse `one' , by(`by') clabel
+		if (`boxplot') {
+			qui expand = 5
+			if `"`by'"' != `""' {
+				qui bysort `by': gen _box_sort = _n
+			}
+			else	qui gen _box_sort = _n
+			sort `by' _box_sort
+			qui merge `by' _box_sort using `"`data'"'
+			capture sort _variables
+			if !_rc ///
+			qui replace _variables=_variables[_n-1] if _variables==.
+		}
+		else	qui merge `by' using `"`data'"'
+		drop _merge `one'
+	}
+
+	local srtvars `._get_varlist `srtlist''
+
+						// turn varlist into vargroup
+						// (or group)
+	if ("`vargroup'" == "_variables" | "`vargroup'" == "_spacer") &	///
+	    ! `boxplot' {
+		if "`vargroup'" == "_variables" {
+			tsrevar `vlist' `group' `supergroup' `srtvars' , list
+		}
+		else	tsrevar `vlist' `supergroup' `srtvars' , list
+		keep `r(varlist)'
+
+		qui gen long   _variables = .
+		qui gen double _values    = .
+		local N `=_N'
+		local k 0
+		foreach var of local vlist {
+			local ++k
+
+			local lab : variable label `var'
+			if `"`lab'"' == `""' | "`label'" != "" {
+				local lab `var'
+			}
+			label define _T_barlbl `k' `"`lab'"' , add
+
+			if `N' > 0 {
+				if `k' > 1 {
+				  qui expand 2 in 1/`N'	/* space over speed */
+				}
+				qui replace _variables = `k' in -`N'/l
+				qui replace _values = `var'  in -`N'/l
+			}
+		}
+
+		label values _variables _T_barlbl
+
+		if `:word count `vlist'' == 1 {
+			if `"`:variable label `vlist'':"' != "" {
+			   label variable _values 			/*
+					*/ `"`:variable label `vlist''"'
+			   local scaletitle `"`:variable label `vlist''"'
+			}
+			else {
+			   label variable _values `vlist'
+			   local scaletitle `"`vlist'"'
+			}
+		}
+		
+		local vlist  _values
+
+		if "`vargroup'" != "_variables" {
+			label define _T_nolab 1 " "
+			gen _spacer = 1
+			label values _spacer _T_nolab
+		}
+
+	}
+
+	if 0`asis' {
+		isid `supergroup' `group' `vargroup' , missok
+	}
+
+						// fill in missing combos
+	if `boxplot' {
+		if c(N) > 0 {
+			qui fillin `supergroup' `group' `vargroup' _box_sort
+		}
+		else	di as error "No observations to graph"
+	}
+	else if `._ngrps' > 1 {
+		qui fillin `supergroup' `group' `vargroup'
+	}
+
+	`relabvar'				// relabeling delayed to here
+	`relab'
+	`relabsuper'
+
+
+						// Set category variables
+	if ("`vargroup'"   != "")  .PushDo .vargroup   = 2
+	if ("`group'"      != "")  .PushDo .group      = 3
+	if ("`supergroup'" != "")  .PushDo .supergroup = 4
+
+	foreach srt of local srtvars {			// variable sorts
+		local g = bsubstr("`srt'" , 2, 3)
+		if "`g'" == "var" {
+			rename `srt' _var_sort
+		}
+		else if "`g'" == "grp" {
+		    qui egen _grp_sort = mean(`srt') , by(`supergroup' `group')
+		}
+		else if "`g'" == "sup" {
+		    qui egen _sup_sort = mean(`srt') , by(`supergroup')
+		}
+	}
+	local srtvars : subinstr local srtvars "0" "" , all
+
+	tempname catheight egroup grptotal
+	foreach srt in `._height_sorts' {		// height sorts
+		gettoken g cat : srt
+
+		local pct_sort = 0
+		if ("`g'" == "grp") {
+			local mby `supergroup' `group'
+			if ("`percentages'" != "")  local pct_sort 1
+		}
+		else if ("`g'" == "sup") {
+			local mby `supergroup'
+		}
+		else {
+			local mby `supergroup' `group' `vargroup'
+		}
+
+							// map to seq from 1
+		if "`g'" == "grp" | "`g'" == "sup" {
+		      egen long `egroup' = group(`vargroup')
+		      qui gen double `catheight' = `vlist' * (`egroup' == `cat')
+		}
+		else  qui gen double `catheight' = `vlist'
+
+		capture assert `catheight' == 0
+		if ! _rc {
+			local cat `cat'
+			di as error "sort() invalid, category `cat' not found"
+			exit 198
+		}
+		if `pct_sort' {
+			qui egen double `grptotal' = sum(`vlist') , by(`mby')
+			qui replace `catheight' = `catheight' / `grptotal'
+			drop `grptotal'
+		}
+
+		if (`boxplot')  qui replace `catheight' = . if _box_sort != 1
+		qui egen _`g'_sort = sum(`catheight') , by(`mby')
+		
+		.PushDo ._nsorts = `._nsorts' + 1
+		.PushDo .`g'srt  = 1 + `._ngrps' + `._nsorts'
+
+		local srtvars "`srtvars' _`g'_sort"
+		capture drop `catheight'
+		capture drop `egroup'
+	}
+
+}	/* end readlog */
+
+	if "`.mlabvars'" != "" {
+		local mlabvars `.mlabvars'
+		local nvars : word count ///
+			`vargroup' `group' `supergroup' `srtvars'
+		forval i = 0/`.mlabels.arrnels' {
+			if "`.mlabels[`i']'" != "" {
+				local j : list posof "`.mlabels[`i']'" ///
+					in mlabvars
+				.PushDo .lvar[`i'] = `nvars' + `j' + 1
+			}
+		}
+	}
+
+				/* let graph_g.new handle readlog etc.
+				 * it is given all the variables that need to 
+				 * be in the serset, most also retained as
+				 * options so .makegraph can find them.
+				*/
+	.parse_sersets `vlist' `vargroup' `group' `supergroup' `srtvars'  ///
+			`.mlabvars',					  ///
+			labels `readlog' `mytitleopts' `overopts'	  ///
+			`origopts' `fill'
+
+	if "`shadevar'" != "" {
+		.shadevar = `.sersets[1].seriesof `shadevar''
+		if !`.shadevar' {
+			di as error "`shadevar' not in graph
+			exit 198
+		}
+	}
+end
+
+program _parse_over
+	gettoken bymac    0 : 0
+	gettoken o1mac    0 : 0
+	gettoken o2mac    0 : 0
+	gettoken o3mac    0 : 0
+	gettoken optmac   0 : 0
+	gettoken colon    0 : 0
+	gettoken asbars   0 : 0
+	gettoken asgroups 0 : 0
+	
+	local i 0
+	syntax [,  Over(string asis) * ]
+	while `"`over'"' != `""' {
+		_over1 var opts : `over'
+
+		local o`++i' `"`opts'"'
+		local by `var' `by'
+
+		local 0 `", `options'"'
+		syntax [,  Over(string asis) * ]
+	}
+
+	if `i' > 3 {
+		di as error "may not specify more than 3 over() options"
+		exit 198
+	}
+
+
+	if `i' == 3 {
+		c_local `o1mac' `o1'			// varopt
+		c_local `o2mac' `o2'			// grpopt
+		c_local `o3mac' `o3'			// supopt
+	}
+	else {
+		if `asbars' {
+			c_local `o1mac' `o1'		// varopt
+			c_local `o2mac' `o2'		// grpopt
+		}
+		else if `asgroups' & `i' == 1 {
+			c_local `o3mac' `o1'		// supopt
+		}
+		else {
+			c_local `o2mac' `o1'		// grpopt
+			c_local `o3mac' `o2'		// supopt
+		}
+	}
+
+	c_local `bymac' `by'
+	c_local `optmac' `"`options'"'
+
+end
+
+program _over1
+	gettoken vmac  0 : 0
+	gettoken omac  0 : 0
+	gettoken colon 0 : 0
+
+	syntax varlist(min=1 max=1) [ , noLABel * ]
+	if ("`label'" != "")  label values `varlist'
+
+	c_local `vmac' `varlist'
+	c_local `omac' `"`options'"'
+end
+
+
+program _set_labels
+	gettoken varnm labels : 0
+
+	local lbl : value label `varnm'
+
+	if "`lbl'" == "" {
+		tempname lbl
+		local lbl _t_`lbl'
+		label values `varnm' `lbl'
+	}
+
+	capture label define `lbl' `labels' , modify
+	if _rc {
+		di as error "option labels() incorrectly specified"
+		di as error in smcl `"{p 8 8} expects, # "label" # label ..."'
+		exit 198
+	}
+end
+
+
+program _sub_tempnames
+	gettoken tmac   rest : 0
+	gettoken colon  rest : rest
+	gettoken prefix rest : rest
+				// substitute <prefix># for any tempnames 
+
+	local vlist `"`rest'"'
+	local i 0
+	foreach var of local rest {
+		if bsubstr(`"`var'"', 1, 2) == "__" {
+			if ! `:list var in done' {
+				rename `var' `prefix'`++i'
+				local vlist : subinstr local vlist	///
+				      "`var'" "`prefix'`i'" ,  all
+				local done `"`done' `var'"'
+			}
+		}
+	}
+
+	c_local `tmac' `vlist'
+end
+
+
+program _sub_vtempnames
+	args vmac amac colon prefix rest anything
+				// substitute <prefix># for any tempnames 
+
+	local vlist `"`rest'"'
+	local i 0
+	foreach var of local rest {
+		if bsubstr(`"`var'"', 1, 2) == "__" {
+			if ! `:list var in done' {
+				rename `var' `prefix'`++i'
+				local vlist    : subinstr local vlist	  ///
+				      "`var'" "`prefix'`i'" ,  all
+				local anything : subinstr local anything  ///
+				      "`var'" "`prefix'`i'" ,  all
+				local done `"`done' `var'"'
+			}
+		}
+	}
+
+	c_local `vmac' `"`vlist'"'
+	c_local `amac' `"`anything'"'
+end
+
+
+program SetSort
+	gettoken levname sort : 0
+
+	local g = cond("`levname'"== "" , "grp" , bsubstr("`levname'", 1, 3))
+
+	capture numlist "`sort'" , min(1) max(1) range(>0) integer
+
+	if _rc {						// varname
+		gettoken stat name : sort , match(paren)
+		if ("`paren'" == "") {
+			local name `stat'
+			local stat   (mean) _`g'0_sort=`name'
+		}
+		else	local stat (`stat') _`g'0_sort=`name'
+
+		confirm numeric variable `name'
+		.PushDo ._nsorts = `._nsorts' + 1
+		.PushDo .`g'srt  = 1 + `._ngrps' + `._nsorts'
+
+		class exit "`stat'"
+	}
+
+								// vargrp #
+	._height_sorts = `"`._height_sorts' "`g' `sort'" "'			
+end
+
+program PushDo
+	`0'
+	.__LOG.Arrpush `0'
+end
+
+program _relabel_var
+	args var
+
+	forvalues j = 1/`=_N' {
+	    label define _T_relbl `j' `"`:label (`var') `=`var'[`j']''"' , add
+	}
+
+	qui replace `var' = _n
+	label values `var' _T_relbl
+end
+
+program BoxData
+	syntax varlist(numeric ts) [if] [aw fw pw] [, BY(string) CW	///
+		TOTal(integer 0) noLABel VARGROUP(name) SORTVARS(namelist) ]
+
+	if "`:list dups varlist'" != "" {
+	di as error "variables must be unique, the following are repeated:"
+		di as error in smcl "{p 8 8}`:list dups varlist'"
+		exit 198
+	}
+
+	if `"`exp'"' != `""' {					// weight
+		tempname wtvar
+		qui gen double `wtvar' `exp'
+		local exp "= `wtvar'"
+		if ("`weight'" == "pweight")  local weight aweight
+	}
+
+	if ("`cw'" == "")  local novar novarlist		// sample
+	marksample touse , `novar'
+	qui keep if `touse'
+	local unused : subinstr local varlist "." "." , count(local is_ts)
+	if `is_ts' {
+		tsrevar `varlist' , list
+		local tslist `r(varlist)'
+		_ts tvar pvar , panel
+	}
+	else	local tslist `varlist'
+	qui keep `tslist' `by' `sortvars' `tvar' `pvar' `wtvar' `.mlabvars'
+
+	if ("`vargroup'" == "_spacer") {
+		qui gen byte _spacer = 1
+		local vargroup _variables
+	}
+	
+	local mlabvars `.mlabvars'
+	local k 0
+	foreach var of local varlist {				// labels
+		capture local lab : variable label `var'
+		local ts = _rc
+		if (`ts' | "`lab'" == "" | "`label'" != "")  local lab `var'
+		label define _T_barlbl `++k' `"`lab'"' , add
+		if (`ts')  qui gen _bd_`k' = `var'
+		else {
+			if `:list var in mlabvars' {
+				gen _bd_`k' = `var'
+			}
+			else	rename `var' _bd_`k'
+		}
+	}
+	capture drop `pvar' `tvar'
+
+	if `:word count `varlist'' > 1 {
+		tempname id
+		gen long `id' = _n
+		qui reshape long _bd_ , i(`id') j(`vargroup')
+		label values `vargroup' _T_barlbl
+	}
+	else {
+		capture label var _bd_1 `"`lab'"'
+		capture confirm variable `vargroup'
+		if _rc {
+			gen `vargroup' = 1
+			label values `vargroup' _T_barlbl
+		}
+	}
+
+	if (`:word count `by'' < 3)  local by `by' `vargroup'
+	unab varlist : _bd_* , max(1)
+
+	if (`total') preserve
+
+	if "`by'" != "" {					// Make data
+		local by_prefix bysort `by' :
+	}
+	`by_prefix' Box1By `varlist' [`weight'`exp'] , byvars(`by')	///
+						       sortvars(`sortvars')
+	if (c(N) == 0)  local K 0
+
+	qui drop if `varlist' >= .				// keep outliers
+
+	if `total' {						// all option
+		tempfile dat
+		qui save `"`dat'"'
+		restore
+		BoxAll `varlist' [`weight'`exp'] , byvars(`by')		///
+			sortvars(`sortvars') offset(`K') total(`total')
+		qui append using `"`dat'"'
+	}
+
+	qui gen _box_sort = 9999				// box sort
+	.PushDo ._nsorts  = `._nsorts' + 1
+	.PushDo .boxsrt   = 1 + `._ngrps' + `._nsorts'
+
+								// box data
+	local N  = _N + 1
+	qui set obs `=max(0, `N'+5*`K'-1)'
+	forvalues i = 1/`K' {
+		local N4 = `N' + 4
+		gettoken val rest : byvals`i'
+		foreach var in `by' `sortvars' {
+			if bsubstr("`:type `var''", 1, 3) == "str" {
+				qui replace `var' = `"`val'"'  in `N'/`N4'
+			}
+			else	qui replace `var' =   `val'    in `N'/`N4'
+			gettoken val rest : rest
+		}
+
+		local j 0
+		foreach stat of local bystat`i' {
+			local n = `N' + `j++'
+			qui replace `varlist' = `stat' in `n'
+			qui replace _box_sort = `j'    in `n'
+		}
+
+		local N = `N' + 5
+	}
+
+	capture confirm variable _spacer
+	if (! _rc) qui replace _spacer = 1
+
+	rename `varlist' _values
+end
+
+program Box1By , byable(recall , noheader)
+	syntax varname(ts) [aw fw pw]  , BYVARS(varlist)		///
+		[ SORTVARS(varlist) OFFSET(integer 0) ]
+
+	marksample touse0 , novarlist
+	marksample touse
+
+	tempname p25 p50 p75 adjl0 adjh0 adjl adjh
+
+	qui summarize `varlist'  [`weight'`exp'] if `touse' , detail
+	scalar `p25'   = r(p25)
+	scalar `p50'   = r(p50)
+	scalar `p75'   = r(p75)
+	scalar `adjl0' = 2.5*`p25' - 1.5*`p75'
+	scalar `adjh0' = 2.5*`p75' - 1.5*`p25' 
+	if `adjl0' == `adjh0' {
+		// IQR is zero
+		scalar `adjl' = .
+		scalar `adjh' = .
+		qui replace `varlist' = .				///
+		    	if `touse' & 					///
+		       	(`adjl0'   == `varlist') &			///
+		       	(`varlist' == `adjh0')
+	}
+	else {
+		// non-zero IQR
+		summarize `varlist' if `touse' & `varlist' >= `adjl0' &	///
+		  	`varlist' < `p25', meanonly
+		scalar `adjl'  = r(min)
+		summarize `varlist' if `touse' & `varlist' <= `adjh0' &	///
+		  	`varlist' > `p75' , meanonly
+		scalar `adjh'  = r(max) 
+		qui replace `varlist' = .				///
+		    	if `touse' & 					///
+		       	(`adjl0'   <= `varlist') & 			///
+		       	(`varlist' <= `adjh0')
+	}
+
+	tempname id
+	gen `id' = _n
+	summarize `id' if `touse0' , meanonly
+	local j = r(min)
+	foreach v of local byvars {
+		local byvals `"`byvals' `"`=`v'[`j']'"'"'
+	}
+	foreach v of local sortvars {
+		local byvals `"`byvals' `"`=`v'[`j']'"'"'
+	}
+
+	local p50x : display %21x `p50' 
+	local p25x : display %21x `p25' 
+	local p75x : display %21x `p75' 
+	local adjlx : display %21x `adjl' 
+	local adjhx : display %21x `adjh' 
+
+	c_local bystat`=_byindex()+`offset''				///
+		`p50x' `p25x' `p75x' `adjlx' `adjhx' 
+	c_local byvals`=_byindex()+`offset'' `"`byvals'"'
+	c_local K = _byindex()+`offset'
+end
+
+
+program BoxAll
+	syntax varname(ts) [aw fw pw]  , BYVARS(varlist) [ SORTVARS(varlist) ///
+				     TOTal(integer 0) OFFSET(integer 0) ]
+
+	local k_by : word count `byvars'
+	local totalvar : word `=`k_by'-`total'+1' of `byvars'
+
+	capture confirm variable _spacer
+	if (! _rc) qui replace _spacer = 1
+							// create total category
+							// and label it
+	if bsubstr("`:type `totalvar''", 1, 3) != "str" {
+		summarize `totalvar' , meanonly	
+		local totalcat = `r(max)' + 1
+		qui replace `totalvar' = `totalcat'
+		local totlbl : value label `totalvar'
+		if ("`totlbl'" == "") {
+			local totlbl _t_totlbl
+			label values `totalvar' _t_totlbl
+		}
+		label define `totlbl' `totalcat' "(total)" , modify
+	}
+	else	qui replace `totalvar' = "(total)"
+
+	foreach srt of local sortvars {			// total at end
+		qui summarize `srt' , meanonly
+		qui replace `srt' = 1.1 * r(max)
+	}
+							// make total box data
+	if "`byvars'" != "" {					// Make data
+		local by_prefix bysort `byvars' :
+	}
+	local K0 = `offset' + 1
+	`by_prefix' Box1By `varlist' [`weight'`exp'] ,		///
+		byvars(`byvars') sortvars(`sortvars') offset(`offset')
+
+	qui drop if `varlist' >= .			// keep only outliers
+
+							// pass back box data
+	forvalues k = `K0'/`K' {
+		c_local bystat`k' `"`bystat`k''"'
+		c_local byvals`k' `"`byvals`k''"'
+	}
+	c_local K `K'
+end
+
+program LabelMissing
+
+exit
+	foreach v of 0 {
+
+		local lbl : value label `v'
+		if "`lbl'" == "" {
+			local lbl _tm_`lbl'
+			label values `v' `lbl'
+		}
+
+		if 
+		label
+	}
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*  Creates a bargraph given an existing sersets array.
+
+	Usage:  .makegraph , graph_options bargraph_opts
+*/
+
+program makegraph
+
+	syntax [ , DOTChart BOXPLOT 					///
+		   HORizontal VERTical STACK PERcentages		///
+		   EXCLUDE0 YREVerse 					///
+		   BARGAP(string) BOXGAP(string) OUTERGAP(string)	///
+		   LINEGap(string) LINEType(string) NDOTs(integer -99)	///
+		   INTENsity(string) LINTENsity(string) 		///
+		   ALsize(string) CAPsize(string)		 	///
+		   MEDType(string) MEDLine(string) MEDMarker(string)	///	
+		   NOCWHiskers CWHiskers				///
+		   RWIDth(string)					///
+		   LOWEXtension(real -999) HIGHEXtension(real -999)	///
+		   NOEXTendlines EXTendlines				///
+		   YALTernate XALTernate				///
+		   STYLE(passthru) SHOWYVARs				///
+		   VARAXOPT(string asis) AXOPT(string asis) 		///
+		   SUPERAXOPT(string asis)				///
+		   GSTYle(string)					///
+		   noFILL						///
+		   PCYCle(real -999)					///
+		   ASPECTratio(string asis)				///
+		   XOVERHANGs YOVERHANGs				///
+		   BNDOPTIONS(string) * ]
+
+	local origopts `"`options'"'
+
+	tempname log					// use log tools
+	.`log' = {}
+	if `"`aspectratio'"' != `""' {
+		if "`xoverhangs'`yoverhangs'" != "" {
+			di as error 					///
+	   "may not combine option aspectratio() with xoverhangs or yoverhangs"
+			exit 198
+		}
+		_fr_aspect_parse_and_log `log' `aspectratio'
+	}
+	if "`yoverhangs'" != "" {
+		.`log'.Arrpush .style.editstyle adj_ymargins(yes) editcopy
+	}
+	if "`xoverhangs'" != "" {
+		.`log'.Arrpush .style.editstyle adj_xmargins(yes) editcopy
+	}
+	if `pcycle' != -999 {
+		.`log'.Arrpush .style.editstyle pcycle(`pcycle') editcopy
+	}
+	else {
+		local pcycle `.style.pcycle.val'
+	}
+	if ("`horizontal'" != "") .horiz_signal = 1
+	if ( `.horiz_signal' & "`vertical'"=="" )  local horizontal "horizontal"
+	if ( `.dot_signal' )  local dotchart "dotchart"
+	if ( `.box_signal' )  local boxplot  "boxplot"
+	if "`dotchart'" != "" {
+		.graphstyle.ref = .barstyle.new , style(scheme dot)
+		.dotplot.set_true
+		if "`vertical'" == "" {			// dots default horiz
+			local horizontal horizontal
+		}
+	}
+	else if "`boxplot'" != "" {
+		.graphstyle.ref = .barstyle.new , style(scheme box)
+		.boxplot.set_true
+	}
+	else	.graphstyle.ref = .barstyle.new , style(scheme)
+
+	if ("`gstyle'" != "")  .graphstyle.setstyle , style(`gstyle')
+
+	.swap_scaleaxis.setstyle , style(`.graphstyle.swap_scaleaxis.stylename')
+	.swap_groupaxis.setstyle , style(`.graphstyle.swap_groupaxis.stylename')
+	.reverse_scale.setstyle  , style(`.graphstyle.reverse_scale.stylename')
+	.barlabel_method.setstyle, style(`.graphstyle.barlabel_method.snm')
+	.barlabel_pos.setstyle   , style(`.graphstyle.barlabel_pos.stylename')
+	.custom_whiskers.setstyle, style(`.graphstyle.custom_whiskers.snm')
+	.median_type.setstyle    , style(`.graphstyle.median_type.stylename')
+
+	if "`.style'" != "" {
+		.graphstyle.setstyle, `style'
+	}
+	if "`stack'" != "" {
+		if `.boxplot.istrue' {
+			di as error "option stack not allowed"
+			exit 198
+		}
+		.stack.set_true
+	}
+	if "`percentages'" != "" {
+		if `.boxplot.istrue' {
+			di as error "option percentages not allowed"
+			exit 198
+		}
+		.percentages.set_true
+	}
+	if "`exclude0'" != "" {
+		if `.boxplot.istrue' {
+			di as error "option exclude0 not allowed"
+			exit 198
+		}
+		.include0.set_false
+	}
+	if "`yreverse'" != "" {
+		.reverse_scale.setstyle , style(yes)
+	}
+	if `"`linegap'"' != `""' {
+		local linegap : subinstr local linegap "neg" "-"
+		local linegap : subinstr local linegap "pct" ""
+		capture confirm number `linegap'
+		if _rc | `:word count `linegap'' != 1 {
+			di as error "linegap() invalid"
+			exit 198
+		}
+		local edits `"`edits' gap(`=`linegap'-100')"'
+	}
+	if `"`boxgap'"' != `""' {
+		local edits `"`edits' gap(`boxgap')"'
+	}
+	if `"`bargap'"' != `""' {
+		local edits `"`edits' gap(`bargap')"'
+	}
+	if `"`outergap'"' != `""' {
+		local edits `"`edits' outer_gap(`outergap')"'
+	}
+	if `"`intensity'"' != `""' {
+		local edits `"`edits' intensity(`intensity')"'
+	}
+	if `"`lintensity'"' != `""' {
+		local edits `"`edits' lintensity(`lintensity')"'
+	}
+	if "`yalternate'" != "" {
+		.swap_scaleaxis.set_swap
+	}
+	if "`xalternate'" != "" {
+		.swap_groupaxis.set_swap
+	}
+								// dotchars
+	if ("`linetype'" != "") {
+		local edits `"`edits' dottype(`linetype')"'
+	}
+	if (`lowextension' != -999) {
+		local edits `"`edits' dot_extend_low(`lowextension')"'
+	}
+	if (`highextension' != -999) {
+		local edits `"`edits' dot_extend_high(`highextension')"'
+	}
+
+	if `ndots' != -99 {
+		local edits `"`edits' num_dots(`ndots')"'
+	}
+	if "`rwidth'" != "" {
+		local edits `"`edits' dot_areawidth(`rwidth')"'
+	}
+	if `"`noextendlines'"' != `""' {
+		local edits `"`edits' extend_dots(no)"'
+	}
+	if `"`extendlines'"' != `""' {
+		local edits `"`edits' extend_dots(yes)"'
+	}
+							// boxplot settings
+	if `"`alsize'"' != `""' {
+		local edits `"`edits' fence_size(`alsize')"'
+	}
+	if `"`capsize'"' != `""' {
+		local edits `"`edits' fence_capsz(`capsize')"'
+	}
+	if ("`medtype'"     != "")  .median_type.setstyle , style(`medtype')
+	if ("`nocwhiskers'" != "")  .custom_whiskers.setstyle , style(no)
+	if ("`cwhiskers'"   != "")  .custom_whiskers.setstyle , style(yes)
+	if `"`medmarker'"' != `""' {
+		._parse_marker_edit , `medmarker'
+		local edits `"`edits' median_markstyle(`r(edit)')"'
+	}
+	if `"`medline'"' != `""' {
+		._parse_line_edit , `medline'
+		local edits `"`edits' median_linestyle(`r(edit)')"'
+	}
+
+	if ( `"`edits'"' != `""' )  .graphstyle.editstyle `edits' editcopy
+
+ 	if      (`.dotplot.istrue')  local scaleax "dot_scale_"
+	else if (`.boxplot.istrue')  local scaleax "box_scale_"
+	else                         local scaleax "bar_scale_"
+
+	if "`horizontal'" != "" {		/* horiz/vertical settings */
+		local h h
+		local scaleax "scheme `scaleax'horiz"
+	}
+	else {
+		local scale vertical
+		local scaleax "scheme `scaleax'vert"
+	}
+
+	if ( "`fill'" != "" )  .fill.set_false
+
+	.sersets[1].set
+
+						/* plotregion and scales */
+	local prstyle = "scheme " +					///
+			cond(`.boxplot.istrue', "graph" , "`h'bargraph")
+	.insert (plotregion1 = .Global.barregion_g.new , style(`prstyle')) new
+	.plotregion1.xscale.set, min(0) max(100)
+	.plotregion1.yscale.addseries `.sersets[1].id' 1 		/*
+		*/ `.sersets[1].sers[1].objkey'
+	if `.include0.istrue' {
+		.plotregion1.yscale.addmin 0
+		.plotregion1.yscale.addmax 0
+	}
+	if      (`.boxplot.istrue')  .plotregion1.dialog = "boxregion"
+	else if (`.dotplot.istrue')  .plotregion1.dialog = "dotregion"
+
+						// axes 
+	local scaletitle `"`.sersets[1].sers[1].label'"'
+	if 0`.percentages.istrue' {
+		if `"`scaletitle'"' != `""' {
+			local topt `"title(`"percent of `scaletitle'"')"'
+		}
+		else	local topt title(percent)
+	}
+	else	local topt `"title(`"`scaletitle'"')"'
+	local pos = cond(`.swap_scaleaxis.istrue', "rightof", "leftof")
+	.insert (scaleaxis = .axis.new, plotregion(`.plotregion1.objkey')   /*
+		*/ style(`scaleax') position(left) `topt')		    /*
+		*/ `pos' plotregion1 , ring(.5)
+	if `.swap_scaleaxis.istrue' {
+		.scaleaxis.position.setstyle, style(right)
+	}
+	if `.stack.istrue' | `.percentages.istrue' {
+		._reset_scaling
+	}
+
+	local bardot = cond(0`.dotplot.istrue' , "dot" , "bar")
+	if 0`.supergroup' {
+	    .insert (supaxis = .axis.new,				/*
+	    	*/ plotregion(`.plotregion1.objkey')			/*
+		*/ style(scheme `bardot'_super) position(below))	/*
+		*/ below plotregion1 , ring(.8)
+	    .supaxis.set_userules no
+	    .supaxis.title.draw_view.set_no
+	}
+	if 0`.group' {
+	    .insert (grpaxis = .axis.new,				/*
+	    	*/ plotregion(`.plotregion1.objkey')			/*
+		*/ style(scheme `bardot'_group) position(below))	/*
+		*/ below plotregion1 , ring(.7)
+	    .grpaxis.set_userules no
+	    .grpaxis.title.draw_view.set_no
+	}
+	.insert (varaxis = .axis.new, plotregion(`.plotregion1.objkey')  /*
+		*/ style(scheme `bardot'_var) position(below))		 /*
+		*/ below plotregion1 , ring(.6)
+	.varaxis.set_userules no
+
+	if "`showyvars'" != "" {
+		.graphstyle.label_vargroups.set_true
+		.showvaraxis.set_true
+		if "`.grpaxis.isa'" != "" {
+			.grpaxis.style.editstyle linestyle(none) editcopy
+		}
+	}
+
+	if `.swap_groupaxis.istrue' {
+		.swap_groupaxis.set_false
+		._set_swap_groupaxis yes
+	}
+	if `.graphstyle.label_vargroups.isfalse' & (`.group' | `.supergroup') {
+		.varaxis.draw_view.set_false
+	}
+
+						/* create barstyles */
+	forvalues i=1/0`.sersets[1].sers[`.shadevar'].categories' {
+		local i_pstyle = mod(`i'-1, 0`pcycle')+1
+		.barstyles[`i'] = .seriesstyle.new ,			///
+				  style(scheme p`i_pstyle'`._pstyle_suffix')
+		.SetIntensity `i'
+	}
+
+	if `"`varaxopt'"' != `""' {			// group axis options
+		.ParseLogGaxis `log' varaxis , `varaxopt'
+	}
+	if `"`axopt'"' != `""' {
+		.ParseLogGaxis `log' grpaxis , `axopt'
+	}
+	if `"`superaxopt'"' != `""' {
+		.ParseLogGaxis `log' supaxis , `superaxopt'
+	}
+	_fr_runlog `log' , nologging
+
+	._relabel_xaxes ,  nolegend			/* label x axes */
+
+
+					/* add the view to be drawn it just 
+					 * redirects drawing drawbars below */
+	.plotregion1.insert bargraph = .barview.new `.objkey'
+	.plotregion1.insert bars   = {}
+	.plotregion1.insert points = {}
+	.plotregion1.insert boxes  = {}
+	.plotregion1.insert outsides = {}
+
+	if `.dotplot.istrue' {					// dot keys
+		.plotregion1.bargraph.type.setstyle , style(scatter)
+	}
+
+							// Options
+
+	.ParseBars   ,   `origopts'			// Edits to barstyles
+	.ParseBoxes  ,   `r(rest)'			// Edits to barstyles
+	.ParseMarkers ,  `r(rest)'			// Edits to markers
+	.ParseDots ,     `r(rest)'			// Dots
+	.ParseLines ,    `r(rest)'			// Lines
+	.ParseRectangles,`r(rest)'			// Rectangles
+	local options `"`r(rest)'"'
+
+	.`log' = {}
+
+	.yaxis1.ref = .scaleaxis.ref	
+	.ParseAndLogAxes         `log' 0 "" "" "1" "" `r(rest)'	// yaxis
+	.parse_and_log_titles    `log' "" `r(rest)'		// titles
+	_fr_legend_parse_and_log `log'    `r(rest)'		// legend
+	.parse_and_log_spacers   `log' "" `r(rest)'		// spacers
+	local options `"`r(rest)'"'
+
+	if "`horizontal'" != "" {			// handle horizontal
+		._set_horizontal yes norelabel
+	}
+
+	_fr_runlog `log' , nologging			// need legend axes
+	.`log' = {}					// for horizontal
+
+	if "`horizontal'" != "" {			// handle xylines
+		._flip_xylines
+	}
+
+	if `.reverse_scale.istrue' {
+		.reverse_scale.setstyle , style(no)
+		_set_reverse_scale yes
+	}
+	if `.sersets[1].sers[1].min' < 0 {		// margin when y < 0
+		if "`horizontal'" == "" {
+			.plotregion1.style.editstyle			///
+			    margin(b=`.plotregion1.style.margin.top') editcopy
+		}
+		else {
+			.plotregion1.style.editstyle			///
+			    margin(l=`.plotregion1.style.margin.right') editcopy
+		}
+	}
+
+	_fr_area_parse_and_log   `log' "" GRAPHRegion ,			    ///
+					`options'		// graphreg
+	_fr_area_parse_and_log   `log' plotregion1 PLOTRegion ,		    ///
+					`r(rest)'		// plotregion
+	_fr_merged_implicit `log' BGColor				    ///
+		".bgcolor.setstyle , style(X)" , `r(rest)'	// bgcolor
+
+	.ParseBlabel , `r(rest)'
+
+	.ParseAndLogText `log' plotregion1 , `r(rest)'
+
+	local 0 , `r(rest)'
+	syntax [ , SCALE(string) * ]
+	if `"`scale'"' != `""' {
+		.`log'.Arrpush .set_scale `scale'		// scale
+	}
+
+	local 0 `", `options'"'
+	syntax [, CLEGend(string) PLEGend(string) FAKE_OPT_FOR_BETTER_MSG ]
+
+	_fr_runlog `log' , nologging
+
+
+	.sersets[1].set				/* set the current serset */
+	._sort					/* sort serset */
+
+	.makebars				// required for custom bars
+	._remake_lbls = 1
+
+end
+
+program _pstyle_suffix
+	if (`.boxplot.istrue')  class exit "box"
+	if (`.dotplot.istrue')  class exit "dot"
+	class exit "bar"
+end
+
+
+// -------------------------------------------------------------------------
+// Create the rectangle for a single bar on the graph.  
+// This program can be shadowed by a class that inherits from bargraph.
+
+program make_bar
+	args x y size styledex			// may really be y x size
+
+	if (! `._remake')  exit					// Exit
+
+	if `.dotplot.istrue' {
+		local i = `.plotregion1.points.arrnels' + 1
+
+		if `.horizontal.istrue' {
+			.plotregion1.points[`i'] = .shr_marker_g.new	///
+				`=`y'+`size'' `=`x'+`.barsize'/2'
+		}
+		else {
+			.plotregion1.points[`i'] = .shr_marker_g.new	///
+				`=`x'+`.barsize'/2' `=`y'+`size''
+		}
+		.plotregion1.points[`i'].style.ref =			///
+			.barstyles[`styledex'].ref
+	}
+	else {						// bars
+		local i = `.plotregion1.bars.arrnels' + 1
+
+		if `.horizontal.istrue' {
+			.plotregion1.bars[`i'] = .barrect_g.new 	///
+				`y' `x' `=`y'+`size'' `=`x'+`.barsize''
+		}
+		else {
+			.plotregion1.bars[`i'] = .barrect_g.new	///
+				`x' `y' `=`x'+`.barsize'' `=`y'+`size''
+		}
+		.plotregion1.bars[`i'].style.ref =			///
+			.barstyles[`styledex'].area.ref
+	}
+end
+
+
+program _draw_pat_rect
+	args x0 y0 x1 y1 styledex
+
+	._set_line_as_areastyle `styledex'
+	gdi rectangle `x0' `y0' `x1' `y1'
+	._set_linestyle `styledex'
+	_gr_drawrect `x0' `y0' `x1' `y1'
+end
+
+
+// -------------------------------------------------------------------------
+// Create a single box w/ whiskers, et. al. on the graph.
+// This program can be shadowed by a class that inherits from bargraph.
+
+program make_box
+	args z i_v j has_pat i_g styledex
+
+	if (! `._remake')  exit					// Exit
+
+	scalar `j'  = `j' + 1
+	local p50   = serset(1, `j')
+	scalar `j'  = `j' + 1
+	local p25   = serset(1, `j')
+	scalar `j'  = `j' + 1
+	local p75   = serset(1, `j')
+	scalar `j'  = `j' + 1
+	local adjl  = serset(1, `j')
+	scalar `j'  = `j' + 1
+	local adjh  = serset(1, `j')
+
+	local zmid   = `z' + `.barsize' / 2
+	local barsz2 = `.barsize' / 2
+	local fence2 = `.barsize' * `.graphstyle.fence_size.prop' / 2
+
+	local i_cat `._style_cat `=`j'''
+
+	local i = `.plotregion1.boxes.arrnels' + 1
+
+	local horiz = cond(`.horizontal.istrue', "horizontal", "")
+
+	if `.horizontal.istrue' {
+		local capsz = `.barsize' * `.graphstyle.fence_capsz.prop'  ///
+			    * `gdi(ybeta)' / `gdi(xbeta)'
+	}
+	else {
+		local capsz = `.barsize' * `.graphstyle.fence_capsz.prop'  ///
+			    * `gdi(xbeta)' / `gdi(ybeta)'
+	}
+
+	.plotregion1.boxes[`i'] = .bcbox_g.new				///
+	    `zmid' `p25' `p50' `p75' `adjl' `adjh' `barsz2' `fence2' 	///
+	    `capsz' ,							///
+	    `horiz' whiskers(`.custom_whiskers.snm')			///
+	    median(`.median_type.snm')
+
+	.barstyles[`styledex'].remake_as_copy
+	.barstyles[`styledex'].line.ref = .graphstyle.median_linestyle.ref
+
+						// Set boxstyles as refs
+	.plotregion1.boxes[`i'].style.pstyle.ref = .barstyles[`styledex'].ref
+	.plotregion1.boxes[`i'].style.custom_whiskers.ref = .custom_whiskers.ref
+	.plotregion1.boxes[`i'].style.median_type.ref = .median_type.ref
+
+	.plotregion1.boxes[`i'].style.median_style.remake_as_copy
+	.plotregion1.boxes[`i'].style.median_style.marker.ref =		///
+			.graphstyle.median_markstyle.ref
+
+	.plotregion1.boxes[`i'].style.whisker_style.remake_as_copy
+	.plotregion1.boxes[`i'].style.whisker_style.ref =		///
+			.graphstyle.dot_linestyle.ref
+	.plotregion1.boxes[`i'].setsubstyles 
+	.make_outside_points `i_cat' `j' `zmid'
+
+	if `._makelbls' {				    // label
+		if (`p25' >= .)  local p25 `p50'
+		if (`p75' >= .)  local p75 `p50'
+		.MakeLabel 1 `z' `p25' `=`p75'-`p25''			///
+			   `=serset(`.vargroup',`j')'			///
+			   `=serset(`.group',`j')' 1
+	}
+
+end
+
+
+program make_outside_points
+	args i_cat j zmid
+
+	if "`.lvar[`i_cat']'" != "" {
+	      // points are labeled
+	      make_labeled_points barstyles[`i_cat'] `j' `zmid' `.lvar[`i_cat']'
+	}
+	else {
+	      // points not labeled
+	      make_points barstyles[`i_cat'] `j' `zmid'
+	}
+end
+
+program make_points
+	args style j zmid
+
+	if `.horiz_signal' {
+		local y `zmid'
+		local x serset(1, `j')
+	}
+	else {
+		local x `zmid'
+		local y serset(1, `j')
+	}
+
+	while serset(`.boxsrt', `=`j'+1') == 9999 {
+		scalar `j'  = `j' + 1
+		if (`=`x'' >= . | `=`y'' >= .)  continue
+		local i = `.plotregion1.outsides.arrnels' + 1
+		.plotregion1.outsides[`i'] = .shr_marker_g.new `=`x'' `=`y''
+		.plotregion1.outsides[`i'].style.ref = .`style'.ref
+	}
+end
+
+program make_labeled_points
+	args style j zmid lvar
+
+	if `.horiz_signal' {
+		local y `zmid'
+		local x serset(1, `j')
+	}
+	else {
+		local x `zmid'
+		local y serset(1, `j')
+	}
+
+	local dostr 0
+
+	if 0`.sersets[1].sers[`lvar'].vlabs.dynamicmv.arrnels' {
+		local labarr sersets[1].sers[`lvar']
+		local dolbl 1
+	}
+	else {
+		local dolbl 0
+		local fmt `.sersets[1].sers[`lvar'].format'
+
+		if "`.sersets[1].sers[`lvar'].type.setting'" == "string" {
+			local dostr 1
+		}
+					// consider allow a fmt from style
+	}
+
+	while serset(`.boxsrt', `=`j'+1') == 9999 {
+		scalar `j' = `j' + 1
+
+		if (`=`x'' >= . | `=`y'' >= .)  continue
+
+		if `dolbl' {
+		    local lab `.`labarr'.value_label `=serset(`lvar',`j')''
+		}
+		else {
+		    if `dostr' {
+			local lab : di `fmt' `"`=strserset(`lvar',`j')'"'
+			local lab `lab'					// sic
+		    }
+		    else {
+			local lab `=string(`=serset(`lvar',`j')',"`fmt'")'
+		    }
+		}
+
+		local i = `.plotregion1.outsides.arrnels' + 1
+		.plotregion1.outsides[`i'] =				///
+			.shr_marker_g.new `=`x'' `=`y'', label(`lab')
+		.plotregion1.outsides[`i'].style.ref = .`style'.ref
+	}
+
+end
+
+
+// ---------------------------------------------------------------------------
+//  Insert a bar label for the specified point
+
+program MakeLabel
+	args stacked x0 y0 size i_v i_g nolook 	// may really be y x size
+
+	if `.horizontal.istrue' {
+							// position
+		if "`.barlabel_pos.stylename'" == "base" {
+			local x = `y0'
+		}
+		else if "`.barlabel_pos.stylename'" == "center" {
+			local x = `y0' + `size' / 2
+		}
+		else	local x = `size' + cond(`stacked' , `y0' , 0)
+		local y =`x0' + `.barsize' / 2
+		local gap = 0`.graphstyle.barlabel_gap.val' *		///
+			    `gdi(gbeta)' / `gdi(xbeta)'
+
+							// box align and gap
+		if "`.barlabel_pos.stylename'" == "outside" |		///
+		   "`.barlabel_pos.stylename'" == "base" {
+			if ( `.reverse_scale.istrue' )  local boxalign west
+			else				local boxalign east
+		}
+		else if "`.barlabel_pos.stylename'" == "inside" {
+			local gap = -`gap'
+			if ( `.reverse_scale.istrue' )  local boxalign east
+			else				local boxalign west
+		}
+		else	local boxalign center
+
+		if ( `.reverse_scale.istrue' )  local gap = -`gap'
+
+		if "`.barlabel_pos.stylename'" != "center" {
+		    if `size' < 0 {
+			local x = `x' - `gap'
+			if "`.barlabel_pos.stylename" != "crossing" |	///
+			   "`.barlabel_pos.stylename'" == "base" {
+				local edit swap_alignment horizontal
+			}
+		    }
+		    else {
+			local x = `x' + `gap'
+		    }
+		}
+	}
+	else {
+							// position
+		if "`.barlabel_pos.stylename'" == "base" {
+			local y = `y0'
+		}
+		else if "`.barlabel_pos.stylename'" == "center" {
+			local y = `y0' + `size' / 2
+		}
+		else	local y = `size' + cond(`stacked' , `y0' , 0)
+	 	local x = `x0' + `.barsize' / 2 
+		local gap = 0`.graphstyle.barlabel_gap.val' *		///
+			    `gdi(gbeta)' / `gdi(ybeta)'
+
+							// box align and gap
+		if "`.barlabel_pos.stylename'" == "outside" |		///
+		   "`.barlabel_pos.stylename'" == "base" {
+			if ( `.reverse_scale.istrue' )  local boxalign south
+			else				local boxalign north
+		}
+		else if "`.barlabel_pos.stylename'" == "inside" {
+			local gap = -`gap'
+			if ( `.reverse_scale.istrue' )  local boxalign north
+			else				local boxalign south
+		}
+		else	local boxalign center
+
+		if ( `.reverse_scale.istrue' )  local gap = -`gap'
+
+		if "`.barlabel_pos.stylename'" != "center" {
+		    if `size' < 0 {
+			local y = `y' - `gap'
+			if "`.barlabel_pos.stylename'" != "crossing" |	///
+			   "`.barlabel_pos.stylename'" == "base" {
+				local edit swap_alignment vertical
+			}
+		    }
+		    else {
+			local y = `y' + `gap'
+		    }
+		}
+	}
+	if      ("`boxalign'" == "east")  local justopt horizontal(left)
+	else if ("`boxalign'" == "west")  local justopt horizontal(right)
+	.graphstyle.editstyle	///
+		    barlabelstyle(box_alignment(`boxalign') `justopt') editcopy
+
+							// label
+	if ! `._repos_only' {
+	    if "`.barlabel_method.stylename'" == "name" {
+		local series sersets[1].sers[`.vargroup']
+		if 0`nolook' {
+		  local lab `.`series'.value_label `i_v''
+		}
+		else {
+		  local lab `.`series'.value_label `=serset(`.vargroup',`i_v')''
+		}
+	    }
+	    else if "`.barlabel_method.stylename'" == "group" {
+		local series sersets[1].sers[`.group']
+		if 0`nolook' {
+		    local lab `.`series'.value_label `i_g''
+		}
+		else {
+		    local i_ob = 1 + (`i_g' - 1) *			///
+		    	max(1, 0`.sersets[1].sers[`.vargroup'].categories')
+		    local lab `.`series'.value_label `=serset(`.group',`i_ob')''
+		}
+	    }
+	    else {
+		if `stacked' {
+			local sz = `size' +				    ///
+				   ("`.barlabel_method.snm'" == "total") * `y0'
+		}
+		else	local sz `size'
+		local lab = string(`sz', "`.graphstyle.barlabel_format'")
+	    }
+
+							// create
+	    .plotregion1.Declare barlabels = .barlabel_textbox.new ,	///
+		xpos(`x') ypos(`y') forcesized mtextq(`"`lab'"')	///
+		styleref(`.graphstyle.barlabelstyle.objkey')
+	    local labname `r(name)'
+
+	    if "`edit'" != "" {
+		.plotregion1.`labname'.`edit'
+	    }
+
+	    tempname log					// apply options
+	    .`log' = {}
+	    _fr_sztextbox_parse_and_log `log' plotregion1.`labname' , 	///
+		`.barlabel_opts'
+	    local 0 `", `r(rest)'"'
+	    syntax [, FAKE_OPT_FOR_BETTER_MSG ]
+	    _fr_runlog `log' , nologging
+	}
+	else {
+	   ._blbl_ct = `._blbl_ct' + 1
+	   capture .plotregion1.barlabels[`._blbl_ct'].ypos.setstyle, style(`y')
+	   capture .plotregion1.barlabels[`._blbl_ct'].xpos.setstyle, style(`x')
+	}
+
+end
+
+
+// --------------------------------------------------------------------------
+// Create a view that represents a line of dots at specified position.
+
+program _make_dots
+	args pos
+
+	local i = `.plotregion1.bars.arrnels' + 1
+
+	if `.horizontal.istrue' {
+		_get_xy_minmax min max delta : x
+
+		.plotregion1.bars[`i'] = .dotplotline_g.new 		///
+			`delta' `min' `pos' `max' `pos'
+	}
+	else {
+		_get_xy_minmax min max delta : y
+
+		.plotregion1.bars[`i'] = .dotplotline_g.new 		///
+			`delta' `pos' `min' `pos' `max'
+	}
+
+	.plotregion1.bars[`i'].grstyle.ref = .graphstyle.ref
+	.delta = (`delta')
+	.plotregion1.bars[`i'].delta.ref = .delta.ref
+end
+
+program _get_xy_minmax
+	args minmac maxmac deltamac colon d
+
+	local min `.plotregion1.`d'scale.curmin'
+	local max `.plotregion1.`d'scale.curmax'
+
+	if `.graphstyle.extend_dots.istrue' {
+		if 0`.plotregion1.`d'scale.reverse.istrue' {
+			local a max
+			local b min
+		}
+		else {
+			local a min
+			local b max
+		}
+		if "`d'" == "x" {
+			local `a'addgsz = `.plotregion1.style.margin.gmleft'
+			local `b'addgsz = `.plotregion1.style.margin.gmright'
+		}
+		else {
+			local `a'addgsz = `.plotregion1.style.margin.gmbottom'
+			local `b'addgsz = `.plotregion1.style.margin.gmtop'
+		}
+
+		local sz  = `max' - `min'
+		local gsz = `.plotregion1.`d'size_ren'
+
+		local min = `min' - `minaddgsz' * `sz' / `gsz'
+		local max = `max' + `maxaddgsz' * `sz' / `gsz'
+	}
+
+	local range100 = (`max' - `min') / 100
+	c_local `minmac' `=`min'-`range100'*`.graphstyle.dot_extend_low.val''
+	c_local `maxmac' `=`max'+`range100'*`.graphstyle.dot_extend_high.val''
+	c_local `deltamac' = (`max' - `min') / `.graphstyle.num_dots.val'
+end
+
+
+// --------------------------------------------------------------------------
+// Creates rectangles for bars and places them in the plotregion.
+// This program is sometimes called when being drawn.  
+// After some edits, the _remake flag is set to 1, in which case the bars and
+// often their labels are recreated.
+
+program makebars
+
+	.sersets[1].set				// set the current serset
+
+	if (! (`._remake' | `._remake_lbls'))  exit	// already created
+
+	if "`.plotregion1.barlabels.isa'" != "" & !`._repos_only' {
+		.plotregion1.barlabels = {}
+	}
+	if `._remake' {
+		.plotregion1.bars     = {}
+		.plotregion1.points   = {}
+		.plotregion1.boxes    = {}
+		.plotregion1.outsides = {}
+	}
+	else if (`.dotplot.istrue') {
+		.plotregion1.bars     = {}
+	}
+						// count by groups 
+	._set_barsize
+	._get_grp_cts base grp sup
+	._get_gaps gap_base gap_grp gap_sup gap_out
+
+	._makelbls = ("`.barlabel_method.stylename'" != "none")
+
+	._blbl_ct = 0
+
+	tempname j x
+	scalar `j' = 0
+	scalar `x' = `gap_out'
+	forvalues i_s = 1/`sup' {
+		if 0`.shadevar' == 0`.supergroup' {
+			local styledex `._style_cat `=`j'+1''
+			local has_pat `._set_barstyle `styledex''
+		}
+		forvalues i_g = 1/`grp' {
+		    if 0`.shadevar' == 0`.group' {
+			local styledex `._style_cat `=`j'+1''
+			local has_pat `._set_barstyle `styledex''
+		    }
+
+								/* draw bars */
+		    local drawn 0
+		    if `.boxplot.istrue' {
+			._make_boxset `j' `x' drawn 0`has_pat' `i_g' `styledex'
+		    }
+		    else if `.stack.istrue' {
+		       ._make_barstack `j' `x' drawn 0`has_pat' `i_g' `styledex'
+		    }
+		    else {
+			._make_barset `j' `x' drawn 0`has_pat' `i_g' `styledex'
+		    }
+
+		    if `drawn' | `.fill.istrue' {
+			local grp_drawn 1
+			scalar `x' = `x' + `gap_grp'
+		    }
+		}
+
+		if 0`grp_drawn' | `.fill.istrue' {
+		    scalar `x' = `x' - `gap_grp'
+		    scalar `x' = `x' + `gap_sup'
+		}
+	}
+
+	._remake      = 0
+	._remake_lbls = 0
+	._repos_only  = 0
+end
+
+program _get_grp_cts
+	args basemac grpmac supmac 
+
+	c_local `basemac' = cond(`.stack.istrue', 1 ,			/*
+	      */ max(1, 0`.sersets[1].sers[`.vargroup'].categories'))
+	c_local `grpmac' = max(1, 0`.sersets[1].sers[`.group'].categories')
+	c_local `supmac' = max(1, 0`.sersets[1].sers[`.supergroup'].categories')
+end
+
+program _get_gaps
+	args gap_base gap_grp gap_sup gap_out
+
+	c_local `gap_base' = `.barsize'*`.graphstyle.gap.prop'
+	c_local `gap_grp'  = `.barsize'*`.graphstyle.group_gap.prop'
+	c_local `gap_sup'  = `.barsize'*`.graphstyle.supgroup_gap.prop' 
+	c_local `gap_out'  = `.barsize'*`.graphstyle.outer_gap.prop'
+end
+
+
+program _make_barset
+	args j pos drawnmac has_pat i_g styledex
+
+	local gap = 0`.barsize' * `.graphstyle.gap.prop'
+
+	if `.percentages.istrue' {
+		local sumrng = `._sumrange_vargrp `j''
+	}
+
+							/* base of bars */
+	if `.horizontal.istrue' {
+		local min = `.plotregion1.xscale.curmin'
+		local max = `.plotregion1.xscale.curmax'
+	}
+	else {
+		local min = `.plotregion1.yscale.curmin'
+		local max = `.plotregion1.yscale.curmax'
+	}
+	if `min' <= 0 & `max' >= 0 {  
+		local base 0
+	}
+	else {
+		local base = cond(`max' < 0 , `max' , `min')
+	}
+
+	forvalues i = 1/0`.sersets[1].sers[`.vargroup'].categories' {
+		scalar `j' = `j' + 1
+
+		local sz = serset(1, `j')
+		if `.percentages.istrue' {
+			local sz = 100 * `sz' / `sumrng'
+		}
+		if `sz' < . {
+			if `.dotplot.istrue' {
+				if `i' == 1 | `.graphstyle.gap.val' != -100 {
+					_make_dots `=`pos'+`.barsize'/2'
+				}
+			}
+			if 0`.shadevar' == 0`.vargroup' {
+			     local styledex `._style_cat `=`j'''
+			     local has_pat `._set_barstyle `styledex''
+			}
+			.make_bar `=`pos'' `base' `=`sz'-`base'' `styledex'
+			if `._makelbls' {
+				.MakeLabel 0 `=`pos'' `base' `sz' `i' `i_g' 0
+			}
+			scalar `pos' = `pos' + `.barsize' + `gap'
+			local drawn 1
+		}
+		else {
+			if `.fill.istrue' {
+				scalar `pos' = `pos' + `.barsize' + `gap'
+				if `.dotplot.istrue' {
+				   if `i' == 1 | `.graphstyle.gap.val' != -100 {
+					_make_dots `=`pos'+`.barsize'/2'
+				   }
+				}
+			}
+		}
+	}
+
+	if 0`drawn' | `.fill.istrue' {
+		scalar `pos' = `pos' - `gap'
+	}
+
+	c_local `drawnmac' 0`drawn'
+end
+
+
+program _make_barstack
+	args j pos drawnmac has_pat i_g styledex
+
+	local sumsz    0
+	local sumszneg 0
+	local p0 = `pos'				/* pos is a scalar */
+
+	if `.percentages.istrue' {
+		local sumrng = `._sumrange_vargrp `j''
+	}
+
+	if `.dotplot.istrue' {
+		_make_dots `=`pos'+`.barsize'/2'
+	}
+
+	forvalues i = 1/0`.sersets[1].sers[`.vargroup'].categories' {
+		scalar `j' = `j' + 1
+
+		if 0`.shadevar' == 0`.vargroup' {
+			local styledex `._style_cat `=`j'''
+			local has_pat `._set_barstyle `styledex''
+		}
+
+		local sz = serset(1, `j')
+		if 0`.percentages.istrue' {
+			local sz = 100 * `sz' / `sumrng'
+		}
+
+		if `sz' < . & `sz' != 0 {
+			if `sz' > 0 {
+				.make_bar `p0' `sumsz' `sz' `styledex'
+				if `._makelbls' {
+				  .MakeLabel 1 `=`pos'' `sumsz' `sz' `i' `i_g' 0
+				}
+				local sumsz = `sumsz' + `sz'
+				local drawn 1
+			}
+			else {
+				.make_bar `p0' `sumszneg' `sz' `styledex'
+				if `._makelbls' {
+					.MakeLabel 1 `=`pos'' `sumszneg'   ///
+						   `sz' `i' `i_g' 0
+				}
+				local sumszneg = `sumszneg' + `sz'
+				local drawn 1
+			}
+		}
+		else if `sz' == 0 {
+			if `._makelbls' {
+				.MakeLabel 1 `=`pos'' `sumsz' `sz' `i' 0
+			}
+		}
+	}
+
+	if 0`drawn' | `.fill.istrue'{
+		scalar `pos' = `pos' + `.barsize'
+	}
+
+	c_local `drawnmac' 0`drawn'
+end
+
+program _make_boxset
+	args j pos drawnmac has_pat i_g styledex
+
+	local gap = 0`.barsize' * `.graphstyle.gap.prop'
+
+	forvalues i = 1/0`.sersets[1].sers[`.vargroup'].categories' {
+		if 0`.shadevar' == 0`.vargroup' {
+			local styledex `._style_cat `=`j'+1''
+			local has_pat `._set_barstyle `styledex''
+		}
+		local drawme = serset(1, `=`j'+1') < .		    // median
+		.make_box `=`pos'' `i' `j' 0`has_pat' `i_g' `styledex'
+		if (! `drawme')  local drawme = serset(1, `j') < .  // outside
+		if `drawme' | `.fill.istrue' {
+			scalar `pos' = `pos' + `.barsize' + `gap'
+			local drawn 1
+		}
+	}
+
+	if 0`drawn' | `.fill.istrue' {
+		scalar `pos' = `pos' - `gap'
+	}
+
+	c_local `drawnmac' 0`drawn'
+end
+
+program _sumrange_vargrp
+	args j
+
+	local beg = `j' + 1
+	local end = `j' + 0`.sersets[1].sers[`.vargroup'].categories'
+	local sumrange 0
+	forvalues i = `beg'/`end' {
+		if serset(1, `i') < . {
+			local sumrange = 0`sumrange' + abs(serset(1, `i'))
+		}
+	}
+
+	class exit = 0`sumrange'
+end
+
+
+program _style_cat
+	args j
+
+	local cat = serset(`.shadevar' , `j')
+	local i_cat = `.sersets[1].sers[`.shadevar'].vlab_pos_of `cat''
+	if (`i_cat' == 0)  local i_cat `cat'
+
+	class exit = `i_cat'
+end
+
+
+program _set_barstyle
+	args i
+
+	if "`.barstyles[`i'].isa'" == "" {
+		.barstyles[`i'] = .seriesstyle.new, style(scheme p`i')
+		.SetIntensity `i'
+	}
+
+	local pat `.barstyles[`i'].area.linestyle.pattern.stylename'
+	class exit = ! ("`pat'" == "solid" | "`pat'" == "blank")
+end
+
+
+program _set_linestyle
+	args i
+
+	.barstyles[`i'].area.setlinestylefull
+end
+
+
+program _set_line_as_areastyle
+	args i
+
+	.barstyles[`i'].area.setlineasareafull
+end
+
+
+program _set_barsize
+
+	._get_grp_cts var grp sup
+
+						/* compute bars and gap sizes */
+	local bars = `var' * `grp' * `sup'
+
+	if `.fill.istrue' {
+	    .barsize = 100 / (`bars'					  ///
+		+ `sup'*`grp'*(`var'-1) * `.graphstyle.gap.prop' 	  ///
+		+       `sup'*(`grp'-1) * `.graphstyle.group_gap.prop'    ///
+		+             (`sup'-1) * `.graphstyle.supgroup_gap.prop' ///
+		+                    2  * `.graphstyle.outer_gap.prop')
+
+	    exit						/* EXIT */
+	}
+
+	local bars  0
+	local n_grp 0
+	local n_sup 0
+	local real_grps 0
+
+	capture local c_grp = serset(`.group', 1)
+	capture local c_sup = serset(`.supergroup', 1)
+
+	forvalues j = 1/0`:serset N' {
+
+		if (serset(1, `j') >= .)  continue
+		if (`.boxplot.istrue' & serset(`.boxsrt', `j') != 1)  continue
+
+		local ++bars
+
+		if `c_grp' != serset(`.group', `j') | 		/*
+		*/ `c_sup' != serset(`.supergroup', `j') {
+			local ++real_grps
+		}
+
+		if `c_grp' != serset(`.group', `j') {
+			capture local c_grp = serset(`.group', `j')
+
+			if `bars' != 0`bars_grp' {
+				if `c_sup' == serset(`.supergroup', `j') {
+					local ++n_grp
+				}
+			}
+			local bars_grp `bars'
+		}
+
+		if `c_sup' != serset(`.supergroup', `j') {
+			capture local c_sup = serset(`.supergroup', `j')
+
+			if `bars' != 0`bars_sup' {
+				local ++n_sup
+			}
+			local bars_sup `bars'
+		}
+	}
+	local ++real_grps
+
+	
+	if `.stack.istrue' {
+		.barsize = 100 / (`real_grps'				///
+			   +  `n_grp' * `.graphstyle.group_gap.prop'	///
+			   +  `n_sup' * `.graphstyle.supgroup_gap.prop'	///
+			   +       2  * `.graphstyle.outer_gap.prop')
+	}
+	else {
+		local n_var = `bars' - `n_sup' - `n_grp' - 1
+		.barsize = 100 / (`bars'				///
+			   +  `n_var' * `.graphstyle.gap.prop'		///
+			   +  `n_grp' * `.graphstyle.group_gap.prop'	///
+			   +  `n_sup' * `.graphstyle.supgroup_gap.prop'	///
+			   +       2  * `.graphstyle.outer_gap.prop')
+	}
+
+end
+
+
+program _sort
+
+	if (! 0`.vargroup' & !0`.boxsrt')  exit
+
+	if 0`.supergroup' {
+		local neg = cond(`.sup_asc_sort.istrue', "" ,  "-")
+		if (`.supsrt')  local sort `neg'`.supsrt'
+		local sort `sort' `neg'`.supergroup'
+	}
+
+	if 0`.group' {
+		local neg = cond(`.grp_asc_sort.istrue', "" ,  "-")
+		if (`.grpsrt')  local sort `sort' `neg'`.grpsrt'
+		local sort `sort' `neg'`.group'
+	}
+
+	local neg = cond(`.var_asc_sort.istrue', "" ,  "-")
+	if (`.varsrt')  local sort `sort' `neg'`.varsrt'
+	local sort `sort' `neg'`.vargroup'
+
+	if (0`.boxsrt')  local sort `sort' `.boxsrt' 1
+
+	.sersets[1].sort `sort'
+end
+
+program _reset_scaling
+
+	.sersets[1].set
+
+	local d = cond(`.horizontal.istrue', "x", "y")
+	.plotregion1.`d'scale.reinit
+
+	if `.stack.isfalse' & `.percentages.isfalse' {
+		.plotregion1.`d'scale.addmin `.sersets[1].sers[1].min'
+		.plotregion1.`d'scale.addmax `.sersets[1].sers[1].max'
+		if `.include0.istrue' {
+			.plotregion1.`d'scale.addmin 0
+			.plotregion1.`d'scale.addmax 0
+		}
+		.scaleaxis.set_ticks
+		exit						/* EXIT */
+	}
+
+	local var = max(1, 0`.sersets[1].sers[`.vargroup'].categories')
+	local grp = max(1, 0`.sersets[1].sers[`.group'].categories')
+	local sup = max(1, 0`.sersets[1].sers[`.supergroup'].categories')
+
+	local min = cond(`.include0.istrue', 0 , 1e300)
+	local max = -1e300
+	local j 0
+
+						/* separate loops for speed */
+	if `.stack.istrue' {
+	    forvalues i_s = 1/`sup' {
+		forvalues i_g = 1/`grp' {
+		    local sum 0
+		    local sng 0
+		    local sumrng 0
+		    forvalues i_v = 1/`var' {
+			if serset(1, `++j') < . {
+			    if serset(1, `j') > 0 {
+				 local sum = `sum' + serset(1, `j')
+			    }
+			    else local sng = `sng' + serset(1, `j')
+
+			    if `.percentages.istrue' {
+			    	local sumrng = `sumrng' + abs(serset(1, `j'))
+			    }
+			}
+		    }
+		    if `.percentages.istrue' {
+		    	if `sumrng' > 0 {
+			    local sum = cond(`sumrng'!=., 		/*
+			    	*/ 100 * `sum' / `sumrng', -1e300)
+			    local sng = cond(`sumrng'!=., 		/*
+			    	*/ 100 * `sng' / `sumrng', 0)
+			}
+		    }
+
+		    local max = max(`max', `sum')
+		    local min = min(`min', `sng')
+		}
+	    }
+	    .plotregion1.`d'scale.addmin `min'
+	    .plotregion1.`d'scale.addmax `max'
+	    .scaleaxis.set_ticks
+	    exit						/* EXIT */
+	}
+
+						/* percentages, no stack */
+	local j 0
+	forvalues i_s = 1/`sup' {
+	    forvalues i_g = 1/`grp' {
+		local sumrng 0
+		local min_g = cond(`.include0.istrue', 0 , 1e300)
+		local max_g -1e300
+		forvalues i_v = 1/`var' {
+		    if serset(1, `++j') < . {
+			local max_g = max(`max_g', serset(1, `j'))
+			local min_g = min(`min_g', serset(1, `j'))
+
+			local sumrng = `sumrng' + abs(serset(1, `j'))
+		    }
+		}
+		if `sumrng' > 0 {
+		    local max = max(`max', `max_g'/`sumrng')
+		    local min = min(`min', `min_g'/`sumrng')
+		}
+	    }
+	}
+	local max = 100 * `max'
+	local min = 100 * `min'
+
+	.plotregion1.`d'scale.addmin `min'
+	.plotregion1.`d'scale.addmax `max'
+	.scaleaxis.set_ticks
+end
+
+
+// ---------------------------------------------------------------------------
+program is_scale
+	args ord
+
+	class exit = cond(`.horizontal.istrue' , ("`ord'" == "x") , 	///
+		     ("`ord'" == "y"))
+end
+
+
+/* -------------------------------------------------------------------------*/
+/* Relabel X axes on the graph					
+*/
+
+program _relabel_xaxes
+
+	syntax [ , noLEGEND ]
+
+	.sersets[1].set
+
+	if `.stack.istrue' {
+		.varaxis.draw_view.set_false
+	}
+	else {
+		if `.graphstyle.label_vargroups.istrue' {
+			.varaxis.draw_view.set_true
+		}
+	}
+
+	.serset.set				/* set the current serset */
+	._sort					/* sort serset */
+
+	._set_barsize
+
+	if "`.supaxis.isa'" != "" {			/* clear axes */
+		.supaxis.clear_ticks
+	}
+	if "`.grpaxis.isa'" != "" {
+		.grpaxis.clear_ticks
+	}
+	.varaxis.clear_ticks
+
+	_sort						/* sort serset */
+
+	if ! `.fill.istrue' {				/* unfilled version */
+		._relabx_nofill
+		if "`legend'" == "" {
+			.legend.rebuild , all
+			.legend.repositionkeys
+		}
+		exit					/* EXIT */
+	}
+
+	._get_grp_cts base grp sup
+	._get_gaps gap_base gap_grp gap_sup gap_out
+
+	local n_b `.sersets[1].sers[`.vargroup'].categories'
+
+	if 0`.group' {			/* xsize of a bar grouping */
+		if `.stack.istrue' {
+			local grp_sz = `.barsize'
+		}
+		else {
+			local grp_sz = `.barsize'*`n_b' + `gap_base'*(`n_b'-1)
+		}
+	}
+	else	local grp_sz = 0
+
+	if 0`.supergroup' {		/* xsize of a super grouping */
+		local supgrp_sz = `grp_sz'*`grp' + `gap_grp'*(`grp'-1)
+	}
+	else	local supgrp_sz = 0
+
+							/* make labels */
+	local grpser sersets[1].sers[`.group']
+	local supser sersets[1].sers[`.supergroup']
+	local x `gap_out'					
+	local j 1
+	forvalues i_s = 1/`sup' {
+	    if 0`.supergroup' {
+		.supaxis.major.add_ticks `=`x'+`supgrp_sz'/2' 	/*
+		    */ `"`.`supser'.value_label `=serset(`.supergroup', `j')''"'
+	    }
+	    forvalues i_g = 1/`grp' {
+		._relabel_varset `x' `j'
+		if 0`.group' {
+		    .grpaxis.major.add_ticks `=`x'+`grp_sz'/2' 	/*
+			*/ `"`.`grpser'.value_label `=serset(`.group', `j')''"'
+		}
+		if `i_g' != `grp' {
+			local x = `x'  + `gap_grp'
+		}
+		local x = `x' + `grp_sz'
+		if `.boxplot.istrue' {
+			forvalues i_b = 1/`n_b' {
+				local j = `j' + 5
+				while serset(`.boxsrt', `j') == 9999 {
+					local ++j
+				}
+			}
+		}
+		else	local j = `j' + `n_b'
+	    }
+	    local x = `x'  + `gap_sup'
+	}
+
+	if "`legend'" == "" {
+		.legend.rebuild , all
+		.legend.repositionkeys
+	}
+
+	if `.showvaraxis.istrue' & "`.grpaxis.isa'" != "" {
+		.grpaxis.style.editstyle linestyle(none) editcopy
+	}
+end
+
+program _relabx_nofill
+
+	.sersets[1].set
+
+	._get_gaps gap_var gap_grp gap_sup gap_out
+
+	if `.stack.istrue' {
+		local gap_var 0
+		local back_var 0
+	}
+	else {
+		local back_var `gap_var'
+	}
+
+	local grpser sersets[1].sers[`.group']
+	local supser sersets[1].sers[`.supergroup']
+	local varser sersets[1].sers[`.vargroup']
+
+	capture local c_grp = serset(`.group', 1)
+	capture local c_sup = serset(`.supergroup', 1)
+
+	local lab_grp `"`.`grpser'.value_label `c_grp''"'
+	local lab_sup `"`.`supser'.value_label `c_sup''"'
+
+	local x_grp `gap_out'
+	local x_sup `gap_out'
+	local x     `gap_out'
+
+	local N1 = 0`:serset N' + 1
+	forvalues j = 1/`N1' {
+
+		if (`.boxplot.istrue' & `j' != `N1' &			///
+		    serset(`.boxsrt', `j') != 1)  continue
+
+		if `c_grp' != serset(`.group', `j') |			///
+		   `c_sup' != serset(`.supergroup', `j') {
+
+		    if 0`new_grp' {
+			.grpaxis.major.add_ticks			///
+				`=(`x'+`x_grp'-`back_var')/2' `"`lab_grp'"'
+			local x = `x' + `gap_grp' - `gap_var'
+			local x_grp `x'
+			local new_grp 0
+		    }
+
+		    capture local c_grp = serset(`.group', `j')
+		    local lab_grp `"`.`grpser'.value_label `c_grp''"'
+		}
+
+		if `c_sup' != serset(`.supergroup', `j') {
+
+		    if 0`new_sup' {
+		       local x = `x' - `gap_grp'
+		       .supaxis.major.add_ticks `=(`x'+`x_sup')/2' `"`lab_sup'"'
+		       local x = `x' + `gap_sup'
+		       local x_grp `x'
+		       local x_sup `x'
+		       local new_sup 0
+		    }
+		    capture local c_sup = serset(`.supergroup', `j')
+		    local lab_sup `"`.`supser'.value_label `c_sup''"'
+		}
+
+		if `.stack.istrue' {
+			if `c_grp' != 0`cur_grp' {
+				local shifted 0
+				local cur_grp `c_grp'
+			}
+			if serset(1, `j') < . & !0`shifted' {
+				local x = `x' + `.barsize'
+				local shifted 1
+				local new_grp 1
+				local new_sup 1
+			}
+		}
+		else {
+		    if serset(1, `j') < . {
+			if `.graphstyle.label_vargroups.istrue' & 	///
+			   ! `.stack.istrue' {
+			   local lab					///
+			      `.`varser'.value_label `=serset(`.vargroup',`j')''
+			   .varaxis.major.add_ticks			///
+			    	`=`x'+`.barsize'/2' `"`lab'"'
+			}
+			local x = `x' + `.barsize' + `gap_var'
+			local new_grp 1
+			local new_sup 1
+		    }
+		}
+	}
+end
+
+program _relabel_varset
+	args x j0
+
+	.sersets[1].set
+
+	if ! `.graphstyle.label_vargroups.istrue' | `.stack.istrue' {
+		exit						/* EXIT */
+	}
+
+	local bars =  max(1, 0`.sersets[1].sers[`.vargroup'].categories')
+	local gap  = `.barsize' * `.graphstyle.gap.prop'
+
+	local series sersets[1].sers[`.vargroup']
+
+	local x   = `x' + `.barsize' / 2
+	local j = `j0'
+	forvalues b = 1/`bars' {
+		local lab `.`series'.value_label `=serset(`.vargroup',`j')''
+		.varaxis.major.add_ticks `x' `"`lab'"'
+		if `.boxplot.istrue' {
+			local j = `j' + 5
+			while serset(`.boxsrt', `j') == 9999 {
+				local ++j
+			}
+		}
+		else	local ++j
+
+		local x = `x' + `.barsize' + `gap'
+	}
+
+end
+
+
+program _grp_vlab
+	args j
+
+	class exit							///
+	`"`.sersets[1].sers[`.group'].value_label `=serset(`.group', `j')''"'
+end
+
+program _sup_vlab
+	args j
+
+	class exit							///
+  `"`.sersets[1].sers[`.supergroup'].value_label `=serset(`.supergroup',`j')''"'
+end
+
+
+// ---------------------------------------------------------------------------
+program ParseLogGaxis
+	gettoken elog 0 : 0
+	gettoken axnm 0 : 0
+
+	syntax [ , AXis(string asis) DEScending GAP(string)		///
+		   LABel(string asis) REVerse ]
+
+	if ( `"`gap'"' != `""' )  ._setgap `gap' `axnm'
+
+	if "`descending'" != "" {
+		local prefix = bsubstr("`axnm'" , 1, 3)
+		.`prefix'_asc_sort.set_false
+	}
+
+	if "`reverse'" != "" {
+		 .`elog'.Arrpush .`axnm'.plotregion.xscale.reverse.set_true
+	}
+
+	if `"`label'"' != `""' {
+		_gs_parse_and_log_tickset   `elog' `axnm' major "" , `label'
+	}
+
+	if `"`axis'"' != `""' {
+		local 0 `", `axis'"'
+		syntax [ , NOREVerse REVerse NOLOG LOG * ]
+		if "`nolog'`log'" != "" {
+			di as error "`noreverse' `reverse' `nolog' `log'" ///
+				"not allowed"
+			exit 198
+		}
+		local ord = cond(0`.horiz_signal', "y", "x")
+		if "`noreverse'" != "" {
+		    .`elog'.Arrpush .`axnm'.plotregion.xscale.reverse.set_false
+		}
+		if "`reverse'" != "" {
+		    .`elog'.Arrpush .`axnm'.plotregion.xscale.reverse.set_true
+		}
+
+		_gs_parse_and_log_axoptions `elog' `axnm' "" `options'
+	}
+end
+
+program _setgap
+	args gap axnm
+
+	local in  supaxis      grpaxis    varaxis
+	local out supgroup_gap group_gap  gap
+
+	local g : word `: list posof "`axnm'" in in' of `out'
+
+	.graphstyle.editstyle `g'(`gap') editcopy
+end
+
+
+// ---------------------------------------------------------------------------
+program ParseBars , rclass
+
+	syntax [ , BAR(string asis) * ]
+
+	while `"`bar'"' != `""' {
+		._parse_bar `bar'
+
+		local 0 `", `options'"'
+		syntax [ , BAR(string asis) * ]
+	}
+
+	return local rest `"`options'"'
+end
+
+program _parse_bar
+
+	syntax anything(name=bardex id="bar number") [ , BSTYle(string)	///
+		BColor(string)  BFColor(string)				///
+		BFIntensity(string)					///
+		BLStyle(string) BLColor(string) BLWidth(string)		///
+		BLPattern(string) 					///
+		BLAlign(string) 					///
+		Color(string)   FColor(string)				///
+		FIntensity(string)					///
+		LStyle(string)  LColor(string)  LWidth(string)		///
+		LPattern(string) 					///
+		LAlign(string)						///
+		]
+
+	capture numlist "`bardex'" , min(1) max(1) integer range(>0)
+	if _rc {
+		di as error `"invalid bar number, `bardex'"'
+		exit 198
+	}
+
+	local lsty `blstyle'
+
+	if `"`bcolor'"' != `""' {
+		local lsty `"`lsty' color(`bcolor')"'
+		local ssty        `"color(`bcolor')"'
+	}
+	if `"`color'"' != `""' {
+		local lsty `"`lsty' color(`color')"'
+		local ssty        `"color(`color')"'
+	}
+	foreach opt in style color width pattern align {
+		if `"`bl`opt''"' != `""' {
+			local lsty `"`lsty' `opt'(`bl`opt'')"'
+		}
+		if `"`l`opt''"' != `""' {
+			local lsty `"`lsty' `opt'(`l`opt'')"'
+		}
+	}
+
+	if `"`bfcolor'"' != `""' {
+		local ssty `"`ssty' color(`bfcolor')"'
+	}
+	if `"`fcolor'"' != `""' {
+		local ssty `"`ssty' color(`fcolor')"'
+	}
+	if `"`bfintensity'"' != `""' {
+		local ssty `"`ssty' intensity(`bfintensity')"'
+	}
+	if `"`fintensity'"' != `""' {
+		local ssty `"`ssty' intensity(`fintensity')"'
+	}
+
+	local edit `bstyle'
+	if `"`lsty'"' != `""' {
+		local edit `"`edit' linestyle(`lsty')"'
+	}
+	if `"`ssty'"' != `""' {
+		local edit `"`edit' shadestyle(`ssty')"'
+	}
+
+	if "`.barstyles[`bardex'].isa'" == "" {
+	   .barstyles[`bardex'] = .seriesstyle.new, style(scheme p`bardex')
+	   .SetIntensity `bardex'
+	}
+	.barstyles[`bardex'].editstyle area(`edit') editcopy
+end
+
+program ParseBoxes , rclass
+
+	syntax [ , BOX(string asis) * ]
+
+	while `"`box'"' != `""' {
+		._parse_bar `box'
+
+		local 0 `", `options'"'
+		syntax [ , BOX(string asis) * ]
+	}
+
+	return local rest `"`options'"'
+end
+
+
+// ---------------------------------------------------------------------------
+program GetMarkerLabVars
+	syntax [ , Marker(string asis) * ]
+
+	while `"`marker'"' != `""' {
+		._get_marker_labvars `marker'
+
+		local 0 `", `options'"'
+		syntax [ , Marker(string asis) * ]
+	}
+end
+
+program _get_marker_labvars
+	syntax anything(name=mdex id="marker number") [ , * ]
+
+	capture numlist "`mdex'" , min(1) max(1) integer range(>0)
+	if _rc {
+		di as error `"invalid marker number, `mdex'"'
+		exit 198
+	}
+
+	local 0 `", `options'"'
+	syntax [, MLABel(string) * ]
+	if `"`mlabel'"' != "" {
+		unab mlabel : `mlabel', max(1) name(mlabel())
+		.mlabels[`mdex'] = "`mlabel'"
+	}
+end
+
+program ParseMarkers , rclass
+
+	syntax [ , Marker(string asis) * ]
+
+	while `"`marker'"' != `""' {
+		._parse_marker `marker'
+
+		local 0 `", `options'"'
+		syntax [ , Marker(string asis) * ]
+	}
+
+	return local rest `"`options'"'
+end
+
+program _parse_marker
+
+	syntax anything(name=mdex id="marker number") [ , * ]
+
+	capture numlist "`mdex'" , min(1) max(1) integer range(>0)
+	if _rc {
+		di as error `"invalid marker number, `mdex'"'
+		exit 198
+	}
+
+	if "`.barstyles[`mdex'].isa'" == "" {
+	      .barstyles[`mdex'] = .seriesstyle.new, style(scheme p`mdex')
+	      .SetIntensity `mdex'
+	}
+
+	._parse_marker_edit , `options'
+
+	.barstyles[`mdex'].editstyle marker(`r(edit)') editcopy ///
+		label(`r(labedit)')
+end
+
+program _parse_marker_edit , rclass
+
+	syntax [ , MSTYle(string) MColor(string)  MSIze(string)		///
+		   Msymbol(string) Symbol(string) MFColor(string)	///
+		   MSYMANGle(string)					///
+		   MSAngle(string)					///
+		   MLStyle(string) MLColor(string) MLWidth(string)	///
+		   MLPattern(string) 					///
+		   MLAlign(string) 					///
+		   /// -mlabel()- and its styles
+		   MLABel(string)					///
+		   MLABSTyle(string)					///
+		   MLABPosition(string)					///
+		   MLABGap(string)					///
+		   MLABTextstyle(string)				///
+		   MLABSize(string)					///
+		   MLABColor(string)					///
+		   MLABFontface(string)					///
+		   MLABANGle(string)					///
+		   MLABJUSTification(string)				///
+		   MLABALIGNment(string)				///
+	]
+
+	// NOTE: -mlabel()- option has already been parsed
+
+	local edit `mstyle'
+
+	if `"`msize'"' != `""' {
+		local edit `"`edit' size(`msize')"'
+	}
+	if `"`symbol'"' != `""' {
+		local edit `"`edit' symbol(`symbol')"'
+	}
+	if `"`msymbol'"' != `""' {
+		local edit `"`edit' symbol(`msymbol')"'
+	}
+	if `"`msymangle'"' != `""' {
+		local edit `"`edit' symangle(`msymangle')"'
+	}
+	if `"`msangle'"' != `""' {
+		local edit `"`edit' symangle(`msangle')"'
+	}
+	if `"`mfcolor'"' != `""' {
+		local edit `"`edit' fillcolor(`mfcolor')"'
+	}
+
+	// line styles for the markers
+	local lsty `mlstyle'
+	if `"`mcolor'"' != `""' {
+		local lsty `"`lsty' color(`mcolor')"'
+		local edit `"`edit' fillcolor(`mcolor')"'
+	}
+	foreach opt in style color width pattern align {
+		if `"`ml`opt''"' != `""' {
+			local lsty `"`lsty' `opt'(`ml`opt'')"'
+		}
+	}
+	if `"`lsty'"' != `""' {
+		local edit `"`edit' linestyle(`lsty')"'
+	}
+
+	// marker label styles
+	foreach opt in style position {
+		if `"`mlab`opt''"' != `""' {
+			local labedit `"`labedit' `opt'(`mlab`opt'')"'
+		}
+	}
+	if `"`mlabgap'"' != "" {
+		local labedit `"`labedit' textgap(`mlabgap')"'
+	}
+	// text styles for the marker labels
+	if `"`mlabtextstyle'"' != "" {
+		/// local labtsty `"textstyle(`mlabtextstyle')"'
+	}
+	foreach opt in ///
+	size color fontface angle justification alignment {
+		if `"`mlab`opt''"' != `""' {
+			local labtsty `"`labtsty' `opt'(`mlab`opt'')"'
+		}
+	}
+	if `"`labtsty'"' != `""' {
+		local labedit `"`labedit' textstyle(`:list retok labtsty')"'
+	}
+
+	return local edit `"`:list retok edit'"'
+	return local labedit `"`:list retok labedit'"'
+end
+
+// ---------------------------------------------------------------------------
+program ParseDots , rclass
+
+	syntax [ , DOTs(string asis) * ]
+
+	while `"`dots'"' != `""' {
+		._parse_marker_edit , `dots'
+
+		.graphstyle.editstyle dots_ptstyle(`r(edit)') editcopy
+
+		local 0 `", `options'"'
+		syntax [ , DOTs(string asis) * ]
+	}
+
+	return local rest `"`options'"'
+end
+
+// ---------------------------------------------------------------------------
+program ParseLines , rclass
+
+	syntax [ , LINEs(string asis) * ]
+
+	while `"`lines'"' != `""' {
+		._parse_line_edit , `lines'
+
+		.graphstyle.editstyle dot_linestyle(`r(edit)') editcopy
+
+		local 0 `", `options'"'
+		syntax [ , LINEs(string asis) * ]
+	}
+
+	return local rest `"`options'"'
+end
+
+program _parse_line_edit , rclass
+
+	syntax [ , LSTYle(string) LColor(string)  LWidth(string)	///
+		   LPattern(string) LAlign(string) ]
+
+	foreach opt in style color width pattern align {
+		if `"`l`opt''"' != `""' {
+			local edit `"`edit' `opt'(`l`opt'')"'
+		}
+	}
+
+	return local edit `"`edit'"'
+	class exit `"`edit'"'
+end
+
+// ---------------------------------------------------------------------------
+program ParseRectangles , rclass
+
+	syntax [ , RECTangles(string asis) * ]
+
+	while `"`rectangles'"' != `""' {
+		._parse_area_edit , `rectangles'
+		.graphstyle.editstyle dot_areastyle(`r(edit)') editcopy
+
+		local 0 `", `options'"'
+		syntax [ , RECTangles(string asis) * ]
+	}
+
+	return local rest `"`options'"'
+end
+
+program _parse_area_edit , rclass
+
+	syntax [ , RSTYle(string) LSTYle(string)			///
+		   LColor(string) LWidth(string) Lpattern(string)	///
+		   LAlign(string)					///
+		   SSTYle(string) FColor(string) Color(passthru) 	///
+		   FINtensity(string) ]
+
+	foreach opt in style color width pattern align {
+		if `"`l`opt''"' != `""' {
+			local lsty `"`edit' `opt'(`l`opt'')"'
+		}
+	}
+	if `"`color'"' != `""' & `"`lcolor'"' == "" {
+		local lsty `"`lsty' `color'"'
+	}
+
+	local edit `"`rstyle'"'
+
+	if `"`lsty'"' != `""' {
+		local edit `"`edit' linestyle(`lsty')"'
+	}
+
+	if `"`sstyle'`color'`fcolor'`fintensity'"' != `""' {
+		if `"`fcolor'"' != `""' {
+			local fcolor `"color(`fcolor')"'
+		}
+		if `"`fintensity'"' != `""' {
+			local fintensity `"intensity(`fintensity')"'
+		}
+		local edit						///
+		   `"`edit' shadestyle(`sstyle' `color' `fcolor' `fintensity')"'
+	}
+
+	return local edit `"`edit'"'
+	class exit `"`edit'"'
+end
+
+// ---------------------------------------------------------------------------
+program ParseBlabel , rclass
+
+	if "`.plotregion1.barlabels.isa'" == "" {
+		.plotregion1.Declare barlabels = {}
+	}
+
+	syntax [ , BLABel(string asis) * ]
+
+	while `"`blabel'"' != `""' {
+		._parse_blabel `blabel'
+
+		local 0 `", `options'"'
+		syntax [ , BLABel(string asis) * ]
+	}
+
+	return local rest `"`options'"'
+end
+
+program _parse_blabel
+
+	syntax [anything(name=labtype)] [ , POSition(string)		///
+		GAP(string) FORMAT(string) * ]
+
+	if `"`labtype'"' != `""' {				// label method
+		.barlabel_method.setstyle , style(`labtype')
+	}
+
+	if "`position'" != "" {					// settings
+		.barlabel_pos.setstyle , style(`position')
+	}
+								// style sets
+	if "`gap'" != "" {
+		local edit `"`edit' barlabel_gap(`gap')"'
+	}
+	if "`format'" != "" {
+		local edit `"`edit' barlabel_format(`"`format'"')"'
+	}
+
+	.graphstyle.editstyle `edit' editcopy
+
+								// text options
+	.barlabel_opts	= `"`.barlabel_opts' `options'"'
+
+end
+
+
+// ---------------------------------------------------------------------------
+//  Rearranges y and x position s.t. the scale position always appears first
+//  in the text() -- added text -- option.
+
+program _parse_log_1textbox
+
+	if `.horizontal.istrue' {
+		gettoken log     0 : 0
+		gettoken plreg   0 : 0
+		gettoken datesok 0 : 0 
+
+		syntax [ anything(name=triplets) ] [ , * ]
+
+		gettoken y triplets : triplets
+		gettoken x triplets : triplets
+
+		local 0 `"`log' `plreg' `"`datesok'"' `x' `y' `triplets' , `options'"'
+	}
+
+	.Super._parse_log_1textbox `0'
+
+end
+
+// ---------------------------------------------------------------------------
+
+program SetAllIntensities
+	args intensity lintensity
+
+	forvalues i=1/0`.sersets[1].sers[`.shadevar'].categories' {
+		.SetIntensity `i'
+	}
+end
+
+program SetIntensity
+	args i intensity lintensity
+
+	if (`.graphstyle.intensity.val' !=				///
+	    `.barstyles[`i'].area.shadestyle.intensity.val') {
+
+		if `"`intensity'"' == `""' {
+			local intensity `.graphstyle.intensity.snm'
+		}
+		if `"`intensity'"' == `""' {
+			local intensity `.graphstyle.intensity.val'
+		}
+		local edit `"area(shadestyle(intensity(`intensity')))"'
+	} 
+
+	if (`.graphstyle.lintensity.val' != 100) {
+		tempname color
+		.`color' = .color.new ,					///
+			    style(`.barstyles[`i'].area.linestyle.color.rgb')
+	      	.`color'.setintensity100 `.graphstyle.lintensity.val'
+		local edit `"`edit' area(linestyle(color(`.`color'.rgb')))"'
+	}
+
+	if (`"`edit'"' != `""')  .barstyles[`i'].editstyle `edit' editcopy
+end
+
+// ---------------------------------------------------------------------------
+// Process signal from standard axis parsing.
+
+program alt_axis
+	args name
+
+	if "`name'" == "yaxis1" {
+		._set_swap_scaleaxis					///
+			`=cond("`.swap_scaleaxis.snm'" == "no", "yes", "no")'
+	}
+	else {
+		._set_swap_groupaxis					///
+			`=cond("`.swap_groupaxis.snm'" == "no", "yes", "no")'
+	}
+end
+
+/* -------------------------------------------------------------------------*/
+/* The following _set_... programs are used by dialog boxes to update 
+   value w/ side effects -- substitute for a trigger
+*/
+program _set_stack
+	.stack.setstyle, style(`1')
+	if (`.horizontal.istrue')  .var_asc_sort.set_swap
+	._reset_scaling
+	._relabel_xaxes
+	._clear_barlabels
+	._remake = 1
+
+	._set_std_finish
+end
+
+program _set_fill
+	.fill.setstyle, style(`1')
+	._relabel_xaxes
+	._remake = 1
+
+	._set_std_finish
+end
+
+program _set_graphstyle_remake
+	gettoken name setting : 0
+
+	.graphstyle.editstyle `name'(`setting') editcopy
+
+	local unused : subinstr local name "barlabel" "notlabel" ,	///
+			count(local ct)
+	if (`ct') ._clear_barlabels
+
+	._remake = 1
+
+	._set_std_finish
+end
+
+program _set_percentages
+/*
+	if "`1'" == "yes" & !`.include0.istrue' {
+		di in white "may not combine percentages and exclude 0"
+		exit
+	}
+*/
+	.percentages.setstyle, style(`1')
+
+	._reset_scaling
+	._relabel_xaxes
+	._clear_barlabels
+	._remake = 1
+
+	._set_std_finish
+end
+
+program define _set_include0
+	if "`1'" == "`.include0.setting'" {
+		exit
+	}
+/*
+	if "`1'" == "no" & `.percentages.istrue' {
+		di in white "may not combine percentages and exclude 0"
+		exit
+	}
+*/
+	.include0.setstyle , style(`1')
+
+	._reset_scaling
+	._clear_barlabels
+	._remake = 1
+
+	._set_std_finish
+end
+
+program _set_dotplot
+	if "`1'" == "`.dotplot.setting'" {
+		exit
+	}
+
+	.dotplot.setstyle, style(`1')			/* set style */
+
+					/* convert styles to point or area
+					 * depending on whether a bar or dot */
+	if `.dotplot.istrue' {
+		.graphstyle.setstyle , style(dotdefault)
+		.plotregion1.bargraph.type.setstyle , style(scatter)
+		.plotregion1.dialog = "dotregion"
+	}
+	else {
+		.graphstyle.setstyle , style(default)
+		.plotregion1.bargraph.type.setstyle , style(bar)
+		.plotregion1.dialog = "barregion"
+	}
+	._clear_barlabels
+
+	if ("`._Gr_Global.edit_object'" != "")				///
+		._set_cts_toolbar "`._Gr_Global.edit_object'" != ""
+
+	._remake = 1
+	.legend.rebuild , all
+	.legend.repositionkeys
+	._set_std_finish
+end
+
+/*
+program define _set_overlay
+
+	.overlay.setstyle, style(`1')			/* set style */
+	
+	if `.overlay.istrue' {
+		.graphstyle.gap.setstyle, style(neg100pct)
+	}
+	else {
+		.graphstyle.gap.setstyle, style(scheme bar_groupgap)
+	}
+	._remake = 1
+end
+*/
+
+
+program _set_horizontal
+
+	if "`1'" == "`.horizontal.setting'" {
+		exit
+	}
+
+	._remake = 1
+	.horizontal.setstyle, style(`1')			/* set style */
+
+	local relabel = "`2'" == ""
+
+	tempname xscale						/* flip scales*/
+	.`xscale' = .plotregion1.xscale.ref
+	.plotregion1.xscale.ref = .plotregion1.yscale.ref
+	.plotregion1.yscale.ref = .`xscale'.ref
+	.plotregion1.xscale.dimension.set x
+	.plotregion1.yscale.dimension.set y
+
+								// swap descend
+	if (! `.stack.istrue')  .var_asc_sort.set_swap
+	.grp_asc_sort.set_swap
+	.sup_asc_sort.set_swap
+
+								/* set styles */
+	if `.horizontal.istrue' {
+//	     .plotregion1.style.setstyle , style(horiz_bargraph)
+	     .scaleaxis.set_alltickstyles .tickangle.setstyle, style(horizontal)
+//	     .scaleaxis.style.setstyle	, style(horizontal_default)
+	     .scaleaxis.title.orientation.setstyle, style(horizontal)
+	     .scaleaxis.title.style.editstyle angle(horizontal) editcopy
+
+	}
+	else {
+//	     .plotregion1.style.setstyle , style(bargraph)
+	     .scaleaxis.set_alltickstyles .tickangle.setstyle, style(vertical)
+//	     .scaleaxis.style.setstyle	,style(vertical_default)
+	     .scaleaxis.title.orientation.setstyle , style(vertical)
+	     .scaleaxis.title.style.editstyle angle(vertical) editcopy
+	}
+
+								// reset margins
+	local pm plotregion1.style.margin
+	local margin `.`pm'.bottom' `.`pm'.top' `.`pm'.left' `.`pm'.right'
+	.plotregion1.style.editstyle margin(`margin') editcopy
+
+	local axes scale sup grp var
+	tempname `axes'
+	foreach ax of local axes {				/* hold axes */
+		if "`.`ax'axis.isa'" != "" {
+			.``ax''.ref = .`ax'axis.ref
+			.delete `ax'axis
+		}
+	}
+
+								/* reposition */
+	if `.horizontal.istrue' {
+		.insert (scaleaxis = .`scale'.ref) below plotregion1
+		.scaleaxis.set, xstretch(shared) ystretch(fixed) position(below)
+
+		local loc leftof
+		local pos left
+		local xs fixed
+		local ys shared
+	}
+	else {
+		.insert (scaleaxis = .`scale'.ref) leftof plotregion1
+		.scaleaxis.set, xstretch(fixed) ystretch(shared) position(left)
+
+		local loc below
+		local pos below
+		local xs shared
+		local ys fixed
+	}
+
+	foreach ax in sup grp var {
+		if "`.``ax''.isa'" != "" {
+			.insert (`ax'axis = .``ax''.ref) `loc' plotregion1
+			.`ax'axis.set , xstretch(`xs') ystretch(`ys')	/*
+				*/ position(`pos')
+		}
+	}
+
+	if `relabel' {
+		._reset_scaling
+		._relabel_xaxes
+	}
+	else	._relabel_xaxes , nolegend
+						/* axis in default positions
+						 * maybe fool into swapping */
+	if `.swap_groupaxis.istrue' {
+		.swap_groupaxis.set_no
+		._set_swap_groupaxis yes
+	}
+	if `.swap_scaleaxis.istrue' {
+		.swap_scaleaxis.set_no
+		._set_swap_scaleaxis yes
+	}
+
+	._flip_xylines					// flip xylines
+
+	._clear_barlabels
+end
+
+program _flip_xylines
+						// flip xylines
+	forvalues i = 1/0`.plotregion1._xylines.arrnels' {
+		.plotregion1._xylines[`i'].swap_ord
+	}
+end
+
+program _set_showvaraxis
+	.showvaraxis.setstyle, style(`1')
+	.graphstyle.label_vargroups.setstyle, style(`1')
+	._relabel_xaxes
+	._remake = 1
+
+	._set_std_finish
+end
+
+program _set_var_asc_sort
+	.var_asc_sort.setstyle , style(`0')
+	._sort
+	._clear_barlabels
+	._remake = 1
+
+	._set_std_finish
+end
+
+program _set_grp_asc_sort
+	.grp_asc_sort.setstyle , style(`0')
+	._relabel_xaxes
+	._clear_barlabels
+	._remake = 1
+
+	._set_std_finish
+end
+
+program _set_sup_asc_sort
+	.sup_asc_sort.setstyle , style(`0')
+	._relabel_xaxes
+	._clear_barlabels
+	._remake = 1
+
+	._set_std_finish
+end
+
+program _set_rotate
+
+	.rotate.set_false
+
+	if !`.group' {
+		exit					/* nothing to do */
+	}
+
+	if ! 0`.supergroup' {
+		local hold `.vargroup'
+		.vargroup = `.group'
+		.group = `hold'
+	}
+	else {
+		._rotate3
+	}
+
+	.shadevar = `.vargroup'
+	._relabel_xaxes
+	if `.stack.istrue' | `.percentages.istrue' {
+		._reset_scaling
+	}
+
+	._remake = 1
+	.makebars
+	.legend.rebuild , all
+	.legend.repositionkeys
+
+	._Gr_Global.BrowserReinit
+
+	._remake_lbls = 1
+	._repos_only  = 1
+end
+
+
+program _set_sort_height
+
+	if (0`0')  local asc "yes"
+	else       local asc "no"
+
+	.varsrt = 0
+	.grpsrt = 0
+	.supsrt = 0
+
+	if 0`.sersets[1].sers[`.vargroup'].categories' > 1 {
+		.varsrt = 1
+		.var_asc_sort.setstyle , style(`asc')
+		local reset 1
+	}
+	else if 0`.sersets[1].sers[`.group'].categories' > 1 {
+		.grpsrt = 1
+		.grp_asc_sort.setstyle , style(`asc')
+		local reset 1
+	}
+	else if 0`.sersets[1].sers[`.supergroup'].categories' > 1 {
+		.supsrt = 1
+		.sup_asc_sort.setstyle , style(`asc')
+		local reset 1
+	}
+
+	if (0`reset')  ._reset_sort
+end
+
+program _reset_sort
+	._sort
+	._relabel_xaxes
+	._clear_barlabels
+
+	._remake_lbls = 1
+	._set_std_finish
+end
+
+program _set_vargroup
+	._swap_settings vargroup `0'
+	._clear_barlabels
+	._remake = 1
+
+	._set_std_finish
+end
+
+program _set_group
+	._swap_settings group `0'
+	._clear_barlabels
+	._remake = 1
+end
+
+program _set_supergroup
+	._swap_settings supergroup `0'
+	._clear_barlabels
+	._remake = 1
+
+	._set_std_finish
+end
+
+program _set_swap_scaleaxis
+
+	if "`1'" == "`.swap_scaleaxis.setting'" {
+		exit
+	}
+
+	.swap_scaleaxis.setstyle, style(`1')			/* set style */
+
+	if 0`.horizontal.istrue' {
+		local pos = cond(`.swap_scaleaxis.istrue', "above", "below")
+		local plpos `pos'
+	}
+	else {
+		local pos = cond(`.swap_scaleaxis.istrue', "right", "left")
+		local plpos `pos'of
+	}
+
+	.move scaleaxis `plpos' plotregion1
+	.scaleaxis.position.setstyle, style(`pos')
+	._clear_barlabels
+	._remake = 1
+
+end
+
+program _set_swap_groupaxis
+
+	if "`1'" == "`.swap_groupaxis.setting'" {
+		exit
+	}
+
+	.swap_groupaxis.setstyle, style(`1')			/* set style */
+
+	if 0`.horizontal.istrue' {
+		local pos = cond(`.swap_groupaxis.istrue',  "right", "left")
+		local plpos `pos'of
+	}
+	else {
+		local pos = cond(`.swap_groupaxis.istrue', "above", "below")
+		local plpos `pos'
+	}
+
+	if 0`.supergroup' {
+		.move supaxis `plpos' plotregion1
+		.supaxis.position.setstyle, style(`pos')
+	}
+	if 0`.group' {
+		.move grpaxis `plpos' plotregion1
+		.grpaxis.position.setstyle, style(`pos')
+	}
+	.move varaxis `plpos' plotregion1
+	.varaxis.position.setstyle, style(`pos')
+	._clear_barlabels
+	._remake = 1
+
+end
+
+
+program _set_reverse_scale
+
+	if "`1'" == "`.reverse_scale.setting'" {
+		exit
+	}
+
+	.reverse_scale.setstyle, style(`1')			/* set style */
+
+	local pm plotregion1.style.margin
+	if 0`.horizontal.istrue' {
+		.plotregion1.xscale.reverse.setstyle , style(`1')
+
+		local margin `.`pm'.right'  `.`pm'.left'		///
+			     `.`pm'.bottom' `.`pm'.top'
+	}
+	else {
+		.plotregion1.yscale.reverse.setstyle , style(`1')
+
+		local margin `.`pm'.left' `.`pm'.right'			///
+			     `.`pm'.top'  `.`pm'.bottom'
+	}
+	.plotregion1.style.editstyle margin(`margin') editcopy
+
+	._clear_barlabels
+	._remake = 1
+
+	._set_std_finish
+end
+
+
+program _set_barlabel_method
+
+	if "`1'" == "`.barlabel_method.setting'" {
+		exit
+	}
+	.barlabel_method.setstyle , style(`1')
+
+	if "`.plotregion1.barlabels.isa'" != "" {
+		.plotregion1.barlabels = {}
+	}
+	else	.plotregion1.Declare barlabels = {}
+
+	._remake_lbls = 1
+
+	._set_std_finish
+end
+
+program _set_barlabel_pos
+
+	if "`1'" == "`.barlabel_pos.setting'" {
+		exit
+	}
+	.barlabel_pos.setstyle , style(`1')
+
+	._remake_lbls = 1
+	._repos_only  = 1
+end
+
+
+// When using a saved graph most sets need to create bars in case the custom
+// bars or labels are edited.  They must be recreated at final draw for
+// correct positioning.
+
+program _set_std_finish
+	if 0`._Gr_Cglobal.reading' {
+		._repos_only  = 0
+		.makebars
+		._remake_lbls = 1
+		._repos_only  = 1
+	}
+end
+
+program _clear_barlabels
+	if "`.plotregion1.barlabels.isa'" != "" {
+		.plotregion1.barlabels = {}
+	}
+	._remake = 1
+end
+
+
+
+/* -------------------------------------------------------------------------*/
+/* 
+	switch values with the grouping that holds the value val
+*/
+program _swap_settings
+	args setgrp val
+
+	foreach grp in vargroup group supergroup {
+		if `0' == `.`grp'' {
+			if "`setgrp'" == "`grp'" {
+				continue, break		/* nothing to do */
+			}
+			.`grp' = `.group'
+			.`setgrp' = `0'
+			._relabel_xaxes
+			continue, break				/* Break */
+		}
+	}
+	._remake = 1
+end
+
+
+/* -------------------------------------------------------------------------*/
+program _rotate3
+	if `.vargroup' == 2 {
+		if `.group' == 3 {
+			._setgroups 2 4 3
+		}
+		else {
+			._setgroups 3 2 4
+		}
+		exit						/* EXIT */
+	}
+	if `.vargroup' == 3 {
+		if `.group' == 2 {
+			._setgroups 3 4 2
+		}
+		else {
+			._setgroups 4 2 3
+		}
+		exit						/* EXIT */
+	}
+	if `.vargroup' == 4 {
+		if `.group' == 2 {
+			._setgroups 4 3 2
+		}
+		else {
+			._setgroups 2 3 4
+		}
+		exit						/* EXIT */
+	}
+	._remake = 1
+end
+
+program _setgroups
+	.vargroup   = `1'
+	.group      = `2'
+	.supergroup = `3'
+	._remake = 1
+end
+
+/* -------------------------------------------------------------------------*/
+program _max_cats
+	class exit = max(						///
+		0`.sersets[1].sers[`.vargroup'].categories' ,		///
+		0`.sersets[1].sers[`.group'].categories'    ,		///
+		0`.sersets[1].sers[`.supergroup'].categories' )
+end
+
+
+// ---------------------------------------------------------------------------
+// Take care that for myx=x exactly myx goes into the varlist, but for 
+// construct like x* , l.x , and x1-x5 are passed through tsunab.
+
+program _get_varlist
+
+	while `"`0'"' != `""' {
+		gettoken tok 0 : 0 , match(paren) parse(" =")
+
+		if (`"`paren'"' == `"("')  continue
+		if ( "`tok'"    ==  "=" ) {
+			gettoken tok 0 : 0 , match(paren) parse(" =") // pitch
+
+			if ("`tokset'" != "")  tsunab vl : `tokset'  // x1-x3 OK
+			else		       local vl
+			local varlist `varlist' `vl' `ltok'
+
+			local tokset
+			local ltok
+			
+			continue
+		}
+
+		local tokset `tokset' `ltok'
+		local ltok `tok'
+	}
+
+	if "`tokset'" != "" | "`ltok'" != "" {
+		tsunab vl : `tokset' `ltok'
+		local varlist `varlist' `vl'
+	}
+
+	local varlist : subinstr local varlist "." "" , all
+	class exit "`varlist'"
+end
+
+
+/* -------------------------------------------------------------------------*/
+/* Add a label to a bar
+
+	Usage:  add_label label , by ({#|name} {#|name} {#|name})
+				  {ABOVE|BELOW/WITHIN} STYLE(stylename)
+*/
+program add_label
+
+	syntax anything(id=label name=label) , BY(string) ABOVE BELOW * ]
+
+	local ct : word count `above' `below'
+	if `ct' > 1 {
+		di as error "may not specify both above and below"
+		exit 198
+	}
+	else if `ct' == 0 {
+		local above above
+	}
+
+
+	local hold `by'
+	gettoken a by : by
+	gettoken b by : by
+	gettoken c by : by
+	if `"`by'"' != "" {
+		di as error `"too many items in by(`hold')"'
+		exit 198
+	}
+
+	if `"`c'"' != "" {
+		local sup = `_get_id supergroup `a''
+		local grp = `_get_id group `b''
+		local var = `_get_id vargroup `c''
+		local n_grps = 3
+	}
+	else if `"`b'" != "" {
+		local grp = `_get_id group `a''
+		local var = `_get_id vargroup `b''
+		local n_grps = 2
+	}
+	else if `"`b'" != "" {
+		local var = `_get_id vargroup `a''
+		local n_grps = 1
+	}
+
+	if 0`n_grps' != 0`.supergroup'!=0 + 0`.group'!=0 + 0`.vargroup'!=0 {
+		di as error "must specify as many items in by() as there " /*
+			*/ "are groups"
+		exit 198
+	}
+end
+
+program _get_id
+	gettoken grp lab : 0
+
+	local code `.sersets[1].sers[`.`grp''].value_code `lab''
+
+	if "`code'" == "" {
+		capture confirm integer number `lab'
+		if _rc {
+			di in white `"value label `lab' not found'"'
+			exit 198
+		}
+		local code `lab'
+	}
+
+	class exit = `code'
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*  Returns the outermost left/right axis for xaxis1 and the outermost
+    bottom/top axis for yaxis1.
+*/
+
+program xaxis1
+	if 0`.horizontal.istrue' {
+		class exit .scaleaxis
+	}
+	else {
+		di "which one"
+	}
+end
+
+program yaxis1
+	if 0`.horizontal.istrue' {
+		di "which one"
+	}
+	else {
+		class exit .scaleaxis
+	}
+end
+
+
+// -------------------------------------------------------------------------
+// Log anything that must be done after the graph is created, but before
+// any other edits are applied.   These are only logged for replay, not run.
+
+program after_header 
+	args log
+
+	.`log'.Arrpush __NORUN__ .drawgraph , nomaybedraw
+	.`log'.Arrpush __NORUN__ ._remake_lbls = 1
+	.`log'.Arrpush __NORUN__ ._repos_only  = 1
+end

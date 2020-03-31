@@ -1,0 +1,140 @@
+/*
+	stcoxkm
+
+*!  VERSION 2.1.0  13dec2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_wide
+DEFINE _dlght 300
+INCLUDE header
+
+HELP hlp1, view("help stcoxkm")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource STCOXKM_DLG_HSCALE
+END
+
+
+SCRIPT POSTINIT
+BEGIN
+	gr_plots.settabtitle resource STCOXKM_OBSERVED_PLOT
+	gr_plots_outputCmd.setstring "obsopts"
+	gr_plots_outputCmdStub.setstring "obs"
+	script gr_plots_setDefaultConnected
+	
+	gr_plots2.settabtitle "Predicted plot"
+	gr_plots2_outputCmd.setstring "predopts"
+	gr_plots2_outputCmdStub.setstring "pred"
+	script gr_plots2_setDefaultConnected
+END
+
+DIALOG main, 								///
+	title(resource STCOXKM_DLG_TITLE)				///
+	tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_var      _lft         _top    _cwd1         .,		///
+	label(resource LBL_INDEPENDENT_VARIABLE)
+  DEFINE _x _vlcsep
+  DEFINE _y @y
+  INCLUDE _bu_stset
+  VARNAME  vn_var      _lft         _ss     _vnwd         .,		///
+	label(resource LBL_INDEPENDENT_VARIABLE)			///
+	option(by)
+
+  GROUPBOX gb_tied     @            _ls     _iwd          _ht8,		///
+	label(resource STCOXKM_MAIN_GB_TIED)
+
+  RADIO    rb_breslow  _indent      _ss     _ibwd         .,		///
+	label(resource LBL_BRESLOW)					///
+	first								///
+	option(NONE)
+  RADIO    rb_efron     @           _ss      @            .,		///
+	label(resource LBL_EFRON)					///
+	option(ties(efron))
+  RADIO    rb_exactm    _ilft       _ss      @            .,		///
+	label(resource LBL_EXACT_MARGINAL_LIKELIHOOD)			///
+	option(ties(exactm))
+  RADIO    rb_exactp    @           _ss      @            .,		///
+	label(resource STCOXKM_MAIN_RB_EXACTP)				///
+	last								///
+	option(ties(exactp))
+  CHECKBOX ck_separate  _lft        _xls     _iwd         .,		///
+	label(resource STCOXKM_MAIN_CK_SEPARATE)			///
+	option(separate)						///
+	onclickon(script separate_on)					///
+	onclickoff(script separate_off)
+  CHECKBOX ck_noshow    @           _ms      @            .,		///
+	label(resource LBL_DO_NOT_SHOW_ST_SETTING_INFORMATION)		///
+	option(noshow)
+END
+
+SCRIPT separate_on
+BEGIN
+	script gr_plots_setMultiView_off
+	script gr_plots2_setMultiView_off
+	script gr_addplots_disable
+	script main_byContext_on
+END
+
+SCRIPT separate_off
+BEGIN
+	script gr_plots_setMultiView_on
+	script gr_plots2_setMultiView_on
+	script gr_addplots_enable
+	script main_byContext_off
+END
+
+SCRIPT main_byContext_on
+BEGIN
+	script gr_legend_setByoptsContext_on
+	script gr_titles_setByoptsContext_on
+	script gr_yaxis_setByoptsContext_on
+	script gr_xaxis_setByoptsContext_on
+	script gr_overall_setByoptsContext_on
+END
+SCRIPT main_byContext_off
+BEGIN
+	script gr_legend_setByoptsContext_off
+	script gr_titles_setByoptsContext_off
+	script gr_yaxis_setByoptsContext_off
+	script gr_xaxis_setByoptsContext_off
+	script gr_overall_setByoptsContext_off
+END
+
+INCLUDE if
+INCLUDE gr_plots
+INCLUDE gr_plots2
+INCLUDE gr_addplots_2
+INCLUDE gr_yaxis
+INCLUDE gr_xaxis
+INCLUDE gr_titles
+INCLUDE gr_legend
+INCLUDE gr_overall
+INCLUDE gr_byopts
+
+PROGRAM command
+BEGIN
+	require main.vn_var
+	put "stcoxkm "
+	put " " /program if_output
+	beginoptions
+		optionarg main.vn_var
+		option main.ck_separate
+        	option radio (main rb_breslow rb_efron rb_exactm rb_exactp)
+		option main.ck_noshow
+
+		put " " /program gr_plots_output
+		put " " /program gr_plots2_output
+		put " " /program gr_addplots_output
+		put " " /program gr_yaxis_output
+		put " " /program gr_xaxis_output
+		put " " /program gr_titles_output
+		put " " /program gr_overall_output	
+		put " " /program gr_byopts_output	
+	endoptions
+END

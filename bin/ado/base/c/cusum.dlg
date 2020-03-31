@@ -1,0 +1,158 @@
+/*
+	cusum
+
+*!  VERSION 2.1.0  08sep2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 300
+INCLUDE header
+
+HELP hlp1, view("help cusum")
+RESET res1
+
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource CUSUM_DLG_HSCALE
+END
+
+
+DIALOG main, label(resource CUSUM_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT     tx_yvar	_lft	_top	_vnwd	.,	///
+	label(resource LBL_Y_VARIABLE)
+  VARNAME  vn_yvar	@	_ss	_vnwd	., 	///
+  	numeric						///
+	label(resource LBL_Y_VARIABLE)
+
+  TEXT     tx_xvar	+150	_top	_vnwd	.,	///
+	label(resource LBL_X_VARIABLE)
+  VARNAME  vn_xvar	@	_ss	_vnwd	.,	///
+  	numeric						///
+	label(resource LBL_X_VARIABLE)
+
+  CHECKBOX ck_gen	_lft	+35	_iwd	.,	///
+	label(resource CUSUM_MAIN_CK_GEN)		///
+	onclickon(script generate_on)			///
+	onclickoff(script generate_off)
+  EDIT     ed_gen	_indent2 _ss	_vnwd	.,	///
+	option(generate)				///
+	label(resource LBL_NEW_VARIABLE_NAME)
+  TEXT     tx_gen	_vnsep	@	150	.,	///
+	label(resource LBL_NEW_VARIABLE_NAME)
+
+  CHECKBOX ck_yfit	_lft	_ls	_iwd	.,	///
+	label(resource CUSUM_MAIN_CK_YFIT) ///
+	onclickon(script yfit_on)			///
+	onclickoff(script yfit_off)
+  VARNAME  vn_yfit	_indent2 _ss	_vnwd	.,	///
+	option(yfit) 					///
+	numeric						///
+	label(resource CUSUM_MAIN_CK_YFIT)
+  TEXT     tx_yfit	_vnsep	@	150	.,	///
+	label(resource LBL_VARIABLE)
+
+  CHECKBOX ck_nograph	_lft	_ls	_iwd	.,	///
+	option(nograph) label(resource CUSUM_MAIN_CK_NOGRAPH)	///
+	onclickoff(script graph_on) 			///
+	onclickon(script graph_off)
+  CHECKBOX ck_nocalc	@	_ms	@	.,	///
+	option(nocalc) label(resource CUSUM_MAIN_CK_NOCALC)
+END
+
+SCRIPT generate_on
+BEGIN
+	main.ed_gen.enable
+	main.tx_gen.enable
+END
+
+SCRIPT generate_off
+BEGIN
+	main.ed_gen.disable
+	main.tx_gen.disable
+END
+
+SCRIPT yfit_on
+BEGIN
+	main.vn_yfit.enable
+	main.tx_yfit.enable
+END
+
+SCRIPT yfit_off
+BEGIN
+	main.vn_yfit.disable
+	main.tx_yfit.disable
+END
+
+
+SCRIPT graph_on
+BEGIN
+	/* turn on all the graphs tabs */
+	script gr_plots_enable
+	script gr_addplots_enable
+	script gr_yaxis_enable
+	script gr_xaxis_enable
+	script gr_titles_enable
+	script gr_legend_enable
+	script gr_overall_enable
+END
+
+SCRIPT graph_off
+BEGIN
+	/* turn off all the graphs tabs */
+	script gr_plots_disable
+	script gr_addplots_disable
+	script gr_yaxis_disable
+	script gr_xaxis_disable
+	script gr_titles_disable
+	script gr_legend_disable
+	script gr_overall_disable
+END
+
+INCLUDE ifin
+INCLUDE gr_plots
+INCLUDE gr_addplots
+INCLUDE gr_yaxis
+INCLUDE gr_xaxis
+INCLUDE gr_titles
+INCLUDE gr_legend
+INCLUDE gr_overall
+
+SCRIPT POSTINIT
+BEGIN
+	gr_plots.settabtitle resource CUSUM_CUSUM_PLOT_TAB
+	script gr_plots_setDefaultLine
+END
+
+PROGRAM command
+BEGIN
+	put "cusum "
+	require main.vn_xvar
+	varlist main.vn_yvar
+	varlist main.vn_xvar
+	INCLUDE _ifin_pr
+	beginoptions
+		if main.ck_gen {
+			require main.ed_gen
+			optionarg main.ed_gen
+		}
+		if main.ck_yfit {
+			require main.vn_yfit
+			optionarg main.vn_yfit
+		}
+		option main.ck_nograph
+		option main.ck_nocalc
+
+		put " " /program gr_plots_output
+		put " " /program gr_addplots_output
+		put " " /program gr_yaxis_output
+		put " " /program gr_xaxis_output
+		put " " /program gr_titles_output
+		put " " /program gr_legend_output
+		put " " /program gr_overall_output
+	endoptions
+END

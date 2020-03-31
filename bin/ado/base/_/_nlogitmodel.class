@@ -1,0 +1,1175 @@
+*! version 2.0.7  26feb2020
+
+version 14
+
+class _nlogitmodel {
+	instance:
+		array models
+                /* array of _numericvars for level cond prob    	*/
+                array p
+                /* array of _numericvars for Xb                 	*/
+                array eta
+                /* array of _numericvars for inclusive vars     	*/
+                array I
+}, inherit(_nlogitleveq)
+
+program .oncopy
+
+	di as err "_nlogitmodel.oncopy not implemented"
+	exit 499
+end
+
+program ._set 
+	if (`.version'>=14) local fv fv
+
+	syntax varlist(min=1 numeric `fv') [fw iw pw], touse(varname)  ///
+		levels(string) case(varname) [ rum COLlinear altwise ///
+		ifin(varname numeric) cm ]
+
+	qui findfile _nlogitmodel_macros.ado
+	qui include `"`r(fn)'"'
+
+	if "`cm'" != "" {
+		/* CM suite: dissimilarity parameters are free
+		 *  parameters						*/
+		.mversion = `NLOGIT_VERSION_CM_BASE'
+		if `.version' < 16 {
+			/* first version for CM				*/
+			.version = 16
+		}
+	}
+	else {
+		/* AS suite						*/
+		.mversion = `NLOGIT_VERSION_AS_BASE'
+		if `.version' > 15.1 {
+			/* last version for AS				*/
+			.version = 15.1
+		}
+	}
+	local vv : display "version " %5.1f `.version' ":"
+
+	/* validate and markout 					*/
+	._presetvalidate `varlist', touse(`touse') case(`case') 	///
+		levels(`levels') `collinear' `altwise' ifin(`ifin')
+
+	local varlist `r(varlist)'
+
+	/* all models share the case variable 				*/
+	tempname cobj
+	.`cobj' = ._numericvar.new double `case' if `touse'
+
+	gettoken dep varlist : varlist
+
+	_fv_check_depvar `dep'
+
+	/* condition not to warn of degenerate nests 			*/
+	if ("`rum'"=="" & `:word count `varlist''>0) local warnopt nowarn
+	local nlev = `.`levels'.l.arrnels'
+	local nlv1 = `nlev' - 1
+
+	tempname ai1 
+	.`ai1' = ._alternvar.new
+	
+	if ("`weight'"!="") local wtopt [`weight'`exp']
+
+	local kbavars = 0
+	forvalues i=1/`nlv1' {
+		local altern `.`levels'.l[`i'].altvar'
+		local const = (`.`levels'.l[`i'].const'==1)
+		local indepi `.`levels'.l[`i'].indepvar'
+		local basei `.`levels'.l[`i'].base'
+		`vv' ///
+		.models[`i'] = ._nlogitleveq.new `dep' `wtopt',           ///
+			touse(`touse') level(`i') const(`const')          ///
+			altern(`altern') case(`cobj') byaltvars(`indepi') ///
+			bylist(`bylist') base(`basei') `wtobj' `rum'      ///
+			`altpopt' `warnopt'
+
+		if `i'==1 & "`weight'"!="" {
+			/* all models share the weight variable 	*/
+			tempname wt1
+			.`wt1' = .models[1].weight.ref
+			local wtobj wtobj(`weight' `wt1')
+			local wtopt
+		}
+		else if `.models[`i'].kcoef' {
+			tempname alt
+			.`alt' = .models[`i'].altern.ref
+			forvalues j=1/`.`alt'.k' {
+				local labj : label `.`alt'.varname' `j' 
+				._validatelabel, label(`labj') i(`i')
+			}
+		}
+		local kbavars = `kbavars' + `.models[`i'].kbavars'
+
+ 		/* choice indicator for level i 			*/
+		local bylist `bylist' `.models[`i'].altern.varname'
+		
+		/* reference to alternatives at this level		*/
+		.`ai1'.ref = .models[`i'].altern.ref
+		local altpopt altparent(`ai1')
+	}
+	local const = (`.`levels'.l[`nlev'].const'==1)
+	local indepn `.`levels'.l[`nlev'].indepvar'
+	local altern `.`levels'.l[`nlev'].altvar'
+	local base `.`levels'.l[`nlev'].base'
+	local altpopt altparent(`ai1')
+
+	.Super._set `dep' `varlist' `wtopt', touse(`touse') level(`nlev') ///
+		const(`const') case(`cobj') byaltvars(`indepn')           ///
+		altern(`altern') bylist(`bylist') base(`base') `wtobj'    ///
+		`rum' `collinear' `altpopt' notau `warnopt'
+
+	local kbavars = `kbavars' + `.kbavars'
+	if `.kvars'+`kbavars'+`.const' == 0 { 
+		di as err "{p}no equations have been specified to " ///
+		 "identify the alternatives defined in variable " ///
+		 "{bf:`altern'}; see {help nlogit:nlogit} for the proper " ///
+		 "syntax{p_end}"
+		exit 198
+	}
+	if `.kbavars'+`.const' {
+		forvalues j=1/`.altern.k' {
+			local labj : label `.altern.varname' `j' 
+			._validatelabel, label(`labj') i(`nlev')
+		}
+	}
+	local ncoef = `.kcoef, all'+`.kanc'
+	if `.ncase' <= `ncoef' {
+		di as err "insufficient number of observations; only " ///
+		"`.ncase' cases to estimate `ncoef' parameters"
+		exit 2000
+	}
+	else if `.ncase' <= 10*`ncoef' {
+		di as txt "note: there are only `.ncase' cases to " ///
+		 "estimate `ncoef' parameters"
+	}
+end
+
+/* validate and markout data before setting data members 		*/
+program ._presetvalidate, rclass
+	syntax varlist(min=1 numeric fv), touse(varname) case(varname) ///
+		levels(string) [ collinear ifin(passthru) altwise ]
+
+	/* skip collinear check since we will do it here		*/
+	.Super._presetvalidate `varlist', touse(`touse') case(`case') ///
+		`altwise' `ifin'
+
+	gettoken dep indepx : varlist
+
+	/* assert one selection per case				*/
+	._markoutbindep `dep', case(`case') touse(`touse') oneonly
+
+	local nlev = `.`levels'.l.arrnels'
+	fvexpand `indepx'
+	local indepx `r(varlist)'
+
+	local indep `indepx'
+	forvalues i=1/`nlev' {
+		local indepi `.`levels'.l[`i'].indepvar'
+		fvexpand `.`levels'.l[`i'].indepvar'
+
+		.`levels'.l[`i'].indepvar = `"`r(varlist)'"'
+
+		local indep `indep' `r(varlist)'
+	}
+
+	_rmcoll `indep' if `touse', noconstant `collinear'
+	local indepo `"`r(varlist)'"'
+	fvexpand `indepo'
+	local indepo `"`r(varlist)'"'
+
+	if !r(k_omitted) {
+		return local varlist `dep' `indepx'
+		exit
+	}
+	/* recompose equations with dropped-term factor notation	*/
+	while "`indep'" != "" {
+		gettoken expr indep : indep, bind
+		gettoken expro indepo : indepo, bind
+
+		_ms_parse_parts `expro'
+		if (!r(omit)) {
+			continue
+		}
+		local match : list indepx & expr
+		if "`match'" != "" {
+			local indepx : subinstr local indepx "`expr'" ///
+				"`expro'", count(local kv) word
+			continue
+		}
+		forvalues i=1/`nlev' {
+			local indv `.`levels'.l[`i'].indepvar'
+			if "`indv'" == "" {
+				continue
+			}
+			local match : list indv & expr
+			if "`match'" != "" {
+				local indv : subinstr local indv "`expr'" ///
+					"`expro'", count(local kv) word
+				.`levels'.l[`i'].indepvar = `"`indv'"'
+				
+				continue
+			}
+		}
+	}
+	/* return modified varlist 					*/
+	return local varlist `dep' `indepx'
+end
+
+program ._validatelabel 
+	syntax, label(string) i(integer)
+
+	/* check for duplicate labels across levels 			*/
+	tempname modk
+	.`modk' = ._nlogitleveq.new
+	forvalues k=1/`=`i'-1' {
+		.`modk'.ref = .models[`k'].ref
+		if `.`modk'.kcoef' == 0 {
+			continue
+		}
+		local labs `"`.`modk'.altern.strlabels'"'
+		if `:list label in labs' {
+			di as err "{p}label {bf:`label'} is used in levels " ///
+			 "`k' and `i' of the hierarchy; since both "    ///
+			 "levels have equations there is an equation "  ///
+			 "naming conflict{p_end}"
+			exit 459 
+		}
+		forvalues j=1/`.`modk'.kanc' {
+			if "`.`modk'.anc[`j']'" == "`label'" {
+				if (`.rum') local xxx dissimilarity
+				else local xxx inclusive-value
+
+				di as err "{p}label {bf:`label'} is " ///
+				 "reserved for the `xxx' parameter of " ///
+				 "level `k'{p_end}"
+				exit 459 
+			}
+		}
+	}
+end
+
+program .initest, rclass
+	syntax, b(name) [ trace noWARN ]
+
+	tempname ba
+	.Super.initest, bba(`ba') bas(`b') `warn' `trace'
+	local collin = `r(collin)'
+
+	tempname b1
+	forvalues i=1/`.kleq' {
+		.models[`i'].initest, bba(`b1') `warn' `trace'
+		cap mat li `b1'
+		if !c(rc) {
+			mat `b' = (nullmat(`b'),`b1')
+			mat drop `b1'
+		}
+		local collin = `collin' + `r(collin)'
+	}
+	if `.kbacoef' {
+		mat `b' = (nullmat(`b'),`ba')
+	}
+	if `.kleq' > 0 {
+		tempname T 
+		mat `T' = J(1,`.kanc',1)
+		mat colnames `T' = `.ancstripe'
+		mat `b' = (`b',`T')
+	}
+	return local collin = (`collin'>0)
+end
+
+program .evaluate
+	syntax newvarlist(min=1 max=1), b(name) [ todo(integer 0) ///
+		noDEP save ]
+
+	tempname lninf modi 
+	scalar `lninf' = log(c(maxdouble))/2
+	local lf `varlist'
+	if "`dep'"!="" & `todo'>0 {
+		/* programming error 					*/
+		di as err "_nlogitmodel.evaluate: nodep and todo=`todo' " ///
+		 "may not be combined"
+		exit 198
+	}
+
+	local nlev = `.klev'
+	local nlv1 = `nlev'-1
+	local kleq = `.kleq'
+	local bsave = ("`save'"!="")
+	
+	/* equations involving level specific variables			*/
+	forvalues i=1/`kleq' {
+		tempvar eta`i'
+		.models[`i'].evalbaeqs `eta`i'', b(`b')
+	}
+	tempvar eta`nlev'
+	.evaleqs `eta`nlev'', b(`b')
+
+	if `.rum' {
+		tempvar eta
+		qui gen double `eta' = `eta`nlev'' if `.touse'
+		forvalues i=1/`kleq' {
+			qui replace `eta' = `eta' + `eta`i'' if `.touse'
+			/* RUM model only generates Xb's for each 	*/
+			/* level for postestimation predict		*/
+			if (!`bsave') qui drop `eta`i''
+		}
+	}
+	else local eta `eta`nlev''
+			
+	/* inclusive value/dissimilarity parameters 			*/
+	local k = 0
+	forvalues i=1/`kleq' {
+		tempvar tau`i'
+		qui gen double `tau`i'' = 0 if `.touse'
+		.models[`i'].evalanc `tau`i'', b(`b')
+
+		local nlog_tau `nlog_tau' `tau`i''
+	}
+	if (`.rum' & `kleq'>0) qui replace `eta' = `eta'/`tau`kleq'' if `.touse'
+
+	tempvar stouse
+	._sort, sort_touse(`stouse')
+
+	local bylist0 `stouse' `.case.varname' 
+	forvalues i=1/`kleq' {
+		local j = `i'-1
+		local bylist`i' `bylist`j'' `.models[`i'].altern.varname'
+	}
+
+	/* choice alternatives level 					*/
+	tempvar isinf p`nlev' I`nlv1'
+	qui gen byte `isinf' = cond(`eta'>`lninf',1,0) if `.touse'
+
+	if "`dep'" == "" {
+		qui gen double `lf' = cond(`.dep'==1,cond(`isinf',.,`eta'), ///
+			0)  if `.touse'
+	}
+	else {
+		qui gen double `lf' = cond(`isinf',.,`eta') if `.touse'
+	}
+
+	qui gen double `p`nlev'' = cond(`isinf',.,exp(`eta')) if `.touse'
+	qui bysort `bylist`nlv1'' (`.altern.varname'): ///
+		egen double `I`nlv1'' = total(`p`nlev'') if `.touse'
+
+	local nlog_I `I`nlv1''
+	local nlog_p `p`nlev''
+
+	if `.rum' & `todo'>0 & `nlv1'>0 {
+		tempvar dI`nlv1'
+		qui by `bylist`nlv1'': egen double `dI`nlv1'' = ///
+			total(`eta'*`p`nlev''/`tau`nlv1'') if `.touse'
+		qui replace `dI`nlv1'' = -`dI`nlv1''/`I`nlv1'' if `.touse'
+		local nlog_dI `dI`nlv1''
+	}
+	qui replace `p`nlev'' = `p`nlev''/`I`nlv1'' if `.touse'
+	qui replace `I`nlv1'' = ln(`I`nlv1'') if `.touse'
+	if "`dep'" == "" {
+		qui replace `lf' = `lf' - `I`nlv1'' if `.dep'==1 & `.touse'
+	}
+	else {
+		qui replace `lf' = `lf' - `I`nlv1'' if `.touse'
+	}
+	local c`nlev' `.choice.varname'
+
+	/* rest levels 							*/
+	tempvar u
+	gen double `u' = 0
+	tempname ci
+	forvalues i=`kleq'(-1)1 {
+		tempvar p`i'
+		local nlog_p `p`i'' `nlog_p' 
+
+		local c`i' `.models[`i'].choice.varname'
+		local i1 = `i' - 1
+		if `.rum' {
+			if `i' > 1 {
+				if `todo' > 0 { 
+					tempvar dI`i1'
+					local nlog_dI `dI`i1'' `nlog_dI' 
+				}
+				qui gen double `p`i'' = ///
+					`tau`i''/`tau`i1''*`I`i'' if `.touse'
+			}
+			else {
+				qui gen double `p`i'' = `tau`i''*`I`i'' ///
+					if `.touse'
+			}
+		}
+		else {
+			qui gen double `p`i'' = `eta`i'' + `tau`i''*`I`i'' ///
+				if `.touse'
+		}
+
+		qui replace `isinf' = (`p`i'' > `lninf') if `.touse'
+
+		if "`dep'" == "" {
+			qui replace `lf' = cond(`.dep', ///
+				cond(`isinf',.,`lf'+`p`i''),`lf') if `.touse'
+		}
+		else {
+			qui replace `lf' = cond(`isinf',.,`lf'+`p`i'') ///
+				if `.touse'
+		}
+		qui replace `p`i'' = cond(!`isinf',exp(`p`i''),.) if `.touse'
+		qui bysort `bylist`i'' (`.altern.varname'): ///
+			replace `u' = cond(_n==1,`p`i'',0)  if `.touse'
+
+		tempvar I`i1'
+		local nlog_I `I`i1'' `nlog_I'
+
+		qui by `bylist`i1'': egen double `I`i1'' = total(`u') ///
+			if `.touse'
+
+		if `.rum' & `todo'>0 & `i' > 1 {
+			qui by `bylist`i'' : replace `u' =               ///
+				-`tau`i''*`I`i''*`u'/`tau`i1''/`tau`i1'' ///
+				if _n==1 & `.touse'
+			qui by `bylist`i1'': gen double `dI`i1'' = sum(`u') ///
+				if `.touse'
+			qui by `bylist`i1'': replace `dI`i1'' = ///
+				`dI`i1''[_N] if `.touse'
+			qui replace `dI`i1'' = `dI`i1''/`I`i1'' if `.touse'
+		}
+		qui replace `p`i'' = `p`i''/`I`i1'' if `.touse'
+		qui replace `I`i1'' = ln(`I`i1'') if `.touse'
+
+		if "`dep'" == "" {
+			qui replace `lf' = `lf' - `I`i1'' ///
+				if `.dep'==1 & `.touse'
+		}
+		else {
+			qui replace `lf' = `lf' - `I`i1'' if `.touse'
+
+			if `.rum' & `bsave' {
+				forvalues i1=`i'(-1)1 {
+					qui replace `I`i'' = `I`i'' - ///
+						`eta`i1''/`tau`i'' if `.touse'
+				}
+			}
+		}
+	}
+	drop `u'
+
+	if `bsave' {
+		.eta.Arrdropall
+		.p.Arrdropall
+		.I.Arrdropall
+
+		forvalues i=1/`nlev' {
+			.eta[`i'] = ._numericvar.new double `eta`i''
+			.p[`i'] = ._numericvar.new double `p`i''
+			.I[`i'] = ._numericvar.new double `I`=`i'-1''
+		}
+	}
+	if (`todo' == 0) exit
+
+	if "`.scvar.varname'" == "" {
+		/* programming error 					*/
+		di as err "_nlogitmodel.evaluate: must initialize " ///
+		 "score variables"
+		exit 499
+	}
+
+	/* linear predictor scores 					*/
+	if `.rum' {
+		local sa `.scvar.varname'
+		qui replace `sa' = cond(`.touse',-1,.)
+		local dt 
+		forvalues j=1/`nlev' {
+			qui replace `sa' = `sa'*`p`j'' + `c`j''`dt' if `.touse'
+
+			if `j' < `nlev' {
+				qui replace `sa' = `sa' - `c`j''/`tau`j''
+				local dt /`tau`j'' 
+			}
+		}
+	}
+	else {
+		local sa `.scvar.varname'
+		qui replace `sa' = cond(`.touse',0,.)
+		forvalues j=`nlev'(-1)1 {
+			if `j' == 1 {
+				qui gen double `u' = `c`j'' - `p`j'' ///
+					if `.touse'
+			}
+			else {
+				local j1 = `j' - 1
+				qui gen double `u' = `c`j'' - ///
+					`p`j''*`c`j1'' if `.touse'
+			}
+			forvalues k=`=`j'+1'/`nlev' {
+				local k1 = `k'-1
+				qui replace `u' = `u'*`p`k''*`tau`k1'' ///
+					if `.touse'
+			}
+			qui replace `sa' = `sa' + `u' if `.touse'
+			cap drop `u' 
+		}	 
+		tempvar touse 
+		forvalues i=1/`kleq' {
+			local si `.models[`i'].scvar.varname'
+			qui replace `si' = cond(`.touse', 0, .)
+			if `.models[`i'].kcoef' == 0 { 
+				/* nothing to do 			*/
+				continue
+			}
+			qui bysort `bylist`i'' (`.altern.varname'): ///
+				gen byte `touse' = (_n==1) & `.touse'
+
+			forvalues j=`i'(-1)1 {
+				if `j' == 1 {
+					qui gen double `u' = cond(`touse', ///
+						(`c`j'' - `p`j''),0) 
+				}
+				else {
+					local j1 = `j' - 1
+					qui gen double `u' = cond(`touse', ///
+						`c`j'' -`p`j''*`c`j1'',0)    
+				}
+
+				forvalues k=`=`j'+1'/`i' {
+					local k1 = `k' - 1
+					qui replace `u' = `u'*`p`k''* ///
+						`tau`k1'' if `touse'
+				}
+				qui replace `si' = `si' + `u' if `.touse'
+
+				cap drop `u' 
+			}	 
+			cap drop `touse'
+		}
+	}
+	if (`nlev'==1) {
+		.sort_touse = ""	// going out of scope
+		exit
+	}
+
+	/*inclusive value/dissimilarity parameter scores 		*/
+	tempname  nlog_Tj
+
+	if `.rum' {
+		local dinc dinc(`nlog_dI')
+		local etaopt eta(`eta')
+	}
+	else {
+		tempvar dIdt
+		
+		gen double `dIdt' = -1
+		local dinc dinc(`dIdt')
+	}
+	local l = 1 
+	matrix `nlog_Tj' = J(1,`nlv1',1)
+	._dldtau, l(`l') lj(1) tj(`nlog_Tj') inc(`nlog_I') p(`nlog_p') ///
+		tau(`nlog_tau') bylist(`bylist`l'') `etaopt' `dinc' `weight'
+
+	.sort_touse = ""	// going out of scope
+
+end	
+
+program ._dldtau
+	syntax, l(integer) lj(integer) tj(string) inc(string) p(string) ///
+		tau(string) bylist(string) dinc(string) [ ph(string)    ///
+		tauh(string) levh(string) g(string) eta(varname) ]
+
+	local nlv1 = `.kleq'
+	if (`l'>`nlv1') exit
+
+	tempvar Ij pj tauj dIjdt dJdt levj
+
+	qui gen double `Ij' = .
+	qui gen double `pj' = .
+	qui gen double `tauj' = .
+	qui gen double `dIjdt' = .
+	qui gen double `dJdt' = 0
+	qui gen byte `levj' = 0
+	if `.unbal' {
+		tempvar miss
+		gen long `miss' = 0
+	}
+	local l1 = `l'+1
+	/* number of groups and membership values at level l		*/
+	local nbranch `.models[`l'].nbranch.matname'
+	local altidx `.models[`l'].altidx.matname'
+
+	/* alternatives at levels l and l+1				*/
+	local al `.models[`l'].altern.varname'
+	local al1  `.models[`l1'].altern.varname'
+
+	/* case variable 						*/
+	local id `.sort_touse' `.case.varname'
+
+	if `.rum' {
+		if `l1' <= `nlv1' {
+			tempvar dxdt
+			qui gen double `dxdt' = 0
+		}
+		else {
+			local dxdt `eta'
+		}
+		local etaopt eta(`eta')
+		local dIl : word `l' of `dinc'
+	}
+	local pl : word `l' of `p' 
+	local Il : word `l1' of `inc' 
+	local taul : word `l' of `tau'
+
+	local j1 = `tj'[1,`l']
+	local jn = `nbranch'[1,`lj'] + `j1' - 1
+	local bylist1 `bylist' `al1'
+	forvalues j=`j1'/`jn' {
+		if `j' != `j1' {
+			qui replace `Ij' = .
+			qui replace `pj' = .
+			qui replace `tauj' = .
+			qui replace `dIjdt' = .
+		}
+		local jlev = `altidx'[1,`j']
+		qui sort `bylist'
+		qui replace `levj' = (`al'==`jlev') & `.touse'
+		qui by `id': replace `Ij' = `Il' if `levj'
+		if (`.rum') qui by `id': replace `dIjdt' = `dIl' if `levj'
+		qui by `id': replace `pj' = `pl' if `levj'
+		qui by `id': replace `tauj' = `taul' if `levj'
+
+                qui bysort `id' (`Ij'): replace `Ij' = `Ij'[_n-1]          ///
+			if `Ij'==. & `.touse'
+                qui bysort `id' (`dIjdt'): replace `dIjdt' = `dIjdt'[_n-1] ///
+			if `dIjdt'==. & `.touse'
+                qui bysort `id' (`pj'): replace `pj' = `pj'[_n-1]          ///
+			if `pj'==. & `.touse'
+                qui bysort `id' (`tauj'): replace `tauj' = `tauj'[_n-1]    ///
+			if `tauj'==.  & `.touse'
+
+		if `.unbal' {
+			qui bysort `id' (`.altern.varname'): ///
+				replace `miss' = sum(`levj') if `.touse'
+			qui by `id' (`.altern.varname'): ///
+				replace `miss' = (`miss'[_N]==0) if `.touse'
+			qui replace `Ij' = 0 if `miss' & `.touse'
+			if (`.rum') qui replace `dIjdt' = 0 if `miss' & `.touse'
+			qui replace `pj' = 0 if `miss' & `.touse' 
+			qui replace `tauj' = 0 if `miss' & `.touse'
+		}
+		local sk `.models[`l'].scanc[`j'].varname' 
+		qui replace `sk' = cond(`.touse',0,.)
+
+		if `.rum' {
+			if `l1' <= `nlv1' {
+				local Il1 : word `=`l1'+1' of `inc'
+				local taul1 : word `l1' of `tau'
+				qui replace `dxdt'=`taul1'*`Il1'/`tauj' ///
+					if `levj'
+			}
+			if `l' > 1 {
+				local tauk : word 1 of `tauh'
+				local levk : word 1 of `levh'
+				local dt /`tauk'
+			}
+			else {
+				local tauk
+				local dt
+			}
+			qui replace `sk' = cond(`levj',	-`dxdt'/`tauj' + ///
+				`dIjdt'*(`tauj'`dt'-1)+`Ij'`dt',0)       ///
+				if `.dep'==1 & `.touse'
+
+			qui replace `dJdt' = 0 if `.touse'
+			qui replace `dJdt' = (`Ij'+`tauj'*`dIjdt')`dt'*`pj' ///
+				if `.dep'==1 & `.touse'
+
+			forvalues i=1/`=`l'-1' {
+				local taui `tauk'
+				local levi `levk'
+
+				if `i' == `l'-1 {
+					qui replace `sk' = `sk' +        ///
+					cond(`levi',`dJdt'*(`taui'-1),0) ///
+					if `.dep'==1 & `.touse'
+				}
+				else {
+					local tauk : word `=`i'+1' of `tauh'
+					local levk : word `=`i'+1' of `levh'
+					local dt /`tauk'
+					qui replace `sk' = `sk' +    ///
+						cond(`levi',`dJdt'*  ///
+						(`taui'/`tauk'-1),0) ///
+						if `.dep'==1 & `.touse'
+
+					qui replace `dJdt' = `dJdt'/`tauk' ///
+						if `.dep'==1 & `.touse'
+				}
+
+				local pi : word `i' of `ph'
+				qui replace `dJdt' = `dJdt'*`pi'*`taui' ///
+					if `.dep'==1 & `.touse'
+			}
+			qui replace `sk' = `sk' - `dJdt' if `.dep'==1 & `.touse'
+		}
+		else {
+			qui replace `dIjdt' = `pj'*`dinc' if `.touse'
+
+			qui replace `sk' = `Ij'*(cond(`levj',1,0)+`dIjdt') ///
+				if `.dep'==1 & `.touse'
+		}
+
+		if `l1' <= `nlv1' {
+			if `.rum' {
+				local ps `pj' `ph' 
+				local taus `tauj' `tauh'
+				local levs `levj' `levh'
+				local dincj dinc(`dinc')
+			}
+			else {
+				qui replace `dIjdt' =             ///
+					cond(`levj',`tauj'-1,0) + ///
+					`tauj'*`dIjdt' if `.touse'
+
+				local dincj dinc(`dIjdt')
+			}
+
+			._dldtau, l(`l1') lj(`j') tj(`tj') inc(`inc') p(`p') ///
+				tau(`tau') bylist(`bylist1') `dincj'         ///
+				ph(`ps') tauh(`taus') levh(`levs') `etaopt'
+		}
+	}
+	matrix `tj'[1,`l'] = `tj'[1,`l'] + `nbranch'[1,`lj']
+end
+
+/* evaluate scores for by-alternative variables for all levels of the 	*/
+/*  hierarchy; called by _limdemodel.scores				*/
+program .evalbascrs, rclass
+	syntax [newvarlist], [ g(name) ]
+
+	local scores `varlist'
+	local bscr = ("`scores'"!="")
+
+	local k = 0
+	forvalues i=1/`.kleq' {
+		.models[`i'].evalbascrs `scores', g(`g')
+		local is = `r(k)'
+		local k = `k' + `is'
+		if `bscr' & `is' {
+			tokenize `scores'
+			macro shift `is'
+			local scores `*'
+		}
+	}
+	.Super.evalbascrs `scores', g(`g')
+	local k = `k' + r(k)
+
+	return local k = `k'
+end
+
+/* evaluate scores for ancillary variables for all levels of the 	*/
+/*  hierarchy; called by _altdepmodel.scores				*/
+program .evalancscrs, rclass
+	syntax [newvarlist], [ g(name) ]
+
+	local scores `varlist'
+	local bscr = ("`scores'"!="")
+
+	local k = 0
+	forvalues j=1/`.kleq' {
+		.models[`j'].evalancscrs `scores', g(`g')
+		local is = r(k)
+		local k = `k' + `is'
+		if `bscr' & `is' {
+			tokenize `scores'
+			macro shift `is'
+			local scores `*'
+		}
+	}
+	return local k = `k'
+end
+
+program .genscvar 
+
+	.Super.genscvar
+	forvalues i=1/`.kleq' {
+		.models[`i'].genscvar
+		if `.rum' {
+			.models[`i'].scvar.ref = .scvar.ref
+		}
+	}
+end
+
+program .dropscvar 
+
+	.Super.dropscvar
+	forvalues i=1/`.kleq' {
+		.models[`i'].dropscvar
+	}
+end
+
+program .klev 
+
+	class exit (`.models.arrnels' + 1)
+end
+
+program .droptvars
+	syntax, [ all ]
+
+	.Super.droptvars
+	if "`all'" != "" {
+		forvalues i=1/`.kleq' {
+			.models[`i'].droptvars
+		}
+	}
+end
+
+program .strvars
+	syntax, [ all ]
+	
+	local vars `.Super.strvars'
+	if "`all'" != "" {
+		local vars `vars' `.strbavars'
+
+		forvalues i=1/`.kleq' {
+			local vars `vars' `.models[`i'].strbavars'
+		}
+	}
+
+	class exit `"`vars'"'
+end
+
+program .clmodel
+
+	local clmodel `.dep'
+	if `.kvars' > 0 {
+		local clmodel `clmodel' `.strvars'
+	}
+	
+	forvalues i=1/`.kleq' {
+		local clmodel `clmodel' `.models[`i'].strtvars' 
+	}
+	if `.kbavars'+`.const' {
+		local clmodel `clmodel' `.strtvars'
+	}
+
+	class exit `"`clmodel'"'
+end
+	
+program .mlmodel
+
+	if (`.kvars'>0) local mlmodel `.mlasvmodel'
+	
+	forvalues i=1/`.kleq' {
+		local mlmodel `mlmodel' `.models[`i'].mlbavmodel' 
+	}
+	if (`.kbavars'>0 | `.const') local mlmodel `mlmodel' `.mlbavmodel'
+
+	forvalues i=1/`.kleq' {
+		local mlmodel `mlmodel' `.models[`i'].mlancmodel' 
+	}
+
+	class exit `"`mlmodel'"'
+end
+
+program .ancstripe
+ 
+        forvalues i=1/`.kleq' {
+                local stripe `stripe' `.models[`i'].ancstripe'
+        }
+ 
+        class exit `"`stripe'"'
+end
+
+program .kcoef
+	syntax, [ all ]
+
+	local kcoef = `.Super.kcoef'
+	if "`all'" != "" {
+		forvalues i=1/`.kleq' {
+			local kcoef = `kcoef' + `.models[`i'].kcoef'
+		}
+	}
+	class exit `kcoef'
+end
+
+program .kleq
+
+	class exit .models.arrnels
+end 
+
+program .keq 
+
+	local neq = `.Super.keq'
+	forvalues i=1/`.kleq' {
+		local neq = `neq' + `.models[`i'].keq'
+	}
+	class exit `neq'
+end
+
+program .kanc
+
+	local kanc = 0
+	forvalues i=1/`.kleq' {
+		local kanc = `kanc' + `.models[`i'].kanc'
+	}
+	class exit `kanc'
+end
+
+program .eretpost, eclass
+
+	local nlev  = `.klev'
+	ereturn scalar levels = `nlev'
+	ereturn scalar rum = (`.rum'!=0)
+
+	.Super.eretpost
+
+	tempname mat
+	mat `mat' = `.nbranch.name' 
+	ereturn mat k_branch`nlev' = `mat'
+	mat `mat' = `.altidx.name' 
+	ereturn mat altidx`nlev' = `mat'
+
+	tempname kaltern 
+	mat `kaltern' = J(1,`nlev',.)
+	mat `kaltern'[1,`nlev'] = `.altern.k'
+
+	forvalues i=`=`nlev'-1'(-1)1 {
+		.models[`i'].eretpost `.dep', index(`i') nocase 
+		mat `kaltern'[1,`i'] = `.models[`i'].altern.k'
+	}
+	ereturn matrix k_altern = `kaltern'
+
+end
+
+program .eretget
+	syntax, touse(varname) [ markout(string) * ]
+
+	/* touse generated by:						*/
+	/* 	marksample touse, novarlist				*/
+	/*    [ mark touse if e(sample)	]				*/
+
+	qui findfile _nlogitmodel_macros.ado
+	qui include `"`r(fn)'"'
+
+	/* markout before setting data members from ereturn		*/
+	._eretmarkout `touse', `markout'
+
+	.Super.eretget, touse(`touse') `options'
+	if missing(`.version') {
+		/* started storing e(version) in version 14 for
+		 *  FV support						*/
+	        .version = 13.1
+	}
+	if `.version' < 16 {
+		.mversion = `NLOGIT_VERSION_AS_BASE'
+	}
+	local vv : display "version " %5.1f `.version' ":"
+	.vv = "`vv'"
+
+	local nlev = e(levels)
+	mat `.nbranch.name' = e(k_branch`nlev')
+	mat `.altidx.name' = e(altidx`nlev')
+	if (`.altidx.cols' != `.altern.k') error 322
+	.models.Arrdropall
+
+	if "`.wtype'" != "" {
+		local wtopt weight(`.wtype' `.weight.objkey')
+	}
+
+	tempname modi
+
+	forvalues i=1/`=`nlev'-1' {
+               .`modi' = ._nlogitleveq.new
+		.`modi'.eretget, touse(`touse') index(`i') ///
+		 	case(`.case.objkey') `wtopt' bylist(`bylist')
+		local bylist `bylist' `.`modi'.altern.varname'
+		.models[`i'] = .`modi'.ref
+		classutil drop .`modi' 
+	}
+	.level = `nlev'
+end
+
+program ._eretmarkout
+	syntax varname(numeric), [ altwise depvar case singleton ]
+
+	local touse `varlist'
+	tempvar touse0
+	qui gen byte `touse0' = `touse'
+
+	.Super._eretmarkout `touse0', `case' `depvar'
+
+	local nlev = e(levels)
+	forvalues i=1/`=`nlev'-1' {
+		.Super._eretmarkout `touse0', index(`i')
+	}
+	/* casewise or altwise deletion					*/
+	if "`altwise'" == "" {
+		._markoutbycase `touse0', case(`e(case)') ifin(`touse')
+	}
+	qui replace `touse' = `touse0' 
+	if "`depvar'" != "" {
+		._markoutbindep `e(depvar)', case(`e(case)') ///
+			touse(`touse') oneonly
+	}
+	if "`singleton'" != "" {
+		._markoutsingletons `touse', case(`e(case)')
+	}
+	qui count if `touse'
+	if r(N) == 0 {
+		di as err "no cases remain after removing invalid " ///
+		 "observations"
+		exit 2000
+	}
+end
+
+program .predict
+	syntax newvarlist(min=1), b(name)  [ opt(string) level(integer 0) ]
+
+	local i1 = 1
+	local nlev = `.klev'
+	if "`opt'" == "iv" {
+		if `nlev' == 1 {
+			/* programmer error 				*/
+			di as err "the model has only one level so there " ///
+			 "are no inclusive values"
+			exit 322
+		}
+		local i1 = 2
+	}
+	if `level' > 0 {
+		if (`level'<`i1' | `level'>`nlev') {
+			/* programmer error				*/
+			di as err "{p}level must be an integer greater " ///
+			 "than or equal to `i1' and less than or equal " ///
+			 "to `nlev'{p_end}"
+			exit 198
+		}
+		local nv = 1
+	}
+	else local nv = `nlev'-`i1'+1
+
+	local type : word 1 of `typlist'
+	local nvl : word count `varlist'
+	if `nvl' != `nv' {
+		/* programmer error					*/
+		di as err "need `nv' new variable names"
+		exit 198
+	}
+	if ("`opt'"=="") local opt pr
+
+	tempvar lf
+	.evaluate `lf', b(`b') save nodep
+
+	if `level' <= 0 {
+		if ("`opt'"=="condp" | "`opt'"=="pr") local d .p
+		else if ("`opt'"=="iv") local d .I
+		else local d .eta
+	
+		forvalues i=`i1'/`nlev' {
+			if `i' < `nlev' {
+				local altvar `.models[`i'].altern.variable'
+			}
+			else {
+				local altvar `.altern.variable'
+			}
+			local vi : word `=`i'-`i1'+1' of `varlist'
+			qui gen `type' `vi' = ``d'[`i'].varname'
+			if "`opt'" == "pr" {
+				if "`vi1'" != "" {
+					qui replace `vi' = `vi'*`vi1'
+				}
+				local ll Pr(`altvar' alternatives) 
+				label var `vi' "`ll'" 
+				local vi1 `vi'
+			}
+			else if "`opt'" == "condp" {
+				local ll Pr(`altvar' alternatives 
+
+				if (`i'>1) local ll `ll' |`lprev')
+				else local ll `ll')
+
+				label var `vi' "`ll'"
+				if (`i'==1) local lprev "`altvar'"
+				else local lprev `"`altvar' `lprev'"'
+			}
+			else if "`opt'" == "iv" {
+				local ll inclusive value for the 
+				local ll `ll' `altvar' alternatives
+				label var `vi' "`ll'"
+			}
+			else {
+				local ll linear prediction for the
+				local ll `ll' `altvar' alternatives
+				label var `vi' "`ll'"
+			}
+		}
+		exit
+	}
+	forvalues i=`i1'/`nlev' {
+		if `i' == `nlev' {
+			local or | "`opt'"=="pb"
+			local altvar `.altern.variable'
+		}
+		else {
+			local altvar `.models[`i'].altern.variable'
+		}
+
+		if "`opt'"=="pr" & `level'==`i' {
+			qui gen `type' `varlist' = `.p[`i'].varname'
+			forvalues j=`=`i'-1'(-1)1 {
+				local vj : word `j' of `varlist' 
+				qui replace `varlist' = `varlist'* ///
+					`.p[`j'].varname'
+			}
+			label var `varlist' "Pr(`altvar' alternatives)"
+			continue, break
+		}
+		if "`opt'"=="condp" & `level'==`i' {
+			qui gen `type' `varlist' = `.p[`i'].varname'
+
+			local ll Pr(`altvar' alternatives
+
+			if (`i' > 1) local ll `ll' |`lprev')
+			else local ll `ll')
+
+			label var `varlist' "`ll'"
+
+			continue, break
+		}
+		if (`i'==1) local lprev "`altvar'"
+		else local lprev `"`altvar' `lprev'"'
+
+		if "`opt'"=="xb" & `level'==`i' {
+			qui gen `type' `varlist' = `.eta[`i'].varname'
+			local ll "linear prediction for the `altvar'"
+			local ll "`ll' alternatives"
+			label var `varlist' "`ll'"
+
+			continue, break
+		}
+		if "`opt'"=="iv" & `level'==`i' {
+			qui gen `type' `varlist' = `.I[`i'].varname'
+			local ll inclusive value for the
+			local ll `ll' `altvar' alternatives
+			label var `varlist' "`ll'"
+
+			continue, break
+		}
+	}
+	cap confirm `type' variable `varlist'
+	if _rc {
+		di as err "predict option {bf:`opt'} failed"
+		exit 499
+	}
+end
+
+program .summary
+
+	di as txt _n "_nlogitmodel class:"
+	di as txt _n "*** base model:" _c
+	.Super.summary `0'
+
+	forvalues i=1/`.kleq' {
+		di _n "*** model `i':" _c
+		.models[`i'].summary
+	}
+end
+
+exit

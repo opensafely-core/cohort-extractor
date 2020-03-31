@@ -1,0 +1,1063 @@
+*! version 1.1.3  09sep2019
+
+/* This class aids in the construction of xaxis options used to
+ * build risk tables for sts graph.  The idea is to build up a 
+ * repeated list of xlabel() options that correspond to both 
+ * repeated risktable() options and group specific risktable()
+ * options. 
+ */
+
+version 9
+
+class sts_graph_util {
+*** private data
+	double	itteration = 1
+	double 	hasRiskTable = 0
+	double	hasRightTitles = 0
+	string	nodraw = ""
+	string	originalArgs = ""
+	string	combinedRiskOpts = ""
+	string	notRiskOpts = ""
+
+	// index will correspond to group or axis
+	// these arrays can be sparse	
+	array	riskOpts
+	
+	array	rowTitles
+	array	rowTitleOpts
+	string	globalRowTitleOpts
+	array	rowAtOpt
+	array	lastFormat
+	array	defaultRule
+	
+	array	riskTextOpts
+		// Options specified as text options for risktable()...
+		// These are to be merged with text options from rowtitle()
+		// and then applied to the row titles.  Text options supplied
+		// with rowtitle() take precedence over these options.
+		
+	array	orderMap
+		// array for remapping the order of axes
+		
+	array	orderLabel
+		// array for hold order specific labels (may be sparse)
+			
+	string	graphname = ""
+	string	axis1 = ""
+	double	isTableTitlePosSet = 0
+	double	alignTitleWithRowTitles = 0
+	string	tableTitle
+	string	tableTitleOpts
+	
+	double	adjustmentMade = 0
+	double	isGraphNoDraw = 0
+	string	sizeOpts = ""
+}
+
+program getItteration
+	class exit `.itteration'
+end
+
+program setItteration
+	.itteration = `0'
+end
+
+program setNodraw
+	.nodraw = "nodraw"
+end
+
+program getHasRiskTable
+	class exit `.hasRiskTable'
+end
+
+program setOriginalArgs
+	.originalArgs = `"`0'"'
+end
+
+program getOriginalArgs
+	class exit `"`.originalArgs'"'
+end
+
+program setSizeOpts
+	.sizeOpts = `"`0'"'
+end
+
+program getSizeOpts
+	class exit `"`.sizeOpts'"'
+end
+
+program parseRiskTable
+	/* Routine for parsing repeated risktable() options into an array
+	 * based list of risktable() options.  This routine must be called
+	 * prior to calling -.getNotRiskTableOpts- or -.getRiskTableOpts-.
+	 */
+
+	if `.getItteration' == 1 {
+		syntax [ , RISKTable * ]	// look for switch option
+		if `"`risktable'"' != "" {
+			.hasRiskTable = 1
+		}
+
+		local opts `options'
+		syntax [, RISKTable(string asis) * ] // look for risktable(str)
+		if `"`risktable'"' != "" {
+			.hasRiskTable = 1
+		}
+		
+		while 1 {
+			// build an array of repeated risktable options
+			gettoken token opts : opts , bind
+			if `"`token'"' == "" {
+				continue, break
+			}
+
+			local 0, `token'
+			syntax [, RISKTable(string asis) *]
+			if `"`risktable'"' != "" {
+				local cnt = `cnt' + 1
+				.riskOpts[`cnt'] = `"`risktable'"'
+			}
+			else {
+				.notRiskOpts = `"`.notRiskOpts' `options'"'
+			}
+		}
+		
+		// Add a dummy entry into the array of risktable options so
+		// that at least one pass is guaranteed when getAxisOptions is 
+		// called.
+		if `.riskOpts.arrnels' < 1 & `.hasRiskTable' {
+			.riskOpts.Arrpush ""
+		}
+	}
+end
+
+program getNotRiskTableOpts
+	/* This program returns options that are not part of risktable().
+	 * -parseRiskTable- must be called prior to using this program.
+	 */
+	class exit `"`.notRiskOpts'"'
+end
+
+program getRiskTableOpts, sclass
+	/* This program builds a series of xlabel options based on the 
+	 * risktable options previously specified. -parseRiskTable- must 
+	 * be called prior to using this program.
+	 */
+	syntax, timevar(string) riskvar(string) failvar(string)		///
+		groups(string) axis1(integer) [ by(string) ]
+	
+	local axiscount :  word count `groups'
+	local graphname `.graphname'
+	.axis1 = `"`axis1'"'
+
+	// get each -order- option and parse it out of riskOpts[]
+	//   and only keep the last one specified
+	// get -righttitles- if it exists anywhere
+	forvalues i = 1/`.riskOpts.arrnels' {
+		local 0 `.riskOpts[`i']'
+		syntax	[anything(name=rule)] 				///
+			[, 						///
+				ORDER(string asis)			///
+				RIGHTTitles				///
+				*					///
+			]
+		.riskOpts[`i'] = `"`rule', `options'"'
+		if `"`=trim(`"`order'"')'"' != "" {
+			local orderOpt `order'
+			local hasOrder set
+		}
+		if `"`righttitles'"' != "" {
+			.hasRightTitles = 1
+		}
+	}
+	
+	// build the axislist based on the order, otherwise use the axiscount
+	if `"`hasOrder'"' != "" {
+		._parseOrderAndSaveMap, order(`orderOpt') count(`axiscount')
+		local cnt = `.orderMap.arrnels'
+		if `cnt' < 1 {
+			display as text "(note: option order() is invalid, ignored)
+			local orderFailed set
+		}
+		forvalues i = 1/`cnt' {
+			local axislist `axislist' `i'
+		}
+	}
+	if `"`hasOrder'"' == "" | `"`orderFailed'"' != "" {		
+		forvalues i = 1/`axiscount' {
+			local axislist `axislist' `i'
+		}
+		._parseOrderAndSaveMap, order(`axislist') count(`axiscount')
+	}
+
+	local defaultRule `.`graphname'.xaxis1.major.tick_values'
+	
+	// Build a list of touse variables which may need to be referenced 
+	// multiple times. The group number will be the used to identify each.
+	local i = 1
+	foreach variable of local groups {
+		tempvar touse`i' 
+		capture drop `touse`i''
+		
+		// _t == 0 is to be excluded
+		mark `touse`i'' if `variable' != . & _t != 0
+		local `++i'
+	}
+	
+	// loop over axes and apply default rules based on axis 1
+	numlist `"`defaultRule'"'
+	local rule `r(numlist)'
+	tempname A
+	matrix input `A' = `._numlistToVector "`rule'"'
+
+	foreach j of local axislist {
+		local map `.orderMap[`j']'
+		mata :	getAxisRiskVals("`timevar'",	///
+					"`riskvar'",	///
+					"`failure'",	///
+					"`touse`map''",	///
+					"`A'", 		///
+					"",	///
+					"labels"	///	
+			)
+		local axisOpts `axisOpts' 		///
+			xlabel(`labels', axis(`=`j'+`axis1''))				
+	}
+	
+	// build xscale options and xaxis option
+	local xScales `.`graphname'.x_scales' 
+	local xScales `xScales' `axis1'
+	foreach i of local axislist {
+		local realAxis = `i'+`axis1'
+		local axisOpts `axisOpts' xtitle("", axis(`realAxis'))
+		local axisOpts `axisOpts' 				///
+			xscale(style(scheme sts_risktable) axis(`realAxis'))
+		local xScales `xScales' `realAxis'
+	}
+	local axisOpts `axisOpts' xaxis(`xScales') maxaxes(`realAxis')			
+		
+	// apply global risktable options to all risk axes
+	forvalues i = 1/`.riskOpts.arrnels' { // repeated risktable options
+		local 0 `.riskOpts[`i']'
+		syntax	[anything(name=rule)] 				///
+			[, 						///
+				ROWTitle(string asis) 			///
+				Title(string asis)			///
+				GROUP(string) 				///
+				FORMAT(string asis)			///
+				FAILevents				///
+				*					///
+			]
+	
+		if "`group'" == "" { // global options
+			if `"`rule'"' == "" {
+				local rule `defaultRule'
+			}
+			else {
+				// promote a new rule as default
+				local defaultRule `rule'
+			}
+			numlist `"`rule'"' , sort
+			local rule `r(numlist)'
+			local rulemin : word 1 of `rule'
+			local count : word count `rule'
+			local rulemax : word `count' of `rule'
+			tempname A
+			matrix input `A' = `._numlistToVector "`rule'"'
+			._optsToXOpts , `options'
+			
+			// format is handled as part of the axis labels... 
+			//  These are not normally rightmost, so we always
+			//  promote the last format which has the effect of
+			//  duplicating normal rightmost behavior
+			if `"`format'"' != "" {
+				confirm numeric format `format'
+	
+				local lastformat `format'
+			}
+			else {
+				local format `lastformat'
+			}			
+			
+			if `"`rowtitle'"' != "" {
+				._parseTitleOpts `rowtitle'
+				local rtitle `"`s(title)'"'
+				if `"`s(at)'"' != "" {
+					local rpos `"at(`s(at)')"'
+				}
+				local roptions `s(options)'
+			}
+			if `"`failevents'"' != "" { 
+				local failure `failvar'
+			}
+			
+			foreach j of local axislist {
+				local map `.orderMap[`j']'
+				mata :	getAxisRiskVals("`timevar'",	///
+							"`riskvar'",	///
+							"`failure'",	///
+							"`touse`map''",	///
+							"`A'", 		///
+							"`format'",	///
+							"labels"	///	
+					)
+				local axisOpts `axisOpts' 		///
+					xlabel(`labels', `s(xlabel)' 	///
+						axis(`=`j'+`axis1'')	///
+					) 				///
+					xscale(`s(xscale)' axis(`=`j'+`axis1''))
+				if `"`rtitle'"' ! = "" {
+					.rowTitles[`j'] = `"`rtitle'"'
+				}
+				if `"`rpos'"' != "" {
+					.rowAtOpt[`j'] = `"`rpos'"'
+				}
+				.rowTitleOpts[`j'] = `"`.rowTitleOpts[`j']' `roptions'"'
+
+				if `"`options'"' != "" {
+					.riskTextOpts[`j'] = `"`options'"'
+				}
+			}
+			local failure
+			.globalRowTitleOpts = `"`.globalRowTitleOpts' `roptions'"'
+		}
+		._parseTitleOpts `title'
+		if `"`s(title)'"' != "" {
+			local tableTitle `"`s(title)'"'
+		}
+		if `"`s(options)'"' != "" {
+			._optsToXOpts , `s(options)'
+			local tableTitleOpts `s(xlabel)'
+		}
+		if `"`s(at)'"' != "" {
+			local tableTitlePosition `s(at)'
+		}
+	}
+
+	// apply group specific risktable options
+	forvalues i = 1/`.riskOpts.arrnels' {
+		local 0 `.riskOpts[`i']'
+		syntax	[anything(name=rule)] 				///
+			[, ROWTitle(string asis) GROUP(string) 		///
+				FAILevents				///
+				FORMAT(string asis) Title(string asis)* ]
+		
+		local holdGroup `group'
+		if `"`by'"' != "" {
+			local group `._getRealGroup "`by'" : `"`group'"''
+
+			// get the index of the match in .orderMap
+			local matchFound
+			forvalues i = 1/`.orderMap.arrnels' {
+				if `"`.orderMap[`i']'"' == `"`group'"' {
+					local index `i'
+					local matchFound set
+					continue, break
+				}
+			}
+		}
+		if `"`matchFound'"' == "" & `"`group'"' != "" {
+			display as text "(note: option " 	///
+			    `"group(`holdGroup') does not "'	///
+			    "match any row, using defaults)"
+		}
+		if `"`failevents'"' != "" { 
+			local failure `failvar'
+		}
+
+		if "`group'" != "" & `"`matchFound'"' != "" {
+			// format is handled as part of the axis labels... 
+			//  These are not normally rightmost, so we always
+			//  promote the last format which has the effect of
+			//  duplicating normal rightmost behavior
+			local newFormat
+			if `"`format'"' != "" {
+				confirm numeric format `format'
+				
+				.lastFormat[`group'] = "`format'"
+				local newFormat set
+			}
+			else {
+				local format `.lastFormat[`group']'
+			}
+			if `"`.defaultRule[`group']'"' == "" {
+				.defaultRule[`group'] = `"`defaultRule'"'
+			}
+			local labels
+			if `"`rule'"' != "" | `"`newFormat'"' != "" | `"`failevents'"' != "" {
+				if `"`rule'"' == "" {
+					local rule `"`.defaultRule[`group']'"'
+				}
+				else {
+					.defaultRule[`group'] = `"`rule'"'
+				}
+				numlist `"`rule'"'
+				local rule `r(numlist)'
+				local rulemin_gp : word 1 of `rule'
+				local count 	 : word count `rule'
+				local rulemax_gp : word `count' of `rule'
+				local rulemin `rulemin' `rulemin_gp'
+				local rulemax `rulemax' `rulemax_gp'
+				tempname A
+				matrix input `A' = `._numlistToVector "`rule'"'
+				mata :	getAxisRiskVals("`timevar'",	///
+							"`riskvar'",	///
+							"`failure'",	///
+							"`touse`group''", ///
+							"`A'", 		///
+							"`format'",	///
+							"labels"	///	
+					)
+			}
+			._optsToXOpts , `options'
+			local axisOpts `axisOpts' 		///
+				xlabel(`labels', `s(xlabel)' 	///
+				axis(`=`index'+`axis1''))	///
+				xscale(`s(xscale)' axis(`=`index'+`axis1''))
+			if `"`rowtitle'"' != "" {
+				._parseTitleOpts `rowtitle'
+				if `"`s(title)'"' ! = "" {
+					.rowTitles[`index'] = `"`s(title)'"'
+				}
+				if `"`s(at)'"' != "" {
+					.rowAtOpt[`index'] = `"`.rowAtOpt[`index']' at(`s(at)')"'
+				}				
+				.rowTitleOpts[`index'] = `"`.rowTitleOpts[`index']' `s(options)'"'
+			}
+			if `"`options'"' != "" {
+				.riskTextOpts[`index'] 		///
+					= `"`.riskTextOpts[`index']' `options'"'
+			}
+			
+			._parseTitleOpts `title'
+			if `"`s(title)'"' != "" {
+				local tableTitle `"`s(title)'"'
+			}
+			if `"`s(options)'"' != "" {
+				._optsToXOpts , `s(options)'
+				local tableTitleOpts `s(xlabel)'
+			}
+			if `"`s(at)'"' != "" {
+				local tableTitlePosition `s(at)'
+			}			
+		}
+		local failure 
+	}
+
+	// calculate the position of the row labels
+	local min `.`graphname'.plotregion1.xscale.curmin'
+	local max `.`graphname'.plotregion1.xscale.curmax'
+	
+	local offset = ((`max' - `min' ) * .05)
+	
+	// get the smallest value of accumulated rule minimums and axis min
+	if `"`rulemin'"' != "" {
+		numlist `"`rulemin'"', sort
+		local rulemin `r(numlist)'
+		local rulemin : word 1 of `rulemin'
+		local min `rulemin'
+	}
+	
+	// get the largest value of accumulated rule maximums and axis max
+	if `"`rulemax'"' != "" {
+		numlist `"`rulemax'"', sort
+		local count 	 : word count `rulemax'
+		local rulemax : word `count' of `rulemax'
+		local max `rulemax'
+	}
+	
+	if `.hasRightTitles' {
+		local position = `max' + `offset'
+		local justification labjustification(left)
+	}
+	else {
+		local position = `min' - `offset'
+		local justification labjustification(right)
+	}
+	
+	// add table title
+	if `"`tableTitle'"' == "" {
+		local tableTitle `"Number at risk"'
+	}
+	.tableTitle = `"`tableTitle'"'
+	
+	if `"`tableTitlePosition'"' != "" {
+		local 0, `tableTitlePosition'
+		syntax [, ROWTitles * ]
+		if `"`rowtitles'"' != "" {
+			.alignTitleWithRowTitles = 1
+			local tableTitlePosition `position'
+		}
+		else {
+			capture confirm number `tableTitlePosition'
+			if _rc {
+				display as error	///
+				    `"`tableTitlePosition' found where "' ///
+				    "{it:number} or {cmd:rowtitles} expected"
+				exit 198
+			}
+			.isTableTitlePosSet = 1  // set by user
+		}		
+	}
+	else {
+		local tableTitlePosition `position'
+	}
+	
+	// save off user specified opts ... actually xlabel options here
+	.tableTitleOpts = `"`tableTitleOpts'"' 
+	
+	local tableTitleOpts 	///
+		`._getRightMostAxisOpt labstyle(sts_risktitle)          ///
+		`justification' `tableTitleOpts''
+	
+	local axisOpts `axisOpts' 					///
+		xlabel(`tableTitlePosition' `"`tableTitle'"',  		///
+		custom norescale 					///
+		`tableTitleOpts' axis(`axis1')) 			///
+		xtitle("", axis(`axis1'))				///
+		xscale(style(scheme sts_risktable) `s(xscale)' axis(`axis1'))
+		
+	// add row titles
+	local j = 1
+	foreach j of local axislist {
+		local map `.orderMap[`j']'
+		local variable : word `map' of `groups'
+		
+		._parseTitleOpts `.orderLabel[`j']'
+		local label `"`s(title)'"'
+		
+		if `"`.rowTitles[`j']'"' != "" {
+			local label `"`.rowTitles[`j']'"'
+		}
+		
+		local titleopts `"`.rowTitleOpts[`j']'"'
+		local at `"`.rowAtOpt[`j']'"'
+		_parse combop at : at, option(at) rightmost opsin
+		_parseTitleOpts , `at'
+		if `"`s(at)'"' != "" {
+			confirm number `s(at)'
+			local atPos `s(at)'
+		}
+		else {
+			local atPos `position'
+		}
+		
+		if `"`label'"' == `""' {
+			if `: word count `groups'' > 1 {
+				local label : variable label `variable'
+			}
+			else {
+				local label " "
+			}
+		}
+		.rowTitles[`j'] = `"`label'"'
+		._optsToXOpts , 	///
+		    `._getRightMostTextOpt style(sts_risktitle) ///
+		    `justification' `.riskTextOpts[`j']' `titleopts''
+		    
+		local axisOpts `axisOpts' 			///
+			xlabel(`atPos' `"`label'"',  		///
+				add custom norescale 		///
+				axis(`=`j'+`axis1'')		///
+				`s(xlabel)'			///
+			)
+	}
+	local axisOpts `axisOpts' xoverhang
+	sreturn local xaxisOps `"`axisOpts'"'
+end
+
+program parseGraphName
+	/* A utility program to parses out the actual graph name from
+	 * from the name() option. 
+	 */
+
+	syntax [ , NAME(string) ]
+	local 0 `name'
+	syntax [anything] [, REPLACE ]
+	class exit `"`anything'"'
+end
+
+program getGraphName
+	class exit `"`.graphname'"'
+end
+
+program setGraphName
+	.graphname = `"`0'"'
+end
+
+program setNoDraw
+	args nodraw
+	if `"`nodraw'"' != "" {
+		.isGraphNoDraw = 1
+	}
+	else {
+		.isGraphNoDraw = 0
+	}
+end
+
+program getNoDraw
+	class exit `"`.isGraphNoDraw'"'
+end
+
+program doPostGraphAdjustments
+	syntax [, dryrun]
+	.adjustmentMade = 0
+	local min `.`.graphname'.plotregion1.xscale.curmin'
+	local max `.`.graphname'.plotregion1.xscale.curmax'
+	
+	// handle table title
+	local 0 , `.tableTitleOpts'
+	syntax [, LABJustification(string asis) * ]
+	if `"`labjustification'"' != "" & ! `.isTableTitlePosSet' {
+		local size `.`.graphname'.xaxis`.axis1'.matching_label_size `"`.tableTitle'"''
+		local offset `.`.graphname'.xaxis`.axis1'.convert_gu_to_scale `size''
+		if `"`dryrun'"' == "" {
+			if `.hasRightTitles' {
+				if `"`labjustification'"' == "right" {
+					local position = `max' + ((`max' - `min' ) * .05)
+					local position = `position' + `offset'
+					_gm_edit .`.graphname'.xaxis`.axis1'.matching_label_editstyle 	///
+						`"`.tableTitle'"'					///
+						`"tickstyle(textstyle(horizontal(right)))"'
+					_gm_edit .`.graphname'.xaxis`.axis1'.matching_label_position 	///
+						`"`.tableTitle'"' `position'
+				}
+				else if `"`labjustification'"' == "center" {
+					local position = `max' + ((`max' - `min' ) * .05)
+					local position = `position' + (`offset'/2)
+					_gm_edit .`.graphname'.xaxis`.axis1'.matching_label_editstyle 	///
+						`"`.tableTitle'"'					///
+						`"tickstyle(textstyle(horizontal(center)))"'
+					_gm_edit .`.graphname'.xaxis`.axis1'.matching_label_position 	///
+						`"`.tableTitle'"' `position'
+				}
+			}
+			else {
+				if `"`labjustification'"' == "left" {
+					local position = `min' - ((`max' - `min' ) * .05)
+					local position = `position' - `offset'
+					_gm_edit .`.graphname'.xaxis`.axis1'.matching_label_editstyle	///
+						`"`.tableTitle'"'					///
+						`"tickstyle(textstyle(horizontal(left)))"'
+					_gm_edit .`.graphname'.xaxis`.axis1'.matching_label_position 	///
+						`"`.tableTitle'"' `position'
+				}
+				else if `"`labjustification'"' == "center" {
+					local position = `min' - ((`max' - `min' ) * .05)
+					local position = `position' - (`offset'/2)
+					_gm_edit .`.graphname'.xaxis`.axis1'.matching_label_editstyle 	///
+						`"`.tableTitle'"'					///
+						`"tickstyle(textstyle(horizontal(center)))"'
+					_gm_edit .`.graphname'.xaxis`.axis1'.matching_label_position 	///
+						`"`.tableTitle'"' `position'
+				}
+			}
+		}
+		.adjustmentMade = 1
+	}
+	
+	
+	// handle row titles and optionally table title
+	local 0 , `.globalRowTitleOpts'
+	_parse combop 0 : 0, option(Justification) rightmost opsin
+	syntax [, Justification(string asis) * ]
+	if `"`justification'"' == "" {
+		// if justification is not modified, nothing is to be done
+		class exit `.adjustmentMade'
+	}
+	
+	if `"`dryrun'"' == "" {
+		local maxl = 0
+		forvalues j = 1/`.rowTitles.arrnels' {	
+			local axnum = `j'+`.axis1'
+			local size `.`.graphname'.xaxis`axnum'.matching_label_size `"`.rowTitles[`j']'"''
+			local offset `.`.graphname'.xaxis`axnum'.convert_gu_to_scale `size''
+			if `offset' > `maxl' {
+				local maxl = `offset'
+			}
+		}
+	}
+
+	if `.hasRightTitles' {
+		forvalues j = 1/`.rowTitles.arrnels' {
+			if `"`.rowAtOpt[`j']'"' != "" {
+				continue, break
+			}
+			local axnum = `j'+`.axis1'
+			local 0 , `.rowTitleOpts[`j']'
+			_parse combop 0 : 0, option(Justification) rightmost opsin
+			syntax [, Justification(string asis) * ]
+			if `"`justification'"' == "right" {
+				if `"`dryrun'"' == "" {
+					local position = `max' + ((`max' - `min' ) * .05)
+					local position = `position' + `maxl'					
+
+					_gm_edit .`.graphname'.xaxis`axnum'.matching_label_editstyle 	///
+						`"`.rowTitles[`j']'"'   				///
+						`"tickstyle(textstyle(horizontal(right)))"'
+					_gm_edit .`.graphname'.xaxis`axnum'.matching_label_position 	///
+						`"`.rowTitles[`j']'"' `position'
+
+					if `.alignTitleWithRowTitles' {
+						_gm_edit .`.graphname'.xaxis`.axis1'.matching_label_editstyle 	///
+							`"`.tableTitle'"'  					///
+							`"tickstyle(textstyle(horizontal(right)))"'
+						_gm_edit .`.graphname'.xaxis`.axis1'.matching_label_position 	///
+							`"`.tableTitle'"' `position'
+					}
+				}
+				.adjustmentMade = 1
+			}
+			else if `"`justification'"' == "center" {
+				if `"`dryrun'"' == "" {
+					local position = `max' + ((`max' - `min' ) * .05)
+					local position = `position' + (`maxl'/2)					
+
+					_gm_edit .`.graphname'.xaxis`axnum'.matching_label_editstyle 	///
+						`"`.rowTitles[`j']'"'					///
+						`"tickstyle(textstyle(horizontal(center)))"'
+					_gm_edit .`.graphname'.xaxis`axnum'.matching_label_position 	///
+						`"`.rowTitles[`j']'"' `position'
+
+					if `.alignTitleWithRowTitles' {
+						_gm_edit .`.graphname'.xaxis`.axis1'.matching_label_editstyle 	///
+							`"`.tableTitle'"'					///
+							`"tickstyle(textstyle(horizontal(center)))"'
+						_gm_edit .`.graphname'.xaxis`.axis1'.matching_label_position	///
+							`"`.tableTitle'"' `position'
+					}
+				}
+				.adjustmentMade = 1	
+			}
+			else {
+				// justification left... This is the default for righttitles
+			}
+		}
+	}
+	else {
+		forvalues j = 1/`.rowTitles.arrnels' {
+			if `"`.rowAtOpt[`j']'"' != "" {
+				continue, break
+			}				
+			local axnum = `j'+`.axis1'
+			local 0 , `.rowTitleOpts[`j']'
+			_parse combop 0 : 0, option(Justification) rightmost opsin
+			syntax [, Justification(string asis) * ]
+			if `"`justification'"' == "left" {
+				if `"`dryrun'"' == "" {
+					local position = `min' - ((`max' - `min' ) * .05)
+					local position = `position' - `maxl'
+
+					_gm_edit .`.graphname'.xaxis`axnum'.matching_label_editstyle 	///
+						`"`.rowTitles[`j']'"'					///
+						`"tickstyle(textstyle(horizontal(left)))"'
+					_gm_edit .`.graphname'.xaxis`axnum'.matching_label_position 	///
+						`"`.rowTitles[`j']'"' `position'
+
+					if `.alignTitleWithRowTitles' {
+						_gm_edit .`.graphname'.xaxis`.axis1'.matching_label_editstyle 	///
+							`"`.tableTitle'"'					///
+							`"tickstyle(textstyle(horizontal(left)))"'
+						_gm_edit .`.graphname'.xaxis`.axis1'.matching_label_position 	///
+							`"`.tableTitle'"' `position'
+					}
+				}
+				.adjustmentMade = 1
+			}
+			else if `"`justification'"' == "center" {
+				if `"`dryrun'"' == "" {
+					local position = `min' - ((`max' - `min' ) * .05)
+					local position = `position' - (`maxl'/2)
+
+					_gm_edit .`.graphname'.xaxis`axnum'.matching_label_editstyle 	///
+						`"`.rowTitles[`j']'"'   				///
+						`"tickstyle(textstyle(horizontal(center)))"'
+					_gm_edit .`.graphname'.xaxis`axnum'.matching_label_position 	///
+						`"`.rowTitles[`j']'"' `position'
+
+					if `.alignTitleWithRowTitles' {
+						_gm_edit .`.graphname'.xaxis`.axis1'.matching_label_editstyle	///
+							`"`.tableTitle'"' 					///
+							`"tickstyle(textstyle(horizontal(center)))"'
+						_gm_edit .`.graphname'.xaxis`.axis1'.matching_label_position 	///
+							`"`.tableTitle'"' `position'
+					}
+				}
+				.adjustmentMade = 1
+			}
+			else {
+				// justification right... This is the default for (default) left titles
+			}
+		}	
+	}
+	class exit `.adjustmentMade'
+end
+
+program _numlistToVector
+*** private method
+	args numlist
+	local i = 1
+	foreach value of local numlist {
+		if `i++' == 1 {
+			local vector `value'
+		}
+		else {
+			local vector `vector', `value'
+		}
+	}
+	class exit `"(`vector')"'
+end
+
+program _parseTitleOpts, sclass
+*** private method
+	syntax [anything] [, at(string) * ]
+	local optList `options'
+	// strip off extra quotes so xlabel will mimic normal text options
+	local wordCount : word count `anything'
+	if `wordCount' == 1 {
+		local 0 , text(`anything')
+		syntax [ , text(string) ]
+		local anything `"`text'"'
+	}
+	
+	sreturn local at `at'
+	sreturn local title `"`anything'"'
+	sreturn local options `"`optList'"'
+end
+
+program _optsToXOpts, sclass
+*** private method
+	syntax 	[, TOPGap(string) 		///
+		BOTTOMGap(string)		///
+		Color(string asis)		///
+		Justification(string asis)	///
+		STYle(string asis)		///
+		FORMAT(string asis)		///
+		SIze(string asis)		///
+		* ]
+	
+	if `"`topgap'"' != "" {
+		local optList `optList' labgap(`topgap')
+	}
+	if `"`bottomgap'"' != "" {
+		local optScale outergap(`bottomgap')
+	}
+	if `"`color'"' != "" {
+		local optList `optList' labcolor(`color')
+	}
+	if `"`justification'"' != "" {
+		local optList `optList' labjustification(`justification')
+	}
+	if `"`style'"' != "" {
+		local optList `optList' labstyle(`style')
+	}
+	if `"`format'"' != "" {
+		// just consume format... it is handled with axis labels
+	}
+	if `"`size'"' != "" {
+		local optList `optList' labsize(`size')
+	}
+	// The options defined here take precedence over general xlabel opts
+	sreturn local xlabel `"`._getRightMostAxisOpt `options' `optList''"'
+	sreturn local xscale `"`optScale'"'
+end
+
+program _getRightMostTextOpt
+*** private method
+	_parse combop 0 : 0, option(TOPGap)		rightmost opsin
+	_parse combop 0 : 0, option(BOTTOMGap)		rightmost opsin
+	_parse combop 0 : 0, option(Color)		rightmost opsin
+	_parse combop 0 : 0, option(Justification)	rightmost opsin
+	_parse combop 0 : 0, option(STYle)		rightmost opsin
+	_parse combop 0 : 0, option(FORMAT)		rightmost opsin
+	_parse combop 0 : 0, option(SIze)		rightmost opsin
+	class exit `"`0'"'
+end
+
+program _getRightMostAxisOpt
+*** private method
+	_parse combop 0 : 0, option(LABGAP)		rightmost opsin
+	_parse combop 0 : 0, option(LABColor)		rightmost opsin
+	_parse combop 0 : 0, option(LABJustification)	rightmost opsin
+	_parse combop 0 : 0, option(LABSTYLE)		rightmost opsin
+	_parse combop 0 : 0, option(FORMAT)		rightmost opsin
+	_parse combop 0 : 0, option(LABSize)		rightmost opsin
+	class exit `"`0'"'
+end
+
+program _getRealGroup
+*** private method
+	/* This program handles mappings for the group option. The syntax
+	 * for group option follows....
+	 * #<num> indicates a one to one mapping to the row number
+	 * <value> | <value label> determines the intended row based
+	 * 	on the value label if a match is found or alternatively
+	 *	on the actual value. Value labels will take precedence
+	 *	over the actual values.
+	 * This class and this routine assume that the data is to remain 
+	 * sorted by the -byvar-.
+	 */ 
+
+	args byvar colon group
+	if strpos(`"`group'"', `"#"') == 1 {
+		local result : subinstr local group `"#"' `""'
+	}
+	else {
+		foreach var of varlist `byvar' {
+			quietly levelsof `var', local(levels)
+			local valuelabel : value label `var'
+			if `"`valuelabel'"' != "" {
+				local i = 1
+				foreach item of local levels {
+					local label : label `valuelabel' `item'
+					if `"`group'"' == `"`label'"' {
+						local result `i'
+						continue, break
+					}
+					local `++i'
+				}
+			}
+			if `"`result'"' == "" { // a value label match was not found
+				local i = 1
+				foreach item of local levels {
+					if `"`group'"' == `"`item'"' {
+						local result `i'
+						continue, break
+					}
+					local `++i'
+				}
+			}
+		}
+	}
+	class exit `"`result'"'
+end
+
+program _parseOrderAndSaveMap
+*** private method
+	/* This routine builds an array used to map the user specified 
+	 * order to the underlying axis number. Any values of order() 
+	 * that are out of the valid range are ignored.
+	 */
+
+	syntax, order(string asis) count(integer)
+	local 0 `order'
+	
+	if `"`=trim(`"`0'"')'"' == `""' {
+		exit
+	}
+
+	gettoken token 0 : 0 , quotes
+
+	local i 0
+	while `"`token'"' != `""' {
+		capture confirm integer number `token'
+		if _rc {
+			.orderMap.Arrdropall
+			exit
+		}
+		if `token' > 0 & `token' <= `count' { // is order value valid
+			.orderMap[`++i'] = `token'
+			local badValue
+		}
+		else {
+			local badValue set
+		}
+
+		local pass1 1
+		while 1 {
+			gettoken text 0 : 0 , quotes
+			gettoken textNotQuoted : text	
+
+			if `"`text'"' == `"`textNotQuoted'"' {
+				local token `textNotQuoted'	
+				continue , break
+			}
+
+			if `pass1' {
+				if `"`badValue'"' == "" {
+					.orderLabel[`i'] = `"`text'"'
+				}
+				local pass1 0
+			}
+			else {
+				if `"`badValue'"' == "" {
+					.orderLabel[`i'] = 	///
+						`"`.orderLabel[`i']' `text'"'
+				}
+			}
+		}
+	}
+end
+
+	
+version 9.0
+mata:
+
+void getAxisRiskVals(	string scalar timevar,
+			string scalar riskvar,
+			string scalar failvar,
+			string scalar touse,
+			string scalar axis_values, // vector of axis values
+			string scalar format,
+			string scalar result_macro)
+{
+	real colvector t, rnum, failnum
+	real rowvector values
+	real scalar i, j, summ, lastj
+	string scalar result
+	real scalar temp
+	
+	t = rnum = failnum = .
+	summ = 0
+	result = ""
+	lastj = 1
+	
+	st_view(t, ., timevar, touse)
+	if (strmatch(failvar, "")) {
+		st_view(rnum, ., riskvar, touse)	
+	}
+	else {
+		st_view(rnum, ., riskvar, touse)
+		st_view(failnum, ., failvar, touse)
+	}
+	
+	values = st_matrix(axis_values) 
+	for(i=1; i<=cols(values); i++) {
+	    for(j=1; j<=rows(t); j++) {
+		if (!strmatch(failvar, "") & j > lastj) {
+			summ = summ + failnum[j-1]
+			if (j == rows(t)) { // last row
+				summ = summ + failnum[j]
+			}
+		}
+		
+		if (t[j]>=values[i]) {
+			temp = rnum[j]
+		}
+		else if (j >= rows(t)) {
+			temp = 0
+		}
+		if (t[j]>=values[i] | j >= rows(t)) {
+			if (strmatch(format, "")) {
+				result = result + strofreal(values[i]) + 
+					`" ""' + strofreal(temp) + `"" "'
+					
+				if (!strmatch(failvar, "") & i > 1) {
+					result = result + strofreal((values[i-1] + values[i])/2) +
+						`" "("' + strofreal(summ) + `")" "'
+				}
+			}
+			else {
+				result = result + strofreal(values[i]) + 
+				    `" ""' + strofreal(temp, format) + `"" "'				
+			}
+			lastj = j
+			summ = 0			
+			break
+		}
+			
+	    }
+	    st_local(result_macro, result)
+	}
+}
+end

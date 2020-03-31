@@ -1,0 +1,396 @@
+/*
+	mdslong
+
+*!  VERSION 1.3.2  07mar2015
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_wide
+INCLUDE header
+HELP hlp1, view("help mdslong")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource MDSLONG_DLG_HSCALE
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)				///
+    label(resource MDSLONG_DLG_TITLE)
+	
+BEGIN
+  TEXT tx_dv			_lft	_top	_vnwd	.,		///
+  	label(resource LBL_DEPVAR)
+  DEFINE holdy @y
+  VARNAME  vn_dv		@	_ss	_cwd3_1	.,		///
+  	numeric								///
+  	label(resource LBL_DEPVAR)
+
+  TEXT tx_idvar1		_lft3_02 _top	_vnwd	.,		///
+  	label(resource MDSLONG_MAIN_TX_IDVAR1)
+  VARNAME vn_idvar1		@	_ss	_cwd3_1	.,		///
+  	label(resource MDSLONG_MAIN_TX_IDVAR1)
+  TEXT tx_idvar2		_lft3_03 _top	_vnwd	.,		///
+  	label(resource MDSLONG_MAIN_TX_IDVAR2)
+  VARNAME vn_idvar2		@	_ss	_cwd3_1	.,		///
+  	label(resource MDSLONG_MAIN_TX_IDVAR2)
+
+  GROUPBOX gb_method	_lft	_ls	_cwd1		_ht6,		///
+	label(resource LBL_MDS_METHOD)
+DEFINE holdy @y
+  RADIO rb_classical	_indent	_ss	_inwd		.,		///
+	first								///
+	option(method(classical))					///
+	onclickon(program main_classical_on)				///
+	label(resource LBL_CLASSICAL)
+  RADIO rb_modern	@	_ss	@		.,		///
+	option(method(modern))						///
+	onclickon(program main_modern_on)				///
+	label(resource LBL_MODERN)
+  RADIO rb_nonmetric	@	_ss	@		.,		///
+	last								///
+	option(method(nonmetric))					///
+	onclickon(program main_nonmetric_on)				///
+	label(resource LBL_NONMETRIC_MODERN)
+
+  TEXT tx_loss		_lft2	holdy _cwd1		.,		///
+	label(resource LBL_LOSS_FUNCTION_OF_METRIC_AND_NONMETRIC_SCALING)
+DEFINE holdy @y
+  COMBOBOX cb_loss	@	_ss	_cwd1		.,		///
+	dropdownlist							///
+	option(loss)							///
+	label(resource LBL_LOSS_FUNCTION_OF_METRIC_AND_NONMETRIC_SCALING) ///
+	contents(loss_list)						///
+	values(loss_values)
+
+  TEXT tx_transform	_lft2	_ls	_cwd1		.,		///
+	label(resource LBL_TRANSFORMATIONS_OF_DISSIMILARITIES)
+DEFINE holdy @y
+  COMBOBOX cb_transform	@	_ss	_cwd1		.,		///
+	dropdownlist							///
+	option(transform)						///
+	label(resource LBL_TRANSFORMATIONS_OF_DISSIMILARITIES)		///
+	contents(transform_list)					///
+	values(transform_values)
+
+  GROUPBOX gb_normal	_lft	_ls	_cwd1 		_ht10h,		///
+	label(resource LBL_NORMALIZATION_METHOD)
+DEFINE holdprox @y
+  RADIO rb_principal	_indent	_ss	_cwd3		.,		///
+	first								///
+	onclickon(script main_target_off)				///
+	label(resource LBL_PRINCIPAL_ORIENTATION)
+DEFINE holdy @y
+  RADIO rb_normclass	@	_ss	@		.,		///
+	onclickon(script main_target_off)				///
+	label(resource LBL_PROCRUSTES_ROTATION_TOWARD_CLASSICAL_SOLUTION)
+
+  RADIO rb_target	@	_ss	@		.,		///
+	last								///
+	onclickon(script main_target_on)				///
+	label(resource LBL_PROCRUSTES_ROTATION_TOWARD_MATRIX)
+  COMBOBOX cb_matname	_rbsep	_ss	_cwd5		60,		///
+	dropdown							///
+	label(resource LBL_TARGET_MATRIX)				///
+	contents(matrix)
+  CHECKBOX ck_copy	@	_ms	@		.,		///
+	option(copy)							///
+	label(resource LBL_IGNORE_NAMING_CONFLICTS)
+
+  TEXT tx_convertsim	_lft2	holdprox _cwd1		.,		///
+	label(resource LBL_CONVERT_SIMILARITY_TO_DISSIMILARITY)
+  COMBOBOX cb_s2d	@	_ss	_cwd1		.,		///
+	dropdownlist							///
+	option(s2d)							///
+	label(resource LBL_CONVERT_SIMILARITY_TO_DISSIMILARITY)		///
+	contents(s2d_list)						///
+	values(s2d_values)
+
+  TEXT tx_dim			_lft2	_ls	_cwd1	.,		///
+	label(resource LBL_DIMENSION_OF_THE_APPROXIMATING_CONFIGURATION)
+  SPINNER sp_dim		@	_ss	_spwd	.,		///
+	label(resource LBL_CONFIGURATION_DIMENSIONS)			///
+	min(1)								///
+	max(10000)							///
+	default(2)							///
+	option(dimension)
+  CHECKBOX ck_force		_lft	_xxxxls	_iwd	.,		///
+	label(resource LBL_CORRECT_PROBLEMS_WITH_SUPPLIED_PROX_INFO)  	///
+	option(force)
+  CHECKBOX ck_addconstant	_lft	_ms	_iwd	.,		///
+	label(resource LBL_MAKE_DISTANCE_MATRIX_POSITIVE_SEMIDEFINITE)	///
+	option(addconstant)
+END
+
+INCLUDE byifin
+INCLUDE weights_fa
+
+DIALOG report, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  SPINNER sp_neigen		_lft	_top	_spwd	.,		///
+	label(resource LBL_DIMENSIONS)					///
+	min(1)								///
+	max(10000)							///
+	default(10)							///
+	option(neigen)
+  TEXT tx_neigen		_spsep	@	_spr	.,		///
+	label(resource LBL_MAXIMUM_NUMBER_OF_EIGENVALUES_TO_DISPLAY)
+  CHECKBOX ck_config		_lft	_ls	_iwd	.,		///
+	label(resource LBL_DISPLAY_TABLE_WITH_CONFIGURATION_COORDINATES) ///
+	option(config)
+  CHECKBOX ck_noplot		@	_ms	@	.,		///
+	label(resource LBL_SUPPRESS_CONFIGURATION_PLOT)			///
+	option(noplot)
+END
+
+INCLUDE _min_mds
+
+PROGRAM main_classical_on
+BEGIN
+	call main.tx_loss.disable
+	call main.cb_loss.disable
+	call main.tx_transform.disable
+	call main.cb_transform.disable
+
+	if main.rb_normclass {
+		call main.rb_principal.seton
+	}
+	call main.rb_normclass.disable
+
+	call main.ck_addconstant.enable
+
+	call script weights_disable
+
+//	disable all minimization opts
+	call min.gb_init.disable
+	call min.rb_classical.disable
+	call min.rb_random.disable
+	call min.ed_seed.disable
+	call min.tx_seed.disable
+	call min.rb_from.disable
+	call min.cb_matname.disable
+	call min.ck_copy.disable
+	call min.sp_iter.disable
+	call min.tx_iter.disable
+	call min.gb_convtol.disable
+	call min.ed_tol.disable
+	call min.tx_tol.disable
+	call min.ed_ltol.disable
+	call min.tx_ltol.disable
+	call min.ck_protect.disable
+	call min.sp_protect.disable
+	call min.ck_nolog.disable
+	call min.ck_trace.disable
+	call min.ck_gradient.disable
+
+	call report.sp_neigen.enable
+	call report.tx_neigen.enable
+END
+
+PROGRAM main_modern_on
+BEGIN
+	call main.tx_loss.enable
+	call main.cb_loss.enable
+	call main.tx_transform.enable
+	call main.cb_transform.enable
+
+	call main.rb_normclass.enable
+	call main.ck_addconstant.disable
+
+	call script weights_enable
+
+//	enable all minimization opts
+	call min.gb_init.enable
+	call min.rb_classical.enable
+	call min.rb_random.enable
+	if min.rb_random {
+		call min.ed_seed.enable
+		call min.tx_seed.enable
+	}
+	call min.rb_from.enable
+	if min.rb_from {
+		call min.cb_matname.enable
+		call min.ck_copy.enable
+	}
+	call min.sp_iter.enable
+	call min.tx_iter.enable
+	call min.gb_convtol.enable
+	call min.ed_tol.enable
+	call min.tx_tol.enable
+	call min.ed_ltol.enable
+	call min.tx_ltol.enable
+	call min.ck_protect.enable
+	if min.ck_protect {
+		call min.sp_protect.enable
+	}
+
+	call min.ck_nolog.enable
+	if !min.ck_nolog {
+		call min.ck_trace.enable
+		call min.ck_gradient.enable
+	}
+
+	call report.sp_neigen.disable
+	call report.tx_neigen.disable
+END
+
+PROGRAM main_nonmetric_on
+BEGIN
+	call main.tx_loss.disable
+	call main.cb_loss.disable
+	call main.tx_transform.disable
+	call main.cb_transform.disable
+	call main.rb_normclass.enable
+	call main.ck_addconstant.disable
+
+	call script weights_enable
+
+//	enable all minimization opts
+	call min.gb_init.enable
+	call min.rb_classical.enable
+	call min.rb_random.enable
+	if min.rb_random {
+		call min.ed_seed.enable
+		call min.tx_seed.enable
+	}
+	call min.rb_from.enable
+	if min.rb_from {
+		call min.cb_matname.enable
+		call min.ck_copy.enable
+	}
+	call min.sp_iter.enable
+	call min.tx_iter.enable
+	call min.gb_convtol.enable
+	call min.ed_tol.enable
+	call min.tx_tol.enable
+	call min.ed_ltol.enable
+	call min.tx_ltol.enable
+	call min.ck_protect.enable
+	if min.ck_protect {
+		call min.sp_protect.enable
+	}
+
+	call min.ck_nolog.enable
+	if !min.ck_nolog {
+		call min.ck_trace.enable
+		call min.ck_gradient.enable
+	}
+
+	call report.sp_neigen.disable
+	call report.tx_neigen.disable
+END
+
+SCRIPT main_target_on
+BEGIN
+	main.cb_matname.enable
+	main.ck_copy.enable
+END
+
+SCRIPT main_target_off
+BEGIN
+	main.cb_matname.disable
+	main.ck_copy.disable
+END
+
+LIST s2d_list
+BEGIN
+	resource LBL_DISSIMILARITY_DEFAULT
+	resource LBL_USING_DIJ_SQRT_SII_SJJ_2SIJ
+	resource LBL_USING_DIJ_1_SIJ
+END
+
+LIST s2d_values
+BEGIN
+	""
+	standard
+	oneminus
+END
+
+LIST loss_list
+BEGIN
+	resource LBL_STRESS_CRITERION_NORMALIZED_BY_DISTANCE
+	resource LBL_STRESS_CRITERION_NORMALIZED_BY_DISPARITIES
+	resource LBL_SQUARED_STRESS_CRITERION_NORMALIZED_BY_DISTANCE
+	resource LBL_SQUARED_STRESS_CRITERION_NORMALIZED_BY_DISPARITIES
+	resource LBL_STRAIN_CRITERION
+	resource LBL_SAMMON_MAPPING
+END
+
+LIST loss_values
+BEGIN
+	stress
+	nstress
+	sstress
+	nsstress
+	strain
+	sammon
+END
+
+LIST transform_list
+BEGIN
+	resource LBL_NO_TRANSFORMATION_DISPARITY_DISSIMILARITY
+	resource LBL_POWER_DISPARITY_DISSIMILARITY_ALPHA
+	resource LBL_WEAKLY_MONOTONIC_INCREASING_FUNCTIONS_NONMETRIC_SC
+END
+
+LIST transform_values
+BEGIN
+	identity
+	power
+	monotonic
+END
+
+PROGRAM normalization_output
+BEGIN
+	if !main.rb_principal {
+		put "normalize("
+		if main.rb_normclass {
+			put "classical)"
+		}
+		if main.rb_target {
+			put "target("
+			put main.cb_matname
+			put ")"
+			if main.ck_copy {
+				put ", "
+				put "copy"
+			}
+			put ")"
+		}
+	}
+END
+
+PROGRAM command
+BEGIN
+	INCLUDE _by_pr
+	put "mdslong "
+	require main.vn_dv
+	put main.vn_dv
+	INCLUDE _ifin_pr
+	INCLUDE _weights_pr
+	beginoptions
+		require main.vn_idvar1
+		put "id(" main.vn_idvar1 " "
+		require main.vn_idvar2
+		put main.vn_idvar2
+		put ") "
+		option radio(main rb_classical rb_modern rb_nonmetric)
+		if main.rb_target {
+			require main.cb_matname
+		}
+		put " " /program normalization_output
+		optionarg main.cb_loss
+		optionarg main.cb_transform
+		optionarg main.cb_s2d
+		option main.ck_force
+		optionarg /hidedefault main.sp_dim
+		option main.ck_addconstant
+		optionarg /hidedefault report.sp_neigen
+		option report.ck_config
+		option report.ck_noplot
+
+		put /program min_output
+	endoptions
+END

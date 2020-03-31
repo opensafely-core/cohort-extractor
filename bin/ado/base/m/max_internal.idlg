@@ -1,0 +1,224 @@
+/*
+    max_internal.idlg
+
+*!  VERSION 1.3.0  25aug2014
+
+    // SCRIPTS and PROGRAMS for external use
+	* SCRIPT max_setDefaultNoLog
+	* SCRIPT max_setDefaultLog
+	* SCRIPT max_setLTolNotAllowed
+	* SCRIPT max_sample_weight_off
+	* SCRIPT max_disable
+	* SCRIPT max_enable
+	* PROGRAM max_output
+
+*/
+DIALOG max, tabtitle(resource LBL_TAB_MAXIMIZATION)
+BEGIN
+  BUTTON   bu_hlp    _xsetbu	_top     _setbuwd  .,		///
+	label(resource LBL_HELP_MAXIMIZE)			///
+	onpush(script max_hlp)
+
+  SPINNER  sp_iter   _lft       _top     _spwd     .,		///
+	label(resource LBL_MAXIMUM_ITERATIONS)			///
+	min(0) max(16000) default(c(maxiter))			///
+	option(iterate)
+  TEXT     tx_iter   _spsep    @         _spr2b    .,		///
+	label(resource LBL_MAXIMUM_ITERATIONS)
+
+  GROUPBOX gb_log    _lft      _ls       _iwd     _ht6,		///
+	label(resource LBL_ITERATION_LOG)
+
+  RADIO	   rb_log    _indent  _ss       _inwd	   .,		///
+	label(resource LBL_SHOW_LOG)				///
+	option(log)						///
+	first
+  RADIO    rb_trace  @         _ss       @         .,		///
+	label(resource LBL_SHOW_LOG_AND_PARM_VEC)		///
+	option(trace)
+  RADIO	   rb_nolog  @         _ss       @	   .,		///
+	label(resource LBL_SUPPRESS_LOG)			///
+	option(nolog)						///
+	last
+
+
+  GROUPBOX gb_tol    _lft     _xls      _iwd       _ht8,	///
+	label(resource LBL_CONVERGENCE_TOLERANCE)
+
+  EDIT     ed_tol    _ilft    _ss       _en7wd     .,		///
+	label(resource LBL_COEFFICIENT_VECTOR)			///
+	option(tolerance) default(1e-4)
+  TEXT     tx_tol    _en7sep   @        _en7r2b    .,		///
+	label(resource LBL_COEFFICIENT_VECTOR)
+
+  EDIT     ed_ltol   _ilft    _ls       _en7wd     .,		///
+	label(resource LBL_LOG_LIKELIHOOD)			///
+	option(ltolerance) default(0)
+  TEXT     tx_ltol   _en7sep   @        _en7r2b    .,		///
+	label(resource LBL_LOG_LIKELIHOOD)
+
+  EDIT     ed_nrtol  230       @        _en7wd     .,		///
+	label(resource LBL_HSG) 				///
+	option(nrtolerance) default(1e-5)
+  TEXT     tx_nrtol  _en7sep   @        185    .,		///
+	label(resource LBL_HSG)
+
+  CHECKBOX ck_nonrtol _ilft   _ls         _ibwd     .,		///
+	onclickon(script nonrtol) onclickoff(script nrtol)	///
+	option(nonrtolerance)					///
+	label(resource LBL_DISABLE_HSG)
+END
+
+SCRIPT max_PREINIT
+BEGIN
+	create BOOLEAN max_initializing
+	max_initializing.settrue
+	create BOOLEAN max_isNoLTol
+	create BOOLEAN max_log_changed
+	create STRING max_log_default
+	max_log_default.setstring "log"
+END
+
+SCRIPT max_POSTINIT
+BEGIN
+	max_log_changed.setfalse
+	max_initializing.setfalse
+END
+
+PROGRAM disable_max
+BEGIN
+	call max.sp_iter.disable
+	call max.tx_iter.disable
+	call max.gb_log.disable
+	call max.rb_nolog.disable
+	call max.rb_log.disable
+	call max.rb_trace.disable
+	call max.gb_tol.disable
+	call max.ed_tol.disable
+	call max.tx_tol.disable
+	call max.ed_ltol.disable
+	call max.tx_ltol.disable
+	call max.tx_nrtol.disable
+	call max.ed_nrtol.disable
+	call max.ck_nonrtol.disable
+END
+
+PROGRAM enable_max
+BEGIN
+	call max.sp_iter.enable
+	call max.tx_iter.enable
+	call max.gb_log.enable
+	call max.rb_nolog.enable
+	call max.rb_log.enable
+	call max.rb_trace.enable
+	call max.gb_tol.enable
+	call max.ed_tol.enable
+	call max.tx_tol.enable
+	if ! max_isNoLTol {
+		call max.ed_ltol.enable
+		call max.tx_ltol.enable
+		call max.tx_nrtol.enable
+		call max.ed_nrtol.enable
+		call max.ck_nonrtol.enable
+	}
+END
+
+SCRIPT max_hlp
+BEGIN
+	view help maximize##|_new
+END
+
+PROGRAM _max_reset_log
+BEGIN
+	if ! max_log_changed & ! max_initializing {
+		if max_log_default.equals("log") {
+			call max.rb_log.seton
+		}
+		if max_log_default.equals("nolog") {
+			call max.rb_nolog.seton
+		}
+	}
+END
+
+PROGRAM _max_check_log
+BEGIN
+	if ( (max_log_default.equals("log") & ! max.rb_log)	///
+	 | (max_log_default.equals("nolog") & ! max.rb_nolog) ) {
+		call max_log_changed.settrue
+	}
+END
+
+/*******  Scripts for external use  *******/
+SCRIPT max_setDefaultNoLog
+BEGIN
+	program _max_check_log
+	max_log_default.setstring "nolog"
+	program _max_reset_log
+END
+
+SCRIPT max_setDefaultLog
+BEGIN
+	program _max_check_log
+	max_log_default.setstring "log"
+	program _max_reset_log
+END
+
+SCRIPT max_setLTolNotAllowed
+BEGIN
+	max_isNoLTol.settrue
+	max.ed_ltol.hide
+	max.tx_ltol.hide
+	max.tx_nrtol.hide
+	max.ed_nrtol.hide
+	max.ck_nonrtol.hide
+	max.bu_hlp.hide
+	max.settabtitle resource LBL_TAB_OPTIMIZATION
+	max.ed_tol.setvalue "1e-6"
+	max.ed_tol.setdefault "1e-6"
+END
+
+SCRIPT max_sample_weight_off
+BEGIN
+	script se_setDefaultOtherWeight
+END
+
+SCRIPT max_enable
+BEGIN	// wrapper for a program
+	program enable_max
+END
+
+SCRIPT max_disable
+BEGIN	// wrapper for a program
+	program disable_max
+END
+
+SCRIPT nonrtol
+BEGIN
+	max.ed_nrtol.disable
+	max.tx_nrtol.disable
+END
+
+SCRIPT nrtol
+BEGIN
+	max.ed_nrtol.enable
+	max.tx_nrtol.enable
+END
+
+PROGRAM max_output
+BEGIN
+	call program _max_check_log
+	if max_log_changed {
+		if max.rb_log & max_log_default.equals("nolog") {
+			option max.rb_log
+		}
+		option max.rb_trace
+		if max.rb_nolog & max_log_default.equals("log") {
+			option max.rb_nolog
+		}
+	}
+	optionarg /hidedefault max.sp_iter
+	optionarg /hidedefault max.ed_tol
+	optionarg /hidedefault max.ed_ltol
+	optionarg /hidedefault max.ed_nrtol
+	option max.ck_nonrtol
+END

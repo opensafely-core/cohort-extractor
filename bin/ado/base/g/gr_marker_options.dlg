@@ -1,0 +1,324 @@
+/*
+    gr_marker_options.dlg
+    
+*!  VERSION 1.1.7  22may2019
+
+	// SCRIPTS and PROGRAMS for external use
+		* SCRIPT  gr_marker_setHeadlabelOn
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_small
+DEFINE _dlght 435
+INCLUDE header_gr_child
+
+DEFINE _clwd	15
+DEFINE _wd	110
+DEFINE _sep	+115
+DEFINE _wd2	120
+DEFINE _sep2	+125
+DEFINE _cbwd	120
+DEFINE _cbsep	+125
+
+HELP hlp1, view("help scatter##marker_options")
+RESET res1
+
+SCRIPT gr_marker_setHeadlabelOn
+BEGIN
+	main.ck_head.show
+	main.ck_labels.setposition . . . 220
+	markerHeadLabelAllowed.settrue
+END
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource GR_MARKER_OPTIONS_DLG_HSCALE
+END
+
+PROGRAM PREINIT_PROGRAM
+BEGIN
+	call create PBOOLEAN markerHeadLabelAllowed
+	call main.ck_head.hide
+	if markerHeadLabelAllowed {
+		call script gr_marker_setHeadlabelOn
+	}
+END
+
+DIALOG main, label(resource LBL_MARKER_PROPERTIES_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  GROUPBOX gb_markers	_lft	_top	_iwd	_ht13h,		///
+	label(resource LBL_MARKER_PROPERTIES_DLG_TITLE)
+
+  TEXT     tx_symbol	_ilft	_ss	_wd	.,		///
+	label(resource LBL_SYMBOL) right
+  COMBOBOX cb_symbol	_sep	@	_cbwd	.,		///
+	dropdownlist option(msymbol)				///
+	contents(symbols)
+
+  TEXT     tx_clr	_ilft	_mls	_wd	.,		///
+	label(resource LBL_COLOR) right
+  COMBOBOX cb_clr	_sep	@	_cbwd	.,		///
+	dropdownlist contents(colors) 				///
+	onselchange(program main_cl_clr_sel)
+  COLOR    cl_clr	_cbsep	@	_clwd	.,
+  TEXT     tx_opacity	_ilft	_mls	_wd	.,		///
+	label(resource LBL_OPACITY) right
+  SPINNER sp_opacity	_sep	@	_spwd	.,		///
+	default(100)						///
+	min(0)							///
+	max(100)
+
+  TEXT     tx_size	_ilft	_mls	_wd	.,		///
+	label(resource LBL_SIZE) right
+  COMBOBOX cb_size	_sep	@	_cbwd	.,		///
+	dropdown option(msize)					///
+	contents(symbolsizes)
+
+  TEXT     tx_msymangle	_ilft	_mls	_wd	.,		///
+	label(resource LBL_SYMBOL_ANGLE) right
+  COMBOBOX cb_msymangle	_sep	@	_cbwd	.,		///
+	option(msangle) dropdown contents(angles)
+
+  CHECKBOX ck_labels	_lft	+45	_iwd	220,		///
+	label(resource LBL_ADD_LABELS_TO_MARKERS)		///
+	groupbox						///
+	onclickon(program marker_check) 			///
+	onclickoff(program marker_check)
+
+  TEXT     tx_mlabel	_ilft	_ss	_wd	.,		///
+	label(resource LBL_VARIABLE) right
+  VARNAME  vn_mlabel	_sep	@	_cbwd	.,		///
+	label(resource LBL_VARIABLE) option(mlabel) 		///
+	tooltip(resource LBL_VARIABLE_CONTAINING_LABELS)
+
+  TEXT     tx_labclr	_ilft	_mls	_wd	.,		///
+	label(resource LBL_LABEL_COLOR) right
+  COMBOBOX cb_labclr	_sep	@	_cbwd	.,		///
+	option(mlabcolor)					///
+	dropdownlist						///
+	contents(colors) onselchangelist(main_cl_labclr_sel)
+  COLOR    cl_labclr	_cbsep	@	_clwd	.,		///
+	option(mlabcolor)
+  TEXT     tx_labopacity	_ilft	_mls	_wd	.,		///
+	label(resource LBL_OPACITY) right
+  SPINNER sp_labopacity	_sep	@	_spwd	.,		///
+	default(100)						///
+	min(0)							///
+	max(100)
+  TEXT     tx_labsize	_ilft	_mls	_wd	.,		///
+	label(resource LBL_LABEL_SIZE) right
+  COMBOBOX cb_labsize	_sep	@	_cbwd	.,		///
+	dropdown contents(textsizes) option(mlabsize)
+
+  TEXT     tx_labpos	_ilft	_mls	_wd	.,		///
+	label(resource LBL_LABEL_POSITION) right
+  COMBOBOX cb_labpos	_sep	@	_cbwd	.,		///
+	option(mlabposition) 					///
+	dropdownlist						///
+	contents(clockpos)
+
+  TEXT     tx_labangle	_ilft	_mls	_wd	.,		///
+	label(resource LBL_LABEL_ANGLE) right
+  COMBOBOX cb_labangle	_sep	@	_cbwd	.,		///
+	option(mlabangle) 					///
+	dropdown						///
+	contents(angles)
+
+  TEXT     tx_labgap	_ilft	_mls	_wd	.,		///
+	label(resource LBL_LABEL_GAP) right
+  COMBOBOX cb_labgap	_sep	@	_cbwd	.,		///
+	option(mlabgap) dropdown contents(textsizes)
+
+  CHECKBOX ck_head	_ilft	_xls	_ibwd	.,		///
+	label(resource LBL_LABEL_SECOND_COORDINATE_NOT_FIRST)	///
+	option(headlabel)
+END
+
+PROGRAM main_cl_clr_sel
+BEGIN
+	if (main.cb_clr.iseq("custom")) {
+		call main.cl_clr.show
+	}
+	else {
+		call main.cl_clr.hide
+	}
+END
+
+PROGRAM main_symbol_on
+BEGIN
+	call main.cb_symbol.enable
+END
+
+PROGRAM main_symbol_off
+BEGIN
+	call main.cb_symbol.disable
+END
+
+LIST main_cl_labclr_sel
+BEGIN
+	main.cl_labclr.hide
+	main.cl_labclr.show
+	main.cl_labclr.hide
+END
+
+DIALOG adv, tabtitle(resource LBL_ADVANCED)
+BEGIN
+  INCLUDE gr_marker_adv
+
+  CHECKBOX ck_jitt	_lft	+45	_iwd	_ht5,		///
+	label(resource LBL_ADD_JITTER_TO_MARKERS) groupbox	///
+	onclickon(script jitter_on) onclickoff(script jitter_off)
+  TEXT tx_jitt		_ilft	_ss	_wd	.,		///
+	label(resource LBL_NOISE_FACTOR) right
+  EDIT	   en_jitt	_sep	@	_cbwd	.,numonly	///
+	label(resource LBL_JITTER) option(jitter)
+
+  TEXT tx_jitt_s	_ilft	_mls	_wd	.,		///
+	label(resource LBL_SEED_OPTIONAL) right
+  EDIT	   en_jitt_s	_sep	@	_cbwd	.,numonly	///
+	option(jitterseed) tooltip(resource LBL_RANDOM_NUMBER_SEED)
+END
+INCLUDE gr_marker_adv_pr
+
+SCRIPT jitter_on
+BEGIN
+	adv.en_jitt.enable
+	adv.tx_jitt.enable
+	adv.en_jitt_s.enable
+	adv.tx_jitt_s.enable
+END
+
+SCRIPT jitter_off
+BEGIN
+	adv.en_jitt.disable
+	adv.tx_jitt.disable
+	adv.en_jitt_s.disable
+	adv.tx_jitt_s.disable
+END
+
+PROGRAM marker_check
+BEGIN
+	if main.ck_labels {
+		call main.tx_mlabel.enable
+		call main.vn_mlabel.enable
+		call main.tx_labsize.enable
+		call main.cb_labsize.enable
+		call main.tx_labclr.enable
+		call main.cb_labclr.enable
+		call main.cl_labclr.enable
+		call main.tx_labopacity.enable
+		call main.sp_labopacity.enable
+		call main.tx_labpos.enable
+		call main.cb_labpos.enable
+		call main.tx_labangle.enable
+		call main.cb_labangle.enable
+		call main.tx_labgap.enable
+		call main.cb_labgap.enable
+		call main.ck_head.enable
+
+		call adv.ck_jitt.disable
+		call adv.tx_jitt.disable
+		call adv.en_jitt.disable
+		call adv.tx_jitt_s.disable	
+		call adv.en_jitt_s.disable
+	}
+	if ! main.ck_labels {
+		call main.tx_mlabel.disable
+		call main.vn_mlabel.disable
+		call main.tx_labsize.disable
+		call main.cb_labsize.disable
+		call main.tx_labclr.disable
+		call main.cb_labclr.disable
+		call main.cl_labclr.disable
+		call main.tx_labopacity.disable
+		call main.sp_labopacity.disable
+		call main.tx_labpos.disable
+		call main.cb_labpos.disable
+		call main.tx_labangle.disable
+		call main.cb_labangle.disable
+		call main.tx_labgap.disable
+		call main.cb_labgap.disable
+		call main.ck_head.disable
+		
+		call adv.ck_jitt.enable
+		if adv.ck_jitt {
+			call script jitter_on
+		}
+	}
+END
+
+PROGRAM main_mcolor_output
+BEGIN
+	if (main.cb_clr.isneq("") | main.sp_opacity.isneq(100)) {
+		put "mcolor("
+		if (main.cb_clr.iseq("custom")) {
+			put `"""' main.cl_clr
+			if (main.sp_opacity.isneq(100)) {
+				put " %" main.sp_opacity
+			}
+			put `"""'
+		}
+		else {
+			if (main.cb_clr.isneq("")) {
+				put main.cb_clr
+			}
+			if (main.sp_opacity.isneq(100)) {
+				put "%" main.sp_opacity
+			}
+		}
+		put ")"
+	}
+END
+
+PROGRAM main_mlabcolor_output
+BEGIN
+	if (main.cb_labclr.isneq("") | main.sp_labopacity.isneq(100)) {
+		put "mlabcolor("
+		if (main.cb_labclr.iseq("custom")) {
+			put `"""' main.cl_labclr
+			if (main.sp_labopacity.isneq(100)) {
+				put " %" main.sp_labopacity
+			}
+			put `"""'
+		}
+		else {
+			if (main.cb_labclr.isneq("")) {
+				put main.cb_labclr
+			}
+			if (main.sp_labopacity.isneq(100)) {
+				put "%" main.sp_labopacity
+			}
+		}
+		put ")"
+	}
+END
+
+PROGRAM command
+BEGIN
+	put /program " " main_mcolor_output
+	optionarg /hidedefault main.cb_size
+	optionarg /hidedefault main.cb_msymangle
+	optionarg /hidedefault main.cb_symbol
+	
+	if main.ck_labels {
+		require main.vn_mlabel
+	}
+	optionarg main.vn_mlabel
+	option main.ck_head
+	optionarg /hidedefault main.cb_labsize
+	put /program  " " main_mlabcolor_output
+	optionarg /hidedefault main.cb_labpos
+	optionarg /hidedefault main.cb_labangle
+	optionarg main.cb_labgap
+	
+	put " " /program gr_marker_adv_output
+	
+	if adv.ck_jitt {
+		require adv.en_jitt
+	}
+	optionarg adv.en_jitt
+	optionarg adv.en_jitt_s
+END
+

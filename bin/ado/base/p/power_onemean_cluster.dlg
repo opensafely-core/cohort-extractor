@@ -1,0 +1,911 @@
+/*
+	power onemean, cluster
+
+*!  VERSION 1.0.5  14mar2017
+
+*/
+
+VERSION 15.0
+
+INCLUDE _std_xwide
+DEFINE _dlght 510
+INCLUDE header
+
+HELP hlp1, view("help power onemean cluster")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING tmpstr
+	create STRING graph_res
+	create STRING numContents
+	create STRING stok
+	create ARRAY tmp
+	create BOOLEAN containsNumlist
+	create BOOLEAN containsNumlist_null
+	create BOOLEAN containsNumlist_ma_diff
+
+	program table_create4Onemean_clust
+	setscale_hadj resource POWER_ONEMEAN_CLUSTER_DLG_HSCALE
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	label(resource POWER_ONEMEAN_CLUSTER_DLG_TITLE)
+BEGIN
+  INCLUDE power_compute
+  DEFINE errpos _ls
+  INCLUDE power_errorprob
+
+  DEFINE sspos +45
+  INCLUDE power_oneclustsize
+
+  GROUPBOX gb_effect_size	_lft	+45	_iwd	_ht8,		///
+	label(resource LBL_EFFECT_SIZE)
+  GROUPBOX gb_means		_indent	_ss	_cwd1	_ht5,		///
+	label(resource LBL_MEANS)
+  DEFINE holdy2 @y
+  EDIT ed_null			_indent	_ss	_en14wd	.,		///
+	onchange(program check_for_numlist)				///
+	tooltip(resource POWER_ONEMEAN_MAIN_ED_NULL)			///
+	label("")
+  TEXT tx_null			_en14sep @	100	.,		///
+	label(resource LBL_STAR_NULL)
+  EDIT ed_ma_diff		_iilft	_ls	_en14wd	.,		///
+	option(diff)							///
+	onchange(program check_for_numlist)				///
+	label("")
+  TEXT tx_ma_diff		_en14sep @	8	.,		///
+	label("*")
+  COMBOBOX cb_ma_diff		+10	 @	100	.,		///
+	dropdownlist							///
+	contents("main_effect_list")					///
+	values("main_effect_values")					///
+	onselchange("program main_ma_diff_changed")			///
+	label(resource LBL_STAR_ALTERNATIVE_DIFFERENCE)
+  GROUPBOX gb_std		_lft2	holdy2	_cwd2	_ht5,		///
+  	label(resource LBL_STANDARD_DEVIATION_AND_INTRACLASS_CORR)
+  EDIT ed_sd			_indent	_ss	_en14wd	.,		///
+	option(sd)							///
+	default(1)							///
+	onchange(program check_for_numlist)				///
+	tooltip(resource POWER_ONEMEAN_MAIN_ED_SD)			///
+	label(resource LBL_STANDARD_DEVIATION)
+  DEFINE holdx @x
+  TEXT tx_sd			_en14sep @	115	.,		///
+	label(resource LBL_STAR_STANDARD_DEVIATION)
+  EDIT ed_rho			holdx	_ls	_en14wd	.,		///
+	option(rho)							///
+	default(0.5)							///
+	onchange(program check_for_numlist)				///
+	tooltip (resource POWER_ONEMEAN_CLUSTER_MAIN_ED_RHO)		///
+	label(resource LBL_STAR_INTRACLASS_CORR)
+  TEXT tx_rho			_en14sep @	155	.,		///
+  	label(resource LBL_STAR_INTRACLASS_CORR)
+	
+  CHECKBOX ck_cvcluster		_lft	+55	_iwd	_ht2h,		///
+	groupbox							///
+	onclickon(script main_cvcluster_on)				///
+	onclickoff(script main_cvcluster_off)				///
+	label(resource LBL_SPECIFY_VARYING_CLUSTER_SIZES)
+  EDIT ed_cvcluster		_ilft	_ms	_en14wd	.,		///
+	option(cvcluster)						///
+	onchange(program check_for_numlist)				///
+	label(resource LBL_COEFF_OF_VAR_FOR_CLUSTER_SIZES)              ///
+	tooltip(resource LBL_COEFF_OF_VAR_FOR_CLUSTER_SIZES_ED_CV-C1)
+  TEXT tx_cvcluster		_en14sep @	235	.,		///
+  	label(resource LBL_STAR_COEFF_OF_VAR_FOR_CLUSTER_SIZES)
+
+  DEFINE ypos +40
+  INCLUDE power_test_maincommon
+END
+
+LIST main_compute_list
+BEGIN
+	resource LBL_NUMBER_OF_CLUSTERS
+	resource LBL_CLUSTER_SIZE
+	resource PSS_LBL_POWER
+	resource POWER_ONEMEAN_EFFECT_SIZE_TARGET_MEAN
+END
+
+LIST main_compute_values
+BEGIN
+	ncluster
+	clustersize
+	power
+	effect
+END
+
+LIST main_clustsize_list1
+BEGIN
+	resource LBL_CLUSTER_SIZE 
+	resource LBL_SAMPLE_SIZE
+END
+
+LIST main_clustsize_values1
+BEGIN
+	clustsize
+	sampsize
+END
+
+LIST main_clustsize_list2
+BEGIN
+	resource LBL_NUM_OF_CLUSTERS_AND_CLUSTER_SIZES
+	resource LBL_NUM_OF_CLUSTERS_AND_SAMPLE_SIZES
+END
+
+LIST main_clustsize_values2
+BEGIN
+	nclustsize
+	nclustsamp
+END
+
+LIST main_effect_list
+BEGIN
+	resource POWER_LBL_ALTERNATIVE
+	resource POWER_LBL_DIFFERENCE
+END
+
+LIST main_effect_values
+BEGIN
+	"ma"
+	"diff"
+END
+
+PROGRAM main_compute_changed
+BEGIN
+	if main.cb_compute.iseq("ncluster") {
+		call program main_ncluster_on
+	}
+	if main.cb_compute.iseq("clustersize") {
+		call program main_clustersize_on
+	}
+	if main.cb_compute.iseq("power") {
+		call program main_power_on
+	}
+	if main.cb_compute.iseq("effect") {
+		call program main_effect_on
+	}
+END
+
+PROGRAM main_ncluster_on
+BEGIN
+	call main.ed_power.show
+	call main.ed_beta.show
+	call main.tx_power_beta_power.show
+	call main.cb_power_beta.show
+	call program main_clustsize_changed
+	call main.ed_ma_diff.show
+	call main.tx_ma_diff.show
+	call main.cb_ma_diff.show
+	call script power_test_maincommon_hide_dir
+	call program main_power_beta_changed
+	call program check_for_numlist
+	call program power_iteration_tab_check
+END
+
+PROGRAM main_clustersize_on
+BEGIN
+	call main.ed_power.show
+	call main.ed_beta.show
+	call main.tx_power_beta_power.show
+	call main.cb_power_beta.show
+	call program main_clustsize_changed
+	call main.ed_ma_diff.show
+	call main.tx_ma_diff.show
+	call main.cb_ma_diff.show
+	call script power_test_maincommon_hide_dir
+	call program main_power_beta_changed
+	call program check_for_numlist
+	call program power_iteration_tab_check
+END
+
+PROGRAM main_power_on
+BEGIN
+	call main.ed_power.hide
+	call main.ed_beta.hide
+	call main.tx_power_beta_power.hide
+	call main.cb_power_beta.hide
+	call program main_clustsize_changed
+	call main.ed_ma_diff.show
+	call main.tx_ma_diff.show
+	call main.cb_ma_diff.show
+	call script power_test_maincommon_hide_dir
+	call program check_for_numlist
+	call program power_iteration_tab_check
+END
+
+PROGRAM main_effect_on
+BEGIN
+	call main.ed_power.show
+	call main.ed_beta.show
+	call main.tx_power_beta_power.show
+	call main.cb_power_beta.show
+	call program main_clustsize_changed
+	call main.ed_ma_diff.hide
+	call main.tx_ma_diff.hide
+	call main.cb_ma_diff.hide
+	call script power_test_maincommon_show_dir
+	call program main_power_beta_changed
+	call program check_for_numlist
+	call program power_iteration_tab_check
+END
+
+PROGRAM main_ma_diff_changed
+BEGIN
+	if main.cb_ma_diff.iseq("ma") {
+		call main.ed_ma_diff.settooltip resource POWER_ONEMEAN_ALT_MEAN_MA
+	}
+	else {
+		call main.ed_ma_diff.settooltip resource POWER_ONEMEAN_MEAN_DIFF_MA_M0
+	}
+	call program check_for_numlist
+	call program table_create4Onemean_clust
+END
+
+SCRIPT main_cvcluster_on
+BEGIN
+	main.ed_cvcluster.enable
+	main.tx_cvcluster.enable
+	program power_iteration_tab_check
+	program table_create4Onemean_clust
+END
+
+SCRIPT main_cvcluster_off
+BEGIN
+	main.ed_cvcluster.disable
+	main.tx_cvcluster.disable
+	program power_iteration_tab_check
+	program table_create4Onemean_clust
+END
+
+PROGRAM main_clustsize_changed
+BEGIN	
+	if main.cb_compute.iseq("ncluster") {
+		call main.tx_specify.show
+		call main.cb_clustsize1.show
+		call main.cb_clustsize2.hide
+		call main.ed_ncluster.hide 
+		call main.tx_ncluster.hide
+		call main.ck_nfrac.show
+		if main.cb_clustsize1.iseq("clustsize") {
+			call main.ed_sampsize.hide
+			call main.tx_sampsize.hide
+			call main.ck_nfrac.setlabel "resource LBL_ALLOW_FRACTIONAL_NUM_CLUSTERS_AND_SAMPLE_SIZE"
+			call main.ed_clustsize.show
+			call main.tx_clustsize.show
+		}
+		else {
+			call main.ed_sampsize.show
+			call main.tx_sampsize.show
+			call main.ck_nfrac.setlabel "resource LBL_ALLOW_FRACTIONAL_NUM_CLUSTERS_AND_CLUSTER_SIZE"
+			call main.ed_clustsize.hide 
+			call main.tx_clustsize.hide
+		}
+		call program main_move_main_opts
+		call program check_for_numlist
+		call program power_iteration_tab_check
+	}
+	if main.cb_compute.iseq("clustersize") {
+		call main.tx_specify.hide
+		call main.cb_clustsize1.hide
+		call main.cb_clustsize2.hide
+		call main.ed_clustsize.hide
+		call main.tx_clustsize.hide
+		call main.ed_sampsize.hide
+		call main.tx_sampsize.hide
+		call main.ck_nfrac.show
+		call main.ck_nfrac.setlabel "resource LBL_ALLOW_FRACTIONAL_CLUSTER_SIZE_AND_SAMPLE_SIZE"
+		call main.ed_ncluster.show 
+		call main.tx_ncluster.show
+		call program main_move_main_opts
+	}
+	if main.cb_compute.iseq("power") | main.cb_compute.iseq("effect") {
+		call main.tx_specify.show
+		call main.cb_clustsize1.hide
+		call main.cb_clustsize2.show
+		call main.ck_nfrac.hide
+		call main.ed_ncluster.show 
+		call main.tx_ncluster.show
+		if main.cb_clustsize2.iseq("nclustsize") {
+			call main.ed_clustsize.show
+			call main.tx_clustsize.show
+			call main.ed_sampsize.hide
+			call main.tx_sampsize.hide
+		}
+		else {
+			call main.ed_clustsize.hide
+			call main.tx_clustsize.hide
+			call main.ed_sampsize.show
+			call main.tx_sampsize.show
+		}
+		call program main_move_main_opts
+		call program check_for_numlist
+	}
+END
+
+PROGRAM main_move_main_opts
+BEGIN
+	if main.cb_compute.iseq("ncluster") {
+		call main.gb_cluster.setposition . . . 100
+		call main.ck_nfrac.setposition 20 195
+		
+		call main.gb_effect_size.setposition . 240
+		call main.gb_means.setposition . 260
+		call main.ed_null.setposition . 280
+		call main.tx_null.setposition . 280
+		call main.ed_ma_diff.setposition . 310
+		call main.tx_ma_diff.setposition . 310
+		call main.cb_ma_diff.setposition . 310
+		call main.gb_std.setposition . 260
+		call main.ed_sd.setposition . 280
+		call main.tx_sd.setposition . 280
+		call main.ed_rho.setposition . 310
+		call main.tx_rho.setposition . 310
+		call main.ck_cvcluster.setposition . 365
+		call main.ed_cvcluster.setposition . 390
+		call main.tx_cvcluster.setposition . 390
+		call main.tx_oneside.setposition . 430
+		call main.cb_oneside.setposition . 450
+		call main.tx_direction.setposition . 430
+		call main.cb_direction.setposition . 450
+		call main.ck_parallel.setposition  . 485
+		
+		if main.cb_clustsize1.iseq("clustsize") {
+			call main.ed_clustsize.setposition 150 165
+			call main.tx_clustsize.setposition 275 165
+		}
+		else {
+			call main.ed_sampsize.setposition 150 165
+			call main.tx_sampsize.setposition 275 165
+		}
+	}
+	if main.cb_compute.iseq("clustersize") {
+		call main.gb_cluster.setposition . . . 80
+		call main.ed_ncluster.setposition 20 150
+		call main.tx_ncluster.setposition 145 150
+		call main.ck_nfrac.setposition 20 180
+		
+		call main.gb_effect_size.setposition . 220
+		call main.gb_means.setposition . 240
+		call main.ed_null.setposition . 260
+		call main.tx_null.setposition . 260
+		call main.ed_ma_diff.setposition . 290
+		call main.tx_ma_diff.setposition . 290
+		call main.cb_ma_diff.setposition . 290
+		call main.gb_std.setposition . 240
+		call main.ed_sd.setposition . 260
+		call main.tx_sd.setposition . 260
+		call main.ed_rho.setposition . 290
+		call main.tx_rho.setposition . 290
+		call main.ck_cvcluster.setposition . 345
+		call main.ed_cvcluster.setposition . 370
+		call main.tx_cvcluster.setposition . 370
+		call main.tx_oneside.setposition . 410
+		call main.cb_oneside.setposition . 430
+		call main.tx_direction.setposition . 410
+		call main.cb_direction.setposition . 430
+		call main.ck_parallel.setposition  . 465
+	}
+	if main.cb_compute.iseq("power") | main.cb_compute.iseq("effect") {
+		call main.gb_cluster.setposition . . . 100
+		call main.ck_nfrac.setposition 20 195
+		if main.cb_clustsize2.iseq("nclustsize") {
+			call main.ed_ncluster.setposition 335 165
+			call main.tx_ncluster.setposition 460 165
+			call main.ed_clustsize.setposition 335 195
+			call main.tx_clustsize.setposition 460 195
+		}
+		else {
+			call main.ed_ncluster.setposition 335 165
+			call main.tx_ncluster.setposition 460 165
+			call main.ed_sampsize.setposition 335 195
+			call main.tx_sampsize.setposition 460 195
+		}
+		
+		call main.gb_effect_size.setposition . 240
+		call main.gb_means.setposition . 260
+		call main.ed_null.setposition . 280
+		call main.tx_null.setposition . 280
+		call main.ed_ma_diff.setposition . 310
+		call main.tx_ma_diff.setposition . 310
+		call main.cb_ma_diff.setposition . 310
+		call main.gb_std.setposition . 260
+		call main.ed_sd.setposition . 280
+		call main.tx_sd.setposition . 280
+		call main.ed_rho.setposition . 310
+		call main.tx_rho.setposition . 310
+		call main.ck_cvcluster.setposition . 365
+		call main.ed_cvcluster.setposition . 390
+		call main.tx_cvcluster.setposition . 390
+		call main.tx_oneside.setposition . 430
+		call main.cb_oneside.setposition . 450
+		call main.tx_direction.setposition . 430
+		call main.cb_direction.setposition . 450
+		call main.ck_parallel.setposition  . 485
+	}
+END
+
+PROGRAM main_power_beta_table
+BEGIN
+	call program table_create4Onemean_clust
+END
+
+PROGRAM check_for_numlist
+BEGIN
+	call containsNumlist.setfalse
+	call containsNumlist_null.setfalse
+	call containsNumlist_ma_diff.setfalse
+
+	if main.ed_null {
+		call numContents.setvalue class main.ed_null.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+			call containsNumlist_null.settrue
+		}
+	}
+
+	if main.ed_ma_diff {
+		call numContents.setvalue class main.ed_ma_diff.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+			call containsNumlist_ma_diff.settrue
+		}
+	}
+
+	if main.ed_alpha {
+		call numContents.setvalue class main.ed_alpha.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_power & main.ed_power.isvisible() {
+		call numContents.setvalue class main.ed_power.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_beta & main.ed_beta.isvisible() {
+		call numContents.setvalue class main.ed_beta.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_sd {
+		call numContents.setvalue class main.ed_sd.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+	
+	if main.ed_clustsize & main.ed_clustsize.isvisible() {
+		call numContents.setvalue class main.ed_clustsize.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+	
+	if main.ed_cvcluster & main.ed_cvcluster.isenabled() {
+		call numContents.setvalue class main.ed_cvcluster.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+		call program power_iteration_tab_check
+		call program table_create4Onemean_clust
+	}
+	
+	if main.ed_sampsize & main.ed_sampsize.isvisible() {
+		call numContents.setvalue class main.ed_sampsize.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+		call program power_iteration_tab_check
+	}
+	
+	if main.ed_ncluster & main.ed_ncluster.isvisible() {
+		call numContents.setvalue class main.ed_ncluster.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+	
+	if main.ed_rho {
+		call numContents.setvalue class main.ed_rho.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if containsNumlist {
+		call main.ck_parallel.enable
+	}
+	else {
+		call main.ck_parallel.disable
+	}
+END
+
+PROGRAM power_iteration_tab_check
+BEGIN
+	call script power_iteration_disable
+	if main.cb_compute.iseq("ncluster") {
+		call script power_iteration_is_ncluster
+		if !main.cb_oneside.iseq("onesided") {
+			call script power_iteration_enable
+		}
+		else {
+			if main.cb_clustsize1.iseq("sampsize") & 	///
+				main.ed_sampsize &			///
+				main.ed_cvcluster.isenabled() & 	///
+				main.ed_cvcluster {
+				call script power_iteration_enable
+			}
+		}
+	}
+	if main.cb_compute.iseq("clustersize") {
+		call script power_iteration_is_clustersize
+		if !main.cb_oneside.iseq("onesided") {
+			call script power_iteration_enable
+		}
+		if main.ed_cvcluster.isenabled() & main.ed_cvcluster {
+			call script power_iteration_enable
+		}
+	}
+	if main.cb_compute.iseq("effect") {
+		call script power_iteration_is_mean
+		if !main.cb_oneside.iseq("onesided") {
+			call script power_iteration_enable
+		}
+	}
+END
+
+INCLUDE _power_list
+INCLUDE power_errorprob_pr
+INCLUDE power_test_maincommon_pr
+INCLUDE power_table_opts
+INCLUDE power_graph
+INCLUDE power_iteration
+
+PROGRAM command
+BEGIN
+	put "power onemean "
+
+	if !main.ed_null {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format 					///
+			"resource LBL_MSGBOX_MEAN_REQUIRED_FMT" 	///
+			"resource LBL_TAB_MAIN" 			///
+			"resource LBL_NULL"
+		stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Null" mean must be filled in.
+	}
+
+	if !main.ed_null.isnumlist() {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format 					///
+			"resource LBL_MSGBOX_INVALID_NUMLIST_FOR_MEAN_FMT" ///
+			"resource LBL_TAB_MAIN" 			///
+			"resource LBL_NULL"
+		stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Null" mean.
+	}
+	if containsNumlist_null {
+		put "("
+		put main.ed_null
+		put ")"
+	}
+	else {
+		put main.ed_null
+	}
+
+	if !main.cb_compute.iseq("effect") {
+		if !main.ed_ma_diff {
+			if main.cb_ma_diff.iseq("ma") {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 			///
+				  "resource LBL_MSGBOX_MEAN_REQUIRED_FMT" ///
+				  "resource LBL_TAB_MAIN"		///
+				  "resource POWER_LBL_ALTERNATIVE"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Alternative"  mean must be filled in.
+			}
+			else {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format	 					///
+					"resource POWER_MSGBOX_BETWEEN_MEANS_REQUIRED_FMT" 	///
+					"resource LBL_TAB_MAIN"					///
+					"resource POWER_LBL_DIFFERENCE"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Difference" between means must be filled in.
+			}
+		}
+	}
+
+	if main.cb_ma_diff.iseq("ma") & main.cb_ma_diff.isvisible() {
+		if !main.ed_ma_diff.isnumlist() {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_INVALID_NUMLIST_FOR_MEAN_FMT" ///
+				"resource LBL_TAB_MAIN" 		///
+				"resource POWER_LBL_ALTERNATIVE"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Alternative" mean.
+		}
+		if containsNumlist_ma_diff {
+				put " ("
+				put main.ed_ma_diff
+				put ")"
+			}
+			else {
+				put " " main.ed_ma_diff
+		}
+	}
+
+	beginoptions
+		if main.cb_compute.iseq("ncluster") & main.ed_sampsize.isvisible() {
+			put " cluster"
+		}
+		
+		if main.cb_ma_diff.iseq("diff") & main.cb_ma_diff.isvisible() {
+			if !main.ed_ma_diff.isnumlist() {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 					///
+					"resource LBL_MSGBOX_INVALID_NUMLIST_BETWEEN_MEANS_FMT" ///
+					"resource LBL_TAB_MAIN"				///
+					"resource POWER_LBL_DIFFERENCE"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Difference" betweens means.
+			}
+			optionarg main.ed_ma_diff
+		}
+		
+		if main.ed_sd {
+			if !main.ed_sd.isnumlist() {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 					///
+					"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+					"resource LBL_TAB_MAIN"				///
+					"resource LBL_STANDARD_DEVIATION"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Standard deviation".
+			}
+			if !main.ed_sd.isNumlistGT(0) {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 					///
+					"resource LBL_MSGBOX_ON_TAB_GREATER_THAN_0_FMT" ///
+					"resource LBL_TAB_MAIN"				///
+					"resource LBL_STANDARD_DEVIATION"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Standard deviation" must be greater than 0.
+			}
+			optionarg /hidedefault main.ed_sd
+		}
+		
+		if main.ed_ncluster.isvisible() {
+			if !main.ed_ncluster {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 					///
+					"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT" 	///
+					"resource LBL_TAB_MAIN" 			///
+					"resource LBL_NUMBER_OF_CLUSTERS"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Number of clusters" must be filled in.
+			}
+			if !main.ed_ncluster.isnumlist() {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 					///
+					"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+					"resource LBL_TAB_MAIN" 			///
+					"resource LBL_NUMBER_OF_CLUSTERS"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Number of clusters".
+			}
+			if !main.ed_ncluster.isNumlistGT(0) {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 					///
+					"resource LBL_MSGBOX_ON_TAB_GREATER_THAN_0_FMT" ///
+					"resource LBL_TAB_MAIN"				///
+					"resource LBL_NUMBER_OF_CLUSTERS"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Number of clusters" must be greater than 0.
+			}
+			optionarg main.ed_ncluster
+		}
+		
+		if main.ed_clustsize.isvisible() {
+			if !main.ed_clustsize {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 					///
+					"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT" 	///
+					"resource LBL_TAB_MAIN" 			///
+					"resource LBL_CLUSTER_SIZE"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Cluster size" must be filled in.
+			}
+			if !main.ed_clustsize.isnumlist() {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 					///
+					"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+					"resource LBL_TAB_MAIN" 			///
+					"resource LBL_CLUSTER_SIZE"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Cluster size".
+			}
+			if !main.ed_clustsize.isNumlistGT(0) {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 					///
+					"resource LBL_MSGBOX_ON_TAB_GREATER_THAN_0_FMT" ///
+					"resource LBL_TAB_MAIN"				///
+					"resource LBL_CLUSTER_SIZE"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Cluster size" must be greater than 0.
+			}
+			optionarg main.ed_clustsize
+		}
+		
+		if main.ed_sampsize.isvisible() {
+			if !main.ed_sampsize {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 					///
+					"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT" 	///
+					"resource LBL_TAB_MAIN" 			///
+					"resource LBL_SAMPLE_SIZE"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Sample size" must be filled in.
+			}
+			if !main.ed_sampsize.isnumlist() {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 					///
+					"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+					"resource LBL_TAB_MAIN" 			///
+					"resource LBL_SAMPLE_SIZE"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Sample size".
+			}
+			if !main.ed_sampsize.isNumlistGT(0) {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 					///
+					"resource LBL_MSGBOX_ON_TAB_GREATER_THAN_0_FMT" ///
+					"resource LBL_TAB_MAIN"				///
+					"resource LBL_SAMPLE_SIZE"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Sample size" must be greater than 0.
+			}
+			optionarg main.ed_sampsize
+		}
+		
+		option main.ck_nfrac
+		
+		if main.ed_rho {
+			if !main.ed_rho.isnumlist() {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 					///
+					"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+					"resource LBL_TAB_MAIN"				///
+					"resource LBL_INTRACLASS_CORR"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Intraclass correlation".
+			}
+			if !(main.ed_rho.isNumlistGE(0) & main.ed_rho.isNumlistLE(1)) {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 					///
+					"resource LBL_MSGBOX_ON_TAB_BETWEEN_0_AND_1_FMT" ///
+					"resource LBL_TAB_MAIN"				///
+					"resource LBL_INTRACLASS_CORR"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Intraclass correlation" must be between 0 and 1.
+			}
+			optionarg /hidedefault main.ed_rho
+		}
+		
+		if main.ed_cvcluster.isenabled() {
+			if !main.ed_cvcluster {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 					///
+					"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT" 	///
+					"resource LBL_TAB_MAIN" 			///
+					"resource LBL_COEFF_OF_VAR_FOR_CLUSTER_SIZES"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Coefficient of variation for cluster sizes" must be filled in.
+			}
+			if !main.ed_cvcluster.isnumlist() {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 					///
+					"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+					"resource LBL_TAB_MAIN"				///
+					"resource LBL_COEFF_OF_VAR_FOR_CLUSTER_SIZES"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Coefficient of variation for cluster sizes".
+			}
+			if !main.ed_cvcluster.isNumlistGE(0) {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 					///
+					"resource LBL_MSGBOX_GREATER_THAN_OR_EQUAL_ZERO_FMT" ///
+					"resource LBL_TAB_MAIN"				///
+					"resource LBL_COEFF_OF_VAR_FOR_CLUSTER_SIZES"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Coefficient of variation for cluster sizes" must be greater than or equal to zero.
+			}
+			optionarg main.ed_cvcluster
+		}
+
+		put " " /program power_errorprob_output
+
+		put " " /program power_test_maincommon_output
+		put " " /program power_table_opts_output
+		put " " /program power_graph_output
+		put " " /program power_iteration_output
+	endoptions
+END
+

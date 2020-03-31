@@ -1,0 +1,144 @@
+/*                                 dotplotline_g
+
+	A dotplot line view -- a line of dots.  This is tightly tied to
+	bargraph_g.class, so much so that it holds a reference to the bar/dot
+	graphs style.
+
+        This is a subview.  When drawn, assumes that the appropriate x and y
+        scales have already been set.
+
+*/
+*! version 1.1.0  26jan2007
+
+version 8
+
+class {
+	grstyle	= .barstyle.new
+
+	delta		= 1			// distance between dots
+
+	.hold_dragable	= 0			// held setting of dragable
+
+} , inherit(line_g)
+
+
+// --------------------------------------------------------------------------
+//	Usage:  .dotplotline_g.new delta x0 y0 x1 y1 
+
+program new
+
+	gettoken delta 0 : 0
+	.delta = (`delta')
+
+	.Super.new `0'
+
+	.dragable = 0
+	.dialog   = "dotplotline"
+end
+
+
+// --------------------------------------------------------------------------
+
+
+program draw
+
+	if (! `.draw_view.istrue')  exit			// Exit
+
+	.set_gdi_posn `.y0' `.x0' `.y1' `.x1'
+
+	if "`.grstyle.dottype.stylename'" == "line" {
+		.grstyle.dot_linestyle.setgdifull
+		gdi line `.x0' `.y0' `.x1' `.y1'
+
+		.style.editstyle					///
+			width(`.grstyle.dot_linestyle.width.val') editcopy
+
+		.hold_dragable = cond(`.y0' == `.y1', 3, 2)
+		if (`.dragable')  .dragable = .hold_dragable
+		exit						// Exit
+	}
+
+	if `.y0' == `.y1' {					// horizontal
+		if "`.grstyle.dottype.stylename'" == "rectangle" {
+			local half = `.grstyle.dot_areawidth.val'
+			_fr_draw_rect grstyle.dot_areastyle		///
+				      `.x0' `=`.y0'-`half''		///
+				      `.x1' `=`.y0'+`half''
+
+			.style.editstyle width(`=2*`half'') editcopy
+		}
+		else {
+			.grstyle.dots_ptstyle.setgdifull
+			if (`.x1' - `.x0') / `.delta' > 10000 {
+				exit				// avoid endless
+			}
+			forvalues x = `.x0'(`.delta')`.x1' {
+				gdi point `x' `.y0'
+			}
+			.style.editstyle 				///
+				width(`.grstyle.dots_ptstyle.size.val') editcopy
+		}
+
+		.hold_dragable = 3
+		if (`.dragable')  .dragable = .hold_dragable
+	}
+	else {
+		if "`.grstyle.dottype.stylename'" == "rectangle" {
+			local half = `.grstyle.dot_areawidth.val'
+			_fr_draw_rect grstyle.dot_areastyle		///
+				      `=`.x0'-`half'' `.y0' 		///
+				      `=`.x0'+`half'' `.y1' 
+
+			.style.editstyle width(`=2*`half'') editcopy
+		}
+		else {
+			.grstyle.dots_ptstyle.setgdifull
+			if (`.y1' - `.y0') / `.delta' > 10000 {	   
+				exit				// avoid endless
+			}
+			forvalues y = `.y0'(`.delta')`.y1' {
+				gdi point `.x0' `y'
+			}
+			.style.editstyle				///
+				width(`.grstyle.dots_ptstyle.size.val') editcopy
+		}
+
+		.hold_dragable = 2
+		if (`.dragable')  .dragable = .hold_dragable
+	}
+
+end
+
+
+// --------------------------------------------------------------------------
+// Disallow finding or dragging endpoints
+
+program _at_end
+	class exit = 0
+end
+
+// ----------------------------------------------------------------------------
+// Respond to a .DragBy by moving the position
+
+program DragBy
+	args y_shift x_shift
+
+	if `.dragable' != 2 {
+		.y0 = `.y0' + `y_shift'
+		.y1 = `.y1' + `y_shift'
+	}
+
+	if `.dragable' != 3 {
+		.x0 = `.x0' + `x_shift'
+		.x1 = `.x1' + `x_shift'
+	}
+end
+
+// ----------------------------------------------------------------------------
+// Possibly map supplied name to one appropriate for the object browser
+
+program BrowserName
+
+	class exit ""
+end
+

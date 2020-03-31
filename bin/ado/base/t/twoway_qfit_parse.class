@@ -1,0 +1,70 @@
+//                                 twoway_qfit_parse
+//
+//   A parser for adding a quadratic fit line.  Works with twoway.ado.
+//
+//   twoway_lfit_parse does most of the work.
+
+*! version 1.0.0  13oct2002
+
+version 8
+
+class {
+} , inherit(twoway_lfit_parse)
+
+
+// ---------------------------------------------------------------------------
+
+program parse
+	.Super.parse `0'
+
+	if `"`.trans'"' != `""' {
+		di as error "option transform() not allowed"
+		exit 198
+	}
+
+	if `.points' == 3 {
+		.points = 100
+	}
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*
+	Creates a new serset and the view and returns its reference.
+	Assumes that the data in memory is the same as when parse was called.
+
+	Allows a touse(varname) option that further restricts the sample, 
+	restricts beyond the held .if and .in
+
+	Additional options to the .serset.new command may be specified, but
+	this is unlikely to be necessary.
+
+	If must_create_serset == 1, then this command MUST be used, 
+	otherwise the serset may be created by other means.
+*/ 
+
+program log_create_serset
+
+	syntax , LOG(name) SERSETNAME(string) [ TOUSE(passthru) * ]
+
+	.log_touse , log(`log') `touse'
+
+	local rest `.varlist'
+	gettoken y rest : rest
+	gettoken x rest : rest
+
+	.`log'.Arrpush __NOLOG__ twoway__qfit_serset , 			  ///
+		sersetname(`sersetname') touse(\`touse1') x(`x') y(`y')	  ///
+		min(`.min') max(`.max')	points(`.points') atobs(`.atobs') ///
+		predopts(`.predict_opts') regopts(`.regress_opts') 	  ///
+		morevars(`rest') weight(`.wtype'`.wtexp')
+
+	.`log'.Arrpush LogMapping .`sersetname'	// make _fr_runlog place 
+						// mapping statement into 
+						// permanent log.
+
+	.wtype = ""			// so .Super.log_create_view will
+	.wtexp = ""			// not try to add weight to serset
+end
+
+

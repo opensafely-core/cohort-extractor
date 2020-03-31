@@ -1,0 +1,137 @@
+/*
+	predict (after xtpoisson, re)
+
+*!  VERSION 1.0.1  19sep2015
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+DEFINE _dlght 330
+INCLUDE header
+
+HELP hlp1, view("help xtpoisson postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource XTPOISSON_RE_P_DLG_HSCALE
+END
+
+DIALOG main, label(resource PREDICT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  INCLUDE  _p_gentype
+
+  GROUPBOX gb_opts		_lft	_ls	_iwd	_ht19,		///
+	label(resource LBL_PRODUCE)
+  RADIO    rb_xb		_indent	_ss	_inwd	., first	///
+	option(xb)							///
+	label(resource LBL_LINEAR_PREDICTION)
+  RADIO    rb_stdp		@	_ss	@	.,		///
+	option(stdp)							///
+	label(resource LBL_STANDARD_ERROR_LINEAR_PREDICTION)
+  RADIO    rb_nu		@	_ss	@	.,		///
+	option(nu)							///
+	label(resource XTPOISSON_RE_P_MAIN_RB_NU)
+  RADIO    rb_nu0		@	_ss	@	.,		///
+	option(nu0)							///
+	label(resource XTPOISSON_RE_P_MAIN_RB_NU0)
+  RADIO    rb_iru0		@	_ss	@	.,		///
+	option(iru0)							///
+	label(resource XTPOISSON_RE_P_MAIN_RB_IRU0)
+  RADIO    rb_pr_n		@	_ss	@	.,		///
+	onclickon(script main_pr_n_on)					///
+	onclickoff(script main_pr_n_off)				///
+	label(resource XTPOISSON_RE_P_MAIN_RB_PR_N)
+  RADIO    rb_pr_a_b		@	+45	@	., last		///
+	onclickon(script main_pr_a_b_on)				///
+	onclickoff(script main_pr_a_b_off)				///
+	label(resource XTPOISSON_RE_P_MAIN_RB_PR_A_B)
+
+  EDIT      ed_pr_n		_indent	-20	_en7wd	.,		///
+	option(pr0)							///
+	label(resource LBL_PROBABILITY_OF_Y_EQUAL_N)
+DEFINE x @x
+  TEXT      tx_pr_n		_en7sep	@	50	.,		///
+	label("n") // equation; do not localize
+
+  EDIT      ed_pr_a		x	+45	_en7wd	.,		///
+	label(resource LBL_PROBABILITY_A_Y)
+  TEXT      tx_pr_a		_en7sep	@	50	.,		///
+	label("a") // equation; do not localize
+
+  EDIT      ed_pr_b		+55	@	_en7wd	.,		///
+	label(resource LBL_PROBABILITY_Y_B)
+  TEXT      tx_pr_b		_en7sep	@	50	.,		///
+	label("b") // equation; do not localize
+
+  CHECKBOX ck_nooffset		_lft	+45	_iwd	.,		///
+	option(nooffset)						///
+	label(resource LBL_IGNORE_OFFSET_VARIABLE)
+END
+                
+SCRIPT main_pr_n_on
+BEGIN
+	script _p_gentype_score_off
+	main.ed_pr_n.enable
+	main.tx_pr_n.enable
+END
+
+SCRIPT main_pr_n_off
+BEGIN
+	script _p_gentype_score_off
+	main.ed_pr_n.disable
+	main.tx_pr_n.disable
+END
+
+SCRIPT main_pr_a_b_on
+BEGIN
+	script _p_gentype_score_off
+	main.ed_pr_a.enable
+	main.tx_pr_a.enable
+	main.ed_pr_b.enable
+	main.tx_pr_b.enable
+END
+
+SCRIPT main_pr_a_b_off
+BEGIN
+	script _p_gentype_score_off
+	main.ed_pr_a.disable
+	main.tx_pr_a.disable
+	main.ed_pr_b.disable
+	main.tx_pr_b.disable
+END
+
+INCLUDE _p_gentype_sc
+INCLUDE ifin
+INCLUDE _type_list_fd
+
+PROGRAM main_ed_pr_a_b_output
+BEGIN
+	put "pr0("
+	put main.ed_pr_a
+	put ","
+	put main.ed_pr_b
+	put ")"
+END
+
+PROGRAM command
+BEGIN
+	put "predict "
+	put " " /program _p_gentype_output
+	INCLUDE _ifin_pr
+	beginoptions
+		option radio(main rb_xb rb_stdp rb_nu rb_nu0 rb_iru0)
+		if main.rb_pr_n {
+			require main.ed_pr_n
+			optionarg main.ed_pr_n
+		}
+		if main.rb_pr_a_b {
+			require main.ed_pr_a
+			require main.ed_pr_b
+			put " " /program main_ed_pr_a_b_output
+		}
+		option main.ck_nooffset
+	endoptions
+END

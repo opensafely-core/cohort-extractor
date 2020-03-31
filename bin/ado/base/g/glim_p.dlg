@@ -1,0 +1,147 @@
+/*
+	predict (after glm, binreg, ...)
+
+*!  VERSION 1.3.2  10may2017
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE header
+HELP hlp1, view("help glm postestimation")
+RESET res1
+
+DIALOG main, label(resource PREDICT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  INCLUDE  _p_gentype
+
+  GROUPBOX gb_opts           _lft      _ls       _iwd      _ht12,	/*
+		*/ label(resource LBL_PRODUCE)
+  RADIO    rb_mu             _ilft     _ss       _cwd2     ., first	/*
+		*/ option(mu) 						/*
+		*/ label(resource GLIM_P_MAIN_RB_MU)			/*
+		*/ clickon(gaction opt.ck_adjusted.disable)
+  DEFINE   hldy @y
+  RADIO    rb_xb             @         _ss       @         .,		/*
+		*/ option(xb)						/* 
+		*/ label(resource LBL_LINEAR_PREDICTION_XB)		/*
+		*/ clickon(gaction opt.ck_adjusted.disable)
+  RADIO    rb_stdp           @         _ss       @         .,		/*
+		*/ option(stdp)						/*
+		*/ label(resource GLIM_P_MAIN_RB_STDP)		/*
+		*/ clickon(gaction opt.ck_adjusted.disable)
+  RADIO    rb_anscombe       @         _ss       @         .,		/*
+		*/ option(anscombe)					/*
+		*/ label(resource LBL_ANSCOMBE_RESIDUALS)		/*
+		*/ clickon(gaction opt.ck_adjusted.disable)
+  RADIO    rb_cooksd         @         _ss       @         .,		/*
+		*/ option(cooksd)					/*
+		*/ label(resource LBL_COOKS_DISTANCE)			/*
+		*/ clickon(gaction opt.ck_adjusted.disable)
+  RADIO    rb_deviance       @         _ss       @         .,		/*
+		*/ option(deviance) 					/*
+		*/ label(resource LBL_DEVIANCE_RESIDUALS)		/*
+		*/ clickon(gaction opt.ck_adjusted.enable) 
+  RADIO    rb_hat            _lft2     hldy      @         .,		/*
+		*/ option(hat)						/*
+		*/ label(resource GLIM_P_MAIN_RB_HAT)			/*
+		*/ clickon(gaction opt.ck_adjusted.disable)
+  RADIO    rb_likelihood     @         _ss       @         .,		/*
+		*/ option(likelihood)					/*
+		*/ label(resource GLIM_P_MAIN_RB_LIKELIHOOD)		/*
+		*/ clickon(gaction opt.ck_adjusted.disable)
+  RADIO    rb_pearson        @         _ss       @         .,		/*
+		*/ option(pearson)					/*
+		*/ label(resource LBL_PEARSON_RESIDUALS)		/*
+		*/ clickon(gaction opt.ck_adjusted.disable)
+  RADIO    rb_response       @         _ss       @         .,		/*
+		*/ option(response)					/*
+		*/ label(resource GLIM_P_MAIN_RB_RESPONSE)		/*
+		*/ clickon(gaction opt.ck_adjusted.disable)
+  RADIO    rb_score          @         _ss       @         .,		/*
+		*/ option(score)					/*
+		*/ label(resource GLIM_P_MAIN_RB_SCORE)			/*
+		*/ clickon(gaction opt.ck_adjusted.disable)
+  RADIO    rb_working        @         _ss       @         ., last	/*
+		*/ option(working)					/*
+		*/ label(resource GLIM_P_MAIN_RB_WORKING)		/*
+		*/ clickon(gaction opt.ck_adjusted.disable)
+  INCLUDE _svy_predict_note
+END
+
+SCRIPT PREINIT
+BEGIN
+	create STRING prefix_name
+	prefix_name.setstring e(prefix)
+	setscale_hadj resource GLIM_P_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	main.tx_temp.hide
+	main.tx_svy_note.hide
+	program svy_check
+END
+
+PROGRAM svy_check
+BEGIN
+	if prefix_name.equals("svy") {
+		call main.tx_svy_note.show
+		call main.rb_anscombe.disable
+		call main.rb_cooksd.disable
+		call main.rb_deviance.disable
+		call main.rb_hat.disable
+		call main.rb_likelihood.disable
+		call main.rb_pearson.disable
+		call main.rb_response.disable
+		call main.rb_working.disable
+		call opt.ck_adjusted.disable
+		call opt.ck_standardized.disable
+		call opt.ck_studentized.disable
+		call opt.ck_modified.disable
+	}
+END
+
+INCLUDE _p_gentype_sc
+INCLUDE ifin
+
+DIALOG opt, tabtitle(resource LBL_OPTIONS)
+BEGIN
+  CHECKBOX ck_nooffset       _lft      _top      _iwd      .,		/*
+		*/ option(nooffset)					/*
+		*/ label(resource LBL_IGNORE_OFFSET_VARIABLE)
+  CHECKBOX ck_adjusted       @         _ms       @         .,		/*
+		*/ option(adjusted)					/*
+*/ label(resource GLIM_P_OPT_CK_ADJUSTED)
+  CHECKBOX ck_standardized   @         _ms       @         .,		/*
+		*/ option(standardized)					/*
+		*/ label(resource GLIM_P_OPT_CK_STANDARDIZED)
+  CHECKBOX ck_studentized    @         _ms       @         .,		/*
+		*/ option(studentized)					/*
+		*/ label(resource GLIM_P_OPT_CK_STUDENTIZED)
+  CHECKBOX ck_modified       @         _ms       @         .,		/*
+		*/ option(modified)					/*
+*/ label(resource GLIM_P_OPT_CK_MODIFIED)
+END
+
+
+INCLUDE _type_list_fd
+
+
+PROGRAM command
+BEGIN
+	put "predict "
+	put " " /program _p_gentype_output
+	INCLUDE _ifin_pr
+	beginoptions
+		option radio(main rb_mu rb_xb rb_stdp rb_anscombe rb_cooksd /*
+			*/ rb_deviance rb_hat rb_likelihood rb_pearson /*
+			*/ rb_response rb_score rb_working)
+		option opt.ck_nooffset
+		option opt.ck_standardized
+		option opt.ck_studentized
+		option opt.ck_modified
+		option opt.ck_adjusted
+	endoptions
+END

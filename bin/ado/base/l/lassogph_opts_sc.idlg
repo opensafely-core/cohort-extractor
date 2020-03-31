@@ -1,0 +1,104 @@
+/*
+  lassogph_opts_sc.idlg
+	
+
+*!  VERSION 1.0.1  17jun2019
+
+*/
+
+PROGRAM check_status
+BEGIN
+	call create STRING cmdname
+	call cmdname.setvalue e(cmd)
+	
+	call create STRING sxfolds
+	call create DOUBLE xfolds
+	call create STRING sresamples
+	call create DOUBLE resamples
+	call create DOUBLE loop
+	call create ARRAY tmpfold
+	call create ARRAY tmpresample
+	call xfolds.setvalue e(n_xfolds)
+	call sxfolds.setvalue e(n_xfolds)
+	call resamples.setvalue e(n_resample)
+	call sresamples.setvalue e(n_resample)
+
+	if cmdname.equals("elasticnet") {
+		call main.en_alpha.enable
+		call main.tx_alpha.enable
+	}
+	else {
+		call main.en_alpha.disable
+		call main.tx_alpha.disable
+	}
+	
+	if !sxfolds.iseq("") {
+		call tmpfold.Arrdropall
+		call loop.setvalue 1
+		while (loop.isle(xfolds)) {
+			call loop.withvalue tmpfold.Arrpush "@"
+			call loop.increment
+		}
+		
+		call main.cb_xfold.setcontentslist tmpfold
+		call main.cb_xfold.setvalueslist tmpfold
+		call main.cb_xfold.setvalue 1
+	}
+	
+	if !sresamples.iseq("") {
+		call tmpresample.Arrdropall
+		call loop.setvalue 1
+		while (loop.isle(resamples)) {
+			call loop.withvalue tmpresample.Arrpush "@"
+			call loop.increment
+		}
+		
+		call main.cb_resample.setcontentslist tmpresample
+		call main.cb_resample.setvalueslist tmpresample
+		call main.cb_resample.setvalue 1
+	}
+	
+	if cmdname.startswith("ds") | cmdname.startswith("po") |	///
+		cmdname.startswith("xpo") {
+		call main.gb_sel.enable
+		call main.cb_for.enable
+		call main.tx_for.enable
+		if cmdname.startswith("xpo") {
+			call main.cb_xfold.enable
+			call main.tx_xfold.enable
+			if !sresamples.iseq("") & !sresamples.iseq("1") {
+				call main.cb_resample.enable
+				call main.tx_resample.enable
+			}
+			else {
+				call main.cb_resample.disable
+				call main.tx_resample.disable
+			}
+		}
+		else {
+			call main.cb_xfold.disable
+			call main.tx_xfold.disable
+			call main.cb_resample.disable
+			call main.tx_resample.disable
+		}	
+	}
+	else {
+		call main.gb_sel.disable
+		call main.cb_for.disable
+		call main.tx_for.disable
+		call main.cb_xfold.disable
+		call main.tx_xfold.disable
+		call main.cb_resample.disable
+		call main.tx_resample.disable
+	}
+END
+
+PROGRAM lassogph_opts_output
+BEGIN
+	optionarg /hidedefault main.cb_xunits
+	option main.ck_minmax
+	optionarg main.cb_for
+	optionarg main.cb_xfold
+	optionarg main.cb_resample
+	optionarg main.en_alpha
+END

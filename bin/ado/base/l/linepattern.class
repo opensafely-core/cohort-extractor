@@ -1,0 +1,254 @@
+*! version 1.0.3  27jun2017
+version 8
+
+class {
+
+     instance:
+	pattern = ""
+
+}, inherit(style)
+
+/* -------------------------------------------------------------------------*/
+
+program define new
+
+	.Super.new , `.set `0''
+end
+
+program define set
+
+	syntax [ , Pattern(string) * ]
+
+	if "`pattern'" != "" { 
+		tokenize `pattern'
+		local i 1
+		while "``i''" != "" {
+			capture confirm number ``i''
+			local rc = _rc
+
+			if `rc' & `i' == 1 { 		/* try --.# style */
+				_DecodePat rc pattern : `"`pattern'"' 
+				if !`rc' { 
+					continue, break 
+				}
+			}
+			if ! `rc' { 
+				local rc = `i' < 0 
+			}
+			if ! `rc' & `i' == 1 { 
+				local rc = `i' < .01 
+			} 
+
+			if `rc' {
+				di in white `"invalid line pattern: `pattern'"'
+				exit
+			}
+			local i = `i' + 1
+		}
+		.pattern = "`pattern'" 
+	}
+
+	class exit `"`options'"'
+end
+
+
+// ---------------------------------------------------------------------------
+// Allow a series of numbers for the pattern, a string for the pattern, a
+// named style, or a style named through the scheme.
+//
+// Usage:  .a.b.setstyle, style(#'s|pattern|stylename|scheme)
+
+program setstyle
+
+	capture syntax , Style(numlist)		// accept numbers
+	if ! _rc {
+		.remake_as_copy
+		.pattern = "`style'"
+		exit						// Exit
+	}
+
+	syntax  [ , Style(string) ]		// Allow scheme to set numbers
+
+	local scheck = strtrim("`style'")
+	if ("`scheck'" == strlen("`scheck'")*"l" & strlen("`scheck'") > 0) { 
+		local style = "solid"
+	}
+	
+	local scheme_setting `.`c(curscm)'.style `.classname' `style''	
+	capture numlist "`scheme_setting'"
+	if ! _rc {
+		local numpat `r(numlist)'
+		.remake_as_copy
+		.pattern = "`numpat'"
+		exit						// Exit
+	}
+	if ! indexnot(`"`scheme_setting'"', "l_-.# ") &			///
+		      `"`scheme_setting'"' != `""' {
+		._DecodePat rc numpat : `scheme_setting'
+		if `rc' {
+			di as error `"`style' , invalid line pattern"'
+			exit 198
+		}
+		.pattern = `"`numpat'"'
+		exit					// Exit
+	}
+
+	gettoken tok : style
+	if "`tok'" != "scheme" {		// "-.-" style patterns
+		if ! indexnot(`"`style'"', "l_-.# ") & `"`style'"' != `""' {
+			._DecodePat rc numpat : `style'
+			if `rc' {
+				di as error `"`style' , invalid line pattern"'
+				exit 198
+			}
+			.pattern = `"`numpat'"'
+			exit					// Exit
+		}
+	}
+
+	.Super.setstyle, style(`scheme_setting')     // let parent handle this
+end
+
+
+
+/* -------------------------------------------------------------------------*/
+/*  Sets the current pattern to the gdi, must invoke a -gdi penchange- for the
+    new pattern to take effect.
+
+*/
+program define setgdi
+
+	gdi linedash = `.pattern'
+end
+
+/* -------------------------------------------------------------------------*/
+/* 
+	Set this line pattern to the GDI and reset the pen
+*/
+
+program define setgdifull
+
+	.setgdi
+	gdi penchange
+end
+
+
+/* -------------------------------------------------------------------------*/
+/* Used by .dialog_box to update a value -- substitute for a trigger	*/
+program define _set_pattern
+
+	.set, pattern(`0')
+end
+
+/* -------------------------------------------------------------------------*/
+/* decodes Stata string pattern specifiers, e.g. "-.-"			*/ 
+
+program define _DecodePat 
+	gettoken rcmac   pat : 0   , parse(" :")
+	gettoken pattern pat : pat , parse(" :")
+	gettoken colon   pat : pat , parse(" :")
+
+	tempname patarr
+	.`patarr' = {}
+	local tailsp 0
+	local was_space 1
+	forvalues i = 1/`=length("`pat'")' {
+		local c = bsubstr("`pat'",`i',1)
+
+		if ("`c'" == "")  continue
+
+		if "`c'" == "l" { 
+			._add_line `patarr' 4.6 `was_space'
+			local was_space 0
+			continue
+		}
+
+		if "`c'" == "_" {
+		    ._add_space `patarr'   .45 `was_space' tailsp `tailsp'
+		    .`patarr'[`=`.`patarr'.arrnels'+1'] = 3.70
+		    ._add_space `patarr'   .45 0
+		    local was_space 1
+		    continue
+		}
+
+		if "`c'" == "-" {
+		    ._add_space `patarr'   .3 `was_space' tailsp `tailsp'
+		    .`patarr'[`=`.`patarr'.arrnels'+1'] = 1.4
+		    ._add_space `patarr'   .3 0
+		    local was_space 1
+		    continue
+		}
+
+		if "`c'" == "." {
+		    ._add_space `patarr'   .3 `was_space' tailsp `tailsp'
+		    .`patarr'[`=`.`patarr'.arrnels'+1'] = .1
+		    ._add_space `patarr'   .3 0
+		    local was_space 1
+		    continue
+		}
+
+		if "`c'" == "#" {
+		    ._add_space `patarr'   .45 `was_space' tailsp `tailsp'
+		    local was_space 1
+		    continue
+		}
+
+		local failure 1
+		continue, break
+	}
+
+	if 0`failure' {
+		c_local `rcmac' 1			/* invalid pattern */
+		exit
+	}
+
+	if `tailsp' {
+		._add_space `patarr' `tailsp' `was_space'
+	}
+
+	_clsarr2list val : `.`patarr'.objkey'
+	c_local `pattern' `val'
+	c_local `rcmac' 0
+end
+
+program define _add_space
+	args arr space adding tailmac tailval
+
+	if 0`.`arr'.arrnels' == 0 { 
+		if "`tailmac'" != "" {
+			c_local `tailmac' = `tailval' + `space'
+		}
+		exit 
+	}
+
+	if 0`adding' {
+		.`arr'[`.`arr'.arrnels'] = `.`arr'[`.`arr'.arrnels']' + `space'
+	}
+	else	.`arr'[`=`.`arr'.arrnels'+1'] =  `space'
+end
+
+program define _add_line
+	args arr length was_space
+
+	if 0`.`arr'.arrnels' == 0 { 
+		.`arr'[`=`.`arr'.arrnels'+1'] =  `length'
+		exit 
+	}
+
+	if 0`was_space' {
+		.`arr'[`=`.`arr'.arrnels'+1'] =  `length'
+	}
+	else	.`arr'[`.`arr'.arrnels'] = `.`arr'[`.`arr'.arrnels']' + `length'
+end
+
+
+/*
+	local codes "l_-.#"
+
+	local vals1 4.6153846
+	local vals2 .46153846 3.6923077 .46153846
+	local vals3 .30769231 1.3846154 .30769231
+	local vals4 .23        .23      .23
+	local vals5 .46153846
+*/
+

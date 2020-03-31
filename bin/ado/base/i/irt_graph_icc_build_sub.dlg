@@ -1,0 +1,215 @@
+/*
+  irt_graph_icc_build_sub
+
+*!  VERSION 1.1.5  01dec2019
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+DEFINE _dlght 280
+INCLUDE header
+
+HELP hlp1, view("help irtgraph icc")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING	BlocLinePropResults
+	create STRING	PlocLinePropResults
+	create STRING	LinePropResults
+	create STRING	parent_name
+	create STRING	items_edit
+	create STRING	ICCItemFvResult
+	create STRING	STMP
+	setscale_hadj resource IRT_GRAPH_ICC_BUILD_SUB_DLG_HSCALE
+
+	STMP.append "resource LBL_GROUP"
+	STMP.append ":"
+	STMP.withvalue main.tx_group.setlabel "@"
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program check_edit
+END
+
+PROGRAM check_edit
+BEGIN
+	call create STRING itemTmp
+	call parent_name.setvalue class PARENT._dlg_rsrcname
+	call parent_name.withvalue items_edit.setvalue			///
+		class @.selItemsEdit.value
+	if items_edit.iseq("1") {
+		call parent_name.withvalue itemTmp.setvalue		///
+			class @.selItems.value
+		call main.cb_eitem.setvalue ""
+		call itemTmp.withvalue main.cb_eitem.smartinsert	///
+			"@"
+	}
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MODEL)				///
+	label(resource IRT_GRAPH_ICC_BUILD_SUB_DLG_TITLE)
+BEGIN
+  TEXT	tx_eitem		_lft	_top	_iwd	.,		///
+	label(resource IRT_ITEMS)
+  COMBOBOX cb_eitem		@	_ss	380	.,		///
+	dropdown							///
+	append								///
+	contents(e(item_list))						///
+	label(resource IRT_ITEMS)
+  BUTTON btn_eitem		392	@	20	.,		///
+	onpush(program main_item_fv)					///
+	tooltip(resource IRT_GRAPH_ICC_BUILD_SUB_MAIN_BTN_EITEM)	///
+	label("...")
+	
+  CHECKBOX ck_bloc		_lft	+35	_iwd	.,		///
+	onclickon(main.btn_bloc.enable)					///
+	onclickoff(main.btn_bloc.disable)				///
+	label(resource IRT_GRAPH_ICC_BUILD_SUB_MAIN_CK_BLOC)
+  BUTTON   btn_bloc		_iilft	_ms	_en14wd	.,		///
+	onpush(program main_bloc_lineprop)				///
+	label(resource LBL_GB_LINE_PROPERTIES)
+  CHECKBOX ck_ploc		_lft	_ms	_iwd	.,		///
+	onclickon(main.btn_ploc.enable)					///
+	onclickoff(main.btn_ploc.disable)				///
+	label(resource IRT_GRAPH_ICC_BUILD_SUB_MAIN_CK_PLOC)
+  BUTTON   btn_ploc		_iilft	_ms	_en14wd	.,		///
+	onpush(program main_ploc_lineprop)				///
+	label(resource LBL_GB_LINE_PROPERTIES)
+
+  CHECKBOX ck_ccc		_lft	_ls	_ibwd	.,		///
+	option(ccc)							///
+	label(resource IRT_GRAPH_ICC_BUILD_SUB_MAIN_CK_CCC)
+
+  BUTTON   btn_lineprop		_lft	+30	_en14wd	.,		///
+	onpush(program main_lineprop)					///
+	label(resource LBL_GB_LINE_PROPERTIES)
+
+  TEXT	tx_group		_lft	_ls	_iwd	.,		///
+	label("")
+  COMBOBOX cb_group		@	_ss	_vnwd	.,		///
+	dropdown							///
+	contents(e(group_levels))					///
+	label("")
+END
+
+PROGRAM main_item_fv
+BEGIN
+	call create CHILD irt_fv_internal AS IccFvSetDlg
+	if ! _rc {
+		call main.cb_eitem.withvalue IccFvSetDlg.callthru `"main.vl_varlist.setvalue `"@"'"'
+		call IccFvSetDlg.setExitString ICCItemFvResult
+		call IccFvSetDlg.setExitAction "program main_get_ItemFvResult"
+	}
+END
+
+PROGRAM main_get_ItemFvResult
+BEGIN
+	if ICCItemFvResult {
+		call ICCItemFvResult.withvalue main.cb_eitem.setvalue "@"
+	}
+END
+
+PROGRAM main_bloc_lineprop
+BEGIN
+	call create CHILD gr_line_options AS BlocLinePropDlg
+	if ! _rc {
+		call BlocLinePropDlg.setExitString BlocLinePropResults
+		call BlocLinePropDlg.setExitAction "program graph_get_BlocLinePropResults"
+	}
+END
+
+PROGRAM graph_get_BlocLinePropResults
+BEGIN
+	if BlocLinePropResults {
+		call main.btn_bloc.modified_on
+	}
+	else {
+		call main.btn_bloc.modified_off
+	}
+END
+
+PROGRAM main_ploc_lineprop
+BEGIN
+	call create CHILD gr_line_options AS PlocLinePropDlg
+	if ! _rc {
+		call PlocLinePropDlg.setExitString PlocLinePropResults
+		call PlocLinePropDlg.setExitAction "program graph_get_PlocLinePropResults"
+	}
+END
+
+PROGRAM graph_get_PlocLinePropResults
+BEGIN
+	if PlocLinePropResults {
+		call main.btn_ploc.modified_on
+	}
+	else {
+		call main.btn_ploc.modified_off
+	}
+END
+
+PROGRAM main_lineprop
+BEGIN
+	call create CHILD gr_line_options AS LinePropDlg
+	if ! _rc {
+		call LinePropDlg.setExitString LinePropResults
+		call LinePropDlg.setExitAction "program graph_get_LinePropResults"
+	}
+END
+
+PROGRAM graph_get_LinePropResults
+BEGIN
+	if LinePropResults {
+		call main.btn_lineprop.modified_on
+	}
+	else {
+		call main.btn_lineprop.modified_off
+	}
+END
+
+PROGRAM main_icc_build_output
+BEGIN
+	if main.cb_group {
+		put main.cb_group
+		put ":"
+	}
+
+	require main.cb_eitem
+	varlist main.cb_eitem
+	beginoptions
+		if main.ck_bloc {
+			put " blocation"
+			if BlocLinePropResults {
+				put "("
+				put BlocLinePropResults
+				put ")"
+			}
+		}
+		if main.ck_ploc {
+			put " plocation" 
+			if PlocLinePropResults {
+				put "("
+				put PlocLinePropResults
+				put ")"				
+			}
+		}
+		option main.ck_ccc
+		if LinePropResults {
+			put " " LinePropResults
+		}
+	endoptions
+END
+
+PROGRAM	command
+BEGIN
+	call main.cb_eitem.withvalue PARENT.callthru		///
+		`"selItems.setvalue `"@"'"'
+		
+	put "("
+	put /program main_icc_build_output
+	put ")"
+	
+END

@@ -1,0 +1,59 @@
+*! version 1.0.0  21may2014
+version 13
+
+class {
+
+}, inherit(series)
+
+
+// ---------------------------------------------------------------------------
+// Class exists solely so that mata sersets can have their own constructor.
+
+
+// ---------------------------------------------------------------------------
+
+//	Usage:  .new series_name colnum , matamatrix(matname) [ noCOUNT ]
+//
+
+program define new
+
+	syntax [anything(name=args)] [if] [in] [ , matamatrix(name) 	///
+		Variable MISSing noCOUNT READLOG(string) ]
+
+	tokenize `"`args'"'
+
+	.name = `"`1'"'
+	local col `2'
+
+	if "`readlog'" != "" {
+		.readfromfile `readlog'
+	}
+
+					// load variable information
+	if "`variable'" != "" {
+
+	    .type.set numeric
+
+	    local colok "0"
+	    capture mata: st_local("colok", 				///
+	    			   strofreal(cols(`matamatrix') >= 0`col'))
+
+	    if `colok' {
+							// summary stats
+		if "`count'" == "" {
+		    local rows "0"
+		     mata: st_local("rows", 				///
+		           strofreal(rows(uniquerows(`matamatrix'[., `col']))))
+		    .categories = `rows'
+		}
+		local min 0
+		local max 0
+		mata: st_local("min", strofreal(min(`matamatrix'[., `col'])))
+		mata: st_local("max", strofreal(max(`matamatrix'[., `col'])))
+		.min = `min'
+		.max = `max'
+	    }
+	}
+
+end
+

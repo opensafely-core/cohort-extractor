@@ -1,0 +1,1469 @@
+/*
+	discrim_knn_estat
+
+*!  VERSION 1.1.2  02feb2015
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_wide
+DEFINE _dlght 470
+INCLUDE header
+
+HELP hlp1, view("help discrim postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING tiesSpecification
+	tiesSpecification.setvalue e(ties)
+	setscale_hadj resource DISCRIM_KNN_ESTAT_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	opt.cb_ties.setvalue class tiesSpecification.value
+	opt.cb_ties.setdefault class tiesSpecification.value
+	program parseMessage
+END
+
+PROGRAM parseMessage
+BEGIN
+	if __MESSAGE.contains("-classtable-") {
+		call main.lb_subcmd.setvalue "classtable"
+	}
+	if __MESSAGE.contains("-errorrate-") {
+		call main.lb_subcmd.setvalue "errorrate"
+	}
+	if __MESSAGE.contains("-grsummarize-") {
+		call main.lb_subcmd.setvalue "grsummarize"
+	}
+	if __MESSAGE.contains("-list-") {
+		call main.lb_subcmd.setvalue "list"
+	}
+	if __MESSAGE.contains("-summarize-") {
+		call main.lb_subcmd.setvalue "summarize"
+	}
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN) label(resource LBL_ESTAT_POSTEST_TOOLS_FOR_DISCRIM_DLG_TITLE)
+BEGIN
+  TEXT     tx_subcmd		_lft	_top	_cwd1	.,		///
+  	label(resource LBL_REPORTS_STATISTICS_SUBCOMMAND)
+  LISTBOX  lb_subcmd		@	_ss	_iwd	70,		///
+  	contents(main_subcommand_contents)				///
+  	values(main_subcommand_values)					///
+  	onselchangelist(main_subcommand_scripts)
+
+  DEFINE holdy 110
+
+  // classtable options
+  TEXT tx_cltbltype	_lft	holdy	_cwd1	.,			///
+	label(resource LBL_TABLE_TYPE)
+  COMBOBOX cb_cltbltype	@	_ss	@	.,			///
+	dropdownlist							///
+	contents(main_cltbl_table_type_contents)			///
+	values(main_table_type_values)					///
+	label(resource LBL_TABLE_TYPE)
+
+  // errorrate options
+  TEXT tx_errtbltype	_lft	holdy	_cwd1	.,			///
+	label(resource LBL_TABLE_TYPE)
+  COMBOBOX cb_errtbltype @	_ss	@	.,			///
+	dropdownlist							///
+	contents(main_errtbl_table_type_contents)			///
+	values(main_table_type_values)					///
+	label(resource LBL_TABLE_TYPE)
+
+  GROUPBOX gb_estbasis	_lft	_ls	_iwd	_ht8,			///
+	label(resource LBL_ERROR_RATE_ESTIMATE_BASIS)
+
+  RADIO rb_count	_ilft	_ss	_ibwd	.,			///
+	first								///
+	option(count)							///
+	onclickon(script main_rb_count_on)				///
+	label(resource LBL_MISCLASSIFICATION_COUNTS)
+
+  RADIO rb_pp		@	_ss	@	.,			///
+	last								///
+	option(pp)							///
+	onclickon(script main_rb_count_off)				///
+	label(resource LBL_POSTERIOR_PROBABILITIES)
+  CHECKBOX ck_strat	+20	_ss	@	.,			///
+	option(stratified)						///
+	label(resource LBL_PRESENT_STRATIFIED_ESTIMATES)
+  CHECKBOX ck_unstrat	@	_ss	@	.,			///
+	option(unstratified)						///
+	label(resource LBL_PRESENT_UNSTRATIFIED_ESTIMATES)
+
+  // grsummarize options
+  GROUPBOX gb_grsummary	_lft	holdy	_iwd	_ht22h,			///
+	label(resource LBL_GROUP_SUMMARY_STATISTICS_TO_DISPLAY)
+  TEXT tx_stat		40	_ss	145	.,			///
+	label(resource LBL_STATISTIC)
+  TEXT tx_format	+200	@	@	.,			///
+	label(resource LBL_FORMAT_OPTIONAL)
+
+  CHECKBOX ck_n		_ilft	_ms	215	.,			///
+	option(n)							///
+	onclickon(script main_nformat_on)				///
+	onclickoff(script main_nformat_off)				///
+	label(resource LBL_GROUP_SIZES)
+  EDIT ed_nformat	+220	@	200	.,			///
+	option(n) label(resource LBL_DISPLAY_FORMAT)
+  BUTTON bn_nformat	+205	@	80	.,			///
+	label(resource LBL_BU_CREATE)					///
+	onpush(script showNFormatDialog)				///
+	tooltip(resource LBL_CREATE_DISPLAY_FORMAT)
+
+  CHECKBOX ck_mean	_ilft	_ms	215	.,			///
+	option(mean)							///
+	onclickon(script main_meanformat_on)				///
+	onclickoff(script main_meanformat_off)				///
+	label(resource LBL_MEANS)
+  EDIT ed_meanformat	+220	@	200	.,			///
+	option(mean) label(resource LBL_DISPLAY_FORMAT)
+  BUTTON bn_meanformat	+205	@	80	.,			///
+	label(resource LBL_BU_CREATE)					///
+	onpush(script showMeanFormatDialog)				///
+	tooltip(resource LBL_CREATE_DISPLAY_FORMAT)
+
+  CHECKBOX ck_median	_ilft	_ms	215	.,			///
+	option(median)							///
+	onclickon(script main_medianformat_on)				///
+	onclickoff(script main_medianformat_off)			///
+	label(resource LBL_MEDIANS)
+  EDIT ed_medianformat	+220	@	200	.,			///
+	option(median) label(resource LBL_DISPLAY_FORMAT)
+  BUTTON bn_medianformat +205	@	80	.,			///
+	label(resource LBL_BU_CREATE)					///
+	onpush(script showMedianFormatDialog)				///
+	tooltip(resource LBL_CREATE_DISPLAY_FORMAT)
+
+  CHECKBOX ck_sd	_ilft	_ms	215	.,			///
+	option(sd)							///
+	onclickon(script main_sdformat_on)				///
+	onclickoff(script main_sdformat_off)				///
+	label(resource LBL_STANDARD_DEVIATIONS)
+  EDIT ed_sdformat	+220	@	200	.,			///
+	option(sd) label(resource LBL_DISPLAY_FORMAT)
+  BUTTON bn_sdformat	+205	@	80	.,			///
+	label(resource LBL_BU_CREATE)					///
+	onpush(script showSdFormatDialog)				///
+	tooltip(resource LBL_CREATE_DISPLAY_FORMAT)
+
+  CHECKBOX ck_cv	_ilft	_ms	215	.,			///
+	option(cv)							///
+	onclickon(script main_cvformat_on)				///
+	onclickoff(script main_cvformat_off)				///
+	label(resource LBL_COEFFICIENTS_OF_VARIATION)
+  EDIT ed_cvformat	+220	@	200	.,			///
+	option(cv) label(resource LBL_DISPLAY_FORMAT)
+  BUTTON bn_cvformat	+205	@	80	.,			///
+	label(resource LBL_BU_CREATE)					///
+	onpush(script showCvFormatDialog)				///
+	tooltip(resource LBL_CREATE_DISPLAY_FORMAT)
+
+  CHECKBOX ck_semean	_ilft	_ms	215	.,			///
+	option(semean)							///
+	onclickon(script main_semeanformat_on)				///
+	onclickoff(script main_semeanformat_off)			///
+	label(resource LBL_STANDARD_ERRORS_OF_THE_MEANS)
+  EDIT ed_semeanformat	+220	@	200	.,			///
+	option(semean) label(resource LBL_DISPLAY_FORMAT)
+  BUTTON bn_semeanformat +205	@	80	.,			///
+	label(resource LBL_BU_CREATE)					///
+	onpush(script showSemeanFormatDialog)				///
+	tooltip(resource LBL_CREATE_DISPLAY_FORMAT)
+
+  CHECKBOX ck_min	_ilft	_ms	215	.,			///
+	option(min)							///
+	onclickon(script main_minformat_on)				///
+	onclickoff(script main_minformat_off)				///
+	label(resource LBL_MINIMUMS)
+  EDIT ed_minformat	+220	@	200	.,			///
+	option(min) label(resource LBL_DISPLAY_FORMAT)
+  BUTTON bn_minformat	+205	@	80	.,			///
+	label(resource LBL_BU_CREATE)					///
+	onpush(script showMinFormatDialog)				///
+	tooltip(resource LBL_CREATE_DISPLAY_FORMAT)
+
+  CHECKBOX ck_max	_ilft	_ms	215	.,			///
+	option(max)							///
+	onclickon(script main_maxformat_on)				///
+	onclickoff(script main_maxformat_off)				///
+	label(resource LBL_MAXIMUMS)
+  EDIT ed_maxformat	+220	@	200	.,			///
+	option(max) label(resource LBL_DISPLAY_FORMAT)
+  BUTTON bn_maxformat	+205	@	80	.,			///
+	label(resource LBL_BU_CREATE)					///
+	onpush(script showMaxFormatDialog)				///
+	tooltip(resource LBL_CREATE_DISPLAY_FORMAT)
+
+  TEXT tx_note		_lft	_xxls	_iwd	.,			///
+	label(resource LBL_BY_DEFAULT_GROUP_SIZES_MEANS_PRESENTED)
+
+  // list options
+  CHECKBOX ck_misclassified _lft holdy	_iwd	.,			///
+	option(misclassified)						///
+	label(resource LBL_LIST_MISCLASSIFIED_OBSERVATIONS_ONLY)
+
+  GROUPBOX gb_class	_lft	_ls	_cwd1	_ht14h,			///
+	label(resource LBL_CLASSIFICATION_DISPLAY)
+DEFINE classhold @y
+  CHECKBOX ck_noclass	_indent	_ss	_inwd	.,			///
+	option(noclass)							///
+	default(1)							///
+	label(resource LBL_REGULAR_CLASSIFICATION)
+
+  CHECKBOX ck_looclass	@	_ss	@	.,			///
+	option(looclass)						///
+	label(resource LBL_LEAVE_ONE_OUT_CLASSIFICATION)
+
+  CHECKBOX ck_notrue	@	_ss	@	.,			///
+	option(notrue)							///
+	default(1)							///
+	label(resource LBL_GROUP_VARIABLE)
+
+  CHECKBOX ck_nostar	@	_ss	@	.,                      ///
+	option(nostar)							///
+	default(1)							///
+	label(resource LBL_STARS_INDICATING_MISCLASSIFIED_OBSERVATIONS)
+
+  CHECKBOX ck_nolabel	@	_ss	@	.,			///
+	option(nolabel)							///
+	default(1)							///
+	label(resource LBL_VALUE_LABELS_GROUP_VARIABLE)
+
+  CHECKBOX ck_format	@	_ss	@	.,			///
+	onclickon(script class_format_on)				///
+	onclickoff(script class_format_off)				///
+	label(resource LBL_OVERRIDE_DISPLAY_FORMAT)
+  EDIT ed_format	+20	_ss	_en14wd	.,			///
+	option(format) label(resource LBL_CLASSIFICATION_DISPLAY_FORMAT)
+  BUTTON bn_format	_en14sep @	80	.,			///
+	label(resource LBL_BU_CREATE)					///
+	onpush(script showFormatDialog)					///
+	tooltip(resource LBL_CREATE_DISPLAY_FORMAT)
+
+  CHECKBOX ck_varlist	_lft	+45	_cwd1	_ht9h,			///
+	groupbox							///
+	onclickon(program varlist_on)					///
+	onclickoff(script varlist_off)					///
+	label(resource LBL_DISCRIMINATING_VARIABLES_DISPLAY)
+DEFINE varlisty @y
+  RADIO rb_first	_indent	_ss	_inwd	.,			///
+	first								///
+	option(first)							///
+	label(resource LBL_BEFORE_CLASSIFICATIONS_PROBABILITIES)
+
+  RADIO rb_last		@	_ss	@	.,			///
+	last								///
+	option(last)							///
+	label(resource LBL_AFTER_CLASSIFICATIONS_PROBABILITIES)
+
+  CHECKBOX ck_vlformat	@	_ls	@	.,			///
+	onclickon(script var_vlformat_on)				///
+	onclickoff(script var_vlformat_off)				///
+	label(resource LBL_OVERRIDE_DISPLAY_FORMAT)
+  EDIT ed_vlformat	+20	_ss	_en14wd	.,			///
+	option(format) label(resource LBL_DISCRIMINATING_VARIABLE_DISPLAY_FORMAT)
+  BUTTON bn_vlformat	_en14sep @	80	.,			///
+	label(resource LBL_BU_CREATE)					///
+	onpush(script showVlFormatDialog)				///
+	tooltip(resource LBL_CREATE_DISPLAY_FORMAT)
+
+  GROUPBOX gb_probs	_lft2	classhold _cwd1	_ht8h,			///
+	label(resource LBL_PROBABILITIES_DISPLAY)
+
+  CHECKBOX ck_nopr	_indent	_ss	_inwd	.,			///
+	option(nopr)							///
+	default(1)							///
+	label(resource LBL_REGULAR_POSTERIOR_PROBABILITIES)
+
+  CHECKBOX ck_loopr	@	_ss	@	.,			///
+	option(loopr)							///
+	label(resource LBL_LEAVE_ONE_OUT_POSTERIOR_PROBABILITIES)
+
+  CHECKBOX ck_prformat	@	_ss	@	.,			///
+	onclickon(script prob_prformat_on)				///
+	onclickoff(script prob_prformat_off)				///
+	label(resource LBL_OVERRIDE_DISPLAY_FORMAT)
+  EDIT ed_prformat	+20	_ss	_en14wd	.,			///
+	option(format) label(resource LBL_PROBABILITIES_DISPLAY_FORMAT)
+  BUTTON bn_prformat	_en14sep @	80	.,			///
+	label(resource LBL_BU_CREATE)					///
+	onpush(script showPrFormatDialog)				///
+	tooltip(resource LBL_CREATE_DISPLAY_FORMAT)
+
+  TEXT tx_obs		_lft2	+45	_cwd1	.,			///
+	label(resource LBL_OBSERVATION_NUMBERS)
+
+  COMBOBOX cb_obs	@	_ss	@	.,			///
+	dropdownlist							///
+	contents(main_obs_contents)					///
+	values(main_obs_values)						///
+	label(resource LBL_DISPLAY_OBSERVATION_NUMBERS)
+
+  GROUPBOX gb_id	_lft2	varlisty _cwd1	_ht9h,			///
+	label(resource LBL_IDENTIFICATION_VARIABLE_OPTIONS)
+
+  TEXT tx_idvar		_indent _ss	_inwd	.,			///
+	label(resource LBL_ID_VARIABLE)
+DEFINE holdinwd @cx
+  VARLIST vl_idvar	@	_ss	_vnwd	.,			///
+	label(resource LBL_ID_VARIABLE)
+
+  CHECKBOX ck_idformat	@	_ls	holdinwd .,			///
+	onclickon(script id_idformat_on)				///
+	onclickoff(script id_idformat_off)				///
+	label(resource LBL_OVERRIDE_DISPLAY_FORMAT)
+  EDIT ed_idformat	_indent2 _ss	_en14wd	.,			///
+	option(format) label(resource LBL_ID_VARIABLE_DISPLAY_FORMAT)
+  BUTTON bn_idformat	_en14sep @	80	.,			///
+	label(resource LBL_BU_CREATE)					///
+	onpush(script showIdFormatDialog)				///
+	tooltip(resource LBL_CREATE_DISPLAY_FORMAT)
+
+  // summarize options
+  CHECKBOX ck_labels	_lft	holdy	_iwd	.,			///
+	label(resource LBL_DISPLAY_VARIABLE_LABELS)			///
+	option(labels)
+  CHECKBOX ck_noheader	@	_ms	@	.,			///
+	option(noheader)						///
+	label(resource LBL_SUPPRESS_HEADER)
+  CHECKBOX ck_noweights	@	_ms	@	.,			///
+	option(noweights)						///
+	label(resource LBL_IGNORE_WEIGHTS)
+END
+
+SCRIPT showFormatDialog
+BEGIN
+	create STRING formatString
+	create CHILD format_chooser
+	format_chooser.setExitString formatString
+	format_chooser.setExitAction "main.ed_format.setvalue class formatString.value"
+END
+
+SCRIPT class_format_on
+BEGIN
+	main.ed_format.enable
+	main.bn_format.enable
+END
+
+SCRIPT class_format_off
+BEGIN
+	main.ed_format.disable
+	main.bn_format.disable
+END
+
+PROGRAM classification_output
+BEGIN
+	if ! main.ck_noclass {
+		put "noclass"
+	}
+	option main.ck_looclass
+	if ! main.ck_notrue {
+		put " notrue"
+	}
+	if ! main.ck_nostar {
+		put " nostar"
+	}
+	if ! main.ck_nolabel {
+		put " nolabel"
+	}
+	optionarg main.ed_format
+END
+
+SCRIPT showPrFormatDialog
+BEGIN
+	create STRING prformatString
+	create CHILD format_chooser
+	format_chooser.setExitString prformatString
+	format_chooser.setExitAction "main.ed_prformat.setvalue class prformatString.value"
+END
+
+SCRIPT prob_prformat_on
+BEGIN
+	main.ed_prformat.enable
+	main.bn_prformat.enable
+END
+
+SCRIPT prob_prformat_off
+BEGIN
+	main.ed_prformat.disable
+	main.bn_prformat.disable
+END
+
+PROGRAM probabilities_output
+BEGIN
+	if ! main.ck_nopr {
+		put "nopr"
+	}
+	option main.ck_loopr
+	optionarg main.ed_prformat
+END
+
+PROGRAM varlist_on
+BEGIN
+	call main.rb_first.enable
+	call main.rb_last.enable
+	call main.ck_vlformat.enable
+	if main.ck_vlformat {
+		call main.ed_vlformat.enable
+		call main.bn_vlformat.enable
+	}
+END
+
+SCRIPT varlist_off
+BEGIN
+	main.rb_first.disable
+	main.rb_last.disable
+	main.ck_vlformat.disable
+	main.ed_vlformat.disable
+	main.bn_vlformat.disable
+END
+
+SCRIPT showVlFormatDialog
+BEGIN
+	create STRING vlformatString
+	create CHILD format_chooser
+	format_chooser.setExitString vlformatString
+	format_chooser.setExitAction "main.ed_vlformat.setvalue class vlformatString.value"
+END
+
+SCRIPT var_vlformat_on
+BEGIN
+	main.ed_vlformat.enable
+	main.bn_vlformat.enable
+END
+
+SCRIPT var_vlformat_off
+BEGIN
+	main.ed_vlformat.disable
+	main.bn_vlformat.disable
+END
+
+PROGRAM varlist_output
+BEGIN
+	option main.rb_last
+	optionarg main.ed_vlformat
+END
+
+SCRIPT showIdFormatDialog
+BEGIN
+	create STRING idformatString
+	create CHILD format_chooser
+	format_chooser.setExitString idformatString
+	format_chooser.setExitAction "main.ed_idformat.setvalue class idformatString.value"
+END
+
+SCRIPT id_idformat_on
+BEGIN
+	main.ed_idformat.enable
+	main.bn_idformat.enable
+END
+
+SCRIPT id_idformat_off
+BEGIN
+	main.ed_idformat.disable
+	main.bn_idformat.disable
+END
+
+PROGRAM id_output
+BEGIN
+	varlist [main.vl_idvar]
+	optionarg main.ed_idformat
+END
+
+LIST main_obs_contents
+BEGIN
+	resource LBL_DEFAULT_BEHAVIOR_OBSERVATION_NUMBERS
+	resource LBL_DISPLAY_OBSERVATION_NUMBERS
+	resource LBL_SUPPRESS_DISPLAY_OBSERVATION_NUMBERS
+END
+
+LIST main_obs_values
+BEGIN
+	""
+	"obs"
+	"noobs"
+END
+
+INCLUDE ifin
+INCLUDE weights_f
+
+DIALOG opt, tabtitle(resource LBL_OPTIONS) label("")
+BEGIN
+  // summarize		- no additional options
+  TEXT tx_noopts	_lft	_top	_iwd	.,			///
+	label(resource LBL_THERE_ARE_NO_ADDITIONAL_OPTIONS)
+
+  // list options
+  CHECKBOX ck_weight	_lft	_top	_iwd	_ht6,			///
+	groupbox							///
+	onclickon(program opt_weight_on)				///
+	onclickoff(script opt_weight_off)				///
+	label(resource LBL_WEIGHT_OPTIONS)
+
+  CHECKBOX ck_wnone	_ilft	_ss	_ibwd	.,			///
+	option(none)							///
+	onclickon(script noweight_on)					///
+	onclickoff(program noweight_off)				///
+	label(resource LBL_SUPPRESS_DISPLAY_OF_WEIGHTS)
+
+  CHECKBOX ck_wformat	@	_ss	@	.,			///
+	onclickon(script weights_wformat_on)				///
+	onclickoff(script weights_wformat_off)				///
+	label(resource LBL_OVERRIDE_DEFAULT_DISPLAY_FORMAT_WEIGHTS)
+  EDIT ed_wformat	+20	_ss	200	.,			///
+	option(format) label(resource LBL_DISPLAY_FORMAT)
+  BUTTON bn_wformat	+205	@	80	.,			///
+	label(resource LBL_BU_CREATE)					///
+	onpush(script showWFormatDialog)				///
+	tooltip(resource LBL_CREATE_DISPLAY_FORMAT)
+
+  GROUPBOX gb_priors	_lft	+45	_iwd	_ht10h,			///
+	label(resource LBL_GROUP_PRIOR_PROBABILITIES)
+
+  RADIO rb_priordefault	_indent	_ss	_ibwd	.,			///
+	first								///
+	option(NONE)							///
+	onclickon(opt.cb_matname.disable)				///
+	label(resource LBL_USE_DEFAULT_DEFINED_ESTIMATION_COMMAND)
+
+  RADIO rb_equal	@	_ss	@	.,			///
+	option(equal)							///
+	onclickon(opt.cb_matname.disable)				///
+	label(resource LBL_EQUAL_PRIOR_PROBABILITIES)
+
+  RADIO rb_proportional	@	_ss	@	.,			///
+	option(proportional)						///
+	onclickon(opt.cb_matname.disable)				///
+	label(resource LBL_GROUP_SIZE_PROPORTIONAL_PRIOR_PROB)
+
+  RADIO rb_matrix	@	_ss	@	.,			///
+	last								///
+	onclickon(opt.cb_matname.enable)				///
+	label(resource LBL_MATRIX_MATRIX_EXPRESSION_CONTAINING_GROUP)
+  COMBOBOX cb_matname	_rbsep	_ss	200	60,			///
+	dropdown							///
+	label(resource LBL_MATRIX_MATRIX_EXPRESSION_CONTAINING_GROUP)	///
+	contents(vector)
+
+  CHECKBOX ck_nopriors	_lft	+45	_iwd	.,			///
+	option(nopriors)						///
+	label(resource LBL_SUPPRESS_DISPLAY_PRIOR_PROBABILITIES)
+
+  TEXT tx_ties		@	_ls	@	.,			///
+	label(resource LBL_TIES_GROUP_CLASSIFICATION)
+  COMBOBOX cb_ties	@	_ss	@	.,			///
+	dropdownlist							///
+	option(ties)							///
+	contents(main_ties_contents)					///
+	values(main_ties_values)					///
+	label(resource LBL_TIES_GROUP_CLASSIFICATION)
+
+  TEXT tx_sephdr	_lft	_ls	_iwd	.,			///
+	label(resource LBL_PLACE_SEPARATORS_EVERY_N_LINES)
+  SPINNER sp_sep	@	_ss	_spwd	.,			///
+	option(separator)						///
+	min(0) max(10000) default(5)
+  TEXT tx_sep		_spsep	@	_rbspr2b .,			///
+	label(resource LBL_LINES_DEFAULT_5)
+
+  // classtable options
+  TEXT tx_title		_lft	_ls	_iwd	.,			///
+	label(resource LBL_TITLE_FOR_CLASSIFICATION_TABLE)
+
+  EDIT ed_title		@	_ss	_vlwd	.,			///
+	option(title)							///
+	label(resource LBL_TITLE_FOR_CLASSIFICATION_TABLE)
+
+  CHECKBOX ck_probs	@	_ls	_iwd	.,			///
+	option(probabilities)						///
+	label(resource LBL_DISPLAY_AVERAGE_POSTERIOR_PROBABILITY_CLASS)
+
+  CHECKBOX ck_nopcts	@	_ms	@	.,			///
+	option(nopercents)						///
+	label(resource LBL_SUPPRESS_DISPLAY_OF_PERCENTAGES)
+
+  CHECKBOX ck_nototals	@	_ms	@	.,			///
+	option(nototals)						///
+	label(resource LBL_SUPPRESS_DISPLAY_OF_ROW_AND_COLUMN_TOTALS)
+
+  CHECKBOX ck_norow	@	_ms	@	.,			///
+	option(norowtotals)						///
+	label(resource LBL_SUPPRESS_DISPLAY_OF_ROW_TOTALS)
+
+  CHECKBOX ck_nocol	@	_ms	@	.,			///
+	option(nocoltotals)						///
+	label(resource LBL_SUPPRESS_DISPLAY_OF_COLUMN_TOTALS)
+
+  // errorrate options
+  TEXT tx_errtitle	_lft	_ls	_iwd	.,			///
+	label(resource LBL_TITLE_ERROR_RATE_ESTIMATE_TABLE)
+  EDIT ed_errtitle	@	_ss	_vlwd	.,			///
+	option(title)							///
+	label(resource LBL_TITLE_ERROR_RATE_ESTIMATE_TABLE)
+
+  CHECKBOX ck_errnototal @	_ls	@	.,			///
+	option(nototal)							///
+	label(resource LBL_SUPPRESS_DISPLAY_TOTAL_COLUMN)
+
+  // grsummarize options
+  CHECKBOX ck_grnototal _lft	_top	_iwd	.,			///
+	option(nototal)							///
+	label(resource LBL_SUPPRESS_OVERALL_STATISTICS)
+
+  CHECKBOX ck_transpose @	_ms	@	.,			///
+	option(transpose)						///
+	label(resource LBL_DISPLAY_GROUPS_ROW_INSTEAD_COLUMN)
+END
+
+PROGRAM opt_weight_on
+BEGIN
+	call opt.ck_wnone.enable
+	call opt.ck_wformat.enable
+	if opt.ck_wformat {
+		call opt.ed_wformat.enable
+		call opt.bn_wformat.enable
+	}
+END
+
+SCRIPT opt_weight_off
+BEGIN
+	opt.ck_wnone.disable
+	opt.ck_wformat.disable
+	opt.ed_wformat.disable
+	opt.bn_wformat.disable
+END
+
+SCRIPT showWFormatDialog
+BEGIN
+	create STRING wformatString
+	create CHILD format_chooser
+	format_chooser.setExitString wformatString
+	format_chooser.setExitAction "opt.ed_wformat.setvalue class wformatString.value"
+END
+
+SCRIPT noweight_on
+BEGIN
+	opt.ck_wformat.disable
+	opt.ed_wformat.disable
+	opt.bn_wformat.disable
+END
+
+PROGRAM noweight_off
+BEGIN
+	if opt.ck_weight {
+		call opt.ck_wformat.enable
+		if opt.ck_wformat {
+			call opt.ed_wformat.enable
+			call opt.bn_wformat.enable
+		}
+	}
+END
+
+SCRIPT weights_wformat_on
+BEGIN
+	opt.ed_wformat.enable
+	opt.bn_wformat.enable
+END
+
+SCRIPT weights_wformat_off
+BEGIN
+	opt.ed_wformat.disable
+	opt.bn_wformat.disable
+END
+
+PROGRAM opt_weights_output
+BEGIN
+	option opt.ck_wnone
+	optionarg opt.ed_wformat
+END
+
+SCRIPT showNFormatDialog
+BEGIN
+        create STRING nformatString
+        create CHILD format_chooser
+        format_chooser.setExitString nformatString
+        format_chooser.setExitAction "main.ed_nformat.setvalue class nformatString.value"
+END
+
+SCRIPT showMeanFormatDialog
+BEGIN
+        create STRING meanformatString
+        create CHILD format_chooser
+        format_chooser.setExitString meanformatString
+        format_chooser.setExitAction "main.ed_meanformat.setvalue class meanformatString.value"
+END
+
+SCRIPT showMedianFormatDialog
+BEGIN
+        create STRING medianformatString
+        create CHILD format_chooser
+        format_chooser.setExitString medianformatString
+        format_chooser.setExitAction "main.ed_medianformat.setvalue class medianformatString.value"
+END
+
+SCRIPT showSdFormatDialog
+BEGIN
+        create STRING sdformatString
+        create CHILD format_chooser
+        format_chooser.setExitString sdformatString
+        format_chooser.setExitAction "main.ed_sdformat.setvalue class sdformatString.value"
+END
+
+SCRIPT showCvFormatDialog
+BEGIN
+        create STRING cvformatString
+        create CHILD format_chooser
+        format_chooser.setExitString cvformatString
+        format_chooser.setExitAction "main.ed_cvformat.setvalue class cvformatString.value"
+END
+
+SCRIPT showSemeanFormatDialog
+BEGIN
+        create STRING semeanformatString
+        create CHILD format_chooser
+        format_chooser.setExitString semeanformatString
+        format_chooser.setExitAction "main.ed_semeanformat.setvalue class semeanformatString.value"
+END
+
+SCRIPT showMinFormatDialog
+BEGIN
+        create STRING minformatString
+        create CHILD format_chooser
+        format_chooser.setExitString minformatString
+        format_chooser.setExitAction "main.ed_minformat.setvalue class minformatString.value"
+END
+
+SCRIPT showMaxFormatDialog
+BEGIN
+        create STRING maxformatString
+        create CHILD format_chooser
+        format_chooser.setExitString maxformatString
+        format_chooser.setExitAction "main.ed_maxformat.setvalue class maxformatString.value"
+END
+
+LIST main_subcommand_contents
+BEGIN
+	resource LBL_CLASSIFICATION_TABLE_CLASSTABLE
+	resource LBL_CLASSIFICATION_ERROR_RATE_EST_ERRORRATE
+	resource LBL_GROUP_SUMMARIES_GRSUMMARIZE
+	resource LBL_CLASSIFICATION_LISTING_LIST
+	resource LBL_SUMMARIZE_ESTIMATION_SAMPLE
+END
+
+LIST main_subcommand_values
+BEGIN
+	classtable
+	errorrate
+	grsummarize
+	list
+	summarize
+END
+
+LIST main_subcommand_scripts
+BEGIN
+	script sel_classtable
+	script sel_errorrate
+	script sel_grsummarize
+	script sel_list
+	script sel_summarize
+END
+
+LIST main_cltbl_table_type_contents
+BEGIN
+	resource LBL_REGULAR_CLASSIFICATION_TABLE
+	resource LBL_LEAVE_ONE_OUT_CLASSIFICATION_TABLE
+END
+
+LIST main_errtbl_table_type_contents
+BEGIN
+	resource LBL_REGULAR_ERROR_RATE_ESTIMATES_TABLE
+	resource LBL_LEAVE_ONE_OUT_ERROR_RATE_ESTIMATES_TABLE
+END
+
+LIST main_table_type_values
+BEGIN
+	""
+	looclass
+END
+
+LIST main_ties_contents
+BEGIN
+	resource LBL_PRODUCE_A_MISSING_VALUE
+	resource LBL_ARE_BROKEN_RANDOMLY
+	resource LBL_ARE_SET_TO_THE_FIRST_TIED_GROUP
+	resource LBL_ARE_ASSIGNED_BASED_CLOSEST_OBSERVATIONS
+END
+
+LIST main_ties_values
+BEGIN
+	missing
+	random
+	first
+	nearest
+END
+
+SCRIPT main_hide_all
+BEGIN
+	// shared options
+	opt.tx_noopts.hide
+	opt.gb_priors.hide
+	opt.rb_priordefault.hide
+	opt.rb_equal.hide
+	opt.rb_proportional.hide
+	opt.rb_matrix.hide
+	opt.cb_matname.hide
+	opt.ck_nopriors.hide
+	opt.tx_ties.hide
+	opt.cb_ties.hide
+
+	// classtable options
+	main.tx_cltbltype.hide
+	main.cb_cltbltype.hide
+	opt.tx_title.hide
+	opt.ed_title.hide
+	opt.ck_probs.hide
+	opt.ck_nopcts.hide
+	opt.ck_nototals.hide
+	opt.ck_norow.hide
+	opt.ck_nocol.hide
+
+	// errorrate options
+	main.tx_errtbltype.hide
+	main.cb_errtbltype.hide
+	main.gb_estbasis.hide
+	main.rb_count.hide
+	main.rb_pp.hide
+	main.ck_strat.hide
+	main.ck_unstrat.hide
+
+	opt.tx_errtitle.hide
+	opt.ed_errtitle.hide
+	opt.ck_errnototal.hide
+
+	// grsummarize options
+	main.gb_grsummary.hide
+	main.tx_stat.hide
+	main.tx_format.hide
+	main.ck_n.hide
+	main.ed_nformat.hide
+	main.bn_nformat.hide
+	main.ck_mean.hide
+	main.ed_meanformat.hide
+	main.bn_meanformat.hide
+	main.ck_median.hide
+	main.ed_medianformat.hide
+	main.bn_medianformat.hide
+	main.ck_sd.hide
+	main.ed_sdformat.hide
+	main.bn_sdformat.hide
+	main.ck_cv.hide
+	main.ed_cvformat.hide
+	main.bn_cvformat.hide
+	main.ck_semean.hide
+	main.ed_semeanformat.hide
+	main.bn_semeanformat.hide
+	main.ck_min.hide
+	main.ed_minformat.hide
+	main.bn_minformat.hide
+	main.ck_max.hide
+	main.ed_maxformat.hide
+	main.bn_maxformat.hide
+	main.tx_note.hide
+
+	opt.ck_grnototal.hide
+	opt.ck_transpose.hide
+
+	// list options
+	main.ck_misclassified.hide
+	main.gb_class.hide
+	main.ck_noclass.hide
+	main.ck_looclass.hide
+	main.ck_notrue.hide
+	main.ck_nostar.hide
+	main.ck_nolabel.hide
+	main.ck_format.hide
+	main.ed_format.hide
+	main.bn_format.hide
+	main.ck_varlist.hide
+	main.rb_first.hide
+	main.rb_last.hide
+	main.ck_vlformat.hide
+	main.ed_vlformat.hide
+	main.bn_vlformat.hide
+	main.gb_probs.hide
+	main.ck_nopr.hide
+	main.ck_loopr.hide
+	main.ck_prformat.hide
+	main.ed_prformat.hide
+	main.bn_prformat.hide
+	main.gb_id.hide
+	main.tx_idvar.hide
+	main.vl_idvar.hide
+	main.ck_idformat.hide
+	main.ed_idformat.hide
+	main.bn_idformat.hide
+	main.tx_obs.hide
+	main.cb_obs.hide
+
+	opt.ck_weight.hide
+	opt.ck_wnone.hide
+	opt.ck_wformat.hide
+	opt.ed_wformat.hide
+	opt.bn_wformat.hide
+	opt.tx_sephdr.hide
+	opt.sp_sep.hide
+	opt.tx_sep.hide
+
+	// summarize options
+	main.ck_labels.hide
+	main.ck_noheader.hide
+	main.ck_noweights.hide
+END
+
+SCRIPT sel_classtable
+BEGIN
+	script main_hide_all
+
+	main.tx_cltbltype.setposition . 110 . .
+	main.cb_cltbltype.setposition . 130 . .
+
+	main.tx_cltbltype.show
+	main.cb_cltbltype.show
+
+	opt.gb_priors.setposition . 10 . .
+	opt.rb_priordefault.setposition . 30 . .
+	opt.rb_equal.setposition . 50 . .
+	opt.rb_proportional.setposition . 70 . .
+	opt.rb_matrix.setposition . 90 . .
+	opt.cb_matname.setposition . 110 . .
+	opt.ck_nopriors.setposition . 155 . .
+	opt.tx_ties.setposition . 180 . .
+	opt.cb_ties.setposition . 200 . .
+
+	opt.tx_title.setposition . 230 . .
+	opt.ed_title.setposition . 250 . .
+	opt.ck_probs.setposition . 280 . .
+	opt.ck_nopcts.setposition . 305 . .
+	opt.ck_nototals.setposition . 330 . .
+	opt.ck_norow.setposition . 355 . .
+	opt.ck_nocol.setposition . 380 . .
+
+	opt.gb_priors.show
+	opt.rb_priordefault.show
+	opt.rb_equal.show
+	opt.rb_proportional.show
+	opt.rb_matrix.show
+	opt.cb_matname.show
+	opt.ck_nopriors.show
+	opt.tx_ties.show
+	opt.cb_ties.show
+	opt.tx_title.show
+	opt.ed_title.show
+	opt.ck_probs.show
+	opt.ck_nopcts.show
+	opt.ck_nototals.show
+	opt.ck_norow.show
+	opt.ck_nocol.show
+
+	script ifin_enable
+	script weights_enable
+
+END
+
+SCRIPT sel_errorrate
+BEGIN
+	script main_hide_all
+
+	main.tx_errtbltype.show
+	main.cb_errtbltype.show
+	main.gb_estbasis.show
+	main.rb_count.show
+	main.rb_pp.show
+	main.ck_strat.show
+	main.ck_unstrat.show
+
+	opt.gb_priors.setposition . 10 . .
+	opt.rb_priordefault.setposition . 30 . .
+	opt.rb_equal.setposition . 50 . .
+	opt.rb_proportional.setposition . 70 . .
+	opt.rb_matrix.setposition . 90 . .
+	opt.cb_matname.setposition . 110 . .
+	opt.ck_nopriors.setposition . 155 . .
+	opt.tx_ties.setposition . 180 . .
+	opt.cb_ties.setposition . 200 . .
+
+	opt.tx_errtitle.setposition . 230 . .
+	opt.ed_errtitle.setposition . 250 . .
+	opt.ck_errnototal.setposition . 280 . .
+
+	opt.gb_priors.show
+	opt.rb_priordefault.show
+	opt.rb_equal.show
+	opt.rb_proportional.show
+	opt.rb_matrix.show
+	opt.cb_matname.show
+	opt.ck_nopriors.show
+	opt.tx_ties.show
+	opt.cb_ties.show
+	opt.tx_errtitle.show
+	opt.ed_errtitle.show
+	opt.ck_errnototal.show
+
+	script ifin_enable
+	script weights_enable
+END
+
+SCRIPT sel_grsummarize
+BEGIN
+	script main_hide_all
+
+	main.gb_grsummary.show
+	main.tx_stat.show
+	main.tx_format.show
+	main.ck_n.show
+	main.ed_nformat.show
+	main.bn_nformat.show
+	main.ck_mean.show
+	main.ed_meanformat.show
+	main.bn_meanformat.show
+	main.ck_median.show
+	main.ed_medianformat.show
+	main.bn_medianformat.show
+	main.ck_sd.show
+	main.ed_sdformat.show
+	main.bn_sdformat.show
+	main.ck_cv.show
+	main.ed_cvformat.show
+	main.bn_cvformat.show
+	main.ck_semean.show
+	main.ed_semeanformat.show
+	main.bn_semeanformat.show
+	main.ck_min.show
+	main.ed_minformat.show
+	main.bn_minformat.show
+	main.ck_max.show
+	main.ed_maxformat.show
+	main.bn_maxformat.show
+	main.tx_note.show
+
+	opt.ck_grnototal.show
+	opt.ck_transpose.show
+
+	script ifin_disable
+	script weights_disable
+END
+
+SCRIPT sel_list
+BEGIN
+	script main_hide_all
+
+	main.ck_misclassified.show
+	main.gb_class.show
+	main.ck_noclass.show
+	main.ck_looclass.show
+	main.ck_notrue.show
+	main.ck_nostar.show
+	main.ck_nolabel.show
+	main.ck_format.show
+	main.ed_format.show
+	main.bn_format.show
+	main.ck_varlist.show
+	main.rb_first.show
+	main.rb_last.show
+	main.ck_vlformat.show
+	main.ed_vlformat.show
+	main.bn_vlformat.show
+	main.gb_probs.show
+	main.ck_nopr.show
+	main.ck_loopr.show
+	main.ck_prformat.show
+	main.ed_prformat.show
+	main.bn_prformat.show
+	main.gb_id.show
+	main.tx_idvar.show
+	main.vl_idvar.show
+	main.ck_idformat.show
+	main.ed_idformat.show
+	main.bn_idformat.show
+	main.tx_obs.show
+	main.cb_obs.show
+
+	opt.ck_weight.setposition . 10 . .
+	opt.ck_wnone.setposition . 30 . .
+	opt.ck_wformat.setposition . 50 . .
+	opt.ed_wformat.setposition . 70 . .
+	opt.bn_wformat.setposition . 70 . .
+
+	opt.gb_priors.setposition . 115 . .
+	opt.rb_priordefault.setposition . 135 . .
+	opt.rb_equal.setposition . 155 . .
+	opt.rb_proportional.setposition . 175 . .
+	opt.rb_matrix.setposition . 195 . .
+	opt.cb_matname.setposition . 215 . .
+	opt.tx_ties.setposition . 260 . .
+	opt.cb_ties.setposition . 280 . .
+	opt.tx_sephdr.setposition . 310 . .
+	opt.sp_sep.setposition . 330 . .
+	opt.tx_sep.setposition . 330 . .
+
+	opt.ck_weight.show
+	opt.ck_wnone.show
+	opt.ck_wformat.show
+	opt.ed_wformat.show
+	opt.bn_wformat.show
+	opt.gb_priors.show
+	opt.rb_priordefault.show
+	opt.rb_equal.show
+	opt.rb_proportional.show
+	opt.rb_matrix.show
+	opt.cb_matname.show
+	opt.tx_ties.show
+	opt.cb_ties.show
+	opt.tx_sephdr.show
+	opt.sp_sep.show
+	opt.tx_sep.show
+
+	script ifin_enable
+	script weights_disable
+END
+
+SCRIPT sel_summarize
+BEGIN
+	script main_hide_all
+
+	main.ck_labels.show
+	main.ck_noheader.show
+	main.ck_noweights.show
+	opt.tx_noopts.show
+
+	script ifin_disable
+	script weights_disable
+END
+
+SCRIPT main_rb_count_on
+BEGIN
+	main.ck_strat.disable
+	main.ck_unstrat.disable
+END
+
+SCRIPT main_rb_count_off
+BEGIN
+	main.ck_strat.enable
+	main.ck_unstrat.enable
+END
+
+SCRIPT main_nformat_on
+BEGIN
+	main.ed_nformat.enable
+	main.bn_nformat.enable
+END
+
+SCRIPT main_nformat_off
+BEGIN
+	main.ed_nformat.disable
+	main.bn_nformat.disable
+END
+
+SCRIPT main_meanformat_on
+BEGIN
+	main.ed_meanformat.enable
+	main.bn_meanformat.enable
+END
+
+SCRIPT main_meanformat_off
+BEGIN
+	main.ed_meanformat.disable
+	main.bn_meanformat.disable
+END
+
+SCRIPT main_medianformat_on
+BEGIN
+	main.ed_medianformat.enable
+	main.bn_medianformat.enable
+END
+
+SCRIPT main_medianformat_off
+BEGIN
+	main.ed_medianformat.disable
+	main.bn_medianformat.disable
+END
+
+SCRIPT main_sdformat_on
+BEGIN
+	main.ed_sdformat.enable
+	main.bn_sdformat.enable
+END
+
+SCRIPT main_sdformat_off
+BEGIN
+	main.ed_sdformat.disable
+	main.bn_sdformat.disable
+END
+
+SCRIPT main_cvformat_on
+BEGIN
+	main.ed_cvformat.enable
+	main.bn_cvformat.enable
+END
+
+SCRIPT main_cvformat_off
+BEGIN
+	main.ed_cvformat.disable
+	main.bn_cvformat.disable
+END
+
+SCRIPT main_semeanformat_on
+BEGIN
+	main.ed_semeanformat.enable
+	main.bn_semeanformat.enable
+END
+
+SCRIPT main_semeanformat_off
+BEGIN
+	main.ed_semeanformat.disable
+	main.bn_semeanformat.disable
+END
+
+SCRIPT main_minformat_on
+BEGIN
+	main.ed_minformat.enable
+	main.bn_minformat.enable
+END
+
+SCRIPT main_minformat_off
+BEGIN
+	main.ed_minformat.disable
+	main.bn_minformat.disable
+END
+
+SCRIPT main_maxformat_on
+BEGIN
+	main.ed_maxformat.enable
+	main.bn_maxformat.enable
+END
+
+SCRIPT main_maxformat_off
+BEGIN
+	main.ed_maxformat.disable
+	main.bn_maxformat.disable
+END
+
+PROGRAM opt_priors_output
+BEGIN
+	if opt.rb_equal {
+		put "priors(equal)"
+	}
+	if opt.rb_proportional {
+		put "priors(proportional)"
+	}
+	if opt.rb_matrix {
+		require opt.cb_matname
+		put "priors("
+		put opt.cb_matname
+		put ")"
+	}
+END
+
+PROGRAM main_pp_output
+BEGIN
+	option main.ck_strat
+	option main.ck_unstrat
+END
+
+PROGRAM command
+BEGIN
+	put "estat "
+	put main.lb_subcmd
+	INCLUDE _ifin_pr
+	INCLUDE _weights_pr
+	beginoptions
+		// classtable options
+		if main.lb_subcmd.iseq("classtable") {
+			put " " main.cb_cltbltype
+			put " " /program opt_priors_output
+			option opt.ck_nopriors
+			optionarg /hidedefault opt.cb_ties
+			optionarg opt.ed_title
+			option opt.ck_probs
+			option opt.ck_nopcts
+			option opt.ck_nototals
+			option opt.ck_norow
+			option opt.ck_nocol
+		}
+
+		// errorrate options
+		if main.lb_subcmd.iseq("errorrate") {
+			put " " main.cb_errtbltype
+			if main.rb_pp {
+				put "pp"
+				if main.ck_strat | main.ck_unstrat {
+					put "("
+					put /program main_pp_output
+					put ")"
+				}
+			}
+			put " " /program opt_priors_output
+			option opt.ck_nopriors
+			optionarg /hidedefault opt.cb_ties
+			optionarg opt.ed_errtitle
+			option opt.ck_errnototal
+		}
+
+		// grsummarize options
+		if main.lb_subcmd.iseq("grsummarize") {
+			if main.ck_n {
+				if main.ed_nformat {
+					optionarg main.ed_nformat
+				}
+				else {
+					option main.ck_n
+				}
+			}
+
+			if main.ck_mean {
+				if main.ed_meanformat {
+					optionarg main.ed_meanformat
+				}
+				else {
+					option main.ck_mean
+				}
+			}
+
+			if main.ck_median {
+				if main.ed_medianformat {
+					optionarg main.ed_medianformat
+				}
+				else {
+					option main.ck_median
+				}
+			}
+
+			if main.ck_sd {
+				if main.ed_sdformat {
+					optionarg main.ed_sdformat
+				}
+				else {
+					option main.ck_sd
+				}
+			}
+
+			if main.ck_cv {
+				if main.ed_cvformat {
+					optionarg main.ed_cvformat
+				}
+				else {
+					option main.ck_cv
+				}
+			}
+
+			if main.ck_semean {
+				if main.ed_semeanformat {
+					optionarg main.ed_semeanformat
+				}
+				else {
+					option main.ck_semean
+				}
+			}
+
+			if main.ck_min {
+				if main.ed_minformat {
+					optionarg main.ed_minformat
+				}
+				else {
+					option main.ck_min
+				}
+			}
+
+			if main.ck_max {
+				if main.ed_maxformat {
+					optionarg main.ed_maxformat
+				}
+				else {
+					option main.ck_max
+				}
+			}
+
+			option opt.ck_grnototal
+			option opt.ck_transpose
+		}
+
+		// list options
+		if main.lb_subcmd.iseq("list") {
+			option main.ck_misclassified
+
+			if main.ck_format {
+				require main.ed_format
+			}
+			if ! main.ck_noclass | main.ck_looclass |	///
+			   ! main.ck_notrue | ! main.ck_nostar |	///
+			   ! main.ck_nolabel | main.ed_format {
+				put " classification("
+				put /program classification_output
+				put ")"
+			}
+
+			if main.ck_prformat {
+				require main.ed_prformat
+			}
+			if ! main.ck_nopr | main.ck_loopr | main.ed_prformat {
+				put " probabilities("
+				put /program probabilities_output
+				put ")"
+			}
+
+			if main.ck_vlformat & main.ck_vlformat.isenabled() {
+				require main.ed_vlformat
+			}
+			if main.ck_varlist {
+				put " varlist"
+				if main.rb_last | main.ck_vlformat {
+					put "("
+					put /program varlist_output
+					put ")"
+				}
+			}
+
+			put " " main.cb_obs
+
+			if main.ck_idformat {
+				require main.vl_idvar
+				require main.ed_idformat
+			}
+			if main.vl_idvar.isneq("") {
+				put " id("
+				put /program id_output
+				put ")"
+			}
+
+			if opt.ck_weight {
+				put " weight"
+				if opt.ck_wformat {
+					require opt.ed_wformat
+				}
+				if opt.ck_wnone | opt.ed_wformat.isneq("") {
+					put "("
+						put /program opt_weights_output
+					put ")"
+				}
+			}
+
+			put " " /program opt_priors_output
+			optionarg /hidedefault opt.cb_ties
+			optionarg /hidedefault opt.sp_sep
+		}
+
+		// summarize options
+		if main.lb_subcmd.iseq("summarize") {
+			option main.ck_labels
+			option main.ck_noheader
+			option main.ck_noweights
+		}
+	endoptions
+END

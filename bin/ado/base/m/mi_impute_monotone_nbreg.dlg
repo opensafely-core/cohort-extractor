@@ -1,0 +1,225 @@
+/*
+  mi impute nbreg
+
+*!  VERSION 1.1.0  29oct2014
+
+  keyword:  mi impute
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 435
+INCLUDE header
+
+HELP hlp1, view("help mi impute nbreg")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	program  parseMessage
+	create STRING _mi_ivars
+	create LIST   _mi_IVARS_LIST
+	setscale_hadj resource MI_IMPUTE_MONOTONE_NBREG_DLG_HSCALE
+END
+
+PROGRAM parseMessage
+BEGIN
+	if __MESSAGE.contains("__MONO__") {
+		call script main_mono_on
+	}
+	if __MESSAGE.contains("__MONO_CUST__") {
+		call script main_mono_custom_on
+	}
+	if __MESSAGE.contains("__CHAIN__") {
+		call script main_chain_on
+	}
+END
+
+SCRIPT POSTINIT
+BEGIN
+	_mi_ivars.setvalue char _dta[_mi_ivars]
+
+	_mi_IVARS_LIST.Arrdropall
+	_mi_ivars.tokenize _mi_IVARS_LIST
+	main.cb_ivar.repopulate
+	main.cb_ivars.repopulate
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	label("")
+BEGIN
+  TEXT     tx_ivar	_lft	_topph	_vnwd	.,			///
+	label(resource LBL_IMPUTED_VARIABLE)
+  COMBOBOX cb_ivar	@ 	_ss	@	.,			///
+	dropdown							///
+	contents(_mi_IVARS_LIST)					///
+	label(resource LBL_IMPUTED_VARIABLE)
+  COMBOBOX cb_ivars	@ 	@	480	.,			///
+	append								///
+	dropdown							///
+	contents(_mi_IVARS_LIST)					///
+	label(resource LBL_IMPUTED_VARIABLES)
+
+  TEXT     tx_iv	_vlx	_topph	160	.,			///
+	label(resource LBL_INDDEPVAR)
+  VARLIST  vl_iv	@	_ss	_vlwd	.,			///
+	fv								///
+	numeric								///
+	label(resource LBL_INDDEPVAR)
+
+  DEFINE _x _lft
+  DEFINE _cx _iwd
+  DEFINE _y _ls
+  INCLUDE _mi_impute_chained_cust_opts
+
+  CHECKBOX ck_nocons	@	_ms	@	.,			///
+	label(resource LBL_NOCONSTANT)					///
+	option(noconstant)
+
+  GROUPBOX gb_disper	_lft	_ls	_iwd	_ht2,			///
+	label(resource LBL_PARAMETERIZATION_OF_DISPERSION)
+  RADIO rb_mean		_ilft	_ss	_cwd2	., first		///
+	label(resource LBL_A_FUNCTION_OF_THE_EXPECTED_MEAN)
+  RADIO rb_cons		_lft2	@	@	., last			///
+	option("dispersion(constant)")					///
+	label(resource LBL_A_CONSTANT)
+
+  RADIO rb_expose 	_lft	_ls	_cwd3_2	., first		///
+	onclickon(main.vn_expose.enable)				///
+	onclickoff(main.vn_expose.disable)				///
+	label(resource LBL_EXPOSURE_VARIABLE)
+  RADIO rb_offset	_lft3_2	@	@	., last			///
+	onclickon(main.vn_offset.enable)				///
+	onclickoff(main.vn_offset.disable)				///
+	label(resource LBL_OFFSET_VARIABLE)
+
+  VARNAME vn_expose	_lft	_ss	@	.,			///
+	option(exposure)						///
+	numeric								///
+	label(resource LBL_EXPOSURE_VARIABLE)
+  VARNAME vn_offset	_lft3_2	@	@	.,			///
+	option(offset)							///
+	numeric								///
+	label(resource LBL_OFFSET_VARIABLE)
+
+  DEFINE _x _lft
+  DEFINE _cx _iwd
+  DEFINE _y _ls
+  INCLUDE _mi_impute_uni_cond_boot
+
+  DEFINE _x _lft
+  DEFINE _cx _iwd
+  DEFINE _y _ms
+  INCLUDE _mi_impute_noisily
+END
+
+INCLUDE _mi_impute_chained_cust_opts_sc
+
+SCRIPT main_mono_on
+BEGIN
+	script main_chain_hide
+	script main_mono_custom_off
+	main.ck_nocons.setposition 10 70 400 .
+	main.gb_disper.setposition . 100
+	main.rb_mean.setposition . 120
+	main.rb_cons.setposition . 120
+	main.rb_expose.setposition . 165
+	main.rb_offset.setposition . 165
+	main.vn_expose.setposition . 185
+	main.vn_offset.setposition . 185
+	main.tx_cond.setposition . 215
+	main.ex_cond.setposition . 235
+	main.ck_bootstrap.setposition . 265
+	main.ck_noisily.setposition . 290
+END
+
+SCRIPT main_mono_custom_on
+BEGIN
+	script main_chain_hide
+	main.ck_nocons.setposition 150 60 260 .
+	main.gb_disper.setposition . 90
+	main.rb_mean.setposition . 110
+	main.rb_cons.setposition . 110
+	main.rb_expose.setposition . 155
+	main.rb_offset.setposition . 155
+	main.vn_expose.setposition . 175
+	main.vn_offset.setposition . 175
+	main.tx_cond.setposition . 205
+	main.ex_cond.setposition . 225
+	main.ck_bootstrap.setposition . 255
+	main.ck_noisily.setposition . 280
+	main.tx_iv.show
+	main.vl_iv.show
+	main.cb_ivars.hide
+	main.cb_ivar.show
+END
+
+SCRIPT main_mono_custom_off
+BEGIN
+	main.tx_iv.hide
+	main.vl_iv.hide
+	main.cb_ivar.hide
+	main.cb_ivars.show
+	main.tx_ivar.setlabel resource LBL_IMPUTED_VARIABLES
+END
+
+SCRIPT main_chain_on
+BEGIN
+	script main_chain_show
+	script main_mono_custom_off
+	main.ck_nocons.setposition 10 180 400 .
+	main.gb_disper.setposition . 210
+	main.rb_mean.setposition . 230
+	main.rb_cons.setposition . 230
+	main.rb_expose.setposition . 275
+	main.rb_offset.setposition . 275
+	main.vn_expose.setposition . 295
+	main.vn_offset.setposition . 295
+	main.tx_cond.setposition . 325
+	main.ex_cond.setposition . 345
+	main.ck_bootstrap.setposition . 375
+	main.ck_noisily.setposition . 400
+END
+
+INCLUDE if
+INCLUDE max_ml
+
+PROGRAM command_output
+BEGIN
+	if main.vl_iv.isvisible() {
+		put "nbreg"
+		varlist main.cb_ivar
+		if main.vl_iv {
+			put " " main.vl_iv
+		}
+	}
+	else {
+		put "nbreg"
+		if main.cb_ivar.isvisible() {
+			varlist main.cb_ivar
+		}
+	}
+	put " " /program if_output
+	beginoptions
+		put " " /program  main_chained_output
+		option main.ck_nocons
+		option main.rb_cons
+		optionarg main.vn_expose
+		optionarg main.vn_offset
+		INCLUDE _mi_impute_uni_cond_boot_pr
+		option main.ck_noisily
+		put " " /program max_output
+	endoptions
+END
+
+PROGRAM command
+BEGIN
+	put " ("
+	put /program command_output
+	put ") "
+	if main.cb_ivars.isvisible() {
+		varlist main.cb_ivars
+	}
+END

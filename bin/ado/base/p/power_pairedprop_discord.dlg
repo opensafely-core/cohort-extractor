@@ -1,0 +1,895 @@
+/*
+	power paired-proportions, discordant proportions
+
+*!  VERSION 1.1.4  14mar2017
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_xwide
+DEFINE _dlght 480
+INCLUDE header
+
+HELP hlp1, view("help power pairedproportions")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING graph_res
+	create STRING standdev_res
+	create STRING numContents
+	create STRING stok
+	create ARRAY tmp
+	create BOOLEAN containsNumlist
+	create BOOLEAN containsNumlist_p12
+	create BOOLEAN containsNumlist_p21
+	create BOOLEAN child_hasNumlist
+	create STRING child_dlgName
+
+	child_hasNumlist.setfalse
+	child_dlgName.setvalue "Power_Pariedprop"
+
+	program table_create4Pairedprop_discord
+	setscale_hadj resource POWER_PAIREDPROP_DISCORD_DLG_HSCALE
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	label(resource POWER_PAIREDPROP_DISCORD_DLG_TITLE)
+BEGIN
+  INCLUDE power_compute
+  DEFINE errpos _ls
+  INCLUDE power_errorprob
+  DEFINE sspos +45
+  INCLUDE power_onesampsize
+
+  GROUPBOX gb_effect_size	_lft	+45	_iwd	_ht8,		///
+	label(resource LBL_EFFECT_SIZE)
+  GROUPBOX gb_prop		_indent	_ss	355	_ht5,		///
+	label(resource POWER_PAIREDPROP_DISCORD_MAIN_GB_PROP)
+  DEFINE holdyz @y
+  EDIT ed_p12_other		_indent	_ss	_en14wd	.,		///
+  	onchange(program check_for_numlist)				///
+	label(resource POWER_LBL_SUCCESS_FAILURE_PROPORTION)			///
+	tooltip(resource POWER_PAIREDPROP_DISCORD_MAIN_ED_P12_OTHER)
+  TEXT tx_p12_other		_en14sep @	8	.,		///
+	label("*")
+  COMBOBOX cb_p12_other		+10	 @	200	.,		///
+	dropdownlist							///
+	contents("main_p12_list")					///
+	values("main_p12_values")					///
+	onselchange("program main_p12_other_changed")			///
+	label("")
+  EDIT ed_prdiscordant		_iilft	@	_en14wd	.,		///
+  	onchange(program check_for_numlist)				///
+	option(prdiscordant)						///
+	label(resource LBL_PROPORTION_OF_DISCORDANT_PAIRS)
+  TEXT tx_prdiscordant		_en14sep @	200	.,		///
+	label(resource POWER_PAIREDPROP_DISCORD_MAIN_TX_PRDISCORDANT)
+  EDIT ed_p21_other		_iilft	_ls	_en14wd	.,		///
+  	onchange(program check_for_numlist)				///
+	label("")
+  TEXT tx_p21_other		_en14sep @	8	.,		///
+	label("*")
+   
+  COMBOBOX cb_p21_other		+10	 @	200	.,		///
+	dropdownlist							///
+	contents("main_effect_list")					///
+	values("main_effect_values")					///
+	onselchange("program main_p21_other_changed")			///
+	label("")
+  TEXT tx_report_effect		+220	holdyz	150	.,		///
+	label(resource LBL_REPORT_EFFECT_SIZE_AS)
+  COMBOBOX cb_report_effect	@	 _ss	@	.,		///
+	dropdownlist							///
+	option(effect)							///
+	contents("main_report_effect_list")				///
+	values("main_report_effect_values")				///
+	label(resource LBL_REPORT_EFFECT_SIZE_AS)
+  DEFINE ypos +85
+  INCLUDE power_test_maincommon
+END
+
+LIST main_compute_list
+BEGIN
+	resource LBL_SAMPLE_SIZE
+	resource PSS_LBL_POWER
+	resource POWER_PAIREDPROP_DISCORD_EFFECT_SIZE_TARGET_DISC_PROP
+END
+
+LIST main_compute_values
+BEGIN
+	sampsi
+	power
+	effect
+END
+INCLUDE _power_list
+
+LIST main_p12_list
+BEGIN
+	resource POWER_LBL_SUCCESS_FAILURE_PROPORTION
+	resource LBL_PROPORTION_OF_DISCORDANT_PAIRS
+	resource LBL_SUM_OF_DISCORDANT_PROPORTIONS
+	resource POWER_LBL_DIFFERENCE
+	resource LBL_RATIO_NO_COLON
+END
+
+LIST main_p12_values
+BEGIN
+	"p12"
+	"prdiscord"
+	"sum"
+	"diff"
+	"ratio"
+END
+
+LIST main_effect_list
+BEGIN
+	resource POWER_LBL_FAILURE_SUCCESS_PROPORTION
+	resource LBL_PROPORTION_OF_DISCORDANT_PAIRS
+	resource LBL_SUM_OF_DISCORDANT_PROPORTIONS
+	resource POWER_LBL_DIFFERENCE
+	resource LBL_RATIO_NO_COLON
+END
+
+LIST main_effect_values
+BEGIN
+	"p21"
+	"prdiscord"
+	"sum"
+	"diff"
+	"ratio"
+END
+
+LIST main_prdiscord_list
+BEGIN
+	resource POWER_LBL_DIFFERENCE
+	resource LBL_RATIO_NO_COLON
+END
+
+LIST main_prdiscord_values
+BEGIN
+	"diff"
+	"ratio"
+END
+
+LIST main_sum_list
+BEGIN
+	resource POWER_LBL_DIFFERENCE
+	resource LBL_RATIO_NO_COLON
+END
+
+LIST main_sum_values
+BEGIN
+	"diff"
+	"ratio"
+END
+
+LIST main_diff_list
+BEGIN
+	resource LBL_PROPORTION_OF_DISCORDANT_PAIRS
+	resource LBL_SUM_OF_DISCORDANT_PROPORTIONS
+	resource LBL_RATIO_NO_COLON
+END
+
+LIST main_diff_values
+BEGIN
+	"prdiscord"
+	"sum"
+	"ratio"
+END
+
+LIST main_ratio_list
+BEGIN
+	resource LBL_PROPORTION_OF_DISCORDANT_PAIRS
+	resource LBL_SUM_OF_DISCORDANT_PROPORTIONS
+	resource POWER_LBL_DIFFERENCE
+END
+
+LIST main_ratio_values
+BEGIN
+	"prdiscord"
+	"sum"
+	"diff"
+END
+
+LIST main_report_effect_list
+BEGIN
+	resource POWER_PAIREDPROP_DISCORD_DIFFERENCE_P21_P12
+	resource POWER_PAIREDPROP_DISCORD_RATIO_P21_P12
+END
+
+LIST main_report_effect_values
+BEGIN
+	"diff"
+	"ratio"
+END
+
+PROGRAM main_compute_changed
+BEGIN
+	if main.cb_compute.iseq("sampsi") {
+		call program main_sampsi_on
+	}
+	if main.cb_compute.iseq("power") {
+		call program main_power_on
+	}
+	if main.cb_compute.iseq("effect") {
+		call program main_effect_on
+	}
+	call program check_for_numlist
+END
+
+PROGRAM main_sampsi_on
+BEGIN
+	call main.ed_power.show
+	call main.ed_beta.show
+	call main.tx_power_beta_power.show
+	call main.cb_power_beta.show
+	call main.ed_n.hide
+	call main.tx_n.hide
+	call main.ck_nfrac.show
+	call main.ed_prdiscordant.hide
+	call main.tx_prdiscordant.hide
+	call main.ed_p12_other.show
+	call main.tx_p12_other.show
+	call main.cb_p12_other.show
+	call main.ed_p21_other.show
+	call main.tx_p21_other.show
+	call main.cb_p21_other.show
+
+	call main.cb_report_effect.setvalue "diff"
+	call program main_p21_other_changed
+	call script power_test_maincommon_hide_dir
+	call program main_power_beta_changed
+	call program power_iteration_tab_check
+END
+
+PROGRAM main_power_on
+BEGIN
+	call main.ed_power.hide
+	call main.ed_beta.hide
+	call main.tx_power_beta_power.hide
+	call main.cb_power_beta.hide
+	call main.ed_n.show
+	call main.tx_n.show
+	call main.ck_nfrac.hide
+	call main.ed_prdiscordant.hide
+	call main.tx_prdiscordant.hide
+	call main.ed_p12_other.show
+	call main.tx_p12_other.show
+	call main.cb_p12_other.show
+	call main.ed_p21_other.show
+	call main.tx_p21_other.show
+	call main.cb_p21_other.show
+	call main.cb_report_effect.setvalue "diff"
+	call program main_p21_other_changed
+
+	call script power_test_maincommon_hide_dir
+	call program power_iteration_tab_check
+END
+
+PROGRAM main_effect_on
+BEGIN
+	call main.ed_power.show
+	call main.ed_beta.show
+	call main.tx_power_beta_power.show
+	call main.cb_power_beta.show
+	call main.ed_n.show
+	call main.tx_n.show
+	call main.ck_nfrac.hide
+	call main.ed_prdiscordant.show
+	call main.tx_prdiscordant.show
+	call main.ed_p12_other.hide
+	call main.tx_p12_other.hide
+	call main.cb_p12_other.hide
+	call main.ed_p21_other.hide
+	call main.tx_p21_other.hide
+	call main.cb_p21_other.hide
+	call main.cb_report_effect.setvalue "diff"
+
+	call script power_test_maincommon_show_dir
+	call program main_power_beta_changed
+	call program main_p21_other_changed
+	call program power_iteration_tab_check
+END
+
+INCLUDE power_errorprob_pr
+INCLUDE power_twosampsi_pr
+
+PROGRAM main_p12_other_changed
+BEGIN
+	if main.cb_p12_other.iseq("p12") {
+		call main.ed_p12_other.settooltip resource POWER_PAIREDPROP_DISCORD_MAIN_ED_P12_OTHER
+		call main.ed_p12_other.setlabel resource POWER_LBL_SUCCESS_FAILURE_PROPORTION
+		call main.cb_p21_other.setcontentslist main_effect_list
+		call main.cb_p21_other.setvalueslist main_effect_values
+		call main.cb_p21_other.repopulate
+		call main.cb_p21_other.setvalue "p21"
+	}
+	if main.cb_p12_other.iseq("prdiscord") {
+		call main.ed_p12_other.settooltip resource POWER_PAIREDPROP_DISCORD_SUM_DISCOR_PROPORTIONS_P12_P21
+		call main.ed_p12_other.setlabel resource LBL_PROPORTION_OF_DISCORDANT_PAIRS
+		call main.cb_p21_other.setcontentslist main_prdiscord_list
+		call main.cb_p21_other.setvalueslist main_prdiscord_values
+		call main.cb_p21_other.repopulate
+		call main.cb_p21_other.setvalue "diff"
+	}
+	if main.cb_p12_other.iseq("sum") {
+		call main.ed_p12_other.settooltip resource POWER_PAIREDPROP_DISCORD_SUM_DISCOR_PROPORTIONS_P12_P21
+		call main.ed_p12_other.setlabel resource LBL_SUM_OF_DISCORDANT_PROPORTIONS
+		call main.cb_p21_other.setcontentslist main_sum_list
+		call main.cb_p21_other.setvalueslist main_sum_values
+		call main.cb_p21_other.repopulate
+		call main.cb_p21_other.setvalue "diff"
+	}	
+	if main.cb_p12_other.iseq("diff") {
+		call main.ed_p12_other.settooltip resource POWER_PAIREDPROP_DISCORD_DIFF_BTW_DISCORD_PROP_P21_P12
+		call main.ed_p12_other.setlabel resource LBL_DIFFERENCE_BETWEEN_DISCORDANT_PROPORTIONS
+		call main.cb_p21_other.setcontentslist main_diff_list
+		call main.cb_p21_other.setvalueslist main_diff_values
+		call main.cb_p21_other.repopulate
+		call main.cb_p21_other.setvalue "prdiscord"
+	}
+	if main.cb_p12_other.iseq("ratio") {
+		call main.ed_p12_other.settooltip resource POWER_PAIREDPROP_DISCORD_RATIO_DISC_PROP_P21_P12
+		call main.ed_p12_other.setlabel resource LBL_RATIO_OF_DISCORDANT_PROPORTIONS
+		call main.cb_p21_other.setcontentslist main_ratio_list
+		call main.cb_p21_other.setvalueslist main_ratio_values
+		call main.cb_p21_other.repopulate
+		call main.cb_p21_other.setvalue "prdiscord"
+	}
+	call program check_for_numlist
+	call program table_create4Pairedprop_discord	
+END
+
+PROGRAM main_p21_other_changed
+BEGIN
+	if main.cb_p21_other.iseq("p21") {
+		call main.ed_p21_other.settooltip resource POWER_PAIREDPROP_DISCORD_PAIRS_FAIL_OCC_1_SUC_OCC_2
+	}
+	if main.cb_p21_other.iseq("prdiscord") {
+		call main.cb_report_effect.setvalue "diff"
+		call main.ed_p21_other.settooltip resource POWER_PAIREDPROP_DISCORD_SUM_DISCOR_PROPORTIONS_P12_P21
+	}
+	if main.cb_p21_other.iseq("diff") {
+		call main.cb_report_effect.setvalue "diff"
+		call main.ed_p21_other.settooltip resource POWER_PAIREDPROP_DISCORD_DIFF_BTW_DISCORD_PROP_P21_P12
+	}
+	if main.cb_p21_other.iseq("sum") {
+		call main.cb_report_effect.setvalue "diff"
+		call main.ed_p21_other.settooltip resource POWER_PAIREDPROP_DISCORD_SUM_DISCOR_PROPORTIONS_P12_P21
+	}
+	if main.cb_p21_other.iseq("ratio") {
+		call main.cb_report_effect.setvalue "ratio"
+		call main.ed_p21_other.settooltip resource POWER_PAIREDPROP_DISCORD_RATIO_DISC_PROP_P21_P12
+	}
+	call program check_for_numlist
+	call program table_create4Pairedprop_discord	
+END
+
+PROGRAM main_power_beta_table
+BEGIN
+	call program table_create4Pairedprop_discord
+END
+
+PROGRAM check_for_numlist
+BEGIN
+	call containsNumlist.setfalse
+	call containsNumlist_p12.setfalse
+	call containsNumlist_p21.setfalse
+
+	if main.ed_p12_other & main.ed_p12_other.isvisible() {
+		call numContents.setvalue class main.ed_p12_other.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+			call containsNumlist_p12.settrue
+		}
+	}
+
+	if main.ed_prdiscordant & main.ed_prdiscordant.isvisible(){
+		call numContents.setvalue class main.ed_prdiscordant.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+		call program table_create4Pairedprop_discord
+	}
+
+	if main.ed_p21_other & main.ed_p21_other.isvisible() {
+		call numContents.setvalue class main.ed_p21_other.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+			call containsNumlist_p21.settrue
+		}
+	}
+
+	if main.ed_alpha {
+		call numContents.setvalue class main.ed_alpha.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_power & main.ed_power.isvisible() {
+		call numContents.setvalue class main.ed_power.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_beta & main.ed_beta.isvisible() {
+		call numContents.setvalue class main.ed_beta.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_n & main.ed_n.isvisible() {
+		call numContents.setvalue class main.ed_n.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if containsNumlist {
+		call main.ck_parallel.enable
+	}
+	else {
+		call main.ck_parallel.disable
+	}
+END
+
+PROGRAM power_iteration_tab_check
+BEGIN
+	call script power_iteration_enable
+	if main.cb_compute.iseq("power") {
+		call script power_iteration_disable
+	}
+	else {
+		if main.cb_oneside.iseq("onesided") &			///
+			main.cb_compute.iseq("sampsi") {
+			call script power_iteration_disable
+		}
+		if main.cb_compute.endswith("sampsi") {
+			call script power_iteration_is_sampsi
+		}
+		if main.cb_compute.iseq("effect") {
+			call script power_iteration_is_effect
+		}
+	}
+END
+
+INCLUDE power_test_maincommon_pr
+INCLUDE power_table_opts
+INCLUDE power_graph
+INCLUDE power_iteration
+
+PROGRAM command
+BEGIN
+	put "power pairedproportions "
+
+	if main.cb_compute.iseq("sampsi") | main.cb_compute.iseq("power") {
+		require main.ed_p12_other
+		if !main.ed_p12_other.isnumlist() {
+			if main.cb_p12_other.iseq("p12") {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 					///
+					"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+					"resource LBL_TAB_MAIN"				///
+					"resource POWER_LBL_SUCCESS_FAILURE_PROPORTION"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Success-failure proportion".
+			}
+			if main.cb_p12_other.iseq("prdiscord") {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 					///
+					"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+					"resource LBL_TAB_MAIN"				///
+					"resource LBL_PROPORTION_OF_DISCORDANT_PAIRS"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Proportion of discordant pairs".
+			}
+			if main.cb_p12_other.iseq("sum") {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 					///
+					"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+					"resource LBL_TAB_MAIN"				///
+					"resource LBL_SUM_OF_DISCORDANT_PROPORTIONS"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Sum of discordant proportions".
+			}
+			if main.cb_p12_other.iseq("diff") {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 					///
+					"resource LBL_MSGBOX_INVALID_NUMLIST_BETWEEN_DISCORDANT_PROP_FMT" ///
+					"resource LBL_TAB_MAIN"				///
+					"resource POWER_LBL_DIFFERENCE"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for 
+// "Difference" between discordant proportions.
+			}
+			if main.cb_p12_other.iseq("ratio") {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 					///
+					"resource LBL_MSGBOX_INVALID_NUMLIST_OF_DISCORDANT_PROP_FMT" ///
+					"resource LBL_TAB_MAIN"				///
+					"resource LBL_RATIO_NO_COLON"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Ratio" of discordant proportions.
+			}
+		}
+		if main.cb_p12_other.iseq("p12") {
+			if !(main.ed_p12_other.isNumlistGT(0) & main.ed_p12_other.isNumlistLT(1)) {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format 						///
+				"resource LBL_MSGBOX_ON_TAB_GT_0_LT_1_FMT" 		///
+				"resource LBL_TAB_MAIN"					///
+				"resource POWER_LBL_SUCCESS_FAILURE_PROPORTION"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Success-failure proportion" must be in (0,1).
+			}
+		}
+		if main.cb_p12_other.iseq("prdiscord") {
+			if !(main.ed_p12_other.isNumlistGT(0) & main.ed_p12_other.isNumlistLT(1)) {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_GT_0_LT_1_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_PROPORTION_OF_DISCORDANT_PAIRS"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Proportion of discordant pairs" must be in (0,1).
+			}
+		}
+		if main.cb_p12_other.iseq("sum") {
+			if !(main.ed_p12_other.isNumlistGT(0) & main.ed_p12_other.isNumlistLT(1)) {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_GT_0_LT_1_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_SUM_OF_DISCORDANT_PROPORTIONS"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Sum of discordant proportions" must be in (0,1).
+			}
+		}
+		if main.cb_p12_other.iseq("diff") {
+			if !(main.ed_p12_other.isNumlistGT(-1) & main.ed_p12_other.isNumlistLT(1)) {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format 				///
+				"resource POWER_PAIREDPROP_DISCORD_MSGBOX_BETW_DISC_PROP_MUST_BE_NEG_1_1_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource POWER_LBL_DIFFERENCE"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Difference" between discordant proportions must be between -1 and 1.
+			}
+		}
+		if main.cb_p12_other.iseq("ratio") {
+			if !main.ed_p12_other.isNumlistGT(0) {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 			///
+					"resource POWER_PAIREDPROP_DISCORD_MSGBOX_DISC_PROP_MUST_BE_GREATER_0_FMT" ///
+					"resource LBL_TAB_MAIN"		///
+					"resource LBL_RATIO_NO_COLON"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Ratio" of discordant proportions must be greater than 0.
+			}
+		}
+		if containsNumlist_p12 & main.cb_p12_other.iseq("p12") {
+			put "("
+			put main.ed_p12_other
+			put ")"
+		}
+		if !containsNumlist_p12 & main.cb_p12_other.iseq("p12") {
+			put main.ed_p12_other
+		}
+	}
+
+	if main.cb_compute.endswith("sampsi")  | main.cb_compute.iseq("power") {
+		if !main.ed_p21_other {
+			if main.cb_p21_other.iseq("p21") {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format 					///
+				"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT"	///
+				"resource LBL_TAB_MAIN"				///
+				"resource POWER_LBL_FAILURE_SUCCESS_PROPORTION"
+			stopbox stop "class _MSG_TMP.value"
+// One the "Main" tab, "Failure-success proportion" must be filled in.
+			}
+			if main.cb_p21_other.iseq("prdiscord") {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format 					///
+				"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT"	///
+				"resource LBL_TAB_MAIN"				///
+				"resource LBL_PROPORTION_OF_DISCORDANT_PAIRS"
+			stopbox stop "class _MSG_TMP.value"
+// One the "Main" tab, "Proportion of discordant pairs" must be filled in.
+			}
+			if main.cb_p21_other.iseq("sum") {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format 					///
+				"resource LBL_MSGBOX_ON_TAB_REQUIRED_FMT"	///
+				"resource LBL_TAB_MAIN"				///
+				"resource LBL_SUM_OF_DISCORDANT_PROPORTIONS"
+			stopbox stop "class _MSG_TMP.value"
+// One the "Main" tab, "Sum of discordant proportions" must be filled in.
+			}
+			if main.cb_p21_other.iseq("diff") {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format 					///
+				"resource POWER_PAIREDPROP_DISCORD_MSGBOX_BETW_DISC_PROP_REQUIRED_FMT" 	///
+				"resource LBL_TAB_MAIN" 			///
+				"resource POWER_LBL_DIFFERENCE"
+			stopbox stop "class _MSG_TMP.value"
+// One the "Main" tab, "Difference" between discordant proportions must be filled in.
+			}
+			if main.cb_p21_other.iseq("ratio") {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format 					///
+				"resource POWER_PAIREDPROP_DISCORD_MSGBOX_DISC_PROP_REQUIRED_FMT" ///
+				"resource LBL_TAB_MAIN" 			///
+				"resource LBL_RATIO_NO_COLON"
+			stopbox stop "class _MSG_TMP.value"
+// One the "Main" tab, "Ratio" of discordant proportions must be filled in.
+			}
+		}
+	}
+
+	if main.cb_p21_other.iseq("p21") & main.cb_p21_other.isvisible() {
+		if !main.ed_p21_other.isnumlist() {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 					///
+					"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+					"resource LBL_TAB_MAIN"				///
+					"resource POWER_LBL_FAILURE_SUCCESS_PROPORTION"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Failure-success proportion".
+		}
+		if !(main.ed_p21_other.isNumlistGT(0) & main.ed_p21_other.isNumlistLT(1)) {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_GT_0_LT_1_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource POWER_LBL_FAILURE_SUCCESS_PROPORTION"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Failure-success proportion" must be in (0,1).
+		}	
+		if containsNumlist_p21 {
+			put " ("
+			put main.ed_p21_other
+			put ")"
+		}
+		else {
+			put " " main.ed_p21_other
+		}
+	}
+
+	if main.cb_compute.iseq("power") | main.cb_compute.iseq("effect") {
+		require main.ed_n
+	}
+	if main.cb_compute.iseq("effect") {
+		require main.ed_prdiscordant
+	}
+
+	beginoptions
+		if !main.cb_p21_other.isvisible() {
+			if !main.cb_report_effect.iseq("diff") {
+				optionarg main.cb_report_effect
+			}
+		}
+		if main.cb_p21_other.iseq("p21") &			///
+			main.cb_p21_other.isvisible() {
+			if !main.cb_report_effect.iseq("diff") {
+				optionarg main.cb_report_effect
+			}
+		}
+		if main.cb_p12_other.iseq("prdiscord") &		///
+			main.cb_p12_other.isvisible(){
+			put " prdiscord(" main.ed_p12_other ")"
+		}
+		if main.cb_p12_other.iseq("sum") &			///
+			main.cb_p12_other.isvisible(){
+			put " sum(" main.ed_p12_other ")"
+		}
+		if main.cb_p12_other.iseq("diff") &			///
+			main.cb_p12_other.isvisible(){
+			put " diff(" main.ed_p12_other ")"
+		}
+		if main.cb_p12_other.iseq("ratio") &			///
+			main.cb_p12_other.isvisible() {
+			put " ratio(" main.ed_p12_other ")"
+		}
+		
+		if main.cb_p21_other.iseq("prdiscord") &		///
+			main.cb_p21_other.isvisible(){
+			if !main.ed_p21_other.isnumlist() {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 					///
+					"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+					"resource LBL_TAB_MAIN"				///
+					"resource LBL_PROPORTION_OF_DISCORDANT_PAIRS"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Proportion of discordant pairs".
+			}
+			if !(main.ed_p21_other.isNumlistGT(0) & main.ed_p21_other.isNumlistLT(1)) {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_GT_0_LT_1_FMT"  ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_PROPORTION_OF_DISCORDANT_PAIRS"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Proportion of discordant pairs" must be in (0,1).
+			}
+			put " prdiscord(" main.ed_p21_other ")"
+			if !main.cb_report_effect.iseq("diff") {
+				optionarg main.cb_report_effect
+			}
+		}
+		if main.cb_p21_other.iseq("sum") &			///
+			main.cb_p21_other.isvisible(){
+			if !main.ed_p21_other.isnumlist() {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 					///
+					"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+					"resource LBL_TAB_MAIN"				///
+					"resource LBL_SUM_OF_DISCORDANT_PROPORTIONS"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Sum of discordant proportions.
+			}
+			if !(main.ed_p21_other.isNumlistGT(0) & main.ed_p21_other.isNumlistLT(1)) {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format 					///
+				"resource LBL_MSGBOX_ON_TAB_GT_0_LT_1_FMT" 	///
+				"resource LBL_TAB_MAIN"				///
+				"resource LBL_SUM_OF_DISCORDANT_PROPORTIONS"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Sum of discordant proportions" must be in (0,1).
+			}
+			put " sum(" main.ed_p21_other ")"
+			if !main.cb_report_effect.iseq("diff") {
+				optionarg main.cb_report_effect
+			}
+		}
+		if main.cb_p21_other.iseq("diff") &			///
+			main.cb_p21_other.isvisible(){
+			if !main.ed_p21_other.isnumlist() {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 			///
+					"resource LBL_MSGBOX_INVALID_NUMLIST_BETWEEN_DISCORDANT_PROP_FMT" ///
+					"resource LBL_TAB_MAIN"		///
+					"resource POWER_LBL_DIFFERENCE"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for 
+// "Difference" between discordant proportions.
+			}
+			if !(main.ed_p21_other.isNumlistGT(-1) & main.ed_p21_other.isNumlistLT(1)) {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format 				///
+				"resource POWER_PAIREDPROP_DISCORD_MSGBOX_BETW_DISC_PROP_MUST_BE_NEG_1_1_FMT" 	///
+				"resource LBL_TAB_MAIN"			///
+				"resource POWER_LBL_DIFFERENCE"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Difference" between discordant proportions must be between -1 and 1.
+			}
+			put " diff(" main.ed_p21_other ")"
+			if !main.cb_report_effect.iseq("diff") {
+				optionarg main.cb_report_effect
+			}
+		}
+		if main.cb_p21_other.iseq("ratio") &			///
+			main.cb_p21_other.isvisible() {
+			if !main.ed_p21_other.isnumlist() {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 					///
+					"resource LBL_MSGBOX_INVALID_NUMLIST_OF_DISCORDANT_PROP_FMT" ///
+					"resource LBL_TAB_MAIN"				///
+					"resource LBL_RATIO_NO_COLON"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Ratio" of discordant proportions.
+			}
+			if !main.ed_p21_other.isNumlistGT(0) {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 					///
+					"resource POWER_PAIREDPROP_DISCORD_MSGBOX_DISC_PROP_MUST_BE_GREATER_0_FMT" ///
+					"resource LBL_TAB_MAIN"				///
+					"resource LBL_RATIO_NO_COLON"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Ratio" of discordant proportions must be greater than 0.
+			}
+			put " ratio(" main.ed_p21_other ")"
+			if !main.cb_report_effect.iseq("ratio") {
+				optionarg main.cb_report_effect
+			}
+		}
+		if main.ed_prdiscordant.isvisible() {
+			if !main.ed_prdiscordant.isnumlist() {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 					///
+					"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+					"resource LBL_TAB_MAIN"				///
+					"resource LBL_PROPORTION_OF_DISCORDANT_PAIRS"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Proportion of discordant pairs".
+			}
+			if !(main.ed_prdiscordant.isNumlistGT(0) & main.ed_prdiscordant.isNumlistLT(1)) {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_GT_0_LT_1_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource LBL_PROPORTION_OF_DISCORDANT_PAIRS"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Proportion of discordant pairs" must be in (0,1).
+			}
+			optionarg main.ed_prdiscordant
+		}
+
+		if main.ed_n & main.ed_n.isvisible() {
+			if !main.ed_n.isnumlist() {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 					///
+					"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+					"resource LBL_TAB_MAIN"				///
+					"resource LBL_SAMPLE_SIZE"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Sample size".
+			}
+			if !main.ed_n.isNumlistGT(0) {
+				call create STRING _MSG_TMP
+				call _MSG_TMP.format 					///
+					"resource LBL_MSGBOX_ON_TAB_GREATER_THAN_0_FMT"	///
+					"resource LBL_TAB_MAIN"				///
+					"resource LBL_SAMPLE_SIZE"
+				stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Sample size" must be greater than 0.
+			}
+			optionarg main.ed_n
+		}
+
+		option main.ck_nfrac
+
+		put " " /program power_errorprob_output
+		put " " /program power_test_maincommon_output
+		put " " /program power_table_opts_output
+		put " " /program power_graph_output
+		put " " /program power_iteration_output
+	endoptions
+END

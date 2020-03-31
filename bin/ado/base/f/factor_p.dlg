@@ -1,0 +1,94 @@
+/*
+	predict (after factor)
+
+*!  VERSION 1.2.0  30sep2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE header
+
+HELP hlp1, view("help factor postestimation")
+RESET res1
+
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource FACTOR_P_DLG_HSCALE
+END
+
+
+DIALOG main, label(resource PREDICT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  INCLUDE  _p_gentype
+
+  GROUPBOX gb_produce		_lft	_ls	_iwd	_ht4,		///
+	label(resource LBL_PRODUCE)
+  RADIO    rb_regress		_indent	_ss	_ibwd	.,	first	///
+	option(regression) 						///
+	onclickon(script _p_gentype_multiple)				///
+	label(resource FACTOR_P_MAIN_RB_REGRESS)
+  RADIO    rb_bartlett		@	_ss	@	.,	last	///
+	option(bartlett) 						///
+	onclickon(script _p_gentype_multiple)				///
+	label(resource FACTOR_P_MAIN_RB_BARTLETT)
+
+  GROUPBOX gb_opts		_lft	_xls	_iwd	_ht9h,		///
+	label(resource LBL_OPTIONS)
+  CHECKBOX ck_norotated		_ilft	_ss	_ibwd	.,		///
+	option(norotated) label(resource LBL_USE_UNROTATED_RESULTS_EVEN_WHEN_ROTATED_AVAIL)
+  CHECKBOX ck_notable		@	_ms	@	.,		///
+	option(notable) label(resource LBL_SUPPRESS_TABLE_OF_SCORING_COEFFICIENTS)
+
+  CHECKBOX ck_format    	@	_ms	@	.,		///
+	onclickon(script format_on)					///
+	onclickoff(script format_off)					///
+	label(resource LBL_OVERRIDE_DISPLAY_FORMAT_SCORING_COEFF)
+  EDIT     en_format		+20	_ss	200	.,		///
+	option(format)							///
+	label(resource LBL_DISPLAY_FORMAT)
+  BUTTON   bu_format		+205	@	80	.,		///
+	label(resource LBL_BU_CREATE)						///
+	onpush(script showFormatDialog)					///
+	tooltip(resource LBL_CREATE_DISPLAY_FORMAT)
+END
+
+SCRIPT showFormatDialog
+BEGIN
+	create STRING formatString
+	create CHILD format_chooser
+	format_chooser.setExitString formatString
+	format_chooser.setExitAction "main.en_format.setvalue class formatString.value"
+END
+
+SCRIPT format_on
+BEGIN
+  	main.en_format.enable
+  	main.bu_format.enable
+END
+
+SCRIPT format_off
+BEGIN
+  	main.en_format.disable
+	main.bu_format.disable
+END
+
+INCLUDE _p_gentype_sc
+INCLUDE ifin
+INCLUDE _type_list_fd
+
+PROGRAM command
+BEGIN
+	put "predict "
+	put " " /program _p_gentype_output
+	INCLUDE _ifin_pr
+	beginoptions
+		option main.rb_regress
+		option main.rb_bartlett
+		option main.ck_norotated
+		option main.ck_notable
+		optionarg main.en_format
+	endoptions
+END

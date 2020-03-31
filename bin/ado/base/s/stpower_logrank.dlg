@@ -1,0 +1,1058 @@
+/*
+	stpower logrank
+
+*!  VERSION 1.0.6  02dec2014 (deprecated)
+
+*/
+
+VERSION 10.0
+
+INCLUDE _std_wide
+DEFINE _dlght 550
+INCLUDE header
+
+HELP hlp1, view("help stpower logrank")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING columns_res
+	create STRING numContents
+	create STRING stok
+	create ARRAY tmp
+	create BOOLEAN containsNumlist
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program check_columns_res
+END
+
+DIALOG main,								///
+	tabtitle("Main")						///
+	label("stpower logrank - Sample size, power, and effect size for the log-rank test")
+BEGIN
+  GROUPBOX gb_output	_lft		_top	_cwd1	_ht6,		///
+	label("Compute")
+DEFINE TOP @y
+  RADIO rb_sampsi	_ilft		_ss	_inwd	.,		///
+	first								///
+	option(NONE)							///
+	onclickon(program main_sampsi_on)				///
+	label("Sample size")						///
+	tooltip(Compute minimum required sample size given power and effect size)
+
+  RADIO rb_power	@		_ss	@	.,		///
+	option(NONE)							///
+	onclickon(program main_power_on)				///
+	label("Power")							///
+	tooltip(Compute minimum power given sample size and effect size)
+
+  RADIO rb_coef		@		_ss	@	.,		///
+	last								///
+	option(NONE)							///
+	onclickon(program main_coef_on)					///
+	label("Effect size")						///
+	tooltip(Compute minimum detectable effect size given sample size and power)
+
+  EDIT ed_alpha		_lft2		-50	_en14wd	.,		///
+	option(alpha)							///
+	default(0.05)							///
+	onchange(program check_for_numlist)				///
+	tooltip("Probability of a type I error, alpha")			///
+	label("Significance level")
+  TEXT tx_alpha		_en14sep	@	220	.,		///
+	label("* Significance level")
+
+  GROUPBOX gb_n		_lft		+90	_iwd	_ht2h,		///
+	label("Sample size")
+  EDIT ed_n		_ilft		_ms	_en14wd	.,		///
+	option(n)							///
+	onchange(program check_for_numlist)				///
+	label("Sample size")
+  TEXT tx_n		_en14sep	@	100	.,		///
+	label("* Sample size")
+	
+  GROUPBOX gb_errprob	_lft		_xls	_iwd	_ht5,		///
+	label("Power (specify as power or type II error)")
+
+  RADIO rb_power2	_ilft		_ms	_rbwd	.,		///
+	option(NONE)							///
+	onclickon(program main_rb_power_on)				///
+	first
+  EDIT ed_power		_rbsep		@	_en14wd	.,		///
+	option(power)							///
+	default(0.8)							///
+	onchange(program check_for_numlist)				///
+	label("Power")
+  TEXT tx_power		_en14sep	@	220	.,		///
+	label("* Power")
+
+  RADIO rb_beta		_ilft		_ms	_rbwd	.,		///
+	option(NONE)							///
+	onclickon(program main_rb_beta_on)				///
+	last
+  EDIT ed_beta		_rbsep		@	_en14wd	.,		///
+	option(beta)							///
+	default(0.2)							///
+	onchange(program check_for_numlist)				///
+	tooltip("Probability of a type II error, beta")			///
+	label("Type II error probability")
+  TEXT tx_beta		_en14sep	@	220	.,		///
+	label("* Type II error probability")
+
+  GROUPBOX gb_effects	_lft		_xls	_iwd	_ht2h,		///
+	label("Effect size")
+  EDIT ed_hratio	_ilft		_ms	_en14wd	.,		///
+	option(hratio)							///
+	onchange(program check_for_numlist)				///
+	default(0.5)							///
+	label("Hazard ratio")						///
+	tooltip("Hazard ratio of the experimental group to the control group")
+  TEXT tx_hratio	_en14sep	@	120	.,		///
+	label("* Hazard ratio")
+
+  GROUPBOX gb_allocation _lft		_xls	_iwd	_ht8h,		///
+	label("Sample allocations for control and experimental groups")
+
+  TEXT     tx_alloc	_ilft		_ss	_ibwd	.,		///
+	label("Specify sample-size allocation as:")
+  RADIO rb_p1		_indent2	_ss	_inwd	.,		///
+	first								///
+	onclickon(program main_rb_p1_on)				///
+	option(NONE)							///
+	label("Proportion of subjects in control group")
+  RADIO rb_nratio	@		_ss	@	.,		///
+	last								///
+	onclickon(program main_rb_nratio_on)				///
+	option(NONE)							///
+	label("Ratio of experimental group to control group")
+
+  EDIT ed_p1		+20		_ms	_en14wd	.,		///
+	option(p1)							///
+	default(0.5)							///
+	onchange(program check_for_numlist)				///
+	label("Proportion of subjects in the control group")
+DEFINE x3 @x
+  TEXT tx_p1		_en14sep	@	250	.,		///
+	label("* Proportion of subjects in the control group")
+
+  EDIT ed_nratio	x3		@	_en14wd	.,		///
+	option(nratio)							///
+	onchange(program check_for_numlist)				///
+	default(1)							///
+	tooltip("Ratio of sample sizes of the experimental group to the control group, N2/N1") ///
+	label("Ratio of sample sizes")
+  TEXT tx_nratio	_en14sep	@	250	.,		///
+	label("* Ratio of sample sizes")
+
+  CHECKBOX ck_schoenfeld _lft		+45	_iwd	.,		///
+	option(schoenfeld)						///
+	label("Use Schoenfeld method")
+
+  CHECKBOX ck_parallel	_lft		_ms	_cwd1	.,		///
+	option(parallel)						///
+	label("Treat *lists as parallel")				///
+	tooltip(Treat lists as parallel, compute only for matched 	///
+		elements in the lists, not for all possible combinations)
+
+  TEXT tx_numlist	_rj180		@	120	.,		///
+	label("* Accepts list") right
+  BUTTON bu_numlist	+125		@	55	.,		///
+	label("Help") onpush(view help numlist##|_new)
+
+  COMBOBOX cb_oneside	_lft		_ls	_en14wd	.,		///
+	dropdownlist contents(sides) values(sides_values)
+  TEXT tx_oneside	_en14sep	@	200	.,		///
+	label("Type of test")
+
+END
+
+LIST sides
+BEGIN
+	Two-sided test
+	One-sided test
+END
+
+LIST sides_values
+BEGIN
+	""
+	onesided
+END
+
+PROGRAM main_sampsi_on
+BEGIN
+	call main.gb_errprob.enable
+	call main.tx_power.enable
+	call main.rb_power2.enable
+	if main.rb_power2 {
+		call main.ed_power.enable
+	}
+	call main.rb_beta.enable
+	call main.tx_beta.enable
+	if main.rb_beta {
+		call main.ed_beta.enable
+	}
+	call main.gb_n.disable
+	call main.ed_n.disable
+	call main.tx_n.disable
+
+	call program main_type2_on
+END
+
+PROGRAM main_power_on
+BEGIN
+	call main.gb_errprob.disable
+	call main.rb_power2.disable
+	call main.tx_power.disable
+	call main.ed_power.disable
+	call main.rb_beta.disable
+	call main.tx_beta.disable
+	call main.ed_beta.disable
+	call main.gb_n.enable
+	call main.ed_n.enable
+	call main.tx_n.enable
+
+	call program main_type2_on
+END
+
+PROGRAM main_coef_on
+BEGIN
+	call main.gb_errprob.enable
+	call main.tx_power.enable
+	call main.rb_power2.enable
+	if main.rb_power2 {
+		call main.ed_power.enable
+	}
+	call main.rb_beta.enable
+	call main.tx_beta.enable
+	if main.rb_beta {
+		call main.ed_beta.enable
+	}
+	call main.gb_n.enable
+	call main.ed_n.enable
+	call main.tx_n.enable
+
+	call program main_type2_on
+END
+
+PROGRAM check_for_numlist
+BEGIN
+	call containsNumlist.setfalse
+
+	if main.ed_alpha.isenabled() {
+		call numContents.setvalue class main.ed_alpha.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_power.isenabled() {
+		call numContents.setvalue class main.ed_power.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_beta.isenabled() {
+		call numContents.setvalue class main.ed_beta.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_n.isenabled() {
+		call numContents.setvalue class main.ed_n.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_hratio.isenabled() {
+		call numContents.setvalue class main.ed_hratio.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if cens.ed_s1.isvisible() & cens.ed_s1.isenabled() {
+		call numContents.setvalue class cens.ed_s1.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if cens.ed_s2.isvisible() & cens.ed_s2.isenabled() {
+		call numContents.setvalue class cens.ed_s2.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_p1.isenabled() {
+		call numContents.setvalue class main.ed_p1.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_nratio.isenabled() {
+		call numContents.setvalue class main.ed_nratio.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if containsNumlist {
+		call program rpt_table_on
+		call rpt.ck_table.disable
+		call main.ck_parallel.enable
+	}
+	else {
+		call rpt.ck_table.enable
+		if ! rpt.ck_table {
+			call script rpt_table_off
+		}
+		call main.ck_parallel.disable
+	}
+END
+
+PROGRAM main_rb_power_on
+BEGIN
+	if main.rb_power2.isenabled() {
+		call main.ed_power.enable
+		call main.ed_beta.disable
+		call program check_for_numlist
+	}
+END
+
+PROGRAM main_rb_beta_on
+BEGIN
+	if main.rb_beta.isenabled() {
+		call main.ed_beta.enable
+		call main.ed_power.disable
+		call program check_for_numlist
+	}
+END
+
+PROGRAM main_type2_on
+BEGIN
+	if main.rb_sampsi {
+		call cens.ed_wdprob.enable
+		call cens.tx_wdprob.enable
+	}
+	else {
+		call cens.ed_wdprob.disable
+		call cens.tx_wdprob.disable
+	}
+	call cens.ck_admin.enable
+	call program cens_admin_check
+
+	if main.rb_sampsi | main.rb_power {
+		if ! cens.ck_s2.isvisible() | ! cens.ck_s2.isenabled() | ! cens.ck_s2 {
+			call main.gb_effects.enable
+			call main.ed_hratio.enable
+			call main.tx_hratio.enable
+		}
+		else {
+			call main.gb_effects.disable
+			call main.ed_hratio.disable
+			call main.tx_hratio.disable
+		}
+		if cens.ck_admin {
+			call cens.rb_simpson.enable
+			call cens.rb_st1.enable
+		}
+	}
+	else {
+		call main.gb_effects.disable
+		call main.ed_hratio.disable
+		call main.tx_hratio.disable
+	}
+	call program check_for_numlist
+END
+
+PROGRAM main_rb_p1_on
+BEGIN
+	call main.ed_p1.show
+	call main.tx_p1.show
+	call main.ed_nratio.hide
+	call main.tx_nratio.hide
+	call program check_for_numlist
+END
+
+PROGRAM main_rb_nratio_on
+BEGIN
+	call main.ed_nratio.show
+	call main.tx_nratio.show
+	call main.ed_p1.hide
+	call main.tx_p1.hide
+	call program check_for_numlist
+END
+
+DIALOG cens, tabtitle("Censoring")
+BEGIN
+  CHECKBOX ck_admin		_lft	_top	_iwd	_ht19h,		///
+	groupbox							///
+	onclickon(program cens_admin_check)				///
+	onclickoff(program cens_admin_check)				///
+	tooltip("")							///
+	label("Administrative censoring")
+  RADIO   rb_survival		_ilft	_ss	_ibwd	.,		///
+ 	first								///
+ 	onclickon(program cens_check_admin_type)			///
+	label("Use survival probabilities at the end of the study to compute the probability of an event")
+  RADIO rb_simpson		_ilft	_ss	_ibwd	.,		///
+	onclickon(program cens_check_admin_type)			///
+	label("Use Simpson's rule to compute the probability of an event under uniform accrual")
+  RADIO rb_st1			_ilft	_ss	_ibwd	.,		///
+	last								///
+	onclickon(program cens_check_admin_type)			///
+	label("Use numerical integration to compute the probability of an event under uniform accrual")
+
+  GROUPBOX gb_survival		_ilft	_ls	_ibwd	_ht5,		///
+	label("")
+DEFINE holdy @y
+  EDIT ed_s1			50	_ss	_en14wd	.,		///
+	onchange(program check_for_numlist)				///
+	label("Survival probability in the control group")
+  TEXT tx_s1			_en14sep @	250	.,		///
+	label("* Survival probability in the control group")
+  CHECKBOX ck_s2		_iilft	_ms	_ckwd	.,		///
+	onclickon(program cens_s2_check)				///
+	onclickoff(program cens_s2_check)
+  EDIT ed_s2			_cksep	@	_en14wd	.,		///
+	onchange(program check_for_numlist)				///
+	label("Survival probability in the experimental group")
+  TEXT tx_s2			_en14sep @	250	.,		///
+	label("* Survival probability in the experimental group")
+
+  GROUPBOX gb_simpson		_ilft	holdy	_ibwd	_ht10,		///
+	label("Survival probability in the control group")
+  EDIT ed_simpson1		50	_ss	_en14wd	.,		///
+	label("At the follow-up time, S1(f)")
+  TEXT tx_simpson1		_en14sep @	_comb3_1 .,		///
+	label("At the follow-up time, S1(f)")
+
+  EDIT ed_simpson2		50	_ms	_en14wd	.,		///
+	label("At the average follow-up time, S1(f+R/2)")
+  TEXT tx_simpson2		_en14sep @	_comb3_1 .,		///
+	label("At the average follow-up time, S1(f+R/2)")
+
+  EDIT ed_simpson3		50	_ms	_en14wd	.,		///
+	label("At the end of the study, S1(T)")
+  TEXT tx_simpson3		_en14sep @	_comb3_1 .,		///
+	label("At the end of the study, S1(T)")
+
+  CHECKBOX ck_simpmat		30	_ms	_ckwd	.,		///
+	onclickon(script cens_simpmat_on)				///
+	onclickoff(script cens_simpmat_off)				///
+	label("")
+  COMBOBOX cb_simpmat		50	@	_en14wd	.,		///
+	dropdown							///
+	option(simpson)							///
+	contents(vector)						///
+	label("Specify as a matrix or matrix expression")
+  TEXT tx_simpmat		_en14sep @	_comb3_1 .,		///
+	label("Specify as a matrix or matrix expression")
+
+
+  GROUPBOX gb_st1		_ilft	holdy	_ibwd	_ht5,		///
+	label("")
+  VARNAME  vn_controlvar 	50	_ss	_en14wd	.,		///
+  	numeric								///
+	label("Variable containing survival probabilities in the control group")
+  TEXT tx_controlvar		_en14sep @	_comb3_1 .,		///
+	label("Variable containing survival probabilities in the control group")
+
+  VARNAME vn_timepoint		50	_ms	_en14wd	.,		///
+  	numeric								///
+	label("Variable containing time points")
+  TEXT tx_timepoint		_en14sep @	_comb3_1 .,		///
+	label("Variable containing time points")
+
+  EDIT ed_wdprob		_lft	+105	_en7wd	.,		///
+	option(wdprob)							///
+	tooltip("Proportion of subjects anticipated to withdraw from the study") ///
+	label("Proportion of withdrawals")
+  TEXT tx_wdprob		_en7sep	@	_iwd	.,		///
+	label("Proportion of withdrawals")
+END
+
+PROGRAM cens_admin_check
+BEGIN
+	if cens.ck_admin.isenabled() & cens.ck_admin {
+		call cens.rb_survival.enable
+		call cens.rb_simpson.enable
+		call cens.rb_st1.enable
+
+		call cens.gb_survival.enable
+		call cens.ed_s1.enable
+		call cens.tx_s1.enable
+		call cens.ck_s2.enable
+  		if cens.ck_s2 {
+			call cens.ed_s2.enable
+			call main.gb_effects.disable
+			call main.ed_hratio.disable
+			call main.tx_hratio.disable
+		}
+		else {
+			call cens.ed_s2.disable
+			if ! main.rb_coef {
+				call main.gb_effects.enable
+				call main.ed_hratio.enable
+				call main.tx_hratio.enable
+			}
+		}
+		call cens.tx_s2.enable
+
+		call cens.gb_simpson.enable
+		call cens.ck_simpmat.enable
+		if cens.ck_simpmat {
+			call cens.cb_simpmat.enable
+		}
+		else {
+			call cens.ed_simpson1.enable
+			call cens.tx_simpson1.enable
+
+			call cens.ed_simpson2.enable
+			call cens.tx_simpson2.enable
+
+			call cens.ed_simpson3.enable
+			call cens.tx_simpson3.enable
+		}
+		call cens.tx_simpmat.enable
+		call cens.gb_st1.enable
+		call cens.vn_controlvar.enable
+		call cens.tx_controlvar.enable
+		call cens.vn_timepoint.enable
+		call cens.tx_timepoint.enable
+		
+		if main.rb_coef {
+			if ! cens.rb_survival {
+				call cens.rb_survival.seton
+				stopbox note `"On the "Censoring" tab, the choice under "Administrative censoring" has been changed because the previous selection is not allowed "' ///
+				`"when computing the "Effect size"."'
+			}
+			call cens.rb_simpson.disable
+			call cens.rb_st1.disable
+			call cens.ck_s2.disable
+			call cens.ed_s2.disable
+			call cens.tx_s2.disable
+		}
+	}
+	else {
+		call cens.rb_survival.disable
+		call cens.rb_simpson.disable
+		call cens.rb_st1.disable
+
+		call cens.gb_survival.disable
+		call cens.ed_s1.disable
+		call cens.tx_s1.disable
+		call cens.ck_s2.disable
+		call cens.ed_s2.disable
+		call cens.tx_s2.disable
+
+		call cens.gb_simpson.disable
+		call cens.ed_simpson1.disable
+		call cens.tx_simpson1.disable
+
+		call cens.ed_simpson2.disable
+		call cens.tx_simpson2.disable
+
+		call cens.ed_simpson3.disable
+		call cens.tx_simpson3.disable
+
+		call cens.ck_simpmat.disable
+		call cens.cb_simpmat.disable
+		call cens.tx_simpmat.disable
+		call cens.gb_st1.disable
+		call cens.vn_controlvar.disable
+		call cens.tx_controlvar.disable
+		call cens.vn_timepoint.disable
+		call cens.tx_timepoint.disable
+	}
+END
+
+PROGRAM cens_s2_check
+BEGIN
+	if cens.ck_s2.isenabled() {
+  		if cens.ck_s2 {
+			call cens.ed_s2.enable
+			call main.gb_effects.disable
+			call main.ed_hratio.disable
+			call main.tx_hratio.disable
+		}
+		else {
+			call cens.ed_s2.disable
+			if ! main.rb_coef {
+				call main.gb_effects.enable
+				call main.ed_hratio.enable
+				call main.tx_hratio.enable
+			}
+		}
+	}
+END
+
+PROGRAM cens_check_admin_type
+BEGIN
+	if cens.rb_survival {
+		call script cens_simpson_off
+		call script cens_st1_off
+		call script cens_survival_on
+	}
+
+	if cens.rb_simpson {
+		call program cens_simpson_on
+		call script cens_st1_off
+		call script cens_survival_off
+	}
+
+	if cens.rb_st1 {
+		call script cens_simpson_off
+		call script cens_survival_off
+		call script cens_st1_on
+	}
+END
+
+SCRIPT cens_survival_on
+BEGIN
+	cens.ck_admin.setposition . . . 180
+	cens.ed_wdprob.setposition . 205
+	cens.tx_wdprob.setposition . 205
+	cens.gb_survival.show
+	cens.ed_s1.show
+	cens.tx_s1.show
+	cens.ck_s2.show
+	cens.ed_s2.show
+	cens.tx_s2.show
+END
+
+SCRIPT cens_survival_off
+BEGIN
+	cens.gb_survival.hide
+	cens.ed_s1.hide
+	cens.tx_s1.hide
+	cens.ck_s2.hide
+	cens.ed_s2.hide
+	cens.tx_s2.hide
+END
+
+PROGRAM cens_simpson_on
+BEGIN
+	call cens.ck_admin.setposition . . . 230
+	call cens.ed_wdprob.setposition . 255
+	call cens.tx_wdprob.setposition . 255
+	call cens.gb_simpson.show
+	call cens.ed_simpson1.show
+	call cens.tx_simpson1.show
+	call cens.ed_simpson2.show
+	call cens.tx_simpson2.show
+	call cens.ed_simpson3.show
+	call cens.tx_simpson3.show
+	call cens.ck_simpmat.show
+	call cens.cb_simpmat.show
+	call cens.tx_simpmat.show
+END
+
+SCRIPT cens_simpson_off
+BEGIN
+	cens.gb_simpson.hide
+	cens.ed_simpson1.hide
+	cens.tx_simpson1.hide
+	cens.ed_simpson2.hide
+	cens.tx_simpson2.hide
+	cens.ed_simpson3.hide
+	cens.tx_simpson3.hide
+	cens.ck_simpmat.hide
+	cens.cb_simpmat.hide
+	cens.tx_simpmat.hide
+END
+
+SCRIPT cens_st1_on
+BEGIN
+	cens.ck_admin.setposition . . . 180
+	cens.ed_wdprob.setposition . 205
+	cens.tx_wdprob.setposition . 205
+	cens.gb_st1.show
+	cens.tx_controlvar.show
+	cens.vn_controlvar.show
+	cens.tx_timepoint.show
+	cens.vn_timepoint.show
+END
+
+SCRIPT cens_st1_off
+BEGIN
+	cens.gb_st1.hide
+	cens.tx_controlvar.hide
+	cens.vn_controlvar.hide
+	cens.tx_timepoint.hide
+	cens.vn_timepoint.hide
+END
+
+SCRIPT cens_simpmat_on
+BEGIN
+	cens.ed_simpson1.disable
+	cens.tx_simpson1.disable
+	cens.ed_simpson2.disable
+	cens.tx_simpson2.disable
+	cens.ed_simpson3.disable
+	cens.tx_simpson3.disable
+
+	cens.cb_simpmat.enable
+	cens.tx_simpmat.enable
+END
+
+SCRIPT cens_simpmat_off
+BEGIN
+	cens.ed_simpson1.enable
+	cens.tx_simpson1.enable
+	cens.ed_simpson2.enable
+	cens.tx_simpson2.enable
+	cens.ed_simpson3.enable
+	cens.tx_simpson3.enable
+
+	cens.cb_simpmat.disable
+END
+
+
+DIALOG rpt, tabtitle("Reporting")
+BEGIN
+  CHECKBOX ck_table	_lft	_top	_iwd	.,			///
+	option(table)							///
+	onclickon(program rpt_table_on)					///
+	onclickoff(program check_for_numlist)				///
+	label(`"Display results in a table (default if *list is specified on the "Main" tab)"')
+
+  GROUPBOX gb_table	_lft	_ls	_iwd	_ht24h,			///
+	label("Table specification")
+
+  GROUPBOX gb_tbltype	_ilft	_ss	_comb3_2 _ht6h,			///
+	label("Table columns")
+
+  RADIO rb_table	_iilft	_ss	_inwd .,			///
+	first								///
+	option(table)							///
+	onclickon(rpt.bu_columns.disable)				///
+	label("Default columns")
+DEFINE holdy @y
+  RADIO rb_columns	@	_ss	@	.,			///
+	last								///
+	option(NONE)							///
+	onclickon(rpt.bu_columns.enable)				///
+	label("Select columns")
+  BUTTON bu_columns    +20	_ss	120	.,			///
+	onpush(script show_columns_dlg)					///
+	label("Custom columns... ")
+
+  CHECKBOX ck_notitle	_ilft3_3 holdy	_cwd3_2	.,			///
+	option(notitle)							///
+	label("Suppress title")
+
+  CHECKBOX ck_nolegend	@	_ms	@	.,			///
+	option(nolegend)						///
+	label("Suppress legend")
+
+  EDIT ed_colwidth	_ilft	+65	_en14wd	.,			///
+	option(colwidth)						///
+	default(9)							///
+	label("Column width")
+  TEXT tx_colwidth	_en14sep @	120	.,			///
+	label("Column width")
+
+  SPINNER sp_sep	_lft2	@	_spwd	.,			///
+	option(separator)						///
+	min(0) max(10000) default(0)
+  TEXT tx_sep		_spsep	@	_rbspr2b .,			///
+	label("Separator every N lines")
+
+  CHECKBOX ck_save	_ilft	+35	_ibwd	_ht6h,			///
+	groupbox							///
+	onclickon(script opt_save_on)					///
+	onclickoff(script opt_save_off)					///
+	label("Save table data as dataset")
+  TEXT tx_save		_iilft	_ss	_iibwd	.,			///
+	label("Filename:")
+  FILE fi_save		@	_ss	@	.,			///
+	option(saving)							///
+	filter("Stata Dataset (*.dta)|*.dta|All (*.*)|*.*")		///
+	defext(dta)							///
+	save								///
+	error("Filename")						///
+	label("Browse...")
+  CHECKBOX ck_replace	@	_ms	@	.,			///
+	option(replace)							///
+	label("Overwrite file if it already exists")
+END
+
+PROGRAM rpt_table_on
+BEGIN
+	call rpt.gb_table.enable
+	call rpt.gb_tbltype.enable
+	call rpt.rb_table.enable
+	call rpt.rb_columns.enable
+	if rpt.rb_columns {
+		call rpt.bu_columns.enable
+	}
+
+	call rpt.ck_notitle.enable
+	call rpt.ck_nolegend.enable
+
+	call rpt.tx_colwidth.enable
+	call rpt.ed_colwidth.enable
+	call rpt.sp_sep.enable
+	call rpt.tx_sep.enable
+
+	call rpt.ck_save.enable
+	if rpt.ck_save {
+		call rpt.tx_save.enable
+		call rpt.fi_save.enable
+		call rpt.ck_replace.enable
+	}
+END
+
+SCRIPT rpt_table_off
+BEGIN
+	rpt.gb_table.disable
+	rpt.gb_tbltype.disable
+	rpt.rb_table.disable
+	rpt.rb_columns.disable
+	rpt.bu_columns.disable
+
+	rpt.ck_notitle.disable
+	rpt.ck_nolegend.disable
+
+	rpt.tx_colwidth.disable
+	rpt.ed_colwidth.disable
+	rpt.sp_sep.disable
+	rpt.tx_sep.disable
+
+	rpt.ck_save.disable
+	rpt.tx_save.disable
+	rpt.fi_save.disable
+	rpt.ck_replace.disable
+END
+
+
+
+SCRIPT show_columns_dlg
+BEGIN
+	create CHILD stpower_logrank_columns
+	stpower_logrank_columns.setExitString columns_res
+	stpower_logrank_columns.setExitAction "program check_columns_res"
+END
+
+PROGRAM check_columns_res
+BEGIN
+	if columns_res {
+		call rpt.bu_columns.setlabel "Custom columns... *"
+	}
+	else {
+		call rpt.bu_columns.setlabel "Custom columns...  "
+	}
+	call columns_res.withvalue rpt.bu_columns.settooltip "@"
+END
+
+SCRIPT opt_save_on
+BEGIN
+	rpt.fi_save.enable
+	rpt.tx_save.enable
+	rpt.ck_replace.enable
+END
+
+SCRIPT opt_save_off
+BEGIN
+	rpt.fi_save.disable
+	rpt.tx_save.disable
+	rpt.ck_replace.disable
+END
+
+LIST columns_list
+BEGIN
+	power
+	n
+	e
+	coef
+	hr
+	sd
+	alpha
+	pr
+	r2
+	w
+	beta
+END
+
+PROGRAM simpson_output
+BEGIN
+	put cens.ed_simpson1
+	put " " cens.ed_simpson2
+	put " " cens.ed_simpson3
+END
+
+PROGRAM st1_output
+BEGIN
+	put cens.vn_controlvar
+	put " " cens.vn_timepoint
+END
+
+PROGRAM saving_output
+BEGIN
+	put `"""' rpt.fi_save `"""'
+	beginoptions
+		option rpt.ck_replace
+	endoptions
+END
+
+PROGRAM command
+BEGIN
+	call create STRING sTMP
+	call create ARRAY sTOKS
+	call create DOUBLE tokSize
+	put "stpower logrank "
+	if cens.ed_s1.isenabled() & cens.ed_s1.isvisible() {
+		require cens.ed_s1
+		call sTMP.setvalue class cens.ed_s1.value
+		call sTMP.tokenize sTOKS
+		call tokSize.storeClsArraySize sTOKS
+		if tokSize.isge(2) {
+			put "("
+		}
+		put cens.ed_s1
+		if tokSize.isge(2) {
+			put ")"
+		}
+	}
+	if cens.ed_s2.isenabled() & cens.ed_s2.isvisible() {
+		require cens.ed_s2
+		call sTMP.setvalue class cens.ed_s2.value
+		call sTMP.tokenize sTOKS
+		call tokSize.storeClsArraySize sTOKS
+		put " "
+		if tokSize.isge(2) {
+			put "("
+		}
+		put cens.ed_s2
+		if tokSize.isge(2) {
+			put ")"
+		}
+	}
+	beginoptions
+		optionarg /hidedefault main.ed_alpha
+		if main.rb_coef {
+			optionarg main.ed_beta
+			optionarg main.ed_power
+		}
+		else {
+			optionarg /hidedefault main.ed_beta
+			optionarg /hidedefault main.ed_power
+		}
+		if main.ed_n.isenabled() {
+			require main.ed_n
+			optionarg /hidedefault main.ed_n
+		}		
+		optionarg /hidedefault main.ed_hratio
+		optionarg /hidedefault main.ed_p1
+		optionarg main.ed_nratio
+		put " " main.cb_oneside
+		option main.ck_schoenfeld
+		option main.ck_parallel
+		
+		optionarg /hidedefault cens.ed_wdprob
+
+		if cens.rb_simpson.isenabled() & cens.rb_simpson {
+			if cens.ck_simpmat {
+				require cens.cb_simpmat
+				optionarg cens.cb_simpmat
+			}
+			else {
+				require cens.ed_simpson1
+				require cens.ed_simpson2
+				require cens.ed_simpson3
+				put " simpson("
+				put /program simpson_output
+				put ")"
+			}
+		}
+
+		if cens.rb_st1.isenabled() & cens.rb_st1 {
+			require cens.vn_controlvar
+			require cens.vn_timepoint
+			put " st1("
+			put /program st1_output
+			put ")"
+		}
+
+		option rpt.ck_table
+		if rpt.rb_columns.isenabled() & rpt.rb_columns {
+			if ! columns_res {
+				stopbox stop `"On the "Reporting" tab,"'	///
+				`""Custom columns..." have not been set."'
+			}
+			put " columns(" columns_res ") "
+		}
+		optionarg /hidedefault rpt.ed_colwidth
+		optionarg /hidedefault rpt.sp_sep
+		option rpt.ck_notitle
+		option rpt.ck_nolegend
+		if rpt.ck_save {
+			require rpt.fi_save
+			put " saving("
+			put /program saving_output
+			put ")"
+		}
+	endoptions
+END

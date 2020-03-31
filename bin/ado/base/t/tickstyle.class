@@ -1,0 +1,145 @@
+//				tickstyle				
+
+*! version 1.1.0  02may2019
+
+version 8
+
+class {
+
+    instance:
+    	length		= .gsize.new ,       /* style(tiny) */
+	position	= .tickposition.new, /* style(outside) */
+	linestyle	= .linestyle.new
+	show_labels	= .yesno.new,        /* style(yes) */
+	show_ticks	= .yesno.new,        /* style(yes) */
+	textstyle	= .textstyle.new
+	textgap		= .gsize.new ,       /* style(tiny) */
+
+}, inherit(style)
+
+
+/* -------------------------------------------------------------------------*/
+program define new
+
+	syntax [ , Minor Style(passthru) * ]
+
+	if "`style'" == "" { 
+		.setstyle, style(scheme)
+	}
+
+	if "`minor'" != "" {
+		.setstyle, scheme(minor)
+	}
+
+	.Super.new, `style' `options'
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*
+	Usage:  .size angle_in_degrees largest_label
+*/
+program define size
+
+	gettoken angle label : 0
+
+	local txtsize = `.textstyle.size.gmval'
+	if mod(`angle', 180) != 0 {
+		local txtsize = `txtsize' * 				    ///
+		      abs(sin(2*_pi*`angle'/360)) * `:_length `"`label'"''  ///
+		    + abs(sin(2*_pi*(`angle'-90)/360)) * `txtsize' * .5
+	}
+		
+	if `.show_ticks.istrue' {
+		local len = `.length.gmval' * 				///
+			("`.position.stylename'" != "inside") * 	///
+			cond("`.position.stylename'"=="crossing", .5, 1)
+	}
+	else	local len 0
+
+	class exit = `len' + `.show_labels.istrue' * 			///
+		     (`.textgap.gmval' + `txtsize')
+
+end
+
+
+// -------------------------------------------------------------------------
+//	Usage:  .label_width angle_in_degrees largest_label
+
+program define label_width
+
+	gettoken angle label : 0
+
+	local txtsize = `.textstyle.size.gmval'
+	if mod(`angle', 180) != 90 {
+		local txtsize = `txtsize' * 				     ///
+		   abs(sin(2*_pi*(`angle'-90)/360)) * `:_length `"`label'"'' ///
+		 + abs(sin(2*_pi*`angle'/360)) * `txtsize' * .5
+	}
+		
+	class exit = `.show_labels.istrue' * `txtsize'
+
+end
+
+// --------------------------------------------------------------------------
+//  Returns the length of a tick -- always 0 if show_ticks not true
+
+program define tick_length
+	if (`.show_ticks.istrue')  class exit = `.length.gmval'
+	class exit = 0
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*
+	Returns the offset of the tick from the axis line.  This will also
+	typically be the starting point for the text (after applying .textgap)
+*/
+program define tick0
+
+	class exit = `.tick_length' * 					/*
+		*/ ( ("`.position.stylename'"=="crossing") * .5  + 	/*
+		*/   ("`.position.stylename'"=="outside") )
+
+end
+
+
+// ---------------------------------------------------------------------------
+// Returns the length of the tick that extends outside the axis and textgap.
+
+program tick_and_gap
+	class exit = `.tick0' + `.textgap.gmval'
+end
+
+
+/* -------------------------------------------------------------------------*/
+program define setgdi
+
+	.linestyle.setgdi
+	.textstyle.setgdi , `0'
+	
+end
+
+
+
+/* -------------------------------------------------------------------------*/
+program define setgdifull
+
+	.setgdi , `0'
+	gdi penchange
+	gdi textchange
+end
+
+program .inches
+	local z 0
+	if 0`.show_labels.istrue' {
+		local z = `z' + 0`.textstyle.size.inches'
+		local z = `z' + 0`.textgap.inches'
+	}
+	if 0`.show_ticks.istrue' {
+		local z = `z' + 0`.length.inches'
+	}
+	class exit = `z'
+end
+
+exit

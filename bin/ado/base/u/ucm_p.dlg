@@ -1,0 +1,228 @@
+/*
+	predict (after ucm)
+
+*!  VERSION 1.1.0  17dec2014
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_medium
+INCLUDE header
+HELP hlp1, view("help ucm postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource UCM_P_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script _p_gentype_multiple
+	script _p_gentype_setMedium
+END
+
+DIALOG main, label(resource UCM_P_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  INCLUDE  _p_gentype
+
+  GROUPBOX gb_opt	_lft	_ls	_iwd	_ht12,			///
+	label(resource LBL_PRODUCE)
+  RADIO rb_xb		_ilft	_ss	_inwd	., first		///
+	option(xb)							///
+	onclickon(program main_rb_xb_on)				///
+	label(resource UCM_P_MAIN_RB_XB)
+  RADIO rb_trend	@	_ss	@	.,			///
+	option(trend)							///
+	onclickon(program main_rb_trend_on)				///
+	label(resource UCM_P_MAIN_RB_TREND)
+  RADIO rb_seasonal	@	_ss	@	.,			///
+	option(seasonal)						///
+	onclickon(program main_rb_seasonal_on)				///
+	label(resource UCM_P_MAIN_RB_SEASONAL)
+  RADIO rb_cycle	@	_ss	@	.,			///
+	option(cycle)							///
+	onclickon(program main_rb_cycle_on)				///
+	label(resource UCM_P_MAIN_RB_CYCLE)
+  RADIO rb_residuals	@	_ss	@	.,			///
+	option(residuals)						///
+	onclickon(program main_rb_residuals_on)				///
+	label(resource LBL_RESIDUALS)
+  RADIO rb_rstandard	@	_ss	@	., last			///
+	option(rstandard)						///
+	onclickon(program main_rb_rstandard_on)				///
+	label(resource LBL_STANDARDIZED_RESIDUALS)
+END
+
+INCLUDE ifin
+
+PROGRAM main_rb_xb_on
+BEGIN
+	call opts.tx_rmse.enable
+	call opts.ed_rmse.enable
+	call opts.tx_dynamic.enable
+	call opts.ed_dynamic.enable
+	if adv.ck_smethod {
+		call adv.rb_filter.disable
+		call adv.rb_smooth.enable
+	}
+END
+
+PROGRAM main_rb_trend_on
+BEGIN
+	call opts.tx_rmse.enable
+	call opts.ed_rmse.enable
+	call opts.tx_dynamic.enable
+	call opts.ed_dynamic.enable
+	if adv.ck_smethod {
+		call adv.rb_filter.enable
+		call adv.rb_smooth.enable
+	}
+END
+
+PROGRAM main_rb_seasonal_on
+BEGIN
+	call opts.tx_rmse.enable
+	call opts.ed_rmse.enable
+	call opts.tx_dynamic.enable
+	call opts.ed_dynamic.enable
+	if adv.ck_smethod {
+		call adv.rb_filter.enable
+		call adv.rb_smooth.enable
+	}
+END
+
+PROGRAM main_rb_cycle_on
+BEGIN
+	call opts.tx_rmse.enable
+	call opts.ed_rmse.enable
+	call opts.tx_dynamic.enable
+	call opts.ed_dynamic.enable
+	if adv.ck_smethod {
+		call adv.rb_filter.enable
+		call adv.rb_smooth.enable
+	}
+END
+
+PROGRAM main_rb_residuals_on
+BEGIN
+	call opts.tx_rmse.enable
+	call opts.ed_rmse.enable
+	call opts.tx_dynamic.disable
+	call opts.ed_dynamic.disable
+	if adv.ck_smethod {
+		call adv.rb_filter.disable
+		call adv.rb_smooth.enable
+	}
+END
+
+PROGRAM main_rb_rstandard_on
+BEGIN
+	call opts.tx_rmse.disable
+	call opts.ed_rmse.disable
+	call opts.tx_dynamic.disable
+	call opts.ed_dynamic.disable
+	if adv.ck_smethod {
+		call adv.rb_filter.disable
+		call adv.rb_smooth.disable
+	}
+END
+
+DIALOG opts, tabtitle(resource LBL_OPTIONS)
+BEGIN
+  TEXT tx_rmse		_lft	_top	_iwd	.,			///
+	label(resource LBL_STORE_ROOT_MEAN_SE_PREDICTED_STAT_NEW_VAR)
+  EDIT ed_rmse		@	_ss	@	.,			///
+	option(rmse)							///
+	label(resource LBL_STORE_ROOT_MEAN_SE_PREDICTED_STAT_NEW_VAR)
+  
+  TEXT tx_dynamic	@	_ls	_vnwd	.,			///
+	label(resource LBL_DYNAMIC_FORECASTS)
+  EDIT ed_dynamic	@	_ss	_cwd1	.,			///
+	option(dynamic)							///
+	label(resource LBL_DYNAMIC_FORECASTS)
+END
+
+DIALOG adv, tabtitle(resource LBL_ADVANCED)
+BEGIN
+  CHECKBOX ck_smethod	_lft	_top	_iwd	_ht6,			///
+	groupbox							///
+	onclickon(program adv_ck_smethod_on)				///
+	onclickoff(script adv_ck_smethod_off)				///
+	label(resource UCM_P_ADV_CK_SMETHOD)
+  RADIO rb_onestep	_indent	_ss	_inwd	., first		///
+	option(smethod(onestep))					///
+	label(resource LBL_PREDICT_USING_PAST_INFORMATION)
+  RADIO rb_smooth	@	_ss	@	., 			///
+	option(smethod(smooth))						///
+	onclickon(program adv_rb_smooth_on)				///
+	onclickoff(program adv_rb_smooth_off)				///
+	label(resource LBL_PREDICT_USING_ALL_SAMPLE_INFORMATION)
+  RADIO rb_filter	@	_ss	@	., last			///
+	option(smethod(filter))						///
+	label(resource LBL_PREDICT_USING_PAST_CONTEMPORANEOUS_INFO)
+END
+
+PROGRAM adv_ck_smethod_on
+BEGIN
+	call adv.rb_onestep.enable
+	if !main.rb_rstandard {
+		call adv.rb_smooth.enable
+		call program adv_rb_smooth_on
+	}
+	if !main.rb_xb {
+		call adv.rb_filter.enable
+	}
+END
+
+SCRIPT adv_ck_smethod_off
+BEGIN
+	adv.rb_onestep.disable
+	adv.rb_filter.disable
+	adv.rb_smooth.disable
+	program adv_rb_smooth_off
+END
+
+PROGRAM adv_rb_smooth_on
+BEGIN
+	if adv.rb_smooth.isenabled() {
+		call opts.tx_dynamic.disable
+		call opts.ed_dynamic.disable
+	}
+END
+
+PROGRAM adv_rb_smooth_off
+BEGIN
+	if !main.rb_rstandard {
+		call opts.tx_dynamic.enable
+		call opts.ed_dynamic.enable
+	}
+END
+
+INCLUDE _p_gentype_sc
+INCLUDE _type_list_fd
+
+PROGRAM command
+BEGIN
+	put "predict "
+	put " " /program _p_gentype_output
+	INCLUDE _ifin_pr
+	beginoptions
+		option radio(main rb_xb rb_trend rb_seasonal rb_cycle	///
+			 rb_residuals rb_rstandard)
+		optionarg opts.ed_rmse
+		if opts.ed_dynamic.isenabled() {
+			optionarg opts.ed_dynamic
+		}
+		if adv.ck_smethod {
+			option adv.rb_onestep
+			if !main.rb_rstandard { 
+				option adv.rb_smooth
+			}
+			if !main.rb_xb { 
+				option adv.rb_filter
+			}
+		}
+	endoptions
+END

@@ -1,0 +1,171 @@
+/*
+  pkequiv
+
+*!  VERSION 1.1.0  11nov2014
+
+*/
+
+VERSION 14
+
+INCLUDE _std_large
+INCLUDE header
+
+HELP hlp1, view("help pkequiv")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource PKEQUIV_DLG_HSCALE
+END
+
+DIALOG main, label(resource PKEQUIV_DLG_TITLE) /*
+		*/ tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  /*--+----1----+----2----+----3----+----4----+----5----+----6----+----7----+*/ 
+  TEXT     tx_varo         _lft      _top      _cwd3_1   .,		/*
+		*/label(resource LBL_OUTCOME_VARIABLE)
+  TEXT     tx_vart         _lft3_2   @         @         .,		/*
+  		*/label(resource LBL_TREATMENT_VARIABLE)		/*
+  		*/
+  TEXT     tx_varp         _lft3_3   @         @         .,		/*
+  		*/label(resource LBL_PERIOD_VARIABLE)			/*
+  		*/
+  VARNAME  vn_varo         _lft      _ss       _vnwd     .,             /*
+  		*/numeric						/*
+  		*/label(resource LBL_OUTCOME_VARIABLE) 	
+  VARNAME  vn_vart         _lft3_2   @         @         .,		/*
+  		*/numeric						/*
+  		*/label(resource LBL_TREATMENT_VARIABLE)
+  VARNAME  vn_varp         _lft3_3   @         _vnwd     .,		/*
+  		*/numeric						/*
+  		*/label(resource LBL_PERIOD_VARIABLE)
+  TEXT     tx_vars         _lft      _ls       _cwd3_1   .,		/*
+		*/label(resource LBL_SEQUENCE_VARIABLE)
+  TEXT     tx_vari         _lft3_2   @         @         .,		/*
+  		*/label(resource LBL_IDENTIFICATION_VARIABLE)		/*
+  		*/
+  VARNAME  vn_vars         _lft      _ss       _vnwd     .,             /*
+  		*/numeric						/*
+  		*/label(resource LBL_SEQUENCE_VARIABLE) 	
+  VARNAME  vn_vari         _lft3_2   @         @         .,		/*
+  		*/numeric						/*
+  		*/label(resource LBL_IDENTIFICATION_VARIABLE)
+END
+
+INCLUDE ifin
+
+DIALOG opt, label("") tabtitle(resource LBL_OPTIONS)
+  /*--+----1----+----2----+----3----+----4----+----5----+----6----+----7----+*/ 
+BEGIN
+  CHECKBOX ck_comp         _lft      _top      _iwd     .,		/*
+  	*/ label(resource PKEQUIV_OPT_CK_COMP)	/*
+  		*/ option("NONE")				        /*
+		*/ clickon(gaction opt.ed_comp.enable)			/*
+		*/ clickoff(gaction opt.ed_comp.disable)
+  EDIT	   ed_comp         _indent2  _ss       _vnwd     .,		/*
+  	*/label(resource PKEQUIV_OPT_CK_COMP)	/*
+  		*/max(32)						/*
+		*/option("compare")
+  CHECKBOX ck_limit        _lft      _ls       _ckwd     .,		/*
+  		*/ label("")						/*
+  		*/ clickon(gaction opt.en_limit.enable)			/*
+		*/ clickoff(gaction opt.en_limit.disable)
+  EDIT     en_limit        _cksep    @         _en7wd     .,		/*
+  		*/ label(resource PKEQUIV_OPT_EN_LIMIT)			/*
+  		*/ numonly						/*
+		*/ option("limit")
+  TEXT     tx_limit        _en7sep   @         _ckspr    .,		/*
+  		*/ label(resource PKEQUIV_OPT_TX_LIMIT)
+  COMBOBOX cb_level        _lft      _ls       _spwd     .,		/*
+		*/ dropdown						/*
+		*/ label(resource LBL_TX_LEVEL)				/*
+		*/ default(c(level))					/*
+		*/ contents(levels)					/*
+		*/ option(level)					/*
+		*/
+
+  TEXT 	   tx_level        _spsep    @         _spr      _ht0,		/*
+                */ label(resource LBL_TX_LEVEL)                         /*
+		*/
+		  
+DEFINE holdx @x
+  TEXT     tx_conf         _lft      _ls       _iwd      .,		/*
+  		*/label(resource PKEQUIV_OPT_TX_CONF)
+  RADIO    rb_class        @         _ss       _cwd3_1   .,		/*
+  		*/label(resource PKEQUIV_OPT_RB_CLASS)			/*
+  		*/option("NONE")					/*
+		*/first							/*
+		*/clickon("script at_on")
+  RADIO    rb_fieller      _lft3_2   @         @         .,		/*
+  		*/label(resource PKEQUIV_OPT_RB_FIELLER)		/*
+  		*/option("fieller")					/*
+		*/clickon("script at_off")
+  RADIO    rb_symm         _lft3_3   @         @         .,		/*
+  		*/label(resource PKEQUIV_OPT_RB_SYMM)			/*
+  		*/option("symmetric")					/*
+		*/clickon("script at_off")				/*
+		*/last
+  TEXT     tx_bio           _lft     _ls       _iwd      .,		/*
+  		*/label(resource PKEQUIV_OPT_TX_BIO)
+  RADIO    rb_none          @        _ss       _cwd3_1   .,		/*
+  		*/option("NONE")					/*
+  		*/label(resource LBL_NONE)				/*
+		*/first							
+  RADIO    rb_and           _lft3_2  @         _comb3_1  .,		/*
+  		*/label(resource PKEQUIV_OPT_RB_AND)			/*
+  		*/option("anderson")					
+  RADIO    rb_tost          _lft     _ss       _cwd1     .,		/*
+  		*/label(resource PKEQUIV_OPT_RB_TOST)			/*
+  		*/option("tost")					/*
+		*/last							
+  CHECKBOX ck_noboot        @        _ls       _iwd      .,		/*
+		*/option("noboot")					/*
+		*/label(resource PKEQUIV_OPT_CK_NOBOOT)
+END
+
+SCRIPT at_on
+  BEGIN
+    opt.rb_none.enable
+    opt.rb_and.enable
+    opt.rb_tost.enable
+    opt.tx_bio.enable
+    opt.ck_noboot.enable
+  END
+
+SCRIPT at_off
+  BEGIN
+    opt.rb_none.disable
+    opt.rb_and.disable
+    opt.rb_tost.disable
+    opt.tx_bio.disable
+    opt.ck_noboot.disable
+  END
+  
+
+PROGRAM command
+BEGIN
+	put "pkequiv "
+	varlist main.vn_varo
+	varlist main.vn_vart
+	varlist main.vn_varp
+	varlist main.vn_vars
+	varlist main.vn_vari
+	INCLUDE _ifin_pr
+	beginoptions
+		if opt.ck_comp {
+			require opt.ed_comp
+			optionarg opt.ed_comp
+		}
+		if opt.ck_limit {
+			require opt.en_limit
+			optionarg opt.en_limit
+		}
+		option radio(opt rb_class rb_fieller rb_symm)
+		if opt.rb_class {
+			option radio(opt rb_none rb_and rb_tost)
+			option opt.ck_noboot
+		}
+		optionarg /hidedefault opt.cb_level
+	endoptions
+END
+

@@ -1,0 +1,117 @@
+/*
+  mi impute regress
+
+*!  VERSION 1.1.0  22oct2014
+
+  keyword:  mi impute
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 380
+INCLUDE header
+
+HELP hlp1, view("help mi impute regress")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING _mi_ivars
+	create LIST   _mi_IVARS_LIST
+	create STRING bu_groupOptResults
+	setscale_hadj resource MI_IMPUTE_REGRESS_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	_mi_ivars.setvalue char _dta[_mi_ivars]
+
+	_mi_IVARS_LIST.Arrdropall
+	_mi_ivars.tokenize _mi_IVARS_LIST
+	main.cb_ivar.repopulate
+
+	create DOUBLE _mi_M
+	create STRING _mi_M_STR
+	program check_M
+END
+
+PROGRAM check_M
+BEGIN
+	call _mi_M_STR.setvalue char _dta[_mi_M]
+	call _mi_M.setvalue class _mi_M_STR.value
+
+	if _mi_M.islt(1) {
+		call main.ck_add.seton
+	}
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	label(resource MI_IMPUTE_REGRESS_DLG_TITLE)
+BEGIN
+  TEXT     tx_dv 	_lft	_topph	_vnwd	.,			///
+	label(resource LBL_IMPUTED_VARIABLE)
+  COMBOBOX cb_ivar	@ 	_ss	@	.,			///
+	label(resource LBL_IMPUTED_VARIABLE) contents(_mi_IVARS_LIST)	///
+	dropdown
+
+  TEXT     tx_iv	_vlx	_topph	160	.,			///
+	label(resource LBL_INDDEPVAR)
+  VARLIST  vl_iv	@	_ss	_vlwd	.,			///
+	fv								///
+	numeric								///
+	label(resource LBL_INDDEPVAR)
+
+  CHECKBOX ck_nocons	@	_ms	@	.,			///
+	label(resource LBL_NOCONSTANT)					///
+	option(noconstant)
+
+  DEFINE _x _lft
+  DEFINE _cx _iwd
+  DEFINE _y _ls
+  INCLUDE _mi_impute_opts
+
+  DEFINE _x _lft
+  DEFINE _cx _iwd
+  DEFINE _y _ls
+  INCLUDE _mi_impute_uni_cond_boot
+END
+
+INCLUDE _mi_impute_opts_sc
+
+INCLUDE if
+INCLUDE weights
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _iwd
+  DEFINE _y _top
+  INCLUDE _mi_impute_rpt
+END
+
+DIALOG adv, tabtitle(resource LBL_ADVANCED)
+BEGIN
+  CHECKBOX ck_force	_lft	_top	_iwd	.,			///
+	option(force)							///
+	label(resource LBL_PROCEED_WITH_IMPUTATION_WHEN_MISSING_IMPUTED_VAL)
+END
+
+PROGRAM command
+BEGIN
+	put "mi impute regress "
+	varlist main.cb_ivar
+	if main.vl_iv {
+		put " " main.vl_iv
+	}
+	put " " /program if_output
+	put " " /program weights_output
+	beginoptions
+		option main.ck_nocons
+		INCLUDE _mi_impute_opts_main_pr
+		INCLUDE _mi_impute_uni_cond_boot_pr
+		INCLUDE _mi_impute_rpt_pr
+		option adv.ck_force
+	endoptions
+END

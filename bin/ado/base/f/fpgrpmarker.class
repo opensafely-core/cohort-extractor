@@ -1,0 +1,97 @@
+*! version 1.0.1  20sep2019
+version 16
+
+class fpgrpmarker {
+	double lb
+	double ub
+} , inherit(marker_g)
+
+program .new
+	syntax [anything(name=poslist id="ypos xpos LB UB")]	///
+	[,							///
+		Style(passthru)					///
+		STYLEREF(passthru)				///
+		*						///
+	]
+
+	if `"`poslist'"' == "" {
+		class exit
+	}
+
+	.dragable       = 0
+	.grid_dragable	= 0
+	.deleted	= 0
+
+ 	.dialog         = "fpgrmarker"
+
+	//    .dialog must expose marker line and marker fill and
+	//    marker size.
+	//    It must be added to graph_g.class and implemented by the
+	//    GUI guys.  "marker" helps, but the dialog and Contextual
+	//    Toolbar still think you can change the symbol.  BTW,
+	//    you could change the shape of the marker
+	//    if you wanted to implement different ways of
+	//    drawing the "diamond" and put those in a new code style
+	//    that the GUI guys can pick up.
+
+	numlist "`poslist'" , min(4) max(4) missingok
+	local poslist `r(numlist)'
+	gettoken y  poslist : poslist
+	gettoken x  poslist : poslist
+	gettoken lb ub      : poslist
+
+	.y    = (`y')
+	.x    = (`x')
+	.lb   = (`lb')
+	.ub   = (`ub')
+
+	if "`style'" == "" & "`styleref'" == "" {
+		local style style(scheme)
+	}
+
+	.setstyle , `style' `styleref' `options'
+end
+
+program .draw
+	args style
+
+	if ! `.draw_view.istrue' {
+		exit
+	}
+
+	if "`style'" == "" {
+		local style style
+	}
+
+	.`style'.marker.setgdifull
+
+	local  mid = (`.lb' + `.ub') / 2
+	local  ht  = `.style.marker.size.gmval' / 2
+	gdi polybegin
+		gdi moveto `.lb' `.y'
+		gdi lineto `.x'  `=`.y' + `ht''
+		gdi lineto `.ub' `.y'
+		gdi lineto `.x'  `=`.y' - `ht''
+	gdi polyend
+
+	// Find corners for click detection
+	gdi moveto `.lb' `=`.y' + `ht''
+	local y0 = `gdi(ycur)'
+	local x0 = `gdi(xcur)'
+	gdi moveto `.ub' `=`.y' - `ht''
+
+	.set_gdi_posn_notrans  `y0' `x0' `gdi(ycur)' `gdi(xcur)'
+end
+
+program .BrowserName
+	args name
+
+	if bsubstr("`name'",1,6) == "group[" {
+		gettoken pre index: name , parse("[")
+		class exit "group marker`index'"
+	}
+
+	class exit "`name'"
+end
+
+exit

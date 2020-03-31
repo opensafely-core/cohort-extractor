@@ -1,0 +1,381 @@
+/*
+ _vl_fvts_menl_internal.dlg
+
+*!  VERSION 1.0.2  18jun2019
+
+*/
+
+VERSION 16.0
+
+INCLUDE _std_mlarge
+POSITION . . _dlgwd 465
+
+OK ok1, label(resource LBL_BU_OK)
+CANCEL can1, label(resource LBL_BU_CANCEL)
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING STMP
+	create STRING s_output
+	create STRING s_local
+	create STRING s_tsvar
+	create STRING staring_value
+
+	create BOOLEAN b_isAnova
+	create BOOLEAN b_isMainEffect
+	create BOOLEAN b_allowTS
+	create BOOLEAN b_isMenl
+
+	b_isAnova.setfalse
+	b_isMainEffect.setfalse
+	b_allowTS.settrue
+	b_isMenl.settrue
+	setscale_hadj resource _VL_FVTS_MENL_INTERNAL_DLG_HSCALE
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	if __MESSAGE {
+		call main.vl_varlist.setvalue ""
+		call __MESSAGE.withvalue main.vl_varlist.smartinsert "@"
+	}
+	call program check_tsset
+
+	call STMP.format "resource LBL_VARIABLE_FMT" "1:" ""
+	call STMP.withvalue main.tx_fv1.setlabel "@"
+	call STMP.withvalue main.vn_fv1.setlabel "@"
+	call STMP.withvalue main.tx_pol1.setlabel "@"
+	call STMP.withvalue main.vn_pol1.setlabel "@"
+
+	call STMP.format "resource LBL_VARIABLE_FMT" "2:" ""
+	call STMP.withvalue main.tx_fv2.setlabel "@"
+	call STMP.withvalue main.vn_fv2.setlabel "@"
+	call STMP.withvalue main.tx_pol2.setlabel "@"
+	call STMP.withvalue main.vn_pol2.setlabel "@"
+
+	call STMP.format "resource LBL_VARIABLE_FMT" "3:" ""
+	call STMP.withvalue main.tx_fv3.setlabel "@"
+	call STMP.withvalue main.vn_fv3.setlabel "@"
+	call STMP.withvalue main.tx_pol3.setlabel "@"
+	call STMP.withvalue main.vn_pol3.setlabel "@"
+
+	call STMP.format "resource LBL_VARIABLE_FMT" "4:" ""
+	call STMP.withvalue main.tx_fv4.setlabel "@"
+	call STMP.withvalue main.vn_fv4.setlabel "@"
+	call STMP.withvalue main.tx_pol4.setlabel "@"
+	call STMP.withvalue main.vn_pol4.setlabel "@"
+
+	call STMP.format "resource LBL_VARIABLE_FMT" "5:" ""
+	call STMP.withvalue main.tx_fv5.setlabel "@"
+	call STMP.withvalue main.vn_fv5.setlabel "@"
+
+	call STMP.format "resource LBL_VARIABLE_FMT" "6:" ""
+	call STMP.withvalue main.tx_fv6.setlabel "@"
+	call STMP.withvalue main.vn_fv6.setlabel "@"
+
+	call STMP.format "resource LBL_MAIN_EFFECT"
+	call STMP.withvalue term_list.Arrpush "@"
+	call STMP.format "resource LBL_INTERACTION_2_WAY"
+	call STMP.withvalue term_list.Arrpush "@"
+	call STMP.format "resource LBL_#_WAY_FULL_FACTORIAL_FMT" "2"
+	call STMP.withvalue term_list.Arrpush "@"
+	call STMP.format "resource LBL_#_WAY_INTERACTION_FMT" "3"
+	call STMP.withvalue term_list.Arrpush "@"
+	call STMP.format "resource LBL_#_WAY_FULL_FACTORIAL_FMT" "3"
+	call STMP.withvalue term_list.Arrpush "@"
+	call STMP.format "resource LBL_#_WAY_INTERACTION_FMT" "4"
+	call STMP.withvalue term_list.Arrpush "@"
+	call STMP.format "resource LBL_#_WAY_FULL_FACTORIAL_FMT" "4"
+	call STMP.withvalue term_list.Arrpush "@"
+	call STMP.format "resource LBL_#_WAY_INTERACTION_FMT" "5"
+	call STMP.withvalue term_list.Arrpush "@"
+	call STMP.format "resource LBL_#_WAY_FULL_FACTORIAL_FMT" "5"
+	call STMP.withvalue term_list.Arrpush "@"
+	call STMP.format "resource LBL_#_WAY_INTERACTION_FMT" "6"
+	call STMP.withvalue term_list.Arrpush "@"
+	call STMP.format "resource LBL_#_WAY_FULL_FACTORIAL_FMT" "6"
+	call STMP.withvalue term_list.Arrpush "@"
+	call STMP.format "resource LBL_FACTOR_CONTINUOUS_INTERACTIONS"
+	call STMP.withvalue term_list.Arrpush "@"
+
+	call main.cb_term.repopulate
+	call STMP.format "resource LBL_MAIN_EFFECT"
+	call STMP.withvalue main.cb_term.setvalue "@"
+END
+
+PROGRAM ON_DOTPROMPT
+BEGIN
+	call program check_tsset
+END
+
+PROGRAM check_tsset
+BEGIN
+	if b_isMenl {
+		call program _ts_operators_enable_menl
+		call program _fv_core_enable
+		call program _pol_core_enable
+	}
+	else {
+
+		call s_tsvar.setvalue char _dta[_TStvar]
+		if (s_tsvar) {
+			call program _ts_operators_enable
+			call program _fv_core_enable
+			call program _pol_core_enable
+		}
+		else {
+			call program _ts_operators_disable
+			call program _fv_core_disable
+			call program _pol_core_disable
+		}
+		call program check_setGroupTitle
+	}
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)	///
+	label(resource _VL_FVTS_INTERNAL_DLG_TITLE)
+BEGIN
+  GROUPBOX	gb_type		_lft	_top	_iwd	_ht7h,		///
+	label(resource LBL_TYPE_OF_VARIABLE)
+  RADIO		rb_fv		_ilft	_ss	_ibwd	., first	///
+	label(resource _VL_FVTS_INTERNAL_MAIN_RB_FV) onclickon(program fv_on)
+  RADIO		rb_ts		_ilft	_ss	_ibwd	., middle	///
+	label(resource _VL_FVTS_INTERNAL_MAIN_RB_TS) onclickon(program ts_on)
+  HYPERLINK	hl_time		_rj130	@	120	.,		///
+	label(resource LBL_TIME_SETTINGS) right onpush(program show_tsset)
+  RADIO		rb_pol		_ilft	_ss	_ibwd	., middle	///
+	label(resource _VL_FVTS_INTERNAL_MAIN_RB_POL) onclickon(program pol_on)
+  RADIO		rb_var		_ilft	_ss	_ibwd	., last		///
+	label(resource _VL_FVTS_INTERNAL_MAIN_RB_VAR) onclickon(program continuous_on)
+
+  GROUPBOX	gb_add		_lft	_xls	_iwd	80,		///
+	label("")
+
+  TEXT		tx_var		_ilft	_ms	_vnwd	.,		///
+	label(resource LBL_VARIABLE)
+  DEFINE holdy @y
+  VARNAME	vl_var		@	_ss	@	.,		///
+	nomemory							///
+	numeric								///
+	label(resource LBL_VARIABLE)
+
+  DEFINE _x _ilft
+  DEFINE _y _ls
+  DEFINE _cx _ibwd
+  INCLUDE _ts_operators
+  INCLUDE _fv_core
+  INCLUDE _pol_core
+
+  BUTTON	bu_add		_irj100	380	100	.,		///
+	label(resource _VL_FVTS_INTERNAL_MAIN_BU_ADD) onpush(program add)
+
+  TEXT		tx_varlist	_lft	415	_iwd	.,		///
+	label(resource _VL_FVTS_INTERNAL_MAIN_TX_VARLIST)
+  EDIT		vl_varlist	_lft	_ss	_iwd	.,
+END
+
+PROGRAM show_tsset
+BEGIN
+	call create STRING tssetResult
+	call create CHILD tsset, message(-menl-)
+	call tsset.setExitString "tssetResult"
+	call tsset.setExitAction "program get_tsset_result"
+END
+PROGRAM get_tsset_result
+BEGIN
+	if tssetResult {
+		put tssetResult
+		stata
+	}
+END
+
+INCLUDE _ts_operators_pr
+INCLUDE _fv_core_pr
+INCLUDE _pol_core_pr
+
+PROGRAM check_setGroupTitle
+BEGIN
+	if main.rb_fv {
+		call main.gb_add.setlabel resource _VL_FVTS_INTERNAL_ADD_FACTOR_VAR
+	}
+	if main.rb_ts {
+		call s_tsvar.setvalue char _dta[_TStvar]
+		if (s_tsvar) {
+			call main.gb_add.setlabel resource _VL_FVTS_INTERNAL_ADD_TS_VAR
+		}
+		else {
+			call main.gb_add.setlabel resource _VL_FVTS_INTERNAL_ADD_TS_VAR_TIME_SETTING_NOT_SET
+		}
+	}
+	if main.rb_pol {
+		call main.gb_add.setlabel resource _VL_FVTS_INTERNAL_ADD_POLYNOMIAL_VAR
+	}
+	if main.rb_var {
+		call main.gb_add.setlabel resource _VL_FVTS_INTERNAL_ADD_CONTINUOUS_VAR
+	}
+END
+
+PROGRAM fv_on
+BEGIN
+	call program check_setGroupTitle
+	call main.gb_add.setposition . . . 280
+	call main.bu_add.setposition 340 380 . .
+
+	call main.tx_var.hide
+	call main.vl_var.hide
+
+	call program _ts_operators_hide
+	
+	call main.tx_pol_term.hide
+	call main.cb_pol_term.hide
+	call main.tx_pol_vars.hide
+	call main.tx_pol_time.hide
+	call program hide_pol_terms
+
+	call main.tx_term.show
+	call main.cb_term.show
+	call main.tx_variables.show
+	call main.tx_base.show
+	call main.tx_cont.show
+
+	if b_allowTS  {
+		call main.tx_timeop.show
+	}
+	else {
+		call main.tx_timeop.hide
+	}
+
+	if b_isMenl  {
+		call main.tx_timeop.hide
+	}
+
+	call program check_term
+END
+
+PROGRAM ts_on
+BEGIN
+	call program check_setGroupTitle
+	call main.gb_add.setposition . . . 280
+	call main.bu_add.setposition 340 380 . .
+	call main.tx_var.show
+	call main.vl_var.show
+	call program _ts_operators_show_menl
+
+	call main.tx_term.hide
+	call main.cb_term.hide
+	call main.tx_variables.hide
+	call main.tx_base.hide
+	call main.tx_cont.hide
+	call main.tx_timeop.hide
+	call program hide_terms
+
+	call main.tx_pol_term.hide
+	call main.cb_pol_term.hide
+	call main.tx_pol_vars.hide
+	call main.tx_pol_time.hide
+	call program hide_pol_terms
+END
+
+PROGRAM pol_on
+BEGIN
+	call program check_setGroupTitle
+	call main.gb_add.setposition . . . 280
+	call main.bu_add.setposition 340 380 . .
+
+	call main.tx_var.hide
+	call main.vl_var.hide
+
+	call main.tx_pol_term.show
+	call main.cb_pol_term.show
+	call main.tx_pol_vars.show
+	call main.tx_pol_time.show
+
+	call main.tx_term.hide
+	call main.cb_term.hide
+	call main.tx_variables.hide
+	call main.tx_base.hide
+	call main.tx_cont.hide
+	call main.tx_timeop.hide
+
+	call program hide_terms
+	call program _ts_operators_hide
+
+	call program check_pol_term
+END
+
+PROGRAM continuous_on
+BEGIN
+	call program check_setGroupTitle
+	call main.gb_add.setposition . . . 80
+	call main.bu_add.setposition 145 175 . .
+	call main.tx_var.show
+	call main.vl_var.show
+
+	call program _ts_operators_hide
+
+	call main.tx_term.hide
+	call main.cb_term.hide
+	call main.tx_variables.hide
+	call main.tx_base.hide
+	call main.tx_cont.hide
+	call main.tx_timeop.hide
+	call program hide_terms
+	
+	call main.tx_pol_term.hide
+	call main.cb_pol_term.hide
+	call main.tx_pol_vars.hide
+	call main.tx_pol_time.hide
+	call program hide_pol_terms
+
+	call program hide_pol_terms
+END
+
+PROGRAM add
+BEGIN
+	require main.vl_var
+
+	call s_output.setvalue ""
+
+	if main.rb_var {
+		call main.vl_var.withvalue main.vl_varlist.smartinsert "@"
+	}
+	if main.rb_ts {
+		put /program _ts_operators_add
+		if (s_output) {
+			call s_output.append "."
+		}
+		call s_output.append class main.vl_var.value
+	}
+	if main.rb_fv {
+		put /program _fv_core_add
+	}
+	if main.rb_pol {
+		put /program _pol_core_add
+	}
+
+	call s_output.withvalue main.vl_varlist.smartinsert "@"
+END
+
+PROGRAM command
+BEGIN
+	if main.vl_varlist.iseq("") {
+		call create STRING _MSG_TMP
+                call _MSG_TMP.format 						///
+			"resource _VL_FVTS_INTERNAL_MSGBOX_CHANGES_NOT_COMM_FMT" ///
+			"resource _VL_FVTS_INTERNAL_MAIN_BU_ADD"
+		stopbox stop "class _MSG_TMP.value"
+// Your changes have not been committed.
+// Press the button "Add to varlist" to commit your changes.
+	}
+	if __MESSAGE.iseq(main.vl_varlist) {
+                call create STRING _MSG_TMP
+                call _MSG_TMP.format 						///
+			"resource _VL_FVTS_INTERNAL_MSGBOX_CHANGES_NOT_COMM_FMT" ///
+			"resource _VL_FVTS_INTERNAL_MAIN_BU_ADD"
+                stopbox stop "class _MSG_TMP.value"
+// Your changes have not been committed.
+// Press the button "Add to varlist" to commit your changes.
+	}
+	put  main.vl_varlist
+END

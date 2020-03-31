@@ -1,0 +1,138 @@
+/*
+  mcaprojection
+
+*!  VERSION 1.1.2  02dec2019
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 320
+INCLUDE header
+HELP hlp1, view("help mca_postestimation")
+RESET res1
+
+INCLUDE gr_mcaplot_build
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource MCAPROJECTION_DLG_HSCALE
+END
+
+SCRIPT opts_PREINIT
+BEGIN
+	create STRING graphCombineResults
+	settitle resource MCAPROJECTION_DLG_TITLE
+END
+SCRIPT opts_POSTINIT
+BEGIN
+	program checkgraphCombineResults
+END
+
+DIALOG opts, tabtitle(resource LBL_OPTIONS)
+BEGIN
+
+  BUTTON   bu_combine	_lft	_top	150	.,	///
+	label(resource LBL_GRAPH_COMBINE_OPTIONS)	///
+	onpush(script show_graph_combine_dialog)
+
+  GROUPBOX gb_dim	_lft	_ls	_iwd	_ht6,	///
+	label(resource LBL_DIMENSIONS)
+DEFINE y @y
+  RADIO rb_default_dim	_indent	_ss	_inwd	.,	///
+	first 						///
+	label(resource LBL_PLOT_FIRST_SECOND_DIMENSIONS) ///
+	onclickon(script opt_dim_off)
+  RADIO rb_dim		@	_ss	@	.,	///
+	last 						///
+	label(resource LBL_SPECIFY_OTHER_DIMENSIONS_PLOT) ///
+	onclickon(script opt_dim_on)
+  EDIT ed_dim		+20	_ss	_en7wd	.,	///
+	label(resource LBL_TWO_DIMENSIONS_TO_PLOT) option(dim)	///
+	default("2  1")
+  TEXT tx_dim		_en7sep	@	150	.,	///
+	label(resource LBL_TWO_DIMENSIONS_TO_PLOT)
+
+  GROUPBOX gb_norm	_lft	_xls	_iwd	_ht6,	///
+	label(resource LBL_NORMALIZATION_OF_THE_COORDINATES)
+  RADIO rb_norm_default	_indent	_ss	_inwd	.,	///
+	first 						///
+	label(resource LBL_USE_DEFAULT)
+  RADIO rb_norm_std	@	_ss	@	.,	///	
+	label(resource LBL_DISPLAY_STANDARD_COORDINATES) ///
+	option(normalize(standard))
+  RADIO rb_norm_princ	@	_ss	@	.,	///
+	last						///
+	option(normalize(principal))			///
+	label(resource LBL_DISPLAY_PRINCIPLE_COORDINATES)
+
+  CHECKBOX ck_alt	_lft	+40	_iwd	.,	///
+	label(resource LBL_ALTERNATE_LABELS) option(alternate)
+
+  SPINNER sp_maxlength	_lft	_ms	_spwd	.,	///
+	default(12) min(1) max(32) option(maxlength)
+  TEXT    tx_maxlength	_spsep	@	_spr	.,	///
+	label(resource LBL_MAXIMUM_NUMBER_CHARACTERS_DISPLAYED_LABELS)
+END
+
+SCRIPT show_graph_combine_dialog
+BEGIN
+	create CHILD gr_combine_options AS graph_combine_opts, 	///
+		allowsubmit message(set_mcaplot_options)
+	graph_combine_opts.setExitString graphCombineResults
+	graph_combine_opts.settitle resource LBL_GRAPH_COMBINE_OPTIONS
+	graph_combine_opts.setExitAction "program checkgraphCombineResults"
+	graph_combine_opts.setSubmitAction "program GraphCombineSubmit"
+END
+PROGRAM checkgraphCombineResults
+BEGIN
+	if graphCombineResults {
+		call opts.bu_combine.modified_on
+	}
+	else {
+		call opts.bu_combine.modified_off
+	}
+END
+PROGRAM GraphCombineSubmit
+BEGIN
+	call program checkgraphCombineResults
+	call Submit
+END
+
+SCRIPT opt_dim_on
+BEGIN
+	opts.ed_dim.enable
+	opts.tx_dim.enable
+END
+SCRIPT opt_dim_off
+BEGIN
+	opts.ed_dim.disable
+	opts.tx_dim.disable
+END
+
+
+INCLUDE gr_yaxis
+INCLUDE gr_xaxis
+INCLUDE gr_titles
+INCLUDE gr_legend
+INCLUDE gr_overall
+
+PROGRAM command
+BEGIN
+	put "mcaprojection "
+	put " " /program gr_mcaplot_build_output
+	beginoptions
+		put " " graphCombineResults " "
+		optionarg opts.ed_dim
+		option opts.rb_norm_std
+		option opts.rb_norm_princ
+		option opts.ck_alt
+		optionarg /hidedefault opts.sp_maxlength
+		put " " /program gr_yaxis_output
+		put " " /program gr_xaxis_output
+		put " " /program gr_titles_output
+		put " " /program gr_legend_output
+		put " " /program gr_overall_output
+	endoptions
+END

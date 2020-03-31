@@ -1,0 +1,389 @@
+/*
+  menl_exp_re_opts_sc.idlg
+
+  program include file for menl_exp_re_opts.idlg
+
+*!  VERSION 1.0.4  25sep2017
+
+*/
+// external script
+SCRIPT menl_exp_re_opts_hide
+BEGIN
+	main.rb_autore.hide
+	main.rb_specre.hide
+	main.ed_rename.hide
+	main.gb_level.hide
+	main.sp_levar.hide
+	main.tx_levar.hide
+	main.vn_levar1.hide
+	main.tx_levar1.hide
+	main.vn_levar2.hide
+	main.tx_levar2.hide
+	main.vn_levar3.hide
+	main.tx_levar3.hide
+	main.vn_levar4.hide
+	main.tx_levar4.hide
+	main.tx_obs.hide
+	main.tx_intervar.hide
+	main.vn_intervar.hide
+	main.tx_cat.hide
+	main.ck_cat.hide
+	main.tx_level.hide
+	main.cb_level.hide
+	main.tb_note.hide
+END
+
+PROGRAM menl_exp_re_opts_show
+BEGIN
+	call main.rb_autore.show
+	call main.rb_specre.show
+	call main.ed_rename.show
+	call program main_check_rename
+	call main.gb_level.show
+	call main.sp_levar.show
+	call main.tx_levar.show
+	call main.tx_obs.show
+	call program main_sp_levar_check
+	call main.tx_intervar.show
+	call main.vn_intervar.show
+	call main.tx_cat.show
+	call main.ck_cat.show
+	call program main_check_categorical
+	call main.tb_note.show
+END
+
+PROGRAM main_check_rename
+BEGIN
+	if main.rb_autore {
+		call main.ed_rename.disable
+	}
+	if main.rb_specre {
+		call main.ed_rename.enable
+	}
+END
+
+PROGRAM main_check_categorical
+BEGIN
+	if main.ck_cat {
+		call main.tx_level.show
+		call main.cb_level.show
+		call program main_populate_levels
+	}
+	else {
+		call main.tx_level.hide
+		call main.cb_level.hide
+		call main.tb_note.setlabel resource MENL_EXP_TX_NOTE
+	}
+END
+
+LIST main_lvls_list
+BEGIN
+END
+
+PROGRAM main_populate_levels
+BEGIN
+	call create STRING lvl_errcode
+	call create STRING lvls
+
+	put "_dlg_tools_wrk levels "
+	put main.vn_intervar
+	stata hidden immediate
+
+	call lvl_errcode.setvalue s(errcode)
+	if lvl_errcode.isneq("0") {
+		call main.tb_note.setlabel s(errmsg)
+		call lvls.setvalue ""
+		call lvls.tokenizeOnStr main_lvls_list " "
+	}
+	else {
+		call main.tb_note.setlabel " "
+		call lvls.setvalue s(levels)
+		call lvls.tokenizeOnStr main_lvls_list " "
+	}
+	call main.cb_level.repopulate
+END
+
+PROGRAM main_sp_levar_check
+BEGIN
+
+	if main.sp_levar.isvisible() & main.sp_levar.isenabled() {
+		if main.sp_levar.iseq(2) {
+			call main.tx_levar1.show
+			call main.vn_levar1.show
+			call main.tx_levar2.hide
+			call main.vn_levar2.hide
+			call main.tx_levar3.hide
+			call main.vn_levar3.hide
+			call main.tx_levar4.hide
+			call main.vn_levar4.hide
+			call main.tx_obs.show
+			call main.tx_obs.setposition 150 .
+		}
+		if main.sp_levar.iseq(3) {
+			call main.tx_levar1.show
+			call main.vn_levar1.show
+			call main.tx_levar2.show
+			call main.vn_levar2.show
+			call main.tx_levar3.hide
+			call main.vn_levar3.hide
+			call main.tx_levar4.hide
+			call main.vn_levar4.hide
+			call main.tx_obs.show
+			call main.tx_obs.setposition 260 .
+		}
+		if main.sp_levar.iseq(4) {
+			call main.tx_levar1.show
+			call main.vn_levar1.show
+			call main.tx_levar2.show
+			call main.vn_levar2.show
+			call main.tx_levar3.show
+			call main.vn_levar3.show
+			call main.tx_levar4.hide
+			call main.vn_levar4.hide
+			call main.tx_obs.show
+			call main.tx_obs.setposition 375 .
+		}
+		if main.sp_levar.iseq(5) {
+			call main.tx_levar1.show
+			call main.vn_levar1.show
+			call main.tx_levar2.show
+			call main.vn_levar2.show
+			call main.tx_levar3.show
+			call main.vn_levar3.show
+			call main.tx_levar4.show
+			call main.vn_levar4.show
+			call main.tx_obs.show
+			call main.tx_obs.setposition 490 .
+		}
+	}
+	else {
+		call main.tx_levar1.hide
+		call main.vn_levar1.hide
+		call main.tx_levar2.hide
+		call main.vn_levar2.hide
+		call main.tx_levar3.hide
+		call main.vn_levar3.hide
+		call main.tx_levar4.hide
+		call main.vn_levar4.hide
+		call main.tx_obs.hide
+	}
+END
+
+PROGRAM menl_exp_re_opts_output
+BEGIN
+	call create STRING _re
+	
+	if main.ck_cat & (main.vn_intervar.iseq("(none)") | !main.vn_intervar) {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format						///
+			"resource LBL_MSGBOX_SPECIFY_RANDOM_COEFF_VAR_FMT"	///
+			"resource LBL_RANDOM_COEFFICIENT_VARIABLE"		///
+			"resource LBL_IDOT"
+		stopbox stop "class _MSG_TMP.value"	
+//		stopbox stop `"You must specify a "Random-coefficient variable" when "i." is checked."'
+	}
+
+	if main.rb_specre {
+		require main.ed_rename
+	}
+	if main.sp_levar.iseq(2) {
+		if !main.vn_levar1 {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format					///
+				"resource LBL_MSGBOX_LEVEL_VAR_FILL_FMT"	///
+				"resource MENL_EXP_MAIN_TX_LEVAR1"		///
+				"resource LBL_LEVEL_SPECIFICATION"
+			stopbox stop "class _MSG_TMP.value"	
+//			stopbox stop `""Level variable 1" from "Level specification" must be filled in."'
+		}
+	}
+	if main.sp_levar.iseq(3) {
+		if !main.vn_levar1 {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format					///
+				"resource LBL_MSGBOX_LEVEL_VAR_FILL_FMT"	///
+				"resource MENL_EXP_MAIN_TX_LEVAR1"		///
+				"resource LBL_LEVEL_SPECIFICATION"
+			stopbox stop "class _MSG_TMP.value"
+//			stopbox stop `""Level variable 1" from "Level specification" must be filled in."'
+		}
+		if !main.vn_levar2 {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format					///
+				"resource LBL_MSGBOX_LEVEL_VAR_FILL_FMT"	///
+				"resource MENL_EXP_MAIN_TX_LEVAR2"		///
+				"resource LBL_LEVEL_SPECIFICATION"
+			stopbox stop "class _MSG_TMP.value"
+//			stopbox stop `""Level variable 2" from "Level specification" must be filled in."'
+		}
+	}
+	if main.sp_levar.iseq(4) {
+		if !main.vn_levar1 {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format					///
+				"resource LBL_MSGBOX_LEVEL_VAR_FILL_FMT"	///
+				"resource MENL_EXP_MAIN_TX_LEVAR1"		///
+				"resource LBL_LEVEL_SPECIFICATION"
+			stopbox stop "class _MSG_TMP.value"
+//			stopbox stop `""Level variable 1" from "Level specification" must be filled in."'
+		}
+		if !main.vn_levar2 {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format					///
+				"resource LBL_MSGBOX_LEVEL_VAR_FILL_FMT"	///
+				"resource MENL_EXP_MAIN_TX_LEVAR2"		///
+				"resource LBL_LEVEL_SPECIFICATION"
+			stopbox stop "class _MSG_TMP.value"
+//			stopbox stop `""Level variable 2" from "Level specification" must be filled in."'
+		}
+		if !main.vn_levar3 {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format					///
+				"resource LBL_MSGBOX_LEVEL_VAR_FILL_FMT"	///
+				"resource MENL_EXP_MAIN_TX_LEVAR3"		///
+				"resource LBL_LEVEL_SPECIFICATION"
+			stopbox stop "class _MSG_TMP.value"
+//			stopbox stop `""Level variable 3" from "Level specification" must be filled in."'
+		}
+	}
+	if main.sp_levar.iseq(5) {
+		if !main.vn_levar1 {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format					///
+				"resource LBL_MSGBOX_LEVEL_VAR_FILL_FMT"	///
+				"resource MENL_EXP_MAIN_TX_LEVAR1"		///
+				"resource LBL_LEVEL_SPECIFICATION"
+			stopbox stop "class _MSG_TMP.value"
+//			stopbox stop `""Level variable 1" from "Level specification" must be filled in."'
+		}
+		if !main.vn_levar2 {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format					///
+				"resource LBL_MSGBOX_LEVEL_VAR_FILL_FMT"	///
+				"resource MENL_EXP_MAIN_TX_LEVAR2"		///
+				"resource LBL_LEVEL_SPECIFICATION"
+			stopbox stop "class _MSG_TMP.value"
+//			stopbox stop `""Level variable 2" from "Level specification" must be filled in."'
+		}
+		if !main.vn_levar3 {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format					///
+				"resource LBL_MSGBOX_LEVEL_VAR_FILL_FMT"	///
+				"resource MENL_EXP_MAIN_TX_LEVAR3"		///
+				"resource LBL_LEVEL_SPECIFICATION"
+			stopbox stop "class _MSG_TMP.value"
+//			stopbox stop `""Level variable 3" from "Level specification" must be filled in."'
+		}
+		if !main.vn_levar4 {
+			call create STRING _MSG_TMP
+			call _MSG_TMP.format					///
+				"resource LBL_MSGBOX_LEVEL_VAR_FILL_FMT"	///
+				"resource MENL_EXP_MAIN_TX_LEVAR4"		///
+				"resource LBL_LEVEL_SPECIFICATION"
+			stopbox stop "class _MSG_TMP.value"
+//			stopbox stop `""Level variable 4" from "Level specification" must be filled in."'
+		}
+	}
+	if main.cb_level.isvisible() & main.cb_level.isenabled() {
+		require main.cb_level
+	}
+	call _re.setvalue ""
+	if main.vn_intervar.isneq("") & !main.vn_intervar.isdefault() {
+		if main.ck_cat {
+			if main.cb_level.iseq("(all)") {
+				call create DOUBLE i
+				call create STRING tmplvl
+				call create SVECTOR tmp
+				call create DOUBLE arraysize
+				call tmp.copyFromArray main_lvls_list
+				call arraysize.setvalue class tmp.size
+				call i.setvalue 1
+				while i.islt(arraysize) {
+					if isRE.iseq(1) {
+						call _re.append "{"
+					}
+					call i.withvalue tmplvl.setvalue ///
+						class tmp.values[@]
+	
+					call tmplvl.withvalue _re.append "@"
+					call _re.append "."
+					call main.vn_intervar.withvalue	///
+						_re.append "@"
+					if main.rb_autore {
+						call _re.append "#U"
+						call eqcounter.increment
+				call eqcounter.withvalue _re.append "@"
+					}
+					if main.rb_specre {
+						call _re.append "#"
+				call main.ed_rename.withvalue _re.append @
+						call eqcounter.increment
+				call eqcounter.withvalue _re.append "@"
+					}
+					call _re.append "["
+				call main.vn_levar1.withvalue _re.append @
+					if main.vn_levar2.isneq("") 	///
+					& main.vn_levar2.isvisible() {
+						call _re.append ">"
+				call main.vn_levar2.withvalue _re.append @
+					}
+					if main.vn_levar3.isneq("") 	///
+					& main.vn_levar3.isvisible() {
+						call _re.append ">"
+				call main.vn_levar3.withvalue _re.append @
+					}
+					if main.vn_levar4.isneq("") 	///
+					& main.vn_levar4.isvisible() {
+						call _re.append ">"
+				call main.vn_levar4.withvalue _re.append @
+					}
+					if isRE.iseq(1) {
+						call _re.append "]} "
+					}
+					else {
+						call _re.append "] "
+					}
+					call i.increment
+				}
+				call _re.withvalue  re.setvalue "@"
+				exit
+			}
+			else {
+				call main.cb_level.withvalue _re.append @
+			}
+		}
+		else {
+			if !main.vn_intervar.isdefault() {
+				call _re.append "c"
+			}
+		}
+		call _re.append "."
+		call main.vn_intervar.withvalue _re.append @
+		call _re.append "#"
+	}
+	if main.rb_autore {
+		call _re.append "U"
+		call eqcounter.increment
+		call eqcounter.withvalue _re.append "@"
+	}
+	if main.rb_specre {
+		call main.ed_rename.withvalue _re.append @
+	}
+	call _re.append "["
+	call main.vn_levar1.withvalue _re.append @
+	if main.vn_levar2.isneq("") & main.vn_levar2.isvisible() {
+		call _re.append ">"
+		call main.vn_levar2.withvalue _re.append @
+	}
+	if main.vn_levar3.isneq("") & main.vn_levar3.isvisible() {
+		call _re.append ">"
+		call main.vn_levar3.withvalue _re.append @
+	}
+	if main.vn_levar4.isneq("") & main.vn_levar4.isvisible() {
+		call _re.append ">"
+		call main.vn_levar4.withvalue _re.append @
+	}
+	call _re.append "]"
+	call _re.withvalue  re.setvalue "@"
+END
+

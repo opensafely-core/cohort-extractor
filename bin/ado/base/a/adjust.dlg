@@ -1,0 +1,434 @@
+/*
+	adjust
+
+*!  VERSION 1.3.3  03may2017 (deprecated)
+
+*/
+
+VERSION 10.0
+
+INCLUDE _std_wide
+INCLUDE header
+HELP hlp1, view("help adjust")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource ADJUST_DLG_HSCALE
+END
+
+DIALOG main, label("adjust - Tables of adjusted means and proportions") tabtitle("Main")
+BEGIN
+  TEXT     tx_byopt     _lft      _top      _iwd      .,		/*
+*/ label("Compute and display predictions for each level of variables:  (optional)")
+  VARLIST  vl_byopt     @         _ss       @         .,		/*
+		*/ option(by)						/*
+      */ label("Compute and display predictions for each level of variables")
+
+  TEXT     tx_varmeans  @         _xls      @         .,		/*
+     */ label("Variables to be set to their overall mean value:  (optional)")
+  VARLIST  vl_varmeans  @         _ss       @         ., allowcat	/*
+  		*/ numeric						/*
+		*/ label("Variables to be set to their overall mean value")
+
+  GROUPBOX gb_varvals   @         _ls       @         _ht14,		/*
+	    */ label("Variables to be set to a specified value  (optional)")
+  TEXT     tx_varnamea  _ilft     _ss       _vnwd     .,		/*
+		*/ label("Variable:")
+  TEXT     tx_varvala   _vnsep    @         _en7wd    .,		/*
+		*/ label("Value:")
+  TEXT     tx_varnameb  _lft2     @         _vnwd     .,		/*
+		*/ label("Variable:")
+  TEXT     tx_varvalb   _vnsep    @         _en7wd    .,		/*
+		*/ label("Value:")
+
+  VARNAME  vn_varname1  _ilft     _ss       _vnwd     .,		/*
+  		*/ numeric						/*
+		*/ label("Variable to be set to a specified value")
+  EDIT     en_varval1   _vnsep    @         _en7wd    ., numonly	/*
+		*/ label("Value")
+  VARNAME  vn_varname2  _lft2     @         _vnwd     .,		/*
+  		*/ numeric						/*
+		*/ label("Variable to be set to a specified value")
+  EDIT     en_varval2   _vnsep    @         _en7wd    ., numonly	/*
+		*/ label("Value")
+
+  VARNAME  vn_varname3  _ilft     _ms       _vnwd     .,		/*
+  		*/ numeric						/*
+		*/ label("Variable to be set to a specified value")
+  EDIT     en_varval3   _vnsep    @         _en7wd    ., numonly	/*
+		*/ label("Value")
+  VARNAME  vn_varname4  _lft2     @         _vnwd     .,		/*
+  		*/ numeric						/*
+		*/ label("Variable to be set to a specified value")
+  EDIT     en_varval4   _vnsep    @         _en7wd    ., numonly	/*
+		*/ label("Value")
+
+  VARNAME  vn_varname5  _ilft     _ms       _vnwd     .,		/*
+  		*/ numeric						/*
+		*/ label("Variable to be set to a specified value")
+  EDIT     en_varval5   _vnsep    @         _en7wd    ., numonly	/*
+		*/ label("Value")
+  VARNAME  vn_varname6  _lft2     @         _vnwd     .,		/*
+  		*/ numeric						/*
+		*/ label("Variable to be set to a specified value")
+  EDIT     en_varval6   _vnsep    @         _en7wd    ., numonly	/*
+		*/ label("Value")
+
+  VARNAME  vn_varname7  _ilft     _ms       _vnwd     .,		/*
+  		*/ numeric						/*
+		*/ label("Variable to be set to a specified value")
+  EDIT     en_varval7   _vnsep    @         _en7wd    ., numonly	/*
+		*/ label("Value")
+  VARNAME  vn_varname8  _lft2     @         _vnwd     .,		/*
+  		*/ numeric						/*
+		*/ label("Variable to be set to a specified value")
+  EDIT     en_varval8   _vnsep    @         _en7wd    ., numonly	/*
+		*/ label("Value")
+
+  VARNAME  vn_varname9  _ilft     _ms       _vnwd     .,		/*
+  		*/ numeric						/*
+		*/ label("Variable to be set to a specified value")
+  EDIT     en_varval9   _vnsep    @         _en7wd    ., numonly	/*
+		*/ label("Value")
+  VARNAME  vn_varname10 _lft2     @         _vnwd     .,		/*
+  		*/ numeric						/*
+		*/ label("Variable to be set to a specified value")
+  EDIT     en_varval10  _vnsep    @         _en7wd    ., numonly	/*
+		*/ label("Value")
+END
+
+
+INCLUDE ifin
+
+
+DIALOG opt, tabtitle("Options")
+BEGIN
+  GROUPBOX gb_predict   _lft      _top      _iwd      _ht16,		/*
+		*/ label("Prediction")
+  RADIO    rb_xb        _ilft     _ss       _cwd2     ., first		/*
+		*/ option(xb)						/*
+		*/ label("Linear prediction")				/*
+		*/ onclickon(program opt_linear_on)
+  DEFINE   holdy @y
+  RADIO    rb_pr        @         _ss       @         .,		/*
+		*/ option(pr)						/*
+		*/ label("Predicted probabilities")			/*
+		*/ onclickon(program opt_linear_off)
+  RADIO    rb_exp       @         _ss       @         ., last		/*
+		*/ option(exp)						/*
+		*/ label("Exponentiated linear prediction")		/*
+		*/ onclickon(program opt_linear_off)
+
+  TEXT     tx_equation  @         _ls       @         .,		/*
+		*/ label("Equation:  (if applicable)")
+  COMBOBOX cb_equation  @         _ss       @         ., dropdownlist	/*
+		*/ option(equation)					/*
+		*/ contents(ereturn eqnames)				/*
+		*/ label("Equation")
+  RADIO    rb_none      _lft2     holdy     _cwd2     ., first		/*
+		*/ option(NONE)						/*
+		*/ label("No standard errors")				/*
+		*/ onclickon(program opt_check_errors)
+  RADIO    rb_se        @         _ss       @         .,		/*
+		*/ option(se)						/*
+		*/ label("Standard error of the prediction")		/*
+		*/ onclickon(program opt_check_errors)
+  RADIO    rb_stdf      @         _ss       @         ., last		/*
+		*/ option(stdf)						/*
+		*/ label("Standard error of the forecast")		/*
+		*/ onclickon(program opt_check_errors)
+
+  CHECKBOX ck_ci        @         _ls       @         .,		/*
+		*/ option(ci)						/*
+		*/ clickon("script ci_on")				/*
+		*/ clickoff("script ci_off")				/*
+		*/ label("Confidence or prediction intervals")
+
+  DEFINE inx @x
+  DEFINE _x _indent2
+  DEFINE _y _ss
+  DEFINE _cx _ckspr2b
+  INCLUDE _sp_level
+
+  CHECKBOX ck_vertical  inx       _ms       _cwd4     .,		/*
+		*/ option(vertical)					/*
+  		*/ label("Stack confidence intervals")
+
+  CHECKBOX ck_nooffset  _ilft     _ms       _ibwd     .,		/*
+		*/ opt(nooffset)					/*
+*/ label("Ignore offset or exposure variable (if any) when making predictions")
+
+  GROUPBOX gb_gen       _lft      _xls      _iwd      _ht4,		/*
+		*/ label("Generate new variables")
+  CHECKBOX ck_genpred   _ilft     _ss       _cwd2     .,		/*
+		*/ clickon("program genpred_on")			/*
+		*/ clickoff("script genpred_off")			/*
+		*/ label("Prediction variable:")
+  DEFINE   holdy @y
+  EDIT     ed_genpred   _indent2  _ss       _vnwd     ., max(32)	/*
+		*/ label("Prediction variable")
+  CHECKBOX ck_generror  _lft2     holdy     _cwd2     .,		/*
+		*/ clickon("gaction opt.ed_generror.enable")		/*
+		*/ clickoff("gaction opt.ed_generror.disable")		/*
+		*/ label("Error variable:")
+  EDIT     ed_generror  _indent2  _ss       _vnwd     ., max(32)	/*
+		*/ label("Error variable")
+END
+
+PROGRAM opt_check_errors
+BEGIN
+	if ! opt.rb_none & opt.ck_genpred {
+		call opt.ck_generror.enable
+		if opt.ck_generror {
+			call opt.ed_generror.enable
+		}
+		exit
+	}
+	call opt.ed_generror.disable
+	call opt.ck_generror.disable
+END
+
+PROGRAM opt_linear_on
+BEGIN
+	call opt.rb_se.enable
+	call opt.rb_stdf.enable
+END
+
+PROGRAM opt_linear_off
+BEGIN
+	call opt.rb_se.disable
+	call opt.rb_stdf.disable
+	call opt.rb_none.seton
+END
+
+DIALOG opt2, tabtitle("More options")
+BEGIN
+  CHECKBOX ck_replace   _lft      _top      _cwd1     .,		/*
+		*/ option(replace) nomem				/*
+		*/ label("Replace data in memory with table")
+  DEFINE   holdy @y
+  TEXT     tx_label     @         _ms       @         .,		/*
+		*/ label("Prediction label:")
+  EDIT     ed_label     @         _ss       @         .,		/*
+		*/ option(label)					/*
+		*/ label("Prediction label")
+  TEXT     tx_selabel   @         _ls       @         .,		/*
+		*/ label("Error-term label:")
+  EDIT     ed_selabel   @         _ss       @         .,		/*
+		*/ option(selabel)					/*
+		*/ label("Error-term label")
+  TEXT     tx_cilabel   @         _ls       @         .,		/*
+		*/ label("Confidence-interval label:")
+  EDIT     ed_cilabel   @         _ss       @         .,		/*
+		*/ option(cilabel)					/*
+		*/ label("Confidence-interval label")
+
+  CHECKBOX ck_format    @	_ls	@	.,		///
+	onclickon(script format_on)				///
+	onclickoff(script format_off)				///
+	label("Override display format for numbers in table")
+  EDIT     ed_format	+20	_ss	120	.,		///
+	option(format)						///
+	label("Display format")
+  BUTTON   bu_format	+125	@	80	.,		///
+	label("Create...")					///
+	onpush(script showFormatDialog)				///
+	tooltip("Create display format")
+
+  CHECKBOX ck_nokey     _lft2     holdy     _cwd1     .,		/*
+		*/ option(nokey)					/*
+		*/ label("Suppress table key")
+  CHECKBOX ck_noheader  @         _ms       @         .,		/*
+		*/ option(noheader)					/*
+		*/ label("Suppress table header")
+  CHECKBOX ck_center    @         _ms       @         .,		/*
+		*/ option(center)					/*
+		*/ label("Center numbers in cells")
+  CHECKBOX ck_left      @         _ms       @         .,		/*
+		*/ option(left)						/*
+		*/ label("Left-align column labels")
+
+  CHECKBOX ck_cellwidth @         _ls       _ckwd     ., label("")	/*
+		*/ clickon("gaction opt2.sp_cellwidth.enable")		/*
+		*/ clickoff("gaction opt2.sp_cellwidth.disable")
+  SPINNER  sp_cellwidth _cksep    @         _spwd     .,		/*
+		*/ min(4) max(20) default(8)				/*
+		*/ option(cellwidth)					/*
+		*/ label("Cell width")
+  TEXT     tx_cellwidth _spsep    @         _ckspr2   .,		/*
+		*/ label("Cell width")
+
+  CHECKBOX ck_csepwidth _lft2     _ls       _ckwd     ., label("")	/*
+		*/ clickon("gaction opt2.sp_csepwidth.enable")		/*
+		*/ clickoff("gaction opt2.sp_csepwidth.disable")
+  SPINNER  sp_csepwidth _cksep    @         _spwd     .,		/*
+		*/ min(1) max(10) default(3)				/*
+		*/ option(csepwidth)					/*
+		*/ label("Column separation")
+  TEXT     tx_csepwidth _spsep    @         _ckspr2   .,		/*
+		*/ label("Column separation")
+
+  CHECKBOX ck_scsepwid  _lft2     _ls       _ckwd     ., label("")	/*
+		*/ clickon("gaction opt2.sp_scsepwid.enable")		/*
+		*/ clickoff("gaction opt2.sp_scsepwid.disable")
+  SPINNER  sp_scsepwid  _cksep    @         _spwd     .,		/*
+		*/ min(1) max(10) default(3)				/*
+		*/ option(scsepwidth)					/*
+		*/ label("Supercolumn separation")
+  TEXT     tx_scsepwid  _spsep    @         _ckspr2   .,		/*
+		*/ label("Supercolumn separation")
+
+  CHECKBOX ck_stubwidth _lft2     _ls       _ckwd     ., label("")	/*
+		*/ clickon("gaction opt2.sp_stubwidth.enable")		/*
+		*/ clickoff("gaction opt2.sp_stubwidth.disable")
+  SPINNER  sp_stubwidth _cksep    @         _spwd     .,		/*
+		*/ min(4) max(40) default(10)				/*
+		*/ option(stubwidth)					/*
+		*/ label("Left stub width")
+  TEXT     tx_stubwidth _spsep    @         _ckspr2   .,		/*
+		*/ label("Left stub width")
+END
+
+SCRIPT showFormatDialog
+BEGIN
+	create STRING formatString
+	create CHILD format_chooser
+	format_chooser.setExitString formatString
+	format_chooser.setExitAction "opt2.ed_format.setvalue class formatString.value"
+END
+
+SCRIPT format_on
+BEGIN
+  opt2.ed_format.enable
+  opt2.bu_format.enable
+END
+
+SCRIPT format_off
+BEGIN
+  opt2.ed_format.disable
+  opt2.bu_format.disable
+END
+
+
+SCRIPT ci_on
+BEGIN
+	opt.sp_level.enable
+	opt.tx_level.enable
+	opt.ck_vertical.enable
+END
+
+SCRIPT ci_off
+BEGIN
+	opt.sp_level.disable
+	opt.tx_level.disable
+	opt.ck_vertical.disable
+END
+
+PROGRAM genpred_on
+BEGIN
+	call gaction opt.ed_genpred.enable
+	call program opt_check_errors
+END
+
+SCRIPT genpred_off
+BEGIN
+	opt.ed_genpred.disable
+	opt.ck_generror.disable
+	opt.ed_generror.disable
+END
+
+PROGRAM generate_opts
+BEGIN
+	put opt.ed_genpred
+	if opt.ck_generror {
+		require opt.ed_generror
+		put " " opt.ed_generror
+	}
+END
+
+PROGRAM command
+BEGIN
+	allowxi
+	put "adjust "
+	varlist [main.vl_varmeans]
+	if main.vn_varname1 | main.en_varval1 {
+		require main.vn_varname1 main.en_varval1
+		put main.vn_varname1 "=" main.en_varval1 " "
+	}
+	if main.vn_varname2 | main.en_varval2 {
+		require main.vn_varname2 main.en_varval2
+		put main.vn_varname2 "=" main.en_varval2 " "
+	}
+	if main.vn_varname3 | main.en_varval3 {
+		require main.vn_varname3 main.en_varval3
+		put main.vn_varname3 "=" main.en_varval3 " "
+	}
+	if main.vn_varname4 | main.en_varval4 {
+		require main.vn_varname4 main.en_varval4
+		put main.vn_varname4 "=" main.en_varval4 " "
+	}
+	if main.vn_varname5 | main.en_varval5 {
+		require main.vn_varname5 main.en_varval5
+		put main.vn_varname5 "=" main.en_varval5 " "
+	}
+	if main.vn_varname6 | main.en_varval6 {
+		require main.vn_varname6 main.en_varval6
+		put main.vn_varname6 "=" main.en_varval6 " "
+	}
+	if main.vn_varname7 | main.en_varval7 {
+		require main.vn_varname7 main.en_varval7
+		put main.vn_varname7 "=" main.en_varval7 " "
+	}
+	if main.vn_varname8 | main.en_varval8 {
+		require main.vn_varname8 main.en_varval8
+		put main.vn_varname8 "=" main.en_varval8 " "
+	}
+	if main.vn_varname9 | main.en_varval9 {
+		require main.vn_varname9 main.en_varval9
+		put main.vn_varname9 "=" main.en_varval9 " "
+	}
+	if main.vn_varname10 | main.en_varval10 {
+		require main.vn_varname10 main.en_varval10
+		put main.vn_varname10 "=" main.en_varval10 " "
+	}
+
+	INCLUDE _ifin_pr
+
+	beginoptions
+		optionarg main.vl_byopt
+		optionarg opt.cb_equation
+
+		option opt.rb_xb
+		option opt.rb_pr
+		option opt.rb_exp
+
+		option opt.rb_se
+		option opt.rb_stdf
+		option opt.ck_ci
+                INCLUDE _level_opt_pr
+		option opt.ck_vertical
+		option opt.ck_nooffset
+		if opt.ck_genpred {
+			require opt.ed_genpred
+			put " " "generate("
+			put /program generate_opts
+			put ") "
+		}
+		option opt2.ck_replace
+		optionarg opt2.ed_label
+		optionarg opt2.ed_selabel
+		optionarg opt2.ed_cilabel
+		if opt2.ck_format {
+			optionarg opt2.ed_format
+		}
+		option opt2.ck_nokey
+		option opt2.ck_noheader
+		option opt2.ck_center
+		option opt2.ck_left
+		optionarg opt2.sp_cellwidth
+		optionarg opt2.sp_csepwidth
+		optionarg opt2.sp_scsepwid
+		optionarg opt2.sp_stubwidth
+	endoptions
+END

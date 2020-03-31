@@ -1,0 +1,674 @@
+/*
+	stpower cox
+
+*!  VERSION 1.0.4  02dec2014 (deprecated)
+
+*/
+
+VERSION 10.0
+
+INCLUDE _std_xlarge
+DEFINE _dlght 560
+INCLUDE header
+
+HELP hlp1, view("help stpower cox")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING columns_res
+	create STRING numContents
+	create STRING stok
+	create ARRAY tmp
+	create BOOLEAN containsNumlist
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program check_columns_res
+END
+
+DIALOG main,								///
+	tabtitle("Main")						///
+	label("stpower cox - Sample size, power, and effect size for the Cox proportional hazards model")
+BEGIN
+  GROUPBOX gb_output	_lft		_top	_cwd1	_ht6,		///
+	label("Compute")
+DEFINE TOP @y
+  RADIO rb_sampsi	_ilft		_ss	_inwd	.,		///
+	first								///
+	option(NONE)							///
+	onclickon(program main_sampsi_on)				///
+	label("Sample size")						///
+	tooltip(Compute minimum required sample size given power and effect size)
+
+  RADIO rb_power	@		_ss	@	.,		///
+	option(NONE)							///
+	onclickon(program main_power_on)				///
+	label("Power")							///
+	tooltip(Compute minimum power given sample size and effect size)
+
+  RADIO rb_coef		@		_ss	@	.,		///
+	last								///
+	option(NONE)							///
+	onclickon(program main_coef_on)					///
+	label("Effect size")						///
+	tooltip(Compute minimum detectable effect size given sample size and power)
+
+  EDIT ed_alpha		_lft2		-50	_en14wd	.,		///
+	option(alpha)							///
+	onchange(program check_for_numlist)				///
+	default(0.05)							///
+	label("Significance level")					///
+	tooltip("Probability of a type I error, alpha")
+  TEXT tx_alpha		_en14sep	@	220	.,		///
+	label("* Significance level")
+
+  GROUPBOX gb_n		_lft		+90	_iwd	_ht2h,		///
+	label("Sample size")
+  EDIT ed_n		_ilft		_ms	_en14wd	.,		///
+	option(n)							///
+	onchange(program check_for_numlist)				///
+	label("Sample size")
+  TEXT tx_n		_en14sep	@	100	.,		///
+	label("* Sample size")
+
+
+  GROUPBOX gb_errprob	_lft		_xls	_iwd	_ht5,		///
+	label("Power (specify as power or type II error)")
+
+  RADIO rb_power2	_ilft		_ms	_rbwd	.,		///
+	option(NONE)							///
+	onclickon(program main_rb_power_on)				///
+	first
+  EDIT ed_power		_rbsep		@	_en14wd	.,		///
+	option(power)							///
+	onchange(program check_for_numlist)				///
+	default(0.8)							///
+	label("Power")
+  TEXT tx_power		_en14sep	@	220	.,		///
+	label("* Power")
+
+  RADIO rb_beta		_ilft		_ms	_rbwd	.,		///
+	option(NONE)							///
+	onclickon(program main_rb_beta_on)				///
+	last
+  EDIT ed_beta		_rbsep		@	_en14wd	.,		///
+	option(beta)							///
+	onchange(program check_for_numlist)				///
+	default(0.2)							///
+	label("Type II error probability")				///
+	tooltip("Probability of a type II error, beta")	
+  DEFINE x2 @x
+  TEXT tx_beta		_en14sep	@	220	.,		///
+	label("* Type II error probability")
+
+
+  GROUPBOX gb_effect	_lft		_xls	_iwd	_ht5,		///
+	label("Effect size (specify as HR or coefficient)")
+  RADIO rb_hratio	_ilft		_ms	_rbwd	.,		///
+	first								///
+	onclickon(program main_rb_hratio_on)				///
+	option(NONE)
+  EDIT ed_hratio	_rbsep		@	_en14wd	.,		///
+	option(hratio)							///
+	onchange(program check_for_numlist)				///
+	default(0.5)							///
+	tooltip(Hazard ratio associated with a one-unit increase in	///
+		tested covariate when other covariates are held constant) ///
+	label("Hazard ratio (HR)")
+  TEXT tx_hratio	_en14sep	@	140	.,		///
+	label("* Hazard ratio (HR)")
+
+  RADIO rb_coef2	_ilft		_ms	_rbwd	.,		///
+	last								///
+	onclickon(program main_rb_coef2_on)				///
+	option(NONE)
+  EDIT ed_coef		_rbsep		@	_en14wd	.,		///
+	onchange(program check_for_numlist)				///
+	tooltip(Regression coefficient or log-hazard ratio associated 	///
+		with a one-unit increase in tested covariate when other ///
+		covariates are held constant) 			///
+	label("Regression coefficient")
+  TEXT tx_coef		_en14sep	@	140	.,		///
+	label("* Regression coefficient")
+	
+  CHECKBOX ck_parallel	_lft		_xls	_cwd1	.,		///
+	option(parallel)						///
+	label("Treat *lists as parallel")				///
+	tooltip(Treat lists as parallel, compute only for matched 	///
+		elements in the lists, not for all possible combinations)
+
+  TEXT tx_numlist	_rj180		@	120	.,		///
+	label("* Accepts list") right
+  BUTTON bu_numlist	+125		@	55	.,		///
+	label("Help") onpush(view help numlist##|_new)
+
+  GROUPBOX gb_cov	_lft		+30	_iwd	_ht2h,		///
+	label("Tested covariate properties")
+  EDIT ed_sd		_ilft		_ms	_en7wd	.,		///
+	option(sd)							///
+	default(0.5)							///
+	label("Variability (SD)")					///
+	tooltip("Standard deviation of tested covariate")
+  TEXT tx_sd		_en7sep		@	_en7r2b	.,		///
+	label("Variability (SD)")
+
+  EDIT ed_r2		_lft2		@	_en7wd	.,		///
+	option(r2)							///
+	default(0)							///
+	label("Correlation")						///
+	tooltip(Squared coefficient of multiple correlation of tested	///
+		covariate with other covariates)
+  TEXT tx_r2		_en7sep		@	_en7r2b	.,		///
+	label("Correlation")
+
+  CHECKBOX gb_cens	_lft		+40	_iwd	_ht2h,		///
+	label("Adjust for censoring") groupbox				///
+	onclickon(program gb_cens_check)				///
+	onclickoff(program gb_cens_check)
+  EDIT ed_failprob	_ilft		_ms	_en7wd	.,		///
+	option(failprob)						///
+	default(1)							///
+	tooltip(Overall probability of a subject failing (or 		///
+		experiencing an event of interest) in the study)	///
+	label("Probability failure is observed")				
+  TEXT tx_pr		_en7sep		@	170	.,		///
+	label("Probability failure is observed")
+
+  EDIT ed_wdprob	_lft2		@	_en7wd	.,		///
+	option(wdprob)							///
+	default(0)							///
+	tooltip("Proportion of subjects anticipated to withdraw from the study") ///
+	label("Proportion of withdrawals")
+  TEXT tx_wdprob	_en7sep		@	170	.,		///
+	label("Proportion of withdrawals")
+
+  COMBOBOX cb_oneside	_lft		+45	_en14wd	.,		///
+	dropdownlist contents(sides) values(sides_values)
+  TEXT tx_oneside	_en14sep	@	200	.,		///
+	label("Type of test")
+END
+
+LIST sides
+BEGIN
+	Two-sided test
+	One-sided test
+END
+
+LIST sides_values
+BEGIN
+	""
+	onesided
+END
+
+PROGRAM main_sampsi_on
+BEGIN
+	call main.gb_errprob.enable
+	call main.rb_power2.enable
+	call main.tx_power.enable
+	if main.rb_power2 {
+		call main.ed_power.enable
+	}
+	call main.rb_beta.enable
+	call main.tx_beta.enable
+	if main.rb_beta {
+		call main.ed_beta.enable
+	}
+	call main.gb_n.disable
+	call main.ed_n.disable
+	call main.tx_n.disable
+	call main.gb_effect.enable
+	call main.tx_hratio.enable
+	call main.rb_hratio.enable
+	if main.rb_hratio {
+		call main.ed_hratio.enable
+	}
+	call main.tx_coef.enable
+	call main.rb_coef2.enable
+	if main.rb_coef2 {
+		call main.ed_coef.enable
+	}
+	call main.ed_wdprob.enable
+	call main.tx_wdprob.enable
+	
+	call program check_for_numlist
+END
+
+PROGRAM main_power_on
+BEGIN
+	call main.gb_errprob.disable
+	call main.rb_power2.disable
+	call main.tx_power.disable
+	call main.ed_power.disable
+	call main.rb_beta.disable
+	call main.tx_beta.disable
+	call main.ed_beta.disable
+	call main.gb_n.enable
+	call main.ed_n.enable
+	call main.tx_n.enable
+	call main.gb_effect.enable
+	call main.tx_hratio.enable
+	call main.rb_hratio.enable
+	if main.rb_hratio {
+		call main.ed_hratio.enable
+	}
+	call main.tx_coef.enable
+	call main.rb_coef2.enable
+	if main.rb_coef2 {
+		call main.ed_coef.enable
+	}
+	call main.ed_wdprob.disable
+	call main.tx_wdprob.disable
+	
+	call program check_for_numlist
+END
+
+PROGRAM main_coef_on
+BEGIN
+	call main.gb_errprob.enable
+	call main.rb_power2.enable
+	call main.tx_power.enable
+	if main.rb_power2 {
+		call main.ed_power.enable
+	}
+	call main.rb_beta.enable
+	call main.tx_beta.enable
+	if main.rb_beta {
+		call main.ed_beta.enable
+	}
+	call main.gb_n.enable
+	call main.ed_n.enable
+	call main.tx_n.enable
+	call main.gb_effect.disable
+	call main.rb_hratio.disable
+	call main.tx_hratio.disable
+	call main.ed_hratio.disable
+	call main.rb_coef2.disable
+	call main.tx_coef.disable
+	call main.ed_coef.disable
+	call main.ed_wdprob.disable
+	call main.tx_wdprob.disable
+	
+	call program check_for_numlist
+END
+
+PROGRAM gb_cens_check
+BEGIN
+	if main.gb_cens {
+		call main.ed_failprob.enable				
+		call main.tx_pr.enable
+		if main.rb_sampsi {
+			call main.ed_wdprob.enable
+			call main.tx_wdprob.enable
+		}
+		else {
+			call main.ed_wdprob.disable
+			call main.tx_wdprob.disable
+		}
+	}
+	else {
+		call main.ed_failprob.disable				
+		call main.tx_pr.disable
+		call main.ed_wdprob.disable
+		call main.tx_wdprob.disable
+	}
+
+END
+
+PROGRAM check_for_numlist
+BEGIN
+	call containsNumlist.setfalse
+
+	if main.ed_alpha.isenabled() {
+		call numContents.setvalue class main.ed_alpha.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_power.isenabled() {
+		call numContents.setvalue class main.ed_power.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_beta.isenabled() {
+		call numContents.setvalue class main.ed_beta.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+	
+	if main.ed_n.isenabled() {
+		call numContents.setvalue class main.ed_n.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_hratio.isenabled() {
+		call numContents.setvalue class main.ed_hratio.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_coef.isenabled() {
+		call numContents.setvalue class main.ed_coef.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if containsNumlist {
+		call rpt.ck_table.disable
+		call program rpt_table_on
+		call main.ck_parallel.enable
+	}
+	else {
+		call rpt.ck_table.enable
+		if ! rpt.ck_table {
+			call script rpt_table_off
+		}
+		call main.ck_parallel.disable
+	}
+END
+
+PROGRAM main_rb_power_on
+BEGIN
+	if main.rb_power2.isenabled() {
+		call main.ed_power.enable
+		call main.ed_beta.disable
+		call program check_for_numlist
+	}
+END
+
+PROGRAM main_rb_beta_on
+BEGIN
+	if main.rb_beta.isenabled() {
+		call main.ed_beta.enable
+		call main.ed_power.disable
+		call program check_for_numlist
+	}
+END
+
+PROGRAM main_rb_hratio_on
+BEGIN
+	if main.rb_hratio.isenabled() {
+		call main.ed_hratio.enable
+		call main.ed_coef.disable
+		call program check_for_numlist
+	}
+END
+
+PROGRAM main_rb_coef2_on
+BEGIN
+	if main.rb_coef2.isenabled() {
+		call main.ed_coef.enable
+		call main.ed_hratio.disable
+		call program check_for_numlist
+	}
+END
+
+DIALOG rpt, tabtitle("Reporting")
+BEGIN
+  CHECKBOX ck_hr	_lft	_top	_iwd	.,			///
+	option(hr)							///
+	label("Report hazard ratio")
+
+  CHECKBOX ck_table	_lft	_ms	_iwd	.,			///
+	option(table)							///
+	onclickon(program rpt_table_on)					///
+	onclickoff(program check_for_numlist)				///
+	label(`"Display results in a table (default if *list is specified on the "Main" tab)"')
+
+  GROUPBOX gb_table	_lft	_ls	_iwd	_ht24h,			///
+	label("Table specification")
+
+  GROUPBOX gb_tbltype	_ilft	_ss	_comb3_2 _ht6h,			///
+	label("Table columns")
+
+  RADIO rb_table	_iilft	_ss	_inwd .,			///
+	first								///
+	option(table)							///
+	onclickon(rpt.bu_columns.disable)				///
+	label("Default columns")
+DEFINE holdy @y
+  RADIO rb_columns	@	_ss	@	.,			///
+	last								///
+	option(NONE)							///
+	onclickon(rpt.bu_columns.enable)				///
+	label("Select columns")
+  BUTTON bu_columns    +20	_ss	120	.,			///
+	onpush(script show_columns_dlg)					///
+	label("Custom columns... ")
+
+  CHECKBOX ck_notitle	_ilft3_3 holdy	_cwd3_2	.,			///
+	option(notitle)							///
+	label("Suppress title")
+
+  CHECKBOX ck_nolegend	@	_ms	@	.,			///
+	option(nolegend)						///
+	label("Suppress legend")
+
+  EDIT ed_colwidth	_ilft	+65	_en14wd	.,			///
+	option(colwidth)						///
+	default(9)							///
+	label("Column width")
+  TEXT tx_colwidth	_en14sep @	120	.,			///
+	label("Column width")
+
+  SPINNER sp_sep	_lft2	@	_spwd	.,			///
+	option(separator)						///
+	min(0) max(10000) default(0)
+  TEXT tx_sep		_spsep	@	_rbspr2b .,			///
+	label("Separator every N lines")
+
+  CHECKBOX ck_save	_ilft	+35	_ibwd	_ht6h,			///
+	groupbox							///
+	onclickon(script opt_save_on)					///
+	onclickoff(script opt_save_off)					///
+	label("Save table data as dataset")
+  TEXT tx_save		_iilft	_ss	_iibwd	.,			///
+	label("Filename:")
+  FILE fi_save		@	_ss	@	.,			///
+	option(saving)							///
+	filter("Stata Dataset (*.dta)|*.dta|All (*.*)|*.*")		///
+	defext(dta)							///
+	save								///
+	error("Filename")						///
+	label("Browse...")
+  CHECKBOX ck_replace	@	_ms	@	.,			///
+	option(replace)							///
+	label("Overwrite file if it already exists")
+END
+
+PROGRAM rpt_table_on
+BEGIN
+	call rpt.gb_table.enable
+	call rpt.gb_tbltype.enable
+	call rpt.rb_table.enable
+	call rpt.rb_columns.enable
+	if rpt.rb_columns {
+		call rpt.bu_columns.enable
+	}
+
+	call rpt.ck_notitle.enable
+	call rpt.ck_nolegend.enable
+
+	call rpt.tx_colwidth.enable
+	call rpt.ed_colwidth.enable
+	call rpt.sp_sep.enable
+	call rpt.tx_sep.enable
+
+	call rpt.ck_save.enable
+	if rpt.ck_save {
+		call rpt.tx_save.enable
+		call rpt.fi_save.enable
+		call rpt.ck_replace.enable
+	}
+END
+
+SCRIPT rpt_table_off
+BEGIN
+	rpt.gb_table.disable
+	rpt.gb_tbltype.disable
+	rpt.rb_table.disable
+	rpt.rb_columns.disable
+	rpt.bu_columns.disable
+
+	rpt.ck_notitle.disable
+	rpt.ck_nolegend.disable
+
+	rpt.tx_colwidth.disable
+	rpt.ed_colwidth.disable
+	rpt.sp_sep.disable
+	rpt.tx_sep.disable
+
+	rpt.ck_save.disable
+	rpt.tx_save.disable
+	rpt.fi_save.disable
+	rpt.ck_replace.disable
+END
+
+SCRIPT show_columns_dlg
+BEGIN
+	create CHILD stpower_cox_columns
+	stpower_cox_columns.setExitString columns_res
+	stpower_cox_columns.setExitAction "program check_columns_res"
+END
+
+PROGRAM check_columns_res
+BEGIN
+	if columns_res {
+		call rpt.bu_columns.setlabel "Custom columns... *"
+	}
+	else {
+		call rpt.bu_columns.setlabel "Custom columns... "
+	}
+	call columns_res.withvalue rpt.bu_columns.settooltip "@"
+END
+
+SCRIPT opt_save_on
+BEGIN
+	rpt.fi_save.enable
+	rpt.tx_save.enable
+	rpt.ck_replace.enable
+END
+
+SCRIPT opt_save_off
+BEGIN
+	rpt.fi_save.disable
+	rpt.tx_save.disable
+	rpt.ck_replace.disable
+END
+
+PROGRAM saving_output
+BEGIN
+	put `"""' rpt.fi_save `"""'
+	beginoptions
+		option rpt.ck_replace
+	endoptions
+END
+
+PROGRAM command
+BEGIN
+	call create STRING sTMP
+	call create ARRAY sTOKS
+	call create DOUBLE tokSize
+
+	put "stpower cox "
+	if main.ed_coef.isenabled() {
+		require main.ed_coef
+		call sTMP.setvalue class main.ed_coef.value
+		call sTMP.tokenize sTOKS
+		call tokSize.storeClsArraySize sTOKS
+		if tokSize.isge(2) {
+			put "("
+		}
+		put main.ed_coef
+		if tokSize.isge(2) {
+			put ") "
+		}
+	}
+	beginoptions
+		optionarg /hidedefault main.ed_alpha
+		if main.rb_coef {
+			optionarg main.ed_beta
+			optionarg main.ed_power
+		}
+		else {
+			optionarg /hidedefault main.ed_beta
+			optionarg /hidedefault main.ed_power	
+		}
+		if main.ed_n.isenabled() {
+			require main.ed_n
+			optionarg main.ed_n
+		}
+		optionarg /hidedefault main.ed_hratio
+		optionarg /hidedefault main.ed_sd
+		put " " main.cb_oneside
+		option main.ck_parallel
+		optionarg /hidedefault main.ed_r2
+		optionarg /hidedefault main.ed_failprob
+		optionarg /hidedefault main.ed_wdprob
+		option rpt.ck_hr
+
+		option rpt.ck_table
+		if rpt.rb_columns.isenabled() & rpt.rb_columns {
+			if ! columns_res {
+				stopbox stop `"On the "Reporting" tab,"'	///
+				`""Custom columns..." have not been set."'
+			}
+			put " columns(" columns_res ") "
+		}
+		optionarg /hidedefault rpt.ed_colwidth
+		optionarg /hidedefault rpt.sp_sep
+		option rpt.ck_notitle
+		option rpt.ck_nolegend
+		if rpt.ck_save {
+			require rpt.fi_save
+			put "saving("
+			put /program saving_output
+			put ")"
+		}
+	endoptions
+END

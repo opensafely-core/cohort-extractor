@@ -1,0 +1,247 @@
+/*
+    gr_rarea_options.dlg
+    
+*!  VERSION 1.1.5  11apr2018
+
+	// SCRIPTS and PROGRAMS for external use
+		* SCRIPT  gr_rarea_setOptionsTo_bl
+		* SCRIPT  gr_rarea_setOrientationOff
+
+*/
+
+VERSION 14
+
+INCLUDE _std_vsmall
+DEFINE _dlght 310
+INCLUDE header_gr_child
+
+DEFINE _clwd	15
+DEFINE _wd	140
+DEFINE _sep	+145
+DEFINE _cbwd	130
+DEFINE _cbsep	+135
+
+HELP hlp1, view("help twoway_rarea")
+RESET res1
+
+SCRIPT gr_rarea_setOptionsTo_bl
+BEGIN
+	main.cb_clr.setoption blcolor
+	main.cl_clr.setoption blcolor
+	main.cb_width.setoption blwidth
+	main.cb_pattern.setoption blpattern
+	main.cb_pattern.setoption blalign
+	blColorSet.settrue
+END
+
+SCRIPT gr_rarea_setOptionsTo_al
+BEGIN
+	main.cb_clr.setoption alcolor
+	main.cl_clr.setoption alcolor
+	main.cb_width.setoption alwidth
+	main.cb_pattern.setoption alpattern
+	main.cb_pattern.setoption alalign
+	alColorSet.settrue
+END
+
+SCRIPT gr_rarea_setOrientationOff
+BEGIN
+	main.tx_orient.hide
+	main.cb_orient.hide
+	orientationOff.settrue
+END
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource GR_RAREA_OPTIONS_DLG_HSCALE
+END
+
+PROGRAM PREINIT_PROGRAM
+BEGIN
+	call create PBOOLEAN alColorSet
+	call create PBOOLEAN blColorSet
+	call create PBOOLEAN orientationOff
+	
+	if blColorSet {
+		call script gr_rbar_setOptionsTo_bl
+	}
+	if orientationOff {
+		call script gr_rbar_setOrientationOff
+	}
+END
+
+DIALOG main, label(resource GR_RAREA_OPTIONS_DLG_TITLE)
+BEGIN
+  TEXT     tx_fclr	_lft	20	_wd	.,		///
+	label(resource LBL_FILL_COLOR) right
+  COMBOBOX cb_fclr	_sep	@	_cbwd	.,		///
+	dropdownlist contents(colors) option(fcolor)		///
+	onselchangelist(main_cl_fclr_sel)
+  COLOR    cl_fclr	_cbsep	@	_clwd	., option(fcolor)
+  TEXT     tx_fopacity	_lft	_mls	_wd	.,		///
+	label(resource LBL_FILL_OPACITY) right
+  SPINNER  sp_fopacity	_sep	@	_spwd	.,		///
+	default(100)						///
+	min(0)							///
+	max(100)
+
+  TEXT     tx_intensity	_lft	_mls	_wd	.,		///
+	label(resource LBL_FILL_INTENSITY) right
+  EDIT     ed_intensity	_sep	@	_cbwd	.,		///
+	option(fintensity)
+
+  TEXT     tx_clr	_lft	_mls	_wd	.,		///
+	label(resource LBL_OUTLINE_COLOR) right
+  COMBOBOX cb_clr	_sep	@	_cbwd	.,		///
+	dropdownlist contents(colors) option(lcolor)		///
+	onselchangelist(main_cl_clr_sel)
+  COLOR    cl_clr	_cbsep	@	_clwd	., option(lcolor)
+  TEXT     tx_opacity	_lft	_mls	_wd	.,		///
+	label(resource LBL_OUTLINE_OPACITY) right
+  SPINNER  sp_opacity	_sep	@	_spwd	.,		///
+	default(100)						///
+	min(0)							///
+	max(100)
+
+  TEXT     tx_width	_lft	_mls	_wd	.,		///
+	label(resource LBL_OUTLINE_WIDTH) right
+  COMBOBOX cb_width	_sep	@	_cbwd	.,		///
+	dropdown option(lwidth)					///
+	contents(linewidths)
+
+  TEXT     tx_pattern	_lft	_mls	_wd	.,		///
+	label(resource LBL_OUTLINE_PATTERN) right
+  COMBOBOX cb_pattern	_sep	@	_cbwd	.,		///
+	dropdownlist option(lpattern)				///
+	contents(linepatterns)
+   TEXT     tx_lalign	_lft	_mls	_wd	.,		///
+      label(resource LBL_OUTLINE_ALIGNMENT) right
+   COMBOBOX cb_lalign	_sep	@	_cbwd	.,		///
+      dropdownlist option(lalign)				///
+      contents(alignstroke)
+
+
+  TEXT     tx_orient	_lft	_mls	_wd	.,		///
+	label(resource LBL_ORIENTATION) right
+  COMBOBOX cb_orient	_sep	@	_cbwd	.,		///
+	dropdownlist 						///
+	contents(orientation_contents)  			///
+	values(orientation_values)
+
+  TEXT     tx_cmiss	_lft	_mls	_wd	.,		///
+	label(resource LBL_TX_MISSING_VALUES) right
+  COMBOBOX cb_cmiss	_sep	@	_cbwd	.,		///
+	dropdownlist 						///
+	option(cmissing)					///
+	contents(cmiss_contents) 	 			///
+	values(cmiss_values)
+END
+
+LIST main_cl_clr_sel
+BEGIN
+	main.cl_clr.hide
+	main.cl_clr.show
+	main.cl_clr.hide
+END
+
+LIST main_cl_fclr_sel
+BEGIN
+	main.cl_fclr.hide
+	main.cl_fclr.show
+	main.cl_fclr.hide
+END
+
+LIST orientation_contents
+BEGIN
+	resource LBL_DEFAULT
+	resource LBL_HORIZONTAL
+	resource LBL_VERTICAL
+END
+
+LIST orientation_values
+BEGIN
+	""
+	horizontal
+	vertical
+END
+
+LIST cmiss_contents
+BEGIN
+	resource LBL_DEFAULT
+	resource LBL_FILL
+	resource LBL_NO_FILL
+END
+
+LIST cmiss_values
+BEGIN
+	""
+	y
+	n
+END
+
+PROGRAM main_fcolor_output
+BEGIN
+	if (main.cb_fclr.isneq("") | main.sp_fopacity.isneq(100)) {
+		put "fcolor("
+		if (main.cb_fclr.iseq("custom")) {
+			put `"""' main.cl_fclr
+			if (main.sp_fopacity.isneq(100)) {
+				put " %" main.sp_fopacity
+			}
+			put `"""'
+		}
+		else {
+			if (main.cb_fclr.isneq("")) {
+				put main.cb_fclr
+			}
+			if (main.sp_fopacity.isneq(100)) {
+				put "%" main.sp_fopacity
+			}
+		}
+		put ")"
+	}
+END
+
+PROGRAM main_lcolor_output
+BEGIN
+	if (main.cb_clr.isneq("") | main.sp_opacity.isneq(100)) {
+		if blColorSet {
+			put "blcolor("
+		}
+		if alColorSet {
+			put "alcolor("
+		}
+		if !blColorSet & !alColorSet {
+			put "lcolor("
+		}
+		if (main.cb_clr.iseq("custom")) {
+			put `"""' main.cl_clr
+			if (main.sp_opacity.isneq(100)) {
+				put " %" main.sp_opacity
+			}
+			put `"""'
+		}
+		else {
+			if (main.cb_clr.isneq("")) {
+				put main.cb_clr
+			}
+			if (main.sp_opacity.isneq(100)) {
+				put "%" main.sp_opacity
+			}
+		}
+		put ")"
+	}
+END
+
+PROGRAM command
+BEGIN
+	put /program " " main_fcolor_output 
+	optionarg main.ed_intensity
+	put /program " " main_lcolor_output	
+	optionarg /hidedefault main.cb_width
+	optionarg /hidedefault main.cb_pattern
+	optionarg /hidedefault main.cb_lalign
+	
+	put " " main.cb_orient
+	optionarg /hidedefault main.cb_cmiss
+END

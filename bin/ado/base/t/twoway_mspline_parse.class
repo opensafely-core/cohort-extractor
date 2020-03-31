@@ -1,0 +1,130 @@
+/*                                 twoway_mspline_parse
+
+   A parser for median splines.  Works with twoway.ado.
+
+*/
+*! version 1.0.0  26aug2002
+
+version 8
+
+class {
+	back		= 1		// whether backing data is retained
+	bands		= 0
+	splinepts	= 0
+	bands_only	= 0
+} , inherit(twoway_yxview_parse)
+
+
+// ---------------------------------------------------------------------------
+
+program parse
+	.viewtype = "line"
+	.Super.parse `.factor `0''
+
+	if 0`:word count `.varlist'' > 2 {
+	    di in smcl "{error}{p 0 8}too many variables specified: `.varlist'"
+      	    exit 103
+	}
+
+	local 0 , `.options'
+
+	_parse combop 0 : 0 , option(Bands)  rightmost
+	_parse combop 0 : 0 , option(N)      rightmost
+
+	syntax [ , noBACK Bands(integer -1) N(integer 10) * ]
+
+	.bands     = `bands'
+	.splinepts = `n'
+	.options   = `"`options'"'
+
+	if "`back'" != "" {
+		.back = 0
+		.must_create_serset = 1
+	}
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*
+	Creates a new serset and the view and returns its reference.
+	Assumes that the data in memory is the same as when parse was called.
+
+	Allows a touse(varname) option that further restricts the sample, 
+	restricts beyond the held .if and .in
+
+	Additional options to the .serset.new command may be specified, but
+	this is unlikely to be necessary.
+
+	If must_create_serset == 1, then this command MUST be used, 
+	otherwise the serset may be created by other means.
+*/ 
+
+program log_create_serset
+
+	.Super.log_create_serset `0'
+
+	if 0`.back' {
+		exit				// caller gets full serset
+	}
+
+	syntax , LOG(name) SERSETNAME(string) [ * ]
+
+	.`log'.Arrpush .`sersetname'.as_median_bands , y(1) x(2)	///
+		bands(`.bands')
+	if ! `.bands_only' {
+		.`log'.Arrpush .`sersetname'.as_spline , y(1) x(2)	///
+			splinepts(`.splinepts')
+	}
+end
+
+
+/* -------------------------------------------------------------------------*/
+/*
+	Logs a command to creates an instance of the view.
+
+	Expects to see a serset(serset_name|serset_reference) option.
+
+	Additional options to the .new command may be specified.
+
+        seriesid(#) is an option to log_create_view that specifies a default
+        series scheme for the view that will be used if the style option was
+        not specified.  
+*/
+
+program log_create_view
+
+	syntax , LOG(name) NAME(name) PLOTREGion(string) SERSET(string)	///
+		 [ View(integer 1) SERIESID(integer 0) style(string) * ]
+
+	if 0`.back' {
+		local type = cond(0`.bands_only', "median_bands", "spline")
+		tokenize `.varlist'
+		.`log'.Arrpush tempname derived
+		.`log'.Arrpush .\`derived' = .derived_serset.new , 	///
+			base(\`.`serset'.objkey') type(`type')		///
+			y(\`.`serset'.seriesof ``view''') 		///
+			x(\`.`serset'.seriesof ``=`.n'+1''')		///
+			bands(`.bands') splinepts(`.splinepts')
+		.`log'.Arrpush .\`derived'.sort 2
+		local serset \`derived'
+	}
+
+	if `"`style'"' == "" {
+		if `seriesid' > 0 {
+			local styleopt style(scheme p`seriesid')
+		}
+		else {
+			local styleopt style(scheme)
+		}
+	}
+	else {
+		local styleopt style(`style')
+	}
+
+	.`log'.Arrpush .`plotregion'.Declare `name' = .`.viewclass'.new , ///
+		yvariable(1) xvariable(2) 				  ///
+		type(`.viewtype') serset(\`.`macval(serset)'.objkey') 	  ///
+		plotregion(\`.`plotregion'.objkey') `styleopt' `options'
+end
+
+

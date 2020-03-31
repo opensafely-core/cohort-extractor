@@ -1,0 +1,267 @@
+/*
+    gr_legend_zaxis.idlg
+
+*!  VERSION 1.1.3  11dec2019
+
+	// SCRIPTS and PROGRAMS for external use
+	   * SCRIPT gr_legend_zaxis_disable
+	   * SCRIPT gr_legend_zaxis_enable
+
+*** 	This tab is somewhat closely related to gr_xaxis. 
+        Any changes should be reflected in those files.
+*/
+
+SCRIPT gr_legend_zaxis_disable
+BEGIN
+	zaxis.ck_noscale.disable
+	zaxis.tx_title.disable
+	zaxis.ed_title.disable
+	zaxis.bu_title.disable
+	zaxis.bu_majorTick.disable
+	zaxis.bu_minorTick.disable
+	zaxis.bu_axisLine.disable
+	zaxis.bu_scale.disable
+END
+
+SCRIPT gr_legend_zaxis_enable
+BEGIN
+	program gr_zaxis_enable_wrk
+END
+PROGRAM gr_zaxis_enable_wrk
+BEGIN
+	call zaxis.ck_noscale.enable
+	call zaxis.bu_majorTick.enable
+	call zaxis.bu_minorTick.enable
+	call zaxis.bu_scale.enable
+	if ! zaxis.ck_noscale {
+		call zaxis.tx_title.enable
+		call zaxis.ed_title.enable
+		call zaxis.bu_title.enable
+		call zaxis.bu_axisLine.enable
+	}
+END
+
+SCRIPT zaxis_PREINIT
+BEGIN
+	create STRING zaxisTitleResults
+	create STRING zaxisLabelResults
+	create STRING zaxisMinorLabelResults
+	create STRING zaxisLineResults
+	create STRING zaxisScaleResults
+END
+SCRIPT zaxis_POSTINIT
+BEGIN
+	program zaxis_checkTitleResults
+	program zaxis_checkLabelResults
+	program zaxis_checkMinorLabelResults
+	program zaxis_checkLineResults
+	program zaxis_checkScaleResults
+END
+
+DIALOG zaxis, tabtitle(resource LBL_TAB_X_AXIS)
+BEGIN
+
+  TEXT     tx_title	_lft	_top	_iwd	.,		///
+	label(resource LBL_TITLE)
+  EDIT	   ed_title	@	_ss	_lw80	.,
+  BUTTON   bu_title	_slw80	@	80	.,		///
+  	label(resource LBL_BU_PROPERTIES)			///
+	onpush(program get_zaxis_title_options)			///
+	tooltip(resource LBL_AXIS_TITLE_PROPERTIES)
+
+  BUTTON   bu_majorTick	_lft	_xls	165	.,		///
+  	label(resource LBL_MAJOR_TICK_LABEL_PROPERTIES)		///
+	onpush(program get_zaxis_label_options)
+
+  BUTTON   bu_minorTick	+190	@	@	.,		///
+  	label(resource LBL_MINOR_TICK_LABEL_PROPERTIES)		///
+	onpush(program get_zaxis_mlabel_options)
+
+  BUTTON   bu_axisLine	_lft	_mls	@	.,		///
+  	label(resource LBL_AXIS_LINE_PROPERTIES_DLG_TITLE)	///
+	onpush(program get_zaxis_line)
+
+  BUTTON   bu_scale	+190	@	@	.,		///
+  	label(resource GR_ED_AXIS_AXIS_SCALE_PROPERTIES)	///
+	onpush(program get_zaxis_scale_options)
+
+  CHECKBOX ck_noscale	_lft	_ls	_iwd	.,		///
+	label(resource LBL_HIDE_AXIS) 				///
+	onclickoff(program zaxis_noscale_off)			///
+	onclickon(script zaxis_noscale_on)
+END
+
+SCRIPT zaxis_noscale_on
+BEGIN
+	zaxis.tx_title.disable
+	zaxis.ed_title.disable
+	zaxis.bu_title.disable
+	zaxis.bu_axisLine.disable
+END
+PROGRAM zaxis_noscale_off
+BEGIN
+	if zaxis.ck_noscale.isenabled() {
+		call zaxis.tx_title.enable
+		call zaxis.ed_title.enable
+		call zaxis.bu_title.enable
+		call zaxis.bu_axisLine.enable
+	}
+END
+
+PROGRAM get_zaxis_title_options
+BEGIN
+	call create CHILD gr_axis_title_options AS ztitle, allowsubmit
+	call ztitle.setExitString zaxisTitleResults
+	call ztitle.settitle resource GR_LEGEND_ZAXIS_AXIS_TITLE_PROP_Z_AXIS
+	call ztitle.setExitAction "program zaxis_checkTitleResults"
+	call ztitle.setSubmitAction "program zaxis_titleSubmit"
+	call ztitle.callthru `"titleOption.setstring "ztitle""'
+	call ztitle.callthru `"scaleOption.setstring "zscale""'
+END
+PROGRAM zaxis_checkTitleResults
+BEGIN
+	if zaxisTitleResults.iseq("") {
+		call zaxis.bu_title.modified_off
+	}
+	else {
+		call zaxis.bu_title.modified_on
+	}
+END
+PROGRAM zaxis_titleSubmit
+BEGIN
+	call program zaxis_checkTitleResults
+	call Submit
+END
+
+PROGRAM get_zaxis_label_options
+BEGIN
+	call create CHILD gr_axis_tick_label_options AS zlabel, allowsubmit
+	call zlabel.setExitString zaxisLabelResults
+	call zlabel.settitle resource GR_LEGEND_ZAXIS_AXIS_TICK_LABEL_PROP_Z_AXIS_MAJ
+	call zlabel.setExitAction "program zaxis_checkLabelResults"
+	call zlabel.setSubmitAction "program zaxis_labelSubmit"
+	call zlabel.callthru "script axis_setRuleMajor"
+END
+PROGRAM zaxis_checkLabelResults
+BEGIN
+	if zaxisLabelResults.iseq("") {
+		call zaxis.bu_majorTick.modified_off
+	}
+	else {
+		call zaxis.bu_majorTick.modified_on
+	}
+END
+PROGRAM zaxis_labelSubmit
+BEGIN
+	call program zaxis_checkLabelResults
+	call Submit
+END
+
+PROGRAM get_zaxis_mlabel_options
+BEGIN
+	call create CHILD gr_axis_tick_label_options AS xmlabel, allowsubmit
+	call xmlabel.setExitString zaxisMinorLabelResults
+	call xmlabel.settitle resource GR_LEGEND_ZAXIS_AXIS_TICK_LABEL_PROP_Z_AXIS_MIN
+	call xmlabel.setExitAction "program zaxis_checkMinorLabelResults"
+	call xmlabel.setSubmitAction "program zaxis_mlabelSubmit"
+	call xmlabel.callthru "script axis_setRuleMinor"
+END
+PROGRAM zaxis_checkMinorLabelResults
+BEGIN
+	if zaxisMinorLabelResults.iseq("") {
+		call zaxis.bu_minorTick.modified_off
+	}
+	else {
+		call zaxis.bu_minorTick.modified_on
+	}
+END
+PROGRAM zaxis_mlabelSubmit
+BEGIN
+	call program zaxis_checkMinorLabelResults
+	call Submit
+END
+
+PROGRAM get_zaxis_line
+BEGIN
+	call create CHILD gr_axis_line_options AS xlines, allowsubmit
+	call xlines.setExitString zaxisLineResults
+	call xlines.settitle resource GR_LEGEND_ZAXIS_AXIS_LINE_PROP_Z_AXIS
+	call xlines.setExitAction "program zaxis_checkLineResults"
+	call xlines.setSubmitAction "program zaxis_lineSubmit"
+END
+PROGRAM zaxis_checkLineResults
+BEGIN
+	if zaxisLineResults.iseq("") {
+		call zaxis.bu_axisLine.modified_off
+	}
+	else {
+		call zaxis.bu_axisLine.modified_on
+	}
+END
+PROGRAM zaxis_lineSubmit
+BEGIN
+	call program zaxis_checkLineResults
+	call Submit
+END
+
+PROGRAM get_zaxis_scale_options
+BEGIN
+	call create CHILD gr_axis_scale_options AS zscale, allowsubmit
+	call zscale.setExitString zaxisScaleResults
+	call zscale.settitle resource GR_LEGEND_ZAXIS_AXIS_SCALE_PROP_Z_AXIS
+	call zscale.setExitAction "program zaxis_checkScaleResults"
+	call zscale.setSubmitAction "program zaxis_scaleSubmit"
+END
+PROGRAM zaxis_checkScaleResults
+BEGIN
+	if zaxisScaleResults.iseq("") {
+		call zaxis.bu_scale.modified_off
+	}
+	else {
+		call zaxis.bu_scale.modified_on
+	}
+END
+PROGRAM zaxis_scaleSubmit
+BEGIN
+	call program zaxis_checkScaleResults
+	call Submit
+END
+
+PROGRAM zaxis_title_output
+BEGIN
+	put zaxis.ed_title
+END
+
+PROGRAM gr_zaxis_output
+BEGIN
+	if ! zaxis.ck_noscale & zaxis.ck_noscale.isenabled() {
+		if zaxis.ed_title {
+			put " ztitle("
+			put /program zaxis_title_output
+			put ") "
+		}
+		put " " zaxisTitleResults " "
+	}
+	if zaxis.ck_noscale {
+		put " zscale(off) "
+	}
+
+	if zaxisScaleResults.isneq("") {
+		put " zscale(" zaxisScaleResults ") "
+	}
+	
+	if zaxisLineResults.isneq("") {
+		put " zscale(" zaxisLineResults ") "
+	}
+
+	if zaxisLabelResults {
+		put " zlabel("
+		put zaxisLabelResults
+		put ") "
+	}
+	if zaxisMinorLabelResults {
+		put " zmtick("
+		put zaxisMinorLabelResults
+		put ") "
+	}
+END

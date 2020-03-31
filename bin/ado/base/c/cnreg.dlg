@@ -1,0 +1,100 @@
+/*
+  cnreg
+
+*!  VERSION 1.4.3  10may2017 (deprecated)
+
+  keyword:  eclass
+
+*/
+
+VERSION 10.0
+
+INCLUDE _std_large
+DEFINE _dlght 300
+INCLUDE header
+HELP hlp1, view("help cnreg")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	script se_createAsSvyInternalML
+	program svy_check_title
+	setscale_hadj resource CNREG_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script max_setDefaultNoLog
+	script se_setJknifeBstrap_on
+	script sub_set_by_on
+	program se_setFinalInitState
+END
+
+SCRIPT svy_is_on
+BEGIN
+	//
+END
+SCRIPT svy_is_off
+BEGIN
+	//
+END
+PROGRAM svy_check_title
+BEGIN
+	if __MESSAGE.contains("-svy-") {
+		call settitle "svy: cnreg - Censored-normal regression for survey data"
+	}
+END
+
+DIALOG main, tabtitle("Model")					///
+	title("cnreg - Censored-normal regression") // has svy title
+BEGIN
+  INCLUDE _dviv
+
+  TEXT     tx_censor	_lft	_xls	_iwd	.,		///
+	label("Variable that identifies censored observations:")
+  VARNAME  vn_censor	@	_ss	_vnwd	.,		///
+	label("Variable that identifies censored observations")	///
+	option(censored)
+
+  TEXT     tx_msg	_vnsep	@	_vnr	.,		///
+	label("     (Censoring:  -1 = left, 0 = none, 1 = right)")
+
+  TEXT     tx_offset	_lft	_ls	_cwd2	.,		///
+	label("Offset variable: (optional)")
+  VARNAME  vn_offset	@	_ss	_vnwd	.,		///
+	label("Offset variable")				///
+	option(offset)
+END
+
+INCLUDE sub_by_ifin_over_subpop
+INCLUDE weights_fpai
+INCLUDE se
+
+DIALOG rpt, tabtitle("Reporting")
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr
+  DEFINE _y 20
+  INCLUDE _sp_level
+END
+
+INCLUDE max_internal
+
+PROGRAM command
+BEGIN
+	allowxi
+	put /program by_output " "
+	put /program se_prefix_output " "
+	put "cnreg "
+	varlist main.vn_dv [main.vl_iv]
+	put " " /program ifin_output
+	put " " /program weights_output
+	beginoptions
+		require main.vn_censor
+		optionarg main.vn_censor
+		optionarg main.vn_offset
+		put " " /program se_output
+		optionarg /hidedefault rpt.sp_level
+		put " " /program max_output
+	endoptions
+END

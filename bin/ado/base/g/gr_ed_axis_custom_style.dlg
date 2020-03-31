@@ -1,0 +1,718 @@
+/*
+  gr_ed_axis_custom_style.dlg
+
+*!  VERSION 1.1.3  22mar2017
+
+*/
+
+VERSION 14.0
+MODAL
+
+INCLUDE _std_large
+DEFINE _dlght 280
+INCLUDE header_gr_ed
+
+DEFINE _clwd	15
+DEFINE _wd	65
+DEFINE _sep	+70
+DEFINE _cbwd	110
+DEFINE _cbsep	+115
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource GR_ED_AXIS_CUSTOM_STYLE_DLG_HSCALE
+END
+
+PROGRAM PREINIT_PROGRAM
+BEGIN
+	call create BOOLEAN callback
+	call callback.setfalse
+
+	call create STRING G
+	call create STRING GRAPH
+	call create STRING J
+	call create ARRAY ARGS
+	call create STRING Gstyle
+	call create STRING tmp
+	call create STRING localMessage
+	call create DOUBLE selIndex
+	call create STRING parent_name
+	call create STRING this_name
+	call create STRING tstyle
+
+	call create DOUBLE index
+	call create STRING axisValue
+	call create STRING axisLabel
+	call create STRING axisStyle
+	
+	call GRAPH.setvalue class ._Gr_Global.edit_graph
+
+	call this_name.setvalue class _dlg_rsrcname
+
+	// Get the Graphics object name (G) from the parent...
+	call parent_name.setvalue class PARENT._dlg_rsrcname
+	if parent_name {
+		call parent_name.withvalue G.setvalue class @.G.value
+		call parent_name.withvalue tstyle.setvalue class @.tstyle.value
+		call parent_name.withvalue localMessage.setvalue class @.child__MESSAGE.value
+		// Get the handle for the default style from the parent
+		call parent_name.withvalue Gstyle.setvalue class @.Gstyle.value
+
+		if localMessage.contains("__ADD__") {
+			// store array length in the selIndex
+			call main.ed_value.enable
+			call main.ck_custom.setoff
+			call tmp.setvalue class G.value
+			call tstyle.withvalue tmp.append ".@.dlg_tickpos"
+			call tmp.withvalue selIndex.storeClsArraySize @
+
+		}
+		else {
+			call parent_name.withvalue selIndex.setvalue class @.main.lb_ticks.value
+			call main.ed_value.disable
+		}
+	}
+	else {
+		// get the graphics object from __MESSAGE
+		call program setupGOBJECT
+
+		// dereference dlg_major
+		call G.withvalue tstyle.setvalue class @.dlg_major 	// -> major | majornl
+		// setup object path
+		call tstyle.withvalue Gstyle.append ".style.@style"	// -> .Graph.xaxis1.style.majorstyle
+		call localMessage.setvalue ""
+		if J {
+			call main.ed_value.disable
+			call selIndex.setvalue class J.value
+		}
+		else {
+			call localMessage.setvalue "__ADD__"
+			call main.ed_value.enable
+			call main.ck_custom.setoff
+		}
+	}
+
+	call create DOUBLE hasLabel
+	call create STRING lrgb
+	call create STRING lcolor
+	call create STRING lsize
+	call create STRING langle
+	call create STRING lgap
+
+	call create DOUBLE hasTick
+	call create STRING tcolor
+	call create STRING trgb
+	call create STRING topacity
+	call create STRING tlength
+	call create STRING tposition
+	call create STRING twidth
+
+	call program get_defaults
+END
+
+PROGRAM setupGOBJECT
+BEGIN
+	if ! __MESSAGE {
+		stopbox stop "resource LBL_MSGBOX_OBJECT_NOT_FOUND"
+// An unexpected error has occurred. Object not found.
+		exit 198
+	}
+	call __MESSAGE.tokenize ARGS
+	call G.setvalue class ARGS[1]
+	call J.setvalue class ARGS[2]
+	call Gstyle.setvalue class G.value
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program initialize_controls
+END
+
+DIALOG main, title(resource LBL_EDIT_INDIVIDUAL_AXIS_TICKS_LABELS)	///
+	tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT 	   tx_value	_lft	20	_vnwd	.,	///
+	label(resource LBL_VALUE)
+  EDIT     ed_value	_lft	_ss	@	.,	///
+	label(resource LBL_VALUE)
+
+  TEXT 	   tx_label	_vlx	20	_vlwd	.,	///
+	label(resource LBL_LABEL_OPTIONAL)
+  EDIT     ed_label	@	_ss	@	.,	///
+	tooltip(resource GR_ED_AXIS_CUSTOM_STYLE_MAIN_ED_LABEL)
+
+  CHECKBOX ck_custom	_lft	+35	_iwd	_ht17,	///
+	groupbox					///
+	label(resource GR_ED_AXIS_CUSTOM_STYLE_MAIN_CK_CUSTOM)	///
+	onclickon(program main_ck_custom_check)		///
+	onclickoff(program main_ck_custom_check)	///
+	option(custom)
+
+  CHECKBOX ck_label	_ilft	_ms	_cwd2	_ht11,	///
+	groupbox					///
+	label(resource GR_ED_AXIS_CUSTOM_STYLE_MAIN_CK_LABEL)	///
+	onclickon(program check_label)			///
+	onclickoff(program check_label)
+DEFINE y @y
+
+  TEXT     tx_labclr	_iilft	_ss	_wd	.,	///
+	label(resource LBL_COLOR) right
+  COMBOBOX cb_labclr	_sep	@	_cbwd	.,	///
+	dropdownlist contents(_colors) 			///
+	onselchangelist(main_cl_labclr_sel)
+  COLOR    cl_labclr	_cbsep	@	_clwd	.,
+
+  TEXT     tx_lsize	_iilft	_mls	_wd	.,	///
+  	label(resource LBL_SIZE) right
+  COMBOBOX cb_lsize	_sep	@	_cbwd	.,	///
+	dropdown contents(_textsizes)
+
+  TEXT     tx_langle	_iilft	_mls	_wd	.,	///
+  	label(resource LBL_ANGLE) right
+  COMBOBOX cb_langle	_sep	@	_cbwd	.,	///
+	dropdown contents(_angles)
+
+  TEXT     tx_lgap	_iilft	_mls	_wd	.,	///
+	label(resource LBL_TEXT_GAP) right
+  EDIT     ed_lgap	_sep	@	_cbwd	.,
+
+
+
+  CHECKBOX ck_tick	_lft2	y	_cwd2	_ht13h,	///
+	groupbox					///
+	label(resource GR_ED_AXIS_CUSTOM_STYLE_MAIN_CK_TICK)	///
+	onclickon(program check_tick)			///
+	onclickoff(program check_tick)
+  TEXT     tx_tclr	_ilft2	_ss	_wd	.,	///
+	label(resource LBL_COLOR) right
+  COMBOBOX cb_tclr	_sep	@	_cbwd	.,	///
+	dropdownlist contents(_colors) 			///
+	onselchangelist(main_cl_tclr_sel)
+  COLOR    cl_tclr	_cbsep	@	_clwd	.,
+  TEXT     tx_topacity	_ilft2	_mls	_wd	.,	///
+	label(resource LBL_OPACITY) right
+  SPINNER sp_topacity	_sep	@	_spwd	.,	///
+	default(100)					///
+	min(0)						///
+	max(100)
+
+  TEXT     tx_tlength	_ilft2	_mls	_wd	.,	///
+  	label(resource LBL_LENGTH) right
+  COMBOBOX cb_tlength	_sep	@	_cbwd	.,	///
+	dropdown contents(_textsizes)
+
+  TEXT     tx_twidth	_ilft2	 _mls	_wd	.,	///
+	label(resource LBL_WIDTH) right
+  COMBOBOX cb_twidth	_sep	@	_cbwd	.,	///
+	dropdown 					///
+	contents(_linewidths)
+
+  TEXT     tx_tpos	_ilft2	_mls	_wd	.,	///
+  	label(resource LBL_POSITION) right
+  COMBOBOX cb_tpos	_sep	@	_cbwd	.,	///
+	dropdown contents(_tickpos)
+END
+
+LIST main_cl_labclr_sel
+BEGIN
+	main.cl_labclr.show
+	main.cl_labclr.hide
+END
+
+LIST main_cl_tclr_sel
+BEGIN
+	main.cl_tclr.show
+	main.cl_tclr.hide
+END
+
+PROGRAM check_label
+BEGIN
+	if main.ck_label.isenabled() & main.ck_label {
+		call main.tx_labclr.enable
+		call main.cb_labclr.enable
+		call main.cl_labclr.enable
+		call main.tx_lsize.enable
+		call main.cb_lsize.enable
+		call main.tx_langle.enable
+		call main.cb_langle.enable
+		call main.tx_lgap.enable
+		call main.ed_lgap.enable
+	}
+	else {
+		call main.tx_labclr.disable
+		call main.cb_labclr.disable
+		call main.cl_labclr.disable
+		call main.tx_lsize.disable
+		call main.cb_lsize.disable
+		call main.tx_langle.disable
+		call main.cb_langle.disable
+		call main.tx_lgap.disable
+		call main.ed_lgap.disable
+	}
+END
+
+PROGRAM check_tick
+BEGIN
+	if main.ck_tick.isenabled() & main.ck_tick {
+		call main.tx_tclr.enable
+		call main.cb_tclr.enable
+		call main.cl_tclr.enable
+		call main.tx_topacity.enable
+		call main.sp_topacity.enable
+		call main.tx_tlength.enable
+		call main.cb_tlength.enable
+		call main.tx_twidth.enable
+		call main.cb_twidth.enable
+		call main.tx_tpos.enable
+		call main.cb_tpos.enable
+	}
+	else {
+		call main.tx_tclr.disable
+		call main.cb_tclr.disable
+		call main.cl_tclr.disable
+		call main.tx_topacity.disable
+		call main.sp_topacity.disable
+		call main.tx_tlength.disable
+		call main.cb_tlength.disable
+		call main.tx_twidth.disable
+		call main.cb_twidth.disable
+		call main.tx_tpos.disable
+		call main.cb_tpos.disable
+	}
+END
+
+PROGRAM main_ck_custom_check
+BEGIN
+	if main.ck_custom {
+		call main.ck_label.enable
+		call program check_label
+		call main.ck_tick.enable
+		call program check_tick
+	}
+	else {
+		call main.ck_label.disable
+		call program check_label
+		call main.ck_tick.disable
+		call program check_tick
+	}
+END
+
+
+PROGRAM get_defaults
+BEGIN	
+	if localMessage.contains("__ADD__") {
+		call axisValue.setvalue ""
+		call axisLabel.setvalue ""
+		call axisStyle.setvalue ""
+		
+	}
+	else {
+		call tmp.setvalue class G.value
+		call tstyle.withvalue tmp.append ".@"
+		call selIndex.withvalue tmp.append ".dlg_tickpos[@]"
+		call tmp.withvalue axisValue.setvalue class @
+
+		call tmp.setvalue class G.value
+		call tstyle.withvalue tmp.append ".@"
+		call selIndex.withvalue tmp.append ".dlg_ticklabel[@]"
+		call tmp.withvalue axisLabel.setvalue class @
+
+		call tmp.setvalue class G.value
+		call tstyle.withvalue tmp.append ".@"
+		call selIndex.withvalue tmp.append ".dlg_tickstyle[@]"
+		call tmp.withvalue axisStyle.setvalue class @
+	}
+
+	if axisStyle.iseq("default") | localMessage.contains("__ADD__") {
+		call main.ck_custom.setoff
+		call main.ck_custom.setdefault 0
+		call tmp.setvalue class G.value
+		call axisStyle.setvalue class Gstyle.value
+	}
+	else { // custom
+		call main.ck_custom.seton
+		call main.ck_custom.setdefault 1
+		call tmp.setvalue class G.value
+		call tstyle.withvalue tmp.append ".@"
+		call axisStyle.withvalue tmp.append ".@"
+		call axisStyle.setvalue class tmp.value
+	}
+
+	call axisStyle.withvalue hasLabel.setvalue class @.tickstyle.show_labels.istrue
+	call hasLabel.withvalue main.ck_label.setdefault @
+
+	call axisStyle.withvalue index.setvalue class @.tickstyle.textstyle.color.styledex
+	call index.withvalue lcolor.setvalue class .__STYLES.color[@]
+	call lcolor.withvalue main.cb_labclr.setdefault "@"
+	call axisStyle.withvalue lrgb.setvalue class @.tickstyle.textstyle.color.rgb
+	call lrgb.withvalue main.cl_labclr.setdefault @
+
+	call axisStyle.withvalue index.setvalue class @.tickstyle.textstyle.size.styledex
+	call index.withvalue lsize.setvalue class .__STYLES.gsize[@]
+	if ! lsize {
+		call axisStyle.withvalue lsize.setvalue class @.tickstyle.textstyle.size.val
+	}
+	call main.cb_lsize.setdefault class lsize.value
+
+	call axisStyle.withvalue index.setvalue class @.tickangle.styledex
+	call index.withvalue langle.setvalue class .__STYLES.anglestyle[@]
+	if ! langle {
+		call axisStyle.withvalue langle.setvalue class @.tickangle.val
+	}
+	call main.cb_langle.setdefault class langle.value
+
+	call axisStyle.withvalue lgap.setvalue class @.tickstyle.textgap.val
+	call main.ed_lgap.setdefault class lgap.value
+
+
+	call axisStyle.withvalue hasTick.setvalue class @.tickstyle.show_ticks.istrue
+	call hasTick.withvalue main.ck_tick.setdefault @
+
+	call axisStyle.withvalue index.setvalue class @.tickstyle.linestyle.color.styledex
+	call index.withvalue tcolor.setvalue class .__STYLES.color[@]
+	call main.cb_tclr.setdefault class tcolor.value
+	
+	call axisStyle.withvalue trgb.setvalue class @.tickstyle.linestyle.color.rgb
+	call main.cl_tclr.setdefault class trgb.value
+	call axisStyle.withvalue topacity.setvalue class @.tickstyle.linestyle.color.opacity
+	call main.sp_topacity.setdefault class topacity.value
+
+	call axisStyle.withvalue index.setvalue class @.tickstyle.length.styledex
+	call index.withvalue tlength.setvalue class .__STYLES.gsize[@]
+	if ! tlength {
+		call axisStyle.withvalue tlength.setvalue class @.tickstyle.length.val
+	}
+	call main.cb_tlength.setdefault class tlength.value
+
+	call axisStyle.withvalue index.setvalue class @.tickstyle.position.styledex
+	call index.withvalue tposition.setvalue class .__STYLES.tickposition[@]
+	call main.cb_tpos.setdefault class tposition.value
+
+	call axisStyle.withvalue index.setvalue class @.tickstyle.linestyle.width.styledex
+	call index.withvalue twidth.setvalue class .__STYLES.linewidth[@]
+	if ! twidth {
+		call axisStyle.withvalue twidth.setvalue class @.tickstyle.linestyle.width.val
+	}
+	call main.cb_twidth.setdefault class twidth.value
+END
+
+PROGRAM initialize_controls
+BEGIN
+	if hasLabel {
+		call main.ck_label.seton
+	}
+	else {
+		call main.ck_label.setoff
+	}
+	call axisValue.withvalue main.ed_value.setvalue "@"
+	call axisLabel.withvalue main.ed_label.setvalue `"@"'
+
+	if lcolor {
+		call lcolor.withvalue main.cb_labclr.setvalue "@"
+	}
+	else {
+		call main.cb_labclr.setvalue "custom"
+	}
+	call lrgb.withvalue main.cl_labclr.setvalue @
+
+	call main.cb_lsize.setvalue class lsize.value
+	call main.cb_langle.setvalue class langle.value
+	call main.ed_lgap.setvalue class lgap.value
+
+
+	if hasTick {
+		call main.ck_tick.seton
+	}
+	else {
+		call main.ck_tick.setoff
+	}
+	if tcolor {
+		call main.cb_tclr.setvalue class tcolor.value
+	}
+	else {
+		call main.cb_tclr.setvalue "custom"
+	}
+	call main.cl_tclr.setvalue class trgb.value
+	call main.sp_topacity.setvalue class topacity.value
+	call main.cb_tlength.setvalue class tlength.value
+	call main.cb_tpos.setvalue class tposition.value
+	call main.cb_twidth.setvalue class twidth.value
+END
+
+PROGRAM custom_output
+BEGIN
+	beginoptions
+		if ! main.ck_custom.isdefault() {
+			if main.ck_custom {
+				put " custom "
+			}
+		}
+		put " tickset("  tstyle ") "
+		if main.ck_custom {
+		if (   (! main.cl_labclr.isvisible() & ! main.cb_labclr.isdefault())	///
+			| (main.cl_labclr.isvisible() & ! main.cl_labclr.isdefault())	///
+			| (! main.cb_lsize.isdefault())					///
+			| (! main.cb_langle.isdefault())				///
+			| (! main.ed_lgap.isdefault())					///
+			| (! main.ck_label.isdefault())					///
+			| (! main.cl_tclr.isvisible() & ! main.cb_tclr.isdefault())	///
+			| (main.cl_tclr.isvisible() & ! main.cl_tclr.isdefault()) 	///
+			| (! main.sp_topacity.isdefault()) 				///
+			| (! main.cb_tlength.isdefault())				///
+			| (! main.cb_tpos.isdefault()) 					///
+			| (! main.cb_twidth.isdefault())				///
+			| (! main.ck_tick.isdefault())  )				///
+		{
+			put "editstyle("
+			if ! main.cb_langle.isdefault() {
+				put "tickangle("
+				put main.cb_langle
+				put ") "
+			}
+			if (   (! main.cl_labclr.isvisible() & ! main.cb_labclr.isdefault())	///
+				| (main.cl_labclr.isvisible() & ! main.cl_labclr.isdefault())	///
+				| (! main.cb_lsize.isdefault())					///
+				| (! main.ed_lgap.isdefault())					///
+				| (! main.ck_label.isdefault())					///
+				| (! main.cl_tclr.isvisible() & ! main.cb_tclr.isdefault())	///
+				| (main.cl_tclr.isvisible() & ! main.cl_tclr.isdefault()) 	///
+				| (! main.sp_topacity.isdefault()) 				///
+				| (! main.cb_tlength.isdefault())				///
+				| (! main.cb_tpos.isdefault()) 					///
+				| (! main.cb_twidth.isdefault())				///
+				| (! main.ck_tick.isdefault())  )				///
+			{
+				if ! main.cl_labclr.isvisible() & ! main.cb_labclr.isdefault() {
+					put "tickstyle(textstyle(color(" 
+					put main.cb_labclr 
+					put "))) "
+				}
+				if main.cl_labclr.isvisible() & ! main.cl_labclr.isdefault() {
+					put "tickstyle(textstyle(color("   `"""'
+					put main.cl_labclr
+					put `"""'
+					put "))) "
+				}
+				if ! main.cb_lsize.isdefault() {
+					put "tickstyle(textstyle(size("
+					put main.cb_lsize
+					put "))) "
+				}
+
+				if ! main.ed_lgap.isdefault() {
+					put "tickstyle(textgap("
+					put main.ed_lgap
+					put ")) "
+				}
+				if ! main.ck_label.isdefault() {
+					if main.ck_label {
+						put "tickstyle(show_labels(yes)) "
+					}
+					else {
+						put "tickstyle(show_labels(no)) "
+					}
+				}
+	
+				if ! main.cl_tclr.isvisible() & ! main.cb_tclr.isdefault() {
+					put "tickstyle(linestyle(color(" 
+					put main.cb_tclr 
+					put "))) "
+				}
+				if main.cl_tclr.isvisible() & ! main.cl_tclr.isdefault() {
+					put "tickstyle(linestyle(color("   `"""'
+					put main.cl_tclr
+					put `"""'
+					put "))) "
+				}
+				if ! main.sp_topacity.isdefault() {
+					put "tickstyle(linestyle(color("   `"""'
+					put "%"
+					put main.sp_topacity
+					put `"""'
+					put "))) "
+				}
+				if ! main.cb_twidth.isdefault() {
+					put "tickstyle(linestyle(width("
+					put main.cb_twidth
+					put "))) "
+				}
+
+				if ! main.cb_tpos.isdefault() {
+					put "tickstyle(position("
+					put main.cb_tpos
+					put ")) "
+				}
+				if ! main.cb_tlength.isdefault() {
+					put "tickstyle(length("
+					put main.cb_tlength
+					put ")) "
+				}
+				if ! main.ck_tick.isdefault() {
+					if main.ck_tick {
+						put "tickstyle(show_ticks(yes)) "
+					}
+					else {
+						put "tickstyle(show_ticks(no)) "
+					}
+				}
+			}
+			put ") "
+		}
+		}
+	endoptions
+END
+
+PROGRAM clearstyle_and_draw
+BEGIN
+	/* clearstyle must be performed after other edits since
+	 * it can trigger reordering of the axis/value array
+	 */
+	if ! main.ck_custom.isdefault() & ! main.ck_custom {
+		put "_gm_dlg_edits "
+		beginoptions
+			put "object(" G ") "
+
+			put "prolog(_gm_log ." G "." tstyle ".num_rule_ticks = "
+				put "`." G "." tstyle ".num_rule_ticks" "') "
+
+			put "cmd(_gm_edit "
+				put "." G
+				put ".edit_tick "
+				put selIndex " "
+				put /hidden main.ed_value " "
+				put "`"
+				put `"""'
+				put main.ed_label
+				put `"""'
+				put "'"
+				put " , "
+				put " clearstyle "
+				put " tickset("  tstyle ") "
+			put ") "
+		endoptions
+		stata hidden
+		call program lookupIndex
+	}
+END
+
+PROGRAM lookupIndex
+BEGIN
+	/* search for the right selIndex...
+	      After the initial edit the index might move.
+	      Eventually we may keep the list sorted. */
+	put "gr_ed_axis_custom searchForIndex "
+	put `"""' this_name `"""' " "
+	put `"""' G `"""' " "
+	put tstyle " "
+	put /hidden main.ed_value " "
+	put selIndex " "
+	put "selIndex.value"
+	stata hidden
+	/* */
+END
+
+PROGRAM command
+BEGIN
+	if _stbusy {
+		exit 1
+	}
+
+	/* For this dialog we must ensure this goes out first (immediate) */
+	put "." GRAPH ".UndoBegin"
+	stata hidden immediate
+
+	call program command_work
+
+	put "." GRAPH ".UndoEnd " G
+	stata hidden queue
+END
+
+PROGRAM command_work
+BEGIN
+	if localMessage.contains("__ADD__") & ! callback {
+		require main.ed_value
+
+		/* validate value */
+		put "gr_ed_axis_custom validateValue 
+		put `"""' this_name `"""' " "
+		put `"""' G `"""' " "
+		put `"""' tstyle `"""' " "
+		put `"""'   `"""' " "
+		put main.ed_value
+		stata hidden
+		if _rc {
+			stopbox stop "resource LBL_MSGBOX_INVALID_VALUE_SPECIFIED"
+// Invalid value specified.
+		}
+		/* */
+
+		if main.ed_value.isdefault() {
+			call callback.settrue
+			call program command_work
+			exit
+		}
+		put "_gm_dlg_edits "
+		beginoptions
+			put "object(" G ") "
+			put "cmd(_gm_edit "
+				put "." G
+				put ".add_ticks "
+				put main.ed_value " "
+				put "`"
+				put `"""'
+				put main.ed_label
+				put `"""'
+				put "'"
+				put /program custom_output
+			put ") "
+		endoptions
+		stata hidden
+		call selIndex.increment
+		call main.ed_value.withvalue main.ed_value.setdefault "@"
+	}
+	else {
+		call callback.setfalse
+		put "_gm_dlg_edits "
+		beginoptions
+			put "object(" G ") "
+
+			put "prolog(_gm_log ." G "." tstyle ".num_rule_ticks = "
+				put "`." G "." tstyle ".num_rule_ticks" "') "
+
+			put "cmd(_gm_edit "
+				put "." G
+				put ".edit_tick "
+				put selIndex " "
+				put /hidden main.ed_value " "
+				put "`"
+				put `"""'
+				put main.ed_label
+				put `"""'
+				put "'"
+				put /program custom_output
+			put ") "
+			if ! main.ck_custom.isdefault() & ! main.ck_custom {
+				// force a nodraw here since clearstyle_and_draw
+				// will draw the graph
+				put " nodraw "
+			}
+		endoptions
+		if parent_name {
+			/* Block so that the parent can update itself after
+			 * the graph is drawn 
+			 */
+			stata hidden immediate
+		}
+		else {
+			/* No parent -- No need to block */
+			stata hidden queue
+		}
+	}
+
+	call program lookupIndex
+	if ! main.ck_custom.isdefault() & ! main.ck_custom {
+		call program clearstyle_and_draw
+	}
+
+	call program get_defaults
+END

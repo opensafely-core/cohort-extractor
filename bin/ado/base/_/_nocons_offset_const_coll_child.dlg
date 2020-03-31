@@ -1,0 +1,114 @@
+/*
+  _nocons_offset_const_coll.dlg
+
+*!  VERSION 1.0.2  29nov2018
+
+*/
+
+VERSION 15.0
+
+INCLUDE _std_small
+DEFINE _dlght 180
+INCLUDE header
+
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING parent_name
+	setscale_hadj resource _NOCONS_OFFSET_CONST_COLL_DLG_HSCALE
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	call parent_name.setvalue class PARENT._dlg_rsrcname
+	if parent_name.iseq("eoprobit_dlg") {
+		call main.ck_nocons.hide
+	}
+	else {
+		call main.ck_nocons.show
+	}
+END
+
+DIALOG main,  title(resource LBL_ADVANCED)
+BEGIN
+  CHECKBOX ck_nocons		_lft	_top	_iwd	.,		///
+	option("noconstant")						///
+	label(resource LBL_NOCONSTANT)
+  TEXT tx_offset		@	_ls	@	.,		///
+	label(resource LBL_OFFSET_VARIABLE)
+  VARNAME vn_offset		@	_ss	_vnwd	.,		///
+	option("offset")						///
+	numeric								///
+	label(resource LBL_OFFSET_VARIABLE)
+  TEXT     tx_constr		@	_ls	250	.,		///
+	label(resource LBL_CONSTRAINTS_COLON)
+  COMBOBOX cb_constr 		@	_ss	@	.,		///
+	append								///
+	dropdown							///
+	contents(constraint)						///
+	label(resource LBL_CONSTRAINTS_COLON)				///
+	option(constraints)
+  BUTTON  bu_constr		+260	@	80	.,		///
+	label(resource LBL_MANAGE)					///
+	onpush(script show_constraint_dialog)
+	
+//  CHECKBOX ck_collinear		_lft	_ls	_iwd	.,	///
+//	option("collinear")						///
+//	label(resource _CK_COLLINEAR_CK_COLLINEAR)
+END
+SCRIPT show_constraint_dialog
+BEGIN
+	create CHILD constraint_child
+	create STRING constraint_results
+	constraint_child.setExitString constraint_results
+	constraint_child.setExitAction "program get_constraint_results"
+END
+PROGRAM get_constraint_results
+BEGIN
+	call create BOOLEAN __const_flag
+	call __const_flag.storeClsObjectExists __const_tab.value
+	if ! __const_flag {
+		call create STRING __const_tab
+		call __const_tab.setvalue "main"
+	}
+	else {
+		if ! __const_tab {
+			call __const_tab.setvalue "main"
+		}
+	}
+	call __const_tab.withvalue @.cb_constr.repopulate
+END
+
+PROGRAM _constraints_disable
+BEGIN
+	call __const_tab.withvalue @.tx_constr.disable
+	call __const_tab.withvalue @.cb_constr.disable
+	call __const_tab.withvalue @.bu_constr.disable
+END
+
+PROGRAM _constraints_enable
+BEGIN
+	call __const_tab.withvalue @.tx_constr.enable
+	call __const_tab.withvalue @.cb_constr.enable
+	call __const_tab.withvalue @.bu_constr.enable
+END
+
+SCRIPT _constraints_main_setRequiredOn
+BEGIN
+	main.tx_constr.setlabel resource _CONSTRAINTS_TX_CONSTR_REQ
+END
+
+SCRIPT _constraints_main_setOptionalOn
+BEGIN
+	main.tx_constr.setlabel resource LBL_CONSTRAINTS_OPTIONAL
+END
+
+PROGRAM command
+BEGIN
+	option main.ck_nocons
+	optionarg main.vn_offset
+	optionarg main.cb_constr
+//	option main.ck_collinear
+
+END

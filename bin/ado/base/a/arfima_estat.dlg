@@ -1,0 +1,336 @@
+/*
+	arfima_estat
+
+*!  VERSION 1.1.4  18oct2019
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+DEFINE _dlght 430
+INCLUDE header
+
+HELP hlp1, view("help arfima_postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING acplot_graph_res
+	setscale_hadj resource ARFIMA_ESTAT_DLG_HSCALE
+	
+        main.fi_saving.formatfilter "{0} (*.dta)|*.dta|{1} (*.*)|*.*" ///
+                "resource ui_ex FILE_TYPE_DTA" "resource ui_ex FILE_TYPE_ALL_FILES"
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program check_acplot_graph_res
+	program parseMessage
+END
+
+PROGRAM parseMessage
+BEGIN
+	if __MESSAGE.contains("-acplot-") {
+		call main.lb_subcmd.setvalue "acplot"
+	}
+	if __MESSAGE.contains("-ic-") {
+		call main.lb_subcmd.setvalue "ic"
+	}
+	if __MESSAGE.contains("-summarize-") {
+		call main.lb_subcmd.setvalue "summarize"
+	}
+	if __MESSAGE.contains("-vce-") {
+		call main.lb_subcmd.setvalue "vce"
+	}
+	if __MESSAGE.contains("-bootstrap-") {
+		call main.lb_subcmd.setvalue "bootstrap"
+	}
+END
+
+
+
+DIALOG main, label(resource ESTAT_DLG_TITLE) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT tx_subcmd		_lft	_top	400	.,		///
+	label(resource LBL_REPORTS_STATISTICS_SUBCOMMAND)
+  LISTBOX lb_subcmd		@	_ss	@	75,		///
+	contents(main_subcommand_contents)				///
+	values(main_subcommand_values)					///
+	onselchangelist(main_subcommand_scripts)
+
+  DEFINE holdy 115
+
+  // acplot
+  CHECKBOX ck_saving		_lft	holdy	_iwd	_ht11h,		///
+	groupbox							///
+	onclickon(script main_saving_on)				///
+	onclickoff(script main_saving_off)				///
+	label(resource LBL_SAVE_AUTOCORRELATION_SE_CB)
+  TEXT tx_saving		_ilft	_ss	_inwd	.,		///
+	label(resource LBL_FILENAME)
+  FILE fi_saving		@	_ss	@	.,		///
+	defext(dta)							///
+	save								///
+	error(resource LBL_FILENAME)						///
+	label(resource LBL_SAVE_AS)
+  CHECKBOX ck_saving_double	@	_ms	_cwd1	.,		///
+	option(double)							///
+	label(resource LBL_SAVE_DOUBLE_PRECISION)
+  CHECKBOX ck_saving_replace    _lft2   @       -10     .,              ///
+	option(replace)							///
+	label(resource LBL_OVERWRITE_EXISTING_FILE)
+  TEXT tx_saving_name		_ilft	_ls	_ibwd	.,		///
+	label(resource LBL_STORE_VARIABLES_WITH_PREFIX)
+  EDIT ed_saving_name		@	_ss	_vnwd	.,		///
+	option(name)							///
+	label(resource LBL_STORE_VARIABLES_WITH_PREFIX)
+
+  DEFINE _x _lft
+  DEFINE _y _xls
+  DEFINE _cx _sprb
+  INCLUDE _sp_level
+
+  RADIO rb_lags1		_lft	_ls	_iwd	., first	///
+	clickon(main.sp_lags2.disable)					///
+	label(resource LBL_DEFAULT_NUMBER_AUTOCORRELATIONS)
+  RADIO rb_lags2		@	_ss	@	., last		///
+	clickon(main.sp_lags2.enable)					///
+	label(resource LBL_SPECIFIED_NUMBER_AUTOCORRELATIONS)
+  SPINNER sp_lags2		_indent	_ss	_spwd	.,		///
+	min(1)								///
+	max(100)							///
+	default(1)							///
+	option("lags")
+  CHECKBOX ck_covariance	_lft	_ls	_cwd1	.,		///
+	option(covariance)						///
+	label(resource LBL_CAL_AUTOCOVARIANCES)
+  CHECKBOX ck_smemory		_lft2	@	_cwd1	.,		///
+	option(smemory)							///
+	label(resource ARFIMA_ESTAT_MAIN_CK_SMEMORY)
+  BUTTON bu_acplot_graph	_lft	_ls	180	.,		///
+	onpush(program main_show_acplot_graph_dlg)			///
+	label(resource LBL_GRAPH_OPTIONS)
+
+  // Information criteria
+  CHECKBOX ck_n			_lft	holdy	_iwd	.,		///
+	onclickon(main.sp_n.enable)					///
+	onclickoff(main.sp_n.disable)					///
+	label(resource LBL_NUMBER_OBSERVATIONS_CALCULATING_BIC)
+  SPINNER sp_n			_indent2 _ss	_spwd	.,		///
+	default(e(N)) min(1) max(e(N))					///
+	option(n)
+
+  INCLUDE estat_sum
+  INCLUDE estat_vce
+  INCLUDE _estat_bootstrap
+END
+
+INCLUDE estat_sum_pr
+INCLUDE estat_vce_pr
+INCLUDE _estat_bootstrap_pr
+
+LIST main_subcommand_contents
+BEGIN
+	resource LBL_ACPLOT
+	resource LBL_INFORMATION_CRITERIA
+	resource LBL_SUMMARIZE_ESTIMATION_SAMPLE
+	resource LBL_COVARIANCE_MATRIX_ESTIMATES
+END
+
+LIST main_subcommand_values
+BEGIN
+	acplot
+	ic
+	summarize
+	vce
+END
+
+LIST main_subcommand_scripts
+BEGIN
+	script sel_acplot
+	script sel_ic
+	script sel_summarize
+	script sel_vce
+END
+
+SCRIPT sel_acplot
+BEGIN
+	script main_hide_all
+	program acplot_on
+END
+
+PROGRAM acplot_on
+BEGIN
+	call main.ck_saving.show
+	call main.tx_saving.show
+	call main.fi_saving.show
+	call main.ck_saving_double.show
+	call main.ck_saving_replace.show
+	call main.tx_saving_name.show
+	call main.ed_saving_name.show
+	call main.sp_level.show
+	call main.tx_level.show
+	call main.rb_lags1.show
+	call main.rb_lags2.show
+	call main.sp_lags2.show
+	call main.ck_covariance.show
+	call main.ck_smemory.show
+	call main.bu_acplot_graph.show
+
+	if main.ck_saving {
+		call script main_saving_on
+	}
+	else {
+		call script main_saving_off
+	}
+END
+
+SCRIPT main_acplot_off
+BEGIN
+	main.ck_saving.hide
+	main.tx_saving.hide
+	main.fi_saving.hide
+	main.ck_saving_double.hide
+	main.ck_saving_replace.hide
+	main.tx_saving_name.hide
+	main.ed_saving_name.hide
+	main.sp_level.hide
+	main.tx_level.hide
+	main.rb_lags1.hide
+	main.rb_lags2.hide
+	main.sp_lags2.hide
+	main.ck_covariance.hide
+	main.ck_smemory.hide
+	main.bu_acplot_graph.hide
+END
+
+SCRIPT main_saving_on
+BEGIN
+	main.fi_saving.enable
+	main.tx_saving.enable
+	main.ck_saving_double.enable
+	main.ck_saving_replace.enable
+	main.tx_saving_name.enable
+	main.ed_saving_name.enable
+END
+
+SCRIPT main_saving_off
+BEGIN
+	main.fi_saving.disable
+	main.tx_saving.disable
+	main.ck_saving_double.enable
+	main.ck_saving_double.disable
+	main.ck_saving_replace.disable
+	main.tx_saving_name.disable
+	main.ed_saving_name.disable
+END
+
+PROGRAM main_show_acplot_graph_dlg
+BEGIN
+	call create CHILD ciplot_plot_twoway_noby AS graph_opt, allowsubmit
+	call graph_opt.setExitString acplot_graph_res
+	call graph_opt.setExitAction "program check_acplot_graph_res"
+	call graph_opt.setSubmitAction "program graph_acplot_Submit"
+END
+
+PROGRAM check_acplot_graph_res
+BEGIN
+	if acplot_graph_res.iseq("") {
+		call main.bu_acplot_graph.modified_off
+	}
+	else {
+		call main.bu_acplot_graph.modified_on
+	}
+END
+
+PROGRAM graph_acplot_Submit
+BEGIN
+	call program check_acplot_graph_res
+	call Submit
+END
+
+PROGRAM saving_output
+BEGIN
+	put `"""' main.fi_saving `"""'
+	if main.ed_saving_name | main.ck_saving_double |		///
+		main.ck_saving_replace {
+		put ", "
+		option main.ck_saving_replace
+		option main.ck_saving_double
+		optionarg main.ed_saving_name
+	}
+END
+
+PROGRAM acplot_output
+BEGIN
+	if main.lb_subcmd.iseq("acplot") {
+		if main.ck_saving {
+			require main.fi_saving
+			put " saving("
+			put /program saving_output
+			put ")"
+		}
+		optionarg /hidedefault main.sp_level
+		optionarg main.sp_lags2
+		option main.ck_covariance
+		option main.ck_smemory
+		if acplot_graph_res {
+			put acplot_graph_res
+		}
+	}
+END
+
+SCRIPT sel_ic
+BEGIN
+	script main_hide_all
+	main.ck_n.show
+	main.sp_n.show
+END
+
+SCRIPT sel_summarize
+BEGIN
+	script main_hide_all
+	program main_summ_on
+END
+
+SCRIPT sel_vce
+BEGIN
+	script main_hide_all
+	program vce_on
+END
+
+SCRIPT main_hide_all  // MUST BE IMPLEMENTED FOR BOOTSTRAP
+BEGIN
+	script main_acplot_off
+	main.ck_n.hide
+	main.sp_n.hide
+	program vce_off
+	script main_summ_off
+	script main_bootstrap_hide
+END
+
+PROGRAM vl_output
+BEGIN
+	put main.vl_spec
+END
+
+PROGRAM vl_eq_output
+BEGIN
+	put main.vl_eq
+END
+
+PROGRAM command
+BEGIN
+	put "estat "
+	put main.lb_subcmd
+	put " " /program summarize_output
+	beginoptions
+		// ic options
+		optionarg main.sp_n
+		put " " /program summarize_opts_output
+		put " " /program vce_output
+		put " " /program acplot_output
+		put " " /program bootstrap_output
+	endoptions
+END

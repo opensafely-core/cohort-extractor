@@ -1,0 +1,501 @@
+/*
+  dvech
+
+*!  VERSION 1.1.5  31oct2019 (deprecated)
+
+  keyword:  eclass
+
+*/
+
+VERSION 11.0
+
+INCLUDE _std_xlarge
+DEFINE _dlght 350
+INCLUDE header
+
+HELP hlp1, view("help dvech")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	/* Equation list box */
+	create STRING main_tmp
+	create STRING main_tmp2
+	create STRING main_eq_childdlg
+	create STRING main_eq_child_result
+	create STRING main_eq_cmd_output
+
+	create ARRAY main_equation_list
+
+	create SVECTOR mainEQCommandDisplayList
+	create SVECTOR mainEQCommandList
+	create SVECTOR mainEQCommandValues
+	create SVECTOR mainEQStatusList
+	create SVECTOR mainEQChildDialogList
+
+	create DOUBLE main_eq_count
+	create DOUBLE main_eq_position
+	create DOUBLE main_eq_arraysize
+
+	main.bu_eq_edit.disable
+	main.bu_eq_disable.disable
+	main.bu_eq_enable.disable
+
+	script se_createAsRobustOIM
+
+	create STRING main_bu_start_vals_getOpts
+	setscale_hadj resource DVECH_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program se_setFinalInitState
+	script max_setForDVECH
+	mainEQCommandDisplayList.copyToArray main_equation_list
+	main.lb_eqBuild.repopulate
+END
+
+DIALOG main, tabtitle("Model")						///
+	title("dvech - Diagonal vech GARCH models")
+BEGIN
+  DEFINE _x _xsetbu
+  DEFINE _y _top
+  INCLUDE _bu_tsset
+
+  TEXT tx_eqBuild	_lft	_top	200	.,			///
+	label("Equations:")
+  LISTBOX lb_eqBuild	@	_ss	@	110,			///
+	contents(main_equation_list) 					///
+	ondblclick(program main_eq_edit)				///
+	onselchange(program main_eq_sel_changed)			///
+	nomemory
+  BUTTON bu_eq_new	+210	@	80	.,			///
+	label("Create...")						///
+	onpush(program main_eq_create)					///
+	tooltip("Create equation")
+  BUTTON bu_eq_edit	@	_ms	@	.,			///
+	label("Edit")							///
+	onpush(program main_eq_edit)  					///
+	tooltip("Edit equation")
+  BUTTON bu_eq_disable	@	_ms	@	.,			///
+	label("Disable")						///
+	onpush(program main_eq_disable)					///
+	tooltip("Click to disable an equation")
+  BUTTON bu_eq_enable	@	_ms	@	.,			///
+	label("Enable")							///
+	onpush(program main_eq_enable)					///
+	tooltip("Click to enable a previously disabled equation")
+  TEXTBOX tb_eq_note	_lft	+40	_iwd	_tb2,			///
+	label(`"Press "Create" to define an equation"')
+
+  GROUPBOX gb_opts	_lft	+30	_iwd	_ht13,			///
+	label("Options")
+
+  RADIO rb_lag_max	_indent	_ss	_cwd3	., first		///
+ 	onclickon("program main_lag_on")				///
+	label("Specify maximum lags:")
+  DEFINE y1 @y
+  CHECKBOX ck_arch	+20	_ms	_ckwd	.,			///
+ 	onclickon("script main_arch_on")				///
+ 	onclickoff("script main_arch_off")
+  DEFINE holdy @y
+  DEFINE holdx @x
+  SPINNER sp_arch	_cksep	@	_spwd	.,			///
+	option(arch)							///
+	min(1)                  					/// 
+	max(c(N))                      					/// 
+	default(1)							///
+	label("ARCH maximum lag")
+  TEXT tx_arch		_spsep	@	_rbspr2b .,			///
+	label("ARCH maximum lag")
+
+  CHECKBOX ck_garch	holdx	_ls	_ckwd	.,			///
+	onclickon("script main_garch_on")				///
+	onclickoff("script main_garch_off")
+  SPINNER sp_garch	_cksep	@	_spwd	.,			///
+	option(garch)							///
+	min(1)                  					/// 
+	max(c(N))                      					/// 
+	default(1)							///
+	label("GARCH maximum lag")
+  TEXT tx_garch		_spsep	@	_rbspr2b .,			///
+	label("GARCH maximum lag")
+
+  RADIO rb_lag_list	_lft2	y1	_cwd3	., last			///
+ 	onclickon("script main_lags_on")				///
+	label(`"Specify list of lags: (e.g., "1 3")"')
+
+  EDIT ed_archs		+20	holdy	_en14wd	.,			///
+	option(arch)							///
+	label("ARCH lags")
+  DEFINE holdx @x
+  TEXT tx_archs		_en14sep @	100	.,			///
+	label("ARCH lags")
+  EDIT ed_garchs	holdx	_ls	_en14wd	.,			///
+	option(garch)							///
+	label("GARCH lags")
+  TEXT tx_garchs	_en14sep @	100	.,			///
+	label("GARCH lags")
+
+  DEFINE _x _ilft
+  DEFINE _y _ls
+  DEFINE _cx _ilw80
+  DEFINE _bux _islw80
+  INCLUDE _constraints
+END
+
+INCLUDE _constraints_sc
+
+PROGRAM main_lag_on
+BEGIN
+	call main.ck_arch.enable
+	if main.ck_arch {
+		call script main_arch_on
+	}
+	call main.ck_garch.enable
+	if main.ck_garch {
+		call script main_garch_on
+	}
+
+	call main.ed_archs.disable
+	call main.tx_archs.disable
+	call main.ed_garchs.disable
+	call main.tx_garchs.disable
+END
+
+SCRIPT main_lags_on
+BEGIN
+	main.ed_archs.enable
+	main.tx_archs.enable
+	main.ed_garchs.enable
+	main.tx_garchs.enable
+
+	main.ck_arch.disable	
+	main.sp_arch.disable
+	main.tx_arch.disable
+	main.ck_garch.disable	
+	main.sp_garch.disable
+	main.tx_garch.disable
+END
+
+SCRIPT main_arch_on
+BEGIN
+	main.sp_arch.enable
+	main.tx_arch.enable
+END
+
+SCRIPT main_arch_off
+BEGIN
+	main.sp_arch.disable
+	main.tx_arch.disable
+END
+
+SCRIPT main_garch_on
+BEGIN
+	main.sp_garch.enable
+	main.tx_garch.enable
+END
+
+SCRIPT main_garch_off
+BEGIN
+	main.sp_garch.disable
+	main.tx_garch.disable
+END
+
+PROGRAM main_eq_create
+BEGIN
+	call main_eq_count.setvalue class mainEQChildDialogList.size
+	call main_eq_count.increment
+	call main_eq_count.withvalue main_eq_childdlg.setvalue		///
+		"main_equation@"
+	call program main_show_eq_child
+END
+
+PROGRAM main_eq_edit
+BEGIN
+	call mainEQCommandDisplayList.findstr class main.lb_eqBuild.value
+	call main_eq_position.setvalue class mainEQCommandDisplayList.position
+	call main_eq_position.withvalue main_eq_childdlg.setvalue	///
+		class mainEQChildDialogList.values[@]
+
+	call program main_show_eq_child_edit
+END
+
+PROGRAM main_show_eq_child
+BEGIN
+	call main_eq_childdlg.withvalue create CHILD dvech_new_eq AS @
+	call main_eq_childdlg.withvalue @.setExitString "main_eq_child_result"
+	call main_eq_childdlg.withvalue @.setExitAction			///
+		"program main_eq_child_done"
+
+	call main_eq_count.withvalue main_tmp.setvalue "Equation @"
+	call main_eq_childdlg.withvalue main_tmp2.setvalue "@.settitle"
+	call main_tmp2.append `" ""'
+	call main_tmp2.append class main_tmp.value
+	call main_tmp2.append `"""'
+	call main_tmp2.withvalue @
+END
+
+PROGRAM main_show_eq_child_edit
+BEGIN
+	call main_eq_childdlg.withvalue create CHILD dvech_new_eq AS @
+	call main_eq_childdlg.withvalue @.setExitString "main_eq_child_result"
+	call main_eq_childdlg.withvalue @.setExitAction			///
+		"program main_eq_child_done"
+
+	call main_eq_position.withvalue main_tmp.setvalue		///
+		class mainEQCommandDisplayList.values[@]
+	call main_eq_childdlg.withvalue main_tmp2.setvalue "@.settitle"
+	call main_tmp2.append `" ""'
+	call main_tmp2.append class main_tmp.value
+	call main_tmp2.append `"""'
+	call main_tmp2.withvalue @
+END
+
+PROGRAM main_eq_child_done
+BEGIN
+	call mainEQChildDialogList.findstr class main_eq_childdlg.value
+	call main_eq_position.setvalue class mainEQChildDialogList.position
+	if main_eq_position {
+		call main_eq_position.withvalue main_tmp.setvalue	///
+			class mainEQStatusList.values[@]
+		if main_tmp.iseq("active") {
+			call main_eq_position.withvalue			///
+				mainEQCommandDisplayList.store class	///
+				main_eq_position.value "Equation @"
+			call mainEQCommandValues.store class		///
+				main_eq_position.value class		///
+				main_eq_child_result.value
+			call main_eq_position.withvalue			///
+				main_tmp2.setvalue "Equation @"
+		}
+		else {
+			call main_eq_position.withvalue			///
+				main_tmp2.setvalue "Equation @"
+
+			call main_tmp2.withvalue			///
+				mainEQCommandDisplayList.store		///
+				class main_eq_position.value "@ (disabled)"
+		}
+
+		call mainEQCommandList.store class			///
+			main_eq_position.value class main_eq_child_result.value
+
+		call mainEQCommandDisplayList.copyToArray main_equation_list
+		call main.lb_eqBuild.repopulate
+		call main.lb_eqBuild.setvalue class main_tmp2.value
+	}
+	else {
+		call main_eq_arraysize.setvalue class mainEQChildDialogList.size
+		call main_eq_arraysize.increment
+
+		/* Store child dialog name */
+		call mainEQChildDialogList.store class			///
+			main_eq_arraysize.value class			///
+			main_eq_childdlg.value
+
+		/* Store listbox display equation string */
+		call main_eq_arraysize.withvalue			///
+			mainEQCommandDisplayList.store class		///
+			main_eq_arraysize.value "Equation @"
+
+		/* Store child dialog result string */
+		call mainEQCommandList.store class			///
+			main_eq_arraysize.value class main_eq_child_result.value
+
+		/* Store child dialog result string for final command
+		   For disable/enable */
+		call mainEQCommandValues.store class			///
+			main_eq_arraysize.value class main_eq_child_result.value
+
+		/* Store disable/enable status */
+		call mainEQStatusList.store				///
+			class main_eq_arraysize.value "active"
+
+		call mainEQCommandDisplayList.copyToArray main_equation_list
+		call main.lb_eqBuild.repopulate
+		call main_eq_arraysize.withvalue			///
+			main.lb_eqBuild.setvalue "Equation @"
+	}
+END
+
+PROGRAM main_eq_sel_changed
+BEGIN
+	call mainEQCommandDisplayList.findstr class main.lb_eqBuild.value
+	call main_eq_position.setvalue class mainEQCommandDisplayList.position
+	call main_eq_position.withvalue main_tmp.setvalue		///
+		class mainEQStatusList.values[@]
+	if main_eq_position {
+		call main.bu_eq_edit.enable
+		call main_eq_position.withvalue				///
+			main.tb_eq_note.setlabel			///
+			class mainEQCommandList.values[@]
+	}
+
+	if main_tmp.iseq("disable") {
+		call main.bu_eq_enable.enable
+		call main.bu_eq_disable.disable
+	}
+	if main_tmp.iseq("active") {
+		call main.bu_eq_enable.disable
+		call main.bu_eq_disable.enable
+	}
+END
+
+PROGRAM main_eq_disable
+BEGIN
+	call mainEQCommandDisplayList.findstr class main.lb_eqBuild.value
+	call main_eq_position.setvalue class mainEQCommandDisplayList.position
+
+	call main_tmp.setvalue class main.lb_eqBuild.value
+	call mainEQStatusList.store class main_eq_position.value "disable"
+	call mainEQCommandValues.store class main_eq_position.value ""
+	call main_tmp.withvalue mainEQCommandDisplayList.store		///
+		class main_eq_position.value "@ (disabled)"
+
+	call mainEQCommandDisplayList.copyToArray main_equation_list
+	call main_tmp.withvalue main_tmp2.setvalue "@ (disabled)"
+	call main.lb_eqBuild.repopulate
+	call main.lb_eqBuild.setvalue class main_tmp2.value
+END
+
+PROGRAM main_eq_enable
+BEGIN
+	call mainEQCommandDisplayList.findstr class main.lb_eqBuild.value
+	call main_eq_position.setvalue class mainEQCommandDisplayList.position
+
+	call mainEQStatusList.store class main_eq_position.value "active"
+	call main_eq_position.withvalue mainEQCommandValues.store class	///
+		main_eq_position.value class mainEQCommandList.values[@]
+
+	call main_eq_position.withvalue mainEQCommandDisplayList.store	///
+		class main_eq_position.value "Equation @"
+
+	call mainEQCommandDisplayList.copyToArray main_equation_list
+	call main_eq_position.withvalue main_tmp2.setvalue class	///
+		mainEQCommandDisplayList.values[@]
+	call main.lb_eqBuild.repopulate
+	call main.lb_eqBuild.setvalue class main_tmp2.value
+END
+
+PROGRAM main_lb_eqBuild_output
+BEGIN
+	call mainEQCommandValues.copyToString main_eq_cmd_output
+	call main_eq_arraysize.setvalue class mainEQStatusList.size
+	if main_eq_cmd_output.iseq("") & main_eq_arraysize.iseq(0) & 	///
+		main.lb_eqBuild.isvisible() {
+		stopbox stop "Equation not defined. "			///
+"Please enter an equation before proceeding."
+	}
+	if main_eq_cmd_output.iseq("") & main_eq_arraysize.isgt(0) &	///
+		main.lb_eqBuild.isvisible() {
+		stopbox stop "All equations are disabled. "		///
+"Either define a new equation or enable an existing equation before proceeding."
+	}
+
+	if main_eq_cmd_output & main.lb_eqBuild.isvisible() {
+		put main_eq_cmd_output
+	}
+END
+
+PROGRAM main_bu_start_vals
+BEGIN
+	call create CHILD dvech_starting_vals AS start_vals
+	call start_vals.setExitString main_bu_start_vals_getOpts
+	call start_vals.setExitAction					///
+		"program main_bu_start_vals_ckResults"
+END
+
+PROGRAM main_bu_start_vals_ckResults
+BEGIN
+	if main_bu_start_vals_getOpts {
+		call max.bu_start_vals.modified_on
+	}
+	else {
+		call max.bu_start_vals.modified_off
+	}
+END
+
+INCLUDE byifin
+INCLUDE se
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+        program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle("Reporting")
+BEGIN
+  DEFINE   _x  _lft
+  DEFINE   _cx _spr
+  DEFINE   _y  _top
+  INCLUDE  _sp_level
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _nocnsreport
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+
+INCLUDE max_ml
+
+PROGRAM command
+BEGIN
+	put " " /program by_output
+	put "dvech "
+	put " " /program main_lb_eqBuild_output
+	put " " /program ifin_output
+	beginoptions
+		if main.rb_lag_max {
+			if main.ck_arch {
+				put "arch(1/" main.sp_arch ") "
+			}
+			if main.ck_garch {
+				put "garch(1/" main.sp_garch ") "
+			}
+		}
+		if main.rb_lag_list {
+			if (main.ed_archs & !main.ed_archs.isnumlist()) {
+				stopbox stop `"There is an invalid numlist in "ARCH lags""'	
+			}
+			if (main.ed_garchs & !main.ed_garchs.isnumlist()) {
+				stopbox stop `"There is an invalid numlist in "GARCH lags""'	
+			}
+			optionarg main.ed_archs
+			optionarg main.ed_garchs
+		}
+		INCLUDE _constraints_main_pr
+		put " " /program se_output
+		optionarg /hidedefault rpt.sp_level
+		INCLUDE _nocnsreport_pr
+		INCLUDE _report_columns_pr
+		put " " rpt_bu_facvarsResults
+		put " " rpt_bu_fmtcoefResults
+		put " " /program max_output
+		if !max.ed_from {
+			if main_bu_start_vals_getOpts {	
+				put  " " main_bu_start_vals_getOpts
+			}
+		}
+	endoptions
+END
+

@@ -1,0 +1,266 @@
+/*
+	ciwidth_onevar_var.dlg
+
+*!  VERSION 1.0.8  17apr2019
+
+*/
+
+VERSION 16.0
+
+INCLUDE _std_xwide
+DEFINE _dlght 480
+INCLUDE header
+
+HELP hlp1, view("help ciwidth onevariance")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING graph_res
+	setscale_hadj resource CIWIDTH_ONEVAR_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	main.cb_compute.setcontentslist main_compute_onemean_list
+	main.cb_compute.setvalueslist main_compute_onemean_values
+	main.cb_compute.repopulate
+	main.cb_compute.setvalue sampsi
+
+	create STRING TMP
+
+	TMP.setvalue "* "
+	TMP.append  resource LBL_VARIANCE_NO_COLON
+	TMP.withvalue main.tx_variance.setlabel "@"
+	TMP.withvalue main.ed_variance.setlabel "@"
+
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	label(resource CIWIDTH_ONEVAR_DLG_TITLE)
+BEGIN
+  INCLUDE ciwidth_compute
+
+  DEFINE con_y _ls
+  INCLUDE ciwidth_confidence
+
+  DEFINE samp_y +45
+  INCLUDE ciwidth_sampsi
+
+  GROUPBOX gb_precision		_lft	+45	_iwd	_ht5,		///
+	label(resource LBL_PRECISION)
+  EDIT ed_variance		_ilft	_ss	_en14wd	.,		///
+	onchange("program check_for_numlist")				///
+	error("")
+  TEXT tx_variance		_en14sep @	120	.,		///
+	label("")
+  EDIT ed_width			_ilft	_ls	_en14wd	.,		///
+	onchange("program check_for_numlist")				///
+	option(width)							///
+	error(resource LBL_STAR_CI_WIDTH)
+  TEXT tx_width			_en14sep @	120	.,		///
+	label(resource LBL_STAR_CI_WIDTH)
+
+  DEFINE ypos +45
+  INCLUDE ciwidth_test_maincommon
+END
+
+PROGRAM main_compute_changed
+BEGIN
+	if main.cb_compute.iseq("sampsi") {
+		call program main_sampsi_on
+	}
+	if main.cb_compute.iseq("ciwidth") {
+		call program main_ciwidth_on
+	}
+	if main.cb_compute.iseq("probci") {
+		call program main_probci_on
+	}
+	call program main_check_table_tab
+	call program ciwidth_iteration_tab_check
+END
+
+PROGRAM main_check_table_tab
+BEGIN
+	call program table_create4Onevar
+END
+
+PROGRAM main_sampsi_on
+BEGIN
+	call program main_probwidth_show
+	call script ciwidth_sampsi_sampsi_on
+
+	call main.ed_width.show
+	call main.tx_width.show
+END
+
+PROGRAM main_ciwidth_on
+BEGIN
+	call program main_probwidth_show
+	call script ciwidth_sampsi_ciwidth_on
+
+	call main.ed_width.hide
+	call main.tx_width.hide
+END
+
+PROGRAM main_probci_on
+BEGIN
+	call script main_probwidth_hide
+	call script ciwidth_sampsi_ciwidth_on
+
+	call main.ed_width.show
+	call main.tx_width.show
+END
+
+PROGRAM ciwidth_precision_output
+BEGIN
+	if main.cb_compute.isneq("ciwidth") {
+		if !main.ed_width.isnumlist() | main.ed_width.isNumlistLT(0) {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format					///
+			"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+			"resource LBL_TAB_MAIN" 			///
+			"resource LBL_CI_WIDTH" 
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for CI width
+
+		}
+		optionarg main.ed_width
+	}
+END
+
+PROGRAM check_for_numlist
+BEGIN
+	call create STRING numContents
+	call create STRING stok
+	call create ARRAY tmp
+	call create BOOLEAN containsNumlist
+
+	call containsNumlist.setfalse
+
+	if main.ed_level & main.ed_level.isvisible() {
+		call numContents.setvalue class main.ed_level.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_alpha & main.ed_alpha.isvisible() {
+		call numContents.setvalue class main.ed_alpha.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_width & main.ed_width.isvisible() {
+		call numContents.setvalue class main.ed_width.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_n & main.ed_n.isvisible() {
+		call numContents.setvalue class main.ed_n.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_variance {
+		call numContents.setvalue class main.ed_variance.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if containsNumlist {
+		call main.ck_parallel.enable
+	}
+	else {
+		call main.ck_parallel.disable
+	}
+END
+
+PROGRAM ciwidth_iteration_tab_check
+BEGIN
+	call script ciwidth_iteration_enable
+	if main.cb_compute.iseq("ciwidth") {
+		call script ciwidth_iteration_disable
+	}
+	if main.cb_compute.iseq("sampsi") {
+		call script ciwidth_iteration_is_sampsi
+		if main.cb_sided.iseq("onesided") {
+			call script ciwidth_iteration_disable
+		}
+	}
+	if main.cb_compute.iseq("probci") {
+		call script ciwidth_iteration_disable
+	}
+END
+
+INCLUDE ciwidth_list
+INCLUDE ciwidth_confidence_pr
+INCLUDE ciwidth_sampsi_pr
+INCLUDE ciwidth_test_maincommon_pr
+INCLUDE ciwidth_table_opts
+INCLUDE ciwidth_graph
+INCLUDE ciwidth_iteration
+
+PROGRAM command
+BEGIN
+	require main.ed_variance
+
+	if !main.ed_variance.isgt(0) {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format					///
+		"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT"	///
+		"resource LBL_TAB_MAIN"					///
+		"resource LBL_VARIANCE_NO_COLON"
+		stopbox stop "class _MSG_TMP.value"
+		// On the "Main" tab, an invalid numlist is specified for "Standard deviation".
+	}
+
+	put "ciwidth onevariance ("
+	put main.ed_variance
+	put ")"
+
+	beginoptions
+		put " " /program ciwidth_confidence_output
+		put " " /program ciwidth_sampsi_output
+		put " " /program ciwidth_precision_output
+		put " " /program ciwidth_test_maincommon_output
+		put " " /program ciwidth_table_opts_output
+		put " " /program ciwidth_graph_output
+		put " " /program ciwidth_iteration_output
+	endoptions
+END

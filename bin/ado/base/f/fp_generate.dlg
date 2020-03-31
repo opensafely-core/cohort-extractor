@@ -1,0 +1,201 @@
+/*
+  fp generate
+
+*!  VERSION 1.1.1  13may2017
+
+  keyword:  eclass
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_wide
+DEFINE _dlght 420
+INCLUDE header
+HELP hlp1, view("help fp")
+RESET res1
+
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource FP_GENERATE_DLG_HSCALE
+END
+
+DIALOG main,								///
+label(resource FP_GENERATE_DLG_TITLE)		///
+	tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  TEXT tx_var				_lft	_top	_vnwd	.,	///
+	label(resource LBL_VARIABLE)
+  VARNAME vn_var			@	_ss	@	.,	///
+	numeric								///
+	label(resource LBL_VARIABLE)
+  TEXT tx_powers			_vlx	_top	_vlwd	.,	///
+	label(resource FP_GENERATE_MAIN_TX_POWERS)
+  EDIT ed_powers			@ 	_ss	@	.,	///
+	label(resource FP_GENERATE_MAIN_TX_POWERS)
+  TEXT tx_example			@	_ss 	@	.,	///
+	label(resource FP_GENERATE_MAIN_TX_EXAMPLE)
+
+  CHECKBOX ck_gen_vars			_lft	_ls	_iwd	_ht4,	///
+	groupbox							///
+	onclickon("program main_gen_vars_on")				///
+	onclickoff("program main_gen_vars_off")				///
+	label(resource FP_GENERATE_MAIN_CK_GEN_VARS)
+  TEXT tx_type				_ilft	_ss 	_cwd1	.,	///
+	label(resource LBL_VARIABLE_TYPE)
+  DEFINE holdy @y
+  COMBOBOX cb_type			@	_ss	_vnwd	.,	///
+	dropdownlist							///
+	contents(type)							///
+	default(c(type))						///
+	label(resource LBL_VARIABLE_TYPE)
+
+  TEXT tx_newvar			_lft2	holdy	_iwd	.,	///
+	label(resource FP_GENERATE_MAIN_TX_NEWVAR)
+  EDIT ed_newvar			@	_ss	_vnwd	.,	///
+	label(resource FP_GENERATE_MAIN_TX_NEWVAR)
+
+  GROUPBOX gb_gen_opts			_lft	_xls	_iwd	_ht22,	///
+	label(resource LBL_OPTIONS)
+  CHECKBOX ck_replace			_ilft	_ss	_ibwd	.,	///
+	option(replace)							///
+	label(resource LBL_REPLACE_EXISTING_FRACTIONAL_POLYNOMIAL_VAR)
+
+  GROUPBOX gb_scale_opts		_ilft	_ls	_cwd2	_ht5h,	///
+	label(resource LBL_SCALING_OF_TERM)
+  DEFINE holdy2 @y
+  RADIO rb_scale_default		_indent	_ss	_inwd	.,	///
+	first								///
+	label(resource LBL_USE_VARIABLE_TERM_AS_IS)
+  RADIO rb_scale_specify		@	_ss	190	.,	///
+	option(scale)							///
+	onclickon("main.ed_scale_specify.enable")			///
+	onclickoff("main.ed_scale_specify.disable")			///
+	label(resource LBL_USE_TERM_A_B_SPECIFY_TERMS)
+  RADIO rb_scale			_iilft	_ss	@	.,	///
+	last								///
+	option(scale)							///
+	onclickon("script main_scale_on")				///
+	onclickoff("script main_scale_off")				///
+	label(resource LBL_CHOOSE_A_B_AUTOMATICALLY)
+  EDIT ed_scale_specify			+195	-20	 _spwd	.,	///
+	option("scale")							///
+	label(resource LBL_USE_TERM_A_B_SPECIFY_TERMS)
+
+  GROUPBOX gb_center_opts		_lft2	holdy2	_cwd2	_ht5h,	///
+	label(resource LBL_CENTERING_REPORTING_FRACTIONAL_POLYNOMIAL)
+  RADIO rb_center_default		_indent	_ss	_inwd	.,	///
+	first								///
+	label(resource LBL_REPORT_UNCENTERED_RESULTS)
+DEFINE cx @cx
+  RADIO rb_center_specify		@	_ss	200	.,	///
+	onclickon("main.ed_center_specify.enable")			///
+	onclickoff("main.ed_center_specify.disable")			///
+	label(resource LBL_REPORT_CENTERED_ON_C_RESULTS)
+  RADIO rb_center			@	_ss	cx	.,	///
+	last								///
+	option(center)							///
+	label(resource LBL_CHOOSE_C_AS_MEAN_OF_SCALED_TERM)
+  EDIT ed_center_specify		+195	-20	 _spwd	.,	///
+	option("center")						///
+	label(resource LBL_REPORT_CENTERED_ON_C_RESULTS)
+
+  GROUPBOX gb_zero_opts			_ilft	_xxxls	_ibwd	_ht5h,	///
+	label(resource LBL_TREATMENT_OF_SCALED_TERM_VALUES)
+  RADIO rb_zero_default			_indent	_ss	_inwd	.,	///
+	first								///
+	label(resource LBL_ISSUE_ERROR_MESSAGE)
+  RADIO rb_zero				@	_ss	@	.,	///
+	last								///
+	onclickon("main.ck_catzero.enable")				///
+	onclickoff("main.ck_catzero.disable")				///
+	option(zero)							///
+	label(resource LBL_SET_TERM_ZERO_SCALED_TERM)
+  CHECKBOX ck_catzero			_indent	_ss	_inwd	.,	///
+	option(catzero)							///
+	label(resource LBL_INCLUDE_TERM_AMONG_FRACTIONAL_POLYNOMIAL_VAR)
+END
+
+PROGRAM main_gen_vars_on
+BEGIN
+	call main.tx_type.enable
+	call main.cb_type.enable
+	call main.tx_newvar.enable
+	call main.ed_newvar.enable
+END
+
+PROGRAM main_gen_vars_off
+BEGIN
+	call main.tx_type.disable
+	call main.cb_type.disable
+	call main.tx_newvar.disable
+	call main.ed_newvar.disable
+END
+
+SCRIPT main_scale_on
+BEGIN
+	main.rb_zero_default.disable
+	main.rb_zero.disable
+	main.ck_catzero.disable
+END
+
+SCRIPT main_scale_off
+BEGIN
+	main.rb_zero_default.enable
+	main.rb_zero.enable
+	main.ck_catzero.enable
+END
+
+INCLUDE _type_list_fd
+INCLUDE ifin
+
+PROGRAM opts_output
+BEGIN
+	option main.ck_replace
+
+	if main.rb_scale_specify {
+		require main.ed_scale_specify
+		optionarg main.ed_scale_specify
+	}
+	option main.rb_scale
+
+	if main.rb_center_specify {
+		require main.ed_center_specify
+		optionarg main.ed_center_specify
+	}
+	option main.rb_center
+
+	if main.ck_catzero {
+		option main.ck_catzero
+	}
+	else {
+		option radio(main rb_zero)
+	}
+END
+
+PROGRAM command
+BEGIN
+	require main.vn_var
+	require main.ed_powers
+
+	put "fp generate "
+	if ! main.cb_type.isdefault() {
+		put main.cb_type " "
+	}
+
+	if main.ck_gen_vars {
+		require main.ed_newvar
+		put main.ed_newvar
+		put " = "
+	}
+	put main.vn_var
+	put "^("
+	put main.ed_powers
+	put ")"
+
+	beginoptions
+		put /program opts_output
+	endoptions
+END
+

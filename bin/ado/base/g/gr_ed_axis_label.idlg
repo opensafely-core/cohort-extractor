@@ -1,0 +1,367 @@
+/*
+  gr_ed_axis_label.idlg
+
+*!  VERSION 1.1.2  22mar2017
+
+*/
+
+INCLUDE _std_vsmall
+DEFINE _dlght 280
+INCLUDE header_gr_ed
+
+DEFINE _clwd	15
+DEFINE _wd	120
+DEFINE _sep	+125
+DEFINE _cbwd	130
+DEFINE _cbsep	+135
+
+SCRIPT local_init
+BEGIN
+	create STRING G
+	create STRING parent_name
+
+	// Get the Graphics object name (G) from the parent...
+	parent_name.setvalue class PARENT._dlg_rsrcname
+	parent_name.withvalue G.setvalue class @.G.value
+
+	create STRING tstyle
+	create STRING type
+	create STRING Gstyle
+	program setStyleType
+
+	create DOUBLE hasLabels
+	create STRING color
+	create STRING opacity
+	create STRING rgb
+	create STRING size
+	create STRING angle
+	create STRING lgap
+	create STRING format
+	create DOUBLE hasValueLab
+	create DOUBLE hasAltSpacing
+
+	create DOUBLE index
+	create STRING tmp
+	main.cl_clr.hide	// smoother on loading
+
+	program get_defaults
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program initialize_controls
+END
+
+PROGRAM setStyleType
+BEGIN
+	if styleType.iseq("major") {
+		// dereference dlg_major and setup object path
+		call Gstyle.setvalue class G.value			// initialize to G
+		call G.withvalue tstyle.setvalue class @.dlg_major 	// -> major | majornl
+		call type.setvalue class tstyle.value			// -> major | majornl
+		call tstyle.append "style"				// -> majorstyle | majornlstyle
+		call tstyle.withvalue Gstyle.append ".style.@"		// -> .Graph.xaxis1.style.majorstyle
+	}
+	if styleType.iseq("minor") {
+		// dereference dlg_minor and setup object path
+		call Gstyle.setvalue class G.value			// initialize to G
+		call G.withvalue tstyle.setvalue class @.dlg_minor 	// -> minor | minornl
+		call type.setvalue class tstyle.value			// -> minor | minornl
+		call tstyle.append "style"				// -> minorstyle | minornlstyle
+		call tstyle.withvalue Gstyle.append ".style.@"		// -> .Graph.xaxis1.style.minorstyle
+	}
+END
+
+DIALOG main, title(resource LBL_GB_LABEL_PROPERTIES) tabtitle(resource LBL_TAB_MAIN)
+BEGIN
+  CHECKBOX ck_show	_lft	20	_iwd	_ht22h,		///
+	label(resource LBL_SHOW_LABELS)				///
+	groupbox						///
+	onclickon(program check_show)				///
+	onclickoff(program check_show)
+  TEXT     tx_clr	_ilft	_mls	_wd	.,		///
+	label(resource LBL_COLOR) right
+  COMBOBOX cb_clr	_sep	@	_cbwd	.,		///
+	dropdownlist contents(_colors) 				///
+	onselchangelist(main_cl_clr_sel)
+  COLOR    cl_clr	_cbsep	@	_clwd	.,
+
+  TEXT     tx_opacity	_ilft	_mls	_wd	.,		///
+	label(resource LBL_OPACITY) right
+  SPINNER  sp_opacity	_sep	@	_spwd	.,		///
+	default(100)						///
+	min(0)							///
+	max(100)
+
+  TEXT     tx_size	_ilft	_mls	_wd	.,		///
+  	label(resource LBL_SIZE) right
+  COMBOBOX cb_size	_sep	@	_cbwd	.,		///
+	dropdown contents(_textsizes)
+
+  TEXT     tx_angle	_ilft	_mls	_wd	.,		///
+  	label(resource LBL_ANGLE) right
+  COMBOBOX cb_angle	_sep	@	_cbwd	.,		///
+	dropdown contents(_angles)
+
+  TEXT     tx_lgap	_ilft	_mls	_wd	.,		///
+	label(resource LBL_TEXT_GAP) right
+  COMBOBOX cb_lgap	_sep	@	_cbwd	.,		///
+	dropdown contents(_textsizes)
+
+  TEXT     tx_format	_ilft	_mls	_wd	.,		///
+	label(resource LBL_FORMAT) right
+  EDIT     ed_format	_sep	@	_cbwd	.,
+  BUTTON   bu_format	_cbsep	@	_clwd	.,		///
+	label(..) onpush(script label_GetFormat)		///
+	tooltip(resource LBL_CREATE_DISPLAY_FORMAT)
+
+  CHECKBOX ck_valuelab	_iilft	_ls	_iibwd	.,		///
+	label(resource LBL_USE_VALUE_LABELS)
+
+  CHECKBOX ck_alt	_iilft	_ms	_iibwd	.,		///
+	label(resource LBL_ALT_SPACING_ADJACENT_LABELS)
+END
+
+SCRIPT label_GetFormat
+BEGIN
+	create STRING labelFormat
+	create CHILD format_chooser
+	format_chooser.setExitString labelFormat
+	format_chooser.setExitAction "main.ed_format.setvalue class labelFormat.value"
+END
+
+PROGRAM check_show
+BEGIN
+	if main.ck_show {
+		call main.tx_clr.enable
+		call main.cb_clr.enable
+		call main.cl_clr.enable
+
+		call main.tx_opacity.enable
+		call main.sp_opacity.enable
+
+		call main.tx_size.enable
+		call main.cb_size.enable
+
+		call main.tx_angle.enable
+		call main.cb_angle.enable
+
+		call main.tx_lgap.enable
+		call main.cb_lgap.enable
+
+		call main.tx_format.enable
+		call main.ed_format.enable
+
+		call main.ck_valuelab.enable
+		call main.ck_alt.enable
+	}
+	else {
+		call main.tx_clr.disable
+		call main.cb_clr.disable
+		call main.cl_clr.disable
+
+		call main.tx_opacity.disable
+		call main.sp_opacity.disable
+
+		call main.tx_size.disable
+		call main.cb_size.disable
+
+		call main.tx_angle.disable
+		call main.cb_angle.disable
+
+		call main.tx_lgap.disable
+		call main.cb_lgap.disable
+
+		call main.tx_format.disable
+		call main.ed_format.disable
+
+		call main.ck_valuelab.disable
+		call main.ck_alt.disable
+	}
+END
+
+LIST main_cl_clr_sel
+BEGIN
+	main.cl_clr.show
+	main.cl_clr.hide
+END
+
+PROGRAM get_defaults
+BEGIN
+	call Gstyle.withvalue hasLabels.setvalue class @.tickstyle.show_labels.istrue
+	call hasLabels.withvalue main.ck_show.setdefault @
+
+	call Gstyle.withvalue index.setvalue class @.tickstyle.textstyle.color.styledex
+	call index.withvalue color.setvalue class .__STYLES.color[@]
+	call main.cb_clr.setdefault class color.value
+
+	call Gstyle.withvalue opacity.setvalue class @.style.fillcolor.opacity
+        call main.sp_opacity.setdefault class opacity.value
+	
+	call Gstyle.withvalue rgb.setvalue class @.tickstyle.textstyle.color.rgb
+	call main.cl_clr.setdefault class rgb.value
+
+	call Gstyle.withvalue rgb.setvalue class @.tickstyle.textstyle.color.rgb
+	call main.cl_clr.setdefault class rgb.value
+
+	call Gstyle.withvalue index.setvalue class @.tickstyle.textstyle.size.styledex
+	call index.withvalue size.setvalue class .__STYLES.gsize[@]
+	if ! size {
+		call Gstyle.withvalue size.setvalue class @.tickstyle.textstyle.size.val
+	}
+	call main.cb_size.setdefault class size.value
+
+	call Gstyle.withvalue index.setvalue class @.tickangle.styledex
+	call index.withvalue angle.setvalue class .__STYLES.anglestyle[@]
+	if ! angle {
+		call Gstyle.withvalue angle.setvalue class @.tickangle.val
+	}
+	call main.cb_angle.setdefault class angle.value
+
+	call Gstyle.withvalue index.setvalue class @.tickstyle.textgap.styledex
+	call index.withvalue lgap.setvalue class .__STYLES.gsize[@]
+	if ! lgap {
+		call Gstyle.withvalue lgap.setvalue class @.tickstyle.textgap.val
+	}
+	call main.cb_lgap.setdefault class lgap.value
+
+	call tmp.setvalue class G.value
+	call type.withvalue tmp.append ".@"
+	call tmp.withvalue format.setvalue class @.label_format
+	call main.ed_format.setdefault class format.value
+
+	call Gstyle.withvalue hasValueLab.setvalue class @.use_labels.istrue
+	call hasValueLab.withvalue main.ck_valuelab.setdefault @
+
+	call Gstyle.withvalue hasAltSpacing.setvalue class @.alternate.istrue
+	call hasAltSpacing.withvalue main.ck_alt.setdefault @
+END
+
+PROGRAM initialize_controls
+BEGIN
+	if hasLabels {
+		call main.ck_show.seton
+	}
+	else {
+		call main.ck_show.setoff
+	}
+
+	if color {
+		call main.cb_clr.setvalue class color.value
+	}
+	if ! color {
+		call main.cb_clr.setvalue "custom"
+	}
+	call main.cl_clr.setvalue class rgb.value
+	call main.sp_opacity.setvalue class opacity.value
+	
+	call main.cb_size.setvalue class size.value
+
+	call main.cb_angle.setvalue class angle.value
+
+	call main.cb_lgap.setvalue class lgap.value
+
+	call main.ed_format.setvalue class format.value
+
+	if hasValueLab {
+		call main.ck_valuelab.seton
+	}
+	else {
+		call main.ck_valuelab.setoff
+	}
+
+	if hasAltSpacing {
+		call main.ck_alt.seton
+	}
+	else {
+		call main.ck_alt.setoff
+	}
+END
+
+PROGRAM command
+BEGIN
+	call program get_defaults
+	put "_gm_dlg_edits"
+	beginoptions
+		put " object(" G ") "
+
+		if ! main.ck_show.isdefault() {
+			if main.ck_show {
+				put "style(" tstyle "(tickstyle(show_labels(" 
+				put "yes"
+				put ")))) "
+			}
+			else {
+				put "style(" tstyle "(tickstyle(show_labels(" 
+				put "no"
+				put ")))) "
+			}
+		}
+		if main.ck_show {
+			if ! main.cl_clr.isvisible() & ! main.cb_clr.isdefault() {
+				put "style(" tstyle "(tickstyle(textstyle(color(" 
+				put main.cb_clr 
+				put "))))) "
+			}
+			if main.cl_clr.isvisible() & ! main.cl_clr.isdefault() {
+				put "style(" tstyle "(tickstyle(textstyle(color("   `"""'
+				put main.cl_clr
+				put `"""'
+				put "))))) "
+			}
+
+			if ! main.sp_opacity.isdefault() {
+				put "style(" tstyle "(tickstyle(textstyle(color("
+				put "%"
+				put main.sp_opacity
+				put "))))) "
+			}
+			if ! main.cb_size.isdefault() {
+				put "style(" tstyle "(tickstyle(textstyle(size("
+				put main.cb_size
+				put "))))) "
+			}
+			if ! main.cb_angle.isdefault() {
+				put "style(" tstyle "(tickangle("
+				put main.cb_angle
+				put "))) "
+			}
+			if ! main.cb_lgap.isdefault() {
+				put "style(" tstyle "(tickstyle(textgap("
+				put main.cb_lgap
+				put ")))) "
+			}
+			if ! main.ed_format.isdefault() {
+				put "set(" type ".label_format "
+				put main.ed_format
+				put ") "
+			}
+			if ! main.ck_valuelab.isdefault() {
+				if main.ck_valuelab {
+					put "style(" tstyle "(use_labels(" 
+					put "yes"
+					put "))) "
+				}
+				else {
+					put "style(" tstyle "(use_labels(" 
+					put "no"
+					put "))) "
+				}
+			}
+			if ! main.ck_alt.isdefault() {
+				if main.ck_alt {
+					put "style(" tstyle "(alternate(" 
+					put "yes"
+					put "))) "
+				}
+				else {
+					put "style(" tstyle "(alternate(" 
+					put "no"
+					put "))) "
+				}
+			}
+		}
+		put " epilog(_gedi toolbar axis " G ")"
+	endoptions
+	stata hidden queue
+END

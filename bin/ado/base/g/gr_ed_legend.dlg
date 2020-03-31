@@ -1,0 +1,1230 @@
+/*
+    gr_ed_legend.dlg
+    
+*!  VERSION 1.1.4  31jul2017
+
+*/
+
+VERSION 14.0
+MODAL
+
+INCLUDE _std_mlarge
+DEFINE _dlght 470
+INCLUDE header_gr_ed
+
+DEFINE _clwd	15
+DEFINE _wd	150
+DEFINE _sep	+155
+DEFINE _wd2	140
+DEFINE _sep2	+145
+DEFINE _cbwd	120
+DEFINE _cbsep	+125
+
+INCLUDE gr_orientation
+
+SCRIPT PREINIT
+BEGIN
+	settitle resource GR_ED_LEGEND_DLG_TITLE
+	create STRING G
+	create STRING GRAPH
+	program setupGOBJECT
+
+	create DOUBLE index
+	create STRING tmp
+	create ARRAY tmpArray
+	setscale_hadj resource GR_ED_LEGEND_DLG_HSCALE
+END
+
+PROGRAM setupGOBJECT
+BEGIN
+	if ! __MESSAGE {
+		stopbox stop resource LBL_MSGBOX_OBJECT_NOT_FOUND
+// An unexpected error has occurred. Object not found.
+		exit 198
+	}
+	call G.setvalue class __MESSAGE.value
+	call GRAPH.setvalue class ._Gr_Global.edit_graph
+END
+
+SCRIPT main_PREINIT
+BEGIN
+	create STRING layout
+	create DOUBLE rows
+	create DOUBLE cols
+	create STRING stack
+	create DOUBLE colFirst
+	create DOUBLE textFirst
+	create STRING keyPos
+	create STRING rowGap
+	create STRING colGap
+	create STRING keyGap
+	create STRING keyYSize
+	create STRING keyXSize
+	create STRING holes
+
+	program main_get_defaults
+END
+
+SCRIPT main_POSTINIT
+BEGIN
+	program main_initialize_controls
+END
+
+PROGRAM main_get_defaults
+BEGIN
+	call G.withvalue rows.setvalue class @.style.rows.val
+	call G.withvalue cols.setvalue class @.style.cols.val
+	if rows.isgt(0) {
+		call main.cb_layout.setdefault "Rows"
+		call main.sp_rowcol.setdefault class rows.value
+	}
+	else {
+		call main.cb_layout.setdefault "Columns"
+		call main.sp_rowcol.setdefault class cols.value
+	}
+
+	call G.withvalue index.setvalue class @.style.stacked.styledex
+	call index.withvalue stack.setvalue class .__STYLES.yesno[@]
+	call main.cb_stack.setdefault class stack.value
+
+	call G.withvalue colFirst.setvalue class @.style.col_first.istrue
+	if colFirst {
+		call main.cb_colfirst.setdefault "yes"
+	}
+	else {
+		call main.cb_colfirst.setdefault "no"
+	}
+
+	call G.withvalue textFirst.setvalue class @.style.text_first.istrue
+	if textFirst {
+		call main.cb_textfirst.setdefault "yes"
+	}
+	else {
+		call main.cb_textfirst.setdefault "no"
+	}
+
+	call G.withvalue index.setvalue class @.style.key_position.styledex
+	call index.withvalue keyPos.setvalue class .__STYLES.compass2dir[@]
+	call main.cb_placement.setdefault class keyPos.value
+
+	call G.withvalue index.setvalue class @.style.row_gap.styledex
+	call index.withvalue rowGap.setvalue class .__STYLES.gsize[@]
+	if ! rowGap {
+		call G.withvalue rowGap.setvalue class @.style.row_gap.val
+	}
+	call main.cb_rowgap.setdefault class rowGap.value
+
+	call G.withvalue index.setvalue class @.style.col_gap.styledex
+	call index.withvalue colGap.setvalue class .__STYLES.gsize[@]
+	if ! colGap {
+		call G.withvalue colGap.setvalue class @.style.col_gap.val
+	}
+	call main.cb_colgap.setdefault class colGap.value
+
+	call G.withvalue index.setvalue class @.style.key_gap.styledex
+	call index.withvalue keyGap.setvalue class .__STYLES.gsize[@]
+	if ! keyGap {
+		call G.withvalue keyGap.setvalue class @.style.key_gap.val
+	}
+	call main.cb_keygap.setdefault class keyGap.value
+
+	call G.withvalue index.setvalue class @.style.key_ysize.styledex
+	call index.withvalue keyYSize.setvalue class .__STYLES.gsize[@]
+	if ! keyYSize {
+		call G.withvalue keyYSize.setvalue class @.style.key_ysize.val
+	}
+	call main.cb_ysize.setdefault class keyYSize.value
+
+	call G.withvalue index.setvalue class @.style.key_xsize.styledex
+	call index.withvalue keyXSize.setvalue class .__STYLES.gsize[@]
+	if ! keyXSize {
+		call G.withvalue keyXSize.setvalue class @.style.key_xsize.val
+	}	
+	call main.cb_xsize.setdefault class keyXSize.value
+	
+	call G.withvalue holes.setvalue class @.holes
+	call main.ed_holes.setdefault class holes.value
+END
+
+PROGRAM main_initialize_controls
+BEGIN
+	if rows.isgt(0) {
+		call main.cb_layout.setvalue "Rows"
+		call main.sp_rowcol.setvalue class rows.value
+	}
+	else {
+		call main.cb_layout.setvalue "Columns"
+		call main.sp_rowcol.setvalue class cols.value
+	}
+
+	call main.cb_stack.setvalue class stack.value
+
+	if colFirst {
+		call main.cb_colfirst.setvalue "yes"
+	}
+	else {
+		call main.cb_colfirst.setvalue "no"
+	}
+
+	if textFirst {
+		call main.cb_textfirst.setvalue "yes"
+	}
+	else {
+		call main.cb_textfirst.setvalue "no"
+	}
+
+	call main.cb_placement.setvalue class keyPos.value
+	call main.cb_rowgap.setvalue class rowGap.value
+	call main.cb_colgap.setvalue class colGap.value
+	call main.cb_keygap.setvalue class keyGap.value
+	call main.cb_ysize.setvalue class keyYSize.value
+	call main.cb_xsize.setvalue class keyXSize.value
+	call main.ed_holes.setvalue class holes.value
+END
+
+DIALOG main, tabtitle(resource LBL_ORGANIZATION)
+BEGIN
+  GROUPBOX	gb_organization	_lft	_top	_iwd	335,	///
+	label(resource LBL_ORGANIZATION)
+
+  TEXT		tx_layout	_ilft   _ss	_wd	.,	///
+	label(resource LBL_ROWS_COLUMNS) right
+  COMBOBOX	cb_layout	_sep	@	_cbwd	.,	///
+	dropdownlist 						///
+	contents(rows_columns)					///
+	onselchangelist(rows_columns_sel)
+  SPINNER	sp_rowcol	_cbsep	@	50	.,	///
+	default(1) min(1)
+  TEXT		tx_rowcol	+55	@	80	.,	///
+	label(resource LBL_TAB_ROWS)
+
+  TEXT		tx_stack	_ilft	_mls	_wd	.,	///
+	label(resource LBL_STACK_SYMBOLS_TEXT) right
+  COMBOBOX	cb_stack	_sep	@	_cbwd	.,	///
+	dropdownlist 						///
+	contents(_yesno) values(stack_val)
+
+  TEXT		tx_colfirst	_ilft	_mls	_wd	.,	///
+	label(resource LBL_KEY_SEQUENCE) right
+  COMBOBOX	cb_colfirst	_sep	@	_cbwd	.,	///
+	dropdownlist 						///
+	contents(key_sequence) 	values(key_sequence_val)
+	
+  TEXT		tx_textfirst	_ilft	_mls	_wd	.,	///
+	label(resource LBL_SYMBOL_ORDER) right
+  COMBOBOX	cb_textfirst	_sep	@	_cbwd	.,	///
+	dropdownlist 						///
+	contents(symbol_order) 	values(symbol_order_val)
+	
+  TEXT		tx_placement	_ilft	_mls	_wd	.,	///
+	label(resource LBL_SYMBOL_ALIGNMENT) right
+  COMBOBOX	cb_placement	_sep	@	_cbwd	.,	///
+	dropdownlist 						///
+	contents(_compass)
+	
+  TEXT		tx_rowgap	_ilft	_mls	_wd	.,	///
+	label(resource LBL_ROW_GAP) right
+  COMBOBOX	cb_rowgap	_sep	@	_cbwd	.,	///
+	dropdown contents(_textsizes)
+
+  TEXT		tx_colgap	_ilft	_mls	_wd	.,	///
+	label(resource LBL_COLUMN_GAP) right
+  COMBOBOX	cb_colgap	_sep	@	_cbwd	.,	///
+	dropdown contents(_textsizes)
+
+  TEXT		tx_keygap	_ilft	_mls	_wd	.,	///
+	label(resource LBL_KEY_GAP) right
+  COMBOBOX	cb_keygap	_sep	@	_cbwd	.,	///
+	dropdown contents(_textsizes)
+
+  TEXT		tx_ysize	_ilft	_mls	_wd	.,	///
+	label(resource GR_ED_LEGEND_MAIN_TX_YSIZE) right
+  COMBOBOX	cb_ysize	_sep	@	_cbwd	.,	///
+	dropdown contents(_textsizes)
+	
+  TEXT		tx_xsize	_ilft	_mls	_wd	.,	///
+	label(resource GR_ED_LEGEND_MAIN_TX_XSIZE) right
+  COMBOBOX	cb_xsize	_sep	@	_cbwd	.,	///
+	dropdown contents(_textsizes)
+
+  TEXT		tx_holes	_ilft	_mls	_wd	.,	///
+	label(resource LBL_POSITION_TO_LEAVE_BLANK) right
+  EDIT	ed_holes		_sep	@	_cbwd	.,	///
+	tooltip(resource GR_ED_LEGEND_MAIN_ED_HOLES)
+
+  TEXTBOX	tb_note		_lft	_xxls	_iwd	_tb2,	///
+	label(Settings on this tab rearrange the keys in the 	///
+		legend and will override any previous grid editing.)
+
+END
+
+LIST key_sequence
+BEGIN
+	resource LBL_ACROSS_FIRST
+	resource LBL_DOWN_FIRST
+END
+LIST key_sequence_val
+BEGIN
+	"no"
+	"yes"
+END
+
+LIST symbol_order
+BEGIN
+	resource LBL_SYMBOLS_FIRST
+	resource LBL_LABELS_FIRST
+END
+LIST symbol_order_val
+BEGIN
+	"no"
+	"yes"
+END
+
+LIST stack_val
+BEGIN
+	"yes"
+	"no"
+END
+
+LIST rows_columns
+BEGIN
+	resource LBL_TAB_ROWS
+	resource LBL_COLUMNS
+END
+LIST rows_columns_sel
+BEGIN
+	script row_value_show
+	script col_value_show
+END
+SCRIPT row_col_value_hide
+BEGIN
+	main.sp_rowcol.hide
+	main.tx_rowcol.hide
+END
+SCRIPT row_value_show
+BEGIN
+	main.sp_rowcol.show
+	main.tx_rowcol.show
+	main.tx_rowcol.setlabel resource LBL_TAB_ROWS
+END
+SCRIPT col_value_show
+BEGIN
+	main.sp_rowcol.show
+	main.tx_rowcol.show
+	main.tx_rowcol.setlabel resource LBL_COLUMNS
+END
+
+PROGRAM main_output
+BEGIN
+	call program main_get_defaults
+	
+	if ! main.cb_layout.isdefault() | ! main.sp_rowcol.isdefault() {
+		if main.cb_layout.iseq("Columns") {
+			put "style(cols("
+			put main.sp_rowcol
+			put ")) "
+			put "style(rows(0)) "
+		}
+		else {
+			put "style(rows("
+			put main.sp_rowcol
+			put ")) "
+			put "style(cols(0)) "
+		}
+		call mainHasOutput.settrue
+	}
+	if ! main.cb_stack.isdefault() {
+		put "style(stacked("
+		put main.cb_stack
+		put ")) "
+		call mainHasOutput.settrue
+	}
+	if ! main.cb_colfirst.isdefault() {
+		put "style(col_first("
+		put main.cb_colfirst
+		put ")) "
+		call mainHasOutput.settrue
+	}
+	if ! main.cb_textfirst.isdefault() {
+		put "style(text_first("
+		put main.cb_textfirst
+		put ")) "
+		call mainHasOutput.settrue
+	}
+	if ! main.cb_placement.isdefault() {
+		put "style(key_position("
+		put main.cb_placement
+		put ")) "
+		call mainHasOutput.settrue
+	}
+	if ! main.cb_rowgap.isdefault() {
+		put "style(row_gap("
+		put main.cb_rowgap
+		put ")) "
+		call mainHasOutput.settrue
+	}
+	if ! main.cb_colgap.isdefault() {
+		put "style(col_gap("
+		put main.cb_colgap
+		put ")) "
+	}
+	if ! main.cb_keygap.isdefault() {
+		put "style(key_gap("
+		put main.cb_keygap
+		put ")) "
+		call mainHasOutput.settrue
+	}
+	if ! main.cb_ysize.isdefault() {
+		put "style(key_ysize("
+		put main.cb_ysize
+		put ")) "
+	}
+	if ! main.cb_xsize.isdefault() {
+		put "style(key_xsize("
+		put main.cb_xsize
+		put ")) "
+		call mainHasOutput.settrue
+	}
+
+	if ! main.ed_holes.isdefault() {
+		put "cmd(.holes = " `"""'
+		put main.ed_holes
+		put `"""' ") "
+		call mainHasOutput.settrue
+	}
+END
+
+
+// **
+SCRIPT labels_PREINIT
+BEGIN
+	create STRING label_size
+	create STRING label_color
+	create STRING label_rgb
+	create STRING label_margin
+	create STRING label_gap
+	create DOUBLE label_box
+	create STRING label_bfcolor
+	create STRING label_bfrgb
+	create STRING label_bfopacity
+	create STRING label_blcolor
+	create STRING label_blrgb
+	create STRING label_blopacity
+	create STRING label_width
+	create STRING label_pattern
+	create STRING label_align
+	create STRING label_bmargin
+
+	create STRING customLabelMargin
+	create STRING customLabelMarginDefault
+	create STRING customLabelBoxMargin
+	create STRING customLabelBoxMarginDefault
+
+	program labels_get_defaults
+END
+
+SCRIPT labels_POSTINIT
+BEGIN
+	program labels_initialize_controls
+	program labels_checkCustomMargin
+	program labels_checkCustomBoxMargin
+END
+
+PROGRAM labels_get_defaults
+BEGIN
+	call G.withvalue index.setvalue class @.style.labelstyle.size.styledex
+	call index.withvalue label_size.setvalue class .__STYLES.gsize[@]
+	if ! label_size {
+		call G.withvalue label_size.setvalue class @.style.labelstyle.size.val
+	}
+	call labels.cb_size.setdefault class label_size.value
+
+	call G.withvalue index.setvalue class @.style.labelstyle.color.styledex
+	call index.withvalue label_color.setvalue class .__STYLES.color[@]
+	call labels.cb_clr.setdefault class label_color.value
+	call G.withvalue label_rgb.setvalue class @.style.labelstyle.color.rgb
+	call labels.cl_clr.setdefault class label_rgb.value
+
+	call G.withvalue index.setvalue class @.style.labelstyle.margin.styledex
+	call index.withvalue label_margin.setvalue class .__STYLES.margin[@]
+	call customLabelMarginDefault.setvalue ""
+	if ! label_margin {
+		call G.withvalue label_margin.setvalue class @.style.labelstyle.margin.left
+		call label_margin.append " "
+		call G.withvalue label_margin.append class @.style.labelstyle.margin.right
+		call label_margin.append " "
+		call G.withvalue label_margin.append class @.style.labelstyle.margin.bottom
+		call label_margin.append " "
+		call G.withvalue label_margin.append class @.style.labelstyle.margin.top
+		call customLabelMarginDefault.setvalue class label_margin.value
+	}
+	call label_margin.withvalue labels.cb_margin.setdefault "@"
+
+	call G.withvalue index.setvalue class @.style.labelstyle.linegap.styledex
+	call index.withvalue label_gap.setvalue class .__STYLES.gsize[@]
+	if ! label_gap {
+		call G.withvalue label_gap.setvalue class @.style.labelstyle.linegap.val
+	}
+	call labels.cb_lgap.setdefault class label_gap.value
+
+
+	call G.withvalue label_box.setvalue class @.style.labelstyle.drawbox.istrue
+	if label_box {
+		call labels.ck_box.setdefault 1
+	}
+	else {
+		call labels.ck_box.setdefault 0
+	}
+
+	call G.withvalue index.setvalue class @.style.labelstyle.fillcolor.styledex
+	call index.withvalue label_bfcolor.setvalue class .__STYLES.color[@]
+	call labels.cb_bclr.setdefault class label_bfcolor.value
+	call G.withvalue label_bfrgb.setvalue class @.style.labelstyle.fillcolor.rgb
+	call labels.cl_bclr.setdefault class label_bfrgb.value
+	call G.withvalue label_bfopacity.setvalue class @.style.labelstyle.fillcolor.opacity
+	call labels.sp_bopacity.setdefault class label_bfopacity.value
+
+	call G.withvalue index.setvalue class @.style.labelstyle.linestyle.color.styledex
+	call index.withvalue label_blcolor.setvalue class .__STYLES.color[@]
+	call labels.cb_blclr.setdefault class label_blcolor.value
+	call G.withvalue label_blrgb.setvalue class @.style.labelstyle.linesytle.color.rgb
+	call labels.cl_blclr.setdefault class label_blrgb.value
+
+	call G.withvalue label_blopacity.setvalue class @.style.labelstyle.linesytle.color.opacity
+	call labels.sp_blopacity.setdefault class label_blopacity.value
+
+	call G.withvalue index.setvalue class @.style.labelstyle.linestyle.width.styledex
+	call index.withvalue label_width.setvalue class .__STYLES.linewidth[@]
+	if ! label_width {
+		call G.withvalue label_width.setvalue class @.style.labelstyle.linestyle.width.val
+	}
+	call labels.cb_width.setdefault class label_width.value
+
+	call G.withvalue index.setvalue class @.style.labelstyle.linestyle.pattern.styledex
+	call index.withvalue label_pattern.setvalue class .__STYLES.linepattern[@]
+	call labels.cb_pattern.setdefault class label_pattern.value
+
+	call G.withvalue index.setvalue class @.style.labelstyle.linestyle.align.styledex
+	call index.withvalue label_align.setvalue class .__STYLES.alignstroke[@]
+	call labels.cb_lalign.setdefault class label_align.value
+
+	call G.withvalue index.setvalue class @.style.labelstyle.boxmargin.styledex
+	call index.withvalue label_bmargin.setvalue class .__STYLES.margin[@]
+	call customLabelBoxMarginDefault.setvalue ""
+	if ! label_bmargin {
+		call G.withvalue label_bmargin.setvalue class @.style.labelstyle.boxmargin.left
+		call label_bmargin.append " "
+		call G.withvalue label_bmargin.append class @.style.labelstyle.boxmargin.right
+		call label_bmargin.append " "
+		call G.withvalue label_bmargin.append class @.style.labelstyle.boxmargin.bottom
+		call label_bmargin.append " "
+		call G.withvalue label_bmargin.append class @.style.labelstyle.boxmargin.top
+		call customLabelBoxMarginDefault.setvalue class label_bmargin.value
+	}
+	call labels.cb_bmargin.setdefault class label_bmargin.value
+END
+
+PROGRAM labels_initialize_controls
+BEGIN
+	call labels.cb_size.setvalue class label_size.value
+
+	if label_color {
+		call labels.cb_clr.setvalue class label_color.value
+	}
+	else {
+		call labels.cb_clr.setvalue "custom"
+	}
+	call labels.cl_clr.setvalue class label_rgb.value
+
+	call labels.cb_margin.setvalue class label_margin.value 
+	
+	call labels.cb_lgap.setvalue class label_gap.value
+
+	if label_box {
+		call labels.ck_box.seton
+	}
+	else {
+		call labels.ck_box.setoff
+	}
+
+	if label_bfcolor {
+		call labels.cb_bclr.setvalue class label_bfcolor.value
+	}
+	else {
+		call labels.cb_bclr.setvalue "custom"
+	}
+	call labels.cl_bclr.setvalue class label_bfrgb.value
+	call labels.sp_bopacity.setvalue class label_bfopacity.value
+
+	if label_blcolor {
+		call labels.cb_blclr.setvalue class label_blcolor.value
+	}
+	else {
+		call labels.cb_blclr.setvalue "custom"
+	}
+	call labels.cl_blclr.setvalue class label_blrgb.value
+	call labels.sp_blopacity.setvalue class label_blopacity.value
+
+	call labels.cb_width.setvalue class label_width.value
+	call labels.cb_pattern.setvalue class label_pattern.value
+	call labels.cb_lalign.setvalue class label_align.value
+	call labels.cb_bmargin.setvalue class label_bmargin.value
+END
+
+DIALOG labels, tabtitle(resource LBL_LABELS)
+BEGIN
+  GROUPBOX	gb_text	_lft	_top	_iwd	390,		///
+	label(resource LBL_LABELS)
+  TEXT     tx_size	_ilft	_ss	_wd	.,		///
+	label(resource LBL_SIZE) right
+  COMBOBOX cb_size	_sep	@	_cbwd	.,		///
+	dropdown contents(_textsizes) option(size)
+
+  TEXT     tx_clr	_ilft	_mls	_wd	.,		///
+	label(resource LBL_COLOR) right	
+  COMBOBOX cb_clr	_sep	@	_cbwd	.,		///
+	dropdownlist contents(colors) option(color)		///
+	onselchangelist(labels_cl_clr_sel)
+  COLOR    cl_clr	_cbsep	@	_clwd	., 		///
+	option(color)
+
+  TEXT     tx_margin	_ilft	_mls	_wd	.,		///
+	label(resource LBL_MARGIN) right	
+  COMBOBOX cb_margin	_sep	@	_cbwd	.,		///
+	dropdownlist contents(_margin)				///
+	onselchangelist(labels_cb_margin_sel)
+  BUTTON   bu_margin	_cbsep	@	_clwd	.,		///
+	label(resource LBL_TWO_DOTS) 				///
+	tooltip(resource LBL_CUSTOM_MARGIN)			///
+	onpush(script labels_show_margin_dialog)
+
+  TEXT     tx_lgap	_ilft	_mls	_wd	.,		///
+	label(resource LBL_LINE_GAP) right
+  COMBOBOX cb_lgap	_sep	@	_cbwd	.,		///
+	dropdown contents(_textsizes)				///
+	tooltip(resource LBL_USEFUL_FOR_MULTILINE_LABELS)
+	
+  CHECKBOX ck_box	_ilft	_ls	_ibwd	_ht21h,		///
+	groupbox label(resource LBL_PLACE_BOX_AROUND_TEXT) 	///
+	onclickon(script labels_box_on)				///
+	onclickoff(script labels_box_off)
+
+  TEXT     tx_bclr	_iilft	_ss	_wd2	.,		///
+	label(resource LBL_FILL_COLOR) right
+  COMBOBOX cb_bclr	_sep2	@	_cbwd	.,		///
+	dropdownlist contents(_colors)				///
+	onselchangelist(labels_cl_bclr_sel)
+  COLOR    cl_bclr   	_cbsep	@	_clwd	., 
+  TEXT     tx_bopacity	_iilft	_mls	_wd2	.,		///
+	label(resource LBL_FILL_OPACITY) right
+  SPINNER sp_bopacity	_sep2	@	_spwd	.,		///
+	default(100)						///
+	min(0)							///
+	max(100)
+
+  TEXT     tx_blclr	_iilft	_mls	_wd2	.,		///
+	label(resource LBL_OUTLINE_COLOR) right
+  COMBOBOX cb_blclr	_sep2	@	_cbwd	.,		///
+	dropdownlist contents(_colors) 				///
+	onselchangelist(labels_cl_blclr_sel)
+  COLOR    cl_blclr	_cbsep	@	_clwd	.,
+  TEXT     tx_blopacity	_iilft	_mls	_wd2	.,		///
+	label(resource LBL_OUTLINE_OPACITY) right
+  SPINNER sp_blopacity	_sep2	@	_spwd	.,		///
+	default(100)						///
+	min(0)							///
+	max(100)
+
+  TEXT     tx_width	_iilft	_mls	_wd2	.,		///
+	label(resource LBL_OUTLINE_WIDTH) right
+  COMBOBOX cb_width	_sep2	@	_cbwd	.,		///
+	dropdown 						///
+	contents(linewidths)
+
+  TEXT     tx_pattern	_iilft	_mls	_wd2	.,		///
+	label(resource LBL_OUTLINE_PATTERN) right
+  COMBOBOX cb_pattern	_sep2	@	_cbwd	.,		///
+	dropdownlist 						///
+	contents(_linepatterns)
+   TEXT     tx_lalign	_ilft	_mls	_wd	.,		///
+      label(resource LBL_OUTLINE_ALIGNMENT) right
+   COMBOBOX cb_lalign	_sep	@	_cbwd	.,		///
+      dropdownlist option(lalign)				///
+      contents(alignstroke)
+
+
+  TEXT     tx_bmargin	_iilft	_mls	_wd2	.,		///
+	label(resource LBL_OUTER_MARGIN) right
+  COMBOBOX cb_bmargin	_sep2	@	_cbwd	.,		///
+	dropdownlist contents(_margin) 				///
+	onselchangelist(labels_cb_bmargin_sel)
+  BUTTON   bu_bmargin	_cbsep	@	_clwd	.,		///
+	onpush(script labels_show_bmargin_dialog)		///
+	label(resource LBL_TWO_DOTS) tooltip(resource LBL_CUSTOM_MARGIN)
+
+
+  TEXTBOX tb_note	_lft	+65	_iwd	_tb2,		///
+	label(Settings on this tab reset the appearance of all 	///
+		key labels and will override any previous 	///
+		settings on individual labels.)
+END
+
+LIST labels_cb_margin_sel
+BEGIN
+	labels.bu_margin.show
+	labels.bu_margin.hide
+END
+
+SCRIPT labels_show_margin_dialog
+BEGIN
+	create CHILD gr_margin_create AS label_margin_dlg
+	label_margin_dlg.setExitString customLabelMargin
+	label_margin_dlg.setExitAction "program labels_checkCustomMargin"
+END	
+PROGRAM labels_checkCustomMargin
+BEGIN
+	if customLabelMargin {
+		call customLabelMargin.tokenize tmpArray
+		call tmp.setvalue "Custom margin "
+		call tmp.append "(Left:"
+		call tmp.append class tmpArray[1]
+		call tmp.append " Right:"
+		call tmp.append class tmpArray[2]
+		call tmp.append " Bottom:"
+		call tmp.append class tmpArray[3]
+		call tmp.append " Top:"
+		call tmp.append class tmpArray[4]
+		call tmp.append ")"
+		call tmp.withvalue labels.bu_margin.settooltip "@"
+	}
+	else {
+		call labels.bu_margin.settooltip resource LBL_CUSTOM_MARGIN_NOT_DEFINED
+	}
+END
+
+LIST labels_cl_clr_sel
+BEGIN
+	labels.cl_clr.show
+	labels.cl_clr.hide
+END
+LIST labels_cl_bclr_sel
+BEGIN
+	labels.cl_bclr.show
+	labels.cl_bclr.hide
+END
+
+LIST labels_cl_blclr_sel
+BEGIN
+	labels.cl_blclr.show
+	labels.cl_blclr.hide
+END
+
+SCRIPT labels_box_on
+BEGIN
+	labels.tx_bclr.enable
+	labels.cb_bclr.enable
+	labels.cl_bclr.enable
+	labels.tx_bopacity.enable
+	labels.sp_bopacity.enable
+	labels.tx_blclr.enable
+	labels.cb_blclr.enable
+	labels.tx_blopacity.enable
+	labels.sp_blopacity.enable
+	labels.cl_blclr.enable
+	labels.tx_bmargin.enable
+	labels.cb_bmargin.enable
+	labels.bu_bmargin.enable
+	labels.tx_width.enable
+	labels.cb_width.enable
+	labels.tx_pattern.enable
+	labels.cb_pattern.enable
+	labels.tx_lalign.enable
+	labels.cb_lalign.enable
+END
+
+SCRIPT labels_box_off
+BEGIN
+	labels.tx_bclr.disable
+	labels.cb_bclr.disable
+	labels.cl_bclr.disable
+	labels.tx_bopacity.disable
+	labels.sp_bopacity.disable
+	labels.tx_blclr.disable
+	labels.cb_blclr.disable
+	labels.cl_blclr.disable
+	labels.tx_blopacity.disable
+	labels.sp_blopacity.disable
+	labels.tx_bmargin.disable
+	labels.cb_bmargin.disable
+	labels.bu_bmargin.disable
+	labels.tx_width.disable
+	labels.cb_width.disable
+	labels.tx_pattern.disable
+	labels.cb_pattern.disable
+	labels.tx_lalign.disable
+	labels.cb_lalign.disable
+END
+
+LIST labels_cb_bmargin_sel
+BEGIN
+	labels.bu_bmargin.show
+	labels.bu_bmargin.hide
+END
+SCRIPT labels_show_bmargin_dialog
+BEGIN
+	create CHILD gr_margin_create AS label_bmargin_dlg
+	label_bmargin_dlg.setExitString customLabelBoxMargin
+	label_bmargin_dlg.setExitAction "program labels_checkCustomBoxMargin"
+END	
+PROGRAM labels_checkCustomBoxMargin
+BEGIN
+	if customLabelBoxMargin {
+		call customLabelBoxMargin.tokenize tmpArray
+		call tmp.setvalue "Custom margin "
+		call tmp.append "(Left:"
+		call tmp.append class tmpArray[1]
+		call tmp.append " Right:"
+		call tmp.append class tmpArray[2]
+		call tmp.append " Bottom:"
+		call tmp.append class tmpArray[3]
+		call tmp.append " Top:"
+		call tmp.append class tmpArray[4]
+		call tmp.append ")"
+		call tmp.withvalue labels.bu_bmargin.settooltip "@"
+	}
+	else {
+		call labels.bu_bmargin.settooltip resource LBL_CUSTOM_MARGIN_NOT_DEFINED
+	}
+END
+
+PROGRAM labels_output
+BEGIN
+	call program labels_get_defaults
+
+	if ! labels.cb_size.isdefault() {
+		put "style(labelstyle(size("
+		put labels.cb_size
+		put "))) "
+		call labelsHasOutput.settrue
+	}
+
+	if ! labels.cl_clr.isvisible() & ! labels.cb_clr.isdefault() {
+		put "style(labelstyle(color(" 
+		put labels.cb_clr 
+		put "))) "
+		call labelsHasOutput.settrue
+	}
+	if labels.cl_clr.isvisible() & ! labels.cl_clr.isdefault() {
+		put "style(labelstyle(color("  `"""'
+		put labels.cl_clr
+		put `"""' 
+		put "))) "
+		call labelsHasOutput.settrue
+	}
+
+	if labels.cb_margin.iseq("custom") {
+		if customLabelMargin & customLabelMargin.isneq(customLabelMarginDefault) {
+			put "style(labelstyle(margin("
+			put customLabelMargin
+			put "))) "
+			call labelsHasOutput.settrue
+		}
+	}
+	else {
+		if ! labels.cb_margin.isdefault() {
+			put " style(labelstyle(margin(" labels.cb_margin "))) "
+			call labelsHasOutput.settrue
+		}
+	}
+
+	if ! labels.cb_lgap.isdefault() {
+		put "style(labelstyle(linegap("
+		put labels.cb_lgap
+		put "))) "
+		call labelsHasOutput.settrue
+	}
+
+
+	if ! labels.ck_box & ! labels.ck_box.isdefault() {
+		put "style(labelstyle(drawbox(no))) "
+		call labelsHasOutput.settrue
+	}
+	if labels.ck_box  {
+		if ! labels.ck_box.isdefault() {
+			put "style(labelstyle(drawbox(yes))) "
+			call labelsHasOutput.settrue
+		}
+
+		if ! labels.cl_bclr.isvisible() & ! labels.cb_bclr.isdefault() {
+			put "style(labelstyle(fillcolor(" 
+			put labels.cb_bclr 
+			put "))) "
+			call labelsHasOutput.settrue
+		}
+		if labels.cl_bclr.isvisible() & ! labels.cl_bclr.isdefault() {
+			put "style(labelstyle(fillcolor("  `"""'
+			put labels.cl_bclr 
+			put `"""'  "))) "
+			call labelsHasOutput.settrue
+		}
+
+		if ! labels.sp_bopacity.isdefault() {
+			put "style(labelstyle(fillcolor("
+			put "%"
+			put labels.sp_bopacity
+			put "))) "
+			call labelsHasOutput.settrue
+		}
+
+		if ! labels.cl_blclr.isvisible() & ! labels.cb_blclr.isdefault() {
+			put "style(labelstyle(linestyle(color(" 
+			put labels.cb_blclr 
+			put ")))) "
+			call labelsHasOutput.settrue
+		}
+		if labels.cl_blclr.isvisible() & ! labels.cl_blclr.isdefault() {
+			put "style(labelstyle(linestyle(color("  `"""'
+			put labels.cl_blclr 
+			put `"""'  ")))) "
+			call labelsHasOutput.settrue
+		}
+		if ! labels.sp_blopacity.isdefault() {
+			put "style(labelstyle(linestyle(color("
+			put "%"
+			put labels.sp_blopacity
+			put ")))) "
+			call labelsHasOutput.settrue
+		}
+
+		if ! labels.cb_width.isdefault() {
+			put "style(labelstyle(linestyle(width("
+			put labels.cb_width
+			put ")))) "
+			call labelsHasOutput.settrue
+		}
+		if ! labels.cb_pattern.isdefault() {
+			put "style(labelstyle(linestyle(pattern("
+			put labels.cb_pattern
+			put ")))) "
+			call labelsHasOutput.settrue
+		}
+		if ! labels.cb_lalign.isdefault() {
+			put "style(labelstyle(linestyle(align("
+			put labels.cb_lalign
+			put ")))) "
+			call labelsHasOutput.settrue
+		}
+		if labels.cb_bmargin.iseq("custom") {
+			if customLabelBoxMargin  	///
+				& customLabelBoxMargin.isneq(customLabelBoxMarginDefault) {
+				put "style(labelstyle(boxmargin("
+				put customLabelBoxMargin
+				put "))) "
+				call labelsHasOutput.settrue
+			}
+		}
+		else {
+			if ! labels.cb_bmargin.isdefault() {
+				put " style(labelstyle(boxmargin(" labels.cb_bmargin "))) "
+				call labelsHasOutput.settrue
+			}
+		}
+	}
+END
+
+INCLUDE gr_ed_regions
+INCLUDE gr_ed__titles
+
+SCRIPT adv_PREINIT
+BEGIN
+	create STRING adv_alignment
+	create DOUBLE visible
+	create DOUBLE filled
+	create STRING xoffset
+	create STRING yoffset
+	create DOUBLE expandX
+	create DOUBLE expandY
+	create STRING adv_outerMargin
+	create STRING customOuterMargin
+	create STRING customOuterMarginDefault
+	program adv_get_defaults
+END
+
+SCRIPT adv_POSTINIT
+BEGIN
+	program adv_initialize_controls
+	program adv_checkOuterMargin
+END
+
+PROGRAM adv_get_defaults
+BEGIN
+	call G.withvalue index.setvalue class @.style.box_alignment.styledex
+	call index.withvalue adv_alignment.setvalue class __STYLES.compass2dir[@]
+	call adv.cb_alignment.setdefault class adv_alignment.value
+
+	call G.withvalue index.setvalue class @.style.boxmargin.styledex
+	call index.withvalue adv_outerMargin.setvalue class __STYLES.margin[@]
+	call customOuterMarginDefault.setvalue ""
+	if ! adv_outerMargin {
+		call G.withvalue adv_outerMargin.setvalue class @.style.boxmargin.left
+		call adv_outerMargin.append " "
+		call G.withvalue adv_outerMargin.append class @.style.boxmargin.right
+		call adv_outerMargin.append " "
+		call G.withvalue adv_outerMargin.append class @.style.boxmargin.bottom
+		call adv_outerMargin.append " "
+		call G.withvalue adv_outerMargin.append class @.style.boxmargin.top
+		call customOuterMarginDefault.setvalue class adv_outerMargin.value
+	}
+	call adv.cb_margin.setdefault class adv_outerMargin.value
+
+	call G.withvalue visible.setvalue class @.draw_view.istrue
+	if visible {
+		call adv.ck_hidden.setdefault 0
+	}
+	else {
+		call adv.ck_hidden.setdefault 1
+	}
+
+	call G.withvalue filled.setvalue class @.fill_if_undrawn.istrue
+	if filled {
+		call adv.ck_collapse.setdefault 0
+	}
+	else {
+		call adv.ck_collapse.setdefault 1
+	}
+
+	call G.withvalue xoffset.setvalue class @.xoffset
+	call adv.ed_xoffset.setdefault class xoffset.value
+
+	call G.withvalue yoffset.setvalue class @.yoffset
+	call adv.ed_yoffset.setdefault class yoffset.value
+
+	call G.withvalue expandX.setvalue class @.xstretch.current
+	call G.withvalue expandY.setvalue class @.ystretch.current
+	if expandX.iseq(1) {
+		call adv.ck_xstretch.setdefault 0
+	}
+	if expandX.iseq(2){
+		call adv.ck_xstretch.setdefault 1
+	}
+	if expandY.iseq(1) {
+		call adv.ck_ystretch.setdefault 0
+	}
+	if expandY.iseq(2){
+		call adv.ck_ystretch.setdefault 1
+	}
+END
+
+PROGRAM adv_initialize_controls
+BEGIN
+	if visible {
+		call adv.ck_hidden.setoff
+	}
+	else {
+		call adv.ck_hidden.seton
+	}
+
+	if filled {
+		call adv.ck_collapse.setoff
+	}
+	else {
+		call adv.ck_collapse.seton
+	}
+
+	call adv.ed_xoffset.setvalue class xoffset.value
+	call adv.ed_yoffset.setvalue class yoffset.value
+
+	call adv.cb_alignment.setvalue class adv_alignment.value
+	call adv.cb_margin.setvalue class adv_outerMargin.value
+
+	if expandX.iseq(1) {
+		call adv.ck_xstretch.setoff
+	}
+	if expandX.iseq(2){
+		call adv.ck_xstretch.seton
+	}
+	if expandY.iseq(1) {
+		call adv.ck_ystretch.setoff
+	}
+	if expandY.iseq(2){
+		call adv.ck_ystretch.seton
+	}
+END
+
+DIALOG adv, tabtitle(resource LBL_ADVANCED)
+BEGIN
+  CHECKBOX ck_hidden	_lft	_top	_iwd	.,		///
+	label(resource LBL_HIDE_LEGEND)				///
+	onclickon(adv.ck_collapse.enable)			///
+	onclickoff(adv.ck_collapse.disable)
+  CHECKBOX ck_collapse	@	_ms	@	.,		///
+	label(resource LBL_COLLAPSE_WHEN_HIDDEN)
+
+  GROUPBOX gb_alignment	_lft	_ls	_iwd	_ht5h,		///
+	label(resource GR_ED_LEGEND_ADV_GB_ALIGNMENT)
+  TEXT     tx_alignment	_ilft	_ss	_wd	.,		///
+	label(resource LBL_ALIGNMENT) right
+  COMBOBOX cb_alignment	_sep	@	_cbwd	.,		///
+	dropdownlist contents(_compass)
+
+  TEXT     tx_margin	_ilft	_mls	_wd	.,		///
+	label(resource LBL_OUTER_MARGIN) right	
+  COMBOBOX cb_margin	_sep	@	_cbwd	.,		///
+	dropdownlist contents(_margin)				///
+	onselchangelist(adv_cb_margin_sel)			///
+	tooltip(resource GR_ED_LEGEND_ADV_CB_MARGIN)
+  BUTTON   bu_margin	_cbsep	@	_clwd	.,		///
+	label(resource LBL_TWO_DOTS) tooltip(resource LBL_CUSTOM_MARGIN)			///
+	onpush(script adv_show_margin_dialog)
+
+  GROUPBOX gb_offset	_lft	+45	_iwd	_ht5h,		///
+	label(resource LBL_POSITION_OFFSET)
+  TEXT     tx_xoffset	_ilft	_ss	_wd	.,		///
+	label(resource LBL_X_OFFSET) right
+  EDIT	   ed_xoffset	_sep	@	_cbwd	.,
+
+  TEXT     tx_yoffset	_ilft	_mls	_wd	.,		///
+	label(resource LBL_Y_OFFSET) right
+  EDIT	   ed_yoffset	_sep	@	_cbwd	.,
+
+  CHECKBOX ck_ystretch	_lft	_xxls	_iwd	.,		///
+	label(resource GR_ED_LEGEND_ADV_CK_YSTRETCH)
+  CHECKBOX ck_xstretch	_lft	_ms	_iwd	.,		///
+	label(resource GR_ED_LEGEND_ADV_CK_XSTRETCH)
+END
+
+LIST adv_cb_margin_sel
+BEGIN
+	adv.bu_margin.show
+	adv.bu_margin.hide
+END
+SCRIPT adv_show_margin_dialog
+BEGIN
+	create CHILD gr_margin_create AS adv_margin_dlg
+	adv_margin_dlg.setExitString customOuterMargin
+	adv_margin_dlg.setExitAction "program adv_checkOuterMargin"
+END	
+PROGRAM adv_checkOuterMargin
+BEGIN
+	if customOuterMargin {
+		call customOuterMargin.tokenize tmpArray
+		call tmp.setvalue "Custom margin "
+		call tmp.append "(Left:"
+		call tmp.append class tmpArray[1]
+		call tmp.append " Right:"
+		call tmp.append class tmpArray[2]
+		call tmp.append " Bottom:"
+		call tmp.append class tmpArray[3]
+		call tmp.append " Top:"
+		call tmp.append class tmpArray[4]
+		call tmp.append ")"
+		call tmp.withvalue adv.bu_margin.settooltip "@"
+	}
+	else {
+		call adv.bu_margin.settooltip resource LBL_CUSTOM_MARGIN_NOT_DEFINED
+	}
+END
+
+PROGRAM adv_output
+BEGIN
+	call program adv_get_defaults
+	if ! adv.ck_hidden.isdefault() {
+		if adv.ck_hidden {
+			put " set(draw_view no) " 
+		}
+		else {
+			put " set(draw_view yes) " 
+		}
+	}
+	if ! adv.ck_collapse.isdefault() {
+		if adv.ck_collapse {
+			put " set(fill_if_undrawn no) " 
+		}
+		else {
+			put " set(fill_if_undrawn yes) " 
+		}
+	}
+
+	if ! adv.cb_alignment.isdefault() {
+		put "style(box_alignment("
+		put adv.cb_alignment
+		put ")) "
+	}
+
+	if adv.cb_margin.iseq("custom") {
+		if customOuterMargin 		///
+			& customOuterMargin.isneq(customOuterMarginDefault) {
+			put "style(boxmargin("
+			put customOuterMargin
+			put ")) "
+		}
+	}
+	else {
+		if ! adv.cb_margin.isdefault() {
+			put " style(boxmargin(" adv.cb_margin ")) "
+		}
+	}
+
+	if ! adv.ed_xoffset.isdefault() {
+		put "set(xoffset " adv.ed_xoffset ") "
+	}
+	if ! adv.ed_yoffset.isdefault() {
+		put "set(yoffset " adv.ed_yoffset ") "
+	}
+
+	if ! adv.ck_ystretch.isdefault() {
+		if adv.ck_ystretch {
+			put "set(ystretch free) "
+		}
+		else {
+			put "set(ystretch fixed) "
+		}
+	}
+	if ! adv.ck_xstretch.isdefault() {
+		if adv.ck_xstretch {
+			put "set(xstretch free) "
+		}
+		else {
+			put "set(xstretch fixed) "
+		}
+	}
+END
+
+PROGRAM command
+BEGIN
+	call create BOOLEAN mainHasOutput
+	call mainHasOutput.setfalse
+	call program main_output // dry run
+
+	call create BOOLEAN labelsHasOutput
+	call labelsHasOutput.setfalse
+	call program labels_output // dry run
+
+	put "." GRAPH ".UndoBegin"
+	stata hidden queue
+
+	put "_gm_dlg_edits"
+	beginoptions
+		put " object(" G ") "
+		if mainHasOutput {
+			put " cmd(_gm_edit ." G ".Edit , "
+			put " " /program main_output
+			put " keepstyles ) "
+		}
+		if labelsHasOutput {
+			put "cmd(_gm_edit ." G ".Edit, "
+			put " " /program labels_output
+			put ") "
+		}
+		put " " /program region_output
+		put " " /program adv_output
+
+		call program titles_output	// has own output routine
+
+		put " epilog(_gedi toolbar legend " G ")"
+	endoptions
+	stata hidden queue
+
+	put "." GRAPH ".UndoEnd " G
+	stata hidden queue
+END

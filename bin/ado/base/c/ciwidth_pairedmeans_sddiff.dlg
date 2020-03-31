@@ -1,0 +1,455 @@
+/*
+	ciwidth pairedmeans, sddiff()
+
+*!  VERSION 1.0.9  30jul2019
+
+*/
+
+VERSION 16.0
+
+INCLUDE _std_xwide
+DEFINE _dlght 520
+INCLUDE header
+
+HELP hlp1, view("help ciwidth pairedmeans")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING graph_res
+	setscale_hadj resource CIWIDTH_PAIREDMEANS_SDDIFF_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	main.cb_compute.setcontentslist main_compute_onemean_list
+	main.cb_compute.setvalueslist main_compute_onemean_values
+	main.cb_compute.repopulate
+	main.cb_compute.setvalue sampsi
+	program main_probwidth_show
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	label(resource CIWIDTH_PAIREDMEANS_SDDIFF_DLG_TITLE)
+BEGIN
+  
+  INCLUDE ciwidth_compute
+
+  DEFINE con_y _ls
+  INCLUDE ciwidth_confidence
+
+  DEFINE samp_y +55
+  INCLUDE ciwidth_sampsi
+
+  GROUPBOX gb_precision		_lft	+45	_iwd	_ht8,		///
+	label(resource LBL_PRECISION)
+/*
+  GROUPBOX gb_means		_ilft	_ss	_cwd1	_ht5,		///
+	label("Means (optional)")
+//	label(resource LBL_MEANS_OPTIONAL)
+
+  DEFINE holdy2 @y
+  EDIT ed_control		_indent	_ss	_en14wd	.,		///
+	onchange(program check_for_numlist)				///
+	tooltip(resource POWER_TWOMEANS_MAIN_ED_CONTROL)		///
+	label("")
+  TEXT tx_control		_en14sep @	100	.,		///
+	label(resource LBL_STAR_CONTROL)
+  EDIT ed_exp_diff		_iilft	_ls	_en14wd	.,		///
+	onchange(program check_for_numlist)				///
+	option(diff)							///
+	label("")
+  TEXT tx_exp_diff		_en14sep @	8	.,		///
+	label("*")
+  COMBOBOX cb_exp_diff		+10	 @	100	.,		///
+	dropdownlist							///
+	contents("main_effect_list")					///
+	values("main_effect_values")					///
+	onselchange("program check_for_numlist")			///
+	label("")
+*/
+  EDIT ed_width			_ilft	_ss	_en14wd	.,		///
+	option(width)							///
+	onchange("program check_for_numlist")				///
+	error(resource LBL_STAR_CI_WIDTH)
+  DEFINE holdy2 @y
+  TEXT tx_width			_en14sep @	120	.,		///
+	label(resource LBL_STAR_CI_WIDTH)
+
+  GROUPBOX gb_sd		_lft2	holdy2	_cwd2	_ht5,		///
+	label(resource LBL_STANDARD_DEVIATION_OF_THE_DIFFERENCES)
+  EDIT ed_sd			_indent	_ss	_en14wd	.,		///
+	option(sddiff)							///
+	onchange("program check_for_numlist")				///
+	label(resource LBL_STAR_STANDARD_DEVIATION)
+  TEXT tx_sd			_en14sep @	120	.,		///
+	label(resource LBL_STAR_STANDARD_DEVIATION)
+  CHECKBOX ck_knownsd		_ilft2	_ms	230	.,		///
+	option(knownsd)							///
+	onclickon("program main_knownsd_changed")			///
+	onclickoff("program main_knownsd_changed")			///
+	label(resource LBL_ASSUME_A_KNOWN_STANDARD_DEVIATION)
+
+  TEXT tx_fpc			_lft	+55	_cwd1	.,		///
+	label(resource LBL_STAR_FINITE_POPULATION_CORRECTION)
+  COMBOBOX cb_fpc		@	_ss	160	.,		///
+	dropdownlist							///
+	contents("main_fpc_list")					///
+	values("main_fpc_values")					///
+	onselchange("program main_fpc_changed")				///
+	label(resource LBL_FINITE_POPULATION_CORRECTION)
+  EDIT ed_fpc			+170	@	_en14wd	.,		///
+	option(fpc)							///
+	onchange(program check_for_numlist)				///
+	label(resource LBL_FINITE_POPULATION_CORRECTION)
+
+  DEFINE ypos _ls
+  INCLUDE ciwidth_test_maincommon
+END
+
+PROGRAM main_compute_changed
+BEGIN
+	if main.cb_compute.iseq("sampsi") {
+		call program main_sampsi_on
+	}
+	if main.cb_compute.iseq("ciwidth") {
+		call program main_ciwidth_on
+	}
+	if main.cb_compute.iseq("probci") {
+		call program main_probci_on
+	}
+	call program main_knownsd_changed
+END
+
+PROGRAM main_check_table_tab
+BEGIN
+	call program table_create4Pairedmeans_sddiff
+END
+
+PROGRAM main_sampsi_on
+BEGIN
+	call program main_probwidth_show
+
+	call main.ck_nfractional.show
+	call main.ed_n.hide
+	call main.tx_n.hide
+
+	call script ciwidth_show_width_move_sd
+END
+
+PROGRAM main_ciwidth_on
+BEGIN
+	call program main_probwidth_show
+
+	call main.ck_nfractional.hide
+	call main.ed_n.show
+	call main.tx_n.show
+
+	call script ciwidth_hide_width_move_sd
+END
+
+PROGRAM main_probci_on
+BEGIN
+	call script main_probwidth_hide
+
+	call main.ck_nfractional.hide
+	call main.ed_n.show
+	call main.tx_n.show
+
+	call script ciwidth_show_width_move_sd
+END
+
+SCRIPT ciwidth_hide_width_move_sd
+BEGIN
+	main.ed_width.hide
+	main.tx_width.hide
+END
+
+SCRIPT ciwidth_show_width_move_sd
+BEGIN
+	main.ed_width.show
+	main.tx_width.show
+END
+
+PROGRAM main_knownsd_changed
+BEGIN
+	call main.ed_probwidth.enable
+	call main.ck_knownsd.enable
+	if main.cb_compute.iseq("probci") {
+		call main.ck_knownsd.disable
+		call main.ck_knownsd.setoff
+	}
+	if main.ck_knownsd {
+		call main.ed_probwidth.disable
+	}
+	else {
+		if main.ed_probwidth {
+			call main.ck_knownsd.disable
+		}
+	}
+
+	call program ciwidth_iteration_tab_check
+	call program main_check_table_tab
+END
+
+PROGRAM main_fpc_changed
+BEGIN
+	if main.cb_fpc.iseq("none") {
+		call main.ed_fpc.hide
+	}
+	else {
+		call main.ed_fpc.show
+	}
+	call program check_for_numlist
+	call program ciwidth_iteration_tab_check
+END
+
+PROGRAM ciwidth_precision_output
+BEGIN
+	require main.ed_sd
+	if !main.ed_sd.isNumlistGE(0) & main.ed_sd.isvisible() {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format					///
+			"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+			"resource LBL_TAB_MAIN" 			///
+			"resource LBL_STANDARD_DEVIATION" 
+		stopbox stop "class _MSG_TMP.value"
+
+	}
+	if main.cb_compute.isneq("ciwidth") {
+		if !main.ed_width.isnumlist() | main.ed_width.isNumlistLT(0) {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format					///
+			"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+			"resource LBL_TAB_MAIN" 			///
+			"resource LBL_CI_WIDTH" 
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for CI width
+
+		}
+		optionarg main.ed_width
+	}
+
+	optionarg main.ed_sd
+	option main.ck_knownsd
+END
+
+PROGRAM check_for_numlist
+BEGIN
+
+	call create STRING numContents
+	call create STRING stok
+	call create ARRAY tmp
+	call create BOOLEAN containsNumlist
+
+	call containsNumlist.setfalse
+
+	if main.ed_level & main.ed_level.isvisible() {
+		call numContents.setvalue class main.ed_level.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_alpha & main.ed_alpha.isvisible() {
+		call numContents.setvalue class main.ed_alpha.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_probwidth & main.ed_probwidth.isvisible() &		///
+		main.ed_probwidth.isenabled() {
+		call numContents.setvalue class main.ed_probwidth.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_width & main.ed_width.isvisible() {
+		call numContents.setvalue class main.ed_width.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_n & main.ed_n.isvisible() {
+		call numContents.setvalue class main.ed_n.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+/*
+	if main.ed_control {
+		call numContents.setvalue class main.ed_control.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_exp_diff {
+		call numContents.setvalue class main.ed_exp_diff.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+*/
+	if main.ed_sd {
+		call numContents.setvalue class main.ed_sd.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_fpc & main.ed_fpc.isvisible() {
+		call numContents.setvalue class main.ed_fpc.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if containsNumlist {
+		call main.ck_parallel.enable
+	}
+	else {
+		call main.ck_parallel.disable
+	}
+	call program main_check_table_tab
+	call program main_knownsd_changed
+END
+
+PROGRAM ciwidth_iteration_tab_check
+BEGIN
+	call script ciwidth_iteration_enable
+	if main.cb_compute.iseq("ciwidth") {
+		call script ciwidth_iteration_disable
+	}
+	if main.cb_compute.iseq("sampsi") {
+		call script ciwidth_iteration_is_sampsi
+		if main.cb_sided.iseq("onesided") & main.ck_knownsd & main.cb_fpc.iseq("none") {
+			call script ciwidth_iteration_disable
+		}
+	}
+	if main.cb_compute.iseq("probci") {
+		call script ciwidth_iteration_disable
+	}
+END
+
+
+INCLUDE ciwidth_list
+INCLUDE ciwidth_confidence_pr
+INCLUDE ciwidth_sampsi_pr
+INCLUDE ciwidth_test_maincommon_pr
+INCLUDE ciwidth_table_opts
+INCLUDE ciwidth_graph
+INCLUDE ciwidth_iteration
+
+PROGRAM command
+BEGIN
+	if main.cb_compute.iseq("sampsi") {
+		require main.ed_width
+	}
+	if main.cb_compute.iseq("probci") {
+		require main.ed_width
+	}
+
+	if main.cb_fpc.iseq("sample_rate") & !main.ed_fpc.isNumlistInRange(0,1) & main.ed_fpc.isvisible() {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format					///
+			"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+			"resource LBL_TAB_MAIN" 			///
+			"resource LBL_FINITE_POPULATION_CORRECTION" 
+		stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "fpc" correlation.
+	}
+	if main.cb_fpc.iseq("pop_size") & !main.ed_fpc.isNumlistGT(1) & main.ed_fpc.isvisible() {
+		call create STRING _MSG_TMP
+		call _MSG_TMP.format					///
+			"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+			"resource LBL_TAB_MAIN" 			///
+			"resource LBL_FINITE_POPULATION_CORRECTION" 
+		stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "fpc" correlation.
+	}
+
+	put "ciwidth pairedmean "
+/*
+	if main.ed_control {
+		put " (" main.ed_control ")"
+		require main.ed_exp_diff
+	}
+	if main.cb_exp_diff.iseq("exp") & main.ed_exp_diff {
+		put " (" main.ed_exp_diff ")"
+	}
+*/
+
+	beginoptions
+/*
+		if main.cb_exp_diff.iseq("diff") & main.ed_exp_diff {
+			put " diff(" main.ed_exp_diff ")"
+		}
+*/
+		put " " /program ciwidth_confidence_output
+		put " " /program ciwidth_sampsi_output
+		put " " /program ciwidth_precision_output
+		optionarg main.ed_fpc
+		put " " /program ciwidth_test_maincommon_output
+		put " " /program ciwidth_table_opts_output
+		put " " /program ciwidth_graph_output
+		put " " /program ciwidth_iteration_output
+	endoptions
+END

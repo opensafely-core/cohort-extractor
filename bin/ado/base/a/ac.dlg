@@ -1,0 +1,136 @@
+/*
+  ac
+
+*! VERSION 2.1.1  02may2017
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE header
+HELP hlp1, view("help ac")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource AC_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script gr_plots_setDefaultDropline
+	script gr_ciplots_setDefaultArea
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN) label(resource AC_DLG_TITLE)
+BEGIN
+  DEFINE _x _xsetbu
+  DEFINE _y _top
+  INCLUDE _bu_tsset
+  TEXT     tx_var	_lft	_top	_cwd2	.,		///
+	label(resource LBL_VARIABLE)
+  VARNAME  vn_var	@	_ss	_vnwd	.,		///
+	numeric							///
+	label(resource LBL_VARIABLE)
+
+  GROUPBOX gb_opt	_lft	+35	_iwd	_ht19,		///
+	label(resource LBL_OPTIONS)
+
+  GROUPBOX gb_lags	_indent	_ss	_ibwd	_ht4h,		///
+	label(resource AC_MAIN_GB_LAGS)
+  RADIO    rb_lags1	_indent	_ss	_inwd	.,		///
+	label(resource AC_MAIN_RB_LAGS1)			///
+	onclickon(gaction main.sp_lags2.disable)		///
+	first
+  RADIO    rb_lags2	@	_ms	_rbwd	.,		///
+	onclickon(gaction main.sp_lags2.enable)			///
+	last
+  SPINNER  sp_lags2	_rbsep	@	_spwd	.,		///
+	label(resource AC_MAIN_SP_LAGS2)			///
+	min(1) max(100) default(1)				///
+	option(lags)
+  TEXT     tx_lags2	_spsep	@	_rbspr2bb .,		///
+	label(resource AC_MAIN_SP_LAGS2)
+
+  CHECKBOX ck_gen	_ilft	_xls	_ibwd	.,		///
+	onclickon(script graph_off)				///
+	onclickoff(script graph_on)				///
+	label(resource AC_MAIN_CK_GEN)
+  EDIT     ed_gen	_indent2 _ss	_vnwd	.,		///
+	max(32) 						///
+	option(nograph generate)				///
+	error(resource AC_MAIN_ED_GEN)
+
+  DEFINE _x _ilft
+  DEFINE _y +35
+  DEFINE _cx _sprb
+  INCLUDE _sp_level
+
+  CHECKBOX ck_fft	_x	_ls	_ibwd	.,		///
+	option(fft)						///
+	label(resource AC_MAIN_CK_FFT)
+END
+
+SCRIPT graph_off
+BEGIN
+	main.ed_gen.enable
+	script gr_plots_disable
+	script gr_ciplots_disable
+	script gr_addplots_disable
+	script gr_yaxis_disable
+	script gr_xaxis_disable
+	script gr_titles_disable
+	script gr_legend_disable
+	script gr_overall_disable
+END
+
+SCRIPT graph_on
+BEGIN
+	main.ed_gen.disable
+	script gr_plots_enable
+	script gr_ciplots_enable
+	script gr_addplots_enable
+	script gr_yaxis_enable
+	script gr_xaxis_enable
+	script gr_titles_enable
+	script gr_legend_enable
+	script gr_overall_enable
+END
+
+INCLUDE ifin
+INCLUDE gr_plots
+INCLUDE gr_ciplots
+INCLUDE gr_addplots_2
+INCLUDE gr_yaxis
+INCLUDE gr_xaxis
+INCLUDE gr_titles
+INCLUDE gr_legend
+INCLUDE gr_overall
+
+PROGRAM command
+BEGIN
+	put "ac "
+	varlist main.vn_var
+	INCLUDE _ifin_pr
+	beginoptions
+		if main.rb_lags2 {
+			optionarg main.sp_lags2
+		}
+		if main.ck_gen {
+			require main.ed_gen
+			optionarg main.ed_gen
+		}
+		INCLUDE _level_main_pr
+		option main.ck_fft
+
+		put " " /program gr_plots_output
+		put " " /program gr_ciplots_output
+		put " " /program gr_addplots_output
+		put " " /program gr_yaxis_output
+		put " " /program gr_xaxis_output
+		put " " /program gr_titles_output
+		put " " /program gr_legend_output
+		put " " /program gr_overall_output
+	endoptions
+END

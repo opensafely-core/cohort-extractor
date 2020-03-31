@@ -1,0 +1,153 @@
+/*
+  newey
+
+*! VERSION 1.1.1  19may2015
+
+  keyword:  eclass
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_large
+INCLUDE header
+
+HELP hlp1, view("help newey")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        setscale_hadj resource NEWEY_DLG_HSCALE
+END
+
+DIALOG main, label(resource NEWEY_DLG_TITLE)/*
+		*/ tabtitle(resource LBL_TAB_MODEL)
+BEGIN
+  /*--+----1----+----2----+----3----+----4----+----5----+----6----+----7----+*/ 
+  DEFINE _x _xsetbu
+  DEFINE _y _top
+  INCLUDE _bu_tsset
+
+  TEXT tx_dv 		_lft	_topph	_vnwd	.,			///
+	label(resource LBL_DEPVAR)
+  VARNAME vn_dv		@ 	_ss	@	.,			///
+	ts								///
+	numeric								///
+	label(resource LBL_DEPVAR)
+
+  TEXT tx_iv		_vlx	_topph	160	.,			///
+	label(resource LBL_INDDEPVAR)
+  VARLIST vl_iv		@	_ss	_vlwd	.,			///
+	fv ts								///
+	allowcat							///
+	numeric								///
+	label(resource LBL_INDDEPVAR)
+
+  CHECKBOX ck_nocons @         _ms       @         .,			/*
+		*/ label(resource LBL_NOCONSTANT)			/*
+		*/ option("noconstant")					/*
+		*/  
+  GROUPBOX gb_lag    _lft      _ls       _iwd      _ht5,		/*
+  		*/ label("")
+  RADIO    rb_lag0   _ilft     _ss       _inwd     .,			/*
+		*/ label(resource NEWEY_MAIN_RB_LAG0)			/*
+		*/ clickon("script lag0")				/*
+		*/ first						/*
+		*/ option("lag(0)")					/*
+		*/
+  RADIO    rb_lag    @         _ms       _rbwd     .,			/*
+		*/ clickon("script lag")				/*
+		*/ last							/*
+		*/
+  SPINNER  sp_lag    _rbsep    @         _spwd     .,			/*
+		*/ label(resource NEWEY_MAIN_SP_LAG)			/*
+		*/ min(1)						/*
+		*/ max(c(N))						/*
+		*/ default("1")						/*
+		*/ option("lag")					/*
+		*/
+  DEFINE x @x
+  TEXT     tx_lag    _spsep    @         _rbsprb   .,			/*
+		*/ label(resource NEWEY_MAIN_TX_LAG)			/*
+		*/
+		
+END
+
+SCRIPT lag0
+BEGIN
+	main.sp_lag.disable
+END
+
+SCRIPT lag
+BEGIN
+	main.sp_lag.enable
+END
+
+INCLUDE byifin
+INCLUDE weights_a
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+        program rpt_bu_facvars_ckResults
+END
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+  DEFINE _x _lft
+  DEFINE _cx _spr2b
+  DEFINE _y 20
+  INCLUDE _sp_level
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+
+PROGRAM rpt_output
+BEGIN
+	optionarg /hidedefault rpt.sp_level
+	INCLUDE _report_columns_pr
+	put " " rpt_bu_facvarsResults
+	put " " rpt_bu_fmtcoefResults
+END
+
+PROGRAM command
+BEGIN
+	put " " /program by_output
+	put "newey "
+	varlist main.vn_dv [main.vl_iv]
+	if !main.vl_iv & main.ck_nocons {
+		call create STRING _MSG_TMP
+                call _MSG_TMP.format					/// 
+			"resource LBL_MSGBOX_IS_SELECTED_WITHOUT_INDVARS_FMT" ///
+			"resource LBL_NOCONSTANT" 
+		stopbox stop "class _MSG_TMP.value"
+// "Suppress constant term" is selected without independent variables.
+	} 	
+	INCLUDE _weights_pr
+	put " " /program ifin_output
+	beginoptions
+		option main.ck_nocons
+		option main.rb_lag0
+		if main.rb_lag {
+			optionarg main.sp_lag
+		}		
+		put " " /program rpt_output
+	endoptions
+END
+

@@ -1,0 +1,899 @@
+/*
+	power oneway
+
+*!  VERSION 1.1.4  14mar2017
+
+*/
+
+VERSION 14.0
+
+INCLUDE _std_wide
+DEFINE _dlght 500
+INCLUDE header
+
+HELP hlp1, view("help power oneway")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING numContents
+	create STRING stok
+	create ARRAY tmp
+	create STRING numContents1
+	create BOOLEAN containsNumlist
+	create STRING gsimpsi_res
+	create BOOLEAN child_hasNumlist
+	create DOUBLE ngrps
+	create STRING dlgName
+	create DOUBLE tmp_ngrps
+	create BOOLEAN hasCont
+	create STRING  tmp_gmeans
+	
+	dlgName.setvalue class _dlg_rsrcname
+	child_hasNumlist.setfalse
+	program table_create4Oneway
+	setscale_hadj resource POWER_ONEWAY_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program check_gsimpsi_result
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	label(resource POWER_ONEWAY_DLG_TITLE)
+BEGIN
+  INCLUDE power_compute
+  DEFINE errpos _ls
+  INCLUDE power_errorprob
+  DEFINE sspos +45
+  INCLUDE power_onewaysampsi
+
+  GROUPBOX gb_effect_size	_lft	200	_iwd	_ht14h,		///
+	label(resource LBL_EFFECT_SIZE)
+  TEXT 	tx_means		_indent	_ss	_cwd1	.,		///
+	label(resource LBL_SPECIFY)
+  COMBOBOX cb_meanspec		@	+35	_cwd4	.,		///
+  	dropdownlist							///
+	contents("main_means_list")					///
+	values("main_means_values")					///
+	onselchange("program main_means_changed")			///
+  	label(resource LBL_SPECIFY)
+  EDIT	ed_meannum		_ilft	_xls	_en14wd	.,		///
+  	label(resource LBL_ALTERNATIVE_GROUP_MEANS)			///
+  	onchange(program power_oneway_dim_check)			///
+  	tooltip(resource POWER_ONEWAY_MAIN_ED_MEANNUM)
+  EDIT	ed_varmeans		@	@	@	.,		///
+  	option(varmeans)						///
+  	label(resource POWER_ONEWAY_MAIN_ED_VARMEANS) 			///
+  	onchange(program check_for_numlist)				///
+  	tooltip(resource POWER_ONEWAY_MAIN_ED_VARMEANS_TOOLTIP)
+  EDIT	ed_delta		@	@	@	.,		///
+  	option(delta)							///
+  	onchange(program check_for_numlist)				///
+  	label(resource POWER_ONEWAY_MAIN_ED_DELTA)			///
+  	tooltip(resource POWER_ONEWAY_MAIN_ED_DELTA_TOOLTIP)
+  TEXT	tx_meannum		_en14sep @	_cwd1	.,		///
+  	label(resource LBL_ALTERNATIVE_GROUP_MEANS)
+  TEXT	tx_varmeans		@	@	@	.,		///
+  	label(resource POWER_ONEWAY_MAIN_TX_VARMEANS)
+  TEXT	tx_delta		@	@	@	.,		///
+  	label(resource POWER_ONEWAY_MAIN_TX_DELTA)
+  COMBOBOX cb_meanmat		_ilft	@	_en14wd	.,		///
+	label(resource LBL_ALTERNATIVE_GROUP_MEANS)			///
+	contents(matrix)						///
+	onselchange(program power_oneway_dim_check)			///
+	dropdown
+  BUTTON bu_meanmat		_en14sep @	120	.,		///
+	label(resource LBL_INPUT_MATRIX)				///
+	onpush(program show_gmeans_matrix)				///
+	tooltip(resource LBL_INPUT_GROUP_MEANS_AS_MATRIX_BY_HAND)
+  EDIT	ed_varerror		_ilft	_ls	_en14wd	.,		///
+  	default(1)							///
+  	option(varerror)						///
+  	onchange(program check_for_numlist)				///
+  	label(resource LBL_ERROR_VARIANCE)				///
+  	tooltip(resource POWER_TWOWAY_MAIN_ED_VARERROR)
+  SPINNER sp_ngroups		@	@	@	.,		///
+  	min(2)								///
+  	option(ngroups)							///
+  	onchange(program power_oneway_dim_check)			///
+  	label(resource LBL_NUMBER_OF_GROUPS)
+  TEXT	tx_varerror		_en14sep @	_cwd1	.,		///
+  	label(resource POWER_ONEWAY_MAIN_TX_VARERROR)
+  TEXT	tx_ngroups		@ 	@	@	.,		///
+  	label(resource LBL_NUMBER_OF_GROUPS)
+  DEFINE holdy2 @y
+  CHECKBOX cb_cont		_lft2	holdy2	_cwd2	_ht11h,		///
+  	groupbox							///
+  	onclickon(program main_contrast_enable)				///
+  	onclickoff(program main_contrast_disable)			///
+	label(resource POWER_ONEWAY_MAIN_CB_CONT)
+  TEXT tx_cont			_ilft2	_ss	_inwd	., 		///
+	label(resource POWER_ONEWAY_MAIN_TX_CONT)
+  TEXT tx_nullcont		_ilft2	+45	@	., 		///
+	label(resource LBL_NULL_VALUE_OF_MEAN_CONTRAST)
+  EDIT ed_cont			_iilft2	-10	_en14wd	.,		///
+  	option(contrast)						///
+	onchange(program check_for_numlist)				///
+	label(resource POWER_ONEWAY_MAIN_TX_CONT)			///
+	tooltip(resource POWER_ONEWAY_MAIN_ED_CONT_TOOLTIP)
+  TEXT tx_conts			_en14sep @	95	.,		///
+	label("*")
+  EDIT ed_nullcont		_iilft2	+45	_en14wd	.,		///
+  	option(null)							///
+	default(0)							///
+	label(resource LBL_NULL_VALUE_OF_MEAN_CONTRAST)			///
+	tooltip(resource POWER_ONEWAY_MAIN_ED_NULLCONT_TOOLTIP)
+  TEXT tx_nullconts		_en14sep @	95	.,		///
+	label("")
+  CHECKBOX ck_onesided		_ilft2	+20	150	.,		///
+  	option(onesided)						///
+  	label(resource POWER_ONEWAY_MAIN_CK_ONESIDED)
+  DEFINE ypos +30
+  CHECKBOX ck_parallel		_lft	ypos	_iwd	.,		///
+	option(parallel)						///
+	label(resource LBL_TREAT_NUMBER_LISTS_IN_STARRED_OPTIONS_AS_PARALLEL)
+END
+
+LIST main_compute_list
+BEGIN
+	resource LBL_SAMPLE_SIZE
+	resource PSS_LBL_POWER
+	resource POWER_ONEWAY_EFFECT_SIZE_TARGET_BETWEEN_GROUP_VAR
+END
+
+LIST main_compute_values
+BEGIN
+	tot_sampsi
+	power
+	effect
+END
+
+INCLUDE _power_list
+
+LIST main_means_list
+BEGIN
+	resource LBL_ALTERNATIVE_GROUP_MEANS
+	resource LBL_ALTERNATIVE_GROUP_MEANS_MATRIX
+	resource POWER_ONEWAY_BETWEEN_GROUP_VAR_NO_OF_GROUPS
+	/*"F-test effect size"*/
+END
+
+LIST main_means_values
+BEGIN
+	"gmeans"
+	"gmeansmat"
+	"bgvar"
+	/*"ftest"*/
+END
+
+PROGRAM main_compute_changed
+BEGIN
+	if main.cb_compute.iseq("tot_sampsi") {
+		call program main_tot_sampsi_on
+	}
+	if main.cb_compute.iseq("power") {
+		call program main_power_on
+	}
+	if main.cb_compute.iseq("effect") {
+		call program main_effect_on
+	}
+	call program check_for_numlist
+END
+
+PROGRAM main_tot_sampsi_on
+BEGIN
+	call script main_sampsi_hide_all
+	call main.gb_sample_size.setposition . . . 95
+	call main.ck_nfrac.setposition . 190
+	call main.tx_sampsi.show
+	call main.cb_sampsi.hide
+	call main.cb_grw.show
+	call main.ed_power.show
+	call main.ed_beta.show
+	call main.tx_power_beta_power.show
+	call main.cb_power_beta.show
+	call program main_grw_changed
+	call program main_move_effect_size
+	call program main_means_changed
+	call program main_move_main_opts
+	call program main_power_beta_changed
+	call program power_iteration_tab_check
+	call program power_oneway_dim_check
+END
+
+PROGRAM main_power_on
+BEGIN
+	call script main_sampsi_hide_all
+	call main.gb_sample_size.setposition . . . 95
+	call main.ck_nfrac.setposition . 190
+	call main.tx_sampsi.show
+	call main.cb_sampsi.show
+	call main.ed_power.hide
+	call main.ed_beta.hide
+	call main.tx_power_beta_power.hide
+	call main.cb_power_beta.hide
+	call program main_move_effect_size
+	call program main_means_changed
+	call program main_sampsi_changed
+	call program main_move_main_opts
+	call program power_iteration_tab_check
+	call program power_oneway_dim_check
+END
+
+PROGRAM main_effect_on
+BEGIN
+	call script main_sampsi_hide_all
+	call main.gb_sample_size.setposition . . . 95
+	call main.ck_nfrac.setposition . 190
+	call main.tx_sampsi.show
+	call main.cb_sampsi.show
+	call main.ed_power.show
+	call main.ed_beta.show
+	call main.tx_power_beta_power.show
+	call main.cb_power_beta.show
+	call program main_sampsi_changed
+	call program main_move_effect_size
+	call program main_means_changed 
+	call program main_move_main_opts
+	call program main_power_beta_changed
+	call program power_iteration_tab_check
+	call program power_oneway_dim_check
+END
+
+PROGRAM main_means_changed
+BEGIN
+	if main.cb_meanspec.isvisible() {
+		if main.cb_meanspec.iseq("gmeans") {
+			call program main_gmeans_on
+		}
+		if main.cb_meanspec.iseq("gmeansmat") {
+			call program main_gmeansmat_on
+		}
+		if main.cb_meanspec.iseq("bgvar") {
+			call program main_bgvar_on
+		}
+		/*if main.cb_meanspec.iseq("ftest") {
+			call program main_ftest_on
+		}*/
+		call program power_oneway_dim_check
+		call program check_for_numlist
+	}
+END
+
+PROGRAM main_gmeans_on
+BEGIN
+	call main.ed_meannum.show
+	call main.tx_meannum.show
+	call main.cb_meanmat.hide
+	call main.bu_meanmat.hide
+	call main.ed_varmeans.hide
+	call main.tx_varmeans.hide
+	call main.sp_ngroups.hide
+	call main.tx_ngroups.hide
+	call main.ed_delta.hide
+	call main.tx_delta.hide
+	call main.ed_varerror.show
+	call main.tx_varerror.show
+	
+	if main.cb_compute.iseq("power") | main.cb_compute.iseq("effect") {
+		call main.cb_sampsi.show
+		call program main_sampsi_changed
+	} 
+	call main.ed_varerror.setposition . 350
+	call main.tx_varerror.setposition . 350
+	call main.cb_grw.enable
+	call main.ed_grw.enable
+	call main.cb_grw_mat.enable
+	call main.bu_grw_mat.enable
+	call main.tx_grw.enable
+	call program main_contrast_show
+END
+
+PROGRAM main_gmeansmat_on
+BEGIN
+	call main.ed_meannum.hide
+	call main.tx_meannum.hide
+	call main.cb_meanmat.show
+	call main.bu_meanmat.show
+	call main.ed_varmeans.hide
+	call main.tx_varmeans.hide
+	call main.sp_ngroups.hide
+	call main.tx_ngroups.hide
+	call main.ed_delta.hide
+	call main.tx_delta.hide
+	call main.ed_varerror.show
+	call main.tx_varerror.show
+
+	if main.cb_compute.iseq("power") | main.cb_compute.iseq("effect") {
+		call main.cb_sampsi.show
+		call program main_sampsi_changed
+	} 
+	call main.ed_varerror.setposition . 350
+	call main.tx_varerror.setposition . 350
+	call main.cb_grw.enable
+	call main.ed_grw.enable
+	call main.cb_grw_mat.enable
+	call main.bu_grw_mat.enable
+	call main.tx_grw.enable
+	call program main_contrast_show
+END
+
+PROGRAM main_bgvar_on
+BEGIN
+	call main.ed_meannum.hide
+	call main.tx_meannum.hide
+	call main.cb_meanmat.hide
+	call main.bu_meanmat.hide
+	call main.ed_varmeans.show
+	call main.tx_varmeans.show
+	call main.sp_ngroups.show
+	call main.tx_ngroups.show
+	call main.ed_delta.hide
+	call main.tx_delta.hide
+	call main.ed_varerror.show
+	call main.tx_varerror.show
+	
+	if main.cb_compute.iseq("power") | main.cb_compute.iseq("effect") {
+		call main.cb_sampsi.show
+	} 
+	if main.cb_compute.iseq("tot_sampsi") {
+		call main.cb_grw.enable
+		call main.ed_grw.enable
+		call main.cb_grw_mat.enable
+		call main.bu_grw_mat.enable
+		call main.tx_grw.enable
+	}
+	call main.ed_varerror.setposition . 380
+	call main.tx_varerror.setposition . 380
+	call program main_contrast_hide
+END
+
+/*PROGRAM main_ftest_on
+BEGIN
+	call main.ed_meannum.hide
+	call main.tx_meannum.hide
+	call main.cb_meanmat.hide
+	call main.bu_meanmat.hide
+	call main.ed_varmeans.hide
+	call main.tx_varmeans.hide
+	call main.sp_ngroups.show
+	call main.tx_ngroups.show
+	call main.ed_delta.show
+	call main.tx_delta.show
+	call main.ed_varerror.hide
+	call main.tx_varerror.hide
+
+	if main.cb_compute.iseq("power") | main.cb_compute.iseq("effect") {
+		call main.cb_sampsi.show
+	} 
+	if main.cb_compute.iseq("tot_sampsi") {	
+		call main.cb_grw.enable
+		call main.ed_grw.enable
+		call main.cb_grw_mat.enable
+		call main.bu_grw_mat.enable
+		call main.tx_grw.enable
+	}
+	
+	call program main_contrast_hide
+END*/
+
+INCLUDE power_errorprob_pr
+INCLUDE power_onewaysampsi_pr
+
+PROGRAM main_power_beta_table
+BEGIN
+	call program table_create4Oneway
+END
+
+PROGRAM main_move_effect_size
+BEGIN
+	if main.cb_compute.iseq("tot_sampsi") {
+		call main.gb_effect_size.setposition . 240
+		call main.tx_means.show
+		call main.cb_meanspec.show
+		call main.cb_grw.setposition . 165
+		call main.tx_means.setposition . 260
+		call main.cb_meanspec.setposition . 280
+		call main.ed_meannum.setposition . 320
+		call main.tx_meannum.setposition . 320
+		call main.ed_varmeans.setposition . 350
+		call main.tx_varmeans.setposition . 350
+		call main.ed_delta.setposition . 320
+		call main.tx_delta.setposition . 320
+		call main.sp_ngroups.setposition . 320
+		call main.tx_ngroups.setposition . 320
+		call main.cb_meanmat.setposition . 320
+		call main.bu_meanmat.setposition . 320
+		
+		if main.cb_meanspec.iseq("gmeans") | main.cb_meanspec.iseq("gmeansmat") {
+			call program main_contrast_show
+		}
+		if main.cb_meanspec.iseq("bgvar") | main.cb_meanspec.iseq("ftest") {
+			call program main_contrast_hide
+		}
+	}
+	if main.cb_compute.iseq("power") {
+		call main.gb_effect_size.setposition . 240
+		call main.tx_means.show
+		call main.cb_meanspec.show
+		call main.tx_means.setposition . 260
+		call main.cb_meanspec.setposition . 280
+		call main.ed_meannum.setposition . 320
+		call main.tx_meannum.setposition . 320
+		call main.ed_varmeans.setposition . 350
+		call main.tx_varmeans.setposition . 350
+		call main.ed_delta.setposition . 320
+		call main.tx_delta.setposition . 320
+		call main.sp_ngroups.setposition . 320
+		call main.tx_ngroups.setposition . 320
+		call main.cb_meanmat.setposition . 320
+		call main.bu_meanmat.setposition . 320
+		
+		if main.cb_meanspec.iseq("gmeans") | main.cb_meanspec.iseq("gmeansmat") {
+			call program main_contrast_show			
+		}
+		if main.cb_meanspec.iseq("bgvar") | main.cb_meanspec.iseq("ftest") {
+			call program main_contrast_hide
+		}
+	}
+	if main.cb_compute.iseq("effect") {
+		call main.gb_effect_size.setposition . 240
+		call main.tx_means.hide
+		call main.cb_meanspec.hide
+		call main.ed_meannum.hide
+		call main.tx_meannum.hide
+		call main.ed_varmeans.hide
+		call main.tx_varmeans.hide
+		call main.ed_delta.hide
+		call main.tx_delta.hide
+		call main.cb_meanmat.hide
+		call main.bu_meanmat.hide
+		call main.sp_ngroups.show
+		call main.tx_ngroups.show
+		call main.ed_varerror.show
+		call main.tx_varerror.show
+		call main.sp_ngroups.setposition . 270
+		call main.tx_ngroups.setposition . 270
+		call main.ed_varerror.setposition . 300
+		call main.tx_varerror.setposition . 300
+		call program main_contrast_hide	
+	}
+END
+
+PROGRAM main_move_main_opts
+BEGIN
+	if main.cb_compute.iseq("power") | main.cb_compute.iseq("effect") {
+		call main.ck_parallel.setposition  . 430
+	}
+	else {
+		call main.ck_parallel.setposition  . 430
+	}
+END
+
+PROGRAM main_contrast_show
+BEGIN
+	call main.cb_cont.show
+	call main.tx_cont.show
+	call main.tx_nullcont.show
+	call main.ed_cont.show
+	call main.tx_conts.show
+	call main.ed_nullcont.show
+	call main.tx_nullconts.show
+	call main.ck_onesided.show
+	
+	call main.cb_cont.setposition . 260
+	call main.tx_cont.setposition . 280
+	call main.tx_nullcont.setposition . 325
+	call main.ed_cont.setposition . 300
+	call main.tx_conts.setposition . 300
+	call main.ed_nullcont.setposition . 345
+	call main.tx_nullconts.setposition . 345
+	call main.ck_onesided.setposition . 375
+END
+
+PROGRAM main_contrast_hide
+BEGIN
+	call main.cb_cont.hide
+	call main.tx_cont.hide
+	call main.tx_nullcont.hide
+	call main.ed_cont.hide
+	call main.tx_conts.hide
+	call main.ed_nullcont.hide
+	call main.tx_nullconts.hide
+	call main.ck_onesided.hide
+END
+
+PROGRAM main_contrast_enable
+BEGIN
+	call main.tx_cont.enable
+	call main.tx_nullcont.enable
+	call main.ed_cont.enable
+	call main.tx_conts.enable
+	call main.ed_nullcont.enable
+	call main.tx_nullconts.enable
+	call main.ck_onesided.enable
+	call program table_create4Oneway
+END
+
+PROGRAM main_contrast_disable
+BEGIN
+	call main.tx_cont.disable
+	call main.tx_nullcont.disable
+	call main.ed_cont.disable
+	call main.tx_conts.disable
+	call main.ed_nullcont.disable
+	call main.tx_nullconts.disable
+	call main.ck_onesided.disable
+	call program table_create4Oneway
+END
+
+PROGRAM show_gmeans_matrix
+BEGIN
+	call create STRING GmeansMatResult
+	call create CHILD matrix_input AS GmeansMat
+	if ! _rc {
+		call GmeansMat.setExitString GmeansMatResult
+		call GmeansMat.setExitAction "program main_getGmeansMatResult"
+		call GmeansMat.callthru "isChildContext.settrue"
+	}
+END
+
+PROGRAM main_getGmeansMatResult
+BEGIN
+	call main.cb_meanmat.repopulate
+	call main.cb_meanmat.setvalue class GmeansMatResult.value
+END
+
+PROGRAM check_for_numlist
+BEGIN
+	call containsNumlist.setfalse
+
+	if main.ed_alpha {
+		call numContents.setvalue class main.ed_alpha.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_power.isvisible() {
+		call numContents.setvalue class main.ed_power.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_beta.isvisible() {
+		call numContents.setvalue class main.ed_beta.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_varerror.isvisible() {
+		call numContents.setvalue class main.ed_varerror.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+		call program table_create4Oneway
+	}
+
+	if main.ed_varmeans.isvisible() {
+		call numContents.setvalue class main.ed_varmeans.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+
+	if main.ed_delta.isvisible() {
+		call numContents.setvalue class main.ed_delta.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+		call program table_create4Oneway
+	}
+
+	if main.ed_cont.isvisible() {
+		call numContents.setvalue class main.ed_cont.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+		call program table_create4Oneway
+	}
+
+	if main.ed_sampsi_n.isvisible() {
+		call numContents.setvalue class main.ed_sampsi_n.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}
+	
+	if main.ed_sampsi_npg.isvisible() {
+		call numContents.setvalue class main.ed_sampsi_npg.value
+		call numContents.expandNumlist
+		call stok.setvalue ""
+		if numContents {
+			call numContents.tokenize tmp
+			call stok.setvalue class tmp[2]
+		}
+		if stok {
+			call containsNumlist.settrue
+		}
+	}	
+
+	if containsNumlist {
+		call main.ck_parallel.enable
+	}
+	else {
+		call main.ck_parallel.disable
+	}
+END
+
+PROGRAM power_iteration_tab_check
+BEGIN
+	call script power_iteration_enable
+	if main.cb_compute.iseq("power") {
+		call script power_iteration_disable
+	}
+	else {
+		if main.cb_compute.endswith("sampsi") {
+			call script power_iteration_is_sampsi
+		}
+		if main.cb_compute.iseq("effect") {
+			call script power_iteration_is_effect
+		}
+	}
+END
+
+PROGRAM power_oneway_dim_check
+BEGIN	
+	if main.ed_meannum.isvisible() & main.ed_meannum.isneq(tmp_gmeans) {
+		if main.ed_meannum {
+			put "power_anova_dim poneway, "
+			put "clsname(" dlgName ") "
+			put "ctrlname(""ed_meannum"") "
+			put "is_mat(0) "
+			stata hidden immediate	
+			call ngrps.setvalue r(ngcount)
+		}
+	}
+	if main.cb_meanmat.isvisible() & main.cb_meanmat.isneq(tmp_gmeans) {	
+		if main.cb_meanmat & main.cb_meanmat.isnumlist() {
+			put "power_anova_dim poneway, "
+			put "clsname(" dlgName ") "
+			put "ctrlname(""cb_meanmat"") "
+			put "is_mat(0) "
+			stata hidden immediate	
+			call ngrps.setvalue r(ngcount)
+		}
+		if main.cb_meanmat & !main.cb_meanmat.isnumlist() {
+			put "power_anova_dim poneway, "
+			put "clsname(" dlgName ") "
+			put "ctrlname(""cb_meanmat"") "
+			put "is_mat(1) "
+			stata hidden immediate	
+			call ngrps.setvalue r(ngcount)
+		}
+	}
+	if main.sp_ngroups.isvisible() & main.sp_ngroups.isneq(tmp_ngrps) {
+		if main.sp_ngroups {
+			call main.sp_ngroups.withvalue ngrps.setvalue @
+		}
+	}
+	if main.sp_ngroups.isvisible() & main.sp_ngroups.iseq(tmp_ngrps) {
+		if main.sp_ngroups {
+			call tmp_ngrps.withvalue ngrps.setvalue @
+		}
+	}
+	call program table_create4Oneway
+END
+
+PROGRAM power_contrast_output
+BEGIN
+	call hasCont.setfalse
+	if main.cb_cont.isvisible() & main.cb_cont {
+		require main.ed_cont
+		put "contrast("
+		put main.ed_cont
+		if main.ed_nullcont & main.ed_nullcont.isneq("0") {
+			call hasCont.settrue
+		}
+		if main.ck_onesided {
+			call hasCont.settrue
+		}
+		
+		if hasCont {
+			put ", "
+			if main.ed_nullcont & main.ed_nullcont.isneq("0") {
+				put "null("
+				put main.ed_nullcont
+				put ")"
+			}
+			if main.ck_onesided {
+				put " onesided"
+			}
+		}
+		put ")"
+	}
+END
+
+INCLUDE power_table_opts
+INCLUDE power_graph
+INCLUDE power_iteration
+
+PROGRAM command
+BEGIN
+	call tmp_gmeans.setvalue ""
+	call tmp_ngrps.setvalue 0
+	if main.ed_meannum.isvisible() & main.ed_meannum {
+		call main.ed_meannum.withvalue tmp_gmeans.setvalue "@"
+	}
+	if main.cb_meanmat.isvisible() & main.cb_meanmat {
+		call main.cb_meanmat.withvalue tmp_gmeans.setvalue "@"
+	}
+	if main.sp_ngroups.isvisible() & main.sp_ngroups {
+		call main.sp_ngroups.withvalue tmp_ngrps.setvalue @
+	}
+	call ngrps.withvalue tmp_ngrps.setvalue @
+	put "power oneway"
+	
+	if main.cb_meanspec.isvisible() & main.cb_meanspec.iseq("gmeans") {
+		require main.ed_meannum
+		put " " main.ed_meannum
+	}
+	
+	if main.cb_meanspec.isvisible() & main.cb_meanspec.iseq("gmeansmat") {
+		require main.cb_meanmat
+		put " " main.cb_meanmat
+	}
+	
+	if main.cb_meanspec.isvisible() & main.cb_meanspec.iseq("bgvar") {
+		require main.ed_varmeans
+		if !main.ed_varmeans.isnumlist() {
+			call create STRING _MSG_TMP
+                        call _MSG_TMP.format				/// 
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource POWER_ONEWAY_MAIN_ED_VARMEANS"
+			stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Between-group variance".
+		}
+		if !main.ed_varmeans.isNumlistGT(0) {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format				/// 
+				"resource LBL_MSGBOX_ON_TAB_GREATER_THAN_0_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource POWER_ONEWAY_MAIN_ED_VARMEANS"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Between-group variance" must be greater than 0.
+		}
+	}
+	
+	if main.cb_meanspec.isvisible() & main.cb_meanspec.iseq("ftest") {
+		require main.ed_delta
+		if !main.ed_delta.isnumlist() {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource POWER_ONEWAY_F_TEST_EFFECT_SIZE"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "F-test effect size".
+		}
+		if !main.ed_delta.isNumlistGT(0) {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format				/// 
+				"resource LBL_MSGBOX_ON_TAB_GREATER_THAN_0_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource POWER_ONEWAY_F_TEST_EFFECT_SIZE"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "F-test effect size" must be greater than 0.
+		}
+		require main.sp_ngroups
+	}
+	
+	if main.ed_varerror.isvisible() {
+		require main.ed_varerror
+		if !main.ed_varerror.isnumlist() {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource POWER_ONEWAY_WITHIN_GROUP_VARIANCE"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for "Within-group variance".
+		}
+		if !main.ed_varerror.isNumlistGT(0) {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format				/// 
+				"resource LBL_MSGBOX_ON_TAB_GREATER_THAN_0_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource POWER_ONEWAY_WITHIN_GROUP_VARIANCE"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, "Within-group variance" must be greater than 0.
+		}
+		require main.sp_ngroups
+	}
+	
+	if main.cb_cont.isvisible() & main.cb_cont {
+		require main.ed_cont
+		if !main.ed_cont.isnumlist() {
+                        call create STRING _MSG_TMP
+                        call _MSG_TMP.format 				///
+				"resource LBL_MSGBOX_ON_TAB_INVALID_NUMLIST_FOR_FMT" ///
+				"resource LBL_TAB_MAIN"			///
+				"resource POWER_ONEWAY_MAIN_TX_CONT"
+                        stopbox stop "class _MSG_TMP.value"
+// On the "Main" tab, an invalid numlist is specified for 
+// "Coefficients for contrast of group means".
+		}
+	}
+	
+	/*if main.ed_nullcont.isenabled() & main.ed_nullcont & !main.ed_cont {
+		stopbox stop  `"On the "Main" tab,"' `""Weights for testing linear combination of means" must be specified if "'   ///
+			`""Null value for testing linear combination of means" is specified."' 
+	}*/
+
+	beginoptions
+		optionarg /hidedefault main.ed_varerror
+		optionarg main.ed_varmeans
+		optionarg  main.ed_delta
+		optionarg main.sp_ngroups
+		put " " /program power_contrast_output
+		option main.ck_parallel
+		put " " /program power_errorprob_output
+		put " " /program power_onewaysampsi_output
+		put " " /program power_table_opts_output
+		put " " /program power_graph_output
+		put " " /program power_iteration_output
+	endoptions
+END
