@@ -21,7 +21,7 @@ def clear_output():
 
 def run_model():
     completed_process = subprocess.run(
-        ["/usr/local/stata/stata", "-b", "do", "analysis/model.do"],
+        ["/usr/local/stata/stata-mp", "-b", "do", "analysis/model.do"],
         check=True,
         capture_output=True,
     )
