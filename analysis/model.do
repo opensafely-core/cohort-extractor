@@ -1,4 +1,4 @@
-import delimited /workspace/analysis/input.csv
+import delimited `c(pwd)'/analysis/input.csv
 
 /* final data cleaning
 - gender
