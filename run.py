@@ -3,13 +3,12 @@ browser on the correct port, and handle shutdowns gracefully
 
 """
 import os
-import signal
 import subprocess
 import socket
-import sys
 import time
 import urllib.request
-import webbrowser
+import argparse
+
 
 tag = "datalab-stata"
 current_dir = os.getcwd()
@@ -64,7 +63,7 @@ def docker_build(tag):
     stream_subprocess_output(buildcmd)
 
 
-def docker_run(tag):
+def docker_run(tag, *cmd):
     """Run docker in background, and install signal handler to stop it
     again
 
@@ -77,11 +76,12 @@ def docker_run(tag):
         "--rm",  # clean up the container after it's stopped
         "--mount",
         f"source={current_dir},dst={target_dir},type=bind",
-        "--publish-all",
         tag,
+        *cmd,
     ]
     print("Running docker with {}".format(" ".join(runcmd)))
-    # completed_process = subprocess.run(runcmd, check=True, capture_output=True)
+    completed_process = subprocess.run(runcmd, check=True, capture_output=True)
+    return completed_process.stdout.decode("utf8")
     # container_id = completed_process.stdout.decode("utf8").strip()
 
     # def stop_handler(sig, frame):
@@ -105,18 +105,17 @@ def docker_port(container_id):
     return port
 
 
-def main():
+def main(cmd):
     docker_build(tag)
-    # container_id =
-    docker_run(tag)
-    # port = docker_port(container_id)
-    # await_jupyter_http(port)
-    # webbrowser.open(f"http://localhost:{port}", new=2)  # Open in a new tab
-    # print(
-    # "To stop this docker container, use Ctrl+ C, or the File -> Shut Down menu in Jupyter Lab"
-    # )
-    # stream_subprocess_output(["docker", "logs", "--follow", container_id])
+    result = docker_run(tag, "python", cmd)
+    print(result)
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Run models")
+    parser.add_argument("command", choices=["run", "generate_cohort"])
+    args = parser.parse_args()
+    if args.command == "run":
+        main("run_model.py")
+    elif args.command == "generate_cohort":
+        main("generate_cohort.py")
