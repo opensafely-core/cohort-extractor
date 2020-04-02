@@ -8,6 +8,9 @@ import socket
 import time
 import urllib.request
 import argparse
+import sys
+
+import generate_cohort
 
 
 tag = "datalab-stata"
@@ -47,7 +50,10 @@ def stream_subprocess_output(cmd):
         universal_newlines=True,
     ) as p:
         for line in p.stdout:
-            print(line, end="")
+            # I don't understand why we need the `\r`, but when run
+            # via docker apparently require a carriage return for the
+            # output to display correctly
+            print(line, end="\r")
         p.wait()
         if p.returncode > 0:
             raise subprocess.CalledProcessError(cmd=cmd, returncode=p.returncode)
@@ -72,7 +78,6 @@ def docker_run(tag, *cmd):
         "docker",
         "run",
         "-it",
-        # "--detach",  # in the background, so we can find out the port it's bound to
         "--rm",  # clean up the container after it's stopped
         "--mount",
         f"source={current_dir},dst={target_dir},type=bind",
@@ -80,18 +85,7 @@ def docker_run(tag, *cmd):
         *cmd,
     ]
     print("Running docker with {}".format(" ".join(runcmd)))
-    completed_process = subprocess.run(runcmd, check=True, capture_output=True)
-    return completed_process.stdout.decode("utf8")
-    # container_id = completed_process.stdout.decode("utf8").strip()
-
-    # def stop_handler(sig, frame):
-    #     print("Stopping docker...")
-    #     subprocess.run(["docker", "kill", container_id], check=True)
-    #     sys.exit(0)
-
-    # signal.signal(signal.SIGINT, stop_handler)
-
-    # return container_id
+    return stream_subprocess_output(runcmd)
 
 
 def docker_port(container_id):
@@ -105,17 +99,21 @@ def docker_port(container_id):
     return port
 
 
-def main(cmd):
-    docker_build(tag)
-    result = docker_run(tag, "python", cmd)
+def docker_build_and_run(cmd, skip_build=False):
+    if not skip_build:
+        docker_build(tag)
+    result = docker_run(tag, "python3", cmd)
     print(result)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run models")
     parser.add_argument("command", choices=["run", "generate_cohort"])
+    parser.add_argument(
+        "--skip-build", help="Skip docker image build step", action="store_true"
+    )
     args = parser.parse_args()
     if args.command == "run":
-        main("run_model.py")
+        docker_build_and_run("run_model.py", skip_build=args.skip_build)
     elif args.command == "generate_cohort":
-        main("generate_cohort.py")
+        generate_cohort.main()
