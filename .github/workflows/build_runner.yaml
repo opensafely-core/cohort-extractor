@@ -1,0 +1,35 @@
+name: Build-runner
+on:
+  push:
+    paths:
+    - "run.py"
+
+jobs:
+  build:
+    runs-on: windows-latest
+    name: Build windows executable for running notebook
+    steps:
+    - uses: actions/checkout@v1
+    - name: Set up Python 3.7
+      uses: actions/setup-python@v1
+      with:
+        python-version: 3.7
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pyinstaller
+    - name: Build with pyinstaller
+      run: |
+        pyinstaller run.py --onefile
+    - name: Commit files
+      run: |
+        copy dist\run.exe run.exe
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add run.exe
+        git commit -m "Updated windows build of run.py"
+    - name: Push changes
+      uses: ad-m/github-push-action@master
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        branch: ${{ github.ref }}
