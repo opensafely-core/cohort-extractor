@@ -6,6 +6,10 @@ RUN apt-get install -y libpng16-16
 RUN mkdir -p /usr/local/stata
 COPY bin/ /usr/local/stata
 
+# Install Microsoft stuff needed to install Pyodbc and access a SQL Server
+# database
+COPY install_mssql.sh /tmp/
+RUN bash /tmp/install_mssql.sh
 
 # Install pip requirements
 COPY requirements.txt /tmp/
