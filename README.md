@@ -1,34 +1,46 @@
-docker run -it --rm --mount source=$(pwd),dst=/workspace,type=bind stata
+# For statisticians
 
-Current assumptions:
+This repository contains everything needed to:
 
-* Stata analysis must be at /workspace/analysis/model.do
-* Data must be at /workspace/analysis/input.csv
+* Define a set of covariates needed for your model
+* Generate an input dataset from dummy data against which you can develop your model
 
-TODO
+The entrypoint of your model **must** be called `model.do` and it must
+live in the `analysis/` folder.
 
-* [ ] Write up the contract and enforce
+Your model **must** start by importing the dataset, which will be called
+`input.csv` and be in the same folder.
 
-  - model:
-    - must be called `analysis/model.do`
-    - it must consume a dataset called `analysis/input.csv`
-  - cohort extractor:
-    - must consume some kind of definition file (one row per covariate?)
-    - must output to `analysis/input.csv`
-    - must have a switch to output either the real data or dummy data *and the default should be the dummy data*
-    - should be runnable from the command line (maybe packaged in a docker command?)
+For portability, the recommended way of starting your model is:
 
+```stata
+import delimited `c(pwd)'/analysis/input.csv
+```
 
 
-* [ ] Work out how to run Stata interactively against the same dataset
-  - generate data by running a command
-    - possibly from their own computer
-  - commit dummy data to repo
-  - off they go
-  -
+## Defining covariates
 
-Questions / next steps:
+At the moment, this involves writing some simple Python code. We plan
+to make this much simpler over the next few weeks.
 
-* Should we provide access to the Stata version from notebooks? Probably not.
-  * How can we allow interactive development at the same time as docker-run?
-  * Should be possible to launch Stata from within docker?
+*covariate definition howto goes here*
+
+## Generating dummy data
+
+To generate dummy data from the dummy dataset:
+
+* Set credential somehow **XXX**
+* If on Windows, double-click `run.exe`, and follow the instructions
+
+This will use your covariate definitions to generate a file for your model at `analysis/input.csv`
+
+You can now use Stata as you usually would, with your code entrypoint
+in `analysis/model.do`.
+
+## Running the model against real data
+
+This is currently supported in the secure TPP environment only.
+
+* Set the environment to point at the live server
+* Run `run.py generate_cohort` to generate the cohort
+* Run `run.py run` to run the model. Its output is streamed to stdout, and saved in `model.log`
