@@ -8,7 +8,6 @@ import socket
 import time
 import urllib.request
 import argparse
-import sys
 
 import generate_cohort
 
