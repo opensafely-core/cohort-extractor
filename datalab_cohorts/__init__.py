@@ -285,9 +285,9 @@ def make_date_filter(column, min_date, max_date):
     if min_date is not None and max_date is not None:
         return f"{column} BETWEEN ? AND ?", [min_date, max_date]
     elif min_date is not None:
-        return f"{column} >= ", [min_date]
+        return f"{column} >= ?", [min_date]
     elif max_date is not None:
-        return f"{column} <= ", [max_date]
+        return f"{column} <= ?", [max_date]
     else:
         return "1=1", []
 
