@@ -125,8 +125,14 @@ class StudyDefinition:
         )
 
     def patients_with_positive_covid_test(self):
-        chess_df = self.get_chess_df()
-        return chess_df[chess_df["result"] == "COVID-19"][[]]
+        return self.sql_to_df(
+            """
+            SELECT DISTINCT Patient_ID as patient_id
+            FROM CovidStatus
+            WHERE Result = 'COVID19'
+            ORDER BY patient_id
+            """
+        )
 
     def patients_have_died(self):
         chess_df = self.get_chess_df()
@@ -142,7 +148,7 @@ class StudyDefinition:
         self._chess_df = pandas.read_csv("mvp_data/dummy_chess.csv")
         return self._chess_df
 
-    def sql_to_df(self, sql, params):
+    def sql_to_df(self, sql, params=[]):
         return pandas.read_sql_query(
             sql, self.get_db_connection(), params=params, index_col="patient_id"
         )
@@ -185,6 +191,10 @@ class patients:
             reference_date = datetime.date.today()
         else:
             reference_date = datetime.date.fromisoformat(str(reference_date))
+        # convert to datetime, as this is how it's stored in MS Sql Server
+        reference_date = datetime.datetime.combine(
+            reference_date, datetime.datetime.min.time()
+        )
         return "age_as_of", locals()
 
     @staticmethod
