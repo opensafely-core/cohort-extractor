@@ -68,7 +68,7 @@ def docker_build(tag):
     stream_subprocess_output(buildcmd)
 
 
-def docker_run(tag, *cmd):
+def docker_run(tag, *args):
     """Run docker in background, and install signal handler to stop it
     again
 
@@ -80,8 +80,11 @@ def docker_run(tag, *cmd):
         "--rm",  # clean up the container after it's stopped
         "--mount",
         f"source={current_dir},dst={target_dir},type=bind",
+        "--mount",
+        # Ensure we override any local pyenv configuration
+        f"source={current_dir}/.python-version-docker,dst={target_dir}/.python-version,type=bind",
         tag,
-        *cmd,
+        *args,
     ]
     print("Running docker with {}".format(" ".join(runcmd)))
     return stream_subprocess_output(runcmd)
@@ -98,21 +101,27 @@ def docker_port(container_id):
     return port
 
 
-def docker_build_and_run(cmd, skip_build=False):
+def docker_build_and_run(*args, skip_build=False):
     if not skip_build:
         docker_build(tag)
-    result = docker_run(tag, "python3", cmd)
+    result = docker_run(tag, *args)
     print(result)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run models")
-    parser.add_argument("command", choices=["run", "generate_cohort"])
+    parser.add_argument("command", choices=["run", "generate_cohort", "test", "shell"])
     parser.add_argument(
         "--skip-build", help="Skip docker image build step", action="store_true"
     )
     args = parser.parse_args()
+    if args.command == "shell":
+        docker_build_and_run("/bin/bash", skip_build=args.skip_build)
     if args.command == "run":
-        docker_build_and_run("run_model.py", skip_build=args.skip_build)
+        docker_build_and_run("python3", "run_model.py", skip_build=args.skip_build)
+    if args.command == "test":
+        docker_build_and_run(
+            "python3", "run_model.py", "test", skip_build=args.skip_build
+        )
     elif args.command == "generate_cohort":
         generate_cohort.main()
