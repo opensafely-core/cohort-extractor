@@ -80,6 +80,18 @@ class StudyDefinition:
         )
         return self._demographic_df
 
+    def patients_all(self):
+        """
+        All patients
+        """
+        return self.sql_to_df(
+            f"""
+            SELECT DISTINCT Patient_ID AS patient_id
+            FROM Patient
+            ORDER BY patient_id
+            """
+        )
+
     def patients_with_these_medications(self, codelist, min_date=None, max_date=None):
         """
         Patients who have been prescribed at least one of this list of
@@ -135,18 +147,24 @@ class StudyDefinition:
         )
 
     def patients_have_died(self):
-        chess_df = self.get_chess_df()
-        return chess_df[chess_df["died"] == 1][[]]
+        return self.sql_to_df(
+            """
+            SELECT DISTINCT Patient_ID as patient_id
+            FROM CovidStatus
+            WHERE Died = 'true'
+            ORDER BY patient_id
+            """
+        )
 
     def patients_admitted_to_itu(self):
-        chess_df = self.get_chess_df()
-        return chess_df[chess_df["admitted_itu"] == 1][[]]
-
-    def get_chess_df(self):
-        if self._chess_df is not None:
-            return self._chess_df
-        self._chess_df = pandas.read_csv("mvp_data/dummy_chess.csv")
-        return self._chess_df
+        return self.sql_to_df(
+            """
+            SELECT DISTINCT Patient_ID as patient_id
+            FROM CovidStatus
+            WHERE AdmittedToITU = 'true'
+            ORDER BY patient_id
+            """
+        )
 
     def sql_to_df(self, sql, params=[]):
         return pandas.read_sql_query(
@@ -196,6 +214,10 @@ class patients:
             reference_date, datetime.datetime.min.time()
         )
         return "age_as_of", locals()
+
+    @staticmethod
+    def all():
+        return "all", locals()
 
     @staticmethod
     def sex():
@@ -277,6 +299,12 @@ class Codelist(list):
 
 def codelist_from_csv(filename, system):
     codes = pandas.read_csv(filename)["code"]
+    codes = Codelist(codes)
+    codes.system = system
+    return codes
+
+
+def codelist(codes, system):
     codes = Codelist(codes)
     codes.system = system
     return codes
