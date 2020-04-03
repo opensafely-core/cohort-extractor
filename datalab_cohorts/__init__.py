@@ -7,19 +7,12 @@ import pandas
 import pyodbc
 
 
-DATABASE_URL = os.environ.get(
-    "DATABASE_URL",
-    "mssql://SA:ahsjdkaJAMSHDA123%5B@covid.ebmdatalab.net:1433/OPENCorona",
-)
-
-
 # Characters that are safe to interpolate into SQL (see
 # `placeholders_and_params` below)
 SAFE_CHARS_RE = re.compile(r"[a-zA-Z0-9_\.\-]+")
 
 
 class StudyDefinition:
-
     population = None
     _demographic_df = None
     _chess_df = None
@@ -157,7 +150,7 @@ class StudyDefinition:
     def get_db_connection(self):
         if self._db_connection:
             return self._db_connection
-        parsed = urlparse(DATABASE_URL)
+        parsed = urlparse(os.environ["DATABASE_URL"])
         hostname = parsed.hostname
         port = parsed.port or 1433
         database = parsed.path.lstrip("/")
