@@ -1,6 +1,7 @@
 import os
 import re
 import subprocess
+import sys
 
 
 def check_output():
@@ -8,9 +9,11 @@ def check_output():
     # directory: https://stackoverflow.com/a/35051922/559140
     with open("model.log", "r") as f:
         output = f.read()
-        print(output)
-        if re.match(r"^r\([0-9]+\);$", output):
-            raise Exception("Problem found")
+        # XXX at this point, for some reason newlines are coming out
+        # as escaped literals. I can't work out why and need to get on
+        # for now, so have replaced `^` in this regex with `\n`/DOTALL
+        if re.findall(r"\nr\([0-9]+\);$", output, re.DOTALL):
+            raise Exception(f"Problem found:\n\n{output}")
 
 
 def fix_permissions():
@@ -31,9 +34,9 @@ def clear_output():
         pass
 
 
-def run_model():
+def run_model(folder):
     completed_process = subprocess.run(
-        ["/usr/local/stata/stata-mp", "-b", "do", "analysis/model.do"],
+        ["/usr/local/stata/stata-mp", "-b", "do", f"{folder}/model.do"],
         check=True,
         capture_output=True,
     )
@@ -43,6 +46,12 @@ def run_model():
 
 if __name__ == "__main__":
     clear_output()
-    run_model()
+    if len(sys.argv) > 1:
+        if sys.argv[1] == "test":
+            run_model("test")
+        else:
+            raise RuntimeError(f"Invalid argument {sys.argv[1]}")
+    else:
+        run_model("analysis")
     fix_permissions()
     check_output()
