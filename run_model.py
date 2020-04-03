@@ -1,6 +1,7 @@
 import os
 import re
 import subprocess
+import sys
 
 
 def check_output():
@@ -31,9 +32,9 @@ def clear_output():
         pass
 
 
-def run_model():
+def run_model(folder):
     completed_process = subprocess.run(
-        ["/usr/local/stata/stata-mp", "-b", "do", "analysis/model.do"],
+        ["/usr/local/stata/stata-mp", "-b", "do", f"{folder}/model.do"],
         check=True,
         capture_output=True,
     )
@@ -43,6 +44,12 @@ def run_model():
 
 if __name__ == "__main__":
     clear_output()
-    run_model()
+    if len(sys.argv) > 1:
+        if sys.argv[1] == "test":
+            run_model("test")
+        else:
+            raise RuntimeError(f"Invalid argument {sys.argv[1]}")
+    else:
+        run_model("analysis")
     fix_permissions()
     check_output()
