@@ -1,4 +1,4 @@
-import delimited `c(pwd)'/test/test_input.csv
+import delimited `c(pwd)'/tests/test_input.csv
 
 /* final data cleaning
 - gender
