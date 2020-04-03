@@ -95,6 +95,7 @@ class CodedEvent(Base):
 
 class Patient(Base):
     __tablename__ = "Patient"
+
     Patient_ID = Column(Integer, primary_key=True)
     CovidStatus = relationship("CovidStatus", back_populates="Patient", uselist=False)
     DateOfBirth = Column(Date)
@@ -107,4 +108,22 @@ class Patient(Base):
     CodedEvents = relationship(
         "CodedEvent", back_populates="Patient", cascade="all, delete, delete-orphan"
     )
+    RegistrationHistory = relationship(
+        "RegistrationHistory",
+        back_populates="Patient",
+        cascade="all, delete, delete-orphan",
+    )
     Sex = Column(String)
+
+
+class RegistrationHistory(Base):
+    __tablename__ = "RegistrationHistory"
+
+    Registration_ID = Column(Integer, primary_key=True)
+    Organisation_ID = Column(Integer)
+    Patient_ID = Column(Integer, ForeignKey("Patient.Patient_ID"))
+    Patient = relationship(
+        "Patient", back_populates="RegistrationHistory", cascade="all, delete"
+    )
+    StartDate = Column(Date)
+    EndDate = Column(Date)

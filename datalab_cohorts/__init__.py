@@ -92,6 +92,24 @@ class StudyDefinition:
             """
         )
 
+    def patients_registered_as_of(self, reference_date):
+        """
+        All patients registed on the given date
+        """
+        # Note that current registrations are recorded with an EndDate
+        # of 9999-12-31
+        return self.sql_to_df(
+            f"""
+            SELECT DISTINCT Patient.Patient_ID AS patient_id
+            FROM Patient
+            INNER JOIN  RegistrationHistory
+            ON RegistrationHistory.Patient_ID = Patient.Patient_ID
+            WHERE StartDate < ? AND EndDate > ?
+            ORDER BY patient_id
+            """,
+            [reference_date, reference_date],
+        )
+
     def patients_with_these_medications(self, codelist, min_date=None, max_date=None):
         """
         Patients who have been prescribed at least one of this list of
@@ -210,6 +228,14 @@ class patients:
         else:
             reference_date = datetime.date.fromisoformat(str(reference_date))
         return "age_as_of", locals()
+
+    @staticmethod
+    def registered_as_of(reference_date):
+        if reference_date == "today":
+            reference_date = datetime.date.today()
+        else:
+            reference_date = datetime.date.fromisoformat(str(reference_date))
+        return "registered_as_of", locals()
 
     @staticmethod
     def all():

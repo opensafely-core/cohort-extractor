@@ -8,6 +8,7 @@ from tests.tpp_backend_setup import (
     MedicationIssue,
     MedicationDictionary,
     Patient,
+    RegistrationHistory,
 )
 
 from datalab_cohorts import StudyDefinition
@@ -27,6 +28,7 @@ def setup_function(function):
     session.query(CodedEvent).delete()
     session.query(MedicationIssue).delete()
     session.query(MedicationDictionary).delete()
+    session.query(RegistrationHistory).delete()
     session.query(Patient).delete()
     session.commit()
 
@@ -162,3 +164,35 @@ def test_clinical_events():
         study.to_csv(f.name)
         results = list(csv.DictReader(f))
         assert [x["asthma_condition"] for x in results] == ["0.0", "1.0", "0.0"]
+
+
+def test_patient_registered_as_of():
+    session = make_session()
+
+    patient_registered_in_2001 = Patient()
+    patient_registered_in_2002 = Patient()
+    patient_unregistered_in_2002 = Patient()
+    patient_registered_in_2001.RegistrationHistory = [
+        RegistrationHistory(StartDate="2001-01-01", EndDate="9999-01-01")
+    ]
+    patient_registered_in_2002.RegistrationHistory = [
+        RegistrationHistory(StartDate="2002-01-01", EndDate="9999-01-01")
+    ]
+    patient_unregistered_in_2002.RegistrationHistory = [
+        RegistrationHistory(StartDate="2001-01-01", EndDate="2002-01-01")
+    ]
+
+    session.add(patient_registered_in_2001)
+    session.add(patient_registered_in_2002)
+    session.add(patient_unregistered_in_2002)
+    session.commit()
+
+    # No date criteria
+    study = StudyDefinition(population=patients.registered_as_of("2002-03-02"))
+    with tempfile.NamedTemporaryFile(mode="w+") as f:
+        study.to_csv(f.name)
+        results = list(csv.DictReader(f))
+        assert [x["patient_id"] for x in results] == [
+            str(patient_registered_in_2001.Patient_ID),
+            str(patient_registered_in_2002.Patient_ID),
+        ]
