@@ -9,9 +9,11 @@ def check_output():
     # directory: https://stackoverflow.com/a/35051922/559140
     with open("model.log", "r") as f:
         output = f.read()
-        print(output)
-        if re.match(r"^r\([0-9]+\);$", output):
-            raise Exception("Problem found")
+        # XXX at this point, for some reason newlines are coming out
+        # as escaped literals. I can't work out why and need to get on
+        # for now, so have replaced `^` in this regex with `\n`/DOTALL
+        if re.findall(r"\nr\([0-9]+\);$", output, re.DOTALL):
+            raise Exception(f"Problem found:\n\n{output}")
 
 
 def fix_permissions():
