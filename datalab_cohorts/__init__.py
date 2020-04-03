@@ -209,10 +209,6 @@ class patients:
             reference_date = datetime.date.today()
         else:
             reference_date = datetime.date.fromisoformat(str(reference_date))
-        # convert to datetime, as this is how it's stored in MS Sql Server
-        reference_date = datetime.datetime.combine(
-            reference_date, datetime.datetime.min.time()
-        )
         return "age_as_of", locals()
 
     @staticmethod
