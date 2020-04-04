@@ -107,11 +107,14 @@ class StudyDefinition:
 
         bmi_code = "22K.."
 
-        # XXX these two sets of codes need validating
+        # XXX these two sets of codes need validating. The final in
+        # each list is the canonical version, but we need a discussion
+        # about the "Y codes" - see #10
         weight_codes = [
             "X76C7",  # Concept containing terms:
             "Yakcs",  #   body weight - observation
             "Y7DRK",  #   Body weight
+            "22A.. ",  # O/E weight
         ]
         height_codes = [
             "XM01E",  # Concept containing terms:
@@ -119,6 +122,7 @@ class StudyDefinition:
             "Y7DQP",  #   stature
             "YMGV4",  #   length and growth
             "YaVSI",  #   observation of length and growth
+            "229..",  # O/E height
         ]
         params = []
 
