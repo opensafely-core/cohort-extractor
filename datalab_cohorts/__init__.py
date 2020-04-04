@@ -49,8 +49,8 @@ class StudyDefinition:
 
     def patients_age_as_of(self, reference_date):
         demographic_df = self.get_demographic_df()
-        demographic_df["age"] = (reference_date - demographic_df["birth_date"]).astype(
-            "<m8[Y]"
+        demographic_df["age"] = (
+            (reference_date - demographic_df["birth_date"]).astype("<m8[Y]").astype(int)
         )
         return demographic_df[["age"]]
 
