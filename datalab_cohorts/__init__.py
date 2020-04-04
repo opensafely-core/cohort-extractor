@@ -92,6 +92,108 @@ class StudyDefinition:
             """
         )
 
+    def patients_bmi(self, reference_date):
+        """Return BMI as of reference date, ignoring measurements over 10
+        years prior
+
+        """
+        # From https://github.com/ebmdatalab/tpp-sql-notebook/issues/10:
+        #
+        # 1) BMI calculated from last recorded height and weight
+        #
+        # 2) If height and weight is not available, then take latest
+        # recorded BMI. Both values must be recorded when the patient
+        # is >=16, weight must be within the last 10 years
+
+        bmi_code = "22K.."
+
+        # XXX these two sets of codes need validating
+        weight_codes = [
+            "X76C7",  # Concept containing terms:
+            "Yakcs",  #   body weight - observation
+            "Y7DRK",  #   Body weight
+        ]
+        height_codes = [
+            "XM01E",  # Concept containing terms:
+            "Y7DQN",  #   height and growth
+            "Y7DQP",  #   stature
+            "YMGV4",  #   length and growth
+            "YaVSI",  #   observation of length and growth
+        ]
+        params = []
+
+        bmi_cte = f"""
+        SELECT t.Patient_ID, t.BMI, t.ConsultationDate
+        FROM (
+          SELECT Patient_ID, NumericValue AS BMI, ConsultationDate,
+          ROW_NUMBER() OVER (PARTITION BY Patient_ID ORDER BY ConsultationDate DESC) AS rownum
+          FROM CodedEvent
+          WHERE CTV3Code = ?
+          AND ConsultationDate >= DATEADD(year, -10, ?)
+          AND ConsultationDate <= ?
+        ) t
+        WHERE t.rownum = 1
+        """
+        bmi_cte_params = [bmi_code, reference_date, reference_date]
+
+        patients_cte = f"""
+           SELECT Patient_ID, DateOfBirth
+           FROM Patient
+        """
+        patients_cte_params = []
+        weight_placeholders, weight_params = placeholders_and_params(weight_codes)
+        weights_cte = f"""
+          SELECT t.Patient_ID, t.weight, t.ConsultationDate
+          FROM (
+            SELECT Patient_ID, NumericValue AS weight, ConsultationDate,
+            ROW_NUMBER() OVER (PARTITION BY Patient_ID ORDER BY ConsultationDate DESC) AS rownum
+            FROM CodedEvent
+            WHERE CTV3Code IN ({weight_placeholders})
+            AND ConsultationDate >= DATEADD(year, -10, ?)
+            AND ConsultationDate <= ?
+          ) t
+          WHERE t.rownum = 1
+        """
+        weights_cte_params = weight_params + [reference_date, reference_date]
+
+        height_placeholders, height_params = placeholders_and_params(height_codes)
+        heights_cte = f"""
+          SELECT t.Patient_ID, t.height, t.ConsultationDate
+          FROM (
+            SELECT Patient_ID, NumericValue AS height, ConsultationDate,
+            ROW_NUMBER() OVER (PARTITION BY Patient_ID ORDER BY ConsultationDate DESC) AS rownum
+            FROM CodedEvent
+            WHERE CTV3Code IN ({height_placeholders})
+            AND ConsultationDate <= ?
+          ) t
+          WHERE t.rownum = 1
+        """
+        heights_cte_params = height_params + [reference_date]
+        sql = f"""
+        WITH
+          patients AS ({patients_cte}),
+          weights AS ({weights_cte}),
+          heights AS ({heights_cte}),
+          bmis AS ({bmi_cte})
+        SELECT
+          patients.Patient_ID AS patient_id, weight, height,
+          COALESCE(weight/SQUARE(height), bmis.BMI) AS BMI
+        FROM patients
+        LEFT JOIN weights
+        ON weights.Patient_ID = patients.Patient_ID AND DATEDIFF(YEAR, patients.DateOfBirth, weights.ConsultationDate) > 16
+        LEFT JOIN heights
+        ON heights.Patient_ID = patients.Patient_ID AND DATEDIFF(YEAR, patients.DateOfBirth, heights.ConsultationDate) > 16
+        LEFT JOIN bmis
+        ON bmis.Patient_ID = patients.Patient_ID AND DATEDIFF(YEAR, patients.DateOfBirth, bmis.ConsultationDate) > 16
+        """
+        params = (
+            patients_cte_params
+            + weights_cte_params
+            + heights_cte_params
+            + bmi_cte_params
+        )
+        return self.sql_to_df(sql, params)
+
     def patients_registered_as_of(self, reference_date):
         """
         All patients registed on the given date
@@ -223,6 +325,17 @@ class patients:
 
     @staticmethod
     def age_as_of(reference_date):
+        # From https://stackoverflow.com/a/1572235/559140, which seems
+        # correct to me
+        age_case = """
+        CASE WHEN
+           dateadd(year, datediff (year, DateOfBirth, ?), DateOfBirth) > ?
+        THEN
+           datediff(year, DateOfBirth, ?) - 1
+        ELSE
+           datediff(year, DateOfBirth, ?)
+        END"""
+
         if reference_date == "today":
             reference_date = datetime.date.today()
         else:
@@ -236,6 +349,22 @@ class patients:
         else:
             reference_date = datetime.date.fromisoformat(str(reference_date))
         return "registered_as_of", locals()
+
+    @staticmethod
+    def registered_as_of(reference_date):
+        if reference_date == "today":
+            reference_date = datetime.date.today()
+        else:
+            reference_date = datetime.date.fromisoformat(str(reference_date))
+        return "registered_as_of", locals()
+
+    @staticmethod
+    def bmi(reference_date):
+        if reference_date == "today":
+            reference_date = datetime.date.today()
+        else:
+            reference_date = datetime.date.fromisoformat(str(reference_date))
+        return "bmi", locals()
 
     @staticmethod
     def all():
