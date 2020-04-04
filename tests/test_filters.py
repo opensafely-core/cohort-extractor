@@ -66,7 +66,7 @@ def test_patient_characteristics_for_covid_status():
         assert [x["admitted_itu"] for x in results] == ["1.0", "0.0"]
         # XXX the current implementation fails because the first age
         # is computed as 120
-        assert [x["age"] for x in results] == ["120.0", "20.0"]
+        assert [x["age"] for x in results] == ["120", "20"]
 
 
 def test_meds():
