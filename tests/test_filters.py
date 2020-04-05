@@ -55,7 +55,7 @@ def test_patient_characteristics_for_covid_status():
         population=patients.with_positive_covid_test(),
         age=patients.age_as_of("2020-01-01"),
         sex=patients.sex(),
-        died=patients.have_died(),
+        died=patients.have_died_of_covid(),
         admitted_itu=patients.admitted_to_itu(),
     )
     with tempfile.NamedTemporaryFile(mode="w+") as f:
