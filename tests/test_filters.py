@@ -61,9 +61,10 @@ def test_patient_characteristics_for_covid_status():
     with tempfile.NamedTemporaryFile(mode="w+") as f:
         study.to_csv(f.name)
         results = list(csv.DictReader(f))
+
         assert [x["sex"] for x in results] == ["M", "F"]
-        assert [x["died"] for x in results] == ["0.0", "1.0"]
-        assert [x["admitted_itu"] for x in results] == ["1.0", "0.0"]
+        assert [x["died"] for x in results] == ["0", "1"]
+        assert [x["admitted_itu"] for x in results] == ["1", "0"]
         # XXX the current implementation fails because the first age
         # is computed as 120
         assert [x["age"] for x in results] == ["120", "20"]
@@ -93,7 +94,7 @@ def test_meds():
     with tempfile.NamedTemporaryFile(mode="w+") as f:
         study.to_csv(f.name)
         results = list(csv.DictReader(f))
-        assert [x["asthma_meds"] for x in results] == ["1.0", "0.0"]
+        assert [x["asthma_meds"] for x in results] == ["1", "0"]
 
 
 def test_clinical_events():
@@ -125,7 +126,7 @@ def test_clinical_events():
     with tempfile.NamedTemporaryFile(mode="w+") as f:
         study.to_csv(f.name)
         results = list(csv.DictReader(f))
-        assert [x["asthma_condition"] for x in results] == ["1.0", "1.0", "0.0"]
+        assert [x["asthma_condition"] for x in results] == ["1", "1", "0"]
 
     # A max date
     study = StudyDefinition(
@@ -137,7 +138,7 @@ def test_clinical_events():
     with tempfile.NamedTemporaryFile(mode="w+") as f:
         study.to_csv(f.name)
         results = list(csv.DictReader(f))
-        assert [x["asthma_condition"] for x in results] == ["1.0", "0.0", "0.0"]
+        assert [x["asthma_condition"] for x in results] == ["1", "0", "0"]
 
     # A min date
     study = StudyDefinition(
@@ -149,7 +150,7 @@ def test_clinical_events():
     with tempfile.NamedTemporaryFile(mode="w+") as f:
         study.to_csv(f.name)
         results = list(csv.DictReader(f))
-        assert [x["asthma_condition"] for x in results] == ["0.0", "0.0", "0.0"]
+        assert [x["asthma_condition"] for x in results] == ["0", "0", "0"]
 
     # A min and max date
     study = StudyDefinition(
@@ -163,7 +164,7 @@ def test_clinical_events():
     with tempfile.NamedTemporaryFile(mode="w+") as f:
         study.to_csv(f.name)
         results = list(csv.DictReader(f))
-        assert [x["asthma_condition"] for x in results] == ["0.0", "1.0", "0.0"]
+        assert [x["asthma_condition"] for x in results] == ["0", "1", "0"]
 
 
 def test_patient_registered_as_of():
@@ -260,7 +261,7 @@ def test_no_bmi_when_old_date():
     with tempfile.NamedTemporaryFile(mode="w+") as f:
         study.to_csv(f.name)
         results = list(csv.DictReader(f))
-        assert [x["BMI"] for x in results] == ["0"]
+        assert [x["BMI"] for x in results] == ["0.0"]
 
 
 def test_no_bmi_when_measurements_of_child():
@@ -279,7 +280,7 @@ def test_no_bmi_when_measurements_of_child():
     with tempfile.NamedTemporaryFile(mode="w+") as f:
         study.to_csv(f.name)
         results = list(csv.DictReader(f))
-        assert [x["BMI"] for x in results] == ["0"]
+        assert [x["BMI"] for x in results] == ["0.0"]
 
 
 def test_no_bmi_when_measurement_after_reference_date():
@@ -298,7 +299,7 @@ def test_no_bmi_when_measurement_after_reference_date():
     with tempfile.NamedTemporaryFile(mode="w+") as f:
         study.to_csv(f.name)
         results = list(csv.DictReader(f))
-        assert [x["BMI"] for x in results] == ["0"]
+        assert [x["BMI"] for x in results] == ["0.0"]
 
 
 def test_bmi_when_only_some_measurements_of_child():
