@@ -24,21 +24,34 @@ class StudyDefinition:
 
     def to_csv(self, filename):
         self.covariates = {}
-        self.population = self.run_query(*self.population_definition)
+        population_cols, population_sql, population_params = self.run_query(
+            *self.population_definition
+        )
         for name, (query_type, query_args) in self.covariate_definitions.items():
             self.covariates[name] = self.run_query(query_type, query_args)
-        study_df = self.population
-        for column_name, df in self.covariates.items():
-            # Boolean covariates are just lists of patient IDs, we treat them
-            # as having an implicit 1 column
-            if len(df.columns) == 0:
-                df.insert(0, column_name, 1)
-            # Otherwise we rename the value column to match our output name
-            else:
-                df.rename({df.columns[0]: column_name}, axis=1, inplace=True)
-            study_df = study_df.merge(
-                df, how="left", left_index=True, right_index=True, copy=False
+        cte_cols = ["population.patient_id"]  # XXX might more come from left side?
+        ctes = [f"WITH population AS ({population_sql})"]
+        cte_params = population_params
+        cte_joins = []
+        for column_name, (cols, sql, params) in self.covariates.items():
+            ctes.append(f"{column_name} AS ({sql})")
+            cte_params.extend(params)
+            for col in cols:
+                if col != "patient_id":
+                    cte_cols.append(f"{column_name}.{col} AS {column_name}")
+            cte_joins.append(
+                f"LEFT JOIN {column_name} ON {column_name}.Patient_ID = population.Patient_ID"
             )
+        cte_sql = ", ".join(ctes)
+        sql = f"""
+        {cte_sql}
+        SELECT
+          {', '.join(cte_cols)}
+        FROM population
+        {' '.join(cte_joins)}
+        """
+        # Replace nulls with zeros and write CSV
+        study_df = self.sql_to_df(sql, cte_params)
         study_df.fillna(0, inplace=True)
         study_df.to_csv(filename, index_label="patient_id")
 
@@ -48,48 +61,45 @@ class StudyDefinition:
         return method(**query_args)
 
     def patients_age_as_of(self, reference_date):
-        demographic_df = self.get_demographic_df()
-        demographic_df["age"] = (
-            (reference_date - demographic_df["birth_date"]).astype("<m8[Y]").astype(int)
+        return (
+            ["patient_id", "age"],
+            """
+        SELECT
+          Patient_ID AS patient_id,
+          CASE WHEN
+             dateadd(year, datediff (year, DateOfBirth, ?), DateOfBirth) > ?
+          THEN
+             datediff(year, DateOfBirth, ?) - 1
+          ELSE
+             datediff(year, DateOfBirth, ?)
+          END AS age
+        FROM Patient
+        """,
+            [reference_date] * 4,
         )
-        return demographic_df[["age"]]
 
     def patients_sex(self):
-        demographic_df = self.get_demographic_df()
-        return demographic_df[["sex"]]
-
-    def get_demographic_df(self):
-        if self._demographic_df is not None:
-            return self._demographic_df
-        if self.population is None:
-            where_condition = ""
-            params = []
-        else:
-            placeholders, params = placeholders_and_params(self.population.index)
-            where_condition = f"WHERE patient_id IN ({placeholders})"
-        self._demographic_df = self.sql_to_df(
-            f"""
-            SELECT
-              Patient_ID AS patient_id,
-              DateOfBirth AS birth_date,
-              Sex as sex
-            FROM Patient
-            {where_condition}
-            """,
-            params,
+        return (
+            ["patient_id", "sex"],
+            """
+          SELECT
+            Patient_ID AS patient_id,
+            Sex as sex
+          FROM Patient""",
+            [],
         )
-        return self._demographic_df
 
     def patients_all(self):
         """
         All patients
         """
-        return self.sql_to_df(
-            f"""
-            SELECT DISTINCT Patient_ID AS patient_id
-            FROM Patient
-            ORDER BY patient_id
+        return (
+            ["patient_id", "date_of_birth", "sex"],
             """
+            SELECT Patient_ID AS patient_id, DateOfBirth AS date_of_birth, Sex AS sex
+            FROM Patient
+            """,
+            [],
         )
 
     def patients_bmi(self, reference_date):
@@ -174,21 +184,17 @@ class StudyDefinition:
         """
         heights_cte_params = height_params + [reference_date]
         sql = f"""
-        WITH
-          patients AS ({patients_cte}),
-          weights AS ({weights_cte}),
-          heights AS ({heights_cte}),
-          bmis AS ({bmi_cte})
         SELECT
           patients.Patient_ID AS patient_id, weight, height,
           COALESCE(weight/SQUARE(height), bmis.BMI) AS BMI
-        FROM patients
-        LEFT JOIN weights
+        FROM ({patients_cte}) AS patients
+        LEFT JOIN ({weights_cte}) AS weights
         ON weights.Patient_ID = patients.Patient_ID AND DATEDIFF(YEAR, patients.DateOfBirth, weights.ConsultationDate) > 16
-        LEFT JOIN heights
+        LEFT JOIN ({heights_cte}) AS heights
         ON heights.Patient_ID = patients.Patient_ID AND DATEDIFF(YEAR, patients.DateOfBirth, heights.ConsultationDate) > 16
-        LEFT JOIN bmis
+        LEFT JOIN ({bmi_cte}) AS bmis
         ON bmis.Patient_ID = patients.Patient_ID AND DATEDIFF(YEAR, patients.DateOfBirth, bmis.ConsultationDate) > 16
+        -- XXX maybe add a "WHERE NULL..." here
         """
         params = (
             patients_cte_params
@@ -196,7 +202,7 @@ class StudyDefinition:
             + heights_cte_params
             + bmi_cte_params
         )
-        return self.sql_to_df(sql, params)
+        return ["patient_id", "weight", "height", "BMI"], sql, params
 
     def patients_registered_as_of(self, reference_date):
         """
@@ -204,14 +210,14 @@ class StudyDefinition:
         """
         # Note that current registrations are recorded with an EndDate
         # of 9999-12-31
-        return self.sql_to_df(
+        return (
+            ["patient_id"],
             f"""
             SELECT DISTINCT Patient.Patient_ID AS patient_id
             FROM Patient
             INNER JOIN  RegistrationHistory
             ON RegistrationHistory.Patient_ID = Patient.Patient_ID
             WHERE StartDate < ? AND EndDate > ?
-            ORDER BY patient_id
             """,
             [reference_date, reference_date],
         )
@@ -226,14 +232,14 @@ class StudyDefinition:
             "ConsultationDate", min_date, max_date
         )
         params.extend(date_params)
-        return self.sql_to_df(
+        return (
+            ["patient_id", "has_meds"],
             f"""
-            SELECT DISTINCT med.Patient_ID AS patient_id
+            SELECT DISTINCT med.Patient_ID AS patient_id, 1 AS has_meds
             FROM MedicationDictionary AS dict
             INNER JOIN MedicationIssue AS med
             ON dict.MultilexDrug_ID = med.MultilexDrug_ID
             WHERE dict.DMD_ID IN ({placeholders}) AND {date_condition}
-            ORDER BY patient_id
             """,
             params,
         )
@@ -250,49 +256,56 @@ class StudyDefinition:
             "ConsultationDate", min_date, max_date
         )
         params.extend(date_params)
-        return self.sql_to_df(
+        return (
+            ["patient_id", "has_clinical_event"],
             f"""
-            SELECT DISTINCT Patient_ID AS patient_id
+            SELECT DISTINCT Patient_ID AS patient_id, 1 AS has_clinical_event
             FROM CodedEvent
             WHERE CTV3Code IN ({placeholders}) AND {date_condition}
-            ORDER BY patient_id
             """,
             params,
         )
 
     def patients_with_positive_covid_test(self):
-        return self.sql_to_df(
+        return (
+            ["patient_id", "has_covid"],
             """
-            SELECT DISTINCT Patient_ID as patient_id
+            SELECT DISTINCT Patient_ID as patient_id, 1 AS has_covid
             FROM CovidStatus
             WHERE Result = 'COVID19'
-            ORDER BY patient_id
-            """
+            """,
+            [],
         )
 
     def patients_have_died(self):
-        return self.sql_to_df(
+        return (
+            ["patient_id", "died"],
             """
-            SELECT DISTINCT Patient_ID as patient_id
+            SELECT DISTINCT Patient_ID as patient_id, 1 AS died
             FROM CovidStatus
             WHERE Died = 'true'
-            ORDER BY patient_id
-            """
+            """,
+            [],
         )
 
     def patients_admitted_to_itu(self):
-        return self.sql_to_df(
+        return (
+            ["patient_id", "admitted_to_itu"],
             """
-            SELECT DISTINCT Patient_ID as patient_id
+            SELECT DISTINCT Patient_ID as patient_id, 1 AS admitted_to_itu
             FROM CovidStatus
             WHERE AdmittedToITU = 'true'
-            ORDER BY patient_id
-            """
+            """,
+            [],
         )
 
     def sql_to_df(self, sql, params=[]):
         return pandas.read_sql_query(
-            sql, self.get_db_connection(), params=params, index_col="patient_id"
+            sql,
+            self.get_db_connection(),
+            params=params,
+            index_col="patient_id",
+            coerce_float=False,
         )
 
     def get_db_connection(self):
@@ -329,17 +342,6 @@ class patients:
 
     @staticmethod
     def age_as_of(reference_date):
-        # From https://stackoverflow.com/a/1572235/559140, which seems
-        # correct to me
-        age_case = """
-        CASE WHEN
-           dateadd(year, datediff (year, DateOfBirth, ?), DateOfBirth) > ?
-        THEN
-           datediff(year, DateOfBirth, ?) - 1
-        ELSE
-           datediff(year, DateOfBirth, ?)
-        END"""
-
         if reference_date == "today":
             reference_date = datetime.date.today()
         else:
