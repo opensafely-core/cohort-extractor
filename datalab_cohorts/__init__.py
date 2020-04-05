@@ -277,7 +277,7 @@ class StudyDefinition:
             [],
         )
 
-    def patients_have_died(self):
+    def patients_have_died_of_covid(self):
         return (
             ["patient_id", "died"],
             """
@@ -389,8 +389,8 @@ class patients:
         return "with_positive_covid_test", locals()
 
     @staticmethod
-    def have_died():
-        return "have_died", locals()
+    def have_died_of_covid():
+        return "have_died_of_covid", locals()
 
     @staticmethod
     def admitted_to_itu():
