@@ -257,7 +257,7 @@ def test_bmi_rounded():
         assert [x["BMI"] for x in results] == ["0.1"]
 
 
-def test_bmi_with_null_values():
+def test_bmi_with_zero_values():
     session = make_session()
 
     weight_code = "X76C7"
@@ -265,14 +265,10 @@ def test_bmi_with_null_values():
 
     patient = Patient(DateOfBirth="1950-01-01")
     patient.CodedEvents.append(
-        CodedEvent(
-            CTV3Code=weight_code, NumericValue=None, ConsultationDate="2001-06-01"
-        )
+        CodedEvent(CTV3Code=weight_code, NumericValue=0, ConsultationDate="2001-06-01")
     )
     patient.CodedEvents.append(
-        CodedEvent(
-            CTV3Code=height_code, NumericValue=None, ConsultationDate="2001-06-01"
-        )
+        CodedEvent(CTV3Code=height_code, NumericValue=0, ConsultationDate="2001-06-01")
     )
     session.add(patient)
     session.commit()
