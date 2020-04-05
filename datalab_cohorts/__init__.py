@@ -348,14 +348,6 @@ class patients:
         return "registered_as_of", locals()
 
     @staticmethod
-    def registered_as_of(reference_date):
-        if reference_date == "today":
-            reference_date = datetime.date.today()
-        else:
-            reference_date = datetime.date.fromisoformat(str(reference_date))
-        return "registered_as_of", locals()
-
-    @staticmethod
     def bmi(reference_date):
         if reference_date == "today":
             reference_date = datetime.date.today()
