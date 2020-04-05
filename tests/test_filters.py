@@ -232,6 +232,58 @@ def test_simple_bmi():
         assert [x["BMI"] for x in results] == ["0.5"]
 
 
+def test_bmi_rounded():
+    session = make_session()
+
+    weight_code = "X76C7"
+    height_code = "XM01E"
+
+    patient = Patient(DateOfBirth="1950-01-01")
+    patient.CodedEvents.append(
+        CodedEvent(
+            CTV3Code=weight_code, NumericValue=10.12345, ConsultationDate="2001-06-01"
+        )
+    )
+    patient.CodedEvents.append(
+        CodedEvent(CTV3Code=height_code, NumericValue=10, ConsultationDate="2001-06-01")
+    )
+    session.add(patient)
+    session.commit()
+
+    study = StudyDefinition(population=patients.all(), BMI=patients.bmi("2005-01-01"))
+    with tempfile.NamedTemporaryFile(mode="w+") as f:
+        study.to_csv(f.name)
+        results = list(csv.DictReader(f))
+        assert [x["BMI"] for x in results] == ["0.1"]
+
+
+def test_bmi_with_null_values():
+    session = make_session()
+
+    weight_code = "X76C7"
+    height_code = "XM01E"
+
+    patient = Patient(DateOfBirth="1950-01-01")
+    patient.CodedEvents.append(
+        CodedEvent(
+            CTV3Code=weight_code, NumericValue=None, ConsultationDate="2001-06-01"
+        )
+    )
+    patient.CodedEvents.append(
+        CodedEvent(
+            CTV3Code=height_code, NumericValue=None, ConsultationDate="2001-06-01"
+        )
+    )
+    session.add(patient)
+    session.commit()
+
+    study = StudyDefinition(population=patients.all(), BMI=patients.bmi("2005-01-01"))
+    with tempfile.NamedTemporaryFile(mode="w+") as f:
+        study.to_csv(f.name)
+        results = list(csv.DictReader(f))
+        assert [x["BMI"] for x in results] == ["0.0"]
+
+
 def test_explicit_bmi_fallback():
     session = make_session()
 
