@@ -124,22 +124,14 @@ class StudyDefinition:
         # is >=16, weight must be within the last 10 years
 
         bmi_code = "22K.."
-
         # XXX these two sets of codes need validating. The final in
-        # each list is the canonical version, but we need a discussion
-        # about the "Y codes" - see #10
+        # each list is the canonical version according to TPP
         weight_codes = [
-            "X76C7",  # Concept containing terms:
-            "Yakcs",  #   body weight - observation
-            "Y7DRK",  #   Body weight
+            "X76C7",  # Concept containing "body weight" terms:
             "22A.. ",  # O/E weight
         ]
         height_codes = [
-            "XM01E",  # Concept containing terms:
-            "Y7DQN",  #   height and growth
-            "Y7DQP",  #   stature
-            "YMGV4",  #   length and growth
-            "YaVSI",  #   observation of length and growth
+            "XM01E",  # Concept containing height/length/stature/growth terms:
             "229..",  # O/E height
         ]
         params = []
