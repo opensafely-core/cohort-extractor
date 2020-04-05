@@ -97,11 +97,8 @@ def test_meds():
         assert [x["asthma_meds"] for x in results] == ["1", "0"]
 
 
-def test_clinical_events():
+def _make_clinical_events_selection(condition_code):
     session = make_session()
-
-    condition_code = "ASTHMA"
-
     patient_with_condition_in_2001 = Patient()
     patient_with_condition_in_2002 = Patient()
     patient_with_condition_in_2001.CodedEvents.append(
@@ -116,6 +113,10 @@ def test_clinical_events():
     session.add(patient_without_condition)
     session.commit()
 
+
+def test_clinical_event_without_filters():
+    condition_code = "ASTHMA"
+    _make_clinical_events_selection(condition_code)
     # No date criteria
     study = StudyDefinition(
         population=patients.all(),
@@ -128,7 +129,10 @@ def test_clinical_events():
         results = list(csv.DictReader(f))
         assert [x["asthma_condition"] for x in results] == ["1", "1", "0"]
 
-    # A max date
+
+def test_clinical_event_with_max_date():
+    condition_code = "ASTHMA"
+    _make_clinical_events_selection(condition_code)
     study = StudyDefinition(
         population=patients.all(),
         asthma_condition=patients.with_these_clinical_events(
@@ -140,7 +144,10 @@ def test_clinical_events():
         results = list(csv.DictReader(f))
         assert [x["asthma_condition"] for x in results] == ["1", "0", "0"]
 
-    # A min date
+
+def test_clinical_event_with_min_date():
+    condition_code = "ASTHMA"
+    _make_clinical_events_selection(condition_code)
     study = StudyDefinition(
         population=patients.all(),
         asthma_condition=patients.with_these_clinical_events(
@@ -152,7 +159,10 @@ def test_clinical_events():
         results = list(csv.DictReader(f))
         assert [x["asthma_condition"] for x in results] == ["0", "0", "0"]
 
-    # A min and max date
+
+def test_clinical_event_with_min_and_max_date():
+    condition_code = "ASTHMA"
+    _make_clinical_events_selection(condition_code)
     study = StudyDefinition(
         population=patients.all(),
         asthma_condition=patients.with_these_clinical_events(
