@@ -1,3 +1,4 @@
+import csv
 import datetime
 import os
 import re
@@ -50,8 +51,17 @@ class StudyDefinition:
         FROM population
         {' '.join(cte_joins)}
         """
-        study_df = self.sql_to_df(sql, cte_params)
-        study_df.to_csv(filename, index_label="patient_id")
+        self.sql_to_csv(sql, cte_params, filename)
+
+    def sql_to_csv(self, sql, params, filename):
+        conn = self.get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(sql, params)
+        with open(filename, "w") as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow([x[0] for x in cursor.description])
+            for row in cursor:
+                writer.writerow(row)
 
     def run_query(self, query_type, query_args):
         method_name = f"patients_{query_type}"
@@ -295,15 +305,6 @@ class StudyDefinition:
             WHERE AdmittedToITU = 'true'
             """,
             [],
-        )
-
-    def sql_to_df(self, sql, params=[]):
-        return pandas.read_sql_query(
-            sql,
-            self.get_db_connection(),
-            params=params,
-            index_col="patient_id",
-            coerce_float=False,
         )
 
     def get_db_connection(self):
