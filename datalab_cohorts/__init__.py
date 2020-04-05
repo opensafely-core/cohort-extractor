@@ -38,7 +38,7 @@ class StudyDefinition:
             cte_params.extend(params)
             for col in cols:
                 if col != "patient_id":
-                    cte_cols.append(f"{column_name}.{col} AS {column_name}")
+                    cte_cols.append(f"ISNULL({column_name}.{col}, 0) AS {column_name}")
             cte_joins.append(
                 f"LEFT JOIN {column_name} ON {column_name}.Patient_ID = population.Patient_ID"
             )
@@ -50,9 +50,7 @@ class StudyDefinition:
         FROM population
         {' '.join(cte_joins)}
         """
-        # Replace nulls with zeros and write CSV
         study_df = self.sql_to_df(sql, cte_params)
-        study_df.fillna(0, inplace=True)
         study_df.to_csv(filename, index_label="patient_id")
 
     def run_query(self, query_type, query_args):
