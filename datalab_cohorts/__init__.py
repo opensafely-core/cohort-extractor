@@ -186,7 +186,7 @@ class StudyDefinition:
         sql = f"""
         SELECT
           patients.Patient_ID AS patient_id, weight, height,
-          COALESCE(weight/SQUARE(height), bmis.BMI) AS BMI
+          ROUND(COALESCE(weight/SQUARE(NULLIF(height, 0)), bmis.BMI), 1) AS BMI
         FROM ({patients_cte}) AS patients
         LEFT JOIN ({weights_cte}) AS weights
         ON weights.Patient_ID = patients.Patient_ID AND DATEDIFF(YEAR, patients.DateOfBirth, weights.ConsultationDate) > 16
