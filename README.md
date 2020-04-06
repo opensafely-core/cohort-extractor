@@ -44,3 +44,14 @@ This is currently supported in the secure TPP environment only.
 * Set the environment to point at the live server
 * Run `run.py generate_cohort` to generate the cohort
 * Run `run.py run` to run the model. Its output is streamed to stdout, and saved in `model.log`
+
+# For developers
+
+## Run tests
+
+* Start an mssql server with `docker-compose up`
+* Set up a virtualenv and `pip install -r requirements.txt`
+* `py.test tests/`
+
+Note: until we make this cleaner... if you change the database schema
+be sure to `docker rm stata-docker_sql_1` before restarting.

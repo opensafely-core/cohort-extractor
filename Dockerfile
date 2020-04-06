@@ -10,6 +10,11 @@ RUN apt-get install -y unixodbc-dev
 RUN mkdir -p /usr/local/stata
 COPY bin/ /usr/local/stata
 
+# Install Microsoft stuff needed to install Pyodbc and access a SQL Server
+# database
+COPY install_mssql.sh /tmp/
+RUN bash /tmp/install_mssql.sh
+
 # Install pip requirements
 COPY requirements.txt /tmp/
 # Hack until this is fixed https://github.com/jazzband/pip-tools/issues/823
