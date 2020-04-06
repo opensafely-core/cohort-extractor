@@ -49,9 +49,9 @@ This is currently supported in the secure TPP environment only.
 
 ## Run tests
 
-* Start an mssql server with `docker-compose up`
-* Set up a virtualenv and `pip install -r requirements.txt`
-* `py.test tests/`
+* Ensure you have Docker and Docker Compose installed (known to work
+  with Docker version 19.03.8 and Docker Compose version 1.25.4)
+* Run `./run_tests.sh`
 
 Note: until we make this cleaner... if you change the database schema
 be sure to `docker rm stata-docker_sql_1` before restarting.
