@@ -1,4 +1,5 @@
 import os
+import time
 
 import sqlalchemy
 from sqlalchemy import create_engine
@@ -13,8 +14,18 @@ Base = declarative_base()
 
 
 def make_engine():
-    engine = create_engine(os.environ["DATABASE_URL"])
-    return engine
+    # Wait for the database to be ready if it isn't already
+    for remaining in range(40, -1, -1):
+        try:
+            engine = create_engine(os.environ["DATABASE_URL"])
+            with engine.connect():
+                pass
+            return engine
+        except sqlalchemy.exc.DBAPIError:
+            if remaining > 0:
+                time.sleep(2)
+            else:
+                raise
 
 
 def make_session():
