@@ -14,8 +14,10 @@ Base = declarative_base()
 
 
 def make_engine():
+    return create_engine(os.environ["DATABASE_URL"])
+    """
     # Wait for the database to be ready if it isn't already
-    for remaining in range(40, -1, -1):
+    for remaining in range(10, -1, -1):
         try:
             engine = create_engine(os.environ["DATABASE_URL"])
             with engine.connect():
@@ -26,6 +28,7 @@ def make_engine():
                 time.sleep(2)
             else:
                 raise
+    """
 
 
 def make_session():
