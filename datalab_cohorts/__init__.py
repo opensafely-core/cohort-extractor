@@ -4,7 +4,6 @@ import os
 import re
 from urllib.parse import urlparse, unquote
 
-import pandas
 import pyodbc
 
 
@@ -464,7 +463,10 @@ class Codelist(list):
 
 
 def codelist_from_csv(filename, system):
-    codes = pandas.read_csv(filename)["code"]
+    codes = []
+    with open(filename, "r") as f:
+        for row in csv.DictReader(f):
+            codes.append(row["code"])
     codes = Codelist(codes)
     codes.system = system
     return codes
