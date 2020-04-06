@@ -110,6 +110,28 @@ class StudyDefinition:
             [],
         )
 
+    def patients_random_sample(self, percent):
+        """
+        A random sample of approximately `percent` patients
+        """
+        # See
+        # https://docs.microsoft.com/en-us/previous-versions/software-testing/cc441928(v=msdn.10)?redirectedfrom=MSDN
+        # A TABLESAMPLE clause is more efficient, but its
+        # approximations don't work with small numbers, and we might
+        # want to use this method for small numbers (and certainly do
+        # in the tests!)
+        return (
+            ["patient_id", "is_included"],
+            f"""
+            SELECT Patient_ID, 1 AS is_included
+            FROM Patient
+            WHERE (ABS(CAST(
+            (BINARY_CHECKSUM(*) *
+            RAND()) as int)) % 100) < ?
+            """,
+            [percent],
+        )
+
     def patients_bmi(self, reference_date):
         """Return BMI as of reference date, ignoring measurements over 10
         years prior
@@ -358,6 +380,10 @@ class patients:
     @staticmethod
     def all():
         return "all", locals()
+
+    @staticmethod
+    def random_sample(percent):
+        return "random_sample", locals()
 
     @staticmethod
     def sex():
