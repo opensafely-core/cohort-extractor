@@ -15,7 +15,7 @@ Base = declarative_base()
 
 def make_engine():
     # Wait for the database to be ready if it isn't already
-    for remaining in range(30, -1, -1):
+    for remaining in range(10, -1, -1):
         try:
             engine = create_engine(os.environ["DATABASE_URL"])
             with engine.connect():
@@ -23,7 +23,7 @@ def make_engine():
             return engine
         except sqlalchemy.exc.DBAPIError:
             if remaining > 0:
-                time.sleep(5)
+                time.sleep(2)
             else:
                 raise
 
