@@ -207,7 +207,7 @@ class StudyDefinition:
         heights_cte_params = height_params + [reference_date]
         sql = f"""
         SELECT
-          patients.Patient_ID AS patient_id, weight, height,
+          patients.Patient_ID AS patient_id,
           ROUND(COALESCE(weight/SQUARE(NULLIF(height, 0)), bmis.BMI), 1) AS BMI
         FROM ({patients_cte}) AS patients
         LEFT JOIN ({weights_cte}) AS weights
@@ -224,7 +224,7 @@ class StudyDefinition:
             + heights_cte_params
             + bmi_cte_params
         )
-        return ["patient_id", "weight", "height", "BMI"], sql, params
+        return ["patient_id", "BMI"], sql, params
 
     def patients_registered_as_of(self, reference_date):
         """
