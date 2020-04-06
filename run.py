@@ -11,6 +11,12 @@ import argparse
 
 import generate_cohort
 
+try:
+    from gooey import Gooey
+
+    GOOEY_INSTALLED = True  # Currently, only in a Windows build
+except ImportError:
+    GOOEY_INSTALLED = False
 
 tag = "datalab-stata"
 current_dir = os.getcwd()
@@ -108,7 +114,7 @@ def docker_build_and_run(*args, skip_build=False):
     print(result)
 
 
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser(description="Run models")
     parser.add_argument("command", choices=["run", "generate_cohort", "test", "shell"])
     parser.add_argument(
@@ -125,3 +131,10 @@ if __name__ == "__main__":
         )
     elif args.command == "generate_cohort":
         generate_cohort.main()
+
+
+if __name__ == "__main__":
+    if GOOEY_INSTALLED:
+        Gooey(main())
+    else:
+        main()
