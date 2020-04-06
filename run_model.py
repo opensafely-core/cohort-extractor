@@ -48,7 +48,7 @@ if __name__ == "__main__":
     clear_output()
     if len(sys.argv) > 1:
         if sys.argv[1] == "test":
-            run_model("test")
+            run_model("tests")
         else:
             raise RuntimeError(f"Invalid argument {sys.argv[1]}")
     else:
