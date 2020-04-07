@@ -99,7 +99,6 @@ def docker_run(tag, *args):
     runcmd = [
         "docker",
         "run",
-        "-it",
         "-w",
         target_dir,
         "--rm",  # clean up the container after it's stopped
@@ -136,6 +135,7 @@ def docker_build_and_run(*args, skip_build=False):
 def check_output():
     # Stata insists on writing to the current
     # directory: https://stackoverflow.com/a/35051922/559140
+    output = ""
     with open("model.log", "r") as f:
         output = f.read()
         # XXX at this point, for some reason newlines are coming out
@@ -143,6 +143,7 @@ def check_output():
         # for now, so have replaced `^` in this regex with `\n`/DOTALL
         if re.findall(r"\nr\([0-9]+\);$", output, re.DOTALL):
             raise Exception(f"Problem found:\n\n{output}")
+    return output
 
 
 def clear_output():
@@ -155,7 +156,7 @@ def clear_output():
 
 def run_model(folder):
     docker_run(tag, "-b", "do", f"{folder}/model.do")
-    check_output()
+    return check_output()
 
 
 if __name__ == "__main__":
