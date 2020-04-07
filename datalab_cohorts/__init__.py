@@ -232,30 +232,41 @@ class StudyDefinition:
             [reference_date, reference_date],
         )
 
-    def patients_with_these_medications(self, codelist, min_date=None, max_date=None):
+    def patients_with_these_medications(self, **kwargs):
         """
         Patients who have been prescribed at least one of this list of
         medications in the defined period
         """
-        placeholders, params = placeholders_and_params(codelist)
-        date_condition, date_params = make_date_filter(
-            "ConsultationDate", min_date, max_date
-        )
-        params.extend(date_params)
-        return (
-            ["patient_id", "has_meds"],
-            f"""
-            SELECT DISTINCT med.Patient_ID AS patient_id, 1 AS has_meds
+        return self._patients_with_associated_events(
+            """
+            SELECT med.Patient_ID AS patient_id, {column_definition} AS {column_name}
             FROM MedicationDictionary AS dict
             INNER JOIN MedicationIssue AS med
             ON dict.MultilexDrug_ID = med.MultilexDrug_ID
             WHERE dict.DMD_ID IN ({placeholders}) AND {date_condition}
+            GROUP BY med.Patient_ID
             """,
-            params,
+            **kwargs,
         )
 
-    def patients_with_these_clinical_events(
+    def patients_with_these_clinical_events(self, **kwargs):
+        """
+        Patients who have had at least one of these clinical events in the
+        defined period
+        """
+        return self._patients_with_associated_events(
+            """
+            SELECT Patient_ID AS patient_id, {column_definition} AS {column_name}
+            FROM CodedEvent
+            WHERE CTV3Code IN ({placeholders}) AND {date_condition}
+            GROUP BY Patient_ID
+            """,
+            **kwargs,
+        )
+
+    def _patients_with_associated_events(
         self,
+        query_template,
         codelist,
         # Set date limits
         on_or_before=None,
@@ -269,10 +280,6 @@ class StudyDefinition:
         include_month=False,
         include_day=False,
     ):
-        """
-        Patients who have had at least one of these clinical events in the
-        defined period
-        """
         placeholders, params = placeholders_and_params(codelist)
         date_condition, date_params = make_date_filter(
             "ConsultationDate", on_or_after, on_or_before, between
@@ -281,13 +288,13 @@ class StudyDefinition:
 
         # Define output column name and aggregation function
         if return_first_date_in_period:
-            column_name = "date_of_first_clinical_event"
+            column_name = "date_of_first_event"
             aggregate_func = "MIN"
         elif return_last_date_in_period:
-            column_name = "date_of_last_clinical_event"
+            column_name = "date_of_last_event"
             aggregate_func = "MAX"
         else:
-            column_name = "has_clinical_event"
+            column_name = "has_event"
             aggregate_func = None
 
         # Define date output format
@@ -307,12 +314,12 @@ class StudyDefinition:
 
         return (
             ["patient_id", column_name],
-            f"""
-            SELECT Patient_ID AS patient_id, {column_definition} AS {column_name}
-            FROM CodedEvent
-            WHERE CTV3Code IN ({placeholders}) AND {date_condition}
-            GROUP BY Patient_ID
-            """,
+            query_template.format(
+                column_definition=column_definition,
+                column_name=column_name,
+                placeholders=placeholders,
+                date_condition=date_condition,
+            ),
             params,
         )
 
@@ -414,8 +421,22 @@ class patients:
         return "sex", locals()
 
     @staticmethod
-    def with_these_medications(codelist, min_date=None, max_date=None):
+    def with_these_medications(
+        codelist,
+        # Set date limits
+        on_or_before=None,
+        on_or_after=None,
+        between=None,
+        # Set return type
+        return_binary_flag=None,
+        return_first_date_in_period=False,
+        return_last_date_in_period=False,
+        # If we're returning a date, how granular should it be?
+        include_month=False,
+        include_day=False,
+    ):
         assert codelist.system == "snomed"
+        validate_common_options(**locals())
         return "with_these_medications", locals()
 
     @staticmethod
@@ -434,14 +455,7 @@ class patients:
         include_day=False,
     ):
         assert codelist.system == "ctv3"
-        if between:
-            if not isinstance(between, (tuple, list)) or len(between) != 2:
-                raise ValueError("`between` should be a pair of dates")
-            if on_or_before or on_or_after:
-                raise ValueError(
-                    "You cannot set `between` at the same time as "
-                    "`on_or_before` or `on_or_after`"
-                )
+        validate_common_options(**locals())
         return "with_these_clinical_events", locals()
 
     # The below are placeholder methods we don't expect to make it into the final API.
@@ -458,6 +472,32 @@ class patients:
     @staticmethod
     def admitted_to_itu():
         return "admitted_to_itu", locals()
+
+
+def validate_common_options(
+    # Set date limits
+    on_or_before=None,
+    on_or_after=None,
+    between=None,
+    # Set return type
+    return_binary_flag=None,
+    return_first_date_in_period=False,
+    return_last_date_in_period=False,
+    # If we're returning a date, how granular should it be?
+    include_month=False,
+    include_day=False,
+    **kwargs,
+):
+    if between:
+        if not isinstance(between, (tuple, list)) or len(between) != 2:
+            raise ValueError("`between` should be a pair of dates")
+        if on_or_before or on_or_after:
+            raise ValueError(
+                "You cannot set `between` at the same time as "
+                "`on_or_before` or `on_or_after`"
+            )
+    # TODO: enforce just one return type and only allow month/day to be included
+    # if return type is a date
 
 
 def placeholders_and_params(values, as_ints=False):
