@@ -24,6 +24,26 @@ class StudyDefinition:
         self.covariate_definitions = kwargs
 
     def to_csv(self, filename):
+        sql, params = self.to_sql()
+        conn = self.get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(sql, params)
+        with open(filename, "w") as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow([x[0] for x in cursor.description])
+            for row in cursor:
+                writer.writerow(row)
+
+    def to_dicts(self):
+        sql, params = self.to_sql()
+        conn = self.get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(sql, params)
+        keys = [x[0] for x in cursor.description]
+        # Convert all values to str as that's what will end in the CSV
+        return [dict(zip(keys, map(str, row))) for row in cursor]
+
+    def to_sql(self):
         self.covariates = {}
         population_cols, population_sql, population_params = self.run_query(
             *self.population_definition
@@ -54,17 +74,7 @@ class StudyDefinition:
         FROM population
         {' '.join(cte_joins)}
         """
-        self.sql_to_csv(sql, cte_params, filename)
-
-    def sql_to_csv(self, sql, params, filename):
-        conn = self.get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute(sql, params)
-        with open(filename, "w") as csvfile:
-            writer = csv.writer(csvfile)
-            writer.writerow([x[0] for x in cursor.description])
-            for row in cursor:
-                writer.writerow(row)
+        return sql, cte_params
 
     def run_query(self, query_type, query_args):
         method_name = f"patients_{query_type}"
