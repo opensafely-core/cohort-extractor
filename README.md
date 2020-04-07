@@ -37,11 +37,10 @@ This will use your covariate definitions to generate a file for your model at `a
 You can now use Stata as you usually would, with your code entrypoint
 in `analysis/model.do`.
 
-## Running the model against real data
+## Running the model against data
 
-This is currently supported in the secure TPP environment only.
-
-* Set the environment to point at the live server
+* Set the environment to point at the SQL Server (see `.env-example`) - either the public dummy data one, or the real one (accessible only inside TPP secure environment)
+  * `GITHUB_ACTOR` and `GITHUB_TOKEN` are a username and token with package repo read rights. Generate your own from Settings > Developer
 * Run `run.py generate_cohort` to generate the cohort
 * Run `run.py run` to run the model. Its output is streamed to stdout, and saved in `model.log`
 

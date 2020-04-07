@@ -3,6 +3,7 @@ browser on the correct port, and handle shutdowns gracefully
 
 """
 import os
+import re
 import subprocess
 import socket
 import time
@@ -12,7 +13,7 @@ import argparse
 import generate_cohort
 
 
-tag = "datalab-stata"
+tag = "docker.pkg.github.com/ebmdatalab/stata-docker-runner/stata-mp:latest"
 current_dir = os.getcwd()
 target_dir = "/home/app/notebook"
 
@@ -68,6 +69,28 @@ def docker_build(tag):
     stream_subprocess_output(buildcmd)
 
 
+def docker_login():
+    runcmd = [
+        "echo",
+        os.environ["GITHUB_TOKEN"],
+        "|",
+        "docker",
+        "login",
+        "docker.pkg.github.com",
+        "-u",
+        os.environ["GITHUB_ACTOR"],
+        "--password-stdin",
+    ]
+    print("Running {}".format(" ".join(runcmd)))
+    return stream_subprocess_output(runcmd)
+
+
+def docker_pull():
+    runcmd = ["docker", "pull", tag]
+    print("Running {}".format(" ".join(runcmd)))
+    return stream_subprocess_output(runcmd)
+
+
 def docker_run(tag, *args):
     """Run docker in background, and install signal handler to stop it
     again
@@ -77,6 +100,8 @@ def docker_run(tag, *args):
         "docker",
         "run",
         "-it",
+        "-w",
+        target_dir,
         "--rm",  # clean up the container after it's stopped
         "--mount",
         f"source={current_dir},dst={target_dir},type=bind",
@@ -86,7 +111,7 @@ def docker_run(tag, *args):
         tag,
         *args,
     ]
-    print("Running docker with {}".format(" ".join(runcmd)))
+    print("Running {}".format(" ".join(runcmd)))
     return stream_subprocess_output(runcmd)
 
 
@@ -108,6 +133,31 @@ def docker_build_and_run(*args, skip_build=False):
     print(result)
 
 
+def check_output():
+    # Stata insists on writing to the current
+    # directory: https://stackoverflow.com/a/35051922/559140
+    with open("model.log", "r") as f:
+        output = f.read()
+        # XXX at this point, for some reason newlines are coming out
+        # as escaped literals. I can't work out why and need to get on
+        # for now, so have replaced `^` in this regex with `\n`/DOTALL
+        if re.findall(r"\nr\([0-9]+\);$", output, re.DOTALL):
+            raise Exception(f"Problem found:\n\n{output}")
+
+
+def clear_output():
+    try:
+        print("Removing existing output")
+        os.remove("model.log")
+    except FileNotFoundError:
+        pass
+
+
+def run_model(folder):
+    docker_run(tag, "-b", "do", f"{folder}/model.do")
+    check_output()
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run models")
     parser.add_argument("command", choices=["run", "generate_cohort", "test", "shell"])
@@ -115,13 +165,13 @@ if __name__ == "__main__":
         "--skip-build", help="Skip docker image build step", action="store_true"
     )
     args = parser.parse_args()
+    docker_login()
+    docker_pull()
     if args.command == "shell":
         docker_build_and_run("/bin/bash", skip_build=args.skip_build)
     if args.command == "run":
-        docker_build_and_run("python3", "run_model.py", skip_build=args.skip_build)
+        print(run_model("analysis"))
     if args.command == "test":
-        docker_build_and_run(
-            "python3", "run_model.py", "test", skip_build=args.skip_build
-        )
+        run_model("tests")
     elif args.command == "generate_cohort":
         generate_cohort.main()
