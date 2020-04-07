@@ -232,6 +232,24 @@ class StudyDefinition:
             [reference_date, reference_date],
         )
 
+    def patients_continuously_registered_between(self, start_date, end_date):
+        """
+        All patients continuously registed between the given dates
+        """
+        # Note that current registrations are recorded with an EndDate
+        # of 9999-12-31
+        return (
+            ["patient_id"],
+            f"""
+            SELECT DISTINCT Patient.Patient_ID AS patient_id
+            FROM Patient
+            INNER JOIN  RegistrationHistory
+            ON RegistrationHistory.Patient_ID = Patient.Patient_ID
+            WHERE StartDate < ? AND EndDate > ?
+            """,
+            [start_date, end_date],
+        )
+
     def patients_with_these_medications(self, **kwargs):
         """
         Patients who have been prescribed at least one of this list of
@@ -403,6 +421,12 @@ class patients:
         else:
             reference_date = datetime.date.fromisoformat(str(reference_date))
         return "registered_as_of", locals()
+
+    @staticmethod
+    def continuously_registered_between(start_date, end_date):
+        start_date = datetime.date.fromisoformat(str(start_date))
+        end_date = datetime.date.fromisoformat(str(end_date))
+        return "continuously_registered_between", locals()
 
     @staticmethod
     def bmi(reference_date):

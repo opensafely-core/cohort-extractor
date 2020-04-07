@@ -291,6 +291,36 @@ def test_patient_registered_as_of():
     ]
 
 
+def test_patients_continuously_registered_between():
+    session = make_session()
+
+    patient_registered_in_2001 = Patient()
+    patient_registered_in_2002 = Patient()
+    patient_unregistered_in_2002 = Patient()
+    patient_registered_in_2001.RegistrationHistory = [
+        RegistrationHistory(StartDate="2001-01-01", EndDate="9999-01-01")
+    ]
+    patient_registered_in_2002.RegistrationHistory = [
+        RegistrationHistory(StartDate="2002-01-01", EndDate="9999-01-01")
+    ]
+    patient_unregistered_in_2002.RegistrationHistory = [
+        RegistrationHistory(StartDate="2001-01-01", EndDate="2002-01-01")
+    ]
+
+    session.add(patient_registered_in_2001)
+    session.add(patient_registered_in_2002)
+    session.add(patient_unregistered_in_2002)
+    session.commit()
+
+    study = StudyDefinition(
+        population=patients.continuously_registered_between("2001-12-01", "2003-01-01")
+    )
+    results = study.to_dicts()
+    assert [x["patient_id"] for x in results] == [
+        str(patient_registered_in_2001.Patient_ID)
+    ]
+
+
 def test_simple_bmi():
     session = make_session()
 
