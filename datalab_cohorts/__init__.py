@@ -39,7 +39,10 @@ class StudyDefinition:
             cte_params.extend(params)
             for col in cols:
                 if col != "patient_id":
-                    cte_cols.append(f"ISNULL({column_name}.{col}, 0) AS {column_name}")
+                    default_value = 0 if not col.startswith("date_") else "''"
+                    cte_cols.append(
+                        f"ISNULL({column_name}.{col}, {default_value}) AS {column_name}"
+                    )
             cte_joins.append(
                 f"LEFT JOIN {column_name} ON {column_name}.Patient_ID = population.Patient_ID"
             )
@@ -245,7 +248,19 @@ class StudyDefinition:
         )
 
     def patients_with_these_clinical_events(
-        self, codelist, min_date=None, max_date=None
+        self,
+        codelist,
+        # Set date limits
+        on_or_before=None,
+        on_or_after=None,
+        between=None,
+        # Set return type
+        return_binary_flag=None,
+        return_first_date_in_period=False,
+        return_last_date_in_period=False,
+        # If we're returning a date, how granular should it be?
+        include_month=False,
+        include_day=False,
     ):
         """
         Patients who have had at least one of these clinical events in the
@@ -253,15 +268,43 @@ class StudyDefinition:
         """
         placeholders, params = placeholders_and_params(codelist)
         date_condition, date_params = make_date_filter(
-            "ConsultationDate", min_date, max_date
+            "ConsultationDate", on_or_after, on_or_before, between
         )
         params.extend(date_params)
+
+        # Define output column name and aggregation function
+        if return_first_date_in_period:
+            column_name = "date_of_first_clinical_event"
+            aggregate_func = "MIN"
+        elif return_last_date_in_period:
+            column_name = "date_of_last_clinical_event"
+            aggregate_func = "MAX"
+        else:
+            column_name = "has_clinical_event"
+            aggregate_func = None
+
+        # Define date output format
+        date_length = 4  # Year only
+        if include_month:
+            date_length = 7
+            if include_day:
+                date_length = 10
+
+        # Column definition
+        if aggregate_func is None:
+            column_definition = "1"
+        else:
+            # Style 23 below means YYYY-MM-DD format, see:
+            # https://docs.microsoft.com/en-us/sql/t-sql/functions/cast-and-convert-transact-sql?view=sql-server-ver15#date-and-time-styles
+            column_definition = f"CONVERT(VARCHAR({date_length}), {aggregate_func}(ConsultationDate), 23)"
+
         return (
-            ["patient_id", "has_clinical_event"],
+            ["patient_id", column_name],
             f"""
-            SELECT DISTINCT Patient_ID AS patient_id, 1 AS has_clinical_event
+            SELECT Patient_ID AS patient_id, {column_definition} AS {column_name}
             FROM CodedEvent
             WHERE CTV3Code IN ({placeholders}) AND {date_condition}
+            GROUP BY Patient_ID
             """,
             params,
         )
@@ -369,8 +412,29 @@ class patients:
         return "with_these_medications", locals()
 
     @staticmethod
-    def with_these_clinical_events(codelist, min_date=None, max_date=None):
+    def with_these_clinical_events(
+        codelist,
+        # Set date limits
+        on_or_before=None,
+        on_or_after=None,
+        between=None,
+        # Set return type
+        return_binary_flag=None,
+        return_first_date_in_period=False,
+        return_last_date_in_period=False,
+        # If we're returning a date, how granular should it be?
+        include_month=False,
+        include_day=False,
+    ):
         assert codelist.system == "ctv3"
+        if between:
+            if not isinstance(between, (tuple, list)) or len(between) != 2:
+                raise ValueError("`between` should be a pair of dates")
+            if on_or_before or on_or_after:
+                raise ValueError(
+                    "You cannot set `between` at the same time as "
+                    "`on_or_before` or `on_or_after`"
+                )
         return "with_these_clinical_events", locals()
 
     # The below are placeholder methods we don't expect to make it into the final API.
@@ -421,7 +485,10 @@ def placeholders_and_params(values, as_ints=False):
     return placeholders, params
 
 
-def make_date_filter(column, min_date, max_date):
+def make_date_filter(column, min_date, max_date, between=None):
+    if between is not None:
+        assert min_date is None and max_date is None
+        min_date, max_date = between
     if min_date is not None and max_date is not None:
         return f"{column} BETWEEN ? AND ?", [min_date, max_date]
     elif min_date is not None:

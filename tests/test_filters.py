@@ -97,20 +97,22 @@ def test_meds():
         assert [x["asthma_meds"] for x in results] == ["1", "0"]
 
 
-def _make_clinical_events_selection(condition_code):
+def _make_clinical_events_selection(condition_code, patient_dates=None):
+    # The default configuration of patients and dates which some tests assume
+    if patient_dates is None:
+        patient_dates = ["2001-06-01", "2002-06-01", None]
     session = make_session()
-    patient_with_condition_in_2001 = Patient()
-    patient_with_condition_in_2002 = Patient()
-    patient_with_condition_in_2001.CodedEvents.append(
-        CodedEvent(CTV3Code=condition_code, ConsultationDate="2001-06-01")
-    )
-    patient_with_condition_in_2002.CodedEvents.append(
-        CodedEvent(CTV3Code=condition_code, ConsultationDate="2002-06-01")
-    )
-    patient_without_condition = Patient()
-    session.add(patient_with_condition_in_2001)
-    session.add(patient_with_condition_in_2002)
-    session.add(patient_without_condition)
+    for dates in patient_dates:
+        patient = Patient()
+        if dates is None:
+            dates = []
+        elif isinstance(dates, str):
+            dates = [dates]
+        for date in dates:
+            patient.CodedEvents.append(
+                CodedEvent(CTV3Code=condition_code, ConsultationDate=date)
+            )
+        session.add(patient)
     session.commit()
 
 
@@ -136,7 +138,7 @@ def test_clinical_event_with_max_date():
     study = StudyDefinition(
         population=patients.all(),
         asthma_condition=patients.with_these_clinical_events(
-            codelist([condition_code], "ctv3"), max_date="2001-12-01"
+            codelist([condition_code], "ctv3"), on_or_before="2001-12-01"
         ),
     )
     with tempfile.NamedTemporaryFile(mode="w+") as f:
@@ -151,7 +153,7 @@ def test_clinical_event_with_min_date():
     study = StudyDefinition(
         population=patients.all(),
         asthma_condition=patients.with_these_clinical_events(
-            codelist([condition_code], "ctv3"), min_date="2005-12-01"
+            codelist([condition_code], "ctv3"), on_or_after="2005-12-01"
         ),
     )
     with tempfile.NamedTemporaryFile(mode="w+") as f:
@@ -166,15 +168,101 @@ def test_clinical_event_with_min_and_max_date():
     study = StudyDefinition(
         population=patients.all(),
         asthma_condition=patients.with_these_clinical_events(
-            codelist([condition_code], "ctv3"),
-            min_date="2001-12-01",
-            max_date="2002-06-01",
+            codelist([condition_code], "ctv3"), between=["2001-12-01", "2002-06-01"]
         ),
     )
     with tempfile.NamedTemporaryFile(mode="w+") as f:
         study.to_csv(f.name)
         results = list(csv.DictReader(f))
         assert [x["asthma_condition"] for x in results] == ["0", "1", "0"]
+
+
+def test_clinical_event_returning_first_date():
+    condition_code = "ASTHMA"
+    _make_clinical_events_selection(
+        condition_code,
+        patient_dates=[
+            None,
+            # Include date before period starts, which should be ignored
+            ["2001-01-01", "2002-06-01"],
+            ["2001-06-01"],
+        ],
+    )
+    study = StudyDefinition(
+        population=patients.all(),
+        asthma_condition=patients.with_these_clinical_events(
+            codelist([condition_code], "ctv3"),
+            between=["2001-12-01", "2002-06-01"],
+            return_first_date_in_period=True,
+            include_month=True,
+            include_day=True,
+        ),
+    )
+    with tempfile.NamedTemporaryFile(mode="w+") as f:
+        study.to_csv(f.name)
+        results = list(csv.DictReader(f))
+        assert [x["asthma_condition"] for x in results] == ["", "2002-06-01", ""]
+
+
+def test_clinical_event_returning_last_date():
+    condition_code = "ASTHMA"
+    _make_clinical_events_selection(
+        condition_code,
+        patient_dates=[
+            None,
+            # Include date after period ends, which should be ignored
+            ["2002-06-01", "2003-01-01"],
+            ["2001-06-01"],
+        ],
+    )
+    study = StudyDefinition(
+        population=patients.all(),
+        asthma_condition=patients.with_these_clinical_events(
+            codelist([condition_code], "ctv3"),
+            between=["2001-12-01", "2002-06-01"],
+            return_last_date_in_period=True,
+            include_month=True,
+            include_day=True,
+        ),
+    )
+    with tempfile.NamedTemporaryFile(mode="w+") as f:
+        study.to_csv(f.name)
+        results = list(csv.DictReader(f))
+        assert [x["asthma_condition"] for x in results] == ["", "2002-06-01", ""]
+
+
+def test_clinical_event_returning_year_only():
+    condition_code = "ASTHMA"
+    _make_clinical_events_selection(condition_code)
+    # No date criteria
+    study = StudyDefinition(
+        population=patients.all(),
+        asthma_condition=patients.with_these_clinical_events(
+            codelist([condition_code], "ctv3"), return_first_date_in_period=True
+        ),
+    )
+    with tempfile.NamedTemporaryFile(mode="w+") as f:
+        study.to_csv(f.name)
+        results = list(csv.DictReader(f))
+        assert [x["asthma_condition"] for x in results] == ["2001", "2002", ""]
+
+
+def test_clinical_event_returning_year_and_month_only():
+    condition_code = "ASTHMA"
+    _make_clinical_events_selection(condition_code)
+    # No date criteria
+    study = StudyDefinition(
+        population=patients.all(),
+        asthma_condition=patients.with_these_clinical_events(
+            codelist([condition_code], "ctv3"),
+            return_first_date_in_period=True,
+            include_month=True,
+        ),
+    )
+    with tempfile.NamedTemporaryFile(mode="w+") as f:
+        study.to_csv(f.name)
+        results = list(csv.DictReader(f))
+        assert [x["asthma_condition"] for x in results] == ["2001-06", "2002-06", ""]
 
 
 def test_patient_registered_as_of():
