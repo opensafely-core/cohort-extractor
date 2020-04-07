@@ -14,9 +14,6 @@ SAFE_CHARS_RE = re.compile(r"[a-zA-Z0-9_\.\-]+")
 
 
 class StudyDefinition:
-    population = None
-    _demographic_df = None
-    _chess_df = None
     _db_connection = None
 
     def __init__(self, population, **kwargs):
@@ -45,11 +42,11 @@ class StudyDefinition:
 
     def to_sql(self):
         self.covariates = {}
-        population_cols, population_sql, population_params = self.run_query(
+        population_cols, population_sql, population_params = self.get_query(
             *self.population_definition
         )
         for name, (query_type, query_args) in self.covariate_definitions.items():
-            self.covariates[name] = self.run_query(query_type, query_args)
+            self.covariates[name] = self.get_query(query_type, query_args)
         cte_cols = ["population.patient_id"]  # XXX might more come from left side?
         ctes = [f"WITH population AS ({population_sql})"]
         cte_params = population_params
@@ -76,7 +73,7 @@ class StudyDefinition:
         """
         return sql, cte_params
 
-    def run_query(self, query_type, query_args):
+    def get_query(self, query_type, query_args):
         method_name = f"patients_{query_type}"
         method = getattr(self, method_name)
         return method(**query_args)
