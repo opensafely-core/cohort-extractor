@@ -41,84 +41,108 @@ class StudyDefinition:
         return [dict(zip(keys, map(str, row))) for row in cursor]
 
     def to_sql(self):
-        self.covariates = {}
-        population_cols, population_sql, population_params = self.get_query(
+        self.ctes = {}
+
+        population_expr, population_params, population_type = self.get_query(
             *self.population_definition
         )
-        for name, (query_type, query_args) in self.covariate_definitions.items():
-            self.covariates[name] = self.get_query(query_type, query_args)
-        cte_cols = ["population.patient_id"]  # XXX might more come from left side?
-        ctes = [f"WITH population AS ({population_sql})"]
-        cte_params = population_params
-        cte_joins = []
-        for column_name, (cols, sql, params) in self.covariates.items():
-            ctes.append(f"{column_name} AS ({sql})")
-            cte_params.extend(params)
-            for col in cols:
-                if col != "patient_id":
-                    default_value = 0 if not col.startswith("date_") else "''"
-                    cte_cols.append(
-                        f"ISNULL({column_name}.{col}, {default_value}) AS {column_name}"
-                    )
-            cte_joins.append(
-                f"LEFT JOIN {column_name} ON {column_name}.Patient_ID = population.Patient_ID"
+        if population_type is not bool:
+            raise ValueError(
+                "Only a boolean covariate can be used to define population"
             )
-        cte_sql = ", ".join(ctes)
+        assert not population_params
+
+        covariates = {}
+        for name, (query_type, query_args) in self.covariate_definitions.items():
+            covariates[name] = self.get_query(query_type, query_args)
+
+        cte_defs = []
+        cte_params = []
+        cte_joins = []
+        for cte_name, (cte_sql, cte_params) in self.ctes.items():
+            cte_defs.append(f"{cte_name} AS ({cte_sql})")
+            cte_joins.append(
+                f"LEFT JOIN {cte_name} ON {cte_name}.patient_id = population.patient_id"
+            )
+        cte_defs.append(f"population AS (SELECT patient_id FROM {population_expr})")
+
+        column_defs = ["population.patient_id AS patient_id"]
+        column_params = []
+        for column_name, (expr, params, type_) in covariates.items():
+            if type_ is bool:
+                assert not params
+                column_def = f"CASE WHEN {expr}.patient_id IS NULL THEN 0 ELSE 1 END AS {column_name}"
+            elif type_ is int:
+                column_def = f"ISNULL({expr}, 0) AS {column_name}"
+            elif type_ is float:
+                column_def = f"ISNULL({expr}, 0.0) AS {column_name}"
+            elif type_ is str:
+                column_def = f"ISNULL({expr}, '') AS {column_name}"
+            else:
+                raise ValueError(f"Unhandled type: {type_}")
+            column_defs.append(column_def)
+            column_params.extend(params)
+
+        cte_defs_str = ",\n".join(cte_defs)
+        column_defs_str = ",\n".join(column_defs)
+        cte_joins_str = "\n".join(cte_joins)
         sql = f"""
-        {cte_sql}
-        SELECT
-          {', '.join(cte_cols)}
-        FROM population
-        {' '.join(cte_joins)}
-        """
-        return sql, cte_params
+            WITH
+            {cte_defs_str}
+            SELECT
+            {column_defs_str}
+            FROM
+            population
+            {cte_joins_str}
+            """
+        print(sql)
+        return sql, cte_params + column_params
 
     def get_query(self, query_type, query_args):
         method_name = f"patients_{query_type}"
         method = getattr(self, method_name)
         return method(**query_args)
 
-    def patients_age_as_of(self, reference_date):
-        return (
-            ["patient_id", "age"],
+    def add_patients_cte(self):
+        if "patients" in self.ctes:
+            return
+        self.ctes["patients"] = (
             """
-        SELECT
-          Patient_ID AS patient_id,
-          CASE WHEN
-             dateadd(year, datediff (year, DateOfBirth, ?), DateOfBirth) > ?
-          THEN
-             datediff(year, DateOfBirth, ?) - 1
-          ELSE
-             datediff(year, DateOfBirth, ?)
-          END AS age
-        FROM Patient
-        """,
+            SELECT
+              Patient_ID AS patient_id,
+              DateOfBirth as date_of_birth,
+              Sex as sex
+            FROM Patient
+            """,
+            [],
+        )
+
+    def patients_age_as_of(self, reference_date):
+        self.add_patients_cte()
+        return (
+            """
+            CASE WHEN
+              dateadd(year, datediff (year, patients.date_of_birth, ?), patients.date_of_birth) > ?
+            THEN
+              datediff(year, patients.date_of_birth, ?) - 1
+            ELSE
+              datediff(year, patients.date_of_birth, ?)
+            END
+            """,
             [reference_date] * 4,
+            int,
         )
 
     def patients_sex(self):
-        return (
-            ["patient_id", "sex"],
-            """
-          SELECT
-            Patient_ID AS patient_id,
-            Sex as sex
-          FROM Patient""",
-            [],
-        )
+        self.add_patients_cte()
+        return "patients.sex", [], str
 
     def patients_all(self):
         """
         All patients
         """
-        return (
-            ["patient_id", "date_of_birth", "sex"],
-            """
-            SELECT Patient_ID AS patient_id, DateOfBirth AS date_of_birth, Sex AS sex
-            FROM Patient
-            """,
-            [],
-        )
+        self.add_patients_cte()
+        return "patients", [], bool
 
     def patients_bmi(self, reference_date):
         """Return BMI as of reference date, ignoring measurements over 10
@@ -212,24 +236,15 @@ class StudyDefinition:
             + heights_cte_params
             + bmi_cte_params
         )
-        return ["patient_id", "weight", "height", "BMI"], sql, params
+        self.ctes["bmi"] = (sql, params)
+        return "bmi.BMI", [], float
 
     def patients_registered_as_of(self, reference_date):
         """
         All patients registed on the given date
         """
-        # Note that current registrations are recorded with an EndDate
-        # of 9999-12-31
-        return (
-            ["patient_id"],
-            f"""
-            SELECT DISTINCT Patient.Patient_ID AS patient_id
-            FROM Patient
-            INNER JOIN  RegistrationHistory
-            ON RegistrationHistory.Patient_ID = Patient.Patient_ID
-            WHERE StartDate < ? AND EndDate > ?
-            """,
-            [reference_date, reference_date],
+        return self.patients_continuously_registered_between(
+            reference_date, reference_date
         )
 
     def patients_continuously_registered_between(self, start_date, end_date):
@@ -238,17 +253,18 @@ class StudyDefinition:
         """
         # Note that current registrations are recorded with an EndDate
         # of 9999-12-31
-        return (
-            ["patient_id"],
-            f"""
-            SELECT DISTINCT Patient.Patient_ID AS patient_id
-            FROM Patient
-            INNER JOIN  RegistrationHistory
-            ON RegistrationHistory.Patient_ID = Patient.Patient_ID
+        start_text = start_date.strftime("%Y_%m_%d")
+        end_text = end_date.strftime("%Y_%m_%d")
+        cte_name = f"registered_between_{start_text}_{end_text}"
+        self.ctes[cte_name] = (
+            """
+            SELECT DISTINCT Patient_ID AS patient_id
+            FROM RegistrationHistory
             WHERE StartDate < ? AND EndDate > ?
             """,
             [start_date, end_date],
         )
+        return cte_name, [], bool
 
     def patients_with_these_medications(self, **kwargs):
         """
@@ -257,7 +273,7 @@ class StudyDefinition:
         """
         return self._patients_with_associated_events(
             """
-            SELECT med.Patient_ID AS patient_id, {column_definition} AS {column_name}
+            SELECT med.Patient_ID AS patient_id, {column_definition} AS value
             FROM MedicationDictionary AS dict
             INNER JOIN MedicationIssue AS med
             ON dict.MultilexDrug_ID = med.MultilexDrug_ID
@@ -274,7 +290,7 @@ class StudyDefinition:
         """
         return self._patients_with_associated_events(
             """
-            SELECT Patient_ID AS patient_id, {column_definition} AS {column_name}
+            SELECT Patient_ID AS patient_id, {column_definition} AS value
             FROM CodedEvent
             WHERE CTV3Code IN ({placeholders}) AND {date_condition}
             GROUP BY Patient_ID
@@ -306,13 +322,13 @@ class StudyDefinition:
 
         # Define output column name and aggregation function
         if return_first_date_in_period:
-            column_name = "date_of_first_event"
+            return_type = str
             aggregate_func = "MIN"
         elif return_last_date_in_period:
-            column_name = "date_of_last_event"
+            return_type = str
             aggregate_func = "MAX"
         else:
-            column_name = "has_event"
+            return_type = bool
             aggregate_func = None
 
         # Define date output format
@@ -329,50 +345,55 @@ class StudyDefinition:
             # Style 23 below means YYYY-MM-DD format, see:
             # https://docs.microsoft.com/en-us/sql/t-sql/functions/cast-and-convert-transact-sql?view=sql-server-ver15#date-and-time-styles
             column_definition = f"CONVERT(VARCHAR({date_length}), {aggregate_func}(ConsultationDate), 23)"
-
-        return (
-            ["patient_id", column_name],
+        cte_name = f"patients_with_events_{len(self.ctes)}"
+        self.ctes[cte_name] = (
             query_template.format(
                 column_definition=column_definition,
-                column_name=column_name,
                 placeholders=placeholders,
                 date_condition=date_condition,
             ),
             params,
         )
+        if return_type is bool:
+            return cte_name, [], return_type
+        else:
+            return f"{cte_name}.value", [], return_type
 
     def patients_with_positive_covid_test(self):
-        return (
-            ["patient_id", "has_covid"],
+        cte_name = "patients_with_covid"
+        self.ctes[cte_name] = (
             """
-            SELECT DISTINCT Patient_ID as patient_id, 1 AS has_covid
+            SELECT DISTINCT Patient_ID as patient_id
             FROM CovidStatus
             WHERE Result = 'COVID19'
             """,
             [],
         )
+        return cte_name, [], bool
 
     def patients_have_died_of_covid(self):
-        return (
-            ["patient_id", "died"],
+        cte_name = "patients_died_of_covid"
+        self.ctes[cte_name] = (
             """
-            SELECT DISTINCT Patient_ID as patient_id, 1 AS died
+            SELECT DISTINCT Patient_ID as patient_id
             FROM CovidStatus
             WHERE Died = 'true'
             """,
             [],
         )
+        return cte_name, [], bool
 
     def patients_admitted_to_itu(self):
-        return (
-            ["patient_id", "admitted_to_itu"],
+        cte_name = "patients_admitted_to_itu"
+        self.ctes[cte_name] = (
             """
-            SELECT DISTINCT Patient_ID as patient_id, 1 AS admitted_to_itu
+            SELECT DISTINCT Patient_ID as patient_id
             FROM CovidStatus
             WHERE AdmittedToITU = 'true'
             """,
             [],
         )
+        return cte_name, [], bool
 
     def get_db_connection(self):
         if self._db_connection:
