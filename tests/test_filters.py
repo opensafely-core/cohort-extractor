@@ -329,7 +329,7 @@ def test_simple_bmi():
 
     patient = Patient(DateOfBirth="1950-01-01")
     patient.CodedEvents.append(
-        CodedEvent(CTV3Code=weight_code, NumericValue=50, ConsultationDate="2001-06-01")
+        CodedEvent(CTV3Code=weight_code, NumericValue=50, ConsultationDate="2002-06-01")
     )
     patient.CodedEvents.append(
         CodedEvent(CTV3Code=height_code, NumericValue=10, ConsultationDate="2001-06-01")
@@ -340,6 +340,7 @@ def test_simple_bmi():
     study = StudyDefinition(population=patients.all(), BMI=patients.bmi("2005-01-01"))
     results = study.to_dicts()
     assert [x["BMI"] for x in results] == ["0.5"]
+    assert [x["BMI_date_measured"] for x in results] == ["2002-06-01"]
 
 
 def test_bmi_rounded():
@@ -355,7 +356,7 @@ def test_bmi_rounded():
         )
     )
     patient.CodedEvents.append(
-        CodedEvent(CTV3Code=height_code, NumericValue=10, ConsultationDate="2001-06-01")
+        CodedEvent(CTV3Code=height_code, NumericValue=10, ConsultationDate="2000-02-01")
     )
     session.add(patient)
     session.commit()
@@ -363,6 +364,7 @@ def test_bmi_rounded():
     study = StudyDefinition(population=patients.all(), BMI=patients.bmi("2005-01-01"))
     results = study.to_dicts()
     assert [x["BMI"] for x in results] == ["0.1"]
+    assert [x["BMI_date_measured"] for x in results] == ["2001-06-01"]
 
 
 def test_bmi_with_zero_values():
@@ -384,6 +386,7 @@ def test_bmi_with_zero_values():
     study = StudyDefinition(population=patients.all(), BMI=patients.bmi("2005-01-01"))
     results = study.to_dicts()
     assert [x["BMI"] for x in results] == ["0.0"]
+    assert [x["BMI_date_measured"] for x in results] == ["2001-06-01"]
 
 
 def test_explicit_bmi_fallback():
@@ -397,7 +400,7 @@ def test_explicit_bmi_fallback():
         CodedEvent(CTV3Code=weight_code, NumericValue=50, ConsultationDate="2001-06-01")
     )
     patient.CodedEvents.append(
-        CodedEvent(CTV3Code=bmi_code, NumericValue=99, ConsultationDate="2001-06-01")
+        CodedEvent(CTV3Code=bmi_code, NumericValue=99, ConsultationDate="2001-10-01")
     )
     session.add(patient)
     session.commit()
@@ -405,6 +408,7 @@ def test_explicit_bmi_fallback():
     study = StudyDefinition(population=patients.all(), BMI=patients.bmi("2005-01-01"))
     results = study.to_dicts()
     assert [x["BMI"] for x in results] == ["99.0"]
+    assert [x["BMI_date_measured"] for x in results] == ["2001-10-01"]
 
 
 def test_no_bmi_when_old_date():
@@ -422,6 +426,7 @@ def test_no_bmi_when_old_date():
     study = StudyDefinition(population=patients.all(), BMI=patients.bmi("2005-01-01"))
     results = study.to_dicts()
     assert [x["BMI"] for x in results] == ["0.0"]
+    assert [x["BMI_date_measured"] for x in results] == [""]
 
 
 def test_no_bmi_when_measurements_of_child():
@@ -439,6 +444,7 @@ def test_no_bmi_when_measurements_of_child():
     study = StudyDefinition(population=patients.all(), BMI=patients.bmi("2005-01-01"))
     results = study.to_dicts()
     assert [x["BMI"] for x in results] == ["0.0"]
+    assert [x["BMI_date_measured"] for x in results] == [""]
 
 
 def test_no_bmi_when_measurement_after_reference_date():
@@ -456,6 +462,7 @@ def test_no_bmi_when_measurement_after_reference_date():
     study = StudyDefinition(population=patients.all(), BMI=patients.bmi("2000-01-01"))
     results = study.to_dicts()
     assert [x["BMI"] for x in results] == ["0.0"]
+    assert [x["BMI_date_measured"] for x in results] == [""]
 
 
 def test_bmi_when_only_some_measurements_of_child():
@@ -481,3 +488,4 @@ def test_bmi_when_only_some_measurements_of_child():
     study = StudyDefinition(population=patients.all(), BMI=patients.bmi("2015-01-01"))
     results = study.to_dicts()
     assert [x["BMI"] for x in results] == ["0.5"]
+    assert [x["BMI_date_measured"] for x in results] == ["2010-01-01"]

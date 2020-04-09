@@ -200,8 +200,16 @@ class StudyDefinition:
         heights_cte_params = height_params + [reference_date]
         sql = f"""
         SELECT
-          patients.Patient_ID AS patient_id, weight, height,
-          ROUND(COALESCE(weight/SQUARE(NULLIF(height, 0)), bmis.BMI), 1) AS BMI
+          patients.Patient_ID AS patient_id,
+          ROUND(COALESCE(weight/SQUARE(NULLIF(height, 0)), bmis.BMI), 1) AS BMI,
+          CONVERT(
+            VARCHAR(10),
+            CASE
+              WHEN weight IS NULL OR height IS NULL THEN bmis.ConsultationDate
+              ELSE weights.ConsultationDate
+            END,
+            23
+          ) AS date_measured
         FROM ({patients_cte}) AS patients
         LEFT JOIN ({weights_cte}) AS weights
         ON weights.Patient_ID = patients.Patient_ID AND DATEDIFF(YEAR, patients.DateOfBirth, weights.ConsultationDate) > 16
@@ -217,7 +225,7 @@ class StudyDefinition:
             + heights_cte_params
             + bmi_cte_params
         )
-        return ["patient_id", "BMI", "weight", "height"], sql, params
+        return ["patient_id", "BMI", "date_measured"], sql, params
 
     def patients_registered_as_of(self, reference_date):
         """
