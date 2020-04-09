@@ -54,12 +54,17 @@ class StudyDefinition:
         for column_name, (cols, sql, params) in self.covariates.items():
             ctes.append(f"{column_name} AS ({sql})")
             cte_params.extend(params)
-            for col in cols:
-                if col != "patient_id":
-                    default_value = 0 if not col.startswith("date_") else "''"
-                    cte_cols.append(
-                        f"ISNULL({column_name}.{col}, {default_value}) AS {column_name}"
-                    )
+            # The first column should always been patient_id so we can join on it
+            assert cols[0] == "patient_id"
+            for n, col in enumerate(cols[1:]):
+                # The first result column is given the name of the desired
+                # output column. The rest are added as suffixes to the name of
+                # the output column
+                output_column = column_name if n == 0 else f"{column_name}_{col}"
+                default_value = 0 if not col.startswith("date_") else "''"
+                cte_cols.append(
+                    f"ISNULL({column_name}.{col}, {default_value}) AS {output_column}"
+                )
             cte_joins.append(
                 f"LEFT JOIN {column_name} ON {column_name}.Patient_ID = population.Patient_ID"
             )
@@ -212,7 +217,7 @@ class StudyDefinition:
             + heights_cte_params
             + bmi_cte_params
         )
-        return ["patient_id", "weight", "height", "BMI"], sql, params
+        return ["patient_id", "BMI", "weight", "height"], sql, params
 
     def patients_registered_as_of(self, reference_date):
         """
