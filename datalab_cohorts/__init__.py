@@ -125,7 +125,15 @@ class StudyDefinition:
             [],
         )
 
-    def patients_bmi(self, reference_date):
+    def patients_bmi(
+        self,
+        reference_date,
+        # Add an additional column indicating when measurement was taken
+        include_measurement_date=False,
+        # If we're returning a date, how granular should it be?
+        include_month=False,
+        include_day=False,
+    ):
         """Return BMI as of reference date, ignoring measurements over 10
         years prior
 
@@ -197,13 +205,18 @@ class StudyDefinition:
           ) t
           WHERE t.rownum = 1
         """
+        date_length = 4
+        if include_month:
+            date_length = 7
+            if include_day:
+                date_length = 10
         heights_cte_params = height_params + [reference_date]
         sql = f"""
         SELECT
           patients.Patient_ID AS patient_id,
           ROUND(COALESCE(weight/SQUARE(NULLIF(height, 0)), bmis.BMI), 1) AS BMI,
           CONVERT(
-            VARCHAR(10),
+            VARCHAR({date_length}),
             CASE
               WHEN weight IS NULL OR height IS NULL THEN bmis.ConsultationDate
               ELSE weights.ConsultationDate
@@ -225,7 +238,10 @@ class StudyDefinition:
             + heights_cte_params
             + bmi_cte_params
         )
-        return ["patient_id", "BMI", "date_measured"], sql, params
+        columns = ["patient_id", "BMI"]
+        if include_measurement_date:
+            columns.append("date_measured")
+        return columns, sql, params
 
     def patients_registered_as_of(self, reference_date):
         """
@@ -432,7 +448,14 @@ class patients:
         return "continuously_registered_between", locals()
 
     @staticmethod
-    def bmi(reference_date):
+    def bmi(
+        reference_date,
+        # Add an additional column indicating when measurement was taken
+        include_measurement_date=False,
+        # If we're returning a date, how granular should it be?
+        include_month=False,
+        include_day=False,
+    ):
         if reference_date == "today":
             reference_date = datetime.date.today()
         else:
