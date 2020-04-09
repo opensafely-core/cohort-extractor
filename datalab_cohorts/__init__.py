@@ -14,9 +14,6 @@ SAFE_CHARS_RE = re.compile(r"[a-zA-Z0-9_\.\-]+")
 
 
 class StudyDefinition:
-    population = None
-    _demographic_df = None
-    _chess_df = None
     _db_connection = None
 
     def __init__(self, population, **kwargs):
@@ -24,12 +21,32 @@ class StudyDefinition:
         self.covariate_definitions = kwargs
 
     def to_csv(self, filename):
+        sql, params = self.to_sql()
+        conn = self.get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(sql, params)
+        with open(filename, "w") as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow([x[0] for x in cursor.description])
+            for row in cursor:
+                writer.writerow(row)
+
+    def to_dicts(self):
+        sql, params = self.to_sql()
+        conn = self.get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(sql, params)
+        keys = [x[0] for x in cursor.description]
+        # Convert all values to str as that's what will end in the CSV
+        return [dict(zip(keys, map(str, row))) for row in cursor]
+
+    def to_sql(self):
         self.covariates = {}
-        population_cols, population_sql, population_params = self.run_query(
+        population_cols, population_sql, population_params = self.get_query(
             *self.population_definition
         )
         for name, (query_type, query_args) in self.covariate_definitions.items():
-            self.covariates[name] = self.run_query(query_type, query_args)
+            self.covariates[name] = self.get_query(query_type, query_args)
         cte_cols = ["population.patient_id"]  # XXX might more come from left side?
         ctes = [f"WITH population AS ({population_sql})"]
         cte_params = population_params
@@ -39,7 +56,10 @@ class StudyDefinition:
             cte_params.extend(params)
             for col in cols:
                 if col != "patient_id":
-                    cte_cols.append(f"ISNULL({column_name}.{col}, 0) AS {column_name}")
+                    default_value = 0 if not col.startswith("date_") else "''"
+                    cte_cols.append(
+                        f"ISNULL({column_name}.{col}, {default_value}) AS {column_name}"
+                    )
             cte_joins.append(
                 f"LEFT JOIN {column_name} ON {column_name}.Patient_ID = population.Patient_ID"
             )
@@ -51,19 +71,9 @@ class StudyDefinition:
         FROM population
         {' '.join(cte_joins)}
         """
-        self.sql_to_csv(sql, cte_params, filename)
+        return sql, cte_params
 
-    def sql_to_csv(self, sql, params, filename):
-        conn = self.get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute(sql, params)
-        with open(filename, "w") as csvfile:
-            writer = csv.writer(csvfile)
-            writer.writerow([x[0] for x in cursor.description])
-            for row in cursor:
-                writer.writerow(row)
-
-    def run_query(self, query_type, query_args):
+    def get_query(self, query_type, query_args):
         method_name = f"patients_{query_type}"
         method = getattr(self, method_name)
         return method(**query_args)
@@ -222,47 +232,112 @@ class StudyDefinition:
             [reference_date, reference_date],
         )
 
-    def patients_with_these_medications(self, codelist, min_date=None, max_date=None):
+    def patients_continuously_registered_between(self, start_date, end_date):
+        """
+        All patients continuously registed between the given dates
+        """
+        # Note that current registrations are recorded with an EndDate
+        # of 9999-12-31
+        return (
+            ["patient_id"],
+            f"""
+            SELECT DISTINCT Patient.Patient_ID AS patient_id
+            FROM Patient
+            INNER JOIN  RegistrationHistory
+            ON RegistrationHistory.Patient_ID = Patient.Patient_ID
+            WHERE StartDate < ? AND EndDate > ?
+            """,
+            [start_date, end_date],
+        )
+
+    def patients_with_these_medications(self, **kwargs):
         """
         Patients who have been prescribed at least one of this list of
         medications in the defined period
         """
-        placeholders, params = placeholders_and_params(codelist)
-        date_condition, date_params = make_date_filter(
-            "ConsultationDate", min_date, max_date
-        )
-        params.extend(date_params)
-        return (
-            ["patient_id", "has_meds"],
-            f"""
-            SELECT DISTINCT med.Patient_ID AS patient_id, 1 AS has_meds
+        return self._patients_with_associated_events(
+            """
+            SELECT med.Patient_ID AS patient_id, {column_definition} AS {column_name}
             FROM MedicationDictionary AS dict
             INNER JOIN MedicationIssue AS med
             ON dict.MultilexDrug_ID = med.MultilexDrug_ID
             WHERE dict.DMD_ID IN ({placeholders}) AND {date_condition}
+            GROUP BY med.Patient_ID
             """,
-            params,
+            **kwargs,
         )
 
-    def patients_with_these_clinical_events(
-        self, codelist, min_date=None, max_date=None
-    ):
+    def patients_with_these_clinical_events(self, **kwargs):
         """
         Patients who have had at least one of these clinical events in the
         defined period
         """
-        placeholders, params = placeholders_and_params(codelist)
-        date_condition, date_params = make_date_filter(
-            "ConsultationDate", min_date, max_date
-        )
-        params.extend(date_params)
-        return (
-            ["patient_id", "has_clinical_event"],
-            f"""
-            SELECT DISTINCT Patient_ID AS patient_id, 1 AS has_clinical_event
+        return self._patients_with_associated_events(
+            """
+            SELECT Patient_ID AS patient_id, {column_definition} AS {column_name}
             FROM CodedEvent
             WHERE CTV3Code IN ({placeholders}) AND {date_condition}
+            GROUP BY Patient_ID
             """,
+            **kwargs,
+        )
+
+    def _patients_with_associated_events(
+        self,
+        query_template,
+        codelist,
+        # Set date limits
+        on_or_before=None,
+        on_or_after=None,
+        between=None,
+        # Set return type
+        return_binary_flag=None,
+        return_first_date_in_period=False,
+        return_last_date_in_period=False,
+        # If we're returning a date, how granular should it be?
+        include_month=False,
+        include_day=False,
+    ):
+        placeholders, params = placeholders_and_params(codelist)
+        date_condition, date_params = make_date_filter(
+            "ConsultationDate", on_or_after, on_or_before, between
+        )
+        params.extend(date_params)
+
+        # Define output column name and aggregation function
+        if return_first_date_in_period:
+            column_name = "date_of_first_event"
+            aggregate_func = "MIN"
+        elif return_last_date_in_period:
+            column_name = "date_of_last_event"
+            aggregate_func = "MAX"
+        else:
+            column_name = "has_event"
+            aggregate_func = None
+
+        # Define date output format
+        date_length = 4  # Year only
+        if include_month:
+            date_length = 7
+            if include_day:
+                date_length = 10
+
+        # Column definition
+        if aggregate_func is None:
+            column_definition = "1"
+        else:
+            # Style 23 below means YYYY-MM-DD format, see:
+            # https://docs.microsoft.com/en-us/sql/t-sql/functions/cast-and-convert-transact-sql?view=sql-server-ver15#date-and-time-styles
+            column_definition = f"CONVERT(VARCHAR({date_length}), {aggregate_func}(ConsultationDate), 23)"
+
+        return (
+            ["patient_id", column_name],
+            query_template.format(
+                column_definition=column_definition,
+                column_name=column_name,
+                placeholders=placeholders,
+                date_condition=date_condition,
+            ),
             params,
         )
 
@@ -348,6 +423,12 @@ class patients:
         return "registered_as_of", locals()
 
     @staticmethod
+    def continuously_registered_between(start_date, end_date):
+        start_date = datetime.date.fromisoformat(str(start_date))
+        end_date = datetime.date.fromisoformat(str(end_date))
+        return "continuously_registered_between", locals()
+
+    @staticmethod
     def bmi(reference_date):
         if reference_date == "today":
             reference_date = datetime.date.today()
@@ -364,13 +445,41 @@ class patients:
         return "sex", locals()
 
     @staticmethod
-    def with_these_medications(codelist, min_date=None, max_date=None):
+    def with_these_medications(
+        codelist,
+        # Set date limits
+        on_or_before=None,
+        on_or_after=None,
+        between=None,
+        # Set return type
+        return_binary_flag=None,
+        return_first_date_in_period=False,
+        return_last_date_in_period=False,
+        # If we're returning a date, how granular should it be?
+        include_month=False,
+        include_day=False,
+    ):
         assert codelist.system == "snomed"
+        validate_common_options(**locals())
         return "with_these_medications", locals()
 
     @staticmethod
-    def with_these_clinical_events(codelist, min_date=None, max_date=None):
+    def with_these_clinical_events(
+        codelist,
+        # Set date limits
+        on_or_before=None,
+        on_or_after=None,
+        between=None,
+        # Set return type
+        return_binary_flag=None,
+        return_first_date_in_period=False,
+        return_last_date_in_period=False,
+        # If we're returning a date, how granular should it be?
+        include_month=False,
+        include_day=False,
+    ):
         assert codelist.system == "ctv3"
+        validate_common_options(**locals())
         return "with_these_clinical_events", locals()
 
     # The below are placeholder methods we don't expect to make it into the final API.
@@ -387,6 +496,32 @@ class patients:
     @staticmethod
     def admitted_to_itu():
         return "admitted_to_itu", locals()
+
+
+def validate_common_options(
+    # Set date limits
+    on_or_before=None,
+    on_or_after=None,
+    between=None,
+    # Set return type
+    return_binary_flag=None,
+    return_first_date_in_period=False,
+    return_last_date_in_period=False,
+    # If we're returning a date, how granular should it be?
+    include_month=False,
+    include_day=False,
+    **kwargs,
+):
+    if between:
+        if not isinstance(between, (tuple, list)) or len(between) != 2:
+            raise ValueError("`between` should be a pair of dates")
+        if on_or_before or on_or_after:
+            raise ValueError(
+                "You cannot set `between` at the same time as "
+                "`on_or_before` or `on_or_after`"
+            )
+    # TODO: enforce just one return type and only allow month/day to be included
+    # if return type is a date
 
 
 def placeholders_and_params(values, as_ints=False):
@@ -421,7 +556,10 @@ def placeholders_and_params(values, as_ints=False):
     return placeholders, params
 
 
-def make_date_filter(column, min_date, max_date):
+def make_date_filter(column, min_date, max_date, between=None):
+    if between is not None:
+        assert min_date is None and max_date is None
+        min_date, max_date = between
     if min_date is not None and max_date is not None:
         return f"{column} BETWEEN ? AND ?", [min_date, max_date]
     elif min_date is not None:
