@@ -125,7 +125,7 @@ class StudyDefinition:
             [],
         )
 
-    def patients_bmi(
+    def patients_most_recent_bmi(
         self,
         # Set date limits
         on_or_before=None,
@@ -138,9 +138,17 @@ class StudyDefinition:
         include_month=False,
         include_day=False,
     ):
-        """Return BMI as of reference date, ignoring measurements over 10
-        years prior
+        """
+        Return patients' most recent BMI (in the defined period) either
+        computed from weight and height measurements or, where they are not
+        availble, from recorded BMI values. Measurements taken when a patient
+        was below the minimum age are ignored. The height measurement can be
+        taken before (but not after) the defined period as long as the patient
+        was over the minimum age at the time.
 
+        Optionally returns an additional column with the date of the
+        measurement. If the BMI is computed from weight and height then we use
+        the date of the weight measurement for this.
         """
         # From https://github.com/ebmdatalab/tpp-sql-notebook/issues/10:
         #
@@ -462,7 +470,7 @@ class patients:
         return "continuously_registered_between", locals()
 
     @staticmethod
-    def bmi(
+    def most_recent_bmi(
         # Set date limits
         on_or_before=None,
         on_or_after=None,
@@ -476,7 +484,8 @@ class patients:
     ):
         validate_time_period_options(**locals())
 
-        return "bmi", locals()
+        return "most_recent_bmi", locals()
+
     @staticmethod
     def all():
         return "all", locals()
