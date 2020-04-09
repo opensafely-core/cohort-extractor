@@ -54,12 +54,17 @@ class StudyDefinition:
         for column_name, (cols, sql, params) in self.covariates.items():
             ctes.append(f"{column_name} AS ({sql})")
             cte_params.extend(params)
-            for col in cols:
-                if col != "patient_id":
-                    default_value = 0 if not col.startswith("date_") else "''"
-                    cte_cols.append(
-                        f"ISNULL({column_name}.{col}, {default_value}) AS {column_name}"
-                    )
+            # The first column should always been patient_id so we can join on it
+            assert cols[0] == "patient_id"
+            for n, col in enumerate(cols[1:]):
+                # The first result column is given the name of the desired
+                # output column. The rest are added as suffixes to the name of
+                # the output column
+                output_column = column_name if n == 0 else f"{column_name}_{col}"
+                default_value = 0 if not col.startswith("date_") else "''"
+                cte_cols.append(
+                    f"ISNULL({column_name}.{col}, {default_value}) AS {output_column}"
+                )
             cte_joins.append(
                 f"LEFT JOIN {column_name} ON {column_name}.Patient_ID = population.Patient_ID"
             )
@@ -120,10 +125,30 @@ class StudyDefinition:
             [],
         )
 
-    def patients_bmi(self, reference_date):
-        """Return BMI as of reference date, ignoring measurements over 10
-        years prior
+    def patients_most_recent_bmi(
+        self,
+        # Set date limits
+        on_or_before=None,
+        on_or_after=None,
+        between=None,
+        minimum_age_at_measurement=16,
+        # Add an additional column indicating when measurement was taken
+        include_measurement_date=False,
+        # If we're returning a date, how granular should it be?
+        include_month=False,
+        include_day=False,
+    ):
+        """
+        Return patients' most recent BMI (in the defined period) either
+        computed from weight and height measurements or, where they are not
+        availble, from recorded BMI values. Measurements taken when a patient
+        was below the minimum age are ignored. The height measurement can be
+        taken before (but not after) the defined period as long as the patient
+        was over the minimum age at the time.
 
+        Optionally returns an additional column with the date of the
+        measurement. If the BMI is computed from weight and height then we use
+        the date of the weight measurement for this.
         """
         # From https://github.com/ebmdatalab/tpp-sql-notebook/issues/10:
         #
@@ -132,6 +157,9 @@ class StudyDefinition:
         # 2) If height and weight is not available, then take latest
         # recorded BMI. Both values must be recorded when the patient
         # is >=16, weight must be within the last 10 years
+        date_condition, date_params = make_date_filter(
+            "ConsultationDate", on_or_after, on_or_before, between
+        )
 
         bmi_code = "22K.."
         # XXX these two sets of codes need validating. The final in
@@ -152,13 +180,11 @@ class StudyDefinition:
           SELECT Patient_ID, NumericValue AS BMI, ConsultationDate,
           ROW_NUMBER() OVER (PARTITION BY Patient_ID ORDER BY ConsultationDate DESC) AS rownum
           FROM CodedEvent
-          WHERE CTV3Code = ?
-          AND ConsultationDate >= DATEADD(year, -10, ?)
-          AND ConsultationDate <= ?
+          WHERE CTV3Code = ? AND {date_condition}
         ) t
         WHERE t.rownum = 1
         """
-        bmi_cte_params = [bmi_code, reference_date, reference_date]
+        bmi_cte_params = [bmi_code] + date_params
 
         patients_cte = f"""
            SELECT Patient_ID, DateOfBirth
@@ -172,38 +198,60 @@ class StudyDefinition:
             SELECT Patient_ID, NumericValue AS weight, ConsultationDate,
             ROW_NUMBER() OVER (PARTITION BY Patient_ID ORDER BY ConsultationDate DESC) AS rownum
             FROM CodedEvent
-            WHERE CTV3Code IN ({weight_placeholders})
-            AND ConsultationDate >= DATEADD(year, -10, ?)
-            AND ConsultationDate <= ?
+            WHERE CTV3Code IN ({weight_placeholders}) AND {date_condition}
           ) t
           WHERE t.rownum = 1
         """
-        weights_cte_params = weight_params + [reference_date, reference_date]
+        weights_cte_params = weight_params + date_params
 
         height_placeholders, height_params = placeholders_and_params(height_codes)
+        # The height date restriction is different from the others. We don't
+        # mind using old values as long as the patient was old enough when they
+        # were taken.
+        height_date_condition, height_date_params = make_date_filter(
+            "ConsultationDate",
+            on_or_after,
+            on_or_before,
+            between,
+            upper_bound_only=True,
+        )
         heights_cte = f"""
           SELECT t.Patient_ID, t.height, t.ConsultationDate
           FROM (
             SELECT Patient_ID, NumericValue AS height, ConsultationDate,
             ROW_NUMBER() OVER (PARTITION BY Patient_ID ORDER BY ConsultationDate DESC) AS rownum
             FROM CodedEvent
-            WHERE CTV3Code IN ({height_placeholders})
-            AND ConsultationDate <= ?
+            WHERE CTV3Code IN ({height_placeholders}) AND {height_date_condition}
           ) t
           WHERE t.rownum = 1
         """
-        heights_cte_params = height_params + [reference_date]
+        heights_cte_params = height_params + height_date_params
+
+        date_length = 4
+        if include_month:
+            date_length = 7
+            if include_day:
+                date_length = 10
+        min_age = int(minimum_age_at_measurement)
         sql = f"""
         SELECT
-          patients.Patient_ID AS patient_id, weight, height,
-          ROUND(COALESCE(weight/SQUARE(NULLIF(height, 0)), bmis.BMI), 1) AS BMI
+          patients.Patient_ID AS patient_id,
+          ROUND(COALESCE(weight/SQUARE(NULLIF(height, 0)), bmis.BMI), 1) AS BMI,
+          CONVERT(
+            VARCHAR({date_length}),
+            CASE
+              WHEN weight IS NULL OR height IS NULL THEN bmis.ConsultationDate
+              ELSE weights.ConsultationDate
+            END,
+            23
+          ) AS date_measured
         FROM ({patients_cte}) AS patients
         LEFT JOIN ({weights_cte}) AS weights
-        ON weights.Patient_ID = patients.Patient_ID AND DATEDIFF(YEAR, patients.DateOfBirth, weights.ConsultationDate) > 16
+        ON weights.Patient_ID = patients.Patient_ID AND DATEDIFF(YEAR, patients.DateOfBirth, weights.ConsultationDate) >= {min_age}
         LEFT JOIN ({heights_cte}) AS heights
-        ON heights.Patient_ID = patients.Patient_ID AND DATEDIFF(YEAR, patients.DateOfBirth, heights.ConsultationDate) > 16
+        ON heights.Patient_ID = patients.Patient_ID AND DATEDIFF(YEAR, patients.DateOfBirth, heights.ConsultationDate) >= {min_age}
         LEFT JOIN ({bmi_cte}) AS bmis
-        ON bmis.Patient_ID = patients.Patient_ID AND DATEDIFF(YEAR, patients.DateOfBirth, bmis.ConsultationDate) > 16
+        ON bmis.Patient_ID = patients.Patient_ID AND DATEDIFF(YEAR, patients.DateOfBirth, bmis.ConsultationDate) >= {min_age}
         -- XXX maybe add a "WHERE NULL..." here
         """
         params = (
@@ -212,36 +260,29 @@ class StudyDefinition:
             + heights_cte_params
             + bmi_cte_params
         )
-        return ["patient_id", "weight", "height", "BMI"], sql, params
+        columns = ["patient_id", "BMI"]
+        if include_measurement_date:
+            columns.append("date_measured")
+        return columns, sql, params
 
     def patients_registered_as_of(self, reference_date):
         """
         All patients registed on the given date
         """
-        # Note that current registrations are recorded with an EndDate
-        # of 9999-12-31
-        return (
-            ["patient_id"],
-            f"""
-            SELECT DISTINCT Patient.Patient_ID AS patient_id
-            FROM Patient
-            INNER JOIN  RegistrationHistory
-            ON RegistrationHistory.Patient_ID = Patient.Patient_ID
-            WHERE StartDate < ? AND EndDate > ?
-            """,
-            [reference_date, reference_date],
+        return self.patients_continuously_registered_between(
+            reference_date, reference_date
         )
 
     def patients_continuously_registered_between(self, start_date, end_date):
         """
-        All patients continuously registed between the given dates
+        All patients continuously registered between the given dates
         """
         # Note that current registrations are recorded with an EndDate
         # of 9999-12-31
         return (
-            ["patient_id"],
+            ["patient_id", "registered"],
             f"""
-            SELECT DISTINCT Patient.Patient_ID AS patient_id
+            SELECT DISTINCT Patient.Patient_ID AS patient_id, 1 AS registered
             FROM Patient
             INNER JOIN  RegistrationHistory
             ON RegistrationHistory.Patient_ID = Patient.Patient_ID
@@ -429,12 +470,21 @@ class patients:
         return "continuously_registered_between", locals()
 
     @staticmethod
-    def bmi(reference_date):
-        if reference_date == "today":
-            reference_date = datetime.date.today()
-        else:
-            reference_date = datetime.date.fromisoformat(str(reference_date))
-        return "bmi", locals()
+    def most_recent_bmi(
+        # Set date limits
+        on_or_before=None,
+        on_or_after=None,
+        between=None,
+        minimum_age_at_measurement=16,
+        # Add an additional column indicating when measurement was taken
+        include_measurement_date=False,
+        # If we're returning a date, how granular should it be?
+        include_month=False,
+        include_day=False,
+    ):
+        validate_time_period_options(**locals())
+
+        return "most_recent_bmi", locals()
 
     @staticmethod
     def all():
@@ -460,7 +510,7 @@ class patients:
         include_day=False,
     ):
         assert codelist.system == "snomed"
-        validate_common_options(**locals())
+        validate_time_period_options(**locals())
         return "with_these_medications", locals()
 
     @staticmethod
@@ -479,7 +529,7 @@ class patients:
         include_day=False,
     ):
         assert codelist.system == "ctv3"
-        validate_common_options(**locals())
+        validate_time_period_options(**locals())
         return "with_these_clinical_events", locals()
 
     # The below are placeholder methods we don't expect to make it into the final API.
@@ -498,18 +548,11 @@ class patients:
         return "admitted_to_itu", locals()
 
 
-def validate_common_options(
+def validate_time_period_options(
     # Set date limits
     on_or_before=None,
     on_or_after=None,
     between=None,
-    # Set return type
-    return_binary_flag=None,
-    return_first_date_in_period=False,
-    return_last_date_in_period=False,
-    # If we're returning a date, how granular should it be?
-    include_month=False,
-    include_day=False,
     **kwargs,
 ):
     if between:
@@ -556,10 +599,12 @@ def placeholders_and_params(values, as_ints=False):
     return placeholders, params
 
 
-def make_date_filter(column, min_date, max_date, between=None):
+def make_date_filter(column, min_date, max_date, between=None, upper_bound_only=False):
     if between is not None:
         assert min_date is None and max_date is None
         min_date, max_date = between
+    if upper_bound_only:
+        min_date = None
     if min_date is not None and max_date is not None:
         return f"{column} BETWEEN ? AND ?", [min_date, max_date]
     elif min_date is not None:
