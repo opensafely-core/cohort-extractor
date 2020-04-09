@@ -355,7 +355,10 @@ def test_simple_bmi(include_dates):
             include_measurement_date=True, include_month=True, include_day=True
         )
     study = StudyDefinition(
-        population=patients.all(), BMI=patients.bmi("2005-01-01", **bmi_kwargs)
+        population=patients.all(),
+        BMI=patients.bmi(
+            on_or_after="1995-01-01", on_or_before="2005-01-01", **bmi_kwargs
+        ),
     )
     results = study.to_dicts()
     assert [x["BMI"] for x in results] == ["0.5"]
@@ -413,7 +416,8 @@ def test_bmi_with_zero_values():
     study = StudyDefinition(
         population=patients.all(),
         BMI=patients.bmi(
-            "2005-01-01",
+            on_or_after="1995-01-01",
+            on_or_before="2005-01-01",
             include_measurement_date=True,
             include_month=True,
             include_day=True,
@@ -443,7 +447,8 @@ def test_explicit_bmi_fallback():
     study = StudyDefinition(
         population=patients.all(),
         BMI=patients.bmi(
-            "2005-01-01",
+            on_or_after="1995-01-01",
+            on_or_before="2005-01-01",
             include_measurement_date=True,
             include_month=True,
             include_day=True,
@@ -469,7 +474,8 @@ def test_no_bmi_when_old_date():
     study = StudyDefinition(
         population=patients.all(),
         BMI=patients.bmi(
-            "2005-01-01",
+            on_or_after="1995-01-01",
+            on_or_before="2005-01-01",
             include_measurement_date=True,
             include_month=True,
             include_day=True,
@@ -495,7 +501,8 @@ def test_no_bmi_when_measurements_of_child():
     study = StudyDefinition(
         population=patients.all(),
         BMI=patients.bmi(
-            "2005-01-01",
+            on_or_after="1995-01-01",
+            on_or_before="2005-01-01",
             include_measurement_date=True,
             include_month=True,
             include_day=True,
@@ -521,7 +528,8 @@ def test_no_bmi_when_measurement_after_reference_date():
     study = StudyDefinition(
         population=patients.all(),
         BMI=patients.bmi(
-            "2000-01-01",
+            on_or_after="1990-01-01",
+            on_or_before="2000-01-01",
             include_measurement_date=True,
             include_month=True,
             include_day=True,
@@ -555,7 +563,8 @@ def test_bmi_when_only_some_measurements_of_child():
     study = StudyDefinition(
         population=patients.all(),
         BMI=patients.bmi(
-            "2015-01-01",
+            on_or_after="2005-01-01",
+            on_or_before="2015-01-01",
             include_measurement_date=True,
             include_month=True,
             include_day=True,
