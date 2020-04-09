@@ -127,7 +127,10 @@ class StudyDefinition:
 
     def patients_bmi(
         self,
-        reference_date,
+        # Set date limits
+        on_or_before=None,
+        on_or_after=None,
+        between=None,
         minimum_age_at_measurement=16,
         # Add an additional column indicating when measurement was taken
         include_measurement_date=False,
@@ -146,6 +149,9 @@ class StudyDefinition:
         # 2) If height and weight is not available, then take latest
         # recorded BMI. Both values must be recorded when the patient
         # is >=16, weight must be within the last 10 years
+        date_condition, date_params = make_date_filter(
+            "ConsultationDate", on_or_after, on_or_before, between
+        )
 
         bmi_code = "22K.."
         # XXX these two sets of codes need validating. The final in
@@ -166,13 +172,11 @@ class StudyDefinition:
           SELECT Patient_ID, NumericValue AS BMI, ConsultationDate,
           ROW_NUMBER() OVER (PARTITION BY Patient_ID ORDER BY ConsultationDate DESC) AS rownum
           FROM CodedEvent
-          WHERE CTV3Code = ?
-          AND ConsultationDate >= DATEADD(year, -10, ?)
-          AND ConsultationDate <= ?
+          WHERE CTV3Code = ? AND {date_condition}
         ) t
         WHERE t.rownum = 1
         """
-        bmi_cte_params = [bmi_code, reference_date, reference_date]
+        bmi_cte_params = [bmi_code] + date_params
 
         patients_cte = f"""
            SELECT Patient_ID, DateOfBirth
@@ -186,32 +190,40 @@ class StudyDefinition:
             SELECT Patient_ID, NumericValue AS weight, ConsultationDate,
             ROW_NUMBER() OVER (PARTITION BY Patient_ID ORDER BY ConsultationDate DESC) AS rownum
             FROM CodedEvent
-            WHERE CTV3Code IN ({weight_placeholders})
-            AND ConsultationDate >= DATEADD(year, -10, ?)
-            AND ConsultationDate <= ?
+            WHERE CTV3Code IN ({weight_placeholders}) AND {date_condition}
           ) t
           WHERE t.rownum = 1
         """
-        weights_cte_params = weight_params + [reference_date, reference_date]
+        weights_cte_params = weight_params + date_params
 
         height_placeholders, height_params = placeholders_and_params(height_codes)
+        # The height date restriction is different from the others. We don't
+        # mind using old values as long as the patient was old enough when they
+        # were taken.
+        height_date_condition, height_date_params = make_date_filter(
+            "ConsultationDate",
+            on_or_after,
+            on_or_before,
+            between,
+            upper_bound_only=True,
+        )
         heights_cte = f"""
           SELECT t.Patient_ID, t.height, t.ConsultationDate
           FROM (
             SELECT Patient_ID, NumericValue AS height, ConsultationDate,
             ROW_NUMBER() OVER (PARTITION BY Patient_ID ORDER BY ConsultationDate DESC) AS rownum
             FROM CodedEvent
-            WHERE CTV3Code IN ({height_placeholders})
-            AND ConsultationDate <= ?
+            WHERE CTV3Code IN ({height_placeholders}) AND {height_date_condition}
           ) t
           WHERE t.rownum = 1
         """
+        heights_cte_params = height_params + height_date_params
+
         date_length = 4
         if include_month:
             date_length = 7
             if include_day:
                 date_length = 10
-        heights_cte_params = height_params + [reference_date]
         min_age = int(minimum_age_at_measurement)
         sql = f"""
         SELECT
@@ -451,7 +463,10 @@ class patients:
 
     @staticmethod
     def bmi(
-        reference_date,
+        # Set date limits
+        on_or_before=None,
+        on_or_after=None,
+        between=None,
         minimum_age_at_measurement=16,
         # Add an additional column indicating when measurement was taken
         include_measurement_date=False,
@@ -459,12 +474,9 @@ class patients:
         include_month=False,
         include_day=False,
     ):
-        if reference_date == "today":
-            reference_date = datetime.date.today()
-        else:
-            reference_date = datetime.date.fromisoformat(str(reference_date))
-        return "bmi", locals()
+        validate_time_period_options(**locals())
 
+        return "bmi", locals()
     @staticmethod
     def all():
         return "all", locals()
@@ -489,7 +501,7 @@ class patients:
         include_day=False,
     ):
         assert codelist.system == "snomed"
-        validate_common_options(**locals())
+        validate_time_period_options(**locals())
         return "with_these_medications", locals()
 
     @staticmethod
@@ -508,7 +520,7 @@ class patients:
         include_day=False,
     ):
         assert codelist.system == "ctv3"
-        validate_common_options(**locals())
+        validate_time_period_options(**locals())
         return "with_these_clinical_events", locals()
 
     # The below are placeholder methods we don't expect to make it into the final API.
@@ -527,18 +539,11 @@ class patients:
         return "admitted_to_itu", locals()
 
 
-def validate_common_options(
+def validate_time_period_options(
     # Set date limits
     on_or_before=None,
     on_or_after=None,
     between=None,
-    # Set return type
-    return_binary_flag=None,
-    return_first_date_in_period=False,
-    return_last_date_in_period=False,
-    # If we're returning a date, how granular should it be?
-    include_month=False,
-    include_day=False,
     **kwargs,
 ):
     if between:
@@ -585,10 +590,12 @@ def placeholders_and_params(values, as_ints=False):
     return placeholders, params
 
 
-def make_date_filter(column, min_date, max_date, between=None):
+def make_date_filter(column, min_date, max_date, between=None, upper_bound_only=False):
     if between is not None:
         assert min_date is None and max_date is None
         min_date, max_date = between
+    if upper_bound_only:
+        min_date = None
     if min_date is not None and max_date is not None:
         return f"{column} BETWEEN ? AND ?", [min_date, max_date]
     elif min_date is not None:
