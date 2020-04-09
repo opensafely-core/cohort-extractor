@@ -16,6 +16,13 @@ COPY requirements.txt /tmp/
 RUN chmod 644 /tmp/requirements.txt
 RUN pip install --requirement /tmp/requirements.txt
 
-WORKDIR /home/app/notebook
+EXPOSE 8888
 
-CMD ["/bin/bash"]
+# This is a custom ipython kernel that allows us to manipulate
+# `sys.path` in a consistent way between normal and pytest-with-nbval
+# invocations
+COPY config/kernel.json /tmp/kernel_with_custom_path/kernel.json
+RUN jupyter kernelspec install /tmp/kernel_with_custom_path/ --user --name="python3"
+
+WORKDIR /home/app/notebook
+CMD PYTHONPATH=. jupyter lab --config=config/jupyter_notebook_config.py
