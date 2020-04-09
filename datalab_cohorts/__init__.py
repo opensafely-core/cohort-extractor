@@ -640,8 +640,8 @@ class Codelist(list):
     system = None
 
 
-def codelist_from_csv(filename, system):
-    codes = pandas.read_csv(filename)["code"]
+def codelist_from_csv(filename, system, column="code"):
+    codes = pandas.read_csv(filename)[column]
     codes = Codelist(codes)
     codes.system = system
     return codes
