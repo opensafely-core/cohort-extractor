@@ -128,6 +128,7 @@ class StudyDefinition:
     def patients_bmi(
         self,
         reference_date,
+        minimum_age_at_measurement=16,
         # Add an additional column indicating when measurement was taken
         include_measurement_date=False,
         # If we're returning a date, how granular should it be?
@@ -211,6 +212,7 @@ class StudyDefinition:
             if include_day:
                 date_length = 10
         heights_cte_params = height_params + [reference_date]
+        min_age = int(minimum_age_at_measurement)
         sql = f"""
         SELECT
           patients.Patient_ID AS patient_id,
@@ -225,11 +227,11 @@ class StudyDefinition:
           ) AS date_measured
         FROM ({patients_cte}) AS patients
         LEFT JOIN ({weights_cte}) AS weights
-        ON weights.Patient_ID = patients.Patient_ID AND DATEDIFF(YEAR, patients.DateOfBirth, weights.ConsultationDate) > 16
+        ON weights.Patient_ID = patients.Patient_ID AND DATEDIFF(YEAR, patients.DateOfBirth, weights.ConsultationDate) >= {min_age}
         LEFT JOIN ({heights_cte}) AS heights
-        ON heights.Patient_ID = patients.Patient_ID AND DATEDIFF(YEAR, patients.DateOfBirth, heights.ConsultationDate) > 16
+        ON heights.Patient_ID = patients.Patient_ID AND DATEDIFF(YEAR, patients.DateOfBirth, heights.ConsultationDate) >= {min_age}
         LEFT JOIN ({bmi_cte}) AS bmis
-        ON bmis.Patient_ID = patients.Patient_ID AND DATEDIFF(YEAR, patients.DateOfBirth, bmis.ConsultationDate) > 16
+        ON bmis.Patient_ID = patients.Patient_ID AND DATEDIFF(YEAR, patients.DateOfBirth, bmis.ConsultationDate) >= {min_age}
         -- XXX maybe add a "WHERE NULL..." here
         """
         params = (
@@ -450,6 +452,7 @@ class patients:
     @staticmethod
     def bmi(
         reference_date,
+        minimum_age_at_measurement=16,
         # Add an additional column indicating when measurement was taken
         include_measurement_date=False,
         # If we're returning a date, how granular should it be?
