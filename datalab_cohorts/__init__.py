@@ -269,13 +269,13 @@ class StudyDefinition:
         """
         All patients registed on the given date
         """
-        return self.patients_continuously_registered_between(
+        return self.patients_registered_with_one_practice_between(
             reference_date, reference_date
         )
 
-    def patients_continuously_registered_between(self, start_date, end_date):
+    def patients_registered_with_one_practice_between(self, start_date, end_date):
         """
-        All patients continuously registered between the given dates
+        All patients registered with the same practice through the given period
         """
         # Note that current registrations are recorded with an EndDate
         # of 9999-12-31
@@ -284,12 +284,26 @@ class StudyDefinition:
             f"""
             SELECT DISTINCT Patient.Patient_ID AS patient_id, 1 AS registered
             FROM Patient
-            INNER JOIN  RegistrationHistory
+            INNER JOIN RegistrationHistory
             ON RegistrationHistory.Patient_ID = Patient.Patient_ID
             WHERE StartDate < ? AND EndDate > ?
             """,
             [start_date, end_date],
         )
+
+    def patients_with_complete_history_between(self, start_date, end_date):
+        """
+        All patients for which we have a full set of records between the given
+        dates
+        """
+        # This should be do-able by checking for a contiguous set of
+        # RegistrationHistory entries covering the period. There's a further
+        # complication though which is that a practice might not have been
+        # using SystmOne at the point where the patient registered so we can
+        # only guarantee data from the point where the patient was registred
+        # *and* the practice was on SystmOne. Apparently the Organisation table
+        # now has a TPP go-live date which we can use for this purpose.
+        raise NotImplementedError()
 
     def patients_with_these_medications(self, **kwargs):
         """
@@ -464,10 +478,16 @@ class patients:
         return "registered_as_of", locals()
 
     @staticmethod
-    def continuously_registered_between(start_date, end_date):
+    def registered_with_one_practice_between(start_date, end_date):
         start_date = datetime.date.fromisoformat(str(start_date))
         end_date = datetime.date.fromisoformat(str(end_date))
-        return "continuously_registered_between", locals()
+        return "registered_with_one_practice_between", locals()
+
+    @staticmethod
+    def with_complete_history_between(start_date, end_date):
+        start_date = datetime.date.fromisoformat(str(start_date))
+        end_date = datetime.date.fromisoformat(str(end_date))
+        return "with_complete_history_between", locals()
 
     @staticmethod
     def most_recent_bmi(
