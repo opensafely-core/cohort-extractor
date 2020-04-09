@@ -229,9 +229,9 @@ class StudyDefinition:
         # Note that current registrations are recorded with an EndDate
         # of 9999-12-31
         return (
-            ["patient_id"],
+            ["patient_id", "registered"],
             f"""
-            SELECT DISTINCT Patient.Patient_ID AS patient_id
+            SELECT DISTINCT Patient.Patient_ID AS patient_id, 1 AS registered
             FROM Patient
             INNER JOIN  RegistrationHistory
             ON RegistrationHistory.Patient_ID = Patient.Patient_ID
