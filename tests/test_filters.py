@@ -293,7 +293,7 @@ def test_patient_registered_as_of():
     ]
 
 
-def test_patients_continuously_registered_between():
+def test_patients_registered_with_one_practice_between():
     session = make_session()
 
     patient_registered_in_2001 = Patient()
@@ -315,7 +315,9 @@ def test_patients_continuously_registered_between():
     session.commit()
 
     study = StudyDefinition(
-        population=patients.continuously_registered_between("2001-12-01", "2003-01-01")
+        population=patients.registered_with_one_practice_between(
+            "2001-12-01", "2003-01-01"
+        )
     )
     results = study.to_dicts()
     assert [x["patient_id"] for x in results] == [
