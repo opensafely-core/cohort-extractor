@@ -24,7 +24,7 @@ class StudyDefinition:
         conn = self.get_db_connection()
         cursor = conn.cursor()
         cursor.execute(sql, params)
-        with open(filename, "w") as csvfile:
+        with open(filename, "w", newline="") as csvfile:
             writer = csv.writer(csvfile)
             writer.writerow([x[0] for x in cursor.description])
             for row in cursor:
