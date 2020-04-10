@@ -588,6 +588,11 @@ class patients:
     def admitted_to_itu():
         return "admitted_to_itu", locals()
 
+    @staticmethod
+    def random_sample(percent=None):
+        assert percent, "Must specify a percentage greater than zero"
+        return "random_sample", locals()
+
 
 def validate_time_period_options(
     # Set date limits
