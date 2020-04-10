@@ -279,7 +279,7 @@ def main():
 
 
 if __name__ == "__main__":
-    if GOOEY_INSTALLED:
+    if len(sys.argv) == 1 and GOOEY_INSTALLED:
         Gooey(main)()
     else:
         main()
