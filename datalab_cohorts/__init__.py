@@ -666,11 +666,12 @@ class Codelist(list):
     system = None
 
 
-def codelist_from_csv(filename, system):
+def codelist_from_csv(filename, system, column="code"):
     codes = []
     with open(filename, "r") as f:
         for row in csv.DictReader(f):
-            codes.append(row["code"])
+            codes.append(row[column])
+
     codes = Codelist(codes)
     codes.system = system
     return codes
