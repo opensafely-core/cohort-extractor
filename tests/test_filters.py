@@ -575,3 +575,20 @@ def test_bmi_when_only_some_measurements_of_child():
     results = study.to_dicts()
     assert [x["BMI"] for x in results] == ["0.5"]
     assert [x["BMI_date_measured"] for x in results] == ["2010-01-01"]
+
+
+def test_patient_random_sample():
+    session = make_session()
+    sample_size = 1000
+    for _ in range(sample_size):
+        patient = Patient()
+        session.add(patient)
+    session.commit()
+
+    study = StudyDefinition(population=patients.random_sample(percent=20))
+    with tempfile.NamedTemporaryFile(mode="w+") as f:
+        study.to_csv(f.name)
+        results = study.to_dicts()
+        # The method is approximate!
+        expected = sample_size * 0.2
+        assert abs(len(results) - expected) < (expected * 0.1)

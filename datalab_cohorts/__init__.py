@@ -4,7 +4,6 @@ import os
 import re
 from urllib.parse import urlparse, unquote
 
-import pandas
 import pyodbc
 
 
@@ -123,6 +122,28 @@ class StudyDefinition:
             FROM Patient
             """,
             [],
+        )
+
+    def patients_random_sample(self, percent):
+        """
+        A random sample of approximately `percent` patients
+        """
+        # See
+        # https://docs.microsoft.com/en-us/previous-versions/software-testing/cc441928(v=msdn.10)?redirectedfrom=MSDN
+        # A TABLESAMPLE clause is more efficient, but its
+        # approximations don't work with small numbers, and we might
+        # want to use this method for small numbers (and certainly do
+        # in the tests!)
+        return (
+            ["patient_id", "is_included"],
+            f"""
+            SELECT Patient_ID, 1 AS is_included
+            FROM Patient
+            WHERE (ABS(CAST(
+            (BINARY_CHECKSUM(*) *
+            RAND()) as int)) % 100) < ?
+            """,
+            [percent],
         )
 
     def patients_most_recent_bmi(
@@ -567,6 +588,11 @@ class patients:
     def admitted_to_itu():
         return "admitted_to_itu", locals()
 
+    @staticmethod
+    def random_sample(percent=None):
+        assert percent, "Must specify a percentage greater than zero"
+        return "random_sample", locals()
+
 
 def validate_time_period_options(
     # Set date limits
@@ -641,7 +667,11 @@ class Codelist(list):
 
 
 def codelist_from_csv(filename, system, column="code"):
-    codes = pandas.read_csv(filename)[column]
+    codes = []
+    with open(filename, "r") as f:
+        for row in csv.DictReader(f):
+            codes.append(row[column])
+
     codes = Codelist(codes)
     codes.system = system
     return codes
