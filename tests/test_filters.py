@@ -1,6 +1,8 @@
 import csv
 import tempfile
 
+import pytest
+
 from tests.tpp_backend_setup import make_database, make_session
 from tests.tpp_backend_setup import (
     CodedEvent,
@@ -33,6 +35,22 @@ def setup_function(function):
     session.commit()
 
 
+def test_minimal_study_to_csv():
+    session = make_session()
+    patient_1 = Patient(DateOfBirth="1900-01-01", Sex="M")
+    patient_2 = Patient(DateOfBirth="1900-01-01", Sex="F")
+    session.add_all([patient_1, patient_2])
+    session.commit()
+    study = StudyDefinition(population=patients.all(), sex=patients.sex())
+    with tempfile.NamedTemporaryFile(mode="w+") as f:
+        study.to_csv(f.name)
+        results = list(csv.DictReader(f))
+        assert results == [
+            {"patient_id": str(patient_1.Patient_ID), "sex": "M"},
+            {"patient_id": str(patient_2.Patient_ID), "sex": "F"},
+        ]
+
+
 def test_patient_characteristics_for_covid_status():
     session = make_session()
     old_patient_with_covid = Patient(
@@ -58,16 +76,14 @@ def test_patient_characteristics_for_covid_status():
         died=patients.have_died_of_covid(),
         admitted_itu=patients.admitted_to_itu(),
     )
-    with tempfile.NamedTemporaryFile(mode="w+") as f:
-        study.to_csv(f.name)
-        results = list(csv.DictReader(f))
+    results = study.to_dicts()
 
-        assert [x["sex"] for x in results] == ["M", "F"]
-        assert [x["died"] for x in results] == ["0", "1"]
-        assert [x["admitted_itu"] for x in results] == ["1", "0"]
-        # XXX the current implementation fails because the first age
-        # is computed as 120
-        assert [x["age"] for x in results] == ["120", "20"]
+    assert [x["sex"] for x in results] == ["M", "F"]
+    assert [x["died"] for x in results] == ["0", "1"]
+    assert [x["admitted_itu"] for x in results] == ["1", "0"]
+    # XXX the current implementation fails because the first age
+    # is computed as 120
+    assert [x["age"] for x in results] == ["120", "20"]
 
 
 def test_meds():
@@ -91,26 +107,26 @@ def test_meds():
             codelist(asthma_medication.DMD_ID, "snomed")
         ),
     )
-    with tempfile.NamedTemporaryFile(mode="w+") as f:
-        study.to_csv(f.name)
-        results = list(csv.DictReader(f))
-        assert [x["asthma_meds"] for x in results] == ["1", "0"]
+    results = study.to_dicts()
+    assert [x["asthma_meds"] for x in results] == ["1", "0"]
 
 
-def _make_clinical_events_selection(condition_code):
+def _make_clinical_events_selection(condition_code, patient_dates=None):
+    # The default configuration of patients and dates which some tests assume
+    if patient_dates is None:
+        patient_dates = ["2001-06-01", "2002-06-01", None]
     session = make_session()
-    patient_with_condition_in_2001 = Patient()
-    patient_with_condition_in_2002 = Patient()
-    patient_with_condition_in_2001.CodedEvents.append(
-        CodedEvent(CTV3Code=condition_code, ConsultationDate="2001-06-01")
-    )
-    patient_with_condition_in_2002.CodedEvents.append(
-        CodedEvent(CTV3Code=condition_code, ConsultationDate="2002-06-01")
-    )
-    patient_without_condition = Patient()
-    session.add(patient_with_condition_in_2001)
-    session.add(patient_with_condition_in_2002)
-    session.add(patient_without_condition)
+    for dates in patient_dates:
+        patient = Patient()
+        if dates is None:
+            dates = []
+        elif isinstance(dates, str):
+            dates = [dates]
+        for date in dates:
+            patient.CodedEvents.append(
+                CodedEvent(CTV3Code=condition_code, ConsultationDate=date)
+            )
+        session.add(patient)
     session.commit()
 
 
@@ -124,10 +140,8 @@ def test_clinical_event_without_filters():
             codelist([condition_code], "ctv3")
         ),
     )
-    with tempfile.NamedTemporaryFile(mode="w+") as f:
-        study.to_csv(f.name)
-        results = list(csv.DictReader(f))
-        assert [x["asthma_condition"] for x in results] == ["1", "1", "0"]
+    results = study.to_dicts()
+    assert [x["asthma_condition"] for x in results] == ["1", "1", "0"]
 
 
 def test_clinical_event_with_max_date():
@@ -136,13 +150,11 @@ def test_clinical_event_with_max_date():
     study = StudyDefinition(
         population=patients.all(),
         asthma_condition=patients.with_these_clinical_events(
-            codelist([condition_code], "ctv3"), max_date="2001-12-01"
+            codelist([condition_code], "ctv3"), on_or_before="2001-12-01"
         ),
     )
-    with tempfile.NamedTemporaryFile(mode="w+") as f:
-        study.to_csv(f.name)
-        results = list(csv.DictReader(f))
-        assert [x["asthma_condition"] for x in results] == ["1", "0", "0"]
+    results = study.to_dicts()
+    assert [x["asthma_condition"] for x in results] == ["1", "0", "0"]
 
 
 def test_clinical_event_with_min_date():
@@ -151,13 +163,11 @@ def test_clinical_event_with_min_date():
     study = StudyDefinition(
         population=patients.all(),
         asthma_condition=patients.with_these_clinical_events(
-            codelist([condition_code], "ctv3"), min_date="2005-12-01"
+            codelist([condition_code], "ctv3"), on_or_after="2005-12-01"
         ),
     )
-    with tempfile.NamedTemporaryFile(mode="w+") as f:
-        study.to_csv(f.name)
-        results = list(csv.DictReader(f))
-        assert [x["asthma_condition"] for x in results] == ["0", "0", "0"]
+    results = study.to_dicts()
+    assert [x["asthma_condition"] for x in results] == ["0", "0", "0"]
 
 
 def test_clinical_event_with_min_and_max_date():
@@ -166,15 +176,91 @@ def test_clinical_event_with_min_and_max_date():
     study = StudyDefinition(
         population=patients.all(),
         asthma_condition=patients.with_these_clinical_events(
-            codelist([condition_code], "ctv3"),
-            min_date="2001-12-01",
-            max_date="2002-06-01",
+            codelist([condition_code], "ctv3"), between=["2001-12-01", "2002-06-01"]
         ),
     )
-    with tempfile.NamedTemporaryFile(mode="w+") as f:
-        study.to_csv(f.name)
-        results = list(csv.DictReader(f))
-        assert [x["asthma_condition"] for x in results] == ["0", "1", "0"]
+    results = study.to_dicts()
+    assert [x["asthma_condition"] for x in results] == ["0", "1", "0"]
+
+
+def test_clinical_event_returning_first_date():
+    condition_code = "ASTHMA"
+    _make_clinical_events_selection(
+        condition_code,
+        patient_dates=[
+            None,
+            # Include date before period starts, which should be ignored
+            ["2001-01-01", "2002-06-01"],
+            ["2001-06-01"],
+        ],
+    )
+    study = StudyDefinition(
+        population=patients.all(),
+        asthma_condition=patients.with_these_clinical_events(
+            codelist([condition_code], "ctv3"),
+            between=["2001-12-01", "2002-06-01"],
+            return_first_date_in_period=True,
+            include_month=True,
+            include_day=True,
+        ),
+    )
+    results = study.to_dicts()
+    assert [x["asthma_condition"] for x in results] == ["", "2002-06-01", ""]
+
+
+def test_clinical_event_returning_last_date():
+    condition_code = "ASTHMA"
+    _make_clinical_events_selection(
+        condition_code,
+        patient_dates=[
+            None,
+            # Include date after period ends, which should be ignored
+            ["2002-06-01", "2003-01-01"],
+            ["2001-06-01"],
+        ],
+    )
+    study = StudyDefinition(
+        population=patients.all(),
+        asthma_condition=patients.with_these_clinical_events(
+            codelist([condition_code], "ctv3"),
+            between=["2001-12-01", "2002-06-01"],
+            return_last_date_in_period=True,
+            include_month=True,
+            include_day=True,
+        ),
+    )
+    results = study.to_dicts()
+    assert [x["asthma_condition"] for x in results] == ["", "2002-06-01", ""]
+
+
+def test_clinical_event_returning_year_only():
+    condition_code = "ASTHMA"
+    _make_clinical_events_selection(condition_code)
+    # No date criteria
+    study = StudyDefinition(
+        population=patients.all(),
+        asthma_condition=patients.with_these_clinical_events(
+            codelist([condition_code], "ctv3"), return_first_date_in_period=True
+        ),
+    )
+    results = study.to_dicts()
+    assert [x["asthma_condition"] for x in results] == ["2001", "2002", ""]
+
+
+def test_clinical_event_returning_year_and_month_only():
+    condition_code = "ASTHMA"
+    _make_clinical_events_selection(condition_code)
+    # No date criteria
+    study = StudyDefinition(
+        population=patients.all(),
+        asthma_condition=patients.with_these_clinical_events(
+            codelist([condition_code], "ctv3"),
+            return_first_date_in_period=True,
+            include_month=True,
+        ),
+    )
+    results = study.to_dicts()
+    assert [x["asthma_condition"] for x in results] == ["2001-06", "2002-06", ""]
 
 
 def test_patient_registered_as_of():
@@ -200,16 +286,47 @@ def test_patient_registered_as_of():
 
     # No date criteria
     study = StudyDefinition(population=patients.registered_as_of("2002-03-02"))
-    with tempfile.NamedTemporaryFile(mode="w+") as f:
-        study.to_csv(f.name)
-        results = list(csv.DictReader(f))
-        assert [x["patient_id"] for x in results] == [
-            str(patient_registered_in_2001.Patient_ID),
-            str(patient_registered_in_2002.Patient_ID),
-        ]
+    results = study.to_dicts()
+    assert [x["patient_id"] for x in results] == [
+        str(patient_registered_in_2001.Patient_ID),
+        str(patient_registered_in_2002.Patient_ID),
+    ]
 
 
-def test_simple_bmi():
+def test_patients_registered_with_one_practice_between():
+    session = make_session()
+
+    patient_registered_in_2001 = Patient()
+    patient_registered_in_2002 = Patient()
+    patient_unregistered_in_2002 = Patient()
+    patient_registered_in_2001.RegistrationHistory = [
+        RegistrationHistory(StartDate="2001-01-01", EndDate="9999-01-01")
+    ]
+    patient_registered_in_2002.RegistrationHistory = [
+        RegistrationHistory(StartDate="2002-01-01", EndDate="9999-01-01")
+    ]
+    patient_unregistered_in_2002.RegistrationHistory = [
+        RegistrationHistory(StartDate="2001-01-01", EndDate="2002-01-01")
+    ]
+
+    session.add(patient_registered_in_2001)
+    session.add(patient_registered_in_2002)
+    session.add(patient_unregistered_in_2002)
+    session.commit()
+
+    study = StudyDefinition(
+        population=patients.registered_with_one_practice_between(
+            "2001-12-01", "2003-01-01"
+        )
+    )
+    results = study.to_dicts()
+    assert [x["patient_id"] for x in results] == [
+        str(patient_registered_in_2001.Patient_ID)
+    ]
+
+
+@pytest.mark.parametrize("include_dates", ["none", "year", "month", "day"])
+def test_simple_bmi(include_dates):
     session = make_session()
 
     weight_code = "X76C7"
@@ -217,7 +334,7 @@ def test_simple_bmi():
 
     patient = Patient(DateOfBirth="1950-01-01")
     patient.CodedEvents.append(
-        CodedEvent(CTV3Code=weight_code, NumericValue=50, ConsultationDate="2001-06-01")
+        CodedEvent(CTV3Code=weight_code, NumericValue=50, ConsultationDate="2002-06-01")
     )
     patient.CodedEvents.append(
         CodedEvent(CTV3Code=height_code, NumericValue=10, ConsultationDate="2001-06-01")
@@ -225,11 +342,29 @@ def test_simple_bmi():
     session.add(patient)
     session.commit()
 
-    study = StudyDefinition(population=patients.all(), BMI=patients.bmi("2005-01-01"))
-    with tempfile.NamedTemporaryFile(mode="w+") as f:
-        study.to_csv(f.name)
-        results = list(csv.DictReader(f))
-        assert [x["BMI"] for x in results] == ["0.5"]
+    if include_dates == "none":
+        bmi_date = None
+        bmi_kwargs = {}
+    elif include_dates == "year":
+        bmi_date = "2002"
+        bmi_kwargs = dict(include_measurement_date=True)
+    elif include_dates == "month":
+        bmi_date = "2002-06"
+        bmi_kwargs = dict(include_measurement_date=True, include_month=True)
+    elif include_dates == "day":
+        bmi_date = "2002-06-01"
+        bmi_kwargs = dict(
+            include_measurement_date=True, include_month=True, include_day=True
+        )
+    study = StudyDefinition(
+        population=patients.all(),
+        BMI=patients.most_recent_bmi(
+            on_or_after="1995-01-01", on_or_before="2005-01-01", **bmi_kwargs
+        ),
+    )
+    results = study.to_dicts()
+    assert [x["BMI"] for x in results] == ["0.5"]
+    assert [x.get("BMI_date_measured") for x in results] == [bmi_date]
 
 
 def test_bmi_rounded():
@@ -245,16 +380,23 @@ def test_bmi_rounded():
         )
     )
     patient.CodedEvents.append(
-        CodedEvent(CTV3Code=height_code, NumericValue=10, ConsultationDate="2001-06-01")
+        CodedEvent(CTV3Code=height_code, NumericValue=10, ConsultationDate="2000-02-01")
     )
     session.add(patient)
     session.commit()
 
-    study = StudyDefinition(population=patients.all(), BMI=patients.bmi("2005-01-01"))
-    with tempfile.NamedTemporaryFile(mode="w+") as f:
-        study.to_csv(f.name)
-        results = list(csv.DictReader(f))
-        assert [x["BMI"] for x in results] == ["0.1"]
+    study = StudyDefinition(
+        population=patients.all(),
+        BMI=patients.most_recent_bmi(
+            "2005-01-01",
+            include_measurement_date=True,
+            include_month=True,
+            include_day=True,
+        ),
+    )
+    results = study.to_dicts()
+    assert [x["BMI"] for x in results] == ["0.1"]
+    assert [x["BMI_date_measured"] for x in results] == ["2001-06-01"]
 
 
 def test_bmi_with_zero_values():
@@ -273,11 +415,19 @@ def test_bmi_with_zero_values():
     session.add(patient)
     session.commit()
 
-    study = StudyDefinition(population=patients.all(), BMI=patients.bmi("2005-01-01"))
-    with tempfile.NamedTemporaryFile(mode="w+") as f:
-        study.to_csv(f.name)
-        results = list(csv.DictReader(f))
-        assert [x["BMI"] for x in results] == ["0.0"]
+    study = StudyDefinition(
+        population=patients.all(),
+        BMI=patients.most_recent_bmi(
+            on_or_after="1995-01-01",
+            on_or_before="2005-01-01",
+            include_measurement_date=True,
+            include_month=True,
+            include_day=True,
+        ),
+    )
+    results = study.to_dicts()
+    assert [x["BMI"] for x in results] == ["0.0"]
+    assert [x["BMI_date_measured"] for x in results] == ["2001-06-01"]
 
 
 def test_explicit_bmi_fallback():
@@ -291,16 +441,24 @@ def test_explicit_bmi_fallback():
         CodedEvent(CTV3Code=weight_code, NumericValue=50, ConsultationDate="2001-06-01")
     )
     patient.CodedEvents.append(
-        CodedEvent(CTV3Code=bmi_code, NumericValue=99, ConsultationDate="2001-06-01")
+        CodedEvent(CTV3Code=bmi_code, NumericValue=99, ConsultationDate="2001-10-01")
     )
     session.add(patient)
     session.commit()
 
-    study = StudyDefinition(population=patients.all(), BMI=patients.bmi("2005-01-01"))
-    with tempfile.NamedTemporaryFile(mode="w+") as f:
-        study.to_csv(f.name)
-        results = list(csv.DictReader(f))
-        assert [x["BMI"] for x in results] == ["99.0"]
+    study = StudyDefinition(
+        population=patients.all(),
+        BMI=patients.most_recent_bmi(
+            on_or_after="1995-01-01",
+            on_or_before="2005-01-01",
+            include_measurement_date=True,
+            include_month=True,
+            include_day=True,
+        ),
+    )
+    results = study.to_dicts()
+    assert [x["BMI"] for x in results] == ["99.0"]
+    assert [x["BMI_date_measured"] for x in results] == ["2001-10-01"]
 
 
 def test_no_bmi_when_old_date():
@@ -315,11 +473,19 @@ def test_no_bmi_when_old_date():
     session.add(patient)
     session.commit()
 
-    study = StudyDefinition(population=patients.all(), BMI=patients.bmi("2005-01-01"))
-    with tempfile.NamedTemporaryFile(mode="w+") as f:
-        study.to_csv(f.name)
-        results = list(csv.DictReader(f))
-        assert [x["BMI"] for x in results] == ["0.0"]
+    study = StudyDefinition(
+        population=patients.all(),
+        BMI=patients.most_recent_bmi(
+            on_or_after="1995-01-01",
+            on_or_before="2005-01-01",
+            include_measurement_date=True,
+            include_month=True,
+            include_day=True,
+        ),
+    )
+    results = study.to_dicts()
+    assert [x["BMI"] for x in results] == ["0.0"]
+    assert [x["BMI_date_measured"] for x in results] == [""]
 
 
 def test_no_bmi_when_measurements_of_child():
@@ -334,11 +500,19 @@ def test_no_bmi_when_measurements_of_child():
     session.add(patient)
     session.commit()
 
-    study = StudyDefinition(population=patients.all(), BMI=patients.bmi("2005-01-01"))
-    with tempfile.NamedTemporaryFile(mode="w+") as f:
-        study.to_csv(f.name)
-        results = list(csv.DictReader(f))
-        assert [x["BMI"] for x in results] == ["0.0"]
+    study = StudyDefinition(
+        population=patients.all(),
+        BMI=patients.most_recent_bmi(
+            on_or_after="1995-01-01",
+            on_or_before="2005-01-01",
+            include_measurement_date=True,
+            include_month=True,
+            include_day=True,
+        ),
+    )
+    results = study.to_dicts()
+    assert [x["BMI"] for x in results] == ["0.0"]
+    assert [x["BMI_date_measured"] for x in results] == [""]
 
 
 def test_no_bmi_when_measurement_after_reference_date():
@@ -353,11 +527,19 @@ def test_no_bmi_when_measurement_after_reference_date():
     session.add(patient)
     session.commit()
 
-    study = StudyDefinition(population=patients.all(), BMI=patients.bmi("2000-01-01"))
-    with tempfile.NamedTemporaryFile(mode="w+") as f:
-        study.to_csv(f.name)
-        results = list(csv.DictReader(f))
-        assert [x["BMI"] for x in results] == ["0.0"]
+    study = StudyDefinition(
+        population=patients.all(),
+        BMI=patients.most_recent_bmi(
+            on_or_after="1990-01-01",
+            on_or_before="2000-01-01",
+            include_measurement_date=True,
+            include_month=True,
+            include_day=True,
+        ),
+    )
+    results = study.to_dicts()
+    assert [x["BMI"] for x in results] == ["0.0"]
+    assert [x["BMI_date_measured"] for x in results] == [""]
 
 
 def test_bmi_when_only_some_measurements_of_child():
@@ -380,11 +562,19 @@ def test_bmi_when_only_some_measurements_of_child():
     session.add(patient)
     session.commit()
 
-    study = StudyDefinition(population=patients.all(), BMI=patients.bmi("2015-01-01"))
-    with tempfile.NamedTemporaryFile(mode="w+") as f:
-        study.to_csv(f.name)
-        results = list(csv.DictReader(f))
-        assert [x["BMI"] for x in results] == ["0.5"]
+    study = StudyDefinition(
+        population=patients.all(),
+        BMI=patients.most_recent_bmi(
+            on_or_after="2005-01-01",
+            on_or_before="2015-01-01",
+            include_measurement_date=True,
+            include_month=True,
+            include_day=True,
+        ),
+    )
+    results = study.to_dicts()
+    assert [x["BMI"] for x in results] == ["0.5"]
+    assert [x["BMI_date_measured"] for x in results] == ["2010-01-01"]
 
 
 def test_patient_random_sample():
@@ -398,7 +588,7 @@ def test_patient_random_sample():
     study = StudyDefinition(population=patients.random_sample(percent=20))
     with tempfile.NamedTemporaryFile(mode="w+") as f:
         study.to_csv(f.name)
-        results = list(csv.DictReader(f))
+        results = study.to_dicts()
         # The method is approximate!
         expected = sample_size * 0.2
         assert abs(len(results) - expected) < (expected * 0.05)
