@@ -6,12 +6,23 @@ shutdowns gracefully
 import os
 import re
 import subprocess
-import signal
 import socket
 import sys
 import time
 import urllib.request
 import webbrowser
+
+from runner.common import relative_dir
+from runner.common import stream_subprocess_output
+from runner.docker import docker_run
+from runner.docker import docker_build
+from runner.docker import docker_port
+from runner.git_change_manager import review_branch_exists
+from runner.git_change_manager import GitChangeManager
+
+
+stata_image = "docker.pkg.github.com/ebmdatalab/stata-docker-runner/stata-mp:latest"
+notebook_tag = "opencorona-research"
 
 
 try:
@@ -22,22 +33,6 @@ try:
 except ImportError:
     GOOEY_INSTALLED = False
     from argparse import ArgumentParser
-
-stata_image = "docker.pkg.github.com/ebmdatalab/stata-docker-runner/stata-mp:latest"
-notebook_tag = "opencorona-research"
-target_dir = "/home/app/notebook"
-
-
-def relative_dir():
-    if sys.executable == "run.exe":
-        # This is a pyinstaller package on Windows; the `cwd` is
-        # likely to be anything (e.g. the Github desktop AppData
-        # space); `__file__` is some kind of temporary location
-        # resulting from an internal unzip.
-        relative_dir = os.path.dirname(os.path.realpath(sys.executable))
-    else:
-        relative_dir = os.getcwd()
-    return relative_dir
 
 
 def await_jupyter_http(port):
@@ -59,107 +54,6 @@ def await_jupyter_http(port):
             break
 
     raise SystemError(f"Unable to reach Jupyter at {url}")
-
-
-def stream_subprocess_output(cmd):
-    """Stream stdout and stderr of `cmd` in a subprocess to stdout
-    """
-    with subprocess.Popen(
-        cmd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        bufsize=1,
-        universal_newlines=True,
-    ) as p:
-        for line in p.stdout:
-            # I don't understand why we need the `\r`, but when run
-            # via docker apparently require a carriage return for the
-            # output to display correctly
-            print(line, end="\r")
-        p.wait()
-        if p.returncode > 0:
-            raise subprocess.CalledProcessError(cmd=cmd, returncode=p.returncode)
-
-
-def docker_build(tag):
-    """Build container for Dockerfile in current directory
-    """
-    buildcmd = ["docker", "build", "-t", tag, "-f", "Dockerfile", "."]
-    print(
-        "Building docker image. This may take some time (particularly on the first run)..."
-    )
-    print("Running", " ".join(buildcmd))
-    stream_subprocess_output(buildcmd)
-
-
-def docker_login():
-    runcmd = [
-        "docker",
-        "login",
-        "docker.pkg.github.com",
-        "-u",
-        os.environ["GITHUB_ACTOR"],
-        "--password",
-        os.environ["GITHUB_TOKEN"],
-    ]
-    print("Running {}".format(" ".join(runcmd)))
-    return stream_subprocess_output(runcmd)
-
-
-def docker_pull(image):
-    runcmd = ["docker", "pull", image]
-    print("Running {}".format(" ".join(runcmd)))
-    return stream_subprocess_output(runcmd)
-
-
-def docker_run(image, *args, detach=False):
-    """Run docker in background, and install signal handler to stop it
-    again
-
-    """
-    current_dir = relative_dir()
-    runcmd = [
-        "docker",
-        "run",
-        f"--detach={detach and 'true' or 'false'}",
-        "-w",
-        target_dir,
-        "--rm",  # clean up the container after it's stopped
-        "--mount",
-        f"source={current_dir},dst={target_dir},type=bind",
-        "--publish-all",
-        "--mount",
-        # Ensure we override any local pyenv configuration
-        f"source={current_dir}/.python-version-docker,dst={target_dir}/.python-version,type=bind",
-        image,
-        *args,
-    ]
-    print("Running {}".format(" ".join(runcmd)))
-    if detach:
-        completed_process = subprocess.run(runcmd, check=True, capture_output=True)
-        container_id = completed_process.stdout.decode("utf8").strip()
-
-        def stop_handler(sig, frame):
-            print("Stopping docker...")
-            subprocess.run(["docker", "kill", container_id], check=True)
-            sys.exit(0)
-
-        signal.signal(signal.SIGINT, stop_handler)
-
-        return container_id
-    else:
-        return stream_subprocess_output(runcmd)
-
-
-def docker_port(container_id):
-    """Return the port that the specified container is listening on
-    """
-    completed_process = subprocess.run(
-        ["docker", "port", container_id], check=True, capture_output=True
-    )
-    port_mapping = completed_process.stdout.decode("utf8").strip()
-    port = port_mapping.split(":")[-1]
-    return port
 
 
 def check_output():
@@ -187,7 +81,7 @@ def generate_cohort():
 
 
 def run_model(folder, stata_path=None):
-    # XXX it's /e on windows
+    # XXX it's (possibly) /e on windows
     args = ["-b", "do", f"{folder}/model.do"]
     if not stata_path:
         # XXX they'll need to log in docker_login()? Ensure
@@ -201,12 +95,15 @@ def run_model(folder, stata_path=None):
 def main(from_cmd_line=False):
     parser = ArgumentParser()
     subparsers = parser.add_subparsers(help="sub-command help")
+
     generate_cohort_parser = subparsers.add_parser(
         "generate_cohort", help="Generate cohort"
     )
     generate_cohort_parser.set_defaults(which="generate_cohort")
+
     run_model_parser = subparsers.add_parser("run", help="Run model")
     run_model_parser.set_defaults(which="run")
+
     run_notebook_parser = subparsers.add_parser("notebook", help="Run notebook")
     run_notebook_parser.set_defaults(which="notebook")
 
@@ -244,10 +141,40 @@ def main(from_cmd_line=False):
         "--test", action="store_true", help="Run stata using internal test model"
     )
 
-    # Notebook runner options at the moment
+    # Notebook runner options
     run_notebook_parser.add_argument(
         "--skip-build", action="store_true", help="Skip docker build step"
     )
+
+    if review_branch_exists():
+        help_annex = "(No changes to review)"
+    else:
+        help_annex = ""
+    view_changes_parser = subparsers.add_parser(
+        "view_changes", help=f"Review changes {help_annex}"
+    )
+    view_changes_parser.set_defaults(which="view_changes")
+    view_changes_parser.add_argument(
+        "--show-diff", action="store_true", help="Show full diff as well as filenames"
+    )
+
+    approve_changes_parser = subparsers.add_parser(
+        "approve_changes", help=f"Approve changes {help_annex}"
+    )
+    approve_changes_parser.set_defaults(which="approve_changes")
+
+    signoff_kwargs = {
+        "help": "Sign off changes with notes",
+        "type": str,
+        "required": True,
+    }
+    if GOOEY_INSTALLED:
+        signoff_kwargs["widget"] = "Textarea"
+        signoff_kwargs["gooey_options"] = {"height": 150}
+
+    approve_changes_parser.add_argument("--signoff-message", **signoff_kwargs)
+
+    manager = GitChangeManager(changes_pathspec="outputs")
 
     options = parser.parse_args()
     if options.which == "run":
@@ -255,6 +182,10 @@ def main(from_cmd_line=False):
             try:
                 run_model("tests", options.stata_path)
                 print("SUCCESS running tests")
+                # Automatically add changes in `outputs` to our local working
+                # branch, `server-artefacts`
+                manager.update_review_branch()
+
             except subprocess.CalledProcessError:
                 print("ERROR running tests")
                 raise
@@ -282,10 +213,22 @@ def main(from_cmd_line=False):
             "To stop this docker container, use Ctrl+ C, or the File -> Shut Down menu in Jupyter Lab"
         )
         stream_subprocess_output(["docker", "logs", "--follow", container_id])
+    elif options.which == "view_changes":
+        manager.update_review_branch()
+        print(manager.diff_outputs(names_only=not options.show_diff))
+    elif options.which == "approve_changes":
+        manager.update_review_branch()
+        print(manager.release_outputs(options.signoff_message))
+
+
+def check_dependencies():
+    # check they have git
+    # check they have docker
+    pass
 
 
 if __name__ == "__main__":
     if (len(sys.argv) == 1 or sys.argv[1] == "--ignore-gooey") and GOOEY_INSTALLED:
-        Gooey(main)()
+        Gooey(main, monospace_display=True)()
     else:
         main(from_cmd_line=True)
