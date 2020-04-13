@@ -261,7 +261,7 @@ def main(from_cmd_line=False):
         else:
             print(run_model("analysis", options.stata_path))
     elif options.which == "generate_cohort":
-        if options.docker:
+        if from_cmd_line and options.docker:
             if not options.skip_build:
                 docker_build(notebook_tag)
             args = sys.argv[:]
