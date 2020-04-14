@@ -577,6 +577,56 @@ def test_bmi_when_only_some_measurements_of_child():
     assert [x["BMI_date_measured"] for x in results] == ["2010-01-01"]
 
 
+def test_mean_blood_presssure():
+    session = make_session()
+    patient = make_patient_with_bp_readings(
+        [
+            ("2020-02-10", 90, 60),
+            ("2020-02-10", 100, 70),
+            ("2020-02-10", 95, 74),
+            # This reading is more recent but does not include a diastolic
+            # reading and so should be ignored
+            ("2020-02-15", 120, None),
+            # This day is outside period and should be ignored
+            ("2020-04-01", 110, 80),
+        ]
+    )
+    patient_with_old_bp = make_patient_with_bp_readings([("2010-01-01", 100, 80)])
+    patient_no_bp = Patient()
+    session.add_all([patient, patient_with_old_bp, patient_no_bp])
+    session.commit()
+    study = StudyDefinition(
+        population=patients.all(),
+        blood_pressure=patients.mean_blood_pressure_on_most_recent_day_of_measurement(
+            between=["2018-01-01", "2020-03-01"],
+            include_measurement_date=True,
+            include_month=True,
+            include_day=True,
+        ),
+    )
+    results = study.to_dicts()
+    results = [
+        (
+            i["blood_pressure"],
+            i["blood_pressure_diastolic"],
+            i["blood_pressure_date_measured"],
+        )
+        for i in results
+    ]
+    assert results == [("95", "68", "2020-02-10"), ("0", "0", ""), ("0", "0", "")]
+
+
+def make_patient_with_bp_readings(bp_readings):
+    patient = Patient()
+    for date, sys_pressure, dias_pressure in bp_readings:
+        for code, value in zip(["2469.", "246A."], [sys_pressure, dias_pressure]):
+            if value is not None:
+                patient.CodedEvents.append(
+                    CodedEvent(CTV3Code=code, NumericValue=value, ConsultationDate=date)
+                )
+    return patient
+
+
 def test_patient_random_sample():
     session = make_session()
     sample_size = 1000

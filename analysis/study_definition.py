@@ -36,4 +36,8 @@ study = StudyDefinition(
         include_measurement_date=True,
         include_month=True,
     ),
+    # https://github.com/ebmdatalab/tpp-sql-notebook/issues/35
+    bp=patients.mean_blood_pressure_on_most_recent_day_of_measurement(
+        on_or_before="2020-02-01", include_measurement_date=True, include_month=True
+    ),
 )

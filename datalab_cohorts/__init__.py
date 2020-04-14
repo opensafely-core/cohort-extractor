@@ -286,6 +286,72 @@ class StudyDefinition:
             columns.append("date_measured")
         return columns, sql, params
 
+    def patients_mean_blood_pressure_on_most_recent_day_of_measurement(
+        self,
+        # Set date limits
+        on_or_before=None,
+        on_or_after=None,
+        between=None,
+        # Add additional columns indicating when measurement was taken
+        include_measurement_date=False,
+        # If we're returning a date, how granular should it be?
+        include_month=False,
+        include_day=False,
+    ):
+        date_condition, date_params = make_date_filter(
+            "ConsultationDate", on_or_after, on_or_before, between
+        )
+        date_length = 4
+        if include_month:
+            date_length = 7
+            if include_day:
+                date_length = 10
+        # For each patient, find the most recent day in the period where they
+        # have both a systolic and diastolic blood pressure reading
+        systolic_code = "2469."
+        diastolic_code = "246A."
+        most_recent_measurement_day_query = f"""
+        SELECT Patient_ID AS patient_id, MAX(date_measured) AS date_measured FROM (
+          SELECT Patient_ID, CONVERT(DATE, ConsultationDate) AS date_measured
+          FROM CodedEvent
+          WHERE CTV3Code = '{systolic_code}' AND {date_condition}
+          INTERSECT
+          SELECT Patient_ID, CONVERT(DATE, ConsultationDate) AS date_measured
+          FROM CodedEvent
+          WHERE CTV3Code = '{diastolic_code}' AND {date_condition}
+        ) AS blood_pressure_days
+        GROUP BY patient_id
+        """
+        params = date_params + date_params
+        # On each of the above days, find the mean blood pressure reading for
+        # each patient
+        sql = f"""
+        SELECT
+          bp.patient_id AS patient_id,
+          CONVERT(VARCHAR({date_length}), bp.date_measured, 23) AS date_measured,
+          CAST(AVG(sys.NumericValue) AS int) AS systolic,
+          CAST(AVG(dias.NumericValue) AS int) AS diastolic
+        FROM
+          ({most_recent_measurement_day_query}) AS bp
+        LEFT JOIN CodedEvent AS sys
+        ON (
+          sys.Patient_ID = bp.patient_id
+          AND sys.CTV3Code = '{systolic_code}'
+          AND CONVERT(DATE, sys.ConsultationDate) = bp.date_measured
+        )
+        LEFT JOIN CodedEvent AS dias
+        ON (
+          dias.Patient_ID = bp.patient_id
+          AND dias.CTV3Code = '{diastolic_code}'
+          AND CONVERT(DATE, dias.ConsultationDate) = bp.date_measured
+        )
+        GROUP BY bp.patient_id, bp.date_measured
+        """
+        columns = ["patient_id", "systolic", "diastolic"]
+        if include_measurement_date:
+            columns.append("date_measured")
+        return columns, sql, params
+
     def patients_registered_as_of(self, reference_date):
         """
         All patients registed on the given date
@@ -524,8 +590,22 @@ class patients:
         include_day=False,
     ):
         validate_time_period_options(**locals())
-
         return "most_recent_bmi", locals()
+
+    @staticmethod
+    def mean_blood_pressure_on_most_recent_day_of_measurement(
+        # Set date limits
+        on_or_before=None,
+        on_or_after=None,
+        between=None,
+        # Add additional columns indicating when measurement was taken
+        include_measurement_date=False,
+        # If we're returning a date, how granular should it be?
+        include_month=False,
+        include_day=False,
+    ):
+        validate_time_period_options(**locals())
+        return "mean_blood_pressure_on_most_recent_day_of_measurement", locals()
 
     @staticmethod
     def all():
