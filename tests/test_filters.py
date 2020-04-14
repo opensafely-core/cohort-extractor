@@ -617,3 +617,31 @@ def test_patients_satisfying():
     )
     results = study.to_dicts()
     assert [i["at_risk"] for i in results] == ["1", "0", "0", "1"]
+
+
+def test_patients_satisfying_with_hidden_columns():
+    condition_code = "ASTHMA"
+    session = make_session()
+    patient_1 = Patient(DateOfBirth="1940-01-01", Sex="M")
+    patient_2 = Patient(DateOfBirth="1940-01-01", Sex="F")
+    patient_3 = Patient(DateOfBirth="1990-01-01", Sex="M")
+    patient_4 = Patient(DateOfBirth="1940-01-01", Sex="F")
+    patient_4.CodedEvents.append(
+        CodedEvent(CTV3Code=condition_code, ConsultationDate="2010-01-01")
+    )
+    session.add_all([patient_1, patient_2, patient_3, patient_4])
+    session.commit()
+    study = StudyDefinition(
+        population=patients.all(),
+        sex=patients.sex(),
+        age=patients.age_as_of("2020-01-01"),
+        at_risk=patients.satisfying(
+            "(age > 70 AND sex = M) OR has_asthma",
+            has_asthma=patients.with_these_clinical_events(
+                codelist([condition_code], "ctv3")
+            ),
+        ),
+    )
+    results = study.to_dicts()
+    assert [i["at_risk"] for i in results] == ["1", "0", "0", "1"]
+    assert "has_asthma" not in results[0].keys()

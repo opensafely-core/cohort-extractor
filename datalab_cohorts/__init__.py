@@ -50,10 +50,20 @@ class StudyDefinition:
         population_cols, population_sql, population_params = self.get_query(
             *self.population_definition
         )
+        hidden_columns = set()
         for name, (query_type, query_args) in self.covariate_definitions.items():
-            # Ignore boolean expressions for now; we handle these later
             if query_type != "satisfying":
                 self.covariates[name] = self.get_query(query_type, query_args)
+            # Special case for boolean expressions which can define extra
+            # hidden columns which they use for their logic but which don't
+            # appear in the output
+            else:
+                extra_columns = query_args["extra_columns"].items()
+                for hidden_name, (hidden_query_type, hidden_args) in extra_columns:
+                    hidden_columns.add(hidden_name)
+                    self.covariates[hidden_name] = self.get_query(
+                        hidden_query_type, hidden_args
+                    )
         cte_cols = ["population.patient_id"]  # XXX might more come from left side?
         ctes = [f"WITH population AS ({population_sql})"]
         cte_params = population_params
@@ -61,6 +71,11 @@ class StudyDefinition:
         for column_name, (cols, sql, params) in self.covariates.items():
             ctes.append(f"{column_name} AS ({sql})")
             cte_params.extend(params)
+            cte_joins.append(
+                f"LEFT JOIN {column_name} ON {column_name}.Patient_ID = population.Patient_ID"
+            )
+            if column_name in hidden_columns:
+                continue
             # The first column should always be patient_id so we can join on it
             assert len(cols) > 1
             assert cols[0] == "patient_id"
@@ -73,9 +88,6 @@ class StudyDefinition:
                 cte_cols.append(
                     f"ISNULL({column_name}.{col}, {default_value}) AS {output_column}"
                 )
-            cte_joins.append(
-                f"LEFT JOIN {column_name} ON {column_name}.Patient_ID = population.Patient_ID"
-            )
         # Add column defintions for covariates which are boolean expressions
         # over other covariates
         for name, (query_type, query_args) in self.covariate_definitions.items():
@@ -465,7 +477,7 @@ class StudyDefinition:
             [],
         )
 
-    def get_boolean_expression(self, covariates, expression):
+    def get_boolean_expression(self, covariates, expression, extra_columns=None):
         # The column references in the supplied expression need to be rewritten
         # to ensure they refer to the correct CTE. The formatting function also
         # ensures that the expression matches the very limited subset of SQL we
@@ -599,7 +611,7 @@ class patients:
         return "with_these_clinical_events", locals()
 
     @staticmethod
-    def satisfying(expression):
+    def satisfying(expression, **extra_columns):
         return "satisfying", locals()
 
     # The below are placeholder methods we don't expect to make it into the final API.
