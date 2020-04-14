@@ -577,6 +577,44 @@ def test_bmi_when_only_some_measurements_of_child():
     assert [x["BMI_date_measured"] for x in results] == ["2010-01-01"]
 
 
+def test_mean_recorded_value():
+    code = "2469."
+    session = make_session()
+    patient = Patient()
+    values = [
+        ("2020-02-10", 90),
+        ("2020-02-10", 100),
+        ("2020-02-10", 98),
+        # This day is outside period and should be ignored
+        ("2020-04-01", 110),
+    ]
+    for date, value in values:
+        patient.CodedEvents.append(
+            CodedEvent(CTV3Code=code, NumericValue=value, ConsultationDate=date)
+        )
+    patient_with_old_reading = Patient()
+    patient_with_old_reading.CodedEvents.append(
+        CodedEvent(CTV3Code=code, NumericValue=100, ConsultationDate="2010-01-01")
+    )
+    patient_with_no_reading = Patient()
+    session.add_all([patient, patient_with_old_reading, patient_with_no_reading])
+    session.commit()
+    study = StudyDefinition(
+        population=patients.all(),
+        bp_systolic=patients.mean_recorded_value(
+            codelist([code], system="ctv3"),
+            on_most_recent_day_of_measurement=True,
+            between=["2018-01-01", "2020-03-01"],
+            include_measurement_date=True,
+            include_month=True,
+            include_day=True,
+        ),
+    )
+    results = study.to_dicts()
+    results = [(i["bp_systolic"], i["bp_systolic_date_measured"]) for i in results]
+    assert results == [("96.0", "2020-02-10"), ("0.0", ""), ("0.0", "")]
+
+
 def test_patient_random_sample():
     session = make_session()
     sample_size = 1000

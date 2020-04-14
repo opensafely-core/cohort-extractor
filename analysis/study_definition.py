@@ -1,4 +1,4 @@
-from datalab_cohorts import StudyDefinition, patients, codelist_from_csv
+from datalab_cohorts import StudyDefinition, patients, codelist, codelist_from_csv
 
 chronic_cardiac_disease_codes = codelist_from_csv(
     "codelists/chronic_cardiac_disease.csv", system="ctv3", column="CTV3ID"
@@ -6,6 +6,8 @@ chronic_cardiac_disease_codes = codelist_from_csv(
 chronic_liver_disease_codes = codelist_from_csv(
     "codelists/chronic_liver_disease.csv", system="ctv3", column="CTV3ID"
 )
+systolic_blood_pressure_codes = codelist(["2469."], system="ctv3")
+diastolic_blood_pressure_codes = codelist(["246A."], system="ctv3")
 
 study = StudyDefinition(
     # This line defines the study population
@@ -33,6 +35,21 @@ study = StudyDefinition(
     bmi=patients.most_recent_bmi(
         on_or_after="2010-02-01",
         minimum_age_at_measurement=16,
+        include_measurement_date=True,
+        include_month=True,
+    ),
+    # https://github.com/ebmdatalab/tpp-sql-notebook/issues/35
+    bp_sys=patients.mean_recorded_value(
+        systolic_blood_pressure_codes,
+        on_most_recent_day_of_measurement=True,
+        on_or_before="2020-02-01",
+        include_measurement_date=True,
+        include_month=True,
+    ),
+    bp_dias=patients.mean_recorded_value(
+        diastolic_blood_pressure_codes,
+        on_most_recent_day_of_measurement=True,
+        on_or_before="2020-02-01",
         include_measurement_date=True,
         include_month=True,
     ),

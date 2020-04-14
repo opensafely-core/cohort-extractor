@@ -313,6 +313,62 @@ class StudyDefinition:
             columns.append("date_measured")
         return columns, sql, params
 
+    def patients_mean_recorded_value(
+        self,
+        codelist,
+        # What period is the mean over? (Only one supported option for now)
+        on_most_recent_day_of_measurement=None,
+        # Set date limits
+        on_or_before=None,
+        on_or_after=None,
+        between=None,
+        # Add additional columns indicating when measurement was taken
+        include_measurement_date=False,
+        # If we're returning a date, how granular should it be?
+        include_month=False,
+        include_day=False,
+    ):
+        # We only support this option for now
+        assert on_most_recent_day_of_measurement
+        date_condition, date_params = make_date_filter(
+            "ConsultationDate", on_or_after, on_or_before, between
+        )
+        date_length = 4
+        if include_month:
+            date_length = 7
+            if include_day:
+                date_length = 10
+        placeholders, code_params = placeholders_and_params(codelist)
+        # The subquery finds, for each patient, the most recent day on which
+        # they've had a measurement. The outer query selects, for each patient,
+        # the mean value on that day.
+        # Note, there's a CAST in the JOIN condition but apparently SQL Server can still
+        # use an index for this. See: https://stackoverflow.com/a/25564539
+        sql = f"""
+        SELECT
+          days.Patient_ID AS patient_id,
+          AVG(CodedEvent.NumericValue) AS mean_value,
+          CONVERT(VARCHAR({date_length}), days.date_measured, 23) AS date_measured
+        FROM (
+            SELECT Patient_ID, CAST(MAX(ConsultationDate) AS date) AS date_measured
+            FROM CodedEvent
+            WHERE CTV3Code IN ({placeholders}) AND {date_condition}
+            GROUP BY Patient_ID
+        ) AS days
+        LEFT JOIN CodedEvent
+        ON (
+          CodedEvent.Patient_ID = days.Patient_ID
+          AND CodedEvent.CTV3Code IN ({placeholders})
+          AND CAST(CodedEvent.ConsultationDate AS date) = days.date_measured
+        )
+        GROUP BY days.Patient_ID, days.date_measured
+        """
+        params = code_params + date_params + code_params
+        columns = ["patient_id", "mean_value"]
+        if include_measurement_date:
+            columns.append("date_measured")
+        return columns, sql, params
+
     def patients_registered_as_of(self, reference_date):
         """
         All patients registed on the given date
@@ -561,8 +617,25 @@ class patients:
         include_day=False,
     ):
         validate_time_period_options(**locals())
-
         return "most_recent_bmi", locals()
+
+    @staticmethod
+    def mean_recorded_value(
+        codelist,
+        on_most_recent_day_of_measurement=None,
+        # Set date limits
+        on_or_before=None,
+        on_or_after=None,
+        between=None,
+        # Add additional columns indicating when measurement was taken
+        include_measurement_date=False,
+        # If we're returning a date, how granular should it be?
+        include_month=False,
+        include_day=False,
+    ):
+        assert codelist.system == "ctv3"
+        validate_time_period_options(**locals())
+        return "mean_recorded_value", locals()
 
     @staticmethod
     def all():
