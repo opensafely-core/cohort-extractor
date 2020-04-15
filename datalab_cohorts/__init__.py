@@ -500,6 +500,28 @@ class StudyDefinition:
             params,
         )
 
+    def patients_registered_practice_as_of(self, date, returning=None):
+        if returning == "stp_code":
+            column = "STPCode"
+        elif returning == "msoa_code":
+            column = "MSOACode"
+        else:
+            raise ValueError(f"Unsupported `returning` value: {returning}")
+        # Note that current registrations are recorded with an EndDate of
+        # 9999-12-31. Note also that the below query assumes address
+        # registration periods never overlap.
+        return (
+            ["patient_id", returning],
+            f"""
+            SELECT Patient_ID AS patient_id, Organisation.{column} AS {returning}
+            FROM RegistrationHistory
+            LEFT JOIN Organisation
+            ON Organisation.Organisation_ID = RegistrationHistory.Organisation_ID
+            WHERE StartDate <= ? AND EndDate > ?
+            """,
+            [date, date],
+        )
+
     def patients_with_positive_covid_test(self):
         return (
             ["patient_id", "has_covid"],
@@ -686,6 +708,10 @@ class patients:
     @staticmethod
     def satisfying(expression, **extra_columns):
         return "satisfying", locals()
+
+    @staticmethod
+    def registered_practice_as_of(date, returning=None):
+        return "registered_practice_as_of", locals()
 
     # The below are placeholder methods we don't expect to make it into the final API.
     # They use a handler which returns dummy CHESS data.

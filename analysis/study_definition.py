@@ -53,4 +53,7 @@ study = StudyDefinition(
         include_measurement_date=True,
         include_month=True,
     ),
+    # https://github.com/ebmdatalab/tpp-sql-notebook/issues/54
+    stp=patients.registered_practice_as_of("2020-02-01", returning="stp_code"),
+    msoa=patients.registered_practice_as_of("2020-02-01", returning="msoa_code"),
 )
