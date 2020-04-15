@@ -120,10 +120,27 @@ class RegistrationHistory(Base):
     __tablename__ = "RegistrationHistory"
 
     Registration_ID = Column(Integer, primary_key=True)
-    Organisation_ID = Column(Integer)
+    Organisation_ID = Column(Integer, ForeignKey("Organisation.Organisation_ID"))
+    Organisation = relationship(
+        "Organisation", back_populates="RegistrationHistory", cascade="all, delete"
+    )
     Patient_ID = Column(Integer, ForeignKey("Patient.Patient_ID"))
     Patient = relationship(
         "Patient", back_populates="RegistrationHistory", cascade="all, delete"
     )
     StartDate = Column(Date)
     EndDate = Column(Date)
+
+
+class Organisation(Base):
+    __tablename__ = "Organisation"
+
+    Organisation_ID = Column(Integer, primary_key=True)
+    GoLiveDate = Column(Date)
+    STPCode = Column(String)
+    MSOACode = Column(String)
+    RegistrationHistory = relationship(
+        "RegistrationHistory",
+        back_populates="Organisation",
+        cascade="all, delete, delete-orphan",
+    )

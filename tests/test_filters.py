@@ -11,6 +11,7 @@ from tests.tpp_backend_setup import (
     MedicationDictionary,
     Patient,
     RegistrationHistory,
+    Organisation,
 )
 
 from datalab_cohorts import StudyDefinition
@@ -683,3 +684,42 @@ def test_patients_satisfying_with_hidden_columns():
     results = study.to_dicts()
     assert [i["at_risk"] for i in results] == ["1", "0", "0", "1"]
     assert "has_asthma" not in results[0].keys()
+
+
+def test_patients_registered_practice_as_of():
+    session = make_session()
+    org_1 = Organisation(STPCode="123", MSOACode="E0201")
+    org_2 = Organisation(STPCode="456", MSOACode="E0202")
+    org_3 = Organisation(STPCode="789", MSOACode="E0203")
+    patient = Patient()
+    patient.RegistrationHistory.append(
+        RegistrationHistory(
+            StartDate="1990-01-01", EndDate="2018-01-01", Organisation=org_1
+        )
+    )
+    patient.RegistrationHistory.append(
+        RegistrationHistory(
+            StartDate="2018-01-01", EndDate="2022-01-01", Organisation=org_2
+        )
+    )
+    patient.RegistrationHistory.append(
+        RegistrationHistory(
+            StartDate="2022-01-01", EndDate="9999-12-31", Organisation=org_3
+        )
+    )
+    patient_2 = Patient()
+    patient_2.RegistrationHistory.append(
+        RegistrationHistory(
+            StartDate="2010-01-01", EndDate="9999-12-31", Organisation=org_1
+        )
+    )
+    session.add_all([patient, patient_2])
+    session.commit()
+    study = StudyDefinition(
+        population=patients.all(),
+        stp=patients.registered_practice_as_of("2020-01-01", returning="stp_code"),
+        msoa=patients.registered_practice_as_of("2020-01-01", returning="msoa_code"),
+    )
+    results = study.to_dicts()
+    assert [i["stp"] for i in results] == ["456", "123"]
+    assert [i["msoa"] for i in results] == ["E0202", "E0201"]
