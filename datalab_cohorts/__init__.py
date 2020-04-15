@@ -6,6 +6,8 @@ from urllib.parse import urlparse, unquote
 
 import pyodbc
 
+from .expressions import format_expression
+
 
 # Characters that are safe to interpolate into SQL (see
 # `placeholders_and_params` below)
@@ -18,6 +20,10 @@ class StudyDefinition:
     def __init__(self, population, **kwargs):
         self.population_definition = population
         self.covariate_definitions = kwargs
+        if self.population_definition[0] == "satisfying":
+            raise ValueError(
+                "`satisfying` queries can't yet be used in the population definition"
+            )
 
     def to_csv(self, filename):
         sql, params = self.to_sql()
@@ -44,8 +50,20 @@ class StudyDefinition:
         population_cols, population_sql, population_params = self.get_query(
             *self.population_definition
         )
+        hidden_columns = set()
         for name, (query_type, query_args) in self.covariate_definitions.items():
-            self.covariates[name] = self.get_query(query_type, query_args)
+            if query_type != "satisfying":
+                self.covariates[name] = self.get_query(query_type, query_args)
+            # Special case for boolean expressions which can define extra
+            # hidden columns which they use for their logic but which don't
+            # appear in the output
+            else:
+                extra_columns = query_args["extra_columns"].items()
+                for hidden_name, (hidden_query_type, hidden_args) in extra_columns:
+                    hidden_columns.add(hidden_name)
+                    self.covariates[hidden_name] = self.get_query(
+                        hidden_query_type, hidden_args
+                    )
         cte_cols = ["population.patient_id"]  # XXX might more come from left side?
         ctes = [f"WITH population AS ({population_sql})"]
         cte_params = population_params
@@ -53,7 +71,13 @@ class StudyDefinition:
         for column_name, (cols, sql, params) in self.covariates.items():
             ctes.append(f"{column_name} AS ({sql})")
             cte_params.extend(params)
-            # The first column should always been patient_id so we can join on it
+            cte_joins.append(
+                f"LEFT JOIN {column_name} ON {column_name}.Patient_ID = population.Patient_ID"
+            )
+            if column_name in hidden_columns:
+                continue
+            # The first column should always be patient_id so we can join on it
+            assert len(cols) > 1
             assert cols[0] == "patient_id"
             for n, col in enumerate(cols[1:]):
                 # The first result column is given the name of the desired
@@ -64,9 +88,12 @@ class StudyDefinition:
                 cte_cols.append(
                     f"ISNULL({column_name}.{col}, {default_value}) AS {output_column}"
                 )
-            cte_joins.append(
-                f"LEFT JOIN {column_name} ON {column_name}.Patient_ID = population.Patient_ID"
-            )
+        # Add column defintions for covariates which are boolean expressions
+        # over other covariates
+        for name, (query_type, query_args) in self.covariate_definitions.items():
+            if query_type == "satisfying":
+                expression = self.get_boolean_expression(self.covariates, **query_args)
+                cte_cols.append(f"CASE WHEN ({expression}) THEN 1 ELSE 0 END AS {name}")
         cte_sql = ", ".join(ctes)
         sql = f"""
         {cte_sql}
@@ -450,6 +477,16 @@ class StudyDefinition:
             [],
         )
 
+    def get_boolean_expression(self, covariates, expression, extra_columns=None):
+        # The column references in the supplied expression need to be rewritten
+        # to ensure they refer to the correct CTE. The formatting function also
+        # ensures that the expression matches the very limited subset of SQL we
+        # support here.
+        name_map = {}
+        for name, (columns, _, _) in covariates.items():
+            name_map[name] = f"{name}.{columns[1]}"
+        return format_expression(expression, name_map)
+
     def get_db_connection(self):
         if self._db_connection:
             return self._db_connection
@@ -572,6 +609,10 @@ class patients:
         assert codelist.system == "ctv3"
         validate_time_period_options(**locals())
         return "with_these_clinical_events", locals()
+
+    @staticmethod
+    def satisfying(expression, **extra_columns):
+        return "satisfying", locals()
 
     # The below are placeholder methods we don't expect to make it into the final API.
     # They use a handler which returns dummy CHESS data.
