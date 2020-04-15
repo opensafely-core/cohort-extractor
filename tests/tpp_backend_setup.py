@@ -113,6 +113,9 @@ class Patient(Base):
         back_populates="Patient",
         cascade="all, delete, delete-orphan",
     )
+    Addresses = relationship(
+        "PatientAddress", back_populates="Patient", cascade="all, delete, delete-orphan"
+    )
     Sex = Column(String)
 
 
@@ -144,3 +147,19 @@ class Organisation(Base):
         back_populates="Organisation",
         cascade="all, delete, delete-orphan",
     )
+
+
+class PatientAddress(Base):
+    __tablename__ = "PatientAddress"
+
+    # This column isn't in the actual database but SQLAlchemy gets a bit upset
+    # if we don't give it a primary key
+    id = Column(Integer, primary_key=True)
+    Patient_ID = Column(Integer, ForeignKey("Patient.Patient_ID"))
+    Patient = relationship("Patient", back_populates="Addresses", cascade="all, delete")
+    StartDate = Column(Date)
+    EndDate = Column(Date)
+    AddressType = Column(Integer)
+    RuralUrbanClassificationCode = Column(Integer)
+    ImdRankRounded = Column(Integer)
+    MSOACode = Column(String)

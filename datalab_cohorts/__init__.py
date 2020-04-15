@@ -390,7 +390,7 @@ class StudyDefinition:
             FROM Patient
             INNER JOIN RegistrationHistory
             ON RegistrationHistory.Patient_ID = Patient.Patient_ID
-            WHERE StartDate < ? AND EndDate > ?
+            WHERE StartDate <= ? AND EndDate > ?
             """,
             [start_date, end_date],
         )
@@ -517,6 +517,27 @@ class StudyDefinition:
             FROM RegistrationHistory
             LEFT JOIN Organisation
             ON Organisation.Organisation_ID = RegistrationHistory.Organisation_ID
+            WHERE StartDate <= ? AND EndDate > ?
+            """,
+            [date, date],
+        )
+
+    def patients_address_as_of(self, date, returning=None, round_to_nearest=None):
+        if returning == "index_of_multiple_deprivation":
+            assert round_to_nearest == 100
+            column = "ImdRankRounded"
+        elif returning == "rural_urban_classification":
+            column = "RuralUrbanClassificationCode"
+        else:
+            raise ValueError(f"Unsupported `returning` value: {returning}")
+        # Note that current addresses are recorded with an EndDate of
+        # 9999-12-31. Note also that the below query assumes address
+        # registration periods never overlap
+        return (
+            ["patient_id", returning],
+            f"""
+            SELECT Patient_ID AS patient_id, {column} AS {returning}
+            FROM PatientAddress
             WHERE StartDate <= ? AND EndDate > ?
             """,
             [date, date],
@@ -712,6 +733,10 @@ class patients:
     @staticmethod
     def registered_practice_as_of(date, returning=None):
         return "registered_practice_as_of", locals()
+
+    @staticmethod
+    def address_as_of(date, returning=None, round_to_nearest=None):
+        return "address_as_of", locals()
 
     # The below are placeholder methods we don't expect to make it into the final API.
     # They use a handler which returns dummy CHESS data.
