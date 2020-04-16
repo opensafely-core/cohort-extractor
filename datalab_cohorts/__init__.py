@@ -275,24 +275,23 @@ class StudyDefinition:
         """
         heights_cte_params = height_params + height_date_params
 
-        date_length = 4
-        if include_month:
-            date_length = 7
-            if include_day:
-                date_length = 10
+        date_column_defintion = truncate_date(
+            """
+            CASE
+              WHEN weight IS NULL OR height IS NULL THEN bmis.ConsultationDate
+              ELSE weights.ConsultationDate
+            END
+            """,
+            include_month,
+            include_day,
+        )
         min_age = int(minimum_age_at_measurement)
+
         sql = f"""
         SELECT
           patients.Patient_ID AS patient_id,
           ROUND(COALESCE(weight/SQUARE(NULLIF(height, 0)), bmis.BMI), 1) AS BMI,
-          CONVERT(
-            VARCHAR({date_length}),
-            CASE
-              WHEN weight IS NULL OR height IS NULL THEN bmis.ConsultationDate
-              ELSE weights.ConsultationDate
-            END,
-            23
-          ) AS date_measured
+          {date_column_defintion} AS date_measured
         FROM ({patients_cte}) AS patients
         LEFT JOIN ({weights_cte}) AS weights
         ON weights.Patient_ID = patients.Patient_ID AND DATEDIFF(YEAR, patients.DateOfBirth, weights.ConsultationDate) >= {min_age}
@@ -333,12 +332,10 @@ class StudyDefinition:
         date_condition, date_params = make_date_filter(
             "ConsultationDate", on_or_after, on_or_before, between
         )
-        date_length = 4
-        if include_month:
-            date_length = 7
-            if include_day:
-                date_length = 10
         placeholders, code_params = placeholders_and_params(codelist)
+        date_definition = truncate_date(
+            "days.date_measured", include_month, include_day
+        )
         # The subquery finds, for each patient, the most recent day on which
         # they've had a measurement. The outer query selects, for each patient,
         # the mean value on that day.
@@ -348,7 +345,7 @@ class StudyDefinition:
         SELECT
           days.Patient_ID AS patient_id,
           AVG(CodedEvent.NumericValue) AS mean_value,
-          CONVERT(VARCHAR({date_length}), days.date_measured, 23) AS date_measured
+          {date_definition} AS date_measured
         FROM (
             SELECT Patient_ID, CAST(MAX(ConsultationDate) AS date) AS date_measured
             FROM CodedEvent
@@ -468,25 +465,17 @@ class StudyDefinition:
         )
         params.extend(date_params)
 
-        # Define date output format
-        date_length = 4  # Year only
-        if include_month:
-            date_length = 7
-            if include_day:
-                date_length = 10
-        # Style 23 below means YYYY-MM-DD format, see:
-        # https://docs.microsoft.com/en-us/sql/t-sql/functions/cast-and-convert-transact-sql?view=sql-server-ver15#date-and-time-styles
-        date_column_template = (
-            f"CONVERT(VARCHAR({date_length}), {{}}(ConsultationDate), 23)"
-        )
-
         # Define output column name and aggregation function
         if return_first_date_in_period:
             column_name = "date_of_first_event"
-            column_definition = date_column_template.format("MIN")
+            column_definition = truncate_date(
+                "MIN(ConsultationDate)", include_month, include_day
+            )
         elif return_last_date_in_period:
             column_name = "date_of_last_event"
-            column_definition = date_column_template.format("MAX")
+            column_definition = truncate_date(
+                "MAX(ConsultationDate)", include_month, include_day
+            )
         elif return_number_of_matches_in_period:
             column_name = "number_of_matches"
             column_definition = "COUNT(*)"
@@ -831,6 +820,17 @@ def make_date_filter(column, min_date, max_date, between=None, upper_bound_only=
         return f"{column} <= ?", [max_date]
     else:
         return "1=1", []
+
+
+def truncate_date(column, include_month, include_day):
+    date_length = 4
+    if include_month:
+        date_length = 7
+        if include_day:
+            date_length = 10
+    # Style 23 below means YYYY-MM-DD format, see:
+    # https://docs.microsoft.com/en-us/sql/t-sql/functions/cast-and-convert-transact-sql?view=sql-server-ver15#date-and-time-styles
+    return f"CONVERT(VARCHAR({date_length}), {column}, 23)"
 
 
 # Quick and dirty hack until we have a proper library for codelists
