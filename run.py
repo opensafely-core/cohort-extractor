@@ -17,8 +17,11 @@ from runner.common import stream_subprocess_output
 from runner.docker import docker_run
 from runner.docker import docker_build
 from runner.docker import docker_port
+from runner.docker import docker_login
 from runner.git_change_manager import review_branch_exists
 from runner.git_change_manager import GitChangeManager
+
+from github import Github
 
 
 stata_image = "docker.pkg.github.com/ebmdatalab/stata-docker-runner/stata-mp:latest"
@@ -107,6 +110,12 @@ def main(from_cmd_line=False):
     run_notebook_parser = subparsers.add_parser("notebook", help="Run notebook")
     run_notebook_parser.set_defaults(which="notebook")
 
+    login_parser = subparsers.add_parser(
+        "github_login",
+        help="Log into github (required for docker operations, or approving changes for publication)",
+    )
+    login_parser.set_defaults(which="github_login")
+
     # Cohort parser options
     generate_cohort_parser.add_argument(
         "--database-url",
@@ -117,7 +126,9 @@ def main(from_cmd_line=False):
     )
     if from_cmd_line:
         generate_cohort_parser.add_argument(
-            "--docker", action="store_true", help="Run in docker"
+            "--docker",
+            action="store_true",
+            help="Run in docker (useful if you don't have python set up locally, but you do have docker)",
         )
         generate_cohort_parser.add_argument(
             "--skip-build", action="store_true", help="Skip docker build step"
@@ -219,6 +230,12 @@ def main(from_cmd_line=False):
     elif options.which == "approve_changes":
         manager.update_review_branch()
         print(manager.release_outputs(options.signoff_message))
+    elif options.which == "github_login":
+        token = manager.get_github_token()
+        gh = Github(token)
+        user = gh.get_user()
+        docker_login(user.login, token)
+        print("Done!")
 
 
 def check_dependencies():

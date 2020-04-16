@@ -23,6 +23,27 @@ scope = "read:packages,repo"
 review_branch_name = "server-artefacts"
 
 
+try:
+    import wx
+
+    # Initialize wx App
+    app = wx.App()
+    app.MainLoop()
+
+    def ask(message):
+        dlg = wx.TextEntryDialog(None, message)
+        dlg.ShowModal()
+        result = dlg.GetValue()
+        dlg.Destroy()
+        return result
+
+
+except ImportError:
+
+    def ask(message):
+        return input(message)
+
+
 def _git_run(*args):
     cmd = ["git"] + list(args)
     result = subprocess.run(cmd, capture_output=True, text=True)
@@ -162,15 +183,10 @@ class GitChangeManager:
             resp.raise_for_status()
         except (TokenExpiredError, requests.exceptions.HTTPError, ValueError):
             server = start_server()
-            input(
-                "Your web browser will open, asking you to log into Github.\n"
-                "You will then be redirected to a page which (the first time you open it) "
-                "will warn you that it's insecure; continue anyway then copy-and-paste "
-                "the code you get here.\n\n  "
-                "Hit any key to continue\n"
-            )
             webbrowser.open(authorization_url)
-            resp = input("Paste authorisation string from your browser here:\n")
+            resp = ask(
+                "A login for github should have opened in your browser. Paste authorisation string from your browser here:\n"
+            )
             access_token = github.fetch_token(
                 token_url, client_secret=client_secret, authorization_response=resp
             )
