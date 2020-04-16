@@ -12,6 +12,7 @@ from tests.tpp_backend_setup import (
     Patient,
     RegistrationHistory,
     Organisation,
+    PatientAddress,
 )
 
 from datalab_cohorts import StudyDefinition
@@ -723,3 +724,58 @@ def test_patients_registered_practice_as_of():
     results = study.to_dicts()
     assert [i["stp"] for i in results] == ["456", "123"]
     assert [i["msoa"] for i in results] == ["E0202", "E0201"]
+
+
+def test_patients_address_as_of():
+    session = make_session()
+    patient = Patient()
+    patient.Addresses.append(
+        PatientAddress(
+            StartDate="1990-01-01",
+            EndDate="2018-01-01",
+            ImdRankRounded=100,
+            RuralUrbanClassificationCode=1,
+        )
+    )
+    patient.Addresses.append(
+        PatientAddress(
+            StartDate="2018-01-01",
+            EndDate="2022-01-01",
+            ImdRankRounded=300,
+            RuralUrbanClassificationCode=2,
+        )
+    )
+    patient.Addresses.append(
+        PatientAddress(
+            StartDate="2022-01-01",
+            EndDate="9999-12-31",
+            ImdRankRounded=500,
+            RuralUrbanClassificationCode=3,
+        )
+    )
+    patient_no_address = Patient()
+    patient_only_old_address = Patient()
+    patient_only_old_address.Addresses.append(
+        PatientAddress(
+            StartDate="2010-01-01",
+            EndDate="2015-01-01",
+            ImdRankRounded=100,
+            RuralUrbanClassificationCode=1,
+        )
+    )
+    session.add_all([patient, patient_no_address, patient_only_old_address])
+    session.commit()
+    study = StudyDefinition(
+        population=patients.all(),
+        imd=patients.address_as_of(
+            "2020-01-01",
+            returning="index_of_multiple_deprivation",
+            round_to_nearest=100,
+        ),
+        rural_urban=patients.address_as_of(
+            "2020-01-01", returning="rural_urban_classification"
+        ),
+    )
+    results = study.to_dicts()
+    assert [i["imd"] for i in results] == ["300", "0", "0"]
+    assert [i["rural_urban"] for i in results] == ["2", "0", "0"]

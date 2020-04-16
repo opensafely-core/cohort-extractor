@@ -56,4 +56,11 @@ study = StudyDefinition(
     # https://github.com/ebmdatalab/tpp-sql-notebook/issues/54
     stp=patients.registered_practice_as_of("2020-02-01", returning="stp_code"),
     msoa=patients.registered_practice_as_of("2020-02-01", returning="msoa_code"),
+    # https://github.com/ebmdatalab/tpp-sql-notebook/issues/52
+    imd=patients.address_as_of(
+        "2020-02-01", returning="index_of_multiple_deprivation", round_to_nearest=100
+    ),
+    rural_urban=patients.address_as_of(
+        "2020-02-01", returning="rural_urban_classification"
+    ),
 )
