@@ -414,6 +414,10 @@ class StudyDefinition:
         Patients who have been prescribed at least one of this list of
         medications in the defined period
         """
+        # Note that we're using "ConsultationDate" for the date condition here,
+        # which is the date of prescription.  The MedicationIssue table also
+        # has StartDate (the date of issue) and EndDate (not exactly sure what
+        # this is).
         return self._patients_with_associated_events(
             """
             SELECT med.Patient_ID AS patient_id, {column_definition} AS {column_name}
@@ -451,6 +455,7 @@ class StudyDefinition:
         between=None,
         # Set return type
         return_binary_flag=None,
+        return_number_of_matches_in_period=False,
         return_first_date_in_period=False,
         return_last_date_in_period=False,
         # If we're returning a date, how granular should it be?
@@ -463,31 +468,31 @@ class StudyDefinition:
         )
         params.extend(date_params)
 
-        # Define output column name and aggregation function
-        if return_first_date_in_period:
-            column_name = "date_of_first_event"
-            aggregate_func = "MIN"
-        elif return_last_date_in_period:
-            column_name = "date_of_last_event"
-            aggregate_func = "MAX"
-        else:
-            column_name = "has_event"
-            aggregate_func = None
-
         # Define date output format
         date_length = 4  # Year only
         if include_month:
             date_length = 7
             if include_day:
                 date_length = 10
+        # Style 23 below means YYYY-MM-DD format, see:
+        # https://docs.microsoft.com/en-us/sql/t-sql/functions/cast-and-convert-transact-sql?view=sql-server-ver15#date-and-time-styles
+        date_column_template = (
+            f"CONVERT(VARCHAR({date_length}), {{}}(ConsultationDate), 23)"
+        )
 
-        # Column definition
-        if aggregate_func is None:
-            column_definition = "1"
+        # Define output column name and aggregation function
+        if return_first_date_in_period:
+            column_name = "date_of_first_event"
+            column_definition = date_column_template.format("MIN")
+        elif return_last_date_in_period:
+            column_name = "date_of_last_event"
+            column_definition = date_column_template.format("MAX")
+        elif return_number_of_matches_in_period:
+            column_name = "number_of_matches"
+            column_definition = "COUNT(*)"
         else:
-            # Style 23 below means YYYY-MM-DD format, see:
-            # https://docs.microsoft.com/en-us/sql/t-sql/functions/cast-and-convert-transact-sql?view=sql-server-ver15#date-and-time-styles
-            column_definition = f"CONVERT(VARCHAR({date_length}), {aggregate_func}(ConsultationDate), 23)"
+            column_name = "has_event"
+            column_definition = "1"
 
         return (
             ["patient_id", column_name],
@@ -697,6 +702,7 @@ class patients:
         between=None,
         # Set return type
         return_binary_flag=None,
+        return_number_of_matches_in_period=False,
         return_first_date_in_period=False,
         return_last_date_in_period=False,
         # If we're returning a date, how granular should it be?
@@ -716,6 +722,7 @@ class patients:
         between=None,
         # Set return type
         return_binary_flag=None,
+        return_number_of_matches_in_period=False,
         return_first_date_in_period=False,
         return_last_date_in_period=False,
         # If we're returning a date, how granular should it be?
