@@ -98,7 +98,7 @@ def test_meds():
     )
     patient_with_med = Patient()
     patient_with_med.MedicationIssues = [
-        MedicationIssue(MedicationDictionary=asthma_medication, StartDate="2010-01-01")
+        MedicationIssue(MedicationDictionary=asthma_medication)
     ]
     patient_without_med = Patient()
     session.add(patient_with_med)
@@ -113,6 +113,44 @@ def test_meds():
     )
     results = study.to_dicts()
     assert [x["asthma_meds"] for x in results] == ["1", "0"]
+
+
+def test_meds_with_count():
+    session = make_session()
+
+    asthma_medication = MedicationDictionary(
+        FullName="Asthma Drug", DMD_ID="0", MultilexDrug_ID="0"
+    )
+    patient_with_med = Patient()
+    patient_with_med.MedicationIssues = [
+        MedicationIssue(
+            MedicationDictionary=asthma_medication, ConsultationDate="2010-01-01"
+        ),
+        MedicationIssue(
+            MedicationDictionary=asthma_medication, ConsultationDate="2015-01-01"
+        ),
+        MedicationIssue(
+            MedicationDictionary=asthma_medication, ConsultationDate="2018-01-01"
+        ),
+        MedicationIssue(
+            MedicationDictionary=asthma_medication, ConsultationDate="2020-01-01"
+        ),
+    ]
+    patient_without_med = Patient()
+    session.add(patient_with_med)
+    session.add(patient_without_med)
+    session.commit()
+
+    study = StudyDefinition(
+        population=patients.all(),
+        asthma_meds=patients.with_these_medications(
+            codelist(asthma_medication.DMD_ID, "snomed"),
+            on_or_after="2012-01-01",
+            return_number_of_matches_in_period=True,
+        ),
+    )
+    results = study.to_dicts()
+    assert [x["asthma_meds"] for x in results] == ["3", "0"]
 
 
 def _make_clinical_events_selection(condition_code, patient_dates=None):
