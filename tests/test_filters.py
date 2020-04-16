@@ -33,6 +33,8 @@ def setup_function(function):
     session.query(MedicationIssue).delete()
     session.query(MedicationDictionary).delete()
     session.query(RegistrationHistory).delete()
+    session.query(Organisation).delete()
+    session.query(PatientAddress).delete()
     session.query(Patient).delete()
     session.commit()
 
