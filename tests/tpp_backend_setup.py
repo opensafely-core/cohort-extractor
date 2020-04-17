@@ -108,6 +108,9 @@ class Patient(Base):
     CodedEvents = relationship(
         "CodedEvent", back_populates="Patient", cascade="all, delete, delete-orphan"
     )
+    ICNARC = relationship(
+        "ICNARC", back_populates="Patient", cascade="all, delete, delete-orphan"
+    )
     RegistrationHistory = relationship(
         "RegistrationHistory",
         back_populates="Patient",
@@ -163,3 +166,16 @@ class PatientAddress(Base):
     RuralUrbanClassificationCode = Column(Integer)
     ImdRankRounded = Column(Integer)
     MSOACode = Column(String)
+
+
+class ICNARC(Base):
+    __tablename__ = "ICNARC"
+
+    ICNARC_ID = Column(Integer, primary_key=True)
+    Patient_ID = Column(Integer, ForeignKey("Patient.Patient_ID"))
+    Patient = relationship("Patient", back_populates="ICNARC", cascade="all, delete")
+    IcuAdmissionDateTime = Column(DateTime)
+    OriginalIcuAdmissionDate = Column(Date)
+    BasicDays_RespiratorySupport = Column(Integer)
+    AdvancedDays_RespiratorySupport = Column(Integer)
+    Ventilator = Column(Integer)
