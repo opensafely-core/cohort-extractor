@@ -84,7 +84,10 @@ class StudyDefinition:
                 # output column. The rest are added as suffixes to the name of
                 # the output column
                 output_column = column_name if n == 0 else f"{column_name}_{col}"
-                default_value = 0 if not col.startswith("date_") else "''"
+                is_date_col = (
+                    col == "date" or col.startswith("date_") or col.endswith("_date")
+                )
+                default_value = 0 if not is_date_col else "''"
                 cte_cols.append(
                     f"ISNULL({column_name}.{col}, {default_value}) AS {output_column}"
                 )
@@ -275,24 +278,23 @@ class StudyDefinition:
         """
         heights_cte_params = height_params + height_date_params
 
-        date_length = 4
-        if include_month:
-            date_length = 7
-            if include_day:
-                date_length = 10
+        date_column_defintion = truncate_date(
+            """
+            CASE
+              WHEN weight IS NULL OR height IS NULL THEN bmis.ConsultationDate
+              ELSE weights.ConsultationDate
+            END
+            """,
+            include_month,
+            include_day,
+        )
         min_age = int(minimum_age_at_measurement)
+
         sql = f"""
         SELECT
           patients.Patient_ID AS patient_id,
           ROUND(COALESCE(weight/SQUARE(NULLIF(height, 0)), bmis.BMI), 1) AS BMI,
-          CONVERT(
-            VARCHAR({date_length}),
-            CASE
-              WHEN weight IS NULL OR height IS NULL THEN bmis.ConsultationDate
-              ELSE weights.ConsultationDate
-            END,
-            23
-          ) AS date_measured
+          {date_column_defintion} AS date_measured
         FROM ({patients_cte}) AS patients
         LEFT JOIN ({weights_cte}) AS weights
         ON weights.Patient_ID = patients.Patient_ID AND DATEDIFF(YEAR, patients.DateOfBirth, weights.ConsultationDate) >= {min_age}
@@ -333,12 +335,10 @@ class StudyDefinition:
         date_condition, date_params = make_date_filter(
             "ConsultationDate", on_or_after, on_or_before, between
         )
-        date_length = 4
-        if include_month:
-            date_length = 7
-            if include_day:
-                date_length = 10
         placeholders, code_params = placeholders_and_params(codelist)
+        date_definition = truncate_date(
+            "days.date_measured", include_month, include_day
+        )
         # The subquery finds, for each patient, the most recent day on which
         # they've had a measurement. The outer query selects, for each patient,
         # the mean value on that day.
@@ -348,7 +348,7 @@ class StudyDefinition:
         SELECT
           days.Patient_ID AS patient_id,
           AVG(CodedEvent.NumericValue) AS mean_value,
-          CONVERT(VARCHAR({date_length}), days.date_measured, 23) AS date_measured
+          {date_definition} AS date_measured
         FROM (
             SELECT Patient_ID, CAST(MAX(ConsultationDate) AS date) AS date_measured
             FROM CodedEvent
@@ -418,15 +418,15 @@ class StudyDefinition:
         # which is the date of prescription.  The MedicationIssue table also
         # has StartDate (the date of issue) and EndDate (not exactly sure what
         # this is).
-        return self._patients_with_associated_events(
+        if kwargs["returning"] == "numeric_value":
+            raise ValueError(f"Unsupported `returning` value: numeric_value")
+        return self._patients_with_events(
             """
-            SELECT med.Patient_ID AS patient_id, {column_definition} AS {column_name}
-            FROM MedicationDictionary AS dict
-            INNER JOIN MedicationIssue AS med
-            ON dict.MultilexDrug_ID = med.MultilexDrug_ID
-            WHERE dict.DMD_ID IN ({placeholders}) AND {date_condition}
-            GROUP BY med.Patient_ID
+            MedicationIssue
+            INNER JOIN MedicationDictionary
+            ON MedicationIssue.MultilexDrug_ID = MedicationDictionary.MultilexDrug_ID
             """,
+            "DMD_ID",
             **kwargs,
         )
 
@@ -435,29 +435,23 @@ class StudyDefinition:
         Patients who have had at least one of these clinical events in the
         defined period
         """
-        return self._patients_with_associated_events(
-            """
-            SELECT Patient_ID AS patient_id, {column_definition} AS {column_name}
-            FROM CodedEvent
-            WHERE CTV3Code IN ({placeholders}) AND {date_condition}
-            GROUP BY Patient_ID
-            """,
-            **kwargs,
-        )
+        return self._patients_with_events("CodedEvent", "CTV3Code", **kwargs)
 
-    def _patients_with_associated_events(
+    def _patients_with_events(
         self,
-        query_template,
+        from_table,
+        code_column,
         codelist,
         # Set date limits
         on_or_before=None,
         on_or_after=None,
         between=None,
+        # Matching rule
+        find_first_match_in_period=None,
+        find_last_match_in_period=None,
         # Set return type
-        return_binary_flag=None,
-        return_number_of_matches_in_period=False,
-        return_first_date_in_period=False,
-        return_last_date_in_period=False,
+        returning="binary_flag",
+        include_date_of_match=False,
         # If we're returning a date, how granular should it be?
         include_month=False,
         include_day=False,
@@ -468,42 +462,79 @@ class StudyDefinition:
         )
         params.extend(date_params)
 
-        # Define date output format
-        date_length = 4  # Year only
-        if include_month:
-            date_length = 7
-            if include_day:
-                date_length = 10
-        # Style 23 below means YYYY-MM-DD format, see:
-        # https://docs.microsoft.com/en-us/sql/t-sql/functions/cast-and-convert-transact-sql?view=sql-server-ver15#date-and-time-styles
-        date_column_template = (
-            f"CONVERT(VARCHAR({date_length}), {{}}(ConsultationDate), 23)"
-        )
-
-        # Define output column name and aggregation function
-        if return_first_date_in_period:
-            column_name = "date_of_first_event"
-            column_definition = date_column_template.format("MIN")
-        elif return_last_date_in_period:
-            column_name = "date_of_last_event"
-            column_definition = date_column_template.format("MAX")
-        elif return_number_of_matches_in_period:
-            column_name = "number_of_matches"
-            column_definition = "COUNT(*)"
+        # Result ordering
+        if find_first_match_in_period:
+            ordering = "ASC"
+            date_aggregate = "MIN"
+            date_column_name = "first_date"
         else:
+            ordering = "DESC"
+            date_aggregate = "MAX"
+            date_column_name = "last_date"
+
+        if returning == "binary_flag" or returning == "date":
             column_name = "has_event"
             column_definition = "1"
+            use_partition_query = False
+        elif returning == "number_of_matches_in_period":
+            column_name = "count"
+            column_definition = "COUNT(*)"
+            use_partition_query = False
+        elif returning == "numeric_value":
+            column_name = "value"
+            column_definition = "NumericValue"
+            use_partition_query = True
+        elif returning == "code":
+            column_name = "value"
+            column_definition = code_column
+            use_partition_query = True
+        else:
+            raise ValueError(f"Unsupported `returning` value: {returning}")
 
-        return (
-            ["patient_id", column_name],
-            query_template.format(
-                column_definition=column_definition,
-                column_name=column_name,
-                placeholders=placeholders,
-                date_condition=date_condition,
-            ),
-            params,
-        )
+        if use_partition_query:
+            # Partition queries are used to pull out values for specific
+            # events, the corresponding date column therefore should not be
+            # "first_date" or "last_date" but just "date"
+            date_column_name = "date"
+            date_column_definition = truncate_date(
+                "ConsultationDate", include_month, include_day
+            )
+            sql = f"""
+            SELECT
+              Patient_ID AS patient_id,
+              {column_definition} AS {column_name},
+              {date_column_definition} AS {date_column_name}
+            FROM (
+              SELECT Patient_ID, {column_definition}, ConsultationDate,
+              ROW_NUMBER() OVER (
+                PARTITION BY Patient_ID ORDER BY ConsultationDate {ordering}
+              ) AS rownum
+              FROM {from_table}
+              WHERE {code_column} IN ({placeholders}) AND {date_condition}
+            ) t
+            WHERE rownum = 1
+            """
+        else:
+            date_column_definition = truncate_date(
+                f"{date_aggregate}(ConsultationDate)", include_month, include_day
+            )
+            sql = f"""
+            SELECT
+              Patient_ID AS patient_id,
+              {column_definition} AS {column_name},
+              {date_column_definition} AS {date_column_name}
+            FROM {from_table}
+            WHERE {code_column} IN ({placeholders}) AND {date_condition}
+            GROUP BY Patient_ID
+            """
+
+        if returning == "date":
+            columns = ["patient_id", date_column_name]
+        else:
+            columns = ["patient_id", column_name]
+            if include_date_of_match:
+                columns.append(date_column_name)
+        return columns, sql, params
 
     def patients_registered_practice_as_of(self, date, returning=None):
         if returning == "stp_code":
@@ -700,17 +731,42 @@ class patients:
         on_or_before=None,
         on_or_after=None,
         between=None,
+        # Matching rule
+        find_first_match_in_period=None,
+        find_last_match_in_period=None,
         # Set return type
+        returning="binary_flag",
+        include_date_of_match=False,
+        # If we're returning a date, how granular should it be?
+        include_month=False,
+        include_day=False,
+        # Deprecated return type options kept for now for backwards
+        # compatibility
         return_binary_flag=None,
         return_number_of_matches_in_period=False,
         return_first_date_in_period=False,
         return_last_date_in_period=False,
-        # If we're returning a date, how granular should it be?
-        include_month=False,
-        include_day=False,
     ):
         assert codelist.system == "snomed"
         validate_time_period_options(**locals())
+        # Handle deprecated API
+        if return_binary_flag:
+            returning = "binary_flag"
+        elif return_number_of_matches_in_period:
+            returning = "number_of_matches_in_period"
+        elif return_first_date_in_period:
+            find_first_match_in_period = True
+            returning = "date"
+        elif return_last_date_in_period:
+            find_last_match_in_period = True
+            returning = "date"
+        # Remove from namespace so we don't capture them below
+        del (
+            return_binary_flag,
+            return_number_of_matches_in_period,
+            return_first_date_in_period,
+            return_last_date_in_period,
+        )
         return "with_these_medications", locals()
 
     @staticmethod
@@ -720,17 +776,42 @@ class patients:
         on_or_before=None,
         on_or_after=None,
         between=None,
+        # Matching rule
+        find_first_match_in_period=None,
+        find_last_match_in_period=None,
         # Set return type
+        returning="binary_flag",
+        include_date_of_match=False,
+        # If we're returning a date, how granular should it be?
+        include_month=False,
+        include_day=False,
+        # Deprecated return type options kept for now for backwards
+        # compatibility
         return_binary_flag=None,
         return_number_of_matches_in_period=False,
         return_first_date_in_period=False,
         return_last_date_in_period=False,
-        # If we're returning a date, how granular should it be?
-        include_month=False,
-        include_day=False,
     ):
         assert codelist.system == "ctv3"
         validate_time_period_options(**locals())
+        # Handle deprecated API
+        if return_binary_flag:
+            returning = "binary_flag"
+        elif return_number_of_matches_in_period:
+            returning = "number_of_matches_in_period"
+        elif return_first_date_in_period:
+            find_first_match_in_period = True
+            returning = "date"
+        elif return_last_date_in_period:
+            find_last_match_in_period = True
+            returning = "date"
+        # Remove from namespace so we don't capture them below
+        del (
+            return_binary_flag,
+            return_number_of_matches_in_period,
+            return_first_date_in_period,
+            return_last_date_in_period,
+        )
         return "with_these_clinical_events", locals()
 
     @staticmethod
@@ -831,6 +912,17 @@ def make_date_filter(column, min_date, max_date, between=None, upper_bound_only=
         return f"{column} <= ?", [max_date]
     else:
         return "1=1", []
+
+
+def truncate_date(column, include_month, include_day):
+    date_length = 4
+    if include_month:
+        date_length = 7
+        if include_day:
+            date_length = 10
+    # Style 23 below means YYYY-MM-DD format, see:
+    # https://docs.microsoft.com/en-us/sql/t-sql/functions/cast-and-convert-transact-sql?view=sql-server-ver15#date-and-time-styles
+    return f"CONVERT(VARCHAR({date_length}), {column}, 23)"
 
 
 # Quick and dirty hack until we have a proper library for codelists
