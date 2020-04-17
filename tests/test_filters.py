@@ -813,7 +813,11 @@ def test_patients_satisfying_with_hidden_columns():
         sex=patients.sex(),
         age=patients.age_as_of("2020-01-01"),
         at_risk=patients.satisfying(
-            "(age > 70 AND sex = M) OR has_asthma",
+            """
+            (age > 70 AND sex = M)
+            OR
+            has_asthma
+            """,
             has_asthma=patients.with_these_clinical_events(
                 codelist([condition_code], "ctv3")
             ),
