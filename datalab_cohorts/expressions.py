@@ -72,21 +72,19 @@ def is_allowed(token):
     """
     ttype = token.ttype
     value = token.value
-    # Deliberately `in` rather than `is` as there are multiple comment types
-    # and the TokenType class overrides `__contains__`
     if ttype in ttypes.Comment:
         return IGNORE
-    if ttype is ttypes.Whitespace:
+    if ttype in ttypes.Whitespace:
         return IGNORE
-    if ttype is ttypes.Name:
+    if ttype in ttypes.Name:
         return True
-    if ttype is ttypes.Punctuation:
+    if ttype in ttypes.Punctuation:
         return value in ["(", ")"]
-    if ttype is ttypes.Keyword:
+    if ttype in ttypes.Keyword:
         return value in ["AND", "OR", "NOT"]
-    if ttype is ttypes.Comparison:
+    if ttype in ttypes.Comparison:
         return value in [">", "<", ">=", "<=", "=", "!="]
-    if ttype is ttypes.Number.Float or ttype is ttypes.Number.Integer:
+    if ttype in ttypes.Number.Float or ttype in ttypes.Number.Integer:
         return True
     return False
 
