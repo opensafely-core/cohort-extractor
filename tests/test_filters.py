@@ -853,7 +853,11 @@ def test_patients_registered_practice_as_of():
             StartDate="2010-01-01", EndDate="9999-12-31", Organisation=org_1
         )
     )
-    session.add_all([patient, patient_2])
+    patient_3 = Patient()
+    patient_3.RegistrationHistory.append(
+        RegistrationHistory(StartDate="2010-01-01", EndDate="9999-12-31")
+    )
+    session.add_all([patient, patient_2, patient_3])
     session.commit()
     study = StudyDefinition(
         population=patients.all(),
@@ -861,8 +865,8 @@ def test_patients_registered_practice_as_of():
         msoa=patients.registered_practice_as_of("2020-01-01", returning="msoa_code"),
     )
     results = study.to_dicts()
-    assert [i["stp"] for i in results] == ["456", "123"]
-    assert [i["msoa"] for i in results] == ["E0202", "E0201"]
+    assert [i["stp"] for i in results] == ["456", "123", ""]
+    assert [i["msoa"] for i in results] == ["E0202", "E0201", ""]
 
 
 def test_patients_address_as_of():

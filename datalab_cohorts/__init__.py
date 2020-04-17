@@ -87,7 +87,11 @@ class StudyDefinition:
                 is_date_col = (
                     col == "date" or col.startswith("date_") or col.endswith("_date")
                 )
-                default_value = 0 if not is_date_col else "''"
+                is_code_col = col.endswith("_code")
+                if is_date_col or is_code_col:
+                    default_value = "''"
+                else:
+                    default_value = 0
                 cte_cols.append(
                     f"ISNULL({column_name}.{col}, {default_value}) AS {output_column}"
                 )
