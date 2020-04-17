@@ -22,13 +22,15 @@ study = StudyDefinition(
     # https://github.com/ebmdatalab/tpp-sql-notebook/issues/7
     chronic_cardiac_disease=patients.with_these_clinical_events(
         chronic_cardiac_disease_codes,
-        return_first_date_in_period=True,
+        returning="date",
+        find_first_match_in_period=True,
         include_month=True,
     ),
     # https://github.com/ebmdatalab/tpp-sql-notebook/issues/12
     chronic_liver_disease=patients.with_these_clinical_events(
         chronic_liver_disease_codes,
-        return_first_date_in_period=True,
+        returning="date",
+        find_first_match_in_period=True,
         include_month=True,
     ),
     # https://github.com/ebmdatalab/tpp-sql-notebook/issues/10
