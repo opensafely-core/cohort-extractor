@@ -528,6 +528,11 @@ class StudyDefinition:
         )
 
     def patients_address_as_of(self, date, returning=None, round_to_nearest=None):
+        # N.B. A value of -1 indicates no postcode recorded on the
+        # record, an invalid postcode, or no fixed abode.
+        #
+        # Related, there is a column in the address table to indicate
+        # NP for no postcode or NFA for no fixed abode
         if returning == "index_of_multiple_deprivation":
             assert round_to_nearest == 100
             column = "ImdRankRounded"
