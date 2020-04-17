@@ -590,15 +590,16 @@ class StudyDefinition:
         on_or_after=None,
         on_or_before=None,
         between=None,
-        include_admission_date=None,
-        include_month=None,
+        include_admission_date=True,
+        include_month=True,
         include_day=False,
     ):
+        date_expression = "CASE WHEN IcuAdmissionDateTime < OriginalIcuAdmissionDate THEN IcuAdmissionDateTime ELSE OriginalIcuAdmissionDate END"
         date_condition, date_params = make_date_filter(
-            "CASE WHEN IcuAdmissionDateTime < OriginalIcuAdmissionDate THEN IcuAdmissionDateTime ELSE OriginalIcuAdmissionDate END",
-            on_or_after,
-            on_or_before,
-            between,
+            date_expression, on_or_after, on_or_before, between
+        )
+        date_column_definition = truncate_date(
+            date_expression, include_month, include_day
         )
         columns = ["patient_id", "admitted", "ventilated"]
         if include_admission_date:
@@ -609,7 +610,7 @@ class StudyDefinition:
             SELECT
               Patient_ID AS patient_id,
               1 AS admitted,
-              CASE WHEN IcuAdmissionDateTime < OriginalIcuAdmissionDate THEN CAST(IcuAdmissionDateTime AS DATE) ELSE OriginalIcuAdmissionDate END AS date_admitted,
+              {date_column_definition} AS date_admitted,
               Ventilator AS ventilated -- apparently can be 0, 1 or NULL
             FROM
               ICNARC
@@ -860,7 +861,14 @@ class patients:
         return "address_as_of", locals()
 
     @staticmethod
-    def admitted_to_icu(on_or_after=None, on_or_before=None, between=None):
+    def admitted_to_icu(
+        on_or_after=None,
+        on_or_before=None,
+        between=None,
+        include_admission_date=True,
+        include_month=True,
+        include_day=False,
+    ):
         return "admitted_to_icu", locals()
 
     # The below are placeholder methods we don't expect to make it into the final API.

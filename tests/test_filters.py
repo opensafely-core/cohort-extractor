@@ -967,7 +967,9 @@ def test_patients_admitted_to_icu():
 
     study = StudyDefinition(
         population=patients.all(),
-        icu=patients.admitted_to_icu(on_or_after="2020-02-01"),
+        icu=patients.admitted_to_icu(
+            on_or_after="2020-02-01", include_day=True, include_admission_date=True
+        ),
     )
     results = study.to_dicts()
     assert [i["icu"] for i in results] == ["1", "1", "0", "0"]
@@ -975,6 +977,6 @@ def test_patients_admitted_to_icu():
     assert [i["icu_date_admitted"] for i in results] == [
         "2020-03-01",
         "2020-02-01",
-        "1900-01-01",
-        "1900-01-01",
+        "",
+        "",
     ]
