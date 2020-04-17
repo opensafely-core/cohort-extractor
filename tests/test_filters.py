@@ -165,8 +165,14 @@ def _make_clinical_events_selection(condition_code, patient_dates=None):
         elif isinstance(dates, str):
             dates = [dates]
         for date in dates:
+            if isinstance(date, tuple):
+                date, value = date
+            else:
+                value = 0.0
             patient.CodedEvents.append(
-                CodedEvent(CTV3Code=condition_code, ConsultationDate=date)
+                CodedEvent(
+                    CTV3Code=condition_code, ConsultationDate=date, NumericValue=value
+                )
             )
         session.add(patient)
     session.commit()
@@ -241,7 +247,8 @@ def test_clinical_event_returning_first_date():
         asthma_condition=patients.with_these_clinical_events(
             codelist([condition_code], "ctv3"),
             between=["2001-12-01", "2002-06-01"],
-            return_first_date_in_period=True,
+            returning="date",
+            find_first_match_in_period=True,
             include_month=True,
             include_day=True,
         ),
@@ -266,7 +273,8 @@ def test_clinical_event_returning_last_date():
         asthma_condition=patients.with_these_clinical_events(
             codelist([condition_code], "ctv3"),
             between=["2001-12-01", "2002-06-01"],
-            return_last_date_in_period=True,
+            returning="date",
+            find_last_match_in_period=True,
             include_month=True,
             include_day=True,
         ),
@@ -282,7 +290,9 @@ def test_clinical_event_returning_year_only():
     study = StudyDefinition(
         population=patients.all(),
         asthma_condition=patients.with_these_clinical_events(
-            codelist([condition_code], "ctv3"), return_first_date_in_period=True
+            codelist([condition_code], "ctv3"),
+            returning="date",
+            find_first_match_in_period=True,
         ),
     )
     results = study.to_dicts()
@@ -297,12 +307,99 @@ def test_clinical_event_returning_year_and_month_only():
         population=patients.all(),
         asthma_condition=patients.with_these_clinical_events(
             codelist([condition_code], "ctv3"),
-            return_first_date_in_period=True,
+            returning="date",
+            find_first_match_in_period=True,
             include_month=True,
         ),
     )
     results = study.to_dicts()
     assert [x["asthma_condition"] for x in results] == ["2001-06", "2002-06", ""]
+
+
+def test_clinical_event_with_count():
+    condition_code = "ASTHMA"
+    _make_clinical_events_selection(
+        condition_code,
+        patient_dates=[
+            None,
+            # Include date before period starts, which should be ignored
+            ["2001-01-01", "2002-01-01", "2002-02-01", "2002-06-01"],
+            ["2001-06-01"],
+        ],
+    )
+    study = StudyDefinition(
+        population=patients.all(),
+        asthma_count=patients.with_these_clinical_events(
+            codelist([condition_code], "ctv3"),
+            between=["2001-12-01", "2002-06-01"],
+            returning="number_of_matches_in_period",
+            find_first_match_in_period=True,
+            include_date_of_match=True,
+            include_month=True,
+        ),
+    )
+    results = study.to_dicts()
+    assert [x["asthma_count"] for x in results] == ["0", "3", "0"]
+    assert [x["asthma_count_first_date"] for x in results] == ["", "2002-01", ""]
+
+
+def test_clinical_event_with_code():
+    condition_code = "ASTHMA"
+    _make_clinical_events_selection(
+        condition_code,
+        patient_dates=[
+            None,
+            # Include date before period starts, which should be ignored
+            ["2001-01-01", "2002-01-01", "2002-02-01", "2002-06-01"],
+            ["2001-06-01"],
+        ],
+    )
+    study = StudyDefinition(
+        population=patients.all(),
+        latest_asthma_code=patients.with_these_clinical_events(
+            codelist([condition_code], "ctv3"),
+            between=["2001-12-01", "2002-06-01"],
+            returning="code",
+            find_last_match_in_period=True,
+            include_date_of_match=True,
+            include_month=True,
+        ),
+    )
+    results = study.to_dicts()
+    assert [x["latest_asthma_code"] for x in results] == ["0", condition_code, "0"]
+    assert [x["latest_asthma_code_date"] for x in results] == ["", "2002-06", ""]
+
+
+def test_clinical_event_with_numeric_value():
+    condition_code = "ASTHMA"
+    _make_clinical_events_selection(
+        condition_code,
+        patient_dates=[
+            None,
+            # Include date before period starts, which should be ignored
+            [
+                ("2001-01-01", 1),
+                ("2002-01-01", 2),
+                ("2002-02-01", 3),
+                ("2002-06-01", 4),
+            ],
+            [("2001-06-01", 7)],
+        ],
+    )
+    study = StudyDefinition(
+        population=patients.all(),
+        asthma_value=patients.with_these_clinical_events(
+            codelist([condition_code], "ctv3"),
+            between=["2001-12-01", "2002-06-01"],
+            returning="numeric_value",
+            find_first_match_in_period=True,
+            include_date_of_match=True,
+            include_month=True,
+        ),
+    )
+    results = study.to_dicts()
+    assert [x["asthma_value"] for x in results] == ["0.0", "2.0", "0.0"]
+    assert [x["asthma_value_date"] for x in results] == ["", "2002-01", ""]
 
 
 def test_patient_registered_as_of():
