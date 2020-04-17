@@ -13,6 +13,7 @@ from tests.tpp_backend_setup import (
     RegistrationHistory,
     Organisation,
     PatientAddress,
+    ICNARC,
 )
 
 from datalab_cohorts import StudyDefinition
@@ -30,6 +31,7 @@ def setup_function(function):
     session = make_session()
     session.query(CovidStatus).delete()
     session.query(CodedEvent).delete()
+    session.query(ICNARC).delete()
     session.query(MedicationIssue).delete()
     session.query(MedicationDictionary).delete()
     session.query(RegistrationHistory).delete()
@@ -78,15 +80,11 @@ def test_patient_characteristics_for_covid_status():
         age=patients.age_as_of("2020-01-01"),
         sex=patients.sex(),
         died=patients.have_died_of_covid(),
-        admitted_itu=patients.admitted_to_itu(),
     )
     results = study.to_dicts()
 
     assert [x["sex"] for x in results] == ["M", "F"]
     assert [x["died"] for x in results] == ["0", "1"]
-    assert [x["admitted_itu"] for x in results] == ["1", "0"]
-    # XXX the current implementation fails because the first age
-    # is computed as 120
     assert [x["age"] for x in results] == ["120", "20"]
 
 
@@ -819,3 +817,63 @@ def test_patients_address_as_of():
     results = study.to_dicts()
     assert [i["imd"] for i in results] == ["300", "0", "0"]
     assert [i["rural_urban"] for i in results] == ["2", "0", "0"]
+
+
+def test_patients_admitted_to_icu():
+    session = make_session()
+    patient_1 = Patient()
+    patient_1.ICNARC.append(
+        ICNARC(
+            IcuAdmissionDateTime="2020-03-01",
+            OriginalIcuAdmissionDate="2020-03-01",
+            BasicDays_RespiratorySupport=2,
+            AdvancedDays_RespiratorySupport=2,
+            Ventilator=0,
+        )
+    )
+    patient_2 = Patient()
+    patient_2.ICNARC.append(
+        ICNARC(
+            IcuAdmissionDateTime="2020-03-01",
+            OriginalIcuAdmissionDate="2020-02-01",
+            BasicDays_RespiratorySupport=1,
+            AdvancedDays_RespiratorySupport=0,
+            Ventilator=1,
+        )
+    )
+    patient_3 = Patient()
+    patient_3.ICNARC.append(
+        ICNARC(
+            IcuAdmissionDateTime="2020-03-01",
+            OriginalIcuAdmissionDate="2020-02-01",
+            BasicDays_RespiratorySupport=0,
+            AdvancedDays_RespiratorySupport=0,
+            Ventilator=0,
+        )
+    )
+    patient_4 = Patient()
+    patient_4.ICNARC.append(
+        ICNARC(
+            IcuAdmissionDateTime="2020-01-01",
+            OriginalIcuAdmissionDate="2020-01-01",
+            BasicDays_RespiratorySupport=1,
+            AdvancedDays_RespiratorySupport=0,
+            Ventilator=1,
+        )
+    )
+    session.add_all([patient_1, patient_2, patient_3, patient_4])
+    session.commit()
+
+    study = StudyDefinition(
+        population=patients.all(),
+        icu=patients.admitted_to_icu(on_or_after="2020-02-01"),
+    )
+    results = study.to_dicts()
+    assert [i["icu"] for i in results] == ["1", "1", "0", "0"]
+    assert [i["icu_ventilated"] for i in results] == ["0", "1", "0", "0"]
+    assert [i["icu_date_admitted"] for i in results] == [
+        "2020-03-01",
+        "2020-02-01",
+        "1900-01-01",
+        "1900-01-01",
+    ]

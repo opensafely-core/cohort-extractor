@@ -548,6 +548,45 @@ class StudyDefinition:
             [date, date],
         )
 
+    # https://github.com/ebmdatalab/tpp-sql-notebook/issues/72
+    def patients_admitted_to_icu(
+        self,
+        on_or_after=None,
+        on_or_before=None,
+        between=None,
+        include_admission_date=None,
+        include_month=None,
+        include_day=False,
+    ):
+        date_condition, date_params = make_date_filter(
+            "CASE WHEN IcuAdmissionDateTime < OriginalIcuAdmissionDate THEN IcuAdmissionDateTime ELSE OriginalIcuAdmissionDate END",
+            on_or_after,
+            on_or_before,
+            between,
+        )
+        columns = ["patient_id", "admitted", "ventilated"]
+        if include_admission_date:
+            columns.append("date_admitted")
+        return (
+            columns,
+            f"""
+            SELECT
+              Patient_ID AS patient_id,
+              1 AS admitted,
+              CASE WHEN IcuAdmissionDateTime < OriginalIcuAdmissionDate THEN CAST(IcuAdmissionDateTime AS DATE) ELSE OriginalIcuAdmissionDate END AS date_admitted,
+              Ventilator AS ventilated -- apparently can be 0, 1 or NULL
+            FROM
+              ICNARC
+            WHERE
+              IcuAdmissionDateTime IS NOT NULL  -- XXX is this necessary?
+            AND
+              BasicDays_RespiratorySupport + AdvancedDays_RespiratorySupport >= 1
+            AND
+              {date_condition}
+            """,
+            date_params,
+        )
+
     def patients_with_positive_covid_test(self):
         return (
             ["patient_id", "has_covid"],
@@ -566,17 +605,6 @@ class StudyDefinition:
             SELECT DISTINCT Patient_ID as patient_id, 1 AS died
             FROM CovidStatus
             WHERE Died = 'true'
-            """,
-            [],
-        )
-
-    def patients_admitted_to_itu(self):
-        return (
-            ["patient_id", "admitted_to_itu"],
-            """
-            SELECT DISTINCT Patient_ID as patient_id, 1 AS admitted_to_itu
-            FROM CovidStatus
-            WHERE AdmittedToITU = 'true'
             """,
             [],
         )
@@ -745,6 +773,10 @@ class patients:
     def address_as_of(date, returning=None, round_to_nearest=None):
         return "address_as_of", locals()
 
+    @staticmethod
+    def admitted_to_icu(on_or_after=None, on_or_before=None, between=None):
+        return "admitted_to_icu", locals()
+
     # The below are placeholder methods we don't expect to make it into the final API.
     # They use a handler which returns dummy CHESS data.
 
@@ -755,10 +787,6 @@ class patients:
     @staticmethod
     def have_died_of_covid():
         return "have_died_of_covid", locals()
-
-    @staticmethod
-    def admitted_to_itu():
-        return "admitted_to_itu", locals()
 
     @staticmethod
     def random_sample(percent=None):
