@@ -240,7 +240,7 @@ def main(from_cmd_line=False):
 
 def check_dependencies():
     # check they have git
-    # check they have docker
+    # check they have docker?
     pass
 
 
