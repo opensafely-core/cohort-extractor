@@ -84,7 +84,10 @@ class StudyDefinition:
                 # output column. The rest are added as suffixes to the name of
                 # the output column
                 output_column = column_name if n == 0 else f"{column_name}_{col}"
-                default_value = 0 if not col.startswith("date_") else "''"
+                if col.startswith("date_") or col.endswith("_code"):
+                    default_value = "''"
+                else:
+                    default_value = 0
                 cte_cols.append(
                     f"ISNULL({column_name}.{col}, {default_value}) AS {output_column}"
                 )
