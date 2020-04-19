@@ -238,14 +238,7 @@ def main(from_cmd_line=False):
         token = get_github_token()
         gh = Github(token)
         user = gh.get_user()
-        docker_login(user.login, token)
-        print("Done!")
-
-
-def check_dependencies():
-    # check they have git
-    # check they have docker.
-    pass
+        print(docker_login(user.login, token))
 
 
 if __name__ == "__main__":

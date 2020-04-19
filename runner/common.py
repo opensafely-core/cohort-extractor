@@ -21,6 +21,7 @@ def stream_subprocess_output(cmd):
         p.wait()
         if p.returncode > 0:
             raise subprocess.CalledProcessError(cmd=cmd, returncode=p.returncode)
+        return ""
 
 
 def relative_dir():

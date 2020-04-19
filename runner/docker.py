@@ -8,6 +8,18 @@ import sys
 target_dir = "/home/app/notebook"
 
 
+def with_friendly_docker_warning(func):
+    def checker(*args, **kwargs):
+        try:
+            subprocess.run(["docker", "--version"], check=True)
+            return func(*args, **kwargs)
+        except FileNotFoundError:
+            return "Docker must be installed!"
+
+    return checker
+
+
+@with_friendly_docker_warning
 def docker_build(tag):
     """Build container for Dockerfile in current directory
     """
@@ -19,6 +31,7 @@ def docker_build(tag):
     stream_subprocess_output(buildcmd)
 
 
+@with_friendly_docker_warning
 def docker_login(user, token):
     runcmd = [
         "docker",
@@ -39,6 +52,7 @@ def docker_pull(image):
     return stream_subprocess_output(runcmd)
 
 
+@with_friendly_docker_warning
 def docker_run(image, *args, detach=False):
     """Run docker in background, and install signal handler to stop it
     again

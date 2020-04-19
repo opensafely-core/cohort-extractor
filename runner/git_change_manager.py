@@ -53,7 +53,18 @@ def _git_run(*args):
     return result
 
 
-def get_github_token(self):
+def with_friendly_git_warning(func):
+    def checker(*args, **kwargs):
+        try:
+            _git_run("--version")
+            return func(*args, **kwargs)
+        except FileNotFoundError:
+            return "Git must be installed!"
+
+    return checker
+
+
+def get_github_token():
     """Log in a user via Github OAuth, cache the token locally (at
     `token.json`), and return the token.
 
@@ -138,23 +149,6 @@ def setup_git_config():
     _git_run("config", "user.email", f'"{github_user.email}"')
 
 
-def release_outputs(message):
-    """Make a "release": that is, merge the branch REVIEW_BRANCH_NAME into
-    master, using the identity obtained from Github using OAuth2
-
-    """
-    if review_branch_exists():
-
-        setup_git_config()
-        _git_run("checkout", "master")
-        _git_run("merge", "--no-ff", "--signoff", "-m", message, REVIEW_BRANCH_NAME)
-        _git_run("branch", "--delete", REVIEW_BRANCH_NAME)
-        # XXX and now git push!
-        return "Git push not yet implemented!"
-    else:
-        return "No changes to release"
-
-
 def review_branch_exists():
     return REVIEW_BRANCH_NAME in get_local_branches()
 
@@ -194,20 +188,40 @@ def create_review_branch():
         _git_run("checkout", REVIEW_BRANCH_NAME)
 
 
-def diff_outputs(pathspec, names_only=True):
+@with_friendly_git_warning
+def release_outputs(message):
+    """Make a "release": that is, merge the branch REVIEW_BRANCH_NAME into
+    master, using the identity obtained from Github using OAuth2
+
+    """
+    if review_branch_exists():
+
+        setup_git_config()
+        _git_run("checkout", "master")
+        _git_run("merge", "--no-ff", "--signoff", "-m", message, REVIEW_BRANCH_NAME)
+        _git_run("branch", "--delete", REVIEW_BRANCH_NAME)
+        # XXX and now git push!
+        return "Git push not yet implemented!"
+    else:
+        return "No changes to release"
+
+
+@with_friendly_git_warning
+def diff_outputs(names_only=True):
     if review_branch_exists():
         _git_run("checkout", "master")
         if names_only:
             intro_text = "These files have changed. Please review them.\n\n"
-            result = _git_run("diff", "--name-only", REVIEW_BRANCH_NAME, "--", pathspec)
+            result = _git_run("diff", "--name-only", REVIEW_BRANCH_NAME)
         else:
             intro_text = "This is a diff of all changes. Please review.\n\n"
-            result = _git_run("diff", REVIEW_BRANCH_NAME, "--", self.changes_pathspec)
+            result = _git_run("diff", REVIEW_BRANCH_NAME)
         return intro_text + result.stdout
     else:
         return "No changes to report"
 
 
+@with_friendly_git_warning
 def update_review_branch(pathspec):
     """Check out the review branch, and add any relevant changed files
     """
