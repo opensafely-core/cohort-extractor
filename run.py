@@ -19,7 +19,10 @@ from runner.docker import docker_build
 from runner.docker import docker_port
 from runner.docker import docker_login
 from runner.git_change_manager import review_branch_exists
-from runner.git_change_manager import GitChangeManager
+from runner.git_change_manager import update_review_branch
+from runner.git_change_manager import diff_outputs
+from runner.git_change_manager import release_outputs
+from runner.git_change_manager import get_github_token
 
 from github import Github
 
@@ -96,6 +99,7 @@ def run_model(folder, stata_path=None):
 
 
 def main(from_cmd_line=False):
+    OUTPUT_PATHSPEC = "outputs"
     parser = ArgumentParser()
     subparsers = parser.add_subparsers(help="sub-command help")
 
@@ -185,8 +189,6 @@ def main(from_cmd_line=False):
 
     approve_changes_parser.add_argument("--signoff-message", **signoff_kwargs)
 
-    manager = GitChangeManager(changes_pathspec="outputs")
-
     options = parser.parse_args()
     if options.which == "run":
         if options.test:
@@ -195,7 +197,7 @@ def main(from_cmd_line=False):
                 print("SUCCESS running tests")
                 # Automatically add changes in `outputs` to our local working
                 # branch, `server-artefacts`
-                manager.update_review_branch()
+                update_review_branch(OUTPUT_PATHSPEC)
 
             except subprocess.CalledProcessError:
                 print("ERROR running tests")
@@ -225,13 +227,15 @@ def main(from_cmd_line=False):
         )
         stream_subprocess_output(["docker", "logs", "--follow", container_id])
     elif options.which == "view_changes":
-        manager.update_review_branch()
-        print(manager.diff_outputs(names_only=not options.show_diff))
+        update_review_branch(OUTPUT_PATHSPEC)
+        print(diff_outputs(names_only=not options.show_diff))
     elif options.which == "approve_changes":
-        manager.update_review_branch()
-        print(manager.release_outputs(options.signoff_message))
+        # This branch requires a github login
+        get_github_token()
+        update_review_branch(OUTPUT_PATHSPEC)
+        print(release_outputs(options.signoff_message))
     elif options.which == "github_login":
-        token = manager.get_github_token()
+        token = get_github_token()
         gh = Github(token)
         user = gh.get_user()
         docker_login(user.login, token)
