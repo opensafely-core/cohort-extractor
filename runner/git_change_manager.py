@@ -20,10 +20,9 @@ scope = "read:packages,repo"
 
 REVIEW_BRANCH_NAME = "server-artefacts"
 
-
+# fmt: off
 try:
     import wx
-
     # Initialize wx App
     app = wx.App()
     app.MainLoop()
@@ -34,12 +33,10 @@ try:
         result = dlg.GetValue()
         dlg.Destroy()
         return result
-
-
 except ImportError:
-
     def ask(message):
         return input(message)
+# fmt: on
 
 
 def _git_run(*args):
