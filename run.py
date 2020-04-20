@@ -87,11 +87,12 @@ def generate_cohort():
 
 
 def run_model(folder, stata_path=None):
-    # XXX it's (possibly) /e on windows
-    args = ["-b", "do", f"{folder}/model.do"]
+    if stata_path and sys.platform == "win32":
+        args = ["/e", "do", f"{folder}/model.do"]
+    else:
+        # Running in *nix, either natively, or in docker
+        args = ["-b", "do", f"{folder}/model.do"]
     if not stata_path:
-        # XXX they'll need to log in docker_login()? Ensure
-        # environment variables are set
         docker_run(stata_image, *args)
     else:
         stream_subprocess_output([stata_path] + args)
