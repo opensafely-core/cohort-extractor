@@ -831,12 +831,15 @@ def test_patients_registered_practice_as_of():
     org_1 = Organisation(STPCode="123", MSOACode="E0201")
     org_2 = Organisation(STPCode="456", MSOACode="E0202")
     org_3 = Organisation(STPCode="789", MSOACode="E0203")
+    org_4 = Organisation(STPCode="910", MSOACode="E0204")
     patient = Patient()
     patient.RegistrationHistory.append(
         RegistrationHistory(
             StartDate="1990-01-01", EndDate="2018-01-01", Organisation=org_1
         )
     )
+    # We deliberately create overlapping registration periods so we can check
+    # that we handle these correctly
     patient.RegistrationHistory.append(
         RegistrationHistory(
             StartDate="2018-01-01", EndDate="2022-01-01", Organisation=org_2
@@ -844,7 +847,12 @@ def test_patients_registered_practice_as_of():
     )
     patient.RegistrationHistory.append(
         RegistrationHistory(
-            StartDate="2022-01-01", EndDate="9999-12-31", Organisation=org_3
+            StartDate="2019-09-01", EndDate="2020-05-01", Organisation=org_3
+        )
+    )
+    patient.RegistrationHistory.append(
+        RegistrationHistory(
+            StartDate="2022-01-01", EndDate="9999-12-31", Organisation=org_4
         )
     )
     patient_2 = Patient()
@@ -865,8 +873,8 @@ def test_patients_registered_practice_as_of():
         msoa=patients.registered_practice_as_of("2020-01-01", returning="msoa_code"),
     )
     results = study.to_dicts()
-    assert [i["stp"] for i in results] == ["456", "123", ""]
-    assert [i["msoa"] for i in results] == ["E0202", "E0201", ""]
+    assert [i["stp"] for i in results] == ["789", "123", ""]
+    assert [i["msoa"] for i in results] == ["E0203", "E0201", ""]
 
 
 def test_patients_address_as_of():
@@ -880,9 +888,19 @@ def test_patients_address_as_of():
             RuralUrbanClassificationCode=1,
         )
     )
+    # We deliberately create overlapping address periods here to check that we
+    # handle these correctly
     patient.Addresses.append(
         PatientAddress(
             StartDate="2018-01-01",
+            EndDate="2020-02-01",
+            ImdRankRounded=200,
+            RuralUrbanClassificationCode=1,
+        )
+    )
+    patient.Addresses.append(
+        PatientAddress(
+            StartDate="2019-01-01",
             EndDate="2022-01-01",
             ImdRankRounded=300,
             RuralUrbanClassificationCode=2,

@@ -548,16 +548,26 @@ class StudyDefinition:
         else:
             raise ValueError(f"Unsupported `returning` value: {returning}")
         # Note that current registrations are recorded with an EndDate of
-        # 9999-12-31. Note also that the below query assumes address
-        # registration periods never overlap.
+        # 9999-12-31. Where registration periods overlap we use the one with
+        # the most recent start date. If there are several with the same start
+        # date we use the longest one (i.e. with the latest end date).
         return (
             ["patient_id", returning],
             f"""
-            SELECT Patient_ID AS patient_id, Organisation.{column} AS {returning}
-            FROM RegistrationHistory
+            SELECT
+              Patient_ID AS patient_id,
+              Organisation.{column} AS {returning}
+            FROM (
+              SELECT Patient_ID, Organisation_ID,
+              ROW_NUMBER() OVER (
+                PARTITION BY Patient_ID ORDER BY StartDate DESC, EndDate DESC
+              ) AS rownum
+              FROM RegistrationHistory
+              WHERE StartDate <= ? AND EndDate > ?
+            ) t
             LEFT JOIN Organisation
-            ON Organisation.Organisation_ID = RegistrationHistory.Organisation_ID
-            WHERE StartDate <= ? AND EndDate > ?
+            ON Organisation.Organisation_ID = t.Organisation_ID
+            WHERE t.rownum = 1
             """,
             [date, date],
         )
@@ -576,14 +586,24 @@ class StudyDefinition:
         else:
             raise ValueError(f"Unsupported `returning` value: {returning}")
         # Note that current addresses are recorded with an EndDate of
-        # 9999-12-31. Note also that the below query assumes address
-        # registration periods never overlap
+        # 9999-12-31. Where address periods overlap we use the one with the
+        # most recent start date. If there are several with the same start date
+        # we use the longest one (i.e. with the latest end date).
         return (
             ["patient_id", returning],
             f"""
-            SELECT Patient_ID AS patient_id, {column} AS {returning}
-            FROM PatientAddress
-            WHERE StartDate <= ? AND EndDate > ?
+            SELECT
+              Patient_ID AS patient_id,
+              {column} AS {returning}
+            FROM (
+              SELECT Patient_ID, {column},
+              ROW_NUMBER() OVER (
+                PARTITION BY Patient_ID ORDER BY StartDate DESC, EndDate DESC
+              ) AS rownum
+              FROM PatientAddress
+              WHERE StartDate <= ? AND EndDate > ?
+            ) t
+            WHERE rownum = 1
             """,
             [date, date],
         )
