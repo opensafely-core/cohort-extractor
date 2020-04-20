@@ -670,6 +670,50 @@ class StudyDefinition:
             [],
         )
 
+    def patients_with_these_codes_on_death_certificate(
+        self,
+        codelist,
+        # Set date limits
+        on_or_before=None,
+        on_or_after=None,
+        between=None,
+        # Matching rules
+        match_only_underlying_cause=False,
+        # Set return type
+        returning="binary_flag",
+        # If we're returning a date, how granular should it be?
+        include_month=False,
+        include_day=False,
+    ):
+        date_condition, date_params = make_date_filter(
+            "dod", on_or_after, on_or_before, between
+        )
+        placeholders, code_params = placeholders_and_params(codelist)
+        code_columns = ["icd10u"]
+        if not match_only_underlying_cause:
+            code_columns.extend([f"ICD10{i:03d}" for i in range(1, 16)])
+        code_conditions = " OR ".join(
+            f"{column} IN ({placeholders})" for column in code_columns
+        )
+        params = code_params * len(code_conditions) + date_params
+        if returning == "binary_flag":
+            column_definition = "1"
+            column_name = "died"
+        elif returning == "date_of_death":
+            column_definition = truncate_date("dod", include_month, include_day)
+            column_name = "date_of_death"
+        else:
+            raise ValueError(f"Unsupported `returning` value: {returning}")
+        return (
+            ["patient_id", column_name],
+            f"""
+            SELECT Patient_ID as patient_id, {column_definition} AS {column_name}
+            FROM ONS_Deaths
+            WHERE ({code_conditions}) AND {date_condition}
+            """,
+            params,
+        )
+
     def get_boolean_expression(self, covariates, expression, extra_columns=None):
         # The column references in the supplied expression need to be rewritten
         # to ensure they refer to the correct CTE. The formatting function also
@@ -910,6 +954,25 @@ class patients:
     def random_sample(percent=None):
         assert percent, "Must specify a percentage greater than zero"
         return "random_sample", locals()
+
+    @staticmethod
+    def with_these_codes_on_death_certificate(
+        codelist,
+        # Set date limits
+        on_or_before=None,
+        on_or_after=None,
+        between=None,
+        # Matching rules
+        match_only_underlying_cause=False,
+        # Set return type
+        returning="binary_flag",
+        # If we're returning a date, how granular should it be?
+        include_month=False,
+        include_day=False,
+    ):
+        assert codelist.system == "icd10"
+        validate_time_period_options(**locals())
+        return "with_these_codes_on_death_certificate", locals()
 
 
 def validate_time_period_options(

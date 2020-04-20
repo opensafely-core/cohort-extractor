@@ -14,6 +14,7 @@ from tests.tpp_backend_setup import (
     Organisation,
     PatientAddress,
     ICNARC,
+    ONSDeaths,
 )
 
 from datalab_cohorts import StudyDefinition
@@ -32,6 +33,7 @@ def setup_function(function):
     session.query(CovidStatus).delete()
     session.query(CodedEvent).delete()
     session.query(ICNARC).delete()
+    session.query(ONSDeaths).delete()
     session.query(MedicationIssue).delete()
     session.query(MedicationDictionary).delete()
     session.query(RegistrationHistory).delete()
@@ -1002,3 +1004,45 @@ def test_patients_admitted_to_icu():
         "",
         "",
     ]
+
+
+def test_patients_with_these_codes_on_death_certificate():
+    code = "COVID"
+    session = make_session()
+    session.add_all(
+        [
+            # Not dead
+            Patient(),
+            # Died after date cutoff
+            Patient(ONSDeath=[ONSDeaths(dod="2021-01-01", icd10u=code)]),
+            # Died of something else
+            Patient(ONSDeath=[ONSDeaths(dod="2020-02-01", icd10u="MI")]),
+            # Covid underlying cause
+            Patient(ONSDeath=[ONSDeaths(dod="2020-02-01", icd10u=code)]),
+            # Covid not underlying cause
+            Patient(ONSDeath=[ONSDeaths(dod="2020-03-01", ICD10014=code)]),
+        ]
+    )
+    session.commit()
+    covid_codelist = codelist([code], system="icd10")
+    study = StudyDefinition(
+        population=patients.all(),
+        died_of_covid=patients.with_these_codes_on_death_certificate(
+            covid_codelist, on_or_before="2020-06-01", match_only_underlying_cause=True
+        ),
+        died_with_covid=patients.with_these_codes_on_death_certificate(
+            covid_codelist, on_or_before="2020-06-01", match_only_underlying_cause=False
+        ),
+        date_died=patients.with_these_codes_on_death_certificate(
+            covid_codelist,
+            on_or_before="2020-06-01",
+            match_only_underlying_cause=False,
+            returning="date_of_death",
+            include_month=True,
+            include_day=True,
+        ),
+    )
+    results = study.to_dicts()
+    assert [i["died_of_covid"] for i in results] == ["0", "0", "0", "1", "0"]
+    assert [i["died_with_covid"] for i in results] == ["0", "0", "0", "1", "1"]
+    assert [i["date_died"] for i in results] == ["", "", "", "2020-02-01", "2020-03-01"]
