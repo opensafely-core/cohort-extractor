@@ -100,7 +100,7 @@ def run_model(folder, stata_path=None):
 
 
 def main(from_cmd_line=False):
-    OUTPUT_PATHSPEC = "outputs"
+    OUTPUT_PATHSPEC = "outputs/ analysis/ model.log"
     parser = ArgumentParser()
     subparsers = parser.add_subparsers(help="sub-command help")
 
