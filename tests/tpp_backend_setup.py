@@ -114,6 +114,9 @@ class Patient(Base):
     ONSDeath = relationship(
         "ONSDeaths", back_populates="Patient", cascade="all, delete, delete-orphan"
     )
+    CPNS = relationship(
+        "CPNS", back_populates="Patient", cascade="all, delete, delete-orphan"
+    )
     RegistrationHistory = relationship(
         "RegistrationHistory",
         back_populates="Patient",
@@ -211,3 +214,36 @@ class ONSDeaths(Base):
     ICD10013 = Column(String)
     ICD10014 = Column(String)
     ICD10015 = Column(String)
+
+
+class CPNS(Base):
+    __tablename__ = "CPNS"
+
+    Patient_ID = Column(Integer, ForeignKey("Patient.Patient_ID"))
+    Patient = relationship("Patient", back_populates="CPNS", cascade="all, delete")
+    Id = Column(Integer, primary_key=True)
+    # LocationOfDeath                                                 ITU
+    # Sex                                                               M
+    # DateOfAdmission                                          2020-04-02
+    # DateOfSwabbed                                            2020-04-02
+    # DateOfResult                                             2020-04-03
+    # RelativesAware                                                    Y
+    # TravelHistory                                                 False
+    # RegionCode                                                      Y62
+    # RegionName                                               North West
+    # OrganisationCode                                                ABC
+    # OrganisationName                                Test Hospital Trust
+    # OrganisationTypeLot                                        Hospital
+    # RegionApproved                                                 True
+    # RegionalApprovedDate                                     2020-04-09
+    # NationalApproved                                               True
+    # NationalApprovedDate                                     2020-04-09
+    # PreExistingCondition                                          False
+    # Age                                                              57
+    DateOfDeath = Column(Date)
+    # snapDate                                                 2020-04-09
+    # HadLearningDisability                                            NK
+    # ReceivedTreatmentForMentalHealth                                 NK
+    # Der_Ethnic_Category_Description                                None
+    # Der_Latest_SUS_Attendance_Date_For_Ethnicity                   None
+    # Der_Source_Dataset_For_Ethnicty                                None

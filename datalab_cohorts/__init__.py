@@ -714,6 +714,39 @@ class StudyDefinition:
             params,
         )
 
+    def patients_with_death_recorded_in_cpns(
+        self,
+        # Set date limits
+        on_or_before=None,
+        on_or_after=None,
+        between=None,
+        # Set return type
+        returning="binary_flag",
+        # If we're returning a date, how granular should it be?
+        include_month=False,
+        include_day=False,
+    ):
+        date_condition, params = make_date_filter(
+            "DateOfDeath", on_or_after, on_or_before, between
+        )
+        if returning == "binary_flag":
+            column_definition = "1"
+            column_name = "died"
+        elif returning == "date_of_death":
+            column_definition = truncate_date("DateOfDeath", include_month, include_day)
+            column_name = "date_of_death"
+        else:
+            raise ValueError(f"Unsupported `returning` value: {returning}")
+        return (
+            ["patient_id", column_name],
+            f"""
+            SELECT Patient_ID as patient_id, {column_definition} AS {column_name}
+            FROM CPNS
+            WHERE {date_condition}
+            """,
+            params,
+        )
+
     def get_boolean_expression(self, covariates, expression, extra_columns=None):
         # The column references in the supplied expression need to be rewritten
         # to ensure they refer to the correct CTE. The formatting function also
@@ -973,6 +1006,21 @@ class patients:
         assert codelist.system == "icd10"
         validate_time_period_options(**locals())
         return "with_these_codes_on_death_certificate", locals()
+
+    @staticmethod
+    def with_death_recorded_in_cpns(
+        # Set date limits
+        on_or_before=None,
+        on_or_after=None,
+        between=None,
+        # Set return type
+        returning="binary_flag",
+        # If we're returning a date, how granular should it be?
+        include_month=False,
+        include_day=False,
+    ):
+        validate_time_period_options(**locals())
+        return "with_death_recorded_in_cpns", locals()
 
 
 def validate_time_period_options(
