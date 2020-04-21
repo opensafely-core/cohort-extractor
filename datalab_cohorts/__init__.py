@@ -24,28 +24,23 @@ class StudyDefinition:
             raise ValueError(
                 "`satisfying` queries can't yet be used in the population definition"
             )
+        self.sql, self.params = self.build_full_query()
 
     def to_csv(self, filename):
-        sql, params = self.to_sql()
-        conn = self.get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute(sql, params)
+        result = self.execute_query()
         with open(filename, "w", newline="") as csvfile:
             writer = csv.writer(csvfile)
-            writer.writerow([x[0] for x in cursor.description])
-            for row in cursor:
+            writer.writerow([x[0] for x in result.description])
+            for row in result:
                 writer.writerow(row)
 
     def to_dicts(self):
-        sql, params = self.to_sql()
-        conn = self.get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute(sql, params)
-        keys = [x[0] for x in cursor.description]
+        result = self.execute_query()
+        keys = [x[0] for x in result.description]
         # Convert all values to str as that's what will end in the CSV
-        return [dict(zip(keys, map(str, row))) for row in cursor]
+        return [dict(zip(keys, map(str, row))) for row in result]
 
-    def to_sql(self):
+    def build_full_query(self):
         self.covariates = {}
         population_cols, population_sql, population_params = self.get_query(
             *self.population_definition
@@ -110,6 +105,12 @@ class StudyDefinition:
         {' '.join(cte_joins)}
         """
         return sql, cte_params
+
+    def execute_query(self):
+        conn = self.get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(self.sql, self.params)
+        return cursor
 
     def get_query(self, query_type, query_args):
         method_name = f"patients_{query_type}"
