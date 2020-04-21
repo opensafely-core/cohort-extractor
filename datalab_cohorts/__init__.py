@@ -24,6 +24,7 @@ class StudyDefinition:
             raise ValueError(
                 "`satisfying` queries can't yet be used in the population definition"
             )
+        self.codelist_tables = []
         self.sql, self.params = self.build_full_query()
 
     def to_csv(self, filename):
@@ -79,14 +80,14 @@ class StudyDefinition:
                 # output column. The rest are added as suffixes to the name of
                 # the output column
                 output_column = column_name if n == 0 else f"{column_name}_{col}"
-                is_date_col = (
-                    col == "date" or col.startswith("date_") or col.endswith("_date")
+                is_str_col = (
+                    col == "date"
+                    or col.startswith("date_")
+                    or col.endswith("_date")
+                    or col.endswith("_code")
+                    or col == "category"
                 )
-                is_code_col = col.endswith("_code")
-                if is_date_col or is_code_col:
-                    default_value = "''"
-                else:
-                    default_value = 0
+                default_value = "''" if is_str_col else 0
                 cte_cols.append(
                     f"ISNULL({column_name}.{col}, {default_value}) AS {output_column}"
                 )
@@ -109,6 +110,9 @@ class StudyDefinition:
     def execute_query(self):
         conn = self.get_db_connection()
         cursor = conn.cursor()
+        for create_sql, insert_sql, values in self.codelist_tables:
+            cursor.execute(create_sql)
+            cursor.executemany(insert_sql, values)
         cursor.execute(self.sql, self.params)
         return cursor
 
@@ -116,6 +120,28 @@ class StudyDefinition:
         method_name = f"patients_{query_type}"
         method = getattr(self, method_name)
         return method(**query_args)
+
+    def create_codelist_table(self, codelist):
+        table_number = len(self.codelist_tables) + 1
+        # The hash prefix indicates a temporary table
+        table_name = f"#codelist_{table_number}"
+        if codelist.has_categories:
+            values = list(codelist)
+        else:
+            values = [(code, "") for code in codelist]
+        max_code_len = max(len(code) for (code, category) in values)
+        self.codelist_tables.append(
+            (
+                f"""
+                CREATE TABLE {table_name} (
+                  code VARCHAR({max_code_len}), category VARCHAR(MAX)
+                )
+                """,
+                f"INSERT INTO {table_name} (code, category) VALUES(?, ?)",
+                values,
+            )
+        )
+        return table_name
 
     def patients_age_as_of(self, reference_date):
         return (
@@ -461,11 +487,10 @@ class StudyDefinition:
         include_month=False,
         include_day=False,
     ):
-        placeholders, params = placeholders_and_params(codelist)
-        date_condition, date_params = make_date_filter(
+        codelist_table = self.create_codelist_table(codelist)
+        date_condition, params = make_date_filter(
             "ConsultationDate", on_or_after, on_or_before, between
         )
-        params.extend(date_params)
 
         # Result ordering
         if find_first_match_in_period:
@@ -493,6 +518,15 @@ class StudyDefinition:
             column_name = "value"
             column_definition = code_column
             use_partition_query = True
+        elif returning == "category":
+            if not codelist.has_categories:
+                raise ValueError(
+                    "Cannot return categories because the supplied codelist does "
+                    "not have any categories defined"
+                )
+            column_name = "category"
+            column_definition = "category"
+            use_partition_query = True
         else:
             raise ValueError(f"Unsupported `returning` value: {returning}")
 
@@ -515,7 +549,9 @@ class StudyDefinition:
                 PARTITION BY Patient_ID ORDER BY ConsultationDate {ordering}
               ) AS rownum
               FROM {from_table}
-              WHERE {code_column} IN ({placeholders}) AND {date_condition}
+              INNER JOIN {codelist_table}
+              ON {code_column} = {codelist_table}.code
+              WHERE {date_condition}
             ) t
             WHERE rownum = 1
             """
@@ -529,7 +565,9 @@ class StudyDefinition:
               {column_definition} AS {column_name},
               {date_column_definition} AS {date_column_name}
             FROM {from_table}
-            WHERE {code_column} IN ({placeholders}) AND {date_condition}
+            INNER JOIN {codelist_table}
+            ON {code_column} = {codelist_table}.code
+            WHERE {date_condition}
             GROUP BY Patient_ID
             """
 
@@ -1114,6 +1152,8 @@ def placeholders_and_params(values, as_ints=False):
     """
     if as_ints:
         raise NotImplementedError("TODO")
+    if getattr(values, "has_categories", False):
+        values = [v[0] for v in values]
     values = list(map(str, values))
     for value in values:
         if not SAFE_CHARS_RE.match(value):
@@ -1154,20 +1194,27 @@ def truncate_date(column, include_month, include_day):
 # Quick and dirty hack until we have a proper library for codelists
 class Codelist(list):
     system = None
+    has_categories = False
 
 
-def codelist_from_csv(filename, system, column="code"):
+def codelist_from_csv(filename, system, column="code", category_column=None):
     codes = []
     with open(filename, "r") as f:
         for row in csv.DictReader(f):
-            codes.append(row[column])
-
+            if category_column:
+                codes.append((row[column], row[category_column]))
+            else:
+                codes.append(row[column])
     codes = Codelist(codes)
     codes.system = system
+    codes.has_categories = bool(category_column)
     return codes
 
 
 def codelist(codes, system):
     codes = Codelist(codes)
     codes.system = system
+    first_code = codes[0]
+    if isinstance(first_code, tuple):
+        codes.has_categories = True
     return codes
