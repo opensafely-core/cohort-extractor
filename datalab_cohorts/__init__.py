@@ -618,7 +618,15 @@ class StudyDefinition:
         include_month=True,
         include_day=False,
     ):
-        date_expression = "CASE WHEN IcuAdmissionDateTime < OriginalIcuAdmissionDate THEN IcuAdmissionDateTime ELSE OriginalIcuAdmissionDate END"
+        date_expression = """
+        CASE
+        WHEN
+          COALESCE(IcuAdmissionDateTime, '9999-01-01') < COALESCE(OriginalIcuAdmissionDate, '9999-01-01')
+        THEN
+          IcuAdmissionDateTime
+        ELSE
+          OriginalIcuAdmissionDate
+        END"""
         date_condition, date_params = make_date_filter(
             date_expression, on_or_after, on_or_before, between
         )
