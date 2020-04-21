@@ -680,7 +680,7 @@ class StudyDefinition:
 
     def patients_with_these_codes_on_death_certificate(
         self,
-        codelist,
+        codelist=None,
         # Set date limits
         on_or_before=None,
         on_or_after=None,
@@ -696,14 +696,18 @@ class StudyDefinition:
         date_condition, date_params = make_date_filter(
             "dod", on_or_after, on_or_before, between
         )
-        placeholders, code_params = placeholders_and_params(codelist)
-        code_columns = ["icd10u"]
-        if not match_only_underlying_cause:
-            code_columns.extend([f"ICD10{i:03d}" for i in range(1, 16)])
-        code_conditions = " OR ".join(
-            f"{column} IN ({placeholders})" for column in code_columns
-        )
-        params = code_params * len(code_conditions) + date_params
+        if codelist is not None:
+            placeholders, code_params = placeholders_and_params(codelist)
+            code_columns = ["icd10u"]
+            if not match_only_underlying_cause:
+                code_columns.extend([f"ICD10{i:03d}" for i in range(1, 16)])
+            code_conditions = " OR ".join(
+                f"{column} IN ({placeholders})" for column in code_columns
+            )
+            params = code_params * len(code_conditions) + date_params
+        else:
+            code_conditions = "1 = 1"
+            params = date_params
         if returning == "binary_flag":
             column_definition = "1"
             column_name = "died"
@@ -720,6 +724,28 @@ class StudyDefinition:
             WHERE ({code_conditions}) AND {date_condition}
             """,
             params,
+        )
+
+    def patients_died_from_any_cause(
+        self,
+        # Set date limits
+        on_or_before=None,
+        on_or_after=None,
+        between=None,
+        # Set return type
+        returning="binary_flag",
+        # If we're returning a date, how granular should it be?
+        include_month=False,
+        include_day=False,
+    ):
+        return self.patients_with_these_codes_on_death_certificate(
+            codelist=None,
+            on_or_before=on_or_before,
+            on_or_after=on_or_after,
+            between=between,
+            returning=returning,
+            include_month=include_month,
+            include_day=include_day,
         )
 
     def patients_with_death_recorded_in_cpns(
@@ -1014,6 +1040,21 @@ class patients:
         assert codelist.system == "icd10"
         validate_time_period_options(**locals())
         return "with_these_codes_on_death_certificate", locals()
+
+    @staticmethod
+    def died_from_any_cause(
+        # Set date limits
+        on_or_before=None,
+        on_or_after=None,
+        between=None,
+        # Set return type
+        returning="binary_flag",
+        # If we're returning a date, how granular should it be?
+        include_month=False,
+        include_day=False,
+    ):
+        validate_time_period_options(**locals())
+        return "died_from_any_cause", locals()
 
     @staticmethod
     def with_death_recorded_in_cpns(

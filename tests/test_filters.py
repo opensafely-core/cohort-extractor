@@ -1061,6 +1061,34 @@ def test_patients_with_these_codes_on_death_certificate():
     assert [i["date_died"] for i in results] == ["", "", "", "2020-02-01", "2020-03-01"]
 
 
+def test_patients_died_from_any_cause():
+    session = make_session()
+    session.add_all(
+        [
+            # Not dead
+            Patient(),
+            # Died after date cutoff
+            Patient(ONSDeath=[ONSDeaths(dod="2021-01-01")]),
+            # Died
+            Patient(ONSDeath=[ONSDeaths(dod="2020-02-01")]),
+        ]
+    )
+    session.commit()
+    study = StudyDefinition(
+        population=patients.all(),
+        died=patients.died_from_any_cause(on_or_before="2020-06-01"),
+        date_died=patients.died_from_any_cause(
+            on_or_before="2020-06-01",
+            returning="date_of_death",
+            include_month=True,
+            include_day=True,
+        ),
+    )
+    results = study.to_dicts()
+    assert [i["died"] for i in results] == ["0", "0", "1"]
+    assert [i["date_died"] for i in results] == ["", "", "2020-02-01"]
+
+
 def test_patients_with_death_recorded_in_cpns():
     session = make_session()
     session.add_all(
