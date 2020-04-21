@@ -1221,3 +1221,14 @@ def codelist(codes, system):
     if isinstance(first_code, tuple):
         codes.has_categories = True
     return codes
+
+
+def filter_codes_by_category(codes, include):
+    assert codes.has_categories
+    new_codes = Codelist()
+    new_codes.system = codes.system
+    new_codes.has_categories = True
+    for code, category in codes:
+        if category in include:
+            new_codes.append((code, category))
+    return new_codes

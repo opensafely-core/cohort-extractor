@@ -21,6 +21,7 @@ from tests.tpp_backend_setup import (
 from datalab_cohorts import StudyDefinition
 from datalab_cohorts import patients
 from datalab_cohorts import codelist
+from datalab_cohorts import filter_codes_by_category
 
 
 def setup_module(module):
@@ -1147,3 +1148,10 @@ def test_patients_with_death_recorded_in_cpns():
     results = study.to_dicts()
     assert [i["cpns_death"] for i in results] == ["0", "0", "1"]
     assert [i["cpns_death_date"] for i in results] == ["", "", "2020-02-01"]
+
+
+def test_filter_codes_by_category():
+    codes = codelist([("1", "A"), ("2", "B"), ("3", "A"), ("4", "C")], "ctv3")
+    filtered = filter_codes_by_category(codes, include=["B", "C"])
+    assert filtered.system == codes.system
+    assert filtered == [("2", "B"), ("4", "C")]
