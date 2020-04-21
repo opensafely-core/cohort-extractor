@@ -1,13 +1,12 @@
+import re
+
 import sqlparse
 from sqlparse import tokens as ttypes
 
 
 IGNORE = object()
 
-# String literals are not allowed in the subset of SQL we support, except for
-# the limited subset below which should be supplied unquoted as if they were
-# column names e.g. "sex = M" rather than "sex = 'M'"
-BARE_STRING_LITERALS = ["M", "F"]
+SAFE_CHARS_RE = re.compile(r"^[a-zA-Z0-9_]+$")
 
 
 class UnknownColumnError(ValueError):
@@ -24,24 +23,17 @@ def format_expression(expression, name_map):
     tokens = tree[0].flatten()
     tokens = filter_and_validate_tokens(tokens)
     tokens = insert_implicit_comparisons(tokens)
-    string_literal_map = {k: k for k in BARE_STRING_LITERALS}
-    tokens = remap_names(tokens, name_map, string_literal_map)
+    tokens = remap_names(tokens, name_map)
     return " ".join(token.value for token in tokens)
 
 
-def remap_names(tokens, name_map, string_literal_map):
+def remap_names(tokens, name_map):
     """
     Takes an iterable of tokens and remaps any names found within using the
-    `name_map` dictionary. Names found in `string_literal_map` are replaced
-    with the corresponding `string_literal_map`. A name not in either map is an
-    error.
+    `name_map` dictionary. Names not found in the map are an error.
     """
     for token in tokens:
         if token.ttype is ttypes.Name:
-            literal = string_literal_map.get(token.value)
-            if literal:
-                yield sqlparse.sql.Token(ttypes.String.Single, f"'{token.value}'")
-                continue
             try:
                 name = name_map[token.value]
             except KeyError:
@@ -56,13 +48,31 @@ def filter_and_validate_tokens(tokens):
     Remove any ignored tokens and ensure the remaining tokens are allowed
     """
     for token in tokens:
-        status = is_allowed(token)
+        # Special handling for string literals
+        if token.ttype in ttypes.Literal.String:
+            token = validate_string(token)
+            status = True
+        else:
+            status = is_allowed(token)
         if status is True:
             yield token
         elif status is False:
             raise ValueError(f"Disallowed token: {repr(token)}")
         elif status is not IGNORE:
             raise RuntimeError(f"Invalid status return value: {status}")
+
+
+def validate_string(token):
+    # Remove quotes
+    value = token.value[1:-1]
+    if len(value) > 16:
+        raise ValueError(f"String literals must be 16 characters or less: {value}")
+    if not SAFE_CHARS_RE.match(value):
+        raise ValueError(
+            f"String literals can only contain alphanumeric characters and "
+            f"underscore: {value}"
+        )
+    return sqlparse.sql.Token(ttypes.Literal.String.Single, f"'{value}'")
 
 
 def is_allowed(token):

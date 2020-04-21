@@ -825,7 +825,7 @@ def test_patients_satisfying():
         has_asthma=patients.with_these_clinical_events(
             codelist([condition_code], "ctv3")
         ),
-        at_risk=patients.satisfying("(age > 70 AND sex = M) OR has_asthma"),
+        at_risk=patients.satisfying("(age > 70 AND sex = 'M') OR has_asthma"),
     )
     results = study.to_dicts()
     assert [i["at_risk"] for i in results] == ["1", "0", "0", "1"]
@@ -849,7 +849,7 @@ def test_patients_satisfying_with_hidden_columns():
         age=patients.age_as_of("2020-01-01"),
         at_risk=patients.satisfying(
             """
-            (age > 70 AND sex = M)
+            (age > 70 AND sex = "M")
             OR
             has_asthma
             """,
