@@ -863,6 +863,36 @@ def test_patients_satisfying_with_hidden_columns():
     assert "has_asthma" not in results[0].keys()
 
 
+def test_patients_categorised_as():
+    session = make_session()
+    session.add_all(
+        [
+            Patient(Sex="M", CodedEvents=[CodedEvent(CTV3Code="foo1")]),
+            Patient(Sex="F", CodedEvents=[CodedEvent(CTV3Code="foo2")]),
+            Patient(Sex="M", CodedEvents=[CodedEvent(CTV3Code="foo2")]),
+            Patient(Sex="F", CodedEvents=[CodedEvent(CTV3Code="foo3")]),
+        ]
+    )
+    session.commit()
+    foo_codes = codelist([("foo1", "A"), ("foo2", "B"), ("foo3", "C")], "ctv3")
+    study = StudyDefinition(
+        population=patients.all(),
+        category=patients.categorised_as(
+            {
+                "X": "sex = 'F' AND (foo_category = 'B' OR foo_category = 'C')",
+                "Y": "sex = 'M' AND foo_category = 'A'",
+                "Z": "DEFAULT",
+            },
+            sex=patients.sex(),
+            foo_category=patients.with_these_clinical_events(
+                foo_codes, returning="category", find_last_match_in_period=True
+            ),
+        ),
+    )
+    results = study.to_dicts()
+    assert [x["category"] for x in results] == ["Y", "X", "Z", "X"]
+
+
 def test_patients_registered_practice_as_of():
     session = make_session()
     org_1 = Organisation(STPCode="123", MSOACode="E0201")

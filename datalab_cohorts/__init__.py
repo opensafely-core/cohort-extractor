@@ -20,9 +20,9 @@ class StudyDefinition:
     def __init__(self, population, **kwargs):
         self.population_definition = population
         self.covariate_definitions = kwargs
-        if self.population_definition[0] == "satisfying":
+        if self.population_definition[0] == "categorised_as":
             raise ValueError(
-                "`satisfying` queries can't yet be used in the population definition"
+                "Expression queries can't yet be used in the population definition"
             )
         self.codelist_tables = []
         self.sql, self.params = self.build_full_query()
@@ -48,11 +48,11 @@ class StudyDefinition:
         )
         hidden_columns = set()
         for name, (query_type, query_args) in self.covariate_definitions.items():
-            if query_type != "satisfying":
+            if query_type != "categorised_as":
                 self.covariates[name] = self.get_query(query_type, query_args)
-            # Special case for boolean expressions which can define extra
-            # hidden columns which they use for their logic but which don't
-            # appear in the output
+            # Special case for expression queries which can define extra hidden
+            # columns which they use for their logic but which don't appear in
+            # the output
             else:
                 extra_columns = query_args["extra_columns"].items()
                 for hidden_name, (hidden_query_type, hidden_args) in extra_columns:
@@ -94,9 +94,11 @@ class StudyDefinition:
         # Add column defintions for covariates which are boolean expressions
         # over other covariates
         for name, (query_type, query_args) in self.covariate_definitions.items():
-            if query_type == "satisfying":
-                expression = self.get_boolean_expression(self.covariates, **query_args)
-                cte_cols.append(f"CASE WHEN ({expression}) THEN 1 ELSE 0 END AS {name}")
+            if query_type == "categorised_as":
+                case_expression = self.get_case_expression(
+                    self.covariates, **query_args
+                )
+                cte_cols.append(f"{case_expression} AS {name}")
         cte_sql = ", ".join(ctes)
         sql = f"""
         {cte_sql}
@@ -823,7 +825,22 @@ class StudyDefinition:
             params,
         )
 
-    def get_boolean_expression(self, covariates, expression, extra_columns=None):
+    def get_case_expression(self, covariates, category_definitions, extra_columns=None):
+        defaults = [k for (k, v) in category_definitions.items() if v == "DEFAULT"]
+        if len(defaults) > 1:
+            raise ValueError("At most one default category can be defined")
+        if len(defaults) == 1:
+            default_value = defaults[0]
+            category_definitions.pop(default_value)
+        else:
+            default_value = ""
+        clauses = []
+        for category, expression in category_definitions.items():
+            formatted_expression = self.get_boolean_expression(covariates, expression)
+            clauses.append(f"WHEN ({formatted_expression}) THEN {quote(category)}")
+        return f"CASE {' '.join(clauses)} ELSE {quote(default_value)} END"
+
+    def get_boolean_expression(self, covariates, expression):
         # The column references in the supplied expression need to be rewritten
         # to ensure they refer to the correct CTE. The formatting function also
         # ensures that the expression matches the very limited subset of SQL we
@@ -1026,8 +1043,15 @@ class patients:
         return "with_these_clinical_events", locals()
 
     @staticmethod
+    def categorised_as(category_definitions, **extra_columns):
+        return "categorised_as", locals()
+
+    @staticmethod
     def satisfying(expression, **extra_columns):
-        return "satisfying", locals()
+        category_definitions = {1: expression, 0: "DEFAULT"}
+        # Remove from local namespace
+        del expression
+        return "categorised_as", locals()
 
     @staticmethod
     def registered_practice_as_of(date, returning=None):
@@ -1165,6 +1189,16 @@ def placeholders_and_params(values, as_ints=False):
     placeholders = ",".join(quoted_values)
     params = []
     return placeholders, params
+
+
+def quote(value):
+    if isinstance(value, (int, float)):
+        return str(value)
+    else:
+        value = str(value)
+        if not SAFE_CHARS_RE.match(value):
+            raise ValueError(f"Value contains disallowed characters: {value}")
+        return f"'{value}'"
 
 
 def make_date_filter(column, min_date, max_date, between=None, upper_bound_only=False):
