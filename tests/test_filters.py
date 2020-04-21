@@ -988,7 +988,17 @@ def test_patients_admitted_to_icu():
             Ventilator=1,
         )
     )
-    session.add_all([patient_1, patient_2, patient_3, patient_4])
+    patient_5 = Patient()
+    patient_5.ICNARC.append(
+        ICNARC(
+            IcuAdmissionDateTime="2020-03-01",
+            OriginalIcuAdmissionDate=None,
+            BasicDays_RespiratorySupport=1,
+            AdvancedDays_RespiratorySupport=0,
+            Ventilator=1,
+        )
+    )
+    session.add_all([patient_1, patient_2, patient_3, patient_4, patient_5])
     session.commit()
 
     study = StudyDefinition(
@@ -998,13 +1008,14 @@ def test_patients_admitted_to_icu():
         ),
     )
     results = study.to_dicts()
-    assert [i["icu"] for i in results] == ["1", "1", "0", "0"]
-    assert [i["icu_ventilated"] for i in results] == ["0", "1", "0", "0"]
+    assert [i["icu"] for i in results] == ["1", "1", "0", "0", "1"]
+    assert [i["icu_ventilated"] for i in results] == ["0", "1", "0", "0", "1"]
     assert [i["icu_date_admitted"] for i in results] == [
         "2020-03-01",
         "2020-02-01",
         "",
         "",
+        "2020-03-01",
     ]
 
 
