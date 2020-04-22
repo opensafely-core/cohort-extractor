@@ -76,7 +76,7 @@ class MedicationDictionary(Base):
     Form = Column(String)
     Strength = Column(String)
     CompanyName = Column(String)
-    DMD_ID = Column(String(collation="Latin1_General_BIN"))
+    DMD_ID = Column(String(collation="Latin1_General_CI_AS"))
 
 
 class CodedEvent(Base):
