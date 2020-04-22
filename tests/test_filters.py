@@ -404,6 +404,38 @@ def test_clinical_event_with_numeric_value():
     assert [x["asthma_value_date"] for x in results] == ["", "2002-01", ""]
 
 
+def test_clinical_event_with_category():
+    session = make_session()
+    session.add_all(
+        [
+            Patient(),
+            Patient(
+                CodedEvents=[
+                    CodedEvent(CTV3Code="foo1", ConsultationDate="2018-01-01"),
+                    CodedEvent(CTV3Code="foo2", ConsultationDate="2020-01-01"),
+                ]
+            ),
+            Patient(
+                CodedEvents=[CodedEvent(CTV3Code="foo3", ConsultationDate="2019-01-01")]
+            ),
+        ]
+    )
+    session.commit()
+    codes = codelist([("foo1", "A"), ("foo2", "B"), ("foo3", "C")], "ctv3")
+    study = StudyDefinition(
+        population=patients.all(),
+        code_category=patients.with_these_clinical_events(
+            codes,
+            returning="category",
+            find_last_match_in_period=True,
+            include_date_of_match=True,
+        ),
+    )
+    results = study.to_dicts()
+    assert [x["code_category"] for x in results] == ["", "B", "C"]
+    assert [x["code_category_date"] for x in results] == ["", "2020", "2019"]
+
+
 def test_patient_registered_as_of():
     session = make_session()
 
