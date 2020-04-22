@@ -21,6 +21,7 @@ from tests.tpp_backend_setup import (
 from datalab_cohorts import StudyDefinition
 from datalab_cohorts import patients
 from datalab_cohorts import codelist
+from datalab_cohorts import filter_codes_by_category
 
 
 def setup_module(module):
@@ -824,7 +825,7 @@ def test_patients_satisfying():
         has_asthma=patients.with_these_clinical_events(
             codelist([condition_code], "ctv3")
         ),
-        at_risk=patients.satisfying("(age > 70 AND sex = M) OR has_asthma"),
+        at_risk=patients.satisfying("(age > 70 AND sex = 'M') OR has_asthma"),
     )
     results = study.to_dicts()
     assert [i["at_risk"] for i in results] == ["1", "0", "0", "1"]
@@ -848,7 +849,7 @@ def test_patients_satisfying_with_hidden_columns():
         age=patients.age_as_of("2020-01-01"),
         at_risk=patients.satisfying(
             """
-            (age > 70 AND sex = M)
+            (age > 70 AND sex = "M")
             OR
             has_asthma
             """,
@@ -860,6 +861,36 @@ def test_patients_satisfying_with_hidden_columns():
     results = study.to_dicts()
     assert [i["at_risk"] for i in results] == ["1", "0", "0", "1"]
     assert "has_asthma" not in results[0].keys()
+
+
+def test_patients_categorised_as():
+    session = make_session()
+    session.add_all(
+        [
+            Patient(Sex="M", CodedEvents=[CodedEvent(CTV3Code="foo1")]),
+            Patient(Sex="F", CodedEvents=[CodedEvent(CTV3Code="foo2")]),
+            Patient(Sex="M", CodedEvents=[CodedEvent(CTV3Code="foo2")]),
+            Patient(Sex="F", CodedEvents=[CodedEvent(CTV3Code="foo3")]),
+        ]
+    )
+    session.commit()
+    foo_codes = codelist([("foo1", "A"), ("foo2", "B"), ("foo3", "C")], "ctv3")
+    study = StudyDefinition(
+        population=patients.all(),
+        category=patients.categorised_as(
+            {
+                "X": "sex = 'F' AND (foo_category = 'B' OR foo_category = 'C')",
+                "Y": "sex = 'M' AND foo_category = 'A'",
+                "Z": "DEFAULT",
+            },
+            sex=patients.sex(),
+            foo_category=patients.with_these_clinical_events(
+                foo_codes, returning="category", find_last_match_in_period=True
+            ),
+        ),
+    )
+    results = study.to_dicts()
+    assert [x["category"] for x in results] == ["Y", "X", "Z", "X"]
 
 
 def test_patients_registered_practice_as_of():
@@ -1147,3 +1178,10 @@ def test_patients_with_death_recorded_in_cpns():
     results = study.to_dicts()
     assert [i["cpns_death"] for i in results] == ["0", "0", "1"]
     assert [i["cpns_death_date"] for i in results] == ["", "", "2020-02-01"]
+
+
+def test_filter_codes_by_category():
+    codes = codelist([("1", "A"), ("2", "B"), ("3", "A"), ("4", "C")], "ctv3")
+    filtered = filter_codes_by_category(codes, include=["B", "C"])
+    assert filtered.system == codes.system
+    assert filtered == [("2", "B"), ("4", "C")]
