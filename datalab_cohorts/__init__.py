@@ -123,7 +123,7 @@ class StudyDefinition:
         method = getattr(self, method_name)
         return method(**query_args)
 
-    def create_codelist_table(self, codelist):
+    def create_codelist_table(self, codelist, case_sensitive=True):
         table_number = len(self.codelist_tables) + 1
         # The hash prefix indicates a temporary table
         table_name = f"#codelist_{table_number}"
@@ -131,6 +131,7 @@ class StudyDefinition:
             values = list(codelist)
         else:
             values = [(code, "") for code in codelist]
+        collation = "Latin1_General_BIN" if case_sensitive else "Latin1_General_CI_AS"
         max_code_len = max(len(code) for (code, category) in values)
         self.codelist_tables.append(
             (
@@ -138,7 +139,7 @@ class StudyDefinition:
                 CREATE TABLE {table_name} (
                   -- Because some code systems are case-sensitive we need to
                   -- use a case-sensitive collation here
-                  code VARCHAR({max_code_len}) COLLATE Latin1_General_BIN,
+                  code VARCHAR({max_code_len}) COLLATE {collation},
                   category VARCHAR(MAX)
                 )
                 """,
@@ -463,6 +464,7 @@ class StudyDefinition:
             ON MedicationIssue.MultilexDrug_ID = MedicationDictionary.MultilexDrug_ID
             """,
             "DMD_ID",
+            codes_are_case_sensitive=False,
             **kwargs,
         )
 
@@ -471,12 +473,15 @@ class StudyDefinition:
         Patients who have had at least one of these clinical events in the
         defined period
         """
-        return self._patients_with_events("CodedEvent", "CTV3Code", **kwargs)
+        return self._patients_with_events(
+            "CodedEvent", "CTV3Code", codes_are_case_sensitive=True, **kwargs
+        )
 
     def _patients_with_events(
         self,
         from_table,
         code_column,
+        codes_are_case_sensitive,
         codelist,
         # Set date limits
         on_or_before=None,
@@ -492,7 +497,7 @@ class StudyDefinition:
         include_month=False,
         include_day=False,
     ):
-        codelist_table = self.create_codelist_table(codelist)
+        codelist_table = self.create_codelist_table(codelist, codes_are_case_sensitive)
         date_condition, params = make_date_filter(
             "ConsultationDate", on_or_after, on_or_before, between
         )
