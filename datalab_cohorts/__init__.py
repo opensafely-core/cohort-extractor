@@ -134,7 +134,10 @@ class StudyDefinition:
             (
                 f"""
                 CREATE TABLE {table_name} (
-                  code VARCHAR({max_code_len}), category VARCHAR(MAX)
+                  -- Because some code systems are case-sensitive we need to
+                  -- use a case-sensitive collation here
+                  code VARCHAR({max_code_len}) COLLATE Latin1_General_BIN,
+                  category VARCHAR(MAX)
                 )
                 """,
                 f"INSERT INTO {table_name} (code, category) VALUES(?, ?)",
