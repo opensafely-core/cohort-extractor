@@ -6,6 +6,9 @@ chronic_cardiac_disease_codes = codelist_from_csv(
 chronic_liver_disease_codes = codelist_from_csv(
     "codelists/chronic_liver_disease.csv", system="ctv3", column="CTV3ID"
 )
+salbutamol_codes = codelist_from_csv(
+    "codelists/sabutamol_asthma.csv", system="snomed", column="id"
+)
 systolic_blood_pressure_codes = codelist(["2469."], system="ctv3")
 diastolic_blood_pressure_codes = codelist(["246A."], system="ctv3")
 
@@ -64,5 +67,10 @@ study = StudyDefinition(
     ),
     rural_urban=patients.address_as_of(
         "2020-02-01", returning="rural_urban_classification"
+    ),
+    recent_salbutamol_count=patients.with_these_medications(
+        salbutamol_codes,
+        between=["2018-02-01", "2020-02-01"],
+        returning="number_of_matches_in_period",
     ),
 )
