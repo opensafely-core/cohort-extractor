@@ -798,12 +798,10 @@ def test_patient_random_sample():
     session.commit()
 
     study = StudyDefinition(population=patients.random_sample(percent=20))
-    with tempfile.NamedTemporaryFile(mode="w+") as f:
-        study.to_csv(f.name)
-        results = study.to_dicts()
-        # The method is approximate!
-        expected = sample_size * 0.2
-        assert abs(len(results) - expected) < (expected * 0.1)
+    results = study.to_dicts()
+    # The method is approximate!
+    expected = sample_size * 0.2
+    assert abs(len(results) - expected) < (expected * 0.1)
 
 
 def test_patients_satisfying():
