@@ -76,7 +76,7 @@ class MedicationDictionary(Base):
     Form = Column(String)
     Strength = Column(String)
     CompanyName = Column(String)
-    DMD_ID = Column(String)
+    DMD_ID = Column(String(collation="Latin1_General_BIN"))
 
 
 class CodedEvent(Base):
@@ -87,7 +87,7 @@ class CodedEvent(Base):
         "Patient", back_populates="CodedEvents", cascade="all, delete"
     )
     CodedEvent_ID = Column(Integer, primary_key=True)
-    CTV3Code = Column(String)
+    CTV3Code = Column(String(collation="Latin1_General_BIN"))
     NumericValue = Column(Float)
     ConsultationDate = Column(DateTime)
     SnomedConceptId = Column(String)
