@@ -68,7 +68,7 @@ class StudyDefinition:
             ctes.append(f"{column_name} AS ({sql})")
             cte_params.extend(params)
             cte_joins.append(
-                f"LEFT JOIN {column_name} ON {column_name}.Patient_ID = population.Patient_ID"
+                f"LEFT JOIN {column_name} ON {column_name}.patient_id = population.patient_id"
             )
             if column_name in hidden_columns:
                 continue
