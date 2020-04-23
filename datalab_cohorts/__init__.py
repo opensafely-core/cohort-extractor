@@ -89,7 +89,13 @@ class StudyDefinition:
         joins = []
         for column_name, (cols, sql) in self.covariates.items():
             table_queries.append(
-                (column_name, f"SELECT * INTO #{column_name} FROM ({sql}) t")
+                (
+                    column_name,
+                    f"""
+                    SELECT t.* INTO #{column_name} FROM ({sql}) t
+                    INNER JOIN #population ON #population.patient_id = t.patient_id
+                    """,
+                )
             )
             joins.append(
                 f"LEFT JOIN #{column_name} ON #{column_name}.patient_id = #population.patient_id"
