@@ -41,6 +41,37 @@ class StudyDefinition:
         # Convert all values to str as that's what will end in the CSV
         return [dict(zip(keys, map(str, row))) for row in result]
 
+    def to_sql(self):
+        """Generate a single SQL string.
+
+        Useful for debugging, optimising, etc.
+        """
+        sql, params = self.build_full_query()
+        formatted_params = []
+        for param in params:
+            if isinstance(param, str):
+                formatted_params.append("'" + param + "'")
+            elif hasattr(param, "strftime"):
+                formatted_params.append("'" + param.strftime("%Y-%m-%d") + "'")
+            else:
+                formatted_params.append(param)
+        prepared_sql = []
+
+        for create_sql, insert_sql, values in self.codelist_tables:
+            prepared_sql.append(create_sql)
+            prepared_sql.append("GO")
+            for value in values:
+                prepared_sql.append(
+                    insert_sql.replace("?", "'{}'").format(*value) + ";"
+                )
+            prepared_sql.append("GO")
+
+        for line in sql.splitlines():
+            sql_before_comment = line.split("--")[0]
+            prepared_sql.append(sql_before_comment.replace("?", "{}"))
+
+        return "\n".join(prepared_sql).format(*formatted_params)
+
     def build_full_query(self):
         self.covariates = {}
         population_cols, population_sql, population_params = self.get_query(
