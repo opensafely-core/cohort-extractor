@@ -245,7 +245,7 @@ class StudyDefinition:
         # 2) If height and weight is not available, then take latest
         # recorded BMI. Both values must be recorded when the patient
         # is >=16, weight must be within the last 10 years
-        date_condition, date_params = make_date_filter(
+        date_condition = make_date_filter(
             "ConsultationDate", on_or_after, on_or_before, between
         )
 
@@ -260,7 +260,6 @@ class StudyDefinition:
             "XM01E",  # Concept containing height/length/stature/growth terms:
             "229..",  # O/E height
         ]
-        params = []
 
         bmi_cte = f"""
         SELECT t.Patient_ID, t.BMI, t.ConsultationDate
@@ -272,13 +271,11 @@ class StudyDefinition:
         ) t
         WHERE t.rownum = 1
         """
-        bmi_cte_params = date_params
 
         patients_cte = f"""
            SELECT Patient_ID, DateOfBirth
            FROM Patient
         """
-        patients_cte_params = []
         weight_codes_sql = codelist_to_sql(weight_codes)
         weights_cte = f"""
           SELECT t.Patient_ID, t.weight, t.ConsultationDate
@@ -290,13 +287,12 @@ class StudyDefinition:
           ) t
           WHERE t.rownum = 1
         """
-        weights_cte_params = date_params
 
         height_codes_sql = codelist_to_sql(height_codes)
         # The height date restriction is different from the others. We don't
         # mind using old values as long as the patient was old enough when they
         # were taken.
-        height_date_condition, height_date_params = make_date_filter(
+        height_date_condition = make_date_filter(
             "ConsultationDate",
             on_or_after,
             on_or_before,
@@ -313,7 +309,6 @@ class StudyDefinition:
           ) t
           WHERE t.rownum = 1
         """
-        heights_cte_params = height_date_params
 
         date_column_defintion = truncate_date(
             """
@@ -341,16 +336,10 @@ class StudyDefinition:
         ON bmis.Patient_ID = patients.Patient_ID AND DATEDIFF(YEAR, patients.DateOfBirth, bmis.ConsultationDate) >= {min_age}
         -- XXX maybe add a "WHERE NULL..." here
         """
-        params = (
-            patients_cte_params
-            + weights_cte_params
-            + heights_cte_params
-            + bmi_cte_params
-        )
         columns = ["patient_id", "BMI"]
         if include_measurement_date:
             columns.append("date_measured")
-        return columns, sql, params
+        return columns, sql, []
 
     def patients_mean_recorded_value(
         self,
@@ -369,7 +358,7 @@ class StudyDefinition:
     ):
         # We only support this option for now
         assert on_most_recent_day_of_measurement
-        date_condition, date_params = make_date_filter(
+        date_condition = make_date_filter(
             "ConsultationDate", on_or_after, on_or_before, between
         )
         codelist_sql = codelist_to_sql(codelist)
@@ -400,11 +389,10 @@ class StudyDefinition:
         )
         GROUP BY days.Patient_ID, days.date_measured
         """
-        params = date_params
         columns = ["patient_id", "mean_value"]
         if include_measurement_date:
             columns.append("date_measured")
-        return columns, sql, params
+        return columns, sql, []
 
     def patients_registered_as_of(self, reference_date):
         """
@@ -498,7 +486,7 @@ class StudyDefinition:
         include_day=False,
     ):
         codelist_table = self.create_codelist_table(codelist, codes_are_case_sensitive)
-        date_condition, params = make_date_filter(
+        date_condition = make_date_filter(
             "ConsultationDate", on_or_after, on_or_before, between
         )
 
@@ -587,7 +575,7 @@ class StudyDefinition:
             columns = ["patient_id", column_name]
             if include_date_of_match:
                 columns.append(date_column_name)
-        return columns, sql, params
+        return columns, sql, []
 
     def patients_registered_practice_as_of(self, date, returning=None):
         if returning == "stp_code":
@@ -676,7 +664,7 @@ class StudyDefinition:
         ELSE
           OriginalIcuAdmissionDate
         END"""
-        date_condition, date_params = make_date_filter(
+        date_condition = make_date_filter(
             date_expression, on_or_after, on_or_before, between
         )
         date_column_definition = truncate_date(
@@ -702,7 +690,7 @@ class StudyDefinition:
             AND
               {date_condition}
             """,
-            date_params,
+            [],
         )
 
     def patients_with_positive_covid_test(self):
@@ -742,9 +730,7 @@ class StudyDefinition:
         include_month=False,
         include_day=False,
     ):
-        date_condition, date_params = make_date_filter(
-            "dod", on_or_after, on_or_before, between
-        )
+        date_condition = make_date_filter("dod", on_or_after, on_or_before, between)
         if codelist is not None:
             codelist_sql = codelist_to_sql(codelist)
             code_columns = ["icd10u"]
@@ -753,10 +739,8 @@ class StudyDefinition:
             code_conditions = " OR ".join(
                 f"{column} IN ({codelist_sql})" for column in code_columns
             )
-            params = date_params
         else:
             code_conditions = "1 = 1"
-            params = date_params
         if returning == "binary_flag":
             column_definition = "1"
             column_name = "died"
@@ -772,7 +756,7 @@ class StudyDefinition:
             FROM ONS_Deaths
             WHERE ({code_conditions}) AND {date_condition}
             """,
-            params,
+            [],
         )
 
     def patients_died_from_any_cause(
@@ -809,7 +793,7 @@ class StudyDefinition:
         include_month=False,
         include_day=False,
     ):
-        date_condition, params = make_date_filter(
+        date_condition = make_date_filter(
             "DateOfDeath", on_or_after, on_or_before, between
         )
         if returning == "binary_flag":
@@ -827,7 +811,7 @@ class StudyDefinition:
             FROM CPNS
             WHERE {date_condition}
             """,
-            params,
+            [],
         )
 
     def get_case_expression(self, covariates, category_definitions, extra_columns=None):
@@ -1191,13 +1175,13 @@ def make_date_filter(column, min_date, max_date, between=None, upper_bound_only=
     if upper_bound_only:
         min_date = None
     if min_date is not None and max_date is not None:
-        return f"{column} BETWEEN ? AND ?", [min_date, max_date]
+        return f"{column} BETWEEN {quote(min_date)} AND {quote(max_date)}"
     elif min_date is not None:
-        return f"{column} >= ?", [min_date]
+        return f"{column} >= {quote(min_date)}"
     elif max_date is not None:
-        return f"{column} <= ?", [max_date]
+        return f"{column} <= {quote(max_date)}"
     else:
-        return "1=1", []
+        return "1=1"
 
 
 def truncate_date(column, include_month, include_day):
