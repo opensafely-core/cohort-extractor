@@ -150,21 +150,22 @@ class StudyDefinition:
         return table_name
 
     def patients_age_as_of(self, reference_date):
+        quoted_date = quote(reference_date)
         return (
             ["patient_id", "age"],
-            """
-        SELECT
-          Patient_ID AS patient_id,
-          CASE WHEN
-             dateadd(year, datediff (year, DateOfBirth, ?), DateOfBirth) > ?
-          THEN
-             datediff(year, DateOfBirth, ?) - 1
-          ELSE
-             datediff(year, DateOfBirth, ?)
-          END AS age
-        FROM Patient
-        """,
-            [reference_date] * 4,
+            f"""
+            SELECT
+              Patient_ID AS patient_id,
+              CASE WHEN
+                 dateadd(year, datediff (year, DateOfBirth, {quoted_date}), DateOfBirth) > {quoted_date}
+              THEN
+                 datediff(year, DateOfBirth, {quoted_date}) - 1
+              ELSE
+                 datediff(year, DateOfBirth, {quoted_date})
+              END AS age
+            FROM Patient
+            """,
+            [],
         )
 
     def patients_sex(self):
@@ -208,9 +209,9 @@ class StudyDefinition:
             FROM Patient
             WHERE (ABS(CAST(
             (BINARY_CHECKSUM(*) *
-            RAND()) as int)) % 100) < ?
+            RAND()) as int)) % 100) < {quote(percent)}
             """,
-            [percent],
+            [],
         )
 
     def patients_most_recent_bmi(
@@ -415,9 +416,9 @@ class StudyDefinition:
             FROM Patient
             INNER JOIN RegistrationHistory
             ON RegistrationHistory.Patient_ID = Patient.Patient_ID
-            WHERE StartDate <= ? AND EndDate > ?
+            WHERE StartDate <= {quote(start_date)} AND EndDate > {quote(end_date)}
             """,
-            [start_date, end_date],
+            [],
         )
 
     def patients_with_complete_history_between(self, start_date, end_date):
@@ -600,13 +601,13 @@ class StudyDefinition:
                 PARTITION BY Patient_ID ORDER BY StartDate DESC, EndDate DESC
               ) AS rownum
               FROM RegistrationHistory
-              WHERE StartDate <= ? AND EndDate > ?
+              WHERE StartDate <= {quote(date)} AND EndDate > {quote(date)}
             ) t
             LEFT JOIN Organisation
             ON Organisation.Organisation_ID = t.Organisation_ID
             WHERE t.rownum = 1
             """,
-            [date, date],
+            [],
         )
 
     def patients_address_as_of(self, date, returning=None, round_to_nearest=None):
@@ -638,11 +639,11 @@ class StudyDefinition:
                 PARTITION BY Patient_ID ORDER BY StartDate DESC, EndDate DESC
               ) AS rownum
               FROM PatientAddress
-              WHERE StartDate <= ? AND EndDate > ?
+              WHERE StartDate <= {quote(date)} AND EndDate > {quote(date)}
             ) t
             WHERE rownum = 1
             """,
-            [date, date],
+            [],
         )
 
     # https://github.com/ebmdatalab/tpp-sql-notebook/issues/72
