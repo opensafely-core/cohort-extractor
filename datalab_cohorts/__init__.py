@@ -123,11 +123,13 @@ class StudyDefinition:
                     self.covariates, **query_args
                 )
                 output_columns.append(f"{case_expression} AS {name}")
+        output_columns_str = ",\n          ".join(output_columns)
+        joins_str = "\n          ".join(joins)
         joined_output_query = f"""
         SELECT
-          {', '.join(output_columns)}
+          {output_columns_str}
         FROM #population
-        {' '.join(joins)}
+          {joins_str}
         """
         return table_queries + [("final_output", joined_output_query)]
 
