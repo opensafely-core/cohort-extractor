@@ -134,15 +134,26 @@ class StudyDefinition:
         return table_queries + [("final_output", joined_output_query)]
 
     def execute_query(self):
+        timestamp = datetime.datetime.now(datetime.timezone.utc).strftime(
+            "%Y%m%d_%H%M%S"
+        )
+        output_table = f"OPENCoronaTempTables..Output_{timestamp}"
         conn = self.get_db_connection()
         cursor = conn.cursor()
         self.log("Uploading codelists into temporary tables")
         for create_sql, insert_sql, values in self.codelist_tables:
             cursor.execute(create_sql)
             cursor.executemany(insert_sql, values)
-        for name, sql in self.queries:
+        queries = list(self.queries)
+        final_query = queries.pop()[1]
+        for name, sql in queries:
             self.log(f"Running query: {name}")
             cursor.execute(sql)
+        self.log(f"Running final query and writing output to '{output_table}'")
+        sql = f"SELECT * INTO {output_table} FROM ({final_query}) t"
+        cursor.execute(sql)
+        self.log(f"Downloading data from '{output_table}'")
+        cursor.execute(f"SELECT * FROM {output_table}")
         return cursor
 
     def log(self, message):
