@@ -886,22 +886,27 @@ class StudyDefinition:
             name_map[name] = f"{name}.{columns[1]}"
         return format_expression(expression, name_map)
 
+    def get_db_dict(self):
+        parsed = urlparse(os.environ["DATABASE_URL"])
+        return {
+            "hostname": parsed.hostname,
+            "port": parsed.port or 1433,
+            "database": parsed.path.lstrip("/"),
+            "username": unquote(parsed.username),
+            "password": unquote(parsed.password),
+        }
+
     def get_db_connection(self):
         if self._db_connection:
             return self._db_connection
-        parsed = urlparse(os.environ["DATABASE_URL"])
-        hostname = parsed.hostname
-        port = parsed.port or 1433
-        database = parsed.path.lstrip("/")
-        username = unquote(parsed.username)
-        password = unquote(parsed.password)
+        db_dict = self.get_db_dict()
         connection_str = (
-            f"DRIVER={{ODBC Driver 17 for SQL Server}};"
-            f"SERVER={hostname},{port};"
-            f"DATABASE={database};"
-            f"UID={username};"
-            f"PWD={password}"
-        )
+            "DRIVER={{ODBC Driver 17 for SQL Server}};"
+            "SERVER={hostname},{port};"
+            "DATABASE={database};"
+            "UID={username};"
+            "PWD={password}"
+        ).format(**db_dict)
         self._db_connection = pyodbc.connect(connection_str)
         return self._db_connection
 
