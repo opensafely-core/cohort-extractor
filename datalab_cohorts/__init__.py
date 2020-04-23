@@ -16,6 +16,7 @@ SAFE_CHARS_RE = re.compile(r"[a-zA-Z0-9_\.\-]+")
 
 class StudyDefinition:
     _db_connection = None
+    _current_column_name = None
 
     def __init__(self, population, **kwargs):
         self.population_definition = population
@@ -25,7 +26,7 @@ class StudyDefinition:
                 "Expression queries can't yet be used in the population definition"
             )
         self.codelist_tables = []
-        self.sql, self.params = self.build_full_query()
+        self.queries = self.build_queries()
 
     def to_csv(self, filename):
         result = self.execute_query()
@@ -41,15 +42,36 @@ class StudyDefinition:
         # Convert all values to str as that's what will end in the CSV
         return [dict(zip(keys, map(str, row))) for row in result]
 
-    def build_full_query(self):
+    def to_sql(self):
+        """
+        Generate a single SQL string.
+
+        Useful for debugging, optimising, etc.
+        """
+        prepared_sql = ["-- Create codelist tables"]
+        for create_sql, insert_sql, values in self.codelist_tables:
+            prepared_sql.append(create_sql)
+            prepared_sql.append("GO")
+            for row in values:
+                prepared_sql.append(
+                    insert_sql.replace("?", "{}").format(*map(quote, row)) + ";"
+                )
+            prepared_sql.append("GO\n\n")
+        for name, query in self.queries:
+            prepared_sql.append(f"-- Query for {name}")
+            prepared_sql.append(query)
+            prepared_sql.append("\n\n")
+        return "\n".join(prepared_sql)
+
+    def build_queries(self):
         self.covariates = {}
-        population_cols, population_sql, population_params = self.get_query(
-            *self.population_definition
+        population_cols, population_sql = self.get_query(
+            "population", *self.population_definition
         )
         hidden_columns = set()
         for name, (query_type, query_args) in self.covariate_definitions.items():
             if query_type != "categorised_as":
-                self.covariates[name] = self.get_query(query_type, query_args)
+                self.covariates[name] = self.get_query(name, query_type, query_args)
             # Special case for expression queries which can define extra hidden
             # columns which they use for their logic but which don't appear in
             # the output
@@ -58,17 +80,19 @@ class StudyDefinition:
                 for hidden_name, (hidden_query_type, hidden_args) in extra_columns:
                     hidden_columns.add(hidden_name)
                     self.covariates[hidden_name] = self.get_query(
-                        hidden_query_type, hidden_args
+                        hidden_name, hidden_query_type, hidden_args
                     )
-        cte_cols = ["population.patient_id"]  # XXX might more come from left side?
-        ctes = [f"WITH population AS ({population_sql})"]
-        cte_params = population_params
-        cte_joins = []
-        for column_name, (cols, sql, params) in self.covariates.items():
-            ctes.append(f"{column_name} AS ({sql})")
-            cte_params.extend(params)
-            cte_joins.append(
-                f"LEFT JOIN {column_name} ON {column_name}.Patient_ID = population.Patient_ID"
+        output_columns = ["#population.patient_id"]
+        table_queries = [
+            ("population", f"SELECT * INTO #population FROM ({population_sql}) t")
+        ]
+        joins = []
+        for column_name, (cols, sql) in self.covariates.items():
+            table_queries.append(
+                (column_name, f"SELECT * INTO #{column_name} FROM ({sql}) t")
+            )
+            joins.append(
+                f"LEFT JOIN #{column_name} ON #{column_name}.patient_id = #population.patient_id"
             )
             if column_name in hidden_columns:
                 continue
@@ -88,8 +112,8 @@ class StudyDefinition:
                     or col == "category"
                 )
                 default_value = "''" if is_str_col else 0
-                cte_cols.append(
-                    f"ISNULL({column_name}.{col}, {default_value}) AS {output_column}"
+                output_columns.append(
+                    f"ISNULL(#{column_name}.{col}, {default_value}) AS {output_column}"
                 )
         # Add column defintions for covariates which are boolean expressions
         # over other covariates
@@ -98,35 +122,77 @@ class StudyDefinition:
                 case_expression = self.get_case_expression(
                     self.covariates, **query_args
                 )
-                cte_cols.append(f"{case_expression} AS {name}")
-        cte_sql = ", ".join(ctes)
-        sql = f"""
-        {cte_sql}
+                output_columns.append(f"{case_expression} AS {name}")
+        output_columns_str = ",\n          ".join(output_columns)
+        joins_str = "\n          ".join(joins)
+        joined_output_query = f"""
         SELECT
-          {', '.join(cte_cols)}
-        FROM population
-        {' '.join(cte_joins)}
+          {output_columns_str}
+        FROM #population
+          {joins_str}
         """
-        return sql, cte_params
+        return table_queries + [("final_output", joined_output_query)]
 
     def execute_query(self):
-        conn = self.get_db_connection()
-        cursor = conn.cursor()
+        temporary_database = "OPENCoronaTempTables"
+        output_table = self.get_output_table_name(temporary_database)
+        cursor = self.get_db_connection().cursor()
+        self.log("Uploading codelists into temporary tables")
         for create_sql, insert_sql, values in self.codelist_tables:
             cursor.execute(create_sql)
             cursor.executemany(insert_sql, values)
-        cursor.execute(self.sql, self.params)
+        queries = list(self.queries)
+        final_query = queries.pop()[1]
+        for name, sql in queries:
+            self.log(f"Running query: {name}")
+            cursor.execute(sql)
+        if output_table is not None:
+            self.log(f"Running final query and writing output to '{output_table}'")
+            sql = f"SELECT * INTO {output_table} FROM ({final_query}) t"
+            cursor.execute(sql)
+            self.log(f"Downloading data from '{output_table}'")
+            cursor.execute(f"SELECT * FROM {output_table}")
+        else:
+            self.log(
+                f"No database matching '{temporary_database}', downloading results "
+                "directly without writing to output table"
+            )
+            cursor.execute(final_query)
         return cursor
 
-    def get_query(self, query_type, query_args):
+    def get_output_table_name(self, temporary_database):
+        # Check that the temporary database exists
+        cursor = self.get_db_connection().cursor()
+        cursor.execute("SELECT DB_ID(?)", [temporary_database])
+        result = list(cursor)[0][0]
+        if result is None:
+            return
+        timestamp = datetime.datetime.now(datetime.timezone.utc).strftime(
+            "%Y%m%d_%H%M%S"
+        )
+        return f"{temporary_database}..Output_{timestamp}"
+
+    def log(self, message):
+        timestamp = datetime.datetime.now(datetime.timezone.utc).strftime(
+            "%Y-%m-%d %H:%M:%S UTC"
+        )
+        print(f"[{timestamp}] {message}")
+
+    def get_query(self, column_name, query_type, query_args):
         method_name = f"patients_{query_type}"
         method = getattr(self, method_name)
-        return method(**query_args)
+        # Keep track of the current column name for debugging purposes
+        self._current_column_name = column_name
+        return_value = method(**query_args)
+        self._current_column_name = None
+        return return_value
 
     def create_codelist_table(self, codelist, case_sensitive=True):
         table_number = len(self.codelist_tables) + 1
+        # We include the current column name for ease of debugging
+        column_name = self._current_column_name or "unknown"
         # The hash prefix indicates a temporary table
-        table_name = f"#codelist_{table_number}"
+        table_name = f"#codelist_{table_number}_{column_name}"
         if codelist.has_categories:
             values = list(codelist)
         else:
@@ -150,21 +216,21 @@ class StudyDefinition:
         return table_name
 
     def patients_age_as_of(self, reference_date):
+        quoted_date = quote(reference_date)
         return (
             ["patient_id", "age"],
-            """
-        SELECT
-          Patient_ID AS patient_id,
-          CASE WHEN
-             dateadd(year, datediff (year, DateOfBirth, ?), DateOfBirth) > ?
-          THEN
-             datediff(year, DateOfBirth, ?) - 1
-          ELSE
-             datediff(year, DateOfBirth, ?)
-          END AS age
-        FROM Patient
-        """,
-            [reference_date] * 4,
+            f"""
+            SELECT
+              Patient_ID AS patient_id,
+              CASE WHEN
+                 dateadd(year, datediff (year, DateOfBirth, {quoted_date}), DateOfBirth) > {quoted_date}
+              THEN
+                 datediff(year, DateOfBirth, {quoted_date}) - 1
+              ELSE
+                 datediff(year, DateOfBirth, {quoted_date})
+              END AS age
+            FROM Patient
+            """,
         )
 
     def patients_sex(self):
@@ -175,7 +241,6 @@ class StudyDefinition:
             Patient_ID AS patient_id,
             Sex as sex
           FROM Patient""",
-            [],
         )
 
     def patients_all(self):
@@ -188,7 +253,6 @@ class StudyDefinition:
             SELECT Patient_ID AS patient_id, DateOfBirth AS date_of_birth, Sex AS sex
             FROM Patient
             """,
-            [],
         )
 
     def patients_random_sample(self, percent):
@@ -208,9 +272,8 @@ class StudyDefinition:
             FROM Patient
             WHERE (ABS(CAST(
             (BINARY_CHECKSUM(*) *
-            RAND()) as int)) % 100) < ?
+            RAND()) as int)) % 100) < {quote(percent)}
             """,
-            [percent],
         )
 
     def patients_most_recent_bmi(
@@ -245,7 +308,7 @@ class StudyDefinition:
         # 2) If height and weight is not available, then take latest
         # recorded BMI. Both values must be recorded when the patient
         # is >=16, weight must be within the last 10 years
-        date_condition, date_params = make_date_filter(
+        date_condition = make_date_filter(
             "ConsultationDate", on_or_after, on_or_before, between
         )
 
@@ -260,7 +323,6 @@ class StudyDefinition:
             "XM01E",  # Concept containing height/length/stature/growth terms:
             "229..",  # O/E height
         ]
-        params = []
 
         bmi_cte = f"""
         SELECT t.Patient_ID, t.BMI, t.ConsultationDate
@@ -268,35 +330,32 @@ class StudyDefinition:
           SELECT Patient_ID, NumericValue AS BMI, ConsultationDate,
           ROW_NUMBER() OVER (PARTITION BY Patient_ID ORDER BY ConsultationDate DESC) AS rownum
           FROM CodedEvent
-          WHERE CTV3Code = ? AND {date_condition}
+          WHERE CTV3Code = {quote(bmi_code)} AND {date_condition}
         ) t
         WHERE t.rownum = 1
         """
-        bmi_cte_params = [bmi_code] + date_params
 
         patients_cte = f"""
            SELECT Patient_ID, DateOfBirth
            FROM Patient
         """
-        patients_cte_params = []
-        weight_placeholders, weight_params = placeholders_and_params(weight_codes)
+        weight_codes_sql = codelist_to_sql(weight_codes)
         weights_cte = f"""
           SELECT t.Patient_ID, t.weight, t.ConsultationDate
           FROM (
             SELECT Patient_ID, NumericValue AS weight, ConsultationDate,
             ROW_NUMBER() OVER (PARTITION BY Patient_ID ORDER BY ConsultationDate DESC) AS rownum
             FROM CodedEvent
-            WHERE CTV3Code IN ({weight_placeholders}) AND {date_condition}
+            WHERE CTV3Code IN ({weight_codes_sql}) AND {date_condition}
           ) t
           WHERE t.rownum = 1
         """
-        weights_cte_params = weight_params + date_params
 
-        height_placeholders, height_params = placeholders_and_params(height_codes)
+        height_codes_sql = codelist_to_sql(height_codes)
         # The height date restriction is different from the others. We don't
         # mind using old values as long as the patient was old enough when they
         # were taken.
-        height_date_condition, height_date_params = make_date_filter(
+        height_date_condition = make_date_filter(
             "ConsultationDate",
             on_or_after,
             on_or_before,
@@ -309,11 +368,10 @@ class StudyDefinition:
             SELECT Patient_ID, NumericValue AS height, ConsultationDate,
             ROW_NUMBER() OVER (PARTITION BY Patient_ID ORDER BY ConsultationDate DESC) AS rownum
             FROM CodedEvent
-            WHERE CTV3Code IN ({height_placeholders}) AND {height_date_condition}
+            WHERE CTV3Code IN ({height_codes_sql}) AND {height_date_condition}
           ) t
           WHERE t.rownum = 1
         """
-        heights_cte_params = height_params + height_date_params
 
         date_column_defintion = truncate_date(
             """
@@ -341,16 +399,10 @@ class StudyDefinition:
         ON bmis.Patient_ID = patients.Patient_ID AND DATEDIFF(YEAR, patients.DateOfBirth, bmis.ConsultationDate) >= {min_age}
         -- XXX maybe add a "WHERE NULL..." here
         """
-        params = (
-            patients_cte_params
-            + weights_cte_params
-            + heights_cte_params
-            + bmi_cte_params
-        )
         columns = ["patient_id", "BMI"]
         if include_measurement_date:
             columns.append("date_measured")
-        return columns, sql, params
+        return columns, sql
 
     def patients_mean_recorded_value(
         self,
@@ -369,10 +421,10 @@ class StudyDefinition:
     ):
         # We only support this option for now
         assert on_most_recent_day_of_measurement
-        date_condition, date_params = make_date_filter(
+        date_condition = make_date_filter(
             "ConsultationDate", on_or_after, on_or_before, between
         )
-        placeholders, code_params = placeholders_and_params(codelist)
+        codelist_sql = codelist_to_sql(codelist)
         date_definition = truncate_date(
             "days.date_measured", include_month, include_day
         )
@@ -389,22 +441,21 @@ class StudyDefinition:
         FROM (
             SELECT Patient_ID, CAST(MAX(ConsultationDate) AS date) AS date_measured
             FROM CodedEvent
-            WHERE CTV3Code IN ({placeholders}) AND {date_condition}
+            WHERE CTV3Code IN ({codelist_sql}) AND {date_condition}
             GROUP BY Patient_ID
         ) AS days
         LEFT JOIN CodedEvent
         ON (
           CodedEvent.Patient_ID = days.Patient_ID
-          AND CodedEvent.CTV3Code IN ({placeholders})
+          AND CodedEvent.CTV3Code IN ({codelist_sql})
           AND CAST(CodedEvent.ConsultationDate AS date) = days.date_measured
         )
         GROUP BY days.Patient_ID, days.date_measured
         """
-        params = code_params + date_params + code_params
         columns = ["patient_id", "mean_value"]
         if include_measurement_date:
             columns.append("date_measured")
-        return columns, sql, params
+        return columns, sql
 
     def patients_registered_as_of(self, reference_date):
         """
@@ -427,9 +478,8 @@ class StudyDefinition:
             FROM Patient
             INNER JOIN RegistrationHistory
             ON RegistrationHistory.Patient_ID = Patient.Patient_ID
-            WHERE StartDate <= ? AND EndDate > ?
+            WHERE StartDate <= {quote(start_date)} AND EndDate > {quote(end_date)}
             """,
-            [start_date, end_date],
         )
 
     def patients_with_complete_history_between(self, start_date, end_date):
@@ -498,7 +548,7 @@ class StudyDefinition:
         include_day=False,
     ):
         codelist_table = self.create_codelist_table(codelist, codes_are_case_sensitive)
-        date_condition, params = make_date_filter(
+        date_condition = make_date_filter(
             "ConsultationDate", on_or_after, on_or_before, between
         )
 
@@ -587,7 +637,7 @@ class StudyDefinition:
             columns = ["patient_id", column_name]
             if include_date_of_match:
                 columns.append(date_column_name)
-        return columns, sql, params
+        return columns, sql
 
     def patients_registered_practice_as_of(self, date, returning=None):
         if returning == "stp_code":
@@ -612,13 +662,12 @@ class StudyDefinition:
                 PARTITION BY Patient_ID ORDER BY StartDate DESC, EndDate DESC
               ) AS rownum
               FROM RegistrationHistory
-              WHERE StartDate <= ? AND EndDate > ?
+              WHERE StartDate <= {quote(date)} AND EndDate > {quote(date)}
             ) t
             LEFT JOIN Organisation
             ON Organisation.Organisation_ID = t.Organisation_ID
             WHERE t.rownum = 1
             """,
-            [date, date],
         )
 
     def patients_address_as_of(self, date, returning=None, round_to_nearest=None):
@@ -650,11 +699,10 @@ class StudyDefinition:
                 PARTITION BY Patient_ID ORDER BY StartDate DESC, EndDate DESC
               ) AS rownum
               FROM PatientAddress
-              WHERE StartDate <= ? AND EndDate > ?
+              WHERE StartDate <= {quote(date)} AND EndDate > {quote(date)}
             ) t
             WHERE rownum = 1
             """,
-            [date, date],
         )
 
     # https://github.com/ebmdatalab/tpp-sql-notebook/issues/72
@@ -676,7 +724,7 @@ class StudyDefinition:
         ELSE
           OriginalIcuAdmissionDate
         END"""
-        date_condition, date_params = make_date_filter(
+        date_condition = make_date_filter(
             date_expression, on_or_after, on_or_before, between
         )
         date_column_definition = truncate_date(
@@ -702,7 +750,6 @@ class StudyDefinition:
             AND
               {date_condition}
             """,
-            date_params,
         )
 
     def patients_with_positive_covid_test(self):
@@ -713,7 +760,6 @@ class StudyDefinition:
             FROM CovidStatus
             WHERE Result = 'COVID19'
             """,
-            [],
         )
 
     def patients_have_died_of_covid(self):
@@ -724,7 +770,6 @@ class StudyDefinition:
             FROM CovidStatus
             WHERE Died = 'true'
             """,
-            [],
         )
 
     def patients_with_these_codes_on_death_certificate(
@@ -742,21 +787,17 @@ class StudyDefinition:
         include_month=False,
         include_day=False,
     ):
-        date_condition, date_params = make_date_filter(
-            "dod", on_or_after, on_or_before, between
-        )
+        date_condition = make_date_filter("dod", on_or_after, on_or_before, between)
         if codelist is not None:
-            placeholders, code_params = placeholders_and_params(codelist)
+            codelist_sql = codelist_to_sql(codelist)
             code_columns = ["icd10u"]
             if not match_only_underlying_cause:
                 code_columns.extend([f"ICD10{i:03d}" for i in range(1, 16)])
             code_conditions = " OR ".join(
-                f"{column} IN ({placeholders})" for column in code_columns
+                f"{column} IN ({codelist_sql})" for column in code_columns
             )
-            params = code_params * len(code_conditions) + date_params
         else:
             code_conditions = "1 = 1"
-            params = date_params
         if returning == "binary_flag":
             column_definition = "1"
             column_name = "died"
@@ -772,7 +813,6 @@ class StudyDefinition:
             FROM ONS_Deaths
             WHERE ({code_conditions}) AND {date_condition}
             """,
-            params,
         )
 
     def patients_died_from_any_cause(
@@ -809,7 +849,7 @@ class StudyDefinition:
         include_month=False,
         include_day=False,
     ):
-        date_condition, params = make_date_filter(
+        date_condition = make_date_filter(
             "DateOfDeath", on_or_after, on_or_before, between
         )
         if returning == "binary_flag":
@@ -827,7 +867,6 @@ class StudyDefinition:
             FROM CPNS
             WHERE {date_condition}
             """,
-            params,
         )
 
     def get_case_expression(self, covariates, category_definitions, extra_columns=None):
@@ -851,26 +890,31 @@ class StudyDefinition:
         # ensures that the expression matches the very limited subset of SQL we
         # support here.
         name_map = {}
-        for name, (columns, _, _) in covariates.items():
-            name_map[name] = f"{name}.{columns[1]}"
+        for name, (columns, query) in covariates.items():
+            name_map[name] = f"#{name}.{columns[1]}"
         return format_expression(expression, name_map)
+
+    def get_db_dict(self):
+        parsed = urlparse(os.environ["DATABASE_URL"])
+        return {
+            "hostname": parsed.hostname,
+            "port": parsed.port or 1433,
+            "database": parsed.path.lstrip("/"),
+            "username": unquote(parsed.username),
+            "password": unquote(parsed.password),
+        }
 
     def get_db_connection(self):
         if self._db_connection:
             return self._db_connection
-        parsed = urlparse(os.environ["DATABASE_URL"])
-        hostname = parsed.hostname
-        port = parsed.port or 1433
-        database = parsed.path.lstrip("/")
-        username = unquote(parsed.username)
-        password = unquote(parsed.password)
+        db_dict = self.get_db_dict()
         connection_str = (
-            f"DRIVER={{ODBC Driver 17 for SQL Server}};"
-            f"SERVER={hostname},{port};"
-            f"DATABASE={database};"
-            f"UID={username};"
-            f"PWD={password}"
-        )
+            "DRIVER={{ODBC Driver 17 for SQL Server}};"
+            "SERVER={hostname},{port};"
+            "DATABASE={database};"
+            "UID={username};"
+            "PWD={password}"
+        ).format(**db_dict)
         self._db_connection = pyodbc.connect(connection_str)
         return self._db_connection
 
@@ -1162,38 +1206,12 @@ def validate_time_period_options(
     # if return type is a date
 
 
-def placeholders_and_params(values, as_ints=False):
-    """
-    Returns parameter placeholders for use in an SQL `IN` condition, together
-    with a list of parameters to be used.
-
-    Ideally the function would just be this:
-
-      placeholders = ','.join("?" * len(values))
-      params = values
-
-    However, the pyodbc driver uses "prepared statements" under the hood and
-    these have a maximum limit of 2100 parameters, which we exceed when using
-    large codelists. (See: https://github.com/mkleehammer/pyodbc/issues/576).
-    One way of working around this would be to use temporary tables, but for
-    now we just manually interpolate the values into the SQL. Rather than
-    attempt any escaping we simply apply a whitelist of known safe characters.
-    As the codes we use come from quite a restricted character set this
-    shouldn't be a problem. And if it is we'll just blow up with an error
-    rather than do anything dangerous.
-    """
-    if as_ints:
-        raise NotImplementedError("TODO")
-    if getattr(values, "has_categories", False):
-        values = [v[0] for v in values]
-    values = list(map(str, values))
-    for value in values:
-        if not SAFE_CHARS_RE.match(value):
-            raise ValueError(f"Value contains disallowed characters: {value}")
-    quoted_values = [f"'{value}'" for value in values]
-    placeholders = ",".join(quoted_values)
-    params = []
-    return placeholders, params
+def codelist_to_sql(codelist):
+    if getattr(codelist, "has_categories", False):
+        values = [quote(code) for (code, category) in codelist]
+    else:
+        values = map(quote, codelist)
+    return ",".join(values)
 
 
 def quote(value):
@@ -1201,7 +1219,7 @@ def quote(value):
         return str(value)
     else:
         value = str(value)
-        if not SAFE_CHARS_RE.match(value):
+        if not SAFE_CHARS_RE.match(value) and value != "":
             raise ValueError(f"Value contains disallowed characters: {value}")
         return f"'{value}'"
 
@@ -1213,13 +1231,13 @@ def make_date_filter(column, min_date, max_date, between=None, upper_bound_only=
     if upper_bound_only:
         min_date = None
     if min_date is not None and max_date is not None:
-        return f"{column} BETWEEN ? AND ?", [min_date, max_date]
+        return f"{column} BETWEEN {quote(min_date)} AND {quote(max_date)}"
     elif min_date is not None:
-        return f"{column} >= ?", [min_date]
+        return f"{column} >= {quote(min_date)}"
     elif max_date is not None:
-        return f"{column} <= ?", [max_date]
+        return f"{column} <= {quote(max_date)}"
     else:
-        return "1=1", []
+        return "1=1"
 
 
 def truncate_date(column, include_month, include_day):
