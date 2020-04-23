@@ -16,6 +16,7 @@ SAFE_CHARS_RE = re.compile(r"[a-zA-Z0-9_\.\-]+")
 
 class StudyDefinition:
     _db_connection = None
+    _current_column_name = None
 
     def __init__(self, population, **kwargs):
         self.population_definition = population
@@ -43,11 +44,13 @@ class StudyDefinition:
 
     def build_queries(self):
         self.covariates = {}
-        population_cols, population_sql = self.get_query(*self.population_definition)
+        population_cols, population_sql = self.get_query(
+            "population", *self.population_definition
+        )
         hidden_columns = set()
         for name, (query_type, query_args) in self.covariate_definitions.items():
             if query_type != "categorised_as":
-                self.covariates[name] = self.get_query(query_type, query_args)
+                self.covariates[name] = self.get_query(name, query_type, query_args)
             # Special case for expression queries which can define extra hidden
             # columns which they use for their logic but which don't appear in
             # the output
@@ -56,7 +59,7 @@ class StudyDefinition:
                 for hidden_name, (hidden_query_type, hidden_args) in extra_columns:
                     hidden_columns.add(hidden_name)
                     self.covariates[hidden_name] = self.get_query(
-                        hidden_query_type, hidden_args
+                        hidden_name, hidden_query_type, hidden_args
                     )
         output_columns = ["#population.patient_id"]
         table_queries = [
@@ -125,15 +128,21 @@ class StudyDefinition:
         )
         print(f"[{timestamp}] {message}")
 
-    def get_query(self, query_type, query_args):
+    def get_query(self, column_name, query_type, query_args):
         method_name = f"patients_{query_type}"
         method = getattr(self, method_name)
-        return method(**query_args)
+        # Keep track of the current column name for debugging purposes
+        self._current_column_name = column_name
+        return_value = method(**query_args)
+        self._current_column_name = None
+        return return_value
 
     def create_codelist_table(self, codelist, case_sensitive=True):
         table_number = len(self.codelist_tables) + 1
+        # We include the current column name for ease of debugging
+        column_name = self._current_column_name or "unknown"
         # The hash prefix indicates a temporary table
-        table_name = f"#codelist_{table_number}"
+        table_name = f"#codelist_{table_number}_{column_name}"
         if codelist.has_categories:
             values = list(codelist)
         else:
