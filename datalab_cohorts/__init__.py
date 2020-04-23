@@ -25,7 +25,7 @@ class StudyDefinition:
                 "Expression queries can't yet be used in the population definition"
             )
         self.codelist_tables = []
-        self.sql, self.params = self.build_full_query()
+        self.sql = self.build_full_query()
 
     def to_csv(self, filename):
         result = self.execute_query()
@@ -43,9 +43,7 @@ class StudyDefinition:
 
     def build_full_query(self):
         self.covariates = {}
-        population_cols, population_sql, population_params = self.get_query(
-            *self.population_definition
-        )
+        population_cols, population_sql = self.get_query(*self.population_definition)
         hidden_columns = set()
         for name, (query_type, query_args) in self.covariate_definitions.items():
             if query_type != "categorised_as":
@@ -62,11 +60,9 @@ class StudyDefinition:
                     )
         cte_cols = ["population.patient_id"]  # XXX might more come from left side?
         ctes = [f"WITH population AS ({population_sql})"]
-        cte_params = population_params
         cte_joins = []
-        for column_name, (cols, sql, params) in self.covariates.items():
+        for column_name, (cols, sql) in self.covariates.items():
             ctes.append(f"{column_name} AS ({sql})")
-            cte_params.extend(params)
             cte_joins.append(
                 f"LEFT JOIN {column_name} ON {column_name}.patient_id = population.patient_id"
             )
@@ -107,7 +103,7 @@ class StudyDefinition:
         FROM population
         {' '.join(cte_joins)}
         """
-        return sql, cte_params
+        return sql
 
     def execute_query(self):
         conn = self.get_db_connection()
@@ -115,7 +111,7 @@ class StudyDefinition:
         for create_sql, insert_sql, values in self.codelist_tables:
             cursor.execute(create_sql)
             cursor.executemany(insert_sql, values)
-        cursor.execute(self.sql, self.params)
+        cursor.execute(self.sql)
         return cursor
 
     def get_query(self, query_type, query_args):
@@ -165,7 +161,6 @@ class StudyDefinition:
               END AS age
             FROM Patient
             """,
-            [],
         )
 
     def patients_sex(self):
@@ -176,7 +171,6 @@ class StudyDefinition:
             Patient_ID AS patient_id,
             Sex as sex
           FROM Patient""",
-            [],
         )
 
     def patients_all(self):
@@ -189,7 +183,6 @@ class StudyDefinition:
             SELECT Patient_ID AS patient_id, DateOfBirth AS date_of_birth, Sex AS sex
             FROM Patient
             """,
-            [],
         )
 
     def patients_random_sample(self, percent):
@@ -211,7 +204,6 @@ class StudyDefinition:
             (BINARY_CHECKSUM(*) *
             RAND()) as int)) % 100) < {quote(percent)}
             """,
-            [],
         )
 
     def patients_most_recent_bmi(
@@ -340,7 +332,7 @@ class StudyDefinition:
         columns = ["patient_id", "BMI"]
         if include_measurement_date:
             columns.append("date_measured")
-        return columns, sql, []
+        return columns, sql
 
     def patients_mean_recorded_value(
         self,
@@ -393,7 +385,7 @@ class StudyDefinition:
         columns = ["patient_id", "mean_value"]
         if include_measurement_date:
             columns.append("date_measured")
-        return columns, sql, []
+        return columns, sql
 
     def patients_registered_as_of(self, reference_date):
         """
@@ -418,7 +410,6 @@ class StudyDefinition:
             ON RegistrationHistory.Patient_ID = Patient.Patient_ID
             WHERE StartDate <= {quote(start_date)} AND EndDate > {quote(end_date)}
             """,
-            [],
         )
 
     def patients_with_complete_history_between(self, start_date, end_date):
@@ -576,7 +567,7 @@ class StudyDefinition:
             columns = ["patient_id", column_name]
             if include_date_of_match:
                 columns.append(date_column_name)
-        return columns, sql, []
+        return columns, sql
 
     def patients_registered_practice_as_of(self, date, returning=None):
         if returning == "stp_code":
@@ -607,7 +598,6 @@ class StudyDefinition:
             ON Organisation.Organisation_ID = t.Organisation_ID
             WHERE t.rownum = 1
             """,
-            [],
         )
 
     def patients_address_as_of(self, date, returning=None, round_to_nearest=None):
@@ -643,7 +633,6 @@ class StudyDefinition:
             ) t
             WHERE rownum = 1
             """,
-            [],
         )
 
     # https://github.com/ebmdatalab/tpp-sql-notebook/issues/72
@@ -691,7 +680,6 @@ class StudyDefinition:
             AND
               {date_condition}
             """,
-            [],
         )
 
     def patients_with_positive_covid_test(self):
@@ -702,7 +690,6 @@ class StudyDefinition:
             FROM CovidStatus
             WHERE Result = 'COVID19'
             """,
-            [],
         )
 
     def patients_have_died_of_covid(self):
@@ -713,7 +700,6 @@ class StudyDefinition:
             FROM CovidStatus
             WHERE Died = 'true'
             """,
-            [],
         )
 
     def patients_with_these_codes_on_death_certificate(
@@ -757,7 +743,6 @@ class StudyDefinition:
             FROM ONS_Deaths
             WHERE ({code_conditions}) AND {date_condition}
             """,
-            [],
         )
 
     def patients_died_from_any_cause(
@@ -812,7 +797,6 @@ class StudyDefinition:
             FROM CPNS
             WHERE {date_condition}
             """,
-            [],
         )
 
     def get_case_expression(self, covariates, category_definitions, extra_columns=None):
@@ -836,7 +820,7 @@ class StudyDefinition:
         # ensures that the expression matches the very limited subset of SQL we
         # support here.
         name_map = {}
-        for name, (columns, _, _) in covariates.items():
+        for name, (columns, query) in covariates.items():
             name_map[name] = f"{name}.{columns[1]}"
         return format_expression(expression, name_map)
 
