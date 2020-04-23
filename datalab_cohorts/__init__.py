@@ -134,12 +134,9 @@ class StudyDefinition:
         return table_queries + [("final_output", joined_output_query)]
 
     def execute_query(self):
-        timestamp = datetime.datetime.now(datetime.timezone.utc).strftime(
-            "%Y%m%d_%H%M%S"
-        )
-        output_table = f"OPENCoronaTempTables..Output_{timestamp}"
-        conn = self.get_db_connection()
-        cursor = conn.cursor()
+        temporary_database = "OPENCoronaTempTables"
+        output_table = self.get_output_table_name(temporary_database)
+        cursor = self.get_db_connection().cursor()
         self.log("Uploading codelists into temporary tables")
         for create_sql, insert_sql, values in self.codelist_tables:
             cursor.execute(create_sql)
@@ -149,12 +146,31 @@ class StudyDefinition:
         for name, sql in queries:
             self.log(f"Running query: {name}")
             cursor.execute(sql)
-        self.log(f"Running final query and writing output to '{output_table}'")
-        sql = f"SELECT * INTO {output_table} FROM ({final_query}) t"
-        cursor.execute(sql)
-        self.log(f"Downloading data from '{output_table}'")
-        cursor.execute(f"SELECT * FROM {output_table}")
+        if output_table is not None:
+            self.log(f"Running final query and writing output to '{output_table}'")
+            sql = f"SELECT * INTO {output_table} FROM ({final_query}) t"
+            cursor.execute(sql)
+            self.log(f"Downloading data from '{output_table}'")
+            cursor.execute(f"SELECT * FROM {output_table}")
+        else:
+            self.log(
+                f"No database matching '{temporary_database}', downloading results "
+                "directly without writing to output table"
+            )
+            cursor.execute(final_query)
         return cursor
+
+    def get_output_table_name(self, temporary_database):
+        # Check that the temporary database exists
+        cursor = self.get_db_connection().cursor()
+        cursor.execute("SELECT DB_ID(?)", [temporary_database])
+        result = list(cursor)[0][0]
+        if result is None:
+            return
+        timestamp = datetime.datetime.now(datetime.timezone.utc).strftime(
+            "%Y%m%d_%H%M%S"
+        )
+        return f"{temporary_database}..Output_{timestamp}"
 
     def log(self, message):
         timestamp = datetime.datetime.now(datetime.timezone.utc).strftime(
