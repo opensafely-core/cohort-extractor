@@ -25,7 +25,7 @@ class StudyDefinition:
                 "Expression queries can't yet be used in the population definition"
             )
         self.codelist_tables = []
-        self.sql = self.build_full_query()
+        self.queries = self.build_queries()
 
     def to_csv(self, filename):
         result = self.execute_query()
@@ -41,7 +41,7 @@ class StudyDefinition:
         # Convert all values to str as that's what will end in the CSV
         return [dict(zip(keys, map(str, row))) for row in result]
 
-    def build_full_query(self):
+    def build_queries(self):
         self.covariates = {}
         population_cols, population_sql = self.get_query(*self.population_definition)
         hidden_columns = set()
@@ -58,13 +58,13 @@ class StudyDefinition:
                     self.covariates[hidden_name] = self.get_query(
                         hidden_query_type, hidden_args
                     )
-        cte_cols = ["population.patient_id"]  # XXX might more come from left side?
-        ctes = [f"WITH population AS ({population_sql})"]
-        cte_joins = []
+        output_columns = ["#population.patient_id"]
+        table_queries = [f"SELECT * INTO #population FROM ({population_sql}) t"]
+        joins = []
         for column_name, (cols, sql) in self.covariates.items():
-            ctes.append(f"{column_name} AS ({sql})")
-            cte_joins.append(
-                f"LEFT JOIN {column_name} ON {column_name}.patient_id = population.patient_id"
+            table_queries.append(f"SELECT * INTO #{column_name} FROM ({sql}) t")
+            joins.append(
+                f"LEFT JOIN #{column_name} ON #{column_name}.patient_id = #population.patient_id"
             )
             if column_name in hidden_columns:
                 continue
@@ -84,8 +84,8 @@ class StudyDefinition:
                     or col == "category"
                 )
                 default_value = "''" if is_str_col else 0
-                cte_cols.append(
-                    f"ISNULL({column_name}.{col}, {default_value}) AS {output_column}"
+                output_columns.append(
+                    f"ISNULL(#{column_name}.{col}, {default_value}) AS {output_column}"
                 )
         # Add column defintions for covariates which are boolean expressions
         # over other covariates
@@ -94,16 +94,14 @@ class StudyDefinition:
                 case_expression = self.get_case_expression(
                     self.covariates, **query_args
                 )
-                cte_cols.append(f"{case_expression} AS {name}")
-        cte_sql = ", ".join(ctes)
-        sql = f"""
-        {cte_sql}
+                output_columns.append(f"{case_expression} AS {name}")
+        joined_output_query = f"""
         SELECT
-          {', '.join(cte_cols)}
-        FROM population
-        {' '.join(cte_joins)}
+          {', '.join(output_columns)}
+        FROM #population
+        {' '.join(joins)}
         """
-        return sql
+        return table_queries + [joined_output_query]
 
     def execute_query(self):
         conn = self.get_db_connection()
@@ -111,7 +109,8 @@ class StudyDefinition:
         for create_sql, insert_sql, values in self.codelist_tables:
             cursor.execute(create_sql)
             cursor.executemany(insert_sql, values)
-        cursor.execute(self.sql)
+        for sql in self.queries:
+            cursor.execute(sql)
         return cursor
 
     def get_query(self, query_type, query_args):
@@ -821,7 +820,7 @@ class StudyDefinition:
         # support here.
         name_map = {}
         for name, (columns, query) in covariates.items():
-            name_map[name] = f"{name}.{columns[1]}"
+            name_map[name] = f"#{name}.{columns[1]}"
         return format_expression(expression, name_map)
 
     def get_db_connection(self):
