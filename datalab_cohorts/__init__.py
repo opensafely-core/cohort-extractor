@@ -268,31 +268,31 @@ class StudyDefinition:
           SELECT Patient_ID, NumericValue AS BMI, ConsultationDate,
           ROW_NUMBER() OVER (PARTITION BY Patient_ID ORDER BY ConsultationDate DESC) AS rownum
           FROM CodedEvent
-          WHERE CTV3Code = ? AND {date_condition}
+          WHERE CTV3Code = {quote(bmi_code)} AND {date_condition}
         ) t
         WHERE t.rownum = 1
         """
-        bmi_cte_params = [bmi_code] + date_params
+        bmi_cte_params = date_params
 
         patients_cte = f"""
            SELECT Patient_ID, DateOfBirth
            FROM Patient
         """
         patients_cte_params = []
-        weight_placeholders, weight_params = placeholders_and_params(weight_codes)
+        weight_codes_sql = codelist_to_sql(weight_codes)
         weights_cte = f"""
           SELECT t.Patient_ID, t.weight, t.ConsultationDate
           FROM (
             SELECT Patient_ID, NumericValue AS weight, ConsultationDate,
             ROW_NUMBER() OVER (PARTITION BY Patient_ID ORDER BY ConsultationDate DESC) AS rownum
             FROM CodedEvent
-            WHERE CTV3Code IN ({weight_placeholders}) AND {date_condition}
+            WHERE CTV3Code IN ({weight_codes_sql}) AND {date_condition}
           ) t
           WHERE t.rownum = 1
         """
-        weights_cte_params = weight_params + date_params
+        weights_cte_params = date_params
 
-        height_placeholders, height_params = placeholders_and_params(height_codes)
+        height_codes_sql = codelist_to_sql(height_codes)
         # The height date restriction is different from the others. We don't
         # mind using old values as long as the patient was old enough when they
         # were taken.
@@ -309,11 +309,11 @@ class StudyDefinition:
             SELECT Patient_ID, NumericValue AS height, ConsultationDate,
             ROW_NUMBER() OVER (PARTITION BY Patient_ID ORDER BY ConsultationDate DESC) AS rownum
             FROM CodedEvent
-            WHERE CTV3Code IN ({height_placeholders}) AND {height_date_condition}
+            WHERE CTV3Code IN ({height_codes_sql}) AND {height_date_condition}
           ) t
           WHERE t.rownum = 1
         """
-        heights_cte_params = height_params + height_date_params
+        heights_cte_params = height_date_params
 
         date_column_defintion = truncate_date(
             """
@@ -372,7 +372,7 @@ class StudyDefinition:
         date_condition, date_params = make_date_filter(
             "ConsultationDate", on_or_after, on_or_before, between
         )
-        placeholders, code_params = placeholders_and_params(codelist)
+        codelist_sql = codelist_to_sql(codelist)
         date_definition = truncate_date(
             "days.date_measured", include_month, include_day
         )
@@ -389,18 +389,18 @@ class StudyDefinition:
         FROM (
             SELECT Patient_ID, CAST(MAX(ConsultationDate) AS date) AS date_measured
             FROM CodedEvent
-            WHERE CTV3Code IN ({placeholders}) AND {date_condition}
+            WHERE CTV3Code IN ({codelist_sql}) AND {date_condition}
             GROUP BY Patient_ID
         ) AS days
         LEFT JOIN CodedEvent
         ON (
           CodedEvent.Patient_ID = days.Patient_ID
-          AND CodedEvent.CTV3Code IN ({placeholders})
+          AND CodedEvent.CTV3Code IN ({codelist_sql})
           AND CAST(CodedEvent.ConsultationDate AS date) = days.date_measured
         )
         GROUP BY days.Patient_ID, days.date_measured
         """
-        params = code_params + date_params + code_params
+        params = date_params
         columns = ["patient_id", "mean_value"]
         if include_measurement_date:
             columns.append("date_measured")
@@ -746,14 +746,14 @@ class StudyDefinition:
             "dod", on_or_after, on_or_before, between
         )
         if codelist is not None:
-            placeholders, code_params = placeholders_and_params(codelist)
+            codelist_sql = codelist_to_sql(codelist)
             code_columns = ["icd10u"]
             if not match_only_underlying_cause:
                 code_columns.extend([f"ICD10{i:03d}" for i in range(1, 16)])
             code_conditions = " OR ".join(
-                f"{column} IN ({placeholders})" for column in code_columns
+                f"{column} IN ({codelist_sql})" for column in code_columns
             )
-            params = code_params * len(code_conditions) + date_params
+            params = date_params
         else:
             code_conditions = "1 = 1"
             params = date_params
@@ -1162,38 +1162,16 @@ def validate_time_period_options(
     # if return type is a date
 
 
-def placeholders_and_params(values, as_ints=False):
-    """
-    Returns parameter placeholders for use in an SQL `IN` condition, together
-    with a list of parameters to be used.
+def codelist_to_sql(codelist):
+    if getattr(codelist, "has_categories", False):
+        values = [quote(code) for (code, category) in codelist]
+    else:
+        values = map(quote, codelist)
+    return ",".join(values)
 
-    Ideally the function would just be this:
-
-      placeholders = ','.join("?" * len(values))
-      params = values
-
-    However, the pyodbc driver uses "prepared statements" under the hood and
-    these have a maximum limit of 2100 parameters, which we exceed when using
-    large codelists. (See: https://github.com/mkleehammer/pyodbc/issues/576).
-    One way of working around this would be to use temporary tables, but for
-    now we just manually interpolate the values into the SQL. Rather than
-    attempt any escaping we simply apply a whitelist of known safe characters.
-    As the codes we use come from quite a restricted character set this
-    shouldn't be a problem. And if it is we'll just blow up with an error
-    rather than do anything dangerous.
-    """
-    if as_ints:
-        raise NotImplementedError("TODO")
-    if getattr(values, "has_categories", False):
-        values = [v[0] for v in values]
-    values = list(map(str, values))
     for value in values:
         if not SAFE_CHARS_RE.match(value):
             raise ValueError(f"Value contains disallowed characters: {value}")
-    quoted_values = [f"'{value}'" for value in values]
-    placeholders = ",".join(quoted_values)
-    params = []
-    return placeholders, params
 
 
 def quote(value):
