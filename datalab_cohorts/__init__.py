@@ -59,10 +59,14 @@ class StudyDefinition:
                         hidden_query_type, hidden_args
                     )
         output_columns = ["#population.patient_id"]
-        table_queries = [f"SELECT * INTO #population FROM ({population_sql}) t"]
+        table_queries = [
+            ("population", f"SELECT * INTO #population FROM ({population_sql}) t")
+        ]
         joins = []
         for column_name, (cols, sql) in self.covariates.items():
-            table_queries.append(f"SELECT * INTO #{column_name} FROM ({sql}) t")
+            table_queries.append(
+                (column_name, f"SELECT * INTO #{column_name} FROM ({sql}) t")
+            )
             joins.append(
                 f"LEFT JOIN #{column_name} ON #{column_name}.patient_id = #population.patient_id"
             )
@@ -101,17 +105,25 @@ class StudyDefinition:
         FROM #population
         {' '.join(joins)}
         """
-        return table_queries + [joined_output_query]
+        return table_queries + [("final_output", joined_output_query)]
 
     def execute_query(self):
         conn = self.get_db_connection()
         cursor = conn.cursor()
+        self.log("Uploading codelists into temporary tables")
         for create_sql, insert_sql, values in self.codelist_tables:
             cursor.execute(create_sql)
             cursor.executemany(insert_sql, values)
-        for sql in self.queries:
+        for name, sql in self.queries:
+            self.log(f"Running query: {name}")
             cursor.execute(sql)
         return cursor
+
+    def log(self, message):
+        timestamp = datetime.datetime.now(datetime.timezone.utc).strftime(
+            "%Y-%m-%d %H:%M:%S UTC"
+        )
+        print(f"[{timestamp}] {message}")
 
     def get_query(self, query_type, query_args):
         method_name = f"patients_{query_type}"
