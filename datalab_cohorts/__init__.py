@@ -104,14 +104,7 @@ class StudyDefinition:
                 # output column. The rest are added as suffixes to the name of
                 # the output column
                 output_column = column_name if n == 0 else f"{column_name}_{col}"
-                is_str_col = (
-                    col == "date"
-                    or col.startswith("date_")
-                    or col.endswith("_date")
-                    or col.endswith("_code")
-                    or col == "category"
-                )
-                default_value = "''" if is_str_col else 0
+                default_value = quote(self.default_for_column(col))
                 output_columns.append(
                     f"ISNULL(#{column_name}.{col}, {default_value}) AS {output_column}"
                 )
@@ -132,6 +125,16 @@ class StudyDefinition:
           {joins_str}
         """
         return table_queries + [("final_output", joined_output_query)]
+
+    def default_for_column(self, column_name):
+        is_str_col = (
+            column_name == "date"
+            or column_name.startswith("date_")
+            or column_name.endswith("_date")
+            or column_name.endswith("_code")
+            or column_name == "category"
+        )
+        return "" if is_str_col else 0
 
     def execute_query(self):
         temporary_database = "OPENCoronaTempTables"
@@ -891,7 +894,10 @@ class StudyDefinition:
         # support here.
         name_map = {}
         for name, (columns, query) in covariates.items():
-            name_map[name] = f"#{name}.{columns[1]}"
+            # The first column is the patient_id, the next is the primary column
+            column = columns[1]
+            default_value = quote(self.default_for_column(column))
+            name_map[name] = f"ISNULL(#{name}.{column}, {default_value})"
         return format_expression(expression, name_map)
 
     def get_db_dict(self):

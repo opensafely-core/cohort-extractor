@@ -119,8 +119,8 @@ def insert_implicit_comparisons(tokens):
         if token.ttype is ttypes.Name and not is_compared:
             yield sqlparse.sql.Token(ttypes.Punctuation, "(")
             yield token
-            yield sqlparse.sql.Token(ttypes.Comparison, "!=")
-            yield sqlparse.sql.Token(ttypes.Number.Integer, "0")
+            yield sqlparse.sql.Token(ttypes.Comparison, "=")
+            yield sqlparse.sql.Token(ttypes.Number.Integer, "1")
             yield sqlparse.sql.Token(ttypes.Punctuation, ")")
         else:
             yield token
