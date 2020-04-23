@@ -42,6 +42,27 @@ class StudyDefinition:
         # Convert all values to str as that's what will end in the CSV
         return [dict(zip(keys, map(str, row))) for row in result]
 
+    def to_sql(self):
+        """
+        Generate a single SQL string.
+
+        Useful for debugging, optimising, etc.
+        """
+        prepared_sql = ["-- Create codelist tables"]
+        for create_sql, insert_sql, values in self.codelist_tables:
+            prepared_sql.append(create_sql)
+            prepared_sql.append("GO")
+            for row in values:
+                prepared_sql.append(
+                    insert_sql.replace("?", "{}").format(*map(quote, row)) + ";"
+                )
+            prepared_sql.append("GO\n\n")
+        for name, query in self.queries:
+            prepared_sql.append(f"-- Query for {name}")
+            prepared_sql.append(query)
+            prepared_sql.append("\n\n")
+        return "\n".join(prepared_sql)
+
     def build_queries(self):
         self.covariates = {}
         population_cols, population_sql = self.get_query(
@@ -844,22 +865,27 @@ class StudyDefinition:
             name_map[name] = f"#{name}.{columns[1]}"
         return format_expression(expression, name_map)
 
+    def get_db_dict(self):
+        parsed = urlparse(os.environ["DATABASE_URL"])
+        return {
+            "hostname": parsed.hostname,
+            "port": parsed.port or 1433,
+            "database": parsed.path.lstrip("/"),
+            "username": unquote(parsed.username),
+            "password": unquote(parsed.password),
+        }
+
     def get_db_connection(self):
         if self._db_connection:
             return self._db_connection
-        parsed = urlparse(os.environ["DATABASE_URL"])
-        hostname = parsed.hostname
-        port = parsed.port or 1433
-        database = parsed.path.lstrip("/")
-        username = unquote(parsed.username)
-        password = unquote(parsed.password)
+        db_dict = self.get_db_dict()
         connection_str = (
-            f"DRIVER={{ODBC Driver 17 for SQL Server}};"
-            f"SERVER={hostname},{port};"
-            f"DATABASE={database};"
-            f"UID={username};"
-            f"PWD={password}"
-        )
+            "DRIVER={{ODBC Driver 17 for SQL Server}};"
+            "SERVER={hostname},{port};"
+            "DATABASE={database};"
+            "UID={username};"
+            "PWD={password}"
+        ).format(**db_dict)
         self._db_connection = pyodbc.connect(connection_str)
         return self._db_connection
 
@@ -1158,17 +1184,13 @@ def codelist_to_sql(codelist):
         values = map(quote, codelist)
     return ",".join(values)
 
-    for value in values:
-        if not SAFE_CHARS_RE.match(value):
-            raise ValueError(f"Value contains disallowed characters: {value}")
-
 
 def quote(value):
     if isinstance(value, (int, float)):
         return str(value)
     else:
         value = str(value)
-        if not SAFE_CHARS_RE.match(value):
+        if not SAFE_CHARS_RE.match(value) and value != "":
             raise ValueError(f"Value contains disallowed characters: {value}")
         return f"'{value}'"
 
