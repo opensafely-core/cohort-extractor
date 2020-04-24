@@ -137,8 +137,6 @@ class StudyDefinition:
         return "" if is_str_col else 0
 
     def execute_query(self):
-        temporary_database = "OPENCoronaTempTables"
-        output_table = self.get_output_table_name(temporary_database)
         cursor = self.get_db_connection().cursor()
         self.log("Uploading codelists into temporary tables")
         for create_sql, insert_sql, values in self.codelist_tables:
@@ -149,7 +147,8 @@ class StudyDefinition:
         for name, sql in queries:
             self.log(f"Running query: {name}")
             cursor.execute(sql)
-        if output_table is not None:
+        if "TEMP_DATABASE_NAME" in os.environ:
+            output_table = self.get_output_table_name(os.environ["TEMP_DATABASE_NAME"])
             self.log(f"Running final query and writing output to '{output_table}'")
             sql = f"SELECT * INTO {output_table} FROM ({final_query}) t"
             cursor.execute(sql)
@@ -157,7 +156,7 @@ class StudyDefinition:
             cursor.execute(f"SELECT * FROM {output_table}")
         else:
             self.log(
-                f"No database matching '{temporary_database}', downloading results "
+                f"No TEMP_DATABASE_NAME defined in environment, downloading results "
                 "directly without writing to output table"
             )
             cursor.execute(final_query)
