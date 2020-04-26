@@ -713,11 +713,24 @@ class StudyDefinition:
         on_or_after=None,
         on_or_before=None,
         between=None,
-        include_admission_date=True,
+        find_first_match_in_period=None,
+        find_last_match_in_period=None,
+        returning="binary_flag",
         include_month=True,
         include_day=False,
     ):
-        date_expression = """
+        assert returning in [
+            "binary_flag",
+            "date_admitted",
+        ], "`returning` must be one of `binary_flag` or `date_admitted`"
+        if find_first_match_in_period:
+            date_aggregate = "MIN"
+            date_column_name = "first_admitted_date"
+        else:
+            date_aggregate = "MAX"
+            date_column_name = "last_admitted_date"
+        date_expression = f"""
+        {date_aggregate}(
         CASE
         WHEN
           COALESCE(IcuAdmissionDateTime, '9999-01-01') < COALESCE(OriginalIcuAdmissionDate, '9999-01-01')
@@ -725,32 +738,31 @@ class StudyDefinition:
           IcuAdmissionDateTime
         ELSE
           OriginalIcuAdmissionDate
-        END"""
+        END)"""
         date_condition = make_date_filter(
             date_expression, on_or_after, on_or_before, between
         )
-        date_column_definition = truncate_date(
-            date_expression, include_month, include_day
-        )
-        columns = ["patient_id", "admitted", "ventilated"]
-        if include_admission_date:
-            columns.append("date_admitted")
+        columns = ["patient_id"]
+        if returning == "date_admitted":
+            column_definition = truncate_date(
+                date_expression, include_month, include_day
+            )
+            columns.append(date_column_name)
+        elif returning == "binary_flag":
+            column_definition = 1
+            columns.append(date_column_name)
         return (
             columns,
             f"""
             SELECT
               Patient_ID AS patient_id,
-              1 AS admitted,
-              {date_column_definition} AS date_admitted,
-              Ventilator AS ventilated -- apparently can be 0, 1 or NULL
+              {column_definition} AS {date_column_name},
+              MAX(Ventilator) AS ventilated -- apparently can be 0, 1 or NULL
             FROM
               ICNARC
-            WHERE
-              IcuAdmissionDateTime IS NOT NULL  -- XXX is this necessary?
-            AND
-              BasicDays_RespiratorySupport + AdvancedDays_RespiratorySupport >= 1
-            AND
-              {date_condition}
+            GROUP BY Patient_ID
+            HAVING
+              {date_condition} AND SUM(BasicDays_RespiratorySupport) + SUM(AdvancedDays_RespiratorySupport) >= 1
             """,
         )
 
@@ -1120,7 +1132,9 @@ class patients:
         on_or_after=None,
         on_or_before=None,
         between=None,
-        include_admission_date=True,
+        find_first_match_in_period=None,
+        find_last_match_in_period=None,
+        returning="binary_flag",
         include_month=True,
         include_day=False,
     ):
