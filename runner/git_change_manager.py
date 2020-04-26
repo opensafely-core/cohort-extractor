@@ -151,7 +151,7 @@ def review_branch_exists():
 
 
 def get_changes(pathspec):
-    """Return a list of files that have changed, overriding any hard-coded exceptions.
+    """Return a list of files that have changed, except any hard-coded exceptions.
 
     Exceptions are a belt-and-braces measure to ensure we never commit
     potentially-sensitive data.
