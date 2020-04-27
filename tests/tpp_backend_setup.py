@@ -156,6 +156,7 @@ class Organisation(Base):
         back_populates="Organisation",
         cascade="all, delete, delete-orphan",
     )
+    Region = Column(String)
 
 
 class PatientAddress(Base):
