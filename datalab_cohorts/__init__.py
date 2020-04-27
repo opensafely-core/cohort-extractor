@@ -606,21 +606,20 @@ class StudyDefinition:
                 "ConsultationDate", include_month, include_day
             )
             sql = f"""
-            SELECT
-              Patient_ID AS patient_id,
-              {column_definition} AS {column_name},
-              {date_column_definition} AS {date_column_name}
-            FROM (
-              SELECT Patient_ID, {column_definition}, ConsultationDate,
-              ROW_NUMBER() OVER (
-                PARTITION BY Patient_ID ORDER BY ConsultationDate {ordering}
-              ) AS rownum
+            SELECT t.*
+            FROM
+              (SELECT patient_id FROM #population) p
+            CROSS APPLY (
+              SELECT TOP 1
+                Patient_ID AS patient_id,
+                {column_definition} AS {column_name},
+                {date_column_definition} AS {date_column_name}
               FROM {from_table}
               INNER JOIN {codelist_table}
               ON {code_column} = {codelist_table}.code
-              WHERE {date_condition}
+              WHERE Patient_ID = p.patient_id AND {date_condition}
+              ORDER BY ConsultationDate {ordering}
             ) t
-            WHERE rownum = 1
             """
         else:
             date_column_definition = truncate_date(
