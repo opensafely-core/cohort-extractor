@@ -1214,6 +1214,11 @@ def test_patients_with_death_recorded_in_cpns():
             Patient(CPNS=[CPNS(DateOfDeath="2021-01-01")]),
             # Patient should be included
             Patient(CPNS=[CPNS(DateOfDeath="2020-02-01")]),
+            # Patient has multple entries but with the same date of death so
+            # should be handled correctly
+            Patient(
+                CPNS=[CPNS(DateOfDeath="2020-03-01"), CPNS(DateOfDeath="2020-03-01")]
+            ),
         ]
     )
     session.commit()
@@ -1228,8 +1233,28 @@ def test_patients_with_death_recorded_in_cpns():
         ),
     )
     results = study.to_dicts()
-    assert [i["cpns_death"] for i in results] == ["0", "0", "1"]
-    assert [i["cpns_death_date"] for i in results] == ["", "", "2020-02-01"]
+    assert [i["cpns_death"] for i in results] == ["0", "0", "1", "1"]
+    assert [i["cpns_death_date"] for i in results] == [
+        "",
+        "",
+        "2020-02-01",
+        "2020-03-01",
+    ]
+
+
+def test_patients_with_death_recorded_in_cpns_raises_error_on_bad_data():
+    session = make_session()
+    session.add_all(
+        # Create a patient with duplicate CPNS entries recording an
+        # inconsistent date of death
+        [Patient(CPNS=[CPNS(DateOfDeath="2020-03-01"), CPNS(DateOfDeath="2020-02-01")])]
+    )
+    session.commit()
+    study = StudyDefinition(
+        population=patients.all(), cpns_death=patients.with_death_recorded_in_cpns()
+    )
+    with pytest.raises(Exception):
+        study.to_dicts()
 
 
 def test_filter_codes_by_category():
