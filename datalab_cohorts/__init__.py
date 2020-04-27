@@ -1266,8 +1266,8 @@ def truncate_date(column, include_month, include_day):
     date_length = 4
     if include_month:
         date_length = 7
-        if include_day:
-            date_length = 10
+    if include_day:
+        date_length = 10
     # Style 23 below means YYYY-MM-DD format, see:
     # https://docs.microsoft.com/en-us/sql/t-sql/functions/cast-and-convert-transact-sql?view=sql-server-ver15#date-and-time-styles
     return f"CONVERT(VARCHAR({date_length}), {column}, 23)"
