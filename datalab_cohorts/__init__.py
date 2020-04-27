@@ -873,16 +873,23 @@ class StudyDefinition:
             column_definition = "1"
             column_name = "died"
         elif returning == "date_of_death":
-            column_definition = truncate_date("DateOfDeath", include_month, include_day)
+            column_definition = truncate_date(
+                "MAX(DateOfDeath)", include_month, include_day
+            )
             column_name = "date_of_death"
         else:
             raise ValueError(f"Unsupported `returning` value: {returning}")
         return (
             ["patient_id", column_name],
             f"""
-            SELECT Patient_ID as patient_id, {column_definition} AS {column_name}
+            SELECT
+              Patient_ID as patient_id,
+              {column_definition} AS {column_name},
+              -- Crude error check so we blow up in the case of inconsistent dates
+              1 / CASE WHEN MAX(DateOfDeath) = MIN(DateOfDeath) THEN 1 ELSE 0 END AS _e
             FROM CPNS
             WHERE {date_condition}
+            GROUP BY Patient_ID
             """,
         )
 
