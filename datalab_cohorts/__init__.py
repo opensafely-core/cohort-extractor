@@ -156,8 +156,8 @@ class StudyDefinition:
         for name, sql in queries:
             self.log(f"Running query: {name}")
             cursor.execute(sql)
-        if "TEMP_DATABASE_NAME" in os.environ:
-            output_table = self.get_output_table_name(os.environ["TEMP_DATABASE_NAME"])
+        output_table = self.get_output_table_name(os.environ.get("TEMP_DATABASE_NAME"))
+        if output_table:
             self.log(f"Running final query and writing output to '{output_table}'")
             sql = f"SELECT * INTO {output_table} FROM ({final_query}) t"
             cursor.execute(sql)
@@ -172,11 +172,7 @@ class StudyDefinition:
         return cursor
 
     def get_output_table_name(self, temporary_database):
-        # Check that the temporary database exists
-        cursor = self.get_db_connection().cursor()
-        cursor.execute("SELECT DB_ID(?)", [temporary_database])
-        result = list(cursor)[0][0]
-        if result is None:
+        if not temporary_database:
             return
         timestamp = datetime.datetime.now(datetime.timezone.utc).strftime(
             "%Y%m%d_%H%M%S"
