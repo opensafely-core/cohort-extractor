@@ -28,18 +28,44 @@ jobs:
     - name: Build with pyinstaller
       run: |
         pyinstaller run.py --onefile --hidden-import=datalab_cohorts
-    - name: Create Release
-      id: create_release
+    - name: Create Draft (non-master branch) Release
+      id: create_draft_release
+      if: github.ref != 'master'
       uses: actions/create-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        tag_name: ${{ github.run_id }}
-        release_name: Release ${{ github.run_id }}
+        # The latest release is the most recent non-prerelease,
+        # non-draft release, sorted by the created_at attribute.
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
+        draft: true
+        prerelease: false
+    - name: Upload Draft (non-master branch) Windows binary
+      if: github.ref != 'master'
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_draft_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above
+        asset_path: ./dist/run.exe
+        asset_name: run.exe
+        asset_content_type: application/vnd.microsoft.portable-executable
+    - name: Create Non-draft (master branch) Release
+      id: create_full_release
+      if: github.ref == 'master'
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        # The latest release is the most recent non-prerelease,
+        # non-draft release, sorted by the created_at attribute.
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
         draft: false
         prerelease: false
-    - name: Upload Windows binary
-      id: upload-release-asset
+    - name: Upload Non-draft (master branch) Windows binary
+      if: github.ref == 'master'
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
