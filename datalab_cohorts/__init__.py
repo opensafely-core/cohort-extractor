@@ -30,17 +30,25 @@ class StudyDefinition:
 
     def to_csv(self, filename):
         result = self.execute_query()
+        unique_check = UniqueCheck()
         with open(filename, "w", newline="") as csvfile:
             writer = csv.writer(csvfile)
             writer.writerow([x[0] for x in result.description])
             for row in result:
+                unique_check.add(row[0])
                 writer.writerow(row)
+        unique_check.assert_unique_ids()
 
     def to_dicts(self):
         result = self.execute_query()
         keys = [x[0] for x in result.description]
         # Convert all values to str as that's what will end in the CSV
-        return [dict(zip(keys, map(str, row))) for row in result]
+        output = [dict(zip(keys, map(str, row))) for row in result]
+        unique_check = UniqueCheck()
+        for item in output:
+            unique_check.add(item["patient_id"])
+        unique_check.assert_unique_ids()
+        return output
 
     def to_sql(self):
         """
@@ -1318,3 +1326,18 @@ def filter_codes_by_category(codes, include):
         if category in include:
             new_codes.append((code, category))
     return new_codes
+
+
+class UniqueCheck:
+    def __init__(self):
+        self.count = 0
+        self.ids = set()
+
+    def add(self, item):
+        self.count += 1
+        self.ids.add(item)
+
+    def assert_unique_ids(self):
+        duplicates = self.count - len(self.ids)
+        if duplicates != 0:
+            raise RuntimeError(f"Duplicate IDs found ({duplicates} rows)")
