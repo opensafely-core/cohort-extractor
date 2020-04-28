@@ -76,6 +76,7 @@ class StudyDefinition:
                 final_file.write(line)
                 patient_id = line.split(",")[0]
                 unique_check.add(patient_id)
+        unique_check.assert_unique_ids()
 
     def to_csv(self, filename, with_sqlcmd=False):
         if with_sqlcmd:
