@@ -877,10 +877,10 @@ def test_patients_categorised_as():
     session = make_session()
     session.add_all(
         [
-            Patient(Sex="M", CodedEvents=[CodedEvent(CTV3Code="foo1")]),
-            Patient(Sex="F", CodedEvents=[CodedEvent(CTV3Code="foo2")]),
-            Patient(Sex="M", CodedEvents=[CodedEvent(CTV3Code="foo2")]),
-            Patient(Sex="F", CodedEvents=[CodedEvent(CTV3Code="foo3")]),
+            Patient(Sex="M", CodedEvents=[CodedEvent(CTV3Code="foo1", ConsultationDate='2000-01-01')]),
+            Patient(Sex="F", CodedEvents=[CodedEvent(CTV3Code="foo2", ConsultationDate='2000-01-01')]),
+            Patient(Sex="M", CodedEvents=[CodedEvent(CTV3Code="foo2", ConsultationDate='2000-01-01')]),
+            Patient(Sex="F", CodedEvents=[CodedEvent(CTV3Code="foo3", ConsultationDate='2000-01-01')]),
         ]
     )
     session.commit()
