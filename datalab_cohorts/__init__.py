@@ -34,48 +34,48 @@ class StudyDefinition:
         unique_check = UniqueCheck()
         sql = "SET NOCOUNT ON; "  # don't output count after table output
         sql += self.to_sql()
-        with tempfile.NamedTemporaryFile(suffix=".sql", mode="w") as sqlfile:
-            temp_csv = tempfile.mktemp(suffix=".csv")
-            sqlfile.write(sql)
-            sqlfile.flush()
-            db_dict = self.get_db_dict()
-            cmd = [
-                "sqlcmd",
-                "-S",
-                db_dict["hostname"] + "," + str(db_dict["port"]),
-                "-d",
-                db_dict["database"],
-                "-U",
-                db_dict["username"],
-                "-P",
-                db_dict["password"],
-                "-i",
-                sqlfile.name,
-                "-W",  # strip whitespace
-                "-s",
-                ",",  # comma delimited
-                "-r",
-                "1",  # error messages to stderr
-                # "-w",
-                # "99",
-                "-o",
-                temp_csv,
-            ]
-            result = subprocess.run(cmd, capture_output=True, encoding="utf8")
-            if result.returncode != 0:
-                print(result)
-                raise
-            with open(filename, "w", newline="\r\n") as final_file:
-                # We use windows line endings because that's what
-                # the CSV module's default dialect does
-                for line_num, line in enumerate(open(temp_csv, "r")):
-                    if line_num == 0 and line.startswith("Warning"):
-                        continue
-                    if line_num <= 2 and line.startswith("-"):
-                        continue
-                    final_file.write(line)
-                    patient_id = line.split(",")[0]
-                    unique_check.add(patient_id)
+        sqlfile = tempfile.mktemp(suffix=".sql")
+        with open(sqlfile, "w") as f:
+            f.write(sql)
+        temp_csv = tempfile.mktemp(suffix=".csv")
+        db_dict = self.get_db_dict()
+        cmd = [
+            "sqlcmd",
+            "-S",
+            db_dict["hostname"] + "," + str(db_dict["port"]),
+            "-d",
+            db_dict["database"],
+            "-U",
+            db_dict["username"],
+            "-P",
+            db_dict["password"],
+            "-i",
+            sqlfile,
+            "-W",  # strip whitespace
+            "-s",
+            ",",  # comma delimited
+            "-r",
+            "1",  # error messages to stderr
+            # "-w",
+            # "99",
+            "-o",
+            temp_csv,
+        ]
+        result = subprocess.run(cmd, capture_output=True, encoding="utf8")
+        if result.returncode != 0:
+            print(result)
+            raise
+        with open(filename, "w", newline="\r\n") as final_file:
+            # We use windows line endings because that's what
+            # the CSV module's default dialect does
+            for line_num, line in enumerate(open(temp_csv, "r")):
+                if line_num == 0 and line.startswith("Warning"):
+                    continue
+                if line_num <= 2 and line.startswith("-"):
+                    continue
+                final_file.write(line)
+                patient_id = line.split(",")[0]
+                unique_check.add(patient_id)
 
     def to_csv(self, filename, with_sqlcmd=False):
         if with_sqlcmd:
