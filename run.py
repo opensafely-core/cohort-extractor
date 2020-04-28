@@ -1,6 +1,6 @@
 """A cross-platform script to build cohorts, run models, build and
 start a notebook, open a web browser on the correct port, and handle
-shutdowns gracefully
+shutdowns gracefully.
 """
 
 import os
