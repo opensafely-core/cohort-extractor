@@ -36,8 +36,9 @@ for inspiration.
 You'll want to install a couple of things:
 
 * [This ODBC driver from Microsoft]( https://www.microsoft.com/en-us/download/details.aspx?id=56567)
-* The latest `run.exe` from [here](https://github.com/ebmdatalab/opencorona-research-template/releases)
-  * This must be copied to the root folder of your research repository
+* The latest `run.exe` from [here](../../releases/latest)
+  * This must be copied to and run from the root folder of your research repository
+  * Note that if you're testing a new branch with new `runner` functionality, you'll need to download the latest `run.exe` that is *tagged with that branch name* from the **Releases** section of github
 
 You need to obtain the "database URL", which includes a username and
 password.  When running outside the secure environment, obtain a URL

@@ -4,6 +4,7 @@ on:
     paths:
     - "run.py"
     - "datalab_cohorts/**"
+    - "build_runner.yaml"
 
 jobs:
   build:
@@ -28,23 +29,25 @@ jobs:
     - name: Build with pyinstaller
       run: |
         pyinstaller run.py --onefile --hidden-import=datalab_cohorts
-    - name: Create Release
-      id: create_release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Create Prelease (non-master branch) Release
+      if: github.ref != 'master'
+      uses: "marvinpinto/action-automatic-releases@latest"
       with:
-        tag_name: ${{ github.run_id }}
-        release_name: Release ${{ github.run_id }}
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        automatic_release_tag: branch-${{ github.ref }}
+        draft: false
+        prerelease: true
+        files: |
+          ./dist/run.exe
+
+    - name: Create full (master branch) Release
+      if: github.ref == 'master'
+      uses: "marvinpinto/action-automatic-releases@latest"
+      with:
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        automatic_release_tag: "latest"
         draft: false
         prerelease: false
-    - name: Upload Windows binary
-      id: upload-release-asset
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above
-        asset_path: ./dist/run.exe
-        asset_name: run.exe
-        asset_content_type: application/vnd.microsoft.portable-executable
+        files: |
+          ./dist/run.exe
