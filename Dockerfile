@@ -26,7 +26,7 @@ EXPOSE 8888
 COPY config/kernel.json /tmp/kernel_with_custom_path/kernel.json
 RUN jupyter kernelspec install /tmp/kernel_with_custom_path/ --user --name="python3"
 
-# R kernel
+# R kernel:
 COPY config/ir /tmp/ir
 RUN jupyter kernelspec install /tmp/ir
 
