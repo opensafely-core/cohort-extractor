@@ -603,23 +603,29 @@ class StudyDefinition:
             # "first_date" or "last_date" but just "date"
             date_column_name = "date"
             date_column_definition = truncate_date(
-                "ConsultationDate", include_month, include_day
+                "target_dates.target_date", include_month, include_day
             )
             sql = f"""
-            SELECT t.*
-            FROM
-              (SELECT patient_id FROM #population) p
-            CROSS APPLY (
-              SELECT TOP 1
-                Patient_ID AS patient_id,
-                {column_definition} AS {column_name},
-                {date_column_definition} AS {date_column_name}
-              FROM {from_table}
-              INNER JOIN {codelist_table}
-              ON {code_column} = {codelist_table}.code
-              WHERE Patient_ID = p.patient_id AND {date_condition}
-              ORDER BY ConsultationDate {ordering}
-            ) t
+            SELECT
+              target_dates.Patient_ID AS patient_id,
+              MAX({column_definition}) AS {column_name},
+              {date_column_definition} AS {date_column_name}
+            FROM (
+                SELECT Patient_ID, {date_aggregate}(ConsultationDate) AS target_date
+                FROM {from_table}
+                INNER JOIN {codelist_table}
+                ON {code_column} = {codelist_table}.code
+                WHERE {date_condition}
+                GROUP BY Patient_ID
+            ) AS target_dates
+            LEFT JOIN CodedEvent
+            ON (
+              CodedEvent.Patient_ID = target_dates.Patient_ID
+              AND CodedEvent.ConsultationDate = target_dates.target_date
+            )
+            INNER JOIN {codelist_table}
+            ON {code_column} = {codelist_table}.code
+            GROUP BY target_dates.Patient_ID, target_dates.target_date
             """
         else:
             date_column_definition = truncate_date(
