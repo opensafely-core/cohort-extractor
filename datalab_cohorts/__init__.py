@@ -61,10 +61,12 @@ class StudyDefinition:
             "-o",
             temp_csv,
         ]
-        result = subprocess.run(cmd, capture_output=True, encoding="utf8")
-        if result.returncode != 0:
-            print(result)
+        try:
+            subprocess.run(cmd, capture_output=True, encoding="utf8", check=True)
+        except subprocess.CalledProcessError as e:
+            print(e.output)
             raise
+
         with open(filename, "w", newline="\r\n") as final_file:
             # We use windows line endings because that's what
             # the CSV module's default dialect does
