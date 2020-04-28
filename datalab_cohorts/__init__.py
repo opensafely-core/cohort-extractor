@@ -96,9 +96,14 @@ class StudyDefinition:
         ]
         joins = []
         for column_name, (cols, sql) in self.covariates.items():
-            table_queries.append(
-                (column_name, f"SELECT * INTO #{column_name} FROM ({sql}) t")
-            )
+            if not isinstance(sql, tuple):
+                table_queries.append(
+                    (column_name, f"SELECT * INTO #{column_name} FROM ({sql}) t")
+                )
+            else:
+                table_queries.append(
+                    (column_name, f"{sql[0]} SELECT * INTO #{column_name} FROM ({sql[1]}) t")
+                )
             joins.append(
                 f"LEFT JOIN #{column_name} ON #{column_name}.patient_id = #population.patient_id"
             )
@@ -603,30 +608,38 @@ class StudyDefinition:
             # "first_date" or "last_date" but just "date"
             date_column_name = "date"
             date_column_definition = truncate_date(
-                "target_dates.target_date", include_month, include_day
+                "target_dates.ConsultationDate", include_month, include_day
             )
-            sql = f"""
-            SELECT
-              target_dates.Patient_ID AS patient_id,
-              MAX({column_definition}) AS {column_name},
-              {date_column_definition} AS {date_column_name}
-            FROM (
-                SELECT Patient_ID, {date_aggregate}(ConsultationDate) AS target_date
+            sql = (f"""
+            WITH
+              matching AS (
+                SELECT *
                 FROM {from_table}
                 INNER JOIN {codelist_table}
                 ON {code_column} = {codelist_table}.code
                 WHERE {date_condition}
+              ),
+              target_dates AS (
+                SELECT
+                  Patient_ID,
+                  {date_aggregate}(ConsultationDate) AS ConsultationDate
+                FROM matching
                 GROUP BY Patient_ID
-            ) AS target_dates
-            LEFT JOIN CodedEvent
+              )
+            """,
+            f"""
+            SELECT
+              target_dates.Patient_ID AS patient_id,
+              MAX({column_definition}) AS {column_name},
+              {date_column_definition} AS {date_column_name}
+            FROM target_dates
+            LEFT JOIN matching
             ON (
-              CodedEvent.Patient_ID = target_dates.Patient_ID
-              AND CodedEvent.ConsultationDate = target_dates.target_date
+              matching.Patient_ID = target_dates.Patient_ID
+              AND matching.ConsultationDate = target_dates.ConsultationDate
             )
-            INNER JOIN {codelist_table}
-            ON {code_column} = {codelist_table}.code
-            GROUP BY target_dates.Patient_ID, target_dates.target_date
-            """
+            GROUP BY target_dates.Patient_ID, target_dates.ConsultationDate
+            """)
         else:
             date_column_definition = truncate_date(
                 f"{date_aggregate}(ConsultationDate)", include_month, include_day
