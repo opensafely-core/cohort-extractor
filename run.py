@@ -178,6 +178,7 @@ def check_output():
 
 
 def generate_cohort():
+    print("Running. Please wait...")
     sys.path.extend([relative_dir(), os.path.join(relative_dir(), "analysis")])
     # Avoid creating __pycache__ files in the analysis directory
     sys.dont_write_bytecode = True
