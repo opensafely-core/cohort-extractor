@@ -2,6 +2,8 @@ import csv
 import datetime
 import os
 import re
+import subprocess
+import tempfile
 from urllib.parse import urlparse, unquote
 
 import pyodbc
@@ -28,16 +30,69 @@ class StudyDefinition:
         self.codelist_tables = []
         self.queries = self.build_queries()
 
-    def to_csv(self, filename):
-        result = self.execute_query()
+    def _to_csv_with_sqlcmd(self, filename):
         unique_check = UniqueCheck()
-        with open(filename, "w", newline="") as csvfile:
-            writer = csv.writer(csvfile)
-            writer.writerow([x[0] for x in result.description])
-            for row in result:
-                unique_check.add(row[0])
-                writer.writerow(row)
+        sql = "SET NOCOUNT ON; "  # don't output count after table output
+        sql += self.to_sql()
+        sqlfile = tempfile.mktemp(suffix=".sql")
+        with open(sqlfile, "w") as f:
+            f.write(sql)
+        temp_csv = tempfile.mktemp(suffix=".csv")
+        db_dict = self.get_db_dict()
+        cmd = [
+            "sqlcmd",
+            "-S",
+            db_dict["hostname"] + "," + str(db_dict["port"]),
+            "-d",
+            db_dict["database"],
+            "-U",
+            db_dict["username"],
+            "-P",
+            db_dict["password"],
+            "-i",
+            sqlfile,
+            "-W",  # strip whitespace
+            "-s",
+            ",",  # comma delimited
+            "-r",
+            "1",  # error messages to stderr
+            # "-w",
+            # "99",
+            "-o",
+            temp_csv,
+        ]
+        try:
+            subprocess.run(cmd, capture_output=True, encoding="utf8", check=True)
+        except subprocess.CalledProcessError as e:
+            print(e.output)
+            raise
+
+        with open(filename, "w", newline="\r\n") as final_file:
+            # We use windows line endings because that's what
+            # the CSV module's default dialect does
+            for line_num, line in enumerate(open(temp_csv, "r")):
+                if line_num == 0 and line.startswith("Warning"):
+                    continue
+                if line_num <= 2 and line.startswith("-"):
+                    continue
+                final_file.write(line)
+                patient_id = line.split(",")[0]
+                unique_check.add(patient_id)
         unique_check.assert_unique_ids()
+
+    def to_csv(self, filename, with_sqlcmd=False):
+        if with_sqlcmd:
+            self._to_csv_with_sqlcmd(filename)
+        else:
+            result = self.execute_query()
+            unique_check = UniqueCheck()
+            with open(filename, "w", newline="") as csvfile:
+                writer = csv.writer(csvfile)
+                writer.writerow([x[0] for x in result.description])
+                for row in result:
+                    unique_check.add(row[0])
+                    writer.writerow(row)
+            unique_check.assert_unique_ids()
 
     def to_dicts(self):
         result = self.execute_query()

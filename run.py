@@ -6,6 +6,7 @@ shutdowns gracefully
 import os
 import re
 import subprocess
+import shutil
 import signal
 import socket
 import sys
@@ -182,7 +183,8 @@ def generate_cohort():
     sys.dont_write_bytecode = True
     from study_definition import study
 
-    study.to_csv("analysis/input.csv")
+    with_sqlcmd = shutil.which("sqlcmd") is not None
+    study.to_csv("analysis/input.csv", with_sqlcmd=with_sqlcmd)
     print("Successfully created cohort and covariates at analysis/input.csv")
 
 
