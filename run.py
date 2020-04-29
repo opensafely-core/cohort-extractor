@@ -201,7 +201,10 @@ def run_model(folder, stata_path=None):
 
 
 def main(from_cmd_line=False):
-    parser = ArgumentParser()
+    parser = ArgumentParser(
+        description="Generate cohorts and run models in openSAFELY framework. "
+        "Latest version at https://github.com/ebmdatalab/opencorona-research-template/releases/latest"
+    )
     subparsers = parser.add_subparsers(help="sub-command help")
     generate_cohort_parser = subparsers.add_parser(
         "generate_cohort", help="Generate cohort"
