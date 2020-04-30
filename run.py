@@ -3,8 +3,10 @@ start a notebook, open a web browser on the correct port, and handle
 shutdowns gracefully
 """
 
+import glob
 import os
 import re
+import requests
 import subprocess
 import shutil
 import signal
@@ -200,6 +202,32 @@ def run_model(folder, stata_path=None):
     return check_output()
 
 
+def update_codelists():
+    base_path = os.path.join(os.path.dirname(__file__), "codelists")
+
+    # delete all existing codelists
+    for path in glob.glob(os.path.join(base_path, "*.csv")):
+        os.unlink(path)
+
+    with open(os.path.join(base_path, "codelists.txt")) as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+
+            print(line)
+            project_id, codelist_id, version = line.split("/")
+            url = f"https://codelists.opensafely.org/codelist/{project_id}/{codelist_id}/{version}/download.csv"
+
+            rsp = requests.get(url)
+            rsp.raise_for_status()
+
+            with open(
+                os.path.join(base_path, f"{project_id}-{codelist_id}.csv"), "w"
+            ) as f:
+                f.write(rsp.text)
+
+
 def main(from_cmd_line=False):
     parser = ArgumentParser()
     subparsers = parser.add_subparsers(help="sub-command help")
@@ -211,6 +239,11 @@ def main(from_cmd_line=False):
     run_model_parser.set_defaults(which="run")
     run_notebook_parser = subparsers.add_parser("notebook", help="Run notebook")
     run_notebook_parser.set_defaults(which="notebook")
+    update_codelists_parser = subparsers.add_parser(
+        "update_codelists",
+        help="Update codelists, using specification at codelists/codelists.txt",
+    )
+    update_codelists_parser.set_defaults(which="update_codelists")
 
     # Cohort parser options
     generate_cohort_parser.add_argument(
@@ -284,6 +317,9 @@ def main(from_cmd_line=False):
             "To stop this docker container, use Ctrl+ C, or the File -> Shut Down menu in Jupyter Lab"
         )
         stream_subprocess_output(["docker", "logs", "--follow", container_id])
+    elif options.which == "update_codelists":
+        update_codelists()
+        print("Codelists updated. Don't forget to commit them to the repo")
 
 
 if __name__ == "__main__":
