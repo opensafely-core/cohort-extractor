@@ -1364,3 +1364,16 @@ def test_sqlcmd_and_odbc_outputs_match():
         # unix line endings
         study.to_csv(input_csv_sqlcmd.name, with_sqlcmd=True)
         assert filecmp.cmp(input_csv_odbc.name, input_csv_sqlcmd.name, shallow=False)
+
+
+def test_column_name_clashes_produce_errors():
+    with pytest.raises(ValueError):
+        StudyDefinition(
+            population=patients.all(),
+            age=patients.age_as_of("2020-01-01"),
+            status=patients.satisfying(
+                "age > 70 AND sex = 'M'",
+                sex=patients.sex(),
+                age=patients.age_as_of("2010-01-01"),
+            ),
+        )

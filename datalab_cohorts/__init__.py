@@ -129,20 +129,12 @@ class StudyDefinition:
         population_cols, population_sql = self.get_query(
             "population", *population_definition
         )
-        hidden_columns = set()
+        covariate_definitions, hidden_columns = self.flatten_nested_covariates(
+            covariate_definitions
+        )
         for name, (query_type, query_args) in covariate_definitions.items():
             if query_type != "categorised_as":
                 covariates[name] = self.get_query(name, query_type, query_args)
-            # Special case for expression queries which can define extra hidden
-            # columns which they use for their logic but which don't appear in
-            # the output
-            else:
-                extra_columns = query_args["extra_columns"].items()
-                for hidden_name, (hidden_query_type, hidden_args) in extra_columns:
-                    hidden_columns.add(hidden_name)
-                    covariates[hidden_name] = self.get_query(
-                        hidden_name, hidden_query_type, hidden_args
-                    )
         output_columns = ["#population.patient_id"]
         table_queries = [
             ("population", f"SELECT * INTO #population FROM ({population_sql}) t")
@@ -184,6 +176,36 @@ class StudyDefinition:
           {joins_str}
         """
         return table_queries + [("final_output", joined_output_query)]
+
+    def flatten_nested_covariates(self, covariate_definitions):
+        """
+        Some covariates (e.g `categorised_as`) can define their own internal
+        covariates which are used for calculating the column value but don't
+        appear in the final output. Here we pull all these internal covariates
+        out (which may be recursively nested) and assemble a flat list of
+        covariates along with a set of ones which should be hidden from the
+        final output.
+
+        We also check for any name clashes among covariates. (In future we
+        could rewrite the names of internal covariates to avoid this but for
+        now we just throw an error.)
+        """
+        flattened = {}
+        hidden = set()
+        items = list(covariate_definitions.items())
+        while items:
+            name, (query_type, query_args) = items.pop(0)
+            if query_type == "categorised_as":
+                # Pull out the extra columns
+                extra_columns = query_args.pop("extra_columns")
+                # Mark them as hidden
+                hidden.update(extra_columns.keys())
+                # Add them to the start of the list of items to be processed
+                items[:0] = extra_columns.items()
+            if name in flattened:
+                raise ValueError(f"Duplicate columns named '{name}'")
+            flattened[name] = (query_type, query_args)
+        return flattened, hidden
 
     def default_for_column(self, column_name):
         is_str_col = (
