@@ -20,15 +20,13 @@ class StudyDefinition:
     _db_connection = None
     _current_column_name = None
 
-    def __init__(self, population, **kwargs):
-        self.population_definition = population
-        self.covariate_definitions = kwargs
-        if self.population_definition[0] == "categorised_as":
+    def __init__(self, population, **covariates):
+        if population[0] == "categorised_as":
             raise ValueError(
                 "Expression queries can't yet be used in the population definition"
             )
         self.codelist_tables = []
-        self.queries = self.build_queries()
+        self.queries = self.build_queries(population, covariates)
 
     def _to_csv_with_sqlcmd(self, filename):
         unique_check = UniqueCheck()
@@ -126,15 +124,15 @@ class StudyDefinition:
             prepared_sql.append("\n\n")
         return "\n".join(prepared_sql)
 
-    def build_queries(self):
-        self.covariates = {}
+    def build_queries(self, population_definition, covariate_definitions):
+        covariates = {}
         population_cols, population_sql = self.get_query(
-            "population", *self.population_definition
+            "population", *population_definition
         )
         hidden_columns = set()
-        for name, (query_type, query_args) in self.covariate_definitions.items():
+        for name, (query_type, query_args) in covariate_definitions.items():
             if query_type != "categorised_as":
-                self.covariates[name] = self.get_query(name, query_type, query_args)
+                covariates[name] = self.get_query(name, query_type, query_args)
             # Special case for expression queries which can define extra hidden
             # columns which they use for their logic but which don't appear in
             # the output
@@ -142,7 +140,7 @@ class StudyDefinition:
                 extra_columns = query_args["extra_columns"].items()
                 for hidden_name, (hidden_query_type, hidden_args) in extra_columns:
                     hidden_columns.add(hidden_name)
-                    self.covariates[hidden_name] = self.get_query(
+                    covariates[hidden_name] = self.get_query(
                         hidden_name, hidden_query_type, hidden_args
                     )
         output_columns = ["#population.patient_id"]
@@ -150,7 +148,7 @@ class StudyDefinition:
             ("population", f"SELECT * INTO #population FROM ({population_sql}) t")
         ]
         joins = []
-        for column_name, (cols, sql) in self.covariates.items():
+        for column_name, (cols, sql) in covariates.items():
             table_queries.append(
                 (column_name, f"SELECT * INTO #{column_name} FROM ({sql}) t")
             )
@@ -173,11 +171,9 @@ class StudyDefinition:
                 )
         # Add column defintions for covariates which are boolean expressions
         # over other covariates
-        for name, (query_type, query_args) in self.covariate_definitions.items():
+        for name, (query_type, query_args) in covariate_definitions.items():
             if query_type == "categorised_as":
-                case_expression = self.get_case_expression(
-                    self.covariates, **query_args
-                )
+                case_expression = self.get_case_expression(covariates, **query_args)
                 output_columns.append(f"{case_expression} AS {name}")
         output_columns_str = ",\n          ".join(output_columns)
         joins_str = "\n          ".join(joins)
