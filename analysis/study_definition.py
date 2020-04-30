@@ -1,13 +1,15 @@
 from datalab_cohorts import StudyDefinition, patients, codelist, codelist_from_csv
 
 chronic_cardiac_disease_codes = codelist_from_csv(
-    "codelists/chronic_cardiac_disease.csv", system="ctv3", column="CTV3ID"
+    "codelists/opensafely-chronic-cardiac-disease.csv", system="ctv3", column="CTV3ID"
 )
 chronic_liver_disease_codes = codelist_from_csv(
-    "codelists/chronic_liver_disease.csv", system="ctv3", column="CTV3ID"
+    "codelists/opensafely-chronic-liver-disease.csv", system="ctv3", column="CTV3ID"
 )
 salbutamol_codes = codelist_from_csv(
-    "codelists/sabutamol_asthma.csv", system="snomed", column="id"
+    "codelists/opensafely-asthma-inhaled-salbutamol-medication.csv",
+    system="snomed",
+    column="id",
 )
 systolic_blood_pressure_codes = codelist(["2469."], system="ctv3")
 diastolic_blood_pressure_codes = codelist(["246A."], system="ctv3")
