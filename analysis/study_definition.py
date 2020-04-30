@@ -4,10 +4,10 @@ chronic_cardiac_disease_codes = codelist_from_csv(
     "codelists/opensafely-chronic-cardiac-disease.csv", system="ctv3", column="CTV3ID"
 )
 chronic_liver_disease_codes = codelist_from_csv(
-    "codelists/opensafely-chronic-liver-disease", system="ctv3", column="CTV3ID"
+    "codelists/opensafely-chronic-liver-disease.csv", system="ctv3", column="CTV3ID"
 )
 salbutamol_codes = codelist_from_csv(
-    "codelists/opensafely-asthma-inhaled-salbutamol-medication",
+    "codelists/opensafely-asthma-inhaled-salbutamol-medication.csv",
     system="snomed",
     column="id",
 )
