@@ -68,8 +68,8 @@ for inspiration; or, if you're feeling adventurous, search the tests
 ### On Windows
 You'll want to install a couple of things:
 
-* [This ODBC driver from Microsoft]( https://www.microsoft.com/en-us/download/details.aspx?id=56567)
-* The latest `run.exe` from [here](../../releases/latest)
+* [This ODBC driver from Microsoft](https://www.microsoft.com/en-us/download/details.aspx?id=56567)
+* The latest `run.exe` from [here](https://github.com/ebmdatalab/opensafely-research-template/releases/latest)
   * This must be copied to and run from the root folder of your research repository
   * Note that if you're testing a new branch with new `runner` functionality, you'll need to download the latest `run.exe` that is *tagged with that branch name* from the **Releases** section of github
 
