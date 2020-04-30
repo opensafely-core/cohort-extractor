@@ -984,6 +984,11 @@ class StudyDefinition:
         else:
             default_value = ""
         clauses = []
+        # Remove any as-yet undefined columns; referencing these should trigger
+        # an error immediately, rather that producing bad SQL later
+        column_definitions = {
+            k: v for (k, v) in column_definitions.items() if v is not None
+        }
         for category, expression in category_definitions.items():
             # The column references in the supplied expression need to be
             # rewritten to ensure they refer to the correct CTE. The formatting

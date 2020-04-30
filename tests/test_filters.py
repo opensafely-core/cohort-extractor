@@ -1388,3 +1388,12 @@ def test_column_name_clashes_produce_errors():
                 age=patients.age_as_of("2010-01-01"),
             ),
         )
+
+
+def test_recursive_definitions_produce_errors():
+    with pytest.raises(ValueError):
+        StudyDefinition(
+            population=patients.all(),
+            this=patients.satisfying("that = 1"),
+            that=patients.satisfying("this = 1"),
+        )
