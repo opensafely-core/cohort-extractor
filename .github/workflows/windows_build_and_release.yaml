@@ -1,6 +1,12 @@
-name: Build-runner
+name: Build and release Windows runner
 on:
   push:
+    paths:
+    - "run.py"
+    - "datalab_cohorts/**"
+    - "build_runner.yaml"
+  pull_request:
+    types: [closed]
     paths:
     - "run.py"
     - "datalab_cohorts/**"
@@ -30,22 +36,29 @@ jobs:
       run: |
         pyinstaller run.py --onefile --hidden-import=datalab_cohorts
 
+    - name: Extract branch name
+      shell: bash
+      run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
+      id: extract_branch
+
     - name: Create Prelease (non-master branch) Release
       if: github.ref != 'master'
       uses: "marvinpinto/action-automatic-releases@latest"
       with:
         repo_token: ${{ secrets.GITHUB_TOKEN }}
-        automatic_release_tag: branch-${{ github.ref }}
+        title: "Development build of ${{ steps.extract_branch.outputs.branch }} branch"
+        automatic_release_tag: ${{ steps.extract_branch.outputs.branch }}
         draft: false
         prerelease: true
         files: |
           ./dist/run.exe
 
     - name: Create full (master branch) Release
-      if: github.ref == 'master'
+      if: github.ref == 'master' || github.pull_request.merged == true
       uses: "marvinpinto/action-automatic-releases@latest"
       with:
         repo_token: ${{ secrets.GITHUB_TOKEN }}
+        title: "Latest production build"
         automatic_release_tag: "latest"
         draft: false
         prerelease: false
