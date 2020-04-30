@@ -125,30 +125,29 @@ class StudyDefinition:
         return "\n".join(prepared_sql)
 
     def build_queries(self, population_definition, covariate_definitions):
-        covariates = {}
-        population_cols, population_sql = self.get_query(
-            "population", *population_definition
-        )
         covariate_definitions, hidden_columns = self.flatten_nested_covariates(
             covariate_definitions
         )
-        for name, (query_type, query_args) in covariate_definitions.items():
-            if query_type != "categorised_as":
-                covariates[name] = self.get_query(name, query_type, query_args)
-        output_columns = ["#population.patient_id"]
+        population_cols, population_sql = self.get_query(
+            "population", *population_definition
+        )
+        output_columns = {"patient_id": "#population.patient_id"}
         table_queries = [
             ("population", f"SELECT * INTO #population FROM ({population_sql}) t")
         ]
         joins = []
-        for column_name, (cols, sql) in covariates.items():
-            table_queries.append(
-                (column_name, f"SELECT * INTO #{column_name} FROM ({sql}) t")
-            )
-            joins.append(
-                f"LEFT JOIN #{column_name} ON #{column_name}.patient_id = #population.patient_id"
-            )
-            if column_name in hidden_columns:
+        for name, (query_type, query_args) in covariate_definitions.items():
+            # For `categorised_as` columns we just record a dummy entry in the
+            # output colums dict so that it retains its correct place and then
+            # process it later
+            if query_type == "categorised_as":
+                output_columns[name] = None
                 continue
+            cols, sql = self.get_query(name, query_type, query_args)
+            table_queries.append((name, f"SELECT * INTO #{name} FROM ({sql}) t"))
+            joins.append(
+                f"LEFT JOIN #{name} ON #{name}.patient_id = #population.patient_id"
+            )
             # The first column should always be patient_id so we can join on it
             assert len(cols) > 1
             assert cols[0] == "patient_id"
@@ -156,18 +155,20 @@ class StudyDefinition:
                 # The first result column is given the name of the desired
                 # output column. The rest are added as suffixes to the name of
                 # the output column
-                output_column = column_name if n == 0 else f"{column_name}_{col}"
+                output_col = name if n == 0 else f"{name}_{col}"
                 default_value = quote(self.default_for_column(col))
-                output_columns.append(
-                    f"ISNULL(#{column_name}.{col}, {default_value}) AS {output_column}"
-                )
+                output_columns[output_col] = f"ISNULL(#{name}.{col}, {default_value})"
         # Add column defintions for covariates which are boolean expressions
         # over other covariates
         for name, (query_type, query_args) in covariate_definitions.items():
             if query_type == "categorised_as":
-                case_expression = self.get_case_expression(covariates, **query_args)
-                output_columns.append(f"{case_expression} AS {name}")
-        output_columns_str = ",\n          ".join(output_columns)
+                case_expression = self.get_case_expression(output_columns, **query_args)
+                output_columns[name] = f"{case_expression}"
+        output_columns_str = ",\n          ".join(
+            f"{expr} AS {name}"
+            for (name, expr) in output_columns.items()
+            if name not in hidden_columns
+        )
         joins_str = "\n          ".join(joins)
         joined_output_query = f"""
         SELECT
@@ -195,16 +196,19 @@ class StudyDefinition:
         items = list(covariate_definitions.items())
         while items:
             name, (query_type, query_args) = items.pop(0)
-            if query_type == "categorised_as":
+            if query_type == "categorised_as" and "extra_columns" in query_args:
                 # Pull out the extra columns
                 extra_columns = query_args.pop("extra_columns")
-                # Mark them as hidden
+                # Stick the query back on the stack
+                items.insert(0, (name, (query_type, query_args)))
+                # Mark the extra columns as hidden
                 hidden.update(extra_columns.keys())
                 # Add them to the start of the list of items to be processed
                 items[:0] = extra_columns.items()
-            if name in flattened:
-                raise ValueError(f"Duplicate columns named '{name}'")
-            flattened[name] = (query_type, query_args)
+            else:
+                if name in flattened:
+                    raise ValueError(f"Duplicate columns named '{name}'")
+                flattened[name] = (query_type, query_args)
         return flattened, hidden
 
     def default_for_column(self, column_name):
@@ -970,7 +974,7 @@ class StudyDefinition:
             """,
         )
 
-    def get_case_expression(self, covariates, category_definitions, extra_columns=None):
+    def get_case_expression(self, column_definitions, category_definitions):
         defaults = [k for (k, v) in category_definitions.items() if v == "DEFAULT"]
         if len(defaults) > 1:
             raise ValueError("At most one default category can be defined")
@@ -981,22 +985,13 @@ class StudyDefinition:
             default_value = ""
         clauses = []
         for category, expression in category_definitions.items():
-            formatted_expression = self.get_boolean_expression(covariates, expression)
+            # The column references in the supplied expression need to be
+            # rewritten to ensure they refer to the correct CTE. The formatting
+            # function also ensures that the expression matches the very
+            # limited subset of SQL we support here.
+            formatted_expression = format_expression(expression, column_definitions)
             clauses.append(f"WHEN ({formatted_expression}) THEN {quote(category)}")
         return f"CASE {' '.join(clauses)} ELSE {quote(default_value)} END"
-
-    def get_boolean_expression(self, covariates, expression):
-        # The column references in the supplied expression need to be rewritten
-        # to ensure they refer to the correct CTE. The formatting function also
-        # ensures that the expression matches the very limited subset of SQL we
-        # support here.
-        name_map = {}
-        for name, (columns, query) in covariates.items():
-            # The first column is the patient_id, the next is the primary column
-            column = columns[1]
-            default_value = quote(self.default_for_column(column))
-            name_map[name] = f"ISNULL(#{name}.{column}, {default_value})"
-        return format_expression(expression, name_map)
 
     def get_db_dict(self):
         parsed = urlparse(os.environ["DATABASE_URL"])

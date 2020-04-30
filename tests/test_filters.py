@@ -887,7 +887,8 @@ def test_patients_categorised_as():
             Patient(
                 Sex="F",
                 CodedEvents=[
-                    CodedEvent(CTV3Code="foo2", ConsultationDate="2000-01-01")
+                    CodedEvent(CTV3Code="foo2", ConsultationDate="2000-01-01"),
+                    CodedEvent(CTV3Code="bar1", ConsultationDate="2000-01-01"),
                 ],
             ),
             Patient(
@@ -906,10 +907,12 @@ def test_patients_categorised_as():
     )
     session.commit()
     foo_codes = codelist([("foo1", "A"), ("foo2", "B"), ("foo3", "C")], "ctv3")
+    bar_codes = codelist(["bar1"], "ctv3")
     study = StudyDefinition(
         population=patients.all(),
         category=patients.categorised_as(
             {
+                "W": "foo_category = 'B' AND female_with_bar",
                 "X": "sex = 'F' AND (foo_category = 'B' OR foo_category = 'C')",
                 "Y": "sex = 'M' AND foo_category = 'A'",
                 "Z": "DEFAULT",
@@ -918,10 +921,18 @@ def test_patients_categorised_as():
             foo_category=patients.with_these_clinical_events(
                 foo_codes, returning="category", find_last_match_in_period=True
             ),
+            female_with_bar=patients.satisfying(
+                "has_bar AND sex = 'F'",
+                has_bar=patients.with_these_clinical_events(bar_codes),
+            ),
         ),
     )
     results = study.to_dicts()
-    assert [x["category"] for x in results] == ["Y", "X", "Z", "X"]
+    assert [x["category"] for x in results] == ["Y", "W", "Z", "X"]
+    # Assert that internal columns do not appear
+    assert "foo_category" not in results[0].keys()
+    assert "female_with_bar" not in results[0].keys()
+    assert "has_bar" not in results[0].keys()
 
 
 def test_patients_registered_practice_as_of():
