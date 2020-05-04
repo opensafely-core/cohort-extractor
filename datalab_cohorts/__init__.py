@@ -730,6 +730,8 @@ class StudyDefinition:
             column = "MSOACode"
         elif returning == "nhse_region_name":
             column = "Region"
+        elif returning == "pseudo_id":
+            column = "Organisation_ID"
         else:
             raise ValueError(f"Unsupported `returning` value: {returning}")
         # Note that current registrations are recorded with an EndDate of

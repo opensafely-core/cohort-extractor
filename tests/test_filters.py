@@ -937,10 +937,18 @@ def test_patients_categorised_as():
 
 def test_patients_registered_practice_as_of():
     session = make_session()
-    org_1 = Organisation(STPCode="123", MSOACode="E0201", Region="East of England")
-    org_2 = Organisation(STPCode="456", MSOACode="E0202", Region="Midlands")
-    org_3 = Organisation(STPCode="789", MSOACode="E0203", Region="London")
-    org_4 = Organisation(STPCode="910", MSOACode="E0204", Region="North West")
+    org_1 = Organisation(
+        STPCode="123", MSOACode="E0201", Region="East of England", Organisation_ID=1
+    )
+    org_2 = Organisation(
+        STPCode="456", MSOACode="E0202", Region="Midlands", Organisation_ID=2
+    )
+    org_3 = Organisation(
+        STPCode="789", MSOACode="E0203", Region="London", Organisation_ID=3
+    )
+    org_4 = Organisation(
+        STPCode="910", MSOACode="E0204", Region="North West", Organisation_ID=4
+    )
     patient = Patient()
     patient.RegistrationHistory.append(
         RegistrationHistory(
@@ -983,11 +991,15 @@ def test_patients_registered_practice_as_of():
         region=patients.registered_practice_as_of(
             "2020-01-01", returning="nhse_region_name"
         ),
+        pseudo_id=patients.registered_practice_as_of(
+            "2020-01-01", returning="pseudo_id"
+        ),
     )
     results = study.to_dicts()
     assert [i["stp"] for i in results] == ["789", "123", ""]
     assert [i["msoa"] for i in results] == ["E0203", "E0201", ""]
     assert [i["region"] for i in results] == ["London", "East of England", ""]
+    assert [i["pseudo_id"] for i in results] == ["3", "1", "0"]
 
 
 def test_patients_address_as_of():
