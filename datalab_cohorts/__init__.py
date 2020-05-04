@@ -328,9 +328,9 @@ class StudyDefinition:
         All patients
         """
         return (
-            ["patient_id", "date_of_birth", "sex"],
+            ["patient_id", "is_included"],
             """
-            SELECT Patient_ID AS patient_id, DateOfBirth AS date_of_birth, Sex AS sex
+            SELECT Patient_ID AS patient_id, 1 AS is_included
             FROM Patient
             """,
         )
