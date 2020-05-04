@@ -1397,3 +1397,41 @@ def test_recursive_definitions_produce_errors():
             this=patients.satisfying("that = 1"),
             that=patients.satisfying("this = 1"),
         )
+
+
+def test_using_expression_in_population_definition():
+    session = make_session()
+    session.add_all(
+        [
+            Patient(
+                Sex="M",
+                DateOfBirth="1970-01-01",
+                CodedEvents=[
+                    CodedEvent(CTV3Code="foo1", ConsultationDate="2000-01-01")
+                ],
+            ),
+            Patient(Sex="M", DateOfBirth="1975-01-01"),
+            Patient(
+                Sex="F",
+                DateOfBirth="1980-01-01",
+                CodedEvents=[
+                    CodedEvent(CTV3Code="foo1", ConsultationDate="2000-01-01")
+                ],
+            ),
+            Patient(Sex="F", DateOfBirth="1985-01-01"),
+        ]
+    )
+    session.commit()
+    study = StudyDefinition(
+        population=patients.satisfying(
+            "has_foo_code AND sex = 'M'",
+            has_foo_code=patients.with_these_clinical_events(
+                codelist(["foo1"], "ctv3")
+            ),
+            sex=patients.sex(),
+        ),
+        age=patients.age_as_of("2020-01-01"),
+    )
+    results = study.to_dicts()
+    assert results[0].keys() == {"patient_id", "age"}
+    assert [i["age"] for i in results] == ["50"]
