@@ -248,7 +248,7 @@ def make_chart(name, series, dtype):
 
 def generate_cohort():
     print("Running. Please wait...")
-    sys.path.extend([relative_dir(), os.path.join(relative_dir(), "analysis")])
+    _set_up_path()
     # Avoid creating __pycache__ files in the analysis directory
     sys.dont_write_bytecode = True
     from study_definition import study
@@ -259,7 +259,7 @@ def generate_cohort():
 
 
 def make_cohort_report():
-    sys.path.extend([relative_dir(), os.path.join(relative_dir(), "analysis")])
+    _set_up_path()
     # Avoid creating __pycache__ files in the analysis directory
     sys.dont_write_bytecode = True
     from study_definition import study
@@ -358,6 +358,10 @@ def update_codelists():
                 os.path.join(base_path, f"{project_id}-{codelist_id}.csv"), "w"
             ) as f:
                 f.write(rsp.text)
+
+
+def _set_up_path():
+    sys.path.extend([relative_dir(), os.path.join(relative_dir(), "analysis")])
 
 
 def main(from_cmd_line=False):
