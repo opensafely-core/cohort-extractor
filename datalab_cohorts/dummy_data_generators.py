@@ -36,26 +36,9 @@ def generate_dates(population, earliest_date, latest_date):
     return df[["date"]]
 
 
-def generate(population, incidence, returning=None):
+def generate(population, incidence, returning):
     """Returns a date column and zero or more value column.
-
-
-
-    Value can be:
-
-      * Categories
-      * Scalar
-      * Binary
-
-    Categories is a dictionary of keys to probabilities 0 < p < 1
-    which add up to 1
-
-    scalar is a dictionary {'distribution': 'normal', median: 50, stdev: 0.5}
-
     """
-
-    if not returning:
-        raise ValueError("You must opt to return something!")
     # First, generate a geometric date range corresponding with possible appointments
     earliest_date = "1900-01-01"
     latest_date = datetime.now().strftime("%Y-%m-%d")

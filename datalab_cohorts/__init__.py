@@ -81,9 +81,6 @@ class StudyDefinition:
         unique_check.assert_unique_ids()
 
     def make_dummy_df(self):
-        # so basically for each covariate we need to decide if it's date, binary, category, scalar etc
-
-        # dtypes teslls is "category", "float", "bool", "int" and "parse_dates" gives dates
         from datalab_cohorts.dummy_data_generators import generate
 
         population = 10000
