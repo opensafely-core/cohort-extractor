@@ -80,6 +80,41 @@ class StudyDefinition:
                 unique_check.add(patient_id)
         unique_check.assert_unique_ids()
 
+    def make_dummy_df(self):
+        # so basically for each covariate we need to decide if it's date, binary, category, scalar etc
+
+        # dtypes teslls is "category", "float", "bool", "int" and "parse_dates" gives dates
+        from datalab_cohorts.dummy_data_generators import generate
+
+        population = 10000
+        incidence = 0.1
+        df = pd.DataFrame()
+        returning = {}
+        for colname, dtype in self.pandas_csv_args["dtype"].items():
+            if dtype == "category":
+                returning = self.pandas_csv_args["args"][colname]["expects"]
+            elif dtype in ["float", "int"]:
+                returning = {
+                    dtype: {"distribution": "normal", "mean": 50, "stddev": 10}
+                }
+            elif dtype == "bool":
+                returning = {"bool": True}
+            else:
+                raise ValueError(f"Unknown dtype {dtype}")
+            df[colname] = generate(population, incidence, returning=returning)[dtype]
+        for colname in self.pandas_csv_args["parse_dates"]:
+            # XXX it's possible for one covariate to return more than one date
+            kwargs = self.pandas_csv_args["args"][colname]
+            between = kwargs.get("between")
+            returning["date"] = {}
+            returning["date"]["include_month"] = kwargs.get("include_month")
+            returning["date"]["include_day"] = kwargs.get("include_day")
+            if between:
+                returning["date"]["earliest_date"] = between[0]
+                returning["date"]["latest_date"] = between[1]
+            df[colname] = generate(population, incidence, returning=returning)["date"]
+        return df
+
     def to_csv(self, filename, with_sqlcmd=False):
         if with_sqlcmd:
             self._to_csv_with_sqlcmd(filename)
@@ -119,6 +154,7 @@ class StudyDefinition:
         parse_dates = []
         converters = {}
         implicit_dates = []
+        args = {}
         definitions = list(covariate_definitions.items())
 
         for name, (funcname, kwargs) in copy.deepcopy(definitions):
@@ -133,6 +169,7 @@ class StudyDefinition:
             returning = kwargs.get("returning", None)
             if name == "population":
                 continue
+            args[name] = kwargs
             if returning and (
                 returning == "date"
                 or returning.startswith("date_")
@@ -172,7 +209,12 @@ class StudyDefinition:
                 raise ValueError(
                     f"Unable to impute Pandas type for {name} ({funcname})"
                 )
-        return {"dtype": dtypes, "converters": converters, "parse_dates": parse_dates}
+        return {
+            "dtype": dtypes,
+            "converters": converters,
+            "parse_dates": parse_dates,
+            "args": args,
+        }
 
     def to_dicts(self):
         result = self.execute_query()
@@ -694,6 +736,7 @@ class StudyDefinition:
         Patients who have had at least one of these clinical events in the
         defined period
         """
+        del kwargs["expects"]
         return self._patients_with_events(
             "CodedEvent", "CTV3Code", codes_are_case_sensitive=True, **kwargs
         )
@@ -1256,6 +1299,7 @@ class patients:
         return_number_of_matches_in_period=False,
         return_first_date_in_period=False,
         return_last_date_in_period=False,
+        expects=None,
     ):
         assert codelist.system == "ctv3"
         validate_time_period_options(**locals())

@@ -1410,6 +1410,7 @@ def test_recursive_definitions_produce_errors():
             that=patients.satisfying("this = 1"),
         )
 
+
 ## Pandas import specification tests
 
 
@@ -1589,6 +1590,7 @@ def test_mean_recorded_value_dtype_generation():
         "parse_dates": ["bp_sys_date_measured"],
     }
 
+
 def test_using_expression_in_population_definition():
     session = make_session()
     session.add_all(
@@ -1625,3 +1627,77 @@ def test_using_expression_in_population_definition():
     results = study.to_dicts()
     assert results[0].keys() == {"patient_id", "age"}
     assert [i["age"] for i in results] == ["50"]
+
+
+def test_dummy_data_generator():
+    from datalab_cohorts.dummy_data_generators import generate
+    import pandas as pd
+
+    returning = {
+        "category": {"categories": {"A": 0.1, "B": 0.5, "C": 0.2, "D": 0.2}},
+        "date": {"earliest_date": "1990-01-01", "latest_date": "2020-12-31"},
+        "bool": True,
+        "int": {"distribution": "normal", "mean": 50, "stddev": 10},
+    }
+    population_size = 10000
+    incidence = 1.0
+    result = generate(population_size, incidence, returning=returning)
+
+    # Check incidence numbers are correct
+    null_rows = result[~pd.isnull(result["date"])]
+    assert len(null_rows) == (population_size * incidence)
+
+    # Check dates are distributed in increasing frequency
+    year_counts = result["date"].reset_index().groupby("date").count()["index"]
+    max_count = population_size
+    for count in list(reversed(year_counts))[:5]:
+        assert count < max_count
+        max_count = count
+
+    # Check categories are assigned more-or-less in correct proportion
+    category_a = result[result["category"] == "A"]
+    category_b = result[result["category"] == "B"]
+    category_c = result[result["category"] == "C"]
+    assert len(category_b) > len(category_c) > len(category_a)
+
+    assert len(result[result["bool"] == True]) == (population_size * incidence)
+
+
+def test_make_dummy_df():
+    categorised_codelist = codelist([("X", "Y")], system="ctv3")
+    categorised_codelist.has_categories = True
+    study = StudyDefinition(
+        population=patients.all(),
+        ethnicity=patients.with_these_clinical_events(
+            categorised_codelist,
+            returning="category",
+            find_last_match_in_period=True,
+            include_date_of_match=False,
+            expects={"category": {"categories": {"A": 0.3, "B": 0.7}}},
+        ),
+    )
+    result = study.make_dummy_df()
+    assert result.columns == ["ethnicity"]
+
+    category_counts = result.reset_index().groupby("ethnicity").count()
+    assert category_counts.loc["A", :][0] < category_counts.loc["B", :][0]
+
+
+def test_make_dummy_df_2():
+    study = StudyDefinition(
+        population=patients.all(),
+        asthma_condition=patients.with_these_clinical_events(
+            codelist(["X"], system="ctv3"),
+            between=["2001-12-01", "2002-06-01"],
+            returning="date",
+            find_first_match_in_period=True,
+            include_month=True,
+            include_day=True,
+        ),
+    )
+    result = study.make_dummy_df()
+    assert result.columns == ["asthma_condition"]
+    assert (
+        result.reset_index().groupby("asthma_condition").count().iloc[-1].name
+        == "2002-06-01"
+    )
