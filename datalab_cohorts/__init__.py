@@ -16,7 +16,7 @@ from .expressions import format_expression
 
 # Characters that are safe to interpolate into SQL (see
 # `placeholders_and_params` below)
-SAFE_CHARS_RE = re.compile(r"[a-zA-Z0-9_\.\-]+")
+SAFE_CHARS_RE = re.compile(r"^[a-zA-Z0-9_\.\-]+$")
 
 
 class StudyDefinition:
@@ -488,7 +488,7 @@ class StudyDefinition:
         # each list is the canonical version according to TPP
         weight_codes = [
             "X76C7",  # Concept containing "body weight" terms:
-            "22A.. ",  # O/E weight
+            "22A..",  # O/E weight
         ]
         height_codes = [
             "XM01E",  # Concept containing height/length/stature/growth terms:
@@ -1404,11 +1404,28 @@ def codelist_to_sql(codelist):
     return ",".join(values)
 
 
+def standardise_if_date(value):
+    """For strings that look like ISO dates, format in a SQL-Server
+    friendly fashion
+
+    """
+
+    # ISO date strings with hyphens are unreliable in SQL Server:
+    # https://stackoverflow.com/a/25548626/559140
+    try:
+        date = datetime.datetime.strptime(value, "%Y-%m-%d")
+        value = date.strftime("%Y%m%d")
+    except ValueError:
+        pass
+    return value
+
+
 def quote(value):
     if isinstance(value, (int, float)):
         return str(value)
     else:
         value = str(value)
+        value = standardise_if_date(value)
         if not SAFE_CHARS_RE.match(value) and value != "":
             raise ValueError(f"Value contains disallowed characters: {value}")
         return f"'{value}'"
