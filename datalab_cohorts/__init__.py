@@ -1,3 +1,4 @@
+import copy
 import csv
 import datetime
 import os
@@ -7,6 +8,8 @@ import tempfile
 from urllib.parse import urlparse, unquote
 
 import pyodbc
+
+import pandas as pd
 
 from .expressions import format_expression
 
@@ -25,6 +28,7 @@ class StudyDefinition:
         assert "patient_id" not in covariates, "patient_id is a reserved column name"
         self.codelist_tables = []
         self.queries = self.build_queries(covariates)
+        self.pandas_csv_args = self.get_pandas_csv_args(covariates)
 
     def _to_csv_with_sqlcmd(self, filename):
         unique_check = UniqueCheck()
@@ -89,6 +93,86 @@ class StudyDefinition:
                     unique_check.add(row[0])
                     writer.writerow(row)
             unique_check.assert_unique_ids()
+
+    def csv_to_df(self, csv_name):
+        return pd.read_csv(csv_name, **self.pandas_csv_args)
+
+    def get_pandas_csv_args(self, covariate_definitions):
+        def tobool(val):
+            if val == "":
+                return False
+            if val == "0":
+                return False
+            return True
+
+        def add_month_and_day_to_date(val):
+            if val:
+                return val + "-01-01"
+            return val
+
+        def add_day_to_date(val):
+            if val:
+                return val + "-01"
+            return val
+
+        dtypes = {}
+        parse_dates = []
+        converters = {}
+        implicit_dates = []
+        definitions = list(covariate_definitions.items())
+
+        for name, (funcname, kwargs) in copy.deepcopy(definitions):
+            if kwargs.get("include_date_of_match"):
+                kwargs["returning"] = "date"
+                implicit_dates.append((name + "_date", (funcname, kwargs)))
+            elif kwargs.get("include_measurement_date"):
+                kwargs["returning"] = "date"
+                implicit_dates.append((name + "_date_measured", (funcname, kwargs)))
+
+        for name, (funcname, kwargs) in implicit_dates + definitions:
+            returning = kwargs.get("returning", None)
+            if name == "population":
+                continue
+            if returning and (
+                returning == "date"
+                or returning.startswith("date_")
+                or returning.endswith("_date")
+                or "_date_" in returning
+            ):
+                parse_dates.append(name)
+                # if granularity doesn't include a day, add one
+                if not kwargs.get("include_day") and not kwargs.get("include_month"):
+                    converters[name] = add_month_and_day_to_date
+                elif kwargs.get("include_month"):
+                    converters[name] = add_day_to_date
+
+            elif returning == "numeric_value":
+                dtypes[name] = "float"
+            elif returning == "number_of_matches_in_period":
+                dtypes[name] = "int"
+            elif returning == "binary_flag":
+                converters[name] = tobool
+            elif returning == "category" or "category_definitions" in kwargs:
+                dtypes[name] = "category"
+            elif "include_measurement_date" in kwargs:
+                # currently a special case for BMI
+                dtypes[name] = "float"
+                if name + "_date_measured" not in parse_dates:
+                    if kwargs["include_measurement_date"]:
+                        parse_dates.append(name + "_date_measured")
+            elif returning:
+                dtypes[name] = "category"
+            elif funcname == "age_as_of":
+                dtypes[name] = "int"
+            elif funcname == "sex":
+                dtypes[name] = "category"
+            elif funcname == "have_died_of_covid":
+                dtypes[name] = "category"
+            else:
+                raise ValueError(
+                    f"Unable to impute Pandas type for {name} ({funcname})"
+                )
+        return {"dtype": dtypes, "converters": converters, "parse_dates": parse_dates}
 
     def to_dicts(self):
         result = self.execute_query()
