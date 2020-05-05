@@ -1320,11 +1320,28 @@ def codelist_to_sql(codelist):
     return ",".join(values)
 
 
+def standardise_if_date(value):
+    """For strings that look like ISO dates, format in a SQL-Server
+    friendly fashion
+
+    """
+
+    # ISO date strings with hyphens are unreliable in SQL Server:
+    # https://stackoverflow.com/a/25548626/559140
+    try:
+        date = datetime.datetime.strptime(value, "%Y-%m-%d")
+        value = date.strftime("%Y%m%d")
+    except ValueError:
+        pass
+    return value
+
+
 def quote(value):
     if isinstance(value, (int, float)):
         return str(value)
     else:
         value = str(value)
+        value = standardise_if_date(value)
         if not SAFE_CHARS_RE.match(value) and value != "":
             raise ValueError(f"Value contains disallowed characters: {value}")
         return f"'{value}'"

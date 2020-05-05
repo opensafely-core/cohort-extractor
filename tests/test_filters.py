@@ -24,6 +24,7 @@ from datalab_cohorts import StudyDefinition
 from datalab_cohorts import patients
 from datalab_cohorts import codelist
 from datalab_cohorts import filter_codes_by_category
+from datalab_cohorts import quote
 
 
 def setup_module(module):
@@ -1447,3 +1448,13 @@ def test_using_expression_in_population_definition():
     results = study.to_dicts()
     assert results[0].keys() == {"patient_id", "age"}
     assert [i["age"] for i in results] == ["50"]
+
+
+def test_quote():
+    with pytest.raises(ValueError):
+        quote("foo!")
+    assert quote("2012-02-01") == "'20120201'"
+    assert quote("2012") == "'2012'"
+    assert quote(2012) == "2012"
+    assert quote(0.1) == "0.1"
+    assert quote("foo") == "'foo'"
