@@ -1447,3 +1447,38 @@ def test_using_expression_in_population_definition():
     results = study.to_dicts()
     assert results[0].keys() == {"patient_id", "age"}
     assert [i["age"] for i in results] == ["50"]
+
+def test_dummy_data_generator():
+    from datalab_cohorts.dummy_data_generators import generate
+    import pandas as pd
+
+    returning = {
+        "category": {"categories": {"A": 0.1, "B": 0.5, "C": 0.2, "D": 0.2}},
+        "date": {"earliest_date": "1990-01-01", "latest_date": "2020-12-31"},
+        "binary": True,
+        "scalar": {"distribution": "normal", "mean": 50, "stddev": 10},
+    }
+    population_size = 10000
+    incidence = 1.0
+    result = generate(population_size, incidence, returning=returning)
+
+    # Check incidence numbers are correct
+    null_rows = result[~pd.isnull(result["date"])]
+    assert len(null_rows) == (population_size * incidence)
+
+    # Check dates are distributed exponentially
+    year_counts = (
+        result["date"].dt.strftime("%Y").reset_index().groupby("date").count()["index"]
+    )
+    max_count = population_size
+    for count in list(reversed(year_counts))[:5]:
+        assert count < max_count
+        max_count = count
+
+    # Check categories are assigned more-or-less in correct proportion
+    category_a = result[result["category"] == "A"]
+    category_b = result[result["category"] == "B"]
+    category_c = result[result["category"] == "C"]
+    assert len(category_b) > len(category_c) > len(category_a)
+
+    assert len(result[result["binary"] == True]) == (population_size * incidence)
