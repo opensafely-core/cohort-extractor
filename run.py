@@ -360,6 +360,12 @@ def update_codelists():
                 f.write(rsp.text)
 
 
+def dump_cohort_sql():
+    _set_up_path()
+    from study_definition import study
+    print(study.to_sql())
+
+
 def _set_up_path():
     sys.path.extend([relative_dir(), os.path.join(relative_dir(), "analysis")])
 
@@ -387,6 +393,10 @@ def main(from_cmd_line=False):
         help="Update codelists, using specification at codelists/codelists.txt",
     )
     update_codelists_parser.set_defaults(which="update_codelists")
+    dump_cohort_sql_parser = subparsers.add_parser(
+        "dump_cohort_sql", help="Show SQL to generate cohort"
+    )
+    dump_cohort_sql_parser.set_defaults(which="dump_cohort_sql")
 
     # Cohort parser options
     generate_cohort_parser.add_argument(
@@ -465,6 +475,8 @@ def main(from_cmd_line=False):
     elif options.which == "update_codelists":
         update_codelists()
         print("Codelists updated. Don't forget to commit them to the repo")
+    elif options.which == "dump_cohort_sql":
+        dump_cohort_sql()
 
 
 if __name__ == "__main__":
