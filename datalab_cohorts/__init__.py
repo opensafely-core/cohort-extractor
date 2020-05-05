@@ -404,7 +404,7 @@ class StudyDefinition:
         # each list is the canonical version according to TPP
         weight_codes = [
             "X76C7",  # Concept containing "body weight" terms:
-            "22A.. ",  # O/E weight
+            "22A..",  # O/E weight
         ]
         height_codes = [
             "XM01E",  # Concept containing height/length/stature/growth terms:
