@@ -131,7 +131,8 @@ class StudyDefinition:
 
         for name, (funcname, kwargs) in implicit_dates + definitions:
             returning = kwargs.get("returning", None)
-
+            if name == "population":
+                continue
             if returning and (
                 returning == "date"
                 or returning.startswith("date_")
