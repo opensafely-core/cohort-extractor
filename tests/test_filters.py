@@ -1671,9 +1671,14 @@ def test_make_dummy_df():
         ethnicity=patients.with_these_clinical_events(
             categorised_codelist,
             returning="category",
+            return_expectations={
+                "rate": "exponential_increase",
+                "incidence": 0.2,
+                "category": {"ratios": {"A": 0.3, "B": 0.7}},
+                "date": {"earliest": "1900-01-01", "latest": "today"},
+            },
             find_last_match_in_period=True,
             include_date_of_match=False,
-            expects={"category": {"categories": {"A": 0.3, "B": 0.7}}},
         ),
     )
     result = study.make_dummy_df()
@@ -1690,6 +1695,11 @@ def test_make_dummy_df_2():
             codelist(["X"], system="ctv3"),
             between=["2001-12-01", "2002-06-01"],
             returning="date",
+            return_expectations={
+                "rate": "exponential_increase",
+                "incidence": 0.2,
+                "date": {"earliest": "1900-01-01", "latest": "today"},
+            },
             find_first_match_in_period=True,
             include_month=True,
             include_day=True,
