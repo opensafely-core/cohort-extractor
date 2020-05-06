@@ -1711,3 +1711,22 @@ def test_make_dummy_df_2():
         result.reset_index().groupby("asthma_condition").count().iloc[-1].name
         == "2002-06-01"
     )
+
+
+def test_make_dummy_df_2():
+    study = StudyDefinition(
+        population=patients.all(),
+        bmi=patients.most_recent_bmi(
+            on_or_after="2010-02-01",
+            minimum_age_at_measurement=16,
+            include_measurement_date=True,
+            include_month=True,
+            return_expectations={
+                "rate": "exponential_increase",
+                "incidence": 0.6,
+                "float": {"distribution": "normal", "mean": 35, "stddev": 10},
+                "date": {"earliest": "1900-01-01", "latest": "today"},
+            },
+        ),
+    )
+    result = study.make_dummy_df()
