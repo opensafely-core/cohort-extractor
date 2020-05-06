@@ -1640,7 +1640,7 @@ def test_quote():
     assert quote("foo") == "'foo'"
 
 
-def test_number_of_episodes_in_period():
+def test_number_of_episodes():
     session = make_session()
     session.add_all(
         [
@@ -1691,10 +1691,10 @@ def test_number_of_episodes_in_period():
         population=patients.all(),
         episode_count=patients.with_these_clinical_events(
             foo_codes,
-            ignore_events_where_these_codes_occur_on_same_day=bar_codes,
             on_or_before="2020-01-01",
-            returning="number_of_episodes_in_period",
-            only_count_events_as_new_episode_when=">14 days after end of previous episode",
+            ignore_days_where_these_codes_occur=bar_codes,
+            returning="number_of_episodes",
+            episode_defined_as="series of events each <= 14 days apart",
         ),
     )
     results = study.to_dicts()

@@ -695,7 +695,7 @@ class StudyDefinition:
         defined period
         """
         # This uses a special case function with a "fake it til you make it" API
-        if kwargs["returning"] == "number_of_episodes_in_period":
+        if kwargs["returning"] == "number_of_episodes":
             kwargs.pop("returning")
             # Remove unhandled arguments and check they are unused
             assert not kwargs.pop("find_first_match_in_period", None)
@@ -703,14 +703,12 @@ class StudyDefinition:
             assert not kwargs.pop("include_date_of_match", None)
             assert not kwargs.pop("include_month", None)
             assert not kwargs.pop("include_day", None)
-            return self._number_of_episodes_in_period(**kwargs)
+            return self._number_of_episodes(**kwargs)
         # This is the default code path for most queries
         else:
             # Remove unhandled arguments and check they are unused
-            assert not kwargs.pop(
-                "ignore_events_where_these_codes_occur_on_same_day", None
-            )
-            assert not kwargs.pop("only_count_events_as_new_episode_when", None)
+            assert not kwargs.pop("ignore_days_where_these_codes_occur", None)
+            assert not kwargs.pop("episode_defined_as", None)
             return self._patients_with_events(
                 "CodedEvent", "CTV3Code", codes_are_case_sensitive=True, **kwargs
             )
@@ -827,30 +825,29 @@ class StudyDefinition:
                 columns.append(date_column_name)
         return columns, sql
 
-    def _number_of_episodes_in_period(
+    def _number_of_episodes(
         self,
         codelist,
         # Set date limits
         on_or_before=None,
         on_or_after=None,
         between=None,
-        ignore_events_where_these_codes_occur_on_same_day=None,
-        only_count_events_as_new_episode_when=None,
+        ignore_days_where_these_codes_occur=None,
+        episode_defined_as=None,
     ):
         codelist_table = self.create_codelist_table(codelist, case_sensitive=True)
         ignore_list_table = self.create_codelist_table(
-            ignore_events_where_these_codes_occur_on_same_day, case_sensitive=True
+            ignore_days_where_these_codes_occur, case_sensitive=True
         )
         date_condition = make_date_filter(
             "ConsultationDate", on_or_after, on_or_before, between
         )
-        if only_count_events_as_new_episode_when is not None:
-            pattern = r"^>(\d+) days after end of previous episode$"
-            match = re.match(pattern, only_count_events_as_new_episode_when)
+        if episode_defined_as is not None:
+            pattern = r"^series of events each <= (\d+) days apart$"
+            match = re.match(pattern, episode_defined_as)
             if not match:
                 raise ValueError(
-                    f"Argument `only_count_events_as_new_episode_when` must match "
-                    f"pattern: {pattern}"
+                    f"Argument `episode_defined_as` must match " f"pattern: {pattern}"
                 )
             washout_period = int(match.group(1))
         else:
@@ -1334,8 +1331,8 @@ class patients:
         # Special (and probably temporary) arguments to support queries we need
         # to do right now. This API will need to be thought through properly at
         # some stage.
-        ignore_events_where_these_codes_occur_on_same_day=None,
-        only_count_events_as_new_episode_when=None,
+        ignore_days_where_these_codes_occur=None,
+        episode_defined_as=None,
         # Deprecated return type options kept for now for backwards
         # compatibility
         return_binary_flag=None,
