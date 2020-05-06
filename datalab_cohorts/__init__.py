@@ -707,9 +707,24 @@ class StudyDefinition:
         Patients who have had at least one of these clinical events in the
         defined period
         """
-        return self._patients_with_events(
-            "CodedEvent", "CTV3Code", codes_are_case_sensitive=True, **kwargs
-        )
+        # This uses a special case function with a "fake it til you make it" API
+        if kwargs["returning"] == "number_of_episodes":
+            kwargs.pop("returning")
+            # Remove unhandled arguments and check they are unused
+            assert not kwargs.pop("find_first_match_in_period", None)
+            assert not kwargs.pop("find_last_match_in_period", None)
+            assert not kwargs.pop("include_date_of_match", None)
+            assert not kwargs.pop("include_month", None)
+            assert not kwargs.pop("include_day", None)
+            return self._number_of_episodes(**kwargs)
+        # This is the default code path for most queries
+        else:
+            # Remove unhandled arguments and check they are unused
+            assert not kwargs.pop("ignore_days_where_these_codes_occur", None)
+            assert not kwargs.pop("episode_defined_as", None)
+            return self._patients_with_events(
+                "CodedEvent", "CTV3Code", codes_are_case_sensitive=True, **kwargs
+            )
 
     def _patients_with_events(
         self,
@@ -822,6 +837,69 @@ class StudyDefinition:
             if include_date_of_match:
                 columns.append(date_column_name)
         return columns, sql
+
+    def _number_of_episodes(
+        self,
+        codelist,
+        # Set date limits
+        on_or_before=None,
+        on_or_after=None,
+        between=None,
+        ignore_days_where_these_codes_occur=None,
+        episode_defined_as=None,
+    ):
+        codelist_table = self.create_codelist_table(codelist, case_sensitive=True)
+        ignore_list_table = self.create_codelist_table(
+            ignore_days_where_these_codes_occur, case_sensitive=True
+        )
+        date_condition = make_date_filter(
+            "ConsultationDate", on_or_after, on_or_before, between
+        )
+        if episode_defined_as is not None:
+            pattern = r"^series of events each <= (\d+) days apart$"
+            match = re.match(pattern, episode_defined_as)
+            if not match:
+                raise ValueError(
+                    f"Argument `episode_defined_as` must match " f"pattern: {pattern}"
+                )
+            washout_period = int(match.group(1))
+        else:
+            washout_period = 0
+
+        sql = f"""
+        SELECT
+          Patient_ID AS patient_id,
+          SUM(is_new_episode) AS episode_count
+        FROM (
+            SELECT
+              Patient_ID,
+              CASE
+                WHEN
+                  DATEDIFF(
+                    day,
+                    LAG(ConsultationDate) OVER (PARTITION BY Patient_ID ORDER BY ConsultationDate),
+                    ConsultationDate
+                  ) <= {washout_period}
+                THEN 0
+                ELSE 1
+              END AS is_new_episode
+            FROM CodedEvent
+            INNER JOIN {codelist_table}
+            ON CTV3Code = {codelist_table}.code
+            WHERE
+              {date_condition}
+              AND NOT EXISTS (
+                SELECT * FROM CodedEvent AS sameday
+                INNER JOIN {ignore_list_table}
+                ON sameday.CTV3Code = {ignore_list_table}.code
+                WHERE
+                  sameday.Patient_ID = CodedEvent.Patient_ID
+                  AND CAST(sameday.ConsultationDate AS date) = CAST(CodedEvent.ConsultationDate AS date)
+              )
+        ) t
+        GROUP BY Patient_ID
+        """
+        return ["patient_id", "episode_count"], sql
 
     def patients_registered_practice_as_of(self, date, returning=None):
         if returning == "stp_code":
@@ -1263,6 +1341,11 @@ class patients:
         # If we're returning a date, how granular should it be?
         include_month=False,
         include_day=False,
+        # Special (and probably temporary) arguments to support queries we need
+        # to do right now. This API will need to be thought through properly at
+        # some stage.
+        ignore_days_where_these_codes_occur=None,
+        episode_defined_as=None,
         # Deprecated return type options kept for now for backwards
         # compatibility
         return_binary_flag=None,

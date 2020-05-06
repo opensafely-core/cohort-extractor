@@ -1411,6 +1411,7 @@ def test_recursive_definitions_produce_errors():
             that=patients.satisfying("this = 1"),
         )
 
+
 ## Pandas import specification tests
 
 
@@ -1590,6 +1591,7 @@ def test_mean_recorded_value_dtype_generation():
         "parse_dates": ["bp_sys_date_measured"],
     }
 
+
 def test_using_expression_in_population_definition():
     session = make_session()
     session.add_all(
@@ -1626,7 +1628,7 @@ def test_using_expression_in_population_definition():
     results = study.to_dicts()
     assert results[0].keys() == {"patient_id", "age"}
     assert [i["age"] for i in results] == ["50"]
-    
+
 
 def test_quote():
     with pytest.raises(ValueError):
@@ -1637,3 +1639,63 @@ def test_quote():
     assert quote(0.1) == "0.1"
     assert quote("foo") == "'foo'"
 
+
+def test_number_of_episodes():
+    session = make_session()
+    session.add_all(
+        [
+            Patient(
+                CodedEvents=[
+                    CodedEvent(CTV3Code="foo1", ConsultationDate="2010-01-01"),
+                    # Throw in some irrelevant events
+                    CodedEvent(CTV3Code="mto1", ConsultationDate="2010-01-02"),
+                    CodedEvent(CTV3Code="mto2", ConsultationDate="2010-01-03"),
+                    # These two should be merged in to the previous event
+                    # because there's not more than 14 days between them
+                    CodedEvent(CTV3Code="foo2", ConsultationDate="2010-01-14"),
+                    CodedEvent(CTV3Code="foo3", ConsultationDate="2010-01-20"),
+                    # This is just outside the limit so should count as another event
+                    CodedEvent(CTV3Code="foo1", ConsultationDate="2010-02-04"),
+                    # This shouldn't count because there's an "ignore" event on
+                    # the same day (though at a different time)
+                    CodedEvent(CTV3Code="foo1", ConsultationDate="2012-01-01T10:45:00"),
+                    CodedEvent(CTV3Code="bar2", ConsultationDate="2012-01-01T16:10:00"),
+                    # This should be another episode
+                    CodedEvent(CTV3Code="foo1", ConsultationDate="2015-03-05"),
+                    # This "ignore" event should have no effect because it occurs
+                    # on a different day
+                    CodedEvent(CTV3Code="bar1", ConsultationDate="2015-03-06"),
+                    # This is after the time limit and so shouldn't count
+                    CodedEvent(CTV3Code="foo1", ConsultationDate="2020-02-05"),
+                ]
+            ),
+            # This patient doesn't have any relevant events
+            Patient(
+                CodedEvents=[
+                    CodedEvent(CTV3Code="mto1", ConsultationDate="2010-01-01"),
+                    CodedEvent(CTV3Code="mto2", ConsultationDate="2010-01-14"),
+                    CodedEvent(CTV3Code="mto3", ConsultationDate="2010-01-20"),
+                    CodedEvent(CTV3Code="mto1", ConsultationDate="2010-02-04"),
+                    CodedEvent(CTV3Code="mto1", ConsultationDate="2012-01-01T10:45:00"),
+                    CodedEvent(CTV3Code="mtr2", ConsultationDate="2012-01-01T16:10:00"),
+                    CodedEvent(CTV3Code="mto1", ConsultationDate="2015-03-05"),
+                    CodedEvent(CTV3Code="mto1", ConsultationDate="2020-02-05"),
+                ]
+            ),
+        ]
+    )
+    session.commit()
+    foo_codes = codelist(["foo1", "foo2", "foo3"], "ctv3")
+    bar_codes = codelist(["bar1", "bar2"], "ctv3")
+    study = StudyDefinition(
+        population=patients.all(),
+        episode_count=patients.with_these_clinical_events(
+            foo_codes,
+            on_or_before="2020-01-01",
+            ignore_days_where_these_codes_occur=bar_codes,
+            returning="number_of_episodes",
+            episode_defined_as="series of events each <= 14 days apart",
+        ),
+    )
+    results = study.to_dicts()
+    assert [i["episode_count"] for i in results] == ["3", "0"]
