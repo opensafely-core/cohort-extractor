@@ -1,4 +1,4 @@
-# Factors associated with COVID-19-related hospital death
+# _title goes here_
 
 This is the code and configuration for our paper, _name goes here_
 
