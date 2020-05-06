@@ -870,11 +870,9 @@ class StudyDefinition:
         if find_first_match_in_period:
             ordering = "ASC"
             date_aggregate = "MIN"
-            date_column_name = "first_date"
         else:
             ordering = "DESC"
             date_aggregate = "MAX"
-            date_column_name = "last_date"
 
         if returning == "binary_flag" or returning == "date":
             column_name = "has_event"
@@ -905,10 +903,6 @@ class StudyDefinition:
             raise ValueError(f"Unsupported `returning` value: {returning}")
 
         if use_partition_query:
-            # Partition queries are used to pull out values for specific
-            # events, the corresponding date column therefore should not be
-            # "first_date" or "last_date" but just "date"
-            date_column_name = "date"
             date_column_definition = truncate_date(
                 "ConsultationDate", include_month, include_day
             )
@@ -916,7 +910,7 @@ class StudyDefinition:
             SELECT
               Patient_ID AS patient_id,
               {column_definition} AS {column_name},
-              {date_column_definition} AS {date_column_name}
+              {date_column_definition} AS date
             FROM (
               SELECT Patient_ID, {column_definition}, ConsultationDate,
               ROW_NUMBER() OVER (
@@ -937,7 +931,7 @@ class StudyDefinition:
             SELECT
               Patient_ID AS patient_id,
               {column_definition} AS {column_name},
-              {date_column_definition} AS {date_column_name}
+              {date_column_definition} AS date
             FROM {from_table}
             INNER JOIN {codelist_table}
             ON {code_column} = {codelist_table}.code
@@ -946,11 +940,11 @@ class StudyDefinition:
             """
 
         if returning == "date":
-            columns = ["patient_id", date_column_name]
+            columns = ["patient_id", "date"]
         else:
             columns = ["patient_id", column_name]
             if include_date_of_match:
-                columns.append(date_column_name)
+                columns.append("date")
         return columns, sql
 
     def _number_of_episodes(

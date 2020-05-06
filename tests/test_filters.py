@@ -346,7 +346,7 @@ def test_clinical_event_with_count():
     )
     results = study.to_dicts()
     assert [x["asthma_count"] for x in results] == ["0", "3", "0"]
-    assert [x["asthma_count_first_date"] for x in results] == ["", "2002-01", ""]
+    assert [x["asthma_count_date"] for x in results] == ["", "2002-01", ""]
 
 
 def test_clinical_event_with_code():
