@@ -25,6 +25,7 @@ from pandas.api.types import is_categorical_dtype
 from pandas.api.types import is_bool_dtype
 from pandas.api.types import is_datetime64_dtype
 from pandas.api.types import is_numeric_dtype
+import yaml
 
 from datetime import datetime
 import seaborn as sns
@@ -248,7 +249,7 @@ def make_chart(name, series, dtype):
 
 def generate_cohort():
     print("Running. Please wait...")
-    sys.path.extend([relative_dir(), os.path.join(relative_dir(), "analysis")])
+    _set_up_path()
     # Avoid creating __pycache__ files in the analysis directory
     sys.dont_write_bytecode = True
     from study_definition import study
@@ -259,7 +260,7 @@ def generate_cohort():
 
 
 def make_cohort_report():
-    sys.path.extend([relative_dir(), os.path.join(relative_dir(), "analysis")])
+    _set_up_path()
     # Avoid creating __pycache__ files in the analysis directory
     sys.dont_write_bytecode = True
     from study_definition import study
@@ -360,6 +361,22 @@ def update_codelists():
                 f.write(rsp.text)
 
 
+def dump_cohort_sql():
+    _set_up_path()
+    from study_definition import study
+    print(study.to_sql())
+
+
+def dump_study_yaml():
+    _set_up_path()
+    from study_definition import study
+    print(yaml.dump(study.to_data()))
+
+
+def _set_up_path():
+    sys.path.extend([relative_dir(), os.path.join(relative_dir(), "analysis")])
+
+
 def main(from_cmd_line=False):
     parser = ArgumentParser(
         description="Generate cohorts and run models in openSAFELY framework. "
@@ -383,6 +400,14 @@ def main(from_cmd_line=False):
         help="Update codelists, using specification at codelists/codelists.txt",
     )
     update_codelists_parser.set_defaults(which="update_codelists")
+    dump_cohort_sql_parser = subparsers.add_parser(
+        "dump_cohort_sql", help="Show SQL to generate cohort"
+    )
+    dump_cohort_sql_parser.set_defaults(which="dump_cohort_sql")
+    dump_study_yaml_parser = subparsers.add_parser(
+        "dump_study_yaml", help="Show SQL to generate cohort"
+    )
+    dump_study_yaml_parser.set_defaults(which="dump_study_yaml")
 
     # Cohort parser options
     generate_cohort_parser.add_argument(
@@ -461,6 +486,10 @@ def main(from_cmd_line=False):
     elif options.which == "update_codelists":
         update_codelists()
         print("Codelists updated. Don't forget to commit them to the repo")
+    elif options.which == "dump_cohort_sql":
+        dump_cohort_sql()
+    elif options.which == "dump_study_yaml":
+        dump_study_yaml()
 
 
 if __name__ == "__main__":

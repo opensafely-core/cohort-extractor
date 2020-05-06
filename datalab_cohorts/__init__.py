@@ -27,6 +27,7 @@ class StudyDefinition:
         covariates["population"] = population
         assert "patient_id" not in covariates, "patient_id is a reserved column name"
         self.codelist_tables = []
+        self.covariate_definitions = covariates
         self.queries = self.build_queries(covariates)
         self.pandas_csv_args = self.get_pandas_csv_args(covariates)
 
@@ -184,6 +185,18 @@ class StudyDefinition:
             unique_check.add(item["patient_id"])
         unique_check.assert_unique_ids()
         return output
+
+    def to_data(self):
+        covariate_definitions, hidden_columns = self.flatten_nested_covariates(
+            self.covariate_definitions
+        )
+        data = {"hidden_columns": hidden_columns, "covariate_definitions": {}}
+        for name, (query_type, query_args) in covariate_definitions.items():
+            data["covariate_definitions"][name] = {
+                "type": query_type,
+                "args": query_args,
+            }
+        return data
 
     def to_sql(self):
         """
