@@ -2,14 +2,12 @@ name: Build and release Windows runner
 on:
   push:
     paths:
-    - "run.py"
-    - "datalab_cohorts/**"
+    - "runner/VERSION"
     - "build_runner.yaml"
   pull_request:
     types: [closed]
     paths:
-    - "run.py"
-    - "datalab_cohorts/**"
+    - "runner/VERSION"
     - "build_runner.yaml"
 
 jobs:
@@ -34,20 +32,21 @@ jobs:
         pip install pyinstaller
     - name: Build with pyinstaller
       run: |
-        pyinstaller run.py --onefile --hidden-import=datalab_cohorts
+        pyinstaller run.py --onefile
 
     - name: Extract branch name
       shell: bash
-      run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
-      id: extract_branch
+      run: echo "##[set-output name=version;]$(python run.py --version)"
+      id: extract_version
 
     - name: Create Prelease (non-master branch) Release
       if: github.ref != 'master'
       uses: "marvinpinto/action-automatic-releases@latest"
       with:
         repo_token: ${{ secrets.GITHUB_TOKEN }}
-        title: "Development build of ${{ steps.extract_branch.outputs.branch }} branch"
-        automatic_release_tag: ${{ steps.extract_branch.outputs.branch }}
+        # Make this remove the metadata bit
+        title: "Development build of ${{ steps.extract_version.outputs.version }}"
+        automatic_release_tag: ${{ steps.extract_version.outputs.version }}
         draft: false
         prerelease: true
         files: |

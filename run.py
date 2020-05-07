@@ -2,7 +2,7 @@
 start a notebook, open a web browser on the correct port, and handle
 shutdowns gracefully
 """
-
+import runner
 import glob
 import os
 import re
@@ -19,6 +19,7 @@ import webbrowser
 
 import base64
 from io import BytesIO
+from packaging.version import parse
 from matplotlib import pyplot as plt
 import numpy as np
 from pandas.api.types import is_categorical_dtype
@@ -364,12 +365,14 @@ def update_codelists():
 def dump_cohort_sql():
     _set_up_path()
     from study_definition import study
+
     print(study.to_sql())
 
 
 def dump_study_yaml():
     _set_up_path()
     from study_definition import study
+
     print(yaml.dump(study.to_data()))
 
 
@@ -382,6 +385,8 @@ def main(from_cmd_line=False):
         description="Generate cohorts and run models in openSAFELY framework. "
         "Latest version at https://github.com/ebmdatalab/opencorona-research-template/releases/latest"
     )
+    # Cohort parser options
+    parser.add_argument("--version", help="Display runner version", action="store_true")
     subparsers = parser.add_subparsers(help="sub-command help")
     generate_cohort_parser = subparsers.add_parser(
         "generate_cohort", help="Generate cohort"
@@ -449,7 +454,10 @@ def main(from_cmd_line=False):
     )
 
     options = parser.parse_args()
-    if options.which == "run":
+    if options.version:
+        version = parse(runner.__version__)
+        print(f"v{version.public}")
+    elif options.which == "run":
         if options.test:
             try:
                 run_model("tests", options.stata_path)
