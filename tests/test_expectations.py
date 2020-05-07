@@ -1,3 +1,5 @@
+import pytest
+
 import pandas as pd
 
 from datalab_cohorts import StudyDefinition
@@ -308,7 +310,7 @@ def test_data_generator_age():
 
 
 def test_make_df_from_expectations_with_categories():
-    categorised_codelist = codelist([("X", "Y")], system="ctv3")
+    categorised_codelist = codelist([("1", "A"), ("2", "B")], system="ctv3")
     categorised_codelist.has_categories = True
     study = StudyDefinition(
         population=patients.all(),
@@ -331,6 +333,68 @@ def test_make_df_from_expectations_with_categories():
 
     category_counts = result.reset_index().groupby("ethnicity").count()
     assert category_counts.loc["A", :][0] < category_counts.loc["B", :][0]
+
+
+def test_make_df_from_expectations_with_categories_in_codelist_validation():
+    categorised_codelist = codelist([("X", "Y")], system="ctv3")
+    categorised_codelist.has_categories = True
+    study = StudyDefinition(
+        population=patients.all(),
+        ethnicity=patients.with_these_clinical_events(
+            categorised_codelist,
+            returning="category",
+            return_expectations={
+                "rate": "exponential_increase",
+                "incidence": 0.2,
+                "category": {"ratios": {"A": 0.3, "B": 0.7}},
+                "date": {"earliest": "1900-01-01", "latest": "today"},
+            },
+            find_last_match_in_period=True,
+            include_date_of_match=False,
+        ),
+    )
+    population_size = 10000
+    with pytest.raises(ValueError):
+        study.make_df_from_expectations(population_size)
+
+
+def test_make_df_from_expectations_with_categories_expression():
+    study = StudyDefinition(
+        population=patients.all(),
+        category=patients.categorised_as(
+            {"A": "sex = 'F'", "B": "sex = 'M'"},
+            sex=patients.sex(),
+            return_expectations={
+                "rate": "exponential_increase",
+                "incidence": 0.2,
+                "category": {"ratios": {"A": 0.3, "B": 0.7}},
+                "date": {"earliest": "1900-01-01", "latest": "today"},
+            },
+        ),
+    )
+    population_size = 10000
+    result = study.make_df_from_expectations(population_size)
+    value_counts = result.category.value_counts()
+    assert value_counts["A"] < value_counts["B"]
+
+
+def test_make_df_from_expectations_with_categories_expression_validation():
+    study = StudyDefinition(
+        population=patients.all(),
+        category=patients.categorised_as(
+            {"A": "sex = 'F'", "B": "sex = 'M'"},
+            sex=patients.sex(),
+            return_expectations={
+                "rate": "exponential_increase",
+                "incidence": 0.2,
+                "category": {"ratios": {"A": 0.3, "B": 0.6, "C": 0.1}},
+                "date": {"earliest": "1900-01-01", "latest": "today"},
+            },
+        ),
+    )
+    population_size = 10000
+    with pytest.raises(ValueError):
+        study.make_df_from_expectations(population_size)
 
 
 def test_make_df_from_expectations_with_date_filter():

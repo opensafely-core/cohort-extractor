@@ -105,8 +105,24 @@ class StudyDefinition:
             series = series.dt.strftime("%Y")
         return series
 
+    def validate_category_expectations(
+        self,
+        codelist=None,
+        return_expectations=None,
+        category_definitions=None,
+        **kwargs,
+    ):
+        defined = set(return_expectations["category"]["ratios"].keys())
+        if codelist and codelist.has_categories:
+            available = set([x[1] for x in codelist])
+        else:
+            available = set(category_definitions.keys())
+        if not defined.issubset(available):
+            raise ValueError(
+                f"Expected categories {', '.join(defined)} are not a subset of available categories {', '.join(available)}"
+            )
+
     def make_df_from_expectations(self, population):
-        # First, build a database matching the expectations
         df = pd.DataFrame()
 
         # Start with dates, so we can use them as inputs for incidence
@@ -130,6 +146,12 @@ class StudyDefinition:
             if "return_expectations" not in self.pandas_csv_args["args"][colname]:
                 raise ValueError(f"No `return_expectations` defined for {colname}")
             kwargs = self.pandas_csv_args["args"][colname]["return_expectations"]
+
+            if dtype == "category":
+                self.validate_category_expectations(
+                    **self.pandas_csv_args["args"][colname]
+                )
+
             dependent_date = self.pandas_csv_args["date_col_for"].get(colname)
             if dependent_date:
                 df[colname] = generate(
@@ -383,6 +405,7 @@ class StudyDefinition:
         hidden = set()
         items = list(covariate_definitions.items())
         while items:
+
             name, (query_type, query_args) = items.pop(0)
             if query_type == "categorised_as" and "extra_columns" in query_args:
                 # Pull out the extra columns
@@ -1490,7 +1513,7 @@ class patients:
         return "with_these_clinical_events", locals()
 
     @staticmethod
-    def categorised_as(category_definitions, **extra_columns):
+    def categorised_as(category_definitions, return_expectations=None, **extra_columns):
         return "categorised_as", locals()
 
     @staticmethod
