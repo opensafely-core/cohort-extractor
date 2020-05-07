@@ -131,6 +131,8 @@ class StudyDefinition:
         # matching on dependent columns
         for colname in self.pandas_csv_args["parse_dates"]:
             definition_args = self.pandas_csv_args["args"][colname]
+            if "return_expectations" not in definition_args:
+                raise ValueError(f"No `return_expectations` defined for {colname}")
             kwargs = self.default_expectations
             kwargs.update(definition_args["return_expectations"])
             df[colname] = generate(population, **kwargs)["date"]
