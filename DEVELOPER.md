@@ -2,7 +2,7 @@
 
 Codelists are hosted at [codelists.opensafely.org](https://codelists.opensafely.org).
 
-To fetch all the codelists identified in `codelists.txt`, and store them in this repository (in the `codelists/` folder), run ``run update_codelists`.
+To fetch all the codelists identified in `codelists.txt`, and store them in this repository (in the `codelists/` folder), run `run update_codelists`.
 
 As such, codelists should not be added or edited by hand.  Instead:
 
