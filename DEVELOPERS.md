@@ -145,3 +145,10 @@ will (probably) still want to use docker to run a SQL Server instance:
 
 Note: until we make this cleaner... if you change the database schema
 be sure to `docker rm stata-docker_sql_1` before restarting.
+
+## Rebuild run.exe
+
+If you need to make a new release of `run.exe`, then bump
+`runner/VERSION` (using the semver standard), and the Github Actions
+workflow `windows_build_and_release.yaml` should take care of the
+rest.
