@@ -248,7 +248,7 @@ def make_chart(name, series, dtype):
     return base64.b64encode(img.read()).decode("UTF-8")
 
 
-def generate_cohort():
+def generate_cohort(expectations_population):
     print("Running. Please wait...")
     _set_up_path()
     # Avoid creating __pycache__ files in the analysis directory
@@ -256,7 +256,11 @@ def generate_cohort():
     from study_definition import study
 
     with_sqlcmd = shutil.which("sqlcmd") is not None
-    study.to_csv("analysis/input.csv", with_sqlcmd=with_sqlcmd)
+    study.to_csv(
+        "analysis/input.csv",
+        expectations_population=expectations_population,
+        with_sqlcmd=with_sqlcmd,
+    )
     print("Successfully created cohort and covariates at analysis/input.csv")
 
 
@@ -415,11 +419,19 @@ def main(from_cmd_line=False):
     dump_study_yaml_parser.set_defaults(which="dump_study_yaml")
 
     # Cohort parser options
-    generate_cohort_parser.add_argument(
+    cohort_method_group = generate_cohort_parser.add_mutually_exclusive_group(
+        required=True
+    )
+    cohort_method_group.add_argument(
+        "--expectations-population",
+        help="Generate a dataframe from study expectations",
+        type=int,
+        default=0,
+    )
+    cohort_method_group.add_argument(
         "--database-url",
         help="Database URL to query",
         type=str,
-        required=True,
         default=os.environ.get("DATABASE_URL", ""),
     )
     if from_cmd_line:
@@ -477,7 +489,7 @@ def main(from_cmd_line=False):
             docker_run(notebook_tag, "python", *args)
         else:
             os.environ["DATABASE_URL"] = options.database_url
-            generate_cohort()
+            generate_cohort(options.expectations_population)
     elif options.which == "cohort_report":
         make_cohort_report()
     elif options.which == "notebook":

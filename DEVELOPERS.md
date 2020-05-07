@@ -39,8 +39,6 @@ you do so, for the automated tests to run, you should also add two
 *Secrets* to the settings for your repo:
 
  * `DOCKER_GITHUB_TOKEN`: a token generated using your Github account (see instructions in "Running the model against real data", below)
- * `DUMMY_DATABASE_URL`: the URL / credentials for the dummy database, which the database manager should share with you (or someone else on the team)
-
 
 The entrypoint of your model **must** be called `model.do` and it must
 live in the `analysis/` folder.
