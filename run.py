@@ -19,6 +19,7 @@ import webbrowser
 
 import base64
 from io import BytesIO
+from packaging.version import parse
 from matplotlib import pyplot as plt
 import numpy as np
 from pandas.api.types import is_categorical_dtype
@@ -454,7 +455,8 @@ def main(from_cmd_line=False):
 
     options = parser.parse_args()
     if options.version:
-        print(f"v{runner.__version__}")
+        version = parse(runner.__version__)
+        print(f"v{version.public}")
     elif options.which == "run":
         if options.test:
             try:
