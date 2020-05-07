@@ -115,8 +115,10 @@ class StudyDefinition:
         defined = set(return_expectations["category"]["ratios"].keys())
         if codelist and codelist.has_categories:
             available = set([x[1] for x in codelist])
-        else:
+        elif category_definitions:
             available = set(category_definitions.keys())
+        else:
+            available = defined
         if not defined.issubset(available):
             raise ValueError(
                 f"Expected categories {', '.join(defined)} are not a subset of available categories {', '.join(available)}"

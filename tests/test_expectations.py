@@ -397,6 +397,21 @@ def test_make_df_from_expectations_with_categories_expression_validation():
         study.make_df_from_expectations(population_size)
 
 
+def test_make_df_no_categories_validation_when_no_categories_in_definition():
+    study = StudyDefinition(
+        population=patients.all(),
+        sex=patients.sex(
+            return_expectations={
+                "rate": "universal",
+                "category": {"ratios": {"M": 0.49, "F": 0.51}},
+            }
+        ),
+    )
+    population_size = 10000
+    # Just ensuring no exception is raised
+    study.make_df_from_expectations(population_size)
+
+
 def test_make_df_from_expectations_with_date_filter():
     study = StudyDefinition(
         population=patients.all(),
