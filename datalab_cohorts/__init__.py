@@ -1353,11 +1353,7 @@ class patients:
         # Required keyword
         return_expectations=None,
     ):
-        if reference_date == "today":
-            reference_date = datetime.date.today()
-        else:
-            reference_date = datetime.date.fromisoformat(str(reference_date))
-        return "age_as_of", locals()
+        return "age_as_of", process_arguments(locals())
 
     @staticmethod
     def registered_as_of(
@@ -1365,11 +1361,7 @@ class patients:
         # Required keyword
         return_expectations=None,
     ):
-        if reference_date == "today":
-            reference_date = datetime.date.today()
-        else:
-            reference_date = datetime.date.fromisoformat(str(reference_date))
-        return "registered_as_of", locals()
+        return "registered_as_of", process_arguments(locals())
 
     @staticmethod
     def registered_with_one_practice_between(
@@ -1378,9 +1370,7 @@ class patients:
         # Required keyword
         return_expectations=None,
     ):
-        start_date = datetime.date.fromisoformat(str(start_date))
-        end_date = datetime.date.fromisoformat(str(end_date))
-        return "registered_with_one_practice_between", locals()
+        return "registered_with_one_practice_between", process_arguments(locals())
 
     @staticmethod
     def with_complete_history_between(
@@ -1389,9 +1379,7 @@ class patients:
         # Required keyword
         return_expectations=None,
     ):
-        start_date = datetime.date.fromisoformat(str(start_date))
-        end_date = datetime.date.fromisoformat(str(end_date))
-        return "with_complete_history_between", locals()
+        return "with_complete_history_between", process_arguments(locals())
 
     @staticmethod
     def most_recent_bmi(
@@ -1408,8 +1396,7 @@ class patients:
         include_month=False,
         include_day=False,
     ):
-        validate_time_period_options(**locals())
-        return "most_recent_bmi", locals()
+        return "most_recent_bmi", process_arguments(locals())
 
     @staticmethod
     def mean_recorded_value(
@@ -1428,16 +1415,15 @@ class patients:
         include_day=False,
     ):
         assert codelist.system == "ctv3"
-        validate_time_period_options(**locals())
-        return "mean_recorded_value", locals()
+        return "mean_recorded_value", process_arguments(locals())
 
     @staticmethod
     def all():
-        return "all", locals()
+        return "all", process_arguments(locals())
 
     @staticmethod
     def sex(return_expectations=None):
-        return "sex", locals()
+        return "sex", process_arguments(locals())
 
     @staticmethod
     def with_these_medications(
@@ -1465,26 +1451,7 @@ class patients:
         return_last_date_in_period=False,
     ):
         assert codelist.system == "snomed"
-        validate_time_period_options(**locals())
-        # Handle deprecated API
-        if return_binary_flag:
-            returning = "binary_flag"
-        elif return_number_of_matches_in_period:
-            returning = "number_of_matches_in_period"
-        elif return_first_date_in_period:
-            find_first_match_in_period = True
-            returning = "date"
-        elif return_last_date_in_period:
-            find_last_match_in_period = True
-            returning = "date"
-        # Remove from namespace so we don't capture them below
-        del (
-            return_binary_flag,
-            return_number_of_matches_in_period,
-            return_first_date_in_period,
-            return_last_date_in_period,
-        )
-        return "with_these_medications", locals()
+        return "with_these_medications", process_arguments(locals())
 
     @staticmethod
     def with_these_clinical_events(
@@ -1517,43 +1484,24 @@ class patients:
         return_last_date_in_period=False,
     ):
         assert codelist.system == "ctv3"
-        validate_time_period_options(**locals())
-        # Handle deprecated API
-        if return_binary_flag:
-            returning = "binary_flag"
-        elif return_number_of_matches_in_period:
-            returning = "number_of_matches_in_period"
-        elif return_first_date_in_period:
-            find_first_match_in_period = True
-            returning = "date"
-        elif return_last_date_in_period:
-            find_last_match_in_period = True
-            returning = "date"
-        # Remove from namespace so we don't capture them below
-        del (
-            return_binary_flag,
-            return_number_of_matches_in_period,
-            return_first_date_in_period,
-            return_last_date_in_period,
-        )
-        return "with_these_clinical_events", locals()
+        return "with_these_clinical_events", process_arguments(locals())
 
     @staticmethod
     def categorised_as(category_definitions, return_expectations=None, **extra_columns):
-        return "categorised_as", locals()
+        return "categorised_as", process_arguments(locals())
 
     @staticmethod
     def satisfying(expression, **extra_columns):
         category_definitions = {1: expression, 0: "DEFAULT"}
         # Remove from local namespace
         del expression
-        return "categorised_as", locals()
+        return "categorised_as", process_arguments(locals())
 
     @staticmethod
     def registered_practice_as_of(
         date, returning=None, return_expectations=None  # Required keyword
     ):
-        return "registered_practice_as_of", locals()
+        return "registered_practice_as_of", process_arguments(locals())
 
     @staticmethod
     def address_as_of(
@@ -1562,7 +1510,7 @@ class patients:
         round_to_nearest=None,
         return_expectations=None,  # Required keyword
     ):
-        return "address_as_of", locals()
+        return "address_as_of", process_arguments(locals())
 
     @staticmethod
     def admitted_to_icu(
@@ -1572,28 +1520,30 @@ class patients:
         find_first_match_in_period=None,
         find_last_match_in_period=None,
         returning="binary_flag",
-        include_month=True,
-        include_day=False,
+        date_format=None,
         # Required keyword
         return_expectations=None,
+        # Deprecated options kept for now for backwards compatibility
+        include_month=True,
+        include_day=False,
     ):
-        return "admitted_to_icu", locals()
+        return "admitted_to_icu", process_arguments(locals())
 
     # The below are placeholder methods we don't expect to make it into the final API.
     # They use a handler which returns dummy CHESS data.
 
     @staticmethod
     def with_positive_covid_test():
-        return "with_positive_covid_test", locals()
+        return "with_positive_covid_test", process_arguments(locals())
 
     @staticmethod
     def have_died_of_covid():
-        return "have_died_of_covid", locals()
+        return "have_died_of_covid", process_arguments(locals())
 
     @staticmethod
     def random_sample(percent=None):
         assert percent, "Must specify a percentage greater than zero"
-        return "random_sample", locals()
+        return "random_sample", process_arguments(locals())
 
     @staticmethod
     def with_these_codes_on_death_certificate(
@@ -1611,8 +1561,7 @@ class patients:
         include_day=False,
     ):
         assert codelist.system == "icd10"
-        validate_time_period_options(**locals())
-        return "with_these_codes_on_death_certificate", locals()
+        return "with_these_codes_on_death_certificate", process_arguments(locals())
 
     @staticmethod
     def died_from_any_cause(
@@ -1622,12 +1571,12 @@ class patients:
         between=None,
         # Set return type
         returning="binary_flag",
-        # If we're returning a date, how granular should it be?
+        date_format=None,
+        # Deprecated options kept for now for backwards compatibility
         include_month=False,
         include_day=False,
     ):
-        validate_time_period_options(**locals())
-        return "died_from_any_cause", locals()
+        return "died_from_any_cause", process_arguments(locals())
 
     @staticmethod
     def with_death_recorded_in_cpns(
@@ -1637,19 +1586,48 @@ class patients:
         between=None,
         # Set return type
         returning="binary_flag",
-        # If we're returning a date, how granular should it be?
+        date_format=None,
+        # Deprecated options kept for now for backwards compatibility
         include_month=False,
         include_day=False,
     ):
-        validate_time_period_options(**locals())
-        return "with_death_recorded_in_cpns", locals()
+        return "with_death_recorded_in_cpns", process_arguments(locals())
 
     @staticmethod
     def date_of(
-        source, include_month=False, include_day=False, return_expectations=None
+        source, return_expectations=None,
+        date_format=None,
+        # Deprecated options kept for now for backwards compatibility
+        include_month=False,
+        include_day=False,
     ):
         returning = "date"
-        return "value_from", locals()
+        return "value_from", process_arguments(locals())
+
+
+def process_arguments(args):
+    validate_time_period_options(**args)
+
+    for date_arg in ("reference_date", "start_date", "end_date"):
+        if date_arg in args:
+            value = args[date_arg]
+            if value == "today":
+                value = datetime.date.today()
+            args[date_arg] = datetime.date.fromisoformat(str(value))
+
+    # Handle deprecated API
+    if args.pop("return_binary_flag", None):
+        args["returning"] = "binary_flag"
+    if args.pop("return_number_of_matches_in_period", None):
+        args["returning"] = "number_of_matches_in_period"
+    if args.pop("return_first_date_in_period", None):
+        args["returning"] = "date"
+        args["find_first_match_in_period"] = True
+    if args.pop("return_last_date_in_period", None):
+        args["returning"] = "date"
+        args["find_last_match_in_period"] = True
+
+    return args
 
 
 def validate_time_period_options(
