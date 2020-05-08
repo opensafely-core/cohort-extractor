@@ -340,9 +340,8 @@ def test_clinical_event_with_count():
             between=["2001-12-01", "2002-06-01"],
             returning="number_of_matches_in_period",
             find_first_match_in_period=True,
-            include_date_of_match=True,
-            include_month=True,
         ),
+        asthma_count_date=patients.date_of("asthma_count", include_month=True),
     )
     results = study.to_dicts()
     assert [x["asthma_count"] for x in results] == ["0", "3", "0"]
@@ -367,8 +366,9 @@ def test_clinical_event_with_code():
             between=["2001-12-01", "2002-06-01"],
             returning="code",
             find_last_match_in_period=True,
-            include_date_of_match=True,
-            include_month=True,
+        ),
+        latest_asthma_code_date=patients.date_of(
+            "latest_asthma_code", include_month=True
         ),
     )
     results = study.to_dicts()
@@ -399,9 +399,8 @@ def test_clinical_event_with_numeric_value():
             between=["2001-12-01", "2002-06-01"],
             returning="numeric_value",
             find_first_match_in_period=True,
-            include_date_of_match=True,
-            include_month=True,
         ),
+        asthma_value_date=patients.date_of("asthma_value", include_month=True),
     )
     results = study.to_dicts()
     assert [x["asthma_value"] for x in results] == ["0.0", "2.0", "0.0"]
@@ -429,11 +428,9 @@ def test_clinical_event_with_category():
     study = StudyDefinition(
         population=patients.all(),
         code_category=patients.with_these_clinical_events(
-            codes,
-            returning="category",
-            find_last_match_in_period=True,
-            include_date_of_match=True,
+            codes, returning="category", find_last_match_in_period=True
         ),
+        code_category_date=patients.date_of("code_category"),
     )
     results = study.to_dicts()
     assert [x["code_category"] for x in results] == ["", "B", "C"]
@@ -521,23 +518,22 @@ def test_simple_bmi(include_dates):
 
     if include_dates == "none":
         bmi_date = None
-        bmi_kwargs = {}
+        date_query = None
     elif include_dates == "year":
         bmi_date = "2002"
-        bmi_kwargs = dict(include_measurement_date=True)
+        date_query = patients.date_of("BMI")
     elif include_dates == "month":
         bmi_date = "2002-06"
-        bmi_kwargs = dict(include_measurement_date=True, include_month=True)
+        date_query = patients.date_of("BMI", include_month=True)
     elif include_dates == "day":
         bmi_date = "2002-06-01"
-        bmi_kwargs = dict(
-            include_measurement_date=True, include_month=True, include_day=True
-        )
+        date_query = patients.date_of("BMI", include_month=True, include_day=True)
     study = StudyDefinition(
         population=patients.all(),
         BMI=patients.most_recent_bmi(
-            on_or_after="1995-01-01", on_or_before="2005-01-01", **bmi_kwargs
+            on_or_after="1995-01-01", on_or_before="2005-01-01"
         ),
+        **dict(BMI_date_measured=date_query) if date_query else {}
     )
     results = study.to_dicts()
     assert [x["BMI"] for x in results] == ["0.5"]
