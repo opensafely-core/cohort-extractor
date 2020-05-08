@@ -386,17 +386,14 @@ class StudyDefinition:
             # `value_from` columns also don't generate a table, they just take
             # a value from another table
             elif query_type == "value_from":
-                assert query_args["returning"] == "date"  #  all we support right now
                 assert query_args["source"] in table_queries
-                output_columns[name] = f"ISNULL(#{query_args['source']}.date, '')"
+                output_columns[name] = self.get_column_expression(**query_args)
             else:
                 cols, sql = self.get_query(name, query_type, query_args)
                 table_queries[name] = f"SELECT * INTO #{name} FROM ({sql}) t"
                 # The first column should always be patient_id so we can join on it
                 assert cols[0] == "patient_id"
-                value_column = cols[1]
-                default_value = quote(self.default_for_column(value_column))
-                output_columns[name] = f"ISNULL(#{name}.{value_column}, {default_value})"
+                output_columns[name] = self.get_column_expression(name, cols[1])
         # If the population query defines its own temporary table then we use
         # that as the primary table to query against and left join everything
         # else against that. Otherwise, we use the `Patient` table.
@@ -486,16 +483,17 @@ class StudyDefinition:
                 )
         return updated
 
-    def default_for_column(self, column_name):
+    def get_column_expression(self, source, returning, **kwargs):
         is_str_col = (
-            column_name == "date"
-            or column_name.startswith("date_")
-            or column_name.endswith("_date")
-            or column_name.endswith("_code")
-            or column_name == "category"
-            or column_name.endswith("_name")
+            returning == "date"
+            or returning.startswith("date_")
+            or returning.endswith("_date")
+            or returning.endswith("_code")
+            or returning == "category"
+            or returning.endswith("_name")
         )
-        return "" if is_str_col else 0
+        default_value = "" if is_str_col else 0
+        return f"ISNULL(#{source}.{returning}, {quote(default_value)})"
 
     def execute_query(self):
         cursor = self.get_db_connection().cursor()
