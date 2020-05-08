@@ -383,21 +383,20 @@ class StudyDefinition:
                 output_columns[name] = self.get_case_expression(
                     output_columns, **query_args
                 )
-                continue
             # `value_from` columns also don't generate a table, they just take
             # a value from another table
-            if query_type == "value_from":
+            elif query_type == "value_from":
                 assert query_args["returning"] == "date"  #  all we support right now
                 assert query_args["source"] in table_queries
                 output_columns[name] = f"ISNULL(#{query_args['source']}.date, '')"
-                continue
-            cols, sql = self.get_query(name, query_type, query_args)
-            table_queries[name] = f"SELECT * INTO #{name} FROM ({sql}) t"
-            # The first column should always be patient_id so we can join on it
-            assert cols[0] == "patient_id"
-            value_column = cols[1]
-            default_value = quote(self.default_for_column(value_column))
-            output_columns[name] = f"ISNULL(#{name}.{value_column}, {default_value})"
+            else:
+                cols, sql = self.get_query(name, query_type, query_args)
+                table_queries[name] = f"SELECT * INTO #{name} FROM ({sql}) t"
+                # The first column should always be patient_id so we can join on it
+                assert cols[0] == "patient_id"
+                value_column = cols[1]
+                default_value = quote(self.default_for_column(value_column))
+                output_columns[name] = f"ISNULL(#{name}.{value_column}, {default_value})"
         # If the population query defines its own temporary table then we use
         # that as the primary table to query against and left join everything
         # else against that. Otherwise, we use the `Patient` table.
