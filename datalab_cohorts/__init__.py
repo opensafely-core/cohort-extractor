@@ -1092,10 +1092,6 @@ class StudyDefinition:
         include_month=True,
         include_day=False,
     ):
-        assert returning in [
-            "binary_flag",
-            "date_admitted",
-        ], "`returning` must be one of `binary_flag` or `date_admitted`"
         if find_first_match_in_period:
             date_aggregate = "MIN"
             date_column_name = "first_admitted_date"
@@ -1115,21 +1111,23 @@ class StudyDefinition:
         date_condition = make_date_filter(
             date_expression, on_or_after, on_or_before, between
         )
-        columns = ["patient_id"]
+
         if returning == "date_admitted":
+            column_name = date_column_name
             column_definition = truncate_date(
                 date_expression, include_month, include_day
             )
-            columns.append(date_column_name)
         elif returning == "binary_flag":
+            column_name = "was_admitted"
             column_definition = 1
-            columns.append(date_column_name)
+        else:
+            assert False, "`returning` must be one of `binary_flag` or `date_admitted`"
         return (
-            columns,
+            ["patient_id", column_name],
             f"""
             SELECT
               Patient_ID AS patient_id,
-              {column_definition} AS {date_column_name},
+              {column_definition} AS {column_name},
               MAX(Ventilator) AS ventilated -- apparently can be 0, 1 or NULL
             FROM
               ICNARC
