@@ -125,15 +125,13 @@ class StudyDefinition:
                 unique_check.add(patient_id)
         unique_check.assert_unique_ids()
 
-    def apply_date_filters_from_definition(
-        self, series, between=None, on_or_before=None, on_or_after=None, **kwargs
-    ):
-        if between:
+    def apply_date_filters_from_definition(self, series, between=None, **kwargs):
+        if between and between[0] and between[1]:
             series = series[(series >= between[0]) & (series <= between[1])]
-        elif on_or_after:
-            series = series[series >= on_or_after]
-        elif on_or_before:
-            series = series[series >= on_or_before]
+        elif between and between[0]:
+            series = series[series >= between[0]]
+        elif between and between[1]:
+            series = series[series >= between[1]]
         return series
 
     def apply_date_precision_from_definition(self, series, date_format=None, **kwargs):
@@ -641,8 +639,6 @@ class StudyDefinition:
     def patients_most_recent_bmi(
         self,
         # Set date limits
-        on_or_before=None,
-        on_or_after=None,
         between=None,
         minimum_age_at_measurement=16,
         # Add an additional column indicating when measurement was taken
@@ -667,9 +663,7 @@ class StudyDefinition:
         # 2) If height and weight is not available, then take latest
         # recorded BMI. Both values must be recorded when the patient
         # is >=16, weight must be within the last 10 years
-        date_condition = make_date_filter(
-            "ConsultationDate", on_or_after, on_or_before, between
-        )
+        date_condition = make_date_filter("ConsultationDate", between)
 
         bmi_code = "22K.."
         # XXX these two sets of codes need validating. The final in
@@ -715,11 +709,7 @@ class StudyDefinition:
         # mind using old values as long as the patient was old enough when they
         # were taken.
         height_date_condition = make_date_filter(
-            "ConsultationDate",
-            on_or_after,
-            on_or_before,
-            between,
-            upper_bound_only=True,
+            "ConsultationDate", between, upper_bound_only=True,
         )
         heights_cte = f"""
           SELECT t.Patient_ID, t.height, t.ConsultationDate
@@ -762,17 +752,13 @@ class StudyDefinition:
         # What period is the mean over? (Only one supported option for now)
         on_most_recent_day_of_measurement=None,
         # Set date limits
-        on_or_before=None,
-        on_or_after=None,
         between=None,
         # Add additional columns indicating when measurement was taken
         include_date_of_match=False,
     ):
         # We only support this option for now
         assert on_most_recent_day_of_measurement
-        date_condition = make_date_filter(
-            "ConsultationDate", on_or_after, on_or_before, between
-        )
+        date_condition = make_date_filter("ConsultationDate", between)
         codelist_sql = codelist_to_sql(codelist)
         # The subquery finds, for each patient, the most recent day on which
         # they've had a measurement. The outer query selects, for each patient,
@@ -893,8 +879,6 @@ class StudyDefinition:
         codes_are_case_sensitive,
         codelist,
         # Set date limits
-        on_or_before=None,
-        on_or_after=None,
         between=None,
         # Matching rule
         find_first_match_in_period=None,
@@ -904,9 +888,7 @@ class StudyDefinition:
         include_date_of_match=False,
     ):
         codelist_table = self.create_codelist_table(codelist, codes_are_case_sensitive)
-        date_condition = make_date_filter(
-            "ConsultationDate", on_or_after, on_or_before, between
-        )
+        date_condition = make_date_filter("ConsultationDate", between)
 
         # Result ordering
         if find_first_match_in_period:
@@ -987,8 +969,6 @@ class StudyDefinition:
         self,
         codelist,
         # Set date limits
-        on_or_before=None,
-        on_or_after=None,
         between=None,
         ignore_days_where_these_codes_occur=None,
         episode_defined_as=None,
@@ -997,9 +977,7 @@ class StudyDefinition:
         ignore_list_table = self.create_codelist_table(
             ignore_days_where_these_codes_occur, case_sensitive=True
         )
-        date_condition = make_date_filter(
-            "ConsultationDate", on_or_after, on_or_before, between
-        )
+        date_condition = make_date_filter("ConsultationDate", between)
         if episode_defined_as is not None:
             pattern = r"^series of events each <= (\d+) days apart$"
             match = re.match(pattern, episode_defined_as)
@@ -1119,8 +1097,6 @@ class StudyDefinition:
     # https://github.com/ebmdatalab/tpp-sql-notebook/issues/72
     def patients_admitted_to_icu(
         self,
-        on_or_after=None,
-        on_or_before=None,
         between=None,
         find_first_match_in_period=None,
         find_last_match_in_period=None,
@@ -1142,9 +1118,7 @@ class StudyDefinition:
         ELSE
           OriginalIcuAdmissionDate
         END)"""
-        date_condition = make_date_filter(
-            date_expression, on_or_after, on_or_before, between
-        )
+        date_condition = make_date_filter(date_expression, between)
 
         if returning == "date_admitted":
             column_name = date_column_name
@@ -1193,15 +1167,13 @@ class StudyDefinition:
         self,
         codelist=None,
         # Set date limits
-        on_or_before=None,
-        on_or_after=None,
         between=None,
         # Matching rules
         match_only_underlying_cause=False,
         # Set return type
         returning="binary_flag",
     ):
-        date_condition = make_date_filter("dod", on_or_after, on_or_before, between)
+        date_condition = make_date_filter("dod", between)
         if codelist is not None:
             codelist_sql = codelist_to_sql(codelist)
             code_columns = ["icd10u"]
@@ -1232,32 +1204,22 @@ class StudyDefinition:
     def patients_died_from_any_cause(
         self,
         # Set date limits
-        on_or_before=None,
-        on_or_after=None,
         between=None,
         # Set return type
         returning="binary_flag",
     ):
         return self.patients_with_these_codes_on_death_certificate(
-            codelist=None,
-            on_or_before=on_or_before,
-            on_or_after=on_or_after,
-            between=between,
-            returning=returning,
+            codelist=None, between=between, returning=returning,
         )
 
     def patients_with_death_recorded_in_cpns(
         self,
         # Set date limits
-        on_or_before=None,
-        on_or_after=None,
         between=None,
         # Set return type
         returning="binary_flag",
     ):
-        date_condition = make_date_filter(
-            "DateOfDeath", on_or_after, on_or_before, between
-        )
+        date_condition = make_date_filter("DateOfDeath", between)
         if returning == "binary_flag":
             column_definition = "1"
             column_name = "died"
@@ -1597,7 +1559,7 @@ class patients:
 
 
 def process_arguments(args):
-    validate_time_period_options(**args)
+    args = validate_time_period_options(args)
 
     for date_arg in ("reference_date", "start_date", "end_date"):
         if date_arg in args:
@@ -1623,23 +1585,23 @@ def process_arguments(args):
     return args
 
 
-def validate_time_period_options(
-    # Set date limits
-    on_or_before=None,
-    on_or_after=None,
-    between=None,
-    **kwargs,
-):
-    if between:
-        if not isinstance(between, (tuple, list)) or len(between) != 2:
-            raise ValueError("`between` should be a pair of dates")
-        if on_or_before or on_or_after:
-            raise ValueError(
-                "You cannot set `between` at the same time as "
-                "`on_or_before` or `on_or_after`"
-            )
-    # TODO: enforce just one return type and only allow month/day to be included
-    # if return type is a date
+def validate_time_period_options(args):
+    if "between" not in args:
+        return args
+    on_or_after = args.pop("on_or_after", None)
+    on_or_before = args.pop("on_or_before", None)
+    between = args["between"]
+    if between and (on_or_after or on_or_before):
+        raise ValueError(
+            "You cannot set `between` at the same time as "
+            "`on_or_after` or `on_or_before`"
+        )
+    if not between:
+        between = (on_or_after, on_or_before)
+    if not isinstance(between, (tuple, list)) or len(between) != 2:
+        raise ValueError("`between` should be a pair of dates")
+    args["between"] = between
+    return args
 
 
 def handle_legacy_date_args(args):
@@ -1689,10 +1651,10 @@ def quote(value):
         return f"'{value}'"
 
 
-def make_date_filter(column, min_date, max_date, between=None, upper_bound_only=False):
-    if between is not None:
-        assert min_date is None and max_date is None
-        min_date, max_date = between
+def make_date_filter(column, between, upper_bound_only=False):
+    if between is None:
+        between = (None, None)
+    min_date, max_date = between
     if upper_bound_only:
         min_date = None
     if min_date is not None and max_date is not None:
