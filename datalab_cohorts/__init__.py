@@ -262,25 +262,10 @@ class StudyDefinition:
         dtypes = {}
         parse_dates = []
         converters = {}
-        implicit_dates = []
-        date_col_for = {}
         args = {}
-        definitions = list(covariate_definitions.items())
+        date_col_for = {}
 
-        # first work out properties of date columns which are not
-        # explicitly defined but implied in keyword arguments
-        for name, (funcname, kwargs) in copy.deepcopy(definitions):
-            if kwargs.get("include_date_of_match"):
-                kwargs["returning"] = "date"
-                implicit_dates.append((name + "_date", (funcname, kwargs)))
-                date_col_for[name] = name + "_date"
-            elif kwargs.get("include_measurement_date"):
-                kwargs["returning"] = "date"
-                implicit_dates.append((name + "_date_measured", (funcname, kwargs)))
-                date_col_for[name] = name + "_date_measured"
-
-        # now work out properties of every definition, implicit and explicit
-        for name, (funcname, kwargs) in implicit_dates + definitions:
+        for name, (funcname, kwargs) in covariate_definitions.items():
             returning = kwargs.get("returning", None)
             if name == "population":
                 continue
@@ -308,12 +293,6 @@ class StudyDefinition:
                 converters[name] = tobool
             elif returning == "category" or "category_definitions" in kwargs:
                 dtypes[name] = "category"
-            elif "include_measurement_date" in kwargs:
-                # currently a special case for BMI
-                dtypes[name] = "float"
-                if name + "_date_measured" not in parse_dates:
-                    if kwargs["include_measurement_date"]:
-                        parse_dates.append(name + "_date_measured")
             elif returning:
                 dtypes[name] = "category"
             elif funcname == "age_as_of":
