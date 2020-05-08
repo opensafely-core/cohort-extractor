@@ -389,11 +389,16 @@ class StudyDefinition:
                 assert query_args["source"] in table_queries
                 output_columns[name] = self.get_column_expression(**query_args)
             else:
+                date_format_args = pop_keys_from_dict(
+                    query_args, ["include_month", "include_day"]
+                )
                 cols, sql = self.get_query(name, query_type, query_args)
                 table_queries[name] = f"SELECT * INTO #{name} FROM ({sql}) t"
                 # The first column should always be patient_id so we can join on it
                 assert cols[0] == "patient_id"
-                output_columns[name] = self.get_column_expression(name, cols[1])
+                output_columns[name] = self.get_column_expression(
+                    name, cols[1], **date_format_args
+                )
         # If the population query defines its own temporary table then we use
         # that as the primary table to query against and left join everything
         # else against that. Otherwise, we use the `Patient` table.
@@ -483,17 +488,28 @@ class StudyDefinition:
                 )
         return updated
 
-    def get_column_expression(self, source, returning, **kwargs):
-        is_str_col = (
+    def get_column_expression(
+        self, source, returning, include_month=False, include_day=False
+    ):
+        column_expr = f"#{source}.{returning}"
+        if (
             returning == "date"
             or returning.startswith("date_")
             or returning.endswith("_date")
-            or returning.endswith("_code")
+        ):
+            default_value = ""
+            column_expr = truncate_date(
+                column_expr, include_month=include_month, include_day=include_day
+            )
+        elif (
+            returning.endswith("_code")
             or returning == "category"
             or returning.endswith("_name")
-        )
-        default_value = "" if is_str_col else 0
-        return f"ISNULL(#{source}.{returning}, {quote(default_value)})"
+        ):
+            default_value = ""
+        else:
+            default_value = 0
+        return f"ISNULL({column_expr}, {quote(default_value)})"
 
     def execute_query(self):
         cursor = self.get_db_connection().cursor()
@@ -730,16 +746,12 @@ class StudyDefinition:
           WHERE t.rownum = 1
         """
 
-        date_column_defintion = truncate_date(
-            """
+        date_column_defintion = """
             CASE
               WHEN weight IS NULL OR height IS NULL THEN bmis.ConsultationDate
               ELSE weights.ConsultationDate
             END
-            """,
-            include_month,
-            include_day,
-        )
+            """
         min_age = int(minimum_age_at_measurement)
 
         sql = f"""
@@ -782,9 +794,7 @@ class StudyDefinition:
             "ConsultationDate", on_or_after, on_or_before, between
         )
         codelist_sql = codelist_to_sql(codelist)
-        date_definition = truncate_date(
-            "days.date_measured", include_month, include_day
-        )
+        date_definition = "days.date_measured"
         # The subquery finds, for each patient, the most recent day on which
         # they've had a measurement. The outer query selects, for each patient,
         # the mean value on that day.
@@ -961,9 +971,7 @@ class StudyDefinition:
             raise ValueError(f"Unsupported `returning` value: {returning}")
 
         if use_partition_query:
-            date_column_definition = truncate_date(
-                "ConsultationDate", include_month, include_day
-            )
+            date_column_definition = "ConsultationDate"
             sql = f"""
             SELECT
               Patient_ID AS patient_id,
@@ -982,9 +990,7 @@ class StudyDefinition:
             WHERE rownum = 1
             """
         else:
-            date_column_definition = truncate_date(
-                f"{date_aggregate}(ConsultationDate)", include_month, include_day
-            )
+            date_column_definition = f"{date_aggregate}(ConsultationDate)"
             sql = f"""
             SELECT
               Patient_ID AS patient_id,
@@ -1172,9 +1178,7 @@ class StudyDefinition:
 
         if returning == "date_admitted":
             column_name = date_column_name
-            column_definition = truncate_date(
-                date_expression, include_month, include_day
-            )
+            column_definition = date_expression
         elif returning == "binary_flag":
             column_name = "was_admitted"
             column_definition = 1
@@ -1245,7 +1249,7 @@ class StudyDefinition:
             column_definition = "1"
             column_name = "died"
         elif returning == "date_of_death":
-            column_definition = truncate_date("dod", include_month, include_day)
+            column_definition = "dod"
             column_name = "date_of_death"
         else:
             raise ValueError(f"Unsupported `returning` value: {returning}")
@@ -1299,9 +1303,7 @@ class StudyDefinition:
             column_definition = "1"
             column_name = "died"
         elif returning == "date_of_death":
-            column_definition = truncate_date(
-                "MAX(DateOfDeath)", include_month, include_day
-            )
+            column_definition = "MAX(DateOfDeath)"
             column_name = "date_of_death"
         else:
             raise ValueError(f"Unsupported `returning` value: {returning}")
