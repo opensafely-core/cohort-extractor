@@ -658,9 +658,6 @@ class StudyDefinition:
         minimum_age_at_measurement=16,
         # Add an additional column indicating when measurement was taken
         include_date_of_match=False,
-        # If we're returning a date, how granular should it be?
-        include_month=False,
-        include_day=False,
     ):
         """
         Return patients' most recent BMI (in the defined period) either
@@ -746,19 +743,16 @@ class StudyDefinition:
           WHERE t.rownum = 1
         """
 
-        date_column_defintion = """
-            CASE
-              WHEN weight IS NULL OR height IS NULL THEN bmis.ConsultationDate
-              ELSE weights.ConsultationDate
-            END
-            """
         min_age = int(minimum_age_at_measurement)
 
         sql = f"""
         SELECT
           patients.Patient_ID AS patient_id,
           ROUND(COALESCE(weight/SQUARE(NULLIF(height, 0)), bmis.BMI), 1) AS BMI,
-          {date_column_defintion} AS date
+          CASE
+            WHEN weight IS NULL OR height IS NULL THEN bmis.ConsultationDate
+            ELSE weights.ConsultationDate
+          END AS date
         FROM ({patients_cte}) AS patients
         LEFT JOIN ({weights_cte}) AS weights
         ON weights.Patient_ID = patients.Patient_ID AND DATEDIFF(YEAR, patients.DateOfBirth, weights.ConsultationDate) >= {min_age}
@@ -784,9 +778,6 @@ class StudyDefinition:
         between=None,
         # Add additional columns indicating when measurement was taken
         include_date_of_match=False,
-        # If we're returning a date, how granular should it be?
-        include_month=False,
-        include_day=False,
     ):
         # We only support this option for now
         assert on_most_recent_day_of_measurement
@@ -794,7 +785,6 @@ class StudyDefinition:
             "ConsultationDate", on_or_after, on_or_before, between
         )
         codelist_sql = codelist_to_sql(codelist)
-        date_definition = "days.date_measured"
         # The subquery finds, for each patient, the most recent day on which
         # they've had a measurement. The outer query selects, for each patient,
         # the mean value on that day.
@@ -804,7 +794,7 @@ class StudyDefinition:
         SELECT
           days.Patient_ID AS patient_id,
           AVG(CodedEvent.NumericValue) AS mean_value,
-          {date_definition} AS date
+          days.date_measured AS date
         FROM (
             SELECT Patient_ID, CAST(MAX(ConsultationDate) AS date) AS date_measured
             FROM CodedEvent
@@ -897,8 +887,6 @@ class StudyDefinition:
             assert not kwargs.pop("find_first_match_in_period", None)
             assert not kwargs.pop("find_last_match_in_period", None)
             assert not kwargs.pop("include_date_of_match", None)
-            assert not kwargs.pop("include_month", None)
-            assert not kwargs.pop("include_day", None)
             return self._number_of_episodes(**kwargs)
         # This is the default code path for most queries
         else:
@@ -925,9 +913,6 @@ class StudyDefinition:
         # Set return type
         returning="binary_flag",
         include_date_of_match=False,
-        # If we're returning a date, how granular should it be?
-        include_month=False,
-        include_day=False,
     ):
         codelist_table = self.create_codelist_table(codelist, codes_are_case_sensitive)
         date_condition = make_date_filter(
@@ -971,12 +956,11 @@ class StudyDefinition:
             raise ValueError(f"Unsupported `returning` value: {returning}")
 
         if use_partition_query:
-            date_column_definition = "ConsultationDate"
             sql = f"""
             SELECT
               Patient_ID AS patient_id,
               {column_definition} AS {column_name},
-              {date_column_definition} AS date
+              ConsultationDate AS date
             FROM (
               SELECT Patient_ID, {column_definition}, ConsultationDate,
               ROW_NUMBER() OVER (
@@ -990,12 +974,11 @@ class StudyDefinition:
             WHERE rownum = 1
             """
         else:
-            date_column_definition = f"{date_aggregate}(ConsultationDate)"
             sql = f"""
             SELECT
               Patient_ID AS patient_id,
               {column_definition} AS {column_name},
-              {date_column_definition} AS date
+              {date_aggregate}(ConsultationDate) AS date
             FROM {from_table}
             INNER JOIN {codelist_table}
             ON {code_column} = {codelist_table}.code
@@ -1153,8 +1136,6 @@ class StudyDefinition:
         find_first_match_in_period=None,
         find_last_match_in_period=None,
         returning="binary_flag",
-        include_month=True,
-        include_day=False,
     ):
         if find_first_match_in_period:
             date_aggregate = "MIN"
@@ -1230,9 +1211,6 @@ class StudyDefinition:
         match_only_underlying_cause=False,
         # Set return type
         returning="binary_flag",
-        # If we're returning a date, how granular should it be?
-        include_month=False,
-        include_day=False,
     ):
         date_condition = make_date_filter("dod", on_or_after, on_or_before, between)
         if codelist is not None:
@@ -1270,9 +1248,6 @@ class StudyDefinition:
         between=None,
         # Set return type
         returning="binary_flag",
-        # If we're returning a date, how granular should it be?
-        include_month=False,
-        include_day=False,
     ):
         return self.patients_with_these_codes_on_death_certificate(
             codelist=None,
@@ -1280,8 +1255,6 @@ class StudyDefinition:
             on_or_after=on_or_after,
             between=between,
             returning=returning,
-            include_month=include_month,
-            include_day=include_day,
         )
 
     def patients_with_death_recorded_in_cpns(
@@ -1292,9 +1265,6 @@ class StudyDefinition:
         between=None,
         # Set return type
         returning="binary_flag",
-        # If we're returning a date, how granular should it be?
-        include_month=False,
-        include_day=False,
     ):
         date_condition = make_date_filter(
             "DateOfDeath", on_or_after, on_or_before, between
