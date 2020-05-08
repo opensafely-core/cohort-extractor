@@ -63,9 +63,7 @@ class StudyDefinition:
             if query_args.pop("include_measurement_date", False):
                 suffix = "_date_measured"
             if suffix:
-                date_kwargs = pop_keys_from_dict(
-                    query_args, ["include_month", "include_day"]
-                )
+                date_kwargs = pop_keys_from_dict(query_args, ["date_format"])
                 date_kwargs["source"] = name
                 date_kwargs["returning"] = "date"
                 date_kwargs["return_expectations"] = query_args.get(
@@ -138,12 +136,10 @@ class StudyDefinition:
             series = series[series >= on_or_before]
         return series
 
-    def apply_date_precision_from_definition(
-        self, series, include_day=None, include_month=None, **kwargs
-    ):
-        if include_day:
+    def apply_date_precision_from_definition(self, series, date_format=None, **kwargs):
+        if date_format == "YYYY-MM-DD":
             series = series.dt.strftime("%Y-%m-%d")
-        elif include_month:
+        elif date_format == "YYYY-MM":
             series = series.dt.strftime("%Y-%m")
         else:
             series = series.dt.strftime("%Y")
@@ -278,9 +274,9 @@ class StudyDefinition:
             ):
                 parse_dates.append(name)
                 # if granularity doesn't include a day, add one
-                if not kwargs.get("include_day") and not kwargs.get("include_month"):
+                if kwargs.get("date_format") in ("YYYY", None):
                     converters[name] = add_month_and_day_to_date
-                elif kwargs.get("include_month"):
+                elif kwargs.get("date_format") == "YYYY-MM":
                     converters[name] = add_day_to_date
                 if funcname == "value_from":
                     date_col_for[kwargs["source"]] = name
@@ -389,9 +385,7 @@ class StudyDefinition:
                 assert query_args["source"] in table_queries
                 output_columns[name] = self.get_column_expression(**query_args)
             else:
-                date_format_args = pop_keys_from_dict(
-                    query_args, ["include_month", "include_day"]
-                )
+                date_format_args = pop_keys_from_dict(query_args, ["date_format"])
                 cols, sql = self.get_query(name, query_type, query_args)
                 table_queries[name] = f"SELECT * INTO #{name} FROM ({sql}) t"
                 # The first column should always be patient_id so we can join on it
@@ -483,14 +477,11 @@ class StudyDefinition:
                 source_column_args = updated[source_column][1]
                 source_column_args.update(
                     include_date_of_match=True,
-                    include_month=query_args.get("include_month"),
-                    include_day=query_args.get("include_day"),
+                    date_format=query_args.get("date_format"),
                 )
         return updated
 
-    def get_column_expression(
-        self, source, returning, include_month=False, include_day=False
-    ):
+    def get_column_expression(self, source, returning, date_format=None):
         column_expr = f"#{source}.{returning}"
         if (
             returning == "date"
@@ -498,9 +489,7 @@ class StudyDefinition:
             or returning.endswith("_date")
         ):
             default_value = ""
-            column_expr = truncate_date(
-                column_expr, include_month=include_month, include_day=include_day
-            )
+            column_expr = truncate_date(column_expr, date_format)
         elif (
             returning.endswith("_code")
             or returning == "category"
@@ -1392,6 +1381,7 @@ class patients:
         return_expectations=None,
         # Add an additional column indicating when measurement was taken
         include_measurement_date=False,
+        date_format=None,
         # If we're returning a date, how granular should it be?
         include_month=False,
         include_day=False,
@@ -1410,7 +1400,8 @@ class patients:
         between=None,
         # Add additional columns indicating when measurement was taken
         include_measurement_date=False,
-        # If we're returning a date, how granular should it be?
+        date_format=None,
+        # Deprecated options kept for now for backwards compatibility
         include_month=False,
         include_day=False,
     ):
@@ -1440,15 +1431,14 @@ class patients:
         # Set return type
         returning="binary_flag",
         include_date_of_match=False,
-        # If we're returning a date, how granular should it be?
-        include_month=False,
-        include_day=False,
-        # Deprecated return type options kept for now for backwards
-        # compatibility
+        date_format=None,
+        # Deprecated options kept for now for backwards compatibility
         return_binary_flag=None,
         return_number_of_matches_in_period=False,
         return_first_date_in_period=False,
         return_last_date_in_period=False,
+        include_month=False,
+        include_day=False,
     ):
         assert codelist.system == "snomed"
         return "with_these_medications", process_arguments(locals())
@@ -1468,20 +1458,19 @@ class patients:
         # Set return type
         returning="binary_flag",
         include_date_of_match=False,
-        # If we're returning a date, how granular should it be?
-        include_month=False,
-        include_day=False,
+        date_format=None,
         # Special (and probably temporary) arguments to support queries we need
         # to do right now. This API will need to be thought through properly at
         # some stage.
         ignore_days_where_these_codes_occur=None,
         episode_defined_as=None,
-        # Deprecated return type options kept for now for backwards
-        # compatibility
+        # Deprecated options kept for now for backwards compatibility
         return_binary_flag=None,
         return_number_of_matches_in_period=False,
         return_first_date_in_period=False,
         return_last_date_in_period=False,
+        include_month=False,
+        include_day=False,
     ):
         assert codelist.system == "ctv3"
         return "with_these_clinical_events", process_arguments(locals())
@@ -1556,7 +1545,8 @@ class patients:
         match_only_underlying_cause=False,
         # Set return type
         returning="binary_flag",
-        # If we're returning a date, how granular should it be?
+        date_format=None,
+        # Deprecated options kept for now for backwards compatibility
         include_month=False,
         include_day=False,
     ):
@@ -1595,7 +1585,8 @@ class patients:
 
     @staticmethod
     def date_of(
-        source, return_expectations=None,
+        source,
+        return_expectations=None,
         date_format=None,
         # Deprecated options kept for now for backwards compatibility
         include_month=False,
@@ -1627,6 +1618,8 @@ def process_arguments(args):
         args["returning"] = "date"
         args["find_last_match_in_period"] = True
 
+    args = handle_legacy_date_args(args)
+
     return args
 
 
@@ -1647,6 +1640,18 @@ def validate_time_period_options(
             )
     # TODO: enforce just one return type and only allow month/day to be included
     # if return type is a date
+
+
+def handle_legacy_date_args(args):
+    include_month = args.pop("include_month", None)
+    include_day = args.pop("include_day", None)
+    if args.get("date_format") is not None:
+        assert not include_month and not include_day
+    elif include_day:
+        args["date_format"] = "YYYY-MM-DD"
+    elif include_month:
+        args["date_format"] = "YYYY-MM"
+    return args
 
 
 def codelist_to_sql(codelist):
@@ -1700,12 +1705,15 @@ def make_date_filter(column, min_date, max_date, between=None, upper_bound_only=
         return "1=1"
 
 
-def truncate_date(column, include_month, include_day):
-    date_length = 4
-    if include_month:
+def truncate_date(column, date_format):
+    if date_format == "YYYY" or date_format is None:
+        date_length = 4
+    elif date_format == "YYYY-MM":
         date_length = 7
-    if include_day:
+    elif date_format == "YYYY-MM-DD":
         date_length = 10
+    else:
+        raise ValueError(f"Unhandled date format: {date_format}")
     # Style 23 below means YYYY-MM-DD format, see:
     # https://docs.microsoft.com/en-us/sql/t-sql/functions/cast-and-convert-transact-sql?view=sql-server-ver15#date-and-time-styles
     return f"CONVERT(VARCHAR({date_length}), {column}, 23)"
