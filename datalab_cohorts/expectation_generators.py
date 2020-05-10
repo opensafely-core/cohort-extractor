@@ -81,7 +81,7 @@ def generate(population, **kwargs):
     incidence = kwargs.pop("incidence", None)
     assert (
         incidence or rate == "universal"
-    ), "You must specify an incidence, or a `universal` rate"
+    ), f"You must specify an incidence, or a `universal` rate: got {incidence} and {rate}"
     match_incidence = kwargs.pop("match_incidence", None)
     date = kwargs.pop("date", None)
     universal = rate == "universal"
