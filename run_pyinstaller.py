@@ -9,5 +9,5 @@ args = list(
         *zip(["--hidden-import"] * len(packages), [p.project_name for p in packages])
     )
 )
-cmd = ["pyinstaller"] + args + ["wrapper.py"]
+cmd = ["pyinstaller"] + args + ["--onefile", "wrapper.py"]
 subprocess.run(cmd)
