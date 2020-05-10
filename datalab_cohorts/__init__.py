@@ -149,7 +149,8 @@ class StudyDefinition:
         for colname, dtype in self.pandas_csv_args["dtype"].items():
             if not self.pandas_csv_args["args"][colname].get("return_expectations"):
                 raise ValueError(f"No `return_expectations` defined for {colname}")
-            kwargs = self.pandas_csv_args["args"][colname]["return_expectations"]
+            kwargs = self.default_expectations.copy()
+            kwargs.update(self.pandas_csv_args["args"][colname]["return_expectations"])
 
             if dtype == "category":
                 self.validate_category_expectations(
