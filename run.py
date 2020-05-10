@@ -47,7 +47,12 @@ target_dir = "/home/app/notebook"
 
 
 def relative_dir():
-    if sys.executable == "run.exe":
+    def is_pyinstall_bundled():
+        if getattr(sys, "frozen") and hasattr(sys, "_MEIPASS"):
+            return True
+        return False
+
+    if is_pyinstall_bundled():
         # This is a pyinstaller package on Windows; the `cwd` is
         # likely to be anything (e.g. the Github desktop AppData
         # space); `__file__` is some kind of temporary location
@@ -512,8 +517,12 @@ def main(from_cmd_line=False):
         dump_study_yaml()
 
 
-if __name__ == "__main__":
+def possibly_start_with_gui():
     if (len(sys.argv) == 1 or sys.argv[1] == "--ignore-gooey") and GOOEY_INSTALLED:
         Gooey(main)()
     else:
         main(from_cmd_line=True)
+
+
+if __name__ == "__main__":
+    possibly_start_with_gui()
