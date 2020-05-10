@@ -133,7 +133,7 @@ class StudyDefinition:
             definition_args = self.pandas_csv_args["args"][colname]
             if "return_expectations" not in definition_args:
                 raise ValueError(f"No `return_expectations` defined for {colname}")
-            kwargs = self.default_expectations
+            kwargs = self.default_expectations.copy()
             kwargs.update(definition_args["return_expectations"])
             df[colname] = generate(population, **kwargs)["date"]
 
@@ -1270,6 +1270,7 @@ class StudyDefinition:
         )
 
     def get_case_expression(self, column_definitions, category_definitions):
+        category_definitions = category_definitions.copy()
         defaults = [k for (k, v) in category_definitions.items() if v == "DEFAULT"]
         if len(defaults) > 1:
             raise ValueError("At most one default category can be defined")
