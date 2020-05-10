@@ -113,10 +113,10 @@ class StudyDefinition:
         **kwargs,
     ):
         defined = set(return_expectations["category"]["ratios"].keys())
-        if codelist and codelist.has_categories:
-            available = set([x[1] for x in codelist])
-        elif category_definitions:
+        if category_definitions:
             available = set(category_definitions.keys())
+        elif codelist and codelist.has_categories:
+            available = set([x[1] for x in codelist])
         else:
             available = defined
         if not defined.issubset(available):
