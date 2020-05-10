@@ -48,7 +48,7 @@ target_dir = "/home/app/notebook"
 
 def relative_dir():
     def is_pyinstall_bundled():
-        if getattr(sys, "frozen") and hasattr(sys, "_MEIPASS"):
+        if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
             return True
         return False
 
