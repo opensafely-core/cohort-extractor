@@ -131,7 +131,7 @@ class StudyDefinition:
         # matching on dependent columns
         for colname in self.pandas_csv_args["parse_dates"]:
             definition_args = self.pandas_csv_args["args"][colname]
-            if "return_expectations" not in definition_args:
+            if not definition_args.get("return_expectations"):
                 raise ValueError(f"No `return_expectations` defined for {colname}")
             kwargs = self.default_expectations.copy()
             kwargs.update(definition_args["return_expectations"])
@@ -147,7 +147,7 @@ class StudyDefinition:
         # Now we can optionally pass in an array which has already had
         # its incidence calculated as a mask
         for colname, dtype in self.pandas_csv_args["dtype"].items():
-            if "return_expectations" not in self.pandas_csv_args["args"][colname]:
+            if not self.pandas_csv_args["args"][colname].get("return_expectations"):
                 raise ValueError(f"No `return_expectations` defined for {colname}")
             kwargs = self.pandas_csv_args["args"][colname]["return_expectations"]
 
