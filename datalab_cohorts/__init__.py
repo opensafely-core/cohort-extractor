@@ -181,6 +181,10 @@ class StudyDefinition:
     def to_csv(self, filename, expectations_population=False, with_sqlcmd=False):
         if expectations_population:
             df = self.make_df_from_expectations(expectations_population)
+            # Turn the index into a dummy patient_id column; longer
+            # term, we don't plan to include this in the output
+            df = df.reset_index()
+            df = df.rename(columns={"index": "patient_id"})
             df.to_csv(filename, index=False)
         elif with_sqlcmd:
             self._to_csv_with_sqlcmd(filename)
