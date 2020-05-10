@@ -1567,15 +1567,15 @@ class patients:
     # They use a handler which returns dummy CHESS data.
 
     @staticmethod
-    def with_positive_covid_test():
+    def with_positive_covid_test(return_expectations=None):
         return "with_positive_covid_test", locals()
 
     @staticmethod
-    def have_died_of_covid():
+    def have_died_of_covid(return_expectations=None):
         return "have_died_of_covid", locals()
 
     @staticmethod
-    def random_sample(percent=None):
+    def random_sample(percent=None, return_expectations=None):
         assert percent, "Must specify a percentage greater than zero"
         return "random_sample", locals()
 
@@ -1593,6 +1593,7 @@ class patients:
         # If we're returning a date, how granular should it be?
         include_month=False,
         include_day=False,
+        return_expectations=None,
     ):
         assert codelist.system == "icd10"
         validate_time_period_options(**locals())
@@ -1609,6 +1610,7 @@ class patients:
         # If we're returning a date, how granular should it be?
         include_month=False,
         include_day=False,
+        return_expectations=None,
     ):
         validate_time_period_options(**locals())
         return "died_from_any_cause", locals()
@@ -1624,6 +1626,7 @@ class patients:
         # If we're returning a date, how granular should it be?
         include_month=False,
         include_day=False,
+        return_expectations=None,
     ):
         validate_time_period_options(**locals())
         return "with_death_recorded_in_cpns", locals()
