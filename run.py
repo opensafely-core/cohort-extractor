@@ -63,6 +63,10 @@ def relative_dir():
     return relative_dir
 
 
+with open(os.path.join(relative_dir(), "runner", "VERSION")) as version_file:
+    __version__ = version_file.read().strip()
+
+
 def await_jupyter_http(port):
     """Wait up to 10 seconds for Jupyter to be available
     """
@@ -346,7 +350,7 @@ def run_model(folder, stata_path=None):
 
 
 def update_codelists():
-    base_path = os.path.join(os.path.dirname(__file__), "codelists")
+    base_path = os.path.join(relative_dir(), "codelists")
 
     # delete all existing codelists
     for path in glob.glob(os.path.join(base_path, "*.csv")):
@@ -472,7 +476,7 @@ def main(from_cmd_line=False):
 
     options = parser.parse_args()
     if options.version:
-        version = parse(runner.__version__)
+        version = parse(__version__)
         print(f"v{version.public}")
     elif options.which == "run":
         if options.test:
