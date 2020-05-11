@@ -18,6 +18,14 @@ args = list(
     )
 )
 cmd = (
-    ["pyinstaller"] + args + ["--onefile", "--add-data", "runner/VERSION", "wrapper.py"]
+    ["pyinstaller"]
+    + args
+    + [
+        "--onefile",
+        "--add-data",
+        "runner/VERSION",
+        "runner/windows_run_wrapper.py",
+        "runner/windows_run.py",
+    ]
 )
 subprocess.run(cmd, check=True)
