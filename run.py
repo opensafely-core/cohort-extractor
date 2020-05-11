@@ -62,8 +62,22 @@ def relative_dir():
     return relative_dir
 
 
-with open(os.path.join(relative_dir(), "runner", "VERSION")) as version_file:
+# We don't use `relative_dir` because for the compiled windows version
+# we want to know what version was current at the time
+with open(os.path.join(os.path.dirname(__file__), "runner", "VERSION")) as version_file:
     __version__ = version_file.read().strip()
+
+
+def check_for_updates():
+    """Return required version as a string, or None if no updates are required
+    """
+    with open(
+        os.path.join(relative_dir(), "runner", "required_version.txt")
+    ) as version_file:
+        required_version = parse(version_file.read().strip())
+    supplied_version = parse(__version__)
+    if required_version > supplied_version:
+        return str(required_version)
 
 
 def await_jupyter_http(port):

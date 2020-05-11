@@ -1,7 +1,14 @@
+"""This script generates a pyinstaller invocation that includes every
+package currently installed.
+
+The reason is so we can provide Windows users a single
+python+requirements binary so they don't need to learn about pip or
+virtualenvs.
+
+"""
 import subprocess
 import itertools
 import pkg_resources
-import os
 
 packages = list(pkg_resources.working_set)
 
@@ -10,5 +17,7 @@ args = list(
         *zip(["--hidden-import"] * len(packages), [p.project_name for p in packages])
     )
 )
-cmd = ["pyinstaller"] + args + ["--onefile", "wrapper.py"]
+cmd = (
+    ["pyinstaller"] + args + ["--onefile", "--add-data", "runner/VERSION", "wrapper.py"]
+)
 subprocess.run(cmd, check=True)
