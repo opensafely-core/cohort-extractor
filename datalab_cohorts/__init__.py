@@ -470,7 +470,8 @@ class StudyDefinition:
         """
         updated = copy.deepcopy(covariate_definitions)
         for name, (query_type, query_args) in updated.items():
-            if query_type == "value_from" and query_args["returning"] == "date":
+            if query_type == "value_from":
+                assert query_args["returning"] == "date"
                 source_column = query_args["source"]
                 source_column_args = updated[source_column][1]
                 source_column_args.update(
