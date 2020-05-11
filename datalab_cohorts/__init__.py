@@ -131,7 +131,7 @@ class StudyDefinition:
         elif between and between[0]:
             series = series[series >= between[0]]
         elif between and between[1]:
-            series = series[series >= between[1]]
+            series = series[series <= between[1]]
         return series
 
     def apply_date_precision_from_definition(self, series, date_format=None, **kwargs):
