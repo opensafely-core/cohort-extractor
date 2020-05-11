@@ -2,7 +2,6 @@
 start a notebook, open a web browser on the correct port, and handle
 shutdowns gracefully
 """
-import runner
 import glob
 import os
 import re
