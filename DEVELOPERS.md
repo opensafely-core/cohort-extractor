@@ -67,15 +67,20 @@ for inspiration; or, if you're feeling adventurous, search the tests
 You'll want to install a couple of things:
 
 * [This ODBC driver from Microsoft](https://www.microsoft.com/en-us/download/details.aspx?id=56567)
-* The latest `run.exe` from [here](https://github.com/ebmdatalab/opensafely-research-template/releases/latest)
+* The latest `windows.exe` from [here](https://github.com/ebmdatalab/opensafely-research-template/releases/latest)
   * This must be copied to and run from the root folder of your research repository
-  * Note that if you're testing a new branch with new `runner` functionality, you'll need to download the latest `run.exe` that is *tagged with that branch name* from the **Releases** section of github
+  * Note that if you're testing new unreleased functionality, you'll need to download the `wrapper.exe` that is *tagged with the version you need* from the **Releases** section of github (it will be marked as a "prerelease") -- check with your developers if you think this is necessary - it rarely will be!
 
-You need to obtain the "database URL", which includes a username and
-password.  When running outside the secure environment, obtain a URL
-that gives you access to the publicly-available dummy dataset.
+In a production environment, you will need to obtain the "database
+URL", which includes a username and
+password.
 
-Now double-click `run.exe`, and it will use your covariate definitions
+When running outside the secure environment, you could obtain a URL
+that gives you access to the publicly-available dummy dataset,
+although in usual circumstances you should use `expectations` to
+define data for developing against (q.v.)
+
+Now double-click `wrapper.exe`, and it will use your covariate definitions
 in `analysis/study_definition.py` to generate a data file at `analysis/input.csv`
 
 You can now use Stata as you usually would, with your code entrypoint
@@ -83,10 +88,17 @@ in `analysis/model.do`.
 
 ### Using docker and the command line
 
-Python 3.8 is assumed:
+`wrapper.exe` is just there to package python + dependencies (from
+`requirements.txt`) in one executable, so Windows users don't need to
+learn about `pip` and so on.
 
-* Install Docker
-* `python run.py generate_cohort --docker --database-url <DATABASE_URL>`
+It just runs `run.py`; so in a python-friendly environment (python 3.8 is assumed), you can do this:
+
+    python run.py generate_cohort --docker --database-url <DATABASE_URL>
+
+For some functions (for example, testing against Stata without
+downloading and installing it; running the tests) Docker is also
+useful.
 
 ### Using plain python
 
@@ -101,7 +113,7 @@ There are three ways to run your model:
 
 * Directly in your usual development environent. For example, if you have Stata installed locally, just open `model.do` and run as normal
 * Via the runner tool:
-   * Select the `run` option and tell it where your Stata application is
+   * Select the `run` option and tell it where your Stata application is; or
    * Leave the Stata location blank, and the tool will attempt to use Docker to run the model
 
 For the last option, you will need to provide docker with credentials
@@ -144,9 +156,9 @@ will (probably) still want to use docker to run a SQL Server instance:
 Note: until we make this cleaner... if you change the database schema
 be sure to `docker rm stata-docker_sql_1` before restarting.
 
-## Rebuild run.exe
+## Rebuild wrapper.exe
 
-If you need to make a new release of `run.exe`, then bump
+If you need to make a new release of `wrapper.exe`, then bump
 `runner/VERSION` (using the semver standard), and the Github Actions
 workflow `windows_build_and_release.yaml` should take care of the
 rest.
