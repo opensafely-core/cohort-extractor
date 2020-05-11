@@ -67,7 +67,7 @@ for inspiration; or, if you're feeling adventurous, search the tests
 You'll want to install a couple of things:
 
 * [This ODBC driver from Microsoft](https://www.microsoft.com/en-us/download/details.aspx?id=56567)
-* The latest `windows.exe` from [here](https://github.com/ebmdatalab/opensafely-research-template/releases/latest)
+* The latest `wrapper.exe` from [here](https://github.com/ebmdatalab/opensafely-research-template/releases/latest)
   * This must be copied to and run from the root folder of your research repository
   * Note that if you're testing new unreleased functionality, you'll need to download the `wrapper.exe` that is *tagged with the version you need* from the **Releases** section of github (it will be marked as a "prerelease") -- check with your developers if you think this is necessary - it rarely will be!
 
