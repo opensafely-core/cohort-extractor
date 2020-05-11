@@ -169,9 +169,14 @@ class StudyDefinition:
         # matching on dependent columns
         for colname in self.pandas_csv_args["parse_dates"]:
             definition_args = self.pandas_csv_args["args"][colname]
-            if "return_expectations" not in definition_args:
+            if "source" in definition_args:
+                source_args = self.pandas_csv_args["args"][definition_args["source"]]
+                definition_args["return_expectations"] = source_args[
+                    "return_expectations"
+                ]
+            if definition_args.get("return_expectations") is None:
                 raise ValueError(f"No `return_expectations` defined for {colname}")
-            kwargs = self.default_expectations
+            kwargs = self.default_expectations.copy()
             kwargs.update(definition_args["return_expectations"])
             df[colname] = generate(population, **kwargs)["date"]
 
@@ -185,9 +190,9 @@ class StudyDefinition:
         # Now we can optionally pass in an array which has already had
         # its incidence calculated as a mask
         for colname, dtype in self.pandas_csv_args["dtype"].items():
-            if "return_expectations" not in self.pandas_csv_args["args"][colname]:
+            kwargs = self.pandas_csv_args["args"][colname].get("return_expectations")
+            if kwargs is None:
                 raise ValueError(f"No `return_expectations` defined for {colname}")
-            kwargs = self.pandas_csv_args["args"][colname]["return_expectations"]
 
             if dtype == "category":
                 self.validate_category_expectations(
@@ -1549,7 +1554,6 @@ class patients:
     @staticmethod
     def date_of(
         source,
-        return_expectations=None,
         date_format=None,
         # Deprecated options kept for now for backwards compatibility
         include_month=False,
