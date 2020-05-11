@@ -23,7 +23,7 @@ cmd = (
     + [
         "--onefile",
         "--add-data",
-        "runner/VERSION",
+        "'runner/VERSION;runner'",
         "runner/windows_run_wrapper.py",
         "runner/windows_run.py",
     ]
