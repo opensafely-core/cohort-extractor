@@ -199,6 +199,9 @@ class StudyDefinition:
                     **self.pandas_csv_args["args"][colname]
                 )
 
+            if dtype == "bool" and "bool" not in kwargs:
+                kwargs["bool"] = True
+
             dependent_date = self.pandas_csv_args["date_col_for"].get(colname)
             if dependent_date:
                 df[colname] = generate(
@@ -290,6 +293,7 @@ class StudyDefinition:
                 dtypes[name] = "int"
             elif returning == "binary_flag":
                 converters[name] = tobool
+                dtypes[name] = "bool"
             elif returning == "category" or "category_definitions" in kwargs:
                 dtypes[name] = "category"
             elif returning:
