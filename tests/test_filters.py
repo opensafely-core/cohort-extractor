@@ -255,8 +255,7 @@ def test_clinical_event_returning_first_date():
             between=["2001-12-01", "2002-06-01"],
             returning="date",
             find_first_match_in_period=True,
-            include_month=True,
-            include_day=True,
+            date_format="YYYY-MM-DD",
         ),
     )
     results = study.to_dicts()
@@ -281,8 +280,7 @@ def test_clinical_event_returning_last_date():
             between=["2001-12-01", "2002-06-01"],
             returning="date",
             find_last_match_in_period=True,
-            include_month=True,
-            include_day=True,
+            date_format="YYYY-MM-DD",
         ),
     )
     results = study.to_dicts()
@@ -315,7 +313,7 @@ def test_clinical_event_returning_year_and_month_only():
             codelist([condition_code], "ctv3"),
             returning="date",
             find_first_match_in_period=True,
-            include_month=True,
+            date_format="YYYY-MM",
         ),
     )
     results = study.to_dicts()
@@ -341,7 +339,7 @@ def test_clinical_event_with_count():
             returning="number_of_matches_in_period",
             find_first_match_in_period=True,
         ),
-        asthma_count_date=patients.date_of("asthma_count", include_month=True),
+        asthma_count_date=patients.date_of("asthma_count", date_format="YYYY-MM"),
     )
     results = study.to_dicts()
     assert [x["asthma_count"] for x in results] == ["0", "3", "0"]
@@ -368,7 +366,7 @@ def test_clinical_event_with_code():
             find_last_match_in_period=True,
         ),
         latest_asthma_code_date=patients.date_of(
-            "latest_asthma_code", include_month=True
+            "latest_asthma_code", date_format="YYYY-MM"
         ),
     )
     results = study.to_dicts()
@@ -400,7 +398,7 @@ def test_clinical_event_with_numeric_value():
             returning="numeric_value",
             find_first_match_in_period=True,
         ),
-        asthma_value_date=patients.date_of("asthma_value", include_month=True),
+        asthma_value_date=patients.date_of("asthma_value", date_format="YYYY-MM"),
     )
     results = study.to_dicts()
     assert [x["asthma_value"] for x in results] == ["0.0", "2.0", "0.0"]
@@ -524,10 +522,10 @@ def test_simple_bmi(include_dates):
         date_query = patients.date_of("BMI")
     elif include_dates == "month":
         bmi_date = "2002-06"
-        date_query = patients.date_of("BMI", include_month=True)
+        date_query = patients.date_of("BMI", date_format="YYYY-MM")
     elif include_dates == "day":
         bmi_date = "2002-06-01"
-        date_query = patients.date_of("BMI", include_month=True, include_day=True)
+        date_query = patients.date_of("BMI", date_format="YYYY-MM-DD")
     study = StudyDefinition(
         population=patients.all(),
         BMI=patients.most_recent_bmi(
@@ -560,12 +558,8 @@ def test_bmi_rounded():
 
     study = StudyDefinition(
         population=patients.all(),
-        BMI=patients.most_recent_bmi(
-            "2005-01-01",
-            include_measurement_date=True,
-            include_month=True,
-            include_day=True,
-        ),
+        BMI=patients.most_recent_bmi("2005-01-01",),
+        BMI_date_measured=patients.date_of("BMI", date_format="YYYY-MM-DD"),
     )
     results = study.to_dicts()
     assert [x["BMI"] for x in results] == ["0.1"]
@@ -591,12 +585,9 @@ def test_bmi_with_zero_values():
     study = StudyDefinition(
         population=patients.all(),
         BMI=patients.most_recent_bmi(
-            on_or_after="1995-01-01",
-            on_or_before="2005-01-01",
-            include_measurement_date=True,
-            include_month=True,
-            include_day=True,
+            on_or_after="1995-01-01", on_or_before="2005-01-01",
         ),
+        BMI_date_measured=patients.date_of("BMI", date_format="YYYY-MM-DD"),
     )
     results = study.to_dicts()
     assert [x["BMI"] for x in results] == ["0.0"]
@@ -622,12 +613,9 @@ def test_explicit_bmi_fallback():
     study = StudyDefinition(
         population=patients.all(),
         BMI=patients.most_recent_bmi(
-            on_or_after="1995-01-01",
-            on_or_before="2005-01-01",
-            include_measurement_date=True,
-            include_month=True,
-            include_day=True,
+            on_or_after="1995-01-01", on_or_before="2005-01-01",
         ),
+        BMI_date_measured=patients.date_of("BMI", date_format="YYYY-MM-DD"),
     )
     results = study.to_dicts()
     assert [x["BMI"] for x in results] == ["99.0"]
@@ -649,12 +637,9 @@ def test_no_bmi_when_old_date():
     study = StudyDefinition(
         population=patients.all(),
         BMI=patients.most_recent_bmi(
-            on_or_after="1995-01-01",
-            on_or_before="2005-01-01",
-            include_measurement_date=True,
-            include_month=True,
-            include_day=True,
+            on_or_after="1995-01-01", on_or_before="2005-01-01",
         ),
+        BMI_date_measured=patients.date_of("BMI", date_format="YYYY-MM-DD"),
     )
     results = study.to_dicts()
     assert [x["BMI"] for x in results] == ["0.0"]
@@ -676,12 +661,9 @@ def test_no_bmi_when_measurements_of_child():
     study = StudyDefinition(
         population=patients.all(),
         BMI=patients.most_recent_bmi(
-            on_or_after="1995-01-01",
-            on_or_before="2005-01-01",
-            include_measurement_date=True,
-            include_month=True,
-            include_day=True,
+            on_or_after="1995-01-01", on_or_before="2005-01-01",
         ),
+        BMI_date_measured=patients.date_of("BMI", date_format="YYYY-MM-DD"),
     )
     results = study.to_dicts()
     assert [x["BMI"] for x in results] == ["0.0"]
@@ -703,12 +685,9 @@ def test_no_bmi_when_measurement_after_reference_date():
     study = StudyDefinition(
         population=patients.all(),
         BMI=patients.most_recent_bmi(
-            on_or_after="1990-01-01",
-            on_or_before="2000-01-01",
-            include_measurement_date=True,
-            include_month=True,
-            include_day=True,
+            on_or_after="1990-01-01", on_or_before="2000-01-01",
         ),
+        BMI_date_measured=patients.date_of("BMI", date_format="YYYY-MM-DD"),
     )
     results = study.to_dicts()
     assert [x["BMI"] for x in results] == ["0.0"]
@@ -738,12 +717,9 @@ def test_bmi_when_only_some_measurements_of_child():
     study = StudyDefinition(
         population=patients.all(),
         BMI=patients.most_recent_bmi(
-            on_or_after="2005-01-01",
-            on_or_before="2015-01-01",
-            include_measurement_date=True,
-            include_month=True,
-            include_day=True,
+            on_or_after="2005-01-01", on_or_before="2015-01-01",
         ),
+        BMI_date_measured=patients.date_of("BMI", date_format="YYYY-MM-DD"),
     )
     results = study.to_dicts()
     assert [x["BMI"] for x in results] == ["0.5"]
@@ -778,9 +754,9 @@ def test_mean_recorded_value():
             codelist([code], system="ctv3"),
             on_most_recent_day_of_measurement=True,
             between=["2018-01-01", "2020-03-01"],
-            include_measurement_date=True,
-            include_month=True,
-            include_day=True,
+        ),
+        bp_systolic_date_measured=patients.date_of(
+            "bp_systolic", date_format="YYYY-MM-DD"
         ),
     )
     results = study.to_dicts()
@@ -1206,8 +1182,7 @@ def test_patients_with_these_codes_on_death_certificate():
             on_or_before="2020-06-01",
             match_only_underlying_cause=False,
             returning="date_of_death",
-            include_month=True,
-            include_day=True,
+            date_format="YYYY-MM-DD",
         ),
     )
     results = study.to_dicts()
@@ -1235,8 +1210,7 @@ def test_patients_died_from_any_cause():
         date_died=patients.died_from_any_cause(
             on_or_before="2020-06-01",
             returning="date_of_death",
-            include_month=True,
-            include_day=True,
+            date_format="YYYY-MM-DD",
         ),
     )
     results = study.to_dicts()
@@ -1268,8 +1242,7 @@ def test_patients_with_death_recorded_in_cpns():
         cpns_death_date=patients.with_death_recorded_in_cpns(
             on_or_before="2020-06-01",
             returning="date_of_death",
-            include_month=True,
-            include_day=True,
+            date_format="YYYY-MM-DD",
         ),
     )
     results = study.to_dicts()
