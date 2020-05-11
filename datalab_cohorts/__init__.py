@@ -1560,7 +1560,13 @@ class patients:
 
 
 def process_arguments(args):
-    args = validate_time_period_options(args)
+    """
+    This receives all arguments from calls to the public API functions so it
+    can validate and, if necessary, modify them. In particular, it can be used
+    to translate older style API calls into newer ones so as to maintain
+    backwards compatibility.
+    """
+    args = handle_time_period_options(args)
 
     for date_arg in ("reference_date", "start_date", "end_date"):
         if date_arg in args:
@@ -1586,7 +1592,13 @@ def process_arguments(args):
     return args
 
 
-def validate_time_period_options(args):
+def handle_time_period_options(args):
+    """
+    Convert the "on_or_before", "on_or_after" and "between" options we support
+    for defining time periods into a single "between" argument. This makes the
+    code simpler, although we want to continue supporting the three arguments
+    for the sake of clarity in the API.
+    """
     if "between" not in args:
         return args
     on_or_after = args.pop("on_or_after", None)
@@ -1606,6 +1618,9 @@ def validate_time_period_options(args):
 
 
 def handle_legacy_date_args(args):
+    """
+    Change old style date format arguments to new style
+    """
     include_month = args.pop("include_month", None)
     include_day = args.pop("include_day", None)
     if args.get("date_format") is not None:
