@@ -4,6 +4,7 @@ shutdowns gracefully
 """
 import runner
 import glob
+import importlib
 import os
 import re
 import requests
@@ -250,10 +251,7 @@ def make_chart(name, series, dtype):
 
 def generate_cohort(expectations_population):
     print("Running. Please wait...")
-    _set_up_path()
-    # Avoid creating __pycache__ files in the analysis directory
-    sys.dont_write_bytecode = True
-    from study_definition import study
+    study = load_study_definition()
 
     with_sqlcmd = shutil.which("sqlcmd") is not None
     study.to_csv(
@@ -265,10 +263,7 @@ def generate_cohort(expectations_population):
 
 
 def make_cohort_report():
-    _set_up_path()
-    # Avoid creating __pycache__ files in the analysis directory
-    sys.dont_write_bytecode = True
-    from study_definition import study
+    study = load_study_definition()
 
     df = study.csv_to_df("analysis/input.csv")
     descriptives = df.describe(include="all")
@@ -367,21 +362,20 @@ def update_codelists():
 
 
 def dump_cohort_sql():
-    _set_up_path()
-    from study_definition import study
-
+    study = load_study_definition()
     print(study.to_sql())
 
 
 def dump_study_yaml():
-    _set_up_path()
-    from study_definition import study
-
+    study = load_study_definition()
     print(yaml.dump(study.to_data()))
 
 
-def _set_up_path():
+def load_study_definition():
     sys.path.extend([relative_dir(), os.path.join(relative_dir(), "analysis")])
+    # Avoid creating __pycache__ files in the analysis directory
+    sys.dont_write_bytecode = True
+    return importlib.import_module("study_definition").study
 
 
 def main(from_cmd_line=False):
