@@ -1,6 +1,7 @@
 import pytest
 
 import pandas as pd
+import numpy as np
 
 from datalab_cohorts import StudyDefinition
 from datalab_cohorts import patients
@@ -421,6 +422,20 @@ def test_make_df_from_expectations_with_date_filter():
     result = study.make_df_from_expectations(population_size)
     assert result.columns == ["asthma_condition"]
     assert result[~pd.isnull(result["asthma_condition"])].max()[0] <= "2002-06-01"
+
+
+def test_apply_date_filters_from_definition():
+    study = StudyDefinition(population=patients.all())
+    series = np.arange(10)
+
+    result = list(study.apply_date_filters_from_definition(series, between=[5, 6]))
+    assert result == [5, 6]
+
+    result = list(study.apply_date_filters_from_definition(series, between=[5, None]))
+    assert result == [5, 6, 7, 8, 9]
+
+    result = list(study.apply_date_filters_from_definition(series, between=[None, 2]))
+    assert result == [0, 1, 2]
 
 
 def test_make_df_from_expectations_returning_date_using_defaults():
