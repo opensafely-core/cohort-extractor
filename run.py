@@ -4,6 +4,7 @@ shutdowns gracefully
 """
 import runner
 import glob
+import importlib
 import os
 import re
 import requests
@@ -249,28 +250,32 @@ def make_chart(name, series, dtype):
 
 
 def generate_cohort(expectations_population):
+    for study_name, suffix in list_study_definitions():
+        _generate_cohort(study_name, suffix, expectations_population)
+
+
+def _generate_cohort(study_name, suffix, expectations_population):
     print("Running. Please wait...")
-    _set_up_path()
-    # Avoid creating __pycache__ files in the analysis directory
-    sys.dont_write_bytecode = True
-    from study_definition import study
+    study = load_study_definition(study_name)
 
     with_sqlcmd = shutil.which("sqlcmd") is not None
     study.to_csv(
-        "analysis/input.csv",
+        f"analysis/input{suffix}.csv",
         expectations_population=expectations_population,
         with_sqlcmd=with_sqlcmd,
     )
-    print("Successfully created cohort and covariates at analysis/input.csv")
+    print(f"Successfully created cohort and covariates at analysis/input{suffix}.csv")
 
 
 def make_cohort_report():
-    _set_up_path()
-    # Avoid creating __pycache__ files in the analysis directory
-    sys.dont_write_bytecode = True
-    from study_definition import study
+    for study_name, suffix in list_study_definitions():
+        _make_cohort_report(study_name, suffix)
 
-    df = study.csv_to_df("analysis/input.csv")
+
+def _make_cohort_report(study_name, suffix):
+    study = load_study_definition(study_name)
+
+    df = study.csv_to_df(f"analysis/input{suffix}.csv")
     descriptives = df.describe(include="all")
 
     for name, dtype in zip(df.columns, df.dtypes):
@@ -293,7 +298,7 @@ def make_cohort_report():
         descriptives.loc["values", name] = main_chart
         descriptives.loc["nulls", name] = empty_values_chart
 
-    with open("analysis/descriptives.html", "w") as f:
+    with open(f"analysis/descriptives{suffix}.html", "w") as f:
 
         f.write(
             """<html>
@@ -325,7 +330,7 @@ def make_cohort_report():
 
         f.write(descriptives.to_html(escape=False, na_rep="", justify="left", border=0))
         f.write("</body></html>")
-    print("Created cohort report at analysis/descriptives.html")
+    print(f"Created cohort report at analysis/descriptives{suffix}.html")
 
 
 def run_model(folder, stata_path=None):
@@ -367,21 +372,29 @@ def update_codelists():
 
 
 def dump_cohort_sql():
-    _set_up_path()
-    from study_definition import study
-
+    study = load_study_definition("study_definition")
     print(study.to_sql())
 
 
 def dump_study_yaml():
-    _set_up_path()
-    from study_definition import study
-
+    study = load_study_definition("study_definition")
     print(yaml.dump(study.to_data()))
 
 
-def _set_up_path():
+def load_study_definition(name):
     sys.path.extend([relative_dir(), os.path.join(relative_dir(), "analysis")])
+    # Avoid creating __pycache__ files in the analysis directory
+    sys.dont_write_bytecode = True
+    return importlib.import_module(name).study
+
+
+def list_study_definitions():
+    pattern = re.compile(r"^(study_definition(_\w+)?)\.py$")
+    for name in sorted(os.listdir(os.path.join(relative_dir(), "analysis"))):
+        if match := pattern.match(name):
+            name = match.group(1)
+            suffix = match.group(2) or ""
+            yield name, suffix
 
 
 def main(from_cmd_line=False):
