@@ -499,3 +499,64 @@ def test_make_df_from_expectations_with_mean_recorded_value():
     population_size = 10000
     result = study.make_df_from_expectations(population_size)
     assert abs(35 - int(result["drug_x"].mean())) < 5
+
+
+def test_make_df_from_expectations_doesnt_alter_defaults():
+    study = StudyDefinition(
+        default_expectations={
+            "rate": "exponential_increase",
+            "incidence": 1.0,
+            "category": {"ratios": {"M": 0.5, "F": 0.5}},
+        },
+        population=patients.all(),
+        sex_altered=patients.sex(
+            return_expectations={
+                "incidence": 0.1,
+                "category": {"ratios": {"M": 0.5, "F": 0.5}},
+            }
+        ),
+        sex_default=patients.sex(
+            return_expectations={"category": {"ratios": {"M": 0.5, "F": 0.5}}}
+        ),
+    )
+    population_size = 10000
+    # Just ensuring no exception is raised
+    result = study.make_df_from_expectations(population_size)
+    assert len(result[pd.isnull(result.sex_default)]) == 0
+
+
+def test_make_df_from_expectations_doesnt_alter_date_defaults():
+
+    study = StudyDefinition(
+        default_expectations={
+            "rate": "exponential_increase",
+            "incidence": 1.0,
+            "date": {"earliest": "1900-01-01", "latest": "today"},
+            "category": {"ratios": {"M": 0.5, "F": 0.5}},
+        },
+        population=patients.all(),
+        with_different_incidence=patients.with_these_clinical_events(
+            codelist(["X"], system="ctv3"),
+            returning="date",
+            return_expectations={"incidence": 0.2},
+            include_day=True,
+        ),
+        with_different_date=patients.with_these_clinical_events(
+            codelist(["X"], system="ctv3"),
+            returning="date",
+            return_expectations={"date": {"earliest": "2015-01-01", "latest": "today"}},
+            include_day=True,
+        ),
+        with_defaults=patients.with_these_clinical_events(
+            codelist(["X"], system="ctv3"),
+            returning="date",
+            return_expectations={"date": {}},
+            include_day=True,
+        ),
+    )
+    population_size = 10000
+    result = study.make_df_from_expectations(population_size)
+
+    # Regression test: make sure defaults are respected even when they've been overridden
+    assert result.with_defaults.min() < "2015-01-01"
+    assert len(result[pd.isnull(result.with_defaults)]) == 0
