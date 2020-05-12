@@ -1494,15 +1494,15 @@ class patients:
     # They use a handler which returns dummy CHESS data.
 
     @staticmethod
-    def with_positive_covid_test():
+    def with_positive_covid_test(return_expectations=None):
         return "with_positive_covid_test", process_arguments(locals())
 
     @staticmethod
-    def have_died_of_covid():
+    def have_died_of_covid(return_expectations=None):
         return "have_died_of_covid", process_arguments(locals())
 
     @staticmethod
-    def random_sample(percent=None):
+    def random_sample(percent=None, return_expectations=None):
         assert percent, "Must specify a percentage greater than zero"
         return "random_sample", process_arguments(locals())
 
@@ -1521,6 +1521,7 @@ class patients:
         # Deprecated options kept for now for backwards compatibility
         include_month=False,
         include_day=False,
+        return_expectations=None,
     ):
         assert codelist.system == "icd10"
         return "with_these_codes_on_death_certificate", process_arguments(locals())
@@ -1537,6 +1538,7 @@ class patients:
         # Deprecated options kept for now for backwards compatibility
         include_month=False,
         include_day=False,
+        return_expectations=None,
     ):
         return "died_from_any_cause", process_arguments(locals())
 
@@ -1552,6 +1554,7 @@ class patients:
         # Deprecated options kept for now for backwards compatibility
         include_month=False,
         include_day=False,
+        return_expectations=None,
     ):
         return "with_death_recorded_in_cpns", process_arguments(locals())
 
@@ -1562,6 +1565,7 @@ class patients:
         # Deprecated options kept for now for backwards compatibility
         include_month=False,
         include_day=False,
+        return_expectations=None,
     ):
         returning = "date"
         return "value_from", process_arguments(locals())

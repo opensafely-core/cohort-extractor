@@ -500,3 +500,13 @@ def test_make_df_from_expectations_with_mean_recorded_value():
     population_size = 10000
     result = study.make_df_from_expectations(population_size)
     assert abs(35 - int(result["drug_x"].mean())) < 5
+
+
+def test_make_df_from_binary_default_outcome():
+    study = StudyDefinition(
+        population=patients.all(),
+        died=patients.died_from_any_cause(return_expectations={"incidence": 0.1}),
+    )
+    population_size = 10000
+    result = study.make_df_from_expectations(population_size)
+    assert len(result[~pd.isnull(result.died)]) == 0.1 * population_size
