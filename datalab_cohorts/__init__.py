@@ -297,6 +297,8 @@ class StudyDefinition:
                 dtypes[name] = "float"
             elif returning == "number_of_matches_in_period":
                 dtypes[name] = "int"
+            elif returning == "number_of_episodes":
+                dtypes[name] = "int"
             elif returning == "binary_flag":
                 converters[name] = tobool
                 dtypes[name] = "bool"
