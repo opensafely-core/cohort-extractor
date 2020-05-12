@@ -81,9 +81,9 @@ def generate(population, **kwargs):
     incidence = kwargs.pop("incidence", None)
     assert (
         incidence or rate == "universal"
-    ), "You must specify an incidence, or a `universal` rate"
+    ), f"You must specify an incidence, or a `universal` rate: got {incidence} and {rate}"
     match_incidence = kwargs.pop("match_incidence", None)
-    date = kwargs.pop("date", {})
+    date = kwargs.pop("date", None)
     universal = rate == "universal"
     if match_incidence is not None:
         # We're using a column that's already had dates and incidence
@@ -93,7 +93,8 @@ def generate(population, **kwargs):
     elif universal:
         df = pd.DataFrame(data=np.arange(population), columns=["date"])
     else:
-        earliest, latest = _get_date_range(**date)
+        date_as_dict = date or {}
+        earliest, latest = _get_date_range(**date_as_dict)
         df = generate_dates(population, earliest, latest, rate)
 
     category = kwargs.pop("category", None)
@@ -142,6 +143,6 @@ def generate(population, **kwargs):
     elif not universal:
         # Randomly remove rows to match incidence
         df.loc[df.sample(n=int((1 - incidence) * population)).index, :] = None
-    if not date:
+    if date is None:
         df = df.drop("date", axis=1)
     return df

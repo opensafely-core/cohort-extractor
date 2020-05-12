@@ -151,10 +151,10 @@ class StudyDefinition:
         **kwargs,
     ):
         defined = set(return_expectations["category"]["ratios"].keys())
-        if codelist and codelist.has_categories:
-            available = set([x[1] for x in codelist])
-        elif category_definitions:
+        if category_definitions:
             available = set(category_definitions.keys())
+        elif codelist and codelist.has_categories:
+            available = set([x[1] for x in codelist])
         else:
             available = defined
         if not defined.issubset(available):
@@ -174,7 +174,7 @@ class StudyDefinition:
                 definition_args["return_expectations"] = source_args[
                     "return_expectations"
                 ]
-            if definition_args.get("return_expectations") is None:
+            if not definition_args.get("return_expectations"):
                 raise ValueError(f"No `return_expectations` defined for {colname}")
             kwargs = self.default_expectations.copy()
             kwargs.update(definition_args["return_expectations"])
@@ -190,9 +190,10 @@ class StudyDefinition:
         # Now we can optionally pass in an array which has already had
         # its incidence calculated as a mask
         for colname, dtype in self.pandas_csv_args["dtype"].items():
-            kwargs = self.pandas_csv_args["args"][colname].get("return_expectations")
-            if kwargs is None:
+            if not self.pandas_csv_args["args"][colname].get("return_expectations"):
                 raise ValueError(f"No `return_expectations` defined for {colname}")
+            kwargs = self.default_expectations.copy()
+            kwargs.update(self.pandas_csv_args["args"][colname]["return_expectations"])
 
             if dtype == "category":
                 self.validate_category_expectations(
@@ -226,6 +227,10 @@ class StudyDefinition:
     def to_csv(self, filename, expectations_population=False, with_sqlcmd=False):
         if expectations_population:
             df = self.make_df_from_expectations(expectations_population)
+            # Turn the index into a dummy patient_id column; longer
+            # term, we don't plan to include this in the output
+            df = df.reset_index()
+            df = df.rename(columns={"index": "patient_id"})
             df.to_csv(filename, index=False)
         elif with_sqlcmd:
             self._to_csv_with_sqlcmd(filename)
@@ -1257,6 +1262,7 @@ class StudyDefinition:
         )
 
     def get_case_expression(self, column_definitions, category_definitions):
+        category_definitions = category_definitions.copy()
         defaults = [k for (k, v) in category_definitions.items() if v == "DEFAULT"]
         if len(defaults) > 1:
             raise ValueError("At most one default category can be defined")
