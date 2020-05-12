@@ -56,10 +56,11 @@ import delimited `c(pwd)'/analysis/input.csv
 
 At the moment, this involves writing some simple Python code.
 
-This must live in a file at `analysis/study_definition.py`.  Until
-more documentation is written, refer to the sample one provided here
-for inspiration; or, if you're feeling adventurous, search the tests
-(in `tests/`) for `StudyDefinition` examples.
+This must live in a file at `analysis/study_definition.py` (or
+`analysis/study_definition_<name>.py` if you have multiple studies).
+Until more documentation is written, refer to the sample one provided
+here for inspiration; or, if you're feeling adventurous, search the
+tests (in `tests/`) for `StudyDefinition` examples.
 
 ## Generating dummy data
 
@@ -76,7 +77,11 @@ password.  When running outside the secure environment, obtain a URL
 that gives you access to the publicly-available dummy dataset.
 
 Now double-click `run.exe`, and it will use your covariate definitions
-in `analysis/study_definition.py` to generate a data file at `analysis/input.csv`
+in `analysis/study_definition.py` to generate a data file at `analysis/input.csv`.
+
+If you have multiple study definitions named like
+`analysis/study_definition_<name>.py` then the corresponding output
+files will be named `analysis/input_<name>.csv`.
 
 You can now use Stata as you usually would, with your code entrypoint
 in `analysis/model.do`.
