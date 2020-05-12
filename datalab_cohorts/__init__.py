@@ -631,6 +631,7 @@ class StudyDefinition:
         # approximations don't work with small numbers, and we might
         # want to use this method for small numbers (and certainly do
         # in the tests!)
+        assert percent, "Must specify a percentage greater than zero"
         return (
             ["patient_id", "is_included"],
             f"""
@@ -843,6 +844,7 @@ class StudyDefinition:
         # which is the date of prescription.  The MedicationIssue table also
         # has StartDate (the date of issue) and EndDate (not exactly sure what
         # this is).
+        assert kwargs["codelist"].system == "snomed"
         if kwargs["returning"] == "numeric_value":
             raise ValueError(f"Unsupported `returning` value: numeric_value")
         return self._patients_with_events(
@@ -861,6 +863,7 @@ class StudyDefinition:
         Patients who have had at least one of these clinical events in the
         defined period
         """
+        assert kwargs["codelist"].system == "ctv3"
         # This uses a special case function with a "fake it til you make it" API
         if kwargs["returning"] == "number_of_episodes":
             kwargs.pop("returning")
@@ -1181,6 +1184,7 @@ class StudyDefinition:
     ):
         date_condition = make_date_filter("dod", between)
         if codelist is not None:
+            assert codelist.system == "icd10"
             codelist_sql = codelist_to_sql(codelist)
             code_columns = ["icd10u"]
             if not match_only_underlying_cause:
@@ -1408,7 +1412,6 @@ class patients:
         include_month=False,
         include_day=False,
     ):
-        assert codelist.system == "snomed"
         return "with_these_medications", process_arguments(locals())
 
     @staticmethod
@@ -1440,7 +1443,6 @@ class patients:
         include_month=False,
         include_day=False,
     ):
-        assert codelist.system == "ctv3"
         return "with_these_clinical_events", process_arguments(locals())
 
     @staticmethod
@@ -1499,7 +1501,6 @@ class patients:
 
     @staticmethod
     def random_sample(percent=None):
-        assert percent, "Must specify a percentage greater than zero"
         return "random_sample", process_arguments(locals())
 
     @staticmethod
@@ -1518,7 +1519,6 @@ class patients:
         include_month=False,
         include_day=False,
     ):
-        assert codelist.system == "icd10"
         return "with_these_codes_on_death_certificate", process_arguments(locals())
 
     @staticmethod
