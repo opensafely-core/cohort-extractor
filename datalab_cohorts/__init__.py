@@ -205,16 +205,17 @@ class StudyDefinition:
 
             dependent_date = self.pandas_csv_args["date_col_for"].get(colname)
             if dependent_date:
-                df[colname] = generate(
+                generated_df = generate(
                     population, match_incidence=df[dependent_date], **kwargs
-                )[dtype]
+                )
             else:
-                try:
-                    df[colname] = generate(population, **kwargs)[dtype]
-                except KeyError:
-                    raise ValueError(
-                        f"Column definition {colname} does not return expected type {dtype}"
-                    )
+                generated_df = generate(population, **kwargs)
+            try:
+                df[colname] = generated_df[dtype]
+            except KeyError:
+                raise ValueError(
+                    f"Column definition {colname} does not return expected type {dtype}"
+                )
         # Finally, reduce date columns to the precision requested in
         # the definition
         for colname in self.pandas_csv_args["parse_dates"]:
@@ -295,6 +296,8 @@ class StudyDefinition:
             elif returning == "numeric_value":
                 dtypes[name] = "float"
             elif returning == "number_of_matches_in_period":
+                dtypes[name] = "int"
+            elif returning == "number_of_episodes":
                 dtypes[name] = "int"
             elif returning == "binary_flag":
                 converters[name] = tobool

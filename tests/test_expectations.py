@@ -500,8 +500,8 @@ def test_make_df_from_expectations_with_mean_recorded_value():
     population_size = 10000
     result = study.make_df_from_expectations(population_size)
     assert abs(35 - int(result["drug_x"].mean())) < 5
-    
-    
+
+
 def test_make_df_from_binary_default_outcome():
     study = StudyDefinition(
         population=patients.all(),
@@ -511,7 +511,26 @@ def test_make_df_from_binary_default_outcome():
     result = study.make_df_from_expectations(population_size)
     assert len(result[~pd.isnull(result.died)]) == 0.1 * population_size
 
-    
+
+def test_make_df_from_expectations_with_number_of_episodes():
+    study = StudyDefinition(
+        population=patients.all(),
+        episode_count=patients.with_these_clinical_events(
+            codelist(["A", "B", "C"], system="ctv3"),
+            ignore_days_where_these_codes_occur=codelist(["D", "E"], system="ctv3"),
+            returning="number_of_episodes",
+            episode_defined_as="series of events each <= 14 days apart",
+            return_expectations={
+                "int": {"distribution": "normal", "mean": 4, "stddev": 2},
+                "incidence": 0.2,
+            },
+        ),
+    )
+    population_size = 10000
+    result = study.make_df_from_expectations(population_size)
+    assert result.columns == ["episode_count"]
+
+
 def test_make_df_from_expectations_doesnt_alter_defaults():
     study = StudyDefinition(
         default_expectations={
