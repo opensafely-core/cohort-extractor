@@ -391,7 +391,8 @@ def load_study_definition(name):
 def list_study_definitions():
     pattern = re.compile(r"^(study_definition(_\w+)?)\.py$")
     for name in sorted(os.listdir(os.path.join(relative_dir(), "analysis"))):
-        if match := pattern.match(name):
+        match = pattern.match(name)
+        if match:
             name = match.group(1)
             suffix = match.group(2) or ""
             yield name, suffix
