@@ -1,6 +1,7 @@
 import pytest
 
 import pandas as pd
+import numpy as np
 
 from datalab_cohorts import StudyDefinition
 from datalab_cohorts import patients
@@ -67,7 +68,7 @@ def test_clinical_events_with_date_dtype_generation():
     study = StudyDefinition(
         population=patients.all(),
         diabetes=patients.with_these_clinical_events(
-            test_codelist, return_first_date_in_period=True, include_month=True
+            test_codelist, return_first_date_in_period=True, date_format="YYYY-MM",
         ),
     )
 
@@ -101,11 +102,9 @@ def test_categorical_clinical_events_with_date_dtype_generation():
     study = StudyDefinition(
         population=patients.all(),
         ethnicity=patients.with_these_clinical_events(
-            categorised_codelist,
-            returning="category",
-            find_last_match_in_period=True,
-            include_date_of_match=True,
+            categorised_codelist, returning="category", find_last_match_in_period=True,
         ),
+        ethnicity_date=patients.date_of("ethnicity"),
     )
 
     result = _converters_to_names(study.pandas_csv_args)
@@ -123,10 +122,7 @@ def test_categorical_clinical_events_without_date_dtype_generation():
     study = StudyDefinition(
         population=patients.all(),
         ethnicity=patients.with_these_clinical_events(
-            categorised_codelist,
-            returning="category",
-            find_last_match_in_period=True,
-            include_date_of_match=False,
+            categorised_codelist, returning="category", find_last_match_in_period=True,
         ),
     )
 
@@ -145,11 +141,9 @@ def test_bmi_dtype_generation():
     study = StudyDefinition(
         population=patients.all(),
         bmi=patients.most_recent_bmi(
-            on_or_after="2010-02-01",
-            minimum_age_at_measurement=16,
-            include_measurement_date=True,
-            include_month=True,
+            on_or_after="2010-02-01", minimum_age_at_measurement=16,
         ),
+        bmi_date_measured=patients.date_of("bmi", date_format="YYYY-MM"),
     )
 
     result = _converters_to_names(study.pandas_csv_args)
@@ -170,9 +164,8 @@ def test_clinical_events_numeric_value_dtype_generation():
             find_last_match_in_period=True,
             on_or_before="2020-02-01",
             returning="numeric_value",
-            include_date_of_match=True,
-            include_month=True,
         ),
+        creatinine_date=patients.date_of("creatinine", date_format="YYYY-MM"),
     )
     result = _converters_to_names(study.pandas_csv_args)
     assert result == {
@@ -191,9 +184,8 @@ def test_mean_recorded_value_dtype_generation():
             test_codelist,
             on_most_recent_day_of_measurement=True,
             on_or_before="2020-02-01",
-            include_measurement_date=True,
-            include_month=True,
         ),
+        bp_sys_date_measured=patients.date_of("bp_sys", date_format="YYYY-MM"),
     )
     result = _converters_to_names(study.pandas_csv_args)
     assert result == {
@@ -324,7 +316,6 @@ def test_make_df_from_expectations_with_categories():
                 "date": {"earliest": "1900-01-01", "latest": "today"},
             },
             find_last_match_in_period=True,
-            include_date_of_match=False,
         ),
     )
     population_size = 10000
@@ -350,7 +341,6 @@ def test_make_df_from_expectations_with_categories_in_codelist_validation():
                 "date": {"earliest": "1900-01-01", "latest": "today"},
             },
             find_last_match_in_period=True,
-            include_date_of_match=False,
         ),
     )
     population_size = 10000
@@ -425,14 +415,27 @@ def test_make_df_from_expectations_with_date_filter():
                 "date": {"earliest": "1900-01-01", "latest": "today"},
             },
             find_first_match_in_period=True,
-            include_month=True,
-            include_day=True,
+            date_format="YYYY-MM-DD",
         ),
     )
     population_size = 10000
     result = study.make_df_from_expectations(population_size)
     assert result.columns == ["asthma_condition"]
     assert result[~pd.isnull(result["asthma_condition"])].max()[0] <= "2002-06-01"
+
+
+def test_apply_date_filters_from_definition():
+    study = StudyDefinition(population=patients.all())
+    series = np.arange(10)
+
+    result = list(study.apply_date_filters_from_definition(series, between=[5, 6]))
+    assert result == [5, 6]
+
+    result = list(study.apply_date_filters_from_definition(series, between=[5, None]))
+    assert result == [5, 6, 7, 8, 9]
+
+    result = list(study.apply_date_filters_from_definition(series, between=[None, 2]))
+    assert result == [0, 1, 2]
 
 
 def test_make_df_from_expectations_returning_date_using_defaults():
@@ -447,8 +450,7 @@ def test_make_df_from_expectations_returning_date_using_defaults():
             returning="date",
             return_expectations={"incidence": 0.2},
             find_first_match_in_period=True,
-            include_month=True,
-            include_day=True,
+            date_format="YYYY-MM-DD",
         ),
     )
     population_size = 10000
@@ -462,8 +464,6 @@ def test_make_df_from_expectations_with_distribution_and_date():
         bmi=patients.most_recent_bmi(
             on_or_after="2010-02-01",
             minimum_age_at_measurement=16,
-            include_measurement_date=True,
-            include_month=True,
             return_expectations={
                 "rate": "exponential_increase",
                 "incidence": 0.6,
@@ -471,6 +471,7 @@ def test_make_df_from_expectations_with_distribution_and_date():
                 "date": {"earliest": "1900-01-01", "latest": "today"},
             },
         ),
+        bmi_date_measured=patients.date_of("bmi", date_format="YYYY-MM",),
     )
     population_size = 10000
     result = study.make_df_from_expectations(population_size)
@@ -499,8 +500,18 @@ def test_make_df_from_expectations_with_mean_recorded_value():
     population_size = 10000
     result = study.make_df_from_expectations(population_size)
     assert abs(35 - int(result["drug_x"].mean())) < 5
+    
+    
+def test_make_df_from_binary_default_outcome():
+    study = StudyDefinition(
+        population=patients.all(),
+        died=patients.died_from_any_cause(return_expectations={"incidence": 0.1}),
+    )
+    population_size = 10000
+    result = study.make_df_from_expectations(population_size)
+    assert len(result[~pd.isnull(result.died)]) == 0.1 * population_size
 
-
+    
 def test_make_df_from_expectations_doesnt_alter_defaults():
     study = StudyDefinition(
         default_expectations={
