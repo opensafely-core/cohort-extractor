@@ -560,3 +560,47 @@ def test_make_df_from_expectations_doesnt_alter_date_defaults():
     # Regression test: make sure defaults are respected even when they've been overridden
     assert result.with_defaults.min() < "2015-01-01"
     assert len(result[pd.isnull(result.with_defaults)]) == 0
+
+
+def test_validate_category_expectations():
+    categorised_codelist = codelist([("X", "Y")], system="ctv3")
+    categorised_codelist.has_categories = True
+
+    category_definitions = {"A": "sex = 'F'", "B": "sex = 'M'"}
+    study = StudyDefinition(population=patients.all())
+
+    # validate against codelists
+    with pytest.raises(ValueError):
+        study.validate_category_expectations(
+            codelist=categorised_codelist,
+            return_expectations={"category": {"ratios": {"X": 1}}},
+        )
+    study.validate_category_expectations(
+        codelist=categorised_codelist,
+        return_expectations={"category": {"ratios": {"Y": 1}}},
+    )
+
+    # validate against definitions
+    with pytest.raises(ValueError):
+        study.validate_category_expectations(
+            category_definitions=category_definitions,
+            return_expectations={"category": {"ratios": {"X": 1}}},
+        )
+    study.validate_category_expectations(
+        category_definitions=category_definitions,
+        return_expectations={"category": {"ratios": {"A": 1}}},
+    )
+
+    # validate that supplied category definitions override categories
+    # in codelists
+    with pytest.raises(ValueError):
+        study.validate_category_expectations(
+            codelist=categorised_codelist,
+            category_definitions=category_definitions,
+            return_expectations={"category": {"ratios": {"Y": 1}}},
+        )
+    study.validate_category_expectations(
+        codelist=categorised_codelist,
+        category_definitions=category_definitions,
+        return_expectations={"category": {"ratios": {"A": 1}}},
+    )
