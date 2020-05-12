@@ -131,7 +131,7 @@ class StudyDefinition:
         elif between and between[0]:
             series = series[series >= between[0]]
         elif between and between[1]:
-            series = series[series >= between[1]]
+            series = series[series <= between[1]]
         return series
 
     def apply_date_precision_from_definition(self, series, date_format=None, **kwargs):
@@ -198,6 +198,9 @@ class StudyDefinition:
                 self.validate_category_expectations(
                     **self.pandas_csv_args["args"][colname]
                 )
+
+            if dtype == "bool" and "bool" not in kwargs:
+                kwargs["bool"] = True
 
             dependent_date = self.pandas_csv_args["date_col_for"].get(colname)
             if dependent_date:
@@ -290,6 +293,7 @@ class StudyDefinition:
                 dtypes[name] = "int"
             elif returning == "binary_flag":
                 converters[name] = tobool
+                dtypes[name] = "bool"
             elif returning == "category" or "category_definitions" in kwargs:
                 dtypes[name] = "category"
             elif returning:
@@ -1492,15 +1496,15 @@ class patients:
     # They use a handler which returns dummy CHESS data.
 
     @staticmethod
-    def with_positive_covid_test():
+    def with_positive_covid_test(return_expectations=None):
         return "with_positive_covid_test", process_arguments(locals())
 
     @staticmethod
-    def have_died_of_covid():
+    def have_died_of_covid(return_expectations=None):
         return "have_died_of_covid", process_arguments(locals())
 
     @staticmethod
-    def random_sample(percent=None):
+    def random_sample(percent=None, return_expectations=None):
         return "random_sample", process_arguments(locals())
 
     @staticmethod
@@ -1518,6 +1522,7 @@ class patients:
         # Deprecated options kept for now for backwards compatibility
         include_month=False,
         include_day=False,
+        return_expectations=None,
     ):
         return "with_these_codes_on_death_certificate", process_arguments(locals())
 
@@ -1533,6 +1538,7 @@ class patients:
         # Deprecated options kept for now for backwards compatibility
         include_month=False,
         include_day=False,
+        return_expectations=None,
     ):
         return "died_from_any_cause", process_arguments(locals())
 
@@ -1548,6 +1554,7 @@ class patients:
         # Deprecated options kept for now for backwards compatibility
         include_month=False,
         include_day=False,
+        return_expectations=None,
     ):
         return "with_death_recorded_in_cpns", process_arguments(locals())
 
@@ -1558,6 +1565,7 @@ class patients:
         # Deprecated options kept for now for backwards compatibility
         include_month=False,
         include_day=False,
+        return_expectations=None,
     ):
         returning = "date"
         return "value_from", process_arguments(locals())

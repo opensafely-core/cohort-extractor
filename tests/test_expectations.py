@@ -1,6 +1,7 @@
 import pytest
 
 import pandas as pd
+import numpy as np
 
 from datalab_cohorts import StudyDefinition
 from datalab_cohorts import patients
@@ -423,6 +424,20 @@ def test_make_df_from_expectations_with_date_filter():
     assert result[~pd.isnull(result["asthma_condition"])].max()[0] <= "2002-06-01"
 
 
+def test_apply_date_filters_from_definition():
+    study = StudyDefinition(population=patients.all())
+    series = np.arange(10)
+
+    result = list(study.apply_date_filters_from_definition(series, between=[5, 6]))
+    assert result == [5, 6]
+
+    result = list(study.apply_date_filters_from_definition(series, between=[5, None]))
+    assert result == [5, 6, 7, 8, 9]
+
+    result = list(study.apply_date_filters_from_definition(series, between=[None, 2]))
+    assert result == [0, 1, 2]
+
+
 def test_make_df_from_expectations_returning_date_using_defaults():
     study = StudyDefinition(
         default_expectations={
@@ -485,3 +500,13 @@ def test_make_df_from_expectations_with_mean_recorded_value():
     population_size = 10000
     result = study.make_df_from_expectations(population_size)
     assert abs(35 - int(result["drug_x"].mean())) < 5
+
+
+def test_make_df_from_binary_default_outcome():
+    study = StudyDefinition(
+        population=patients.all(),
+        died=patients.died_from_any_cause(return_expectations={"incidence": 0.1}),
+    )
+    population_size = 10000
+    result = study.make_df_from_expectations(population_size)
+    assert len(result[~pd.isnull(result.died)]) == 0.1 * population_size
