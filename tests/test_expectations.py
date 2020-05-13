@@ -9,6 +9,15 @@ from datalab_cohorts import codelist
 from datalab_cohorts.expectation_generators import generate
 
 
+@pytest.fixture(autouse=True)
+def set_randomstate():
+    """Several tests include randomness in their output. Seed the PRNG to
+    make tests deterministic.
+
+    """
+    np.random.seed(1)
+
+
 def _converters_to_names(kwargs_dict):
     converters = kwargs_dict.pop("converters")
     converters_with_names = {}
