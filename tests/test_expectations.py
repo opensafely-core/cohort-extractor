@@ -227,7 +227,7 @@ def test_data_generator_category_and_date():
         "rate": "exponential_increase",
         "incidence": incidence,
         "category": {"ratios": {"A": 0.1, "B": 0.7, "C": 0.2}},
-        "date": {"earliest": "1900-01-01", "latest": "today"},
+        "date": {"earliest": "1900-01-01", "latest": "2020-01-01"},
     }
     result = generate(population_size, **return_expectations)
 
@@ -272,6 +272,7 @@ def test_data_generator_bool():
     return_expectations = {
         "rate": "exponential_increase",
         "incidence": incidence,
+        "date": {"earliest": "1900-01-01", "latest": "2020-01-01"},
         "bool": True,
     }
     result = generate(population_size, **return_expectations)
@@ -282,6 +283,7 @@ def test_data_generator_universal_category():
     population_size = 10000
     return_expectations = {
         "rate": "universal",
+        "date": {"earliest": "1900-01-01", "latest": "2020-01-01"},
         "category": {"ratios": {"rural": 0.1, "urban": 0.9}},
     }
     result = generate(population_size, **return_expectations)
@@ -295,6 +297,7 @@ def test_data_generator_age():
     population_size = 10000
     return_expectations = {
         "rate": "universal",
+        "date": {"earliest": "1900-01-01", "latest": "2020-01-01"},
         "int": {"distribution": "population_ages"},
     }
     result = generate(population_size, **return_expectations)
@@ -393,6 +396,7 @@ def test_make_df_no_categories_validation_when_no_categories_in_definition():
         sex=patients.sex(
             return_expectations={
                 "rate": "universal",
+                "date": {"earliest": "1900-01-01", "latest": "today"},
                 "category": {"ratios": {"M": 0.49, "F": 0.51}},
             }
         ),
@@ -443,12 +447,12 @@ def test_make_df_from_expectations_returning_date_using_defaults():
         default_expectations={
             "date": {"earliest": "1900-01-01", "latest": "today"},
             "rate": "exponential_increase",
+            "incidence": 0.2,
         },
         population=patients.all(),
         asthma_condition=patients.with_these_clinical_events(
             codelist(["X"], system="ctv3"),
             returning="date",
-            return_expectations={"incidence": 0.2},
             find_first_match_in_period=True,
             date_format="YYYY-MM-DD",
         ),
@@ -492,6 +496,7 @@ def test_make_df_from_expectations_with_mean_recorded_value():
             on_most_recent_day_of_measurement=True,
             return_expectations={
                 "rate": "exponential_increase",
+                "date": {"earliest": "1900-01-01", "latest": "today"},
                 "incidence": 0.6,
                 "float": {"distribution": "normal", "mean": 35, "stddev": 10},
             },
@@ -505,7 +510,12 @@ def test_make_df_from_expectations_with_mean_recorded_value():
 def test_make_df_from_binary_default_outcome():
     study = StudyDefinition(
         population=patients.all(),
-        died=patients.died_from_any_cause(return_expectations={"incidence": 0.1}),
+        died=patients.died_from_any_cause(
+            return_expectations={
+                "date": {"earliest": "1900-01-01", "latest": "today"},
+                "incidence": 0.1,
+            }
+        ),
     )
     population_size = 10000
     result = study.make_df_from_expectations(population_size)
@@ -522,6 +532,7 @@ def test_make_df_from_expectations_with_number_of_episodes():
             episode_defined_as="series of events each <= 14 days apart",
             return_expectations={
                 "int": {"distribution": "normal", "mean": 4, "stddev": 2},
+                "date": {"earliest": "1900-01-01", "latest": "today"},
                 "incidence": 0.2,
             },
         ),
@@ -536,6 +547,7 @@ def test_make_df_from_expectations_doesnt_alter_defaults():
         default_expectations={
             "rate": "exponential_increase",
             "incidence": 1.0,
+            "date": {"earliest": "1900-01-01", "latest": "today"},
             "category": {"ratios": {"M": 0.5, "F": 0.5}},
         },
         population=patients.all(),
@@ -578,10 +590,7 @@ def test_make_df_from_expectations_doesnt_alter_date_defaults():
             include_day=True,
         ),
         with_defaults=patients.with_these_clinical_events(
-            codelist(["X"], system="ctv3"),
-            returning="date",
-            return_expectations={"date": {}},
-            include_day=True,
+            codelist(["X"], system="ctv3"), returning="date", include_day=True
         ),
     )
     population_size = 10000
