@@ -237,7 +237,7 @@ def test_data_generator_date_uniform():
     # Check dates are distributed approximately evenly
     date_counts = result["date"].reset_index().groupby("date").count()["index"]
 
-    expected = (population_size * incidence) / 30
+    expected = (population_size * incidence) / 10
     for count in date_counts:
         assert isclose(count, expected, rel_tol=0.1)
 
