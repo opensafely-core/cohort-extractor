@@ -2,6 +2,7 @@ import pytest
 
 import pandas as pd
 import numpy as np
+from math import isclose
 
 from datalab_cohorts import StudyDefinition
 from datalab_cohorts import patients
@@ -196,7 +197,7 @@ def test_mean_recorded_value_dtype_generation():
     }
 
 
-def test_data_generator_date():
+def test_data_generator_date_exponential_increase():
     population_size = 10000
     incidence = 0.2
     return_expectations = {
@@ -219,6 +220,26 @@ def test_data_generator_date():
         assert count < max_count
         max_count = count
 
+def test_data_generator_date_uniform():
+    population_size = 100000
+    incidence = 0.5
+    return_expectations = {
+        "rate": "uniform",
+        "incidence": incidence,
+        "date": {"earliest": "2020-01-01", "latest": "2020-01-11"},
+    }
+    result = generate(population_size, **return_expectations)
+
+    # Check incidence numbers are correct
+    null_rows = result[~pd.isnull(result["date"])]
+    assert len(null_rows) == (population_size * incidence)
+
+    # Check dates are distributed approximately evenly
+    date_counts = result["date"].reset_index().groupby("date").count()["index"]
+
+    expected = (population_size * incidence) / 30
+    for count in date_counts:
+        assert isclose(count, expected, rel_tol=0.1)
 
 def test_data_generator_category_and_date():
     population_size = 10000
