@@ -2,6 +2,7 @@ from datetime import datetime
 from scipy.stats import expon
 from scipy.stats import rv_discrete
 from scipy.stats import norm
+from scipy.stats import uniform
 import pandas as pd
 import numpy as np
 
