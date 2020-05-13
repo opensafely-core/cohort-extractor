@@ -62,7 +62,7 @@ def generate_dates(population, earliest_date, latest_date, rate):
     # And then sample it back down to the requested population size
     distribution = np.random.choice(distribution, population, replace=False)
 
-    df = pd.DataFrame(sorted(distribution), columns=["days"])
+    df = pd.DataFrame(distribution, columns=["days"])
     shifts = pd.TimedeltaIndex(df["days"], unit="D")
     df["d"] = high
     df["d"] = pd.to_datetime(df["d"])
