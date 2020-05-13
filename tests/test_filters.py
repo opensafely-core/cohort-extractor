@@ -558,7 +558,7 @@ def test_bmi_rounded():
 
     study = StudyDefinition(
         population=patients.all(),
-        BMI=patients.most_recent_bmi("2005-01-01",),
+        BMI=patients.most_recent_bmi("2005-01-01"),
         BMI_date_measured=patients.date_of("BMI", date_format="YYYY-MM-DD"),
     )
     results = study.to_dicts()
@@ -585,7 +585,7 @@ def test_bmi_with_zero_values():
     study = StudyDefinition(
         population=patients.all(),
         BMI=patients.most_recent_bmi(
-            on_or_after="1995-01-01", on_or_before="2005-01-01",
+            on_or_after="1995-01-01", on_or_before="2005-01-01"
         ),
         BMI_date_measured=patients.date_of("BMI", date_format="YYYY-MM-DD"),
     )
@@ -613,7 +613,7 @@ def test_explicit_bmi_fallback():
     study = StudyDefinition(
         population=patients.all(),
         BMI=patients.most_recent_bmi(
-            on_or_after="1995-01-01", on_or_before="2005-01-01",
+            on_or_after="1995-01-01", on_or_before="2005-01-01"
         ),
         BMI_date_measured=patients.date_of("BMI", date_format="YYYY-MM-DD"),
     )
@@ -637,7 +637,7 @@ def test_no_bmi_when_old_date():
     study = StudyDefinition(
         population=patients.all(),
         BMI=patients.most_recent_bmi(
-            on_or_after="1995-01-01", on_or_before="2005-01-01",
+            on_or_after="1995-01-01", on_or_before="2005-01-01"
         ),
         BMI_date_measured=patients.date_of("BMI", date_format="YYYY-MM-DD"),
     )
@@ -661,7 +661,7 @@ def test_no_bmi_when_measurements_of_child():
     study = StudyDefinition(
         population=patients.all(),
         BMI=patients.most_recent_bmi(
-            on_or_after="1995-01-01", on_or_before="2005-01-01",
+            on_or_after="1995-01-01", on_or_before="2005-01-01"
         ),
         BMI_date_measured=patients.date_of("BMI", date_format="YYYY-MM-DD"),
     )
@@ -685,7 +685,7 @@ def test_no_bmi_when_measurement_after_reference_date():
     study = StudyDefinition(
         population=patients.all(),
         BMI=patients.most_recent_bmi(
-            on_or_after="1990-01-01", on_or_before="2000-01-01",
+            on_or_after="1990-01-01", on_or_before="2000-01-01"
         ),
         BMI_date_measured=patients.date_of("BMI", date_format="YYYY-MM-DD"),
     )
@@ -717,7 +717,7 @@ def test_bmi_when_only_some_measurements_of_child():
     study = StudyDefinition(
         population=patients.all(),
         BMI=patients.most_recent_bmi(
-            on_or_after="2005-01-01", on_or_before="2015-01-01",
+            on_or_after="2005-01-01", on_or_before="2015-01-01"
         ),
         BMI_date_measured=patients.date_of("BMI", date_format="YYYY-MM-DD"),
     )

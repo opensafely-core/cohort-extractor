@@ -68,7 +68,7 @@ def test_clinical_events_with_date_dtype_generation():
     study = StudyDefinition(
         population=patients.all(),
         diabetes=patients.with_these_clinical_events(
-            test_codelist, return_first_date_in_period=True, date_format="YYYY-MM",
+            test_codelist, return_first_date_in_period=True, date_format="YYYY-MM"
         ),
     )
 
@@ -102,7 +102,7 @@ def test_categorical_clinical_events_with_date_dtype_generation():
     study = StudyDefinition(
         population=patients.all(),
         ethnicity=patients.with_these_clinical_events(
-            categorised_codelist, returning="category", find_last_match_in_period=True,
+            categorised_codelist, returning="category", find_last_match_in_period=True
         ),
         ethnicity_date=patients.date_of("ethnicity"),
     )
@@ -122,7 +122,7 @@ def test_categorical_clinical_events_without_date_dtype_generation():
     study = StudyDefinition(
         population=patients.all(),
         ethnicity=patients.with_these_clinical_events(
-            categorised_codelist, returning="category", find_last_match_in_period=True,
+            categorised_codelist, returning="category", find_last_match_in_period=True
         ),
     )
 
@@ -141,7 +141,7 @@ def test_bmi_dtype_generation():
     study = StudyDefinition(
         population=patients.all(),
         bmi=patients.most_recent_bmi(
-            on_or_after="2010-02-01", minimum_age_at_measurement=16,
+            on_or_after="2010-02-01", minimum_age_at_measurement=16
         ),
         bmi_date_measured=patients.date_of("bmi", date_format="YYYY-MM"),
     )
@@ -471,7 +471,7 @@ def test_make_df_from_expectations_with_distribution_and_date():
                 "date": {"earliest": "1900-01-01", "latest": "today"},
             },
         ),
-        bmi_date_measured=patients.date_of("bmi", date_format="YYYY-MM",),
+        bmi_date_measured=patients.date_of("bmi", date_format="YYYY-MM"),
     )
     population_size = 10000
     result = study.make_df_from_expectations(population_size)
