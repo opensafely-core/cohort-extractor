@@ -2,6 +2,7 @@ import collections
 import copy
 import csv
 import datetime
+import enum
 import os
 import re
 import subprocess
@@ -1365,6 +1366,57 @@ class StudyDefinition:
                 columns.append("date")
         return columns, sql
 
+    def patients_with_gp_consultations(
+        self,
+        # Set date limits
+        between=None,
+        # Matching rule
+        find_first_match_in_period=None,
+        find_last_match_in_period=None,
+        # Set return type
+        returning="binary_flag",
+        include_date_of_match=False,
+    ):
+        if returning == "binary_flag" or returning == "date":
+            column_name = "has_event"
+            column_definition = "1"
+        elif returning == "number_of_matches_in_period":
+            column_name = "count"
+            column_definition = "COUNT(*)"
+        else:
+            raise ValueError(f"Unsupported `returning` value: {returning}")
+
+        valid_states = [
+            AppointmentStatus.ARRIVED,
+            AppointmentStatus.WAITING,
+            AppointmentStatus.IN_PROGRESS,
+            AppointmentStatus.FINISHED,
+            AppointmentStatus.PATIENT_WALKED_OUT,
+            AppointmentStatus.VISIT,
+        ]
+        valid_states_str = codelist_to_sql(map(int, valid_states))
+
+        date_condition = make_date_filter("SeenDate", between)
+        # Result ordering
+        date_aggregate = "MIN" if find_first_match_in_period else "MAX"
+        sql = f"""
+        SELECT
+          Patient_ID AS patient_id,
+          {column_definition} AS {column_name},
+          {date_aggregate}(SeenDate) AS date
+        FROM Appointment
+        WHERE Status IN ({valid_states_str}) AND {date_condition}
+        GROUP BY Patient_ID
+        """
+
+        if returning == "date":
+            columns = ["patient_id", "date"]
+        else:
+            columns = ["patient_id", column_name]
+            if include_date_of_match:
+                columns.append("date")
+        return columns, sql
+
     def get_case_expression(self, column_definitions, category_definitions):
         category_definitions = category_definitions.copy()
         defaults = [k for (k, v) in category_definitions.items() if v == "DEFAULT"]
@@ -1700,6 +1752,22 @@ class patients:
     ):
         return "with_tpp_vaccination_record", process_arguments(locals())
 
+    @staticmethod
+    def with_gp_consultations(
+        # Set date limits
+        on_or_before=None,
+        on_or_after=None,
+        between=None,
+        # Matching rule
+        find_first_match_in_period=None,
+        find_last_match_in_period=None,
+        # Set return type
+        returning="binary_flag",
+        date_format=None,
+        return_expectations=None,
+    ):
+        return "with_gp_consultations", process_arguments(locals())
+
 
 def process_arguments(args):
     """
@@ -1908,3 +1976,21 @@ def pop_keys_from_dict(dictionary, keys):
         if key in dictionary:
             new_dict[key] = dictionary.pop(key)
     return new_dict
+
+
+class AppointmentStatus(enum.IntEnum):
+    BOOKED = 0
+    ARRIVED = 1
+    DID_NOT_ATTEND = 2
+    IN_PROGRESS = 3
+    FINISHED = 4
+    REQUESTED = 5
+    BLOCKED = 6
+    VISIT = 8
+    WAITING = 9
+    CANCELLED_BY_PATIENT = 10
+    CANCELLED_BY_UNIT = 11
+    CANCELLED_BY_OTHER_SERVICE = 12
+    NO_ACCESS_VISIT = 14
+    CANCELLED_DUE_TO_DEATH = 15
+    PATIENT_WALKED_OUT = 16

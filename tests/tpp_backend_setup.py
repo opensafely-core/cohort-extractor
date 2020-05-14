@@ -93,6 +93,24 @@ class CodedEvent(Base):
     SnomedConceptId = Column(String)
 
 
+class Appointment(Base):
+    __tablename__ = "Appointment"
+
+    Appointment_ID = Column(Integer, primary_key=True)
+    Patient_ID = Column(Integer, ForeignKey("Patient.Patient_ID"))
+    Patient = relationship(
+        "Patient", back_populates="Appointments", cascade="all, delete"
+    )
+    Organisation_ID = Column(Integer, ForeignKey("Organisation.Organisation_ID"))
+    Organisation = relationship(
+        "Organisation", back_populates="Appointments", cascade="all, delete"
+    )
+    # The real table has various other datetime columns but we don't currently
+    # use them
+    SeenDate = Column(DateTime)
+    Status = Column(Integer)
+
+
 class Patient(Base):
     __tablename__ = "Patient"
 
@@ -100,6 +118,10 @@ class Patient(Base):
     CovidStatus = relationship("CovidStatus", back_populates="Patient", uselist=False)
     DateOfBirth = Column(Date)
     DateOfDeath = Column(Date)
+
+    Appointments = relationship(
+        "Appointment", back_populates="Patient", cascade="all, delete, delete-orphan",
+    )
     MedicationIssues = relationship(
         "MedicationIssue",
         back_populates="Patient",
@@ -160,6 +182,11 @@ class Organisation(Base):
         cascade="all, delete, delete-orphan",
     )
     Region = Column(String)
+    Appointments = relationship(
+        "Appointment",
+        back_populates="Organisation",
+        cascade="all, delete, delete-orphan",
+    )
 
 
 class PatientAddress(Base):
