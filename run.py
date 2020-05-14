@@ -251,6 +251,7 @@ def make_chart(name, series, dtype):
 
 def generate_cohort(expectations_population):
     for study_name, suffix in list_study_definitions():
+        print(f"Generating cohort for {study_name}...")
         _generate_cohort(study_name, suffix, expectations_population)
 
 
