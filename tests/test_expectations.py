@@ -229,6 +229,7 @@ def test_data_generator_date_exponential_increase():
         assert count < max_count
         max_count = count
 
+
 def test_data_generator_date_uniform():
     population_size = 100000
     incidence = 0.5
@@ -249,6 +250,7 @@ def test_data_generator_date_uniform():
     expected = (population_size * incidence) / 10
     for count in date_counts:
         assert isclose(count, expected, rel_tol=0.1)
+
 
 def test_data_generator_category_and_date():
     population_size = 10000
@@ -675,3 +677,25 @@ def test_validate_category_expectations():
         category_definitions=category_definitions,
         return_expectations={"category": {"ratios": {"A": 1}}},
     )
+
+
+def test_make_df_from_expectations_partial_default_overrides():
+    study = StudyDefinition(
+        default_expectations={
+            "date": {"earliest": "1900-01-01", "latest": "today"},
+            "rate": "exponential_increase",
+            "incidence": 0.2,
+        },
+        population=patients.all(),
+        asthma_condition=patients.with_these_clinical_events(
+            codelist(["X"], system="ctv3"),
+            returning="date",
+            find_first_match_in_period=True,
+            date_format="YYYY",
+            return_expectations={"date": {"latest": "2000-01-01"}},
+        ),
+    )
+
+    population_size = 10000
+    result = study.make_df_from_expectations(population_size)
+    assert result.asthma_condition.astype("float").max() == 2000
