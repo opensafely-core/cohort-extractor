@@ -2,6 +2,7 @@ from datetime import datetime
 from scipy.stats import expon
 from scipy.stats import rv_discrete
 from scipy.stats import norm
+from scipy.stats import uniform
 import pandas as pd
 import numpy as np
 
@@ -40,26 +41,29 @@ def generate_dates(population, earliest_date, latest_date, rate):
     (increasingly common)
 
     """
-    assert (
-        rate == "exponential_increase"
-    ), "Only exponential increase currently supported"
     low = datetime.strptime(earliest_date, "%Y-%m-%d").date()
     high = datetime.strptime(latest_date, "%Y-%m-%d").date()
     elapsed_days = (high - low).days
 
-    # We oversample the distribution to trim the long tail of the
-    # exponential function
-    oversample_ratio = 1.5
-    distribution = (
-        expon.rvs(loc=0, scale=0.1, size=int(population * oversample_ratio))
-        * elapsed_days
-    ).astype("int")
-    distribution = distribution[distribution <= elapsed_days]
+    if rate == "exponential_increase":
+        # We oversample the distribution to trim the long tail of the
+        # exponential function
+        oversample_ratio = 1.5
+        distribution = (
+            expon.rvs(loc=0, scale=0.1, size=int(population * oversample_ratio))
+            * elapsed_days
+        ).astype("int")
+        distribution = distribution[distribution <= elapsed_days]
+    elif rate == "uniform":
+        distribution = uniform.rvs(size=int(population)) * elapsed_days
+        distribution = distribution.astype("int")
+    else:
+        raise ValueError("Only exponential_increase and uniform distributions currently supported")
 
     # And then sample it back down to the requested population size
     distribution = np.random.choice(distribution, population, replace=False)
 
-    df = pd.DataFrame(sorted(distribution), columns=["days"])
+    df = pd.DataFrame(distribution, columns=["days"])
     shifts = pd.TimedeltaIndex(df["days"], unit="D")
     df["d"] = high
     df["d"] = pd.to_datetime(df["d"])
