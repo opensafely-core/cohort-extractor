@@ -1292,68 +1292,31 @@ class StudyDefinition:
 
         # Result ordering
         if find_first_match_in_period:
-            ordering = "ASC"
             date_aggregate = "MIN"
         else:
-            ordering = "DESC"
             date_aggregate = "MAX"
 
         if returning == "binary_flag" or returning == "date":
             column_name = "has_event"
             column_definition = "1"
-            use_partition_query = False
-        # Because each Vaccination row can potentially map to multiple
-        # VaccinationReference rows (one for each disease targeted by the
-        # vaccine) anything beyond a simple binary flag or a date is going to
-        # require more thought.
-        #
-        # elif returning == "number_of_matches_in_period":
-        #     column_name = "count"
-        #     column_definition = "COUNT(*)"
-        #     use_partition_query = False
-        # elif returning == "product_name":
-        #     column_name = "product_name"
-        #     column_definition = "ref.VaccinationName"
-        #     use_partition_query = True
-        # elif returning == "target_disease":
-        #     column_name = "disease_name"
-        #     column_definition = "ref.VaccinationContent"
-        #     use_partition_query = True
         else:
+            # Because each Vaccination row can potentially map to multiple
+            # VaccinationReference rows (one for each disease targeted by the
+            # vaccine) anything beyond a simple binary flag or a date is going to
+            # require more thought.
             raise ValueError(f"Unsupported `returning` value: {returning}")
 
-        if use_partition_query:
-            # Needs further thought: see above
-            raise NotImplementedError()
-            sql = f"""
-            SELECT
-              Patient_ID AS patient_id,
-              {column_definition} AS {column_name},
-              VaccinationDate AS date
-            FROM (
-              SELECT Patient_ID, {column_definition}, VaccinationDate,
-              ROW_NUMBER() OVER (
-                PARTITION BY Patient_ID ORDER BY VaccinationDate {ordering}
-              ) AS rownum
-              FROM Vaccination
-              INNER JOIN VaccinationReference AS ref
-              ON ref.VaccinationName_ID = Vaccination.VaccinationName_ID
-              WHERE {conditions_str}
-            ) t
-            WHERE rownum = 1
-            """
-        else:
-            sql = f"""
-            SELECT
-              Patient_ID AS patient_id,
-              {column_definition} AS {column_name},
-              {date_aggregate}(VaccinationDate) AS date
-            FROM Vaccination
-            INNER JOIN VaccinationReference AS ref
-            ON ref.VaccinationName_ID = Vaccination.VaccinationName_ID
-            WHERE {conditions_str}
-            GROUP BY Patient_ID
-            """
+        sql = f"""
+        SELECT
+          Patient_ID AS patient_id,
+          {column_definition} AS {column_name},
+          {date_aggregate}(VaccinationDate) AS date
+        FROM Vaccination
+        INNER JOIN VaccinationReference AS ref
+        ON ref.VaccinationName_ID = Vaccination.VaccinationName_ID
+        WHERE {conditions_str}
+        GROUP BY Patient_ID
+        """
 
         if returning == "date":
             columns = ["patient_id", "date"]
