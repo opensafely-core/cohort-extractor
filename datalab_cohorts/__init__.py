@@ -162,6 +162,13 @@ class StudyDefinition:
                 f"Expected categories {', '.join(defined)} are not a subset of available categories {', '.join(available)}"
             )
 
+    def convert_today_string_to_date(self, colname, kwargs):
+        if "date" not in kwargs:
+            raise ValueError(f"{colname} must define a date expectation")
+        for k in ["earliest", "latest"]:
+            if kwargs["date"][k] == "today":
+                kwargs["date"][k] = datetime.datetime.now().strftime("%Y-%m-%d")
+
     def make_df_from_expectations(self, population):
         df = pd.DataFrame()
 
@@ -174,10 +181,15 @@ class StudyDefinition:
                 definition_args["return_expectations"] = source_args[
                     "return_expectations"
                 ]
-            if not definition_args.get("return_expectations"):
-                raise ValueError(f"No `return_expectations` defined for {colname}")
+            return_expectations = definition_args["return_expectations"] or {}
+            if not self.default_expectations and not return_expectations:
+                raise ValueError(
+                    f"No `return_expectations` defined for {colname} "
+                    "and no `default_expectations` defined for the study"
+                )
             kwargs = self.default_expectations.copy()
-            kwargs.update(definition_args["return_expectations"])
+            kwargs.update(return_expectations)
+            self.convert_today_string_to_date(colname, kwargs)
             df[colname] = generate(population, **kwargs)["date"]
 
             # Now apply any date-based filtering specified in the study
@@ -194,6 +206,7 @@ class StudyDefinition:
                 raise ValueError(f"No `return_expectations` defined for {colname}")
             kwargs = self.default_expectations.copy()
             kwargs.update(self.pandas_csv_args["args"][colname]["return_expectations"])
+            self.convert_today_string_to_date(colname, kwargs)
 
             if dtype == "category":
                 self.validate_category_expectations(

@@ -71,13 +71,6 @@ def generate_dates(population, earliest_date, latest_date, rate):
     return df[["date"]]
 
 
-def _get_date_range(earliest=None, latest=None):
-    earliest = earliest or "1900-01-01"
-    if not latest or latest == "today":
-        latest = datetime.now().strftime("%Y-%m-%d")
-    return earliest, latest
-
-
 def generate(population, **kwargs):
     """Returns a date column and zero or more value column.
     """
@@ -97,9 +90,7 @@ def generate(population, **kwargs):
     elif universal:
         df = pd.DataFrame(data=np.arange(population), columns=["date"])
     else:
-        date_as_dict = date or {}
-        earliest, latest = _get_date_range(**date_as_dict)
-        df = generate_dates(population, earliest, latest, rate)
+        df = generate_dates(population, date["earliest"], date["latest"], rate)
 
     category = kwargs.pop("category", None)
     if category:
