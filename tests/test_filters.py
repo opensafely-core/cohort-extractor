@@ -18,6 +18,8 @@ from tests.tpp_backend_setup import (
     ICNARC,
     ONSDeaths,
     CPNS,
+    Vaccination,
+    VaccinationReference,
 )
 
 from datalab_cohorts import StudyDefinition
@@ -40,6 +42,8 @@ def setup_function(function):
     session.query(ICNARC).delete()
     session.query(ONSDeaths).delete()
     session.query(CPNS).delete()
+    session.query(Vaccination).delete()
+    session.query(VaccinationReference).delete()
     session.query(MedicationIssue).delete()
     session.query(MedicationDictionary).delete()
     session.query(RegistrationHistory).delete()
@@ -1487,3 +1491,82 @@ def test_number_of_episodes():
     )
     results = study.to_dicts()
     assert [i["episode_count"] for i in results] == ["3", "0"]
+
+
+def test_patients_with_tpp_vaccination_record():
+    session = make_session()
+    vaccines = [
+        (1, "Hepatyrix", ["TYPHOID", "HEPATITIS A"]),
+        (2, "Madeva", ["INFLUENZA"]),
+        (3, "Optaflu", ["INFLUENZA"]),
+    ]
+    ids = {}
+    for name_id, name, contents in vaccines:
+        ids[name] = name_id
+        for content in contents:
+            session.add(
+                VaccinationReference(
+                    VaccinationName=name,
+                    VaccinationName_ID=name_id,
+                    VaccinationContent=content,
+                )
+            )
+    session.add_all(
+        [
+            Patient(
+                Vaccinations=[
+                    Vaccination(
+                        VaccinationName_ID=ids["Hepatyrix"],
+                        VaccinationDate="2010-01-01",
+                    ),
+                    Vaccination(
+                        VaccinationName_ID=ids["Optaflu"], VaccinationDate="2014-01-01"
+                    ),
+                ]
+            ),
+            Patient(
+                Vaccinations=[
+                    Vaccination(
+                        VaccinationName_ID=ids["Madeva"], VaccinationDate="2013-01-01"
+                    ),
+                    Vaccination(
+                        VaccinationName_ID=ids["Hepatyrix"],
+                        VaccinationDate="2015-01-01",
+                    ),
+                ]
+            ),
+        ]
+    )
+    session.commit()
+
+    study = StudyDefinition(
+        population=patients.all(),
+        value=patients.with_tpp_vaccination_record(
+            target_disease_matches="TYPHOID", on_or_after="2012-01-01",
+        ),
+        date=patients.date_of("value"),
+    )
+    results = study.to_dicts()
+    assert [i["value"] for i in results] == ["0", "1"]
+    assert [i["date"] for i in results] == ["", "2015"]
+
+    study = StudyDefinition(
+        population=patients.all(),
+        value=patients.with_tpp_vaccination_record(
+            target_disease_matches="INFLUENZA",
+            on_or_after="2012-01-01",
+            find_last_match_in_period=True,
+            returning="date",
+        ),
+    )
+    assert [i["value"] for i in study.to_dicts()] == ["2014", "2013"]
+
+    study = StudyDefinition(
+        population=patients.all(),
+        value=patients.with_tpp_vaccination_record(
+            product_name_matches=["Madeva", "Hepatyrix"],
+            find_first_match_in_period=True,
+            returning="date",
+        ),
+    )
+    assert [i["value"] for i in study.to_dicts()] == ["2010", "2013"]

@@ -125,6 +125,9 @@ class Patient(Base):
     Addresses = relationship(
         "PatientAddress", back_populates="Patient", cascade="all, delete, delete-orphan"
     )
+    Vaccinations = relationship(
+        "Vaccination", back_populates="Patient", cascade="all, delete, delete-orphan"
+    )
     Sex = Column(String)
 
 
@@ -248,3 +251,33 @@ class CPNS(Base):
     # Der_Ethnic_Category_Description                                None
     # Der_Latest_SUS_Attendance_Date_For_Ethnicity                   None
     # Der_Source_Dataset_For_Ethnicty                                None
+
+
+class Vaccination(Base):
+    __tablename__ = "Vaccination"
+    Patient_ID = Column(Integer, ForeignKey("Patient.Patient_ID"))
+    Patient = relationship(
+        "Patient", back_populates="Vaccinations", cascade="all, delete"
+    )
+    Vaccination_ID = Column(Integer, primary_key=True)
+    VaccinationDate = Column(DateTime)
+    VaccinationName = Column(String)
+    # We can't make this a foreign key because the corresponding column isn't
+    # unique.  Effectively, there's an implied but not existing VaccinationName
+    # table which has a many-one relation with Vaccination and a one-many
+    # relation with VaccinationReference.
+    VaccinationName_ID = Column(Integer)
+    VaccinationSchedulePart = Column(Integer)
+
+
+class VaccinationReference(Base):
+    __tablename__ = "VaccinationReference"
+
+    # This column isn't in the actual database but SQLAlchemy gets a bit upset
+    # if we don't give it a primary key
+    id = Column(Integer, primary_key=True)
+    # Note this is *not* unique because a single named vaccine product can
+    # target multiple diseases and therefore have multiple "contents"
+    VaccinationName_ID = Column(Integer)
+    VaccinationName = Column(String)
+    VaccinationContent = Column(String)

@@ -1264,6 +1264,68 @@ class StudyDefinition:
             """,
         )
 
+    def patients_with_tpp_vaccination_record(
+        self,
+        target_disease_matches=None,
+        product_name_matches=None,
+        # Set date limits
+        between=None,
+        # Set return type
+        returning="binary_flag",
+        # Matching rule
+        find_first_match_in_period=None,
+        find_last_match_in_period=None,
+        include_date_of_match=False,
+    ):
+        conditions = [make_date_filter("VaccinationDate", between)]
+        target_disease_matches = to_list(target_disease_matches)
+        if target_disease_matches:
+            content_codes = codelist_to_sql(target_disease_matches)
+            conditions.append(f"ref.VaccinationContent IN ({content_codes})")
+
+        product_name_matches = to_list(product_name_matches)
+        if product_name_matches:
+            product_name_codes = codelist_to_sql(product_name_matches)
+            conditions.append(f"ref.VaccinationName IN ({product_name_codes})")
+
+        conditions_str = " AND ".join(conditions)
+
+        # Result ordering
+        if find_first_match_in_period:
+            date_aggregate = "MIN"
+        else:
+            date_aggregate = "MAX"
+
+        if returning == "binary_flag" or returning == "date":
+            column_name = "has_event"
+            column_definition = "1"
+        else:
+            # Because each Vaccination row can potentially map to multiple
+            # VaccinationReference rows (one for each disease targeted by the
+            # vaccine) anything beyond a simple binary flag or a date is going to
+            # require more thought.
+            raise ValueError(f"Unsupported `returning` value: {returning}")
+
+        sql = f"""
+        SELECT
+          Patient_ID AS patient_id,
+          {column_definition} AS {column_name},
+          {date_aggregate}(VaccinationDate) AS date
+        FROM Vaccination
+        INNER JOIN VaccinationReference AS ref
+        ON ref.VaccinationName_ID = Vaccination.VaccinationName_ID
+        WHERE {conditions_str}
+        GROUP BY Patient_ID
+        """
+
+        if returning == "date":
+            columns = ["patient_id", "date"]
+        else:
+            columns = ["patient_id", column_name]
+            if include_date_of_match:
+                columns.append("date")
+        return columns, sql
+
     def get_case_expression(self, column_definitions, category_definitions):
         category_definitions = category_definitions.copy()
         defaults = [k for (k, v) in category_definitions.items() if v == "DEFAULT"]
@@ -1579,6 +1641,23 @@ class patients:
         returning = "date"
         return "value_from", process_arguments(locals())
 
+    @staticmethod
+    def with_tpp_vaccination_record(
+        target_disease_matches=None,
+        product_name_matches=None,
+        # Set date limits
+        on_or_before=None,
+        on_or_after=None,
+        between=None,
+        # Set return type
+        returning="binary_flag",
+        date_format=None,
+        # Matching rule
+        find_first_match_in_period=None,
+        find_last_match_in_period=None,
+    ):
+        return "with_tpp_vaccination_record", process_arguments(locals())
+
 
 def process_arguments(args):
     """
@@ -1659,6 +1738,14 @@ def codelist_to_sql(codelist):
     else:
         values = map(quote, codelist)
     return ",".join(values)
+
+
+def to_list(value):
+    if value is None:
+        return []
+    if not isinstance(value, (tuple, list)):
+        return [value]
+    return list(value)
 
 
 def standardise_if_date(value):
