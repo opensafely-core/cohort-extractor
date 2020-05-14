@@ -248,6 +248,7 @@ def test_data_generator_float():
     return_expectations = {
         "rate": "exponential_increase",
         "incidence": incidence,
+        "date": {"earliest": "1900-01-01", "latest": "2020-01-01"},
         "float": {"distribution": "normal", "mean": 35, "stddev": 10},
     }
     result = generate(population_size, **return_expectations)
@@ -260,6 +261,7 @@ def test_data_generator_int():
     return_expectations = {
         "rate": "exponential_increase",
         "incidence": incidence,
+        "date": {"earliest": "1900-01-01", "latest": "2020-01-01"},
         "int": {"distribution": "normal", "mean": 10, "stddev": 1},
     }
     result = generate(population_size, **return_expectations)
