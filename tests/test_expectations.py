@@ -38,7 +38,7 @@ def test_age_dtype_generation():
     )
     result = _converters_to_names(study.pandas_csv_args)
     assert result == {
-        "dtype": {"age": "int"},
+        "dtype": {"age": "Int64"},
         "parse_dates": [],
         "date_col_for": {},
         "converters": {},

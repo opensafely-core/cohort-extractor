@@ -231,6 +231,7 @@ def make_chart(name, series, dtype):
         plt.xticks(rotation=45, ha="right")
     elif is_numeric_dtype(dtype):
         # Trim percentiles and negatives which are usually bad data
+        series = series.fillna(0)
         series = series[
             (series < np.percentile(series, 95))
             & (series > np.percentile(series, 5))
