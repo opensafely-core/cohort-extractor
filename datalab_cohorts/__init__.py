@@ -356,7 +356,7 @@ class StudyDefinition:
                 dtypes[name] = "float"
             elif funcname == "mean_recorded_value":
                 dtypes[name] = "float"
-            elif funcname == "with_full_gp_consultation_history_between":
+            elif funcname == "with_complete_gp_consultation_history_between":
                 converters[name] = tobool
                 dtypes[name] = "bool"
             else:
@@ -1420,7 +1420,9 @@ class StudyDefinition:
                 columns.append("date")
         return columns, sql
 
-    def patients_with_full_gp_consultation_history_between(self, start_date, end_date):
+    def patients_with_complete_gp_consultation_history_between(
+        self, start_date, end_date
+    ):
         """
         In this context this should mean patients who have been continuously
         registered with TPP-using practices throughout this period. However,
@@ -1784,13 +1786,13 @@ class patients:
         """
         These are GP-patient interactions, either in person or via phone/video
         call. The concept of a "consultation" in EHR systems is generally
-        braoder and might include things like updating a phone number with the
+        broader and might include things like updating a phone number with the
         receptionist.
         """
         return "with_gp_consultations", process_arguments(locals())
 
     @staticmethod
-    def with_full_gp_consultation_history_between(
+    def with_complete_gp_consultation_history_between(
         start_date,
         end_date,
         # Required keyword
@@ -1805,7 +1807,10 @@ class patients:
         can be used to find just those patients for which the full history is
         available.
         """
-        return "with_full_gp_consultation_history_between", process_arguments(locals())
+        return (
+            "with_complete_gp_consultation_history_between",
+            process_arguments(locals()),
+        )
 
 
 def process_arguments(args):

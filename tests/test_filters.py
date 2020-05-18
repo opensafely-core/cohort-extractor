@@ -1626,7 +1626,7 @@ def test_patient_with_gp_consultations():
         latest_consultation_date=patients.date_of(
             "consultation_count", date_format="YYYY-MM"
         ),
-        has_history=patients.with_full_gp_consultation_history_between(
+        has_history=patients.with_complete_gp_consultation_history_between(
             "2010-01-01", "2015-01-01"
         ),
     )
