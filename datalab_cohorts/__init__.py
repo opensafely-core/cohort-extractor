@@ -1,3 +1,4 @@
+import collections
 import copy
 import csv
 import datetime
@@ -18,6 +19,19 @@ from .expectation_generators import generate
 # Characters that are safe to interpolate into SQL (see
 # `placeholders_and_params` below)
 SAFE_CHARS_RE = re.compile(r"^[a-zA-Z0-9_\.\-]+$")
+
+
+def merge(dict1, dict2):
+    """ Return a new dictionary by merging two dictionaries recursively. """
+
+    result = copy.deepcopy(dict1)
+
+    for key, value in dict2.items():
+        if isinstance(value, collections.Mapping):
+            result[key] = merge(result.get(key, {}), value)
+        else:
+            result[key] = copy.deepcopy(dict2[key])
+    return result
 
 
 class StudyDefinition:
@@ -188,7 +202,7 @@ class StudyDefinition:
                     "and no `default_expectations` defined for the study"
                 )
             kwargs = self.default_expectations.copy()
-            kwargs.update(return_expectations)
+            kwargs = merge(kwargs, return_expectations)
             self.convert_today_string_to_date(colname, kwargs)
             df[colname] = generate(population, **kwargs)["date"]
 
@@ -205,7 +219,9 @@ class StudyDefinition:
             if not self.pandas_csv_args["args"][colname].get("return_expectations"):
                 raise ValueError(f"No `return_expectations` defined for {colname}")
             kwargs = self.default_expectations.copy()
-            kwargs.update(self.pandas_csv_args["args"][colname]["return_expectations"])
+            kwargs = merge(
+                kwargs, self.pandas_csv_args["args"][colname]["return_expectations"]
+            )
             self.convert_today_string_to_date(colname, kwargs)
 
             if dtype == "category":
