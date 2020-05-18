@@ -58,7 +58,9 @@ def generate_dates(population, earliest_date, latest_date, rate):
         distribution = uniform.rvs(size=int(population)) * elapsed_days
         distribution = distribution.astype("int")
     else:
-        raise ValueError("Only exponential_increase and uniform distributions currently supported")
+        raise ValueError(
+            "Only exponential_increase and uniform distributions currently supported"
+        )
 
     # And then sample it back down to the requested population size
     distribution = np.random.choice(distribution, population, replace=False)

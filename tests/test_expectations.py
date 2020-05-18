@@ -229,6 +229,7 @@ def test_data_generator_date_exponential_increase():
         assert count < max_count
         max_count = count
 
+
 def test_data_generator_date_uniform():
     population_size = 100000
     incidence = 0.5
@@ -249,6 +250,7 @@ def test_data_generator_date_uniform():
     expected = (population_size * incidence) / 10
     for count in date_counts:
         assert isclose(count, expected, rel_tol=0.1)
+
 
 def test_data_generator_category_and_date():
     population_size = 10000
@@ -572,6 +574,28 @@ def test_make_df_from_expectations_with_number_of_episodes():
     population_size = 10000
     result = study.make_df_from_expectations(population_size)
     assert result.columns == ["episode_count"]
+
+
+def test_make_df_from_expectations_with_satisfying():
+    study = StudyDefinition(
+        population=patients.all(),
+        has_condition=patients.satisfying(
+            "condition_a OR condition_b",
+            condition_a=patients.with_these_clinical_events(
+                codelist(["A", "B", "C"], system="ctv3")
+            ),
+            condition_b=patients.with_these_clinical_events(
+                codelist(["X", "Y", "Z"], system="ctv3")
+            ),
+            return_expectations={
+                "date": {"earliest": "2001-01-01", "latest": "2020-03-01"},
+                "incidence": 0.95,
+            },
+        ),
+    )
+    population_size = 10000
+    result = study.make_df_from_expectations(population_size)
+    assert result.columns == ["has_condition"]
 
 
 def test_make_df_from_expectations_doesnt_alter_defaults():
