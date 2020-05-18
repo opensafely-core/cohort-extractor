@@ -356,6 +356,9 @@ class StudyDefinition:
                 dtypes[name] = "float"
             elif funcname == "mean_recorded_value":
                 dtypes[name] = "float"
+            elif funcname == "with_full_gp_consultation_history_between":
+                converters[name] = tobool
+                dtypes[name] = "bool"
             else:
                 raise ValueError(
                     f"Unable to impute Pandas type for {name} ({funcname})"
@@ -1417,6 +1420,18 @@ class StudyDefinition:
                 columns.append("date")
         return columns, sql
 
+    def patients_with_full_gp_consultation_history_between(self, start_date, end_date):
+        """
+        In this context this should mean patients who have been continuously
+        registered with TPP-using practices throughout this period. However,
+        for now we restrict this to just patients who have been registered with
+        a single practice throughout this period.  As this is a more
+        restrictive condition this is fine for our purposes, however once we
+        get an implementation for `patients_with_complete_history_between` we
+        should switch to using this.
+        """
+        return self.patients_registered_with_one_practice_between(start_date, end_date)
+
     def get_case_expression(self, column_definitions, category_definitions):
         category_definitions = category_definitions.copy()
         defaults = [k for (k, v) in category_definitions.items() if v == "DEFAULT"]
@@ -1766,7 +1781,31 @@ class patients:
         date_format=None,
         return_expectations=None,
     ):
+        """
+        These are GP-patient interactions, either in person or via phone/video
+        call. The concept of a "consultation" in EHR systems is generally
+        braoder and might include things like updating a phone number with the
+        receptionist.
+        """
         return "with_gp_consultations", process_arguments(locals())
+
+    @staticmethod
+    def with_full_gp_consultation_history_between(
+        start_date,
+        end_date,
+        # Required keyword
+        return_expectations=None,
+    ):
+        """
+        Because the concept of a "consultation" in EHR systems does not map
+        exactly to the GP-patient interaction we're interested in (see above)
+        there is some processing required on the part of the EHR vendor to
+        produce the consultation record we need. This does not happen
+        automatically as part of the GP2GP transfer, and therefore this query
+        can be used to find just those patients for which the full history is
+        available.
+        """
+        return "with_full_gp_consultation_history_between", process_arguments(locals())
 
 
 def process_arguments(args):

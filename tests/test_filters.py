@@ -1582,6 +1582,9 @@ def test_patient_with_gp_consultations():
     session.add_all(
         [
             Patient(
+                RegistrationHistory=[
+                    RegistrationHistory(StartDate="2014-01-01", EndDate="2020-05-01")
+                ],
                 Appointments=[
                     # Before period starts
                     Appointment(
@@ -1591,9 +1594,12 @@ def test_patient_with_gp_consultations():
                     Appointment(
                         SeenDate="2020-02-01", Status=AppointmentStatus.FINISHED
                     ),
-                ]
+                ],
             ),
             Patient(
+                RegistrationHistory=[
+                    RegistrationHistory(StartDate="2001-01-01", EndDate="2016-01-01")
+                ],
                 Appointments=[
                     Appointment(
                         SeenDate="2011-01-01", Status=AppointmentStatus.FINISHED
@@ -1605,7 +1611,7 @@ def test_patient_with_gp_consultations():
                     Appointment(
                         SeenDate="2013-01-01", Status=AppointmentStatus.FINISHED
                     ),
-                ]
+                ],
             ),
         ]
     )
@@ -1620,7 +1626,11 @@ def test_patient_with_gp_consultations():
         latest_consultation_date=patients.date_of(
             "consultation_count", date_format="YYYY-MM"
         ),
+        has_history=patients.with_full_gp_consultation_history_between(
+            "2010-01-01", "2015-01-01"
+        ),
     )
     results = study.to_dicts()
     assert [x["latest_consultation_date"] for x in results] == ["", "2013-01"]
     assert [x["consultation_count"] for x in results] == ["0", "2"]
+    assert [x["has_history"] for x in results] == ["0", "1"]
