@@ -1564,8 +1564,11 @@ class patients:
         return "categorised_as", process_arguments(locals())
 
     @staticmethod
-    def satisfying(expression, **extra_columns):
+    def satisfying(expression, return_expectations=None, **extra_columns):
         category_definitions = {1: expression, 0: "DEFAULT"}
+        if return_expectations is None:
+            return_expectations = {}
+        return_expectations["category"] = {"ratios": {1: 1, 0: 0}}
         # Remove from local namespace
         del expression
         return "categorised_as", process_arguments(locals())
