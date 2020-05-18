@@ -47,7 +47,7 @@ class StudyDefinition:
         self.codelist_tables = []
         self.covariate_definitions = covariates
         self.pandas_csv_args = self.get_pandas_csv_args(covariates)
-        self.queries = self.build_queries(covariates)
+        self.queries, self.column_types = self.get_queries_and_types(covariates)
 
     def apply_compatibility_fixes(self, covariate_definitions):
         """
@@ -415,7 +415,7 @@ class StudyDefinition:
             prepared_sql.append("\n\n")
         return "\n".join(prepared_sql)
 
-    def build_queries(self, covariate_definitions):
+    def get_queries_and_types(self, covariate_definitions):
         covariate_definitions, hidden_columns = self.flatten_nested_covariates(
             covariate_definitions
         )
@@ -456,10 +456,14 @@ class StudyDefinition:
         # else against that. Otherwise, we use the `Patient` table.
         if "population" in table_queries:
             primary_table = "#population"
-            output_columns["patient_id"] = "#population.patient_id"
+            output_columns["patient_id"] = ColumnExpression(
+                "#population.patient_id", column_type="int"
+            )
         else:
             primary_table = "Patient"
-            output_columns["patient_id"] = "Patient.Patient_ID"
+            output_columns["patient_id"] = ColumnExpression(
+                "Patient.Patient_ID", column_type="int"
+            )
         output_columns_str = ",\n          ".join(
             f"{expr} AS {name}"
             for (name, expr) in output_columns.items()
@@ -479,7 +483,11 @@ class StudyDefinition:
           {joins_str}
         WHERE {output_columns["population"]} = 1
         """
-        return list(table_queries.items()) + [("final_output", joined_output_query)]
+        queries = list(table_queries.items()) + [("final_output", joined_output_query)]
+        column_types = {
+            name: expr.column_type for (name, expr) in output_columns.items()
+        }
+        return queries, column_types
 
     def flatten_nested_covariates(self, covariate_definitions):
         """
@@ -541,23 +549,58 @@ class StudyDefinition:
         return updated
 
     def get_column_expression(self, source, returning, date_format=None):
+        column_type = self.get_type_for_column(returning)
+        default_value = self.get_default_value_for_type(column_type)
         column_expr = f"#{source}.{returning}"
-        if (
-            returning == "date"
-            or returning.startswith("date_")
-            or returning.endswith("_date")
-        ):
-            default_value = ""
+        if column_type == "date":
             column_expr = truncate_date(column_expr, date_format)
+        return ColumnExpression(
+            f"ISNULL({column_expr}, {quote(default_value)})", column_type=column_type
+        )
+
+    def get_type_for_column(self, col):
+        if col == "date" or col.startswith("date_") or col.endswith("_date"):
+            return "date"
         elif (
-            returning.endswith("_code")
-            or returning == "category"
-            or returning.endswith("_name")
+            col in ("sex", "category", "code")
+            or col.endswith("_code")
+            or col.endswith("_name")
         ):
-            default_value = ""
+            return "str"
+        elif (
+            col == "died"
+            or col.startswith("has_")
+            or col.startswith("is_")
+            or col.startswith("was_")
+        ):
+            return "bool"
+        elif col in (
+            "age",
+            "count",
+            "episode_count",
+            "pseudo_id",
+            "index_of_multiple_deprivation",
+            "rural_urban_classification",
+        ):
+            return "int"
+        elif col in ("value", "mean_value", "BMI"):
+            return "float"
         else:
-            default_value = 0
-        return f"ISNULL({column_expr}, {quote(default_value)})"
+            raise ValueError(f"Unhandled return column name: {col}")
+
+    def get_default_value_for_type(self, column_type):
+        if column_type == "date":
+            return ""
+        elif column_type == "str":
+            return ""
+        elif column_type == "bool":
+            return 0
+        elif column_type == "int":
+            return 0
+        elif column_type == "float":
+            return 0.0
+        else:
+            raise ValueError(f"Unhandled column type: {column_type}")
 
     def execute_query(self):
         cursor = self.get_db_connection().cursor()
@@ -1436,6 +1479,7 @@ class StudyDefinition:
 
     def get_case_expression(self, column_definitions, category_definitions):
         category_definitions = category_definitions.copy()
+        column_type = self.infer_type_from_categories(category_definitions.keys())
         defaults = [k for (k, v) in category_definitions.items() if v == "DEFAULT"]
         if len(defaults) > 1:
             raise ValueError("At most one default category can be defined")
@@ -1443,7 +1487,7 @@ class StudyDefinition:
             default_value = defaults[0]
             category_definitions.pop(default_value)
         else:
-            default_value = ""
+            default_value = self.get_default_value_for_type(column_type)
         clauses = []
         for category, expression in category_definitions.items():
             # The column references in the supplied expression need to be
@@ -1452,7 +1496,31 @@ class StudyDefinition:
             # limited subset of SQL we support here.
             formatted_expression = format_expression(expression, column_definitions)
             clauses.append(f"WHEN ({formatted_expression}) THEN {quote(category)}")
-        return f"CASE {' '.join(clauses)} ELSE {quote(default_value)} END"
+        return ColumnExpression(
+            f"CASE {' '.join(clauses)} ELSE {quote(default_value)} END",
+            column_type=column_type,
+        )
+
+    def infer_type_from_categories(self, categories):
+        categories = list(categories)
+        first_type = type(categories[0])
+        for other in categories[1:]:
+            if type(other) != first_type:
+                raise ValueError(
+                    f"Categories must all be the same type, found {first_type} "
+                    f"and {type(other)}"
+                )
+        if first_type is int:
+            if set(categories) == {0, 1}:
+                return "bool"
+            else:
+                return "int"
+        elif first_type is float:
+            return "float"
+        elif first_type is str:
+            return "str"
+        else:
+            raise ValueError(f"Unhandled category type: {first_type}")
 
     def get_db_dict(self):
         parsed = urlparse(os.environ["DATABASE_URL"])
@@ -2038,3 +2106,17 @@ class AppointmentStatus(enum.IntEnum):
     NO_ACCESS_VISIT = 14
     CANCELLED_DUE_TO_DEATH = 15
     PATIENT_WALKED_OUT = 16
+
+
+class ColumnExpression(str):
+    """
+    A column expression is just a SQL expression string tagged with an
+    additional `column_type` field
+    """
+
+    column_type = None
+
+    def __new__(cls, value, column_type=None):
+        instance = str.__new__(cls, value)
+        instance.column_type = column_type
+        return instance
