@@ -46,8 +46,8 @@ class StudyDefinition:
         covariates = self.apply_compatibility_fixes(covariates)
         self.codelist_tables = []
         self.covariate_definitions = covariates
-        self.pandas_csv_args = self.get_pandas_csv_args(covariates)
         self.queries, self.column_types = self.get_queries_and_types(covariates)
+        self.pandas_csv_args = self.get_pandas_csv_args(covariates)
 
     def apply_compatibility_fixes(self, covariate_definitions):
         """
@@ -314,16 +314,12 @@ class StudyDefinition:
         date_col_for = {}
 
         for name, (funcname, kwargs) in covariate_definitions.items():
-            returning = kwargs.get("returning", None)
             if name == "population":
                 continue
             args[name] = kwargs.copy()
-            if returning and (
-                returning == "date"
-                or returning.startswith("date_")
-                or returning.endswith("_date")
-                or "_date_" in returning
-            ):
+            column_type = self.column_types[name]
+
+            if column_type == "date":
                 parse_dates.append(name)
                 # if granularity doesn't include a day, add one
                 if kwargs.get("date_format") in ("YYYY", None):
@@ -332,36 +328,22 @@ class StudyDefinition:
                     converters[name] = add_day_to_date
                 if funcname == "value_from":
                     date_col_for[kwargs["source"]] = name
-
-            elif returning == "numeric_value":
-                dtypes[name] = "float"
-            elif returning == "number_of_matches_in_period":
-                dtypes[name] = "Int64"
-            elif returning == "number_of_episodes":
-                dtypes[name] = "Int64"
-            elif returning == "binary_flag":
+            elif column_type == "bool":
                 converters[name] = tobool
                 dtypes[name] = "bool"
-            elif returning == "category" or "category_definitions" in kwargs:
-                dtypes[name] = "category"
-            elif returning:
-                dtypes[name] = "category"
-            elif funcname == "age_as_of":
+            elif column_type == "int":
                 dtypes[name] = "Int64"
-            elif funcname == "sex":
+            elif column_type == "str":
                 dtypes[name] = "category"
-            elif funcname == "have_died_of_covid":
-                dtypes[name] = "category"
-            elif funcname == "most_recent_bmi":
-                dtypes[name] = "float"
-            elif funcname == "mean_recorded_value":
+            elif column_type == "float":
                 dtypes[name] = "float"
             elif funcname == "with_complete_gp_consultation_history_between":
                 converters[name] = tobool
                 dtypes[name] = "bool"
             else:
                 raise ValueError(
-                    f"Unable to impute Pandas type for {name} ({funcname})"
+                    f"Unable to impute Pandas type for {column_type} "
+                    f"({name}: {funcname})"
                 )
         return {
             "dtype": dtypes,
