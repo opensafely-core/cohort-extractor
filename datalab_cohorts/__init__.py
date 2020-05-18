@@ -866,9 +866,9 @@ class StudyDefinition:
         # Note that current registrations are recorded with an EndDate
         # of 9999-12-31
         return (
-            ["patient_id", "registered"],
+            ["patient_id", "is_registered"],
             f"""
-            SELECT DISTINCT Patient.Patient_ID AS patient_id, 1 AS registered
+            SELECT DISTINCT Patient.Patient_ID AS patient_id, 1 AS is_registered
             FROM Patient
             INNER JOIN RegistrationHistory
             ON RegistrationHistory.Patient_ID = Patient.Patient_ID
@@ -975,7 +975,7 @@ class StudyDefinition:
             column_definition = "NumericValue"
             use_partition_query = True
         elif returning == "code":
-            column_name = "value"
+            column_name = "code"
             column_definition = code_column
             use_partition_query = True
         elif returning == "category":

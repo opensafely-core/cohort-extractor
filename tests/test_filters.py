@@ -379,7 +379,7 @@ def test_clinical_event_with_code():
         ),
     )
     results = study.to_dicts()
-    assert [x["latest_asthma_code"] for x in results] == ["0", condition_code, "0"]
+    assert [x["latest_asthma_code"] for x in results] == ["", condition_code, ""]
     assert [x["latest_asthma_code_date"] for x in results] == ["", "2002-06", ""]
 
 
