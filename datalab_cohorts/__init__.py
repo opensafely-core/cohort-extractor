@@ -2,6 +2,7 @@ import collections
 import copy
 import csv
 import datetime
+import enum
 import os
 import re
 import subprocess
@@ -355,6 +356,9 @@ class StudyDefinition:
                 dtypes[name] = "float"
             elif funcname == "mean_recorded_value":
                 dtypes[name] = "float"
+            elif funcname == "with_complete_gp_consultation_history_between":
+                converters[name] = tobool
+                dtypes[name] = "bool"
             else:
                 raise ValueError(
                     f"Unable to impute Pandas type for {name} ({funcname})"
@@ -1365,6 +1369,71 @@ class StudyDefinition:
                 columns.append("date")
         return columns, sql
 
+    def patients_with_gp_consultations(
+        self,
+        # Set date limits
+        between=None,
+        # Matching rule
+        find_first_match_in_period=None,
+        find_last_match_in_period=None,
+        # Set return type
+        returning="binary_flag",
+        include_date_of_match=False,
+    ):
+        if returning == "binary_flag" or returning == "date":
+            column_name = "has_event"
+            column_definition = "1"
+        elif returning == "number_of_matches_in_period":
+            column_name = "count"
+            column_definition = "COUNT(*)"
+        else:
+            raise ValueError(f"Unsupported `returning` value: {returning}")
+
+        valid_states = [
+            AppointmentStatus.ARRIVED,
+            AppointmentStatus.WAITING,
+            AppointmentStatus.IN_PROGRESS,
+            AppointmentStatus.FINISHED,
+            AppointmentStatus.PATIENT_WALKED_OUT,
+            AppointmentStatus.VISIT,
+        ]
+        valid_states_str = codelist_to_sql(map(int, valid_states))
+
+        date_condition = make_date_filter("SeenDate", between)
+        # Result ordering
+        date_aggregate = "MIN" if find_first_match_in_period else "MAX"
+        sql = f"""
+        SELECT
+          Patient_ID AS patient_id,
+          {column_definition} AS {column_name},
+          {date_aggregate}(SeenDate) AS date
+        FROM Appointment
+        WHERE Status IN ({valid_states_str}) AND {date_condition}
+        GROUP BY Patient_ID
+        """
+
+        if returning == "date":
+            columns = ["patient_id", "date"]
+        else:
+            columns = ["patient_id", column_name]
+            if include_date_of_match:
+                columns.append("date")
+        return columns, sql
+
+    def patients_with_complete_gp_consultation_history_between(
+        self, start_date, end_date
+    ):
+        """
+        In this context this should mean patients who have been continuously
+        registered with TPP-using practices throughout this period. However,
+        for now we restrict this to just patients who have been registered with
+        a single practice throughout this period.  As this is a more
+        restrictive condition this is fine for our purposes, however once we
+        get an implementation for `patients_with_complete_history_between` we
+        should switch to using this.
+        """
+        return self.patients_registered_with_one_practice_between(start_date, end_date)
+
     def get_case_expression(self, column_definitions, category_definitions):
         category_definitions = category_definitions.copy()
         defaults = [k for (k, v) in category_definitions.items() if v == "DEFAULT"]
@@ -1700,6 +1769,49 @@ class patients:
     ):
         return "with_tpp_vaccination_record", process_arguments(locals())
 
+    @staticmethod
+    def with_gp_consultations(
+        # Set date limits
+        on_or_before=None,
+        on_or_after=None,
+        between=None,
+        # Matching rule
+        find_first_match_in_period=None,
+        find_last_match_in_period=None,
+        # Set return type
+        returning="binary_flag",
+        date_format=None,
+        return_expectations=None,
+    ):
+        """
+        These are GP-patient interactions, either in person or via phone/video
+        call. The concept of a "consultation" in EHR systems is generally
+        broader and might include things like updating a phone number with the
+        receptionist.
+        """
+        return "with_gp_consultations", process_arguments(locals())
+
+    @staticmethod
+    def with_complete_gp_consultation_history_between(
+        start_date,
+        end_date,
+        # Required keyword
+        return_expectations=None,
+    ):
+        """
+        Because the concept of a "consultation" in EHR systems does not map
+        exactly to the GP-patient interaction we're interested in (see above)
+        there is some processing required on the part of the EHR vendor to
+        produce the consultation record we need. This does not happen
+        automatically as part of the GP2GP transfer, and therefore this query
+        can be used to find just those patients for which the full history is
+        available.
+        """
+        return (
+            "with_complete_gp_consultation_history_between",
+            process_arguments(locals()),
+        )
+
 
 def process_arguments(args):
     """
@@ -1908,3 +2020,21 @@ def pop_keys_from_dict(dictionary, keys):
         if key in dictionary:
             new_dict[key] = dictionary.pop(key)
     return new_dict
+
+
+class AppointmentStatus(enum.IntEnum):
+    BOOKED = 0
+    ARRIVED = 1
+    DID_NOT_ATTEND = 2
+    IN_PROGRESS = 3
+    FINISHED = 4
+    REQUESTED = 5
+    BLOCKED = 6
+    VISIT = 8
+    WAITING = 9
+    CANCELLED_BY_PATIENT = 10
+    CANCELLED_BY_UNIT = 11
+    CANCELLED_BY_OTHER_SERVICE = 12
+    NO_ACCESS_VISIT = 14
+    CANCELLED_DUE_TO_DEATH = 15
+    PATIENT_WALKED_OUT = 16

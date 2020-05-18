@@ -7,6 +7,7 @@ import pytest
 
 from tests.tpp_backend_setup import make_database, make_session
 from tests.tpp_backend_setup import (
+    Appointment,
     CodedEvent,
     CovidStatus,
     MedicationIssue,
@@ -22,11 +23,14 @@ from tests.tpp_backend_setup import (
     VaccinationReference,
 )
 
-from datalab_cohorts import StudyDefinition
-from datalab_cohorts import patients
-from datalab_cohorts import codelist
-from datalab_cohorts import filter_codes_by_category
-from datalab_cohorts import quote
+from datalab_cohorts import (
+    StudyDefinition,
+    patients,
+    codelist,
+    filter_codes_by_category,
+    quote,
+    AppointmentStatus,
+)
 
 
 def setup_module(module):
@@ -44,6 +48,7 @@ def setup_function(function):
     session.query(CPNS).delete()
     session.query(Vaccination).delete()
     session.query(VaccinationReference).delete()
+    session.query(Appointment).delete()
     session.query(MedicationIssue).delete()
     session.query(MedicationDictionary).delete()
     session.query(RegistrationHistory).delete()
@@ -1570,3 +1575,62 @@ def test_patients_with_tpp_vaccination_record():
         ),
     )
     assert [i["value"] for i in study.to_dicts()] == ["2010", "2013"]
+
+
+def test_patient_with_gp_consultations():
+    session = make_session()
+    session.add_all(
+        [
+            Patient(
+                RegistrationHistory=[
+                    RegistrationHistory(StartDate="2014-01-01", EndDate="2020-05-01")
+                ],
+                Appointments=[
+                    # Before period starts
+                    Appointment(
+                        SeenDate="2009-01-01", Status=AppointmentStatus.FINISHED
+                    ),
+                    # After period ends
+                    Appointment(
+                        SeenDate="2020-02-01", Status=AppointmentStatus.FINISHED
+                    ),
+                ],
+            ),
+            Patient(
+                RegistrationHistory=[
+                    RegistrationHistory(StartDate="2001-01-01", EndDate="2016-01-01")
+                ],
+                Appointments=[
+                    Appointment(
+                        SeenDate="2011-01-01", Status=AppointmentStatus.FINISHED
+                    ),
+                    # Should not be counted
+                    Appointment(
+                        SeenDate="2012-01-01", Status=AppointmentStatus.DID_NOT_ATTEND
+                    ),
+                    Appointment(
+                        SeenDate="2013-01-01", Status=AppointmentStatus.FINISHED
+                    ),
+                ],
+            ),
+        ]
+    )
+    session.commit()
+    study = StudyDefinition(
+        population=patients.all(),
+        consultation_count=patients.with_gp_consultations(
+            between=["2010-01-01", "2015-01-01"],
+            find_last_match_in_period=True,
+            returning="number_of_matches_in_period",
+        ),
+        latest_consultation_date=patients.date_of(
+            "consultation_count", date_format="YYYY-MM"
+        ),
+        has_history=patients.with_complete_gp_consultation_history_between(
+            "2010-01-01", "2015-01-01"
+        ),
+    )
+    results = study.to_dicts()
+    assert [x["latest_consultation_date"] for x in results] == ["", "2013-01"]
+    assert [x["consultation_count"] for x in results] == ["0", "2"]
+    assert [x["has_history"] for x in results] == ["0", "1"]
