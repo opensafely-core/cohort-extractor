@@ -1468,13 +1468,23 @@ class StudyDefinition:
             category_definitions.pop(default_value)
         else:
             default_value = self.get_default_value_for_type(column_type)
+        # For each column already defined, determine its corresponding "empty"
+        # value (i.e. the default value for that column's type). This allows us
+        # to support implicit boolean conversion because we know what the
+        # "falsey" value for each column should be.
+        empty_value_map = {
+            name: self.get_default_value_for_type(expr.column_type)
+            for name, expr in column_definitions.items()
+        }
         clauses = []
         for category, expression in category_definitions.items():
             # The column references in the supplied expression need to be
             # rewritten to ensure they refer to the correct CTE. The formatting
             # function also ensures that the expression matches the very
             # limited subset of SQL we support here.
-            formatted_expression = format_expression(expression, column_definitions)
+            formatted_expression = format_expression(
+                expression, column_definitions, empty_value_map=empty_value_map
+            )
             clauses.append(f"WHEN ({formatted_expression}) THEN {quote(category)}")
         return ColumnExpression(
             f"CASE {' '.join(clauses)} ELSE {quote(default_value)} END",
