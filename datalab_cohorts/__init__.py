@@ -579,7 +579,7 @@ class StudyDefinition:
             cursor.execute(f"SELECT * FROM {output_table}")
         else:
             self.log(
-                f"No TEMP_DATABASE_NAME defined in environment, downloading results "
+                "No TEMP_DATABASE_NAME defined in environment, downloading results "
                 "directly without writing to output table"
             )
             cursor.execute(final_query)
@@ -750,7 +750,7 @@ class StudyDefinition:
         WHERE t.rownum = 1
         """
 
-        patients_cte = f"""
+        patients_cte = """
            SELECT Patient_ID, DateOfBirth
            FROM Patient
         """
@@ -901,7 +901,7 @@ class StudyDefinition:
         # this is).
         assert kwargs["codelist"].system == "snomed"
         if kwargs["returning"] == "numeric_value":
-            raise ValueError(f"Unsupported `returning` value: numeric_value")
+            raise ValueError("Unsupported `returning` value: numeric_value")
         return self._patients_with_events(
             """
             MedicationIssue
