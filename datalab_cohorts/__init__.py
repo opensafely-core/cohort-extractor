@@ -404,9 +404,7 @@ class StudyDefinition:
         covariate_definitions = self.add_include_date_flags_to_columns(
             covariate_definitions
         )
-        # Ensure that patient_id is the first output column by reserving its
-        # place here even though we won't define it until later
-        output_columns = {"patient_id": None}
+        output_columns = {}
         table_queries = {}
         for name, (query_type, query_args) in covariate_definitions.items():
             # This argument is not used in generating column data and the
@@ -438,21 +436,21 @@ class StudyDefinition:
         # else against that. Otherwise, we use the `Patient` table.
         if "population" in table_queries:
             primary_table = "#population"
-            output_columns["patient_id"] = ColumnExpression(
+            patient_id_expr = ColumnExpression(
                 "#population.patient_id", column_type="int"
             )
         else:
             primary_table = "Patient"
-            output_columns["patient_id"] = ColumnExpression(
-                "Patient.Patient_ID", column_type="int"
-            )
+            patient_id_expr = ColumnExpression("Patient.Patient_ID", column_type="int")
+        # Insert `patient_id` as the first column
+        output_columns = dict(patient_id=patient_id_expr, **output_columns)
         output_columns_str = ",\n          ".join(
             f"{expr} AS {name}"
             for (name, expr) in output_columns.items()
             if name not in hidden_columns and name != "population"
         )
         joins = [
-            f"LEFT JOIN #{name} ON #{name}.patient_id = {output_columns['patient_id']}"
+            f"LEFT JOIN #{name} ON #{name}.patient_id = {patient_id_expr}"
             for name in table_queries
             if name != "population"
         ]
