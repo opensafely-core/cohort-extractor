@@ -24,36 +24,9 @@ jobs:
       run: sleep 20s
     - name: Run actual tests
       run: PYTHONPATH=. pytest tests/
-  test_stata:
-    runs-on: ubuntu-latest
-    name: Test stata can run, using a test model
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v1
-    - name: Set up Python 3.8
-      uses: actions/setup-python@v1
-      with:
-        python-version: 3.8
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-    - name: Docker Login
-      uses: azure/docker-login@v1
-      with:
-        # It seems we can't do this with the standard GITHUB_TOKEN, but
-        # have to use a personal token with the correct permissions instead
-        login-server: docker.pkg.github.com
-        username: sebbacon
-        password: ${{ secrets.DOCKER_GITHUB_TOKEN }}
-    - name: Docker Pull
-      run: docker pull docker.pkg.github.com/ebmdatalab/stata-docker-runner/stata-mp
-    - name: Docker Run
-      run: PYTHONPATH=. python run.py run --test
   test_model:
     runs-on: ubuntu-latest
     name: Test stata can run against the actual model, using dummy data
-    needs: test_stata
     steps:
     - name: Checkout
       uses: actions/checkout@v1
@@ -73,9 +46,7 @@ jobs:
         login-server: docker.pkg.github.com
         username: sebbacon
         password: ${{ secrets.DOCKER_GITHUB_TOKEN }}
-    - name: Docker Pull
-      run: docker pull docker.pkg.github.com/ebmdatalab/stata-docker-runner/stata-mp
     - name: Generate dummy data
       run: PYTHONPATH=. python run.py generate_cohort --expectations-population=10000
     - name: Run model
-      run: PYTHONPATH=. python run.py run --analysis
+      run: docker run --mount source=${{ github.workspace }},dst=/workspace,type=bind docker.pkg.github.com/opensafely/stata-docker/stata-mp analysis/model.do
