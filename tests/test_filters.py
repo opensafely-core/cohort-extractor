@@ -28,6 +28,7 @@ from datalab_cohorts import (
     patients,
     codelist,
     filter_codes_by_category,
+    combine_codelists,
     quote,
     AppointmentStatus,
 )
@@ -1640,3 +1641,37 @@ def test_patient_with_gp_consultations():
     assert [x["latest_consultation_date"] for x in results] == ["", "2013-01"]
     assert [x["consultation_count"] for x in results] == ["0", "2"]
     assert [x["has_history"] for x in results] == ["0", "1"]
+
+
+def test_combine_codelists():
+    list_1 = codelist(["A", "B", "C"], system="ctv3")
+    list_2 = codelist(["X", "Y", "Z"], system="ctv3")
+    combined = combine_codelists(list_1, list_2)
+    expected = codelist(["A", "B", "C", "X", "Y", "Z"], system="ctv3")
+    assert combined == expected
+    assert combined.system == expected.system
+
+
+def test_combine_codelists_with_categories():
+    list_1 = codelist([("A", "foo"), ("B", "bar")], system="icd10")
+    list_2 = codelist([("X", "foo"), ("Y", "bar")], system="icd10")
+    combined = combine_codelists(list_1, list_2)
+    expected = codelist(
+        [("A", "foo"), ("B", "bar"), ("X", "foo"), ("Y", "bar")], system="icd10"
+    )
+    assert combined == expected
+    assert combined.system == expected.system
+
+
+def test_combine_codelists_raises_error_for_mixed_systems():
+    list_1 = codelist(["A", "B", "C"], system="ctv3")
+    list_2 = codelist(["X", "Y", "Z"], system="icd10")
+    with pytest.raises(ValueError):
+        combine_codelists(list_1, list_2)
+
+
+def test_combine_codelists_raises_error_for_mixed_categorisation():
+    list_1 = codelist([("A", "foo"), ("B", "bar")], system="icd10")
+    list_2 = codelist(["X", "Y", "Z"], system="icd10")
+    with pytest.raises(ValueError):
+        combine_codelists(list_1, list_2)
