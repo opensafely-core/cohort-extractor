@@ -319,6 +319,20 @@ class StudyDefinition:
             args[name] = kwargs.copy()
             column_type = self.column_types[name]
 
+            # Awkward workaround: IMD is in fact an int, but it comes to us
+            # rounded to nearest hundred which makes it act a bit more like a
+            # categorical variable for the purposes of dummy data generation so
+            # we pretend that's what it is here. Similarly, rural/urban
+            # classification is as int in datatype terms but is conceptually
+            # categorical, so possibly we need a categorical int type to handle
+            # these.
+            if kwargs.get("returning") in (
+                "index_of_multiple_deprivation",
+                "rural_urban_classification",
+            ):
+                dtypes[name] = "category"
+                continue
+
             if column_type == "date":
                 parse_dates.append(name)
                 # if granularity doesn't include a day, add one

@@ -55,7 +55,7 @@ def test_address_dtype_generation():
     )
     result = _converters_to_names(study.pandas_csv_args)
     assert result == {
-        "dtype": {"rural_urban": "Int64"},
+        "dtype": {"rural_urban": "category"},
         "parse_dates": [],
         "date_col_for": {},
         "converters": {},
