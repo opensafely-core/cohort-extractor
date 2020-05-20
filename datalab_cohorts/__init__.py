@@ -337,9 +337,6 @@ class StudyDefinition:
                 dtypes[name] = "category"
             elif column_type == "float":
                 dtypes[name] = "float"
-            elif funcname == "with_complete_gp_consultation_history_between":
-                converters[name] = tobool
-                dtypes[name] = "bool"
             else:
                 raise ValueError(
                     f"Unable to impute Pandas type for {column_type} "
