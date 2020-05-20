@@ -379,7 +379,7 @@ def test_clinical_event_with_code():
         ),
     )
     results = study.to_dicts()
-    assert [x["latest_asthma_code"] for x in results] == ["0", condition_code, "0"]
+    assert [x["latest_asthma_code"] for x in results] == ["", condition_code, ""]
     assert [x["latest_asthma_code_date"] for x in results] == ["", "2002-06", ""]
 
 
@@ -884,6 +884,12 @@ def test_patients_categorised_as():
                     CodedEvent(CTV3Code="foo3", ConsultationDate="2000-01-01")
                 ],
             ),
+            Patient(
+                Sex="F",
+                CodedEvents=[
+                    CodedEvent(CTV3Code="bar1", ConsultationDate="2000-01-01"),
+                ],
+            ),
         ]
     )
     session.commit()
@@ -893,7 +899,7 @@ def test_patients_categorised_as():
         population=patients.all(),
         category=patients.categorised_as(
             {
-                "W": "foo_category = 'B' AND female_with_bar",
+                "W": "(foo_category = 'B' OR NOT foo_category) AND female_with_bar",
                 "X": "sex = 'F' AND (foo_category = 'B' OR foo_category = 'C')",
                 "Y": "sex = 'M' AND foo_category = 'A'",
                 "Z": "DEFAULT",
@@ -909,7 +915,7 @@ def test_patients_categorised_as():
         ),
     )
     results = study.to_dicts()
-    assert [x["category"] for x in results] == ["Y", "W", "Z", "X"]
+    assert [x["category"] for x in results] == ["Y", "W", "Z", "X", "W"]
     # Assert that internal columns do not appear
     assert "foo_category" not in results[0].keys()
     assert "female_with_bar" not in results[0].keys()

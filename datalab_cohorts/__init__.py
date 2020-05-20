@@ -46,8 +46,8 @@ class StudyDefinition:
         covariates = self.apply_compatibility_fixes(covariates)
         self.codelist_tables = []
         self.covariate_definitions = covariates
+        self.queries, self.column_types = self.get_queries_and_types(covariates)
         self.pandas_csv_args = self.get_pandas_csv_args(covariates)
-        self.queries = self.build_queries(covariates)
 
     def apply_compatibility_fixes(self, covariate_definitions):
         """
@@ -314,16 +314,26 @@ class StudyDefinition:
         date_col_for = {}
 
         for name, (funcname, kwargs) in covariate_definitions.items():
-            returning = kwargs.get("returning", None)
             if name == "population":
                 continue
             args[name] = kwargs.copy()
-            if returning and (
-                returning == "date"
-                or returning.startswith("date_")
-                or returning.endswith("_date")
-                or "_date_" in returning
+            column_type = self.column_types[name]
+
+            # Awkward workaround: IMD is in fact an int, but it comes to us
+            # rounded to nearest hundred which makes it act a bit more like a
+            # categorical variable for the purposes of dummy data generation so
+            # we pretend that's what it is here. Similarly, rural/urban
+            # classification is as int in datatype terms but is conceptually
+            # categorical, so possibly we need a categorical int type to handle
+            # these.
+            if kwargs.get("returning") in (
+                "index_of_multiple_deprivation",
+                "rural_urban_classification",
             ):
+                dtypes[name] = "category"
+                continue
+
+            if column_type == "date":
                 parse_dates.append(name)
                 # if granularity doesn't include a day, add one
                 if kwargs.get("date_format") in ("YYYY", None):
@@ -332,36 +342,19 @@ class StudyDefinition:
                     converters[name] = add_day_to_date
                 if funcname == "value_from":
                     date_col_for[kwargs["source"]] = name
-
-            elif returning == "numeric_value":
-                dtypes[name] = "float"
-            elif returning == "number_of_matches_in_period":
-                dtypes[name] = "Int64"
-            elif returning == "number_of_episodes":
-                dtypes[name] = "Int64"
-            elif returning == "binary_flag":
+            elif column_type == "bool":
                 converters[name] = tobool
                 dtypes[name] = "bool"
-            elif returning == "category" or "category_definitions" in kwargs:
-                dtypes[name] = "category"
-            elif returning:
-                dtypes[name] = "category"
-            elif funcname == "age_as_of":
+            elif column_type == "int":
                 dtypes[name] = "Int64"
-            elif funcname == "sex":
+            elif column_type == "str":
                 dtypes[name] = "category"
-            elif funcname == "have_died_of_covid":
-                dtypes[name] = "category"
-            elif funcname == "most_recent_bmi":
+            elif column_type == "float":
                 dtypes[name] = "float"
-            elif funcname == "mean_recorded_value":
-                dtypes[name] = "float"
-            elif funcname == "with_complete_gp_consultation_history_between":
-                converters[name] = tobool
-                dtypes[name] = "bool"
             else:
                 raise ValueError(
-                    f"Unable to impute Pandas type for {name} ({funcname})"
+                    f"Unable to impute Pandas type for {column_type} "
+                    f"({name}: {funcname})"
                 )
         return {
             "dtype": dtypes,
@@ -415,16 +408,14 @@ class StudyDefinition:
             prepared_sql.append("\n\n")
         return "\n".join(prepared_sql)
 
-    def build_queries(self, covariate_definitions):
+    def get_queries_and_types(self, covariate_definitions):
         covariate_definitions, hidden_columns = self.flatten_nested_covariates(
             covariate_definitions
         )
         covariate_definitions = self.add_include_date_flags_to_columns(
             covariate_definitions
         )
-        # Ensure that patient_id is the first output column by reserving its
-        # place here even though we won't define it until later
-        output_columns = {"patient_id": None}
+        output_columns = {}
         table_queries = {}
         for name, (query_type, query_args) in covariate_definitions.items():
             # This argument is not used in generating column data and the
@@ -456,17 +447,21 @@ class StudyDefinition:
         # else against that. Otherwise, we use the `Patient` table.
         if "population" in table_queries:
             primary_table = "#population"
-            output_columns["patient_id"] = "#population.patient_id"
+            patient_id_expr = ColumnExpression(
+                "#population.patient_id", column_type="int"
+            )
         else:
             primary_table = "Patient"
-            output_columns["patient_id"] = "Patient.Patient_ID"
+            patient_id_expr = ColumnExpression("Patient.Patient_ID", column_type="int")
+        # Insert `patient_id` as the first column
+        output_columns = dict(patient_id=patient_id_expr, **output_columns)
         output_columns_str = ",\n          ".join(
             f"{expr} AS {name}"
             for (name, expr) in output_columns.items()
             if name not in hidden_columns and name != "population"
         )
         joins = [
-            f"LEFT JOIN #{name} ON #{name}.patient_id = {output_columns['patient_id']}"
+            f"LEFT JOIN #{name} ON #{name}.patient_id = {patient_id_expr}"
             for name in table_queries
             if name != "population"
         ]
@@ -479,7 +474,11 @@ class StudyDefinition:
           {joins_str}
         WHERE {output_columns["population"]} = 1
         """
-        return list(table_queries.items()) + [("final_output", joined_output_query)]
+        queries = list(table_queries.items()) + [("final_output", joined_output_query)]
+        column_types = {
+            name: expr.column_type for (name, expr) in output_columns.items()
+        }
+        return queries, column_types
 
     def flatten_nested_covariates(self, covariate_definitions):
         """
@@ -541,23 +540,58 @@ class StudyDefinition:
         return updated
 
     def get_column_expression(self, source, returning, date_format=None):
+        column_type = self.get_type_for_column(returning)
+        default_value = self.get_default_value_for_type(column_type)
         column_expr = f"#{source}.{returning}"
-        if (
-            returning == "date"
-            or returning.startswith("date_")
-            or returning.endswith("_date")
-        ):
-            default_value = ""
+        if column_type == "date":
             column_expr = truncate_date(column_expr, date_format)
+        return ColumnExpression(
+            f"ISNULL({column_expr}, {quote(default_value)})", column_type=column_type
+        )
+
+    def get_type_for_column(self, col):
+        if col == "date" or col.startswith("date_") or col.endswith("_date"):
+            return "date"
         elif (
-            returning.endswith("_code")
-            or returning == "category"
-            or returning.endswith("_name")
+            col in ("sex", "category", "code")
+            or col.endswith("_code")
+            or col.endswith("_name")
         ):
-            default_value = ""
+            return "str"
+        elif (
+            col == "died"
+            or col.startswith("has_")
+            or col.startswith("is_")
+            or col.startswith("was_")
+        ):
+            return "bool"
+        elif col in (
+            "age",
+            "count",
+            "episode_count",
+            "pseudo_id",
+            "index_of_multiple_deprivation",
+            "rural_urban_classification",
+        ):
+            return "int"
+        elif col in ("value", "mean_value", "BMI"):
+            return "float"
         else:
-            default_value = 0
-        return f"ISNULL({column_expr}, {quote(default_value)})"
+            raise ValueError(f"Unhandled return column name: {col}")
+
+    def get_default_value_for_type(self, column_type):
+        if column_type == "date":
+            return ""
+        elif column_type == "str":
+            return ""
+        elif column_type == "bool":
+            return 0
+        elif column_type == "int":
+            return 0
+        elif column_type == "float":
+            return 0.0
+        else:
+            raise ValueError(f"Unhandled column type: {column_type}")
 
     def execute_query(self):
         cursor = self.get_db_connection().cursor()
@@ -579,7 +613,7 @@ class StudyDefinition:
             cursor.execute(f"SELECT * FROM {output_table}")
         else:
             self.log(
-                f"No TEMP_DATABASE_NAME defined in environment, downloading results "
+                "No TEMP_DATABASE_NAME defined in environment, downloading results "
                 "directly without writing to output table"
             )
             cursor.execute(final_query)
@@ -750,7 +784,7 @@ class StudyDefinition:
         WHERE t.rownum = 1
         """
 
-        patients_cte = f"""
+        patients_cte = """
            SELECT Patient_ID, DateOfBirth
            FROM Patient
         """
@@ -866,9 +900,9 @@ class StudyDefinition:
         # Note that current registrations are recorded with an EndDate
         # of 9999-12-31
         return (
-            ["patient_id", "registered"],
+            ["patient_id", "is_registered"],
             f"""
-            SELECT DISTINCT Patient.Patient_ID AS patient_id, 1 AS registered
+            SELECT DISTINCT Patient.Patient_ID AS patient_id, 1 AS is_registered
             FROM Patient
             INNER JOIN RegistrationHistory
             ON RegistrationHistory.Patient_ID = Patient.Patient_ID
@@ -901,7 +935,7 @@ class StudyDefinition:
         # this is).
         assert kwargs["codelist"].system == "snomed"
         if kwargs["returning"] == "numeric_value":
-            raise ValueError(f"Unsupported `returning` value: numeric_value")
+            raise ValueError("Unsupported `returning` value: numeric_value")
         return self._patients_with_events(
             """
             MedicationIssue
@@ -975,7 +1009,7 @@ class StudyDefinition:
             column_definition = "NumericValue"
             use_partition_query = True
         elif returning == "code":
-            column_name = "value"
+            column_name = "code"
             column_definition = code_column
             use_partition_query = True
         elif returning == "category":
@@ -1436,6 +1470,7 @@ class StudyDefinition:
 
     def get_case_expression(self, column_definitions, category_definitions):
         category_definitions = category_definitions.copy()
+        column_type = self.infer_type_from_categories(category_definitions.keys())
         defaults = [k for (k, v) in category_definitions.items() if v == "DEFAULT"]
         if len(defaults) > 1:
             raise ValueError("At most one default category can be defined")
@@ -1443,16 +1478,50 @@ class StudyDefinition:
             default_value = defaults[0]
             category_definitions.pop(default_value)
         else:
-            default_value = ""
+            default_value = self.get_default_value_for_type(column_type)
+        # For each column already defined, determine its corresponding "empty"
+        # value (i.e. the default value for that column's type). This allows us
+        # to support implicit boolean conversion because we know what the
+        # "falsey" value for each column should be.
+        empty_value_map = {
+            name: self.get_default_value_for_type(expr.column_type)
+            for name, expr in column_definitions.items()
+        }
         clauses = []
         for category, expression in category_definitions.items():
             # The column references in the supplied expression need to be
             # rewritten to ensure they refer to the correct CTE. The formatting
             # function also ensures that the expression matches the very
             # limited subset of SQL we support here.
-            formatted_expression = format_expression(expression, column_definitions)
+            formatted_expression = format_expression(
+                expression, column_definitions, empty_value_map=empty_value_map
+            )
             clauses.append(f"WHEN ({formatted_expression}) THEN {quote(category)}")
-        return f"CASE {' '.join(clauses)} ELSE {quote(default_value)} END"
+        return ColumnExpression(
+            f"CASE {' '.join(clauses)} ELSE {quote(default_value)} END",
+            column_type=column_type,
+        )
+
+    def infer_type_from_categories(self, categories):
+        categories = list(categories)
+        first_type = type(categories[0])
+        for other in categories[1:]:
+            if type(other) != first_type:
+                raise ValueError(
+                    f"Categories must all be the same type, found {first_type} "
+                    f"and {type(other)}"
+                )
+        if first_type is int:
+            if set(categories) == {0, 1}:
+                return "bool"
+            else:
+                return "int"
+        elif first_type is float:
+            return "float"
+        elif first_type is str:
+            return "str"
+        else:
+            raise ValueError(f"Unhandled category type: {first_type}")
 
     def get_db_dict(self):
         parsed = urlparse(os.environ["DATABASE_URL"])
@@ -2038,3 +2107,17 @@ class AppointmentStatus(enum.IntEnum):
     NO_ACCESS_VISIT = 14
     CANCELLED_DUE_TO_DEATH = 15
     PATIENT_WALKED_OUT = 16
+
+
+class ColumnExpression(str):
+    """
+    A column expression is just a SQL expression string tagged with an
+    additional `column_type` field
+    """
+
+    column_type = None
+
+    def __new__(cls, value, column_type=None):
+        instance = str.__new__(cls, value)
+        instance.column_type = column_type
+        return instance
