@@ -2069,6 +2069,28 @@ def filter_codes_by_category(codes, include):
     return new_codes
 
 
+def combine_codelists(first_codelist, *other_codelists):
+    for other in other_codelists:
+        if first_codelist.system != other.system:
+            raise ValueError(
+                f"Cannot combine codelists from different systems: "
+                f"'{first_codelist.system}' and '{other.system}'"
+            )
+        if first_codelist.has_categories != other.has_categories:
+            raise ValueError("Cannot combine categorised and uncategorised codelists")
+    combined_dict = {}
+    for lst in (first_codelist,) + other_codelists:
+        for item in lst:
+            code = item[0] if lst.has_categories else item
+            if code in combined_dict and item != combined_dict[code]:
+                raise ValueError(
+                    f"Inconsistent categorisation: {item} and {combined_dict[code]}"
+                )
+            else:
+                combined_dict[code] = item
+    return codelist(combined_dict.values(), first_codelist.system)
+
+
 class UniqueCheck:
     def __init__(self):
         self.count = 0
