@@ -1835,6 +1835,7 @@ class patients:
         # Matching rule
         find_first_match_in_period=None,
         find_last_match_in_period=None,
+        return_expectations=None,
     ):
         return "with_tpp_vaccination_record", process_arguments(locals())
 
