@@ -1543,6 +1543,75 @@ class StudyDefinition:
         """
         return self.patients_registered_with_one_practice_between(start_date, end_date)
 
+    def patients_with_test_result_in_sgss(
+        self,
+        pathogen=None,
+        test_result=None,
+        # Set date limits
+        between=None,
+        # Matching rule
+        find_first_match_in_period=None,
+        find_last_match_in_period=None,
+        # Set return type
+        returning="binary_flag",
+        include_date_of_match=False,
+    ):
+        assert pathogen == "SARS-CoV-2"
+        assert test_result in ("positive", "negative", "any")
+        if returning not in ("binary_flag", "date"):
+            raise ValueError(f"Unsupported `returning` value: {returning}")
+
+        date_condition = make_date_filter("date", between)
+        date_aggregate = "MIN" if find_first_match_in_period else "MAX"
+        if test_result == "any":
+            result_condition = "1 = 1"
+        else:
+            flag = 1 if test_result == "positive" else 0
+            result_condition = f"test_result = {quote(flag)}"
+
+        # These are the values we're expecting in our SGSS tables. If we ever
+        # get anything other than these we should throw an error rather than
+        # blindly continuing.
+        positive_descr = "SARS-CoV-2 CORONAVIRUS (Covid-19)"
+        negative_descr = "NEGATIVE SARS-CoV-2 (COVID-19)"
+
+        sql = f"""
+        SELECT
+          patient_id,
+          1 AS has_result,
+          {date_aggregate}(date) AS date,
+          -- We have to calculate something over the error check field
+          -- otherwise it never gets computed
+          MAX(_e) AS _e
+        FROM (
+          SELECT
+            1 AS test_result,
+            Patient_ID AS patient_id,
+            Earliest_Specimen_Date AS date,
+            -- Crude error check so we blow up in the case of unexpected data
+            1 / CASE WHEN Organism_Species_Name = '{positive_descr}' THEN 1 ELSE 0 END AS _e
+          FROM SGSS_Positive
+          UNION ALL
+          SELECT
+            0 AS test_result,
+            Patient_ID AS patient_id,
+            Earliest_Specimen_Date AS date,
+            -- Crude error check so we blow up in the case of unexpected data
+            1 / CASE WHEN Organism_Species_Name = '{negative_descr}' THEN 1 ELSE 0 END AS _e
+          FROM SGSS_Negative
+        ) t
+        WHERE {date_condition} AND {result_condition}
+        GROUP BY patient_id
+        """
+
+        if returning == "date":
+            columns = ["patient_id", "date"]
+        else:
+            columns = ["patient_id", "has_result"]
+            if include_date_of_match:
+                columns.append("date")
+        return columns, sql
+
     def get_case_expression(self, column_definitions, category_definitions):
         category_definitions = category_definitions.copy()
         column_type = self.infer_type_from_categories(category_definitions.keys())
@@ -1961,6 +2030,36 @@ class patients:
             "with_complete_gp_consultation_history_between",
             process_arguments(locals()),
         )
+
+    @staticmethod
+    def with_test_result_in_sgss(
+        pathogen=None,
+        test_result="any",
+        # Set date limits
+        on_or_before=None,
+        on_or_after=None,
+        between=None,
+        # Matching rule
+        find_first_match_in_period=None,
+        find_last_match_in_period=None,
+        # Set return type
+        returning="binary_flag",
+        date_format=None,
+        return_expectations=None,
+    ):
+        """
+        Finds lab test results recorded in SGSS (Second Generation Surveillance
+        System). Only SARS-CoV-2 results are included in our data extract so
+        this will throw an error if the specified pathogen is anything other than
+        "SARS-CoV-2".
+
+        `test_result` must be one of: "positive", "negative" or "any"
+
+        The date used is the date the specimen was taken. Where a patient has
+        multiple positive results only the date of the earliest specimen that
+        tested positive is recorded.
+        """
+        return "with_test_result_in_sgss", process_arguments(locals())
 
 
 def process_arguments(args):

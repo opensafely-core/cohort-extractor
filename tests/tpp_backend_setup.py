@@ -150,6 +150,12 @@ class Patient(Base):
     Vaccinations = relationship(
         "Vaccination", back_populates="Patient", cascade="all, delete, delete-orphan"
     )
+    SGSS_Positives = relationship(
+        "SGSS_Positive", back_populates="Patient", cascade="all, delete, delete-orphan"
+    )
+    SGSS_Negatives = relationship(
+        "SGSS_Negative", back_populates="Patient", cascade="all, delete, delete-orphan"
+    )
     Sex = Column(String)
 
 
@@ -308,3 +314,33 @@ class VaccinationReference(Base):
     VaccinationName_ID = Column(Integer)
     VaccinationName = Column(String)
     VaccinationContent = Column(String)
+
+
+class SGSS_Negative(Base):
+    __tablename__ = "SGSS_Negative"
+
+    # This column isn't in the actual database but SQLAlchemy gets a bit upset
+    # if we don't give it a primary key
+    id = Column(Integer, primary_key=True)
+    Patient_ID = Column(Integer, ForeignKey("Patient.Patient_ID"))
+    Patient = relationship(
+        "Patient", back_populates="SGSS_Negatives", cascade="all, delete"
+    )
+    Organism_Species_Name = Column(String, default="NEGATIVE SARS-CoV-2 (COVID-19)")
+    Earliest_Specimen_Date = Column(Date)
+    Lab_Report_Date = Column(Date)
+
+
+class SGSS_Positive(Base):
+    __tablename__ = "SGSS_Positive"
+
+    # This column isn't in the actual database but SQLAlchemy gets a bit upset
+    # if we don't give it a primary key
+    id = Column(Integer, primary_key=True)
+    Patient_ID = Column(Integer, ForeignKey("Patient.Patient_ID"))
+    Patient = relationship(
+        "Patient", back_populates="SGSS_Positives", cascade="all, delete"
+    )
+    Organism_Species_Name = Column(String, default="SARS-CoV-2 CORONAVIRUS (Covid-19)")
+    Earliest_Specimen_Date = Column(Date)
+    Lab_Report_Date = Column(Date)

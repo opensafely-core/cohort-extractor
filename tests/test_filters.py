@@ -21,6 +21,8 @@ from tests.tpp_backend_setup import (
     CPNS,
     Vaccination,
     VaccinationReference,
+    SGSS_Positive,
+    SGSS_Negative,
 )
 
 from datalab_cohorts import (
@@ -50,6 +52,8 @@ def setup_function(function):
     session.query(Vaccination).delete()
     session.query(VaccinationReference).delete()
     session.query(Appointment).delete()
+    session.query(SGSS_Positive).delete()
+    session.query(SGSS_Negative).delete()
     session.query(MedicationIssue).delete()
     session.query(MedicationDictionary).delete()
     session.query(RegistrationHistory).delete()
@@ -1678,7 +1682,7 @@ def test_patients_with_tpp_vaccination_record():
     assert [i["value"] for i in study.to_dicts()] == ["2010", "2013"]
 
 
-def test_patient_with_gp_consultations():
+def test_patients_with_gp_consultations():
     session = make_session()
     session.add_all(
         [
@@ -1735,6 +1739,78 @@ def test_patient_with_gp_consultations():
     assert [x["latest_consultation_date"] for x in results] == ["", "2013-01"]
     assert [x["consultation_count"] for x in results] == ["0", "2"]
     assert [x["has_history"] for x in results] == ["0", "1"]
+
+
+def test_patients_with_test_result_in_sgss():
+    session = make_session()
+    session.add_all(
+        [
+            Patient(
+                SGSS_Positives=[
+                    SGSS_Positive(Earliest_Specimen_Date="2020-05-15"),
+                    SGSS_Positive(Earliest_Specimen_Date="2020-05-20"),
+                ],
+            ),
+            Patient(
+                SGSS_Negatives=[SGSS_Negative(Earliest_Specimen_Date="2020-04-01")],
+                SGSS_Positives=[SGSS_Positive(Earliest_Specimen_Date="2020-04-20")],
+            ),
+            Patient(
+                SGSS_Negatives=[SGSS_Negative(Earliest_Specimen_Date="2020-04-01")],
+            ),
+            Patient(),
+        ]
+    )
+    session.commit()
+    study = StudyDefinition(
+        population=patients.all(),
+        positive_covid_test_ever=patients.with_test_result_in_sgss(
+            pathogen="SARS-CoV-2", test_result="positive",
+        ),
+        negative_covid_test_ever=patients.with_test_result_in_sgss(
+            pathogen="SARS-CoV-2", test_result="negative",
+        ),
+        tested_for_covid=patients.with_test_result_in_sgss(
+            pathogen="SARS-CoV-2", test_result="any", on_or_before="2020-05-01"
+        ),
+        first_positive_test_date=patients.with_test_result_in_sgss(
+            pathogen="SARS-CoV-2",
+            test_result="positive",
+            find_first_match_in_period=True,
+            returning="date",
+            date_format="YYYY-MM-DD",
+        ),
+    )
+    results = study.to_dicts()
+    assert [x["positive_covid_test_ever"] for x in results] == ["1", "1", "0", "0"]
+    assert [x["negative_covid_test_ever"] for x in results] == ["0", "1", "1", "0"]
+    assert [x["tested_for_covid"] for x in results] == ["0", "1", "1", "0"]
+    assert [x["first_positive_test_date"] for x in results] == [
+        "2020-05-15",
+        "2020-04-20",
+        "",
+        "",
+    ]
+
+
+@pytest.mark.parametrize("positive", [True, False])
+def test_patients_with_test_result_in_sgss_raises_error_on_bad_data(positive):
+    kwargs = dict(
+        Earliest_Specimen_Date="2020-05-15", Organism_Species_Name="unexpected"
+    )
+    if positive:
+        patient = Patient(SGSS_Positives=[SGSS_Positive(**kwargs)])
+    else:
+        patient = Patient(SGSS_Negatives=[SGSS_Negative(**kwargs)])
+    session = make_session()
+    session.add(patient)
+    session.commit()
+    study = StudyDefinition(
+        population=patients.all(),
+        covid_test=patients.with_test_result_in_sgss(pathogen="SARS-CoV-2",),
+    )
+    with pytest.raises(Exception):
+        study.to_dicts()
 
 
 def test_combine_codelists():
