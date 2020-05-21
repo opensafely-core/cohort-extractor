@@ -936,16 +936,29 @@ class StudyDefinition:
         assert kwargs["codelist"].system == "snomed"
         if kwargs["returning"] == "numeric_value":
             raise ValueError("Unsupported `returning` value: numeric_value")
-        return self._patients_with_events(
-            """
-            MedicationIssue
-            INNER JOIN MedicationDictionary
-            ON MedicationIssue.MultilexDrug_ID = MedicationDictionary.MultilexDrug_ID
-            """,
-            "DMD_ID",
-            codes_are_case_sensitive=False,
-            **kwargs,
-        )
+        # This uses a special case function with a "fake it til you make it" API
+        if kwargs["returning"] == "number_of_episodes":
+            kwargs.pop("returning")
+            # Remove unhandled arguments and check they are unused
+            assert not kwargs.pop("find_first_match_in_period", None)
+            assert not kwargs.pop("find_last_match_in_period", None)
+            assert not kwargs.pop("include_date_of_match", None)
+            return self._number_of_episodes_by_medication(**kwargs)
+        # This is the default code path for most queries
+        else:
+            # Remove unhandled arguments and check they are unused
+            assert not kwargs.pop("ignore_days_where_these_clinical_codes_occur", None)
+            assert not kwargs.pop("episode_defined_as", None)
+            return self._patients_with_events(
+                """
+                MedicationIssue
+                INNER JOIN MedicationDictionary
+                ON MedicationIssue.MultilexDrug_ID = MedicationDictionary.MultilexDrug_ID
+                """,
+                "DMD_ID",
+                codes_are_case_sensitive=False,
+                **kwargs,
+            )
 
     def patients_with_these_clinical_events(self, **kwargs):
         """
@@ -960,7 +973,7 @@ class StudyDefinition:
             assert not kwargs.pop("find_first_match_in_period", None)
             assert not kwargs.pop("find_last_match_in_period", None)
             assert not kwargs.pop("include_date_of_match", None)
-            return self._number_of_episodes(**kwargs)
+            return self._number_of_episodes_by_clinical_event(**kwargs)
         # This is the default code path for most queries
         else:
             # Remove unhandled arguments and check they are unused
@@ -1063,7 +1076,69 @@ class StudyDefinition:
                 columns.append("date")
         return columns, sql
 
-    def _number_of_episodes(
+    def _number_of_episodes_by_medication(
+        self,
+        codelist,
+        # Set date limits
+        between=None,
+        ignore_days_where_these_clinical_codes_occur=None,
+        episode_defined_as=None,
+    ):
+        codelist_table = self.create_codelist_table(codelist, case_sensitive=False)
+        assert ignore_days_where_these_clinical_codes_occur.system == "ctv3"
+        ignore_list_table = self.create_codelist_table(
+            ignore_days_where_these_clinical_codes_occur, case_sensitive=True
+        )
+        date_condition = make_date_filter("ConsultationDate", between)
+        if episode_defined_as is not None:
+            pattern = r"^series of events each <= (\d+) days apart$"
+            match = re.match(pattern, episode_defined_as)
+            if not match:
+                raise ValueError(
+                    f"Argument `episode_defined_as` must match " f"pattern: {pattern}"
+                )
+            washout_period = int(match.group(1))
+        else:
+            washout_period = 0
+
+        sql = f"""
+        SELECT
+          Patient_ID AS patient_id,
+          SUM(is_new_episode) AS episode_count
+        FROM (
+            SELECT
+              Patient_ID,
+              CASE
+                WHEN
+                  DATEDIFF(
+                    day,
+                    LAG(ConsultationDate) OVER (PARTITION BY Patient_ID ORDER BY ConsultationDate),
+                    ConsultationDate
+                  ) <= {washout_period}
+                THEN 0
+                ELSE 1
+              END AS is_new_episode
+            FROM MedicationIssue
+            INNER JOIN MedicationDictionary
+            ON MedicationIssue.MultilexDrug_ID = MedicationDictionary.MultilexDrug_ID
+            INNER JOIN {codelist_table}
+            ON DMD_ID = {codelist_table}.code
+            WHERE
+              {date_condition}
+              AND NOT EXISTS (
+                SELECT * FROM CodedEvent AS sameday
+                INNER JOIN {ignore_list_table}
+                ON sameday.CTV3Code = {ignore_list_table}.code
+                WHERE
+                  sameday.Patient_ID = MedicationIssue.Patient_ID
+                  AND CAST(sameday.ConsultationDate AS date) = CAST(MedicationIssue.ConsultationDate AS date)
+              )
+        ) t
+        GROUP BY Patient_ID
+        """
+        return ["patient_id", "episode_count"], sql
+
+    def _number_of_episodes_by_clinical_event(
         self,
         codelist,
         # Set date limits
@@ -1656,6 +1731,11 @@ class patients:
         returning="binary_flag",
         include_date_of_match=False,
         date_format=None,
+        # Special (and probably temporary) arguments to support queries we need
+        # to do right now. This API will need to be thought through properly at
+        # some stage.
+        ignore_days_where_these_clinical_codes_occur=None,
+        episode_defined_as=None,
         # Deprecated options kept for now for backwards compatibility
         return_binary_flag=None,
         return_number_of_matches_in_period=False,
