@@ -11,11 +11,7 @@ import requests
 import subprocess
 import shutil
 import signal
-import socket
 import sys
-import time
-import urllib.request
-import webbrowser
 
 
 import base64
@@ -42,7 +38,6 @@ except ImportError:
     GOOEY_INSTALLED = False
     from argparse import ArgumentParser
 
-stata_image = "docker.pkg.github.com/ebmdatalab/stata-docker-runner/stata-mp:latest"
 notebook_tag = "opencorona-research"
 target_dir = "/home/app/notebook"
 
@@ -57,27 +52,6 @@ def relative_dir():
     else:
         relative_dir = os.getcwd()
     return relative_dir
-
-
-def await_jupyter_http(port):
-    """Wait up to 10 seconds for Jupyter to be available
-    """
-    print(f"Waiting for Jupyter to be ready on port {port}")
-    timeout = 10
-    increment = 0.1
-    counter = 0
-    url = f"http://localhost:{port}"
-    while counter < (timeout / increment):
-        try:
-            with urllib.request.urlopen(url, timeout=timeout):
-                return
-        except ConnectionResetError:
-            counter += 1
-            time.sleep(increment)
-        except socket.timeout:
-            break
-
-    raise SystemError(f"Unable to reach Jupyter at {url}")
 
 
 def stream_subprocess_output(cmd):
@@ -335,18 +309,6 @@ def _make_cohort_report(study_name, suffix):
     print(f"Created cohort report at analysis/descriptives{suffix}.html")
 
 
-def run_model(folder, stata_path=None):
-    # XXX it's /e on windows
-    args = ["-b", "do", f"{folder}/model.do"]
-    if not stata_path:
-        # XXX they'll need to log in docker_login()? Ensure
-        # environment variables are set
-        docker_run(stata_image, *args)
-    else:
-        stream_subprocess_output([stata_path] + args)
-    return check_output()
-
-
 def update_codelists():
     base_path = os.path.join(os.path.dirname(__file__), "codelists")
 
@@ -416,8 +378,6 @@ def main(from_cmd_line=False):
         "cohort_report", help="Generate cohort report"
     )
     cohort_report_parser.set_defaults(which="cohort_report")
-    run_model_parser = subparsers.add_parser("run", help="Run model")
-    run_model_parser.set_defaults(which="run")
     run_notebook_parser = subparsers.add_parser("notebook", help="Run notebook")
     run_notebook_parser.set_defaults(which="notebook")
     update_codelists_parser = subparsers.add_parser(
@@ -458,24 +418,6 @@ def main(from_cmd_line=False):
             "--skip-build", action="store_true", help="Skip docker build step"
         )
 
-    # Model runner options
-    run_model_stata_kwargs = {
-        "help": "Path to Stata executable. Will use docker version if left empty"
-    }
-    if GOOEY_INSTALLED:
-        run_model_stata_kwargs["widget"] = "FileChooser"
-
-    run_model_parser.add_argument("--stata-path", **run_model_stata_kwargs)
-    run_target_group = run_model_parser.add_mutually_exclusive_group()
-    run_target_group.add_argument(
-        "--analysis",
-        action="store_true",
-        help="Run stata against model at analysis/model.do",
-    )
-    run_target_group.add_argument(
-        "--test", action="store_true", help="Run stata using internal test model"
-    )
-
     # Notebook runner options at the moment
     run_notebook_parser.add_argument(
         "--skip-build", action="store_true", help="Skip docker build step"
@@ -485,16 +427,6 @@ def main(from_cmd_line=False):
     if options.version:
         version = parse(runner.__version__)
         print(f"v{version.public}")
-    elif options.which == "run":
-        if options.test:
-            try:
-                run_model("tests", options.stata_path)
-                print("SUCCESS running tests")
-            except subprocess.CalledProcessError:
-                print("ERROR running tests")
-                raise
-        else:
-            print(run_model("analysis", options.stata_path))
     elif options.which == "generate_cohort":
         if from_cmd_line and options.docker:
             if not options.skip_build:
@@ -508,17 +440,6 @@ def main(from_cmd_line=False):
             generate_cohort(options.expectations_population)
     elif options.which == "cohort_report":
         make_cohort_report()
-    elif options.which == "notebook":
-        if not options.skip_build:
-            docker_build(notebook_tag)
-        container_id = docker_run(notebook_tag, detach=True)
-        port = docker_port(container_id)
-        await_jupyter_http(port)
-        webbrowser.open(f"http://localhost:{port}", new=2)  # Open in a new tab
-        print(
-            "To stop this docker container, use Ctrl+ C, or the File -> Shut Down menu in Jupyter Lab"
-        )
-        stream_subprocess_output(["docker", "logs", "--follow", container_id])
     elif options.which == "update_codelists":
         update_codelists()
         print("Codelists updated. Don't forget to commit them to the repo")
