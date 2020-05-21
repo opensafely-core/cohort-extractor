@@ -59,7 +59,7 @@ class MedicationIssue(Base):
     StartDate = Column(DateTime)
     EndDate = Column(DateTime)
     MedicationStatus = Column(String)
-    ConsultationDate = Column(String)
+    ConsultationDate = Column(DateTime)
 
 
 class MedicationDictionary(Base):
