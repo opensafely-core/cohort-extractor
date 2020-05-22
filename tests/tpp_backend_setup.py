@@ -329,6 +329,12 @@ class SGSS_Negative(Base):
     Organism_Species_Name = Column(String, default="NEGATIVE SARS-CoV-2 (COVID-19)")
     Earliest_Specimen_Date = Column(Date)
     Lab_Report_Date = Column(Date)
+    # Other columns in the table which we don't use:
+    #   PHE_ID
+    #   Age_in_Years
+    #   Patient_Sex
+    #   County_Description
+    #   PostCode_Source
 
 
 class SGSS_Positive(Base):
@@ -344,3 +350,9 @@ class SGSS_Positive(Base):
     Organism_Species_Name = Column(String, default="SARS-CoV-2 CORONAVIRUS (Covid-19)")
     Earliest_Specimen_Date = Column(Date)
     Lab_Report_Date = Column(Date)
+    # Other columns in the table which we don't use:
+    #   PHE_ID
+    #   Age_in_Years
+    #   Patient_Sex
+    #   County_Description
+    #   PostCode_Source
