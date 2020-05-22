@@ -947,7 +947,7 @@ class StudyDefinition:
         # This is the default code path for most queries
         else:
             # Remove unhandled arguments and check they are unused
-            assert not kwargs.pop("ignore_days_where_these_clinical_codes_occur", None)
+            assert not kwargs.pop("ignore_days_where_these_codes_occur", None)
             assert not kwargs.pop("episode_defined_as", None)
             return self._patients_with_events(
                 """
@@ -1081,13 +1081,13 @@ class StudyDefinition:
         codelist,
         # Set date limits
         between=None,
-        ignore_days_where_these_clinical_codes_occur=None,
+        ignore_days_where_these_codes_occur=None,
         episode_defined_as=None,
     ):
         codelist_table = self.create_codelist_table(codelist, case_sensitive=False)
         date_condition = make_date_filter("ConsultationDate", between)
         not_an_ignored_day_condition = self._none_of_these_codes_occur_on_same_day(
-            "MedicationIssue", ignore_days_where_these_clinical_codes_occur
+            "MedicationIssue", ignore_days_where_these_codes_occur
         )
         if episode_defined_as is not None:
             pattern = r"^series of events each <= (\d+) days apart$"
@@ -2126,6 +2126,16 @@ def process_arguments(args):
     if args.pop("return_last_date_in_period", None):
         args["returning"] = "date"
         args["find_last_match_in_period"] = True
+
+    # In the public API of the `with_these_medications` function we use the
+    # phrase "clinical codes" (as opposed to just "codes") to make it clear
+    # that these are distinct from the SNOMED codes used to query the
+    # medications table. However, for simplicity of implementation we use just
+    # one argument name internally
+    if "ignore_days_where_these_clinical_codes_occur" in args:
+        args["ignore_days_where_these_codes_occur"] = args.pop(
+            "ignore_days_where_these_clinical_codes_occur"
+        )
 
     args = handle_legacy_date_args(args)
 
