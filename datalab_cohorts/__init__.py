@@ -1085,11 +1085,10 @@ class StudyDefinition:
         episode_defined_as=None,
     ):
         codelist_table = self.create_codelist_table(codelist, case_sensitive=False)
-        assert ignore_days_where_these_clinical_codes_occur.system == "ctv3"
-        ignore_list_table = self.create_codelist_table(
-            ignore_days_where_these_clinical_codes_occur, case_sensitive=True
-        )
         date_condition = make_date_filter("ConsultationDate", between)
+        not_an_ignored_day_condition = self._none_of_these_codes_occur_on_same_day(
+            "MedicationIssue", ignore_days_where_these_clinical_codes_occur
+        )
         if episode_defined_as is not None:
             pattern = r"^series of events each <= (\d+) days apart$"
             match = re.match(pattern, episode_defined_as)
@@ -1123,16 +1122,7 @@ class StudyDefinition:
             ON MedicationIssue.MultilexDrug_ID = MedicationDictionary.MultilexDrug_ID
             INNER JOIN {codelist_table}
             ON DMD_ID = {codelist_table}.code
-            WHERE
-              {date_condition}
-              AND NOT EXISTS (
-                SELECT * FROM CodedEvent AS sameday
-                INNER JOIN {ignore_list_table}
-                ON sameday.CTV3Code = {ignore_list_table}.code
-                WHERE
-                  sameday.Patient_ID = MedicationIssue.Patient_ID
-                  AND CAST(sameday.ConsultationDate AS date) = CAST(MedicationIssue.ConsultationDate AS date)
-              )
+            WHERE {date_condition} AND {not_an_ignored_day_condition}
         ) t
         GROUP BY Patient_ID
         """
@@ -1147,10 +1137,10 @@ class StudyDefinition:
         episode_defined_as=None,
     ):
         codelist_table = self.create_codelist_table(codelist, case_sensitive=True)
-        ignore_list_table = self.create_codelist_table(
-            ignore_days_where_these_codes_occur, case_sensitive=True
-        )
         date_condition = make_date_filter("ConsultationDate", between)
+        not_an_ignored_day_condition = self._none_of_these_codes_occur_on_same_day(
+            "CodedEvent", ignore_days_where_these_codes_occur
+        )
         if episode_defined_as is not None:
             pattern = r"^series of events each <= (\d+) days apart$"
             match = re.match(pattern, episode_defined_as)
@@ -1182,20 +1172,36 @@ class StudyDefinition:
             FROM CodedEvent
             INNER JOIN {codelist_table}
             ON CTV3Code = {codelist_table}.code
-            WHERE
-              {date_condition}
-              AND NOT EXISTS (
-                SELECT * FROM CodedEvent AS sameday
-                INNER JOIN {ignore_list_table}
-                ON sameday.CTV3Code = {ignore_list_table}.code
-                WHERE
-                  sameday.Patient_ID = CodedEvent.Patient_ID
-                  AND CAST(sameday.ConsultationDate AS date) = CAST(CodedEvent.ConsultationDate AS date)
-              )
+            WHERE {date_condition} AND {not_an_ignored_day_condition}
         ) t
         GROUP BY Patient_ID
         """
         return ["patient_id", "episode_count"], sql
+
+    def _none_of_these_codes_occur_on_same_day(self, joined_table, codelist):
+        """
+        Generates a SQL condtion that filters rows in `joined_table` so that
+        they only include events which happened on days where none of the codes
+        in `codelist` occur in the CodedEvents table.
+
+        We use this to support queries like "give me all the times a patient
+        was prescribed this drug, but ignore any days on which they were having
+        their annual COPD review".
+        """
+        if codelist is None:
+            return "1 = 1"
+        assert codelist.system == "ctv3"
+        codelist_table = self.create_codelist_table(codelist, case_sensitive=True)
+        return f"""
+        NOT EXISTS (
+          SELECT * FROM CodedEvent AS sameday
+          INNER JOIN {codelist_table}
+          ON sameday.CTV3Code = {codelist_table}.code
+          WHERE
+            sameday.Patient_ID = {joined_table}.Patient_ID
+            AND CAST(sameday.ConsultationDate AS date) = CAST({joined_table}.ConsultationDate AS date)
+        )
+        """
 
     def patients_registered_practice_as_of(self, date, returning=None):
         if returning == "stp_code":
