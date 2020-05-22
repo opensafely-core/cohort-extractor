@@ -950,8 +950,8 @@ class StudyDefinition:
             assert not kwargs.pop("ignore_days_where_these_codes_occur", None)
             assert not kwargs.pop("episode_defined_as", None)
             return self._patients_with_events(
+                "MedicationIssue",
                 """
-                MedicationIssue
                 INNER JOIN MedicationDictionary
                 ON MedicationIssue.MultilexDrug_ID = MedicationDictionary.MultilexDrug_ID
                 """,
@@ -980,12 +980,13 @@ class StudyDefinition:
             assert not kwargs.pop("ignore_days_where_these_codes_occur", None)
             assert not kwargs.pop("episode_defined_as", None)
             return self._patients_with_events(
-                "CodedEvent", "CTV3Code", codes_are_case_sensitive=True, **kwargs
+                "CodedEvent", "", "CTV3Code", codes_are_case_sensitive=True, **kwargs
             )
 
     def _patients_with_events(
         self,
         from_table,
+        additional_join,
         code_column,
         codes_are_case_sensitive,
         codelist,
@@ -1048,7 +1049,7 @@ class StudyDefinition:
               ROW_NUMBER() OVER (
                 PARTITION BY Patient_ID ORDER BY ConsultationDate {ordering}
               ) AS rownum
-              FROM {from_table}
+              FROM {from_table}{additional_join}
               INNER JOIN {codelist_table}
               ON {code_column} = {codelist_table}.code
               WHERE {date_condition}
@@ -1061,7 +1062,7 @@ class StudyDefinition:
               Patient_ID AS patient_id,
               {column_definition} AS {column_name},
               {date_aggregate}(ConsultationDate) AS date
-            FROM {from_table}
+            FROM {from_table}{additional_join}
             INNER JOIN {codelist_table}
             ON {code_column} = {codelist_table}.code
             WHERE {date_condition}
