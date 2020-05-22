@@ -1242,6 +1242,7 @@ class StudyDefinition:
             assert round_to_nearest == 100
             column = "ImdRankRounded"
         elif returning == "rural_urban_classification":
+            assert round_to_nearest is None
             column = "RuralUrbanClassificationCode"
         else:
             raise ValueError(f"Unsupported `returning` value: {returning}")
