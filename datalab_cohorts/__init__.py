@@ -2055,9 +2055,40 @@ class patients:
 
         `test_result` must be one of: "positive", "negative" or "any"
 
-        The date used is the date the specimen was taken. Where a patient has
-        multiple positive results only the date of the earliest specimen that
-        tested positive is recorded.
+        The date field used is the date the specimen was taken, rather than the
+        date of the lab result.
+
+        There's an important caveat here: where a patient has multiple positive
+        tests, SGSS groups these into "episodes" (referred to as
+        "Organism-Patient-Illness-Episodes"). Each pathogen has a maximum
+        episode duration (usually 2 weeks) and unless positive tests are
+        separated by longer than this period they are assumed to be the same
+        episode of illness. The specimen date recorded is the *earliest*
+        positive specimen within the episode.
+
+        For SARS-CoV-2 the episode length has been set to infinity, meaning
+        that once a patient has tested positive every positive test will be
+        part of the same episode and record the same specimen date.
+
+        This means that using `find_last_match_in_period` is pointless when
+        querying for positive results as only one date will ever be recorded and
+        it will be the earliest.
+
+        Our natural assumption, though it doesn't seem to be explicity stated
+        in the documentation, is that every negative result is treated as
+        unique.
+
+        For more detail on SGSS in general see:
+        https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/739854/PHE_Laboratory_Reporting_Guidelines.pdf
+
+        Information about the SARS-CoV-2 episode length was via email from
+        someone at the National Infection Service:
+
+            The COVID-19 episode length in SGSS was set to indefinite, so all
+            COVID-19 records from a single patient will be classified as one
+            episode. This may change, but is set as it is due to limited
+            information around re-infection and virus clearance.
+
         """
         return "with_test_result_in_sgss", process_arguments(locals())
 

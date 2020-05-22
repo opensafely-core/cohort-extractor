@@ -1770,7 +1770,7 @@ def test_patients_with_test_result_in_sgss():
         negative_covid_test_ever=patients.with_test_result_in_sgss(
             pathogen="SARS-CoV-2", test_result="negative",
         ),
-        tested_for_covid=patients.with_test_result_in_sgss(
+        tested_before_may=patients.with_test_result_in_sgss(
             pathogen="SARS-CoV-2", test_result="any", on_or_before="2020-05-01"
         ),
         first_positive_test_date=patients.with_test_result_in_sgss(
@@ -1784,7 +1784,7 @@ def test_patients_with_test_result_in_sgss():
     results = study.to_dicts()
     assert [x["positive_covid_test_ever"] for x in results] == ["1", "1", "0", "0"]
     assert [x["negative_covid_test_ever"] for x in results] == ["0", "1", "1", "0"]
-    assert [x["tested_for_covid"] for x in results] == ["0", "1", "1", "0"]
+    assert [x["tested_before_may"] for x in results] == ["0", "1", "1", "0"]
     assert [x["first_positive_test_date"] for x in results] == [
         "2020-05-15",
         "2020-04-20",
