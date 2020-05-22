@@ -721,3 +721,36 @@ def test_make_df_from_expectations_partial_default_overrides():
     population_size = 10000
     result = study.make_df_from_expectations(population_size)
     assert result.asthma_condition.astype("float").max() == 2000
+
+
+def test_make_df_from_expectations_with_care_home_status():
+    study = StudyDefinition(
+        population=patients.all(),
+        is_in_care_home=patients.care_home_status_as_of(
+            "2020-01-01",
+            return_expectations={
+                "rate": "exponential_increase",
+                "incidence": 0.3,
+                "date": {"earliest": "1900-01-01", "latest": "2020-01-01"},
+                "bool": True,
+            },
+        ),
+        care_home_type=patients.care_home_status_as_of(
+            "2020-01-01",
+            categorised_as={
+                "PN": "IsPotentialCareHome AND LocationRequiresNursing='Y'",
+                "PC": "IsPotentialCareHome",
+                "U": "DEFAULT",
+            },
+            return_expectations={
+                "rate": "exponential_increase",
+                "incidence": 0.2,
+                "category": {"ratios": {"PN": 0.1, "PC": 0.2, "U": 0.7}},
+                "date": {"earliest": "1900-01-01", "latest": "today"},
+            },
+        ),
+    )
+    population_size = 10000
+    result = study.make_df_from_expectations(population_size)
+    value_counts = result.care_home_type.value_counts()
+    assert value_counts["PN"] < value_counts["U"]

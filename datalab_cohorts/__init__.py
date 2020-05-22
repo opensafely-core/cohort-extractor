@@ -579,6 +579,26 @@ class StudyDefinition:
         else:
             raise ValueError(f"Unhandled return column name: {col}")
 
+    def invent_column_name_for_type(self, column_type):
+        """
+        This is pretty backwards: sometimes we want to return a column of a
+        particular type so this function returns a name which we know that the
+        above function will map to the desired type. This definitely all needs
+        refactoring at some point.
+        """
+        if column_type == "date":
+            return "date"
+        elif column_type == "str":
+            return "category"
+        elif column_type == "bool":
+            return "is_true"
+        elif column_type == "int":
+            return "count"
+        elif column_type == "float":
+            return "value"
+        else:
+            raise ValueError(f"Unhandled column type: {column_type}")
+
     def get_default_value_for_type(self, column_type):
         if column_type == "date":
             return ""
@@ -1268,6 +1288,50 @@ class StudyDefinition:
             """,
         )
 
+    def patients_care_home_status_as_of(self, date, categorised_as):
+        # Get a column name which matches the type of the supplied categories.
+        # (Needs refactoring, see docstring.)
+        column = self.invent_column_name_for_type(
+            self.infer_type_from_categories(categorised_as.keys())
+        )
+        # These are the columns to which the categorisation expression is
+        # allowed to refer
+        allowed_columns = {
+            "IsPotentialCareHome": ColumnExpression(
+                "ISNULL(PotentialCareHomeAddressID, 0)", column_type="int",
+            ),
+            "LocationRequiresNursing": ColumnExpression(
+                "LocationRequiresNursing", column_type="str"
+            ),
+            "LocationDoesNotRequireNursing": ColumnExpression(
+                "LocationDoesNotRequireNursing", column_type="str"
+            ),
+        }
+        case_expression = self.get_case_expression(allowed_columns, categorised_as)
+        return (
+            ["patient_id", column],
+            f"""
+            SELECT
+              Patient_ID AS patient_id,
+              {case_expression} AS {column}
+            FROM (
+              SELECT
+                PatientAddress.Patient_ID AS Patient_ID,
+                PotentialCareHomeAddress.PatientAddress_ID AS PotentialCareHomeAddressID,
+                LocationRequiresNursing,
+                LocationDoesNotRequireNursing,
+                ROW_NUMBER() OVER (
+                  PARTITION BY PatientAddress.Patient_ID ORDER BY StartDate DESC, EndDate DESC
+                ) AS rownum
+              FROM PatientAddress
+              LEFT JOIN PotentialCareHomeAddress
+              ON PatientAddress.PatientAddress_ID = PotentialCareHomeAddress.PatientAddress_ID
+              WHERE StartDate <= {quote(date)} AND EndDate > {quote(date)}
+            ) t
+            WHERE rownum = 1
+            """,
+        )
+
     # https://github.com/ebmdatalab/tpp-sql-notebook/issues/72
     def patients_admitted_to_icu(
         self,
@@ -1875,6 +1939,36 @@ class patients:
         return_expectations=None,  # Required keyword
     ):
         return "address_as_of", process_arguments(locals())
+
+    @staticmethod
+    def care_home_status_as_of(
+        date, categorised_as=None, return_expectations=None,  # Required keyword
+    ):
+        """
+        TPP have attempted to match patient addresses to care homes as stored
+        in the CQC database. At its most simple this query returns a boolean
+        indicating whether the patient's address (as of the supplied time)
+        matched with a care home.
+
+        It is also possible return a more complex categorisation based on
+        attributes of the care homes in the CQC database, which can be freely
+        downloaded here:
+        https://www.cqc.org.uk/about-us/transparency/using-cqc-data
+
+        At present the only imported fields are:
+            LocationRequiresNursing
+            LocationDoesNotRequireNursing
+
+        But we can ask for more fields to be imported if needed.
+
+        The `categorised_as` argument acts in effectively the same way as for
+        the `categorised_as` function except that the only columns that can be
+        referred to are those belonging to the care home table (i.e. the two
+        nursing fields above) and the boolean `IsPotentialCareHome`
+        """
+        if categorised_as is None:
+            categorised_as = {1: "IsPotentialCareHome", 0: "DEFAULT"}
+        return "care_home_status_as_of", process_arguments(locals())
 
     @staticmethod
     def admitted_to_icu(

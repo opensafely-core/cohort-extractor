@@ -198,9 +198,7 @@ class Organisation(Base):
 class PatientAddress(Base):
     __tablename__ = "PatientAddress"
 
-    # This column isn't in the actual database but SQLAlchemy gets a bit upset
-    # if we don't give it a primary key
-    id = Column(Integer, primary_key=True)
+    PatientAddress_ID = Column(Integer, primary_key=True)
     Patient_ID = Column(Integer, ForeignKey("Patient.Patient_ID"))
     Patient = relationship("Patient", back_populates="Addresses", cascade="all, delete")
     StartDate = Column(Date)
@@ -209,6 +207,11 @@ class PatientAddress(Base):
     RuralUrbanClassificationCode = Column(Integer)
     ImdRankRounded = Column(Integer)
     MSOACode = Column(String)
+    PotentialCareHomeAddress = relationship(
+        "PotentialCareHomeAddress",
+        back_populates="PatientAddress",
+        cascade="all, delete, delete-orphan",
+    )
 
 
 class ICNARC(Base):
@@ -356,3 +359,24 @@ class SGSS_Positive(Base):
     #   Patient_Sex
     #   County_Description
     #   PostCode_Source
+
+
+class PotentialCareHomeAddress(Base):
+    __tablename__ = "PotentialCareHomeAddress"
+
+    # This column isn't in the actual database but SQLAlchemy gets a bit upset
+    # if we don't give it a primary key
+    id = Column(Integer, primary_key=True)
+
+    Patient_ID = Column(Integer, ForeignKey("Patient.Patient_ID"))
+    PatientAddress_ID = Column(Integer, ForeignKey("PatientAddress.PatientAddress_ID"))
+    PatientAddress = relationship(
+        "PatientAddress",
+        back_populates="PotentialCareHomeAddress",
+        cascade="all, delete",
+    )
+    # Conceptually these two are a single boolean column but they stored as
+    # separate string columns containing either a Y or an N as this directly
+    # reflects what's in the underlying data source
+    LocationRequiresNursing = Column(String)
+    LocationDoesNotRequireNursing = Column(String)
