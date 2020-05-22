@@ -947,7 +947,6 @@ class StudyDefinition:
         # This is the default code path for most queries
         else:
             # Remove unhandled arguments and check they are unused
-            assert not kwargs.pop("ignore_days_where_these_codes_occur", None)
             assert not kwargs.pop("episode_defined_as", None)
             return self._patients_with_events(
                 "MedicationIssue",
@@ -976,8 +975,6 @@ class StudyDefinition:
             return self._number_of_episodes_by_clinical_event(**kwargs)
         # This is the default code path for most queries
         else:
-            # Remove unhandled arguments and check they are unused
-            assert not kwargs.pop("ignore_days_where_these_codes_occur", None)
             assert not kwargs.pop("episode_defined_as", None)
             return self._patients_with_events(
                 "CodedEvent", "", "CTV3Code", codes_are_case_sensitive=True, **kwargs
@@ -990,6 +987,9 @@ class StudyDefinition:
         code_column,
         codes_are_case_sensitive,
         codelist,
+        # Allows us to say: find codes A and B, but only on days where X and Y
+        # didn't happen
+        ignore_days_where_these_codes_occur=None,
         # Set date limits
         between=None,
         # Matching rule
@@ -1001,6 +1001,9 @@ class StudyDefinition:
     ):
         codelist_table = self.create_codelist_table(codelist, codes_are_case_sensitive)
         date_condition = make_date_filter("ConsultationDate", between)
+        not_an_ignored_day_condition = self._none_of_these_codes_occur_on_same_day(
+            from_table, ignore_days_where_these_codes_occur
+        )
 
         # Result ordering
         if find_first_match_in_period:
@@ -1052,7 +1055,7 @@ class StudyDefinition:
               FROM {from_table}{additional_join}
               INNER JOIN {codelist_table}
               ON {code_column} = {codelist_table}.code
-              WHERE {date_condition}
+              WHERE {date_condition} AND {not_an_ignored_day_condition}
             ) t
             WHERE rownum = 1
             """
@@ -1065,7 +1068,7 @@ class StudyDefinition:
             FROM {from_table}{additional_join}
             INNER JOIN {codelist_table}
             ON {code_column} = {codelist_table}.code
-            WHERE {date_condition}
+            WHERE {date_condition} AND {not_an_ignored_day_condition}
             GROUP BY Patient_ID
             """
 
