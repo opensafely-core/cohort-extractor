@@ -1685,7 +1685,7 @@ class patients:
         # Required keyword
         return_expectations=None,
     ):
-        return "age_as_of", process_arguments(locals())
+        return "age_as_of", locals()
 
     @staticmethod
     def registered_as_of(
@@ -1693,7 +1693,7 @@ class patients:
         # Required keyword
         return_expectations=None,
     ):
-        return "registered_as_of", process_arguments(locals())
+        return "registered_as_of", locals()
 
     @staticmethod
     def registered_with_one_practice_between(
@@ -1702,7 +1702,7 @@ class patients:
         # Required keyword
         return_expectations=None,
     ):
-        return "registered_with_one_practice_between", process_arguments(locals())
+        return "registered_with_one_practice_between", locals()
 
     @staticmethod
     def with_complete_history_between(
@@ -1711,7 +1711,7 @@ class patients:
         # Required keyword
         return_expectations=None,
     ):
-        return "with_complete_history_between", process_arguments(locals())
+        return "with_complete_history_between", locals()
 
     @staticmethod
     def most_recent_bmi(
@@ -1729,7 +1729,7 @@ class patients:
         include_month=False,
         include_day=False,
     ):
-        return "most_recent_bmi", process_arguments(locals())
+        return "most_recent_bmi", locals()
 
     @staticmethod
     def mean_recorded_value(
@@ -1749,15 +1749,15 @@ class patients:
         include_day=False,
     ):
         assert codelist.system == "ctv3"
-        return "mean_recorded_value", process_arguments(locals())
+        return "mean_recorded_value", locals()
 
     @staticmethod
     def all():
-        return "all", process_arguments(locals())
+        return "all", locals()
 
     @staticmethod
     def sex(return_expectations=None):
-        return "sex", process_arguments(locals())
+        return "sex", locals()
 
     @staticmethod
     def with_these_medications(
@@ -1788,7 +1788,7 @@ class patients:
         include_month=False,
         include_day=False,
     ):
-        return "with_these_medications", process_arguments(locals())
+        return "with_these_medications", locals()
 
     @staticmethod
     def with_these_clinical_events(
@@ -1819,11 +1819,11 @@ class patients:
         include_month=False,
         include_day=False,
     ):
-        return "with_these_clinical_events", process_arguments(locals())
+        return "with_these_clinical_events", locals()
 
     @staticmethod
     def categorised_as(category_definitions, return_expectations=None, **extra_columns):
-        return "categorised_as", process_arguments(locals())
+        return "categorised_as", locals()
 
     @staticmethod
     def satisfying(expression, return_expectations=None, **extra_columns):
@@ -1833,13 +1833,13 @@ class patients:
         return_expectations["category"] = {"ratios": {1: 1, 0: 0}}
         # Remove from local namespace
         del expression
-        return "categorised_as", process_arguments(locals())
+        return "categorised_as", locals()
 
     @staticmethod
     def registered_practice_as_of(
         date, returning=None, return_expectations=None  # Required keyword
     ):
-        return "registered_practice_as_of", process_arguments(locals())
+        return "registered_practice_as_of", locals()
 
     @staticmethod
     def address_as_of(
@@ -1848,7 +1848,7 @@ class patients:
         round_to_nearest=None,
         return_expectations=None,  # Required keyword
     ):
-        return "address_as_of", process_arguments(locals())
+        return "address_as_of", locals()
 
     @staticmethod
     def care_home_status_as_of(
@@ -1878,7 +1878,7 @@ class patients:
         """
         if categorised_as is None:
             categorised_as = {1: "IsPotentialCareHome", 0: "DEFAULT"}
-        return "care_home_status_as_of", process_arguments(locals())
+        return "care_home_status_as_of", locals()
 
     @staticmethod
     def admitted_to_icu(
@@ -1895,22 +1895,22 @@ class patients:
         include_month=True,
         include_day=False,
     ):
-        return "admitted_to_icu", process_arguments(locals())
+        return "admitted_to_icu", locals()
 
     # The below are placeholder methods we don't expect to make it into the final API.
     # They use a handler which returns dummy CHESS data.
 
     @staticmethod
     def with_positive_covid_test(return_expectations=None):
-        return "with_positive_covid_test", process_arguments(locals())
+        return "with_positive_covid_test", locals()
 
     @staticmethod
     def have_died_of_covid(return_expectations=None):
-        return "have_died_of_covid", process_arguments(locals())
+        return "have_died_of_covid", locals()
 
     @staticmethod
     def random_sample(percent=None, return_expectations=None):
-        return "random_sample", process_arguments(locals())
+        return "random_sample", locals()
 
     @staticmethod
     def with_these_codes_on_death_certificate(
@@ -1929,7 +1929,7 @@ class patients:
         include_day=False,
         return_expectations=None,
     ):
-        return "with_these_codes_on_death_certificate", process_arguments(locals())
+        return "with_these_codes_on_death_certificate", locals()
 
     @staticmethod
     def died_from_any_cause(
@@ -1945,7 +1945,7 @@ class patients:
         include_day=False,
         return_expectations=None,
     ):
-        return "died_from_any_cause", process_arguments(locals())
+        return "died_from_any_cause", locals()
 
     @staticmethod
     def with_death_recorded_in_cpns(
@@ -1961,7 +1961,7 @@ class patients:
         include_day=False,
         return_expectations=None,
     ):
-        return "with_death_recorded_in_cpns", process_arguments(locals())
+        return "with_death_recorded_in_cpns", locals()
 
     @staticmethod
     def date_of(
@@ -1973,7 +1973,7 @@ class patients:
         return_expectations=None,
     ):
         returning = "date"
-        return "value_from", process_arguments(locals())
+        return "value_from", locals()
 
     @staticmethod
     def with_tpp_vaccination_record(
@@ -1991,7 +1991,7 @@ class patients:
         find_last_match_in_period=None,
         return_expectations=None,
     ):
-        return "with_tpp_vaccination_record", process_arguments(locals())
+        return "with_tpp_vaccination_record", locals()
 
     @staticmethod
     def with_gp_consultations(
@@ -2013,7 +2013,7 @@ class patients:
         broader and might include things like updating a phone number with the
         receptionist.
         """
-        return "with_gp_consultations", process_arguments(locals())
+        return "with_gp_consultations", locals()
 
     @staticmethod
     def with_complete_gp_consultation_history_between(
@@ -2033,7 +2033,7 @@ class patients:
         """
         return (
             "with_complete_gp_consultation_history_between",
-            process_arguments(locals()),
+            locals(),
         )
 
     @staticmethod
@@ -2095,90 +2095,7 @@ class patients:
             information around re-infection and virus clearance.
 
         """
-        return "with_test_result_in_sgss", process_arguments(locals())
-
-
-def process_arguments(args):
-    """
-    This receives all arguments from calls to the public API functions so it
-    can validate and, if necessary, modify them. In particular, it can be used
-    to translate older style API calls into newer ones so as to maintain
-    backwards compatibility.
-    """
-    args = handle_time_period_options(args)
-
-    for date_arg in ("reference_date", "start_date", "end_date"):
-        if date_arg in args:
-            value = args[date_arg]
-            if value == "today":
-                value = datetime.date.today()
-            args[date_arg] = datetime.date.fromisoformat(str(value))
-
-    # Handle deprecated API
-    if args.pop("return_binary_flag", None):
-        args["returning"] = "binary_flag"
-    if args.pop("return_number_of_matches_in_period", None):
-        args["returning"] = "number_of_matches_in_period"
-    if args.pop("return_first_date_in_period", None):
-        args["returning"] = "date"
-        args["find_first_match_in_period"] = True
-    if args.pop("return_last_date_in_period", None):
-        args["returning"] = "date"
-        args["find_last_match_in_period"] = True
-
-    # In the public API of the `with_these_medications` function we use the
-    # phrase "clinical codes" (as opposed to just "codes") to make it clear
-    # that these are distinct from the SNOMED codes used to query the
-    # medications table. However, for simplicity of implementation we use just
-    # one argument name internally
-    if "ignore_days_where_these_clinical_codes_occur" in args:
-        args["ignore_days_where_these_codes_occur"] = args.pop(
-            "ignore_days_where_these_clinical_codes_occur"
-        )
-
-    args = handle_legacy_date_args(args)
-
-    return args
-
-
-def handle_time_period_options(args):
-    """
-    Convert the "on_or_before", "on_or_after" and "between" options we support
-    for defining time periods into a single "between" argument. This makes the
-    code simpler, although we want to continue supporting the three arguments
-    for the sake of clarity in the API.
-    """
-    if "between" not in args:
-        return args
-    on_or_after = args.pop("on_or_after", None)
-    on_or_before = args.pop("on_or_before", None)
-    between = args["between"]
-    if between and (on_or_after or on_or_before):
-        raise ValueError(
-            "You cannot set `between` at the same time as "
-            "`on_or_after` or `on_or_before`"
-        )
-    if not between:
-        between = (on_or_after, on_or_before)
-    if not isinstance(between, (tuple, list)) or len(between) != 2:
-        raise ValueError("`between` should be a pair of dates")
-    args["between"] = between
-    return args
-
-
-def handle_legacy_date_args(args):
-    """
-    Change old style date format arguments to new style
-    """
-    include_month = args.pop("include_month", None)
-    include_day = args.pop("include_day", None)
-    if args.get("date_format") is not None:
-        assert not include_month and not include_day
-    elif include_day:
-        args["date_format"] = "YYYY-MM-DD"
-    elif include_month:
-        args["date_format"] = "YYYY-MM"
-    return args
+        return "with_test_result_in_sgss", locals()
 
 
 def codelist_to_sql(codelist):

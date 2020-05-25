@@ -1,4 +1,5 @@
 import copy
+import datetime
 
 
 def process_covariate_definitions(covariate_definitions):
@@ -10,6 +11,7 @@ def process_covariate_definitions(covariate_definitions):
     if "patient_id" in covariate_definitions:
         raise ValueError("patient_id is a reserved column name")
     covariate_definitions = flatten_nested_covariates(covariate_definitions)
+    covariate_definitions = process_all_query_arguments(covariate_definitions)
     covariate_definitions = apply_compatibility_fixes_for_include_date(
         covariate_definitions
     )
@@ -53,6 +55,96 @@ def flatten_nested_covariates(covariate_definitions):
     for name, (query_type, query_args) in flattened.items():
         query_args["hidden"] = name in hidden
     return flattened
+
+
+def process_all_query_arguments(covariate_definitions):
+    return {
+        name: (query_type, process_arguments(query_args))
+        for name, (query_type, query_args) in covariate_definitions.items()
+    }
+
+
+def process_arguments(args):
+    """
+    This receives all arguments from calls to the public API functions so it
+    can validate and, if necessary, modify them. In particular, it can be used
+    to translate older style API calls into newer ones so as to maintain
+    backwards compatibility.
+    """
+    args = handle_time_period_options(args)
+
+    for date_arg in ("reference_date", "start_date", "end_date"):
+        if date_arg in args:
+            value = args[date_arg]
+            if value == "today":
+                value = datetime.date.today()
+            args[date_arg] = datetime.date.fromisoformat(str(value))
+
+    # Handle deprecated API
+    if args.pop("return_binary_flag", None):
+        args["returning"] = "binary_flag"
+    if args.pop("return_number_of_matches_in_period", None):
+        args["returning"] = "number_of_matches_in_period"
+    if args.pop("return_first_date_in_period", None):
+        args["returning"] = "date"
+        args["find_first_match_in_period"] = True
+    if args.pop("return_last_date_in_period", None):
+        args["returning"] = "date"
+        args["find_last_match_in_period"] = True
+
+    # In the public API of the `with_these_medications` function we use the
+    # phrase "clinical codes" (as opposed to just "codes") to make it clear
+    # that these are distinct from the SNOMED codes used to query the
+    # medications table. However, for simplicity of implementation we use just
+    # one argument name internally
+    if "ignore_days_where_these_clinical_codes_occur" in args:
+        args["ignore_days_where_these_codes_occur"] = args.pop(
+            "ignore_days_where_these_clinical_codes_occur"
+        )
+
+    args = handle_legacy_date_args(args)
+
+    return args
+
+
+def handle_time_period_options(args):
+    """
+    Convert the "on_or_before", "on_or_after" and "between" options we support
+    for defining time periods into a single "between" argument. This makes the
+    code simpler, although we want to continue supporting the three arguments
+    for the sake of clarity in the API.
+    """
+    if "between" not in args:
+        return args
+    on_or_after = args.pop("on_or_after", None)
+    on_or_before = args.pop("on_or_before", None)
+    between = args["between"]
+    if between and (on_or_after or on_or_before):
+        raise ValueError(
+            "You cannot set `between` at the same time as "
+            "`on_or_after` or `on_or_before`"
+        )
+    if not between:
+        between = (on_or_after, on_or_before)
+    if not isinstance(between, (tuple, list)) or len(between) != 2:
+        raise ValueError("`between` should be a pair of dates")
+    args["between"] = between
+    return args
+
+
+def handle_legacy_date_args(args):
+    """
+    Change old style date format arguments to new style
+    """
+    include_month = args.pop("include_month", None)
+    include_day = args.pop("include_day", None)
+    if args.get("date_format") is not None:
+        assert not include_month and not include_day
+    elif include_day:
+        args["date_format"] = "YYYY-MM-DD"
+    elif include_month:
+        args["date_format"] = "YYYY-MM"
+    return args
 
 
 def apply_compatibility_fixes_for_include_date(covariate_definitions):
