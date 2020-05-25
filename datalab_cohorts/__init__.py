@@ -1184,7 +1184,7 @@ class StudyDefinition:
 
     def _none_of_these_codes_occur_on_same_day(self, joined_table, codelist):
         """
-        Generates a SQL condtion that filters rows in `joined_table` so that
+        Generates a SQL condition that filters rows in `joined_table` so that
         they only include events which happened on days where none of the codes
         in `codelist` occur in the CodedEvents table.
 
