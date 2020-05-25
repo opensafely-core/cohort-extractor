@@ -6,6 +6,26 @@ make it a bit more discoverable.
 """
 
 
+# Yes this clashes with the builtin, but we don't need the builtin in this
+# context
+def all():
+    return "all", locals()
+
+
+def random_sample(percent=None, return_expectations=None):
+    """
+    A random sample of approximately `percent` patients
+    """
+    return "random_sample", locals()
+
+
+def sex(return_expectations=None):
+    """
+    Returns M, F or empty string if unknown or other
+    """
+    return "sex", locals()
+
+
 def age_as_of(
     reference_date,
     # Required keyword
@@ -19,6 +39,9 @@ def registered_as_of(
     # Required keyword
     return_expectations=None,
 ):
+    """
+    All patients registed on the given date
+    """
     return "registered_as_of", locals()
 
 
@@ -28,6 +51,9 @@ def registered_with_one_practice_between(
     # Required keyword
     return_expectations=None,
 ):
+    """
+    All patients registered with the same practice through the given period
+    """
     return "registered_with_one_practice_between", locals()
 
 
@@ -37,6 +63,10 @@ def with_complete_history_between(
     # Required keyword
     return_expectations=None,
 ):
+    """
+    All patients for which we have a full set of records between the given
+    dates
+    """
     return "with_complete_history_between", locals()
 
 
@@ -55,6 +85,18 @@ def most_recent_bmi(
     include_month=False,
     include_day=False,
 ):
+    """
+    Return patients' most recent BMI (in the defined period) either
+    computed from weight and height measurements or, where they are not
+    availble, from recorded BMI values. Measurements taken when a patient
+    was below the minimum age are ignored. The height measurement can be
+    taken before (but not after) the defined period as long as the patient
+    was over the minimum age at the time.
+
+    The date of the measurement can be obtained using `date_of("<bmi-column-name>")`.
+    If the BMI is computed from weight and height then we use the date of the
+    weight measurement for this.
+    """
     return "most_recent_bmi", locals()
 
 
@@ -76,14 +118,6 @@ def mean_recorded_value(
 ):
     assert codelist.system == "ctv3"
     return "mean_recorded_value", locals()
-
-
-def all():
-    return "all", locals()
-
-
-def sex(return_expectations=None):
-    return "sex", locals()
 
 
 def with_these_medications(
@@ -114,6 +148,10 @@ def with_these_medications(
     include_month=False,
     include_day=False,
 ):
+    """
+    Patients who have been prescribed at least one of this list of medications
+    in the defined period
+    """
     return "with_these_medications", locals()
 
 
@@ -145,6 +183,10 @@ def with_these_clinical_events(
     include_month=False,
     include_day=False,
 ):
+    """
+    Patients who have had at least one of these clinical events in the defined
+    period
+    """
     return "with_these_clinical_events", locals()
 
 
@@ -222,10 +264,6 @@ def admitted_to_icu(
     include_day=False,
 ):
     return "admitted_to_icu", locals()
-
-
-def random_sample(percent=None, return_expectations=None):
-    return "random_sample", locals()
 
 
 def with_these_codes_on_death_certificate(
