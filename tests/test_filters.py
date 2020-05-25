@@ -9,7 +9,6 @@ from tests.tpp_backend_setup import make_database, make_session
 from tests.tpp_backend_setup import (
     Appointment,
     CodedEvent,
-    CovidStatus,
     MedicationIssue,
     MedicationDictionary,
     Patient,
@@ -45,7 +44,6 @@ def setup_function(function):
     """Ensure test database is empty
     """
     session = make_session()
-    session.query(CovidStatus).delete()
     session.query(CodedEvent).delete()
     session.query(ICNARC).delete()
     session.query(ONSDeaths).delete()
@@ -79,37 +77,6 @@ def test_minimal_study_to_csv():
             {"patient_id": str(patient_1.Patient_ID), "sex": "M"},
             {"patient_id": str(patient_2.Patient_ID), "sex": "F"},
         ]
-
-
-def test_patient_characteristics_for_covid_status():
-    session = make_session()
-    old_patient_with_covid = Patient(
-        DateOfBirth="1900-01-01",
-        CovidStatus=CovidStatus(Result="COVID19", AdmittedToITU=True),
-        Sex="M",
-    )
-    young_patient_1_with_covid = Patient(
-        DateOfBirth="2000-01-01",
-        CovidStatus=CovidStatus(Result="COVID19", Died=True),
-        Sex="F",
-    )
-    young_patient_2_without_covid = Patient(DateOfBirth="2001-01-01", Sex="F")
-    session.add(old_patient_with_covid)
-    session.add(young_patient_1_with_covid)
-    session.add(young_patient_2_without_covid)
-    session.commit()
-
-    study = StudyDefinition(
-        population=patients.with_positive_covid_test(),
-        age=patients.age_as_of("2020-01-01"),
-        sex=patients.sex(),
-        died=patients.have_died_of_covid(),
-    )
-    results = study.to_dicts()
-
-    assert [x["sex"] for x in results] == ["M", "F"]
-    assert [x["died"] for x in results] == ["0", "1"]
-    assert [x["age"] for x in results] == ["120", "20"]
 
 
 def test_meds():

@@ -224,18 +224,6 @@ def admitted_to_icu(
     return "admitted_to_icu", locals()
 
 
-# The below are placeholder methods we don't expect to make it into the final API.
-# They use a handler which returns dummy CHESS data.
-
-
-def with_positive_covid_test(return_expectations=None):
-    return "with_positive_covid_test", locals()
-
-
-def have_died_of_covid(return_expectations=None):
-    return "have_died_of_covid", locals()
-
-
 def random_sample(percent=None, return_expectations=None):
     return "random_sample", locals()
 

@@ -29,17 +29,6 @@ def make_database():
     Base.metadata.create_all(make_engine())
 
 
-class CovidStatus(Base):
-    # XXX this is a guess until we actually get the data
-    __tablename__ = "CovidStatus"
-
-    Patient_ID = Column(Integer, ForeignKey("Patient.Patient_ID"), primary_key=True)
-    Patient = relationship("Patient", back_populates="CovidStatus", uselist=False)
-    Result = Column(String)
-    Died = Column(Boolean)
-    AdmittedToITU = Column(Boolean)
-
-
 class MedicationIssue(Base):
     __tablename__ = "MedicationIssue"
 
@@ -115,7 +104,6 @@ class Patient(Base):
     __tablename__ = "Patient"
 
     Patient_ID = Column(Integer, primary_key=True)
-    CovidStatus = relationship("CovidStatus", back_populates="Patient", uselist=False)
     DateOfBirth = Column(Date)
     DateOfDeath = Column(Date)
 

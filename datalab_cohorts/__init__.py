@@ -1291,26 +1291,6 @@ class StudyDefinition:
             """,
         )
 
-    def patients_with_positive_covid_test(self):
-        return (
-            ["patient_id", "has_covid"],
-            """
-            SELECT DISTINCT Patient_ID as patient_id, 1 AS has_covid
-            FROM CovidStatus
-            WHERE Result = 'COVID19'
-            """,
-        )
-
-    def patients_have_died_of_covid(self):
-        return (
-            ["patient_id", "died"],
-            """
-            SELECT DISTINCT Patient_ID as patient_id, 1 AS died
-            FROM CovidStatus
-            WHERE Died = 'true'
-            """,
-        )
-
     def patients_with_these_codes_on_death_certificate(
         self,
         codelist=None,
