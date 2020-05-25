@@ -23,6 +23,7 @@ from tests.tpp_backend_setup import (
     VaccinationReference,
     SGSS_Positive,
     SGSS_Negative,
+    PotentialCareHomeAddress,
 )
 
 from datalab_cohorts import (
@@ -58,6 +59,7 @@ def setup_function(function):
     session.query(MedicationDictionary).delete()
     session.query(RegistrationHistory).delete()
     session.query(Organisation).delete()
+    session.query(PotentialCareHomeAddress).delete()
     session.query(PatientAddress).delete()
     session.query(Patient).delete()
     session.commit()
@@ -1057,6 +1059,95 @@ def test_patients_address_as_of():
     results = study.to_dicts()
     assert [i["imd"] for i in results] == ["300", "0", "0"]
     assert [i["rural_urban"] for i in results] == ["2", "0", "0"]
+
+
+def test_patients_care_home_status_as_of():
+    session = make_session()
+    session.add_all(
+        [
+            # Was in care home but no longer
+            Patient(
+                Addresses=[
+                    PatientAddress(
+                        StartDate="2010-01-01",
+                        EndDate="2015-01-01",
+                        PotentialCareHomeAddress=[PotentialCareHomeAddress()],
+                    ),
+                    PatientAddress(StartDate="2015-01-01", EndDate="9999-01-01"),
+                ]
+            ),
+            # Currently in non-nursing care home
+            Patient(
+                Addresses=[
+                    PatientAddress(
+                        StartDate="2015-01-01",
+                        EndDate="9999-01-01",
+                        PotentialCareHomeAddress=[
+                            PotentialCareHomeAddress(
+                                LocationRequiresNursing="N",
+                                LocationDoesNotRequireNursing="Y",
+                            )
+                        ],
+                    ),
+                ]
+            ),
+            # Currently in nursing home
+            Patient(
+                Addresses=[
+                    PatientAddress(
+                        StartDate="2015-01-01",
+                        EndDate="9999-01-01",
+                        PotentialCareHomeAddress=[
+                            PotentialCareHomeAddress(
+                                LocationRequiresNursing="Y",
+                                LocationDoesNotRequireNursing="N",
+                            )
+                        ],
+                    ),
+                ]
+            ),
+            # Currently in a schrodin-home which both does and does not require nursing
+            Patient(
+                Addresses=[
+                    PatientAddress(
+                        StartDate="2015-01-01",
+                        EndDate="9999-01-01",
+                        PotentialCareHomeAddress=[
+                            PotentialCareHomeAddress(
+                                LocationRequiresNursing="Y",
+                                LocationDoesNotRequireNursing="Y",
+                            )
+                        ],
+                    ),
+                ]
+            ),
+        ]
+    )
+    session.commit()
+    study = StudyDefinition(
+        population=patients.all(),
+        is_in_care_home=patients.care_home_status_as_of("2020-01-01"),
+        care_home_type=patients.care_home_status_as_of(
+            "2020-01-01",
+            categorised_as={
+                "PC": """
+                  IsPotentialCareHome
+                  AND LocationDoesNotRequireNursing='Y'
+                  AND LocationRequiresNursing='N'
+                """,
+                "PN": """
+                  IsPotentialCareHome
+                  AND LocationDoesNotRequireNursing='N'
+                  AND LocationRequiresNursing='Y'
+                """,
+                "PS": "IsPotentialCareHome",
+                "U": "DEFAULT",
+            },
+        ),
+    )
+    results = study.to_dicts()
+    assert [i["is_in_care_home"] for i in results] == ["0", "1", "1", "1"]
+    assert [i["care_home_type"] for i in results] == ["U", "PC", "PN", "PS"]
 
 
 def test_patients_admitted_to_icu():
