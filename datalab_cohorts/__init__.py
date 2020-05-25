@@ -15,6 +15,7 @@ import pandas as pd
 
 from .expressions import format_expression
 from .expectation_generators import generate
+from .process_covariate_definitions import process_covariate_definitions
 
 
 # Characters that are safe to interpolate into SQL (see
@@ -41,54 +42,12 @@ class StudyDefinition:
 
     def __init__(self, population, **covariates):
         covariates["population"] = population
-        assert "patient_id" not in covariates, "patient_id is a reserved column name"
         self.default_expectations = covariates.pop("default_expectations", {})
-        covariates = self.apply_compatibility_fixes(covariates)
+        covariates = process_covariate_definitions(covariates)
         self.codelist_tables = []
         self.covariate_definitions = covariates
         self.queries, self.column_types = self.get_queries_and_types(covariates)
         self.pandas_csv_args = self.get_pandas_csv_args(covariates)
-
-    def apply_compatibility_fixes(self, covariate_definitions):
-        """
-        Previously some covariate definitions could produce mutliple columns by
-        passing a flag like `include_date_of_match` which would create an extra
-        column of the form "<column_name>_date" in the output. This was to
-        avoid having to define (and execute) the same query multiple times to
-        get e.g. a blood pressure reading and also the date on which that
-        reading was taken.
-
-        However losing the one-one correspondence between the columns defined
-        in the study definition and the columns produced in the output made the
-        whole system more complex and harded to reason about. We now support
-        the requirement by allowing colum definitions to reference other
-        columns and say e.g.  "column X should contain the date of the
-        measurement produced by column Y"
-
-        To maintain backwards compatibility this method finds variants of the
-        "include_date" flag and automatically defines the corresponding date
-        column.
-        """
-        updated = {}
-        for name, (query_type, query_args) in covariate_definitions.items():
-            query_args = query_args.copy()
-            suffix = None
-            if query_args.pop("include_date_of_match", False):
-                suffix = "_date"
-            if query_args.pop("include_measurement_date", False):
-                suffix = "_date_measured"
-            if suffix:
-                date_kwargs = pop_keys_from_dict(query_args, ["date_format"])
-                date_kwargs["source"] = name
-                date_kwargs["returning"] = "date"
-                date_kwargs["return_expectations"] = query_args.get(
-                    "return_expectations"
-                )
-                updated[name] = (query_type, query_args)
-                updated[name + suffix] = ("value_from", date_kwargs)
-            else:
-                updated[name] = (query_type, query_args)
-        return updated
 
     def _to_csv_with_sqlcmd(self, filename):
         unique_check = UniqueCheck()
@@ -314,7 +273,7 @@ class StudyDefinition:
         date_col_for = {}
 
         for name, (funcname, kwargs) in covariate_definitions.items():
-            if name == "population":
+            if name == "population" or kwargs.get("hidden"):
                 continue
             args[name] = kwargs.copy()
             column_type = self.column_types[name]
@@ -376,10 +335,8 @@ class StudyDefinition:
         return output
 
     def to_data(self):
-        covariate_definitions = self.flatten_nested_covariates(
-            self.covariate_definitions
-        )
         hidden_columns = []
+        covariate_definitions = copy.deepcopy(self.covariate_definitions)
         for name, (query_type, query_args) in covariate_definitions.items():
             if query_args.pop("hidden", False):
                 hidden_columns.append(name)
@@ -413,14 +370,12 @@ class StudyDefinition:
         return "\n".join(prepared_sql)
 
     def get_queries_and_types(self, covariate_definitions):
-        covariate_definitions = self.flatten_nested_covariates(covariate_definitions)
-        covariate_definitions = self.add_include_date_flags_to_columns(
-            covariate_definitions
-        )
         output_columns = {}
         is_hidden = {}
         table_queries = {}
         for name, (query_type, query_args) in covariate_definitions.items():
+            # So we can safely mutate these below
+            query_args = query_args.copy()
             # These arguments are not used in generating column data and the
             # corresponding functions do not accept them
             query_args.pop("return_expectations", None)
@@ -483,67 +438,6 @@ class StudyDefinition:
             name: expr.column_type for (name, expr) in output_columns.items()
         }
         return queries, column_types
-
-    def flatten_nested_covariates(self, covariate_definitions):
-        """
-        Some covariates (e.g `categorised_as`) can define their own internal
-        covariates which are used for calculating the column value but don't
-        appear in the final output. Here we pull all these internal covariates
-        out (which may be recursively nested) and assemble a flat list of
-        covariates, adding a `hidden` flag to their arguments to indicate
-        whether or not they belong in the final output
-
-        We also check for any name clashes among covariates. (In future we
-        could rewrite the names of internal covariates to avoid this but for
-        now we just throw an error.)
-        """
-        flattened = {}
-        hidden = set()
-        items = list(covariate_definitions.items())
-        while items:
-
-            name, (query_type, query_args) = items.pop(0)
-            if query_type == "categorised_as" and "extra_columns" in query_args:
-                query_args = query_args.copy()
-                # Pull out the extra columns
-                extra_columns = query_args.pop("extra_columns")
-                # Stick the query back on the stack
-                items.insert(0, (name, (query_type, query_args)))
-                # Mark the extra columns as hidden
-                hidden.update(extra_columns.keys())
-                # Add them to the start of the list of items to be processed
-                items[:0] = extra_columns.items()
-            else:
-                if name in flattened:
-                    raise ValueError(f"Duplicate columns named '{name}'")
-                flattened[name] = (query_type, query_args)
-        for name, (query_type, query_args) in flattened.items():
-            query_args["hidden"] = name in hidden
-        return flattened
-
-    def add_include_date_flags_to_columns(self, covariate_definitions):
-        """
-        Where one column is defined as being the date generated by another
-        column we need to tell that "source" column that it should calculate a
-        date as well, which we do by supplying a flag.
-
-        The sharp-eyed may notice that this is close to being the inverse of
-        `apply_compatibility_fixes` above and wonder what is being acheived.
-        But this gives us a way of incrementally refactoring things without
-        having to make big sweeping changes and without breaking backwards
-        compatibility.
-        """
-        updated = copy.deepcopy(covariate_definitions)
-        for name, (query_type, query_args) in updated.items():
-            if query_type == "value_from":
-                assert query_args["returning"] == "date"
-                source_column = query_args["source"]
-                source_column_args = updated[source_column][1]
-                source_column_args.update(
-                    include_date_of_match=True,
-                    date_format=query_args.get("date_format"),
-                )
-        return updated
 
     def get_column_expression(self, source, returning, date_format=None):
         column_type = self.get_type_for_column(returning)
