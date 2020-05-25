@@ -1504,9 +1504,16 @@ def test_number_of_episodes():
             returning="number_of_episodes",
             episode_defined_as="series of events each <= 14 days apart",
         ),
+        event_count=patients.with_these_clinical_events(
+            foo_codes,
+            on_or_before="2020-01-01",
+            ignore_days_where_these_codes_occur=bar_codes,
+            returning="number_of_matches_in_period",
+        ),
     )
     results = study.to_dicts()
     assert [i["episode_count"] for i in results] == ["3", "0"]
+    assert [i["event_count"] for i in results] == ["5", "0"]
 
 
 def test_number_of_episodes_for_medications():
@@ -1598,9 +1605,65 @@ def test_number_of_episodes_for_medications():
             returning="number_of_episodes",
             episode_defined_as="series of events each <= 14 days apart",
         ),
+        event_count=patients.with_these_medications(
+            foo_codes,
+            on_or_before="2020-01-01",
+            ignore_days_where_these_clinical_codes_occur=bar_codes,
+            returning="number_of_matches_in_period",
+        ),
     )
     results = study.to_dicts()
     assert [i["episode_count"] for i in results] == ["3", "0"]
+    assert [i["event_count"] for i in results] == ["5", "0"]
+
+
+def test_medications_returning_code_with_ignored_days():
+    oral_steriod = MedicationDictionary(
+        FullName="Oral Steroid", DMD_ID="ab12", MultilexDrug_ID="1"
+    )
+    other_drug = MedicationDictionary(
+        FullName="Other Drug", DMD_ID="cd34", MultilexDrug_ID="2"
+    )
+    session = make_session()
+    session.add_all(
+        [
+            Patient(
+                MedicationIssues=[
+                    MedicationIssue(
+                        MedicationDictionary=other_drug, ConsultationDate="2010-01-03"
+                    ),
+                    # This shouldn't count because there's an "ignore" event on
+                    # the same day (though at a different time)
+                    MedicationIssue(
+                        MedicationDictionary=oral_steriod,
+                        ConsultationDate="2012-01-01T10:45:00",
+                    ),
+                ],
+                CodedEvents=[
+                    # This "ignore" event should cause us to skip one of the
+                    # meds issues above
+                    CodedEvent(CTV3Code="bar1", ConsultationDate="2012-01-01T16:10:00"),
+                ],
+            ),
+        ]
+    )
+    session.commit()
+    drug_codes = codelist(["ab12", "cd34"], "snomed")
+    annual_review_codes = codelist(["bar1"], "ctv3")
+    study = StudyDefinition(
+        population=patients.all(),
+        most_recent_drug=patients.with_these_medications(
+            drug_codes,
+            ignore_days_where_these_clinical_codes_occur=annual_review_codes,
+            returning="code",
+        ),
+        most_recent_drug_date=patients.date_of(
+            "most_recent_drug", date_format="YYYY-MM-DD"
+        ),
+    )
+    results = study.to_dicts()
+    assert [i["most_recent_drug"] for i in results] == ["cd34"]
+    assert [i["most_recent_drug_date"] for i in results] == ["2010-01-03"]
 
 
 def test_patients_with_tpp_vaccination_record():

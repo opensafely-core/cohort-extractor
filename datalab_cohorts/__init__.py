@@ -947,11 +947,10 @@ class StudyDefinition:
         # This is the default code path for most queries
         else:
             # Remove unhandled arguments and check they are unused
-            assert not kwargs.pop("ignore_days_where_these_clinical_codes_occur", None)
             assert not kwargs.pop("episode_defined_as", None)
             return self._patients_with_events(
+                "MedicationIssue",
                 """
-                MedicationIssue
                 INNER JOIN MedicationDictionary
                 ON MedicationIssue.MultilexDrug_ID = MedicationDictionary.MultilexDrug_ID
                 """,
@@ -976,19 +975,21 @@ class StudyDefinition:
             return self._number_of_episodes_by_clinical_event(**kwargs)
         # This is the default code path for most queries
         else:
-            # Remove unhandled arguments and check they are unused
-            assert not kwargs.pop("ignore_days_where_these_codes_occur", None)
             assert not kwargs.pop("episode_defined_as", None)
             return self._patients_with_events(
-                "CodedEvent", "CTV3Code", codes_are_case_sensitive=True, **kwargs
+                "CodedEvent", "", "CTV3Code", codes_are_case_sensitive=True, **kwargs
             )
 
     def _patients_with_events(
         self,
         from_table,
+        additional_join,
         code_column,
         codes_are_case_sensitive,
         codelist,
+        # Allows us to say: find codes A and B, but only on days where X and Y
+        # didn't happen
+        ignore_days_where_these_codes_occur=None,
         # Set date limits
         between=None,
         # Matching rule
@@ -1000,6 +1001,9 @@ class StudyDefinition:
     ):
         codelist_table = self.create_codelist_table(codelist, codes_are_case_sensitive)
         date_condition = make_date_filter("ConsultationDate", between)
+        not_an_ignored_day_condition = self._none_of_these_codes_occur_on_same_day(
+            from_table, ignore_days_where_these_codes_occur
+        )
 
         # Result ordering
         if find_first_match_in_period:
@@ -1048,10 +1052,10 @@ class StudyDefinition:
               ROW_NUMBER() OVER (
                 PARTITION BY Patient_ID ORDER BY ConsultationDate {ordering}
               ) AS rownum
-              FROM {from_table}
+              FROM {from_table}{additional_join}
               INNER JOIN {codelist_table}
               ON {code_column} = {codelist_table}.code
-              WHERE {date_condition}
+              WHERE {date_condition} AND {not_an_ignored_day_condition}
             ) t
             WHERE rownum = 1
             """
@@ -1061,10 +1065,10 @@ class StudyDefinition:
               Patient_ID AS patient_id,
               {column_definition} AS {column_name},
               {date_aggregate}(ConsultationDate) AS date
-            FROM {from_table}
+            FROM {from_table}{additional_join}
             INNER JOIN {codelist_table}
             ON {code_column} = {codelist_table}.code
-            WHERE {date_condition}
+            WHERE {date_condition} AND {not_an_ignored_day_condition}
             GROUP BY Patient_ID
             """
 
@@ -1081,15 +1085,14 @@ class StudyDefinition:
         codelist,
         # Set date limits
         between=None,
-        ignore_days_where_these_clinical_codes_occur=None,
+        ignore_days_where_these_codes_occur=None,
         episode_defined_as=None,
     ):
         codelist_table = self.create_codelist_table(codelist, case_sensitive=False)
-        assert ignore_days_where_these_clinical_codes_occur.system == "ctv3"
-        ignore_list_table = self.create_codelist_table(
-            ignore_days_where_these_clinical_codes_occur, case_sensitive=True
-        )
         date_condition = make_date_filter("ConsultationDate", between)
+        not_an_ignored_day_condition = self._none_of_these_codes_occur_on_same_day(
+            "MedicationIssue", ignore_days_where_these_codes_occur
+        )
         if episode_defined_as is not None:
             pattern = r"^series of events each <= (\d+) days apart$"
             match = re.match(pattern, episode_defined_as)
@@ -1123,16 +1126,7 @@ class StudyDefinition:
             ON MedicationIssue.MultilexDrug_ID = MedicationDictionary.MultilexDrug_ID
             INNER JOIN {codelist_table}
             ON DMD_ID = {codelist_table}.code
-            WHERE
-              {date_condition}
-              AND NOT EXISTS (
-                SELECT * FROM CodedEvent AS sameday
-                INNER JOIN {ignore_list_table}
-                ON sameday.CTV3Code = {ignore_list_table}.code
-                WHERE
-                  sameday.Patient_ID = MedicationIssue.Patient_ID
-                  AND CAST(sameday.ConsultationDate AS date) = CAST(MedicationIssue.ConsultationDate AS date)
-              )
+            WHERE {date_condition} AND {not_an_ignored_day_condition}
         ) t
         GROUP BY Patient_ID
         """
@@ -1147,10 +1141,10 @@ class StudyDefinition:
         episode_defined_as=None,
     ):
         codelist_table = self.create_codelist_table(codelist, case_sensitive=True)
-        ignore_list_table = self.create_codelist_table(
-            ignore_days_where_these_codes_occur, case_sensitive=True
-        )
         date_condition = make_date_filter("ConsultationDate", between)
+        not_an_ignored_day_condition = self._none_of_these_codes_occur_on_same_day(
+            "CodedEvent", ignore_days_where_these_codes_occur
+        )
         if episode_defined_as is not None:
             pattern = r"^series of events each <= (\d+) days apart$"
             match = re.match(pattern, episode_defined_as)
@@ -1182,20 +1176,36 @@ class StudyDefinition:
             FROM CodedEvent
             INNER JOIN {codelist_table}
             ON CTV3Code = {codelist_table}.code
-            WHERE
-              {date_condition}
-              AND NOT EXISTS (
-                SELECT * FROM CodedEvent AS sameday
-                INNER JOIN {ignore_list_table}
-                ON sameday.CTV3Code = {ignore_list_table}.code
-                WHERE
-                  sameday.Patient_ID = CodedEvent.Patient_ID
-                  AND CAST(sameday.ConsultationDate AS date) = CAST(CodedEvent.ConsultationDate AS date)
-              )
+            WHERE {date_condition} AND {not_an_ignored_day_condition}
         ) t
         GROUP BY Patient_ID
         """
         return ["patient_id", "episode_count"], sql
+
+    def _none_of_these_codes_occur_on_same_day(self, joined_table, codelist):
+        """
+        Generates a SQL condition that filters rows in `joined_table` so that
+        they only include events which happened on days where none of the codes
+        in `codelist` occur in the CodedEvents table.
+
+        We use this to support queries like "give me all the times a patient
+        was prescribed this drug, but ignore any days on which they were having
+        their annual COPD review".
+        """
+        if codelist is None:
+            return "1 = 1"
+        assert codelist.system == "ctv3"
+        codelist_table = self.create_codelist_table(codelist, case_sensitive=True)
+        return f"""
+        NOT EXISTS (
+          SELECT * FROM CodedEvent AS sameday
+          INNER JOIN {codelist_table}
+          ON sameday.CTV3Code = {codelist_table}.code
+          WHERE
+            sameday.Patient_ID = {joined_table}.Patient_ID
+            AND CAST(sameday.ConsultationDate AS date) = CAST({joined_table}.ConsultationDate AS date)
+        )
+        """
 
     def patients_registered_practice_as_of(self, date, returning=None):
         if returning == "stp_code":
@@ -2120,6 +2130,16 @@ def process_arguments(args):
     if args.pop("return_last_date_in_period", None):
         args["returning"] = "date"
         args["find_last_match_in_period"] = True
+
+    # In the public API of the `with_these_medications` function we use the
+    # phrase "clinical codes" (as opposed to just "codes") to make it clear
+    # that these are distinct from the SNOMED codes used to query the
+    # medications table. However, for simplicity of implementation we use just
+    # one argument name internally
+    if "ignore_days_where_these_clinical_codes_occur" in args:
+        args["ignore_days_where_these_codes_occur"] = args.pop(
+            "ignore_days_where_these_clinical_codes_occur"
+        )
 
     args = handle_legacy_date_args(args)
 
