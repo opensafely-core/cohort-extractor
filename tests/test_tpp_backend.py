@@ -29,6 +29,9 @@ from datalab_cohorts import (
     StudyDefinition,
     patients,
     codelist,
+)
+
+from datalab_cohorts.tpp_backend import (
     quote,
     AppointmentStatus,
 )
