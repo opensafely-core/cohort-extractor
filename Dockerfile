@@ -48,6 +48,4 @@ RUN apt-get install -y unixodbc-dev
 RUN curl https://bootstrap.pypa.io/get-pip.py | python
 RUN pip install --requirement requirements.txt
 
-
-
-CMD ["/bin/bash"]
+CMD ["/workspace/run.py"]
