@@ -21,4 +21,5 @@ setup(
         "sqlparse",
     ],
     scripts=["run.py"],
+    include_package_data=True,
 )
