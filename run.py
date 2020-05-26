@@ -8,9 +8,7 @@ import importlib
 import os
 import re
 import requests
-import subprocess
 import shutil
-import signal
 import sys
 
 
@@ -44,121 +42,6 @@ def relative_dir():
     else:
         relative_dir = os.getcwd()
     return relative_dir
-
-
-def stream_subprocess_output(cmd):
-    """Stream stdout and stderr of `cmd` in a subprocess to stdout
-    """
-    with subprocess.Popen(
-        cmd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        bufsize=1,
-        universal_newlines=True,
-    ) as p:
-        for line in p.stdout:
-            # I don't understand why we need the `\r`, but when run
-            # via docker apparently require a carriage return for the
-            # output to display correctly
-            print(line, end="\r")
-        p.wait()
-        if p.returncode > 0:
-            raise subprocess.CalledProcessError(cmd=cmd, returncode=p.returncode)
-
-
-def docker_build(tag):
-    """Build container for Dockerfile in current directory
-    """
-    buildcmd = ["docker", "build", "-t", tag, "-f", "Dockerfile", "."]
-    print(
-        "Building docker image. This may take some time (particularly on the first run)..."
-    )
-    print("Running", " ".join(buildcmd))
-    stream_subprocess_output(buildcmd)
-
-
-def docker_login():
-    runcmd = [
-        "docker",
-        "login",
-        "docker.pkg.github.com",
-        "-u",
-        os.environ["GITHUB_ACTOR"],
-        "--password",
-        os.environ["GITHUB_TOKEN"],
-    ]
-    print("Running {}".format(" ".join(runcmd)))
-    return stream_subprocess_output(runcmd)
-
-
-def docker_pull(image):
-    runcmd = ["docker", "pull", image]
-    print("Running {}".format(" ".join(runcmd)))
-    return stream_subprocess_output(runcmd)
-
-
-def docker_run(image, *args, detach=False):
-    """Run docker in background, and install signal handler to stop it
-    again
-
-    """
-    current_dir = relative_dir()
-    runcmd = [
-        "docker",
-        "run",
-        f"--detach={detach and 'true' or 'false'}",
-        "-w",
-        target_dir,
-        "--rm",  # clean up the container after it's stopped
-        "--mount",
-        f"source={current_dir},dst={target_dir},type=bind",
-        "--publish-all",
-        "--mount",
-        # Ensure we override any local pyenv configuration
-        f"source={current_dir}/.python-version-docker,dst={target_dir}/.python-version,type=bind",
-        image,
-        *args,
-    ]
-    print("Running {}".format(" ".join(runcmd)))
-    if detach:
-        completed_process = subprocess.run(runcmd, check=True, capture_output=True)
-        container_id = completed_process.stdout.decode("utf8").strip()
-
-        def stop_handler(sig, frame):
-            print("Stopping docker...")
-            subprocess.run(["docker", "kill", container_id], check=True)
-            sys.exit(0)
-
-        signal.signal(signal.SIGINT, stop_handler)
-
-        return container_id
-    else:
-        return stream_subprocess_output(runcmd)
-
-
-def docker_port(container_id):
-    """Return the port that the specified container is listening on
-    """
-    completed_process = subprocess.run(
-        ["docker", "port", container_id], check=True, capture_output=True
-    )
-    port_mapping = completed_process.stdout.decode("utf8").strip()
-    port = port_mapping.split(":")[-1]
-    return port
-
-
-def check_output():
-    # Stata insists on writing to the current
-    # directory: https://stackoverflow.com/a/35051922/559140
-    output = ""
-    with open("model.log", "r") as f:
-        output = f.read()
-        # XXX at this point, for some reason newlines are coming out
-        # as escaped literals. I can't work out why and need to get on
-        # for now, so have replaced `^` in this regex with `\n`/DOTALL
-        if re.findall(r"\nr\([0-9]+\);$", output, re.DOTALL):
-            raise Exception(f"Problem found:\n\n{output}")
-    return output
 
 
 def make_chart(name, series, dtype):
@@ -357,7 +240,6 @@ def list_study_definitions():
 def main():
     parser = ArgumentParser(
         description="Generate cohorts and run models in openSAFELY framework. "
-        "Latest version at https://github.com/ebmdatalab/opencorona-research-template/releases/latest"
     )
     # Cohort parser options
     parser.add_argument("--version", help="Display runner version", action="store_true")
@@ -402,33 +284,14 @@ def main():
         type=str,
         default=os.environ.get("DATABASE_URL", ""),
     )
-    generate_cohort_parser.add_argument(
-        "--docker", action="store_true", help="Run in docker"
-    )
-    generate_cohort_parser.add_argument(
-        "--skip-build", action="store_true", help="Skip docker build step"
-    )
-
-    # Notebook runner options at the moment
-    run_notebook_parser.add_argument(
-        "--skip-build", action="store_true", help="Skip docker build step"
-    )
 
     options = parser.parse_args()
     if options.version:
         version = parse(runner.__version__)
         print(f"v{version.public}")
     elif options.which == "generate_cohort":
-        if options.docker:
-            if not options.skip_build:
-                docker_build(notebook_tag)
-            args = sys.argv[:]
-            if "--docker" in args:
-                args.remove("--docker")
-            docker_run(notebook_tag, "python", *args)
-        else:
-            os.environ["DATABASE_URL"] = options.database_url
-            generate_cohort(options.expectations_population)
+        os.environ["DATABASE_URL"] = options.database_url
+        generate_cohort(options.expectations_population)
     elif options.which == "cohort_report":
         make_cohort_report()
     elif options.which == "update_codelists":

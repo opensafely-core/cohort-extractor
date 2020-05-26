@@ -86,13 +86,6 @@ files will be named `analysis/input_<name>.csv`.
 You can now use Stata as you usually would, with your code entrypoint
 in `analysis/model.do`.
 
-### Using docker and the command line
-
-Python 3.8 is assumed:
-
-* Install Docker
-* `python run.py generate_cohort --docker --database-url <DATABASE_URL>`
-
 ### Using plain python
 
 * Install ODBC Driver 17 for SQL Server for your platform
