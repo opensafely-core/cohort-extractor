@@ -20,6 +20,6 @@ setup(
         "sqlalchemy",
         "sqlparse",
     ],
-    scripts=["run.py"],
+    scripts=["cohort-extractor"],
     include_package_data=True,
 )
