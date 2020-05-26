@@ -17,7 +17,6 @@ import sys
 import base64
 from io import BytesIO
 from argparse import ArgumentParser
-from packaging.version import parse
 from matplotlib import pyplot as plt
 import numpy as np
 from pandas.api.types import is_categorical_dtype
@@ -281,8 +280,7 @@ def main():
 
     options = parser.parse_args()
     if options.version:
-        version = parse(runner.__version__)
-        print(f"v{version.public}")
+        print(f"v{runner.__version__}")
     elif options.which == "generate_cohort":
         os.environ["DATABASE_URL"] = options.database_url
         generate_cohort(options.expectations_population)
