@@ -9,7 +9,6 @@ from tests.tpp_backend_setup import make_database, make_session
 from tests.tpp_backend_setup import (
     Appointment,
     CodedEvent,
-    CovidStatus,
     MedicationIssue,
     MedicationDictionary,
     Patient,
@@ -30,8 +29,9 @@ from datalab_cohorts import (
     StudyDefinition,
     patients,
     codelist,
-    filter_codes_by_category,
-    combine_codelists,
+)
+
+from datalab_cohorts.tpp_backend import (
     quote,
     AppointmentStatus,
 )
@@ -45,7 +45,6 @@ def setup_function(function):
     """Ensure test database is empty
     """
     session = make_session()
-    session.query(CovidStatus).delete()
     session.query(CodedEvent).delete()
     session.query(ICNARC).delete()
     session.query(ONSDeaths).delete()
@@ -79,37 +78,6 @@ def test_minimal_study_to_csv():
             {"patient_id": str(patient_1.Patient_ID), "sex": "M"},
             {"patient_id": str(patient_2.Patient_ID), "sex": "F"},
         ]
-
-
-def test_patient_characteristics_for_covid_status():
-    session = make_session()
-    old_patient_with_covid = Patient(
-        DateOfBirth="1900-01-01",
-        CovidStatus=CovidStatus(Result="COVID19", AdmittedToITU=True),
-        Sex="M",
-    )
-    young_patient_1_with_covid = Patient(
-        DateOfBirth="2000-01-01",
-        CovidStatus=CovidStatus(Result="COVID19", Died=True),
-        Sex="F",
-    )
-    young_patient_2_without_covid = Patient(DateOfBirth="2001-01-01", Sex="F")
-    session.add(old_patient_with_covid)
-    session.add(young_patient_1_with_covid)
-    session.add(young_patient_2_without_covid)
-    session.commit()
-
-    study = StudyDefinition(
-        population=patients.with_positive_covid_test(),
-        age=patients.age_as_of("2020-01-01"),
-        sex=patients.sex(),
-        died=patients.have_died_of_covid(),
-    )
-    results = study.to_dicts()
-
-    assert [x["sex"] for x in results] == ["M", "F"]
-    assert [x["died"] for x in results] == ["0", "1"]
-    assert [x["age"] for x in results] == ["120", "20"]
 
 
 def test_meds():
@@ -1381,13 +1349,6 @@ def test_patients_with_death_recorded_in_cpns_raises_error_on_bad_data():
         study.to_dicts()
 
 
-def test_filter_codes_by_category():
-    codes = codelist([("1", "A"), ("2", "B"), ("3", "A"), ("4", "C")], "ctv3")
-    filtered = filter_codes_by_category(codes, include=["B", "C"])
-    assert filtered.system == codes.system
-    assert filtered == [("2", "B"), ("4", "C")]
-
-
 def test_to_sql_passes():
     session = make_session()
     patient = Patient(DateOfBirth="1950-01-01")
@@ -1965,52 +1926,3 @@ def test_patients_with_test_result_in_sgss_raises_error_on_bad_data(positive):
     )
     with pytest.raises(Exception):
         study.to_dicts()
-
-
-def test_combine_codelists():
-    list_1 = codelist(["A", "B", "C"], system="ctv3")
-    list_2 = codelist(["X", "Y", "Z"], system="ctv3")
-    combined = combine_codelists(list_1, list_2)
-    expected = codelist(["A", "B", "C", "X", "Y", "Z"], system="ctv3")
-    assert combined == expected
-    assert combined.system == expected.system
-
-
-def test_combine_codelists_with_categories():
-    list_1 = codelist([("A", "foo"), ("B", "bar")], system="icd10")
-    list_2 = codelist([("X", "foo"), ("Y", "bar")], system="icd10")
-    combined = combine_codelists(list_1, list_2)
-    expected = codelist(
-        [("A", "foo"), ("B", "bar"), ("X", "foo"), ("Y", "bar")], system="icd10"
-    )
-    assert combined == expected
-    assert combined.system == expected.system
-
-
-def test_combine_codelists_raises_error_for_mixed_systems():
-    list_1 = codelist(["A", "B", "C"], system="ctv3")
-    list_2 = codelist(["X", "Y", "Z"], system="icd10")
-    with pytest.raises(ValueError):
-        combine_codelists(list_1, list_2)
-
-
-def test_combine_codelists_raises_error_for_mixed_categorisation():
-    list_1 = codelist([("A", "foo"), ("B", "bar")], system="icd10")
-    list_2 = codelist(["X", "Y", "Z"], system="icd10")
-    with pytest.raises(ValueError):
-        combine_codelists(list_1, list_2)
-
-
-def test_combine_codelists_with_duplicates():
-    list_1 = codelist(["A", "B", "C"], system="ctv3")
-    list_2 = codelist(["X", "B", "Z"], system="ctv3")
-    combined = combine_codelists(list_1, list_2)
-    expected = codelist(["A", "B", "C", "X", "Z"], system="ctv3")
-    assert combined == expected
-
-
-def test_combine_codelists_raises_error_on_inconsistent_categorisation():
-    list_1 = codelist([("A", "foo"), ("B", "bar")], system="icd10")
-    list_2 = codelist([("X", "foo"), ("B", "foo")], system="icd10")
-    with pytest.raises(ValueError):
-        combine_codelists(list_1, list_2)
