@@ -16,6 +16,7 @@ import sys
 
 import base64
 from io import BytesIO
+from argparse import ArgumentParser
 from packaging.version import parse
 from matplotlib import pyplot as plt
 import numpy as np
@@ -28,15 +29,6 @@ import yaml
 from datetime import datetime
 import seaborn as sns
 
-
-try:
-    from gooey import Gooey
-    from gooey import GooeyParser as ArgumentParser
-
-    GOOEY_INSTALLED = True  # Currently, only in a Windows build
-except ImportError:
-    GOOEY_INSTALLED = False
-    from argparse import ArgumentParser
 
 notebook_tag = "opencorona-research"
 target_dir = "/home/app/notebook"
@@ -362,7 +354,7 @@ def list_study_definitions():
             yield name, suffix
 
 
-def main(from_cmd_line=False):
+def main():
     parser = ArgumentParser(
         description="Generate cohorts and run models in openSAFELY framework. "
         "Latest version at https://github.com/ebmdatalab/opencorona-research-template/releases/latest"
@@ -410,13 +402,12 @@ def main(from_cmd_line=False):
         type=str,
         default=os.environ.get("DATABASE_URL", ""),
     )
-    if from_cmd_line:
-        generate_cohort_parser.add_argument(
-            "--docker", action="store_true", help="Run in docker"
-        )
-        generate_cohort_parser.add_argument(
-            "--skip-build", action="store_true", help="Skip docker build step"
-        )
+    generate_cohort_parser.add_argument(
+        "--docker", action="store_true", help="Run in docker"
+    )
+    generate_cohort_parser.add_argument(
+        "--skip-build", action="store_true", help="Skip docker build step"
+    )
 
     # Notebook runner options at the moment
     run_notebook_parser.add_argument(
@@ -428,7 +419,7 @@ def main(from_cmd_line=False):
         version = parse(runner.__version__)
         print(f"v{version.public}")
     elif options.which == "generate_cohort":
-        if from_cmd_line and options.docker:
+        if options.docker:
             if not options.skip_build:
                 docker_build(notebook_tag)
             args = sys.argv[:]
@@ -450,7 +441,4 @@ def main(from_cmd_line=False):
 
 
 if __name__ == "__main__":
-    if (len(sys.argv) == 1 or sys.argv[1] == "--ignore-gooey") and GOOEY_INSTALLED:
-        Gooey(main)()
-    else:
-        main(from_cmd_line=True)
+    main()
