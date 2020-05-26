@@ -1,6 +1,6 @@
 FROM ubuntu:bionic
 
-# MSSQL_VERSION can be changed, by passing `--build-arg
+# PYTHON_VERSION can be changed, by passing `--build-arg
 # PYTHON_VERSION=<new version>` during docker build
 ARG PYTHON_VERSION=3.8.3
 ENV PYTHON_VERSION=${PYTHON_VERSION}
@@ -42,12 +42,15 @@ WORKDIR /workspace
 
 # Install pip and requirements
 COPY requirements.txt /workspace
+# Extra dependencies needed by python packages
 RUN apt-get install -y unixodbc-dev
 RUN curl https://bootstrap.pypa.io/get-pip.py | python
 RUN pip install --requirement requirements.txt
 
 COPY . /workspace
-# Dotfiles are not needed
+
+# Dotfiles such as .python-version are not needed but can make their
+# way into the image when built locally
 RUN find . -maxdepth 1 -name ".*" -not -name "." -exec xargs rm -rf {} \;
 
 ENTRYPOINT ["/workspace/run.py"]
