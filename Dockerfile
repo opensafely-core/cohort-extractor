@@ -39,13 +39,14 @@ WORKDIR /workspace
 
 # maybe build with this
 # https://github.com/whoan/docker-build-with-cache-action
-COPY . /workspace
-# Dotfiles are not needed
-RUN find . -maxdepth 1 -name ".*" -not -name "." -exec xargs rm -rf {} \;
 
 # Install pip and requirements
+COPY requirements.txt /workspace
 RUN apt-get install -y unixodbc-dev
 RUN curl https://bootstrap.pypa.io/get-pip.py | python
 RUN pip install --requirement requirements.txt
 
-CMD ["/workspace/run.py"]
+CMD ["/workspace/run.py"]COPY . /workspace
+COPY . /workspace
+# Dotfiles are not needed
+RUN find . -maxdepth 1 -name ".*" -not -name "." -exec xargs rm -rf {} \;
