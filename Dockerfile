@@ -46,7 +46,8 @@ RUN apt-get install -y unixodbc-dev
 RUN curl https://bootstrap.pypa.io/get-pip.py | python
 RUN pip install --requirement requirements.txt
 
-CMD ["/workspace/run.py"]COPY . /workspace
 COPY . /workspace
 # Dotfiles are not needed
 RUN find . -maxdepth 1 -name ".*" -not -name "." -exec xargs rm -rf {} \;
+
+ENTRYPOINT ["/workspace/run.py"]
