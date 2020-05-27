@@ -29,7 +29,7 @@ def merge(dict1, dict2):
     result = copy.deepcopy(dict1)
 
     for key, value in dict2.items():
-        if isinstance(value, collections.Mapping):
+        if isinstance(value, collections.abc.Mapping):
             result[key] = merge(result.get(key, {}), value)
         else:
             result[key] = copy.deepcopy(dict2[key])
