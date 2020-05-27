@@ -389,7 +389,7 @@ def test_make_df_from_expectations_with_categories_expression():
     study = StudyDefinition(
         population=patients.all(),
         category=patients.categorised_as(
-            {"A": "sex = 'F'", "B": "sex = 'M'"},
+            {"A": "sex = 'F'", "B": "sex = 'M'", "": "DEFAULT"},
             sex=patients.sex(),
             return_expectations={
                 "rate": "exponential_increase",
@@ -409,7 +409,7 @@ def test_make_df_from_expectations_with_categories_expression_validation():
     study = StudyDefinition(
         population=patients.all(),
         category=patients.categorised_as(
-            {"A": "sex = 'F'", "B": "sex = 'M'"},
+            {"A": "sex = 'F'", "B": "sex = 'M'", "": "DEFAULT"},
             sex=patients.sex(),
             return_expectations={
                 "rate": "exponential_increase",
