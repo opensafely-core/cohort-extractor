@@ -96,7 +96,7 @@ in `analysis/model.do`.
 
 ## Running the model
 
-There are three ways to run your model:
+There are two ways to run your model:
 
 * Directly in your usual development environment. For example, if you
   have Stata installed locally, just open `model.do` and run as normal
