@@ -2,8 +2,6 @@ import runner
 
 from setuptools import setup, find_packages
 
-runner.__version__
-
 setup(
     name="opensafely-cohort-extractor",
     version=runner.__version__,
