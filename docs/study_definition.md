@@ -1,37 +1,38 @@
 # Overview
 
-A _study definition_ is a single place that describes all of the
-features of your study: the codelists, the population definitions, the
-dates, and the covariates.
+A _study definition_ describes all of the features of your study: the
+codelists, the population definitions, the dates, and the covariates.
 
 It is written in a custom format which is intended to be readable and
 reviewable by anyone with epidemiological knowledge.  The OpenSAFELY
 framework uses the study definition to query different vendor EHR
-databases, and returns the results in a dataframe (in CSV format).
+databases, and returns the results in a CSV file of tabular data.
 
 A study definition also allows a researcher to define the shape of the
 values they *expect* to get back from the vendor data. This allows the
-framework to generate dummy data which the researcher can user to
-write their models, without ever having to touch real patient data.
-
+framework to generate dummy data which the researcher can user to test
+models their models during development, without ever having to touch
+real patient data.
 
 
 # Naming study definitions
 
 When you run `cohort-extractor generate_cohort`, the framework reads a
 study definition at `analysis/study_definition.py`, and writes the
-output dataframe to `analysis/input.csv`.
+output dataframe to `analysis/input.csv`.  In a production environment
+this will be real data; in a development environment this will be
+dummy data.
 
 Multiple study definition files can be specified using a suffix like:
 ```
-study_definition_bright_light.py
-study_definition_iv_lysol.py
+study_definition_copd.py
+study_definition_astham.py
 ```
 
 And all the corresponding output files will have the same suffix e.g.
 ```
-input_bright_light.csv
-input_iv_lysol.csv
+input_copd.csv
+input_asthma.csv
 ```
 
 # Codelist definitions
