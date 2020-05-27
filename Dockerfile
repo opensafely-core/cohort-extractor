@@ -53,4 +53,4 @@ COPY . /workspace
 # way into the image when built locally
 RUN find . -maxdepth 1 -name ".*" -not -name "." -exec xargs rm -rf {} \;
 
-ENTRYPOINT ["/workspace/run.py"]
+ENTRYPOINT ["/workspace/cohort-extractor"]

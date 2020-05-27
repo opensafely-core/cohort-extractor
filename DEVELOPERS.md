@@ -64,20 +64,28 @@ tests (in `tests/`) for `StudyDefinition` examples.
 
 ## Generating dummy data
 
-### On Windows
-You'll want to install a couple of things:
+To generate dummy data, install the `opensafely-cohort-extractor` package:
 
-* [This ODBC driver from Microsoft](https://www.microsoft.com/en-us/download/details.aspx?id=56567)
-* The latest `run.exe` from [here](https://github.com/ebmdatalab/opensafely-research-template/releases/latest)
-  * This must be copied to and run from the root folder of your research repository
-  * Note that if you're testing a new branch with new `runner` functionality, you'll need to download the latest `run.exe` that is *tagged with that branch name* from the **Releases** section of github
+     pip install --upgrade "git+ssh://git@github.com/ebmdatalab/opensafely-research-template.git@eggify#egg=opensafely-cohort-extractor"
+
+This will install the `cohort-extractor` script.
+
+Run it from the root of your study repo:
+
+    cohort-extractor generate_cohort --expectations-population=10000
+
+If you don't have Python installed, you can always wait for Github
+Actions to generate a dummy `input.csv` after each push.
+
+To generate a cohort from a TPP-compliant backend from the command
+line, you'll want to install [this ODBC driver from
+Microsoft](https://www.microsoft.com/en-us/download/details.aspx?id=56567)
 
 You need to obtain the "database URL", which includes a username and
 password.  When running outside the secure environment, obtain a URL
 that gives you access to the publicly-available dummy dataset.
 
-Now double-click `run.exe`, and it will use your covariate definitions
-in `analysis/study_definition.py` to generate a data file at `analysis/input.csv`.
+    cohort-extractor generate_cohort --database-url='mssql+odbc://username:password@host:port/database?driver=ODBC+Driver+17+for+SQL+Server'
 
 If you have multiple study definitions named like
 `analysis/study_definition_<name>.py` then the corresponding output
@@ -86,27 +94,13 @@ files will be named `analysis/input_<name>.csv`.
 You can now use Stata as you usually would, with your code entrypoint
 in `analysis/model.do`.
 
-### Using plain python
-
-* Install ODBC Driver 17 for SQL Server for your platform
-* Set up a Python 3.8 virtual environment
-* `pip install -r requirements.txt`
-* `python run.py --help`
-
 ## Running the model
 
-There are three ways to run your model:
+There are two ways to run your model:
 
-* Directly in your usual development environent. For example, if you have Stata installed locally, just open `model.do` and run as normal
-* Via the runner tool:
-   * Select the `run` option and tell it where your Stata application is
-   * Leave the Stata location blank, and the tool will attempt to use Docker to run the model
-
-For the last option, you will need to provide docker with credentials
-to access the Docker version of Stata. It's password-protected as it
-includes licensed software -- if you are a third party outside the
-OpenSAFELY collaborative, you'll need to purchase your own Stata
-licence, and we will help you set up your own docker version.
+* Directly in your usual development environment. For example, if you
+  have Stata installed locally, just open `model.do` and run as normal
+* Via a docker image
 
 We use the Github Docker package repository, so you'll need to add a
 Personal Access Token with permissions to read packages. visit your
@@ -121,9 +115,11 @@ Now run
 
 You can check this worked by running
 
-    docker pull docker.pkg.github.com/ebmdatalab/stata-docker-runner/stata-mp:latest
+    docker pull docker.pkg.github.com/opensafely/stata-docker/stata-mp:latest
 
-* Run `run.py run --analysis` to run the model. Its output is streamed to stdout, and saved in `model.log`
+And you can run it with
+
+    docker run --mount source=$(pwd),dst=/workspace,type=bind stata-mp analysis/model.do
 
 # For developers
 

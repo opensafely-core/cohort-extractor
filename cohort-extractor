@@ -17,7 +17,6 @@ import sys
 import base64
 from io import BytesIO
 from argparse import ArgumentParser
-from packaging.version import parse
 from matplotlib import pyplot as plt
 import numpy as np
 from pandas.api.types import is_categorical_dtype
@@ -35,15 +34,7 @@ target_dir = "/home/app/notebook"
 
 
 def relative_dir():
-    if sys.executable == "run.exe":
-        # This is a pyinstaller package on Windows; the `cwd` is
-        # likely to be anything (e.g. the Github desktop AppData
-        # space); `__file__` is some kind of temporary location
-        # resulting from an internal unzip.
-        relative_dir = os.path.dirname(os.path.realpath(sys.executable))
-    else:
-        relative_dir = os.getcwd()
-    return relative_dir
+    return os.getcwd()
 
 
 def make_chart(name, series, dtype):
@@ -101,7 +92,21 @@ def make_chart(name, series, dtype):
     return base64.b64encode(img.read()).decode("UTF-8")
 
 
+def preflight_generation_check():
+    """Raise an informative error if things are not as they should be
+    """
+    missing_paths = []
+    required_paths = ["codelists/", "analysis/"]
+    for p in required_paths:
+        if not os.path.exists(p):
+            missing_paths.append(p)
+    if missing_paths:
+        msg = "This command expects the following relative paths to exist: {}"
+        raise RuntimeError(msg.format(", ".join(missing_paths)))
+
+
 def generate_cohort(expectations_population):
+    preflight_generation_check()
     for study_name, suffix in list_study_definitions():
         print(f"Generating cohort for {study_name}...")
         _generate_cohort(study_name, suffix, expectations_population)
@@ -187,7 +192,7 @@ def _make_cohort_report(study_name, suffix):
 
 
 def update_codelists():
-    base_path = os.path.join(os.path.dirname(__file__), "codelists")
+    base_path = os.path.join(os.getcwd(), "codelists")
 
     # delete all existing codelists
     for path in glob.glob(os.path.join(base_path, "*.csv")):
@@ -289,8 +294,9 @@ def main():
 
     options = parser.parse_args()
     if options.version:
-        version = parse(runner.__version__)
-        print(f"v{version.public}")
+        print(f"v{runner.__version__}")
+    elif not hasattr(options, "which"):
+        parser.print_help()
     elif options.which == "generate_cohort":
         os.environ["DATABASE_URL"] = options.database_url
         generate_cohort(options.expectations_population)
