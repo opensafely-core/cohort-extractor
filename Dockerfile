@@ -49,8 +49,8 @@ RUN pip install --requirement requirements.txt
 
 COPY . /workspace
 
-# Dotfiles such as .python-version are not needed but can make their
-# way into the image when built locally
-RUN find . -maxdepth 1 -name ".*" -not -name "." -exec xargs rm -rf {} \;
+# .python-version is not needed but can make its way into the image when built
+# locally
+RUN rm -f .python-version
 
 ENTRYPOINT ["/workspace/cohort-extractor"]
