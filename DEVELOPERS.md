@@ -64,7 +64,7 @@ tests (in `tests/`) for `StudyDefinition` examples.
 
 ## Generating dummy data
 
-To generate dummy data, install the `opensafely-cohort-extractor` gem:
+To generate dummy data, install the `opensafely-cohort-extractor` package:
 
      pip install --upgrade "git+ssh://git@github.com/ebmdatalab/opensafely-research-template.git@eggify#egg=opensafely-cohort-extractor"
 
