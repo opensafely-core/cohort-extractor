@@ -5,12 +5,16 @@ from scipy.stats import norm
 from scipy.stats import uniform
 import pandas as pd
 import numpy as np
+import os
 
 
 def generate_ages(population, max_age=110):
     """Generate a population whose ages approximate UK population shape
     """
-    df = pd.read_csv("datalab_cohorts/uk_population_bands_2018.csv")
+
+    df = pd.read_csv(
+        os.path.join(os.path.dirname(__file__), "uk_population_bands_2018.csv")
+    )
     # Reshape the dataframe (from
     # https://www.ons.gov.uk/peoplepopulationandcommunity/populationandmigration/populationprojections/datasets/tablea21principalprojectionukpopulationinagegroups)
     bands = df["band"].str.split("-").apply(pd.Series)
