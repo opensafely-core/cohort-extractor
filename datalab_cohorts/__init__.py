@@ -1,4 +1,4 @@
-from .tpp_backend import StudyDefinition
+from .study_definition import StudyDefinition
 
 from .codelistlib import (
     codelist,

@@ -1363,7 +1363,7 @@ def test_to_sql_passes():
     )
     sql = "SET NOCOUNT ON; "  # don't output count after table output
     sql += study.to_sql()
-    db_dict = study.get_db_dict()
+    db_dict = study.backend.get_db_dict()
     cmd = [
         "sqlcmd",
         "-S",
@@ -1389,7 +1389,7 @@ def test_duplicate_id_checking():
     study = StudyDefinition(population=patients.all())
     # A bit of a hack: overwrite the queries we're going to run with a query which
     # deliberately returns duplicate values
-    study.queries = [
+    study.backend.queries = [
         (
             "dummy_query",
             """
