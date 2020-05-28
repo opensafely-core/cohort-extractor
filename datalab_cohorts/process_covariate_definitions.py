@@ -37,7 +37,6 @@ def flatten_nested_covariates(covariate_definitions):
     hidden = set()
     items = list(covariate_definitions.items())
     while items:
-
         name, (query_type, query_args) = items.pop(0)
         if query_type == "categorised_as" and "extra_columns" in query_args:
             query_args = query_args.copy()
