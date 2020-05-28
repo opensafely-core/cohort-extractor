@@ -16,6 +16,7 @@ def process_covariate_definitions(covariate_definitions):
         covariate_definitions
     )
     covariate_definitions = add_include_date_flags_to_columns(covariate_definitions)
+    covariate_definitions = add_column_types(covariate_definitions)
     return covariate_definitions
 
 
@@ -210,6 +211,139 @@ def add_include_date_flags_to_columns(covariate_definitions):
                 include_date_of_match=True, date_format=query_args.get("date_format"),
             )
     return updated
+
+
+def add_column_types(covariate_definitions):
+    get_column_type = GetColumnType()
+    for name, (query_type, query_args) in covariate_definitions.items():
+        query_args["column_type"] = get_column_type(query_type, query_args)
+    return covariate_definitions
+
+
+class GetColumnType:
+    def __call__(self, query_type, query_args):
+        try:
+            method = getattr(self, f"type_of_{query_type}")
+        except AttributeError:
+            raise ValueError(f"No column type method defined for {query_type}")
+        return method(**query_args)
+
+    def type_of_value_from(self, returning, **kwargs):
+        return self._type_from_return_value(returning)
+
+    def type_of_age_as_of(self, **kwargs):
+        return "int"
+
+    def type_of_sex(self, **kwargs):
+        return "str"
+
+    def type_of_all(self, **kwargs):
+        return "bool"
+
+    def type_of_random_sample(self, **kwargs):
+        return "bool"
+
+    def type_of_most_recent_bmi(self, **kwargs):
+        return "float"
+
+    def type_of_mean_recorded_value(self, **kwargs):
+        return "float"
+
+    def type_of_registered_as_of(self, **kwargs):
+        return "bool"
+
+    def type_of_registered_with_one_practice_between(self, **kwargs):
+        return "bool"
+
+    def type_of_with_complete_history_between(self, **kwargs):
+        return "bool"
+
+    def type_of_with_these_medications(self, returning, **kwargs):
+        return self._type_from_return_value(returning)
+
+    def type_of_with_these_clinical_events(self, returning, **kwargs):
+        return self._type_from_return_value(returning)
+
+    def type_of_registered_practice_as_of(self, returning, **kwargs):
+        return self._type_from_return_value(returning)
+
+    def type_of_address_as_of(self, returning, **kwargs):
+        return self._type_from_return_value(returning)
+
+    def type_of_admitted_to_icu(self, returning, **kwargs):
+        return self._type_from_return_value(returning)
+
+    def type_of_with_these_codes_on_death_certificate(self, returning, **kwargs):
+        return self._type_from_return_value(returning)
+
+    def type_of_died_from_any_cause(self, returning, **kwargs):
+        return self._type_from_return_value(returning)
+
+    def type_of_with_death_recorded_in_cpns(self, returning, **kwargs):
+        return self._type_from_return_value(returning)
+
+    def type_of_with_tpp_vaccination_record(self, returning, **kwargs):
+        return self._type_from_return_value(returning)
+
+    def type_of_with_gp_consultations(self, returning, **kwargs):
+        return self._type_from_return_value(returning)
+
+    def type_of_with_complete_gp_consultation_history_between(self, **kwargs):
+        return "bool"
+
+    def type_of_with_test_result_in_sgss(self, returning, **kwargs):
+        return self._type_from_return_value(returning)
+
+    def _type_from_return_value(self, returning):
+        mapping = {
+            "binary_flag": "bool",
+            "date": "date",
+            "date_admitted": "date",
+            "date_of_death": "date",
+            "number_of_matches_in_period": "int",
+            "numeric_value": "float",
+            "code": "str",
+            "category": "str",
+            "number_of_episodes": "int",
+            "stp_code": "str",
+            "msoa_code": "str",
+            "nhse_region_name": "str",
+            "nuts1_region_name": "str",
+            "pseudo_id": "int",
+            "index_of_multiple_deprivation": "int",
+            "rural_urban_classification": "int",
+        }
+        try:
+            return mapping[returning]
+        except KeyError:
+            raise ValueError(f"No matching type for '{returning}'")
+
+    def type_of_care_home_status_as_of(self, categorised_as, **kwargs):
+        return self._infer_type_from_categories(categorised_as)
+
+    def type_of_categorised_as(self, category_definitions, **kwargs):
+        return self._infer_type_from_categories(category_definitions)
+
+    def _infer_type_from_categories(self, category_definitions):
+        categories = list(category_definitions.keys())
+        first_type = type(categories[0])
+        for other in categories[1:]:
+            if type(other) != first_type:
+                raise ValueError(
+                    f"Categories must all be the same type, found {first_type} "
+                    f"and {type(other)}"
+                )
+        if first_type is int:
+            if set(categories) == {0, 1}:
+                return "bool"
+            else:
+                return "int"
+        elif first_type is float:
+            return "float"
+        elif first_type is str:
+            return "str"
+        else:
+            raise ValueError(f"Unhandled category type: {first_type}")
 
 
 def pop_keys_from_dict(dictionary, keys):
