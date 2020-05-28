@@ -21,7 +21,8 @@ class TPPBackend:
     _db_connection = None
     _current_column_name = None
 
-    def __init__(self, covariate_definitions):
+    def __init__(self, database_url, covariate_definitions):
+        self.database_url = database_url
         self.covariate_definitions = covariate_definitions
         self.codelist_tables = []
         self.queries = self.get_queries(self.covariate_definitions)
@@ -1299,7 +1300,7 @@ class TPPBackend:
         return f"CASE {' '.join(clauses)} ELSE {quote(default_value)} END"
 
     def get_db_dict(self):
-        parsed = urlparse(os.environ["DATABASE_URL"])
+        parsed = urlparse(self.database_url)
         return {
             "hostname": parsed.hostname,
             "port": parsed.port or 1433,

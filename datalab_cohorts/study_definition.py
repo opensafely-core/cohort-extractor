@@ -1,12 +1,12 @@
 import collections
 import copy
 import datetime
+import os
 
 import pandas as pd
 
 from .expectation_generators import generate
 from .process_covariate_definitions import process_covariate_definitions
-from .tpp_backend import TPPBackend
 
 
 class StudyDefinition:
@@ -15,7 +15,13 @@ class StudyDefinition:
         self.default_expectations = covariates.pop("default_expectations", {})
         self.covariate_definitions = process_covariate_definitions(covariates)
         self.pandas_csv_args = self.get_pandas_csv_args(self.covariate_definitions)
-        self.backend = TPPBackend(self.covariate_definitions)
+        database_url = os.environ.get("DATABASE_URL")
+        if database_url:
+            Backend = self.get_backend_for_database_url(database_url)
+            self.backend = Backend(database_url, self.covariate_definitions)
+        else:
+            # Without a backend defined we can still generate dummy data
+            self.backend = None
 
     def to_csv(self, filename, expectations_population=False, **kwargs):
         if expectations_population:
@@ -26,6 +32,7 @@ class StudyDefinition:
             df = df.rename(columns={"index": "patient_id"})
             df.to_csv(filename, index=False)
         else:
+            self.assert_backend_is_configured()
             self.backend.to_csv(filename, **kwargs)
 
     def csv_to_df(self, csv_name):
@@ -37,9 +44,11 @@ class StudyDefinition:
         )
 
     def to_sql(self):
+        self.assert_backend_is_configured()
         return self.backend.to_sql()
 
     def to_dicts(self):
+        self.assert_backend_is_configured()
         return self.backend.to_dicts()
 
     def to_data(self):
@@ -59,6 +68,21 @@ class StudyDefinition:
     # ************************************************************************
     # END OF PUBLIC API
     # ************************************************************************
+
+    @staticmethod
+    def get_backend_for_database_url(database_url):
+        if database_url.startswith("mssql"):
+            from .tpp_backend import TPPBackend
+
+            return TPPBackend
+        else:
+            raise ValueError(f"No matching backend found for {database_url}")
+
+    def assert_backend_is_configured(self):
+        if not self.backend:
+            raise RuntimeError(
+                "Cannot extract data as no DATABASE_URL environment variable defined"
+            )
 
     @staticmethod
     def get_pandas_csv_args(covariate_definitions):
