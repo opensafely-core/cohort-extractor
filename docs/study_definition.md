@@ -19,7 +19,7 @@ real patient data.
 
 When you run `cohort-extractor generate_cohort`, the framework reads a
 study definition at `analysis/study_definition.py`, and writes the
-output dataframe to `analysis/input.csv`.  In a production environment
+output dataframe to `workdir/input.csv`.  In a production environment
 this will be real data; in a development environment this will be
 dummy data.
 
