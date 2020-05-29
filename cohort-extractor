@@ -31,6 +31,7 @@ import seaborn as sns
 
 notebook_tag = "opencorona-research"
 target_dir = "/home/app/notebook"
+WORKDIR = os.environ.get("OPENSAFELY_WORKDIR", "workdir")
 
 
 def relative_dir():
@@ -117,12 +118,13 @@ def _generate_cohort(study_name, suffix, expectations_population):
     study = load_study_definition(study_name)
 
     with_sqlcmd = shutil.which("sqlcmd") is not None
+    os.makedirs(WORKDIR, exist_ok=True)
     study.to_csv(
-        f"workdir/input{suffix}.csv",
+        f"{WORKDIR}/input{suffix}.csv",
         expectations_population=expectations_population,
         with_sqlcmd=with_sqlcmd,
     )
-    print(f"Successfully created cohort and covariates at workdir/input{suffix}.csv")
+    print(f"Successfully created cohort and covariates at {WORKDIR}/input{suffix}.csv")
 
 
 def make_cohort_report():
@@ -133,7 +135,7 @@ def make_cohort_report():
 def _make_cohort_report(study_name, suffix):
     study = load_study_definition(study_name)
 
-    df = study.csv_to_df(f"workdir/input{suffix}.csv")
+    df = study.csv_to_df(f"{WORKDIR}/input{suffix}.csv")
     descriptives = df.describe(include="all")
 
     for name, dtype in zip(df.columns, df.dtypes):
@@ -156,7 +158,7 @@ def _make_cohort_report(study_name, suffix):
         descriptives.loc["values", name] = main_chart
         descriptives.loc["nulls", name] = empty_values_chart
 
-    with open(f"workdir/descriptives{suffix}.html", "w") as f:
+    with open(f"{WORKDIR}/descriptives{suffix}.html", "w") as f:
 
         f.write(
             """<html>
@@ -188,7 +190,7 @@ def _make_cohort_report(study_name, suffix):
 
         f.write(descriptives.to_html(escape=False, na_rep="", justify="left", border=0))
         f.write("</body></html>")
-    print(f"Created cohort report at workdir/descriptives{suffix}.html")
+    print(f"Created cohort report at {WORKDIR}/descriptives{suffix}.html")
 
 
 def update_codelists():
