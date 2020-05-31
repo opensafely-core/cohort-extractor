@@ -3,11 +3,9 @@ import datetime
 import enum
 import os
 import re
-import subprocess
-import tempfile
 from urllib.parse import urlparse, unquote
 
-import pyodbc
+import prestodb
 
 from .expressions import format_expression
 
@@ -25,75 +23,26 @@ class EMISBackend:
         self.database_url = database_url
         self.covariate_definitions = covariate_definitions
         self.codelist_tables = []
-        self.queries = self.get_queries(self.covariate_definitions)
+        self.full_query = self.get_full_query(self.covariate_definitions)
 
-    def _to_csv_with_sqlcmd(self, filename):
+    def to_csv(self, filename):
+        cursor = self.get_db_connection().cursor()
+        cursor.execute(self.full_query)
+        result = cursor.fetchall()
         unique_check = UniqueCheck()
-        sql = "SET NOCOUNT ON; "  # don't output count after table output
-        sql += self.to_sql()
-        sqlfile = tempfile.mktemp(suffix=".sql")
-        with open(sqlfile, "w") as f:
-            f.write(sql)
-        temp_csv = tempfile.mktemp(suffix=".csv")
-        db_dict = self.get_db_dict()
-        cmd = [
-            "sqlcmd",
-            "-S",
-            db_dict["hostname"] + "," + str(db_dict["port"]),
-            "-d",
-            db_dict["database"],
-            "-U",
-            db_dict["username"],
-            "-P",
-            db_dict["password"],
-            "-i",
-            sqlfile,
-            "-W",  # strip whitespace
-            "-s",
-            ",",  # comma delimited
-            "-r",
-            "1",  # error messages to stderr
-            # "-w",
-            # "99",
-            "-o",
-            temp_csv,
-        ]
-        try:
-            subprocess.run(cmd, capture_output=True, encoding="utf8", check=True)
-        except subprocess.CalledProcessError as e:
-            print(e.output)
-            raise
-
-        with open(filename, "w", newline="\r\n") as final_file:
-            # We use windows line endings because that's what
-            # the CSV module's default dialect does
-            for line_num, line in enumerate(open(temp_csv, "r")):
-                if line_num == 0 and line.startswith("Warning"):
-                    continue
-                if line_num <= 2 and line.startswith("-"):
-                    continue
-                final_file.write(line)
-                patient_id = line.split(",")[0]
-                unique_check.add(patient_id)
+        with open(filename, "w", newline="") as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow([x[0] for x in cursor.description])
+            for row in result:
+                unique_check.add(row[0])
+                writer.writerow(row)
         unique_check.assert_unique_ids()
 
-    def to_csv(self, filename, with_sqlcmd=False):
-        if with_sqlcmd:
-            self._to_csv_with_sqlcmd(filename)
-        else:
-            result = self.execute_query()
-            unique_check = UniqueCheck()
-            with open(filename, "w", newline="") as csvfile:
-                writer = csv.writer(csvfile)
-                writer.writerow([x[0] for x in result.description])
-                for row in result:
-                    unique_check.add(row[0])
-                    writer.writerow(row)
-            unique_check.assert_unique_ids()
-
     def to_dicts(self):
-        result = self.execute_query()
-        keys = [x[0] for x in result.description]
+        cursor = self.get_db_connection().cursor()
+        cursor.execute(self.full_query)
+        result = cursor.fetchall()
+        keys = [x[0] for x in cursor.description]
         # Convert all values to str as that's what will end in the CSV
         output = [dict(zip(keys, map(str, row))) for row in result]
         unique_check = UniqueCheck()
@@ -108,20 +57,14 @@ class EMISBackend:
 
         Useful for debugging, optimising, etc.
         """
-        prepared_sql = ["-- Create codelist tables"]
-        for create_sql, insert_sql, values in self.codelist_tables:
-            prepared_sql.append(create_sql)
-            prepared_sql.append("GO")
-            for row in values:
-                prepared_sql.append(
-                    insert_sql.replace("?", "{}").format(*map(quote, row)) + ";"
-                )
-            prepared_sql.append("GO\n\n")
-        for name, query in self.queries:
-            prepared_sql.append(f"-- Query for {name}")
-            prepared_sql.append(query)
-            prepared_sql.append("\n\n")
-        return "\n".join(prepared_sql)
+        return self.full_query
+
+    def get_full_query(self, covariate_definitions):
+        *subqueries, final_query = self.get_queries(self.covariate_definitions)
+        ctes = ",\n\n".join(
+            f"{name} AS (\n{subquery}\n)" for name, subquery in subqueries
+        )
+        return f"WITH {ctes}\n\n{final_query[1]}"
 
     def get_queries(self, covariate_definitions):
         output_columns = {}
@@ -156,7 +99,7 @@ class EMISBackend:
             else:
                 date_format_args = pop_keys_from_dict(query_args, ["date_format"])
                 cols, sql = self.get_query(name, query_type, query_args)
-                table_queries[name] = f"SELECT * INTO #{name} FROM ({sql}) t"
+                table_queries[name] = sql
                 # The first column should always be patient_id so we can join on it
                 assert cols[0] == "patient_id"
                 output_columns[name] = self.get_column_expression(
@@ -166,8 +109,8 @@ class EMISBackend:
         # that as the primary table to query against and left join everything
         # else against that. Otherwise, we use the `Patient` table.
         if "population" in table_queries:
-            primary_table = "#population"
-            patient_id_expr = "#population.patient_id"
+            primary_table = "population"
+            patient_id_expr = "population.patient_id"
         else:
             primary_table = "Patient"
             patient_id_expr = "Patient.Patient_ID"
@@ -179,7 +122,7 @@ class EMISBackend:
             if not is_hidden.get(name) and name != "population"
         )
         joins = [
-            f"LEFT JOIN #{name} ON #{name}.patient_id = {patient_id_expr}"
+            f"LEFT JOIN {name} ON {name}.patient_id = {patient_id_expr}"
             for name in table_queries
             if name != "population"
         ]
@@ -196,10 +139,10 @@ class EMISBackend:
 
     def get_column_expression(self, column_type, source, returning, date_format=None):
         default_value = self.get_default_value_for_type(column_type)
-        column_expr = f"#{source}.{returning}"
+        column_expr = f"{source}.{returning}"
         if column_type == "date":
             column_expr = truncate_date(column_expr, date_format)
-        return f"ISNULL({column_expr}, {quote(default_value)})"
+        return f"COALESCE({column_expr}, {quote(default_value)})"
 
     def get_default_value_for_type(self, column_type):
         if column_type == "date":
@@ -223,9 +166,6 @@ class EMISBackend:
             cursor.executemany(insert_sql, values)
         queries = list(self.queries)
         final_query = queries.pop()[1]
-        for name, sql in queries:
-            self.log(f"Running query: {name}")
-            cursor.execute(sql)
         output_table = self.get_output_table_name(os.environ.get("TEMP_DATABASE_NAME"))
         if output_table:
             self.log(f"Running final query and writing output to '{output_table}'")
@@ -269,7 +209,7 @@ class EMISBackend:
         # We include the current column name for ease of debugging
         column_name = self._current_column_name or "unknown"
         # The hash prefix indicates a temporary table
-        table_name = f"#codelist_{table_number}_{column_name}"
+        table_name = f"codelist_{table_number}_{column_name}"
         if codelist.has_categories:
             values = list(codelist)
         else:
@@ -300,11 +240,11 @@ class EMISBackend:
             SELECT
               Patient_ID AS patient_id,
               CASE WHEN
-                 dateadd(year, datediff (year, DateOfBirth, {quoted_date}), DateOfBirth) > {quoted_date}
+                 date_add('year', date_diff('year', DateOfBirth, {quoted_date}), DateOfBirth) > {quoted_date}
               THEN
-                 datediff(year, DateOfBirth, {quoted_date}) - 1
+                 date_diff('year', DateOfBirth, {quoted_date}) - 1
               ELSE
-                 datediff(year, DateOfBirth, {quoted_date})
+                 date_diff('year', DateOfBirth, {quoted_date})
               END AS age
             FROM Patient
             """,
@@ -348,9 +288,7 @@ class EMISBackend:
             f"""
             SELECT Patient_ID, 1 AS is_included
             FROM Patient
-            WHERE (ABS(CAST(
-            (BINARY_CHECKSUM(*) *
-            RAND()) as int)) % 100) < {quote(percent)}
+            WHERE (random() * 100) < {quote(percent)}
             """,
         )
 
@@ -445,18 +383,21 @@ class EMISBackend:
         sql = f"""
         SELECT
           patients.Patient_ID AS patient_id,
-          ROUND(COALESCE(weight/SQUARE(NULLIF(height, 0)), bmis.BMI), 1) AS BMI,
+          CASE
+            WHEN height = 0 THEN NULL
+            ELSE ROUND(COALESCE(weight/(height*height), bmis.BMI), 1)
+          END AS BMI,
           CASE
             WHEN weight IS NULL OR height IS NULL THEN bmis.ConsultationDate
             ELSE weights.ConsultationDate
           END AS date
         FROM ({patients_cte}) AS patients
         LEFT JOIN ({weights_cte}) AS weights
-        ON weights.Patient_ID = patients.Patient_ID AND DATEDIFF(YEAR, patients.DateOfBirth, weights.ConsultationDate) >= {min_age}
+        ON weights.Patient_ID = patients.Patient_ID AND date_diff('year', patients.DateOfBirth, weights.ConsultationDate) >= {min_age}
         LEFT JOIN ({heights_cte}) AS heights
-        ON heights.Patient_ID = patients.Patient_ID AND DATEDIFF(YEAR, patients.DateOfBirth, heights.ConsultationDate) >= {min_age}
+        ON heights.Patient_ID = patients.Patient_ID AND date_diff('year', patients.DateOfBirth, heights.ConsultationDate) >= {min_age}
         LEFT JOIN ({bmi_cte}) AS bmis
-        ON bmis.Patient_ID = patients.Patient_ID AND DATEDIFF(YEAR, patients.DateOfBirth, bmis.ConsultationDate) >= {min_age}
+        ON bmis.Patient_ID = patients.Patient_ID AND date_diff('year', patients.DateOfBirth, bmis.ConsultationDate) >= {min_age}
         -- XXX maybe add a "WHERE NULL..." here
         """
         columns = ["patient_id", "BMI"]
@@ -621,7 +562,11 @@ class EMISBackend:
         returning="binary_flag",
         include_date_of_match=False,
     ):
-        codelist_table = self.create_codelist_table(codelist, codes_are_case_sensitive)
+        if codelist.has_categories:
+            codes = [row[0] for row in codelist]
+        else:
+            codes = list(codelist)
+        codes = "(" + ", ".join(f"'{code}'" for code in codes) + ")"
         date_condition = make_date_filter("ConsultationDate", between)
         not_an_ignored_day_condition = self._none_of_these_codes_occur_on_same_day(
             from_table, ignore_days_where_these_codes_occur
@@ -658,7 +603,11 @@ class EMISBackend:
                     "not have any categories defined"
                 )
             column_name = "category"
-            column_definition = "category"
+            cases = "\n".join(
+                f"WHEN {code_column} = '{code}' THEN '{category}'"
+                for code, category in codelist
+            )
+            column_definition = f"CASE\n{cases}\nEND"
             use_partition_query = True
         else:
             raise ValueError(f"Unsupported `returning` value: {returning}")
@@ -667,17 +616,17 @@ class EMISBackend:
             sql = f"""
             SELECT
               Patient_ID AS patient_id,
-              {column_definition} AS {column_name},
+              {column_name},
               ConsultationDate AS date
             FROM (
-              SELECT Patient_ID, {column_definition}, ConsultationDate,
+              SELECT Patient_ID, {column_definition} AS {column_name}, ConsultationDate,
               ROW_NUMBER() OVER (
                 PARTITION BY Patient_ID ORDER BY ConsultationDate {ordering}
               ) AS rownum
               FROM {from_table}{additional_join}
-              INNER JOIN {codelist_table}
-              ON {code_column} = {codelist_table}.code
-              WHERE {date_condition} AND {not_an_ignored_day_condition}
+              WHERE {date_condition}
+                AND {not_an_ignored_day_condition}
+                AND {code_column} IN {codes}
             ) t
             WHERE rownum = 1
             """
@@ -688,9 +637,9 @@ class EMISBackend:
               {column_definition} AS {column_name},
               {date_aggregate}(ConsultationDate) AS date
             FROM {from_table}{additional_join}
-            INNER JOIN {codelist_table}
-            ON {code_column} = {codelist_table}.code
-            WHERE {date_condition} AND {not_an_ignored_day_condition}
+            WHERE {date_condition}
+              AND {not_an_ignored_day_condition}
+              AND {code_column} IN {codes}
             GROUP BY Patient_ID
             """
 
@@ -710,7 +659,11 @@ class EMISBackend:
         ignore_days_where_these_codes_occur=None,
         episode_defined_as=None,
     ):
-        codelist_table = self.create_codelist_table(codelist, case_sensitive=False)
+        if codelist.has_categories:
+            codes = [row[0] for row in codelist]
+        else:
+            codes = list(codelist)
+        codes = "(" + ", ".join(f"'{code}'" for code in codes) + ")"
         date_condition = make_date_filter("ConsultationDate", between)
         not_an_ignored_day_condition = self._none_of_these_codes_occur_on_same_day(
             "MedicationIssue", ignore_days_where_these_codes_occur
@@ -735,8 +688,8 @@ class EMISBackend:
               Patient_ID,
               CASE
                 WHEN
-                  DATEDIFF(
-                    day,
+                  date_diff(
+                    'day',
                     LAG(ConsultationDate) OVER (PARTITION BY Patient_ID ORDER BY ConsultationDate),
                     ConsultationDate
                   ) <= {washout_period}
@@ -746,9 +699,9 @@ class EMISBackend:
             FROM MedicationIssue
             INNER JOIN MedicationDictionary
             ON MedicationIssue.MultilexDrug_ID = MedicationDictionary.MultilexDrug_ID
-            INNER JOIN {codelist_table}
-            ON DMD_ID = {codelist_table}.code
-            WHERE {date_condition} AND {not_an_ignored_day_condition}
+            WHERE {date_condition}
+              AND {not_an_ignored_day_condition}
+              AND DMD_ID IN {codes}
         ) t
         GROUP BY Patient_ID
         """
@@ -762,7 +715,11 @@ class EMISBackend:
         ignore_days_where_these_codes_occur=None,
         episode_defined_as=None,
     ):
-        codelist_table = self.create_codelist_table(codelist, case_sensitive=True)
+        if codelist.has_categories:
+            codes = [row[0] for row in codelist]
+        else:
+            codes = list(codelist)
+        codes = "(" + ", ".join(f"'{code}'" for code in codes) + ")"
         date_condition = make_date_filter("ConsultationDate", between)
         not_an_ignored_day_condition = self._none_of_these_codes_occur_on_same_day(
             "CodedEvent", ignore_days_where_these_codes_occur
@@ -787,8 +744,8 @@ class EMISBackend:
               Patient_ID,
               CASE
                 WHEN
-                  DATEDIFF(
-                    day,
+                  date_diff(
+                    'day',
                     LAG(ConsultationDate) OVER (PARTITION BY Patient_ID ORDER BY ConsultationDate),
                     ConsultationDate
                   ) <= {washout_period}
@@ -796,9 +753,9 @@ class EMISBackend:
                 ELSE 1
               END AS is_new_episode
             FROM CodedEvent
-            INNER JOIN {codelist_table}
-            ON CTV3Code = {codelist_table}.code
-            WHERE {date_condition} AND {not_an_ignored_day_condition}
+            WHERE {date_condition}
+              AND {not_an_ignored_day_condition}
+              AND CTV3Code IN {codes}
         ) t
         GROUP BY Patient_ID
         """
@@ -817,15 +774,18 @@ class EMISBackend:
         if codelist is None:
             return "1 = 1"
         assert codelist.system == "ctv3"
-        codelist_table = self.create_codelist_table(codelist, case_sensitive=True)
+        if codelist.has_categories:
+            codes = [row[0] for row in codelist]
+        else:
+            codes = list(codelist)
+        codes = "(" + ", ".join(f"'{code}'" for code in codes) + ")"
         return f"""
         NOT EXISTS (
           SELECT * FROM CodedEvent AS sameday
-          INNER JOIN {codelist_table}
-          ON sameday.CTV3Code = {codelist_table}.code
           WHERE
             sameday.Patient_ID = {joined_table}.Patient_ID
             AND CAST(sameday.ConsultationDate AS date) = CAST({joined_table}.ConsultationDate AS date)
+            AND sameday.CTV3Code IN {codes}
         )
         """
 
@@ -904,7 +864,7 @@ class EMISBackend:
         # These are the columns to which the categorisation expression is
         # allowed to refer
         allowed_columns = {
-            "IsPotentialCareHome": "ISNULL(PotentialCareHomeAddressID, 0)",
+            "IsPotentialCareHome": "COALESCE(PotentialCareHomeAddressID, 0)",
             "LocationRequiresNursing": "LocationRequiresNursing",
             "LocationDoesNotRequireNursing": "LocationDoesNotRequireNursing",
         }
@@ -958,7 +918,7 @@ class EMISBackend:
         {date_aggregate}(
         CASE
         WHEN
-          COALESCE(IcuAdmissionDateTime, '9999-01-01') < COALESCE(OriginalIcuAdmissionDate, '9999-01-01')
+          COALESCE(date_format(IcuAdmissionDateTime, '%Y-%m-%d'), '9999-01-01') < COALESCE(date_format(OriginalIcuAdmissionDate, '%Y-%m-%d'), '9999-01-01')
         THEN
           IcuAdmissionDateTime
         ELSE
@@ -1062,7 +1022,7 @@ class EMISBackend:
               Patient_ID as patient_id,
               {column_definition} AS {column_name},
               -- Crude error check so we blow up in the case of inconsistent dates
-              1 / CASE WHEN MAX(DateOfDeath) = MIN(DateOfDeath) THEN 1 ELSE 0 END AS _e
+              1 / 0
             FROM CPNS
             WHERE {date_condition}
             GROUP BY Patient_ID
@@ -1299,29 +1259,25 @@ class EMISBackend:
             clauses.append(f"WHEN ({formatted_expression}) THEN {quote(category)}")
         return f"CASE {' '.join(clauses)} ELSE {quote(default_value)} END"
 
-    def get_db_dict(self):
-        parsed = urlparse(self.database_url)
-        return {
-            "hostname": parsed.hostname,
-            "port": parsed.port or 1433,
-            "database": parsed.path.lstrip("/"),
-            "username": unquote(parsed.username),
-            "password": unquote(parsed.password),
-        }
-
     def get_db_connection(self):
         if self._db_connection:
             return self._db_connection
-        db_dict = self.get_db_dict()
-        connection_str = (
-            "DRIVER={{ODBC Driver 17 for SQL Server}};"
-            "SERVER={hostname},{port};"
-            "DATABASE={database};"
-            "UID={username};"
-            "PWD={password}"
-        ).format(**db_dict)
-        self._db_connection = pyodbc.connect(connection_str)
-        return self._db_connection
+        parsed = urlparse(self.database_url)
+        connection_params = {
+            "host": parsed.hostname,
+            "port": parsed.port or 8080,
+            "catalog": "sqlserver",  # TODO
+            "schema": "dbo",  # TODO
+        }
+        if parsed.username:
+            user = unquote(parsed.username)
+            password = unquote(parsed.password)
+            connection_params.update(
+                user=user, auth=prestodb.auth.BasicAuthentication(user, password)
+            )
+        else:
+            connection_params["user"] = "ignored"
+        return prestodb.dbapi.connect(**connection_params)
 
 
 def codelist_to_sql(codelist):
@@ -1340,31 +1296,20 @@ def to_list(value):
     return list(value)
 
 
-def standardise_if_date(value):
-    """For strings that look like ISO dates, format in a SQL-Server
-    friendly fashion
-
-    """
-
-    # ISO date strings with hyphens are unreliable in SQL Server:
-    # https://stackoverflow.com/a/25548626/559140
-    try:
-        date = datetime.datetime.strptime(value, "%Y-%m-%d")
-        value = date.strftime("%Y%m%d")
-    except ValueError:
-        pass
-    return value
-
-
 def quote(value):
     if isinstance(value, (int, float)):
         return str(value)
-    else:
-        value = str(value)
-        value = standardise_if_date(value)
-        if not SAFE_CHARS_RE.match(value) and value != "":
-            raise ValueError(f"Value contains disallowed characters: {value}")
-        return f"'{value}'"
+
+    value = str(value)
+    try:
+        datetime.datetime.strptime(value, "%Y-%m-%d")
+        return f"DATE '{value}'"
+    except ValueError:
+        pass
+
+    if not SAFE_CHARS_RE.match(value) and value != "":
+        raise ValueError(f"Value contains disallowed characters: {value}")
+    return f"'{value}'"
 
 
 def make_date_filter(column, between, upper_bound_only=False):
@@ -1385,16 +1330,14 @@ def make_date_filter(column, between, upper_bound_only=False):
 
 def truncate_date(column, date_format):
     if date_format == "YYYY" or date_format is None:
-        date_length = 4
+        date_format = "%Y"
     elif date_format == "YYYY-MM":
-        date_length = 7
+        date_format = "%Y-%m"
     elif date_format == "YYYY-MM-DD":
-        date_length = 10
+        date_format = "%Y-%m-%d"
     else:
         raise ValueError(f"Unhandled date format: {date_format}")
-    # Style 23 below means YYYY-MM-DD format, see:
-    # https://docs.microsoft.com/en-us/sql/t-sql/functions/cast-and-convert-transact-sql?view=sql-server-ver15#date-and-time-styles
-    return f"CONVERT(VARCHAR({date_length}), {column}, 23)"
+    return f"date_format({column}, '{date_format}')"
 
 
 class UniqueCheck:
