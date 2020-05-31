@@ -5,8 +5,8 @@ import pytest
 from datalab_cohorts import StudyDefinition, patients
 
 
-def test_create_dummy_data_works_without_database_url(tmp_path, monkeypatch):
-    monkeypatch.delenv("SQL_SERVER_URL", raising=False)
+def test_create_dummy_data_works_without_backend(tmp_path, monkeypatch):
+    monkeypatch.delenv("BACKEND", raising=False)
     study = StudyDefinition(
         population=patients.all(),
         sex=patients.sex(
@@ -35,8 +35,8 @@ def test_create_dummy_data_works_without_database_url(tmp_path, monkeypatch):
     assert "age" in columns
 
 
-def test_export_data_without_database_url_raises_error(tmp_path, monkeypatch):
-    monkeypatch.delenv("SQL_SERVER_URL", raising=False)
+def test_export_data_without_backend_raises_error(tmp_path, monkeypatch):
+    monkeypatch.delenv("BACKEND", raising=False)
     study = StudyDefinition(
         population=patients.all(),
         sex=patients.sex(),
@@ -46,8 +46,8 @@ def test_export_data_without_database_url_raises_error(tmp_path, monkeypatch):
         study.to_csv(tmp_path / "dummy_data.csv")
 
 
-def test_unrecognised_database_url_raises_error(tmp_path, monkeypatch):
-    monkeypatch.setenv("SQL_SERVER_URL", "unknown-db://localhost")
+def test_unrecognised_backend_raises_error(tmp_path, monkeypatch):
+    monkeypatch.setenv("BACKEND", "BANANAS")
     with pytest.raises(ValueError):
         StudyDefinition(
             population=patients.all(),
