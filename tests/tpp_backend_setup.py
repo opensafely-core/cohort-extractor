@@ -13,7 +13,7 @@ Base = declarative_base()
 
 
 def make_engine():
-    engine = create_engine(os.environ["DATABASE_URL"])
+    engine = create_engine(os.environ["SQL_SERVER_URL"])
     return engine
 
 
