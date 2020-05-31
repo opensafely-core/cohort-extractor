@@ -15,7 +15,7 @@ class StudyDefinition:
         self.default_expectations = covariates.pop("default_expectations", {})
         self.covariate_definitions = process_covariate_definitions(covariates)
         self.pandas_csv_args = self.get_pandas_csv_args(self.covariate_definitions)
-        database_url = os.environ.get("DATABASE_URL")
+        database_url = os.environ.get("SQL_SERVER_URL")
         if database_url:
             Backend = self.get_backend_for_database_url(database_url)
             self.backend = Backend(database_url, self.covariate_definitions)
@@ -81,7 +81,7 @@ class StudyDefinition:
     def assert_backend_is_configured(self):
         if not self.backend:
             raise RuntimeError(
-                "Cannot extract data as no DATABASE_URL environment variable defined"
+                "Cannot extract data as no SQL_SERVER_URL environment variable defined"
             )
 
     @staticmethod

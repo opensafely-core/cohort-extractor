@@ -6,7 +6,7 @@ from datalab_cohorts import StudyDefinition, patients
 
 
 def test_create_dummy_data_works_without_database_url(tmp_path, monkeypatch):
-    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.delenv("SQL_SERVER_URL", raising=False)
     study = StudyDefinition(
         population=patients.all(),
         sex=patients.sex(
@@ -36,7 +36,7 @@ def test_create_dummy_data_works_without_database_url(tmp_path, monkeypatch):
 
 
 def test_export_data_without_database_url_raises_error(tmp_path, monkeypatch):
-    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.delenv("SQL_SERVER_URL", raising=False)
     study = StudyDefinition(
         population=patients.all(),
         sex=patients.sex(),
@@ -47,7 +47,7 @@ def test_export_data_without_database_url_raises_error(tmp_path, monkeypatch):
 
 
 def test_unrecognised_database_url_raises_error(tmp_path, monkeypatch):
-    monkeypatch.setenv("DATABASE_URL", "unknown-db://localhost")
+    monkeypatch.setenv("SQL_SERVER_URL", "unknown-db://localhost")
     with pytest.raises(ValueError):
         StudyDefinition(
             population=patients.all(),
