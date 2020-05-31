@@ -1,5 +1,6 @@
 import csv
 import filecmp
+import os
 import subprocess
 import tempfile
 
@@ -38,7 +39,17 @@ from datalab_cohorts.tpp_backend import (
 
 
 def setup_module(module):
+    global old_backend
+    old_backend = os.environ.get("BACKEND")
+    os.environ["BACKEND"] = "TPP"
     make_database()
+
+
+def teardown_module(module):
+    global old_backend
+    del os.environ["BACKEND"]
+    if old_backend is not None:
+        os.environ["BACKEND"] = old_backend
 
 
 def setup_function(function):

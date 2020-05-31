@@ -15,13 +15,7 @@ class StudyDefinition:
         self.default_expectations = covariates.pop("default_expectations", {})
         self.covariate_definitions = process_covariate_definitions(covariates)
         self.pandas_csv_args = self.get_pandas_csv_args(self.covariate_definitions)
-        database_url = os.environ.get("SQL_SERVER_URL")
-        if database_url:
-            Backend = self.get_backend_for_database_url(database_url)
-            self.backend = Backend(database_url, self.covariate_definitions)
-        else:
-            # Without a backend defined we can still generate dummy data
-            self.backend = None
+        self.backend = self.get_backend(self.covariate_definitions)
 
     def to_csv(self, filename, expectations_population=False, **kwargs):
         if expectations_population:
@@ -70,13 +64,18 @@ class StudyDefinition:
     # ************************************************************************
 
     @staticmethod
-    def get_backend_for_database_url(database_url):
-        if database_url.startswith("mssql"):
+    def get_backend(covariate_definitions):
+        backend = os.environ.get("BACKEND")
+        if backend is None:
+            return
+
+        if backend == "TPP":
             from .tpp_backend import TPPBackend
 
-            return TPPBackend
+            database_url = os.environ["SQL_SERVER_URL"]
+            return TPPBackend(database_url, covariate_definitions)
         else:
-            raise ValueError(f"No matching backend found for {database_url}")
+            raise ValueError(f"No matching backend found for {backend}")
 
     def assert_backend_is_configured(self):
         if not self.backend:
