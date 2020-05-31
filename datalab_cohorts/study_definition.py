@@ -77,7 +77,7 @@ class StudyDefinition:
         elif backend == "EMIS":
             from .emis_backend import EMISBackend
 
-            database_url = os.environ["SQL_SERVER_URL"]
+            database_url = os.environ["PRESTO_URL"]
             return EMISBackend(database_url, covariate_definitions)
         else:
             raise ValueError(f"No matching backend found for {backend}")
