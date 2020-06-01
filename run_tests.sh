@@ -4,4 +4,4 @@ exec docker-compose run \
   --entrypoint /bin/bash \
   -e DATABASE_URL='mssql+pyodbc://SA:Your_password123!@sql:1433/Test_OpenCorona?driver=ODBC+Driver+17+for+SQL+Server' \
   app \
-    --login -- py.test "$@" tests/
+    --login -- py.test "$@"
