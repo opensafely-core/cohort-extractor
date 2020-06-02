@@ -52,5 +52,7 @@ COPY . /workspace
 # .python-version is not needed but can make its way into the image when built
 # locally
 RUN rm -f .python-version
+RUN python setup.py develop
+RUN pyenv rehash
 
-ENTRYPOINT ["/workspace/cohortextractor"]
+ENTRYPOINT ["cohortextractor"]
