@@ -53,4 +53,4 @@ COPY . /workspace
 # locally
 RUN rm -f .python-version
 
-ENTRYPOINT ["/workspace/cohort-extractor"]
+ENTRYPOINT ["/workspace/cohortextractor"]
