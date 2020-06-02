@@ -18,6 +18,6 @@ setup(
         "sqlalchemy",
         "sqlparse",
     ],
-    scripts=["cohort-extractor"],
+    entry_points={"console_scripts": ["cohortextractor=cohortextractor:main"]},
     include_package_data=True,
 )

@@ -17,7 +17,7 @@ real patient data.
 
 # Naming study definitions
 
-When you run `cohort-extractor generate_cohort`, the framework reads a
+When you run `cohortextractor generate_cohort`, the framework reads a
 study definition at `analysis/study_definition.py`, and writes the
 output dataframe to `analysis/input.csv`.  In a production environment
 this will be real data; in a development environment this will be
@@ -70,7 +70,7 @@ As such, codelists should not be added or edited by hand.  Instead:
   * Set the `version_str` to today's date in `YYYY-MM-DD`
   * Click "Save"
 * Update the file `codelists/codelists.txt`, which is a list of codelists that your study needs
-* From the root of this repo, run `cohort-extractor update_codelists`
+* From the root of this repo, run `cohortextractor update_codelists`
 * Check the git diff for sense
 * Commit the changes and make a PR
 
