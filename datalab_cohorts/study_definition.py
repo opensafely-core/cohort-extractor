@@ -75,6 +75,10 @@ class StudyDefinition:
             from .tpp_backend import TPPBackend
 
             return TPPBackend
+        elif database_url.startswith("presto"):
+            from .emis_backend import EMISBackend
+
+            return EMISBackend
         else:
             raise ValueError(f"No matching backend found for {database_url}")
 
