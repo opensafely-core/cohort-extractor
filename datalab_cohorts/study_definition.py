@@ -71,11 +71,13 @@ class StudyDefinition:
 
     @staticmethod
     def get_backend_for_database_url(database_url):
-        if database_url.startswith("mssql"):
+        if database_url.startswith("mssql://") or database_url.startswith(
+            "mssql+pyodbc://"
+        ):
             from .tpp_backend import TPPBackend
 
             return TPPBackend
-        elif database_url.startswith("presto"):
+        elif database_url.startswith("presto://"):
             from .emis_backend import EMISBackend
 
             return EMISBackend

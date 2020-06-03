@@ -5,11 +5,12 @@ import os
 import re
 import subprocess
 import tempfile
-from urllib.parse import urlparse, unquote
-
-import pyodbc
 
 from .expressions import format_expression
+from .mssql_utils import (
+    mssql_connection_params_from_url,
+    mssql_pyodbc_connection_from_url,
+)
 
 
 # Characters that are safe to interpolate into SQL (see
@@ -35,11 +36,11 @@ class TPPBackend:
         with open(sqlfile, "w") as f:
             f.write(sql)
         temp_csv = tempfile.mktemp(suffix=".csv")
-        db_dict = self.get_db_dict()
+        db_dict = mssql_connection_params_from_url(self.database_url)
         cmd = [
             "sqlcmd",
             "-S",
-            db_dict["hostname"] + "," + str(db_dict["port"]),
+            db_dict["host"] + "," + str(db_dict["port"]),
             "-d",
             db_dict["database"],
             "-U",
@@ -1299,28 +1300,10 @@ class TPPBackend:
             clauses.append(f"WHEN ({formatted_expression}) THEN {quote(category)}")
         return f"CASE {' '.join(clauses)} ELSE {quote(default_value)} END"
 
-    def get_db_dict(self):
-        parsed = urlparse(self.database_url)
-        return {
-            "hostname": parsed.hostname,
-            "port": parsed.port or 1433,
-            "database": parsed.path.lstrip("/"),
-            "username": unquote(parsed.username),
-            "password": unquote(parsed.password),
-        }
-
     def get_db_connection(self):
         if self._db_connection:
             return self._db_connection
-        db_dict = self.get_db_dict()
-        connection_str = (
-            "DRIVER={{ODBC Driver 17 for SQL Server}};"
-            "SERVER={hostname},{port};"
-            "DATABASE={database};"
-            "UID={username};"
-            "PWD={password}"
-        ).format(**db_dict)
-        self._db_connection = pyodbc.connect(connection_str)
+        self._db_connection = mssql_pyodbc_connection_from_url(self.database_url)
         return self._db_connection
 
 

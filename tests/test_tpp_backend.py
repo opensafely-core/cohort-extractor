@@ -31,7 +31,7 @@ from datalab_cohorts import (
     patients,
     codelist,
 )
-
+from datalab_cohorts.mssql_utils import mssql_connection_params_from_url
 from datalab_cohorts.tpp_backend import (
     quote,
     AppointmentStatus,
@@ -1373,11 +1373,11 @@ def test_to_sql_passes():
     )
     sql = "SET NOCOUNT ON; "  # don't output count after table output
     sql += study.to_sql()
-    db_dict = study.backend.get_db_dict()
+    db_dict = mssql_connection_params_from_url(study.backend.database_url)
     cmd = [
         "sqlcmd",
         "-S",
-        db_dict["hostname"] + "," + str(db_dict["port"]),
+        db_dict["host"] + "," + str(db_dict["port"]),
         "-d",
         db_dict["database"],
         "-U",
