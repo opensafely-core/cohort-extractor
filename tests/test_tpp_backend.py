@@ -1936,3 +1936,25 @@ def test_patients_with_test_result_in_sgss_raises_error_on_bad_data(positive):
     )
     with pytest.raises(Exception):
         study.to_dicts()
+
+
+def test_patients_date_of_birth():
+    session = make_session()
+    session.add_all(
+        [Patient(DateOfBirth="1975-06-10"), Patient(DateOfBirth="1999-10-15"),]
+    )
+    session.commit()
+    study = StudyDefinition(
+        population=patients.all(),
+        year_of_birth=patients.date_of_birth(),
+        month_of_birth=patients.date_of_birth(date_format="YYYY-MM"),
+    )
+    results = study.to_dicts()
+    assert [x["year_of_birth"] for x in results] == ["1975", "1999"]
+    assert [x["month_of_birth"] for x in results] == ["1975-06", "1999-10"]
+    # Requesting the exact day is not supported for IG reasons
+    with pytest.raises(Exception):
+        StudyDefinition(
+            population=patients.all(),
+            day_of_birth=patients.date_of_birth(date_format="YYYY-MM-DD"),
+        )
