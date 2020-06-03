@@ -1,5 +1,6 @@
 import csv
 import filecmp
+import os
 import subprocess
 import tempfile
 
@@ -35,6 +36,15 @@ from datalab_cohorts.tpp_backend import (
     quote,
     AppointmentStatus,
 )
+
+
+@pytest.fixture(autouse=True)
+def set_database_url(monkeypatch):
+    # The StudyDefinition code expects a single DATABASE_URL to tell it where
+    # to connect to, but the test environment needs to supply multiple
+    # connections (one for each backend type) so we copy the value in here
+    if "TPP_DATABASE_URL" in os.environ:
+        monkeypatch.setenv("DATABASE_URL", os.environ["TPP_DATABASE_URL"])
 
 
 def setup_module(module):

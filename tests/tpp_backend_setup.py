@@ -14,7 +14,7 @@ Base = declarative_base()
 
 
 def make_engine():
-    engine = create_engine(os.environ["DATABASE_URL"])
+    engine = create_engine(os.environ["TPP_DATABASE_URL"])
     timeout = os.environ.get("CONNECTION_RETRY_TIMEOUT")
     timeout = float(timeout) if timeout else 60
     # Wait for the database to be ready if it isn't already
