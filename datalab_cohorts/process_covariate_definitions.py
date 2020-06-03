@@ -233,6 +233,9 @@ class GetColumnType:
     def type_of_age_as_of(self, **kwargs):
         return "int"
 
+    def type_of_date_of_birth(self, **kwargs):
+        return "date"
+
     def type_of_sex(self, **kwargs):
         return "str"
 

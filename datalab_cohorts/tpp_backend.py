@@ -311,6 +311,14 @@ class TPPBackend:
             """,
         )
 
+    def patients_date_of_birth(self):
+        return (
+            ["patient_id", "date_of_birth"],
+            """
+            SELECT Patient_ID AS patient_id, DateOfBirth AS date_of_birth FROM Patient
+            """,
+        )
+
     def patients_sex(self):
         return (
             ["patient_id", "sex"],

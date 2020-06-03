@@ -34,6 +34,18 @@ def age_as_of(
     return "age_as_of", locals()
 
 
+def date_of_birth(
+    date_format=None,
+    # Required keyword
+    return_expectations=None,
+):
+    # The actual enforcement of this information governance rule is done in the
+    # database; this is just to give early warning to the user
+    if date_format == "YYYY-MM-DD":
+        raise ValueError("Date of birth can only be retrieved to month granularity")
+    return "date_of_birth", locals()
+
+
 def registered_as_of(
     reference_date,
     # Required keyword
