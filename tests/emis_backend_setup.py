@@ -14,11 +14,11 @@ import os
 import time
 
 import sqlalchemy
-from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer, String, Date
 from sqlalchemy.orm import sessionmaker
 
+from datalab_cohorts.mssql_utils import mssql_sqlalchemy_engine_from_url
 from datalab_cohorts.presto_utils import wait_for_presto_to_be_ready
 
 
@@ -26,7 +26,9 @@ Base = declarative_base()
 
 
 def make_engine():
-    engine = create_engine(os.environ["EMIS_DATASOURCE_DATABASE_URL"])
+    engine = mssql_sqlalchemy_engine_from_url(
+        os.environ["EMIS_DATASOURCE_DATABASE_URL"]
+    )
     timeout = os.environ.get("CONNECTION_RETRY_TIMEOUT")
     timeout = float(timeout) if timeout else 60
     # Wait for the database to be ready if it isn't already
