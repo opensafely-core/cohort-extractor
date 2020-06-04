@@ -296,11 +296,11 @@ class ACMEBackend:
             SELECT
               Patient_ID AS patient_id,
               CASE WHEN
-                 dateadd(year, datediff (year, DateOfBirth, {quoted_date}), DateOfBirth) > {quoted_date}
+                 date_add('year', date_diff('year', DateOfBirth, {quoted_date}), DateOfBirth) > {quoted_date}
               THEN
-                 datediff(year, DateOfBirth, {quoted_date}) - 1
+                 date_diff('year', DateOfBirth, {quoted_date}) - 1
               ELSE
-                 datediff(year, DateOfBirth, {quoted_date})
+                 date_diff('year', DateOfBirth, {quoted_date})
               END AS age
             FROM Patient
             """,
@@ -448,11 +448,11 @@ class ACMEBackend:
           END AS date
         FROM ({patients_cte}) AS patients
         LEFT JOIN ({weights_cte}) AS weights
-        ON weights.Patient_ID = patients.Patient_ID AND DATEDIFF(YEAR, patients.DateOfBirth, weights.ConsultationDate) >= {min_age}
+        ON weights.Patient_ID = patients.Patient_ID AND date_diff('year', patients.DateOfBirth, weights.ConsultationDate) >= {min_age}
         LEFT JOIN ({heights_cte}) AS heights
-        ON heights.Patient_ID = patients.Patient_ID AND DATEDIFF(YEAR, patients.DateOfBirth, heights.ConsultationDate) >= {min_age}
+        ON heights.Patient_ID = patients.Patient_ID AND date_diff('year', patients.DateOfBirth, heights.ConsultationDate) >= {min_age}
         LEFT JOIN ({bmi_cte}) AS bmis
-        ON bmis.Patient_ID = patients.Patient_ID AND DATEDIFF(YEAR, patients.DateOfBirth, bmis.ConsultationDate) >= {min_age}
+        ON bmis.Patient_ID = patients.Patient_ID AND date_diff('year', patients.DateOfBirth, bmis.ConsultationDate) >= {min_age}
         -- XXX maybe add a "WHERE NULL..." here
         """
         columns = ["patient_id", "BMI"]
@@ -731,8 +731,8 @@ class ACMEBackend:
               Patient_ID,
               CASE
                 WHEN
-                  DATEDIFF(
-                    day,
+                  date_diff(
+                    'day',
                     LAG(ConsultationDate) OVER (PARTITION BY Patient_ID ORDER BY ConsultationDate),
                     ConsultationDate
                   ) <= {washout_period}
@@ -783,8 +783,8 @@ class ACMEBackend:
               Patient_ID,
               CASE
                 WHEN
-                  DATEDIFF(
-                    day,
+                  date_diff(
+                    'day',
                     LAG(ConsultationDate) OVER (PARTITION BY Patient_ID ORDER BY ConsultationDate),
                     ConsultationDate
                   ) <= {washout_period}
