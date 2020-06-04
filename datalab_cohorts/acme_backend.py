@@ -344,9 +344,7 @@ class ACMEBackend:
             f"""
             SELECT Patient_ID, 1 AS is_included
             FROM Patient
-            WHERE (ABS(CAST(
-            (BINARY_CHECKSUM(*) *
-            RAND()) as int)) % 100) < {quote(percent)}
+            WHERE (random() * 100) < {quote(percent)}
             """,
         )
 
