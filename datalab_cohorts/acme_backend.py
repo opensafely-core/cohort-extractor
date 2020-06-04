@@ -194,7 +194,7 @@ class ACMEBackend:
         column_expr = f"_{source}.{returning}"
         if column_type == "date":
             column_expr = truncate_date(column_expr, date_format)
-        return f"ISNULL({column_expr}, {quote(default_value)})"
+        return f"COALESCE({column_expr}, {quote(default_value)})"
 
     def get_default_value_for_type(self, column_type):
         if column_type == "date":
@@ -900,7 +900,7 @@ class ACMEBackend:
         # These are the columns to which the categorisation expression is
         # allowed to refer
         allowed_columns = {
-            "IsPotentialCareHome": "ISNULL(PotentialCareHomeAddressID, 0)",
+            "IsPotentialCareHome": "COALESCE(PotentialCareHomeAddressID, 0)",
             "LocationRequiresNursing": "LocationRequiresNursing",
             "LocationDoesNotRequireNursing": "LocationDoesNotRequireNursing",
         }
