@@ -157,7 +157,7 @@ class ACMEBackend:
             else:
                 date_format_args = pop_keys_from_dict(query_args, ["date_format"])
                 cols, sql = self.get_query(name, query_type, query_args)
-                table_queries[name] = f"SELECT * INTO _{name} FROM ({sql}) t"
+                table_queries[name] = f"CREATE TABLE _{name} AS {sql}"
                 # The first column should always be patient_id so we can join on it
                 assert cols[0] == "patient_id"
                 output_columns[name] = self.get_column_expression(
@@ -230,7 +230,7 @@ class ACMEBackend:
         output_table = self.get_output_table_name(os.environ.get("TEMP_DATABASE_NAME"))
         if output_table:
             self.log(f"Running final query and writing output to '{output_table}'")
-            sql = f"SELECT * INTO {output_table} FROM ({final_query}) t"
+            sql = f"CREATE TABLE {output_table} AS {final_query}"
             cursor.execute(sql)
             self.log(f"Downloading data from '{output_table}'")
             cursor.execute(f"SELECT * FROM {output_table}")
