@@ -31,15 +31,14 @@ from datalab_cohorts import (
     patients,
     codelist,
 )
-from datalab_cohorts.mssql_utils import (
-    mssql_connection_params_from_url,
-    mssql_pyodbc_connection_from_url,
-)
 from datalab_cohorts.acme_backend import (
     quote,
     AppointmentStatus,
 )
-from datalab_cohorts.presto_utils import presto_connection_from_url
+from datalab_cohorts.presto_utils import (
+    presto_connection_from_url,
+    presto_connection_params_from_url,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -1396,28 +1395,22 @@ def test_to_sql_passes():
     study = StudyDefinition(
         population=patients.with_these_clinical_events(codelist(["XYZ"], "ctv3"))
     )
-    sql = "SET NOCOUNT ON; "  # don't output count after table output
-    sql += study.to_sql()
-    db_dict = mssql_connection_params_from_url(study.backend.database_url)
+    db_dict = presto_connection_params_from_url(study.backend.database_url)
     cmd = [
-        "sqlcmd",
-        "-S",
-        db_dict["host"] + "," + str(db_dict["port"]),
-        "-d",
-        db_dict["database"],
-        "-U",
-        db_dict["username"],
-        "-P",
-        db_dict["password"],
-        "-Q",
-        sql,
-        "-W",  # strip whitespace
+        "docker",
+        "exec",
+        "opensafely-research-template_presto_1",
+        "presto",
+        "--catalog",
+        db_dict["catalog"],
+        "--schema",
+        db_dict["schema"],
+        "--execute",
+        study.to_sql(),
     ]
-    result = subprocess.run(
-        cmd, capture_output=True, check=True, encoding="utf8"
-    ).stdout
+    result = subprocess.run(cmd, capture_output=True, encoding="utf8").stdout
     patient_id = result.splitlines()[-1]
-    assert patient_id == str(patient.Patient_ID)
+    assert patient_id == f'"{patient.Patient_ID}"'
 
 
 def test_duplicate_id_checking():

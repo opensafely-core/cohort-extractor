@@ -111,11 +111,10 @@ class ACMEBackend:
         """
         prepared_sql = ["-- Create codelist tables"]
         for sql in self.codelist_tables:
-            prepared_sql.append(f"{sql}\n\n")
+            prepared_sql.append(f"{sql};\n\n")
         for name, query in self.queries:
             prepared_sql.append(f"-- Query for {name}")
-            prepared_sql.append(query)
-            prepared_sql.append("\n\n")
+            prepared_sql.append(f"{query};\n\n")
         return "\n".join(prepared_sql)
 
     def get_queries(self, covariate_definitions):
