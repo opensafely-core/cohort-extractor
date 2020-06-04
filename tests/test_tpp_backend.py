@@ -1958,3 +1958,85 @@ def test_patients_date_of_birth():
             population=patients.all(),
             day_of_birth=patients.date_of_birth(date_format="YYYY-MM-DD"),
         )
+
+
+def test_patients_aggregate_value_of():
+    session = make_session()
+    session.add_all(
+        [
+            Patient(
+                CodedEvents=[
+                    CodedEvent(
+                        CTV3Code="ABC", NumericValue=7, ConsultationDate="2012-01-01"
+                    ),
+                    CodedEvent(
+                        CTV3Code="XYZ", NumericValue=23, ConsultationDate="2018-01-01"
+                    ),
+                ]
+            ),
+            Patient(
+                CodedEvents=[
+                    CodedEvent(
+                        CTV3Code="ABC", NumericValue=18, ConsultationDate="2014-01-01"
+                    ),
+                    CodedEvent(
+                        CTV3Code="XYZ", NumericValue=4, ConsultationDate="2017-01-01"
+                    ),
+                ]
+            ),
+            Patient(
+                CodedEvents=[
+                    CodedEvent(
+                        CTV3Code="ABC", NumericValue=10, ConsultationDate="2015-01-01"
+                    ),
+                ]
+            ),
+            Patient(
+                CodedEvents=[
+                    CodedEvent(
+                        CTV3Code="XYZ", NumericValue=8, ConsultationDate="2019-01-01"
+                    ),
+                ]
+            ),
+            Patient(),
+        ]
+    )
+    session.commit()
+    study = StudyDefinition(
+        population=patients.all(),
+        # Values
+        abc_value=patients.with_these_clinical_events(
+            codelist(["ABC"], system="ctv3"), returning="numeric_value"
+        ),
+        xyz_value=patients.with_these_clinical_events(
+            codelist(["XYZ"], system="ctv3"), returning="numeric_value"
+        ),
+        # Dates
+        abc_date=patients.date_of("abc_value"),
+        xyz_date=patients.date_of("xyz_value"),
+        # Aggregates
+        max_value=patients.maximum_of("abc_value", "xyz_value"),
+        min_value=patients.minimum_of("abc_value", "xyz_value"),
+        max_date=patients.maximum_of("abc_date", "xyz_date"),
+        min_date=patients.minimum_of("abc_date", "xyz_date"),
+    )
+    results = study.to_dicts()
+    assert [x["max_value"] for x in results] == ["23.0", "18.0", "10.0", "8.0", "0.0"]
+    assert [x["min_value"] for x in results] == ["7.0", "4.0", "10.0", "8.0", "0.0"]
+    assert [x["max_date"] for x in results] == ["2018", "2017", "2015", "2019", ""]
+    assert [x["min_date"] for x in results] == ["2012", "2014", "2015", "2019", ""]
+    # Test with hidden columns
+    study_with_hidden_columns = StudyDefinition(
+        population=patients.all(),
+        max_value=patients.maximum_of(
+            abc_value=patients.with_these_clinical_events(
+                codelist(["ABC"], system="ctv3"), returning="numeric_value"
+            ),
+            xyz_value=patients.with_these_clinical_events(
+                codelist(["XYZ"], system="ctv3"), returning="numeric_value"
+            ),
+        ),
+    )
+    results = study_with_hidden_columns.to_dicts()
+    assert [x["max_value"] for x in results] == ["23.0", "18.0", "10.0", "8.0", "0.0"]
+    assert "abc_value" not in results[0].keys()
