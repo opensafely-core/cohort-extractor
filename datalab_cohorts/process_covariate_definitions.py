@@ -38,7 +38,7 @@ def flatten_nested_covariates(covariate_definitions):
     items = list(covariate_definitions.items())
     while items:
         name, (query_type, query_args) = items.pop(0)
-        if query_type == "categorised_as" and "extra_columns" in query_args:
+        if "extra_columns" in query_args:
             query_args = query_args.copy()
             # Pull out the extra columns
             extra_columns = query_args.pop("extra_columns")
@@ -215,17 +215,22 @@ def add_include_date_flags_to_columns(covariate_definitions):
 def add_column_types(covariate_definitions):
     get_column_type = GetColumnType()
     for name, (query_type, query_args) in covariate_definitions.items():
-        query_args["column_type"] = get_column_type(query_type, query_args)
+        query_args["column_type"] = get_column_type(name, query_type, query_args)
     return covariate_definitions
 
 
 class GetColumnType:
-    def __call__(self, query_type, query_args):
+    def __init__(self):
+        self.column_types = {}
+
+    def __call__(self, name, query_type, query_args):
         try:
             method = getattr(self, f"type_of_{query_type}")
         except AttributeError:
             raise ValueError(f"No column type method defined for {query_type}")
-        return method(**query_args)
+        column_type = method(**query_args)
+        self.column_types[name] = column_type
+        return column_type
 
     def type_of_value_from(self, returning, **kwargs):
         return self._type_from_return_value(returning)
@@ -346,6 +351,17 @@ class GetColumnType:
             return "str"
         else:
             raise ValueError(f"Unhandled category type: {first_type}")
+
+    def type_of_aggregate_of(self, column_names, aggregate_function, **kwargs):
+        other_types = [self.column_types[name] for name in column_names]
+        column_type = other_types.pop()
+        for other_type in other_types:
+            if other_type != column_type:
+                raise ValueError(
+                    f"Cannot calculate {aggregate_function} over columns of "
+                    f"different types (found '{column_type}' and '{other_type}')"
+                )
+        return column_type
 
 
 def pop_keys_from_dict(dictionary, keys):

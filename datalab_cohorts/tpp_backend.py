@@ -154,6 +154,11 @@ class TPPBackend:
                 output_columns[name] = self.get_column_expression(
                     column_type, **query_args
                 )
+            # As do `aggregate_of` columns
+            elif query_type == "aggregate_of":
+                output_columns[name] = self.get_aggregate_expression(
+                    column_type, output_columns, **query_args
+                )
             else:
                 date_format_args = pop_keys_from_dict(query_args, ["date_format"])
                 cols, sql = self.get_query(name, query_type, query_args)
@@ -1307,6 +1312,45 @@ class TPPBackend:
             )
             clauses.append(f"WHEN ({formatted_expression}) THEN {quote(category)}")
         return f"CASE {' '.join(clauses)} ELSE {quote(default_value)} END"
+
+    def get_aggregate_expression(
+        self, column_type, column_definitions, column_names, aggregate_function
+    ):
+        assert aggregate_function in ("MIN", "MAX")
+        default_value = quote(self.get_default_value_for_type(column_type))
+        # In other databases we could use GREATEST/LEAST to aggregate over
+        # columns, but for MSSQL we need to use this Table Value Constructor
+        # trick: https://stackoverflow.com/a/6871572
+        components = ", ".join(f"({column_definitions[name]})" for name in column_names)
+        aggregate_expression = (
+            f"SELECT {aggregate_function}(value)"
+            f" FROM (VALUES {components}) AS _table(value)"
+            # This is slightly awkward: MIN and MAX ignore NULL values which is
+            # the behaviour we want here. For instance, given a column like:
+            #
+            #   minimum_of("covid_test_date", "hosptial_admission_date")
+            #
+            # We want this value to be equal to "covid_test_date" for patients
+            # which have not been admitted to hospital (i.e. patients for which
+            # "hospital_admission_date" is NULL).
+            #
+            # However, the values we have here have already been passed through
+            # the `ISNULL` function to replace NULLs with a default value
+            # (which for dates is the empty string). This means that if we just
+            # took the minimum over these values in the example above, we'd get
+            # the empty string from "hosptial_admission_date" rather than the
+            # value in "covid_test_date".
+            #
+            # To workaround this we add a WHERE clause to filter out any
+            # default values (essentially treating them as if they were NULL).
+            # This gives us the result we want but it does mean we can't
+            # distinguish e.g. a recorded value of 0.0 from a missing value.
+            # This, however, is a general problem with the way we handle NULLs
+            # in our system, and so we're not introducing any new difficulty
+            # here.  (It's also unlikely to be a problem in practice.)
+            f" WHERE value != {default_value}"
+        )
+        return f"ISNULL(({aggregate_expression}), {default_value})"
 
     def get_db_connection(self):
         if self._db_connection:
