@@ -157,7 +157,7 @@ class ACMEBackend:
             else:
                 date_format_args = pop_keys_from_dict(query_args, ["date_format"])
                 cols, sql = self.get_query(name, query_type, query_args)
-                table_queries[name] = f"SELECT * INTO #{name} FROM ({sql}) t"
+                table_queries[name] = f"SELECT * INTO _{name} FROM ({sql}) t"
                 # The first column should always be patient_id so we can join on it
                 assert cols[0] == "patient_id"
                 output_columns[name] = self.get_column_expression(
@@ -167,8 +167,8 @@ class ACMEBackend:
         # that as the primary table to query against and left join everything
         # else against that. Otherwise, we use the `Patient` table.
         if "population" in table_queries:
-            primary_table = "#population"
-            patient_id_expr = "#population.patient_id"
+            primary_table = "_population"
+            patient_id_expr = "_population.patient_id"
         else:
             primary_table = "Patient"
             patient_id_expr = "Patient.Patient_ID"
@@ -180,7 +180,7 @@ class ACMEBackend:
             if not is_hidden.get(name) and name != "population"
         )
         joins = [
-            f"LEFT JOIN #{name} ON #{name}.patient_id = {patient_id_expr}"
+            f"LEFT JOIN _{name} ON _{name}.patient_id = {patient_id_expr}"
             for name in table_queries
             if name != "population"
         ]
@@ -197,7 +197,7 @@ class ACMEBackend:
 
     def get_column_expression(self, column_type, source, returning, date_format=None):
         default_value = self.get_default_value_for_type(column_type)
-        column_expr = f"#{source}.{returning}"
+        column_expr = f"_{source}.{returning}"
         if column_type == "date":
             column_expr = truncate_date(column_expr, date_format)
         return f"ISNULL({column_expr}, {quote(default_value)})"
@@ -270,7 +270,7 @@ class ACMEBackend:
         # We include the current column name for ease of debugging
         column_name = self._current_column_name or "unknown"
         # The hash prefix indicates a temporary table
-        table_name = f"#codelist_{table_number}_{column_name}"
+        table_name = f"_codelist_{table_number}_{column_name}"
         if codelist.has_categories:
             values = list(codelist)
         else:
