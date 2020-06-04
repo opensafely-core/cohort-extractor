@@ -31,11 +31,15 @@ from datalab_cohorts import (
     patients,
     codelist,
 )
-from datalab_cohorts.mssql_utils import mssql_connection_params_from_url
+from datalab_cohorts.mssql_utils import (
+    mssql_connection_params_from_url,
+    mssql_pyodbc_connection_from_url,
+)
 from datalab_cohorts.acme_backend import (
     quote,
     AppointmentStatus,
 )
+from datalab_cohorts.presto_utils import presto_connection_from_url
 
 
 @pytest.fixture(autouse=True)
@@ -73,6 +77,22 @@ def setup_function(function):
     session.query(PatientAddress).delete()
     session.query(Patient).delete()
     session.commit()
+
+    delete_temporary_tables()
+
+
+def delete_temporary_tables():
+    """Delete all temporary tables.
+
+    This doesn't really belong in the test setup, and we'll have to think about
+    how to handle temporary tables in production.
+    """
+    session = make_session()
+    with session.bind.connect() as conn:
+        sql = r"SELECT NAME FROM sys.tables WHERE NAME LIKE '\_%' ESCAPE '\'"
+        tables = [row[0] for row in conn.execute(sql)]
+        for table in tables:
+            conn.execute(f"DROP TABLE {table}")
 
 
 def test_minimal_study_to_csv():
@@ -1212,6 +1232,8 @@ def test_patients_admitted_to_icu():
         "2020-03-01",
     ]
 
+    delete_temporary_tables()
+
     study = StudyDefinition(
         population=patients.all(),
         icu=patients.admitted_to_icu(
@@ -1230,6 +1252,8 @@ def test_patients_admitted_to_icu():
         "",
         "2020-04-01",
     ]
+
+    delete_temporary_tables()
 
     study = StudyDefinition(
         population=patients.all(),
@@ -1786,6 +1810,8 @@ def test_patients_with_tpp_vaccination_record():
     assert [i["value"] for i in results] == ["0", "1"]
     assert [i["date"] for i in results] == ["", "2015"]
 
+    delete_temporary_tables()
+
     study = StudyDefinition(
         population=patients.all(),
         value=patients.with_tpp_vaccination_record(
@@ -1796,6 +1822,8 @@ def test_patients_with_tpp_vaccination_record():
         ),
     )
     assert [i["value"] for i in study.to_dicts()] == ["2014", "2013"]
+
+    delete_temporary_tables()
 
     study = StudyDefinition(
         population=patients.all(),
