@@ -1528,7 +1528,7 @@ def test_using_expression_in_population_definition():
 def test_quote():
     with pytest.raises(ValueError):
         quote("foo!")
-    assert quote("2012-02-01") == "'20120201'"
+    assert quote("2012-02-01") == "DATE('2012-02-01')"
     assert quote("2012") == "'2012'"
     assert quote(2012) == "2012"
     assert quote(0.1) == "0.1"

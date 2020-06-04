@@ -443,8 +443,8 @@ class ACMEBackend:
           patients.Patient_ID AS patient_id,
           ROUND(COALESCE(weight/SQUARE(NULLIF(height, 0)), bmis.BMI), 1) AS BMI,
           CASE
-            WHEN weight IS NULL OR height IS NULL THEN bmis.ConsultationDate
-            ELSE weights.ConsultationDate
+            WHEN weight IS NULL OR height IS NULL THEN DATE(bmis.ConsultationDate)
+            ELSE DATE(weights.ConsultationDate)
           END AS date
         FROM ({patients_cte}) AS patients
         LEFT JOIN ({weights_cte}) AS weights
@@ -664,7 +664,7 @@ class ACMEBackend:
             SELECT
               Patient_ID AS patient_id,
               {column_definition} AS {column_name},
-              ConsultationDate AS date
+              DATE(ConsultationDate) AS date
             FROM (
               SELECT Patient_ID, {column_definition}, ConsultationDate,
               ROW_NUMBER() OVER (
@@ -682,7 +682,7 @@ class ACMEBackend:
             SELECT
               Patient_ID AS patient_id,
               {column_definition} AS {column_name},
-              {date_aggregate}(ConsultationDate) AS date
+              {date_aggregate}(DATE(ConsultationDate)) AS date
             FROM {from_table}{additional_join}
             INNER JOIN {codelist_table}
             ON {code_column} = {codelist_table}.code
@@ -954,11 +954,11 @@ class ACMEBackend:
         {date_aggregate}(
         CASE
         WHEN
-          COALESCE(IcuAdmissionDateTime, '9999-01-01') < COALESCE(OriginalIcuAdmissionDate, '9999-01-01')
+          COALESCE(date_format(IcuAdmissionDateTime, '%Y-%m-%d'), '9999-01-01') < COALESCE(date_format(OriginalIcuAdmissionDate, '%Y-%m-%d'), '9999-01-01')
         THEN
-          IcuAdmissionDateTime
+          DATE(IcuAdmissionDateTime)
         ELSE
-          OriginalIcuAdmissionDate
+          DATE(OriginalIcuAdmissionDate)
         END)"""
         date_condition = make_date_filter(date_expression, between)
 
@@ -1111,7 +1111,7 @@ class ACMEBackend:
         SELECT
           Patient_ID AS patient_id,
           {column_definition} AS {column_name},
-          {date_aggregate}(VaccinationDate) AS date
+          {date_aggregate}(DATE(VaccinationDate)) AS date
         FROM Vaccination
         INNER JOIN VaccinationReference AS ref
         ON ref.VaccinationName_ID = Vaccination.VaccinationName_ID
@@ -1164,7 +1164,7 @@ class ACMEBackend:
         SELECT
           Patient_ID AS patient_id,
           {column_definition} AS {column_name},
-          {date_aggregate}(SeenDate) AS date
+          {date_aggregate}(DATE(SeenDate)) AS date
         FROM Appointment
         WHERE Status IN ({valid_states_str}) AND {date_condition}
         GROUP BY Patient_ID
@@ -1318,31 +1318,20 @@ def to_list(value):
     return list(value)
 
 
-def standardise_if_date(value):
-    """For strings that look like ISO dates, format in a SQL-Server
-    friendly fashion
-
-    """
-
-    # ISO date strings with hyphens are unreliable in SQL Server:
-    # https://stackoverflow.com/a/25548626/559140
-    try:
-        date = datetime.datetime.strptime(value, "%Y-%m-%d")
-        value = date.strftime("%Y%m%d")
-    except ValueError:
-        pass
-    return value
-
-
 def quote(value):
     if isinstance(value, (int, float)):
         return str(value)
-    else:
-        value = str(value)
-        value = standardise_if_date(value)
-        if not SAFE_CHARS_RE.match(value) and value != "":
-            raise ValueError(f"Value contains disallowed characters: {value}")
-        return f"'{value}'"
+
+    value = str(value)
+    try:
+        datetime.datetime.strptime(value, "%Y-%m-%d")
+        return f"DATE('{value}')"
+    except ValueError:
+        pass
+
+    if not SAFE_CHARS_RE.match(value) and value != "":
+        raise ValueError(f"Value contains disallowed characters: {value}")
+    return f"'{value}'"
 
 
 def make_date_filter(column, between, upper_bound_only=False):
@@ -1363,16 +1352,14 @@ def make_date_filter(column, between, upper_bound_only=False):
 
 def truncate_date(column, date_format):
     if date_format == "YYYY" or date_format is None:
-        date_length = 4
+        date_format = "%Y"
     elif date_format == "YYYY-MM":
-        date_length = 7
+        date_format = "%Y-%m"
     elif date_format == "YYYY-MM-DD":
-        date_length = 10
+        date_format = "%Y-%m-%d"
     else:
         raise ValueError(f"Unhandled date format: {date_format}")
-    # Style 23 below means YYYY-MM-DD format, see:
-    # https://docs.microsoft.com/en-us/sql/t-sql/functions/cast-and-convert-transact-sql?view=sql-server-ver15#date-and-time-styles
-    return f"CONVERT(VARCHAR({date_length}), {column}, 23)"
+    return f"date_format({column}, '{date_format}')"
 
 
 class UniqueCheck:
