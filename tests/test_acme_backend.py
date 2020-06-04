@@ -473,10 +473,10 @@ def test_patient_registered_as_of():
     # No date criteria
     study = StudyDefinition(population=patients.registered_as_of("2002-03-02"))
     results = study.to_dicts()
-    assert [x["patient_id"] for x in results] == [
+    assert {x["patient_id"] for x in results} == {
         str(patient_registered_in_2001.Patient_ID),
         str(patient_registered_in_2002.Patient_ID),
-    ]
+    }
 
 
 def test_patients_registered_with_one_practice_between():
