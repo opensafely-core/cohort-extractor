@@ -439,7 +439,10 @@ class ACMEBackend:
         sql = f"""
         SELECT
           patients.Patient_ID AS patient_id,
-          ROUND(COALESCE(weight/SQUARE(NULLIF(height, 0)), bmis.BMI), 1) AS BMI,
+          CASE
+            WHEN height = 0 THEN NULL
+            ELSE ROUND(COALESCE(weight/(height*height), bmis.BMI), 1)
+          END AS BMI,
           CASE
             WHEN weight IS NULL OR height IS NULL THEN DATE(bmis.ConsultationDate)
             ELSE DATE(weights.ConsultationDate)
