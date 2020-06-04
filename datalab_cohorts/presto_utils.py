@@ -10,7 +10,9 @@ class PrestoNoActiveNodesError(Exception):
 
 
 def presto_connection_from_url(url):
-    return prestodb.dbapi.connect(**presto_connection_params_from_url(url))
+    return ConnectionProxy(
+        prestodb.dbapi.connect(**presto_connection_params_from_url(url))
+    )
 
 
 def presto_connection_params_from_url(url):
@@ -61,3 +63,64 @@ def wait_for_presto_to_be_ready(url, timeout):
                 time.sleep(1)
             else:
                 raise
+
+
+class ConnectionProxy:
+    """Proxy for prestodb.dbapi.Connection, with a more useful cursor.
+
+    Specifically:
+
+    * if prestodb.dpapi.Cursor().execute() triggers an exception, the exception
+      is not raised until you later fetch the results
+    * prestodb.dbapi.Cursor().description is None until you fetch the results
+    * you cannot iterate over a prestodb.dbapi.Cursor
+    """
+
+    def __init__(self, connection):
+        self.connection = connection
+
+    def __getattr__(self, attr):
+        """Pass any unhandled attribute lookups to proxied connection."""
+
+        return getattr(self.connection, attr)
+
+    def cursor(self):
+        """Return a proxied cursor."""
+
+        return CursorProxy(self.connection.cursor())
+
+
+class CursorProxy:
+    """Proxy for prestodb.dbapi.Cursor.
+
+    See ConnectionProxy for details.
+    """
+
+    _rows = None
+
+    def __init__(self, cursor):
+        self.cursor = cursor
+
+    def __getattr__(self, attr):
+        """Pass any unhandled attribute lookups to proxied cursor."""
+
+        return getattr(self.cursor, attr)
+
+    def execute(self, *args, **kwargs):
+        """Execute a query/statement and fetch first batch of results.
+
+        This:
+
+        * triggers any exceptions caused by the query/statement
+        * populates the .description attribute of the cursor
+        """
+
+        self.cursor.execute(*args, **kwargs)
+        self._rows = self.cursor.fetchmany()
+
+    def __iter__(self):
+        """Iterate over results."""
+
+        while self._rows:
+            yield from iter(self._rows)
+            self._rows = self.cursor.fetchmany()
