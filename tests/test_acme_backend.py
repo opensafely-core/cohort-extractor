@@ -1438,26 +1438,6 @@ def test_duplicate_id_checking():
             study.to_csv(f.name)
 
 
-def test_sqlcmd_and_odbc_outputs_match():
-    session = make_session()
-    patient = Patient(DateOfBirth="1950-01-01")
-    patient.CodedEvents.append(
-        CodedEvent(CTV3Code="XYZ", NumericValue=50, ConsultationDate="2002-06-01")
-    )
-    session.add(patient)
-    session.commit()
-
-    study = StudyDefinition(
-        population=patients.with_these_clinical_events(codelist(["XYZ"], "ctv3"))
-    )
-    with tempfile.NamedTemporaryFile() as input_csv_odbc, tempfile.NamedTemporaryFile() as input_csv_sqlcmd:
-        # windows line endings
-        study.to_csv(input_csv_odbc.name, with_sqlcmd=False)
-        # unix line endings
-        study.to_csv(input_csv_sqlcmd.name, with_sqlcmd=True)
-        assert filecmp.cmp(input_csv_odbc.name, input_csv_sqlcmd.name, shallow=False)
-
-
 def test_column_name_clashes_produce_errors():
     with pytest.raises(ValueError):
         StudyDefinition(
