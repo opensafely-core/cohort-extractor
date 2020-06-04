@@ -110,14 +110,8 @@ class ACMEBackend:
         Useful for debugging, optimising, etc.
         """
         prepared_sql = ["-- Create codelist tables"]
-        for create_sql, insert_sql, values in self.codelist_tables:
-            prepared_sql.append(create_sql)
-            prepared_sql.append("GO")
-            for row in values:
-                prepared_sql.append(
-                    insert_sql.replace("?", "{}").format(*map(quote, row)) + ";"
-                )
-            prepared_sql.append("GO\n\n")
+        for sql in self.codelist_tables:
+            prepared_sql.append(f"{sql}\n\n")
         for name, query in self.queries:
             prepared_sql.append(f"-- Query for {name}")
             prepared_sql.append(query)
@@ -219,9 +213,8 @@ class ACMEBackend:
     def execute_query(self):
         cursor = self.get_db_connection().cursor()
         self.log("Uploading codelists into temporary tables")
-        for create_sql, insert_sql, values in self.codelist_tables:
-            cursor.execute(create_sql)
-            cursor.executemany(insert_sql, values)
+        for sql in self.codelist_tables:
+            cursor.execute(sql)
         queries = list(self.queries)
         final_query = queries.pop()[1]
         for name, sql in queries:
@@ -272,25 +265,27 @@ class ACMEBackend:
         # The hash prefix indicates a temporary table
         table_name = f"_codelist_{table_number}_{column_name}"
         if codelist.has_categories:
-            values = list(codelist)
-        else:
-            values = [(code, "") for code in codelist]
-        collation = "Latin1_General_BIN" if case_sensitive else "Latin1_General_CI_AS"
-        max_code_len = max(len(code) for (code, category) in values)
-        self.codelist_tables.append(
-            (
-                f"""
-                CREATE TABLE {table_name} (
-                  -- Because some code systems are case-sensitive we need to
-                  -- use a case-sensitive collation here
-                  code VARCHAR({max_code_len}) COLLATE {collation},
-                  category VARCHAR(MAX)
-                )
-                """,
-                f"INSERT INTO {table_name} (code, category) VALUES(?, ?)",
-                values,
+            values = ", ".join(
+                f"('{code}', '{category}')" for code, category in codelist
             )
-        )
+            self.codelist_tables.append(
+                f"""
+                    CREATE TABLE {table_name} AS
+                    SELECT * FROM (
+                      VALUES {values}
+                    ) AS t (code, category)
+                    """
+            )
+        else:
+            values = ", ".join(f"('{code}')" for code in codelist)
+            self.codelist_tables.append(
+                f"""
+                    CREATE TABLE {table_name} AS
+                    SELECT * FROM (
+                      VALUES {values}
+                    ) AS t (code)
+                    """
+            )
         return table_name
 
     def patients_age_as_of(self, reference_date):
