@@ -459,3 +459,46 @@ def with_test_result_in_sgss(
 
     """
     return "with_test_result_in_sgss", locals()
+
+
+def maximum_of(*column_names, **extra_columns):
+    """
+    Return the maximum value over the supplied columns e.g
+
+      max_value=patients.maximum_of("some_column", "another_column")
+
+    Additional columns can be defined within the function call which will be
+    used in computing the maximum but won't themselves appear in the output:
+
+      max_value=patients.maximum_of(
+          "some_column",
+          another_colum=patients.with_these_medications(...)
+      )
+    """
+    aggregate_function = "MAX"
+    column_names = column_names + tuple(extra_columns.keys())
+    return "aggregate_of", locals()
+
+
+def minimum_of(*column_names, **extra_columns):
+    """
+    Return the minimum value over the supplied columns e.g
+
+      min_value=patients.minimum_of("some_column", "another_column")
+
+    Note: this ignores "empty values" (i.e. the values used if there is no data
+    for a particular column, such as 0.0 for numeric values or the empty string
+    for dates). This ensures that the minimum of a column with a defined value
+    and one with a missing value is equal to the defined value.
+
+    Additional columns can be defined within the function call which will be
+    used in computing the minimum but won't themselves appear in the output:
+
+      min_value=patients.minimum_of(
+          "some_column",
+          another_colum=patients.with_these_medications(...)
+      )
+    """
+    aggregate_function = "MIN"
+    column_names = column_names + tuple(extra_columns.keys())
+    return "aggregate_of", locals()
