@@ -13,7 +13,7 @@ from .mssql_utils import (
 
 # Characters that are safe to interpolate into SQL (see
 # `placeholders_and_params` below)
-SAFE_CHARS_RE = re.compile(r"^[a-zA-Z0-9_\.\-]+$")
+SAFE_CHARS_RE = re.compile(r"^[ a-zA-Z0-9_\.\-]+$")
 
 
 class TPPBackend:
