@@ -7,6 +7,8 @@ from sqlalchemy.engine.url import URL
 
 def mssql_connection_params_from_url(url):
     parsed = urlparse(url)
+    if parsed.scheme != "mssql" and not parsed.scheme.startswith("mssql+"):
+        raise ValueError(f"Wrong scheme for MS-SQL URL: {url}")
     return {
         "host": parsed.hostname,
         "port": parsed.port or 1433,

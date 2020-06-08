@@ -16,9 +16,9 @@ def presto_connection_from_url(url):
 def presto_connection_params_from_url(url):
     parsed = urlparse(url)
     parts = parsed.path.strip("/").split("/")
-    if len(parts) != 2 or not all(parts):
+    if len(parts) != 2 or not all(parts) or parsed.scheme != "presto":
         raise ValueError(
-            "Presto URL must be of the form: presto://host.name/catalog/schema"
+            f"Presto URL not of the form 'presto://host.name/catalog/schema': {url}"
         )
     catalog, schema = parts
     connection_params = {
