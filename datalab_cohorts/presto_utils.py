@@ -67,13 +67,6 @@ def wait_for_presto_to_be_ready(url, timeout):
 
 class ConnectionProxy:
     """Proxy for prestodb.dbapi.Connection, with a more useful cursor.
-
-    Specifically:
-
-    * if prestodb.dpapi.Cursor().execute() triggers an exception, the exception
-      is not raised until you later fetch the results
-    * prestodb.dbapi.Cursor().description is None until you fetch the results
-    * you cannot iterate over a prestodb.dbapi.Cursor
     """
 
     def __init__(self, connection):
@@ -93,7 +86,12 @@ class ConnectionProxy:
 class CursorProxy:
     """Proxy for prestodb.dbapi.Cursor.
 
-    See ConnectionProxy for details.
+    Unlike prestodb.dbapi.Cursor:
+
+    * any exceptions caused by an invalid query are raised by .execute() (and
+      not later when you fetch the results)
+    * the .description attribute is set immediately after calling .execute()
+    * you can iterate over it to yield rows
     """
 
     _rows = None
