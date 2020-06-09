@@ -302,6 +302,7 @@ class ACMEBackend:
         # is >=16, weight must be within the last 10 years
         date_condition = make_date_filter('"effective-date"', between)
 
+        # TODO Change these to SNOMED codes
         bmi_code = "22K.."
         # XXX these two sets of codes need validating. The final in
         # each list is the canonical version according to TPP
