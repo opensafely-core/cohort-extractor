@@ -89,7 +89,7 @@ medication_issue = Table(
     Column("StartDate", DateTime),
     Column("EndDate", DateTime),
     Column("MedicationStatus", String),
-    Column("ConsultationDate", DateTime),
+    Column("effective-date", DateTime),
 )
 
 # WARNING: This table does not correspond to a table in the ACME database!
@@ -115,7 +115,7 @@ coded_event = Table(
     Column("CodedEvent_ID", Integer, primary_key=True),
     Column("CTV3Code", String(collation="Latin1_General_BIN")),
     Column("NumericValue", Float),
-    Column("ConsultationDate", DateTime),
+    Column("effective-date", DateTime),
     Column("SnomedConceptId", String),
 )
 
@@ -250,6 +250,7 @@ class Model:
         for k, v in kwargs.items():
             if k in [
                 "date_of_birth",
+                "effective_date",
             ]:
                 k = k.replace("_", "-")
             setattr(self, k, v)

@@ -125,16 +125,16 @@ def test_meds_with_count():
     patient_with_med = Patient()
     patient_with_med.MedicationIssues = [
         MedicationIssue(
-            MedicationDictionary=asthma_medication, ConsultationDate="2010-01-01"
+            MedicationDictionary=asthma_medication, effective_date="2010-01-01"
         ),
         MedicationIssue(
-            MedicationDictionary=asthma_medication, ConsultationDate="2015-01-01"
+            MedicationDictionary=asthma_medication, effective_date="2015-01-01"
         ),
         MedicationIssue(
-            MedicationDictionary=asthma_medication, ConsultationDate="2018-01-01"
+            MedicationDictionary=asthma_medication, effective_date="2018-01-01"
         ),
         MedicationIssue(
-            MedicationDictionary=asthma_medication, ConsultationDate="2020-01-01"
+            MedicationDictionary=asthma_medication, effective_date="2020-01-01"
         ),
     ]
     patient_without_med = Patient()
@@ -172,7 +172,7 @@ def _make_clinical_events_selection(condition_code, patient_dates=None):
                 value = 0.0
             patient.CodedEvents.append(
                 CodedEvent(
-                    CTV3Code=condition_code, ConsultationDate=date, NumericValue=value
+                    CTV3Code=condition_code, effective_date=date, NumericValue=value,
                 )
             )
         session.add(patient)
@@ -407,12 +407,12 @@ def test_clinical_event_with_category():
             Patient(),
             Patient(
                 CodedEvents=[
-                    CodedEvent(CTV3Code="foo1", ConsultationDate="2018-01-01"),
-                    CodedEvent(CTV3Code="foo2", ConsultationDate="2020-01-01"),
+                    CodedEvent(CTV3Code="foo1", effective_date="2018-01-01"),
+                    CodedEvent(CTV3Code="foo2", effective_date="2020-01-01"),
                 ]
             ),
             Patient(
-                CodedEvents=[CodedEvent(CTV3Code="foo3", ConsultationDate="2019-01-01")]
+                CodedEvents=[CodedEvent(CTV3Code="foo3", effective_date="2019-01-01")]
             ),
         ]
     )
@@ -469,10 +469,10 @@ def test_simple_bmi(include_dates):
 
     patient = Patient(date_of_birth="1950-01-01")
     patient.CodedEvents.append(
-        CodedEvent(CTV3Code=weight_code, NumericValue=50, ConsultationDate="2002-06-01")
+        CodedEvent(CTV3Code=weight_code, NumericValue=50, effective_date="2002-06-01",)
     )
     patient.CodedEvents.append(
-        CodedEvent(CTV3Code=height_code, NumericValue=10, ConsultationDate="2001-06-01")
+        CodedEvent(CTV3Code=height_code, NumericValue=10, effective_date="2001-06-01",)
     )
     session.add(patient)
     session.commit()
@@ -510,11 +510,11 @@ def test_bmi_rounded():
     patient = Patient(date_of_birth="1950-01-01")
     patient.CodedEvents.append(
         CodedEvent(
-            CTV3Code=weight_code, NumericValue=10.12345, ConsultationDate="2001-06-01"
+            CTV3Code=weight_code, NumericValue=10.12345, effective_date="2001-06-01",
         )
     )
     patient.CodedEvents.append(
-        CodedEvent(CTV3Code=height_code, NumericValue=10, ConsultationDate="2000-02-01")
+        CodedEvent(CTV3Code=height_code, NumericValue=10, effective_date="2000-02-01",)
     )
     session.add(patient)
     session.commit()
@@ -537,10 +537,10 @@ def test_bmi_with_zero_values():
 
     patient = Patient(date_of_birth="1950-01-01")
     patient.CodedEvents.append(
-        CodedEvent(CTV3Code=weight_code, NumericValue=0, ConsultationDate="2001-06-01")
+        CodedEvent(CTV3Code=weight_code, NumericValue=0, effective_date="2001-06-01")
     )
     patient.CodedEvents.append(
-        CodedEvent(CTV3Code=height_code, NumericValue=0, ConsultationDate="2001-06-01")
+        CodedEvent(CTV3Code=height_code, NumericValue=0, effective_date="2001-06-01")
     )
     session.add(patient)
     session.commit()
@@ -565,10 +565,10 @@ def test_explicit_bmi_fallback():
 
     patient = Patient(date_of_birth="1950-01-01")
     patient.CodedEvents.append(
-        CodedEvent(CTV3Code=weight_code, NumericValue=50, ConsultationDate="2001-06-01")
+        CodedEvent(CTV3Code=weight_code, NumericValue=50, effective_date="2001-06-01",)
     )
     patient.CodedEvents.append(
-        CodedEvent(CTV3Code=bmi_code, NumericValue=99, ConsultationDate="2001-10-01")
+        CodedEvent(CTV3Code=bmi_code, NumericValue=99, effective_date="2001-10-01")
     )
     session.add(patient)
     session.commit()
@@ -592,7 +592,7 @@ def test_no_bmi_when_old_date():
 
     patient = Patient(date_of_birth="1950-01-01")
     patient.CodedEvents.append(
-        CodedEvent(CTV3Code=bmi_code, NumericValue=99, ConsultationDate="1994-12-31")
+        CodedEvent(CTV3Code=bmi_code, NumericValue=99, effective_date="1994-12-31")
     )
     session.add(patient)
     session.commit()
@@ -616,7 +616,7 @@ def test_no_bmi_when_measurements_of_child():
 
     patient = Patient(date_of_birth="2000-01-01")
     patient.CodedEvents.append(
-        CodedEvent(CTV3Code=bmi_code, NumericValue=99, ConsultationDate="2001-01-01")
+        CodedEvent(CTV3Code=bmi_code, NumericValue=99, effective_date="2001-01-01")
     )
     session.add(patient)
     session.commit()
@@ -640,7 +640,7 @@ def test_no_bmi_when_measurement_after_reference_date():
 
     patient = Patient(date_of_birth="1900-01-01")
     patient.CodedEvents.append(
-        CodedEvent(CTV3Code=bmi_code, NumericValue=99, ConsultationDate="2001-01-01")
+        CodedEvent(CTV3Code=bmi_code, NumericValue=99, effective_date="2001-01-01")
     )
     session.add(patient)
     session.commit()
@@ -666,13 +666,13 @@ def test_bmi_when_only_some_measurements_of_child():
 
     patient = Patient(date_of_birth="1990-01-01")
     patient.CodedEvents.append(
-        CodedEvent(CTV3Code=bmi_code, NumericValue=99, ConsultationDate="1995-01-01")
+        CodedEvent(CTV3Code=bmi_code, NumericValue=99, effective_date="1995-01-01")
     )
     patient.CodedEvents.append(
-        CodedEvent(CTV3Code=weight_code, NumericValue=50, ConsultationDate="2010-01-01")
+        CodedEvent(CTV3Code=weight_code, NumericValue=50, effective_date="2010-01-01",)
     )
     patient.CodedEvents.append(
-        CodedEvent(CTV3Code=height_code, NumericValue=10, ConsultationDate="2010-01-01")
+        CodedEvent(CTV3Code=height_code, NumericValue=10, effective_date="2010-01-01",)
     )
     session.add(patient)
     session.commit()
@@ -702,11 +702,11 @@ def test_mean_recorded_value():
     ]
     for date, value in values:
         patient.CodedEvents.append(
-            CodedEvent(CTV3Code=code, NumericValue=value, ConsultationDate=date)
+            CodedEvent(CTV3Code=code, NumericValue=value, effective_date=date)
         )
     patient_with_old_reading = Patient()
     patient_with_old_reading.CodedEvents.append(
-        CodedEvent(CTV3Code=code, NumericValue=100, ConsultationDate="2010-01-01")
+        CodedEvent(CTV3Code=code, NumericValue=100, effective_date="2010-01-01")
     )
     patient_with_no_reading = Patient()
     session.add_all([patient, patient_with_old_reading, patient_with_no_reading])
@@ -735,7 +735,7 @@ def test_patients_satisfying():
     patient_3 = Patient(date_of_birth="1990-01-01", gender=1)
     patient_4 = Patient(date_of_birth="1940-01-01", gender=2)
     patient_4.CodedEvents.append(
-        CodedEvent(CTV3Code=condition_code, ConsultationDate="2010-01-01")
+        CodedEvent(CTV3Code=condition_code, effective_date="2010-01-01")
     )
     session.add_all([patient_1, patient_2, patient_3, patient_4])
     session.commit()
@@ -761,14 +761,14 @@ def test_patients_satisfying_with_hidden_columns():
     patient_3 = Patient(date_of_birth="1990-01-01", gender=1)
     patient_4 = Patient(date_of_birth="1940-01-01", gender=2)
     patient_4.CodedEvents.append(
-        CodedEvent(CTV3Code=condition_code, ConsultationDate="2010-01-01")
+        CodedEvent(CTV3Code=condition_code, effective_date="2010-01-01")
     )
     patient_5 = Patient(date_of_birth="1940-01-01", gender=2)
     patient_5.CodedEvents.append(
-        CodedEvent(CTV3Code=condition_code, ConsultationDate="2010-01-01")
+        CodedEvent(CTV3Code=condition_code, effective_date="2010-01-01")
     )
     patient_5.CodedEvents.append(
-        CodedEvent(CTV3Code=condition_code2, ConsultationDate="2010-01-01")
+        CodedEvent(CTV3Code=condition_code2, effective_date="2010-01-01")
     )
     session.add_all([patient_1, patient_2, patient_3, patient_4, patient_5])
     session.commit()
@@ -801,34 +801,26 @@ def test_patients_categorised_as():
         [
             Patient(
                 gender=1,
-                CodedEvents=[
-                    CodedEvent(CTV3Code="foo1", ConsultationDate="2000-01-01")
-                ],
+                CodedEvents=[CodedEvent(CTV3Code="foo1", effective_date="2000-01-01")],
             ),
             Patient(
                 gender=2,
                 CodedEvents=[
-                    CodedEvent(CTV3Code="foo2", ConsultationDate="2000-01-01"),
-                    CodedEvent(CTV3Code="bar1", ConsultationDate="2000-01-01"),
+                    CodedEvent(CTV3Code="foo2", effective_date="2000-01-01"),
+                    CodedEvent(CTV3Code="bar1", effective_date="2000-01-01"),
                 ],
             ),
             Patient(
                 gender=1,
-                CodedEvents=[
-                    CodedEvent(CTV3Code="foo2", ConsultationDate="2000-01-01")
-                ],
+                CodedEvents=[CodedEvent(CTV3Code="foo2", effective_date="2000-01-01")],
             ),
             Patient(
                 gender=2,
-                CodedEvents=[
-                    CodedEvent(CTV3Code="foo3", ConsultationDate="2000-01-01")
-                ],
+                CodedEvents=[CodedEvent(CTV3Code="foo3", effective_date="2000-01-01")],
             ),
             Patient(
                 gender=2,
-                CodedEvents=[
-                    CodedEvent(CTV3Code="bar1", ConsultationDate="2000-01-01"),
-                ],
+                CodedEvents=[CodedEvent(CTV3Code="bar1", effective_date="2000-01-01"),],
             ),
         ]
     )
@@ -1240,7 +1232,7 @@ def test_to_sql_passes():
     session = make_session()
     patient = Patient(date_of_birth="1950-01-01")
     patient.CodedEvents.append(
-        CodedEvent(CTV3Code="XYZ", NumericValue=50, ConsultationDate="2002-06-01")
+        CodedEvent(CTV3Code="XYZ", NumericValue=50, effective_date="2002-06-01")
     )
     session.add(patient)
     session.commit()
@@ -1320,17 +1312,13 @@ def test_using_expression_in_population_definition():
             Patient(
                 gender=1,
                 date_of_birth="1970-01-01",
-                CodedEvents=[
-                    CodedEvent(CTV3Code="foo1", ConsultationDate="2000-01-01")
-                ],
+                CodedEvents=[CodedEvent(CTV3Code="foo1", effective_date="2000-01-01")],
             ),
             Patient(gender=1, date_of_birth="1975-01-01"),
             Patient(
                 gender=2,
                 date_of_birth="1980-01-01",
-                CodedEvents=[
-                    CodedEvent(CTV3Code="foo1", ConsultationDate="2000-01-01")
-                ],
+                CodedEvents=[CodedEvent(CTV3Code="foo1", effective_date="2000-01-01")],
             ),
             Patient(gender=2, date_of_birth="1985-01-01"),
         ]
@@ -1367,40 +1355,40 @@ def test_number_of_episodes():
         [
             Patient(
                 CodedEvents=[
-                    CodedEvent(CTV3Code="foo1", ConsultationDate="2010-01-01"),
+                    CodedEvent(CTV3Code="foo1", effective_date="2010-01-01"),
                     # Throw in some irrelevant events
-                    CodedEvent(CTV3Code="mto1", ConsultationDate="2010-01-02"),
-                    CodedEvent(CTV3Code="mto2", ConsultationDate="2010-01-03"),
+                    CodedEvent(CTV3Code="mto1", effective_date="2010-01-02"),
+                    CodedEvent(CTV3Code="mto2", effective_date="2010-01-03"),
                     # These two should be merged in to the previous event
                     # because there's not more than 14 days between them
-                    CodedEvent(CTV3Code="foo2", ConsultationDate="2010-01-14"),
-                    CodedEvent(CTV3Code="foo3", ConsultationDate="2010-01-20"),
+                    CodedEvent(CTV3Code="foo2", effective_date="2010-01-14"),
+                    CodedEvent(CTV3Code="foo3", effective_date="2010-01-20"),
                     # This is just outside the limit so should count as another event
-                    CodedEvent(CTV3Code="foo1", ConsultationDate="2010-02-04"),
+                    CodedEvent(CTV3Code="foo1", effective_date="2010-02-04"),
                     # This shouldn't count because there's an "ignore" event on
                     # the same day (though at a different time)
-                    CodedEvent(CTV3Code="foo1", ConsultationDate="2012-01-01T10:45:00"),
-                    CodedEvent(CTV3Code="bar2", ConsultationDate="2012-01-01T16:10:00"),
+                    CodedEvent(CTV3Code="foo1", effective_date="2012-01-01T10:45:00"),
+                    CodedEvent(CTV3Code="bar2", effective_date="2012-01-01T16:10:00"),
                     # This should be another episode
-                    CodedEvent(CTV3Code="foo1", ConsultationDate="2015-03-05"),
+                    CodedEvent(CTV3Code="foo1", effective_date="2015-03-05"),
                     # This "ignore" event should have no effect because it occurs
                     # on a different day
-                    CodedEvent(CTV3Code="bar1", ConsultationDate="2015-03-06"),
+                    CodedEvent(CTV3Code="bar1", effective_date="2015-03-06"),
                     # This is after the time limit and so shouldn't count
-                    CodedEvent(CTV3Code="foo1", ConsultationDate="2020-02-05"),
+                    CodedEvent(CTV3Code="foo1", effective_date="2020-02-05"),
                 ]
             ),
             # This patient doesn't have any relevant events
             Patient(
                 CodedEvents=[
-                    CodedEvent(CTV3Code="mto1", ConsultationDate="2010-01-01"),
-                    CodedEvent(CTV3Code="mto2", ConsultationDate="2010-01-14"),
-                    CodedEvent(CTV3Code="mto3", ConsultationDate="2010-01-20"),
-                    CodedEvent(CTV3Code="mto1", ConsultationDate="2010-02-04"),
-                    CodedEvent(CTV3Code="mto1", ConsultationDate="2012-01-01T10:45:00"),
-                    CodedEvent(CTV3Code="mtr2", ConsultationDate="2012-01-01T16:10:00"),
-                    CodedEvent(CTV3Code="mto1", ConsultationDate="2015-03-05"),
-                    CodedEvent(CTV3Code="mto1", ConsultationDate="2020-02-05"),
+                    CodedEvent(CTV3Code="mto1", effective_date="2010-01-01"),
+                    CodedEvent(CTV3Code="mto2", effective_date="2010-01-14"),
+                    CodedEvent(CTV3Code="mto3", effective_date="2010-01-20"),
+                    CodedEvent(CTV3Code="mto1", effective_date="2010-02-04"),
+                    CodedEvent(CTV3Code="mto1", effective_date="2012-01-01T10:45:00"),
+                    CodedEvent(CTV3Code="mtr2", effective_date="2012-01-01T16:10:00"),
+                    CodedEvent(CTV3Code="mto1", effective_date="2015-03-05"),
+                    CodedEvent(CTV3Code="mto1", effective_date="2020-02-05"),
                 ]
             ),
         ]
@@ -1442,66 +1430,66 @@ def test_number_of_episodes_for_medications():
             Patient(
                 MedicationIssues=[
                     MedicationIssue(
-                        MedicationDictionary=oral_steriod, ConsultationDate="2010-01-01"
+                        MedicationDictionary=oral_steriod, effective_date="2010-01-01"
                     ),
                     # Throw in some irrelevant prescriptions
                     MedicationIssue(
-                        MedicationDictionary=other_drug, ConsultationDate="2010-01-02"
+                        MedicationDictionary=other_drug, effective_date="2010-01-02"
                     ),
                     MedicationIssue(
-                        MedicationDictionary=other_drug, ConsultationDate="2010-01-03"
+                        MedicationDictionary=other_drug, effective_date="2010-01-03"
                     ),
                     # These two should be merged in to the previous event
                     # because there's not more than 14 days between them
                     MedicationIssue(
-                        MedicationDictionary=oral_steriod, ConsultationDate="2010-01-14"
+                        MedicationDictionary=oral_steriod, effective_date="2010-01-14"
                     ),
                     MedicationIssue(
-                        MedicationDictionary=oral_steriod, ConsultationDate="2010-01-20"
+                        MedicationDictionary=oral_steriod, effective_date="2010-01-20"
                     ),
                     # This is just outside the limit so should count as another event
                     MedicationIssue(
-                        MedicationDictionary=oral_steriod, ConsultationDate="2010-02-04"
+                        MedicationDictionary=oral_steriod, effective_date="2010-02-04"
                     ),
                     # This shouldn't count because there's an "ignore" event on
                     # the same day (though at a different time)
                     MedicationIssue(
                         MedicationDictionary=oral_steriod,
-                        ConsultationDate="2012-01-01T10:45:00",
+                        effective_date="2012-01-01T10:45:00",
                     ),
                     # This should be another episode
                     MedicationIssue(
-                        MedicationDictionary=oral_steriod, ConsultationDate="2015-03-05"
+                        MedicationDictionary=oral_steriod, effective_date="2015-03-05"
                     ),
                     # This is after the time limit and so shouldn't count
                     MedicationIssue(
-                        MedicationDictionary=oral_steriod, ConsultationDate="2020-02-05"
+                        MedicationDictionary=oral_steriod, effective_date="2020-02-05"
                     ),
                 ],
                 CodedEvents=[
                     # This "ignore" event should cause us to skip one of the
                     # meds issues above
-                    CodedEvent(CTV3Code="bar2", ConsultationDate="2012-01-01T16:10:00"),
+                    CodedEvent(CTV3Code="bar2", effective_date="2012-01-01T16:10:00"),
                     # This "ignore" event should have no effect because it
                     # doesn't occur on the same day as any meds issue
-                    CodedEvent(CTV3Code="bar1", ConsultationDate="2015-03-06"),
+                    CodedEvent(CTV3Code="bar1", effective_date="2015-03-06"),
                 ],
             ),
             # This patient doesn't have any relevant events or prescriptions
             Patient(
                 MedicationIssues=[
                     MedicationIssue(
-                        MedicationDictionary=other_drug, ConsultationDate="2010-01-02"
+                        MedicationDictionary=other_drug, effective_date="2010-01-02"
                     ),
                     MedicationIssue(
-                        MedicationDictionary=other_drug, ConsultationDate="2010-01-03"
+                        MedicationDictionary=other_drug, effective_date="2010-01-03"
                     ),
                 ],
                 CodedEvents=[
-                    CodedEvent(CTV3Code="mto1", ConsultationDate="2010-02-04"),
-                    CodedEvent(CTV3Code="mto1", ConsultationDate="2012-01-01T10:45:00"),
-                    CodedEvent(CTV3Code="mtr2", ConsultationDate="2012-01-01T16:10:00"),
-                    CodedEvent(CTV3Code="mto1", ConsultationDate="2015-03-05"),
+                    CodedEvent(CTV3Code="mto1", effective_date="2010-02-04"),
+                    CodedEvent(CTV3Code="mto1", effective_date="2012-01-01T10:45:00"),
+                    CodedEvent(CTV3Code="mtr2", effective_date="2012-01-01T16:10:00"),
+                    CodedEvent(CTV3Code="mto1", effective_date="2015-03-05"),
                 ],
             ),
         ]
@@ -1543,19 +1531,19 @@ def test_medications_returning_code_with_ignored_days():
             Patient(
                 MedicationIssues=[
                     MedicationIssue(
-                        MedicationDictionary=other_drug, ConsultationDate="2010-01-03"
+                        MedicationDictionary=other_drug, effective_date="2010-01-03"
                     ),
                     # This shouldn't count because there's an "ignore" event on
                     # the same day (though at a different time)
                     MedicationIssue(
                         MedicationDictionary=oral_steriod,
-                        ConsultationDate="2012-01-01T10:45:00",
+                        effective_date="2012-01-01T10:45:00",
                     ),
                 ],
                 CodedEvents=[
                     # This "ignore" event should cause us to skip one of the
                     # meds issues above
-                    CodedEvent(CTV3Code="bar1", ConsultationDate="2012-01-01T16:10:00"),
+                    CodedEvent(CTV3Code="bar1", effective_date="2012-01-01T16:10:00"),
                 ],
             ),
         ]

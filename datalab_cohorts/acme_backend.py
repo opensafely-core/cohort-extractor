@@ -300,7 +300,7 @@ class ACMEBackend:
         # 2) If height and weight is not available, then take latest
         # recorded BMI. Both values must be recorded when the patient
         # is >=16, weight must be within the last 10 years
-        date_condition = make_date_filter("ConsultationDate", between)
+        date_condition = make_date_filter('"effective-date"', between)
 
         bmi_code = "22K.."
         # XXX these two sets of codes need validating. The final in
@@ -315,10 +315,10 @@ class ACMEBackend:
         ]
 
         bmi_cte = f"""
-        SELECT t."registration-id", t.BMI, t.ConsultationDate
+        SELECT t."registration-id", t.BMI, t."effective-date"
         FROM (
-          SELECT "registration-id", NumericValue AS BMI, ConsultationDate,
-          ROW_NUMBER() OVER (PARTITION BY "registration-id" ORDER BY ConsultationDate DESC) AS rownum
+          SELECT "registration-id", NumericValue AS BMI, "effective-date",
+          ROW_NUMBER() OVER (PARTITION BY "registration-id" ORDER BY "effective-date" DESC) AS rownum
           FROM CodedEvent
           WHERE CTV3Code = {quote(bmi_code)} AND {date_condition}
         ) t
@@ -331,10 +331,10 @@ class ACMEBackend:
         """
         weight_codes_sql = codelist_to_sql(weight_codes)
         weights_cte = f"""
-          SELECT t."registration-id", t.weight, t.ConsultationDate
+          SELECT t."registration-id", t.weight, t."effective-date"
           FROM (
-            SELECT "registration-id", NumericValue AS weight, ConsultationDate,
-            ROW_NUMBER() OVER (PARTITION BY "registration-id" ORDER BY ConsultationDate DESC) AS rownum
+            SELECT "registration-id", NumericValue AS weight, "effective-date",
+            ROW_NUMBER() OVER (PARTITION BY "registration-id" ORDER BY "effective-date" DESC) AS rownum
             FROM CodedEvent
             WHERE CTV3Code IN ({weight_codes_sql}) AND {date_condition}
           ) t
@@ -346,13 +346,13 @@ class ACMEBackend:
         # mind using old values as long as the patient was old enough when they
         # were taken.
         height_date_condition = make_date_filter(
-            "ConsultationDate", between, upper_bound_only=True,
+            '"effective-date"', between, upper_bound_only=True,
         )
         heights_cte = f"""
-          SELECT t."registration-id", t.height, t.ConsultationDate
+          SELECT t."registration-id", t.height, t."effective-date"
           FROM (
-            SELECT "registration-id", NumericValue AS height, ConsultationDate,
-            ROW_NUMBER() OVER (PARTITION BY "registration-id" ORDER BY ConsultationDate DESC) AS rownum
+            SELECT "registration-id", NumericValue AS height, "effective-date",
+            ROW_NUMBER() OVER (PARTITION BY "registration-id" ORDER BY "effective-date" DESC) AS rownum
             FROM CodedEvent
             WHERE CTV3Code IN ({height_codes_sql}) AND {height_date_condition}
           ) t
@@ -369,16 +369,16 @@ class ACMEBackend:
             ELSE ROUND(COALESCE(weight/(height*height), bmis.BMI), 1)
           END AS BMI,
           CASE
-            WHEN weight IS NULL OR height IS NULL THEN DATE(bmis.ConsultationDate)
-            ELSE DATE(weights.ConsultationDate)
+            WHEN weight IS NULL OR height IS NULL THEN DATE(bmis."effective-date")
+            ELSE DATE(weights."effective-date")
           END AS date
         FROM ({patients_cte}) AS patients
         LEFT JOIN ({weights_cte}) AS weights
-        ON weights."registration-id" = patients.id AND date_diff('year', patients."date-of-birth", weights.ConsultationDate) >= {min_age}
+        ON weights."registration-id" = patients.id AND date_diff('year', patients."date-of-birth", weights."effective-date") >= {min_age}
         LEFT JOIN ({heights_cte}) AS heights
-        ON heights."registration-id" = patients.id AND date_diff('year', patients."date-of-birth", heights.ConsultationDate) >= {min_age}
+        ON heights."registration-id" = patients.id AND date_diff('year', patients."date-of-birth", heights."effective-date") >= {min_age}
         LEFT JOIN ({bmi_cte}) AS bmis
-        ON bmis."registration-id" = patients.id AND date_diff('year', patients."date-of-birth", bmis.ConsultationDate) >= {min_age}
+        ON bmis."registration-id" = patients.id AND date_diff('year', patients."date-of-birth", bmis."effective-date") >= {min_age}
         -- XXX maybe add a "WHERE NULL..." here
         """
         columns = ["patient_id", "BMI"]
@@ -398,7 +398,7 @@ class ACMEBackend:
     ):
         # We only support this option for now
         assert on_most_recent_day_of_measurement
-        date_condition = make_date_filter("ConsultationDate", between)
+        date_condition = make_date_filter('"effective-date"', between)
         codelist_sql = codelist_to_sql(codelist)
         # The subquery finds, for each patient, the most recent day on which
         # they've had a measurement. The outer query selects, for each patient,
@@ -411,7 +411,7 @@ class ACMEBackend:
           AVG(CodedEvent.NumericValue) AS mean_value,
           days.date_measured AS date
         FROM (
-            SELECT "registration-id", CAST(MAX(ConsultationDate) AS date) AS date_measured
+            SELECT "registration-id", CAST(MAX("effective-date") AS date) AS date_measured
             FROM CodedEvent
             WHERE CTV3Code IN ({codelist_sql}) AND {date_condition}
             GROUP BY "registration-id"
@@ -420,7 +420,7 @@ class ACMEBackend:
         ON (
           CodedEvent."registration-id" = days."registration-id"
           AND CodedEvent.CTV3Code IN ({codelist_sql})
-          AND CAST(CodedEvent.ConsultationDate AS date) = days.date_measured
+          AND CAST(CodedEvent."effective-date" AS date) = days.date_measured
         )
         GROUP BY days."registration-id", days.date_measured
         """
@@ -451,7 +451,7 @@ class ACMEBackend:
         Patients who have been prescribed at least one of this list of
         medications in the defined period
         """
-        # Note that we're using "ConsultationDate" for the date condition here,
+        # Note that we're using "effective-date" for the date condition here,
         # which is the date of prescription.  The MedicationIssue table also
         # has StartDate (the date of issue) and EndDate (not exactly sure what
         # this is).
@@ -522,7 +522,7 @@ class ACMEBackend:
         include_date_of_match=False,
     ):
         codelist_table = self.create_codelist_table(codelist, codes_are_case_sensitive)
-        date_condition = make_date_filter("ConsultationDate", between)
+        date_condition = make_date_filter('"effective-date"', between)
         not_an_ignored_day_condition = self._none_of_these_codes_occur_on_same_day(
             from_table, ignore_days_where_these_codes_occur
         )
@@ -568,11 +568,11 @@ class ACMEBackend:
             SELECT
               "registration-id" AS patient_id,
               {column_definition} AS {column_name},
-              DATE(ConsultationDate) AS date
+              DATE("effective-date") AS date
             FROM (
-              SELECT "registration-id", {column_definition}, ConsultationDate,
+              SELECT "registration-id", {column_definition}, "effective-date",
               ROW_NUMBER() OVER (
-                PARTITION BY "registration-id" ORDER BY ConsultationDate {ordering}
+                PARTITION BY "registration-id" ORDER BY "effective-date" {ordering}
               ) AS rownum
               FROM {from_table}{additional_join}
               INNER JOIN {codelist_table}
@@ -586,7 +586,7 @@ class ACMEBackend:
             SELECT
               "registration-id" AS patient_id,
               {column_definition} AS {column_name},
-              {date_aggregate}(DATE(ConsultationDate)) AS date
+              {date_aggregate}(DATE("effective-date")) AS date
             FROM {from_table}{additional_join}
             INNER JOIN {codelist_table}
             ON {code_column} = {codelist_table}.code
@@ -611,7 +611,7 @@ class ACMEBackend:
         episode_defined_as=None,
     ):
         codelist_table = self.create_codelist_table(codelist, case_sensitive=False)
-        date_condition = make_date_filter("ConsultationDate", between)
+        date_condition = make_date_filter('"effective-date"', between)
         not_an_ignored_day_condition = self._none_of_these_codes_occur_on_same_day(
             "MedicationIssue", ignore_days_where_these_codes_occur
         )
@@ -637,8 +637,8 @@ class ACMEBackend:
                 WHEN
                   date_diff(
                     'day',
-                    LAG(ConsultationDate) OVER (PARTITION BY "registration-id" ORDER BY ConsultationDate),
-                    ConsultationDate
+                    LAG("effective-date") OVER (PARTITION BY "registration-id" ORDER BY "effective-date"),
+                    "effective-date"
                   ) <= {washout_period}
                 THEN 0
                 ELSE 1
@@ -663,7 +663,7 @@ class ACMEBackend:
         episode_defined_as=None,
     ):
         codelist_table = self.create_codelist_table(codelist, case_sensitive=True)
-        date_condition = make_date_filter("ConsultationDate", between)
+        date_condition = make_date_filter('"effective-date"', between)
         not_an_ignored_day_condition = self._none_of_these_codes_occur_on_same_day(
             "CodedEvent", ignore_days_where_these_codes_occur
         )
@@ -689,8 +689,8 @@ class ACMEBackend:
                 WHEN
                   date_diff(
                     'day',
-                    LAG(ConsultationDate) OVER (PARTITION BY "registration-id" ORDER BY ConsultationDate),
-                    ConsultationDate
+                    LAG("effective-date") OVER (PARTITION BY "registration-id" ORDER BY "effective-date"),
+                    "effective-date"
                   ) <= {washout_period}
                 THEN 0
                 ELSE 1
@@ -725,7 +725,7 @@ class ACMEBackend:
           ON sameday.CTV3Code = {codelist_table}.code
           WHERE
             sameday."registration-id" = {joined_table}."registration-id"
-            AND CAST(sameday.ConsultationDate AS date) = CAST({joined_table}.ConsultationDate AS date)
+            AND CAST(sameday."effective-date" AS date) = CAST({joined_table}."effective-date" AS date)
         )
         """
 
