@@ -338,85 +338,91 @@ mapper(
         "CodedEvents": relationship(
             CodedEvent, back_populates="Patient", cascade="all, delete, delete-orphan"
         ),
-        "ICNARC": relationship(
-            ICNARC, back_populates="Patient", cascade="all, delete, delete-orphan"
-        ),
-        "ONSDeath": relationship(
-            ONSDeaths, back_populates="Patient", cascade="all, delete, delete-orphan"
-        ),
-        "CPNS": relationship(
-            CPNS, back_populates="Patient", cascade="all, delete, delete-orphan"
-        ),
         "RegistrationHistory": relationship(
             RegistrationHistory,
             back_populates="Patient",
             cascade="all, delete, delete-orphan",
         ),
-        "Addresses": relationship(
-            PatientAddress,
-            back_populates="Patient",
-            cascade="all, delete, delete-orphan",
-        ),
+        #
+        # We won't create mappings for these tables until we know what fields
+        # they will have in the ACME backend.
+        #
+        # "Addresses": relationship(
+        #     PatientAddress,
+        #     back_populates="patient",
+        #     cascade="all, delete, delete-orphan",
+        # ),
+        # "ICNARC": relationship(
+        #     ICNARC, back_populates="Patient", cascade="all, delete, delete-orphan"
+        # ),
+        # "ONSDeath": relationship(
+        #     ONSDeaths, back_populates="Patient", cascade="all, delete, delete-orphan"
+        # ),
+        # "CPNS": relationship(
+        #     CPNS, back_populates="Patient", cascade="all, delete, delete-orphan"
+        # ),
     },
 )
 
-mapper(
-    RegistrationHistory,
-    registration_history,
-    properties={
-        "Organisation": relationship(
-            Organisation, back_populates="RegistrationHistory", cascade="all, delete"
-        ),
-        "Patient": relationship(
-            Patient, back_populates="RegistrationHistory", cascade="all, delete"
-        ),
-    },
-)
+# We won't create mappings for these tables until we know what fields they will
+# have in the ACME backend.
+# mapper(
+#     RegistrationHistory,
+#     registration_history,
+#     properties={
+#         "Organisation": relationship(
+#             Organisation, back_populates="RegistrationHistory", cascade="all, delete"
+#         ),
+#         "Patient": relationship(
+#             Patient, back_populates="RegistrationHistory", cascade="all, delete"
+#         ),
+#     },
+# )
 
-mapper(
-    Organisation,
-    organisation,
-    properties={
-        "RegistrationHistory": relationship(
-            RegistrationHistory,
-            back_populates="Organisation",
-            cascade="all, delete, delete-orphan",
-        )
-    },
-)
+# mapper(
+#     Organisation,
+#     organisation,
+#     properties={
+#         "RegistrationHistory": relationship(
+#             RegistrationHistory,
+#             back_populates="Organisation",
+#             cascade="all, delete, delete-orphan",
+#         )
+#     },
+# )
 
-mapper(
-    PatientAddress,
-    patient_address,
-    properties={
-        "Patient": relationship(
-            Patient, back_populates="Addresses", cascade="all, delete"
-        )
-    },
-)
+# mapper(
+#     PatientAddress,
+#     patient_address,
+#     properties={
+#         "patient": relationship(
+#             Patient, back_populates="Addresses", cascade="all, delete"
+#         )
+#     },
+# )
 
-mapper(
-    ICNARC,
-    icnarc,
-    properties={
-        "Patient": relationship(Patient, back_populates="ICNARC", cascade="all, delete")
-    },
-)
+# mapper(
+#     ICNARC,
+#     icnarc,
+#     properties={
+#         "Patient": relationship(Patient, back_populates="ICNARC", cascade="all, delete")
+#     },
+# )
 
-mapper(
-    ONSDeaths,
-    ons_deaths,
-    properties={
-        "Patient": relationship(
-            Patient, back_populates="ONSDeath", cascade="all, delete"
-        )
-    },
-)
+# mapper(
+#     ONSDeaths,
+#     ons_deaths,
+#     properties={
+#         "Patient": relationship(
+#             Patient, back_populates="ONSDeath", cascade="all, delete"
+#         )
+#     },
+# )
 
-mapper(
-    CPNS,
-    cpns,
-    properties={
-        "Patient": relationship(Patient, back_populates="CPNS", cascade="all, delete")
-    },
-)
+# mapper(
+#     CPNS,
+#     cpns,
+#     properties={
+#         "Patient": relationship(Patient, back_populates="CPNS", cascade="all, delete")
+#     },
+# )
