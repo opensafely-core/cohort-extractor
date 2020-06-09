@@ -92,6 +92,8 @@ class CursorProxy:
       not later when you fetch the results)
     * the .description attribute is set immediately after calling .execute()
     * you can iterate over it to yield rows
+    * .fetchone()/.fetchmany()/.fetchall() are disabled (they are not currently
+      used by ACMEBackend, although they could be implemented if required)
     """
 
     _rows = None
@@ -122,3 +124,12 @@ class CursorProxy:
         while self._rows:
             yield from iter(self._rows)
             self._rows = self.cursor.fetchmany()
+
+    def fetchone(self):
+        raise RuntimeError("Iterate over cursor to get results")
+
+    def fetchmany(self, size=None):
+        raise RuntimeError("Iterate over cursor to get results")
+
+    def fetchall(self):
+        raise RuntimeError("Iterate over cursor to get results")
