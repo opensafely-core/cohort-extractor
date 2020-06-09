@@ -545,7 +545,7 @@ def test_simple_bmi(include_dates):
         BMI=patients.most_recent_bmi(
             on_or_after="1995-01-01", on_or_before="2005-01-01"
         ),
-        **dict(BMI_date_measured=date_query) if date_query else {}
+        **dict(BMI_date_measured=date_query) if date_query else {},
     )
     results = study.to_dicts()
     assert [x["BMI"] for x in results] == ["0.5"]
