@@ -1,5 +1,4 @@
 import csv
-import filecmp
 import os
 import subprocess
 import tempfile
@@ -35,10 +34,7 @@ from datalab_cohorts.acme_backend import (
     quote,
     AppointmentStatus,
 )
-from datalab_cohorts.presto_utils import (
-    presto_connection_from_url,
-    presto_connection_params_from_url,
-)
+from datalab_cohorts.presto_utils import presto_connection_params_from_url
 
 
 @pytest.fixture(autouse=True)
