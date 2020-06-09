@@ -9,6 +9,11 @@ The production configuration uses the following connectors:
 
 For immediate convenience while testing we use the SQL Server connector (as we
 already need an instance running for the TPP tests).
+
+This file defines the structure of the tables we expect to find in the ACME
+backend.  Because ACME tables have hyphens in their fieldnames, we cannot use
+SQLAlchemy's declarative mappings, and instead have to define tables and models
+separately.
 """
 import os
 import time
@@ -17,14 +22,16 @@ import sqlalchemy
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer, String, DateTime, Float, NVARCHAR, Date
 from sqlalchemy import ForeignKey
+from sqlalchemy import Table, MetaData
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm import relationship
+from sqlalchemy.orm import mapper
 
 from datalab_cohorts.mssql_utils import mssql_sqlalchemy_engine_from_url
 from datalab_cohorts.presto_utils import wait_for_presto_to_be_ready
 
-
 Base = declarative_base()
+metadata = Base.metadata
 
 
 def make_engine():
@@ -60,197 +67,152 @@ def make_database():
     Base.metadata.create_all(make_engine())
 
 
-# WARNING: This table does not correspond to a table in the ACME database!
-class MedicationIssue(Base):
-    __tablename__ = "MedicationIssue"
-
-    Patient_ID = Column(Integer, ForeignKey("Patient.Patient_ID"))
-    Patient = relationship("Patient", back_populates="MedicationIssues")
-    Consultation_ID = Column(Integer)
-    MedicationIssue_ID = Column(Integer, primary_key=True)
-    RepeatMedication_ID = Column(Integer)
-    MultilexDrug_ID = Column(
-        NVARCHAR(length=20), ForeignKey("MedicationDictionary.MultilexDrug_ID")
-    )
-    MedicationDictionary = relationship(
-        "MedicationDictionary", back_populates="MedicationIssues", cascade="all, delete"
-    )
-    Dose = Column(String)
-    Quantity = Column(String)
-    StartDate = Column(DateTime)
-    EndDate = Column(DateTime)
-    MedicationStatus = Column(String)
-    ConsultationDate = Column(DateTime)
-
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Table definitions
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 # WARNING: This table does not correspond to a table in the ACME database!
-class MedicationDictionary(Base):
-    __tablename__ = "MedicationDictionary"
-
-    MultilexDrug_ID = Column(NVARCHAR(length=20), primary_key=True)
-    MedicationIssues = relationship(
-        "MedicationIssue", back_populates="MedicationDictionary"
-    )
-    ProductId = Column(String)
-    FullName = Column(String)
-    RootName = Column(String)
-    PackDescription = Column(String)
-    Form = Column(String)
-    Strength = Column(String)
-    CompanyName = Column(String)
-    DMD_ID = Column(String(collation="Latin1_General_CI_AS"))
-
-
-# WARNING: This table does not correspond to a table in the ACME database!
-class CodedEvent(Base):
-    __tablename__ = "CodedEvent"
-
-    Patient_ID = Column(Integer, ForeignKey("Patient.Patient_ID"))
-    Patient = relationship(
-        "Patient", back_populates="CodedEvents", cascade="all, delete"
-    )
-    CodedEvent_ID = Column(Integer, primary_key=True)
-    CTV3Code = Column(String(collation="Latin1_General_BIN"))
-    NumericValue = Column(Float)
-    ConsultationDate = Column(DateTime)
-    SnomedConceptId = Column(String)
-
+medication_issue = Table(
+    "MedicationIssue",
+    metadata,
+    Column("Patient_ID", Integer, ForeignKey("Patient.Patient_ID")),
+    Column("Consultation_ID", Integer),
+    Column("MedicationIssue_ID", Integer, primary_key=True),
+    Column("RepeatMedication_ID", Integer),
+    Column(
+        "MultilexDrug_ID",
+        NVARCHAR(length=20),
+        ForeignKey("MedicationDictionary.MultilexDrug_ID"),
+    ),
+    Column("Dose", String),
+    Column("Quantity", String),
+    Column("StartDate", DateTime),
+    Column("EndDate", DateTime),
+    Column("MedicationStatus", String),
+    Column("ConsultationDate", DateTime),
+)
 
 # WARNING: This table does not correspond to a table in the ACME database!
-class Patient(Base):
-    __tablename__ = "Patient"
-
-    Patient_ID = Column(Integer, primary_key=True)
-    DateOfBirth = Column(Date)
-    DateOfDeath = Column(Date)
-
-    MedicationIssues = relationship(
-        "MedicationIssue",
-        back_populates="Patient",
-        cascade="all, delete, delete-orphan",
-    )
-    CodedEvents = relationship(
-        "CodedEvent", back_populates="Patient", cascade="all, delete, delete-orphan"
-    )
-    ICNARC = relationship(
-        "ICNARC", back_populates="Patient", cascade="all, delete, delete-orphan"
-    )
-    ONSDeath = relationship(
-        "ONSDeaths", back_populates="Patient", cascade="all, delete, delete-orphan"
-    )
-    CPNS = relationship(
-        "CPNS", back_populates="Patient", cascade="all, delete, delete-orphan"
-    )
-    RegistrationHistory = relationship(
-        "RegistrationHistory",
-        back_populates="Patient",
-        cascade="all, delete, delete-orphan",
-    )
-    Addresses = relationship(
-        "PatientAddress", back_populates="Patient", cascade="all, delete, delete-orphan"
-    )
-    Sex = Column(String)
-
+medication_dictionary = Table(
+    "MedicationDictionary",
+    metadata,
+    Column("MultilexDrug_ID", NVARCHAR(length=20), primary_key=True),
+    Column("ProductId", String),
+    Column("FullName", String),
+    Column("RootName", String),
+    Column("PackDescription", String),
+    Column("Form", String),
+    Column("Strength", String),
+    Column("CompanyName", String),
+    Column("DMD_ID", String(collation="Latin1_General_CI_AS")),
+)
 
 # WARNING: This table does not correspond to a table in the ACME database!
-class RegistrationHistory(Base):
-    __tablename__ = "RegistrationHistory"
-
-    Registration_ID = Column(Integer, primary_key=True)
-    Organisation_ID = Column(Integer, ForeignKey("Organisation.Organisation_ID"))
-    Organisation = relationship(
-        "Organisation", back_populates="RegistrationHistory", cascade="all, delete"
-    )
-    Patient_ID = Column(Integer, ForeignKey("Patient.Patient_ID"))
-    Patient = relationship(
-        "Patient", back_populates="RegistrationHistory", cascade="all, delete"
-    )
-    StartDate = Column(Date)
-    EndDate = Column(Date)
-
+coded_event = Table(
+    "CodedEvent",
+    metadata,
+    Column("Patient_ID", Integer, ForeignKey("Patient.Patient_ID")),
+    Column("CodedEvent_ID", Integer, primary_key=True),
+    Column("CTV3Code", String(collation="Latin1_General_BIN")),
+    Column("NumericValue", Float),
+    Column("ConsultationDate", DateTime),
+    Column("SnomedConceptId", String),
+)
 
 # WARNING: This table does not correspond to a table in the ACME database!
-class Organisation(Base):
-    __tablename__ = "Organisation"
-
-    Organisation_ID = Column(Integer, primary_key=True)
-    GoLiveDate = Column(Date)
-    STPCode = Column(String)
-    MSOACode = Column(String)
-    RegistrationHistory = relationship(
-        "RegistrationHistory",
-        back_populates="Organisation",
-        cascade="all, delete, delete-orphan",
-    )
-    Region = Column(String)
-
+patient = Table(
+    "Patient",
+    metadata,
+    Column("Patient_ID", Integer, primary_key=True),
+    Column("DateOfBirth", Date),
+    Column("DateOfDeath", Date),
+    Column("Sex", String),
+)
 
 # WARNING: This table does not correspond to a table in the ACME database!
-class PatientAddress(Base):
-    __tablename__ = "PatientAddress"
-
-    PatientAddress_ID = Column(Integer, primary_key=True)
-    Patient_ID = Column(Integer, ForeignKey("Patient.Patient_ID"))
-    Patient = relationship("Patient", back_populates="Addresses", cascade="all, delete")
-    StartDate = Column(Date)
-    EndDate = Column(Date)
-    AddressType = Column(Integer)
-    RuralUrbanClassificationCode = Column(Integer)
-    ImdRankRounded = Column(Integer)
-    MSOACode = Column(String)
-
+registration_history = Table(
+    "RegistrationHistory",
+    metadata,
+    Column("Registration_ID", Integer, primary_key=True),
+    Column("Organisation_ID", Integer, ForeignKey("Organisation.Organisation_ID")),
+    Column("Patient_ID", Integer, ForeignKey("Patient.Patient_ID")),
+    Column("StartDate", Date),
+    Column("EndDate", Date),
+)
 
 # WARNING: This table does not correspond to a table in the ACME database!
-class ICNARC(Base):
-    __tablename__ = "ICNARC"
-
-    ICNARC_ID = Column(Integer, primary_key=True)
-    Patient_ID = Column(Integer, ForeignKey("Patient.Patient_ID"))
-    Patient = relationship("Patient", back_populates="ICNARC", cascade="all, delete")
-    IcuAdmissionDateTime = Column(DateTime)
-    OriginalIcuAdmissionDate = Column(Date)
-    BasicDays_RespiratorySupport = Column(Integer)
-    AdvancedDays_RespiratorySupport = Column(Integer)
-    Ventilator = Column(Integer)
-
+organisation = Table(
+    "Organisation",
+    metadata,
+    Column("Organisation_ID", Integer, primary_key=True),
+    Column("GoLiveDate", Date),
+    Column("STPCode", String),
+    Column("MSOACode", String),
+    Column("Region", String),
+)
 
 # WARNING: This table does not correspond to a table in the ACME database!
-class ONSDeaths(Base):
-    __tablename__ = "ONS_Deaths"
+patient_address = Table(
+    "PatientAddress",
+    metadata,
+    Column("PatientAddress_ID", Integer, primary_key=True),
+    Column("Patient_ID", Integer, ForeignKey("Patient.Patient_ID")),
+    Column("StartDate", Date),
+    Column("EndDate", Date),
+    Column("AddressType", Integer),
+    Column("RuralUrbanClassificationCode", Integer),
+    Column("ImdRankRounded", Integer),
+    Column("MSOACode", String),
+)
 
+# WARNING: This table does not correspond to a table in the ACME database!
+icnarc = Table(
+    "ICNARC",
+    metadata,
+    Column("ICNARC_ID", Integer, primary_key=True),
+    Column("Patient_ID", Integer, ForeignKey("Patient.Patient_ID")),
+    Column("IcuAdmissionDateTime", DateTime),
+    Column("OriginalIcuAdmissionDate", Date),
+    Column("BasicDays_RespiratorySupport", Integer),
+    Column("AdvancedDays_RespiratorySupport", Integer),
+    Column("Ventilator", Integer),
+)
+
+# WARNING: This table does not correspond to a table in the ACME database!
+ons_deaths = Table(
+    "ONS_Deaths",
+    metadata,
     # This column isn't in the actual database but SQLAlchemy gets a bit upset
     # if we don't give it a primary key
-    id = Column(Integer, primary_key=True)
-    Patient_ID = Column(Integer, ForeignKey("Patient.Patient_ID"))
-    Patient = relationship("Patient", back_populates="ONSDeath", cascade="all, delete")
-    Sex = Column(String)
-    ageinyrs = Column(Integer)
-    dod = Column(Date)
-    icd10u = Column(String)
-    ICD10001 = Column(String)
-    ICD10002 = Column(String)
-    ICD10003 = Column(String)
-    ICD10004 = Column(String)
-    ICD10005 = Column(String)
-    ICD10006 = Column(String)
-    ICD10007 = Column(String)
-    ICD10008 = Column(String)
-    ICD10009 = Column(String)
-    ICD10010 = Column(String)
-    ICD10011 = Column(String)
-    ICD10012 = Column(String)
-    ICD10013 = Column(String)
-    ICD10014 = Column(String)
-    ICD10015 = Column(String)
-
+    Column("id", Integer, primary_key=True),
+    Column("Patient_ID", Integer, ForeignKey("Patient.Patient_ID")),
+    Column("Sex", String),
+    Column("ageinyrs", Integer),
+    Column("dod", Date),
+    Column("icd10u", String),
+    Column("ICD10001", String),
+    Column("ICD10002", String),
+    Column("ICD10003", String),
+    Column("ICD10004", String),
+    Column("ICD10005", String),
+    Column("ICD10006", String),
+    Column("ICD10007", String),
+    Column("ICD10008", String),
+    Column("ICD10009", String),
+    Column("ICD10010", String),
+    Column("ICD10011", String),
+    Column("ICD10012", String),
+    Column("ICD10013", String),
+    Column("ICD10014", String),
+    Column("ICD10015", String),
+)
 
 # WARNING: This table does not correspond to a table in the ACME database!
-class CPNS(Base):
-    __tablename__ = "CPNS"
-
-    Patient_ID = Column(Integer, ForeignKey("Patient.Patient_ID"))
-    Patient = relationship("Patient", back_populates="CPNS", cascade="all, delete")
-    Id = Column(Integer, primary_key=True)
+cpns = Table(
+    "CPNS",
+    metadata,
+    Column("Patient_ID", Integer, ForeignKey("Patient.Patient_ID")),
+    Column("Id", Integer, primary_key=True),
     # LocationOfDeath                                                 ITU
     # Sex                                                               M
     # DateOfAdmission                                          2020-04-02
@@ -269,10 +231,192 @@ class CPNS(Base):
     # NationalApprovedDate                                     2020-04-09
     # PreExistingCondition                                          False
     # Age                                                              57
-    DateOfDeath = Column(Date)
+    Column("DateOfDeath", Date),
     # snapDate                                                 2020-04-09
     # HadLearningDisability                                            NK
     # ReceivedTreatmentForMentalHealth                                 NK
     # Der_Ethnic_Category_Description                                None
     # Der_Latest_SUS_Attendance_Date_For_Ethnicity                   None
     # Der_Source_Dataset_For_Ethnicty                                None
+)
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Model definitions
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+class Model:
+    """Base class for a model."""
+
+    def __init__(self, **kwargs):
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+
+class MedicationIssue(Model):
+    pass
+
+
+class CodedEvent(Model):
+    pass
+
+
+class MedicationDictionary(Model):
+    pass
+
+
+class Patient(Model):
+    pass
+
+
+class RegistrationHistory(Model):
+    pass
+
+
+class Organisation(Model):
+    pass
+
+
+class PatientAddress(Model):
+    pass
+
+
+class ICNARC(Model):
+    pass
+
+
+class ONSDeaths(Model):
+    pass
+
+
+class CPNS(Model):
+    pass
+
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Definitions of mappings between models and tables
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+mapper(
+    MedicationIssue,
+    medication_issue,
+    properties={
+        "Patient": relationship(Patient, back_populates="MedicationIssues"),
+        "MedicationDictionary": relationship(
+            MedicationDictionary,
+            back_populates="MedicationIssues",
+            cascade="all, delete",
+        ),
+    },
+)
+
+mapper(
+    CodedEvent,
+    coded_event,
+    properties={"Patient": relationship(Patient, back_populates="CodedEvents"),},
+)
+
+mapper(
+    MedicationDictionary,
+    medication_dictionary,
+    properties={
+        "MedicationIssues": relationship(
+            MedicationIssue, back_populates="MedicationDictionary"
+        )
+    },
+)
+
+mapper(
+    Patient,
+    patient,
+    properties={
+        "MedicationIssues": relationship(
+            MedicationIssue,
+            back_populates="Patient",
+            cascade="all, delete, delete-orphan",
+        ),
+        "CodedEvents": relationship(
+            CodedEvent, back_populates="Patient", cascade="all, delete, delete-orphan"
+        ),
+        "ICNARC": relationship(
+            ICNARC, back_populates="Patient", cascade="all, delete, delete-orphan"
+        ),
+        "ONSDeath": relationship(
+            ONSDeaths, back_populates="Patient", cascade="all, delete, delete-orphan"
+        ),
+        "CPNS": relationship(
+            CPNS, back_populates="Patient", cascade="all, delete, delete-orphan"
+        ),
+        "RegistrationHistory": relationship(
+            RegistrationHistory,
+            back_populates="Patient",
+            cascade="all, delete, delete-orphan",
+        ),
+        "Addresses": relationship(
+            PatientAddress,
+            back_populates="Patient",
+            cascade="all, delete, delete-orphan",
+        ),
+    },
+)
+
+mapper(
+    RegistrationHistory,
+    registration_history,
+    properties={
+        "Organisation": relationship(
+            Organisation, back_populates="RegistrationHistory", cascade="all, delete"
+        ),
+        "Patient": relationship(
+            Patient, back_populates="RegistrationHistory", cascade="all, delete"
+        ),
+    },
+)
+
+mapper(
+    Organisation,
+    organisation,
+    properties={
+        "RegistrationHistory": relationship(
+            RegistrationHistory,
+            back_populates="Organisation",
+            cascade="all, delete, delete-orphan",
+        )
+    },
+)
+
+mapper(
+    PatientAddress,
+    patient_address,
+    properties={
+        "Patient": relationship(
+            Patient, back_populates="Addresses", cascade="all, delete"
+        )
+    },
+)
+
+mapper(
+    ICNARC,
+    icnarc,
+    properties={
+        "Patient": relationship(Patient, back_populates="ICNARC", cascade="all, delete")
+    },
+)
+
+mapper(
+    ONSDeaths,
+    ons_deaths,
+    properties={
+        "Patient": relationship(
+            Patient, back_populates="ONSDeath", cascade="all, delete"
+        )
+    },
+)
+
+mapper(
+    CPNS,
+    cpns,
+    properties={
+        "Patient": relationship(Patient, back_populates="CPNS", cascade="all, delete")
+    },
+)
