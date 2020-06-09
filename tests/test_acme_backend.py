@@ -86,8 +86,8 @@ def test_minimal_study_to_csv():
         study.to_csv(f.name)
         results = list(csv.DictReader(f))
         assert results == [
-            {"patient_id": str(patient_1.Patient_ID), "sex": "M"},
-            {"patient_id": str(patient_2.Patient_ID), "sex": "F"},
+            {"patient_id": str(patient_1.id), "sex": "M"},
+            {"patient_id": str(patient_2.id), "sex": "F"},
         ]
 
 
@@ -457,9 +457,7 @@ def test_patients_registered_with_one_practice_between():
         )
     )
     results = study.to_dicts()
-    assert [x["patient_id"] for x in results] == [
-        str(patient_registered_in_2001.Patient_ID)
-    ]
+    assert [x["patient_id"] for x in results] == [str(patient_registered_in_2001.id)]
 
 
 @pytest.mark.parametrize("include_dates", ["none", "year", "month", "day"])
@@ -1265,7 +1263,7 @@ def test_to_sql_passes():
     ]
     result = subprocess.run(cmd, capture_output=True, encoding="utf8").stdout
     patient_id = result.splitlines()[-1]
-    assert patient_id == f'"{patient.Patient_ID}"'
+    assert patient_id == f'"{patient.id}"'
 
 
 def test_duplicate_id_checking():

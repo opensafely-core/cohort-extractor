@@ -105,7 +105,7 @@ class ACMEBackend:
             patient_id_expr = "_population.patient_id"
         else:
             primary_table = "Patient"
-            patient_id_expr = "Patient.Patient_ID"
+            patient_id_expr = "Patient.id"
         # Insert `patient_id` as the first column
         output_columns = dict(patient_id=patient_id_expr, **output_columns)
         output_columns_str = ",\n          ".join(
@@ -234,7 +234,7 @@ class ACMEBackend:
             ["patient_id", "age"],
             f"""
             SELECT
-              Patient_ID AS patient_id,
+              id AS patient_id,
               CASE WHEN
                  date_add('year', date_diff('year', DateOfBirth, {quoted_date}), DateOfBirth) > {quoted_date}
               THEN
@@ -251,7 +251,7 @@ class ACMEBackend:
             ["patient_id", "sex"],
             """
           SELECT
-            Patient_ID AS patient_id,
+            id AS patient_id,
             Sex as sex
           FROM Patient""",
         )
@@ -263,7 +263,7 @@ class ACMEBackend:
         return (
             ["patient_id", "is_included"],
             """
-            SELECT Patient_ID AS patient_id, 1 AS is_included
+            SELECT id AS patient_id, 1 AS is_included
             FROM Patient
             """,
         )
@@ -310,10 +310,10 @@ class ACMEBackend:
         ]
 
         bmi_cte = f"""
-        SELECT t.Patient_ID, t.BMI, t.ConsultationDate
+        SELECT t."registration-id", t.BMI, t.ConsultationDate
         FROM (
-          SELECT Patient_ID, NumericValue AS BMI, ConsultationDate,
-          ROW_NUMBER() OVER (PARTITION BY Patient_ID ORDER BY ConsultationDate DESC) AS rownum
+          SELECT "registration-id", NumericValue AS BMI, ConsultationDate,
+          ROW_NUMBER() OVER (PARTITION BY "registration-id" ORDER BY ConsultationDate DESC) AS rownum
           FROM CodedEvent
           WHERE CTV3Code = {quote(bmi_code)} AND {date_condition}
         ) t
@@ -321,15 +321,15 @@ class ACMEBackend:
         """
 
         patients_cte = """
-           SELECT Patient_ID, DateOfBirth
+           SELECT id, DateOfBirth
            FROM Patient
         """
         weight_codes_sql = codelist_to_sql(weight_codes)
         weights_cte = f"""
-          SELECT t.Patient_ID, t.weight, t.ConsultationDate
+          SELECT t."registration-id", t.weight, t.ConsultationDate
           FROM (
-            SELECT Patient_ID, NumericValue AS weight, ConsultationDate,
-            ROW_NUMBER() OVER (PARTITION BY Patient_ID ORDER BY ConsultationDate DESC) AS rownum
+            SELECT "registration-id", NumericValue AS weight, ConsultationDate,
+            ROW_NUMBER() OVER (PARTITION BY "registration-id" ORDER BY ConsultationDate DESC) AS rownum
             FROM CodedEvent
             WHERE CTV3Code IN ({weight_codes_sql}) AND {date_condition}
           ) t
@@ -344,10 +344,10 @@ class ACMEBackend:
             "ConsultationDate", between, upper_bound_only=True,
         )
         heights_cte = f"""
-          SELECT t.Patient_ID, t.height, t.ConsultationDate
+          SELECT t."registration-id", t.height, t.ConsultationDate
           FROM (
-            SELECT Patient_ID, NumericValue AS height, ConsultationDate,
-            ROW_NUMBER() OVER (PARTITION BY Patient_ID ORDER BY ConsultationDate DESC) AS rownum
+            SELECT "registration-id", NumericValue AS height, ConsultationDate,
+            ROW_NUMBER() OVER (PARTITION BY "registration-id" ORDER BY ConsultationDate DESC) AS rownum
             FROM CodedEvent
             WHERE CTV3Code IN ({height_codes_sql}) AND {height_date_condition}
           ) t
@@ -358,7 +358,7 @@ class ACMEBackend:
 
         sql = f"""
         SELECT
-          patients.Patient_ID AS patient_id,
+          patients.id AS patient_id,
           CASE
             WHEN height = 0 THEN NULL
             ELSE ROUND(COALESCE(weight/(height*height), bmis.BMI), 1)
@@ -369,11 +369,11 @@ class ACMEBackend:
           END AS date
         FROM ({patients_cte}) AS patients
         LEFT JOIN ({weights_cte}) AS weights
-        ON weights.Patient_ID = patients.Patient_ID AND date_diff('year', patients.DateOfBirth, weights.ConsultationDate) >= {min_age}
+        ON weights."registration-id" = patients.id AND date_diff('year', patients.DateOfBirth, weights.ConsultationDate) >= {min_age}
         LEFT JOIN ({heights_cte}) AS heights
-        ON heights.Patient_ID = patients.Patient_ID AND date_diff('year', patients.DateOfBirth, heights.ConsultationDate) >= {min_age}
+        ON heights."registration-id" = patients.id AND date_diff('year', patients.DateOfBirth, heights.ConsultationDate) >= {min_age}
         LEFT JOIN ({bmi_cte}) AS bmis
-        ON bmis.Patient_ID = patients.Patient_ID AND date_diff('year', patients.DateOfBirth, bmis.ConsultationDate) >= {min_age}
+        ON bmis."registration-id" = patients.id AND date_diff('year', patients.DateOfBirth, bmis.ConsultationDate) >= {min_age}
         -- XXX maybe add a "WHERE NULL..." here
         """
         columns = ["patient_id", "BMI"]
@@ -402,22 +402,22 @@ class ACMEBackend:
         # use an index for this. See: https://stackoverflow.com/a/25564539
         sql = f"""
         SELECT
-          days.Patient_ID AS patient_id,
+          days."registration-id" AS patient_id,
           AVG(CodedEvent.NumericValue) AS mean_value,
           days.date_measured AS date
         FROM (
-            SELECT Patient_ID, CAST(MAX(ConsultationDate) AS date) AS date_measured
+            SELECT "registration-id", CAST(MAX(ConsultationDate) AS date) AS date_measured
             FROM CodedEvent
             WHERE CTV3Code IN ({codelist_sql}) AND {date_condition}
-            GROUP BY Patient_ID
+            GROUP BY "registration-id"
         ) AS days
         LEFT JOIN CodedEvent
         ON (
-          CodedEvent.Patient_ID = days.Patient_ID
+          CodedEvent."registration-id" = days."registration-id"
           AND CodedEvent.CTV3Code IN ({codelist_sql})
           AND CAST(CodedEvent.ConsultationDate AS date) = days.date_measured
         )
-        GROUP BY days.Patient_ID, days.date_measured
+        GROUP BY days."registration-id", days.date_measured
         """
         columns = ["patient_id", "mean_value"]
         if include_date_of_match:
@@ -433,10 +433,10 @@ class ACMEBackend:
         return (
             ["patient_id", "is_registered"],
             f"""
-            SELECT DISTINCT Patient.Patient_ID AS patient_id, 1 AS is_registered
+            SELECT DISTINCT Patient.id AS patient_id, 1 AS is_registered
             FROM Patient
             INNER JOIN RegistrationHistory
-            ON RegistrationHistory.Patient_ID = Patient.Patient_ID
+            ON RegistrationHistory."registration-id" = Patient.id
             WHERE StartDate <= {quote(start_date)} AND EndDate > {quote(end_date)}
             """,
         )
@@ -561,13 +561,13 @@ class ACMEBackend:
         if use_partition_query:
             sql = f"""
             SELECT
-              Patient_ID AS patient_id,
+              "registration-id" AS patient_id,
               {column_definition} AS {column_name},
               DATE(ConsultationDate) AS date
             FROM (
-              SELECT Patient_ID, {column_definition}, ConsultationDate,
+              SELECT "registration-id", {column_definition}, ConsultationDate,
               ROW_NUMBER() OVER (
-                PARTITION BY Patient_ID ORDER BY ConsultationDate {ordering}
+                PARTITION BY "registration-id" ORDER BY ConsultationDate {ordering}
               ) AS rownum
               FROM {from_table}{additional_join}
               INNER JOIN {codelist_table}
@@ -579,14 +579,14 @@ class ACMEBackend:
         else:
             sql = f"""
             SELECT
-              Patient_ID AS patient_id,
+              "registration-id" AS patient_id,
               {column_definition} AS {column_name},
               {date_aggregate}(DATE(ConsultationDate)) AS date
             FROM {from_table}{additional_join}
             INNER JOIN {codelist_table}
             ON {code_column} = {codelist_table}.code
             WHERE {date_condition} AND {not_an_ignored_day_condition}
-            GROUP BY Patient_ID
+            GROUP BY "registration-id"
             """
 
         if returning == "date":
@@ -623,16 +623,16 @@ class ACMEBackend:
 
         sql = f"""
         SELECT
-          Patient_ID AS patient_id,
+          "registration-id" AS patient_id,
           SUM(is_new_episode) AS episode_count
         FROM (
             SELECT
-              Patient_ID,
+              "registration-id",
               CASE
                 WHEN
                   date_diff(
                     'day',
-                    LAG(ConsultationDate) OVER (PARTITION BY Patient_ID ORDER BY ConsultationDate),
+                    LAG(ConsultationDate) OVER (PARTITION BY "registration-id" ORDER BY ConsultationDate),
                     ConsultationDate
                   ) <= {washout_period}
                 THEN 0
@@ -645,7 +645,7 @@ class ACMEBackend:
             ON DMD_ID = {codelist_table}.code
             WHERE {date_condition} AND {not_an_ignored_day_condition}
         ) t
-        GROUP BY Patient_ID
+        GROUP BY "registration-id"
         """
         return ["patient_id", "episode_count"], sql
 
@@ -675,16 +675,16 @@ class ACMEBackend:
 
         sql = f"""
         SELECT
-          Patient_ID AS patient_id,
+          "registration-id" AS patient_id,
           SUM(is_new_episode) AS episode_count
         FROM (
             SELECT
-              Patient_ID,
+              "registration-id",
               CASE
                 WHEN
                   date_diff(
                     'day',
-                    LAG(ConsultationDate) OVER (PARTITION BY Patient_ID ORDER BY ConsultationDate),
+                    LAG(ConsultationDate) OVER (PARTITION BY "registration-id" ORDER BY ConsultationDate),
                     ConsultationDate
                   ) <= {washout_period}
                 THEN 0
@@ -695,7 +695,7 @@ class ACMEBackend:
             ON CTV3Code = {codelist_table}.code
             WHERE {date_condition} AND {not_an_ignored_day_condition}
         ) t
-        GROUP BY Patient_ID
+        GROUP BY "registration-id"
         """
         return ["patient_id", "episode_count"], sql
 
@@ -719,7 +719,7 @@ class ACMEBackend:
           INNER JOIN {codelist_table}
           ON sameday.CTV3Code = {codelist_table}.code
           WHERE
-            sameday.Patient_ID = {joined_table}.Patient_ID
+            sameday."registration-id" = {joined_table}."registration-id"
             AND CAST(sameday.ConsultationDate AS date) = CAST({joined_table}.ConsultationDate AS date)
         )
         """
@@ -743,12 +743,12 @@ class ACMEBackend:
             ["patient_id", returning],
             f"""
             SELECT
-              Patient_ID AS patient_id,
+              "registration-id" AS patient_id,
               Organisation.{column} AS {returning}
             FROM (
-              SELECT Patient_ID, Organisation_ID,
+              SELECT "registration-id", Organisation_ID,
               ROW_NUMBER() OVER (
-                PARTITION BY Patient_ID ORDER BY StartDate DESC, EndDate DESC
+                PARTITION BY "registration-id" ORDER BY StartDate DESC, EndDate DESC
               ) AS rownum
               FROM RegistrationHistory
               WHERE StartDate <= {quote(date)} AND EndDate > {quote(date)}
@@ -781,12 +781,12 @@ class ACMEBackend:
             ["patient_id", returning],
             f"""
             SELECT
-              Patient_ID AS patient_id,
+              "registration-id" AS patient_id,
               {column} AS {returning}
             FROM (
-              SELECT Patient_ID, {column},
+              SELECT "registration-id", {column},
               ROW_NUMBER() OVER (
-                PARTITION BY Patient_ID ORDER BY StartDate DESC, EndDate DESC
+                PARTITION BY "registration-id" ORDER BY StartDate DESC, EndDate DESC
               ) AS rownum
               FROM PatientAddress
               WHERE StartDate <= {quote(date)} AND EndDate > {quote(date)}
@@ -833,12 +833,12 @@ class ACMEBackend:
             ["patient_id", column_name],
             f"""
             SELECT
-              Patient_ID AS patient_id,
+              "registration-id" AS patient_id,
               {column_definition} AS {column_name},
               MAX(Ventilator) AS ventilated -- apparently can be 0, 1 or NULL
             FROM
               ICNARC
-            GROUP BY Patient_ID
+            GROUP BY "registration-id"
             HAVING
               {date_condition} AND SUM(BasicDays_RespiratorySupport) + SUM(AdvancedDays_RespiratorySupport) >= 1
             """,
@@ -877,7 +877,7 @@ class ACMEBackend:
         return (
             ["patient_id", column_name],
             f"""
-            SELECT Patient_ID as patient_id, {column_definition} AS {column_name}
+            SELECT "registration-id" as patient_id, {column_definition} AS {column_name}
             FROM ONS_Deaths
             WHERE ({code_conditions}) AND {date_condition}
             """,
@@ -914,13 +914,13 @@ class ACMEBackend:
             ["patient_id", column_name],
             f"""
             SELECT
-              Patient_ID as patient_id,
+              "registration-id" as patient_id,
               {column_definition} AS {column_name},
               -- Crude error check so we blow up in the case of inconsistent dates
               1 / CASE WHEN MAX(DateOfDeath) = MIN(DateOfDeath) THEN 1 ELSE 0 END AS _e
             FROM CPNS
             WHERE {date_condition}
-            GROUP BY Patient_ID
+            GROUP BY "registration-id"
             """,
         )
 

@@ -75,7 +75,7 @@ def make_database():
 medication_issue = Table(
     "MedicationIssue",
     metadata,
-    Column("Patient_ID", Integer, ForeignKey("Patient.Patient_ID")),
+    Column("registration-id", Integer, ForeignKey("Patient.id")),
     Column("Consultation_ID", Integer),
     Column("MedicationIssue_ID", Integer, primary_key=True),
     Column("RepeatMedication_ID", Integer),
@@ -111,7 +111,7 @@ medication_dictionary = Table(
 coded_event = Table(
     "CodedEvent",
     metadata,
-    Column("Patient_ID", Integer, ForeignKey("Patient.Patient_ID")),
+    Column("registration-id", Integer, ForeignKey("Patient.id")),
     Column("CodedEvent_ID", Integer, primary_key=True),
     Column("CTV3Code", String(collation="Latin1_General_BIN")),
     Column("NumericValue", Float),
@@ -123,7 +123,7 @@ coded_event = Table(
 patient = Table(
     "Patient",
     metadata,
-    Column("Patient_ID", Integer, primary_key=True),
+    Column("id", Integer, primary_key=True),
     Column("DateOfBirth", Date),
     Column("DateOfDeath", Date),
     Column("Sex", String),
@@ -135,7 +135,7 @@ registration_history = Table(
     metadata,
     Column("Registration_ID", Integer, primary_key=True),
     Column("Organisation_ID", Integer, ForeignKey("Organisation.Organisation_ID")),
-    Column("Patient_ID", Integer, ForeignKey("Patient.Patient_ID")),
+    Column("registration-id", Integer, ForeignKey("Patient.id")),
     Column("StartDate", Date),
     Column("EndDate", Date),
 )
@@ -156,7 +156,7 @@ patient_address = Table(
     "PatientAddress",
     metadata,
     Column("PatientAddress_ID", Integer, primary_key=True),
-    Column("Patient_ID", Integer, ForeignKey("Patient.Patient_ID")),
+    Column("registration-id", Integer, ForeignKey("Patient.id")),
     Column("StartDate", Date),
     Column("EndDate", Date),
     Column("AddressType", Integer),
@@ -170,7 +170,7 @@ icnarc = Table(
     "ICNARC",
     metadata,
     Column("ICNARC_ID", Integer, primary_key=True),
-    Column("Patient_ID", Integer, ForeignKey("Patient.Patient_ID")),
+    Column("registration-id", Integer, ForeignKey("Patient.id")),
     Column("IcuAdmissionDateTime", DateTime),
     Column("OriginalIcuAdmissionDate", Date),
     Column("BasicDays_RespiratorySupport", Integer),
@@ -185,7 +185,7 @@ ons_deaths = Table(
     # This column isn't in the actual database but SQLAlchemy gets a bit upset
     # if we don't give it a primary key
     Column("id", Integer, primary_key=True),
-    Column("Patient_ID", Integer, ForeignKey("Patient.Patient_ID")),
+    Column("registration-id", Integer, ForeignKey("Patient.id")),
     Column("Sex", String),
     Column("ageinyrs", Integer),
     Column("dod", Date),
@@ -211,7 +211,7 @@ ons_deaths = Table(
 cpns = Table(
     "CPNS",
     metadata,
-    Column("Patient_ID", Integer, ForeignKey("Patient.Patient_ID")),
+    Column("registration-id", Integer, ForeignKey("Patient.id")),
     Column("Id", Integer, primary_key=True),
     # LocationOfDeath                                                 ITU
     # Sex                                                               M
