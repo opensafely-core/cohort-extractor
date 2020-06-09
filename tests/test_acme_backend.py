@@ -8,8 +8,7 @@ import pytest
 from tests.acme_backend_setup import make_database, make_session
 from tests.acme_backend_setup import (
     Observation,
-    MedicationIssue,
-    MedicationDictionary,
+    Medication,
     Patient,
     RegistrationHistory,
     Organisation,
@@ -50,8 +49,7 @@ def setup_function(function):
     # session.query(ICNARC).delete()
     # session.query(ONSDeaths).delete()
     # session.query(CPNS).delete()
-    session.query(MedicationIssue).delete()
-    session.query(MedicationDictionary).delete()
+    session.query(Medication).delete()
     # session.query(RegistrationHistory).delete()
     # session.query(Organisation).delete()
     # session.query(PatientAddress).delete()
@@ -94,13 +92,8 @@ def test_minimal_study_to_csv():
 def test_meds():
     session = make_session()
 
-    asthma_medication = MedicationDictionary(
-        FullName="Asthma Drug", DMD_ID="0", MultilexDrug_ID="0"
-    )
     patient_with_med = Patient()
-    patient_with_med.MedicationIssues = [
-        MedicationIssue(MedicationDictionary=asthma_medication)
-    ]
+    patient_with_med.medications = [Medication(snomed_concept_id=0)]
     patient_without_med = Patient()
     session.add(patient_with_med)
     session.add(patient_without_med)
@@ -108,9 +101,7 @@ def test_meds():
 
     study = StudyDefinition(
         population=patients.all(),
-        asthma_meds=patients.with_these_medications(
-            codelist(asthma_medication.DMD_ID, "snomed")
-        ),
+        asthma_meds=patients.with_these_medications(codelist([0], "snomed")),
     )
     results = study.to_dicts()
     assert [x["asthma_meds"] for x in results] == ["1", "0"]
@@ -119,23 +110,12 @@ def test_meds():
 def test_meds_with_count():
     session = make_session()
 
-    asthma_medication = MedicationDictionary(
-        FullName="Asthma Drug", DMD_ID="0", MultilexDrug_ID="0"
-    )
     patient_with_med = Patient()
-    patient_with_med.MedicationIssues = [
-        MedicationIssue(
-            MedicationDictionary=asthma_medication, effective_date="2010-01-01"
-        ),
-        MedicationIssue(
-            MedicationDictionary=asthma_medication, effective_date="2015-01-01"
-        ),
-        MedicationIssue(
-            MedicationDictionary=asthma_medication, effective_date="2018-01-01"
-        ),
-        MedicationIssue(
-            MedicationDictionary=asthma_medication, effective_date="2020-01-01"
-        ),
+    patient_with_med.medications = [
+        Medication(snomed_concept_id=0, effective_date="2010-01-01"),
+        Medication(snomed_concept_id=0, effective_date="2015-01-01"),
+        Medication(snomed_concept_id=0, effective_date="2018-01-01"),
+        Medication(snomed_concept_id=0, effective_date="2020-01-01"),
     ]
     patient_without_med = Patient()
     session.add(patient_with_med)
@@ -145,7 +125,7 @@ def test_meds_with_count():
     study = StudyDefinition(
         population=patients.all(),
         asthma_meds=patients.with_these_medications(
-            codelist(asthma_medication.DMD_ID, "snomed"),
+            codelist([0], "snomed"),
             on_or_after="2012-01-01",
             return_number_of_matches_in_period=True,
         ),
@@ -1470,53 +1450,30 @@ def test_number_of_episodes():
 
 
 def test_number_of_episodes_for_medications():
-    oral_steriod = MedicationDictionary(
-        FullName="Oral Steroid", DMD_ID="ab12", MultilexDrug_ID="1"
-    )
-    other_drug = MedicationDictionary(
-        FullName="Other Drug", DMD_ID="cd34", MultilexDrug_ID="2"
-    )
     session = make_session()
     session.add_all(
         [
             Patient(
-                MedicationIssues=[
-                    MedicationIssue(
-                        MedicationDictionary=oral_steriod, effective_date="2010-01-01"
-                    ),
+                medications=[
+                    Medication(snomed_concept_id="ab12", effective_date="2010-01-01"),
                     # Throw in some irrelevant prescriptions
-                    MedicationIssue(
-                        MedicationDictionary=other_drug, effective_date="2010-01-02"
-                    ),
-                    MedicationIssue(
-                        MedicationDictionary=other_drug, effective_date="2010-01-03"
-                    ),
+                    Medication(snomed_concept_id="cd34", effective_date="2010-01-02"),
+                    Medication(snomed_concept_id="cd34", effective_date="2010-01-03"),
                     # These two should be merged in to the previous event
                     # because there's not more than 14 days between them
-                    MedicationIssue(
-                        MedicationDictionary=oral_steriod, effective_date="2010-01-14"
-                    ),
-                    MedicationIssue(
-                        MedicationDictionary=oral_steriod, effective_date="2010-01-20"
-                    ),
+                    Medication(snomed_concept_id="ab12", effective_date="2010-01-14"),
+                    Medication(snomed_concept_id="ab12", effective_date="2010-01-20"),
                     # This is just outside the limit so should count as another event
-                    MedicationIssue(
-                        MedicationDictionary=oral_steriod, effective_date="2010-02-04"
-                    ),
+                    Medication(snomed_concept_id="ab12", effective_date="2010-02-04"),
                     # This shouldn't count because there's an "ignore" event on
                     # the same day (though at a different time)
-                    MedicationIssue(
-                        MedicationDictionary=oral_steriod,
-                        effective_date="2012-01-01T10:45:00",
+                    Medication(
+                        snomed_concept_id="ab12", effective_date="2012-01-01T10:45:00",
                     ),
                     # This should be another episode
-                    MedicationIssue(
-                        MedicationDictionary=oral_steriod, effective_date="2015-03-05"
-                    ),
+                    Medication(snomed_concept_id="ab12", effective_date="2015-03-05"),
                     # This is after the time limit and so shouldn't count
-                    MedicationIssue(
-                        MedicationDictionary=oral_steriod, effective_date="2020-02-05"
-                    ),
+                    Medication(snomed_concept_id="ab12", effective_date="2020-02-05"),
                 ],
                 observations=[
                     # This "ignore" event should cause us to skip one of the
@@ -1531,13 +1488,9 @@ def test_number_of_episodes_for_medications():
             ),
             # This patient doesn't have any relevant events or prescriptions
             Patient(
-                MedicationIssues=[
-                    MedicationIssue(
-                        MedicationDictionary=other_drug, effective_date="2010-01-02"
-                    ),
-                    MedicationIssue(
-                        MedicationDictionary=other_drug, effective_date="2010-01-03"
-                    ),
+                medications=[
+                    Medication(snomed_concept_id="cd34", effective_date="2010-01-02"),
+                    Medication(snomed_concept_id="cd34", effective_date="2010-01-03"),
                 ],
                 observations=[
                     Observation(snomed_concept_id="mto1", effective_date="2010-02-04"),
@@ -1577,25 +1530,16 @@ def test_number_of_episodes_for_medications():
 
 
 def test_medications_returning_code_with_ignored_days():
-    oral_steriod = MedicationDictionary(
-        FullName="Oral Steroid", DMD_ID="ab12", MultilexDrug_ID="1"
-    )
-    other_drug = MedicationDictionary(
-        FullName="Other Drug", DMD_ID="cd34", MultilexDrug_ID="2"
-    )
     session = make_session()
     session.add_all(
         [
             Patient(
-                MedicationIssues=[
-                    MedicationIssue(
-                        MedicationDictionary=other_drug, effective_date="2010-01-03"
-                    ),
+                medications=[
+                    Medication(snomed_concept_id="cd34", effective_date="2010-01-03"),
                     # This shouldn't count because there's an "ignore" event on
                     # the same day (though at a different time)
-                    MedicationIssue(
-                        MedicationDictionary=oral_steriod,
-                        effective_date="2012-01-01T10:45:00",
+                    Medication(
+                        snomed_concept_id="ab12", effective_date="2012-01-01T10:45:00",
                     ),
                 ],
                 observations=[

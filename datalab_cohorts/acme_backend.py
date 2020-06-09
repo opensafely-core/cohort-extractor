@@ -451,10 +451,6 @@ class ACMEBackend:
         Patients who have been prescribed at least one of this list of
         medications in the defined period
         """
-        # Note that we're using "effective-date" for the date condition here,
-        # which is the date of prescription.  The MedicationIssue table also
-        # has StartDate (the date of issue) and EndDate (not exactly sure what
-        # this is).
         assert kwargs["codelist"].system == "snomed"
         if kwargs["returning"] == "numeric_value":
             raise ValueError("Unsupported `returning` value: numeric_value")
@@ -471,12 +467,9 @@ class ACMEBackend:
             # Remove unhandled arguments and check they are unused
             assert not kwargs.pop("episode_defined_as", None)
             return self._patients_with_events(
-                "MedicationIssue",
-                """
-                INNER JOIN MedicationDictionary
-                ON MedicationIssue.MultilexDrug_ID = MedicationDictionary.MultilexDrug_ID
-                """,
-                "DMD_ID",
+                "medication",
+                "",
+                '"snomed-concept-id"',
                 codes_are_case_sensitive=False,
                 **kwargs,
             )
@@ -617,7 +610,7 @@ class ACMEBackend:
         codelist_table = self.create_codelist_table(codelist, case_sensitive=False)
         date_condition = make_date_filter('"effective-date"', between)
         not_an_ignored_day_condition = self._none_of_these_codes_occur_on_same_day(
-            "MedicationIssue", ignore_days_where_these_codes_occur
+            "medication", ignore_days_where_these_codes_occur
         )
         if episode_defined_as is not None:
             pattern = r"^series of events each <= (\d+) days apart$"
@@ -647,11 +640,9 @@ class ACMEBackend:
                 THEN 0
                 ELSE 1
               END AS is_new_episode
-            FROM MedicationIssue
-            INNER JOIN MedicationDictionary
-            ON MedicationIssue.MultilexDrug_ID = MedicationDictionary.MultilexDrug_ID
+            FROM medication
             INNER JOIN {codelist_table}
-            ON DMD_ID = {codelist_table}.code
+            ON "snomed-concept-id" = {codelist_table}.code
             WHERE {date_condition} AND {not_an_ignored_day_condition}
         ) t
         GROUP BY "registration-id"

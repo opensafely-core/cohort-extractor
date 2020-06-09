@@ -71,40 +71,14 @@ def make_database():
 # Table definitions
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-# WARNING: This table does not correspond to a table in the ACME database!
-medication_issue = Table(
-    "MedicationIssue",
+# WARNING: This table does not quite correspond to a table in the ACME database!
+medication = Table(
+    "medication",
     metadata,
+    Column("id", Integer, primary_key=True),
     Column("registration-id", Integer, ForeignKey("patient.id")),
-    Column("Consultation_ID", Integer),
-    Column("MedicationIssue_ID", Integer, primary_key=True),
-    Column("RepeatMedication_ID", Integer),
-    Column(
-        "MultilexDrug_ID",
-        NVARCHAR(length=20),
-        ForeignKey("MedicationDictionary.MultilexDrug_ID"),
-    ),
-    Column("Dose", String),
-    Column("Quantity", String),
-    Column("StartDate", DateTime),
-    Column("EndDate", DateTime),
-    Column("MedicationStatus", String),
+    Column("snomed-concept-id", String),  # TODO this is a BigInt in the ACME backend
     Column("effective-date", DateTime),
-)
-
-# WARNING: This table does not correspond to a table in the ACME database!
-medication_dictionary = Table(
-    "MedicationDictionary",
-    metadata,
-    Column("MultilexDrug_ID", NVARCHAR(length=20), primary_key=True),
-    Column("ProductId", String),
-    Column("FullName", String),
-    Column("RootName", String),
-    Column("PackDescription", String),
-    Column("Form", String),
-    Column("Strength", String),
-    Column("CompanyName", String),
-    Column("DMD_ID", String(collation="Latin1_General_CI_AS")),
 )
 
 # WARNING: This table does not quite correspond to a table in the ACME database!
@@ -257,15 +231,11 @@ class Model:
             setattr(self, k, v)
 
 
-class MedicationIssue(Model):
+class Medication(Model):
     pass
 
 
 class Observation(Model):
-    pass
-
-
-class MedicationDictionary(Model):
     pass
 
 
@@ -302,16 +272,9 @@ class CPNS(Model):
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 mapper(
-    MedicationIssue,
-    medication_issue,
-    properties={
-        "patient": relationship(Patient, back_populates="MedicationIssues"),
-        "MedicationDictionary": relationship(
-            MedicationDictionary,
-            back_populates="MedicationIssues",
-            cascade="all, delete",
-        ),
-    },
+    Medication,
+    medication,
+    properties={"patient": relationship(Patient, back_populates="medications"),},
 )
 
 mapper(
@@ -321,23 +284,11 @@ mapper(
 )
 
 mapper(
-    MedicationDictionary,
-    medication_dictionary,
-    properties={
-        "MedicationIssues": relationship(
-            MedicationIssue, back_populates="MedicationDictionary"
-        )
-    },
-)
-
-mapper(
     Patient,
     patient,
     properties={
-        "MedicationIssues": relationship(
-            MedicationIssue,
-            back_populates="patient",
-            cascade="all, delete, delete-orphan",
+        "medications": relationship(
+            Medication, back_populates="patient", cascade="all, delete, delete-orphan",
         ),
         "observations": relationship(
             Observation, back_populates="patient", cascade="all, delete, delete-orphan"
