@@ -98,8 +98,16 @@ class CursorProxy:
 
     _rows = None
 
-    def __init__(self, cursor):
+    def __init__(self, cursor, batch_size=10 ** 6):
+        """Initialise proxy.
+
+        cursor: the presto.dbapi.Cursor to be proxied
+        batch_size: the number of records to fetch at a time (this will need to
+            be tuned)
+        """
+
         self.cursor = cursor
+        self.batch_size = batch_size
 
     def __getattr__(self, attr):
         """Pass any unhandled attribute lookups to proxied cursor."""
@@ -123,7 +131,7 @@ class CursorProxy:
 
         while self._rows:
             yield from iter(self._rows)
-            self._rows = self.cursor.fetchmany()
+            self._rows = self.cursor.fetchmany(self.batch_size)
 
     def fetchone(self):
         raise RuntimeError("Iterate over cursor to get results")
