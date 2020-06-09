@@ -7,7 +7,6 @@ import pytest
 
 from tests.acme_backend_setup import make_database, make_session
 from tests.acme_backend_setup import (
-    Appointment,
     CodedEvent,
     MedicationIssue,
     MedicationDictionary,
@@ -18,11 +17,6 @@ from tests.acme_backend_setup import (
     ICNARC,
     ONSDeaths,
     CPNS,
-    Vaccination,
-    VaccinationReference,
-    SGSS_Positive,
-    SGSS_Negative,
-    PotentialCareHomeAddress,
 )
 
 from datalab_cohorts import (
@@ -30,10 +24,7 @@ from datalab_cohorts import (
     patients,
     codelist,
 )
-from datalab_cohorts.acme_backend import (
-    quote,
-    AppointmentStatus,
-)
+from datalab_cohorts.acme_backend import quote
 from datalab_cohorts.presto_utils import presto_connection_params_from_url
 
 
@@ -59,16 +50,10 @@ def setup_function(function):
     session.query(ICNARC).delete()
     session.query(ONSDeaths).delete()
     session.query(CPNS).delete()
-    session.query(Vaccination).delete()
-    session.query(VaccinationReference).delete()
-    session.query(Appointment).delete()
-    session.query(SGSS_Positive).delete()
-    session.query(SGSS_Negative).delete()
     session.query(MedicationIssue).delete()
     session.query(MedicationDictionary).delete()
     session.query(RegistrationHistory).delete()
     session.query(Organisation).delete()
-    session.query(PotentialCareHomeAddress).delete()
     session.query(PatientAddress).delete()
     session.query(Patient).delete()
     session.commit()
@@ -445,36 +430,6 @@ def test_clinical_event_with_category():
     assert [x["code_category_date"] for x in results] == ["", "2020", "2019"]
 
 
-def test_patient_registered_as_of():
-    session = make_session()
-
-    patient_registered_in_2001 = Patient()
-    patient_registered_in_2002 = Patient()
-    patient_unregistered_in_2002 = Patient()
-    patient_registered_in_2001.RegistrationHistory = [
-        RegistrationHistory(StartDate="2001-01-01", EndDate="9999-01-01")
-    ]
-    patient_registered_in_2002.RegistrationHistory = [
-        RegistrationHistory(StartDate="2002-01-01", EndDate="9999-01-01")
-    ]
-    patient_unregistered_in_2002.RegistrationHistory = [
-        RegistrationHistory(StartDate="2001-01-01", EndDate="2002-01-01")
-    ]
-
-    session.add(patient_registered_in_2001)
-    session.add(patient_registered_in_2002)
-    session.add(patient_unregistered_in_2002)
-    session.commit()
-
-    # No date criteria
-    study = StudyDefinition(population=patients.registered_as_of("2002-03-02"))
-    results = study.to_dicts()
-    assert {x["patient_id"] for x in results} == {
-        str(patient_registered_in_2001.Patient_ID),
-        str(patient_registered_in_2002.Patient_ID),
-    }
-
-
 def test_patients_registered_with_one_practice_between():
     session = make_session()
 
@@ -774,20 +729,6 @@ def test_mean_recorded_value():
     assert results == [("96.0", "2020-02-10"), ("0.0", ""), ("0.0", "")]
 
 
-def test_patient_random_sample():
-    session = make_session()
-    sample_size = 1000
-    for _ in range(sample_size):
-        patient = Patient()
-        session.add(patient)
-    session.commit()
-
-    study = StudyDefinition(population=patients.random_sample(percent=20))
-    results = study.to_dicts()
-    # The method is approximate!
-    assert len(results) < (sample_size / 2)
-
-
 def test_patients_satisfying():
     condition_code = "ASTHMA"
     session = make_session()
@@ -1053,95 +994,6 @@ def test_patients_address_as_of():
     results = study.to_dicts()
     assert [i["imd"] for i in results] == ["300", "0", "0"]
     assert [i["rural_urban"] for i in results] == ["2", "0", "0"]
-
-
-def test_patients_care_home_status_as_of():
-    session = make_session()
-    session.add_all(
-        [
-            # Was in care home but no longer
-            Patient(
-                Addresses=[
-                    PatientAddress(
-                        StartDate="2010-01-01",
-                        EndDate="2015-01-01",
-                        PotentialCareHomeAddress=[PotentialCareHomeAddress()],
-                    ),
-                    PatientAddress(StartDate="2015-01-01", EndDate="9999-01-01"),
-                ]
-            ),
-            # Currently in non-nursing care home
-            Patient(
-                Addresses=[
-                    PatientAddress(
-                        StartDate="2015-01-01",
-                        EndDate="9999-01-01",
-                        PotentialCareHomeAddress=[
-                            PotentialCareHomeAddress(
-                                LocationRequiresNursing="N",
-                                LocationDoesNotRequireNursing="Y",
-                            )
-                        ],
-                    ),
-                ]
-            ),
-            # Currently in nursing home
-            Patient(
-                Addresses=[
-                    PatientAddress(
-                        StartDate="2015-01-01",
-                        EndDate="9999-01-01",
-                        PotentialCareHomeAddress=[
-                            PotentialCareHomeAddress(
-                                LocationRequiresNursing="Y",
-                                LocationDoesNotRequireNursing="N",
-                            )
-                        ],
-                    ),
-                ]
-            ),
-            # Currently in a schrodin-home which both does and does not require nursing
-            Patient(
-                Addresses=[
-                    PatientAddress(
-                        StartDate="2015-01-01",
-                        EndDate="9999-01-01",
-                        PotentialCareHomeAddress=[
-                            PotentialCareHomeAddress(
-                                LocationRequiresNursing="Y",
-                                LocationDoesNotRequireNursing="Y",
-                            )
-                        ],
-                    ),
-                ]
-            ),
-        ]
-    )
-    session.commit()
-    study = StudyDefinition(
-        population=patients.all(),
-        is_in_care_home=patients.care_home_status_as_of("2020-01-01"),
-        care_home_type=patients.care_home_status_as_of(
-            "2020-01-01",
-            categorised_as={
-                "PC": """
-                  IsPotentialCareHome
-                  AND LocationDoesNotRequireNursing='Y'
-                  AND LocationRequiresNursing='N'
-                """,
-                "PN": """
-                  IsPotentialCareHome
-                  AND LocationDoesNotRequireNursing='N'
-                  AND LocationRequiresNursing='Y'
-                """,
-                "PS": "IsPotentialCareHome",
-                "U": "DEFAULT",
-            },
-        ),
-    )
-    results = study.to_dicts()
-    assert [i["is_in_care_home"] for i in results] == ["0", "1", "1", "1"]
-    assert [i["care_home_type"] for i in results] == ["U", "PC", "PN", "PS"]
 
 
 def test_patients_admitted_to_icu():
@@ -1720,217 +1572,3 @@ def test_medications_returning_code_with_ignored_days():
     results = study.to_dicts()
     assert [i["most_recent_drug"] for i in results] == ["cd34"]
     assert [i["most_recent_drug_date"] for i in results] == ["2010-01-03"]
-
-
-def test_patients_with_tpp_vaccination_record():
-    session = make_session()
-    vaccines = [
-        (1, "Hepatyrix", ["TYPHOID", "HEPATITIS A"]),
-        (2, "Madeva", ["INFLUENZA"]),
-        (3, "Optaflu", ["INFLUENZA"]),
-    ]
-    ids = {}
-    for name_id, name, contents in vaccines:
-        ids[name] = name_id
-        for content in contents:
-            session.add(
-                VaccinationReference(
-                    VaccinationName=name,
-                    VaccinationName_ID=name_id,
-                    VaccinationContent=content,
-                )
-            )
-    session.add_all(
-        [
-            Patient(
-                Vaccinations=[
-                    Vaccination(
-                        VaccinationName_ID=ids["Hepatyrix"],
-                        VaccinationDate="2010-01-01",
-                    ),
-                    Vaccination(
-                        VaccinationName_ID=ids["Optaflu"], VaccinationDate="2014-01-01"
-                    ),
-                ]
-            ),
-            Patient(
-                Vaccinations=[
-                    Vaccination(
-                        VaccinationName_ID=ids["Madeva"], VaccinationDate="2013-01-01"
-                    ),
-                    Vaccination(
-                        VaccinationName_ID=ids["Hepatyrix"],
-                        VaccinationDate="2015-01-01",
-                    ),
-                ]
-            ),
-        ]
-    )
-    session.commit()
-
-    study = StudyDefinition(
-        population=patients.all(),
-        value=patients.with_tpp_vaccination_record(
-            target_disease_matches="TYPHOID", on_or_after="2012-01-01",
-        ),
-        date=patients.date_of("value"),
-    )
-    results = study.to_dicts()
-    assert [i["value"] for i in results] == ["0", "1"]
-    assert [i["date"] for i in results] == ["", "2015"]
-
-    delete_temporary_tables()
-
-    study = StudyDefinition(
-        population=patients.all(),
-        value=patients.with_tpp_vaccination_record(
-            target_disease_matches="INFLUENZA",
-            on_or_after="2012-01-01",
-            find_last_match_in_period=True,
-            returning="date",
-        ),
-    )
-    assert [i["value"] for i in study.to_dicts()] == ["2014", "2013"]
-
-    delete_temporary_tables()
-
-    study = StudyDefinition(
-        population=patients.all(),
-        value=patients.with_tpp_vaccination_record(
-            product_name_matches=["Madeva", "Hepatyrix"],
-            find_first_match_in_period=True,
-            returning="date",
-        ),
-    )
-    assert [i["value"] for i in study.to_dicts()] == ["2010", "2013"]
-
-
-def test_patients_with_gp_consultations():
-    session = make_session()
-    session.add_all(
-        [
-            Patient(
-                RegistrationHistory=[
-                    RegistrationHistory(StartDate="2014-01-01", EndDate="2020-05-01")
-                ],
-                Appointments=[
-                    # Before period starts
-                    Appointment(
-                        SeenDate="2009-01-01", Status=AppointmentStatus.FINISHED
-                    ),
-                    # After period ends
-                    Appointment(
-                        SeenDate="2020-02-01", Status=AppointmentStatus.FINISHED
-                    ),
-                ],
-            ),
-            Patient(
-                RegistrationHistory=[
-                    RegistrationHistory(StartDate="2001-01-01", EndDate="2016-01-01")
-                ],
-                Appointments=[
-                    Appointment(
-                        SeenDate="2011-01-01", Status=AppointmentStatus.FINISHED
-                    ),
-                    # Should not be counted
-                    Appointment(
-                        SeenDate="2012-01-01", Status=AppointmentStatus.DID_NOT_ATTEND
-                    ),
-                    Appointment(
-                        SeenDate="2013-01-01", Status=AppointmentStatus.FINISHED
-                    ),
-                ],
-            ),
-        ]
-    )
-    session.commit()
-    study = StudyDefinition(
-        population=patients.all(),
-        consultation_count=patients.with_gp_consultations(
-            between=["2010-01-01", "2015-01-01"],
-            find_last_match_in_period=True,
-            returning="number_of_matches_in_period",
-        ),
-        latest_consultation_date=patients.date_of(
-            "consultation_count", date_format="YYYY-MM"
-        ),
-        has_history=patients.with_complete_gp_consultation_history_between(
-            "2010-01-01", "2015-01-01"
-        ),
-    )
-    results = study.to_dicts()
-    assert [x["latest_consultation_date"] for x in results] == ["", "2013-01"]
-    assert [x["consultation_count"] for x in results] == ["0", "2"]
-    assert [x["has_history"] for x in results] == ["0", "1"]
-
-
-def test_patients_with_test_result_in_sgss():
-    session = make_session()
-    session.add_all(
-        [
-            Patient(
-                SGSS_Positives=[
-                    SGSS_Positive(Earliest_Specimen_Date="2020-05-15"),
-                    SGSS_Positive(Earliest_Specimen_Date="2020-05-20"),
-                ],
-            ),
-            Patient(
-                SGSS_Negatives=[SGSS_Negative(Earliest_Specimen_Date="2020-04-01")],
-                SGSS_Positives=[SGSS_Positive(Earliest_Specimen_Date="2020-04-20")],
-            ),
-            Patient(
-                SGSS_Negatives=[SGSS_Negative(Earliest_Specimen_Date="2020-04-01")],
-            ),
-            Patient(),
-        ]
-    )
-    session.commit()
-    study = StudyDefinition(
-        population=patients.all(),
-        positive_covid_test_ever=patients.with_test_result_in_sgss(
-            pathogen="SARS-CoV-2", test_result="positive",
-        ),
-        negative_covid_test_ever=patients.with_test_result_in_sgss(
-            pathogen="SARS-CoV-2", test_result="negative",
-        ),
-        tested_before_may=patients.with_test_result_in_sgss(
-            pathogen="SARS-CoV-2", test_result="any", on_or_before="2020-05-01"
-        ),
-        first_positive_test_date=patients.with_test_result_in_sgss(
-            pathogen="SARS-CoV-2",
-            test_result="positive",
-            find_first_match_in_period=True,
-            returning="date",
-            date_format="YYYY-MM-DD",
-        ),
-    )
-    results = study.to_dicts()
-    assert [x["positive_covid_test_ever"] for x in results] == ["1", "1", "0", "0"]
-    assert [x["negative_covid_test_ever"] for x in results] == ["0", "1", "1", "0"]
-    assert [x["tested_before_may"] for x in results] == ["0", "1", "1", "0"]
-    assert [x["first_positive_test_date"] for x in results] == [
-        "2020-05-15",
-        "2020-04-20",
-        "",
-        "",
-    ]
-
-
-@pytest.mark.parametrize("positive", [True, False])
-def test_patients_with_test_result_in_sgss_raises_error_on_bad_data(positive):
-    kwargs = dict(
-        Earliest_Specimen_Date="2020-05-15", Organism_Species_Name="unexpected"
-    )
-    if positive:
-        patient = Patient(SGSS_Positives=[SGSS_Positive(**kwargs)])
-    else:
-        patient = Patient(SGSS_Negatives=[SGSS_Negative(**kwargs)])
-    session = make_session()
-    session.add(patient)
-    session.commit()
-    study = StudyDefinition(
-        population=patients.all(),
-        covid_test=patients.with_test_result_in_sgss(pathogen="SARS-CoV-2",),
-    )
-    with pytest.raises(Exception):
-        study.to_dicts()

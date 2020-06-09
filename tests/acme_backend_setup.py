@@ -113,24 +113,6 @@ class CodedEvent(Base):
     SnomedConceptId = Column(String)
 
 
-class Appointment(Base):
-    __tablename__ = "Appointment"
-
-    Appointment_ID = Column(Integer, primary_key=True)
-    Patient_ID = Column(Integer, ForeignKey("Patient.Patient_ID"))
-    Patient = relationship(
-        "Patient", back_populates="Appointments", cascade="all, delete"
-    )
-    Organisation_ID = Column(Integer, ForeignKey("Organisation.Organisation_ID"))
-    Organisation = relationship(
-        "Organisation", back_populates="Appointments", cascade="all, delete"
-    )
-    # The real table has various other datetime columns but we don't currently
-    # use them
-    SeenDate = Column(DateTime)
-    Status = Column(Integer)
-
-
 class Patient(Base):
     __tablename__ = "Patient"
 
@@ -138,9 +120,6 @@ class Patient(Base):
     DateOfBirth = Column(Date)
     DateOfDeath = Column(Date)
 
-    Appointments = relationship(
-        "Appointment", back_populates="Patient", cascade="all, delete, delete-orphan",
-    )
     MedicationIssues = relationship(
         "MedicationIssue",
         back_populates="Patient",
@@ -165,15 +144,6 @@ class Patient(Base):
     )
     Addresses = relationship(
         "PatientAddress", back_populates="Patient", cascade="all, delete, delete-orphan"
-    )
-    Vaccinations = relationship(
-        "Vaccination", back_populates="Patient", cascade="all, delete, delete-orphan"
-    )
-    SGSS_Positives = relationship(
-        "SGSS_Positive", back_populates="Patient", cascade="all, delete, delete-orphan"
-    )
-    SGSS_Negatives = relationship(
-        "SGSS_Negative", back_populates="Patient", cascade="all, delete, delete-orphan"
     )
     Sex = Column(String)
 
@@ -207,11 +177,6 @@ class Organisation(Base):
         cascade="all, delete, delete-orphan",
     )
     Region = Column(String)
-    Appointments = relationship(
-        "Appointment",
-        back_populates="Organisation",
-        cascade="all, delete, delete-orphan",
-    )
 
 
 class PatientAddress(Base):
@@ -226,11 +191,6 @@ class PatientAddress(Base):
     RuralUrbanClassificationCode = Column(Integer)
     ImdRankRounded = Column(Integer)
     MSOACode = Column(String)
-    PotentialCareHomeAddress = relationship(
-        "PotentialCareHomeAddress",
-        back_populates="PatientAddress",
-        cascade="all, delete, delete-orphan",
-    )
 
 
 class ICNARC(Base):
@@ -306,96 +266,3 @@ class CPNS(Base):
     # Der_Ethnic_Category_Description                                None
     # Der_Latest_SUS_Attendance_Date_For_Ethnicity                   None
     # Der_Source_Dataset_For_Ethnicty                                None
-
-
-class Vaccination(Base):
-    __tablename__ = "Vaccination"
-    Patient_ID = Column(Integer, ForeignKey("Patient.Patient_ID"))
-    Patient = relationship(
-        "Patient", back_populates="Vaccinations", cascade="all, delete"
-    )
-    Vaccination_ID = Column(Integer, primary_key=True)
-    VaccinationDate = Column(DateTime)
-    VaccinationName = Column(String)
-    # We can't make this a foreign key because the corresponding column isn't
-    # unique.  Effectively, there's an implied but not existing VaccinationName
-    # table which has a many-one relation with Vaccination and a one-many
-    # relation with VaccinationReference.
-    VaccinationName_ID = Column(Integer)
-    VaccinationSchedulePart = Column(Integer)
-
-
-class VaccinationReference(Base):
-    __tablename__ = "VaccinationReference"
-
-    # This column isn't in the actual database but SQLAlchemy gets a bit upset
-    # if we don't give it a primary key
-    id = Column(Integer, primary_key=True)
-    # Note this is *not* unique because a single named vaccine product can
-    # target multiple diseases and therefore have multiple "contents"
-    VaccinationName_ID = Column(Integer)
-    VaccinationName = Column(String)
-    VaccinationContent = Column(String)
-
-
-class SGSS_Negative(Base):
-    __tablename__ = "SGSS_Negative"
-
-    # This column isn't in the actual database but SQLAlchemy gets a bit upset
-    # if we don't give it a primary key
-    id = Column(Integer, primary_key=True)
-    Patient_ID = Column(Integer, ForeignKey("Patient.Patient_ID"))
-    Patient = relationship(
-        "Patient", back_populates="SGSS_Negatives", cascade="all, delete"
-    )
-    Organism_Species_Name = Column(String, default="NEGATIVE SARS-CoV-2 (COVID-19)")
-    Earliest_Specimen_Date = Column(Date)
-    Lab_Report_Date = Column(Date)
-    # Other columns in the table which we don't use:
-    #   PHE_ID
-    #   Age_in_Years
-    #   Patient_Sex
-    #   County_Description
-    #   PostCode_Source
-
-
-class SGSS_Positive(Base):
-    __tablename__ = "SGSS_Positive"
-
-    # This column isn't in the actual database but SQLAlchemy gets a bit upset
-    # if we don't give it a primary key
-    id = Column(Integer, primary_key=True)
-    Patient_ID = Column(Integer, ForeignKey("Patient.Patient_ID"))
-    Patient = relationship(
-        "Patient", back_populates="SGSS_Positives", cascade="all, delete"
-    )
-    Organism_Species_Name = Column(String, default="SARS-CoV-2 CORONAVIRUS (Covid-19)")
-    Earliest_Specimen_Date = Column(Date)
-    Lab_Report_Date = Column(Date)
-    # Other columns in the table which we don't use:
-    #   PHE_ID
-    #   Age_in_Years
-    #   Patient_Sex
-    #   County_Description
-    #   PostCode_Source
-
-
-class PotentialCareHomeAddress(Base):
-    __tablename__ = "PotentialCareHomeAddress"
-
-    # This column isn't in the actual database but SQLAlchemy gets a bit upset
-    # if we don't give it a primary key
-    id = Column(Integer, primary_key=True)
-
-    Patient_ID = Column(Integer, ForeignKey("Patient.Patient_ID"))
-    PatientAddress_ID = Column(Integer, ForeignKey("PatientAddress.PatientAddress_ID"))
-    PatientAddress = relationship(
-        "PatientAddress",
-        back_populates="PotentialCareHomeAddress",
-        cascade="all, delete",
-    )
-    # Conceptually these two are a single boolean column but they stored as
-    # separate string columns containing either a Y or an N as this directly
-    # reflects what's in the underlying data source
-    LocationRequiresNursing = Column(String)
-    LocationDoesNotRequireNursing = Column(String)

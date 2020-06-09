@@ -1,6 +1,5 @@
 import csv
 import datetime
-import enum
 import os
 import re
 
@@ -269,26 +268,6 @@ class ACMEBackend:
             """,
         )
 
-    def patients_random_sample(self, percent):
-        """
-        A random sample of approximately `percent` patients
-        """
-        # See
-        # https://docs.microsoft.com/en-us/previous-versions/software-testing/cc441928(v=msdn.10)?redirectedfrom=MSDN
-        # A TABLESAMPLE clause is more efficient, but its
-        # approximations don't work with small numbers, and we might
-        # want to use this method for small numbers (and certainly do
-        # in the tests!)
-        assert percent, "Must specify a percentage greater than zero"
-        return (
-            ["patient_id", "is_included"],
-            f"""
-            SELECT Patient_ID, 1 AS is_included
-            FROM Patient
-            WHERE (random() * 100) < {quote(percent)}
-            """,
-        )
-
     def patients_most_recent_bmi(
         self,
         # Set date limits
@@ -445,14 +424,6 @@ class ACMEBackend:
             columns.append("date")
         return columns, sql
 
-    def patients_registered_as_of(self, reference_date):
-        """
-        All patients registed on the given date
-        """
-        return self.patients_registered_with_one_practice_between(
-            reference_date, reference_date
-        )
-
     def patients_registered_with_one_practice_between(self, start_date, end_date):
         """
         All patients registered with the same practice through the given period
@@ -469,20 +440,6 @@ class ACMEBackend:
             WHERE StartDate <= {quote(start_date)} AND EndDate > {quote(end_date)}
             """,
         )
-
-    def patients_with_complete_history_between(self, start_date, end_date):
-        """
-        All patients for which we have a full set of records between the given
-        dates
-        """
-        # This should be do-able by checking for a contiguous set of
-        # RegistrationHistory entries covering the period. There's a further
-        # complication though which is that a practice might not have been
-        # using SystmOne at the point where the patient registered so we can
-        # only guarantee data from the point where the patient was registred
-        # *and* the practice was on SystmOne. Apparently the Organisation table
-        # now has a TPP go-live date which we can use for this purpose.
-        raise NotImplementedError()
 
     def patients_with_these_medications(self, **kwargs):
         """
@@ -838,46 +795,6 @@ class ACMEBackend:
             """,
         )
 
-    def patients_care_home_status_as_of(self, date, categorised_as):
-        # These are the columns to which the categorisation expression is
-        # allowed to refer
-        allowed_columns = {
-            "IsPotentialCareHome": "COALESCE(PotentialCareHomeAddressID, 0)",
-            "LocationRequiresNursing": "LocationRequiresNursing",
-            "LocationDoesNotRequireNursing": "LocationDoesNotRequireNursing",
-        }
-        allowed_column_types = {
-            "IsPotentialCareHome": "int",
-            "LocationRequiresNursing": "str",
-            "LocationDoesNotRequireNursing": "str",
-        }
-        case_expression = self.get_case_expression(
-            allowed_column_types, allowed_columns, categorised_as
-        )
-        return (
-            ["patient_id", "value"],
-            f"""
-            SELECT
-              Patient_ID AS patient_id,
-              {case_expression} AS value
-            FROM (
-              SELECT
-                PatientAddress.Patient_ID AS Patient_ID,
-                PotentialCareHomeAddress.PatientAddress_ID AS PotentialCareHomeAddressID,
-                LocationRequiresNursing,
-                LocationDoesNotRequireNursing,
-                ROW_NUMBER() OVER (
-                  PARTITION BY PatientAddress.Patient_ID ORDER BY StartDate DESC, EndDate DESC
-                ) AS rownum
-              FROM PatientAddress
-              LEFT JOIN PotentialCareHomeAddress
-              ON PatientAddress.PatientAddress_ID = PotentialCareHomeAddress.PatientAddress_ID
-              WHERE StartDate <= {quote(date)} AND EndDate > {quote(date)}
-            ) t
-            WHERE rownum = 1
-            """,
-        )
-
     # https://github.com/ebmdatalab/tpp-sql-notebook/issues/72
     def patients_admitted_to_icu(
         self,
@@ -1007,202 +924,6 @@ class ACMEBackend:
             """,
         )
 
-    def patients_with_tpp_vaccination_record(
-        self,
-        target_disease_matches=None,
-        product_name_matches=None,
-        # Set date limits
-        between=None,
-        # Set return type
-        returning="binary_flag",
-        # Matching rule
-        find_first_match_in_period=None,
-        find_last_match_in_period=None,
-        include_date_of_match=False,
-    ):
-        conditions = [make_date_filter("VaccinationDate", between)]
-        target_disease_matches = to_list(target_disease_matches)
-        if target_disease_matches:
-            content_codes = codelist_to_sql(target_disease_matches)
-            conditions.append(f"ref.VaccinationContent IN ({content_codes})")
-
-        product_name_matches = to_list(product_name_matches)
-        if product_name_matches:
-            product_name_codes = codelist_to_sql(product_name_matches)
-            conditions.append(f"ref.VaccinationName IN ({product_name_codes})")
-
-        conditions_str = " AND ".join(conditions)
-
-        # Result ordering
-        if find_first_match_in_period:
-            date_aggregate = "MIN"
-        else:
-            date_aggregate = "MAX"
-
-        if returning == "binary_flag" or returning == "date":
-            column_name = "has_event"
-            column_definition = "1"
-        else:
-            # Because each Vaccination row can potentially map to multiple
-            # VaccinationReference rows (one for each disease targeted by the
-            # vaccine) anything beyond a simple binary flag or a date is going to
-            # require more thought.
-            raise ValueError(f"Unsupported `returning` value: {returning}")
-
-        sql = f"""
-        SELECT
-          Patient_ID AS patient_id,
-          {column_definition} AS {column_name},
-          {date_aggregate}(DATE(VaccinationDate)) AS date
-        FROM Vaccination
-        INNER JOIN VaccinationReference AS ref
-        ON ref.VaccinationName_ID = Vaccination.VaccinationName_ID
-        WHERE {conditions_str}
-        GROUP BY Patient_ID
-        """
-
-        if returning == "date":
-            columns = ["patient_id", "date"]
-        else:
-            columns = ["patient_id", column_name]
-            if include_date_of_match:
-                columns.append("date")
-        return columns, sql
-
-    def patients_with_gp_consultations(
-        self,
-        # Set date limits
-        between=None,
-        # Matching rule
-        find_first_match_in_period=None,
-        find_last_match_in_period=None,
-        # Set return type
-        returning="binary_flag",
-        include_date_of_match=False,
-    ):
-        if returning == "binary_flag" or returning == "date":
-            column_name = "has_event"
-            column_definition = "1"
-        elif returning == "number_of_matches_in_period":
-            column_name = "count"
-            column_definition = "COUNT(*)"
-        else:
-            raise ValueError(f"Unsupported `returning` value: {returning}")
-
-        valid_states = [
-            AppointmentStatus.ARRIVED,
-            AppointmentStatus.WAITING,
-            AppointmentStatus.IN_PROGRESS,
-            AppointmentStatus.FINISHED,
-            AppointmentStatus.PATIENT_WALKED_OUT,
-            AppointmentStatus.VISIT,
-        ]
-        valid_states_str = codelist_to_sql(map(int, valid_states))
-
-        date_condition = make_date_filter("SeenDate", between)
-        # Result ordering
-        date_aggregate = "MIN" if find_first_match_in_period else "MAX"
-        sql = f"""
-        SELECT
-          Patient_ID AS patient_id,
-          {column_definition} AS {column_name},
-          {date_aggregate}(DATE(SeenDate)) AS date
-        FROM Appointment
-        WHERE Status IN ({valid_states_str}) AND {date_condition}
-        GROUP BY Patient_ID
-        """
-
-        if returning == "date":
-            columns = ["patient_id", "date"]
-        else:
-            columns = ["patient_id", column_name]
-            if include_date_of_match:
-                columns.append("date")
-        return columns, sql
-
-    def patients_with_complete_gp_consultation_history_between(
-        self, start_date, end_date
-    ):
-        """
-        In this context this should mean patients who have been continuously
-        registered with TPP-using practices throughout this period. However,
-        for now we restrict this to just patients who have been registered with
-        a single practice throughout this period.  As this is a more
-        restrictive condition this is fine for our purposes, however once we
-        get an implementation for `patients_with_complete_history_between` we
-        should switch to using this.
-        """
-        return self.patients_registered_with_one_practice_between(start_date, end_date)
-
-    def patients_with_test_result_in_sgss(
-        self,
-        pathogen=None,
-        test_result=None,
-        # Set date limits
-        between=None,
-        # Matching rule
-        find_first_match_in_period=None,
-        find_last_match_in_period=None,
-        # Set return type
-        returning="binary_flag",
-        include_date_of_match=False,
-    ):
-        assert pathogen == "SARS-CoV-2"
-        assert test_result in ("positive", "negative", "any")
-        if returning not in ("binary_flag", "date"):
-            raise ValueError(f"Unsupported `returning` value: {returning}")
-
-        date_condition = make_date_filter("date", between)
-        date_aggregate = "MIN" if find_first_match_in_period else "MAX"
-        if test_result == "any":
-            result_condition = "1 = 1"
-        else:
-            flag = 1 if test_result == "positive" else 0
-            result_condition = f"test_result = {quote(flag)}"
-
-        # These are the values we're expecting in our SGSS tables. If we ever
-        # get anything other than these we should throw an error rather than
-        # blindly continuing.
-        positive_descr = "SARS-CoV-2 CORONAVIRUS (Covid-19)"
-        negative_descr = "NEGATIVE SARS-CoV-2 (COVID-19)"
-
-        sql = f"""
-        SELECT
-          patient_id,
-          1 AS has_result,
-          {date_aggregate}(date) AS date,
-          -- We have to calculate something over the error check field
-          -- otherwise it never gets computed
-          MAX(_e) AS _e
-        FROM (
-          SELECT
-            1 AS test_result,
-            Patient_ID AS patient_id,
-            Earliest_Specimen_Date AS date,
-            -- Crude error check so we blow up in the case of unexpected data
-            1 / CASE WHEN Organism_Species_Name = '{positive_descr}' THEN 1 ELSE 0 END AS _e
-          FROM SGSS_Positive
-          UNION ALL
-          SELECT
-            0 AS test_result,
-            Patient_ID AS patient_id,
-            Earliest_Specimen_Date AS date,
-            -- Crude error check so we blow up in the case of unexpected data
-            1 / CASE WHEN Organism_Species_Name = '{negative_descr}' THEN 1 ELSE 0 END AS _e
-          FROM SGSS_Negative
-        ) t
-        WHERE {date_condition} AND {result_condition}
-        GROUP BY patient_id
-        """
-
-        if returning == "date":
-            columns = ["patient_id", "date"]
-        else:
-            columns = ["patient_id", "has_result"]
-            if include_date_of_match:
-                columns.append("date")
-        return columns, sql
-
     def get_case_expression(
         self, column_types, column_definitions, category_definitions
     ):
@@ -1250,14 +971,6 @@ def codelist_to_sql(codelist):
     else:
         values = map(quote, codelist)
     return ",".join(values)
-
-
-def to_list(value):
-    if value is None:
-        return []
-    if not isinstance(value, (tuple, list)):
-        return [value]
-    return list(value)
 
 
 def quote(value):
@@ -1325,21 +1038,3 @@ def pop_keys_from_dict(dictionary, keys):
         if key in dictionary:
             new_dict[key] = dictionary.pop(key)
     return new_dict
-
-
-class AppointmentStatus(enum.IntEnum):
-    BOOKED = 0
-    ARRIVED = 1
-    DID_NOT_ATTEND = 2
-    IN_PROGRESS = 3
-    FINISHED = 4
-    REQUESTED = 5
-    BLOCKED = 6
-    VISIT = 8
-    WAITING = 9
-    CANCELLED_BY_PATIENT = 10
-    CANCELLED_BY_UNIT = 11
-    CANCELLED_BY_OTHER_SERVICE = 12
-    NO_ACCESS_VISIT = 14
-    CANCELLED_DUE_TO_DEATH = 15
-    PATIENT_WALKED_OUT = 16
