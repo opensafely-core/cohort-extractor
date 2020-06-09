@@ -99,13 +99,13 @@ class ACMEBackend:
                 )
         # If the population query defines its own temporary table then we use
         # that as the primary table to query against and left join everything
-        # else against that. Otherwise, we use the `Patient` table.
+        # else against that. Otherwise, we use the `patient` table.
         if "population" in table_queries:
             primary_table = "_population"
             patient_id_expr = "_population.patient_id"
         else:
-            primary_table = "Patient"
-            patient_id_expr = "Patient.id"
+            primary_table = "patient"
+            patient_id_expr = "patient.id"
         # Insert `patient_id` as the first column
         output_columns = dict(patient_id=patient_id_expr, **output_columns)
         output_columns_str = ",\n          ".join(
@@ -236,13 +236,13 @@ class ACMEBackend:
             SELECT
               id AS patient_id,
               CASE WHEN
-                 date_add('year', date_diff('year', DateOfBirth, {quoted_date}), DateOfBirth) > {quoted_date}
+                 date_add('year', date_diff('year', "date-of-birth", {quoted_date}), "date-of-birth") > {quoted_date}
               THEN
-                 date_diff('year', DateOfBirth, {quoted_date}) - 1
+                 date_diff('year', "date-of-birth", {quoted_date}) - 1
               ELSE
-                 date_diff('year', DateOfBirth, {quoted_date})
+                 date_diff('year', "date-of-birth", {quoted_date})
               END AS age
-            FROM Patient
+            FROM patient
             """,
         )
 
@@ -252,8 +252,13 @@ class ACMEBackend:
             """
           SELECT
             id AS patient_id,
-            Sex as sex
-          FROM Patient""",
+            CASE gender
+              -- See https://www.datadictionary.nhs.uk/data_dictionary/attributes/p/person/person_gender_code_de.asp?shownav=1
+              WHEN 1 THEN 'M'
+              WHEN 2 THEN 'F'
+              ELSE ''
+            END AS sex
+          FROM patient""",
         )
 
     def patients_all(self):
@@ -264,7 +269,7 @@ class ACMEBackend:
             ["patient_id", "is_included"],
             """
             SELECT id AS patient_id, 1 AS is_included
-            FROM Patient
+            FROM patient
             """,
         )
 
@@ -321,8 +326,8 @@ class ACMEBackend:
         """
 
         patients_cte = """
-           SELECT id, DateOfBirth
-           FROM Patient
+           SELECT id, "date-of-birth"
+           FROM patient
         """
         weight_codes_sql = codelist_to_sql(weight_codes)
         weights_cte = f"""
@@ -369,11 +374,11 @@ class ACMEBackend:
           END AS date
         FROM ({patients_cte}) AS patients
         LEFT JOIN ({weights_cte}) AS weights
-        ON weights."registration-id" = patients.id AND date_diff('year', patients.DateOfBirth, weights.ConsultationDate) >= {min_age}
+        ON weights."registration-id" = patients.id AND date_diff('year', patients."date-of-birth", weights.ConsultationDate) >= {min_age}
         LEFT JOIN ({heights_cte}) AS heights
-        ON heights."registration-id" = patients.id AND date_diff('year', patients.DateOfBirth, heights.ConsultationDate) >= {min_age}
+        ON heights."registration-id" = patients.id AND date_diff('year', patients."date-of-birth", heights.ConsultationDate) >= {min_age}
         LEFT JOIN ({bmi_cte}) AS bmis
-        ON bmis."registration-id" = patients.id AND date_diff('year', patients.DateOfBirth, bmis.ConsultationDate) >= {min_age}
+        ON bmis."registration-id" = patients.id AND date_diff('year', patients."date-of-birth", bmis.ConsultationDate) >= {min_age}
         -- XXX maybe add a "WHERE NULL..." here
         """
         columns = ["patient_id", "BMI"]
@@ -433,10 +438,10 @@ class ACMEBackend:
         return (
             ["patient_id", "is_registered"],
             f"""
-            SELECT DISTINCT Patient.id AS patient_id, 1 AS is_registered
-            FROM Patient
+            SELECT DISTINCT patient.id AS patient_id, 1 AS is_registered
+            FROM patient
             INNER JOIN RegistrationHistory
-            ON RegistrationHistory."registration-id" = Patient.id
+            ON RegistrationHistory."registration-id" = patient.id
             WHERE StartDate <= {quote(start_date)} AND EndDate > {quote(end_date)}
             """,
         )

@@ -77,8 +77,8 @@ def delete_temporary_tables():
 
 def test_minimal_study_to_csv():
     session = make_session()
-    patient_1 = Patient(DateOfBirth="1900-01-01", Sex="M")
-    patient_2 = Patient(DateOfBirth="1900-01-01", Sex="F")
+    patient_1 = Patient(date_of_birth="1900-01-01", gender=1)
+    patient_2 = Patient(date_of_birth="1900-01-01", gender=2)
     session.add_all([patient_1, patient_2])
     session.commit()
     study = StudyDefinition(population=patients.all(), sex=patients.sex())
@@ -467,7 +467,7 @@ def test_simple_bmi(include_dates):
     weight_code = "X76C7"
     height_code = "XM01E"
 
-    patient = Patient(DateOfBirth="1950-01-01")
+    patient = Patient(date_of_birth="1950-01-01")
     patient.CodedEvents.append(
         CodedEvent(CTV3Code=weight_code, NumericValue=50, ConsultationDate="2002-06-01")
     )
@@ -507,7 +507,7 @@ def test_bmi_rounded():
     weight_code = "X76C7"
     height_code = "XM01E"
 
-    patient = Patient(DateOfBirth="1950-01-01")
+    patient = Patient(date_of_birth="1950-01-01")
     patient.CodedEvents.append(
         CodedEvent(
             CTV3Code=weight_code, NumericValue=10.12345, ConsultationDate="2001-06-01"
@@ -535,7 +535,7 @@ def test_bmi_with_zero_values():
     weight_code = "X76C7"
     height_code = "XM01E"
 
-    patient = Patient(DateOfBirth="1950-01-01")
+    patient = Patient(date_of_birth="1950-01-01")
     patient.CodedEvents.append(
         CodedEvent(CTV3Code=weight_code, NumericValue=0, ConsultationDate="2001-06-01")
     )
@@ -563,7 +563,7 @@ def test_explicit_bmi_fallback():
     weight_code = "X76C7"
     bmi_code = "22K.."
 
-    patient = Patient(DateOfBirth="1950-01-01")
+    patient = Patient(date_of_birth="1950-01-01")
     patient.CodedEvents.append(
         CodedEvent(CTV3Code=weight_code, NumericValue=50, ConsultationDate="2001-06-01")
     )
@@ -590,7 +590,7 @@ def test_no_bmi_when_old_date():
 
     bmi_code = "22K.."
 
-    patient = Patient(DateOfBirth="1950-01-01")
+    patient = Patient(date_of_birth="1950-01-01")
     patient.CodedEvents.append(
         CodedEvent(CTV3Code=bmi_code, NumericValue=99, ConsultationDate="1994-12-31")
     )
@@ -614,7 +614,7 @@ def test_no_bmi_when_measurements_of_child():
 
     bmi_code = "22K.."
 
-    patient = Patient(DateOfBirth="2000-01-01")
+    patient = Patient(date_of_birth="2000-01-01")
     patient.CodedEvents.append(
         CodedEvent(CTV3Code=bmi_code, NumericValue=99, ConsultationDate="2001-01-01")
     )
@@ -638,7 +638,7 @@ def test_no_bmi_when_measurement_after_reference_date():
 
     bmi_code = "22K.."
 
-    patient = Patient(DateOfBirth="1900-01-01")
+    patient = Patient(date_of_birth="1900-01-01")
     patient.CodedEvents.append(
         CodedEvent(CTV3Code=bmi_code, NumericValue=99, ConsultationDate="2001-01-01")
     )
@@ -664,7 +664,7 @@ def test_bmi_when_only_some_measurements_of_child():
     weight_code = "X76C7"
     height_code = "XM01E"
 
-    patient = Patient(DateOfBirth="1990-01-01")
+    patient = Patient(date_of_birth="1990-01-01")
     patient.CodedEvents.append(
         CodedEvent(CTV3Code=bmi_code, NumericValue=99, ConsultationDate="1995-01-01")
     )
@@ -730,10 +730,10 @@ def test_mean_recorded_value():
 def test_patients_satisfying():
     condition_code = "ASTHMA"
     session = make_session()
-    patient_1 = Patient(DateOfBirth="1940-01-01", Sex="M")
-    patient_2 = Patient(DateOfBirth="1940-01-01", Sex="F")
-    patient_3 = Patient(DateOfBirth="1990-01-01", Sex="M")
-    patient_4 = Patient(DateOfBirth="1940-01-01", Sex="F")
+    patient_1 = Patient(date_of_birth="1940-01-01", gender=1)
+    patient_2 = Patient(date_of_birth="1940-01-01", gender=2)
+    patient_3 = Patient(date_of_birth="1990-01-01", gender=1)
+    patient_4 = Patient(date_of_birth="1940-01-01", gender=2)
     patient_4.CodedEvents.append(
         CodedEvent(CTV3Code=condition_code, ConsultationDate="2010-01-01")
     )
@@ -756,14 +756,14 @@ def test_patients_satisfying_with_hidden_columns():
     condition_code = "ASTHMA"
     condition_code2 = "COPD"
     session = make_session()
-    patient_1 = Patient(DateOfBirth="1940-01-01", Sex="M")
-    patient_2 = Patient(DateOfBirth="1940-01-01", Sex="F")
-    patient_3 = Patient(DateOfBirth="1990-01-01", Sex="M")
-    patient_4 = Patient(DateOfBirth="1940-01-01", Sex="F")
+    patient_1 = Patient(date_of_birth="1940-01-01", gender=1)
+    patient_2 = Patient(date_of_birth="1940-01-01", gender=2)
+    patient_3 = Patient(date_of_birth="1990-01-01", gender=1)
+    patient_4 = Patient(date_of_birth="1940-01-01", gender=2)
     patient_4.CodedEvents.append(
         CodedEvent(CTV3Code=condition_code, ConsultationDate="2010-01-01")
     )
-    patient_5 = Patient(DateOfBirth="1940-01-01", Sex="F")
+    patient_5 = Patient(date_of_birth="1940-01-01", gender=2)
     patient_5.CodedEvents.append(
         CodedEvent(CTV3Code=condition_code, ConsultationDate="2010-01-01")
     )
@@ -800,32 +800,32 @@ def test_patients_categorised_as():
     session.add_all(
         [
             Patient(
-                Sex="M",
+                gender=1,
                 CodedEvents=[
                     CodedEvent(CTV3Code="foo1", ConsultationDate="2000-01-01")
                 ],
             ),
             Patient(
-                Sex="F",
+                gender=2,
                 CodedEvents=[
                     CodedEvent(CTV3Code="foo2", ConsultationDate="2000-01-01"),
                     CodedEvent(CTV3Code="bar1", ConsultationDate="2000-01-01"),
                 ],
             ),
             Patient(
-                Sex="M",
+                gender=1,
                 CodedEvents=[
                     CodedEvent(CTV3Code="foo2", ConsultationDate="2000-01-01")
                 ],
             ),
             Patient(
-                Sex="F",
+                gender=2,
                 CodedEvents=[
                     CodedEvent(CTV3Code="foo3", ConsultationDate="2000-01-01")
                 ],
             ),
             Patient(
-                Sex="F",
+                gender=2,
                 CodedEvents=[
                     CodedEvent(CTV3Code="bar1", ConsultationDate="2000-01-01"),
                 ],
@@ -1238,7 +1238,7 @@ def test_patients_with_death_recorded_in_cpns_raises_error_on_bad_data():
 
 def test_to_sql_passes():
     session = make_session()
-    patient = Patient(DateOfBirth="1950-01-01")
+    patient = Patient(date_of_birth="1950-01-01")
     patient.CodedEvents.append(
         CodedEvent(CTV3Code="XYZ", NumericValue=50, ConsultationDate="2002-06-01")
     )
@@ -1318,21 +1318,21 @@ def test_using_expression_in_population_definition():
     session.add_all(
         [
             Patient(
-                Sex="M",
-                DateOfBirth="1970-01-01",
+                gender=1,
+                date_of_birth="1970-01-01",
                 CodedEvents=[
                     CodedEvent(CTV3Code="foo1", ConsultationDate="2000-01-01")
                 ],
             ),
-            Patient(Sex="M", DateOfBirth="1975-01-01"),
+            Patient(gender=1, date_of_birth="1975-01-01"),
             Patient(
-                Sex="F",
-                DateOfBirth="1980-01-01",
+                gender=2,
+                date_of_birth="1980-01-01",
                 CodedEvents=[
                     CodedEvent(CTV3Code="foo1", ConsultationDate="2000-01-01")
                 ],
             ),
-            Patient(Sex="F", DateOfBirth="1985-01-01"),
+            Patient(gender=2, date_of_birth="1985-01-01"),
         ]
     )
     session.commit()

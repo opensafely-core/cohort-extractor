@@ -75,7 +75,7 @@ def make_database():
 medication_issue = Table(
     "MedicationIssue",
     metadata,
-    Column("registration-id", Integer, ForeignKey("Patient.id")),
+    Column("registration-id", Integer, ForeignKey("patient.id")),
     Column("Consultation_ID", Integer),
     Column("MedicationIssue_ID", Integer, primary_key=True),
     Column("RepeatMedication_ID", Integer),
@@ -111,7 +111,7 @@ medication_dictionary = Table(
 coded_event = Table(
     "CodedEvent",
     metadata,
-    Column("registration-id", Integer, ForeignKey("Patient.id")),
+    Column("registration-id", Integer, ForeignKey("patient.id")),
     Column("CodedEvent_ID", Integer, primary_key=True),
     Column("CTV3Code", String(collation="Latin1_General_BIN")),
     Column("NumericValue", Float),
@@ -119,14 +119,12 @@ coded_event = Table(
     Column("SnomedConceptId", String),
 )
 
-# WARNING: This table does not correspond to a table in the ACME database!
 patient = Table(
-    "Patient",
+    "patient",
     metadata,
     Column("id", Integer, primary_key=True),
-    Column("DateOfBirth", Date),
-    Column("DateOfDeath", Date),
-    Column("Sex", String),
+    Column("date-of-birth", DateTime),
+    Column("gender", Integer),
 )
 
 # WARNING: This table does not correspond to a table in the ACME database!
@@ -135,7 +133,7 @@ registration_history = Table(
     metadata,
     Column("Registration_ID", Integer, primary_key=True),
     Column("Organisation_ID", Integer, ForeignKey("Organisation.Organisation_ID")),
-    Column("registration-id", Integer, ForeignKey("Patient.id")),
+    Column("registration-id", Integer, ForeignKey("patient.id")),
     Column("StartDate", Date),
     Column("EndDate", Date),
 )
@@ -156,7 +154,7 @@ patient_address = Table(
     "PatientAddress",
     metadata,
     Column("PatientAddress_ID", Integer, primary_key=True),
-    Column("registration-id", Integer, ForeignKey("Patient.id")),
+    Column("registration-id", Integer, ForeignKey("patient.id")),
     Column("StartDate", Date),
     Column("EndDate", Date),
     Column("AddressType", Integer),
@@ -170,7 +168,7 @@ icnarc = Table(
     "ICNARC",
     metadata,
     Column("ICNARC_ID", Integer, primary_key=True),
-    Column("registration-id", Integer, ForeignKey("Patient.id")),
+    Column("registration-id", Integer, ForeignKey("patient.id")),
     Column("IcuAdmissionDateTime", DateTime),
     Column("OriginalIcuAdmissionDate", Date),
     Column("BasicDays_RespiratorySupport", Integer),
@@ -185,7 +183,7 @@ ons_deaths = Table(
     # This column isn't in the actual database but SQLAlchemy gets a bit upset
     # if we don't give it a primary key
     Column("id", Integer, primary_key=True),
-    Column("registration-id", Integer, ForeignKey("Patient.id")),
+    Column("registration-id", Integer, ForeignKey("patient.id")),
     Column("Sex", String),
     Column("ageinyrs", Integer),
     Column("dod", Date),
@@ -211,7 +209,7 @@ ons_deaths = Table(
 cpns = Table(
     "CPNS",
     metadata,
-    Column("registration-id", Integer, ForeignKey("Patient.id")),
+    Column("registration-id", Integer, ForeignKey("patient.id")),
     Column("Id", Integer, primary_key=True),
     # LocationOfDeath                                                 ITU
     # Sex                                                               M
@@ -250,6 +248,10 @@ class Model:
 
     def __init__(self, **kwargs):
         for k, v in kwargs.items():
+            if k in [
+                "date_of_birth",
+            ]:
+                k = k.replace("_", "-")
             setattr(self, k, v)
 
 
@@ -301,7 +303,7 @@ mapper(
     MedicationIssue,
     medication_issue,
     properties={
-        "Patient": relationship(Patient, back_populates="MedicationIssues"),
+        "patient": relationship(Patient, back_populates="MedicationIssues"),
         "MedicationDictionary": relationship(
             MedicationDictionary,
             back_populates="MedicationIssues",
@@ -313,7 +315,7 @@ mapper(
 mapper(
     CodedEvent,
     coded_event,
-    properties={"Patient": relationship(Patient, back_populates="CodedEvents"),},
+    properties={"patient": relationship(Patient, back_populates="CodedEvents"),},
 )
 
 mapper(
@@ -332,15 +334,15 @@ mapper(
     properties={
         "MedicationIssues": relationship(
             MedicationIssue,
-            back_populates="Patient",
+            back_populates="patient",
             cascade="all, delete, delete-orphan",
         ),
         "CodedEvents": relationship(
-            CodedEvent, back_populates="Patient", cascade="all, delete, delete-orphan"
+            CodedEvent, back_populates="patient", cascade="all, delete, delete-orphan"
         ),
         "RegistrationHistory": relationship(
             RegistrationHistory,
-            back_populates="Patient",
+            back_populates="patient",
             cascade="all, delete, delete-orphan",
         ),
         #
@@ -353,13 +355,13 @@ mapper(
         #     cascade="all, delete, delete-orphan",
         # ),
         # "ICNARC": relationship(
-        #     ICNARC, back_populates="Patient", cascade="all, delete, delete-orphan"
+        #     ICNARC, back_populates="patient", cascade="all, delete, delete-orphan"
         # ),
         # "ONSDeath": relationship(
-        #     ONSDeaths, back_populates="Patient", cascade="all, delete, delete-orphan"
+        #     ONSDeaths, back_populates="patient", cascade="all, delete, delete-orphan"
         # ),
         # "CPNS": relationship(
-        #     CPNS, back_populates="Patient", cascade="all, delete, delete-orphan"
+        #     CPNS, back_populates="patient", cascade="all, delete, delete-orphan"
         # ),
     },
 )
@@ -405,7 +407,7 @@ mapper(
 #     ICNARC,
 #     icnarc,
 #     properties={
-#         "Patient": relationship(Patient, back_populates="ICNARC", cascade="all, delete")
+#         "patient": relationship(Patient, back_populates="ICNARC", cascade="all, delete")
 #     },
 # )
 
@@ -413,7 +415,7 @@ mapper(
 #     ONSDeaths,
 #     ons_deaths,
 #     properties={
-#         "Patient": relationship(
+#         "patient": relationship(
 #             Patient, back_populates="ONSDeath", cascade="all, delete"
 #         )
 #     },
@@ -423,6 +425,6 @@ mapper(
 #     CPNS,
 #     cpns,
 #     properties={
-#         "Patient": relationship(Patient, back_populates="CPNS", cascade="all, delete")
+#         "patient": relationship(Patient, back_populates="CPNS", cascade="all, delete")
 #     },
 # )
