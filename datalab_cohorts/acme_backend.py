@@ -317,10 +317,10 @@ class ACMEBackend:
         bmi_cte = f"""
         SELECT t."registration-id", t.BMI, t."effective-date"
         FROM (
-          SELECT "registration-id", NumericValue AS BMI, "effective-date",
+          SELECT "registration-id", "value-pq-1" AS BMI, "effective-date",
           ROW_NUMBER() OVER (PARTITION BY "registration-id" ORDER BY "effective-date" DESC) AS rownum
-          FROM CodedEvent
-          WHERE CTV3Code = {quote(bmi_code)} AND {date_condition}
+          FROM observation
+          WHERE "snomed-concept-id" = {quote(bmi_code)} AND {date_condition}
         ) t
         WHERE t.rownum = 1
         """
@@ -333,10 +333,10 @@ class ACMEBackend:
         weights_cte = f"""
           SELECT t."registration-id", t.weight, t."effective-date"
           FROM (
-            SELECT "registration-id", NumericValue AS weight, "effective-date",
+            SELECT "registration-id", "value-pq-1" AS weight, "effective-date",
             ROW_NUMBER() OVER (PARTITION BY "registration-id" ORDER BY "effective-date" DESC) AS rownum
-            FROM CodedEvent
-            WHERE CTV3Code IN ({weight_codes_sql}) AND {date_condition}
+            FROM observation
+            WHERE "snomed-concept-id" IN ({weight_codes_sql}) AND {date_condition}
           ) t
           WHERE t.rownum = 1
         """
@@ -351,10 +351,10 @@ class ACMEBackend:
         heights_cte = f"""
           SELECT t."registration-id", t.height, t."effective-date"
           FROM (
-            SELECT "registration-id", NumericValue AS height, "effective-date",
+            SELECT "registration-id", "value-pq-1" AS height, "effective-date",
             ROW_NUMBER() OVER (PARTITION BY "registration-id" ORDER BY "effective-date" DESC) AS rownum
-            FROM CodedEvent
-            WHERE CTV3Code IN ({height_codes_sql}) AND {height_date_condition}
+            FROM observation
+            WHERE "snomed-concept-id" IN ({height_codes_sql}) AND {height_date_condition}
           ) t
           WHERE t.rownum = 1
         """
@@ -408,19 +408,19 @@ class ACMEBackend:
         sql = f"""
         SELECT
           days."registration-id" AS patient_id,
-          AVG(CodedEvent.NumericValue) AS mean_value,
+          AVG(observation."value-pq-1") AS mean_value,
           days.date_measured AS date
         FROM (
             SELECT "registration-id", CAST(MAX("effective-date") AS date) AS date_measured
-            FROM CodedEvent
-            WHERE CTV3Code IN ({codelist_sql}) AND {date_condition}
+            FROM observation
+            WHERE "snomed-concept-id" IN ({codelist_sql}) AND {date_condition}
             GROUP BY "registration-id"
         ) AS days
-        LEFT JOIN CodedEvent
+        LEFT JOIN observation
         ON (
-          CodedEvent."registration-id" = days."registration-id"
-          AND CodedEvent.CTV3Code IN ({codelist_sql})
-          AND CAST(CodedEvent."effective-date" AS date) = days.date_measured
+          observation."registration-id" = days."registration-id"
+          AND observation."snomed-concept-id" IN ({codelist_sql})
+          AND CAST(observation."effective-date" AS date) = days.date_measured
         )
         GROUP BY days."registration-id", days.date_measured
         """
@@ -499,7 +499,11 @@ class ACMEBackend:
         else:
             assert not kwargs.pop("episode_defined_as", None)
             return self._patients_with_events(
-                "CodedEvent", "", "CTV3Code", codes_are_case_sensitive=True, **kwargs
+                "observation",
+                "",
+                '"snomed-concept-id"',
+                codes_are_case_sensitive=True,
+                **kwargs,
             )
 
     def _patients_with_events(
@@ -545,7 +549,7 @@ class ACMEBackend:
             use_partition_query = False
         elif returning == "numeric_value":
             column_name = "value"
-            column_definition = "NumericValue"
+            column_definition = '"value-pq-1"'
             use_partition_query = True
         elif returning == "code":
             column_name = "code"
@@ -665,7 +669,7 @@ class ACMEBackend:
         codelist_table = self.create_codelist_table(codelist, case_sensitive=True)
         date_condition = make_date_filter('"effective-date"', between)
         not_an_ignored_day_condition = self._none_of_these_codes_occur_on_same_day(
-            "CodedEvent", ignore_days_where_these_codes_occur
+            "observation", ignore_days_where_these_codes_occur
         )
         if episode_defined_as is not None:
             pattern = r"^series of events each <= (\d+) days apart$"
@@ -695,9 +699,9 @@ class ACMEBackend:
                 THEN 0
                 ELSE 1
               END AS is_new_episode
-            FROM CodedEvent
+            FROM observation
             INNER JOIN {codelist_table}
-            ON CTV3Code = {codelist_table}.code
+            ON "snomed-concept-id" = {codelist_table}.code
             WHERE {date_condition} AND {not_an_ignored_day_condition}
         ) t
         GROUP BY "registration-id"
@@ -720,9 +724,9 @@ class ACMEBackend:
         codelist_table = self.create_codelist_table(codelist, case_sensitive=True)
         return f"""
         NOT EXISTS (
-          SELECT * FROM CodedEvent AS sameday
+          SELECT * FROM observation AS sameday
           INNER JOIN {codelist_table}
-          ON sameday.CTV3Code = {codelist_table}.code
+          ON sameday."snomed-concept-id" = {codelist_table}.code
           WHERE
             sameday."registration-id" = {joined_table}."registration-id"
             AND CAST(sameday."effective-date" AS date) = CAST({joined_table}."effective-date" AS date)

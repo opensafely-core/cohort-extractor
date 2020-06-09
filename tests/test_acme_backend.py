@@ -7,7 +7,7 @@ import pytest
 
 from tests.acme_backend_setup import make_database, make_session
 from tests.acme_backend_setup import (
-    CodedEvent,
+    Observation,
     MedicationIssue,
     MedicationDictionary,
     Patient,
@@ -46,7 +46,7 @@ def setup_function(function):
     Ensure test database is empty
     """
     session = make_session()
-    session.query(CodedEvent).delete()
+    session.query(Observation).delete()
     # session.query(ICNARC).delete()
     # session.query(ONSDeaths).delete()
     # session.query(CPNS).delete()
@@ -170,9 +170,11 @@ def _make_clinical_events_selection(condition_code, patient_dates=None):
                 date, value = date
             else:
                 value = 0.0
-            patient.CodedEvents.append(
-                CodedEvent(
-                    CTV3Code=condition_code, effective_date=date, NumericValue=value,
+            patient.observations.append(
+                Observation(
+                    snomed_concept_id=condition_code,
+                    effective_date=date,
+                    value_pq_1=value,
                 )
             )
         session.add(patient)
@@ -406,13 +408,15 @@ def test_clinical_event_with_category():
         [
             Patient(),
             Patient(
-                CodedEvents=[
-                    CodedEvent(CTV3Code="foo1", effective_date="2018-01-01"),
-                    CodedEvent(CTV3Code="foo2", effective_date="2020-01-01"),
+                observations=[
+                    Observation(snomed_concept_id="foo1", effective_date="2018-01-01"),
+                    Observation(snomed_concept_id="foo2", effective_date="2020-01-01"),
                 ]
             ),
             Patient(
-                CodedEvents=[CodedEvent(CTV3Code="foo3", effective_date="2019-01-01")]
+                observations=[
+                    Observation(snomed_concept_id="foo3", effective_date="2019-01-01")
+                ]
             ),
         ]
     )
@@ -468,11 +472,15 @@ def test_simple_bmi(include_dates):
     height_code = "XM01E"
 
     patient = Patient(date_of_birth="1950-01-01")
-    patient.CodedEvents.append(
-        CodedEvent(CTV3Code=weight_code, NumericValue=50, effective_date="2002-06-01",)
+    patient.observations.append(
+        Observation(
+            snomed_concept_id=weight_code, value_pq_1=50, effective_date="2002-06-01",
+        )
     )
-    patient.CodedEvents.append(
-        CodedEvent(CTV3Code=height_code, NumericValue=10, effective_date="2001-06-01",)
+    patient.observations.append(
+        Observation(
+            snomed_concept_id=height_code, value_pq_1=10, effective_date="2001-06-01",
+        )
     )
     session.add(patient)
     session.commit()
@@ -508,13 +516,17 @@ def test_bmi_rounded():
     height_code = "XM01E"
 
     patient = Patient(date_of_birth="1950-01-01")
-    patient.CodedEvents.append(
-        CodedEvent(
-            CTV3Code=weight_code, NumericValue=10.12345, effective_date="2001-06-01",
+    patient.observations.append(
+        Observation(
+            snomed_concept_id=weight_code,
+            value_pq_1=10.12345,
+            effective_date="2001-06-01",
         )
     )
-    patient.CodedEvents.append(
-        CodedEvent(CTV3Code=height_code, NumericValue=10, effective_date="2000-02-01",)
+    patient.observations.append(
+        Observation(
+            snomed_concept_id=height_code, value_pq_1=10, effective_date="2000-02-01",
+        )
     )
     session.add(patient)
     session.commit()
@@ -536,11 +548,15 @@ def test_bmi_with_zero_values():
     height_code = "XM01E"
 
     patient = Patient(date_of_birth="1950-01-01")
-    patient.CodedEvents.append(
-        CodedEvent(CTV3Code=weight_code, NumericValue=0, effective_date="2001-06-01")
+    patient.observations.append(
+        Observation(
+            snomed_concept_id=weight_code, value_pq_1=0, effective_date="2001-06-01"
+        )
     )
-    patient.CodedEvents.append(
-        CodedEvent(CTV3Code=height_code, NumericValue=0, effective_date="2001-06-01")
+    patient.observations.append(
+        Observation(
+            snomed_concept_id=height_code, value_pq_1=0, effective_date="2001-06-01"
+        )
     )
     session.add(patient)
     session.commit()
@@ -564,11 +580,15 @@ def test_explicit_bmi_fallback():
     bmi_code = "22K.."
 
     patient = Patient(date_of_birth="1950-01-01")
-    patient.CodedEvents.append(
-        CodedEvent(CTV3Code=weight_code, NumericValue=50, effective_date="2001-06-01",)
+    patient.observations.append(
+        Observation(
+            snomed_concept_id=weight_code, value_pq_1=50, effective_date="2001-06-01",
+        )
     )
-    patient.CodedEvents.append(
-        CodedEvent(CTV3Code=bmi_code, NumericValue=99, effective_date="2001-10-01")
+    patient.observations.append(
+        Observation(
+            snomed_concept_id=bmi_code, value_pq_1=99, effective_date="2001-10-01"
+        )
     )
     session.add(patient)
     session.commit()
@@ -591,8 +611,10 @@ def test_no_bmi_when_old_date():
     bmi_code = "22K.."
 
     patient = Patient(date_of_birth="1950-01-01")
-    patient.CodedEvents.append(
-        CodedEvent(CTV3Code=bmi_code, NumericValue=99, effective_date="1994-12-31")
+    patient.observations.append(
+        Observation(
+            snomed_concept_id=bmi_code, value_pq_1=99, effective_date="1994-12-31"
+        )
     )
     session.add(patient)
     session.commit()
@@ -615,8 +637,10 @@ def test_no_bmi_when_measurements_of_child():
     bmi_code = "22K.."
 
     patient = Patient(date_of_birth="2000-01-01")
-    patient.CodedEvents.append(
-        CodedEvent(CTV3Code=bmi_code, NumericValue=99, effective_date="2001-01-01")
+    patient.observations.append(
+        Observation(
+            snomed_concept_id=bmi_code, value_pq_1=99, effective_date="2001-01-01"
+        )
     )
     session.add(patient)
     session.commit()
@@ -639,8 +663,10 @@ def test_no_bmi_when_measurement_after_reference_date():
     bmi_code = "22K.."
 
     patient = Patient(date_of_birth="1900-01-01")
-    patient.CodedEvents.append(
-        CodedEvent(CTV3Code=bmi_code, NumericValue=99, effective_date="2001-01-01")
+    patient.observations.append(
+        Observation(
+            snomed_concept_id=bmi_code, value_pq_1=99, effective_date="2001-01-01"
+        )
     )
     session.add(patient)
     session.commit()
@@ -665,14 +691,20 @@ def test_bmi_when_only_some_measurements_of_child():
     height_code = "XM01E"
 
     patient = Patient(date_of_birth="1990-01-01")
-    patient.CodedEvents.append(
-        CodedEvent(CTV3Code=bmi_code, NumericValue=99, effective_date="1995-01-01")
+    patient.observations.append(
+        Observation(
+            snomed_concept_id=bmi_code, value_pq_1=99, effective_date="1995-01-01"
+        )
     )
-    patient.CodedEvents.append(
-        CodedEvent(CTV3Code=weight_code, NumericValue=50, effective_date="2010-01-01",)
+    patient.observations.append(
+        Observation(
+            snomed_concept_id=weight_code, value_pq_1=50, effective_date="2010-01-01",
+        )
     )
-    patient.CodedEvents.append(
-        CodedEvent(CTV3Code=height_code, NumericValue=10, effective_date="2010-01-01",)
+    patient.observations.append(
+        Observation(
+            snomed_concept_id=height_code, value_pq_1=10, effective_date="2010-01-01",
+        )
     )
     session.add(patient)
     session.commit()
@@ -701,12 +733,12 @@ def test_mean_recorded_value():
         ("2020-04-01", 110),
     ]
     for date, value in values:
-        patient.CodedEvents.append(
-            CodedEvent(CTV3Code=code, NumericValue=value, effective_date=date)
+        patient.observations.append(
+            Observation(snomed_concept_id=code, value_pq_1=value, effective_date=date)
         )
     patient_with_old_reading = Patient()
-    patient_with_old_reading.CodedEvents.append(
-        CodedEvent(CTV3Code=code, NumericValue=100, effective_date="2010-01-01")
+    patient_with_old_reading.observations.append(
+        Observation(snomed_concept_id=code, value_pq_1=100, effective_date="2010-01-01")
     )
     patient_with_no_reading = Patient()
     session.add_all([patient, patient_with_old_reading, patient_with_no_reading])
@@ -734,8 +766,8 @@ def test_patients_satisfying():
     patient_2 = Patient(date_of_birth="1940-01-01", gender=2)
     patient_3 = Patient(date_of_birth="1990-01-01", gender=1)
     patient_4 = Patient(date_of_birth="1940-01-01", gender=2)
-    patient_4.CodedEvents.append(
-        CodedEvent(CTV3Code=condition_code, effective_date="2010-01-01")
+    patient_4.observations.append(
+        Observation(snomed_concept_id=condition_code, effective_date="2010-01-01")
     )
     session.add_all([patient_1, patient_2, patient_3, patient_4])
     session.commit()
@@ -760,15 +792,15 @@ def test_patients_satisfying_with_hidden_columns():
     patient_2 = Patient(date_of_birth="1940-01-01", gender=2)
     patient_3 = Patient(date_of_birth="1990-01-01", gender=1)
     patient_4 = Patient(date_of_birth="1940-01-01", gender=2)
-    patient_4.CodedEvents.append(
-        CodedEvent(CTV3Code=condition_code, effective_date="2010-01-01")
+    patient_4.observations.append(
+        Observation(snomed_concept_id=condition_code, effective_date="2010-01-01")
     )
     patient_5 = Patient(date_of_birth="1940-01-01", gender=2)
-    patient_5.CodedEvents.append(
-        CodedEvent(CTV3Code=condition_code, effective_date="2010-01-01")
+    patient_5.observations.append(
+        Observation(snomed_concept_id=condition_code, effective_date="2010-01-01")
     )
-    patient_5.CodedEvents.append(
-        CodedEvent(CTV3Code=condition_code2, effective_date="2010-01-01")
+    patient_5.observations.append(
+        Observation(snomed_concept_id=condition_code2, effective_date="2010-01-01")
     )
     session.add_all([patient_1, patient_2, patient_3, patient_4, patient_5])
     session.commit()
@@ -801,26 +833,34 @@ def test_patients_categorised_as():
         [
             Patient(
                 gender=1,
-                CodedEvents=[CodedEvent(CTV3Code="foo1", effective_date="2000-01-01")],
+                observations=[
+                    Observation(snomed_concept_id="foo1", effective_date="2000-01-01")
+                ],
             ),
             Patient(
                 gender=2,
-                CodedEvents=[
-                    CodedEvent(CTV3Code="foo2", effective_date="2000-01-01"),
-                    CodedEvent(CTV3Code="bar1", effective_date="2000-01-01"),
+                observations=[
+                    Observation(snomed_concept_id="foo2", effective_date="2000-01-01"),
+                    Observation(snomed_concept_id="bar1", effective_date="2000-01-01"),
                 ],
             ),
             Patient(
                 gender=1,
-                CodedEvents=[CodedEvent(CTV3Code="foo2", effective_date="2000-01-01")],
+                observations=[
+                    Observation(snomed_concept_id="foo2", effective_date="2000-01-01")
+                ],
             ),
             Patient(
                 gender=2,
-                CodedEvents=[CodedEvent(CTV3Code="foo3", effective_date="2000-01-01")],
+                observations=[
+                    Observation(snomed_concept_id="foo3", effective_date="2000-01-01")
+                ],
             ),
             Patient(
                 gender=2,
-                CodedEvents=[CodedEvent(CTV3Code="bar1", effective_date="2000-01-01"),],
+                observations=[
+                    Observation(snomed_concept_id="bar1", effective_date="2000-01-01"),
+                ],
             ),
         ]
     )
@@ -1231,8 +1271,8 @@ def test_patients_with_death_recorded_in_cpns_raises_error_on_bad_data():
 def test_to_sql_passes():
     session = make_session()
     patient = Patient(date_of_birth="1950-01-01")
-    patient.CodedEvents.append(
-        CodedEvent(CTV3Code="XYZ", NumericValue=50, effective_date="2002-06-01")
+    patient.observations.append(
+        Observation(snomed_concept_id="XYZ", value_pq_1=50, effective_date="2002-06-01")
     )
     session.add(patient)
     session.commit()
@@ -1312,13 +1352,17 @@ def test_using_expression_in_population_definition():
             Patient(
                 gender=1,
                 date_of_birth="1970-01-01",
-                CodedEvents=[CodedEvent(CTV3Code="foo1", effective_date="2000-01-01")],
+                observations=[
+                    Observation(snomed_concept_id="foo1", effective_date="2000-01-01")
+                ],
             ),
             Patient(gender=1, date_of_birth="1975-01-01"),
             Patient(
                 gender=2,
                 date_of_birth="1980-01-01",
-                CodedEvents=[CodedEvent(CTV3Code="foo1", effective_date="2000-01-01")],
+                observations=[
+                    Observation(snomed_concept_id="foo1", effective_date="2000-01-01")
+                ],
             ),
             Patient(gender=2, date_of_birth="1985-01-01"),
         ]
@@ -1354,41 +1398,49 @@ def test_number_of_episodes():
     session.add_all(
         [
             Patient(
-                CodedEvents=[
-                    CodedEvent(CTV3Code="foo1", effective_date="2010-01-01"),
+                observations=[
+                    Observation(snomed_concept_id="foo1", effective_date="2010-01-01"),
                     # Throw in some irrelevant events
-                    CodedEvent(CTV3Code="mto1", effective_date="2010-01-02"),
-                    CodedEvent(CTV3Code="mto2", effective_date="2010-01-03"),
+                    Observation(snomed_concept_id="mto1", effective_date="2010-01-02"),
+                    Observation(snomed_concept_id="mto2", effective_date="2010-01-03"),
                     # These two should be merged in to the previous event
                     # because there's not more than 14 days between them
-                    CodedEvent(CTV3Code="foo2", effective_date="2010-01-14"),
-                    CodedEvent(CTV3Code="foo3", effective_date="2010-01-20"),
+                    Observation(snomed_concept_id="foo2", effective_date="2010-01-14"),
+                    Observation(snomed_concept_id="foo3", effective_date="2010-01-20"),
                     # This is just outside the limit so should count as another event
-                    CodedEvent(CTV3Code="foo1", effective_date="2010-02-04"),
+                    Observation(snomed_concept_id="foo1", effective_date="2010-02-04"),
                     # This shouldn't count because there's an "ignore" event on
                     # the same day (though at a different time)
-                    CodedEvent(CTV3Code="foo1", effective_date="2012-01-01T10:45:00"),
-                    CodedEvent(CTV3Code="bar2", effective_date="2012-01-01T16:10:00"),
+                    Observation(
+                        snomed_concept_id="foo1", effective_date="2012-01-01T10:45:00"
+                    ),
+                    Observation(
+                        snomed_concept_id="bar2", effective_date="2012-01-01T16:10:00"
+                    ),
                     # This should be another episode
-                    CodedEvent(CTV3Code="foo1", effective_date="2015-03-05"),
+                    Observation(snomed_concept_id="foo1", effective_date="2015-03-05"),
                     # This "ignore" event should have no effect because it occurs
                     # on a different day
-                    CodedEvent(CTV3Code="bar1", effective_date="2015-03-06"),
+                    Observation(snomed_concept_id="bar1", effective_date="2015-03-06"),
                     # This is after the time limit and so shouldn't count
-                    CodedEvent(CTV3Code="foo1", effective_date="2020-02-05"),
+                    Observation(snomed_concept_id="foo1", effective_date="2020-02-05"),
                 ]
             ),
             # This patient doesn't have any relevant events
             Patient(
-                CodedEvents=[
-                    CodedEvent(CTV3Code="mto1", effective_date="2010-01-01"),
-                    CodedEvent(CTV3Code="mto2", effective_date="2010-01-14"),
-                    CodedEvent(CTV3Code="mto3", effective_date="2010-01-20"),
-                    CodedEvent(CTV3Code="mto1", effective_date="2010-02-04"),
-                    CodedEvent(CTV3Code="mto1", effective_date="2012-01-01T10:45:00"),
-                    CodedEvent(CTV3Code="mtr2", effective_date="2012-01-01T16:10:00"),
-                    CodedEvent(CTV3Code="mto1", effective_date="2015-03-05"),
-                    CodedEvent(CTV3Code="mto1", effective_date="2020-02-05"),
+                observations=[
+                    Observation(snomed_concept_id="mto1", effective_date="2010-01-01"),
+                    Observation(snomed_concept_id="mto2", effective_date="2010-01-14"),
+                    Observation(snomed_concept_id="mto3", effective_date="2010-01-20"),
+                    Observation(snomed_concept_id="mto1", effective_date="2010-02-04"),
+                    Observation(
+                        snomed_concept_id="mto1", effective_date="2012-01-01T10:45:00"
+                    ),
+                    Observation(
+                        snomed_concept_id="mtr2", effective_date="2012-01-01T16:10:00"
+                    ),
+                    Observation(snomed_concept_id="mto1", effective_date="2015-03-05"),
+                    Observation(snomed_concept_id="mto1", effective_date="2020-02-05"),
                 ]
             ),
         ]
@@ -1466,13 +1518,15 @@ def test_number_of_episodes_for_medications():
                         MedicationDictionary=oral_steriod, effective_date="2020-02-05"
                     ),
                 ],
-                CodedEvents=[
+                observations=[
                     # This "ignore" event should cause us to skip one of the
                     # meds issues above
-                    CodedEvent(CTV3Code="bar2", effective_date="2012-01-01T16:10:00"),
+                    Observation(
+                        snomed_concept_id="bar2", effective_date="2012-01-01T16:10:00"
+                    ),
                     # This "ignore" event should have no effect because it
                     # doesn't occur on the same day as any meds issue
-                    CodedEvent(CTV3Code="bar1", effective_date="2015-03-06"),
+                    Observation(snomed_concept_id="bar1", effective_date="2015-03-06"),
                 ],
             ),
             # This patient doesn't have any relevant events or prescriptions
@@ -1485,11 +1539,15 @@ def test_number_of_episodes_for_medications():
                         MedicationDictionary=other_drug, effective_date="2010-01-03"
                     ),
                 ],
-                CodedEvents=[
-                    CodedEvent(CTV3Code="mto1", effective_date="2010-02-04"),
-                    CodedEvent(CTV3Code="mto1", effective_date="2012-01-01T10:45:00"),
-                    CodedEvent(CTV3Code="mtr2", effective_date="2012-01-01T16:10:00"),
-                    CodedEvent(CTV3Code="mto1", effective_date="2015-03-05"),
+                observations=[
+                    Observation(snomed_concept_id="mto1", effective_date="2010-02-04"),
+                    Observation(
+                        snomed_concept_id="mto1", effective_date="2012-01-01T10:45:00"
+                    ),
+                    Observation(
+                        snomed_concept_id="mtr2", effective_date="2012-01-01T16:10:00"
+                    ),
+                    Observation(snomed_concept_id="mto1", effective_date="2015-03-05"),
                 ],
             ),
         ]
@@ -1540,10 +1598,12 @@ def test_medications_returning_code_with_ignored_days():
                         effective_date="2012-01-01T10:45:00",
                     ),
                 ],
-                CodedEvents=[
+                observations=[
                     # This "ignore" event should cause us to skip one of the
                     # meds issues above
-                    CodedEvent(CTV3Code="bar1", effective_date="2012-01-01T16:10:00"),
+                    Observation(
+                        snomed_concept_id="bar1", effective_date="2012-01-01T16:10:00"
+                    ),
                 ],
             ),
         ]

@@ -107,16 +107,15 @@ medication_dictionary = Table(
     Column("DMD_ID", String(collation="Latin1_General_CI_AS")),
 )
 
-# WARNING: This table does not correspond to a table in the ACME database!
-coded_event = Table(
-    "CodedEvent",
+# WARNING: This table does not quite correspond to a table in the ACME database!
+observation = Table(
+    "observation",
     metadata,
+    Column("id", Integer, primary_key=True),
     Column("registration-id", Integer, ForeignKey("patient.id")),
-    Column("CodedEvent_ID", Integer, primary_key=True),
-    Column("CTV3Code", String(collation="Latin1_General_BIN")),
-    Column("NumericValue", Float),
+    Column("snomed-concept-id", String),  # TODO this is a BigInt in the ACME backend
+    Column("value-pq-1", Float),
     Column("effective-date", DateTime),
-    Column("SnomedConceptId", String),
 )
 
 patient = Table(
@@ -251,6 +250,8 @@ class Model:
             if k in [
                 "date_of_birth",
                 "effective_date",
+                "snomed_concept_id",
+                "value_pq_1",
             ]:
                 k = k.replace("_", "-")
             setattr(self, k, v)
@@ -260,7 +261,7 @@ class MedicationIssue(Model):
     pass
 
 
-class CodedEvent(Model):
+class Observation(Model):
     pass
 
 
@@ -314,9 +315,9 @@ mapper(
 )
 
 mapper(
-    CodedEvent,
-    coded_event,
-    properties={"patient": relationship(Patient, back_populates="CodedEvents"),},
+    Observation,
+    observation,
+    properties={"patient": relationship(Patient, back_populates="observations"),},
 )
 
 mapper(
@@ -338,8 +339,8 @@ mapper(
             back_populates="patient",
             cascade="all, delete, delete-orphan",
         ),
-        "CodedEvents": relationship(
-            CodedEvent, back_populates="patient", cascade="all, delete, delete-orphan"
+        "observations": relationship(
+            Observation, back_populates="patient", cascade="all, delete, delete-orphan"
         ),
         "RegistrationHistory": relationship(
             RegistrationHistory,
