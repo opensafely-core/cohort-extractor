@@ -433,16 +433,13 @@ class ACMEBackend:
         """
         All patients registered with the same practice through the given period
         """
-        # Note that current registrations are recorded with an EndDate
-        # of 9999-12-31
         return (
             ["patient_id", "is_registered"],
             f"""
             SELECT DISTINCT patient.id AS patient_id, 1 AS is_registered
             FROM patient
-            INNER JOIN RegistrationHistory
-            ON RegistrationHistory."registration-id" = patient.id
-            WHERE StartDate <= {quote(start_date)} AND EndDate > {quote(end_date)}
+            WHERE "registered-date" <= {quote(start_date)}
+              AND ("registration-end-date" > {quote(end_date)} OR "registration-end-date" IS NULL)
             """,
         )
 

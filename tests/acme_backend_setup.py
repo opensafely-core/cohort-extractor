@@ -98,17 +98,8 @@ patient = Table(
     Column("id", Integer, primary_key=True),
     Column("date-of-birth", DateTime),
     Column("gender", Integer),
-)
-
-# WARNING: This table does not correspond to a table in the ACME database!
-registration_history = Table(
-    "RegistrationHistory",
-    metadata,
-    Column("Registration_ID", Integer, primary_key=True),
-    Column("Organisation_ID", Integer, ForeignKey("Organisation.Organisation_ID")),
-    Column("registration-id", Integer, ForeignKey("patient.id")),
-    Column("StartDate", Date),
-    Column("EndDate", Date),
+    Column("registered-date", DateTime),
+    Column("registration-end-date", DateTime),
 )
 
 # WARNING: This table does not correspond to a table in the ACME database!
@@ -224,6 +215,8 @@ class Model:
             if k in [
                 "date_of_birth",
                 "effective_date",
+                "registered_date",
+                "registration_end_date",
                 "snomed_concept_id",
                 "value_pq_1",
             ]:
@@ -240,10 +233,6 @@ class Observation(Model):
 
 
 class Patient(Model):
-    pass
-
-
-class RegistrationHistory(Model):
     pass
 
 
@@ -293,11 +282,6 @@ mapper(
         "observations": relationship(
             Observation, back_populates="patient", cascade="all, delete, delete-orphan"
         ),
-        "RegistrationHistory": relationship(
-            RegistrationHistory,
-            back_populates="patient",
-            cascade="all, delete, delete-orphan",
-        ),
         #
         # We won't create mappings for these tables until we know what fields
         # they will have in the ACME backend.
@@ -321,29 +305,10 @@ mapper(
 
 # We won't create mappings for these tables until we know what fields they will
 # have in the ACME backend.
-# mapper(
-#     RegistrationHistory,
-#     registration_history,
-#     properties={
-#         "Organisation": relationship(
-#             Organisation, back_populates="RegistrationHistory", cascade="all, delete"
-#         ),
-#         "Patient": relationship(
-#             Patient, back_populates="RegistrationHistory", cascade="all, delete"
-#         ),
-#     },
-# )
 
 # mapper(
 #     Organisation,
 #     organisation,
-#     properties={
-#         "RegistrationHistory": relationship(
-#             RegistrationHistory,
-#             back_populates="Organisation",
-#             cascade="all, delete, delete-orphan",
-#         )
-#     },
 # )
 
 # mapper(

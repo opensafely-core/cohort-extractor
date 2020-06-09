@@ -10,7 +10,6 @@ from tests.acme_backend_setup import (
     Observation,
     Medication,
     Patient,
-    RegistrationHistory,
     Organisation,
     PatientAddress,
     ICNARC,
@@ -50,7 +49,6 @@ def setup_function(function):
     # session.query(ONSDeaths).delete()
     # session.query(CPNS).delete()
     session.query(Medication).delete()
-    # session.query(RegistrationHistory).delete()
     # session.query(Organisation).delete()
     # session.query(PatientAddress).delete()
     session.query(Patient).delete()
@@ -417,18 +415,15 @@ def test_clinical_event_with_category():
 def test_patients_registered_with_one_practice_between():
     session = make_session()
 
-    patient_registered_in_2001 = Patient()
-    patient_registered_in_2002 = Patient()
-    patient_unregistered_in_2002 = Patient()
-    patient_registered_in_2001.RegistrationHistory = [
-        RegistrationHistory(StartDate="2001-01-01", EndDate="9999-01-01")
-    ]
-    patient_registered_in_2002.RegistrationHistory = [
-        RegistrationHistory(StartDate="2002-01-01", EndDate="9999-01-01")
-    ]
-    patient_unregistered_in_2002.RegistrationHistory = [
-        RegistrationHistory(StartDate="2001-01-01", EndDate="2002-01-01")
-    ]
+    patient_registered_in_2001 = Patient(
+        registered_date="2001-01-01", registration_end_date=None
+    )
+    patient_registered_in_2002 = Patient(
+        registered_date="2002-01-01", registration_end_date=None
+    )
+    patient_unregistered_in_2002 = Patient(
+        registered_date="2001-01-01", registration_end_date="2002-01-01"
+    )
 
     session.add(patient_registered_in_2001)
     session.add(patient_registered_in_2002)
