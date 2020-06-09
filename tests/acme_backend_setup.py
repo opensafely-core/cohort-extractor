@@ -60,6 +60,7 @@ def make_database():
     Base.metadata.create_all(make_engine())
 
 
+# WARNING: This table does not correspond to a table in the ACME database!
 class MedicationIssue(Base):
     __tablename__ = "MedicationIssue"
 
@@ -82,6 +83,7 @@ class MedicationIssue(Base):
     ConsultationDate = Column(DateTime)
 
 
+# WARNING: This table does not correspond to a table in the ACME database!
 class MedicationDictionary(Base):
     __tablename__ = "MedicationDictionary"
 
@@ -99,6 +101,7 @@ class MedicationDictionary(Base):
     DMD_ID = Column(String(collation="Latin1_General_CI_AS"))
 
 
+# WARNING: This table does not correspond to a table in the ACME database!
 class CodedEvent(Base):
     __tablename__ = "CodedEvent"
 
@@ -113,6 +116,7 @@ class CodedEvent(Base):
     SnomedConceptId = Column(String)
 
 
+# WARNING: This table does not correspond to a table in the ACME database!
 class Patient(Base):
     __tablename__ = "Patient"
 
@@ -148,6 +152,7 @@ class Patient(Base):
     Sex = Column(String)
 
 
+# WARNING: This table does not correspond to a table in the ACME database!
 class RegistrationHistory(Base):
     __tablename__ = "RegistrationHistory"
 
@@ -164,6 +169,7 @@ class RegistrationHistory(Base):
     EndDate = Column(Date)
 
 
+# WARNING: This table does not correspond to a table in the ACME database!
 class Organisation(Base):
     __tablename__ = "Organisation"
 
@@ -179,6 +185,7 @@ class Organisation(Base):
     Region = Column(String)
 
 
+# WARNING: This table does not correspond to a table in the ACME database!
 class PatientAddress(Base):
     __tablename__ = "PatientAddress"
 
@@ -193,6 +200,7 @@ class PatientAddress(Base):
     MSOACode = Column(String)
 
 
+# WARNING: This table does not correspond to a table in the ACME database!
 class ICNARC(Base):
     __tablename__ = "ICNARC"
 
@@ -206,6 +214,7 @@ class ICNARC(Base):
     Ventilator = Column(Integer)
 
 
+# WARNING: This table does not correspond to a table in the ACME database!
 class ONSDeaths(Base):
     __tablename__ = "ONS_Deaths"
 
@@ -235,6 +244,7 @@ class ONSDeaths(Base):
     ICD10015 = Column(String)
 
 
+# WARNING: This table does not correspond to a table in the ACME database!
 class CPNS(Base):
     __tablename__ = "CPNS"
 
