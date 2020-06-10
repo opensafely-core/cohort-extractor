@@ -58,8 +58,9 @@ At the moment, this involves writing some simple Python code.
 
 This must live in a file at `analysis/study_definition.py` (or
 `analysis/study_definition_<name>.py` if you have multiple studies).
-Until more documentation is written, refer to the sample one provided
-here for inspiration; or, if you're feeling adventurous, search the
+Documentation is at https://github.com/opensafely/documentation/blob/master/study_definition.md.
+You can also refer to the sample one provided in this repo
+for inspiration; or, if you're feeling adventurous, search the
 tests (in `tests/`) for `StudyDefinition` examples.
 
 ## Generating dummy data
