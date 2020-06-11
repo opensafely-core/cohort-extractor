@@ -806,7 +806,7 @@ class TPPBackend:
             column = "STPCode"
         elif returning == "msoa_code":
             column = "MSOACode"
-        elif returning == "nhse_region_name":
+        elif returning == "nuts1_region_name":
             column = "Region"
         elif returning == "pseudo_id":
             column = "Organisation_ID"
