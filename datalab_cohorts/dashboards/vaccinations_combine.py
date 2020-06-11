@@ -95,7 +95,7 @@ class LeftJoinSortedRows:
     def __init__(self, left_rows, right_rows, on="id"):
         self.left_iter = iter(left_rows)
         self.right_iter = iter(right_rows)
-        self.on = on
+        self.get_key = lambda item: int(item[on])
         self.right_item = next(self.right_iter, None)
 
     def __iter__(self):
@@ -103,7 +103,7 @@ class LeftJoinSortedRows:
 
     def __next__(self):
         left_item = next(self.left_iter)
-        left_key = left_item[self.on]
+        left_key = self.get_key(left_item)
         right_item = self.next_right_item(left_key)
         return left_item, right_item
 
@@ -112,7 +112,7 @@ class LeftJoinSortedRows:
             # No more right items remaining: return None
             if self.right_item is None:
                 return
-            right_key = self.right_item[self.on]
+            right_key = self.get_key(self.right_item)
             # Keys match: this is the item we want
             if right_key == left_key:
                 return self.right_item
