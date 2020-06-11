@@ -436,13 +436,19 @@ def test_patient_registered_as_of():
     patient_registered_in_2002 = Patient()
     patient_unregistered_in_2002 = Patient()
     patient_registered_in_2001.RegistrationHistory = [
-        RegistrationHistory(StartDate="2001-01-01", EndDate="9999-01-01")
+        RegistrationHistory(
+            StartDate="2001-01-01", EndDate="9999-01-01", Organisation=Organisation()
+        )
     ]
     patient_registered_in_2002.RegistrationHistory = [
-        RegistrationHistory(StartDate="2002-01-01", EndDate="9999-01-01")
+        RegistrationHistory(
+            StartDate="2002-01-01", EndDate="9999-01-01", Organisation=Organisation()
+        )
     ]
     patient_unregistered_in_2002.RegistrationHistory = [
-        RegistrationHistory(StartDate="2001-01-01", EndDate="2002-01-01")
+        RegistrationHistory(
+            StartDate="2001-01-01", EndDate="2002-01-01", Organisation=Organisation()
+        )
     ]
 
     session.add(patient_registered_in_2001)
@@ -466,13 +472,19 @@ def test_patients_registered_with_one_practice_between():
     patient_registered_in_2002 = Patient()
     patient_unregistered_in_2002 = Patient()
     patient_registered_in_2001.RegistrationHistory = [
-        RegistrationHistory(StartDate="2001-01-01", EndDate="9999-01-01")
+        RegistrationHistory(
+            StartDate="2001-01-01", EndDate="9999-01-01", Organisation=Organisation()
+        )
     ]
     patient_registered_in_2002.RegistrationHistory = [
-        RegistrationHistory(StartDate="2002-01-01", EndDate="9999-01-01")
+        RegistrationHistory(
+            StartDate="2002-01-01", EndDate="9999-01-01", Organisation=Organisation()
+        )
     ]
     patient_unregistered_in_2002.RegistrationHistory = [
-        RegistrationHistory(StartDate="2001-01-01", EndDate="2002-01-01")
+        RegistrationHistory(
+            StartDate="2001-01-01", EndDate="2002-01-01", Organisation=Organisation()
+        )
     ]
 
     session.add(patient_registered_in_2001)
@@ -1813,7 +1825,11 @@ def test_patients_with_gp_consultations():
         [
             Patient(
                 RegistrationHistory=[
-                    RegistrationHistory(StartDate="2014-01-01", EndDate="2020-05-01")
+                    RegistrationHistory(
+                        StartDate="2014-01-01",
+                        EndDate="2020-05-01",
+                        Organisation=Organisation(GoLiveDate="2001-01-01"),
+                    )
                 ],
                 Appointments=[
                     # Before period starts
@@ -1828,7 +1844,11 @@ def test_patients_with_gp_consultations():
             ),
             Patient(
                 RegistrationHistory=[
-                    RegistrationHistory(StartDate="2001-01-01", EndDate="2016-01-01")
+                    RegistrationHistory(
+                        StartDate="2001-01-01",
+                        EndDate="2016-01-01",
+                        Organisation=Organisation(GoLiveDate="1999-10-01"),
+                    )
                 ],
                 Appointments=[
                     Appointment(
@@ -1841,6 +1861,18 @@ def test_patients_with_gp_consultations():
                     Appointment(
                         SeenDate="2013-01-01", Status=AppointmentStatus.FINISHED
                     ),
+                ],
+            ),
+            # This patient was registered with one practice throughout the
+            # required period, but that practice wasn't using SystmOne so we
+            # don't have full consultation history
+            Patient(
+                RegistrationHistory=[
+                    RegistrationHistory(
+                        StartDate="2008-01-01",
+                        EndDate="2016-01-01",
+                        Organisation=Organisation(GoLiveDate="2012-01-01"),
+                    )
                 ],
             ),
         ]
@@ -1861,9 +1893,9 @@ def test_patients_with_gp_consultations():
         ),
     )
     results = study.to_dicts()
-    assert [x["latest_consultation_date"] for x in results] == ["", "2013-01"]
-    assert [x["consultation_count"] for x in results] == ["0", "2"]
-    assert [x["has_history"] for x in results] == ["0", "1"]
+    assert [x["latest_consultation_date"] for x in results] == ["", "2013-01", ""]
+    assert [x["consultation_count"] for x in results] == ["0", "2", "0"]
+    assert [x["has_history"] for x in results] == ["0", "1", "0"]
 
 
 def test_patients_with_test_result_in_sgss():

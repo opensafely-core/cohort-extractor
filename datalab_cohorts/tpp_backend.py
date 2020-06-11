@@ -487,12 +487,20 @@ class TPPBackend:
             reference_date, reference_date
         )
 
-    def patients_registered_with_one_practice_between(self, start_date, end_date):
+    def patients_registered_with_one_practice_between(
+        self, start_date, end_date, practice_used_systm_one_throughout_period=False
+    ):
         """
         All patients registered with the same practice through the given period
         """
         # Note that current registrations are recorded with an EndDate
         # of 9999-12-31
+        extra_condition = ""
+        if practice_used_systm_one_throughout_period:
+            # We only need to (and only can) check the date the practice
+            # *started* using SystmOne.  If they've stopped using it, then we
+            # won't have their data in the TPP database at all.
+            extra_condition = f"  AND Organisation.GoLiveDate <= {quote(start_date)}"
         return (
             ["patient_id", "is_registered"],
             f"""
@@ -500,7 +508,10 @@ class TPPBackend:
             FROM Patient
             INNER JOIN RegistrationHistory
             ON RegistrationHistory.Patient_ID = Patient.Patient_ID
+            INNER JOIN Organisation
+            ON RegistrationHistory.Organisation_ID = Organisation.Organisation_ID
             WHERE StartDate <= {quote(start_date)} AND EndDate > {quote(end_date)}
+            {extra_condition}
             """,
         )
 
@@ -1166,7 +1177,9 @@ class TPPBackend:
         get an implementation for `patients_with_complete_history_between` we
         should switch to using this.
         """
-        return self.patients_registered_with_one_practice_between(start_date, end_date)
+        return self.patients_registered_with_one_practice_between(
+            start_date, end_date, practice_used_systm_one_throughout_period=True
+        )
 
     def patients_with_test_result_in_sgss(
         self,
