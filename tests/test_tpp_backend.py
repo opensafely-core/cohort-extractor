@@ -961,7 +961,7 @@ def test_patients_registered_practice_as_of():
         stp=patients.registered_practice_as_of("2020-01-01", returning="stp_code"),
         msoa=patients.registered_practice_as_of("2020-01-01", returning="msoa_code"),
         region=patients.registered_practice_as_of(
-            "2020-01-01", returning="nhse_region_name"
+            "2020-01-01", returning="nuts1_region_name"
         ),
         pseudo_id=patients.registered_practice_as_of(
             "2020-01-01", returning="pseudo_id"

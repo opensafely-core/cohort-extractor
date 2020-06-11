@@ -302,6 +302,11 @@ class GetColumnType:
         return self._type_from_return_value(returning)
 
     def _type_from_return_value(self, returning):
+        if returning == "nhse_region_name":
+            raise ValueError(
+                "'nhse_region_name' should be changed to the more accurate "
+                "'nuts1_region_name'"
+            )
         mapping = {
             "binary_flag": "bool",
             "date": "date",
@@ -314,7 +319,6 @@ class GetColumnType:
             "number_of_episodes": "int",
             "stp_code": "str",
             "msoa_code": "str",
-            "nhse_region_name": "str",
             "nuts1_region_name": "str",
             "pseudo_id": "int",
             "index_of_multiple_deprivation": "int",
