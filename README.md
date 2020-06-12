@@ -1,17 +1,27 @@
-# OpenSAFELY Research Template
+# OpenSAFELY extractor tool
 
-This is a template repository for making new OpenSAFELY resarch projects.  Eventually it'll become a framework. To get started, create a new repo using this repo as a template, delete this front matter, and edit the text that follows.
+This tool supports the authoring of OpenSAFELY-compliant research, by:
 
-# _title goes here_
+* Allowing developers to generate random data based on their study
+  expectations. They can then use this as input data when developing
+  analytic models.
+* Supporting downloading of codelist CSVs from the [OpenSAFELY
+  codelists repository](https://codelists.opensafely.org/), for
+  incorporation into the study definition
+* Providing tools to understand and visualise the properties of real
+  data, without having direct access to it
 
-This is the code and configuration for our paper, _name goes here_
+It is also the mechanism by which cohorts are extracted from live
+database backends within the OpenSAFELY framework.
 
-* The paper is [here]()
-* Raw model outputs, including charts, crosstabs, etc, are in `released_analysis_results/`
-* If you are interested in how we defined our covarates, take a look at the [study definition](analysis/study_definition.py); this is written in `python`, but non-programmers should be able to understand what is going on there
-* If you are interested in how we defined our code lists, look in the [codelists folder](./codelists/).
-* Developers and epidemiologists interested in the code should review
-[DEVELOPERS.md](./DEVELOPERS.md).
+To install the latest released version:
+
+    pip install --upgrade opensafely-cohort-extractor
+
+To discover its options:
+
+    cohortextractor --help
+
 
 # About the OpenSAFELY framework
 
