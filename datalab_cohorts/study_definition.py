@@ -77,6 +77,10 @@ class StudyDefinition:
             from .tpp_backend import TPPBackend
 
             return TPPBackend
+        elif database_url.startswith("presto://"):
+            from .acme_backend import ACMEBackend
+
+            return ACMEBackend
         else:
             raise ValueError(f"No matching backend found for {database_url}")
 
