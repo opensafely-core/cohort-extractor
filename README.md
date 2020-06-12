@@ -1,17 +1,50 @@
-# OpenSAFELY Research Template
+# OpenSAFELY extractor tool
 
-This is a template repository for making new OpenSAFELY resarch projects.  Eventually it'll become a framework. To get started, create a new repo using this repo as a template, delete this front matter, and edit the text that follows.
+This tool supports the authoring of OpenSAFELY-compliant research, by:
 
-# _title goes here_
+* Allowing developers to generate random data based on their study
+  expectations. They can then use this as input data when developing
+  analytic models.
+* Supporting downloading of codelist CSVs from the [OpenSAFELY
+  codelists repository](https://codelists.opensafely.org/), for
+  incorporation into the study definition
+* Providing tools to understand and visualise the properties of real
+  data, without having direct access to it
 
-This is the code and configuration for our paper, _name goes here_
+It is also the mechanism by which cohorts are extracted from live
+database backends within the OpenSAFELY framework.
 
-* The paper is [here]()
-* Raw model outputs, including charts, crosstabs, etc, are in `released_analysis_results/`
-* If you are interested in how we defined our covarates, take a look at the [study definition](analysis/study_definition.py); this is written in `python`, but non-programmers should be able to understand what is going on there
-* If you are interested in how we defined our code lists, look in the [codelists folder](./codelists/).
-* Developers and epidemiologists interested in the code should review
-[DEVELOPERS.md](./DEVELOPERS.md).
+To install the latest released version:
+
+    pip install --upgrade opensafely-cohort-extractor
+
+To discover its options:
+
+    cohortextractor --help
+
+
+# For developers
+
+## Run tests
+
+You can run everything in docker with `./run_tests.sh`.
+
+You can also run the tests in your own virtualenv, but either way you
+will (probably) still want to use docker to run a SQL Server instance:
+
+* Start an mssql server with `docker-compose up`
+* Set up a virtualenv and `pip install -r requirements.txt`
+* `py.test tests/`
+
+Note: until we make this cleaner... if you change the database schema
+be sure to `docker rm stata-docker_sql_1` before restarting.
+
+## Make releases
+
+To make a release, bump the version in `runner/VERSION`; Github
+Actions should use this to (a) tag the repo accordingly; (b) publish a
+new package to pypi; (c) build and publish a new docker image as a
+Github Package.
 
 # About the OpenSAFELY framework
 
