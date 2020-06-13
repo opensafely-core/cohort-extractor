@@ -23,6 +23,29 @@ To discover its options:
     cohortextractor --help
 
 
+# For developers
+
+## Run tests
+
+You can run everything in docker with `./run_tests.sh`.
+
+You can also run the tests in your own virtualenv, but either way you
+will (probably) still want to use docker to run a SQL Server instance:
+
+* Start an mssql server with `docker-compose up`
+* Set up a virtualenv and `pip install -r requirements.txt`
+* `py.test tests/`
+
+Note: until we make this cleaner... if you change the database schema
+be sure to `docker rm stata-docker_sql_1` before restarting.
+
+## Make releases
+
+To make a release, bump the version in `runner/VERSION`; Github
+Actions should use this to (a) tag the repo accordingly; (b) publish a
+new package to pypi; (c) build and publish a new docker image as a
+Github Package.
+
 # About the OpenSAFELY framework
 
 The OpenSAFELY framework is a new secure analytics platform for
