@@ -22,6 +22,10 @@ To discover its options:
 
     cohortextractor --help
 
+It is designed to be run within an OpenSAFELY-compliant research
+repository. [You can find a template repository to get you started
+here](https://github.com/opensafely/research-template).
+
 
 # For developers
 
