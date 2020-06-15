@@ -105,35 +105,37 @@ def preflight_generation_check():
         raise RuntimeError(msg.format(", ".join(missing_paths)))
 
 
-def generate_cohort(expectations_population):
+def generate_cohort(output_dir, expectations_population):
     preflight_generation_check()
     for study_name, suffix in list_study_definitions():
         print(f"Generating cohort for {study_name}...")
-        _generate_cohort(study_name, suffix, expectations_population)
+        _generate_cohort(output_dir, study_name, suffix, expectations_population)
 
 
-def _generate_cohort(study_name, suffix, expectations_population):
+def _generate_cohort(output_dir, study_name, suffix, expectations_population):
     print("Running. Please wait...")
     study = load_study_definition(study_name)
 
     with_sqlcmd = shutil.which("sqlcmd") is not None
     study.to_csv(
-        f"analysis/input{suffix}.csv",
+        f"{output_dir}/input{suffix}.csv",
         expectations_population=expectations_population,
         with_sqlcmd=with_sqlcmd,
     )
-    print(f"Successfully created cohort and covariates at analysis/input{suffix}.csv")
+    print(
+        f"Successfully created cohort and covariates at {output_dir}/input{suffix}.csv"
+    )
 
 
-def make_cohort_report():
+def make_cohort_report(input_dir, output_dir):
     for study_name, suffix in list_study_definitions():
-        _make_cohort_report(study_name, suffix)
+        _make_cohort_report(input_dir, output_dir, study_name, suffix)
 
 
-def _make_cohort_report(study_name, suffix):
+def _make_cohort_report(input_dir, output_dir, study_name, suffix):
     study = load_study_definition(study_name)
 
-    df = study.csv_to_df(f"analysis/input{suffix}.csv")
+    df = study.csv_to_df(f"{input_dir}/input{suffix}.csv")
     descriptives = df.describe(include="all")
 
     for name, dtype in zip(df.columns, df.dtypes):
@@ -156,7 +158,7 @@ def _make_cohort_report(study_name, suffix):
         descriptives.loc["values", name] = main_chart
         descriptives.loc["nulls", name] = empty_values_chart
 
-    with open(f"analysis/descriptives{suffix}.html", "w") as f:
+    with open(f"{output_dir}/descriptives{suffix}.html", "w") as f:
 
         f.write(
             """<html>
@@ -188,7 +190,7 @@ def _make_cohort_report(study_name, suffix):
 
         f.write(descriptives.to_html(escape=False, na_rep="", justify="left", border=0))
         f.write("</body></html>")
-    print(f"Created cohort report at analysis/descriptives{suffix}.html")
+    print(f"Created cohort report at {output_dir}/descriptives{suffix}.html")
 
 
 def update_codelists():
@@ -259,6 +261,19 @@ def main():
         "cohort_report", help="Generate cohort report"
     )
     cohort_report_parser.set_defaults(which="cohort_report")
+    cohort_report_parser.add_argument(
+        "--input-dir",
+        help="Location to look for input CSVs",
+        type=str,
+        default="analysis",
+    )
+    cohort_report_parser.add_argument(
+        "--output-dir",
+        help="Location to store output CSVs",
+        type=str,
+        default="analysis",
+    )
+
     run_notebook_parser = subparsers.add_parser("notebook", help="Run notebook")
     run_notebook_parser.set_defaults(which="notebook")
     update_codelists_parser = subparsers.add_parser(
@@ -276,6 +291,12 @@ def main():
     dump_study_yaml_parser.set_defaults(which="dump_study_yaml")
 
     # Cohort parser options
+    generate_cohort_parser.add_argument(
+        "--output-dir",
+        help="Location to store output CSVs",
+        type=str,
+        default="analysis",
+    )
     cohort_method_group = generate_cohort_parser.add_mutually_exclusive_group(
         required=True
     )
@@ -299,9 +320,9 @@ def main():
         parser.print_help()
     elif options.which == "generate_cohort":
         os.environ["DATABASE_URL"] = options.database_url
-        generate_cohort(options.expectations_population)
+        generate_cohort(options.output_dir, options.expectations_population)
     elif options.which == "cohort_report":
-        make_cohort_report()
+        make_cohort_report(options.input_dir, options.output_dir)
     elif options.which == "update_codelists":
         update_codelists()
         print("Codelists updated. Don't forget to commit them to the repo")
