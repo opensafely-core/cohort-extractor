@@ -271,7 +271,7 @@ def main():
     )
     dump_cohort_sql_parser.set_defaults(which="dump_cohort_sql")
     dump_study_yaml_parser = subparsers.add_parser(
-        "dump_study_yaml", help="Show SQL to generate cohort"
+        "dump_study_yaml", help="Show study definition as YAML"
     )
     dump_study_yaml_parser.set_defaults(which="dump_study_yaml")
 
