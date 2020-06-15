@@ -85,8 +85,8 @@ publish* code.
 
 ## More backends
 
-We have currently implemented a backend for TPP data. We are working
-on an EMIS backend.
+We have currently implemented a backend for TPP data and hope to add
+other backends in the near future.
 
 We would also like to consider backends for other jurisdictions
 outside the UK, including an OHDSI CDM backend.
