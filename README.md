@@ -1,4 +1,4 @@
-# OpenSAFELY extractor tool
+# OpenSAFELY cohort extractor tool
 
 This tool supports the authoring of OpenSAFELY-compliant research, by:
 
