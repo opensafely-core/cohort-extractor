@@ -1,0 +1,63 @@
+name: Tag repo; build and publish assets
+on:
+  push:
+
+jobs:
+  tag-new-version:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 2
+      - name: Tag
+        id: tag
+        uses: salsify/action-detect-and-tag-new-version@v1
+        with:
+          version-command: |
+            cat runner/VERSION
+
+  build-and-publish-package:
+    runs-on: ubuntu-latest
+    name: Build and publish docker image
+    # Only on a tagged release
+    needs: tag-new-version
+    if: needs.tag-new-version.outputs.tag
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v1
+    - name: Set up Python 3.8
+      uses: actions/setup-python@v1
+      with:
+        python-version: 3.8
+    - name: Install wheel package
+      run: |
+        pip install wheel
+    - name: Build package
+      run: |
+        python setup.py sdist bdist_wheel
+    - name: Publish package
+      uses: pypa/gh-action-pypi-publish@master
+      with:
+        user: __token__
+        password: ${{ secrets.PYPI_PASSWORD }}
+
+  build-and-publish-docker-image:
+    runs-on: ubuntu-latest
+    name: Build and publish docker image
+    # Only on a tagged release
+    needs: tag-new-version
+    if: needs.tag-new-version.outputs.tag
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v1
+    - name: Build and publish
+      uses: whoan/docker-build-with-cache-action@v5
+      with:
+        username: whoan
+        password: "${{ secrets.GITHUB_TOKEN }}"
+        registry: docker.pkg.github.com
+        image_name: cohort-extractor
+        push_git_tag: true
