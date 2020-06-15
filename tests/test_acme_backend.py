@@ -1243,36 +1243,6 @@ def test_patients_with_death_recorded_in_cpns_raises_error_on_bad_data():
         study.to_dicts()
 
 
-def test_to_sql_passes():
-    session = make_session()
-    patient = Patient(date_of_birth="1950-01-01")
-    patient.observations.append(
-        Observation(snomed_concept_id="XYZ", value_pq_1=50, effective_date="2002-06-01")
-    )
-    session.add(patient)
-    session.commit()
-
-    study = StudyDefinition(
-        population=patients.with_these_clinical_events(codelist(["XYZ"], "ctv3"))
-    )
-    db_dict = presto_connection_params_from_url(study.backend.database_url)
-    cmd = [
-        "docker",
-        "exec",
-        "opensafely-research-template_presto_1",
-        "presto",
-        "--catalog",
-        db_dict["catalog"],
-        "--schema",
-        db_dict["schema"],
-        "--execute",
-        study.to_sql(),
-    ]
-    result = subprocess.run(cmd, capture_output=True, encoding="utf8").stdout
-    patient_id = result.splitlines()[-1]
-    assert patient_id == f'"{patient.id}"'
-
-
 def test_duplicate_id_checking():
     study = StudyDefinition(population=patients.all())
     # A bit of a hack: overwrite the queries we're going to run with a query which
