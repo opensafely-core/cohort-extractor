@@ -1,23 +1,19 @@
 import csv
 import datetime
-import enum
 import os
 import re
 
 from .expressions import format_expression
-from .mssql_utils import (
-    mssql_pyodbc_connection_from_url,
-    mssql_query_to_csv_file,
-)
+from .presto_utils import presto_connection_from_url
 
 
 # Characters that are safe to interpolate into SQL (see
 # `placeholders_and_params` below)
-safe_punctation = r" _.-+/()"
+safe_punctation = r"_.-"
 SAFE_CHARS_RE = re.compile(f"^[a-zA-Z0-9{re.escape(safe_punctation)}]+$")
 
 
-class TPPBackend:
+class ACMEBackend:
     _db_connection = None
     _current_column_name = None
 
@@ -27,29 +23,16 @@ class TPPBackend:
         self.codelist_tables = []
         self.queries = self.get_queries(self.covariate_definitions)
 
-    def to_csv(self, filename, with_sqlcmd=False):
+    def to_csv(self, filename):
+        result = self.execute_query()
         unique_check = UniqueCheck()
-        for patient_id in self._to_csv(filename, with_sqlcmd=with_sqlcmd):
-            unique_check.add(patient_id)
+        with open(filename, "w", newline="") as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow([x[0] for x in result.description])
+            for row in result:
+                unique_check.add(row[0])
+                writer.writerow(row)
         unique_check.assert_unique_ids()
-
-    def _to_csv(self, filename, with_sqlcmd=False):
-        if with_sqlcmd:
-            lines = mssql_query_to_csv_file(
-                self.database_url, self.to_sql(), filename, yield_output_lines=True
-            )
-            for line in lines:
-                patient_id = line.split(",")[0]
-                yield patient_id
-        else:
-            result = self.execute_query()
-            with open(filename, "w", newline="") as csvfile:
-                writer = csv.writer(csvfile)
-                writer.writerow([x[0] for x in result.description])
-                for row in result:
-                    writer.writerow(row)
-                    patient_id = row[0]
-                    yield patient_id
 
     def to_dicts(self):
         result = self.execute_query()
@@ -69,18 +52,11 @@ class TPPBackend:
         Useful for debugging, optimising, etc.
         """
         prepared_sql = ["-- Create codelist tables"]
-        for create_sql, insert_sql, values in self.codelist_tables:
-            prepared_sql.append(create_sql)
-            prepared_sql.append("GO")
-            for row in values:
-                prepared_sql.append(
-                    insert_sql.replace("?", "{}").format(*map(quote, row)) + ";"
-                )
-            prepared_sql.append("GO\n\n")
+        for sql in self.codelist_tables:
+            prepared_sql.append(f"{sql};\n\n")
         for name, query in self.queries:
             prepared_sql.append(f"-- Query for {name}")
-            prepared_sql.append(query)
-            prepared_sql.append("\n\n")
+            prepared_sql.append(f"{query};\n\n")
         return "\n".join(prepared_sql)
 
     def get_queries(self, covariate_definitions):
@@ -113,15 +89,10 @@ class TPPBackend:
                 output_columns[name] = self.get_column_expression(
                     column_type, **query_args
                 )
-            # As do `aggregate_of` columns
-            elif query_type == "aggregate_of":
-                output_columns[name] = self.get_aggregate_expression(
-                    column_type, output_columns, **query_args
-                )
             else:
                 date_format_args = pop_keys_from_dict(query_args, ["date_format"])
                 cols, sql = self.get_query(name, query_type, query_args)
-                table_queries[name] = f"SELECT * INTO #{name} FROM ({sql}) t"
+                table_queries[name] = f"CREATE TABLE _{name} AS {sql}"
                 # The first column should always be patient_id so we can join on it
                 assert cols[0] == "patient_id"
                 output_columns[name] = self.get_column_expression(
@@ -129,13 +100,13 @@ class TPPBackend:
                 )
         # If the population query defines its own temporary table then we use
         # that as the primary table to query against and left join everything
-        # else against that. Otherwise, we use the `Patient` table.
+        # else against that. Otherwise, we use the `patient` table.
         if "population" in table_queries:
-            primary_table = "#population"
-            patient_id_expr = "#population.patient_id"
+            primary_table = "_population"
+            patient_id_expr = "_population.patient_id"
         else:
-            primary_table = "Patient"
-            patient_id_expr = "Patient.Patient_ID"
+            primary_table = "patient"
+            patient_id_expr = "patient.id"
         # Insert `patient_id` as the first column
         output_columns = dict(patient_id=patient_id_expr, **output_columns)
         output_columns_str = ",\n          ".join(
@@ -144,7 +115,7 @@ class TPPBackend:
             if not is_hidden.get(name) and name != "population"
         )
         joins = [
-            f"LEFT JOIN #{name} ON #{name}.patient_id = {patient_id_expr}"
+            f"LEFT JOIN _{name} ON _{name}.patient_id = {patient_id_expr}"
             for name in table_queries
             if name != "population"
         ]
@@ -161,10 +132,10 @@ class TPPBackend:
 
     def get_column_expression(self, column_type, source, returning, date_format=None):
         default_value = self.get_default_value_for_type(column_type)
-        column_expr = f"#{source}.{returning}"
+        column_expr = f"_{source}.{returning}"
         if column_type == "date":
             column_expr = truncate_date(column_expr, date_format)
-        return f"ISNULL({column_expr}, {quote(default_value)})"
+        return f"COALESCE({column_expr}, {quote(default_value)})"
 
     def get_default_value_for_type(self, column_type):
         if column_type == "date":
@@ -183,9 +154,8 @@ class TPPBackend:
     def execute_query(self):
         cursor = self.get_db_connection().cursor()
         self.log("Uploading codelists into temporary tables")
-        for create_sql, insert_sql, values in self.codelist_tables:
-            cursor.execute(create_sql)
-            cursor.executemany(insert_sql, values)
+        for sql in self.codelist_tables:
+            cursor.execute(sql)
         queries = list(self.queries)
         final_query = queries.pop()[1]
         for name, sql in queries:
@@ -194,7 +164,7 @@ class TPPBackend:
         output_table = self.get_output_table_name(os.environ.get("TEMP_DATABASE_NAME"))
         if output_table:
             self.log(f"Running final query and writing output to '{output_table}'")
-            sql = f"SELECT * INTO {output_table} FROM ({final_query}) t"
+            sql = f"CREATE TABLE {output_table} AS {final_query}"
             cursor.execute(sql)
             self.log(f"Downloading data from '{output_table}'")
             cursor.execute(f"SELECT * FROM {output_table}")
@@ -234,27 +204,29 @@ class TPPBackend:
         # We include the current column name for ease of debugging
         column_name = self._current_column_name or "unknown"
         # The hash prefix indicates a temporary table
-        table_name = f"#codelist_{table_number}_{column_name}"
+        table_name = f"_codelist_{table_number}_{column_name}"
         if codelist.has_categories:
-            values = list(codelist)
-        else:
-            values = [(code, "") for code in codelist]
-        collation = "Latin1_General_BIN" if case_sensitive else "Latin1_General_CI_AS"
-        max_code_len = max(len(code) for (code, category) in values)
-        self.codelist_tables.append(
-            (
-                f"""
-                CREATE TABLE {table_name} (
-                  -- Because some code systems are case-sensitive we need to
-                  -- use a case-sensitive collation here
-                  code VARCHAR({max_code_len}) COLLATE {collation},
-                  category VARCHAR(MAX)
-                )
-                """,
-                f"INSERT INTO {table_name} (code, category) VALUES(?, ?)",
-                values,
+            values = ", ".join(
+                f"('{code}', '{category}')" for code, category in codelist
             )
-        )
+            self.codelist_tables.append(
+                f"""
+                    CREATE TABLE {table_name} AS
+                    SELECT * FROM (
+                      VALUES {values}
+                    ) AS t (code, category)
+                    """
+            )
+        else:
+            values = ", ".join(f"('{code}')" for code in codelist)
+            self.codelist_tables.append(
+                f"""
+                    CREATE TABLE {table_name} AS
+                    SELECT * FROM (
+                      VALUES {values}
+                    ) AS t (code)
+                    """
+            )
         return table_name
 
     def patients_age_as_of(self, reference_date):
@@ -263,23 +235,15 @@ class TPPBackend:
             ["patient_id", "age"],
             f"""
             SELECT
-              Patient_ID AS patient_id,
+              id AS patient_id,
               CASE WHEN
-                 dateadd(year, datediff (year, DateOfBirth, {quoted_date}), DateOfBirth) > {quoted_date}
+                 date_add('year', date_diff('year', "date-of-birth", {quoted_date}), "date-of-birth") > {quoted_date}
               THEN
-                 datediff(year, DateOfBirth, {quoted_date}) - 1
+                 date_diff('year', "date-of-birth", {quoted_date}) - 1
               ELSE
-                 datediff(year, DateOfBirth, {quoted_date})
+                 date_diff('year', "date-of-birth", {quoted_date})
               END AS age
-            FROM Patient
-            """,
-        )
-
-    def patients_date_of_birth(self):
-        return (
-            ["patient_id", "date_of_birth"],
-            """
-            SELECT Patient_ID AS patient_id, DateOfBirth AS date_of_birth FROM Patient
+            FROM patient
             """,
         )
 
@@ -288,9 +252,14 @@ class TPPBackend:
             ["patient_id", "sex"],
             """
           SELECT
-            Patient_ID AS patient_id,
-            Sex as sex
-          FROM Patient""",
+            id AS patient_id,
+            CASE gender
+              -- See https://www.datadictionary.nhs.uk/data_dictionary/attributes/p/person/person_gender_code_de.asp?shownav=1
+              WHEN 1 THEN 'M'
+              WHEN 2 THEN 'F'
+              ELSE ''
+            END AS sex
+          FROM patient""",
         )
 
     def patients_all(self):
@@ -300,30 +269,8 @@ class TPPBackend:
         return (
             ["patient_id", "is_included"],
             """
-            SELECT Patient_ID AS patient_id, 1 AS is_included
-            FROM Patient
-            """,
-        )
-
-    def patients_random_sample(self, percent):
-        """
-        A random sample of approximately `percent` patients
-        """
-        # See
-        # https://docs.microsoft.com/en-us/previous-versions/software-testing/cc441928(v=msdn.10)?redirectedfrom=MSDN
-        # A TABLESAMPLE clause is more efficient, but its
-        # approximations don't work with small numbers, and we might
-        # want to use this method for small numbers (and certainly do
-        # in the tests!)
-        assert percent, "Must specify a percentage greater than zero"
-        return (
-            ["patient_id", "is_included"],
-            f"""
-            SELECT Patient_ID, 1 AS is_included
-            FROM Patient
-            WHERE (ABS(CAST(
-            (BINARY_CHECKSUM(*) *
-            RAND()) as int)) % 100) < {quote(percent)}
+            SELECT id AS patient_id, 1 AS is_included
+            FROM patient
             """,
         )
 
@@ -354,8 +301,9 @@ class TPPBackend:
         # 2) If height and weight is not available, then take latest
         # recorded BMI. Both values must be recorded when the patient
         # is >=16, weight must be within the last 10 years
-        date_condition = make_date_filter("ConsultationDate", between)
+        date_condition = make_date_filter('"effective-date"', between)
 
+        # TODO Change these to SNOMED codes
         bmi_code = "22K.."
         # XXX these two sets of codes need validating. The final in
         # each list is the canonical version according to TPP
@@ -369,28 +317,28 @@ class TPPBackend:
         ]
 
         bmi_cte = f"""
-        SELECT t.Patient_ID, t.BMI, t.ConsultationDate
+        SELECT t."registration-id", t.BMI, t."effective-date"
         FROM (
-          SELECT Patient_ID, NumericValue AS BMI, ConsultationDate,
-          ROW_NUMBER() OVER (PARTITION BY Patient_ID ORDER BY ConsultationDate DESC) AS rownum
-          FROM CodedEvent
-          WHERE CTV3Code = {quote(bmi_code)} AND {date_condition}
+          SELECT "registration-id", "value-pq-1" AS BMI, "effective-date",
+          ROW_NUMBER() OVER (PARTITION BY "registration-id" ORDER BY "effective-date" DESC) AS rownum
+          FROM observation
+          WHERE "snomed-concept-id" = {quote(bmi_code)} AND {date_condition}
         ) t
         WHERE t.rownum = 1
         """
 
         patients_cte = """
-           SELECT Patient_ID, DateOfBirth
-           FROM Patient
+           SELECT id, "date-of-birth"
+           FROM patient
         """
         weight_codes_sql = codelist_to_sql(weight_codes)
         weights_cte = f"""
-          SELECT t.Patient_ID, t.weight, t.ConsultationDate
+          SELECT t."registration-id", t.weight, t."effective-date"
           FROM (
-            SELECT Patient_ID, NumericValue AS weight, ConsultationDate,
-            ROW_NUMBER() OVER (PARTITION BY Patient_ID ORDER BY ConsultationDate DESC) AS rownum
-            FROM CodedEvent
-            WHERE CTV3Code IN ({weight_codes_sql}) AND {date_condition}
+            SELECT "registration-id", "value-pq-1" AS weight, "effective-date",
+            ROW_NUMBER() OVER (PARTITION BY "registration-id" ORDER BY "effective-date" DESC) AS rownum
+            FROM observation
+            WHERE "snomed-concept-id" IN ({weight_codes_sql}) AND {date_condition}
           ) t
           WHERE t.rownum = 1
         """
@@ -400,15 +348,15 @@ class TPPBackend:
         # mind using old values as long as the patient was old enough when they
         # were taken.
         height_date_condition = make_date_filter(
-            "ConsultationDate", between, upper_bound_only=True,
+            '"effective-date"', between, upper_bound_only=True,
         )
         heights_cte = f"""
-          SELECT t.Patient_ID, t.height, t.ConsultationDate
+          SELECT t."registration-id", t.height, t."effective-date"
           FROM (
-            SELECT Patient_ID, NumericValue AS height, ConsultationDate,
-            ROW_NUMBER() OVER (PARTITION BY Patient_ID ORDER BY ConsultationDate DESC) AS rownum
-            FROM CodedEvent
-            WHERE CTV3Code IN ({height_codes_sql}) AND {height_date_condition}
+            SELECT "registration-id", "value-pq-1" AS height, "effective-date",
+            ROW_NUMBER() OVER (PARTITION BY "registration-id" ORDER BY "effective-date" DESC) AS rownum
+            FROM observation
+            WHERE "snomed-concept-id" IN ({height_codes_sql}) AND {height_date_condition}
           ) t
           WHERE t.rownum = 1
         """
@@ -417,19 +365,22 @@ class TPPBackend:
 
         sql = f"""
         SELECT
-          patients.Patient_ID AS patient_id,
-          ROUND(COALESCE(weight/SQUARE(NULLIF(height, 0)), bmis.BMI), 1) AS BMI,
+          patients.id AS patient_id,
           CASE
-            WHEN weight IS NULL OR height IS NULL THEN bmis.ConsultationDate
-            ELSE weights.ConsultationDate
+            WHEN height = 0 THEN NULL
+            ELSE ROUND(COALESCE(weight/(height*height), bmis.BMI), 1)
+          END AS BMI,
+          CASE
+            WHEN weight IS NULL OR height IS NULL THEN DATE(bmis."effective-date")
+            ELSE DATE(weights."effective-date")
           END AS date
         FROM ({patients_cte}) AS patients
         LEFT JOIN ({weights_cte}) AS weights
-        ON weights.Patient_ID = patients.Patient_ID AND DATEDIFF(YEAR, patients.DateOfBirth, weights.ConsultationDate) >= {min_age}
+        ON weights."registration-id" = patients.id AND date_diff('year', patients."date-of-birth", weights."effective-date") >= {min_age}
         LEFT JOIN ({heights_cte}) AS heights
-        ON heights.Patient_ID = patients.Patient_ID AND DATEDIFF(YEAR, patients.DateOfBirth, heights.ConsultationDate) >= {min_age}
+        ON heights."registration-id" = patients.id AND date_diff('year', patients."date-of-birth", heights."effective-date") >= {min_age}
         LEFT JOIN ({bmi_cte}) AS bmis
-        ON bmis.Patient_ID = patients.Patient_ID AND DATEDIFF(YEAR, patients.DateOfBirth, bmis.ConsultationDate) >= {min_age}
+        ON bmis."registration-id" = patients.id AND date_diff('year', patients."date-of-birth", bmis."effective-date") >= {min_age}
         -- XXX maybe add a "WHERE NULL..." here
         """
         columns = ["patient_id", "BMI"]
@@ -449,7 +400,7 @@ class TPPBackend:
     ):
         # We only support this option for now
         assert on_most_recent_day_of_measurement
-        date_condition = make_date_filter("ConsultationDate", between)
+        date_condition = make_date_filter('"effective-date"', between)
         codelist_sql = codelist_to_sql(codelist)
         # The subquery finds, for each patient, the most recent day on which
         # they've had a measurement. The outer query selects, for each patient,
@@ -458,87 +409,47 @@ class TPPBackend:
         # use an index for this. See: https://stackoverflow.com/a/25564539
         sql = f"""
         SELECT
-          days.Patient_ID AS patient_id,
-          AVG(CodedEvent.NumericValue) AS mean_value,
+          days."registration-id" AS patient_id,
+          AVG(observation."value-pq-1") AS mean_value,
           days.date_measured AS date
         FROM (
-            SELECT Patient_ID, CAST(MAX(ConsultationDate) AS date) AS date_measured
-            FROM CodedEvent
-            WHERE CTV3Code IN ({codelist_sql}) AND {date_condition}
-            GROUP BY Patient_ID
+            SELECT "registration-id", CAST(MAX("effective-date") AS date) AS date_measured
+            FROM observation
+            WHERE "snomed-concept-id" IN ({codelist_sql}) AND {date_condition}
+            GROUP BY "registration-id"
         ) AS days
-        LEFT JOIN CodedEvent
+        LEFT JOIN observation
         ON (
-          CodedEvent.Patient_ID = days.Patient_ID
-          AND CodedEvent.CTV3Code IN ({codelist_sql})
-          AND CAST(CodedEvent.ConsultationDate AS date) = days.date_measured
+          observation."registration-id" = days."registration-id"
+          AND observation."snomed-concept-id" IN ({codelist_sql})
+          AND CAST(observation."effective-date" AS date) = days.date_measured
         )
-        GROUP BY days.Patient_ID, days.date_measured
+        GROUP BY days."registration-id", days.date_measured
         """
         columns = ["patient_id", "mean_value"]
         if include_date_of_match:
             columns.append("date")
         return columns, sql
 
-    def patients_registered_as_of(self, reference_date):
-        """
-        All patients registed on the given date
-        """
-        return self.patients_registered_with_one_practice_between(
-            reference_date, reference_date
-        )
-
-    def patients_registered_with_one_practice_between(
-        self, start_date, end_date, practice_used_systm_one_throughout_period=False
-    ):
+    def patients_registered_with_one_practice_between(self, start_date, end_date):
         """
         All patients registered with the same practice through the given period
         """
-        # Note that current registrations are recorded with an EndDate
-        # of 9999-12-31
-        extra_condition = ""
-        if practice_used_systm_one_throughout_period:
-            # We only need to (and only can) check the date the practice
-            # *started* using SystmOne.  If they've stopped using it, then we
-            # won't have their data in the TPP database at all.
-            extra_condition = f"  AND Organisation.GoLiveDate <= {quote(start_date)}"
         return (
             ["patient_id", "is_registered"],
             f"""
-            SELECT DISTINCT Patient.Patient_ID AS patient_id, 1 AS is_registered
-            FROM Patient
-            INNER JOIN RegistrationHistory
-            ON RegistrationHistory.Patient_ID = Patient.Patient_ID
-            INNER JOIN Organisation
-            ON RegistrationHistory.Organisation_ID = Organisation.Organisation_ID
-            WHERE StartDate <= {quote(start_date)} AND EndDate > {quote(end_date)}
-            {extra_condition}
+            SELECT DISTINCT patient.id AS patient_id, 1 AS is_registered
+            FROM patient
+            WHERE "registered-date" <= {quote(start_date)}
+              AND ("registration-end-date" > {quote(end_date)} OR "registration-end-date" IS NULL)
             """,
         )
-
-    def patients_with_complete_history_between(self, start_date, end_date):
-        """
-        All patients for which we have a full set of records between the given
-        dates
-        """
-        # This should be do-able by checking for a contiguous set of
-        # RegistrationHistory entries covering the period. There's a further
-        # complication though which is that a practice might not have been
-        # using SystmOne at the point where the patient registered so we can
-        # only guarantee data from the point where the patient was registred
-        # *and* the practice was on SystmOne. Apparently the Organisation table
-        # now has a TPP go-live date which we can use for this purpose.
-        raise NotImplementedError()
 
     def patients_with_these_medications(self, **kwargs):
         """
         Patients who have been prescribed at least one of this list of
         medications in the defined period
         """
-        # Note that we're using "ConsultationDate" for the date condition here,
-        # which is the date of prescription.  The MedicationIssue table also
-        # has StartDate (the date of issue) and EndDate (not exactly sure what
-        # this is).
         assert kwargs["codelist"].system == "snomed"
         if kwargs["returning"] == "numeric_value":
             raise ValueError("Unsupported `returning` value: numeric_value")
@@ -555,12 +466,9 @@ class TPPBackend:
             # Remove unhandled arguments and check they are unused
             assert not kwargs.pop("episode_defined_as", None)
             return self._patients_with_events(
-                "MedicationIssue",
-                """
-                INNER JOIN MedicationDictionary
-                ON MedicationIssue.MultilexDrug_ID = MedicationDictionary.MultilexDrug_ID
-                """,
-                "DMD_ID",
+                "medication",
+                "",
+                '"snomed-concept-id"',
                 codes_are_case_sensitive=False,
                 **kwargs,
             )
@@ -583,7 +491,11 @@ class TPPBackend:
         else:
             assert not kwargs.pop("episode_defined_as", None)
             return self._patients_with_events(
-                "CodedEvent", "", "CTV3Code", codes_are_case_sensitive=True, **kwargs
+                "observation",
+                "",
+                '"snomed-concept-id"',
+                codes_are_case_sensitive=True,
+                **kwargs,
             )
 
     def _patients_with_events(
@@ -606,7 +518,7 @@ class TPPBackend:
         include_date_of_match=False,
     ):
         codelist_table = self.create_codelist_table(codelist, codes_are_case_sensitive)
-        date_condition = make_date_filter("ConsultationDate", between)
+        date_condition = make_date_filter('"effective-date"', between)
         not_an_ignored_day_condition = self._none_of_these_codes_occur_on_same_day(
             from_table, ignore_days_where_these_codes_occur
         )
@@ -629,7 +541,7 @@ class TPPBackend:
             use_partition_query = False
         elif returning == "numeric_value":
             column_name = "value"
-            column_definition = "NumericValue"
+            column_definition = '"value-pq-1"'
             use_partition_query = True
         elif returning == "code":
             column_name = "code"
@@ -650,13 +562,13 @@ class TPPBackend:
         if use_partition_query:
             sql = f"""
             SELECT
-              Patient_ID AS patient_id,
+              "registration-id" AS patient_id,
               {column_definition} AS {column_name},
-              ConsultationDate AS date
+              DATE("effective-date") AS date
             FROM (
-              SELECT Patient_ID, {column_definition}, ConsultationDate,
+              SELECT "registration-id", {column_definition}, "effective-date",
               ROW_NUMBER() OVER (
-                PARTITION BY Patient_ID ORDER BY ConsultationDate {ordering}
+                PARTITION BY "registration-id" ORDER BY "effective-date" {ordering}
               ) AS rownum
               FROM {from_table}{additional_join}
               INNER JOIN {codelist_table}
@@ -668,14 +580,14 @@ class TPPBackend:
         else:
             sql = f"""
             SELECT
-              Patient_ID AS patient_id,
+              "registration-id" AS patient_id,
               {column_definition} AS {column_name},
-              {date_aggregate}(ConsultationDate) AS date
+              {date_aggregate}(DATE("effective-date")) AS date
             FROM {from_table}{additional_join}
             INNER JOIN {codelist_table}
             ON {code_column} = {codelist_table}.code
             WHERE {date_condition} AND {not_an_ignored_day_condition}
-            GROUP BY Patient_ID
+            GROUP BY "registration-id"
             """
 
         if returning == "date":
@@ -695,9 +607,9 @@ class TPPBackend:
         episode_defined_as=None,
     ):
         codelist_table = self.create_codelist_table(codelist, case_sensitive=False)
-        date_condition = make_date_filter("ConsultationDate", between)
+        date_condition = make_date_filter('"effective-date"', between)
         not_an_ignored_day_condition = self._none_of_these_codes_occur_on_same_day(
-            "MedicationIssue", ignore_days_where_these_codes_occur
+            "medication", ignore_days_where_these_codes_occur
         )
         if episode_defined_as is not None:
             pattern = r"^series of events each <= (\d+) days apart$"
@@ -712,29 +624,27 @@ class TPPBackend:
 
         sql = f"""
         SELECT
-          Patient_ID AS patient_id,
+          "registration-id" AS patient_id,
           SUM(is_new_episode) AS episode_count
         FROM (
             SELECT
-              Patient_ID,
+              "registration-id",
               CASE
                 WHEN
-                  DATEDIFF(
-                    day,
-                    LAG(ConsultationDate) OVER (PARTITION BY Patient_ID ORDER BY ConsultationDate),
-                    ConsultationDate
+                  date_diff(
+                    'day',
+                    LAG("effective-date") OVER (PARTITION BY "registration-id" ORDER BY "effective-date"),
+                    "effective-date"
                   ) <= {washout_period}
                 THEN 0
                 ELSE 1
               END AS is_new_episode
-            FROM MedicationIssue
-            INNER JOIN MedicationDictionary
-            ON MedicationIssue.MultilexDrug_ID = MedicationDictionary.MultilexDrug_ID
+            FROM medication
             INNER JOIN {codelist_table}
-            ON DMD_ID = {codelist_table}.code
+            ON "snomed-concept-id" = {codelist_table}.code
             WHERE {date_condition} AND {not_an_ignored_day_condition}
         ) t
-        GROUP BY Patient_ID
+        GROUP BY "registration-id"
         """
         return ["patient_id", "episode_count"], sql
 
@@ -747,9 +657,9 @@ class TPPBackend:
         episode_defined_as=None,
     ):
         codelist_table = self.create_codelist_table(codelist, case_sensitive=True)
-        date_condition = make_date_filter("ConsultationDate", between)
+        date_condition = make_date_filter('"effective-date"', between)
         not_an_ignored_day_condition = self._none_of_these_codes_occur_on_same_day(
-            "CodedEvent", ignore_days_where_these_codes_occur
+            "observation", ignore_days_where_these_codes_occur
         )
         if episode_defined_as is not None:
             pattern = r"^series of events each <= (\d+) days apart$"
@@ -764,27 +674,27 @@ class TPPBackend:
 
         sql = f"""
         SELECT
-          Patient_ID AS patient_id,
+          "registration-id" AS patient_id,
           SUM(is_new_episode) AS episode_count
         FROM (
             SELECT
-              Patient_ID,
+              "registration-id",
               CASE
                 WHEN
-                  DATEDIFF(
-                    day,
-                    LAG(ConsultationDate) OVER (PARTITION BY Patient_ID ORDER BY ConsultationDate),
-                    ConsultationDate
+                  date_diff(
+                    'day',
+                    LAG("effective-date") OVER (PARTITION BY "registration-id" ORDER BY "effective-date"),
+                    "effective-date"
                   ) <= {washout_period}
                 THEN 0
                 ELSE 1
               END AS is_new_episode
-            FROM CodedEvent
+            FROM observation
             INNER JOIN {codelist_table}
-            ON CTV3Code = {codelist_table}.code
+            ON "snomed-concept-id" = {codelist_table}.code
             WHERE {date_condition} AND {not_an_ignored_day_condition}
         ) t
-        GROUP BY Patient_ID
+        GROUP BY "registration-id"
         """
         return ["patient_id", "episode_count"], sql
 
@@ -804,12 +714,12 @@ class TPPBackend:
         codelist_table = self.create_codelist_table(codelist, case_sensitive=True)
         return f"""
         NOT EXISTS (
-          SELECT * FROM CodedEvent AS sameday
+          SELECT * FROM observation AS sameday
           INNER JOIN {codelist_table}
-          ON sameday.CTV3Code = {codelist_table}.code
+          ON sameday."snomed-concept-id" = {codelist_table}.code
           WHERE
-            sameday.Patient_ID = {joined_table}.Patient_ID
-            AND CAST(sameday.ConsultationDate AS date) = CAST({joined_table}.ConsultationDate AS date)
+            sameday."registration-id" = {joined_table}."registration-id"
+            AND CAST(sameday."effective-date" AS date) = CAST({joined_table}."effective-date" AS date)
         )
         """
 
@@ -818,7 +728,7 @@ class TPPBackend:
             column = "STPCode"
         elif returning == "msoa_code":
             column = "MSOACode"
-        elif returning == "nuts1_region_name":
+        elif returning == "nhse_region_name":
             column = "Region"
         elif returning == "pseudo_id":
             column = "Organisation_ID"
@@ -832,12 +742,12 @@ class TPPBackend:
             ["patient_id", returning],
             f"""
             SELECT
-              Patient_ID AS patient_id,
+              "registration-id" AS patient_id,
               Organisation.{column} AS {returning}
             FROM (
-              SELECT Patient_ID, Organisation_ID,
+              SELECT "registration-id", Organisation_ID,
               ROW_NUMBER() OVER (
-                PARTITION BY Patient_ID ORDER BY StartDate DESC, EndDate DESC
+                PARTITION BY "registration-id" ORDER BY StartDate DESC, EndDate DESC
               ) AS rownum
               FROM RegistrationHistory
               WHERE StartDate <= {quote(date)} AND EndDate > {quote(date)}
@@ -870,54 +780,14 @@ class TPPBackend:
             ["patient_id", returning],
             f"""
             SELECT
-              Patient_ID AS patient_id,
+              "registration-id" AS patient_id,
               {column} AS {returning}
             FROM (
-              SELECT Patient_ID, {column},
+              SELECT "registration-id", {column},
               ROW_NUMBER() OVER (
-                PARTITION BY Patient_ID ORDER BY StartDate DESC, EndDate DESC
+                PARTITION BY "registration-id" ORDER BY StartDate DESC, EndDate DESC
               ) AS rownum
               FROM PatientAddress
-              WHERE StartDate <= {quote(date)} AND EndDate > {quote(date)}
-            ) t
-            WHERE rownum = 1
-            """,
-        )
-
-    def patients_care_home_status_as_of(self, date, categorised_as):
-        # These are the columns to which the categorisation expression is
-        # allowed to refer
-        allowed_columns = {
-            "IsPotentialCareHome": "ISNULL(PotentialCareHomeAddressID, 0)",
-            "LocationRequiresNursing": "LocationRequiresNursing",
-            "LocationDoesNotRequireNursing": "LocationDoesNotRequireNursing",
-        }
-        allowed_column_types = {
-            "IsPotentialCareHome": "int",
-            "LocationRequiresNursing": "str",
-            "LocationDoesNotRequireNursing": "str",
-        }
-        case_expression = self.get_case_expression(
-            allowed_column_types, allowed_columns, categorised_as
-        )
-        return (
-            ["patient_id", "value"],
-            f"""
-            SELECT
-              Patient_ID AS patient_id,
-              {case_expression} AS value
-            FROM (
-              SELECT
-                PatientAddress.Patient_ID AS Patient_ID,
-                PotentialCareHomeAddress.PatientAddress_ID AS PotentialCareHomeAddressID,
-                LocationRequiresNursing,
-                LocationDoesNotRequireNursing,
-                ROW_NUMBER() OVER (
-                  PARTITION BY PatientAddress.Patient_ID ORDER BY StartDate DESC, EndDate DESC
-                ) AS rownum
-              FROM PatientAddress
-              LEFT JOIN PotentialCareHomeAddress
-              ON PatientAddress.PatientAddress_ID = PotentialCareHomeAddress.PatientAddress_ID
               WHERE StartDate <= {quote(date)} AND EndDate > {quote(date)}
             ) t
             WHERE rownum = 1
@@ -942,11 +812,11 @@ class TPPBackend:
         {date_aggregate}(
         CASE
         WHEN
-          COALESCE(IcuAdmissionDateTime, '9999-01-01') < COALESCE(OriginalIcuAdmissionDate, '9999-01-01')
+          COALESCE(date_format(IcuAdmissionDateTime, '%Y-%m-%d'), '9999-01-01') < COALESCE(date_format(OriginalIcuAdmissionDate, '%Y-%m-%d'), '9999-01-01')
         THEN
-          IcuAdmissionDateTime
+          DATE(IcuAdmissionDateTime)
         ELSE
-          OriginalIcuAdmissionDate
+          DATE(OriginalIcuAdmissionDate)
         END)"""
         date_condition = make_date_filter(date_expression, between)
 
@@ -962,12 +832,12 @@ class TPPBackend:
             ["patient_id", column_name],
             f"""
             SELECT
-              Patient_ID AS patient_id,
+              "registration-id" AS patient_id,
               {column_definition} AS {column_name},
               MAX(Ventilator) AS ventilated -- apparently can be 0, 1 or NULL
             FROM
               ICNARC
-            GROUP BY Patient_ID
+            GROUP BY "registration-id"
             HAVING
               {date_condition} AND SUM(BasicDays_RespiratorySupport) + SUM(AdvancedDays_RespiratorySupport) >= 1
             """,
@@ -1006,7 +876,7 @@ class TPPBackend:
         return (
             ["patient_id", column_name],
             f"""
-            SELECT Patient_ID as patient_id, {column_definition} AS {column_name}
+            SELECT "registration-id" as patient_id, {column_definition} AS {column_name}
             FROM ONS_Deaths
             WHERE ({code_conditions}) AND {date_condition}
             """,
@@ -1043,213 +913,15 @@ class TPPBackend:
             ["patient_id", column_name],
             f"""
             SELECT
-              Patient_ID as patient_id,
+              "registration-id" as patient_id,
               {column_definition} AS {column_name},
               -- Crude error check so we blow up in the case of inconsistent dates
               1 / CASE WHEN MAX(DateOfDeath) = MIN(DateOfDeath) THEN 1 ELSE 0 END AS _e
             FROM CPNS
             WHERE {date_condition}
-            GROUP BY Patient_ID
+            GROUP BY "registration-id"
             """,
         )
-
-    def patients_with_tpp_vaccination_record(
-        self,
-        target_disease_matches=None,
-        product_name_matches=None,
-        # Set date limits
-        between=None,
-        # Set return type
-        returning="binary_flag",
-        # Matching rule
-        find_first_match_in_period=None,
-        find_last_match_in_period=None,
-        include_date_of_match=False,
-    ):
-        conditions = [make_date_filter("VaccinationDate", between)]
-        target_disease_matches = to_list(target_disease_matches)
-        if target_disease_matches:
-            content_codes = codelist_to_sql(target_disease_matches)
-            conditions.append(f"ref.VaccinationContent IN ({content_codes})")
-
-        product_name_matches = to_list(product_name_matches)
-        if product_name_matches:
-            product_name_codes = codelist_to_sql(product_name_matches)
-            conditions.append(f"ref.VaccinationName IN ({product_name_codes})")
-
-        conditions_str = " AND ".join(conditions)
-
-        # Result ordering
-        if find_first_match_in_period:
-            date_aggregate = "MIN"
-        else:
-            date_aggregate = "MAX"
-
-        if returning == "binary_flag" or returning == "date":
-            column_name = "has_event"
-            column_definition = "1"
-        else:
-            # Because each Vaccination row can potentially map to multiple
-            # VaccinationReference rows (one for each disease targeted by the
-            # vaccine) anything beyond a simple binary flag or a date is going to
-            # require more thought.
-            raise ValueError(f"Unsupported `returning` value: {returning}")
-
-        sql = f"""
-        SELECT
-          Patient_ID AS patient_id,
-          {column_definition} AS {column_name},
-          {date_aggregate}(VaccinationDate) AS date
-        FROM Vaccination
-        INNER JOIN VaccinationReference AS ref
-        ON ref.VaccinationName_ID = Vaccination.VaccinationName_ID
-        WHERE {conditions_str}
-        GROUP BY Patient_ID
-        """
-
-        if returning == "date":
-            columns = ["patient_id", "date"]
-        else:
-            columns = ["patient_id", column_name]
-            if include_date_of_match:
-                columns.append("date")
-        return columns, sql
-
-    def patients_with_gp_consultations(
-        self,
-        # Set date limits
-        between=None,
-        # Matching rule
-        find_first_match_in_period=None,
-        find_last_match_in_period=None,
-        # Set return type
-        returning="binary_flag",
-        include_date_of_match=False,
-    ):
-        if returning == "binary_flag" or returning == "date":
-            column_name = "has_event"
-            column_definition = "1"
-        elif returning == "number_of_matches_in_period":
-            column_name = "count"
-            column_definition = "COUNT(*)"
-        else:
-            raise ValueError(f"Unsupported `returning` value: {returning}")
-
-        valid_states = [
-            AppointmentStatus.ARRIVED,
-            AppointmentStatus.WAITING,
-            AppointmentStatus.IN_PROGRESS,
-            AppointmentStatus.FINISHED,
-            AppointmentStatus.PATIENT_WALKED_OUT,
-            AppointmentStatus.VISIT,
-        ]
-        valid_states_str = codelist_to_sql(map(int, valid_states))
-
-        date_condition = make_date_filter("SeenDate", between)
-        # Result ordering
-        date_aggregate = "MIN" if find_first_match_in_period else "MAX"
-        sql = f"""
-        SELECT
-          Patient_ID AS patient_id,
-          {column_definition} AS {column_name},
-          {date_aggregate}(SeenDate) AS date
-        FROM Appointment
-        WHERE Status IN ({valid_states_str}) AND {date_condition}
-        GROUP BY Patient_ID
-        """
-
-        if returning == "date":
-            columns = ["patient_id", "date"]
-        else:
-            columns = ["patient_id", column_name]
-            if include_date_of_match:
-                columns.append("date")
-        return columns, sql
-
-    def patients_with_complete_gp_consultation_history_between(
-        self, start_date, end_date
-    ):
-        """
-        In this context this should mean patients who have been continuously
-        registered with TPP-using practices throughout this period. However,
-        for now we restrict this to just patients who have been registered with
-        a single practice throughout this period.  As this is a more
-        restrictive condition this is fine for our purposes, however once we
-        get an implementation for `patients_with_complete_history_between` we
-        should switch to using this.
-        """
-        return self.patients_registered_with_one_practice_between(
-            start_date, end_date, practice_used_systm_one_throughout_period=True
-        )
-
-    def patients_with_test_result_in_sgss(
-        self,
-        pathogen=None,
-        test_result=None,
-        # Set date limits
-        between=None,
-        # Matching rule
-        find_first_match_in_period=None,
-        find_last_match_in_period=None,
-        # Set return type
-        returning="binary_flag",
-        include_date_of_match=False,
-    ):
-        assert pathogen == "SARS-CoV-2"
-        assert test_result in ("positive", "negative", "any")
-        if returning not in ("binary_flag", "date"):
-            raise ValueError(f"Unsupported `returning` value: {returning}")
-
-        date_condition = make_date_filter("date", between)
-        date_aggregate = "MIN" if find_first_match_in_period else "MAX"
-        if test_result == "any":
-            result_condition = "1 = 1"
-        else:
-            flag = 1 if test_result == "positive" else 0
-            result_condition = f"test_result = {quote(flag)}"
-
-        # These are the values we're expecting in our SGSS tables. If we ever
-        # get anything other than these we should throw an error rather than
-        # blindly continuing.
-        positive_descr = "SARS-CoV-2 CORONAVIRUS (Covid-19)"
-        negative_descr = "NEGATIVE SARS-CoV-2 (COVID-19)"
-
-        sql = f"""
-        SELECT
-          patient_id,
-          1 AS has_result,
-          {date_aggregate}(date) AS date,
-          -- We have to calculate something over the error check field
-          -- otherwise it never gets computed
-          MAX(_e) AS _e
-        FROM (
-          SELECT
-            1 AS test_result,
-            Patient_ID AS patient_id,
-            Earliest_Specimen_Date AS date,
-            -- Crude error check so we blow up in the case of unexpected data
-            1 / CASE WHEN Organism_Species_Name = '{positive_descr}' THEN 1 ELSE 0 END AS _e
-          FROM SGSS_Positive
-          UNION ALL
-          SELECT
-            0 AS test_result,
-            Patient_ID AS patient_id,
-            Earliest_Specimen_Date AS date,
-            -- Crude error check so we blow up in the case of unexpected data
-            1 / CASE WHEN Organism_Species_Name = '{negative_descr}' THEN 1 ELSE 0 END AS _e
-          FROM SGSS_Negative
-        ) t
-        WHERE {date_condition} AND {result_condition}
-        GROUP BY patient_id
-        """
-
-        if returning == "date":
-            columns = ["patient_id", "date"]
-        else:
-            columns = ["patient_id", "has_result"]
-            if include_date_of_match:
-                columns.append("date")
-        return columns, sql
 
     def get_case_expression(
         self, column_types, column_definitions, category_definitions
@@ -1285,49 +957,10 @@ class TPPBackend:
             clauses.append(f"WHEN ({formatted_expression}) THEN {quote(category)}")
         return f"CASE {' '.join(clauses)} ELSE {quote(default_value)} END"
 
-    def get_aggregate_expression(
-        self, column_type, column_definitions, column_names, aggregate_function
-    ):
-        assert aggregate_function in ("MIN", "MAX")
-        default_value = quote(self.get_default_value_for_type(column_type))
-        # In other databases we could use GREATEST/LEAST to aggregate over
-        # columns, but for MSSQL we need to use this Table Value Constructor
-        # trick: https://stackoverflow.com/a/6871572
-        components = ", ".join(f"({column_definitions[name]})" for name in column_names)
-        aggregate_expression = (
-            f"SELECT {aggregate_function}(value)"
-            f" FROM (VALUES {components}) AS _table(value)"
-            # This is slightly awkward: MIN and MAX ignore NULL values which is
-            # the behaviour we want here. For instance, given a column like:
-            #
-            #   minimum_of("covid_test_date", "hosptial_admission_date")
-            #
-            # We want this value to be equal to "covid_test_date" for patients
-            # which have not been admitted to hospital (i.e. patients for which
-            # "hospital_admission_date" is NULL).
-            #
-            # However, the values we have here have already been passed through
-            # the `ISNULL` function to replace NULLs with a default value
-            # (which for dates is the empty string). This means that if we just
-            # took the minimum over these values in the example above, we'd get
-            # the empty string from "hosptial_admission_date" rather than the
-            # value in "covid_test_date".
-            #
-            # To workaround this we add a WHERE clause to filter out any
-            # default values (essentially treating them as if they were NULL).
-            # This gives us the result we want but it does mean we can't
-            # distinguish e.g. a recorded value of 0.0 from a missing value.
-            # This, however, is a general problem with the way we handle NULLs
-            # in our system, and so we're not introducing any new difficulty
-            # here.  (It's also unlikely to be a problem in practice.)
-            f" WHERE value != {default_value}"
-        )
-        return f"ISNULL(({aggregate_expression}), {default_value})"
-
     def get_db_connection(self):
         if self._db_connection:
             return self._db_connection
-        self._db_connection = mssql_pyodbc_connection_from_url(self.database_url)
+        self._db_connection = presto_connection_from_url(self.database_url)
         return self._db_connection
 
 
@@ -1339,39 +972,20 @@ def codelist_to_sql(codelist):
     return ",".join(values)
 
 
-def to_list(value):
-    if value is None:
-        return []
-    if not isinstance(value, (tuple, list)):
-        return [value]
-    return list(value)
-
-
-def standardise_if_date(value):
-    """For strings that look like ISO dates, format in a SQL-Server
-    friendly fashion
-
-    """
-
-    # ISO date strings with hyphens are unreliable in SQL Server:
-    # https://stackoverflow.com/a/25548626/559140
-    try:
-        date = datetime.datetime.strptime(value, "%Y-%m-%d")
-        value = date.strftime("%Y%m%d")
-    except ValueError:
-        pass
-    return value
-
-
 def quote(value):
     if isinstance(value, (int, float)):
         return str(value)
-    else:
-        value = str(value)
-        value = standardise_if_date(value)
-        if not SAFE_CHARS_RE.match(value) and value != "":
-            raise ValueError(f"Value contains disallowed characters: {value}")
-        return f"'{value}'"
+
+    value = str(value)
+    try:
+        datetime.datetime.strptime(value, "%Y-%m-%d")
+        return f"DATE('{value}')"
+    except ValueError:
+        pass
+
+    if not SAFE_CHARS_RE.match(value) and value != "":
+        raise ValueError(f"Value contains disallowed characters: {value}")
+    return f"'{value}'"
 
 
 def make_date_filter(column, between, upper_bound_only=False):
@@ -1392,16 +1006,14 @@ def make_date_filter(column, between, upper_bound_only=False):
 
 def truncate_date(column, date_format):
     if date_format == "YYYY" or date_format is None:
-        date_length = 4
+        date_format = "%Y"
     elif date_format == "YYYY-MM":
-        date_length = 7
+        date_format = "%Y-%m"
     elif date_format == "YYYY-MM-DD":
-        date_length = 10
+        date_format = "%Y-%m-%d"
     else:
         raise ValueError(f"Unhandled date format: {date_format}")
-    # Style 23 below means YYYY-MM-DD format, see:
-    # https://docs.microsoft.com/en-us/sql/t-sql/functions/cast-and-convert-transact-sql?view=sql-server-ver15#date-and-time-styles
-    return f"CONVERT(VARCHAR({date_length}), {column}, 23)"
+    return f"date_format({column}, '{date_format}')"
 
 
 class UniqueCheck:
@@ -1425,21 +1037,3 @@ def pop_keys_from_dict(dictionary, keys):
         if key in dictionary:
             new_dict[key] = dictionary.pop(key)
     return new_dict
-
-
-class AppointmentStatus(enum.IntEnum):
-    BOOKED = 0
-    ARRIVED = 1
-    DID_NOT_ATTEND = 2
-    IN_PROGRESS = 3
-    FINISHED = 4
-    REQUESTED = 5
-    BLOCKED = 6
-    VISIT = 8
-    WAITING = 9
-    CANCELLED_BY_PATIENT = 10
-    CANCELLED_BY_UNIT = 11
-    CANCELLED_BY_OTHER_SERVICE = 12
-    NO_ACCESS_VISIT = 14
-    CANCELLED_DUE_TO_DEATH = 15
-    PATIENT_WALKED_OUT = 16

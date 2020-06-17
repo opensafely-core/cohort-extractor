@@ -18,6 +18,9 @@ setup(
         "sqlalchemy",
         "sqlparse",
     ],
-    scripts=["cohort-extractor"],
+    entry_points={
+        "console_scripts": ["cohortextractor=datalab_cohorts.cohortextractor:main"]
+    },
     include_package_data=True,
+    classifiers=["License :: OSI Approved :: GNU General Public License v3 (GPLv3)"],
 )

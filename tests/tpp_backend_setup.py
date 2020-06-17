@@ -1,19 +1,34 @@
 import os
+import time
 
 import sqlalchemy
-from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, Integer, String, DateTime, Float, NVARCHAR, Boolean, Date
+from sqlalchemy import Column, Integer, String, DateTime, Float, NVARCHAR, Date
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm import relationship
+
+from datalab_cohorts.mssql_utils import mssql_sqlalchemy_engine_from_url
 
 
 Base = declarative_base()
 
 
 def make_engine():
-    engine = create_engine(os.environ["DATABASE_URL"])
+    engine = mssql_sqlalchemy_engine_from_url(os.environ["TPP_DATABASE_URL"])
+    timeout = os.environ.get("CONNECTION_RETRY_TIMEOUT")
+    timeout = float(timeout) if timeout else 60
+    # Wait for the database to be ready if it isn't already
+    start = time.time()
+    while True:
+        try:
+            engine.connect()
+            break
+        except sqlalchemy.exc.DBAPIError:
+            if time.time() - start < timeout:
+                time.sleep(1)
+            else:
+                raise
     return engine
 
 

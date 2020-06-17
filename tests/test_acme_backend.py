@@ -1,29 +1,20 @@
 import csv
-import filecmp
 import os
 import subprocess
 import tempfile
 
 import pytest
 
-from tests.tpp_backend_setup import make_database, make_session
-from tests.tpp_backend_setup import (
-    Appointment,
-    CodedEvent,
-    MedicationIssue,
-    MedicationDictionary,
+from tests.acme_backend_setup import make_database, make_session
+from tests.acme_backend_setup import (
+    Observation,
+    Medication,
     Patient,
-    RegistrationHistory,
     Organisation,
     PatientAddress,
     ICNARC,
     ONSDeaths,
     CPNS,
-    Vaccination,
-    VaccinationReference,
-    SGSS_Positive,
-    SGSS_Negative,
-    PotentialCareHomeAddress,
 )
 
 from datalab_cohorts import (
@@ -31,11 +22,8 @@ from datalab_cohorts import (
     patients,
     codelist,
 )
-from datalab_cohorts.mssql_utils import mssql_connection_params_from_url
-from datalab_cohorts.tpp_backend import (
-    quote,
-    AppointmentStatus,
-)
+from datalab_cohorts.acme_backend import quote
+from datalab_cohorts.presto_utils import presto_connection_params_from_url
 
 
 @pytest.fixture(autouse=True)
@@ -43,8 +31,8 @@ def set_database_url(monkeypatch):
     # The StudyDefinition code expects a single DATABASE_URL to tell it where
     # to connect to, but the test environment needs to supply multiple
     # connections (one for each backend type) so we copy the value in here
-    if "TPP_DATABASE_URL" in os.environ:
-        monkeypatch.setenv("DATABASE_URL", os.environ["TPP_DATABASE_URL"])
+    if "ACME_DATABASE_URL" in os.environ:
+        monkeypatch.setenv("DATABASE_URL", os.environ["ACME_DATABASE_URL"])
 
 
 def setup_module(module):
@@ -52,32 +40,41 @@ def setup_module(module):
 
 
 def setup_function(function):
-    """Ensure test database is empty
+    """
+    Ensure test database is empty
     """
     session = make_session()
-    session.query(CodedEvent).delete()
-    session.query(ICNARC).delete()
-    session.query(ONSDeaths).delete()
-    session.query(CPNS).delete()
-    session.query(Vaccination).delete()
-    session.query(VaccinationReference).delete()
-    session.query(Appointment).delete()
-    session.query(SGSS_Positive).delete()
-    session.query(SGSS_Negative).delete()
-    session.query(MedicationIssue).delete()
-    session.query(MedicationDictionary).delete()
-    session.query(RegistrationHistory).delete()
-    session.query(Organisation).delete()
-    session.query(PotentialCareHomeAddress).delete()
-    session.query(PatientAddress).delete()
+    session.query(Observation).delete()
+    # session.query(ICNARC).delete()
+    # session.query(ONSDeaths).delete()
+    # session.query(CPNS).delete()
+    session.query(Medication).delete()
+    # session.query(Organisation).delete()
+    # session.query(PatientAddress).delete()
     session.query(Patient).delete()
     session.commit()
+
+    delete_temporary_tables()
+
+
+def delete_temporary_tables():
+    """Delete all temporary tables.
+
+    This doesn't really belong in the test setup, and we'll have to think about
+    how to handle temporary tables in production.
+    """
+    session = make_session()
+    with session.bind.connect() as conn:
+        sql = r"SELECT NAME FROM sys.tables WHERE NAME LIKE '\_%' ESCAPE '\'"
+        tables = [row[0] for row in conn.execute(sql)]
+        for table in tables:
+            conn.execute(f"DROP TABLE {table}")
 
 
 def test_minimal_study_to_csv():
     session = make_session()
-    patient_1 = Patient(DateOfBirth="1900-01-01", Sex="M")
-    patient_2 = Patient(DateOfBirth="1900-01-01", Sex="F")
+    patient_1 = Patient(date_of_birth="1900-01-01", gender=1)
+    patient_2 = Patient(date_of_birth="1900-01-01", gender=2)
     session.add_all([patient_1, patient_2])
     session.commit()
     study = StudyDefinition(population=patients.all(), sex=patients.sex())
@@ -85,21 +82,16 @@ def test_minimal_study_to_csv():
         study.to_csv(f.name)
         results = list(csv.DictReader(f))
         assert results == [
-            {"patient_id": str(patient_1.Patient_ID), "sex": "M"},
-            {"patient_id": str(patient_2.Patient_ID), "sex": "F"},
+            {"patient_id": str(patient_1.id), "sex": "M"},
+            {"patient_id": str(patient_2.id), "sex": "F"},
         ]
 
 
 def test_meds():
     session = make_session()
 
-    asthma_medication = MedicationDictionary(
-        FullName="Asthma Drug", DMD_ID="0", MultilexDrug_ID="0"
-    )
     patient_with_med = Patient()
-    patient_with_med.MedicationIssues = [
-        MedicationIssue(MedicationDictionary=asthma_medication)
-    ]
+    patient_with_med.medications = [Medication(snomed_concept_id=0)]
     patient_without_med = Patient()
     session.add(patient_with_med)
     session.add(patient_without_med)
@@ -107,9 +99,7 @@ def test_meds():
 
     study = StudyDefinition(
         population=patients.all(),
-        asthma_meds=patients.with_these_medications(
-            codelist(asthma_medication.DMD_ID, "snomed")
-        ),
+        asthma_meds=patients.with_these_medications(codelist([0], "snomed")),
     )
     results = study.to_dicts()
     assert [x["asthma_meds"] for x in results] == ["1", "0"]
@@ -118,23 +108,12 @@ def test_meds():
 def test_meds_with_count():
     session = make_session()
 
-    asthma_medication = MedicationDictionary(
-        FullName="Asthma Drug", DMD_ID="0", MultilexDrug_ID="0"
-    )
     patient_with_med = Patient()
-    patient_with_med.MedicationIssues = [
-        MedicationIssue(
-            MedicationDictionary=asthma_medication, ConsultationDate="2010-01-01"
-        ),
-        MedicationIssue(
-            MedicationDictionary=asthma_medication, ConsultationDate="2015-01-01"
-        ),
-        MedicationIssue(
-            MedicationDictionary=asthma_medication, ConsultationDate="2018-01-01"
-        ),
-        MedicationIssue(
-            MedicationDictionary=asthma_medication, ConsultationDate="2020-01-01"
-        ),
+    patient_with_med.medications = [
+        Medication(snomed_concept_id=0, effective_date="2010-01-01"),
+        Medication(snomed_concept_id=0, effective_date="2015-01-01"),
+        Medication(snomed_concept_id=0, effective_date="2018-01-01"),
+        Medication(snomed_concept_id=0, effective_date="2020-01-01"),
     ]
     patient_without_med = Patient()
     session.add(patient_with_med)
@@ -144,7 +123,7 @@ def test_meds_with_count():
     study = StudyDefinition(
         population=patients.all(),
         asthma_meds=patients.with_these_medications(
-            codelist(asthma_medication.DMD_ID, "snomed"),
+            codelist([0], "snomed"),
             on_or_after="2012-01-01",
             return_number_of_matches_in_period=True,
         ),
@@ -169,9 +148,11 @@ def _make_clinical_events_selection(condition_code, patient_dates=None):
                 date, value = date
             else:
                 value = 0.0
-            patient.CodedEvents.append(
-                CodedEvent(
-                    CTV3Code=condition_code, ConsultationDate=date, NumericValue=value
+            patient.observations.append(
+                Observation(
+                    snomed_concept_id=condition_code,
+                    effective_date=date,
+                    value_pq_1=value,
                 )
             )
         session.add(patient)
@@ -405,13 +386,15 @@ def test_clinical_event_with_category():
         [
             Patient(),
             Patient(
-                CodedEvents=[
-                    CodedEvent(CTV3Code="foo1", ConsultationDate="2018-01-01"),
-                    CodedEvent(CTV3Code="foo2", ConsultationDate="2020-01-01"),
+                observations=[
+                    Observation(snomed_concept_id="foo1", effective_date="2018-01-01"),
+                    Observation(snomed_concept_id="foo2", effective_date="2020-01-01"),
                 ]
             ),
             Patient(
-                CodedEvents=[CodedEvent(CTV3Code="foo3", ConsultationDate="2019-01-01")]
+                observations=[
+                    Observation(snomed_concept_id="foo3", effective_date="2019-01-01")
+                ]
             ),
         ]
     )
@@ -429,63 +412,18 @@ def test_clinical_event_with_category():
     assert [x["code_category_date"] for x in results] == ["", "2020", "2019"]
 
 
-def test_patient_registered_as_of():
-    session = make_session()
-
-    patient_registered_in_2001 = Patient()
-    patient_registered_in_2002 = Patient()
-    patient_unregistered_in_2002 = Patient()
-    patient_registered_in_2001.RegistrationHistory = [
-        RegistrationHistory(
-            StartDate="2001-01-01", EndDate="9999-01-01", Organisation=Organisation()
-        )
-    ]
-    patient_registered_in_2002.RegistrationHistory = [
-        RegistrationHistory(
-            StartDate="2002-01-01", EndDate="9999-01-01", Organisation=Organisation()
-        )
-    ]
-    patient_unregistered_in_2002.RegistrationHistory = [
-        RegistrationHistory(
-            StartDate="2001-01-01", EndDate="2002-01-01", Organisation=Organisation()
-        )
-    ]
-
-    session.add(patient_registered_in_2001)
-    session.add(patient_registered_in_2002)
-    session.add(patient_unregistered_in_2002)
-    session.commit()
-
-    # No date criteria
-    study = StudyDefinition(population=patients.registered_as_of("2002-03-02"))
-    results = study.to_dicts()
-    assert [x["patient_id"] for x in results] == [
-        str(patient_registered_in_2001.Patient_ID),
-        str(patient_registered_in_2002.Patient_ID),
-    ]
-
-
 def test_patients_registered_with_one_practice_between():
     session = make_session()
 
-    patient_registered_in_2001 = Patient()
-    patient_registered_in_2002 = Patient()
-    patient_unregistered_in_2002 = Patient()
-    patient_registered_in_2001.RegistrationHistory = [
-        RegistrationHistory(
-            StartDate="2001-01-01", EndDate="9999-01-01", Organisation=Organisation()
-        )
-    ]
-    patient_registered_in_2002.RegistrationHistory = [
-        RegistrationHistory(
-            StartDate="2002-01-01", EndDate="9999-01-01", Organisation=Organisation()
-        )
-    ]
-    patient_unregistered_in_2002.RegistrationHistory = [
-        RegistrationHistory(
-            StartDate="2001-01-01", EndDate="2002-01-01", Organisation=Organisation()
-        )
-    ]
+    patient_registered_in_2001 = Patient(
+        registered_date="2001-01-01", registration_end_date=None
+    )
+    patient_registered_in_2002 = Patient(
+        registered_date="2002-01-01", registration_end_date=None
+    )
+    patient_unregistered_in_2002 = Patient(
+        registered_date="2001-01-01", registration_end_date="2002-01-01"
+    )
 
     session.add(patient_registered_in_2001)
     session.add(patient_registered_in_2002)
@@ -498,9 +436,7 @@ def test_patients_registered_with_one_practice_between():
         )
     )
     results = study.to_dicts()
-    assert [x["patient_id"] for x in results] == [
-        str(patient_registered_in_2001.Patient_ID)
-    ]
+    assert [x["patient_id"] for x in results] == [str(patient_registered_in_2001.id)]
 
 
 @pytest.mark.parametrize("include_dates", ["none", "year", "month", "day"])
@@ -510,12 +446,16 @@ def test_simple_bmi(include_dates):
     weight_code = "X76C7"
     height_code = "XM01E"
 
-    patient = Patient(DateOfBirth="1950-01-01")
-    patient.CodedEvents.append(
-        CodedEvent(CTV3Code=weight_code, NumericValue=50, ConsultationDate="2002-06-01")
+    patient = Patient(date_of_birth="1950-01-01")
+    patient.observations.append(
+        Observation(
+            snomed_concept_id=weight_code, value_pq_1=50, effective_date="2002-06-01",
+        )
     )
-    patient.CodedEvents.append(
-        CodedEvent(CTV3Code=height_code, NumericValue=10, ConsultationDate="2001-06-01")
+    patient.observations.append(
+        Observation(
+            snomed_concept_id=height_code, value_pq_1=10, effective_date="2001-06-01",
+        )
     )
     session.add(patient)
     session.commit()
@@ -537,7 +477,7 @@ def test_simple_bmi(include_dates):
         BMI=patients.most_recent_bmi(
             on_or_after="1995-01-01", on_or_before="2005-01-01"
         ),
-        **dict(BMI_date_measured=date_query) if date_query else {}
+        **dict(BMI_date_measured=date_query) if date_query else {},
     )
     results = study.to_dicts()
     assert [x["BMI"] for x in results] == ["0.5"]
@@ -550,14 +490,18 @@ def test_bmi_rounded():
     weight_code = "X76C7"
     height_code = "XM01E"
 
-    patient = Patient(DateOfBirth="1950-01-01")
-    patient.CodedEvents.append(
-        CodedEvent(
-            CTV3Code=weight_code, NumericValue=10.12345, ConsultationDate="2001-06-01"
+    patient = Patient(date_of_birth="1950-01-01")
+    patient.observations.append(
+        Observation(
+            snomed_concept_id=weight_code,
+            value_pq_1=10.12345,
+            effective_date="2001-06-01",
         )
     )
-    patient.CodedEvents.append(
-        CodedEvent(CTV3Code=height_code, NumericValue=10, ConsultationDate="2000-02-01")
+    patient.observations.append(
+        Observation(
+            snomed_concept_id=height_code, value_pq_1=10, effective_date="2000-02-01",
+        )
     )
     session.add(patient)
     session.commit()
@@ -578,12 +522,16 @@ def test_bmi_with_zero_values():
     weight_code = "X76C7"
     height_code = "XM01E"
 
-    patient = Patient(DateOfBirth="1950-01-01")
-    patient.CodedEvents.append(
-        CodedEvent(CTV3Code=weight_code, NumericValue=0, ConsultationDate="2001-06-01")
+    patient = Patient(date_of_birth="1950-01-01")
+    patient.observations.append(
+        Observation(
+            snomed_concept_id=weight_code, value_pq_1=0, effective_date="2001-06-01"
+        )
     )
-    patient.CodedEvents.append(
-        CodedEvent(CTV3Code=height_code, NumericValue=0, ConsultationDate="2001-06-01")
+    patient.observations.append(
+        Observation(
+            snomed_concept_id=height_code, value_pq_1=0, effective_date="2001-06-01"
+        )
     )
     session.add(patient)
     session.commit()
@@ -606,12 +554,16 @@ def test_explicit_bmi_fallback():
     weight_code = "X76C7"
     bmi_code = "22K.."
 
-    patient = Patient(DateOfBirth="1950-01-01")
-    patient.CodedEvents.append(
-        CodedEvent(CTV3Code=weight_code, NumericValue=50, ConsultationDate="2001-06-01")
+    patient = Patient(date_of_birth="1950-01-01")
+    patient.observations.append(
+        Observation(
+            snomed_concept_id=weight_code, value_pq_1=50, effective_date="2001-06-01",
+        )
     )
-    patient.CodedEvents.append(
-        CodedEvent(CTV3Code=bmi_code, NumericValue=99, ConsultationDate="2001-10-01")
+    patient.observations.append(
+        Observation(
+            snomed_concept_id=bmi_code, value_pq_1=99, effective_date="2001-10-01"
+        )
     )
     session.add(patient)
     session.commit()
@@ -633,9 +585,11 @@ def test_no_bmi_when_old_date():
 
     bmi_code = "22K.."
 
-    patient = Patient(DateOfBirth="1950-01-01")
-    patient.CodedEvents.append(
-        CodedEvent(CTV3Code=bmi_code, NumericValue=99, ConsultationDate="1994-12-31")
+    patient = Patient(date_of_birth="1950-01-01")
+    patient.observations.append(
+        Observation(
+            snomed_concept_id=bmi_code, value_pq_1=99, effective_date="1994-12-31"
+        )
     )
     session.add(patient)
     session.commit()
@@ -657,9 +611,11 @@ def test_no_bmi_when_measurements_of_child():
 
     bmi_code = "22K.."
 
-    patient = Patient(DateOfBirth="2000-01-01")
-    patient.CodedEvents.append(
-        CodedEvent(CTV3Code=bmi_code, NumericValue=99, ConsultationDate="2001-01-01")
+    patient = Patient(date_of_birth="2000-01-01")
+    patient.observations.append(
+        Observation(
+            snomed_concept_id=bmi_code, value_pq_1=99, effective_date="2001-01-01"
+        )
     )
     session.add(patient)
     session.commit()
@@ -681,9 +637,11 @@ def test_no_bmi_when_measurement_after_reference_date():
 
     bmi_code = "22K.."
 
-    patient = Patient(DateOfBirth="1900-01-01")
-    patient.CodedEvents.append(
-        CodedEvent(CTV3Code=bmi_code, NumericValue=99, ConsultationDate="2001-01-01")
+    patient = Patient(date_of_birth="1900-01-01")
+    patient.observations.append(
+        Observation(
+            snomed_concept_id=bmi_code, value_pq_1=99, effective_date="2001-01-01"
+        )
     )
     session.add(patient)
     session.commit()
@@ -707,15 +665,21 @@ def test_bmi_when_only_some_measurements_of_child():
     weight_code = "X76C7"
     height_code = "XM01E"
 
-    patient = Patient(DateOfBirth="1990-01-01")
-    patient.CodedEvents.append(
-        CodedEvent(CTV3Code=bmi_code, NumericValue=99, ConsultationDate="1995-01-01")
+    patient = Patient(date_of_birth="1990-01-01")
+    patient.observations.append(
+        Observation(
+            snomed_concept_id=bmi_code, value_pq_1=99, effective_date="1995-01-01"
+        )
     )
-    patient.CodedEvents.append(
-        CodedEvent(CTV3Code=weight_code, NumericValue=50, ConsultationDate="2010-01-01")
+    patient.observations.append(
+        Observation(
+            snomed_concept_id=weight_code, value_pq_1=50, effective_date="2010-01-01",
+        )
     )
-    patient.CodedEvents.append(
-        CodedEvent(CTV3Code=height_code, NumericValue=10, ConsultationDate="2010-01-01")
+    patient.observations.append(
+        Observation(
+            snomed_concept_id=height_code, value_pq_1=10, effective_date="2010-01-01",
+        )
     )
     session.add(patient)
     session.commit()
@@ -744,12 +708,12 @@ def test_mean_recorded_value():
         ("2020-04-01", 110),
     ]
     for date, value in values:
-        patient.CodedEvents.append(
-            CodedEvent(CTV3Code=code, NumericValue=value, ConsultationDate=date)
+        patient.observations.append(
+            Observation(snomed_concept_id=code, value_pq_1=value, effective_date=date)
         )
     patient_with_old_reading = Patient()
-    patient_with_old_reading.CodedEvents.append(
-        CodedEvent(CTV3Code=code, NumericValue=100, ConsultationDate="2010-01-01")
+    patient_with_old_reading.observations.append(
+        Observation(snomed_concept_id=code, value_pq_1=100, effective_date="2010-01-01")
     )
     patient_with_no_reading = Patient()
     session.add_all([patient, patient_with_old_reading, patient_with_no_reading])
@@ -770,29 +734,15 @@ def test_mean_recorded_value():
     assert results == [("96.0", "2020-02-10"), ("0.0", ""), ("0.0", "")]
 
 
-def test_patient_random_sample():
-    session = make_session()
-    sample_size = 1000
-    for _ in range(sample_size):
-        patient = Patient()
-        session.add(patient)
-    session.commit()
-
-    study = StudyDefinition(population=patients.random_sample(percent=20))
-    results = study.to_dicts()
-    # The method is approximate!
-    assert len(results) < (sample_size / 2)
-
-
 def test_patients_satisfying():
     condition_code = "ASTHMA"
     session = make_session()
-    patient_1 = Patient(DateOfBirth="1940-01-01", Sex="M")
-    patient_2 = Patient(DateOfBirth="1940-01-01", Sex="F")
-    patient_3 = Patient(DateOfBirth="1990-01-01", Sex="M")
-    patient_4 = Patient(DateOfBirth="1940-01-01", Sex="F")
-    patient_4.CodedEvents.append(
-        CodedEvent(CTV3Code=condition_code, ConsultationDate="2010-01-01")
+    patient_1 = Patient(date_of_birth="1940-01-01", gender=1)
+    patient_2 = Patient(date_of_birth="1940-01-01", gender=2)
+    patient_3 = Patient(date_of_birth="1990-01-01", gender=1)
+    patient_4 = Patient(date_of_birth="1940-01-01", gender=2)
+    patient_4.observations.append(
+        Observation(snomed_concept_id=condition_code, effective_date="2010-01-01")
     )
     session.add_all([patient_1, patient_2, patient_3, patient_4])
     session.commit()
@@ -813,19 +763,19 @@ def test_patients_satisfying_with_hidden_columns():
     condition_code = "ASTHMA"
     condition_code2 = "COPD"
     session = make_session()
-    patient_1 = Patient(DateOfBirth="1940-01-01", Sex="M")
-    patient_2 = Patient(DateOfBirth="1940-01-01", Sex="F")
-    patient_3 = Patient(DateOfBirth="1990-01-01", Sex="M")
-    patient_4 = Patient(DateOfBirth="1940-01-01", Sex="F")
-    patient_4.CodedEvents.append(
-        CodedEvent(CTV3Code=condition_code, ConsultationDate="2010-01-01")
+    patient_1 = Patient(date_of_birth="1940-01-01", gender=1)
+    patient_2 = Patient(date_of_birth="1940-01-01", gender=2)
+    patient_3 = Patient(date_of_birth="1990-01-01", gender=1)
+    patient_4 = Patient(date_of_birth="1940-01-01", gender=2)
+    patient_4.observations.append(
+        Observation(snomed_concept_id=condition_code, effective_date="2010-01-01")
     )
-    patient_5 = Patient(DateOfBirth="1940-01-01", Sex="F")
-    patient_5.CodedEvents.append(
-        CodedEvent(CTV3Code=condition_code, ConsultationDate="2010-01-01")
+    patient_5 = Patient(date_of_birth="1940-01-01", gender=2)
+    patient_5.observations.append(
+        Observation(snomed_concept_id=condition_code, effective_date="2010-01-01")
     )
-    patient_5.CodedEvents.append(
-        CodedEvent(CTV3Code=condition_code2, ConsultationDate="2010-01-01")
+    patient_5.observations.append(
+        Observation(snomed_concept_id=condition_code2, effective_date="2010-01-01")
     )
     session.add_all([patient_1, patient_2, patient_3, patient_4, patient_5])
     session.commit()
@@ -857,34 +807,34 @@ def test_patients_categorised_as():
     session.add_all(
         [
             Patient(
-                Sex="M",
-                CodedEvents=[
-                    CodedEvent(CTV3Code="foo1", ConsultationDate="2000-01-01")
+                gender=1,
+                observations=[
+                    Observation(snomed_concept_id="foo1", effective_date="2000-01-01")
                 ],
             ),
             Patient(
-                Sex="F",
-                CodedEvents=[
-                    CodedEvent(CTV3Code="foo2", ConsultationDate="2000-01-01"),
-                    CodedEvent(CTV3Code="bar1", ConsultationDate="2000-01-01"),
+                gender=2,
+                observations=[
+                    Observation(snomed_concept_id="foo2", effective_date="2000-01-01"),
+                    Observation(snomed_concept_id="bar1", effective_date="2000-01-01"),
                 ],
             ),
             Patient(
-                Sex="M",
-                CodedEvents=[
-                    CodedEvent(CTV3Code="foo2", ConsultationDate="2000-01-01")
+                gender=1,
+                observations=[
+                    Observation(snomed_concept_id="foo2", effective_date="2000-01-01")
                 ],
             ),
             Patient(
-                Sex="F",
-                CodedEvents=[
-                    CodedEvent(CTV3Code="foo3", ConsultationDate="2000-01-01")
+                gender=2,
+                observations=[
+                    Observation(snomed_concept_id="foo3", effective_date="2000-01-01")
                 ],
             ),
             Patient(
-                Sex="F",
-                CodedEvents=[
-                    CodedEvent(CTV3Code="bar1", ConsultationDate="2000-01-01"),
+                gender=2,
+                observations=[
+                    Observation(snomed_concept_id="bar1", effective_date="2000-01-01"),
                 ],
             ),
         ]
@@ -919,6 +869,7 @@ def test_patients_categorised_as():
     assert "has_bar" not in results[0].keys()
 
 
+@pytest.mark.xfail
 def test_patients_registered_practice_as_of():
     session = make_session()
     org_1 = Organisation(
@@ -973,7 +924,7 @@ def test_patients_registered_practice_as_of():
         stp=patients.registered_practice_as_of("2020-01-01", returning="stp_code"),
         msoa=patients.registered_practice_as_of("2020-01-01", returning="msoa_code"),
         region=patients.registered_practice_as_of(
-            "2020-01-01", returning="nuts1_region_name"
+            "2020-01-01", returning="nhse_region_name"
         ),
         pseudo_id=patients.registered_practice_as_of(
             "2020-01-01", returning="pseudo_id"
@@ -986,6 +937,7 @@ def test_patients_registered_practice_as_of():
     assert [i["pseudo_id"] for i in results] == ["3", "1", "0"]
 
 
+@pytest.mark.xfail
 def test_patients_address_as_of():
     session = make_session()
     patient = Patient()
@@ -1051,95 +1003,7 @@ def test_patients_address_as_of():
     assert [i["rural_urban"] for i in results] == ["2", "0", "0"]
 
 
-def test_patients_care_home_status_as_of():
-    session = make_session()
-    session.add_all(
-        [
-            # Was in care home but no longer
-            Patient(
-                Addresses=[
-                    PatientAddress(
-                        StartDate="2010-01-01",
-                        EndDate="2015-01-01",
-                        PotentialCareHomeAddress=[PotentialCareHomeAddress()],
-                    ),
-                    PatientAddress(StartDate="2015-01-01", EndDate="9999-01-01"),
-                ]
-            ),
-            # Currently in non-nursing care home
-            Patient(
-                Addresses=[
-                    PatientAddress(
-                        StartDate="2015-01-01",
-                        EndDate="9999-01-01",
-                        PotentialCareHomeAddress=[
-                            PotentialCareHomeAddress(
-                                LocationRequiresNursing="N",
-                                LocationDoesNotRequireNursing="Y",
-                            )
-                        ],
-                    ),
-                ]
-            ),
-            # Currently in nursing home
-            Patient(
-                Addresses=[
-                    PatientAddress(
-                        StartDate="2015-01-01",
-                        EndDate="9999-01-01",
-                        PotentialCareHomeAddress=[
-                            PotentialCareHomeAddress(
-                                LocationRequiresNursing="Y",
-                                LocationDoesNotRequireNursing="N",
-                            )
-                        ],
-                    ),
-                ]
-            ),
-            # Currently in a schrodin-home which both does and does not require nursing
-            Patient(
-                Addresses=[
-                    PatientAddress(
-                        StartDate="2015-01-01",
-                        EndDate="9999-01-01",
-                        PotentialCareHomeAddress=[
-                            PotentialCareHomeAddress(
-                                LocationRequiresNursing="Y",
-                                LocationDoesNotRequireNursing="Y",
-                            )
-                        ],
-                    ),
-                ]
-            ),
-        ]
-    )
-    session.commit()
-    study = StudyDefinition(
-        population=patients.all(),
-        is_in_care_home=patients.care_home_status_as_of("2020-01-01"),
-        care_home_type=patients.care_home_status_as_of(
-            "2020-01-01",
-            categorised_as={
-                "PC": """
-                  IsPotentialCareHome
-                  AND LocationDoesNotRequireNursing='Y'
-                  AND LocationRequiresNursing='N'
-                """,
-                "PN": """
-                  IsPotentialCareHome
-                  AND LocationDoesNotRequireNursing='N'
-                  AND LocationRequiresNursing='Y'
-                """,
-                "PS": "IsPotentialCareHome",
-                "U": "DEFAULT",
-            },
-        ),
-    )
-    results = study.to_dicts()
-    assert [i["is_in_care_home"] for i in results] == ["0", "1", "1", "1"]
-    assert [i["care_home_type"] for i in results] == ["U", "PC", "PN", "PS"]
-
-
+@pytest.mark.xfail
 def test_patients_admitted_to_icu():
     session = make_session()
     patient_1 = Patient()
@@ -1223,6 +1087,8 @@ def test_patients_admitted_to_icu():
         "2020-03-01",
     ]
 
+    delete_temporary_tables()
+
     study = StudyDefinition(
         population=patients.all(),
         icu=patients.admitted_to_icu(
@@ -1242,6 +1108,8 @@ def test_patients_admitted_to_icu():
         "2020-04-01",
     ]
 
+    delete_temporary_tables()
+
     study = StudyDefinition(
         population=patients.all(),
         icu=patients.admitted_to_icu(on_or_after="2020-02-01", returning="binary_flag"),
@@ -1251,6 +1119,7 @@ def test_patients_admitted_to_icu():
     assert [i["icu"] for i in results] == ["1", "1", "0", "0", "1"]
 
 
+@pytest.mark.xfail
 def test_patients_with_these_codes_on_death_certificate():
     code = "COVID"
     session = make_session()
@@ -1292,6 +1161,7 @@ def test_patients_with_these_codes_on_death_certificate():
     assert [i["date_died"] for i in results] == ["", "", "", "2020-02-01", "2020-03-01"]
 
 
+@pytest.mark.xfail
 def test_patients_died_from_any_cause():
     session = make_session()
     session.add_all(
@@ -1319,6 +1189,7 @@ def test_patients_died_from_any_cause():
     assert [i["date_died"] for i in results] == ["", "", "2020-02-01"]
 
 
+@pytest.mark.xfail
 def test_patients_with_death_recorded_in_cpns():
     session = make_session()
     session.add_all(
@@ -1356,6 +1227,7 @@ def test_patients_with_death_recorded_in_cpns():
     ]
 
 
+@pytest.mark.xfail
 def test_patients_with_death_recorded_in_cpns_raises_error_on_bad_data():
     session = make_session()
     session.add_all(
@@ -1369,42 +1241,6 @@ def test_patients_with_death_recorded_in_cpns_raises_error_on_bad_data():
     )
     with pytest.raises(Exception):
         study.to_dicts()
-
-
-def test_to_sql_passes():
-    session = make_session()
-    patient = Patient(DateOfBirth="1950-01-01")
-    patient.CodedEvents.append(
-        CodedEvent(CTV3Code="XYZ", NumericValue=50, ConsultationDate="2002-06-01")
-    )
-    session.add(patient)
-    session.commit()
-
-    study = StudyDefinition(
-        population=patients.with_these_clinical_events(codelist(["XYZ"], "ctv3"))
-    )
-    sql = "SET NOCOUNT ON; "  # don't output count after table output
-    sql += study.to_sql()
-    db_dict = mssql_connection_params_from_url(study.backend.database_url)
-    cmd = [
-        "sqlcmd",
-        "-S",
-        db_dict["host"] + "," + str(db_dict["port"]),
-        "-d",
-        db_dict["database"],
-        "-U",
-        db_dict["username"],
-        "-P",
-        db_dict["password"],
-        "-Q",
-        sql,
-        "-W",  # strip whitespace
-    ]
-    result = subprocess.run(
-        cmd, capture_output=True, check=True, encoding="utf8"
-    ).stdout
-    patient_id = result.splitlines()[-1]
-    assert patient_id == str(patient.Patient_ID)
 
 
 def test_duplicate_id_checking():
@@ -1430,26 +1266,6 @@ def test_duplicate_id_checking():
     with pytest.raises(RuntimeError):
         with tempfile.NamedTemporaryFile(mode="w+") as f:
             study.to_csv(f.name)
-
-
-def test_sqlcmd_and_odbc_outputs_match():
-    session = make_session()
-    patient = Patient(DateOfBirth="1950-01-01")
-    patient.CodedEvents.append(
-        CodedEvent(CTV3Code="XYZ", NumericValue=50, ConsultationDate="2002-06-01")
-    )
-    session.add(patient)
-    session.commit()
-
-    study = StudyDefinition(
-        population=patients.with_these_clinical_events(codelist(["XYZ"], "ctv3"))
-    )
-    with tempfile.NamedTemporaryFile() as input_csv_odbc, tempfile.NamedTemporaryFile() as input_csv_sqlcmd:
-        # windows line endings
-        study.to_csv(input_csv_odbc.name, with_sqlcmd=False)
-        # unix line endings
-        study.to_csv(input_csv_sqlcmd.name, with_sqlcmd=True)
-        assert filecmp.cmp(input_csv_odbc.name, input_csv_sqlcmd.name, shallow=False)
 
 
 def test_column_name_clashes_produce_errors():
@@ -1479,21 +1295,21 @@ def test_using_expression_in_population_definition():
     session.add_all(
         [
             Patient(
-                Sex="M",
-                DateOfBirth="1970-01-01",
-                CodedEvents=[
-                    CodedEvent(CTV3Code="foo1", ConsultationDate="2000-01-01")
+                gender=1,
+                date_of_birth="1970-01-01",
+                observations=[
+                    Observation(snomed_concept_id="foo1", effective_date="2000-01-01")
                 ],
             ),
-            Patient(Sex="M", DateOfBirth="1975-01-01"),
+            Patient(gender=1, date_of_birth="1975-01-01"),
             Patient(
-                Sex="F",
-                DateOfBirth="1980-01-01",
-                CodedEvents=[
-                    CodedEvent(CTV3Code="foo1", ConsultationDate="2000-01-01")
+                gender=2,
+                date_of_birth="1980-01-01",
+                observations=[
+                    Observation(snomed_concept_id="foo1", effective_date="2000-01-01")
                 ],
             ),
-            Patient(Sex="F", DateOfBirth="1985-01-01"),
+            Patient(gender=2, date_of_birth="1985-01-01"),
         ]
     )
     session.commit()
@@ -1515,7 +1331,7 @@ def test_using_expression_in_population_definition():
 def test_quote():
     with pytest.raises(ValueError):
         quote("foo!")
-    assert quote("2012-02-01") == "'20120201'"
+    assert quote("2012-02-01") == "DATE('2012-02-01')"
     assert quote("2012") == "'2012'"
     assert quote(2012) == "2012"
     assert quote(0.1) == "0.1"
@@ -1527,41 +1343,49 @@ def test_number_of_episodes():
     session.add_all(
         [
             Patient(
-                CodedEvents=[
-                    CodedEvent(CTV3Code="foo1", ConsultationDate="2010-01-01"),
+                observations=[
+                    Observation(snomed_concept_id="foo1", effective_date="2010-01-01"),
                     # Throw in some irrelevant events
-                    CodedEvent(CTV3Code="mto1", ConsultationDate="2010-01-02"),
-                    CodedEvent(CTV3Code="mto2", ConsultationDate="2010-01-03"),
+                    Observation(snomed_concept_id="mto1", effective_date="2010-01-02"),
+                    Observation(snomed_concept_id="mto2", effective_date="2010-01-03"),
                     # These two should be merged in to the previous event
                     # because there's not more than 14 days between them
-                    CodedEvent(CTV3Code="foo2", ConsultationDate="2010-01-14"),
-                    CodedEvent(CTV3Code="foo3", ConsultationDate="2010-01-20"),
+                    Observation(snomed_concept_id="foo2", effective_date="2010-01-14"),
+                    Observation(snomed_concept_id="foo3", effective_date="2010-01-20"),
                     # This is just outside the limit so should count as another event
-                    CodedEvent(CTV3Code="foo1", ConsultationDate="2010-02-04"),
+                    Observation(snomed_concept_id="foo1", effective_date="2010-02-04"),
                     # This shouldn't count because there's an "ignore" event on
                     # the same day (though at a different time)
-                    CodedEvent(CTV3Code="foo1", ConsultationDate="2012-01-01T10:45:00"),
-                    CodedEvent(CTV3Code="bar2", ConsultationDate="2012-01-01T16:10:00"),
+                    Observation(
+                        snomed_concept_id="foo1", effective_date="2012-01-01T10:45:00"
+                    ),
+                    Observation(
+                        snomed_concept_id="bar2", effective_date="2012-01-01T16:10:00"
+                    ),
                     # This should be another episode
-                    CodedEvent(CTV3Code="foo1", ConsultationDate="2015-03-05"),
+                    Observation(snomed_concept_id="foo1", effective_date="2015-03-05"),
                     # This "ignore" event should have no effect because it occurs
                     # on a different day
-                    CodedEvent(CTV3Code="bar1", ConsultationDate="2015-03-06"),
+                    Observation(snomed_concept_id="bar1", effective_date="2015-03-06"),
                     # This is after the time limit and so shouldn't count
-                    CodedEvent(CTV3Code="foo1", ConsultationDate="2020-02-05"),
+                    Observation(snomed_concept_id="foo1", effective_date="2020-02-05"),
                 ]
             ),
             # This patient doesn't have any relevant events
             Patient(
-                CodedEvents=[
-                    CodedEvent(CTV3Code="mto1", ConsultationDate="2010-01-01"),
-                    CodedEvent(CTV3Code="mto2", ConsultationDate="2010-01-14"),
-                    CodedEvent(CTV3Code="mto3", ConsultationDate="2010-01-20"),
-                    CodedEvent(CTV3Code="mto1", ConsultationDate="2010-02-04"),
-                    CodedEvent(CTV3Code="mto1", ConsultationDate="2012-01-01T10:45:00"),
-                    CodedEvent(CTV3Code="mtr2", ConsultationDate="2012-01-01T16:10:00"),
-                    CodedEvent(CTV3Code="mto1", ConsultationDate="2015-03-05"),
-                    CodedEvent(CTV3Code="mto1", ConsultationDate="2020-02-05"),
+                observations=[
+                    Observation(snomed_concept_id="mto1", effective_date="2010-01-01"),
+                    Observation(snomed_concept_id="mto2", effective_date="2010-01-14"),
+                    Observation(snomed_concept_id="mto3", effective_date="2010-01-20"),
+                    Observation(snomed_concept_id="mto1", effective_date="2010-02-04"),
+                    Observation(
+                        snomed_concept_id="mto1", effective_date="2012-01-01T10:45:00"
+                    ),
+                    Observation(
+                        snomed_concept_id="mtr2", effective_date="2012-01-01T16:10:00"
+                    ),
+                    Observation(snomed_concept_id="mto1", effective_date="2015-03-05"),
+                    Observation(snomed_concept_id="mto1", effective_date="2020-02-05"),
                 ]
             ),
         ]
@@ -1591,78 +1415,57 @@ def test_number_of_episodes():
 
 
 def test_number_of_episodes_for_medications():
-    oral_steriod = MedicationDictionary(
-        FullName="Oral Steroid", DMD_ID="ab12", MultilexDrug_ID="1"
-    )
-    other_drug = MedicationDictionary(
-        FullName="Other Drug", DMD_ID="cd34", MultilexDrug_ID="2"
-    )
     session = make_session()
     session.add_all(
         [
             Patient(
-                MedicationIssues=[
-                    MedicationIssue(
-                        MedicationDictionary=oral_steriod, ConsultationDate="2010-01-01"
-                    ),
+                medications=[
+                    Medication(snomed_concept_id="ab12", effective_date="2010-01-01"),
                     # Throw in some irrelevant prescriptions
-                    MedicationIssue(
-                        MedicationDictionary=other_drug, ConsultationDate="2010-01-02"
-                    ),
-                    MedicationIssue(
-                        MedicationDictionary=other_drug, ConsultationDate="2010-01-03"
-                    ),
+                    Medication(snomed_concept_id="cd34", effective_date="2010-01-02"),
+                    Medication(snomed_concept_id="cd34", effective_date="2010-01-03"),
                     # These two should be merged in to the previous event
                     # because there's not more than 14 days between them
-                    MedicationIssue(
-                        MedicationDictionary=oral_steriod, ConsultationDate="2010-01-14"
-                    ),
-                    MedicationIssue(
-                        MedicationDictionary=oral_steriod, ConsultationDate="2010-01-20"
-                    ),
+                    Medication(snomed_concept_id="ab12", effective_date="2010-01-14"),
+                    Medication(snomed_concept_id="ab12", effective_date="2010-01-20"),
                     # This is just outside the limit so should count as another event
-                    MedicationIssue(
-                        MedicationDictionary=oral_steriod, ConsultationDate="2010-02-04"
-                    ),
+                    Medication(snomed_concept_id="ab12", effective_date="2010-02-04"),
                     # This shouldn't count because there's an "ignore" event on
                     # the same day (though at a different time)
-                    MedicationIssue(
-                        MedicationDictionary=oral_steriod,
-                        ConsultationDate="2012-01-01T10:45:00",
+                    Medication(
+                        snomed_concept_id="ab12", effective_date="2012-01-01T10:45:00",
                     ),
                     # This should be another episode
-                    MedicationIssue(
-                        MedicationDictionary=oral_steriod, ConsultationDate="2015-03-05"
-                    ),
+                    Medication(snomed_concept_id="ab12", effective_date="2015-03-05"),
                     # This is after the time limit and so shouldn't count
-                    MedicationIssue(
-                        MedicationDictionary=oral_steriod, ConsultationDate="2020-02-05"
-                    ),
+                    Medication(snomed_concept_id="ab12", effective_date="2020-02-05"),
                 ],
-                CodedEvents=[
+                observations=[
                     # This "ignore" event should cause us to skip one of the
                     # meds issues above
-                    CodedEvent(CTV3Code="bar2", ConsultationDate="2012-01-01T16:10:00"),
+                    Observation(
+                        snomed_concept_id="bar2", effective_date="2012-01-01T16:10:00"
+                    ),
                     # This "ignore" event should have no effect because it
                     # doesn't occur on the same day as any meds issue
-                    CodedEvent(CTV3Code="bar1", ConsultationDate="2015-03-06"),
+                    Observation(snomed_concept_id="bar1", effective_date="2015-03-06"),
                 ],
             ),
             # This patient doesn't have any relevant events or prescriptions
             Patient(
-                MedicationIssues=[
-                    MedicationIssue(
-                        MedicationDictionary=other_drug, ConsultationDate="2010-01-02"
-                    ),
-                    MedicationIssue(
-                        MedicationDictionary=other_drug, ConsultationDate="2010-01-03"
-                    ),
+                medications=[
+                    Medication(snomed_concept_id="cd34", effective_date="2010-01-02"),
+                    Medication(snomed_concept_id="cd34", effective_date="2010-01-03"),
                 ],
-                CodedEvents=[
-                    CodedEvent(CTV3Code="mto1", ConsultationDate="2010-02-04"),
-                    CodedEvent(CTV3Code="mto1", ConsultationDate="2012-01-01T10:45:00"),
-                    CodedEvent(CTV3Code="mtr2", ConsultationDate="2012-01-01T16:10:00"),
-                    CodedEvent(CTV3Code="mto1", ConsultationDate="2015-03-05"),
+                observations=[
+                    Observation(snomed_concept_id="mto1", effective_date="2010-02-04"),
+                    Observation(
+                        snomed_concept_id="mto1", effective_date="2012-01-01T10:45:00"
+                    ),
+                    Observation(
+                        snomed_concept_id="mtr2", effective_date="2012-01-01T16:10:00"
+                    ),
+                    Observation(snomed_concept_id="mto1", effective_date="2015-03-05"),
                 ],
             ),
         ]
@@ -1692,31 +1495,24 @@ def test_number_of_episodes_for_medications():
 
 
 def test_medications_returning_code_with_ignored_days():
-    oral_steriod = MedicationDictionary(
-        FullName="Oral Steroid", DMD_ID="ab12", MultilexDrug_ID="1"
-    )
-    other_drug = MedicationDictionary(
-        FullName="Other Drug", DMD_ID="cd34", MultilexDrug_ID="2"
-    )
     session = make_session()
     session.add_all(
         [
             Patient(
-                MedicationIssues=[
-                    MedicationIssue(
-                        MedicationDictionary=other_drug, ConsultationDate="2010-01-03"
-                    ),
+                medications=[
+                    Medication(snomed_concept_id="cd34", effective_date="2010-01-03"),
                     # This shouldn't count because there's an "ignore" event on
                     # the same day (though at a different time)
-                    MedicationIssue(
-                        MedicationDictionary=oral_steriod,
-                        ConsultationDate="2012-01-01T10:45:00",
+                    Medication(
+                        snomed_concept_id="ab12", effective_date="2012-01-01T10:45:00",
                     ),
                 ],
-                CodedEvents=[
+                observations=[
                     # This "ignore" event should cause us to skip one of the
                     # meds issues above
-                    CodedEvent(CTV3Code="bar1", ConsultationDate="2012-01-01T16:10:00"),
+                    Observation(
+                        snomed_concept_id="bar1", effective_date="2012-01-01T16:10:00"
+                    ),
                 ],
             ),
         ]
@@ -1738,337 +1534,3 @@ def test_medications_returning_code_with_ignored_days():
     results = study.to_dicts()
     assert [i["most_recent_drug"] for i in results] == ["cd34"]
     assert [i["most_recent_drug_date"] for i in results] == ["2010-01-03"]
-
-
-def test_patients_with_tpp_vaccination_record():
-    session = make_session()
-    vaccines = [
-        (1, "Hepatyrix", ["TYPHOID", "HEPATITIS A"]),
-        (2, "Madeva", ["INFLUENZA"]),
-        (3, "Optaflu", ["INFLUENZA"]),
-    ]
-    ids = {}
-    for name_id, name, contents in vaccines:
-        ids[name] = name_id
-        for content in contents:
-            session.add(
-                VaccinationReference(
-                    VaccinationName=name,
-                    VaccinationName_ID=name_id,
-                    VaccinationContent=content,
-                )
-            )
-    session.add_all(
-        [
-            Patient(
-                Vaccinations=[
-                    Vaccination(
-                        VaccinationName_ID=ids["Hepatyrix"],
-                        VaccinationDate="2010-01-01",
-                    ),
-                    Vaccination(
-                        VaccinationName_ID=ids["Optaflu"], VaccinationDate="2014-01-01"
-                    ),
-                ]
-            ),
-            Patient(
-                Vaccinations=[
-                    Vaccination(
-                        VaccinationName_ID=ids["Madeva"], VaccinationDate="2013-01-01"
-                    ),
-                    Vaccination(
-                        VaccinationName_ID=ids["Hepatyrix"],
-                        VaccinationDate="2015-01-01",
-                    ),
-                ]
-            ),
-        ]
-    )
-    session.commit()
-
-    study = StudyDefinition(
-        population=patients.all(),
-        value=patients.with_tpp_vaccination_record(
-            target_disease_matches="TYPHOID", on_or_after="2012-01-01",
-        ),
-        date=patients.date_of("value"),
-    )
-    results = study.to_dicts()
-    assert [i["value"] for i in results] == ["0", "1"]
-    assert [i["date"] for i in results] == ["", "2015"]
-
-    study = StudyDefinition(
-        population=patients.all(),
-        value=patients.with_tpp_vaccination_record(
-            target_disease_matches="INFLUENZA",
-            on_or_after="2012-01-01",
-            find_last_match_in_period=True,
-            returning="date",
-        ),
-    )
-    assert [i["value"] for i in study.to_dicts()] == ["2014", "2013"]
-
-    study = StudyDefinition(
-        population=patients.all(),
-        value=patients.with_tpp_vaccination_record(
-            product_name_matches=["Madeva", "Hepatyrix"],
-            find_first_match_in_period=True,
-            returning="date",
-        ),
-    )
-    assert [i["value"] for i in study.to_dicts()] == ["2010", "2013"]
-
-
-def test_patients_with_gp_consultations():
-    session = make_session()
-    session.add_all(
-        [
-            Patient(
-                RegistrationHistory=[
-                    RegistrationHistory(
-                        StartDate="2014-01-01",
-                        EndDate="2020-05-01",
-                        Organisation=Organisation(GoLiveDate="2001-01-01"),
-                    )
-                ],
-                Appointments=[
-                    # Before period starts
-                    Appointment(
-                        SeenDate="2009-01-01", Status=AppointmentStatus.FINISHED
-                    ),
-                    # After period ends
-                    Appointment(
-                        SeenDate="2020-02-01", Status=AppointmentStatus.FINISHED
-                    ),
-                ],
-            ),
-            Patient(
-                RegistrationHistory=[
-                    RegistrationHistory(
-                        StartDate="2001-01-01",
-                        EndDate="2016-01-01",
-                        Organisation=Organisation(GoLiveDate="1999-10-01"),
-                    )
-                ],
-                Appointments=[
-                    Appointment(
-                        SeenDate="2011-01-01", Status=AppointmentStatus.FINISHED
-                    ),
-                    # Should not be counted
-                    Appointment(
-                        SeenDate="2012-01-01", Status=AppointmentStatus.DID_NOT_ATTEND
-                    ),
-                    Appointment(
-                        SeenDate="2013-01-01", Status=AppointmentStatus.FINISHED
-                    ),
-                ],
-            ),
-            # This patient was registered with one practice throughout the
-            # required period, but that practice wasn't using SystmOne so we
-            # don't have full consultation history
-            Patient(
-                RegistrationHistory=[
-                    RegistrationHistory(
-                        StartDate="2008-01-01",
-                        EndDate="2016-01-01",
-                        Organisation=Organisation(GoLiveDate="2012-01-01"),
-                    )
-                ],
-            ),
-        ]
-    )
-    session.commit()
-    study = StudyDefinition(
-        population=patients.all(),
-        consultation_count=patients.with_gp_consultations(
-            between=["2010-01-01", "2015-01-01"],
-            find_last_match_in_period=True,
-            returning="number_of_matches_in_period",
-        ),
-        latest_consultation_date=patients.date_of(
-            "consultation_count", date_format="YYYY-MM"
-        ),
-        has_history=patients.with_complete_gp_consultation_history_between(
-            "2010-01-01", "2015-01-01"
-        ),
-    )
-    results = study.to_dicts()
-    assert [x["latest_consultation_date"] for x in results] == ["", "2013-01", ""]
-    assert [x["consultation_count"] for x in results] == ["0", "2", "0"]
-    assert [x["has_history"] for x in results] == ["0", "1", "0"]
-
-
-def test_patients_with_test_result_in_sgss():
-    session = make_session()
-    session.add_all(
-        [
-            Patient(
-                SGSS_Positives=[
-                    SGSS_Positive(Earliest_Specimen_Date="2020-05-15"),
-                    SGSS_Positive(Earliest_Specimen_Date="2020-05-20"),
-                ],
-            ),
-            Patient(
-                SGSS_Negatives=[SGSS_Negative(Earliest_Specimen_Date="2020-04-01")],
-                SGSS_Positives=[SGSS_Positive(Earliest_Specimen_Date="2020-04-20")],
-            ),
-            Patient(
-                SGSS_Negatives=[SGSS_Negative(Earliest_Specimen_Date="2020-04-01")],
-            ),
-            Patient(),
-        ]
-    )
-    session.commit()
-    study = StudyDefinition(
-        population=patients.all(),
-        positive_covid_test_ever=patients.with_test_result_in_sgss(
-            pathogen="SARS-CoV-2", test_result="positive",
-        ),
-        negative_covid_test_ever=patients.with_test_result_in_sgss(
-            pathogen="SARS-CoV-2", test_result="negative",
-        ),
-        tested_before_may=patients.with_test_result_in_sgss(
-            pathogen="SARS-CoV-2", test_result="any", on_or_before="2020-05-01"
-        ),
-        first_positive_test_date=patients.with_test_result_in_sgss(
-            pathogen="SARS-CoV-2",
-            test_result="positive",
-            find_first_match_in_period=True,
-            returning="date",
-            date_format="YYYY-MM-DD",
-        ),
-    )
-    results = study.to_dicts()
-    assert [x["positive_covid_test_ever"] for x in results] == ["1", "1", "0", "0"]
-    assert [x["negative_covid_test_ever"] for x in results] == ["0", "1", "1", "0"]
-    assert [x["tested_before_may"] for x in results] == ["0", "1", "1", "0"]
-    assert [x["first_positive_test_date"] for x in results] == [
-        "2020-05-15",
-        "2020-04-20",
-        "",
-        "",
-    ]
-
-
-@pytest.mark.parametrize("positive", [True, False])
-def test_patients_with_test_result_in_sgss_raises_error_on_bad_data(positive):
-    kwargs = dict(
-        Earliest_Specimen_Date="2020-05-15", Organism_Species_Name="unexpected"
-    )
-    if positive:
-        patient = Patient(SGSS_Positives=[SGSS_Positive(**kwargs)])
-    else:
-        patient = Patient(SGSS_Negatives=[SGSS_Negative(**kwargs)])
-    session = make_session()
-    session.add(patient)
-    session.commit()
-    study = StudyDefinition(
-        population=patients.all(),
-        covid_test=patients.with_test_result_in_sgss(pathogen="SARS-CoV-2",),
-    )
-    with pytest.raises(Exception):
-        study.to_dicts()
-
-
-def test_patients_date_of_birth():
-    session = make_session()
-    session.add_all(
-        [Patient(DateOfBirth="1975-06-10"), Patient(DateOfBirth="1999-10-15"),]
-    )
-    session.commit()
-    study = StudyDefinition(
-        population=patients.all(),
-        year_of_birth=patients.date_of_birth(),
-        month_of_birth=patients.date_of_birth(date_format="YYYY-MM"),
-    )
-    results = study.to_dicts()
-    assert [x["year_of_birth"] for x in results] == ["1975", "1999"]
-    assert [x["month_of_birth"] for x in results] == ["1975-06", "1999-10"]
-    # Requesting the exact day is not supported for IG reasons
-    with pytest.raises(Exception):
-        StudyDefinition(
-            population=patients.all(),
-            day_of_birth=patients.date_of_birth(date_format="YYYY-MM-DD"),
-        )
-
-
-def test_patients_aggregate_value_of():
-    session = make_session()
-    session.add_all(
-        [
-            Patient(
-                CodedEvents=[
-                    CodedEvent(
-                        CTV3Code="ABC", NumericValue=7, ConsultationDate="2012-01-01"
-                    ),
-                    CodedEvent(
-                        CTV3Code="XYZ", NumericValue=23, ConsultationDate="2018-01-01"
-                    ),
-                ]
-            ),
-            Patient(
-                CodedEvents=[
-                    CodedEvent(
-                        CTV3Code="ABC", NumericValue=18, ConsultationDate="2014-01-01"
-                    ),
-                    CodedEvent(
-                        CTV3Code="XYZ", NumericValue=4, ConsultationDate="2017-01-01"
-                    ),
-                ]
-            ),
-            Patient(
-                CodedEvents=[
-                    CodedEvent(
-                        CTV3Code="ABC", NumericValue=10, ConsultationDate="2015-01-01"
-                    ),
-                ]
-            ),
-            Patient(
-                CodedEvents=[
-                    CodedEvent(
-                        CTV3Code="XYZ", NumericValue=8, ConsultationDate="2019-01-01"
-                    ),
-                ]
-            ),
-            Patient(),
-        ]
-    )
-    session.commit()
-    study = StudyDefinition(
-        population=patients.all(),
-        # Values
-        abc_value=patients.with_these_clinical_events(
-            codelist(["ABC"], system="ctv3"), returning="numeric_value"
-        ),
-        xyz_value=patients.with_these_clinical_events(
-            codelist(["XYZ"], system="ctv3"), returning="numeric_value"
-        ),
-        # Dates
-        abc_date=patients.date_of("abc_value"),
-        xyz_date=patients.date_of("xyz_value"),
-        # Aggregates
-        max_value=patients.maximum_of("abc_value", "xyz_value"),
-        min_value=patients.minimum_of("abc_value", "xyz_value"),
-        max_date=patients.maximum_of("abc_date", "xyz_date"),
-        min_date=patients.minimum_of("abc_date", "xyz_date"),
-    )
-    results = study.to_dicts()
-    assert [x["max_value"] for x in results] == ["23.0", "18.0", "10.0", "8.0", "0.0"]
-    assert [x["min_value"] for x in results] == ["7.0", "4.0", "10.0", "8.0", "0.0"]
-    assert [x["max_date"] for x in results] == ["2018", "2017", "2015", "2019", ""]
-    assert [x["min_date"] for x in results] == ["2012", "2014", "2015", "2019", ""]
-    # Test with hidden columns
-    study_with_hidden_columns = StudyDefinition(
-        population=patients.all(),
-        max_value=patients.maximum_of(
-            abc_value=patients.with_these_clinical_events(
-                codelist(["ABC"], system="ctv3"), returning="numeric_value"
-            ),
-            xyz_value=patients.with_these_clinical_events(
-                codelist(["XYZ"], system="ctv3"), returning="numeric_value"
-            ),
-        ),
-    )
-    results = study_with_hidden_columns.to_dicts()
-    assert [x["max_value"] for x in results] == ["23.0", "18.0", "10.0", "8.0", "0.0"]
-    assert "abc_value" not in results[0].keys()
