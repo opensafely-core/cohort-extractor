@@ -117,6 +117,7 @@ def _generate_cohort(output_dir, study_name, suffix, expectations_population):
     study = load_study_definition(study_name)
 
     with_sqlcmd = shutil.which("sqlcmd") is not None
+    os.makedirs(output_dir, exist_ok=True)
     study.to_csv(
         f"{output_dir}/input{suffix}.csv",
         expectations_population=expectations_population,
@@ -275,7 +276,7 @@ def main():
         "--output-dir",
         help="Location to store output CSVs",
         type=str,
-        default="analysis",
+        default="output",
     )
 
     run_notebook_parser = subparsers.add_parser("notebook", help="Run notebook")
@@ -299,7 +300,7 @@ def main():
         "--output-dir",
         help="Location to store output CSVs",
         type=str,
-        default="analysis",
+        default="output",
     )
     cohort_method_group = generate_cohort_parser.add_mutually_exclusive_group(
         required=True
