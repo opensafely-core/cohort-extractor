@@ -303,17 +303,15 @@ class ACMEBackend:
         # is >=16, weight must be within the last 10 years
         date_condition = make_date_filter('"effective-date"', between)
 
-        # TODO Change these to SNOMED codes
-        bmi_code = "22K.."
-        # XXX these two sets of codes need validating. The final in
-        # each list is the canonical version according to TPP
+        # TODO these codes need validating
+        bmi_code = 301331008  #  Finding of body mass index (finding)
         weight_codes = [
-            "X76C7",  # Concept containing "body weight" terms:
-            "22A..",  # O/E weight
+            27113001,  # Body weight (observable entity)
+            162763007,  # On examination - weight(finding)
         ]
         height_codes = [
-            "XM01E",  # Concept containing height/length/stature/growth terms:
-            "229..",  # O/E height
+            271603002,  # Height / growth measure (observable entity)
+            162755006,  # On examination - height (finding)
         ]
 
         bmi_cte = f"""

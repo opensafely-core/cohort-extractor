@@ -443,8 +443,8 @@ def test_patients_registered_with_one_practice_between():
 def test_simple_bmi(include_dates):
     session = make_session()
 
-    weight_code = "X76C7"
-    height_code = "XM01E"
+    weight_code = 27113001
+    height_code = 271603002
 
     patient = Patient(date_of_birth="1950-01-01")
     patient.observations.append(
@@ -487,8 +487,8 @@ def test_simple_bmi(include_dates):
 def test_bmi_rounded():
     session = make_session()
 
-    weight_code = "X76C7"
-    height_code = "XM01E"
+    weight_code = 27113001
+    height_code = 271603002
 
     patient = Patient(date_of_birth="1950-01-01")
     patient.observations.append(
@@ -519,8 +519,8 @@ def test_bmi_rounded():
 def test_bmi_with_zero_values():
     session = make_session()
 
-    weight_code = "X76C7"
-    height_code = "XM01E"
+    weight_code = 27113001
+    height_code = 271603002
 
     patient = Patient(date_of_birth="1950-01-01")
     patient.observations.append(
@@ -551,8 +551,8 @@ def test_bmi_with_zero_values():
 def test_explicit_bmi_fallback():
     session = make_session()
 
-    weight_code = "X76C7"
-    bmi_code = "22K.."
+    weight_code = 27113001
+    bmi_code = 301331008
 
     patient = Patient(date_of_birth="1950-01-01")
     patient.observations.append(
@@ -583,7 +583,7 @@ def test_explicit_bmi_fallback():
 def test_no_bmi_when_old_date():
     session = make_session()
 
-    bmi_code = "22K.."
+    bmi_code = 301331008
 
     patient = Patient(date_of_birth="1950-01-01")
     patient.observations.append(
@@ -609,7 +609,7 @@ def test_no_bmi_when_old_date():
 def test_no_bmi_when_measurements_of_child():
     session = make_session()
 
-    bmi_code = "22K.."
+    bmi_code = 301331008
 
     patient = Patient(date_of_birth="2000-01-01")
     patient.observations.append(
@@ -635,7 +635,7 @@ def test_no_bmi_when_measurements_of_child():
 def test_no_bmi_when_measurement_after_reference_date():
     session = make_session()
 
-    bmi_code = "22K.."
+    bmi_code = 301331008
 
     patient = Patient(date_of_birth="1900-01-01")
     patient.observations.append(
@@ -661,9 +661,9 @@ def test_no_bmi_when_measurement_after_reference_date():
 def test_bmi_when_only_some_measurements_of_child():
     session = make_session()
 
-    bmi_code = "22K.."
-    weight_code = "X76C7"
-    height_code = "XM01E"
+    bmi_code = 301331008
+    weight_code = 27113001
+    height_code = 271603002
 
     patient = Patient(date_of_birth="1990-01-01")
     patient.observations.append(
