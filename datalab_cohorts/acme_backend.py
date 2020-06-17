@@ -207,7 +207,7 @@ class ACMEBackend:
         table_name = f"_codelist_{table_number}_{column_name}"
         if codelist.has_categories:
             values = ", ".join(
-                f"('{code}', '{category}')" for code, category in codelist
+                f"({quote(code)}, {quote(category)})" for code, category in codelist
             )
             self.codelist_tables.append(
                 f"""
@@ -218,7 +218,7 @@ class ACMEBackend:
                     """
             )
         else:
-            values = ", ".join(f"('{code}')" for code in codelist)
+            values = ", ".join(f"({quote(code)})" for code in codelist)
             self.codelist_tables.append(
                 f"""
                     CREATE TABLE {table_name} AS
@@ -476,7 +476,6 @@ class ACMEBackend:
         Patients who have had at least one of these clinical events in the
         defined period
         """
-        assert kwargs["codelist"].system == "ctv3"
         # This uses a special case function with a "fake it til you make it" API
         if kwargs["returning"] == "number_of_episodes":
             kwargs.pop("returning")
@@ -529,6 +528,7 @@ class ACMEBackend:
             ordering = "DESC"
             date_aggregate = "MAX"
 
+        query_column = None
         if returning == "binary_flag" or returning == "date":
             column_name = "has_event"
             column_definition = "1"
@@ -543,7 +543,8 @@ class ACMEBackend:
             use_partition_query = True
         elif returning == "code":
             column_name = "code"
-            column_definition = code_column
+            column_definition = f"CAST({code_column} AS VARCHAR(18))"
+            query_column = code_column
             use_partition_query = True
         elif returning == "category":
             if not codelist.has_categories:
@@ -557,6 +558,9 @@ class ACMEBackend:
         else:
             raise ValueError(f"Unsupported `returning` value: {returning}")
 
+        if query_column is None:
+            query_column = column_definition
+
         if use_partition_query:
             sql = f"""
             SELECT
@@ -564,7 +568,7 @@ class ACMEBackend:
               {column_definition} AS {column_name},
               DATE("effective-date") AS date
             FROM (
-              SELECT "registration-id", {column_definition}, "effective-date",
+              SELECT "registration-id", {query_column}, "effective-date",
               ROW_NUMBER() OVER (
                 PARTITION BY "registration-id" ORDER BY "effective-date" {ordering}
               ) AS rownum
@@ -708,7 +712,6 @@ class ACMEBackend:
         """
         if codelist is None:
             return "1 = 1"
-        assert codelist.system == "ctv3"
         codelist_table = self.create_codelist_table(codelist, case_sensitive=True)
         return f"""
         NOT EXISTS (

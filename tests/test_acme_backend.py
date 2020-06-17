@@ -160,13 +160,13 @@ def _make_clinical_events_selection(condition_code, patient_dates=None):
 
 
 def test_clinical_event_without_filters():
-    condition_code = "ASTHMA"
+    condition_code = 195967001
     _make_clinical_events_selection(condition_code)
     # No date criteria
     study = StudyDefinition(
         population=patients.all(),
         asthma_condition=patients.with_these_clinical_events(
-            codelist([condition_code], "ctv3")
+            codelist([condition_code], "snomedct")
         ),
     )
     results = study.to_dicts()
@@ -174,12 +174,12 @@ def test_clinical_event_without_filters():
 
 
 def test_clinical_event_with_max_date():
-    condition_code = "ASTHMA"
+    condition_code = 195967001
     _make_clinical_events_selection(condition_code)
     study = StudyDefinition(
         population=patients.all(),
         asthma_condition=patients.with_these_clinical_events(
-            codelist([condition_code], "ctv3"), on_or_before="2001-12-01"
+            codelist([condition_code], "snomedct"), on_or_before="2001-12-01"
         ),
     )
     results = study.to_dicts()
@@ -187,12 +187,12 @@ def test_clinical_event_with_max_date():
 
 
 def test_clinical_event_with_min_date():
-    condition_code = "ASTHMA"
+    condition_code = 195967001
     _make_clinical_events_selection(condition_code)
     study = StudyDefinition(
         population=patients.all(),
         asthma_condition=patients.with_these_clinical_events(
-            codelist([condition_code], "ctv3"), on_or_after="2005-12-01"
+            codelist([condition_code], "snomedct"), on_or_after="2005-12-01"
         ),
     )
     results = study.to_dicts()
@@ -200,12 +200,12 @@ def test_clinical_event_with_min_date():
 
 
 def test_clinical_event_with_min_and_max_date():
-    condition_code = "ASTHMA"
+    condition_code = 195967001
     _make_clinical_events_selection(condition_code)
     study = StudyDefinition(
         population=patients.all(),
         asthma_condition=patients.with_these_clinical_events(
-            codelist([condition_code], "ctv3"), between=["2001-12-01", "2002-06-01"]
+            codelist([condition_code], "snomedct"), between=["2001-12-01", "2002-06-01"]
         ),
     )
     results = study.to_dicts()
@@ -213,7 +213,7 @@ def test_clinical_event_with_min_and_max_date():
 
 
 def test_clinical_event_returning_first_date():
-    condition_code = "ASTHMA"
+    condition_code = 195967001
     _make_clinical_events_selection(
         condition_code,
         patient_dates=[
@@ -226,7 +226,7 @@ def test_clinical_event_returning_first_date():
     study = StudyDefinition(
         population=patients.all(),
         asthma_condition=patients.with_these_clinical_events(
-            codelist([condition_code], "ctv3"),
+            codelist([condition_code], "snomedct"),
             between=["2001-12-01", "2002-06-01"],
             returning="date",
             find_first_match_in_period=True,
@@ -238,7 +238,7 @@ def test_clinical_event_returning_first_date():
 
 
 def test_clinical_event_returning_last_date():
-    condition_code = "ASTHMA"
+    condition_code = 195967001
     _make_clinical_events_selection(
         condition_code,
         patient_dates=[
@@ -251,7 +251,7 @@ def test_clinical_event_returning_last_date():
     study = StudyDefinition(
         population=patients.all(),
         asthma_condition=patients.with_these_clinical_events(
-            codelist([condition_code], "ctv3"),
+            codelist([condition_code], "snomedct"),
             between=["2001-12-01", "2002-06-01"],
             returning="date",
             find_last_match_in_period=True,
@@ -263,13 +263,13 @@ def test_clinical_event_returning_last_date():
 
 
 def test_clinical_event_returning_year_only():
-    condition_code = "ASTHMA"
+    condition_code = 195967001
     _make_clinical_events_selection(condition_code)
     # No date criteria
     study = StudyDefinition(
         population=patients.all(),
         asthma_condition=patients.with_these_clinical_events(
-            codelist([condition_code], "ctv3"),
+            codelist([condition_code], "snomedct"),
             returning="date",
             find_first_match_in_period=True,
         ),
@@ -279,13 +279,13 @@ def test_clinical_event_returning_year_only():
 
 
 def test_clinical_event_returning_year_and_month_only():
-    condition_code = "ASTHMA"
+    condition_code = 195967001
     _make_clinical_events_selection(condition_code)
     # No date criteria
     study = StudyDefinition(
         population=patients.all(),
         asthma_condition=patients.with_these_clinical_events(
-            codelist([condition_code], "ctv3"),
+            codelist([condition_code], "snomedct"),
             returning="date",
             find_first_match_in_period=True,
             date_format="YYYY-MM",
@@ -296,7 +296,7 @@ def test_clinical_event_returning_year_and_month_only():
 
 
 def test_clinical_event_with_count():
-    condition_code = "ASTHMA"
+    condition_code = 195967001
     _make_clinical_events_selection(
         condition_code,
         patient_dates=[
@@ -309,7 +309,7 @@ def test_clinical_event_with_count():
     study = StudyDefinition(
         population=patients.all(),
         asthma_count=patients.with_these_clinical_events(
-            codelist([condition_code], "ctv3"),
+            codelist([condition_code], "snomedct"),
             between=["2001-12-01", "2002-06-01"],
             returning="number_of_matches_in_period",
             find_first_match_in_period=True,
@@ -322,7 +322,7 @@ def test_clinical_event_with_count():
 
 
 def test_clinical_event_with_code():
-    condition_code = "ASTHMA"
+    condition_code = 195967001
     _make_clinical_events_selection(
         condition_code,
         patient_dates=[
@@ -335,7 +335,7 @@ def test_clinical_event_with_code():
     study = StudyDefinition(
         population=patients.all(),
         latest_asthma_code=patients.with_these_clinical_events(
-            codelist([condition_code], "ctv3"),
+            codelist([condition_code], "snomedct"),
             between=["2001-12-01", "2002-06-01"],
             returning="code",
             find_last_match_in_period=True,
@@ -345,12 +345,12 @@ def test_clinical_event_with_code():
         ),
     )
     results = study.to_dicts()
-    assert [x["latest_asthma_code"] for x in results] == ["", condition_code, ""]
+    assert [x["latest_asthma_code"] for x in results] == ["", str(condition_code), ""]
     assert [x["latest_asthma_code_date"] for x in results] == ["", "2002-06", ""]
 
 
 def test_clinical_event_with_numeric_value():
-    condition_code = "ASTHMA"
+    condition_code = 195967001
     _make_clinical_events_selection(
         condition_code,
         patient_dates=[
@@ -368,7 +368,7 @@ def test_clinical_event_with_numeric_value():
     study = StudyDefinition(
         population=patients.all(),
         asthma_value=patients.with_these_clinical_events(
-            codelist([condition_code], "ctv3"),
+            codelist([condition_code], "snomedct"),
             between=["2001-12-01", "2002-06-01"],
             returning="numeric_value",
             find_first_match_in_period=True,
@@ -387,19 +387,23 @@ def test_clinical_event_with_category():
             Patient(),
             Patient(
                 observations=[
-                    Observation(snomed_concept_id="foo1", effective_date="2018-01-01"),
-                    Observation(snomed_concept_id="foo2", effective_date="2020-01-01"),
+                    Observation(
+                        snomed_concept_id=10000001, effective_date="2018-01-01"
+                    ),
+                    Observation(
+                        snomed_concept_id=10000002, effective_date="2020-01-01"
+                    ),
                 ]
             ),
             Patient(
                 observations=[
-                    Observation(snomed_concept_id="foo3", effective_date="2019-01-01")
+                    Observation(snomed_concept_id=10000003, effective_date="2019-01-01")
                 ]
             ),
         ]
     )
     session.commit()
-    codes = codelist([("foo1", "A"), ("foo2", "B"), ("foo3", "C")], "ctv3")
+    codes = codelist([(10000001, "A"), (10000002, "B"), (10000003, "C")], "snomedct")
     study = StudyDefinition(
         population=patients.all(),
         code_category=patients.with_these_clinical_events(
@@ -697,7 +701,7 @@ def test_bmi_when_only_some_measurements_of_child():
 
 
 def test_mean_recorded_value():
-    code = "2469."
+    code = 10000001
     session = make_session()
     patient = Patient()
     values = [
@@ -721,7 +725,7 @@ def test_mean_recorded_value():
     study = StudyDefinition(
         population=patients.all(),
         bp_systolic=patients.mean_recorded_value(
-            codelist([code], system="ctv3"),
+            codelist([code], system="snomedct"),
             on_most_recent_day_of_measurement=True,
             between=["2018-01-01", "2020-03-01"],
         ),
@@ -735,7 +739,7 @@ def test_mean_recorded_value():
 
 
 def test_patients_satisfying():
-    condition_code = "ASTHMA"
+    condition_code = 195967001
     session = make_session()
     patient_1 = Patient(date_of_birth="1940-01-01", gender=1)
     patient_2 = Patient(date_of_birth="1940-01-01", gender=2)
@@ -751,7 +755,7 @@ def test_patients_satisfying():
         sex=patients.sex(),
         age=patients.age_as_of("2020-01-01"),
         has_asthma=patients.with_these_clinical_events(
-            codelist([condition_code], "ctv3")
+            codelist([condition_code], "snomedct")
         ),
         at_risk=patients.satisfying("(age > 70 AND sex = 'M') OR has_asthma"),
     )
@@ -760,8 +764,8 @@ def test_patients_satisfying():
 
 
 def test_patients_satisfying_with_hidden_columns():
-    condition_code = "ASTHMA"
-    condition_code2 = "COPD"
+    condition_code = 195967001
+    condition_code2 = 13645005
     session = make_session()
     patient_1 = Patient(date_of_birth="1940-01-01", gender=1)
     patient_2 = Patient(date_of_birth="1940-01-01", gender=2)
@@ -790,10 +794,10 @@ def test_patients_satisfying_with_hidden_columns():
             (has_asthma AND NOT copd)
             """,
             has_asthma=patients.with_these_clinical_events(
-                codelist([condition_code], "ctv3")
+                codelist([condition_code], "snomedct")
             ),
             copd=patients.with_these_clinical_events(
-                codelist([condition_code2], "ctv3")
+                codelist([condition_code2], "snomedct")
             ),
         ),
     )
@@ -809,39 +813,47 @@ def test_patients_categorised_as():
             Patient(
                 gender=1,
                 observations=[
-                    Observation(snomed_concept_id="foo1", effective_date="2000-01-01")
+                    Observation(snomed_concept_id=10000001, effective_date="2000-01-01")
                 ],
             ),
             Patient(
                 gender=2,
                 observations=[
-                    Observation(snomed_concept_id="foo2", effective_date="2000-01-01"),
-                    Observation(snomed_concept_id="bar1", effective_date="2000-01-01"),
+                    Observation(
+                        snomed_concept_id=10000002, effective_date="2000-01-01"
+                    ),
+                    Observation(
+                        snomed_concept_id=20000001, effective_date="2000-01-01"
+                    ),
                 ],
             ),
             Patient(
                 gender=1,
                 observations=[
-                    Observation(snomed_concept_id="foo2", effective_date="2000-01-01")
+                    Observation(snomed_concept_id=10000002, effective_date="2000-01-01")
                 ],
             ),
             Patient(
                 gender=2,
                 observations=[
-                    Observation(snomed_concept_id="foo3", effective_date="2000-01-01")
+                    Observation(snomed_concept_id=10000003, effective_date="2000-01-01")
                 ],
             ),
             Patient(
                 gender=2,
                 observations=[
-                    Observation(snomed_concept_id="bar1", effective_date="2000-01-01"),
+                    Observation(
+                        snomed_concept_id=20000001, effective_date="2000-01-01"
+                    ),
                 ],
             ),
         ]
     )
     session.commit()
-    foo_codes = codelist([("foo1", "A"), ("foo2", "B"), ("foo3", "C")], "ctv3")
-    bar_codes = codelist(["bar1"], "ctv3")
+    foo_codes = codelist(
+        [(10000001, "A"), (10000002, "B"), (10000003, "C")], "snomedct"
+    )
+    bar_codes = codelist([20000001], "snomedct")
     study = StudyDefinition(
         population=patients.all(),
         category=patients.categorised_as(
@@ -1298,7 +1310,7 @@ def test_using_expression_in_population_definition():
                 gender=1,
                 date_of_birth="1970-01-01",
                 observations=[
-                    Observation(snomed_concept_id="foo1", effective_date="2000-01-01")
+                    Observation(snomed_concept_id=10000001, effective_date="2000-01-01")
                 ],
             ),
             Patient(gender=1, date_of_birth="1975-01-01"),
@@ -1306,7 +1318,7 @@ def test_using_expression_in_population_definition():
                 gender=2,
                 date_of_birth="1980-01-01",
                 observations=[
-                    Observation(snomed_concept_id="foo1", effective_date="2000-01-01")
+                    Observation(snomed_concept_id=10000001, effective_date="2000-01-01")
                 ],
             ),
             Patient(gender=2, date_of_birth="1985-01-01"),
@@ -1317,7 +1329,7 @@ def test_using_expression_in_population_definition():
         population=patients.satisfying(
             "has_foo_code AND sex = 'M'",
             has_foo_code=patients.with_these_clinical_events(
-                codelist(["foo1"], "ctv3")
+                codelist([10000001], "snomedct")
             ),
             sex=patients.sex(),
         ),
@@ -1344,55 +1356,85 @@ def test_number_of_episodes():
         [
             Patient(
                 observations=[
-                    Observation(snomed_concept_id="foo1", effective_date="2010-01-01"),
+                    Observation(
+                        snomed_concept_id=10000001, effective_date="2010-01-01"
+                    ),
                     # Throw in some irrelevant events
-                    Observation(snomed_concept_id="mto1", effective_date="2010-01-02"),
-                    Observation(snomed_concept_id="mto2", effective_date="2010-01-03"),
+                    Observation(
+                        snomed_concept_id=40000001, effective_date="2010-01-02"
+                    ),
+                    Observation(
+                        snomed_concept_id=40000002, effective_date="2010-01-03"
+                    ),
                     # These two should be merged in to the previous event
                     # because there's not more than 14 days between them
-                    Observation(snomed_concept_id="foo2", effective_date="2010-01-14"),
-                    Observation(snomed_concept_id="foo3", effective_date="2010-01-20"),
+                    Observation(
+                        snomed_concept_id=10000002, effective_date="2010-01-14"
+                    ),
+                    Observation(
+                        snomed_concept_id=10000003, effective_date="2010-01-20"
+                    ),
                     # This is just outside the limit so should count as another event
-                    Observation(snomed_concept_id="foo1", effective_date="2010-02-04"),
+                    Observation(
+                        snomed_concept_id=10000001, effective_date="2010-02-04"
+                    ),
                     # This shouldn't count because there's an "ignore" event on
                     # the same day (though at a different time)
                     Observation(
-                        snomed_concept_id="foo1", effective_date="2012-01-01T10:45:00"
+                        snomed_concept_id=10000001, effective_date="2012-01-01T10:45:00"
                     ),
                     Observation(
-                        snomed_concept_id="bar2", effective_date="2012-01-01T16:10:00"
+                        snomed_concept_id=20000002, effective_date="2012-01-01T16:10:00"
                     ),
                     # This should be another episode
-                    Observation(snomed_concept_id="foo1", effective_date="2015-03-05"),
+                    Observation(
+                        snomed_concept_id=10000001, effective_date="2015-03-05"
+                    ),
                     # This "ignore" event should have no effect because it occurs
                     # on a different day
-                    Observation(snomed_concept_id="bar1", effective_date="2015-03-06"),
+                    Observation(
+                        snomed_concept_id=20000001, effective_date="2015-03-06"
+                    ),
                     # This is after the time limit and so shouldn't count
-                    Observation(snomed_concept_id="foo1", effective_date="2020-02-05"),
+                    Observation(
+                        snomed_concept_id=10000001, effective_date="2020-02-05"
+                    ),
                 ]
             ),
             # This patient doesn't have any relevant events
             Patient(
                 observations=[
-                    Observation(snomed_concept_id="mto1", effective_date="2010-01-01"),
-                    Observation(snomed_concept_id="mto2", effective_date="2010-01-14"),
-                    Observation(snomed_concept_id="mto3", effective_date="2010-01-20"),
-                    Observation(snomed_concept_id="mto1", effective_date="2010-02-04"),
                     Observation(
-                        snomed_concept_id="mto1", effective_date="2012-01-01T10:45:00"
+                        snomed_concept_id=40000001, effective_date="2010-01-01"
                     ),
                     Observation(
-                        snomed_concept_id="mtr2", effective_date="2012-01-01T16:10:00"
+                        snomed_concept_id=40000002, effective_date="2010-01-14"
                     ),
-                    Observation(snomed_concept_id="mto1", effective_date="2015-03-05"),
-                    Observation(snomed_concept_id="mto1", effective_date="2020-02-05"),
+                    Observation(
+                        snomed_concept_id=40000003, effective_date="2010-01-20"
+                    ),
+                    Observation(
+                        snomed_concept_id=40000001, effective_date="2010-02-04"
+                    ),
+                    Observation(
+                        snomed_concept_id=40000001, effective_date="2012-01-01T10:45:00"
+                    ),
+                    Observation(
+                        snomed_concept_id=40000004, effective_date="2012-01-01T16:10:00"
+                    ),
+                    Observation(
+                        snomed_concept_id=40000001, effective_date="2015-03-05"
+                    ),
+                    Observation(
+                        snomed_concept_id=40000001, effective_date="2020-02-05"
+                    ),
                 ]
             ),
         ]
     )
     session.commit()
-    foo_codes = codelist(["foo1", "foo2", "foo3"], "ctv3")
-    bar_codes = codelist(["bar1", "bar2"], "ctv3")
+    foo_codes = codelist([10000001, 10000002, 10000003], "snomedct")
+    bar_codes = codelist([20000001, 20000002], "snomedct")
     study = StudyDefinition(
         population=patients.all(),
         episode_count=patients.with_these_clinical_events(
@@ -1420,59 +1462,66 @@ def test_number_of_episodes_for_medications():
         [
             Patient(
                 medications=[
-                    Medication(snomed_concept_id="ab12", effective_date="2010-01-01"),
+                    Medication(snomed_concept_id=12121212, effective_date="2010-01-01"),
                     # Throw in some irrelevant prescriptions
-                    Medication(snomed_concept_id="cd34", effective_date="2010-01-02"),
-                    Medication(snomed_concept_id="cd34", effective_date="2010-01-03"),
+                    Medication(snomed_concept_id=34343434, effective_date="2010-01-02"),
+                    Medication(snomed_concept_id=34343434, effective_date="2010-01-03"),
                     # These two should be merged in to the previous event
                     # because there's not more than 14 days between them
-                    Medication(snomed_concept_id="ab12", effective_date="2010-01-14"),
-                    Medication(snomed_concept_id="ab12", effective_date="2010-01-20"),
+                    Medication(snomed_concept_id=12121212, effective_date="2010-01-14"),
+                    Medication(snomed_concept_id=12121212, effective_date="2010-01-20"),
                     # This is just outside the limit so should count as another event
-                    Medication(snomed_concept_id="ab12", effective_date="2010-02-04"),
+                    Medication(snomed_concept_id=12121212, effective_date="2010-02-04"),
                     # This shouldn't count because there's an "ignore" event on
                     # the same day (though at a different time)
                     Medication(
-                        snomed_concept_id="ab12", effective_date="2012-01-01T10:45:00",
+                        snomed_concept_id=12121212,
+                        effective_date="2012-01-01T10:45:00",
                     ),
                     # This should be another episode
-                    Medication(snomed_concept_id="ab12", effective_date="2015-03-05"),
+                    Medication(snomed_concept_id=12121212, effective_date="2015-03-05"),
                     # This is after the time limit and so shouldn't count
-                    Medication(snomed_concept_id="ab12", effective_date="2020-02-05"),
+                    Medication(snomed_concept_id=12121212, effective_date="2020-02-05"),
                 ],
                 observations=[
                     # This "ignore" event should cause us to skip one of the
                     # meds issues above
                     Observation(
-                        snomed_concept_id="bar2", effective_date="2012-01-01T16:10:00"
+                        snomed_concept_id=20000002, effective_date="2012-01-01T16:10:00"
                     ),
                     # This "ignore" event should have no effect because it
                     # doesn't occur on the same day as any meds issue
-                    Observation(snomed_concept_id="bar1", effective_date="2015-03-06"),
+                    Observation(
+                        snomed_concept_id=20000001, effective_date="2015-03-06"
+                    ),
                 ],
             ),
             # This patient doesn't have any relevant events or prescriptions
             Patient(
                 medications=[
-                    Medication(snomed_concept_id="cd34", effective_date="2010-01-02"),
-                    Medication(snomed_concept_id="cd34", effective_date="2010-01-03"),
+                    Medication(snomed_concept_id=34343434, effective_date="2010-01-02"),
+                    Medication(snomed_concept_id=34343434, effective_date="2010-01-03"),
                 ],
                 observations=[
-                    Observation(snomed_concept_id="mto1", effective_date="2010-02-04"),
                     Observation(
-                        snomed_concept_id="mto1", effective_date="2012-01-01T10:45:00"
+                        snomed_concept_id=40000001, effective_date="2010-02-04"
                     ),
                     Observation(
-                        snomed_concept_id="mtr2", effective_date="2012-01-01T16:10:00"
+                        snomed_concept_id=40000001, effective_date="2012-01-01T10:45:00"
                     ),
-                    Observation(snomed_concept_id="mto1", effective_date="2015-03-05"),
+                    Observation(
+                        snomed_concept_id=40000004, effective_date="2012-01-01T16:10:00"
+                    ),
+                    Observation(
+                        snomed_concept_id=40000001, effective_date="2015-03-05"
+                    ),
                 ],
             ),
         ]
     )
     session.commit()
-    foo_codes = codelist(["ab12"], "snomed")
-    bar_codes = codelist(["bar1", "bar2"], "ctv3")
+    foo_codes = codelist([12121212], "snomed")
+    bar_codes = codelist([20000001, 20000002], "snomedct")
     study = StudyDefinition(
         population=patients.all(),
         episode_count=patients.with_these_medications(
@@ -1500,26 +1549,27 @@ def test_medications_returning_code_with_ignored_days():
         [
             Patient(
                 medications=[
-                    Medication(snomed_concept_id="cd34", effective_date="2010-01-03"),
+                    Medication(snomed_concept_id=34343434, effective_date="2010-01-03"),
                     # This shouldn't count because there's an "ignore" event on
                     # the same day (though at a different time)
                     Medication(
-                        snomed_concept_id="ab12", effective_date="2012-01-01T10:45:00",
+                        snomed_concept_id=12121212,
+                        effective_date="2012-01-01T10:45:00",
                     ),
                 ],
                 observations=[
                     # This "ignore" event should cause us to skip one of the
                     # meds issues above
                     Observation(
-                        snomed_concept_id="bar1", effective_date="2012-01-01T16:10:00"
+                        snomed_concept_id=20000001, effective_date="2012-01-01T16:10:00"
                     ),
                 ],
             ),
         ]
     )
     session.commit()
-    drug_codes = codelist(["ab12", "cd34"], "snomed")
-    annual_review_codes = codelist(["bar1"], "ctv3")
+    drug_codes = codelist([12121212, 34343434], "snomed")
+    annual_review_codes = codelist([20000001], "snomedct")
     study = StudyDefinition(
         population=patients.all(),
         most_recent_drug=patients.with_these_medications(
@@ -1532,5 +1582,5 @@ def test_medications_returning_code_with_ignored_days():
         ),
     )
     results = study.to_dicts()
-    assert [i["most_recent_drug"] for i in results] == ["cd34"]
+    assert [i["most_recent_drug"] for i in results] == ["34343434"]
     assert [i["most_recent_drug_date"] for i in results] == ["2010-01-03"]
