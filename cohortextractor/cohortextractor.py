@@ -28,6 +28,8 @@ import yaml
 from datetime import datetime
 import seaborn as sns
 
+from datalab_cohorts.remotejobs import get_job_logs
+from datalab_cohorts.remotejobs import submit_job
 
 notebook_tag = "opencorona-research"
 target_dir = "/home/app/notebook"
@@ -295,6 +297,25 @@ def main():
     )
     dump_study_yaml_parser.set_defaults(which="dump_study_yaml")
 
+    remote_parser = subparsers.add_parser("remote", help="Manage remote jobs")
+    remote_parser.set_defaults(which="remote")
+
+    # Remote subcommands
+    remote_subparser = remote_parser.add_subparsers(help="Remote sub-command help")
+    generate_cohort_remote_parser = remote_subparser.add_parser(
+        "generate_cohort", help="Generate cohort"
+    )
+    generate_cohort_remote_parser.set_defaults(which="remote_generate_cohort")
+    generate_cohort_remote_parser.add_argument(
+        "--ref",
+        help="Tag or branch against which to run the extraction",
+        type=str,
+        required=True,
+    )
+
+    log_remote_parser = remote_subparser.add_parser("log", help="Show logs")
+    log_remote_parser.set_defaults(which="remote_log")
+
     # Cohort parser options
     generate_cohort_parser.add_argument(
         "--output-dir",
@@ -335,6 +356,13 @@ def main():
         dump_cohort_sql()
     elif options.which == "dump_study_yaml":
         dump_study_yaml()
+
+    elif options.which == "remote_generate_cohort":
+        submit_job(options.ref, "generate_cohort")
+        print("Job submitted!")
+    elif options.which == "remote_log":
+        logs = get_job_logs()
+        print("\n".join(logs))
 
 
 if __name__ == "__main__":

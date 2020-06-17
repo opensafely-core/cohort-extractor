@@ -17,6 +17,7 @@ setup(
         "seaborn",
         "sqlalchemy",
         "sqlparse",
+        "tinynetrc",
     ],
     entry_points={
         "console_scripts": ["cohortextractor=cohortextractor.cohortextractor:main"]
