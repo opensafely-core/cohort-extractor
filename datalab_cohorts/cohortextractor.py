@@ -238,12 +238,16 @@ def load_study_definition(name):
 
 def list_study_definitions():
     pattern = re.compile(r"^(study_definition(_\w+)?)\.py$")
+    matches = []
     for name in sorted(os.listdir(os.path.join(relative_dir(), "analysis"))):
         match = pattern.match(name)
         if match:
             name = match.group(1)
             suffix = match.group(2) or ""
-            yield name, suffix
+            matches.append((name, suffix))
+    if not matches:
+        raise RuntimeError(f"No study definitions found in {relative_dir()}")
+    return matches
 
 
 def main():
