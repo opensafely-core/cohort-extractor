@@ -13,7 +13,7 @@ from .mssql_utils import (
 
 # Characters that are safe to interpolate into SQL (see
 # `placeholders_and_params` below)
-safe_punctation = r" _.-"
+safe_punctation = r" _.-+/()"
 SAFE_CHARS_RE = re.compile(f"^[a-zA-Z0-9{re.escape(safe_punctation)}]+$")
 
 
