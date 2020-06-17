@@ -9,7 +9,8 @@ from .presto_utils import presto_connection_from_url
 
 # Characters that are safe to interpolate into SQL (see
 # `placeholders_and_params` below)
-SAFE_CHARS_RE = re.compile(r"^[a-zA-Z0-9_\.\-]+$")
+safe_punctation = r"_.-"
+SAFE_CHARS_RE = re.compile(f"^[a-zA-Z0-9{re.escape(safe_punctation)}]+$")
 
 
 class ACMEBackend:
