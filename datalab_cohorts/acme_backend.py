@@ -3,6 +3,7 @@ import datetime
 import os
 import re
 
+from .codelistlib import codelist
 from .expressions import format_expression
 from .presto_utils import presto_connection_from_url
 
@@ -203,11 +204,14 @@ class ACMEBackend:
         table_number = len(self.codelist_tables) + 1
         # We include the current column name for ease of debugging
         column_name = self._current_column_name or "unknown"
-        # The hash prefix indicates a temporary table
+        # The underscore prefix is our convention to indicate a temporary table
+        # but has no significance for the database
         table_name = f"_codelist_{table_number}_{column_name}"
+        cast = int if codelist.system in ("snomed", "snomedct") else str
         if codelist.has_categories:
             values = ", ".join(
-                f"({quote(code)}, {quote(category)})" for code, category in codelist
+                f"({quote(cast(code))}, {quote(category)})"
+                for code, category in codelist
             )
             self.codelist_tables.append(
                 f"""
@@ -218,7 +222,7 @@ class ACMEBackend:
                     """
             )
         else:
-            values = ", ".join(f"({quote(code)})" for code in codelist)
+            values = ", ".join(f"({quote(cast(code))})" for code in codelist)
             self.codelist_tables.append(
                 f"""
                     CREATE TABLE {table_name} AS
@@ -305,14 +309,20 @@ class ACMEBackend:
 
         # TODO these codes need validating
         bmi_code = 301331008  #  Finding of body mass index (finding)
-        weight_codes = [
-            27113001,  # Body weight (observable entity)
-            162763007,  # On examination - weight(finding)
-        ]
-        height_codes = [
-            271603002,  # Height / growth measure (observable entity)
-            162755006,  # On examination - height (finding)
-        ]
+        weight_codes = codelist(
+            [
+                "27113001",  # Body weight (observable entity)
+                "162763007",  # On examination - weight(finding)
+            ],
+            system="snomedct",
+        )
+        height_codes = codelist(
+            [
+                "271603002",  # Height / growth measure (observable entity)
+                "162755006",  # On examination - height (finding)
+            ],
+            system="snomedct",
+        )
 
         bmi_cte = f"""
         SELECT t."registration-id", t.BMI, t."effective-date"
@@ -472,6 +482,7 @@ class ACMEBackend:
         Patients who have had at least one of these clinical events in the
         defined period
         """
+        assert kwargs["codelist"].system == "snomedct"
         # This uses a special case function with a "fake it til you make it" API
         if kwargs["returning"] == "number_of_episodes":
             kwargs.pop("returning")
@@ -957,10 +968,11 @@ class ACMEBackend:
 
 
 def codelist_to_sql(codelist):
+    cast = int if codelist.system in ("snomed", "snomedct") else str
     if getattr(codelist, "has_categories", False):
-        values = [quote(code) for (code, category) in codelist]
+        values = [quote(cast(code)) for (code, category) in codelist]
     else:
-        values = map(quote, codelist)
+        values = [quote(cast(code)) for code in codelist]
     return ",".join(values)
 
 
