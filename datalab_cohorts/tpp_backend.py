@@ -1251,6 +1251,28 @@ class TPPBackend:
                 columns.append("date")
         return columns, sql
 
+    def patients_household_as_of(self, reference_date, returning):
+        if reference_date.isoformat() != "2020-02-01":
+            raise ValueError("Household data only currently available for 2020-02-01")
+        if returning == "pseudo_id":
+            column = "Household.Household_ID"
+        elif returning == "household_size":
+            column = "Household.HouseholdSize"
+        else:
+            raise ValueError(f"Unsupported `returning` value: {returning}")
+        return (
+            ["patient_id", returning],
+            f"""
+            SELECT
+              Patient_ID AS patient_id,
+              {column} AS {returning}
+            FROM HouseholdMember
+            INNER JOIN Household
+            ON HouseholdMember.Household_ID = Household.Household_ID
+            WHERE Household.NFA_Unknown != 1
+            """,
+        )
+
     def get_case_expression(
         self, column_types, column_definitions, category_definitions
     ):
