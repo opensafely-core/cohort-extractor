@@ -20,7 +20,16 @@ import time
 
 import sqlalchemy
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, Integer, String, DateTime, Float, NVARCHAR, Date
+from sqlalchemy import (
+    Column,
+    Integer,
+    String,
+    DateTime,
+    Float,
+    NVARCHAR,
+    Date,
+    BigInteger,
+)
 from sqlalchemy import ForeignKey
 from sqlalchemy import Table, MetaData
 from sqlalchemy.orm import sessionmaker
@@ -71,23 +80,21 @@ def make_database():
 # Table definitions
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-# WARNING: This table does not quite correspond to a table in the ACME database!
 medication = Table(
     "medication",
     metadata,
     Column("id", Integer, primary_key=True),
     Column("registration-id", Integer, ForeignKey("patient.id")),
-    Column("snomed-concept-id", String),  # TODO this is a BigInt in the ACME backend
+    Column("snomed-concept-id", BigInteger),
     Column("effective-date", DateTime),
 )
 
-# WARNING: This table does not quite correspond to a table in the ACME database!
 observation = Table(
     "observation",
     metadata,
     Column("id", Integer, primary_key=True),
     Column("registration-id", Integer, ForeignKey("patient.id")),
-    Column("snomed-concept-id", String),  # TODO this is a BigInt in the ACME backend
+    Column("snomed-concept-id", BigInteger),
     Column("value-pq-1", Float),
     Column("effective-date", DateTime),
 )

@@ -128,7 +128,6 @@ def mean_recorded_value(
     include_month=False,
     include_day=False,
 ):
-    assert codelist.system == "ctv3"
     return "mean_recorded_value", locals()
 
 

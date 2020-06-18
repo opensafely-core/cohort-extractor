@@ -3,6 +3,7 @@ import datetime
 import os
 import re
 
+from .codelistlib import codelist
 from .expressions import format_expression
 from .presto_utils import presto_connection_from_url
 
@@ -199,15 +200,18 @@ class ACMEBackend:
         self._current_column_name = None
         return return_value
 
-    def create_codelist_table(self, codelist, case_sensitive=True):
+    def create_codelist_table(self, codelist):
         table_number = len(self.codelist_tables) + 1
         # We include the current column name for ease of debugging
         column_name = self._current_column_name or "unknown"
-        # The hash prefix indicates a temporary table
+        # The underscore prefix is our convention to indicate a temporary table
+        # but has no significance for the database
         table_name = f"_codelist_{table_number}_{column_name}"
+        cast = int if codelist.system in ("snomed", "snomedct") else str
         if codelist.has_categories:
             values = ", ".join(
-                f"('{code}', '{category}')" for code, category in codelist
+                f"({quote(cast(code))}, {quote(category)})"
+                for code, category in codelist
             )
             self.codelist_tables.append(
                 f"""
@@ -218,7 +222,7 @@ class ACMEBackend:
                     """
             )
         else:
-            values = ", ".join(f"('{code}')" for code in codelist)
+            values = ", ".join(f"({quote(cast(code))})" for code in codelist)
             self.codelist_tables.append(
                 f"""
                     CREATE TABLE {table_name} AS
@@ -303,18 +307,22 @@ class ACMEBackend:
         # is >=16, weight must be within the last 10 years
         date_condition = make_date_filter('"effective-date"', between)
 
-        # TODO Change these to SNOMED codes
-        bmi_code = "22K.."
-        # XXX these two sets of codes need validating. The final in
-        # each list is the canonical version according to TPP
-        weight_codes = [
-            "X76C7",  # Concept containing "body weight" terms:
-            "22A..",  # O/E weight
-        ]
-        height_codes = [
-            "XM01E",  # Concept containing height/length/stature/growth terms:
-            "229..",  # O/E height
-        ]
+        # TODO these codes need validating
+        bmi_code = 301331008  #  Finding of body mass index (finding)
+        weight_codes = codelist(
+            [
+                "27113001",  # Body weight (observable entity)
+                "162763007",  # On examination - weight(finding)
+            ],
+            system="snomedct",
+        )
+        height_codes = codelist(
+            [
+                "271603002",  # Height / growth measure (observable entity)
+                "162755006",  # On examination - height (finding)
+            ],
+            system="snomedct",
+        )
 
         bmi_cte = f"""
         SELECT t."registration-id", t.BMI, t."effective-date"
@@ -466,11 +474,7 @@ class ACMEBackend:
             # Remove unhandled arguments and check they are unused
             assert not kwargs.pop("episode_defined_as", None)
             return self._patients_with_events(
-                "medication",
-                "",
-                '"snomed-concept-id"',
-                codes_are_case_sensitive=False,
-                **kwargs,
+                "medication", "", '"snomed-concept-id"', **kwargs,
             )
 
     def patients_with_these_clinical_events(self, **kwargs):
@@ -478,7 +482,7 @@ class ACMEBackend:
         Patients who have had at least one of these clinical events in the
         defined period
         """
-        assert kwargs["codelist"].system == "ctv3"
+        assert kwargs["codelist"].system == "snomedct"
         # This uses a special case function with a "fake it til you make it" API
         if kwargs["returning"] == "number_of_episodes":
             kwargs.pop("returning")
@@ -491,11 +495,7 @@ class ACMEBackend:
         else:
             assert not kwargs.pop("episode_defined_as", None)
             return self._patients_with_events(
-                "observation",
-                "",
-                '"snomed-concept-id"',
-                codes_are_case_sensitive=True,
-                **kwargs,
+                "observation", "", '"snomed-concept-id"', **kwargs,
             )
 
     def _patients_with_events(
@@ -503,7 +503,6 @@ class ACMEBackend:
         from_table,
         additional_join,
         code_column,
-        codes_are_case_sensitive,
         codelist,
         # Allows us to say: find codes A and B, but only on days where X and Y
         # didn't happen
@@ -517,7 +516,7 @@ class ACMEBackend:
         returning="binary_flag",
         include_date_of_match=False,
     ):
-        codelist_table = self.create_codelist_table(codelist, codes_are_case_sensitive)
+        codelist_table = self.create_codelist_table(codelist)
         date_condition = make_date_filter('"effective-date"', between)
         not_an_ignored_day_condition = self._none_of_these_codes_occur_on_same_day(
             from_table, ignore_days_where_these_codes_occur
@@ -531,6 +530,7 @@ class ACMEBackend:
             ordering = "DESC"
             date_aggregate = "MAX"
 
+        query_column = None
         if returning == "binary_flag" or returning == "date":
             column_name = "has_event"
             column_definition = "1"
@@ -545,7 +545,8 @@ class ACMEBackend:
             use_partition_query = True
         elif returning == "code":
             column_name = "code"
-            column_definition = code_column
+            column_definition = f"CAST({code_column} AS VARCHAR(18))"
+            query_column = code_column
             use_partition_query = True
         elif returning == "category":
             if not codelist.has_categories:
@@ -559,6 +560,9 @@ class ACMEBackend:
         else:
             raise ValueError(f"Unsupported `returning` value: {returning}")
 
+        if query_column is None:
+            query_column = column_definition
+
         if use_partition_query:
             sql = f"""
             SELECT
@@ -566,7 +570,7 @@ class ACMEBackend:
               {column_definition} AS {column_name},
               DATE("effective-date") AS date
             FROM (
-              SELECT "registration-id", {column_definition}, "effective-date",
+              SELECT "registration-id", {query_column}, "effective-date",
               ROW_NUMBER() OVER (
                 PARTITION BY "registration-id" ORDER BY "effective-date" {ordering}
               ) AS rownum
@@ -606,7 +610,7 @@ class ACMEBackend:
         ignore_days_where_these_codes_occur=None,
         episode_defined_as=None,
     ):
-        codelist_table = self.create_codelist_table(codelist, case_sensitive=False)
+        codelist_table = self.create_codelist_table(codelist)
         date_condition = make_date_filter('"effective-date"', between)
         not_an_ignored_day_condition = self._none_of_these_codes_occur_on_same_day(
             "medication", ignore_days_where_these_codes_occur
@@ -656,7 +660,7 @@ class ACMEBackend:
         ignore_days_where_these_codes_occur=None,
         episode_defined_as=None,
     ):
-        codelist_table = self.create_codelist_table(codelist, case_sensitive=True)
+        codelist_table = self.create_codelist_table(codelist)
         date_condition = make_date_filter('"effective-date"', between)
         not_an_ignored_day_condition = self._none_of_these_codes_occur_on_same_day(
             "observation", ignore_days_where_these_codes_occur
@@ -710,8 +714,7 @@ class ACMEBackend:
         """
         if codelist is None:
             return "1 = 1"
-        assert codelist.system == "ctv3"
-        codelist_table = self.create_codelist_table(codelist, case_sensitive=True)
+        codelist_table = self.create_codelist_table(codelist)
         return f"""
         NOT EXISTS (
           SELECT * FROM observation AS sameday
@@ -965,10 +968,11 @@ class ACMEBackend:
 
 
 def codelist_to_sql(codelist):
+    cast = int if codelist.system in ("snomed", "snomedct") else str
     if getattr(codelist, "has_categories", False):
-        values = [quote(code) for (code, category) in codelist]
+        values = [quote(cast(code)) for (code, category) in codelist]
     else:
-        values = map(quote, codelist)
+        values = [quote(cast(code)) for code in codelist]
     return ",".join(values)
 
 
