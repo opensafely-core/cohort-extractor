@@ -199,7 +199,7 @@ class ACMEBackend:
         self._current_column_name = None
         return return_value
 
-    def create_codelist_table(self, codelist, case_sensitive=True):
+    def create_codelist_table(self, codelist):
         table_number = len(self.codelist_tables) + 1
         # We include the current column name for ease of debugging
         column_name = self._current_column_name or "unknown"
@@ -464,11 +464,7 @@ class ACMEBackend:
             # Remove unhandled arguments and check they are unused
             assert not kwargs.pop("episode_defined_as", None)
             return self._patients_with_events(
-                "medication",
-                "",
-                '"snomed-concept-id"',
-                codes_are_case_sensitive=False,
-                **kwargs,
+                "medication", "", '"snomed-concept-id"', **kwargs,
             )
 
     def patients_with_these_clinical_events(self, **kwargs):
@@ -488,11 +484,7 @@ class ACMEBackend:
         else:
             assert not kwargs.pop("episode_defined_as", None)
             return self._patients_with_events(
-                "observation",
-                "",
-                '"snomed-concept-id"',
-                codes_are_case_sensitive=True,
-                **kwargs,
+                "observation", "", '"snomed-concept-id"', **kwargs,
             )
 
     def _patients_with_events(
@@ -500,7 +492,6 @@ class ACMEBackend:
         from_table,
         additional_join,
         code_column,
-        codes_are_case_sensitive,
         codelist,
         # Allows us to say: find codes A and B, but only on days where X and Y
         # didn't happen
@@ -514,7 +505,7 @@ class ACMEBackend:
         returning="binary_flag",
         include_date_of_match=False,
     ):
-        codelist_table = self.create_codelist_table(codelist, codes_are_case_sensitive)
+        codelist_table = self.create_codelist_table(codelist)
         date_condition = make_date_filter('"effective-date"', between)
         not_an_ignored_day_condition = self._none_of_these_codes_occur_on_same_day(
             from_table, ignore_days_where_these_codes_occur
@@ -608,7 +599,7 @@ class ACMEBackend:
         ignore_days_where_these_codes_occur=None,
         episode_defined_as=None,
     ):
-        codelist_table = self.create_codelist_table(codelist, case_sensitive=False)
+        codelist_table = self.create_codelist_table(codelist)
         date_condition = make_date_filter('"effective-date"', between)
         not_an_ignored_day_condition = self._none_of_these_codes_occur_on_same_day(
             "medication", ignore_days_where_these_codes_occur
@@ -658,7 +649,7 @@ class ACMEBackend:
         ignore_days_where_these_codes_occur=None,
         episode_defined_as=None,
     ):
-        codelist_table = self.create_codelist_table(codelist, case_sensitive=True)
+        codelist_table = self.create_codelist_table(codelist)
         date_condition = make_date_filter('"effective-date"', between)
         not_an_ignored_day_condition = self._none_of_these_codes_occur_on_same_day(
             "observation", ignore_days_where_these_codes_occur
@@ -712,7 +703,7 @@ class ACMEBackend:
         """
         if codelist is None:
             return "1 = 1"
-        codelist_table = self.create_codelist_table(codelist, case_sensitive=True)
+        codelist_table = self.create_codelist_table(codelist)
         return f"""
         NOT EXISTS (
           SELECT * FROM observation AS sameday
