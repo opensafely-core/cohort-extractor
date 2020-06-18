@@ -59,9 +59,6 @@ def setup_function(function):
 
 def delete_temporary_tables():
     """Delete all temporary tables.
-
-    This doesn't really belong in the test setup, and we'll have to think about
-    how to handle temporary tables in production.
     """
     session = make_session()
     with session.bind.connect() as conn:

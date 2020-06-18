@@ -2,6 +2,7 @@ import csv
 import datetime
 import os
 import re
+import uuid
 
 from .codelistlib import codelist
 from .expressions import format_expression
@@ -22,6 +23,7 @@ class ACMEBackend:
         self.database_url = database_url
         self.covariate_definitions = covariate_definitions
         self.codelist_tables = []
+        self.temp_table_prefix = self.get_temp_table_prefix()
         self.queries = self.get_queries(self.covariate_definitions)
 
     def to_csv(self, filename):
@@ -93,7 +95,8 @@ class ACMEBackend:
             else:
                 date_format_args = pop_keys_from_dict(query_args, ["date_format"])
                 cols, sql = self.get_query(name, query_type, query_args)
-                table_queries[name] = f"CREATE TABLE _{name} AS {sql}"
+                table_name = self.make_temp_table_name(name)
+                table_queries[name] = f"CREATE TABLE {table_name} AS {sql}"
                 # The first column should always be patient_id so we can join on it
                 assert cols[0] == "patient_id"
                 output_columns[name] = self.get_column_expression(
@@ -103,8 +106,8 @@ class ACMEBackend:
         # that as the primary table to query against and left join everything
         # else against that. Otherwise, we use the `patient` table.
         if "population" in table_queries:
-            primary_table = "_population"
-            patient_id_expr = "_population.patient_id"
+            primary_table = self.make_temp_table_name("population")
+            patient_id_expr = f"{primary_table}.patient_id"
         else:
             primary_table = "patient"
             patient_id_expr = "patient.id"
@@ -115,11 +118,14 @@ class ACMEBackend:
             for (name, expr) in output_columns.items()
             if not is_hidden.get(name) and name != "population"
         )
-        joins = [
-            f"LEFT JOIN _{name} ON _{name}.patient_id = {patient_id_expr}"
-            for name in table_queries
-            if name != "population"
-        ]
+        joins = []
+        for name in table_queries:
+            if name == "population":
+                continue
+            table_name = self.make_temp_table_name(name)
+            joins.append(
+                f"LEFT JOIN {table_name} ON {table_name}.patient_id = {patient_id_expr}"
+            )
         joins_str = "\n          ".join(joins)
         joined_output_query = f"""
         SELECT
@@ -133,7 +139,8 @@ class ACMEBackend:
 
     def get_column_expression(self, column_type, source, returning, date_format=None):
         default_value = self.get_default_value_for_type(column_type)
-        column_expr = f"_{source}.{returning}"
+        table_name = self.make_temp_table_name(source)
+        column_expr = f"{table_name}.{returning}"
         if column_type == "date":
             column_expr = truncate_date(column_expr, date_format)
         return f"COALESCE({column_expr}, {quote(default_value)})"
@@ -185,6 +192,15 @@ class ACMEBackend:
         )
         return f"{temporary_database}..Output_{timestamp}"
 
+    def get_temp_table_prefix(self):
+        timestamp = datetime.datetime.now(datetime.timezone.utc).strftime(
+            "%Y%m%d_%H%M%S"
+        )
+        return f"_{timestamp}_{uuid.uuid4().hex}"
+
+    def make_temp_table_name(self, name):
+        return f"{self.temp_table_prefix}_{name}"
+
     def log(self, message):
         timestamp = datetime.datetime.now(datetime.timezone.utc).strftime(
             "%Y-%m-%d %H:%M:%S UTC"
@@ -206,7 +222,7 @@ class ACMEBackend:
         column_name = self._current_column_name or "unknown"
         # The underscore prefix is our convention to indicate a temporary table
         # but has no significance for the database
-        table_name = f"_codelist_{table_number}_{column_name}"
+        table_name = self.make_temp_table_name(f"{table_number}_{column_name}")
         cast = int if codelist.system in ("snomed", "snomedct") else str
         if codelist.has_categories:
             values = ", ".join(
