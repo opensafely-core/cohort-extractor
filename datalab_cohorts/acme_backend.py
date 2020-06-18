@@ -24,6 +24,7 @@ class ACMEBackend:
         self.covariate_definitions = covariate_definitions
         self.codelist_tables = []
         self.temp_table_prefix = self.get_temp_table_prefix()
+        self.log(f"temp_table_prefix: {self.temp_table_prefix}")
         self.queries = self.get_queries(self.covariate_definitions)
 
     def to_csv(self, filename):
