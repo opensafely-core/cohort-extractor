@@ -20,7 +20,9 @@ class StudyDefinition:
             Backend = self.get_backend_for_database_url(database_url)
             self.backend = Backend(database_url, self.covariate_definitions)
         else:
-            # Without a backend defined we can still generate dummy data
+            # Without a backend defined we can still generate dummy data but we
+            # can't rely on the backend to validate the study definition for us
+            self.validate_study_definition(self.covariate_definitions)
             self.backend = None
 
     def to_csv(self, filename, expectations_population=False, **kwargs):
@@ -89,6 +91,15 @@ class StudyDefinition:
             raise RuntimeError(
                 "Cannot extract data as no DATABASE_URL environment variable defined"
             )
+
+    def validate_study_definition(self, covariate_definitions):
+        # As a crude way of error checking we construct a TPP backend with a
+        # dummy database URL. We immediately discard the backend instance, but
+        # the process of constructing it should trigger any problems with the
+        # study definition.
+        database_url = "mssql://localhost/dummy"
+        Backend = self.get_backend_for_database_url(database_url)
+        Backend(database_url, covariate_definitions)
 
     @staticmethod
     def get_pandas_csv_args(covariate_definitions):
