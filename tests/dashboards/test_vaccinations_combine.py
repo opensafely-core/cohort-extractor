@@ -1,4 +1,4 @@
-from datalab_cohorts.dashboards.vaccinations_combine import (
+from cohortextractor.dashboards.vaccinations_combine import (
     add_patient_vaccination_dates,
 )
 

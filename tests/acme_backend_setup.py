@@ -36,8 +36,8 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm import mapper
 
-from datalab_cohorts.mssql_utils import mssql_sqlalchemy_engine_from_url
-from datalab_cohorts.presto_utils import wait_for_presto_to_be_ready
+from cohortextractor.mssql_utils import mssql_sqlalchemy_engine_from_url
+from cohortextractor.presto_utils import wait_for_presto_to_be_ready
 
 Base = declarative_base()
 metadata = Base.metadata

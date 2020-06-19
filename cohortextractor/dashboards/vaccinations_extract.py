@@ -1,4 +1,4 @@
-from datalab_cohorts.tpp_backend import quote, codelist_to_sql
+from cohortextractor.tpp_backend import quote, codelist_to_sql
 
 
 def patients_with_ages_and_practices_sql(min_date_of_birth, age_thresholds):

@@ -2,7 +2,7 @@ import csv
 
 import pytest
 
-from datalab_cohorts import StudyDefinition, patients
+from cohortextractor import StudyDefinition, patients
 
 
 def test_create_dummy_data_works_without_database_url(tmp_path, monkeypatch):

@@ -1,10 +1,10 @@
-import runner
+import cohortextractor
 
 from setuptools import setup, find_packages
 
 setup(
     name="opensafely-cohort-extractor",
-    version=runner.__version__,
+    version=cohortextractor.__version__,
     packages=find_packages(),
     url="https://github.com/opensafely/cohort-extractor",
     author="OpenSAFELY",
@@ -19,7 +19,7 @@ setup(
         "sqlparse",
     ],
     entry_points={
-        "console_scripts": ["cohortextractor=datalab_cohorts.cohortextractor:main"]
+        "console_scripts": ["cohortextractor=cohortextractor.cohortextractor:main"]
     },
     include_package_data=True,
     classifiers=["License :: OSI Approved :: GNU General Public License v3 (GPLv3)"],

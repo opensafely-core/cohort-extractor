@@ -3,7 +3,7 @@ import datetime
 import os
 import tempfile
 
-from datalab_cohorts.mssql_utils import mssql_query_to_csv_file
+from cohortextractor.mssql_utils import mssql_query_to_csv_file
 from .vaccinations_extract import (
     patients_with_ages_and_practices_sql,
     vaccination_events_sql,

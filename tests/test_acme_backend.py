@@ -17,13 +17,13 @@ from tests.acme_backend_setup import (
     CPNS,
 )
 
-from datalab_cohorts import (
+from cohortextractor import (
     StudyDefinition,
     patients,
     codelist,
 )
-from datalab_cohorts.acme_backend import quote
-from datalab_cohorts.presto_utils import presto_connection_params_from_url
+from cohortextractor.acme_backend import quote
+from cohortextractor.presto_utils import presto_connection_params_from_url
 
 
 @pytest.fixture(autouse=True)

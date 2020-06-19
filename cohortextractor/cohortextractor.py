@@ -4,7 +4,7 @@
 start a notebook, open a web browser on the correct port, and handle
 shutdowns gracefully
 """
-import runner
+import cohortextractor
 import glob
 import importlib
 import os
@@ -256,7 +256,7 @@ def main():
         description="Generate cohorts and run models in openSAFELY framework. "
     )
     # Cohort parser options
-    parser.add_argument("--version", help="Display runner version", action="store_true")
+    parser.add_argument("--version", help="Display version", action="store_true")
     subparsers = parser.add_subparsers(help="sub-command help")
     generate_cohort_parser = subparsers.add_parser(
         "generate_cohort", help="Generate cohort"
@@ -320,7 +320,7 @@ def main():
 
     options = parser.parse_args()
     if options.version:
-        print(f"v{runner.__version__}")
+        print(f"v{cohortextractor.__version__}")
     elif not hasattr(options, "which"):
         parser.print_help()
     elif options.which == "generate_cohort":

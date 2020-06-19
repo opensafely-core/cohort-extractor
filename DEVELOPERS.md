@@ -142,6 +142,6 @@ be sure to `docker rm stata-docker_sql_1` before restarting.
 ## Rebuild run.exe
 
 If you need to make a new release of `run.exe`, then bump
-`runner/VERSION` (using the semver standard), and the Github Actions
+`cohortextractor/VERSION` (using the semver standard), and the Github Actions
 workflow `windows_build_and_release.yaml` should take care of the
 rest.
