@@ -12,8 +12,8 @@ from tests.tpp_backend_setup import (
     CodedEvent,
 )
 
-from datalab_cohorts import codelist
-from datalab_cohorts.dashboards.vaccinations import VaccinationsStudyDefinition
+from cohortextractor import codelist
+from cohortextractor.dashboards.vaccinations import VaccinationsStudyDefinition
 
 
 # Reference these imported functions to keep pyflakes happy and to make it

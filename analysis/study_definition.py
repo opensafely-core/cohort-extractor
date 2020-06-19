@@ -1,4 +1,4 @@
-from datalab_cohorts import StudyDefinition, patients, codelist, codelist_from_csv
+from cohortextractor import StudyDefinition, patients, codelist, codelist_from_csv
 
 chronic_cardiac_disease_codes = codelist_from_csv(
     "codelists/opensafely-chronic-cardiac-disease.csv", system="ctv3", column="CTV3ID"

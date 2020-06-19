@@ -28,13 +28,13 @@ from tests.tpp_backend_setup import (
     HouseholdMember,
 )
 
-from datalab_cohorts import (
+from cohortextractor import (
     StudyDefinition,
     patients,
     codelist,
 )
-from datalab_cohorts.mssql_utils import mssql_connection_params_from_url
-from datalab_cohorts.tpp_backend import (
+from cohortextractor.mssql_utils import mssql_connection_params_from_url
+from cohortextractor.tpp_backend import (
     quote,
     AppointmentStatus,
 )

@@ -5,7 +5,7 @@ import tempfile
 
 import pytest
 
-from datalab_cohorts.cohortextractor import list_study_definitions
+from cohortextractor.cohortextractor import list_study_definitions
 
 
 @contextmanager
@@ -18,7 +18,7 @@ def dummy_repo_folder(with_definition=True):
         yield tmpdir
 
 
-@patch("datalab_cohorts.cohortextractor.relative_dir")
+@patch("cohortextractor.cohortextractor.relative_dir")
 def test_no_study_definition_raises(relative_dir):
     with dummy_repo_folder(with_definition=False) as dummy_repo:
         relative_dir.return_value = dummy_repo
@@ -26,7 +26,7 @@ def test_no_study_definition_raises(relative_dir):
             list_study_definitions()
 
 
-@patch("datalab_cohorts.cohortextractor.relative_dir")
+@patch("cohortextractor.cohortextractor.relative_dir")
 def test_list_study_definition(relative_dir):
     with dummy_repo_folder() as dummy_repo:
         relative_dir.return_value = dummy_repo

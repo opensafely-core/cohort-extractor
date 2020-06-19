@@ -8,7 +8,7 @@ from sqlalchemy import ForeignKey
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm import relationship
 
-from datalab_cohorts.mssql_utils import mssql_sqlalchemy_engine_from_url
+from cohortextractor.mssql_utils import mssql_sqlalchemy_engine_from_url
 
 
 Base = declarative_base()

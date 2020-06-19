@@ -4,10 +4,10 @@ import pandas as pd
 import numpy as np
 from math import isclose
 
-from datalab_cohorts import StudyDefinition
-from datalab_cohorts import patients
-from datalab_cohorts import codelist
-from datalab_cohorts.expectation_generators import generate
+from cohortextractor import StudyDefinition
+from cohortextractor import patients
+from cohortextractor import codelist
+from cohortextractor.expectation_generators import generate
 
 
 @pytest.fixture(autouse=True)
