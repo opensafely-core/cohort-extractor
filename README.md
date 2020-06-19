@@ -45,7 +45,7 @@ be sure to `docker rm stata-docker_sql_1` before restarting.
 
 ## Make releases
 
-To make a release, bump the version in `runner/VERSION`; Github
+To make a release, bump the version in `cohortextractor/VERSION`; Github
 Actions should use this to (a) tag the repo accordingly; (b) publish a
 new package to pypi; (c) build and publish a new docker image as a
 Github Package.

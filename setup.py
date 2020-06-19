@@ -1,10 +1,10 @@
-import runner
+import cohortextractor
 
 from setuptools import setup, find_packages
 
 setup(
     name="opensafely-cohort-extractor",
-    version=runner.__version__,
+    version=cohortextractor.__version__,
     packages=find_packages(),
     url="https://github.com/opensafely/cohort-extractor",
     author="OpenSAFELY",
