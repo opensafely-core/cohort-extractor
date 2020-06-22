@@ -28,8 +28,8 @@ import yaml
 from datetime import datetime
 import seaborn as sns
 
-from datalab_cohorts.remotejobs import get_job_logs
-from datalab_cohorts.remotejobs import submit_job
+from cohortextractor.remotejobs import get_job_logs
+from cohortextractor.remotejobs import submit_job
 
 notebook_tag = "opencorona-research"
 target_dir = "/home/app/notebook"
