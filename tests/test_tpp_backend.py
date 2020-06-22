@@ -3,6 +3,7 @@ import filecmp
 import os
 import subprocess
 import tempfile
+from unittest.mock import patch
 
 import pytest
 
@@ -34,11 +35,7 @@ from cohortextractor import (
     codelist,
 )
 from cohortextractor.mssql_utils import mssql_connection_params_from_url
-from cohortextractor.tpp_backend import (
-    quote,
-    AppointmentStatus,
-    TPPBackend
-)
+from cohortextractor.tpp_backend import quote, AppointmentStatus, TPPBackend
 
 
 @pytest.fixture(autouse=True)
