@@ -1,3 +1,4 @@
+from unittest.mock import patch
 import csv
 import filecmp
 import os
@@ -32,10 +33,7 @@ from datalab_cohorts import (
     codelist,
 )
 from datalab_cohorts.mssql_utils import mssql_connection_params_from_url
-from datalab_cohorts.tpp_backend import (
-    quote,
-    AppointmentStatus,
-)
+from datalab_cohorts.tpp_backend import quote, AppointmentStatus, TPPBackend
 
 
 @pytest.fixture(autouse=True)
@@ -88,6 +86,24 @@ def test_minimal_study_to_csv():
             {"patient_id": str(patient_1.Patient_ID), "sex": "M"},
             {"patient_id": str(patient_2.Patient_ID), "sex": "F"},
         ]
+
+
+def test_sql_error_propagates_with_sqlcmd():
+    with patch.object(TPPBackend, "to_sql") as to_sql:
+        to_sql.return_value = "SELECT Foo FROM Bar"
+        study = StudyDefinition(population=patients.all(), sex=patients.sex())
+        with tempfile.NamedTemporaryFile(mode="w+") as f:
+            with pytest.raises():
+                study.to_csv(f.name, with_sqlcmd=True)
+
+
+def test_sql_error_propagates_without_sqlcmd():
+    with patch.object(TPPBackend, "get_queries") as get_queries:
+        get_queries.return_value = [("final_output", "SELECT Foo FROM Bar")]
+        study = StudyDefinition(population=patients.all(), sex=patients.sex())
+        with tempfile.NamedTemporaryFile(mode="w+") as f:
+            with pytest.raises():
+                study.to_csv(f.name, with_sqlcmd=False)
 
 
 def test_meds():

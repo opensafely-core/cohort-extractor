@@ -81,6 +81,7 @@ def _mssql_query_to_csv_file(database_url, query, filename):
             db_dict["password"],
             "-i",
             sqlfile,
+            "-b",  # On error, abort
             "-W",  # strip whitespace
             "-s",
             ",",  # comma delimited
@@ -95,6 +96,9 @@ def _mssql_query_to_csv_file(database_url, query, filename):
             subprocess.run(cmd, capture_output=True, encoding="utf8", check=True)
         except subprocess.CalledProcessError as e:
             print(e.output)
+            print(
+                "SQL contains an incorrect comment, syntax error, or is missing a scripting variable,"
+            )
             raise
         with open(filename, "w", newline="\r\n") as final_file:
             # We use windows line endings because that's what
