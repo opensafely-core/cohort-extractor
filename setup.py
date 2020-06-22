@@ -1,10 +1,13 @@
-import cohortextractor
-
+import os
 from setuptools import setup, find_packages
+
+
+with open(os.path.join("cohortextractor", "VERSION")) as f:
+    version = f.read().strip()
 
 setup(
     name="opensafely-cohort-extractor",
-    version=cohortextractor.__version__,
+    version=version,
     packages=find_packages(),
     url="https://github.com/opensafely/cohort-extractor",
     author="OpenSAFELY",
