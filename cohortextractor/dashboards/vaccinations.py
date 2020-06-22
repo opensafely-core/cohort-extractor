@@ -113,7 +113,17 @@ class VaccinationsStudyDefinition:
         raise NotImplementedError()
 
     def to_sql(self):
-        raise NotImplementedError()
+        patients_sql = self.get_patients_sql()
+        events_sql = self.get_events_sql()
+        return f"""
+        -- Get patient details
+        {patients_sql};
+
+        -- -------------------------------------------------------------------
+
+        -- Get vaccination events
+        {events_sql};
+        """
 
     def to_dicts(self):
         raise NotImplementedError()
@@ -135,17 +145,23 @@ class VaccinationsStudyDefinition:
         return cutoff_date.strftime("%Y-%m-%d")
 
     def extract_data(self, patients_filename, events_filename):
-        patients_sql = patients_with_ages_and_practices_sql(
+        patients_sql = self.get_patients_sql()
+        events_sql = self.get_events_sql()
+        mssql_query_to_csv_file(self.database_url, patients_sql, patients_filename)
+        mssql_query_to_csv_file(self.database_url, events_sql, events_filename)
+
+    def get_patients_sql(self):
+        return patients_with_ages_and_practices_sql(
             self.min_date_of_birth, self.get_registered_practice_at_ages
         )
-        events_sql = vaccination_events_sql(
+
+    def get_events_sql(self):
+        return vaccination_events_sql(
             self.min_date_of_birth,
             tpp_vaccination_codelist=self.tpp_vaccine_codelist,
             ctv3_codelist=self.ctv3_vaccine_codelist,
             snomed_codelist=self.snomed_vaccine_codelist,
         )
-        mssql_query_to_csv_file(self.database_url, patients_sql, patients_filename)
-        mssql_query_to_csv_file(self.database_url, events_sql, events_filename)
 
     def combine_data(self, patients_filename, events_filename, combined_filename):
         # Have to disable Black here because it can't (yet) format multliline
