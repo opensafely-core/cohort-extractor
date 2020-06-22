@@ -28,13 +28,6 @@ def set_auth():
     return (login, password)
 
 
-def get_tags():
-    cmd = ["git", "ls-remote", "--heads", "--tags", get_repo()]
-    result = subprocess.check_output(cmd, encoding="utf8")
-    tags = [y[-1] for y in [x.split("/") for x in result.splitlines()]]
-    return tags
-
-
 def get_repo():
     cmd = ["git", "config", "--get", "remote.origin.url"]
     result = subprocess.check_output(cmd, encoding="utf8")
