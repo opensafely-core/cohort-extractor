@@ -90,10 +90,10 @@ that gives you access to the publicly-available dummy dataset.
 
 If you have multiple study definitions named like
 `analysis/study_definition_<name>.py` then the corresponding output
-files will be named `analysis/input_<name>.csv`.
+files will be named `workdir/input_<name>.csv`.
 
-You can now use Stata as you usually would, with your code entrypoint
-in `analysis/model.do`.
+You can now copy the CSV to analysis, and use Stata as you usually
+would, with your code entrypoint in `analysis/model.do`.
 
 ## Running the model
 
@@ -142,6 +142,6 @@ be sure to `docker rm stata-docker_sql_1` before restarting.
 ## Rebuild run.exe
 
 If you need to make a new release of `run.exe`, then bump
-`runner/VERSION` (using the semver standard), and the Github Actions
+`cohortextractor/VERSION` (using the semver standard), and the Github Actions
 workflow `windows_build_and_release.yaml` should take care of the
 rest.

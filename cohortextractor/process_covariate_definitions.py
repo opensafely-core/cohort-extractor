@@ -301,6 +301,9 @@ class GetColumnType:
     def type_of_with_test_result_in_sgss(self, returning, **kwargs):
         return self._type_from_return_value(returning)
 
+    def type_of_household_as_of(self, returning, **kwargs):
+        return self._type_from_return_value(returning)
+
     def _type_from_return_value(self, returning):
         if returning == "nhse_region_name":
             raise ValueError(
@@ -323,6 +326,7 @@ class GetColumnType:
             "pseudo_id": "int",
             "index_of_multiple_deprivation": "int",
             "rural_urban_classification": "int",
+            "household_size": "int",
         }
         try:
             return mapping[returning]

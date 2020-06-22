@@ -12,9 +12,9 @@ from tests.tpp_backend_setup import (
     CodedEvent,
 )
 
-from datalab_cohorts import codelist
-from datalab_cohorts.mssql_utils import mssql_pyodbc_connection_from_url
-from datalab_cohorts.dashboards.vaccinations_extract import (
+from cohortextractor import codelist
+from cohortextractor.mssql_utils import mssql_pyodbc_connection_from_url
+from cohortextractor.dashboards.vaccinations_extract import (
     patients_with_ages_and_practices_sql,
     vaccination_events_sql,
 )

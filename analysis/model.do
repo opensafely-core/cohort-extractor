@@ -1,1 +1,1 @@
-import delimited `c(pwd)'/analysis/input.csv
+import delimited `c(pwd)'/output/input.csv

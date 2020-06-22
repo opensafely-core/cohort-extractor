@@ -128,7 +128,6 @@ def mean_recorded_value(
     include_month=False,
     include_day=False,
 ):
-    assert codelist.system == "ctv3"
     return "mean_recorded_value", locals()
 
 
@@ -502,3 +501,32 @@ def minimum_of(*column_names, **extra_columns):
     aggregate_function = "MIN"
     column_names = column_names + tuple(extra_columns.keys())
     return "aggregate_of", locals()
+
+
+def household_as_of(reference_date, returning=None, return_expectations=None):
+    """
+    Return information about the household to which the patient belonged as of
+    the reference date. This is inferred from address data using an algorithm
+    developed by TPP (to be documented soon) so the results are not 100%
+    reliable but are apparently pretty good.
+
+    Options for `returning` are:
+
+        pseudo_id: An integer identifier for the household which has no meaning
+                   other than to identify individual members of the same
+                   household (0 if no household information available)
+
+        household_size: the number of individuals in the household (0 if no
+                        household information available)
+
+    Examples:
+
+        household_id=patients.household_as_of(
+            "2020-02-01", returning="pseudo_id"
+        )
+
+        household_size=patients.household_as_of(
+            "2020-02-01", returning="household_size"
+        ),
+    """
+    return "household_as_of", locals()

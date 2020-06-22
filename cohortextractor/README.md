@@ -4,7 +4,7 @@ The [study_definition.py](../analysis/study_definition.py) file looks
 something like this:
 
 ```py
-from datalab_cohorts import StudyDefinition, patients, codelist_from_csv
+from cohortextractor import StudyDefinition, patients, codelist_from_csv
 
 
 cvd_meds = codelist_from_csv("mvp_data/cvd_medcodes.csv", system="snomed")

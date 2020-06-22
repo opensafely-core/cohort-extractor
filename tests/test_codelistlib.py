@@ -1,6 +1,6 @@
 import pytest
 
-from datalab_cohorts.codelistlib import (
+from cohortextractor.codelistlib import (
     codelist,
     filter_codes_by_category,
     combine_codelists,

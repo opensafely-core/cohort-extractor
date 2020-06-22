@@ -3,12 +3,12 @@ import time
 
 import sqlalchemy
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, Integer, String, DateTime, Float, NVARCHAR, Date
+from sqlalchemy import Column, Integer, String, DateTime, Float, NVARCHAR, Date, Boolean
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm import relationship
 
-from datalab_cohorts.mssql_utils import mssql_sqlalchemy_engine_from_url
+from cohortextractor.mssql_utils import mssql_sqlalchemy_engine_from_url
 
 
 Base = declarative_base()
@@ -160,6 +160,11 @@ class Patient(Base):
         "SGSS_Negative", back_populates="Patient", cascade="all, delete, delete-orphan"
     )
     Sex = Column(String)
+    HouseholdMemberships = relationship(
+        "HouseholdMember",
+        back_populates="Patient",
+        cascade="all, delete, delete-orphan",
+    )
 
 
 class RegistrationHistory(Base):
@@ -383,3 +388,28 @@ class PotentialCareHomeAddress(Base):
     # reflects what's in the underlying data source
     LocationRequiresNursing = Column(String)
     LocationDoesNotRequireNursing = Column(String)
+
+
+class Household(Base):
+    __tablename__ = "Household"
+    Household_ID = Column(Integer, primary_key=True)
+    # Flag to indicate an entry of No Fixed Abode or Unknown
+    NFA_Unknown = Column(Boolean, default=False)
+    # CareHome (boolean) - not currently being used
+    HouseholdSize = Column(Integer)
+    HouseholdMembers = relationship(
+        "HouseholdMember", back_populates="Household", cascade="all, delete"
+    )
+
+
+class HouseholdMember(Base):
+    __tablename__ = "HouseholdMember"
+    HouseholdMember_ID = Column(Integer, primary_key=True)
+    Patient_ID = Column(Integer, ForeignKey("Patient.Patient_ID"))
+    Patient = relationship(
+        "Patient", back_populates="HouseholdMemberships", cascade="all, delete"
+    )
+    Household_ID = Column(Integer, ForeignKey("Household.Household_ID"))
+    Household = relationship(
+        "Household", back_populates="HouseholdMembers", cascade="all, delete"
+    )

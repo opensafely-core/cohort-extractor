@@ -4,7 +4,7 @@
 start a notebook, open a web browser on the correct port, and handle
 shutdowns gracefully
 """
-import runner
+import cohortextractor
 import glob
 import importlib
 import os
@@ -117,6 +117,7 @@ def _generate_cohort(output_dir, study_name, suffix, expectations_population):
     study = load_study_definition(study_name)
 
     with_sqlcmd = shutil.which("sqlcmd") is not None
+    os.makedirs(output_dir, exist_ok=True)
     study.to_csv(
         f"{output_dir}/input{suffix}.csv",
         expectations_population=expectations_population,
@@ -255,7 +256,7 @@ def main():
         description="Generate cohorts and run models in openSAFELY framework. "
     )
     # Cohort parser options
-    parser.add_argument("--version", help="Display runner version", action="store_true")
+    parser.add_argument("--version", help="Display version", action="store_true")
     subparsers = parser.add_subparsers(help="sub-command help")
     generate_cohort_parser = subparsers.add_parser(
         "generate_cohort", help="Generate cohort"
@@ -275,7 +276,7 @@ def main():
         "--output-dir",
         help="Location to store output CSVs",
         type=str,
-        default="analysis",
+        default="output",
     )
 
     run_notebook_parser = subparsers.add_parser("notebook", help="Run notebook")
@@ -299,7 +300,7 @@ def main():
         "--output-dir",
         help="Location to store output CSVs",
         type=str,
-        default="analysis",
+        default="output",
     )
     cohort_method_group = generate_cohort_parser.add_mutually_exclusive_group(
         required=True
@@ -319,7 +320,7 @@ def main():
 
     options = parser.parse_args()
     if options.version:
-        print(f"v{runner.__version__}")
+        print(f"v{cohortextractor.__version__}")
     elif not hasattr(options, "which"):
         parser.print_help()
     elif options.which == "generate_cohort":

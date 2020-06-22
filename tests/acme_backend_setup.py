@@ -20,15 +20,24 @@ import time
 
 import sqlalchemy
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, Integer, String, DateTime, Float, NVARCHAR, Date
+from sqlalchemy import (
+    Column,
+    Integer,
+    String,
+    DateTime,
+    Float,
+    NVARCHAR,
+    Date,
+    BigInteger,
+)
 from sqlalchemy import ForeignKey
 from sqlalchemy import Table, MetaData
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm import mapper
 
-from datalab_cohorts.mssql_utils import mssql_sqlalchemy_engine_from_url
-from datalab_cohorts.presto_utils import wait_for_presto_to_be_ready
+from cohortextractor.mssql_utils import mssql_sqlalchemy_engine_from_url
+from cohortextractor.presto_utils import wait_for_presto_to_be_ready
 
 Base = declarative_base()
 metadata = Base.metadata
@@ -71,23 +80,21 @@ def make_database():
 # Table definitions
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-# WARNING: This table does not quite correspond to a table in the ACME database!
 medication = Table(
     "medication",
     metadata,
     Column("id", Integer, primary_key=True),
     Column("registration-id", Integer, ForeignKey("patient.id")),
-    Column("snomed-concept-id", String),  # TODO this is a BigInt in the ACME backend
+    Column("snomed-concept-id", BigInteger),
     Column("effective-date", DateTime),
 )
 
-# WARNING: This table does not quite correspond to a table in the ACME database!
 observation = Table(
     "observation",
     metadata,
     Column("id", Integer, primary_key=True),
     Column("registration-id", Integer, ForeignKey("patient.id")),
-    Column("snomed-concept-id", String),  # TODO this is a BigInt in the ACME backend
+    Column("snomed-concept-id", BigInteger),
     Column("value-pq-1", Float),
     Column("effective-date", DateTime),
 )

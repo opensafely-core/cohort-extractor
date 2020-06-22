@@ -1,4 +1,3 @@
-from unittest.mock import patch
 import csv
 import filecmp
 import os
@@ -25,15 +24,21 @@ from tests.tpp_backend_setup import (
     SGSS_Positive,
     SGSS_Negative,
     PotentialCareHomeAddress,
+    Household,
+    HouseholdMember,
 )
 
-from datalab_cohorts import (
+from cohortextractor import (
     StudyDefinition,
     patients,
     codelist,
 )
-from datalab_cohorts.mssql_utils import mssql_connection_params_from_url
-from datalab_cohorts.tpp_backend import quote, AppointmentStatus, TPPBackend
+from cohortextractor.mssql_utils import mssql_connection_params_from_url
+from cohortextractor.tpp_backend import (
+    quote,
+    AppointmentStatus,
+    TPPBackend
+)
 
 
 @pytest.fixture(autouse=True)
@@ -68,6 +73,8 @@ def setup_function(function):
     session.query(Organisation).delete()
     session.query(PotentialCareHomeAddress).delete()
     session.query(PatientAddress).delete()
+    session.query(HouseholdMember).delete()
+    session.query(Household).delete()
     session.query(Patient).delete()
     session.commit()
 
@@ -2088,3 +2095,54 @@ def test_patients_aggregate_value_of():
     results = study_with_hidden_columns.to_dicts()
     assert [x["max_value"] for x in results] == ["23.0", "18.0", "10.0", "8.0", "0.0"]
     assert "abc_value" not in results[0].keys()
+
+
+def test_patients_household_as_of():
+    session = make_session()
+    session.add_all(
+        [
+            Patient(),
+            Patient(
+                HouseholdMemberships=[
+                    HouseholdMember(
+                        Household=Household(Household_ID=123, HouseholdSize=2)
+                    )
+                ]
+            ),
+            Patient(
+                HouseholdMemberships=[
+                    HouseholdMember(
+                        Household=Household(Household_ID=456, HouseholdSize=3)
+                    )
+                ]
+            ),
+            # This shouldn't produce any output because the entry is flagged as
+            # No-Fixed-Abode/Unknown
+            Patient(
+                HouseholdMemberships=[
+                    HouseholdMember(
+                        Household=Household(
+                            Household_ID=789, HouseholdSize=4, NFA_Unknown=True
+                        )
+                    )
+                ]
+            ),
+        ]
+    )
+    session.commit()
+    study = StudyDefinition(
+        population=patients.all(),
+        household_id=patients.household_as_of("2020-02-01", returning="pseudo_id"),
+        household_size=patients.household_as_of(
+            "2020-02-01", returning="household_size"
+        ),
+    )
+    results = study.to_dicts()
+    assert [x["household_id"] for x in results] == ["0", "123", "456", "0"]
+    assert [x["household_size"] for x in results] == ["0", "2", "3", "0"]
+    # We currently only accept one specific date
+    with pytest.raises(ValueError):
+        StudyDefinition(
+            population=patients.all(),
+            size=patients.household_as_of("2020-05-01", returning="household_size"),
+        )

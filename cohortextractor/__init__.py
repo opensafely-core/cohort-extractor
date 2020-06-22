@@ -1,3 +1,5 @@
+import os
+
 from .study_definition import StudyDefinition
 
 from .codelistlib import (
@@ -7,6 +9,8 @@ from .codelistlib import (
     combine_codelists,
 )
 
+with open(os.path.join(os.path.dirname(__file__), "VERSION")) as version_file:
+    __version__ = version_file.read().strip()
 
 __all__ = [
     "StudyDefinition",
