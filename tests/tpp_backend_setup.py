@@ -165,6 +165,14 @@ class Patient(Base):
         back_populates="Patient",
         cascade="all, delete, delete-orphan",
     )
+    ECEpisodes = relationship(
+        "ECDS", back_populates="Patient", cascade="all, delete, delete-orphan",
+    )
+    ECDiagnoses = relationship(
+        "ECDS_EC_Diagnoses",
+        back_populates="Patient",
+        cascade="all, delete, delete-orphan",
+    )
 
 
 class RegistrationHistory(Base):
@@ -413,3 +421,34 @@ class HouseholdMember(Base):
     Household = relationship(
         "Household", back_populates="HouseholdMembers", cascade="all, delete"
     )
+
+
+class ECDS(Base):
+    __tablename__ = "ECDS"
+    Patient_ID = Column(Integer, ForeignKey("Patient.Patient_ID"))
+    Patient = relationship(
+        "Patient", back_populates="ECEpisodes", cascade="all, delete"
+    )
+    EC_Ident = Column(Integer, primary_key=True)
+    Arrival_Date = Column(Date)
+    Discharge_Destination_SNOMED_CT = Column(String(collation="Latin1_General_CI_AS"))
+    Diagnoses = relationship(
+        "ECDS_EC_Diagnoses", back_populates="ECDS", cascade="all, delete, delete-orphan"
+    )
+
+
+class ECDS_EC_Diagnoses(Base):
+    __tablename__ = "ECDS_EC_Diagnoses"
+
+    # This column isn't in the actual database but SQLAlchemy gets a bit upset
+    # if we don't give it a primary key
+    id = Column(Integer, primary_key=True)
+
+    Patient_ID = Column(Integer, ForeignKey("Patient.Patient_ID"))
+    Patient = relationship(
+        "Patient", back_populates="ECDiagnoses", cascade="all, delete"
+    )
+    EC_Ident = Column(Integer, ForeignKey("ECDS.EC_Ident"))
+    ECDS = relationship("ECDS", back_populates="Diagnoses", cascade="all, delete")
+    Ordinal = Column(Integer)
+    DiagnosisCode = Column(String(collation="Latin1_General_CI_AS"))
