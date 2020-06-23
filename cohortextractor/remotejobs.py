@@ -30,11 +30,11 @@ def set_auth():
 
 def get_repo():
     cmd = ["git", "config", "--get", "remote.origin.url"]
-    result = subprocess.check_output(cmd, encoding="utf8")
+    result = subprocess.check_output(cmd, encoding="utf8").strip()
     if result.startswith("git@github.com"):
         # Turn git@github.com:opensafely/cohort-extractor.git into
         # https://github.com/opensafely/cohort-extractor
-        org_and_repo = result.split(":")[1][: -(len(".git") + 1)]
+        org_and_repo = result.split(":")[1][: -len(".git")]
         result = f"https://github.com/{org_and_repo}"
     return result
 
