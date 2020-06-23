@@ -96,13 +96,21 @@ def _mssql_query_to_csv_file(database_url, query, filename):
         except subprocess.CalledProcessError as e:
             print(e.output)
             raise
-        with open(filename, "w", newline="\r\n") as final_file:
+        with open(filename, "a+", newline="\r\n") as final_file:
             # We use windows line endings because that's what
             # the CSV module's default dialect does
+            found_error = False
+
             for line_num, line in enumerate(open(csvfile, "r")):
-                if line_num == 0 and line.startswith("Warning"):
-                    continue
+                if line_num == 0:
+                    if line.startswith("Warning"):
+                        continue
+                    elif line.startswith("Msg "):
+                        found_error = True
                 if line_num <= 2 and line.startswith("-"):
                     continue
                 yield line
                 final_file.write(line)
+            if found_error:
+                final_file.seek(0)
+                raise ValueError(final_file.read())
