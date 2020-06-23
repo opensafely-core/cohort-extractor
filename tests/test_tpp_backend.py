@@ -5,6 +5,7 @@ import subprocess
 import tempfile
 from unittest.mock import patch
 
+import pyodbc
 import pytest
 
 from tests.tpp_backend_setup import make_database, make_session
@@ -97,8 +98,9 @@ def test_sql_error_propagates_with_sqlcmd():
         to_sql.return_value = "SELECT Foo FROM Bar"
         study = StudyDefinition(population=patients.all(), sex=patients.sex())
         with tempfile.NamedTemporaryFile(mode="w+") as f:
-            with pytest.raises(BaseException):
+            with pytest.raises(ValueError) as excinfo:
                 study.to_csv(f.name, with_sqlcmd=True)
+            assert "Invalid object name 'Bar'" in str(excinfo.value)
 
 
 def test_sql_error_propagates_without_sqlcmd():
@@ -106,8 +108,9 @@ def test_sql_error_propagates_without_sqlcmd():
         get_queries.return_value = [("final_output", "SELECT Foo FROM Bar")]
         study = StudyDefinition(population=patients.all(), sex=patients.sex())
         with tempfile.NamedTemporaryFile(mode="w+") as f:
-            with pytest.raises(BaseException):
+            with pytest.raises(pyodbc.ProgrammingError) as excinfo:
                 study.to_csv(f.name, with_sqlcmd=False)
+            assert "Invalid object name 'Bar'" in str(excinfo.value)
 
 
 def test_meds():
