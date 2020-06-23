@@ -3,7 +3,9 @@ import filecmp
 import os
 import subprocess
 import tempfile
+from unittest.mock import patch
 
+import pyodbc
 import pytest
 
 from tests.tpp_backend_setup import make_database, make_session
@@ -34,10 +36,7 @@ from cohortextractor import (
     codelist,
 )
 from cohortextractor.mssql_utils import mssql_connection_params_from_url
-from cohortextractor.tpp_backend import (
-    quote,
-    AppointmentStatus,
-)
+from cohortextractor.tpp_backend import quote, AppointmentStatus, TPPBackend
 
 
 @pytest.fixture(autouse=True)
@@ -92,6 +91,26 @@ def test_minimal_study_to_csv():
             {"patient_id": str(patient_1.Patient_ID), "sex": "M"},
             {"patient_id": str(patient_2.Patient_ID), "sex": "F"},
         ]
+
+
+def test_sql_error_propagates_with_sqlcmd():
+    with patch.object(TPPBackend, "to_sql") as to_sql:
+        to_sql.return_value = "SELECT Foo FROM Bar"
+        study = StudyDefinition(population=patients.all(), sex=patients.sex())
+        with tempfile.NamedTemporaryFile(mode="w+") as f:
+            with pytest.raises(ValueError) as excinfo:
+                study.to_csv(f.name, with_sqlcmd=True)
+            assert "Invalid object name 'Bar'" in str(excinfo.value)
+
+
+def test_sql_error_propagates_without_sqlcmd():
+    with patch.object(TPPBackend, "get_queries") as get_queries:
+        get_queries.return_value = [("final_output", "SELECT Foo FROM Bar")]
+        study = StudyDefinition(population=patients.all(), sex=patients.sex())
+        with tempfile.NamedTemporaryFile(mode="w+") as f:
+            with pytest.raises(pyodbc.ProgrammingError) as excinfo:
+                study.to_csv(f.name, with_sqlcmd=False)
+            assert "Invalid object name 'Bar'" in str(excinfo.value)
 
 
 def test_meds():
