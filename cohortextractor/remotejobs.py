@@ -34,8 +34,10 @@ def get_repo():
     if result.startswith("git@github.com"):
         # Turn git@github.com:opensafely/cohort-extractor.git into
         # https://github.com/opensafely/cohort-extractor
-        org_and_repo = result.split(":")[1][: -len(".git")]
+        org_and_repo = result.split(":")[1]
         result = f"https://github.com/{org_and_repo}"
+    if result.endswith(".git"):
+        result = result[: -len(".git")]
     return result
 
 
