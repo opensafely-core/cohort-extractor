@@ -31,7 +31,7 @@ here](https://github.com/opensafely/research-template).
 
 ## Run tests
 
-You can run everything in docker with `./run_tests.sh`.
+You can run everything in docker with `./run.sh pytest`.
 
 You can also run the tests in your own virtualenv, but either way you
 will (probably) still want to use docker to run a SQL Server instance:
