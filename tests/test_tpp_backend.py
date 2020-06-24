@@ -1511,28 +1511,6 @@ def test_sqlcmd_and_odbc_outputs_match(tmp_path):
     assert odbc_output == sqlcmd_output
 
 
-def test_column_name_clashes_produce_errors():
-    with pytest.raises(ValueError):
-        StudyDefinition(
-            population=patients.all(),
-            age=patients.age_as_of("2020-01-01"),
-            status=patients.satisfying(
-                "age > 70 AND sex = 'M'",
-                sex=patients.sex(),
-                age=patients.age_as_of("2010-01-01"),
-            ),
-        )
-
-
-def test_recursive_definitions_produce_errors():
-    with pytest.raises(ValueError):
-        StudyDefinition(
-            population=patients.all(),
-            this=patients.satisfying("that = 1"),
-            that=patients.satisfying("this = 1"),
-        )
-
-
 def test_using_expression_in_population_definition():
     session = make_session()
     session.add_all(

@@ -97,3 +97,25 @@ def test_pyodbc_not_accidentally_imported(tmp_path):
     source = textwrap.dedent("\n".join(source))
     result = subprocess.check_output([sys.executable, "-c", source]).strip()
     assert result == b"pyodbc is not imported"
+
+
+def test_column_name_clashes_produce_errors():
+    with pytest.raises(ValueError):
+        StudyDefinition(
+            population=patients.all(),
+            age=patients.age_as_of("2020-01-01"),
+            status=patients.satisfying(
+                "age > 70 AND sex = 'M'",
+                sex=patients.sex(),
+                age=patients.age_as_of("2010-01-01"),
+            ),
+        )
+
+
+def test_recursive_definitions_produce_errors():
+    with pytest.raises(ValueError):
+        StudyDefinition(
+            population=patients.all(),
+            this=patients.satisfying("that = 1"),
+            that=patients.satisfying("this = 1"),
+        )
