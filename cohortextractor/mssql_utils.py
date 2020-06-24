@@ -3,7 +3,6 @@ import subprocess
 import tempfile
 from urllib.parse import urlparse, unquote
 
-import pyodbc
 import sqlalchemy
 from sqlalchemy.engine.url import URL
 
@@ -22,6 +21,12 @@ def mssql_connection_params_from_url(url):
 
 
 def mssql_pyodbc_connection_from_url(url):
+    # We avoid importing this immediately because we're using the TPPBackend
+    # code for error checking (as a hopefully temporary shortcut) and so want
+    # to be able to create a TPPBackend instance without needing pyodbc
+    # installed (which complicates local installing).
+    import pyodbc
+
     connection_str_template = (
         "DRIVER={{ODBC Driver 17 for SQL Server}};"
         "SERVER={host},{port};"
