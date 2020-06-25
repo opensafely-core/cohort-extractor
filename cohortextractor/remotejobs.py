@@ -52,18 +52,17 @@ def get_job_logs():
     for entry in response.json()["results"]:
         if not entry["started"]:
             status = "not started"
+        elif entry["status_code"] is None:
+            status = "running"
+        elif entry["status_code"] == 0:
+            status = f"finished ({entry['output_url']})"
         else:
-            if entry["status_code"] is None:
-                status = "running"
-            elif entry["status_code"] == 0:
-                status = "finished"
-            else:
-                status = f"error ({entry['status_code']})"
-            entry["status"] = status
+            status = f"error ({entry['status_code']})"
+        entry["status"] = status
         log_lines.append(
-            "{created_at}: {operation} on {tag} ({status})".format(**entry)
+            "{created_at}: {operation}@{tag} on {backend} {status}".format(**entry)
         )
-    return log_lines
+    return sorted(log_lines)
 
 
 def do_post(data):
