@@ -12,6 +12,7 @@ setup(
     url="https://github.com/opensafely/cohort-extractor",
     author="OpenSAFELY",
     author_email="tech@opensafely.org",
+    python_requires=">=3.7",
     install_requires=[
         "pandas",
         "pyodbc",
