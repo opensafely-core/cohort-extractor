@@ -73,8 +73,25 @@ def do_post(data):
     return response.json()
 
 
-def submit_job(tag, operation):
+def submit_job(backend, db, tag, operation):
     allowed_operations = ["generate_cohort"]
+    allowed_backends = ["all", "tpp"]
     assert operation in allowed_operations, f"operation must be in {allowed_operations}"
-    data = {"repo": get_repo(), "tag": tag, "operation": "generate_cohort"}
-    return do_post(data)
+    assert backend in allowed_backends, f"backend must be in {allowed_backends}"
+    if backend == "all":
+        backends = allowed_backends[:]
+        backends.remove("all")
+    else:
+        backends = [backend]
+    repo = get_repo()
+    responses = []
+    for backend in backends:
+        data = {
+            "repo": repo,
+            "tag": tag,
+            "operation": "generate_cohort",
+            "backend": backend,
+            "db": db,
+        }
+        responses.append(do_post(data))
+    return responses
