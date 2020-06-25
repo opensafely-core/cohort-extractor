@@ -22,7 +22,9 @@ def set_auth():
         password = netrc[JOB_SERVER]["password"]
     else:
         login = input("Job server username: ")
-        password = getpass.getpass()
+        password = getpass.getpass(
+            "Password (warning: Ctrl+V won't work here; try Ctrl+Shift+V if you want to paste): "
+        )
         netrc[JOB_SERVER] = {"login": login, "password": password}
         netrc.save()
     return (login, password)
