@@ -318,11 +318,6 @@ def main():
         type=str,
         required=True,
     )
-    generate_cohort_remote_parser.add_argument(
-        "--callback-url",
-        help="A URL to which to report a message when a remote job is complete",
-        type=str,
-    )
 
     log_remote_parser = remote_subparser.add_parser("log", help="Show logs")
     log_remote_parser.set_defaults(which="remote_log")
@@ -369,7 +364,7 @@ def main():
         dump_study_yaml(options.study_definition)
 
     elif options.which == "remote_generate_cohort":
-        submit_job(options.ref, "generate_cohort", options.callback_url)
+        submit_job(options.ref, "generate_cohort")
         print("Job submitted!")
     elif options.which == "remote_log":
         logs = get_job_logs()
