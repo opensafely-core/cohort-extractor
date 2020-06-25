@@ -222,13 +222,13 @@ def update_codelists():
                 f.write(rsp.text)
 
 
-def dump_cohort_sql():
-    study = load_study_definition("study_definition")
+def dump_cohort_sql(study_definition):
+    study = load_study_definition(study_definition)
     print(study.to_sql())
 
 
-def dump_study_yaml():
-    study = load_study_definition("study_definition")
+def dump_study_yaml(study_definition):
+    study = load_study_definition(study_definition)
     print(yaml.dump(study.to_data()))
 
 
@@ -291,11 +291,17 @@ def main():
     dump_cohort_sql_parser = subparsers.add_parser(
         "dump_cohort_sql", help="Show SQL to generate cohort"
     )
+    dump_cohort_sql_parser.add_argument(
+        "--study-definition", help="Study definition name", type=str, required=True
+    )
     dump_cohort_sql_parser.set_defaults(which="dump_cohort_sql")
     dump_study_yaml_parser = subparsers.add_parser(
         "dump_study_yaml", help="Show study definition as YAML"
     )
     dump_study_yaml_parser.set_defaults(which="dump_study_yaml")
+    dump_study_yaml_parser.add_argument(
+        "--study-definition", help="Study definition name", type=str, required=True
+    )
 
     remote_parser = subparsers.add_parser("remote", help="Manage remote jobs")
     remote_parser.set_defaults(which="remote")
@@ -371,7 +377,7 @@ def main():
         update_codelists()
         print("Codelists updated. Don't forget to commit them to the repo")
     elif options.which == "dump_cohort_sql":
-        dump_cohort_sql()
+        dump_cohort_sql(options.study_definition)
     elif options.which == "dump_study_yaml":
         dump_study_yaml(options.study_definition)
     elif options.which == "remote_generate_cohort":
