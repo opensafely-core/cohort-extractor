@@ -318,6 +318,24 @@ def main():
         type=str,
         required=True,
     )
+    generate_cohort_remote_parser.add_argument(
+        "--db",
+        help="Database to run against",
+        choices=["full", "slice", "dummy"],
+        nargs="?",
+        const="full",
+        default="full",
+        type=str,
+    )
+    generate_cohort_remote_parser.add_argument(
+        "--backend",
+        help="Backend to run against",
+        choices=["all", "tpp"],
+        nargs="?",
+        const="all",
+        default="all",
+        type=str,
+    )
 
     log_remote_parser = remote_subparser.add_parser("log", help="Show logs")
     log_remote_parser.set_defaults(which="remote_log")
@@ -362,9 +380,8 @@ def main():
         dump_cohort_sql(options.study_definition)
     elif options.which == "dump_study_yaml":
         dump_study_yaml(options.study_definition)
-
     elif options.which == "remote_generate_cohort":
-        submit_job(options.ref, "generate_cohort")
+        submit_job(options.backend, options.db, options.ref, "generate_cohort")
         print("Job submitted!")
     elif options.which == "remote_log":
         logs = get_job_logs()
