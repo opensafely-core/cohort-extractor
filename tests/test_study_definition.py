@@ -119,3 +119,15 @@ def test_recursive_definitions_produce_errors():
             this=patients.satisfying("that = 1"),
             that=patients.satisfying("this = 1"),
         )
+
+
+def test_syntax_errors_in_expressions_are_raised():
+    with pytest.raises(ValueError):
+        StudyDefinition(
+            population=patients.all(),
+            status=patients.satisfying(
+                "age > 70 AND AND sex = 'M'",
+                sex=patients.sex(),
+                age=patients.age_as_of("2010-01-01"),
+            ),
+        )

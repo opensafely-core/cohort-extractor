@@ -1,4 +1,5 @@
 import re
+import sqlite3
 
 import sqlparse
 from sqlparse import tokens as ttypes
@@ -13,14 +14,15 @@ class UnknownColumnError(ValueError):
     pass
 
 
-def format_expression(expression, name_map, empty_value_map=None):
+def format_expression(expression, name_map, empty_value_map):
     """
     Take an SQL expression (in a very limited dialect) and a column name
     mapping and return a reformatted expression with column references
     rewritten using the supplied mapping.
 
-    If `empty_value_map` is supplied then any column references that are not
-    involved in an explicit comparison are rewritten as `!= <empty value>`.
+    `empty_value_map` is a dict giving the "empty" or falsey value appropriate
+    to the type of each column. Any column references that are not involved in
+    an explicit comparison are rewritten as `!= <empty value>`.
 
     For example, the expression
 
@@ -37,8 +39,8 @@ def format_expression(expression, name_map, empty_value_map=None):
     tree = sqlparse.parse(expression)
     tokens = tree[0].flatten()
     tokens = filter_and_validate_tokens(tokens)
-    if empty_value_map:
-        tokens = insert_implicit_comparisons(tokens, empty_value_map)
+    tokens = insert_implicit_comparisons(tokens, empty_value_map)
+    tokens = validate_expression(tokens, empty_value_map)
     tokens = remap_names(tokens, name_map)
     return " ".join(token.value for token in tokens)
 
@@ -155,3 +157,38 @@ def token_for_value(value):
         return sqlparse.sql.Token(ttypes.Literal.String.Single, "''")
     else:
         raise ValueError(f"Invalid empty value: f{value}")
+
+
+def validate_expression(tokens, empty_value_map):
+    """
+    Perform basic syntactic validation on the supplied expression
+
+    This involves transforming it back into SQL and attempting to execute it
+    against an in-memory SQLite database. Each name is replaced with a literal
+    value of the correct type which we get from the `empty_value_map`.
+
+    Note: because SQLite is so lax about types this doesn't catch any type
+    related errors e.g. comparing an int with a string or performing arithmetic
+    operations on non-numeric types. But it at least catches basic syntactic
+    errors.
+    """
+    tokens = list(tokens)
+    sql = " ".join(
+        replace_names_with_empty_values(token, empty_value_map) for token in tokens
+    )
+    conn = sqlite3.connect(":memory:")
+    try:
+        conn.execute(f"SELECT ({sql})")
+    except sqlite3.OperationalError as e:
+        raise ValueError(f"Invalid SQL expression: {e}")
+    return tokens
+
+
+def replace_names_with_empty_values(token, empty_value_map):
+    if token.ttype is ttypes.Name:
+        try:
+            empty_value = empty_value_map[token.value]
+        except KeyError:
+            raise UnknownColumnError(f"Unknown column: {token.value}")
+        token = token_for_value(empty_value)
+    return token.value
