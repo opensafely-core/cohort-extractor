@@ -95,8 +95,8 @@ class VaccinationsStudyDefinition:
         self.snomed_vaccine_codelist = snomed_vaccine_codelist
         self.event_washout_period = event_washout_period
         self.vaccination_schedule = vaccination_schedule
-        self.min_date_of_birth = self.get_min_date_of_birth(
-            start_date, get_registered_practice_at_ages
+        self.date_of_birth_range = self.get_date_of_birth_range(
+            start_date, datetime.date.today(), get_registered_practice_at_ages
         )
         self.database_url = os.environ.get("DATABASE_URL")
 
@@ -134,18 +134,22 @@ class VaccinationsStudyDefinition:
     def to_data(self):
         raise NotImplementedError()
 
-    def get_min_date_of_birth(self, start_date, age_thresholds):
+    def get_date_of_birth_range(self, start_date, today, age_thresholds):
         """
-        Return the minimum date of birth for patients to be included. This means
-        patients who turned 5 in the first month we want to report on.
-
-        As there's no harm in including a few extra patients (their data will just
-        never get used) we round up year length to account for leap years.
+        Return the range of dates of birth for patients to be included. The
+        minimum will be patients who turned 5 in the first month we want to report
+        on. The maximum will be patients who turned 1 today.
         """
-        years = max(age_thresholds)
         start_date = datetime.date.fromisoformat(start_date)
-        cutoff_date = start_date - datetime.timedelta(days=366 * years)
-        return cutoff_date.strftime("%Y-%m-%d")
+        # We trim all dates to the first of the month as that is what our
+        # output looks like for IG reasons
+        start_date = start_date.replace(day=1)
+        today = today.replace(day=1)
+        max_years = max(age_thresholds)
+        min_years = min(age_thresholds)
+        min_date = start_date.replace(year=start_date.year - max_years)
+        max_date = today.replace(year=today.year - min_years)
+        return min_date.isoformat(), max_date.isoformat()
 
     def extract_data(self, patients_filename, events_filename):
         patients_sql = self.get_patients_sql()
@@ -155,12 +159,12 @@ class VaccinationsStudyDefinition:
 
     def get_patients_sql(self):
         return patients_with_ages_and_practices_sql(
-            self.min_date_of_birth, self.get_registered_practice_at_ages
+            self.date_of_birth_range, self.get_registered_practice_at_ages
         )
 
     def get_events_sql(self):
         return vaccination_events_sql(
-            self.min_date_of_birth,
+            self.date_of_birth_range,
             tpp_vaccination_codelist=self.tpp_vaccine_codelist,
             ctv3_codelist=self.ctv3_vaccine_codelist,
             snomed_codelist=self.snomed_vaccine_codelist,
@@ -203,16 +207,18 @@ class VaccinationsStudyDefinition:
 
     def generate_dummy_data(self, num_rows):
         rand = random.Random()
-        min_date_of_birth = datetime.date.fromisoformat(self.min_date_of_birth)
+        min_date_of_birth = datetime.date.fromisoformat(self.date_of_birth_range[0])
+        max_date_of_birth = datetime.date.fromisoformat(self.date_of_birth_range[1])
         today = datetime.date.today()
         max_age_in_days = (today - min_date_of_birth).days
+        min_age_in_days = (today - max_date_of_birth).days
         assert max_age_in_days > 0
         practice_ids = rand.sample(range(99999999), 100)
         patient_id = rand.randrange(100000, 200000)
         for n in range(num_rows):
             # Ensures patients IDs are strictly increasing but not contiguous
             patient_id += rand.randrange(1, 9999)
-            days_old = rand.randrange(0, max_age_in_days)
+            days_old = rand.randrange(min_age_in_days, max_age_in_days)
             date_of_birth = today - timedelta(days=days_old)
             data = {
                 "patient_id": patient_id,
