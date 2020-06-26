@@ -93,7 +93,7 @@ def submit_job(backend, db, tag, operation, repo=None):
             "backend": backend,
             "db": db,
         }
-        callback_url = os.environ.get("OPENSAFELY_REMOTE_WEBHOOK", "")
+        callback_url = os.environ.get("EBMBOT_CALLBACK_URL", "")
         if callback_url:
             data["callback_url"] = callback_url
         responses.append(do_post(data))
