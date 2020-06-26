@@ -148,11 +148,13 @@ class VaccinationsStudyDefinition:
         mssql_query_to_csv_file(self.database_url, events_sql, events_filename)
 
     def combine_data(self, patients_filename, events_filename, combined_filename):
+        # Have to disable Black here because it can't (yet) format multliline
+        # context managers correctly. See:
+        # https://github.com/psf/black/issues/664#issuecomment-593905179
         # fmt: off
         with open(patients_filename, newline="") as patients_file, \
                 open(events_filename, newline="") as events_file, \
                 open(combined_filename, "w", newline="") as combined_file:
-        # fmt: on
             patients = csv.DictReader(patients_file)
             vaccination_events = csv.DictReader(events_file)
             output_headers = patients.fieldnames + self.vaccination_schedule
@@ -168,3 +170,4 @@ class VaccinationsStudyDefinition:
                 patients, vaccination_events
             ):
                 writer.writerow(output_row)
+        # fmt: on
