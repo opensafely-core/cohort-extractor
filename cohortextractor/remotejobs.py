@@ -77,7 +77,7 @@ def submit_job(tag, operation):
     allowed_operations = ["generate_cohort"]
     assert operation in allowed_operations, f"operation must be in {allowed_operations}"
     data = {"repo": get_repo(), "tag": tag, "operation": "generate_cohort"}
-    callback_url = os.environ.get("EBMBOT_CALLBACK_URL", "")
+    callback_url = os.environ.get("OPENSAFELY_REMOTE_WEBHOOK", "")
     if callback_url:
         data["callback_url"] = callback_url
     return do_post(data)

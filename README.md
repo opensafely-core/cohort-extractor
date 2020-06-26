@@ -26,6 +26,13 @@ It is designed to be run within an OpenSAFELY-compliant research
 repository. [You can find a template repository to get you started
 here](https://github.com/opensafely/research-template).
 
+The tool has a `remote` subcommand which triggers jobs to be scheduled
+to run elsewhere, via a [job
+server](https://github.com/opensafely/job-server). If you set the
+environment variable `OPENSAFELY_REMOTE_WEBHOOK`, this hook will be
+supplied to the job server, which will `POST` a message to that URL
+when a job has finished.
+
 
 # For developers
 
@@ -65,4 +72,3 @@ The framework is under fast, active development to support rapid
 analytics relating to COVID19; we're currently seeking funding to make
 it easier for outside collaborators to work with our system.  You can
 read our current roadmap [here](ROADMAP.md).
-
