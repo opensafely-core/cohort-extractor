@@ -52,18 +52,17 @@ def get_job_logs():
     for entry in response.json()["results"]:
         if not entry["started"]:
             status = "not started"
+        elif entry["status_code"] is None:
+            status = "running"
+        elif entry["status_code"] == 0:
+            status = f"finished ({entry['output_url']})"
         else:
-            if entry["status_code"] is None:
-                status = "running"
-            elif entry["status_code"] == 0:
-                status = "finished"
-            else:
-                status = f"error ({entry['status_code']})"
-            entry["status"] = status
+            status = f"error ({entry['status_code']})"
+        entry["status"] = status
         log_lines.append(
-            "{created_at}: {operation} on {tag} ({status})".format(**entry)
+            "{created_at}: {operation}@{tag} on {backend} {status}".format(**entry)
         )
-    return log_lines
+    return sorted(log_lines)
 
 
 def do_post(data):
@@ -73,13 +72,29 @@ def do_post(data):
     return response.json()
 
 
-def submit_job(tag, operation, repo=None):
+def submit_job(backend, db, tag, operation, repo=None):
     allowed_operations = ["generate_cohort"]
+    allowed_backends = ["all", "tpp"]
     assert operation in allowed_operations, f"operation must be in {allowed_operations}"
+    assert backend in allowed_backends, f"backend must be in {allowed_backends}"
+    if backend == "all":
+        backends = allowed_backends[:]
+        backends.remove("all")
+    else:
+        backends = [backend]
     if not repo:
         repo = get_repo()
-    data = {"repo": repo, "tag": tag, "operation": "generate_cohort"}
-    callback_url = os.environ.get("OPENSAFELY_REMOTE_WEBHOOK", "")
-    if callback_url:
-        data["callback_url"] = callback_url
-    return do_post(data)
+    responses = []
+    for backend in backends:
+        data = {
+            "repo": repo,
+            "tag": tag,
+            "operation": "generate_cohort",
+            "backend": backend,
+            "db": db,
+        }
+        callback_url = os.environ.get("OPENSAFELY_REMOTE_WEBHOOK", "")
+        if callback_url:
+            data["callback_url"] = callback_url
+        responses.append(do_post(data))
+    return responses
