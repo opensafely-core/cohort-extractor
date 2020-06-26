@@ -319,6 +319,11 @@ def main():
         required=True,
     )
     generate_cohort_remote_parser.add_argument(
+        "--repo",
+        help="Tag or branch against which to run the extraction (leave blank for current repo)",
+        type=str,
+    )
+    generate_cohort_remote_parser.add_argument(
         "--db",
         help="Database to run against",
         choices=["full", "slice", "dummy"],
@@ -381,7 +386,9 @@ def main():
     elif options.which == "dump_study_yaml":
         dump_study_yaml(options.study_definition)
     elif options.which == "remote_generate_cohort":
-        submit_job(options.backend, options.db, options.ref, "generate_cohort")
+        submit_job(
+            options.backend, options.db, options.ref, "generate_cohort", options.repo
+        )
         print("Job submitted!")
     elif options.which == "remote_log":
         logs = get_job_logs()

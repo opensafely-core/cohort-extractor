@@ -72,7 +72,7 @@ def do_post(data):
     return response.json()
 
 
-def submit_job(backend, db, tag, operation):
+def submit_job(backend, db, tag, operation, repo=None):
     allowed_operations = ["generate_cohort"]
     allowed_backends = ["all", "tpp"]
     assert operation in allowed_operations, f"operation must be in {allowed_operations}"
@@ -82,7 +82,8 @@ def submit_job(backend, db, tag, operation):
         backends.remove("all")
     else:
         backends = [backend]
-    repo = get_repo()
+    if not repo:
+        repo = get_repo()
     responses = []
     for backend in backends:
         data = {
@@ -92,5 +93,8 @@ def submit_job(backend, db, tag, operation):
             "backend": backend,
             "db": db,
         }
+        callback_url = os.environ.get("OPENSAFELY_REMOTE_WEBHOOK", "")
+        if callback_url:
+            data["callback_url"] = callback_url
         responses.append(do_post(data))
     return responses
