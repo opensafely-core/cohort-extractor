@@ -73,10 +73,12 @@ def do_post(data):
     return response.json()
 
 
-def submit_job(tag, operation):
+def submit_job(tag, operation, repo=None):
     allowed_operations = ["generate_cohort"]
     assert operation in allowed_operations, f"operation must be in {allowed_operations}"
-    data = {"repo": get_repo(), "tag": tag, "operation": "generate_cohort"}
+    if not repo:
+        repo = get_repo()
+    data = {"repo": repo, "tag": tag, "operation": "generate_cohort"}
     callback_url = os.environ.get("OPENSAFELY_REMOTE_WEBHOOK", "")
     if callback_url:
         data["callback_url"] = callback_url
