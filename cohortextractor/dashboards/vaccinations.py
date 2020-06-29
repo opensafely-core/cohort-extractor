@@ -1,6 +1,8 @@
 import csv
 import datetime
+from datetime import timedelta
 import os
+import random
 import tempfile
 
 from cohortextractor.mssql_utils import mssql_query_to_csv_file
@@ -102,18 +104,29 @@ class VaccinationsStudyDefinition:
         # Note we accept `with_sqlcmd` to match the expected signature here but
         # ignore its value and always use `sqlcmd`
         if expectations_population:
-            raise NotImplementedError("")
-        with tempfile.TemporaryDirectory() as tmpdir:
-            patients_filename = os.path.join(tmpdir, "patients.csv")
-            events_filename = os.path.join(tmpdir, "vaccination_events.csv")
-            self.extract_data(patients_filename, events_filename)
-            self.combine_data(patients_filename, events_filename, filename)
+            self.write_dummy_data(filename, expectations_population)
+        else:
+            with tempfile.TemporaryDirectory() as tmpdir:
+                patients_filename = os.path.join(tmpdir, "patients.csv")
+                events_filename = os.path.join(tmpdir, "vaccination_events.csv")
+                self.extract_data(patients_filename, events_filename)
+                self.combine_data(patients_filename, events_filename, filename)
 
     def csv_to_df(self, csv_name):
         raise NotImplementedError()
 
     def to_sql(self):
-        raise NotImplementedError()
+        patients_sql = self.get_patients_sql()
+        events_sql = self.get_events_sql()
+        return f"""
+        -- Get patient details
+        {patients_sql};
+
+        -- -------------------------------------------------------------------
+
+        -- Get vaccination events
+        {events_sql};
+        """
 
     def to_dicts(self):
         raise NotImplementedError()
@@ -135,24 +148,32 @@ class VaccinationsStudyDefinition:
         return cutoff_date.strftime("%Y-%m-%d")
 
     def extract_data(self, patients_filename, events_filename):
-        patients_sql = patients_with_ages_and_practices_sql(
+        patients_sql = self.get_patients_sql()
+        events_sql = self.get_events_sql()
+        mssql_query_to_csv_file(self.database_url, patients_sql, patients_filename)
+        mssql_query_to_csv_file(self.database_url, events_sql, events_filename)
+
+    def get_patients_sql(self):
+        return patients_with_ages_and_practices_sql(
             self.min_date_of_birth, self.get_registered_practice_at_ages
         )
-        events_sql = vaccination_events_sql(
+
+    def get_events_sql(self):
+        return vaccination_events_sql(
             self.min_date_of_birth,
             tpp_vaccination_codelist=self.tpp_vaccine_codelist,
             ctv3_codelist=self.ctv3_vaccine_codelist,
             snomed_codelist=self.snomed_vaccine_codelist,
         )
-        mssql_query_to_csv_file(self.database_url, patients_sql, patients_filename)
-        mssql_query_to_csv_file(self.database_url, events_sql, events_filename)
 
     def combine_data(self, patients_filename, events_filename, combined_filename):
+        # Have to disable Black here because it can't (yet) format multliline
+        # context managers correctly. See:
+        # https://github.com/psf/black/issues/664#issuecomment-593905179
         # fmt: off
         with open(patients_filename, newline="") as patients_file, \
                 open(events_filename, newline="") as events_file, \
                 open(combined_filename, "w", newline="") as combined_file:
-        # fmt: on
             patients = csv.DictReader(patients_file)
             vaccination_events = csv.DictReader(events_file)
             output_headers = patients.fieldnames + self.vaccination_schedule
@@ -164,7 +185,50 @@ class VaccinationsStudyDefinition:
                 combined_file, fieldnames=output_headers, extrasaction="ignore"
             )
             writer.writeheader()
-            for output_row in add_patient_vaccination_dates(
-                patients, vaccination_events
-            ):
+            output = add_patient_vaccination_dates(patients, vaccination_events)
+            for output_row in output:
                 writer.writerow(output_row)
+        # fmt: on
+
+    def write_dummy_data(self, filename, num_rows):
+        with open(filename, "w", newline="") as output_file:
+            patients = self.generate_dummy_data(num_rows)
+            patients = iter(patients)
+            first_patient = next(patients)
+            writer = csv.DictWriter(output_file, fieldnames=first_patient.keys())
+            writer.writeheader()
+            writer.writerow(first_patient)
+            for patient in patients:
+                writer.writerow(patient)
+
+    def generate_dummy_data(self, num_rows):
+        rand = random.Random()
+        min_date_of_birth = datetime.date.fromisoformat(self.min_date_of_birth)
+        today = datetime.date.today()
+        max_age_in_days = (today - min_date_of_birth).days
+        assert max_age_in_days > 0
+        practice_ids = rand.sample(range(99999999), 100)
+        patient_id = rand.randrange(100000, 200000)
+        for n in range(num_rows):
+            # Ensures patients IDs are strictly increasing but not contiguous
+            patient_id += rand.randrange(1, 9999)
+            days_old = rand.randrange(0, max_age_in_days)
+            date_of_birth = today - timedelta(days=days_old)
+            data = {
+                "patient_id": patient_id,
+                "date_of_birth": date_of_birth.strftime("%Y-%m-01"),
+            }
+            for age in self.get_registered_practice_at_ages:
+                is_registered = rand.random() >= 0.1
+                data[f"practice_id_at_age_{age}"] = (
+                    rand.choice(practice_ids) if is_registered else 0
+                )
+            dose_date = date_of_birth
+            for vaccine_dose in self.vaccination_schedule:
+                dose_date += timedelta(days=rand.randrange(14, 365))
+                if dose_date <= today:
+                    received = rand.random() >= 0.1
+                else:
+                    received = False
+                data[vaccine_dose] = dose_date.strftime("%Y-%m-01") if received else ""
+            yield data

@@ -160,3 +160,71 @@ def test_study_definition(tmp_path):
             "mmr_2": "",
         },
     ]
+
+
+def test_study_definition_dummy_data(tmp_path):
+    study = VaccinationsStudyDefinition(
+        start_date="2017-06-01",
+        get_registered_practice_at_ages=[1, 2, 5],
+        tpp_vaccine_codelist=codelist(
+            [
+                ("Infanrix Hexa", "dtap_hex"),
+                ("Bexsero", "menb"),
+                ("Rotarix", "rotavirus"),
+                ("Prevenar", "pcv"),
+                ("Prevenar - 13", "pcv"),
+                ("Menitorix", "hib_menc"),
+                ("Repevax", "dtap_ipv"),
+                ("Boostrix-IPV", "dtap_ipv"),
+                ("MMRvaxPRO", "mmr"),
+                ("Priorix", "mmr"),
+            ],
+            system="tpp_vaccines",
+        ),
+        ctv3_vaccine_codelist=codelist([("abc", "menb")], system="ctv3"),
+        snomed_vaccine_codelist=codelist([("123", "rotavirus")], system="snomed"),
+        event_washout_period=14,
+        vaccination_schedule=[
+            "dtap_hex_1",
+            "menb_1",
+            "rotavirus_1",
+            "dtap_hex_2",
+            "pcv_1",
+            "rotavirus_2",
+            "dtap_hex_3",
+            "menb_2",
+            "hib_menc_1",
+            "pcv_2",
+            "mmr_1",
+            "menb_3",
+            "dtap_ipv_1",
+            "mmr_2",
+        ],
+    )
+    study.to_csv(tmp_path / "dummy.csv", expectations_population=1000)
+    with open(tmp_path / "dummy.csv", newline="") as f:
+        reader = csv.DictReader(f)
+        results = list(reader)
+    assert len(results) == 1000
+    headers = list(results[0].keys())
+    assert headers == [
+        "patient_id",
+        "date_of_birth",
+        "practice_id_at_age_1",
+        "practice_id_at_age_2",
+        "practice_id_at_age_5",
+        "dtap_hex_1",
+        "menb_1",
+        "rotavirus_1",
+        "dtap_hex_2",
+        "pcv_1",
+        "rotavirus_2",
+        "dtap_hex_3",
+        "menb_2",
+        "hib_menc_1",
+        "pcv_2",
+        "mmr_1",
+        "menb_3",
+        "dtap_ipv_1",
+        "mmr_2",
+    ]
