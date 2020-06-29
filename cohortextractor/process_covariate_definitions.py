@@ -304,6 +304,9 @@ class GetColumnType:
     def type_of_household_as_of(self, returning, **kwargs):
         return self._type_from_return_value(returning)
 
+    def type_of_attended_emergency_care(self, returning, **kwargs):
+        return self._type_from_return_value(returning)
+
     def _type_from_return_value(self, returning):
         if returning == "nhse_region_name":
             raise ValueError(
@@ -327,6 +330,8 @@ class GetColumnType:
             "index_of_multiple_deprivation": "int",
             "rural_urban_classification": "int",
             "household_size": "int",
+            "date_arrived": "date",
+            "discharge_destination": "str",
         }
         try:
             return mapping[returning]
