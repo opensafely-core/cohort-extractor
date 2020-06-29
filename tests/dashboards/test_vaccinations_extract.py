@@ -74,14 +74,14 @@ def test_patients_with_ages_and_practices_sql():
     )
     session.commit()
     sql = patients_with_ages_and_practices_sql(
-        date_of_birth_range=("2012-01-01", "2019-06-01"), age_thresholds=[1, 2, 5],
+        date_of_birth_range=("2012-01-01", "2019-06-01"), age_thresholds=[12, 24, 60],
     )
     results = sql_to_dicts(sql)
     # Note this is rounded to start of month
     assert [x["date_of_birth"] for x in results] == ["2018-10-01", "2014-09-01"]
-    assert [x["practice_id_at_age_1"] for x in results] == ["456", "345"]
-    assert [x["practice_id_at_age_2"] for x in results] == ["456", "345"]
-    assert [x["practice_id_at_age_5"] for x in results] == ["0", "345"]
+    assert [x["practice_id_at_month_12"] for x in results] == ["456", "345"]
+    assert [x["practice_id_at_month_24"] for x in results] == ["456", "345"]
+    assert [x["practice_id_at_month_60"] for x in results] == ["0", "345"]
 
 
 def test_vaccination_events_sql():
