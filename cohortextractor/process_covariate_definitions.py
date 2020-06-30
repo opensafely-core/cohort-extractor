@@ -332,6 +332,7 @@ class GetColumnType:
             "household_size": "int",
             "date_arrived": "date",
             "discharge_destination": "str",
+            "was_ventilated": "bool",
         }
         try:
             return mapping[returning]

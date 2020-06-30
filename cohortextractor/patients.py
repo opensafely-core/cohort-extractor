@@ -274,6 +274,15 @@ def admitted_to_icu(
     include_month=True,
     include_day=False,
 ):
+    """Return information about being admitted to ICU.
+
+    Options for `returning` are:
+
+        binary_flag: Whether patient attended A&E
+        was_ventilated: Whether patient was ventilated
+        date_admitted: Date patient arrived in A&E
+    """
+
     return "admitted_to_icu", locals()
 
 
