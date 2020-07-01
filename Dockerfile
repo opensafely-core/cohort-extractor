@@ -2,7 +2,7 @@ FROM ubuntu:bionic
 
 # PYTHON_VERSION can be changed, by passing `--build-arg
 # PYTHON_VERSION=<new version>` during docker build
-ARG PYTHON_VERSION=3.8.3
+ARG PYTHON_VERSION=3.7.8
 ENV PYTHON_VERSION=${PYTHON_VERSION}
 
 ENV DEBIAN_FRONTEND noninteractive
