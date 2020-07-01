@@ -5,7 +5,7 @@ def patients_with_ages_and_practices_sql(date_of_birth_range, age_thresholds):
     """
     Retrieves patients with date of birth (rounded to start of month) plus the
     practice pseudo IDs to which they were registered in the months where they
-    hit the defined age thresholds.
+    hit the defined age thresholds (measured in months).
 
     Where no corresponding registration was found 0 is returned
     """
@@ -123,8 +123,8 @@ def categorised_codelist_to_case_expression(codelist, column):
 # Where registration periods overlap we use the one with the most recent start
 # date. If there are several with the same start date we use the longest one
 # (i.e. with the latest end date).
-def sql_for_practice_id_at_age(age):
-    age = int(age)
+def sql_for_practice_id_at_age(age_in_months):
+    age_in_months = int(age_in_months)
     return f"""
     ISNULL(
         (
@@ -132,12 +132,12 @@ def sql_for_practice_id_at_age(age):
           TOP 1 Organisation_ID FROM RegistrationHistory AS reg
         WHERE
           Patient.Patient_ID = reg.Patient_ID AND
-          reg.StartDate <= DATEADD(year, {age}, DateOfBirth) AND
-          reg.EndDate > DATEADD(year, {age}, DateOfBirth)
+          reg.StartDate <= DATEADD(month, {age_in_months}, DateOfBirth) AND
+          reg.EndDate > DATEADD(month, {age_in_months}, DateOfBirth)
         ORDER BY
           reg.StartDate DESC, reg.EndDate DESC
         ),
-    0) AS practice_id_at_age_{age}
+    0) AS practice_id_at_month_{age_in_months}
     """
 
 

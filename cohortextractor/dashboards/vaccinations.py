@@ -18,14 +18,14 @@ class VaccinationsStudyDefinition:
         self,
         #
         # This is the first date for which we need data. If the maximum age
-        # threshold (see below) is 5 then we will only include data on patients
-        # born less than 5 years before this date.
+        # threshold (see below) is 5 years then we will only include data on
+        # patients born less than 5 years before this date.
         start_date=None,
         #
         # Each age here produces a corresponding column in the final output:
-        # "practice_id_at_age_N" giving the psuedo-id of the practice where the
-        # patient was registered on their Nth birthday
-        get_registered_practice_at_ages=None,
+        # "practice_id_at_month_N" giving the psuedo-id of the practice where the
+        # patient was registered when they turned N-months old
+        get_registered_practice_at_months=None,
         #
         # Each of these codelists should be a categorised codelist mapping
         # individual codes to the vaccine they correspond to. For instance, the
@@ -89,14 +89,14 @@ class VaccinationsStudyDefinition:
         vaccination_schedule=None,
     ):
         self.start_date = start_date
-        self.get_registered_practice_at_ages = get_registered_practice_at_ages
+        self.get_registered_practice_at_months = get_registered_practice_at_months
         self.tpp_vaccine_codelist = tpp_vaccine_codelist
         self.ctv3_vaccine_codelist = ctv3_vaccine_codelist
         self.snomed_vaccine_codelist = snomed_vaccine_codelist
         self.event_washout_period = event_washout_period
         self.vaccination_schedule = vaccination_schedule
         self.date_of_birth_range = self.get_date_of_birth_range(
-            start_date, datetime.date.today(), get_registered_practice_at_ages
+            start_date, datetime.date.today(), get_registered_practice_at_months
         )
         self.database_url = os.environ.get("DATABASE_URL")
 
@@ -137,18 +137,18 @@ class VaccinationsStudyDefinition:
     def get_date_of_birth_range(self, start_date, today, age_thresholds):
         """
         Return the range of dates of birth for patients to be included. The
-        minimum will be patients who turned 5 in the first month we want to report
-        on. The maximum will be patients who turned 1 today.
+        minimum will be patients who turned 5 years old in the first month we
+        want to report on. The maximum will be patients who turned 1 today.
         """
         start_date = datetime.date.fromisoformat(start_date)
         # We trim all dates to the first of the month as that is what our
         # output looks like for IG reasons
         start_date = start_date.replace(day=1)
         today = today.replace(day=1)
-        max_years = max(age_thresholds)
-        min_years = min(age_thresholds)
-        min_date = start_date.replace(year=start_date.year - max_years)
-        max_date = today.replace(year=today.year - min_years)
+        max_age_months = max(age_thresholds)
+        min_age_months = min(age_thresholds)
+        min_date = add_months(start_date, -max_age_months)
+        max_date = add_months(today, -min_age_months)
         return min_date.isoformat(), max_date.isoformat()
 
     def extract_data(self, patients_filename, events_filename):
@@ -159,7 +159,7 @@ class VaccinationsStudyDefinition:
 
     def get_patients_sql(self):
         return patients_with_ages_and_practices_sql(
-            self.date_of_birth_range, self.get_registered_practice_at_ages
+            self.date_of_birth_range, self.get_registered_practice_at_months
         )
 
     def get_events_sql(self):
@@ -224,9 +224,9 @@ class VaccinationsStudyDefinition:
                 "patient_id": patient_id,
                 "date_of_birth": date_of_birth.strftime("%Y-%m-01"),
             }
-            for age in self.get_registered_practice_at_ages:
+            for age in self.get_registered_practice_at_months:
                 is_registered = rand.random() >= 0.1
-                data[f"practice_id_at_age_{age}"] = (
+                data[f"practice_id_at_month_{age}"] = (
                     rand.choice(practice_ids) if is_registered else 0
                 )
             dose_date = date_of_birth
@@ -238,3 +238,16 @@ class VaccinationsStudyDefinition:
                     received = False
                 data[vaccine_dose] = dose_date.strftime("%Y-%m-01") if received else ""
             yield data
+
+
+def add_months(date, months):
+    """
+    Adds a number of calendar months (positive or negative) to `date`
+
+    If the day of the month in `date` is greater than 28 then this may produce
+    an error as the corresponding day may not exist in the target month
+    """
+    zero_based_month = (date.month - 1) + months
+    new_month = (zero_based_month % 12) + 1
+    new_year = date.year + (zero_based_month // 12)
+    return date.replace(year=new_year, month=new_month)
