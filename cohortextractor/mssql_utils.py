@@ -101,7 +101,7 @@ def _mssql_query_to_csv_file(database_url, query, filename):
         except subprocess.CalledProcessError as e:
             print(e.output)
             raise
-        with open(filename, "a+", newline="\r\n") as final_file:
+        with open(filename, "w+", newline="\r\n") as final_file:
             # We use windows line endings because that's what
             # the CSV module's default dialect does
             found_error = False
