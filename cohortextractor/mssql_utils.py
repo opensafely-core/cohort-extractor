@@ -96,21 +96,24 @@ def _mssql_query_to_csv_file(database_url, query, filename):
             "-o",
             csvfile,
         ]
+        found_error = False
         try:
             subprocess.run(cmd, capture_output=True, encoding="utf8", check=True)
-        except subprocess.CalledProcessError as e:
-            print(e.output)
-            raise
-        with open(filename, "a+", newline="\r\n") as final_file:
+        except subprocess.CalledProcessError:
+            # When called as above, sqlcmd sends its error output to
+            # the output file, which we read below
+            found_error = True
+        with open(filename, "w+", newline="\r\n") as final_file:
             # We use windows line endings because that's what
             # the CSV module's default dialect does
-            found_error = False
 
             for line_num, line in enumerate(open(csvfile, "r")):
                 if line_num == 0:
                     if line.startswith("Warning"):
                         continue
                     elif line.startswith("Msg "):
+                        # SQL errors complete with a success status,
+                        # but still write their output here
                         found_error = True
                 if line_num <= 2 and line.startswith("-"):
                     continue

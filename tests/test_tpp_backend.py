@@ -48,6 +48,13 @@ def set_database_url(monkeypatch):
         monkeypatch.setenv("DATABASE_URL", os.environ["TPP_DATABASE_URL"])
 
 
+@pytest.fixture
+def set_database_url_with_bad_password(monkeypatch):
+    if "TPP_DATABASE_URL" in os.environ:
+        password = os.environ["TPP_DATABASE_URL"].replace("pass", "fail")
+        monkeypatch.setenv("DATABASE_URL", password)
+
+
 def setup_module(module):
     make_database()
 
@@ -101,6 +108,16 @@ def test_sql_error_propagates_with_sqlcmd():
             with pytest.raises(ValueError) as excinfo:
                 study.to_csv(f.name, with_sqlcmd=True)
             assert "Invalid object name 'Bar'" in str(excinfo.value)
+
+
+def test_credentials_error_propagates_with_sqlcmd(set_database_url_with_bad_password):
+    with patch.object(TPPBackend, "to_sql") as to_sql:
+        to_sql.return_value = "SELECT Foo FROM Bar"
+        study = StudyDefinition(population=patients.all(), sex=patients.sex())
+        with tempfile.NamedTemporaryFile(mode="w+") as f:
+            with pytest.raises(ValueError) as excinfo:
+                study.to_csv(f.name, with_sqlcmd=True)
+            assert "Login failed" in str(excinfo.value)
 
 
 def test_sql_error_propagates_without_sqlcmd():
