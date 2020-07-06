@@ -52,10 +52,16 @@ be sure to `docker rm stata-docker_sql_1` before restarting.
 
 ## Make releases
 
-To make a release, bump the version in `cohortextractor/VERSION`; Github
-Actions should use this to (a) tag the repo accordingly; (b) publish a
-new package to pypi; (c) build and publish a new docker image as a
-Github Package.
+To make a release, when you merge to the main branch, at least one of
+your commits must contain a _conventional commit_ prefixed `fix:`,
+`perf:` or `feat:` (patch, patch, and minor releases, respectively);
+or a final line starting `BREAKING CHANGE:` (major release).
+
+Other types are ignored, but you might as well use them: `docs`,
+`style`, `refactor`, `ci`, `revert` are likely to be the most common,
+but there's [a full list
+here](https://github.com/commitizen/conventional-commit-types/blob/master/index.json)
+
 
 # About the OpenSAFELY framework
 
