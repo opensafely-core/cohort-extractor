@@ -112,6 +112,8 @@ def is_allowed(token):
         return value in [">", "<", ">=", "<=", "=", "!="]
     if ttype in ttypes.Number.Float or ttype in ttypes.Number.Integer:
         return True
+    if ttype in ttypes.Operator:
+        return value in ["+", "-", "*", "/"]
     return False
 
 
@@ -132,7 +134,8 @@ def insert_implicit_comparisons(tokens, empty_value_map):
         is_compared = (
             next_ttype is ttypes.Comparison or previous_ttype is ttypes.Comparison
         )
-        if token.ttype is ttypes.Name and not is_compared:
+        is_combined = next_ttype is ttypes.Operator or previous_ttype is ttypes.Operator
+        if token.ttype is ttypes.Name and not is_compared and not is_combined:
             column_name = str(token)
             empty_value = empty_value_map[column_name]
             yield sqlparse.sql.Token(ttypes.Punctuation, "(")
